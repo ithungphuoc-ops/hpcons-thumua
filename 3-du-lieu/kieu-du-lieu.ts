@@ -314,6 +314,18 @@ export interface ThongBaoChuyenBuoc {
   daDoc: boolean;
   /** Ai đã bấm "Nhận công tác" cho bước mới — trống là còn chờ tiếp nhận. */
   tiepNhan?: XacNhan;
+  /**
+   * `true` = thông báo do TRƯỞNG BỘ PHẬN BẤM "CHUYỂN TIẾP", không phải hệ thống tự
+   * sinh khi đề nghị đổi bước (chỉ đạo Ban lãnh đạo 08/08/2026).
+   *
+   * Vì sao cần phân biệt: trưởng bộ phận phân bổ xong thì việc còn lại là của nhân
+   * viên. Lúc đó đề nghị CHƯA đổi bước (vẫn đang ở "Lập đơn mua hàng") nên không có
+   * thông báo tự động nào — nhân viên không biết đã tới lượt mình. Nút "Chuyển tiếp"
+   * lấp đúng khoảng trống đó; `tuBuoc` và `denBuoc` khi ấy bằng nhau.
+   */
+  laChuyenTiep?: boolean;
+  /** Lời nhắn kèm khi chuyển tiếp — trưởng bộ phận dặn thêm gì thì ghi ở đây. */
+  loiNhan?: string;
 }
 
 // ------------------------------------------------------------

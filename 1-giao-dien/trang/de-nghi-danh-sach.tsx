@@ -222,7 +222,9 @@ export default function TrangDanhSachDeNghi() {
       ) : cachXem === "bang" ? (
         // `flex-1` + `min-h-[420px]`: bảng chiếm trọn phần màn hình còn lại,
         // màn quá thấp thì vẫn giữ tối thiểu 420px rồi cuộn trang như thường.
-        <div className="flex min-h-[420px] flex-1 flex-col gap-2">
+        // `data-rong-toan-man`: xin khung tổng bỏ giới hạn bề rộng A4 cho riêng
+        // màn này — 8 cột cần trải hết bề ngang mới chia đều được (xem `khung-tong.tsx`).
+        <div data-rong-toan-man className="flex min-h-[420px] flex-1 flex-col gap-2">
           <BangQuyTrinhMuaHang
             cot={cot}
             keoThaDuoc={quyen.lapPO}

@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo } from "react";
-import { FileWarning, ShoppingCart } from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { AlertTriangle, FileWarning, Forward, ShoppingCart } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -12,6 +13,16 @@ import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-
 import { TimelineDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/timeline-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/1-giao-dien/nen-tang-ui/dialog";
+import { Input } from "@/1-giao-dien/nen-tang-ui/input";
+import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
@@ -24,8 +35,10 @@ import {
 
 export default function TrangChiTietDeNghi() {
   const params = useParams<{ id: string }>();
-  const { deNghi, donHang, phieuNhan, baoGia } = useDuLieu();
-  const { quyen } = useNguoiDung();
+  const { deNghi, donHang, phieuNhan, baoGia, chuyenTiepChoNhanVien } = useDuLieu();
+  const { nguoiDung, quyen } = useNguoiDung();
+  const [moChuyenTiep, setMoChuyenTiep] = useState(false);
+  const [loiNhan, setLoiNhan] = useState("");
 
   const dn = deNghi.find((x) => x.id === params.id);
   const poLienQuan = useMemo(
@@ -53,6 +66,12 @@ export default function TrangChiTietDeNghi() {
   }
 
   const tomTat = tomTatTienDoDeNghi(tienDo);
+
+  /** Ai sẽ nhận khi bấm "Chuyển tiếp" — các nhân viên đang phụ trách ít nhất một dòng. */
+  const nguoiSeNhan = [
+    ...new Set(dn.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x))),
+  ];
+  const soDongChuaPhanBo = dn.items.filter((d) => !d.nguoiPhuTrachUid).length;
   const tt = NHAN_TRANG_THAI_DE_NGHI[dn.trangThai];
 
   return (
@@ -103,12 +122,29 @@ export default function TrangChiTietDeNghi() {
           <h2 className="text-h3 text-text-primary">
             {quyen.phanBoCongViec ? "Phân bổ công việc" : "Chi tiết mặt hàng"}
           </h2>
-          {quyen.lapPO && (
-            <Button size="sm" nativeButton={false} render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}>
-              <ShoppingCart className="size-4" aria-hidden />
-              Lập đơn đặt hàng
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 🔴 Màn này là CHỖ LÀM VIỆC CỦA TRƯỞNG BỘ PHẬN (chỉ đạo Ban lãnh đạo
+                08/08/2026): phân bổ xong thì việc còn lại là của nhân viên, nên nút
+                CHÍNH ở đây là "Chuyển tiếp", không phải "Lập đơn đặt hàng".
+                Vẫn giữ nút lập đơn ở dạng phụ để trưởng bộ phận tự làm được khi cần. */}
+            {quyen.phanBoCongViec && (
+              <Button size="sm" onClick={() => setMoChuyenTiep(true)}>
+                <Forward className="size-4" aria-hidden />
+                Chuyển tiếp
+              </Button>
+            )}
+            {quyen.lapPO && (
+              <Button
+                size="sm"
+                variant={quyen.phanBoCongViec ? "outline" : "default"}
+                nativeButton={false}
+                render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+              >
+                <ShoppingCart className="size-4" aria-hidden />
+                Lập đơn đặt hàng
+              </Button>
+            )}
+          </div>
         </div>
         <BangPhanBo deNghi={dn} />
       </section>
@@ -198,6 +234,75 @@ export default function TrangChiTietDeNghi() {
           </CardContent>
         </Card>
       </section>
+
+      {/* HỘP CHUYỂN TIẾP — trưởng bộ phận bàn giao việc cho nhân viên đã phân bổ */}
+      <Dialog open={moChuyenTiep} onOpenChange={setMoChuyenTiep}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Chuyển tiếp {dn.code}</DialogTitle>
+            <DialogDescription>
+              Báo cho nhân viên đã được phân bổ biết đã tới lượt họ làm các bước sau.
+            </DialogDescription>
+          </DialogHeader>
+
+          {nguoiSeNhan.length === 0 ? (
+            <p className="rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm text-text-secondary">
+              Chưa phân bổ dòng nào cho ai nên chưa chuyển tiếp được. Phân bổ ít nhất một
+              dòng vật tư ở bảng bên dưới trước.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1 rounded-lg bg-muted p-(--hp-md-row-pad) text-sm">
+                <span className="text-xs text-text-desc">Chuyển tiếp cho</span>
+                <span className="font-medium text-text-primary">{nguoiSeNhan.join(", ")}</span>
+              </div>
+
+              {/* Cảnh báo mềm, KHÔNG chặn — giống hộp xác nhận kéo thả ở màn danh sách */}
+              {soDongChuaPhanBo > 0 && (
+                <div className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm text-text-secondary">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
+                  <span>
+                    Còn <strong>{soDongChuaPhanBo} dòng</strong> chưa phân bổ cho ai — những
+                    dòng đó sẽ không có người làm tiếp.
+                  </span>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="loi-nhan">Lời nhắn kèm theo (không bắt buộc)</Label>
+                <Input
+                  id="loi-nhan"
+                  placeholder="VD: Ưu tiên lấy báo giá trước ngày 20/8"
+                  value={loiNhan}
+                  onChange={(e) => setLoiNhan(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMoChuyenTiep(false)}>
+              Hủy
+            </Button>
+            <Button
+              disabled={nguoiSeNhan.length === 0}
+              onClick={() => {
+                const daGui = chuyenTiepChoNhanVien(dn.id, nguoiDung.tenHienThi, loiNhan);
+                setMoChuyenTiep(false);
+                setLoiNhan("");
+                if (daGui.length > 0) {
+                  toast.success("Đã chuyển tiếp", {
+                    description: `${dn.code} đã báo tới ${daGui.join(", ")}.`,
+                  });
+                }
+              }}
+            >
+              <Forward className="size-4" aria-hidden />
+              Chuyển tiếp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

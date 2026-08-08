@@ -92,6 +92,21 @@
   /* Bottom Navigation mobile: 56–64px (08-navigation/bottom-navigation.md) */
   --hp-bottom-nav-height: 60px;
 
+  /* ------------------------------------------------------------
+   * BỀ RỘNG VÙNG LÀM VIỆC — theo khổ giấy A4 (chỉ đạo Ban lãnh đạo 08/08/2026)
+   *
+   * Màn hình rộng 1920px+ mà trải hết bề ngang thì hai đầu một dòng cách nhau
+   * cả gang tay, mắt phải quét ngang rất mỏi và nhãn dễ lạc khỏi giá trị của nó.
+   * Bó lại đúng một khổ giấy rồi căn giữa là cách người ta vẫn đọc văn bản.
+   *
+   * Đang dùng A4 NGANG (297mm ≈ 1123px) vì app có nhiều bảng nhiều cột.
+   * 👉 Muốn đổi sang A4 DỌC thì sửa ĐÚNG MỘT DÒNG này thành 210mm.
+   *    Dùng đơn vị mm để đúng nghĩa "khổ giấy", không quy đổi ra px cho khỏi lệch.
+   *
+   * ⚠️ Bảng quy trình 8 cột KHÔNG theo giới hạn này — xem `khung-tong.tsx`.
+   * ------------------------------------------------------------ */
+  --hp-be-rong-lam-viec: 297mm;
+
   /* --- Bảng màu chủ đạo cho người dùng chọn (xem khối MÀU CHỦ ĐẠO bên dưới) --- */
   --hp-mau-xanh-duong: #096aa7; /* chuẩn V1.1 */
   --hp-mau-xanh-ngoc: #0f766e;

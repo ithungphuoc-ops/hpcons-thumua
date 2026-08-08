@@ -135,6 +135,13 @@ interface GiaTriDuLieu {
   /** Bỏ một người khỏi danh sách theo dõi đề nghị. */
   boNguoiTheoDoi: (prId: string, uid: string) => void;
 
+  /**
+   * Trưởng bộ phận bấm "Chuyển tiếp": bàn giao đề nghị cho các nhân viên đã được
+   * phân bổ, để họ làm tiếp các bước sau (lập đơn, chọn NCC...).
+   * Trả về danh sách tên đã gửi tới — rỗng nghĩa là chưa phân bổ cho ai.
+   */
+  chuyenTiepChoNhanVien: (prId: string, nguoiChuyenTen: string, loiNhan?: string) => string[];
+
   // --- Thông báo chuyển bước + tiếp nhận công tác ---
   /** Thông báo chuyển bước, mới nhất đứng đầu (tự sinh khi đề nghị đổi bước). */
   thongBao: ThongBaoChuyenBuoc[];
@@ -628,6 +635,66 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  /**
+   * CHUYỂN TIẾP — trưởng bộ phận bàn giao việc cho nhân viên đã phân bổ.
+   *
+   * 🔴 Không đụng tới giai đoạn của đề nghị. Giai đoạn vẫn suy ra từ chứng từ
+   * (nguyên tắc ở `2-quy-trinh/giai-doan-mua-hang`); chuyển tiếp chỉ là BÀN GIAO
+   * NGƯỜI LÀM, không phải bước nghiệp vụ mới. Vì vậy `tuBuoc` = `denBuoc`.
+   *
+   * Dùng lại đúng cơ chế thông báo + nút "Nhận công tác" đã có, nên nhân viên
+   * nhận việc theo cùng một thói quen thao tác.
+   */
+  const chuyenTiepChoNhanVien = useCallback(
+    (prId: string, nguoiChuyenTen: string, loiNhan?: string) => {
+      const dn = deNghiRef.current.find((x) => x.id === prId);
+      if (!dn) return [];
+
+      // Người nhận = các nhân viên đang phụ trách ít nhất một dòng, không trùng lặp.
+      const nguoiNhan = [
+        ...new Set(
+          dn.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x)),
+        ),
+      ];
+      if (nguoiNhan.length === 0) return [];
+
+      const buocHienTai = xacDinhGiaiDoan(
+        dn,
+        donHangRef.current,
+        baoGiaRef.current,
+        phieuNhanRef.current,
+      );
+
+      soThuTuThongBao.current += 1;
+      setThongBao((truoc) =>
+        [
+          {
+            id: `tb-ct-${soThuTuThongBao.current}`,
+            prId: dn.id,
+            prCode: dn.code,
+            tieuDe: dn.tieuDe,
+            tuBuoc: buocHienTai,
+            denBuoc: buocHienTai,
+            thoiDiem: new Date().toISOString(),
+            guiToi: nguoiNhan,
+            daDoc: false,
+            laChuyenTiep: true,
+            loiNhan: loiNhan?.trim() || undefined,
+          },
+          ...truoc,
+        ].slice(0, 30),
+      );
+
+      ghiLichSuDeNghi(
+        prId,
+        nguoiChuyenTen,
+        `Chuyển tiếp cho ${nguoiNhan.join(", ")}${loiNhan?.trim() ? ` — “${loiNhan.trim()}”` : ""}`,
+      );
+      return nguoiNhan;
+    },
+    [ghiLichSuDeNghi],
+  );
+
   const value = useMemo<GiaTriDuLieu>(
     () => ({
       deNghi,
@@ -651,6 +718,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       dongDoDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
+      chuyenTiepChoNhanVien,
       thongBao,
       danhDauDaDocThongBao,
       nhanCongTac,
@@ -675,6 +743,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       dongDoDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
+      chuyenTiepChoNhanVien,
       thongBao,
       danhDauDaDocThongBao,
       nhanCongTac,

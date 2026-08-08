@@ -24,7 +24,7 @@ import {
   type MaPhongBan,
   type NhanSu,
 } from "@/3-du-lieu/danh-ba-nhan-su";
-import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import type { DeNghiMuaHang, NguoiTheoDoi } from "@/3-du-lieu/kieu-du-lieu";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 
 /**
@@ -68,10 +68,13 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
         <h2 className="text-h3 text-text-primary">Người theo dõi ({dsTheoDoi.length})</h2>
         <div className="flex flex-wrap items-center gap-2">
           {toiDangTheoDoi && <StatusBadge label="Bạn đang theo dõi đề nghị này" tone="primary" />}
+          {/* Đã có người thì nhãn phải là "Sửa" — vì việc bỏ theo dõi cũng nằm trong
+              hộp này. Để nguyên chữ "Thêm" thì người muốn bỏ ai đó sẽ không nghĩ tới
+              việc bấm vào đây. */}
           {duocSua && (
             <Button size="sm" variant="outline" onClick={() => setMoHopChon(true)}>
               <UserPlus className="size-4" aria-hidden />
-              Thêm người theo dõi
+              {dsTheoDoi.length > 0 ? "Sửa người theo dõi" : "Thêm người theo dõi"}
             </Button>
           )}
         </div>
@@ -85,33 +88,30 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
               {duocSua ? " Bấm “Thêm người theo dõi” để chọn từ danh bạ nhân sự công ty." : ""}
             </p>
           ) : (
-            <ul className="flex flex-col gap-(--hp-md-row-gap)">
-              {dsTheoDoi.map((n) => (
-                <li
-                  key={n.uid}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)"
-                >
-                  <Eye className="size-4 shrink-0 text-text-desc" aria-hidden />
-                  <span className="text-sm font-medium text-text-primary">{n.ten}</span>
-                  <span className="text-xs text-text-desc">{n.chucDanh}</span>
-                  <span className="text-xs text-text-desc">
-                    {n.nguoiThemTen} thêm ngày {formatDate(n.thoiDiemThem)}
-                  </span>
-                  {duocSua && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-auto"
-                      onClick={() => bo(n.uid, n.ten)}
-                      aria-label={`Bỏ ${n.ten} khỏi danh sách theo dõi`}
+            /* Một DÒNG LIÊN TỤC ngăn cách bằng dấu phẩy (chỉ đạo Ban lãnh đạo 08/08/2026)
+               — mỗi người một dòng như trước chiếm quá nhiều chỗ trên trang.
+               Chức danh · ai thêm · ngày thêm dồn vào `title`, rê chuột là thấy đủ,
+               nên gọn đi mà KHÔNG mất thông tin nào.
+
+               📌 CỐ Ý KHÔNG để nút ✕ xen giữa các tên: nút chen vào làm dấu phẩy
+               bị đẩy xa khỏi tên, dòng chữ đứt quãng, đọc rất rối. Việc bỏ theo dõi
+               chuyển vào hộp "Thêm người theo dõi" — nơi đã có sẵn danh bạ nhân sự. */
+            <p className="flex flex-wrap items-baseline gap-x-1.5 text-sm leading-relaxed">
+              <Eye className="size-4 shrink-0 translate-y-0.5 text-text-desc" aria-hidden />
+              <span className="text-text-primary">
+                {dsTheoDoi.map((n, i) => (
+                  <span key={n.uid}>
+                    <span
+                      className="font-medium"
+                      title={`${n.chucDanh} · ${n.nguoiThemTen} thêm ngày ${formatDate(n.thoiDiemThem)}`}
                     >
-                      <X className="size-4" aria-hidden />
-                      Bỏ theo dõi
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
+                      {n.ten}
+                    </span>
+                    {i < dsTheoDoi.length - 1 && <span className="text-text-desc">, </span>}
+                  </span>
+                ))}
+              </span>
+            </p>
           )}
 
           {duocSua && (
@@ -127,8 +127,9 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
         <HopChonNhanSu
           mo={moHopChon}
           doiMo={setMoHopChon}
-          uidDaChon={dsTheoDoi.map((n) => n.uid)}
+          dangTheoDoi={dsTheoDoi}
           khiChon={them}
+          khiBo={bo}
         />
       )}
     </section>
@@ -142,14 +143,17 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
 function HopChonNhanSu({
   mo,
   doiMo,
-  uidDaChon,
+  dangTheoDoi,
   khiChon,
+  khiBo,
 }: {
   mo: boolean;
   doiMo: (v: boolean) => void;
-  uidDaChon: string[];
+  dangTheoDoi: NguoiTheoDoi[];
   khiChon: (n: NhanSu) => void;
+  khiBo: (uid: string, ten: string) => void;
 }) {
+  const uidDaChon = dangTheoDoi.map((n) => n.uid);
   const [tuKhoa, setTuKhoa] = useState("");
 
   /** Người đã theo dõi rồi thì không hiện lại — tránh thêm trùng. */
@@ -183,9 +187,41 @@ function HopChonNhanSu({
         <DialogHeader>
           <DialogTitle>Chọn người theo dõi</DialogTitle>
           <DialogDescription>
-            Danh bạ nhân sự công ty. Gõ tên, mã nhân viên hoặc phòng ban — không dấu vẫn tìm được.
+            Chọn thêm từ danh bạ nhân sự công ty, hoặc bấm ✕ để bỏ người đang theo dõi.
+            Gõ tên, mã nhân viên hoặc phòng ban — không dấu vẫn tìm được.
           </DialogDescription>
         </DialogHeader>
+
+        {/* ĐANG THEO DÕI — chỗ duy nhất bỏ người khỏi danh sách.
+            Để ở đây thay vì xen nút ✕ vào dòng tên ngoài trang: dòng ngoài giữ được
+            nếp đọc liên tục "A, B, C", còn thao tác sửa gom về một chỗ. */}
+        {dangTheoDoi.length > 0 && (
+          <div className="flex flex-col gap-1 rounded-lg border border-border p-2">
+            <span className="text-xs font-semibold text-text-desc">
+              Đang theo dõi ({dangTheoDoi.length})
+            </span>
+            <ul className="flex flex-wrap gap-1.5">
+              {dangTheoDoi.map((n) => (
+                <li
+                  key={n.uid}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted py-0.5 pr-0.5 pl-2.5 text-sm"
+                >
+                  <span className="text-text-primary" title={n.chucDanh}>
+                    {n.ten}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => khiBo(n.uid, n.ten)}
+                    className="flex size-6 items-center justify-center rounded-full text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
+                    aria-label={`Bỏ ${n.ten} khỏi danh sách theo dõi`}
+                  >
+                    <X className="size-3.5" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <Input
           autoFocus

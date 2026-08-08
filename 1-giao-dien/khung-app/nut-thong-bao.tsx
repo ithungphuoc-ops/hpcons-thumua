@@ -91,10 +91,19 @@ export function NutThongBao() {
                     <span className="shrink-0 text-[11px] text-text-desc">{gioPhut(tb.thoiDiem)}</span>
                   </div>
                   <span className="text-xs text-text-primary">
-                    {tb.tuBuoc
-                      ? `${nhanBuoc(tb.tuBuoc)} → ${nhanBuoc(tb.denBuoc)}`
-                      : `Đề nghị mới vào bước "${nhanBuoc(tb.denBuoc)}"`}
+                    {/* Tin CHUYỂN TIẾP có `tuBuoc` = `denBuoc` (bàn giao người làm, không
+                        đổi bước) nên phải viết riêng — để nguyên sẽ ra "A → A" vô nghĩa. */}
+                    {tb.laChuyenTiep
+                      ? `Trưởng bộ phận chuyển tiếp — mời tiếp tục bước "${nhanBuoc(tb.denBuoc)}"`
+                      : tb.tuBuoc
+                        ? `${nhanBuoc(tb.tuBuoc)} → ${nhanBuoc(tb.denBuoc)}`
+                        : `Đề nghị mới vào bước "${nhanBuoc(tb.denBuoc)}"`}
                   </span>
+                  {tb.loiNhan && (
+                    <span className="text-[11px] text-text-secondary italic">
+                      “{tb.loiNhan}”
+                    </span>
+                  )}
                   {tb.guiToi.length > 0 && (
                     <span className="text-[11px] text-text-desc">Gửi tới: {tb.guiToi.join(" · ")}</span>
                   )}
