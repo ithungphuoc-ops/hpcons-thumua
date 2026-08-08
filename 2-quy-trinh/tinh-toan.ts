@@ -12,6 +12,7 @@
 import type {
   DeNghiMuaHang,
   DonDatHang,
+  GiaDonDatHang,
   PhieuNhanHang,
   TienDoDongDeNghi,
   TienDoDongPO,
@@ -153,6 +154,57 @@ export function tongGiaTriPO(
     const g = gia.lines.find((l) => l.sttDong === dong.sttDong);
     return tong + (g ? g.donGia * dong.khoiLuongDat : 0);
   }, 0);
+}
+
+/**
+ * Khối tổng tiền của đơn mua hàng — TÍNH ĐÚNG TRÌNH TỰ của biểu mẫu công ty
+ * `1. INPUT/Bieu mau/1. DON HANG HPCONS.xlsx`:
+ *
+ *   Cộng tiền hàng (chưa trừ CK)          = Σ (đơn giá × khối lượng đặt)
+ *   Số tiền CK                            (nhập bằng số tiền, không phải %)
+ *   Cộng tiền hàng (đã trừ CK)            = trên − CK
+ *   Tiền thuế GTGT                        = (đã trừ CK) × thuế suất %
+ *   Tổng tiền thanh toán                  = (đã trừ CK) + tiền thuế
+ *
+ * 🔴 Thuế tính TRÊN GIÁ ĐÃ TRỪ CHIẾT KHẤU — đúng thứ tự các dòng trên mẫu.
+ * Tiền thuế làm tròn về đồng (Math.round) như cách kế toán vẫn ghi hóa đơn.
+ * Đây là NƠI DUY NHẤT tính các con số này — trang xem, trang in đều gọi về đây.
+ */
+export interface TienDonHang {
+  congTienHang: number;
+  chietKhau: number;
+  congTienHangSauCK: number;
+  thueSuatGTGT: number;
+  tienThueGTGT: number;
+  tongThanhToan: number;
+}
+
+/**
+ * Dựng khối tổng từ ba con số thô. Tách riêng để **màn LẬP đơn xem trước được tổng tiền
+ * trước khi PO tồn tại**, mà vẫn dùng chung đúng một công thức với màn xem và trang in.
+ */
+export function tinhKhoiTongTien(
+  congTienHang: number,
+  chietKhauNhap: number,
+  thueSuatNhap: number,
+): TienDonHang {
+  // Chiết khấu không được vượt tiền hàng — mẫu giấy không chặn được, app phải chặn.
+  const chietKhau = Math.min(Math.max(chietKhauNhap, 0), congTienHang);
+  const congTienHangSauCK = congTienHang - chietKhau;
+  const thueSuatGTGT = Math.max(thueSuatNhap, 0);
+  const tienThueGTGT = Math.round((congTienHangSauCK * thueSuatGTGT) / 100);
+  return {
+    congTienHang,
+    chietKhau,
+    congTienHangSauCK,
+    thueSuatGTGT,
+    tienThueGTGT,
+    tongThanhToan: congTienHangSauCK + tienThueGTGT,
+  };
+}
+
+export function tinhTienDonHang(po: DonDatHang, gia: GiaDonDatHang | undefined): TienDonHang {
+  return tinhKhoiTongTien(tongGiaTriPO(po, gia), gia?.chietKhau ?? 0, gia?.thueSuatGTGT ?? 0);
 }
 
 // ------------------------------------------------------------

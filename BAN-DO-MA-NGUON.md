@@ -44,6 +44,9 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Sai ở **chi tiết Đơn hàng** | `1-giao-dien/trang/don-hang-chi-tiet.tsx` |
 | Sai ở **bảng tiến độ nhận hàng** (cột theo từng lần giao) | `thanh-phan-nghiep-vu/bang-tien-do-po.tsx` |
 | Sai ở **màn Lập đơn đặt hàng** | `1-giao-dien/trang/don-hang-lap-moi.tsx` |
+| **Trang IN đơn mua hàng A4** sai bố cục / thiếu ô so với biểu mẫu giấy | `1-giao-dien/trang/don-hang-in.tsx` — địa chỉ `/in/don-hang/[id]` |
+| **Ô tìm kiếm** trên thanh trên không ra kết quả / ra sai | Giao diện: `khung-app/o-tim-kiem.tsx` · **Luật tìm và lọc quyền**: `2-quy-trinh/tim-kiem.ts` |
+| **Khối "Người theo dõi"** sai / không thêm được người | `thanh-phan-nghiep-vu/khoi-nguoi-theo-doi.tsx` + danh sách người chọn ở `3-du-lieu/danh-ba-nhan-su.ts` |
 | Sai ở **màn Theo dõi đề nghị** (cho Phòng Thi công) | `1-giao-dien/trang/theo-doi-danh-sach.tsx` · `theo-doi-chi-tiet.tsx` |
 | Sai ở **danh sách Báo giá** | `1-giao-dien/trang/bao-gia-danh-sach.tsx` |
 | Sai ở **bảng so sánh giá nhà cung cấp** | `1-giao-dien/trang/bao-gia-chi-tiet.tsx` |
@@ -68,6 +71,9 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Đề nghị nằm sai cột** trên bảng quy trình, hoặc sai chữ "Quá hạn / Còn N ngày" | `2-quy-trinh/giai-doan-mua-hang.ts` |
 | Sai **phân nhóm tuổi nợ 30-60-90** hoặc **mức rủi ro NCC** | `2-quy-trinh/tuoi-no.ts` |
 | Sai **ô "giá thấp nhất"** hoặc **tổng theo NCC** ở bảng so sánh báo giá | `2-quy-trinh/so-sanh-bao-gia.ts` |
+| Sai **chiết khấu · thuế GTGT · tổng tiền thanh toán** của đơn hàng | `2-quy-trinh/tinh-toan.ts` → `tinhKhoiTongTien` (**nơi duy nhất** tính; màn lập đơn, màn xem, trang in đều gọi về đây) |
+| Sai **số tiền viết bằng chữ** | `6-tien-ich/doc-so-tien.ts` |
+| Vai trò **tìm ra hồ sơ lẽ ra không được thấy** | `2-quy-trinh/tim-kiem.ts` — mọi loại hồ sơ mới đều phải khai quyền ở đây |
 
 ### Dữ liệu
 
@@ -95,6 +101,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Hiện tượng | Sửa file |
 |---|---|
 | Nối Firebase / HPcore | `5-ket-noi/firebase/cau-hinh.ts` + file `.env.local` |
+| Phân quyền **ở tầng dữ liệu** (ai đọc được đơn giá, báo giá, công nợ) | `5-ket-noi/firestore.rules` — 🔴 **bản nháp, chưa deploy, và KHÔNG được deploy đè** lên rules của App Tổng |
 
 ---
 
@@ -115,8 +122,12 @@ tới module Báo giá sau khi bỏ menu. Xóa là module thành mồ côi, khô
 **Muốn trả một mục về menu:** thêm lại vào mảng `MUC_DIEU_HUONG` trong `2-quy-trinh/dieu-huong.ts`.
 Không phải dựng lại gì, màn hình còn nguyên.
 
-⚠️ **Ô tìm kiếm trên thanh trên hiện CHƯA CHẠY** — mới là ô nhập trang trí, chưa có xử lý
-(`khung-app/thanh-tren.tsx`). Kế hoạch "tra theo mã hồ sơ" cần làm chức năng này thì mới trọn vẹn.
+✅ **Ô tìm kiếm trên thanh trên ĐÃ CHẠY** (làm ngày 08/08/2026, phiên 05) — đây chính là đường vào
+thay cho 3 mục menu trên. Tìm theo **mã hồ sơ · tên công trình · tên và mã vật tư**, gõ không dấu
+vẫn ra. Kết quả **lọc theo quyền**: vai trò không được xem báo giá thì không tìm thấy bảng báo giá.
+
+⚠️ **Ô tìm kiếm bị ẩn dưới bề ngang 640px** (`hidden sm:block`, có từ trước). Trên điện thoại
+hiện **chưa có** đường vào tra mã hồ sơ — cần làm nút mở ô tìm kiếm cho mobile.
 
 ---
 

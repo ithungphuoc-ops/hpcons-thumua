@@ -15,6 +15,8 @@
 //    giao diện KHÔNG phải sửa. Cần quyền truy cập — xem việc chờ số 11 ở README dự án.
 // ============================================================
 
+import { boDau } from "@/6-tien-ich/bo-dau";
+
 /** Một dòng trong danh bạ — ánh xạ 1-1 với `users/{uid}` của App Tổng. */
 export interface NhanSu {
   uid: string;
@@ -136,22 +138,6 @@ export const DANH_BA_NHAN_SU: NhanSu[] = [
 /** Chỉ người đang làm việc mới được chọn. Người đã nghỉ giữ lại để tra lịch sử. */
 export function nhanSuDangLamViec(): NhanSu[] {
   return DANH_BA_NHAN_SU.filter((n) => n.status === "active");
-}
-
-/**
- * Bỏ dấu tiếng Việt để tìm kiếm gõ không dấu vẫn ra.
- * "hue" tìm được "Huệ", "tran binh" tìm được "Trần Thị Bình".
- */
-export function boDau(s: string): string {
-  return s
-    .normalize("NFD")
-    // `\p{M}` = mọi dấu thanh / dấu mũ đã tách ra sau khi normalize("NFD").
-    // Dùng ký hiệu này chứ KHÔNG viết dải ký tự thô — ký tự thô là dấu vô hình
-    // trong mã nguồn, người sau mở file ra không thấy gì và dễ sửa hỏng.
-    .replace(/\p{M}/gu, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase();
 }
 
 /** Tìm theo tên, mã nhân viên, chức danh hoặc tên phòng ban — gõ có dấu hay không đều được. */

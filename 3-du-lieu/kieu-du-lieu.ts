@@ -134,6 +134,8 @@ export interface NhaCungCap {
   ten: string;
   dienThoai?: string;
   diaChi?: string;
+  /** Ô "Mã số thuế" trên mẫu đơn mua hàng của công ty. */
+  maSoThue?: string;
 }
 
 // ------------------------------------------------------------
@@ -148,13 +150,33 @@ export type TrangThaiPO =
   | "hoan_thanh"
   | "huy";
 
+/**
+ * Một dòng trên đơn mua hàng.
+ *
+ * 📄 Các trường dưới đây ánh xạ 1-1 với cột của biểu mẫu công ty
+ *    `1. INPUT/Bieu mau/1. DON HANG HPCONS.xlsx` (dòng tiêu đề bảng, ô A11:J11):
+ *    STT · Mã hàng · Tên hàng · Thông số kỹ thuật · ĐVT · SL · Đơn giá · Thành tiền · Mục đích sử dụng
+ *
+ * 🔴 Đơn giá và Thành tiền KHÔNG nằm ở đây — chúng ở `GiaDonDatHang` (chứng từ riêng),
+ *    vì Firestore chặn quyền theo document chứ không theo trường (nguyên tắc dữ liệu số 3).
+ */
 export interface DongPO {
   sttDong: number;
   /** ★ Trỏ về DongDeNghi.stt — khóa truy vết khối lượng. */
   sttDongDeNghi: number;
+  /**
+   * Mã hàng trong danh mục vật tư, vd `VT00027` (thấy trên ĐMH0875-25 của công ty).
+   * ⚠️ Ver 1 để TRỐNG được: quyết định 1 của dự án là "đặt mã vật tư làm sau",
+   * đối chiếu khối lượng vẫn dựa vào `sttDongDeNghi`. Có mã thì in ra đơn cho khớp mẫu.
+   */
+  maHang?: string;
   tenVatLieu: string;
+  /** Cột "Thông số kỹ thuật" — quy cách, mác, tiêu chuẩn. */
+  thongSoKyThuat?: string;
   donViTinh: string;
   khoiLuongDat: number;
+  /** Cột "Mục đích sử dụng" — dùng cho hạng mục nào của công trình. */
+  mucDichSuDung?: string;
 }
 
 export interface XacNhan {
@@ -179,6 +201,12 @@ export interface DonDatHang {
   /** 1 ngày cho cả PO — KHÔNG nhập kế hoạch từng đợt (chỉ đạo Ban lãnh đạo). */
   ngayGiaoDuKien: NgayISO;
   dieuKienGiaoHang?: string;
+  /** Ô "Địa điểm giao hàng" trên mẫu đơn — thường là chân công trình. */
+  diaDiemGiaoHang?: string;
+  /** Ô "Người Nhận" trên mẫu đơn — người BÊN MUA đứng ra nhận hàng. */
+  nguoiNhanHangTen?: string;
+  /** Ô "Điều khoản khác" trên mẫu đơn (bảo hành, bốc xếp, chứng chỉ chất lượng...). */
+  dieuKhoanKhac?: string;
   ghiChu?: string;
   trangThai: TrangThaiPO;
   items: DongPO[];
@@ -200,12 +228,33 @@ export interface DongGiaPO {
   donGia: number;
 }
 
+/**
+ * Phần TIỀN của một đơn mua hàng — tách hẳn khỏi `DonDatHang`.
+ *
+ * 🔴 MỌI thứ dính tới tiền đều để ở đây, kể cả chiết khấu, thuế suất và điều khoản
+ * thanh toán. Lý do: Security Rule chỉ chặn được cả document. Nếu để thuế suất hay
+ * điều khoản thanh toán trong PO thì cho thủ kho đọc PO là hở luôn phần thương mại.
+ *
+ * 📄 Ánh xạ khối tổng của biểu mẫu `1. DON HANG HPCONS.xlsx`:
+ *    Cộng tiền hàng (chưa trừ CK) → Số tiền CK → Cộng tiền hàng (đã trừ CK)
+ *    → Thuế suất GTGT + Tiền thuế GTGT → Tổng tiền thanh toán → Số tiền bằng chữ.
+ *    Các con số này KHÔNG lưu, mà tính lại ở `2-quy-trinh/tinh-toan.ts` → `tinhTienDonHang`,
+ *    để không bao giờ có hai chỗ giữ hai kết quả khác nhau.
+ */
 export interface GiaDonDatHang {
   /** = DonDatHang.id */
   poId: string;
   poCode: string;
   maDuAn: string;
   lines: DongGiaPO[];
+  /** Ô "Loại tiền". Trống = VND. */
+  loaiTien?: string;
+  /** Ô "Số tiền CK" — chiết khấu tính bằng SỐ TIỀN, không phải phần trăm (đúng mẫu công ty). */
+  chietKhau?: number;
+  /** Ô "Thuế suất thuế GTGT", đơn vị phần trăm. vd 8 hoặc 10. Trống = không chịu thuế. */
+  thueSuatGTGT?: number;
+  /** Ô "Điều khoản thanh toán" — vd "Thanh toán 100% trong 30 ngày sau khi nhận đủ hàng". */
+  dieuKhoanThanhToan?: string;
 }
 
 // ------------------------------------------------------------

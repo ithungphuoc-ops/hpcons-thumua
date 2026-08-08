@@ -1,0 +1,217 @@
+rules_version = '2';
+
+// ============================================================================
+// SECURITY RULES — MODULE THU MUA (mã app "tm")
+//
+// 🔴 ĐÂY LÀ MỘT MẢNH GHÉP, KHÔNG PHẢI FILE HOÀN CHỈNH ĐỂ DEPLOY ĐÈ.
+//    Firebase project `hpcons-portal` dùng CHUNG cho cả công ty và đã có
+//    `firestore.rules` của App Tổng. Deploy đè file này lên đó là XÓA SẠCH
+//    rule của mọi app khác. Cách đúng: chép phần "KHỐI RULE CỦA MODULE TM"
+//    bên dưới vào đúng chỗ trong file của App Tổng, rồi App Tổng deploy.
+//
+// 📌 Căn cứ:
+//    - ../../../12. APP TONG HPC/2. OUTPUT/firestore-design/CAU-TRUC-FIRESTORE.md
+//      §2.2 cấp quyền 1..4 · §4 custom claims `{role, apps}`
+//    - Đặc tả v0.2 mục 3.7 (vì sao phải tách giá)
+//
+// ⚠️ CHƯA KIỂM THỬ TRÊN MÁY THẬT — đội triển khai chưa có quyền vào
+//    project `hpcons-portal` (việc chờ số 11 ở README dự án). Trước khi
+//    deploy phải chạy qua Firebase Emulator, xem mục "CÁCH KIỂM" ở cuối file.
+//
+// 🔴 NGUYÊN TẮC CỐT LÕI CỦA MODULE NÀY:
+//    Security Rules chặn được cả DOCUMENT, KHÔNG chặn được từng TRƯỜNG.
+//    Nên mọi thứ dính tiền phải nằm ở document riêng:
+//        tm_donhang      → KHÔNG có giá  → thủ kho, BCH đọc được
+//        tm_donhang_gia  → CÓ giá        → thủ kho, BCH KHÔNG đọc được
+//    Ẩn cột giá trên giao diện không phải bảo mật — mở DevTools ra vẫn thấy.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------
+    // HÀM DÙNG CHUNG
+    // Claims có dạng { role: "admin|director|staff", apps: { tm: 1..4, ... } }
+    // do Cloud Function `syncUserClaims` của App Tổng ghi. Client không tự đổi được.
+    // ------------------------------------------------------------------
+
+    function daDangNhap() {
+      return request.auth != null;
+    }
+
+    function vaiTro() {
+      return daDangNhap() ? request.auth.token.get('role', 'staff') : '';
+    }
+
+    function laQuanTri() {
+      return vaiTro() == 'admin';
+    }
+
+    /** Ban Giám đốc — theo quy ước App Tổng thì mặc định XEM được mọi app. */
+    function laBanGiamDoc() {
+      return vaiTro() == 'director';
+    }
+
+    /**
+     * Cấp quyền của người đang đăng nhập trong một app con. 0 = không được truy cập.
+     * Dùng `get(app, 0)` để người chưa được cấp app đó không làm rule văng lỗi.
+     */
+    function cap(app) {
+      return daDangNhap()
+        ? request.auth.token.get('apps', {}).get(app, 0)
+        : 0;
+    }
+
+    /**
+     * Ai được đọc hồ sơ mua hàng KHÔNG CÓ GIÁ (đề nghị · đơn hàng · phiếu nhận hàng):
+     * mọi người có mặt trong một trong bốn app cùng nhìn vào vòng mua hàng.
+     * Kho (`kh`) CÓ trong danh sách này — họ cần biết đặt hàng gì để nhận hàng.
+     */
+    function duocXemHoSoMuaHang() {
+      return laQuanTri() || laBanGiamDoc()
+        || cap('tm') >= 1 || cap('kh') >= 1 || cap('qd') >= 1 || cap('kt') >= 1;
+    }
+
+    /**
+     * 🔒 Ai được đọc TIỀN (đơn giá, báo giá, công nợ).
+     * Thu mua · QLDA · Kế toán · BGĐ · Quản trị.
+     * ⛔ KHÔNG có Kho (`kh`) — đây chính là điều khoản chặn giá của cả dự án.
+     */
+    function duocXemTien() {
+      return laQuanTri() || laBanGiamDoc()
+        || cap('tm') >= 1 || cap('qd') >= 1 || cap('kt') >= 1;
+    }
+
+    /** Nhập liệu trở lên trong app Thu mua. */
+    function nhapLieuThuMua() {
+      return laQuanTri() || cap('tm') >= 2;
+    }
+
+    /** Quản lý trở lên trong app Thu mua (phân bổ, xác nhận hoàn thành, sửa PO đã chốt). */
+    function quanLyThuMua() {
+      return laQuanTri() || cap('tm') >= 3;
+    }
+
+    // ==================================================================
+    // KHỐI RULE CỦA MODULE TM — chép nguyên khối này sang App Tổng
+    // ==================================================================
+
+    match /projects/{pid} {
+
+      // ---------- ĐỀ NGHỊ MUA HÀNG (PR) ----------
+      // KHÔNG chứa giá → Kho và Phòng Thi công đọc được để theo dõi tiến trình.
+      match /tm_denghi/{prId} {
+        allow read: if duocXemHoSoMuaHang();
+
+        // Đề nghị do phòng ban nguồn lập trên HPcore; app Thu mua chỉ sửa phần
+        // PHÂN BỔ và ghi nhật ký. Vì rule không chặn được theo trường, ở đây mở
+        // cho cấp Nhập liệu trở lên của app tm — chặn chi tiết hơn để lượt sau.
+        // ⚠️ VIỆC CÒN LẠI: chặn để nhân viên thu mua không tự sửa khối lượng đề nghị.
+        allow create, update: if nhapLieuThuMua();
+        allow delete: if quanLyThuMua();
+      }
+
+      // ---------- ĐƠN ĐẶT HÀNG — KHÔNG CHỨA GIÁ ----------
+      match /tm_donhang/{poId} {
+        allow read: if duocXemHoSoMuaHang();
+        allow create: if nhapLieuThuMua();
+        // PO đã hoàn thành thì khóa (quyết định 6 của dự án: hồ sơ đã sang Kế toán).
+        allow update: if nhapLieuThuMua()
+                      && resource.data.get('trangThai', '') != 'hoan_thanh';
+        allow delete: if quanLyThuMua();
+
+        // ---------- PHIẾU NHẬN HÀNG — thủ kho ghi ----------
+        // Kho là NGUỒN DUY NHẤT của số thực nhận (nguyên tắc dữ liệu số 2):
+        // thu mua và QLDA chỉ đọc, KHÔNG được tự ghi số nhận thay kho.
+        // Cấp 3 của app tm được ghi chỉ để sửa sai sót nghiệp vụ, không phải nhập thay.
+        match /nhanhang/{grnId} {
+          allow read: if duocXemHoSoMuaHang();
+          allow create, update: if laQuanTri() || cap('kh') >= 2 || cap('tm') >= 3;
+          allow delete: if laQuanTri() || cap('kh') >= 3;
+        }
+      }
+
+      // ---------- 🔒 GIÁ CỦA ĐƠN HÀNG — CHỨNG TỪ RIÊNG ----------
+      // Đây là lý do tồn tại của cả cách tách document. Đừng gộp lại vào tm_donhang.
+      // Chứa: đơn giá từng dòng · chiết khấu · thuế suất · điều khoản thanh toán.
+      match /tm_donhang_gia/{poId} {
+        allow read: if duocXemTien();
+        allow create, update: if nhapLieuThuMua();
+        allow delete: if quanLyThuMua();
+      }
+
+      // ---------- 🔒 BẢNG BÁO GIÁ — TOÀN BỘ chứa giá NCC ----------
+      // Cả collection này là dữ liệu giá nên quyền đọc hẹp y như tm_donhang_gia.
+      match /tm_baogia/{rfqId} {
+        allow read: if duocXemTien();
+        allow create, update: if nhapLieuThuMua();
+        allow delete: if quanLyThuMua();
+      }
+
+      // ---------- 🔒 CÔNG NỢ NHÀ CUNG CẤP ----------
+      // Kế toán là người dùng chính; Kho tuyệt đối không đọc.
+      match /tm_congno/{id} {
+        allow read: if duocXemTien();
+        allow create, update: if laQuanTri() || cap('tm') >= 2 || cap('kt') >= 2;
+        allow delete: if quanLyThuMua() || cap('kt') >= 3;
+      }
+    }
+
+    // ---------- DANH MỤC NHÀ CUNG CẤP (gốc, không gắn công trình) ----------
+    // ⚠️ Phòng Thi công / BCH KHÔNG được thấy nhà cung cấp (quyết định 9 của dự án),
+    // nhưng họ vẫn có `apps.tm = 1` để theo dõi đề nghị của mình. Cấp quyền số
+    // KHÔNG phân biệt được hai nhóm này → chặn ở đây bằng cấp >= 2 cho app tm.
+    // 📌 VIỆC CÒN LẠI: xin App Tổng cách phân biệt "người đề nghị" với "người thu mua"
+    //    (thêm trường vào claims, hoặc cấp `tm = 1` cho BCH và `tm >= 2` cho thu mua).
+    match /tm_ncc/{supplierId} {
+      allow read: if laQuanTri() || laBanGiamDoc()
+                  || cap('tm') >= 2 || cap('kh') >= 1 || cap('qd') >= 1 || cap('kt') >= 1;
+      allow create, update: if nhapLieuThuMua();
+      allow delete: if quanLyThuMua();
+    }
+
+    // ---------- THÔNG BÁO CHUYỂN BƯỚC ----------
+    // Bản chạy thử đang giữ thông báo trong bộ nhớ trình duyệt (mất khi tải lại trang).
+    // Khi làm thật, mỗi người chỉ được đọc thông báo GỬI CHO MÌNH.
+    match /tm_thongbao/{tbId} {
+      allow read: if daDangNhap()
+                  && (laQuanTri() || request.auth.uid in resource.data.get('guiToiUid', []));
+      // Thông báo do hệ thống sinh — nên để Cloud Function ghi, không cho client tự tạo.
+      allow create: if false;
+      // Người nhận chỉ được đánh dấu đã đọc / nhận công tác của chính mình.
+      allow update: if daDangNhap()
+                    && request.auth.uid in resource.data.get('guiToiUid', []);
+      allow delete: if laQuanTri();
+    }
+  }
+}
+
+// ============================================================================
+// CÁCH KIỂM TRƯỚC KHI DEPLOY
+//
+//   firebase emulators:start --only firestore
+//
+// Bốn ca BẮT BUỘC phải kiểm — ba ca đầu là lý do tồn tại của thiết kế này:
+//
+//   1. Thủ kho (apps.kh = 2, apps.tm = 1)
+//      · ĐỌC ĐƯỢC   projects/{pid}/tm_donhang/{poId}
+//      · ĐỌC HỎNG   projects/{pid}/tm_donhang_gia/{poId}      ← ca quan trọng nhất
+//      · ĐỌC HỎNG   projects/{pid}/tm_baogia/{rfqId}
+//      · ĐỌC HỎNG   projects/{pid}/tm_congno/{id}
+//      · GHI ĐƯỢC   projects/{pid}/tm_donhang/{poId}/nhanhang/{grnId}
+//
+//   2. Phòng Thi công / BCH (apps.tm = 1)
+//      · ĐỌC ĐƯỢC   tm_denghi
+//      · ĐỌC HỎNG   tm_donhang_gia
+//      · ĐỌC HỎNG   tm_ncc                                     ← không thấy nhà cung cấp
+//
+//   3. Nhân viên thu mua (apps.tm = 2)
+//      · ĐỌC ĐƯỢC + GHI ĐƯỢC tm_donhang, tm_donhang_gia
+//      · GHI HỎNG   tm_donhang/{poId} khi trangThai == 'hoan_thanh'
+//
+//   4. Người chưa đăng nhập
+//      · ĐỌC HỎNG mọi thứ
+//
+// Kiểm bằng mắt trên giao diện KHÔNG thay được các ca trên: giao diện ẩn cột giá,
+// còn đây kiểm ở tầng dữ liệu — đúng chỗ mà kẻ tò mò sẽ mở DevTools ra xem.
+// ============================================================================

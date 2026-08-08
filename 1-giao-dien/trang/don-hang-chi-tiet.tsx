@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
-import { BadgeCheck, FileWarning, Lock } from "lucide-react";
+import { BadgeCheck, FileWarning, Lock, Printer } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -14,8 +14,9 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { poDaGiaoDu, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
+import { poDaGiaoDu, tinhTienDonHang, tinhTienDoPO } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
+import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 
 export default function TrangChiTietDonHang() {
   const params = useParams<{ id: string }>();
@@ -42,7 +43,7 @@ export default function TrangChiTietDonHang() {
 
   const tt = NHAN_TRANG_THAI_PO[po.trangThai];
   const daGiaoDu = poDaGiaoDu(tienDo);
-  const giaTri = tongGiaTriPO(po, gia);
+  const tien = tinhTienDonHang(po, gia);
 
   function bamXacNhanKho() {
     xacNhanKho(po!.id, {
@@ -70,7 +71,19 @@ export default function TrangChiTietDonHang() {
         ]}
         title={po.code}
         description={`Từ đề nghị ${po.prCode}${quyen.xemNhaCungCap ? ` · ${po.supplierTen}` : ""}`}
-        actions={<StatusBadge label={tt.nhan} tone={tt.tong} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Chỉ vai trò xem được giá mới in được — đơn gửi NCC bắt buộc có đơn giá.
+                Mở tab mới để người dùng không mất trang đang xem sau khi in. */}
+            {quyen.xemGia && (
+              <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/in/don-hang/${po.id}`} target="_blank" />}>
+                <Printer className="size-4" aria-hidden />
+                In đơn mua hàng
+              </Button>
+            )}
+            <StatusBadge label={tt.nhan} tone={tt.tong} />
+          </div>
+        }
       />
 
       {/* Thông tin PO */}
@@ -90,6 +103,10 @@ export default function TrangChiTietDonHang() {
           />
           {quyen.xemNhaCungCap && <ThongTin nhan="Nhà cung cấp" giaTri={po.supplierTen} />}
           {po.dieuKienGiaoHang && <ThongTin nhan="Điều kiện giao hàng" giaTri={po.dieuKienGiaoHang} />}
+          {/* Các ô dưới đây lấy đúng tên nhãn trên biểu mẫu giấy của công ty */}
+          {po.diaDiemGiaoHang && <ThongTin nhan="Địa điểm giao hàng" giaTri={po.diaDiemGiaoHang} />}
+          {po.nguoiNhanHangTen && <ThongTin nhan="Người nhận hàng" giaTri={po.nguoiNhanHangTen} />}
+          {po.dieuKhoanKhac && <ThongTin nhan="Điều khoản khác" giaTri={po.dieuKhoanKhac} />}
         </CardContent>
       </Card>
 
@@ -118,13 +135,19 @@ export default function TrangChiTietDonHang() {
             <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
               <div className="overflow-x-auto">
                 <Table>
+                  {/* Thứ tự cột giữ đúng biểu mẫu 1. DON HANG HPCONS.xlsx để người quen
+                      dùng bản giấy đọc ra ngay: STT · Mã hàng · Tên hàng · Thông số kỹ thuật
+                      · ĐVT · SL · Đơn giá · Thành tiền · Mục đích sử dụng */}
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12 text-right">Dòng</TableHead>
-                      <TableHead>Vật liệu</TableHead>
-                      <TableHead className="text-right">Khối lượng</TableHead>
+                      <TableHead className="w-12 text-right">STT</TableHead>
+                      <TableHead>Mã hàng</TableHead>
+                      <TableHead>Tên hàng</TableHead>
+                      <TableHead>Thông số kỹ thuật</TableHead>
+                      <TableHead className="text-right">SL</TableHead>
                       <TableHead className="text-right">Đơn giá</TableHead>
                       <TableHead className="text-right">Thành tiền</TableHead>
+                      <TableHead>Mục đích sử dụng</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -134,7 +157,9 @@ export default function TrangChiTietDonHang() {
                       return (
                         <TableRow key={d.sttDong}>
                           <TableCell className="text-right text-text-desc">{d.sttDong}</TableCell>
+                          <TableCell className="text-text-desc">{d.maHang ?? "—"}</TableCell>
                           <TableCell className="font-medium">{d.tenVatLieu}</TableCell>
+                          <TableCell className="text-text-secondary">{d.thongSoKyThuat ?? "—"}</TableCell>
                           <TableCell className="text-right">
                             {d.khoiLuongDat.toLocaleString("vi-VN")} {d.donViTinh}
                           </TableCell>
@@ -142,15 +167,35 @@ export default function TrangChiTietDonHang() {
                           <TableCell className="text-right font-semibold">
                             {(donGia * d.khoiLuongDat).toLocaleString("vi-VN")} ₫
                           </TableCell>
+                          <TableCell className="text-text-secondary">{d.mucDichSuDung ?? "—"}</TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                 </Table>
               </div>
-              <p className="text-right text-sm font-bold text-text-primary">
-                Tổng giá trị: {giaTri.toLocaleString("vi-VN")} ₫
+
+              {/* Khối tổng — đúng trình tự biểu mẫu: cộng tiền hàng → CK → đã trừ CK
+                  → thuế GTGT → tổng thanh toán → đọc thành chữ. */}
+              <dl className="ml-auto flex w-full max-w-sm flex-col gap-1 text-sm">
+                <DongTien nhan="Cộng tiền hàng (chưa trừ CK)" giaTri={tien.congTienHang} />
+                <DongTien nhan="Số tiền CK" giaTri={tien.chietKhau} />
+                <DongTien nhan="Cộng tiền hàng (đã trừ CK)" giaTri={tien.congTienHangSauCK} />
+                <DongTien
+                  nhan={`Tiền thuế GTGT (${tien.thueSuatGTGT}%)`}
+                  giaTri={tien.tienThueGTGT}
+                />
+                <DongTien nhan="Tổng tiền thanh toán" giaTri={tien.tongThanhToan} tong />
+              </dl>
+              <p className="text-right text-xs italic text-text-desc">
+                {docSoTien(tien.tongThanhToan)}
               </p>
+              {gia?.dieuKhoanThanhToan && (
+                <p className="text-sm text-text-secondary">
+                  <span className="text-text-desc">Điều khoản thanh toán: </span>
+                  {gia.dieuKhoanThanhToan}
+                </p>
+              )}
             </CardContent>
           </Card>
         </section>
@@ -243,6 +288,22 @@ function ThongTin({ nhan, giaTri, href }: { nhan: string; giaTri: string; href?:
       ) : (
         <span className="text-sm font-medium text-text-primary">{giaTri}</span>
       )}
+    </div>
+  );
+}
+
+/** Một dòng của khối tổng tiền. `tong` = dòng Tổng tiền thanh toán, kẻ viền trên cho nổi. */
+function DongTien({ nhan, giaTri, tong }: { nhan: string; giaTri: number; tong?: boolean }) {
+  return (
+    <div
+      className={`flex items-baseline justify-between gap-4 ${
+        tong ? "border-t border-divider pt-1.5" : ""
+      }`}
+    >
+      <dt className={tong ? "font-bold text-text-primary" : "text-text-desc"}>{nhan}</dt>
+      <dd className={tong ? "text-base font-bold text-primary" : "font-medium text-text-primary"}>
+        {giaTri.toLocaleString("vi-VN")} ₫
+      </dd>
     </div>
   );
 }

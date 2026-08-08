@@ -24,6 +24,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `don-hang-danh-sach.tsx` | Danh sách đơn đặt hàng | `/don-hang` |
 | `don-hang-chi-tiet.tsx` | Chi tiết PO + tiến độ nhận hàng + xác nhận hoàn thành | `/don-hang/[id]` |
 | `don-hang-lap-moi.tsx` | Lập đơn đặt hàng | `/don-hang/tao-moi` |
+| `don-hang-in.tsx` | **In đơn mua hàng A4** theo đúng biểu mẫu giấy của công ty | `/in/don-hang/[id]` |
 | `theo-doi-danh-sach.tsx` | Phòng Thi công theo dõi đề nghị | `/theo-doi` |
 | `theo-doi-chi-tiet.tsx` | Chi tiết tiến trình từng mặt hàng | `/theo-doi/[id]` |
 | `bao-gia-danh-sach.tsx` | Danh sách bảng báo giá | `/bao-gia` |
@@ -40,6 +41,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `thanh-ben.tsx` | Vỏ thanh bên cố định 260px (chỉ hiện từ 1280px) |
 | `thanh-ben-noi-dung.tsx` | Nội dung menu — dùng chung cho thanh bên và ngăn kéo trên điện thoại |
 | `thanh-tren.tsx` | Thanh trên 60px: nút menu, tìm kiếm, ngày giờ, các nút bên phải |
+| `o-tim-kiem.tsx` | **Ô tìm kiếm hồ sơ theo mã** — đường vào thay 3 mục menu đã bỏ. Luật tìm ở `2-quy-trinh/tim-kiem.ts` |
 | `thanh-duoi-mobile.tsx` | Thanh điều hướng dưới đáy, chỉ hiện dưới 768px |
 | `dong-ho.tsx` | Ngày giờ trên thanh trên (V1.1 yêu cầu) |
 | `nut-sang-toi.tsx` | Đổi giao diện Sáng / Tối |

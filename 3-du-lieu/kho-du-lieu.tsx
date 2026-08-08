@@ -58,6 +58,23 @@ export interface DauVaoDeNghiGiaLap {
   items: Omit<DongDeNghi, "stt">[];
 }
 
+/**
+ * Dữ liệu lập một đơn mua hàng mới.
+ *
+ * 🔴 Cố ý tách làm hai phần vì chúng đi về HAI CHỨNG TỪ khác nhau:
+ *  - phần còn lại → `tm_donhang` (mọi vai trò liên quan đọc được)
+ *  - `donGia` + `phanTien` → `tm_donhang_gia` (chỉ vai trò được xem giá)
+ */
+export type DauVaoDonHangMoi = Omit<DonDatHang, "id" | "code" | "trangThai"> & {
+  /** Đơn giá theo số thứ tự dòng PO. */
+  donGia: Record<number, number>;
+  /** Chiết khấu · thuế suất · loại tiền · điều khoản thanh toán — theo mẫu Excel công ty. */
+  phanTien?: Pick<
+    GiaDonDatHang,
+    "loaiTien" | "chietKhau" | "thueSuatGTGT" | "dieuKhoanThanhToan"
+  >;
+};
+
 const homNay = () => new Date().toISOString().slice(0, 10);
 
 interface GiaTriDuLieu {
@@ -85,9 +102,7 @@ interface GiaTriDuLieu {
   phanBoDong: (prId: string, sttDong: number[], nguoiPhuTrachUid: string, nguoiPhanBoTen: string) => void;
   boPhanBoDong: (prId: string, sttDong: number, nguoiThucHien: string) => void;
   /** Lập PO mới từ các dòng đề nghị. Trả về id PO vừa tạo. */
-  themDonHang: (
-    dauVao: Omit<DonDatHang, "id" | "code" | "trangThai"> & { donGia: Record<number, number> },
-  ) => string;
+  themDonHang: (dauVao: DauVaoDonHangMoi) => string;
   themPhieuNhan: (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => void;
   doiTrangThaiPhieu: (
     phieuId: string,
@@ -334,8 +349,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const themDonHang = useCallback(
-    (dauVao: Omit<DonDatHang, "id" | "code" | "trangThai"> & { donGia: Record<number, number> }) => {
-      const { donGia, ...po } = dauVao;
+    (dauVao: DauVaoDonHangMoi) => {
+      const { donGia, phanTien, ...po } = dauVao;
       // Số thứ tự PO chạy theo DỰ ÁN, đúng quy tắc mã hồ sơ Thông báo 09/2026.
       const soHienCo = donHangRef.current.filter((p) => p.maDuAn === po.maDuAn).length;
       const stt = String(soHienCo + 1).padStart(3, "0");
@@ -350,6 +365,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           poCode: code,
           maDuAn: po.maDuAn,
           lines: po.items.map((d) => ({ sttDong: d.sttDong, donGia: donGia[d.sttDong] ?? 0 })),
+          // Chiết khấu / thuế / điều khoản thanh toán đi cùng GIÁ, không đi cùng PO —
+          // nếu để trong PO thì cho thủ kho đọc PO là hở luôn phần thương mại.
+          ...phanTien,
         },
       ]);
       // Không ghi tên NCC vào nhật ký — lịch sử đề nghị hiện cho cả vai trò không được xem NCC.

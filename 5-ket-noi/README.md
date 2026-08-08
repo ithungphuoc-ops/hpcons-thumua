@@ -22,12 +22,23 @@ Tài liệu chuẩn bắt buộc tuân thủ:
 | Dữ liệu app con | `projects/{id}/{mã app}_{tên}/...` — app này dùng tiền tố **`tm_`** |
 | Phân quyền | `users/{uid}.apps.tm` = 1..4, đồng bộ sang token bằng Cloud Function `syncUserClaims` |
 
-## Hai file
+## Ba file
 
 | File | Việc |
 |---|---|
 | `firebase/cau-hinh.ts` | Khởi tạo Firebase. Khai `APP_ID = "tm"`. Chạy được ở **chế độ dữ liệu mẫu** khi chưa khai cấu hình |
 | `firebase/da-cau-hinh.ts` | Cho biết đã khai đủ cấu hình chưa |
+| **`firestore.rules`** | Security Rules của module `tm` — **bản nháp, chưa deploy** |
+
+### 🔴 `firestore.rules` — ĐỪNG DEPLOY ĐÈ
+
+File này là **một mảnh ghép**, không phải file hoàn chỉnh. Project `hpcons-portal` dùng chung
+toàn công ty và đã có `firestore.rules` của App Tổng — deploy đè lên đó là **xóa sạch rule của
+mọi app khác**. Cách đúng: chép khối rule của module `tm` sang file của App Tổng, rồi App Tổng deploy.
+
+Chưa kiểm thử vì đội triển khai chưa có quyền vào project. Bốn ca bắt buộc kiểm bằng
+Firebase Emulator đã ghi sẵn ở cuối file — quan trọng nhất là **thủ kho đọc `tm_donhang` được
+nhưng đọc `tm_donhang_gia` phải hỏng**.
 
 ## Cần gì để nối thật
 

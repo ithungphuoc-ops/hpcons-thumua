@@ -1,7 +1,7 @@
-import { Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
-import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/1-giao-dien/nen-tang-ui/sheet";
+import { OTimKiem } from "@/1-giao-dien/khung-app/o-tim-kiem";
 import { SidebarNav } from "@/1-giao-dien/khung-app/thanh-ben-noi-dung";
 import { HeaderClock } from "@/1-giao-dien/khung-app/dong-ho";
 import { ThemeToggle } from "@/1-giao-dien/khung-app/nut-sang-toi";
@@ -31,10 +31,7 @@ export function AppHeader() {
         </SheetContent>
       </Sheet>
 
-      <div className="relative hidden max-w-sm flex-1 sm:block">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-desc" />
-        <Input placeholder="Tìm mã đề nghị, đơn hàng, vật liệu..." className="pl-9" />
-      </div>
+      <OTimKiem />
 
       <div className="ml-auto flex items-center gap-2 md:gap-3">
         <HeaderClock />

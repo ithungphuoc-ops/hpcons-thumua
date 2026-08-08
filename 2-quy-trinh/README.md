@@ -4,11 +4,12 @@
 
 Thư mục này **không có giao diện** và **không chứa dữ liệu**. Sai số liệu trên màn hình thì tìm ở đây trước.
 
-## Sáu file
+## Bảy file
 
 | File | Việc | Sửa khi |
 |---|---|---|
-| **`tinh-toan.ts`** | Toàn bộ công thức của app | Số đã nhận / còn lại / % sai; điều kiện hoàn thành PO sai |
+| **`tinh-toan.ts`** | Toàn bộ công thức của app | Số đã nhận / còn lại / % sai; điều kiện hoàn thành PO sai; sai chiết khấu / thuế / tổng thanh toán |
+| **`tim-kiem.ts`** | Luật ô tìm kiếm trên thanh trên + **lọc kết quả theo quyền** | Tìm không ra hồ sơ; vai trò thấy hồ sơ lẽ ra không được thấy |
 | **`trang-thai.ts`** | Chữ và tông màu cho mọi trạng thái | Muốn đổi cách gọi trạng thái, đổi màu badge |
 | **`dieu-huong.ts`** | Danh sách mục trong menu + vai trò nào thấy mục nào | Thêm/bớt màn hình trong menu |
 | **`tuoi-no.ts`** | Chia công nợ thành 5 mức tuổi nợ 30-60-90 + đánh giá rủi ro từng NCC | Sai cách chia mức, sai mức rủi ro |
@@ -20,13 +21,16 @@ Thư mục này **không có giao diện** và **không chứa dữ liệu**. Sa
 🔴 **Giai đoạn KHÔNG phải một trường lưu trong dữ liệu.** Nó được **suy ra** từ chứng từ có thật:
 báo giá → đơn đặt hàng → phiếu nhận hàng. Xét từ giai đoạn xa nhất trở về.
 
-Vì vậy **bảng không cho kéo thả thẻ**. Kéo một đề nghị sang cột "Tiến hành nhận hàng" trong khi
-chưa có phiếu nhận nào thì bảng đang báo tiến độ ảo — đúng cái lỗi mà nguyên tắc dữ liệu số 4 của
-dự án cấm. Muốn thẻ sang cột mới thì phải làm đúng nghiệp vụ của cột đó.
+Hệ quả: **kéo thả thẻ KHÔNG đổi nhãn chay, mà LÀM ĐÚNG NGHIỆP VỤ của cột đích**
+(quyết định 22, Ban lãnh đạo chốt 07/08/2026). Bước làm ngay được thì thẻ tự chuyển; bước cần
+quyết định thì mở đúng màn hình đó; kéo lùi / nhảy cóc / ép Hoàn thành đều bị chặn kèm lý do.
+Nếu cho kéo tự do thì kéo thẻ sang cột "Tiến hành nhận hàng" khi chưa có phiếu nhận nào là báo
+tiến độ ảo — đúng cái lỗi mà nguyên tắc dữ liệu số 4 của dự án cấm.
 
 | Hàm | Trả về |
 |---|---|
 | `xacDinhGiaiDoan` | Một đề nghị đang ở cột nào trong 8 cột |
+| `quyetDinhKeoTha` | Kéo thẻ từ cột A sang cột B thì **được phép không**, và **phải làm gì** |
 | `hanXuLyDeNghi` | "Quá hạn 2 ngày" / "Còn 9 ngày" / "Không còn thời hạn" + tông màu |
 | `dungBangQuyTrinh` | Dựng đủ 8 cột kèm số thẻ và số việc quá hạn mỗi cột |
 | `deNghiConDangChay` | Loại đề nghị đã hoàn thành / đóng dở khỏi hàng chờ phân bổ và thẻ KPI |
@@ -41,8 +45,13 @@ dự án cấm. Muốn thẻ sang cột mới thì phải làm đúng nghiệp v
 | `poDuDieuKienHoanThanh` | **Đủ cả 3 điều kiện chưa**: giao đủ + kho xác nhận + trưởng bộ phận xác nhận |
 | `tinhTienDoDeNghi` | Tiến độ từng dòng đề nghị, **gộp từ nhiều PO** |
 | `tomTatTienDoDeNghi` | "6/10 mặt hàng đã nhận đủ" |
-| `tongGiaTriPO` | Tổng tiền — **chỉ gọi khi vai trò được xem giá** |
+| `tongGiaTriPO` | Tổng tiền hàng — **chỉ gọi khi vai trò được xem giá** |
+| `tinhKhoiTongTien` | Khối tổng theo **đúng trình tự biểu mẫu công ty**: cộng tiền hàng → trừ CK → thuế GTGT → tổng thanh toán. Nhận ba con số thô nên **màn LẬP đơn xem trước được khi PO chưa tồn tại** |
+| `tinhTienDonHang` | Như trên nhưng nhận thẳng (PO, chứng từ giá) — dùng ở màn xem và trang in |
 | `soNgayConLai` · `tongMauTheoThoiGian` | Số ngày còn lại và màu thanh timeline |
+
+🔴 **Thuế GTGT tính TRÊN GIÁ ĐÃ TRỪ CHIẾT KHẤU** — đúng thứ tự các dòng trên biểu mẫu
+`1. INPUT/Bieu mau/1. DON HANG HPCONS.xlsx`. Đảo thứ tự là ra số thuế khác.
 
 ## Ba quy tắc bất di bất dịch
 

@@ -39,11 +39,13 @@ export const ID_BAO_GIA_GIA_LAP: string[] = Array.from(
   (_, i) => `rfq-thu-${String(i + 1).padStart(2, "0")}`,
 );
 
+// ⚠️ Tên, địa chỉ và mã số thuế đều là GIẢ ĐỊNH (quyết định 23). Mã số thuế đặt theo
+//    đúng định dạng 10 chữ số của Việt Nam để kiểm được cách hiển thị trên đơn in.
 export const NHA_CUNG_CAP: NhaCungCap[] = [
-  { id: "ncc-01", ten: "Công ty TNHH VLXD A", dienThoai: "028 3822 1234" },
-  { id: "ncc-02", ten: "Công ty CP Thép B", dienThoai: "028 3899 5678" },
-  { id: "ncc-03", ten: "Công ty TNHH Cát Đá C", dienThoai: "0274 3745 000" },
-  { id: "ncc-04", ten: "Công ty CP Gạch D", dienThoai: "0251 3888 222" },
+  { id: "ncc-01", ten: "Công ty TNHH VLXD A", dienThoai: "028 3822 1234", diaChi: "Lô A1, KCN Mỹ Phước 3, TP. Hồ Chí Minh", maSoThue: "0300000001" },
+  { id: "ncc-02", ten: "Công ty CP Thép B", dienThoai: "028 3899 5678", diaChi: "Số 12 Đường số 5, TP. Hồ Chí Minh", maSoThue: "0300000002" },
+  { id: "ncc-03", ten: "Công ty TNHH Cát Đá C", dienThoai: "0274 3745 000", diaChi: "Ấp 4, Xã Tân Thành, Tỉnh Bình Dương", maSoThue: "0300000003" },
+  { id: "ncc-04", ten: "Công ty CP Gạch D", dienThoai: "0251 3888 222", diaChi: "KCN Long Thành, Tỉnh Đồng Nai", maSoThue: "0300000004" },
 ];
 
 // ------------------------------------------------------------
@@ -352,8 +354,22 @@ export const DON_HANG_MAU: DonDatHang[] = [
     ngayLapPO: "2026-08-04",
     ngayGiaoDuKien: "2026-08-12",
     dieuKienGiaoHang: "Giao tại chân công trình, 3 đợt",
+    diaDiemGiaoHang: "Công trình Nhà xưởng ABC — KCN Mỹ Phước 3, TP. Hồ Chí Minh",
+    nguoiNhanHangTen: "Hoàng Văn E",
+    dieuKhoanKhac: "Hàng có chứng chỉ chất lượng (CO/CQ) kèm theo từng đợt giao. Bốc xếp do nhà cung cấp.",
     trangThai: "dang_giao",
-    items: [{ sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Xi măng PCB40", donViTinh: "Bao", khoiLuongDat: 20 }],
+    items: [
+      {
+        sttDong: 1,
+        sttDongDeNghi: 1,
+        maHang: "VT00027",
+        tenVatLieu: "Xi măng PCB40",
+        thongSoKyThuat: "PCB40, bao 50kg, TCVN 6260:2020",
+        donViTinh: "Bao",
+        khoiLuongDat: 20,
+        mucDichSuDung: "Đổ bê tông móng trục 1-4",
+      },
+    ],
   },
   {
     id: "po-002",
@@ -368,10 +384,30 @@ export const DON_HANG_MAU: DonDatHang[] = [
     nguoiPhuTrachTen: "Nguyễn Văn A",
     ngayLapPO: "2026-08-04",
     ngayGiaoDuKien: "2026-08-18",
+    diaDiemGiaoHang: "Công trình Nhà xưởng ABC — KCN Mỹ Phước 3, TP. Hồ Chí Minh",
+    nguoiNhanHangTen: "Hoàng Văn E",
     trangThai: "dang_giao",
     items: [
-      { sttDong: 1, sttDongDeNghi: 2, tenVatLieu: "Thép thanh vằn D10", donViTinh: "Kg", khoiLuongDat: 5000 },
-      { sttDong: 2, sttDongDeNghi: 3, tenVatLieu: "Thép thanh vằn D16", donViTinh: "Kg", khoiLuongDat: 3200 },
+      {
+        sttDong: 1,
+        sttDongDeNghi: 2,
+        maHang: "VT00105",
+        tenVatLieu: "Thép thanh vằn D10",
+        thongSoKyThuat: "CB400-V, cây 11,7m, TCVN 1651-2:2018",
+        donViTinh: "Kg",
+        khoiLuongDat: 5000,
+        mucDichSuDung: "Cốt thép móng và đà kiềng",
+      },
+      {
+        sttDong: 2,
+        sttDongDeNghi: 3,
+        maHang: "VT00106",
+        tenVatLieu: "Thép thanh vằn D16",
+        thongSoKyThuat: "CB400-V, cây 11,7m, TCVN 1651-2:2018",
+        donViTinh: "Kg",
+        khoiLuongDat: 3200,
+        mucDichSuDung: "Cốt thép cột trục 1-4",
+      },
     ],
   },
   {
@@ -491,8 +527,26 @@ export const DON_HANG_MAU: DonDatHang[] = [
 // ------------------------------------------------------------
 
 export const GIA_DON_HANG_MAU: GiaDonDatHang[] = [
-  { poId: "po-001", poCode: "260001-HPCS-PO-001", maDuAn: "260001-HPCS", lines: [{ sttDong: 1, donGia: 92_000 }] },
-  { poId: "po-002", poCode: "260001-HPCS-PO-002", maDuAn: "260001-HPCS", lines: [{ sttDong: 1, donGia: 16_800 }, { sttDong: 2, donGia: 16_500 }] },
+  // po-001 khai đủ khối tổng của biểu mẫu (CK + thuế + điều khoản) để kiểm trang in.
+  {
+    poId: "po-001",
+    poCode: "260001-HPCS-PO-001",
+    maDuAn: "260001-HPCS",
+    lines: [{ sttDong: 1, donGia: 92_000 }],
+    loaiTien: "VND",
+    chietKhau: 40_000,
+    thueSuatGTGT: 8,
+    dieuKhoanThanhToan: "Thanh toán 100% trong 30 ngày kể từ ngày nhận đủ hàng và hóa đơn hợp lệ.",
+  },
+  {
+    poId: "po-002",
+    poCode: "260001-HPCS-PO-002",
+    maDuAn: "260001-HPCS",
+    lines: [{ sttDong: 1, donGia: 16_800 }, { sttDong: 2, donGia: 16_500 }],
+    loaiTien: "VND",
+    thueSuatGTGT: 10,
+    dieuKhoanThanhToan: "Tạm ứng 30% khi ký đơn, thanh toán phần còn lại sau khi nhận đủ hàng.",
+  },
   { poId: "po-003", poCode: "260001-HPCS-PO-003", maDuAn: "260001-HPCS", lines: [{ sttDong: 1, donGia: 185_000 }, { sttDong: 2, donGia: 420_000 }] },
   { poId: "po-004", poCode: "260001-HPCS-PO-004", maDuAn: "260001-HPCS", lines: [{ sttDong: 1, donGia: 3_200 }, { sttDong: 2, donGia: 68_000 }, { sttDong: 3, donGia: 32_000 }] },
   { poId: "po-005", poCode: "260002-HPCS-PO-001", maDuAn: "260002-HPCS", lines: [{ sttDong: 1, donGia: 1_320_000 }] },
