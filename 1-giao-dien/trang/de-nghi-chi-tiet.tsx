@@ -8,6 +8,7 @@ import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
+import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
 import { TimelineDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/timeline-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
@@ -74,12 +75,13 @@ export default function TrangChiTietDeNghi() {
           <ThongTin nhan="Mã hợp đồng CĐT" giaTri={dn.maHopDongCDT ?? "—"} />
           <ThongTin nhan="Người đề nghị" giaTri={dn.nguoiDeNghiTen} />
           <ThongTin nhan="Ngày duyệt" giaTri={new Date(dn.ngayDuyet).toLocaleDateString("vi-VN")} />
-          <ThongTin
-            nhan="Người theo dõi"
-            giaTri={dn.nguoiTheoDoi?.length ? dn.nguoiTheoDoi.join(", ") : "—"}
-          />
+          <ThongTin nhan="Ngày cần hàng" giaTri={new Date(dn.ngayCanHang).toLocaleDateString("vi-VN")} />
         </CardContent>
       </Card>
+
+      {/* Người theo dõi — chọn từ danh bạ nhân sự công ty, xem `khoi-nguoi-theo-doi.tsx`.
+          Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
+      <KhoiNguoiTheoDoi deNghi={dn} />
 
       {/* Timeline tổng */}
       <Card>

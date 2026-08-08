@@ -253,7 +253,10 @@ function TheDeNghi({
         </div>
         {/* Người theo dõi — rê chuột để xem danh sách tên đầy đủ */}
         {deNghi.nguoiTheoDoi && deNghi.nguoiTheoDoi.length > 0 && (
-          <div className="flex items-center gap-1.5" title={deNghi.nguoiTheoDoi.join(" · ")}>
+          <div
+            className="flex items-center gap-1.5"
+            title={deNghi.nguoiTheoDoi.map((n) => n.ten).join(" · ")}
+          >
             <Eye className="size-3.5 shrink-0" aria-hidden />
             <span>{deNghi.nguoiTheoDoi.length} người theo dõi</span>
           </div>

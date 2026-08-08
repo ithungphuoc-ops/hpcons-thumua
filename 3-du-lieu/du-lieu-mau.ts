@@ -66,7 +66,10 @@ export const DE_NGHI_MAU: DeNghiMuaHang[] = [
     ngayCanHang: "2026-08-20",
     mucDoUuTien: "binh_thuong",
     trangThai: "dang_thuc_hien",
-    nguoiTheoDoi: ["Phạm Văn F", "Vũ Văn G"],
+    nguoiTheoDoi: [
+      { uid: "u-tc", ten: "Phạm Văn F", chucDanh: "Chỉ huy trưởng công trình", nguoiThemTen: "Phạm Văn F", thoiDiemThem: "2026-08-03" },
+      { uid: "u-qlda", ten: "Vũ Văn G", chucDanh: "Ban Quản lý Dự án", nguoiThemTen: "Trần Thị B", thoiDiemThem: "2026-08-04" },
+    ],
     items: [
       { stt: 1, tenVatLieu: "Xi măng PCB40", quyCach: "PCB40, bao 50kg", donViTinh: "Bao", khoiLuongDeNghi: 20, nguoiPhuTrachUid: "u-tm1", nguoiPhuTrachTen: "Nguyễn Văn A", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-08-03" },
       { stt: 2, tenVatLieu: "Thép thanh vằn D10", quyCach: "CB300-V", donViTinh: "Kg", khoiLuongDeNghi: 5000, vatTuKiemSoatDinhMuc: true, nguoiPhuTrachUid: "u-tm1", nguoiPhuTrachTen: "Nguyễn Văn A", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-08-03" },
@@ -100,7 +103,9 @@ export const DE_NGHI_MAU: DeNghiMuaHang[] = [
     ngayCanHang: "2026-08-28",
     mucDoUuTien: "gap",
     trangThai: "da_duyet",
-    nguoiTheoDoi: ["Phạm Văn F"],
+    nguoiTheoDoi: [
+      { uid: "u-tc", ten: "Phạm Văn F", chucDanh: "Chỉ huy trưởng công trình", nguoiThemTen: "Phạm Văn F", thoiDiemThem: "2026-08-05" },
+    ],
     items: [
       { stt: 1, tenVatLieu: "Sơn nước nội thất", quyCach: "thùng 18L", donViTinh: "Thùng", khoiLuongDeNghi: 24 },
       { stt: 2, tenVatLieu: "Gạch ceramic 600x600", donViTinh: "m²", khoiLuongDeNghi: 320 },
@@ -127,7 +132,10 @@ export const DE_NGHI_MAU: DeNghiMuaHang[] = [
     ngayCanHang: "2026-08-08",
     mucDoUuTien: "gap",
     trangThai: "dang_thuc_hien",
-    nguoiTheoDoi: ["Bùi Văn H", "Vũ Văn G"],
+    nguoiTheoDoi: [
+      { uid: "u-tc-02", ten: "Bùi Văn H", chucDanh: "Chỉ huy trưởng công trình", nguoiThemTen: "Bùi Văn H", thoiDiemThem: "2026-07-29" },
+      { uid: "u-qlda", ten: "Vũ Văn G", chucDanh: "Ban Quản lý Dự án", nguoiThemTen: "Trần Thị B", thoiDiemThem: "2026-07-30" },
+    ],
     items: [
       { stt: 1, tenVatLieu: "Bê tông thương phẩm M300", donViTinh: "m³", khoiLuongDeNghi: 450, vatTuKiemSoatDinhMuc: true, nguoiPhuTrachUid: "u-tm1", nguoiPhuTrachTen: "Nguyễn Văn A", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-07-29" },
       { stt: 2, tenVatLieu: "Cọc bê tông ly tâm D300", donViTinh: "m", khoiLuongDeNghi: 1200, nguoiPhuTrachUid: "u-tm2", nguoiPhuTrachTen: "Trần Văn C", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-07-29" },
@@ -161,7 +169,9 @@ export const DE_NGHI_MAU: DeNghiMuaHang[] = [
     ngayCanHang: "2026-08-18",
     mucDoUuTien: "binh_thuong",
     trangThai: "da_phan_bo_du",
-    nguoiTheoDoi: ["Bùi Văn H"],
+    nguoiTheoDoi: [
+      { uid: "u-tc-02", ten: "Bùi Văn H", chucDanh: "Chỉ huy trưởng công trình", nguoiThemTen: "Bùi Văn H", thoiDiemThem: "2026-08-03" },
+    ],
     items: [
       { stt: 1, tenVatLieu: "Ống nhựa uPVC D90", quyCach: "class 2, cây 4m", donViTinh: "Cây", khoiLuongDeNghi: 240, nguoiPhuTrachUid: "u-tm2", nguoiPhuTrachTen: "Trần Văn C", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-08-03" },
       { stt: 2, tenVatLieu: "Dây điện đơn Cu/PVC 2.5mm²", donViTinh: "m", khoiLuongDeNghi: 3000, nguoiPhuTrachUid: "u-tm2", nguoiPhuTrachTen: "Trần Văn C", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-08-03" },
@@ -191,7 +201,10 @@ export const DE_NGHI_MAU: DeNghiMuaHang[] = [
     ngayCanHang: "2026-08-04",
     mucDoUuTien: "gap",
     trangThai: "da_phan_bo_du",
-    nguoiTheoDoi: ["Phạm Văn F", "Vũ Văn G"],
+    nguoiTheoDoi: [
+      { uid: "u-tc", ten: "Phạm Văn F", chucDanh: "Chỉ huy trưởng công trình", nguoiThemTen: "Phạm Văn F", thoiDiemThem: "2026-07-27" },
+      { uid: "u-qlda", ten: "Vũ Văn G", chucDanh: "Ban Quản lý Dự án", nguoiThemTen: "Trần Thị B", thoiDiemThem: "2026-07-28" },
+    ],
     items: [
       { stt: 1, tenVatLieu: "Xi măng PCB40", quyCach: "bao 50kg", donViTinh: "Bao", khoiLuongDeNghi: 600, nguoiPhuTrachUid: "u-tm1", nguoiPhuTrachTen: "Nguyễn Văn A", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-07-27" },
       { stt: 2, tenVatLieu: "Thép thanh vằn D12", quyCach: "CB400-V", donViTinh: "Kg", khoiLuongDeNghi: 8500, vatTuKiemSoatDinhMuc: true, nguoiPhuTrachUid: "u-tm1", nguoiPhuTrachTen: "Nguyễn Văn A", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-07-27" },
@@ -249,7 +262,9 @@ export const DE_NGHI_MAU: DeNghiMuaHang[] = [
     ngayCanHang: "2026-08-25",
     mucDoUuTien: "binh_thuong",
     trangThai: "dang_thuc_hien",
-    nguoiTheoDoi: ["Phạm Văn F"],
+    nguoiTheoDoi: [
+      { uid: "u-tc", ten: "Phạm Văn F", chucDanh: "Chỉ huy trưởng công trình", nguoiThemTen: "Phạm Văn F", thoiDiemThem: "2026-08-02" },
+    ],
     items: [
       { stt: 1, tenVatLieu: "Gạch ceramic 300x600 ốp tường", donViTinh: "m²", khoiLuongDeNghi: 540, nguoiPhuTrachUid: "u-tm2", nguoiPhuTrachTen: "Trần Văn C", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-08-02" },
       { stt: 2, tenVatLieu: "Sơn nước ngoại thất", quyCach: "thùng 18L", donViTinh: "Thùng", khoiLuongDeNghi: 36, nguoiPhuTrachUid: "u-tm2", nguoiPhuTrachTen: "Trần Văn C", nguoiPhanBoTen: "Trần Thị B", thoiDiemPhanBo: "2026-08-02" },

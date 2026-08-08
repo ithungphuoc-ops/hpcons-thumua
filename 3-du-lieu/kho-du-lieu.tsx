@@ -34,6 +34,7 @@ import type {
   DongNhanHang,
   DonDatHang,
   GiaDonDatHang,
+  NguoiTheoDoi,
   NhaCungCap,
   PhieuNhanHang,
   ThongBaoChuyenBuoc,
@@ -109,6 +110,16 @@ interface GiaTriDuLieu {
   /** Kéo thả vào cột Thất bại: đóng dở đề nghị, ghi lịch sử. */
   dongDoDeNghi: (prId: string, nguoiThucHien: string) => void;
 
+  // --- Người theo dõi ---
+  /** Thêm một người vào danh sách theo dõi đề nghị. Thêm trùng thì bỏ qua. */
+  themNguoiTheoDoi: (
+    prId: string,
+    nguoi: Pick<NguoiTheoDoi, "uid" | "ten" | "chucDanh">,
+    nguoiThemTen: string,
+  ) => void;
+  /** Bỏ một người khỏi danh sách theo dõi đề nghị. */
+  boNguoiTheoDoi: (prId: string, uid: string) => void;
+
   // --- Thông báo chuyển bước + tiếp nhận công tác ---
   /** Thông báo chuyển bước, mới nhất đứng đầu (tự sinh khi đề nghị đổi bước). */
   thongBao: ThongBaoChuyenBuoc[];
@@ -176,7 +187,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         tuBuoc: buocCu, // trống = đề nghị mới vào bảng
         denBuoc: buocMoi,
         thoiDiem: new Date().toISOString(),
-        guiToi: dn.nguoiTheoDoi ?? [],
+        guiToi: (dn.nguoiTheoDoi ?? []).map((n) => n.ten),
         daDoc: false,
       });
     }
@@ -228,7 +239,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       trangThai: "da_duyet",
       items: dauVao.items.map((d, i) => ({ ...d, stt: i + 1 })),
       // Người đề nghị mặc định theo dõi tiến trình đề nghị của chính mình.
-      nguoiTheoDoi: [dauVao.nguoiDeNghiTen],
+      nguoiTheoDoi: [
+        {
+          uid: "u-tc",
+          ten: dauVao.nguoiDeNghiTen,
+          chucDanh: "Chỉ huy trưởng công trình",
+          nguoiThemTen: dauVao.nguoiDeNghiTen,
+          thoiDiemThem: dauVao.ngayDeNghi,
+        },
+      ],
       lichSu: [
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },
         { thoiDiem: dauVao.ngayDuyet, nguoiThucHien: "Ban chỉ huy", hanhDong: "Duyệt đề nghị" },
@@ -534,6 +553,63 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  // ------------------------------------------------------------
+  // NGƯỜI THEO DÕI
+  // Nhật ký ghi trong CÙNG lần cập nhật (như `phanBoDong`) để danh sách và
+  // lịch sử không bao giờ lệch nhau nếu một trong hai lần ghi thất bại.
+  // ------------------------------------------------------------
+  const themNguoiTheoDoi = useCallback(
+    (
+      prId: string,
+      nguoi: Pick<NguoiTheoDoi, "uid" | "ten" | "chucDanh">,
+      nguoiThemTen: string,
+    ) => {
+      setDeNghi((truoc) =>
+        truoc.map((dn) => {
+          if (dn.id !== prId) return dn;
+          const ds = dn.nguoiTheoDoi ?? [];
+          if (ds.some((n) => n.uid === nguoi.uid)) return dn; // đã có thì thôi
+          return {
+            ...dn,
+            nguoiTheoDoi: [...ds, { ...nguoi, nguoiThemTen, thoiDiemThem: homNay() }],
+            lichSu: [
+              ...dn.lichSu,
+              {
+                thoiDiem: homNay(),
+                nguoiThucHien: nguoiThemTen,
+                hanhDong: `Thêm ${nguoi.ten} vào danh sách theo dõi`,
+              },
+            ],
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  const boNguoiTheoDoi = useCallback((prId: string, uid: string) => {
+    setDeNghi((truoc) =>
+      truoc.map((dn) => {
+        if (dn.id !== prId) return dn;
+        const ds = dn.nguoiTheoDoi ?? [];
+        const bi = ds.find((n) => n.uid === uid);
+        if (!bi) return dn;
+        return {
+          ...dn,
+          nguoiTheoDoi: ds.filter((n) => n.uid !== uid),
+          lichSu: [
+            ...dn.lichSu,
+            {
+              thoiDiem: homNay(),
+              nguoiThucHien: bi.nguoiThemTen,
+              hanhDong: `Bỏ ${bi.ten} khỏi danh sách theo dõi`,
+            },
+          ],
+        };
+      }),
+    );
+  }, []);
+
   const value = useMemo<GiaTriDuLieu>(
     () => ({
       deNghi,
@@ -555,6 +631,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
       dongDoDeNghi,
+      themNguoiTheoDoi,
+      boNguoiTheoDoi,
       thongBao,
       danhDauDaDocThongBao,
       nhanCongTac,
@@ -577,6 +655,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
       dongDoDeNghi,
+      themNguoiTheoDoi,
+      boNguoiTheoDoi,
       thongBao,
       danhDauDaDocThongBao,
       nhanCongTac,

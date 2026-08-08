@@ -95,8 +95,27 @@ export interface DeNghiMuaHang {
   /** Nhật ký thao tác — MỌI hành động sửa nội dung đều ghi thêm một dòng vào đây
    *  (ai làm · làm gì · lúc nào). Hiển thị ở khối "Lịch sử" trang chi tiết đề nghị. */
   lichSu: MocLichSu[];
-  /** Người theo dõi tiến trình đề nghị (tên hiển thị). Ver chạy thử: chỉ hiển thị đếm trên thẻ. */
-  nguoiTheoDoi?: string[];
+  /** Người được thêm vào để nắm tiến trình. Trống = chưa có ai theo dõi. */
+  nguoiTheoDoi?: NguoiTheoDoi[];
+}
+
+/**
+ * Người theo dõi một đề nghị — người muốn nắm tiến trình nhưng KHÔNG làm gì trên đó.
+ * Tương đương "người theo dõi" của một nhiệm vụ trên Base.vn.
+ *
+ * ⚠️ ĐỪNG NHẦM với màn "Theo dõi đề nghị" (`/theo-doi`) — màn đó là chỗ Phòng Thi công
+ * xem tiến trình đề nghị DO CHÍNH HỌ gửi. Còn đây là danh sách người được thêm vào.
+ *
+ * 🔴 Có tên trong danh sách này KHÔNG mở khóa việc xem giá. Đơn giá nằm ở chứng từ riêng
+ * `tm_donhang_gia`, chặn bằng Security Rule của chứng từ đó — đúng nguyên tắc dữ liệu số 3.
+ */
+export interface NguoiTheoDoi {
+  uid: string;
+  ten: string;
+  chucDanh: string;
+  /** Ai đã thêm người này vào — để truy được trách nhiệm. */
+  nguoiThemTen: string;
+  thoiDiemThem: NgayISO;
 }
 
 export interface MocLichSu {
