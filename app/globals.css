@@ -1,0 +1,318 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+ * HPCons Design System V1.1 — Design Tokens
+ * Nguồn: ../HPCons-Design-System-V1.1.md (Phần B, C)
+ * KHÔNG hardcode màu/khoảng cách/bo góc ngoài các biến này.
+ * ============================================================ */
+
+@theme inline {
+  /* --- Ánh xạ token HPCons -> biến shadcn (để mọi component dùng chung) --- */
+  --color-background: var(--hp-background);
+  --color-foreground: var(--hp-text-primary);
+  --color-card: var(--hp-card);
+  --color-card-foreground: var(--hp-text-primary);
+  --color-popover: var(--hp-elevated);
+  --color-popover-foreground: var(--hp-text-primary);
+  --color-primary: var(--hp-primary);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--hp-surface);
+  --color-secondary-foreground: var(--hp-text-primary);
+  --color-muted: var(--hp-surface);
+  --color-muted-foreground: var(--hp-text-secondary);
+  --color-accent: var(--hp-primary-bg);
+  --color-accent-foreground: var(--hp-primary);
+  --color-destructive: var(--hp-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--hp-border);
+  --color-input: var(--hp-border);
+  --color-ring: var(--hp-primary);
+
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-inter);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: var(--hp-radius-card);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* --- Tiện ích màu ngữ nghĩa HPCons (bg-success, text-warning-soft, v.v.) --- */
+  --color-success: var(--hp-success);
+  --color-success-soft: var(--hp-success-soft);
+  --color-success-bg: var(--hp-success-bg);
+  --color-warning: var(--hp-warning);
+  --color-warning-soft: var(--hp-warning-soft);
+  --color-warning-bg: var(--hp-warning-bg);
+  --color-danger: var(--hp-danger);
+  --color-danger-soft: var(--hp-danger-soft);
+  --color-danger-bg: var(--hp-danger-bg);
+  --color-neutral: var(--hp-neutral);
+  --color-neutral-soft: var(--hp-neutral-soft);
+  --color-neutral-bg: var(--hp-neutral-bg);
+  --color-primary-soft: var(--hp-primary-soft);
+  --color-primary-bg: var(--hp-primary-bg);
+  --color-nav-base: var(--hp-nav-base);
+  --color-nav-foreground: var(--hp-nav-foreground);
+  --color-nav-foreground-muted: var(--hp-nav-foreground-muted);
+  --color-nav-active: var(--hp-nav-active);
+  --color-nav-hover: var(--hp-nav-hover);
+  --color-surface: var(--hp-surface);
+  --color-elevated: var(--hp-elevated);
+  --color-divider: var(--hp-divider);
+  --color-text-primary: var(--hp-text-primary);
+  --color-text-secondary: var(--hp-text-secondary);
+  --color-text-desc: var(--hp-text-desc);
+  --color-text-disabled: var(--hp-text-disabled);
+
+  /* --- Bảng màu chủ đạo tùy chọn (nut-mau-chu-dao) — sinh lớp bg-mau-* cho chấm màu --- */
+  --color-mau-xanh-duong: var(--hp-mau-xanh-duong);
+  --color-mau-xanh-ngoc: var(--hp-mau-xanh-ngoc);
+  --color-mau-xanh-la: var(--hp-mau-xanh-la);
+  --color-mau-tim: var(--hp-mau-tim);
+  --color-mau-cam-dat: var(--hp-mau-cam-dat);
+}
+
+:root {
+  /* Bo góc: Button 8px, Card 12px (Phần C) */
+  --radius: 0.5rem; /* 8px — Button */
+  --hp-radius-card: 0.75rem; /* 12px — Card */
+
+  /* Hằng số bố cục (Phần C) — không thuộc thang khoảng cách 8px, cố định theo quy chuẩn */
+  --hp-sidebar-width: 260px;
+  --hp-header-height: 60px;
+  --hp-menu-l1-height: 44px;
+  --hp-menu-l2-height: 36px;
+  /* Bottom Navigation mobile: 56–64px (08-navigation/bottom-navigation.md) */
+  --hp-bottom-nav-height: 60px;
+
+  /* --- Bảng màu chủ đạo cho người dùng chọn (xem khối MÀU CHỦ ĐẠO bên dưới) --- */
+  --hp-mau-xanh-duong: #096aa7; /* chuẩn V1.1 */
+  --hp-mau-xanh-ngoc: #0f766e;
+  --hp-mau-xanh-la: #2e7d32;
+  --hp-mau-tim: #6d28d9;
+  --hp-mau-cam-dat: #c2410c;
+
+  /* --- B1. Màu trạng thái (giống nhau ở 2 theme) --- */
+  --hp-primary: #096aa7;
+  --hp-success: #60bb46;
+  --hp-warning: #ffa726;
+  --hp-neutral: #9e9e9e;
+  --hp-danger: #e53935;
+  --hp-nav-base: #4b4f55;
+  /* Sidebar cố định 1 tông tối cả 2 theme (nhận diện cố định) -> chữ/trạng thái trên
+     sidebar cũng cố định, không đổi theo theme. */
+  --hp-nav-foreground: #f5f7fa;
+  --hp-nav-foreground-muted: rgba(245, 247, 250, 0.64);
+  --hp-nav-active: var(--hp-primary);
+  --hp-nav-hover: rgba(245, 247, 250, 0.08);
+
+  /* --- B2. Light Mode --- */
+  --hp-background: #f1f5f9;
+  --hp-surface: #f8fafc;
+  --hp-card: #ffffff;
+  --hp-elevated: #ffffff;
+  --hp-border: rgba(15, 25, 35, 0.1);
+  --hp-divider: rgba(15, 25, 35, 0.06);
+  --hp-text-primary: #1b2733;
+  --hp-text-secondary: #46545f;
+  --hp-text-desc: #64707c;
+  --hp-text-disabled: #9aa5af;
+
+  /* --- B3. Tông phái sinh (Light: trộn với đen) --- */
+  --hp-primary-soft: color-mix(in srgb, var(--hp-primary) 62%, #000);
+  --hp-primary-bg: color-mix(in srgb, var(--hp-primary) 12%, transparent);
+  --hp-success-soft: color-mix(in srgb, var(--hp-success) 62%, #000);
+  --hp-success-bg: color-mix(in srgb, var(--hp-success) 12%, transparent);
+  --hp-warning-soft: color-mix(in srgb, var(--hp-warning) 62%, #000);
+  --hp-warning-bg: color-mix(in srgb, var(--hp-warning) 14%, transparent);
+  --hp-danger-soft: color-mix(in srgb, var(--hp-danger) 62%, #000);
+  --hp-danger-bg: color-mix(in srgb, var(--hp-danger) 12%, transparent);
+  --hp-neutral-soft: color-mix(in srgb, var(--hp-neutral) 62%, #000);
+  --hp-neutral-bg: color-mix(in srgb, var(--hp-neutral) 14%, transparent);
+}
+
+.dark {
+  /* --- B2. Dark Mode --- */
+  --hp-background: #0f1923;
+  --hp-surface: #131f2b;
+  --hp-card: #182531;
+  --hp-elevated: #1f2f3d;
+  --hp-border: rgba(255, 255, 255, 0.08);
+  --hp-divider: rgba(255, 255, 255, 0.06);
+  --hp-text-primary: #f5f7fa;
+  --hp-text-secondary: #b8c0c8;
+  --hp-text-desc: #8f9aa5;
+  --hp-text-disabled: #66717c;
+
+  /* --- B3. Tông phái sinh (Dark: trộn với trắng) --- */
+  --hp-primary-soft: color-mix(in srgb, var(--hp-primary) 60%, #fff);
+  --hp-primary-bg: color-mix(in srgb, var(--hp-primary) 20%, transparent);
+  --hp-success-soft: color-mix(in srgb, var(--hp-success) 60%, #fff);
+  --hp-success-bg: color-mix(in srgb, var(--hp-success) 20%, transparent);
+  --hp-warning-soft: color-mix(in srgb, var(--hp-warning) 60%, #fff);
+  --hp-warning-bg: color-mix(in srgb, var(--hp-warning) 22%, transparent);
+  --hp-danger-soft: color-mix(in srgb, var(--hp-danger) 60%, #fff);
+  --hp-danger-bg: color-mix(in srgb, var(--hp-danger) 20%, transparent);
+  --hp-neutral-soft: color-mix(in srgb, var(--hp-neutral) 60%, #fff);
+  --hp-neutral-bg: color-mix(in srgb, var(--hp-neutral) 22%, transparent);
+}
+
+/* ============================================================
+ * MÀU CHỦ ĐẠO — đổi bằng thuộc tính data-mau trên <html>
+ *
+ * Mọi tông phái sinh (nền nhạt, chữ đậm, sidebar active, ring...) đều
+ * color-mix từ --hp-primary, nên CHỈ ĐỔI MỘT BIẾN là toàn bộ nút bấm,
+ * badge, tab, liên kết đổi theo — ở cả Light lẫn Dark Mode.
+ *
+ * ⚠️ V1.1 quy định primary cố định #096AA7. Bảng màu này là TÙY CHỌN CÁ NHÂN
+ * (giống 3 mức mật độ): mặc định "xanh-duong" vẫn đúng chuẩn, đổi màu chỉ
+ * lưu trên máy người dùng. Muốn thành chuẩn chung phải trình Design System.
+ * ============================================================ */
+[data-mau="xanh-ngoc"] {
+  --hp-primary: var(--hp-mau-xanh-ngoc);
+}
+[data-mau="xanh-la"] {
+  --hp-primary: var(--hp-mau-xanh-la);
+}
+[data-mau="tim"] {
+  --hp-primary: var(--hp-mau-tim);
+}
+[data-mau="cam-dat"] {
+  --hp-primary: var(--hp-mau-cam-dat);
+}
+
+/* ============================================================
+ * MẬT ĐỘ HIỂN THỊ — 3 chế độ, đổi bằng thuộc tính data-matdo trên <html>
+ *
+ * "thoang" = ĐÚNG quy chuẩn V1.1 Phần C (lề 24/20/16 · section 24 · card 16 · đệm 16)
+ * "vua"    = thu gọn có kiểm soát, vẫn giữ thang 8px  ← mặc định hiện tại
+ * "gon"    = mật độ cao cho màn hình lớn / nhiều dữ liệu
+ *
+ * ⚠️ Mọi giá trị vẫn nằm trong thang khoảng cách 4/8/12/16/20/24 — KHÔNG dùng số tùy ý.
+ * Chốt xong chế độ nào thì đề nghị bổ sung chế độ đó vào Design System.
+ * ============================================================ */
+:root {
+  /* Mobile (<768px) — nền của cả 3 chế độ */
+  --hp-md-pad: 16px; /* lề vùng nội dung */
+  --hp-md-section: 20px; /* giữa các khu vực lớn */
+  --hp-md-card-gap: 12px; /* giữa các thẻ */
+  --hp-md-card-pad: 16px; /* đệm trong thẻ */
+  --hp-md-row-gap: 12px; /* giữa các dòng danh sách */
+  --hp-md-row-pad: 12px; /* đệm trong một dòng danh sách */
+}
+@media (min-width: 768px) {
+  :root {
+    --hp-md-pad: 20px;
+    --hp-md-card-gap: 16px;
+  }
+}
+@media (min-width: 1280px) {
+  :root {
+    --hp-md-pad: 24px;
+    --hp-md-section: 24px;
+  }
+}
+
+/* --- Chế độ VỪA --- */
+[data-matdo="vua"] {
+  --hp-md-pad: 12px;
+  --hp-md-section: 16px;
+  --hp-md-card-gap: 12px;
+  --hp-md-card-pad: 12px;
+  --hp-md-row-gap: 8px;
+  --hp-md-row-pad: 10px;
+}
+@media (min-width: 1280px) {
+  [data-matdo="vua"] {
+    --hp-md-pad: 16px;
+  }
+}
+
+/* --- Chế độ GỌN --- */
+[data-matdo="gon"] {
+  --hp-md-pad: 8px;
+  --hp-md-section: 12px;
+  --hp-md-card-gap: 8px;
+  --hp-md-card-pad: 8px;
+  --hp-md-row-gap: 4px;
+  --hp-md-row-pad: 8px;
+}
+@media (min-width: 1280px) {
+  [data-matdo="gon"] {
+    --hp-md-pad: 12px;
+  }
+}
+
+/* Đệm trong thẻ của shadcn đi theo mật độ (Card dùng biến --card-spacing) */
+[data-slot="card"] {
+  --card-spacing: var(--hp-md-card-pad);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ============================================================
+ * Phần D — Thang chữ (Display/H1/H2/H3/Caption theo PC-Tablet-Mobile)
+ * Breakpoint: Mobile <768 · Tablet 768-1279 (md) · Desktop >=1280 (xl)
+ * ============================================================ */
+@layer utilities {
+  .text-display {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  @variant md {
+    .text-display {
+      font-size: 26px;
+    }
+  }
+  @variant xl {
+    .text-display {
+      font-size: 28px;
+    }
+  }
+
+  .text-h1 {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  @variant md {
+    .text-h1 {
+      font-size: 24px;
+    }
+  }
+
+  .text-h2 {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  @variant xl {
+    .text-h2 {
+      font-size: 22px;
+    }
+  }
+
+  .text-h3 {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+}

@@ -1,0 +1,269 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useMemo } from "react";
+import { BadgeCheck, FileWarning, Lock } from "lucide-react";
+import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
+import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
+import { TimelineProgress } from "@/1-giao-dien/thanh-phan-dung-chung/timeline-progress";
+import { BangTienDoPO } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-tien-do-po";
+import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
+import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { poDaGiaoDu, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
+import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
+
+export default function TrangChiTietDonHang() {
+  const params = useParams<{ id: string }>();
+  const { donHang, phieuNhan, giaDonHang, xacNhanKho, xacNhanTruongBP } = useDuLieu();
+  const { nguoiDung, quyen } = useNguoiDung();
+
+  const po = donHang.find((x) => x.id === params.id);
+  const gia = giaDonHang.find((g) => g.poId === params.id);
+
+  const tienDo = useMemo(
+    () => (po ? tinhTienDoPO(po, phieuNhan.filter((p) => p.poId === po.id)) : []),
+    [po, phieuNhan],
+  );
+
+  if (!po) {
+    return (
+      <EmptyState
+        icon={FileWarning}
+        title="Không tìm thấy đơn đặt hàng"
+        description="Đơn hàng này không tồn tại hoặc bạn không có quyền xem."
+      />
+    );
+  }
+
+  const tt = NHAN_TRANG_THAI_PO[po.trangThai];
+  const daGiaoDu = poDaGiaoDu(tienDo);
+  const giaTri = tongGiaTriPO(po, gia);
+
+  function bamXacNhanKho() {
+    xacNhanKho(po!.id, {
+      uid: nguoiDung.uid,
+      ten: nguoiDung.tenHienThi,
+      thoiDiem: new Date().toISOString().slice(0, 10),
+    });
+  }
+
+  function bamXacNhanTruongBP() {
+    xacNhanTruongBP(po!.id, {
+      uid: nguoiDung.uid,
+      ten: nguoiDung.tenHienThi,
+      thoiDiem: new Date().toISOString().slice(0, 10),
+    });
+  }
+
+  return (
+    <>
+      <PageHeader
+        crumbs={[
+          { label: "Thu mua", href: "/tong-quan" },
+          { label: "Đơn đặt hàng", href: "/don-hang" },
+          { label: po.code },
+        ]}
+        title={po.code}
+        description={`Từ đề nghị ${po.prCode}${quyen.xemNhaCungCap ? ` · ${po.supplierTen}` : ""}`}
+        actions={<StatusBadge label={tt.nhan} tone={tt.tong} />}
+      />
+
+      {/* Thông tin PO */}
+      <Card>
+        <CardContent className="grid grid-cols-2 gap-(--hp-md-card-gap) md:grid-cols-4">
+          <ThongTin nhan="Mã dự án" giaTri={po.maDuAn} />
+          <ThongTin
+            nhan="Đề nghị nguồn"
+            giaTri={po.prCode}
+            href={`/de-nghi/${po.prId}`}
+          />
+          {quyen.xemNguoiPhuTrach && <ThongTin nhan="Người phụ trách" giaTri={po.nguoiPhuTrachTen} />}
+          <ThongTin nhan="Ngày lập PO" giaTri={new Date(po.ngayLapPO).toLocaleDateString("vi-VN")} />
+          <ThongTin
+            nhan="Ngày giao dự kiến"
+            giaTri={new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
+          />
+          {quyen.xemNhaCungCap && <ThongTin nhan="Nhà cung cấp" giaTri={po.supplierTen} />}
+          {po.dieuKienGiaoHang && <ThongTin nhan="Điều kiện giao hàng" giaTri={po.dieuKienGiaoHang} />}
+        </CardContent>
+      </Card>
+
+      {/* Timeline thời gian — component chuẩn V1.1 Phần E2, tái sử dụng từ bản cũ */}
+      <Card>
+        <CardContent>
+          <TimelineProgress
+            startDate={po.ngayLapPO}
+            endDate={po.ngayGiaoDuKien}
+            completed={po.trangThai === "hoan_thanh"}
+            mocThucTe={phieuNhan
+              .filter((p) => p.poId === po.id && p.trangThai === "da_nhap_kho")
+              .map((p) => ({ ngay: p.ngayNhanThucTe, nhan: `Lần ${p.lanGiaoThu} · ${p.code}` }))}
+          />
+        </CardContent>
+      </Card>
+
+      {/* M5 — Bảng tiến độ nhận hàng theo từng lần giao */}
+      <BangTienDoPO po={po} />
+
+      {/* Khối GIÁ — chỉ vai trò được xem giá thấy (collection tm_donhang_gia riêng) */}
+      {quyen.xemGia ? (
+        <section className="flex flex-col gap-(--hp-md-row-gap)">
+          <h2 className="text-h3 text-text-primary">Giá trị đơn hàng</h2>
+          <Card>
+            <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12 text-right">Dòng</TableHead>
+                      <TableHead>Vật liệu</TableHead>
+                      <TableHead className="text-right">Khối lượng</TableHead>
+                      <TableHead className="text-right">Đơn giá</TableHead>
+                      <TableHead className="text-right">Thành tiền</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {po.items.map((d) => {
+                      const g = gia?.lines.find((l) => l.sttDong === d.sttDong);
+                      const donGia = g?.donGia ?? 0;
+                      return (
+                        <TableRow key={d.sttDong}>
+                          <TableCell className="text-right text-text-desc">{d.sttDong}</TableCell>
+                          <TableCell className="font-medium">{d.tenVatLieu}</TableCell>
+                          <TableCell className="text-right">
+                            {d.khoiLuongDat.toLocaleString("vi-VN")} {d.donViTinh}
+                          </TableCell>
+                          <TableCell className="text-right">{donGia.toLocaleString("vi-VN")} ₫</TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {(donGia * d.khoiLuongDat).toLocaleString("vi-VN")} ₫
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              <p className="text-right text-sm font-bold text-text-primary">
+                Tổng giá trị: {giaTri.toLocaleString("vi-VN")} ₫
+              </p>
+            </CardContent>
+          </Card>
+        </section>
+      ) : (
+        <Card>
+          <CardContent className="flex items-center gap-3 text-sm text-text-desc">
+            <Lock className="size-4 shrink-0" aria-hidden />
+            <span>
+              Vai trò <strong className="text-text-secondary">{nguoiDung.chucDanh}</strong> không được xem
+              giá. Đơn giá nằm ở collection riêng <code className="text-xs">tm_donhang_gia</code> — chặn ở
+              tầng dữ liệu, không phải ẩn ở giao diện.
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Điều kiện hoàn thành PO — 3 lớp */}
+      <section className="flex flex-col gap-(--hp-md-row-gap)">
+        <h2 className="text-h3 text-text-primary">Hoàn thành đơn hàng</h2>
+        <Card>
+          <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+            <ol className="flex flex-col gap-2">
+              <DieuKien
+                so={1}
+                nhan="Đã giao đủ toàn bộ khối lượng"
+                xong={daGiaoDu}
+                moTa={daGiaoDu ? "Mọi dòng còn lại = 0" : "Còn dòng chưa nhận đủ"}
+              />
+              <DieuKien
+                so={2}
+                nhan="Thủ kho công trình xác nhận"
+                xong={Boolean(po.xacNhanKho)}
+                moTa={
+                  po.xacNhanKho
+                    ? `${po.xacNhanKho.ten} · ${new Date(po.xacNhanKho.thoiDiem).toLocaleDateString("vi-VN")}`
+                    : "Chưa xác nhận"
+                }
+              />
+              <DieuKien
+                so={3}
+                nhan="Trưởng bộ phận thu mua xác nhận"
+                xong={Boolean(po.xacNhanTruongBP)}
+                moTa={
+                  po.xacNhanTruongBP
+                    ? `${po.xacNhanTruongBP.ten} · ${new Date(po.xacNhanTruongBP.thoiDiem).toLocaleDateString("vi-VN")}`
+                    : "Chưa xác nhận"
+                }
+              />
+            </ol>
+
+            <div className="flex flex-wrap gap-2 border-t border-divider pt-4">
+              {quyen.xacNhanKho && daGiaoDu && !po.xacNhanKho && (
+                <Button onClick={bamXacNhanKho}>
+                  <BadgeCheck className="size-4" aria-hidden />
+                  Thủ kho xác nhận đã nhận đủ
+                </Button>
+              )}
+              {quyen.xacNhanTruongBP && daGiaoDu && po.xacNhanKho && !po.xacNhanTruongBP && (
+                <Button onClick={bamXacNhanTruongBP}>
+                  <BadgeCheck className="size-4" aria-hidden />
+                  Trưởng bộ phận xác nhận hoàn thành
+                </Button>
+              )}
+              {po.trangThai === "hoan_thanh" && (
+                <p className="rounded-lg bg-success-bg px-3 py-2 text-sm text-success-soft">
+                  PO đã hoàn thành — hồ sơ chuyển sang app Kế toán, PO khóa không sửa được nữa.
+                </p>
+              )}
+              {!daGiaoDu && (
+                <p className="text-sm text-text-desc">
+                  Chưa đủ điều kiện — phải giao đủ khối lượng trước khi xác nhận hoàn thành.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+    </>
+  );
+}
+
+function ThongTin({ nhan, giaTri, href }: { nhan: string; giaTri: string; href?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-text-desc">{nhan}</span>
+      {href ? (
+        <Link href={href} className="text-sm font-medium text-primary hover:underline">
+          {giaTri}
+        </Link>
+      ) : (
+        <span className="text-sm font-medium text-text-primary">{giaTri}</span>
+      )}
+    </div>
+  );
+}
+
+function DieuKien({ so, nhan, xong, moTa }: { so: number; nhan: string; xong: boolean; moTa: string }) {
+  return (
+    <li className="flex items-start gap-3">
+      <span
+        className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+          xong ? "bg-success text-white" : "bg-muted text-text-desc"
+        }`}
+        aria-hidden
+      >
+        {xong ? "✓" : so}
+      </span>
+      <div className="flex flex-col">
+        <span className={`text-sm font-medium ${xong ? "text-text-primary" : "text-text-secondary"}`}>
+          {nhan}
+        </span>
+        <span className={`text-xs ${xong ? "text-success-soft" : "text-text-desc"}`}>{moTa}</span>
+      </div>
+    </li>
+  );
+}

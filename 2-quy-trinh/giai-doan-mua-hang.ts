@@ -1,0 +1,367 @@
+// ============================================================
+// GIAI ĐOẠN MUA HÀNG — 8 cột của bảng quy trình (dạng Kanban)
+//
+// Đặt theo đúng quy trình đang chạy thật trên Base.vn của công ty
+// ("TM-QT Mua hàng (HP CONS)"), Ban lãnh đạo cung cấp ngày 06/08/2026:
+//
+//   1 Tiếp nhận và kiểm tra → 2 Yêu cầu NCC báo giá → 3 Xét duyệt báo giá
+//   → 4 Lập đơn mua hàng → 5 Tiến hành đặt hàng → 6 Tiến hành nhận hàng
+//   → 7 Hoàn thành   ·   Thất bại (nhánh dừng)
+//
+// 🔴 NGUYÊN TẮC: giai đoạn KHÔNG phải một trường lưu trong dữ liệu.
+// Nó được SUY RA từ chứng từ có thật (báo giá · đơn đặt hàng · phiếu nhận hàng).
+// Lưu thành trường riêng sẽ tạo ra nguồn sự thật thứ hai: kéo thẻ sang cột
+// "Tiến hành nhận hàng" trong khi chưa có phiếu nhận nào thì bảng báo tiến độ ảo.
+// Muốn thẻ sang cột mới thì phải làm đúng nghiệp vụ của cột đó.
+// ============================================================
+
+import type {
+  BaoGia,
+  DeNghiMuaHang,
+  DonDatHang,
+  PhieuNhanHang,
+} from "@/3-du-lieu/kieu-du-lieu";
+import type { Tong } from "@/2-quy-trinh/trang-thai";
+import { daysUntil } from "@/6-tien-ich/dinh-dang";
+
+export type GiaiDoanMuaHang =
+  | "tiep_nhan"
+  | "yeu_cau_bao_gia"
+  | "xet_duyet_bao_gia"
+  | "lap_don_mua_hang"
+  | "dat_hang"
+  | "nhan_hang"
+  | "hoan_thanh"
+  | "that_bai";
+
+export interface MoTaGiaiDoan {
+  ma: GiaiDoanMuaHang;
+  /** Nhãn cột — giữ nguyên chữ đang dùng trên Base để người quen việc không phải học lại. */
+  nhan: string;
+  /** Câu giải thích ngắn: đứng ở cột này nghĩa là đang chờ việc gì. */
+  moTa: string;
+  tong: Tong;
+}
+
+/** Thứ tự trong mảng này CHÍNH LÀ thứ tự cột trên bảng. */
+export const GIAI_DOAN_MUA_HANG: MoTaGiaiDoan[] = [
+  {
+    ma: "tiep_nhan",
+    nhan: "Tiếp nhận và kiểm tra",
+    moTa: "Đề nghị đã duyệt, thu mua đang kiểm tra và phân bổ người phụ trách",
+    tong: "neutral",
+  },
+  {
+    ma: "yeu_cau_bao_gia",
+    nhan: "Yêu cầu NCC báo giá",
+    moTa: "Đã gửi yêu cầu, đang chờ nhà cung cấp gửi giá về",
+    tong: "warning",
+  },
+  {
+    ma: "xet_duyet_bao_gia",
+    nhan: "Xét duyệt báo giá",
+    moTa: "Đã có đủ giá, đang so sánh và trình duyệt chọn nhà cung cấp",
+    tong: "warning",
+  },
+  {
+    ma: "lap_don_mua_hang",
+    nhan: "Lập đơn mua hàng",
+    moTa: "Đã chốt nhà cung cấp, đang lập đơn đặt hàng",
+    tong: "primary",
+  },
+  {
+    ma: "dat_hang",
+    nhan: "Tiến hành đặt hàng",
+    moTa: "Đơn đã chốt và gửi nhà cung cấp, chờ giao hàng",
+    tong: "primary",
+  },
+  {
+    ma: "nhan_hang",
+    nhan: "Tiến hành nhận hàng",
+    moTa: "Hàng đang về, thủ kho ghi nhận từng lần giao",
+    tong: "primary",
+  },
+  {
+    ma: "hoan_thanh",
+    nhan: "Hoàn thành",
+    moTa: "Đã nhận đủ, kho và trưởng bộ phận đã xác nhận",
+    tong: "success",
+  },
+  {
+    ma: "that_bai",
+    nhan: "Thất bại",
+    moTa: "Đề nghị bị đóng dở hoặc hủy, không mua tiếp",
+    tong: "danger",
+  },
+];
+
+export const NHAN_GIAI_DOAN: Record<GiaiDoanMuaHang, MoTaGiaiDoan> = Object.fromEntries(
+  GIAI_DOAN_MUA_HANG.map((g) => [g.ma, g]),
+) as Record<GiaiDoanMuaHang, MoTaGiaiDoan>;
+
+// ------------------------------------------------------------
+// SUY RA GIAI ĐOẠN
+// ------------------------------------------------------------
+
+/**
+ * Đề nghị đang ở cột nào. Xét từ giai đoạn XA NHẤT trở về, vì một đề nghị
+ * có thể vừa còn báo giá dở vừa đã có đơn hàng đang giao — khi đó nó thuộc
+ * về giai đoạn đi xa nhất, đúng như cách bảng Base đang chạy.
+ */
+export function xacDinhGiaiDoan(
+  deNghi: DeNghiMuaHang,
+  tatCaPO: DonDatHang[],
+  tatCaBaoGia: BaoGia[],
+  tatCaPhieu: PhieuNhanHang[],
+): GiaiDoanMuaHang {
+  if (deNghi.trangThai === "dong_do") return "that_bai";
+
+  const poCuaDeNghi = tatCaPO.filter((po) => po.prId === deNghi.id && po.trangThai !== "huy");
+
+  // ⑦ Hoàn thành — mọi đơn hàng của đề nghị đều đã đủ 3 lớp xác nhận.
+  if (deNghi.trangThai === "hoan_thanh") return "hoan_thanh";
+  if (poCuaDeNghi.length > 0 && poCuaDeNghi.every((po) => po.trangThai === "hoan_thanh")) {
+    return "hoan_thanh";
+  }
+
+  // ⑥ Tiến hành nhận hàng — đã có hàng về, hoặc đơn đã chuyển sang trạng thái đang giao.
+  const daCoPhieuNhan = tatCaPhieu.some((p) => poCuaDeNghi.some((po) => po.id === p.poId));
+  const dangGiao = poCuaDeNghi.some(
+    (po) => po.trangThai === "dang_giao" || po.trangThai === "cho_xac_nhan_hoan_thanh",
+  );
+  if (daCoPhieuNhan || dangGiao) return "nhan_hang";
+
+  // ⑤ Tiến hành đặt hàng — đơn đã chốt, chưa có hàng nào về.
+  if (poCuaDeNghi.some((po) => po.trangThai === "da_chot")) return "dat_hang";
+
+  // ④ Lập đơn mua hàng — đang có đơn nháp, hoặc đã chọn NCC mà chưa lên đơn.
+  if (poCuaDeNghi.some((po) => po.trangThai === "nhap")) return "lap_don_mua_hang";
+
+  const baoGiaCuaDeNghi = tatCaBaoGia.filter((bg) => bg.prId === deNghi.id && bg.trangThai !== "huy");
+  if (baoGiaCuaDeNghi.some((bg) => bg.trangThai === "da_chon_ncc")) return "lap_don_mua_hang";
+
+  // ③ Xét duyệt báo giá · ② Yêu cầu NCC báo giá
+  if (baoGiaCuaDeNghi.some((bg) => bg.trangThai === "da_so_sanh")) return "xet_duyet_bao_gia";
+  if (baoGiaCuaDeNghi.some((bg) => bg.trangThai === "dang_thu_thap")) return "yeu_cau_bao_gia";
+
+  // ① Chưa phát sinh chứng từ nào.
+  return "tiep_nhan";
+}
+
+/** Giai đoạn đã kết thúc thì không còn tính hạn xử lý nữa. */
+export function giaiDoanDaKetThuc(giaiDoan: GiaiDoanMuaHang): boolean {
+  return giaiDoan === "hoan_thanh" || giaiDoan === "that_bai";
+}
+
+/**
+ * Đề nghị đã đóng sổ (hoàn thành hoặc đóng dở) thì KHÔNG được đếm vào việc còn phải làm.
+ * Không có cái này thì đề nghị đã đóng dở vẫn nằm trong hàng chờ phân bổ và trong
+ * thẻ KPI của Bảng điều khiển — trưởng bộ phận sẽ thấy việc tồn nhiều hơn thực tế.
+ */
+export function deNghiConDangChay(deNghi: DeNghiMuaHang): boolean {
+  return deNghi.trangThai !== "hoan_thanh" && deNghi.trangThai !== "dong_do";
+}
+
+// ------------------------------------------------------------
+// HẠN XỬ LÝ — mốc là NGÀY CẦN HÀNG của đề nghị
+// ------------------------------------------------------------
+
+export interface HanXuLy {
+  nhan: string;
+  tong: Tong;
+  quaHan: boolean;
+}
+
+/**
+ * Bảng Base hiển thị "Quá hạn 1 day" / "Đến hạn trong 21h47m" / "Không thời hạn".
+ * App này chỉ có ngày cần hàng (không có giờ) nên tính theo ngày lịch.
+ *
+ * ⚠️ Dùng `new Date()` lúc dựng trang. Với hosting tĩnh, trang sinh ra ở thời điểm
+ * build nên mốc quá hạn có thể lệch một bậc — đúng hiện trạng đã ghi ở SESSION-LOG
+ * phiên 02, sẽ xử lý chung một lượt khi nối dữ liệu thật.
+ */
+export function hanXuLyDeNghi(
+  deNghi: DeNghiMuaHang,
+  giaiDoan: GiaiDoanMuaHang,
+  moc: Date = new Date(),
+): HanXuLy {
+  if (giaiDoanDaKetThuc(giaiDoan)) {
+    return { nhan: "Không còn thời hạn", tong: "neutral", quaHan: false };
+  }
+
+  const soNgay = daysUntil(deNghi.ngayCanHang, moc);
+  if (soNgay < 0) return { nhan: `Quá hạn ${-soNgay} ngày`, tong: "danger", quaHan: true };
+  if (soNgay === 0) return { nhan: "Đến hạn hôm nay", tong: "danger", quaHan: true };
+  if (soNgay <= 3) return { nhan: `Còn ${soNgay} ngày`, tong: "warning", quaHan: false };
+  return { nhan: `Còn ${soNgay} ngày`, tong: "primary", quaHan: false };
+}
+
+// ------------------------------------------------------------
+// GOM NHÓM CHO BẢNG
+// ------------------------------------------------------------
+
+export interface TheDeNghiTrenBang {
+  deNghi: DeNghiMuaHang;
+  giaiDoan: GiaiDoanMuaHang;
+  han: HanXuLy;
+  /** Người phụ trách lấy từ các dòng đã phân bổ, không trùng lặp. */
+  nguoiPhuTrach: string[];
+  soDongChuaPhanBo: number;
+  /** Mã các đơn đặt hàng đã lập cho đề nghị này. */
+  maPOLienQuan: string[];
+}
+
+export interface CotBangQuyTrinh {
+  giaiDoan: MoTaGiaiDoan;
+  the: TheDeNghiTrenBang[];
+  soQuaHan: number;
+}
+
+/** Dựng đủ 8 cột theo đúng thứ tự, kể cả cột rỗng — cột rỗng cũng là thông tin. */
+export function dungBangQuyTrinh(
+  tatCaDeNghi: DeNghiMuaHang[],
+  tatCaPO: DonDatHang[],
+  tatCaBaoGia: BaoGia[],
+  tatCaPhieu: PhieuNhanHang[],
+  moc: Date = new Date(),
+): CotBangQuyTrinh[] {
+  const the: TheDeNghiTrenBang[] = tatCaDeNghi.map((deNghi) => {
+    const giaiDoan = xacDinhGiaiDoan(deNghi, tatCaPO, tatCaBaoGia, tatCaPhieu);
+    return {
+      deNghi,
+      giaiDoan,
+      han: hanXuLyDeNghi(deNghi, giaiDoan, moc),
+      nguoiPhuTrach: [
+        ...new Set(
+          deNghi.items
+            .map((d) => d.nguoiPhuTrachTen)
+            .filter((x): x is string => Boolean(x)),
+        ),
+      ],
+      soDongChuaPhanBo: deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length,
+      maPOLienQuan: tatCaPO
+        .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
+        .map((po) => po.code),
+    };
+  });
+
+  return GIAI_DOAN_MUA_HANG.map((giaiDoan) => {
+    const cuaCot = the.filter((t) => t.giaiDoan === giaiDoan.ma);
+    return {
+      giaiDoan,
+      // Việc gấp và việc sắp trễ nổi lên trên — đúng thói quen đọc bảng của trưởng bộ phận.
+      the: [...cuaCot].sort(
+        (a, b) => new Date(a.deNghi.ngayCanHang).getTime() - new Date(b.deNghi.ngayCanHang).getTime(),
+      ),
+      soQuaHan: cuaCot.filter((t) => t.han.quaHan).length,
+    };
+  });
+}
+
+// ------------------------------------------------------------
+// KÉO THẢ TRÊN BẢNG
+//
+// Giai đoạn được SUY RA từ chứng từ (nguyên tắc đầu file) nên kéo thẻ sang cột
+// mới KHÔNG phải là "đổi nhãn" — nó phải LÀM ĐÚNG NGHIỆP VỤ của cột đó:
+//   · Bước làm ngay được (tạo bảng báo giá, chốt so sánh, đóng dở) → làm luôn, thẻ tự chuyển
+//   · Bước cần người quyết định (chọn NCC, lập PO, ghi phiếu nhận) → mở đúng màn hình đó
+//   · Bước không hợp lệ (kéo lùi, nhảy cóc, ép hoàn thành) → giải thích lý do, thẻ đứng yên
+// ------------------------------------------------------------
+
+export type HanhDongKeoTha =
+  | { loai: "tao_bao_gia" }
+  | { loai: "chot_so_sanh" }
+  | { loai: "dong_do" }
+  | { loai: "mo_trang"; duongDan: string; thongBao: string }
+  | { loai: "khong_the"; lyDo: string };
+
+const THU_TU_GIAI_DOAN: GiaiDoanMuaHang[] = GIAI_DOAN_MUA_HANG.map((g) => g.ma);
+
+/**
+ * Quyết định điều gì xảy ra khi thả thẻ `the` vào cột `dich`.
+ * Hàm thuần — không đụng dữ liệu; việc thực thi nằm ở trang gọi nó.
+ * Trả về null khi thả về đúng cột cũ (không làm gì).
+ */
+export function quyetDinhKeoTha(
+  the: TheDeNghiTrenBang,
+  dich: GiaiDoanMuaHang,
+  poCuaDeNghi: DonDatHang[],
+  baoGiaCuaDeNghi: BaoGia[],
+): HanhDongKeoTha | null {
+  const tu = the.giaiDoan;
+  if (tu === dich) return null;
+
+  if (giaiDoanDaKetThuc(tu)) {
+    return { loai: "khong_the", lyDo: "Đề nghị đã kết thúc — không kéo được nữa." };
+  }
+
+  if (dich === "that_bai") return { loai: "dong_do" };
+
+  if (dich === "hoan_thanh") {
+    return {
+      loai: "khong_the",
+      lyDo: "Hoàn thành cần đủ 3 điều kiện: giao đủ khối lượng + thủ kho xác nhận + trưởng bộ phận xác nhận — thao tác ở trang chi tiết đơn hàng.",
+    };
+  }
+
+  const buocTu = THU_TU_GIAI_DOAN.indexOf(tu);
+  const buocDich = THU_TU_GIAI_DOAN.indexOf(dich);
+
+  if (buocDich < buocTu) {
+    return {
+      loai: "khong_the",
+      lyDo: "Không kéo lùi được — giai đoạn suy ra từ chứng từ thật (báo giá, đơn hàng, phiếu nhận). Muốn lùi phải hủy chứng từ tương ứng.",
+    };
+  }
+
+  if (buocDich > buocTu + 1) {
+    return { loai: "khong_the", lyDo: "Chỉ chuyển được sang bước liền kề, không nhảy cóc." };
+  }
+
+  // Từ đây trở xuống: dich là bước LIỀN KỀ phía trước
+  switch (tu) {
+    case "tiep_nhan":
+      return { loai: "tao_bao_gia" };
+
+    case "yeu_cau_bao_gia":
+      return baoGiaCuaDeNghi.some((b) => b.trangThai === "dang_thu_thap")
+        ? { loai: "chot_so_sanh" }
+        : { loai: "khong_the", lyDo: "Chưa có bảng báo giá đang thu thập nào cho đề nghị này." };
+
+    case "xet_duyet_bao_gia": {
+      const bg = baoGiaCuaDeNghi.find((b) => b.trangThai === "da_so_sanh");
+      return {
+        loai: "mo_trang",
+        duongDan: bg ? `/bao-gia/${bg.id}` : "/bao-gia",
+        thongBao: "Chọn nhà cung cấp trong bảng so sánh — chọn xong thẻ tự chuyển bước.",
+      };
+    }
+
+    case "lap_don_mua_hang": {
+      const poNhap = poCuaDeNghi.find((po) => po.trangThai === "nhap");
+      return poNhap
+        ? {
+            loai: "mo_trang",
+            duongDan: `/don-hang/${poNhap.id}`,
+            thongBao: "Chốt đơn hàng nháp — chốt xong thẻ tự chuyển bước.",
+          }
+        : {
+            loai: "mo_trang",
+            duongDan: "/don-hang/tao-moi",
+            thongBao: "Lập đơn hàng cho đề nghị — lập xong thẻ tự chuyển bước.",
+          };
+    }
+
+    case "dat_hang": {
+      const po = poCuaDeNghi.find((p) => p.trangThai === "da_chot") ?? poCuaDeNghi[0];
+      return {
+        loai: "mo_trang",
+        duongDan: po ? `/don-hang/${po.id}` : "/don-hang",
+        thongBao: "Ghi phiếu nhận hàng lần đầu — có hàng về là thẻ tự chuyển bước.",
+      };
+    }
+
+    default:
+      return { loai: "khong_the", lyDo: "Bước chuyển này chưa được hỗ trợ." };
+  }
+}
