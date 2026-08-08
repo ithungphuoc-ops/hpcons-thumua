@@ -63,6 +63,9 @@ export interface DongDeNghi {
   quyCach?: string;
   donViTinh: string;
   khoiLuongDeNghi: number;
+  /** Cột "Mục đích sử dụng" trên phiếu đề nghị của công ty — dùng cho hạng mục nào.
+   *  Chuyển tiếp sang `DongPO.mucDichSuDung` khi lập đơn để in ra đơn mua hàng. */
+  mucDichSuDung?: string;
   ghiChu?: string;
   /** Cờ cảnh báo QLDA. Ver 1 gán tay; ver sau lấy từ danh mục vật tư. */
   vatTuKiemSoatDinhMuc?: boolean;

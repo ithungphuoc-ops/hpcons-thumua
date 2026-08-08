@@ -56,6 +56,9 @@ export interface DauVaoDeNghiGiaLap {
   ngayCanHang: string;
   mucDoUuTien: "binh_thuong" | "gap";
   items: Omit<DongDeNghi, "stt">[];
+  /** Người theo dõi chọn sẵn lúc lập phiếu (mục "Người theo dõi" trên phiếu đề nghị).
+   *  Người đề nghị luôn được thêm tự động, không cần khai ở đây. */
+  nguoiTheoDoi?: Pick<NguoiTheoDoi, "uid" | "ten" | "chucDanh">[];
 }
 
 /**
@@ -260,7 +263,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       // Đề nghị vào app luôn ở trạng thái ĐÃ DUYỆT — app Thu mua không duyệt đề nghị.
       trangThai: "da_duyet",
       items: dauVao.items.map((d, i) => ({ ...d, stt: i + 1 })),
-      // Người đề nghị mặc định theo dõi tiến trình đề nghị của chính mình.
+      // Người đề nghị mặc định theo dõi tiến trình đề nghị của chính mình,
+      // rồi tới những người được chọn thêm ở mục "Người theo dõi" của phiếu.
       nguoiTheoDoi: [
         {
           uid: "u-tc",
@@ -269,6 +273,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           nguoiThemTen: dauVao.nguoiDeNghiTen,
           thoiDiemThem: dauVao.ngayDeNghi,
         },
+        ...(dauVao.nguoiTheoDoi ?? [])
+          // Bỏ trùng với người đề nghị đã thêm ở trên.
+          .filter((n) => n.uid !== "u-tc")
+          .map((n) => ({
+            ...n,
+            nguoiThemTen: dauVao.nguoiDeNghiTen,
+            thoiDiemThem: dauVao.ngayDeNghi,
+          })),
       ],
       lichSu: [
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },

@@ -1,0 +1,52 @@
+# ============================================================
+# .gitignore — MÃ NGUỒN APP THU MUA HP CONS
+# File này đi cùng mã nguồn khi đẩy lên GitHub, nên phải tự đủ,
+# không dựa vào .gitignore của thư mục cha.
+# ============================================================
+
+# ---- Thư viện tải về (chạy `npm install` là có lại) ----
+node_modules/
+
+# ---- Sản phẩm build ----
+.next/
+.next-check/
+out/
+build/
+dist/
+.firebase/
+*.tsbuildinfo
+
+# ---- Vercel ----
+.vercel/
+
+# ============================================================
+# 🔴 BÍ MẬT — TUYỆT ĐỐI KHÔNG ĐƯA LÊN GITHUB
+# ============================================================
+.env
+.env.local
+.env*.local
+!.env.local.example
+
+# Khóa service account Firebase (Admin SDK) — có TOÀN QUYỀN trên project,
+# bỏ qua sạch Security Rules. Lọt lên GitHub là mất cả kho dữ liệu.
+# Chỗ đúng để cất: biến môi trường trên Vercel, không để trong mã nguồn.
+*firebase-adminsdk*.json
+*-adminsdk-*.json
+serviceAccount*.json
+service-account*.json
+*credentials*.json
+*.pem
+*.p12
+*.key
+
+# ---- Bản xung đột do OneDrive tráo file ----
+*-DESKTOP-*
+*-LAPTOP-*
+*-MANHCT*
+*conflict*
+
+# ---- Rác hệ điều hành / trình soạn thảo ----
+Thumbs.db
+desktop.ini
+.DS_Store
+~$*

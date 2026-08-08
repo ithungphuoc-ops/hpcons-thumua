@@ -128,7 +128,9 @@ function NoiDungLapDonHang() {
         thongSoKyThuat: thongSo[stt]?.trim() || dong.quyCach || undefined,
         donViTinh: dong.donViTinh,
         khoiLuongDat: nhap > 0 ? Math.min(nhap, dong.khoiLuongChuaLenPO) : dong.khoiLuongChuaLenPO,
-        mucDichSuDung: mucDich[stt]?.trim() || undefined,
+        // Chưa nhập riêng thì lấy mục đích người đề nghị đã ghi trên phiếu — thông tin
+        // đó đi thẳng ra đơn mua hàng gửi nhà cung cấp, không phải gõ lại.
+        mucDichSuDung: mucDich[stt]?.trim() || dong.mucDichSuDung || undefined,
       };
     });
 
@@ -309,7 +311,7 @@ function NoiDungLapDonHang() {
                           <Label htmlFor={`md-${d.stt}`}>Mục đích sử dụng</Label>
                           <Input
                             id={`md-${d.stt}`}
-                            placeholder="Hạng mục nào của công trình"
+                            placeholder={d.mucDichSuDung ?? "Hạng mục nào của công trình"}
                             value={mucDich[d.stt] ?? ""}
                             onChange={(e) => setMucDich((t) => ({ ...t, [d.stt]: e.target.value }))}
                             className="w-52"

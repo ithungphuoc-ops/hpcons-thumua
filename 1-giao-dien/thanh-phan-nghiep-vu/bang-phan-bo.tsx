@@ -130,6 +130,14 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                       <div className="flex flex-col">
                         <span>{d.tenVatLieu}</span>
                         {d.quyCach && <span className="text-xs text-text-desc">{d.quyCach}</span>}
+                        {/* Mục đích sử dụng do người đề nghị ghi trên phiếu — hiện ngay
+                            dưới tên vật liệu để người lập đơn biết mua cho hạng mục nào,
+                            khỏi phải mở lại phiếu gốc. */}
+                        {d.mucDichSuDung && (
+                          <span className="text-xs text-text-desc">
+                            Dùng cho: {d.mucDichSuDung}
+                          </span>
+                        )}
                         {d.vatTuKiemSoatDinhMuc && (
                           <span className="mt-0.5 w-fit rounded bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning-soft">
                             Vật tư kiểm soát định mức
@@ -185,6 +193,9 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                       {d.stt}. {d.tenVatLieu}
                     </span>
                     {d.quyCach && <span className="text-xs text-text-desc">{d.quyCach}</span>}
+                    {d.mucDichSuDung && (
+                      <span className="text-xs text-text-desc">Dùng cho: {d.mucDichSuDung}</span>
+                    )}
                   </div>
                   <StatusBadge label={tt.nhan} tone={tt.tong} />
                 </div>
