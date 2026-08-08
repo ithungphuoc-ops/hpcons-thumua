@@ -32,11 +32,24 @@ import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 export default function TrangInDonHang() {
   const params = useParams<{ id: string }>();
   const { donHang, giaDonHang, nhaCungCap } = useDuLieu();
-  const { nguoiDung, quyen } = useNguoiDung();
+  const { nguoiDung, quyen, daDangNhap } = useNguoiDung();
 
   const po = donHang.find((x) => x.id === params.id);
   const gia = giaDonHang.find((g) => g.poId === params.id);
   const ncc = po ? nhaCungCap.find((n) => n.id === po.supplierId) : undefined;
+
+  // 🔴 Trang in nằm NGOÀI nhóm (app) nên không được `CongBaoVe` che — phải tự chặn.
+  // Thiếu chỗ này thì gõ thẳng địa chỉ /in/don-hang/... là xem được đơn hàng kèm
+  // ĐƠN GIÁ mà không cần đăng nhập.
+  if (daDangNhap === null) return <div className="min-h-screen bg-white" aria-busy="true" />;
+  if (!daDangNhap) {
+    return (
+      <ThongBaoTrang
+        tieuDe="Chưa đăng nhập"
+        moTa="Mở app và đăng nhập trước, rồi vào lại trang in đơn mua hàng."
+      />
+    );
+  }
 
   if (!po) {
     return (

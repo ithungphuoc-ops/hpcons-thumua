@@ -123,11 +123,47 @@ export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
 
 export interface VaiTroMau extends NguoiDung {
   moTa: string;
+  /** Tên đăng nhập ở màn hình đăng nhập chạy thử. */
+  tenDangNhap: string;
 }
 
+/**
+ * 🔴 TÀI KHOẢN CHẠY THỬ — KHÔNG PHẢI TÀI KHOẢN THẬT.
+ *
+ * Dùng cho màn đăng nhập giả lập khi chưa nối Firebase Auth. Mật khẩu chung khai ở
+ * `MAT_KHAU_CHAY_THU`. Khi nối thật: xóa cả mảng này, đọc `users/{uid}` và custom
+ * claims từ project `hpcons-portal` — phần giao diện KHÔNG phải sửa.
+ *
+ * Danh sách phủ đủ 4 cấp quyền của App Tổng (1 Xem → 4 Quản trị) để kiểm chứng
+ * phân quyền, đặc biệt là luật "Kho và Phòng Thi công KHÔNG thấy giá".
+ */
 export const VAI_TRO_MAU: VaiTroMau[] = [
   {
+    uid: "u-admin",
+    tenDangNhap: "quantri",
+    tenHienThi: "Cao Văn X",
+    chucDanh: "Quản trị hệ thống",
+    phongBan: "Phòng Hành chính Nhân sự — IT",
+    chucNang: "truong_bo_phan_thu_mua",
+    vaiTro: "admin",
+    capTM: 4,
+    capKho: 4,
+    moTa: "Cấp 4 — Quản trị: làm được mọi việc trong app",
+  },
+  {
+    uid: "u-bgd",
+    tenDangNhap: "bgd",
+    tenHienThi: "Vũ Văn K",
+    chucDanh: "Phó Tổng Giám đốc",
+    phongBan: "Ban Giám đốc",
+    chucNang: "truong_bo_phan_thu_mua",
+    vaiTro: "director",
+    capTM: 1,
+    moTa: "Ban Giám đốc — xem toàn bộ có giá, không nhập liệu",
+  },
+  {
     uid: "u-tbp",
+    tenDangNhap: "truongbp",
     tenHienThi: "Trần Thị B",
     chucDanh: "Trưởng bộ phận Thu mua",
     phongBan: "Phòng Thu mua",
@@ -135,20 +171,33 @@ export const VAI_TRO_MAU: VaiTroMau[] = [
     vaiTro: "staff",
     capTM: 3,
     capKho: 1,
-    moTa: "Phân bổ công việc · duyệt · xác nhận hoàn thành PO · thấy giá",
+    moTa: "Cấp 3 — Quản lý: phân bổ · chuyển tiếp · xác nhận hoàn thành PO · thấy giá",
   },
   {
     uid: "u-tm1",
+    tenDangNhap: "tm1",
     tenHienThi: "Nguyễn Văn A",
     chucDanh: "Nhân viên Thu mua (TM1)",
     phongBan: "Phòng Thu mua",
     chucNang: "nhan_vien_thu_mua",
     vaiTro: "staff",
     capTM: 2,
-    moTa: "Lập PO cho phần được phân bổ · thấy giá",
+    moTa: "Cấp 2 — Nhập liệu: lập PO cho phần được phân bổ · thấy giá",
+  },
+  {
+    uid: "u-kt",
+    tenDangNhap: "ketoan",
+    tenHienThi: "Nguyễn Thị Q",
+    chucDanh: "Kế toán trưởng",
+    phongBan: "Phòng Kế toán",
+    chucNang: "ke_toan",
+    vaiTro: "staff",
+    capTM: 1,
+    moTa: "Theo dõi công nợ · thấy giá · không lập đơn",
   },
   {
     uid: "u-kho",
+    tenDangNhap: "thukho",
     tenHienThi: "Hoàng Văn E",
     chucDanh: "Thủ kho công trình",
     phongBan: "Kho công trình",
@@ -156,28 +205,50 @@ export const VAI_TRO_MAU: VaiTroMau[] = [
     vaiTro: "staff",
     capTM: 1,
     capKho: 2,
-    moTa: "Lập phiếu nhận hàng từng lần · 🔒 KHÔNG thấy giá",
+    moTa: "Cấp 1 — Xem: lập phiếu nhận hàng từng lần · 🔒 KHÔNG thấy giá",
   },
   {
     uid: "u-tc",
+    tenDangNhap: "thicong",
     tenHienThi: "Phạm Văn F",
     chucDanh: "Phòng Thi công (người đề nghị)",
     phongBan: "Phòng Thi công",
     chucNang: "phong_thi_cong",
     vaiTro: "staff",
     capTM: 1,
-    moTa: "Theo dõi tiến trình đề nghị · 🔒 KHÔNG thấy giá, không thấy NCC",
+    moTa: "Cấp 1 — Xem: theo dõi đề nghị của mình · 🔒 KHÔNG thấy giá, không thấy NCC",
   },
   {
     uid: "u-qlda",
+    tenDangNhap: "qlda",
     tenHienThi: "Vũ Văn G",
     chucDanh: "Ban Quản lý Dự án",
     phongBan: "QLDA",
     chucNang: "qlda",
     vaiTro: "staff",
     capTM: 1,
-    moTa: "Xem toàn bộ có giá · nhận cảnh báo vật tư kiểm soát định mức",
+    moTa: "Cấp 1 — Xem: xem toàn bộ có giá · nhận cảnh báo vật tư kiểm soát định mức",
   },
 ];
 
-export const VAI_TRO_MAC_DINH = VAI_TRO_MAU[0];
+/** Trưởng bộ phận Thu mua — vai trò mở app mặc định khi chưa chọn gì. */
+export const VAI_TRO_MAC_DINH = VAI_TRO_MAU.find((v) => v.uid === "u-tbp") ?? VAI_TRO_MAU[0];
+
+/**
+ * 🔴 MẬT KHẨU CHUNG CỦA BẢN CHẠY THỬ — KHÔNG PHẢI BẢO MẬT THẬT.
+ *
+ * Cả app chạy trong trình duyệt nên mật khẩu này nằm sẵn trong mã nguồn tải về máy
+ * người dùng: ai mở DevTools cũng đọc được. Nó chỉ để CHẶN NGƯỜI VÀO NHẦM và để dựng
+ * sẵn khung đăng nhập, KHÔNG chống được người cố tình.
+ *
+ * Bảo mật thật đến từ hai thứ, cả hai đều nằm ở phía máy chủ:
+ *   1. Firebase Authentication — xác minh danh tính
+ *   2. Firestore Security Rules — chặn đọc/ghi dữ liệu (xem 5-ket-noi/firestore.rules)
+ */
+export const MAT_KHAU_CHAY_THU = "hpcons2026";
+
+/** Tìm tài khoản chạy thử theo tên đăng nhập (không phân biệt hoa thường). */
+export function timTaiKhoan(tenDangNhap: string): VaiTroMau | undefined {
+  const k = tenDangNhap.trim().toLowerCase();
+  return VAI_TRO_MAU.find((v) => v.tenDangNhap.toLowerCase() === k);
+}

@@ -1,10 +1,12 @@
 "use client";
 
+import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/1-giao-dien/nen-tang-ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -20,7 +22,7 @@ function vietTat(ten: string): string {
 }
 
 export function AccountMenu() {
-  const { nguoiDung, quyen, cheDoThu } = useNguoiDung();
+  const { nguoiDung, quyen, cheDoThu, dangXuat } = useNguoiDung();
 
   return (
     <DropdownMenu>
@@ -73,6 +75,11 @@ export function AccountMenu() {
               </span>
             )}
           </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={dangXuat} className="text-danger">
+            <LogOut className="size-4" aria-hidden />
+            Đăng xuất
+          </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
