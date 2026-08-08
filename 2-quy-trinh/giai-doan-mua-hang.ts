@@ -365,3 +365,114 @@ export function quyetDinhKeoTha(
       return { loai: "khong_the", lyDo: "Bước chuyển này chưa được hỗ trợ." };
   }
 }
+
+// ------------------------------------------------------------
+// XÁC NHẬN TRƯỚC KHI CHUYỂN BƯỚC
+//
+// Chỉ đạo Ban lãnh đạo 08/08/2026: "nhiều khi do sơ suất mà kéo nhầm qua bước
+// tiếp theo mà bước trước chưa thực hiện xong".
+//
+// 🔴 Hai việc khác nhau, đừng gộp:
+//   · quyetDinhKeoTha  — bước này có ĐƯỢC PHÉP không (luật cứng, sai thì chặn)
+//   · dungXacNhanKeoTha — bước này ĐƯỢC PHÉP, nhưng có gì đáng ngờ không (cảnh báo mềm)
+//
+// Cảnh báo ở đây CỐ Ý KHÔNG CHẶN. Việc dang dở ở bước trước là chuyện thường gặp
+// và nhiều khi có lý do chính đáng (VD phân bổ nốt sau, hàng về trước giấy tờ).
+// Chặn cứng sẽ làm người dùng bí việc; nhiệm vụ của hộp này là BẮT NGƯỜI DÙNG NHÌN
+// rồi tự quyết. Muốn cấm hẳn một bước thì thêm luật vào `quyetDinhKeoTha`.
+// ------------------------------------------------------------
+
+export interface XacNhanKeoTha {
+  /** Mã đề nghị đang kéo. */
+  maDeNghi: string;
+  tuBuoc: string;
+  denBuoc: string;
+  /** Điều sẽ xảy ra nếu bấm xác nhận — nói bằng lời người dùng hiểu. */
+  seLam: string;
+  /** Việc còn dang dở ở bước hiện tại. Rỗng = không có gì đáng ngờ. */
+  canhBao: string[];
+  nhanNut: string;
+  /** Đóng dở là việc nặng — nút để tông nguy hiểm. */
+  nguyHiem: boolean;
+}
+
+export function dungXacNhanKeoTha(
+  the: TheDeNghiTrenBang,
+  dich: GiaiDoanMuaHang,
+  hanhDong: HanhDongKeoTha,
+  poCuaDeNghi: DonDatHang[],
+  phieuCuaDeNghi: PhieuNhanHang[],
+): XacNhanKeoTha {
+  const nhanBuoc = (ma: GiaiDoanMuaHang) => NHAN_GIAI_DOAN[ma]?.nhan ?? ma;
+
+  const canhBao: string[] = [];
+
+  // ① Còn dòng chưa phân bổ cho ai — hay gặp nhất, và là thứ thẻ đã cảnh báo sẵn trên bảng.
+  if (the.soDongChuaPhanBo > 0) {
+    canhBao.push(
+      `Còn ${the.soDongChuaPhanBo} dòng vật tư chưa phân bổ cho nhân viên nào.`,
+    );
+  }
+
+  // ② Đơn hàng còn ở dạng nháp — chưa chốt thì nhà cung cấp chưa nhận được gì.
+  const soNhap = poCuaDeNghi.filter((po) => po.trangThai === "nhap").length;
+  if (soNhap > 0) {
+    canhBao.push(`Còn ${soNhap} đơn đặt hàng ở trạng thái nháp, chưa chốt.`);
+  }
+
+  // ③ Phiếu nhận chờ kiểm tra — khối lượng CHƯA được tính (nguyên tắc dữ liệu số 4).
+  const soChoKiemTra = phieuCuaDeNghi.filter((p) => p.trangThai === "cho_kiem_tra").length;
+  if (soChoKiemTra > 0) {
+    canhBao.push(
+      `Còn ${soChoKiemTra} phiếu nhận hàng đang chờ kiểm tra — khối lượng chưa được tính vào đã nhận.`,
+    );
+  }
+
+  // ④ Đề nghị đã trễ hạn cần hàng.
+  if (the.han.quaHan) {
+    canhBao.push(`Đề nghị đã ${the.han.nhan.toLowerCase()} so với ngày cần hàng.`);
+  }
+
+  const chung = {
+    maDeNghi: the.deNghi.code,
+    tuBuoc: nhanBuoc(the.giaiDoan),
+    denBuoc: nhanBuoc(dich),
+    canhBao,
+  };
+
+  switch (hanhDong.loai) {
+    case "tao_bao_gia":
+      return {
+        ...chung,
+        seLam: "Tạo một bảng báo giá mới cho đề nghị này, rồi chuyển thẻ sang bước mới.",
+        nhanNut: "Tạo bảng báo giá",
+        nguyHiem: false,
+      };
+    case "chot_so_sanh":
+      return {
+        ...chung,
+        seLam:
+          "Chốt bảng báo giá đang thu thập để chuyển sang so sánh. Dòng nào chưa có giá sẽ được điền giá mẫu.",
+        nhanNut: "Chốt báo giá",
+        nguyHiem: false,
+      };
+    case "dong_do":
+      return {
+        ...chung,
+        denBuoc: nhanBuoc("that_bai"),
+        seLam: "Đóng dở đề nghị. Đề nghị chuyển vào cột Thất bại và KHÔNG mua tiếp.",
+        nhanNut: "Đóng dở đề nghị",
+        nguyHiem: true,
+      };
+    case "mo_trang":
+      return {
+        ...chung,
+        seLam: `${hanhDong.thongBao} Thẻ CHƯA chuyển bước cho tới khi việc đó xong.`,
+        nhanNut: "Mở màn hình đó",
+        nguyHiem: false,
+      };
+    default:
+      // "khong_the" không bao giờ tới được đây — trang gọi đã chặn và báo lý do trước.
+      return { ...chung, seLam: "", nhanNut: "Xác nhận", nguyHiem: false };
+  }
+}

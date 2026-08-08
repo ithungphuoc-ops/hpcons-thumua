@@ -36,7 +36,8 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Sai ở **danh sách Đề nghị** (cả 2 cách xem) | `1-giao-dien/trang/de-nghi-danh-sach.tsx` |
 | Sai ở **màn Nhận đề nghị mới (giả lập)** 🧪 | `1-giao-dien/trang/de-nghi-nhan-moi.tsx` |
 | Sai ở **bảng quy trình 8 cột** (thẻ, màu thẻ, chữ trên thẻ, chiều cao cột) | `1-giao-dien/thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang.tsx` |
-| **Kéo thả thẻ** chuyển sai bước / báo sai lý do | `2-quy-trinh/giai-doan-mua-hang.ts` → `quyetDinhKeoTha` (**luật**) + `trang/de-nghi-danh-sach.tsx` → `xuLyTha` (**thực thi**) |
+| **Kéo thả thẻ** chuyển sai bước / báo sai lý do | `2-quy-trinh/giai-doan-mua-hang.ts` → `quyetDinhKeoTha` (**luật**) + `trang/de-nghi-danh-sach.tsx` → `xuLyTha` (**mở hộp xác nhận**) / `thucThiKeoTha` (**làm thật**) |
+| **Hộp xác nhận chuyển bước** thiếu cảnh báo / sai chữ | `2-quy-trinh/giai-doan-mua-hang.ts` → `dungXacNhanKeoTha` (nội dung) + `trang/de-nghi-danh-sach.tsx` (hộp thoại) |
 | **Chuông thông báo** 🔔 trên Header sai / không hiện | `1-giao-dien/khung-app/nut-thong-bao.tsx` (hiển thị) — nguồn dữ liệu ở `3-du-lieu/kho-du-lieu.tsx` |
 | Sai ở **chi tiết Đề nghị** | `1-giao-dien/trang/de-nghi-chi-tiet.tsx` |
 | Sai ở **màn Phân bổ công việc** | `1-giao-dien/trang/phan-bo.tsx` + `thanh-phan-nghiep-vu/bang-phan-bo.tsx` |

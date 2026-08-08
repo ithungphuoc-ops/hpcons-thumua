@@ -31,6 +31,14 @@ tiến độ ảo — đúng cái lỗi mà nguyên tắc dữ liệu số 4 c�
 |---|---|
 | `xacDinhGiaiDoan` | Một đề nghị đang ở cột nào trong 8 cột |
 | `quyetDinhKeoTha` | Kéo thẻ từ cột A sang cột B thì **được phép không**, và **phải làm gì** |
+| `dungXacNhanKeoTha` | Nội dung **hộp xác nhận** trước khi chuyển bước: bước cũ → bước mới, việc sẽ xảy ra, và **những gì còn dang dở ở bước hiện tại** |
+
+🔴 **Hai hàm trên làm hai việc khác nhau, đừng gộp:**
+`quyetDinhKeoTha` là **luật cứng** — sai thì chặn hẳn (kéo lùi, nhảy cóc, ép Hoàn thành).
+`dungXacNhanKeoTha` là **cảnh báo mềm** — bước vẫn hợp lệ, chỉ nhắc người dùng nhìn lại
+(còn dòng chưa phân bổ, còn đơn nháp, còn phiếu chờ kiểm tra, đề nghị đã quá hạn).
+Cảnh báo **cố ý không chặn**: việc dang dở nhiều khi có lý do chính đáng, chặn cứng sẽ
+làm người dùng bí việc. Muốn cấm hẳn một bước thì thêm luật vào `quyetDinhKeoTha`.
 | `hanXuLyDeNghi` | "Quá hạn 2 ngày" / "Còn 9 ngày" / "Không còn thời hạn" + tông màu |
 | `dungBangQuyTrinh` | Dựng đủ 8 cột kèm số thẻ và số việc quá hạn mỗi cột |
 | `deNghiConDangChay` | Loại đề nghị đã hoàn thành / đóng dở khỏi hàng chờ phân bổ và thẻ KPI |

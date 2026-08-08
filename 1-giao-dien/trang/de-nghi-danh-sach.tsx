@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Inbox, LayoutGrid, List } from "lucide-react";
+import { AlertTriangle, ArrowRight, FileText, Inbox, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -13,14 +13,25 @@ import { BangQuyTrinhMuaHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-quy
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/1-giao-dien/nen-tang-ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import {
   dungBangQuyTrinh,
+  dungXacNhanKeoTha,
   quyetDinhKeoTha,
   type GiaiDoanMuaHang,
+  type HanhDongKeoTha,
+  type XacNhanKeoTha,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { NHAN_PHONG_BAN_NGUON, NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
 
@@ -41,6 +52,21 @@ export default function TrangDanhSachDeNghi() {
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [cachXem, setCachXem] = useState<CachXem>("bang");
+
+  /**
+   * Việc kéo thả đang chờ người dùng xác nhận.
+   *
+   * ⚠️ CỜ MỞ TÁCH RIÊNG khỏi nội dung là CỐ Ý. Nếu vừa xóa nội dung vừa đóng hộp trong
+   * cùng một nhịp, cây con bị gỡ ngay giữa lúc hộp thoại đang chạy animation đóng —
+   * kết quả là **hộp rỗng và lớp phủ kẹt lại trên màn hình**, người dùng không bấm được gì.
+   * Đã dính lỗi này khi làm; giữ nội dung lại cho tới lần mở sau là hết.
+   */
+  const [xacNhan, setXacNhan] = useState<{
+    prId: string;
+    hanhDong: HanhDongKeoTha;
+    noiDung: XacNhanKeoTha;
+  } | null>(null);
+  const [moHopXacNhan, setMoHopXacNhan] = useState(false);
 
   const danhSach = useMemo(
     () =>
@@ -70,7 +96,12 @@ export default function TrangDanhSachDeNghi() {
 
   /**
    * Thả thẻ vào cột: hỏi `quyetDinhKeoTha` (2-quy-trinh) xem bước chuyển này ứng với
-   * nghiệp vụ gì rồi thực thi — KHÔNG đổi cột "chay" vì giai đoạn suy ra từ chứng từ thật.
+   * nghiệp vụ gì. Bước KHÔNG hợp lệ thì báo lý do luôn; bước hợp lệ thì MỞ HỘP XÁC NHẬN
+   * chứ không làm ngay.
+   *
+   * 🔴 Vì sao phải hỏi lại (chỉ đạo Ban lãnh đạo 08/08/2026): kéo thả rất dễ trượt tay,
+   * mà mỗi bước ở đây là một nghiệp vụ thật (tạo bảng báo giá, chốt so sánh, đóng dở).
+   * Lỡ tay là sinh chứng từ thừa, và người sau đọc bảng tưởng bước trước đã xong.
    */
   function xuLyTha(prId: string, dich: GiaiDoanMuaHang) {
     const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
@@ -80,6 +111,31 @@ export default function TrangDanhSachDeNghi() {
     const baoGiaCuaDeNghi = baoGia.filter((b) => b.prId === prId && b.trangThai !== "huy");
     const hanhDong = quyetDinhKeoTha(the, dich, poCuaDeNghi, baoGiaCuaDeNghi);
     if (!hanhDong) return;
+
+    // Bước không hợp lệ: chặn ngay, không cần hỏi — hỏi rồi vẫn không cho làm thì vô nghĩa.
+    if (hanhDong.loai === "khong_the") {
+      toast.error("Không chuyển được", { description: hanhDong.lyDo });
+      return;
+    }
+
+    setXacNhan({
+      prId,
+      hanhDong,
+      noiDung: dungXacNhanKeoTha(
+        the,
+        dich,
+        hanhDong,
+        poCuaDeNghi,
+        phieuNhan.filter((p) => poCuaDeNghi.some((po) => po.id === p.poId)),
+      ),
+    });
+    setMoHopXacNhan(true);
+  }
+
+  /** Thực thi sau khi người dùng đã bấm xác nhận trong hộp thoại. */
+  function thucThiKeoTha(prId: string, hanhDong: HanhDongKeoTha) {
+    const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
+    if (!the) return;
 
     switch (hanhDong.loai) {
       case "tao_bao_gia": {
@@ -102,23 +158,17 @@ export default function TrangDanhSachDeNghi() {
         });
         break;
       case "dong_do":
-        // Đóng dở là quyết định nặng — hỏi lại một nhịp ngay trên thông báo.
-        toast.warning(`Đóng dở ${the.deNghi.code}?`, {
-          description: "Đề nghị sẽ chuyển vào cột Thất bại và không mua tiếp.",
-          action: {
-            label: "Đóng dở",
-            onClick: () => {
-              dongDoDeNghi(prId, nguoiDung.tenHienThi);
-              toast.success("Đã đóng dở đề nghị", { description: the.deNghi.code });
-            },
-          },
-        });
+        // Hộp xác nhận đã hỏi rồi (nút tông nguy hiểm) nên ở đây làm luôn,
+        // không hỏi lại lần hai trên thông báo như trước.
+        dongDoDeNghi(prId, nguoiDung.tenHienThi);
+        toast.success("Đã đóng dở đề nghị", { description: the.deNghi.code });
         break;
       case "mo_trang":
         toast.info("Bước này cần thao tác nghiệp vụ", { description: hanhDong.thongBao });
         router.push(hanhDong.duongDan);
         break;
       case "khong_the":
+        // Đã chặn ở `xuLyTha` trước khi mở hộp xác nhận — nhánh này chỉ để đủ kiểu.
         toast.error("Không chuyển được", { description: hanhDong.lyDo });
         break;
     }
@@ -290,6 +340,67 @@ export default function TrangDanhSachDeNghi() {
           </CardContent>
         </Card>
       )}
+
+      {/* HỘP XÁC NHẬN CHUYỂN BƯỚC — chặn thao tác lỡ tay khi kéo thả.
+          Chỉ đạo Ban lãnh đạo 08/08/2026. */}
+      <Dialog open={moHopXacNhan} onOpenChange={setMoHopXacNhan}>
+        <DialogContent className="max-w-lg">
+          {xacNhan && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Chuyển bước cho {xacNhan.noiDung.maDeNghi}?</DialogTitle>
+                <DialogDescription>
+                  Kiểm lại một lượt trước khi chuyển — thao tác này tạo chứng từ thật.
+                </DialogDescription>
+              </DialogHeader>
+
+              {/* Bước cũ → bước mới, để người dùng thấy ngay mình vừa kéo đi đâu */}
+              <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-(--hp-md-row-pad) text-sm">
+                <span className="font-medium text-text-primary">{xacNhan.noiDung.tuBuoc}</span>
+                <ArrowRight className="size-4 shrink-0 text-text-desc" aria-hidden />
+                <span className="font-semibold text-primary">{xacNhan.noiDung.denBuoc}</span>
+              </div>
+
+              <p className="text-sm text-text-secondary">{xacNhan.noiDung.seLam}</p>
+
+              {/* Việc còn dang dở ở bước hiện tại — CẢNH BÁO, không chặn.
+                  Có cả biểu tượng và chữ theo V1.1, không chỉ dựa vào màu. */}
+              {xacNhan.noiDung.canhBao.length > 0 && (
+                <div className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad)">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-warning-soft">
+                    <AlertTriangle className="size-4 shrink-0" aria-hidden />
+                    Bước hiện tại còn việc chưa xong
+                  </p>
+                  <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-text-secondary">
+                    {xacNhan.noiDung.canhBao.map((c) => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-text-desc">
+                    Vẫn chuyển được nếu việc này đã xử lý xong ngoài hệ thống — đây chỉ là
+                    nhắc để khỏi kéo nhầm.
+                  </p>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setMoHopXacNhan(false)}>
+                  Hủy, giữ nguyên
+                </Button>
+                <Button
+                  variant={xacNhan.noiDung.nguyHiem ? "destructive" : "default"}
+                  onClick={() => {
+                    setMoHopXacNhan(false);
+                    thucThiKeoTha(xacNhan.prId, xacNhan.hanhDong);
+                  }}
+                >
+                  {xacNhan.noiDung.nhanNut}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
