@@ -272,7 +272,7 @@ export default function TrangChiTietDeNghi() {
                 <Label htmlFor="loi-nhan">Lời nhắn kèm theo (không bắt buộc)</Label>
                 <Input
                   id="loi-nhan"
-                  placeholder="VD: Ưu tiên lấy báo giá trước ngày 20/8"
+                  placeholder="Ưu tiên lấy báo giá trước ngày 20/8"
                   value={loiNhan}
                   onChange={(e) => setLoiNhan(e.target.value)}
                 />

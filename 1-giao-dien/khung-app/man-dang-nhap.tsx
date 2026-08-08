@@ -57,7 +57,7 @@ export function ManDangNhap() {
                 id="ten-dang-nhap"
                 autoFocus
                 autoComplete="username"
-                placeholder="vd: truongbp"
+                placeholder="truongbp"
                 value={tenDangNhap}
                 onChange={(e) => {
                   setTenDangNhap(e.target.value);

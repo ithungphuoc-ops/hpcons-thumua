@@ -106,7 +106,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                   id="so-phieu-ncc"
                   value={soPhieuNCC}
                   onChange={(e) => setSoPhieuNCC(e.target.value)}
-                  placeholder="vd HT-2026-08-0412"
+                  placeholder="HT-2026-08-0412"
                   className="w-56"
                 />
               </div>

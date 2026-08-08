@@ -280,6 +280,33 @@
   html {
     @apply font-sans;
   }
+
+}
+
+/* ============================================================
+ * CHỮ GỢI Ý TRONG Ô NHẬP (placeholder) — IN NGHIÊNG + MỜ
+ *
+ * Chỉ đạo Ban lãnh đạo 08/08/2026: chữ ví dụ kiểu "truongbp" phải nhìn ra ngay
+ * là gợi ý, không phải dữ liệu đã nhập. Nhiều người thấy ô có sẵn chữ thì tưởng
+ * đã điền rồi nên bấm gửi luôn, hoặc ngược lại xóa đi cho chắc.
+ *
+ * Đặt MỘT LUẬT CHUNG ở đây thay vì sửa từng ô: ô mới thêm sau này tự có, không ai
+ * phải nhớ. Cũng KHÔNG phải sửa `1-giao-dien/nen-tang-ui/` (thư viện ngoài).
+ *
+ * 🔴 VÌ SAO KHỐI NÀY NẰM NGOÀI MỌI `@layer`:
+ * shadcn đặt sẵn lớp `placeholder:text-muted-foreground` trên ô nhập, lớp đó thuộc
+ * tầng `utilities`. Trong CSS, THỨ TỰ TẦNG quyết định trước độ ưu tiên chọn tử —
+ * nên để trong `@layer base` thì viết kiểu gì cũng thua, kể cả tăng specificity.
+ * CSS không thuộc tầng nào lại thắng mọi tầng, nên phải để ở đây.
+ *
+ * ⚠️ Dùng cả in nghiêng LẪN màu mờ, không chỉ dựa vào màu — chữ nghiêng vẫn phân
+ * biệt được khi in đen trắng hoặc với người khó phân biệt màu (V1.1).
+ * ============================================================ */
+input::placeholder,
+textarea::placeholder {
+  font-style: italic;
+  color: var(--color-text-disabled);
+  opacity: 1; /* Firefox tự hạ opacity của placeholder — đặt lại cho đồng nhất */
 }
 
 /* ============================================================
