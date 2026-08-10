@@ -74,6 +74,19 @@ function NoiDungLapDonHang() {
   const [maHang, setMaHang] = useState<Record<number, string>>({});
   const [thongSo, setThongSo] = useState<Record<number, string>>({});
   const [mucDich, setMucDich] = useState<Record<number, string>>({});
+  /**
+   * Tên hàng và ĐVT **theo đơn đặt hàng**, khi khác với phiếu đề nghị.
+   *
+   * 🔴 Chỉ đạo Ban lãnh đạo 10/08/2026: *"Thông tin này thống nhất lấy theo PO... phiếu đề
+   * nghị chỉ để đối chiếu sau này. Sau này cũng sẽ lấy thông tin từ PO để đẩy qua cho các
+   * phòng ban khác"*. Nên khi nhập từ file, tên hàng trên đơn lấy đúng chữ trong file — đó
+   * là chữ sẽ in ra gửi nhà cung cấp và đẩy sang Kho / QLDA. Phiếu đề nghị có thể ghi
+   * "Xi măng PCB40" còn đơn ghi "Xi măng PCB40 - Hà Tiên", hai bên không buộc phải giống.
+   *
+   * Để trống thì lấy theo phiếu đề nghị như trước.
+   */
+  const [tenHangPO, setTenHangPO] = useState<Record<number, string>>({});
+  const [dvtPO, setDvtPO] = useState<Record<number, string>>({});
   // Theo cả đơn:
   const [diaDiemGiao, setDiaDiemGiao] = useState("");
   const [nguoiNhanHang, setNguoiNhanHang] = useState("");
@@ -236,12 +249,14 @@ function NoiDungLapDonHang() {
         tienDo.map((d) => ({
           stt: d.stt,
           tenVatLieu: d.tenVatLieu,
+          // Quy cách giúp phân biệt hai dòng cùng tên vật liệu — xem `khopVoiDeNghi`.
+          quyCach: d.quyCach,
           khoiLuongChuaLenPO: d.khoiLuongChuaLenPO,
           lapDuoc: dongLapDuoc.some((x) => x.stt === d.stt),
         })),
       );
 
-      // Điền từng dòng khớp được
+      // Điền từng dòng khớp được — LẤY THEO FILE PO, đề nghị chỉ dùng để đối chiếu.
       const sttMoi: number[] = [];
       for (const k of khop) {
         const e = k.dongExcel;
@@ -251,6 +266,10 @@ function NoiDungLapDonHang() {
         if (e.maHang) setMaHang((t) => ({ ...t, [k.sttDeNghi]: e.maHang! }));
         if (e.thongSoKyThuat) setThongSo((t) => ({ ...t, [k.sttDeNghi]: e.thongSoKyThuat! }));
         if (e.mucDichSuDung) setMucDich((t) => ({ ...t, [k.sttDeNghi]: e.mucDichSuDung! }));
+        // Tên hàng và ĐVT: lấy đúng chữ trong file — đây là chữ sẽ in ra đơn gửi nhà cung
+        // cấp và đẩy sang Kho / QLDA.
+        setTenHangPO((t) => ({ ...t, [k.sttDeNghi]: e.tenHang }));
+        if (e.donViTinh) setDvtPO((t) => ({ ...t, [k.sttDeNghi]: e.donViTinh }));
       }
       // Gộp với lựa chọn sẵn có, không xóa dòng người dùng đã tự tick.
       if (sttMoi.length > 0) setChon((t) => [...new Set([...t, ...sttMoi])]);
@@ -440,10 +459,14 @@ function NoiDungLapDonHang() {
         // Ô trống thì để `undefined` chứ không lưu chuỗi rỗng — trang in dựa vào
         // `?? "—"` để biết ô nào chưa khai, chuỗi rỗng sẽ in ra ô trắng khó hiểu.
         maHang: maHang[stt]?.trim() || undefined,
-        tenVatLieu: dong.tenVatLieu,
+        // 🔴 TÊN VÀ ĐVT LẤY THEO ĐƠN HÀNG trước, phiếu đề nghị chỉ là đường lùi.
+        // Chỉ đạo Ban lãnh đạo 10/08/2026: thông tin thống nhất lấy theo PO, vì chính PO là
+        // thứ in ra gửi nhà cung cấp và đẩy sang các phòng ban khác. Liên kết truy vết về
+        // phiếu đề nghị vẫn giữ nguyên qua `sttDongDeNghi` ngay dưới.
+        tenVatLieu: tenHangPO[stt]?.trim() || dong.tenVatLieu,
         // Chưa nhập thông số riêng thì lấy quy cách đã ghi ở dòng đề nghị.
         thongSoKyThuat: thongSo[stt]?.trim() || dong.quyCach || undefined,
-        donViTinh: dong.donViTinh,
+        donViTinh: dvtPO[stt]?.trim() || dong.donViTinh,
         khoiLuongDat: nhap > 0 ? Math.min(nhap, dong.khoiLuongChuaLenPO) : dong.khoiLuongChuaLenPO,
         // Chưa nhập riêng thì lấy mục đích người đề nghị đã ghi trên phiếu — thông tin
         // đó đi thẳng ra đơn mua hàng gửi nhà cung cấp, không phải gõ lại.
@@ -633,10 +656,11 @@ function NoiDungLapDonHang() {
                 <p className="flex items-start gap-1.5 text-danger-soft">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                   <span>
-                    Không có trong đề nghị nên bỏ qua:{" "}
-                    <strong>{ketQuaNhap.khongKhop.join(", ")}</strong>. Đơn hàng chỉ được lập
-                    từ mặt hàng đã có trong đề nghị — đây là khóa truy vết khối lượng của cả
-                    hệ thống, không thể tự thêm mặt hàng lạ.
+                    Chưa đối chiếu được với phiếu đề nghị:{" "}
+                    <strong>{ketQuaNhap.khongKhop.join(", ")}</strong>. Tên trong file không
+                    trùng mặt hàng nào của đề nghị này nên chưa đưa vào đơn được. Sửa tên trong
+                    file cho gần với tên trên phiếu đề nghị, hoặc chọn tay dòng tương ứng bên
+                    dưới rồi điền số liệu.
                   </span>
                 </p>
               )}
@@ -754,6 +778,18 @@ function NoiDungLapDonHang() {
                         <span className="text-sm font-medium text-text-primary">
                           {d.stt}. {d.tenVatLieu}
                         </span>
+                        {/* Tên trên ĐƠN khác tên trên phiếu đề nghị thì phải nói rõ — đây là
+                            chữ sẽ in ra gửi nhà cung cấp, người lập cần thấy trước khi chốt. */}
+                        {tenHangPO[d.stt] &&
+                          tenHangPO[d.stt].trim() !== "" &&
+                          tenHangPO[d.stt].trim() !== d.tenVatLieu && (
+                            <span className="text-xs text-primary">
+                              Tên trên đơn: <strong>{tenHangPO[d.stt]}</strong>
+                              {dvtPO[d.stt] && dvtPO[d.stt] !== d.donViTinh
+                                ? ` · ĐVT ${dvtPO[d.stt]}`
+                                : ""}
+                            </span>
+                          )}
                         <span className="text-xs text-text-desc">
                           Còn chưa lên đơn: {d.khoiLuongChuaLenPO.toLocaleString("vi-VN")} {d.donViTinh}
                           {d.nguoiPhuTrachTen ? ` · phụ trách ${d.nguoiPhuTrachTen}` : ""}

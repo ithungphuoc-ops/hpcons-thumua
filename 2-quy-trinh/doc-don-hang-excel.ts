@@ -359,6 +359,8 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
 export interface DongDeNghiDeKhop {
   stt: number;
   tenVatLieu: string;
+  /** Quy cách ghi trên phiếu đề nghị — dùng để phân biệt hai dòng cùng tên vật liệu. */
+  quyCach?: string;
   khoiLuongChuaLenPO: number;
   /**
    * Dòng này có lập được đơn lúc này không (đã phân bổ cho người đang thao tác và
@@ -384,31 +386,62 @@ export interface KetQuaKhop {
 }
 
 /**
- * Ghép từng dòng trong file Excel với dòng của đề nghị, đối chiếu theo TÊN VẬT LIỆU
- * (bỏ dấu, không phân biệt hoa thường, bỏ khoảng trắng thừa).
+ * Ghép từng dòng trong file Excel với dòng của đề nghị.
  *
- * 🔴 KHÔNG tự tạo dòng mới từ file. Đơn đặt hàng bắt buộc trỏ về một dòng của đề nghị
- * (`DongPO.sttDongDeNghi`) — đó là khóa truy vết khối lượng của cả hệ thống. Cho phép
- * nhập mặt hàng lạ từ file là mua thứ không ai đề nghị, và khối lượng nhận sau này
- * không đối chiếu được với đâu cả. Dòng lạ được trả về ở `khongKhop` để người dùng tự xử.
+ * 🔴 NGUYÊN TẮC (chỉ đạo Ban lãnh đạo 10/08/2026): *"Thông tin này thống nhất lấy theo PO,
+ * nên khi import sẽ lấy thông tin trên PO, phiếu đề nghị chỉ để đối chiếu sau này. Sau này
+ * cũng sẽ lấy thông tin từ PO để đẩy qua cho các phòng ban khác"*.
  *
- * ⚠️ Khớp theo tên là cách tạm của ver 1 — quyết định 1 của dự án là "đặt mã vật tư
- * làm sau". Khi có mã vật tư thì đổi sang khớp theo mã, chính xác hơn nhiều.
+ * Nghĩa là **ĐƠN HÀNG LÀ NGUỒN SỰ THẬT**, việc khớp với đề nghị là để TRUY VẾT, không phải
+ * cửa chặn. Nên hàm này cố khớp bằng nhiều cách, từ chắc nhất tới lỏng nhất:
+ *
+ *   1. **Mã hàng** — chắc nhất, nếu cả hai bên đều có.
+ *   2. **Tên + quy cách** — phân biệt được hai dòng cùng tên vật liệu khác quy cách.
+ *   3. **Tên** (bỏ dấu, không phân biệt hoa thường).
+ *   4. **Tên chứa nhau** — file ghi "Xi măng" mà đề nghị ghi "Xi măng PCB40" thì vẫn là một
+ *      thứ. Người lập phiếu và người lập đơn hiếm khi gõ y nguyên từng chữ.
+ *
+ * ⚠️ Cách 4 chỉ chấp nhận khi khớp được ĐÚNG MỘT dòng đề nghị. Khớp lỏng ra nhiều dòng thì
+ * bỏ, vì đoán sai dòng còn tệ hơn không đoán — khối lượng sẽ trừ vào dòng khác.
+ *
+ * Dòng không khớp được vẫn nằm ở `khongKhop` để người dùng **tự quyết đưa vào đơn hay không**
+ * (xem khối "chưa đối chiếu được" ở màn lập đơn), chứ không còn bị loại thẳng như trước.
  */
 export function khopVoiDeNghi(
   dongExcel: DongExcel[],
   dongDeNghi: DongDeNghiDeKhop[],
 ): KetQuaKhop {
   const chuanHoa = (s: string) => boDau(s).replace(/\s+/g, " ").trim();
-  const banDo = new Map<string, DongDeNghiDeKhop>();
-  for (const d of dongDeNghi) banDo.set(chuanHoa(d.tenVatLieu), d);
+  const theoTen = new Map<string, DongDeNghiDeKhop>();
+  const theoTenQuyCach = new Map<string, DongDeNghiDeKhop>();
+  for (const d of dongDeNghi) {
+    theoTen.set(chuanHoa(d.tenVatLieu), d);
+    if (d.quyCach) theoTenQuyCach.set(`${chuanHoa(d.tenVatLieu)}|${chuanHoa(d.quyCach)}`, d);
+  }
+
+  /** Khớp lỏng: tên bên này chứa tên bên kia, và chỉ chấp nhận khi duy nhất một kết quả. */
+  const khopLong = (ten: string): DongDeNghiDeKhop | undefined => {
+    const t = chuanHoa(ten);
+    if (t.length < 3) return undefined; // quá ngắn thì chứa cái gì cũng được, dễ sai
+    const ungVien = dongDeNghi.filter((d) => {
+      const dt = chuanHoa(d.tenVatLieu);
+      return dt.includes(t) || t.includes(dt);
+    });
+    return ungVien.length === 1 ? ungVien[0] : undefined;
+  };
 
   const khop: KetQuaKhop["khop"] = [];
   const khongKhop: DongExcel[] = [];
   const khongLapDuoc: KetQuaKhop["khongLapDuoc"] = [];
 
   for (const e of dongExcel) {
-    const d = banDo.get(chuanHoa(e.tenHang));
+    const d =
+      (e.thongSoKyThuat
+        ? theoTenQuyCach.get(`${chuanHoa(e.tenHang)}|${chuanHoa(e.thongSoKyThuat)}`)
+        : undefined) ??
+      theoTen.get(chuanHoa(e.tenHang)) ??
+      khopLong(e.tenHang);
+
     if (!d) {
       khongKhop.push(e);
       continue;
