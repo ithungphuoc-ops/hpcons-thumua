@@ -32,6 +32,7 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import { vuongMacSangBuocSau, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -238,7 +239,10 @@ export default function TrangChiTietDeNghi() {
 
       {/* Bảng báo giá — từ 06/08/2026 menu không còn mục "Báo giá & so sánh NCC",
           nên đây là lối vào duy nhất tới module đó. Bỏ khối này là module thành mồ côi. */}
-      {quyen.xemBaoGia && (
+      {/* 🔴 Dùng CHUNG luật với trang bảng báo giá (chỉ đạo Ban lãnh đạo 10/08/2026): chỉ
+          người được chia việc hoặc người theo dõi mới thấy. Chặn ở đây để không hiện cả mã
+          bảng báo giá và danh sách nhà cung cấp đã chọn cho người không có quyền. */}
+      {duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
         <section className="flex flex-col gap-(--hp-md-row-gap)">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-h3 text-text-primary">Bảng báo giá ({baoGiaLienQuan.length})</h2>

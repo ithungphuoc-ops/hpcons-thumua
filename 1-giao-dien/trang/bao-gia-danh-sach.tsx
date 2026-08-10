@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { Scale } from "lucide-react";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { DataTable, type ColumnDef } from "@/1-giao-dien/thanh-phan-dung-chung/data-table";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
@@ -72,7 +75,26 @@ const columns: ColumnDef<BaoGia, unknown>[] = [
 ];
 
 export default function BaoGiaDanhSach() {
-  const { baoGia } = useDuLieu();
+  const { baoGia, deNghi } = useDuLieu();
+  const { nguoiDung, quyen } = useNguoiDung();
+
+  /**
+   * 🔴 LỌC THEO TỪNG HỒ SƠ (chỉ đạo Ban lãnh đạo 10/08/2026): chỉ hiện bảng báo giá của đề
+   * nghị mà người này được chia việc, hoặc có tên trong người theo dõi.
+   *
+   * Phải lọc CẢ Ở ĐÂY, không chỉ ở trang chi tiết: danh sách này hiện mã bảng, tên nhà cung
+   * cấp đã chọn và trạng thái — bịt trang chi tiết mà để danh sách hở thì vẫn lộ.
+   *
+   * ⚠️ Bảng báo giá mà không tìm được đề nghị nguồn thì ẩn luôn — thà ẩn oan còn hơn lộ giá.
+   */
+  const duocXem = useMemo(
+    () =>
+      baoGia.filter((bg) => {
+        const dn = deNghi.find((d) => d.id === bg.prId);
+        return dn ? duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) : false;
+      }),
+    [baoGia, deNghi, nguoiDung.uid, quyen],
+  );
 
   return (
     <>
@@ -85,7 +107,7 @@ export default function BaoGiaDanhSach() {
         <CardContent>
           <DataTable<BaoGia>
             columns={columns}
-            data={baoGia}
+            data={duocXem}
             getRowId={(r) => r.id}
             searchPlaceholder="Tìm mã báo giá, tiêu đề, nhà cung cấp..."
             filters={[

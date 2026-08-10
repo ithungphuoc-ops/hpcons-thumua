@@ -50,7 +50,9 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     //
     // ⚠️ KHÁC "Theo dõi đề nghị": màn đó cho NGƯỜI ĐỀ NGHỊ (Phòng Thi công) và ẩn giá +
     // nhà cung cấp. Màn này cho NGƯỜI LÀM THU MUA. Đừng gộp hai mục.
-    nhan: "Việc của tôi",
+    // Nhãn "Công việc của tôi" theo chỉ đạo Ban lãnh đạo 10/08/2026 (trước là "Việc của tôi").
+    // `nhanNgan` giữ "Của tôi" vì thanh dưới trên điện thoại chỉ vừa 10–12px, tên dài sẽ tràn.
+    nhan: "Công việc của tôi",
     nhanNgan: "Của tôi",
     href: "/viec-cua-toi",
     icon: CircleUser,

@@ -7,6 +7,7 @@ import { AlertTriangle, ArrowLeft, Check, FileWarning, ShoppingCart, Split } fro
 import { toast } from "sonner";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { lyDoKhongXemBaoGia } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -38,6 +39,7 @@ export default function TrangBaoGiaChiTiet() {
   const params = useParams<{ id: string }>();
   const {
     baoGia,
+    deNghi,
     donHang,
     chonNCCChoBaoGia,
     luuPhanBoBaoGia,
@@ -61,6 +63,31 @@ export default function TrangBaoGiaChiTiet() {
         icon={FileWarning}
         title="Không tìm thấy bảng báo giá"
         description="Bảng báo giá có thể đã bị xóa hoặc đường dẫn không đúng."
+      />
+    );
+  }
+
+  /**
+   * 🔴 CHẶN THEO TỪNG HỒ SƠ (chỉ đạo Ban lãnh đạo 10/08/2026): *"Chỉ nhân viên nào được chia
+   * việc thì mới xem được báo giá, hoặc được thêm vào mục người theo dõi"*.
+   *
+   * Chặn NGAY ĐẦU MÀN, trước khi dựng bảng so sánh — không chỉ ẩn cột giá. Bảng báo giá chứa
+   * đơn giá của nhiều nhà cung cấp, là thông tin thương mại nhạy cảm nhất của phòng thu mua.
+   *
+   * ⚠️ Đề nghị nguồn không còn (dữ liệu chạy thử bị xóa) thì cũng không cho xem — thà chặn
+   * oan còn hơn để lộ giá vì thiếu dữ liệu đối chiếu.
+   */
+  const dnNguon = deNghi.find((d) => d.id === bg.prId);
+  const lyDoChan = dnNguon
+    ? lyDoKhongXemBaoGia(dnNguon, nguoiDung.uid, quyen)
+    : "Không tìm thấy đề nghị nguồn của bảng báo giá này nên chưa kiểm được quyền xem.";
+
+  if (lyDoChan) {
+    return (
+      <EmptyState
+        icon={FileWarning}
+        title="Không có quyền xem bảng báo giá này"
+        description={lyDoChan}
       />
     );
   }

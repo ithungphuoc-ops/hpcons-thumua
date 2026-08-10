@@ -166,7 +166,7 @@ export default function TrangViecCuaToi() {
       {/* ===== ĐẦU TRANG: tiêu đề lớn · ô tìm · nút tạo mới ===== */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-h1 text-text-primary">Việc của tôi</h1>
+          <h1 className="text-h1 text-text-primary">Công việc của tôi</h1>
           <p className="text-sm text-text-desc">
             {nguoiDung.tenHienThi} · {nguoiDung.chucDanh}
           </p>
