@@ -29,10 +29,13 @@ import {
   dungBangQuyTrinh,
   dungXacNhanKeoTha,
   quyetDinhKeoTha,
+  vuongMacSangBuocSau,
   type GiaiDoanMuaHang,
   type HanhDongKeoTha,
   type XacNhanKeoTha,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { HopNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-cong-tac";
+import type { ThongBaoChuyenBuoc } from "@/3-du-lieu/kieu-du-lieu";
 import { NHAN_PHONG_BAN_NGUON, NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
 
 /** Hai cách xem cùng một dữ liệu — đặt tên giống bảng Base để anh em quen việc đọc ra ngay. */
@@ -49,9 +52,50 @@ export default function TrangDanhSachDeNghi() {
     taoBaoGiaGiaLap,
     doiTrangThaiBaoGiaTheoDeNghi,
     dongDoDeNghi,
+    nhanCongTac,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [cachXem, setCachXem] = useState<CachXem>("bang");
+
+  /** Thông báo đang chờ xác nhận nhận công tác — bấm từ nút trên thẻ bảng quy trình. */
+  const [hoiNhan, doiHoiNhan] = useState<ThongBaoChuyenBuoc | null>(null);
+
+  /**
+   * Nhận công tác từ thẻ trên bảng. Dùng CHUNG luật với chuông thông báo:
+   * nhận ở bước ① thì tự chuyển sang ② bằng cách lập bảng báo giá — nhưng chỉ khi bước ①
+   * đã xong (đã phân bổ hết dòng), xem `vuongMacSangBuocSau`.
+   */
+  function xacNhanNhanCongTac(tb: ThongBaoChuyenBuoc) {
+    nhanCongTac(tb.id, { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi });
+
+    if (tb.denBuoc !== "tiep_nhan") {
+      toast.success("Đã nhận công tác", { description: tb.prCode });
+      return;
+    }
+    const dn = deNghi.find((d) => d.id === tb.prId);
+    const vuongMac = dn
+      ? vuongMacSangBuocSau(dn, "tiep_nhan", baoGia.filter((b) => b.prId === tb.prId))
+      : null;
+    if (vuongMac) {
+      toast.warning("Đã nhận công tác nhưng chưa chuyển bước", { description: vuongMac });
+      return;
+    }
+    if (baoGia.some((b) => b.prId === tb.prId && b.trangThai !== "huy")) {
+      toast.success("Đã nhận công tác", { description: tb.prCode });
+      return;
+    }
+    const id = taoBaoGiaGiaLap(tb.prId, nguoiDung.tenHienThi);
+    if (id) {
+      toast.success("Đã nhận công tác", {
+        description: `${tb.prCode} chuyển sang bước “Yêu cầu NCC báo giá” — đã lập bảng báo giá.`,
+        action: { label: "Mở bảng báo giá", onClick: () => router.push(`/bao-gia/${id}`) },
+      });
+    } else {
+      toast.warning("Đã nhận công tác nhưng chưa chuyển bước", {
+        description: "Không lập được bảng báo giá: đã hết mã dự phòng của bản chạy thử.",
+      });
+    }
+  }
 
   /**
    * Việc kéo thả đang chờ người dùng xác nhận.
@@ -230,6 +274,20 @@ export default function TrangDanhSachDeNghi() {
             keoThaDuoc={quyen.lapPO}
             onTha={xuLyTha}
             tiepNhan={tiepNhanTheoPr}
+            // Nút "Nhận công tác" ngay trên thẻ (chỉ đạo Ban lãnh đạo 10/08/2026). Chỉ vai trò
+            // làm nghiệp vụ mới thấy — người chỉ xem thì thẻ giữ nhãn "Chờ tiếp nhận".
+            onNhanCongTac={quyen.lapPO ? (tb) => doiHoiNhan(tb) : undefined}
+          />
+
+          {/* Hộp xác nhận dùng chung với chuông thông báo — xem `hop-nhan-cong-tac.tsx`. */}
+          <HopNhanCongTac
+            thongBao={hoiNhan}
+            seTuChuyenBuoc={
+              hoiNhan?.denBuoc === "tiep_nhan" &&
+              !baoGia.some((b) => b.prId === hoiNhan.prId && b.trangThai !== "huy")
+            }
+            onDong={() => doiHoiNhan(null)}
+            onDongY={xacNhanNhanCongTac}
           />
           {quyen.lapPO && (
             <p className="text-xs text-text-desc">

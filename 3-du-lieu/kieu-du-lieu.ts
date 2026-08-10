@@ -371,6 +371,28 @@ export interface DongBaoGiaNCC {
   ghiChu?: string;
 }
 
+/**
+ * BẢN BÁO GIÁ NHÀ CUNG CẤP GỬI VỀ — nhân viên thu mua tải lên làm bằng chứng.
+ *
+ * 🔴 Chỉ đạo Ban lãnh đạo 10/08/2026: bước ② *"nv tm sẽ up báo giá của các nhà cung cấp lên
+ * để trưởng bộ phận xem xét"*. Trưởng bộ phận duyệt giá thì phải xem được bản gốc nhà cung
+ * cấp gửi, không chỉ tin con số nhân viên gõ vào.
+ *
+ * ⚠️ BẢN CHẠY THỬ CHƯA LƯU NỘI DUNG TỆP. Chỉ giữ tên, kích thước, ai tải, lúc nào — đủ để
+ * đối chiếu "đã nhận báo giá của ai, ngày nào". Lưu nội dung phải qua Firebase Storage
+ * (`tm_baogia/{rfqId}/{nccId}/...`), chưa nối nên KHÔNG hứa hẹn là mở xem được tệp.
+ */
+export interface TepBaoGiaNCC {
+  nccId: string;
+  tenNCC: string;
+  tenTep: string;
+  /** Byte. Hiện để người dùng nhận ra mình tải đúng tệp hay không. */
+  kichThuoc: number;
+  nguoiTaiTen: string;
+  /** ISO đầy đủ giờ phút — cần biết nhận báo giá lúc nào để tính hạn nộp. */
+  thoiDiem: string;
+}
+
 export interface DongBaoGia {
   id: string;
   /**
@@ -422,6 +444,8 @@ export interface BaoGia {
   items: DongBaoGia[];
   nccDaChonId?: string;
   nccDaChonTen?: string;
+  /** Bản báo giá gốc nhà cung cấp gửi về, nhân viên thu mua tải lên — xem `TepBaoGiaNCC`. */
+  tepBaoGia?: TepBaoGiaNCC[];
   hanNop: NgayISO;
   ngayTao: NgayISO;
   ngayCapNhat: NgayISO;

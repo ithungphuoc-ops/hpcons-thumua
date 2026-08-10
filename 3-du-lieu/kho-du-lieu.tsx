@@ -46,6 +46,7 @@ import type {
   XacNhan,
   BaoGia,
   CongNo,
+  TepBaoGiaNCC,
 } from "@/3-du-lieu/kieu-du-lieu";
 
 /** Dữ liệu người dùng nhập ở màn giả lập. Mã và STT do kho dữ liệu tự sinh. */
@@ -143,6 +144,17 @@ interface GiaTriDuLieu {
    * TÁCH BÁO GIÁ: lưu phân bổ khối lượng từng dòng cho nhiều nhà cung cấp.
    * Khóa của `phanBoTheoDong` là `DongBaoGia.id`.
    */
+  /** Bước ② — nhân viên nhập giá của một nhà cung cấp vào bảng báo giá. */
+  nhapGiaNCC: (
+    bgId: string,
+    ncc: { nccId: string; tenNCC: string },
+    giaTheoDong: Record<string, { donGia: number; thoiGianGiao: number }>,
+    nguoiThucHien: string,
+  ) => void;
+  /** Bước ② — tải lên bản báo giá gốc nhà cung cấp gửi về. */
+  dinhKemBaoGia: (bgId: string, tep: TepBaoGiaNCC, nguoiThucHien: string) => void;
+  /** Bước ② → ③ — nhân viên trình trưởng bộ phận xem xét. */
+  trinhXetDuyetBaoGia: (bgId: string, nguoiThucHien: string) => void;
   /** Duyệt phương án chia đơn cho nhiều NCC — bước ③ Xét duyệt → ④ Lập đơn mua hàng. */
   duyetPhuongAnTach: (bgId: string, nguoiThucHien: string) => void;
   luuPhanBoBaoGia: (
@@ -630,6 +642,105 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * BƯỚC ② YÊU CẦU NCC BÁO GIÁ — nhân viên thu mua nhập giá của một nhà cung cấp.
+   *
+   * 🔴 Chỉ đạo Ban lãnh đạo 10/08/2026: bước ② phải có tiến trình thật — *"nv tm sẽ up báo
+   * giá của các nhà cung cấp lên để trưởng bộ phận xem xét"*. Trước đây giá chỉ được điền
+   * GIẢ LẬP khi kéo thẻ sang cột ③, nên bước ② không có việc gì để làm.
+   *
+   * `giaTheoDong` khóa là `DongBaoGia.id`. Dòng nào để trống thì XÓA báo giá của nhà cung
+   * cấp đó ở dòng ấy — nhà cung cấp không báo giá mọi mặt hàng là chuyện thường, và bảng so
+   * sánh dựa vào chỗ trống này để biết ai báo thiếu dòng (`baoDuDong`).
+   */
+  const nhapGiaNCC = useCallback(
+    (
+      bgId: string,
+      ncc: { nccId: string; tenNCC: string },
+      giaTheoDong: Record<string, { donGia: number; thoiGianGiao: number }>,
+      nguoiThucHien: string,
+    ) => {
+      const ngay = homNay();
+      setBaoGia((truoc) =>
+        truoc.map((b) => {
+          if (b.id !== bgId) return b;
+          return {
+            ...b,
+            ngayCapNhat: ngay,
+            items: b.items.map((d) => {
+              const moi = giaTheoDong[d.id];
+              // Bỏ báo giá cũ của NCC này rồi thêm lại — tránh trùng khi sửa giá nhiều lần.
+              const khac = d.baoGiaNCC.filter((q) => q.nccId !== ncc.nccId);
+              if (!moi || moi.donGia <= 0) return { ...d, baoGiaNCC: khac };
+              return {
+                ...d,
+                baoGiaNCC: [
+                  ...khac,
+                  {
+                    nccId: ncc.nccId,
+                    tenNCC: ncc.tenNCC,
+                    donGia: moi.donGia,
+                    thoiGianGiao: moi.thoiGianGiao,
+                  },
+                ],
+              };
+            }),
+          };
+        }),
+      );
+      const bg = baoGiaRef.current.find((b) => b.id === bgId);
+      // Không ghi tên NCC vào nhật ký — khối Lịch sử hiện cho cả vai trò không được xem NCC.
+      if (bg) ghiLichSuDeNghi(bg.prId, nguoiThucHien, `Nhập báo giá một nhà cung cấp vào ${bg.code}`);
+    },
+    [ghiLichSuDeNghi],
+  );
+
+  /** Đính kèm bản báo giá gốc nhà cung cấp gửi về. Xem `TepBaoGiaNCC` về giới hạn bản chạy thử. */
+  const dinhKemBaoGia = useCallback(
+    (bgId: string, tep: TepBaoGiaNCC, nguoiThucHien: string) => {
+      const ngay = homNay();
+      setBaoGia((truoc) =>
+        truoc.map((b) =>
+          b.id === bgId
+            ? { ...b, ngayCapNhat: ngay, tepBaoGia: [...(b.tepBaoGia ?? []), tep] }
+            : b,
+        ),
+      );
+      const bg = baoGiaRef.current.find((b) => b.id === bgId);
+      if (bg) {
+        ghiLichSuDeNghi(bg.prId, nguoiThucHien, `Tải lên bản báo giá “${tep.tenTep}” vào ${bg.code}`);
+      }
+    },
+    [ghiLichSuDeNghi],
+  );
+
+  /**
+   * TRÌNH TRƯỞNG BỘ PHẬN XEM XÉT — bước ② Yêu cầu báo giá → ③ Xét duyệt báo giá.
+   *
+   * Thay cho nút "Nhận đủ báo giá (giả lập)": nhân viên chủ động chốt là đã thu thập xong.
+   */
+  const trinhXetDuyetBaoGia = useCallback(
+    (bgId: string, nguoiThucHien: string) => {
+      const ngay = homNay();
+      setBaoGia((truoc) =>
+        truoc.map((b) =>
+          b.id === bgId && b.trangThai === "dang_thu_thap"
+            ? { ...b, trangThai: "da_so_sanh", ngayCapNhat: ngay }
+            : b,
+        ),
+      );
+      const bg = baoGiaRef.current.find((b) => b.id === bgId);
+      if (!bg) return;
+      const soNCC = new Set(bg.items.flatMap((d) => d.baoGiaNCC.map((q) => q.nccId))).size;
+      ghiLichSuDeNghi(
+        bg.prId,
+        nguoiThucHien,
+        `Trình trưởng bộ phận xem xét ${bg.code} — đã thu thập báo giá của ${soNCC} nhà cung cấp`,
+      );
+    },
+    [ghiLichSuDeNghi],
+  );
+
+  /**
    * DUYỆT PHƯƠNG ÁN TÁCH — bước ③ Xét duyệt báo giá → ④ Lập đơn mua hàng.
    *
    * 🔴 CHỈ ĐẠO BAN LÃNH ĐẠO 10/08/2026: *"Phải có bước xét duyệt báo giá thì mới qua bước
@@ -884,6 +995,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
       luuPhanBoBaoGia,
+      nhapGiaNCC,
+      dinhKemBaoGia,
+      trinhXetDuyetBaoGia,
       duyetPhuongAnTach,
       dongDoDeNghi,
       themNguoiTheoDoi,
@@ -912,6 +1026,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
       luuPhanBoBaoGia,
+      nhapGiaNCC,
+      dinhKemBaoGia,
+      trinhXetDuyetBaoGia,
       duyetPhuongAnTach,
       dongDoDeNghi,
       themNguoiTheoDoi,

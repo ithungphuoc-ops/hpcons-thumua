@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AlertTriangle, Bell, Check } from "lucide-react";
+import { Bell, Check } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -13,15 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { HopNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-cong-tac";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
@@ -214,60 +207,18 @@ export function NutThongBao() {
         </DropdownMenuGroup>
       </DropdownMenuContent>
 
-      {/* ===== HỘP XÁC NHẬN NHẬN CÔNG TÁC =====
-          Giữ cờ mở tách khỏi nội dung (`hoiNhan` vừa là cờ vừa là dữ liệu) nên khi đóng,
-          nội dung còn nguyên cho tới lúc hiệu ứng đóng chạy xong — xóa nội dung cùng lúc
-          với đóng sẽ tháo cây con giữa lúc đang chuyển động và để lại lớp mờ trên màn hình. */}
-      <Dialog open={hoiNhan !== null} onOpenChange={(v: boolean) => !v && doiHoiNhan(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nhận công tác này?</DialogTitle>
-            <DialogDescription>
-              Tên bạn sẽ được ghi là người tiếp quản, kèm ngày giờ, vào nhật ký của đề nghị.
-              <strong> Không hoàn lại được.</strong>
-            </DialogDescription>
-          </DialogHeader>
-
-          {hoiNhan && (
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-col gap-0.5 rounded-lg bg-muted p-(--hp-md-row-pad) text-sm">
-                <span className="font-semibold text-text-primary">{hoiNhan.prCode}</span>
-                <span className="text-xs text-text-desc">{hoiNhan.tieuDe}</span>
-                <span className="text-xs text-text-secondary">
-                  Bước: <strong>{nhanBuoc(hoiNhan.denBuoc)}</strong>
-                </span>
-              </div>
-
-              {/* Nói TRƯỚC hệ quả, không để người dùng phát hiện sau khi đã bấm. */}
-              {hoiNhan.denBuoc === "tiep_nhan" &&
-                !baoGia.some((b) => b.prId === hoiNhan.prId && b.trangThai !== "huy") && (
-                  <div className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm text-text-secondary">
-                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
-                    <span>
-                      Nhận xong, đề nghị <strong>tự chuyển sang bước “Yêu cầu NCC báo giá”</strong>{" "}
-                      và hệ thống lập luôn bảng báo giá để bạn mời nhà cung cấp chào giá.
-                    </span>
-                  </div>
-                )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => doiHoiNhan(null)}>
-              Chưa nhận
-            </Button>
-            <Button
-              onClick={() => {
-                if (hoiNhan) xacNhanNhan(hoiNhan);
-                doiHoiNhan(null);
-              }}
-            >
-              <Check className="size-4" aria-hidden />
-              Chắc chắn nhận
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Hộp xác nhận dùng chung với thẻ trên bảng quy trình — xem `hop-nhan-cong-tac.tsx`.
+          Tách ra vì có hai chỗ bấm nhận; copy sang chỗ thứ hai thì lời cảnh báo "không hoàn
+          lại được" sẽ lệch nhau khi sửa. */}
+      <HopNhanCongTac
+        thongBao={hoiNhan}
+        seTuChuyenBuoc={
+          hoiNhan?.denBuoc === "tiep_nhan" &&
+          !baoGia.some((b) => b.prId === hoiNhan.prId && b.trangThai !== "huy")
+        }
+        onDong={() => doiHoiNhan(null)}
+        onDongY={xacNhanNhan}
+      />
     </DropdownMenu>
   );
 }

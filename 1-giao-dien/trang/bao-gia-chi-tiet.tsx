@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { lyDoKhongXemBaoGia } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { KhoiThuThapBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-thu-thap-bao-gia";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -41,10 +42,13 @@ export default function TrangBaoGiaChiTiet() {
     baoGia,
     deNghi,
     donHang,
+    nhaCungCap,
     chonNCCChoBaoGia,
     luuPhanBoBaoGia,
+    nhapGiaNCC,
+    dinhKemBaoGia,
+    trinhXetDuyetBaoGia,
     duyetPhuongAnTach,
-    doiTrangThaiBaoGiaTheoDeNghi,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const bg = baoGia.find((b) => b.id === params.id);
@@ -229,36 +233,19 @@ export default function TrangBaoGiaChiTiet() {
           Firestore thật thì thay bằng màn nhập giá thật (hoặc nhận giá NCC gửi qua HPcore)
           và BỎ nút này. */}
       {bg.trangThai === "dang_thu_thap" && quyen.lapPO && (
-        <Card className="border-warning">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold text-text-primary">
-                Đang chờ nhà cung cấp gửi giá về
-              </p>
-              <p className="text-xs text-text-desc">
-                Chưa có giá thì chưa so sánh và chưa tách khối lượng được. Bản chạy thử: bấm
-                nút bên cạnh để giả lập 3 nhà cung cấp gửi giá.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              onClick={() => {
-                doiTrangThaiBaoGiaTheoDeNghi(
-                  bg.prId,
-                  "dang_thu_thap",
-                  "da_so_sanh",
-                  nguoiDung.tenHienThi,
-                );
-                toast.success("Đã nhận đủ báo giá", {
-                  description: "So sánh giá, rồi bấm “Tách cho nhiều NCC” nếu cần chia đơn.",
-                });
-              }}
-            >
-              <Check className="size-4" aria-hidden />
-              Nhận đủ báo giá (giả lập)
-            </Button>
-          </CardContent>
-        </Card>
+        <KhoiThuThapBaoGia
+          baoGia={bg}
+          nhaCungCap={nhaCungCap}
+          nguoiDungTen={nguoiDung.tenHienThi}
+          onNhapGia={(ncc, gia) => nhapGiaNCC(bg.id, ncc, gia, nguoiDung.tenHienThi)}
+          onDinhKem={(tep) => dinhKemBaoGia(bg.id, tep, nguoiDung.tenHienThi)}
+          onTrinhXetDuyet={() => {
+            trinhXetDuyetBaoGia(bg.id, nguoiDung.tenHienThi);
+            toast.success("Đã trình trưởng bộ phận xem xét", {
+              description: `${bg.prCode} chuyển sang bước “Xét duyệt báo giá”.`,
+            });
+          }}
+        />
       )}
 
       {/* ===== TÁCH BÁO GIÁ CHO NHIỀU NHÀ CUNG CẤP =====

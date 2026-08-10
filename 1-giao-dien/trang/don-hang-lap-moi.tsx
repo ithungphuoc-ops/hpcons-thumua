@@ -67,6 +67,23 @@ function NoiDungLapDonHang() {
   const [khoiLuong, setKhoiLuong] = useState<Record<number, string>>({});
   const [donGia, setDonGia] = useState<Record<number, string>>({});
   const [supplierId, setSupplierId] = useState<string>("");
+  /**
+   * NHÀ CUNG CẤP CỦA ĐƠN — lấy từ file PO, không chọn từ danh mục.
+   *
+   * 🔴 CHỈ ĐẠO BAN LÃNH ĐẠO 10/08/2026: *"mục này tên NCC sẽ lấy từ PO, nên hãy bỏ khu vực
+   * này đi, và bám sát vào file PO"*.
+   *
+   * Trước đây bắt chọn từ danh sách 4 nhà cung cấp cứng trong dữ liệu chạy thử, nên file PO
+   * thật ghi "CÔNG TY TNHH HIỆP PHÁT · MST 4300342851" thì không chọn được ai — người lập
+   * phải chọn bừa một nhà cung cấp khác, tức đơn hàng sai đối tượng.
+   *
+   * Nay tên và mã số thuế lấy đúng từ file; chưa có file thì nhập tay. Nếu tra ra được trong
+   * danh mục (khớp mã số thuế hoặc tên) thì vẫn giữ `supplierId` để liên kết, không tra ra
+   * cũng lập đơn được.
+   */
+  const [tenNCC, setTenNCC] = useState("");
+  const [mstNCC, setMstNCC] = useState("");
+  const [diaChiNCC, setDiaChiNCC] = useState("");
   const [ngayGiao, setNgayGiao] = useState("");
 
   // --- Các ô có trên biểu mẫu giấy `1. DON HANG HPCONS.xlsx` ---
@@ -199,6 +216,12 @@ function NoiDungLapDonHang() {
     if (sttMoi.length > 0) {
       setChon((t) => [...new Set([...t, ...sttMoi])]);
       setSupplierId(nccIdTuBaoGia);
+      // Điền cả tên + mã số thuế + địa chỉ từ danh mục: khối nhà cung cấp giờ là ô nhập chữ
+      // (bám file PO), không còn là danh sách nút để tự sáng lên theo `supplierId`.
+      setTenNCC(tenNCC);
+      const trongDanhMuc = nhaCungCap.find((n) => n.id === nccIdTuBaoGia);
+      if (trongDanhMuc?.maSoThue) setMstNCC(trongDanhMuc.maSoThue);
+      if (trongDanhMuc?.diaChi) setDiaChiNCC(trongDanhMuc.diaChi);
       setNguonTuBaoGia({ maBaoGia: bg.code, tenNCC, soDong, soDongBoQua });
     } else if (soDongBoQua > 0) {
       // Không điền được gì nhưng vẫn phải nói lý do, đừng để màn hình trắng trơn khiến
@@ -209,7 +232,7 @@ function NoiDungLapDonHang() {
     // `dongLapDuoc` tính lại mỗi lần render nên KHÔNG đưa vào deps — đã có chốt
     // `daDienTuBaoGia` bảo đảm chạy một lần, đưa vào chỉ làm hiệu ứng chạy lại vô ích.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rfqId, nccIdTuBaoGia, dn, baoGia]);
+  }, [rfqId, nccIdTuBaoGia, dn, baoGia, nhaCungCap]);
 
   if (!quyen.lapPO) {
     return (
@@ -298,6 +321,12 @@ function NoiDungLapDonHang() {
        * ⚠️ Bỏ mọi ký tự không phải chữ số khi so mã số thuế — nhiều phiếu ghi có dấu gạch
        * cho đơn vị phụ thuộc ("0300000001-001") hoặc chèn khoảng trắng.
        */
+      // 🔴 LẤY NHÀ CUNG CẤP TỪ FILE, không đòi phải có trong danh mục (chỉ đạo Ban lãnh đạo
+      // 10/08/2026). Tra danh mục chỉ để LIÊN KẾT thêm nếu tìm được, không phải để chặn.
+      if (c.tenNhaCungCap) setTenNCC(c.tenNhaCungCap);
+      if (c.maSoThueNCC) setMstNCC(c.maSoThueNCC);
+      if (c.diaChiNCC) setDiaChiNCC(c.diaChiNCC);
+
       const soThue = (s?: string) => (s ?? "").replace(/\D/g, "");
       let daChonNCC = false;
       if (c.maSoThueNCC) {
@@ -426,7 +455,8 @@ function NoiDungLapDonHang() {
     }
   }
 
-  const hopLe = chon.length > 0 && supplierId !== "" && ngayGiao !== "";
+  // Đòi TÊN nhà cung cấp, không đòi phải có trong danh mục (chỉ đạo Ban lãnh đạo 10/08/2026).
+  const hopLe = chon.length > 0 && tenNCC.trim() !== "" && ngayGiao !== "";
 
   /** Xem trước khối tổng ngay khi đang nhập — dùng chung công thức với màn xem và trang in. */
   const congTienHang = chon.reduce((tong, stt) => {
@@ -439,8 +469,19 @@ function NoiDungLapDonHang() {
   const xemTruocTien = tinhKhoiTongTien(congTienHang, Number(chietKhau) || 0, Number(thueSuat) || 0);
 
   function luu() {
-    const ncc = nhaCungCap.find((n) => n.id === supplierId);
-    if (!ncc || !dn) return;
+    if (!dn || tenNCC.trim() === "") return;
+    /**
+     * Nhà cung cấp của đơn — lấy theo FILE PO (chỉ đạo Ban lãnh đạo 10/08/2026).
+     *
+     * `supplierId` chỉ có khi tra ra trong danh mục. Không tra ra thì sinh khóa từ mã số
+     * thuế (định danh duy nhất) hoặc từ tên — để hai đơn cùng một nhà cung cấp vẫn gom được
+     * về một khóa khi tính công nợ và khi chống lập đơn trùng.
+     */
+    const maSoThue = mstNCC.replace(/\D/g, "");
+    const ncc = {
+      id: supplierId || (maSoThue ? `ncc-mst-${maSoThue}` : `ncc-ten-${boDau(tenNCC).trim()}`),
+      ten: tenNCC.trim(),
+    };
 
     // 🔴 LỌC LẠI THEO `dongLapDuoc`, KHÔNG TIN VÀO `chon`.
     // Lớp chặn thứ hai, cố ý trùng với lớp ở chỗ điền sẵn. Bảng bên dưới chỉ hiện
@@ -640,16 +681,13 @@ function NoiDungLapDonHang() {
                   </span>
                 </p>
               )}
-              {/* Nhà cung cấp trong file không tra ra trong danh mục — phải nói, nếu không
-                  người lập tưởng app đã chọn sẵn rồi chốt đơn với nhà cung cấp khác. */}
+              {/* Nhà cung cấp lấy từ file — chỉ cho biết chưa có trong danh mục, KHÔNG coi là
+                  lỗi nữa (chỉ đạo Ban lãnh đạo 10/08/2026: bám sát file PO). */}
               {ketQuaNhap.nccChuaKhop && (
-                <p className="flex items-start gap-1.5 text-warning-soft">
-                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                  <span>
-                    Nhà cung cấp trong file chưa có trong danh mục:{" "}
-                    <strong>{ketQuaNhap.nccChuaKhop}</strong>. Hãy tự chọn nhà cung cấp bên
-                    dưới, hoặc nhờ quản trị thêm nhà cung cấp này vào danh mục.
-                  </span>
+                <p className="text-text-secondary">
+                  · Nhà cung cấp <strong>{ketQuaNhap.nccChuaKhop}</strong> chưa có trong danh
+                  mục — đơn vẫn lập được, thông tin lấy theo file. Nhờ quản trị bổ sung vào danh
+                  mục để lần sau tra được công nợ.
                 </p>
               )}
               {ketQuaNhap.khongKhop.length > 0 && (
@@ -688,21 +726,49 @@ function NoiDungLapDonHang() {
       {/* Chọn nhà cung cấp + ngày giao */}
       <Card>
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-          <div className="flex flex-col gap-2">
-            <Label>Nhà cung cấp</Label>
-            <div className="flex flex-wrap gap-2">
-              {nhaCungCap.map((n) => (
-                <Button
-                  key={n.id}
-                  variant={supplierId === n.id ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSupplierId(n.id)}
-                >
-                  {n.ten}
-                </Button>
-              ))}
+          {/* ===== NHÀ CUNG CẤP — LẤY TỪ FILE PO =====
+              🔴 Chỉ đạo Ban lãnh đạo 10/08/2026: bỏ danh sách nhà cung cấp cứng, bám sát file
+              PO. File thật ghi nhà cung cấp nào thì đơn ghi đúng nhà cung cấp đó, không bắt
+              phải có sẵn trong danh mục — trước đây phải chọn bừa một cái tên khác. */}
+          <div className="grid gap-(--hp-md-card-gap) md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="ten-ncc">Tên nhà cung cấp</Label>
+              <Input
+                id="ten-ncc"
+                value={tenNCC}
+                onChange={(e) => setTenNCC(e.target.value)}
+                placeholder="CÔNG TY TNHH ..."
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="mst-ncc">Mã số thuế</Label>
+              <Input
+                id="mst-ncc"
+                value={mstNCC}
+                onChange={(e) => setMstNCC(e.target.value)}
+                placeholder="0300000001"
+                inputMode="numeric"
+              />
+            </div>
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <Label htmlFor="dia-chi-ncc">Địa chỉ nhà cung cấp</Label>
+              <Input
+                id="dia-chi-ncc"
+                value={diaChiNCC}
+                onChange={(e) => setDiaChiNCC(e.target.value)}
+                placeholder="Số ..., đường ..., tỉnh ..."
+              />
             </div>
           </div>
+          {/* Cho biết có tra ra trong danh mục hay không — hữu ích để quản trị bổ sung sau,
+              nhưng KHÔNG chặn lập đơn. */}
+          {tenNCC.trim() !== "" && (
+            <p className="text-xs text-text-desc">
+              {supplierId
+                ? `Đã liên kết với nhà cung cấp “${nhaCungCap.find((n) => n.id === supplierId)?.ten}” trong danh mục.`
+                : "Nhà cung cấp này chưa có trong danh mục — vẫn lập được đơn, thông tin lấy theo file PO."}
+            </p>
+          )}
           <div className="grid gap-(--hp-md-card-gap) md:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="ngay-giao">Ngày giao dự kiến (1 ngày cho cả PO)</Label>

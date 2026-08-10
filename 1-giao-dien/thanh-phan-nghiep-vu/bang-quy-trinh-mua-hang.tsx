@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, type DragEvent } from "react";
-import { AlertTriangle, CalendarClock, Eye, Layers, UserRound } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, Eye, Layers, UserRound } from "lucide-react";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import type {
   CotBangQuyTrinh,
@@ -65,6 +65,8 @@ export interface BangQuyTrinhMuaHangProps {
   /** Thông báo chuyển bước MỚI NHẤT của từng đề nghị — để thẻ hiện
    *  "Chờ tiếp nhận" / "Đã nhận: [tên]" cho bước hiện tại. */
   tiepNhan?: ReadonlyMap<string, ThongBaoChuyenBuoc>;
+  /** Bấm "Nhận công tác" ngay trên thẻ. Không truyền thì thẻ chỉ hiện nhãn "Chờ tiếp nhận". */
+  onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
 }
 
 export function BangQuyTrinhMuaHang({
@@ -72,6 +74,7 @@ export function BangQuyTrinhMuaHang({
   keoThaDuoc = false,
   onTha,
   tiepNhan,
+  onNhanCongTac,
 }: BangQuyTrinhMuaHangProps) {
   return (
     // Các cột nằm SÁT NHAU thành một bảng liền, ngăn nhau bằng đường kẻ mảnh
@@ -91,6 +94,7 @@ export function BangQuyTrinhMuaHang({
             keoThaDuoc={keoThaDuoc}
             onTha={onTha}
             tiepNhan={tiepNhan}
+            onNhanCongTac={onNhanCongTac}
           />
         ))}
       </div>
@@ -103,11 +107,14 @@ function CotQuyTrinh({
   keoThaDuoc,
   onTha,
   tiepNhan,
+  onNhanCongTac,
 }: {
   cot: CotBangQuyTrinh;
   keoThaDuoc: boolean;
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   tiepNhan?: ReadonlyMap<string, ThongBaoChuyenBuoc>;
+  /** Bấm "Nhận công tác" ngay trên thẻ. Không truyền thì thẻ chỉ hiện nhãn "Chờ tiếp nhận". */
+  onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
 }) {
   const { giaiDoan, the, soQuaHan } = cot;
   // Sáng viền cột khi đang kéo thẻ ngang qua — người dùng biết mình sắp thả vào đâu.
@@ -174,6 +181,7 @@ function CotQuyTrinh({
               tongGiaiDoan={giaiDoan.tong}
               keoThaDuoc={keoThaDuoc}
               thongBaoMoiNhat={tiepNhan?.get(t.deNghi.id)}
+              onNhanCongTac={onNhanCongTac}
             />
           ))
         )}
@@ -187,11 +195,13 @@ function TheDeNghi({
   tongGiaiDoan,
   keoThaDuoc,
   thongBaoMoiNhat,
+  onNhanCongTac,
 }: {
   the: TheDeNghiTrenBang;
   tongGiaiDoan: Tong;
   keoThaDuoc: boolean;
   thongBaoMoiNhat?: ThongBaoChuyenBuoc;
+  onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
 }) {
   const { deNghi, han, nguoiPhuTrach, soDongChuaPhanBo, maPOLienQuan } = the;
 
@@ -273,6 +283,27 @@ function TheDeNghi({
           thongBaoMoiNhat.denBuoc === the.giaiDoan &&
           (thongBaoMoiNhat.tiepNhan ? (
             <StatusBadge label={`Đã nhận: ${thongBaoMoiNhat.tiepNhan.ten}`} tone="success" />
+          ) : onNhanCongTac ? (
+            /* NÚT NHẬN NGAY TRÊN THẺ (chỉ đạo Ban lãnh đạo 10/08/2026: "thêm nút nhận trong
+               mục quy trình"). Trước đây chỉ nhận được từ chuông thông báo, mà chuông thì
+               người dùng ít mở — thẻ mới là nơi họ đang làm việc.
+
+               🔴 Phải `preventDefault` + `stopPropagation`: thẻ là một thẻ <Link> và còn kéo
+               thả được. Thiếu hai lệnh này thì bấm nút sẽ mở luôn trang chi tiết, hộp xác
+               nhận vừa hiện đã bị trang mới thay chỗ. */
+            <button
+              type="button"
+              draggable={false}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onNhanCongTac(thongBaoMoiNhat);
+              }}
+              className="inline-flex min-h-7 items-center gap-1 rounded-md border border-warning bg-warning-bg px-2 text-xs font-medium text-warning-soft transition-colors hover:bg-warning hover:text-white"
+            >
+              <Check className="size-3.5 shrink-0" aria-hidden />
+              Nhận công tác
+            </button>
           ) : (
             <StatusBadge label="Chờ tiếp nhận" tone="warning" />
           ))}
