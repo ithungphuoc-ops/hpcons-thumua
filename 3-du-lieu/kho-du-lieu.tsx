@@ -555,6 +555,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         // Mỗi dòng đề nghị thành một dòng cần hỏi giá; cột NCC trống chờ giá gửi về.
         items: dn.items.map((d) => ({
           id: `bg-${id}-${d.stt}`,
+          // 🔴 Giữ số thứ tự dòng đề nghị — khóa truy vết khi lập đơn từ phân bổ. Không có
+          // nó thì phải khớp theo tên vật liệu, mà hai dòng cùng tên khác quy cách sẽ bị
+          // dồn về một dòng và dòng kia mất khối lượng.
+          sttDongDeNghi: d.stt,
           tenVatLieu: d.tenVatLieu,
           donViTinh: d.donViTinh,
           khoiLuong: d.khoiLuongDeNghi,

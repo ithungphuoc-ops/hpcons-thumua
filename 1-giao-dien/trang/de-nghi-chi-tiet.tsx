@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowLeft, FileWarning, Forward, ShoppingCart } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileWarning, Forward, ShoppingCart, Split } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -44,7 +44,15 @@ import {
 
 export default function TrangChiTietDeNghi() {
   const params = useParams<{ id: string }>();
-  const { deNghi, donHang, phieuNhan, baoGia, chuyenTiepChoNhanVien } = useDuLieu();
+  const router = useRouter();
+  const {
+    deNghi,
+    donHang,
+    phieuNhan,
+    baoGia,
+    chuyenTiepChoNhanVien,
+    taoBaoGiaGiaLap,
+  } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
   const [loiNhan, setLoiNhan] = useState("");
@@ -232,11 +240,44 @@ export default function TrangChiTietDeNghi() {
           nên đây là lối vào duy nhất tới module đó. Bỏ khối này là module thành mồ côi. */}
       {quyen.xemBaoGia && (
         <section className="flex flex-col gap-(--hp-md-row-gap)">
-          <h2 className="text-h3 text-text-primary">Bảng báo giá ({baoGiaLienQuan.length})</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-h3 text-text-primary">Bảng báo giá ({baoGiaLienQuan.length})</h2>
+            {/* 🔴 NÚT NÀY LÀ ĐƯỜNG VÀO CHUỖI TÁCH PO. Trước 10/08/2026 bảng báo giá CHỈ tạo
+                được bằng cách kéo thẻ từ cột ① sang cột ② trên bảng quy trình — khó phát hiện,
+                và trên điện thoại thì không kéo được nên tắc hẳn. Không có bảng báo giá thì
+                không tách được khối lượng cho nhiều nhà cung cấp, tức không tách được PO. */}
+            {quyen.lapPO && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const id = taoBaoGiaGiaLap(dn.id, nguoiDung.tenHienThi);
+                  if (id) {
+                    toast.success("Đã lập bảng báo giá", {
+                      description: "Nhập giá các nhà cung cấp, rồi tách khối lượng nếu cần.",
+                    });
+                    router.push(`/bao-gia/${id}`);
+                  } else {
+                    toast.error("Không lập được bảng báo giá", {
+                      description: "Đã hết mã dự phòng cho bản chạy thử.",
+                    });
+                  }
+                }}
+              >
+                <Split className="size-4" aria-hidden />
+                Lập bảng báo giá
+              </Button>
+            )}
+          </div>
           <Card>
             <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
               {baoGiaLienQuan.length === 0 && (
-                <p className="text-sm text-text-desc">Chưa lập bảng báo giá nào cho đề nghị này.</p>
+                <p className="text-sm text-text-desc">
+                  Chưa lập bảng báo giá nào cho đề nghị này. Bấm{" "}
+                  <strong>Lập bảng báo giá</strong> để nhập giá nhiều nhà cung cấp và{" "}
+                  <strong>chia một mặt hàng cho nhiều nhà cung cấp</strong> khi một bên không
+                  giao đủ số lượng.
+                </p>
               )}
               {baoGiaLienQuan.map((bg) => {
                 const ttBG = NHAN_TRANG_THAI_BAO_GIA[bg.trangThai];

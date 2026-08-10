@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Bell, Check } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Bell, Check } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -12,10 +13,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { NHAN_GIAI_DOAN, type GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import type { ThongBaoChuyenBuoc } from "@/3-du-lieu/kieu-du-lieu";
 
 const nhanBuoc = (ma?: string) =>
   ma ? (NHAN_GIAI_DOAN[ma as GiaiDoanMuaHang]?.nhan ?? ma) : "";
@@ -32,10 +42,57 @@ const gioPhut = (iso: string) =>
  */
 export function NutThongBao() {
   const router = useRouter();
-  const { thongBao, danhDauDaDocThongBao, nhanCongTac } = useDuLieu();
+  const { thongBao, baoGia, danhDauDaDocThongBao, nhanCongTac, taoBaoGiaGiaLap } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   const chuaDoc = thongBao.filter((t) => !t.daDoc).length;
+
+  /**
+   * Thông báo đang chờ người dùng xác nhận nhận công tác.
+   *
+   * 🔴 PHẢI HỎI TRƯỚC KHI NHẬN (chỉ đạo Ban lãnh đạo 10/08/2026): *"khi nhân viên bấm tiếp
+   * nhận thì phải hiện thông báo có chắc chắn nhận hay không, hay do bấm nhầm"*. Nhận công
+   * tác là việc KHÔNG HOÀN LẠI ĐƯỢC — tên người nhận ghi vào nhật ký đề nghị, và ở bước
+   * tiếp nhận nó còn kéo theo lập bảng báo giá tức chuyển hẳn đề nghị sang bước sau.
+   */
+  const [hoiNhan, doiHoiNhan] = useState<ThongBaoChuyenBuoc | null>(null);
+
+  /**
+   * Nhận công tác ở bước ① thì TỰ CHUYỂN sang bước ② "Yêu cầu NCC báo giá"
+   * (chỉ đạo Ban lãnh đạo 10/08/2026).
+   *
+   * 🔴 Chuyển bước bằng cách LẬP BẢNG BÁO GIÁ, không phải gán một trường trạng thái. Giai
+   * đoạn của đề nghị được **suy ra từ chứng từ** (xem `2-quy-trinh/giai-doan-mua-hang.ts`),
+   * nên muốn nó sang bước ② thì phải có chứng từ của bước ② tồn tại thật. Gán nhãn chay sẽ
+   * bị hàm suy giai đoạn tính lại và nhảy về bước cũ ngay lần render sau.
+   */
+  function xacNhanNhan(tb: ThongBaoChuyenBuoc) {
+    nhanCongTac(tb.id, { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi });
+
+    const dangOBuocTiepNhan = tb.denBuoc === "tiep_nhan";
+    // Đã có bảng báo giá rồi thì đề nghị vốn đã qua bước ②, đừng lập thêm bảng thứ hai.
+    const daCoBaoGia = baoGia.some((b) => b.prId === tb.prId && b.trangThai !== "huy");
+
+    if (dangOBuocTiepNhan && !daCoBaoGia) {
+      const id = taoBaoGiaGiaLap(tb.prId, nguoiDung.tenHienThi);
+      if (id) {
+        toast.success("Đã nhận công tác", {
+          description: `${tb.prCode} chuyển sang bước “Yêu cầu NCC báo giá” — đã lập bảng báo giá.`,
+          action: { label: "Mở bảng báo giá", onClick: () => router.push(`/bao-gia/${id}`) },
+        });
+      } else {
+        // Nói thật khi không chuyển được bước, đừng báo thành công cho xong việc.
+        toast.warning("Đã nhận công tác nhưng chưa chuyển bước", {
+          description: "Không lập được bảng báo giá: đã hết mã dự phòng của bản chạy thử.",
+        });
+      }
+      return;
+    }
+
+    toast.success("Đã nhận công tác", {
+      description: `${tb.prCode} — bước “${nhanBuoc(tb.denBuoc)}”`,
+    });
+  }
 
   return (
     <DropdownMenu
@@ -119,10 +176,8 @@ export function NutThongBao() {
                       className="self-start"
                       onClick={(e) => {
                         e.stopPropagation();
-                        nhanCongTac(tb.id, { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi });
-                        toast.success("Đã nhận công tác", {
-                          description: `${tb.prCode} — bước "${nhanBuoc(tb.denBuoc)}"`,
-                        });
+                        // Không nhận ngay — mở hộp xác nhận, tránh bấm nhầm.
+                        doiHoiNhan(tb);
                       }}
                     >
                       Nhận công tác
@@ -136,6 +191,61 @@ export function NutThongBao() {
           )}
         </DropdownMenuGroup>
       </DropdownMenuContent>
+
+      {/* ===== HỘP XÁC NHẬN NHẬN CÔNG TÁC =====
+          Giữ cờ mở tách khỏi nội dung (`hoiNhan` vừa là cờ vừa là dữ liệu) nên khi đóng,
+          nội dung còn nguyên cho tới lúc hiệu ứng đóng chạy xong — xóa nội dung cùng lúc
+          với đóng sẽ tháo cây con giữa lúc đang chuyển động và để lại lớp mờ trên màn hình. */}
+      <Dialog open={hoiNhan !== null} onOpenChange={(v: boolean) => !v && doiHoiNhan(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nhận công tác này?</DialogTitle>
+            <DialogDescription>
+              Tên bạn sẽ được ghi là người tiếp quản, kèm ngày giờ, vào nhật ký của đề nghị.
+              <strong> Không hoàn lại được.</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          {hoiNhan && (
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-0.5 rounded-lg bg-muted p-(--hp-md-row-pad) text-sm">
+                <span className="font-semibold text-text-primary">{hoiNhan.prCode}</span>
+                <span className="text-xs text-text-desc">{hoiNhan.tieuDe}</span>
+                <span className="text-xs text-text-secondary">
+                  Bước: <strong>{nhanBuoc(hoiNhan.denBuoc)}</strong>
+                </span>
+              </div>
+
+              {/* Nói TRƯỚC hệ quả, không để người dùng phát hiện sau khi đã bấm. */}
+              {hoiNhan.denBuoc === "tiep_nhan" &&
+                !baoGia.some((b) => b.prId === hoiNhan.prId && b.trangThai !== "huy") && (
+                  <div className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm text-text-secondary">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
+                    <span>
+                      Nhận xong, đề nghị <strong>tự chuyển sang bước “Yêu cầu NCC báo giá”</strong>{" "}
+                      và hệ thống lập luôn bảng báo giá để bạn mời nhà cung cấp chào giá.
+                    </span>
+                  </div>
+                )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => doiHoiNhan(null)}>
+              Chưa nhận
+            </Button>
+            <Button
+              onClick={() => {
+                if (hoiNhan) xacNhanNhan(hoiNhan);
+                doiHoiNhan(null);
+              }}
+            >
+              <Check className="size-4" aria-hidden />
+              Chắc chắn nhận
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DropdownMenu>
   );
 }

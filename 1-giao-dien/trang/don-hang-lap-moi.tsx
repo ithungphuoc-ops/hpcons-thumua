@@ -1,9 +1,16 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Download, FileSpreadsheet, FileWarning, ShoppingCart } from "lucide-react";
+import {
+  AlertTriangle,
+  Download,
+  FileSpreadsheet,
+  FileWarning,
+  ShoppingCart,
+  Split,
+} from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
@@ -15,7 +22,7 @@ import { Skeleton } from "@/1-giao-dien/nen-tang-ui/skeleton";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhKhoiTongTien, tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-import { docDonHangTuExcel, khopVoiDeNghi } from "@/2-quy-trinh/doc-don-hang-excel";
+import { docDonHangTuExcel, docNgayVN, khopVoiDeNghi } from "@/2-quy-trinh/doc-don-hang-excel";
 import { taoFileNhapDonHang, tenFileNhapDonHang } from "@/2-quy-trinh/ghi-don-hang-excel";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { boDau } from "@/6-tien-ich/bo-dau";
@@ -43,7 +50,17 @@ function NoiDungLapDonHang() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prId = searchParams.get("prId");
-  const { deNghi, donHang, phieuNhan, nhaCungCap, themDonHang } = useDuLieu();
+  /**
+   * TÁCH PO: hai tham số này đến từ màn Báo giá, khi người dùng đã chia khối lượng một mặt
+   * hàng cho nhiều nhà cung cấp rồi bấm "Lập đơn" cho một nhà cung cấp cụ thể.
+   *
+   * 🔴 VÌ SAO KHÔNG SINH PO TỰ ĐỘNG TỪ MÀN BÁO GIÁ: đơn đặt hàng còn cần ngày giao, người
+   * nhận, địa điểm, điều khoản — những thứ chỉ người lập đơn biết. Nên màn này vẫn là NƠI
+   * DUY NHẤT tạo PO (một nguồn sự thật), phân bổ chỉ ĐIỀN SẴN vào đây.
+   */
+  const rfqId = searchParams.get("rfqId");
+  const nccIdTuBaoGia = searchParams.get("nccId");
+  const { deNghi, donHang, baoGia, phieuNhan, nhaCungCap, themDonHang } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   const [chon, setChon] = useState<number[]>([]);
@@ -73,9 +90,20 @@ function NoiDungLapDonHang() {
     khongLapDuoc: string[];
     vuot: string[];
     canhBao: string[];
+    /** Nhà cung cấp ghi trong file nhưng không có trong danh mục — người dùng phải tự chọn. */
+    nccChuaKhop?: string;
   } | null>(null);
   const [dangDocFile, setDangDocFile] = useState(false);
   const [dangTaoFile, setDangTaoFile] = useState(false);
+
+  /** Đã điền sẵn từ bảng báo giá nào — hiện dải thông báo để người lập biết vì sao có số. */
+  const [nguonTuBaoGia, setNguonTuBaoGia] = useState<{
+    maBaoGia: string;
+    tenNCC: string;
+    soDong: number;
+    /** Số dòng trong phân bổ nhưng KHÔNG điền được — phải nói ra, không lặng lẽ bỏ. */
+    soDongBoQua: number;
+  } | null>(null);
 
   const dn = deNghi.find((x) => x.id === prId);
   const tienDo = useMemo(
@@ -90,6 +118,85 @@ function NoiDungLapDonHang() {
       Boolean(d.nguoiPhuTrachUid) &&
       (quyen.phanBoCongViec || d.nguoiPhuTrachUid === nguoiDung.uid),
   );
+
+  /**
+   * ĐIỀN SẴN TỪ PHÂN BỔ CỦA BẢNG BÁO GIÁ — mắt nối của chức năng TÁCH PO.
+   *
+   * Người dùng vào màn Báo giá, chia 2.400 kg thép cho NCC B 1.500 và NCC G 900, rồi bấm
+   * "Lập đơn" ở nhóm NCC B. Màn này mở ra với: NCC B đã chọn, dòng thép đã tick, khối
+   * lượng 1.500 và đơn giá B đã báo — điền sẵn. Bấm "Lập đơn" ở nhóm NCC G thì ra đơn
+   * thứ hai cho 900 kg còn lại. Đó chính là hai PO tách ra từ một mặt hàng.
+   *
+   * 🔴 Chạy MỘT LẦN duy nhất (`daDienTuBaoGia`): không có chốt này thì mỗi lần state đổi
+   * (người dùng vừa sửa tay khối lượng) hiệu ứng lại ghi đè, người lập không sửa được gì.
+   *
+   * ⚠️ Khớp theo TÊN VẬT LIỆU vì dòng báo giá không giữ số thứ tự dòng đề nghị. Cùng cách
+   * khớp với phần nhập Excel — khi có mã vật tư thì đổi cả hai chỗ sang khớp theo mã.
+   */
+  const daDienTuBaoGia = useRef(false);
+  useEffect(() => {
+    if (daDienTuBaoGia.current) return;
+    if (!rfqId || !nccIdTuBaoGia || !dn) return;
+    const bg = baoGia.find((b) => b.id === rfqId);
+    if (!bg) return;
+
+    const chuanHoa = (s: string) => boDau(s).replace(/\s+/g, " ").trim();
+    // 🔴 CHỈ XÉT `dongLapDuoc`, KHÔNG xét cả `tienDo`. Bảng bên dưới chỉ hiện `dongLapDuoc`;
+    // nếu tick sẵn một dòng không nằm trong đó thì người lập KHÔNG THẤY để bỏ tick, mà lúc
+    // chốt đơn dòng đó vẫn vào PO — tức đặt hàng cho dòng chưa phân bổ, hoặc dòng của người
+    // khác. Đúng cái mà chú thích đầu file cấm: "Chỉ chọn được dòng ĐÃ ĐƯỢC PHÂN BỔ".
+    const theoTen = new Map(dongLapDuoc.map((d) => [chuanHoa(d.tenVatLieu), d]));
+    const theoStt = new Map(dongLapDuoc.map((d) => [d.stt, d]));
+
+    const sttMoi: number[] = [];
+    let soDong = 0;
+    let tenNCC = "";
+    let soDongBoQua = 0;
+
+    for (const item of bg.items) {
+      const phan = (item.phanBo ?? []).find((p) => p.nccId === nccIdTuBaoGia);
+      if (!phan || phan.khoiLuong <= 0) continue;
+      tenNCC = phan.tenNCC;
+
+      // Khớp theo SỐ THỨ TỰ DÒNG trước — chính xác tuyệt đối. Chỉ lùi về khớp theo tên với
+      // dữ liệu cũ chưa có `sttDongDeNghi` (hai dòng cùng tên khác quy cách sẽ khớp sai,
+      // nên đây chỉ là đường lùi, không phải cách chính).
+      const dongDN =
+        item.sttDongDeNghi !== undefined
+          ? theoStt.get(item.sttDongDeNghi)
+          : theoTen.get(chuanHoa(item.tenVatLieu));
+
+      // Dòng đã lên đơn đủ, chưa phân bổ, hoặc phân bổ cho người khác — không tick sẵn.
+      if (!dongDN || dongDN.khoiLuongChuaLenPO <= 0) {
+        soDongBoQua += 1;
+        continue;
+      }
+
+      // Không đặt vượt phần còn lại của dòng đề nghị, kể cả khi phân bổ ghi nhiều hơn.
+      const klDat = Math.min(phan.khoiLuong, dongDN.khoiLuongChuaLenPO);
+      setKhoiLuong((t) => ({ ...t, [dongDN.stt]: String(klDat) }));
+
+      const gia = item.baoGiaNCC.find((q) => q.nccId === nccIdTuBaoGia)?.donGia;
+      if (gia !== undefined) setDonGia((t) => ({ ...t, [dongDN.stt]: String(gia) }));
+
+      sttMoi.push(dongDN.stt);
+      soDong += 1;
+    }
+
+    if (sttMoi.length > 0) {
+      setChon((t) => [...new Set([...t, ...sttMoi])]);
+      setSupplierId(nccIdTuBaoGia);
+      setNguonTuBaoGia({ maBaoGia: bg.code, tenNCC, soDong, soDongBoQua });
+    } else if (soDongBoQua > 0) {
+      // Không điền được gì nhưng vẫn phải nói lý do, đừng để màn hình trắng trơn khiến
+      // người dùng tưởng bấm nhầm nút.
+      setNguonTuBaoGia({ maBaoGia: bg.code, tenNCC, soDong: 0, soDongBoQua });
+    }
+    daDienTuBaoGia.current = true;
+    // `dongLapDuoc` tính lại mỗi lần render nên KHÔNG đưa vào deps — đã có chốt
+    // `daDienTuBaoGia` bảo đảm chạy một lần, đưa vào chỉ làm hiệu ứng chạy lại vô ích.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rfqId, nccIdTuBaoGia, dn, baoGia]);
 
   if (!quyen.lapPO) {
     return (
@@ -148,7 +255,7 @@ function NoiDungLapDonHang() {
       // Gộp với lựa chọn sẵn có, không xóa dòng người dùng đã tự tick.
       if (sttMoi.length > 0) setChon((t) => [...new Set([...t, ...sttMoi])]);
 
-      // Thông tin chung
+      // --- Thông tin chung của phiếu ---
       const c = kq.thongTinChung;
       if (c.diaDiemGiaoHang) setDiaDiemGiao(c.diaDiemGiaoHang);
       if (c.nguoiNhan) setNguoiNhanHang(c.nguoiNhan);
@@ -156,12 +263,40 @@ function NoiDungLapDonHang() {
       if (c.dieuKhoanThanhToan) setDieuKhoanThanhToan(c.dieuKhoanThanhToan);
       if (c.thueSuatGTGT !== undefined) setThueSuat(String(c.thueSuatGTGT));
 
-      // Khớp tên nhà cung cấp với danh sách đang có — không khớp thì để người dùng tự chọn.
-      if (c.tenNhaCungCap) {
-        const ncc = nhaCungCap.find(
-          (n) => boDau(n.ten).replace(/\s+/g, " ") === boDau(c.tenNhaCungCap!).replace(/\s+/g, " "),
+      // Ngày giao hàng — trước đây bỏ sót, người lập phải tự chọn lại dù file đã ghi rõ.
+      // ⚠️ Đổi dd/MM/yyyy sang yyyy-MM-dd, xem `docNgayVN`: đưa thẳng chuỗi Việt vào ô ngày
+      // là ô trống trơn, còn để `new Date()` đọc thì lệch một tháng.
+      const ngayGiaoISO = docNgayVN(c.ngayGiaoHang);
+      if (ngayGiaoISO) setNgayGiao(ngayGiaoISO);
+
+      /**
+       * NHẬN DIỆN NHÀ CUNG CẤP — theo MÃ SỐ THUẾ trước, rồi mới đến tên.
+       *
+       * 🔴 Mã số thuế là số định danh duy nhất do cơ quan thuế cấp; tên thì mỗi phiếu viết
+       * một kiểu ("CÔNG TY TNHH HIỆP PHÁT" · "Công ty TNHH Hiệp Phát" · "CTY TNHH HIỆP
+       * PHÁT"). Khớp theo tên trước là trượt ngay ở phiếu viết hoa hoặc viết tắt.
+       *
+       * ⚠️ Bỏ mọi ký tự không phải chữ số khi so mã số thuế — nhiều phiếu ghi có dấu gạch
+       * cho đơn vị phụ thuộc ("0300000001-001") hoặc chèn khoảng trắng.
+       */
+      const soThue = (s?: string) => (s ?? "").replace(/\D/g, "");
+      let daChonNCC = false;
+      if (c.maSoThueNCC) {
+        const theoMST = nhaCungCap.find(
+          (n) => n.maSoThue && soThue(n.maSoThue) === soThue(c.maSoThueNCC),
         );
-        if (ncc) setSupplierId(ncc.id);
+        if (theoMST) {
+          setSupplierId(theoMST.id);
+          daChonNCC = true;
+        }
+      }
+      if (!daChonNCC && c.tenNhaCungCap) {
+        const chuan = (s: string) => boDau(s).replace(/\s+/g, " ").trim();
+        const ncc = nhaCungCap.find((n) => chuan(n.ten) === chuan(c.tenNhaCungCap!));
+        if (ncc) {
+          setSupplierId(ncc.id);
+          daChonNCC = true;
+        }
       }
 
       setKetQuaNhap({
@@ -170,6 +305,14 @@ function NoiDungLapDonHang() {
         khongLapDuoc: khongLapDuoc.map((k) => `${k.dongExcel.tenHang} (${k.lyDo})`),
         vuot: khop.filter((k) => k.vuotKhoiLuong).map((k) => k.dongExcel.tenHang),
         canhBao: kq.canhBao,
+        // File ghi rõ nhà cung cấp mà app không tra ra thì phải nói, đừng để người lập
+        // tưởng app đã chọn sẵn rồi chốt đơn với nhà cung cấp khác.
+        nccChuaKhop:
+          !daChonNCC && (c.tenNhaCungCap || c.maSoThueNCC)
+            ? `${c.tenNhaCungCap ?? "(không có tên)"}${
+                c.maSoThueNCC ? ` · MST ${c.maSoThueNCC}` : ""
+              }`
+            : undefined,
       });
 
       // Nói ĐÚNG lý do. Ba tình huống rất khác nhau, người dùng phải làm ba việc khác nhau:
@@ -280,7 +423,15 @@ function NoiDungLapDonHang() {
     const ncc = nhaCungCap.find((n) => n.id === supplierId);
     if (!ncc || !dn) return;
 
-    const items = chon.map((stt, i) => {
+    // 🔴 LỌC LẠI THEO `dongLapDuoc`, KHÔNG TIN VÀO `chon`.
+    // Lớp chặn thứ hai, cố ý trùng với lớp ở chỗ điền sẵn. Bảng bên dưới chỉ hiện
+    // `dongLapDuoc`, nên bất kỳ stt nào lọt vào `chon` mà không nằm trong đó là dòng người
+    // lập KHÔNG NHÌN THẤY — đặt hàng cho nó là đặt cho dòng chưa phân bổ hoặc dòng của
+    // người khác. Đã từng lọt qua đường điền sẵn từ bảng báo giá.
+    const sttHopLe = new Set(dongLapDuoc.map((d) => d.stt));
+    const items = chon
+      .filter((stt) => sttHopLe.has(stt))
+      .map((stt, i) => {
       const dong = tienDo.find((d) => d.stt === stt)!;
       const nhap = Number(khoiLuong[stt] ?? 0);
       return {
@@ -299,6 +450,14 @@ function NoiDungLapDonHang() {
         mucDichSuDung: mucDich[stt]?.trim() || dong.mucDichSuDung || undefined,
       };
     });
+
+    // Lọc xong không còn dòng nào thì dừng, kèm lý do — đừng lập một đơn hàng trống.
+    if (items.length === 0) {
+      toast.error("Không có dòng nào lập được đơn", {
+        description: "Các dòng đã chọn hiện chưa được phân bổ, hoặc đã lên đơn đủ khối lượng.",
+      });
+      return;
+    }
 
     const giaTheoDong: Record<number, number> = {};
     items.forEach((it) => {
@@ -355,6 +514,36 @@ function NoiDungLapDonHang() {
         title="Lập đơn đặt hàng"
         description={`Từ ${dn.code} · ${dn.tieuDe}. Mã PO sinh tự động theo mã dự án ${dn.maDuAn}`}
       />
+
+      {/* ===== DẢI THÔNG BÁO: đơn này là MỘT PHẦN tách ra từ bảng báo giá =====
+          Không có dòng này thì người lập mở màn ra thấy số liệu tự có sẵn mà không hiểu
+          vì sao, dễ tưởng app điền sai rồi xóa đi làm lại. */}
+      {nguonTuBaoGia && (
+        <div className="flex flex-col gap-1.5 rounded-lg border border-primary/40 bg-primary-bg p-(--hp-md-row-pad) text-sm">
+          <span className="flex items-start gap-2 text-text-secondary">
+            <Split className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <span>
+              Đơn này là <strong className="text-text-primary">một phần tách ra</strong> từ bảng
+              báo giá <strong className="text-text-primary">{nguonTuBaoGia.maBaoGia}</strong>,
+              phần của <strong className="text-text-primary">{nguonTuBaoGia.tenNCC}</strong> —{" "}
+              {nguonTuBaoGia.soDong} mặt hàng đã điền sẵn khối lượng và đơn giá theo phân bổ.
+              Phần khối lượng của các nhà cung cấp khác sẽ lập thành đơn riêng.
+            </span>
+          </span>
+          {/* ⚠️ Nói ra số dòng bị bỏ. Bỏ lặng lẽ thì người lập tưởng đã đặt đủ phần của nhà
+              cung cấp này, trong khi thực tế còn dòng chưa được đặt. */}
+          {nguonTuBaoGia.soDongBoQua > 0 && (
+            <span className="flex items-start gap-2 text-warning-soft">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                Có <strong>{nguonTuBaoGia.soDongBoQua} mặt hàng</strong> trong phân bổ không đưa
+                vào đơn được: đã lên đơn đủ khối lượng, chưa được phân bổ cho ai, hoặc đang do
+                người khác phụ trách.
+              </span>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ===== NHẬP TỪ FILE EXCEL =====
           Chỉ đạo Ban lãnh đạo 10/08/2026: dùng chính biểu mẫu đang lưu hành
@@ -428,13 +617,26 @@ function NoiDungLapDonHang() {
                   </span>
                 </p>
               )}
+              {/* Nhà cung cấp trong file không tra ra trong danh mục — phải nói, nếu không
+                  người lập tưởng app đã chọn sẵn rồi chốt đơn với nhà cung cấp khác. */}
+              {ketQuaNhap.nccChuaKhop && (
+                <p className="flex items-start gap-1.5 text-warning-soft">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  <span>
+                    Nhà cung cấp trong file chưa có trong danh mục:{" "}
+                    <strong>{ketQuaNhap.nccChuaKhop}</strong>. Hãy tự chọn nhà cung cấp bên
+                    dưới, hoặc nhờ quản trị thêm nhà cung cấp này vào danh mục.
+                  </span>
+                </p>
+              )}
               {ketQuaNhap.khongKhop.length > 0 && (
                 <p className="flex items-start gap-1.5 text-danger-soft">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                   <span>
                     Không có trong đề nghị nên bỏ qua:{" "}
                     <strong>{ketQuaNhap.khongKhop.join(", ")}</strong>. Đơn hàng chỉ được lập
-                    từ mặt hàng đã có trong đề nghị.
+                    từ mặt hàng đã có trong đề nghị — đây là khóa truy vết khối lượng của cả
+                    hệ thống, không thể tự thêm mặt hàng lạ.
                   </span>
                 </p>
               )}

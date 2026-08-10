@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { AlertTriangle, ArrowLeft, Check, FileWarning, Split } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, FileWarning, ShoppingCart, Split } from "lucide-react";
 import { toast } from "sonner";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -36,7 +36,13 @@ import { cn } from "@/6-tien-ich/gop-lop";
 /** M7b — So sánh báo giá nhiều nhà cung cấp cho một đề nghị đã duyệt. */
 export default function TrangBaoGiaChiTiet() {
   const params = useParams<{ id: string }>();
-  const { baoGia, chonNCCChoBaoGia, luuPhanBoBaoGia } = useDuLieu();
+  const {
+    baoGia,
+    donHang,
+    chonNCCChoBaoGia,
+    luuPhanBoBaoGia,
+    doiTrangThaiBaoGiaTheoDeNghi,
+  } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const bg = baoGia.find((b) => b.id === params.id);
 
@@ -62,6 +68,48 @@ export default function TrangBaoGiaChiTiet() {
   const { cot, dong } = dungBangSoSanh(bg);
   const daTach = daTachBaoGia(bg);
   const nhomNCC = gomTheoNCC(bg);
+
+  /**
+   * Khối lượng ĐÃ ĐẶT của mỗi (nhà cung cấp × dòng đề nghị), gom từ các đơn hàng thật.
+   *
+   * 🔴 PHẢI TÍNH THEO TỪNG DÒNG, KHÔNG chỉ theo nhà cung cấp. Gom thô theo `supplierId`
+   * trên cả đề nghị thì chặn oan: NCC B đã có đơn cho dòng thép, sau đó tách thêm dòng xi
+   * măng cũng cho B là hết đường lập đơn thứ hai — trong khi mô hình dữ liệu cho phép nhiều
+   * đơn trỏ về cùng một đề nghị. Cũng chặn oan ca đặt trước một phần rồi đặt tiếp phần còn
+   * lại từ cùng nhà cung cấp.
+   *
+   * ⚠️ Chỉ xét đơn CHƯA HỦY — đơn đã hủy thì phải cho lập lại.
+   */
+  const daDatTheoNCCVaDong = new Map<string, number>();
+  for (const po of donHang) {
+    if (po.prId !== bg.prId || po.trangThai === "huy") continue;
+    for (const d of po.items) {
+      const khoa = `${po.supplierId}|${d.sttDongDeNghi}`;
+      daDatTheoNCCVaDong.set(khoa, (daDatTheoNCCVaDong.get(khoa) ?? 0) + d.khoiLuongDat);
+    }
+  }
+
+  /**
+   * Nhóm phân bổ của nhà cung cấp này đã được đặt hết chưa.
+   *
+   * "Hết" = mọi dòng trong nhóm đều đã có đơn với khối lượng ≥ phần được phân bổ. Còn một
+   * dòng chưa đủ thì vẫn cho lập đơn tiếp.
+   */
+  const daDatHetNhom = (nccId: string): boolean => {
+    const dongCuaNhom = bg.items
+      .map((item) => ({
+        stt: item.sttDongDeNghi,
+        phan: (item.phanBo ?? []).find((p) => p.nccId === nccId)?.khoiLuong ?? 0,
+      }))
+      .filter((x) => x.phan > 0);
+    if (dongCuaNhom.length === 0) return false;
+    return dongCuaNhom.every((x) => {
+      // Dòng báo giá cũ chưa có `sttDongDeNghi` thì không đối chiếu được theo dòng — coi như
+      // chưa đặt, thà hiện nút thừa còn hơn chặn oan không cho lập đơn.
+      if (x.stt === undefined) return false;
+      return (daDatTheoNCCVaDong.get(`${nccId}|${x.stt}`) ?? 0) >= x.phan;
+    });
+  };
 
   /** Đọc số đang gõ ở ô (dòng × NCC). Ô trống hoặc gõ bậy tính là 0. */
   const soDangGo = (dongId: string, nccId: string): number => {
@@ -143,6 +191,48 @@ export default function TrangBaoGiaChiTiet() {
         </CardContent>
       </Card>
 
+      {/* ===== CHỜ NHÀ CUNG CẤP GỬI GIÁ VỀ =====
+          🔴 MẮT NỐI của chuỗi tách PO. Bảng báo giá vừa lập ra chưa có giá của ai, nên
+          không có gì để so sánh và cũng KHÔNG TÁCH ĐƯỢC. Trước 10/08/2026 giá chỉ được
+          điền khi KÉO THẺ từ cột ② sang cột ③ trên bảng quy trình — trên điện thoại không
+          kéo được nên chuỗi tắc hẳn ở đây.
+
+          ⚠️ Nút này là CÔNG CỤ CHẠY THỬ, tự điền giá giả lập của 3 nhà cung cấp. Khi nối
+          Firestore thật thì thay bằng màn nhập giá thật (hoặc nhận giá NCC gửi qua HPcore)
+          và BỎ nút này. */}
+      {bg.trangThai === "dang_thu_thap" && quyen.lapPO && (
+        <Card className="border-warning">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-semibold text-text-primary">
+                Đang chờ nhà cung cấp gửi giá về
+              </p>
+              <p className="text-xs text-text-desc">
+                Chưa có giá thì chưa so sánh và chưa tách khối lượng được. Bản chạy thử: bấm
+                nút bên cạnh để giả lập 3 nhà cung cấp gửi giá.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                doiTrangThaiBaoGiaTheoDeNghi(
+                  bg.prId,
+                  "dang_thu_thap",
+                  "da_so_sanh",
+                  nguoiDung.tenHienThi,
+                );
+                toast.success("Đã nhận đủ báo giá", {
+                  description: "So sánh giá, rồi bấm “Tách cho nhiều NCC” nếu cần chia đơn.",
+                });
+              }}
+            >
+              <Check className="size-4" aria-hidden />
+              Nhận đủ báo giá (giả lập)
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ===== TÁCH BÁO GIÁ CHO NHIỀU NHÀ CUNG CẤP =====
           Chỉ đạo Ban lãnh đạo 10/08/2026: một nhà cung cấp có thể không giao đủ số
           lượng cần đặt, nên phải chia mặt hàng đó cho nhiều nhà cung cấp — mỗi phần
@@ -185,6 +275,39 @@ export default function TrangBaoGiaChiTiet() {
                     <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
                     Có mặt hàng nhà cung cấp này chưa báo giá — cần thỏa thuận giá trước khi lập đơn.
                   </p>
+                )}
+
+                {/* ===== LẬP ĐƠN CHO RIÊNG NHÀ CUNG CẤP NÀY =====
+                    🔴 ĐÂY LÀ MẮT NỐI của chức năng tách PO. Trước ngày 10/08/2026 khối này
+                    chỉ hiện danh sách đã chia mà KHÔNG có đường lập đơn, nên tách xong người
+                    dùng vẫn phải sang màn lập đơn tự chọn nhà cung cấp và tự nhập lại khối
+                    lượng — tách chỉ là ghi chú, không sinh ra đơn nào. Ban lãnh đạo báo
+                    *"chức năng tách PO vẫn chưa có"* chính là thiếu chỗ này.
+
+                    Bấm nút → mở màn lập đơn với nhà cung cấp, khối lượng và đơn giá điền sẵn
+                    theo phân bổ. Mỗi nhà cung cấp một lần bấm = một PO riêng. */}
+                {quyen.lapPO && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2 border-t border-divider pt-2">
+                    {daDatHetNhom(n.nccId) ? (
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-success-soft">
+                        <Check className="size-3.5 shrink-0" aria-hidden />
+                        Đã lập đơn đủ phần của nhà cung cấp này
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        nativeButton={false}
+                        render={
+                          <Link
+                            href={`/don-hang/tao-moi?prId=${bg.prId}&rfqId=${bg.id}&nccId=${n.nccId}`}
+                          />
+                        }
+                      >
+                        <ShoppingCart className="size-4" aria-hidden />
+                        Lập đơn cho {n.tenNCC}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             ))}

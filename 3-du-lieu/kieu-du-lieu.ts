@@ -373,6 +373,19 @@ export interface DongBaoGiaNCC {
 
 export interface DongBaoGia {
   id: string;
+  /**
+   * ★ Số thứ tự dòng của ĐỀ NGHỊ mà dòng báo giá này ứng với.
+   *
+   * 🔴 KHÓA TRUY VẾT, không phải trường trang trí. Khi lập đơn từ phân bổ, phải biết phần
+   * khối lượng này thuộc dòng đề nghị nào. Trước đây không có nên phải khớp theo
+   * `tenVatLieu`, và hai dòng đề nghị cùng tên khác quy cách ("Thép hộp" 40×40 và 50×50)
+   * bị dồn về một dòng — dòng kia mất khối lượng. Tên vật liệu do người dùng gõ tự do nên
+   * trùng tên là chuyện thường.
+   *
+   * ⚠️ Không bắt buộc để đọc được dữ liệu cũ chưa có trường này; chỗ dùng phải có đường lùi
+   * về khớp theo tên.
+   */
+  sttDongDeNghi?: number;
   tenVatLieu: string;
   donViTinh: string;
   khoiLuong: number;

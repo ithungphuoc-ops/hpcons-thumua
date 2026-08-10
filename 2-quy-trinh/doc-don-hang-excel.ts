@@ -99,6 +99,33 @@ function docSo(o: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * Đổi ngày kiểu Việt Nam sang dạng `yyyy-MM-dd` để điền được vào ô `<input type="date">`.
+ *
+ * `"07/08/2026"` → `"2026-08-07"` · `"7/8/2026"` → `"2026-08-07"`.
+ *
+ * 🔴 NGÀY TRƯỚC, THÁNG SAU. Biểu mẫu công ty ghi kiểu Việt (dd/MM/yyyy), còn `new Date()`
+ * của JavaScript đọc chuỗi "07/08/2026" theo kiểu Mỹ (tháng trước) và cho ra 08/07/2026 —
+ * lệch một tháng mà không báo lỗi gì. Vì vậy phải tự tách, không dùng `new Date(chuỗi)`.
+ *
+ * Trả `undefined` khi không nhận ra dạng ngày — thà để trống cho người dùng tự chọn còn
+ * hơn điền một ngày sai.
+ */
+export function docNgayVN(s: string | undefined): string | undefined {
+  if (!s) return undefined;
+  const m = s.trim().match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  if (m) {
+    const [, ngay, thang, nam] = m;
+    const d = Number(ngay);
+    const t = Number(thang);
+    if (d < 1 || d > 31 || t < 1 || t > 12) return undefined;
+    return `${nam}-${String(t).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+  // Ô định dạng ngày của Excel có thể đã ở dạng ISO sẵn.
+  const iso = s.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return iso ? `${iso[1]}-${iso[2]}-${iso[3]}` : undefined;
+}
+
 /** Lấy chuỗi hiển thị của một ô ExcelJS (ô có công thức trả về object `{ result }`). */
 function chuOi(o: unknown): string {
   if (o === null || o === undefined) return "";
@@ -172,12 +199,42 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
     }
   }
 
+  /**
+   * Tìm giá trị của một nhãn trên phiếu.
+   *
+   * 🔴 PHẢI ĐỠ ĐƯỢC HAI CÁCH ĐIỀN, vì biểu mẫu công ty dùng cả hai (đối chiếu file thật
+   * Ban lãnh đạo cung cấp 10/08/2026):
+   *
+   *   1. NHÃN VÀ GIÁ TRỊ CHUNG MỘT Ô — ô gộp hết chiều ngang nên người lập gõ thẳng sau
+   *      dấu hai chấm:   A6 = "Tên nhà cung cấp: CÔNG TY TNHH HIỆP PHÁT"
+   *   2. NHÃN MỘT Ô, GIÁ TRỊ Ô KẾ BÊN — vùng bên phải phiếu không gộp:
+   *      I6 = "Ngày:"  ·  J6 = "05/08/2026"
+   *      I7 = "Số:"    ·  J7 = "ĐMH0559-26"
+   *
+   * Chỉ đỡ cách 1 thì mọi trường bên phải phiếu (Ngày, Số phiếu, Loại tiền) đọc ra rỗng.
+   *
+   * ⚠️ Quét ô kế bên chỉ trong CÙNG MỘT DÒNG và lấy ô đầu tiên có nội dung. Không nhìn
+   * xuống dòng dưới — dòng dưới là nhãn khác, lấy sang là gán sai giá trị.
+   */
   const timTheoNhan = (nhan: string): string | undefined => {
     const khoa = nhan.toLowerCase();
     for (let r = dongTieuDePhieu + 1; r <= Math.min(ws.rowCount, 60); r++) {
       for (let c = 1; c <= 12; c++) {
         const s = oChu(r, c);
-        if (s.toLowerCase().startsWith(khoa)) return sauDauHaiCham(s);
+        if (!s.toLowerCase().startsWith(khoa)) continue;
+
+        // Cách 1: giá trị nằm ngay sau dấu hai chấm trong cùng ô.
+        const cungO = sauDauHaiCham(s);
+        if (cungO !== undefined) return cungO;
+
+        // Cách 2: giá trị ở ô kế bên phải trên cùng dòng.
+        for (let c2 = c + 1; c2 <= 13; c2++) {
+          const ben = oChu(r, c2);
+          // Bỏ qua ô chỉ có dấu hai chấm (một số biểu mẫu tách dấu ra ô riêng).
+          if (ben === "" || ben === ":") continue;
+          return ben;
+        }
+        return undefined;
       }
     }
     return undefined;
@@ -206,9 +263,19 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
   /** Có gặp ô nào có dữ liệu trong vùng bảng chưa — để phân biệt biểu mẫu trống. */
   let coODuLieuTrongBang = false;
 
+  /**
+   * Các nhãn báo hiệu ĐÃ HẾT BẢNG HÀNG, sang vùng tổng kết.
+   *
+   * ⚠️ Biểu mẫu trống ghi "Cộng tiền hàng (Chưa trừ CK):" nhưng file đã điền của công ty
+   * lại có thêm dòng "Số tiền CK:" và ghi "Cộng tiền hàng (Đã trừ CK):" (đối chiếu file
+   * thật 10/08/2026). Liệt kê cả ba để đừng phụ thuộc vào đúng một cách viết.
+   */
+  const NHAN_HET_BANG = ["cộng tiền hàng", "số tiền ck", "thuế suất", "số tiền viết bằng chữ"];
+
   for (let r = dongTieuDe + 1; r <= ws.rowCount; r++) {
     const oA = oChu(r, 1);
-    if (oA.toLowerCase().startsWith("cộng tiền hàng")) break;
+    const oAThuong = oA.toLowerCase();
+    if (NHAN_HET_BANG.some((nhan) => oAThuong.startsWith(nhan))) break;
 
     // 🔴 CHẶN THÊM MỘT LỚP: cột STT của vùng bảng luôn là SỐ. Ô A có chữ mà không
     // phải "Cộng tiền hàng" nghĩa là đã đi quá bảng, xuống vùng tổng kết
