@@ -179,20 +179,21 @@ export default function TrangChiTietDeNghi() {
           <KhoiGap tieuDe="Thông tin đề nghị" moSan>
             <DanhSachTruong
               truong={[
+                // `daiCaHang` cho hai trường chữ dài — để trong một ô hẹp thì bị cắt mất.
+                { nhan: "Tiêu đề", giaTri: dn.tieuDe, daiCaHang: true },
+                { nhan: "Tên công trình", giaTri: dn.tenCongTrinh, daiCaHang: true },
                 { nhan: "Mã đề nghị", giaTri: dn.code },
-                { nhan: "Tiêu đề", giaTri: dn.tieuDe },
-                { nhan: "Phòng ban đề nghị", giaTri: NHAN_PHONG_BAN_NGUON[dn.phongBanNguon] },
-                { nhan: "Tên công trình", giaTri: dn.tenCongTrinh },
                 { nhan: "Mã dự án", giaTri: dn.maDuAn },
                 { nhan: "Số hợp đồng CĐT", giaTri: dn.maHopDongCDT },
+                { nhan: "Phòng ban đề nghị", giaTri: NHAN_PHONG_BAN_NGUON[dn.phongBanNguon] },
                 { nhan: "Người đề nghị", giaTri: dn.nguoiDeNghiTen },
-                { nhan: "Ngày đề nghị", giaTri: formatMocThoiGian(dn.ngayDeNghi) },
-                { nhan: "Ngày duyệt", giaTri: formatMocThoiGian(dn.ngayDuyet) },
-                { nhan: "Ngày cần hàng", giaTri: formatMocThoiGian(dn.ngayCanHang) },
                 {
                   nhan: "Mức độ ưu tiên",
                   giaTri: dn.mucDoUuTien === "gap" ? "Gấp" : "Bình thường",
                 },
+                { nhan: "Ngày đề nghị", giaTri: formatMocThoiGian(dn.ngayDeNghi) },
+                { nhan: "Ngày duyệt", giaTri: formatMocThoiGian(dn.ngayDuyet) },
+                { nhan: "Ngày cần hàng", giaTri: formatMocThoiGian(dn.ngayCanHang) },
                 { nhan: "Số mặt hàng", giaTri: `${dn.items.length} dòng vật tư` },
               ]}
             />
