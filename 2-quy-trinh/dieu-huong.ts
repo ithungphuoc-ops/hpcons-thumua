@@ -36,7 +36,8 @@ export interface MucDieuHuong {
  */
 export const MUC_DIEU_HUONG: MucDieuHuong[] = [
   {
-    nhan: "Bảng điều khiển",
+    // Nhãn "Tổng quan" theo chỉ đạo Ban lãnh đạo 10/08/2026 (trước là "Bảng điều khiển").
+    nhan: "Tổng quan",
     nhanNgan: "Tổng quan",
     href: "/tong-quan",
     icon: LayoutDashboard,

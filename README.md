@@ -45,7 +45,8 @@ npm run verify   # lint + typecheck + build (build vào .next-check, an toàn kh
 
 | Đường dẫn | Màn hình | Ghi chú |
 |---|---|---|
-| `/tong-quan` | M1 Bảng điều khiển | KPI Card đủ 4 thành phần theo V1.1 |
+| `/tong-quan` | M1 Tổng quan | KPI Card đủ 4 thành phần theo V1.1 |
+| `/viec-cua-toi` | **Việc của tôi** | ⭐ Màn cá nhân — lọc theo "đến lượt tôi", có ghim sao |
 | `/de-nghi` · `/de-nghi/[id]` | M2 Đề nghị mua hàng | Chi tiết có kèm bảng phân bổ |
 | `/phan-bo` | **M3 Phân bổ công việc** | ⭐ Mới — bản `thumua-next` cũ không có |
 | `/don-hang/tao-moi?prId=` | M4 Lập đơn đặt hàng | Mã PO sinh theo mã dự án |

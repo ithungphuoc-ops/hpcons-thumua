@@ -61,9 +61,9 @@ export default function TrangTongQuan() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Thu mua" }, { label: "Bảng điều khiển" }]}
-        title="Bảng điều khiển"
-        description="Tổng quan đề nghị mua hàng, phân bổ công việc và tiến độ giao nhận"
+        crumbs={[{ label: "Thu mua" }, { label: "Tổng quan" }]}
+        title="Tổng quan"
+        description="Đề nghị mua hàng, phân bổ công việc và tiến độ giao nhận"
       />
 
       {/* KPI Card — đủ 4 thành phần theo V1.1 Phần E1.

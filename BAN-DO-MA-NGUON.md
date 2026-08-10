@@ -32,7 +32,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 
 | Hiện tượng | Sửa file |
 |---|---|
-| Sai chữ / sai cột ở **Bảng điều khiển** | `1-giao-dien/trang/tong-quan.tsx` |
+| Sai chữ / sai cột ở **Tổng quan** | `1-giao-dien/trang/tong-quan.tsx` |
 | Sai ở **danh sách Đề nghị** (cả 2 cách xem) | `1-giao-dien/trang/de-nghi-danh-sach.tsx` |
 | Sai ở **màn Nhận đề nghị mới (giả lập)** 🧪 | `1-giao-dien/trang/de-nghi-nhan-moi.tsx` |
 | Sai ở **bảng quy trình 8 cột** (thẻ, màu thẻ, chữ trên thẻ, chiều cao cột) | `1-giao-dien/thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang.tsx` |
