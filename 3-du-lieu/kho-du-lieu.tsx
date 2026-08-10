@@ -17,6 +17,7 @@ import {
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import {
   DE_NGHI_MAU,
   DON_HANG_MAU,
@@ -36,6 +37,7 @@ import type {
   GiaDonDatHang,
   NguoiTheoDoi,
   NhaCungCap,
+  PhanBoNCC,
   PhieuNhanHang,
   ThongBaoChuyenBuoc,
   TrangThaiBaoGia,
@@ -78,7 +80,17 @@ export type DauVaoDonHangMoi = Omit<DonDatHang, "id" | "code" | "trangThai"> & {
   >;
 };
 
+/** Ngày (không giờ) — dùng cho các mốc NGHIỆP VỤ như ngày lập PO, ngày nhận hàng. */
 const homNay = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * 🔴 NHẬT KÝ DÙNG `thoiDiemHienTai()` CHỨ KHÔNG DÙNG `homNay()`
+ * (chỉ đạo Ban lãnh đạo 10/08/2026: "phải ghi rõ ngày giờ cụ thể khi có chỉnh sửa").
+ *
+ * Chỉ ghi ngày thì trong cùng một ngày không biết việc nào xảy ra trước — mà nhật ký
+ * sinh ra chính là để truy được thứ tự thao tác. Lưu ISO đầy đủ, hiển thị quy về
+ * giờ Việt Nam bằng `formatDateTime` (xem `6-tien-ich/dinh-dang.ts`).
+ */
 
 interface GiaTriDuLieu {
   deNghi: DeNghiMuaHang[];
@@ -125,6 +137,15 @@ interface GiaTriDuLieu {
   ) => void;
   /** Bước ③ → ④: chốt nhà cung cấp cho một bảng báo giá đã so sánh. */
   chonNCCChoBaoGia: (bgId: string, nccId: string, tenNCC: string, nguoiThucHien: string) => void;
+  /**
+   * TÁCH BÁO GIÁ: lưu phân bổ khối lượng từng dòng cho nhiều nhà cung cấp.
+   * Khóa của `phanBoTheoDong` là `DongBaoGia.id`.
+   */
+  luuPhanBoBaoGia: (
+    bgId: string,
+    phanBoTheoDong: Record<string, PhanBoNCC[]>,
+    nguoiThucHien: string,
+  ) => void;
   /** Kéo thả vào cột Thất bại: đóng dở đề nghị, ghi lịch sử. */
   dongDoDeNghi: (prId: string, nguoiThucHien: string) => void;
 
@@ -227,7 +248,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         truoc.map((dn) =>
           dn.id !== prId
             ? dn
-            : { ...dn, lichSu: [...dn.lichSu, { thoiDiem: homNay(), nguoiThucHien, hanhDong }] },
+            : { ...dn, lichSu: [...dn.lichSu, { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong }] },
         ),
       );
     },
@@ -286,7 +307,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },
         { thoiDiem: dauVao.ngayDuyet, nguoiThucHien: "Ban chỉ huy", hanhDong: "Duyệt đề nghị" },
         {
-          thoiDiem: homNay(),
+          thoiDiem: thoiDiemHienTai(),
           nguoiThucHien: "HPcore",
           hanhDong: "Chuyển sang Phòng Thu mua",
           ghiChu: "Bản chạy thử: đề nghị này do công cụ giả lập tạo ra",
@@ -328,7 +349,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                 lichSu: [
                   ...dn.lichSu,
                   {
-                    thoiDiem: homNay(),
+                    thoiDiem: thoiDiemHienTai(),
                     nguoiThucHien: nguoiPhanBoTen,
                     hanhDong: `Phân bổ dòng ${sttDong.join(", ")} cho ${ten}`,
                   },
@@ -360,7 +381,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               ),
               lichSu: [
                 ...dn.lichSu,
-                { thoiDiem: homNay(), nguoiThucHien, hanhDong: `Bỏ phân bổ dòng ${stt}` },
+                { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong: `Bỏ phân bổ dòng ${stt}` },
               ],
             },
       ),
@@ -552,6 +573,50 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [ghiLichSuDeNghi],
   );
 
+  /**
+   * TÁCH BÁO GIÁ — lưu phân bổ khối lượng cho nhiều nhà cung cấp.
+   *
+   * 🔴 KHÔNG ghi tên nhà cung cấp vào nhật ký đề nghị: khối "Lịch sử" hiện cho cả vai
+   * trò không được xem NCC (thủ kho, Phòng Thi công), ghi vào là rò rỉ qua đường nhật ký.
+   * Chỉ ghi SỐ nhà cung cấp đã tách.
+   */
+  const luuPhanBoBaoGia = useCallback(
+    (bgId: string, phanBoTheoDong: Record<string, PhanBoNCC[]>, nguoiThucHien: string) => {
+      const ngay = homNay();
+      setBaoGia((truoc) =>
+        truoc.map((b) => {
+          if (b.id !== bgId) return b;
+          return {
+            ...b,
+            ngayCapNhat: ngay,
+            items: b.items.map((d) => {
+              const moi = phanBoTheoDong[d.id];
+              if (!moi) return d;
+              // Bỏ dòng khối lượng 0 — giữ lại chỉ làm rác dữ liệu và đếm nhầm số NCC.
+              const loc = moi.filter((p) => p.khoiLuong > 0);
+              return { ...d, phanBo: loc.length > 0 ? loc : undefined };
+            }),
+          };
+        }),
+      );
+
+      const bg = baoGiaRef.current.find((b) => b.id === bgId);
+      if (!bg) return;
+      const soNCC = new Set(
+        Object.values(phanBoTheoDong)
+          .flat()
+          .filter((p) => p.khoiLuong > 0)
+          .map((p) => p.nccId),
+      ).size;
+      ghiLichSuDeNghi(
+        bg.prId,
+        nguoiThucHien,
+        `Tách bảng báo giá ${bg.code} cho ${soNCC} nhà cung cấp`,
+      );
+    },
+    [ghiLichSuDeNghi],
+  );
+
   const danhDauDaDocThongBao = useCallback(() => {
     setThongBao((truoc) =>
       truoc.some((t) => !t.daDoc) ? truoc.map((t) => (t.daDoc ? t : { ...t, daDoc: true })) : truoc,
@@ -583,7 +648,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               trangThai: "dong_do",
               lichSu: [
                 ...dn.lichSu,
-                { thoiDiem: homNay(), nguoiThucHien, hanhDong: "Đóng dở đề nghị" },
+                { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong: "Đóng dở đề nghị" },
               ],
             },
       ),
@@ -612,7 +677,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             lichSu: [
               ...dn.lichSu,
               {
-                thoiDiem: homNay(),
+                thoiDiem: thoiDiemHienTai(),
                 nguoiThucHien: nguoiThemTen,
                 hanhDong: `Thêm ${nguoi.ten} vào danh sách theo dõi`,
               },
@@ -637,7 +702,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           lichSu: [
             ...dn.lichSu,
             {
-              thoiDiem: homNay(),
+              thoiDiem: thoiDiemHienTai(),
               nguoiThucHien: bi.nguoiThemTen,
               hanhDong: `Bỏ ${bi.ten} khỏi danh sách theo dõi`,
             },
@@ -727,6 +792,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       taoBaoGiaGiaLap,
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
+      luuPhanBoBaoGia,
       dongDoDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
@@ -752,6 +818,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       taoBaoGiaGiaLap,
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
+      luuPhanBoBaoGia,
       dongDoDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,

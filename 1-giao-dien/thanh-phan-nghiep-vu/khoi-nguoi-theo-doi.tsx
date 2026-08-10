@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Eye, UserPlus, X } from "lucide-react";
+import { Check, Eye, UserPlus, X } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
@@ -48,18 +49,30 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const duocSua = quyen.phanBoCongViec || quyen.lapPO;
   const toiDangTheoDoi = dsTheoDoi.some((n) => n.uid === nguoiDung.uid);
 
-  function them(nguoi: NhanSu) {
-    themNguoiTheoDoi(
-      deNghi.id,
-      { uid: nguoi.uid, ten: nguoi.displayName, chucDanh: nguoi.title },
-      nguoiDung.tenHienThi,
-    );
-    toast.success(`Đã thêm ${nguoi.displayName} vào danh sách theo dõi`);
-  }
+  /**
+   * Áp dụng danh sách nháp từ hộp thoại — chỉ chạy khi người dùng bấm "Lưu thay đổi".
+   *
+   * 🔴 Chỉ đạo Ban lãnh đạo 10/08/2026: thêm người phải gom thành danh sách để soát
+   * lại rồi mới đồng ý. Trước đây bấm vào tên là thêm ngay, rất dễ thêm nhầm mà
+   * không kịp nhìn — nhất là khi danh bạ có nhiều người tên gần giống nhau.
+   */
+  function luuThayDoi(nhap: { uid: string; ten: string; chucDanh: string }[]) {
+    const uidCu = dsTheoDoi.map((n) => n.uid);
+    const uidMoi = nhap.map((n) => n.uid);
 
-  function bo(uid: string, ten: string) {
-    boNguoiTheoDoi(deNghi.id, uid);
-    toast.info(`Đã bỏ ${ten} khỏi danh sách theo dõi`);
+    const themVao = nhap.filter((n) => !uidCu.includes(n.uid));
+    const boRa = dsTheoDoi.filter((n) => !uidMoi.includes(n.uid));
+
+    themVao.forEach((n) => themNguoiTheoDoi(deNghi.id, n, nguoiDung.tenHienThi));
+    boRa.forEach((n) => boNguoiTheoDoi(deNghi.id, n.uid));
+
+    // Một dòng thông báo tổng, không bắn từng người một cho khỏi ngập màn hình.
+    const phan: string[] = [];
+    if (themVao.length > 0) phan.push(`thêm ${themVao.map((n) => n.ten).join(", ")}`);
+    if (boRa.length > 0) phan.push(`bỏ ${boRa.map((n) => n.ten).join(", ")}`);
+    if (phan.length > 0) {
+      toast.success("Đã cập nhật người theo dõi", { description: `Đã ${phan.join(" · ")}.` });
+    }
   }
 
   return (
@@ -128,8 +141,7 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
           mo={moHopChon}
           doiMo={setMoHopChon}
           dangTheoDoi={dsTheoDoi}
-          khiChon={them}
-          khiBo={bo}
+          khiLuu={luuThayDoi}
         />
       )}
     </section>
@@ -140,27 +152,59 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
 // HỘP CHỌN NHÂN SỰ — tìm kiếm + nhóm theo phòng ban
 // ------------------------------------------------------------
 
+/** Một dòng trong danh sách nháp — chỉ giữ đúng thứ cần để hiển thị và ghi lại. */
+interface MucNhap {
+  uid: string;
+  ten: string;
+  chucDanh: string;
+}
+
 function HopChonNhanSu({
   mo,
   doiMo,
   dangTheoDoi,
-  khiChon,
-  khiBo,
+  khiLuu,
 }: {
   mo: boolean;
   doiMo: (v: boolean) => void;
   dangTheoDoi: NguoiTheoDoi[];
-  khiChon: (n: NhanSu) => void;
-  khiBo: (uid: string, ten: string) => void;
+  khiLuu: (nhap: MucNhap[]) => void;
 }) {
-  const uidDaChon = dangTheoDoi.map((n) => n.uid);
   const [tuKhoa, setTuKhoa] = useState("");
 
-  /** Người đã theo dõi rồi thì không hiện lại — tránh thêm trùng. */
+  /**
+   * DANH SÁCH NHÁP — mọi thao tác thêm/bỏ trong hộp chỉ sửa ở đây, dữ liệu thật
+   * chưa đụng tới. Bấm "Lưu thay đổi" mới ghi (chỉ đạo Ban lãnh đạo 10/08/2026).
+   */
+  const [nhap, setNhap] = useState<MucNhap[]>([]);
+
+  /**
+   * Nạp lại nháp MỖI LẦN MỞ hộp, không phải mỗi lần `dangTheoDoi` đổi.
+   * Nếu phụ thuộc `dangTheoDoi` thì sau khi lưu xong, dữ liệu thật đổi sẽ nạp đè
+   * lên nháp ngay giữa lúc hộp đang đóng — thừa và dễ nhấp nháy.
+   */
+  useEffect(() => {
+    if (mo) {
+      setNhap(dangTheoDoi.map((n) => ({ uid: n.uid, ten: n.ten, chucDanh: n.chucDanh })));
+      setTuKhoa("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mo]);
+
+  const uidNhap = nhap.map((n) => n.uid);
+
+  /** Người đã có trong nháp thì không hiện lại ở danh bạ — tránh thêm trùng. */
   const ketQua = useMemo(() => {
-    const conLai = nhanSuDangLamViec().filter((n) => !uidDaChon.includes(n.uid));
+    const conLai = nhanSuDangLamViec().filter((n) => !uidNhap.includes(n.uid));
     return timNhanSu(conLai, tuKhoa);
-  }, [tuKhoa, uidDaChon]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tuKhoa, uidNhap.join(",")]);
+
+  // So với danh sách thật để hiện rõ "sẽ thêm ai / sẽ bỏ ai" trước khi lưu.
+  const uidCu = dangTheoDoi.map((n) => n.uid);
+  const seThem = nhap.filter((n) => !uidCu.includes(n.uid));
+  const seBo = dangTheoDoi.filter((n) => !uidNhap.includes(n.uid));
+  const coThayDoi = seThem.length > 0 || seBo.length > 0;
 
   const theoPhongBan = useMemo(() => {
     const nhom = new Map<MaPhongBan, NhanSu[]>();
@@ -187,41 +231,59 @@ function HopChonNhanSu({
         <DialogHeader>
           <DialogTitle>Chọn người theo dõi</DialogTitle>
           <DialogDescription>
-            Chọn thêm từ danh bạ nhân sự công ty, hoặc bấm ✕ để bỏ người đang theo dõi.
-            Gõ tên, mã nhân viên hoặc phòng ban — không dấu vẫn tìm được.
+            Bấm tên trong danh bạ để đưa vào danh sách, soát lại rồi bấm{" "}
+            <strong>Lưu thay đổi</strong>. Chưa lưu thì chưa có gì thay đổi.
           </DialogDescription>
         </DialogHeader>
 
-        {/* ĐANG THEO DÕI — chỗ duy nhất bỏ người khỏi danh sách.
-            Để ở đây thay vì xen nút ✕ vào dòng tên ngoài trang: dòng ngoài giữ được
-            nếp đọc liên tục "A, B, C", còn thao tác sửa gom về một chỗ. */}
-        {dangTheoDoi.length > 0 && (
-          <div className="flex flex-col gap-1 rounded-lg border border-border p-2">
-            <span className="text-xs font-semibold text-text-desc">
-              Đang theo dõi ({dangTheoDoi.length})
-            </span>
+        {/* DANH SÁCH SẼ LƯU — gom mọi thao tác vào đây để soát trước khi đồng ý. */}
+        <div className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5">
+          <span className="text-xs font-semibold text-text-desc">
+            Danh sách theo dõi sau khi lưu ({nhap.length})
+          </span>
+          {nhap.length === 0 ? (
+            <p className="py-1 text-sm text-text-desc">
+              Chưa có ai. Chọn người từ danh bạ bên dưới.
+            </p>
+          ) : (
             <ul className="flex flex-wrap gap-1.5">
-              {dangTheoDoi.map((n) => (
-                <li
-                  key={n.uid}
-                  className="inline-flex items-center gap-1 rounded-full bg-muted py-0.5 pr-0.5 pl-2.5 text-sm"
-                >
-                  <span className="text-text-primary" title={n.chucDanh}>
-                    {n.ten}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => khiBo(n.uid, n.ten)}
-                    className="flex size-6 items-center justify-center rounded-full text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
-                    aria-label={`Bỏ ${n.ten} khỏi danh sách theo dõi`}
+              {nhap.map((n) => {
+                const laMoi = !uidCu.includes(n.uid);
+                return (
+                  <li
+                    key={n.uid}
+                    /* Người mới thêm viền xanh + chữ "mới" — nhìn ra ngay mình vừa
+                       thêm ai trong lần này, không lẫn với người đã theo dõi từ trước. */
+                    className={`inline-flex items-center gap-1 rounded-full py-0.5 pr-0.5 pl-2.5 text-sm ${
+                      laMoi ? "border border-primary bg-primary-bg" : "bg-muted"
+                    }`}
                   >
-                    <X className="size-3.5" aria-hidden />
-                  </button>
-                </li>
-              ))}
+                    <span className="text-text-primary" title={n.chucDanh}>
+                      {n.ten}
+                    </span>
+                    {laMoi && <span className="text-[10px] font-semibold text-primary">mới</span>}
+                    <button
+                      type="button"
+                      onClick={() => setNhap((t) => t.filter((x) => x.uid !== n.uid))}
+                      className="flex size-6 items-center justify-center rounded-full text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
+                      aria-label={`Bỏ ${n.ten} khỏi danh sách`}
+                    >
+                      <X className="size-3.5" aria-hidden />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
-          </div>
-        )}
+          )}
+
+          {/* Nhắc rõ người sắp bị bỏ — họ không còn nằm trong danh sách trên nên
+              nếu không nói ra thì người dùng dễ bỏ nhầm mà không biết. */}
+          {seBo.length > 0 && (
+            <p className="text-xs text-danger-soft">
+              Sẽ bỏ theo dõi: {seBo.map((n) => n.ten).join(", ")}
+            </p>
+          )}
+        </div>
 
         <Input
           autoFocus
@@ -246,7 +308,12 @@ function HopChonNhanSu({
                   <button
                     key={n.uid}
                     type="button"
-                    onClick={() => khiChon(n)}
+                    onClick={() =>
+                      setNhap((t) => [
+                        ...t,
+                        { uid: n.uid, ten: n.displayName, chucDanh: n.title },
+                      ])
+                    }
                     className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg border border-transparent px-2 py-1.5 text-left transition-colors hover:border-border hover:bg-surface"
                   >
                     <span className="text-sm font-medium text-text-primary">{n.displayName}</span>
@@ -263,6 +330,26 @@ function HopChonNhanSu({
           Danh bạ đang là <strong>dữ liệu mẫu</strong>. Khi nối Firebase sẽ đọc thẳng danh sách
           nhân sự thật từ App Tổng HPcore; người đã nghỉ việc tự động không hiện ở đây.
         </p>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => doiMo(false)}>
+            Hủy
+          </Button>
+          <Button
+            disabled={!coThayDoi}
+            onClick={() => {
+              khiLuu(nhap);
+              doiMo(false);
+            }}
+          >
+            <Check className="size-4" aria-hidden />
+            {coThayDoi
+              ? `Lưu thay đổi (${seThem.length > 0 ? `+${seThem.length}` : ""}${
+                  seThem.length > 0 && seBo.length > 0 ? " " : ""
+                }${seBo.length > 0 ? `−${seBo.length}` : ""})`
+              : "Chưa có thay đổi"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

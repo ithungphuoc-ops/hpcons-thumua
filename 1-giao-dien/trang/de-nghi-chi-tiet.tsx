@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, FileWarning, Forward, ShoppingCart } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileWarning, Forward, ShoppingCart } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
+import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
+import { CotThongTinDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
 import { TimelineDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/timeline-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
@@ -25,7 +27,9 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
+import { xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   NHAN_PHONG_BAN_NGUON,
   NHAN_TRANG_THAI_BAO_GIA,
@@ -67,6 +71,12 @@ export default function TrangChiTietDeNghi() {
 
   const tomTat = tomTatTienDoDeNghi(tienDo);
 
+  // Giai đoạn KHÔNG lưu thành trường — suy ra từ chứng từ thật, đúng nguyên tắc ở
+  // `2-quy-trinh/giai-doan-mua-hang.ts`. Tính một lần rồi truyền xuống, tránh mỗi
+  // component tự tính lại rồi lệch nhau.
+  const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan);
+  const conLai = soNgayConLai(dn.ngayCanHang);
+
   /** Ai sẽ nhận khi bấm "Chuyển tiếp" — các nhân viên đang phụ trách ít nhất một dòng. */
   const nguoiSeNhan = [
     ...new Set(dn.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x))),
@@ -76,6 +86,19 @@ export default function TrangChiTietDeNghi() {
 
   return (
     <>
+      {/* NÚT QUAY LẠI — chỉ đạo Ban lãnh đạo 10/08/2026. Breadcrumb ở dưới vẫn còn,
+          nhưng người dùng quen bấm một nút "quay lại" rõ ràng hơn là dò chữ nhỏ. */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-fit -ml-2"
+        nativeButton={false}
+        render={<Link href="/de-nghi" />}
+      >
+        <ArrowLeft className="size-4" aria-hidden />
+        Quay lại danh sách đề nghị
+      </Button>
+
       <PageHeader
         crumbs={[
           { label: "Thu mua", href: "/tong-quan" },
@@ -87,20 +110,16 @@ export default function TrangChiTietDeNghi() {
         actions={<StatusBadge label={tt.nhan} tone={tt.tong} />}
       />
 
-      {/* Thông tin đề nghị */}
-      <Card>
-        <CardContent className="grid grid-cols-2 gap-(--hp-md-card-gap) md:grid-cols-4">
-          <ThongTin nhan="Mã dự án" giaTri={dn.maDuAn} />
-          <ThongTin nhan="Mã hợp đồng CĐT" giaTri={dn.maHopDongCDT ?? "—"} />
-          <ThongTin nhan="Người đề nghị" giaTri={dn.nguoiDeNghiTen} />
-          <ThongTin nhan="Ngày duyệt" giaTri={new Date(dn.ngayDuyet).toLocaleDateString("vi-VN")} />
-          <ThongTin nhan="Ngày cần hàng" giaTri={new Date(dn.ngayCanHang).toLocaleDateString("vi-VN")} />
-        </CardContent>
-      </Card>
+      {/* Dải mũi tên 7 bước — nhìn ra ngay đề nghị đang đứng ở đâu trong quy trình */}
+      <ThanhGiaiDoan giaiDoan={giaiDoan} />
 
-      {/* Người theo dõi — chọn từ danh bạ nhân sự công ty, xem `khoi-nguoi-theo-doi.tsx`.
-          Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
-      <KhoiNguoiTheoDoi deNghi={dn} />
+      {/* BỐ CỤC HAI CỘT (theo trang nhiệm vụ của Base): nội dung làm việc bên trái,
+          thông tin tra cứu bên phải. Dưới 1024px cột phải tự xuống dưới. */}
+      <div className="grid gap-(--hp-md-section) lg:grid-cols-[1fr_300px] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-(--hp-md-section)">
+          {/* Người theo dõi — chọn từ danh bạ nhân sự công ty, xem `khoi-nguoi-theo-doi.tsx`.
+              Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
+          <KhoiNguoiTheoDoi deNghi={dn} />
 
       {/* Timeline tổng */}
       <Card>
@@ -222,18 +241,34 @@ export default function TrangChiTietDeNghi() {
         <h2 className="text-h3 text-text-primary">Lịch sử</h2>
         <Card>
           <CardContent>
+            {/* Mới nhất lên đầu — người xem thường quan tâm việc vừa xảy ra.
+                Ngày giờ đầy đủ theo giờ Việt Nam (chỉ đạo Ban lãnh đạo 10/08/2026):
+                chỉ có ngày thì trong cùng một ngày không biết việc nào trước việc nào. */}
             <ul className="flex flex-col gap-2">
-              {dn.lichSu.map((m, i) => (
-                <li key={i} className="flex flex-wrap items-center gap-x-3 text-sm">
-                  <span className="text-text-desc">{new Date(m.thoiDiem).toLocaleDateString("vi-VN")}</span>
+              {[...dn.lichSu].reverse().map((m, i) => (
+                <li key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm">
+                  <span className="shrink-0 font-mono text-xs text-text-desc tabular-nums">
+                    {formatMocThoiGian(m.thoiDiem)}
+                  </span>
                   <span className="font-medium text-text-primary">{m.nguoiThucHien}</span>
                   <span className="text-text-secondary">{m.hanhDong}</span>
+                  {m.ghiChu && <span className="text-xs text-text-desc italic">{m.ghiChu}</span>}
                 </li>
               ))}
             </ul>
+            <p className="mt-2 border-t border-divider pt-2 text-xs text-text-desc">
+              Giờ hiển thị theo múi giờ Việt Nam (UTC+7).
+            </p>
           </CardContent>
         </Card>
       </section>
+        </div>
+
+        {/* Cột phải — giai đoạn hiện tại, thông tin hồ sơ, tiến trình các bước */}
+        <aside className="min-w-0 lg:sticky lg:top-[calc(var(--hp-header-height)+var(--hp-md-pad))]">
+          <CotThongTinDeNghi deNghi={dn} giaiDoan={giaiDoan} soNgayConLai={conLai} />
+        </aside>
+      </div>
 
       {/* HỘP CHUYỂN TIẾP — trưởng bộ phận bàn giao việc cho nhân viên đã phân bổ */}
       <Dialog open={moChuyenTiep} onOpenChange={setMoChuyenTiep}>
@@ -304,14 +339,5 @@ export default function TrangChiTietDeNghi() {
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-function ThongTin({ nhan, giaTri }: { nhan: string; giaTri: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-text-desc">{nhan}</span>
-      <span className="text-sm font-medium text-text-primary">{giaTri}</span>
-    </div>
   );
 }

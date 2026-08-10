@@ -377,6 +377,26 @@ export interface DongBaoGia {
   donViTinh: string;
   khoiLuong: number;
   baoGiaNCC: DongBaoGiaNCC[];
+  /**
+   * ★ TÁCH BÁO GIÁ — chia khối lượng của DÒNG NÀY cho nhiều nhà cung cấp.
+   *
+   * Chỉ đạo Ban lãnh đạo 10/08/2026: *"một mặt hàng có thể phải chia nhỏ PO do 1 nhà
+   * cung cấp thì không cung cấp hết được số lượng hàng cần đặt"*. Ví dụ cần 2.400 kg
+   * thép: NCC B giao được 1.500, NCC G giao 900 → hai đơn đặt hàng riêng.
+   *
+   * Trống = chưa tách, cả dòng về một nhà cung cấp (`BaoGia.nccDaChonId`).
+   *
+   * ⚠️ Tổng `khoiLuong` phân bổ KHÔNG được vượt `khoiLuong` của dòng — kiểm bằng
+   * `kiemPhanBoDong` trong `2-quy-trinh/so-sanh-bao-gia.ts`, đừng tự tính lại nơi khác.
+   */
+  phanBo?: PhanBoNCC[];
+}
+
+/** Một phần khối lượng của dòng báo giá giao cho một nhà cung cấp. */
+export interface PhanBoNCC {
+  nccId: string;
+  tenNCC: string;
+  khoiLuong: number;
 }
 
 export interface BaoGia {
