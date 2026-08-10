@@ -5,7 +5,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { mucDieuHuongChoVaiTro } from "@/2-quy-trinh/dieu-huong";
-import { KhoiTaiKhoanBen } from "@/1-giao-dien/khung-app/khoi-tai-khoan-ben";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { cn } from "@/6-tien-ich/gop-lop";
 
@@ -44,8 +43,11 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
         </div>
       </div>
 
-      {/* Thông tin người đang đăng nhập — đặt ngay dưới tên app theo chỉ đạo 08/08/2026 */}
-      <KhoiTaiKhoanBen />
+      {/* 🔴 KHÔNG ĐẶT KHỐI TÀI KHOẢN Ở ĐÂY.
+          V1.1 Phần C: Sidebar chịu trách nhiệm ĐIỀU HƯỚNG TOÀN BỘ, còn tài khoản thuộc thanh
+          trên cùng với tìm kiếm / thông báo / ngày giờ. Ngày 08/08/2026 khối tài khoản từng
+          được dời vào đây; Ban lãnh đạo yêu cầu 10/08/2026 đưa lại đúng chuẩn — xem
+          `khung-app/menu-tai-khoan.tsx`. */}
 
       <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-4" aria-label="Điều hướng chính">
         {muc.map((m) => {

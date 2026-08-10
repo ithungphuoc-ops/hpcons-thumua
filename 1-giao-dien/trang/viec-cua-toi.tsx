@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Inbox, Plus, Search, Star } from "lucide-react";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+import { KhoiGhiChuCongViec } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-ghi-chu-cong-viec";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
@@ -232,6 +233,11 @@ export default function TrangViecCuaToi() {
           );
         })}
       </div>
+
+      {/* ===== GHI CHÚ CÔNG VIỆC CẦN GIẢI QUYẾT =====
+          Chỉ đạo Ban lãnh đạo 10/08/2026. Đặt TRÊN danh sách hồ sơ: đây là việc người dùng tự
+          nhắc mình, cần thấy ngay khi mở màn chứ không phải cuộn xuống cuối mới thấy. */}
+      <KhoiGhiChuCongViec uid={nguoiDung.uid} />
 
       {/* ===== DANH SÁCH ===== */}
       {hienThi.length === 0 ? (

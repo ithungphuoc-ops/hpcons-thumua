@@ -6,6 +6,7 @@ import { SidebarNav } from "@/1-giao-dien/khung-app/thanh-ben-noi-dung";
 import { HeaderClock } from "@/1-giao-dien/khung-app/dong-ho";
 import { ThemeToggle } from "@/1-giao-dien/khung-app/nut-sang-toi";
 import { NutThongBao } from "@/1-giao-dien/khung-app/nut-thong-bao";
+import { MenuTaiKhoan } from "@/1-giao-dien/khung-app/menu-tai-khoan";
 
 /**
  * Header cao 60px — CHỈ chứa chức năng phụ: mở Drawer điều hướng (dưới Desktop),
@@ -28,8 +29,10 @@ import { NutThongBao } from "@/1-giao-dien/khung-app/nut-thong-bao";
  * `nut-mat-do.tsx`, `nut-mau-chu-dao.tsx`, `nut-vai-tro.tsx`) — chỉ gỡ nút khỏi
  * giao diện. Muốn bật lại chỉ việc import vào đây, không phải dựng lại từ đầu.
  *
- * 📌 Thông tin người đăng nhập đã chuyển sang THANH BÊN (`khoi-tai-khoan-ben.tsx`),
- * ngay dưới tên app — luôn hiển thị, không phải bấm mới thấy.
+ * 📌 TÀI KHOẢN NẰM Ở ĐÂY, đúng V1.1 Phần C: *"Header 60px — CHỈ chức năng phụ: tìm kiếm,
+ * thông báo, ngày giờ, tài khoản"*, còn Sidebar *"chịu trách nhiệm điều hướng TOÀN BỘ"*.
+ * Ngày 08/08/2026 khối này từng được dời sang thanh bên; Ban lãnh đạo yêu cầu 10/08/2026
+ * đưa lại về đúng chuẩn (`menu-tai-khoan.tsx`).
  */
 export function AppHeader() {
   return (
@@ -53,6 +56,7 @@ export function AppHeader() {
         <HeaderClock />
         <NutThongBao />
         <ThemeToggle />
+        <MenuTaiKhoan />
       </div>
     </header>
   );
