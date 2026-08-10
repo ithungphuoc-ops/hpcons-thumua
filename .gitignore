@@ -51,5 +51,9 @@ desktop.ini
 .DS_Store
 ~$*
 
+# ---- Vercel CLI tự thêm khi chạy `vercel link` ----
 .vercel
 .env*
+# Giữ lại file MẪU khai báo biến môi trường — không chứa khóa thật, người mới cần nó
+# để biết app đòi những biến gì.
+!.env.local.example
