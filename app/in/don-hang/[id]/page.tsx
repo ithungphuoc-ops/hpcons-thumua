@@ -4,11 +4,12 @@
 // ⚠️ Đặt NGOÀI nhóm (app) là CỐ Ý: trang in không được có thanh bên và thanh trên.
 // Provider dữ liệu nằm ở app/layout.tsx (gốc) nên trang này vẫn đọc được dữ liệu.
 import ManHinh from "@/1-giao-dien/trang/don-hang-in";
-import { DON_HANG_MAU } from "@/3-du-lieu/du-lieu-mau";
+import { DON_HANG_MAU, ID_DON_HANG_GIA_LAP } from "@/3-du-lieu/du-lieu-mau";
 
-/** Hosting tĩnh cần biết trước danh sách địa chỉ — sinh từ danh sách đơn đặt hàng trong dữ liệu mẫu. */
+/** Hosting tĩnh cần biết trước danh sách địa chỉ — gộp cả id dự phòng cho đơn lập
+ *  lúc đang chạy, nếu không thì in đơn vừa lập sẽ ra trang 404. */
 export function generateStaticParams() {
-  return DON_HANG_MAU.map((x) => ({ id: x.id }));
+  return [...DON_HANG_MAU.map((x) => x.id), ...ID_DON_HANG_GIA_LAP].map((id) => ({ id }));
 }
 
 export default function Trang() {

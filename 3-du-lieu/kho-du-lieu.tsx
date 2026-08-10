@@ -24,11 +24,13 @@ import {
   GIA_DON_HANG_MAU,
   ID_BAO_GIA_GIA_LAP,
   ID_DE_NGHI_GIA_LAP,
+  ID_DON_HANG_GIA_LAP,
   NHA_CUNG_CAP,
   PHIEU_NHAN_MAU,
   BAO_GIA_MAU,
   CONG_NO_MAU,
 } from "@/3-du-lieu/du-lieu-mau";
+import { docDuLieuDaLuu, ghiDuLieu, xoaDuLieuDaLuu } from "@/3-du-lieu/luu-tren-may";
 import type {
   DeNghiMuaHang,
   DongDeNghi,
@@ -173,15 +175,21 @@ interface GiaTriDuLieu {
   danhDauDaDocThongBao: () => void;
   /** Bấm "Nhận công tác": ghi người tiếp nhận vào thông báo + nhật ký đề nghị. */
   nhanCongTac: (thongBaoId: string, nguoi: { uid: string; ten: string }) => void;
+  /** Xóa sạch dữ liệu chạy thử trên máy này rồi tải lại app. Chỉ dùng khi chạy thử. */
+  xoaDuLieuChayThu: () => void;
 }
 
 const Context = createContext<GiaTriDuLieu | null>(null);
 
 /**
  * Kho dữ liệu chạy thử — giữ trong bộ nhớ để mọi thao tác (phân bổ, ghi nhận hàng,
- * xác nhận hoàn thành) đều hoạt động thật khi trình diễn. Tải lại trang là về dữ liệu gốc.
+ * xác nhận hoàn thành) đều hoạt động thật khi trình diễn.
  *
- * Khi nối Firebase: thay các hàm bên dưới bằng lệnh ghi Firestore, giao diện giữ nguyên.
+ * Dữ liệu được **lưu lại trên máy người dùng** (xem `luu-tren-may.ts`) nên tải lại trang
+ * không mất. Chỉ nằm trên đúng máy đó, đúng trình duyệt đó — không phải cơ sở dữ liệu.
+ *
+ * Khi nối Firebase: thay các hàm bên dưới bằng lệnh ghi Firestore, giao diện giữ nguyên,
+ * và **bỏ hẳn phần lưu trên máy** để tránh hai nguồn dữ liệu lệch nhau.
  */
 export function DuLieuProvider({ children }: { children: ReactNode }) {
   const [deNghi, setDeNghi] = useState<DeNghiMuaHang[]>(DE_NGHI_MAU);
@@ -190,6 +198,42 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   const [phieuNhan, setPhieuNhan] = useState<PhieuNhanHang[]>(PHIEU_NHAN_MAU);
   const [baoGia, setBaoGia] = useState<BaoGia[]>(BAO_GIA_MAU);
   const [thongBao, setThongBao] = useState<ThongBaoChuyenBuoc[]>([]);
+
+  // ----------------------------------------------------------------
+  // GIỮ DỮ LIỆU QUA MỖI LẦN TẢI LẠI TRANG
+  //
+  // 🔴 Nạp trong `useEffect` chứ KHÔNG đọc thẳng lúc khởi tạo state: trang được dựng sẵn
+  // lúc build (hosting tĩnh) nên lần render đầu ở máy chủ không có `localStorage`. Đọc
+  // lúc khởi tạo sẽ khiến bản dựng sẵn và bản trên máy khác nhau → React báo lỗi hydrate
+  // và dựng lại cả cây, chớp giao diện.
+  const [daNapTuMay, setDaNapTuMay] = useState(false);
+
+  useEffect(() => {
+    const d = docDuLieuDaLuu();
+    if (d) {
+      setDeNghi(d.deNghi);
+      setDonHang(d.donHang);
+      setGiaDonHang(d.giaDonHang);
+      setPhieuNhan(d.phieuNhan);
+      setBaoGia(d.baoGia);
+      setThongBao(d.thongBao);
+    }
+    setDaNapTuMay(true);
+  }, []);
+
+  // ⚠️ Chờ nạp xong mới cho ghi. Bỏ điều kiện này là lần chạy đầu ghi đè bản lưu bằng
+  // dữ liệu rỗng — tức xóa sạch việc người dùng đã nhập hôm trước.
+  useEffect(() => {
+    if (!daNapTuMay) return;
+    ghiDuLieu({ deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao });
+  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao]);
+
+  const xoaDuLieuChayThu = useCallback(() => {
+    xoaDuLieuDaLuu();
+    // Tải lại cả trang thay vì chỉ đặt state rỗng: dứt điểm mọi thứ đang giữ trong bộ
+    // nhớ (form đang mở, bộ lọc, thông báo) — sạch đúng như mở app lần đầu.
+    if (typeof window !== "undefined") window.location.href = "/de-nghi";
+  }, []);
 
   // Đọc danh sách hiện có khi sinh mã mới, không cần đưa state vào deps.
   const donHangRef = useRef(donHang);
@@ -395,7 +439,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const soHienCo = donHangRef.current.filter((p) => p.maDuAn === po.maDuAn).length;
       const stt = String(soHienCo + 1).padStart(3, "0");
       const code = `${po.maDuAn}-PO-${stt}`;
-      const id = `po-moi-${po.maDuAn}-${stt}`;
+
+      // Lấy id dự phòng ĐÃ SINH SẴN TRANG — hosting tĩnh chỉ mở được địa chỉ có sẵn.
+      // Trước đây dùng id tự nghĩ (`po-moi-...`) nên bấm vào đơn vừa lập là ra 404.
+      const id = ID_DON_HANG_GIA_LAP.find(
+        (x) => !donHangRef.current.some((p) => p.id === x),
+      );
+      if (!id) return ""; // Hết chỗ — trang gọi tự báo cho người dùng.
 
       setDonHang((truoc) => [...truoc, { ...po, id, code, trangThai: "da_chot" }]);
       setGiaDonHang((truoc) => [
@@ -800,6 +850,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       thongBao,
       danhDauDaDocThongBao,
       nhanCongTac,
+      xoaDuLieuChayThu,
     }),
     [
       deNghi,
@@ -826,6 +877,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       thongBao,
       danhDauDaDocThongBao,
       nhanCongTac,
+      xoaDuLieuChayThu,
     ],
   );
 

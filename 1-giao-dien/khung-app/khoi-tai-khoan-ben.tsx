@@ -1,6 +1,17 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import { useState } from "react";
+import { LogOut, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/1-giao-dien/nen-tang-ui/dialog";
+import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { NHAN_CAP_QUYEN } from "@/4-phan-quyen/quyen";
 
@@ -23,6 +34,8 @@ function vietTat(ten: string): string {
  */
 export function KhoiTaiKhoanBen() {
   const { nguoiDung, quyen, dangXuat } = useNguoiDung();
+  const { deNghi, xoaDuLieuChayThu } = useDuLieu();
+  const [hoiXoa, doiHoiXoa] = useState(false);
 
   return (
     <div className="px-3 pb-3">
@@ -74,7 +87,54 @@ export function KhoiTaiKhoanBen() {
           <LogOut className="size-4 shrink-0" aria-hidden />
           Đăng xuất
         </button>
+
+        {/* XÓA DỮ LIỆU CHẠY THỬ — chỉ có ý nghĩa ở giai đoạn chưa nối Firestore.
+            Dữ liệu nhập vào được giữ trên máy này (xem `3-du-lieu/luu-tren-may.ts`) nên
+            phải có đường xóa, nếu không người dùng kẹt với dữ liệu thử cũ mãi.
+            🔴 BỎ CẢ KHỐI NÀY khi nối Firestore thật. */}
+        <button
+          type="button"
+          onClick={() => doiHoiXoa(true)}
+          className="flex min-h-8 items-center justify-center gap-1.5 rounded-lg text-[11px] font-medium text-nav-foreground-muted transition-colors hover:bg-nav-hover hover:text-nav-foreground"
+        >
+          <Trash2 className="size-3.5 shrink-0" aria-hidden />
+          Xóa dữ liệu chạy thử
+        </button>
       </div>
+
+      <Dialog open={hoiXoa} onOpenChange={doiHoiXoa}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xóa toàn bộ dữ liệu chạy thử?</DialogTitle>
+            <DialogDescription>
+              Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng đã nhập trên máy
+              này. <strong>Không khôi phục lại được.</strong> App sẽ về trạng thái trống
+              như lần mở đầu tiên.
+            </DialogDescription>
+          </DialogHeader>
+
+          <p className="rounded-lg bg-muted p-3 text-sm text-text-desc">
+            Đang có <strong className="text-text-primary">{deNghi.length}</strong> đề nghị
+            mua hàng trong máy.
+          </p>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => doiHoiXoa(false)}>
+              Giữ lại
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                doiHoiXoa(false);
+                xoaDuLieuChayThu();
+              }}
+            >
+              Xóa hết
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
