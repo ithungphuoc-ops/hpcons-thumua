@@ -61,6 +61,17 @@ export interface KetQuaDocExcel {
   dong: DongExcel[];
   /** Việc cần người dùng biết: dòng bị bỏ qua, ô đọc không ra số... */
   canhBao: string[];
+  /**
+   * Vùng bảng hàng KHÔNG có một ô dữ liệu nào — tức người dùng vừa chọn **biểu mẫu
+   * trống** chứ không phải đơn hàng đã điền.
+   *
+   * 🔴 Phải tách khỏi trường hợp "đọc được dòng nhưng tên không khớp đề nghị". Hai
+   * việc này người dùng phải xử lý khác nhau hoàn toàn: một là đi điền file, một là
+   * đi sửa tên hàng. Gộp chung thành một câu báo lỗi là đẩy người dùng đi sai hướng —
+   * đã xảy ra thật ngày 10/08/2026 với file `1. DON HANG HPCONS.xlsx` (mẫu trống:
+   * hai dòng hàng 12–13 không có ô nào có giá trị).
+   */
+  bangTrong: boolean;
 }
 
 /** Cắt phần giá trị sau dấu hai chấm đầu tiên. `"Ngày: 05/08/2026"` → `"05/08/2026"`. */
@@ -114,7 +125,12 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
 
   const ws = wb.worksheets[0];
   if (!ws) {
-    return { thongTinChung: {}, dong: [], canhBao: ["File không có trang tính nào."] };
+    return {
+      thongTinChung: {},
+      dong: [],
+      canhBao: ["File không có trang tính nào."],
+      bangTrong: true,
+    };
   }
 
   const canhBao: string[] = [];
@@ -135,14 +151,30 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
       canhBao: [
         "Không tìm thấy bảng hàng trong file. File phải theo biểu mẫu “1. DON HANG HPCONS.xlsx” (có dòng tiêu đề bắt đầu bằng ô STT).",
       ],
+      bangTrong: true,
     };
   }
 
   // --- Thông tin chung: dò theo NHÃN chứ không theo số dòng cứng ---
   // Người dùng có thể chèn/xóa dòng phía trên bảng, dò theo nhãn thì vẫn đúng.
+  //
+  // 🔴 PHẢI BỎ QUA VÙNG ĐẦU TRANG — nơi in thông tin CÔNG TY MÌNH (bên mua).
+  // Ô **C2** của biểu mẫu (vùng gộp C2:I2) chứa:
+  //     "Địa chỉ: B_4B3_CN, Khu công nghiệp Mỹ Phước 3... MST: 3703172689"
+  // tức địa chỉ Hưng Phước. Hàm dò quét cột 1→12 nên dò từ dòng 1 là khớp ngay ô này, và
+  // app lấy **địa chỉ công ty mình làm địa chỉ nhà cung cấp** — sai hẳn đối tượng. Nên dò
+  // từ dòng tiêu đề "ĐƠN MUA HÀNG" trở xuống, vì mọi thông tin của phiếu đều nằm dưới đó.
+  let dongTieuDePhieu = 0;
+  for (let r = 1; r <= Math.min(ws.rowCount, 20); r++) {
+    if (boDau(oChu(r, 1)).toUpperCase().includes("DON MUA HANG")) {
+      dongTieuDePhieu = r;
+      break;
+    }
+  }
+
   const timTheoNhan = (nhan: string): string | undefined => {
     const khoa = nhan.toLowerCase();
-    for (let r = 1; r <= Math.min(ws.rowCount, 60); r++) {
+    for (let r = dongTieuDePhieu + 1; r <= Math.min(ws.rowCount, 60); r++) {
       for (let c = 1; c <= 12; c++) {
         const s = oChu(r, c);
         if (s.toLowerCase().startsWith(khoa)) return sauDauHaiCham(s);
@@ -171,6 +203,8 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
   // --- Bảng hàng: đọc từ dòng dưới tiêu đề, dừng ở "Cộng tiền hàng" ---
   const dong: DongExcel[] = [];
   let soDongTrongLienTiep = 0;
+  /** Có gặp ô nào có dữ liệu trong vùng bảng chưa — để phân biệt biểu mẫu trống. */
+  let coODuLieuTrongBang = false;
 
   for (let r = dongTieuDe + 1; r <= ws.rowCount; r++) {
     const oA = oChu(r, 1);
@@ -187,6 +221,16 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
 
     const tenHang = oChu(r, 3);
     const soLuong = docSo(ws.getRow(r).getCell(6).value);
+    // Bất kỳ ô nào trong vùng bảng có nội dung — kể cả chỉ điền STT hoặc chỉ điền ĐVT.
+    // Dùng để nói đúng "biểu mẫu chưa điền gì" thay vì đoán bừa lý do.
+    if (!coODuLieuTrongBang) {
+      for (let c = 1; c <= 10; c++) {
+        if (oChu(r, c) !== "") {
+          coODuLieuTrongBang = true;
+          break;
+        }
+      }
+    }
 
     // Dòng trống hoàn toàn: bỏ qua, nhưng gặp 5 dòng trống liên tiếp thì coi như hết bảng
     // (tránh quét tới hàng nghìn dòng rỗng của file Excel).
@@ -220,14 +264,24 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
     });
   }
 
-  if (dong.length === 0) {
-    canhBao.push("Không đọc được dòng hàng nào. Kiểm tra lại cột Tên hàng và SL trong file.");
+  const bangTrong = !coODuLieuTrongBang;
+
+  // Nói đúng việc đã xảy ra. Ba tình huống, ba câu khác nhau — người dùng phải làm ba
+  // việc khác nhau, gộp lại là đẩy họ đi sai hướng.
+  if (bangTrong) {
+    canhBao.push(
+      "File này là BIỂU MẪU TRỐNG — bảng hàng chưa có dòng nào được điền. Hãy điền các cột Tên hàng, ĐVT, SL (và Đơn giá nếu có) rồi chọn lại file.",
+    );
+  } else if (dong.length === 0) {
+    canhBao.push(
+      "Bảng hàng có nội dung nhưng không lấy được dòng nào hợp lệ. Mỗi dòng phải có đủ Tên hàng (cột C) và SL (cột F) lớn hơn 0.",
+    );
   }
   // Thiếu ĐVT không chặn nhập, nhưng phải nói ra vì đơn hàng in ra sẽ trống cột đó.
   const thieuDVT = dong.filter((d) => d.donViTinh === "").length;
   if (thieuDVT > 0) canhBao.push(`${thieuDVT} dòng chưa có ĐVT — cần điền trước khi chốt đơn.`);
 
-  return { thongTinChung, dong, canhBao };
+  return { thongTinChung, dong, canhBao, bangTrong };
 }
 
 // ============================================================

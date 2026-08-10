@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, FileSpreadsheet, FileWarning, ShoppingCart } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, FileWarning, ShoppingCart } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
@@ -16,6 +16,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhKhoiTongTien, tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { docDonHangTuExcel, khopVoiDeNghi } from "@/2-quy-trinh/doc-don-hang-excel";
+import { taoFileNhapDonHang, tenFileNhapDonHang } from "@/2-quy-trinh/ghi-don-hang-excel";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { boDau } from "@/6-tien-ich/bo-dau";
 
@@ -74,6 +75,7 @@ function NoiDungLapDonHang() {
     canhBao: string[];
   } | null>(null);
   const [dangDocFile, setDangDocFile] = useState(false);
+  const [dangTaoFile, setDangTaoFile] = useState(false);
 
   const dn = deNghi.find((x) => x.id === prId);
   const tienDo = useMemo(
@@ -170,21 +172,95 @@ function NoiDungLapDonHang() {
         canhBao: kq.canhBao,
       });
 
+      // Nói ĐÚNG lý do. Ba tình huống rất khác nhau, người dùng phải làm ba việc khác nhau:
+      // file chưa điền gì · file có hàng nhưng tên khác · đọc được và điền xong.
       if (khop.length > 0) {
         toast.success(`Đã điền ${khop.length} dòng từ file`, {
           description: "Soát lại số liệu rồi bấm Chốt đơn hàng.",
         });
+      } else if (kq.bangTrong) {
+        toast.error("File chưa có dòng hàng nào", {
+          description:
+            "Đây là biểu mẫu trống. Bấm “Tải file mẫu” để lấy bản đã có sẵn mặt hàng của đề nghị này.",
+        });
+      } else if (khongLapDuoc.length > 0 && khongKhop.length === 0) {
+        // Mặt hàng CÓ trong đề nghị, chỉ là lúc này không lập đơn được. Báo "tên không
+        // khớp" ở đây là nói sai hẳn — người dùng sẽ đi dò lại tên hàng vô ích.
+        toast.error("Mặt hàng trong file hiện chưa lập được đơn", {
+          description: khongLapDuoc
+            .slice(0, 3)
+            .map((k) => `${k.dongExcel.tenHang} — ${k.lyDo}`)
+            .join("; "),
+        });
       } else {
         toast.error("Không điền được dòng nào", {
-          description: "Tên hàng trong file không khớp mặt hàng nào của đề nghị này.",
+          description: `Đọc được ${kq.dong.length} dòng nhưng tên hàng không khớp mặt hàng nào của đề nghị này.`,
         });
       }
-    } catch {
+    } catch (loi) {
+      // 🔴 PHẢI ghi lỗi thật ra console. Trước đây `catch {}` nuốt sạch, nên mọi nguyên
+      // nhân khác nhau (file .xls định dạng cũ, file hỏng, thư viện không nạp được) đều
+      // hiện ra một câu y như nhau — không cách nào chẩn đoán khi người dùng báo lỗi.
+      console.error("[nhập Excel] không đọc được file:", loi);
       toast.error("Không đọc được file", {
-        description: "File phải là .xlsx theo biểu mẫu Đơn mua hàng của công ty.",
+        description:
+          "File phải là .xlsx (Excel 2007 trở lên). File .xls đời cũ cần mở bằng Excel rồi “Lưu thành” .xlsx.",
       });
     } finally {
       setDangDocFile(false);
+    }
+  }
+
+  /**
+   * TẢI FILE MẪU ĐÃ ĐIỀN SẴN.
+   *
+   * 🔴 Vì sao cần (bài học 10/08/2026): biểu mẫu giấy `1. DON HANG HPCONS.xlsx` là **mẫu
+   * trống**, chọn thẳng vào app thì đọc ra 0 dòng và người dùng tưởng chức năng nhập bị
+   * hỏng. File tải ở đây đã có sẵn đúng các mặt hàng đang chờ lập đơn của đề nghị này,
+   * nên tên hàng chắc chắn khớp — người lập chỉ điền Đơn giá rồi chọn lại file.
+   */
+  async function taiFileMau() {
+    if (!dn) return;
+    if (dongLapDuoc.length === 0) {
+      toast.error("Không có mặt hàng nào để đưa vào file", {
+        description: "Đề nghị này đã lên đơn hết, hoặc các dòng chưa được phân bổ cho ai.",
+      });
+      return;
+    }
+    setDangTaoFile(true);
+    try {
+      const blob = await taoFileNhapDonHang({
+        maDeNghi: dn.code,
+        tenCongTrinh: dn.tenCongTrinh,
+        maHopDongCDT: dn.maHopDongCDT,
+        diaDiemGiaoHang: diaDiemGiao || dn.tenCongTrinh,
+        nguoiNhanHang,
+        dong: dongLapDuoc.map((d) => ({
+          stt: d.stt,
+          tenVatLieu: d.tenVatLieu,
+          quyCach: d.quyCach,
+          donViTinh: d.donViTinh,
+          soLuong: d.khoiLuongChuaLenPO,
+          mucDichSuDung: d.mucDichSuDung,
+        })),
+      });
+
+      // Tải xuống bằng thẻ <a> tạm — không cần máy chủ, chạy được cả trên hosting tĩnh.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = tenFileNhapDonHang(dn.code);
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success(`Đã tải file mẫu với ${dongLapDuoc.length} mặt hàng`, {
+        description: "Điền cột Đơn giá rồi bấm “Chọn file Excel” để nhập lại.",
+      });
+    } catch (loi) {
+      console.error("[nhập Excel] không tạo được file mẫu:", loi);
+      toast.error("Không tạo được file mẫu");
+    } finally {
+      setDangTaoFile(false);
     }
   }
 
@@ -293,11 +369,29 @@ function NoiDungLapDonHang() {
                 hàng rồi <strong>điền sẵn</strong> vào biểu mẫu bên dưới — vẫn phải soát lại
                 trước khi chốt đơn.
               </p>
+              {/* Chỉ dẫn thẳng vào cái bẫy đã gặp: biểu mẫu giấy là mẫu TRỐNG, chọn nó
+                  thì không có dòng nào để đọc. */}
+              <p className="text-xs text-text-desc">
+                Chưa có file? Bấm <strong>Tải file mẫu</strong> — file tải về đã sẵn các mặt
+                hàng của đề nghị này, chỉ cần điền <strong>Đơn giá</strong>. Biểu mẫu giấy
+                tải từ nơi khác thường là <em>mẫu trống</em>, chọn vào đây sẽ không có dòng nào.
+              </p>
             </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={taiFileMau}
+              disabled={dangTaoFile || dangDocFile}
+              className="min-h-11"
+            >
+              <Download className="size-4" aria-hidden />
+              {dangTaoFile ? "Đang tạo file..." : "Tải file mẫu"}
+            </Button>
             <label className="shrink-0">
               <input
                 type="file"
-                accept=".xlsx"
+                accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="sr-only"
                 disabled={dangDocFile}
                 onChange={(e) => {
@@ -316,6 +410,7 @@ function NoiDungLapDonHang() {
                 {dangDocFile ? "Đang đọc file..." : "Chọn file Excel"}
               </span>
             </label>
+            </div>
           </div>
 
           {/* Báo cáo kết quả — nói rõ dòng nào không dùng được, KHÔNG lặng lẽ bỏ qua */}

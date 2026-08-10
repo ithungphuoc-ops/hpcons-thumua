@@ -8,10 +8,15 @@ import { AlertTriangle, ArrowLeft, FileWarning, Forward, ShoppingCart } from "lu
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
+import { DanhSachTruong } from "@/1-giao-dien/thanh-phan-dung-chung/danh-sach-truong";
+import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
-import { CotThongTinDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
+import {
+  CotThongTinDeNghi,
+  type MocGiaiDoan,
+} from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
 import { TimelineDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/timeline-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
@@ -53,6 +58,11 @@ export default function TrangChiTietDeNghi() {
     () => baoGia.filter((bg) => bg.prId === params.id),
     [baoGia, params.id],
   );
+  /** Phiếu nhận của mọi đơn thuộc đề nghị này — dùng để lấy mốc thời gian giai đoạn nhận hàng. */
+  const phieuLienQuan = useMemo(() => {
+    const idDon = new Set(poLienQuan.map((po) => po.id));
+    return phieuNhan.filter((p) => idDon.has(p.poId));
+  }, [phieuNhan, poLienQuan]);
 
   const tienDo = useMemo(
     () => (dn ? tinhTienDoDeNghi(dn, donHang, phieuNhan) : []),
@@ -76,6 +86,49 @@ export default function TrangChiTietDeNghi() {
   // component tự tính lại rồi lệch nhau.
   const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan);
   const conLai = soNgayConLai(dn.ngayCanHang);
+
+  /**
+   * MỐC THỜI GIAN của từng giai đoạn, lấy từ CHỨNG TỪ THẬT.
+   *
+   * 🔴 Chỉ điền mốc cho giai đoạn nào có chứng từ tương ứng. Giai đoạn được suy ra từ
+   * chứng từ chứ không lưu lịch sử chuyển bước, nên không có cách nào biết chính xác lúc
+   * nào đề nghị rời giai đoạn "xét duyệt báo giá" nếu không có bảng báo giá. Thà để trống
+   * còn hơn hiện một mốc không có gì bảo đảm — cột phải đã ghi rõ điều này cho người xem.
+   */
+  const mocGiaiDoan: MocGiaiDoan = {
+    // Thu mua tiếp nhận khi đề nghị được duyệt xong.
+    tiep_nhan: dn.ngayDuyet,
+    ...(baoGiaLienQuan.length > 0 && {
+      yeu_cau_bao_gia: [...baoGiaLienQuan].sort((a, b) => a.ngayTao.localeCompare(b.ngayTao))[0]
+        .ngayTao,
+    }),
+    // Chỉ tính là đã xét duyệt khi thực sự đã chốt được nhà cung cấp.
+    ...(baoGiaLienQuan.some((bg) => bg.nccDaChonId) && {
+      xet_duyet_bao_gia: [...baoGiaLienQuan]
+        .filter((bg) => bg.nccDaChonId)
+        .sort((a, b) => b.ngayCapNhat.localeCompare(a.ngayCapNhat))[0].ngayCapNhat,
+    }),
+    ...(poLienQuan.length > 0 && {
+      lap_don_mua_hang: [...poLienQuan].sort((a, b) =>
+        a.ngayLapPO.localeCompare(b.ngayLapPO),
+      )[0].ngayLapPO,
+      // Đặt hàng = đơn đã chốt và gửi đi. Dùng luôn ngày lập của đơn đầu tiên.
+      dat_hang: [...poLienQuan].sort((a, b) => a.ngayLapPO.localeCompare(b.ngayLapPO))[0]
+        .ngayLapPO,
+    }),
+    ...(phieuLienQuan.length > 0 && {
+      nhan_hang: [...phieuLienQuan].sort((a, b) =>
+        a.ngayNhanThucTe.localeCompare(b.ngayNhanThucTe),
+      )[0].ngayNhanThucTe,
+    }),
+    // Hoàn thành: lấy lần nhận cuối cùng, chỉ khi đề nghị thật sự đã ở giai đoạn này.
+    ...(giaiDoan === "hoan_thanh" &&
+      phieuLienQuan.length > 0 && {
+        hoan_thanh: [...phieuLienQuan].sort((a, b) =>
+          b.ngayNhanThucTe.localeCompare(a.ngayNhanThucTe),
+        )[0].ngayNhanThucTe,
+      }),
+  };
 
   /** Ai sẽ nhận khi bấm "Chuyển tiếp" — các nhân viên đang phụ trách ít nhất một dòng. */
   const nguoiSeNhan = [
@@ -115,8 +168,36 @@ export default function TrangChiTietDeNghi() {
 
       {/* BỐ CỤC HAI CỘT (theo trang nhiệm vụ của Base): nội dung làm việc bên trái,
           thông tin tra cứu bên phải. Dưới 1024px cột phải tự xuống dưới. */}
-      <div className="grid gap-(--hp-md-section) lg:grid-cols-[1fr_300px] lg:items-start">
+      {/* Cột phải 320px: vùng làm việc bị giới hạn bằng bề rộng A4 ngang (~1123px) nên
+          320px cho tỷ lệ ~28%, đúng như tỷ lệ cột phải trong ảnh mẫu Base.vn. */}
+      <div className="grid gap-(--hp-md-section) lg:grid-cols-[1fr_320px] lg:items-start">
         <div className="flex min-w-0 flex-col gap-(--hp-md-section)">
+          {/* ===== THÔNG TIN ĐỀ NGHỊ — danh sách trường đánh số =====
+              Bố cục theo trang nhiệm vụ Base.vn (ảnh Ban lãnh đạo cung cấp 10/08/2026):
+              trường nào cũng có số thứ tự để trao đổi qua điện thoại chỉ nhau được ngay
+              (*"ô số 4 điền gì"*). Mở sẵn vì đây là phần đọc đầu tiên khi vào hồ sơ. */}
+          <KhoiGap tieuDe="Thông tin đề nghị" moSan>
+            <DanhSachTruong
+              truong={[
+                { nhan: "Mã đề nghị", giaTri: dn.code },
+                { nhan: "Tiêu đề", giaTri: dn.tieuDe },
+                { nhan: "Phòng ban đề nghị", giaTri: NHAN_PHONG_BAN_NGUON[dn.phongBanNguon] },
+                { nhan: "Tên công trình", giaTri: dn.tenCongTrinh },
+                { nhan: "Mã dự án", giaTri: dn.maDuAn },
+                { nhan: "Số hợp đồng CĐT", giaTri: dn.maHopDongCDT },
+                { nhan: "Người đề nghị", giaTri: dn.nguoiDeNghiTen },
+                { nhan: "Ngày đề nghị", giaTri: formatMocThoiGian(dn.ngayDeNghi) },
+                { nhan: "Ngày duyệt", giaTri: formatMocThoiGian(dn.ngayDuyet) },
+                { nhan: "Ngày cần hàng", giaTri: formatMocThoiGian(dn.ngayCanHang) },
+                {
+                  nhan: "Mức độ ưu tiên",
+                  giaTri: dn.mucDoUuTien === "gap" ? "Gấp" : "Bình thường",
+                },
+                { nhan: "Số mặt hàng", giaTri: `${dn.items.length} dòng vật tư` },
+              ]}
+            />
+          </KhoiGap>
+
           {/* Người theo dõi — chọn từ danh bạ nhân sự công ty, xem `khoi-nguoi-theo-doi.tsx`.
               Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
           <KhoiNguoiTheoDoi deNghi={dn} />
@@ -135,36 +216,14 @@ export default function TrangChiTietDeNghi() {
         </CardContent>
       </Card>
 
-      {/* M3 — Phân bổ */}
+      {/* M3 — Phân bổ.
+          Các nút hành động đã dời sang khối "Hoạt động chính" ở CỘT PHẢI theo bố cục
+          Base.vn (chỉ đạo Ban lãnh đạo 10/08/2026) — mọi việc bấm được gom về một chỗ,
+          không rải rác cạnh từng tiêu đề. */}
       <section className="flex flex-col gap-(--hp-md-row-gap)">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-h3 text-text-primary">
-            {quyen.phanBoCongViec ? "Phân bổ công việc" : "Chi tiết mặt hàng"}
-          </h2>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* 🔴 Màn này là CHỖ LÀM VIỆC CỦA TRƯỞNG BỘ PHẬN (chỉ đạo Ban lãnh đạo
-                08/08/2026): phân bổ xong thì việc còn lại là của nhân viên, nên nút
-                CHÍNH ở đây là "Chuyển tiếp", không phải "Lập đơn đặt hàng".
-                Vẫn giữ nút lập đơn ở dạng phụ để trưởng bộ phận tự làm được khi cần. */}
-            {quyen.phanBoCongViec && (
-              <Button size="sm" onClick={() => setMoChuyenTiep(true)}>
-                <Forward className="size-4" aria-hidden />
-                Chuyển tiếp
-              </Button>
-            )}
-            {quyen.lapPO && (
-              <Button
-                size="sm"
-                variant={quyen.phanBoCongViec ? "outline" : "default"}
-                nativeButton={false}
-                render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
-              >
-                <ShoppingCart className="size-4" aria-hidden />
-                Lập đơn đặt hàng
-              </Button>
-            )}
-          </div>
-        </div>
+        <h2 className="text-h3 text-text-primary">
+          {quyen.phanBoCongViec ? "Phân bổ công việc" : "Chi tiết mặt hàng"}
+        </h2>
         <BangPhanBo deNghi={dn} />
       </section>
 
@@ -236,37 +295,52 @@ export default function TrangChiTietDeNghi() {
         </Card>
       </section>
 
-      {/* Lịch sử */}
-      <section className="flex flex-col gap-(--hp-md-row-gap)">
-        <h2 className="text-h3 text-text-primary">Lịch sử</h2>
-        <Card>
-          <CardContent>
-            {/* Mới nhất lên đầu — người xem thường quan tâm việc vừa xảy ra.
-                Ngày giờ đầy đủ theo giờ Việt Nam (chỉ đạo Ban lãnh đạo 10/08/2026):
-                chỉ có ngày thì trong cùng một ngày không biết việc nào trước việc nào. */}
-            <ul className="flex flex-col gap-2">
-              {[...dn.lichSu].reverse().map((m, i) => (
-                <li key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm">
-                  <span className="shrink-0 font-mono text-xs text-text-desc tabular-nums">
-                    {formatMocThoiGian(m.thoiDiem)}
-                  </span>
-                  <span className="font-medium text-text-primary">{m.nguoiThucHien}</span>
-                  <span className="text-text-secondary">{m.hanhDong}</span>
-                  {m.ghiChu && <span className="text-xs text-text-desc italic">{m.ghiChu}</span>}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 border-t border-divider pt-2 text-xs text-text-desc">
-              Giờ hiển thị theo múi giờ Việt Nam (UTC+7).
-            </p>
-          </CardContent>
-        </Card>
-      </section>
+      {/* Lịch sử đã dời sang khối "Lịch sử hoạt động" ở CỘT PHẢI (bố cục Base.vn).
+          Không để hai chỗ cùng hiện một danh sách — sửa một chỗ là lệch ngay. */}
         </div>
 
-        {/* Cột phải — giai đoạn hiện tại, thông tin hồ sơ, tiến trình các bước */}
-        <aside className="min-w-0 lg:sticky lg:top-[calc(var(--hp-header-height)+var(--hp-md-pad))]">
-          <CotThongTinDeNghi deNghi={dn} giaiDoan={giaiDoan} soNgayConLai={conLai} />
+        {/* Cột phải — thời hạn tổng, tiến trình từng giai đoạn, hoạt động chính, lịch sử.
+            ⚠️ KHÔNG dùng `sticky` nữa: cột này giờ dài (có cả lịch sử) nên dán cứng vào
+            đầu trang sẽ bị cắt mất phần dưới, cuộn không tới. */}
+        <aside className="min-w-0">
+          <CotThongTinDeNghi
+            deNghi={dn}
+            giaiDoan={giaiDoan}
+            soNgayConLai={conLai}
+            moc={mocGiaiDoan}
+            tomTat={{
+              daPhanBo: tienDo.filter((d) => d.trangThaiDong !== "chua_phan_bo").length,
+              daLenPO: tienDo.filter((d) => d.maPOLienQuan.length > 0).length,
+              daNhanDu: tomTat.soDongDaNhanDu,
+              tongSoDong: tomTat.tongSoDong,
+            }}
+            hoatDongChinh={
+              <>
+                {/* 🔴 Màn này là CHỖ LÀM VIỆC CỦA TRƯỞNG BỘ PHẬN (chỉ đạo Ban lãnh đạo
+                    08/08/2026): phân bổ xong thì việc còn lại là của nhân viên, nên nút
+                    CHÍNH là "Chuyển tiếp", không phải "Lập đơn đặt hàng". Vẫn giữ nút lập
+                    đơn ở dạng phụ để trưởng bộ phận tự làm được khi cần. */}
+                {quyen.phanBoCongViec && (
+                  <Button size="sm" className="w-full" onClick={() => setMoChuyenTiep(true)}>
+                    <Forward className="size-4" aria-hidden />
+                    Chuyển tiếp
+                  </Button>
+                )}
+                {quyen.lapPO && (
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    variant={quyen.phanBoCongViec ? "outline" : "default"}
+                    nativeButton={false}
+                    render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+                  >
+                    <ShoppingCart className="size-4" aria-hidden />
+                    Lập đơn đặt hàng
+                  </Button>
+                )}
+              </>
+            }
+          />
         </aside>
       </div>
 
