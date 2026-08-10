@@ -17,7 +17,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | File | Màn hình | Địa chỉ URL |
 |---|---|---|
 | `tong-quan.tsx` | Tổng quan | `/tong-quan` |
-| `de-nghi-danh-sach.tsx` | Đề nghị mua hàng — **2 cách xem: Dạng bảng (Kanban 8 cột) / Danh sách** | `/de-nghi` |
+| `de-nghi-danh-sach.tsx` | Quy trình mua hàng — **2 cách xem: Dạng bảng (Kanban 8 cột) / Danh sách** | `/de-nghi` |
 | `de-nghi-nhan-moi.tsx` | 🧪 **Nhận đề nghị mới (giả lập)** — CHỈ để chạy thử, bỏ khi nối Firebase | `/de-nghi/nhan-moi` |
 | `de-nghi-chi-tiet.tsx` | Chi tiết đề nghị + bảng phân bổ | `/de-nghi/[id]` |
 | `phan-bo.tsx` | Việc tồn cần phân bổ (Trưởng bộ phận) | `/phan-bo` |

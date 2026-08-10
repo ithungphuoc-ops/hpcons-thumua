@@ -1,10 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { LogOut, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CircleUser, LogOut, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/1-giao-dien/nen-tang-ui/dialog";
+import { DanhSachTruong } from "@/1-giao-dien/thanh-phan-dung-chung/danh-sach-truong";
+import {
+  layHoSoNhanSu,
+  TEN_APP_CON,
+  type HoSoNhanSu,
+} from "@/5-ket-noi/ho-so-nhan-su";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -43,6 +57,28 @@ export function MenuTaiKhoan() {
   const { deNghi, xoaDuLieuChayThu } = useDuLieu();
   const [hoiXoa, doiHoiXoa] = useState(false);
 
+  /**
+   * HỒ SƠ CÁ NHÂN TỪ APP TỔNG (chỉ đạo Ban lãnh đạo 10/08/2026: *"bấm vào avatar này sẽ ra
+   * các thông tin cá nhân"*).
+   *
+   * Cờ mở và dữ liệu tách riêng: hồ sơ đọc BẤT ĐỒNG BỘ (khi nối Firebase là một chuyến mạng
+   * thật), đóng hộp giữa chừng thì dữ liệu về sau vẫn không mở lại hộp.
+   */
+  const [moHoSo, doiMoHoSo] = useState(false);
+  const [hoSo, setHoSo] = useState<HoSoNhanSu | null>(null);
+
+  useEffect(() => {
+    if (!moHoSo) return;
+    let conHieuLuc = true;
+    void layHoSoNhanSu(nguoiDung.uid).then((h) => {
+      // Chặn ghi state sau khi đổi người đăng nhập / đóng hộp — tránh hiện hồ sơ người cũ.
+      if (conHieuLuc) setHoSo(h);
+    });
+    return () => {
+      conHieuLuc = false;
+    };
+  }, [moHoSo, nguoiDung.uid]);
+
   return (
     <>
       <DropdownMenu>
@@ -68,6 +104,9 @@ export function MenuTaiKhoan() {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-64">
+          {/* ⚠️ base-nova bắt buộc Label/Item nằm trong Group — thiếu là
+              "MenuGroupContext is missing" và crash cả trang khi mở menu. */}
+          <DropdownMenuGroup>
           <DropdownMenuLabel>
             <span className="flex flex-col gap-0.5">
               <span className="text-sm font-semibold text-text-primary">
@@ -93,6 +132,12 @@ export function MenuTaiKhoan() {
 
           <DropdownMenuSeparator />
 
+          {/* Hồ sơ đầy đủ từ App Tổng — xem `5-ket-noi/ho-so-nhan-su.ts`. */}
+          <DropdownMenuItem onClick={() => doiMoHoSo(true)}>
+            <CircleUser className="size-4 shrink-0" aria-hidden />
+            Thông tin cá nhân
+          </DropdownMenuItem>
+
           <DropdownMenuItem onClick={dangXuat}>
             <LogOut className="size-4 shrink-0" aria-hidden />
             Đăng xuất
@@ -103,8 +148,77 @@ export function MenuTaiKhoan() {
             <Trash2 className="size-4 shrink-0" aria-hidden />
             Xóa dữ liệu chạy thử
           </DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* ===== HỘP THÔNG TIN CÁ NHÂN =====
+          Dữ liệu đọc qua `layHoSoNhanSu` — bản chạy thử dựng từ tài khoản mẫu; nối Firebase
+          thì hàm đó đọc `users/{uid}` của App Tổng, hộp này KHÔNG phải sửa. */}
+      <Dialog open={moHoSo} onOpenChange={(v: boolean) => !v && doiMoHoSo(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Thông tin cá nhân</DialogTitle>
+            <DialogDescription>
+              Hồ sơ nhân sự do App Tổng HPcore quản lý. Cần sửa thì sửa trên App Tổng — app
+              Thu mua chỉ đọc.
+            </DialogDescription>
+          </DialogHeader>
+
+          {hoSo === null ? (
+            <p className="text-sm text-text-desc">Đang đọc hồ sơ từ App Tổng...</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold text-white"
+                  aria-hidden
+                >
+                  {vietTat(hoSo.displayName)}
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate text-sm font-semibold text-text-primary">
+                    {hoSo.displayName}
+                  </span>
+                  <span className="truncate text-xs text-text-desc">{hoSo.title}</span>
+                </span>
+                {/* Trạng thái có cả màu và chữ (V1.1). */}
+                <span
+                  className={`ml-auto rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                    hoSo.status === "active"
+                      ? "bg-success-bg text-success-soft"
+                      : "bg-danger-bg text-danger-soft"
+                  }`}
+                >
+                  {hoSo.status === "active" ? "Đang làm việc" : "Đã khóa"}
+                </span>
+              </div>
+
+              <DanhSachTruong
+                truong={[
+                  { nhan: "Email", giaTri: hoSo.email, daiCaHang: true },
+                  { nhan: "Điện thoại", giaTri: hoSo.phone },
+                  { nhan: "Mã nhân viên", giaTri: hoSo.employeeCode },
+                  { nhan: "Phòng ban", giaTri: hoSo.department, daiCaHang: true },
+                  {
+                    nhan: "Quyền các app",
+                    daiCaHang: true,
+                    giaTri: Object.entries(hoSo.apps)
+                      .map(([ma, cap]) => `${TEN_APP_CON[ma] ?? ma}: cấp ${cap}`)
+                      .join(" · "),
+                  },
+                ]}
+              />
+
+              {/* ⚠️ Nói thật nguồn dữ liệu ở bản chạy thử — email/mã NV là giả định. */}
+              <p className="text-[11px] text-text-desc">
+                Bản chạy thử: hồ sơ dựng từ tài khoản mẫu, email và mã nhân viên là giả định.
+                Khi nối App Tổng sẽ hiện hồ sơ thật.
+              </p>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <HopXacNhan
         mo={hoiXoa}

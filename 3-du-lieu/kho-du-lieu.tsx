@@ -269,6 +269,22 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   // ------------------------------------------------------------
   const giaiDoanTruocRef = useRef<Map<string, GiaiDoanMuaHang> | null>(null);
   const soThuTuThongBao = useRef(0);
+  /**
+   * Số kế tiếp cho id thông báo.
+   *
+   * 🔴 PHẢI NỐI TIẾP SỐ TRONG DANH SÁCH ĐÃ LƯU, không đếm từ 0 mỗi lần tải trang. Từ khi
+   * thông báo được giữ trên máy (10/08/2026), tải lại trang là bộ đếm về 0 mà `tb-1`,
+   * `tb-2`... cũ vẫn còn — thông báo mới sinh id trùng, React trùng key và vẽ sai danh
+   * sách (đã gặp thật: hai thông báo cùng `tb-1` làm crash cả trang).
+   */
+  const soKeTiepThongBao = () => {
+    const maxDaCo = thongBaoRef.current.reduce((max, t) => {
+      const m = t.id.match(/(\d+)$/);
+      return m ? Math.max(max, Number(m[1])) : max;
+    }, 0);
+    soThuTuThongBao.current = Math.max(soThuTuThongBao.current, maxDaCo) + 1;
+    return soThuTuThongBao.current;
+  };
   useEffect(() => {
     const hienTai = new Map(
       deNghi.map((dn) => [dn.id, xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan)] as const),
@@ -282,9 +298,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const buocMoi = hienTai.get(dn.id);
       const buocCu = truoc.get(dn.id);
       if (!buocMoi || buocCu === buocMoi) continue;
-      soThuTuThongBao.current += 1;
       moi.push({
-        id: `tb-${soThuTuThongBao.current}`,
+        id: `tb-${soKeTiepThongBao()}`,
         prId: dn.id,
         prCode: dn.code,
         tieuDe: dn.tieuDe,
@@ -944,11 +959,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         phieuNhanRef.current,
       );
 
-      soThuTuThongBao.current += 1;
       setThongBao((truoc) =>
         [
           {
-            id: `tb-ct-${soThuTuThongBao.current}`,
+            id: `tb-ct-${soKeTiepThongBao()}`,
             prId: dn.id,
             prCode: dn.code,
             tieuDe: dn.tieuDe,

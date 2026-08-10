@@ -59,8 +59,10 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     duocThay: () => true,
   },
   {
-    nhan: "Đề nghị mua hàng",
-    nhanNgan: "Đề nghị",
+    // Nhãn "Quy trình mua hàng" theo chỉ đạo Ban lãnh đạo 10/08/2026 (trước là "Đề nghị mua
+    // hàng") — màn này là bảng quy trình 8 cột, tên cũ làm tưởng chỉ là danh sách đề nghị.
+    nhan: "Quy trình mua hàng",
+    nhanNgan: "Quy trình",
     href: "/de-nghi",
     icon: FileText,
     duocThay: (q) => q.xemMoiHoSo || q.lapPO || q.phanBoCongViec,

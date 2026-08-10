@@ -579,7 +579,7 @@ function NoiDungLapDonHang() {
       <PageHeader
         crumbs={[
           { label: "Thu mua", href: "/tong-quan" },
-          { label: "Đề nghị mua hàng", href: "/de-nghi" },
+          { label: "Quy trình mua hàng", href: "/de-nghi" },
           { label: dn.code, href: `/de-nghi/${dn.id}` },
           { label: "Lập đơn đặt hàng" },
         ]}

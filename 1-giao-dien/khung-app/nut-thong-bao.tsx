@@ -15,6 +15,7 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { HopNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-cong-tac";
+import { lyDoKhongNhanCongTac } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
@@ -64,7 +65,22 @@ export function NutThongBao() {
    * nên muốn nó sang bước ② thì phải có chứng từ của bước ② tồn tại thật. Gán nhãn chay sẽ
    * bị hàm suy giai đoạn tính lại và nhảy về bước cũ ngay lần render sau.
    */
+  /** Luật "ai được nhận" — dùng cho cả điều kiện hiện nút lẫn lớp chặn khi ghi. */
+  function lyDoKhongNhan(tb: ThongBaoChuyenBuoc): string | null {
+    const dn = deNghi.find((d) => d.id === tb.prId);
+    if (!dn) return "Không tìm thấy đề nghị của thông báo này.";
+    return lyDoKhongNhanCongTac(dn, tb.denBuoc, nguoiDung.uid, quyen);
+  }
+
   function xacNhanNhan(tb: ThongBaoChuyenBuoc) {
+    // 🔴 Lớp chặn thứ hai (chỉ đạo Ban lãnh đạo 10/08/2026: "sao trưởng bộ phận chưa duyệt
+    // mà nhân viên tự bấm nhận việc được") — nút đã ẩn nhưng vẫn kiểm lại trước khi ghi tên
+    // vào nhật ký, phòng đường gọi khác.
+    const lyDo = lyDoKhongNhan(tb);
+    if (lyDo) {
+      toast.error("Chưa nhận việc này được", { description: lyDo });
+      return;
+    }
     nhanCongTac(tb.id, { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi });
 
     const dangOBuocTiepNhan = tb.denBuoc === "tiep_nhan";
@@ -184,7 +200,7 @@ export function NutThongBao() {
                       <Check className="size-3.5 shrink-0" aria-hidden />
                       {tb.tiepNhan.ten} đã nhận công tác lúc {gioPhut(tb.tiepNhan.thoiDiem)}
                     </span>
-                  ) : quyen.lapPO ? (
+                  ) : quyen.lapPO && lyDoKhongNhan(tb) === null ? (
                     <Button
                       size="sm"
                       variant="outline"

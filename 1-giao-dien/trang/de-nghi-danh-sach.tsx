@@ -35,6 +35,7 @@ import {
   type XacNhanKeoTha,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { HopNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-cong-tac";
+import { lyDoKhongNhanCongTac } from "@/4-phan-quyen/quyen-theo-ho-so";
 import type { ThongBaoChuyenBuoc } from "@/3-du-lieu/kieu-du-lieu";
 import { NHAN_PHONG_BAN_NGUON, NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
 
@@ -65,7 +66,22 @@ export default function TrangDanhSachDeNghi() {
    * nhận ở bước ① thì tự chuyển sang ② bằng cách lập bảng báo giá — nhưng chỉ khi bước ①
    * đã xong (đã phân bổ hết dòng), xem `vuongMacSangBuocSau`.
    */
+  /** Luật "ai được nhận" cho từng thông báo — dùng cho cả nút trên thẻ lẫn lớp chặn khi ghi. */
+  function lyDoKhongNhan(tb: ThongBaoChuyenBuoc): string | null {
+    const dn = deNghi.find((d) => d.id === tb.prId);
+    if (!dn) return "Không tìm thấy đề nghị của thông báo này.";
+    return lyDoKhongNhanCongTac(dn, tb.denBuoc, nguoiDung.uid, quyen);
+  }
+
   function xacNhanNhanCongTac(tb: ThongBaoChuyenBuoc) {
+    // 🔴 Lớp chặn thứ hai, cố ý trùng với lớp ẩn nút (chỉ đạo Ban lãnh đạo 10/08/2026:
+    // "sao trưởng bộ phận chưa duyệt mà nhân viên tự bấm nhận việc được"). Nút bị ẩn vẫn
+    // có thể bị gọi qua đường khác — kiểm lại trước khi ghi tên vào nhật ký.
+    const lyDo = lyDoKhongNhan(tb);
+    if (lyDo) {
+      toast.error("Chưa nhận việc này được", { description: lyDo });
+      return;
+    }
     nhanCongTac(tb.id, { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi });
 
     if (tb.denBuoc !== "tiep_nhan") {
@@ -224,8 +240,8 @@ export default function TrangDanhSachDeNghi() {
           tab dính liền tiêu đề đúng như bảng Base, không hở một dải trống. */}
       <div className="flex flex-col gap-(--hp-md-card-gap)">
         <PageHeader
-          crumbs={[{ label: "Thu mua", href: "/tong-quan" }, { label: "Đề nghị mua hàng" }]}
-          title="Đề nghị mua hàng"
+          crumbs={[{ label: "Thu mua", href: "/tong-quan" }, { label: "Quy trình mua hàng" }]}
+          title="Quy trình mua hàng"
           description="Đề nghị đã duyệt, nhận từ Phòng Thi công qua HPcore"
           actions={
             /* Công cụ CHẠY THỬ — ở bản thật đề nghị tự vào từ HPcore, không có nút này.
@@ -277,6 +293,9 @@ export default function TrangDanhSachDeNghi() {
             // Nút "Nhận công tác" ngay trên thẻ (chỉ đạo Ban lãnh đạo 10/08/2026). Chỉ vai trò
             // làm nghiệp vụ mới thấy — người chỉ xem thì thẻ giữ nhãn "Chờ tiếp nhận".
             onNhanCongTac={quyen.lapPO ? (tb) => doiHoiNhan(tb) : undefined}
+            // Nhân viên chưa được chia việc thì thẻ giữ nhãn "Chờ tiếp nhận", không hiện nút
+            // (chỉ đạo Ban lãnh đạo 10/08/2026) — luật ở `lyDoKhongNhanCongTac`.
+            duocNhan={(tb) => lyDoKhongNhan(tb) === null}
           />
 
           {/* Hộp xác nhận dùng chung với chuông thông báo — xem `hop-nhan-cong-tac.tsx`. */}

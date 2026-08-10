@@ -67,6 +67,9 @@ export interface BangQuyTrinhMuaHangProps {
   tiepNhan?: ReadonlyMap<string, ThongBaoChuyenBuoc>;
   /** Bấm "Nhận công tác" ngay trên thẻ. Không truyền thì thẻ chỉ hiện nhãn "Chờ tiếp nhận". */
   onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
+  /** Người đang đăng nhập có được nhận công tác này không — luật ở
+   *  `4-phan-quyen/quyen-theo-ho-so.ts` → `lyDoKhongNhanCongTac`. Không truyền = được. */
+  duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
 }
 
 export function BangQuyTrinhMuaHang({
@@ -75,6 +78,7 @@ export function BangQuyTrinhMuaHang({
   onTha,
   tiepNhan,
   onNhanCongTac,
+  duocNhan,
 }: BangQuyTrinhMuaHangProps) {
   return (
     // Các cột nằm SÁT NHAU thành một bảng liền, ngăn nhau bằng đường kẻ mảnh
@@ -95,6 +99,7 @@ export function BangQuyTrinhMuaHang({
             onTha={onTha}
             tiepNhan={tiepNhan}
             onNhanCongTac={onNhanCongTac}
+            duocNhan={duocNhan}
           />
         ))}
       </div>
@@ -108,6 +113,7 @@ function CotQuyTrinh({
   onTha,
   tiepNhan,
   onNhanCongTac,
+  duocNhan,
 }: {
   cot: CotBangQuyTrinh;
   keoThaDuoc: boolean;
@@ -115,6 +121,7 @@ function CotQuyTrinh({
   tiepNhan?: ReadonlyMap<string, ThongBaoChuyenBuoc>;
   /** Bấm "Nhận công tác" ngay trên thẻ. Không truyền thì thẻ chỉ hiện nhãn "Chờ tiếp nhận". */
   onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
+  duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
 }) {
   const { giaiDoan, the, soQuaHan } = cot;
   // Sáng viền cột khi đang kéo thẻ ngang qua — người dùng biết mình sắp thả vào đâu.
@@ -182,6 +189,7 @@ function CotQuyTrinh({
               keoThaDuoc={keoThaDuoc}
               thongBaoMoiNhat={tiepNhan?.get(t.deNghi.id)}
               onNhanCongTac={onNhanCongTac}
+              duocNhan={duocNhan}
             />
           ))
         )}
@@ -196,12 +204,14 @@ function TheDeNghi({
   keoThaDuoc,
   thongBaoMoiNhat,
   onNhanCongTac,
+  duocNhan,
 }: {
   the: TheDeNghiTrenBang;
   tongGiaiDoan: Tong;
   keoThaDuoc: boolean;
   thongBaoMoiNhat?: ThongBaoChuyenBuoc;
   onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
+  duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
 }) {
   const { deNghi, han, nguoiPhuTrach, soDongChuaPhanBo, maPOLienQuan } = the;
 
@@ -283,7 +293,7 @@ function TheDeNghi({
           thongBaoMoiNhat.denBuoc === the.giaiDoan &&
           (thongBaoMoiNhat.tiepNhan ? (
             <StatusBadge label={`Đã nhận: ${thongBaoMoiNhat.tiepNhan.ten}`} tone="success" />
-          ) : onNhanCongTac ? (
+          ) : onNhanCongTac && (duocNhan?.(thongBaoMoiNhat) ?? true) ? (
             /* NÚT NHẬN NGAY TRÊN THẺ (chỉ đạo Ban lãnh đạo 10/08/2026: "thêm nút nhận trong
                mục quy trình"). Trước đây chỉ nhận được từ chuông thông báo, mà chuông thì
                người dùng ít mở — thẻ mới là nơi họ đang làm việc.

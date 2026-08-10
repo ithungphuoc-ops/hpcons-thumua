@@ -237,7 +237,7 @@ export default function TrangNhanDeNghiMoi() {
       <PageHeader
         crumbs={[
           { label: "Thu mua", href: "/tong-quan" },
-          { label: "Đề nghị mua hàng", href: "/de-nghi" },
+          { label: "Quy trình mua hàng", href: "/de-nghi" },
           { label: "Nhận đề nghị mới" },
         ]}
         title="Tạo đề nghị mới (giả lập)"
