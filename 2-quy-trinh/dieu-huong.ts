@@ -1,4 +1,11 @@
-import { LayoutDashboard, FileText, Eye, Wallet, type LucideIcon } from "lucide-react";
+import {
+  LayoutDashboard,
+  FileText,
+  Eye,
+  Wallet,
+  CircleUser,
+  type LucideIcon,
+} from "lucide-react";
 import type { Quyen } from "@/4-phan-quyen/quyen";
 
 export interface MucDieuHuong {
@@ -33,6 +40,19 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     nhanNgan: "Tổng quan",
     href: "/tong-quan",
     icon: LayoutDashboard,
+    duocThay: () => true,
+  },
+  {
+    // Màn hình CÁ NHÂN, theo ảnh Base.vn Ban lãnh đạo cung cấp 10/08/2026: lọc theo
+    // "đến lượt tôi / quá hạn / tôi theo dõi / đã đánh dấu" để mỗi người biết ngay việc
+    // đang tới tay mình, không phải lọc tay trong bảng quy trình 8 cột.
+    //
+    // ⚠️ KHÁC "Theo dõi đề nghị": màn đó cho NGƯỜI ĐỀ NGHỊ (Phòng Thi công) và ẩn giá +
+    // nhà cung cấp. Màn này cho NGƯỜI LÀM THU MUA. Đừng gộp hai mục.
+    nhan: "Việc của tôi",
+    nhanNgan: "Của tôi",
+    href: "/viec-cua-toi",
+    icon: CircleUser,
     duocThay: () => true,
   },
   {
