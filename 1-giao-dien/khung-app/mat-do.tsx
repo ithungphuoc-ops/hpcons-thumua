@@ -50,9 +50,16 @@ const KHOA_LUU = "hpcons-thumua-matdo";
 export function MatDoProvider({ children }: { children: ReactNode }) {
   const [matDo, setMatDo] = useState<MatDo>(MAT_DO_MAC_DINH);
 
+  // 🔴 CHỐT MỘT MỨC (chỉ đạo Ban lãnh đạo 08/08/2026): cả app dùng "Vừa", nút chọn
+  // mật độ đã gỡ khỏi thanh trên. Ở đây CỐ Ý KHÔNG đọc lựa chọn cũ trong localStorage
+  // nữa — máy nào từng chọn "Thoáng"/"Gọn" mà vẫn giữ thì mỗi người một kiểu, rất khó
+  // hướng dẫn nhau qua điện thoại. Xóa luôn giá trị cũ cho sạch.
   useEffect(() => {
-    const luu = window.localStorage.getItem(KHOA_LUU) as MatDo | null;
-    if (luu && luu in MO_TA_MAT_DO) setMatDo(luu);
+    try {
+      window.localStorage.removeItem(KHOA_LUU);
+    } catch {
+      // Trình duyệt chặn localStorage — bỏ qua, mật độ vẫn là mặc định.
+    }
   }, []);
 
   useEffect(() => {

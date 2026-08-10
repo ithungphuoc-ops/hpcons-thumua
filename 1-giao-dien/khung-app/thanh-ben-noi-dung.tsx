@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { mucDieuHuongChoVaiTro } from "@/2-quy-trinh/dieu-huong";
+import { KhoiTaiKhoanBen } from "@/1-giao-dien/khung-app/khoi-tai-khoan-ben";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { cn } from "@/6-tien-ich/gop-lop";
 
@@ -42,6 +43,9 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
           <span className="truncate text-xs text-nav-foreground-muted">HPCons</span>
         </div>
       </div>
+
+      {/* Thông tin người đang đăng nhập — đặt ngay dưới tên app theo chỉ đạo 08/08/2026 */}
+      <KhoiTaiKhoanBen />
 
       <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-4" aria-label="Điều hướng chính">
         {muc.map((m) => {

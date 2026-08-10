@@ -37,9 +37,16 @@ const KHOA_LUU = "hpcons-thumua-mau";
 export function MauChuDaoProvider({ children }: { children: ReactNode }) {
   const [mau, setMau] = useState<MauChuDao>(MAU_MAC_DINH);
 
+  // 🔴 TẠM BỎ CHỌN MÀU (chỉ đạo Ban lãnh đạo 08/08/2026, "sẽ xây dựng sau"): nút chọn
+  // màu đã gỡ khỏi thanh trên, cả app dùng đúng primary #096AA7 chuẩn V1.1.
+  // CỐ Ý KHÔNG đọc lựa chọn cũ nữa và xóa luôn — máy nào từng chọn màu tím/cam mà
+  // giữ lại thì app hiện sai màu nhận diện trong khi không còn nút nào để đổi về.
   useEffect(() => {
-    const luu = window.localStorage.getItem(KHOA_LUU) as MauChuDao | null;
-    if (luu && luu in MO_TA_MAU) setMau(luu);
+    try {
+      window.localStorage.removeItem(KHOA_LUU);
+    } catch {
+      // Trình duyệt chặn localStorage — bỏ qua, màu vẫn là mặc định.
+    }
   }, []);
 
   useEffect(() => {
