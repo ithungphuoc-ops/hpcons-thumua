@@ -24,7 +24,11 @@ import {
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { NHAN_GIAI_DOAN, type GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import {
+  NHAN_GIAI_DOAN,
+  vuongMacSangBuocSau,
+  type GiaiDoanMuaHang,
+} from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { ThongBaoChuyenBuoc } from "@/3-du-lieu/kieu-du-lieu";
 
 const nhanBuoc = (ma?: string) =>
@@ -42,7 +46,8 @@ const gioPhut = (iso: string) =>
  */
 export function NutThongBao() {
   const router = useRouter();
-  const { thongBao, baoGia, danhDauDaDocThongBao, nhanCongTac, taoBaoGiaGiaLap } = useDuLieu();
+  const { thongBao, baoGia, deNghi, danhDauDaDocThongBao, nhanCongTac, taoBaoGiaGiaLap } =
+    useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   const chuaDoc = thongBao.filter((t) => !t.daDoc).length;
@@ -72,6 +77,23 @@ export function NutThongBao() {
     const dangOBuocTiepNhan = tb.denBuoc === "tiep_nhan";
     // Đã có bảng báo giá rồi thì đề nghị vốn đã qua bước ②, đừng lập thêm bảng thứ hai.
     const daCoBaoGia = baoGia.some((b) => b.prId === tb.prId && b.trangThai !== "huy");
+
+    // 🔴 BƯỚC TRƯỚC PHẢI XONG MỚI CHUYỂN BƯỚC (chỉ đạo Ban lãnh đạo 10/08/2026).
+    // Đây từng là đường lách: nhận công tác là lập luôn bảng báo giá, kể cả khi chưa phân bổ
+    // dòng nào — đề nghị nhảy sang bước ② rồi ④ mà không ai được phân công.
+    const dn = deNghi.find((d) => d.id === tb.prId);
+    const vuongMac = dn
+      ? vuongMacSangBuocSau(
+          dn,
+          "tiep_nhan",
+          baoGia.filter((b) => b.prId === tb.prId),
+        )
+      : null;
+
+    if (dangOBuocTiepNhan && vuongMac) {
+      toast.warning("Đã nhận công tác nhưng chưa chuyển bước", { description: vuongMac });
+      return;
+    }
 
     if (dangOBuocTiepNhan && !daCoBaoGia) {
       const id = taoBaoGiaGiaLap(tb.prId, nguoiDung.tenHienThi);

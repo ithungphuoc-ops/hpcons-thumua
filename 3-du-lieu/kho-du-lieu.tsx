@@ -143,6 +143,8 @@ interface GiaTriDuLieu {
    * TÁCH BÁO GIÁ: lưu phân bổ khối lượng từng dòng cho nhiều nhà cung cấp.
    * Khóa của `phanBoTheoDong` là `DongBaoGia.id`.
    */
+  /** Duyệt phương án chia đơn cho nhiều NCC — bước ③ Xét duyệt → ④ Lập đơn mua hàng. */
+  duyetPhuongAnTach: (bgId: string, nguoiThucHien: string) => void;
   luuPhanBoBaoGia: (
     bgId: string,
     phanBoTheoDong: Record<string, PhanBoNCC[]>,
@@ -628,6 +630,41 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * DUYỆT PHƯƠNG ÁN TÁCH — bước ③ Xét duyệt báo giá → ④ Lập đơn mua hàng.
+   *
+   * 🔴 CHỈ ĐẠO BAN LÃNH ĐẠO 10/08/2026: *"Phải có bước xét duyệt báo giá thì mới qua bước
+   * lập PO"*. Trước đây chia khối lượng xong là lập đơn được ngay từ trạng thái
+   * `da_so_sanh`, tức bỏ qua hẳn bước xét duyệt — người lập tự so giá rồi tự đặt hàng.
+   *
+   * Khác `chonNCCChoBaoGia` ở chỗ KHÔNG ghi một nhà cung cấp duy nhất: phương án tách có
+   * nhiều nhà cung cấp nên `nccDaChonId` để trống, danh sách nằm ở `items[].phanBo`.
+   *
+   * ⚠️ KHÔNG ghi tên nhà cung cấp vào nhật ký — khối "Lịch sử" hiện cho cả vai trò không
+   * được xem NCC (thủ kho, Phòng Thi công). Chỉ ghi SỐ nhà cung cấp.
+   */
+  const duyetPhuongAnTach = useCallback(
+    (bgId: string, nguoiThucHien: string) => {
+      const ngay = homNay();
+      setBaoGia((truoc) =>
+        truoc.map((b) =>
+          b.id === bgId ? { ...b, trangThai: "da_chon_ncc", ngayCapNhat: ngay } : b,
+        ),
+      );
+      const bg = baoGiaRef.current.find((b) => b.id === bgId);
+      if (!bg) return;
+      const soNCC = new Set(
+        bg.items.flatMap((d) => (d.phanBo ?? []).filter((p) => p.khoiLuong > 0).map((p) => p.nccId)),
+      ).size;
+      ghiLichSuDeNghi(
+        bg.prId,
+        nguoiThucHien,
+        `Duyệt phương án chia đơn cho ${soNCC} nhà cung cấp trên bảng báo giá ${bg.code}`,
+      );
+    },
+    [ghiLichSuDeNghi],
+  );
+
+  /**
    * TÁCH BÁO GIÁ — lưu phân bổ khối lượng cho nhiều nhà cung cấp.
    *
    * 🔴 KHÔNG ghi tên nhà cung cấp vào nhật ký đề nghị: khối "Lịch sử" hiện cho cả vai
@@ -847,6 +884,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
       luuPhanBoBaoGia,
+      duyetPhuongAnTach,
       dongDoDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
@@ -874,6 +912,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
       luuPhanBoBaoGia,
+      duyetPhuongAnTach,
       dongDoDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,

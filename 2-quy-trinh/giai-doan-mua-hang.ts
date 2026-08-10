@@ -282,6 +282,55 @@ const THU_TU_GIAI_DOAN: GiaiDoanMuaHang[] = GIAI_DOAN_MUA_HANG.map((g) => g.ma);
  * Hàm thuần — không đụng dữ liệu; việc thực thi nằm ở trang gọi nó.
  * Trả về null khi thả về đúng cột cũ (không làm gì).
  */
+/**
+ * BƯỚC HIỆN TẠI ĐÃ LÀM XONG CHƯA — trả về lý do còn vướng, `null` nghĩa là đủ điều kiện
+ * sang bước sau.
+ *
+ * 🔴 CHỈ ĐẠO BAN LÃNH ĐẠO 10/08/2026: *"sao chưa phân bổ công việc mà đã đi tới bước 4 rồi,
+ * phải hoàn thành công việc ở các bước trước thì mới được thực hiện các bước tiếp theo"*.
+ *
+ * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý — MỘT LUẬT, MỌI ĐƯỜNG DÙNG CHUNG. Đề nghị chuyển bước qua nhiều
+ * đường khác nhau: kéo thả trên bảng, nút "Nhận công tác" ở chuông, nút "Lập bảng báo giá"
+ * ở trang chi tiết. Nếu mỗi đường tự kiểm riêng thì bịt được đường này lại hở đường khác —
+ * đã xảy ra thật: bịt kéo thả nhưng nút "Nhận công tác" vẫn lập bảng báo giá khi chưa phân
+ * bổ dòng nào, thế là đề nghị nhảy sang bước ② rồi ④ mà không ai được phân công.
+ *
+ * ⚠️ Đây là LUẬT CỨNG (chặn), khác `dungXacNhanKeoTha` là cảnh báo mềm (chỉ hỏi lại).
+ */
+export function vuongMacSangBuocSau(
+  deNghi: DeNghiMuaHang,
+  giaiDoan: GiaiDoanMuaHang,
+  baoGiaCuaDeNghi: BaoGia[],
+): string | null {
+  const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
+
+  switch (giaiDoan) {
+    case "tiep_nhan": {
+      // Xong bước ① = đã có người phụ trách cho MỌI dòng vật tư. Còn dòng chưa ai nhận thì
+      // đi tiếp là bỏ rơi dòng đó: không ai đi hỏi giá, không ai lập đơn cho nó.
+      const chuaPhanBo = deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length;
+      return chuaPhanBo > 0
+        ? `Còn ${chuaPhanBo} trong ${deNghi.items.length} dòng vật tư chưa phân bổ người phụ trách. Phân bổ hết ở bảng "Phân bổ công việc" trước khi sang bước sau.`
+        : null;
+    }
+
+    case "yeu_cau_bao_gia":
+      return conSong.some((b) => b.trangThai === "dang_thu_thap")
+        ? null
+        : "Chưa có bảng báo giá nào đang thu thập giá cho đề nghị này.";
+
+    case "xet_duyet_bao_gia":
+      // Xong bước ③ = đã DUYỆT (chốt nhà cung cấp hoặc duyệt phương án chia đơn).
+      return conSong.some((b) => b.trangThai === "da_so_sanh")
+        ? "Bảng báo giá chưa được duyệt. Trưởng bộ phận phải chốt nhà cung cấp (hoặc duyệt phương án chia đơn) trước khi lập đơn đặt hàng."
+        : null;
+
+    default:
+      // Các bước sau đã được chặn bằng chứng từ thật (đơn hàng, phiếu nhận, 3 lớp xác nhận).
+      return null;
+  }
+}
+
 export function quyetDinhKeoTha(
   the: TheDeNghiTrenBang,
   dich: GiaiDoanMuaHang,
@@ -317,6 +366,11 @@ export function quyetDinhKeoTha(
   if (buocDich > buocTu + 1) {
     return { loai: "khong_the", lyDo: "Chỉ chuyển được sang bước liền kề, không nhảy cóc." };
   }
+
+  // 🔴 BƯỚC TRƯỚC PHẢI XONG MỚI ĐI TIẾP (chỉ đạo Ban lãnh đạo 10/08/2026). Dùng chung luật
+  // với các đường chuyển bước khác — xem `vuongMacSangBuocSau`.
+  const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi);
+  if (vuongMac) return { loai: "khong_the", lyDo: vuongMac };
 
   // Từ đây trở xuống: dich là bước LIỀN KỀ phía trước
   switch (tu) {

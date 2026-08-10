@@ -34,7 +34,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
-import { xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { vuongMacSangBuocSau, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   NHAN_PHONG_BAN_NGUON,
   NHAN_TRANG_THAI_BAO_GIA,
@@ -251,6 +251,14 @@ export default function TrangChiTietDeNghi() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
+                  // 🔴 BƯỚC TRƯỚC PHẢI XONG (chỉ đạo Ban lãnh đạo 10/08/2026): chưa phân bổ
+                  // hết dòng vật tư thì không được sang bước hỏi giá — dòng chưa ai phụ trách
+                  // sẽ không có người đi hỏi giá và không ai lập đơn cho nó.
+                  const vuongMac = vuongMacSangBuocSau(dn, "tiep_nhan", baoGiaLienQuan);
+                  if (vuongMac) {
+                    toast.error("Chưa xong bước Tiếp nhận và kiểm tra", { description: vuongMac });
+                    return;
+                  }
                   const id = taoBaoGiaGiaLap(dn.id, nguoiDung.tenHienThi);
                   if (id) {
                     toast.success("Đã lập bảng báo giá", {

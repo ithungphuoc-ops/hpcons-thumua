@@ -41,6 +41,7 @@ export default function TrangBaoGiaChiTiet() {
     donHang,
     chonNCCChoBaoGia,
     luuPhanBoBaoGia,
+    duyetPhuongAnTach,
     doiTrangThaiBaoGiaTheoDeNghi,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
@@ -288,7 +289,16 @@ export default function TrangBaoGiaChiTiet() {
                     theo phân bổ. Mỗi nhà cung cấp một lần bấm = một PO riêng. */}
                 {quyen.lapPO && (
                   <div className="mt-1 flex flex-wrap items-center gap-2 border-t border-divider pt-2">
-                    {daDatHetNhom(n.nccId) ? (
+                    {/* 🔴 CHƯA DUYỆT THÌ CHƯA LẬP ĐƠN (chỉ đạo Ban lãnh đạo 10/08/2026:
+                        "phải có bước xét duyệt báo giá thì mới qua bước lập PO"). Trước đây
+                        nút lập đơn hiện ngay ở trạng thái `da_so_sanh` nên người lập tự so
+                        giá rồi tự đặt hàng — bước ③ Xét duyệt bị bỏ qua hoàn toàn. */}
+                    {bg.trangThai !== "da_chon_ncc" ? (
+                      <span className="flex items-center gap-1.5 text-xs text-warning-soft">
+                        <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+                        Chờ duyệt phương án chia đơn — duyệt xong mới lập được đơn đặt hàng.
+                      </span>
+                    ) : daDatHetNhom(n.nccId) ? (
                       <span className="flex items-center gap-1.5 text-xs font-medium text-success-soft">
                         <Check className="size-3.5 shrink-0" aria-hidden />
                         Đã lập đơn đủ phần của nhà cung cấp này
@@ -311,10 +321,36 @@ export default function TrangBaoGiaChiTiet() {
                 )}
               </div>
             ))}
-            <Button variant="outline" size="sm" className="w-fit" onClick={moCheDoTach}>
-              <Split className="size-4" aria-hidden />
-              Sửa phân bổ
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={moCheDoTach}>
+                <Split className="size-4" aria-hidden />
+                Sửa phân bổ
+              </Button>
+
+              {/* ===== BƯỚC ③ XÉT DUYỆT BÁO GIÁ =====
+                  🔴 Chỉ đạo Ban lãnh đạo 10/08/2026. Người DUYỆT phải là trưởng bộ phận
+                  (`xacNhanTruongBP`), không phải người lập — để người lập tự duyệt phương án
+                  của mình thì bước xét duyệt chỉ còn là hình thức. */}
+              {bg.trangThai === "da_so_sanh" &&
+                (quyen.xacNhanTruongBP ? (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      duyetPhuongAnTach(bg.id, nguoiDung.tenHienThi);
+                      toast.success("Đã duyệt phương án chia đơn", {
+                        description: `${bg.prCode} chuyển sang bước “Lập đơn mua hàng”.`,
+                      });
+                    }}
+                  >
+                    <Check className="size-4" aria-hidden />
+                    Duyệt phương án chia đơn
+                  </Button>
+                ) : (
+                  <span className="text-xs text-warning-soft">
+                    Chờ trưởng bộ phận duyệt phương án chia đơn.
+                  </span>
+                ))}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -381,8 +417,12 @@ export default function TrangBaoGiaChiTiet() {
                             <Check aria-hidden /> Đã chọn
                           </Badge>
                         )}
-                        {/* Chọn NCC — bước ③ Xét duyệt → ④ Lập đơn mua hàng của bảng quy trình */}
-                        {bg.trangThai === "da_so_sanh" && quyen.lapPO && (
+                        {/* Chọn NCC — ĐÂY LÀ HÀNH VI DUYỆT của bước ③ Xét duyệt báo giá.
+                            🔴 Đòi quyền `xacNhanTruongBP`, KHÔNG phải `lapPO` (chỉ đạo Ban lãnh
+                            đạo 10/08/2026): trước đây nhân viên lập đơn tự chốt nhà cung cấp
+                            được, nghĩa là tự duyệt phương án của mình — bước xét duyệt thành
+                            hình thức. */}
+                        {bg.trangThai === "da_so_sanh" && quyen.xacNhanTruongBP && (
                           <Button
                             size="sm"
                             variant="outline"
