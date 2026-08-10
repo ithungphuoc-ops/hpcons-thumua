@@ -25,41 +25,56 @@ export function KhoiTaiKhoanBen() {
   const { nguoiDung, quyen, dangXuat } = useNguoiDung();
 
   return (
-    <div className="flex flex-col gap-2 border-b border-white/10 px-3 pb-3">
-      <div className="flex items-center gap-2.5 rounded-lg bg-white/5 p-2">
-        <span
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs font-bold text-nav-foreground"
-          aria-hidden
-        >
-          {vietTat(nguoiDung.tenHienThi)}
-        </span>
-        <span className="flex min-w-0 flex-col leading-tight">
-          <span className="truncate text-sm font-semibold text-nav-foreground">
-            {nguoiDung.tenHienThi}
+    <div className="px-3 pb-3">
+      {/* GỘP TẤT CẢ VÀO MỘT THẺ (chỉ đạo Ban lãnh đạo 10/08/2026): trước đây cấp quyền,
+          trạng thái xem giá và nút Đăng xuất nằm rời bên ngoài, trông lộn xộn và không
+          rõ chúng thuộc về ai. */}
+      <div className="flex flex-col gap-2 rounded-lg bg-white/5 p-2.5">
+        <div className="flex items-center gap-2.5">
+          <span
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs font-bold text-nav-foreground"
+            aria-hidden
+          >
+            {vietTat(nguoiDung.tenHienThi)}
           </span>
-          <span className="truncate text-xs text-nav-foreground-muted">{nguoiDung.chucDanh}</span>
-        </span>
-      </div>
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate text-sm font-semibold text-nav-foreground">
+              {nguoiDung.tenHienThi}
+            </span>
+            <span className="truncate text-xs text-nav-foreground-muted">
+              {nguoiDung.chucDanh}
+            </span>
+          </span>
+        </div>
 
-      <div className="flex flex-col gap-1 px-1 text-[11px] text-nav-foreground-muted">
-        <span className="truncate">{NHAN_CAP_QUYEN[nguoiDung.capTM]}</span>
-        {/* Trạng thái xem giá có cả biểu tượng khóa và chữ, không chỉ dựa vào màu (V1.1) */}
-        <span className="truncate">
-          Xem giá:{" "}
-          <strong className={quyen.xemGia ? "text-success-soft" : "text-danger-soft"}>
-            {quyen.xemGia ? "Được phép" : "🔒 Bị chặn"}
-          </strong>
-        </span>
-      </div>
+        {/* Hai nhãn nhỏ cùng một hàng cho gọn. Trạng thái xem giá có cả biểu tượng khóa
+            và chữ, không chỉ dựa vào màu (V1.1). */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] text-nav-foreground-muted">
+            {NHAN_CAP_QUYEN[nguoiDung.capTM]}
+          </span>
+          {/* ⚠️ CHỮ TRẮNG, KHÔNG dùng `text-success-soft` / `text-danger-soft`:
+              hai token đó là biến thể dành cho NỀN SÁNG (đo được #3A742B — xanh đậm),
+              đặt lên nền thanh bên tối #4B4F55 thì chìm nghỉm, gần như không đọc nổi.
+              Vẫn phân biệt được bằng cả màu nền LẪN chữ + biểu tượng khóa (V1.1). */}
+          <span
+            className={`rounded-md px-2 py-0.5 text-[11px] font-medium text-white ${
+              quyen.xemGia ? "bg-success/70" : "bg-danger/70"
+            }`}
+          >
+            {quyen.xemGia ? "Xem được giá" : "🔒 Không xem giá"}
+          </span>
+        </div>
 
-      <button
-        type="button"
-        onClick={dangXuat}
-        className="flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium text-nav-foreground-muted transition-colors hover:bg-nav-hover hover:text-nav-foreground"
-      >
-        <LogOut className="size-4 shrink-0" aria-hidden />
-        Đăng xuất
-      </button>
+        <button
+          type="button"
+          onClick={dangXuat}
+          className="flex min-h-9 items-center justify-center gap-2 rounded-lg border border-white/15 text-xs font-medium text-nav-foreground-muted transition-colors hover:bg-nav-hover hover:text-nav-foreground"
+        >
+          <LogOut className="size-4 shrink-0" aria-hidden />
+          Đăng xuất
+        </button>
+      </div>
     </div>
   );
 }

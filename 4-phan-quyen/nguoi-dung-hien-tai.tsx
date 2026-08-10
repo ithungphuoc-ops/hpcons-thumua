@@ -29,9 +29,12 @@ interface GiaTriNguoiDung {
   daDangNhap: boolean | null;
   /**
    * Đăng nhập bằng tên đăng nhập + mật khẩu.
+   * `ghiNho` = true thì phiên sống qua lần đóng trình duyệt (localStorage),
+   * false thì chỉ sống trong tab đang mở (sessionStorage) — hợp với máy dùng chung
+   * ở công trường, đóng trình duyệt là tự thoát.
    * Trả về `null` nếu thành công, hoặc câu báo lỗi để hiện lên màn hình.
    */
-  dangNhap: (tenDangNhap: string, matKhau: string) => string | null;
+  dangNhap: (tenDangNhap: string, matKhau: string, ghiNho: boolean) => string | null;
   dangXuat: () => void;
   /** Đổi vai trò — chỉ có tác dụng ở chế độ chạy thử (chưa nối Firebase Auth). */
   doiVaiTro: (uid: string) => void;
@@ -65,55 +68,78 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
 
   // Đọc phiên cũ khi mở trang. Chạy trong useEffect vì localStorage chỉ có ở trình duyệt,
   // đọc lúc dựng trang sẽ vỡ khi Next.js sinh trang tĩnh lúc build.
+  //
+  // Đọc CẢ HAI kho: `sessionStorage` (không tick "Duy trì đăng nhập" — chỉ sống trong
+  // tab đang mở) và `localStorage` (có tick — sống qua lần đóng trình duyệt).
   useEffect(() => {
     try {
-      const luu = window.localStorage.getItem(KHOA_PHIEN);
+      const luu =
+        window.sessionStorage.getItem(KHOA_PHIEN) ?? window.localStorage.getItem(KHOA_PHIEN);
       if (luu && VAI_TRO_MAU.some((v) => v.uid === luu)) {
         setUid(luu);
         setDaDangNhap(true);
         return;
       }
     } catch {
-      // Trình duyệt chặn localStorage (chế độ riêng tư) — coi như chưa đăng nhập.
+      // Trình duyệt chặn bộ nhớ cục bộ (chế độ riêng tư) — coi như chưa đăng nhập.
     }
     setDaDangNhap(false);
   }, []);
 
-  const dangNhap = useCallback((tenDangNhap: string, matKhau: string) => {
-    const tk = timTaiKhoan(tenDangNhap);
-    // Báo lỗi CHUNG cho cả hai trường hợp sai tên và sai mật khẩu — nói rõ
-    // "tên này không tồn tại" là chỉ điểm cho người dò tài khoản.
-    if (!tk || matKhau !== MAT_KHAU_CHAY_THU) {
-      return "Tên đăng nhập hoặc mật khẩu không đúng.";
-    }
-    setUid(tk.uid);
-    setDaDangNhap(true);
+  /** Ghi phiên vào đúng kho theo lựa chọn "Duy trì đăng nhập". */
+  const luuPhien = useCallback((uidLuu: string, ghiNho: boolean) => {
     try {
-      window.localStorage.setItem(KHOA_PHIEN, tk.uid);
+      // Xóa ở kho kia trước, tránh còn sót phiên cũ gây lẫn lộn khi đổi lựa chọn.
+      window.localStorage.removeItem(KHOA_PHIEN);
+      window.sessionStorage.removeItem(KHOA_PHIEN);
+      const kho = ghiNho ? window.localStorage : window.sessionStorage;
+      kho.setItem(KHOA_PHIEN, uidLuu);
     } catch {
-      // Không lưu được phiên thì vẫn cho vào, chỉ là tải lại trang phải đăng nhập lại.
+      // Không lưu được thì vẫn cho vào, chỉ là tải lại trang phải đăng nhập lại.
     }
-    return null;
   }, []);
+
+  const dangNhap = useCallback(
+    (tenDangNhap: string, matKhau: string, ghiNho: boolean) => {
+      const tk = timTaiKhoan(tenDangNhap);
+      // Báo lỗi CHUNG cho cả hai trường hợp sai tên và sai mật khẩu — nói rõ
+      // "tên này không tồn tại" là chỉ điểm cho người dò tài khoản.
+      if (!tk || matKhau !== MAT_KHAU_CHAY_THU) {
+        return "Tên đăng nhập hoặc mật khẩu không đúng.";
+      }
+      setUid(tk.uid);
+      setDaDangNhap(true);
+      luuPhien(tk.uid, ghiNho);
+      return null;
+    },
+    [luuPhien],
+  );
 
   const dangXuat = useCallback(() => {
     setDaDangNhap(false);
     setUid(VAI_TRO_MAC_DINH.uid);
     try {
       window.localStorage.removeItem(KHOA_PHIEN);
+      window.sessionStorage.removeItem(KHOA_PHIEN);
     } catch {
       // Bỏ qua — trạng thái trong bộ nhớ đã bị xóa nên vẫn coi như đã đăng xuất.
     }
   }, []);
 
-  const doiVaiTro = useCallback((uidMoi: string) => {
-    setUid(uidMoi);
-    try {
-      window.localStorage.setItem(KHOA_PHIEN, uidMoi);
-    } catch {
-      // Bỏ qua.
-    }
-  }, []);
+  const doiVaiTro = useCallback(
+    (uidMoi: string) => {
+      setUid(uidMoi);
+      // Giữ nguyên kho đang dùng: nếu phiên nằm ở localStorage thì ghi tiếp vào đó.
+      let dangGhiNho = false;
+      try {
+        dangGhiNho = window.localStorage.getItem(KHOA_PHIEN) !== null;
+      } catch {
+        // Bỏ qua.
+      }
+      luuPhien(uidMoi, dangGhiNho);
+    },
+    [luuPhien],
+  );
 
   const value = useMemo<GiaTriNguoiDung>(() => {
     const nguoiDung = VAI_TRO_MAU.find((v) => v.uid === uid) ?? VAI_TRO_MAC_DINH;
