@@ -12,6 +12,7 @@ import { KhoiThuThapBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-thu-t
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
+import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { Card, CardContent, CardHeader, CardTitle } from "@/1-giao-dien/nen-tang-ui/card";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Badge } from "@/1-giao-dien/nen-tang-ui/badge";
@@ -60,6 +61,21 @@ export default function TrangBaoGiaChiTiet() {
    */
   const [cheDoTach, setCheDoTach] = useState(false);
   const [nhap, setNhap] = useState<Record<string, Record<string, string>>>({});
+
+  /**
+   * Việc đang chờ xác nhận. Theo nguyên tắc Ban lãnh đạo 10/08/2026: mọi việc CHUYỂN BƯỚC
+   * hoặc không lùi lại được đều phải hỏi trước — xem `HopXacNhan`.
+   *
+   * Một state duy nhất cho cả ba việc ở màn này (trình xét duyệt · duyệt phương án chia đơn ·
+   * chốt một nhà cung cấp) thay vì ba cờ riêng: chỉ mở được một hộp tại một thời điểm, gộp lại
+   * thì không có cách nào mở trùng hai hộp.
+   */
+  const [viecChoXacNhan, setViecChoXacNhan] = useState<
+    | { loai: "trinh_xet_duyet" }
+    | { loai: "duyet_phuong_an" }
+    | { loai: "chot_ncc"; nccId: string; tenNCC: string }
+    | null
+  >(null);
 
   if (!bg) {
     return (
@@ -239,12 +255,9 @@ export default function TrangBaoGiaChiTiet() {
           nguoiDungTen={nguoiDung.tenHienThi}
           onNhapGia={(ncc, gia) => nhapGiaNCC(bg.id, ncc, gia, nguoiDung.tenHienThi)}
           onDinhKem={(tep) => dinhKemBaoGia(bg.id, tep, nguoiDung.tenHienThi)}
-          onTrinhXetDuyet={() => {
-            trinhXetDuyetBaoGia(bg.id, nguoiDung.tenHienThi);
-            toast.success("Đã trình trưởng bộ phận xem xét", {
-              description: `${bg.prCode} chuyển sang bước “Xét duyệt báo giá”.`,
-            });
-          }}
+          // Hỏi trước khi trình — chuyển bước là việc không lùi lại được (nguyên tắc
+          // Ban lãnh đạo 10/08/2026).
+          onTrinhXetDuyet={() => setViecChoXacNhan({ loai: "trinh_xet_duyet" })}
         />
       )}
 
@@ -349,12 +362,7 @@ export default function TrangBaoGiaChiTiet() {
                 (quyen.xacNhanTruongBP ? (
                   <Button
                     size="sm"
-                    onClick={() => {
-                      duyetPhuongAnTach(bg.id, nguoiDung.tenHienThi);
-                      toast.success("Đã duyệt phương án chia đơn", {
-                        description: `${bg.prCode} chuyển sang bước “Lập đơn mua hàng”.`,
-                      });
-                    }}
+                    onClick={() => setViecChoXacNhan({ loai: "duyet_phuong_an" })}
                   >
                     <Check className="size-4" aria-hidden />
                     Duyệt phương án chia đơn
@@ -440,12 +448,13 @@ export default function TrangBaoGiaChiTiet() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => {
-                              chonNCCChoBaoGia(bg.id, c.nccId, c.tenNCC, nguoiDung.tenHienThi);
-                              toast.success("Đã chốt nhà cung cấp", {
-                                description: `${c.tenNCC} — ${bg.prCode} chuyển sang "Lập đơn mua hàng".`,
-                              });
-                            }}
+                            onClick={() =>
+                              setViecChoXacNhan({
+                                loai: "chot_ncc",
+                                nccId: c.nccId,
+                                tenNCC: c.tenNCC,
+                              })
+                            }
                           >
                             Chọn NCC này
                           </Button>
@@ -585,6 +594,63 @@ export default function TrangBaoGiaChiTiet() {
           <ArrowLeft aria-hidden /> Quay lại danh sách
         </Button>
       </div>
+      {/* ===== HỘP XÁC NHẬN CHUNG cho ba việc chuyển bước ở màn này =====
+          Nguyên tắc Ban lãnh đạo 10/08/2026: việc nào bấm là xong, không lùi lại được thì phải
+          hỏi trước. Ba việc ở đây đều đổi bước của đề nghị trên bảng quy trình. */}
+      <HopXacNhan
+        mo={viecChoXacNhan !== null}
+        tieuDe={
+          viecChoXacNhan?.loai === "trinh_xet_duyet"
+            ? "Trình trưởng bộ phận xem xét?"
+            : viecChoXacNhan?.loai === "duyet_phuong_an"
+              ? "Duyệt phương án chia đơn?"
+              : "Chốt nhà cung cấp này?"
+        }
+        moTa={
+          viecChoXacNhan?.loai === "trinh_xet_duyet"
+            ? `Bảng báo giá ${bg.code} sẽ chuyển sang bước “Xét duyệt báo giá”, chờ trưởng bộ phận chốt.`
+            : viecChoXacNhan?.loai === "duyet_phuong_an"
+              ? `Bảng báo giá ${bg.code} sẽ chuyển sang bước “Lập đơn mua hàng”.`
+              : viecChoXacNhan?.loai === "chot_ncc"
+                ? `Chốt ${viecChoXacNhan.tenNCC} cho toàn bộ bảng báo giá ${bg.code}.`
+                : undefined
+        }
+        canhBao={
+          viecChoXacNhan?.loai === "trinh_xet_duyet"
+            ? "Sau khi trình, bạn không nhập thêm giá nhà cung cấp vào bảng này được nữa."
+            : "Bước này ghi vào nhật ký đề nghị và không lùi lại được. Muốn lùi phải hủy chứng từ tương ứng."
+        }
+        nhanDongY={
+          viecChoXacNhan?.loai === "trinh_xet_duyet"
+            ? "Trình xét duyệt"
+            : viecChoXacNhan?.loai === "duyet_phuong_an"
+              ? "Duyệt"
+              : "Chốt nhà cung cấp"
+        }
+        onDong={() => setViecChoXacNhan(null)}
+        onDongY={() => {
+          const v = viecChoXacNhan;
+          if (!v) return;
+          if (v.loai === "trinh_xet_duyet") {
+            trinhXetDuyetBaoGia(bg.id, nguoiDung.tenHienThi);
+            toast.success("Đã trình trưởng bộ phận xem xét", {
+              description: `${bg.prCode} chuyển sang bước “Xét duyệt báo giá”.`,
+            });
+            return;
+          }
+          if (v.loai === "duyet_phuong_an") {
+            duyetPhuongAnTach(bg.id, nguoiDung.tenHienThi);
+            toast.success("Đã duyệt phương án chia đơn", {
+              description: `${bg.prCode} chuyển sang bước “Lập đơn mua hàng”.`,
+            });
+            return;
+          }
+          chonNCCChoBaoGia(bg.id, v.nccId, v.tenNCC, nguoiDung.tenHienThi);
+          toast.success("Đã chốt nhà cung cấp", {
+            description: `${v.tenNCC} — ${bg.prCode} chuyển sang “Lập đơn mua hàng”.`,
+          });
+        }}
+      />
     </>
   );
 }

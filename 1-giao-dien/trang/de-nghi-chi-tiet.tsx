@@ -10,6 +10,7 @@ import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { DanhSachTruong } from "@/1-giao-dien/thanh-phan-dung-chung/danh-sach-truong";
 import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
+import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
@@ -56,6 +57,8 @@ export default function TrangChiTietDeNghi() {
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
+  /** Hỏi trước khi lập bảng báo giá — việc này CHUYỂN BƯỚC đề nghị sang ② (nguyên tắc 10/08/2026). */
+  const [hoiLapBaoGia, setHoiLapBaoGia] = useState(false);
   const [loiNhan, setLoiNhan] = useState("");
 
   const dn = deNghi.find((x) => x.id === params.id);
@@ -254,27 +257,7 @@ export default function TrangChiTietDeNghi() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  // 🔴 BƯỚC TRƯỚC PHẢI XONG (chỉ đạo Ban lãnh đạo 10/08/2026): chưa phân bổ
-                  // hết dòng vật tư thì không được sang bước hỏi giá — dòng chưa ai phụ trách
-                  // sẽ không có người đi hỏi giá và không ai lập đơn cho nó.
-                  const vuongMac = vuongMacSangBuocSau(dn, "tiep_nhan", baoGiaLienQuan);
-                  if (vuongMac) {
-                    toast.error("Chưa xong bước Tiếp nhận và kiểm tra", { description: vuongMac });
-                    return;
-                  }
-                  const id = taoBaoGiaGiaLap(dn.id, nguoiDung.tenHienThi);
-                  if (id) {
-                    toast.success("Đã lập bảng báo giá", {
-                      description: "Nhập giá các nhà cung cấp, rồi tách khối lượng nếu cần.",
-                    });
-                    router.push(`/bao-gia/${id}`);
-                  } else {
-                    toast.error("Không lập được bảng báo giá", {
-                      description: "Đã hết mã dự phòng cho bản chạy thử.",
-                    });
-                  }
-                }}
+                onClick={() => setHoiLapBaoGia(true)}
               >
                 <Split className="size-4" aria-hidden />
                 Lập bảng báo giá
@@ -466,6 +449,35 @@ export default function TrangChiTietDeNghi() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Hỏi trước khi lập bảng báo giá — việc này chuyển đề nghị sang bước ② (nguyên tắc
+          Ban lãnh đạo 10/08/2026, xem `HopXacNhan`). */}
+      <HopXacNhan
+        mo={hoiLapBaoGia}
+        tieuDe="Lập bảng báo giá cho đề nghị này?"
+        moTa={`Hệ thống lập bảng báo giá cho ${dn.items.length} mặt hàng của ${dn.code} để bạn mời nhà cung cấp chào giá.`}
+        canhBao="Đề nghị sẽ chuyển sang bước “Yêu cầu NCC báo giá” trên bảng quy trình. Muốn lùi lại phải hủy bảng báo giá."
+        nhanDongY="Lập bảng báo giá"
+        onDong={() => setHoiLapBaoGia(false)}
+        onDongY={() => {
+          // Bước trước phải xong mới đi tiếp — dùng chung luật với kéo thả và nút nhận công tác.
+          const vuongMac = vuongMacSangBuocSau(dn, "tiep_nhan", baoGiaLienQuan);
+          if (vuongMac) {
+            toast.error("Chưa xong bước Tiếp nhận và kiểm tra", { description: vuongMac });
+            return;
+          }
+          const id = taoBaoGiaGiaLap(dn.id, nguoiDung.tenHienThi);
+          if (id) {
+            toast.success("Đã lập bảng báo giá", {
+              description: "Nhập giá các nhà cung cấp, rồi trình trưởng bộ phận xem xét.",
+            });
+            router.push(`/bao-gia/${id}`);
+          } else {
+            toast.error("Không lập được bảng báo giá", {
+              description: "Đã hết mã dự phòng cho bản chạy thử.",
+            });
+          }
+        }}
+      />
     </>
   );
 }

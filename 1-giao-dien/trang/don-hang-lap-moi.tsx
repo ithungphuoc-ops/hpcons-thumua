@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
+import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
@@ -125,6 +126,13 @@ function NoiDungLapDonHang() {
   } | null>(null);
   const [dangDocFile, setDangDocFile] = useState(false);
   const [dangTaoFile, setDangTaoFile] = useState(false);
+  /**
+   * Hỏi trước khi chốt đơn (nguyên tắc Ban lãnh đạo 10/08/2026).
+   *
+   * 🔴 Chốt đơn là việc RA NGOÀI PHÒNG: đơn được đẩy sang app Kho và app QLDA, và khối lượng
+   * bị trừ khỏi phần chưa lên đơn của đề nghị. Bấm nhầm không có nút hoàn lại.
+   */
+  const [hoiChotDon, setHoiChotDon] = useState(false);
 
   /** Đã điền sẵn từ bảng báo giá nào — hiện dải thông báo để người lập biết vì sao có số. */
   const [nguonTuBaoGia, setNguonTuBaoGia] = useState<{
@@ -996,7 +1004,7 @@ function NoiDungLapDonHang() {
           )}
 
           <div className="flex flex-wrap items-center gap-3 border-t border-divider pt-4">
-            <Button disabled={!hopLe} onClick={luu}>
+            <Button disabled={!hopLe} onClick={() => setHoiChotDon(true)}>
               <ShoppingCart className="size-4" aria-hidden />
               Chốt đơn hàng
             </Button>
@@ -1016,6 +1024,16 @@ function NoiDungLapDonHang() {
           </p>
         </CardContent>
       </Card>
+      {/* Hỏi trước khi chốt — xem `HopXacNhan` về nguyên tắc áp cho việc nào. */}
+      <HopXacNhan
+        mo={hoiChotDon}
+        tieuDe="Chốt đơn đặt hàng này?"
+        moTa={`Đơn cho ${tenNCC.trim() || "nhà cung cấp"} với ${chon.length} mặt hàng, giao dự kiến ${ngayGiao || "—"}.`}
+        canhBao="Chốt xong, đơn được đẩy sang app Kho và app QLDA, khối lượng bị trừ khỏi phần chưa lên đơn của đề nghị. Không hoàn lại được."
+        nhanDongY="Chốt đơn hàng"
+        onDong={() => setHoiChotDon(false)}
+        onDongY={luu}
+      />
     </>
   );
 }
