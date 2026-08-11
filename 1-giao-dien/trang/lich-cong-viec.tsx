@@ -181,7 +181,15 @@ export default function TrangLichCongViec() {
         </CardContent>
       </Card>
 
-      {/* ---- Lưới tháng ---- */}
+      {/* ================= LƯỚI THÁNG + CHI TIẾT NGÀY, HAI CỘT =================
+          🔴 Chỉ đạo Ban lãnh đạo 11/08/2026 (ảnh kèm mũi tên): đưa khối chi tiết ngày sang
+          CỘT BÊN PHẢI lưới lịch. Trước đó nó nằm DƯỚI lưới nên bấm một ngày là phải cuộn
+          xuống mới thấy việc, rồi cuộn lên mới bấm ngày khác — vừa xem lịch vừa đọc việc là
+          thao tác chính của màn này, không được bắt cuộn qua lại.
+
+          Hai cột chỉ từ `lg` (≥1024px) trở lên. Màn hẹp hơn thì xếp dọc như cũ: cột 360px
+          trên tablet dọc sẽ bóp lưới lịch còn quá hẹp, chữ trong ô ngày vỡ hết. */}
+      <div className="grid min-w-0 gap-(--hp-md-card-gap) lg:grid-cols-[minmax(0,1fr)_360px]">
       <Card>
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -282,10 +290,34 @@ export default function TrangLichCongViec() {
         </CardContent>
       </Card>
 
-      {/* ---- Chi tiết ngày đang chọn ---- */}
-      {ngayDangChon && (
-        <Card className="border-primary/40">
-          <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+      {/* ---- Chi tiết ngày đang chọn: CỘT PHẢI ----
+           `lg:sticky` để khi lưới dài, khối này còn nằm trong tầm mắt lúc cuộn.
+           `top` chừa chỗ cho thanh trên cao 60px cộng một chút đệm. */}
+      <Card
+        className={`lg:sticky lg:top-[76px] lg:self-start ${
+          ngayDangChon ? "border-primary/40" : ""
+        }`}
+      >
+        <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+          {/* 🔴 KHUNG LUÔN CÓ MẶT, kể cả chưa chọn ngày. Ẩn hẳn thì mỗi lần bấm ngày cả bố
+              cục nhảy một nhịp, và người dùng cũng không biết bên phải là chỗ dùng để làm gì. */}
+          {!ngayDangChon ? (
+            <>
+              <h2 className="text-h3 text-text-primary">Việc trong ngày</h2>
+              <p className="text-sm text-text-desc">
+                Bấm vào một ngày trong lịch để xem việc của ngày đó và viết ghi chú.
+              </p>
+              <Button
+                variant="outline"
+                className="self-start"
+                onClick={() => setNgayDangChon(chuoiNgay(homNay))}
+              >
+                <CalendarDays className="size-4" aria-hidden />
+                Xem việc hôm nay
+              </Button>
+            </>
+          ) : (
+            <>
             <h2 className="text-h3 text-text-primary">
               Ngày {new Date(ngayDangChon).toLocaleDateString("vi-VN")}
             </h2>
@@ -296,20 +328,25 @@ export default function TrangLichCongViec() {
               <ul className="flex flex-col gap-(--hp-md-row-gap)">
                 {mucNgayChon.map((m) => {
                   const nhan = NHAN_LOAI_MUC[m.loai];
+                  // Cột phải chỉ 360px nên dòng việc XẾP DỌC: nhãn trên, nút dưới. Dàn ngang
+                  // trong cột hẹp là mỗi nút rơi một dòng, nhìn như danh sách vỡ.
                   return (
                     <li
                       key={m.khoa}
-                      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)"
+                      className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)"
                     >
-                      <StatusBadge label={nhan.nhan} tone={nhan.tong} />
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <StatusBadge label={nhan.nhan} tone={nhan.tong} />
+                        {m.moTa && <span className="text-xs text-text-desc">{m.moTa}</span>}
+                      </span>
+                      {/* `whitespace-pre-line` để ghi chú nhiều dòng hiện đúng như lúc gõ. */}
                       <span
-                        className={`text-sm font-medium ${m.xong ? "text-text-disabled line-through" : "text-text-primary"}`}
+                        className={`text-sm font-medium whitespace-pre-line ${m.xong ? "text-text-disabled line-through" : "text-text-primary"}`}
                       >
                         {m.nhan}
                       </span>
-                      {m.moTa && <span className="text-xs text-text-desc">{m.moTa}</span>}
 
-                      <span className="ml-auto flex items-center gap-2">
+                      <span className="flex flex-wrap items-center gap-2">
                         {m.duongDan && (
                           <Button
                             variant="outline"
@@ -371,19 +408,21 @@ export default function TrangLichCongViec() {
             )}
 
             {/* ---- Viết ghi chú cho ngày này ---- */}
-            <div className="flex flex-wrap items-center gap-3 border-t border-divider pt-(--hp-md-card-gap)">
-              <Button onClick={() => setHopGhiChu({ ngay: ngayDangChon })}>
+            <div className="flex flex-col gap-2 border-t border-divider pt-(--hp-md-card-gap)">
+              <Button className="self-start" onClick={() => setHopGhiChu({ ngay: ngayDangChon })}>
                 <Plus className="size-4" aria-hidden />
                 Viết ghi chú cho ngày này
               </Button>
-              <span className="flex items-center gap-1.5 text-xs text-text-desc">
-                <Lock className="size-3.5 shrink-0" aria-hidden />
+              <span className="flex items-start gap-1.5 text-xs text-text-desc">
+                <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                 Chỉ bạn đọc được. Muốn giao việc thì dùng bảng phân bổ hoặc nút Chuyển tiếp.
               </span>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+      </div>
 
       {/* Hộp viết / sửa ghi chú — dùng chung, xem `hop-ghi-chu-lich.tsx`. */}
       <HopGhiChuLich
