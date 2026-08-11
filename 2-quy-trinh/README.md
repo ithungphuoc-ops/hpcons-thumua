@@ -10,6 +10,9 @@ Thư mục này **không có giao diện** và **không chứa dữ liệu**. Sa
 |---|---|---|
 | **`huong-dan-giai-doan.ts`** | **Văn bản hướng dẫn nghiệp vụ** của 6 bước, chép nguyên văn quy trình "TM-QT Mua hàng (HP CONS)" trên Base.vn | Công ty ban hành quy trình mới. 🔴 Không tự viết lại cho gọn — người dùng đối chiếu với quy trình giấy |
 | **`nguong-gia-tri.ts`** | Ba ngưỡng tiền **5 / 10 / 20 triệu**: số báo giá tối thiểu, ai duyệt, khi nào cần hợp đồng | Công ty đổi ngưỡng. Mọi nơi cần con số này đều gọi vào đây, không viết số vào chỗ khác |
+| **`xuat-don-hang-excel.ts`** | **Xuất đơn ĐÃ LẬP** ra .xlsx đúng biểu mẫu công ty (gửi NCC, lưu hồ sơ) | File xuất ra lệch biểu mẫu, sai ô, sai công thức |
+| **`ghi-don-hang-excel.ts`** | **Biểu mẫu TRỐNG** để người lập điền đơn giá rồi nhập lại vào app | Nút "Tải file mẫu" ở màn lập đơn ra file sai |
+| **`doc-don-hang-excel.ts`** | Đọc file Excel người dùng chọn để điền sẵn màn lập đơn | Nhập từ Excel không nhận dòng, sai cột |
 | **`tinh-toan.ts`** | Toàn bộ công thức của app | Số đã nhận / còn lại / % sai; điều kiện hoàn thành PO sai; sai chiết khấu / thuế / tổng thanh toán |
 | **`tim-kiem.ts`** | Luật ô tìm kiếm trên thanh trên + **lọc kết quả theo quyền** | Tìm không ra hồ sơ; vai trò thấy hồ sơ lẽ ra không được thấy |
 | **`trang-thai.ts`** | Chữ và tông màu cho mọi trạng thái | Muốn đổi cách gọi trạng thái, đổi màu badge |
@@ -63,6 +66,20 @@ làm người dùng bí việc. Muốn cấm hẳn một bước thì thêm lu�
 
 🔴 **Thuế GTGT tính TRÊN GIÁ ĐÃ TRỪ CHIẾT KHẤU** — đúng thứ tự các dòng trên biểu mẫu
 `1. INPUT/Bieu mau/1. DON HANG HPCONS.xlsx`. Đảo thứ tự là ra số thuế khác.
+
+## Ba file Excel — đừng lẫn với nhau
+
+| File | Đầu vào | Có đơn giá? | Dùng để |
+|---|---|---|---|
+| `ghi-don-hang-excel.ts` | Đề nghị | ❌ | Người lập tải về, điền đơn giá, **nhập lại vào app** |
+| `doc-don-hang-excel.ts` | File người dùng chọn | — | Đọc file trên để điền sẵn màn lập đơn |
+| `xuat-don-hang-excel.ts` | Đơn hàng + chứng từ giá | ✅ | **Gửi nhà cung cấp** và lưu hồ sơ |
+
+🔴 **Không gộp ba file này.** Hai luồng khác đầu vào, khác quyền (xuất PO **bắt buộc** quyền `xemGia`, tải mẫu thì không), khác mục đích. Gộp lại là sớm muộn có ngày xuất bản trống gửi cho nhà cung cấp.
+
+⚠️ **Thứ tự cột phải trùng nhau ở cả ba file**: `A=STT · B=Mã hàng · C=Tên hàng · D=Thông số kỹ thuật · E=ĐVT · F=SL · G=Đơn giá · H=Thành tiền (gộp H:I) · J=Mục đích sử dụng`. Sửa một bên mà quên bên kia là file app xuất ra chính app lại không đọc được.
+
+📌 **Bố cục ô của `xuat-don-hang-excel.ts` đọc trực tiếp từ XML biểu mẫu thật**, không suy từ trang in. Cách đọc an toàn: copy file sang thư mục tạm → đổi đuôi `.zip` → giải nén → đọc `xl/worksheets/sheet1.xml`. 🔴 **KHÔNG mở bằng Excel COM** — Excel ghi lại metadata làm đổi file gốc, vi phạm quy tắc "không sửa file trong `1. INPUT/`".
 
 ## `nguong-gia-tri.ts` — luật tiền của quy trình thật
 

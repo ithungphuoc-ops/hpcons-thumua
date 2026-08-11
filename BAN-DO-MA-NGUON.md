@@ -48,6 +48,8 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Sai ở **bảng tiến độ nhận hàng** (cột theo từng lần giao) | `thanh-phan-nghiep-vu/bang-tien-do-po.tsx` |
 | Sai ở **màn Lập đơn đặt hàng** | `1-giao-dien/trang/don-hang-lap-moi.tsx` |
 | **Trang IN đơn mua hàng A4** sai bố cục / thiếu ô so với biểu mẫu giấy | `1-giao-dien/trang/don-hang-in.tsx` — địa chỉ `/in/don-hang/[id]` |
+| **File Excel xuất ra lệch biểu mẫu** (nút "Xuất Excel" ở chi tiết đơn hàng) | `2-quy-trinh/xuat-don-hang-excel.ts` — bố cục ô đọc từ XML biểu mẫu thật, xem mục "Ba file Excel" trong `2-quy-trinh/README.md` |
+| **Nút "Xuất Excel" bị khóa** | `2-quy-trinh/xuat-don-hang-excel.ts` → `vuongMacXuatPO` (thường là chưa có đơn giá) |
 | **Ô tìm kiếm** trên thanh trên không ra kết quả / ra sai | Giao diện: `khung-app/o-tim-kiem.tsx` · **Luật tìm và lọc quyền**: `2-quy-trinh/tim-kiem.ts` |
 | **Khối "Người theo dõi"** sai / không thêm được người | `thanh-phan-nghiep-vu/khoi-nguoi-theo-doi.tsx` + danh sách người chọn ở `3-du-lieu/danh-ba-nhan-su.ts` |
 | Sai ở **màn Theo dõi đề nghị** (cho Phòng Thi công) | `1-giao-dien/trang/theo-doi-danh-sach.tsx` · `theo-doi-chi-tiet.tsx` |

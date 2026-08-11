@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo } from "react";
-import { AlertTriangle, BadgeCheck, FileWarning, Lock, Printer } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  BadgeCheck,
+  FileSpreadsheet,
+  FileWarning,
+  Lock,
+  Printer,
+} from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -22,14 +30,21 @@ import {
 } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
+import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
 
 export default function TrangChiTietDonHang() {
   const params = useParams<{ id: string }>();
-  const { donHang, phieuNhan, giaDonHang, xacNhanKho, xacNhanTruongBP } = useDuLieu();
+  const { donHang, deNghi, phieuNhan, giaDonHang, nhaCungCap, xacNhanKho, xacNhanTruongBP } =
+    useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  const [dangXuat, setDangXuat] = useState(false);
 
   const po = donHang.find((x) => x.id === params.id);
   const gia = giaDonHang.find((g) => g.poId === params.id);
+  /** Nhà cung cấp — để file Excel có địa chỉ và mã số thuế như biểu mẫu giấy. */
+  const ncc = po ? nhaCungCap.find((n) => n.id === po.supplierId) : undefined;
+  /** Tên công trình nằm ở ĐỀ NGHỊ nguồn, `DonDatHang` không có trường này. */
+  const tenCongTrinh = po ? deNghi.find((d) => d.id === po.prId)?.tenCongTrinh : undefined;
 
   const phieuCuaPO = useMemo(
     () => (po ? phieuNhan.filter((p) => p.poId === po.id) : []),
@@ -40,6 +55,9 @@ export default function TrangChiTietDonHang() {
 
   /** Còn phiếu nào chưa đính kèm phiếu giao nhận không — luật ở `2-quy-trinh/tinh-toan.ts`. */
   const vuongMacTep = vuongMacXacNhanKho(phieuCuaPO);
+
+  /** Vì sao chưa xuất được file Excel — luật ở `2-quy-trinh/xuat-don-hang-excel.ts`. */
+  const vuongMacXuat = po ? vuongMacXuatPO({ po, gia }) : "Không tìm thấy đơn hàng.";
 
   if (!po) {
     return (
@@ -54,6 +72,47 @@ export default function TrangChiTietDonHang() {
   const tt = NHAN_TRANG_THAI_PO[po.trangThai];
   const daGiaoDu = poDaGiaoDu(tienDo);
   const tien = tinhTienDonHang(po, gia);
+
+  /**
+   * Tải đơn mua hàng ra file Excel đúng biểu mẫu công ty.
+   *
+   * Dựng file ngay trong trình duyệt (`2-quy-trinh/xuat-don-hang-excel.ts`) — không cần máy
+   * chủ, nên chạy được cả trên bản xuất tĩnh.
+   */
+  async function taiFileExcel() {
+    if (!po) return;
+    setDangXuat(true);
+    try {
+      const { xuatDonHangExcel, tenFileDonHang } = await import("@/2-quy-trinh/xuat-don-hang-excel");
+
+      // Logo lấy từ `public/` để file Excel có nhận diện như biểu mẫu giấy. Không tải được
+      // thì vẫn xuất — thiếu logo đỡ hơn là không xuất được đơn.
+      let logo: ArrayBuffer | undefined;
+      try {
+        const r = await fetch("/logo-hpc.png");
+        if (r.ok) logo = await r.arrayBuffer();
+      } catch {
+        // Bỏ qua, xuất không logo.
+      }
+
+      const blob = await xuatDonHangExcel({ po, gia, ncc, tenCongTrinh, logo });
+      const diaChi = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = diaChi;
+      a.download = tenFileDonHang(po.code);
+      a.click();
+      // Thu hồi địa chỉ tạm, nếu không mỗi lần bấm lại giữ thêm một bản trong bộ nhớ.
+      setTimeout(() => URL.revokeObjectURL(diaChi), 10_000);
+      toast.success("Đã tải file đơn mua hàng", { description: tenFileDonHang(po.code) });
+    } catch (e) {
+      // Nói ra lỗi thay vì im lặng — người dùng bấm mà không thấy gì thì tưởng app hỏng.
+      toast.error("Không tạo được file Excel", {
+        description: e instanceof Error ? e.message : "Thử lại, hoặc dùng nút In đơn mua hàng.",
+      });
+    } finally {
+      setDangXuat(false);
+    }
+  }
 
   function bamXacNhanKho() {
     xacNhanKho(po!.id, {
@@ -85,11 +144,28 @@ export default function TrangChiTietDonHang() {
           <div className="flex flex-wrap items-center gap-2">
             {/* Chỉ vai trò xem được giá mới in được — đơn gửi NCC bắt buộc có đơn giá.
                 Mở tab mới để người dùng không mất trang đang xem sau khi in. */}
+            {/* 🔒 Cả hai nút đòi quyền xem giá: đơn gửi nhà cung cấp buộc phải có đơn giá,
+                nên không có bản "ẩn giá" của đơn mua hàng — cùng nguyên tắc với trang in. */}
             {quyen.xemGia && (
-              <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/in/don-hang/${po.id}`} target="_blank" />}>
-                <Printer className="size-4" aria-hidden />
-                In đơn mua hàng
-              </Button>
+              <>
+                {/* 🔴 Khóa khi chưa đủ giá — luật ở `vuongMacXuatPO`. Không chặn thì file ra
+                    đơn giá toàn số 0 mà nhìn vẫn như thật, gửi đi là mất mặt với NCC.
+                    Khóa kèm `title` nói rõ lý do, không để nút mờ câm lặng. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void taiFileExcel()}
+                  disabled={dangXuat || vuongMacXuat !== null}
+                  title={vuongMacXuat ?? "Tải đơn mua hàng ra file Excel theo biểu mẫu công ty"}
+                >
+                  <FileSpreadsheet className="size-4" aria-hidden />
+                  {dangXuat ? "Đang tạo file…" : "Xuất Excel"}
+                </Button>
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/in/don-hang/${po.id}`} target="_blank" />}>
+                  <Printer className="size-4" aria-hidden />
+                  In đơn mua hàng
+                </Button>
+              </>
             )}
             <StatusBadge label={tt.nhan} tone={tt.tong} />
           </div>
