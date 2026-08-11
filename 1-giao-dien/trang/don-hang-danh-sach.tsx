@@ -7,6 +7,7 @@ import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
+import { NutXuatDonHangExcel } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-don-hang";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
@@ -49,10 +50,18 @@ export default function TrangDanhSachDonHang() {
       />
 
       {danhSach.length === 0 ? (
+        /* 🔴 Chỉ đường TỪNG BƯỚC, không chỉ nói "lập đơn từ màn chi tiết đề nghị".
+            Ban lãnh đạo tưởng nút Xuất Excel bị thiếu (11/08/2026), thật ra là chưa có đơn nào
+            nên trang chi tiết không mở được. Màn trống là chỗ duy nhất để nói cho người dùng
+            biết họ đang thiếu bước nào. */
         <EmptyState
           icon={ShoppingCart}
-          title="Chưa có đơn đặt hàng"
-          description="Lập đơn từ màn hình chi tiết đề nghị mua hàng."
+          title="Chưa có đơn đặt hàng nào"
+          description={
+            "Đơn đặt hàng sinh ra từ đề nghị. Đường đi: mở Quy trình mua hàng → bấm vào một đề nghị " +
+            "→ phân bổ người phụ trách cho mọi dòng vật tư → nhận công tác → nhập giá nhà cung cấp " +
+            "→ trưởng bộ phận chốt nhà cung cấp → Lập đơn đặt hàng. Có đơn rồi mới in và xuất Excel được."
+          }
         />
       ) : (
         <Card>
@@ -69,6 +78,8 @@ export default function TrangDanhSachDonHang() {
                     {quyen.xemGia && <TableHead className="text-right">Giá trị</TableHead>}
                     <TableHead>Tiến độ nhận</TableHead>
                     <TableHead>Trạng thái</TableHead>
+                    {/* Cột xuất file — chỉ có nghĩa với vai trò xem được giá. */}
+                    {quyen.xemGia && <TableHead className="text-right">Xuất</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -116,6 +127,12 @@ export default function TrangDanhSachDonHang() {
                         <TableCell>
                           <StatusBadge label={tt.nhan} tone={tt.tong} />
                         </TableCell>
+                        {/* Xuất Excel ngay tại danh sách — không phải mở chi tiết mới xuất được. */}
+                        {quyen.xemGia && (
+                          <TableCell className="text-right">
+                            <NutXuatDonHangExcel poId={po.id} kieu="gon" />
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
@@ -150,6 +167,12 @@ export default function TrangDanhSachDonHang() {
                       tong={phanTram === 100 ? "success" : quaHan ? "danger" : "primary"}
                       nhan={`${tienDo.filter((d) => d.khoiLuongConLai === 0).length}/${tienDo.length} dòng đã nhận đủ`}
                     />
+                    {/* Thẻ cả dòng là <Link>; component tự chặn nổi bọt nên bấm nút không nhảy trang. */}
+                    {quyen.xemGia && (
+                      <span className="pt-1">
+                        <NutXuatDonHangExcel poId={po.id} kieu="gon" />
+                      </span>
+                    )}
                   </Link>
                 );
               })}

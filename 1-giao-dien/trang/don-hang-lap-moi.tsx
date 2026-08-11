@@ -536,6 +536,26 @@ function NoiDungLapDonHang() {
       giaTheoDong[it.sttDong] = Number(donGia[it.sttDongDeNghi] ?? 0);
     });
 
+    /**
+     * 🔴 CHẶN CHỐT ĐƠN KHI CÒN DÒNG THIẾU ĐƠN GIÁ (bài học 11/08/2026).
+     *
+     * Trước đây chỗ này chỉ `Number(... ?? 0)` nên chốt được đơn với đơn giá 0. Hệ quả dây
+     * chuyền: đơn đó không in ra được (bản in phải có giá), không xuất Excel được
+     * (`vuongMacXuatPO` chặn), và công nợ tính ra 0 — mà người lập thì tưởng đã xong.
+     *
+     * Chặn ở ĐÂY, tại chỗ sinh ra đơn, thay vì chỉ chặn ở nút xuất file: sửa gốc thì mọi
+     * đơn về sau đều lành, còn chặn ở ngọn thì đơn lỗi vẫn nằm trong dữ liệu.
+     */
+    const dongThieuGia = items.filter((it) => !(giaTheoDong[it.sttDong] > 0));
+    if (dongThieuGia.length > 0) {
+      toast.error(`Còn ${dongThieuGia.length} dòng chưa nhập đơn giá`, {
+        description: `Nhập đơn giá cho: ${dongThieuGia
+          .map((it) => it.tenVatLieu)
+          .join(", ")}. Đơn mua hàng gửi nhà cung cấp bắt buộc có đơn giá.`,
+      });
+      return;
+    }
+
     const id = themDonHang({
       maDuAn: dn.maDuAn,
       maHopDongCDT: dn.maHopDongCDT,
