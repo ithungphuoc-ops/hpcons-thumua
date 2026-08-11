@@ -32,6 +32,15 @@ export interface HuongDanGiaiDoan {
    * kiện; thực tế còn nhiều ý phải tự làm ngoài app (ký hợp đồng, tem hiệu chuẩn...).
    */
   chuaLamDuoc?: string[];
+  /**
+   * ★ BƯỚC NÀY KHÔNG CÓ HƯỚNG DẪN TRÊN BẢNG BASE — nội dung bên trên là **cách app xác
+   * định**, không phải văn bản quy trình của công ty.
+   *
+   * 🔴 Bắt buộc đánh dấu, và hộp hướng dẫn phải nói rõ ra. Trộn lẫn "quy trình công ty
+   * quy định" với "app đang làm thế" là kiểu nhầm lẫn nguy hiểm nhất: người dùng sẽ trích
+   * chữ trong app ra để tranh luận nghiệp vụ, trong khi đó chỉ là mô tả kỹ thuật.
+   */
+  khongCoTrenBase?: boolean;
 }
 
 export interface DoanHuongDan {
@@ -48,8 +57,11 @@ export interface DoanHuongDan {
 /**
  * Hướng dẫn theo từng giai đoạn.
  *
- * ⚠️ `hoan_thanh` và `that_bai` không có hướng dẫn riêng trên bảng Base (hai cột kết thúc),
- * nên để trống — đừng bịa nội dung cho đủ bộ.
+ * ⚠️ `hoan_thanh` và `that_bai` KHÔNG có hướng dẫn trên bảng Base (hai cột kết thúc). Vẫn có
+ * mục cho hai bước đó, nhưng nội dung là **điều kiện app dùng để xếp thẻ vào cột**, lấy thẳng
+ * từ `xacDinhGiaiDoan` và `poDuDieuKienHoanThanh` — sự thật kỹ thuật, KHÔNG phải văn bản
+ * nghiệp vụ. Bắt buộc kèm cờ `khongCoTrenBase` để hộp hướng dẫn nói rõ chuyện đó.
+ * 🔴 Vẫn giữ nguyên luật: không bịa quy trình công ty cho đủ bộ.
  */
 export const HUONG_DAN_GIAI_DOAN: Partial<Record<GiaiDoanMuaHang, HuongDanGiaiDoan>> = {
   tiep_nhan: {
@@ -207,6 +219,46 @@ export const HUONG_DAN_GIAI_DOAN: Partial<Record<GiaiDoanMuaHang, HuongDanGiaiDo
     ],
     chuaLamDuoc: [
       "App chưa có “Phiếu theo dõi nhà cung cấp” để ghi sự không phù hợp khi giao hàng.",
+    ],
+  },
+
+  // ---- HAI CỘT KẾT THÚC: nội dung là CÁCH APP XÁC ĐỊNH, không phải quy trình công ty ----
+
+  hoan_thanh: {
+    tenDayDu: "Hoàn thành",
+    khongCoTrenBase: true,
+    noiDung: [
+      {
+        van: "Đề nghị tự vào cột này khi mọi đơn đặt hàng của nó đều đã hoàn thành. Không kéo thẻ vào đây được — phải làm đủ việc thì thẻ mới sang.",
+      },
+      {
+        nhanManh: true,
+        van: "Một đơn đặt hàng chỉ được tính là hoàn thành khi đủ CẢ BA:",
+        gach: [
+          "Đã giao đủ khối lượng của mọi dòng vật tư",
+          "Thủ kho xác nhận",
+          "Trưởng bộ phận xác nhận",
+        ],
+      },
+      {
+        luuY: "Chỉ phiếu nhận hàng đã ở trạng thái “đã nhập kho” mới được tính vào khối lượng đã nhận. Hàng còn chờ kiểm tra KHÔNG tính — nếu tính thì app báo tiến độ ảo, hàng chưa kiểm chất lượng đã coi như xong.",
+      },
+    ],
+  },
+
+  that_bai: {
+    tenDayDu: "Thất bại",
+    khongCoTrenBase: true,
+    noiDung: [
+      {
+        van: "Nhánh dừng, không phải một bước trong chuỗi. Đề nghị vào đây khi bị đóng dở — nghĩa là không mua tiếp.",
+      },
+      {
+        van: "Cách đưa một đề nghị vào đây: kéo thẻ sang cột này, hoặc chọn “Đánh dấu thất bại” trong menu ⋯ của thẻ. Cả hai đều hỏi xác nhận trước.",
+      },
+      {
+        luuY: "Đóng dở khác với lưu trữ. Lưu trữ chỉ giấu hồ sơ khỏi bảng cho đỡ rối, trạng thái nghiệp vụ giữ nguyên và bỏ lưu trữ là hồ sơ về đúng cột cũ. Đóng dở là kết luận nghiệp vụ: dừng mua.",
+      },
     ],
   },
 };

@@ -112,7 +112,11 @@ export function HopHuongDanGiaiDoan({
             {huongDan.tenDayDu}
           </DialogTitle>
           <DialogDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span>Hướng dẫn hoàn thành các nhiệm vụ trong giai đoạn</span>
+            <span>
+              {huongDan.khongCoTrenBase
+                ? "Cách app xác định bước này"
+                : "Hướng dẫn hoàn thành các nhiệm vụ trong giai đoạn"}
+            </span>
             {huongDan.gioChuan !== undefined && (
               <span className="inline-flex items-center gap-1 text-text-secondary">
                 <Clock className="size-3.5 shrink-0" aria-hidden />
@@ -122,9 +126,23 @@ export function HopHuongDanGiaiDoan({
           </DialogDescription>
         </DialogHeader>
 
+        {/* 🔴 NÓI NGUỒN TRƯỚC KHI NÓI NỘI DUNG. Hai cột kết thúc không có hướng dẫn trên bảng
+            quy trình của công ty; chữ bên dưới là mô tả kỹ thuật. Không phân biệt rõ thì người
+            dùng sẽ trích chữ trong app ra tranh luận nghiệp vụ. */}
+        {huongDan.khongCoTrenBase && (
+          <p className="flex items-start gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad) text-sm text-text-secondary">
+            <Info className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
+            <span>
+              Bước này <strong>không có hướng dẫn trong quy trình giấy</strong> của công ty. Phần
+              dưới đây là <strong>cách app xác định</strong>, viết ra để mọi người biết vì sao
+              hồ sơ nằm ở đây — không phải văn bản nghiệp vụ.
+            </span>
+          </p>
+        )}
+
         <div className="flex flex-col gap-3 text-sm leading-relaxed text-text-primary">
           {huongDan.noiDung.map((doan, i) => (
-            <DoanNoiDung key={i} doan={doan} />
+            <DoanNoiDung key={i} doan={doan} laMoTaCuaApp={huongDan.khongCoTrenBase} />
           ))}
 
           {huongDan.chuaLamDuoc && huongDan.chuaLamDuoc.length > 0 && (
@@ -142,8 +160,19 @@ export function HopHuongDanGiaiDoan({
           )}
 
           <p className="border-t border-divider pt-2.5 text-xs text-text-desc">
-            Nội dung chép nguyên văn từ quy trình <strong>“TM-QT Mua hàng (HP CONS)”</strong> của
-            công ty. Quy trình thay đổi thì phải sửa theo văn bản mới, không tự diễn giải lại.
+            {huongDan.khongCoTrenBase ? (
+              <>
+                Mô tả cách app hoạt động, <strong>không nằm trong</strong> quy trình{" "}
+                <strong>“TM-QT Mua hàng (HP CONS)”</strong>. Công ty ban hành hướng dẫn chính
+                thức cho bước này thì thay bằng văn bản đó.
+              </>
+            ) : (
+              <>
+                Nội dung chép nguyên văn từ quy trình{" "}
+                <strong>“TM-QT Mua hàng (HP CONS)”</strong> của công ty. Quy trình thay đổi thì
+                phải sửa theo văn bản mới, không tự diễn giải lại.
+              </>
+            )}
           </p>
         </div>
       </DialogContent>
@@ -151,7 +180,14 @@ export function HopHuongDanGiaiDoan({
   );
 }
 
-function DoanNoiDung({ doan }: { doan: DoanHuongDan }) {
+function DoanNoiDung({
+  doan,
+  /** Bước không có hướng dẫn trên bảng Base — chữ ở đây là mô tả app, không phải quy định. */
+  laMoTaCuaApp,
+}: {
+  doan: DoanHuongDan;
+  laMoTaCuaApp?: boolean;
+}) {
   // Đoạn "Lưu ý" đứng riêng một khối viền — trên bảng Base nó cũng được tách khỏi thân bài,
   // và đây thường là câu người dùng hay bỏ sót nhất.
   if (doan.luuY) {
@@ -172,8 +208,11 @@ function DoanNoiDung({ doan }: { doan: DoanHuongDan }) {
   return (
     <div className={`flex flex-col gap-1.5 ${khungNhan}`}>
       {doan.nhanManh && (
+        /* 🔴 Nhãn phải theo NGUỒN. Ở bước không có trong quy trình giấy mà vẫn in "Quy định
+           bắt buộc" là tự mâu thuẫn với chính dòng cảnh báo phía trên, và tệ hơn: biến mô tả
+           kỹ thuật thành quy định công ty trong mắt người đọc. */
         <span className="text-xs font-semibold tracking-wide text-text-desc uppercase">
-          Quy định bắt buộc
+          {laMoTaCuaApp ? "Điều kiện app kiểm" : "Quy định bắt buộc"}
         </span>
       )}
       {doan.van && <p>{doan.van}</p>}

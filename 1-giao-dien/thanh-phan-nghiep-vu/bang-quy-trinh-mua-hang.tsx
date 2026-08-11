@@ -223,7 +223,11 @@ function CotQuyTrinh({
           >
             {giaiDoan.nhan}
           </h2>
-          <span className="flex shrink-0 items-center gap-0.5">
+          {/* 🔴 `min-h-7` GIỮ CHIỀU CAO CHO CẢ HÀNG ĐẦU CỘT. Nút ⓘ cao 28px còn viên số chỉ
+              ~20px; cột nào thiếu nút là đầu cột thấp hơn hẳn, đường kẻ ngang dưới header gãy
+              thành bậc thang — Ban lãnh đạo bắt lỗi này ngày 11/08/2026. Đặt chiều cao tối
+              thiểu ở đây thì về sau thêm hay bớt nút gì hàng vẫn thẳng. */}
+          <span className="flex min-h-7 shrink-0 items-center gap-0.5">
             {/* ⓘ Hướng dẫn bước — chỉ đạo Ban lãnh đạo 11/08/2026 ("thêm nút để bấm vô sẽ
                 đọc được hướng dẫn sử dụng"). Đặt ở ĐẦU CỘT vì đó là chỗ người dùng nhìn khi
                 phân vân "cột này phải làm gì thì mới qua được cột sau". */}
