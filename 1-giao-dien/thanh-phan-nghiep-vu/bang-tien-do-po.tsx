@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PackageCheck, Plus } from "lucide-react";
+import { AlertTriangle, PackageCheck, Paperclip, Plus } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
@@ -15,12 +15,14 @@ import {
   TableRow,
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoPO } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_PHIEU } from "@/2-quy-trinh/trang-thai";
 import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
+import type { MoTaTep } from "@/3-du-lieu/kho-tep";
 
 /**
  * M5 — Bảng tiến độ nhận hàng của một PO, có CỘT ĐỘNG theo từng lần giao.
@@ -32,12 +34,19 @@ import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
  * Quy tắc: CHỈ phiếu ở trạng thái "đã nhập kho" được tính vào khối lượng đã nhận.
  */
 export function BangTienDoPO({ po }: { po: DonDatHang }) {
-  const { phieuNhan, themPhieuNhan } = useDuLieu();
+  const { phieuNhan, themPhieuNhan, dinhKemPhieuGiao } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moForm, setMoForm] = useState(false);
   const [ngayNhan, setNgayNhan] = useState(new Date().toISOString().slice(0, 10));
   const [soPhieuNCC, setSoPhieuNCC] = useState("");
   const [khoiLuong, setKhoiLuong] = useState<Record<number, string>>({});
+  /**
+   * Tệp phiếu giao nhận của lần ghi này — BẮT BUỘC mới lưu được phiếu.
+   * 🔴 Chỉ đạo Ban lãnh đạo 11/08/2026: *"thủ kho khi nhận hàng phải đính kèm file phiếu
+   * giao nhận thì mới được bấm hoàn thành"*. Bắt ngay lúc ghi phiếu là chỗ tự nhiên nhất —
+   * lúc đó tờ phiếu đang cầm trên tay.
+   */
+  const [tepPhieuGiao, setTepPhieuGiao] = useState<MoTaTep | undefined>();
 
   const phieuCuaPO = useMemo(
     () => phieuNhan.filter((p) => p.poId === po.id).sort((a, b) => a.lanGiaoThu - b.lanGiaoThu),
@@ -49,11 +58,23 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
   const lanGiaoDaTinh = phieuCuaPO.filter((p) => p.trangThai === "da_nhap_kho");
   const phieuChoKiemTra = phieuCuaPO.filter((p) => p.trangThai === "cho_kiem_tra");
 
+  const dongCoKhoiLuong = po.items
+    .map((d) => ({ sttDongPO: d.sttDong, khoiLuongThucNhan: Number(khoiLuong[d.sttDong] ?? 0) }))
+    .filter((l) => l.khoiLuongThucNhan > 0);
+
+  /**
+   * Vì sao chưa lưu được phiếu. Trả chuỗi để hiện thẳng cho người dùng thay vì chỉ làm mờ
+   * cái nút — nút mờ không lý do là kiểu bí việc khó chịu nhất.
+   */
+  const vuongMacLuuPhieu: string | null =
+    dongCoKhoiLuong.length === 0
+      ? "Chưa nhập khối lượng nhận cho dòng vật tư nào."
+      : !tepPhieuGiao
+        ? "Chưa đính kèm phiếu giao nhận của nhà cung cấp."
+        : null;
+
   function luuPhieu() {
-    const lines = po.items
-      .map((d) => ({ sttDongPO: d.sttDong, khoiLuongThucNhan: Number(khoiLuong[d.sttDong] ?? 0) }))
-      .filter((l) => l.khoiLuongThucNhan > 0);
-    if (lines.length === 0) return;
+    if (vuongMacLuuPhieu) return;
 
     themPhieuNhan({
       poId: po.id,
@@ -62,11 +83,13 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
       nguoiNhanUid: nguoiDung.uid,
       nguoiNhanTen: nguoiDung.tenHienThi,
       soPhieuGiaoNCC: soPhieuNCC || undefined,
+      tepPhieuGiao,
       trangThai: "da_nhap_kho",
-      lines,
+      lines: dongCoKhoiLuong,
     });
     setKhoiLuong({});
     setSoPhieuNCC("");
+    setTepPhieuGiao(undefined);
     setMoForm(false);
   }
 
@@ -135,14 +158,41 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                 </div>
               ))}
             </div>
-            <div className="flex gap-2">
-              <Button onClick={luuPhieu}>
+            {/* ---- Phiếu giao nhận: BẮT BUỘC ---- */}
+            <div className="flex flex-col gap-2 border-t border-divider pt-3">
+              <Label>
+                Phiếu giao nhận của nhà cung cấp{" "}
+                <span className="font-normal text-danger-soft">(bắt buộc)</span>
+              </Label>
+              <p className="text-xs text-text-desc">
+                Chụp hoặc quét tờ phiếu giao nhận đã ký của lần giao này. Đây là chứng từ gốc
+                chứng minh hàng đã về — thiếu nó thì số liệu trong app không đối chiếu được với
+                giấy tờ.
+              </p>
+              <ODinhKemTep
+                tep={tepPhieuGiao}
+                nhanThem="Đính kèm phiếu giao nhận"
+                batBuoc={!tepPhieuGiao}
+                nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+                onXong={setTepPhieuGiao}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={luuPhieu} disabled={vuongMacLuuPhieu !== null}>
                 <PackageCheck className="size-4" aria-hidden />
                 Lưu phiếu &amp; nhập kho
               </Button>
               <Button variant="ghost" onClick={() => setMoForm(false)}>
                 Hủy
               </Button>
+              {/* Nói RÕ vì sao chưa bấm được, không để nút mờ câm lặng. */}
+              {vuongMacLuuPhieu && (
+                <span className="flex items-center gap-1.5 text-xs text-warning-soft">
+                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+                  {vuongMacLuuPhieu}
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -273,6 +323,37 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                       <span className="text-xs text-text-desc">Phiếu NCC: {p.soPhieuGiaoNCC}</span>
                     )}
                     <StatusBadge label={tt.nhan} tone={tt.tong} className="ml-auto" />
+
+                    {/* ---- Phiếu giao nhận của lần giao này ----
+                        🔴 PHẢI CHO BỔ SUNG, không chỉ bắt buộc lúc ghi phiếu mới. Phiếu ghi
+                        trước 11/08/2026 không có tệp; chặn mà không cho bổ sung thì các đơn
+                        đó KẸT VĨNH VIỄN, không bao giờ bấm hoàn thành được.
+                        Phiếu bị từ chối nhận thì không đòi — hàng trả về thì lấy đâu ra
+                        phiếu giao nhận đã ký. */}
+                    {p.trangThai !== "tu_choi_nhan" && (
+                      <div className="w-full">
+                        {quyen.ghiPhieuNhanHang ? (
+                          <ODinhKemTep
+                            tep={p.tepPhieuGiao}
+                            nhanThem="Đính kèm phiếu giao nhận (bắt buộc)"
+                            batBuoc={!p.tepPhieuGiao}
+                            nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+                            onXong={(tep) => dinhKemPhieuGiao(p.id, tep, nguoiDung.tenHienThi)}
+                          />
+                        ) : p.tepPhieuGiao ? (
+                          <span className="flex items-center gap-1.5 text-xs text-success-soft">
+                            <Paperclip className="size-3.5 shrink-0" aria-hidden />
+                            Có phiếu giao nhận: {p.tepPhieuGiao.tenTep}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5 text-xs text-warning-soft">
+                            <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+                            Chưa có phiếu giao nhận đính kèm
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {p.ghiChuTinhTrangHang && (
                       <p className="w-full text-xs text-warning-soft">{p.ghiChuTinhTrangHang}</p>
                     )}

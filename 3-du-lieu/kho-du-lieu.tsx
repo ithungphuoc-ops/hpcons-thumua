@@ -48,6 +48,7 @@ import type {
   BaoGia,
   CongNo,
   TepBaoGiaNCC,
+  MoTaTep,
 } from "@/3-du-lieu/kieu-du-lieu";
 
 /** Dữ liệu người dùng nhập ở màn giả lập. Mã và STT do kho dữ liệu tự sinh. */
@@ -128,6 +129,8 @@ interface GiaTriDuLieu {
     trangThai: PhieuNhanHang["trangThai"],
     nguoiThucHien?: string,
   ) => void;
+  /** Đính kèm / thay phiếu giao nhận cho một phiếu nhận hàng đã ghi. */
+  dinhKemPhieuGiao: (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => void;
   xacNhanKho: (poId: string, nguoi: XacNhan) => void;
   xacNhanTruongBP: (poId: string, nguoi: XacNhan) => void;
   /** Kéo thả ① Tiếp nhận → ② Yêu cầu báo giá: tạo bảng báo giá đang thu thập cho đề nghị. */
@@ -555,6 +558,33 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [ghiLichSuDeNghi],
   );
 
+  /**
+   * Đính kèm (hoặc thay) phiếu giao nhận của một phiếu nhận hàng ĐÃ GHI.
+   *
+   * 🔴 Phải có đường bổ sung này, không chỉ bắt buộc lúc ghi phiếu mới. Những phiếu ghi
+   * trước ngày 11/08/2026 không có tệp; nếu chỉ chặn mà không cho bổ sung thì các đơn đó
+   * KẸT VĨNH VIỄN, không bao giờ bấm hoàn thành được.
+   */
+  const dinhKemPhieuGiao = useCallback(
+    (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => {
+      setPhieuNhan((truoc) =>
+        truoc.map((p) => (p.id === phieuId ? { ...p, tepPhieuGiao: tep } : p)),
+      );
+      const phieu = phieuNhanRef.current.find((p) => p.id === phieuId);
+      const po = phieu && donHangRef.current.find((x) => x.id === phieu.poId);
+      if (phieu && po) {
+        // 🔴 Ghi TÊN TỆP, không ghi tên nhà cung cấp — khối Lịch sử hiện cho cả vai trò
+        // không được xem NCC (quy ước phiên 04).
+        ghiLichSuDeNghi(
+          po.prId,
+          nguoiThucHien,
+          `Đính kèm phiếu giao nhận cho ${phieu.code}: ${tep.tenTep}`,
+        );
+      }
+    },
+    [ghiLichSuDeNghi],
+  );
+
   const xacNhanKho = useCallback(
     (poId: string, nguoi: XacNhan) => {
       setDonHang((truoc) =>
@@ -742,6 +772,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const bg = baoGiaRef.current.find((b) => b.id === bgId);
       if (bg) {
         ghiLichSuDeNghi(bg.prId, nguoiThucHien, `Tải lên bản báo giá “${tep.tenTep}” vào ${bg.code}`);
+        // 🔴 Câu này CHỈ ĐÚNG kể từ 11/08/2026, khi tệp được lưu thật qua `kho-tep.ts`.
+        // Trước đó nó nói dối: nhật ký ghi "Tải lên" trong khi nội dung tệp bị vứt đi.
+        // Đừng đưa dòng này về lại chỗ nào không lưu tệp thật.
       }
     },
     [ghiLichSuDeNghi],
@@ -1224,6 +1257,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDonHang,
       themPhieuNhan,
       doiTrangThaiPhieu,
+      dinhKemPhieuGiao,
       xacNhanKho,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,
@@ -1261,6 +1295,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDonHang,
       themPhieuNhan,
       doiTrangThaiPhieu,
+      dinhKemPhieuGiao,
       xacNhanKho,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,

@@ -52,7 +52,8 @@ làm người dùng bí việc. Muốn cấm hẳn một bước thì thêm lu�
 | `tinhTienDoPO` | Tiến độ từng dòng của một PO, kèm khối lượng nhận theo **từng lần giao** |
 | `phanTramPO` | % của PO = số dòng đã nhận đủ ÷ tổng số dòng |
 | `poDaGiaoDu` | Đã giao đủ mọi dòng chưa |
-| `poDuDieuKienHoanThanh` | **Đủ cả 3 điều kiện chưa**: giao đủ + kho xác nhận + trưởng bộ phận xác nhận |
+| `poDuDieuKienHoanThanh` | **Đủ cả 4 điều kiện chưa**: giao đủ + **mọi lần giao có phiếu giao nhận đính kèm** + kho xác nhận + trưởng bộ phận xác nhận |
+| `vuongMacXacNhanKho` | Lý do thủ kho CHƯA được bấm xác nhận (còn phiếu nào thiếu tệp phiếu giao nhận), `null` là được phép |
 | `tinhTienDoDeNghi` | Tiến độ từng dòng đề nghị, **gộp từ nhiều PO** |
 | `tomTatTienDoDeNghi` | "6/10 mặt hàng đã nhận đủ" |
 | `tongGiaTriPO` | Tổng tiền hàng — **chỉ gọi khi vai trò được xem giá** |

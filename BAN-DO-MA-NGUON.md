@@ -70,7 +70,9 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Sai **chữ trạng thái** hoặc **màu trạng thái** | `2-quy-trinh/trang-thai.ts` |
 | Thiếu / thừa **mục trong menu** | `2-quy-trinh/dieu-huong.ts` |
 | **"Sao không thấy Phân bổ / Đơn đặt hàng / Báo giá trong menu?"** | Xem mục 2b ngay dưới đây — **cố ý bỏ, không phải mất** |
-| Sai **điều kiện hoàn thành PO** (3 lớp xác nhận) | `2-quy-trinh/tinh-toan.ts` → `poDuDieuKienHoanThanh` |
+| Sai **điều kiện hoàn thành PO** (4 lớp: giao đủ · phiếu giao nhận · kho · trưởng BP) | `2-quy-trinh/tinh-toan.ts` → `poDuDieuKienHoanThanh` |
+| **Thủ kho không bấm được "xác nhận đã nhận đủ"** / bấm được khi lẽ ra không nên | `2-quy-trinh/tinh-toan.ts` → `vuongMacXacNhanKho` (**luật**) · nút ở `trang/don-hang-chi-tiet.tsx` |
+| **Đính kèm tệp** không lưu / không mở xem lại được | Kho tệp: `3-du-lieu/kho-tep.ts` (IndexedDB) · ô giao diện dùng chung: `thanh-phan-dung-chung/o-dinh-kem-tep.tsx` |
 | **Đề nghị nằm sai cột** trên bảng quy trình, hoặc sai chữ "Quá hạn / Còn N ngày" | `2-quy-trinh/giai-doan-mua-hang.ts` |
 | Sai **phân nhóm tuổi nợ 30-60-90** hoặc **mức rủi ro NCC** | `2-quy-trinh/tuoi-no.ts` |
 | Sai **ô "giá thấp nhất"** hoặc **tổng theo NCC** ở bảng so sánh báo giá | `2-quy-trinh/so-sanh-bao-gia.ts` |

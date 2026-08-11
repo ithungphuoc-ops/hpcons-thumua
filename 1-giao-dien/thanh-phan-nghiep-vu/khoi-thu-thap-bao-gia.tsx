@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Check, Paperclip, Send } from "lucide-react";
+import { AlertTriangle, Check, Eye, Paperclip, Send } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/1-giao-dien/nen-tang-ui/card";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
-import { formatNumber, formatMocThoiGian, thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
+import { formatNumber, formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
+import { CO_TOI_DA, KIEU_CHO_PHEP, catTep, coTep, moTep } from "@/3-du-lieu/kho-tep";
 import type { BaoGia, NhaCungCap, TepBaoGiaNCC } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -61,6 +63,7 @@ export function KhoiThuThapBaoGia({
   /** Khóa ngoài là `DongBaoGia.id`; giữ nguyên chuỗi đang gõ để người dùng xóa trắng được. */
   const [gia, setGia] = useState<Record<string, string>>({});
   const [soNgayGiao, setSoNgayGiao] = useState("");
+  const [dangTai, setDangTai] = useState(false);
 
   /** Bỏ mọi ký tự không phải chữ số khi so mã số thuế — phiếu hay ghi gạch/khoảng trắng. */
   const soThue = (x?: string) => (x ?? "").replace(/\D/g, "");
@@ -89,6 +92,37 @@ export function KhoiThuThapBaoGia({
   ];
 
   const tepDaTai = baoGia.tepBaoGia ?? [];
+
+  /**
+   * Tải bản báo giá gốc — LƯU NỘI DUNG THẬT vào kho tệp.
+   *
+   * 🔴 Trước 11/08/2026 chỗ này chỉ lấy `f.name` và `f.size` rồi vứt nội dung đi, trong khi
+   * nhật ký vẫn ghi *"Tải lên bản báo giá X"*. Người dùng tin là đã lưu vào hệ thống, còn
+   * hồ sơ thì thiếu chứng từ mà không ai biết. Sửa cùng đợt làm phiếu giao nhận cho thủ kho.
+   */
+  async function taiBanBaoGia(f: File) {
+    if (!ncc) return; // Không có NCC thì tệp không biết thuộc về ai — vô dụng khi đối chiếu.
+    setDangTai(true);
+    try {
+      const mt = await catTep(f, { uid: `ncc-${ncc.id}`, ten: nguoiDungTen });
+      onDinhKem({ ...mt, nccId: ncc.id, tenNCC: ncc.ten });
+      toast.success("Đã lưu bản báo giá", { description: `${mt.tenTep} · ${coTep(mt.kichThuoc)}` });
+    } catch (e) {
+      toast.error("Không lưu được tệp", {
+        description: e instanceof Error ? e.message : "Trình duyệt không cho lưu tệp.",
+      });
+    } finally {
+      setDangTai(false);
+    }
+  }
+
+  async function xemTep(t: TepBaoGiaNCC) {
+    if (await moTep(t)) return;
+    toast.error("Không còn nội dung tệp", {
+      description:
+        "Tệp lưu trong trình duyệt của máy đã tải lên. Máy này không có bản sao — nhờ người tải lên gửi lại.",
+    });
+  }
 
   function luuGia() {
     if (!ncc) return;
@@ -264,24 +298,36 @@ export function KhoiThuThapBaoGia({
         {/* ---- Tải lên bản báo giá gốc ---- */}
         <div className="flex flex-col gap-2 border-t border-divider pt-(--hp-md-card-gap)">
           <Label>Bản báo giá nhà cung cấp gửi về ({tepDaTai.length})</Label>
-          {/* ⚠️ Nói thẳng giới hạn: bản chạy thử chỉ ghi nhận đã nhận tệp, chưa mở xem được.
-              Hứa hẹn mở được rồi bấm vào không có gì là mất lòng tin vào cả app. */}
           <p className="text-xs text-text-desc">
-            Bản chạy thử chỉ <strong>ghi nhận đã nhận tệp nào, của ai, lúc nào</strong> để trưởng
-            bộ phận đối chiếu — chưa lưu và chưa mở xem được nội dung tệp (cần nối Firebase
-            Storage).
+            Trưởng bộ phận duyệt giá cần xem được bản gốc nhà cung cấp gửi, không chỉ tin con số
+            gõ tay. Tải lên xong bấm <strong>Xem</strong> để mở lại đúng tệp đó.
           </p>
 
           {tepDaTai.length > 0 && (
             <ul className="flex flex-col gap-1">
               {tepDaTai.map((t, i) => (
-                <li key={`${t.tenTep}-${i}`} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+                <li
+                  key={`${t.tenTep}-${i}`}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+                >
                   <Paperclip className="size-3.5 shrink-0 text-text-desc" aria-hidden />
                   <span className="font-medium text-text-primary">{t.tenTep}</span>
                   <span className="text-text-desc">
-                    {t.tenNCC} · {Math.max(1, Math.round(t.kichThuoc / 1024))} KB ·{" "}
-                    {t.nguoiTaiTen} · {formatMocThoiGian(t.thoiDiem)}
+                    {t.tenNCC} · {coTep(t.kichThuoc)} · {t.nguoiTaiTen} ·{" "}
+                    {formatMocThoiGian(t.thoiDiem)}
                   </span>
+                  {/* Bản ghi trước 11/08/2026 không có `id` vì hồi đó nội dung tệp chưa từng
+                      được lưu — hiện nút thì bấm vào chỉ báo lỗi, nên ẩn luôn cho khỏi hụt hẫng. */}
+                  {t.id && (
+                    <button
+                      type="button"
+                      onClick={() => void xemTep(t)}
+                      className="inline-flex min-h-7 items-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <Eye className="size-3.5 shrink-0" aria-hidden />
+                      Xem
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -290,35 +336,37 @@ export function KhoiThuThapBaoGia({
           <label className="w-fit">
             <input
               type="file"
-              accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png"
+              accept={KIEU_CHO_PHEP}
               className="sr-only"
+              disabled={!ncc || dangTai}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 e.target.value = "";
-                if (!f) return;
-                if (!ncc) {
-                  // Không có nhà cung cấp thì tệp không biết thuộc về ai — vô dụng khi đối chiếu.
-                  return;
-                }
-                onDinhKem({
-                  nccId: ncc.id,
-                  tenNCC: ncc.ten,
-                  tenTep: f.name,
-                  kichThuoc: f.size,
-                  nguoiTaiTen: nguoiDungTen,
-                  thoiDiem: thoiDiemHienTai(),
-                });
+                if (f) void taiBanBaoGia(f);
               }}
             />
             <span
               className={`inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition-colors ${
-                ncc ? "cursor-pointer hover:border-primary hover:bg-muted" : "pointer-events-none opacity-60"
+                ncc && !dangTai
+                  ? "cursor-pointer hover:border-primary hover:bg-muted"
+                  : "pointer-events-none opacity-60"
               }`}
             >
               <Paperclip className="size-4" aria-hidden />
-              {ncc ? `Tải bản báo giá của ${ncc.ten}` : "Nhập tên nhà cung cấp trước khi tải tệp"}
+              {dangTai
+                ? "Đang lưu tệp…"
+                : ncc
+                  ? `Tải bản báo giá của ${ncc.ten}`
+                  : "Nhập tên nhà cung cấp trước khi tải tệp"}
             </span>
           </label>
+
+          {/* ⚠️ Nói thẳng chỗ tệp đang nằm. Trước đây khối này hứa "đã tải lên" trong khi
+              không lưu gì — nay lưu thật, nhưng vẫn phải nói rõ là lưu ở máy này. */}
+          <p className="text-xs text-text-desc">
+            <strong>Bản chạy thử lưu tệp trong trình duyệt máy này</strong>, chưa đưa lên máy chủ
+            nên máy khác chưa mở xem được. Tối đa {CO_TOI_DA / 1024 / 1024}MB mỗi tệp.
+          </p>
         </div>
 
         {/* ---- Trình trưởng bộ phận ---- */}

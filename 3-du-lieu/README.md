@@ -2,12 +2,14 @@
 
 **Mô hình dữ liệu** (chứng từ có những trường gì), **kho dữ liệu** (nơi giữ và ghi dữ liệu), **dữ liệu mẫu** để chạy thử.
 
-## Bốn file
+## Các file
 
 | File | Việc | Sửa khi |
 |---|---|---|
 | **`kieu-du-lieu.ts`** | Định nghĩa mọi chứng từ: Đề nghị, PO, Giá PO, Phiếu nhận hàng, Nhà cung cấp | Cần thêm/bớt trường của một chứng từ |
 | **`kho-du-lieu.tsx`** | Giữ dữ liệu + các thao tác ghi (phân bổ, lập PO, ghi phiếu nhận, xác nhận) | Bấm nút mà dữ liệu không đổi |
+| **`luu-tren-may.ts`** | Giữ dữ liệu nghiệp vụ qua mỗi lần tải lại trang (localStorage) | F5 mất dữ liệu |
+| **`kho-tep.ts`** | **Nội dung tệp đính kèm** (IndexedDB) — phiếu giao nhận, bản báo giá gốc | Đính kèm không lưu, hoặc không mở xem lại được |
 | **`danh-ba-nhan-su.ts`** | **Danh bạ nhân sự công ty** — nguồn cho ô chọn "Thêm người theo dõi" | Thiếu người, sai phòng ban, sai chức danh |
 | **`du-lieu-mau.ts`** | Dữ liệu chạy thử: **9 đề nghị** (phủ đủ 8 giai đoạn của bảng quy trình), 8 PO, 8 phiếu nhận, 6 bảng báo giá | Muốn đổi số liệu để trình bày |
 
@@ -79,9 +81,25 @@ Dòng đề nghị (stt)  ◄── sttDongDeNghi ── Dòng PO (sttDong)  ◄
 
 Khi có mã vật tư, chỉ thêm trường `maVatTu` vào dòng cũ — **không phải làm lại dữ liệu**.
 
+## `kho-tep.ts` — nội dung tệp để riêng, không nhét chung
+
+🔴 **Tệp KHÔNG được nhét vào localStorage.** localStorage chỉ nhận chuỗi (tệp phải mã hóa base64, phình thêm ~33%), giới hạn khoảng 5MB cho **cả tên miền**, mà chỗ đó đang giữ toàn bộ dữ liệu nghiệp vụ. Một ảnh chụp phiếu giao nhận đã 2–5MB → nhét vào là tràn, và `ghiDuLieu` đang **nuốt lỗi im lặng** nên người dùng mất dữ liệu mà không có cảnh báo nào.
+
+IndexedDB chứa được hàng trăm MB và lưu thẳng Blob. Chứng từ chỉ giữ phần **mô tả** (`MoTaTep`: tên, cỡ, kiểu, ai tải, lúc nào, `id` để tra); nội dung nằm trong kho tệp.
+
+| Hàm | Việc |
+|---|---|
+| `catTep(file, nguoi)` | Cất nội dung, trả `MoTaTep` để gắn vào chứng từ. **Ném lỗi khi quá cỡ** — nơi gọi phải bắt và báo |
+| `layTep(id)` · `moTep(mt)` | Đọc lại / mở ra tab mới. Trả `null`/`false` khi máy này không có bản sao |
+| `xoaTep(id)` | Dọn khi chứng từ bị xóa |
+
+⚠️ **Tệp nằm trên máy đã tải lên, chưa lên mạng.** Máy khác thấy tên tệp nhưng mở thì báo không còn nội dung — giao diện **phải nói ra**, xem `thanh-phan-dung-chung/o-dinh-kem-tep.tsx`.
+
 ## Khi nối Firebase thật
 
 Chỉ cần thay phần trong `kho-du-lieu.tsx`: các hàm `phanBoDong`, `themDonHang`, `themPhieuNhan`, `xacNhanKho`, `xacNhanTruongBP` đổi từ ghi vào bộ nhớ sang ghi vào Firestore. **Giao diện không phải sửa một dòng nào.**
+
+Tệp đính kèm cũng vậy: thay ruột 4 hàm của `kho-tep.ts` bằng Firebase Storage, giữ nguyên `MoTaTep`. Lúc đó tệp mới xem được từ máy khác.
 
 🔴 **Đồng thời phải BỎ HẲN bộ giả lập:** hàm `themDeNghiGiaLap` · hằng `ID_DE_NGHI_GIA_LAP` ·
 màn `1-giao-dien/trang/de-nghi-nhan-moi.tsx` · thư mục `app/(app)/de-nghi/nhan-moi/` ·

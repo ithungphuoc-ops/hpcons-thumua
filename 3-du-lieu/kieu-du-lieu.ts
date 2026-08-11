@@ -14,6 +14,10 @@
 /** Ngày tháng lưu dạng ISO string trong bản chạy thử; Firestore dùng Timestamp. */
 export type NgayISO = string;
 
+/** Mô tả tệp đính kèm — nội dung tệp nằm ở `3-du-lieu/kho-tep.ts`, đây chỉ là phần tra cứu. */
+export type { MoTaTep } from "@/3-du-lieu/kho-tep";
+import type { MoTaTep } from "@/3-du-lieu/kho-tep";
+
 // ------------------------------------------------------------
 // DỰ ÁN — đọc từ App Tổng, app thu mua KHÔNG tự sinh mã
 // ------------------------------------------------------------
@@ -311,6 +315,21 @@ export interface PhieuNhanHang {
   nguoiNhanUid: string;
   nguoiNhanTen: string;
   soPhieuGiaoNCC?: string;
+  /**
+   * ★ BẢN CHỤP / BẢN QUÉT PHIẾU GIAO NHẬN của nhà cung cấp cho LẦN GIAO NÀY.
+   *
+   * 🔴 Chỉ đạo Ban lãnh đạo 11/08/2026: *"thủ kho khi nhận hàng phải đính kèm file phiếu
+   * giao nhận thì mới được bấm hoàn thành"*. Đây là chứng từ gốc chứng minh hàng đã về
+   * thật — không có nó thì con số khối lượng trong app không đối chiếu được với giấy tờ.
+   *
+   * Để `?` vì phiếu ghi TRƯỚC ngày 11/08/2026 chưa có trường này. Phiếu cũ vẫn đọc được,
+   * chỉ là phải bổ sung tệp thì đơn mới hoàn thành được — xem `vuongMacXacNhanKho`.
+   *
+   * ⚠️ Chỉ là phần MÔ TẢ. Nội dung tệp nằm ở kho riêng (`3-du-lieu/kho-tep.ts`), tra theo
+   * `id`. Đừng nhét nội dung tệp vào đây — dữ liệu nghiệp vụ lưu ở localStorage, nhét vào
+   * là tràn và mất sạch.
+   */
+  tepPhieuGiao?: MoTaTep;
   /** ★ CHỈ trạng thái da_nhap_kho mới được tính vào khối lượng đã nhận. */
   trangThai: TrangThaiPhieuNhan;
   ghiChuTinhTrangHang?: string;
@@ -402,19 +421,21 @@ export interface DongBaoGiaNCC {
  * để trưởng bộ phận xem xét"*. Trưởng bộ phận duyệt giá thì phải xem được bản gốc nhà cung
  * cấp gửi, không chỉ tin con số nhân viên gõ vào.
  *
- * ⚠️ BẢN CHẠY THỬ CHƯA LƯU NỘI DUNG TỆP. Chỉ giữ tên, kích thước, ai tải, lúc nào — đủ để
- * đối chiếu "đã nhận báo giá của ai, ngày nào". Lưu nội dung phải qua Firebase Storage
- * (`tm_baogia/{rfqId}/{nccId}/...`), chưa nối nên KHÔNG hứa hẹn là mở xem được tệp.
+ * ✅ TỪ 11/08/2026 ĐÃ LƯU NỘI DUNG THẬT và mở xem lại được — qua kho tệp
+ * `3-du-lieu/kho-tep.ts`. Trước đó chỉ giữ tên tệp rồi vứt nội dung đi, trong khi nhật ký
+ * vẫn ghi *"Tải lên bản báo giá X"* — người dùng có mọi lý do tin là đã lưu vào hệ thống,
+ * và hồ sơ thiếu chứng từ mà không ai biết. Đó là lỗi, đã sửa.
+ *
+ * ⚠️ Tệp nằm trong trình duyệt của MÁY ĐÃ TẢI LÊN, chưa lên máy chủ. Máy khác thấy tên tệp
+ * nhưng bấm xem thì báo không còn nội dung. Khi nối Firebase Storage thì chỉ thay ruột
+ * `kho-tep.ts`, kiểu dữ liệu này không phải sửa.
+ *
+ * ⚠️ Bản ghi tạo TRƯỚC 11/08/2026 thiếu `id` nên không mở xem được — đúng như thực tế, vì
+ * nội dung tệp lúc đó chưa từng được lưu.
  */
-export interface TepBaoGiaNCC {
+export interface TepBaoGiaNCC extends MoTaTep {
   nccId: string;
   tenNCC: string;
-  tenTep: string;
-  /** Byte. Hiện để người dùng nhận ra mình tải đúng tệp hay không. */
-  kichThuoc: number;
-  nguoiTaiTen: string;
-  /** ISO đầy đủ giờ phút — cần biết nhận báo giá lúc nào để tính hạn nộp. */
-  thoiDiem: string;
 }
 
 export interface DongBaoGia {

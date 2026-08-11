@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
-import { BadgeCheck, FileWarning, Lock, Printer } from "lucide-react";
+import { AlertTriangle, BadgeCheck, FileWarning, Lock, Printer } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -14,7 +14,12 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { poDaGiaoDu, tinhTienDonHang, tinhTienDoPO } from "@/2-quy-trinh/tinh-toan";
+import {
+  poDaGiaoDu,
+  tinhTienDonHang,
+  tinhTienDoPO,
+  vuongMacXacNhanKho,
+} from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 
@@ -26,10 +31,15 @@ export default function TrangChiTietDonHang() {
   const po = donHang.find((x) => x.id === params.id);
   const gia = giaDonHang.find((g) => g.poId === params.id);
 
-  const tienDo = useMemo(
-    () => (po ? tinhTienDoPO(po, phieuNhan.filter((p) => p.poId === po.id)) : []),
+  const phieuCuaPO = useMemo(
+    () => (po ? phieuNhan.filter((p) => p.poId === po.id) : []),
     [po, phieuNhan],
   );
+
+  const tienDo = useMemo(() => (po ? tinhTienDoPO(po, phieuCuaPO) : []), [po, phieuCuaPO]);
+
+  /** Còn phiếu nào chưa đính kèm phiếu giao nhận không — luật ở `2-quy-trinh/tinh-toan.ts`. */
+  const vuongMacTep = vuongMacXacNhanKho(phieuCuaPO);
 
   if (!po) {
     return (
@@ -212,7 +222,7 @@ export default function TrangChiTietDonHang() {
         </Card>
       )}
 
-      {/* Điều kiện hoàn thành PO — 3 lớp */}
+      {/* Điều kiện hoàn thành PO — 4 lớp (thêm phiếu giao nhận ngày 11/08/2026) */}
       <section className="flex flex-col gap-(--hp-md-row-gap)">
         <h2 className="text-h3 text-text-primary">Hoàn thành đơn hàng</h2>
         <Card>
@@ -224,8 +234,18 @@ export default function TrangChiTietDonHang() {
                 xong={daGiaoDu}
                 moTa={daGiaoDu ? "Mọi dòng còn lại = 0" : "Còn dòng chưa nhận đủ"}
               />
+              {/* 🔴 ĐIỀU KIỆN MỚI — chỉ đạo Ban lãnh đạo 11/08/2026: *"thủ kho khi nhận hàng
+                  phải đính kèm file phiếu giao nhận thì mới được bấm hoàn thành"*.
+                  Luật ở `2-quy-trinh/tinh-toan.ts` → `vuongMacXacNhanKho`, KHÔNG tính lại ở
+                  đây — nút bấm bên dưới cũng gọi đúng hàm đó. */}
               <DieuKien
                 so={2}
+                nhan="Mọi lần giao đều có phiếu giao nhận đính kèm"
+                xong={vuongMacTep === null}
+                moTa={vuongMacTep ?? `Đủ ${phieuCuaPO.length} phiếu giao nhận`}
+              />
+              <DieuKien
+                so={3}
                 nhan="Thủ kho công trình xác nhận"
                 xong={Boolean(po.xacNhanKho)}
                 moTa={
@@ -235,7 +255,7 @@ export default function TrangChiTietDonHang() {
                 }
               />
               <DieuKien
-                so={3}
+                so={4}
                 nhan="Trưởng bộ phận thu mua xác nhận"
                 xong={Boolean(po.xacNhanTruongBP)}
                 moTa={
@@ -246,12 +266,22 @@ export default function TrangChiTietDonHang() {
               />
             </ol>
 
-            <div className="flex flex-wrap gap-2 border-t border-divider pt-4">
+            <div className="flex flex-wrap items-center gap-2 border-t border-divider pt-4">
               {quyen.xacNhanKho && daGiaoDu && !po.xacNhanKho && (
-                <Button onClick={bamXacNhanKho}>
-                  <BadgeCheck className="size-4" aria-hidden />
-                  Thủ kho xác nhận đã nhận đủ
-                </Button>
+                <>
+                  {/* Nút KHÓA khi còn phiếu thiếu tệp — không giấu nút, vì giấu đi thì thủ
+                      kho tưởng mình không có quyền. Khóa kèm lý do ngay bên cạnh. */}
+                  <Button onClick={bamXacNhanKho} disabled={vuongMacTep !== null}>
+                    <BadgeCheck className="size-4" aria-hidden />
+                    Thủ kho xác nhận đã nhận đủ
+                  </Button>
+                  {vuongMacTep && (
+                    <span className="flex items-start gap-1.5 text-sm text-warning-soft">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                      {vuongMacTep}
+                    </span>
+                  )}
+                </>
               )}
               {quyen.xacNhanTruongBP && daGiaoDu && po.xacNhanKho && !po.xacNhanTruongBP && (
                 <Button onClick={bamXacNhanTruongBP}>

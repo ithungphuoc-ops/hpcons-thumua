@@ -62,9 +62,46 @@ export function poDaGiaoDu(tienDo: TienDoDongPO[]): boolean {
   return tienDo.length > 0 && tienDo.every((d) => d.khoiLuongConLai === 0);
 }
 
-/** Đủ cả 3 điều kiện mới được đánh dấu hoàn thành (Phần 4.3). */
-export function poDuDieuKienHoanThanh(po: DonDatHang, tienDo: TienDoDongPO[]): boolean {
-  return poDaGiaoDu(tienDo) && Boolean(po.xacNhanKho) && Boolean(po.xacNhanTruongBP);
+/**
+ * THỦ KHO ĐÃ ĐỦ ĐIỀU KIỆN XÁC NHẬN CHƯA — trả về lý do còn vướng, `null` là được phép.
+ *
+ * 🔴 CHỈ ĐẠO BAN LÃNH ĐẠO 11/08/2026: *"thủ kho khi nhận hàng phải đính kèm file phiếu giao
+ * nhận thì mới được bấm hoàn thành"*.
+ *
+ * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý — MỘT LUẬT, MỌI ĐƯỜNG DÙNG CHUNG, đúng nếp đã làm với
+ * `vuongMacSangBuocSau`. Nút xác nhận của thủ kho và hàm `poDuDieuKienHoanThanh` đều gọi vào
+ * đây; nếu mỗi chỗ tự kiểm thì bịt được nút này lại hở đường kia — chuyện đã xảy ra thật với
+ * luật "bước trước phải xong mới đi tiếp".
+ *
+ * ⚠️ Kiểm TỪNG phiếu, không phải "có ít nhất một tệp". Mỗi lần giao hàng có một phiếu giao
+ * nhận riêng của nhà cung cấp; chấp nhận một tệp cho cả đơn thì lần giao thứ hai trở đi
+ * không còn chứng từ gốc nào đối chiếu.
+ *
+ * ⚠️ Phiếu `tu_choi_nhan` KHÔNG đòi tệp — hàng bị từ chối thì không có phiếu giao nhận nào
+ * được ký, bắt đính kèm là làm kẹt đơn vĩnh viễn.
+ */
+export function vuongMacXacNhanKho(phieuCuaPO: PhieuNhanHang[]): string | null {
+  const thieu = phieuCuaPO.filter((p) => p.trangThai !== "tu_choi_nhan" && !p.tepPhieuGiao);
+  if (thieu.length === 0) return null;
+  const ds = thieu.map((p) => `lần ${p.lanGiaoThu}`).join(", ");
+  return `Còn ${thieu.length} phiếu nhận hàng chưa đính kèm phiếu giao nhận của nhà cung cấp (${ds}). Mở khối "Tiến độ nhận hàng" để bổ sung.`;
+}
+
+/**
+ * Đủ điều kiện đánh dấu hoàn thành (Phần 4.3) — nay là BỐN, không còn ba:
+ * giao đủ · **có phiếu giao nhận cho mọi lần giao** · thủ kho xác nhận · trưởng bộ phận xác nhận.
+ */
+export function poDuDieuKienHoanThanh(
+  po: DonDatHang,
+  tienDo: TienDoDongPO[],
+  phieuCuaPO: PhieuNhanHang[] = [],
+): boolean {
+  return (
+    poDaGiaoDu(tienDo) &&
+    vuongMacXacNhanKho(phieuCuaPO) === null &&
+    Boolean(po.xacNhanKho) &&
+    Boolean(po.xacNhanTruongBP)
+  );
 }
 
 // ------------------------------------------------------------
