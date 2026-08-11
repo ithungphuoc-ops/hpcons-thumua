@@ -60,17 +60,12 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     duocThay: () => true,
   },
   {
-    // Nhãn "Quy trình mua hàng" theo chỉ đạo Ban lãnh đạo 10/08/2026 (trước là "Đề nghị mua
-    // hàng") — màn này là bảng quy trình 8 cột, tên cũ làm tưởng chỉ là danh sách đề nghị.
-    nhan: "Quy trình mua hàng",
-    nhanNgan: "Quy trình",
-    href: "/de-nghi",
-    icon: FileText,
-    duocThay: (q) => q.xemMoiHoSo || q.lapPO || q.phanBoCongViec,
-  },
-  {
     // Chỉ đạo Ban lãnh đạo 11/08/2026: *"Thêm chức năng lịch ghi chú cho các tài khoản của bộ
     // phận này, và sẽ tự động cập nhật công việc vào lịch khi có nhiệm vụ"*.
+    //
+    // 📌 VỊ TRÍ NGAY DƯỚI "Công việc của tôi" theo chỉ đạo Ban lãnh đạo 11/08/2026. Hai mục
+    // này là cặp: một cái trả lời "việc nào đang tới tay tôi", một cái trả lời "việc nào tới
+    // hạn ngày nào". Đặt cạnh nhau thì người dùng quét mắt một lần là thấy cả hai.
     //
     // 📌 MỌI VAI TRÒ ĐỀU CÓ LỊCH, không lọc theo bộ phận. Thủ kho cũng có hạn ghi phiếu nhận,
     // kế toán cũng có hạn thanh toán — chặn họ khỏi lịch không được lợi gì mà lại sinh trường
@@ -81,6 +76,15 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/lich",
     icon: CalendarDays,
     duocThay: () => true,
+  },
+  {
+    // Nhãn "Quy trình mua hàng" theo chỉ đạo Ban lãnh đạo 10/08/2026 (trước là "Đề nghị mua
+    // hàng") — màn này là bảng quy trình 8 cột, tên cũ làm tưởng chỉ là danh sách đề nghị.
+    nhan: "Quy trình mua hàng",
+    nhanNgan: "Quy trình",
+    href: "/de-nghi",
+    icon: FileText,
+    duocThay: (q) => q.xemMoiHoSo || q.lapPO || q.phanBoCongViec,
   },
   {
     nhan: "Theo dõi đề nghị",

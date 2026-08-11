@@ -20,7 +20,7 @@ Module Thu mua (mã app `tm`) trong hệ sinh thái HPcore. **Bản khung chạy
 |---|---|
 | `hpcons-thumua-github.vercel.app` | ✅ **Giữ** — nơi chạy duy nhất |
 | `thumua-v1.vercel.app` | ❌ Đã xóa project 11/08/2026, giờ trả 404 |
-| `thumua-v1-hpcons.web.app` (Firebase) | ❌ Đã bỏ, còn kẹt bản 07/08 cho tới khi tắt trên Firebase Console |
+| ~~Firebase Hosting~~ | ❌ Đã bỏ khỏi dự án 11/08/2026. `firebase.json` không còn khối `hosting`, `npm run deploy` không gọi firebase. Xem [CLAUDE.md mục 6.3](../CLAUDE.md) nếu site cũ còn sống trên cloud |
 
 ⚠️ **Trang này công khai trên internet.** Có màn đăng nhập nhưng là **đăng nhập chạy thử kiểm trong trình duyệt**, mật khẩu chung ghi ngay trên màn hình — chưa phải bảo mật thật. Dữ liệu là **dữ liệu mẫu** (tên nhà cung cấp và giá đều giả) nên không rò rỉ thông tin thật. Khi nối dữ liệu thật thì **bắt buộc thay bằng Firebase Authentication trước**.
 

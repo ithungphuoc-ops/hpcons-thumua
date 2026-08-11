@@ -1,11 +1,7 @@
 {
   "_ghiChu": [
-    "🔴 KHONG CON KHOI hosting TU 11/08/2026. Noi chay chinh thuc cua app la VERCEL:",
-    "https://hpcons-thumua-github.vercel.app — deploy bang `npm run deploy` (vercel --prod).",
-    "Firebase trong du an nay CHI con dung cho Firestore / Auth / Storage sau nay.",
-    "Truoc day hosting deploy len project print-format-hpcons, site thumua-v1-hpcons —",
-    "site do da bi bo, con chay ban cu 07/08/2026 cho toi khi Sep tat han tren Firebase Console.",
-    "Xem CLAUDE.md muc 6.3."
+    "File nay CHI dung cho Firestore. App chay tren VERCEL — xem CLAUDE.md muc 6.3.",
+    "KHONG them lai khoi hosting vao day."
   ],
   "firestore": {
     "rules": "5-ket-noi/firestore.rules"

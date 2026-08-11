@@ -188,26 +188,13 @@ Viết cứng `#096AA7` hay `p-6` là **sai quy chuẩn** — đây đúng là l
 | `next.config.ts` · `tsconfig.json` · `eslint.config.mjs` · `postcss.config.mjs` | Cấu hình kỹ thuật, hiếm khi sửa |
 | `components.json` | Cấu hình thư viện shadcn (đã trỏ đúng thư mục mới) |
 | `.env.local.example` | Mẫu khai cấu hình Firebase |
-| `firebase.json` | Cấu hình phát hành. **Thứ tự luật `headers` rất quan trọng** |
+| `firebase.json` | **CHỈ còn Firestore rules.** Không có hosting — app chạy trên Vercel |
 
-### 🔴 `firebase.json` — luật cache, đừng đảo thứ tự
+### 🌐 Phát hành: Vercel, không phải Firebase
 
-```
-1. "**"                → no-cache          (mặc định: mọi thứ đều phải hỏi lại server)
-2. "/_next/static/**"  → cache 1 năm       (tên tệp có mã băm nên đổi nội dung là đổi tên)
-```
+`npm run deploy` = `npx --yes vercel --prod`, đẩy thẳng từ máy, không qua GitHub. Chi tiết ở [CLAUDE.md mục 6.3](../CLAUDE.md).
 
-**Luật hẹp phải nằm SAU luật rộng thì mới đè lên được.** Đảo lại là tệp tĩnh mất cache, trang nặng hẳn.
-
-Lỗi đã gặp ngày 06/08/2026: luật cũ bắt theo đuôi `**/*.@(html|txt|json)`, nhưng `cleanUrls: true`
-biến địa chỉ thành `/de-nghi` **không có đuôi `.html`** → không khớp luật nào → rơi về mặc định
-`max-age=3600`. Hậu quả: **deploy xong người dùng phải chờ tới 1 tiếng mới thấy bản mới.**
-Cách kiểm nhanh sau mỗi lần đổi cấu hình này:
-
-```js
-fetch('/de-nghi?v=' + Date.now(), { cache: 'reload' }).then(r => r.headers.get('cache-control'))
-// phải trả về: no-cache, no-store, must-revalidate
-```
+📌 **Cache do Vercel lo, không còn luật `headers` nào phải canh.** Trước 11/08/2026 dự án chạy Firebase Hosting và `firebase.json` có khối `headers` với một cái bẫy: `cleanUrls: true` biến địa chỉ thành `/de-nghi` (không đuôi `.html`) nên luật bắt theo đuôi tệp không khớp gì cả → HTML rơi về `max-age=3600`, deploy xong phải chờ tới **1 tiếng** mới thấy bản mới. Bỏ hosting là hết luôn loại lỗi này.
 
 ---
 
