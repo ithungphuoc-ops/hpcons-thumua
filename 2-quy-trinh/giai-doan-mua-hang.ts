@@ -20,6 +20,7 @@ import type {
   DeNghiMuaHang,
   DonDatHang,
   PhieuNhanHang,
+  ThongBaoChuyenBuoc,
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
 import { daysUntil } from "@/6-tien-ich/dinh-dang";
@@ -151,6 +152,80 @@ export function xacDinhGiaiDoan(
 /** Giai đoạn đã kết thúc thì không còn tính hạn xử lý nữa. */
 export function giaiDoanDaKetThuc(giaiDoan: GiaiDoanMuaHang): boolean {
   return giaiDoan === "hoan_thanh" || giaiDoan === "that_bai";
+}
+
+/**
+ * AI CẦN XỬ LÝ BƯỚC NÀY — dùng cho dòng "Gửi tới" của thông báo chuyển bước.
+ *
+ * 🔴 Ban lãnh đạo bắt lỗi 11/08/2026: *"sao cấp trưởng phòng giao việc lại hiện thông báo như
+ * vậy"*. Chuông đang ghi *"Gửi tới: Phạm Văn F"* — mà Phạm Văn F là NGƯỜI ĐỀ NGHỊ bên Phòng
+ * Thi công, không phải người thu mua. Nguyên nhân: chỗ sinh thông báo lấy thẳng
+ * `dn.nguoiTheoDoi`, tức danh sách người THEO DÕI, gán vào ô "Gửi tới".
+ *
+ * Sai ở hai mặt: người cần hành động (trưởng bộ phận / nhân viên phụ trách) thì không có tên,
+ * còn người không làm gì được lại bị nêu như thể việc của họ.
+ *
+ * 📌 Trả về NHÃN VAI TRÒ ở bước ① vì lúc đó chưa ai được phân công — không thể nêu tên cụ thể.
+ * Từ bước ② trở đi thì nêu đúng tên người phụ trách các dòng.
+ */
+export function nguoiCanXuLy(deNghi: DeNghiMuaHang, buoc: GiaiDoanMuaHang): string[] {
+  if (buoc === "tiep_nhan") return ["Trưởng bộ phận Thu mua"];
+  if (giaiDoanDaKetThuc(buoc)) return [];
+  const ten = [
+    ...new Set(
+      deNghi.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x)),
+    ),
+  ];
+  return ten.length > 0 ? ten : ["Chưa phân bổ người phụ trách"];
+}
+
+export interface TinhTrangTiepNhan {
+  /** Đã có người bấm nhận công tác cho bước hiện tại chưa. */
+  daNhan: boolean;
+  /** Tên người nhận. ⚠️ Nơi gọi phải tự kiểm quyền trước khi hiện — xem chú thích dưới. */
+  ten?: string;
+  /** ISO đầy đủ giờ phút. */
+  thoiDiem?: string;
+  /** Mã bước mà người đó nhận. */
+  buoc?: GiaiDoanMuaHang;
+}
+
+/**
+ * ĐỀ NGHỊ NÀY ĐÃ CÓ NGƯỜI TIẾP NHẬN CHƯA — suy ra từ thông báo chuyển bước.
+ *
+ * 🔴 Chỉ đạo Ban lãnh đạo 11/08/2026: *"Khi trưởng bộ phận bấm tiếp nhận request thì mục theo
+ * dõi đề nghị sẽ tự động cập nhật request đó"*. Người đề nghị (Phòng Thi công) gửi phiếu lên
+ * rồi ngồi chờ mà không biết đã có ai nhận việc chưa — đó là lúc họ gọi điện hỏi.
+ *
+ * 🔴 SUY RA, KHÔNG THÊM TRƯỜNG MỚI vào đề nghị. Việc "đã nhận" đã được ghi vào
+ * `ThongBaoChuyenBuoc.tiepNhan` khi người dùng bấm nhận (`dung-nhan-cong-tac.ts`). Thêm một
+ * trường `daTiepNhan` trên đề nghị là tạo nguồn sự thật thứ hai, rồi hai chỗ lệch nhau — đúng
+ * lỗi CLAUDE.md mục 3.4b cấm.
+ *
+ * ⚠️ Lấy thông báo MỚI NHẤT có người nhận, không phải cái đầu tiên: một đề nghị đi qua nhiều
+ * bước, mỗi bước một lần nhận. Người đề nghị cần biết ai đang giữ việc BÂY GIỜ.
+ *
+ * 🔒 HÀM NÀY TRẢ VỀ CẢ TÊN, NHƯNG NƠI GỌI PHẢI KIỂM QUYỀN. Màn "Theo dõi đề nghị" dành cho
+ * Phòng Thi công và họ KHÔNG được xem tên nhân viên thu mua (`quyen.xemNguoiPhuTrach`). Ở đó
+ * chỉ hiện "đã tiếp nhận" kèm thời điểm, giấu tên.
+ */
+export function tinhTrangTiepNhan(
+  prId: string,
+  thongBao: ThongBaoChuyenBuoc[],
+): TinhTrangTiepNhan {
+  const daNhan = thongBao
+    .filter((t) => t.prId === prId && t.tiepNhan)
+    .sort(
+      (a, b) =>
+        new Date(b.tiepNhan!.thoiDiem).getTime() - new Date(a.tiepNhan!.thoiDiem).getTime(),
+    )[0];
+  if (!daNhan?.tiepNhan) return { daNhan: false };
+  return {
+    daNhan: true,
+    ten: daNhan.tiepNhan.ten,
+    thoiDiem: daNhan.tiepNhan.thoiDiem,
+    buoc: daNhan.denBuoc as GiaiDoanMuaHang,
+  };
 }
 
 /**

@@ -14,6 +14,7 @@ import {
 // chiều ngược lại nên không tạo vòng phụ thuộc runtime.
 import {
   NHAN_GIAI_DOAN,
+  nguoiCanXuLy,
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -319,16 +320,37 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     for (const dn of deNghi) {
       const buocMoi = hienTai.get(dn.id);
       const buocCu = truoc.get(dn.id);
-      if (!buocMoi || buocCu === buocMoi) continue;
+
+      /**
+       * 🔴 CHƯA TỪNG THẤY ĐỀ NGHỊ NÀY TRONG PHIÊN → KHÔNG PHẢI "vừa chuyển bước".
+       *
+       * Ban lãnh đạo bắt lỗi 11/08/2026: chuông đầy thông báo trùng, cùng một đề nghị hiện
+       * *"Đề nghị mới vào bước Tiếp nhận và kiểm tra"* nhiều lần ở nhiều mốc giờ.
+       *
+       * Nguyên nhân: `giaiDoanTruocRef` chỉ nằm trong bộ nhớ, KHÔNG được lưu. Dữ liệu lại
+       * nạp từ localStorage trong `useEffect` nên lần chạy đầu `deNghi` còn rỗng → ref thành
+       * Map RỖNG (không phải null, nên không bị chặn bởi câu `if (!truoc) return`). Lần chạy
+       * sau dữ liệu về, mọi đề nghị đều có `buocCu === undefined` ≠ `buocMoi` → sinh lại
+       * thông báo "đề nghị mới vào bước…" cho TOÀN BỘ hồ sơ, mỗi lần tải trang một lượt.
+       *
+       * Hệ quả thật: chuông toàn rác, người dùng bỏ qua hết, rồi bỏ lỡ thông báo thật.
+       *
+       * ⚠️ Đổi lại: đề nghị mới tạo KHÔNG còn được useEffect này báo. Đúng chỗ để báo việc đó
+       * là hàm tạo đề nghị (`themDeNghiGiaLap`) — nơi biết CHẮC hồ sơ vừa được thêm, chứ
+       * không phải suy đoán từ chỗ "chưa từng thấy".
+       */
+      if (!buocMoi || buocCu === undefined || buocCu === buocMoi) continue;
+
       moi.push({
         id: `tb-${soKeTiepThongBao()}`,
         prId: dn.id,
         prCode: dn.code,
         tieuDe: dn.tieuDe,
-        tuBuoc: buocCu, // trống = đề nghị mới vào bảng
+        tuBuoc: buocCu,
         denBuoc: buocMoi,
         thoiDiem: new Date().toISOString(),
-        guiToi: (dn.nguoiTheoDoi ?? []).map((n) => n.ten),
+        // 🔴 "Gửi tới" là NGƯỜI CẦN HÀNH ĐỘNG, không phải người theo dõi — xem `nguoiCanXuLy`.
+        guiToi: nguoiCanXuLy(dn, buocMoi),
         daDoc: false,
       });
     }
@@ -411,6 +433,35 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     };
 
     setDeNghi((truoc) => [...truoc, moi]);
+
+    /**
+     * 🔴 BÁO "ĐỀ NGHỊ MỚI" NGAY TẠI ĐÂY, không để `useEffect` so bước lo việc này.
+     *
+     * Chỗ này biết CHẮC hồ sơ vừa được thêm. Còn `useEffect` chỉ thấy "đề nghị chưa từng có
+     * trong bản đồ giai đoạn" — mà điều đó cũng đúng với mọi hồ sơ vừa nạp từ localStorage
+     * sau khi tải lại trang, nên nó sinh lại thông báo cho toàn bộ hồ sơ mỗi lần F5. Đó là
+     * lỗi Ban lãnh đạo bắt được ngày 11/08/2026 (chuông đầy thông báo trùng).
+     *
+     * "Gửi tới" là Trưởng bộ phận Thu mua — người phải tiếp nhận, chứ không phải người theo
+     * dõi hồ sơ.
+     */
+    setThongBao((truocDo) =>
+      [
+        {
+          id: `tb-moi-${soKeTiepThongBao()}`,
+          prId: id,
+          prCode: code,
+          tieuDe: moi.tieuDe,
+          tuBuoc: undefined,
+          denBuoc: "tiep_nhan" as const,
+          thoiDiem: new Date().toISOString(),
+          guiToi: nguoiCanXuLy(moi, "tiep_nhan"),
+          daDoc: false,
+        },
+        ...truocDo,
+      ].slice(0, 30),
+    );
+
     return id;
   }, []);
 
