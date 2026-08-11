@@ -1,18 +1,13 @@
 {
-  "hosting": {
-    "site": "thumua-v1-hpcons",
-    "public": "out",
-    "cleanUrls": true,
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "headers": [
-      {
-        "source": "**",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-      },
-      {
-        "source": "/_next/static/**",
-        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
-      }
-    ]
+  "_ghiChu": [
+    "🔴 KHONG CON KHOI hosting TU 11/08/2026. Noi chay chinh thuc cua app la VERCEL:",
+    "https://hpcons-thumua-github.vercel.app — deploy bang `npm run deploy` (vercel --prod).",
+    "Firebase trong du an nay CHI con dung cho Firestore / Auth / Storage sau nay.",
+    "Truoc day hosting deploy len project print-format-hpcons, site thumua-v1-hpcons —",
+    "site do da bi bo, con chay ban cu 07/08/2026 cho toi khi Sep tat han tren Firebase Console.",
+    "Xem CLAUDE.md muc 6.3."
+  ],
+  "firestore": {
+    "rules": "5-ket-noi/firestore.rules"
   }
 }

@@ -11,12 +11,11 @@ Module Thu mua (mã app `tm`) trong hệ sinh thái HPcore. **Bản khung chạy
 
 ## 🌐 Bản đã đưa lên mạng
 
-> **https://thumua-v1-hpcons.web.app** — Firebase Hosting, project `print-format-hpcons`, site `thumua-v1-hpcons`.
-> Phát hành lần đầu 05/08/2026. Bản app thu mua **cũ** vẫn nguyên ở `thumua-hpcons.web.app`.
+> **https://hpcons-thumua-github.vercel.app** — Vercel, team `hpcons-ita-sset`, project `hpcons-thumua-github`.
 
-⚠️ **Trang này công khai trên internet, không có đăng nhập.** Ai có link đều xem được và đổi được vai trò để xem mọi màn hình. Dữ liệu là **dữ liệu mẫu** (tên nhà cung cấp và giá đều giả) nên không rò rỉ thông tin thật. Khi nối dữ liệu thật thì **bắt buộc phải có đăng nhập HPcore trước**.
+🔴 **Từ 11/08/2026 chỉ còn MỘT nơi chạy là Vercel.** Trước đó chạy song song cả Firebase Hosting (`thumua-v1-hpcons.web.app`) lẫn Vercel, hai bản cũ theo hai kiểu khác nhau nên không ai biết đâu là bản thật. Site Firebase **đã bỏ**, còn kẹt bản 07/08/2026 cho tới khi được tắt trên Firebase Console.
 
-Muốn tạm ẩn: `firebase hosting:disable --site thumua-v1-hpcons --project print-format-hpcons`
+⚠️ **Trang này công khai trên internet.** Có màn đăng nhập nhưng là **đăng nhập chạy thử kiểm trong trình duyệt**, mật khẩu chung ghi ngay trên màn hình — chưa phải bảo mật thật. Dữ liệu là **dữ liệu mẫu** (tên nhà cung cấp và giá đều giả) nên không rò rỉ thông tin thật. Khi nối dữ liệu thật thì **bắt buộc thay bằng Firebase Authentication trước**.
 
 ## Chạy
 
@@ -33,7 +32,11 @@ Mở http://localhost:3000 → tự chuyển tới `/tong-quan`.
 npm run deploy
 ```
 
-⚠️ **Tắt dev server trước khi build** — nếu không sẽ lỗi `EINVAL readlink .next/diagnostics`.
+Lệnh này gọi `vercel --prod` — **đẩy thẳng lên Vercel, không đi qua GitHub**. Build chạy trên máy chủ Vercel nên không đụng `.next/` ở máy này.
+
+🔴 **Vercel gửi lên theo `.gitignore`.** Chạy từ trong `thumua-v1/` nên thư mục `1. INPUT/` (hồ sơ thật của công ty) không bao giờ lọt lên, còn `.env.local` bị chặn sẵn. **Sửa `.gitignore` là đổi luôn thứ được đưa lên Vercel** — nhớ cả hai việc.
+
+⚠️ Deploy xong **phải mở bản thật kiểm lại**. Đã có lần lệnh báo thành công mà bản cũ vẫn nằm im 27 phút. Nhìn dòng `Aliased` trong kết quả, rồi mở link kiểm một tính năng vừa làm.
 
 ```bash
 npm run verify   # lint + typecheck + build (build vào .next-check, an toàn khi dev server đang chạy)
@@ -142,4 +145,6 @@ app/                          ⚠️ CHỈ LÀ BẢNG CHỈ ĐƯỜNG (mỗi fil
 2. Cấp quyền truy cập Firebase project `hpcons-portal`, điền `.env.local` theo `.env.local.example`
 3. Thay `DuLieuProvider` bằng lệnh đọc/ghi Firestore — **giao diện không phải sửa**
 4. Viết Security Rules, đặc biệt phần tách `tm_donhang_gia`
-5. Bật lại `output: "export"` trong `next.config.ts` + `generateStaticParams` nếu deploy Firebase Hosting
+5. Bỏ đăng nhập chạy thử, thay bằng Firebase Authentication của HPcore
+
+📌 `output: "export"` đang **bật sẵn** và nên giữ: app không có việc gì cần máy chủ, giữ bản tĩnh thì dời đi đâu cũng chỉ là bê thư mục `out` sang. Đổi ý thì đọc chú thích trong `next.config.ts` trước — bỏ nó là mất đường chạy trên mọi hosting tĩnh.

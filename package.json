@@ -10,7 +10,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "verify": "npm run lint && npm run typecheck && npm run build:check",
-    "deploy": "next build && firebase deploy --only hosting --project print-format-hpcons"
+    "deploy": "vercel --prod"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
