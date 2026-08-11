@@ -9,7 +9,16 @@ import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
-import { BangQuyTrinhMuaHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang";
+import {
+  BangQuyTrinhMuaHang,
+  type ThaoTacThe,
+} from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang";
+import {
+  HopSuaThongTinChung,
+  HopSuaThoiHan,
+  HopSuaTruongBoSung,
+} from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-de-nghi";
+import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/1-giao-dien/nen-tang-ui/tabs";
@@ -54,6 +63,12 @@ export default function TrangDanhSachDeNghi() {
     doiTrangThaiBaoGiaTheoDeNghi,
     dongDoDeNghi,
     nhanCongTac,
+    suaThongTinChung,
+    suaThoiHan,
+    doiLuuTru,
+    suaTruongBoSung,
+    nhanBanDeNghi,
+    xoaDeNghi,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [cachXem, setCachXem] = useState<CachXem>("bang");
@@ -66,6 +81,56 @@ export default function TrangDanhSachDeNghi() {
    * nhận ở bước ① thì tự chuyển sang ② bằng cách lập bảng báo giá — nhưng chỉ khi bước ①
    * đã xong (đã phân bổ hết dòng), xem `vuongMacSangBuocSau`.
    */
+  /**
+   * Hồ sơ đang mở hộp sửa nào — MỘT state cho cả ba hộp (thông tin chung · thời hạn · dữ
+   * liệu tùy chỉnh) thay vì ba cờ riêng: gộp lại thì không có cách nào mở trùng hai hộp.
+   */
+  const [dangSua, setDangSua] = useState<{
+    loai: "thong_tin" | "thoi_han" | "truong_bo_sung";
+    prId: string;
+  } | null>(null);
+  /** Đề nghị đang chờ xác nhận xóa — xóa là việc không lùi lại được nên phải hỏi. */
+  const [hoiXoa, setHoiXoa] = useState<string | null>(null);
+
+  const dnDangSua = dangSua ? deNghi.find((d) => d.id === dangSua.prId) : undefined;
+  const dnHoiXoa = hoiXoa ? deNghi.find((d) => d.id === hoiXoa) : undefined;
+
+  /**
+   * Các thao tác của menu ⋯ trên thẻ.
+   *
+   * 🔴 Bảng quy trình KHÔNG tự gọi kho dữ liệu — nó là component hiển thị thuần. Mọi việc
+   * ghi đều quyết định ở đây, đúng ranh giới đã đặt từ đầu (xem chú thích đầu
+   * `bang-quy-trinh-mua-hang.tsx`).
+   */
+  const thaoTacThe: ThaoTacThe = {
+    onSuaThongTin: (prId) => setDangSua({ loai: "thong_tin", prId }),
+    onSuaThoiHan: (prId) => setDangSua({ loai: "thoi_han", prId }),
+    onSuaTruongBoSung: (prId) => setDangSua({ loai: "truong_bo_sung", prId }),
+    onNhanBan: (prId) => {
+      const id = nhanBanDeNghi(prId, nguoiDung.tenHienThi);
+      if (!id) {
+        // Nói thật khi không tạo được, đừng im lặng để người dùng tưởng đã nhân bản xong.
+        toast.error("Không nhân bản được", {
+          description: "Đã hết mã dự phòng cho bản chạy thử (tối đa 12 đề nghị).",
+        });
+        return;
+      }
+      toast.success("Đã nhân bản", {
+        description: "Bản sao chưa phân bổ cho ai — phân bổ lại trước khi đi tiếp.",
+        action: { label: "Mở bản sao", onClick: () => router.push(`/de-nghi/${id}`) },
+      });
+    },
+    onDoiLuuTru: (prId, luuTru) => {
+      doiLuuTru(prId, luuTru, nguoiDung.tenHienThi);
+      toast.success(luuTru ? "Đã lưu trữ" : "Đã bỏ lưu trữ", {
+        description: luuTru
+          ? "Hồ sơ ẩn khỏi bảng nhưng vẫn nguyên trạng thái. Xem lại ở tab Danh sách."
+          : "Hồ sơ quay lại đúng cột trên bảng.",
+      });
+    },
+    onXoa: (prId) => setHoiXoa(prId),
+  };
+
   /** Luật "ai được nhận" cho từng thông báo — dùng cho cả nút trên thẻ lẫn lớp chặn khi ghi. */
   function lyDoKhongNhan(tb: ThongBaoChuyenBuoc): string | null {
     const dn = deNghi.find((d) => d.id === tb.prId);
@@ -296,6 +361,8 @@ export default function TrangDanhSachDeNghi() {
             // Nhân viên chưa được chia việc thì thẻ giữ nhãn "Chờ tiếp nhận", không hiện nút
             // (chỉ đạo Ban lãnh đạo 10/08/2026) — luật ở `lyDoKhongNhanCongTac`.
             duocNhan={(tb) => lyDoKhongNhan(tb) === null}
+            // Menu ⋯ chỉ mở cho vai trò làm nghiệp vụ; người chỉ xem không thấy thao tác ghi.
+            thaoTac={quyen.lapPO ? thaoTacThe : undefined}
           />
 
           {/* Hộp xác nhận dùng chung với chuông thông báo — xem `hop-nhan-cong-tac.tsx`. */}
@@ -307,6 +374,67 @@ export default function TrangDanhSachDeNghi() {
             }
             onDong={() => doiHoiNhan(null)}
             onDongY={xacNhanNhanCongTac}
+          />
+
+          {/* ===== BA HỘP SỬA của menu ⋯ ===== */}
+          {dnDangSua && (
+            <>
+              <HopSuaThongTinChung
+                mo={dangSua?.loai === "thong_tin"}
+                deNghi={dnDangSua}
+                onDong={() => setDangSua(null)}
+                onLuu={(moi) => {
+                  suaThongTinChung(dnDangSua.id, moi, nguoiDung.tenHienThi);
+                  toast.success("Đã lưu thông tin chung", { description: dnDangSua.code });
+                }}
+              />
+              <HopSuaThoiHan
+                mo={dangSua?.loai === "thoi_han"}
+                deNghi={dnDangSua}
+                onDong={() => setDangSua(null)}
+                onLuu={(ngayMoi, lyDo) => {
+                  suaThoiHan(dnDangSua.id, ngayMoi, lyDo, nguoiDung.tenHienThi);
+                  toast.success("Đã đổi thời hạn", {
+                    description: `${dnDangSua.code} — lý do đã ghi vào nhật ký.`,
+                  });
+                }}
+              />
+              <HopSuaTruongBoSung
+                mo={dangSua?.loai === "truong_bo_sung"}
+                deNghi={dnDangSua}
+                onDong={() => setDangSua(null)}
+                onLuu={(truong) => {
+                  suaTruongBoSung(dnDangSua.id, truong, nguoiDung.tenHienThi);
+                  toast.success("Đã lưu dữ liệu tùy chỉnh", { description: dnDangSua.code });
+                }}
+              />
+            </>
+          )}
+
+          {/* ===== XÁC NHẬN XÓA =====
+              🔴 Xóa hẳn hồ sơ là việc nặng nhất trong menu; kho dữ liệu còn chặn thêm một lớp
+              nếu đề nghị đã phát sinh báo giá / đơn hàng (xem `xoaDeNghi`). */}
+          <HopXacNhan
+            mo={hoiXoa !== null}
+            tieuDe="Xóa hẳn đề nghị này?"
+            moTa={
+              dnHoiXoa
+                ? `${dnHoiXoa.code} — ${dnHoiXoa.tieuDe}, ${dnHoiXoa.items.length} dòng vật tư.`
+                : undefined
+            }
+            canhBao="Xóa là mất hẳn, không khôi phục được. Muốn giữ dấu vết để thống kê thì dùng “Đánh dấu thất bại”; muốn dọn bảng cho gọn thì dùng “Lưu trữ”."
+            nhanDongY="Xóa hẳn"
+            nguyHiem
+            onDong={() => setHoiXoa(null)}
+            onDongY={() => {
+              if (!hoiXoa) return;
+              const lyDo = xoaDeNghi(hoiXoa);
+              if (lyDo) {
+                toast.error("Không xóa được", { description: lyDo });
+                return;
+              }
+              toast.success("Đã xóa đề nghị");
+            }}
           />
           {quyen.lapPO && (
             <p className="text-xs text-text-desc">

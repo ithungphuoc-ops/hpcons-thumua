@@ -100,6 +100,30 @@ export interface DeNghiMuaHang {
   lichSu: MocLichSu[];
   /** Người được thêm vào để nắm tiến trình. Trống = chưa có ai theo dõi. */
   nguoiTheoDoi?: NguoiTheoDoi[];
+  /**
+   * ★ ĐÃ LƯU TRỮ — ẩn khỏi bảng quy trình nhưng KHÔNG xóa dữ liệu.
+   *
+   * Chỉ đạo Ban lãnh đạo 10/08/2026 (menu ⋯ theo Base.vn). Khác "Đóng dở" (`dong_do`):
+   * đóng dở là **kết luận nghiệp vụ** — không mua nữa, có ghi lý do, vẫn nằm ở cột "Thất
+   * bại" để thống kê. Lưu trữ chỉ là **dọn bảng cho đỡ rối**, hồ sơ vẫn nguyên trạng thái
+   * và bỏ lưu trữ là quay lại đúng cột cũ.
+   */
+  luuTru?: boolean;
+  /**
+   * ★ TRƯỜNG BỔ SUNG — cặp nhãn/giá trị do người dùng tự đặt, tương ứng "dữ liệu tùy chỉnh"
+   * của Base.vn.
+   *
+   * ⚠️ CHỈ DÙNG CHO THÔNG TIN PHỤ. Đừng đưa số liệu nghiệp vụ (khối lượng, đơn giá, ngày
+   * giao) vào đây — những thứ đó phải có trường riêng để tính toán và đối chiếu được. Trường
+   * bổ sung không ai tính toán trên nó, chỉ để đọc.
+   */
+  truongBoSung?: TruongBoSung[];
+}
+
+/** Một cặp nhãn/giá trị người dùng tự thêm vào đề nghị. */
+export interface TruongBoSung {
+  nhan: string;
+  giaTri: string;
 }
 
 /**

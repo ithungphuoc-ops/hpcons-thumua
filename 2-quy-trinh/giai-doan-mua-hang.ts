@@ -225,7 +225,12 @@ export function dungBangQuyTrinh(
   tatCaPhieu: PhieuNhanHang[],
   moc: Date = new Date(),
 ): CotBangQuyTrinh[] {
-  const the: TheDeNghiTrenBang[] = tatCaDeNghi.map((deNghi) => {
+  // 🔴 BỎ HỒ SƠ ĐÃ LƯU TRỮ khỏi bảng (chỉ đạo Ban lãnh đạo 10/08/2026, menu ⋯ theo Base).
+  // Lưu trữ ≠ đóng dở: hồ sơ vẫn nguyên trạng thái nghiệp vụ, chỉ không hiện trên bảng cho
+  // đỡ rối. Bỏ lưu trữ là nó quay lại đúng cột cũ, vì cột suy ra từ chứng từ chứ không lưu.
+  const the: TheDeNghiTrenBang[] = tatCaDeNghi
+    .filter((dn) => !dn.luuTru)
+    .map((deNghi) => {
     const giaiDoan = xacDinhGiaiDoan(deNghi, tatCaPO, tatCaBaoGia, tatCaPhieu);
     return {
       deNghi,

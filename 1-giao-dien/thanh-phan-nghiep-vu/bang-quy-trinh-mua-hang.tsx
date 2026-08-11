@@ -6,16 +6,24 @@ import { useState, type DragEvent } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Archive,
   ArrowLeft,
   ArrowRight,
   CalendarClock,
   Check,
   Copy,
+  CopyPlus,
   Eye,
   ExternalLink,
   Forward,
+  History,
   Layers,
+  ListPlus,
   MoreHorizontal,
+  Pencil,
+  PictureInPicture2,
+  Printer,
+  Trash2,
   UserRound,
   UsersRound,
   XCircle,
@@ -96,6 +104,24 @@ export interface BangQuyTrinhMuaHangProps {
   /** Người đang đăng nhập có được nhận công tác này không — luật ở
    *  `4-phan-quyen/quyen-theo-ho-so.ts` → `lyDoKhongNhanCongTac`. Không truyền = được. */
   duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
+  /** Các thao tác của menu ⋯ trên thẻ. Không truyền thì menu chỉ còn mục xem/sao chép. */
+  thaoTac?: ThaoTacThe;
+}
+
+/**
+ * Các thao tác menu ⋯ cần tới kho dữ liệu — trang chứa bảng truyền xuống.
+ *
+ * 🔴 Bảng KHÔNG tự gọi kho dữ liệu: nó là component hiển thị thuần (xem chú thích đầu file),
+ * mọi việc ghi đều do trang quyết định. Giữ đúng ranh giới này thì bảng còn dùng lại được ở
+ * màn khác mà không kéo theo kho dữ liệu.
+ */
+export interface ThaoTacThe {
+  onSuaThongTin: (prId: string) => void;
+  onSuaThoiHan: (prId: string) => void;
+  onSuaTruongBoSung: (prId: string) => void;
+  onNhanBan: (prId: string) => void;
+  onDoiLuuTru: (prId: string, luuTru: boolean) => void;
+  onXoa: (prId: string) => void;
 }
 
 export function BangQuyTrinhMuaHang({
@@ -105,6 +131,7 @@ export function BangQuyTrinhMuaHang({
   tiepNhan,
   onNhanCongTac,
   duocNhan,
+  thaoTac,
 }: BangQuyTrinhMuaHangProps) {
   return (
     // Các cột nằm SÁT NHAU thành một bảng liền, ngăn nhau bằng đường kẻ mảnh
@@ -126,6 +153,7 @@ export function BangQuyTrinhMuaHang({
             tiepNhan={tiepNhan}
             onNhanCongTac={onNhanCongTac}
             duocNhan={duocNhan}
+            thaoTac={thaoTac}
           />
         ))}
       </div>
@@ -140,6 +168,7 @@ function CotQuyTrinh({
   tiepNhan,
   onNhanCongTac,
   duocNhan,
+  thaoTac,
 }: {
   cot: CotBangQuyTrinh;
   keoThaDuoc: boolean;
@@ -148,6 +177,7 @@ function CotQuyTrinh({
   /** Bấm "Nhận công tác" ngay trên thẻ. Không truyền thì thẻ chỉ hiện nhãn "Chờ tiếp nhận". */
   onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
   duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
+  thaoTac?: ThaoTacThe;
 }) {
   const { giaiDoan, the, soQuaHan } = cot;
   // Sáng viền cột khi đang kéo thẻ ngang qua — người dùng biết mình sắp thả vào đâu.
@@ -217,6 +247,7 @@ function CotQuyTrinh({
               thongBaoMoiNhat={tiepNhan?.get(t.deNghi.id)}
               onNhanCongTac={onNhanCongTac}
               duocNhan={duocNhan}
+              thaoTac={thaoTac}
             />
           ))
         )}
@@ -233,6 +264,7 @@ function TheDeNghi({
   thongBaoMoiNhat,
   onNhanCongTac,
   duocNhan,
+  thaoTac,
 }: {
   the: TheDeNghiTrenBang;
   tongGiaiDoan: Tong;
@@ -242,6 +274,7 @@ function TheDeNghi({
   thongBaoMoiNhat?: ThongBaoChuyenBuoc;
   onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
   duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
+  thaoTac?: ThaoTacThe;
 }) {
   const { deNghi, han, nguoiPhuTrach, soDongChuaPhanBo, maPOLienQuan } = the;
 
@@ -273,7 +306,11 @@ function TheDeNghi({
         <span className="text-sm font-semibold leading-tight text-primary">{deNghi.code}</span>
         <span className="flex shrink-0 items-center gap-1">
           {deNghi.mucDoUuTien === "gap" && <StatusBadge label="Gấp" tone="danger" />}
-          <MenuThaoTacThe the={the} onTha={keoThaDuoc ? onTha : undefined} />
+          <MenuThaoTacThe
+            the={the}
+            onTha={keoThaDuoc ? onTha : undefined}
+            thaoTac={thaoTac}
+          />
         </span>
       </div>
 
@@ -363,8 +400,8 @@ function TheDeNghi({
 
 
 /**
- * MENU ⋯ TRÊN THẺ — các thao tác nhanh với một đề nghị, theo menu ngữ cảnh của Base.vn
- * (ảnh Ban lãnh đạo cung cấp 10/08/2026: *"thêm các chế độ này khi bấm vào chi tiết các bước"*).
+ * MENU ⋯ TRÊN THẺ — các thao tác nhanh với một đề nghị, dựng theo menu ngữ cảnh của Base.vn
+ * (ảnh Ban lãnh đạo cung cấp 10/08/2026).
  *
  * 🔴 CHUYỂN BƯỚC DÙNG CHUNG LUẬT VỚI KÉO THẢ (`onTha` → `quyetDinhKeoTha`): mục "Chuyển sang
  * giai đoạn kế tiếp" chỉ là cách bấm khác của việc kéo thẻ sang cột kế — mọi luật chặn (bước
@@ -372,19 +409,22 @@ function TheDeNghi({
  * giai đoạn trước" vẫn hiện nhưng bấm sẽ nhận đúng lời giải thích của luật (*"muốn lùi phải
  * hủy chứng từ"*) — để người dùng học quy tắc, thay vì giấu mục đi khiến họ tưởng thiếu chức năng.
  *
- * ⚠️ CÁC MỤC CỦA BASE CỐ Ý KHÔNG ĐƯA VÀO, kèm lý do — đừng thêm lại khi chưa hỏi Ban lãnh đạo:
- *   · **Xóa** — đề nghị nhận từ HPcore, app Thu mua không được xóa hồ sơ nguồn; cách kết thúc
- *     đúng là "Đánh dấu thất bại" (đóng dở, có ghi nhật ký).
- *   · **Lưu trữ / Nhân bản / Sửa thời hạn / Dữ liệu tùy chỉnh / Webhook** — chưa có nghiệp vụ
- *     tương ứng; "ngày cần hàng" do người đề nghị đặt, thu mua không tự sửa.
- *   · **In** — trang in thuộc về ĐƠN HÀNG (`/in/don-hang/[id]`), vào từ trang chi tiết đơn.
+ * ⚠️ HAI MỤC CỦA BASE KHÔNG LÀM ĐƯỢC Y NGUYÊN, đã thay bằng thứ tương đương — đừng "sửa lại
+ * cho giống" mà không đọc lý do:
+ *   · **In** → app in ĐƠN HÀNG (`/in/don-hang/[id]`), không in đề nghị: đề nghị là chứng từ
+ *     của Phòng Thi công lập trên HPcore, bản in chính thức thuộc về họ. Mục ở đây mở trang
+ *     chi tiết để in đơn hàng đã tách.
+ *   · **Lịch sử webhook** → app không tích hợp webhook. Thay bằng "Xem nhật ký", mở đúng khối
+ *     Lịch sử của hồ sơ (ai · làm gì · lúc nào) — thứ người dùng thật sự cần khi bấm mục đó.
  */
 function MenuThaoTacThe({
   the,
   onTha,
+  thaoTac,
 }: {
   the: TheDeNghiTrenBang;
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
+  thaoTac?: ThaoTacThe;
 }) {
   const router = useRouter();
   const { deNghi, giaiDoan } = the;
@@ -402,7 +442,7 @@ function MenuThaoTacThe({
       await navigator.clipboard.writeText(`${window.location.origin}${duongDan}`);
       toast.success("Đã sao chép đường dẫn", { description: deNghi.code });
     } catch {
-      // Trình duyệt chặn clipboard (HTTP thường / quyền) — nói thật thay vì im lặng.
+      // Trình duyệt chặn clipboard (HTTP thường / thiếu quyền) — nói thật thay vì im lặng.
       toast.error("Trình duyệt không cho sao chép", {
         description: `Tự chép tay: ${window.location.origin}${duongDan}`,
       });
@@ -444,10 +484,36 @@ function MenuThaoTacThe({
               <ExternalLink className="size-4 shrink-0" aria-hidden />
               Xem trong tab mới
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                window.open(
+                  duongDan,
+                  "_blank",
+                  "noopener,width=1100,height=860,scrollbars=yes,resizable=yes",
+                )
+              }
+            >
+              <PictureInPicture2 className="size-4 shrink-0" aria-hidden />
+              Xem trong pop-up
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={saoChepDuongDan}>
               <Copy className="size-4 shrink-0" aria-hidden />
               Sao chép đường dẫn
             </DropdownMenuItem>
+
+            {thaoTac && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => thaoTac.onSuaThongTin(deNghi.id)}>
+                  <Pencil className="size-4 shrink-0" aria-hidden />
+                  Chỉnh sửa thông tin chung
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => thaoTac.onNhanBan(deNghi.id)}>
+                  <CopyPlus className="size-4 shrink-0" aria-hidden />
+                  Nhân bản
+                </DropdownMenuItem>
+              </>
+            )}
 
             <DropdownMenuSeparator />
 
@@ -455,15 +521,23 @@ function MenuThaoTacThe({
                 Chuyển tiếp đều nằm ở đó; trang chi tiết tự chặn theo quyền. */}
             <DropdownMenuItem onClick={() => router.push(duongDan)}>
               <UserRound className="size-4 shrink-0" aria-hidden />
-              Giao việc / phân bổ lại
+              Giao lại cho người khác
             </DropdownMenuItem>
+            {thaoTac && (
+              <>
+                <DropdownMenuItem onClick={() => thaoTac.onSuaThoiHan(deNghi.id)}>
+                  <CalendarClock className="size-4 shrink-0" aria-hidden />
+                  Chỉnh sửa thời hạn
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => thaoTac.onSuaTruongBoSung(deNghi.id)}>
+                  <ListPlus className="size-4 shrink-0" aria-hidden />
+                  Chỉnh sửa dữ liệu tùy chỉnh
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuItem onClick={() => router.push(duongDan)}>
               <UsersRound className="size-4 shrink-0" aria-hidden />
-              Thêm người theo dõi
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(duongDan)}>
-              <Forward className="size-4 shrink-0" aria-hidden />
-              Chuyển tiếp cho nhân viên
+              Thêm nhiều người theo dõi
             </DropdownMenuItem>
 
             {onTha && !daKetThuc && (
@@ -481,18 +555,51 @@ function MenuThaoTacThe({
                     Chuyển về giai đoạn trước
                   </DropdownMenuItem>
                 )}
-
-                <DropdownMenuSeparator />
-
-                {/* Đi qua đúng luồng kéo-vào-Thất-bại: có hộp xác nhận + ghi nhật ký. */}
-                <DropdownMenuItem
-                  onClick={() => onTha(deNghi.id, "that_bai")}
-                  className="text-danger-soft"
-                >
-                  <XCircle className="size-4 shrink-0" aria-hidden />
-                  Đánh dấu thất bại
-                </DropdownMenuItem>
               </>
+            )}
+
+            <DropdownMenuSeparator />
+
+            {/* In: app in ĐƠN HÀNG, không in đề nghị — xem chú thích đầu component. */}
+            <DropdownMenuItem onClick={() => router.push(duongDan)}>
+              <Printer className="size-4 shrink-0" aria-hidden />
+              In đơn hàng của đề nghị
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(duongDan)}>
+              <Forward className="size-4 shrink-0" aria-hidden />
+              Chuyển tiếp
+            </DropdownMenuItem>
+            {/* Thay cho "Lịch sử webhook" của Base — app không có webhook. */}
+            <DropdownMenuItem onClick={() => router.push(duongDan)}>
+              <History className="size-4 shrink-0" aria-hidden />
+              Xem nhật ký hồ sơ
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            {thaoTac && (
+              <DropdownMenuItem onClick={() => thaoTac.onDoiLuuTru(deNghi.id, !deNghi.luuTru)}>
+                <Archive className="size-4 shrink-0" aria-hidden />
+                {deNghi.luuTru ? "Bỏ lưu trữ" : "Lưu trữ"}
+              </DropdownMenuItem>
+            )}
+            {onTha && !daKetThuc && (
+              <DropdownMenuItem
+                onClick={() => onTha(deNghi.id, "that_bai")}
+                className="text-danger-soft"
+              >
+                <XCircle className="size-4 shrink-0" aria-hidden />
+                Đánh dấu thất bại
+              </DropdownMenuItem>
+            )}
+            {thaoTac && (
+              <DropdownMenuItem
+                onClick={() => thaoTac.onXoa(deNghi.id)}
+                className="text-danger-soft"
+              >
+                <Trash2 className="size-4 shrink-0" aria-hidden />
+                Xóa
+              </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
         </DropdownMenuContent>

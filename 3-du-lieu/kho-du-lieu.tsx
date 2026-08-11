@@ -43,6 +43,7 @@ import type {
   PhieuNhanHang,
   ThongBaoChuyenBuoc,
   TrangThaiBaoGia,
+  TruongBoSung,
   XacNhan,
   BaoGia,
   CongNo,
@@ -164,6 +165,24 @@ interface GiaTriDuLieu {
   ) => void;
   /** Kéo thả vào cột Thất bại: đóng dở đề nghị, ghi lịch sử. */
   dongDoDeNghi: (prId: string, nguoiThucHien: string) => void;
+
+  // --- Thao tác trên đề nghị (menu ⋯ của thẻ bảng quy trình) ---
+  /** Sửa tiêu đề / công trình / hợp đồng CĐT / mức độ ưu tiên. */
+  suaThongTinChung: (
+    prId: string,
+    moi: Pick<DeNghiMuaHang, "tieuDe" | "tenCongTrinh" | "maHopDongCDT" | "mucDoUuTien">,
+    nguoiThucHien: string,
+  ) => void;
+  /** Đổi ngày cần hàng — bắt ghi lý do vì đây là cam kết với công trình. */
+  suaThoiHan: (prId: string, ngayCanHangMoi: string, lyDo: string, nguoiThucHien: string) => void;
+  /** Lưu trữ / bỏ lưu trữ — chỉ ẩn khỏi bảng, không đổi trạng thái nghiệp vụ. */
+  doiLuuTru: (prId: string, luuTru: boolean, nguoiThucHien: string) => void;
+  /** Sửa danh sách trường bổ sung (dữ liệu tùy chỉnh). */
+  suaTruongBoSung: (prId: string, truong: TruongBoSung[], nguoiThucHien: string) => void;
+  /** Nhân bản đề nghị — trả về id bản mới, chuỗi rỗng nếu hết id dự phòng. */
+  nhanBanDeNghi: (prId: string, nguoiThucHien: string) => string;
+  /** Xóa hẳn (chỉ bản chạy thử). Trả lý do bị chặn, `null` nghĩa là đã xóa. */
+  xoaDeNghi: (prId: string) => string | null;
 
   // --- Người theo dõi ---
   /** Thêm một người vào danh sách theo dõi đề nghị. Thêm trùng thì bỏ qua. */
@@ -872,6 +891,208 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+
+  // ------------------------------------------------------------
+  // THAO TÁC TRÊN ĐỀ NGHỊ — menu ⋯ của thẻ bảng quy trình
+  // Chỉ đạo Ban lãnh đạo 10/08/2026 (theo menu ngữ cảnh Base.vn).
+  //
+  // 🔴 MỌI hàm ở đây ghi nhật ký trong CÙNG một lần cập nhật state — không tách thành hai
+  // lần `setDeNghi`, vì tách ra thì lần thứ hai lỗi là dữ liệu đã đổi mà nhật ký trống,
+  // không ai truy được ai sửa.
+  // ------------------------------------------------------------
+
+  /** Sửa thông tin chung: tiêu đề · công trình · hợp đồng CĐT · mức độ ưu tiên. */
+  const suaThongTinChung = useCallback(
+    (
+      prId: string,
+      moi: Pick<DeNghiMuaHang, "tieuDe" | "tenCongTrinh" | "maHopDongCDT" | "mucDoUuTien">,
+      nguoiThucHien: string,
+    ) => {
+      setDeNghi((truoc) =>
+        truoc.map((dn) => {
+          if (dn.id !== prId) return dn;
+          // Ghi RÕ đổi trường nào, từ giá trị nào sang giá trị nào. Nhật ký chỉ nói "đã sửa"
+          // thì sau này tranh cãi không ai biết sửa cái gì.
+          const doi: string[] = [];
+          if (moi.tieuDe !== dn.tieuDe) doi.push(`tiêu đề: “${dn.tieuDe}” → “${moi.tieuDe}”`);
+          if (moi.tenCongTrinh !== dn.tenCongTrinh)
+            doi.push(`công trình: “${dn.tenCongTrinh}” → “${moi.tenCongTrinh}”`);
+          if ((moi.maHopDongCDT ?? "") !== (dn.maHopDongCDT ?? ""))
+            doi.push(`hợp đồng CĐT: “${dn.maHopDongCDT ?? "—"}” → “${moi.maHopDongCDT ?? "—"}”`);
+          if (moi.mucDoUuTien !== dn.mucDoUuTien)
+            doi.push(
+              `ưu tiên: ${dn.mucDoUuTien === "gap" ? "Gấp" : "Bình thường"} → ${moi.mucDoUuTien === "gap" ? "Gấp" : "Bình thường"}`,
+            );
+          if (doi.length === 0) return dn; // Không đổi gì thì đừng ghi nhật ký rác
+          return {
+            ...dn,
+            ...moi,
+            maHopDongCDT: moi.maHopDongCDT?.trim() || undefined,
+            lichSu: [
+              ...dn.lichSu,
+              {
+                thoiDiem: thoiDiemHienTai(),
+                nguoiThucHien,
+                hanhDong: "Sửa thông tin chung",
+                ghiChu: doi.join(" · "),
+              },
+            ],
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  /**
+   * Đổi ngày cần hàng.
+   *
+   * ⚠️ Tách riêng khỏi `suaThongTinChung` là CỐ Ý: ngày cần hàng do công trình đặt ra, thu
+   * mua sửa tức là **đổi cam kết với công trình** — nên bắt ghi lý do và ghi riêng một dòng
+   * nhật ký, để khi công trình hỏi "sao lùi ngày" thì tra ra ngay.
+   */
+  const suaThoiHan = useCallback(
+    (prId: string, ngayCanHangMoi: string, lyDo: string, nguoiThucHien: string) => {
+      setDeNghi((truoc) =>
+        truoc.map((dn) =>
+          dn.id !== prId
+            ? dn
+            : {
+                ...dn,
+                ngayCanHang: ngayCanHangMoi,
+                lichSu: [
+                  ...dn.lichSu,
+                  {
+                    thoiDiem: thoiDiemHienTai(),
+                    nguoiThucHien,
+                    hanhDong: `Đổi ngày cần hàng ${dn.ngayCanHang} → ${ngayCanHangMoi}`,
+                    ghiChu: lyDo.trim() || undefined,
+                  },
+                ],
+              },
+        ),
+      );
+    },
+    [],
+  );
+
+  /** Lưu trữ / bỏ lưu trữ — CHỈ ẩn khỏi bảng, không đụng tới trạng thái nghiệp vụ. */
+  const doiLuuTru = useCallback((prId: string, luuTru: boolean, nguoiThucHien: string) => {
+    setDeNghi((truoc) =>
+      truoc.map((dn) =>
+        dn.id !== prId
+          ? dn
+          : {
+              ...dn,
+              luuTru,
+              lichSu: [
+                ...dn.lichSu,
+                {
+                  thoiDiem: thoiDiemHienTai(),
+                  nguoiThucHien,
+                  hanhDong: luuTru ? "Lưu trữ đề nghị (ẩn khỏi bảng)" : "Bỏ lưu trữ đề nghị",
+                },
+              ],
+            },
+      ),
+    );
+  }, []);
+
+  /** Sửa danh sách trường bổ sung (dữ liệu tùy chỉnh). */
+  const suaTruongBoSung = useCallback(
+    (prId: string, truong: TruongBoSung[], nguoiThucHien: string) => {
+      // Bỏ dòng nhãn rỗng — không tra cứu được, giữ lại chỉ làm rác dữ liệu.
+      const loc = truong
+        .map((t) => ({ nhan: t.nhan.trim(), giaTri: t.giaTri.trim() }))
+        .filter((t) => t.nhan !== "");
+      setDeNghi((truoc) =>
+        truoc.map((dn) =>
+          dn.id !== prId
+            ? dn
+            : {
+                ...dn,
+                truongBoSung: loc.length > 0 ? loc : undefined,
+                lichSu: [
+                  ...dn.lichSu,
+                  {
+                    thoiDiem: thoiDiemHienTai(),
+                    nguoiThucHien,
+                    hanhDong: `Cập nhật ${loc.length} trường bổ sung`,
+                    ghiChu: loc.map((t) => t.nhan).join(" · ") || undefined,
+                  },
+                ],
+              },
+        ),
+      );
+    },
+    [],
+  );
+
+  /**
+   * Nhân bản đề nghị — tạo hồ sơ MỚI, chép nội dung nhưng KHÔNG chép tiến trình.
+   *
+   * 🔴 Bản sao phải SẠCH: bỏ hết phân bổ người phụ trách, nhật ký, người theo dõi, cờ lưu
+   * trữ. Chép cả phân bổ sang thì bản mới trông như đã có người làm, và mọi con số "chưa
+   * phân bổ" trên Tổng quan sai ngay. Nhật ký bản mới bắt đầu bằng đúng một dòng: nhân từ đâu.
+   */
+  const nhanBanDeNghi = useCallback((prId: string, nguoiThucHien: string): string => {
+    const goc = deNghiRef.current.find((d) => d.id === prId);
+    if (!goc) return "";
+    const idMoi = ID_DE_NGHI_GIA_LAP.find((id) => !deNghiRef.current.some((d) => d.id === id));
+    if (!idMoi) return ""; // Hết id dự phòng — người gọi phải báo cho người dùng
+    const soHienCo = deNghiRef.current.filter((d) => d.maDuAn === goc.maDuAn).length;
+    const code = `${goc.maDuAn}-PR-${String(soHienCo + 1).padStart(3, "0")}`;
+    const ngay = homNay();
+
+    setDeNghi((truoc) => [
+      ...truoc,
+      {
+        ...goc,
+        id: idMoi,
+        code,
+        tieuDe: `${goc.tieuDe} (bản sao)`,
+        ngayDeNghi: ngay,
+        ngayDuyet: ngay,
+        trangThai: "da_duyet",
+        luuTru: undefined,
+        nguoiTheoDoi: undefined,
+        items: goc.items.map((d) => ({
+          ...d,
+          nguoiPhuTrachUid: undefined,
+          nguoiPhuTrachTen: undefined,
+          nguoiPhanBoTen: undefined,
+          thoiDiemPhanBo: undefined,
+        })),
+        lichSu: [
+          { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong: `Nhân bản từ ${goc.code}` },
+        ],
+      },
+    ]);
+    return idMoi;
+  }, []);
+
+  /**
+   * XÓA HẲN đề nghị.
+   *
+   * 🔴 CHỈ CÓ Ý NGHĨA Ở BẢN CHẠY THỬ. Khi nối Firestore thật, xóa hồ sơ phải bị Security
+   * Rules chặn: đề nghị là chứng từ nhận từ HPcore, app Thu mua không phải chủ sở hữu. Cách
+   * kết thúc đúng nghiệp vụ là "Đánh dấu thất bại" (`dongDoDeNghi`) — giữ dấu vết để thống kê.
+   *
+   * ⚠️ Chặn xóa khi đã phát sinh chứng từ con: xóa đề nghị mà còn bảng báo giá / đơn hàng trỏ
+   * về nó thì các chứng từ đó thành mồ côi, mọi phép tính khối lượng hỏng theo.
+   */
+  const xoaDeNghi = useCallback((prId: string): string | null => {
+    const coBaoGia = baoGiaRef.current.some((b) => b.prId === prId && b.trangThai !== "huy");
+    const coDonHang = donHangRef.current.some((p) => p.prId === prId && p.trangThai !== "huy");
+    if (coBaoGia || coDonHang) {
+      return "Đề nghị đã phát sinh bảng báo giá hoặc đơn đặt hàng nên không xóa được — xóa sẽ làm các chứng từ đó mồ côi. Dùng “Đánh dấu thất bại” để đóng dở.";
+    }
+    setDeNghi((truoc) => truoc.filter((d) => d.id !== prId));
+    // Dọn luôn thông báo của đề nghị đã xóa, tránh bấm vào ra trang trống.
+    setThongBao((truoc) => truoc.filter((t) => t.prId !== prId));
+    return null;
+  }, []);
+
   // ------------------------------------------------------------
   // NGƯỜI THEO DÕI
   // Nhật ký ghi trong CÙNG lần cập nhật (như `phanBoDong`) để danh sách và
@@ -1014,6 +1235,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       trinhXetDuyetBaoGia,
       duyetPhuongAnTach,
       dongDoDeNghi,
+      suaThongTinChung,
+      suaThoiHan,
+      doiLuuTru,
+      suaTruongBoSung,
+      nhanBanDeNghi,
+      xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
       chuyenTiepChoNhanVien,
@@ -1045,6 +1272,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       trinhXetDuyetBaoGia,
       duyetPhuongAnTach,
       dongDoDeNghi,
+      suaThongTinChung,
+      suaThoiHan,
+      doiLuuTru,
+      suaTruongBoSung,
+      nhanBanDeNghi,
+      xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
       chuyenTiepChoNhanVien,

@@ -44,13 +44,42 @@ export function KhoiThuThapBaoGia({
   onDinhKem: (tep: TepBaoGiaNCC) => void;
   onTrinhXetDuyet: () => void;
 }) {
-  /** Nhà cung cấp đang nhập giá. Rỗng = chưa chọn ai. */
-  const [nccDangNhap, setNccDangNhap] = useState("");
+  /**
+   * Nhà cung cấp đang nhập giá.
+   *
+   * 🔴 KHÔNG BẮT CHỌN TỪ DANH MỤC (chỉ đạo Ban lãnh đạo 11/08/2026, cùng nguyên tắc đã chốt
+   * cho màn lập đơn ngày 10/08): thực tế báo giá đến từ bất kỳ nhà cung cấp nào, danh mục
+   * chạy thử chỉ có 4 cái. Bắt chọn trong 4 cái đó thì người dùng phải gán bừa một tên khác,
+   * và cả bảng so sánh lẫn đơn hàng sau này đều sai đối tượng.
+   *
+   * `nccId` chỉ có khi tra ra trong danh mục; không tra ra thì sinh khóa từ mã số thuế (định
+   * danh duy nhất) hoặc từ tên — để hai lần nhập cùng một nhà cung cấp vẫn gom về một cột
+   * trên bảng so sánh.
+   */
+  const [tenNCC, setTenNCC] = useState("");
+  const [mstNCC, setMstNCC] = useState("");
   /** Khóa ngoài là `DongBaoGia.id`; giữ nguyên chuỗi đang gõ để người dùng xóa trắng được. */
   const [gia, setGia] = useState<Record<string, string>>({});
   const [soNgayGiao, setSoNgayGiao] = useState("");
 
-  const ncc = nhaCungCap.find((n) => n.id === nccDangNhap);
+  /** Bỏ mọi ký tự không phải chữ số khi so mã số thuế — phiếu hay ghi gạch/khoảng trắng. */
+  const soThue = (x?: string) => (x ?? "").replace(/\D/g, "");
+  const chuan = (x: string) => x.trim().toLowerCase().replace(/\s+/g, " ");
+
+  /** Nhà cung cấp đang nhập — tra danh mục để LIÊN KẾT nếu có, không tra ra vẫn nhập được. */
+  const trongDanhMuc =
+    nhaCungCap.find((n) => n.maSoThue && soThue(n.maSoThue) === soThue(mstNCC) && soThue(mstNCC) !== "") ??
+    nhaCungCap.find((n) => chuan(n.ten) === chuan(tenNCC) && chuan(tenNCC) !== "");
+
+  const ncc =
+    tenNCC.trim() === ""
+      ? undefined
+      : {
+          id:
+            trongDanhMuc?.id ??
+            (soThue(mstNCC) !== "" ? `ncc-mst-${soThue(mstNCC)}` : `ncc-ten-${chuan(tenNCC)}`),
+          ten: tenNCC.trim(),
+        };
 
   /** Nhà cung cấp nào đã có giá trong bảng — hiện để biết còn phải hỏi ai. */
   const daCoGia = [
@@ -72,7 +101,8 @@ export function KhoiThuThapBaoGia({
       if (Number.isFinite(n) && n > 0) theoDong[d.id] = { donGia: n, thoiGianGiao: ngayGiao };
     }
     onNhapGia({ nccId: ncc.id, tenNCC: ncc.ten }, theoDong);
-    setNccDangNhap("");
+    setTenNCC("");
+    setMstNCC("");
     setGia({});
     setSoNgayGiao("");
   }
@@ -95,7 +125,8 @@ export function KhoiThuThapBaoGia({
           </span>
           {daCoGia.length === 0 ? (
             <p className="text-sm text-text-desc">
-              Chưa nhập giá của nhà cung cấp nào. Chọn một nhà cung cấp bên dưới để bắt đầu.
+              Chưa nhập giá của nhà cung cấp nào. Gõ tên nhà cung cấp bên dưới để bắt đầu — không
+              cần họ có sẵn trong danh mục.
             </p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
@@ -115,37 +146,64 @@ export function KhoiThuThapBaoGia({
         {/* ---- Nhập giá một nhà cung cấp ---- */}
         <div className="flex flex-col gap-2 border-t border-divider pt-(--hp-md-card-gap)">
           <Label>Nhập giá cho nhà cung cấp</Label>
-          <div className="flex flex-wrap gap-2">
-            {nhaCungCap.map((n) => (
-              <Button
-                key={n.id}
-                size="sm"
-                variant={nccDangNhap === n.id ? "default" : "outline"}
-                onClick={() => {
-                  // Bấm lại chính nhà cung cấp đang mở thì đóng khối nhập.
-                  if (nccDangNhap === n.id) {
-                    setNccDangNhap("");
-                    setGia({});
-                    return;
-                  }
-                  setNccDangNhap(n.id);
-                  // Nạp lại giá đã nhập trước đó để sửa, không phải gõ lại từ đầu.
-                  const cu: Record<string, string> = {};
-                  for (const d of baoGia.items) {
-                    const q = d.baoGiaNCC.find((x) => x.nccId === n.id);
-                    if (q) cu[d.id] = String(q.donGia);
-                  }
-                  setGia(cu);
-                  const bat = baoGia.items
-                    .flatMap((d) => d.baoGiaNCC)
-                    .find((q) => q.nccId === n.id);
-                  setSoNgayGiao(bat ? String(bat.thoiGianGiao) : "");
-                }}
-              >
-                {n.ten}
-              </Button>
-            ))}
+
+          {/* 🔴 Ô NHẬP TỰ DO, không phải dãy nút chọn sẵn — xem chú thích ở `tenNCC`. */}
+          <div className="grid gap-2 md:grid-cols-[1fr_200px]">
+            <Input
+              value={tenNCC}
+              onChange={(e) => setTenNCC(e.target.value)}
+              placeholder="Tên nhà cung cấp (vd CÔNG TY TNHH HIỆP PHÁT)"
+              aria-label="Tên nhà cung cấp gửi báo giá"
+            />
+            <Input
+              value={mstNCC}
+              onChange={(e) => setMstNCC(e.target.value)}
+              placeholder="Mã số thuế"
+              inputMode="numeric"
+              aria-label="Mã số thuế nhà cung cấp"
+            />
           </div>
+
+          {/* Gợi ý bấm nhanh từ danh mục + từ những nhà cung cấp ĐÃ nhập trong bảng này —
+              đỡ phải gõ lại tên dài khi sửa giá lần hai. */}
+          {(nhaCungCap.length > 0 || daCoGia.length > 0) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-text-desc">Chọn nhanh:</span>
+              {[
+                ...daCoGia.map(([id, ten]) => ({ id, ten, daNhap: true })),
+                ...nhaCungCap
+                  .filter((n) => !daCoGia.some(([id]) => id === n.id))
+                  .map((n) => ({ id: n.id, ten: n.ten, daNhap: false })),
+              ].map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => {
+                    setTenNCC(n.ten);
+                    const trong = nhaCungCap.find((x) => x.id === n.id);
+                    setMstNCC(trong?.maSoThue ?? "");
+                    // Nạp lại giá đã nhập trước đó để sửa, không bắt gõ lại từ đầu.
+                    const cu: Record<string, string> = {};
+                    for (const d of baoGia.items) {
+                      const q = d.baoGiaNCC.find((x) => x.nccId === n.id);
+                      if (q) cu[d.id] = String(q.donGia);
+                    }
+                    setGia(cu);
+                    const bat = baoGia.items.flatMap((d) => d.baoGiaNCC).find((q) => q.nccId === n.id);
+                    setSoNgayGiao(bat ? String(bat.thoiGianGiao) : "");
+                  }}
+                  className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                    n.daNhap
+                      ? "bg-success-bg text-success-soft hover:bg-success/20"
+                      : "bg-muted text-text-secondary hover:bg-muted/70"
+                  }`}
+                >
+                  {n.ten}
+                  {n.daNhap ? " · sửa giá" : ""}
+                </button>
+              ))}
+            </div>
+          )}
 
           {ncc && (
             <div className="flex flex-col gap-2.5 rounded-lg border border-border p-(--hp-md-row-pad)">
@@ -153,6 +211,9 @@ export function KhoiThuThapBaoGia({
                 Điền đơn giá từng mặt hàng theo báo giá của <strong>{ncc.ten}</strong>. Mặt hàng
                 họ không báo giá thì <strong>để trống</strong> — bảng so sánh cần biết ai báo
                 thiếu dòng.
+                {trongDanhMuc
+                  ? " Nhà cung cấp này có trong danh mục."
+                  : " Nhà cung cấp này chưa có trong danh mục — vẫn nhập giá bình thường, nhờ quản trị bổ sung sau để tra được công nợ."}
               </p>
 
               {baoGia.items.map((d) => (
@@ -255,7 +316,7 @@ export function KhoiThuThapBaoGia({
               }`}
             >
               <Paperclip className="size-4" aria-hidden />
-              {ncc ? `Tải bản báo giá của ${ncc.ten}` : "Chọn nhà cung cấp trước khi tải tệp"}
+              {ncc ? `Tải bản báo giá của ${ncc.ten}` : "Nhập tên nhà cung cấp trước khi tải tệp"}
             </span>
           </label>
         </div>
