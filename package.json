@@ -10,7 +10,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "verify": "npm run lint && npm run typecheck && npm run build:check",
-    "deploy": "vercel --prod"
+    "deploy": "npx --yes vercel --prod"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

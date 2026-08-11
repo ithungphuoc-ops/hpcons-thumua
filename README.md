@@ -32,7 +32,11 @@ Mở http://localhost:3000 → tự chuyển tới `/tong-quan`.
 npm run deploy
 ```
 
-Lệnh này gọi `vercel --prod` — **đẩy thẳng lên Vercel, không đi qua GitHub**. Build chạy trên máy chủ Vercel nên không đụng `.next/` ở máy này.
+Lệnh này gọi `npx --yes vercel --prod` — **đẩy thẳng lên Vercel, không đi qua GitHub**. Build chạy trên máy chủ Vercel nên không đụng `.next/` ở máy này.
+
+📌 Cố ý dùng `npx` chứ không gọi thẳng `vercel`: máy này có bản cài global nên gọi thẳng vẫn chạy, **nhưng máy khác thì không** — `vercel` không nằm trong `devDependencies`. `npx` tự lo cả hai trường hợp.
+
+Lần đầu chạy trên một máy mới phải đăng nhập: `npx vercel login`, rồi `npx vercel link` chọn team `hpcons-ita-sset` / project `hpcons-thumua-github`.
 
 🔴 **Vercel gửi lên theo `.gitignore`.** Chạy từ trong `thumua-v1/` nên thư mục `1. INPUT/` (hồ sơ thật của công ty) không bao giờ lọt lên, còn `.env.local` bị chặn sẵn. **Sửa `.gitignore` là đổi luôn thứ được đưa lên Vercel** — nhớ cả hai việc.
 
