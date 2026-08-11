@@ -8,6 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
+  NotebookPen,
+  Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -15,14 +17,13 @@ import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
-import { Input } from "@/1-giao-dien/nen-tang-ui/input";
-import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { docGhiChu, ghiGhiChu, type GhiChuCongViec } from "@/3-du-lieu/ghi-chu-ca-nhan";
 import {
   NHAN_LOAI_MUC,
   TEN_THU,
+  chuoiNgay,
   dungLichCuaToi,
   dungLuoiThang,
   gomTheoNgay,
@@ -30,6 +31,7 @@ import {
   tomTatSapToi,
   type MucLich,
 } from "@/2-quy-trinh/lich-cong-viec";
+import { HopGhiChuLich } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-ghi-chu-lich";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 
 /**
@@ -69,7 +71,17 @@ export default function TrangLichCongViec() {
   }
 
   const [ngayDangChon, setNgayDangChon] = useState<string | null>(null);
-  const [noiDungMoi, setNoiDungMoi] = useState("");
+
+  /**
+   * Hộp viết ghi chú. `null` = đóng.
+   *
+   * 🔴 Chỉ đạo Ban lãnh đạo 11/08/2026: *"thêm chức năng viết ghi chú trong lịch"*. Trước đó
+   * ô nhập CÓ nhưng nằm ẩn sau việc bấm vào ô ngày, nên mở màn ra không ai biết là viết được.
+   * Nay có nút riêng ở đầu màn, không cần bấm ngày trước.
+   */
+  const [hopGhiChu, setHopGhiChu] = useState<{ ngay: string; dangSua?: GhiChuCongViec } | null>(
+    null,
+  );
 
   const muc = useMemo(
     () =>
@@ -97,20 +109,28 @@ export default function TrangLichCongViec() {
     setNgayDangChon(null);
   }
 
-  function themGhiChu() {
-    const noiDung = noiDungMoi.trim();
-    if (!noiDung || !ngayDangChon) return;
-    luu([
-      ...ghiChu,
-      {
-        id: `gc-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
-        noiDung,
-        xong: false,
-        thoiDiem: thoiDiemHienTai(),
-        ngayHan: ngayDangChon,
-      },
-    ]);
-    setNoiDungMoi("");
+  /** Lưu ghi chú từ hộp thoại — cùng một chỗ cho thêm mới và sửa. */
+  function luuTuHop(noiDung: string, ngayHan: string) {
+    const dangSua = hopGhiChu?.dangSua;
+    if (dangSua) {
+      luu(ghiChu.map((g) => (g.id === dangSua.id ? { ...g, noiDung, ngayHan } : g)));
+    } else {
+      luu([
+        ...ghiChu,
+        {
+          id: `gc-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+          noiDung,
+          xong: false,
+          thoiDiem: thoiDiemHienTai(),
+          ngayHan,
+        },
+      ]);
+    }
+    // Nhảy tới ngày vừa ghi để người dùng thấy ngay kết quả, kể cả khi họ đổi ngày trong hộp.
+    setNgayDangChon(ngayHan);
+    const d = new Date(ngayHan);
+    setNam(d.getFullYear());
+    setThang0(d.getMonth());
   }
 
   const mucNgayChon = ngayDangChon ? (theoNgay.get(ngayDangChon) ?? []) : [];
@@ -123,6 +143,12 @@ export default function TrangLichCongViec() {
         description={`Việc đến hạn của ${nguoiDung.tenHienThi} — tự lấy từ hồ sơ, cộng ghi chú riêng của bạn`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {/* 🔴 NÚT VIẾT GHI CHÚ Ở NGAY ĐẦU MÀN. Trước 11/08/2026 chỉ viết được sau khi bấm
+                vào một ô ngày, nên mở màn ra không ai biết là có chức năng này. */}
+            <Button size="sm" onClick={() => setHopGhiChu({ ngay: ngayDangChon ?? chuoiNgay(homNay) })}>
+              <NotebookPen className="size-4" aria-hidden />
+              Viết ghi chú
+            </Button>
             <Button variant="outline" size="sm" onClick={veHomNay}>
               <CalendarDays className="size-4" aria-hidden />
               Về hôm nay
@@ -248,6 +274,11 @@ export default function TrangLichCongViec() {
               </div>
             </div>
           </div>
+
+          {/* Chỉ đường: ô ngày bấm được, nhưng không ai đoán ra nếu không nói. */}
+          <p className="text-xs text-text-desc">
+            Bấm vào một ngày để xem việc trong ngày đó và viết ghi chú.
+          </p>
         </CardContent>
       </Card>
 
@@ -293,6 +324,20 @@ export default function TrangLichCongViec() {
                             ra từ chứng từ — xóa nó không làm hồ sơ hết hạn, nên không có nút. */}
                         {m.laGhiChuTay && (
                           <>
+                            {/* Sửa được nội dung và đổi được ngày — việc bị hoãn là chuyện
+                                thường, không nên bắt xóa rồi viết lại. */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const id = m.khoa.split("|")[1];
+                                const gc = ghiChu.find((g) => g.id === id);
+                                if (gc) setHopGhiChu({ ngay: gc.ngayHan ?? m.ngay, dangSua: gc });
+                              }}
+                            >
+                              <Pencil className="size-3.5" aria-hidden />
+                              Sửa
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -325,34 +370,28 @@ export default function TrangLichCongViec() {
               </ul>
             )}
 
-            {/* ---- Thêm ghi chú cho ngày này ---- */}
-            <div className="flex flex-col gap-2 border-t border-divider pt-(--hp-md-card-gap)">
-              <Label htmlFor="ghi-chu-moi">Thêm ghi chú cho ngày này</Label>
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  id="ghi-chu-moi"
-                  value={noiDungMoi}
-                  onChange={(e) => setNoiDungMoi(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") themGhiChu();
-                  }}
-                  placeholder="vd Gọi lại NCC hỏi giá thép D14"
-                  className="min-w-56 flex-1"
-                />
-                <Button onClick={themGhiChu} disabled={noiDungMoi.trim() === ""}>
-                  <Plus className="size-4" aria-hidden />
-                  Thêm
-                </Button>
-              </div>
-              <p className="text-xs text-text-desc">
-                Ghi chú lưu trong trình duyệt máy này và <strong>chỉ bạn thấy</strong>. Muốn giao
-                việc cho người khác thì dùng bảng phân bổ hoặc nút Chuyển tiếp ở trang chi tiết
-                đề nghị.
-              </p>
+            {/* ---- Viết ghi chú cho ngày này ---- */}
+            <div className="flex flex-wrap items-center gap-3 border-t border-divider pt-(--hp-md-card-gap)">
+              <Button onClick={() => setHopGhiChu({ ngay: ngayDangChon })}>
+                <Plus className="size-4" aria-hidden />
+                Viết ghi chú cho ngày này
+              </Button>
+              <span className="flex items-center gap-1.5 text-xs text-text-desc">
+                <Lock className="size-3.5 shrink-0" aria-hidden />
+                Chỉ bạn đọc được. Muốn giao việc thì dùng bảng phân bổ hoặc nút Chuyển tiếp.
+              </span>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Hộp viết / sửa ghi chú — dùng chung, xem `hop-ghi-chu-lich.tsx`. */}
+      <HopGhiChuLich
+        ngay={hopGhiChu?.ngay ?? null}
+        dangSua={hopGhiChu?.dangSua}
+        onDong={() => setHopGhiChu(null)}
+        onLuu={luuTuHop}
+      />
     </>
   );
 }

@@ -257,6 +257,17 @@ function ghepNgay(nam: number, thang0: number, ngay: number): NgayISO {
 }
 
 /**
+ * Đổi một `Date` thành chuỗi `YYYY-MM-DD` THEO GIỜ MÁY.
+ *
+ * ⚠️ Đây là hàm phải dùng thay cho `toISOString().slice(0,10)`. `toISOString` trả giờ UTC nên
+ * ở UTC+7, mọi thời điểm trước 07:00 sáng bị lùi về hôm trước — ghi chú tạo lúc 6 giờ sáng sẽ
+ * rơi vào ô ngày hôm qua.
+ */
+export function chuoiNgay(d: Date = new Date()): NgayISO {
+  return ghepNgay(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
  * Dựng lưới tháng, TUẦN BẮT ĐẦU TỪ THỨ HAI (lịch Việt Nam).
  *
  * ⚠️ KHÔNG dùng `toISOString()` để lấy chuỗi ngày. `toISOString` trả về giờ UTC nên ở UTC+7
