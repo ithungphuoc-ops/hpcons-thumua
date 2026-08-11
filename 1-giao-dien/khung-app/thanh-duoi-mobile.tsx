@@ -7,13 +7,22 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { cn } from "@/6-tien-ich/gop-lop";
 
 /**
- * Bottom Navigation — CHỈ hiện trên Mobile (<768px). Cao 60px, tối đa 5 mục,
- * nhãn 11px, vùng chạm >= 44x44px (V1.1 Phần F + 08-navigation).
+ * Bottom Navigation — CHỈ hiện trên Mobile (<768px). Cao 60px, nhãn 11px,
+ * vùng chạm >= 44x44px (V1.1 Phần F + 08-navigation).
+ *
+ * 🔴 KHÔNG CẮT DANH SÁCH MỤC Ở ĐÂY. Trước 11/08/2026 chỗ này có `.slice(0, 5)`, nên thêm mục
+ * thứ 6 vào menu là **âm thầm mất một mục** trên điện thoại — người dùng không hiểu vì sao
+ * mục đó biến mất, mà lập trình viên sửa `dieu-huong.ts` cũng không biết mình vừa làm gì. Cắt
+ * ngầm ở tầng hiển thị là kiểu lỗi khó tìm nhất.
+ *
+ * Muốn giới hạn số mục thì giới hạn ở `dieu-huong.ts` (nơi khai báo), và phải nói rõ ra.
+ * Hiện 6 mục vẫn vừa màn 375px: mỗi mục tối thiểu 44px → 6 × 44 = 264px < 375px. `flex-1` +
+ * `truncate` lo phần chia đều và cắt chữ dài.
  */
 export function BottomNav() {
   const pathname = usePathname();
   const { quyen } = useNguoiDung();
-  const muc = mucDieuHuongChoVaiTro(quyen).slice(0, 5);
+  const muc = mucDieuHuongChoVaiTro(quyen);
 
   return (
     <nav

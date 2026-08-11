@@ -10,6 +10,7 @@ Thư mục này **không có giao diện** và **không chứa dữ liệu**. Sa
 |---|---|---|
 | **`huong-dan-giai-doan.ts`** | **Văn bản hướng dẫn nghiệp vụ** của 6 bước, chép nguyên văn quy trình "TM-QT Mua hàng (HP CONS)" trên Base.vn | Công ty ban hành quy trình mới. 🔴 Không tự viết lại cho gọn — người dùng đối chiếu với quy trình giấy |
 | **`nguong-gia-tri.ts`** | Ba ngưỡng tiền **5 / 10 / 20 triệu**: số báo giá tối thiểu, ai duyệt, khi nào cần hợp đồng | Công ty đổi ngưỡng. Mọi nơi cần con số này đều gọi vào đây, không viết số vào chỗ khác |
+| **`lich-cong-viec.ts`** | Suy ra **việc đến hạn theo ngày** của từng người + lưới tháng | Lịch thiếu/thừa việc, sai ngày, hiện việc của người khác |
 | **`xuat-don-hang-excel.ts`** | **Xuất đơn ĐÃ LẬP** ra .xlsx đúng biểu mẫu công ty (gửi NCC, lưu hồ sơ) | File xuất ra lệch biểu mẫu, sai ô, sai công thức |
 | **`ghi-don-hang-excel.ts`** | **Biểu mẫu TRỐNG** để người lập điền đơn giá rồi nhập lại vào app | Nút "Tải file mẫu" ở màn lập đơn ra file sai |
 | **`doc-don-hang-excel.ts`** | Đọc file Excel người dùng chọn để điền sẵn màn lập đơn | Nhập từ Excel không nhận dòng, sai cột |
@@ -66,6 +67,25 @@ làm người dùng bí việc. Muốn cấm hẳn một bước thì thêm lu�
 
 🔴 **Thuế GTGT tính TRÊN GIÁ ĐÃ TRỪ CHIẾT KHẤU** — đúng thứ tự các dòng trên biểu mẫu
 `1. INPUT/Bieu mau/1. DON HANG HPCONS.xlsx`. Đảo thứ tự là ra số thuế khác.
+
+## `lich-cong-viec.ts` — việc tự động SUY RA, không lưu bản sao
+
+Bốn mốc tự lên lịch (Ban lãnh đạo chốt 11/08/2026): **ngày cần hàng** của đề nghị · **hạn giao hàng** của đơn · **hạn NCC nộp báo giá** · **hạn thanh toán công nợ**. Thêm mốc **chờ phân bổ** cho người có quyền phân bổ.
+
+🔴 **Lịch KHÔNG có bảng dữ liệu riêng cho việc tự động.** Mỗi lần mở, `dungLichCuaToi` đọc chứng từ hiện có rồi tính ra — đúng cách `xacDinhGiaiDoan` suy giai đoạn. Lý do:
+
+- Lưu bản sao là tạo **nguồn sự thật thứ hai**: `suaThoiHan` đổi `ngayCanHang` xong thì lịch vẫn treo ngày cũ.
+- Không có chỗ để lưu — localStorage đang giữ toàn bộ chứng từ, nhân bản là ăn dung lượng cho thông tin đã có.
+- Bản sao sinh **việc mồ côi**: đề nghị đóng dở mà mục lịch còn treo.
+- Nếu là bản sao, người dùng sẽ tưởng **xóa được** mục "Hạn giao hàng" — mà xóa nó không làm đơn hết hạn.
+
+**Hệ quả phải nhận:** mục tự động không có nút xóa và không giữ được trạng thái riêng. Xong hay chưa đọc từ chứng từ; hồ sơ kết thúc thì mục tự rụng.
+
+🔴 **Lọc theo NGƯỜI PHỤ TRÁCH.** Một đề nghị có thể lên lịch của nhiều người vì mỗi dòng vật tư có người phụ trách riêng — mỗi người chỉ thấy phần của mình. Đổ hết mọi hồ sơ lên lịch là biến nó thành bảng quy trình thứ hai.
+
+📌 **Ghi chú tay riêng tư tuyệt đối** (Sếp chốt 11/08/2026), lưu ở `3-du-lieu/ghi-chu-ca-nhan.ts` theo `uid`. Trường `ngayHan` là **tùy chọn** — không có ngày thì ghi chú vẫn ở sổ tay, chỉ không lên lịch. Bắt buộc nhập ngày sẽ giết công dụng ghi nhanh.
+
+⚠️ **KHÔNG dùng `toISOString()` để lấy chuỗi ngày.** Nó trả giờ UTC nên ở UTC+7 mọi mốc trước 07:00 sáng lùi về hôm trước → lịch lệch một ngày. Dùng `getFullYear/getMonth/getDate` rồi ghép chuỗi.
 
 ## Ba file Excel — đừng lẫn với nhau
 

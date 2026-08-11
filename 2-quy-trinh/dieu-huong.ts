@@ -4,6 +4,7 @@ import {
   Eye,
   Wallet,
   CircleUser,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 import type { Quyen } from "@/4-phan-quyen/quyen";
@@ -66,6 +67,20 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/de-nghi",
     icon: FileText,
     duocThay: (q) => q.xemMoiHoSo || q.lapPO || q.phanBoCongViec,
+  },
+  {
+    // Chỉ đạo Ban lãnh đạo 11/08/2026: *"Thêm chức năng lịch ghi chú cho các tài khoản của bộ
+    // phận này, và sẽ tự động cập nhật công việc vào lịch khi có nhiệm vụ"*.
+    //
+    // 📌 MỌI VAI TRÒ ĐỀU CÓ LỊCH, không lọc theo bộ phận. Thủ kho cũng có hạn ghi phiếu nhận,
+    // kế toán cũng có hạn thanh toán — chặn họ khỏi lịch không được lợi gì mà lại sinh trường
+    // hợp ngoại lệ phải nhớ. Lịch tự lọc theo NGƯỜI PHỤ TRÁCH nên mỗi người chỉ thấy việc của
+    // mình; vai trò không được phân việc gì thì mở ra thấy lịch trống, đúng thực tế.
+    nhan: "Lịch công việc",
+    nhanNgan: "Lịch",
+    href: "/lich",
+    icon: CalendarDays,
+    duocThay: () => true,
   },
   {
     nhan: "Theo dõi đề nghị",

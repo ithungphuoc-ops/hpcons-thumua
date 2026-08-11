@@ -28,6 +28,14 @@ export interface GhiChuCongViec {
   thoiDiem: string;
   /** Mã hồ sơ liên quan, nếu ghi chú này gắn với một đề nghị cụ thể. Không bắt buộc. */
   maHoSo?: string;
+  /**
+   * ★ NGÀY PHẢI LÀM, dạng `YYYY-MM-DD` — có ngày thì ghi chú lên màn Lịch.
+   *
+   * 🔴 CỐ Ý ĐỂ TÙY CHỌN (Ban lãnh đạo 11/08/2026 yêu cầu lịch ghi chú). Bắt buộc nhập ngày
+   * sẽ giết công dụng chính của sổ tay: ghi nhanh một việc chợt nhớ ra. Không có ngày thì
+   * ghi chú vẫn nằm ở sổ tay tại màn "Công việc của tôi", chỉ là không lên lịch.
+   */
+  ngayHan?: string;
 }
 
 function khoa(uid: string): string {
