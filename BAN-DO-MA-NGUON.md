@@ -39,6 +39,8 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Kéo thả thẻ** chuyển sai bước / báo sai lý do | `2-quy-trinh/giai-doan-mua-hang.ts` → `quyetDinhKeoTha` (**luật**) + `trang/de-nghi-danh-sach.tsx` → `xuLyTha` (**mở hộp xác nhận**) / `thucThiKeoTha` (**làm thật**) |
 | **Hộp xác nhận chuyển bước** thiếu cảnh báo / sai chữ | `2-quy-trinh/giai-doan-mua-hang.ts` → `dungXacNhanKeoTha` (nội dung) + `trang/de-nghi-danh-sach.tsx` (hộp thoại) |
 | **Chuông thông báo** 🔔 trên Header sai / không hiện | `1-giao-dien/khung-app/nut-thong-bao.tsx` (hiển thị) — nguồn dữ liệu ở `3-du-lieu/kho-du-lieu.tsx` |
+| **Nút ⓘ Hướng dẫn bước** (đầu cột bảng quy trình + thanh giai đoạn) sai / không mở | Hộp: `thanh-phan-nghiep-vu/hop-huong-dan-giai-doan.tsx` · **Nội dung chữ**: `2-quy-trinh/huong-dan-giai-doan.ts` (🔴 văn bản nghiệp vụ, chép nguyên văn quy trình công ty — không tự sửa) |
+| **Khối "Soát theo ngưỡng giá trị"** ở màn báo giá sai số / sai lời nhắc | Hiển thị: `thanh-phan-nghiep-vu/khoi-nguong-gia-tri.tsx` · **Luật**: `2-quy-trinh/nguong-gia-tri.ts` |
 | Sai ở **chi tiết Đề nghị** | `1-giao-dien/trang/de-nghi-chi-tiet.tsx` |
 | Sai ở **màn Phân bổ công việc** | `1-giao-dien/trang/phan-bo.tsx` + `thanh-phan-nghiep-vu/bang-phan-bo.tsx` |
 | Sai ở **danh sách Đơn hàng** | `1-giao-dien/trang/don-hang-danh-sach.tsx` |
@@ -72,6 +74,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Đề nghị nằm sai cột** trên bảng quy trình, hoặc sai chữ "Quá hạn / Còn N ngày" | `2-quy-trinh/giai-doan-mua-hang.ts` |
 | Sai **phân nhóm tuổi nợ 30-60-90** hoặc **mức rủi ro NCC** | `2-quy-trinh/tuoi-no.ts` |
 | Sai **ô "giá thấp nhất"** hoặc **tổng theo NCC** ở bảng so sánh báo giá | `2-quy-trinh/so-sanh-bao-gia.ts` |
+| Sai **số báo giá tối thiểu** / **ai duyệt** / **ngưỡng 5–10–20 triệu** | `2-quy-trinh/nguong-gia-tri.ts` — nơi duy nhất giữ ba con số này, đừng viết số vào file khác |
 | Sai **chiết khấu · thuế GTGT · tổng tiền thanh toán** của đơn hàng | `2-quy-trinh/tinh-toan.ts` → `tinhKhoiTongTien` (**nơi duy nhất** tính; màn lập đơn, màn xem, trang in đều gọi về đây) |
 | Sai **số tiền viết bằng chữ** | `6-tien-ich/doc-so-tien.ts` |
 | Vai trò **tìm ra hồ sơ lẽ ra không được thấy** | `2-quy-trinh/tim-kiem.ts` — mọi loại hồ sơ mới đều phải khai quyền ở đây |

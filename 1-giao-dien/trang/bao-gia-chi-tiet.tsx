@@ -9,6 +9,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { lyDoKhongXemBaoGia } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { KhoiThuThapBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-thu-thap-bao-gia";
+import { KhoiNguongGiaTri } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguong-gia-tri";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -32,6 +33,7 @@ import {
   gomTheoNCC,
   kiemPhanBoDong,
 } from "@/2-quy-trinh/so-sanh-bao-gia";
+import { soatNguongBaoGia } from "@/2-quy-trinh/nguong-gia-tri";
 import type { PhanBoNCC } from "@/3-du-lieu/kieu-du-lieu";
 import { formatCurrencyVnd, formatDate, formatNumber } from "@/6-tien-ich/dinh-dang";
 import { cn } from "@/6-tien-ich/gop-lop";
@@ -116,6 +118,9 @@ export default function TrangBaoGiaChiTiet() {
   const { cot, dong } = dungBangSoSanh(bg);
   const daTach = daTachBaoGia(bg);
   const nhomNCC = gomTheoNCC(bg);
+  // Soát ngưỡng 5 / 10 / 20 triệu của quy trình — dùng cho lời cảnh báo trong hộp xác nhận
+  // "Trình xét duyệt". Khối hiển thị đầy đủ là `KhoiNguongGiaTri` bên dưới, cùng một hàm luật.
+  const nguong = soatNguongBaoGia(bg);
 
   /**
    * Khối lượng ĐÃ ĐẶT của mỗi (nhà cung cấp × dòng đề nghị), gom từ các đơn hàng thật.
@@ -238,6 +243,12 @@ export default function TrangBaoGiaChiTiet() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ===== SOÁT NGƯỠNG GIÁ TRỊ =====
+          Đặt NGAY TRÊN khối nhập giá và bảng so sánh, không giấu xuống cuối trang: người
+          dùng cần biết "đơn này cần mấy báo giá, ai duyệt" TRƯỚC khi trình, chứ không phải
+          sau khi đã trình xong. Luật ở `2-quy-trinh/nguong-gia-tri.ts`. */}
+      <KhoiNguongGiaTri baoGia={bg} />
 
       {/* ===== CHỜ NHÀ CUNG CẤP GỬI GIÁ VỀ =====
           🔴 MẮT NỐI của chuỗi tách PO. Bảng báo giá vừa lập ra chưa có giá của ai, nên
@@ -616,9 +627,34 @@ export default function TrangBaoGiaChiTiet() {
                 : undefined
         }
         canhBao={
-          viecChoXacNhan?.loai === "trinh_xet_duyet"
-            ? "Sau khi trình, bạn không nhập thêm giá nhà cung cấp vào bảng này được nữa."
-            : "Bước này ghi vào nhật ký đề nghị và không lùi lại được. Muốn lùi phải hủy chứng từ tương ứng."
+          viecChoXacNhan?.loai === "trinh_xet_duyet" ? (
+            <>
+              Sau khi trình, bạn không nhập thêm giá nhà cung cấp vào bảng này được nữa.
+              {/* Nhắc thiếu báo giá NGAY TRONG hộp xác nhận, không chỉ ở khối trên trang: đây
+                  là giây cuối cùng người dùng còn quay lại được. Vẫn CHO trình — quy trình có
+                  ngoại lệ 01 báo giá mà app không nhìn thấy (xem `nguong-gia-tri.ts`). */}
+              {nguong.batBuoc.map((x, i) => (
+                <span key={i} className="mt-1.5 block font-medium">
+                  {x}
+                </span>
+              ))}
+            </>
+          ) : (
+            <>
+              Bước này ghi vào nhật ký đề nghị và không lùi lại được. Muốn lùi phải hủy chứng từ
+              tương ứng.
+              {/* 🔴 NGƯỠNG NGƯỜI DUYỆT — app chỉ có tài khoản trưởng bộ phận, chưa có tài khoản
+                  Tổng Giám đốc. Không nói ra ở đây thì trưởng bộ phận bấm duyệt một đơn ≥10
+                  triệu và tưởng thế là xong đúng quy trình. */}
+              {nguong.capDuyet === "tong_giam_doc" && (
+                <span className="mt-1.5 block font-medium">
+                  Đơn này ước tính {formatCurrencyVnd(nguong.giaTri)} — theo quy trình,{" "}
+                  <strong>Tổng Giám đốc</strong> mới là người duyệt (từ 10 triệu đồng trở lên).
+                  App chưa có tài khoản TGĐ, nên phải trình duyệt ngoài app trước khi bấm nút này.
+                </span>
+              )}
+            </>
+          )
         }
         nhanDongY={
           viecChoXacNhan?.loai === "trinh_xet_duyet"

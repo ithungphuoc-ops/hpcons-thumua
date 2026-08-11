@@ -4,10 +4,12 @@
 
 Thư mục này **không có giao diện** và **không chứa dữ liệu**. Sai số liệu trên màn hình thì tìm ở đây trước.
 
-## Bảy file
+## Các file
 
 | File | Việc | Sửa khi |
 |---|---|---|
+| **`huong-dan-giai-doan.ts`** | **Văn bản hướng dẫn nghiệp vụ** của 6 bước, chép nguyên văn quy trình "TM-QT Mua hàng (HP CONS)" trên Base.vn | Công ty ban hành quy trình mới. 🔴 Không tự viết lại cho gọn — người dùng đối chiếu với quy trình giấy |
+| **`nguong-gia-tri.ts`** | Ba ngưỡng tiền **5 / 10 / 20 triệu**: số báo giá tối thiểu, ai duyệt, khi nào cần hợp đồng | Công ty đổi ngưỡng. Mọi nơi cần con số này đều gọi vào đây, không viết số vào chỗ khác |
 | **`tinh-toan.ts`** | Toàn bộ công thức của app | Số đã nhận / còn lại / % sai; điều kiện hoàn thành PO sai; sai chiết khấu / thuế / tổng thanh toán |
 | **`tim-kiem.ts`** | Luật ô tìm kiếm trên thanh trên + **lọc kết quả theo quyền** | Tìm không ra hồ sơ; vai trò thấy hồ sơ lẽ ra không được thấy |
 | **`trang-thai.ts`** | Chữ và tông màu cho mọi trạng thái | Muốn đổi cách gọi trạng thái, đổi màu badge |
@@ -60,6 +62,23 @@ làm người dùng bí việc. Muốn cấm hẳn một bước thì thêm lu�
 
 🔴 **Thuế GTGT tính TRÊN GIÁ ĐÃ TRỪ CHIẾT KHẤU** — đúng thứ tự các dòng trên biểu mẫu
 `1. INPUT/Bieu mau/1. DON HANG HPCONS.xlsx`. Đảo thứ tự là ra số thuế khác.
+
+## `nguong-gia-tri.ts` — luật tiền của quy trình thật
+
+| Ngưỡng | Bắt buộc điều gì | App làm được gì |
+|---|---|---|
+| **Trên 5 triệu** | Đơn mua hàng phải trình TP.TMCU ký duyệt, rồi gửi NCC ký xác nhận | Chỉ **nhắc** — app chưa lưu chữ ký |
+| **Từ 10 triệu** | Ít nhất **02 báo giá**; **Tổng Giám đốc** duyệt (dưới mức này TP.TMCU duyệt) | **Đếm được** số báo giá và cảnh báo. Cấp duyệt chỉ nhắc — app chưa có tài khoản TGĐ |
+| **Từ 20 triệu** | Phải có **hợp đồng** do TGĐ ký; NCC mới phải cập nhật "Danh sách nhà cung cấp" | Chỉ **nhắc** — app chưa quản lý hợp đồng |
+
+🔴 **Cố ý CHỈ NHẮC, KHÔNG CHẶN.** Quy trình cho phép 01 báo giá trong vài trường hợp mà app
+không nhìn thấy được (NCC có trong danh mục hàng năm, Ban Giám đốc chỉ định, TP.TMCU đề nghị
+chỉ định). Chặn cứng theo một luật thiếu dữ liệu để xét thì người dùng sẽ nhập báo giá ma cho
+đủ số — dữ liệu hỏng còn tệ hơn thiếu kiểm.
+
+🔴 **`giaTriUocTinh` lấy phương án ĐẮT NHẤT**, không lấy rẻ nhất hay trung bình. Ngưỡng duyệt
+là để bảo vệ công ty; khi chưa biết sẽ chốt NCC nào mà xét theo giá rẻ nhất thì có trường hợp
+lọt ngưỡng rồi cuối cùng chốt NCC đắt hơn — đơn đáng lẽ TGĐ duyệt lại chỉ có trưởng phòng duyệt.
 
 ## Ba quy tắc bất di bất dịch
 

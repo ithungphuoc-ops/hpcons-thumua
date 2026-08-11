@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 import {
   GIAI_DOAN_MUA_HANG,
   type CotBangQuyTrinh,
@@ -222,8 +223,14 @@ function CotQuyTrinh({
           >
             {giaiDoan.nhan}
           </h2>
-          <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold text-text-primary">
-            {the.length}
+          <span className="flex shrink-0 items-center gap-0.5">
+            {/* ⓘ Hướng dẫn bước — chỉ đạo Ban lãnh đạo 11/08/2026 ("thêm nút để bấm vô sẽ
+                đọc được hướng dẫn sử dụng"). Đặt ở ĐẦU CỘT vì đó là chỗ người dùng nhìn khi
+                phân vân "cột này phải làm gì thì mới qua được cột sau". */}
+            <NutHuongDanGiaiDoan giaiDoan={giaiDoan.ma} />
+            <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold text-text-primary">
+              {the.length}
+            </span>
           </span>
         </div>
         <p className="text-xs text-text-desc">

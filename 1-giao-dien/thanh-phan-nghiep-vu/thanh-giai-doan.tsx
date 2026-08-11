@@ -1,7 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Check } from "lucide-react";
 import { GIAI_DOAN_MUA_HANG, type GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { HUONG_DAN_GIAI_DOAN } from "@/2-quy-trinh/huong-dan-giai-doan";
+import {
+  HopHuongDanGiaiDoan,
+  NutHuongDanGiaiDoan,
+} from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 
 /**
  * THANH TIẾN TRÌNH CÁC GIAI ĐOẠN — dải mũi tên nối tiếp nhau.
@@ -22,6 +28,13 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
   const viTri = chuoi.findIndex((g) => g.ma === giaiDoan);
   const daDong = giaiDoan === "that_bai";
 
+  /**
+   * Bước đang mở hướng dẫn. Bấm vào Ô BƯỚC NÀO là đọc hướng dẫn bước đó — kể cả bước đã qua
+   * và bước chưa tới, vì người dùng hay cần xem trước "bước sau sẽ phải làm gì" để chuẩn bị
+   * (chỉ đạo Ban lãnh đạo 11/08/2026 về nút xem hướng dẫn).
+   */
+  const [dangXem, setDangXem] = useState<GiaiDoanMuaHang | null>(null);
+
   if (daDong) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad)">
@@ -40,11 +53,12 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
           {chuoi.map((g, i) => {
             const daQua = viTri >= 0 && i < viTri;
             const hienTai = i === viTri;
+            const coHuongDan = HUONG_DAN_GIAI_DOAN[g.ma] !== undefined;
             return (
               <li
                 key={g.ma}
                 aria-current={hienTai ? "step" : undefined}
-                title={g.moTa}
+                title={coHuongDan ? `${g.moTa} — bấm để xem hướng dẫn` : g.moTa}
                 className={[
                   "relative flex min-h-11 items-center gap-2 py-2 pr-5 pl-6 text-xs font-medium",
                   // Mũi tên: cắt vát cạnh phải, cạnh trái lõm vào cho khớp ô trước.
@@ -67,17 +81,46 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
                   )}
                 </span>
                 <span className="whitespace-nowrap">{g.nhan}</span>
+
+                {/* Vùng bấm phủ kín ô bước. Đặt lớp phủ thay vì bọc nội dung trong <button>
+                    vì hình mũi tên (`clip-path`) và phần lõm cạnh trái (`-ml-3.5`) nằm trên
+                    chính thẻ <li> — bọc lại là vỡ dải mũi tên. Clip-path cắt luôn cả vùng
+                    bấm nên không có chỗ bấm nào thò ra ngoài hình. */}
+                {coHuongDan && (
+                  <button
+                    type="button"
+                    onClick={() => setDangXem(g.ma)}
+                    aria-label={`Xem hướng dẫn bước ${g.nhan}`}
+                    className="absolute inset-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-inset focus-visible:outline-none"
+                  />
+                )}
               </li>
             );
           })}
         </ol>
       </div>
 
-      {viTri >= 0 && (
-        <p className="text-xs text-text-desc">
-          Bước <strong className="text-text-primary">{viTri + 1}</strong> trên {chuoi.length} ·{" "}
-          {chuoi[viTri].moTa}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {viTri >= 0 ? (
+          <p className="text-xs text-text-desc">
+            Bước <strong className="text-text-primary">{viTri + 1}</strong> trên {chuoi.length} ·{" "}
+            {chuoi[viTri].moTa}
+          </p>
+        ) : (
+          <span />
+        )}
+        {/* Nút chữ cho bước hiện tại — bấm được vào ô bước rồi, nhưng nhiều người không đoán
+            ra là ô bấm được, nên vẫn cần một nút nói rõ bằng chữ. */}
+        <NutHuongDanGiaiDoan giaiDoan={giaiDoan} kieu="nut_chu" />
+      </div>
+
+      {/* Hộp hướng dẫn của ô bước vừa bấm (khác với nút chữ — nút đó tự quản hộp của nó). */}
+      {dangXem && (
+        <HopHuongDanGiaiDoan
+          giaiDoan={dangXem}
+          mo={dangXem !== null}
+          onDong={() => setDangXem(null)}
+        />
       )}
     </div>
   );
