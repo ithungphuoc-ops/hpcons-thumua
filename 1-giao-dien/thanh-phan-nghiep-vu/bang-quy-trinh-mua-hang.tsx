@@ -1,13 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type DragEvent } from "react";
-import { AlertTriangle, CalendarClock, Check, Eye, Layers, UserRound } from "lucide-react";
+import { toast } from "sonner";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  CalendarClock,
+  Check,
+  Copy,
+  Eye,
+  ExternalLink,
+  Forward,
+  Layers,
+  MoreHorizontal,
+  UserRound,
+  UsersRound,
+  XCircle,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
-import type {
-  CotBangQuyTrinh,
-  GiaiDoanMuaHang,
-  TheDeNghiTrenBang,
+import {
+  GIAI_DOAN_MUA_HANG,
+  type CotBangQuyTrinh,
+  type GiaiDoanMuaHang,
+  type TheDeNghiTrenBang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
 import { NHAN_PHONG_BAN_NGUON } from "@/2-quy-trinh/trang-thai";
@@ -187,6 +213,7 @@ function CotQuyTrinh({
               the={t}
               tongGiaiDoan={giaiDoan.tong}
               keoThaDuoc={keoThaDuoc}
+              onTha={onTha}
               thongBaoMoiNhat={tiepNhan?.get(t.deNghi.id)}
               onNhanCongTac={onNhanCongTac}
               duocNhan={duocNhan}
@@ -202,6 +229,7 @@ function TheDeNghi({
   the,
   tongGiaiDoan,
   keoThaDuoc,
+  onTha,
   thongBaoMoiNhat,
   onNhanCongTac,
   duocNhan,
@@ -209,6 +237,8 @@ function TheDeNghi({
   the: TheDeNghiTrenBang;
   tongGiaiDoan: Tong;
   keoThaDuoc: boolean;
+  /** Dùng lại cho menu ⋯ "Chuyển sang giai đoạn kế tiếp" — cùng luật với kéo thả. */
+  onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thongBaoMoiNhat?: ThongBaoChuyenBuoc;
   onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
   duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
@@ -241,7 +271,10 @@ function TheDeNghi({
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-sm font-semibold leading-tight text-primary">{deNghi.code}</span>
-        {deNghi.mucDoUuTien === "gap" && <StatusBadge label="Gấp" tone="danger" />}
+        <span className="flex shrink-0 items-center gap-1">
+          {deNghi.mucDoUuTien === "gap" && <StatusBadge label="Gấp" tone="danger" />}
+          <MenuThaoTacThe the={the} onTha={keoThaDuoc ? onTha : undefined} />
+        </span>
       </div>
 
       <span className="text-xs font-medium leading-snug text-text-primary">
@@ -325,5 +358,145 @@ function TheDeNghi({
         )}
       </div>
     </Link>
+  );
+}
+
+
+/**
+ * MENU ⋯ TRÊN THẺ — các thao tác nhanh với một đề nghị, theo menu ngữ cảnh của Base.vn
+ * (ảnh Ban lãnh đạo cung cấp 10/08/2026: *"thêm các chế độ này khi bấm vào chi tiết các bước"*).
+ *
+ * 🔴 CHUYỂN BƯỚC DÙNG CHUNG LUẬT VỚI KÉO THẢ (`onTha` → `quyetDinhKeoTha`): mục "Chuyển sang
+ * giai đoạn kế tiếp" chỉ là cách bấm khác của việc kéo thẻ sang cột kế — mọi luật chặn (bước
+ * trước chưa xong, nhảy cóc, kéo lùi) và hộp xác nhận đều đi qua đúng một đường. "Chuyển về
+ * giai đoạn trước" vẫn hiện nhưng bấm sẽ nhận đúng lời giải thích của luật (*"muốn lùi phải
+ * hủy chứng từ"*) — để người dùng học quy tắc, thay vì giấu mục đi khiến họ tưởng thiếu chức năng.
+ *
+ * ⚠️ CÁC MỤC CỦA BASE CỐ Ý KHÔNG ĐƯA VÀO, kèm lý do — đừng thêm lại khi chưa hỏi Ban lãnh đạo:
+ *   · **Xóa** — đề nghị nhận từ HPcore, app Thu mua không được xóa hồ sơ nguồn; cách kết thúc
+ *     đúng là "Đánh dấu thất bại" (đóng dở, có ghi nhật ký).
+ *   · **Lưu trữ / Nhân bản / Sửa thời hạn / Dữ liệu tùy chỉnh / Webhook** — chưa có nghiệp vụ
+ *     tương ứng; "ngày cần hàng" do người đề nghị đặt, thu mua không tự sửa.
+ *   · **In** — trang in thuộc về ĐƠN HÀNG (`/in/don-hang/[id]`), vào từ trang chi tiết đơn.
+ */
+function MenuThaoTacThe({
+  the,
+  onTha,
+}: {
+  the: TheDeNghiTrenBang;
+  onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
+}) {
+  const router = useRouter();
+  const { deNghi, giaiDoan } = the;
+  const duongDan = `/de-nghi/${deNghi.id}`;
+
+  // Bước kế / bước trước tính trên chuỗi 7 bước (bỏ "Thất bại" — nó không nằm trong chuỗi).
+  const chuoi = GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "that_bai").map((g) => g.ma);
+  const viTri = chuoi.indexOf(giaiDoan);
+  const daKetThuc = giaiDoan === "hoan_thanh" || giaiDoan === "that_bai";
+  const buocKe = !daKetThuc && viTri >= 0 && viTri < chuoi.length - 1 ? chuoi[viTri + 1] : undefined;
+  const buocTruoc = !daKetThuc && viTri > 0 ? chuoi[viTri - 1] : undefined;
+
+  async function saoChepDuongDan() {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${duongDan}`);
+      toast.success("Đã sao chép đường dẫn", { description: deNghi.code });
+    } catch {
+      // Trình duyệt chặn clipboard (HTTP thường / quyền) — nói thật thay vì im lặng.
+      toast.error("Trình duyệt không cho sao chép", {
+        description: `Tự chép tay: ${window.location.origin}${duongDan}`,
+      });
+    }
+  }
+
+  return (
+    /* 🔴 Chặn cả click lẫn kéo NGAY Ở VỎ BỌC: thẻ cha là <Link> và kéo-thả được. Thiếu
+       preventDefault/stopPropagation thì bấm ⋯ là mở luôn trang chi tiết; thiếu draggable=false
+       thì đè chuột lên nút rồi rê là kéo cả thẻ đi. */
+    <span
+      draggable={false}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDragStart={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              aria-label={`Thao tác với ${deNghi.code}`}
+              className="flex size-7 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-text-primary"
+            />
+          }
+        >
+          <MoreHorizontal className="size-4" aria-hidden />
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="end" className="w-64">
+          {/* ⚠️ base-nova bắt buộc Item nằm trong Group — thiếu là crash cả trang. */}
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => window.open(duongDan, "_blank", "noopener")}>
+              <ExternalLink className="size-4 shrink-0" aria-hidden />
+              Xem trong tab mới
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={saoChepDuongDan}>
+              <Copy className="size-4 shrink-0" aria-hidden />
+              Sao chép đường dẫn
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            {/* Ba mục dưới đều mở trang chi tiết — bảng phân bổ, khối người theo dõi và nút
+                Chuyển tiếp đều nằm ở đó; trang chi tiết tự chặn theo quyền. */}
+            <DropdownMenuItem onClick={() => router.push(duongDan)}>
+              <UserRound className="size-4 shrink-0" aria-hidden />
+              Giao việc / phân bổ lại
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(duongDan)}>
+              <UsersRound className="size-4 shrink-0" aria-hidden />
+              Thêm người theo dõi
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(duongDan)}>
+              <Forward className="size-4 shrink-0" aria-hidden />
+              Chuyển tiếp cho nhân viên
+            </DropdownMenuItem>
+
+            {onTha && !daKetThuc && (
+              <>
+                <DropdownMenuSeparator />
+                {buocKe && (
+                  <DropdownMenuItem onClick={() => onTha(deNghi.id, buocKe)}>
+                    <ArrowRight className="size-4 shrink-0" aria-hidden />
+                    Chuyển sang giai đoạn kế tiếp
+                  </DropdownMenuItem>
+                )}
+                {buocTruoc && (
+                  <DropdownMenuItem onClick={() => onTha(deNghi.id, buocTruoc)}>
+                    <ArrowLeft className="size-4 shrink-0" aria-hidden />
+                    Chuyển về giai đoạn trước
+                  </DropdownMenuItem>
+                )}
+
+                <DropdownMenuSeparator />
+
+                {/* Đi qua đúng luồng kéo-vào-Thất-bại: có hộp xác nhận + ghi nhật ký. */}
+                <DropdownMenuItem
+                  onClick={() => onTha(deNghi.id, "that_bai")}
+                  className="text-danger-soft"
+                >
+                  <XCircle className="size-4 shrink-0" aria-hidden />
+                  Đánh dấu thất bại
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </span>
   );
 }
