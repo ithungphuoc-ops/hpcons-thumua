@@ -51,6 +51,45 @@ export function duocXemBaoGiaCuaDeNghi(
 }
 
 /**
+ * NHỮNG DÒNG VẬT TƯ NGƯỜI NÀY ĐƯỢC NHÌN THẤY trong một đề nghị.
+ *
+ * 🔴 Chỉ đạo Ban lãnh đạo 12/08/2026: *"chỉ cần hiện công việc được phân công, không cần
+ * hiển thị toàn bộ danh mục request"*.
+ *
+ * Trước đó nhân viên được giao 1 dòng vẫn nhìn thấy **cả 3 dòng** của đề nghị và nhập được
+ * giá cho cả 3 — vừa lộ phần việc của đồng nghiệp, vừa dễ nhập nhầm vào dòng người khác
+ * đang phụ trách.
+ *
+ * Luật:
+ *   · Cấp quản lý trở lên (`xemMoiHoSo`) → thấy hết. Trưởng bộ phận phải nhìn toàn cảnh
+ *     mới phân bổ và duyệt được.
+ *   · Còn lại → chỉ thấy dòng ghi tên mình phụ trách.
+ *
+ * ⚠️ Người CHƯA được giao dòng nào sẽ nhận về danh sách RỖNG. Nơi gọi phải hiện câu giải
+ * thích tử tế, đừng để màn hình trắng trơn — người dùng sẽ tưởng app hỏng.
+ *
+ * 📌 Trả về mảng số thứ tự dòng (`stt`) để nơi gọi tự lọc theo cấu trúc của mình: bảng
+ * phân bổ lọc `deNghi.items`, còn bảng báo giá lọc theo `sttDongDeNghi`.
+ */
+export function sttDongDuocXem(
+  deNghi: DeNghiMuaHang,
+  uid: string,
+  quyen: Quyen,
+): number[] {
+  if (quyen.xemMoiHoSo) return deNghi.items.map((d) => d.stt);
+  return deNghi.items.filter((d) => d.nguoiPhuTrachUid === uid).map((d) => d.stt);
+}
+
+/** Có bị giấu bớt dòng nào không — để giao diện nói rõ "đang chỉ hiện phần của bạn". */
+export function coLocTheoPhanViec(
+  deNghi: DeNghiMuaHang,
+  uid: string,
+  quyen: Quyen,
+): boolean {
+  return sttDongDuocXem(deNghi, uid, quyen).length < deNghi.items.length;
+}
+
+/**
  * AI ĐƯỢC BẤM "NHẬN CÔNG TÁC" — trả về lý do bị chặn, `null` nghĩa là được nhận.
  *
  * 🔴 CHỈ ĐẠO BAN LÃNH ĐẠO 10/08/2026: *"sao trưởng bộ phận chưa duyệt mà nhân viên tự bấm

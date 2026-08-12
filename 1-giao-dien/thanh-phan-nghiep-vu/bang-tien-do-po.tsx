@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
-import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
+import { ODinhKemTep, rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -310,19 +310,26 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
               {phieuCuaPO.map((p) => {
                 const tt = NHAN_TRANG_THAI_PHIEU[p.trangThai];
                 return (
+                  /* Bố cục HAI TẦNG: tầng trên là thông tin lần giao, tầng dưới là phiếu
+                     đính kèm. Bản cũ nhét tất cả vào một hàng `flex-wrap` nên trạng thái,
+                     mã phiếu và ô đính kèm quấn vào nhau mỗi màn một kiểu. */
                   <li
                     key={p.id}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)"
+                    className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)"
                   >
-                    <span className="text-sm font-medium text-text-primary">Lần {p.lanGiaoThu}</span>
-                    <span className="text-sm text-text-secondary">
-                      {new Date(p.ngayNhanThucTe).toLocaleDateString("vi-VN")}
-                    </span>
-                    <span className="text-xs text-text-desc">{p.code}</span>
-                    {p.soPhieuGiaoNCC && (
-                      <span className="text-xs text-text-desc">Phiếu NCC: {p.soPhieuGiaoNCC}</span>
-                    )}
-                    <StatusBadge label={tt.nhan} tone={tt.tong} className="ml-auto" />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="text-sm font-semibold text-text-primary">
+                        Lần {p.lanGiaoThu}
+                      </span>
+                      <span className="text-sm text-text-secondary">
+                        {new Date(p.ngayNhanThucTe).toLocaleDateString("vi-VN")}
+                      </span>
+                      <span className="text-xs text-text-desc">{p.code}</span>
+                      {p.soPhieuGiaoNCC && (
+                        <span className="text-xs text-text-desc">Phiếu NCC: {p.soPhieuGiaoNCC}</span>
+                      )}
+                      <StatusBadge label={tt.nhan} tone={tt.tong} className="ml-auto shrink-0" />
+                    </div>
 
                     {/* ---- Phiếu giao nhận của lần giao này ----
                         🔴 PHẢI CHO BỔ SUNG, không chỉ bắt buộc lúc ghi phiếu mới. Phiếu ghi
@@ -330,32 +337,34 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                         đó KẸT VĨNH VIỄN, không bao giờ bấm hoàn thành được.
                         Phiếu bị từ chối nhận thì không đòi — hàng trả về thì lấy đâu ra
                         phiếu giao nhận đã ký. */}
-                    {p.trangThai !== "tu_choi_nhan" && (
-                      <div className="w-full">
-                        {quyen.ghiPhieuNhanHang ? (
-                          <ODinhKemTep
-                            tep={p.tepPhieuGiao}
-                            nhanThem="Đính kèm phiếu giao nhận (bắt buộc)"
-                            batBuoc={!p.tepPhieuGiao}
-                            nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-                            onXong={(tep) => dinhKemPhieuGiao(p.id, tep, nguoiDung.tenHienThi)}
-                          />
-                        ) : p.tepPhieuGiao ? (
-                          <span className="flex items-center gap-1.5 text-xs text-success-soft">
-                            <Paperclip className="size-3.5 shrink-0" aria-hidden />
-                            Có phiếu giao nhận: {p.tepPhieuGiao.tenTep}
+                    {p.trangThai !== "tu_choi_nhan" &&
+                      (quyen.ghiPhieuNhanHang ? (
+                        <ODinhKemTep
+                          tep={p.tepPhieuGiao}
+                          nhanThem="Đính kèm phiếu giao nhận (bắt buộc)"
+                          batBuoc={!p.tepPhieuGiao}
+                          nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+                          onXong={(tep) => dinhKemPhieuGiao(p.id, tep, nguoiDung.tenHienThi)}
+                        />
+                      ) : p.tepPhieuGiao ? (
+                        // `min-w-0` + `truncate`: tên tệp ảnh chụp điện thoại dài cả trăm ký
+                        // tự, để nguyên là kéo giãn cả thẻ. Tên đầy đủ nằm ở `title`.
+                        <span className="flex items-center gap-1.5 text-xs text-success-soft">
+                          <Paperclip className="size-3.5 shrink-0" aria-hidden />
+                          <span className="shrink-0">Có phiếu giao nhận:</span>
+                          <span className="min-w-0 truncate" title={p.tepPhieuGiao.tenTep}>
+                            {rutGonTenTep(p.tepPhieuGiao.tenTep)}
                           </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-xs text-warning-soft">
-                            <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-                            Chưa có phiếu giao nhận đính kèm
-                          </span>
-                        )}
-                      </div>
-                    )}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-xs text-warning-soft">
+                          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+                          Chưa có phiếu giao nhận đính kèm
+                        </span>
+                      ))}
 
                     {p.ghiChuTinhTrangHang && (
-                      <p className="w-full text-xs text-warning-soft">{p.ghiChuTinhTrangHang}</p>
+                      <p className="text-xs text-warning-soft">{p.ghiChuTinhTrangHang}</p>
                     )}
                   </li>
                 );

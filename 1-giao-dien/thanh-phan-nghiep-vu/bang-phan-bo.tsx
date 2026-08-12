@@ -21,6 +21,7 @@ import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { NGUONG } from "@/2-quy-trinh/nguong-gia-tri";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { coLocTheoPhanViec, sttDongDuocXem } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -123,10 +124,20 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const [soBaoGia, setSoBaoGia] = useState("");
   const [ghiChu, setGhiChu] = useState("");
 
-  const tienDo = useMemo(
-    () => tinhTienDoDeNghi(deNghi, donHang, phieuNhan),
-    [deNghi, donHang, phieuNhan],
-  );
+  /**
+   * 🔴 CHỈ HIỆN DÒNG ĐƯỢC GIAO — Ban lãnh đạo 12/08/2026: *"chỉ cần hiện công việc được
+   * phân công, không cần hiển thị toàn bộ danh mục request"*.
+   *
+   * Trưởng bộ phận (`xemMoiHoSo`) vẫn thấy hết để phân bổ; nhân viên chỉ thấy phần mình.
+   * Luật ở `4-phan-quyen/quyen-theo-ho-so.ts` → `sttDongDuocXem`, MỘT CHỖ DUY NHẤT.
+   */
+  const tienDo = useMemo(() => {
+    const tatCa = tinhTienDoDeNghi(deNghi, donHang, phieuNhan);
+    const duocXem = new Set(sttDongDuocXem(deNghi, nguoiDung.uid, quyen));
+    return tatCa.filter((d) => duocXem.has(d.stt));
+  }, [deNghi, donHang, phieuNhan, nguoiDung.uid, quyen]);
+
+  const biLoc = coLocTheoPhanViec(deNghi, nguoiDung.uid, quyen);
 
   const soChuaPhanBo = tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo").length;
   const soDaPhanChuaLenPO = tienDo.filter((d) => d.trangThaiDong === "da_phan_bo").length;
@@ -176,6 +187,16 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+        {/* 🔴 Nói RÕ là đang lọc. Giấu bớt dòng mà không báo thì người dùng tưởng đề nghị
+            chỉ có ngần ấy vật tư, hoặc tưởng app mất dữ liệu — rồi đi hỏi vòng quanh. */}
+        {biLoc && (
+          <p className="rounded-lg bg-primary-bg px-3 py-2 text-xs text-primary">
+            Đang chỉ hiện <strong>phần việc được giao cho bạn</strong> ({tienDo.length}/
+            {deNghi.items.length} dòng vật tư của đề nghị này). Các dòng còn lại do người khác
+            phụ trách.
+          </p>
+        )}
+
         {/* Tóm tắt cảnh báo */}
         <div className="flex flex-wrap items-center gap-3">
           {soChuaPhanBo > 0 ? (

@@ -39,7 +39,7 @@ async function moKetNoi() {
   const app = await moFirebase();
   if (!app) return null;
   const { getFirestore, doc, onSnapshot, setDoc } = await import("firebase/firestore");
-  return { db: getFirestore(app), doc, onSnapshot, setDoc };
+  return { app, db: getFirestore(app), doc, onSnapshot, setDoc };
 }
 
 /** Lọc từng mảng — bản trên máy chủ có thể thiếu mảng mới thêm sau này. */
@@ -94,20 +94,53 @@ export async function noiKhoChung(
   try {
     const kn = await moKetNoi();
     if (!kn) return null;
-    const { db, doc, onSnapshot, setDoc } = kn;
+    const { db, doc, onSnapshot, setDoc, app } = kn;
     const tep = doc(db, DUONG_DAN.boSuuTap, DUONG_DAN.tep);
 
-    const huy = onSnapshot(
-      tep,
-      (anh) => {
-        const du = anh.data() as Partial<DuLieuLuu> | undefined;
-        khiCoDuLieu(du ? chuanHoa(du) : null);
-      },
-      (e) => khiLoi?.(e),
-    );
+    /**
+     * 🔴 PHẢI CHỜ FIREBASE AUTH ỔN ĐỊNH RỒI MỚI LẮNG NGHE — đừng bỏ đoạn này.
+     *
+     * Security Rules từ 12/08/2026 đòi phải đăng nhập mới đọc được. Mà Firebase Auth
+     * khôi phục phiên cũ theo kiểu **bất đồng bộ** (đọc từ bộ nhớ trình duyệt), trong khi
+     * `DuLieuProvider` nối kho chung NGAY lúc mở app. Lắng nghe luôn thì lần gọi đầu tiên
+     * đi khi chưa có danh tính → máy chủ trả "không có quyền" → app hiện cảnh báo
+     * "Chưa nối kho chung" dù người dùng đã đăng nhập đàng hoàng.
+     *
+     * ⚠️ Triệu chứng rất dễ đổ nhầm cho rules: mọi thứ trên máy chủ đều đúng, kiểm bằng
+     * REST cũng đúng, chỉ app là sai — vì lỗi nằm ở THỨ TỰ chứ không ở quyền. Đã dính
+     * thật ngày 12/08/2026, ngay sau khi siết rules.
+     *
+     * `onAuthStateChanged` cũng bắn khi ĐỔI người đăng nhập, nên nó lo luôn việc gắn lại
+     * kết nối sau khi đăng nhập / đăng xuất — không cần tải lại trang.
+     */
+    const { getAuth, onAuthStateChanged } = await import("firebase/auth");
+    const auth = getAuth(app);
+
+    let huyNghe: (() => void) | null = null;
+
+    const nghe = () => {
+      huyNghe = onSnapshot(
+        tep,
+        (anh) => {
+          const du = anh.data() as Partial<DuLieuLuu> | undefined;
+          khiCoDuLieu(du ? chuanHoa(du) : null);
+        },
+        (e) => khiLoi?.(e),
+      );
+    };
+
+    const huyAuth = onAuthStateChanged(auth, () => {
+      // Gỡ kết nối cũ trước: giữ lại là còn một kết nối chạy bằng danh tính đã hết hiệu lực.
+      huyNghe?.();
+      huyNghe = null;
+      nghe();
+    });
 
     return {
-      dong: huy,
+      dong: () => {
+        huyNghe?.();
+        huyAuth();
+      },
       day: async (d) => {
         // `merge: false` — ghi đè cả document. Đúng ý: đây là ảnh chụp toàn bộ kho.
         await setDoc(tep, bo0Undefined(d));

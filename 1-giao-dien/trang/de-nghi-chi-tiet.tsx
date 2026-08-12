@@ -21,6 +21,7 @@ import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
+import { KhoiDuyetBoPhan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-duyet-bo-phan";
 import { HopNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-cong-tac";
 import { useNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/dung-nhan-cong-tac";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
@@ -46,7 +47,11 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
-import { vuongMacSangBuocSau, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import {
+  daNhanCongTacDeNghi,
+  vuongMacSangBuocSau,
+  xacDinhGiaiDoan,
+} from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   NHAN_PHONG_BAN_NGUON,
   NHAN_TRANG_THAI_BAO_GIA,
@@ -166,6 +171,17 @@ export default function TrangChiTietDeNghi() {
   const tbChoNhan = nhanViec.thongBaoChoNhan(dn.id);
   const tbDaNhan = thongBao.find((t) => t.prId === dn.id && t.tiepNhan);
 
+  /**
+   * 🔴 Ban lãnh đạo 12/08/2026: *"trưởng phòng đã giao việc rồi sao còn hiển thị mục này"*.
+   *
+   * Mỗi lần đề nghị chuyển bước là sinh một thông báo mới CHƯA có người nhận, nên
+   * `tbChoNhan` gần như luôn khác rỗng và nút "Nhận công tác" hiện lại — ngay bên dưới
+   * dòng chữ "… đã nhận công tác" của chính người đó. Nhìn vào rất khó hiểu.
+   *
+   * Luật dùng CHUNG với chuông thông báo: đã tiếp quản đề nghị này rồi thì thôi hỏi lại.
+   */
+  const toiDaNhanDeNghiNay = daNhanCongTacDeNghi(thongBao, dn.id, nguoiDung.uid);
+
   return (
     <>
       {/* NÚT QUAY LẠI — chỉ đạo Ban lãnh đạo 10/08/2026. Breadcrumb ở dưới vẫn còn,
@@ -230,6 +246,10 @@ export default function TrangChiTietDeNghi() {
 
           {/* Người theo dõi — chọn từ danh bạ nhân sự công ty, xem `khoi-nguoi-theo-doi.tsx`.
               Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
+          {/* Khối duyệt đặt TRÊN mọi khối nghiệp vụ khác: chưa duyệt thì những khối dưới
+              (phân bổ, báo giá, đơn hàng) đều chưa tới lượt — người đọc phải thấy điều đó
+              đầu tiên. */}
+          <KhoiDuyetBoPhan deNghi={dn} />
           <KhoiNguoiTheoDoi deNghi={dn} />
 
       {/* Timeline tổng */}
@@ -378,7 +398,7 @@ export default function TrangChiTietDeNghi() {
 
                     Luật "ai được nhận" và hệ quả (tự chuyển bước ①→②) dùng CHUNG hook
                     `useNhanCongTac` với hai chỗ kia. */}
-                {tbChoNhan && nhanViec.coTheNhan(dn.id) && (
+                {tbChoNhan && !toiDaNhanDeNghiNay && nhanViec.coTheNhan(dn.id) && (
                   <Button
                     size="sm"
                     className="w-full"

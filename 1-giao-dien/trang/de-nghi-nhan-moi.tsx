@@ -13,10 +13,11 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import {
   NHAN_PHONG_BAN,
-  nhanSuDangLamViec,
   timNhanSu,
   type NhanSu,
 } from "@/3-du-lieu/danh-ba-nhan-su";
+import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 
 /**
  * CÔNG CỤ GIẢ LẬP — nhận một đề nghị mua hàng đã duyệt từ Phòng Thi công.
@@ -61,12 +62,15 @@ function congNgay(soNgay: number): string {
 export default function TrangNhanDeNghiMoi() {
   const router = useRouter();
   const { deNghi, themDeNghiGiaLap } = useDuLieu();
+  const { nguoiDung, quyen } = useNguoiDung();
+  /** 🔴 Danh bạ đọc từ TÀI KHOẢN THẬT, không phải mảng mẫu — xem `dung-danh-ba.ts`. */
+  const danhBa = useDanhBa();
 
   const [maDuAn, setMaDuAn] = useState("");
   const [tenCongTrinh, setTenCongTrinh] = useState("");
   const [maHopDongCDT, setMaHopDongCDT] = useState("");
   const [tieuDe, setTieuDe] = useState("");
-  const [nguoiDeNghiTen, setNguoiDeNghiTen] = useState("Phạm Văn F");
+  const [nguoiDeNghiTen, setNguoiDeNghiTen] = useState(nguoiDung.tenHienThi);
   const [ngayDeNghi, setNgayDeNghi] = useState(homNay);
   const [ngayDuyet, setNgayDuyet] = useState(homNay);
   const [ngayCanHang, setNgayCanHang] = useState("");
@@ -113,7 +117,7 @@ export default function TrangNhanDeNghiMoi() {
     setTenCongTrinh(mau?.tenCongTrinh ?? "Nhà xưởng ABC — Giai đoạn 2");
     setMaHopDongCDT(mau?.maHopDongCDT ?? "");
     setTieuDe("Vật tư thử nghiệm — tạo lúc " + new Date().toLocaleTimeString("vi-VN"));
-    setNguoiDeNghiTen("Phạm Văn F");
+    setNguoiDeNghiTen(nguoiDung.tenHienThi);
     setNgayDeNghi(homNay());
     setNgayDuyet(homNay());
     setNgayCanHang(congNgay(10));
@@ -133,7 +137,7 @@ export default function TrangNhanDeNghiMoi() {
   /** Gợi ý người theo dõi — bỏ người đã chọn, gõ không dấu vẫn ra. Chỉ hiện khi đang gõ. */
   const goiYNguoi = useMemo(() => {
     if (timNguoi.trim() === "") return [];
-    const conLai = nhanSuDangLamViec().filter(
+    const conLai = danhBa.filter(
       (n) => !nguoiTheoDoi.some((x) => x.uid === n.uid),
     );
     return timNhanSu(conLai, timNguoi).slice(0, 6);
@@ -179,13 +183,13 @@ export default function TrangNhanDeNghiMoi() {
       setTenCongTrinh(n.tenCongTrinh ?? "");
       setMaHopDongCDT(n.maHopDongCDT ?? "");
       setTieuDe(n.tieuDe ?? "");
-      setNguoiDeNghiTen(n.nguoiDeNghiTen ?? "Phạm Văn F");
+      setNguoiDeNghiTen(n.nguoiDeNghiTen ?? nguoiDung.tenHienThi);
       setNgayDeNghi(n.ngayDeNghi ?? homNay());
       setNgayDuyet(n.ngayDuyet ?? homNay());
       setNgayCanHang(n.ngayCanHang ?? "");
       setGap(Boolean(n.gap));
       setDong(Array.isArray(n.dong) && n.dong.length > 0 ? n.dong : [{ ...DONG_TRONG }]);
-      const ds = nhanSuDangLamViec();
+      const ds = danhBa;
       setNguoiTheoDoi((n.nguoiTheoDoi ?? []).map((uid: string) => ds.find((x) => x.uid === uid)).filter(Boolean));
       toast.success("Đã mở bản nháp đã lưu");
     } catch {
@@ -199,7 +203,13 @@ export default function TrangNhanDeNghiMoi() {
       maHopDongCDT: maHopDongCDT.trim() || undefined,
       tenCongTrinh: tenCongTrinh.trim(),
       tieuDe: tieuDe.trim(),
-      nguoiDeNghiTen: nguoiDeNghiTen.trim() || "Phòng Thi công",
+      nguoiDeNghiTen: nguoiDeNghiTen.trim() || nguoiDung.tenHienThi,
+      // 🔴 Mã và chức danh lấy từ NGƯỜI ĐANG ĐĂNG NHẬP, không theo ô nhập tên: ô đó cho sửa
+      // tên hiển thị, nhưng danh tính trong hồ sơ phải là người thật đang bấm nút.
+      nguoiDeNghiUid: nguoiDung.uid,
+      nguoiDeNghiChucDanh: nguoiDung.chucDanh,
+      // Quản lý bộ phận tự lập thì duyệt luôn — xem `2-quy-trinh/duyet-bo-phan.ts`.
+      nguoiLapLaQuanLy: quyen.duyetDeNghiBoPhan,
       ngayDeNghi,
       ngayDuyet,
       ngayCanHang,

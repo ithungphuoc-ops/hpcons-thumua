@@ -78,13 +78,28 @@ export function ODinhKemTep({
   return (
     <div className="flex flex-col gap-1.5">
       {tep ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-success bg-success-bg p-(--hp-md-row-pad)">
+        /* Bố cục HAI DÒNG, nút neo bên phải và KHÔNG bao giờ xuống hàng.
+           🔴 Bản cũ để tất cả trên một hàng `flex-wrap`: gặp tên tệp dài (ảnh chụp từ điện
+           thoại có tên cả trăm ký tự) là tên chiếm trọn hàng, đẩy nút "Xem" xuống dòng
+           dưới, và `ml-auto` mất tác dụng — mỗi lần giao một kiểu cao thấp khác nhau. */
+        <div className="flex items-center gap-3 rounded-lg border border-success bg-success-bg p-(--hp-md-row-pad)">
           <Paperclip className="size-4 shrink-0 text-success-soft" aria-hidden />
-          <span className="text-sm font-medium text-text-primary">{tep.tenTep}</span>
-          <span className="text-xs text-text-desc">
-            {coTep(tep.kichThuoc)} · {tep.nguoiTaiTen} · {formatMocThoiGian(tep.thoiDiem)}
+
+          {/* `min-w-0` là bắt buộc để `truncate` bên trong hoạt động: mặc định ô flex
+              không co nhỏ hơn nội dung, nên thiếu nó thì chữ vẫn tràn ra. */}
+          <span className="flex min-w-0 flex-col">
+            <span
+              className="truncate text-sm font-medium text-text-primary"
+              title={tep.tenTep}
+            >
+              {rutGonTenTep(tep.tenTep)}
+            </span>
+            <span className="truncate text-xs text-text-desc">
+              {coTep(tep.kichThuoc)} · {tep.nguoiTaiTen} · {formatMocThoiGian(tep.thoiDiem)}
+            </span>
           </span>
-          <span className="ml-auto flex items-center gap-2">
+
+          <span className="ml-auto flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={xem}
@@ -141,12 +156,44 @@ export function ODinhKemTep({
         </label>
       )}
 
-      <p className="text-xs text-text-desc">
-        Nhận PDF, ảnh, Word, Excel · tối đa {CO_TOI_DA / 1024 / 1024}MB.{" "}
-        {/* ⚠️ Câu này là bắt buộc, không phải rườm rà — xem chú thích đầu file. */}
-        <strong>Bản chạy thử lưu tệp trong trình duyệt máy này</strong>, chưa đưa lên máy chủ nên
-        máy khác chưa mở xem được.
-      </p>
+      {/* ⚠️ HAI CÂU KHÁC NHAU CHO HAI TRẠNG THÁI, cố ý không dùng chung một câu dài.
+          Bản cũ luôn in cả đoạn hướng dẫn + cảnh báo, nên màn có 2–3 lần giao là đoạn đó
+          lặp lại 2–3 lần, dài hơn cả nội dung chính. Nay:
+            · Chưa có tệp → hướng dẫn định dạng và dung lượng (lúc này mới cần).
+            · Đã có tệp  → chỉ còn MỘT câu cảnh báo ngắn về chỗ lưu.
+          Vẫn giữ cảnh báo khi đã có tệp vì đó đúng là lúc người dùng dễ tưởng nhầm đã lưu
+          lên hệ thống — xem chú thích đầu file. */}
+      {tep ? (
+        <p className="flex items-start gap-1.5 text-xs text-text-desc">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning-soft" aria-hidden />
+          <span>Tệp đang nằm trong trình duyệt máy đã tải lên — máy khác chưa mở xem được.</span>
+        </p>
+      ) : (
+        <p className="text-xs text-text-desc">
+          Nhận PDF, ảnh, Word, Excel · tối đa {CO_TOI_DA / 1024 / 1024}MB. Bản chạy thử lưu tệp
+          trong trình duyệt máy này, máy khác chưa mở xem được.
+        </p>
+      )}
     </div>
   );
+}
+
+/**
+ * Rút gọn tên tệp quá dài, GIỮ LẠI PHẦN ĐUÔI.
+ *
+ * 🔴 Không dùng mỗi `truncate` của CSS: nó cắt cụt đuôi, mà đuôi mới là thứ cho biết đây là
+ * ảnh hay PDF — người duyệt hồ sơ cần biết đang mở loại tệp gì. Ảnh chụp từ điện thoại có
+ * tên kiểu `1785921223805_1967909016357413267_..._cf8460c5.jpg`, cắt cụt là mất luôn `.jpg`.
+ *
+ * Vẫn giữ `truncate` ở lớp CSS làm lưới an toàn cho màn hình rất hẹp.
+ * Tên đầy đủ nằm ở thuộc tính `title` — rê chuột là xem được.
+ */
+export function rutGonTenTep(ten: string, toiDa = 48): string {
+  if (ten.length <= toiDa) return ten;
+  const cham = ten.lastIndexOf(".");
+  // Không có đuôi, hoặc "đuôi" dài bất thường (không phải phần mở rộng thật) → cắt bình thường.
+  if (cham <= 0 || ten.length - cham > 8) return `${ten.slice(0, toiDa - 1)}…`;
+  const duoi = ten.slice(cham);
+  const dau = ten.slice(0, Math.max(1, toiDa - duoi.length - 1));
+  return `${dau}…${duoi}`;
 }

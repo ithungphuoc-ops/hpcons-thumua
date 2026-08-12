@@ -20,11 +20,11 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   NHAN_PHONG_BAN,
   THU_TU_PHONG_BAN,
-  nhanSuDangLamViec,
   timNhanSu,
   type MaPhongBan,
   type NhanSu,
 } from "@/3-du-lieu/danh-ba-nhan-su";
+import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import type { DeNghiMuaHang, NguoiTheoDoi } from "@/3-du-lieu/kieu-du-lieu";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 
@@ -41,6 +41,8 @@ import { formatDate } from "@/6-tien-ich/dinh-dang";
 export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const { themNguoiTheoDoi, boNguoiTheoDoi } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  /** 🔴 Danh bạ đọc từ TÀI KHOẢN THẬT, không phải mảng mẫu — xem `dung-danh-ba.ts`. */
+  const danhBa = useDanhBa();
   const [moHopChon, setMoHopChon] = useState(false);
 
   const dsTheoDoi = useMemo(() => deNghi.nguoiTheoDoi ?? [], [deNghi.nguoiTheoDoi]);
@@ -177,6 +179,8 @@ function HopChonNhanSu({
    * chưa đụng tới. Bấm "Lưu thay đổi" mới ghi (chỉ đạo Ban lãnh đạo 10/08/2026).
    */
   const [nhap, setNhap] = useState<MucNhap[]>([]);
+  /** 🔴 Danh bạ đọc từ TÀI KHOẢN THẬT — xem `4-phan-quyen/dung-danh-ba.ts`. */
+  const danhBa = useDanhBa();
 
   /**
    * Nạp lại nháp MỖI LẦN MỞ hộp, không phải mỗi lần `dangTheoDoi` đổi.
@@ -195,10 +199,10 @@ function HopChonNhanSu({
 
   /** Người đã có trong nháp thì không hiện lại ở danh bạ — tránh thêm trùng. */
   const ketQua = useMemo(() => {
-    const conLai = nhanSuDangLamViec().filter((n) => !uidNhap.includes(n.uid));
+    const conLai = danhBa.filter((n) => !uidNhap.includes(n.uid));
     return timNhanSu(conLai, tuKhoa);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tuKhoa, uidNhap.join(",")]);
+  }, [tuKhoa, uidNhap.join(","), danhBa]);
 
   // So với danh sách thật để hiện rõ "sẽ thêm ai / sẽ bỏ ai" trước khi lưu.
   const uidCu = dangTheoDoi.map((n) => n.uid);

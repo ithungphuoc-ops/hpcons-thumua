@@ -179,6 +179,68 @@ export function nguoiCanXuLy(deNghi: DeNghiMuaHang, buoc: GiaiDoanMuaHang): stri
   return ten.length > 0 ? ten : ["Chưa phân bổ người phụ trách"];
 }
 
+/** Nhãn `nguoiCanXuLy` trả về khi việc thuộc về trưởng bộ phận thu mua. */
+export const NHAN_TRUONG_BO_PHAN = "Trưởng bộ phận Thu mua";
+/** Nhãn khi chưa ai được phân bổ — việc vẫn thuộc trưởng bộ phận. */
+export const NHAN_CHUA_PHAN_BO = "Chưa phân bổ người phụ trách";
+
+/**
+ * THÔNG BÁO NÀY CÓ PHẢI GỬI CHO TÔI KHÔNG.
+ *
+ * 🔴 Chỉ đạo Ban lãnh đạo 12/08/2026: *"cấp trưởng phòng đã giao việc sao còn thấy thông
+ * báo này"*. Trước đó chuông hiện **toàn bộ** thông báo cho **mọi người**: trưởng phòng
+ * nhìn thấy tin gửi cho ba nhân viên, kèm nút "Nhận công tác" — bấm vào là giành mất việc
+ * của nhân viên và ghi tên mình vào nhật ký. Nhân viên cũng thấy tin của nhau.
+ *
+ * Luật:
+ *   · Tin ghi đích danh tên mình → của mình.
+ *   · Tin gửi "Trưởng bộ phận Thu mua" hoặc "Chưa phân bổ người phụ trách" → của người có
+ *     quyền phân bổ. Hai nhãn này là VAI TRÒ chứ không phải tên người, nên phải xét riêng.
+ *   · Tin không ghi người nhận (giai đoạn đã kết thúc) → tin chung, ai cũng xem được.
+ *
+ * ⚠️ So khớp bằng TÊN vì `guiToi` đang lưu tên, không lưu mã người. Đây là điểm yếu đã
+ * biết: hai người trùng tên sẽ thấy tin của nhau. Sửa tận gốc là lưu thêm mã người vào
+ * thông báo — việc còn lại, chưa làm vì phải chuyển đổi dữ liệu cũ.
+ */
+export function thongBaoDanhChoToi(
+  guiToi: string[],
+  tenToi: string,
+  laNguoiPhanBo: boolean,
+): boolean {
+  if (guiToi.length === 0) return true;
+  if (guiToi.includes(tenToi)) return true;
+  if (
+    laNguoiPhanBo &&
+    (guiToi.includes(NHAN_TRUONG_BO_PHAN) || guiToi.includes(NHAN_CHUA_PHAN_BO))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * NGƯỜI NÀY ĐÃ NHẬN CÔNG TÁC CHO ĐỀ NGHỊ NÀY CHƯA (ở bất kỳ bước nào).
+ *
+ * 🔴 Chỉ đạo Ban lãnh đạo 12/08/2026: *"đã nhận công tác nhưng ở đây vẫn còn thông báo"*.
+ *
+ * Nguyên nhân: mỗi lần đề nghị chuyển bước là sinh một thông báo mới kèm nút "Nhận công
+ * tác". Mà bước lại **suy ra từ chứng từ**, nên chính người đang làm việc cứ nhập liệu là
+ * bước tự nhảy — họ vừa bấm nhận xong đã bị hỏi nhận tiếp, bốn năm lần liên tiếp cho cùng
+ * một đề nghị. Hỏi mãi thì người ta bấm theo phản xạ, và hộp xác nhận mất hết tác dụng.
+ *
+ * "Nhận công tác" đúng nghĩa là **xác nhận tiếp quản việc từ người khác**. Đã tiếp quản
+ * rồi thì những bước sau là việc của chính mình, không phải bàn giao lần nữa.
+ *
+ * ⚠️ Người KHÁC vẫn bị hỏi bình thường — đó mới là bàn giao thật.
+ */
+export function daNhanCongTacDeNghi(
+  thongBao: { prId: string; tiepNhan?: { uid: string } }[],
+  prId: string,
+  uid: string,
+): boolean {
+  return thongBao.some((t) => t.prId === prId && t.tiepNhan?.uid === uid);
+}
+
 export interface TinhTrangTiepNhan {
   /** Đã có người bấm nhận công tác cho bước hiện tại chưa. */
   daNhan: boolean;

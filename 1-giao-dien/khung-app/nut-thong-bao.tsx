@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Check } from "lucide-react";
 import {
@@ -16,7 +17,12 @@ import { HopNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-cong
 import { useNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/dung-nhan-cong-tac";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { NHAN_GIAI_DOAN, type GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import {
+  NHAN_GIAI_DOAN,
+  daNhanCongTacDeNghi,
+  thongBaoDanhChoToi,
+  type GiaiDoanMuaHang,
+} from "@/2-quy-trinh/giai-doan-mua-hang";
 
 const nhanBuoc = (ma?: string) =>
   ma ? (NHAN_GIAI_DOAN[ma as GiaiDoanMuaHang]?.nhan ?? ma) : "";
@@ -33,10 +39,35 @@ const gioPhut = (iso: string) =>
  */
 export function NutThongBao() {
   const router = useRouter();
-  const { thongBao, danhDauDaDocThongBao } = useDuLieu();
-  const { quyen } = useNguoiDung();
+  const { thongBao: tatCaThongBao, danhDauDaDocThongBao } = useDuLieu();
+  const { quyen, nguoiDung } = useNguoiDung();
 
+  /**
+   * 🔴 CHỈ HIỆN THÔNG BÁO GỬI CHO MÌNH — Ban lãnh đạo 12/08/2026.
+   *
+   * Trước đây chuông đổ hết mọi thông báo cho mọi người: trưởng phòng thấy tin gửi cho
+   * ba nhân viên **kèm nút "Nhận công tác"**, bấm vào là giành mất việc của nhân viên và
+   * ghi tên mình vào nhật ký. Nhân viên cũng thấy việc của nhau.
+   *
+   * Luật ở `2-quy-trinh/giai-doan-mua-hang.ts` → `thongBaoDanhChoToi`, MỘT CHỖ DUY NHẤT.
+   */
+  const thongBao = useMemo(
+    () =>
+      tatCaThongBao.filter((t) =>
+        thongBaoDanhChoToi(t.guiToi, nguoiDung.tenHienThi, quyen.phanBoCongViec),
+      ),
+    [tatCaThongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec],
+  );
+
+  // ⚠️ Đếm trên danh sách ĐÃ LỌC. Đếm trên danh sách gốc thì chuông báo số đỏ cho những
+  // tin người dùng không bao giờ nhìn thấy — bấm vào không thấy gì, số không bao giờ hết.
   const chuaDoc = thongBao.filter((t) => !t.daDoc).length;
+
+  /** Đã tiếp quản đề nghị này rồi thì thôi hỏi nhận công tác ở từng bước sau. */
+  const daNhanRoi = useCallback(
+    (prId: string) => daNhanCongTacDeNghi(tatCaThongBao, prId, nguoiDung.uid),
+    [tatCaThongBao, nguoiDung.uid],
+  );
 
   /**
    * Nhận công tác — luật và hệ quả ở hook dùng chung `useNhanCongTac` (ba nơi bấm nhận:
@@ -47,7 +78,8 @@ export function NutThongBao() {
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        if (open) danhDauDaDocThongBao();
+        // Chỉ đánh dấu đã đọc những tin CỦA MÌNH — xem ghi chú ở `danhDauDaDocThongBao`.
+        if (open) danhDauDaDocThongBao(thongBao.map((t) => t.id));
       }}
     >
       <DropdownMenuTrigger
@@ -83,7 +115,8 @@ export function NutThongBao() {
 
           {thongBao.length === 0 ? (
             <p className="px-2 py-5 text-center text-xs text-text-desc">
-              Chưa có thông báo nào. Kéo một thẻ trên bảng quy trình sang bước kế tiếp để thử.
+              Chưa có thông báo nào gửi cho bạn. Chuông chỉ hiện việc giao cho bạn, không hiện
+              việc của người khác.
             </p>
           ) : (
             thongBao.slice(0, 8).map((tb) => (
@@ -118,6 +151,13 @@ export function NutThongBao() {
                     <span className="inline-flex items-center gap-1 text-[11px] font-medium text-success-soft">
                       <Check className="size-3.5 shrink-0" aria-hidden />
                       {tb.tiepNhan.ten} đã nhận công tác lúc {gioPhut(tb.tiepNhan.thoiDiem)}
+                    </span>
+                  ) : daNhanRoi(tb.prId) ? (
+                    /* Đã tiếp quản đề nghị này từ trước → không hỏi nhận lại ở mỗi bước.
+                       Xem `daNhanCongTacDeNghi` trong 2-quy-trinh/giai-doan-mua-hang.ts. */
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-success-soft">
+                      <Check className="size-3.5 shrink-0" aria-hidden />
+                      Bạn đang phụ trách đề nghị này
                     </span>
                   ) : quyen.lapPO && nhanViec.lyDoKhongNhan(tb) === null ? (
                     <Button

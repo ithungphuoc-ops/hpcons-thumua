@@ -77,6 +77,15 @@ export interface DauVaoDeNghiGiaLap {
   tenCongTrinh: string;
   tieuDe: string;
   nguoiDeNghiTen: string;
+  /** Mã nghiệp vụ của người lập — để màn "Theo dõi đề nghị" lọc đúng phiếu của họ. */
+  nguoiDeNghiUid: string;
+  nguoiDeNghiChucDanh: string;
+  /**
+   * Người lập có phải quản lý bộ phận không (`quyen.duyetDeNghiBoPhan`).
+   * `true` → phiếu duyệt luôn. `false` → chờ quản lý bộ phận duyệt.
+   * Xem `2-quy-trinh/duyet-bo-phan.ts`.
+   */
+  nguoiLapLaQuanLy: boolean;
   ngayDeNghi: string;
   ngayDuyet: string;
   ngayCanHang: string;
@@ -235,9 +244,18 @@ interface GiaTriDuLieu {
   /** Thông báo chuyển bước, mới nhất đứng đầu (tự sinh khi đề nghị đổi bước). */
   thongBao: ThongBaoChuyenBuoc[];
   /** Đánh dấu toàn bộ thông báo là đã đọc — gọi khi người dùng mở chuông. */
-  danhDauDaDocThongBao: () => void;
+  /** Đánh dấu đã đọc CHỈ các thông báo có mã trong danh sách — xem ghi chú ở hàm. */
+  danhDauDaDocThongBao: (ids: string[]) => void;
   /** Bấm "Nhận công tác": ghi người tiếp nhận vào thông báo + nhật ký đề nghị. */
   nhanCongTac: (thongBaoId: string, nguoi: { uid: string; ten: string }) => void;
+  /**
+   * Quản lý bộ phận duyệt đề nghị do người trong bộ phận lập — Ban lãnh đạo 12/08/2026.
+   * Duyệt xong Thu mua mới thấy phiếu trên bảng quy trình.
+   */
+  duyetDeNghiCuaBoPhan: (
+    prId: string,
+    nguoi: { uid: string; ten: string; chucDanh: string },
+  ) => void;
   /**
    * Xóa sạch dữ liệu chạy thử rồi tải lại app. Chỉ dùng khi chạy thử.
    * ⚠️ Xóa cả trên kho chung → **mọi người đều mất**, không riêng máy đang bấm.
@@ -425,6 +443,34 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     dayLenMayChu(d);
   }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, dayLenMayChu]);
 
+  const duyetDeNghiCuaBoPhan = useCallback(
+    (prId: string, nguoi: { uid: string; ten: string; chucDanh: string }) => {
+      const luc = thoiDiemHienTai();
+      setDeNghi((truoc) =>
+        truoc.map((dn) =>
+          dn.id !== prId
+            ? dn
+            : {
+                ...dn,
+                duyetBoPhan: { ...nguoi, thoiDiem: luc },
+                // Điền luôn `ngayDuyet` cho khớp với hồ sơ nhận từ HPcore: nhiều chỗ trong
+                // app (bảng quy trình, tính "còn N ngày") đọc trường này.
+                ngayDuyet: dn.ngayDuyet || luc.slice(0, 10),
+                lichSu: [
+                  ...dn.lichSu,
+                  {
+                    thoiDiem: luc,
+                    nguoiThucHien: nguoi.ten,
+                    hanhDong: `Duyệt đề nghị (${nguoi.chucDanh})`,
+                  },
+                ],
+              },
+        ),
+      );
+    },
+    [],
+  );
+
   const xoaDuLieuChayThu = useCallback(async () => {
     // 🔴 Từ 12/08/2026 dữ liệu nằm trên máy chủ dùng chung, nên xóa là XÓA CỦA CẢ PHÒNG.
     // Phải dọn kho chung TRƯỚC rồi mới tải lại trang: nếu chỉ xóa bản trên máy, lần
@@ -569,10 +615,21 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       tieuDe: dauVao.tieuDe,
       // Ver 1 chỉ nhận đề nghị từ Phòng Thi công (chỉ đạo Ban lãnh đạo 05/08/2026).
       phongBanNguon: "thi_cong",
-      nguoiDeNghiUid: "u-tc",
+      /**
+       * 🔴 LẤY MÃ NGƯỜI ĐANG ĐĂNG NHẬP, không gán cứng nữa.
+       *
+       * Trước 12/08/2026 mọi đề nghị đều ghi `nguoiDeNghiUid: "u-tc"` — nghĩa là dù ai lập
+       * thì hồ sơ cũng ghi tên một người duy nhất. Hậu quả: màn "Theo dõi đề nghị" lọc theo
+       * mã người nên **người thật lập phiếu lại không thấy phiếu của mình**, còn quyền
+       * "chỉ xem request mình đề xuất" thì vô nghĩa vì ai cũng là `u-tc`.
+       */
+      nguoiDeNghiUid: dauVao.nguoiDeNghiUid,
       nguoiDeNghiTen: dauVao.nguoiDeNghiTen,
       ngayDeNghi: dauVao.ngayDeNghi,
-      ngayDuyet: dauVao.ngayDuyet,
+      // ⚠️ `ngayDuyet` để TRỐNG khi chưa có quản lý duyệt. `daDuyetBoPhan()` coi
+      // "có ngayDuyet" là đã duyệt (để dữ liệu cũ không biến mất), nên điền sẵn ngày ở đây
+      // sẽ khiến phiếu chưa duyệt vẫn lọt sang Thu mua — đúng thứ Ban lãnh đạo muốn chặn.
+      ngayDuyet: dauVao.nguoiLapLaQuanLy ? dauVao.ngayDuyet : "",
       ngayCanHang: dauVao.ngayCanHang,
       mucDoUuTien: dauVao.mucDoUuTien,
       // Đề nghị vào app luôn ở trạng thái ĐÃ DUYỆT — app Thu mua không duyệt đề nghị.
@@ -582,30 +639,50 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       // rồi tới những người được chọn thêm ở mục "Người theo dõi" của phiếu.
       nguoiTheoDoi: [
         {
-          uid: "u-tc",
+          uid: dauVao.nguoiDeNghiUid,
           ten: dauVao.nguoiDeNghiTen,
-          chucDanh: "Chỉ huy trưởng công trình",
+          chucDanh: dauVao.nguoiDeNghiChucDanh,
           nguoiThemTen: dauVao.nguoiDeNghiTen,
           thoiDiemThem: dauVao.ngayDeNghi,
         },
         ...(dauVao.nguoiTheoDoi ?? [])
           // Bỏ trùng với người đề nghị đã thêm ở trên.
-          .filter((n) => n.uid !== "u-tc")
+          .filter((n) => n.uid !== dauVao.nguoiDeNghiUid)
           .map((n) => ({
             ...n,
             nguoiThemTen: dauVao.nguoiDeNghiTen,
             thoiDiemThem: dauVao.ngayDeNghi,
           })),
       ],
+      /**
+       * ★ DUYỆT CỦA QUẢN LÝ BỘ PHẬN — Ban lãnh đạo 12/08/2026.
+       *
+       * Người lập MÀ CHÍNH LÀ quản lý bộ phận thì phiếu được duyệt ngay: bắt họ tự bấm
+       * duyệt phiếu của mình là thao tác vô nghĩa, mà `lyDoKhongDuyetDuoc` lại chặn không
+       * cho tự duyệt — để trống là phiếu **kẹt vĩnh viễn**, không ai duyệt được.
+       * Người lập không phải quản lý → để trống, chờ quản lý bộ phận duyệt.
+       */
+      duyetBoPhan: dauVao.nguoiLapLaQuanLy
+        ? {
+            uid: dauVao.nguoiDeNghiUid,
+            ten: dauVao.nguoiDeNghiTen,
+            chucDanh: dauVao.nguoiDeNghiChucDanh,
+            thoiDiem: thoiDiemHienTai(),
+          }
+        : undefined,
       lichSu: [
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },
-        { thoiDiem: dauVao.ngayDuyet, nguoiThucHien: "Ban chỉ huy", hanhDong: "Duyệt đề nghị" },
-        {
-          thoiDiem: thoiDiemHienTai(),
-          nguoiThucHien: "HPcore",
-          hanhDong: "Chuyển sang Phòng Thu mua",
-          ghiChu: "Bản chạy thử: đề nghị này do công cụ giả lập tạo ra",
-        },
+        dauVao.nguoiLapLaQuanLy
+          ? {
+              thoiDiem: thoiDiemHienTai(),
+              nguoiThucHien: dauVao.nguoiDeNghiTen,
+              hanhDong: "Duyệt đề nghị (quản lý bộ phận tự lập nên duyệt luôn)",
+            }
+          : {
+              thoiDiem: thoiDiemHienTai(),
+              nguoiThucHien: dauVao.nguoiDeNghiTen,
+              hanhDong: "Gửi quản lý bộ phận duyệt",
+            },
       ],
     };
 
@@ -1139,9 +1216,26 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [ghiLichSuDeNghi],
   );
 
-  const danhDauDaDocThongBao = useCallback(() => {
+  /**
+   * Đánh dấu đã đọc — CHỈ những thông báo được nêu đích danh.
+   *
+   * 🔴 Từ 12/08/2026 dữ liệu nằm trên kho DÙNG CHUNG, nên `daDoc` là của cả phòng chứ
+   * không riêng ai. Bản cũ đánh dấu TẤT CẢ: trưởng phòng mở chuông một cái là **xóa sạch
+   * chấm đỏ của mọi nhân viên**, việc mới giao không ai còn thấy nổi bật nữa.
+   *
+   * Nay nơi gọi phải truyền đúng danh sách mình nhìn thấy.
+   *
+   * ⚠️ Đây mới là giảm nhẹ, chưa phải cách đúng hẳn: hai người cùng nhận một thông báo thì
+   * người mở trước vẫn tắt chấm đỏ của người kia. Muốn dứt điểm phải lưu "đã đọc" theo
+   * TỪNG NGƯỜI (`daDocBoi: string[]`) — việc còn lại, phải chuyển đổi dữ liệu cũ.
+   */
+  const danhDauDaDocThongBao = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const bo = new Set(ids);
     setThongBao((truoc) =>
-      truoc.some((t) => !t.daDoc) ? truoc.map((t) => (t.daDoc ? t : { ...t, daDoc: true })) : truoc,
+      truoc.some((t) => !t.daDoc && bo.has(t.id))
+        ? truoc.map((t) => (t.daDoc || !bo.has(t.id) ? t : { ...t, daDoc: true }))
+        : truoc,
     );
   }, []);
 
@@ -1534,6 +1628,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       thongBao,
       danhDauDaDocThongBao,
       nhanCongTac,
+      duyetDeNghiCuaBoPhan,
       xoaDuLieuChayThu,
       trangThaiKhoChung,
     }),
@@ -1573,6 +1668,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       thongBao,
       danhDauDaDocThongBao,
       nhanCongTac,
+      duyetDeNghiCuaBoPhan,
       xoaDuLieuChayThu,
       trangThaiKhoChung,
     ],

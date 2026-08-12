@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  FilePlus2,
   FileText,
   Eye,
   Wallet,
@@ -84,7 +85,30 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     nhanNgan: "Quy trình",
     href: "/de-nghi",
     icon: FileText,
-    duocThay: (q) => q.xemMoiHoSo || q.lapPO || q.phanBoCongViec,
+    // 🔴 Ban lãnh đạo 12/08/2026: *"cho tài khoản thủ kho được thấy quy trình thu mua, để
+    // biết request đang ở bước nào"*. Thủ kho phải chuẩn bị mặt bằng và nhân công nhận
+    // hàng, nên cần biết đơn sắp về hay còn đang đi hỏi giá — `ghiPhieuNhanHang` nhận diện
+    // đúng vai đó.
+    // ⚠️ Bảng quy trình KHÔNG lộ giá cho họ: mọi chỗ hiện tiền đều đã kiểm `quyen.xemGia`,
+    // mà thủ kho không có quyền đó. Mở lối vào màn hình khác với mở quyền xem giá.
+    duocThay: (q) => q.xemMoiHoSo || q.lapPO || q.phanBoCongViec || q.ghiPhieuNhanHang,
+  },
+  {
+    /**
+     * 🔴 Ban lãnh đạo 12/08/2026: *"Thêm chức năng tạo đề nghị cho Tô Trọng Hoài"*.
+     *
+     * Trước đó màn này CÓ SẴN nhưng **không có lối vào nào từ menu** — chỉ vào được bằng
+     * nút trên trang `/de-nghi`, mà trang đó lại chỉ hiện cho người làm thu mua. Kỹ sư hiện
+     * trường đăng nhập vào thấy menu 4 mục, không có đường nào đề xuất vật tư.
+     *
+     * ⚠️ Đặt TRƯỚC "Theo dõi đề nghị" là cố ý: với Phòng Thi công, việc đầu tiên là *gửi
+     * đề nghị*, việc thứ hai mới là *theo dõi nó tới đâu*. Đúng thứ tự họ làm.
+     */
+    nhan: "Tạo đề nghị mua hàng",
+    nhanNgan: "Tạo mới",
+    href: "/de-nghi/nhan-moi",
+    icon: FilePlus2,
+    duocThay: (q) => q.taoDeNghi,
   },
   {
     nhan: "Theo dõi đề nghị",

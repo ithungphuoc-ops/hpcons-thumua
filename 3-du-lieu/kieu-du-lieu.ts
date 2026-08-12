@@ -117,6 +117,27 @@ export interface DeNghiMuaHang {
   /** Người được thêm vào để nắm tiến trình. Trống = chưa có ai theo dõi. */
   nguoiTheoDoi?: NguoiTheoDoi[];
   /**
+   * ★ DUYỆT CỦA QUẢN LÝ BỘ PHẬN ĐỀ XUẤT — Ban lãnh đạo 12/08/2026:
+   * *"đề nghị có thêm mục duyệt bởi quản lý bộ phận thi công"*.
+   *
+   * Kỹ sư hiện trường đề xuất → trưởng phòng bộ phận đó duyệt → Thu mua mới nhận việc.
+   * Trống = **CHƯA DUYỆT**, đề nghị còn nằm ở bộ phận đề xuất.
+   *
+   * 🔴 DỮ LIỆU CŨ KHÔNG CÓ TRƯỜNG NÀY. Nếu coi "trống = chưa duyệt" một cách máy móc thì
+   * toàn bộ đề nghị lập trước 12/08/2026 **biến mất khỏi bảng quy trình của Thu mua** —
+   * việc đang chạy dở tự nhiên mất tăm. Nên luật đọc phải là:
+   *   · có `duyetBoPhan`     → đã duyệt
+   *   · có `ngayDuyet` (cũ)  → coi như đã duyệt từ trước, giữ nguyên hiện trạng
+   * Xem `2-quy-trinh/duyet-bo-phan.ts` — luật ở MỘT CHỖ, đừng tự kiểm ở giao diện.
+   */
+  duyetBoPhan?: {
+    uid: string;
+    ten: string;
+    chucDanh: string;
+    /** ISO đầy đủ giờ phút. */
+    thoiDiem: string;
+  };
+  /**
    * ★ ĐÃ LƯU TRỮ — ẩn khỏi bảng quy trình nhưng KHÔNG xóa dữ liệu.
    *
    * Chỉ đạo Ban lãnh đạo 10/08/2026 (menu ⋯ theo Base.vn). Khác "Đóng dở" (`dong_do`):

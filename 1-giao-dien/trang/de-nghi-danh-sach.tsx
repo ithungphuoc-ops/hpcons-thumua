@@ -34,6 +34,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+import { locDaDuyet } from "@/2-quy-trinh/duyet-bo-phan";
 import {
   dungBangQuyTrinh,
   dungXacNhanKeoTha,
@@ -141,9 +142,22 @@ export default function TrangDanhSachDeNghi() {
   } | null>(null);
   const [moHopXacNhan, setMoHopXacNhan] = useState(false);
 
+  /**
+   * 🔴 CHỈ HIỆN PHIẾU ĐÃ ĐƯỢC QUẢN LÝ BỘ PHẬN DUYỆT — Ban lãnh đạo 12/08/2026.
+   *
+   * Kể từ khi mọi tài khoản đều lập được đề nghị, bảng quy trình của Thu mua sẽ ngập cả
+   * những phiếu cấp trên chưa gật đầu. Lọc ngay tại nguồn để mọi khối bên dưới (bảng 8 cột,
+   * thẻ, đếm số) dùng chung một danh sách — lọc lắt nhắt ở từng khối là chỗ này thấy chỗ
+   * kia không.
+   *
+   * Luật ở `2-quy-trinh/duyet-bo-phan.ts`; phiếu cũ chưa có trường duyệt vẫn được tính là
+   * đã duyệt để không biến mất khỏi bảng.
+   */
+  const deNghiDaDuyet = useMemo(() => locDaDuyet(deNghi), [deNghi]);
+
   const danhSach = useMemo(
     () =>
-      deNghi.map((dn) => {
+      deNghiDaDuyet.map((dn) => {
         const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
         return {
           dn,
@@ -151,12 +165,12 @@ export default function TrangDanhSachDeNghi() {
           soChuaPhanBo: tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo").length,
         };
       }),
-    [deNghi, donHang, phieuNhan],
+    [deNghiDaDuyet, donHang, phieuNhan],
   );
 
   const cot = useMemo(
-    () => dungBangQuyTrinh(deNghi, donHang, baoGia, phieuNhan),
-    [deNghi, donHang, baoGia, phieuNhan],
+    () => dungBangQuyTrinh(deNghiDaDuyet, donHang, baoGia, phieuNhan),
+    [deNghiDaDuyet, donHang, baoGia, phieuNhan],
   );
 
   // Thông báo MỚI NHẤT của từng đề nghị (mảng đã xếp mới nhất đứng đầu) —

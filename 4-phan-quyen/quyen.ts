@@ -63,6 +63,32 @@ export interface Quyen {
   xemNguoiPhuTrach: boolean;
   /** Trưởng bộ phận phân bổ dòng đề nghị cho nhân viên. */
   phanBoCongViec: boolean;
+  /**
+   * Lập đề nghị mua hàng mới.
+   *
+   * 🔴 Ban lãnh đạo 12/08/2026, HAI chỉ đạo nối tiếp:
+   *   ① *"Thêm chức năng tạo đề nghị cho Tô Trọng Hoài"* (kỹ sư hiện trường)
+   *   ② *"chức năng đề nghị này hãy tạo cho TOÀN BỘ các tài khoản hiện có"*
+   *
+   * Nên: **mọi tài khoản vào được app đều lập được đề nghị**.
+   *
+   * ⚠️ Ban đầu bản này chỉ mở cho Phòng Thi công và QLDA, với lập luận "đề nghị là việc
+   * của bên có nhu cầu, thu mua tự đề nghị rồi tự đi mua là mất khâu kiểm soát". Ban lãnh
+   * đạo quyết định mở cho tất cả — ghi lại đây để người sau biết đó là **lựa chọn có chủ
+   * đích**, không phải sơ suất, và đừng tự siết lại.
+   *
+   * 📌 Khâu kiểm soát KHÔNG mất, nó chuyển sang chỗ khác: mọi đề nghị đều phải qua
+   * `duyetDeNghiBoPhan` mới sang được Thu mua, và không ai tự duyệt phiếu của mình.
+   */
+  taoDeNghi: boolean;
+  /**
+   * Duyệt đề nghị do người trong bộ phận mình lập, trước khi chuyển sang Thu mua.
+   *
+   * 🔴 Ban lãnh đạo 12/08/2026: *"đề nghị có thêm mục duyệt bởi quản lý bộ phận thi công"*.
+   * Kỹ sư đề xuất → trưởng phòng thi công duyệt → Thu mua mới thấy. Không duyệt thì đề nghị
+   * nằm ở bộ phận đề xuất, Thu mua không phải xử lý phiếu chưa được cấp trên gật đầu.
+   */
+  duyetDeNghiBoPhan: boolean;
   lapPO: boolean;
   suaPODaChot: boolean;
   /** Thủ kho lập phiếu nhận hàng từng lần. */
@@ -107,6 +133,7 @@ export function tinhQuyen(u: NguoiDung): Quyen {
   const laThuKho = u.chucNang === "thu_kho_cong_trinh";
   const laQLDA = u.chucNang === "qlda";
   const laKeToan = u.chucNang === "ke_toan";
+  const laThiCong = u.chucNang === "phong_thi_cong";
 
   return {
     xemDuocApp: capTM >= 1,
@@ -118,6 +145,27 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     xemNguoiPhuTrach: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laQLDA || laKeToan,
 
     phanBoCongViec: laQuanTri || (laTruongBP && capTM >= 3),
+
+    // MỌI tài khoản vào được app đều lập được đề nghị — chỉ đạo Ban lãnh đạo 12/08/2026.
+    // Xem chú thích đầy đủ ở khai báo `taoDeNghi`.
+    taoDeNghi: capTM >= 1,
+
+    /**
+     * Duyệt đề nghị của bộ phận mình.
+     *
+     * Ai được duyệt:
+     *   · Quản trị
+     *   · Trưởng bộ phận Thu mua (đã có `phanBoCongViec`)
+     *   · Quản lý Phòng Thi công / QLDA — nhận diện bằng `capTM >= 2`
+     *
+     * ⚠️ MƯỢN CẤP QUYỀN LÀM DẤU HIỆU CHỨC VỤ, đây là cách TẠM. Cấu trúc `users/{uid}` của
+     * App Tổng chưa có trường "chức vụ", nên trưởng phòng thi công được cấp `capTM: 2` còn
+     * kỹ sư và chỉ huy trưởng để `capTM: 1`. Cách này dễ sai khi có người cấp 2 mà không
+     * phải trưởng phòng.
+     * 📌 VIỆC CÒN LẠI: xin App Tổng bổ sung trường chức vụ rồi đổi điều kiện này.
+     */
+    duyetDeNghiBoPhan:
+      laQuanTri || (laTruongBP && capTM >= 3) || ((laThiCong || laQLDA) && capTM >= 2),
     lapPO: laQuanTri || ((laTruongBP || laNhanVienTM) && capTM >= 2),
     suaPODaChot: laQuanTri || (laTruongBP && capTM >= 3),
 
