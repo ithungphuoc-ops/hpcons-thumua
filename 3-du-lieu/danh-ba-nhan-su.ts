@@ -140,6 +140,12 @@ export function nhanSuDangLamViec(): NhanSu[] {
   return DANH_BA_NHAN_SU.filter((n) => n.status === "active");
 }
 
+/** Tên hiển thị của một người theo uid. Không tra ra thì trả lại chính uid — để lộ ra ngay
+ *  là dữ liệu thiếu, thay vì hiện một cái tên bịa. */
+export function tenTheoUid(uid: string): string {
+  return DANH_BA_NHAN_SU.find((n) => n.uid === uid)?.displayName ?? uid;
+}
+
 /** Tìm theo tên, mã nhân viên, chức danh hoặc tên phòng ban — gõ có dấu hay không đều được. */
 export function timNhanSu(danhSach: NhanSu[], tuKhoa: string): NhanSu[] {
   const k = boDau(tuKhoa.trim());

@@ -19,13 +19,24 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import { nhanVienThuMuaCoTaiKhoan } from "@/4-phan-quyen/quyen";
 
-/** Nhân viên thu mua nhận phân bổ. Bản thật đọc từ users/{uid} có apps.tm >= 2. */
-const NHAN_VIEN_THU_MUA = [
-  { uid: "u-tm1", ten: "Nguyễn Văn A", ngan: "TM1" },
-  { uid: "u-tm2", ten: "Trần Văn C", ngan: "TM2" },
-  { uid: "u-tm3", ten: "Lê Thị D", ngan: "TM3" },
-];
+/**
+ * Nhân viên thu mua nhận phân bổ — LẤY TỪ DANH BẠ, không chép cứng ở đây.
+ *
+ * 🔴 Trước 11/08/2026 chỗ này viết cứng 3 người, lệch với danh bạ (có 4) và lệch với danh
+ * sách tài khoản đăng nhập (chỉ có 1). Hậu quả: phân bổ cho người **không đăng nhập được**
+ * → việc treo, không ai nhận. Nay một nguồn duy nhất: `nhanVienThuMua()`.
+ *
+ * Bản thật sẽ đọc `users/{uid}` có `apps.tm >= 2` — vẫn chỉ thay ruột hàm đó.
+ *
+ * `ngan` là nhãn ngắn cho nút (TM1, TM2…), cắt từ chức danh "Nhân viên Thu mua (TM2)".
+ */
+const NHAN_VIEN_THU_MUA = nhanVienThuMuaCoTaiKhoan().map((n) => ({
+  uid: n.uid,
+  ten: n.tenHienThi,
+  ngan: n.chucDanh.match(/\(([^)]+)\)/)?.[1] ?? n.tenDangNhap.toUpperCase(),
+}));
 
 /**
  * M3 — BẢNG PHÂN BỔ của Trưởng bộ phận thu mua.

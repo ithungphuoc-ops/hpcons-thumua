@@ -19,6 +19,7 @@ import {
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
+import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import {
   DE_NGHI_MAU,
   DON_HANG_MAU,
@@ -467,12 +468,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
   const phanBoDong = useCallback(
     (prId: string, sttDong: number[], nguoiPhuTrachUid: string, nguoiPhanBoTen: string) => {
-      const ten =
-        {
-          "u-tm1": "Nguyễn Văn A",
-          "u-tm2": "Trần Văn C",
-          "u-tm3": "Lê Thị D",
-        }[nguoiPhuTrachUid] ?? nguoiPhuTrachUid;
+      // 🔴 Tra tên từ DANH BẠ, không giữ bảng ánh xạ riêng ở đây. Bảng cũ viết cứng 3 người
+      // và **thiếu `u-tm4`** — phân bổ cho người đó thì màn hình hiện tên là "u-tm4" (mã thô).
+      // Danh bạ là nguồn duy nhất; thêm người chỉ phải sửa một chỗ.
+      const ten = tenTheoUid(nguoiPhuTrachUid);
 
       setDeNghi((truoc) =>
         truoc.map((dn) =>

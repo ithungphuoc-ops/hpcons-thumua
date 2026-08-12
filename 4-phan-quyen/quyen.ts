@@ -76,6 +76,27 @@ export interface Quyen {
   xemCongNo: boolean;
 }
 
+/**
+ * NHÂN VIÊN THU MUA NHẬN ĐƯỢC PHÂN BỔ — lọc từ chính danh sách TÀI KHOẢN.
+ *
+ * 🔴 CỐ Ý LỌC TỪ `VAI_TRO_MAU`, KHÔNG lọc từ danh bạ nhân sự. Danh bạ có cả người **không có
+ * tài khoản đăng nhập**; phân bổ cho họ thì việc treo vĩnh viễn — không ai nhận công tác,
+ * không ai lập được đơn, và dòng đó **biến mất khỏi lịch của mọi người** (lịch lọc theo uid,
+ * còn cảnh báo "Chờ phân bổ" chỉ hiện khi dòng CHƯA có người). Việc rơi vào vùng mù, chỉ vỡ
+ * ra khi trễ ngày cần hàng.
+ *
+ * Đó đúng là tình trạng trước 11/08/2026: bảng phân bổ cho chọn `u-tm2`/`u-tm3` trong khi chỉ
+ * `u-tm1` có tài khoản. Lọc từ đây thì **không thể** phân bổ cho người không đăng nhập được.
+ *
+ * ⚠️ Đừng đổi sang nhận diện bằng chuỗi chức danh — ghi "Chuyên viên Thu mua" thay vì "Nhân
+ * viên Thu mua" là người đó biến mất khỏi bảng phân bổ, im lặng, không báo gì.
+ *
+ * 📌 Trưởng bộ phận KHÔNG có trong danh sách: chị ấy *phân bổ*, không *nhận phần việc*.
+ */
+export function nhanVienThuMuaCoTaiKhoan(): VaiTroMau[] {
+  return VAI_TRO_MAU.filter((v) => v.chucNang === "nhan_vien_thu_mua");
+}
+
 export function tinhQuyen(u: NguoiDung): Quyen {
   const laQuanTri = u.vaiTro === "admin";
   const laBGD = u.vaiTro === "director";
@@ -173,11 +194,55 @@ export const VAI_TRO_MAU: VaiTroMau[] = [
     capKho: 1,
     moTa: "Cấp 3 — Quản lý: phân bổ · chuyển tiếp · xác nhận hoàn thành PO · thấy giá",
   },
+  /**
+   * 🔴 BỐN NHÂN VIÊN THU MUA — phải KHỚP `DANH_BA_NHAN_SU` (uid và tên).
+   *
+   * Ban lãnh đạo yêu cầu 11/08/2026: *"Tạo đủ tài khoản nhân viên TM để a test"*.
+   * Trước đó chỉ có `u-tm1` đăng nhập được, trong khi bảng phân bổ lại cho chọn `u-tm2` và
+   * `u-tm3` — phân bổ xong thì **không ai vào nhận việc được**, vì họ không có tài khoản.
+   *
+   * ⚠️ SỬA TÊN Ở ĐÂY PHẢI SỬA CẢ `3-du-lieu/danh-ba-nhan-su.ts`. Hai nơi gọi một người bằng
+   * hai tên là màn phân bổ ghi một đằng, khối Lịch sử ghi một nẻo.
+   * ⚠️ `u-tm5` (Đoàn Văn L) đã nghỉ việc — CỐ Ý không tạo tài khoản.
+   */
   {
     uid: "u-tm1",
     tenDangNhap: "tm1",
     tenHienThi: "Nguyễn Văn A",
     chucDanh: "Nhân viên Thu mua (TM1)",
+    phongBan: "Phòng Thu mua",
+    chucNang: "nhan_vien_thu_mua",
+    vaiTro: "staff",
+    capTM: 2,
+    moTa: "Cấp 2 — Nhập liệu: lập PO cho phần được phân bổ · thấy giá",
+  },
+  {
+    uid: "u-tm2",
+    tenDangNhap: "tm2",
+    tenHienThi: "Trần Văn C",
+    chucDanh: "Nhân viên Thu mua (TM2)",
+    phongBan: "Phòng Thu mua",
+    chucNang: "nhan_vien_thu_mua",
+    vaiTro: "staff",
+    capTM: 2,
+    moTa: "Cấp 2 — Nhập liệu: lập PO cho phần được phân bổ · thấy giá",
+  },
+  {
+    uid: "u-tm3",
+    tenDangNhap: "tm3",
+    tenHienThi: "Lê Thị D",
+    chucDanh: "Nhân viên Thu mua (TM3)",
+    phongBan: "Phòng Thu mua",
+    chucNang: "nhan_vien_thu_mua",
+    vaiTro: "staff",
+    capTM: 2,
+    moTa: "Cấp 2 — Nhập liệu: lập PO cho phần được phân bổ · thấy giá",
+  },
+  {
+    uid: "u-tm4",
+    tenDangNhap: "tm4",
+    tenHienThi: "Hoàng Văn I",
+    chucDanh: "Nhân viên Thu mua (TM4)",
     phongBan: "Phòng Thu mua",
     chucNang: "nhan_vien_thu_mua",
     vaiTro: "staff",
