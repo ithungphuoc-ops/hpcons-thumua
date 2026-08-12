@@ -10,12 +10,16 @@
 // không Thu mua sẽ nhận cả những phiếu chưa ai trong bộ phận gật đầu.
 //
 //   ① Kỹ sư / nhân viên đề xuất
-//   ② CHỈ HUY TRƯỞNG duyệt — người sát công trường, xác nhận đúng là cần món đó
-//   ③ TRƯỞNG PHÒNG duyệt — chốt cuối
+//   ② TRƯỞNG PHÒNG / QUẢN LÝ của bộ phận duyệt
+//   ③ TỔNG GIÁM ĐỐC hoặc PHÓ TGĐ duyệt — chốt cuối
 //   ④ Bấy giờ phiếu mới vào bảng quy trình của Phòng Thu mua
 //
-// ⚠️ THỨ TỰ LÀ BẮT BUỘC. Không cho trưởng phòng duyệt cấp 2 khi chỉ huy trưởng chưa duyệt
-// cấp 1 — bỏ qua thứ tự thì cấp 1 thành trang trí, và người sát công trường mất tiếng nói.
+// 📌 Lấy ĐÚNG bảng Base của công ty — Ban lãnh đạo chốt 12/08/2026: *"e theo base nhé,
+// Trưởng phòng/quản lý"*. Khối lưu ý trên Base ghi: *"Luồng duyệt (duyệt lần lượt):
+// TP/QL → Tổng Giám đốc hoặc Các Phó Tổng Giám đốc"*.
+//
+// ⚠️ THỨ TỰ LÀ BẮT BUỘC. Không cho duyệt cấp 2 khi cấp 1 chưa duyệt — bỏ qua thứ tự thì
+// cấp 1 thành trang trí, và quản lý trực tiếp mất tiếng nói về nhu cầu bộ phận mình.
 // ============================================================
 
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -95,7 +99,7 @@ export function nguoiDuyetDuocChon<T extends { chucVu?: string }>(
   danhSach: T[],
   cap: 1 | 2,
 ): T[] {
-  if (cap === 2) return danhSach.filter((n) => n.chucVu === "truong_phong");
+  if (cap === 2) return danhSach.filter((n) => n.chucVu === "tong_giam_doc");
   return danhSach.filter(
     (n) => n.chucVu === "chi_huy_truong" || n.chucVu === "truong_phong",
   );
@@ -132,8 +136,8 @@ export function lyDoKhongDuyetDuoc(
   const coQuyenCap = cap === 1 ? q.duyetCap1 : q.duyetCap2;
   if (!coQuyenCap) {
     return cap === 1
-      ? "Đề nghị đang chờ Chỉ huy trưởng duyệt. Bạn không có quyền duyệt bước này."
-      : "Đề nghị đang chờ Trưởng phòng duyệt. Bạn không có quyền duyệt bước này.";
+      ? "Đề nghị đang chờ Trưởng phòng / Quản lý duyệt. Bạn không có quyền duyệt bước này."
+      : "Đề nghị đang chờ Tổng Giám đốc duyệt. Bạn không có quyền duyệt bước này.";
   }
 
   /**

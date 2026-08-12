@@ -657,14 +657,14 @@ export default function TrangNhanDeNghiMoi() {
             <div className="flex flex-col gap-3">
               <OChonNguoiDuyet
                 cap={1}
-                nhan="Cấp 1 — Chỉ huy trưởng"
+                nhan="Cấp 1 — Trưởng phòng / Quản lý"
                 danhSach={chonDuoc1}
                 giaTri={uidDuyet1}
                 onDoi={setUidDuyet1}
               />
               <OChonNguoiDuyet
                 cap={2}
-                nhan="Cấp 2 — Trưởng phòng"
+                nhan="Cấp 2 — Tổng Giám đốc / Phó TGĐ"
                 danhSach={chonDuoc2}
                 giaTri={uidDuyet2}
                 onDoi={setUidDuyet2}

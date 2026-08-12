@@ -12,8 +12,8 @@ import type { DeNghiMuaHang, MocDuyet, NguoiDuyetChiDinh } from "@/3-du-lieu/kie
 
 /** Nhãn của hai cấp — viết một chỗ để giao diện và nhật ký gọi giống nhau. */
 const NHAN_CAP: Record<1 | 2, string> = {
-  1: "Chỉ huy trưởng duyệt",
-  2: "Trưởng phòng duyệt",
+  1: "Trưởng phòng / Quản lý duyệt",
+  2: "Tổng Giám đốc / Phó TGĐ duyệt",
 };
 
 /** Một dòng trong danh sách hai cấp: đã duyệt thì hiện ai/lúc nào, chưa thì hiện đang chờ. */

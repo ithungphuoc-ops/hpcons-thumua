@@ -51,12 +51,23 @@ export type ChucNang =
  * 📌 Khi App Tổng bổ sung trường chức vụ chính thức thì ánh xạ vào đây, không phải sửa
  * chỗ nào khác.
  */
-export type ChucVu = "nhan_vien" | "chi_huy_truong" | "truong_phong";
+export type ChucVu =
+  | "nhan_vien"
+  | "chi_huy_truong"
+  | "truong_phong"
+  /**
+   * Tổng Giám đốc / Phó Tổng Giám đốc — cấp duyệt CUỐI.
+   *
+   * 🔴 Thêm 12/08/2026 khi Ban lãnh đạo chốt *"theo base nhé, Trưởng phòng/quản lý"*:
+   * luồng duyệt lấy đúng bảng Base của công ty — **TP/QL → Tổng Giám đốc hoặc Phó TGĐ**.
+   */
+  | "tong_giam_doc";
 
 export const NHAN_CHUC_VU: Record<ChucVu, string> = {
   nhan_vien: "Nhân viên",
   chi_huy_truong: "Chỉ huy trưởng",
-  truong_phong: "Trưởng phòng",
+  truong_phong: "Trưởng phòng / Quản lý",
+  tong_giam_doc: "Tổng Giám đốc / Phó TGĐ",
 };
 
 export interface NguoiDung {
@@ -113,15 +124,20 @@ export interface Quyen {
    * 🔴 Ban lãnh đạo 12/08/2026 chốt đúng luồng: *"Tô Trọng Hoài đề xuất → Chỉ huy trưởng
    * duyệt → Trưởng phòng duyệt mới đẩy qua cho phòng thu mua"*.
    *
-   *   `duyetCap1` — Chỉ huy trưởng: người sát công trường, xác nhận đúng là cần món đó.
-   *   `duyetCap2` — Trưởng phòng: chốt cuối, sau đó phiếu mới sang Thu mua.
+   *   `duyetCap1` — **Trưởng phòng / Quản lý** của bộ phận đề xuất.
+   *   `duyetCap2` — **Tổng Giám đốc / Phó TGĐ**: chốt cuối, sau đó phiếu mới sang Thu mua.
+   *
+   * 📌 Đúng bảng Base của công ty (Ban lãnh đạo chốt 12/08/2026): *"Luồng duyệt (duyệt
+   * lần lượt): TP/QL → Tổng Giám đốc hoặc Các Phó Tổng Giám đốc"*. Bản trước đặt hai cấp
+   * là Chỉ huy trưởng → Trưởng phòng; nay lấy đúng luồng công ty đang chạy.
    *
    * ⚠️ PHẢI ĐỦ CẢ HAI. Thiếu một cấp là phiếu còn nằm ở bộ phận đề xuất — xem
    * `2-quy-trinh/duyet-bo-phan.ts`.
    *
-   * 📌 Trưởng phòng có LUÔN cả `duyetCap1`: chỉ huy trưởng đi công trường, nghỉ phép hay
-   * đổi công trình là chuyện thường. Không cho trưởng phòng duyệt thay thì phiếu treo cho
-   * tới khi người kia quay lại — và người ta sẽ lách bằng cách gọi điện, app thành vô dụng.
+   * 📌 Cấp trên duyệt thay được cấp dưới: Chỉ huy trưởng và Trưởng phòng đều có
+   * `duyetCap1`, TGĐ có cả hai. Người được chỉ định đi công trường, nghỉ phép hay đổi công
+   * trình là chuyện thường — không có đường duyệt thay thì phiếu treo tới khi họ quay lại,
+   * và người ta sẽ lách bằng cách gọi điện, app thành vô dụng.
    */
   duyetCap1: boolean;
   duyetCap2: boolean;
@@ -199,8 +215,10 @@ export function tinhQuyen(u: NguoiDung): Quyen {
       laQuanTri ||
       u.chucVu === "chi_huy_truong" ||
       u.chucVu === "truong_phong" ||
+      u.chucVu === "tong_giam_doc" ||
       (laTruongBP && capTM >= 3),
-    duyetCap2: laQuanTri || u.chucVu === "truong_phong" || (laTruongBP && capTM >= 3),
+    // Cấp CUỐI: chỉ Tổng Giám đốc / Phó TGĐ, cộng quản trị để hồ sơ không kẹt vĩnh viễn.
+    duyetCap2: laQuanTri || u.chucVu === "tong_giam_doc",
     lapPO: laQuanTri || ((laTruongBP || laNhanVienTM) && capTM >= 2),
     suaPODaChot: laQuanTri || (laTruongBP && capTM >= 3),
 

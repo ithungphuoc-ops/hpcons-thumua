@@ -488,8 +488,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                 nguoiThucHien: nguoi.ten,
                 hanhDong:
                   cap === 1
-                    ? `Duyệt cấp 1 — Chỉ huy trưởng (${nguoi.chucDanh})`
-                    : `Duyệt cấp 2 — Trưởng phòng (${nguoi.chucDanh}) · chuyển sang Phòng Thu mua`,
+                    ? `Duyệt cấp 1 — Trưởng phòng / Quản lý (${nguoi.chucDanh})`
+                    : `Duyệt cấp 2 — Tổng Giám đốc / Phó TGĐ (${nguoi.chucDanh}) · chuyển sang Phòng Thu mua`,
               },
             ],
           };
@@ -723,10 +723,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           nguoiThucHien: dauVao.nguoiDeNghiTen,
           hanhDong:
             dauVao.capDuyetSan >= 2
-              ? "Trưởng phòng tự lập nên duyệt đủ hai cấp · chuyển sang Phòng Thu mua"
+              ? "Người lập là cấp duyệt cuối nên duyệt đủ hai cấp · chuyển sang Phòng Thu mua"
               : dauVao.capDuyetSan === 1
-                ? "Chỉ huy trưởng tự lập nên duyệt sẵn cấp 1 · chờ Trưởng phòng duyệt"
-                : "Gửi Chỉ huy trưởng duyệt",
+                ? "Người lập là cấp quản lý nên duyệt sẵn cấp 1 · chờ Tổng Giám đốc duyệt"
+                : "Gửi Trưởng phòng / Quản lý duyệt",
         },
       ],
     };
