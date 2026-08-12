@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { nhanSuDangLamViec, type MaPhongBan, type NhanSu } from "@/3-du-lieu/danh-ba-nhan-su";
+import { boDau } from "@/6-tien-ich/bo-dau";
 import type { ChucNang } from "@/4-phan-quyen/quyen";
 
 /**
@@ -21,7 +22,34 @@ import type { ChucNang } from "@/4-phan-quyen/quyen";
  * người dùng tưởng app hỏng.
  */
 
-/** Đoán mã phòng ban từ chức năng nghiệp vụ — hồ sơ tài khoản không lưu mã phòng ban riêng. */
+/**
+ * Đọc mã phòng ban từ TÊN phòng ban ghi trong hồ sơ.
+ *
+ * 🔴 Phải thử tên trước, đoán theo chức năng sau. Tài khoản Quản trị hệ thống có
+ * `chucNang: "truong_bo_phan_thu_mua"` (vì enum chức năng không có mục IT) nhưng phòng ban
+ * thật là Hành chính Nhân sự — IT. Đoán theo chức năng thì hộp chọn người theo dõi xếp họ
+ * vào nhóm "Phòng Thu mua", người dùng tìm mãi không thấy.
+ *
+ * ⚠️ So khớp bằng chuỗi nên chỉ là phương án tạm, sẽ sai nếu ai đó gõ tên phòng khác đi.
+ * Cách đúng là App Tổng trả về mã phòng ban — việc còn lại.
+ */
+function maPhongBanTheoTen(ten: string): MaPhongBan | null {
+  const t = boDau(ten);
+  if (t.includes("giam doc")) return "ban-giam-doc";
+  if (t.includes("thu mua")) return "thu-mua";
+  if (t.includes("thi cong")) return "thi-cong";
+  if (t.includes("kho")) return "kho";
+  if (t.includes("qlda") || t.includes("quan ly du an")) return "qlda";
+  if (t.includes("ke toan")) return "ke-toan";
+  if (t.includes("hanh chinh") || t.includes("it")) return "hanh-chinh-nhan-su";
+  if (t.includes("thiet ke")) return "thiet-ke";
+  if (t.includes("kinh doanh")) return "kinh-doanh";
+  if (t.includes("bao tri")) return "bao-tri";
+  if (t.includes("qa") || t.includes("qc")) return "qa-qc";
+  return null;
+}
+
+/** Đoán mã phòng ban từ chức năng nghiệp vụ — dùng khi tên phòng ban không khớp mã nào. */
 function phongBanTheoChucNang(c: ChucNang): MaPhongBan {
   switch (c) {
     case "truong_bo_phan_thu_mua":
@@ -51,7 +79,7 @@ export function useDanhBa(): NhanSu[] {
       displayName: n.tenHienThi,
       // Chưa có mã nhân viên thật từ App Tổng — để trống còn hơn bịa ra một mã trông như thật.
       employeeCode: "",
-      department: phongBanTheoChucNang(n.chucNang),
+      department: maPhongBanTheoTen(n.phongBan) ?? phongBanTheoChucNang(n.chucNang),
       title: n.chucDanh,
       status: "active" as const,
     }));

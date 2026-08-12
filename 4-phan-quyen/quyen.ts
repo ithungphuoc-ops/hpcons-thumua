@@ -395,7 +395,12 @@ export const VAI_TRO_MAC_DINH = VAI_TRO_MAU.find((v) => v.uid === "u-tbp") ?? VA
  *
  * Nguyên tắc: thiếu thông tin thì cho quyền THẤP NHẤT, đừng cho quyền tiện nhất.
  *
- * `capTM: 0` làm `tinhQuyen()` trả về sai cho toàn bộ 14 quyền, kể cả `xemDuocApp`.
+ * `capTM: 0` + `vaiTro: "staff"` làm `tinhQuyen()` trả về sai cho MỌI quyền, kể cả
+ * `xemDuocApp` — nên người này không vào được app.
+ *
+ * ⚠️ Không ghi con số cụ thể ở đây. Bản trước ghi "toàn bộ 14 quyền", rồi thêm `taoDeNghi`,
+ * `duyetCap1`, `duyetCap2` là con số sai mà không ai để ý — chú thích sai còn tệ hơn không
+ * có chú thích, vì người đọc tin nó.
  */
 export const KHONG_QUYEN: NguoiDung = {
   uid: "",
