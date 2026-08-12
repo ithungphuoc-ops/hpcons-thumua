@@ -118,6 +118,19 @@ export default function TrangBaoGiaChiTiet() {
   const { cot, dong } = dungBangSoSanh(bg);
   const daTach = daTachBaoGia(bg);
   const nhomNCC = gomTheoNCC(bg);
+
+  /**
+   * ★ TÁCH ĐƠN CHỈ Ở BƯỚC LẬP ĐƠN MUA HÀNG — Ban lãnh đạo 12/08/2026:
+   * *"ở bước so sánh báo giá nhà CC này chưa cần có mục phân bổ đơn hàng. để sang bước lên
+   * đơn PO mới cần tách"*.
+   *
+   * Trước đó khối tách hiện ngay từ bước ② (đang thu thập giá), làm màn so sánh giá rối:
+   * người nhập giá bị hỏi "chia cho ai bao nhiêu" khi chưa ai duyệt phương án nào, và chưa
+   * biết trưởng bộ phận sẽ chốt nhà cung cấp nào.
+   *
+   * `da_chon_ncc` = đã qua xét duyệt, đang ở bước ④ Lập đơn mua hàng. Đúng lúc cần chia.
+   */
+  const dangOBuocLapDon = bg.trangThai === "da_chon_ncc";
   // Soát ngưỡng 5 / 10 / 20 triệu của quy trình — dùng cho lời cảnh báo trong hộp xác nhận
   // "Trình xét duyệt". Khối hiển thị đầy đủ là `KhoiNguongGiaTri` bên dưới, cùng một hàm luật.
   const nguong = soatNguongBaoGia(bg);
@@ -276,7 +289,70 @@ export default function TrangBaoGiaChiTiet() {
           Chỉ đạo Ban lãnh đạo 10/08/2026: một nhà cung cấp có thể không giao đủ số
           lượng cần đặt, nên phải chia mặt hàng đó cho nhiều nhà cung cấp — mỗi phần
           sẽ thành một đơn đặt hàng riêng. */}
-      {daTach && !cheDoTach && (
+      {/* ===== BƯỚC ③ XÉT DUYỆT BÁO GIÁ — KHỐI ĐỘC LẬP =====
+          🔴 Chỉ đạo Ban lãnh đạo 10/08/2026: người DUYỆT phải là trưởng bộ phận
+          (`xacNhanTruongBP`), không phải người lập — để người lập tự duyệt thì bước xét
+          duyệt chỉ còn là hình thức.
+
+          🔴 VÌ SAO PHẢI TÁCH RA KHỐI RIÊNG (12/08/2026): nút này từng nằm BÊN TRONG khối
+          "Đã tách cho N nhà cung cấp". Khi Ban lãnh đạo yêu cầu ẩn khối tách ở bước so
+          sánh giá, nút duyệt biến mất theo — trưởng bộ phận không còn đường nào duyệt và
+          báo giá **kẹt vĩnh viễn** ở bước ③.
+          ⚠️ Bài học: đừng gắn nút CHUYỂN BƯỚC vào bên trong một khối có thể bị ẩn. Ẩn khối
+          là mất đường đi, mà lỗi kiểu này không báo gì cả — chỉ thấy việc không nhúc nhích. */}
+      {bg.trangThai === "da_so_sanh" && !cheDoTach && (
+        <Card className="border-warning/50 bg-warning-bg/40">
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <span className="flex min-w-0 flex-col">
+              <span className="text-sm font-semibold text-text-primary">
+                Chờ trưởng bộ phận xét duyệt báo giá
+              </span>
+              <span className="text-xs text-text-secondary">
+                Duyệt xong mới sang bước Lập đơn mua hàng — lúc đó mới chia đơn cho nhiều nhà
+                cung cấp nếu cần.
+              </span>
+            </span>
+            {/* HAI ĐƯỜNG DUYỆT KHÁC NHAU, đừng gộp:
+                · Chưa tách → chốt MỘT nhà cung cấp, bấm ngay trong bảng so sánh bên dưới.
+                  Chỉ đường xuống đó thay vì thêm nút thứ hai làm cùng việc — hai nút cùng
+                  chức năng đặt hai nơi là người dùng phải đoán nên bấm cái nào.
+                · Đã tách sẵn (phiếu cũ) → duyệt cả phương án chia, cần nút riêng ở đây. */}
+            {!quyen.xacNhanTruongBP ? (
+              <span className="ml-auto shrink-0 text-xs text-warning-soft">
+                Bạn không có quyền duyệt bước này.
+              </span>
+            ) : daTach ? (
+              <Button
+                size="sm"
+                className="ml-auto shrink-0"
+                onClick={() => setViecChoXacNhan({ loai: "duyet_phuong_an" })}
+              >
+                <Check className="size-4" aria-hidden />
+                Duyệt phương án chia đơn
+              </Button>
+            ) : (
+              <span className="ml-auto shrink-0 text-xs text-text-secondary">
+                Bấm <strong>Chọn NCC này</strong> ở bảng so sánh bên dưới để duyệt.
+              </span>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 🔴 CÓ DỮ LIỆU TÁCH MÀ CHƯA TỚI BƯỚC LẬP ĐƠN → nói ra, đừng ẩn im lặng.
+          Ẩn thẳng thì người đã nhập phương án chia sẽ tưởng công nhập của mình mất sạch. */}
+      {daTach && !cheDoTach && !dangOBuocLapDon && (
+        <p className="flex items-start gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad) text-xs text-text-secondary">
+          <Split className="mt-0.5 size-3.5 shrink-0 text-text-desc" aria-hidden />
+          <span>
+            Đã có phương án chia đơn cho <strong>{nhomNCC.length} nhà cung cấp</strong> — vẫn
+            được lưu. Phần này hiện lại ở bước <strong>Lập đơn mua hàng</strong>, sau khi
+            trưởng bộ phận xét duyệt báo giá.
+          </span>
+        </p>
+      )}
+
+      {daTach && !cheDoTach && dangOBuocLapDon && (
         <Card className="border-primary/40">
           <CardHeader>
             <CardTitle className="text-base">
@@ -364,25 +440,6 @@ export default function TrangBaoGiaChiTiet() {
                 <Split className="size-4" aria-hidden />
                 Sửa phân bổ
               </Button>
-
-              {/* ===== BƯỚC ③ XÉT DUYỆT BÁO GIÁ =====
-                  🔴 Chỉ đạo Ban lãnh đạo 10/08/2026. Người DUYỆT phải là trưởng bộ phận
-                  (`xacNhanTruongBP`), không phải người lập — để người lập tự duyệt phương án
-                  của mình thì bước xét duyệt chỉ còn là hình thức. */}
-              {bg.trangThai === "da_so_sanh" &&
-                (quyen.xacNhanTruongBP ? (
-                  <Button
-                    size="sm"
-                    onClick={() => setViecChoXacNhan({ loai: "duyet_phuong_an" })}
-                  >
-                    <Check className="size-4" aria-hidden />
-                    Duyệt phương án chia đơn
-                  </Button>
-                ) : (
-                  <span className="text-xs text-warning-soft">
-                    Chờ trưởng bộ phận duyệt phương án chia đơn.
-                  </span>
-                ))}
             </div>
           </CardContent>
         </Card>
@@ -399,7 +456,8 @@ export default function TrangBaoGiaChiTiet() {
                   : "Giá thấp nhất mỗi dòng được tô màu xanh và đánh dấu chữ “thấp nhất”. Cột nhà cung cấp báo thiếu dòng không được đưa vào so sánh tổng."}
               </p>
             </div>
-            {quyen.lapPO && !cheDoTach && !daTach && (
+            {/* Chỉ cho tách từ bước Lập đơn mua hàng — xem `dangOBuocLapDon`. */}
+            {quyen.lapPO && !cheDoTach && !daTach && dangOBuocLapDon && (
               <Button variant="outline" size="sm" onClick={moCheDoTach}>
                 <Split className="size-4" aria-hidden />
                 Tách cho nhiều NCC

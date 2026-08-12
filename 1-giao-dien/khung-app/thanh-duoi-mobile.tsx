@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { mucDieuHuongChoVaiTro } from "@/2-quy-trinh/dieu-huong";
+import { hrefDangChon, mucDieuHuongChoVaiTro } from "@/2-quy-trinh/dieu-huong";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { cn } from "@/6-tien-ich/gop-lop";
 
@@ -23,6 +23,12 @@ export function BottomNav() {
   const pathname = usePathname();
   const { quyen } = useNguoiDung();
   const muc = mucDieuHuongChoVaiTro(quyen);
+  /**
+   * 🔴 Mục đang chọn tính ở MỘT CHỖ (`hrefDangChon`), không tự so ở đây.
+   * Tự so bằng `startsWith` làm HAI mục cùng sáng khi một href là tiền tố của href kia
+   * (`/de-nghi` và `/de-nghi/nhan-moi`) — lỗi Ban lãnh đạo báo 12/08/2026.
+   */
+  const hrefChon = hrefDangChon(pathname, muc);
 
   return (
     <nav
@@ -30,7 +36,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-30 flex h-(--hp-bottom-nav-height) items-stretch border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       {muc.map((m) => {
-        const active = pathname === m.href || pathname.startsWith(`${m.href}/`);
+        const active = m.href === hrefChon;
         const Icon = m.icon;
         return (
           <Link

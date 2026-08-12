@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { mucDieuHuongChoVaiTro } from "@/2-quy-trinh/dieu-huong";
+import { hrefDangChon, mucDieuHuongChoVaiTro } from "@/2-quy-trinh/dieu-huong";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { cn } from "@/6-tien-ich/gop-lop";
 
@@ -23,6 +23,12 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
   const pathname = usePathname();
   const { quyen } = useNguoiDung();
   const muc = mucDieuHuongChoVaiTro(quyen);
+  /**
+   * 🔴 Mục đang chọn tính ở MỘT CHỖ (`hrefDangChon`), không tự so ở đây.
+   * Tự so bằng `startsWith` làm HAI mục cùng sáng khi một href là tiền tố của href kia
+   * (`/de-nghi` và `/de-nghi/nhan-moi`) — lỗi Ban lãnh đạo báo 12/08/2026.
+   */
+  const hrefChon = hrefDangChon(pathname, muc);
 
   return (
     <div className="flex h-full flex-col bg-nav-base text-nav-foreground">
@@ -51,7 +57,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
 
       <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-4" aria-label="Điều hướng chính">
         {muc.map((m) => {
-          const active = pathname === m.href || pathname.startsWith(`${m.href}/`);
+          const active = m.href === hrefChon;
           const Icon = m.icon;
           return (
             <Link

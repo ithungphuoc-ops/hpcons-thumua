@@ -129,3 +129,27 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
 export function mucDieuHuongChoVaiTro(q: Quyen): MucDieuHuong[] {
   return MUC_DIEU_HUONG.filter((m) => m.duocThay(q));
 }
+
+/**
+ * MỤC NÀO ĐANG ĐƯỢC CHỌN — trả về `href` của đúng MỘT mục, hoặc `null`.
+ *
+ * 🔴 Ban lãnh đạo 12/08/2026: *"mục này tick chọn bị dính"*. Hai mục cùng sáng một lúc.
+ *
+ * Nguyên nhân: cả thanh bên và thanh dưới đều tự tính
+ * `pathname === href || pathname.startsWith(href + "/")`. Ở địa chỉ `/de-nghi/nhan-moi` thì
+ * điều kiện đó ĐÚNG với cả hai mục — "Quy trình mua hàng" (`/de-nghi`) và "Tạo đề nghị mua
+ * hàng" (`/de-nghi/nhan-moi`) — nên cả hai cùng đổi màu.
+ *
+ * Luật đúng: **khớp cụ thể nhất thì thắng**. Chọn mục có `href` khớp và DÀI NHẤT.
+ *
+ * ⚠️ ĐẶT Ở ĐÂY, KHÔNG để mỗi thanh tự tính. Hai nơi cùng tính một luật là kiểu sửa được một
+ * chỗ quên chỗ kia — đúng điều vừa xảy ra: thanh bên và thanh dưới sai y như nhau.
+ */
+export function hrefDangChon(duongDan: string, muc: MucDieuHuong[]): string | null {
+  let chon: string | null = null;
+  for (const m of muc) {
+    const khop = duongDan === m.href || duongDan.startsWith(`${m.href}/`);
+    if (khop && (chon === null || m.href.length > chon.length)) chon = m.href;
+  }
+  return chon;
+}
