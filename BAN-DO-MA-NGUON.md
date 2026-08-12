@@ -94,7 +94,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Thao tác **phân bổ / ghi phiếu nhận / xác nhận** không lưu | `3-du-lieu/kho-du-lieu.tsx` |
 | **Nhật ký "Lịch sử"** thiếu dòng / ghi sai người thực hiện | `3-du-lieu/kho-du-lieu.tsx` → `ghiLichSuDeNghi` (mỗi thao tác ghi dữ liệu đều phải gọi) |
 | **Chuông thông báo** không báo khi chuyển bước / báo sai | `3-du-lieu/kho-du-lieu.tsx` → khối "THÔNG BÁO CHUYỂN BƯỚC" (so bước trước/sau) + hiển thị ở `khung-app/nut-thong-bao.tsx` |
-| Nút **"Nhận công tác"** / nhãn "Chờ tiếp nhận" sai | `3-du-lieu/kho-du-lieu.tsx` → `nhanCongTac` + thẻ ở `thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang.tsx` |
+| Cần **chuyển việc** cho nhân viên khác | `3-du-lieu/kho-du-lieu.tsx` → `chuyenViecDong` + nút ở `thanh-phan-nghiep-vu/bang-phan-bo.tsx`. ⚠️ Bước "Nhận công tác" **đã bỏ hẳn 12/08/2026** — trưởng phòng giao việc thì chắc chắn phải làm, không cần bấm xác nhận |
 | Sai **số người theo dõi** trên thẻ bảng quy trình | `3-du-lieu/du-lieu-mau.ts` (trường `nguoiTheoDoi`) + hiển thị ở `bang-quy-trinh-mua-hang.tsx` |
 | **Nhận đề nghị giả lập báo "hết chỗ"**, hoặc bấm thẻ mới ra trang 404 | `3-du-lieu/du-lieu-mau.ts` → `ID_DE_NGHI_GIA_LAP` (12 id khai sẵn). Tăng số lượng thì phải build lại |
 

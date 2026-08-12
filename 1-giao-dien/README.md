@@ -48,7 +48,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `nut-mat-do.tsx` | Đổi mật độ hiển thị (Thoáng / **Vừa** / Gọn) |
 | `nut-mau-chu-dao.tsx` | Đổi **màu chủ đạo** của theme — đổi màu là toàn bộ nút, badge, sidebar active đổi theo (cả Sáng lẫn Tối) |
 | `mau-chu-dao.tsx` | Bộ điều khiển màu chủ đạo — **mặc định "xanh-duong" #096AA7 chuẩn V1.1** (`MAU_MAC_DINH`), màu khác là tùy chọn cá nhân lưu riêng máy |
-| `nut-thong-bao.tsx` | 🔔 **Chuông thông báo chuyển bước** — đề nghị đổi bước là báo, kèm nút **"Nhận công tác"** để người phụ trách bước mới xác nhận tiếp quản |
+| `nut-thong-bao.tsx` | 🔔 **Chuông thông báo chuyển bước** — đề nghị đổi bước là báo. Chỉ BÁO TIN, không còn nút xác nhận (bỏ 12/08/2026) |
 | `nut-vai-tro.tsx` | Đổi vai trò để chạy thử — **chỉ có ở bản chạy thử**, bỏ khi nối đăng nhập thật |
 | `menu-tai-khoan.tsx` | Menu tài khoản, cho biết vai trò hiện tại có được xem giá hay không |
 | `che-do-mau.tsx` | Bộ điều khiển Sáng/Tối (thư viện `next-themes`) |

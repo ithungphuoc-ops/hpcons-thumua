@@ -178,7 +178,7 @@ service cloud.firestore {
                   && (laQuanTri() || request.auth.uid in resource.data.get('guiToiUid', []));
       // Thông báo do hệ thống sinh — nên để Cloud Function ghi, không cho client tự tạo.
       allow create: if false;
-      // Người nhận chỉ được đánh dấu đã đọc / nhận công tác của chính mình.
+      // Người nhận chỉ được đánh dấu đã đọc thông báo của chính mình.
       allow update: if daDangNhap()
                     && request.auth.uid in resource.data.get('guiToiUid', []);
       allow delete: if laQuanTri();

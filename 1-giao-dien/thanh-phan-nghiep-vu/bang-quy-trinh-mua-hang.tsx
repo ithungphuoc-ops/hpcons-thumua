@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarClock,
-  Check,
   Copy,
   CopyPlus,
   Eye,
@@ -46,7 +45,6 @@ import {
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
 import { NHAN_PHONG_BAN_NGUON } from "@/2-quy-trinh/trang-thai";
-import type { ThongBaoChuyenBuoc } from "@/3-du-lieu/kieu-du-lieu";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 
 /**
@@ -97,14 +95,6 @@ export interface BangQuyTrinhMuaHangProps {
   keoThaDuoc?: boolean;
   /** Gọi khi thả thẻ vào một cột. Trang chứa bảng quyết định làm gì tiếp. */
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
-  /** Thông báo chuyển bước MỚI NHẤT của từng đề nghị — để thẻ hiện
-   *  "Chờ tiếp nhận" / "Đã nhận: [tên]" cho bước hiện tại. */
-  tiepNhan?: ReadonlyMap<string, ThongBaoChuyenBuoc>;
-  /** Bấm "Nhận công tác" ngay trên thẻ. Không truyền thì thẻ chỉ hiện nhãn "Chờ tiếp nhận". */
-  onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
-  /** Người đang đăng nhập có được nhận công tác này không — luật ở
-   *  `4-phan-quyen/quyen-theo-ho-so.ts` → `lyDoKhongNhanCongTac`. Không truyền = được. */
-  duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
   /** Các thao tác của menu ⋯ trên thẻ. Không truyền thì menu chỉ còn mục xem/sao chép. */
   thaoTac?: ThaoTacThe;
 }
@@ -129,9 +119,6 @@ export function BangQuyTrinhMuaHang({
   cot,
   keoThaDuoc = false,
   onTha,
-  tiepNhan,
-  onNhanCongTac,
-  duocNhan,
   thaoTac,
 }: BangQuyTrinhMuaHangProps) {
   return (
@@ -151,9 +138,6 @@ export function BangQuyTrinhMuaHang({
             cot={c}
             keoThaDuoc={keoThaDuoc}
             onTha={onTha}
-            tiepNhan={tiepNhan}
-            onNhanCongTac={onNhanCongTac}
-            duocNhan={duocNhan}
             thaoTac={thaoTac}
           />
         ))}
@@ -166,18 +150,11 @@ function CotQuyTrinh({
   cot,
   keoThaDuoc,
   onTha,
-  tiepNhan,
-  onNhanCongTac,
-  duocNhan,
   thaoTac,
 }: {
   cot: CotBangQuyTrinh;
   keoThaDuoc: boolean;
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
-  tiepNhan?: ReadonlyMap<string, ThongBaoChuyenBuoc>;
-  /** Bấm "Nhận công tác" ngay trên thẻ. Không truyền thì thẻ chỉ hiện nhãn "Chờ tiếp nhận". */
-  onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
-  duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
   thaoTac?: ThaoTacThe;
 }) {
   const { giaiDoan, the, soQuaHan } = cot;
@@ -255,9 +232,6 @@ function CotQuyTrinh({
               tongGiaiDoan={giaiDoan.tong}
               keoThaDuoc={keoThaDuoc}
               onTha={onTha}
-              thongBaoMoiNhat={tiepNhan?.get(t.deNghi.id)}
-              onNhanCongTac={onNhanCongTac}
-              duocNhan={duocNhan}
               thaoTac={thaoTac}
             />
           ))
@@ -272,9 +246,6 @@ function TheDeNghi({
   tongGiaiDoan,
   keoThaDuoc,
   onTha,
-  thongBaoMoiNhat,
-  onNhanCongTac,
-  duocNhan,
   thaoTac,
 }: {
   the: TheDeNghiTrenBang;
@@ -282,9 +253,6 @@ function TheDeNghi({
   keoThaDuoc: boolean;
   /** Dùng lại cho menu ⋯ "Chuyển sang giai đoạn kế tiếp" — cùng luật với kéo thả. */
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
-  thongBaoMoiNhat?: ThongBaoChuyenBuoc;
-  onNhanCongTac?: (tb: ThongBaoChuyenBuoc) => void;
-  duocNhan?: (tb: ThongBaoChuyenBuoc) => boolean;
   thaoTac?: ThaoTacThe;
 }) {
   const { deNghi, han, nguoiPhuTrach, soDongChuaPhanBo, maPOLienQuan } = the;
@@ -369,35 +337,6 @@ function TheDeNghi({
 
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
         <StatusBadge label={han.nhan} tone={han.tong} />
-        {/* Bàn giao – tiếp nhận: chỉ hiện khi thẻ VỪA chuyển vào bước này trong phiên */}
-        {thongBaoMoiNhat &&
-          thongBaoMoiNhat.denBuoc === the.giaiDoan &&
-          (thongBaoMoiNhat.tiepNhan ? (
-            <StatusBadge label={`Đã nhận: ${thongBaoMoiNhat.tiepNhan.ten}`} tone="success" />
-          ) : onNhanCongTac && (duocNhan?.(thongBaoMoiNhat) ?? true) ? (
-            /* NÚT NHẬN NGAY TRÊN THẺ (chỉ đạo Ban lãnh đạo 10/08/2026: "thêm nút nhận trong
-               mục quy trình"). Trước đây chỉ nhận được từ chuông thông báo, mà chuông thì
-               người dùng ít mở — thẻ mới là nơi họ đang làm việc.
-
-               🔴 Phải `preventDefault` + `stopPropagation`: thẻ là một thẻ <Link> và còn kéo
-               thả được. Thiếu hai lệnh này thì bấm nút sẽ mở luôn trang chi tiết, hộp xác
-               nhận vừa hiện đã bị trang mới thay chỗ. */
-            <button
-              type="button"
-              draggable={false}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onNhanCongTac(thongBaoMoiNhat);
-              }}
-              className="inline-flex min-h-7 items-center gap-1 rounded-md border border-warning bg-warning-bg px-2 text-xs font-medium text-warning-soft transition-colors hover:bg-warning hover:text-white"
-            >
-              <Check className="size-3.5 shrink-0" aria-hidden />
-              Nhận công tác
-            </button>
-          ) : (
-            <StatusBadge label="Chờ tiếp nhận" tone="warning" />
-          ))}
         {soDongChuaPhanBo > 0 && (
           <span className="inline-flex items-center gap-1 text-xs text-danger-soft">
             <AlertTriangle className="size-3.5 shrink-0" aria-hidden />

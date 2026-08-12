@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Check } from "lucide-react";
+import { Bell } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,13 +13,10 @@ import {
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
-import { HopNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-cong-tac";
-import { useNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/dung-nhan-cong-tac";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   NHAN_GIAI_DOAN,
-  daNhanCongTacDeNghi,
   thongBaoDanhChoToi,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -31,11 +28,12 @@ const gioPhut = (iso: string) =>
   new Date(iso).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
 
 /**
- * 🔔 CHUÔNG THÔNG BÁO CHUYỂN BƯỚC — sinh tự động khi một đề nghị đổi bước trên
- * bảng quy trình (kéo thả hay nghiệp vụ đều bắt được). Mỗi thông báo có nút
- * "Nhận công tác" để người phụ trách bước mới xác nhận tiếp quản — nhận xong
- * ghi cả vào nhật ký "Lịch sử" của đề nghị.
- * Mở chuông là toàn bộ thông báo được tính đã đọc.
+ * 🔔 CHUÔNG THÔNG BÁO CHUYỂN BƯỚC — sinh tự động khi một đề nghị đổi bước trên bảng quy
+ * trình (kéo thả hay nghiệp vụ đều bắt được).
+ *
+ * 🔴 KHÔNG CÒN NÚT "Nhận công tác" — Ban lãnh đạo 12/08/2026: *"Trưởng phòng giao việc thì
+ * chắc chắn phải làm nên không cần bước bấm xác nhận này"*. Chuông giờ chỉ để BÁO TIN.
+ * Người được giao mà không làm được thì dùng "Chuyển việc" ở bảng phân bổ.
  */
 export function NutThongBao() {
   const router = useRouter();
@@ -62,18 +60,6 @@ export function NutThongBao() {
   // ⚠️ Đếm trên danh sách ĐÃ LỌC. Đếm trên danh sách gốc thì chuông báo số đỏ cho những
   // tin người dùng không bao giờ nhìn thấy — bấm vào không thấy gì, số không bao giờ hết.
   const chuaDoc = thongBao.filter((t) => !t.daDoc).length;
-
-  /** Đã tiếp quản đề nghị này rồi thì thôi hỏi nhận công tác ở từng bước sau. */
-  const daNhanRoi = useCallback(
-    (prId: string) => daNhanCongTacDeNghi(tatCaThongBao, prId, nguoiDung.uid),
-    [tatCaThongBao, nguoiDung.uid],
-  );
-
-  /**
-   * Nhận công tác — luật và hệ quả ở hook dùng chung `useNhanCongTac` (ba nơi bấm nhận:
-   * chuông này · thẻ trên bảng quy trình · trang chi tiết đề nghị).
-   */
-  const nhanViec = useNhanCongTac();
 
   return (
     <DropdownMenu
@@ -108,7 +94,7 @@ export function NutThongBao() {
           <DropdownMenuLabel className="flex flex-col gap-0.5">
             <span>Thông báo chuyển bước</span>
             <span className="text-[11px] font-normal text-text-desc">
-              Đề nghị đổi bước trên bảng quy trình là báo ở đây — bấm &quot;Nhận công tác&quot; để tiếp quản
+              Đề nghị đổi bước trên bảng quy trình là báo ở đây
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -147,50 +133,12 @@ export function NutThongBao() {
                   {tb.guiToi.length > 0 && (
                     <span className="text-[11px] text-text-desc">Gửi tới: {tb.guiToi.join(" · ")}</span>
                   )}
-                  {tb.tiepNhan ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-success-soft">
-                      <Check className="size-3.5 shrink-0" aria-hidden />
-                      {tb.tiepNhan.ten} đã nhận công tác lúc {gioPhut(tb.tiepNhan.thoiDiem)}
-                    </span>
-                  ) : daNhanRoi(tb.prId) ? (
-                    /* Đã tiếp quản đề nghị này từ trước → không hỏi nhận lại ở mỗi bước.
-                       Xem `daNhanCongTacDeNghi` trong 2-quy-trinh/giai-doan-mua-hang.ts. */
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-success-soft">
-                      <Check className="size-3.5 shrink-0" aria-hidden />
-                      Bạn đang phụ trách đề nghị này
-                    </span>
-                  ) : quyen.lapPO && nhanViec.lyDoKhongNhan(tb) === null ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="self-start"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Không nhận ngay — mở hộp xác nhận, tránh bấm nhầm.
-                        nhanViec.moHoiNhan(tb);
-                      }}
-                    >
-                      Nhận công tác
-                    </Button>
-                  ) : (
-                    <span className="text-[11px] font-medium text-warning-soft">Chờ tiếp nhận</span>
-                  )}
                 </div>
               </DropdownMenuItem>
             ))
           )}
         </DropdownMenuGroup>
       </DropdownMenuContent>
-
-      {/* Hộp xác nhận dùng chung với thẻ trên bảng quy trình — xem `hop-nhan-cong-tac.tsx`.
-          Tách ra vì có hai chỗ bấm nhận; copy sang chỗ thứ hai thì lời cảnh báo "không hoàn
-          lại được" sẽ lệch nhau khi sửa. */}
-      <HopNhanCongTac
-        thongBao={nhanViec.hoiNhan}
-        seTuChuyenBuoc={nhanViec.seTuChuyenBuoc(nhanViec.hoiNhan)}
-        onDong={nhanViec.dongHoiNhan}
-        onDongY={nhanViec.xacNhanNhan}
-      />
     </DropdownMenu>
   );
 }

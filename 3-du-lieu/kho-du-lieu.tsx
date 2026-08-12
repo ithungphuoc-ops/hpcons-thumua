@@ -13,7 +13,6 @@ import {
 // Chỉ dùng để SUY RA giai đoạn khi phát thông báo chuyển bước — import type-only
 // chiều ngược lại nên không tạo vòng phụ thuộc runtime.
 import {
-  NHAN_GIAI_DOAN,
   nguoiCanXuLy,
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
@@ -262,8 +261,6 @@ interface GiaTriDuLieu {
   /** Đánh dấu toàn bộ thông báo là đã đọc — gọi khi người dùng mở chuông. */
   /** Đánh dấu đã đọc CHỈ các thông báo có mã trong danh sách — xem ghi chú ở hàm. */
   danhDauDaDocThongBao: (ids: string[]) => void;
-  /** Bấm "Nhận công tác": ghi người tiếp nhận vào thông báo + nhật ký đề nghị. */
-  nhanCongTac: (thongBaoId: string, nguoi: { uid: string; ten: string }) => void;
   /**
    * Quản lý bộ phận duyệt đề nghị do người trong bộ phận lập — Ban lãnh đạo 12/08/2026.
    * Duyệt xong Thu mua mới thấy phiếu trên bảng quy trình.
@@ -1357,20 +1354,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const nhanCongTac = useCallback(
-    (thongBaoId: string, nguoi: { uid: string; ten: string }) => {
-      const tb = thongBaoRef.current.find((t) => t.id === thongBaoId);
-      if (!tb || tb.tiepNhan) return; // đã có người nhận thì thôi
 
-      const tiepNhan: XacNhan = { ...nguoi, thoiDiem: new Date().toISOString() };
-      setThongBao((truoc) => truoc.map((t) => (t.id === thongBaoId ? { ...t, tiepNhan } : t)));
-
-      // Ghi cả vào nhật ký đề nghị — bàn giao phải có dấu vết hai chiều.
-      const nhan = NHAN_GIAI_DOAN[tb.denBuoc as GiaiDoanMuaHang]?.nhan ?? tb.denBuoc;
-      ghiLichSuDeNghi(tb.prId, nguoi.ten, `Tiếp nhận công tác bước "${nhan}"`);
-    },
-    [ghiLichSuDeNghi],
-  );
 
   const dongDoDeNghi = useCallback((prId: string, nguoiThucHien: string) => {
     setDeNghi((truoc) =>
@@ -1548,7 +1532,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         ...goc,
         id: idMoi,
         code,
-        tieuDe: `${goc.tieuDe} (bản sao)`,
+        // 🔴 Ban lãnh đạo 12/08/2026: *"việc nhân bản sẽ vẫn phải giữ tên của đề xuất chỉ
+        // thêm chữ (copy) phía sau"*. Giữ nguyên tên gốc để người dùng nhận ra ngay đây là
+        // bản của việc nào — đổi tên đi thì mất mối liên hệ với phiếu gốc.
+        tieuDe: `${goc.tieuDe} (copy)`,
         ngayDeNghi: ngay,
         ngayDuyet: ngay,
         trangThai: "da_duyet",
@@ -1655,7 +1642,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * (nguyên tắc ở `2-quy-trinh/giai-doan-mua-hang`); chuyển tiếp chỉ là BÀN GIAO
    * NGƯỜI LÀM, không phải bước nghiệp vụ mới. Vì vậy `tuBuoc` = `denBuoc`.
    *
-   * Dùng lại đúng cơ chế thông báo + nút "Nhận công tác" đã có, nên nhân viên
+   * Dùng lại đúng cơ chế thông báo đã có, nên nhân viên
    * nhận việc theo cùng một thói quen thao tác.
    */
   const chuyenTiepChoNhanVien = useCallback(
@@ -1746,7 +1733,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chuyenTiepChoNhanVien,
       thongBao,
       danhDauDaDocThongBao,
-      nhanCongTac,
       duyetDeNghiCuaBoPhan,
       xoaDuLieuChayThu,
       trangThaiKhoChung,
@@ -1787,7 +1773,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chuyenTiepChoNhanVien,
       thongBao,
       danhDauDaDocThongBao,
-      nhanCongTac,
       duyetDeNghiCuaBoPhan,
       xoaDuLieuChayThu,
       trangThaiKhoChung,

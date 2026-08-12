@@ -1,6 +1,5 @@
 import {
   LayoutDashboard,
-  FilePlus2,
   FileText,
   Eye,
   Wallet,
@@ -30,6 +29,15 @@ export interface MucDieuHuong {
  *   · Phân bổ công việc  → cột "Tiếp nhận và kiểm tra"
  *   · Báo giá & so sánh  → cột "Yêu cầu NCC báo giá" + "Xét duyệt báo giá"
  *   · Đơn đặt hàng       → cột "Lập đơn mua hàng" → "Tiến hành đặt hàng" → "Tiến hành nhận hàng"
+ *
+ * 🔴 MỤC "Tạo đề nghị mua hàng" ĐÃ BỎ KHỎI MENU — Ban lãnh đạo 12/08/2026:
+ * *"bỏ mục này ra khỏi tab trái nha, không cần hiển thị"*.
+ *
+ * ⚠️ MÀN HÌNH VẪN CÒN và VẪN CÓ ĐƯỜNG VÀO, đã kiểm trước khi bỏ (đúng luật CLAUDE.md mục
+ * 3.4b — phiên 03 suýt làm module Báo giá thành mồ côi vì bỏ menu mà không kiểm):
+ *   · Nút "Tạo đề nghị" ở màn **Công việc của tôi** — mục này hiện cho MỌI vai trò, và nút
+ *     xét `quyen.taoDeNghi` nên ai lập được đề nghị đều thấy. Đây là đường vào chính.
+ *   · Nút "Nhận đề nghị mới" ở màn Quy trình mua hàng — chỉ người làm thu mua thấy.
  *
  * ⚠️ Ba MÀN HÌNH đó VẪN CÒN, địa chỉ không đổi (`/phan-bo`, `/bao-gia`, `/don-hang`).
  * Chỉ bỏ lối vào từ menu. Đường vào hiện tại là trang chi tiết đề nghị `/de-nghi/[id]`:
@@ -92,23 +100,6 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     // ⚠️ Bảng quy trình KHÔNG lộ giá cho họ: mọi chỗ hiện tiền đều đã kiểm `quyen.xemGia`,
     // mà thủ kho không có quyền đó. Mở lối vào màn hình khác với mở quyền xem giá.
     duocThay: (q) => q.xemMoiHoSo || q.lapPO || q.phanBoCongViec || q.ghiPhieuNhanHang,
-  },
-  {
-    /**
-     * 🔴 Ban lãnh đạo 12/08/2026: *"Thêm chức năng tạo đề nghị cho Tô Trọng Hoài"*.
-     *
-     * Trước đó màn này CÓ SẴN nhưng **không có lối vào nào từ menu** — chỉ vào được bằng
-     * nút trên trang `/de-nghi`, mà trang đó lại chỉ hiện cho người làm thu mua. Kỹ sư hiện
-     * trường đăng nhập vào thấy menu 4 mục, không có đường nào đề xuất vật tư.
-     *
-     * ⚠️ Đặt TRƯỚC "Theo dõi đề nghị" là cố ý: với Phòng Thi công, việc đầu tiên là *gửi
-     * đề nghị*, việc thứ hai mới là *theo dõi nó tới đâu*. Đúng thứ tự họ làm.
-     */
-    nhan: "Tạo đề nghị mua hàng",
-    nhanNgan: "Tạo mới",
-    href: "/de-nghi/nhan-moi",
-    icon: FilePlus2,
-    duocThay: (q) => q.taoDeNghi,
   },
   {
     nhan: "Theo dõi đề nghị",

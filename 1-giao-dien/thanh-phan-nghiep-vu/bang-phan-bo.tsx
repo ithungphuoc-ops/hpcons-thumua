@@ -1,10 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeftRight, UserPlus, X } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, MoreHorizontal, UserPlus, X } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -187,6 +194,17 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const soChuaPhanBo = tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo").length;
   const soDaPhanChuaLenPO = tienDo.filter((d) => d.trangThaiDong === "da_phan_bo").length;
 
+  /**
+   * Dòng này có hành động nào để mở menu ⋯ không.
+   *
+   * ⚠️ Phải kiểm TRƯỚC khi vẽ nút ⋯. Vẽ nút rồi mở ra menu rỗng là kiểu bí việc khó chịu:
+   * người dùng bấm hai lần mới biết chẳng có gì.
+   */
+  function coHanhDong(d: { stt: number; trangThaiDong: string; nguoiPhuTrachUid?: string }) {
+    if (d.trangThaiDong !== "da_phan_bo") return false;
+    return duocChuyenViecDong(d, nguoiDung.uid, quyen) || quyen.phanBoCongViec;
+  }
+
   function doiChon(stt: number, checked: boolean) {
     setChon((truoc) => (checked ? [...truoc, stt] : truoc.filter((x) => x !== stt)));
   }
@@ -285,11 +303,15 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                 {quyen.phanBoCongViec && <TableHead className="w-10" />}
                 <TableHead className="w-12 text-right">Dòng</TableHead>
                 <TableHead>Vật liệu</TableHead>
-                <TableHead>ĐVT</TableHead>
+                {/* 🔴 GỘP ĐVT VÀO CỘT KHỐI LƯỢNG — Ban lãnh đạo 12/08/2026 yêu cầu tối ưu.
+                    Tám cột trong ~855px là chật, bảng tràn ngang và cột Trạng thái bị cắt chữ.
+                    "150 Bao" đọc tự nhiên hơn hai cột rời, mà tiết kiệm hẳn một cột. */}
                 <TableHead className="text-right">KL đề nghị</TableHead>
                 <TableHead>Người phụ trách</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead>Đơn hàng</TableHead>
+                {/* Mã đơn hàng ít tra tới — ẩn dưới 1280px thay vì để nó đẩy bảng tràn.
+                    Vẫn xem được ở khối "Đơn đặt hàng đã tách" phía dưới trang. */}
+                <TableHead className="hidden xl:table-cell">Đơn hàng</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -327,64 +349,83 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{d.donViTinh}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {d.khoiLuongDeNghi.toLocaleString("vi-VN")}
+                    <TableCell className="text-right font-semibold whitespace-nowrap">
+                      {d.khoiLuongDeNghi.toLocaleString("vi-VN")}{" "}
+                      <span className="font-normal text-text-desc">{d.donViTinh}</span>
                     </TableCell>
                     <TableCell>
                       {daPhan ? (
-                        <div className="flex flex-col gap-1">
-                          <span className="flex items-center gap-2">
-                            <span className="text-sm">{d.nguoiPhuTrachTen}</span>
-                            {quyen.phanBoCongViec && d.trangThaiDong === "da_phan_bo" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`Bỏ phân bổ dòng ${d.stt}`}
-                                onClick={() => boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi)}
-                              >
-                                <X className="size-4" />
-                              </Button>
+                        /**
+                         * 🔴 THIẾT KẾ LẠI 12/08/2026 — Ban lãnh đạo: *"mục này chưa ok, cần
+                         * thiết kế lại tối ưu hơn"*.
+                         *
+                         * Bản trước nhồi vào cột này: tên · nút X bỏ phân bổ · badge yêu cầu
+                         * báo giá · ghi chú · VÀ HAI nút chuyển việc (một nút bản điện thoại
+                         * lọt vào bảng máy tính). Cột phình ra, đẩy bảng **tràn ngang** và
+                         * cột Trạng thái bị cắt mất chữ.
+                         *
+                         * Nay: cột chỉ còn THÔNG TIN (tên + yêu cầu), mọi HÀNH ĐỘNG gom vào
+                         * một menu ⋯ — đúng cách bảng quy trình đang làm, và cột giữ được bề
+                         * rộng cố định dù thêm hành động về sau.
+                         */
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate text-sm">{d.nguoiPhuTrachTen}</span>
+                            {coHanhDong(d) && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger
+                                  render={
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-7 shrink-0"
+                                      aria-label={`Thao tác với dòng ${d.stt}`}
+                                    />
+                                  }
+                                >
+                                  <MoreHorizontal className="size-4" aria-hidden />
+                                </DropdownMenuTrigger>
+                                {/* ⚠️ base-nova bắt buộc Item nằm trong Group — thiếu là
+                                    "MenuGroupContext is missing" và crash cả trang khi mở. */}
+                                <DropdownMenuContent align="end" className="w-56">
+                                  <DropdownMenuGroup>
+                                    {duocChuyenViecDong(d, nguoiDung.uid, quyen) && (
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          moChuyenViec(d.stt, d.nguoiPhuTrachTen ?? "")
+                                        }
+                                      >
+                                        <ArrowLeftRight className="size-4 shrink-0" aria-hidden />
+                                        Chuyển việc cho người khác
+                                      </DropdownMenuItem>
+                                    )}
+                                    {quyen.phanBoCongViec && (
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi)
+                                        }
+                                      >
+                                        <X className="size-4 shrink-0" aria-hidden />
+                                        Bỏ phân bổ dòng này
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuGroup>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                           </span>
                           {/* Yêu cầu giao việc của trưởng bộ phận — hiện ngay dưới tên người
                               phụ trách để người nhận việc đọc được, khỏi phải mở nhật ký. */}
                           <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
-                {d.trangThaiDong === "da_phan_bo" &&
-                  duocChuyenViecDong(d, nguoiDung.uid, quyen) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="min-h-11 w-fit"
-                      onClick={() => moChuyenViec(d.stt, d.nguoiPhuTrachTen ?? "")}
-                    >
-                      <ArrowLeftRight className="size-4" aria-hidden />
-                      Chuyển việc cho người khác
-                    </Button>
-                  )}
-                          {/* ★ CHUYỂN VIỆC — Ban lãnh đạo 12/08/2026. Hiện cho trưởng bộ
-                              phận VÀ cho chính người đang phụ trách: người biết mình không
-                              làm được là chính họ. Luật ở `duocChuyenViecDong`. */}
-                          {d.trangThaiDong === "da_phan_bo" &&
-                            duocChuyenViecDong(d, nguoiDung.uid, quyen) && (
-                              <button
-                                type="button"
-                                onClick={() => moChuyenViec(d.stt, d.nguoiPhuTrachTen ?? "")}
-                                className="inline-flex w-fit min-h-7 items-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary"
-                              >
-                                <ArrowLeftRight className="size-3.5 shrink-0" aria-hidden />
-                                Chuyển việc
-                              </button>
-                            )}
                         </div>
                       ) : (
                         <span className="text-sm text-text-desc italic">chưa phân</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <StatusBadge label={tt.nhan} tone={tt.tong} />
                     </TableCell>
-                    <TableCell className="text-xs text-text-desc">
+                    <TableCell className="hidden text-xs text-text-desc xl:table-cell">
                       {d.maPOLienQuan.length > 0 ? d.maPOLienQuan.join(", ") : "—"}
                     </TableCell>
                   </TableRow>
@@ -423,6 +464,36 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                   <span>{d.nguoiPhuTrachTen ?? "chưa phân"}</span>
                 </div>
                 <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
+
+                {/* Trên điện thoại KHÔNG dùng menu ⋯ mà hiện nút thẳng: màn hẹp thì menu bật
+                    ra che gần hết nội dung, còn ở đây có sẵn chỗ. Vùng chạm ≥44px (V1.1). */}
+                {coHanhDong(d) && (
+                  <div className="flex flex-wrap gap-2">
+                    {duocChuyenViecDong(d, nguoiDung.uid, quyen) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="min-h-11"
+                        onClick={() => moChuyenViec(d.stt, d.nguoiPhuTrachTen ?? "")}
+                      >
+                        <ArrowLeftRight className="size-4" aria-hidden />
+                        Chuyển việc
+                      </Button>
+                    )}
+                    {quyen.phanBoCongViec && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-11"
+                        onClick={() => boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi)}
+                      >
+                        <X className="size-4" aria-hidden />
+                        Bỏ phân bổ
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 {quyen.phanBoCongViec && !d.nguoiPhuTrachUid && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {nhanVienThuMua.map((nv) => (

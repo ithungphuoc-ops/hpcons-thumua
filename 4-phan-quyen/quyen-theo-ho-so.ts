@@ -113,40 +113,6 @@ export function coLocTheoPhanViec(
   return sttDongDuocXem(deNghi, uid, quyen).length < deNghi.items.length;
 }
 
-/**
- * AI ĐƯỢC BẤM "NHẬN CÔNG TÁC" — trả về lý do bị chặn, `null` nghĩa là được nhận.
- *
- * 🔴 CHỈ ĐẠO BAN LÃNH ĐẠO 10/08/2026: *"sao trưởng bộ phận chưa duyệt mà nhân viên tự bấm
- * nhận việc được"*. Trước đây nút chỉ đòi `quyen.lapPO` (cấp 2 trở lên) nên nhân viên nhận
- * được cả việc CHƯA ĐƯỢC CHIA cho mình — tên họ ghi vào nhật ký như người tiếp quản một
- * việc không ai giao.
- *
- * Luật theo đúng phân vai của quy trình:
- *   · Bước ① "Tiếp nhận và kiểm tra" — việc của TRƯỞNG BỘ PHẬN (kiểm tra + phân bổ người
- *     phụ trách). Nhân viên chưa có vai gì ở bước này nên không nhận được.
- *   · Các bước sau — nhân viên chỉ nhận khi ĐÃ ĐƯỢC CHIA VIỆC trong đề nghị (trưởng bộ
- *     phận phân bổ xong mới tới lượt họ). Trưởng bộ phận luôn nhận được.
- *
- * ⚠️ Dùng ở CẢ chuông thông báo lẫn thẻ trên bảng quy trình — một luật, mọi đường dùng
- * chung, cùng lý do với `vuongMacSangBuocSau`.
- */
-export function lyDoKhongNhanCongTac(
-  deNghi: DeNghiMuaHang,
-  denBuoc: string,
-  uid: string,
-  quyen: Quyen,
-): string | null {
-  if (denBuoc === "tiep_nhan") {
-    return quyen.phanBoCongViec
-      ? null
-      : "Bước “Tiếp nhận và kiểm tra” là việc của trưởng bộ phận — kiểm tra đề nghị và phân bổ người phụ trách. Bạn sẽ nhận việc sau khi được phân bổ.";
-  }
-  if (!quyen.lapPO) {
-    return "Cấp quyền của bạn không thao tác được nghiệp vụ thu mua.";
-  }
-  if (quyen.phanBoCongViec || duocChiaViec(deNghi, uid)) return null;
-  return "Bạn chưa được phân bổ dòng vật tư nào trong đề nghị này. Trưởng bộ phận phân bổ xong bạn mới nhận việc được.";
-}
 
 /** Lý do bị chặn, để nói cho người dùng biết phải làm gì. Trả `null` khi được xem. */
 export function lyDoKhongXemBaoGia(

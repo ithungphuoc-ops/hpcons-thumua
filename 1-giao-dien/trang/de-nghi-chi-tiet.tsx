@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
-  Check,
   FileWarning,
   Forward,
   ShoppingCart,
@@ -22,8 +21,6 @@ import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
 import { KhoiDuyetBoPhan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-duyet-bo-phan";
-import { HopNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-cong-tac";
-import { useNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/dung-nhan-cong-tac";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
 import {
   CotThongTinDeNghi,
@@ -47,11 +44,7 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
-import {
-  daNhanCongTacDeNghi,
-  vuongMacSangBuocSau,
-  xacDinhGiaiDoan,
-} from "@/2-quy-trinh/giai-doan-mua-hang";
+import { vuongMacSangBuocSau, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   NHAN_PHONG_BAN_NGUON,
   NHAN_TRANG_THAI_BAO_GIA,
@@ -67,13 +60,10 @@ export default function TrangChiTietDeNghi() {
     donHang,
     phieuNhan,
     baoGia,
-    thongBao,
     chuyenTiepChoNhanVien,
     taoBaoGiaGiaLap,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
-  /** Nhận công tác — dùng chung hook với chuông thông báo và thẻ trên bảng quy trình. */
-  const nhanViec = useNhanCongTac();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
   /** Hỏi trước khi lập bảng báo giá — việc này CHUYỂN BƯỚC đề nghị sang ② (nguyên tắc 10/08/2026). */
   const [hoiLapBaoGia, setHoiLapBaoGia] = useState(false);
@@ -166,21 +156,6 @@ export default function TrangChiTietDeNghi() {
   ];
   const soDongChuaPhanBo = dn.items.filter((d) => !d.nguoiPhuTrachUid).length;
   const tt = NHAN_TRANG_THAI_DE_NGHI[dn.trangThai];
-
-  /** Thông báo của hồ sơ này: cái đang chờ nhận, và cái đã có người nhận (để hiện tên). */
-  const tbChoNhan = nhanViec.thongBaoChoNhan(dn.id);
-  const tbDaNhan = thongBao.find((t) => t.prId === dn.id && t.tiepNhan);
-
-  /**
-   * 🔴 Ban lãnh đạo 12/08/2026: *"trưởng phòng đã giao việc rồi sao còn hiển thị mục này"*.
-   *
-   * Mỗi lần đề nghị chuyển bước là sinh một thông báo mới CHƯA có người nhận, nên
-   * `tbChoNhan` gần như luôn khác rỗng và nút "Nhận công tác" hiện lại — ngay bên dưới
-   * dòng chữ "… đã nhận công tác" của chính người đó. Nhìn vào rất khó hiểu.
-   *
-   * Luật dùng CHUNG với chuông thông báo: đã tiếp quản đề nghị này rồi thì thôi hỏi lại.
-   */
-  const toiDaNhanDeNghiNay = daNhanCongTacDeNghi(thongBao, dn.id, nguoiDung.uid);
 
   return (
     <>
@@ -390,32 +365,6 @@ export default function TrangChiTietDeNghi() {
             }}
             hoatDongChinh={
               <>
-                {/* ===== NHẬN CÔNG TÁC =====
-                    🔴 Chỉ đạo Ban lãnh đạo 11/08/2026: *"chưa có nút nhận công việc"*. Trước
-                    đây chỉ nhận được từ chuông thông báo và thẻ trên bảng — mà người dùng mở
-                    trang chi tiết ra đọc rồi thì phải nhận được ngay tại đó, không bắt quay
-                    lại bảng.
-
-                    Luật "ai được nhận" và hệ quả (tự chuyển bước ①→②) dùng CHUNG hook
-                    `useNhanCongTac` với hai chỗ kia. */}
-                {tbChoNhan && !toiDaNhanDeNghiNay && nhanViec.coTheNhan(dn.id) && (
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => nhanViec.moHoiNhan(tbChoNhan)}
-                  >
-                    <Check className="size-4" aria-hidden />
-                    Nhận công tác
-                  </Button>
-                )}
-                {/* Đã có người nhận thì hiện tên, không hiện nút nữa. */}
-                {tbDaNhan?.tiepNhan && (
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-success-soft">
-                    <Check className="size-3.5 shrink-0" aria-hidden />
-                    {tbDaNhan.tiepNhan.ten} đã nhận công tác
-                  </span>
-                )}
-
                 {/* 🔴 Màn này là CHỖ LÀM VIỆC CỦA TRƯỞNG BỘ PHẬN (chỉ đạo Ban lãnh đạo
                     08/08/2026): phân bổ xong thì việc còn lại là của nhân viên, nên nút
                     CHÍNH là "Chuyển tiếp", không phải "Lập đơn đặt hàng". Vẫn giữ nút lập
@@ -540,13 +489,6 @@ export default function TrangChiTietDeNghi() {
             });
           }
         }}
-      />
-      {/* Hộp xác nhận nhận công tác — dùng chung với chuông và thẻ trên bảng. */}
-      <HopNhanCongTac
-        thongBao={nhanViec.hoiNhan}
-        seTuChuyenBuoc={nhanViec.seTuChuyenBuoc(nhanViec.hoiNhan)}
-        onDong={nhanViec.dongHoiNhan}
-        onDongY={nhanViec.xacNhanNhan}
       />
     </>
   );

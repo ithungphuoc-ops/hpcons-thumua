@@ -59,7 +59,7 @@ export default function TrangDanhSachDonHang() {
           title="Chưa có đơn đặt hàng nào"
           description={
             "Đơn đặt hàng sinh ra từ đề nghị. Đường đi: mở Quy trình mua hàng → bấm vào một đề nghị " +
-            "→ phân bổ người phụ trách cho mọi dòng vật tư → nhận công tác → nhập giá nhà cung cấp " +
+            "→ phân bổ người phụ trách cho mọi dòng vật tư → nhập giá nhà cung cấp " +
             "→ trưởng bộ phận chốt nhà cung cấp → Lập đơn đặt hàng. Có đơn rồi mới in và xuất Excel được."
           }
         />

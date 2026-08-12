@@ -20,7 +20,6 @@ import type {
   DeNghiMuaHang,
   DonDatHang,
   PhieuNhanHang,
-  ThongBaoChuyenBuoc,
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
 import { daysUntil } from "@/6-tien-ich/dinh-dang";
@@ -218,77 +217,6 @@ export function thongBaoDanhChoToi(
   return false;
 }
 
-/**
- * NGƯỜI NÀY ĐÃ NHẬN CÔNG TÁC CHO ĐỀ NGHỊ NÀY CHƯA (ở bất kỳ bước nào).
- *
- * 🔴 Chỉ đạo Ban lãnh đạo 12/08/2026: *"đã nhận công tác nhưng ở đây vẫn còn thông báo"*.
- *
- * Nguyên nhân: mỗi lần đề nghị chuyển bước là sinh một thông báo mới kèm nút "Nhận công
- * tác". Mà bước lại **suy ra từ chứng từ**, nên chính người đang làm việc cứ nhập liệu là
- * bước tự nhảy — họ vừa bấm nhận xong đã bị hỏi nhận tiếp, bốn năm lần liên tiếp cho cùng
- * một đề nghị. Hỏi mãi thì người ta bấm theo phản xạ, và hộp xác nhận mất hết tác dụng.
- *
- * "Nhận công tác" đúng nghĩa là **xác nhận tiếp quản việc từ người khác**. Đã tiếp quản
- * rồi thì những bước sau là việc của chính mình, không phải bàn giao lần nữa.
- *
- * ⚠️ Người KHÁC vẫn bị hỏi bình thường — đó mới là bàn giao thật.
- */
-export function daNhanCongTacDeNghi(
-  thongBao: { prId: string; tiepNhan?: { uid: string } }[],
-  prId: string,
-  uid: string,
-): boolean {
-  return thongBao.some((t) => t.prId === prId && t.tiepNhan?.uid === uid);
-}
-
-export interface TinhTrangTiepNhan {
-  /** Đã có người bấm nhận công tác cho bước hiện tại chưa. */
-  daNhan: boolean;
-  /** Tên người nhận. ⚠️ Nơi gọi phải tự kiểm quyền trước khi hiện — xem chú thích dưới. */
-  ten?: string;
-  /** ISO đầy đủ giờ phút. */
-  thoiDiem?: string;
-  /** Mã bước mà người đó nhận. */
-  buoc?: GiaiDoanMuaHang;
-}
-
-/**
- * ĐỀ NGHỊ NÀY ĐÃ CÓ NGƯỜI TIẾP NHẬN CHƯA — suy ra từ thông báo chuyển bước.
- *
- * 🔴 Chỉ đạo Ban lãnh đạo 11/08/2026: *"Khi trưởng bộ phận bấm tiếp nhận request thì mục theo
- * dõi đề nghị sẽ tự động cập nhật request đó"*. Người đề nghị (Phòng Thi công) gửi phiếu lên
- * rồi ngồi chờ mà không biết đã có ai nhận việc chưa — đó là lúc họ gọi điện hỏi.
- *
- * 🔴 SUY RA, KHÔNG THÊM TRƯỜNG MỚI vào đề nghị. Việc "đã nhận" đã được ghi vào
- * `ThongBaoChuyenBuoc.tiepNhan` khi người dùng bấm nhận (`dung-nhan-cong-tac.ts`). Thêm một
- * trường `daTiepNhan` trên đề nghị là tạo nguồn sự thật thứ hai, rồi hai chỗ lệch nhau — đúng
- * lỗi CLAUDE.md mục 3.4b cấm.
- *
- * ⚠️ Lấy thông báo MỚI NHẤT có người nhận, không phải cái đầu tiên: một đề nghị đi qua nhiều
- * bước, mỗi bước một lần nhận. Người đề nghị cần biết ai đang giữ việc BÂY GIỜ.
- *
- * 🔒 HÀM NÀY TRẢ VỀ CẢ TÊN, NHƯNG NƠI GỌI PHẢI KIỂM QUYỀN. Màn "Theo dõi đề nghị" dành cho
- * Phòng Thi công và họ KHÔNG được xem tên nhân viên thu mua (`quyen.xemNguoiPhuTrach`). Ở đó
- * chỉ hiện "đã tiếp nhận" kèm thời điểm, giấu tên.
- */
-export function tinhTrangTiepNhan(
-  prId: string,
-  thongBao: ThongBaoChuyenBuoc[],
-): TinhTrangTiepNhan {
-  const daNhan = thongBao
-    .filter((t) => t.prId === prId && t.tiepNhan)
-    .sort(
-      (a, b) =>
-        new Date(b.tiepNhan!.thoiDiem).getTime() - new Date(a.tiepNhan!.thoiDiem).getTime(),
-    )[0];
-  if (!daNhan?.tiepNhan) return { daNhan: false };
-  return {
-    daNhan: true,
-    ten: daNhan.tiepNhan.ten,
-    thoiDiem: daNhan.tiepNhan.thoiDiem,
-    buoc: daNhan.denBuoc as GiaiDoanMuaHang,
-  };
-}
 
 /**
  * Đề nghị đã đóng sổ (hoàn thành hoặc đóng dở) thì KHÔNG được đếm vào việc còn phải làm.
@@ -432,9 +360,9 @@ const THU_TU_GIAI_DOAN: GiaiDoanMuaHang[] = GIAI_DOAN_MUA_HANG.map((g) => g.ma);
  * phải hoàn thành công việc ở các bước trước thì mới được thực hiện các bước tiếp theo"*.
  *
  * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý — MỘT LUẬT, MỌI ĐƯỜNG DÙNG CHUNG. Đề nghị chuyển bước qua nhiều
- * đường khác nhau: kéo thả trên bảng, nút "Nhận công tác" ở chuông, nút "Lập bảng báo giá"
+ * đường khác nhau: kéo thả trên bảng, nút "Lập bảng báo giá"
  * ở trang chi tiết. Nếu mỗi đường tự kiểm riêng thì bịt được đường này lại hở đường khác —
- * đã xảy ra thật: bịt kéo thả nhưng nút "Nhận công tác" vẫn lập bảng báo giá khi chưa phân
+ * đã xảy ra thật: bịt kéo thả nhưng một đường khác vẫn lập bảng báo giá khi chưa phân
  * bổ dòng nào, thế là đề nghị nhảy sang bước ② rồi ④ mà không ai được phân công.
  *
  * ⚠️ Đây là LUẬT CỨNG (chặn), khác `dungXacNhanKeoTha` là cảnh báo mềm (chỉ hỏi lại).

@@ -12,15 +12,14 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { tinhTrangTiepNhan } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { DongTiepNhan } from "@/1-giao-dien/trang/theo-doi-danh-sach";
+import { DongPhanCong } from "@/1-giao-dien/trang/theo-doi-danh-sach";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
 
 /** M6 — Chi tiết tiến trình từng mặt hàng cho người đề nghị. */
 export default function TrangTheoDoiChiTiet() {
   const params = useParams<{ id: string }>();
-  const { deNghi, donHang, phieuNhan, thongBao } = useDuLieu();
+  const { deNghi, donHang, phieuNhan } = useDuLieu();
   const { quyen } = useNguoiDung();
   const [moDong, setMoDong] = useState<number | null>(null);
 
@@ -72,13 +71,9 @@ export default function TrangTheoDoiChiTiet() {
 
       <Card>
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-          {/* 🔴 Chỉ đạo Ban lãnh đạo 11/08/2026: trưởng bộ phận bấm tiếp nhận thì màn theo dõi
-              phải tự cập nhật. Dùng chung component với màn danh sách, luật ở
-              `2-quy-trinh/giai-doan-mua-hang.ts` → `tinhTrangTiepNhan`. */}
-          <DongTiepNhan
-            tiepNhan={tinhTrangTiepNhan(dn.id, thongBao)}
-            hienTen={quyen.xemNguoiPhuTrach}
-          />
+          {/* Người đề nghị cần biết "đã ai lo việc này chưa". Từ 12/08/2026 lấy từ PHÂN BỔ
+              thay vì nút xác nhận đã bỏ — dùng chung component với màn danh sách. */}
+          <DongPhanCong deNghi={dn} hienTen={quyen.xemNguoiPhuTrach} />
 
           <TimelineDeNghi
             ngayDuyet={dn.ngayDuyet}

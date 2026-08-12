@@ -12,13 +12,8 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
-import {
-  NHAN_GIAI_DOAN,
-  tinhTrangTiepNhan,
-  xacDinhGiaiDoan,
-  type TinhTrangTiepNhan,
-} from "@/2-quy-trinh/giai-doan-mua-hang";
-import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
+import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
  * M6 — Người đề nghị (Phòng Thi công) theo dõi tiến trình đề nghị của mình.
@@ -26,7 +21,7 @@ import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
  * 🔒 Không hiển thị: đơn giá, thành tiền, nhà cung cấp, tên nhân viên thu mua.
  */
 export default function TrangTheoDoi() {
-  const { deNghi, donHang, baoGia, phieuNhan, thongBao } = useDuLieu();
+  const { deNghi, donHang, baoGia, phieuNhan } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   /** Người đề nghị chỉ thấy đề nghị của mình; vai trò quản lý thấy hết. */
@@ -40,14 +35,11 @@ export default function TrangTheoDoi() {
         dn,
         tienDo,
         tomTat: tomTatTienDoDeNghi(tienDo),
-        // 🔴 Chỉ đạo Ban lãnh đạo 11/08/2026: trưởng bộ phận bấm tiếp nhận thì màn này phải
-        // tự cập nhật. Cả hai đều SUY RA từ chứng từ / thông báo, không thêm trường mới —
-        // xem `tinhTrangTiepNhan` và `xacDinhGiaiDoan`.
+        // Giai đoạn SUY RA từ chứng từ thật, không thêm trường mới — xem `xacDinhGiaiDoan`.
         giaiDoan: xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan),
-        tiepNhan: tinhTrangTiepNhan(dn.id, thongBao),
       };
     });
-  }, [deNghi, donHang, baoGia, phieuNhan, thongBao, nguoiDung.uid, quyen.xemMoiHoSo]);
+  }, [deNghi, donHang, baoGia, phieuNhan, nguoiDung.uid, quyen.xemMoiHoSo]);
 
   return (
     <>
@@ -65,7 +57,7 @@ export default function TrangTheoDoi() {
         />
       ) : (
         <div className="flex flex-col gap-(--hp-md-card-gap)">
-          {danhSach.map(({ dn, tienDo, tomTat, giaiDoan, tiepNhan }) => {
+          {danhSach.map(({ dn, tienDo, tomTat, giaiDoan }) => {
             const tt = NHAN_TRANG_THAI_DE_NGHI[dn.trangThai];
             const buoc = NHAN_GIAI_DOAN[giaiDoan];
             return (
@@ -90,11 +82,8 @@ export default function TrangTheoDoi() {
                     </span>
                   </div>
 
-                  {/* ---- Đã có người thu mua tiếp nhận chưa ---- */}
-                  {/* 🔒 Giấu TÊN người tiếp nhận với vai trò không được xem người phụ trách
-                      (Phòng Thi công). Họ chỉ cần biết "đã có người nhận việc lúc nào" —
-                      đủ để thôi phải gọi điện hỏi, mà không lộ nhân sự nội bộ phòng thu mua. */}
-                  <DongTiepNhan tiepNhan={tiepNhan} hienTen={quyen.xemNguoiPhuTrach} />
+                  {/* ---- Phòng Thu mua đã phân công chưa ---- */}
+                  <DongPhanCong deNghi={dn} hienTen={quyen.xemNguoiPhuTrach} />
 
                   <TimelineDeNghi
                     ngayDuyet={dn.ngayDuyet}
@@ -122,38 +111,63 @@ export default function TrangTheoDoi() {
 }
 
 /**
- * Một dòng cho biết đề nghị đã có người thu mua tiếp nhận chưa.
+ * Một dòng cho biết Phòng Thu mua đã phân công người phụ trách chưa.
+ *
+ * 🔴 THAY CHO "ĐÃ TIẾP NHẬN" — Ban lãnh đạo 12/08/2026 bỏ hẳn bước bấm "Nhận công tác"
+ * (*"Trưởng phòng giao việc thì chắc chắn phải làm nên không cần bước bấm xác nhận này"*).
+ *
+ * Dựa vào PHÂN BỔ thay vì một cái nút xác nhận là thông tin **đúng hơn**: nó phản ánh việc
+ * đã có người thật đang làm, chứ không phải ai đó đã bấm một nút. Người đề nghị vẫn có đúng
+ * câu trả lời họ cần — *"đã ai lo việc này chưa"* — mà không phải chờ thêm một thao tác.
  *
  * 🔴 Tách thành component vì màn danh sách và màn chi tiết đều dùng — chép hai lần thì sửa
  * một chỗ là chỗ kia lệch, mà đây là câu trả lời cho đúng thứ người đề nghị muốn biết nhất.
  */
-export function DongTiepNhan({
-  tiepNhan,
+export function DongPhanCong({
+  deNghi,
   /** Vai trò được xem tên nhân viên thu mua hay không. */
   hienTen,
 }: {
-  tiepNhan: TinhTrangTiepNhan;
+  deNghi: DeNghiMuaHang;
   hienTen: boolean;
 }) {
-  if (!tiepNhan.daNhan) {
+  const nguoiPhuTrach = [
+    ...new Set(
+      deNghi.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x)),
+    ),
+  ];
+  const soDaPhan = deNghi.items.filter((d) => d.nguoiPhuTrachUid).length;
+
+  if (soDaPhan === 0) {
     return (
       <p className="flex items-center gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm text-text-secondary">
         <Clock className="size-4 shrink-0 text-warning-soft" aria-hidden />
         <span>
-          <strong>Chờ Phòng Thu mua tiếp nhận.</strong> Khi có người nhận việc, dòng này sẽ tự
-          đổi — không cần gọi hỏi.
+          <strong>Chờ Phòng Thu mua phân công.</strong> Khi có người nhận phần việc, dòng này sẽ
+          tự đổi — không cần gọi hỏi.
         </span>
       </p>
     );
   }
+
+  const xong = soDaPhan === deNghi.items.length;
   return (
-    <p className="flex items-center gap-2 rounded-lg border border-success bg-success-bg p-(--hp-md-row-pad) text-sm text-text-secondary">
-      <UserCheck className="size-4 shrink-0 text-success-soft" aria-hidden />
+    <p
+      className={`flex items-center gap-2 rounded-lg border p-(--hp-md-row-pad) text-sm text-text-secondary ${
+        xong ? "border-success bg-success-bg" : "border-warning bg-warning-bg"
+      }`}
+    >
+      <UserCheck
+        className={`size-4 shrink-0 ${xong ? "text-success-soft" : "text-warning-soft"}`}
+        aria-hidden
+      />
       <span>
-        <strong>Phòng Thu mua đã tiếp nhận</strong>
-        {hienTen && tiepNhan.ten ? ` — ${tiepNhan.ten}` : ""}
-        {tiepNhan.thoiDiem ? ` · ${formatMocThoiGian(tiepNhan.thoiDiem)}` : ""}
-        {tiepNhan.buoc ? ` · bước "${NHAN_GIAI_DOAN[tiepNhan.buoc]?.nhan ?? tiepNhan.buoc}"` : ""}
+        <strong>
+          Phòng Thu mua đã phân công {soDaPhan}/{deNghi.items.length} mặt hàng
+        </strong>
+        {/* 🔒 Giấu TÊN người phụ trách với vai trò không được xem (Phòng Thi công). Họ chỉ
+            cần biết đã có người lo, không cần biết nhân sự nội bộ phòng thu mua. */}
+        {hienTen && nguoiPhuTrach.length > 0 ? ` — ${nguoiPhuTrach.join(", ")}` : ""}
       </span>
     </p>
   );

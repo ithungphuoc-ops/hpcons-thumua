@@ -408,7 +408,7 @@ export interface PhieuNhanHang {
 // ------------------------------------------------------------
 // THÔNG BÁO CHUYỂN BƯỚC + TIẾP NHẬN CÔNG TÁC
 // Sinh tự động khi một đề nghị ĐỔI BƯỚC trên bảng quy trình (bất kể chuyển
-// bằng kéo thả hay bằng nghiệp vụ). Người phụ trách bước mới bấm "Nhận công tác"
+// bằng kéo thả hay bằng nghiệp vụ).
 // để xác nhận đã tiếp quản — ghi cả vào lịch sử đề nghị.
 // Bản chạy thử giữ trong bộ nhớ; bản thật sẽ là collection tm_thongbao.
 // ------------------------------------------------------------

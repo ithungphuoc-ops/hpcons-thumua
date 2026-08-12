@@ -43,8 +43,6 @@ import {
   type HanhDongKeoTha,
   type XacNhanKeoTha,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { HopNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-cong-tac";
-import { useNhanCongTac } from "@/1-giao-dien/thanh-phan-nghiep-vu/dung-nhan-cong-tac";
 import { NHAN_PHONG_BAN_NGUON, NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
 
 /** Hai cách xem cùng một dữ liệu — đặt tên giống bảng Base để anh em quen việc đọc ra ngay. */
@@ -57,7 +55,6 @@ export default function TrangDanhSachDeNghi() {
     donHang,
     phieuNhan,
     baoGia,
-    thongBao,
     taoBaoGiaGiaLap,
     doiTrangThaiBaoGiaTheoDeNghi,
     dongDoDeNghi,
@@ -70,12 +67,6 @@ export default function TrangDanhSachDeNghi() {
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [cachXem, setCachXem] = useState<CachXem>("bang");
-
-  /**
-   * Nhận công tác — luật và hệ quả nằm ở hook dùng chung `useNhanCongTac`, vì có ba nơi bấm
-   * nhận (chuông · thẻ trên bảng · trang chi tiết). Chép ba bản thì sửa một chỗ lệch hai chỗ.
-   */
-  const nhanViec = useNhanCongTac();
 
   /**
    * Hồ sơ đang mở hộp sửa nào — MỘT state cho cả ba hộp (thông tin chung · thời hạn · dữ
@@ -113,7 +104,7 @@ export default function TrangDanhSachDeNghi() {
       }
       toast.success("Đã nhân bản", {
         description: "Bản sao chưa phân bổ cho ai — phân bổ lại trước khi đi tiếp.",
-        action: { label: "Mở bản sao", onClick: () => router.push(`/de-nghi/${id}`) },
+        action: { label: "Mở bản copy", onClick: () => router.push(`/de-nghi/${id}`) },
       });
     },
     onDoiLuuTru: (prId, luuTru) => {
@@ -172,14 +163,6 @@ export default function TrangDanhSachDeNghi() {
     () => dungBangQuyTrinh(deNghiDaDuyet, donHang, baoGia, phieuNhan),
     [deNghiDaDuyet, donHang, baoGia, phieuNhan],
   );
-
-  // Thông báo MỚI NHẤT của từng đề nghị (mảng đã xếp mới nhất đứng đầu) —
-  // để thẻ trên bảng hiện "Chờ tiếp nhận" / "Đã nhận: [tên]" cho bước hiện tại.
-  const tiepNhanTheoPr = useMemo(() => {
-    const m = new Map<string, (typeof thongBao)[number]>();
-    for (const tb of thongBao) if (!m.has(tb.prId)) m.set(tb.prId, tb);
-    return m;
-  }, [thongBao]);
 
   /**
    * Thả thẻ vào cột: hỏi `quyetDinhKeoTha` (2-quy-trinh) xem bước chuyển này ứng với
@@ -316,23 +299,8 @@ export default function TrangDanhSachDeNghi() {
             cot={cot}
             keoThaDuoc={quyen.lapPO}
             onTha={xuLyTha}
-            tiepNhan={tiepNhanTheoPr}
-            // Nút "Nhận công tác" ngay trên thẻ (chỉ đạo Ban lãnh đạo 10/08/2026). Chỉ vai trò
-            // làm nghiệp vụ mới thấy — người chỉ xem thì thẻ giữ nhãn "Chờ tiếp nhận".
-            onNhanCongTac={quyen.lapPO ? (tb) => nhanViec.moHoiNhan(tb) : undefined}
-            // Nhân viên chưa được chia việc thì thẻ giữ nhãn "Chờ tiếp nhận", không hiện nút
-            // (chỉ đạo Ban lãnh đạo 10/08/2026) — luật ở `lyDoKhongNhanCongTac`.
-            duocNhan={(tb) => nhanViec.lyDoKhongNhan(tb) === null}
             // Menu ⋯ chỉ mở cho vai trò làm nghiệp vụ; người chỉ xem không thấy thao tác ghi.
             thaoTac={quyen.lapPO ? thaoTacThe : undefined}
-          />
-
-          {/* Hộp xác nhận dùng chung với chuông thông báo — xem `hop-nhan-cong-tac.tsx`. */}
-          <HopNhanCongTac
-            thongBao={nhanViec.hoiNhan}
-            seTuChuyenBuoc={nhanViec.seTuChuyenBuoc(nhanViec.hoiNhan)}
-            onDong={nhanViec.dongHoiNhan}
-            onDongY={nhanViec.xacNhanNhan}
           />
 
           {/* ===== BA HỘP SỬA của menu ⋯ ===== */}
