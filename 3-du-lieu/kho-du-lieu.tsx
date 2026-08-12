@@ -58,6 +58,7 @@ import type {
   CongNo,
   TepBaoGiaNCC,
   MoTaTep,
+  NguoiDuyetChiDinh,
 } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -87,6 +88,9 @@ export interface DauVaoDeNghiGiaLap {
    * Xem `2-quy-trinh/duyet-bo-phan.ts`.
    */
   capDuyetSan: 0 | 1 | 2;
+  /** Người được chỉ định duyệt từng cấp. Trống = xét theo chức vụ. */
+  nguoiDuyetCap1?: NguoiDuyetChiDinh;
+  nguoiDuyetCap2?: NguoiDuyetChiDinh;
   ngayDeNghi: string;
   ngayDuyet: string;
   ngayCanHang: string;
@@ -702,6 +706,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        */
       duyetCap1: dauVao.capDuyetSan >= 1 ? mocTuDuyet : undefined,
       duyetCap2: dauVao.capDuyetSan >= 2 ? mocTuDuyet : undefined,
+      nguoiDuyetCap1: dauVao.nguoiDuyetCap1,
+      nguoiDuyetCap2: dauVao.nguoiDuyetCap2,
       lichSu: [
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },
         {

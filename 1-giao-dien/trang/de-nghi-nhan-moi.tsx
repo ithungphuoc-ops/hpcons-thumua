@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Inbox, Paperclip, Plus, Save, Trash2, Wand2, X } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
@@ -17,6 +17,8 @@ import {
   type NhanSu,
 } from "@/3-du-lieu/danh-ba-nhan-su";
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
+import { nguoiDuyetDuocChon } from "@/2-quy-trinh/duyet-bo-phan";
+import type { NguoiDuyetChiDinh } from "@/3-du-lieu/kieu-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 
 /**
@@ -62,7 +64,7 @@ function congNgay(soNgay: number): string {
 export default function TrangNhanDeNghiMoi() {
   const router = useRouter();
   const { deNghi, themDeNghiGiaLap } = useDuLieu();
-  const { nguoiDung, quyen } = useNguoiDung();
+  const { nguoiDung, quyen, danhSachTaiKhoan } = useNguoiDung();
   /** 🔴 Danh bạ đọc từ TÀI KHOẢN THẬT, không phải mảng mẫu — xem `dung-danh-ba.ts`. */
   const danhBa = useDanhBa();
 
@@ -77,6 +79,32 @@ export default function TrangNhanDeNghiMoi() {
   const [gap, setGap] = useState(false);
   const [dong, setDong] = useState<DongNhap[]>([{ ...DONG_TRONG }]);
   const [nguoiTheoDoi, setNguoiTheoDoi] = useState<NhanSu[]>([]);
+
+  /**
+   * ★ NGƯỜI DUYỆT HAI CẤP — Ban lãnh đạo 12/08/2026: *"chưa có mục thêm người duyệt"*.
+   *
+   * Giữ MÃ người, không giữ cả bản ghi: danh sách tài khoản đọc bất đồng bộ từ máy chủ nên
+   * có thể về sau khi biểu mẫu đã dựng. Giữ mã thì lúc nào tra lại cũng ra đúng người.
+   */
+  const [uidDuyet1, setUidDuyet1] = useState("");
+  const [uidDuyet2, setUidDuyet2] = useState("");
+
+  /** Ai được chọn cho từng cấp — lọc theo CHỨC VỤ, xem `2-quy-trinh/duyet-bo-phan.ts`. */
+  const chonDuoc1 = useMemo(() => nguoiDuyetDuocChon(danhSachTaiKhoan, 1), [danhSachTaiKhoan]);
+  const chonDuoc2 = useMemo(() => nguoiDuyetDuocChon(danhSachTaiKhoan, 2), [danhSachTaiKhoan]);
+
+  /**
+   * Chỉ có ĐÚNG MỘT người ở cấp đó thì chọn sẵn luôn.
+   *
+   * 🔴 Không phải để tiện tay: bỏ trống là phiếu không có người duyệt, mà luật lại quay về
+   * xét theo chức vụ — người lập tưởng đã chỉ định xong trong khi thực tế chưa. Chọn sẵn khi
+   * không có gì để chọn là cách bỏ hẳn tình huống mơ hồ đó.
+   */
+  useEffect(() => {
+    if (!uidDuyet1 && chonDuoc1.length === 1) setUidDuyet1(chonDuoc1[0].uid);
+    if (!uidDuyet2 && chonDuoc2.length === 1) setUidDuyet2(chonDuoc2[0].uid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chonDuoc1, chonDuoc2]);
   const [timNguoi, setTimNguoi] = useState("");
 
   /** Các dự án đã có trong hệ thống — bấm để điền nhanh, khỏi gõ lại. */
@@ -215,6 +243,8 @@ export default function TrangNhanDeNghiMoi() {
        * một chữ là luật sai mà không báo gì.
        */
       capDuyetSan: quyen.duyetCap2 ? 2 : quyen.duyetCap1 ? 1 : 0,
+      nguoiDuyetCap1: chiDinhTu(danhSachTaiKhoan, uidDuyet1),
+      nguoiDuyetCap2: chiDinhTu(danhSachTaiKhoan, uidDuyet2),
       ngayDeNghi,
       ngayDuyet,
       ngayCanHang,
@@ -615,6 +645,36 @@ export default function TrangNhanDeNghiMoi() {
       {/* NGƯỜI THEO DÕI + TÀI LIỆU — hai mục cuối của biểu mẫu */}
       <Card>
         <CardContent className="flex flex-col">
+          {/* ===== NGƯỜI DUYỆT — Ban lãnh đạo 12/08/2026 =====
+              Đặt TRƯỚC "Người theo dõi" là cố ý: người duyệt là mắt xích BẮT BUỘC của quy
+              trình, còn người theo dõi chỉ để nắm thông tin. Thứ quan trọng hơn đứng trước. */}
+          <Truong
+            nhan="Người duyệt"
+            moTa="Đề nghị phải qua đủ hai cấp duyệt của bộ phận trước khi sang Phòng Thu mua"
+          >
+            <div className="flex flex-col gap-3">
+              <OChonNguoiDuyet
+                cap={1}
+                nhan="Cấp 1 — Chỉ huy trưởng"
+                danhSach={chonDuoc1}
+                giaTri={uidDuyet1}
+                onDoi={setUidDuyet1}
+              />
+              <OChonNguoiDuyet
+                cap={2}
+                nhan="Cấp 2 — Trưởng phòng"
+                danhSach={chonDuoc2}
+                giaTri={uidDuyet2}
+                onDoi={setUidDuyet2}
+              />
+              <p className="text-xs text-text-desc">
+                Để trống thì app xét theo chức vụ: ai là Chỉ huy trưởng / Trưởng phòng đều duyệt
+                được. Chỉ định đích danh khi công ty có nhiều công trình để phiếu không hiện sang
+                người phụ trách công trình khác.
+              </p>
+            </div>
+          </Truong>
+
           <Truong
             nhan="Người theo dõi"
             moTa="Cá nhân có liên quan cần nắm tiến trình đề nghị"
@@ -763,4 +823,67 @@ function Truong({
       <div className="min-w-0">{children}</div>
     </div>
   );
+}
+
+/**
+ * Ô CHỌN NGƯỜI DUYỆT một cấp.
+ *
+ * ⚠️ Dùng `<select>` thuần của trình duyệt, KHÔNG dùng component Select của thư viện.
+ * Lý do: danh sách chỉ 1–3 người, không cần tìm kiếm; còn `<select>` thuần thì trên điện
+ * thoại mở ra bộ chọn sẵn của hệ điều hành — ngón tay to bấm dễ hơn hẳn danh sách tự vẽ.
+ * Vẫn dùng token màu của Design System, không hardcode.
+ */
+function OChonNguoiDuyet({
+  cap,
+  nhan,
+  danhSach,
+  giaTri,
+  onDoi,
+}: {
+  cap: 1 | 2;
+  nhan: string;
+  danhSach: { uid: string; tenHienThi: string; chucDanh: string }[];
+  giaTri: string;
+  onDoi: (uid: string) => void;
+}) {
+  const id = `nguoi-duyet-cap-${cap}`;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id}>{nhan}</Label>
+      {danhSach.length === 0 ? (
+        // 🔴 Nói rõ vì sao trống. Một ô chọn rỗng không giải thích thì người lập ngồi đoán.
+        <p className="text-xs text-warning-soft">
+          Chưa có tài khoản nào giữ chức vụ này. App sẽ xét theo chức vụ khi có người được cấp.
+        </p>
+      ) : (
+        <select
+          id={id}
+          value={giaTri}
+          onChange={(e) => onDoi(e.target.value)}
+          className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+        >
+          <option value="">— Không chỉ định, xét theo chức vụ —</option>
+          {danhSach.map((n) => (
+            <option key={n.uid} value={n.uid}>
+              {n.tenHienThi} · {n.chucDanh}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Dựng bản ghi "người được chỉ định" từ mã đã chọn.
+ * Trả `undefined` khi không chọn — Firestore không nhận `undefined` nên kho dữ liệu đã lọc
+ * sạch qua JSON, ở đây cứ trả `undefined` cho đúng nghĩa "không chỉ định".
+ */
+function chiDinhTu(
+  danhSach: { uid: string; tenHienThi: string; chucDanh: string }[],
+  uid: string,
+): NguoiDuyetChiDinh | undefined {
+  if (!uid) return undefined;
+  const n = danhSach.find((x) => x.uid === uid);
+  return n ? { uid: n.uid, ten: n.tenHienThi, chucDanh: n.chucDanh } : undefined;
 }

@@ -8,7 +8,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { capDangCho, daDuyetBoPhan, lyDoKhongDuyetDuoc } from "@/2-quy-trinh/duyet-bo-phan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
-import type { DeNghiMuaHang, MocDuyet } from "@/3-du-lieu/kieu-du-lieu";
+import type { DeNghiMuaHang, MocDuyet, NguoiDuyetChiDinh } from "@/3-du-lieu/kieu-du-lieu";
 
 /** Nhãn của hai cấp — viết một chỗ để giao diện và nhật ký gọi giống nhau. */
 const NHAN_CAP: Record<1 | 2, string> = {
@@ -20,10 +20,12 @@ const NHAN_CAP: Record<1 | 2, string> = {
 function DongCap({
   cap,
   moc,
+  chiDinh,
   dangCho,
 }: {
   cap: 1 | 2;
   moc?: MocDuyet;
+  chiDinh?: NguoiDuyetChiDinh;
   dangCho: boolean;
 }) {
   return (
@@ -46,7 +48,10 @@ function DongCap({
         </span>
       ) : (
         <span className={dangCho ? "font-medium text-warning-soft" : "text-text-desc"}>
-          — {dangCho ? "đang chờ duyệt" : "chờ cấp trước"}
+          {/* 🔴 Hiện TÊN người được chỉ định. Chỉ ghi "đang chờ duyệt" thì người lập không
+              biết phải nhắc ai — họ sẽ đi hỏi vòng quanh, đúng thứ app sinh ra để bỏ. */}
+          — {dangCho ? "đang chờ" : "chờ cấp trước"}
+          {chiDinh ? `: ${chiDinh.ten}` : ""}
         </span>
       )}
     </li>
@@ -109,8 +114,18 @@ export function KhoiDuyetBoPhan({ deNghi }: { deNghi: DeNghiMuaHang }) {
           </p>
         ) : (
           <ul className="flex flex-col gap-1">
-            <DongCap cap={1} moc={deNghi.duyetCap1} dangCho={cap === 1} />
-            <DongCap cap={2} moc={deNghi.duyetCap2} dangCho={cap === 2} />
+            <DongCap
+              cap={1}
+              moc={deNghi.duyetCap1}
+              chiDinh={deNghi.nguoiDuyetCap1}
+              dangCho={cap === 1}
+            />
+            <DongCap
+              cap={2}
+              moc={deNghi.duyetCap2}
+              chiDinh={deNghi.nguoiDuyetCap2}
+              dangCho={cap === 2}
+            />
           </ul>
         )}
 

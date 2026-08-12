@@ -94,6 +94,13 @@ export interface DongDeNghi {
   ghiChuPhanBo?: string;
 }
 
+/** Người được chỉ định duyệt một cấp — chọn lúc lập phiếu, chưa duyệt. */
+export interface NguoiDuyetChiDinh {
+  uid: string;
+  ten: string;
+  chucDanh: string;
+}
+
 /** Một lần duyệt: ai duyệt, chức vụ gì, lúc nào. */
 export interface MocDuyet {
   uid: string;
@@ -145,6 +152,21 @@ export interface DeNghiMuaHang {
    */
   duyetCap1?: MocDuyet;
   duyetCap2?: MocDuyet;
+  /**
+   * ★ NGƯỜI ĐƯỢC CHỈ ĐỊNH DUYỆT, chọn ngay lúc lập phiếu — Ban lãnh đạo 12/08/2026:
+   * *"chưa có mục thêm người duyệt"*.
+   *
+   * 🔴 Vì sao cần chỉ định đích danh thay vì cứ "ai có chức vụ đó thì duyệt": công ty có
+   * NHIỀU chỉ huy trưởng, mỗi công trình một người. Không chỉ định thì phiếu của công trình
+   * A hiện trong danh sách chờ duyệt của chỉ huy trưởng công trình B — họ không biết gì về
+   * việc đó mà vẫn bấm duyệt được. Hiện mới có một người nên chưa lộ, nhưng thêm công trình
+   * là vỡ ngay.
+   *
+   * Trống = không chỉ định → quay về xét theo chức vụ (xem `2-quy-trinh/duyet-bo-phan.ts`).
+   * Cách này giữ cho phiếu CŨ và phiếu nhận từ HPcore vẫn duyệt được, không kẹt.
+   */
+  nguoiDuyetCap1?: NguoiDuyetChiDinh;
+  nguoiDuyetCap2?: NguoiDuyetChiDinh;
   /**
    * ⚠️ CHỈ CÒN ĐỂ ĐỌC DỮ LIỆU CŨ (bản duyệt một cấp, sáng 12/08/2026). Không ghi mới vào
    * đây nữa. Giữ lại vì kho dữ liệu chung có thể còn phiếu dùng trường này — bỏ đi là phiếu

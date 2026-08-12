@@ -77,6 +77,23 @@ export interface QuyenDuyet {
 }
 
 /**
+ * Danh sách người được chọn làm người duyệt cho từng cấp.
+ *
+ * Cấp 1: chỉ huy trưởng và trưởng phòng. Cấp 2: chỉ trưởng phòng.
+ * ⚠️ Lọc theo `chucVu`, KHÔNG lọc theo chuỗi chức danh — chức danh là chữ người ta gõ, đổi
+ * một chữ là danh sách trống mà không báo gì.
+ */
+export function nguoiDuyetDuocChon<T extends { chucVu?: string }>(
+  danhSach: T[],
+  cap: 1 | 2,
+): T[] {
+  if (cap === 2) return danhSach.filter((n) => n.chucVu === "truong_phong");
+  return danhSach.filter(
+    (n) => n.chucVu === "chi_huy_truong" || n.chucVu === "truong_phong",
+  );
+}
+
+/**
  * Lý do KHÔNG bấm duyệt được ở cấp đang chờ. `null` nghĩa là duyệt được.
  *
  * Trả về câu nói thẳng việc phải làm, để giao diện hiện cạnh nút mờ. 🔴 Nút mờ không kèm lý
@@ -104,12 +121,33 @@ export function lyDoKhongDuyetDuoc(
     return "Không tự duyệt đề nghị do chính mình lập. Nhờ cấp trên trong bộ phận duyệt.";
   }
 
-  if (cap === 1) {
-    return q.duyetCap1
-      ? null
-      : "Đề nghị đang chờ Chỉ huy trưởng duyệt. Bạn không có quyền duyệt bước này.";
+  const coQuyenCap = cap === 1 ? q.duyetCap1 : q.duyetCap2;
+  if (!coQuyenCap) {
+    return cap === 1
+      ? "Đề nghị đang chờ Chỉ huy trưởng duyệt. Bạn không có quyền duyệt bước này."
+      : "Đề nghị đang chờ Trưởng phòng duyệt. Bạn không có quyền duyệt bước này.";
   }
-  return q.duyetCap2
-    ? null
-    : "Đề nghị đang chờ Trưởng phòng duyệt. Bạn không có quyền duyệt bước này.";
+
+  /**
+   * ★ TÔN TRỌNG NGƯỜI ĐƯỢC CHỈ ĐỊNH trên phiếu (Ban lãnh đạo 12/08/2026).
+   *
+   * Có chỉ định mà mình không phải người đó → không duyệt. Nếu bỏ điều kiện này thì bất kỳ
+   * chỉ huy trưởng nào cũng duyệt được phiếu của công trình mình không phụ trách.
+   *
+   * ⚠️ TRỪ TRƯỞNG PHÒNG Ở CẤP 1: chỉ huy trưởng được chỉ định có thể đi công trường, nghỉ
+   * phép, đổi công trình. Không cho trưởng phòng duyệt thay thì phiếu treo tới khi người kia
+   * quay lại — và người ta sẽ lách bằng cách gọi điện, app thành vô dụng.
+   *
+   * ⚠️ Không chỉ định (phiếu cũ, phiếu từ HPcore) → xét theo chức vụ như trên, để phiếu
+   * không bao giờ kẹt vì thiếu một trường mới thêm.
+   */
+  const chiDinh = cap === 1 ? dn.nguoiDuyetCap1 : dn.nguoiDuyetCap2;
+  if (chiDinh && chiDinh.uid !== uid) {
+    const truongPhongDuyetThayCap1 = cap === 1 && q.duyetCap2;
+    if (!truongPhongDuyetThayCap1) {
+      return `Đề nghị này chỉ định ${chiDinh.ten} duyệt cấp ${cap}. Bạn không phải người được chỉ định.`;
+    }
+  }
+
+  return null;
 }
