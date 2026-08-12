@@ -19,7 +19,13 @@
 // ============================================================
 
 import { moFirebase } from "@/5-ket-noi/firebase-chung";
-import type { CapQuyen, ChucNang, NguoiDung, VaiTroHeThong } from "@/4-phan-quyen/quyen";
+import type {
+  CapQuyen,
+  ChucNang,
+  ChucVu,
+  NguoiDung,
+  VaiTroHeThong,
+} from "@/4-phan-quyen/quyen";
 
 export const BO_SUU_TAP_NGUOI_DUNG = "nguoi-dung";
 
@@ -37,6 +43,11 @@ export interface HoSoTaiKhoan {
   chucDanh: string;
   phongBan: string;
   chucNang: ChucNang;
+  /**
+   * Bậc quản lý trong bộ phận — quyết định duyệt được cấp nào.
+   * Trống = nhân viên. Xem `ChucVu` trong `4-phan-quyen/quyen.ts`.
+   */
+  chucVu?: ChucVu;
   vaiTro: VaiTroHeThong;
   capTM: CapQuyen;
   capKho?: CapQuyen;
@@ -52,6 +63,7 @@ export function thanhNguoiDung(h: HoSoTaiKhoan): NguoiDung {
     chucDanh: h.chucDanh,
     phongBan: h.phongBan,
     chucNang: h.chucNang,
+    chucVu: h.chucVu,
     vaiTro: h.vaiTro,
     capTM: h.capTM,
     capKho: h.capKho,

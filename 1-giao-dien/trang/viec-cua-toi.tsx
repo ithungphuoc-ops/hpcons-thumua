@@ -8,6 +8,7 @@ import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { KhoiGhiChuCongViec } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-ghi-chu-cong-viec";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
+import { KhoiChoToiDuyet } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-cho-toi-duyet";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { docDanhDau, ghiDanhDau } from "@/3-du-lieu/danh-dau-ca-nhan";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -164,6 +165,11 @@ export default function TrangViecCuaToi() {
 
   return (
     <>
+      {/* 🔴 ĐỀ NGHỊ CHỜ TÔI DUYỆT — đặt TRÊN CÙNG là cố ý.
+          Đây là đường vào DUY NHẤT của người duyệt: bảng quy trình đã lọc bỏ phiếu chưa
+          duyệt, còn màn Theo dõi chỉ hiện phiếu mình đề xuất. Xem `khoi-cho-toi-duyet.tsx`. */}
+      <KhoiChoToiDuyet />
+
       {/* ===== ĐẦU TRANG: tiêu đề lớn · ô tìm · nút tạo mới ===== */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">

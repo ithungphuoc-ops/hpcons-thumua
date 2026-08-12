@@ -19,6 +19,7 @@ import {
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
+import { capDangCho } from "@/2-quy-trinh/duyet-bo-phan";
 import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import {
   DE_NGHI_MAU,
@@ -81,11 +82,11 @@ export interface DauVaoDeNghiGiaLap {
   nguoiDeNghiUid: string;
   nguoiDeNghiChucDanh: string;
   /**
-   * Người lập có phải quản lý bộ phận không (`quyen.duyetDeNghiBoPhan`).
-   * `true` → phiếu duyệt luôn. `false` → chờ quản lý bộ phận duyệt.
+   * Số cấp duyệt được ghi SẴN ngay lúc tạo, theo chức vụ của người lập:
+   * `0` nhân viên · `1` chỉ huy trưởng · `2` trưởng phòng.
    * Xem `2-quy-trinh/duyet-bo-phan.ts`.
    */
-  nguoiLapLaQuanLy: boolean;
+  capDuyetSan: 0 | 1 | 2;
   ngayDeNghi: string;
   ngayDuyet: string;
   ngayCanHang: string;
@@ -443,29 +444,44 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     dayLenMayChu(d);
   }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, dayLenMayChu]);
 
+  /**
+   * Duyệt MỘT CẤP của bộ phận đề xuất. Cấp nào thì do `capDangCho()` quyết, nơi gọi không
+   * tự chọn — để giao diện không thể duyệt vượt cấp.
+   *
+   * ⚠️ Chỉ điền `ngayDuyet` khi đã xong CẢ HAI cấp. Điền sớm ở cấp 1 là phiếu lọt sang Thu
+   * mua ngay, vì `daDuyetBoPhan()` coi "có ngayDuyet" là đã duyệt (luật đó tồn tại để dữ
+   * liệu cũ không biến mất) — đúng thứ Ban lãnh đạo muốn chặn.
+   */
   const duyetDeNghiCuaBoPhan = useCallback(
     (prId: string, nguoi: { uid: string; ten: string; chucDanh: string }) => {
       const luc = thoiDiemHienTai();
       setDeNghi((truoc) =>
-        truoc.map((dn) =>
-          dn.id !== prId
-            ? dn
-            : {
-                ...dn,
-                duyetBoPhan: { ...nguoi, thoiDiem: luc },
-                // Điền luôn `ngayDuyet` cho khớp với hồ sơ nhận từ HPcore: nhiều chỗ trong
-                // app (bảng quy trình, tính "còn N ngày") đọc trường này.
-                ngayDuyet: dn.ngayDuyet || luc.slice(0, 10),
-                lichSu: [
-                  ...dn.lichSu,
-                  {
-                    thoiDiem: luc,
-                    nguoiThucHien: nguoi.ten,
-                    hanhDong: `Duyệt đề nghị (${nguoi.chucDanh})`,
-                  },
-                ],
+        truoc.map((dn) => {
+          if (dn.id !== prId) return dn;
+          const cap = capDangCho(dn);
+          if (cap === null) return dn; // Đã duyệt đủ — không ghi thêm.
+
+          const moc = { ...nguoi, thoiDiem: luc };
+          const sau: DeNghiMuaHang =
+            cap === 1 ? { ...dn, duyetCap1: moc } : { ...dn, duyetCap2: moc };
+          const xongHet = Boolean(sau.duyetCap1 && sau.duyetCap2);
+
+          return {
+            ...sau,
+            ngayDuyet: xongHet ? dn.ngayDuyet || luc.slice(0, 10) : dn.ngayDuyet,
+            lichSu: [
+              ...dn.lichSu,
+              {
+                thoiDiem: luc,
+                nguoiThucHien: nguoi.ten,
+                hanhDong:
+                  cap === 1
+                    ? `Duyệt cấp 1 — Chỉ huy trưởng (${nguoi.chucDanh})`
+                    : `Duyệt cấp 2 — Trưởng phòng (${nguoi.chucDanh}) · chuyển sang Phòng Thu mua`,
               },
-        ),
+            ],
+          };
+        }),
       );
     },
     [],
@@ -606,6 +622,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     const soHienCo = hienCo.filter((dn) => dn.maDuAn === dauVao.maDuAn).length;
     const code = `${dauVao.maDuAn}-PR-${String(soHienCo + 1).padStart(3, "0")}`;
 
+    /** Mốc duyệt của chính người lập — dùng cho các cấp được duyệt sẵn theo chức vụ. */
+    const mocTuDuyet = {
+      uid: dauVao.nguoiDeNghiUid,
+      ten: dauVao.nguoiDeNghiTen,
+      chucDanh: dauVao.nguoiDeNghiChucDanh,
+      thoiDiem: thoiDiemHienTai(),
+    };
+
     const moi: DeNghiMuaHang = {
       id,
       code,
@@ -629,7 +653,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       // ⚠️ `ngayDuyet` để TRỐNG khi chưa có quản lý duyệt. `daDuyetBoPhan()` coi
       // "có ngayDuyet" là đã duyệt (để dữ liệu cũ không biến mất), nên điền sẵn ngày ở đây
       // sẽ khiến phiếu chưa duyệt vẫn lọt sang Thu mua — đúng thứ Ban lãnh đạo muốn chặn.
-      ngayDuyet: dauVao.nguoiLapLaQuanLy ? dauVao.ngayDuyet : "",
+      // Chỉ điền khi phiếu đã duyệt đủ hai cấp ngay lúc tạo (trưởng phòng tự lập).
+      ngayDuyet: dauVao.capDuyetSan >= 2 ? dauVao.ngayDuyet : "",
       ngayCanHang: dauVao.ngayCanHang,
       mucDoUuTien: dauVao.mucDoUuTien,
       // Đề nghị vào app luôn ở trạng thái ĐÃ DUYỆT — app Thu mua không duyệt đề nghị.
@@ -662,27 +687,33 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * cho tự duyệt — để trống là phiếu **kẹt vĩnh viễn**, không ai duyệt được.
        * Người lập không phải quản lý → để trống, chờ quản lý bộ phận duyệt.
        */
-      duyetBoPhan: dauVao.nguoiLapLaQuanLy
-        ? {
-            uid: dauVao.nguoiDeNghiUid,
-            ten: dauVao.nguoiDeNghiTen,
-            chucDanh: dauVao.nguoiDeNghiChucDanh,
-            thoiDiem: thoiDiemHienTai(),
-          }
-        : undefined,
+      /**
+       * ★ NGƯỜI LẬP TỰ DUYỆT SẴN CẤP CỦA MÌNH, không duyệt hộ cấp trên.
+       *
+       *   · Trưởng phòng lập  → duyệt sẵn CẢ HAI cấp (họ là cấp cao nhất của bộ phận).
+       *   · Chỉ huy trưởng lập → duyệt sẵn CẤP 1, còn chờ trưởng phòng duyệt cấp 2.
+       *   · Nhân viên lập      → chưa cấp nào, chờ đủ hai cấp.
+       *
+       * 🔴 Vì sao phải duyệt sẵn: `lyDoKhongDuyetDuoc` chặn không cho tự duyệt phiếu của
+       * mình. Để trống hết thì chỉ huy trưởng tự lập phiếu sẽ **không tự duyệt được cấp 1**,
+       * mà trưởng phòng lại duyệt được cấp 1 thay — nên vẫn thoát. Nhưng trưởng phòng tự lập
+       * thì KHÔNG còn ai cao hơn trong bộ phận: phiếu **kẹt vĩnh viễn**. Duyệt sẵn theo đúng
+       * chức vụ là cách vừa không kẹt, vừa không cho ai duyệt vượt cấp mình.
+       */
+      duyetCap1: dauVao.capDuyetSan >= 1 ? mocTuDuyet : undefined,
+      duyetCap2: dauVao.capDuyetSan >= 2 ? mocTuDuyet : undefined,
       lichSu: [
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },
-        dauVao.nguoiLapLaQuanLy
-          ? {
-              thoiDiem: thoiDiemHienTai(),
-              nguoiThucHien: dauVao.nguoiDeNghiTen,
-              hanhDong: "Duyệt đề nghị (quản lý bộ phận tự lập nên duyệt luôn)",
-            }
-          : {
-              thoiDiem: thoiDiemHienTai(),
-              nguoiThucHien: dauVao.nguoiDeNghiTen,
-              hanhDong: "Gửi quản lý bộ phận duyệt",
-            },
+        {
+          thoiDiem: thoiDiemHienTai(),
+          nguoiThucHien: dauVao.nguoiDeNghiTen,
+          hanhDong:
+            dauVao.capDuyetSan >= 2
+              ? "Trưởng phòng tự lập nên duyệt đủ hai cấp · chuyển sang Phòng Thu mua"
+              : dauVao.capDuyetSan === 1
+                ? "Chỉ huy trưởng tự lập nên duyệt sẵn cấp 1 · chờ Trưởng phòng duyệt"
+                : "Gửi Chỉ huy trưởng duyệt",
+        },
       ],
     };
 

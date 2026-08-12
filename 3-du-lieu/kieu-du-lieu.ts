@@ -94,6 +94,15 @@ export interface DongDeNghi {
   ghiChuPhanBo?: string;
 }
 
+/** Một lần duyệt: ai duyệt, chức vụ gì, lúc nào. */
+export interface MocDuyet {
+  uid: string;
+  ten: string;
+  chucDanh: string;
+  /** ISO đầy đủ giờ phút. */
+  thoiDiem: string;
+}
+
 export interface DeNghiMuaHang {
   id: string;
   /** vd 260001-HPCS-PR-001 (mã loại PR đang chờ phê duyệt danh mục). */
@@ -117,26 +126,31 @@ export interface DeNghiMuaHang {
   /** Người được thêm vào để nắm tiến trình. Trống = chưa có ai theo dõi. */
   nguoiTheoDoi?: NguoiTheoDoi[];
   /**
-   * ★ DUYỆT CỦA QUẢN LÝ BỘ PHẬN ĐỀ XUẤT — Ban lãnh đạo 12/08/2026:
-   * *"đề nghị có thêm mục duyệt bởi quản lý bộ phận thi công"*.
+   * ★ DUYỆT HAI CẤP CỦA BỘ PHẬN ĐỀ XUẤT — Ban lãnh đạo 12/08/2026:
+   * *"Tô Trọng Hoài đề xuất → Chỉ huy trưởng duyệt → Trưởng phòng duyệt mới đẩy qua cho
+   * phòng thu mua"*.
    *
-   * Kỹ sư hiện trường đề xuất → trưởng phòng bộ phận đó duyệt → Thu mua mới nhận việc.
-   * Trống = **CHƯA DUYỆT**, đề nghị còn nằm ở bộ phận đề xuất.
+   *   `duyetCap1` — Chỉ huy trưởng xác nhận
+   *   `duyetCap2` — Trưởng phòng chốt cuối
    *
-   * 🔴 DỮ LIỆU CŨ KHÔNG CÓ TRƯỜNG NÀY. Nếu coi "trống = chưa duyệt" một cách máy móc thì
+   * ⚠️ PHẢI ĐỦ CẢ HAI mới sang Thu mua. Trống một cái = còn nằm ở bộ phận đề xuất.
+   *
+   * 🔴 DỮ LIỆU CŨ KHÔNG CÓ HAI TRƯỜNG NÀY. Coi "trống = chưa duyệt" một cách máy móc thì
    * toàn bộ đề nghị lập trước 12/08/2026 **biến mất khỏi bảng quy trình của Thu mua** —
-   * việc đang chạy dở tự nhiên mất tăm. Nên luật đọc phải là:
-   *   · có `duyetBoPhan`     → đã duyệt
-   *   · có `ngayDuyet` (cũ)  → coi như đã duyệt từ trước, giữ nguyên hiện trạng
+   * việc đang chạy dở tự nhiên mất tăm, không một dòng báo lỗi. Luật đọc phải nhận cả:
+   *   · đủ `duyetCap1` + `duyetCap2`  → đã duyệt
+   *   · có `duyetBoPhan` (bản 1 cấp) → đã duyệt
+   *   · có `ngayDuyet` (nhận từ HPcore) → đã duyệt từ trước
    * Xem `2-quy-trinh/duyet-bo-phan.ts` — luật ở MỘT CHỖ, đừng tự kiểm ở giao diện.
    */
-  duyetBoPhan?: {
-    uid: string;
-    ten: string;
-    chucDanh: string;
-    /** ISO đầy đủ giờ phút. */
-    thoiDiem: string;
-  };
+  duyetCap1?: MocDuyet;
+  duyetCap2?: MocDuyet;
+  /**
+   * ⚠️ CHỈ CÒN ĐỂ ĐỌC DỮ LIỆU CŨ (bản duyệt một cấp, sáng 12/08/2026). Không ghi mới vào
+   * đây nữa. Giữ lại vì kho dữ liệu chung có thể còn phiếu dùng trường này — bỏ đi là phiếu
+   * đó thành "chưa duyệt" và biến mất khỏi bảng.
+   */
+  duyetBoPhan?: MocDuyet;
   /**
    * ★ ĐÃ LƯU TRỮ — ẩn khỏi bảng quy trình nhưng KHÔNG xóa dữ liệu.
    *

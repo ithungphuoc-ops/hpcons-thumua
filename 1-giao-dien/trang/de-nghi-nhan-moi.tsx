@@ -208,8 +208,13 @@ export default function TrangNhanDeNghiMoi() {
       // tên hiển thị, nhưng danh tính trong hồ sơ phải là người thật đang bấm nút.
       nguoiDeNghiUid: nguoiDung.uid,
       nguoiDeNghiChucDanh: nguoiDung.chucDanh,
-      // Quản lý bộ phận tự lập thì duyệt luôn — xem `2-quy-trinh/duyet-bo-phan.ts`.
-      nguoiLapLaQuanLy: quyen.duyetDeNghiBoPhan,
+      /**
+       * Số cấp duyệt ghi sẵn theo CHỨC VỤ người lập — xem `2-quy-trinh/duyet-bo-phan.ts`.
+       * Trưởng phòng lập → duyệt sẵn cả 2 · Chỉ huy trưởng → sẵn cấp 1 · còn lại → 0.
+       * ⚠️ Xét theo `quyen`, không xét chuỗi chức danh: chức danh là chữ người ta gõ, đổi
+       * một chữ là luật sai mà không báo gì.
+       */
+      capDuyetSan: quyen.duyetCap2 ? 2 : quyen.duyetCap1 ? 1 : 0,
       ngayDeNghi,
       ngayDuyet,
       ngayCanHang,

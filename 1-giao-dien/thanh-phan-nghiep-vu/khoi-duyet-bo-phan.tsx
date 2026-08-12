@@ -1,91 +1,148 @@
 "use client";
 
 import { useState } from "react";
-import { BadgeCheck, Clock } from "lucide-react";
+import { BadgeCheck, Check, Clock } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { daDuyetBoPhan, lyDoKhongDuyetDuoc } from "@/2-quy-trinh/duyet-bo-phan";
+import { capDangCho, daDuyetBoPhan, lyDoKhongDuyetDuoc } from "@/2-quy-trinh/duyet-bo-phan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
-import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import type { DeNghiMuaHang, MocDuyet } from "@/3-du-lieu/kieu-du-lieu";
+
+/** Nhãn của hai cấp — viết một chỗ để giao diện và nhật ký gọi giống nhau. */
+const NHAN_CAP: Record<1 | 2, string> = {
+  1: "Chỉ huy trưởng duyệt",
+  2: "Trưởng phòng duyệt",
+};
+
+/** Một dòng trong danh sách hai cấp: đã duyệt thì hiện ai/lúc nào, chưa thì hiện đang chờ. */
+function DongCap({
+  cap,
+  moc,
+  dangCho,
+}: {
+  cap: 1 | 2;
+  moc?: MocDuyet;
+  dangCho: boolean;
+}) {
+  return (
+    <li className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+      {moc ? (
+        <Check className="size-3.5 shrink-0 text-success-soft" aria-hidden />
+      ) : (
+        <Clock
+          className={`size-3.5 shrink-0 ${dangCho ? "text-warning-soft" : "text-text-desc"}`}
+          aria-hidden
+        />
+      )}
+      {/* Trạng thái có CẢ biểu tượng và chữ, không chỉ dựa vào màu (Design System V1.1). */}
+      <span className={moc ? "font-medium text-text-primary" : "text-text-secondary"}>
+        Cấp {cap} · {NHAN_CAP[cap]}
+      </span>
+      {moc ? (
+        <span className="text-text-desc">
+          — {moc.ten} · {formatMocThoiGian(moc.thoiDiem)}
+        </span>
+      ) : (
+        <span className={dangCho ? "font-medium text-warning-soft" : "text-text-desc"}>
+          — {dangCho ? "đang chờ duyệt" : "chờ cấp trước"}
+        </span>
+      )}
+    </li>
+  );
+}
 
 /**
- * KHỐI DUYỆT CỦA QUẢN LÝ BỘ PHẬN ĐỀ XUẤT.
+ * KHỐI DUYỆT HAI CẤP CỦA BỘ PHẬN ĐỀ XUẤT.
  *
- * 🔴 Ban lãnh đạo 12/08/2026: *"đề nghị có thêm mục duyệt bởi quản lý bộ phận thi công"*.
+ * 🔴 Ban lãnh đạo 12/08/2026: *"Tô Trọng Hoài đề xuất → Chỉ huy trưởng duyệt → Trưởng phòng
+ * duyệt mới đẩy qua cho phòng thu mua"*.
  *
  * Kể từ khi MỌI tài khoản đều lập được đề nghị, đây là khâu kiểm soát duy nhất trước khi
- * việc rơi sang Thu mua. Khối này phải nói rõ ba điều: đang chờ ai, ai duyệt được, và đã
- * duyệt thì ai duyệt lúc nào.
+ * việc rơi sang Thu mua. Khối này phải trả lời đủ ba câu: **đang chờ cấp nào**, **ai duyệt
+ * được**, và **cấp nào đã duyệt bởi ai lúc nào**.
  *
  * ⚠️ HIỆN CHO MỌI NGƯỜI xem được đề nghị, không riêng người duyệt. Người lập cần biết phiếu
- * mình gửi đang nằm ở đâu — giấu đi thì họ lại gọi điện hỏi, đúng thứ app sinh ra để bỏ.
+ * mình gửi đang tắc ở cấp nào — giấu đi thì họ lại gọi điện hỏi, đúng thứ app sinh ra để bỏ.
  */
 export function KhoiDuyetBoPhan({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const { duyetDeNghiCuaBoPhan } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moHop, setMoHop] = useState(false);
 
-  const daDuyet = daDuyetBoPhan(deNghi);
-  const vuongMac = lyDoKhongDuyetDuoc(deNghi, quyen.duyetDeNghiBoPhan, nguoiDung.uid);
+  const cap = capDangCho(deNghi);
+  const vuongMac = lyDoKhongDuyetDuoc(deNghi, quyen, nguoiDung.uid);
 
-  // Đã duyệt từ trước mà KHÔNG có thông tin người duyệt = phiếu nhận từ HPcore (hoặc dữ
-  // liệu cũ). Không hiện gì cả — thêm một khối "đã duyệt" trống rỗng chỉ tổ chiếm chỗ.
-  if (daDuyet && !deNghi.duyetBoPhan) return null;
-
-  if (daDuyet && deNghi.duyetBoPhan) {
-    return (
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-success bg-success-bg p-(--hp-md-row-pad)">
-        <BadgeCheck className="size-4 shrink-0 text-success-soft" aria-hidden />
-        <span className="text-sm font-medium text-text-primary">
-          Đã được quản lý bộ phận duyệt
-        </span>
-        <span className="text-xs text-text-desc">
-          {deNghi.duyetBoPhan.ten} · {deNghi.duyetBoPhan.chucDanh} ·{" "}
-          {formatMocThoiGian(deNghi.duyetBoPhan.thoiDiem)}
-        </span>
-      </div>
-    );
+  // Phiếu đã duyệt xong mà KHÔNG có mốc nào = nhận từ HPcore (hoặc dữ liệu cũ). Không hiện
+  // gì — thêm một khối "đã duyệt" trống rỗng chỉ tổ chiếm chỗ và không nói được điều gì.
+  if (daDuyetBoPhan(deNghi) && !deNghi.duyetCap1 && !deNghi.duyetCap2 && !deNghi.duyetBoPhan) {
+    return null;
   }
+
+  const daXong = cap === null;
 
   return (
     <>
-      <div className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad)">
-        <span className="flex items-center gap-2">
-          <Clock className="size-4 shrink-0 text-warning-soft" aria-hidden />
+      <div
+        className={`flex flex-col gap-2 rounded-lg border p-(--hp-md-row-pad) ${
+          daXong ? "border-success bg-success-bg" : "border-warning bg-warning-bg"
+        }`}
+      >
+        <span className="flex flex-wrap items-center gap-2">
+          {daXong ? (
+            <BadgeCheck className="size-4 shrink-0 text-success-soft" aria-hidden />
+          ) : (
+            <Clock className="size-4 shrink-0 text-warning-soft" aria-hidden />
+          )}
           <span className="text-sm font-semibold text-text-primary">
-            Chờ quản lý bộ phận duyệt
+            {daXong ? "Đã duyệt đủ hai cấp" : `Chờ duyệt — cấp ${cap}: ${NHAN_CAP[cap]}`}
           </span>
         </span>
-        <p className="text-xs text-text-secondary">
-          Đề nghị này <strong>chưa chuyển sang Phòng Thu mua</strong>. Quản lý bộ phận đề xuất
-          duyệt xong thì phiếu mới vào bảng quy trình mua hàng.
-        </p>
 
-        {quyen.duyetDeNghiBoPhan ? (
-          <span className="flex flex-wrap items-center gap-2">
-            <Button size="sm" disabled={vuongMac !== null} onClick={() => setMoHop(true)}>
-              <BadgeCheck className="size-4" aria-hidden />
-              Duyệt đề nghị
-            </Button>
-            {/* 🔴 Nút mờ PHẢI kèm lý do. Nút mờ không giải thích là kiểu bí việc khó chịu
-                nhất — người dùng bấm mãi không được mà chẳng biết vì sao. */}
-            {vuongMac && <span className="text-xs text-warning-soft">{vuongMac}</span>}
-          </span>
+        {/* Bản duyệt MỘT cấp (sáng 12/08/2026) không có `duyetCap1`/`duyetCap2`. Hiện gọn
+            một dòng thay vì bỏ trống, để người xem biết phiếu đã qua duyệt bằng bản cũ. */}
+        {deNghi.duyetBoPhan && !deNghi.duyetCap1 ? (
+          <p className="text-xs text-text-desc">
+            Duyệt theo bản một cấp: {deNghi.duyetBoPhan.ten} ·{" "}
+            {formatMocThoiGian(deNghi.duyetBoPhan.thoiDiem)}
+          </p>
         ) : (
-          <span className="text-xs text-text-desc">
-            Bạn không có quyền duyệt đề nghị. Liên hệ quản lý bộ phận đề xuất.
-          </span>
+          <ul className="flex flex-col gap-1">
+            <DongCap cap={1} moc={deNghi.duyetCap1} dangCho={cap === 1} />
+            <DongCap cap={2} moc={deNghi.duyetCap2} dangCho={cap === 2} />
+          </ul>
+        )}
+
+        {!daXong && (
+          <>
+            <p className="text-xs text-text-secondary">
+              Đề nghị này <strong>chưa chuyển sang Phòng Thu mua</strong>. Phải qua đủ cả hai
+              cấp duyệt của bộ phận đề xuất.
+            </p>
+            <span className="flex flex-wrap items-center gap-2">
+              <Button size="sm" disabled={vuongMac !== null} onClick={() => setMoHop(true)}>
+                <BadgeCheck className="size-4" aria-hidden />
+                Duyệt cấp {cap}
+              </Button>
+              {/* 🔴 Nút mờ PHẢI kèm lý do — nút mờ không giải thích là kiểu bí việc khó chịu
+                  nhất, người dùng bấm mãi không được mà chẳng biết vì sao. */}
+              {vuongMac && <span className="text-xs text-warning-soft">{vuongMac}</span>}
+            </span>
+          </>
         )}
       </div>
 
       <HopXacNhan
         mo={moHop}
-        tieuDe="Duyệt đề nghị mua hàng?"
-        moTa={`Duyệt đề nghị ${deNghi.code} — ${deNghi.tieuDe}, do ${deNghi.nguoiDeNghiTen} lập.`}
-        canhBao="Duyệt xong, đề nghị chuyển sang Phòng Thu mua và họ bắt đầu đi hỏi giá. Hãy soát lại danh mục vật tư và khối lượng trước khi bấm."
-        nhanDongY="Duyệt đề nghị"
+        tieuDe={cap ? `Duyệt cấp ${cap} — ${NHAN_CAP[cap]}?` : "Duyệt đề nghị?"}
+        moTa={`Đề nghị ${deNghi.code} — ${deNghi.tieuDe}, do ${deNghi.nguoiDeNghiTen} lập.`}
+        canhBao={
+          cap === 2
+            ? "Đây là cấp duyệt cuối. Duyệt xong, đề nghị chuyển sang Phòng Thu mua và họ bắt đầu đi hỏi giá. Hãy soát lại danh mục vật tư và khối lượng trước khi bấm."
+            : "Duyệt cấp 1 xong, đề nghị chuyển tiếp lên Trưởng phòng. Chưa sang Phòng Thu mua ở bước này."
+        }
+        nhanDongY={cap ? `Duyệt cấp ${cap}` : "Duyệt"}
         onDong={() => setMoHop(false)}
         onDongY={() =>
           duyetDeNghiCuaBoPhan(deNghi.id, {

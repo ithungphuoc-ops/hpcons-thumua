@@ -35,12 +35,38 @@ export type ChucNang =
   | "phong_thi_cong"
   | "ke_toan";
 
+/**
+ * CHỨC VỤ trong bộ phận — bậc quản lý, KHÁC với `chucNang` (làm việc gì) và `capTM` (được
+ * đọc/ghi tới đâu).
+ *
+ * 🔴 Sinh ra vì chỉ đạo Ban lãnh đạo 12/08/2026: *"Tô Trọng Hoài đề xuất → Chỉ huy trưởng
+ * duyệt → Trưởng phòng duyệt mới đẩy qua cho phòng thu mua"*. Ba bậc trong CÙNG một phòng,
+ * cùng `chucNang: "phong_thi_cong"`, mà phải phân biệt được ai duyệt bước nào.
+ *
+ * ⚠️ Bản trước mượn `capTM` làm dấu hiệu chức vụ (`capTM >= 2` = trưởng phòng). Cách đó chỉ
+ * chịu được HAI bậc, và trộn hai khái niệm khác nhau: cấp quyền là "được xem/ghi tới đâu",
+ * chức vụ là "được duyệt cái gì". Có ba bậc thì phải tách ra, nếu không sẽ phải nâng cấp
+ * quyền của người ta chỉ để cho họ duyệt được — kéo theo mở cả những quyền không liên quan.
+ *
+ * 📌 Khi App Tổng bổ sung trường chức vụ chính thức thì ánh xạ vào đây, không phải sửa
+ * chỗ nào khác.
+ */
+export type ChucVu = "nhan_vien" | "chi_huy_truong" | "truong_phong";
+
+export const NHAN_CHUC_VU: Record<ChucVu, string> = {
+  nhan_vien: "Nhân viên",
+  chi_huy_truong: "Chỉ huy trưởng",
+  truong_phong: "Trưởng phòng",
+};
+
 export interface NguoiDung {
   uid: string;
   tenHienThi: string;
   chucDanh: string;
   phongBan: string;
   chucNang: ChucNang;
+  /** Bậc quản lý. Trống = nhân viên. */
+  chucVu?: ChucVu;
   vaiTro: VaiTroHeThong;
   /** users/{uid}.apps.tm */
   capTM: CapQuyen;
@@ -82,13 +108,23 @@ export interface Quyen {
    */
   taoDeNghi: boolean;
   /**
-   * Duyệt đề nghị do người trong bộ phận mình lập, trước khi chuyển sang Thu mua.
+   * ★ DUYỆT ĐỀ NGHỊ — HAI CẤP TUẦN TỰ.
    *
-   * 🔴 Ban lãnh đạo 12/08/2026: *"đề nghị có thêm mục duyệt bởi quản lý bộ phận thi công"*.
-   * Kỹ sư đề xuất → trưởng phòng thi công duyệt → Thu mua mới thấy. Không duyệt thì đề nghị
-   * nằm ở bộ phận đề xuất, Thu mua không phải xử lý phiếu chưa được cấp trên gật đầu.
+   * 🔴 Ban lãnh đạo 12/08/2026 chốt đúng luồng: *"Tô Trọng Hoài đề xuất → Chỉ huy trưởng
+   * duyệt → Trưởng phòng duyệt mới đẩy qua cho phòng thu mua"*.
+   *
+   *   `duyetCap1` — Chỉ huy trưởng: người sát công trường, xác nhận đúng là cần món đó.
+   *   `duyetCap2` — Trưởng phòng: chốt cuối, sau đó phiếu mới sang Thu mua.
+   *
+   * ⚠️ PHẢI ĐỦ CẢ HAI. Thiếu một cấp là phiếu còn nằm ở bộ phận đề xuất — xem
+   * `2-quy-trinh/duyet-bo-phan.ts`.
+   *
+   * 📌 Trưởng phòng có LUÔN cả `duyetCap1`: chỉ huy trưởng đi công trường, nghỉ phép hay
+   * đổi công trình là chuyện thường. Không cho trưởng phòng duyệt thay thì phiếu treo cho
+   * tới khi người kia quay lại — và người ta sẽ lách bằng cách gọi điện, app thành vô dụng.
    */
-  duyetDeNghiBoPhan: boolean;
+  duyetCap1: boolean;
+  duyetCap2: boolean;
   lapPO: boolean;
   suaPODaChot: boolean;
   /** Thủ kho lập phiếu nhận hàng từng lần. */
@@ -151,21 +187,21 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     taoDeNghi: capTM >= 1,
 
     /**
-     * Duyệt đề nghị của bộ phận mình.
+     * Duyệt đề nghị — xét theo CHỨC VỤ, không mượn cấp quyền nữa.
      *
-     * Ai được duyệt:
-     *   · Quản trị
-     *   · Trưởng bộ phận Thu mua (đã có `phanBoCongViec`)
-     *   · Quản lý Phòng Thi công / QLDA — nhận diện bằng `capTM >= 2`
+     * Cấp 1 (Chỉ huy trưởng): chỉ huy trưởng và trưởng phòng đều làm được — xem lý do ở
+     * khai báo `duyetCap1`.
+     * Cấp 2 (Trưởng phòng): chỉ trưởng phòng.
      *
-     * ⚠️ MƯỢN CẤP QUYỀN LÀM DẤU HIỆU CHỨC VỤ, đây là cách TẠM. Cấu trúc `users/{uid}` của
-     * App Tổng chưa có trường "chức vụ", nên trưởng phòng thi công được cấp `capTM: 2` còn
-     * kỹ sư và chỉ huy trưởng để `capTM: 1`. Cách này dễ sai khi có người cấp 2 mà không
-     * phải trưởng phòng.
-     * 📌 VIỆC CÒN LẠI: xin App Tổng bổ sung trường chức vụ rồi đổi điều kiện này.
+     * 📌 Trưởng bộ phận Thu mua cũng có cả hai: phòng nào cũng lập được đề nghị, nên phòng
+     * Thu mua tự đề nghị thì trưởng phòng của họ là người duyệt.
      */
-    duyetDeNghiBoPhan:
-      laQuanTri || (laTruongBP && capTM >= 3) || ((laThiCong || laQLDA) && capTM >= 2),
+    duyetCap1:
+      laQuanTri ||
+      u.chucVu === "chi_huy_truong" ||
+      u.chucVu === "truong_phong" ||
+      (laTruongBP && capTM >= 3),
+    duyetCap2: laQuanTri || u.chucVu === "truong_phong" || (laTruongBP && capTM >= 3),
     lapPO: laQuanTri || ((laTruongBP || laNhanVienTM) && capTM >= 2),
     suaPODaChot: laQuanTri || (laTruongBP && capTM >= 3),
 
