@@ -314,25 +314,39 @@ export default function TrangNhanDeNghiMoi() {
         </CardContent>
       </Card>
 
-      {/* KHỐI LƯU Ý — đặt ngay đầu phiếu như biểu mẫu "Tạo đề xuất mới" đang dùng
-          trên Base.vn, để người lập phiếu đọc quy định trước khi gõ. */}
+      {/* KHỐI LƯU Ý — chép đúng khối xanh đầu biểu mẫu "Tạo đề xuất mới" trên Base.vn
+          (Ban lãnh đạo chốt 12/08/2026: *"giữ bố cục base và màu công ty"*). Nội dung lấy
+          theo Base, chỉ điều chỉnh cho khớp app: luồng duyệt TP/QL → TGĐ, mã hồ sơ theo
+          Thông báo 09/2026.
+          🎨 Nền dùng token `success-bg` của công ty thay cho xanh lá Base — cùng sắc ý
+          "khối hướng dẫn", nhưng là màu trong Design System V1.1, không hardcode. */}
       <Card className="border-success/30 bg-success-bg">
         <CardContent className="flex flex-col gap-1.5 text-xs text-text-secondary">
-          <p className="text-sm font-semibold text-success-soft">Các lưu ý khi lập đề nghị</p>
           <p>
-            <strong>1. Nội dung đề nghị:</strong> ghi theo mẫu “Số hợp đồng + tên công trình
-            (ngắn gọn)”, hoặc “Tên phòng ban đề nghị”.
+            - Thời gian đề nghị: <strong>ít nhất 2 ngày</strong> trước ngày cần hàng.
+          </p>
+          <p className="pt-1 text-sm font-semibold text-success-soft">Các lưu ý:</p>
+          <p>
+            <strong>1. Tên đề nghị:</strong> “Số hợp đồng + tên công trình (ngắn gọn)” Hoặc
+            “Tên phòng ban đề nghị”.
           </p>
           <p>
-            <strong>2. Mã dự án gốc</strong> bám Thông báo 09/2026/TB-HPCS. Mã đề nghị do hệ thống
-            tự sinh, người lập <strong>không tự đặt</strong>.
+            <strong>2. Luồng duyệt (duyệt lần lượt):</strong> Trưởng phòng/Quản lý →{" "}
+            <strong>Tổng Giám đốc hoặc Các Phó Tổng Giám đốc</strong>.
           </p>
           <p>
-            <strong>3. Người theo dõi:</strong> thêm các cá nhân có liên quan để họ nắm được tiến
-            trình. Có tên trong danh sách <strong>không mở khóa quyền xem đơn giá</strong>.
+            <strong>3. Người theo dõi:</strong>
+            <br />
+            &nbsp;&nbsp;- Các cá nhân có liên quan cần nắm tiến trình.
+            <br />
+            &nbsp;&nbsp;- Có tên trong danh sách <strong>không mở khóa quyền xem đơn giá</strong>.
           </p>
           <p>
-            <strong>4. Thời gian:</strong> nên đề nghị trước ngày cần hàng ít nhất 2 ngày làm việc.
+            <strong>4. Tài liệu:</strong> có thể đính kèm catalogue của sản phẩm hoặc dịch vụ.
+          </p>
+          <p className="text-text-desc">
+            Mã đề nghị do hệ thống tự sinh theo Thông báo 09/2026/TB-HPCS — người lập không tự
+            đặt.
           </p>
         </CardContent>
       </Card>
@@ -365,6 +379,12 @@ export default function TrangNhanDeNghiMoi() {
               value={tieuDe}
               onChange={(e) => setTieuDe(e.target.value)}
             />
+          </Truong>
+
+          {/* Ô CHỈ ĐỌC theo đúng Base ("Nhóm đề xuất: 01.0. Phiếu đề nghị") — cho người
+              quen Base thấy đúng phiếu mình vẫn lập, dù giá trị hiện chỉ có một. */}
+          <Truong nhan="Nhóm đề nghị" batBuoc moTa="Nhóm phiếu theo danh mục Base">
+            <Input value="01.0. Phiếu đề nghị" disabled readOnly className="bg-muted" />
           </Truong>
 
           <Truong nhan="Bộ phận đề nghị" batBuoc moTa="Đề nghị đến từ phòng ban nào">
@@ -774,7 +794,7 @@ export default function TrangNhanDeNghiMoi() {
             </Button>
             <Button disabled={!hopLe} onClick={nhanDeNghi}>
               <Inbox className="size-4" aria-hidden />
-              Tạo đề nghị
+              Tạo đề nghị mới
             </Button>
             <Button variant="ghost" onClick={() => router.push("/de-nghi")}>
               Quay lại bảng
