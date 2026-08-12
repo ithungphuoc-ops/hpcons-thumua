@@ -120,7 +120,7 @@ export function KhoiThuThapBaoGia({
     if (await moTep(t)) return;
     toast.error("Không còn nội dung tệp", {
       description:
-        "Tệp lưu trong trình duyệt của máy đã tải lên. Máy này không có bản sao — nhờ người tải lên gửi lại.",
+        "Không tải được nội dung tệp từ máy chủ. Kiểm tra lại mạng rồi thử lại.",
     });
   }
 
@@ -362,10 +362,11 @@ export function KhoiThuThapBaoGia({
           </label>
 
           {/* ⚠️ Nói thẳng chỗ tệp đang nằm. Trước đây khối này hứa "đã tải lên" trong khi
-              không lưu gì — nay lưu thật, nhưng vẫn phải nói rõ là lưu ở máy này. */}
+              không lưu gì; rồi lưu ở máy này; từ 12/08/2026 lưu thật lên máy chủ. Mỗi lần đổi
+              chỗ lưu là phải sửa câu này — nói sai còn tệ hơn không nói. */}
           <p className="text-xs text-text-desc">
-            <strong>Bản chạy thử lưu tệp trong trình duyệt máy này</strong>, chưa đưa lên máy chủ
-            nên máy khác chưa mở xem được. Tối đa {CO_TOI_DA / 1024 / 1024}MB mỗi tệp.
+            Tệp được lưu lên máy chủ nên <strong>trưởng bộ phận và người khác mở xem được</strong>.
+            Tối đa {CO_TOI_DA / 1024 / 1024}MB mỗi tệp.
           </p>
         </div>
 

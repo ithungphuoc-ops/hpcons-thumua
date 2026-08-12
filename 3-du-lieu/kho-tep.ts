@@ -20,6 +20,12 @@
 // cho người dùng biết chứ không được để họ tưởng đã lưu lên hệ thống.
 // ============================================================
 
+import {
+  dayTepLenMayChu,
+  taiTepTuMayChu,
+  xoaTepTrenMayChu,
+} from "@/3-du-lieu/kho-tep-firestore";
+
 const TEN_KHO = "hpcons-thumua-tep";
 const TEN_BANG = "tep";
 const PHIEN_BAN = 1;
@@ -39,8 +45,14 @@ export interface MoTaTep {
   thoiDiem: string;
 }
 
-/** Giới hạn cỡ tệp. Ảnh chụp phiếu bằng điện thoại thường 2–5MB nên 15MB là rộng rãi. */
-export const CO_TOI_DA = 15 * 1024 * 1024;
+/**
+ * Giới hạn cỡ tệp. Ảnh chụp phiếu bằng điện thoại thường 2–5MB nên 10MB là đủ rộng.
+ *
+ * ⚠️ GIẢM TỪ 15MB XUỐNG 10MB (12/08/2026) khi chuyển sang lưu trên Firestore. Firestore chỉ
+ * cho 1MB mỗi tài liệu nên tệp phải cắt thành nhiều mảnh — 10MB đã là ~23 mảnh, mỗi mảnh một
+ * lần gọi mạng. Để 15MB thì người dùng ngồi chờ rất lâu mà không biết có xong hay không.
+ */
+export const CO_TOI_DA = 10 * 1024 * 1024;
 
 export const KIEU_CHO_PHEP = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx,.xls,.xlsx";
 
@@ -83,7 +95,7 @@ export async function catTep(
   });
   db.close();
 
-  return {
+  const mt: MoTaTep = {
     id,
     tenTep: tep.name,
     kieuMime: tep.type || "application/octet-stream",
@@ -92,19 +104,74 @@ export async function catTep(
     nguoiTaiTen: nguoi.ten,
     thoiDiem: new Date().toISOString(),
   };
+
+  /**
+   * 🔴 ĐẨY LÊN MÁY CHỦ để máy khác mở được — Ban lãnh đạo 12/08/2026: *"lưu vào firestore"*.
+   *
+   * ⚠️ ĐẨY KHÔNG ĐƯỢC THÌ PHẢI NÉM LỖI, không được im lặng. Tệp vẫn nằm trong máy này nên
+   * người tải lên bấm Xem vẫn thấy — họ sẽ tin là đã lưu vào hệ thống, trong khi trưởng bộ
+   * phận ở máy khác chẳng thấy gì. Đúng cái bẫy CLAUDE.md mục 3.5 cấm: *"đừng để giao diện
+   * hứa một việc app không làm"*.
+   */
+  const len = await dayTepLenMayChu(id, tep, {
+    tenTep: mt.tenTep,
+    kieuMime: mt.kieuMime,
+    kichThuoc: mt.kichThuoc,
+    soManh: 0, // hàm đẩy tự tính rồi ghi lại
+    nguoiTaiUid: mt.nguoiTaiUid,
+    nguoiTaiTen: mt.nguoiTaiTen,
+    thoiDiem: mt.thoiDiem,
+  });
+  if (!len) {
+    throw new Error(
+      "Đã lưu trên máy này nhưng KHÔNG đưa được lên máy chủ — máy khác sẽ không mở xem được. Kiểm tra lại mạng rồi đính kèm lại.",
+    );
+  }
+
+  return mt;
 }
 
-/** Lấy lại nội dung tệp. Trả `null` khi kho không còn (VD mở ở máy khác). */
+/**
+ * Lấy lại nội dung tệp.
+ *
+ * Hai lớp, theo đúng thứ tự:
+ *   1. **IndexedDB của máy này** — có sẵn thì mở tức thì, không phải chờ mạng. Đây là lý do
+ *      giữ IndexedDB lại chứ không bỏ hẳn khi chuyển sang Firestore.
+ *   2. **Firestore** — máy khác (hoặc máy này sau khi xóa bộ nhớ trình duyệt) tải về, rồi
+ *      **cất lại vào IndexedDB** để lần sau mở ngay.
+ *
+ * Trả `null` khi cả hai đều không có.
+ */
 export async function layTep(id: string): Promise<Blob | null> {
   const db = await moKho();
-  const blob = await new Promise<Blob | null>((nhan, loi) => {
+  const trongMay = await new Promise<Blob | null>((nhan, loi) => {
     const gd = db.transaction(TEN_BANG, "readonly");
     const yc = gd.objectStore(TEN_BANG).get(id);
     yc.onsuccess = () => nhan((yc.result as Blob | undefined) ?? null);
     yc.onerror = () => loi(yc.error ?? new Error("Không đọc được tệp"));
   });
   db.close();
-  return blob;
+  if (trongMay) return trongMay;
+
+  const tuMayChu = await taiTepTuMayChu(id);
+  if (!tuMayChu) return null;
+
+  // Cất lại để lần sau khỏi tải: một tệp 5MB là hơn 10 lần gọi mạng, mở lại lần nào cũng
+  // tải lại thì người dùng tưởng app chậm.
+  try {
+    const db2 = await moKho();
+    await new Promise<void>((nhan) => {
+      const gd = db2.transaction(TEN_BANG, "readwrite");
+      gd.objectStore(TEN_BANG).put(tuMayChu, id);
+      gd.oncomplete = () => nhan();
+      // Cất không được thì thôi — vẫn trả tệp về cho người dùng xem.
+      gd.onerror = () => nhan();
+    });
+    db2.close();
+  } catch {
+    // Bỏ qua: không cất được bộ đệm không phải lý do để chặn việc xem tệp.
+  }
+  return tuMayChu;
 }
 
 /**
@@ -134,6 +201,8 @@ export async function xoaTep(id: string): Promise<void> {
     gd.onerror = () => nhan();
   });
   db.close();
+  // Dọn cả trên máy chủ, nếu không thì mảnh base64 nằm lại vĩnh viễn và ăn dần hạn mức.
+  await xoaTepTrenMayChu(id);
 }
 
 /** Đổi số byte thành chữ dễ đọc: "1,2 MB" / "340 KB". */

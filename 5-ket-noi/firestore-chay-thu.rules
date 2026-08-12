@@ -80,6 +80,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ------------------------------------------------------------------
+    // NỘI DUNG TỆP ĐÍNH KÈM — `tep/{tepId}` + mảnh con `tep/{tepId}/manh/{i}`
+    // ------------------------------------------------------------------
+    //
+    // 🔴 Ban lãnh đạo 12/08/2026 chọn lưu tệp vào Firestore để máy khác mở xem được.
+    // Firestore chỉ cho 1MB mỗi tài liệu nên tệp bị cắt thành nhiều mảnh base64 — xem
+    // `3-du-lieu/kho-tep-firestore.ts`.
+    //
+    // ⚠️ PHẢI CÓ `{manh=**}` (hoặc khai riêng collection con). Rules KHÔNG tự áp xuống
+    // collection con: khai mỗi `tep/{tepId}` thì mảnh bị chặn, và người dùng thấy đúng cảnh
+    // "tải lên xong mà mở ra không có gì".
+    match /tep/{tepId} {
+      allow read, write: if conHanChayThu() && duocVao();
+      match /{duongDanCon=**} {
+        allow read, write: if conHanChayThu() && duocVao();
+      }
+    }
+
     // Mọi đường dẫn khác: KHÓA. Kể cả khi sau này ai đó ghi nhầm dữ liệu thật vào một
     // collection mới, nó cũng không lộ ra ngoài.
     match /{document=**} {

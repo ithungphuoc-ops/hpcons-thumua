@@ -68,9 +68,9 @@ export function ODinhKemTep({
     if (!tep) return;
     const duoc = await moTep(tep);
     if (!duoc) {
-      toast.error("Không còn nội dung tệp", {
+      toast.error("Không mở được tệp", {
         description:
-          "Tệp được lưu trong trình duyệt của máy đã đính kèm. Máy này không có bản sao — nhờ người tải lên gửi lại.",
+          "Không tải được nội dung tệp từ máy chủ. Kiểm tra lại mạng rồi thử lại; nếu vẫn không được thì nhờ người tải lên đính kèm lại.",
       });
     }
   }
@@ -163,15 +163,13 @@ export function ODinhKemTep({
             · Đã có tệp  → chỉ còn MỘT câu cảnh báo ngắn về chỗ lưu.
           Vẫn giữ cảnh báo khi đã có tệp vì đó đúng là lúc người dùng dễ tưởng nhầm đã lưu
           lên hệ thống — xem chú thích đầu file. */}
-      {tep ? (
-        <p className="flex items-start gap-1.5 text-xs text-text-desc">
-          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning-soft" aria-hidden />
-          <span>Tệp đang nằm trong trình duyệt máy đã tải lên — máy khác chưa mở xem được.</span>
-        </p>
-      ) : (
+      {/* 🔴 BỎ CÂU "máy khác chưa mở xem được" — từ 12/08/2026 tệp ĐÃ lên máy chủ nên máy
+          khác mở được. Giữ câu cũ là nói sai về chính thứ app vừa làm được, và người dùng sẽ
+          vẫn gửi tệp cho nhau qua Zalo dù không cần nữa. */}
+      {!tep && (
         <p className="text-xs text-text-desc">
-          Nhận PDF, ảnh, Word, Excel · tối đa {CO_TOI_DA / 1024 / 1024}MB. Bản chạy thử lưu tệp
-          trong trình duyệt máy này, máy khác chưa mở xem được.
+          Nhận PDF, ảnh, Word, Excel · tối đa {CO_TOI_DA / 1024 / 1024}MB. Tệp được lưu lên máy
+          chủ nên người khác mở xem được.
         </p>
       )}
     </div>
