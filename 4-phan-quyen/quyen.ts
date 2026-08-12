@@ -300,6 +300,31 @@ export const VAI_TRO_MAU: VaiTroMau[] = [
 export const VAI_TRO_MAC_DINH = VAI_TRO_MAU.find((v) => v.uid === "u-tbp") ?? VAI_TRO_MAU[0];
 
 /**
+ * 🔴 NGƯỜI CHƯA XÁC ĐỊNH — CẤP 0, KHÔNG ĐƯỢC GÌ HẾT.
+ *
+ * Dùng khi chưa đăng nhập, hoặc đăng nhập rồi mà KHÔNG đọc được hồ sơ phân quyền.
+ *
+ * ⚠️ TUYỆT ĐỐI KHÔNG lấy `VAI_TRO_MAC_DINH` làm giá trị dự phòng cho hai trường hợp trên.
+ * `VAI_TRO_MAC_DINH` là Trưởng bộ phận **cấp 3** — người lạ sẽ âm thầm chạy dưới quyền
+ * phân bổ công việc, xác nhận hoàn thành đơn và **xem được giá**, mà không có một dòng
+ * báo lỗi nào. Đây là kiểu lỗi tự nó không bao giờ lộ ra: app trông vẫn chạy đúng.
+ *
+ * Nguyên tắc: thiếu thông tin thì cho quyền THẤP NHẤT, đừng cho quyền tiện nhất.
+ *
+ * `capTM: 0` làm `tinhQuyen()` trả về sai cho toàn bộ 14 quyền, kể cả `xemDuocApp`.
+ */
+export const KHONG_QUYEN: NguoiDung = {
+  uid: "",
+  tenHienThi: "Chưa đăng nhập",
+  chucDanh: "—",
+  phongBan: "—",
+  chucNang: "phong_thi_cong",
+  vaiTro: "staff",
+  capTM: 0,
+  capKho: 0,
+};
+
+/**
  * 🔴 MẬT KHẨU CHUNG CỦA BẢN CHẠY THỬ — KHÔNG PHẢI BẢO MẬT THẬT.
  *
  * Cả app chạy trong trình duyệt nên mật khẩu này nằm sẵn trong mã nguồn tải về máy

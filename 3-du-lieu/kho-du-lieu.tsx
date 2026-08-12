@@ -144,6 +144,8 @@ interface GiaTriDuLieu {
     nguoiPhuTrachUid: string,
     nguoiPhanBoTen: string,
     yeuCau?: YeuCauPhanBo,
+    /** Tên người nhận việc. Bỏ trống thì tra danh bạ — chỉ đúng với tài khoản mẫu. */
+    tenNguoiPhuTrach?: string,
   ) => void;
   boPhanBoDong: (prId: string, sttDong: number, nguoiThucHien: string) => void;
   /** Lập PO mới từ các dòng đề nghị. Trả về id PO vừa tạo. */
@@ -647,11 +649,21 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       nguoiPhuTrachUid: string,
       nguoiPhanBoTen: string,
       yeuCau?: YeuCauPhanBo,
+      tenNguoiPhuTrach?: string,
     ) => {
-      // 🔴 Tra tên từ DANH BẠ, không giữ bảng ánh xạ riêng ở đây. Bảng cũ viết cứng 3 người
-      // và **thiếu `u-tm4`** — phân bổ cho người đó thì màn hình hiện tên là "u-tm4" (mã thô).
-      // Danh bạ là nguồn duy nhất; thêm người chỉ phải sửa một chỗ.
-      const ten = tenTheoUid(nguoiPhuTrachUid);
+      /**
+       * Tên người nhận việc: LẤY TỪ NƠI GỌI trước, danh bạ chỉ là phương án dự phòng.
+       *
+       * 🔴 Từ 12/08/2026 người dùng là tài khoản THẬT đọc từ máy chủ, còn `DANH_BA_NHAN_SU`
+       * là mảng viết cứng chỉ có tên giả định. Tra danh bạ cho một mã không có trong đó thì
+       * hàm trả lại **chính chuỗi mã** — màn hình phân bổ sẽ hiện "u-tm-01" thay vì tên
+       * người, và nhật ký ghi vĩnh viễn cái mã thô đó. Không sai lệch dữ liệu, nhưng hồ sơ
+       * đọc không ra ai làm gì.
+       *
+       * Nơi gọi (bảng phân bổ) LUÔN biết tên vì nó vừa hiện tên đó lên nút bấm — dùng lại
+       * là chắc chắn đúng.
+       */
+      const ten = tenNguoiPhuTrach?.trim() || tenTheoUid(nguoiPhuTrachUid);
 
       // Dựng câu nhật ký: nêu luôn yêu cầu giao việc để sau này tra lại biết trưởng bộ phận
       // đã dặn gì, khỏi cãi nhau "anh có bảo lấy 3 báo giá đâu".

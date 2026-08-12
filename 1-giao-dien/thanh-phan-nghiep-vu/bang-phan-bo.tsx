@@ -24,24 +24,27 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
-import { nhanVienThuMuaCoTaiKhoan } from "@/4-phan-quyen/quyen";
 
 /**
- * Nhân viên thu mua nhận phân bổ — LẤY TỪ DANH BẠ, không chép cứng ở đây.
+ * Nhãn ngắn cho nút phân bổ.
  *
- * 🔴 Trước 11/08/2026 chỗ này viết cứng 3 người, lệch với danh bạ (có 4) và lệch với danh
- * sách tài khoản đăng nhập (chỉ có 1). Hậu quả: phân bổ cho người **không đăng nhập được**
- * → việc treo, không ai nhận. Nay một nguồn duy nhất: `nhanVienThuMua()`.
+ * ⚠️ KHÔNG được dựa vào việc chức danh có ngoặc đơn. Chức danh mẫu là "Nhân viên Thu mua
+ * (TM2)" nên cắt trong ngoặc ra "TM2" rất gọn — nhưng chức danh THẬT của người thật chỉ
+ * ghi "Nhân viên", không có ngoặc nào. Bám vào ngoặc là nút hiện nhãn rỗng.
  *
- * Bản thật sẽ đọc `users/{uid}` có `apps.tm >= 2` — vẫn chỉ thay ruột hàm đó.
- *
- * `ngan` là nhãn ngắn cho nút (TM1, TM2…), cắt từ chức danh "Nhân viên Thu mua (TM2)".
+ * Nên: có ngoặc thì dùng, không có thì lấy chữ cái đầu của tên (Trần Văn C → TVC).
  */
-const NHAN_VIEN_THU_MUA = nhanVienThuMuaCoTaiKhoan().map((n) => ({
-  uid: n.uid,
-  ten: n.tenHienThi,
-  ngan: n.chucDanh.match(/\(([^)]+)\)/)?.[1] ?? n.tenDangNhap.toUpperCase(),
-}));
+function nhanNgan(ten: string, chucDanh: string): string {
+  const trongNgoac = chucDanh.match(/\(([^)]+)\)/)?.[1];
+  if (trongNgoac) return trongNgoac;
+  return ten
+    .trim()
+    .split(/\s+/)
+    .map((t) => t[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 4);
+}
 
 /**
  * Yêu cầu trưởng bộ phận đặt ra lúc giao việc. Không có yêu cầu nào thì không hiện gì —
@@ -72,8 +75,34 @@ function YeuCauGiaoViec({ soBaoGia, ghiChu }: { soBaoGia?: number; ghiChu?: stri
  */
 export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const { donHang, phieuNhan, phanBoDong, boPhanBoDong } = useDuLieu();
-  const { nguoiDung, quyen } = useNguoiDung();
+  const { nguoiDung, quyen, danhSachTaiKhoan } = useNguoiDung();
   const [chon, setChon] = useState<number[]>([]);
+
+  /**
+   * 🔴 Lấy từ danh sách TÀI KHOẢN ĐĂNG NHẬP ĐƯỢC, không lấy từ danh bạ nhân sự.
+   *
+   * Danh bạ có cả người không có tài khoản; phân bổ cho họ là việc treo vĩnh viễn —
+   * không ai nhận công tác, không ai lập được đơn, và dòng đó **biến mất khỏi lịch của
+   * mọi người** (lịch lọc theo mã người, còn cảnh báo "Chờ phân bổ" chỉ hiện khi dòng
+   * CHƯA có người). Việc rơi vào vùng mù, chỉ vỡ ra khi trễ ngày cần hàng.
+   *
+   * ⚠️ Trước 12/08/2026 danh sách này tính MỘT LẦN lúc nạp tệp từ mảng cứng. Nay đọc từ
+   * máy chủ nên phải tính trong thân component — để nguyên cách cũ thì bảng phân bổ
+   * **trống trơn vĩnh viễn**, trưởng bộ phận không giao được việc cho ai.
+   *
+   * 📌 Trưởng bộ phận KHÔNG có trong danh sách: chị ấy *phân bổ*, không *nhận phần việc*.
+   */
+  const nhanVienThuMua = useMemo(
+    () =>
+      danhSachTaiKhoan
+        .filter((n) => n.chucNang === "nhan_vien_thu_mua")
+        .map((n) => ({
+          uid: n.uid,
+          ten: n.tenHienThi,
+          ngan: nhanNgan(n.tenHienThi, n.chucDanh),
+        })),
+    [danhSachTaiKhoan],
+  );
 
   /**
    * ⚠️ CỜ MỞ TÁCH KHỎI NỘI DUNG — theo đúng cảnh báo ghi sẵn trong `hop-xac-nhan.tsx`:
@@ -124,12 +153,21 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   function xacNhanGiaoViec() {
     if (!giaoViec) return;
     const so = Number.parseInt(soBaoGia, 10);
-    phanBoDong(deNghi.id, giaoViec.dong, giaoViec.uid, nguoiDung.tenHienThi, {
-      // Chỉ gửi khi là số dương thật — ô để trống nghĩa là "không nêu yêu cầu riêng",
-      // không phải "yêu cầu 0 báo giá".
-      soBaoGia: Number.isFinite(so) && so > 0 ? so : undefined,
-      ghiChu,
-    });
+    phanBoDong(
+      deNghi.id,
+      giaoViec.dong,
+      giaoViec.uid,
+      nguoiDung.tenHienThi,
+      {
+        // Chỉ gửi khi là số dương thật — ô để trống nghĩa là "không nêu yêu cầu riêng",
+        // không phải "yêu cầu 0 báo giá".
+        soBaoGia: Number.isFinite(so) && so > 0 ? so : undefined,
+        ghiChu,
+      },
+      // Truyền thẳng tên đang hiện trên nút: tài khoản thật không có trong danh bạ viết
+      // cứng, để kho dữ liệu tự tra là màn hình hiện mã thô thay vì tên người.
+      giaoViec.ten,
+    );
     setChon([]);
     // ⚠️ KHÔNG `setGiaoViec(null)` ở đây — xem ghi chú ở chỗ khai `moHop`.
     // `HopXacNhan` tự gọi `onDong` ngay sau hàm này để đóng hộp.
@@ -161,7 +199,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
         {quyen.phanBoCongViec && chon.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary-bg p-3">
             <span className="text-sm font-medium text-primary">Đã chọn {chon.length} dòng — phân cho:</span>
-            {NHAN_VIEN_THU_MUA.map((nv) => (
+            {nhanVienThuMua.map((nv) => (
               <Button key={nv.uid} size="sm" onClick={() => moGiaoViec(nv.uid, nv.ten, chon)}>
                 <UserPlus className="size-4" aria-hidden />
                 {nv.ngan} · {nv.ten}
@@ -295,7 +333,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                 <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
                 {quyen.phanBoCongViec && !d.nguoiPhuTrachUid && (
                   <div className="flex flex-wrap gap-2 pt-1">
-                    {NHAN_VIEN_THU_MUA.map((nv) => (
+                    {nhanVienThuMua.map((nv) => (
                       <Button
                         key={nv.uid}
                         size="sm"

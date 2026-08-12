@@ -3,46 +3,80 @@ rules_version = '2';
 // ============================================================================
 // SECURITY RULES — BẢN CHẠY THỬ, project `hpcons-thumua`
 //
-// 🔴 ĐỌC KỸ TRƯỚC KHI DÙNG. File này CỐ Ý mở dữ liệu cho người chưa đăng nhập.
+// 🔴 CÓ MỘT CÔNG TẮC Ở NGAY DƯỚI (`batBuocDangNhap`). Đọc kỹ trước khi bật.
 //
-// ⚠️⚠️ ĐÂY KHÔNG PHẢI BẢO MẬT. Ai mở https://hpcons-thumua-github.vercel.app rồi
-//    bấm F12 đều đọc được mã project trong mã nguồn trang, và từ đó **đọc và sửa
-//    được** toàn bộ dữ liệu ở `chay-thu/du-lieu-chung`. Không cần mật khẩu.
+// Vì sao phải có công tắc chứ không siết luôn: siết rules TRƯỚC khi mọi người có tài
+// khoản là **khóa cả phòng ra ngoài** — app mở lên trắng trơn, không ai hiểu vì sao, và
+// người đang nhập dở mất việc. Thứ tự bắt buộc:
 //
-//    👉 CHỈ ĐƯỢC NHẬP DỮ LIỆU GIẢ ĐỊNH vào bản chạy thử.
-//       KHÔNG nhập giá thật của nhà cung cấp, KHÔNG nhập tên người thật,
-//       KHÔNG nhập số hợp đồng thật.
+//   ① Bật Authentication → Email/Password trong Firebase Console
+//   ② Chạy `node tao-tai-khoan.js` tạo tài khoản + hồ sơ cho TỪNG người
+//   ③ Giao mật khẩu, xác nhận mọi người đăng nhập được
+//   ④ Đặt `NEXT_PUBLIC_XAC_THUC=firebase` rồi deploy
+//   ⑤ MỚI đổi `batBuocDangNhap()` thành `true` và deploy rules
 //
-// Vì sao vẫn làm vậy: Ban lãnh đạo cần cả phòng cùng thử trên một bộ dữ liệu
-// ngay (chỉ đạo 12/08/2026), mà app chưa nối đăng nhập thật của HPcore. Đăng
-// nhập hiện tại chỉ là chọn vai trò ở màn hình đầu — Firestore không kiểm được.
-//
-// 🔴 VIỆC BẮT BUỘC TRƯỚC KHI ĐƯA DỮ LIỆU THẬT VÀO:
-//    Nối Firebase Auth thật (hoặc đăng nhập của App Tổng), rồi đổi rule dưới
-//    thành `if request.auth != null` kèm kiểm cấp quyền `apps.tm` — mẫu đã viết
-//    sẵn ở `firestore.rules` cùng thư mục.
-//
-// 📌 CÓ HẠN SỬ DỤNG, cố ý. Sau ngày ghi bên dưới, mọi truy cập tự động bị chặn
-//    và app quay về lưu riêng trên từng máy. Làm vậy để cửa mở này KHÔNG thể bị
-//    quên rồi để ngỏ vĩnh viễn — muốn dùng tiếp thì phải có người cố ý gia hạn.
+// Làm sai thứ tự thì hoặc là khóa người dùng ngoài app (④⑤ trước ②), hoặc là tưởng đã
+// bảo mật mà thật ra vẫn mở toang (④ mà quên ⑤).
 // ============================================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    /**
+     * 🔴 CÔNG TẮC BẢO MẬT.
+     *
+     * `false` = ai cũng đọc/sửa được dữ liệu chạy thử, KHÔNG CẦN ĐĂNG NHẬP.
+     *           Ai mở https://hpcons-thumua-github.vercel.app bấm F12 là thấy mã project
+     *           trong mã nguồn trang, từ đó đọc và sửa toàn bộ dữ liệu.
+     *           👉 CHỈ ĐƯỢC NHẬP DỮ LIỆU GIẢ ĐỊNH. Không giá thật, không tên người thật,
+     *              không số hợp đồng thật.
+     *
+     * `true`  = phải đăng nhập bằng tài khoản thật mới đọc/ghi được. Đây mới là lúc
+     *           việc "phân quyền riêng cho từng người" có ý nghĩa ở tầng dữ liệu.
+     *
+     * ⚠️ Đổi giá trị này rồi PHẢI deploy lại rules mới có hiệu lực. Sửa file không thôi
+     * thì không có gì thay đổi trên máy chủ.
+     */
+    function batBuocDangNhap() {
+      return false;
+    }
+
+    function duocVao() {
+      return batBuocDangNhap() ? request.auth != null : true;
+    }
 
     /** Hết hạn 01/11/2026. Đổi ngày này là hành động có ý thức, không phải mặc định. */
     function conHanChayThu() {
       return request.time < timestamp.date(2026, 11, 1);
     }
 
-    // Kho dữ liệu chung của bản chạy thử: MỘT document duy nhất.
-    // Chỉ mở đúng `chay-thu/{tep}`, không mở collection con, không mở nơi nào khác.
+    // ------------------------------------------------------------------
+    // KHO DỮ LIỆU CHUNG của bản chạy thử — MỘT document duy nhất.
+    // ------------------------------------------------------------------
     match /chay-thu/{tep} {
-      allow read, write: if conHanChayThu();
+      allow read, write: if conHanChayThu() && duocVao();
     }
 
-    // Mọi đường dẫn khác: KHÓA. Kể cả khi sau này ai đó ghi nhầm dữ liệu thật
-    // vào một collection mới, nó cũng không lộ ra ngoài.
+    // ------------------------------------------------------------------
+    // HỒ SƠ PHÂN QUYỀN — mỗi người một tài liệu `nguoi-dung/{firebaseUid}`
+    // ------------------------------------------------------------------
+    //
+    // 🔴 CHỈ ĐỌC, KHÔNG AI GHI ĐƯỢC TỪ TRÌNH DUYỆT. Đây là điều khoản quan trọng nhất
+    // của cả file: hồ sơ chứa `capTM` — cấp quyền của chính người đó. Cho ghi là người
+    // dùng tự sửa mình lên cấp 4, và toàn bộ phân quyền thành vô nghĩa.
+    // Hồ sơ chỉ được tạo/sửa bằng khóa Admin SDK (script `tao-tai-khoan.js`), mà khóa đó
+    // đi vòng qua Security Rules nên không bị chặn.
+    //
+    // ⚠️ Cho đọc CẢ collection chứ không chỉ hồ sơ của mình: bảng phân bổ cần danh sách
+    // nhân viên thu mua để trưởng bộ phận giao việc. Hồ sơ không chứa gì bí mật hơn tên,
+    // chức danh và cấp quyền — những thứ đằng nào cũng hiện trên giao diện.
+    match /nguoi-dung/{uid} {
+      allow read: if duocVao();
+      allow write: if false;
+    }
+
+    // Mọi đường dẫn khác: KHÓA. Kể cả khi sau này ai đó ghi nhầm dữ liệu thật vào một
+    // collection mới, nó cũng không lộ ra ngoài.
     match /{document=**} {
       allow read, write: if false;
     }

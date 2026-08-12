@@ -23,41 +23,23 @@
 // ============================================================
 
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
+import { daCauHinhFirebase, moFirebase } from "@/5-ket-noi/firebase-chung";
 
 /** Tất cả người dùng bản chạy thử chung một "phòng" dữ liệu. */
 const DUONG_DAN = { boSuuTap: "chay-thu", tep: "du-lieu-chung" } as const;
 
 /** Đã khai đủ cấu hình Firebase chưa. Thiếu thì app chạy như cũ, chỉ lưu trên máy. */
-export function daCauHinhFirestore(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID && process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  );
-}
+export const daCauHinhFirestore = daCauHinhFirebase;
 
 /**
- * Nạp Firebase theo kiểu **động**.
- *
- * 🔴 Không `import` tĩnh ở đầu file: gói `firebase` nặng ~200KB, mà app còn phải chạy được
- * khi CHƯA cấu hình (máy lập trình viên mới clone về). Nạp động thì máy không cấu hình
- * không tải gói này về, và bản dựng tĩnh vẫn build được.
+ * Mở Firestore. Việc khởi tạo Firebase nằm ở `5-ket-noi/firebase-chung.ts` — dùng chung
+ * với Authentication, vì `initializeApp()` gọi hai lần là hỏng cả hai bên.
  */
 async function moKetNoi() {
-  const { initializeApp, getApps, getApp } = await import("firebase/app");
+  const app = await moFirebase();
+  if (!app) return null;
   const { getFirestore, doc, onSnapshot, setDoc } = await import("firebase/firestore");
-
-  const cauHinh = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  };
-
-  // `getApps().length` — Next.js giữ module qua các lần chuyển trang, khởi tạo lại là lỗi.
-  const app = getApps().length > 0 ? getApp() : initializeApp(cauHinh);
-  const db = getFirestore(app);
-  return { db, doc, onSnapshot, setDoc };
+  return { db: getFirestore(app), doc, onSnapshot, setDoc };
 }
 
 /** Lọc từng mảng — bản trên máy chủ có thể thiếu mảng mới thêm sau này. */
@@ -110,7 +92,9 @@ export async function noiKhoChung(
   if (typeof window === "undefined" || !daCauHinhFirestore()) return null;
 
   try {
-    const { db, doc, onSnapshot, setDoc } = await moKetNoi();
+    const kn = await moKetNoi();
+    if (!kn) return null;
+    const { db, doc, onSnapshot, setDoc } = kn;
     const tep = doc(db, DUONG_DAN.boSuuTap, DUONG_DAN.tep);
 
     const huy = onSnapshot(

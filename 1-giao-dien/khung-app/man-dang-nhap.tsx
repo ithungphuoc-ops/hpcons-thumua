@@ -7,8 +7,9 @@ import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
-import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { CHE_DO_XAC_THUC, useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { MAT_KHAU_CHAY_THU, NHAN_CAP_QUYEN, VAI_TRO_MAU } from "@/4-phan-quyen/quyen";
+import { guiThuDatLaiMatKhau } from "@/5-ket-noi/xac-thuc-firebase";
 
 /**
  * MÀN ĐĂNG NHẬP — cửa vào app, hiện thay toàn bộ nội dung khi chưa đăng nhập
@@ -29,17 +30,27 @@ import { MAT_KHAU_CHAY_THU, NHAN_CAP_QUYEN, VAI_TRO_MAU } from "@/4-phan-quyen/q
  * `4-phan-quyen/nguoi-dung-hien-tai.tsx`.
  */
 export function ManDangNhap() {
-  const { dangNhap } = useNguoiDung();
+  const { dangNhap, loiHoSo } = useNguoiDung();
   const [tenDangNhap, setTenDangNhap] = useState("");
   const [matKhau, setMatKhau] = useState("");
   const [hienMatKhau, setHienMatKhau] = useState(false);
   const [ghiNho, setGhiNho] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [moDanhSach, setMoDanhSach] = useState(false);
+  /** Chặn bấm Đăng nhập hai lần khi đang chờ máy chủ trả lời. */
+  const [dangGui, setDangGui] = useState(false);
 
-  function guiForm(e: React.FormEvent) {
+  const laCheDoThat = CHE_DO_XAC_THUC === "firebase";
+
+  async function guiForm(e: React.FormEvent) {
     e.preventDefault();
-    setLoi(dangNhap(tenDangNhap, matKhau, ghiNho));
+    if (dangGui) return;
+    setDangGui(true);
+    try {
+      setLoi(await dangNhap(tenDangNhap, matKhau, ghiNho));
+    } finally {
+      setDangGui(false);
+    }
   }
 
   function chonNhanh(ten: string) {
@@ -113,12 +124,14 @@ export function ManDangNhap() {
 
           <form onSubmit={guiForm} className="flex flex-col gap-(--hp-md-card-gap)">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="ten-dang-nhap">Tên đăng nhập</Label>
+              <Label htmlFor="ten-dang-nhap">{laCheDoThat ? "Email" : "Tên đăng nhập"}</Label>
               <Input
                 id="ten-dang-nhap"
                 autoFocus
-                autoComplete="username"
-                placeholder="Nhập tên đăng nhập"
+                // `type=email` để điện thoại bật đúng bàn phím có dấu @.
+                type={laCheDoThat ? "email" : "text"}
+                autoComplete={laCheDoThat ? "email" : "username"}
+                placeholder={laCheDoThat ? "Nhập email được cấp" : "Nhập tên đăng nhập"}
                 value={tenDangNhap}
                 onChange={(e) => {
                   setTenDangNhap(e.target.value);
@@ -172,29 +185,59 @@ export function ManDangNhap() {
               </span>
             </label>
 
-            {/* Báo lỗi có cả biểu tượng và chữ, không chỉ dựa vào màu (V1.1) */}
-            {loi && (
+            {/* Báo lỗi có cả biểu tượng và chữ, không chỉ dựa vào màu (V1.1).
+                `loiHoSo` là loại lỗi KHÁC: mật khẩu đúng nhưng chưa được cấp quyền vào app.
+                Gộp chung một chỗ hiện thì người dùng đọc được lý do thật, thay vì bị đá về
+                màn đăng nhập không hiểu vì sao. */}
+            {(loi ?? loiHoSo) && (
               <p
                 role="alert"
                 className="flex items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-sm text-danger-soft"
               >
                 <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-                {loi}
+                {loi ?? loiHoSo}
               </p>
             )}
 
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" disabled={dangGui}>
               <LogIn className="size-4" aria-hidden />
-              Đăng nhập
+              {dangGui ? "Đang kiểm tra..." : "Đăng nhập"}
             </Button>
           </form>
 
-          <p className="text-xs text-text-desc">
-            Quên mật khẩu? Liên hệ <strong className="text-text-secondary">phòng IT</strong> để
-            được cấp lại.
-          </p>
+          {/* 🔴 Chế độ thật thì nút này PHẢI làm thật. Trước đây màn hình ghi "liên hệ phòng
+              IT để được cấp lại" trong khi IT không cấp lại được gì — mật khẩu là hằng số
+              trong mã nguồn. Đó đúng là kiểu "giao diện hứa việc app không làm". */}
+          {laCheDoThat ? (
+            <button
+              type="button"
+              onClick={async () => {
+                if (!tenDangNhap.trim()) {
+                  setLoi("Nhập email của bạn vào ô phía trên rồi bấm lại.");
+                  return;
+                }
+                const kq = await guiThuDatLaiMatKhau(tenDangNhap);
+                setLoi(
+                  kq.loi ??
+                    "Đã gửi thư đặt lại mật khẩu. Mở hộp thư (kiểm tra cả mục Spam) và làm theo hướng dẫn.",
+                );
+              }}
+              className="min-h-11 text-left text-xs text-text-desc underline underline-offset-2 transition-colors hover:text-text-secondary"
+            >
+              Quên mật khẩu? Bấm đây để nhận thư đặt lại.
+            </button>
+          ) : (
+            <p className="text-xs text-text-desc">
+              Quên mật khẩu? Liên hệ <strong className="text-text-secondary">phòng IT</strong> để
+              được cấp lại.
+            </p>
+          )}
 
-          {/* ---- Tài khoản chạy thử: thu gọn, mặc định ĐÓNG ---- */}
+          {/* ---- Tài khoản chạy thử ----
+              🔴 CHỈ hiện ở chế độ tài khoản mẫu. Chế độ thật mà còn in danh sách người dùng
+              ra màn hình công khai là tự tay đưa cho người ngoài biết công ty có những ai và
+              ai quyền gì — chỉ còn thiếu mật khẩu. */}
+          {!laCheDoThat && (
           <div className="flex flex-col gap-2 border-t border-divider pt-4">
             <button
               type="button"
@@ -243,6 +286,7 @@ export function ManDangNhap() {
               </div>
             )}
           </div>
+          )}
         </div>
       </main>
     </div>
