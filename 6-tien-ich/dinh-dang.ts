@@ -21,8 +21,32 @@ export function formatNumber(value: number): string {
  */
 const MUI_GIO_VN = "Asia/Ho_Chi_Minh";
 
-export function formatDate(iso: string): string {
+/** Hiện khi không có ngày, hoặc ngày không đọc được. */
+export const KHONG_CO_NGAY = "—";
+
+/**
+ * 🔴 CHẶN "Invalid time value" LÀM SẬP CẢ TRANG.
+ *
+ * `Intl.DateTimeFormat().format()` **NÉM RangeError** khi gặp `Invalid Date` — và vì hàm
+ * định dạng được gọi ngay trong lúc dựng giao diện, một chuỗi ngày rỗng ở BẤT KỲ hồ sơ nào
+ * là cả trang trắng với dòng chữ "Application error", không vào được nữa.
+ *
+ * Đã xảy ra thật ngày 12/08/2026: bước duyệt hai cấp để `ngayDuyet: ""` khi phiếu chưa duyệt
+ * xong, và trang chi tiết đề nghị sập ngay khi mở.
+ *
+ * ⚠️ Bài học: hàm ĐỊNH DẠNG không bao giờ được ném lỗi. Nó nằm ở tầng cuối, dữ liệu xấu tới
+ * đâu nó cũng phải trả về một chuỗi đọc được. Kiểm ở từng nơi gọi là không xuể — chỉ cần
+ * quên MỘT chỗ là sập, mà lỗi lại không hiện ra lúc biên dịch.
+ */
+function ngayHopLe(iso: string | undefined | null): Date | null {
+  if (!iso) return null;
   const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export function formatDate(iso: string | undefined | null): string {
+  const d = ngayHopLe(iso);
+  if (!d) return KHONG_CO_NGAY;
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
@@ -32,13 +56,15 @@ export function formatDate(iso: string): string {
 }
 
 /** Giờ phút theo giờ Việt Nam, vd `14:05`. */
-export function formatTime(iso: string): string {
+export function formatTime(iso: string | undefined | null): string {
+  const d = ngayHopLe(iso);
+  if (!d) return KHONG_CO_NGAY;
   return new Intl.DateTimeFormat("vi-VN", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
     timeZone: MUI_GIO_VN,
-  }).format(new Date(iso));
+  }).format(d);
 }
 
 /**
@@ -47,7 +73,8 @@ export function formatTime(iso: string): string {
  * Ghép thủ công NGÀY rồi tới GIỜ. Nếu để `Intl` tự dựng cả cụm thì locale vi-VN cho
  * ra `14:05 10/08/2026` — giờ đứng trước ngày, đọc ngược với thói quen ghi chứng từ.
  */
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string | undefined | null): string {
+  if (!ngayHopLe(iso)) return KHONG_CO_NGAY;
   return `${formatDate(iso)} ${formatTime(iso)}`;
 }
 
@@ -59,7 +86,8 @@ export function formatDateTime(iso: string): string {
  * một cái giờ KHÔNG CÓ THẬT, nhìn vào tưởng mọi việc trong hệ thống đều xảy ra lúc 7 giờ.
  * Nên: có giờ thì hiện đủ ngày giờ, không có thì chỉ hiện ngày.
  */
-export function formatMocThoiGian(iso: string): string {
+export function formatMocThoiGian(iso: string | undefined | null): string {
+  if (!iso) return KHONG_CO_NGAY;
   return iso.includes("T") ? formatDateTime(iso) : formatDate(iso);
 }
 
