@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Inbox, Paperclip, Plus, Save, Trash2, Wand2, X } from "lucide-react";
-import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
@@ -20,6 +19,15 @@ import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import { nguoiDuyetDuocChon } from "@/2-quy-trinh/duyet-bo-phan";
 import type { NguoiDuyetChiDinh } from "@/3-du-lieu/kieu-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import {
+  CO_TOI_DA,
+  KIEU_CHO_PHEP,
+  catTep,
+  coTep,
+  moTep,
+  xoaTep,
+  type MoTaTep,
+} from "@/3-du-lieu/kho-tep";
 
 /**
  * CÔNG CỤ GIẢ LẬP — nhận một đề nghị mua hàng đã duyệt từ Phòng Thi công.
@@ -107,6 +115,48 @@ export default function TrangNhanDeNghiMoi() {
   }, [chonDuoc1, chonDuoc2]);
   const [timNguoi, setTimNguoi] = useState("");
 
+  /**
+   * Dự án đang chọn ở ô "Dự án / Công trình" — "" = chưa chọn, "__moi__" = nhập tay.
+   * Base đặt một Ô CHỌN ở vị trí này; app dùng nó để điền mã dự án + tên công trình + mã
+   * hợp đồng một phát, thay cho cụm nhập tay từng chen giữa phiếu.
+   */
+  const [duAnChon, setDuAnChon] = useState("");
+
+  /** Tài liệu đính kèm lúc lập phiếu — tối đa 10 theo biểu mẫu Base. */
+  const [taiLieu, setTaiLieu] = useState<MoTaTep[]>([]);
+  const [dangTaiTep, setDangTaiTep] = useState(false);
+
+  async function themTaiLieu(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const conCho = 10 - taiLieu.length;
+    const chon = Array.from(files).slice(0, conCho);
+    if (chon.length < files.length) {
+      toast.error("Tối đa 10 tài liệu", {
+        description: `Chỉ nhận thêm được ${conCho} tệp nữa.`,
+      });
+    }
+    setDangTaiTep(true);
+    try {
+      for (const f of chon) {
+        // `catTep` tự đẩy nội dung lên máy chủ; đẩy hỏng là NÉM LỖI chứ không im lặng.
+        const mt = await catTep(f, { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi });
+        setTaiLieu((t) => [...t, mt]);
+      }
+    } catch (e) {
+      toast.error("Không đính kèm được", {
+        description: e instanceof Error ? e.message : "Trình duyệt không cho lưu tệp.",
+      });
+    } finally {
+      setDangTaiTep(false);
+    }
+  }
+
+  function boTaiLieu(id: string) {
+    setTaiLieu((t) => t.filter((x) => x.id !== id));
+    // Dọn cả nội dung đã đẩy lên — không dọn thì mảnh tệp nằm lại vĩnh viễn trên máy chủ.
+    void xoaTep(id);
+  }
+
   /** Các dự án đã có trong hệ thống — bấm để điền nhanh, khỏi gõ lại. */
   const duAnDaCo = useMemo(() => {
     const map = new Map<string, { maDuAn: string; tenCongTrinh: string; maHopDongCDT?: string }>();
@@ -143,6 +193,7 @@ export default function TrangNhanDeNghiMoi() {
     const mau = duAnDaCo[0];
     setMaDuAn(mau?.maDuAn ?? "260001-HPCS");
     setTenCongTrinh(mau?.tenCongTrinh ?? "Nhà xưởng ABC — Giai đoạn 2");
+    setDuAnChon(mau ? mau.maDuAn : "__moi__");
     setMaHopDongCDT(mau?.maHopDongCDT ?? "");
     setTieuDe("Vật tư thử nghiệm — tạo lúc " + new Date().toLocaleTimeString("vi-VN"));
     setNguoiDeNghiTen(nguoiDung.tenHienThi);
@@ -216,6 +267,10 @@ export default function TrangNhanDeNghiMoi() {
       setNguoiDeNghiTen(n.nguoiDeNghiTen ?? nguoiDung.tenHienThi);
       setNgayDeNghi(n.ngayDeNghi ?? homNay());
       setNgayDuyet(n.ngayDuyet ?? homNay());
+      // Ô chọn dự án phải khớp dữ liệu nháp — mã có trong danh sách thì chọn, lạ thì "nhập tay".
+      setDuAnChon(
+        n.maDuAn ? (duAnDaCo.some((x) => x.maDuAn === n.maDuAn) ? n.maDuAn : "__moi__") : "",
+      );
       setNgayCanHang(n.ngayCanHang ?? "");
       setGap(Boolean(n.gap));
       setDong(Array.isArray(n.dong) && n.dong.length > 0 ? n.dong : [{ ...DONG_TRONG }]);
@@ -259,11 +314,20 @@ export default function TrangNhanDeNghiMoi() {
         mucDichSuDung: d.mucDichSuDung.trim() || undefined,
         vatTuKiemSoatDinhMuc: d.vatTuKiemSoatDinhMuc || undefined,
       })),
-      nguoiTheoDoi: nguoiTheoDoi.map((n) => ({
-        uid: n.uid,
-        ten: n.displayName,
-        chucDanh: n.title,
-      })),
+      /**
+       * Người theo dõi = [Người giám sát (tài khoản mặc định — ghi rõ trong khối lưu ý,
+       * đúng như Base)] + người được chọn tay. Lọc trùng để chọn tay Người giám sát không
+       * thành hai dòng.
+       */
+      nguoiTheoDoi: [
+        ...danhSachTaiKhoan
+          .filter((n) => n.uid === "u-giamsat")
+          .map((n) => ({ uid: n.uid, ten: n.tenHienThi, chucDanh: n.chucDanh })),
+        ...nguoiTheoDoi
+          .filter((n) => n.uid !== "u-giamsat")
+          .map((n) => ({ uid: n.uid, ten: n.displayName, chucDanh: n.title })),
+      ],
+      taiLieu: taiLieu.length > 0 ? taiLieu : undefined,
     });
 
     if (!id) {
@@ -280,48 +344,53 @@ export default function TrangNhanDeNghiMoi() {
   }
 
   return (
-    <>
-      <PageHeader
-        crumbs={[
-          { label: "Thu mua", href: "/tong-quan" },
-          { label: "Quy trình mua hàng", href: "/de-nghi" },
-          { label: "Nhận đề nghị mới" },
-        ]}
-        title="Tạo đề nghị mới"
-        description="Mô phỏng việc Phòng Thi công gửi một đề nghị ĐÃ DUYỆT sang Phòng Thu mua qua HPcore"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={taiNhap}>
-              Mở bản nháp
-            </Button>
-            <Button variant="outline" size="sm" onClick={dienNhanh}>
-              <Wand2 className="size-4" aria-hidden />
-              Điền nhanh mẫu
-            </Button>
-          </div>
-        }
-      />
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+      {/* Hai nút tiện dụng đặt NGOÀI hộp phiếu — hộp giữ nguyên dáng biểu mẫu Base.
+          ⚠️ Đã bỏ tấm "công cụ chạy thử / app không tạo được đề nghị": từ 12/08/2026 lập
+          đề nghị là NGHIỆP VỤ THẬT (mọi tài khoản lập được, duyệt hai cấp rồi mới sang
+          Thu mua) — giữ tấm cũ là nói sai về chính chức năng đang chạy. */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={taiNhap}>
+          Mở bản nháp
+        </Button>
+        <Button variant="outline" size="sm" onClick={dienNhanh}>
+          <Wand2 className="size-4" aria-hidden />
+          Điền nhanh mẫu
+        </Button>
+      </div>
 
-      {/* Cảnh báo: đây không phải nghiệp vụ thật */}
-      <Card className="border-warning/40 bg-warning-bg">
-        <CardContent className="flex flex-col gap-1">
-          <p className="text-sm font-semibold text-warning-soft">Đây là công cụ chạy thử</p>
-          <p className="text-xs text-text-secondary">
-            Ở bản thật, app Thu mua <strong>không tạo được đề nghị</strong> — đề nghị do Phòng Thi công
-            lập và Ban chỉ huy duyệt trên HPcore, app này chỉ đọc. Màn này chỉ để bấm thử trọn vòng
-            khi chưa nối Firebase.
+      {/* ===== HỘP PHIẾU — đúng dáng hộp "Tạo đề xuất mới" của Base: thanh tiêu đề IN
+          HOA + nút đóng, khối lưu ý xanh, các trường nhãn-trái ô-phải, chân hộp hai nút
+          lớn chia đôi. Màu theo token công ty, không lấy xanh lá Base (12/08/2026). ===== */}
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border bg-muted/60 px-4 py-3">
+          <h1 className="text-sm font-bold tracking-wide text-text-primary uppercase">
+            Tạo đề nghị mới
+          </h1>
+          <button
+            type="button"
+            onClick={() => router.push("/de-nghi")}
+            aria-label="Đóng, quay lại bảng quy trình"
+            className="flex size-8 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-text-primary"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+
+        <CardContent className="flex flex-col">
+          {/* Khối lưu ý xanh — nội dung chép theo khối đầu hộp của Base */}
+          <div className="mb-2 flex flex-col gap-1.5 rounded-lg border border-success/30 bg-success-bg p-3 text-xs text-text-secondary">
+          <p>
+            - Xem quy định tiếp nhận đề nghị:{" "}
+            <a
+              href="https://office.base.vn/doc/25684"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-primary underline underline-offset-2"
+            >
+              office.base.vn/doc/25684
+            </a>
           </p>
-        </CardContent>
-      </Card>
-
-      {/* KHỐI LƯU Ý — chép đúng khối xanh đầu biểu mẫu "Tạo đề xuất mới" trên Base.vn
-          (Ban lãnh đạo chốt 12/08/2026: *"giữ bố cục base và màu công ty"*). Nội dung lấy
-          theo Base, chỉ điều chỉnh cho khớp app: luồng duyệt TP/QL → TGĐ, mã hồ sơ theo
-          Thông báo 09/2026.
-          🎨 Nền dùng token `success-bg` của công ty thay cho xanh lá Base — cùng sắc ý
-          "khối hướng dẫn", nhưng là màu trong Design System V1.1, không hardcode. */}
-      <Card className="border-success/30 bg-success-bg">
-        <CardContent className="flex flex-col gap-1.5 text-xs text-text-secondary">
           <p>
             - Thời gian đề nghị: <strong>ít nhất 2 ngày</strong> trước ngày cần hàng.
           </p>
@@ -339,23 +408,14 @@ export default function TrangNhanDeNghiMoi() {
             <br />
             &nbsp;&nbsp;- Các cá nhân có liên quan cần nắm tiến trình.
             <br />
+            &nbsp;&nbsp;- Tài khoản mặc định: Người giám sát.
+            <br />
             &nbsp;&nbsp;- Có tên trong danh sách <strong>không mở khóa quyền xem đơn giá</strong>.
           </p>
           <p>
             <strong>4. Tài liệu:</strong> có thể đính kèm catalogue của sản phẩm hoặc dịch vụ.
           </p>
-          <p className="text-text-desc">
-            Mã đề nghị do hệ thống tự sinh theo Thông báo 09/2026/TB-HPCS — người lập không tự
-            đặt.
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* PHIẾU ĐỀ NGHỊ — bố cục NHÃN BÊN TRÁI, Ô NHẬP BÊN PHẢI theo đúng biểu mẫu
-          "Tạo đề xuất mới" đang dùng trên Base.vn (chỉ đạo Ban lãnh đạo 08/08/2026).
-          Dưới 768px tự xếp thành một cột để điện thoại vẫn nhập được. */}
-      <Card>
-        <CardContent className="flex flex-col">
+          </div>
           <Truong nhan="Tên đề nghị" batBuoc moTa="Số hợp đồng + tên công trình, ngắn gọn">
             <Input
               placeholder="Vật tư thi công phần thân đợt 4"
@@ -370,14 +430,52 @@ export default function TrangNhanDeNghiMoi() {
             <Input value="01.0. Phiếu đề nghị" disabled readOnly className="bg-muted" />
           </Truong>
 
-          <Truong nhan="Bộ phận đề nghị" batBuoc moTa="Đề nghị đến từ phòng ban nào">
+          <Truong nhan="Bộ phận" batBuoc moTa="Bạn thuộc phòng ban hay bộ phận nào?">
             <div className="flex flex-col gap-1">
-              {/* Ver 1 CHỈ nhận đề nghị từ Phòng Thi công (chỉ đạo 05/08/2026) nên khóa
-                  cứng, nhưng vẫn để thành một ô riêng đúng như biểu mẫu — mở rộng 5 phòng
-                  ban ở ver sau chỉ việc đổi ô này thành danh sách chọn. */}
-              <Input value={NHAN_PHONG_BAN["thi-cong"]} readOnly className="bg-muted" />
+              {/* Ô CHỌN đúng dáng Base. Ver 1 chỉ nhận đề nghị từ Phòng Thi công (chỉ đạo
+                  05/08/2026) nên danh sách mới có một mục — thêm phòng ban chỉ việc thêm
+                  <option>, không phải đổi khung. */}
+              <select
+                aria-label="Bộ phận đề nghị"
+                value="thi-cong"
+                onChange={() => {}}
+                className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+              >
+                <option value="thi-cong">{NHAN_PHONG_BAN["thi-cong"]}</option>
+              </select>
               <span className="text-xs text-text-desc">
                 Ver 1 chỉ nhận đề nghị từ Phòng Thi công — các phòng ban khác mở ở phiên bản sau.
+              </span>
+            </div>
+          </Truong>
+
+          {/* ★ Ô CHỌN DỰ ÁN — thay cho cụm "Thông tin công trình" từng chen giữa phiếu
+              (Ban lãnh đạo chê 12/08/2026: *"e đang làm thành mẫu gì vậy"*). Chọn một dự
+              án là tự điền mã dự án + tên công trình + mã hợp đồng; chỉ khi "nhập tay"
+              mới mở ba ô chi tiết. Phiếu nhờ vậy đọc liền mạch đúng như hộp Base. */}
+          <Truong nhan="Dự án / Công trình" batBuoc moTa="Mã hồ sơ sinh theo Thông báo 09/2026/TB-HPCS">
+            <div className="flex flex-col gap-1">
+              <select
+                aria-label="Chọn dự án"
+                value={duAnChon}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDuAnChon(v);
+                  const d = duAnDaCo.find((x) => x.maDuAn === v);
+                  if (d) chonDuAn(d);
+                }}
+                className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+              >
+                <option value="">-- Vui lòng chọn --</option>
+                {duAnDaCo.map((d) => (
+                  <option key={d.maDuAn} value={d.maDuAn}>
+                    {d.maDuAn} — {d.tenCongTrinh}
+                  </option>
+                ))}
+                <option value="__moi__">Dự án khác — nhập tay…</option>
+              </select>
+              <span className="text-xs text-text-desc">
+                Mã đề nghị tự sinh: {maDuAn.trim() || "[mã dự án]"}-PR-00x
               </span>
             </div>
           </Truong>
@@ -404,42 +502,15 @@ export default function TrangNhanDeNghiMoi() {
             </div>
           </Truong>
 
-          {/* ===== THÔNG TIN CÔNG TRÌNH — phần RIÊNG của HP CONS, Base không có =====
-              Không bỏ được: mã hồ sơ sinh theo Thông báo 09/2026 cần mã dự án. Gom lại một
-              cụm có tiêu đề nhỏ để phần "giống Base" ở trên không bị chen ngang. */}
-          <p className="mt-3 border-t border-divider pt-3 text-xs font-semibold tracking-wide text-text-desc uppercase">
-            Thông tin công trình (theo Thông báo 09/2026/TB-HPCS)
-          </p>
 
-
-          {duAnDaCo.length > 0 && (
-            <Truong nhan="Chọn nhanh dự án" moTa="Bấm để điền sẵn mã dự án, công trình và hợp đồng">
-              <div className="flex flex-wrap gap-2">
-                {duAnDaCo.map((d) => (
-                  <Button
-                    key={d.maDuAn}
-                    variant={maDuAn === d.maDuAn ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => chonDuAn(d)}
-                  >
-                    {d.maDuAn}
-                  </Button>
-                ))}
-              </div>
-            </Truong>
-          )}
-
+          {duAnChon === "__moi__" && (
+            <>
           <Truong nhan="Mã dự án gốc" batBuoc moTa="Theo Thông báo 09/2026/TB-HPCS">
-            <div className="flex flex-col gap-1">
-              <Input
-                placeholder="260001-HPCS"
-                value={maDuAn}
-                onChange={(e) => setMaDuAn(e.target.value)}
-              />
-              <span className="text-xs text-text-desc">
-                Mã đề nghị tự sinh: {maDuAn.trim() || "[mã dự án]"}-PR-00x
-              </span>
-            </div>
+            <Input
+              placeholder="260001-HPCS"
+              value={maDuAn}
+              onChange={(e) => setMaDuAn(e.target.value)}
+            />
           </Truong>
 
           <Truong nhan="Tên công trình" batBuoc>
@@ -457,29 +528,13 @@ export default function TrangNhanDeNghiMoi() {
               onChange={(e) => setMaHopDongCDT(e.target.value)}
             />
           </Truong>
+            </>
+          )}
 
-          <Truong nhan="Người đề nghị" batBuoc>
-            <Input value={nguoiDeNghiTen} onChange={(e) => setNguoiDeNghiTen(e.target.value)} />
-          </Truong>
-
-          <Truong nhan="Ngày đề nghị" batBuoc moTa="Ngày lập và ngày được duyệt">
-            <div className="flex flex-wrap gap-3">
-              <Input
-                type="date"
-                value={ngayDeNghi}
-                onChange={(e) => setNgayDeNghi(e.target.value)}
-                className="w-44"
-                aria-label="Ngày đề nghị"
-              />
-              <Input
-                type="date"
-                value={ngayDuyet}
-                onChange={(e) => setNgayDuyet(e.target.value)}
-                className="w-44"
-                aria-label="Ngày duyệt"
-              />
-            </div>
-          </Truong>
+          {/* ⚠️ Base KHÔNG có ô "Người đề nghị" và "Ngày đề nghị" — người lập chính là
+              người đang đăng nhập, ngày lập là hôm nay. App vẫn ghi đủ hai giá trị đó vào
+              hồ sơ (mặc định trong state), chỉ là không bắt người dùng nhập lại thứ máy
+              đã biết. */}
 
 
           {/* ===== CHI TIẾT — nối liền trong CÙNG tấm phiếu, như hộp "Tạo đề xuất mới"
@@ -782,17 +837,63 @@ export default function TrangNhanDeNghiMoi() {
           </Truong>
 
           <Truong nhan="Tài liệu đính kèm (nếu có)" moTa="Đính kèm tối đa 10 tài liệu — catalogue, bản vẽ, chứng chỉ">
-            {/* Chưa làm được thật vì cần Firebase Storage. Để ô VÔ HIỆU HÓA kèm lời
-                giải thích, chứ KHÔNG làm nút bấm được rồi im lặng không lưu gì — như thế
-                người dùng tưởng đã đính kèm xong. */}
-            <div className="flex flex-col gap-1">
-              <Button variant="outline" size="sm" disabled className="w-fit">
-                <Paperclip className="size-4" aria-hidden />
-                Chọn tệp
-              </Button>
+            {/* ★ MỞ THẬT từ 12/08/2026: nội dung tệp lưu lên Firestore (`kho-tep.ts`) nên
+                máy khác mở xem được — trước đó ô này bị khóa để không hứa thứ app chưa làm. */}
+            <div className="flex flex-col gap-2">
+              {taiLieu.length > 0 && (
+                <ul className="flex flex-col gap-1.5">
+                  {taiLieu.map((t) => (
+                    <li
+                      key={t.id}
+                      className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-1.5"
+                    >
+                      <Paperclip className="size-3.5 shrink-0 text-text-desc" aria-hidden />
+                      <button
+                        type="button"
+                        onClick={() => void moTep(t)}
+                        className="min-w-0 truncate text-left text-sm text-primary hover:underline"
+                        title={t.tenTep}
+                      >
+                        {t.tenTep}
+                      </button>
+                      <span className="shrink-0 text-xs text-text-desc">{coTep(t.kichThuoc)}</span>
+                      <button
+                        type="button"
+                        onClick={() => boTaiLieu(t.id)}
+                        aria-label={`Bỏ tệp ${t.tenTep}`}
+                        className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-danger"
+                      >
+                        <Trash2 className="size-3.5" aria-hidden />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {taiLieu.length < 10 && (
+                <label
+                  className={`inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition-colors hover:border-primary hover:bg-muted ${
+                    dangTaiTep ? "pointer-events-none opacity-60" : ""
+                  }`}
+                >
+                  <input
+                    type="file"
+                    multiple
+                    accept={KIEU_CHO_PHEP}
+                    className="sr-only"
+                    disabled={dangTaiTep}
+                    onChange={(e) => {
+                      const fs = e.target.files;
+                      e.target.value = "";
+                      void themTaiLieu(fs);
+                    }}
+                  />
+                  <Paperclip className="size-4" aria-hidden />
+                  {dangTaiTep ? "Đang lưu tệp…" : "Chọn tệp"}
+                </label>
+              )}
               <span className="text-xs text-text-desc">
-                Sẽ mở ở bản sau — phiếu đề nghị chưa có chỗ lưu tài liệu trong hồ sơ. Báo giá và
-                phiếu giao nhận thì đã đính kèm được ở đúng bước của chúng.
+                Nhận PDF, ảnh, Word, Excel · tối đa {CO_TOI_DA / 1024 / 1024}MB mỗi tệp. Tệp lưu
+                lên máy chủ nên người duyệt và Thu mua mở xem được.
               </span>
             </div>
           </Truong>
@@ -812,24 +913,16 @@ export default function TrangNhanDeNghiMoi() {
               Tạo đề nghị mới
             </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-fit"
-            onClick={() => router.push("/de-nghi")}
-          >
-            Quay lại bảng
-          </Button>
           {!hopLe && (
             <span className="text-xs text-text-desc">
-              Còn thiếu: mã dự án · tên công trình · tên đề nghị · ngày đề nghị cấp · ít nhất 1
-              dòng có tên, số lượng và ĐVT.
+              Còn thiếu: dự án/công trình · tên đề nghị · ngày đề nghị cấp · ít nhất 1 dòng
+              có tên, số lượng và ĐVT.
             </span>
           )}
           </div>
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 }
 

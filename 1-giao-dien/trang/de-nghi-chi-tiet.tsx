@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   FileWarning,
+  Paperclip,
   Forward,
   ShoppingCart,
   Split,
@@ -44,6 +45,7 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
+import { coTep, moTep } from "@/3-du-lieu/kho-tep";
 import { vuongMacSangBuocSau, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   NHAN_PHONG_BAN_NGUON,
@@ -217,6 +219,43 @@ export default function TrangChiTietDeNghi() {
                 { nhan: "Số mặt hàng", giaTri: `${dn.items.length} dòng vật tư` },
               ]}
             />
+
+            {/* Tài liệu đính kèm lúc lập phiếu — nội dung nằm trên máy chủ (kho tệp),
+                bấm tên tệp để mở. Không có thì không hiện, đừng chiếm chỗ bằng khối rỗng. */}
+            {dn.taiLieu && dn.taiLieu.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)">
+                <p className="text-sm font-semibold text-text-primary">
+                  Tài liệu đính kèm ({dn.taiLieu.length})
+                </p>
+                <ul className="flex flex-col gap-1">
+                  {dn.taiLieu.map((t) => (
+                    <li key={t.id} className="flex min-w-0 items-center gap-2 text-sm">
+                      <Paperclip className="size-3.5 shrink-0 text-text-desc" aria-hidden />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void moTep(t).then((duoc) => {
+                            if (!duoc) {
+                              toast.error("Không mở được tệp", {
+                                description:
+                                  "Không tải được nội dung từ máy chủ. Kiểm tra mạng rồi thử lại.",
+                              });
+                            }
+                          })
+                        }
+                        className="min-w-0 truncate text-left text-primary hover:underline"
+                        title={t.tenTep}
+                      >
+                        {t.tenTep}
+                      </button>
+                      <span className="shrink-0 text-xs text-text-desc">
+                        {t.nguoiTaiTen} · {coTep(t.kichThuoc)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </KhoiGap>
 
           {/* Người theo dõi — chọn từ danh bạ nhân sự công ty, xem `khoi-nguoi-theo-doi.tsx`.

@@ -191,6 +191,12 @@ export interface DeNghiMuaHang {
    * bổ sung không ai tính toán trên nó, chỉ để đọc.
    */
   truongBoSung?: TruongBoSung[];
+  /**
+   * ★ TÀI LIỆU ĐÍNH KÈM lúc lập phiếu — catalogue, bản vẽ, chứng chỉ; tối đa 10 theo
+   * biểu mẫu Base (Ban lãnh đạo 12/08/2026). Đây chỉ là phần MÔ TẢ; nội dung tệp nằm
+   * ở kho tệp (`3-du-lieu/kho-tep.ts` → Firestore) nên máy khác mở xem được.
+   */
+  taiLieu?: MoTaTep[];
 }
 
 /** Một cặp nhãn/giá trị người dùng tự thêm vào đề nghị. */

@@ -98,6 +98,8 @@ export interface DauVaoDeNghiGiaLap {
   /** Người theo dõi chọn sẵn lúc lập phiếu (mục "Người theo dõi" trên phiếu đề nghị).
    *  Người đề nghị luôn được thêm tự động, không cần khai ở đây. */
   nguoiTheoDoi?: Pick<NguoiTheoDoi, "uid" | "ten" | "chucDanh">[];
+  /** Tài liệu đính kèm lúc lập phiếu (tối đa 10) — phần mô tả, nội dung ở kho tệp. */
+  taiLieu?: MoTaTep[];
 }
 
 /**
@@ -669,6 +671,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ngayDuyet: dauVao.capDuyetSan >= 2 ? dauVao.ngayDuyet : "",
       ngayCanHang: dauVao.ngayCanHang,
       mucDoUuTien: dauVao.mucDoUuTien,
+      taiLieu: dauVao.taiLieu,
       // Đề nghị vào app luôn ở trạng thái ĐÃ DUYỆT — app Thu mua không duyệt đề nghị.
       trangThai: "da_duyet",
       items: dauVao.items.map((d, i) => ({ ...d, stt: i + 1 })),
