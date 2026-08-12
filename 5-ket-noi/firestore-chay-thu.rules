@@ -3,7 +3,10 @@ rules_version = '2';
 // ============================================================================
 // SECURITY RULES — BẢN CHẠY THỬ, project `hpcons-thumua`
 //
-// 🔴 CÓ MỘT CÔNG TẮC Ở NGAY DƯỚI (`batBuocDangNhap`). Đọc kỹ trước khi bật.
+// ✅ TỪ 12/08/2026 ĐÃ SIẾT: phải đăng nhập bằng tài khoản thật mới đọc/ghi được.
+//    Mỗi người một tài khoản riêng, mật khẩu do máy chủ Google giữ.
+//
+// 🔴 CÓ MỘT CÔNG TẮC Ở NGAY DƯỚI (`batBuocDangNhap`). Đọc kỹ trước khi đổi.
 //
 // Vì sao phải có công tắc chứ không siết luôn: siết rules TRƯỚC khi mọi người có tài
 // khoản là **khóa cả phòng ra ngoài** — app mở lên trắng trơn, không ai hiểu vì sao, và
@@ -37,8 +40,10 @@ service cloud.firestore {
      * ⚠️ Đổi giá trị này rồi PHẢI deploy lại rules mới có hiệu lực. Sửa file không thôi
      * thì không có gì thay đổi trên máy chủ.
      */
+    // ✅ ĐÃ BẬT 12/08/2026, sau khi đủ 4 điều kiện ①②③④ ở trên. Từ lúc này người chưa
+    // đăng nhập KHÔNG đọc được một dòng dữ liệu nào — kể cả khi mở thẳng Firestore.
     function batBuocDangNhap() {
-      return false;
+      return true;
     }
 
     function duocVao() {

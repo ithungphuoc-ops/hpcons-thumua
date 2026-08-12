@@ -52,7 +52,14 @@ const KHOA_PHIEN = "hpcons-tm-phien-dang-nhap";
  *   ③ Mới đặt `NEXT_PUBLIC_XAC_THUC=firebase` rồi deploy
  */
 const CHE_DO: "mau" | "firebase" =
-  process.env.NEXT_PUBLIC_XAC_THUC === "firebase" ? "firebase" : "mau";
+  // ⚠️ `.trim().toLowerCase()` là bắt buộc, không phải cho đẹp. Giá trị biến môi trường đi
+  // qua nhiều đường (PowerShell, bảng điều khiển Vercel, tệp .env) và rất dễ dính ký tự
+  // xuống dòng hoặc khoảng trắng ở cuối. So sánh thẳng `=== "firebase"` thì "firebase\r"
+  // trượt, app **lặng lẽ chạy chế độ tài khoản mẫu** trong khi mọi người tưởng đã bật xác
+  // thực thật — đúng kiểu lỗi bảo mật tự nó không lộ ra. Đã dính thật ngày 12/08/2026.
+  (process.env.NEXT_PUBLIC_XAC_THUC ?? "").trim().toLowerCase() === "firebase"
+    ? "firebase"
+    : "mau";
 
 interface GiaTriNguoiDung {
   nguoiDung: NguoiDung;
