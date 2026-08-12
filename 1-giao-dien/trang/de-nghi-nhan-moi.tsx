@@ -287,7 +287,7 @@ export default function TrangNhanDeNghiMoi() {
           { label: "Quy trình mua hàng", href: "/de-nghi" },
           { label: "Nhận đề nghị mới" },
         ]}
-        title="Tạo đề nghị mới (giả lập)"
+        title="Tạo đề nghị mới"
         description="Mô phỏng việc Phòng Thi công gửi một đề nghị ĐÃ DUYỆT sang Phòng Thu mua qua HPcore"
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -356,24 +356,7 @@ export default function TrangNhanDeNghiMoi() {
           Dưới 768px tự xếp thành một cột để điện thoại vẫn nhập được. */}
       <Card>
         <CardContent className="flex flex-col">
-          {duAnDaCo.length > 0 && (
-            <Truong nhan="Chọn nhanh dự án" moTa="Bấm để điền sẵn mã dự án, công trình và hợp đồng">
-              <div className="flex flex-wrap gap-2">
-                {duAnDaCo.map((d) => (
-                  <Button
-                    key={d.maDuAn}
-                    variant={maDuAn === d.maDuAn ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => chonDuAn(d)}
-                  >
-                    {d.maDuAn}
-                  </Button>
-                ))}
-              </div>
-            </Truong>
-          )}
-
-          <Truong nhan="Nội dung đề nghị" batBuoc moTa="Số hợp đồng + tên công trình, ngắn gọn">
+          <Truong nhan="Tên đề nghị" batBuoc moTa="Số hợp đồng + tên công trình, ngắn gọn">
             <Input
               placeholder="Vật tư thi công phần thân đợt 4"
               value={tieuDe}
@@ -398,6 +381,53 @@ export default function TrangNhanDeNghiMoi() {
               </span>
             </div>
           </Truong>
+
+          {/* Base gọi ô này là "Ngày đề nghị cấp" — chính là ngày cần hàng về của app.
+              Đặt NGAY SAU Bộ phận cho đúng thứ tự trường trên Base. */}
+          <Truong nhan="Ngày đề nghị cấp" batBuoc moTa="Ngày cần hàng về — mốc tính “Quá hạn / Còn N ngày”">
+            <div className="flex flex-wrap items-center gap-4">
+              <Input
+                type="date"
+                value={ngayCanHang}
+                onChange={(e) => setNgayCanHang(e.target.value)}
+                className="w-44"
+                aria-label="Ngày đề nghị cấp (ngày cần hàng)"
+              />
+              <label className="flex min-h-11 items-center gap-2">
+                <Checkbox
+                  checked={gap}
+                  onCheckedChange={(c) => setGap(c === true)}
+                  aria-label="Đánh dấu đề nghị gấp"
+                />
+                <span className="text-sm text-text-primary">Đánh dấu Gấp</span>
+              </label>
+            </div>
+          </Truong>
+
+          {/* ===== THÔNG TIN CÔNG TRÌNH — phần RIÊNG của HP CONS, Base không có =====
+              Không bỏ được: mã hồ sơ sinh theo Thông báo 09/2026 cần mã dự án. Gom lại một
+              cụm có tiêu đề nhỏ để phần "giống Base" ở trên không bị chen ngang. */}
+          <p className="mt-3 border-t border-divider pt-3 text-xs font-semibold tracking-wide text-text-desc uppercase">
+            Thông tin công trình (theo Thông báo 09/2026/TB-HPCS)
+          </p>
+
+
+          {duAnDaCo.length > 0 && (
+            <Truong nhan="Chọn nhanh dự án" moTa="Bấm để điền sẵn mã dự án, công trình và hợp đồng">
+              <div className="flex flex-wrap gap-2">
+                {duAnDaCo.map((d) => (
+                  <Button
+                    key={d.maDuAn}
+                    variant={maDuAn === d.maDuAn ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => chonDuAn(d)}
+                  >
+                    {d.maDuAn}
+                  </Button>
+                ))}
+              </div>
+            </Truong>
+          )}
 
           <Truong nhan="Mã dự án gốc" batBuoc moTa="Theo Thông báo 09/2026/TB-HPCS">
             <div className="flex flex-col gap-1">
@@ -451,42 +481,18 @@ export default function TrangNhanDeNghiMoi() {
             </div>
           </Truong>
 
-          <Truong nhan="Ngày cần hàng" batBuoc moTa="Mốc tính “Quá hạn / Còn N ngày” trên bảng quy trình">
-            <div className="flex flex-wrap items-center gap-4">
-              <Input
-                type="date"
-                value={ngayCanHang}
-                onChange={(e) => setNgayCanHang(e.target.value)}
-                className="w-44"
-                aria-label="Ngày cần hàng"
-              />
-              <label className="flex min-h-11 items-center gap-2">
-                <Checkbox
-                  checked={gap}
-                  onCheckedChange={(c) => setGap(c === true)}
-                  aria-label="Đánh dấu đề nghị gấp"
-                />
-                <span className="text-sm text-text-primary">Đánh dấu Gấp</span>
-              </label>
-            </div>
-          </Truong>
-        </CardContent>
-      </Card>
 
-      {/* Danh sách mặt hàng */}
-      <Card>
-        <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-h3 text-text-primary">Mặt hàng đề nghị ({dongHopLe.length} dòng hợp lệ)</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDong((t) => [...t, { ...DONG_TRONG }])}
-            >
-              <Plus className="size-4" aria-hidden />
-              Thêm dòng
-            </Button>
-          </div>
+          {/* ===== CHI TIẾT — nối liền trong CÙNG tấm phiếu, như hộp "Tạo đề xuất mới"
+              của Base (một tờ trắng duy nhất, không tách thẻ rời). ===== */}
+          <div className="mt-4 flex flex-col gap-(--hp-md-card-gap) border-t border-divider pt-4">
+          {/* Base gọi phần này là "Chi tiết *". Nút thêm dòng chuyển XUỐNG DƯỚI bảng theo
+              đúng vị trí "⊕ Thêm dòng mới" của Base. */}
+          <h2 className="text-h3 text-text-primary">
+            Chi tiết <span className="text-danger">*</span>{" "}
+            <span className="text-sm font-normal text-text-desc">
+              ({dongHopLe.length} dòng hợp lệ)
+            </span>
+          </h2>
 
           {/* BẢNG CHI TIẾT — cột đặt đúng thứ tự biểu mẫu công ty:
               # · Tên mặt hàng · Quy cách/chủng loại · Số lượng · ĐVT · Mục đích sử dụng.
@@ -661,18 +667,27 @@ export default function TrangNhanDeNghiMoi() {
             ))}
           </div>
 
-        </CardContent>
-      </Card>
+          {/* "⊕ Thêm dòng mới" dưới bảng — đúng chỗ của Base. Kiểu liên kết, không phải nút
+              viền: hành động phụ đứng cạnh bảng dữ liệu thì làm nhẹ để bảng vẫn là vai chính. */}
+          <button
+            type="button"
+            onClick={() => setDong((t) => [...t, { ...DONG_TRONG }])}
+            className="flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:underline"
+          >
+            <Plus className="size-4" aria-hidden />
+            Thêm dòng mới
+          </button>
+          </div>
 
-      {/* NGƯỜI THEO DÕI + TÀI LIỆU — hai mục cuối của biểu mẫu */}
-      <Card>
-        <CardContent className="flex flex-col">
+          {/* ===== QUẢN LÝ TRỰC TIẾP · NGƯỜI THEO DÕI · TÀI LIỆU — cùng tấm phiếu ===== */}
+          <div className="mt-2 flex flex-col border-t border-divider pt-2">
           {/* ===== NGƯỜI DUYỆT — Ban lãnh đạo 12/08/2026 =====
               Đặt TRƯỚC "Người theo dõi" là cố ý: người duyệt là mắt xích BẮT BUỘC của quy
               trình, còn người theo dõi chỉ để nắm thông tin. Thứ quan trọng hơn đứng trước. */}
           <Truong
-            nhan="Người duyệt"
-            moTa="Đề nghị phải qua đủ hai cấp duyệt của bộ phận trước khi sang Phòng Thu mua"
+            nhan="Quản lý trực tiếp"
+            batBuoc
+            moTa="Bạn phải thông báo cho quản lý trực tiếp về đề nghị này — duyệt lần lượt hai cấp trước khi sang Phòng Thu mua"
           >
             <div className="flex flex-col gap-3">
               <OChonNguoiDuyet
@@ -699,7 +714,7 @@ export default function TrangNhanDeNghiMoi() {
 
           <Truong
             nhan="Người theo dõi"
-            moTa="Cá nhân có liên quan cần nắm tiến trình đề nghị"
+            moTa="Thành viên có thể nhìn thấy đề nghị này"
           >
             <div className="flex flex-col gap-2">
               {nguoiTheoDoi.length > 0 && (
@@ -766,7 +781,7 @@ export default function TrangNhanDeNghiMoi() {
             </div>
           </Truong>
 
-          <Truong nhan="Tài liệu đính kèm" moTa="Catalogue sản phẩm, bản vẽ, chứng chỉ...">
+          <Truong nhan="Tài liệu đính kèm (nếu có)" moTa="Đính kèm tối đa 10 tài liệu — catalogue, bản vẽ, chứng chỉ">
             {/* Chưa làm được thật vì cần Firebase Storage. Để ô VÔ HIỆU HÓA kèm lời
                 giải thích, chứ KHÔNG làm nút bấm được rồi im lặng không lưu gì — như thế
                 người dùng tưởng đã đính kèm xong. */}
@@ -776,36 +791,42 @@ export default function TrangNhanDeNghiMoi() {
                 Chọn tệp
               </Button>
               <span className="text-xs text-text-desc">
-                Chưa dùng được ở bản chạy thử — cần bật Firebase Storage của project
-                <code className="mx-1 text-xs">hpcons-portal</code>.
+                Sẽ mở ở bản sau — phiếu đề nghị chưa có chỗ lưu tài liệu trong hồ sơ. Báo giá và
+                phiếu giao nhận thì đã đính kèm được ở đúng bước của chúng.
               </span>
             </div>
           </Truong>
-        </CardContent>
-      </Card>
+          </div>
 
-      {/* Thanh nút cuối phiếu — giống biểu mẫu: Lưu nháp bên trái, nút chính bên phải */}
-      <Card>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" onClick={luuNhap}>
+          {/* ===== CHÂN PHIẾU — hai nút lớn chia đôi, đúng dáng chân hộp Base
+              ("Lưu nháp" trái · "Tạo đề xuất mới" phải). Màu theo token công ty, không lấy
+              xanh lá của Base — chỉ đạo 12/08/2026: "giữ bố cục base và màu công ty". */}
+          <div className="mt-4 flex flex-col gap-3 border-t border-divider pt-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button variant="outline" className="min-h-11 w-full" onClick={luuNhap}>
               <Save className="size-4" aria-hidden />
               Lưu nháp
             </Button>
-            <Button disabled={!hopLe} onClick={nhanDeNghi}>
+            <Button className="min-h-11 w-full" disabled={!hopLe} onClick={nhanDeNghi}>
               <Inbox className="size-4" aria-hidden />
               Tạo đề nghị mới
             </Button>
-            <Button variant="ghost" onClick={() => router.push("/de-nghi")}>
-              Quay lại bảng
-            </Button>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-fit"
+            onClick={() => router.push("/de-nghi")}
+          >
+            Quay lại bảng
+          </Button>
           {!hopLe && (
             <span className="text-xs text-text-desc">
-              Còn thiếu: mã dự án · tên công trình · nội dung · ngày cần hàng · ít nhất 1 dòng
-              có tên, số lượng và ĐVT.
+              Còn thiếu: mã dự án · tên công trình · tên đề nghị · ngày đề nghị cấp · ít nhất 1
+              dòng có tên, số lượng và ĐVT.
             </span>
           )}
+          </div>
         </CardContent>
       </Card>
     </>
