@@ -41,8 +41,6 @@ import { formatDate } from "@/6-tien-ich/dinh-dang";
 export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const { themNguoiTheoDoi, boNguoiTheoDoi } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
-  /** 🔴 Danh bạ đọc từ TÀI KHOẢN THẬT, không phải mảng mẫu — xem `dung-danh-ba.ts`. */
-  const danhBa = useDanhBa();
   const [moHopChon, setMoHopChon] = useState(false);
 
   const dsTheoDoi = useMemo(() => deNghi.nguoiTheoDoi ?? [], [deNghi.nguoiTheoDoi]);

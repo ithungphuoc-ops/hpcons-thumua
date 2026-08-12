@@ -74,6 +74,14 @@ export function locDaDuyet(ds: DeNghiMuaHang[]): DeNghiMuaHang[] {
 export interface QuyenDuyet {
   duyetCap1: boolean;
   duyetCap2: boolean;
+  /**
+   * Quản trị hệ thống — duyệt thay được ở CẢ HAI cấp.
+   *
+   * 🔴 Không có cờ này thì: phiếu chỉ định trưởng phòng A duyệt cấp 2, A nghỉ việc → **không
+   * ai gỡ được phiếu đó**, vì đường duyệt thay chỉ mở cho cấp 1. Quản trị là chốt cuối để
+   * hồ sơ không bao giờ kẹt vĩnh viễn vì một con người.
+   */
+  laQuanTri?: boolean;
 }
 
 /**
@@ -143,8 +151,9 @@ export function lyDoKhongDuyetDuoc(
    */
   const chiDinh = cap === 1 ? dn.nguoiDuyetCap1 : dn.nguoiDuyetCap2;
   if (chiDinh && chiDinh.uid !== uid) {
-    const truongPhongDuyetThayCap1 = cap === 1 && q.duyetCap2;
-    if (!truongPhongDuyetThayCap1) {
+    // Trưởng phòng duyệt thay cấp 1; quản trị duyệt thay CẢ HAI cấp (xem `laQuanTri`).
+    const duyetThayDuoc = (cap === 1 && q.duyetCap2) || q.laQuanTri === true;
+    if (!duyetThayDuoc) {
       return `Đề nghị này chỉ định ${chiDinh.ten} duyệt cấp ${cap}. Bạn không phải người được chỉ định.`;
     }
   }

@@ -193,7 +193,11 @@ export default function TrangViecCuaToi() {
               className="w-64 pl-9"
             />
           </div>
-          {quyen.xemMoiHoSo && (
+          {/* 🔴 Kiểm ĐÚNG quyền `taoDeNghi`, không phải `xemMoiHoSo`.
+              Hai quyền này khác nhau: `xemMoiHoSo` là "xem được mọi hồ sơ" (cấp 3 trở lên),
+              còn lập đề nghị thì MỌI tài khoản đều được (chỉ đạo 12/08/2026). Dùng nhầm làm
+              nhân viên cấp 2 — người lập đề nghị nhiều nhất — **mất hẳn nút này**. */}
+          {quyen.taoDeNghi && (
             <Button nativeButton={false} render={<Link href="/de-nghi/nhan-moi" />}>
               <Plus className="size-4" aria-hidden />
               Tạo đề nghị

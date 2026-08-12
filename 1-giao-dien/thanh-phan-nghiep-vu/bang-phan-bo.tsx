@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, UserPlus, X } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, UserPlus, X } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
@@ -21,7 +21,11 @@ import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { NGUONG } from "@/2-quy-trinh/nguong-gia-tri";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { coLocTheoPhanViec, sttDongDuocXem } from "@/4-phan-quyen/quyen-theo-ho-so";
+import {
+  coLocTheoPhanViec,
+  duocChuyenViecDong,
+  sttDongDuocXem,
+} from "@/4-phan-quyen/quyen-theo-ho-so";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -75,7 +79,7 @@ function YeuCauGiaoViec({ soBaoGia, ghiChu }: { soBaoGia?: number; ghiChu?: stri
  * đây là chỗ hay bỏ sót nhất trong mua hàng thực tế.
  */
 export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
-  const { donHang, phieuNhan, phanBoDong, boPhanBoDong } = useDuLieu();
+  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong } = useDuLieu();
   const { nguoiDung, quyen, danhSachTaiKhoan } = useNguoiDung();
   const [chon, setChon] = useState<number[]>([]);
 
@@ -123,6 +127,47 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   /** Giữ dạng chuỗi để ô nhập xóa trống được — số 0 và "chưa nhập" là hai chuyện khác nhau. */
   const [soBaoGia, setSoBaoGia] = useState("");
   const [ghiChu, setGhiChu] = useState("");
+
+  /**
+   * ★ CHUYỂN VIỆC — Ban lãnh đạo 12/08/2026: *"thêm tính năng chuyển công việc cho nhân
+   * viên khác khi nhân viên được giao việc không thể thực hiện"*.
+   *
+   * Cờ mở tách khỏi nội dung, cùng lý do với hộp giao việc ở trên.
+   */
+  const [moChuyen, setMoChuyen] = useState(false);
+  const [dongChuyen, setDongChuyen] = useState<{ stt: number; tenCu: string } | null>(null);
+  const [uidNhan, setUidNhan] = useState("");
+  const [lyDoChuyen, setLyDoChuyen] = useState("");
+
+  function moChuyenViec(stt: number, tenCu: string) {
+    setDongChuyen({ stt, tenCu });
+    setUidNhan("");
+    setLyDoChuyen("");
+    setMoChuyen(true);
+  }
+
+  function xacNhanChuyen() {
+    if (!dongChuyen || !uidNhan) return;
+    const nhan = danhSachTaiKhoan.find((n) => n.uid === uidNhan);
+    if (!nhan) return;
+    chuyenViecDong(
+      deNghi.id,
+      [dongChuyen.stt],
+      { uid: nhan.uid, ten: nhan.tenHienThi },
+      lyDoChuyen,
+      nguoiDung.tenHienThi,
+    );
+  }
+
+  /**
+   * Ai nhận được việc chuyển sang: nhân viên thu mua, TRỪ người đang phụ trách.
+   * ⚠️ Không lọc người hiện tại ra là chuyển cho chính mình — thao tác vô nghĩa mà vẫn ghi
+   * một dòng nhật ký, làm hồ sơ nhiễu.
+   */
+  const nguoiNhanDuoc = useMemo(
+    () => nhanVienThuMua.filter((n) => n.uid !== deNghi.items.find((d) => d.stt === dongChuyen?.stt)?.nguoiPhuTrachUid),
+    [nhanVienThuMua, deNghi.items, dongChuyen],
+  );
 
   /**
    * 🔴 CHỈ HIỆN DÒNG ĐƯỢC GIAO — Ban lãnh đạo 12/08/2026: *"chỉ cần hiện công việc được
@@ -305,6 +350,32 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                           {/* Yêu cầu giao việc của trưởng bộ phận — hiện ngay dưới tên người
                               phụ trách để người nhận việc đọc được, khỏi phải mở nhật ký. */}
                           <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
+                {d.trangThaiDong === "da_phan_bo" &&
+                  duocChuyenViecDong(d, nguoiDung.uid, quyen) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="min-h-11 w-fit"
+                      onClick={() => moChuyenViec(d.stt, d.nguoiPhuTrachTen ?? "")}
+                    >
+                      <ArrowLeftRight className="size-4" aria-hidden />
+                      Chuyển việc cho người khác
+                    </Button>
+                  )}
+                          {/* ★ CHUYỂN VIỆC — Ban lãnh đạo 12/08/2026. Hiện cho trưởng bộ
+                              phận VÀ cho chính người đang phụ trách: người biết mình không
+                              làm được là chính họ. Luật ở `duocChuyenViecDong`. */}
+                          {d.trangThaiDong === "da_phan_bo" &&
+                            duocChuyenViecDong(d, nguoiDung.uid, quyen) && (
+                              <button
+                                type="button"
+                                onClick={() => moChuyenViec(d.stt, d.nguoiPhuTrachTen ?? "")}
+                                className="inline-flex w-fit min-h-7 items-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                              >
+                                <ArrowLeftRight className="size-3.5 shrink-0" aria-hidden />
+                                Chuyển việc
+                              </button>
+                            )}
                         </div>
                       ) : (
                         <span className="text-sm text-text-desc italic">chưa phân</span>
@@ -419,6 +490,65 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
             />
+          </div>
+        </div>
+      </HopXacNhan>
+
+      {/* ===== HỘP CHUYỂN VIỆC =====
+          Ban lãnh đạo 12/08/2026: thay cho bước "Nhận công tác" vừa bỏ. Không hỏi có làm
+          hay không, nhưng phải có đường thoát khi người được giao thật sự không làm được. */}
+      <HopXacNhan
+        mo={moChuyen}
+        tieuDe="Chuyển việc cho người khác?"
+        moTa={
+          dongChuyen &&
+          `Dòng ${dongChuyen.stt} của đề nghị ${deNghi.code}, đang do ${dongChuyen.tenCu} phụ trách.`
+        }
+        canhBao="Yêu cầu số báo giá và ghi chú giao việc giữ nguyên — chỉ đổi người làm, không đổi nội dung công việc."
+        nhanDongY="Chuyển việc"
+        onDong={() => setMoChuyen(false)}
+        onDongY={xacNhanChuyen}
+      >
+        <div className="flex flex-col gap-(--hp-md-row-gap)">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="nguoi-nhan-viec">Chuyển cho</Label>
+            {nguoiNhanDuoc.length === 0 ? (
+              // 🔴 Nói rõ vì sao trống, đừng để ô chọn rỗng không lời giải thích.
+              <p className="text-xs text-warning-soft">
+                Không còn nhân viên thu mua nào khác để chuyển. Cần thêm tài khoản nhân viên
+                trước.
+              </p>
+            ) : (
+              <select
+                id="nguoi-nhan-viec"
+                value={uidNhan}
+                onChange={(e) => setUidNhan(e.target.value)}
+                className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+              >
+                <option value="">— Chọn người nhận việc —</option>
+                {nguoiNhanDuoc.map((n) => (
+                  <option key={n.uid} value={n.uid}>
+                    {n.ten}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ly-do-chuyen">Lý do chuyển</Label>
+            <Textarea
+              id="ly-do-chuyen"
+              rows={2}
+              placeholder="Ví dụ: đang đi công trường, không kịp hạn báo giá..."
+              value={lyDoChuyen}
+              onChange={(e) => setLyDoChuyen(e.target.value)}
+            />
+            {/* 🔴 Ghi lý do vào nhật ký. Đổi người mà không có lý do thì sau này đọc lại hồ
+                sơ không biết vì sao việc đổi tay — đúng lúc cần truy trách nhiệm. */}
+            <p className="text-xs text-text-desc">
+              Lý do được ghi vào Lịch sử hoạt động của đề nghị.
+            </p>
           </div>
         </div>
       </HopXacNhan>

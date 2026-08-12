@@ -25,6 +25,16 @@ import { formatDate } from "@/6-tien-ich/dinh-dang";
 export function KhoiChoToiDuyet() {
   const { deNghi } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  /**
+   * ⚠️ PHẢI truyền `laQuanTri` — nếu không, quản trị không duyệt thay được ở cấp 2 và phiếu
+   * chỉ định một người đã nghỉ việc sẽ **kẹt vĩnh viễn**. Cả hai nơi gọi
+   * `lyDoKhongDuyetDuoc` phải truyền giống nhau; lệch một chỗ là cùng một phiếu lúc duyệt
+   * được lúc không, tùy vào đang đứng ở màn nào.
+   */
+  const quyenDuyet = useMemo(
+    () => ({ ...quyen, laQuanTri: nguoiDung.vaiTro === "admin" }),
+    [quyen, nguoiDung.vaiTro],
+  );
 
   const dsChoDuyet = useMemo(
     () =>
@@ -33,10 +43,10 @@ export function KhoiChoToiDuyet() {
         // Chỉ giữ phiếu đang chờ, và ĐÚNG cấp mình duyệt được.
         // `lyDoKhongDuyetDuoc` đã lo cả việc không tự duyệt phiếu của chính mình.
         .filter((dn) => capDangCho(dn) !== null)
-        .filter((dn) => lyDoKhongDuyetDuoc(dn, quyen, nguoiDung.uid) === null)
+        .filter((dn) => lyDoKhongDuyetDuoc(dn, quyenDuyet, nguoiDung.uid) === null)
         // Cần hàng gấp nhất lên đầu — đó là phiếu duyệt trễ thì thiệt nhất.
         .sort((a, b) => a.ngayCanHang.localeCompare(b.ngayCanHang)),
-    [deNghi, quyen, nguoiDung.uid],
+    [deNghi, quyenDuyet, nguoiDung.uid],
   );
 
   // Không có gì chờ mình thì không hiện — đừng để một khối rỗng chiếm chỗ mỗi ngày.

@@ -169,7 +169,9 @@ export default function TrangNhanDeNghiMoi() {
       (n) => !nguoiTheoDoi.some((x) => x.uid === n.uid),
     );
     return timNhanSu(conLai, timNguoi).slice(0, 6);
-  }, [timNguoi, nguoiTheoDoi]);
+    // `danhBa` đọc bất đồng bộ từ máy chủ nên PHẢI có trong deps — thiếu là gợi ý vẫn hiện
+    // danh bạ mẫu cho tới lần gõ tiếp theo.
+  }, [danhBa, timNguoi, nguoiTheoDoi]);
 
   /**
    * LƯU NHÁP vào bộ nhớ trình duyệt.

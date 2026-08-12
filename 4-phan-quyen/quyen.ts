@@ -169,7 +169,6 @@ export function tinhQuyen(u: NguoiDung): Quyen {
   const laThuKho = u.chucNang === "thu_kho_cong_trinh";
   const laQLDA = u.chucNang === "qlda";
   const laKeToan = u.chucNang === "ke_toan";
-  const laThiCong = u.chucNang === "phong_thi_cong";
 
   return {
     xemDuocApp: capTM >= 1,
@@ -250,6 +249,10 @@ export const VAI_TRO_MAU: VaiTroMau[] = [
     chucDanh: "Quản trị hệ thống",
     phongBan: "Phòng Hành chính Nhân sự — IT",
     chucNang: "truong_bo_phan_thu_mua",
+    // 🔴 PHẢI CÓ `chucVu`. Thiếu trường này là tài khoản biến mất im lặng khỏi
+    // `nguoiDuyetDuocChon()` — không ai chỉ định được quản trị làm người duyệt, dù họ có
+    // đủ quyền duyệt. Lỗi kiểu không báo gì, chỉ thấy danh sách chọn thiếu người.
+    chucVu: "truong_phong",
     vaiTro: "admin",
     capTM: 4,
     capKho: 4,

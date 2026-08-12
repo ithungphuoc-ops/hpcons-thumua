@@ -162,6 +162,17 @@ interface GiaTriDuLieu {
     tenNguoiPhuTrach?: string,
   ) => void;
   boPhanBoDong: (prId: string, sttDong: number, nguoiThucHien: string) => void;
+  /**
+   * Chuyển việc sang người khác khi người được giao không thực hiện được
+   * (Ban lãnh đạo 12/08/2026). Giữ nguyên yêu cầu số báo giá và ghi chú giao việc.
+   */
+  chuyenViecDong: (
+    prId: string,
+    sttDong: number[],
+    nguoiMoi: { uid: string; ten: string },
+    lyDo: string,
+    nguoiThucHien: string,
+  ) => void;
   /** Lập PO mới từ các dòng đề nghị. Trả về id PO vừa tạo. */
   themDonHang: (dauVao: DauVaoDonHangMoi) => string;
   themPhieuNhan: (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => void;
@@ -849,6 +860,76 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ),
     );
   }, []);
+
+  /**
+   * CHUYỂN VIỆC MỘT SỐ DÒNG SANG NGƯỜI KHÁC.
+   *
+   * 🔴 Chỉ đạo Ban lãnh đạo 12/08/2026: *"Chỉ thêm tính năng chuyển công việc cho nhân viên
+   * khác khi nhân viên được giao việc không thể thực hiện"*. Đây là thứ THAY THẾ cho bước
+   * "Nhận công tác" vừa bỏ: không cần xác nhận có làm hay không, nhưng phải có đường thoát
+   * khi người được giao thật sự không làm được (nghỉ, đi công trường, quá tải).
+   *
+   * ⚠️ TÁCH KHỎI `phanBoDong` dù cùng ghi một trường, vì hai việc khác nhau về NGHĨA:
+   * phân bổ là giao việc mới, chuyển là bàn giao việc đang chạy. Nhật ký phải phân biệt được
+   * — nếu không thì đọc lại hồ sơ không biết dòng này đổi người mấy lần và vì sao.
+   *
+   * ⚠️ GIỮ NGUYÊN yêu cầu số báo giá và ghi chú giao việc: đổi người làm chứ không đổi
+   * yêu cầu công việc. Xóa đi là người nhận mới không biết trưởng bộ phận đã dặn gì.
+   */
+  const chuyenViecDong = useCallback(
+    (
+      prId: string,
+      sttDong: number[],
+      nguoiMoi: { uid: string; ten: string },
+      lyDo: string,
+      nguoiThucHien: string,
+    ) => {
+      const luc = thoiDiemHienTai();
+      setDeNghi((truoc) =>
+        truoc.map((dn) => {
+          if (dn.id !== prId) return dn;
+
+          // Ghi tên người CŨ vào nhật ký trước khi ghi đè — sau khi đè là không tra lại được.
+          const tenCu = [
+            ...new Set(
+              dn.items
+                .filter((d) => sttDong.includes(d.stt))
+                .map((d) => d.nguoiPhuTrachTen)
+                .filter((x): x is string => Boolean(x)),
+            ),
+          ].join(", ");
+
+          return {
+            ...dn,
+            items: dn.items.map((d) =>
+              sttDong.includes(d.stt)
+                ? {
+                    ...d,
+                    nguoiPhuTrachUid: nguoiMoi.uid,
+                    nguoiPhuTrachTen: nguoiMoi.ten,
+                    nguoiPhanBoTen: nguoiThucHien,
+                    thoiDiemPhanBo: homNay(),
+                  }
+                : d,
+            ),
+            lichSu: [
+              ...dn.lichSu,
+              {
+                thoiDiem: luc,
+                nguoiThucHien,
+                hanhDong:
+                  `Chuyển việc dòng ${sttDong.join(", ")}` +
+                  (tenCu ? ` từ ${tenCu}` : "") +
+                  ` sang ${nguoiMoi.ten}`,
+                ghiChu: lyDo.trim() || undefined,
+              },
+            ],
+          };
+        }),
+      );
+    },
+    [],
+  );
 
   const themDonHang = useCallback(
     (dauVao: DauVaoDonHangMoi) => {
@@ -1638,6 +1719,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDeNghiGiaLap,
       phanBoDong,
       boPhanBoDong,
+      chuyenViecDong,
       themDonHang,
       themPhieuNhan,
       doiTrangThaiPhieu,
@@ -1678,6 +1760,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDeNghiGiaLap,
       phanBoDong,
       boPhanBoDong,
+      chuyenViecDong,
       themDonHang,
       themPhieuNhan,
       doiTrangThaiPhieu,

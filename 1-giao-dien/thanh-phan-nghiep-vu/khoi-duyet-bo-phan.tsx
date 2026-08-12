@@ -74,10 +74,18 @@ function DongCap({
 export function KhoiDuyetBoPhan({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const { duyetDeNghiCuaBoPhan } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  /**
+   * ⚠️ PHẢI truyền `laQuanTri` — nếu không, quản trị không duyệt thay được ở cấp 2 và phiếu
+   * chỉ định một người đã nghỉ việc sẽ **kẹt vĩnh viễn**. Cả hai nơi gọi
+   * `lyDoKhongDuyetDuoc` phải truyền giống nhau; lệch một chỗ là cùng một phiếu lúc duyệt
+   * được lúc không, tùy vào đang đứng ở màn nào.
+   */
+  const quyenDuyet = { ...quyen, laQuanTri: nguoiDung.vaiTro === "admin" };
+
   const [moHop, setMoHop] = useState(false);
 
   const cap = capDangCho(deNghi);
-  const vuongMac = lyDoKhongDuyetDuoc(deNghi, quyen, nguoiDung.uid);
+  const vuongMac = lyDoKhongDuyetDuoc(deNghi, quyenDuyet, nguoiDung.uid);
 
   // Phiếu đã duyệt xong mà KHÔNG có mốc nào = nhận từ HPcore (hoặc dữ liệu cũ). Không hiện
   // gì — thêm một khối "đã duyệt" trống rỗng chỉ tổ chiếm chỗ và không nói được điều gì.
