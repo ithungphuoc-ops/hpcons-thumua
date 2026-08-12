@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// ============================================================================
+// SECURITY RULES — BẢN CHẠY THỬ, project `hpcons-thumua`
+//
+// 🔴 ĐỌC KỸ TRƯỚC KHI DÙNG. File này CỐ Ý mở dữ liệu cho người chưa đăng nhập.
+//
+// ⚠️⚠️ ĐÂY KHÔNG PHẢI BẢO MẬT. Ai mở https://hpcons-thumua-github.vercel.app rồi
+//    bấm F12 đều đọc được mã project trong mã nguồn trang, và từ đó **đọc và sửa
+//    được** toàn bộ dữ liệu ở `chay-thu/du-lieu-chung`. Không cần mật khẩu.
+//
+//    👉 CHỈ ĐƯỢC NHẬP DỮ LIỆU GIẢ ĐỊNH vào bản chạy thử.
+//       KHÔNG nhập giá thật của nhà cung cấp, KHÔNG nhập tên người thật,
+//       KHÔNG nhập số hợp đồng thật.
+//
+// Vì sao vẫn làm vậy: Ban lãnh đạo cần cả phòng cùng thử trên một bộ dữ liệu
+// ngay (chỉ đạo 12/08/2026), mà app chưa nối đăng nhập thật của HPcore. Đăng
+// nhập hiện tại chỉ là chọn vai trò ở màn hình đầu — Firestore không kiểm được.
+//
+// 🔴 VIỆC BẮT BUỘC TRƯỚC KHI ĐƯA DỮ LIỆU THẬT VÀO:
+//    Nối Firebase Auth thật (hoặc đăng nhập của App Tổng), rồi đổi rule dưới
+//    thành `if request.auth != null` kèm kiểm cấp quyền `apps.tm` — mẫu đã viết
+//    sẵn ở `firestore.rules` cùng thư mục.
+//
+// 📌 CÓ HẠN SỬ DỤNG, cố ý. Sau ngày ghi bên dưới, mọi truy cập tự động bị chặn
+//    và app quay về lưu riêng trên từng máy. Làm vậy để cửa mở này KHÔNG thể bị
+//    quên rồi để ngỏ vĩnh viễn — muốn dùng tiếp thì phải có người cố ý gia hạn.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /** Hết hạn 01/11/2026. Đổi ngày này là hành động có ý thức, không phải mặc định. */
+    function conHanChayThu() {
+      return request.time < timestamp.date(2026, 11, 1);
+    }
+
+    // Kho dữ liệu chung của bản chạy thử: MỘT document duy nhất.
+    // Chỉ mở đúng `chay-thu/{tep}`, không mở collection con, không mở nơi nào khác.
+    match /chay-thu/{tep} {
+      allow read, write: if conHanChayThu();
+    }
+
+    // Mọi đường dẫn khác: KHÓA. Kể cả khi sau này ai đó ghi nhầm dữ liệu thật
+    // vào một collection mới, nó cũng không lộ ra ngoài.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -32,7 +32,13 @@ import {
   BAO_GIA_MAU,
   CONG_NO_MAU,
 } from "@/3-du-lieu/du-lieu-mau";
-import { docDuLieuDaLuu, ghiDuLieu, xoaDuLieuDaLuu } from "@/3-du-lieu/luu-tren-may";
+import {
+  docDuLieuDaLuu,
+  ghiDuLieu,
+  xoaDuLieuDaLuu,
+  type DuLieuLuu,
+} from "@/3-du-lieu/luu-tren-may";
+import { noiKhoChung, type KetNoiKhoChung } from "@/3-du-lieu/kho-chung-firestore";
 import type {
   DeNghiMuaHang,
   DongDeNghi,
@@ -52,6 +58,17 @@ import type {
   TepBaoGiaNCC,
   MoTaTep,
 } from "@/3-du-lieu/kieu-du-lieu";
+
+/**
+ * Yêu cầu trưởng bộ phận đặt ra khi giao việc (Ban lãnh đạo 12/08/2026:
+ * *"phải hiện cửa sổ xác nhận... và được viết thêm ghi chú yêu cầu số lượng báo giá"*).
+ */
+export interface YeuCauPhanBo {
+  /** Số báo giá tối thiểu phải lấy về. Trống = cứ theo ngưỡng giá trị của quy trình. */
+  soBaoGia?: number;
+  /** Lời dặn thêm cho người nhận việc. */
+  ghiChu?: string;
+}
 
 /** Dữ liệu người dùng nhập ở màn giả lập. Mã và STT do kho dữ liệu tự sinh. */
 export interface DauVaoDeNghiGiaLap {
@@ -121,7 +138,13 @@ interface GiaTriDuLieu {
    * app Thu mua chỉ đọc. Xem `1-giao-dien/trang/de-nghi-nhan-moi.tsx`.
    */
   themDeNghiGiaLap: (dauVao: DauVaoDeNghiGiaLap) => string;
-  phanBoDong: (prId: string, sttDong: number[], nguoiPhuTrachUid: string, nguoiPhanBoTen: string) => void;
+  phanBoDong: (
+    prId: string,
+    sttDong: number[],
+    nguoiPhuTrachUid: string,
+    nguoiPhanBoTen: string,
+    yeuCau?: YeuCauPhanBo,
+  ) => void;
   boPhanBoDong: (prId: string, sttDong: number, nguoiThucHien: string) => void;
   /** Lập PO mới từ các dòng đề nghị. Trả về id PO vừa tạo. */
   themDonHang: (dauVao: DauVaoDonHangMoi) => string;
@@ -213,8 +236,26 @@ interface GiaTriDuLieu {
   danhDauDaDocThongBao: () => void;
   /** Bấm "Nhận công tác": ghi người tiếp nhận vào thông báo + nhật ký đề nghị. */
   nhanCongTac: (thongBaoId: string, nguoi: { uid: string; ten: string }) => void;
-  /** Xóa sạch dữ liệu chạy thử trên máy này rồi tải lại app. Chỉ dùng khi chạy thử. */
-  xoaDuLieuChayThu: () => void;
+  /**
+   * Xóa sạch dữ liệu chạy thử rồi tải lại app. Chỉ dùng khi chạy thử.
+   * ⚠️ Xóa cả trên kho chung → **mọi người đều mất**, không riêng máy đang bấm.
+   */
+  xoaDuLieuChayThu: () => Promise<void>;
+
+  // --- Kho dữ liệu chung ---
+  /**
+   * Đang nối được kho chung trên máy chủ hay không.
+   *
+   * 🔴 Phải hiện ra giao diện, không được giấu. Nếu mất kết nối mà app im lặng, người dùng
+   * cứ tưởng cả phòng đang thấy việc mình nhập — trong khi thực tế chỉ mình mình thấy.
+   *
+   * Cố ý có BA trạng thái chứ không phải đúng/sai: lúc mới mở app thì kết nối chưa xong,
+   * nếu gộp vào "rieng" thì lần nào mở app cũng chớp một cảnh báo sai.
+   *  · `dang-noi` — đang bắt liên lạc, chưa kết luận
+   *  · `chung`    — đã nối, cả phòng thấy chung
+   *  · `rieng`    — không nối được, dữ liệu chỉ nằm trên máy này
+   */
+  trangThaiKhoChung: "dang-noi" | "chung" | "rieng";
 }
 
 const Context = createContext<GiaTriDuLieu | null>(null);
@@ -246,27 +287,160 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   // và dựng lại cả cây, chớp giao diện.
   const [daNapTuMay, setDaNapTuMay] = useState(false);
 
+  /**
+   * ★ ẢNH CHỤP CUỐI CÙNG ĐÃ ĐỒNG BỘ — chìa khóa chống vòng lặp vô tận.
+   *
+   * 🔴 Không có nó thì: nhận dữ liệu từ máy chủ → `setState` → `useEffect` ghi → máy chủ đổi
+   * → nhận lại → ghi tiếp… quay vòng không dứt, đốt sạch hạn mức Firestore trong vài phút.
+   * Cách chặn: ghi nhớ chuỗi JSON vừa nhận/vừa gửi; lần ghi nào có nội dung y hệt thì bỏ qua.
+   */
+  const anhChupCuoi = useRef<string>("");
+  const ketNoiChung = useRef<KetNoiKhoChung | null>(null);
+
+  /**
+   * 🔴 CHỐT AN TOÀN: chưa nghe được máy chủ nói gì thì TUYỆT ĐỐI không đẩy lên.
+   *
+   * Không có nó thì máy nào mở app lần đầu (chưa có gì trong bộ nhớ trình duyệt) sẽ đẩy
+   * NGAY bộ dữ liệu rỗng lên máy chủ — **xóa sạch việc của cả phòng** chỉ vì có người mở
+   * app bằng máy mới. Chỉ mở khóa sau khi đã biết trên máy chủ đang có gì.
+   */
+  const daNgheMayChu = useRef(false);
+  /** Bộ dữ liệu mới nhất, để đẩy lên khi máy chủ báo "chưa có gì". */
+  const duLieuHienTai = useRef<DuLieuLuu | null>(null);
+
+  /**
+   * Hàng chờ một chỗ: dữ liệu muốn đẩy khi kết nối chưa gán xong.
+   *
+   * ⚠️ `onSnapshot` có thể bắn ảnh chụp đầu tiên TRƯỚC khi `noiKhoChung()` kịp trả về —
+   * hai việc bất đồng bộ khác nhau, không có thứ tự bảo đảm. Đẩy thẳng vào
+   * `ketNoiChung.current` lúc đó là gặp `null` và **lần ghi đầu tiên rơi mất im lặng**.
+   */
+  const hangCho = useRef<DuLieuLuu | null>(null);
+
+  const dayLenMayChu = useCallback((d: DuLieuLuu) => {
+    if (!ketNoiChung.current) {
+      hangCho.current = d;
+      return;
+    }
+    void ketNoiChung.current.day(d).catch((e) => console.error("[kho chung] ghi hỏng:", e));
+  }, []);
+  const [trangThaiKhoChung, setTrangThaiKhoChung] =
+    useState<GiaTriDuLieu["trangThaiKhoChung"]>("dang-noi");
+
+  const apDung = useCallback((d: DuLieuLuu) => {
+    setDeNghi(d.deNghi);
+    setDonHang(d.donHang);
+    setGiaDonHang(d.giaDonHang);
+    setPhieuNhan(d.phieuNhan);
+    setBaoGia(d.baoGia);
+    setThongBao(d.thongBao);
+  }, []);
+
   useEffect(() => {
+    // ① Đọc bản trên máy trước — có ngay, không phải chờ mạng.
     const d = docDuLieuDaLuu();
     if (d) {
-      setDeNghi(d.deNghi);
-      setDonHang(d.donHang);
-      setGiaDonHang(d.giaDonHang);
-      setPhieuNhan(d.phieuNhan);
-      setBaoGia(d.baoGia);
-      setThongBao(d.thongBao);
+      apDung(d);
+      anhChupCuoi.current = JSON.stringify(d);
     }
     setDaNapTuMay(true);
-  }, []);
+
+    // ② Rồi nối kho chung. Từ lúc này máy chủ là nguồn chính.
+    let conSong = true;
+    void noiKhoChung(
+      (tuMayChu) => {
+        if (!conSong) return;
+        daNgheMayChu.current = true;
+        setTrangThaiKhoChung("chung");
+
+        // `null` = máy chủ CHƯA CÓ tài liệu (lần đầu cả phòng dùng). Lúc này phải ĐẨY
+        // dữ liệu của mình lên làm bản gốc, chứ không phải lấy cái rỗng về rồi tự xóa mình.
+        if (tuMayChu === null) {
+          const d = duLieuHienTai.current;
+          if (d) {
+            anhChupCuoi.current = JSON.stringify(d);
+            dayLenMayChu(d);
+          }
+          return;
+        }
+
+        const chuoi = JSON.stringify(tuMayChu);
+        if (chuoi === anhChupCuoi.current) return; // Chính mình vừa gửi lên — bỏ qua.
+        anhChupCuoi.current = chuoi;
+        apDung(tuMayChu);
+        ghiDuLieu(tuMayChu); // Giữ bản dự phòng trên máy để lần sau mở offline vẫn có.
+      },
+      (e) => {
+        // Nói ra thay vì im lặng: người dùng phải biết mình đang làm việc một mình hay
+        // chung với cả phòng. Im lặng thì họ tưởng đã chung dữ liệu.
+        console.error("[kho chung] không nối được:", e);
+        setTrangThaiKhoChung("rieng");
+      },
+    ).then((kn) => {
+      if (!conSong) {
+        kn?.dong();
+        return;
+      }
+      ketNoiChung.current = kn;
+      // `null` = chưa khai cấu hình Firebase → app chạy một mình, phải nói rõ.
+      if (!kn) {
+        setTrangThaiKhoChung("rieng");
+        return;
+      }
+      // Đổ hàng chờ: dữ liệu muốn đẩy lúc kết nối chưa sẵn sàng.
+      const cho = hangCho.current;
+      hangCho.current = null;
+      if (cho) dayLenMayChu(cho);
+    });
+
+    return () => {
+      conSong = false;
+      ketNoiChung.current?.dong();
+      ketNoiChung.current = null;
+    };
+  }, [apDung, dayLenMayChu]);
 
   // ⚠️ Chờ nạp xong mới cho ghi. Bỏ điều kiện này là lần chạy đầu ghi đè bản lưu bằng
   // dữ liệu rỗng — tức xóa sạch việc người dùng đã nhập hôm trước.
   useEffect(() => {
     if (!daNapTuMay) return;
-    ghiDuLieu({ deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao });
-  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao]);
+    const d = { deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao };
+    duLieuHienTai.current = d;
 
-  const xoaDuLieuChayThu = useCallback(() => {
+    const chuoi = JSON.stringify(d);
+    if (chuoi === anhChupCuoi.current) return; // Không có gì đổi so với bản đã đồng bộ.
+
+    // Bản dự phòng trên máy luôn ghi, kể cả khi chưa nối được máy chủ — mất mạng vẫn
+    // không mất việc đang làm.
+    ghiDuLieu(d);
+
+    // 🔴 Chưa nghe máy chủ nói gì thì KHÔNG đẩy, và cũng KHÔNG ghi dấu `anhChupCuoi`:
+    // ghi dấu ở đây là coi như đã đồng bộ, lần đẩy thật sau đó bị bỏ qua và thay đổi này
+    // biến mất khỏi kho chung mà không ai hay.
+    if (!daNgheMayChu.current) return;
+
+    anhChupCuoi.current = chuoi;
+    dayLenMayChu(d);
+  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, dayLenMayChu]);
+
+  const xoaDuLieuChayThu = useCallback(async () => {
+    // 🔴 Từ 12/08/2026 dữ liệu nằm trên máy chủ dùng chung, nên xóa là XÓA CỦA CẢ PHÒNG.
+    // Phải dọn kho chung TRƯỚC rồi mới tải lại trang: nếu chỉ xóa bản trên máy, lần
+    // tải lại sẽ kéo nguyên dữ liệu cũ từ máy chủ về — nút bấm xong mà không xóa được gì.
+    const rong: DuLieuLuu = {
+      deNghi: [],
+      donHang: [],
+      giaDonHang: [],
+      phieuNhan: [],
+      baoGia: [],
+      thongBao: [],
+    };
+    anhChupCuoi.current = JSON.stringify(rong);
+    try {
+      await ketNoiChung.current?.day(rong);
+    } catch (e) {
+      console.error("[kho chung] xóa hỏng:", e);
+    }
     xoaDuLieuDaLuu();
     // Tải lại cả trang thay vì chỉ đặt state rỗng: dứt điểm mọi thứ đang giữ trong bộ
     // nhớ (form đang mở, bộ lọc, thông báo) — sạch đúng như mở app lần đầu.
@@ -467,11 +641,26 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const phanBoDong = useCallback(
-    (prId: string, sttDong: number[], nguoiPhuTrachUid: string, nguoiPhanBoTen: string) => {
+    (
+      prId: string,
+      sttDong: number[],
+      nguoiPhuTrachUid: string,
+      nguoiPhanBoTen: string,
+      yeuCau?: YeuCauPhanBo,
+    ) => {
       // 🔴 Tra tên từ DANH BẠ, không giữ bảng ánh xạ riêng ở đây. Bảng cũ viết cứng 3 người
       // và **thiếu `u-tm4`** — phân bổ cho người đó thì màn hình hiện tên là "u-tm4" (mã thô).
       // Danh bạ là nguồn duy nhất; thêm người chỉ phải sửa một chỗ.
       const ten = tenTheoUid(nguoiPhuTrachUid);
+
+      // Dựng câu nhật ký: nêu luôn yêu cầu giao việc để sau này tra lại biết trưởng bộ phận
+      // đã dặn gì, khỏi cãi nhau "anh có bảo lấy 3 báo giá đâu".
+      const phanThem: string[] = [];
+      if (yeuCau?.soBaoGia) phanThem.push(`yêu cầu ${yeuCau.soBaoGia} báo giá`);
+      if (yeuCau?.ghiChu?.trim()) phanThem.push(`ghi chú: ${yeuCau.ghiChu.trim()}`);
+      const hanhDong =
+        `Phân bổ dòng ${sttDong.join(", ")} cho ${ten}` +
+        (phanThem.length > 0 ? ` — ${phanThem.join("; ")}` : "");
 
       setDeNghi((truoc) =>
         truoc.map((dn) =>
@@ -487,6 +676,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                         nguoiPhuTrachTen: ten,
                         nguoiPhanBoTen,
                         thoiDiemPhanBo: homNay(),
+                        soBaoGiaYeuCau: yeuCau?.soBaoGia,
+                        ghiChuPhanBo: yeuCau?.ghiChu?.trim() || undefined,
                       }
                     : d,
                 ),
@@ -496,7 +687,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                   {
                     thoiDiem: thoiDiemHienTai(),
                     nguoiThucHien: nguoiPhanBoTen,
-                    hanhDong: `Phân bổ dòng ${sttDong.join(", ")} cho ${ten}`,
+                    hanhDong,
                   },
                 ],
               },
@@ -1332,6 +1523,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauDaDocThongBao,
       nhanCongTac,
       xoaDuLieuChayThu,
+      trangThaiKhoChung,
     }),
     [
       deNghi,
@@ -1370,6 +1562,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauDaDocThongBao,
       nhanCongTac,
       xoaDuLieuChayThu,
+      trangThaiKhoChung,
     ],
   );
 

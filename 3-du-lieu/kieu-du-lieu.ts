@@ -80,6 +80,18 @@ export interface DongDeNghi {
   nguoiPhuTrachTen?: string;
   nguoiPhanBoTen?: string;
   thoiDiemPhanBo?: NgayISO;
+  /**
+   * Số báo giá trưởng bộ phận YÊU CẦU nhân viên phải lấy về cho dòng này
+   * (Ban lãnh đạo 12/08/2026). Trống = không nêu yêu cầu riêng, cứ theo ngưỡng giá trị
+   * trong `2-quy-trinh/nguong-gia-tri.ts`.
+   *
+   * ⚠️ Đây là YÊU CẦU GIAO VIỆC, khác với số báo giá quy trình bắt buộc theo giá trị đơn.
+   * Trưởng bộ phận có thể đòi nhiều hơn mức tối thiểu; app không lấy con số này thay cho
+   * việc soát ngưỡng.
+   */
+  soBaoGiaYeuCau?: number;
+  /** Lời dặn kèm theo khi giao việc — hiện cho người được phân bổ đọc. */
+  ghiChuPhanBo?: string;
 }
 
 export interface DeNghiMuaHang {

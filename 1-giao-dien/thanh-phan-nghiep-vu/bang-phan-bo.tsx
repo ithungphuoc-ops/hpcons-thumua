@@ -13,7 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/1-giao-dien/nen-tang-ui/table";
+import { Input } from "@/1-giao-dien/nen-tang-ui/input";
+import { Label } from "@/1-giao-dien/nen-tang-ui/label";
+import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
+import { NGUONG } from "@/2-quy-trinh/nguong-gia-tri";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
@@ -39,6 +44,26 @@ const NHAN_VIEN_THU_MUA = nhanVienThuMuaCoTaiKhoan().map((n) => ({
 }));
 
 /**
+ * Yêu cầu trưởng bộ phận đặt ra lúc giao việc. Không có yêu cầu nào thì không hiện gì —
+ * đừng để một khung rỗng chiếm chỗ ở mọi dòng.
+ *
+ * Dùng chung cho cả bảng Desktop và Card List Mobile: một chỗ sửa, hai nơi đổi theo.
+ */
+function YeuCauGiaoViec({ soBaoGia, ghiChu }: { soBaoGia?: number; ghiChu?: string }) {
+  if (!soBaoGia && !ghiChu) return null;
+  return (
+    <div className="flex flex-col gap-0.5 rounded-md bg-primary-bg px-2 py-1">
+      {soBaoGia ? (
+        <span className="text-xs font-medium text-primary">
+          Yêu cầu lấy {soBaoGia} báo giá
+        </span>
+      ) : null}
+      {ghiChu ? <span className="text-xs text-text-secondary">{ghiChu}</span> : null}
+    </div>
+  );
+}
+
+/**
  * M3 — BẢNG PHÂN BỔ của Trưởng bộ phận thu mua.
  * Màn hình MỚI, bản thumua-next cũ không có.
  *
@@ -49,6 +74,25 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const { donHang, phieuNhan, phanBoDong, boPhanBoDong } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [chon, setChon] = useState<number[]>([]);
+
+  /**
+   * ⚠️ CỜ MỞ TÁCH KHỎI NỘI DUNG — theo đúng cảnh báo ghi sẵn trong `hop-xac-nhan.tsx`:
+   * *"Xóa nội dung cùng lúc với đóng sẽ tháo cây con giữa lúc hiệu ứng đóng đang chạy và để
+   * lại lớp mờ kẹt trên màn hình"*.
+   *
+   * Bản đầu của khối này dùng đúng một biến (`giaoViec === null` vừa là "đóng" vừa là "rỗng"),
+   * nên bấm Giao việc là câu mô tả trong hộp biến mất ngay giữa lúc hộp đang đóng. Nay
+   * `moHop` lo đóng/mở, `giaoViec` chỉ giữ nội dung và KHÔNG bị xóa khi đóng.
+   *
+   * 📌 Cùng cách làm với `menu-tai-khoan.tsx` (`moHoSo` tách khỏi `hoSo`).
+   */
+  const [moHop, setMoHop] = useState(false);
+  const [giaoViec, setGiaoViec] = useState<{ uid: string; ten: string; dong: number[] } | null>(
+    null,
+  );
+  /** Giữ dạng chuỗi để ô nhập xóa trống được — số 0 và "chưa nhập" là hai chuyện khác nhau. */
+  const [soBaoGia, setSoBaoGia] = useState("");
+  const [ghiChu, setGhiChu] = useState("");
 
   const tienDo = useMemo(
     () => tinhTienDoDeNghi(deNghi, donHang, phieuNhan),
@@ -62,10 +106,33 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
     setChon((truoc) => (checked ? [...truoc, stt] : truoc.filter((x) => x !== stt)));
   }
 
-  function phanBo(uid: string) {
-    if (chon.length === 0) return;
-    phanBoDong(deNghi.id, chon, uid, nguoiDung.tenHienThi);
+  /**
+   * Mở hộp xác nhận giao việc — KHÔNG phân bổ ngay khi bấm.
+   *
+   * 🔴 Ban lãnh đạo 12/08/2026: *"khi bấm phân bổ công việc cho nhân viên, phải hiện cửa sổ
+   * xác nhận lại có giao việc không, và được viết thêm ghi chú yêu cầu số lượng báo giá cần
+   * cung cấp"*. Hộp này vừa là chỗ hỏi lại, vừa là chỗ DUY NHẤT nêu yêu cầu số báo giá.
+   */
+  function moGiaoViec(uid: string, ten: string, dong: number[]) {
+    if (dong.length === 0) return;
+    setSoBaoGia("");
+    setGhiChu("");
+    setGiaoViec({ uid, ten, dong });
+    setMoHop(true);
+  }
+
+  function xacNhanGiaoViec() {
+    if (!giaoViec) return;
+    const so = Number.parseInt(soBaoGia, 10);
+    phanBoDong(deNghi.id, giaoViec.dong, giaoViec.uid, nguoiDung.tenHienThi, {
+      // Chỉ gửi khi là số dương thật — ô để trống nghĩa là "không nêu yêu cầu riêng",
+      // không phải "yêu cầu 0 báo giá".
+      soBaoGia: Number.isFinite(so) && so > 0 ? so : undefined,
+      ghiChu,
+    });
     setChon([]);
+    // ⚠️ KHÔNG `setGiaoViec(null)` ở đây — xem ghi chú ở chỗ khai `moHop`.
+    // `HopXacNhan` tự gọi `onDong` ngay sau hàm này để đóng hộp.
   }
 
   return (
@@ -95,7 +162,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary-bg p-3">
             <span className="text-sm font-medium text-primary">Đã chọn {chon.length} dòng — phân cho:</span>
             {NHAN_VIEN_THU_MUA.map((nv) => (
-              <Button key={nv.uid} size="sm" onClick={() => phanBo(nv.uid)}>
+              <Button key={nv.uid} size="sm" onClick={() => moGiaoViec(nv.uid, nv.ten, chon)}>
                 <UserPlus className="size-4" aria-hidden />
                 {nv.ngan} · {nv.ten}
               </Button>
@@ -162,18 +229,23 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                     </TableCell>
                     <TableCell>
                       {daPhan ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">{d.nguoiPhuTrachTen}</span>
-                          {quyen.phanBoCongViec && d.trangThaiDong === "da_phan_bo" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`Bỏ phân bổ dòng ${d.stt}`}
-                              onClick={() => boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi)}
-                            >
-                              <X className="size-4" />
-                            </Button>
-                          )}
+                        <div className="flex flex-col gap-1">
+                          <span className="flex items-center gap-2">
+                            <span className="text-sm">{d.nguoiPhuTrachTen}</span>
+                            {quyen.phanBoCongViec && d.trangThaiDong === "da_phan_bo" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Bỏ phân bổ dòng ${d.stt}`}
+                                onClick={() => boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi)}
+                              >
+                                <X className="size-4" />
+                              </Button>
+                            )}
+                          </span>
+                          {/* Yêu cầu giao việc của trưởng bộ phận — hiện ngay dưới tên người
+                              phụ trách để người nhận việc đọc được, khỏi phải mở nhật ký. */}
+                          <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
                         </div>
                       ) : (
                         <span className="text-sm text-text-desc italic">chưa phân</span>
@@ -220,6 +292,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                   <span className="text-text-desc">Người phụ trách</span>
                   <span>{d.nguoiPhuTrachTen ?? "chưa phân"}</span>
                 </div>
+                <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
                 {quyen.phanBoCongViec && !d.nguoiPhuTrachUid && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {NHAN_VIEN_THU_MUA.map((nv) => (
@@ -228,7 +301,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                         size="sm"
                         variant="outline"
                         className="min-h-11"
-                        onClick={() => phanBoDong(deNghi.id, [d.stt], nv.uid, nguoiDung.tenHienThi)}
+                        onClick={() => moGiaoViec(nv.uid, nv.ten, [d.stt])}
                       >
                         {nv.ngan}
                       </Button>
@@ -240,6 +313,56 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
           })}
         </div>
       </CardContent>
+
+      {/* ===== HỘP XÁC NHẬN GIAO VIỆC =====
+          Ban lãnh đạo 12/08/2026. Cùng một hộp cho cả bảng (Desktop) lẫn Card List
+          (Mobile) — một chỗ duy nhất, khỏi hai đường giao việc lệch nhau. */}
+      <HopXacNhan
+        mo={moHop}
+        tieuDe="Giao việc cho nhân viên?"
+        moTa={
+          giaoViec &&
+          `Giao ${giaoViec.dong.length} dòng vật tư (dòng ${giaoViec.dong.join(", ")}) của đề nghị ${deNghi.code} cho ${giaoViec.ten}.`
+        }
+        nhanDongY="Giao việc"
+        onDong={() => setMoHop(false)}
+        onDongY={xacNhanGiaoViec}
+      >
+        <div className="flex flex-col gap-(--hp-md-row-gap)">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="so-bao-gia">Số báo giá yêu cầu nhân viên lấy về</Label>
+            <Input
+              id="so-bao-gia"
+              type="number"
+              min={1}
+              max={10}
+              inputMode="numeric"
+              placeholder="Để trống nếu không yêu cầu riêng"
+              value={soBaoGia}
+              onChange={(e) => setSoBaoGia(e.target.value)}
+            />
+            {/* Nêu luật thật của công ty để trưởng bộ phận đặt con số có căn cứ, thay vì
+                đoán. Ngưỡng lấy từ `nguong-gia-tri.ts`, KHÔNG viết số cứng ở đây. */}
+            <p className="text-xs text-text-desc">
+              Quy trình yêu cầu tối thiểu <strong>02 báo giá</strong> với đơn từ{" "}
+              {(NGUONG.HAI_BAO_GIA / 1_000_000).toLocaleString("vi-VN")} triệu đồng trở lên. Lúc
+              giao việc thì chưa có giá nên app chưa biết đơn này thuộc mức nào — để trống cũng
+              được, app vẫn soát theo ngưỡng khi trình xét duyệt báo giá.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ghi-chu-giao-viec">Ghi chú cho người nhận việc</Label>
+            <Textarea
+              id="ghi-chu-giao-viec"
+              rows={3}
+              placeholder="Ví dụ: ưu tiên nhà cung cấp giao trong 3 ngày, hỏi thêm giá cho phương án thay thế..."
+              value={ghiChu}
+              onChange={(e) => setGhiChu(e.target.value)}
+            />
+          </div>
+        </div>
+      </HopXacNhan>
     </Card>
   );
 }

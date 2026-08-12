@@ -24,10 +24,16 @@ import { Button } from "@/1-giao-dien/nen-tang-ui/button";
  *   ✅ Ghi tên mình vào hồ sơ (nhận công tác)
  *   ✅ Xóa dữ liệu
  *
- * KHÔNG áp cho việc sửa lại được ngay bằng một cú bấm khác — ví dụ phân bổ dòng cho nhân
- * viên (bấm lại là đổi người), nhập giá nhà cung cấp (lưu lại là ghi đè). Hỏi cả những việc
- * đó thì người dùng bấm "Đồng ý" theo phản xạ, và hộp xác nhận mất hết tác dụng ở đúng chỗ
- * cần nó.
+ * KHÔNG áp cho việc sửa lại được ngay bằng một cú bấm khác — ví dụ nhập giá nhà cung cấp
+ * (lưu lại là ghi đè). Hỏi cả những việc đó thì người dùng bấm "Đồng ý" theo phản xạ, và hộp
+ * xác nhận mất hết tác dụng ở đúng chỗ cần nó.
+ *
+ * 📌 PHÂN BỔ CÔNG VIỆC ĐÃ CHUYỂN SANG DIỆN PHẢI HỎI — Ban lãnh đạo 12/08/2026: *"khi bấm
+ * phân bổ công việc cho nhân viên, phải hiện cửa sổ xác nhận lại có giao việc không, và
+ * được viết thêm ghi chú yêu cầu số lượng báo giá cần cung cấp"*. Trước đó chỗ này được
+ * xếp vào diện "bấm lại là đổi người" nên không hỏi. Lý do đổi: hộp không chỉ để hỏi lại
+ * mà còn là **chỗ duy nhất** trưởng bộ phận nêu yêu cầu số báo giá — bỏ hộp là mất luôn
+ * chức năng đó.
  *
  * ⚠️ Cờ mở tách khỏi nội dung: component chỉ mở khi `mo === true`, còn phần thân do người
  * gọi giữ. Xóa nội dung cùng lúc với đóng sẽ tháo cây con giữa lúc hiệu ứng đóng đang chạy

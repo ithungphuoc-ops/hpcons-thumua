@@ -54,7 +54,7 @@ function vietTat(ten: string): string {
  */
 export function MenuTaiKhoan() {
   const { nguoiDung, quyen, dangXuat } = useNguoiDung();
-  const { deNghi, xoaDuLieuChayThu } = useDuLieu();
+  const { deNghi, xoaDuLieuChayThu, trangThaiKhoChung } = useDuLieu();
   const [hoiXoa, doiHoiXoa] = useState(false);
 
   /**
@@ -220,11 +220,21 @@ export function MenuTaiKhoan() {
         </DialogContent>
       </Dialog>
 
+      {/* 🔴 Từ 12/08/2026 dữ liệu để trên máy chủ dùng chung, nên lời cảnh báo phải nói
+          đúng phạm vi: xóa là MỌI NGƯỜI cùng mất, không phải "trên máy này" như trước. */}
       <HopXacNhan
         mo={hoiXoa}
         tieuDe="Xóa toàn bộ dữ liệu chạy thử?"
-        moTa="Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng đã nhập trên máy này."
-        canhBao={`Đang có ${deNghi.length} đề nghị mua hàng. Không khôi phục lại được — app sẽ về trạng thái trống như lần mở đầu tiên.`}
+        moTa={
+          trangThaiKhoChung === "chung"
+            ? "Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng khỏi kho dữ liệu chung."
+            : "Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng đã nhập trên máy này."
+        }
+        canhBao={
+          trangThaiKhoChung === "chung"
+            ? `Đang có ${deNghi.length} đề nghị mua hàng. ⚠️ Cả phòng đang dùng chung kho dữ liệu này — xóa xong thì MỌI NGƯỜI đều mất, không riêng máy của bạn. Không khôi phục lại được.`
+            : `Đang có ${deNghi.length} đề nghị mua hàng. Không khôi phục lại được — app sẽ về trạng thái trống như lần mở đầu tiên.`
+        }
         nhanDongY="Xóa hết"
         nguyHiem
         onDong={() => doiHoiXoa(false)}

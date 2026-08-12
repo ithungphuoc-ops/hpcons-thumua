@@ -7,6 +7,7 @@ import { HeaderClock } from "@/1-giao-dien/khung-app/dong-ho";
 import { ThemeToggle } from "@/1-giao-dien/khung-app/nut-sang-toi";
 import { NutThongBao } from "@/1-giao-dien/khung-app/nut-thong-bao";
 import { MenuTaiKhoan } from "@/1-giao-dien/khung-app/menu-tai-khoan";
+import { ChiBaoKhoChung } from "@/1-giao-dien/khung-app/chi-bao-kho-chung";
 
 /**
  * Header cao 60px — CHỈ chứa chức năng phụ: mở Drawer điều hướng (dưới Desktop),
@@ -53,6 +54,8 @@ export function AppHeader() {
       <OTimKiem />
 
       <div className="ml-auto flex items-center gap-2 md:gap-3">
+        {/* Chỉ hiện khi MẤT kết nối kho chung — xem `chi-bao-kho-chung.tsx`. */}
+        <ChiBaoKhoChung />
         <HeaderClock />
         <NutThongBao />
         <ThemeToggle />
