@@ -9,6 +9,21 @@ import {
 } from "lucide-react";
 import type { Quyen } from "@/4-phan-quyen/quyen";
 
+/**
+ * Nhóm hiển thị trên sidebar — Ban lãnh đạo 13/08/2026 gửi ảnh mẫu sidebar Base.vn có tiêu
+ * đề nhóm in hoa ngăn giữa các cụm mục.
+ *
+ * 📌 Chỉ có ý nghĩa HIỂN THỊ, không ảnh hưởng quyền. Mục nào thuộc nhóm nào là chuyện xếp
+ * cho dễ tìm, còn ai thấy mục nào vẫn do `duocThay` quyết.
+ */
+export type NhomMenu = "quan_trong" | "quy_trinh";
+
+/** Nhãn nhóm — in hoa nhỏ trên sidebar, theo đúng dáng mẫu Base. */
+export const NHAN_NHOM_MENU: Record<NhomMenu, string> = {
+  quan_trong: "Quan trọng",
+  quy_trinh: "Quy trình thu mua",
+};
+
 export interface MucDieuHuong {
   nhan: string;
   /** Nhãn rút gọn cho Bottom Navigation trên mobile (10–12px, dễ tràn). */
@@ -17,6 +32,8 @@ export interface MucDieuHuong {
   icon: LucideIcon;
   /** Trả về true nếu vai trò hiện tại được thấy mục này. */
   duocThay: (q: Quyen) => boolean;
+  /** Nhóm trên sidebar. Thiếu thì xếp vào "Quy trình thu mua". */
+  nhom?: NhomMenu;
 }
 
 /**
@@ -50,6 +67,7 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     nhan: "Tổng quan",
     nhanNgan: "Tổng quan",
     href: "/tong-quan",
+    nhom: "quan_trong",
     icon: LayoutDashboard,
     duocThay: () => true,
   },
@@ -65,6 +83,7 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     nhan: "Công việc của tôi",
     nhanNgan: "Của tôi",
     href: "/viec-cua-toi",
+    nhom: "quan_trong",
     icon: CircleUser,
     duocThay: () => true,
   },
@@ -83,6 +102,7 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     nhan: "Lịch công việc",
     nhanNgan: "Lịch",
     href: "/lich",
+    nhom: "quan_trong",
     icon: CalendarDays,
     duocThay: () => true,
   },

@@ -121,6 +121,45 @@ export function BangQuyTrinhMuaHang({
   onTha,
   thaoTac,
 }: BangQuyTrinhMuaHangProps) {
+  /**
+   * ★ GIAI ĐOẠN CỦA THẺ ĐANG KÉO — `null` là không kéo gì.
+   *
+   * 🔴 Ban lãnh đạo 13/08/2026: *"khi kéo thả này chỉ hiện 1 ô phía trước hoặc phía sau,
+   * không cho kéo sang ô thứ 2"*.
+   *
+   * Trước đó MỌI cột đều sáng viền khi kéo ngang qua và đều nhận thả — luật chặn nằm ở
+   * `quyetDinhKeoTha` nên thả xa vẫn bị từ chối, nhưng người dùng chỉ biết SAU KHI đã thả.
+   * Giao diện mời gọi một việc rồi từ chối chính việc đó.
+   *
+   * ⚠️ Phải giữ ở CHA, không đọc từ `dataTransfer` trong `dragover`: trình duyệt chặn đọc dữ
+   * liệu kéo trong lúc đang kéo (chỉ cho đọc khi thả) vì lý do bảo mật.
+   */
+  const [giaiDoanDangKeo, setGiaiDoanDangKeo] = useState<GiaiDoanMuaHang | null>(null);
+  const thuTu = cot.map((c) => c.giaiDoan.ma);
+
+  /**
+   * Cột này có nhận thả không: chỉ LIỀN TRƯỚC hoặc LIỀN SAU cột đang kéo.
+   *
+   * 📌 Cột "Thất bại" LUÔN nhận — đóng dở là nhánh dừng, gọi được từ bất cứ bước nào; nó
+   * không nằm trong dãy tiến/lùi nên đo khoảng cách theo thứ tự cột là vô nghĩa.
+   */
+  function nhanDuocTha(ma: GiaiDoanMuaHang): boolean {
+    if (!keoThaDuoc || giaiDoanDangKeo === null) return keoThaDuoc;
+    if (ma === "that_bai") return true;
+    if (giaiDoanDangKeo === "that_bai") return false;
+    const iTu = thuTu.indexOf(giaiDoanDangKeo);
+    const iDich = thuTu.indexOf(ma);
+    if (iTu < 0 || iDich < 0) return false;
+    /**
+     * `<= 1` chứ không `=== 1`: tính cả CHÍNH CỘT ĐANG CHỨA THẺ.
+     *
+     * Kéo thẻ ra rồi đổi ý, thả về chỗ cũ là thao tác bình thường của mọi bảng kéo thả —
+     * `quyetDinhKeoTha` trả `null` cho trường hợp này nên không có gì xảy ra. Làm mờ cột
+     * nguồn thì người dùng thấy chính cột mình vừa nhấc thẻ lên bị chặn, trông như app lỗi.
+     */
+    return Math.abs(iDich - iTu) <= 1;
+  }
+
   return (
     // Các cột nằm SÁT NHAU thành một bảng liền, ngăn nhau bằng đường kẻ mảnh
     // (`divide-x`) chứ không cách quãng — theo yêu cầu Ban lãnh đạo 06/08/2026.
@@ -137,6 +176,10 @@ export function BangQuyTrinhMuaHang({
             key={c.giaiDoan.ma}
             cot={c}
             keoThaDuoc={keoThaDuoc}
+            nhanDuocTha={nhanDuocTha(c.giaiDoan.ma)}
+            dangKeoTrenBang={giaiDoanDangKeo !== null}
+            onBatDauKeo={setGiaiDoanDangKeo}
+            onKetThucKeo={() => setGiaiDoanDangKeo(null)}
             onTha={onTha}
             thaoTac={thaoTac}
           />
@@ -149,11 +192,21 @@ export function BangQuyTrinhMuaHang({
 function CotQuyTrinh({
   cot,
   keoThaDuoc,
+  nhanDuocTha,
+  dangKeoTrenBang,
+  onBatDauKeo,
+  onKetThucKeo,
   onTha,
   thaoTac,
 }: {
   cot: CotBangQuyTrinh;
   keoThaDuoc: boolean;
+  /** Cột này có nhận thả không — cha tính theo khoảng cách tới cột đang kéo. */
+  nhanDuocTha: boolean;
+  /** Đang có thẻ nào được kéo trên bảng hay không (để làm mờ cột không nhận). */
+  dangKeoTrenBang: boolean;
+  onBatDauKeo: (tu: GiaiDoanMuaHang) => void;
+  onKetThucKeo: () => void;
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
 }) {
@@ -161,31 +214,41 @@ function CotQuyTrinh({
   // Sáng viền cột khi đang kéo thẻ ngang qua — người dùng biết mình sắp thả vào đâu.
   const [dangKeoQua, setDangKeoQua] = useState(false);
 
-  const suKienKeoTha = keoThaDuoc
-    ? {
-        onDragOver: (e: DragEvent<HTMLElement>) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
-          setDangKeoQua(true);
-        },
-        onDragLeave: (e: DragEvent<HTMLElement>) => {
-          // Kéo qua thẻ con cũng bắn dragleave — chỉ tắt khi rời hẳn cột.
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDangKeoQua(false);
-        },
-        onDrop: (e: DragEvent<HTMLElement>) => {
-          e.preventDefault();
-          setDangKeoQua(false);
-          const prId = e.dataTransfer.getData(KHOA_KEO_THA);
-          if (prId) onTha?.(prId, giaiDoan.ma);
-        },
-      }
-    : {};
+  /**
+   * 🔴 CỘT KHÔNG NHẬN THÌ KHÔNG GẮN SỰ KIỆN NÀO. Thiếu `onDragOver` + `preventDefault` là
+   * trình duyệt tự hiện con trỏ "không cho phép" — người dùng biết ngay khi còn đang kéo,
+   * không phải thả xong mới đọc thông báo lỗi (Ban lãnh đạo 13/08/2026).
+   */
+  const suKienKeoTha =
+    keoThaDuoc && nhanDuocTha
+      ? {
+          onDragOver: (e: DragEvent<HTMLElement>) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setDangKeoQua(true);
+          },
+          onDragLeave: (e: DragEvent<HTMLElement>) => {
+            // Kéo qua thẻ con cũng bắn dragleave — chỉ tắt khi rời hẳn cột.
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) setDangKeoQua(false);
+          },
+          onDrop: (e: DragEvent<HTMLElement>) => {
+            e.preventDefault();
+            setDangKeoQua(false);
+            onKetThucKeo();
+            const prId = e.dataTransfer.getData(KHOA_KEO_THA);
+            if (prId) onTha?.(prId, giaiDoan.ma);
+          },
+        }
+      : {};
+
+  // Cột ngoài phạm vi một bước: làm mờ để mắt thấy ngay chỗ nào thả được, chỗ nào không.
+  const moDi = dangKeoTrenBang && !nhanDuocTha;
 
   return (
     <section
-      className={`flex min-w-[272px] shrink-0 grow basis-[272px] flex-col bg-muted ${
+      className={`flex min-w-[272px] shrink-0 grow basis-[272px] flex-col bg-muted transition-opacity ${
         dangKeoQua ? "ring-2 ring-primary ring-inset" : ""
-      }`}
+      } ${moDi ? "opacity-40" : ""}`}
       {...suKienKeoTha}
     >
       {/* Đầu cột */}
@@ -231,6 +294,8 @@ function CotQuyTrinh({
               the={t}
               tongGiaiDoan={giaiDoan.tong}
               keoThaDuoc={keoThaDuoc}
+              onBatDauKeo={() => onBatDauKeo(giaiDoan.ma)}
+              onKetThucKeo={onKetThucKeo}
               onTha={onTha}
               thaoTac={thaoTac}
             />
@@ -245,12 +310,18 @@ function TheDeNghi({
   the,
   tongGiaiDoan,
   keoThaDuoc,
+  onBatDauKeo,
+  onKetThucKeo,
   onTha,
   thaoTac,
 }: {
   the: TheDeNghiTrenBang;
   tongGiaiDoan: Tong;
   keoThaDuoc: boolean;
+  /** Báo cha biết thẻ này bắt đầu được kéo (để cha tính cột nào nhận thả). */
+  onBatDauKeo: () => void;
+  /** Kéo xong — dù thả được hay bỏ giữa đường, phải xóa trạng thái kéo ở cha. */
+  onKetThucKeo: () => void;
   /** Dùng lại cho menu ⋯ "Chuyển sang giai đoạn kế tiếp" — cùng luật với kéo thả. */
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
@@ -274,9 +345,13 @@ function TheDeNghi({
           ? (e) => {
               e.dataTransfer.setData(KHOA_KEO_THA, deNghi.id);
               e.dataTransfer.effectAllowed = "move";
+              onBatDauKeo();
             }
           : undefined
       }
+      /* ⚠️ `onDragEnd` BẮN CẢ KHI BỎ GIỮA ĐƯỜNG (nhả chuột ngoài cột, bấm Esc). Không dọn ở
+         đây thì các cột ngoài phạm vi bị mờ vĩnh viễn cho tới lần kéo sau. */
+      onDragEnd={keoThaDuoc ? onKetThucKeo : undefined}
       className={`flex flex-col gap-1.5 rounded-lg border border-border border-l-4 p-(--hp-md-row-pad) transition-colors hover:border-primary ${
         keoThaDuoc ? "cursor-grab active:cursor-grabbing" : ""
       } ${LOP_VIEN_TRAI[han.quaHan ? "danger" : tongGiaiDoan]} ${nenThe}`}
