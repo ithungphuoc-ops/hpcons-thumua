@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
-import { Clock, Eye, GitBranch, UserCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronRight, Clock, Eye, GitBranch, UserCheck } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -64,29 +64,55 @@ export default function TrangTheoDoi() {
       const goc = m.dn.deNghiGocId ?? m.dn.id;
       map.set(goc, [...(map.get(goc) ?? []), m]);
     }
-    const ra: ({ loai: "nhom"; id: string; ma: string; tieuDe: string; soPhieu: number } | ((typeof danhSach)[number] & { loai: "the"; trongNhom: boolean }))[] = [];
+    const ra: (
+      | { loai: "nhom"; id: string; ma: string; tieuDe: string; ds: typeof danhSach }
+      | ((typeof danhSach)[number] & { loai: "the"; trongNhom: boolean })
+    )[] = [];
     for (const [gocId, ds] of map) {
       // Phiếu gốc có thể KHÔNG nằm trong danh sách (không được xem, hoặc đã xóa) — khi đó
       // lấy mã gốc chép sẵn trên phiếu con để vẫn gọi tên được nhóm.
       const goc = ds.find((x) => x.dn.id === gocId)?.dn;
       const trongNhom = ds.length > 1;
+      // Phiếu gốc lên đầu, các bản tách xếp theo mã cho thứ tự ổn định.
+      const sapXep = [...ds].sort((a, b) =>
+        a.dn.id === gocId ? -1 : b.dn.id === gocId ? 1 : a.dn.code.localeCompare(b.dn.code),
+      );
       if (trongNhom) {
         ra.push({
           loai: "nhom",
           id: gocId,
           ma: goc?.code ?? ds[0].dn.maDeNghiGoc ?? ds[0].dn.code,
           tieuDe: goc?.tieuDe ?? ds[0].dn.tieuDe,
-          soPhieu: ds.length,
+          ds: sapXep,
         });
       }
-      // Phiếu gốc lên đầu, các bản tách xếp theo mã cho thứ tự ổn định.
-      const sapXep = [...ds].sort((a, b) =>
-        a.dn.id === gocId ? -1 : b.dn.id === gocId ? 1 : a.dn.code.localeCompare(b.dn.code),
-      );
       for (const m of sapXep) ra.push({ ...m, loai: "the", trongNhom });
     }
     return ra;
   }, [danhSach]);
+
+  /**
+   * Nhóm đang MỞ. Ban lãnh đạo 13/08/2026: *"thêm nút group lại cho gọn nha"* — nên mặc
+   * định các nhóm THU GỌN, bấm mới bung ra.
+   *
+   * ⚠️ Giữ danh sách "đang mở" chứ không phải "đang gọn": nhóm mới xuất hiện (ai đó vừa
+   * tách phiếu) sẽ mặc định gọn theo đúng ý trên. Làm ngược lại thì mỗi nhóm mới lại tự
+   * bung ra, và màn hình dài thêm mà không ai bấm gì.
+   */
+  const [nhomMo, setNhomMo] = useState<Set<string>>(new Set());
+  function doiMoNhom(id: string) {
+    setNhomMo((truoc) => {
+      const s = new Set(truoc);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+  /** Thẻ có được hiện không: không thuộc nhóm nào, hoặc thuộc nhóm đang mở. */
+  function hienThe(m: { trongNhom: boolean; dn: DeNghiMuaHang }) {
+    if (!m.trongNhom) return true;
+    return nhomMo.has(m.dn.deNghiGocId ?? m.dn.id);
+  }
 
   return (
     <>
@@ -118,22 +144,46 @@ export default function TrangTheoDoi() {
       ) : (
         <div className="flex flex-col gap-(--hp-md-card-gap)">
           {dongHienThi.map((m) => {
-            // Dòng tiêu đề của một nhóm phiếu đã tách.
+            // Dòng tiêu đề của một nhóm phiếu đã tách — bấm cả dòng để mở / thu gọn.
             if (m.loai === "nhom") {
+              const dangMo = nhomMo.has(m.id);
               return (
-                <p
+                <button
                   key={`nhom-${m.id}`}
-                  className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1 text-sm"
+                  type="button"
+                  onClick={() => doiMoNhom(m.id)}
+                  aria-expanded={dangMo}
+                  className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary/30 bg-primary-bg px-3 py-2 text-left text-sm transition-colors hover:border-primary"
                 >
+                  <ChevronRight
+                    className={`size-4 shrink-0 text-primary transition-transform ${dangMo ? "rotate-90" : ""}`}
+                    aria-hidden
+                  />
                   <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
                   <span className="font-semibold text-text-primary">{m.ma}</span>
-                  <span className="text-text-secondary">— {m.tieuDe}</span>
-                  <span className="rounded bg-primary-bg px-1.5 py-0.5 text-xs font-medium text-primary">
-                    {m.soPhieu} phiếu đã tách
+                  <span className="min-w-0 truncate text-text-secondary">— {m.tieuDe}</span>
+                  <span className="rounded bg-card px-1.5 py-0.5 text-xs font-medium text-primary">
+                    {m.ds.length} phiếu đã tách
                   </span>
-                </p>
+                  {/* 🔴 Khi GỌN vẫn phải thấy nhóm đang ở đâu, nếu không thu gọn chỉ là
+                      giấu thông tin. Hiện mã từng phiếu kèm bước hiện tại — đủ để quyết
+                      định có cần bung ra hay không. */}
+                  {!dangMo && (
+                    <span className="flex w-full flex-wrap gap-1 pt-0.5 pl-6">
+                      {m.ds.map((x) => (
+                        <span
+                          key={x.dn.id}
+                          className="rounded bg-card px-1.5 py-0.5 text-xs text-text-secondary"
+                        >
+                          {x.dn.code} · {NHAN_GIAI_DOAN[x.giaiDoan].nhan}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </button>
               );
             }
+            if (!hienThe(m)) return null;
             const { dn, tienDo, tomTat, giaiDoan } = m;
             const tt = NHAN_TRANG_THAI_DE_NGHI[dn.trangThai];
             const buoc = NHAN_GIAI_DOAN[giaiDoan];
