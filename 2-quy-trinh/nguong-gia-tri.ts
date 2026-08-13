@@ -103,7 +103,7 @@ export function soatNguongBaoGia(bg: BaoGia): CanhBaoNguong {
 
   if (giaTri >= NGUONG.HAI_BAO_GIA) {
     nhacNgoaiApp.push(
-      "Từ 10 triệu đồng trở lên: Tổng Giám đốc là người duyệt báo giá. App chưa có tài khoản TGĐ — trình duyệt ngoài app rồi mới bấm duyệt ở đây.",
+      "Từ 10 triệu đồng trở lên: Tổng Giám đốc là người duyệt báo giá. Việc TGĐ ký duyệt diễn ra ngoài app — trình ký xong rồi mới bấm duyệt ở đây.",
     );
   }
   if (giaTri >= NGUONG.HOP_DONG) {

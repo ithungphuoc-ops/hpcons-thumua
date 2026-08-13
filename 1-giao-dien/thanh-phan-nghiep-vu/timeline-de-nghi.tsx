@@ -83,8 +83,12 @@ export function TimelineDeNghi({
       {/* Thanh tiến độ theo số mặt hàng */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2 text-xs">
+          {/* ⚠️ PHẢI chặn chuỗi rỗng: `new Date("")` cho ra Invalid Date và in thẳng ra
+              màn hình chữ "Invalid Date". Phiếu lập trong thời kỳ duyệt hai cấp (sáng
+              12/08/2026) có thể còn `ngayDuyet` rỗng — đây từng là CHỖ DUY NHẤT trong mã
+              nguồn đọc `ngayDuyet` mà không chặn. */}
           <span className="text-text-desc">
-            Duyệt {new Date(ngayDuyet).toLocaleDateString("vi-VN")}
+            {ngayDuyet ? `Duyệt ${new Date(ngayDuyet).toLocaleDateString("vi-VN")}` : "Chưa rõ ngày duyệt"}
           </span>
           <span className={cn("font-semibold", lopChuHan)}>{chuHan}</span>
           <span className="text-text-desc">

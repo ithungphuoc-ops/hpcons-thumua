@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { Clock, Eye, UserCheck } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
@@ -22,6 +23,7 @@ import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
  */
 export default function TrangTheoDoi() {
   const { deNghi, donHang, baoGia, phieuNhan } = useDuLieu();
+  const router = useRouter();
   const { nguoiDung, quyen } = useNguoiDung();
 
   /** Người đề nghị chỉ thấy đề nghị của mình; vai trò quản lý thấy hết. */
@@ -50,10 +52,23 @@ export default function TrangTheoDoi() {
       />
 
       {danhSach.length === 0 ? (
+        /* 🔴 12/08/2026: câu cũ ghi *"Đề nghị bạn lập trên HPcore… sẽ hiện ở đây"* — chỉ
+           người dùng sang một hệ thống khác để làm việc mà app này đang làm được. Từ khi
+           mọi tài khoản lập được đề nghị NGAY TRONG APP, câu đó đẩy người mới đi lạc đúng
+           lúc họ cần chỉ đúng nhất. Nay nói thật, và mở luôn đường vào. */
         <EmptyState
           icon={Eye}
           title="Chưa có đề nghị nào để theo dõi"
-          description="Đề nghị bạn lập trên HPcore sau khi được duyệt sẽ hiện ở đây."
+          description={
+            quyen.taoDeNghi
+              ? "Chưa có đề nghị nào do bạn lập hoặc có tên bạn trong danh sách theo dõi. Bạn lập được đề nghị ngay trong app."
+              : "Chưa có đề nghị nào do bạn lập hoặc có tên bạn trong danh sách theo dõi."
+          }
+          action={
+            quyen.taoDeNghi
+              ? { label: "Tạo đề nghị mua hàng", onClick: () => router.push("/de-nghi/nhan-moi") }
+              : undefined
+          }
         />
       ) : (
         <div className="flex flex-col gap-(--hp-md-card-gap)">

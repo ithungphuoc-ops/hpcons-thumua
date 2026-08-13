@@ -243,10 +243,11 @@ export default function TrangDanhSachDeNghi() {
         <PageHeader
           crumbs={[{ label: "Thu mua", href: "/tong-quan" }, { label: "Quy trình mua hàng" }]}
           title="Quy trình mua hàng"
-          description="Đề nghị đã duyệt, nhận từ Phòng Thi công qua HPcore"
+          description="Đề nghị mua hàng đã duyệt, nhận từ các phòng ban trong công ty"
           actions={
-            /* Công cụ CHẠY THỬ — ở bản thật đề nghị tự vào từ HPcore, không có nút này.
-               Xem 1-giao-dien/trang/de-nghi-nhan-moi.tsx */
+            /* 🔴 12/08/2026: bỏ chữ "(giả lập)" và chú thích "ở bản thật đề nghị tự vào từ
+               HPcore". Lập đề nghị nay là nghiệp vụ THẬT, mọi tài khoản làm được — để chữ
+               "giả lập" là người dùng không dám nhập liệu thật vào đó. */
             <Button
               size="sm"
               variant="outline"
@@ -254,7 +255,7 @@ export default function TrangDanhSachDeNghi() {
               render={<Link href="/de-nghi/nhan-moi" />}
             >
               <Inbox className="size-4" aria-hidden />
-              Nhận đề nghị mới (giả lập)
+              Tạo đề nghị mới
             </Button>
           }
         />
@@ -278,7 +279,7 @@ export default function TrangDanhSachDeNghi() {
         <EmptyState
           icon={FileText}
           title="Chưa có đề nghị nào"
-          description="Đề nghị đã duyệt từ HPcore sẽ tự xuất hiện ở đây."
+          description="Đề nghị đã duyệt của các phòng ban sẽ hiện ở đây."
         />
       ) : cachXem === "bang" ? (
         // `flex-1` + `min-h-[420px]`: bảng chiếm trọn phần màn hình còn lại,

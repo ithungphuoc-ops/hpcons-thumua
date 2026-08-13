@@ -15,6 +15,8 @@ import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import {
   DANH_MUC_PHONG_BAN,
   PHONG_BAN_MAC_DINH,
+  maPhongBanTuTen,
+  nhanPhongBan,
 } from "@/3-du-lieu/danh-muc-phong-ban";
 import type { PhongBanNguon } from "@/3-du-lieu/kieu-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -29,12 +31,18 @@ import {
 } from "@/3-du-lieu/kho-tep";
 
 /**
- * CÔNG CỤ GIẢ LẬP — nhận một đề nghị mua hàng đã duyệt từ Phòng Thi công.
+ * LẬP ĐỀ NGHỊ MUA HÀNG — nghiệp vụ THẬT, mọi tài khoản dùng được.
  *
- * 🔴 ĐÂY KHÔNG PHẢI NGHIỆP VỤ THẬT. Theo kiến trúc đã chốt, đề nghị do Phòng Thi công
- * lập và Ban chỉ huy duyệt trên HPcore; app Thu mua CHỈ ĐỌC, không tự tạo đề nghị.
- * Màn này chỉ để chạy thử được trọn vòng khi chưa nối Firebase.
- * Khi nối dữ liệu thật: XÓA màn này và xóa `themDeNghiGiaLap` trong kho dữ liệu.
+ * 🔴 Chỉ đạo Ban lãnh đạo 12/08/2026: *"chức năng đề nghị này hãy tạo cho TOÀN BỘ các
+ * tài khoản hiện có"*, và *"app này chỉ liên quan tới quy trình thu mua, nhận đề xuất mua
+ * hàng từ tất cả các phòng ban của công ty"*.
+ *
+ * 📌 Bố cục chép theo biểu mẫu **"Tạo đề xuất mới" trên Base.vn** (ảnh Ban lãnh đạo cung
+ * cấp): hộp có thanh tiêu đề + nút đóng, khối lưu ý xanh, trường nhãn-trái ô-phải, chân
+ * hộp hai nút lớn chia đôi. Màu theo token công ty, không lấy xanh lá của Base.
+ *
+ * ⚠️ App KHÔNG duyệt đề nghị. Việc duyệt chạy ở app của bộ phận đề xuất rồi mới đẩy phiếu
+ * sang đây — đừng thêm bước duyệt vào màn này (xem `4-phan-quyen/quyen.ts`).
  */
 
 interface DongNhap {
@@ -92,8 +100,15 @@ export default function TrangNhanDeNghiMoi() {
   /**
    * Phòng ban gửi đề xuất — từ 12/08/2026 nhận từ MỌI phòng ban của công ty.
    * Danh mục 16 phòng ban thật ở `3-du-lieu/danh-muc-phong-ban.ts`.
+   *
+   * 🔴 MẶC ĐỊNH THEO PHÒNG BAN CỦA NGƯỜI ĐANG ĐĂNG NHẬP, không để cứng Thi công. Ai cũng
+   * lập đề nghị cho chính phòng mình, nên để cứng một phòng nghĩa là 15/16 số người phải
+   * nhớ đổi ô này mỗi lần lập phiếu — quên một lần là phiếu mang tên phòng ban khác, và
+   * không có gì báo sai cả.
    */
-  const [boPhan, setBoPhan] = useState<PhongBanNguon>(PHONG_BAN_MAC_DINH);
+  const [boPhan, setBoPhan] = useState<PhongBanNguon>(
+    () => maPhongBanTuTen(nguoiDung.phongBan) ?? PHONG_BAN_MAC_DINH,
+  );
 
   /**
    * Dự án đang chọn ở ô "Dự án / Công trình" — "" = chưa chọn, "__moi__" = nhập tay.
@@ -309,7 +324,7 @@ export default function TrangNhanDeNghiMoi() {
       return;
     }
 
-    toast.success("Đã nhận đề nghị từ Phòng Thi công", {
+    toast.success(`Đã nhận đề nghị từ ${nhanPhongBan(boPhan)}`, {
       description: "Thẻ mới nằm ở cột đầu tiên — Tiếp nhận và kiểm tra.",
     });
     router.push("/de-nghi");
@@ -319,8 +334,8 @@ export default function TrangNhanDeNghiMoi() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
       {/* Hai nút tiện dụng đặt NGOÀI hộp phiếu — hộp giữ nguyên dáng biểu mẫu Base.
           ⚠️ Đã bỏ tấm "công cụ chạy thử / app không tạo được đề nghị": từ 12/08/2026 lập
-          đề nghị là NGHIỆP VỤ THẬT (mọi tài khoản lập được, duyệt hai cấp rồi mới sang
-          Thu mua) — giữ tấm cũ là nói sai về chính chức năng đang chạy. */}
+          đề nghị là NGHIỆP VỤ THẬT, mọi tài khoản lập được — giữ tấm cũ là nói sai về
+          chính chức năng đang chạy. */}
       <div className="flex flex-wrap items-center justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={taiNhap}>
           Mở bản nháp
@@ -716,7 +731,7 @@ export default function TrangNhanDeNghiMoi() {
           {/* ===== NGƯỜI DUYỆT — Ban lãnh đạo 12/08/2026 =====
               Đặt TRƯỚC "Người theo dõi" là cố ý: người duyệt là mắt xích BẮT BUỘC của quy
               trình, còn người theo dõi chỉ để nắm thông tin. Thứ quan trọng hơn đứng trước. */}
-          {/* 📌 12/08/2026 (chiều): BỎ ô "Quản lý trực tiếp / người duyệt". Ban lãnh đạo
+          {/* ===== 📌 12/08/2026 (chiều): BỎ ô "Quản lý trực tiếp / người duyệt". Ban lãnh đạo
               chốt: việc duyệt đề nghị nằm ở APP KHÁC của bộ phận đề xuất — app Thu mua chỉ
               NHẬN phiếu đã duyệt. Khối lưu ý xanh phía trên vẫn ghi luồng duyệt của công ty
               để người lập biết phiếu mình sẽ đi qua đâu trước khi vào đây. */}

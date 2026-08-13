@@ -39,29 +39,14 @@ export type ChucNang =
  * CHỨC VỤ trong bộ phận — bậc quản lý, KHÁC với `chucNang` (làm việc gì) và `capTM` (được
  * đọc/ghi tới đâu).
  *
- * 🔴 Sinh ra vì chỉ đạo Ban lãnh đạo 12/08/2026: *"Tô Trọng Hoài đề xuất → Chỉ huy trưởng
- * duyệt → Trưởng phòng duyệt mới đẩy qua cho phòng thu mua"*. Ba bậc trong CÙNG một phòng,
- * cùng `chucNang: "phong_thi_cong"`, mà phải phân biệt được ai duyệt bước nào.
+ * ⚠️ 12/08/2026 (chiều): HIỆN APP KHÔNG DÙNG TRƯỜNG NÀY ĐỂ QUYẾT ĐỊNH QUYỀN GÌ. Nó sinh ra
+ * cho việc duyệt đề nghị hai cấp, mà việc đó đã chuyển sang app của bộ phận đề xuất.
  *
- * ⚠️ Bản trước mượn `capTM` làm dấu hiệu chức vụ (`capTM >= 2` = trưởng phòng). Cách đó chỉ
- * chịu được HAI bậc, và trộn hai khái niệm khác nhau: cấp quyền là "được xem/ghi tới đâu",
- * chức vụ là "được duyệt cái gì". Có ba bậc thì phải tách ra, nếu không sẽ phải nâng cấp
- * quyền của người ta chỉ để cho họ duyệt được — kéo theo mở cả những quyền không liên quan.
- *
- * 📌 Khi App Tổng bổ sung trường chức vụ chính thức thì ánh xạ vào đây, không phải sửa
- * chỗ nào khác.
+ * 📌 Vẫn giữ vì hồ sơ tài khoản trên Firestore (`nguoi-dung/{uid}.chucVu`) đã có sẵn dữ
+ * liệu này cho cả 8 nhân sự — xóa khỏi mã nguồn thì lần sau cần lại phải đi tạo lại. Nếu
+ * định dùng nó để phân quyền, nhớ rằng nó CHƯA được App Tổng xác nhận là trường chính thức.
  */
-export type ChucVu =
-  | "nhan_vien"
-  | "chi_huy_truong"
-  | "truong_phong"
-  /**
-   * Tổng Giám đốc / Phó Tổng Giám đốc — cấp duyệt CUỐI.
-   *
-   * 🔴 Thêm 12/08/2026 khi Ban lãnh đạo chốt *"theo base nhé, Trưởng phòng/quản lý"*:
-   * luồng duyệt lấy đúng bảng Base của công ty — **TP/QL → Tổng Giám đốc hoặc Phó TGĐ**.
-   */
-  | "tong_giam_doc";
+export type ChucVu = "nhan_vien" | "chi_huy_truong" | "truong_phong" | "tong_giam_doc";
 
 export const NHAN_CHUC_VU: Record<ChucVu, string> = {
   nhan_vien: "Nhân viên",
@@ -114,8 +99,9 @@ export interface Quyen {
    * đạo quyết định mở cho tất cả — ghi lại đây để người sau biết đó là **lựa chọn có chủ
    * đích**, không phải sơ suất, và đừng tự siết lại.
    *
-   * 📌 Khâu kiểm soát KHÔNG mất, nó chuyển sang chỗ khác: mọi đề nghị đều phải qua
-   * `duyetDeNghiBoPhan` mới sang được Thu mua, và không ai tự duyệt phiếu của mình.
+   * ⚠️ Khâu kiểm soát KHÔNG nằm trong app này. Đề nghị được duyệt ở app của bộ phận đề
+   * xuất rồi mới đẩy sang đây (Ban lãnh đạo chốt 12/08/2026 chiều) — nên `taoDeNghi` chỉ
+   * trả lời câu *"ai gõ được phiếu"*, không phải *"phiếu nào được đi tiếp"*.
    */
   taoDeNghi: boolean;
   /* 📌 12/08/2026 (chiều): ĐÃ GỠ `duyetCap1` / `duyetCap2`. Ban lãnh đạo chốt: việc duyệt
@@ -230,9 +216,6 @@ export const VAI_TRO_MAU: VaiTroMau[] = [
     chucDanh: "Quản trị hệ thống",
     phongBan: "Phòng Hành chính Nhân sự — IT",
     chucNang: "truong_bo_phan_thu_mua",
-    // 🔴 PHẢI CÓ `chucVu`. Thiếu trường này là tài khoản biến mất im lặng khỏi
-    // `nguoiDuyetDuocChon()` — không ai chỉ định được quản trị làm người duyệt, dù họ có
-    // đủ quyền duyệt. Lỗi kiểu không báo gì, chỉ thấy danh sách chọn thiếu người.
     chucVu: "truong_phong",
     vaiTro: "admin",
     capTM: 4,
@@ -382,9 +365,9 @@ export const VAI_TRO_MAC_DINH = VAI_TRO_MAU.find((v) => v.uid === "u-tbp") ?? VA
  * `capTM: 0` + `vaiTro: "staff"` làm `tinhQuyen()` trả về sai cho MỌI quyền, kể cả
  * `xemDuocApp` — nên người này không vào được app.
  *
- * ⚠️ Không ghi con số cụ thể ở đây. Bản trước ghi "toàn bộ 14 quyền", rồi thêm `taoDeNghi`,
- * `duyetCap1`, `duyetCap2` là con số sai mà không ai để ý — chú thích sai còn tệ hơn không
- * có chú thích, vì người đọc tin nó.
+ * ⚠️ Không ghi con số cụ thể ở đây. Bản trước ghi "toàn bộ 14 quyền", rồi danh sách quyền
+ * thay đổi vài lần trong ngày và con số thành sai mà không ai để ý — chú thích sai còn tệ
+ * hơn không có chú thích, vì người đọc tin nó.
  */
 export const KHONG_QUYEN: NguoiDung = {
   uid: "",

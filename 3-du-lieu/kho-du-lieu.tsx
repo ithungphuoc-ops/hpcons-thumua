@@ -598,9 +598,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       nguoiDeNghiUid: dauVao.nguoiDeNghiUid,
       nguoiDeNghiTen: dauVao.nguoiDeNghiTen,
       ngayDeNghi: dauVao.ngayDeNghi,
-      // ⚠️ `ngayDuyet` để TRỐNG khi chưa có quản lý duyệt. `daDuyetBoPhan()` coi
-      // "có ngayDuyet" là đã duyệt (để dữ liệu cũ không biến mất), nên điền sẵn ngày ở đây
-      // sẽ khiến phiếu chưa duyệt vẫn lọt sang Thu mua — đúng thứ Ban lãnh đạo muốn chặn.
       // Phiếu vào app là ĐÃ DUYỆT (việc duyệt diễn ra ở app của bộ phận đề xuất —
       // Ban lãnh đạo chốt 12/08/2026), nên ngày duyệt luôn có.
       ngayDuyet: dauVao.ngayDuyet,
@@ -629,14 +626,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             thoiDiemThem: dauVao.ngayDeNghi,
           })),
       ],
-      /**
-       * ★ DUYỆT CỦA QUẢN LÝ BỘ PHẬN — Ban lãnh đạo 12/08/2026.
-       *
-       * Người lập MÀ CHÍNH LÀ quản lý bộ phận thì phiếu được duyệt ngay: bắt họ tự bấm
-       * duyệt phiếu của mình là thao tác vô nghĩa, mà `lyDoKhongDuyetDuoc` lại chặn không
-       * cho tự duyệt — để trống là phiếu **kẹt vĩnh viễn**, không ai duyệt được.
-       * Người lập không phải quản lý → để trống, chờ quản lý bộ phận duyệt.
-       */
       lichSu: [
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },
         {
