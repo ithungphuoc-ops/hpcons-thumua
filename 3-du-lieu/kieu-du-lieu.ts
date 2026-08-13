@@ -527,6 +527,25 @@ export interface PhanBoNCC {
   khoiLuong: number;
 }
 
+/**
+ * Thông tin thương mại của MỘT nhà cung cấp trong bảng so sánh — ba dòng cuối của mẫu
+ * "SO SÁNH GIÁ" công ty đang dùng (ảnh Ban lãnh đạo gửi 13/08/2026).
+ *
+ * ⚠️ Cả ba đều là CHỮ TỰ DO, không phải danh mục chọn. Thực tế mỗi nhà cung cấp diễn đạt một
+ * kiểu: *"Công nợ 15 từ ngày xuất HĐ, chốt CN vào ngày 15 & 30 hằng tháng"*, *"Tạm ứng trước
+ * 2000m³/đợt để chạy hàng"*. Ép vào danh mục là mất đúng phần thông tin cần đọc để quyết định.
+ */
+export interface ThongTinThuongMaiNCC {
+  nccId: string;
+  tenNCC: string;
+  /** Ví dụ: "Công nợ 15 ngày từ ngày xuất hóa đơn, chốt 15 & 30 hằng tháng". */
+  hinhThucThanhToan?: string;
+  /** Ví dụ: "Xe đầu kéo & xe 3–4 giờ". Khác `thoiGianGiao` (số ngày) ở từng dòng giá. */
+  thoiGianGiaoHang?: string;
+  /** Ví dụ: "VAT xuất tên Đất san lấp" · "NCC có nhiều loại đất lấp khác nhau". */
+  ghiChu?: string;
+}
+
 export interface BaoGia {
   id: string;
   code: string;
@@ -553,6 +572,40 @@ export interface BaoGia {
   /** Người ghi lý do và lúc nào — để biết ai chịu trách nhiệm về quyết định này. */
   nguoiChonTen?: string;
   thoiDiemChon?: string;
+  /**
+   * ★ ĐỀ XUẤT CỦA NHÂN VIÊN THU MUA — Ban lãnh đạo 13/08/2026: *"ở bước cung cấp so sánh báo
+   * giá, nhân viên phải đưa ra đề xuất lựa chọn NCC nào và phải có dẫn chứng cụ thể nên hãy
+   * để sẵn phần ghi chú cho nhân viên"*.
+   *
+   * 🔴 KHÁC `lyDoChonNCC` — đừng gộp hai thứ này:
+   *   · `deXuat*` là của NHÂN VIÊN, ghi ở bước ② khi trình xét duyệt. Là **kiến nghị**.
+   *   · `lyDoChonNCC` là của TRƯỞNG BỘ PHẬN, ghi ở bước ③ khi chốt. Là **quyết định**.
+   *
+   * Giữ riêng thì đọc lại hồ sơ thấy được cả hai: nhân viên đề xuất bên A vì giao nhanh,
+   * trưởng bộ phận vẫn chốt bên B vì giá thấp hơn — và cả hai đều có tên, có căn cứ. Gộp một
+   * trường là mất một trong hai tiếng nói, thường là tiếng của người làm trực tiếp.
+   */
+  deXuatNCCId?: string;
+  deXuatNCCTen?: string;
+  /** Dẫn chứng cụ thể cho đề xuất — bắt buộc điền trước khi trình xét duyệt. */
+  lyDoDeXuat?: string;
+  nguoiDeXuatTen?: string;
+  thoiDiemDeXuat?: string;
+
+  /**
+   * ★ THÔNG TIN THƯƠNG MẠI THEO TỪNG NHÀ CUNG CẤP — theo mẫu "SO SÁNH GIÁ" của công ty
+   * (Ban lãnh đạo cung cấp ảnh 13/08/2026).
+   *
+   * 🔴 Mẫu của công ty so sánh KHÔNG CHỈ GIÁ. Ba dòng cuối bảng là hình thức thanh toán,
+   * thời gian giao hàng và ghi chú — và chính chúng quyết định chọn ai. Ví dụ thật trong ảnh:
+   * bên rẻ nhất (Bảo Hoàng) ghi chú *"NCC có nhiều loại đất lấp khác nhau"*, còn các bên khác
+   * ghi rõ VAT xuất tên hàng gì. Thiếu ba dòng này thì bảng so sánh của app chỉ là bảng giá,
+   * không đủ để quyết định.
+   *
+   * 📌 Đặt ở cấp BẢNG BÁO GIÁ, không đặt trong từng dòng vật tư: hình thức thanh toán là
+   * thỏa thuận với nhà cung cấp cho cả đơn, không phải theo từng mặt hàng.
+   */
+  thongTinNCC?: ThongTinThuongMaiNCC[];
   /** Bản báo giá gốc nhà cung cấp gửi về, nhân viên thu mua tải lên — xem `TepBaoGiaNCC`. */
   tepBaoGia?: TepBaoGiaNCC[];
   hanNop: NgayISO;

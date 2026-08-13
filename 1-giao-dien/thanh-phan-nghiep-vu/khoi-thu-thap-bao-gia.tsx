@@ -8,9 +8,15 @@ import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
+import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { formatNumber, formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import { CO_TOI_DA, KIEU_CHO_PHEP, catTep, coTep } from "@/3-du-lieu/kho-tep";
-import type { BaoGia, NhaCungCap, TepBaoGiaNCC } from "@/3-du-lieu/kieu-du-lieu";
+import type {
+  BaoGia,
+  NhaCungCap,
+  TepBaoGiaNCC,
+  ThongTinThuongMaiNCC,
+} from "@/3-du-lieu/kieu-du-lieu";
 
 /**
  * BƯỚC ② YÊU CẦU NCC BÁO GIÁ — nơi làm việc thật của nhân viên thu mua.
@@ -35,6 +41,8 @@ export function KhoiThuThapBaoGia({
   nguoiDungTen,
   onNhapGia,
   onDinhKem,
+  onLuuDeXuat,
+  onLuuThongTinNCC,
   onTrinhXetDuyet,
 }: {
   baoGia: BaoGia;
@@ -45,6 +53,10 @@ export function KhoiThuThapBaoGia({
     giaTheoDong: Record<string, { donGia: number; thoiGianGiao: number }>,
   ) => void;
   onDinhKem: (tep: TepBaoGiaNCC) => void;
+  /** Ghi đề xuất chọn NCC của nhân viên (bước ②) — kiến nghị, không phải quyết định. */
+  onLuuDeXuat: (deXuat: { nccId: string; tenNCC: string; lyDo: string }) => void;
+  /** Ghi hình thức thanh toán / thời gian giao / ghi chú của một NCC, theo mẫu so sánh giá. */
+  onLuuThongTinNCC: (tt: ThongTinThuongMaiNCC) => void;
   onTrinhXetDuyet: () => void;
 }) {
   /**
@@ -65,6 +77,13 @@ export function KhoiThuThapBaoGia({
   const [gia, setGia] = useState<Record<string, string>>({});
   const [soNgayGiao, setSoNgayGiao] = useState("");
   const [dangTai, setDangTai] = useState(false);
+
+  /**
+   * ★ ĐỀ XUẤT CỦA NHÂN VIÊN — Ban lãnh đạo 13/08/2026. Nạp sẵn giá trị đã lưu để mở lại màn
+   * là thấy lại đề xuất mình viết dở, không phải gõ lại từ đầu.
+   */
+  const [deXuatId, setDeXuatId] = useState(baoGia.deXuatNCCId ?? "");
+  const [lyDoDeXuat, setLyDoDeXuat] = useState(baoGia.lyDoDeXuat ?? "");
 
   /** Bỏ mọi ký tự không phải chữ số khi so mã số thuế — phiếu hay ghi gạch/khoảng trắng. */
   const soThue = (x?: string) => (x ?? "").replace(/\D/g, "");
@@ -116,6 +135,22 @@ export function KhoiThuThapBaoGia({
       setDangTai(false);
     }
   }
+
+  /**
+   * CÒN THIẾU GÌ MỚI TRÌNH ĐƯỢC — `null` là đủ điều kiện.
+   *
+   * 🔴 Ban lãnh đạo 13/08/2026 bắt buộc có đề xuất KÈM DẪN CHỨNG. Cho trình khi chưa ghi thì
+   * trưởng bộ phận nhận một bảng giá trơ, phải tự đoán ý người đi hỏi giá — đúng thứ yêu cầu
+   * này sinh ra để bỏ.
+   */
+  const thieuDeTrinh: string | null =
+    daCoGia.length === 0
+      ? "Cần nhập giá của ít nhất một nhà cung cấp trước khi trình."
+      : deXuatId === ""
+        ? "Chọn nhà cung cấp bạn đề xuất trước khi trình."
+        : lyDoDeXuat.trim() === ""
+          ? "Ghi dẫn chứng cụ thể cho đề xuất trước khi trình."
+          : null;
 
   function luuGia() {
     if (!ncc) return;
@@ -358,16 +393,110 @@ export function KhoiThuThapBaoGia({
           </p>
         </div>
 
+        {/* ===== ★ ĐỀ XUẤT CỦA NHÂN VIÊN =====
+            🔴 Ban lãnh đạo 13/08/2026: *"ở bước cung cấp so sánh báo giá, nhân viên phải đưa
+            ra đề xuất lựa chọn NCC nào và phải có dẫn chứng cụ thể nên hãy để sẵn phần ghi chú
+            cho nhân viên"*.
+
+            📌 Đây là KIẾN NGHỊ của người làm trực tiếp, khác quyết định chốt của trưởng bộ
+            phận ở bước ③. Giữ riêng hai tiếng nói: đọc lại hồ sơ thấy được cả "nhân viên đề
+            xuất bên A vì giao nhanh" và "trưởng bộ phận chốt bên B vì rẻ hơn". */}
+        {daCoGia.length > 0 && (
+          <div className="flex flex-col gap-2 border-t border-divider pt-(--hp-md-card-gap)">
+            <Label>Đề xuất của bạn: chọn nhà cung cấp nào? *</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {daCoGia.map(([id, ten]) => (
+                <Button
+                  key={id}
+                  size="sm"
+                  variant={deXuatId === id ? "default" : "outline"}
+                  onClick={() => setDeXuatId(id === deXuatId ? "" : id)}
+                >
+                  {ten}
+                </Button>
+              ))}
+            </div>
+
+            <Label htmlFor="ly-do-de-xuat">Dẫn chứng cụ thể *</Label>
+            <Textarea
+              id="ly-do-de-xuat"
+              rows={3}
+              placeholder="Ví dụ: Nguyên Phát rẻ hơn Nam Bảo 120 triệu trên tổng 1,47 tỷ · giao xe đầu kéo 3–4 giờ đáp ứng tiến độ đợt 1 ngày 11/08 · đã làm 2 công trình trước không sự cố. Bảo Hoàng rẻ nhất nhưng có nhiều loại đất lấp khác nhau, chưa kiểm được chất lượng."
+              value={lyDoDeXuat}
+              onChange={(e) => setLyDoDeXuat(e.target.value)}
+            />
+            <p className="text-xs text-text-desc">
+              Ghi <strong>con số và dữ kiện</strong>, đừng ghi “giá tốt”. Trưởng bộ phận đọc phần
+              này để quyết, và đây cũng là căn cứ khi cần giải trình về sau.
+            </p>
+          </div>
+        )}
+
+        {/* ===== ★ THÔNG TIN THƯƠNG MẠI THEO NCC =====
+            Theo mẫu "SO SÁNH GIÁ" của công ty (ảnh Ban lãnh đạo 13/08/2026): ba dòng cuối bảng
+            là hình thức thanh toán · thời gian giao hàng · ghi chú. Chính chúng quyết định chọn
+            ai — thiếu thì bảng so sánh của app chỉ là bảng giá. */}
+        {daCoGia.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-divider pt-(--hp-md-card-gap)">
+            <Label>Điều kiện thương mại từng nhà cung cấp</Label>
+            {daCoGia.map(([id, ten]) => {
+              const tt = (baoGia.thongTinNCC ?? []).find((x) => x.nccId === id);
+              return (
+                <div key={id} className="flex flex-col gap-1.5 rounded-lg border border-border p-(--hp-md-row-pad)">
+                  <span className="text-sm font-medium text-text-primary">{ten}</span>
+                  <Input
+                    placeholder="Hình thức thanh toán — vd: Công nợ 15 ngày từ ngày xuất HĐ, chốt 15 & 30 hằng tháng"
+                    value={tt?.hinhThucThanhToan ?? ""}
+                    onChange={(e) =>
+                      onLuuThongTinNCC({ ...(tt ?? { nccId: id, tenNCC: ten }), hinhThucThanhToan: e.target.value })
+                    }
+                    aria-label={`Hình thức thanh toán của ${ten}`}
+                  />
+                  <Input
+                    placeholder="Thời gian giao hàng — vd: Xe đầu kéo & xe 3–4 giờ"
+                    value={tt?.thoiGianGiaoHang ?? ""}
+                    onChange={(e) =>
+                      onLuuThongTinNCC({ ...(tt ?? { nccId: id, tenNCC: ten }), thoiGianGiaoHang: e.target.value })
+                    }
+                    aria-label={`Thời gian giao hàng của ${ten}`}
+                  />
+                  <Input
+                    placeholder='Ghi chú — vd: VAT xuất tên "Đất san lấp"'
+                    value={tt?.ghiChu ?? ""}
+                    onChange={(e) =>
+                      onLuuThongTinNCC({ ...(tt ?? { nccId: id, tenNCC: ten }), ghiChu: e.target.value })
+                    }
+                    aria-label={`Ghi chú của ${ten}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* ---- Trình trưởng bộ phận ---- */}
         <div className="flex flex-wrap items-center gap-3 border-t border-divider pt-(--hp-md-card-gap)">
-          <Button onClick={onTrinhXetDuyet} disabled={daCoGia.length === 0}>
+          <Button
+            onClick={() => {
+              // Ghi đề xuất TRƯỚC khi trình — trình xong bảng chuyển bước, nhân viên không
+              // sửa được nữa, nên đề xuất phải nằm trong hồ sơ ngay lúc này.
+              const ncc = daCoGia.find(([id]) => id === deXuatId);
+              if (ncc) {
+                onLuuDeXuat({ nccId: ncc[0], tenNCC: ncc[1], lyDo: lyDoDeXuat });
+              }
+              onTrinhXetDuyet();
+            }}
+            disabled={thieuDeTrinh !== null}
+          >
             <Send className="size-4" aria-hidden />
             Trình trưởng bộ phận xem xét
           </Button>
-          {daCoGia.length === 0 ? (
+          {/* 🔴 Nút mờ PHẢI kèm lý do — nói rõ còn thiếu gì, không để người dùng bấm mãi
+              không được mà chẳng biết vì sao. */}
+          {thieuDeTrinh ? (
             <span className="flex items-center gap-1.5 text-xs text-warning-soft">
               <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-              Cần nhập giá của ít nhất một nhà cung cấp trước khi trình.
+              {thieuDeTrinh}
             </span>
           ) : (
             <span className="text-xs text-text-desc">

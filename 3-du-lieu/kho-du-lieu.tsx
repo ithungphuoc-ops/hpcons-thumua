@@ -65,6 +65,7 @@ import type {
   BaoGia,
   CongNo,
   TepBaoGiaNCC,
+  ThongTinThuongMaiNCC,
   MoTaTep,
   PhongBanNguon,
 } from "@/3-du-lieu/kieu-du-lieu";
@@ -229,6 +230,17 @@ interface GiaTriDuLieu {
   /** Bước ② — tải lên bản báo giá gốc nhà cung cấp gửi về. */
   dinhKemBaoGia: (bgId: string, tep: TepBaoGiaNCC, nguoiThucHien: string) => void;
   /** Bước ② → ③ — nhân viên trình trưởng bộ phận xem xét. */
+  /**
+   * Nhân viên ghi ĐỀ XUẤT chọn nhà cung cấp kèm dẫn chứng (bước ②).
+   * ⚠️ Chỉ là kiến nghị — không chốt NCC, không đổi trạng thái bảng.
+   */
+  luuDeXuatNCC: (
+    bgId: string,
+    deXuat: { nccId: string; tenNCC: string; lyDo: string },
+    nguoiThucHien: string,
+  ) => void;
+  /** Lưu hình thức thanh toán / thời gian giao / ghi chú của một nhà cung cấp. */
+  luuThongTinNCC: (bgId: string, tt: ThongTinThuongMaiNCC) => void;
   trinhXetDuyetBaoGia: (bgId: string, nguoiThucHien: string) => void;
   /** Duyệt phương án chia đơn cho nhiều NCC — bước ③ Xét duyệt → ④ Lập đơn mua hàng. */
   duyetPhuongAnTach: (bgId: string, nguoiThucHien: string) => void;
@@ -1357,6 +1369,63 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    *
    * Thay cho nút "Nhận đủ báo giá (giả lập)": nhân viên chủ động chốt là đã thu thập xong.
    */
+  /**
+   * ★ NHÂN VIÊN GHI ĐỀ XUẤT CHỌN NHÀ CUNG CẤP — Ban lãnh đạo 13/08/2026: *"nhân viên phải đưa
+   * ra đề xuất lựa chọn NCC nào và phải có dẫn chứng cụ thể"*.
+   *
+   * ⚠️ Đây là KIẾN NGHỊ, không phải quyết định. Không đổi trạng thái bảng báo giá, không chốt
+   * nhà cung cấp — trưởng bộ phận vẫn là người chốt ở bước ③ (`chonNCCChoBaoGia`).
+   */
+  const luuDeXuatNCC = useCallback(
+    (
+      bgId: string,
+      deXuat: { nccId: string; tenNCC: string; lyDo: string },
+      nguoiThucHien: string,
+    ) => {
+      const ngay = homNay();
+      setBaoGia((truoc) =>
+        truoc.map((b) =>
+          b.id === bgId
+            ? {
+                ...b,
+                deXuatNCCId: deXuat.nccId,
+                deXuatNCCTen: deXuat.tenNCC,
+                lyDoDeXuat: deXuat.lyDo.trim() || undefined,
+                nguoiDeXuatTen: nguoiThucHien,
+                thoiDiemDeXuat: thoiDiemHienTai(),
+                ngayCapNhat: ngay,
+              }
+            : b,
+        ),
+      );
+      const bg = baoGiaRef.current.find((b) => b.id === bgId);
+      // 🔒 KHÔNG ghi tên nhà cung cấp vào nhật ký đề nghị — nhật ký hiện cho cả vai trò không
+      // được xem NCC (quy ước ở `ghiLichSuDeNghi`).
+      if (bg) ghiLichSuDeNghi(bg.prId, nguoiThucHien, `Ghi đề xuất chọn NCC cho bảng ${bg.code}`);
+    },
+    [ghiLichSuDeNghi],
+  );
+
+  /**
+   * Lưu thông tin thương mại của một nhà cung cấp: hình thức thanh toán · thời gian giao ·
+   * ghi chú. Theo mẫu "SO SÁNH GIÁ" của công ty — xem `ThongTinThuongMaiNCC`.
+   */
+  const luuThongTinNCC = useCallback((bgId: string, tt: ThongTinThuongMaiNCC) => {
+    setBaoGia((truoc) =>
+      truoc.map((b) => {
+        if (b.id !== bgId) return b;
+        const ds = b.thongTinNCC ?? [];
+        const co = ds.some((x) => x.nccId === tt.nccId);
+        return {
+          ...b,
+          // Đã có thì THAY, chưa có thì thêm — không để hai dòng cùng một nhà cung cấp.
+          thongTinNCC: co ? ds.map((x) => (x.nccId === tt.nccId ? tt : x)) : [...ds, tt],
+          ngayCapNhat: homNay(),
+        };
+      }),
+    );
+  }, []);
+
   const trinhXetDuyetBaoGia = useCallback(
     (bgId: string, nguoiThucHien: string) => {
       const ngay = homNay();
@@ -1970,6 +2039,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       luuPhanBoBaoGia,
       nhapGiaNCC,
       dinhKemBaoGia,
+      luuDeXuatNCC,
+      luuThongTinNCC,
       trinhXetDuyetBaoGia,
       duyetPhuongAnTach,
       dongDoDeNghi,
@@ -2014,6 +2085,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       luuPhanBoBaoGia,
       nhapGiaNCC,
       dinhKemBaoGia,
+      luuDeXuatNCC,
+      luuThongTinNCC,
       trinhXetDuyetBaoGia,
       duyetPhuongAnTach,
       dongDoDeNghi,

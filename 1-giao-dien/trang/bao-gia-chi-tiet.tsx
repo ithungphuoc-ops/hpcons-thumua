@@ -36,7 +36,7 @@ import {
   kiemPhanBoDong,
 } from "@/2-quy-trinh/so-sanh-bao-gia";
 import { soatNguongBaoGia } from "@/2-quy-trinh/nguong-gia-tri";
-import type { PhanBoNCC } from "@/3-du-lieu/kieu-du-lieu";
+import type { PhanBoNCC, ThongTinThuongMaiNCC } from "@/3-du-lieu/kieu-du-lieu";
 import { formatCurrencyVnd, formatDate, formatNumber } from "@/6-tien-ich/dinh-dang";
 import { cn } from "@/6-tien-ich/gop-lop";
 
@@ -54,6 +54,8 @@ export default function TrangBaoGiaChiTiet() {
     dinhKemBaoGia,
     trinhXetDuyetBaoGia,
     duyetPhuongAnTach,
+    luuDeXuatNCC,
+    luuThongTinNCC,
     cauHinh,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
@@ -143,6 +145,10 @@ export default function TrangBaoGiaChiTiet() {
    *
    * `da_chon_ncc` = đã qua xét duyệt, đang ở bước ④ Lập đơn mua hàng. Đúng lúc cần chia.
    */
+  /** Tra thông tin thương mại của một nhà cung cấp — dùng cho ba dòng cuối bảng so sánh. */
+  const timThongTinNCC = (nccId: string): ThongTinThuongMaiNCC | undefined =>
+    (bg.thongTinNCC ?? []).find((x) => x.nccId === nccId);
+
   const dangOBuocLapDon = bg.trangThai === "da_chon_ncc";
   // Soát ngưỡng 5 / 10 / 20 triệu của quy trình — dùng cho lời cảnh báo trong hộp xác nhận
   // "Trình xét duyệt". Khối hiển thị đầy đủ là `KhoiNguongGiaTri` bên dưới, cùng một hàm luật.
@@ -290,6 +296,32 @@ export default function TrangBaoGiaChiTiet() {
           Đặt NGAY TRÊN khối nhập giá và bảng so sánh, không giấu xuống cuối trang: người
           dùng cần biết "đơn này cần mấy báo giá, ai duyệt" TRƯỚC khi trình, chứ không phải
           sau khi đã trình xong. Luật ở `2-quy-trinh/nguong-gia-tri.ts`. */}
+      {/* ===== ★ ĐỀ XUẤT CỦA NHÂN VIÊN THU MUA =====
+          🔴 Ban lãnh đạo 13/08/2026: nhân viên phải đề xuất chọn NCC nào kèm dẫn chứng cụ thể.
+
+          📌 ĐẶT TRÊN BẢNG SO SÁNH, không nhét xuống cuối trang: trưởng bộ phận mở màn này ra
+          là để quyết, nên thứ đầu tiên cần đọc là kiến nghị của người đã đi hỏi giá — rồi mới
+          soi bảng số để kiểm lại. */}
+      {bg.lyDoDeXuat && (
+        <Card className="border-primary/30 bg-primary-bg">
+          <CardHeader>
+            <CardTitle className="text-base">Đề xuất của nhân viên thu mua</CardTitle>
+            <p className="text-xs text-text-desc">
+              {bg.nguoiDeXuatTen}
+              {bg.thoiDiemDeXuat ? ` · ${formatDate(bg.thoiDiemDeXuat)}` : ""} — đây là kiến nghị,
+              quyết định cuối vẫn thuộc trưởng bộ phận.
+            </p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1.5">
+            <span className="flex flex-wrap items-baseline gap-x-2">
+              <span className="text-sm text-text-desc">Đề xuất chọn:</span>
+              <span className="text-sm font-semibold text-primary">{bg.deXuatNCCTen}</span>
+            </span>
+            <p className="text-sm whitespace-pre-line text-text-primary">{bg.lyDoDeXuat}</p>
+          </CardContent>
+        </Card>
+      )}
+
       <KhoiNguongGiaTri baoGia={bg} />
 
       {/* ===== CHỜ NHÀ CUNG CẤP GỬI GIÁ VỀ =====
@@ -308,6 +340,9 @@ export default function TrangBaoGiaChiTiet() {
           nguoiDungTen={nguoiDung.tenHienThi}
           onNhapGia={(ncc, gia) => nhapGiaNCC(bg.id, ncc, gia, nguoiDung.tenHienThi)}
           onDinhKem={(tep) => dinhKemBaoGia(bg.id, tep, nguoiDung.tenHienThi)}
+          // ★ Đề xuất của nhân viên + điều kiện thương mại từng NCC (Ban lãnh đạo 13/08/2026).
+          onLuuDeXuat={(dx) => luuDeXuatNCC(bg.id, dx, nguoiDung.tenHienThi)}
+          onLuuThongTinNCC={(tt) => luuThongTinNCC(bg.id, tt)}
           // Hỏi trước khi trình — chuyển bước là việc không lùi lại được (nguyên tắc
           // Ban lãnh đạo 10/08/2026).
           onTrinhXetDuyet={() => setViecChoXacNhan({ loai: "trinh_xet_duyet" })}
@@ -681,6 +716,36 @@ export default function TrangBaoGiaChiTiet() {
                   ))}
                   {cheDoTach && <TableCell />}
                 </TableRow>
+
+                {/* ===== BA DÒNG THƯƠNG MẠI — theo mẫu "SO SÁNH GIÁ" của công ty
+                    (ảnh Ban lãnh đạo 13/08/2026): hình thức thanh toán · thời gian giao hàng ·
+                    ghi chú.
+
+                    🔴 Chính ba dòng này quyết định chọn ai. Trong ảnh mẫu, bên rẻ nhất ghi chú
+                    *"NCC có nhiều loại đất lấp khác nhau"* — tức rẻ nhưng chưa chắc chọn. Thiếu
+                    ba dòng, bảng so sánh của app chỉ là bảng giá.
+
+                    📌 Chỉ hiện khi ĐÃ CÓ ai điền: bảng mà thêm ba hàng trống ở mọi bảng báo giá
+                    thì dài ra mà không nói gì. Nhân viên điền ở khối thu thập (bước ②). ===== */}
+                {[
+                  { nhan: "Hình thức thanh toán", lay: (t?: ThongTinThuongMaiNCC) => t?.hinhThucThanhToan },
+                  { nhan: "Thời gian giao hàng", lay: (t?: ThongTinThuongMaiNCC) => t?.thoiGianGiaoHang },
+                  { nhan: "Ghi chú", lay: (t?: ThongTinThuongMaiNCC) => t?.ghiChu },
+                ]
+                  .filter((h) => cot.some((c) => h.lay(timThongTinNCC(c.nccId))))
+                  .map((h) => (
+                    <TableRow key={h.nhan}>
+                      <TableCell colSpan={4} className="text-right font-medium text-text-secondary">
+                        {h.nhan}
+                      </TableCell>
+                      {cot.map((c) => (
+                        <TableCell key={c.nccId} className="align-top text-xs whitespace-pre-line">
+                          {h.lay(timThongTinNCC(c.nccId)) ?? "—"}
+                        </TableCell>
+                      ))}
+                      {cheDoTach && <TableCell />}
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </div>
