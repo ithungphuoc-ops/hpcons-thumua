@@ -20,6 +20,7 @@ import {
   HopSuaTruongBoSung,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-de-nghi";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
+import { HopNhanBanDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-ban-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/1-giao-dien/nen-tang-ui/tabs";
@@ -78,9 +79,12 @@ export default function TrangDanhSachDeNghi() {
   } | null>(null);
   /** Đề nghị đang chờ xác nhận xóa — xóa là việc không lùi lại được nên phải hỏi. */
   const [hoiXoa, setHoiXoa] = useState<string | null>(null);
+  /** Phiếu đang mở hộp nhân bản — `null` là hộp đóng. */
+  const [hoiNhanBan, setHoiNhanBan] = useState<string | null>(null);
 
   const dnDangSua = dangSua ? deNghi.find((d) => d.id === dangSua.prId) : undefined;
   const dnHoiXoa = hoiXoa ? deNghi.find((d) => d.id === hoiXoa) : undefined;
+  const dnHoiNhanBan = hoiNhanBan ? deNghi.find((d) => d.id === hoiNhanBan) : undefined;
 
   /**
    * Các thao tác của menu ⋯ trên thẻ.
@@ -93,20 +97,8 @@ export default function TrangDanhSachDeNghi() {
     onSuaThongTin: (prId) => setDangSua({ loai: "thong_tin", prId }),
     onSuaThoiHan: (prId) => setDangSua({ loai: "thoi_han", prId }),
     onSuaTruongBoSung: (prId) => setDangSua({ loai: "truong_bo_sung", prId }),
-    onNhanBan: (prId) => {
-      const id = nhanBanDeNghi(prId, nguoiDung.tenHienThi);
-      if (!id) {
-        // Nói thật khi không tạo được, đừng im lặng để người dùng tưởng đã nhân bản xong.
-        toast.error("Không nhân bản được", {
-          description: "Đã hết mã dự phòng cho bản chạy thử (tối đa 12 đề nghị).",
-        });
-        return;
-      }
-      toast.success("Đã nhân bản", {
-        description: "Bản sao chưa phân bổ cho ai — phân bổ lại trước khi đi tiếp.",
-        action: { label: "Mở bản copy", onClick: () => router.push(`/de-nghi/${id}`) },
-      });
-    },
+    // Mở hộp chọn mặt hàng trước, không nhân bản ngay — xem `hop-nhan-ban-de-nghi.tsx`.
+    onNhanBan: (prId) => setHoiNhanBan(prId),
     onDoiLuuTru: (prId, luuTru) => {
       doiLuuTru(prId, luuTru, nguoiDung.tenHienThi);
       toast.success(luuTru ? "Đã lưu trữ" : "Đã bỏ lưu trữ", {
@@ -353,6 +345,33 @@ export default function TrangDanhSachDeNghi() {
                 return;
               }
               toast.success("Đã xóa đề nghị");
+            }}
+          />
+
+          {/* ===== NHÂN BẢN — chép phiếu rồi bỏ bớt mặt hàng ngay trong một thao tác.
+              Ban lãnh đạo 13/08/2026: tách phiếu để giao cho nhân viên phù hợp. ===== */}
+          <HopNhanBanDeNghi
+            deNghi={dnHoiNhanBan ?? null}
+            mo={hoiNhanBan !== null}
+            onDong={() => setHoiNhanBan(null)}
+            onXacNhan={(sttGiuLai) => {
+              if (!hoiNhanBan) return;
+              const goc = dnHoiNhanBan;
+              const id = nhanBanDeNghi(hoiNhanBan, nguoiDung.tenHienThi, sttGiuLai);
+              if (!id) {
+                // Nói thật khi không tạo được, đừng im lặng để người dùng tưởng đã xong.
+                toast.error("Không nhân bản được", {
+                  description: "Đã hết mã dự phòng cho bản chạy thử (tối đa 12 đề nghị).",
+                });
+                return;
+              }
+              const tach = goc && sttGiuLai.length < goc.items.length;
+              toast.success("Đã nhân bản", {
+                description: tach
+                  ? `Bản mới giữ ${sttGiuLai.length}/${goc.items.length} mặt hàng, chưa phân bổ cho ai — giao việc trước khi đi tiếp.`
+                  : "Bản sao chưa phân bổ cho ai — phân bổ lại trước khi đi tiếp.",
+                action: { label: "Mở bản copy", onClick: () => router.push(`/de-nghi/${id}`) },
+              });
             }}
           />
           {quyen.lapPO && (

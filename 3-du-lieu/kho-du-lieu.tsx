@@ -228,7 +228,17 @@ interface GiaTriDuLieu {
   /** Sửa danh sách trường bổ sung (dữ liệu tùy chỉnh). */
   suaTruongBoSung: (prId: string, truong: TruongBoSung[], nguoiThucHien: string) => void;
   /** Nhân bản đề nghị — trả về id bản mới, chuỗi rỗng nếu hết id dự phòng. */
-  nhanBanDeNghi: (prId: string, nguoiThucHien: string) => string;
+  /**
+   * Nhân bản đề nghị để TÁCH PHIẾU giao cho nhiều nhân viên.
+   * `sttGiuLai` = số thứ tự các dòng vật tư giữ lại; bỏ trống thì giữ hết.
+   * Trả về id phiếu mới, hoặc "" nếu hết mã dự phòng / không giữ dòng nào.
+   */
+  /**
+   * Xóa một dòng vật tư khỏi đề nghị (tách phiếu xong thì bỏ dòng đã chuyển đi).
+   * Trả về câu giải thích nếu không xóa được, `null` nếu xóa xong.
+   */
+  xoaDongDeNghi: (prId: string, stt: number, nguoiThucHien: string) => string | null;
+  nhanBanDeNghi: (prId: string, nguoiThucHien: string, sttGiuLai?: number[]) => string;
   /** Xóa hẳn (chỉ bản chạy thử). Trả lý do bị chặn, `null` nghĩa là đã xóa. */
   xoaDeNghi: (prId: string) => string | null;
 
@@ -1417,50 +1427,143 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * Nhân bản đề nghị — tạo hồ sơ MỚI, chép nội dung nhưng KHÔNG chép tiến trình.
+   * XÓA MỘT DÒNG VẬT TƯ khỏi đề nghị — dùng sau khi tách phiếu bằng nhân bản.
    *
-   * 🔴 Bản sao phải SẠCH: bỏ hết phân bổ người phụ trách, nhật ký, người theo dõi, cờ lưu
-   * trữ. Chép cả phân bổ sang thì bản mới trông như đã có người làm, và mọi con số "chưa
-   * phân bổ" trên Tổng quan sai ngay. Nhật ký bản mới bắt đầu bằng đúng một dòng: nhân từ đâu.
+   * 🔴 Ban lãnh đạo 13/08/2026: *"có chức năng xóa bớt mặt hàng để giao cho nhân viên phù
+   * hợp"*. Tách phiếu xong thì phiếu gốc còn dư những dòng đã chuyển sang bản mới — không
+   * bỏ được thì cùng một mặt hàng nằm ở hai phiếu, hai người cùng đi hỏi giá, và khối
+   * lượng cộng đôi.
+   *
+   * ⚠️ HAI CHỐT AN TOÀN, trả về câu giải thích thay vì im lặng không làm gì:
+   *   1. Dòng đã lên đơn đặt hàng → xóa là dòng PO thành mồ côi, mọi phép đối chiếu khối
+   *      lượng hỏng theo (dòng PO trỏ về `stt` của đề nghị).
+   *   2. Dòng cuối cùng → phiếu không còn vật tư nào là hồ sơ chết. Muốn bỏ cả phiếu thì
+   *      dùng "Xóa hẳn đề nghị" hoặc "Đánh dấu thất bại", hai việc đó có cảnh báo riêng.
+   *
+   * 📌 Đánh số lại từ 1 sau khi xóa — `stt` là khóa đối chiếu, để lỗ hổng số thì người đọc
+   * tưởng mất dòng. Vì đánh số lại nên chốt số 1 ở trên là BẮT BUỘC: còn dòng PO trỏ về mà
+   * đánh số lại thì chúng trỏ nhầm sang mặt hàng khác — sai âm thầm, tệ hơn cả mồ côi.
    */
-  const nhanBanDeNghi = useCallback((prId: string, nguoiThucHien: string): string => {
-    const goc = deNghiRef.current.find((d) => d.id === prId);
-    if (!goc) return "";
-    const idMoi = ID_DE_NGHI_GIA_LAP.find((id) => !deNghiRef.current.some((d) => d.id === id));
-    if (!idMoi) return ""; // Hết id dự phòng — người gọi phải báo cho người dùng
-    const soHienCo = deNghiRef.current.filter((d) => d.maDuAn === goc.maDuAn).length;
-    const code = `${goc.maDuAn}-PR-${String(soHienCo + 1).padStart(3, "0")}`;
-    const ngay = homNay();
+  const xoaDongDeNghi = useCallback(
+    (prId: string, stt: number, nguoiThucHien: string): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+      const dong = dn.items.find((d) => d.stt === stt);
+      if (!dong) return "Không tìm thấy dòng vật tư này.";
+      if (dn.items.length <= 1) {
+        return "Đây là mặt hàng cuối cùng của phiếu. Phiếu không có vật tư thì không đi tiếp được bước nào — dùng “Xóa hẳn đề nghị” hoặc “Đánh dấu thất bại” nếu muốn bỏ cả phiếu.";
+      }
+      const coPO = donHangRef.current.some(
+        (p) =>
+          p.prId === prId &&
+          p.trangThai !== "huy" &&
+          p.items.some((x) => x.sttDongDeNghi === stt),
+      );
+      if (coPO) {
+        return "Mặt hàng này đã lên đơn đặt hàng nên không xóa được — xóa sẽ làm dòng đơn hàng mồ côi và sai khối lượng đối chiếu. Hủy dòng trên đơn hàng trước.";
+      }
 
-    setDeNghi((truoc) => [
-      ...truoc,
-      {
-        ...goc,
-        id: idMoi,
-        code,
-        // 🔴 Ban lãnh đạo 12/08/2026: *"việc nhân bản sẽ vẫn phải giữ tên của đề xuất chỉ
-        // thêm chữ (copy) phía sau"*. Giữ nguyên tên gốc để người dùng nhận ra ngay đây là
-        // bản của việc nào — đổi tên đi thì mất mối liên hệ với phiếu gốc.
-        tieuDe: `${goc.tieuDe} (copy)`,
-        ngayDeNghi: ngay,
-        ngayDuyet: ngay,
-        trangThai: "da_duyet",
-        luuTru: undefined,
-        nguoiTheoDoi: undefined,
-        items: goc.items.map((d) => ({
-          ...d,
-          nguoiPhuTrachUid: undefined,
-          nguoiPhuTrachTen: undefined,
-          nguoiPhanBoTen: undefined,
-          thoiDiemPhanBo: undefined,
-        })),
-        lichSu: [
-          { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong: `Nhân bản từ ${goc.code}` },
-        ],
-      },
-    ]);
-    return idMoi;
-  }, []);
+      setDeNghi((truoc) =>
+        truoc.map((d) =>
+          d.id !== prId
+            ? d
+            : {
+                ...d,
+                items: d.items.filter((x) => x.stt !== stt).map((x, i) => ({ ...x, stt: i + 1 })),
+                lichSu: [
+                  ...d.lichSu,
+                  {
+                    thoiDiem: thoiDiemHienTai(),
+                    nguoiThucHien,
+                    hanhDong: `Xóa mặt hàng khỏi đề nghị: ${dong.tenVatLieu}`,
+                    ghiChu: `Còn ${d.items.length - 1} mặt hàng`,
+                  },
+                ],
+              },
+        ),
+      );
+      return null;
+    },
+    [],
+  );
+
+  /**
+   * Nhân bản đề nghị — tạo hồ sơ MỚI, GIỮ NGUYÊN thông tin, chỉ thêm "(copy)" vào tên.
+   *
+   * 🔴 Ban lãnh đạo 13/08/2026: *"nhân bản sẽ giữ nguyên toàn bộ thông tin chỉ thêm chữ
+   * (copy) phía sau và có chức năng xóa bớt mặt hàng để giao cho nhân viên phù hợp"*.
+   *
+   * Đây là cách **TÁCH PHIẾU**: một đề nghị 10 mặt hàng, nhân bản vài lần, mỗi bản giữ
+   * phần mặt hàng của một nhân viên rồi giao riêng. Vì vậy `sttGiuLai` là danh sách số
+   * thứ tự dòng được giữ — bỏ trống nghĩa là giữ hết.
+   *
+   * ⚠️ PHÂN BIỆT "thông tin" và "tiến trình":
+   *   · Thông tin (dự án, công trình, mặt hàng, ngày cần hàng, mức ưu tiên, **người theo
+   *     dõi**, **tài liệu đính kèm**) → CHÉP HẾT, đúng chữ "giữ nguyên toàn bộ".
+   *   · Tiến trình (ai đang phụ trách dòng nào, nhật ký, cờ lưu trữ) → KHÔNG chép. Chép
+   *     phân bổ sang thì bản mới trông như đã có người làm — mà mục đích tách phiếu chính
+   *     là để giao lại cho người phù hợp, nên giữ phân bổ cũ là đi ngược ý muốn.
+   */
+  const nhanBanDeNghi = useCallback(
+    (prId: string, nguoiThucHien: string, sttGiuLai?: number[]): string => {
+      const goc = deNghiRef.current.find((d) => d.id === prId);
+      if (!goc) return "";
+      const idMoi = ID_DE_NGHI_GIA_LAP.find((id) => !deNghiRef.current.some((d) => d.id === id));
+      if (!idMoi) return ""; // Hết id dự phòng — người gọi phải báo cho người dùng
+      const soHienCo = deNghiRef.current.filter((d) => d.maDuAn === goc.maDuAn).length;
+      const code = `${goc.maDuAn}-PR-${String(soHienCo + 1).padStart(3, "0")}`;
+      const ngay = homNay();
+
+      const giu = sttGiuLai && sttGiuLai.length > 0 ? new Set(sttGiuLai) : null;
+      const dongGiuLai = giu ? goc.items.filter((d) => giu.has(d.stt)) : goc.items;
+      // Không còn dòng nào thì không tạo phiếu rỗng — phiếu không có vật tư là hồ sơ chết,
+      // không đi tiếp được bước nào mà vẫn chiếm một trong 12 mã dự phòng.
+      if (dongGiuLai.length === 0) return "";
+
+      setDeNghi((truoc) => [
+        ...truoc,
+        {
+          ...goc,
+          id: idMoi,
+          code,
+          // 🔴 Ban lãnh đạo 12/08/2026: *"việc nhân bản sẽ vẫn phải giữ tên của đề xuất chỉ
+          // thêm chữ (copy) phía sau"*. Giữ nguyên tên gốc để người dùng nhận ra ngay đây là
+          // bản của việc nào — đổi tên đi thì mất mối liên hệ với phiếu gốc.
+          tieuDe: `${goc.tieuDe} (copy)`,
+          ngayDeNghi: ngay,
+          ngayDuyet: ngay,
+          trangThai: "da_duyet",
+          luuTru: undefined,
+          /**
+           * ⚠️ ĐÁNH SỐ LẠI TỪ 1. `stt` là KHÓA ĐỐI CHIẾU khối lượng — dòng đơn hàng và dòng
+           * nhận hàng đều trỏ về nó. Giữ số cũ (ví dụ chỉ còn dòng 3, 7) thì phiếu mới có
+           * dòng số 3 và 7 mà không có 1, 2 — người đọc tưởng mất dòng, và mọi chỗ đếm
+           * "dòng thứ mấy" đều lệch.
+           */
+          items: dongGiuLai.map((d, i) => ({
+            ...d,
+            stt: i + 1,
+            nguoiPhuTrachUid: undefined,
+            nguoiPhuTrachTen: undefined,
+            nguoiPhanBoTen: undefined,
+            thoiDiemPhanBo: undefined,
+          })),
+          lichSu: [
+            {
+              thoiDiem: thoiDiemHienTai(),
+              nguoiThucHien,
+              hanhDong: `Nhân bản từ ${goc.code}`,
+              ghiChu: giu
+                ? `Giữ ${dongGiuLai.length}/${goc.items.length} mặt hàng của phiếu gốc`
+                : `Giữ nguyên toàn bộ ${goc.items.length} mặt hàng`,
+            },
+          ],
+        },
+      ]);
+      return idMoi;
+    },
+    [],
+  );
 
   /**
    * XÓA HẲN đề nghị.
@@ -1612,6 +1715,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDeNghiGiaLap,
       phanBoDong,
       boPhanBoDong,
+      xoaDongDeNghi,
       chuyenViecDong,
       themDonHang,
       themPhieuNhan,
@@ -1651,6 +1755,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDeNghiGiaLap,
       phanBoDong,
       boPhanBoDong,
+      xoaDongDeNghi,
       chuyenViecDong,
       themDonHang,
       themPhieuNhan,

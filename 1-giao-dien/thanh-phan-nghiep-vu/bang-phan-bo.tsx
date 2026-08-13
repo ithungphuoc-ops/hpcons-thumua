@@ -1,7 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeftRight, MoreHorizontal, UserPlus, X } from "lucide-react";
+import { toast } from "sonner";
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  MoreHorizontal,
+  Trash2,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
@@ -86,7 +94,10 @@ function YeuCauGiaoViec({ soBaoGia, ghiChu }: { soBaoGia?: number; ghiChu?: stri
  * đây là chỗ hay bỏ sót nhất trong mua hàng thực tế.
  */
 export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
-  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong } = useDuLieu();
+  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, xoaDongDeNghi } =
+    useDuLieu();
+  /** Dòng đang hỏi xóa — `null` là hộp đóng. Giữ cả tên để câu hỏi nói rõ xóa cái gì. */
+  const [hoiXoaDong, setHoiXoaDong] = useState<{ stt: number; ten: string } | null>(null);
   const { nguoiDung, quyen, danhSachTaiKhoan } = useNguoiDung();
   const [chon, setChon] = useState<number[]>([]);
 
@@ -203,6 +214,19 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   function coHanhDong(d: { stt: number; trangThaiDong: string; nguoiPhuTrachUid?: string }) {
     if (d.trangThaiDong !== "da_phan_bo") return false;
     return duocChuyenViecDong(d, nguoiDung.uid, quyen) || quyen.phanBoCongViec;
+  }
+
+  /**
+   * Dòng này có hiện nút xóa mặt hàng không.
+   *
+   * ⚠️ CHỈ ẨN NÚT cho hai trường hợp chắc chắn không xóa được — dòng đã lên đơn hàng, và
+   * dòng cuối cùng. Luật đầy đủ nằm ở `xoaDongDeNghi` trong kho dữ liệu và vẫn chặn lần
+   * nữa khi bấm: ẩn nút chỉ là phép lịch sự với người dùng, KHÔNG phải lớp bảo vệ.
+   */
+  function xoaDuocDong(d: { stt: number; trangThaiDong: string }) {
+    if (!quyen.phanBoCongViec) return false;
+    if (deNghi.items.length <= 1) return false;
+    return d.trangThaiDong === "chua_phan_bo" || d.trangThaiDong === "da_phan_bo";
   }
 
   function doiChon(stt: number, checked: boolean) {
@@ -332,7 +356,28 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                     <TableCell className="text-right text-text-desc">{d.stt}</TableCell>
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
-                        <span>{d.tenVatLieu}</span>
+                        <span className="flex items-center gap-1">
+                          <span className="min-w-0">{d.tenVatLieu}</span>
+                          {/* 🔴 Ban lãnh đạo 13/08/2026: *"có chức năng xóa bớt mặt hàng để
+                              giao cho nhân viên phù hợp"*. Dùng sau khi tách phiếu bằng nhân
+                              bản — phiếu gốc còn dư những dòng đã chuyển sang bản mới, để
+                              lại là hai người cùng đi hỏi giá một mặt hàng.
+
+                              ⚠️ Nút đặt Ở ĐÂY chứ không nhét vào menu ⋯ của cột Người phụ
+                              trách: menu đó chỉ hiện khi dòng ĐÃ có người làm, mà lúc hay
+                              xóa nhất lại là ngay sau khi tách — khi chưa giao ai cả. */}
+                          {xoaDuocDong(d) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7 shrink-0 text-text-desc hover:text-danger"
+                              aria-label={`Xóa mặt hàng ${d.tenVatLieu} khỏi đề nghị`}
+                              onClick={() => setHoiXoaDong({ stt: d.stt, ten: d.tenVatLieu })}
+                            >
+                              <Trash2 className="size-3.5" aria-hidden />
+                            </Button>
+                          )}
+                        </span>
                         {d.quyCach && <span className="text-xs text-text-desc">{d.quyCach}</span>}
                         {/* Mục đích sử dụng do người đề nghị ghi trên phiếu — hiện ngay
                             dưới tên vật liệu để người lập đơn biết mua cho hạng mục nào,
@@ -451,7 +496,22 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                       <span className="text-xs text-text-desc">Dùng cho: {d.mucDichSuDung}</span>
                     )}
                   </div>
-                  <StatusBadge label={tt.nhan} tone={tt.tong} />
+                  {/* Vùng chạm ≥44px theo V1.1 — nút xóa trên điện thoại phải bấm được
+                      bằng ngón tay, không co lại như bản máy tính. */}
+                  <span className="flex shrink-0 items-center gap-1">
+                    <StatusBadge label={tt.nhan} tone={tt.tong} />
+                    {xoaDuocDong(d) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-11 shrink-0 text-text-desc"
+                        aria-label={`Xóa mặt hàng ${d.tenVatLieu} khỏi đề nghị`}
+                        onClick={() => setHoiXoaDong({ stt: d.stt, ten: d.tenVatLieu })}
+                      >
+                        <Trash2 className="size-4" aria-hidden />
+                      </Button>
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-text-desc">Đề nghị</span>
@@ -623,6 +683,28 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
           </div>
         </div>
       </HopXacNhan>
+
+      {/* ===== XÓA MẶT HÀNG KHỎI ĐỀ NGHỊ =====
+          Kho dữ liệu còn chặn thêm hai lớp (dòng đã lên đơn hàng · dòng cuối cùng) và trả
+          về lý do — hộp này chỉ hỏi lại, không tự phán đoán, để luật nằm một chỗ duy nhất. */}
+      <HopXacNhan
+        mo={hoiXoaDong !== null}
+        tieuDe="Xóa mặt hàng khỏi đề nghị?"
+        moTa={hoiXoaDong ? `Dòng ${hoiXoaDong.stt} — ${hoiXoaDong.ten}` : undefined}
+        canhBao="Các mặt hàng còn lại được đánh số lại từ 1. Dùng khi đã tách phần việc này sang một phiếu khác bằng chức năng Nhân bản."
+        nhanDongY="Xóa mặt hàng"
+        nguyHiem
+        onDong={() => setHoiXoaDong(null)}
+        onDongY={() => {
+          if (!hoiXoaDong) return;
+          const lyDo = xoaDongDeNghi(deNghi.id, hoiXoaDong.stt, nguoiDung.tenHienThi);
+          if (lyDo) {
+            toast.error("Không xóa được mặt hàng", { description: lyDo });
+            return;
+          }
+          toast.success("Đã xóa mặt hàng khỏi đề nghị");
+        }}
+      />
     </Card>
   );
 }
