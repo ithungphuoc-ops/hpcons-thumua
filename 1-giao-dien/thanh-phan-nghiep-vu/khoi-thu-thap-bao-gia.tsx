@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Check, Eye, Paperclip, Send } from "lucide-react";
+import { AlertTriangle, Check, Paperclip, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/1-giao-dien/nen-tang-ui/card";
+import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { formatNumber, formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
-import { CO_TOI_DA, KIEU_CHO_PHEP, catTep, coTep, moTep } from "@/3-du-lieu/kho-tep";
+import { CO_TOI_DA, KIEU_CHO_PHEP, catTep, coTep } from "@/3-du-lieu/kho-tep";
 import type { BaoGia, NhaCungCap, TepBaoGiaNCC } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -114,14 +115,6 @@ export function KhoiThuThapBaoGia({
     } finally {
       setDangTai(false);
     }
-  }
-
-  async function xemTep(t: TepBaoGiaNCC) {
-    if (await moTep(t)) return;
-    toast.error("Không còn nội dung tệp", {
-      description:
-        "Không tải được nội dung tệp từ máy chủ. Kiểm tra lại mạng rồi thử lại.",
-    });
   }
 
   function luuGia() {
@@ -310,24 +303,19 @@ export function KhoiThuThapBaoGia({
                   key={`${t.tenTep}-${i}`}
                   className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
                 >
-                  <Paperclip className="size-3.5 shrink-0 text-text-desc" aria-hidden />
-                  <span className="font-medium text-text-primary">{t.tenTep}</span>
-                  <span className="text-text-desc">
-                    {t.tenNCC} · {coTep(t.kichThuoc)} · {t.nguoiTaiTen} ·{" "}
-                    {formatMocThoiGian(t.thoiDiem)}
-                  </span>
                   {/* Bản ghi trước 11/08/2026 không có `id` vì hồi đó nội dung tệp chưa từng
-                      được lưu — hiện nút thì bấm vào chỉ báo lỗi, nên ẩn luôn cho khỏi hụt hẫng. */}
-                  {t.id && (
-                    <button
-                      type="button"
-                      onClick={() => void xemTep(t)}
-                      className="inline-flex min-h-7 items-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary"
-                    >
-                      <Eye className="size-3.5 shrink-0" aria-hidden />
-                      Xem
-                    </button>
+                      được lưu — hiện nút thì bấm vào chỉ báo lỗi, nên chỉ in tên cho khỏi hụt hẫng. */}
+                  {t.id ? (
+                    <LienKetTep tep={t} />
+                  ) : (
+                    <>
+                      <Paperclip className="size-3.5 shrink-0 text-text-desc" aria-hidden />
+                      <span className="font-medium text-text-primary">{t.tenTep}</span>
+                    </>
                   )}
+                  <span className="text-text-desc">
+                    {t.tenNCC} · {t.nguoiTaiTen} · {formatMocThoiGian(t.thoiDiem)}
+                  </span>
                 </li>
               ))}
             </ul>

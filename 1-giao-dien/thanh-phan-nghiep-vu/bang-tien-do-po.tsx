@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, PackageCheck, Paperclip, Plus } from "lucide-react";
+import { AlertTriangle, PackageCheck, Plus } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
@@ -16,6 +16,7 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { ODinhKemTep, rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
+import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -347,14 +348,14 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                           onXong={(tep) => dinhKemPhieuGiao(p.id, tep, nguoiDung.tenHienThi)}
                         />
                       ) : p.tepPhieuGiao ? (
+                        // 🔴 13/08/2026: bấm được để XEM và TẢI VỀ (Ban lãnh đạo yêu cầu).
+                        // Trước đó chỉ in ra chữ — người dùng thấy tên tệp mà không mở được,
+                        // tưởng app chưa lưu nội dung. Luật ở `LienKetTep`, một chỗ duy nhất.
                         // `min-w-0` + `truncate`: tên tệp ảnh chụp điện thoại dài cả trăm ký
-                        // tự, để nguyên là kéo giãn cả thẻ. Tên đầy đủ nằm ở `title`.
-                        <span className="flex items-center gap-1.5 text-xs text-success-soft">
-                          <Paperclip className="size-3.5 shrink-0" aria-hidden />
+                        // tự, để nguyên là kéo giãn cả thẻ.
+                        <span className="flex min-w-0 items-center gap-1.5 text-xs text-success-soft">
                           <span className="shrink-0">Có phiếu giao nhận:</span>
-                          <span className="min-w-0 truncate" title={p.tepPhieuGiao.tenTep}>
-                            {rutGonTenTep(p.tepPhieuGiao.tenTep)}
-                          </span>
+                          <LienKetTep tep={p.tepPhieuGiao} rutGon={rutGonTenTep} />
                         </span>
                       ) : (
                         <span className="flex items-center gap-1.5 text-xs text-warning-soft">

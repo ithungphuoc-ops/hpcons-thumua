@@ -190,6 +190,32 @@ export async function moTep(mt: MoTaTep): Promise<boolean> {
   return true;
 }
 
+/**
+ * TẢI TỆP VỀ MÁY — Ban lãnh đạo 13/08/2026: *"thêm chức năng xem và tải chứng từ về"*.
+ *
+ * 🔴 KHÁC `moTep`: mở chỉ xem được trên màn hình, còn kế toán và người lưu hồ sơ cần bản
+ * tệp thật để in, gửi kèm email, nộp cho kiểm toán. Trình duyệt lại tự mở PDF/ảnh trong
+ * tab thay vì tải, nên phải dùng thẻ `<a download>` mới ép tải xuống được.
+ *
+ * 📌 Đặt lại tên tệp theo tên gốc người dùng đã tải lên. Không đặt thì tệp về máy mang cái
+ * tên máy sinh (`1785921185922_1967909...jpg`) — mở thư mục Downloads ra không biết cái nào
+ * là phiếu giao nhận của đơn nào.
+ */
+export async function taiTep(mt: MoTaTep): Promise<boolean> {
+  const blob = await layTep(mt.id);
+  if (!blob) return false;
+  const diaChi = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = diaChi;
+  a.download = mt.tenTep;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Thu hồi ngay được vì trình duyệt đã bắt đầu tải trước khi hàm này trả về.
+  setTimeout(() => URL.revokeObjectURL(diaChi), 1_000);
+  return true;
+}
+
 /** Xóa nội dung tệp khỏi kho. Gọi khi hồ sơ chứa nó bị xóa, để không bỏ rác lại. */
 export async function xoaTep(id: string): Promise<void> {
   const db = await moKho();

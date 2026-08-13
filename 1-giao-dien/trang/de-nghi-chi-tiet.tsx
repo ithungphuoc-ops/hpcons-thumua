@@ -9,7 +9,6 @@ import {
   ArrowLeft,
   FileWarning,
   GitBranch,
-  Paperclip,
   Forward,
   ShoppingCart,
   Split,
@@ -17,6 +16,7 @@ import {
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { DanhSachTruong } from "@/1-giao-dien/thanh-phan-dung-chung/danh-sach-truong";
 import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
@@ -46,7 +46,6 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
-import { coTep, moTep } from "@/3-du-lieu/kho-tep";
 import { vuongMacSangBuocSau, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   NHAN_TRANG_THAI_BAO_GIA,
@@ -304,27 +303,8 @@ export default function TrangChiTietDeNghi() {
                 <ul className="flex flex-col gap-1">
                   {dn.taiLieu.map((t) => (
                     <li key={t.id} className="flex min-w-0 items-center gap-2 text-sm">
-                      <Paperclip className="size-3.5 shrink-0 text-text-desc" aria-hidden />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void moTep(t).then((duoc) => {
-                            if (!duoc) {
-                              toast.error("Không mở được tệp", {
-                                description:
-                                  "Không tải được nội dung từ máy chủ. Kiểm tra mạng rồi thử lại.",
-                              });
-                            }
-                          })
-                        }
-                        className="min-w-0 truncate text-left text-primary hover:underline"
-                        title={t.tenTep}
-                      >
-                        {t.tenTep}
-                      </button>
-                      <span className="shrink-0 text-xs text-text-desc">
-                        {t.nguoiTaiTen} · {coTep(t.kichThuoc)}
-                      </span>
+                      <LienKetTep tep={t} />
+                      <span className="shrink-0 text-xs text-text-desc">{t.nguoiTaiTen}</span>
                     </li>
                   ))}
                 </ul>

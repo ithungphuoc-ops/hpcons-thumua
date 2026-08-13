@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Eye, Paperclip, RefreshCw } from "lucide-react";
+import { AlertTriangle, Download, Eye, Paperclip, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import {
   CO_TOI_DA,
@@ -10,6 +10,7 @@ import {
   coTep,
   moTep,
   type MoTaTep,
+  taiTep,
 } from "@/3-du-lieu/kho-tep";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 
@@ -75,6 +76,17 @@ export function ODinhKemTep({
     }
   }
 
+  /** Tải chứng từ về máy — xem `taiTep`, khác "xem" ở chỗ ép trình duyệt lưu file xuống. */
+  async function tai() {
+    if (!tep) return;
+    const duoc = await taiTep(tep);
+    if (!duoc) {
+      toast.error("Không tải được tệp", {
+        description: "Không lấy được nội dung từ máy chủ. Kiểm tra mạng rồi thử lại.",
+      });
+    }
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       {tep ? (
@@ -107,6 +119,17 @@ export function ODinhKemTep({
             >
               <Eye className="size-3.5 shrink-0" aria-hidden />
               Xem
+            </button>
+            {/* ★ TẢI VỀ — Ban lãnh đạo 13/08/2026: *"thêm chức năng xem và tải chứng từ
+                về"*. Xem chỉ đủ để kiểm tra trên màn hình; kế toán và người lưu hồ sơ cần
+                bản tệp thật để in, gửi kèm email, nộp kiểm toán. */}
+            <button
+              type="button"
+              onClick={tai}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary"
+            >
+              <Download className="size-3.5 shrink-0" aria-hidden />
+              Tải về
             </button>
             {!khoa && (
               <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary">

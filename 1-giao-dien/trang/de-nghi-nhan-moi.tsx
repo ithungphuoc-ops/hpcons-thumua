@@ -12,6 +12,7 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { timNhanSu, type NhanSu } from "@/3-du-lieu/danh-ba-nhan-su";
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
+import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import {
   DANH_MUC_PHONG_BAN,
   PHONG_BAN_MAC_DINH,
@@ -24,8 +25,6 @@ import {
   CO_TOI_DA,
   KIEU_CHO_PHEP,
   catTep,
-  coTep,
-  moTep,
   xoaTep,
   type MoTaTep,
 } from "@/3-du-lieu/kho-tep";
@@ -816,16 +815,9 @@ export default function TrangNhanDeNghiMoi() {
                       key={t.id}
                       className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-1.5"
                     >
-                      <Paperclip className="size-3.5 shrink-0 text-text-desc" aria-hidden />
-                      <button
-                        type="button"
-                        onClick={() => void moTep(t)}
-                        className="min-w-0 truncate text-left text-sm text-primary hover:underline"
-                        title={t.tenTep}
-                      >
-                        {t.tenTep}
-                      </button>
-                      <span className="shrink-0 text-xs text-text-desc">{coTep(t.kichThuoc)}</span>
+                      {/* Xem + tải về, luật ở `LienKetTep` — một chỗ duy nhất cho mọi
+                          chỗ hiện chứng từ đính kèm (Ban lãnh đạo 13/08/2026). */}
+                      <LienKetTep tep={t} />
                       <button
                         type="button"
                         onClick={() => boTaiLieu(t.id)}
