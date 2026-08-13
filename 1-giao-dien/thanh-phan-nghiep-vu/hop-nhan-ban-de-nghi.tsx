@@ -13,6 +13,8 @@ import {
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
 import { formatNumber } from "@/6-tien-ich/dinh-dang";
+import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { maBanSaoTiepTheo, phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -46,6 +48,8 @@ export function HopNhanBanDeNghi({
   /** Nhận danh sách `stt` các dòng được giữ lại. */
   onXacNhan: (sttGiuLai: number[]) => void;
 }) {
+  /** Cả kho đề nghị — cần để tra phiếu gốc và đếm số bản đã tách. */
+  const { deNghi: dsDeNghi } = useDuLieu();
   const [chon, setChon] = useState<Set<number>>(new Set());
 
   /**
@@ -62,6 +66,9 @@ export function HopNhanBanDeNghi({
 
   const tatCa = deNghi.items;
   const soChon = chon.size;
+  // Luật đặt tên và quan hệ cha–con: MỘT CHỖ DUY NHẤT, dùng chung với kho dữ liệu.
+  const goc = phieuGocCua(deNghi, dsDeNghi);
+  const maMoi = maBanSaoTiepTheo(deNghi, dsDeNghi);
 
   function doiDong(stt: number) {
     setChon((truoc) => {
@@ -79,9 +86,33 @@ export function HopNhanBanDeNghi({
           <DialogTitle>Nhân bản đề nghị {deNghi.code}</DialogTitle>
           <DialogDescription>
             Bản sao giữ nguyên dự án, công trình, ngày cần hàng, người theo dõi và tài liệu
-            đính kèm. Tên phiếu thành “{deNghi.tieuDe} (copy)”.
+            đính kèm.
           </DialogDescription>
         </DialogHeader>
+
+        {/* 🔴 Tên bản sao TÍNH BẰNG ĐÚNG HÀM mà kho dữ liệu dùng khi lưu
+            (`2-quy-trinh/nhan-ban-de-nghi.ts`), không tự ghép chuỗi ở đây.
+
+            Bản trước viết thẳng `{deNghi.tieuDe} (copy)` nên nhân bản từ một bản copy thì
+            hộp báo *"… (copy) (copy)"* trong khi app lưu *"… (copy 2)"* — hộp nói một đằng,
+            app làm một nẻo, và người dùng tin vào cái đọc được. Ban lãnh đạo phát hiện
+            13/08/2026. */}
+        <p className="rounded-lg border border-border bg-muted px-3 py-2 text-sm">
+          <span className="text-text-desc">Mã phiếu mới: </span>
+          <span className="font-semibold text-text-primary">{maMoi}</span>
+          <span className="block text-xs text-text-desc">
+            Tên đề xuất giữ nguyên: {goc.tieuDe}
+          </span>
+        </p>
+
+        {/* Đứng ở một bản copy mà nhân bản tiếp thì nói rõ nó vẫn thuộc đề xuất lớn nào —
+            quan hệ cha–con chỉ MỘT cấp, không sinh ra chuỗi cha–con–cháu. */}
+        {goc.id !== deNghi.id && (
+          <p className="text-xs text-text-desc">
+            Bản mới vẫn thuộc đề xuất gốc <strong>{goc.code}</strong>, không phải con của{" "}
+            {deNghi.code}.
+          </p>
+        )}
 
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">

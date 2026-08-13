@@ -18,6 +18,7 @@ import {
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
+import { maBanSaoTiepTheo, phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import {
   DE_NGHI_MAU,
@@ -1529,8 +1530,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (!goc) return "";
       const idMoi = ID_DE_NGHI_GIA_LAP.find((id) => !deNghiRef.current.some((d) => d.id === id));
       if (!idMoi) return ""; // Hết id dự phòng — người gọi phải báo cho người dùng
-      const soHienCo = deNghiRef.current.filter((d) => d.maDuAn === goc.maDuAn).length;
-      const code = `${goc.maDuAn}-PR-${String(soHienCo + 1).padStart(3, "0")}`;
       const ngay = homNay();
 
       const giu = sttGiuLai && sttGiuLai.length > 0 ? new Set(sttGiuLai) : null;
@@ -1540,19 +1539,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (dongGiuLai.length === 0) return "";
 
       /**
-       * ★ TÊN BẢN SAO — Ban lãnh đạo 13/08/2026: giữ nguyên tên đề xuất, chỉ thêm "(copy)".
-       *
-       * 🔴 Lấy tên GỐC ĐẦU TIÊN, không lấy tên phiếu đang nhân bản. Tách một đề xuất lớn
-       * thành 3 phần thì nhân bản 3 lần — nếu lần nào cũng nối thêm vào tên vừa có, bản
-       * thứ ba mang tên *"Vật tư (copy) (copy) (copy)"*, không ai đọc ra được nó thuộc đề
-       * xuất nào. Nay: bản 2 là "(copy)", bản 3 là "(copy 2)"…
+       * ★ MÃ BẢN SAO và PHIẾU GỐC — luật ở `2-quy-trinh/nhan-ban-de-nghi.ts`, MỘT CHỖ DUY
+       * NHẤT. Hộp nhân bản trên giao diện gọi đúng hai hàm này để hiện mã trước cho người
+       * dùng xem; tự tính lại ở đây là hai chỗ lệch nhau (đã dính lỗi đó ngày 13/08/2026).
        */
-      const goc1 = goc.deNghiGocId
-        ? (deNghiRef.current.find((d) => d.id === goc.deNghiGocId) ?? goc)
-        : goc;
-      const tenGoc = goc1.tieuDe;
-      const soBanDaCo = deNghiRef.current.filter((d) => d.deNghiGocId === goc1.id).length;
-      const tieuDeMoi = soBanDaCo === 0 ? `${tenGoc} (copy)` : `${tenGoc} (copy ${soBanDaCo + 1})`;
+      const goc1 = phieuGocCua(goc, deNghiRef.current);
+      const code = maBanSaoTiepTheo(goc, deNghiRef.current);
 
       setDeNghi((truoc) => [
         ...truoc,
@@ -1560,7 +1552,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           ...goc,
           id: idMoi,
           code,
-          tieuDe: tieuDeMoi,
+          // 🔴 TIÊU ĐỀ GIỮ NGUYÊN TUYỆT ĐỐI. Ban lãnh đạo 13/08/2026 làm rõ bằng ví dụ
+          // *"26001-HPCS-PR-001 (copy)"*: dấu "(copy)" nằm ở MÃ, không nằm ở tiêu đề. Các
+          // phần tách của cùng một đề xuất mang cùng một tiêu đề là đúng — chúng là một
+          // việc, chỉ chia ra cho nhiều người làm.
+          tieuDe: goc1.tieuDe,
           // ★ Quan hệ cha–con để TỔNG HỢP LẠI được các bản tách (xem `deNghiGocId`).
           deNghiGocId: goc1.id,
           maDeNghiGoc: goc1.code,
