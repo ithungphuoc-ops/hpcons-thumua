@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   FileWarning,
+  GitBranch,
   Paperclip,
   Forward,
   ShoppingCart,
@@ -78,6 +79,14 @@ export default function TrangChiTietDeNghi() {
   const baoGiaLienQuan = useMemo(
     () => baoGia.filter((bg) => bg.prId === params.id),
     [baoGia, params.id],
+  );
+  /**
+   * Các đề xuất con đã tách ra từ phiếu này — để "tổng hợp lại các đề xuất con của cái đề
+   * xuất lớn" (Ban lãnh đạo 13/08/2026). Lọc theo `deNghiGocId`, KHÔNG theo tên.
+   */
+  const deNghiCon = useMemo(
+    () => deNghi.filter((d) => d.deNghiGocId === params.id),
+    [deNghi, params.id],
   );
   /** Phiếu nhận của mọi đơn thuộc đề nghị này — dùng để lấy mốc thời gian giai đoạn nhận hàng. */
   const phieuLienQuan = useMemo(() => {
@@ -223,6 +232,67 @@ export default function TrangChiTietDeNghi() {
                 { nhan: "Số mặt hàng", giaTri: `${dn.items.length} dòng vật tư` },
               ]}
             />
+
+            {/* ★ NHÓM ĐỀ XUẤT — Ban lãnh đạo 13/08/2026: *"để sau này có thể tổng hợp lại
+                các đề xuất con của cái đề xuất lớn đó"*.
+
+                Hiện ở CẢ HAI chiều: đứng ở phiếu con thì thấy đường về phiếu lớn, đứng ở
+                phiếu lớn thì thấy đủ các phần đã tách ra. Thiếu một chiều là người dùng
+                phải nhớ trong đầu mình đã tách những gì — đúng thứ app sinh ra để bỏ.
+
+                📌 Quan hệ dựa trên `deNghiGocId` chứ không dựa vào tên: sửa tên một bản
+                copy vẫn không làm đứt nhóm. */}
+            {dn.deNghiGocId && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary-bg p-(--hp-md-row-pad) text-sm">
+                <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
+                <span className="text-text-secondary">Tách ra từ đề xuất</span>
+                <Link
+                  href={`/de-nghi/${dn.deNghiGocId}`}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  {dn.maDeNghiGoc ?? dn.deNghiGocId}
+                </Link>
+              </div>
+            )}
+            {deNghiCon.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1.5 rounded-lg border border-primary/30 bg-primary-bg p-(--hp-md-row-pad)">
+                <p className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                  <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
+                  Đã tách thành {deNghiCon.length} đề xuất con
+                </p>
+                <ul className="flex flex-col gap-1">
+                  {deNghiCon.map((con) => (
+                    <li key={con.id} className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm">
+                      <Link
+                        href={`/de-nghi/${con.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {con.code}
+                      </Link>
+                      <span className="truncate text-xs text-text-desc">
+                        {con.items.length} mặt hàng
+                        {/* Người phụ trách của phiếu con — biết ai đang làm phần nào mà
+                            không phải mở từng phiếu ra xem. */}
+                        {(() => {
+                          const ds = [
+                            ...new Set(
+                              con.items
+                                .map((x) => x.nguoiPhuTrachTen)
+                                .filter((x): x is string => Boolean(x)),
+                            ),
+                          ];
+                          return ds.length > 0 ? ` · ${ds.join(", ")}` : " · chưa giao ai";
+                        })()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-text-desc">
+                  Khối lượng của các phiếu con <strong>không cộng vào</strong> phiếu này — mỗi
+                  phiếu đi một vòng mua hàng riêng.
+                </p>
+              </div>
+            )}
 
             {/* Tài liệu đính kèm lúc lập phiếu — nội dung nằm trên máy chủ (kho tệp),
                 bấm tên tệp để mở. Không có thì không hiện, đừng chiếm chỗ bằng khối rỗng. */}

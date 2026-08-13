@@ -234,10 +234,10 @@ interface GiaTriDuLieu {
    * Trả về id phiếu mới, hoặc "" nếu hết mã dự phòng / không giữ dòng nào.
    */
   /**
-   * Xóa một dòng vật tư khỏi đề nghị (tách phiếu xong thì bỏ dòng đã chuyển đi).
-   * Trả về câu giải thích nếu không xóa được, `null` nếu xóa xong.
+   * Sửa danh sách mặt hàng: thêm dòng, sửa dòng, bớt dòng trong một lần lưu.
+   * Trả về câu giải thích nếu không lưu được, `null` nếu xong.
    */
-  xoaDongDeNghi: (prId: string, stt: number, nguoiThucHien: string) => string | null;
+  suaMatHangDeNghi: (prId: string, dongMoi: DongDeNghi[], nguoiThucHien: string) => string | null;
   nhanBanDeNghi: (prId: string, nguoiThucHien: string, sttGiuLai?: number[]) => string;
   /** Xóa hẳn (chỉ bản chạy thử). Trả lý do bị chặn, `null` nghĩa là đã xóa. */
   xoaDeNghi: (prId: string) => string | null;
@@ -1427,41 +1427,56 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * XÓA MỘT DÒNG VẬT TƯ khỏi đề nghị — dùng sau khi tách phiếu bằng nhân bản.
+   * SỬA DANH SÁCH MẶT HÀNG của đề nghị — thêm dòng, sửa dòng, bớt dòng, trong MỘT lần lưu.
    *
-   * 🔴 Ban lãnh đạo 13/08/2026: *"có chức năng xóa bớt mặt hàng để giao cho nhân viên phù
-   * hợp"*. Tách phiếu xong thì phiếu gốc còn dư những dòng đã chuyển sang bản mới — không
-   * bỏ được thì cùng một mặt hàng nằm ở hai phiếu, hai người cùng đi hỏi giá, và khối
-   * lượng cộng đôi.
+   * 🔴 Ban lãnh đạo 13/08/2026: *"việc thêm bớt công việc phải click vào đề xuất để chỉnh
+   * sửa"*. Vì vậy đây là một thao tác **sửa hồ sơ trọn vẹn** (mở phiếu → sửa bảng → lưu),
+   * không phải xóa lắt nhắt từng dòng ngay trên bảng theo dõi.
    *
-   * ⚠️ HAI CHỐT AN TOÀN, trả về câu giải thích thay vì im lặng không làm gì:
-   *   1. Dòng đã lên đơn đặt hàng → xóa là dòng PO thành mồ côi, mọi phép đối chiếu khối
-   *      lượng hỏng theo (dòng PO trỏ về `stt` của đề nghị).
-   *   2. Dòng cuối cùng → phiếu không còn vật tư nào là hồ sơ chết. Muốn bỏ cả phiếu thì
-   *      dùng "Xóa hẳn đề nghị" hoặc "Đánh dấu thất bại", hai việc đó có cảnh báo riêng.
+   * ⚠️ CHỐT AN TOÀN — trả về câu giải thích thay vì im lặng không làm gì:
+   *   1. Không được bỏ dòng ĐÃ LÊN ĐƠN ĐẶT HÀNG. Dòng PO trỏ về `stt` của đề nghị; bỏ đi
+   *      là dòng PO mồ côi, mọi phép đối chiếu khối lượng hỏng theo.
+   *   2. Phải còn ít nhất một dòng. Phiếu không có vật tư là hồ sơ chết — muốn bỏ cả phiếu
+   *      thì dùng "Xóa hẳn đề nghị" hoặc "Đánh dấu thất bại", hai việc đó có cảnh báo riêng.
    *
-   * 📌 Đánh số lại từ 1 sau khi xóa — `stt` là khóa đối chiếu, để lỗ hổng số thì người đọc
-   * tưởng mất dòng. Vì đánh số lại nên chốt số 1 ở trên là BẮT BUỘC: còn dòng PO trỏ về mà
-   * đánh số lại thì chúng trỏ nhầm sang mặt hàng khác — sai âm thầm, tệ hơn cả mồ côi.
+   * 📌 GIỮ NGUYÊN `stt` CỦA DÒNG CŨ, chỉ đánh số mới cho dòng vừa thêm. Đánh số lại toàn bộ
+   * thì dòng PO và phiếu nhận hàng đang trỏ về `stt` cũ sẽ **trỏ nhầm sang mặt hàng khác** —
+   * sai âm thầm, tệ hơn nhiều so với mồ côi vì không có gì báo lỗi.
    */
-  const xoaDongDeNghi = useCallback(
-    (prId: string, stt: number, nguoiThucHien: string): string | null => {
+  const suaMatHangDeNghi = useCallback(
+    (prId: string, dongMoi: DongDeNghi[], nguoiThucHien: string): string | null => {
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
-      const dong = dn.items.find((d) => d.stt === stt);
-      if (!dong) return "Không tìm thấy dòng vật tư này.";
-      if (dn.items.length <= 1) {
-        return "Đây là mặt hàng cuối cùng của phiếu. Phiếu không có vật tư thì không đi tiếp được bước nào — dùng “Xóa hẳn đề nghị” hoặc “Đánh dấu thất bại” nếu muốn bỏ cả phiếu.";
+      if (dongMoi.length === 0) {
+        return "Phiếu phải còn ít nhất một mặt hàng. Phiếu không có vật tư thì không đi tiếp được bước nào — dùng “Xóa hẳn đề nghị” hoặc “Đánh dấu thất bại” nếu muốn bỏ cả phiếu.";
       }
-      const coPO = donHangRef.current.some(
-        (p) =>
-          p.prId === prId &&
-          p.trangThai !== "huy" &&
-          p.items.some((x) => x.sttDongDeNghi === stt),
+
+      const sttConLai = new Set(dongMoi.map((d) => d.stt));
+      const daBo = dn.items.filter((d) => !sttConLai.has(d.stt));
+      const vuongPO = daBo.filter((d) =>
+        donHangRef.current.some(
+          (p) =>
+            p.prId === prId &&
+            p.trangThai !== "huy" &&
+            p.items.some((x) => x.sttDongDeNghi === d.stt),
+        ),
       );
-      if (coPO) {
-        return "Mặt hàng này đã lên đơn đặt hàng nên không xóa được — xóa sẽ làm dòng đơn hàng mồ côi và sai khối lượng đối chiếu. Hủy dòng trên đơn hàng trước.";
+      if (vuongPO.length > 0) {
+        return `Không bỏ được ${vuongPO.map((d) => `“${d.tenVatLieu}”`).join(", ")} vì đã lên đơn đặt hàng — bỏ sẽ làm dòng đơn hàng mồ côi và sai khối lượng đối chiếu. Hủy dòng trên đơn hàng trước.`;
       }
+
+      // Số thứ tự lớn nhất từng dùng — dòng mới nối tiếp từ đây, KHÔNG lấp vào chỗ trống
+      // của dòng vừa bị bỏ (lấp chỗ trống là dùng lại một `stt` mà chứng từ cũ có thể còn nhớ).
+      let ke = Math.max(0, ...dn.items.map((d) => d.stt));
+      const items = dongMoi.map((d) => (d.stt > 0 ? d : { ...d, stt: ++ke }));
+
+      const themVao = items.length - (dn.items.length - daBo.length);
+      const phanMoTa = [
+        themVao > 0 ? `thêm ${themVao}` : "",
+        daBo.length > 0 ? `bỏ ${daBo.length}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
       setDeNghi((truoc) =>
         truoc.map((d) =>
@@ -1469,14 +1484,18 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             ? d
             : {
                 ...d,
-                items: d.items.filter((x) => x.stt !== stt).map((x, i) => ({ ...x, stt: i + 1 })),
+                items,
                 lichSu: [
                   ...d.lichSu,
                   {
                     thoiDiem: thoiDiemHienTai(),
                     nguoiThucHien,
-                    hanhDong: `Xóa mặt hàng khỏi đề nghị: ${dong.tenVatLieu}`,
-                    ghiChu: `Còn ${d.items.length - 1} mặt hàng`,
+                    hanhDong: "Sửa danh sách mặt hàng",
+                    ghiChu: `${phanMoTa || "sửa nội dung dòng"} · còn ${items.length} mặt hàng${
+                      daBo.length > 0
+                        ? ` · đã bỏ: ${daBo.map((x) => x.tenVatLieu).join(", ")}`
+                        : ""
+                    }`,
                   },
                 ],
               },
@@ -1520,16 +1539,31 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       // không đi tiếp được bước nào mà vẫn chiếm một trong 12 mã dự phòng.
       if (dongGiuLai.length === 0) return "";
 
+      /**
+       * ★ TÊN BẢN SAO — Ban lãnh đạo 13/08/2026: giữ nguyên tên đề xuất, chỉ thêm "(copy)".
+       *
+       * 🔴 Lấy tên GỐC ĐẦU TIÊN, không lấy tên phiếu đang nhân bản. Tách một đề xuất lớn
+       * thành 3 phần thì nhân bản 3 lần — nếu lần nào cũng nối thêm vào tên vừa có, bản
+       * thứ ba mang tên *"Vật tư (copy) (copy) (copy)"*, không ai đọc ra được nó thuộc đề
+       * xuất nào. Nay: bản 2 là "(copy)", bản 3 là "(copy 2)"…
+       */
+      const goc1 = goc.deNghiGocId
+        ? (deNghiRef.current.find((d) => d.id === goc.deNghiGocId) ?? goc)
+        : goc;
+      const tenGoc = goc1.tieuDe;
+      const soBanDaCo = deNghiRef.current.filter((d) => d.deNghiGocId === goc1.id).length;
+      const tieuDeMoi = soBanDaCo === 0 ? `${tenGoc} (copy)` : `${tenGoc} (copy ${soBanDaCo + 1})`;
+
       setDeNghi((truoc) => [
         ...truoc,
         {
           ...goc,
           id: idMoi,
           code,
-          // 🔴 Ban lãnh đạo 12/08/2026: *"việc nhân bản sẽ vẫn phải giữ tên của đề xuất chỉ
-          // thêm chữ (copy) phía sau"*. Giữ nguyên tên gốc để người dùng nhận ra ngay đây là
-          // bản của việc nào — đổi tên đi thì mất mối liên hệ với phiếu gốc.
-          tieuDe: `${goc.tieuDe} (copy)`,
+          tieuDe: tieuDeMoi,
+          // ★ Quan hệ cha–con để TỔNG HỢP LẠI được các bản tách (xem `deNghiGocId`).
+          deNghiGocId: goc1.id,
+          maDeNghiGoc: goc1.code,
           ngayDeNghi: ngay,
           ngayDuyet: ngay,
           trangThai: "da_duyet",
@@ -1715,7 +1749,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDeNghiGiaLap,
       phanBoDong,
       boPhanBoDong,
-      xoaDongDeNghi,
+      suaMatHangDeNghi,
       chuyenViecDong,
       themDonHang,
       themPhieuNhan,
@@ -1755,7 +1789,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDeNghiGiaLap,
       phanBoDong,
       boPhanBoDong,
-      xoaDongDeNghi,
+      suaMatHangDeNghi,
       chuyenViecDong,
       themDonHang,
       themPhieuNhan,

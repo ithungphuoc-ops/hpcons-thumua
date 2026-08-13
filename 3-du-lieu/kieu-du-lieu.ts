@@ -137,6 +137,24 @@ export interface DeNghiMuaHang {
    * và bỏ lưu trữ là quay lại đúng cột cũ.
    */
   luuTru?: boolean;
+
+  /**
+   * ★ ĐỀ NGHỊ GỐC — phiếu này được tách ra từ phiếu nào.
+   *
+   * 🔴 Ban lãnh đạo 13/08/2026: *"tên của đề xuất giữ nguyên chỉ thêm chữ copy phía sau,
+   * để sau này có thể **tổng hợp lại các đề xuất con** của cái đề xuất lớn đó"*.
+   *
+   * ⚠️ CHỈ DỰA VÀO TÊN LÀ KHÔNG ĐỦ để tổng hợp. Người dùng sửa tên một bản copy là mối
+   * liên hệ đứt, mà không có gì báo. Vì vậy quan hệ cha–con lưu bằng **id**, còn tên chỉ
+   * để người đọc nhận ra bằng mắt.
+   *
+   * 📌 CHỈ MỘT CẤP. Nhân bản từ một bản copy thì phiếu mới vẫn trỏ về **phiếu gốc đầu
+   * tiên**, không tạo chuỗi cha–con–cháu: mọi bản tách của cùng một đề xuất lớn phải gom
+   * được vào một nhóm bằng một phép lọc, không phải đi lần ngược từng đời.
+   */
+  deNghiGocId?: string;
+  /** Mã phiếu gốc — chép sẵn để hiện lên màn hình khỏi phải tra ngược. */
+  maDeNghiGoc?: string;
   /**
    * ★ TRƯỜNG BỔ SUNG — cặp nhãn/giá trị do người dùng tự đặt, tương ứng "dữ liệu tùy chỉnh"
    * của Base.vn.
