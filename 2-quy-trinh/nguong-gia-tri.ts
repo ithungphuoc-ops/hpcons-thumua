@@ -16,22 +16,49 @@
 // ============================================================
 
 import type { BaoGia } from "@/3-du-lieu/kieu-du-lieu";
+import {
+  CAU_HINH_MAC_DINH,
+  type CauHinhQuyTrinh,
+} from "@/2-quy-trinh/cau-hinh-quy-trinh";
 
-/** Ngưỡng tính bằng đồng. Sửa ở đây, đừng viết số vào chỗ khác. */
+/**
+ * Ngưỡng tính bằng đồng — GIÁ TRỊ MẶC ĐỊNH.
+ *
+ * ⚠️ TỪ 13/08/2026 NGƯỠNG SỬA ĐƯỢC qua trang "Cài đặt quy trình" (Ban lãnh đạo yêu cầu).
+ * Hằng số này chỉ còn là giá trị dùng khi chưa ai đổi gì — mọi hàm ở đây nhận cấu hình làm
+ * tham số. Đừng đọc thẳng `NGUONG` ở màn hình mới; đọc từ `useDuLieu().cauHinh`.
+ */
 export const NGUONG = {
-  /** Trên mức này: đơn mua hàng phải trình TP.TMCU ký duyệt, gửi NCC ký xác nhận. */
-  KY_DUYET_DON: 5_000_000,
-  /** Từ mức này: cần 02 báo giá, và Tổng Giám đốc là người duyệt. */
-  HAI_BAO_GIA: 10_000_000,
-  /** Từ mức này: phải có hợp đồng do Tổng Giám đốc ký; NCC mới phải vào danh sách NCC. */
-  HOP_DONG: 20_000_000,
+  KY_DUYET_DON: CAU_HINH_MAC_DINH.nguongKyDuyetDon,
+  HAI_BAO_GIA: CAU_HINH_MAC_DINH.nguongHaiBaoGia,
+  HOP_DONG: CAU_HINH_MAC_DINH.nguongHopDong,
 } as const;
+
+/**
+ * Viết số tiền theo cách người đọc quy trình quen: "5 triệu", "10 triệu", "1,5 tỷ".
+ *
+ * 🔴 SINH CÂU NHẮC TỪ CẤU HÌNH, KHÔNG VIẾT CỨNG SỐ. Trước 13/08/2026 các câu nhắc ghi
+ * thẳng *"Trên 5 triệu đồng…"*. Khi ngưỡng sửa được mà câu chữ vẫn cứng, app xét theo 10
+ * triệu nhưng đọc ra "5 triệu" — giao diện nói sai chính luật nó đang chạy, đúng thứ quy
+ * tắc dự án mục 3.5 cấm.
+ */
+function chuTien(dong: number): string {
+  if (dong >= 1_000_000_000) {
+    const ty = dong / 1_000_000_000;
+    return `${Number.isInteger(ty) ? ty : ty.toFixed(1).replace(".", ",")} tỷ`;
+  }
+  const tr = dong / 1_000_000;
+  return `${Number.isInteger(tr) ? tr : tr.toFixed(1).replace(".", ",")} triệu`;
+}
 
 /** Ai là người xét duyệt báo giá, theo giá trị đơn hàng. */
 export type CapDuyet = "truong_phong" | "tong_giam_doc";
 
-export function capDuyetTheoGiaTri(giaTri: number): CapDuyet {
-  return giaTri >= NGUONG.HAI_BAO_GIA ? "tong_giam_doc" : "truong_phong";
+export function capDuyetTheoGiaTri(
+  giaTri: number,
+  ch: CauHinhQuyTrinh = CAU_HINH_MAC_DINH,
+): CapDuyet {
+  return giaTri >= ch.nguongHaiBaoGia ? "tong_giam_doc" : "truong_phong";
 }
 
 export const NHAN_CAP_DUYET: Record<CapDuyet, string> = {
@@ -89,32 +116,44 @@ export interface CanhBaoNguong {
  * là thứ app không có dữ liệu để kiểm (hợp đồng, chữ ký, danh mục NCC hàng năm) — chỉ nhắc
  * đúng lúc, không giả vờ đã kiểm hộ.
  */
-export function soatNguongBaoGia(bg: BaoGia): CanhBaoNguong {
+/**
+ * Soát ngưỡng cho một bảng báo giá.
+ *
+ * ⚠️ `ch` mặc định là cấu hình gốc để mọi chỗ gọi cũ không vỡ, NHƯNG màn hình phải truyền
+ * cấu hình thật từ `useDuLieu().cauHinh` — không truyền là màn đó xét theo luật cũ trong khi
+ * chỗ khác xét theo luật mới, hai chỗ nói khác nhau về cùng một đơn.
+ */
+export function soatNguongBaoGia(
+  bg: BaoGia,
+  ch: CauHinhQuyTrinh = CAU_HINH_MAC_DINH,
+): CanhBaoNguong {
   const giaTri = giaTriUocTinh(bg);
   const soNCC = soNhaCungCapDaBao(bg);
   const batBuoc: string[] = [];
   const nhacNgoaiApp: string[] = [];
 
-  if (giaTri >= NGUONG.HAI_BAO_GIA && soNCC < 2) {
+  if (giaTri >= ch.nguongHaiBaoGia && soNCC < ch.soBaoGiaToiThieu) {
     batBuoc.push(
-      `Đơn ước tính ${(giaTri / 1_000_000).toFixed(1)} triệu đồng (từ 10 triệu trở lên) nên quy trình yêu cầu ít nhất 02 báo giá — hiện mới có ${soNCC}. Trừ khi nhà cung cấp được chỉ định, hoặc đã có trong danh mục NCC hàng năm.`,
+      `Đơn ước tính ${chuTien(giaTri)} đồng (từ ${chuTien(ch.nguongHaiBaoGia)} trở lên) nên quy trình yêu cầu ít nhất ${String(ch.soBaoGiaToiThieu).padStart(2, "0")} báo giá — hiện mới có ${soNCC}. Trừ khi nhà cung cấp được chỉ định, hoặc đã có trong danh mục NCC hàng năm.`,
     );
   }
 
-  if (giaTri >= NGUONG.HAI_BAO_GIA) {
+  if (giaTri >= ch.nguongHaiBaoGia) {
     nhacNgoaiApp.push(
-      "Từ 10 triệu đồng trở lên: Tổng Giám đốc là người duyệt báo giá. Việc TGĐ ký duyệt diễn ra ngoài app — trình ký xong rồi mới bấm duyệt ở đây.",
+      `Từ ${chuTien(ch.nguongHaiBaoGia)} đồng trở lên: Tổng Giám đốc là người duyệt báo giá. Việc TGĐ ký duyệt diễn ra ngoài app — trình ký xong rồi mới bấm duyệt ở đây.`,
     );
   }
-  if (giaTri >= NGUONG.HOP_DONG) {
+  if (giaTri >= ch.nguongHopDong) {
     nhacNgoaiApp.push(
-      "Từ 20 triệu đồng trở lên: phải soạn Hợp đồng kinh tế / mua bán / nguyên tắc, trình Tổng Giám đốc ký duyệt. Với nhà cung cấp mới, sau khi giao nhận xong phải cập nhật “Danh sách nhà cung cấp”.",
+      `Từ ${chuTien(ch.nguongHopDong)} đồng trở lên: phải soạn Hợp đồng kinh tế / mua bán / nguyên tắc, trình Tổng Giám đốc ký duyệt. Với nhà cung cấp mới, sau khi giao nhận xong phải cập nhật “Danh sách nhà cung cấp”.`,
     );
-  } else if (giaTri > NGUONG.KY_DUYET_DON) {
+  } else if (giaTri > ch.nguongKyDuyetDon) {
+    // ⚠️ Ngưỡng này dùng "TRÊN" (`>`), hai ngưỡng kia dùng "TỪ" (`>=`) — hai quy ước khác
+    // nhau trong cùng một file, giữ nguyên theo đúng chữ của quy trình công ty.
     nhacNgoaiApp.push(
-      "Trên 5 triệu đồng: đơn mua hàng phải trình Trưởng phòng Thu mua ký duyệt, sau đó gửi nhà cung cấp ký xác nhận.",
+      `Trên ${chuTien(ch.nguongKyDuyetDon)} đồng: đơn mua hàng phải trình Trưởng phòng Thu mua ký duyệt, sau đó gửi nhà cung cấp ký xác nhận.`,
     );
   }
 
-  return { batBuoc, nhacNgoaiApp, capDuyet: capDuyetTheoGiaTri(giaTri), giaTri };
+  return { batBuoc, nhacNgoaiApp, capDuyet: capDuyetTheoGiaTri(giaTri, ch), giaTri };
 }

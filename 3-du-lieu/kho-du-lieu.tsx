@@ -20,6 +20,13 @@ import {
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { coCongThucTuDong, dungTenDeNghi } from "@/2-quy-trinh/dat-ten-de-nghi";
+import {
+  CAU_HINH_MAC_DINH,
+  loiCauHinh,
+  soSanhCauHinh,
+  type CauHinhQuyTrinh,
+  type VetDoiCauHinh,
+} from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { maBanSaoTiepTheo, phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import {
@@ -281,6 +288,15 @@ interface GiaTriDuLieu {
   // --- Thông báo chuyển bước + tiếp nhận công tác ---
   /** Thông báo chuyển bước, mới nhất đứng đầu (tự sinh khi đề nghị đổi bước). */
   thongBao: ThongBaoChuyenBuoc[];
+  /** Cấu hình quy trình đang áp dụng — xem `2-quy-trinh/cau-hinh-quy-trinh.ts`. */
+  cauHinh: CauHinhQuyTrinh;
+  /** Vết đổi cấu hình, mới nhất lên đầu — dùng để giải thích vì sao hồ sơ cũ hiện khác. */
+  lichSuCauHinh: VetDoiCauHinh[];
+  /**
+   * Lưu cấu hình mới. Trả về danh sách lỗi (mảng rỗng = đã lưu).
+   * ⚠️ Cấu hình dùng chung cả phòng — sửa là đổi luật cho mọi người.
+   */
+  luuCauHinhQuyTrinh: (moi: CauHinhQuyTrinh, nguoiThucHien: string) => string[];
   /** Đánh dấu toàn bộ thông báo là đã đọc — gọi khi người dùng mở chuông. */
   /** Đánh dấu đã đọc CHỈ các thông báo có mã trong danh sách — xem ghi chú ở hàm. */
   danhDauDaDocThongBao: (ids: string[]) => void;
@@ -325,6 +341,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   const [phieuNhan, setPhieuNhan] = useState<PhieuNhanHang[]>(PHIEU_NHAN_MAU);
   const [baoGia, setBaoGia] = useState<BaoGia[]>(BAO_GIA_MAU);
   const [thongBao, setThongBao] = useState<ThongBaoChuyenBuoc[]>([]);
+  /**
+   * ★ CẤU HÌNH QUY TRÌNH — Ban lãnh đạo 13/08/2026: *"thêm chức năng cài đặt quy trình, có
+   * thể chỉnh sửa các điều kiện trong quy trình"*.
+   *
+   * ⚠️ Khởi tạo bằng MẶC ĐỊNH, không phải `undefined`. Để `undefined` thì mọi chỗ đọc cấu
+   * hình phải tự lo trường hợp thiếu, và sớm muộn có một chỗ quên — khi đó ngưỡng duyệt
+   * thành `NaN` và app so sánh giá trị đơn với `NaN` (luôn sai) mà không báo gì.
+   */
+  const [cauHinh, setCauHinh] = useState<CauHinhQuyTrinh>(CAU_HINH_MAC_DINH);
+  /** Vết đổi cấu hình — mới nhất lên đầu. Xem lý do bắt buộc ghi ở `VetDoiCauHinh`. */
+  const [lichSuCauHinh, setLichSuCauHinh] = useState<VetDoiCauHinh[]>([]);
+  /**
+   * ⚠️ Cần REF để `luuCauHinhQuyTrinh` đọc được cấu hình CŨ mà không phải phụ thuộc `cauHinh`
+   * — phụ thuộc thì hàm dựng lại mỗi lần cấu hình đổi, và mọi component nhận nó qua context
+   * lại vẽ lại theo.
+   */
+  const cauHinhRef = useRef(cauHinh);
+  cauHinhRef.current = cauHinh;
 
   // ----------------------------------------------------------------
   // GIỮ DỮ LIỆU QUA MỖI LẦN TẢI LẠI TRANG
@@ -382,6 +416,20 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     setPhieuNhan(d.phieuNhan);
     setBaoGia(d.baoGia);
     setThongBao(d.thongBao);
+    /**
+     * 🔴 THIẾU KHÓA `cauHinh` ≠ "cấu hình là mặc định" — GIỮ NGUYÊN cái đang có.
+     *
+     * Đã dính lỗi thật ngày 13/08/2026: lưu ngưỡng 15 triệu xong, mở lại trang là về 10 triệu.
+     * Nguyên nhân: bản dữ liệu trên kho chung được tạo TRƯỚC khi có tính năng cài đặt nên
+     * không có khóa `cauHinh`; `?? CAU_HINH_MAC_DINH` biến "máy chủ chưa biết gì về cấu hình"
+     * thành "cấu hình là mặc định", rồi effect ghi đẩy giá trị mặc định đó lên đè mất cài đặt
+     * vừa lưu. Đúng cái bẫy CLAUDE.md mục 3.6b đã ghi: `null` khác bộ dữ liệu rỗng.
+     *
+     * ⚠️ Trạng thái khởi tạo đã là `CAU_HINH_MAC_DINH` nên bỏ qua ở đây là an toàn: lần nạp
+     * đầu tiên vẫn có cấu hình mặc định, không bao giờ `undefined`.
+     */
+    if (d.cauHinh) setCauHinh(d.cauHinh);
+    if (d.lichSuCauHinh) setLichSuCauHinh(d.lichSuCauHinh);
   }, []);
 
   useEffect(() => {
@@ -452,7 +500,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   // dữ liệu rỗng — tức xóa sạch việc người dùng đã nhập hôm trước.
   useEffect(() => {
     if (!daNapTuMay) return;
-    const d = { deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao };
+    const d = { deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh };
     duLieuHienTai.current = d;
 
     const chuoi = JSON.stringify(d);
@@ -469,7 +517,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
     anhChupCuoi.current = chuoi;
     dayLenMayChu(d);
-  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, dayLenMayChu]);
+  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, dayLenMayChu]);
 
   const xoaDuLieuChayThu = useCallback(async () => {
     // 🔴 Từ 12/08/2026 dữ liệu nằm trên máy chủ dùng chung, nên xóa là XÓA CỦA CẢ PHÒNG.
@@ -869,6 +917,34 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
     },
     [ghiLichSuDeNghi],
+  );
+
+  /**
+   * ★ LƯU CẤU HÌNH QUY TRÌNH — Ban lãnh đạo 13/08/2026.
+   *
+   * 🔴 KIỂM TRƯỚC KHI LƯU, trả về danh sách lỗi thay vì lưu bừa. Luật kiểm ở
+   * `2-quy-trinh/cau-hinh-quy-trinh.ts` → `loiCauHinh`, MỘT CHỖ DUY NHẤT — giao diện gọi nó
+   * để khóa nút, hàm này gọi lại lần nữa lúc lưu. Chỉ chặn ở giao diện là hở: cấu hình còn
+   * đi qua kho chung, và bản lưu cũ trên máy khác có thể mang giá trị lạ.
+   *
+   * ⚠️ Cấu hình dùng CHUNG CẢ PHÒNG (kho chung Firestore). Sửa là đổi luật cho mọi người,
+   * nên phải ghi rõ ai sửa — người gọi truyền `nguoiThucHien`.
+   */
+  const luuCauHinhQuyTrinh = useCallback(
+    (moi: CauHinhQuyTrinh, nguoiThucHien: string): string[] => {
+      const loi = loiCauHinh(moi);
+      if (loi.length > 0) return loi;
+      const thayDoi = soSanhCauHinh(cauHinhRef.current, moi);
+      setCauHinh(moi);
+      // Không đổi gì thì không ghi vết — một dòng "đã đổi: (không có gì)" chỉ làm nhiễu.
+      if (thayDoi.length > 0) {
+        setLichSuCauHinh((truoc) =>
+          [{ thoiDiem: thoiDiemHienTai(), nguoiDoi: nguoiThucHien, thayDoi }, ...truoc].slice(0, 50),
+        );
+      }
+      return [];
+    },
+    [],
   );
 
   const boPhanBoDong = useCallback((prId: string, stt: number, nguoiThucHien: string) => {
@@ -1907,6 +1983,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       boNguoiTheoDoi,
       chuyenTiepChoNhanVien,
       thongBao,
+      cauHinh,
+      lichSuCauHinh,
+      luuCauHinhQuyTrinh,
       danhDauDaDocThongBao,
       xoaDuLieuChayThu,
       trangThaiKhoChung,
@@ -1948,6 +2027,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       boNguoiTheoDoi,
       chuyenTiepChoNhanVien,
       thongBao,
+      cauHinh,
+      lichSuCauHinh,
+      luuCauHinhQuyTrinh,
       danhDauDaDocThongBao,
       xoaDuLieuChayThu,
       trangThaiKhoChung,

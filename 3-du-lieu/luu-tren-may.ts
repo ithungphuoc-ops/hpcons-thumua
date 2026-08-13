@@ -29,8 +29,18 @@ import type {
 const KHOA = "hpcons-thumua-du-lieu-v1";
 
 /** Đúng bộ dữ liệu người dùng tạo ra khi chạy thử. Nhà cung cấp không lưu vì cố định. */
+import type { CauHinhQuyTrinh, VetDoiCauHinh } from "@/2-quy-trinh/cau-hinh-quy-trinh";
+
 export interface DuLieuLuu {
   deNghi: DeNghiMuaHang[];
+  /**
+   * Cấu hình quy trình (ngưỡng giá trị, hạn từng bước…) — Ban lãnh đạo 13/08/2026.
+   * ⚠️ TÙY CHỌN: bản lưu cũ không có khóa này, đọc ra `undefined` và app phải rơi về
+   * `CAU_HINH_MAC_DINH` chứ không được coi là "cấu hình rỗng".
+   */
+  cauHinh?: CauHinhQuyTrinh;
+  /** Vết đổi cấu hình — mới nhất lên đầu. Tùy chọn vì bản lưu cũ không có. */
+  lichSuCauHinh?: VetDoiCauHinh[];
   donHang: DonDatHang[];
   giaDonHang: GiaDonDatHang[];
   phieuNhan: PhieuNhanHang[];
@@ -57,6 +67,20 @@ export function docDuLieuDaLuu(): DuLieuLuu | null {
       phieuNhan: Array.isArray(d.phieuNhan) ? d.phieuNhan : [],
       baoGia: Array.isArray(d.baoGia) ? d.baoGia : [],
       thongBao: Array.isArray(d.thongBao) ? d.thongBao : [],
+      /**
+       * 🔴 THÊM KHÓA MỚI VÀO ĐÂY, KHÔNG ĐƯỢC QUÊN. Hàm này dựng lại object theo danh sách
+       * trắng, nên khóa nào không liệt kê ở đây thì **bị bỏ rơi khi đọc** — dù đã ghi xuống
+       * localStorage đầy đủ.
+       *
+       * Đã dính lỗi thật ngày 13/08/2026: lưu ngưỡng 15 triệu, tải lại trang là về 10 triệu.
+       * Bản lưu có `cauHinh` đúng, nhưng hàm này trả về object không có nó → state rơi về mặc
+       * định → effect ghi đẩy mặc định xuống, đè mất cài đặt. Không một dòng lỗi nào hiện ra.
+       *
+       * ⚠️ Chỉ nhận khi có giá trị: `undefined` giữ nguyên `undefined` để bên gọi phân biệt
+       * được "chưa từng cấu hình" với "cấu hình rỗng" — xem `apDung` trong `kho-du-lieu.tsx`.
+       */
+      ...(d.cauHinh ? { cauHinh: d.cauHinh } : {}),
+      ...(Array.isArray(d.lichSuCauHinh) ? { lichSuCauHinh: d.lichSuCauHinh } : {}),
     };
   } catch {
     // JSON hỏng hoặc trình duyệt chặn localStorage → coi như chưa có gì.

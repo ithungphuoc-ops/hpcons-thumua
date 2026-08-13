@@ -33,7 +33,6 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
-import { NGUONG } from "@/2-quy-trinh/nguong-gia-tri";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
@@ -94,7 +93,7 @@ function YeuCauGiaoViec({ soBaoGia, ghiChu }: { soBaoGia?: number; ghiChu?: stri
  * đây là chỗ hay bỏ sót nhất trong mua hàng thực tế.
  */
 export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
-  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi } =
+  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi, cauHinh } =
     useDuLieu();
   /**
    * Dòng vật tư MỚI đang gõ ở cuối bảng — `null` là chưa bấm nút thêm.
@@ -697,7 +696,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                 đoán. Ngưỡng lấy từ `nguong-gia-tri.ts`, KHÔNG viết số cứng ở đây. */}
             <p className="text-xs text-text-desc">
               Quy trình yêu cầu tối thiểu <strong>02 báo giá</strong> với đơn từ{" "}
-              {(NGUONG.HAI_BAO_GIA / 1_000_000).toLocaleString("vi-VN")} triệu đồng trở lên. Lúc
+              {(cauHinh.nguongHaiBaoGia / 1_000_000).toLocaleString("vi-VN")} triệu đồng trở lên. Lúc
               giao việc thì chưa có giá nên app chưa biết đơn này thuộc mức nào — để trống cũng
               được, app vẫn soát theo ngưỡng khi trình xét duyệt báo giá.
             </p>

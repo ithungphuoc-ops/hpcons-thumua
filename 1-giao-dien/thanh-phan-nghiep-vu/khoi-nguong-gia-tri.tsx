@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, Info, ShieldCheck } from "lucide-react";
+import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import {
   NHAN_CAP_DUYET,
   soatNguongBaoGia,
@@ -22,7 +23,11 @@ import { formatCurrencyVnd } from "@/6-tien-ich/dinh-dang";
  * người dùng sẽ nhập báo giá ma cho đủ số — hỏng dữ liệu còn tệ hơn thiếu kiểm.
  */
 export function KhoiNguongGiaTri({ baoGia }: { baoGia: BaoGia }) {
-  const soat = soatNguongBaoGia(baoGia);
+  // ⚠️ Cấu hình THẬT từ kho dữ liệu — Ban lãnh đạo sửa được ngưỡng ở trang Cài đặt quy
+  // trình. Dùng giá trị mặc định ở đây là màn này xét theo luật cũ trong khi trang cài đặt
+  // đã đổi, hai chỗ nói khác nhau về cùng một đơn.
+  const { cauHinh } = useDuLieu();
+  const soat = soatNguongBaoGia(baoGia, cauHinh);
   const soNCC = soNhaCungCapDaBao(baoGia);
 
   // Chưa có giá của ai thì chưa xét được ngưỡng — hiện khối rỗng chỉ làm rối.

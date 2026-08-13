@@ -54,6 +54,7 @@ export default function TrangBaoGiaChiTiet() {
     dinhKemBaoGia,
     trinhXetDuyetBaoGia,
     duyetPhuongAnTach,
+    cauHinh,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const bg = baoGia.find((b) => b.id === params.id);
@@ -145,7 +146,7 @@ export default function TrangBaoGiaChiTiet() {
   const dangOBuocLapDon = bg.trangThai === "da_chon_ncc";
   // Soát ngưỡng 5 / 10 / 20 triệu của quy trình — dùng cho lời cảnh báo trong hộp xác nhận
   // "Trình xét duyệt". Khối hiển thị đầy đủ là `KhoiNguongGiaTri` bên dưới, cùng một hàm luật.
-  const nguong = soatNguongBaoGia(bg);
+  const nguong = soatNguongBaoGia(bg, cauHinh);
 
   /**
    * Khối lượng ĐÃ ĐẶT của mỗi (nhà cung cấp × dòng đề nghị), gom từ các đơn hàng thật.

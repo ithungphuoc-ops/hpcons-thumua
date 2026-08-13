@@ -5,6 +5,7 @@ import {
   Wallet,
   CircleUser,
   CalendarDays,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import type { Quyen } from "@/4-phan-quyen/quyen";
@@ -16,19 +17,20 @@ import type { Quyen } from "@/4-phan-quyen/quyen";
  * 📌 Chỉ có ý nghĩa HIỂN THỊ, không ảnh hưởng quyền. Mục nào thuộc nhóm nào là chuyện xếp
  * cho dễ tìm, còn ai thấy mục nào vẫn do `duocThay` quyết.
  */
-export type NhomMenu = "quan_trong" | "quy_trinh";
+export type NhomMenu = "quan_trong" | "quy_trinh" | "quan_tri";
 
 /** Nhãn nhóm — in hoa nhỏ trên sidebar, theo đúng dáng mẫu Base. */
 export const NHAN_NHOM_MENU: Record<NhomMenu, string> = {
   quan_trong: "Quan trọng",
   quy_trinh: "Quy trình thu mua",
+  quan_tri: "Quản trị",
 };
 
 /**
  * Thứ tự nhóm trên sidebar. Việc CÁ NHÂN lên trước việc theo QUY TRÌNH — mở app ra là thấy
  * ngay "tôi phải làm gì", chưa cần đi tìm trong bảng 8 cột.
  */
-export const THU_TU_NHOM: NhomMenu[] = ["quan_trong", "quy_trinh"];
+export const THU_TU_NHOM: NhomMenu[] = ["quan_trong", "quy_trinh", "quan_tri"];
 
 export interface MucDieuHuong {
   nhan: string;
@@ -140,6 +142,22 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/cong-no",
     icon: Wallet,
     duocThay: (q) => q.xemCongNo,
+  },
+  {
+    /**
+     * ★ CÀI ĐẶT QUY TRÌNH — Ban lãnh đạo 13/08/2026: *"em thêm chức năng cài đặt quy trình,
+     * có thể chỉnh sửa các điều kiện trong quy trình"*.
+     *
+     * 🔴 CHỈ TRƯỞNG BỘ PHẬN VÀ QUẢN TRỊ THẤY. Cấu hình dùng chung cả phòng: một người sửa là
+     * đổi luật cho mọi người. Dùng `suaPODaChot` làm mốc vì đó đã là quyền "được sửa thứ đã
+     * chốt" — cùng một mức trách nhiệm, khỏi sinh thêm một cờ quyền chỉ dùng một chỗ.
+     */
+    nhan: "Cài đặt quy trình",
+    nhanNgan: "Cài đặt",
+    href: "/cai-dat-quy-trinh",
+    nhom: "quan_tri",
+    icon: Settings,
+    duocThay: (q) => q.suaPODaChot,
   },
 ];
 
