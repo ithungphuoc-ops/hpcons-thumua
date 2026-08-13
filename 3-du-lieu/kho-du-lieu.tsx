@@ -19,6 +19,7 @@ import {
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
+import { coCongThucTuDong, dungTenDeNghi } from "@/2-quy-trinh/dat-ten-de-nghi";
 import { maBanSaoTiepTheo, phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import {
@@ -611,7 +612,25 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       maDuAn: dauVao.maDuAn,
       maHopDongCDT: dauVao.maHopDongCDT || undefined,
       tenCongTrinh: dauVao.tenCongTrinh,
-      tieuDe: dauVao.tieuDe,
+      /**
+       * ★ TÊN ĐỀ NGHỊ theo công thức của quy trình mua hàng — Ban lãnh đạo 13/08/2026:
+       * *"đây là công thức đặt tên của quy trình mua hàng, e setup theo"*.
+       *
+       *     mã đề xuất  -  tên hợp đồng,  TÊN CÔNG TRÌNH
+       *
+       * 🔴 SINH Ở ĐÂY chứ không ở màn nhập, vì công thức cần MÃ ĐỀ NGHỊ mà mã chỉ có sau khi
+       * biết phiếu này là phiếu thứ mấy của dự án — tức chỉ có tại đúng chỗ này.
+       *
+       * ⚠️ Chỉ áp cho phòng ban CÓ công thức (hiện là Phòng Thi công). Phòng khác giữ tên
+       * người lập tự gõ — xem `coCongThucTuDong`.
+       */
+      tieuDe: coCongThucTuDong(dauVao.phongBanNguon)
+        ? dungTenDeNghi({
+            maDeNghi: code,
+            maHopDongCDT: dauVao.maHopDongCDT,
+            tenCongTrinh: dauVao.tenCongTrinh,
+          })
+        : dauVao.tieuDe,
       // 🔴 Từ 12/08/2026 nhận đề xuất từ MỌI phòng ban (chỉ đạo Ban lãnh đạo) — bỏ
       // khóa cứng Phòng Thi công của ver đầu.
       phongBanNguon: dauVao.phongBanNguon,

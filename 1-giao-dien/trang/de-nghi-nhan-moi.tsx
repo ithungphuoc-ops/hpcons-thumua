@@ -12,6 +12,7 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { timNhanSu, type NhanSu } from "@/3-du-lieu/danh-ba-nhan-su";
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
+import { coCongThucTuDong, dungTenDeNghi } from "@/2-quy-trinh/dat-ten-de-nghi";
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import {
   DANH_MUC_PHONG_BAN,
@@ -172,7 +173,8 @@ export default function TrangNhanDeNghiMoi() {
   const hopLe =
     maDuAn.trim() !== "" &&
     tenCongTrinh.trim() !== "" &&
-    tieuDe.trim() !== "" &&
+    // Phòng ban có công thức đặt tên thì tên do app dựng, không đòi người lập gõ.
+    (coCongThucTuDong(boPhan) || tieuDe.trim() !== "") &&
     ngayCanHang !== "" &&
     dongHopLe.length > 0;
 
@@ -189,7 +191,12 @@ export default function TrangNhanDeNghiMoi() {
     setTenCongTrinh(mau?.tenCongTrinh ?? "Nhà xưởng ABC — Giai đoạn 2");
     setDuAnChon(mau ? mau.maDuAn : "__moi__");
     setMaHopDongCDT(mau?.maHopDongCDT ?? "");
-    setTieuDe("Vật tư thử nghiệm — tạo lúc " + new Date().toLocaleTimeString("vi-VN"));
+    // Phòng có công thức thì tên do app dựng — điền vào đây chỉ tạo cảm giác sai là gõ được.
+    setTieuDe(
+      coCongThucTuDong(boPhan)
+        ? ""
+        : "Vật tư thử nghiệm — tạo lúc " + new Date().toLocaleTimeString("vi-VN"),
+    );
     setNguoiDeNghiTen(nguoiDung.tenHienThi);
     setNgayDeNghi(homNay());
     setNgayDuyet(homNay());
@@ -408,13 +415,47 @@ export default function TrangNhanDeNghiMoi() {
             <strong>4. Tài liệu:</strong> có thể đính kèm catalogue của sản phẩm hoặc dịch vụ.
           </p>
           </div>
-          <Truong nhan="Tên đề nghị" batBuoc moTa="Số hợp đồng + tên công trình, ngắn gọn">
-            <Input
-              placeholder="Vật tư thi công phần thân đợt 4"
-              value={tieuDe}
-              onChange={(e) => setTieuDe(e.target.value)}
-            />
-          </Truong>
+          {/* ★ TÊN ĐỀ NGHỊ TỰ ĐẶT THEO CÔNG THỨC — Ban lãnh đạo 13/08/2026 gửi ảnh Base:
+              `mã đề xuất - tên hợp đồng, TÊN CÔNG TRÌNH`, áp cho Phòng Thi công.
+
+              🔴 Ô thành CHỈ ĐỌC, không cho gõ tay: công thức có tác dụng chỉ khi mọi phiếu
+              đặt tên giống nhau. Cho sửa thì người lập gõ tên riêng và danh sách lại lộn xộn
+              y như trước — đúng thứ công thức sinh ra để dẹp.
+
+              📌 Mã đề nghị chỉ có SAU khi lưu (phải biết phiếu thứ mấy của dự án), nên ở đây
+              hiện chữ giữ chỗ. Tên thật do kho dữ liệu dựng — cùng một hàm `dungTenDeNghi`,
+              không có chỗ thứ hai nào tự ghép chuỗi. */}
+          {coCongThucTuDong(boPhan) ? (
+            <Truong
+              nhan="Tên đề nghị"
+              moTa="Tự đặt theo công thức của quy trình mua hàng"
+            >
+              <div className="flex flex-col gap-1">
+                <Input
+                  value={dungTenDeNghi({
+                    maDeNghi: "[mã sinh khi lưu]",
+                    maHopDongCDT,
+                    tenCongTrinh: tenCongTrinh || "[tên công trình]",
+                  })}
+                  readOnly
+                  className="bg-muted"
+                  aria-label="Tên đề nghị tự đặt theo công thức"
+                />
+                <span className="text-xs text-text-desc">
+                  Công thức: <strong>mã đề xuất − tên hợp đồng, TÊN CÔNG TRÌNH</strong>. Điền mã
+                  hợp đồng và tên công trình ở cụm bên dưới là tên tự đủ.
+                </span>
+              </div>
+            </Truong>
+          ) : (
+            <Truong nhan="Tên đề nghị" batBuoc moTa="Số hợp đồng + tên công trình, ngắn gọn">
+              <Input
+                placeholder="Vật tư thi công phần thân đợt 4"
+                value={tieuDe}
+                onChange={(e) => setTieuDe(e.target.value)}
+              />
+            </Truong>
+          )}
 
           {/* Ô CHỈ ĐỌC theo đúng Base ("Nhóm đề xuất: 01.0. Phiếu đề nghị") — cho người
               quen Base thấy đúng phiếu mình vẫn lập, dù giá trị hiện chỉ có một. */}
@@ -876,8 +917,8 @@ export default function TrangNhanDeNghiMoi() {
           </div>
           {!hopLe && (
             <span className="text-xs text-text-desc">
-              Còn thiếu: dự án/công trình · tên đề nghị · ngày đề nghị cấp · ít nhất 1 dòng
-              có tên, số lượng và ĐVT.
+              Còn thiếu: dự án/công trình{coCongThucTuDong(boPhan) ? "" : " · tên đề nghị"} ·
+              ngày đề nghị cấp · ít nhất 1 dòng có tên, số lượng và ĐVT.
             </span>
           )}
           </div>
