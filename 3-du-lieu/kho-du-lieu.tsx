@@ -13,6 +13,7 @@ import {
 // Chỉ dùng để SUY RA giai đoạn khi phát thông báo chuyển bước — import type-only
 // chiều ngược lại nên không tạo vòng phụ thuộc runtime.
 import {
+  NHAN_GIAI_DOAN,
   nguoiCanXuLy,
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
@@ -157,6 +158,11 @@ interface GiaTriDuLieu {
   ) => void;
   boPhanBoDong: (prId: string, sttDong: number, nguoiThucHien: string) => void;
   /**
+   * Lùi đề nghị về MỘT bước trước bằng cách hủy chứng từ tương ứng.
+   * Luật "được lùi hay không" ở `2-quy-trinh/giai-doan-mua-hang.ts` → `quyetDinhLui`.
+   */
+  luiVeBuoc: (prId: string, ve: GiaiDoanMuaHang, nguoiThucHien: string) => void;
+  /**
    * Chuyển việc sang người khác khi người được giao không thực hiện được
    * (Ban lãnh đạo 12/08/2026). Giữ nguyên yêu cầu số báo giá và ghi chú giao việc.
    */
@@ -189,7 +195,18 @@ interface GiaTriDuLieu {
     nguoiThucHien: string,
   ) => void;
   /** Bước ③ → ④: chốt nhà cung cấp cho một bảng báo giá đã so sánh. */
-  chonNCCChoBaoGia: (bgId: string, nccId: string, tenNCC: string, nguoiThucHien: string) => void;
+  /**
+   * Chốt nhà cung cấp cho bảng báo giá.
+   * `lyDo` = lý do / dẫn chứng vì sao chọn bên này (Ban lãnh đạo 13/08/2026) — lưu vào bảng
+   * báo giá, KHÔNG vào nhật ký đề nghị vì nhật ký hiện cho cả vai trò không xem được NCC.
+   */
+  chonNCCChoBaoGia: (
+    bgId: string,
+    nccId: string,
+    tenNCC: string,
+    nguoiThucHien: string,
+    lyDo?: string,
+  ) => void;
   /**
    * TÁCH BÁO GIÁ: lưu phân bổ khối lượng từng dòng cho nhiều nhà cung cấp.
    * Khóa của `phanBoTheoDong` là `DongBaoGia.id`.
@@ -748,6 +765,93 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  /**
+   * ★ LÙI ĐỀ NGHỊ VỀ MỘT BƯỚC TRƯỚC — Ban lãnh đạo 13/08/2026: *"chức năng kéo thả chuyển
+   * bước chỉ cho tiến hoặc lùi trong phạm vi 1 bước"*.
+   *
+   * 🔴 GIAI ĐOẠN KHÔNG PHẢI MỘT TRƯỜNG. Nó suy ra từ chứng từ (`xacDinhGiaiDoan`), nên lùi
+   * bước = HỦY ĐÚNG CHỨNG TỪ đang giữ đề nghị ở bước hiện tại. Đổi một trường trạng thái
+   * nào đó rồi coi như xong thì lần vẽ lại bảng tiếp theo thẻ tự nhảy về chỗ cũ.
+   *
+   * ⚠️ Hàm này CHỈ THỰC THI. Việc *có được lùi hay không* do `quyetDinhLui` trong
+   * `2-quy-trinh/giai-doan-mua-hang.ts` quyết — một luật, một chỗ. Đừng thêm điều kiện chặn
+   * ở đây, nếu không hai nơi sẽ nói khác nhau và người dùng không biết tin bên nào.
+   */
+  const luiVeBuoc = useCallback(
+    (prId: string, ve: GiaiDoanMuaHang, nguoiThucHien: string): void => {
+      const ngay = thoiDiemHienTai();
+
+      if (ve === "tiep_nhan") {
+        // Bỏ hết phân bổ + hủy bảng báo giá trống.
+        setDeNghi((truoc) =>
+          truoc.map((dn) =>
+            dn.id !== prId
+              ? dn
+              : {
+                  ...dn,
+                  items: dn.items.map((d) => ({
+                    ...d,
+                    nguoiPhuTrachUid: undefined,
+                    nguoiPhuTrachTen: undefined,
+                    nguoiPhanBoTen: undefined,
+                    thoiDiemPhanBo: undefined,
+                    soBaoGiaYeuCau: undefined,
+                    ghiChuPhanBo: undefined,
+                  })),
+                },
+          ),
+        );
+        setBaoGia((truoc) =>
+          truoc.map((b) =>
+            b.prId === prId && b.trangThai !== "huy"
+              ? { ...b, trangThai: "huy", ngayCapNhat: ngay }
+              : b,
+          ),
+        );
+      } else if (ve === "yeu_cau_bao_gia") {
+        // Mở lại bảng để thu thập tiếp — GIỮ NGUYÊN giá đã nhập.
+        setBaoGia((truoc) =>
+          truoc.map((b) =>
+            b.prId === prId && b.trangThai === "da_so_sanh"
+              ? { ...b, trangThai: "dang_thu_thap", ngayCapNhat: ngay }
+              : b,
+          ),
+        );
+      } else if (ve === "xet_duyet_bao_gia") {
+        // Bỏ nhà cung cấp đã chốt, đưa bảng về trạng thái chờ duyệt.
+        setBaoGia((truoc) =>
+          truoc.map((b) =>
+            b.prId === prId && b.trangThai === "da_chon_ncc"
+              ? {
+                  ...b,
+                  trangThai: "da_so_sanh",
+                  nccDaChonId: undefined,
+                  nccDaChonTen: undefined,
+                  ngayCapNhat: ngay,
+                }
+              : b,
+          ),
+        );
+      } else if (ve === "lap_don_mua_hang") {
+        // Đưa đơn đã chốt về nháp để sửa lại.
+        setDonHang((truoc) =>
+          truoc.map((po) =>
+            po.prId === prId && po.trangThai === "da_chot"
+              ? { ...po, trangThai: "nhap" }
+              : po,
+          ),
+        );
+      }
+
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHien,
+        `Lùi một bước về "${NHAN_GIAI_DOAN[ve].nhan}" — kéo thẻ trên bảng quy trình`,
+      );
+    },
+    [ghiLichSuDeNghi],
+  );
+
   const boPhanBoDong = useCallback((prId: string, stt: number, nguoiThucHien: string) => {
     setDeNghi((truoc) =>
       truoc.map((dn) =>
@@ -1051,12 +1155,23 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   const chonNCCChoBaoGia = useCallback(
-    (bgId: string, nccId: string, tenNCC: string, nguoiThucHien: string) => {
+    (bgId: string, nccId: string, tenNCC: string, nguoiThucHien: string, lyDo?: string) => {
       const ngay = homNay();
       setBaoGia((truoc) =>
         truoc.map((b) =>
           b.id === bgId
-            ? { ...b, trangThai: "da_chon_ncc", nccDaChonId: nccId, nccDaChonTen: tenNCC, ngayCapNhat: ngay }
+            ? {
+                ...b,
+                trangThai: "da_chon_ncc",
+                nccDaChonId: nccId,
+                nccDaChonTen: tenNCC,
+                // ★ Lý do / dẫn chứng chọn NCC — căn cứ của quyết định chi tiền, xem
+                // `lyDoChonNCC` trong `kieu-du-lieu.ts`.
+                lyDoChonNCC: lyDo?.trim() || undefined,
+                nguoiChonTen: nguoiThucHien,
+                thoiDiemChon: thoiDiemHienTai(),
+                ngayCapNhat: ngay,
+              }
             : b,
         ),
       );
@@ -1745,6 +1860,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDeNghiGiaLap,
       phanBoDong,
       boPhanBoDong,
+      luiVeBuoc,
       suaMatHangDeNghi,
       chuyenViecDong,
       themDonHang,
@@ -1785,6 +1901,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themDeNghiGiaLap,
       phanBoDong,
       boPhanBoDong,
+      luiVeBuoc,
       suaMatHangDeNghi,
       chuyenViecDong,
       themDonHang,

@@ -49,6 +49,14 @@ export function HopXacNhan({
   nhanDongY = "Đồng ý",
   /** Nút đồng ý màu đỏ — dùng cho việc phá hủy dữ liệu. */
   nguyHiem = false,
+  /**
+   * Lý do KHÓA nút Đồng ý — `undefined` là mở. Hộp cần người dùng nhập gì đó trước khi bấm
+   * (ví dụ lý do chọn nhà cung cấp) thì truyền câu giải thích vào đây.
+   *
+   * 🔴 Nhận CÂU GIẢI THÍCH chứ không nhận `boolean`: nút mờ mà không nói vì sao là kiểu bí
+   * việc khó chịu nhất — người dùng bấm mãi không được và chẳng biết còn thiếu gì.
+   */
+  khoaDongY,
   children,
   onDong,
   onDongY,
@@ -59,6 +67,7 @@ export function HopXacNhan({
   canhBao?: ReactNode;
   nhanDongY?: string;
   nguyHiem?: boolean;
+  khoaDongY?: string;
   children?: ReactNode;
   onDong: () => void;
   onDongY: () => void;
@@ -80,12 +89,16 @@ export function HopXacNhan({
           </div>
         )}
 
+        {/* Nút mờ PHẢI kèm lý do — xem chú thích ở `khoaDongY`. */}
+        {khoaDongY && <p className="text-xs text-warning-soft">{khoaDongY}</p>}
+
         <DialogFooter>
           <Button variant="outline" onClick={onDong}>
             Hủy
           </Button>
           <Button
             variant={nguyHiem ? "destructive" : "default"}
+            disabled={khoaDongY !== undefined}
             onClick={() => {
               onDongY();
               onDong();

@@ -537,6 +537,22 @@ export interface BaoGia {
   items: DongBaoGia[];
   nccDaChonId?: string;
   nccDaChonTen?: string;
+  /**
+   * ★ LÝ DO / DẪN CHỨNG vì sao chọn nhà cung cấp này — Ban lãnh đạo 13/08/2026: *"thêm chức
+   * năng ghi chú lý do / dẫn chứng vì sao chọn NCC sau khi so sánh báo giá"*.
+   *
+   * 🔴 Đây là CĂN CỨ CỦA MỘT QUYẾT ĐỊNH CHI TIỀN. Chọn nhà cung cấp không phải lúc nào cũng
+   * là chọn giá thấp nhất — có khi vì giao nhanh hơn, chất lượng đã kiểm chứng, hoặc bên rẻ
+   * hơn không đủ hàng. Không ghi lại thì sáu tháng sau kiểm toán hỏi *"vì sao không chọn bên
+   * rẻ nhất"*, không ai trả lời được, và người quyết định phải tự bảo vệ bằng ký ức.
+   *
+   * 📌 Lưu cùng bảng báo giá (không phải nhật ký đề nghị) vì nhật ký hiện cho cả vai trò
+   * không được xem nhà cung cấp — xem quy ước ở `ghiLichSuDeNghi`.
+   */
+  lyDoChonNCC?: string;
+  /** Người ghi lý do và lúc nào — để biết ai chịu trách nhiệm về quyết định này. */
+  nguoiChonTen?: string;
+  thoiDiemChon?: string;
   /** Bản báo giá gốc nhà cung cấp gửi về, nhân viên thu mua tải lên — xem `TepBaoGiaNCC`. */
   tepBaoGia?: TepBaoGiaNCC[];
   hanNop: NgayISO;

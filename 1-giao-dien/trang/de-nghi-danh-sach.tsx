@@ -38,6 +38,7 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import {
   dungBangQuyTrinh,
+  NHAN_GIAI_DOAN,
   dungXacNhanKeoTha,
   quyetDinhKeoTha,
   type GiaiDoanMuaHang,
@@ -65,6 +66,7 @@ export default function TrangDanhSachDeNghi() {
     suaTruongBoSung,
     nhanBanDeNghi,
     xoaDeNghi,
+    luiVeBuoc,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [cachXem, setCachXem] = useState<CachXem>("bang");
@@ -219,6 +221,13 @@ export default function TrangDanhSachDeNghi() {
       case "mo_trang":
         toast.info("Bước này cần thao tác nghiệp vụ", { description: hanhDong.thongBao });
         router.push(hanhDong.duongDan);
+        break;
+      case "lui_buoc":
+        // Hủy chứng từ tương ứng để thẻ thật sự về bước trước — xem `luiVeBuoc`.
+        luiVeBuoc(prId, hanhDong.ve, nguoiDung.tenHienThi);
+        toast.success("Đã lùi một bước", {
+          description: `${the.deNghi.code} về "${NHAN_GIAI_DOAN[hanhDong.ve].nhan}".`,
+        });
         break;
       case "khong_the":
         // Đã chặn ở `xuLyTha` trước khi mở hộp xác nhận — nhánh này chỉ để đủ kiểu.

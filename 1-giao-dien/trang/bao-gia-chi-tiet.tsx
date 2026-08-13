@@ -26,6 +26,8 @@ import {
   TableRow,
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
+import { Label } from "@/1-giao-dien/nen-tang-ui/label";
+import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { NHAN_TRANG_THAI_BAO_GIA } from "@/2-quy-trinh/trang-thai";
 import {
   daTachBaoGia,
@@ -78,6 +80,16 @@ export default function TrangBaoGiaChiTiet() {
     | { loai: "chot_ncc"; nccId: string; tenNCC: string }
     | null
   >(null);
+  /**
+   * ★ LÝ DO / DẪN CHỨNG chọn nhà cung cấp — Ban lãnh đạo 13/08/2026: *"thêm chức năng ghi
+   * chú lý do / dẫn chứng vì sao chọn NCC sau khi so sánh báo giá"*.
+   *
+   * 🔴 BẮT BUỘC GHI khi chốt NCC. Chọn nhà cung cấp là quyết định chi tiền, và không phải
+   * lúc nào cũng chọn bên rẻ nhất — có khi vì giao nhanh, chất lượng đã kiểm chứng, hoặc bên
+   * rẻ hơn không đủ hàng. Không ghi lại căn cứ thì sáu tháng sau kiểm toán hỏi *"vì sao
+   * không chọn bên rẻ nhất"*, người quyết định phải tự bảo vệ bằng ký ức.
+   */
+  const [lyDoChon, setLyDoChon] = useState("");
 
   if (!bg) {
     return (
@@ -254,6 +266,22 @@ export default function TrangBaoGiaChiTiet() {
               {bg.nccDaChonTen ?? "Chưa chọn"}
             </p>
           </div>
+
+          {/* ★ CĂN CỨ CHỌN NHÀ CUNG CẤP — Ban lãnh đạo 13/08/2026. Hiện ngay cạnh tên nhà
+              cung cấp đã chốt, không giấu trong nhật ký: ai mở bảng báo giá này ra cũng phải
+              đọc được vì sao chọn bên đó. Chiếm cả hàng vì lý do thường dài hơn một dòng. */}
+          {bg.lyDoChonNCC && (
+            <div className="col-span-full rounded-lg border border-success/30 bg-success-bg p-(--hp-md-row-pad)">
+              <p className="text-xs text-text-desc">Lý do / dẫn chứng chọn nhà cung cấp</p>
+              <p className="text-sm text-text-primary">{bg.lyDoChonNCC}</p>
+              {bg.nguoiChonTen && (
+                <p className="mt-0.5 text-xs text-text-desc">
+                  {bg.nguoiChonTen}
+                  {bg.thoiDiemChon ? ` · ${formatDate(bg.thoiDiemChon)}` : ""}
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -721,10 +749,26 @@ export default function TrangBaoGiaChiTiet() {
               ? "Duyệt"
               : "Chốt nhà cung cấp"
         }
-        onDong={() => setViecChoXacNhan(null)}
+        /**
+         * ★ BẮT GHI LÝ DO khi chốt nhà cung cấp — Ban lãnh đạo 13/08/2026.
+         * Hai việc kia (trình xét duyệt, duyệt phương án) không đòi lý do: chúng chỉ chuyển
+         * bước, còn chốt NCC là quyết định chi tiền cho một bên cụ thể.
+         */
+        khoaDongY={
+          viecChoXacNhan?.loai === "chot_ncc" && lyDoChon.trim() === ""
+            ? "Phải ghi lý do / dẫn chứng vì sao chọn nhà cung cấp này trước khi chốt."
+            : undefined
+        }
+        onDong={() => {
+          setViecChoXacNhan(null);
+          // Xóa ô nhập khi đóng — mở lại cho lần chốt khác phải là ô trắng, không phải
+          // câu gõ dở cho nhà cung cấp trước.
+          setLyDoChon("");
+        }}
         onDongY={() => {
           const v = viecChoXacNhan;
           if (!v) return;
+          // Nút Đồng ý bị khóa khi chưa ghi lý do (xem `khoaDongY`), nên tới đây là đã có.
           if (v.loai === "trinh_xet_duyet") {
             trinhXetDuyetBaoGia(bg.id, nguoiDung.tenHienThi);
             toast.success("Đã trình trưởng bộ phận xem xét", {
@@ -739,12 +783,31 @@ export default function TrangBaoGiaChiTiet() {
             });
             return;
           }
-          chonNCCChoBaoGia(bg.id, v.nccId, v.tenNCC, nguoiDung.tenHienThi);
+          chonNCCChoBaoGia(bg.id, v.nccId, v.tenNCC, nguoiDung.tenHienThi, lyDoChon);
           toast.success("Đã chốt nhà cung cấp", {
             description: `${v.tenNCC} — ${bg.prCode} chuyển sang “Lập đơn mua hàng”.`,
           });
         }}
-      />
+      >
+        {/* ★ Ô GHI LÝ DO — chỉ hiện khi đang chốt nhà cung cấp. Hai việc kia (trình xét
+            duyệt, duyệt phương án) chỉ chuyển bước nên không đòi lý do. */}
+        {viecChoXacNhan?.loai === "chot_ncc" && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ly-do-chon-ncc">Lý do / dẫn chứng chọn nhà cung cấp này *</Label>
+            <Textarea
+              id="ly-do-chon-ncc"
+              rows={3}
+              placeholder="Ví dụ: giá thấp nhất trong 3 báo giá · giao 5 ngày đáp ứng tiến độ móng · bên rẻ hơn báo hết hàng, có email xác nhận ngày 12/8"
+              value={lyDoChon}
+              onChange={(e) => setLyDoChon(e.target.value)}
+            />
+            <p className="text-xs text-text-desc">
+              Lưu vào bảng báo giá kèm tên bạn và thời điểm. Đây là căn cứ khi cần giải trình vì
+              sao không chọn bên rẻ nhất — ghi cụ thể, đừng ghi “giá tốt”.
+            </p>
+          </div>
+        )}
+      </HopXacNhan>
     </>
   );
 }

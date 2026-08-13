@@ -365,6 +365,15 @@ export type HanhDongKeoTha =
   | { loai: "chot_so_sanh" }
   | { loai: "dong_do" }
   | { loai: "mo_trang"; duongDan: string; thongBao: string }
+  /**
+   * ★ LÙI LẠI MỘT BƯỚC — Ban lãnh đạo 13/08/2026: *"chức năng kéo thả chuyển bước chỉ cho
+   * tiến hoặc lùi trong phạm vi 1 bước"*.
+   *
+   * `ve` là giai đoạn đích, `viec` là câu tả việc app sẽ làm để lùi — hộp xác nhận in ra
+   * câu này. Giai đoạn suy ra từ chứng từ nên lùi KHÔNG phải đổi nhãn: phải hủy đúng chứng
+   * từ của bước đang đứng, và người dùng cần đọc trước mình sắp hủy cái gì.
+   */
+  | { loai: "lui_buoc"; ve: GiaiDoanMuaHang; viec: string }
   | { loai: "khong_the"; lyDo: string };
 
 const THU_TU_GIAI_DOAN: GiaiDoanMuaHang[] = GIAI_DOAN_MUA_HANG.map((g) => g.ma);
@@ -423,6 +432,90 @@ export function vuongMacSangBuocSau(
   }
 }
 
+/**
+ * ★ KÉO LÙI MỘT BƯỚC — quyết định app phải hủy chứng từ nào.
+ *
+ * 🔴 Ban lãnh đạo 13/08/2026: *"chỉ cho tiến hoặc lùi trong phạm vi 1 bước"*.
+ *
+ * ⚠️ LÙI KHÔNG PHẢI ĐỔI NHÃN. Giai đoạn được SUY RA từ chứng từ có thật, nên muốn thẻ về
+ * cột trước thì phải hủy đúng chứng từ đang giữ nó ở cột này. Nếu chỉ đổi nhãn thì lần vẽ
+ * lại bảng tiếp theo thẻ tự nhảy về chỗ cũ — người dùng tưởng app hỏng.
+ *
+ * 🔒 CHẶN LÙI TỪ "NHẬN HÀNG": phiếu nhận là chứng từ của KHO, và theo nguyên tắc dữ liệu số
+ * 2 thì Kho là nguồn duy nhất của số lượng thực nhận — Thu mua không được xóa phiếu của họ.
+ */
+function quyetDinhLui(
+  tu: GiaiDoanMuaHang,
+  ve: GiaiDoanMuaHang,
+  poCuaDeNghi: DonDatHang[],
+  baoGiaCuaDeNghi: BaoGia[],
+): HanhDongKeoTha {
+  switch (tu) {
+    case "yeu_cau_bao_gia": {
+      // Về ①: bỏ hết phân bổ, và hủy bảng báo giá nếu đã lập.
+      const bg = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
+      const coGia = bg.some((b) => b.items.some((d) => d.baoGiaNCC.length > 0));
+      if (coGia) {
+        return {
+          loai: "khong_the",
+          lyDo: "Bảng báo giá đã có giá của nhà cung cấp — lùi về bước ① sẽ mất số liệu đó. Hủy bảng báo giá ở trang chi tiết nếu thật sự muốn làm lại.",
+        };
+      }
+      return {
+        loai: "lui_buoc",
+        ve,
+        viec:
+          bg.length > 0
+            ? "Hủy bảng báo giá trống và bỏ toàn bộ phân bổ người phụ trách."
+            : "Bỏ toàn bộ phân bổ người phụ trách — đề nghị về lại bước tiếp nhận.",
+      };
+    }
+
+    case "xet_duyet_bao_gia":
+      // Về ②: mở lại bảng báo giá cho nhân viên thu thập tiếp. KHÔNG mất giá đã nhập.
+      return {
+        loai: "lui_buoc",
+        ve,
+        viec: "Mở lại bảng báo giá để thu thập tiếp. Giá đã nhập vẫn giữ nguyên.",
+      };
+
+    case "lap_don_mua_hang": {
+      // Về ③: bỏ nhà cung cấp đã chốt. Còn đơn nháp thì phải hủy đơn trước.
+      if (poCuaDeNghi.some((po) => po.trangThai === "nhap")) {
+        return {
+          loai: "khong_the",
+          lyDo: "Đã có đơn đặt hàng nháp cho đề nghị này. Hủy đơn nháp trước rồi mới lùi được về bước xét duyệt báo giá.",
+        };
+      }
+      return {
+        loai: "lui_buoc",
+        ve,
+        viec: "Bỏ nhà cung cấp đã chốt — bảng báo giá về trạng thái chờ duyệt.",
+      };
+    }
+
+    case "dat_hang":
+      // Về ④: đưa đơn đã chốt về nháp để sửa lại.
+      return {
+        loai: "lui_buoc",
+        ve,
+        viec: "Đưa các đơn đã chốt về trạng thái nháp để sửa lại. Đơn chưa gửi nhà cung cấp thì làm được; đã gửi rồi thì phải thông báo cho họ.",
+      };
+
+    case "nhan_hang":
+      return {
+        loai: "khong_the",
+        lyDo: "Đã có phiếu nhận hàng của Kho. Phiếu nhận là chứng từ của Kho — Thu mua không xóa được. Nhờ thủ kho hủy phiếu trước.",
+      };
+
+    default:
+      return {
+        loai: "khong_the",
+        lyDo: "Bước này không lùi được.",
+      };
+  }
+}
+
 export function quyetDinhKeoTha(
   the: TheDeNghiTrenBang,
   dich: GiaiDoanMuaHang,
@@ -448,16 +541,18 @@ export function quyetDinhKeoTha(
   const buocTu = THU_TU_GIAI_DOAN.indexOf(tu);
   const buocDich = THU_TU_GIAI_DOAN.indexOf(dich);
 
-  if (buocDich < buocTu) {
+  /**
+   * ★ PHẠM VI KÉO THẢ: ĐÚNG MỘT BƯỚC, cả tiến lẫn lùi — Ban lãnh đạo 13/08/2026.
+   * Bản trước chặn lùi hoàn toàn; nay lùi được nhưng chỉ một bước.
+   */
+  if (buocDich < buocTu - 1 || buocDich > buocTu + 1) {
     return {
       loai: "khong_the",
-      lyDo: "Không kéo lùi được — giai đoạn suy ra từ chứng từ thật (báo giá, đơn hàng, phiếu nhận). Muốn lùi phải hủy chứng từ tương ứng.",
+      lyDo: "Chỉ kéo được sang bước liền kề — tiến một bước hoặc lùi một bước, không nhảy cóc.",
     };
   }
 
-  if (buocDich > buocTu + 1) {
-    return { loai: "khong_the", lyDo: "Chỉ chuyển được sang bước liền kề, không nhảy cóc." };
-  }
+  if (buocDich === buocTu - 1) return quyetDinhLui(tu, dich, poCuaDeNghi, baoGiaCuaDeNghi);
 
   // 🔴 BƯỚC TRƯỚC PHẢI XONG MỚI ĐI TIẾP (chỉ đạo Ban lãnh đạo 10/08/2026). Dùng chung luật
   // với các đường chuyển bước khác — xem `vuongMacSangBuocSau`.
@@ -622,6 +717,15 @@ export function dungXacNhanKeoTha(
         seLam: `${hanhDong.thongBao} Thẻ CHƯA chuyển bước cho tới khi việc đó xong.`,
         nhanNut: "Mở màn hình đó",
         nguyHiem: false,
+      };
+    case "lui_buoc":
+      return {
+        ...chung,
+        // 🔴 `nguyHiem: true` — lùi bước là HỦY CHỨNG TỪ, không phải đổi nhãn. Nút đỏ để
+        // người dùng dừng lại đọc một giây, và câu `viec` nói rõ app sắp hủy cái gì.
+        seLam: `${hanhDong.viec} Việc này được ghi vào nhật ký kèm tên bạn.`,
+        nhanNut: "Lùi một bước",
+        nguyHiem: true,
       };
     default:
       // "khong_the" không bao giờ tới được đây — trang gọi đã chặn và báo lý do trước.
