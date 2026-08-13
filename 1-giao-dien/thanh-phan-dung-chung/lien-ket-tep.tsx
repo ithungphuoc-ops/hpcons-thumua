@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Download, Loader2, Paperclip } from "lucide-react";
-import { coTep, moTep, taiTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
+import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
+import { coTep, taiTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
 
 /**
  * MỘT CHỨNG TỪ ĐÍNH KÈM — bấm tên để XEM, bấm mũi tên để TẢI VỀ.
@@ -29,19 +30,26 @@ export function LienKetTep({
   rutGon?: (ten: string) => string;
   className?: string;
 }) {
-  const [dangTai, setDangTai] = useState<"xem" | "tai" | null>(null);
+  const [dangTai, setDangTai] = useState(false);
+  /**
+   * ★ XEM TRONG POP-UP CĂN GIỮA MÀN HÌNH — Ban lãnh đạo 13/08/2026.
+   *
+   * 🔴 Trước đó bấm tên là mở TAB MỚI: xem xong phải đóng tab quay lại, đối chiếu 5 phiếu là
+   * 5 lần nhảy tab và dễ mất chỗ đang làm. Nay xem tại chỗ, đóng lại là về đúng chỗ cũ.
+   */
+  const [moXem, setMoXem] = useState(false);
 
-  async function chay(viec: "xem" | "tai") {
-    setDangTai(viec);
+  async function tai() {
+    setDangTai(true);
     try {
-      const duoc = viec === "xem" ? await moTep(tep) : await taiTep(tep);
+      const duoc = await taiTep(tep);
       if (!duoc) {
-        toast.error(viec === "xem" ? "Không mở được tệp" : "Không tải được tệp", {
+        toast.error("Không tải được tệp", {
           description: "Không lấy được nội dung từ máy chủ. Kiểm tra mạng rồi thử lại.",
         });
       }
     } finally {
-      setDangTai(null);
+      setDangTai(false);
     }
   }
 
@@ -50,28 +58,29 @@ export function LienKetTep({
       <Paperclip className="size-3.5 shrink-0 text-text-desc" aria-hidden />
       <button
         type="button"
-        onClick={() => void chay("xem")}
-        disabled={dangTai !== null}
+        onClick={() => setMoXem(true)}
         title={`Xem ${tep.tenTep}`}
-        className="min-w-0 truncate text-left text-primary hover:underline disabled:opacity-60"
+        className="min-w-0 truncate text-left text-primary hover:underline"
       >
         {rutGon ? rutGon(tep.tenTep) : tep.tenTep}
       </button>
       <span className="shrink-0 text-xs text-text-desc">{coTep(tep.kichThuoc)}</span>
       <button
         type="button"
-        onClick={() => void chay("tai")}
-        disabled={dangTai !== null}
+        onClick={() => void tai()}
+        disabled={dangTai}
         aria-label={`Tải ${tep.tenTep} về máy`}
         title="Tải về máy"
         className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-primary disabled:opacity-60"
       >
-        {dangTai === "tai" ? (
+        {dangTai ? (
           <Loader2 className="size-3.5 animate-spin" aria-hidden />
         ) : (
           <Download className="size-3.5" aria-hidden />
         )}
       </button>
+
+      <HopXemTep tep={tep} mo={moXem} onDong={() => setMoXem(false)} />
     </span>
   );
 }

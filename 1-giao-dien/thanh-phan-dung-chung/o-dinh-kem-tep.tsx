@@ -8,11 +8,11 @@ import {
   KIEU_CHO_PHEP,
   catTep,
   coTep,
-  moTep,
   type MoTaTep,
   taiTep,
 } from "@/3-du-lieu/kho-tep";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
+import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 
 /**
  * Ô ĐÍNH KÈM MỘT TỆP — dùng chung cho mọi chỗ cần gắn chứng từ vào hồ sơ.
@@ -65,16 +65,11 @@ export function ODinhKemTep({
     }
   }
 
-  async function xem() {
-    if (!tep) return;
-    const duoc = await moTep(tep);
-    if (!duoc) {
-      toast.error("Không mở được tệp", {
-        description:
-          "Không tải được nội dung tệp từ máy chủ. Kiểm tra lại mạng rồi thử lại; nếu vẫn không được thì nhờ người tải lên đính kèm lại.",
-      });
-    }
-  }
+  /**
+   * ★ XEM TRONG POP-UP CĂN GIỮA MÀN HÌNH — Ban lãnh đạo 13/08/2026, thay cho mở tab mới.
+   * Luật ở `HopXemTep`, dùng chung với mọi chỗ khác có chứng từ đính kèm.
+   */
+  const [moXem, setMoXem] = useState(false);
 
   /** Tải chứng từ về máy — xem `taiTep`, khác "xem" ở chỗ ép trình duyệt lưu file xuống. */
   async function tai() {
@@ -114,7 +109,7 @@ export function ODinhKemTep({
           <span className="ml-auto flex shrink-0 items-center gap-2">
             <button
               type="button"
-              onClick={xem}
+              onClick={() => setMoXem(true)}
               className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary"
             >
               <Eye className="size-3.5 shrink-0" aria-hidden />
@@ -148,6 +143,9 @@ export function ODinhKemTep({
               </label>
             )}
           </span>
+
+          {/* Pop-up xem chứng từ — căn giữa màn hình (Ban lãnh đạo 13/08/2026). */}
+          <HopXemTep tep={tep} mo={moXem} onDong={() => setMoXem(false)} />
         </div>
       ) : (
         <label
