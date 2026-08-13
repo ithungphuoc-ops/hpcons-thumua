@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
-import { Clock, Eye, UserCheck } from "lucide-react";
+import { Clock, Eye, GitBranch, UserCheck } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -43,6 +43,51 @@ export default function TrangTheoDoi() {
     });
   }, [deNghi, donHang, baoGia, phieuNhan, nguoiDung.uid, quyen.xemMoiHoSo]);
 
+  /**
+   * ★ GOM NHÓM THEO MÃ ĐỀ NGHỊ — Ban lãnh đạo 13/08/2026: *"mục theo dõi đề nghị này em
+   * làm thêm tính năng group lại theo mã đề nghị nữa nhé"*.
+   *
+   * Một đề xuất lớn tách thành nhiều phiếu (`PR-001`, `PR-001 (copy)`, `PR-001 (copy 2)`)
+   * nằm rời rạc thì người theo dõi phải tự nhớ chúng là một việc. Gom lại thì đọc một lần
+   * thấy ngay: việc này chia mấy phần, phần nào đang ở đâu.
+   *
+   * 🔴 Gom theo `deNghiGocId` (mã hồ sơ), KHÔNG theo tiêu đề: hai đề xuất khác nhau hoàn
+   * toàn có thể trùng tên, gom nhầm là trộn việc của hai người thành một.
+   *
+   * 📌 Trả về DANH SÁCH PHẲNG có xen dòng tiêu đề, không phải cây lồng nhau. Lồng thêm một
+   * cấp thì 90 dòng JSX bên dưới phải thụt lại hết — diff phình lên mà giao diện không
+   * khác gì. Thẻ thuộc nhóm nhận viền trái để mắt thấy chúng đi cùng nhau.
+   */
+  const dongHienThi = useMemo(() => {
+    const map = new Map<string, typeof danhSach>();
+    for (const m of danhSach) {
+      const goc = m.dn.deNghiGocId ?? m.dn.id;
+      map.set(goc, [...(map.get(goc) ?? []), m]);
+    }
+    const ra: ({ loai: "nhom"; id: string; ma: string; tieuDe: string; soPhieu: number } | ((typeof danhSach)[number] & { loai: "the"; trongNhom: boolean }))[] = [];
+    for (const [gocId, ds] of map) {
+      // Phiếu gốc có thể KHÔNG nằm trong danh sách (không được xem, hoặc đã xóa) — khi đó
+      // lấy mã gốc chép sẵn trên phiếu con để vẫn gọi tên được nhóm.
+      const goc = ds.find((x) => x.dn.id === gocId)?.dn;
+      const trongNhom = ds.length > 1;
+      if (trongNhom) {
+        ra.push({
+          loai: "nhom",
+          id: gocId,
+          ma: goc?.code ?? ds[0].dn.maDeNghiGoc ?? ds[0].dn.code,
+          tieuDe: goc?.tieuDe ?? ds[0].dn.tieuDe,
+          soPhieu: ds.length,
+        });
+      }
+      // Phiếu gốc lên đầu, các bản tách xếp theo mã cho thứ tự ổn định.
+      const sapXep = [...ds].sort((a, b) =>
+        a.dn.id === gocId ? -1 : b.dn.id === gocId ? 1 : a.dn.code.localeCompare(b.dn.code),
+      );
+      for (const m of sapXep) ra.push({ ...m, loai: "the", trongNhom });
+    }
+    return ra;
+  }, [danhSach]);
+
   return (
     <>
       <PageHeader
@@ -72,11 +117,33 @@ export default function TrangTheoDoi() {
         />
       ) : (
         <div className="flex flex-col gap-(--hp-md-card-gap)">
-          {danhSach.map(({ dn, tienDo, tomTat, giaiDoan }) => {
+          {dongHienThi.map((m) => {
+            // Dòng tiêu đề của một nhóm phiếu đã tách.
+            if (m.loai === "nhom") {
+              return (
+                <p
+                  key={`nhom-${m.id}`}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1 text-sm"
+                >
+                  <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
+                  <span className="font-semibold text-text-primary">{m.ma}</span>
+                  <span className="text-text-secondary">— {m.tieuDe}</span>
+                  <span className="rounded bg-primary-bg px-1.5 py-0.5 text-xs font-medium text-primary">
+                    {m.soPhieu} phiếu đã tách
+                  </span>
+                </p>
+              );
+            }
+            const { dn, tienDo, tomTat, giaiDoan } = m;
             const tt = NHAN_TRANG_THAI_DE_NGHI[dn.trangThai];
             const buoc = NHAN_GIAI_DOAN[giaiDoan];
             return (
-              <Card key={dn.id}>
+              <Card
+                key={dn.id}
+                // Viền trái + lùi vào: thấy ngay thẻ này thuộc nhóm phía trên, mà không
+                // phải lồng thêm một lớp khung bọc quanh cả nhóm.
+                className={m.trongNhom ? "ml-3 border-l-4 border-l-primary" : undefined}
+              >
                 <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex flex-col gap-1">
