@@ -33,7 +33,6 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
-import { HopSuaMatHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-de-nghi";
 import { NGUONG } from "@/2-quy-trinh/nguong-gia-tri";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -97,8 +96,16 @@ function YeuCauGiaoViec({ soBaoGia, ghiChu }: { soBaoGia?: number; ghiChu?: stri
 export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi } =
     useDuLieu();
-  /** Hộp "Sửa danh sách mặt hàng" — mở từ nút trên đầu bảng, xem `HopSuaMatHang`. */
-  const [moSuaMatHang, setMoSuaMatHang] = useState(false);
+  /**
+   * Dòng vật tư MỚI đang gõ ở cuối bảng — `null` là chưa bấm nút thêm.
+   *
+   * 🔴 Ban lãnh đạo 13/08/2026: *"tối giản mục thêm bớt này đi, chỉ cần thêm dấu × ở đầu
+   * tên mỗi loại vật tư để xóa, và thêm hình cây bút ở cuối danh sách để thêm vật tư mới"*.
+   * Trước đó là một hộp thoại 455 dòng cho việc mà một dấu × và một dòng nhập là đủ.
+   */
+  const [dongMoi, setDongMoi] = useState<{ ten: string; kl: string; dvt: string } | null>(null);
+  /** Dòng đang hỏi xóa — hộp xác nhận nói rõ xóa cái gì. */
+  const [hoiXoa, setHoiXoa] = useState<{ stt: number; ten: string } | null>(null);
   const { nguoiDung, quyen, danhSachTaiKhoan } = useNguoiDung();
   const [chon, setChon] = useState<number[]>([]);
 
@@ -218,8 +225,8 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
   }
 
   /**
-   * `stt` các dòng ĐÃ LÊN ĐƠN ĐẶT HÀNG — hộp sửa mặt hàng dùng để chặn bỏ những dòng này.
-   * Bỏ chúng là dòng đơn hàng mồ côi và sai khối lượng đối chiếu.
+   * `stt` các dòng ĐÃ LÊN ĐƠN ĐẶT HÀNG — không cho xóa: xóa là dòng đơn hàng mồ côi và
+   * sai khối lượng đối chiếu. Kho dữ liệu vẫn chặn lần nữa, đây chỉ là để ẩn dấu ×.
    */
   const sttDaLenDon = useMemo(
     () =>
@@ -228,6 +235,50 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
         .flatMap((p) => p.items.map((x) => x.sttDongDeNghi)),
     [donHang, deNghi.id],
   );
+
+  /** Dòng này có hiện dấu × không. Luật đầy đủ ở `suaMatHangDeNghi`, đây là phép lịch sự. */
+  function xoaDuoc(stt: number) {
+    return quyen.phanBoCongViec && !biLoc && deNghi.items.length > 1 && !sttDaLenDon.includes(stt);
+  }
+
+  function xoaMatHang(stt: number) {
+    const lyDo = suaMatHangDeNghi(
+      deNghi.id,
+      deNghi.items.filter((d) => d.stt !== stt),
+      nguoiDung.tenHienThi,
+    );
+    if (lyDo) {
+      toast.error("Không xóa được mặt hàng", { description: lyDo });
+      return;
+    }
+    toast.success("Đã xóa mặt hàng khỏi đề nghị");
+  }
+
+  function themMatHang() {
+    if (!dongMoi) return;
+    const lyDo = suaMatHangDeNghi(
+      deNghi.id,
+      [
+        ...deNghi.items,
+        // `stt: 0` = dòng mới, kho dữ liệu cấp số thật khi lưu.
+        // ⚠️ KHÔNG gán `trangThaiDong` / `maPOLienQuan` — hai thứ đó là kết quả TÍNH RA
+        // từ đơn hàng và phiếu nhận (`tinhTienDoDeNghi`), không phải dữ liệu lưu trên dòng.
+        {
+          stt: 0,
+          tenVatLieu: dongMoi.ten.trim(),
+          donViTinh: dongMoi.dvt.trim(),
+          khoiLuongDeNghi: Number(dongMoi.kl),
+        },
+      ],
+      nguoiDung.tenHienThi,
+    );
+    if (lyDo) {
+      toast.error("Không thêm được mặt hàng", { description: lyDo });
+      return;
+    }
+    setDongMoi(null);
+    toast.success("Đã thêm mặt hàng vào đề nghị");
+  }
 
   function doiChon(stt: number, checked: boolean) {
     setChon((truoc) => (checked ? [...truoc, stt] : truoc.filter((x) => x !== stt)));
@@ -282,25 +333,6 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
             {deNghi.items.length} dòng vật tư của đề nghị này). Các dòng còn lại do người khác
             phụ trách.
           </p>
-        )}
-
-        {/* ★ SỬA DANH SÁCH MẶT HÀNG — Ban lãnh đạo 13/08/2026: *"việc thêm bớt công việc
-            phải click vào đề xuất để chỉnh sửa"*. Một nút mở hộp sửa cả bảng, thay cho nút
-            xóa lắt nhắt trên từng dòng — bỏ một mặt hàng khỏi chứng từ là sửa hồ sơ, phải
-            thấy toàn cảnh và hủy được nếu đổi ý.
-
-            ⚠️ Ẩn khi đang lọc theo phần việc: nhân viên chỉ thấy dòng của mình, mở hộp ra
-            sửa là **xóa mất dòng của người khác** mà không hề biết. */}
-        {quyen.phanBoCongViec && !biLoc && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-fit"
-            onClick={() => setMoSuaMatHang(true)}
-          >
-            <Pencil className="size-4" aria-hidden />
-            Thêm / bớt mặt hàng
-          </Button>
         )}
 
         {/* Tóm tắt cảnh báo */}
@@ -375,7 +407,22 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                     <TableCell className="text-right text-text-desc">{d.stt}</TableCell>
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
-                        <span>{d.tenVatLieu}</span>
+                        <span className="flex items-baseline gap-1.5">
+                          {/* ★ Dấu × ngay đầu tên vật tư — cách xóa nhanh nhất, đúng chỉ
+                              đạo Ban lãnh đạo 13/08/2026. Vẫn hỏi lại một câu trước khi
+                              xóa: mất một dòng vật tư khỏi chứng từ không lùi lại được. */}
+                          {xoaDuoc(d.stt) && (
+                            <button
+                              type="button"
+                              onClick={() => setHoiXoa({ stt: d.stt, ten: d.tenVatLieu })}
+                              aria-label={`Xóa ${d.tenVatLieu} khỏi đề nghị`}
+                              className="shrink-0 text-base leading-none text-text-desc transition-colors hover:text-danger"
+                            >
+                              ×
+                            </button>
+                          )}
+                          <span className="min-w-0">{d.tenVatLieu}</span>
+                        </span>
                         {d.quyCach && <span className="text-xs text-text-desc">{d.quyCach}</span>}
                         {/* Mục đích sử dụng do người đề nghị ghi trên phiếu — hiện ngay
                             dưới tên vật liệu để người lập đơn biết mua cho hạng mục nào,
@@ -474,6 +521,67 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                   </TableRow>
                 );
               })}
+
+              {/* ★ THÊM VẬT TƯ MỚI — nút cây bút ở cuối danh sách (Ban lãnh đạo 13/08/2026).
+                  Bấm bút thì chính hàng này thành ba ô nhập, gõ xong bấm dấu ✓ là xong —
+                  không mở hộp thoại, không rời khỏi bảng. */}
+              {quyen.phanBoCongViec && !biLoc && (
+                <TableRow>
+                  <TableCell colSpan={quyen.phanBoCongViec ? 7 : 6} className="py-2">
+                    {dongMoi === null ? (
+                      <button
+                        type="button"
+                        onClick={() => setDongMoi({ ten: "", kl: "", dvt: "" })}
+                        className="flex items-center gap-2 text-sm text-text-desc transition-colors hover:text-primary"
+                      >
+                        <Pencil className="size-4 shrink-0" aria-hidden />
+                        Thêm vật tư mới
+                      </button>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Input
+                          autoFocus
+                          value={dongMoi.ten}
+                          onChange={(e) => setDongMoi({ ...dongMoi, ten: e.target.value })}
+                          placeholder="Tên vật tư"
+                          className="w-56"
+                          aria-label="Tên vật tư mới"
+                        />
+                        <Input
+                          type="number"
+                          min={0}
+                          value={dongMoi.kl}
+                          onChange={(e) => setDongMoi({ ...dongMoi, kl: e.target.value })}
+                          placeholder="Số lượng"
+                          className="w-28"
+                          aria-label="Số lượng"
+                        />
+                        <Input
+                          value={dongMoi.dvt}
+                          onChange={(e) => setDongMoi({ ...dongMoi, dvt: e.target.value })}
+                          placeholder="ĐVT"
+                          className="w-24"
+                          aria-label="Đơn vị tính"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={
+                            dongMoi.ten.trim() === "" ||
+                            dongMoi.dvt.trim() === "" ||
+                            !(Number(dongMoi.kl) > 0)
+                          }
+                          onClick={themMatHang}
+                        >
+                          Thêm
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setDongMoi(null)}>
+                          Hủy
+                        </Button>
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
@@ -667,22 +775,16 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
         </div>
       </HopXacNhan>
 
-      {/* ===== SỬA DANH SÁCH MẶT HÀNG =====
-          🔴 Ban lãnh đạo 13/08/2026: *"việc thêm bớt công việc phải click vào đề xuất để
-          chỉnh sửa"*. Mở phiếu → sửa cả bảng → Lưu, thay cho nút xóa lắt nhắt từng dòng. */}
-      <HopSuaMatHang
-        mo={moSuaMatHang}
-        deNghi={deNghi}
-        sttDaLenDon={sttDaLenDon}
-        onDong={() => setMoSuaMatHang(false)}
-        onLuu={(dongMoi) => {
-          const lyDo = suaMatHangDeNghi(deNghi.id, dongMoi, nguoiDung.tenHienThi);
-          if (lyDo) {
-            toast.error("Không lưu được danh sách mặt hàng", { description: lyDo });
-            return;
-          }
-          toast.success("Đã cập nhật danh sách mặt hàng");
-        }}
+      {/* Hỏi lại trước khi xóa: mất một dòng vật tư khỏi chứng từ không lùi lại được.
+          Luật chặn đầy đủ nằm ở `suaMatHangDeNghi`, hộp này chỉ hỏi. */}
+      <HopXacNhan
+        mo={hoiXoa !== null}
+        tieuDe="Xóa mặt hàng khỏi đề nghị?"
+        moTa={hoiXoa ? `Dòng ${hoiXoa.stt} — ${hoiXoa.ten}` : undefined}
+        nhanDongY="Xóa"
+        nguyHiem
+        onDong={() => setHoiXoa(null)}
+        onDongY={() => hoiXoa && xoaMatHang(hoiXoa.stt)}
       />
     </Card>
   );

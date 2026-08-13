@@ -54,7 +54,9 @@ export const GIAI_DOAN_MUA_HANG: MoTaGiaiDoan[] = [
   {
     ma: "yeu_cau_bao_gia",
     nhan: "Yêu cầu NCC báo giá",
-    moTa: "Đã gửi yêu cầu, đang chờ nhà cung cấp gửi giá về",
+    // Từ 13/08/2026 thẻ vào cột này ngay khi phân bổ đủ người, chưa cần có bảng báo giá —
+    // nên câu mô tả phải nói đúng việc đang chờ: nhân viên đi hỏi giá.
+    moTa: "Đã giao việc, nhân viên đang liên hệ nhà cung cấp lấy báo giá",
     tong: "warning",
   },
   {
@@ -144,7 +146,27 @@ export function xacDinhGiaiDoan(
   if (baoGiaCuaDeNghi.some((bg) => bg.trangThai === "da_so_sanh")) return "xet_duyet_bao_gia";
   if (baoGiaCuaDeNghi.some((bg) => bg.trangThai === "dang_thu_thap")) return "yeu_cau_bao_gia";
 
-  // ① Chưa phát sinh chứng từ nào.
+  /**
+   * ② PHÂN BỔ XONG CŨNG LÀ SANG BƯỚC 2 — Ban lãnh đạo 13/08/2026: *"các việc này trưởng bộ
+   * phận đã giao việc xong nhưng vẫn chưa tự động nhảy qua bước 2"*.
+   *
+   * 🔴 Trước đó thẻ chỉ rời cột ① khi có bảng báo giá. Nhưng chính mô tả cột ① là *"thu mua
+   * đang kiểm tra và **phân bổ người phụ trách**"* — phân bổ xong là hết việc của cột đó.
+   * Để thẻ nằm lại là bảng nói sai: trưởng bộ phận nhìn vào tưởng còn phải giao việc, mà
+   * việc đã giao rồi; còn nhân viên đang đi hỏi giá thì không thấy phần việc của mình ở
+   * đâu trên bảng.
+   *
+   * ⚠️ PHẢI ĐỦ MỌI DÒNG. Phân bổ một phần thì trưởng bộ phận vẫn còn việc ở cột ① — nhảy
+   * cột sớm là những dòng chưa ai làm biến mất khỏi tầm mắt người có trách nhiệm giao.
+   *
+   * 📌 Vẫn đúng nguyên tắc "suy ra từ chứng từ có thật": người phụ trách được ghi vào dòng
+   * đề nghị khi trưởng bộ phận bấm giao việc, không phải một trường trạng thái gõ tay.
+   */
+  const daPhanBoDu =
+    deNghi.items.length > 0 && deNghi.items.every((d) => Boolean(d.nguoiPhuTrachUid));
+  if (daPhanBoDu) return "yeu_cau_bao_gia";
+
+  // ① Chưa phát sinh chứng từ nào, và còn dòng chưa có người phụ trách.
   return "tiep_nhan";
 }
 
@@ -448,9 +470,15 @@ export function quyetDinhKeoTha(
       return { loai: "tao_bao_gia" };
 
     case "yeu_cau_bao_gia":
+      /**
+       * ⚠️ TỪ 13/08/2026 thẻ vào cột này ngay khi phân bổ đủ người, nên hoàn toàn có thể
+       * CHƯA có bảng báo giá nào. Bản trước trả "không thể" kèm lý do — đúng sự thật nhưng
+       * làm người dùng kẹt: họ đứng ở cột ②, kéo sang ③ thì bị chặn, mà trên bảng không có
+       * đường nào để lập bảng báo giá. Nay mở thẳng màn lập bảng, đúng việc họ đang cần làm.
+       */
       return baoGiaCuaDeNghi.some((b) => b.trangThai === "dang_thu_thap")
         ? { loai: "chot_so_sanh" }
-        : { loai: "khong_the", lyDo: "Chưa có bảng báo giá đang thu thập nào cho đề nghị này." };
+        : { loai: "tao_bao_gia" };
 
     case "xet_duyet_bao_gia": {
       const bg = baoGiaCuaDeNghi.find((b) => b.trangThai === "da_so_sanh");
