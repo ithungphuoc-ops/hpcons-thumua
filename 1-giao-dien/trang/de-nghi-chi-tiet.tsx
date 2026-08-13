@@ -14,6 +14,7 @@ import {
   Split,
 } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
+import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { DanhSachTruong } from "@/1-giao-dien/thanh-phan-dung-chung/danh-sach-truong";
@@ -21,7 +22,6 @@ import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
-import { KhoiDuyetBoPhan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-duyet-bo-phan";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
 import {
   CotThongTinDeNghi,
@@ -48,7 +48,6 @@ import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import { coTep, moTep } from "@/3-du-lieu/kho-tep";
 import { vuongMacSangBuocSau, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
-  NHAN_PHONG_BAN_NGUON,
   NHAN_TRANG_THAI_BAO_GIA,
   NHAN_TRANG_THAI_DE_NGHI,
   NHAN_TRANG_THAI_PO,
@@ -181,7 +180,7 @@ export default function TrangChiTietDeNghi() {
           { label: dn.code },
         ]}
         title={dn.tieuDe}
-        description={`${dn.code} · ${dn.tenCongTrinh} · ${NHAN_PHONG_BAN_NGUON[dn.phongBanNguon]}`}
+        description={`${dn.code} · ${dn.tenCongTrinh} · ${nhanPhongBan(dn.phongBanNguon)}`}
         actions={<StatusBadge label={tt.nhan} tone={tt.tong} />}
       />
 
@@ -207,14 +206,19 @@ export default function TrangChiTietDeNghi() {
                 { nhan: "Mã đề nghị", giaTri: dn.code },
                 { nhan: "Mã dự án", giaTri: dn.maDuAn },
                 { nhan: "Số hợp đồng CĐT", giaTri: dn.maHopDongCDT },
-                { nhan: "Phòng ban đề nghị", giaTri: NHAN_PHONG_BAN_NGUON[dn.phongBanNguon] },
+                { nhan: "Phòng ban đề nghị", giaTri: nhanPhongBan(dn.phongBanNguon) },
                 { nhan: "Người đề nghị", giaTri: dn.nguoiDeNghiTen },
                 {
                   nhan: "Mức độ ưu tiên",
                   giaTri: dn.mucDoUuTien === "gap" ? "Gấp" : "Bình thường",
                 },
                 { nhan: "Ngày đề nghị", giaTri: formatMocThoiGian(dn.ngayDeNghi) },
-                { nhan: "Ngày duyệt", giaTri: formatMocThoiGian(dn.ngayDuyet) },
+                {
+                  nhan: "Ngày duyệt",
+                  // ⚠️ Phiếu lập trong "thời kỳ duyệt hai cấp" (sáng 12/08/2026) có thể còn
+                  // `ngayDuyet` rỗng — format chuỗi rỗng ra "Invalid Date" nên phải chặn.
+                  giaTri: dn.ngayDuyet ? formatMocThoiGian(dn.ngayDuyet) : "—",
+                },
                 { nhan: "Ngày cần hàng", giaTri: formatMocThoiGian(dn.ngayCanHang) },
                 { nhan: "Số mặt hàng", giaTri: `${dn.items.length} dòng vật tư` },
               ]}
@@ -260,10 +264,6 @@ export default function TrangChiTietDeNghi() {
 
           {/* Người theo dõi — chọn từ danh bạ nhân sự công ty, xem `khoi-nguoi-theo-doi.tsx`.
               Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
-          {/* Khối duyệt đặt TRÊN mọi khối nghiệp vụ khác: chưa duyệt thì những khối dưới
-              (phân bổ, báo giá, đơn hàng) đều chưa tới lượt — người đọc phải thấy điều đó
-              đầu tiên. */}
-          <KhoiDuyetBoPhan deNghi={dn} />
           <KhoiNguoiTheoDoi deNghi={dn} />
 
       {/* Timeline tổng */}

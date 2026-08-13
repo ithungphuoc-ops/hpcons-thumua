@@ -4,17 +4,16 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Inbox, Plus, Search, Star } from "lucide-react";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
+import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { KhoiGhiChuCongViec } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-ghi-chu-cong-viec";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
-import { KhoiChoToiDuyet } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-cho-toi-duyet";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { docDanhDau, ghiDanhDau } from "@/3-du-lieu/danh-dau-ca-nhan";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { NHAN_PHONG_BAN_NGUON } from "@/2-quy-trinh/trang-thai";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -165,11 +164,6 @@ export default function TrangViecCuaToi() {
 
   return (
     <>
-      {/* 🔴 ĐỀ NGHỊ CHỜ TÔI DUYỆT — đặt TRÊN CÙNG là cố ý.
-          Đây là đường vào DUY NHẤT của người duyệt: bảng quy trình đã lọc bỏ phiếu chưa
-          duyệt, còn màn Theo dõi chỉ hiện phiếu mình đề xuất. Xem `khoi-cho-toi-duyet.tsx`. */}
-      <KhoiChoToiDuyet />
-
       {/* ===== ĐẦU TRANG: tiêu đề lớn · ô tìm · nút tạo mới ===== */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
@@ -334,7 +328,7 @@ function DongViec({
           {deNghi.tieuDe}
         </span>
         <span className="min-w-0 flex-1 truncate text-xs text-text-desc">
-          {deNghi.tenCongTrinh} · {NHAN_PHONG_BAN_NGUON[deNghi.phongBanNguon]} ·{" "}
+          {deNghi.tenCongTrinh} · {nhanPhongBan(deNghi.phongBanNguon)} ·{" "}
           {soMatHang} mặt hàng · cần hàng {formatDate(deNghi.ngayCanHang)}
         </span>
 

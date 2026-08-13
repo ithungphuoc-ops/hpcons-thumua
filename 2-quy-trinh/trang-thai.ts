@@ -81,9 +81,10 @@ export const NHAN_UU_TIEN: Record<"binh_thuong" | "gap", MoTaTrangThai> = {
   gap: { nhan: "Gấp", tong: "danger" },
 };
 
-export const NHAN_PHONG_BAN_NGUON: Record<"thi_cong", string> = {
-  thi_cong: "Phòng Thi công",
-};
+/* 📌 12/08/2026: bảng nhãn phòng ban đã CHUYỂN sang `3-du-lieu/danh-muc-phong-ban.ts`
+   (Ban lãnh đạo cung cấp danh sách 16 phòng ban thật). Dùng `nhanPhongBan(ma)` để lấy
+   tên — hàm đó chịu được cả mã lạ do App Tổng đẩy sang, còn tra Record thì trả
+   `undefined` và giao diện hiện chữ "undefined" giữa hồ sơ. */
 
 /** Lớp CSS cho badge theo tông — dùng token, không hardcode màu. */
 export const LOP_BADGE: Record<Tong, string> = {

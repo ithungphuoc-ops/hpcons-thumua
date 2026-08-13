@@ -16,6 +16,7 @@
 // ============================================================
 
 import { boDau } from "@/6-tien-ich/bo-dau";
+import { nhanPhongBan, type MaPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 
 /** Một dòng trong danh bạ — ánh xạ 1-1 với `users/{uid}` của App Tổng. */
 export interface NhanSu {
@@ -32,51 +33,28 @@ export interface NhanSu {
   status: "active" | "inactive";
 }
 
+/* 🔴 12/08/2026: file này TỪNG có một danh mục phòng ban RIÊNG (mã gạch nối `thi-cong`,
+   tên "Phòng Thiết kế & Đấu thầu"…) song song với danh mục dùng cho đề nghị. Hai bảng
+   lệch nhau cả mã lẫn tên — cùng một phòng mà chỗ này gọi "Phòng Thu mua", chỗ kia
+   "Phòng Thu mua Cung ứng", và không ai biết bên nào đúng.
+
+   Nay CHỈ CÒN MỘT danh mục: `3-du-lieu/danh-muc-phong-ban.ts` (16 phòng ban Ban lãnh đạo
+   cung cấp). Đừng khai lại bảng nhãn phòng ban ở đây hay bất cứ file nào khác. */
+
 /**
- * ⚠️ App Tổng chưa ban hành danh mục mã phòng ban chính thức — tài liệu chỉ có
- * một ví dụ `"thiet-ke"`. Các mã dưới đây do đội triển khai đặt theo đúng nếp đó
- * (chữ thường, gạch nối) và **cần App Tổng xác nhận** trước khi nối dữ liệu thật.
+ * Thứ tự phòng ban khi hiển thị — phòng liên quan mua hàng để lên trên cho dễ tìm.
+ *
+ * ⚠️ Đây CHỈ là thứ tự ưu tiên, KHÔNG phải danh sách đầy đủ. Nơi dùng phải xếp những mã
+ * không có ở đây xuống cuối chứ đừng lọc bỏ — lọc bỏ là người của phòng ban mới **biến
+ * mất khỏi hộp chọn** mà không báo gì. Đã suýt dính khi đổi mã phòng ban ngày 12/08/2026.
  */
-export type MaPhongBan =
-  | "ban-giam-doc"
-  | "thu-mua"
-  | "thi-cong"
-  | "kho"
-  | "qlda"
-  | "ke-toan"
-  | "qa-qc"
-  | "bao-tri"
-  | "hanh-chinh-nhan-su"
-  | "kinh-doanh"
-  | "thiet-ke";
-
-export const NHAN_PHONG_BAN: Record<MaPhongBan, string> = {
-  "ban-giam-doc": "Ban Giám đốc",
-  "thu-mua": "Phòng Thu mua",
-  "thi-cong": "Phòng Thi công",
-  kho: "Kho công trình",
-  qlda: "Ban Quản lý Dự án",
-  "ke-toan": "Phòng Kế toán",
-  "qa-qc": "Bộ phận QA-QC",
-  "bao-tri": "Bộ phận Bảo trì",
-  "hanh-chinh-nhan-su": "Phòng Hành chính Nhân sự — IT",
-  "kinh-doanh": "Phòng Kinh doanh",
-  "thiet-ke": "Phòng Thiết kế & Đấu thầu",
-};
-
-/** Thứ tự phòng ban khi hiển thị — phòng liên quan mua hàng để lên trên cho dễ tìm. */
 export const THU_TU_PHONG_BAN: MaPhongBan[] = [
-  "thu-mua",
-  "thi-cong",
+  "thu_mua_cung_ung",
+  "thi_cong",
   "kho",
-  "qlda",
-  "ke-toan",
-  "ban-giam-doc",
-  "qa-qc",
-  "bao-tri",
-  "hanh-chinh-nhan-su",
-  "kinh-doanh",
-  "thiet-ke",
+  "quan_ly_du_an",
+  "ke_toan_tai_chinh",
+  "ban_giam_doc",
 ];
 
 // 🔴 TÊN NGƯỜI ĐẶT THEO HỆ GIẢ ĐỊNH "Họ + Văn/Thị + MỘT CHỮ CÁI" (quyết định 23,
@@ -86,53 +64,53 @@ export const THU_TU_PHONG_BAN: MaPhongBan[] = [
 //    thì phải sửa cả bên đó, nếu không hai màn hình sẽ gọi một người bằng hai tên.
 export const DANH_BA_NHAN_SU: NhanSu[] = [
   // --- Ban Giám đốc ---
-  { uid: "u-bgd-01", displayName: "Vũ Văn K", employeeCode: "HPC-002", department: "ban-giam-doc", title: "Phó Tổng Giám đốc", status: "active" },
+  { uid: "u-bgd-01", displayName: "Vũ Văn K", employeeCode: "HPC-002", department: "ban_giam_doc", title: "Phó Tổng Giám đốc", status: "active" },
 
   // --- Phòng Thu mua (5 người + 1 đã nghỉ) ---
-  { uid: "u-tbp", displayName: "Trần Thị B", employeeCode: "HPC-041", department: "thu-mua", title: "Trưởng bộ phận Thu mua", status: "active" },
-  { uid: "u-tm1", displayName: "Nguyễn Văn A", employeeCode: "HPC-042", department: "thu-mua", title: "Nhân viên Thu mua (TM1)", status: "active" },
-  { uid: "u-tm2", displayName: "Trần Văn C", employeeCode: "HPC-043", department: "thu-mua", title: "Nhân viên Thu mua (TM2)", status: "active" },
-  { uid: "u-tm3", displayName: "Lê Thị D", employeeCode: "HPC-044", department: "thu-mua", title: "Nhân viên Thu mua (TM3)", status: "active" },
-  { uid: "u-tm4", displayName: "Hoàng Văn I", employeeCode: "HPC-045", department: "thu-mua", title: "Nhân viên Thu mua (TM4)", status: "active" },
+  { uid: "u-tbp", displayName: "Trần Thị B", employeeCode: "HPC-041", department: "thu_mua_cung_ung", title: "Trưởng bộ phận Thu mua", status: "active" },
+  { uid: "u-tm1", displayName: "Nguyễn Văn A", employeeCode: "HPC-042", department: "thu_mua_cung_ung", title: "Nhân viên Thu mua (TM1)", status: "active" },
+  { uid: "u-tm2", displayName: "Trần Văn C", employeeCode: "HPC-043", department: "thu_mua_cung_ung", title: "Nhân viên Thu mua (TM2)", status: "active" },
+  { uid: "u-tm3", displayName: "Lê Thị D", employeeCode: "HPC-044", department: "thu_mua_cung_ung", title: "Nhân viên Thu mua (TM3)", status: "active" },
+  { uid: "u-tm4", displayName: "Hoàng Văn I", employeeCode: "HPC-045", department: "thu_mua_cung_ung", title: "Nhân viên Thu mua (TM4)", status: "active" },
   // Người đã nghỉ việc — để kiểm chứng luật "không chọn được người inactive".
-  { uid: "u-tm5", displayName: "Đoàn Văn L", employeeCode: "HPC-039", department: "thu-mua", title: "Nhân viên Thu mua (đã nghỉ)", status: "inactive" },
+  { uid: "u-tm5", displayName: "Đoàn Văn L", employeeCode: "HPC-039", department: "thu_mua_cung_ung", title: "Nhân viên Thu mua (đã nghỉ)", status: "inactive" },
 
   // --- Phòng Thi công ---
-  { uid: "u-tc", displayName: "Phạm Văn F", employeeCode: "HPC-061", department: "thi-cong", title: "Chỉ huy trưởng công trình", status: "active" },
-  { uid: "u-tc-02", displayName: "Bùi Văn H", employeeCode: "HPC-062", department: "thi-cong", title: "Chỉ huy trưởng công trình", status: "active" },
-  { uid: "u-tc-03", displayName: "Ngô Văn M", employeeCode: "HPC-063", department: "thi-cong", title: "Kỹ sư hiện trường", status: "active" },
-  { uid: "u-tc-04", displayName: "Đặng Văn N", employeeCode: "HPC-064", department: "thi-cong", title: "Giám sát thi công", status: "active" },
+  { uid: "u-tc", displayName: "Phạm Văn F", employeeCode: "HPC-061", department: "thi_cong", title: "Chỉ huy trưởng công trình", status: "active" },
+  { uid: "u-tc-02", displayName: "Bùi Văn H", employeeCode: "HPC-062", department: "thi_cong", title: "Chỉ huy trưởng công trình", status: "active" },
+  { uid: "u-tc-03", displayName: "Ngô Văn M", employeeCode: "HPC-063", department: "thi_cong", title: "Kỹ sư hiện trường", status: "active" },
+  { uid: "u-tc-04", displayName: "Đặng Văn N", employeeCode: "HPC-064", department: "thi_cong", title: "Giám sát thi công", status: "active" },
 
   // --- Kho công trình ---
   { uid: "u-kho", displayName: "Hoàng Văn E", employeeCode: "HPC-071", department: "kho", title: "Thủ kho công trình", status: "active" },
   { uid: "u-kho-02", displayName: "Trịnh Văn O", employeeCode: "HPC-072", department: "kho", title: "Thủ kho công trình", status: "active" },
 
   // --- Ban Quản lý Dự án ---
-  { uid: "u-qlda", displayName: "Vũ Văn G", employeeCode: "HPC-081", department: "qlda", title: "Ban Quản lý Dự án", status: "active" },
-  { uid: "u-qlda-02", displayName: "Lý Thị P", employeeCode: "HPC-082", department: "qlda", title: "Chuyên viên QLDA", status: "active" },
+  { uid: "u-qlda", displayName: "Vũ Văn G", employeeCode: "HPC-081", department: "quan_ly_du_an", title: "Ban Quản lý Dự án", status: "active" },
+  { uid: "u-qlda-02", displayName: "Lý Thị P", employeeCode: "HPC-082", department: "quan_ly_du_an", title: "Chuyên viên QLDA", status: "active" },
 
   // --- Phòng Kế toán ---
-  { uid: "u-kt-01", displayName: "Nguyễn Thị Q", employeeCode: "HPC-091", department: "ke-toan", title: "Kế toán trưởng", status: "active" },
-  { uid: "u-kt-02", displayName: "Phan Văn R", employeeCode: "HPC-092", department: "ke-toan", title: "Kế toán thanh toán", status: "active" },
+  { uid: "u-kt-01", displayName: "Nguyễn Thị Q", employeeCode: "HPC-091", department: "ke_toan_tai_chinh", title: "Kế toán trưởng", status: "active" },
+  { uid: "u-kt-02", displayName: "Phan Văn R", employeeCode: "HPC-092", department: "ke_toan_tai_chinh", title: "Kế toán thanh toán", status: "active" },
 
   // --- QA-QC ---
-  { uid: "u-qc-01", displayName: "Hồ Văn S", employeeCode: "HPC-101", department: "qa-qc", title: "Trưởng bộ phận QA-QC", status: "active" },
-  { uid: "u-qc-02", displayName: "Nguyễn Thị T", employeeCode: "HPC-102", department: "qa-qc", title: "Nhân viên QA-QC", status: "active" },
+  { uid: "u-qc-01", displayName: "Hồ Văn S", employeeCode: "HPC-101", department: "qa_qc", title: "Trưởng bộ phận QA-QC", status: "active" },
+  { uid: "u-qc-02", displayName: "Nguyễn Thị T", employeeCode: "HPC-102", department: "qa_qc", title: "Nhân viên QA-QC", status: "active" },
 
   // --- Bảo trì ---
-  { uid: "u-bt-01", displayName: "Trương Văn U", employeeCode: "HPC-111", department: "bao-tri", title: "Trưởng bộ phận Bảo trì", status: "active" },
+  { uid: "u-bt-01", displayName: "Trương Văn U", employeeCode: "HPC-111", department: "bao_tri", title: "Trưởng bộ phận Bảo trì", status: "active" },
 
   // --- Hành chính Nhân sự — IT ---
-  { uid: "u-hc-01", displayName: "Lê Thị V", employeeCode: "HPC-121", department: "hanh-chinh-nhan-su", title: "Trưởng phòng Hành chính Nhân sự", status: "active" },
-  { uid: "u-hc-02", displayName: "Cao Văn X", employeeCode: "HPC-122", department: "hanh-chinh-nhan-su", title: "Chuyên viên IT", status: "active" },
+  { uid: "u-hc-01", displayName: "Lê Thị V", employeeCode: "HPC-121", department: "hanh_chinh_nhan_su_it", title: "Trưởng phòng Hành chính Nhân sự", status: "active" },
+  { uid: "u-hc-02", displayName: "Cao Văn X", employeeCode: "HPC-122", department: "hanh_chinh_nhan_su_it", title: "Chuyên viên IT", status: "active" },
 
   // --- Kinh doanh ---
-  { uid: "u-kd-01", displayName: "Đinh Văn Y", employeeCode: "HPC-131", department: "kinh-doanh", title: "Trưởng phòng Kinh doanh", status: "active" },
+  { uid: "u-kd-01", displayName: "Đinh Văn Y", employeeCode: "HPC-131", department: "kinh_doanh", title: "Trưởng phòng Kinh doanh", status: "active" },
 
   // --- Thiết kế & Đấu thầu ---
   // Hết chữ cái đơn nên dùng hai chữ — vẫn nằm trong hệ tên giả định.
-  { uid: "u-tk-01", displayName: "Võ Văn AA", employeeCode: "HPC-141", department: "thiet-ke", title: "Trưởng phòng Thiết kế", status: "active" },
-  { uid: "u-tk-02", displayName: "Phùng Văn AB", employeeCode: "HPC-142", department: "thiet-ke", title: "Chuyên viên Đấu thầu", status: "active" },
+  { uid: "u-tk-01", displayName: "Võ Văn AA", employeeCode: "HPC-141", department: "thiet_ke", title: "Trưởng phòng Thiết kế", status: "active" },
+  { uid: "u-tk-02", displayName: "Phùng Văn AB", employeeCode: "HPC-142", department: "thiet_ke", title: "Chuyên viên Đấu thầu", status: "active" },
 ];
 
 /** Chỉ người đang làm việc mới được chọn. Người đã nghỉ giữ lại để tra lịch sử. */
@@ -152,7 +130,7 @@ export function timNhanSu(danhSach: NhanSu[], tuKhoa: string): NhanSu[] {
   if (k === "") return danhSach;
   return danhSach.filter((n) =>
     boDau(
-      `${n.displayName} ${n.employeeCode} ${n.title} ${NHAN_PHONG_BAN[n.department]}`,
+      `${n.displayName} ${n.employeeCode} ${n.title} ${nhanPhongBan(n.department)}`,
     ).includes(k),
   );
 }

@@ -118,29 +118,10 @@ export interface Quyen {
    * `duyetDeNghiBoPhan` mới sang được Thu mua, và không ai tự duyệt phiếu của mình.
    */
   taoDeNghi: boolean;
-  /**
-   * ★ DUYỆT ĐỀ NGHỊ — HAI CẤP TUẦN TỰ.
-   *
-   * 🔴 Ban lãnh đạo 12/08/2026 chốt đúng luồng: *"Tô Trọng Hoài đề xuất → Chỉ huy trưởng
-   * duyệt → Trưởng phòng duyệt mới đẩy qua cho phòng thu mua"*.
-   *
-   *   `duyetCap1` — **Trưởng phòng / Quản lý** của bộ phận đề xuất.
-   *   `duyetCap2` — **Tổng Giám đốc / Phó TGĐ**: chốt cuối, sau đó phiếu mới sang Thu mua.
-   *
-   * 📌 Đúng bảng Base của công ty (Ban lãnh đạo chốt 12/08/2026): *"Luồng duyệt (duyệt
-   * lần lượt): TP/QL → Tổng Giám đốc hoặc Các Phó Tổng Giám đốc"*. Bản trước đặt hai cấp
-   * là Chỉ huy trưởng → Trưởng phòng; nay lấy đúng luồng công ty đang chạy.
-   *
-   * ⚠️ PHẢI ĐỦ CẢ HAI. Thiếu một cấp là phiếu còn nằm ở bộ phận đề xuất — xem
-   * `2-quy-trinh/duyet-bo-phan.ts`.
-   *
-   * 📌 Cấp trên duyệt thay được cấp dưới: Chỉ huy trưởng và Trưởng phòng đều có
-   * `duyetCap1`, TGĐ có cả hai. Người được chỉ định đi công trường, nghỉ phép hay đổi công
-   * trình là chuyện thường — không có đường duyệt thay thì phiếu treo tới khi họ quay lại,
-   * và người ta sẽ lách bằng cách gọi điện, app thành vô dụng.
-   */
-  duyetCap1: boolean;
-  duyetCap2: boolean;
+  /* 📌 12/08/2026 (chiều): ĐÃ GỠ `duyetCap1` / `duyetCap2`. Ban lãnh đạo chốt: việc duyệt
+     đề nghị diễn ra ở APP KHÁC của bộ phận đề xuất và sẽ đẩy phiếu ĐÃ DUYỆT sang đây —
+     app Thu mua không giữ luật duyệt nào nữa. Đừng thêm lại vào file này: hai app cùng
+     giữ một luật duyệt là kiểu chắc chắn lệch nhau, và người dùng sẽ không biết tin bên nào. */
   lapPO: boolean;
   suaPODaChot: boolean;
   /** Thủ kho lập phiếu nhận hàng từng lần. */
@@ -201,24 +182,6 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     // Xem chú thích đầy đủ ở khai báo `taoDeNghi`.
     taoDeNghi: capTM >= 1,
 
-    /**
-     * Duyệt đề nghị — xét theo CHỨC VỤ, không mượn cấp quyền nữa.
-     *
-     * Cấp 1 (Chỉ huy trưởng): chỉ huy trưởng và trưởng phòng đều làm được — xem lý do ở
-     * khai báo `duyetCap1`.
-     * Cấp 2 (Trưởng phòng): chỉ trưởng phòng.
-     *
-     * 📌 Trưởng bộ phận Thu mua cũng có cả hai: phòng nào cũng lập được đề nghị, nên phòng
-     * Thu mua tự đề nghị thì trưởng phòng của họ là người duyệt.
-     */
-    duyetCap1:
-      laQuanTri ||
-      u.chucVu === "chi_huy_truong" ||
-      u.chucVu === "truong_phong" ||
-      u.chucVu === "tong_giam_doc" ||
-      (laTruongBP && capTM >= 3),
-    // Cấp CUỐI: chỉ Tổng Giám đốc / Phó TGĐ, cộng quản trị để hồ sơ không kẹt vĩnh viễn.
-    duyetCap2: laQuanTri || u.chucVu === "tong_giam_doc",
     lapPO: laQuanTri || ((laTruongBP || laNhanVienTM) && capTM >= 2),
     suaPODaChot: laQuanTri || (laTruongBP && capTM >= 3),
 

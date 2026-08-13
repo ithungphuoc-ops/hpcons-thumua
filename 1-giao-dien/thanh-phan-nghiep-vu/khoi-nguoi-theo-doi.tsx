@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Check, Eye, UserPlus, X } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import {
   Dialog,
@@ -17,13 +18,8 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import {
-  NHAN_PHONG_BAN,
-  THU_TU_PHONG_BAN,
-  timNhanSu,
-  type MaPhongBan,
-  type NhanSu,
-} from "@/3-du-lieu/danh-ba-nhan-su";
+import { THU_TU_PHONG_BAN, timNhanSu, type NhanSu } from "@/3-du-lieu/danh-ba-nhan-su";
+import type { MaPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import type { DeNghiMuaHang, NguoiTheoDoi } from "@/3-du-lieu/kieu-du-lieu";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
@@ -215,10 +211,20 @@ function HopChonNhanSu({
       ds.push(n);
       nhom.set(n.department, ds);
     }
-    return THU_TU_PHONG_BAN.filter((pb) => nhom.has(pb)).map((pb) => ({
-      maPhongBan: pb,
-      nhanSu: nhom.get(pb)!,
-    }));
+    /**
+     * 🔴 XẾP THEO ƯU TIÊN, KHÔNG LỌC. Bản trước viết
+     * `THU_TU_PHONG_BAN.filter((pb) => nhom.has(pb))` — nghĩa là phòng ban nào không nằm
+     * trong bảng thứ tự thì **cả phòng đó biến mất** khỏi hộp chọn. Công ty có 16 phòng
+     * ban mà bảng thứ tự chỉ liệt kê vài phòng hay dùng, nên đó là cách chắc chắn làm
+     * mất người: người dùng tìm không thấy đồng nghiệp và tưởng họ chưa có tài khoản.
+     */
+    const uuTien = (ma: MaPhongBan) => {
+      const i = THU_TU_PHONG_BAN.indexOf(ma);
+      return i < 0 ? THU_TU_PHONG_BAN.length : i;
+    };
+    return [...nhom.keys()]
+      .sort((a, b) => uuTien(a) - uuTien(b) || nhanPhongBan(a).localeCompare(nhanPhongBan(b), "vi"))
+      .map((pb) => ({ maPhongBan: pb, nhanSu: nhom.get(pb)! }));
   }, [ketQua]);
 
   return (
@@ -304,7 +310,7 @@ function HopChonNhanSu({
             theoPhongBan.map(({ maPhongBan, nhanSu }) => (
               <div key={maPhongBan} className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-text-desc">
-                  {NHAN_PHONG_BAN[maPhongBan]} ({nhanSu.length})
+                  {nhanPhongBan(maPhongBan)} ({nhanSu.length})
                 </span>
                 {nhanSu.map((n) => (
                   <button

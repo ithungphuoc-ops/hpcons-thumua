@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 import {
   GIAI_DOAN_MUA_HANG,
@@ -44,7 +45,6 @@ import {
   type TheDeNghiTrenBang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
-import { NHAN_PHONG_BAN_NGUON } from "@/2-quy-trinh/trang-thai";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 
 /**
@@ -307,7 +307,7 @@ function TheDeNghi({
         <div className="flex items-center gap-1.5">
           <Layers className="size-3.5 shrink-0" aria-hidden />
           <span>
-            {NHAN_PHONG_BAN_NGUON[deNghi.phongBanNguon]} · {deNghi.items.length} mặt hàng
+            {nhanPhongBan(deNghi.phongBanNguon)} · {deNghi.items.length} mặt hàng
           </span>
         </div>
         <div className="flex items-center gap-1.5">

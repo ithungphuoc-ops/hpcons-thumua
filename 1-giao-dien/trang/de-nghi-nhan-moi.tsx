@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Inbox, Paperclip, Plus, Save, Trash2, Wand2, X } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
@@ -10,14 +10,13 @@ import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
-import {
-  NHAN_PHONG_BAN,
-  timNhanSu,
-  type NhanSu,
-} from "@/3-du-lieu/danh-ba-nhan-su";
+import { timNhanSu, type NhanSu } from "@/3-du-lieu/danh-ba-nhan-su";
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
-import { nguoiDuyetDuocChon } from "@/2-quy-trinh/duyet-bo-phan";
-import type { NguoiDuyetChiDinh } from "@/3-du-lieu/kieu-du-lieu";
+import {
+  DANH_MUC_PHONG_BAN,
+  PHONG_BAN_MAC_DINH,
+} from "@/3-du-lieu/danh-muc-phong-ban";
+import type { PhongBanNguon } from "@/3-du-lieu/kieu-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   CO_TOI_DA,
@@ -72,7 +71,7 @@ function congNgay(soNgay: number): string {
 export default function TrangNhanDeNghiMoi() {
   const router = useRouter();
   const { deNghi, themDeNghiGiaLap } = useDuLieu();
-  const { nguoiDung, quyen, danhSachTaiKhoan } = useNguoiDung();
+  const { nguoiDung, danhSachTaiKhoan } = useNguoiDung();
   /** 🔴 Danh bạ đọc từ TÀI KHOẢN THẬT, không phải mảng mẫu — xem `dung-danh-ba.ts`. */
   const danhBa = useDanhBa();
 
@@ -88,32 +87,13 @@ export default function TrangNhanDeNghiMoi() {
   const [dong, setDong] = useState<DongNhap[]>([{ ...DONG_TRONG }]);
   const [nguoiTheoDoi, setNguoiTheoDoi] = useState<NhanSu[]>([]);
 
-  /**
-   * ★ NGƯỜI DUYỆT HAI CẤP — Ban lãnh đạo 12/08/2026: *"chưa có mục thêm người duyệt"*.
-   *
-   * Giữ MÃ người, không giữ cả bản ghi: danh sách tài khoản đọc bất đồng bộ từ máy chủ nên
-   * có thể về sau khi biểu mẫu đã dựng. Giữ mã thì lúc nào tra lại cũng ra đúng người.
-   */
-  const [uidDuyet1, setUidDuyet1] = useState("");
-  const [uidDuyet2, setUidDuyet2] = useState("");
-
-  /** Ai được chọn cho từng cấp — lọc theo CHỨC VỤ, xem `2-quy-trinh/duyet-bo-phan.ts`. */
-  const chonDuoc1 = useMemo(() => nguoiDuyetDuocChon(danhSachTaiKhoan, 1), [danhSachTaiKhoan]);
-  const chonDuoc2 = useMemo(() => nguoiDuyetDuocChon(danhSachTaiKhoan, 2), [danhSachTaiKhoan]);
-
-  /**
-   * Chỉ có ĐÚNG MỘT người ở cấp đó thì chọn sẵn luôn.
-   *
-   * 🔴 Không phải để tiện tay: bỏ trống là phiếu không có người duyệt, mà luật lại quay về
-   * xét theo chức vụ — người lập tưởng đã chỉ định xong trong khi thực tế chưa. Chọn sẵn khi
-   * không có gì để chọn là cách bỏ hẳn tình huống mơ hồ đó.
-   */
-  useEffect(() => {
-    if (!uidDuyet1 && chonDuoc1.length === 1) setUidDuyet1(chonDuoc1[0].uid);
-    if (!uidDuyet2 && chonDuoc2.length === 1) setUidDuyet2(chonDuoc2[0].uid);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chonDuoc1, chonDuoc2]);
   const [timNguoi, setTimNguoi] = useState("");
+
+  /**
+   * Phòng ban gửi đề xuất — từ 12/08/2026 nhận từ MỌI phòng ban của công ty.
+   * Danh mục 16 phòng ban thật ở `3-du-lieu/danh-muc-phong-ban.ts`.
+   */
+  const [boPhan, setBoPhan] = useState<PhongBanNguon>(PHONG_BAN_MAC_DINH);
 
   /**
    * Dự án đang chọn ở ô "Dự án / Công trình" — "" = chưa chọn, "__moi__" = nhập tay.
@@ -293,15 +273,7 @@ export default function TrangNhanDeNghiMoi() {
       // tên hiển thị, nhưng danh tính trong hồ sơ phải là người thật đang bấm nút.
       nguoiDeNghiUid: nguoiDung.uid,
       nguoiDeNghiChucDanh: nguoiDung.chucDanh,
-      /**
-       * Số cấp duyệt ghi sẵn theo CHỨC VỤ người lập — xem `2-quy-trinh/duyet-bo-phan.ts`.
-       * Trưởng phòng lập → duyệt sẵn cả 2 · Chỉ huy trưởng → sẵn cấp 1 · còn lại → 0.
-       * ⚠️ Xét theo `quyen`, không xét chuỗi chức danh: chức danh là chữ người ta gõ, đổi
-       * một chữ là luật sai mà không báo gì.
-       */
-      capDuyetSan: quyen.duyetCap2 ? 2 : quyen.duyetCap1 ? 1 : 0,
-      nguoiDuyetCap1: chiDinhTu(danhSachTaiKhoan, uidDuyet1),
-      nguoiDuyetCap2: chiDinhTu(danhSachTaiKhoan, uidDuyet2),
+      phongBanNguon: boPhan,
       ngayDeNghi,
       ngayDuyet,
       ngayCanHang,
@@ -399,9 +371,15 @@ export default function TrangNhanDeNghiMoi() {
             <strong>1. Tên đề nghị:</strong> “Số hợp đồng + tên công trình (ngắn gọn)” Hoặc
             “Tên phòng ban đề nghị”.
           </p>
+          {/* 🔴 12/08/2026 (chiều): viết lại mục 2 cho ĐÚNG việc app làm. Bản trước ghi
+              "Luồng duyệt (duyệt lần lượt): TP/QL → TGĐ" — nay app KHÔNG duyệt nữa, để
+              nguyên câu đó là hứa một việc app không làm (quy tắc dự án mục 3.5). Vẫn nêu
+              luồng duyệt của công ty, nhưng nói rõ nó chạy ở đâu. */}
           <p>
-            <strong>2. Luồng duyệt (duyệt lần lượt):</strong> Trưởng phòng/Quản lý →{" "}
-            <strong>Tổng Giám đốc hoặc Các Phó Tổng Giám đốc</strong>.
+            <strong>2. Duyệt đề nghị:</strong> thực hiện trên{" "}
+            <strong>app của bộ phận đề xuất</strong> (Trưởng phòng/Quản lý → Tổng Giám đốc
+            hoặc Các Phó Tổng Giám đốc). App Thu mua chỉ tiếp nhận phiếu{" "}
+            <strong>đã duyệt</strong> để đi hỏi giá và đặt hàng.
           </p>
           <p>
             <strong>3. Người theo dõi:</strong>
@@ -431,22 +409,21 @@ export default function TrangNhanDeNghiMoi() {
           </Truong>
 
           <Truong nhan="Bộ phận" batBuoc moTa="Bạn thuộc phòng ban hay bộ phận nào?">
-            <div className="flex flex-col gap-1">
-              {/* Ô CHỌN đúng dáng Base. Ver 1 chỉ nhận đề nghị từ Phòng Thi công (chỉ đạo
-                  05/08/2026) nên danh sách mới có một mục — thêm phòng ban chỉ việc thêm
-                  <option>, không phải đổi khung. */}
-              <select
-                aria-label="Bộ phận đề nghị"
-                value="thi-cong"
-                onChange={() => {}}
-                className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
-              >
-                <option value="thi-cong">{NHAN_PHONG_BAN["thi-cong"]}</option>
-              </select>
-              <span className="text-xs text-text-desc">
-                Ver 1 chỉ nhận đề nghị từ Phòng Thi công — các phòng ban khác mở ở phiên bản sau.
-              </span>
-            </div>
+            {/* 🔴 12/08/2026: mở nhận đề xuất từ MỌI phòng ban (trước chỉ Phòng Thi công).
+                Ban lãnh đạo: *"app này chỉ liên quan tới quy trình thu mua, nhận đề xuất
+                mua hàng từ tất cả các phòng ban của công ty"*. */}
+            <select
+              aria-label="Bộ phận đề nghị"
+              value={boPhan}
+              onChange={(e) => setBoPhan(e.target.value)}
+              className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+            >
+              {DANH_MUC_PHONG_BAN.map((pb) => (
+                <option key={pb.ma} value={pb.ma}>
+                  {pb.ten}
+                </option>
+              ))}
+            </select>
           </Truong>
 
           {/* ★ Ô CHỌN DỰ ÁN — thay cho cụm "Thông tin công trình" từng chen giữa phiếu
@@ -739,33 +716,10 @@ export default function TrangNhanDeNghiMoi() {
           {/* ===== NGƯỜI DUYỆT — Ban lãnh đạo 12/08/2026 =====
               Đặt TRƯỚC "Người theo dõi" là cố ý: người duyệt là mắt xích BẮT BUỘC của quy
               trình, còn người theo dõi chỉ để nắm thông tin. Thứ quan trọng hơn đứng trước. */}
-          <Truong
-            nhan="Quản lý trực tiếp"
-            batBuoc
-            moTa="Bạn phải thông báo cho quản lý trực tiếp về đề nghị này — duyệt lần lượt hai cấp trước khi sang Phòng Thu mua"
-          >
-            <div className="flex flex-col gap-3">
-              <OChonNguoiDuyet
-                cap={1}
-                nhan="Cấp 1 — Trưởng phòng / Quản lý"
-                danhSach={chonDuoc1}
-                giaTri={uidDuyet1}
-                onDoi={setUidDuyet1}
-              />
-              <OChonNguoiDuyet
-                cap={2}
-                nhan="Cấp 2 — Tổng Giám đốc / Phó TGĐ"
-                danhSach={chonDuoc2}
-                giaTri={uidDuyet2}
-                onDoi={setUidDuyet2}
-              />
-              <p className="text-xs text-text-desc">
-                Để trống thì app xét theo chức vụ: ai là Chỉ huy trưởng / Trưởng phòng đều duyệt
-                được. Chỉ định đích danh khi công ty có nhiều công trình để phiếu không hiện sang
-                người phụ trách công trình khác.
-              </p>
-            </div>
-          </Truong>
+          {/* 📌 12/08/2026 (chiều): BỎ ô "Quản lý trực tiếp / người duyệt". Ban lãnh đạo
+              chốt: việc duyệt đề nghị nằm ở APP KHÁC của bộ phận đề xuất — app Thu mua chỉ
+              NHẬN phiếu đã duyệt. Khối lưu ý xanh phía trên vẫn ghi luồng duyệt của công ty
+              để người lập biết phiếu mình sẽ đi qua đâu trước khi vào đây. */}
 
           <Truong
             nhan="Người theo dõi"
@@ -961,65 +915,3 @@ function Truong({
   );
 }
 
-/**
- * Ô CHỌN NGƯỜI DUYỆT một cấp.
- *
- * ⚠️ Dùng `<select>` thuần của trình duyệt, KHÔNG dùng component Select của thư viện.
- * Lý do: danh sách chỉ 1–3 người, không cần tìm kiếm; còn `<select>` thuần thì trên điện
- * thoại mở ra bộ chọn sẵn của hệ điều hành — ngón tay to bấm dễ hơn hẳn danh sách tự vẽ.
- * Vẫn dùng token màu của Design System, không hardcode.
- */
-function OChonNguoiDuyet({
-  cap,
-  nhan,
-  danhSach,
-  giaTri,
-  onDoi,
-}: {
-  cap: 1 | 2;
-  nhan: string;
-  danhSach: { uid: string; tenHienThi: string; chucDanh: string }[];
-  giaTri: string;
-  onDoi: (uid: string) => void;
-}) {
-  const id = `nguoi-duyet-cap-${cap}`;
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{nhan}</Label>
-      {danhSach.length === 0 ? (
-        // 🔴 Nói rõ vì sao trống. Một ô chọn rỗng không giải thích thì người lập ngồi đoán.
-        <p className="text-xs text-warning-soft">
-          Chưa có tài khoản nào giữ chức vụ này. App sẽ xét theo chức vụ khi có người được cấp.
-        </p>
-      ) : (
-        <select
-          id={id}
-          value={giaTri}
-          onChange={(e) => onDoi(e.target.value)}
-          className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
-        >
-          <option value="">— Không chỉ định, xét theo chức vụ —</option>
-          {danhSach.map((n) => (
-            <option key={n.uid} value={n.uid}>
-              {n.tenHienThi} · {n.chucDanh}
-            </option>
-          ))}
-        </select>
-      )}
-    </div>
-  );
-}
-
-/**
- * Dựng bản ghi "người được chỉ định" từ mã đã chọn.
- * Trả `undefined` khi không chọn — Firestore không nhận `undefined` nên kho dữ liệu đã lọc
- * sạch qua JSON, ở đây cứ trả `undefined` cho đúng nghĩa "không chỉ định".
- */
-function chiDinhTu(
-  danhSach: { uid: string; tenHienThi: string; chucDanh: string }[],
-  uid: string,
-): NguoiDuyetChiDinh | undefined {
-  if (!uid) return undefined;
-  const n = danhSach.find((x) => x.uid === uid);
-  return n ? { uid: n.uid, ten: n.tenHienThi, chucDanh: n.chucDanh } : undefined;
-}

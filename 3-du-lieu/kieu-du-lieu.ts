@@ -52,12 +52,19 @@ export type TrangThaiDongDeNghi =
   | "dang_giao"
   | "da_nhan_du";
 
+import type { MaPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
+
 /**
- * Phòng ban nguồn gửi đề nghị.
- * Ver 1 CHỈ có Phòng Thi công (chỉ đạo Ban lãnh đạo 05/08/2026);
- * các nguồn khác để sẵn cho ver sau, chưa dùng.
+ * Phòng ban gửi đề nghị.
+ *
+ * 🔴 Từ 12/08/2026 nhận đề xuất từ MỌI phòng ban của công ty (chỉ đạo Ban lãnh đạo).
+ * Danh mục 16 phòng ban thật nằm ở `3-du-lieu/danh-muc-phong-ban.ts` — file đó là chỗ
+ * duy nhất sửa khi công ty đổi cơ cấu, và là chỗ sẽ nối vào App Tổng sau này.
+ *
+ * ⚠️ Là chuỗi tự do, KHÔNG phải union đóng — xem lý do ở `MaPhongBan`. Muốn hiện tên
+ * phòng ban thì gọi `nhanPhongBan()`, đừng tra Record trực tiếp.
  */
-export type PhongBanNguon = "thi_cong";
+export type PhongBanNguon = MaPhongBan;
 
 export interface DongDeNghi {
   /** ★ KHÓA ĐỐI CHIẾU KHỐI LƯỢNG — dòng PO và dòng nhận hàng đều trỏ về đây.
@@ -94,22 +101,6 @@ export interface DongDeNghi {
   ghiChuPhanBo?: string;
 }
 
-/** Người được chỉ định duyệt một cấp — chọn lúc lập phiếu, chưa duyệt. */
-export interface NguoiDuyetChiDinh {
-  uid: string;
-  ten: string;
-  chucDanh: string;
-}
-
-/** Một lần duyệt: ai duyệt, chức vụ gì, lúc nào. */
-export interface MocDuyet {
-  uid: string;
-  ten: string;
-  chucDanh: string;
-  /** ISO đầy đủ giờ phút. */
-  thoiDiem: string;
-}
-
 export interface DeNghiMuaHang {
   id: string;
   /** vd 260001-HPCS-PR-001 (mã loại PR đang chờ phê duyệt danh mục). */
@@ -132,47 +123,11 @@ export interface DeNghiMuaHang {
   lichSu: MocLichSu[];
   /** Người được thêm vào để nắm tiến trình. Trống = chưa có ai theo dõi. */
   nguoiTheoDoi?: NguoiTheoDoi[];
-  /**
-   * ★ DUYỆT HAI CẤP CỦA BỘ PHẬN ĐỀ XUẤT — Ban lãnh đạo 12/08/2026:
-   * *"Tô Trọng Hoài đề xuất → Chỉ huy trưởng duyệt → Trưởng phòng duyệt mới đẩy qua cho
-   * phòng thu mua"*.
-   *
-   *   `duyetCap1` — Chỉ huy trưởng xác nhận
-   *   `duyetCap2` — Trưởng phòng chốt cuối
-   *
-   * ⚠️ PHẢI ĐỦ CẢ HAI mới sang Thu mua. Trống một cái = còn nằm ở bộ phận đề xuất.
-   *
-   * 🔴 DỮ LIỆU CŨ KHÔNG CÓ HAI TRƯỜNG NÀY. Coi "trống = chưa duyệt" một cách máy móc thì
-   * toàn bộ đề nghị lập trước 12/08/2026 **biến mất khỏi bảng quy trình của Thu mua** —
-   * việc đang chạy dở tự nhiên mất tăm, không một dòng báo lỗi. Luật đọc phải nhận cả:
-   *   · đủ `duyetCap1` + `duyetCap2`  → đã duyệt
-   *   · có `duyetBoPhan` (bản 1 cấp) → đã duyệt
-   *   · có `ngayDuyet` (nhận từ HPcore) → đã duyệt từ trước
-   * Xem `2-quy-trinh/duyet-bo-phan.ts` — luật ở MỘT CHỖ, đừng tự kiểm ở giao diện.
-   */
-  duyetCap1?: MocDuyet;
-  duyetCap2?: MocDuyet;
-  /**
-   * ★ NGƯỜI ĐƯỢC CHỈ ĐỊNH DUYỆT, chọn ngay lúc lập phiếu — Ban lãnh đạo 12/08/2026:
-   * *"chưa có mục thêm người duyệt"*.
-   *
-   * 🔴 Vì sao cần chỉ định đích danh thay vì cứ "ai có chức vụ đó thì duyệt": công ty có
-   * NHIỀU chỉ huy trưởng, mỗi công trình một người. Không chỉ định thì phiếu của công trình
-   * A hiện trong danh sách chờ duyệt của chỉ huy trưởng công trình B — họ không biết gì về
-   * việc đó mà vẫn bấm duyệt được. Hiện mới có một người nên chưa lộ, nhưng thêm công trình
-   * là vỡ ngay.
-   *
-   * Trống = không chỉ định → quay về xét theo chức vụ (xem `2-quy-trinh/duyet-bo-phan.ts`).
-   * Cách này giữ cho phiếu CŨ và phiếu nhận từ HPcore vẫn duyệt được, không kẹt.
-   */
-  nguoiDuyetCap1?: NguoiDuyetChiDinh;
-  nguoiDuyetCap2?: NguoiDuyetChiDinh;
-  /**
-   * ⚠️ CHỈ CÒN ĐỂ ĐỌC DỮ LIỆU CŨ (bản duyệt một cấp, sáng 12/08/2026). Không ghi mới vào
-   * đây nữa. Giữ lại vì kho dữ liệu chung có thể còn phiếu dùng trường này — bỏ đi là phiếu
-   * đó thành "chưa duyệt" và biến mất khỏi bảng.
-   */
-  duyetBoPhan?: MocDuyet;
+  /* 📌 12/08/2026 (chiều): ĐÃ GỠ các trường duyệt hai cấp (`duyetCap1/2`,
+     `nguoiDuyetCap1/2`, `duyetBoPhan`). Ban lãnh đạo chốt: việc duyệt đề nghị nằm ở APP
+     KHÁC của bộ phận đề xuất — phiếu vào app Thu mua là ĐÃ duyệt (`ngayDuyet` luôn có).
+     Dữ liệu cũ trên kho chung còn mang mấy khóa đó thì cứ nằm im, app không đọc nữa. */
+
   /**
    * ★ ĐÃ LƯU TRỮ — ẩn khỏi bảng quy trình nhưng KHÔNG xóa dữ liệu.
    *

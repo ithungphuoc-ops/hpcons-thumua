@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, FileText, Inbox, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
+import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
@@ -34,7 +35,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-import { locDaDuyet } from "@/2-quy-trinh/duyet-bo-phan";
 import {
   dungBangQuyTrinh,
   dungXacNhanKeoTha,
@@ -43,7 +43,7 @@ import {
   type HanhDongKeoTha,
   type XacNhanKeoTha,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { NHAN_PHONG_BAN_NGUON, NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
+import { NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
 
 /** Hai cách xem cùng một dữ liệu — đặt tên giống bảng Base để anh em quen việc đọc ra ngay. */
 type CachXem = "bang" | "danh_sach";
@@ -133,22 +133,13 @@ export default function TrangDanhSachDeNghi() {
   } | null>(null);
   const [moHopXacNhan, setMoHopXacNhan] = useState(false);
 
-  /**
-   * 🔴 CHỈ HIỆN PHIẾU ĐÃ ĐƯỢC QUẢN LÝ BỘ PHẬN DUYỆT — Ban lãnh đạo 12/08/2026.
-   *
-   * Kể từ khi mọi tài khoản đều lập được đề nghị, bảng quy trình của Thu mua sẽ ngập cả
-   * những phiếu cấp trên chưa gật đầu. Lọc ngay tại nguồn để mọi khối bên dưới (bảng 8 cột,
-   * thẻ, đếm số) dùng chung một danh sách — lọc lắt nhắt ở từng khối là chỗ này thấy chỗ
-   * kia không.
-   *
-   * Luật ở `2-quy-trinh/duyet-bo-phan.ts`; phiếu cũ chưa có trường duyệt vẫn được tính là
-   * đã duyệt để không biến mất khỏi bảng.
-   */
-  const deNghiDaDuyet = useMemo(() => locDaDuyet(deNghi), [deNghi]);
+  /* 📌 12/08/2026 (chiều): BỎ bộ lọc "đã duyệt". Ban lãnh đạo chốt lại: việc duyệt đề
+     nghị diễn ra ở APP KHÁC của bộ phận đề xuất — phiếu vào tới app này nghĩa là ĐÃ duyệt,
+     nên bảng quy trình hiện thẳng, không giữ luật duyệt nào ở đây nữa. */
 
   const danhSach = useMemo(
     () =>
-      deNghiDaDuyet.map((dn) => {
+      deNghi.map((dn) => {
         const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
         return {
           dn,
@@ -156,12 +147,12 @@ export default function TrangDanhSachDeNghi() {
           soChuaPhanBo: tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo").length,
         };
       }),
-    [deNghiDaDuyet, donHang, phieuNhan],
+    [deNghi, donHang, phieuNhan],
   );
 
   const cot = useMemo(
-    () => dungBangQuyTrinh(deNghiDaDuyet, donHang, baoGia, phieuNhan),
-    [deNghiDaDuyet, donHang, baoGia, phieuNhan],
+    () => dungBangQuyTrinh(deNghi, donHang, baoGia, phieuNhan),
+    [deNghi, donHang, baoGia, phieuNhan],
   );
 
   /**
@@ -411,7 +402,7 @@ export default function TrangDanhSachDeNghi() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-text-desc">
-                          {NHAN_PHONG_BAN_NGUON[dn.phongBanNguon]}
+                          {nhanPhongBan(dn.phongBanNguon)}
                         </TableCell>
                         <TableCell className="text-sm">
                           {new Date(dn.ngayCanHang).toLocaleDateString("vi-VN")}

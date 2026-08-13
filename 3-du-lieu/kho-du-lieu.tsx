@@ -18,7 +18,6 @@ import {
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
-import { capDangCho } from "@/2-quy-trinh/duyet-bo-phan";
 import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import {
   DE_NGHI_MAU,
@@ -57,7 +56,7 @@ import type {
   CongNo,
   TepBaoGiaNCC,
   MoTaTep,
-  NguoiDuyetChiDinh,
+  PhongBanNguon,
 } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -81,15 +80,8 @@ export interface DauVaoDeNghiGiaLap {
   /** Mã nghiệp vụ của người lập — để màn "Theo dõi đề nghị" lọc đúng phiếu của họ. */
   nguoiDeNghiUid: string;
   nguoiDeNghiChucDanh: string;
-  /**
-   * Số cấp duyệt được ghi SẴN ngay lúc tạo, theo chức vụ của người lập:
-   * `0` nhân viên · `1` chỉ huy trưởng · `2` trưởng phòng.
-   * Xem `2-quy-trinh/duyet-bo-phan.ts`.
-   */
-  capDuyetSan: 0 | 1 | 2;
-  /** Người được chỉ định duyệt từng cấp. Trống = xét theo chức vụ. */
-  nguoiDuyetCap1?: NguoiDuyetChiDinh;
-  nguoiDuyetCap2?: NguoiDuyetChiDinh;
+  /** Phòng ban gửi đề xuất — từ 12/08/2026 nhận từ MỌI phòng ban. */
+  phongBanNguon: PhongBanNguon;
   ngayDeNghi: string;
   ngayDuyet: string;
   ngayCanHang: string;
@@ -263,14 +255,6 @@ interface GiaTriDuLieu {
   /** Đánh dấu toàn bộ thông báo là đã đọc — gọi khi người dùng mở chuông. */
   /** Đánh dấu đã đọc CHỈ các thông báo có mã trong danh sách — xem ghi chú ở hàm. */
   danhDauDaDocThongBao: (ids: string[]) => void;
-  /**
-   * Quản lý bộ phận duyệt đề nghị do người trong bộ phận lập — Ban lãnh đạo 12/08/2026.
-   * Duyệt xong Thu mua mới thấy phiếu trên bảng quy trình.
-   */
-  duyetDeNghiCuaBoPhan: (
-    prId: string,
-    nguoi: { uid: string; ten: string; chucDanh: string },
-  ) => void;
   /**
    * Xóa sạch dữ liệu chạy thử rồi tải lại app. Chỉ dùng khi chạy thử.
    * ⚠️ Xóa cả trên kho chung → **mọi người đều mất**, không riêng máy đang bấm.
@@ -458,49 +442,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     dayLenMayChu(d);
   }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, dayLenMayChu]);
 
-  /**
-   * Duyệt MỘT CẤP của bộ phận đề xuất. Cấp nào thì do `capDangCho()` quyết, nơi gọi không
-   * tự chọn — để giao diện không thể duyệt vượt cấp.
-   *
-   * ⚠️ Chỉ điền `ngayDuyet` khi đã xong CẢ HAI cấp. Điền sớm ở cấp 1 là phiếu lọt sang Thu
-   * mua ngay, vì `daDuyetBoPhan()` coi "có ngayDuyet" là đã duyệt (luật đó tồn tại để dữ
-   * liệu cũ không biến mất) — đúng thứ Ban lãnh đạo muốn chặn.
-   */
-  const duyetDeNghiCuaBoPhan = useCallback(
-    (prId: string, nguoi: { uid: string; ten: string; chucDanh: string }) => {
-      const luc = thoiDiemHienTai();
-      setDeNghi((truoc) =>
-        truoc.map((dn) => {
-          if (dn.id !== prId) return dn;
-          const cap = capDangCho(dn);
-          if (cap === null) return dn; // Đã duyệt đủ — không ghi thêm.
-
-          const moc = { ...nguoi, thoiDiem: luc };
-          const sau: DeNghiMuaHang =
-            cap === 1 ? { ...dn, duyetCap1: moc } : { ...dn, duyetCap2: moc };
-          const xongHet = Boolean(sau.duyetCap1 && sau.duyetCap2);
-
-          return {
-            ...sau,
-            ngayDuyet: xongHet ? dn.ngayDuyet || luc.slice(0, 10) : dn.ngayDuyet,
-            lichSu: [
-              ...dn.lichSu,
-              {
-                thoiDiem: luc,
-                nguoiThucHien: nguoi.ten,
-                hanhDong:
-                  cap === 1
-                    ? `Duyệt cấp 1 — Trưởng phòng / Quản lý (${nguoi.chucDanh})`
-                    : `Duyệt cấp 2 — Tổng Giám đốc / Phó TGĐ (${nguoi.chucDanh}) · chuyển sang Phòng Thu mua`,
-              },
-            ],
-          };
-        }),
-      );
-    },
-    [],
-  );
-
   const xoaDuLieuChayThu = useCallback(async () => {
     // 🔴 Từ 12/08/2026 dữ liệu nằm trên máy chủ dùng chung, nên xóa là XÓA CỦA CẢ PHÒNG.
     // Phải dọn kho chung TRƯỚC rồi mới tải lại trang: nếu chỉ xóa bản trên máy, lần
@@ -636,14 +577,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     const soHienCo = hienCo.filter((dn) => dn.maDuAn === dauVao.maDuAn).length;
     const code = `${dauVao.maDuAn}-PR-${String(soHienCo + 1).padStart(3, "0")}`;
 
-    /** Mốc duyệt của chính người lập — dùng cho các cấp được duyệt sẵn theo chức vụ. */
-    const mocTuDuyet = {
-      uid: dauVao.nguoiDeNghiUid,
-      ten: dauVao.nguoiDeNghiTen,
-      chucDanh: dauVao.nguoiDeNghiChucDanh,
-      thoiDiem: thoiDiemHienTai(),
-    };
-
     const moi: DeNghiMuaHang = {
       id,
       code,
@@ -651,8 +584,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       maHopDongCDT: dauVao.maHopDongCDT || undefined,
       tenCongTrinh: dauVao.tenCongTrinh,
       tieuDe: dauVao.tieuDe,
-      // Ver 1 chỉ nhận đề nghị từ Phòng Thi công (chỉ đạo Ban lãnh đạo 05/08/2026).
-      phongBanNguon: "thi_cong",
+      // 🔴 Từ 12/08/2026 nhận đề xuất từ MỌI phòng ban (chỉ đạo Ban lãnh đạo) — bỏ
+      // khóa cứng Phòng Thi công của ver đầu.
+      phongBanNguon: dauVao.phongBanNguon,
       /**
        * 🔴 LẤY MÃ NGƯỜI ĐANG ĐĂNG NHẬP, không gán cứng nữa.
        *
@@ -667,8 +601,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       // ⚠️ `ngayDuyet` để TRỐNG khi chưa có quản lý duyệt. `daDuyetBoPhan()` coi
       // "có ngayDuyet" là đã duyệt (để dữ liệu cũ không biến mất), nên điền sẵn ngày ở đây
       // sẽ khiến phiếu chưa duyệt vẫn lọt sang Thu mua — đúng thứ Ban lãnh đạo muốn chặn.
-      // Chỉ điền khi phiếu đã duyệt đủ hai cấp ngay lúc tạo (trưởng phòng tự lập).
-      ngayDuyet: dauVao.capDuyetSan >= 2 ? dauVao.ngayDuyet : "",
+      // Phiếu vào app là ĐÃ DUYỆT (việc duyệt diễn ra ở app của bộ phận đề xuất —
+      // Ban lãnh đạo chốt 12/08/2026), nên ngày duyệt luôn có.
+      ngayDuyet: dauVao.ngayDuyet,
       ngayCanHang: dauVao.ngayCanHang,
       mucDoUuTien: dauVao.mucDoUuTien,
       taiLieu: dauVao.taiLieu,
@@ -702,34 +637,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * cho tự duyệt — để trống là phiếu **kẹt vĩnh viễn**, không ai duyệt được.
        * Người lập không phải quản lý → để trống, chờ quản lý bộ phận duyệt.
        */
-      /**
-       * ★ NGƯỜI LẬP TỰ DUYỆT SẴN CẤP CỦA MÌNH, không duyệt hộ cấp trên.
-       *
-       *   · Trưởng phòng lập  → duyệt sẵn CẢ HAI cấp (họ là cấp cao nhất của bộ phận).
-       *   · Chỉ huy trưởng lập → duyệt sẵn CẤP 1, còn chờ trưởng phòng duyệt cấp 2.
-       *   · Nhân viên lập      → chưa cấp nào, chờ đủ hai cấp.
-       *
-       * 🔴 Vì sao phải duyệt sẵn: `lyDoKhongDuyetDuoc` chặn không cho tự duyệt phiếu của
-       * mình. Để trống hết thì chỉ huy trưởng tự lập phiếu sẽ **không tự duyệt được cấp 1**,
-       * mà trưởng phòng lại duyệt được cấp 1 thay — nên vẫn thoát. Nhưng trưởng phòng tự lập
-       * thì KHÔNG còn ai cao hơn trong bộ phận: phiếu **kẹt vĩnh viễn**. Duyệt sẵn theo đúng
-       * chức vụ là cách vừa không kẹt, vừa không cho ai duyệt vượt cấp mình.
-       */
-      duyetCap1: dauVao.capDuyetSan >= 1 ? mocTuDuyet : undefined,
-      duyetCap2: dauVao.capDuyetSan >= 2 ? mocTuDuyet : undefined,
-      nguoiDuyetCap1: dauVao.nguoiDuyetCap1,
-      nguoiDuyetCap2: dauVao.nguoiDuyetCap2,
       lichSu: [
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },
         {
           thoiDiem: thoiDiemHienTai(),
           nguoiThucHien: dauVao.nguoiDeNghiTen,
-          hanhDong:
-            dauVao.capDuyetSan >= 2
-              ? "Người lập là cấp duyệt cuối nên duyệt đủ hai cấp · chuyển sang Phòng Thu mua"
-              : dauVao.capDuyetSan === 1
-                ? "Người lập là cấp quản lý nên duyệt sẵn cấp 1 · chờ Tổng Giám đốc duyệt"
-                : "Gửi Trưởng phòng / Quản lý duyệt",
+          hanhDong: "Chuyển sang Phòng Thu mua",
+          ghiChu: "Việc duyệt đề nghị nằm ở app của bộ phận đề xuất — phiếu vào đây là đã duyệt",
         },
       ],
     };
@@ -1736,7 +1650,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chuyenTiepChoNhanVien,
       thongBao,
       danhDauDaDocThongBao,
-      duyetDeNghiCuaBoPhan,
       xoaDuLieuChayThu,
       trangThaiKhoChung,
     }),
@@ -1776,7 +1689,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chuyenTiepChoNhanVien,
       thongBao,
       danhDauDaDocThongBao,
-      duyetDeNghiCuaBoPhan,
       xoaDuLieuChayThu,
       trangThaiKhoChung,
     ],
