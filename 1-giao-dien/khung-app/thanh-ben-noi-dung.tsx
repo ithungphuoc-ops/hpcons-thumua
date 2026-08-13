@@ -4,7 +4,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { hrefDangChon, mucDieuHuongChoVaiTro } from "@/2-quy-trinh/dieu-huong";
+import {
+  NHAN_NHOM_MENU,
+  THU_TU_NHOM,
+  hrefDangChon,
+  mucDieuHuongChoVaiTro,
+} from "@/2-quy-trinh/dieu-huong";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { cn } from "@/6-tien-ich/gop-lop";
 
@@ -55,26 +60,46 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
           được dời vào đây; Ban lãnh đạo yêu cầu 10/08/2026 đưa lại đúng chuẩn — xem
           `khung-app/menu-tai-khoan.tsx`. */}
 
-      <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-4" aria-label="Điều hướng chính">
-        {muc.map((m) => {
-          const active = m.href === hrefChon;
-          const Icon = m.icon;
+      {/* ★ NHÓM CÁC MỤC — Ban lãnh đạo 13/08/2026 gửi ảnh mẫu sidebar Base.vn và chốt:
+          *"phần tên và avatar em giữ nguyên như cũ, chỉ nhóm các công việc lại theo hình"*.
+
+          Tiêu đề nhóm in hoa nhỏ, ngăn giữa hai cụm: việc CÁ NHÂN (tôi cần làm gì, hạn khi
+          nào) và việc theo QUY TRÌNH (hồ sơ đang ở đâu). Nhãn nhóm ở
+          `2-quy-trinh/dieu-huong.ts` → `NHAN_NHOM_MENU`.
+
+          📌 Nhóm chỉ để xếp cho dễ tìm, KHÔNG ảnh hưởng quyền: ai thấy mục nào vẫn do
+          `duocThay` quyết, nên nhóm rỗng thì tự biến mất chứ không để lại tiêu đề trơ. */}
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-3" aria-label="Điều hướng chính">
+        {THU_TU_NHOM.map((nhom) => {
+          const mucCuaNhom = muc.filter((m) => (m.nhom ?? "quy_trinh") === nhom);
+          if (mucCuaNhom.length === 0) return null;
           return (
-            <Link
-              key={m.href}
-              href={m.href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex h-(--hp-menu-l1-height) items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-                active
-                  ? "bg-nav-active text-white"
-                  : "text-nav-foreground-muted hover:bg-nav-hover hover:text-nav-foreground",
-              )}
-            >
-              <Icon className="size-4.5 shrink-0" aria-hidden />
-              <span className="truncate">{m.nhan}</span>
-            </Link>
+            <div key={nhom} className="flex flex-col gap-1">
+              <p className="px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wide text-nav-foreground-muted uppercase">
+                {NHAN_NHOM_MENU[nhom]}
+              </p>
+              {mucCuaNhom.map((m) => {
+                const active = m.href === hrefChon;
+                const Icon = m.icon;
+                return (
+                  <Link
+                    key={m.href}
+                    href={m.href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex h-(--hp-menu-l1-height) items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-nav-active text-white"
+                        : "text-nav-foreground-muted hover:bg-nav-hover hover:text-nav-foreground",
+                    )}
+                  >
+                    <Icon className="size-4.5 shrink-0" aria-hidden />
+                    <span className="truncate">{m.nhan}</span>
+                  </Link>
+                );
+              })}
+            </div>
           );
         })}
       </nav>

@@ -24,6 +24,12 @@ export const NHAN_NHOM_MENU: Record<NhomMenu, string> = {
   quy_trinh: "Quy trình thu mua",
 };
 
+/**
+ * Thứ tự nhóm trên sidebar. Việc CÁ NHÂN lên trước việc theo QUY TRÌNH — mở app ra là thấy
+ * ngay "tôi phải làm gì", chưa cần đi tìm trong bảng 8 cột.
+ */
+export const THU_TU_NHOM: NhomMenu[] = ["quan_trong", "quy_trinh"];
+
 export interface MucDieuHuong {
   nhan: string;
   /** Nhãn rút gọn cho Bottom Navigation trên mobile (10–12px, dễ tràn). */
