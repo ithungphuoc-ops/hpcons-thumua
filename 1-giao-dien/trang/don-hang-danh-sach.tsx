@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { phanTramPO, soNgayConLai, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
-import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 
 export default function TrangDanhSachDonHang() {
   const { donHang, phieuNhan, giaDonHang } = useDuLieu();
@@ -84,7 +84,7 @@ export default function TrangDanhSachDonHang() {
                 </TableHeader>
                 <TableBody>
                   {danhSach.map(({ po, tienDo, phanTram, conLai, giaTri }) => {
-                    const tt = NHAN_TRANG_THAI_PO[po.trangThai];
+                    const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
                     const quaHan = conLai < 0 && po.trangThai !== "hoan_thanh";
                     return (
                       <TableRow key={po.id}>
@@ -143,7 +143,7 @@ export default function TrangDanhSachDonHang() {
             {/* Card List — Mobile */}
             <div className="flex flex-col gap-(--hp-md-row-gap) md:hidden">
               {danhSach.map(({ po, tienDo, phanTram, conLai }) => {
-                const tt = NHAN_TRANG_THAI_PO[po.trangThai];
+                const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
                 const quaHan = conLai < 0 && po.trangThai !== "hoan_thanh";
                 return (
                   <Link

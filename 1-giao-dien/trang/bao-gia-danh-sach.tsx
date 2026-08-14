@@ -10,7 +10,7 @@ import { DataTable, type ColumnDef } from "@/1-giao-dien/thanh-phan-dung-chung/d
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
-import { NHAN_TRANG_THAI_BAO_GIA } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_BAO_GIA } from "@/2-quy-trinh/trang-thai";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 import type { BaoGia } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -63,12 +63,12 @@ const columns: ColumnDef<BaoGia, unknown>[] = [
   },
   {
     id: "trangThai",
-    accessorFn: (r) => NHAN_TRANG_THAI_BAO_GIA[r.trangThai].nhan,
+    accessorFn: (r) => nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, r.trangThai).nhan,
     header: "Trạng thái",
     meta: { label: "Trạng thái" },
     enableHiding: false,
     cell: ({ row }) => {
-      const tt = NHAN_TRANG_THAI_BAO_GIA[row.original.trangThai];
+      const tt = nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, row.original.trangThai);
       return <StatusBadge label={tt.nhan} tone={tt.tong} />;
     },
   },
@@ -131,8 +131,8 @@ export default function BaoGiaDanhSach() {
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-primary">{rfq.code}</span>
                   <StatusBadge
-                    label={NHAN_TRANG_THAI_BAO_GIA[rfq.trangThai].nhan}
-                    tone={NHAN_TRANG_THAI_BAO_GIA[rfq.trangThai].tong}
+                    label={nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, rfq.trangThai).nhan}
+                    tone={nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, rfq.trangThai).tong}
                   />
                 </div>
                 <p className="text-sm text-text-primary">{rfq.tieuDe}</p>

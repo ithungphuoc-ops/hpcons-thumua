@@ -45,7 +45,7 @@ import {
   type HanhDongKeoTha,
   type XacNhanKeoTha,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
 
 /** Hai cách xem cùng một dữ liệu — đặt tên giống bảng Base để anh em quen việc đọc ra ngay. */
 type CachXem = "bang" | "danh_sach";
@@ -67,6 +67,7 @@ export default function TrangDanhSachDeNghi() {
     nhanBanDeNghi,
     xoaDeNghi,
     luiVeBuoc,
+    cauHinh,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [cachXem, setCachXem] = useState<CachXem>("bang");
@@ -164,7 +165,15 @@ export default function TrangDanhSachDeNghi() {
 
     const poCuaDeNghi = donHang.filter((po) => po.prId === prId && po.trangThai !== "huy");
     const baoGiaCuaDeNghi = baoGia.filter((b) => b.prId === prId && b.trangThai !== "huy");
-    const hanhDong = quyetDinhKeoTha(the, dich, poCuaDeNghi, baoGiaCuaDeNghi);
+    // Công việc bắt buộc của bước đang đứng — lấy từ cấu hình quy trình (sửa được ở trang
+    // Cài đặt), KHÔNG viết cứng trong luật kéo thả.
+    const hanhDong = quyetDinhKeoTha(
+      the,
+      dich,
+      poCuaDeNghi,
+      baoGiaCuaDeNghi,
+      cauHinh.congViecTheoBuoc[the.giaiDoan] ?? [],
+    );
     if (!hanhDong) return;
 
     // Bước không hợp lệ: chặn ngay, không cần hỏi — hỏi rồi vẫn không cho làm thì vô nghĩa.
@@ -411,7 +420,7 @@ export default function TrangDanhSachDeNghi() {
                 </TableHeader>
                 <TableBody>
                   {danhSach.map(({ dn, tomTat, soChuaPhanBo }) => {
-                    const tt = NHAN_TRANG_THAI_DE_NGHI[dn.trangThai];
+                    const tt = nhanAnToan(NHAN_TRANG_THAI_DE_NGHI, dn.trangThai);
                     const ut = NHAN_UU_TIEN[dn.mucDoUuTien];
                     return (
                       <TableRow key={dn.id}>
@@ -464,7 +473,7 @@ export default function TrangDanhSachDeNghi() {
             {/* Card List — Mobile */}
             <div className="flex flex-col gap-(--hp-md-row-gap) md:hidden">
               {danhSach.map(({ dn, tomTat, soChuaPhanBo }) => {
-                const tt = NHAN_TRANG_THAI_DE_NGHI[dn.trangThai];
+                const tt = nhanAnToan(NHAN_TRANG_THAI_DE_NGHI, dn.trangThai);
                 return (
                   <Link
                     key={dn.id}

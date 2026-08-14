@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/1-giao-dien/nen-tang-ui/table";
-import { NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
 import {
   tinhTuoiNo,
   nhomTuoiNoTheoNCC,
@@ -95,12 +95,12 @@ const columns: ColumnDef<CongNo, unknown>[] = [
   },
   {
     id: "trangThai",
-    accessorFn: (r) => NHAN_TRANG_THAI_CONG_NO[r.trangThai].nhan,
+    accessorFn: (r) => nhanAnToan(NHAN_TRANG_THAI_CONG_NO, r.trangThai).nhan,
     header: "Trạng thái",
     meta: { label: "Trạng thái" },
     enableHiding: false,
     cell: ({ row }) => {
-      const tt = NHAN_TRANG_THAI_CONG_NO[row.original.trangThai];
+      const tt = nhanAnToan(NHAN_TRANG_THAI_CONG_NO, row.original.trangThai);
       return <StatusBadge label={tt.nhan} tone={tt.tong} />;
     },
   },
@@ -333,8 +333,8 @@ export default function TrangCongNo() {
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-text-primary">{p.soHoaDon}</span>
                   <StatusBadge
-                    label={NHAN_TRANG_THAI_CONG_NO[p.trangThai].nhan}
-                    tone={NHAN_TRANG_THAI_CONG_NO[p.trangThai].tong}
+                    label={nhanAnToan(NHAN_TRANG_THAI_CONG_NO, p.trangThai).nhan}
+                    tone={nhanAnToan(NHAN_TRANG_THAI_CONG_NO, p.trangThai).tong}
                   />
                 </div>
                 <p className="text-sm text-text-primary">{p.tenNCC}</p>

@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { phanTramPO, soNgayConLai, tinhTienDoDeNghi, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
-import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { deNghiConDangChay } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { cn } from "@/6-tien-ich/gop-lop";
 
@@ -126,7 +126,7 @@ export default function TrangTongQuan() {
                 phieuNhan.filter((p) => p.poId === po.id),
               );
               const pt = phanTramPO(tienDo);
-              const tt = NHAN_TRANG_THAI_PO[po.trangThai];
+              const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
               const quaHan = conLai < 0;
               return (
                 <Link

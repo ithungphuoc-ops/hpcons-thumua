@@ -41,7 +41,7 @@ import {
   sttDongDuocXem,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-import { NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -390,7 +390,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
             </TableHeader>
             <TableBody>
               {tienDo.map((d) => {
-                const tt = NHAN_TRANG_THAI_DONG[d.trangThaiDong];
+                const tt = nhanAnToan(NHAN_TRANG_THAI_DONG, d.trangThaiDong);
                 const daPhan = Boolean(d.nguoiPhuTrachUid);
                 return (
                   <TableRow key={d.stt} className={d.trangThaiDong === "chua_phan_bo" ? "bg-danger-bg/40" : undefined}>
@@ -588,7 +588,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
         {/* Card List — Mobile (<768px): không ép bảng nhiều cột, luật V1.1 Phần F */}
         <div className="flex flex-col gap-(--hp-md-row-gap) md:hidden">
           {tienDo.map((d) => {
-            const tt = NHAN_TRANG_THAI_DONG[d.trangThaiDong];
+            const tt = nhanAnToan(NHAN_TRANG_THAI_DONG, d.trangThaiDong);
             return (
               <div key={d.stt} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
                 <div className="flex items-start justify-between gap-2">

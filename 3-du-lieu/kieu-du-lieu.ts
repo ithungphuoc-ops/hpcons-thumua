@@ -201,6 +201,27 @@ export interface DeNghiMuaHang {
    * ở kho tệp (`3-du-lieu/kho-tep.ts` → Firestore) nên máy khác mở xem được.
    */
   taiLieu?: MoTaTep[];
+  /**
+   * ★ CÔNG VIỆC BẮT BUỘC CỦA GIAI ĐOẠN ĐÃ TÍCH XONG — mục "Danh sách công việc" của Base.
+   *
+   * Danh mục công việc nằm ở `2-quy-trinh/cau-hinh-quy-trinh.ts` → `congViecTheoBuoc`; ở đây
+   * chỉ lưu VIỆC NÀO ĐÃ XONG của riêng đề nghị này, khóa theo `CongViecGiaiDoan.ma`.
+   *
+   * 📌 Lưu trong chính đề nghị (không tách khóa dữ liệu mới) là cố ý: khỏi phải khai thêm ở
+   * `docDuLieuDaLuu` và `chuanHoa` — hai chỗ dùng danh sách trắng, quên khai là mất dữ liệu
+   * im lặng (đã dính thật với khóa `cauHinh` ngày 13/08/2026).
+   */
+  congViecDaXong?: CongViecDaXong[];
+}
+
+/** Một công việc của giai đoạn đã được tích hoàn thành. */
+export interface CongViecDaXong {
+  /** Khóa công việc — khớp `CongViecGiaiDoan.ma` trong cấu hình quy trình. */
+  maCongViec: string;
+  /** Mã giai đoạn lúc tích xong — giữ để tra lại, vì cấu hình có thể đổi sau. */
+  giaiDoan: string;
+  nguoiXongTen: string;
+  thoiDiem: NgayISO;
 }
 
 /** Một cặp nhãn/giá trị người dùng tự thêm vào đề nghị. */

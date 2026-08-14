@@ -22,9 +22,11 @@ import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import {
   CAU_HINH_MAC_DINH,
+  gopCauHinhVoiMacDinh,
   loiCauHinh,
   soSanhCauHinh,
   type CauHinhQuyTrinh,
+  type CongViecGiaiDoan,
   type VetDoiCauHinh,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { maBanSaoTiepTheo, phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
@@ -293,6 +295,19 @@ interface GiaTriDuLieu {
   /** Bỏ một người khỏi danh sách theo dõi đề nghị. */
   boNguoiTheoDoi: (prId: string, uid: string, nguoiBoTen: string) => void;
 
+  // --- Công việc bắt buộc của giai đoạn (mục "Danh sách công việc" trên Base) ---
+  /**
+   * Tích / bỏ tích một công việc bắt buộc của giai đoạn. Bỏ tích được (tích nhầm sửa lại
+   * được), mọi lần đổi đều vào nhật ký đề nghị.
+   */
+  danhDauCongViecGiaiDoan: (
+    prId: string,
+    congViec: CongViecGiaiDoan,
+    giaiDoan: string,
+    xong: boolean,
+    nguoiTen: string,
+  ) => void;
+
   /**
    * Trưởng bộ phận bấm "Chuyển tiếp": bàn giao đề nghị cho các nhân viên đã được
    * phân bổ, để họ làm tiếp các bước sau (lập đơn, chọn NCC...).
@@ -455,8 +470,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      *
      * ⚠️ Trạng thái khởi tạo đã là `CAU_HINH_MAC_DINH` nên bỏ qua ở đây là an toàn: lần nạp
      * đầu tiên vẫn có cấu hình mặc định, không bao giờ `undefined`.
+     *
+     * 🔴 CÓ cấu hình thì phải GỘP VỚI MẶC ĐỊNH, đừng gán thẳng. Cấu hình lưu nguyên khối nên
+     * mỗi lần thêm tham số mới là mọi bản lưu trước đó thiếu khóa đó; gán thẳng thì khóa mới
+     * thành `undefined` và chỗ đọc `cauHinh.<bảng>[bước]` **sập cả trang** (màn hình trắng,
+     * không phải sai số liệu). Thực tế: cấu hình lưu 13/08/2026, khóa `congViecTheoBuoc`
+     * thêm 14/08/2026. Xem `gopCauHinhVoiMacDinh`.
      */
-    if (d.cauHinh) setCauHinh(d.cauHinh);
+    if (d.cauHinh) setCauHinh(gopCauHinhVoiMacDinh(d.cauHinh));
     if (d.lichSuCauHinh) setLichSuCauHinh(d.lichSuCauHinh);
   }, []);
 
@@ -1981,6 +2002,53 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * ★ TÍCH / BỎ TÍCH MỘT CÔNG VIỆC BẮT BUỘC CỦA GIAI ĐOẠN.
+   *
+   * 🔴 Ban lãnh đạo 14/08/2026 gửi ảnh cài đặt giai đoạn trên Base: mỗi giai đoạn có "Danh
+   * sách công việc" phải hoàn thành mới sang bước sau. Bước 01 có *"Checkin hàng tồn kho"*.
+   *
+   * ⚠️ CHO BỎ TÍCH ĐƯỢC. Tích nhầm mà không sửa lại được thì người dùng đi tìm cách lách
+   * (xóa phiếu, lập lại phiếu) — tệ hơn nhiều so với việc cho sửa và ghi rõ vào nhật ký.
+   */
+  const danhDauCongViecGiaiDoan = useCallback(
+    (prId: string, congViec: CongViecGiaiDoan, giaiDoan: string, xong: boolean, nguoiTen: string) => {
+      setDeNghi((truoc) =>
+        truoc.map((dn) => {
+          if (dn.id !== prId) return dn;
+          const ds = dn.congViecDaXong ?? [];
+          const daCo = ds.some((x) => x.maCongViec === congViec.ma);
+          if (xong === daCo) return dn; // không đổi gì thì đừng ghi nhật ký rác
+          return {
+            ...dn,
+            congViecDaXong: xong
+              ? [
+                  ...ds,
+                  {
+                    maCongViec: congViec.ma,
+                    giaiDoan,
+                    nguoiXongTen: nguoiTen,
+                    thoiDiem: thoiDiemHienTai(),
+                  },
+                ]
+              : ds.filter((x) => x.maCongViec !== congViec.ma),
+            lichSu: [
+              ...dn.lichSu,
+              {
+                thoiDiem: thoiDiemHienTai(),
+                nguoiThucHien: nguoiTen,
+                hanhDong: xong
+                  ? `Hoàn thành công việc "${congViec.ten}"`
+                  : `Bỏ tích hoàn thành công việc "${congViec.ten}"`,
+              },
+            ],
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  /**
    * 🔴 `nguoiBoTen` LÀ NGƯỜI ĐANG BẤM BỎ, không phải người đã thêm.
    *
    * Trước 14/08/2026 chỗ này ghi `bi.nguoiThemTen` vào nhật ký — tức tên người ĐÃ THÊM người
@@ -2110,6 +2178,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
+      danhDauCongViecGiaiDoan,
       chuyenTiepChoNhanVien,
       thongBao,
       cauHinh,
@@ -2156,6 +2225,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
+      danhDauCongViecGiaiDoan,
       chuyenTiepChoNhanVien,
       thongBao,
       cauHinh,

@@ -47,8 +47,13 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
-import { vuongMacSangBuocSau, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
+  NHAN_GIAI_DOAN,
+  vuongMacSangBuocSau,
+  xacDinhGiaiDoan,
+} from "@/2-quy-trinh/giai-doan-mua-hang";
+import {
+  nhanAnToan,
   NHAN_TRANG_THAI_BAO_GIA,
   NHAN_TRANG_THAI_DE_NGHI,
   NHAN_TRANG_THAI_PO,
@@ -64,6 +69,8 @@ export default function TrangChiTietDeNghi() {
     baoGia,
     chuyenTiepChoNhanVien,
     taoBaoGiaGiaLap,
+    cauHinh,
+    danhDauCongViecGiaiDoan,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
@@ -118,6 +125,12 @@ export default function TrangChiTietDeNghi() {
   const conLai = soNgayConLai(dn.ngayCanHang);
 
   /**
+   * Công việc bắt buộc của bước ĐANG ĐỨNG — mục "Danh sách công việc" của bảng Base.
+   * Bước không khai việc nào thì mảng rỗng (ảnh Base ghi "Không có công việc").
+   */
+  const congViecCuaBuoc = cauHinh.congViecTheoBuoc[giaiDoan] ?? [];
+
+  /**
    * MỐC THỜI GIAN của từng giai đoạn, lấy từ CHỨNG TỪ THẬT.
    *
    * 🔴 Chỉ điền mốc cho giai đoạn nào có chứng từ tương ứng. Giai đoạn được suy ra từ
@@ -165,7 +178,7 @@ export default function TrangChiTietDeNghi() {
     ...new Set(dn.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x))),
   ];
   const soDongChuaPhanBo = dn.items.filter((d) => !d.nguoiPhuTrachUid).length;
-  const tt = NHAN_TRANG_THAI_DE_NGHI[dn.trangThai];
+  const tt = nhanAnToan(NHAN_TRANG_THAI_DE_NGHI, dn.trangThai);
 
   return (
     <>
@@ -334,6 +347,82 @@ export default function TrangChiTietDeNghi() {
         </CardContent>
       </Card>
 
+      {/* ★ CÔNG VIỆC BẮT BUỘC CỦA BƯỚC ĐANG ĐỨNG — mục "Danh sách công việc" của bảng Base
+          (Ban lãnh đạo gửi ảnh cài đặt giai đoạn 14/08/2026).
+
+          📌 Chỉ hiện khi bước hiện tại CÓ khai công việc. Năm bước còn lại trong ảnh ghi
+          "Không có công việc", hiện khối rỗng chỉ làm trang dài ra.
+
+          ⚠️ Đặt NGAY TRÊN bảng phân bổ, vì đây là việc phải làm TRƯỚC khi giao việc đi hỏi
+          giá — kiểm tồn kho xong mới biết có cần mua hay không. */}
+      {congViecCuaBuoc.length > 0 && (
+        <Card>
+          <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-h3 text-text-primary">Công việc của bước</h2>
+              <p className="text-xs text-text-desc">
+                Bước <strong>{NHAN_GIAI_DOAN[giaiDoan]?.nhan ?? giaiDoan}</strong> yêu cầu hoàn
+                thành các việc dưới đây trước khi sang bước sau.
+              </p>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {congViecCuaBuoc.map((cv) => {
+                const xong = (dn.congViecDaXong ?? []).find((x) => x.maCongViec === cv.ma);
+                return (
+                  <li
+                    key={cv.ma}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
+                  >
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
+                      {/* Vùng chạm ≥44px theo Design System V1.1 — ô tích nhỏ nhưng cả nhãn
+                          bấm được nên vùng thật rộng hơn nhiều. */}
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 size-4 shrink-0 accent-primary"
+                        checked={Boolean(xong)}
+                        disabled={!quyen.phanBoCongViec}
+                        onChange={(e) =>
+                          danhDauCongViecGiaiDoan(
+                            dn.id,
+                            cv,
+                            giaiDoan,
+                            e.target.checked,
+                            nguoiDung.tenHienThi,
+                          )
+                        }
+                      />
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-sm font-medium text-text-primary">
+                          {cv.ten}
+                          {cv.batBuoc && <span className="text-danger"> *</span>}
+                        </span>
+                        {cv.moTa && <span className="text-xs text-text-desc">{cv.moTa}</span>}
+                        {/* Ai tích, lúc nào — cùng thông tin đã vào nhật ký đề nghị. */}
+                        {xong && (
+                          <span className="text-xs text-success-soft">
+                            {xong.nguoiXongTen} · {formatMocThoiGian(xong.thoiDiem)}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                    <StatusBadge
+                      label={xong ? "Đã xong" : "Chưa xong"}
+                      tone={xong ? "success" : "neutral"}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+            {/* Nói rõ ai được tích, thay vì để ô mờ không lời giải thích. */}
+            {!quyen.phanBoCongViec && (
+              <p className="text-xs text-text-desc">
+                Chỉ Trưởng bộ phận Thu mua tích được các việc này.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* M3 — Phân bổ.
           Các nút hành động đã dời sang khối "Hoạt động chính" ở CỘT PHẢI theo bố cục
           Base.vn (chỉ đạo Ban lãnh đạo 10/08/2026) — mọi việc bấm được gom về một chỗ,
@@ -380,7 +469,7 @@ export default function TrangChiTietDeNghi() {
                 </p>
               )}
               {baoGiaLienQuan.map((bg) => {
-                const ttBG = NHAN_TRANG_THAI_BAO_GIA[bg.trangThai];
+                const ttBG = nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, bg.trangThai);
                 return (
                   <Link
                     key={bg.id}
@@ -412,7 +501,7 @@ export default function TrangChiTietDeNghi() {
           <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
             {poLienQuan.length === 0 && <p className="text-sm text-text-desc">Chưa tách đơn hàng nào.</p>}
             {poLienQuan.map((po) => {
-              const ttPO = NHAN_TRANG_THAI_PO[po.trangThai];
+              const ttPO = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
               return (
                 <Link
                   key={po.id}
@@ -564,8 +653,8 @@ export default function TrangChiTietDeNghi() {
         nhanDongY="Lập bảng báo giá"
         onDong={() => setHoiLapBaoGia(false)}
         onDongY={() => {
-          // Bước trước phải xong mới đi tiếp — dùng chung luật với kéo thả và nút nhận công tác.
-          const vuongMac = vuongMacSangBuocSau(dn, "tiep_nhan", baoGiaLienQuan);
+          // Bước trước phải xong mới đi tiếp — dùng chung luật với kéo thả.
+          const vuongMac = vuongMacSangBuocSau(dn, "tiep_nhan", baoGiaLienQuan, congViecCuaBuoc);
           if (vuongMac) {
             toast.error("Chưa xong bước Tiếp nhận và kiểm tra", { description: vuongMac });
             return;

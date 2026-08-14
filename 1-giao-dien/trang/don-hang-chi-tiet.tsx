@@ -20,7 +20,7 @@ import {
   tinhTienDoPO,
   vuongMacXacNhanKho,
 } from "@/2-quy-trinh/tinh-toan";
-import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { NutXuatDonHangExcel } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-don-hang";
 
@@ -52,7 +52,7 @@ export default function TrangChiTietDonHang() {
     );
   }
 
-  const tt = NHAN_TRANG_THAI_PO[po.trangThai];
+  const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
   const daGiaoDu = poDaGiaoDu(tienDo);
   const tien = tinhTienDonHang(po, gia);
 

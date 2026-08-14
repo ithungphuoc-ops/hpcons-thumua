@@ -14,7 +14,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { DongPhanCong } from "@/1-giao-dien/trang/theo-doi-danh-sach";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-import { NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
 
 /** M6 — Chi tiết tiến trình từng mặt hàng cho người đề nghị. */
 export default function TrangTheoDoiChiTiet() {
@@ -106,7 +106,7 @@ export default function TrangTheoDoiChiTiet() {
               </TableHeader>
               <TableBody>
                 {tienDo.map((d) => {
-                  const tt = NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI[d.trangThaiDong];
+                  const tt = nhanAnToan(NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI, d.trangThaiDong);
                   const ls = lichSuNhan(d.stt);
                   return (
                     <Fragment key={d.stt}>
@@ -173,7 +173,7 @@ export default function TrangTheoDoiChiTiet() {
           {/* Card List — Mobile: BCH hay xem ở công trường bằng điện thoại */}
           <div className="flex flex-col gap-(--hp-md-row-gap) md:hidden">
             {tienDo.map((d) => {
-              const tt = NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI[d.trangThaiDong];
+              const tt = nhanAnToan(NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI, d.trangThaiDong);
               const ls = lichSuNhan(d.stt);
               return (
                 <div key={d.stt} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">

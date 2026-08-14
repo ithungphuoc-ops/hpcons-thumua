@@ -28,7 +28,7 @@ import {
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
-import { NHAN_TRANG_THAI_BAO_GIA } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_BAO_GIA } from "@/2-quy-trinh/trang-thai";
 import {
   daTachBaoGia,
   dungBangSoSanh,
@@ -129,7 +129,7 @@ export default function TrangBaoGiaChiTiet() {
     );
   }
 
-  const tt = NHAN_TRANG_THAI_BAO_GIA[bg.trangThai];
+  const tt = nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, bg.trangThai);
   const { cot, dong } = dungBangSoSanh(bg);
   const daTach = daTachBaoGia(bg);
   const nhomNCC = gomTheoNCC(bg);

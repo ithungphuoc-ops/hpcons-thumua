@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Lock, RotateCcw, Save, Settings, Timer } from "lucide-react";
+import { AlertTriangle, ListChecks, Lock, RotateCcw, Save, Settings, Timer } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/1-giao-dien/nen-tang-ui/card";
@@ -211,6 +211,59 @@ export default function TrangCaiDatQuyTrinh() {
           <p className="text-xs text-text-desc">
             Hai bước cuối (Hoàn thành · Thất bại) không có thời hạn — chúng là điểm dừng, không
             phải việc đang chờ ai làm.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* ===== ②b CÔNG VIỆC BẮT BUỘC TỪNG BƯỚC =====
+          Mục "Danh sách công việc" của bảng Base (Ban lãnh đạo gửi ảnh cài đặt giai đoạn
+          14/08/2026). Hiện CHỈ ĐỌC: app chưa cho thêm/sửa/xóa công việc qua giao diện, và
+          nói thẳng ra thay vì để nút bấm không làm gì. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ListChecks className="size-4 shrink-0 text-primary" aria-hidden />
+            Công việc bắt buộc của từng bước
+          </CardTitle>
+          <p className="text-xs text-text-desc">
+            Việc phải tích hoàn thành mới sang được bước sau. Tích ở khối{" "}
+            <strong>“Công việc của bước”</strong> trong trang chi tiết đề nghị.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          {GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "hoan_thanh" && g.ma !== "that_bai").map(
+            (g, i) => {
+              const ds = nhap.congViecTheoBuoc[g.ma] ?? [];
+              return (
+                <div
+                  key={g.ma}
+                  className="flex flex-col gap-1 border-b border-divider pb-2 last:border-0 last:pb-0"
+                >
+                  <span className="text-sm font-medium text-text-primary">
+                    {String(i + 1).padStart(2, "0")} · {g.nhan}
+                  </span>
+                  {ds.length === 0 ? (
+                    <span className="text-xs text-text-desc">Không có công việc</span>
+                  ) : (
+                    <ul className="flex flex-col gap-0.5">
+                      {ds.map((cv) => (
+                        <li key={cv.ma} className="text-xs text-text-secondary">
+                          • {cv.ten}
+                          {cv.moTa ? ` — ${cv.moTa}` : ""}
+                          {cv.batBuoc ? " (bắt buộc)" : " (chỉ nhắc)"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            },
+          )}
+          <p className="text-xs text-text-desc">
+            Danh sách này <strong>chưa sửa được trên giao diện</strong> — thêm hoặc bỏ công việc
+            hiện phải nhờ đội triển khai. Nội dung đang lấy đúng theo ảnh cài đặt quy trình trên
+            Base: bước 01 có <strong>Checkin hàng tồn kho</strong>, các bước còn lại chưa khai
+            việc nào.
           </p>
         </CardContent>
       </Card>

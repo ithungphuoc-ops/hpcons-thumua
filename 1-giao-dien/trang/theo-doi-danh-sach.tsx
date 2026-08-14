@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-import { NHAN_TRANG_THAI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
 import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -185,7 +185,7 @@ export default function TrangTheoDoi() {
             }
             if (!hienThe(m)) return null;
             const { dn, tienDo, tomTat, giaiDoan } = m;
-            const tt = NHAN_TRANG_THAI_DE_NGHI[dn.trangThai];
+            const tt = nhanAnToan(NHAN_TRANG_THAI_DE_NGHI, dn.trangThai);
             const buoc = NHAN_GIAI_DOAN[giaiDoan];
             return (
               <Card

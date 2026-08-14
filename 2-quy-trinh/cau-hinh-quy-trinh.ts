@@ -19,6 +19,38 @@
 // app đang chạy theo luật gì; ẩn đi thì họ đi tìm trong mã nguồn hoặc hỏi vòng quanh.
 // ============================================================
 
+/**
+ * ★ MỘT CÔNG VIỆC BẮT BUỘC TRONG GIAI ĐOẠN — mục "Danh sách công việc" của bảng Base.
+ *
+ * 🔴 Ban lãnh đạo 14/08/2026 gửi ảnh cài đặt giai đoạn 01 trên Base: mục *"Danh sách công
+ * việc — Công việc mặc định mà người thực thi phải thực hiện trong giai đoạn"*, và ô
+ * *"Yêu cầu hoàn thành các công việc được quy định"* đặt là **"Bắt buộc hoàn thành công việc
+ * của giai đoạn hiện tại"**.
+ *
+ * 📌 Đây KHÁC hướng dẫn nghiệp vụ (`huong-dan-giai-doan.ts`). Hướng dẫn là chữ để ĐỌC; công
+ * việc ở đây là việc phải TÍCH XONG mới được sang bước sau — app chặn thật.
+ */
+export interface CongViecGiaiDoan {
+  /**
+   * Khóa ổn định, KHÔNG đổi khi sửa tên.
+   *
+   * ⚠️ Trạng thái đã xong của từng đề nghị lưu theo khóa này. Đổi khóa là mọi đề nghị đang
+   * chạy mất dấu "đã xong" và bị chặn lại giữa đường.
+   */
+  ma: string;
+  /** Tên công việc — chép đúng chữ trên bảng Base. */
+  ten: string;
+  /** Ai làm và làm gì — dòng mô tả nhỏ dưới tên trong ảnh Base. */
+  moTa?: string;
+  /**
+   * `true` = chưa xong thì KHÔNG sang bước sau được.
+   *
+   * 📌 Base có ô bật/tắt riêng cho chuyện này ("Bắt buộc hoàn thành công việc của giai đoạn
+   * hiện tại"). Giữ theo từng công việc để sau này thêm việc chỉ mang tính nhắc nhở.
+   */
+  batBuoc: boolean;
+}
+
 /** Tham số quy trình sửa được. Mọi giá trị là số nguyên dương. */
 export interface CauHinhQuyTrinh {
   /** Trên mức này (đồng): đơn phải trình Trưởng phòng TMCU ký duyệt, gửi NCC ký xác nhận. */
@@ -53,6 +85,13 @@ export interface CauHinhQuyTrinh {
    * Đừng coi 0 là "hạn 0 giờ" — làm vậy thì mọi hồ sơ ở bước đó trễ hạn ngay khi vào.
    */
   hanGioTheoBuoc: Record<string, number>;
+  /**
+   * ★ CÔNG VIỆC BẮT BUỘC CỦA TỪNG GIAI ĐOẠN — theo mục "Danh sách công việc" trên Base.
+   *
+   * Khóa là mã giai đoạn, giá trị là danh sách công việc. Bước không có việc nào thì khuyết
+   * khóa hoặc để mảng rỗng — ảnh Base cũng ghi *"Không có công việc"* cho 5 bước còn lại.
+   */
+  congViecTheoBuoc: Record<string, CongViecGiaiDoan[]>;
 }
 
 /**
@@ -87,7 +126,48 @@ export const CAU_HINH_MAC_DINH: CauHinhQuyTrinh = {
     dat_hang: 4,
     nhan_hang: 0,
   },
+  /**
+   * Công việc bắt buộc từng bước — LẤY ĐÚNG ẢNH BASE Ban lãnh đạo gửi 14/08/2026.
+   *
+   * Bước 01 có đúng 1 công việc: *"Checkin hàng tồn kho — QLK/TK báo tồn kho thực tế"*.
+   * Năm bước còn lại trong ảnh ghi *"Không có công việc"* nên để trống, KHÔNG bịa thêm việc
+   * cho đủ bộ — chờ Ban lãnh đạo gửi ảnh các bước sau.
+   *
+   * 🔴 VÌ SAO VIỆC NÀY QUAN TRỌNG: kiểm tồn kho trước khi mua là chốt chống MUA TRÙNG hàng
+   * kho đang có. Bỏ qua nó là tiền công ty đi ra trong khi hàng nằm sẵn trong kho. Đây cũng
+   * là lý do Base đặt nó thành việc BẮT BUỘC của bước đầu tiên, không phải lời nhắc.
+   */
+  congViecTheoBuoc: {
+    tiep_nhan: [
+      {
+        ma: "checkin_ton_kho",
+        ten: "Checkin hàng tồn kho",
+        moTa: "QLK/TK báo tồn kho thực tế",
+        batBuoc: true,
+      },
+    ],
+  },
 };
+
+/**
+ * ★ GỘP CẤU HÌNH ĐÃ LƯU VỚI MẶC ĐỊNH — BẮT BUỘC gọi ở mọi chỗ đọc cấu hình từ nơi lưu.
+ *
+ * 🔴 BẢN LƯU CŨ KHÔNG CÓ KHÓA MỚI. Cấu hình được lưu nguyên khối; mỗi lần thêm tham số mới là
+ * mọi bản đã lưu trước đó thiếu khóa đó. Gán thẳng vào state thì `cauHinh.congViecTheoBuoc`
+ * thành `undefined`, và chỗ nào đọc `cauHinh.congViecTheoBuoc[giaiDoan]` sẽ **sập cả trang**
+ * — không phải sai số liệu mà là màn hình trắng.
+ *
+ * Chuyện này chắc chắn xảy ra: người dùng đã lưu cấu hình ngày 13/08/2026, còn khóa
+ * `congViecTheoBuoc` thêm ngày 14/08/2026.
+ *
+ * ⚠️ Gộp NÔNG một tầng là đủ và cố ý: giá trị người dùng đã lưu phải thắng mặc định hoàn
+ * toàn. Gộp sâu vào `hanGioTheoBuoc` sẽ làm bước người dùng cố ý đặt 0 giờ bị mặc định ghi
+ * đè trở lại. Hai bảng `Record` đó đã có chốt `?? 0` / `?? []` ở nơi dùng.
+ */
+export function gopCauHinhVoiMacDinh(daLuu: Partial<CauHinhQuyTrinh> | undefined | null): CauHinhQuyTrinh {
+  if (!daLuu) return CAU_HINH_MAC_DINH;
+  return { ...CAU_HINH_MAC_DINH, ...daLuu };
+}
 
 /**
  * MỘT LẦN ĐỔI CẤU HÌNH — ai đổi, lúc nào, đổi những gì.
@@ -135,8 +215,14 @@ export function soSanhCauHinh(cu: CauHinhQuyTrinh, moi: CauHinhQuyTrinh): string
 
 /** Một tham số trên trang cài đặt: nhãn, mô tả, khoảng hợp lệ. */
 export interface MoTaThamSo {
-  /** Chỉ các khóa kiểu SỐ — hạn từng bước là bảng riêng, không hiện ở đây. */
-  khoa: Exclude<keyof CauHinhQuyTrinh, "hanGioTheoBuoc">;
+  /**
+   * Chỉ các khóa kiểu SỐ.
+   *
+   * ⚠️ Hạn từng bước và danh sách công việc là BẢNG riêng (kiểu `Record`), có khối hiển thị
+   * riêng trên trang cài đặt — loại ra khỏi đây để ô `<input type="number">` không bao giờ
+   * nhận phải một object.
+   */
+  khoa: Exclude<keyof CauHinhQuyTrinh, "hanGioTheoBuoc" | "congViecTheoBuoc">;
   nhan: string;
   moTa: string;
   /** `tien` hiện dấu phân cách nghìn và chữ "đồng"; `so` là số đếm thường. */

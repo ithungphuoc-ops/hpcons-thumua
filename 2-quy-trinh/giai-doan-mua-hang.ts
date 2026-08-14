@@ -22,6 +22,7 @@ import type {
   PhieuNhanHang,
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
+import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 // Luật đối chiếu khối lượng đã lên đơn — dùng lại, không tự cộng ở đây.
 // (`tinh-toan.ts` chỉ import kiểu dữ liệu nên không tạo vòng import.)
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
@@ -427,8 +428,28 @@ export function vuongMacSangBuocSau(
   deNghi: DeNghiMuaHang,
   giaiDoan: GiaiDoanMuaHang,
   baoGiaCuaDeNghi: BaoGia[],
+  congViecCuaBuoc: CongViecGiaiDoan[],
 ): string | null {
   const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
+
+  /**
+   * ★ CÔNG VIỆC BẮT BUỘC CỦA BƯỚC — kiểm TRƯỚC các điều kiện riêng của từng bước.
+   *
+   * 🔴 Ban lãnh đạo 14/08/2026 gửi ảnh cài đặt giai đoạn 01 trên Base: ô *"Yêu cầu hoàn thành
+   * các công việc được quy định"* đặt là **"Bắt buộc hoàn thành công việc của giai đoạn hiện
+   * tại"**, và bước 01 có công việc *"Checkin hàng tồn kho — QLK/TK báo tồn kho thực tế"*.
+   *
+   * Kiểm ở đây nên MỌI đường chuyển bước đều bị chặn như nhau (kéo thả, nút lập bảng báo
+   * giá) — đúng nếp "một luật, mọi đường dùng chung" của hàm này. Danh mục công việc do nơi
+   * gọi lấy từ cấu hình quy trình (sửa được ở trang Cài đặt), không viết cứng ở đây.
+   */
+  const conViecChuaXong = congViecCuaBuoc.filter(
+    (cv) => cv.batBuoc && !(deNghi.congViecDaXong ?? []).some((x) => x.maCongViec === cv.ma),
+  );
+  if (conViecChuaXong.length > 0) {
+    const ds = conViecChuaXong.map((cv) => `“${cv.ten}”`).join(", ");
+    return `Còn ${conViecChuaXong.length} công việc bắt buộc của bước này chưa hoàn thành: ${ds}. Tích hoàn thành ở khối “Công việc của bước” trong trang chi tiết đề nghị.`;
+  }
 
   switch (giaiDoan) {
     case "tiep_nhan": {
@@ -546,6 +567,8 @@ export function quyetDinhKeoTha(
   dich: GiaiDoanMuaHang,
   poCuaDeNghi: DonDatHang[],
   baoGiaCuaDeNghi: BaoGia[],
+  /** Công việc bắt buộc của bước ĐANG ĐỨNG — nơi gọi lấy từ cấu hình quy trình. */
+  congViecCuaBuoc: CongViecGiaiDoan[],
 ): HanhDongKeoTha | null {
   const tu = the.giaiDoan;
   if (tu === dich) return null;
@@ -598,8 +621,26 @@ export function quyetDinhKeoTha(
    * nguyên tắc "giai đoạn suy ra từ chứng từ, kéo thả không đổi nhãn chay".
    */
   if (tu === "tiep_nhan") {
-    const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi);
+    const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, congViecCuaBuoc);
     if (vuongMac) return { loai: "khong_the", lyDo: vuongMac };
+  } else {
+    /**
+     * Các bước sau không áp chốt riêng của bước, NHƯNG công việc bắt buộc thì bước nào cũng
+     * phải xong — Base bật "Bắt buộc hoàn thành công việc của giai đoạn hiện tại" cho cả
+     * bước 01 và 02 (ảnh Ban lãnh đạo gửi 14/08/2026).
+     */
+    const conViec = congViecCuaBuoc.filter(
+      (cv) =>
+        cv.batBuoc && !(the.deNghi.congViecDaXong ?? []).some((x) => x.maCongViec === cv.ma),
+    );
+    if (conViec.length > 0) {
+      return {
+        loai: "khong_the",
+        lyDo: `Còn ${conViec.length} công việc bắt buộc của bước này chưa hoàn thành: ${conViec
+          .map((cv) => `“${cv.ten}”`)
+          .join(", ")}. Tích hoàn thành ở khối “Công việc của bước” trong trang chi tiết đề nghị.`,
+      };
+    }
   }
 
   // Từ đây trở xuống: dich là bước LIỀN KỀ phía trước

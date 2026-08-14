@@ -21,7 +21,7 @@ import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoPO } from "@/2-quy-trinh/tinh-toan";
-import { NHAN_TRANG_THAI_PHIEU } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_PHIEU } from "@/2-quy-trinh/trang-thai";
 import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import type { MoTaTep } from "@/3-du-lieu/kho-tep";
 
@@ -317,7 +317,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
           ) : (
             <ul className="flex flex-col gap-2">
               {phieuCuaPO.map((p) => {
-                const tt = NHAN_TRANG_THAI_PHIEU[p.trangThai];
+                const tt = nhanAnToan(NHAN_TRANG_THAI_PHIEU, p.trangThai);
                 return (
                   /* Bố cục HAI TẦNG: tầng trên là thông tin lần giao, tầng dưới là phiếu
                      đính kèm. Bản cũ nhét tất cả vào một hàng `flex-wrap` nên trạng thái,

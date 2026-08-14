@@ -21,6 +21,28 @@ export interface MoTaTrangThai {
   tong: Tong;
 }
 
+/**
+ * ★ TRA NHÃN AN TOÀN — dùng cho MỌI chỗ tra bảng nhãn bằng giá trị đến từ DỮ LIỆU ĐÃ LƯU.
+ *
+ * 🔴 VÌ SAO CẦN: `bang[khoa].nhan` sập **trắng cả trang** khi dữ liệu có trạng thái không nằm
+ * trong bảng — không phải hiện sai chữ, mà là màn hình trắng kèm "Application error". Đã gặp
+ * thật ngày 14/08/2026 với một đề nghị có `trangThai` lạ.
+ *
+ * ⚠️ Chuyện này SẼ xảy ra trên bản chạy thật: cả phòng dùng chung một kho dữ liệu, mà mỗi máy
+ * có thể đang chạy bản app khác nhau (Vercel giữ bản cũ trong bộ nhớ đệm, người dùng chưa
+ * tải lại trang). Máy chạy bản mới ghi một trạng thái mới xuống kho chung, máy chạy bản cũ
+ * đọc lên và không có trong bảng → sập. Hiện chữ thô còn dùng được; sập trắng thì không.
+ *
+ * 📌 Trả về đúng mã làm chữ để người dùng và người hỗ trợ vẫn đọc được app đang thấy gì.
+ */
+export function nhanAnToan(
+  bang: Record<string, MoTaTrangThai>,
+  khoa: string | undefined | null,
+): MoTaTrangThai {
+  if (khoa && bang[khoa]) return bang[khoa];
+  return { nhan: khoa ? `Không rõ (${khoa})` : "Không rõ", tong: "neutral" };
+}
+
 export const NHAN_TRANG_THAI_DE_NGHI: Record<TrangThaiDeNghi, MoTaTrangThai> = {
   da_duyet: { nhan: "Đã duyệt — chờ phân bổ", tong: "warning" },
   dang_phan_bo: { nhan: "Đang phân bổ", tong: "warning" },
