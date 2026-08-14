@@ -70,17 +70,23 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 |---|---|
 | **Tính sai khối lượng đã nhận / còn lại / %** | `2-quy-trinh/tinh-toan.ts` |
 | Sai **chữ trạng thái** hoặc **màu trạng thái** | `2-quy-trinh/trang-thai.ts` |
-| Thiếu / thừa **mục trong menu** | `2-quy-trinh/dieu-huong.ts` — 🔴 **KHÔNG cắt danh sách ở `khung-app/thanh-duoi-mobile.tsx`**; trước 11/08/2026 chỗ đó có `.slice(0,5)` nên thêm mục thứ 6 là âm thầm mất một mục trên điện thoại |
+| Thiếu / thừa **mục trong menu**, hoặc **sai nhóm** (Quan trọng / Quy trình thu mua / Quản trị) | `2-quy-trinh/dieu-huong.ts` — mục ở `MUC_DIEU_HUONG`, nhãn nhóm ở `NHAN_NHOM_MENU`, thứ tự nhóm ở `THU_TU_NHOM`. Nhóm **chỉ để xếp cho dễ tìm, không ảnh hưởng quyền**; nhóm rỗng tự biến mất chứ không để tiêu đề trơ. 🔴 **KHÔNG cắt danh sách ở `khung-app/thanh-duoi-mobile.tsx`**; trước 11/08/2026 chỗ đó có `.slice(0,5)` nên thêm mục thứ 6 là âm thầm mất một mục trên điện thoại |
 | **Lịch công việc** thiếu/thừa việc, sai ngày, hiện việc của người khác | Luật: `2-quy-trinh/lich-cong-viec.ts` → `dungLichCuaToi` · Giao diện: `1-giao-dien/trang/lich-cong-viec.tsx` |
 | **Ghi chú trên lịch** mất, hoặc người khác đọc được | `3-du-lieu/ghi-chu-ca-nhan.ts` — lưu theo `uid` trong localStorage, **riêng tư tuyệt đối** (Sếp chốt 11/08/2026) |
 | **"Sao không thấy Phân bổ / Đơn đặt hàng / Báo giá trong menu?"** | Xem mục 2b ngay dưới đây — **cố ý bỏ, không phải mất** |
 | Sai **điều kiện hoàn thành PO** (4 lớp: giao đủ · phiếu giao nhận · kho · trưởng BP) | `2-quy-trinh/tinh-toan.ts` → `poDuDieuKienHoanThanh` |
 | **Thủ kho không bấm được "xác nhận đã nhận đủ"** / bấm được khi lẽ ra không nên | `2-quy-trinh/tinh-toan.ts` → `vuongMacXacNhanKho` (**luật**) · nút ở `trang/don-hang-chi-tiet.tsx` |
-| **Đính kèm tệp** không lưu / không mở xem lại được | Kho tệp: `3-du-lieu/kho-tep.ts` (IndexedDB) · ô giao diện dùng chung: `thanh-phan-dung-chung/o-dinh-kem-tep.tsx` |
+| **Đính kèm tệp** không lưu / không mở xem lại được | Kho tệp: `3-du-lieu/kho-tep.ts` (cửa vào) → `kho-tep-firestore.ts` (**chỗ cất thật từ 12/08/2026**, cắt mảnh base64 vì Firestore chỉ cho 1MB/tài liệu) · ô giao diện dùng chung: `thanh-phan-dung-chung/o-dinh-kem-tep.tsx`. ⚠️ `npm run dev` **ngắt khỏi Firebase** nên ở máy lập trình việc đẩy tệp lên sẽ báo lỗi — đó là đúng, phải kiểm trên bản chạy |
+| **Bấm tên tệp không xem được** / nút tải về sai tên tệp | Một chỗ duy nhất cho cả 5 nơi có tệp: `thanh-phan-dung-chung/lien-ket-tep.tsx` (dòng bấm được) + `hop-xem-tep.tsx` (pop-up căn giữa). Ảnh xem bằng `<img>`, PDF bằng `<iframe>`, Word/Excel **nói thẳng là không xem trước được** thay vì mở ra trang trắng |
 | **Đề nghị nằm sai cột** trên bảng quy trình, hoặc sai chữ "Quá hạn / Còn N ngày" | `2-quy-trinh/giai-doan-mua-hang.ts` |
 | Sai **phân nhóm tuổi nợ 30-60-90** hoặc **mức rủi ro NCC** | `2-quy-trinh/tuoi-no.ts` |
 | Sai **ô "giá thấp nhất"** hoặc **tổng theo NCC** ở bảng so sánh báo giá | `2-quy-trinh/so-sanh-bao-gia.ts` |
-| Sai **số báo giá tối thiểu** / **ai duyệt** / **ngưỡng 5–10–20 triệu** | `2-quy-trinh/nguong-gia-tri.ts` — nơi duy nhất giữ ba con số này, đừng viết số vào file khác |
+| Sai **số báo giá tối thiểu** / **ai duyệt** / **ngưỡng 5–10–20 triệu** | **Luật**: `2-quy-trinh/nguong-gia-tri.ts` — nơi duy nhất đọc ba con số này, đừng viết số vào file khác. **Số thì sửa trên giao diện** ở `/cai-dat-quy-trinh` (từ 13/08/2026), mặc định nằm ở `2-quy-trinh/cau-hinh-quy-trinh.ts` → `CAU_HINH_MAC_DINH`. 🔴 Câu nhắc phải **sinh từ cấu hình** (`chuTien()`), viết cứng "5 triệu" là app xét một đằng nói một nẻo |
+| **Trang Cài đặt quy trình** sai / lưu không ăn / mất số vừa lưu | Giao diện: `1-giao-dien/trang/cai-dat-quy-trinh.tsx` · Kiểu + kiểm tra chéo: `2-quy-trinh/cau-hinh-quy-trinh.ts` → `loiCauHinh` · Lưu: `3-du-lieu/kho-du-lieu.tsx` → `luuCauHinhQuyTrinh`. 🔴 **Mất số vừa lưu thì xem `3-du-lieu/luu-tren-may.ts` → `docDuLieuDaLuu`** — hàm đó dựng lại dữ liệu theo **danh sách trắng**, quên khai khóa mới là dữ liệu biến mất **không một dòng lỗi** |
+| **Tên đề nghị** tự dựng sai / phòng khác cũng bị dựng tên | `2-quy-trinh/dat-ten-de-nghi.ts` — công thức `mã - hợp đồng, CÔNG TRÌNH`, hiện **chỉ áp cho Phòng Thi công** (`coCongThucTuDong`). Không đổi tên hồi tố phiếu cũ |
+| **Nhân bản / tách phiếu** sai mã, mất liên kết cha–con | `2-quy-trinh/nhan-ban-de-nghi.ts` — `maBanSaoTiepTheo` (thêm `(copy)` vào **mã**, không phải tiêu đề) · `phieuGocCua` (cha–con theo **id**, chỉ **một cấp**) |
+| Sai **tên / mã phòng ban** | `3-du-lieu/danh-muc-phong-ban.ts` — 16 phòng ban, một chỗ duy nhất, sẵn để nối App Tổng. Kiểu mở (`MaPhongBan = string`) nên App Tổng thêm phòng mới **không làm hỏng build** |
+| **Đề xuất NCC của nhân viên** lẫn với **lý do chốt của trưởng bộ phận** | Hai trường **cố ý tách**: `deXuatNCC*` + `lyDoDeXuat` (nhân viên, bước ②) vs `lyDoChonNCC` (trưởng bộ phận, bước ③) — xem `3-du-lieu/kieu-du-lieu.ts` → `BaoGia`. Gộp lại là mất tiếng nói của người đi hỏi giá |
 | Sai **chiết khấu · thuế GTGT · tổng tiền thanh toán** của đơn hàng | `2-quy-trinh/tinh-toan.ts` → `tinhKhoiTongTien` (**nơi duy nhất** tính; màn lập đơn, màn xem, trang in đều gọi về đây) |
 | Sai **số tiền viết bằng chữ** | `6-tien-ich/doc-so-tien.ts` |
 | Vai trò **tìm ra hồ sơ lẽ ra không được thấy** | `2-quy-trinh/tim-kiem.ts` — mọi loại hồ sơ mới đều phải khai quyền ở đây |
