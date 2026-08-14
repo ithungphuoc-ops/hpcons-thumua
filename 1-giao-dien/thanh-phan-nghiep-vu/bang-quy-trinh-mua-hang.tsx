@@ -16,7 +16,6 @@ import {
   ExternalLink,
   Forward,
   History,
-  Layers,
   ListPlus,
   MoreHorizontal,
   Pencil,
@@ -37,6 +36,7 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
+import { NHAN_NHOM_DE_XUAT } from "@/3-du-lieu/kieu-du-lieu";
 import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 import {
   GIAI_DOAN_MUA_HANG,
@@ -356,8 +356,18 @@ function TheDeNghi({
         keoThaDuoc ? "cursor-grab active:cursor-grabbing" : ""
       } ${LOP_VIEN_TRAI[han.quaHan ? "danger" : tongGiaiDoan]} ${nenThe}`}
     >
+      {/* ★ TIÊU ĐỀ MỘT DÒNG — Ban lãnh đạo 14/08/2026 gửi ảnh bảng Base thật và chốt bố cục
+          thẻ: *"hiển thị các trường thông tin cơ bản vậy là đủ"*.
+
+          Base ghép `mã - hợp đồng - CÔNG TRÌNH` thành MỘT dòng tiêu đề, không tách ba dòng
+          như app làm trước 14/08. Gộp lại vừa đúng mẫu vừa hạ chiều cao thẻ, nên một cột
+          nhìn được nhiều việc hơn — thứ quan trọng nhất ở màn này. */}
       <div className="flex items-start justify-between gap-2">
-        <span className="text-sm font-semibold leading-tight text-primary">{deNghi.code}</span>
+        <span className="text-sm font-semibold leading-tight text-text-primary">
+          <span className="text-primary">{deNghi.code}</span>
+          {deNghi.maHopDongCDT ? ` - ${deNghi.maHopDongCDT}` : ""}
+          {deNghi.tenCongTrinh ? ` - ${deNghi.tenCongTrinh.toUpperCase()}` : ""}
+        </span>
         <span className="flex shrink-0 items-center gap-1">
           {deNghi.mucDoUuTien === "gap" && <StatusBadge label="Gấp" tone="danger" />}
           <MenuThaoTacThe
@@ -368,57 +378,81 @@ function TheDeNghi({
         </span>
       </div>
 
-      <span className="text-xs font-medium leading-snug text-text-primary">
-        {deNghi.maHopDongCDT ?? deNghi.maDuAn} — {deNghi.tenCongTrinh}
-      </span>
+      {/* ★ KHỐI TRƯỜNG CƠ BẢN — đúng các trường trong ô Ban lãnh đạo khoanh đỏ:
+          Bộ phận · Nhóm đề xuất · Ngày đề nghị cấp · Chi tiết · Link phiếu.
 
-      <span className="text-xs leading-snug text-text-desc">{deNghi.tieuDe}</span>
+          Base viết liền một mạch nối bằng dấu ·, có NHÃN đứng trước giá trị. Nhãn quan
+          trọng hơn icon: "Vật tư" đứng trơ thì không ai biết đó là nhóm đề xuất hay tên
+          hàng. Vì vậy bỏ icon, dùng chữ.
 
-      {/* ⚠️ KHÔNG dùng nhãn `sr-only` ở đây. `sr-only` là position:absolute, nó
-          thoát khỏi vùng cắt của khung cuộn ngang và kéo giãn cả trang — trên
-          điện thoại làm toàn bộ màn hình trôi ngang. Chữ dưới đây tự nó đã đủ
-          nghĩa nên không cần nhãn ẩn. */}
-      <div className="flex flex-col gap-1 text-xs text-text-desc">
-        <div className="flex items-center gap-1.5">
-          <Layers className="size-3.5 shrink-0" aria-hidden />
-          <span>
-            {nhanPhongBan(deNghi.phongBanNguon)} · {deNghi.items.length} mặt hàng
-          </span>
+          ⚠️ KHÔNG dùng nhãn `sr-only` ở đây. `sr-only` là position:absolute, nó thoát khỏi
+          vùng cắt của khung cuộn ngang và kéo giãn cả trang — trên điện thoại làm toàn bộ
+          màn hình trôi ngang. */}
+      <p className="text-xs leading-snug text-text-desc">
+        <span className="text-text-secondary">Bộ phận:</span>{" "}
+        {nhanPhongBan(deNghi.phongBanNguon)}
+        {" · "}
+        <span className="text-text-secondary">Nhóm đề xuất:</span>{" "}
+        {NHAN_NHOM_DE_XUAT[deNghi.nhomDeXuat ?? "khac"]}
+        {" · "}
+        <span className="text-text-secondary">Ngày đề nghị cấp:</span>{" "}
+        {formatDate(deNghi.ngayCanHang)}
+        {" · "}
+        <span className="text-text-secondary">Chi tiết:</span> {deNghi.items.length} mặt hàng
+        {/* Chỉ nói tới tài liệu khi CÓ tài liệu. Base luôn hiện "Link phiếu đề..." vì bên đó
+            phiếu nào cũng đính kèm; app này cho phép lập phiếu không kèm tệp, hiện nhãn trơ
+            là hứa một thứ không có. */}
+        {deNghi.taiLieu && deNghi.taiLieu.length > 0 && (
+          <>
+            {" · "}
+            <span className="text-text-secondary">Tài liệu:</span> {deNghi.taiLieu.length} tệp
+          </>
+        )}
+      </p>
+
+      {/* Thông tin phụ chỉ hiện khi CÓ — thêm hàng trống vào mọi thẻ thì bảng dài ra mà
+          không nói thêm được gì. */}
+      {(maPOLienQuan.length > 0 ||
+        (deNghi.nguoiTheoDoi && deNghi.nguoiTheoDoi.length > 0)) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-desc">
+          {maPOLienQuan.length > 0 && (
+            <span className="truncate">Đơn hàng: {maPOLienQuan.join(", ")}</span>
+          )}
+          {deNghi.nguoiTheoDoi && deNghi.nguoiTheoDoi.length > 0 && (
+            <span
+              className="flex items-center gap-1.5"
+              title={deNghi.nguoiTheoDoi.map((n) => n.ten).join(" · ")}
+            >
+              <Eye className="size-3.5 shrink-0" aria-hidden />
+              {deNghi.nguoiTheoDoi.length} người theo dõi
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-1.5">
-          <CalendarClock className="size-3.5 shrink-0" aria-hidden />
-          <span>Cần hàng {formatDate(deNghi.ngayCanHang)}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
+      )}
+
+      {/* ★ CHÂN THẺ — người phụ trách bên trái, hạn bên phải, đúng như Base.
+          Base ghi "Chưa được giao" khi chưa có ai; app dùng đúng chữ đó thay cho "Chưa phân
+          bổ" để người đã quen bảng Base đọc không phải dịch lại trong đầu. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-divider pt-1.5 text-xs">
+        <span className="flex min-w-0 items-center gap-1.5 text-text-desc">
           <UserRound className="size-3.5 shrink-0" aria-hidden />
           <span className="truncate">
-            {nguoiPhuTrach.length > 0 ? nguoiPhuTrach.join(" · ") : "Chưa phân bổ"}
+            {nguoiPhuTrach.length > 0 ? nguoiPhuTrach.join(" · ") : "Chưa được giao"}
           </span>
-        </div>
-        {/* Người theo dõi — rê chuột để xem danh sách tên đầy đủ */}
-        {deNghi.nguoiTheoDoi && deNghi.nguoiTheoDoi.length > 0 && (
-          <div
-            className="flex items-center gap-1.5"
-            title={deNghi.nguoiTheoDoi.map((n) => n.ten).join(" · ")}
-          >
-            <Eye className="size-3.5 shrink-0" aria-hidden />
-            <span>{deNghi.nguoiTheoDoi.length} người theo dõi</span>
-          </div>
-        )}
-        {maPOLienQuan.length > 0 && (
-          <span className="truncate">Đơn hàng: {maPOLienQuan.join(", ")}</span>
-        )}
+        </span>
+        {/* Hạn nằm CÙNG DÒNG với người phụ trách, dồn về phải — đúng mẫu Base. Vẫn là
+            StatusBadge nên trạng thái luôn có cả màu lẫn chữ (Design System V1.1). */}
+        <StatusBadge label={han.nhan} tone={han.tong} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <StatusBadge label={han.nhan} tone={han.tong} />
-        {soDongChuaPhanBo > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs text-danger-soft">
-            <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-            Thiếu {soDongChuaPhanBo} dòng chưa phân bổ
-          </span>
-        )}
-      </div>
+      {/* Cảnh báo riêng của app (Base không có): còn dòng vật tư chưa giao cho ai. Để dòng
+          riêng vì đây là việc phải xử lý, không phải thông tin nền. */}
+      {soDongChuaPhanBo > 0 && (
+        <span className="inline-flex items-center gap-1 text-xs text-danger-soft">
+          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+          Thiếu {soDongChuaPhanBo} dòng chưa phân bổ
+        </span>
+      )}
     </Link>
   );
 }

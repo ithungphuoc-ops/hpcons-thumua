@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
+import { NHAN_NHOM_DE_XUAT } from "@/3-du-lieu/kieu-du-lieu";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -215,6 +216,9 @@ export default function TrangChiTietDeNghi() {
                 { nhan: "Mã dự án", giaTri: dn.maDuAn },
                 { nhan: "Số hợp đồng CĐT", giaTri: dn.maHopDongCDT },
                 { nhan: "Phòng ban đề nghị", giaTri: nhanPhongBan(dn.phongBanNguon) },
+                // Nhóm đề xuất — trường của thẻ Base (14/08/2026). Phiếu cũ không có thì đọc
+                // là "Khác", KHÔNG đoán ngược từ nội dung vật tư.
+                { nhan: "Nhóm đề xuất", giaTri: NHAN_NHOM_DE_XUAT[dn.nhomDeXuat ?? "khac"] },
                 { nhan: "Người đề nghị", giaTri: dn.nguoiDeNghiTen },
                 {
                   nhan: "Mức độ ưu tiên",

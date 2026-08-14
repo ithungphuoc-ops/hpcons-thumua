@@ -35,7 +35,7 @@ import {
   gomTheoNCC,
   kiemPhanBoDong,
 } from "@/2-quy-trinh/so-sanh-bao-gia";
-import { soatNguongBaoGia } from "@/2-quy-trinh/nguong-gia-tri";
+import { chuTien, soatNguongBaoGia } from "@/2-quy-trinh/nguong-gia-tri";
 import type { PhanBoNCC, ThongTinThuongMaiNCC } from "@/3-du-lieu/kieu-du-lieu";
 import { formatCurrencyVnd, formatDate, formatNumber } from "@/6-tien-ich/dinh-dang";
 import { cn } from "@/6-tien-ich/gop-lop";
@@ -796,13 +796,19 @@ export default function TrangBaoGiaChiTiet() {
               Bước này ghi vào nhật ký đề nghị và không lùi lại được. Muốn lùi phải hủy chứng từ
               tương ứng.
               {/* 🔴 NGƯỠNG NGƯỜI DUYỆT — app chỉ có tài khoản trưởng bộ phận, chưa có tài khoản
-                  Tổng Giám đốc. Không nói ra ở đây thì trưởng bộ phận bấm duyệt một đơn ≥10
-                  triệu và tưởng thế là xong đúng quy trình. */}
+                  Tổng Giám đốc. Không nói ra ở đây thì trưởng bộ phận bấm duyệt một đơn trên
+                  ngưỡng và tưởng thế là xong đúng quy trình.
+
+                  ⚠️ Con số trong câu phải SINH TỪ CẤU HÌNH. Trước 14/08/2026 chỗ này viết cứng
+                  "(từ 10 triệu đồng trở lên)" trong khi điều kiện lại xét theo `cauHinh` sửa
+                  được — nâng ngưỡng lên 15 triệu là câu này nói dối, mà người đọc tin chữ chứ
+                  không tin luật ẩn bên dưới. */}
               {nguong.capDuyet === "tong_giam_doc" && (
                 <span className="mt-1.5 block font-medium">
                   Đơn này ước tính {formatCurrencyVnd(nguong.giaTri)} — theo quy trình,{" "}
-                  <strong>Tổng Giám đốc</strong> mới là người duyệt (từ 10 triệu đồng trở lên).
-                  App chưa có tài khoản TGĐ, nên phải trình duyệt ngoài app trước khi bấm nút này.
+                  <strong>Tổng Giám đốc</strong> mới là người duyệt (từ{" "}
+                  {chuTien(cauHinh.nguongHaiBaoGia)} đồng trở lên). App chưa có tài khoản TGĐ, nên
+                  phải trình duyệt ngoài app trước khi bấm nút này.
                 </span>
               )}
             </>

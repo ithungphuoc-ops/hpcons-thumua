@@ -66,6 +66,30 @@ import type { MaPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
  */
 export type PhongBanNguon = MaPhongBan;
 
+/**
+ * ★ NHÓM ĐỀ XUẤT — trường "Nhóm đề xuất" trên thẻ của bảng Base.
+ *
+ * Ban lãnh đạo 14/08/2026 gửi ảnh bảng "TM-QT Mua hàng (HP CONS)" đang chạy thật và chốt:
+ * *"ô a khoanh đỏ, e sửa lại app của mình hiển thị các trường thông tin cơ bản vậy là đủ"*.
+ * Bốn giá trị dưới đây đọc trực tiếp từ các thẻ trong ảnh đó.
+ *
+ * 📌 Đây là cách phân loại đề nghị, KHÁC với `phongBanNguon` (ai gửi): cùng Bộ phận Thi công
+ * có phiếu xin vật tư, có phiếu thuê dịch vụ, có phiếu mua máy móc — ba việc khác nhau hẳn về
+ * cách hỏi giá và bộ chứng từ.
+ *
+ * ⚠️ `khac` là mặc định cho phiếu cũ lập trước 14/08/2026 — chúng không có trường này, và app
+ * KHÔNG đoán ngược từ nội dung vật tư (đoán sai còn tệ hơn để trống).
+ */
+export type NhomDeXuat = "vat_tu" | "dich_vu" | "mm_ccdc" | "khac";
+
+/** Nhãn hiển thị của nhóm đề xuất — chép đúng chữ trên bảng Base. */
+export const NHAN_NHOM_DE_XUAT: Record<NhomDeXuat, string> = {
+  vat_tu: "Vật tư",
+  dich_vu: "Dịch vụ",
+  mm_ccdc: "MM-CCDC",
+  khac: "Khác",
+};
+
 export interface DongDeNghi {
   /** ★ KHÓA ĐỐI CHIẾU KHỐI LƯỢNG — dòng PO và dòng nhận hàng đều trỏ về đây.
    *  Dùng thay cho mã vật tư (mã vật tư làm ở ver sau). */
@@ -110,6 +134,13 @@ export interface DeNghiMuaHang {
   tenCongTrinh: string;
   tieuDe: string;
   phongBanNguon: PhongBanNguon;
+  /**
+   * Nhóm đề xuất — Vật tư · Dịch vụ · MM-CCDC · Khác (theo thẻ bảng Base).
+   *
+   * ⚠️ Tùy chọn vì phiếu lập trước 14/08/2026 không có. Chỗ hiển thị phải chịu được thiếu
+   * (`?? "khac"` hoặc ẩn hẳn dòng), đừng để hiện "undefined" trên thẻ.
+   */
+  nhomDeXuat?: NhomDeXuat;
   nguoiDeNghiUid: string;
   nguoiDeNghiTen: string;
   ngayDeNghi: NgayISO;

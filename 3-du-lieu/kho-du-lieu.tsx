@@ -68,6 +68,7 @@ import type {
   ThongTinThuongMaiNCC,
   MoTaTep,
   PhongBanNguon,
+  NhomDeXuat,
 } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -93,6 +94,8 @@ export interface DauVaoDeNghiGiaLap {
   nguoiDeNghiChucDanh: string;
   /** Phòng ban gửi đề xuất — từ 12/08/2026 nhận từ MỌI phòng ban. */
   phongBanNguon: PhongBanNguon;
+  /** Nhóm đề xuất: Vật tư · Dịch vụ · MM-CCDC · Khác (trường của thẻ Base, 14/08/2026). */
+  nhomDeXuat?: NhomDeXuat;
   ngayDeNghi: string;
   ngayDuyet: string;
   ngayCanHang: string;
@@ -698,6 +701,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       // 🔴 Từ 12/08/2026 nhận đề xuất từ MỌI phòng ban (chỉ đạo Ban lãnh đạo) — bỏ
       // khóa cứng Phòng Thi công của ver đầu.
       phongBanNguon: dauVao.phongBanNguon,
+      // Nhóm đề xuất (Vật tư · Dịch vụ · MM-CCDC · Khác) — trường của thẻ Base, thêm
+      // 14/08/2026. Phiếu cũ không có thì chỗ hiển thị tự đọc là "Khác".
+      nhomDeXuat: dauVao.nhomDeXuat,
       /**
        * 🔴 LẤY MÃ NGƯỜI ĐANG ĐĂNG NHẬP, không gán cứng nữa.
        *

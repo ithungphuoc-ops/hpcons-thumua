@@ -42,7 +42,14 @@ export const NGUONG = {
  * triệu nhưng đọc ra "5 triệu" — giao diện nói sai chính luật nó đang chạy, đúng thứ quy
  * tắc dự án mục 3.5 cấm.
  */
-function chuTien(dong: number): string {
+/**
+ * Đọc số tiền thành chữ gọn để ghép vào câu nhắc: `5 triệu` · `1,5 tỷ`.
+ *
+ * 🔴 MỌI CÂU NHẮC NGƯỠNG PHẢI SINH QUA HÀM NÀY, không viết cứng "5 triệu" vào chữ. Ngưỡng
+ * sửa được ở trang Cài đặt quy trình, nên chữ cứng sẽ nói dối: app xét theo 15 triệu mà câu
+ * nhắc vẫn đọc "10 triệu", người dùng làm theo chữ thì sai quy trình.
+ */
+export function chuTien(dong: number): string {
   if (dong >= 1_000_000_000) {
     const ty = dong / 1_000_000_000;
     return `${Number.isInteger(ty) ? ty : ty.toFixed(1).replace(".", ",")} tỷ`;

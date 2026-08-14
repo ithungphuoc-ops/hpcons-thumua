@@ -693,10 +693,13 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
               onChange={(e) => setSoBaoGia(e.target.value)}
             />
             {/* Nêu luật thật của công ty để trưởng bộ phận đặt con số có căn cứ, thay vì
-                đoán. Ngưỡng lấy từ `nguong-gia-tri.ts`, KHÔNG viết số cứng ở đây. */}
+                đoán. CẢ HAI con số đều lấy từ `cauHinh`, KHÔNG viết số cứng ở đây — số báo giá
+                tối thiểu cũng là tham số sửa được ở trang Cài đặt quy trình, trước 14/08/2026
+                chỗ này còn viết cứng "02". */}
             <p className="text-xs text-text-desc">
-              Quy trình yêu cầu tối thiểu <strong>02 báo giá</strong> với đơn từ{" "}
-              {(cauHinh.nguongHaiBaoGia / 1_000_000).toLocaleString("vi-VN")} triệu đồng trở lên. Lúc
+              Quy trình yêu cầu tối thiểu{" "}
+              <strong>{String(cauHinh.soBaoGiaToiThieu).padStart(2, "0")} báo giá</strong> với đơn
+              từ {(cauHinh.nguongHaiBaoGia / 1_000_000).toLocaleString("vi-VN")} triệu đồng trở lên. Lúc
               giao việc thì chưa có giá nên app chưa biết đơn này thuộc mức nào — để trống cũng
               được, app vẫn soát theo ngưỡng khi trình xét duyệt báo giá.
             </p>

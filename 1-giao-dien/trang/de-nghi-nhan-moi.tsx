@@ -20,7 +20,7 @@ import {
   maPhongBanTuTen,
   nhanPhongBan,
 } from "@/3-du-lieu/danh-muc-phong-ban";
-import type { PhongBanNguon } from "@/3-du-lieu/kieu-du-lieu";
+import { NHAN_NHOM_DE_XUAT, type NhomDeXuat, type PhongBanNguon } from "@/3-du-lieu/kieu-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   CO_TOI_DA,
@@ -109,6 +109,15 @@ export default function TrangNhanDeNghiMoi() {
   const [boPhan, setBoPhan] = useState<PhongBanNguon>(
     () => maPhongBanTuTen(nguoiDung.phongBan) ?? PHONG_BAN_MAC_DINH,
   );
+
+  /**
+   * Nhóm đề xuất — Vật tư · Dịch vụ · MM-CCDC · Khác (trường của thẻ Base).
+   *
+   * 📌 Mặc định "Vật tư" vì phần lớn phiếu của quy trình mua hàng là xin vật tư — nhìn ảnh
+   * bảng Base thật thì đa số thẻ ghi "Nhóm đề xuất: Vật tư". Đặt mặc định đúng với việc hay
+   * gặp nhất để người lập ít phải đổi, nhưng vẫn là ô bắt buộc nhìn thấy được.
+   */
+  const [nhomDeXuat, setNhomDeXuat] = useState<NhomDeXuat>("vat_tu");
 
   /**
    * Dự án đang chọn ở ô "Dự án / Công trình" — "" = chưa chọn, "__moi__" = nhập tay.
@@ -295,6 +304,7 @@ export default function TrangNhanDeNghiMoi() {
       nguoiDeNghiUid: nguoiDung.uid,
       nguoiDeNghiChucDanh: nguoiDung.chucDanh,
       phongBanNguon: boPhan,
+      nhomDeXuat,
       ngayDeNghi,
       ngayDuyet,
       ngayCanHang,
@@ -476,6 +486,25 @@ export default function TrangNhanDeNghiMoi() {
               {DANH_MUC_PHONG_BAN.map((pb) => (
                 <option key={pb.ma} value={pb.ma}>
                   {pb.ten}
+                </option>
+              ))}
+            </select>
+          </Truong>
+
+          {/* ★ NHÓM ĐỀ XUẤT — Ban lãnh đạo 14/08/2026 gửi ảnh bảng Base thật, trường này nằm
+              ngay sau "Bộ phận" trên thẻ. Phân loại đề nghị: cùng một bộ phận có phiếu xin
+              vật tư, có phiếu thuê dịch vụ, có phiếu mua máy — ba việc khác hẳn nhau về cách
+              hỏi giá và bộ chứng từ. */}
+          <Truong nhan="Nhóm đề xuất" batBuoc moTa="Phiếu này xin vật tư, thuê dịch vụ hay mua máy móc – công cụ?">
+            <select
+              aria-label="Nhóm đề xuất"
+              value={nhomDeXuat}
+              onChange={(e) => setNhomDeXuat(e.target.value as NhomDeXuat)}
+              className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+            >
+              {(Object.keys(NHAN_NHOM_DE_XUAT) as NhomDeXuat[]).map((ma) => (
+                <option key={ma} value={ma}>
+                  {NHAN_NHOM_DE_XUAT[ma]}
                 </option>
               ))}
             </select>
