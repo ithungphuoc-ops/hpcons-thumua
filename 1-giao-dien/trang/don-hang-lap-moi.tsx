@@ -486,9 +486,22 @@ function NoiDungLapDonHang() {
      * về một khóa khi tính công nợ và khi chống lập đơn trùng.
      */
     const maSoThue = mstNCC.replace(/\D/g, "");
+    /**
+     * 🔴 PHẢI LƯU CẢ MST VÀ ĐỊA CHỈ, không chỉ dùng để sinh khóa.
+     *
+     * Trang in đơn mua hàng (`trang/don-hang-in.tsx`) in hai dòng "Địa chỉ" và "Mã số thuế"
+     * lấy từ chính hai trường này. Trước 14/08/2026 chỗ đây chỉ giữ `id` + `ten`, nên người
+     * lập gõ đủ MST và địa chỉ vào form mà **đơn in ra gửi nhà cung cấp luôn hiện dấu "—"** —
+     * thiếu thông tin pháp lý bắt buộc, mà không ai biết vì form vẫn nhận chữ bình thường.
+     *
+     * Giữ MST đã lọc chỉ còn chữ số (bỏ dấu gạch, khoảng trắng) cho khớp cách sinh `id`.
+     * Ô trống thì để `undefined` chứ không lưu chuỗi rỗng — trang in dựa vào `?? "—"`.
+     */
     const ncc = {
       id: supplierId || (maSoThue ? `ncc-mst-${maSoThue}` : `ncc-ten-${boDau(tenNCC).trim()}`),
       ten: tenNCC.trim(),
+      maSoThue: maSoThue || undefined,
+      diaChi: diaChiNCC.trim() || undefined,
     };
 
     // 🔴 LỌC LẠI THEO `dongLapDuoc`, KHÔNG TIN VÀO `chon`.

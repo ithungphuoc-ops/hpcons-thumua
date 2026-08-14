@@ -60,7 +60,7 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
     const boRa = dsTheoDoi.filter((n) => !uidMoi.includes(n.uid));
 
     themVao.forEach((n) => themNguoiTheoDoi(deNghi.id, n, nguoiDung.tenHienThi));
-    boRa.forEach((n) => boNguoiTheoDoi(deNghi.id, n.uid));
+    boRa.forEach((n) => boNguoiTheoDoi(deNghi.id, n.uid, nguoiDung.tenHienThi));
 
     // Một dòng thông báo tổng, không bắn từng người một cho khỏi ngập màn hình.
     const phan: string[] = [];

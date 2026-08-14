@@ -19,7 +19,7 @@ import {
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
-import { coCongThucTuDong, dungTenDeNghi } from "@/2-quy-trinh/dat-ten-de-nghi";
+import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import {
   CAU_HINH_MAC_DINH,
   loiCauHinh,
@@ -240,7 +240,7 @@ interface GiaTriDuLieu {
     nguoiThucHien: string,
   ) => void;
   /** Lưu hình thức thanh toán / thời gian giao / ghi chú của một nhà cung cấp. */
-  luuThongTinNCC: (bgId: string, tt: ThongTinThuongMaiNCC) => void;
+  luuThongTinNCC: (bgId: string, tt: ThongTinThuongMaiNCC, nguoiThucHien: string) => void;
   trinhXetDuyetBaoGia: (bgId: string, nguoiThucHien: string) => void;
   /** Duyệt phương án chia đơn cho nhiều NCC — bước ③ Xét duyệt → ④ Lập đơn mua hàng. */
   duyetPhuongAnTach: (bgId: string, nguoiThucHien: string) => void;
@@ -288,7 +288,7 @@ interface GiaTriDuLieu {
     nguoiThemTen: string,
   ) => void;
   /** Bỏ một người khỏi danh sách theo dõi đề nghị. */
-  boNguoiTheoDoi: (prId: string, uid: string) => void;
+  boNguoiTheoDoi: (prId: string, uid: string, nguoiBoTen: string) => void;
 
   /**
    * Trưởng bộ phận bấm "Chuyển tiếp": bàn giao đề nghị cho các nhân viên đã được
@@ -663,8 +663,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     if (!id) return "";
 
     // Số thứ tự chạy THEO DỰ ÁN, đúng quy tắc mã hồ sơ Thông báo 09/2026.
-    const soHienCo = hienCo.filter((dn) => dn.maDuAn === dauVao.maDuAn).length;
-    const code = `${dauVao.maDuAn}-PR-${String(soHienCo + 1).padStart(3, "0")}`;
+    // 🔴 Luật sinh mã ở `2-quy-trinh/dat-ten-de-nghi.ts` — KHÔNG đếm số phiếu hiện có rồi +1,
+    // vì xóa một phiếu là mã tiếp theo trùng với phiếu đang tồn tại. Xem chú thích ở đó.
+    const code = maDeNghiTiepTheo(
+      dauVao.maDuAn,
+      hienCo.map((dn) => dn.code),
+    );
 
     const moi: DeNghiMuaHang = {
       id,
@@ -1410,21 +1414,30 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * Lưu thông tin thương mại của một nhà cung cấp: hình thức thanh toán · thời gian giao ·
    * ghi chú. Theo mẫu "SO SÁNH GIÁ" của công ty — xem `ThongTinThuongMaiNCC`.
    */
-  const luuThongTinNCC = useCallback((bgId: string, tt: ThongTinThuongMaiNCC) => {
-    setBaoGia((truoc) =>
-      truoc.map((b) => {
-        if (b.id !== bgId) return b;
-        const ds = b.thongTinNCC ?? [];
-        const co = ds.some((x) => x.nccId === tt.nccId);
-        return {
-          ...b,
-          // Đã có thì THAY, chưa có thì thêm — không để hai dòng cùng một nhà cung cấp.
-          thongTinNCC: co ? ds.map((x) => (x.nccId === tt.nccId ? tt : x)) : [...ds, tt],
-          ngayCapNhat: homNay(),
-        };
-      }),
-    );
-  }, []);
+  const luuThongTinNCC = useCallback(
+    (bgId: string, tt: ThongTinThuongMaiNCC, nguoiThucHien: string) => {
+      setBaoGia((truoc) =>
+        truoc.map((b) => {
+          if (b.id !== bgId) return b;
+          const ds = b.thongTinNCC ?? [];
+          const co = ds.some((x) => x.nccId === tt.nccId);
+          return {
+            ...b,
+            // Đã có thì THAY, chưa có thì thêm — không để hai dòng cùng một nhà cung cấp.
+            thongTinNCC: co ? ds.map((x) => (x.nccId === tt.nccId ? tt : x)) : [...ds, tt],
+            ngayCapNhat: homNay(),
+          };
+        }),
+      );
+      const bg = baoGiaRef.current.find((b) => b.id === bgId);
+      // 🔒 KHÔNG ghi tên nhà cung cấp vào nhật ký — khối Lịch sử hiện cho cả vai trò không
+      // được xem NCC. Ghi bảng nào là đủ để truy vết (quy ước ở `ghiLichSuDeNghi`).
+      if (bg) {
+        ghiLichSuDeNghi(bg.prId, nguoiThucHien, `Ghi thông tin thương mại NCC cho bảng ${bg.code}`);
+      }
+    },
+    [ghiLichSuDeNghi],
+  );
 
   const trinhXetDuyetBaoGia = useCallback(
     (bgId: string, nguoiThucHien: string) => {
@@ -1930,7 +1943,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const boNguoiTheoDoi = useCallback((prId: string, uid: string) => {
+  /**
+   * 🔴 `nguoiBoTen` LÀ NGƯỜI ĐANG BẤM BỎ, không phải người đã thêm.
+   *
+   * Trước 14/08/2026 chỗ này ghi `bi.nguoiThemTen` vào nhật ký — tức tên người ĐÃ THÊM người
+   * theo dõi đó. Kết quả: anh A thêm chị B, sau đó anh C bỏ chị B, nhật ký lại ghi *"anh A bỏ
+   * chị B khỏi danh sách theo dõi"*. Nhật ký đổ oan cho người không làm, mà đây chính là thứ
+   * dùng để truy trách nhiệm (quyết định 25: ghi rõ **ai** · làm gì · lúc nào).
+   */
+  const boNguoiTheoDoi = useCallback((prId: string, uid: string, nguoiBoTen: string) => {
     setDeNghi((truoc) =>
       truoc.map((dn) => {
         if (dn.id !== prId) return dn;
@@ -1944,7 +1965,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             ...dn.lichSu,
             {
               thoiDiem: thoiDiemHienTai(),
-              nguoiThucHien: bi.nguoiThemTen,
+              nguoiThucHien: nguoiBoTen,
               hanhDong: `Bỏ ${bi.ten} khỏi danh sách theo dõi`,
             },
           ],

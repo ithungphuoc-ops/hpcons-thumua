@@ -61,10 +61,21 @@ export function TimelineProgress({
       ? `Quá hạn ${Math.abs(remaining)} ngày`
       : `Còn ${remaining} ngày`;
 
-  /** Vị trí % của một mốc thực tế trên trục thời gian. */
+  /**
+   * Vị trí % của một mốc thực tế trên trục thời gian.
+   *
+   * 🔴 Chặn hai trường hợp làm ra `NaN%` — trình duyệt nhận `left: NaN%` thì bỏ qua thuộc
+   * tính, mốc rơi về mép trái và người đọc tưởng hàng về từ ngày đầu:
+   *   · `end === start` (đơn đặt và cần hàng trong cùng một ngày) → chia cho 0.
+   *   · `ngay` rỗng hoặc sai định dạng → `getTime()` trả `NaN`.
+   * Đơn trong ngày thì mọi mốc nằm ở 100% — đúng nghĩa "trục thời gian dài 0 ngày".
+   */
   function viTri(ngay: string): number {
     const t = new Date(ngay).getTime();
-    return Math.min(100, Math.max(0, ((t - start.getTime()) / (end.getTime() - start.getTime())) * 100));
+    if (Number.isNaN(t)) return 0;
+    const doDai = end.getTime() - start.getTime();
+    if (!Number.isFinite(doDai) || doDai <= 0) return t >= start.getTime() ? 100 : 0;
+    return Math.min(100, Math.max(0, ((t - start.getTime()) / doDai) * 100));
   }
 
   return (

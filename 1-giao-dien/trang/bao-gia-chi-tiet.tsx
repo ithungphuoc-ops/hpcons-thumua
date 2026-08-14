@@ -342,7 +342,7 @@ export default function TrangBaoGiaChiTiet() {
           onDinhKem={(tep) => dinhKemBaoGia(bg.id, tep, nguoiDung.tenHienThi)}
           // ★ Đề xuất của nhân viên + điều kiện thương mại từng NCC (Ban lãnh đạo 13/08/2026).
           onLuuDeXuat={(dx) => luuDeXuatNCC(bg.id, dx, nguoiDung.tenHienThi)}
-          onLuuThongTinNCC={(tt) => luuThongTinNCC(bg.id, tt)}
+          onLuuThongTinNCC={(tt) => luuThongTinNCC(bg.id, tt, nguoiDung.tenHienThi)}
           // Hỏi trước khi trình — chuyển bước là việc không lùi lại được (nguyên tắc
           // Ban lãnh đạo 10/08/2026).
           onTrinhXetDuyet={() => setViecChoXacNhan({ loai: "trinh_xet_duyet" })}

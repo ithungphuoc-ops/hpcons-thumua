@@ -42,7 +42,21 @@ async function moKetNoi() {
   return { app, db: getFirestore(app), doc, onSnapshot, setDoc };
 }
 
-/** Lọc từng mảng — bản trên máy chủ có thể thiếu mảng mới thêm sau này. */
+/**
+ * Lọc từng mảng — bản trên máy chủ có thể thiếu mảng mới thêm sau này.
+ *
+ * 🔴 HÀM NÀY DỰNG LẠI OBJECT THEO DANH SÁCH TRẮNG. Khóa nào không khai ở đây thì **rơi mất
+ * im lặng** trên đường từ máy chủ về — không một dòng lỗi. Thêm khóa mới vào `DuLieuLuu` là
+ * phải khai thêm ở ĐÂY, và ở cả `luu-tren-may.ts` → `docDuLieuDaLuu` (hai chỗ, đừng sửa một).
+ *
+ * Đã dính thật: `cauHinh` khai ở `docDuLieuDaLuu` nhưng quên ở đây, nên cấu hình quy trình
+ * lưu lên kho chung bị lột sạch lúc nhận về → app tưởng máy chủ chưa có cấu hình → đẩy bản
+ * mặc định lên đè. Người sửa ngưỡng thấy số về như cũ, máy khác không bao giờ nhận được.
+ *
+ * ⚠️ `cauHinh` là object không phải mảng, và có thể **chưa tồn tại** (kho chung lập trước khi
+ * có trang Cài đặt). Giữ nguyên dạng "không có khóa" chứ đừng thay bằng bản mặc định — bên
+ * gọi phân biệt "chưa có" với "có nhưng để mặc định" để quyết định đẩy lên hay lấy về.
+ */
 function chuanHoa(d: Partial<DuLieuLuu>): DuLieuLuu {
   return {
     deNghi: Array.isArray(d.deNghi) ? d.deNghi : [],
@@ -51,6 +65,8 @@ function chuanHoa(d: Partial<DuLieuLuu>): DuLieuLuu {
     phieuNhan: Array.isArray(d.phieuNhan) ? d.phieuNhan : [],
     baoGia: Array.isArray(d.baoGia) ? d.baoGia : [],
     thongBao: Array.isArray(d.thongBao) ? d.thongBao : [],
+    ...(d.cauHinh ? { cauHinh: d.cauHinh } : {}),
+    ...(Array.isArray(d.lichSuCauHinh) ? { lichSuCauHinh: d.lichSuCauHinh } : {}),
   };
 }
 

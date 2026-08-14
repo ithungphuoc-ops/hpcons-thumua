@@ -70,9 +70,17 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
   const vuongMacLuuPhieu: string | null =
     dongCoKhoiLuong.length === 0
       ? "Chưa nhập khối lượng nhận cho dòng vật tư nào."
-      : !tepPhieuGiao
-        ? "Chưa đính kèm phiếu giao nhận của nhà cung cấp."
-        : null;
+      : /**
+         * 🔴 PHẢI CHẶN NGÀY RỖNG. Ô ngày xóa trống được, và trước 14/08/2026 chỗ này không
+         * kiểm — phiếu lưu với `ngayNhanThucTe: ""` thì mọi chỗ hiển thị ra **"Invalid Date"**
+         * vĩnh viễn, mà phiếu nhận hàng nằm trên kho chung nên cả phòng cùng thấy. Không có
+         * đường sửa ngày sau khi lưu, nên hỏng là hỏng luôn.
+         */
+        !ngayNhan.trim() || Number.isNaN(new Date(ngayNhan).getTime())
+        ? "Chưa chọn ngày nhận hàng thực tế."
+        : !tepPhieuGiao
+          ? "Chưa đính kèm phiếu giao nhận của nhà cung cấp."
+          : null;
 
   function luuPhieu() {
     if (vuongMacLuuPhieu) return;

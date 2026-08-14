@@ -62,3 +62,38 @@ export function dungTenDeNghi(phan: PhanTenDeNghi): string {
 export function coCongThucTuDong(maPhongBan: MaPhongBan): boolean {
   return maPhongBan === "thi_cong";
 }
+
+/**
+ * Sinh mã đề nghị tiếp theo của một dự án: `[mã dự án]-PR-[STT 3 chữ số]`.
+ *
+ * 🔴 KHÔNG ĐƯỢC ĐẾM SỐ PHIẾU HIỆN CÓ RỒI +1. Trước 14/08/2026 chỗ này làm vậy, và nó sinh mã
+ * TRÙNG ngay khi có một phiếu bị xóa: tạo PR-001 · PR-002 · PR-003, xóa PR-002 → còn 2 phiếu
+ * → phiếu tiếp theo lại ra PR-003, trùng với phiếu đang tồn tại. Hai hồ sơ cùng một mã là
+ * hỏng cả hệ mã của Thông báo 09/2026 (tra cứu ra nhầm phiếu, hồ sơ giấy lẫn lộn).
+ *
+ * Cách đúng: lấy số LỚN NHẤT đã từng dùng rồi +1 — số đã cấp thì không tái sử dụng, kể cả
+ * khi phiếu mang số đó đã bị xóa. Đây cũng là cách `maBanSaoTiepTheo` đang làm.
+ *
+ * 📌 Bản sao mang mã dạng `260001-HPCS-PR-001 (copy)` vẫn được tính vào, vì phần `PR-001`
+ * của nó là số đã cấp thật.
+ *
+ * 📌 Vòng `while` cuối là chốt chặn cuối cùng: dữ liệu cũ có thể chứa mã không theo khuôn
+ * (nhập tay, nhập từ Excel), lúc đó `max` không phản ánh hết thực tế.
+ */
+export function maDeNghiTiepTheo(maDuAn: string, maDaDung: readonly string[]): string {
+  const cungDuAn = new RegExp(`^${maDuAn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-PR-(\\d+)`);
+  let lonNhat = 0;
+  for (const ma of maDaDung) {
+    const khop = cungDuAn.exec(ma.trim());
+    if (khop) lonNhat = Math.max(lonNhat, Number(khop[1]));
+  }
+
+  const daDung = new Set(maDaDung.map((m) => m.trim()));
+  let so = lonNhat + 1;
+  let ma = `${maDuAn}-PR-${String(so).padStart(3, "0")}`;
+  while (daDung.has(ma)) {
+    so += 1;
+    ma = `${maDuAn}-PR-${String(so).padStart(3, "0")}`;
+  }
+  return ma;
+}

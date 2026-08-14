@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Wallet, AlertTriangle, Clock, CheckCircle2, Building2 } from "lucide-react";
+import { Wallet, AlertTriangle, Clock, CheckCircle2, Building2, Lock } from "lucide-react";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { KpiCard } from "@/1-giao-dien/thanh-phan-dung-chung/kpi-card";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -107,6 +109,30 @@ const columns: ColumnDef<CongNo, unknown>[] = [
 /** M8 — Công nợ nhà cung cấp: hóa đơn phải trả lấy từ PO và phân tích tuổi nợ 30-60-90. */
 export default function TrangCongNo() {
   const { congNo } = useDuLieu();
+  const { quyen } = useNguoiDung();
+
+  /**
+   * 🔴 CHẶN NGAY TẠI TRANG, không chỉ ẩn mục menu.
+   *
+   * Menu đã ẩn mục này với người không có `xemCongNo` (`2-quy-trinh/dieu-huong.ts`), nhưng ẩn
+   * menu KHÔNG phải là chặn: gõ thẳng `/cong-no` vào thanh địa chỉ là vào được. Màn này hiện
+   * số tiền từng hóa đơn và tên nhà cung cấp — đúng hai thứ thủ kho và Phòng Thi công không
+   * được xem (nguyên tắc dữ liệu số 3 và quyết định 8).
+   *
+   * Trước 14/08/2026 đây là trang DUY NHẤT trong 14 trang không tự kiểm quyền.
+   *
+   * ⚠️ Đây vẫn là chặn ở trình duyệt. Bảo mật thật phải bằng Firestore Security Rules — công
+   * nợ chứa giá nên khi nối dữ liệu thật phải nằm ở document riêng như `tm_donhang_gia`.
+   */
+  if (!quyen.xemCongNo) {
+    return (
+      <EmptyState
+        icon={Lock}
+        title="Không có quyền xem công nợ nhà cung cấp"
+        description="Màn này hiện số tiền từng hóa đơn và tên nhà cung cấp, chỉ dành cho Phòng Thu mua và Kế toán. Cần tra cứu thì nhờ Trưởng bộ phận Thu mua."
+      />
+    );
+  }
 
   const quaHan = congNo.filter((p) => p.trangThai === "qua_han");
   const sapHan = congNo.filter((p) => p.trangThai === "sap_den_han");
