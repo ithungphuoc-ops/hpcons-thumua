@@ -95,6 +95,15 @@ function docSo(o: unknown): number | undefined {
   const s = String(o ?? "").trim();
   if (s === "") return undefined;
   const sach = s.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
+  /**
+   * 🔴 CHUỖI CHỮ THUẦN PHẢI TRẢ VỀ "KHÔNG ĐỌC ĐƯỢC", KHÔNG PHẢI SỐ 0.
+   *
+   * Lột hết ký tự khỏi một chuỗi toàn chữ (VD lỡ đọc nhầm nhãn "Thuế suất thuế GTGT:") thì
+   * còn chuỗi rỗng, mà `Number("")` bằng 0 và 0 là số hữu hạn — app hiểu thành "thuế suất
+   * 0%" thay vì "không đọc được ô này". Sai kiểu này im lặng tuyệt đối: hóa đơn thiếu VAT
+   * mà không có cảnh báo nào.
+   */
+  if (sach === "" || sach === "-" || sach === "." || sach === "-.") return undefined;
   const n = Number(sach);
   return Number.isFinite(n) ? n : undefined;
 }
@@ -229,9 +238,31 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
 
         // Cách 2: giá trị ở ô kế bên phải trên cùng dòng.
         for (let c2 = c + 1; c2 <= 13; c2++) {
+          /**
+           * 🔴 BỎ QUA Ô CON CỦA VÙNG GỘP. Thư viện Excel trả về giá trị của ô GỐC cho mọi ô
+           * con trong vùng gộp — nên ô con của chính cái nhãn vừa khớp sẽ trả lại đúng
+           * chuỗi nhãn đó, và app lấy nhãn làm giá trị.
+           *
+           * Đã dính thật với file do chính app xuất ra: mẫu công ty gộp nhãn
+           * "Thuế suất thuế GTGT:" hết ô A:B, giá trị % nằm ở ô C. Nhập lại file đó thì ô B
+           * (ô con) trả về chuỗi nhãn, `docSo` lột hết chữ còn chuỗi rỗng, mà `Number("")`
+           * bằng 0 — thuế suất âm thầm thành 0%, tiền thuế và tổng thanh toán thiếu VAT mà
+           * không một dòng cảnh báo. Không bao giờ đọc tới được ô C.
+           */
+          const oHienTai = ws.getRow(r).getCell(c2);
+          if (oHienTai.isMerged && oHienTai.master !== oHienTai) continue;
+
           const ben = oChu(r, c2);
           // Bỏ qua ô chỉ có dấu hai chấm (một số biểu mẫu tách dấu ra ô riêng).
           if (ben === "" || ben === ":") continue;
+
+          /**
+           * ⚠️ Gặp một NHÃN KHÁC thì dừng, đừng lấy nó làm giá trị. Trường bỏ trống (VD NCC
+           * không có mã số thuế) mà cứ quét tiếp sẽ vớ phải nhãn của ô bên cạnh cùng dòng —
+           * "Mã số thuế:" trống sẽ nhận nhầm "Loại tiền:" làm mã số thuế.
+           */
+          if (ben.endsWith(":")) return undefined;
+
           return ben;
         }
         return undefined;

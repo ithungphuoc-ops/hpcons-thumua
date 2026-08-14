@@ -90,11 +90,18 @@ export function vuongMacXacNhanKho(phieuCuaPO: PhieuNhanHang[]): string | null {
 /**
  * Đủ điều kiện đánh dấu hoàn thành (Phần 4.3) — nay là BỐN, không còn ba:
  * giao đủ · **có phiếu giao nhận cho mọi lần giao** · thủ kho xác nhận · trưởng bộ phận xác nhận.
+ *
+ * 🔴 `phieuCuaPO` KHÔNG ĐƯỢC CÓ GIÁ TRỊ MẶC ĐỊNH.
+ *
+ * Trước 14/08/2026 tham số này mặc định là mảng rỗng, mà mảng rỗng thì `vuongMacXacNhanKho`
+ * trả `null` — tức "không vướng gì". Gọi thiếu tham số là điều kiện phiếu giao nhận bị bỏ
+ * qua hoàn toàn, âm thầm, không một cảnh báo biên dịch nào: đúng lỗ hổng mà chỉ đạo
+ * 11/08/2026 sinh ra để vá. Bỏ mặc định đi thì gọi thiếu thành lỗi biên dịch ngay.
  */
 export function poDuDieuKienHoanThanh(
   po: DonDatHang,
   tienDo: TienDoDongPO[],
-  phieuCuaPO: PhieuNhanHang[] = [],
+  phieuCuaPO: PhieuNhanHang[],
 ): boolean {
   return (
     poDaGiaoDu(tienDo) &&

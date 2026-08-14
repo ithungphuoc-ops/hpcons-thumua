@@ -133,7 +133,15 @@ export function kiemPhanBoDong(khoiLuongDong: number, phanBo: PhanBoNCC[]): KetQ
   return {
     daChia,
     conLai,
-    vuot: daChia > khoiLuongDong,
+    /**
+     * ⚠️ PHẢI DÙNG CÙNG SAI SỐ VỚI `chiaDu` NGAY DƯỚI, nếu không hai cờ chửi nhau.
+     *
+     * Máy tính cộng số lẻ không bao giờ tròn tuyệt đối: chia 12,5 tấn thành 4,1 + 4,2 + 4,2
+     * cho ra 12,500000000000002 — lớn hơn 12,5 một chút xíu. So thẳng `>` là app báo "chia
+     * vượt" và chặn lưu, trong khi người dùng chia đúng tuyệt đối theo số trên đề nghị và
+     * không có cách nào gõ khác đi cho đúng. Số lẻ kiểu này rất thường gặp với tấn / m³.
+     */
+    vuot: conLai < -0.000001,
     // So bằng số thực có thể lệch ở hàng thập phân — chấp nhận sai số rất nhỏ.
     chiaDu: Math.abs(conLai) < 0.000001,
     nccTrung,

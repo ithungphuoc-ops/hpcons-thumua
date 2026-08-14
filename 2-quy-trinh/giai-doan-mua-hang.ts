@@ -22,6 +22,9 @@ import type {
   PhieuNhanHang,
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
+// Luật đối chiếu khối lượng đã lên đơn — dùng lại, không tự cộng ở đây.
+// (`tinh-toan.ts` chỉ import kiểu dữ liệu nên không tạo vòng import.)
+import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { daysUntil } from "@/6-tien-ich/dinh-dang";
 
 export type GiaiDoanMuaHang =
@@ -120,10 +123,32 @@ export function xacDinhGiaiDoan(
 
   const poCuaDeNghi = tatCaPO.filter((po) => po.prId === deNghi.id && po.trangThai !== "huy");
 
-  // ⑦ Hoàn thành — mọi đơn hàng của đề nghị đều đã đủ 3 lớp xác nhận.
+  // ⑦ Hoàn thành — mọi đơn hàng của đề nghị đều đã xong VÀ không còn dòng vật tư nào chưa
+  // lên đơn.
   if (deNghi.trangThai === "hoan_thanh") return "hoan_thanh";
   if (poCuaDeNghi.length > 0 && poCuaDeNghi.every((po) => po.trangThai === "hoan_thanh")) {
-    return "hoan_thanh";
+    /**
+     * 🔴 PHẢI KIỂM ĐỦ PHỦ TOÀN BỘ DÒNG, không chỉ nhìn các đơn đã tồn tại.
+     *
+     * App cố ý cho lập đơn TỪNG PHẦN (tách đơn cho nhiều NCC, mỗi NCC một đơn riêng), và
+     * một đơn được xác nhận hoàn thành chỉ dựa trên phạm vi của chính nó. Nên đề nghị 5
+     * dòng mới lập 1 đơn cho 2 dòng, đơn đó xong là cả đề nghị bị coi như xong — trong khi
+     * 3 dòng kia còn đang hỏi giá.
+     *
+     * Hậu quả trước 14/08/2026: thẻ nhảy sang cột Hoàn thành, `hanXuLyDeNghi` tắt luôn cảnh
+     * báo quá hạn, ba dòng vật tư còn lại biến mất khỏi tầm mắt trưởng bộ phận và có thể
+     * trễ ngày cần hàng mà không ai thấy. Đúng thứ "báo tiến độ ảo" mà nguyên tắc đầu file
+     * này sinh ra để chống.
+     *
+     * Dùng lại `tinhTienDoDeNghi` chứ KHÔNG tự cộng khối lượng ở đây — luật đối chiếu
+     * khối lượng chỉ được có MỘT chỗ, hai chỗ cùng tính là sớm muộn cũng lệch nhau.
+     */
+    const conDongChuaLenDon = tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu).some(
+      (d) => d.khoiLuongChuaLenPO > 0,
+    );
+    if (!conDongChuaLenDon) return "hoan_thanh";
+    // Còn dòng chưa lên đơn thì rơi tiếp xuống dưới, các nhánh sau tự xếp đúng cột theo
+    // chứng từ đang có.
   }
 
   // ⑥ Tiến hành nhận hàng — đã có hàng về, hoặc đơn đã chuyển sang trạng thái đang giao.
@@ -534,7 +559,10 @@ export function quyetDinhKeoTha(
   if (dich === "hoan_thanh") {
     return {
       loai: "khong_the",
-      lyDo: "Hoàn thành cần đủ 3 điều kiện: giao đủ khối lượng + thủ kho xác nhận + trưởng bộ phận xác nhận — thao tác ở trang chi tiết đơn hàng.",
+      // ⚠️ ĐỦ BỐN, không phải ba. Điều kiện tệp phiếu giao nhận thêm ngày 11/08/2026 nhưng
+      // câu này quên cập nhật — người dùng làm đủ đúng ba việc như app hướng dẫn mà nút vẫn
+      // khóa, lại không chỗ nào nói điều kiện thứ tư đang chặn họ.
+      lyDo: "Hoàn thành cần đủ 4 điều kiện: giao đủ khối lượng + mọi lần giao đều có phiếu giao nhận đính kèm + thủ kho xác nhận + trưởng bộ phận xác nhận — thao tác ở trang chi tiết đơn hàng.",
     };
   }
 
@@ -554,10 +582,25 @@ export function quyetDinhKeoTha(
 
   if (buocDich === buocTu - 1) return quyetDinhLui(tu, dich, poCuaDeNghi, baoGiaCuaDeNghi);
 
-  // 🔴 BƯỚC TRƯỚC PHẢI XONG MỚI ĐI TIẾP (chỉ đạo Ban lãnh đạo 10/08/2026). Dùng chung luật
-  // với các đường chuyển bước khác — xem `vuongMacSangBuocSau`.
-  const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi);
-  if (vuongMac) return { loai: "khong_the", lyDo: vuongMac };
+  /**
+   * 🔴 BƯỚC TRƯỚC PHẢI XONG MỚI ĐI TIẾP (chỉ đạo Ban lãnh đạo 10/08/2026) — nhưng CHỈ chặn
+   * ở bước ①, không chặn chung mọi bước.
+   *
+   * ⚠️ Trước 14/08/2026 chốt này chạy cho MỌI bước, ngay trước `switch`, nên nó giết luôn
+   * hai nhánh bên dưới đã cố tình thiết kế để dẫn người dùng đi tiếp:
+   *   · bước ② chưa có bảng báo giá → lẽ ra MỞ màn lập bảng, lại bị chặn
+   *   · bước ③ bảng chưa duyệt → lẽ ra MỞ bảng so sánh để chốt NCC, cũng bị chặn
+   * Đúng cái "làm người dùng kẹt" mà chú thích trong hai nhánh đó nói đã sửa: đứng ở cột ②,
+   * kéo sang ③ thì bị chặn, mà trên bảng không có đường nào khác để lập bảng báo giá.
+   *
+   * Bỏ chốt ở hai bước đó KHÔNG mở đường đi tắt: cả hai nhánh đều trả về hành động MỞ MÀN
+   * để làm việc thật (lập bảng / chọn NCC), thẻ chỉ chuyển cột khi chứng từ có thật — đúng
+   * nguyên tắc "giai đoạn suy ra từ chứng từ, kéo thả không đổi nhãn chay".
+   */
+  if (tu === "tiep_nhan") {
+    const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi);
+    if (vuongMac) return { loai: "khong_the", lyDo: vuongMac };
+  }
 
   // Từ đây trở xuống: dich là bước LIỀN KỀ phía trước
   switch (tu) {

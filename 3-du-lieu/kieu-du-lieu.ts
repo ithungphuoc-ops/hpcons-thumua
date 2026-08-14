@@ -416,11 +416,12 @@ export interface PhieuNhanHang {
 }
 
 // ------------------------------------------------------------
-// THÔNG BÁO CHUYỂN BƯỚC + TIẾP NHẬN CÔNG TÁC
+// THÔNG BÁO CHUYỂN BƯỚC
 // Sinh tự động khi một đề nghị ĐỔI BƯỚC trên bảng quy trình (bất kể chuyển
 // bằng kéo thả hay bằng nghiệp vụ).
-// để xác nhận đã tiếp quản — ghi cả vào lịch sử đề nghị.
 // Bản chạy thử giữ trong bộ nhớ; bản thật sẽ là collection tm_thongbao.
+//
+// 📌 Bước "Nhận công tác" đã BỎ (12/08/2026) — trường `tiepNhan` gỡ nốt ngày 14/08/2026.
 // ------------------------------------------------------------
 
 export interface ThongBaoChuyenBuoc {
@@ -437,8 +438,6 @@ export interface ThongBaoChuyenBuoc {
   /** Người nên nhận thông báo (người theo dõi đề nghị). Bản chạy thử hiển thị chung. */
   guiToi: string[];
   daDoc: boolean;
-  /** Ai đã bấm "Nhận công tác" cho bước mới — trống là còn chờ tiếp nhận. */
-  tiepNhan?: XacNhan;
   /**
    * `true` = thông báo do TRƯỞNG BỘ PHẬN BẤM "CHUYỂN TIẾP", không phải hệ thống tự
    * sinh khi đề nghị đổi bước (chỉ đạo Ban lãnh đạo 08/08/2026).

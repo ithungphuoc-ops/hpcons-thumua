@@ -15,6 +15,8 @@
 
 import type { BaoGia, DeNghiMuaHang, DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import type { Quyen } from "@/4-phan-quyen/quyen";
+// Luật quyền theo TỪNG hồ sơ — dùng chung với trang chi tiết báo giá, đừng viết lại ở đây.
+import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { boDau } from "@/6-tien-ich/bo-dau";
 
 export type LoaiHoSo = "de_nghi" | "don_hang" | "bao_gia";
@@ -54,7 +56,12 @@ interface NguonDuLieu {
   baoGia: BaoGia[];
 }
 
-export function timHoSo(tuKhoa: string, nguon: NguonDuLieu, quyen: Quyen): KetQuaTraVe {
+export function timHoSo(
+  tuKhoa: string,
+  nguon: NguonDuLieu,
+  quyen: Quyen,
+  uid: string,
+): KetQuaTraVe {
   const k = boDau(tuKhoa.trim());
   if (k.length < SO_KY_TU_TOI_THIEU) return { ketQua: [], tongKhop: 0 };
 
@@ -92,10 +99,24 @@ export function timHoSo(tuKhoa: string, nguon: NguonDuLieu, quyen: Quyen): KetQu
     });
   }
 
-  // --- Bảng báo giá: chỉ vai trò được xem báo giá ---
+  /**
+   * --- Bảng báo giá: kiểm quyền theo TỪNG HỒ SƠ, không chỉ theo cấp ---
+   *
+   * 🔴 `quyen.xemBaoGia` mới là điều kiện cần. App còn một luật nữa: người không được chia
+   * việc và không theo dõi đề nghị thì KHÔNG xem được bảng báo giá của đề nghị đó
+   * (`duocXemBaoGiaCuaDeNghi`). Trang chi tiết báo giá đã chặn đúng như vậy, nhưng trước
+   * 14/08/2026 ô tìm kiếm chỉ xét cấp — nên nhân viên vẫn dò ra được sự tồn tại, mã, tiêu
+   * đề và mã đề nghị nguồn của mọi bảng báo giá trong phòng, bấm vào thì bị chặn.
+   *
+   * Vừa lộ thông tin vừa chỉ sai đường. Dùng chung một luật với trang chi tiết thì hai chỗ
+   * không thể nói khác nhau.
+   */
   if (quyen.xemBaoGia) {
     for (const bg of nguon.baoGia) {
       if (!khop(bg.code, bg.tieuDe, bg.prCode)) continue;
+      // Không tra ra đề nghị nguồn thì KHÔNG cho hiện — thiếu thông tin thì chọn phía an toàn.
+      const deNghiNguon = nguon.deNghi.find((d) => d.id === bg.prId);
+      if (!deNghiNguon || !duocXemBaoGiaCuaDeNghi(deNghiNguon, uid, quyen)) continue;
       gom.push({
         loai: "bao_gia",
         id: bg.id,

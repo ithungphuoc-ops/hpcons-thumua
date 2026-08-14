@@ -425,6 +425,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     useState<GiaTriDuLieu["trangThaiKhoChung"]>("dang-noi");
 
   const apDung = useCallback((d: DuLieuLuu) => {
+    /**
+     * 🔴 ĐÁNH DẤU "thay đổi này ĐẾN TỪ NƠI KHÁC, không phải việc máy này vừa làm".
+     *
+     * Effect suy giai đoạn bên dưới báo chuông mỗi khi thấy đề nghị đổi bước. Nó không phân
+     * biệt được thay đổi do người ngồi máy này làm hay do kho chung đẩy về — nên trước
+     * 14/08/2026, một người chuyển bước là CẢ PHÒNG mỗi máy tự sinh thêm một thông báo y
+     * hệt. Chuông đầy dòng lặp, người dùng bỏ qua hết rồi lỡ thông báo thật; danh sách lại
+     * cắt ở 30 dòng nên thông báo thật bị đẩy rơi sớm hơn.
+     *
+     * Người tạo ra thay đổi đã sinh thông báo và đẩy lên kho chung rồi, các máy khác chỉ
+     * việc nhận — không tự sinh thêm bản của mình.
+     */
+    dangNhanTuNoiKhac.current = true;
     setDeNghi(d.deNghi);
     setDonHang(d.donHang);
     setGiaDonHang(d.giaDonHang);
@@ -579,6 +592,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   const giaiDoanTruocRef = useRef<Map<string, GiaiDoanMuaHang> | null>(null);
   const soThuTuThongBao = useRef(0);
   /**
+   * Cờ: lượt cập nhật state sắp tới là do nhận dữ liệu từ nơi khác (kho chung / bản lưu trên
+   * máy), không phải do người ngồi máy này vừa thao tác. Đặt trong `apDung`, hạ ngay trong
+   * effect suy giai đoạn. Xem giải thích đầy đủ ở `apDung`.
+   */
+  const dangNhanTuNoiKhac = useRef(false);
+  /**
    * Số kế tiếp cho id thông báo.
    *
    * 🔴 PHẢI NỐI TIẾP SỐ TRONG DANH SÁCH ĐÃ LƯU, không đếm từ 0 mỗi lần tải trang. Từ khi
@@ -601,6 +620,18 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     const truoc = giaiDoanTruocRef.current;
     giaiDoanTruocRef.current = hienTai;
     if (!truoc) return; // Lần dựng đầu — dữ liệu mẫu không phải "vừa chuyển bước"
+
+    /**
+     * 🔴 THAY ĐỔI ĐẾN TỪ NƠI KHÁC THÌ KHÔNG SINH THÔNG BÁO — người tạo ra nó đã sinh rồi.
+     *
+     * ⚠️ Vẫn phải cập nhật `giaiDoanTruocRef` (đã làm ngay ở trên, TRƯỚC câu này) rồi mới
+     * thoát. Thoát sớm hơn là mốc so sánh đứng yên, lần đổi bước kế tiếp sẽ so với mốc cũ
+     * và báo nhầm cả những bước đã đi qua từ lâu.
+     */
+    if (dangNhanTuNoiKhac.current) {
+      dangNhanTuNoiKhac.current = false;
+      return;
+    }
 
     const moi: ThongBaoChuyenBuoc[] = [];
     for (const dn of deNghi) {

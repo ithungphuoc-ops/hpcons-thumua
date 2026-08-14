@@ -154,9 +154,19 @@ export function soatNguongBaoGia(
     nhacNgoaiApp.push(
       `Từ ${chuTien(ch.nguongHopDong)} đồng trở lên: phải soạn Hợp đồng kinh tế / mua bán / nguyên tắc, trình Tổng Giám đốc ký duyệt. Với nhà cung cấp mới, sau khi giao nhận xong phải cập nhật “Danh sách nhà cung cấp”.`,
     );
-  } else if (giaTri > ch.nguongKyDuyetDon) {
-    // ⚠️ Ngưỡng này dùng "TRÊN" (`>`), hai ngưỡng kia dùng "TỪ" (`>=`) — hai quy ước khác
-    // nhau trong cùng một file, giữ nguyên theo đúng chữ của quy trình công ty.
+  }
+  /**
+   * 🔴 `if` RIÊNG, KHÔNG `else if`.
+   *
+   * Trước 14/08/2026 đây là nhánh `else` của ngưỡng hợp đồng, nên đơn CÀNG LỚN càng mất lời
+   * nhắc: đơn 25 triệu chỉ được nhắc soạn hợp đồng, còn việc trình Trưởng phòng ký duyệt đơn
+   * rồi gửi NCC ký xác nhận thì biến mất — đúng nhóm đơn rủi ro cao nhất lại được nhắc ít
+   * nhất. Hai thủ tục này độc lập: đơn lớn phải làm CẢ HAI.
+   *
+   * ⚠️ Ngưỡng này dùng "TRÊN" (`>`), hai ngưỡng kia dùng "TỪ" (`>=`) — hai quy ước khác nhau
+   * trong cùng một file, giữ nguyên theo đúng chữ của quy trình công ty.
+   */
+  if (giaTri > ch.nguongKyDuyetDon) {
     nhacNgoaiApp.push(
       `Trên ${chuTien(ch.nguongKyDuyetDon)} đồng: đơn mua hàng phải trình Trưởng phòng Thu mua ký duyệt, sau đó gửi nhà cung cấp ký xác nhận.`,
     );

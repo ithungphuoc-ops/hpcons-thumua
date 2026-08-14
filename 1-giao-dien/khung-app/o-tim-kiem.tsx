@@ -27,16 +27,18 @@ import {
 export function OTimKiem() {
   const router = useRouter();
   const { deNghi, donHang, baoGia } = useDuLieu();
-  const { quyen } = useNguoiDung();
+  const { quyen, nguoiDung } = useNguoiDung();
 
   const [tuKhoa, setTuKhoa] = useState("");
   const [dangMo, setDangMo] = useState(false);
   const [viTri, setViTri] = useState(0);
   const boc = useRef<HTMLDivElement>(null);
 
+  // Truyền uid vì luật xem báo giá còn xét theo TỪNG hồ sơ (ai được chia việc / ai theo dõi),
+  // không chỉ theo cấp quyền.
   const { ketQua, tongKhop } = useMemo(
-    () => timHoSo(tuKhoa, { deNghi, donHang, baoGia }, quyen),
-    [tuKhoa, deNghi, donHang, baoGia, quyen],
+    () => timHoSo(tuKhoa, { deNghi, donHang, baoGia }, quyen, nguoiDung.uid),
+    [tuKhoa, deNghi, donHang, baoGia, quyen, nguoiDung.uid],
   );
 
   // Bấm ra ngoài thì đóng hộp gợi ý.

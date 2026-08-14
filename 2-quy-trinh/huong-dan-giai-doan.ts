@@ -229,13 +229,14 @@ export const HUONG_DAN_GIAI_DOAN: Partial<Record<GiaiDoanMuaHang, HuongDanGiaiDo
     khongCoTrenBase: true,
     noiDung: [
       {
-        van: "Đề nghị tự vào cột này khi mọi đơn đặt hàng của nó đều đã hoàn thành. Không kéo thẻ vào đây được — phải làm đủ việc thì thẻ mới sang.",
+        van: "Đề nghị tự vào cột này khi mọi đơn đặt hàng của nó đều đã hoàn thành VÀ không còn dòng vật tư nào chưa lên đơn. Không kéo thẻ vào đây được — phải làm đủ việc thì thẻ mới sang.",
       },
       {
         nhanManh: true,
-        van: "Một đơn đặt hàng chỉ được tính là hoàn thành khi đủ CẢ BA:",
+        van: "Một đơn đặt hàng chỉ được tính là hoàn thành khi đủ CẢ BỐN:",
         gach: [
           "Đã giao đủ khối lượng của mọi dòng vật tư",
+          "Mọi lần giao đều có tệp phiếu giao nhận đính kèm",
           "Thủ kho xác nhận",
           "Trưởng bộ phận xác nhận",
         ],
