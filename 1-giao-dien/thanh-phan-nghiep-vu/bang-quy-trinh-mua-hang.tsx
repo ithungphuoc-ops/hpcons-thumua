@@ -36,7 +36,7 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
-import { NHAN_NHOM_DE_XUAT } from "@/3-du-lieu/kieu-du-lieu";
+import { NHAN_NHOM_DE_XUAT, type DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 import {
   GIAI_DOAN_MUA_HANG,
@@ -113,6 +113,14 @@ export interface ThaoTacThe {
   onNhanBan: (prId: string) => void;
   onDoiLuuTru: (prId: string, luuTru: boolean) => void;
   onXoa: (prId: string) => void;
+  /**
+   * Phiếu NÀY có được người đang đăng nhập nhân bản không.
+   *
+   * 🔴 Hỏi theo TỪNG THẺ chứ không phải một cờ chung: Ban lãnh đạo 15/08/2026 chốt nhân viên
+   * chỉ tách được phiếu **mình phụ trách**, mà mỗi thẻ trên bảng là một phiếu khác nhau.
+   * Luật thật ở `4-phan-quyen/quyen-theo-ho-so.ts` → `duocNhanBanDeNghi`.
+   */
+  duocNhanBan: (deNghi: DeNghiMuaHang) => boolean;
 }
 
 export function BangQuyTrinhMuaHang({
@@ -567,10 +575,13 @@ function MenuThaoTacThe({
                   <Pencil className="size-4 shrink-0" aria-hidden />
                   Chỉnh sửa thông tin chung
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => thaoTac.onNhanBan(deNghi.id)}>
-                  <CopyPlus className="size-4 shrink-0" aria-hidden />
-                  Nhân bản
-                </DropdownMenuItem>
+                {/* Chỉ hiện với phiếu người này được tách — xem `duocNhanBanDeNghi`. */}
+                {thaoTac.duocNhanBan(deNghi) && (
+                  <DropdownMenuItem onClick={() => thaoTac.onNhanBan(deNghi.id)}>
+                    <CopyPlus className="size-4 shrink-0" aria-hidden />
+                    Nhân bản
+                  </DropdownMenuItem>
+                )}
               </>
             )}
 

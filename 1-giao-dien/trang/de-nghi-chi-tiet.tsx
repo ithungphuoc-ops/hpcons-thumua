@@ -23,6 +23,7 @@ import { DanhSachTruong } from "@/1-giao-dien/thanh-phan-dung-chung/danh-sach-tr
 import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
+import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
 import {
@@ -310,6 +311,23 @@ export default function TrangChiTietDeNghi() {
                   Khối lượng của các phiếu con <strong>không cộng vào</strong> phiếu này — mỗi
                   phiếu đi một vòng mua hàng riêng.
                 </p>
+
+                {/* ★ TỔNG HỢP THEO NGƯỜI — Ban lãnh đạo 15/08/2026: tách việc rồi phải
+                    "tổng hợp lại được để trưởng phòng đánh giá năng lực nhân viên".
+
+                    🔒 Chỉ người phân bổ công việc (trưởng bộ phận, quản trị) mới thấy: đây là
+                    số liệu về người khác, nhân viên nhìn nhau qua bảng này dễ sinh so bì mà
+                    số liệu lại chưa tính độ khó từng phần việc. */}
+                {quyen.phanBoCongViec && (
+                  <div className="mt-1 border-t border-primary/20 pt-2">
+                    <BangNangLucTheoNhanVien
+                      nhom={[dn, ...deNghiCon]}
+                      donHang={donHang}
+                      baoGia={baoGia}
+                      phieuNhan={phieuNhan}
+                    />
+                  </div>
+                )}
               </div>
             )}
 

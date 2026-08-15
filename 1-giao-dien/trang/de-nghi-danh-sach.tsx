@@ -35,6 +35,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duocNhanBanDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import {
   dungBangQuyTrinh,
@@ -111,6 +112,9 @@ export default function TrangDanhSachDeNghi() {
       });
     },
     onXoa: (prId) => setHoiXoa(prId),
+    // Nhân viên chỉ tách được phiếu mình phụ trách (Ban lãnh đạo 15/08/2026); trưởng bộ phận
+    // và quản trị tách được mọi phiếu. Luật ở `4-phan-quyen/quyen-theo-ho-so.ts`.
+    duocNhanBan: (dn) => duocNhanBanDeNghi(dn, nguoiDung.uid, quyen),
   };
 
   /**
@@ -369,7 +373,11 @@ export default function TrangDanhSachDeNghi() {
             onXacNhan={(sttGiuLai) => {
               if (!hoiNhanBan) return;
               const goc = dnHoiNhanBan;
-              const id = nhanBanDeNghi(hoiNhanBan, nguoiDung.tenHienThi, sttGiuLai);
+              // Truyền cả hàm kiểm quyền: kho dữ liệu tự chặn, không tin vào việc giao diện
+              // đã ẩn nút (ẩn nút không phải là chặn).
+              const id = nhanBanDeNghi(hoiNhanBan, nguoiDung.tenHienThi, sttGiuLai, (dn) =>
+                duocNhanBanDeNghi(dn, nguoiDung.uid, quyen),
+              );
               if (!id) {
                 // Nói thật khi không tạo được, đừng im lặng để người dùng tưởng đã xong.
                 toast.error("Không nhân bản được", {

@@ -51,6 +51,34 @@ export function duocXemBaoGiaCuaDeNghi(
 }
 
 /**
+ * ★ CÓ ĐƯỢC NHÂN BẢN (TÁCH) ĐỀ NGHỊ NÀY KHÔNG.
+ *
+ * 🔴 Ban lãnh đạo 15/08/2026: *"nhân viên được phép nhân bản phiếu đề nghị **mà mình phụ
+ * trách**"*.
+ *
+ * Hai đường được tách:
+ *   1. Cấp quản lý (`xemMoiHoSo` — trưởng bộ phận, quản trị): tách được mọi phiếu, vì họ là
+ *      người chia việc cho cả phòng.
+ *   2. Nhân viên ĐƯỢC CHIA VIỆC trong chính phiếu đó — tự tách phần việc của mình ra để giao
+ *      lại cho người phù hợp, không phải chờ trưởng bộ phận làm hộ.
+ *
+ * ⚠️ Trước 15/08/2026 chỉ xét cấp (`lapPO`), nên một nhân viên tách được cả phiếu của người
+ * khác — phiếu đang chạy tự nhiên mọc thêm bản sao mà người phụ trách không hay.
+ *
+ * ⚠️ Vẫn phải qua `quyen.lapPO`: vai trò chỉ được xem (thủ kho, Phòng Thi công, Kế toán)
+ * thì không tạo được hồ sơ mới dưới bất kỳ hình thức nào.
+ */
+export function duocNhanBanDeNghi(
+  deNghi: DeNghiMuaHang,
+  uid: string,
+  quyen: Quyen,
+): boolean {
+  if (!quyen.lapPO) return false;
+  if (quyen.xemMoiHoSo) return true;
+  return duocChiaViec(deNghi, uid);
+}
+
+/**
  * NHỮNG DÒNG VẬT TƯ NGƯỜI NÀY ĐƯỢC NHÌN THẤY trong một đề nghị.
  *
  * 🔴 Chỉ đạo Ban lãnh đạo 12/08/2026: *"chỉ cần hiện công việc được phân công, không cần

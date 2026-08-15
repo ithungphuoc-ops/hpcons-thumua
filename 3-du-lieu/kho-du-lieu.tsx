@@ -281,7 +281,16 @@ interface GiaTriDuLieu {
    * Trả về câu giải thích nếu không lưu được, `null` nếu xong.
    */
   suaMatHangDeNghi: (prId: string, dongMoi: DongDeNghi[], nguoiThucHien: string) => string | null;
-  nhanBanDeNghi: (prId: string, nguoiThucHien: string, sttGiuLai?: number[]) => string;
+  /**
+   * Tách phiếu. `duocPhep` là hàm kiểm quyền theo TỪNG hồ sơ — truyền vào để hàm tự chặn,
+   * đừng chỉ dựa vào việc giao diện đã ẩn nút.
+   */
+  nhanBanDeNghi: (
+    prId: string,
+    nguoiThucHien: string,
+    sttGiuLai?: number[],
+    duocPhep?: (deNghi: DeNghiMuaHang) => boolean,
+  ) => string;
   /** Xóa hẳn (chỉ bản chạy thử). Trả lý do bị chặn, `null` nghĩa là đã xóa. */
   xoaDeNghi: (prId: string) => string | null;
 
@@ -1875,9 +1884,25 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    *     là để giao lại cho người phù hợp, nên giữ phân bổ cũ là đi ngược ý muốn.
    */
   const nhanBanDeNghi = useCallback(
-    (prId: string, nguoiThucHien: string, sttGiuLai?: number[]): string => {
+    (
+      prId: string,
+      nguoiThucHien: string,
+      sttGiuLai?: number[],
+      /**
+       * 🔴 CHẶN Ở TẦNG DỮ LIỆU, không chỉ ẩn nút.
+       *
+       * Ban lãnh đạo 15/08/2026: nhân viên chỉ tách được phiếu **mình phụ trách**. Giao diện
+       * đã ẩn mục "Nhân bản" với phiếu không phụ trách, nhưng ẩn nút KHÔNG PHẢI là chặn —
+       * còn đường khác gọi tới hàm này (menu ở trang khác, phím tắt, mã viết sau). Kiểm lại
+       * ở đây thì mọi đường đều bị chặn như nhau.
+       *
+       * Truyền `undefined` = nơi gọi đã tự kiểm (giữ tương thích cho chỗ gọi cũ).
+       */
+      duocPhep?: (deNghi: DeNghiMuaHang) => boolean,
+    ): string => {
       const goc = deNghiRef.current.find((d) => d.id === prId);
       if (!goc) return "";
+      if (duocPhep && !duocPhep(goc)) return "";
       const idMoi = ID_DE_NGHI_GIA_LAP.find((id) => !deNghiRef.current.some((d) => d.id === id));
       if (!idMoi) return ""; // Hết id dự phòng — người gọi phải báo cho người dùng
       const ngay = homNay();
