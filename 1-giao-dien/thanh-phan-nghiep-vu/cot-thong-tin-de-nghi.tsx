@@ -38,6 +38,7 @@ export function CotThongTinDeNghi({
   moc = {},
   tomTat,
   hoatDongChinh,
+  hanGioTheoBuoc = {},
 }: {
   deNghi: DeNghiMuaHang;
   giaiDoan: GiaiDoanMuaHang;
@@ -47,10 +48,18 @@ export function CotThongTinDeNghi({
   tomTat: { daPhanBo: number; daLenPO: number; daNhanDu: number; tongSoDong: number };
   /** Các nút hành động của trang, đặt trong khối "Hoạt động chính" như bố cục Base. */
   hoatDongChinh?: ReactNode;
+  /**
+   * Thời hạn CHUẨN từng bước (giờ), lấy từ cấu hình quy trình — Base gọi là "Kỳ vọng"
+   * và "DURATION". 0 = bước không đặt hạn.
+   */
+  hanGioTheoBuoc?: Record<string, number>;
 }) {
   const chuoi = GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "that_bai");
   const viTri = chuoi.findIndex((g) => g.ma === giaiDoan);
   const moTa = NHAN_GIAI_DOAN[giaiDoan];
+  /** Bước kế tiếp — Base hiện ngay trong khối giai đoạn hiện tại ("» GIAI ĐOẠN KẾ TIẾP"). */
+  const buocKeTiep = viTri >= 0 ? chuoi[viTri + 1] : undefined;
+  const ketThuc = giaiDoan === "hoan_thanh" || giaiDoan === "that_bai";
 
   // --- Thời hạn tổng: từ ngày duyệt tới ngày cần hàng ---
   // Base hiện "Đã sử dụng 115.73 của 15.00h". Của ta đơn vị là NGÀY, vì thu mua tính
@@ -63,6 +72,76 @@ export function CotThongTinDeNghi({
 
   return (
     <div className="flex flex-col gap-(--hp-md-row-gap)">
+      {/* ================= GIAI ĐOẠN HIỆN TẠI =================
+          Ban lãnh đạo 15/08/2026 gửi ảnh trang chi tiết job trên Base: khối này là thứ NỔI
+          NHẤT ở đầu cột phải, nền xanh, ghi "[1/6] Tên bước" kèm thời hạn và bước kế tiếp.
+
+          🔴 Vì sao đáng đặt lên đầu: câu hỏi số một khi mở một hồ sơ là "đang ở đâu, ai phải
+          làm gì tiếp". Trước đây phải đọc thanh giai đoạn ở cột trái rồi tự đếm. */}
+      <section className="rounded-xl bg-primary p-(--hp-md-card-pad) text-white">
+        <span className="text-[11px] font-semibold tracking-wide text-white/80 uppercase">
+          Giai đoạn hiện tại
+        </span>
+        <p className="mt-1 text-sm font-semibold leading-snug">
+          {viTri >= 0 && !ketThuc && (
+            <span className="tabular-nums">[{viTri + 1}/{chuoi.length - 1}] </span>
+          )}
+          {moTa?.nhan ?? giaiDoan}
+        </p>
+
+        {/* Hạn chuẩn của bước — Base gọi là "KỲ VỌNG". 0 giờ = bước không đặt hạn. */}
+        {!ketThuc && (
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/25 pt-2 text-xs">
+            <span className="text-white/80">Thời hạn chuẩn của bước</span>
+            <span className="font-semibold tabular-nums">
+              {hanGioTheoBuoc[giaiDoan] ? `${hanGioTheoBuoc[giaiDoan]} giờ` : "Không đặt hạn"}
+            </span>
+          </div>
+        )}
+
+        {/* Bước kế tiếp — người dùng biết trước phải chuẩn bị gì. */}
+        {buocKeTiep && (
+          <p className="mt-1.5 text-xs text-white/90">
+            » Bước kế tiếp: <strong className="font-semibold">{buocKeTiep.nhan}</strong>
+            {hanGioTheoBuoc[buocKeTiep.ma] ? ` (${hanGioTheoBuoc[buocKeTiep.ma]} giờ)` : ""}
+          </p>
+        )}
+
+        {/* ⚠️ NÓI THẲNG chỗ app chưa làm được. Base hiện "ĐÃ SỬ DỤNG 31.58h" vì bên đó lưu
+            lịch sử chuyển giai đoạn; app suy giai đoạn từ chứng từ nên không biết hồ sơ đã
+            ngồi ở bước này bao lâu. Giấu đi là để người dùng tưởng app đang canh giờ hộ. */}
+        {!ketThuc && (
+          <p className="mt-2 text-[11px] leading-snug text-white/75">
+            App chưa đếm được số giờ đã ở bước này — thời hạn đang tính theo ngày cần hàng của
+            cả đề nghị (xem khối Tổng thời gian).
+          </p>
+        )}
+      </section>
+
+      {/* ================= THÔNG TIN NHIỆM VỤ =================
+          Theo khối cùng tên trong ảnh Base: mã, ai tạo, tạo lúc nào, cập nhật gần nhất. */}
+      <section className="rounded-xl border border-border bg-surface p-(--hp-md-card-pad)">
+        <span className="text-[11px] font-semibold tracking-wide text-text-desc uppercase">
+          Thông tin nhiệm vụ
+        </span>
+        <dl className="mt-2 flex flex-col gap-1.5 text-xs">
+          <DongTin nhan="Mã hồ sơ" giaTri={deNghi.code} />
+          <DongTin
+            nhan="Người đề nghị"
+            giaTri={`${deNghi.nguoiDeNghiTen} · ${formatMocThoiGian(deNghi.ngayDeNghi)}`}
+          />
+          {/* Mốc mới nhất trong nhật ký = lần cuối có người đụng vào hồ sơ. Suy ra, không
+              lưu thêm trường — tránh hai chỗ cùng giữ một sự thật rồi lệch nhau. */}
+          {deNghi.lichSu.length > 0 && (
+            <DongTin
+              nhan="Cập nhật gần nhất"
+              giaTri={formatMocThoiGian(deNghi.lichSu[deNghi.lichSu.length - 1].thoiDiem)}
+            />
+          )}
+          <DongTin nhan="Giai đoạn hiện tại" giaTri={moTa?.nhan ?? giaiDoan} />
+        </dl>
+      </section>
+
       {/* ================= TỔNG THỜI GIAN ================= */}
       <section className="rounded-xl border border-border bg-surface p-(--hp-md-card-pad)">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -166,6 +245,9 @@ export function CotThongTinDeNghi({
                       : hienTai
                         ? (moTa?.moTa ?? "Đang ở bước này")
                         : "Đã xong"}
+                    {/* Hạn chuẩn của bước — Base ghi "DURATION: 4.00h" ở mỗi dòng giai đoạn.
+                        Bỏ qua bước Hoàn thành / Thất bại: chúng là điểm dừng, không có hạn. */}
+                    {hanGioTheoBuoc[g.ma] ? ` · ${hanGioTheoBuoc[g.ma]} giờ` : ""}
                   </span>
                 </div>
               </li>
@@ -234,6 +316,16 @@ export function CotThongTinDeNghi({
           </>
         )}
       </KhoiGap>
+    </div>
+  );
+}
+
+/** Một dòng "nhãn — giá trị" trong khối Thông tin nhiệm vụ. */
+function DongTin({ nhan, giaTri }: { nhan: string; giaTri: string }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+      <dt className="text-text-desc">{nhan}</dt>
+      <dd className="min-w-0 text-right font-medium text-text-primary">{giaTri}</dd>
     </div>
   );
 }

@@ -383,17 +383,11 @@ export default function TrangNhanDeNghiMoi() {
         <CardContent className="flex flex-col">
           {/* Khối lưu ý xanh — nội dung chép theo khối đầu hộp của Base */}
           <div className="mb-2 flex flex-col gap-1.5 rounded-lg border border-success/30 bg-success-bg p-3 text-xs text-text-secondary">
-          <p>
-            - Xem quy định tiếp nhận đề nghị:{" "}
-            <a
-              href="https://office.base.vn/doc/25684"
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-primary underline underline-offset-2"
-            >
-              office.base.vn/doc/25684
-            </a>
-          </p>
+          {/* 📌 Đã BỎ dòng "Xem quy định tiếp nhận đề nghị: office.base.vn/doc/25684"
+              (Ban lãnh đạo 15/08/2026). Đó là đường dẫn sang tài liệu bên Base — app này
+              là hệ thống riêng, chỉ sang chỗ khác ngay ở màn lập phiếu là dẫn người dùng
+              rời app giữa chừng. Nội dung quy định cần thì đưa vào hướng dẫn từng bước
+              (nút ⓘ), không phải một liên kết ra ngoài. */}
           <p>
             - Thời gian đề nghị: <strong>ít nhất 2 ngày</strong> trước ngày cần hàng.
           </p>

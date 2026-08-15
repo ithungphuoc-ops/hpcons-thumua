@@ -560,6 +560,9 @@ export default function TrangChiTietDeNghi() {
             giaiDoan={giaiDoan}
             soNgayConLai={conLai}
             moc={mocGiaiDoan}
+            // Hạn chuẩn từng bước lấy từ cấu hình quy trình (sửa được ở trang Cài đặt),
+            // KHÔNG viết cứng trong component hiển thị.
+            hanGioTheoBuoc={cauHinh.hanGioTheoBuoc}
             tomTat={{
               daPhanBo: tienDo.filter((d) => d.trangThaiDong !== "chua_phan_bo").length,
               daLenPO: tienDo.filter((d) => d.maPOLienQuan.length > 0).length,
