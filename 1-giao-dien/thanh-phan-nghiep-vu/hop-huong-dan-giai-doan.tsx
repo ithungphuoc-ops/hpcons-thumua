@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, BookOpen, Clock, Info } from "lucide-react";
+import { BookOpen, Clock, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -145,35 +145,18 @@ export function HopHuongDanGiaiDoan({
             <DoanNoiDung key={i} doan={doan} laMoTaCuaApp={huongDan.khongCoTrenBase} />
           ))}
 
-          {huongDan.chuaLamDuoc && huongDan.chuaLamDuoc.length > 0 && (
-            <section className="flex flex-col gap-1.5 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad)">
-              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-warning-soft">
-                <AlertTriangle className="size-4 shrink-0" aria-hidden />
-                Phần app chưa làm thay được — vẫn phải làm tay
-              </h3>
-              <ul className="ml-5 list-disc space-y-1 text-sm text-text-secondary">
-                {huongDan.chuaLamDuoc.map((x, i) => (
-                  <li key={i}>{x}</li>
-                ))}
-              </ul>
-            </section>
-          )}
+          {/* 📌 ĐÃ BỎ hai khối ghi chú (Ban lãnh đạo 15/08/2026: *"bỏ hết các ghi chú kiểu
+              này đi"*):
+                · "Phần app chưa làm thay được — vẫn phải làm tay"
+                · Dòng "Nội dung chép nguyên văn từ quy trình TM-QT Mua hàng (HP CONS)…"
 
-          <p className="border-t border-divider pt-2.5 text-xs text-text-desc">
-            {huongDan.khongCoTrenBase ? (
-              <>
-                Mô tả cách app hoạt động, <strong>không nằm trong</strong> quy trình{" "}
-                <strong>“TM-QT Mua hàng (HP CONS)”</strong>. Công ty ban hành hướng dẫn chính
-                thức cho bước này thì thay bằng văn bản đó.
-              </>
-            ) : (
-              <>
-                Nội dung chép nguyên văn từ quy trình{" "}
-                <strong>“TM-QT Mua hàng (HP CONS)”</strong> của công ty. Quy trình thay đổi thì
-                phải sửa theo văn bản mới, không tự diễn giải lại.
-              </>
-            )}
-          </p>
+              Cả hai là ghi chú của ĐỘI TRIỂN KHAI nói với nhau, không phải việc người dùng
+              cần đọc mỗi lần mở hướng dẫn. Hộp này để tra "bước này phải làm gì", thêm hai
+              khối kia vào là đẩy phần việc thật xuống dưới màn hình.
+
+              🔴 Nội dung "app chưa làm được" KHÔNG mất — chuyển thành chú thích trong
+              `2-quy-trinh/huong-dan-giai-doan.ts` để người bảo trì vẫn biết app còn thiếu gì
+              so với quy trình giấy. */}
         </div>
       </DialogContent>
     </Dialog>

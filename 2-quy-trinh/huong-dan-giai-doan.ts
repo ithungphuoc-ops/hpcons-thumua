@@ -12,8 +12,12 @@
 // và với bảng Base; lệch một chữ là họ mất tin vào cả app. Muốn sửa phải có văn bản mới.
 //
 // 📌 Các ngưỡng tiền trong này (5 / 10 / 20 triệu) là LUẬT THẬT. Phần app đã cài đặt được
-// nằm ở `nguong-gia-tri.ts`; phần chưa cài đặt được ghi rõ trong `chuaLamDuoc` để không ai
-// tưởng app đã kiểm hộ.
+// nằm ở `nguong-gia-tri.ts`.
+//
+// 📌 15/08/2026 — Ban lãnh đạo: *"bỏ hết các ghi chú kiểu này đi"*. Khối "Phần app chưa làm
+// thay được" đã BỎ KHỎI GIAO DIỆN (nó là ghi chú của đội triển khai, không phải việc người
+// dùng cần đọc mỗi lần mở hướng dẫn). Nội dung giữ lại dưới dạng CHÚ THÍCH ngay tại từng
+// giai đoạn bên dưới — người bảo trì vẫn tra được app còn thiếu gì so với quy trình giấy.
 // ============================================================
 
 import type { GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -25,13 +29,6 @@ export interface HuongDanGiaiDoan {
   gioChuan?: number;
   /** Nội dung hướng dẫn, mỗi phần tử là một đoạn. */
   noiDung: DoanHuongDan[];
-  /**
-   * Những ý trong quy trình mà APP CHƯA làm được — hiện riêng, có cảnh báo.
-   *
-   * 🔴 Phải nói ra. Người dùng đọc hướng dẫn trong app rồi tưởng app đã kiểm hộ mọi điều
-   * kiện; thực tế còn nhiều ý phải tự làm ngoài app (ký hợp đồng, tem hiệu chuẩn...).
-   */
-  chuaLamDuoc?: string[];
   /**
    * ★ BƯỚC NÀY KHÔNG CÓ HƯỚNG DẪN TRÊN BẢNG BASE — nội dung bên trên là **cách app xác
    * định**, không phải văn bản quy trình của công ty.
@@ -88,10 +85,10 @@ export const HUONG_DAN_GIAI_DOAN: Partial<Record<GiaiDoanMuaHang, HuongDanGiaiDo
       },
       { luuY: "Những máy móc — thiết bị đo phải có tem hiệu chuẩn của QA-QC mới được phép sử dụng." },
     ],
-    chuaLamDuoc: [
-      "App chưa có luồng “từ chối tiếp nhận” và “yêu cầu bổ sung” gửi ngược về bộ phận đề nghị — hiện chỉ có “Đánh dấu thất bại”.",
-      "App chưa phân biệt hàng hiệu chuẩn (QA-QC) hay NCC chỉ định sẵn — các trường hợp này vẫn phải xử lý ngoài app.",
-    ],
+    /* 📌 App chưa làm thay được (bỏ khỏi giao diện 15/08/2026, giữ để tra):
+     *   · App chưa có luồng “từ chối tiếp nhận” và “yêu cầu bổ sung” gửi ngược về bộ phận đề nghị — hiện chỉ có “Đánh dấu thất bại”.
+     *   · App chưa phân biệt hàng hiệu chuẩn (QA-QC) hay NCC chỉ định sẵn — các trường hợp này vẫn phải xử lý ngoài app.
+     */
   },
 
   yeu_cau_bao_gia: {
@@ -116,10 +113,10 @@ export const HUONG_DAN_GIAI_DOAN: Partial<Record<GiaiDoanMuaHang, HuongDanGiaiDo
         luuY: "Đối với NCC mới, nếu đơn hàng trị giá từ 20 triệu đồng trở lên thì NV.TMCU phải cập nhật “Danh sách nhà cung cấp” ngay sau khi hoàn thành công tác giao nhận hàng.",
       },
     ],
-    chuaLamDuoc: [
-      "App chưa có “Danh sách nhà cung cấp hàng năm” nên không tự biết NCC nào thuộc danh mục — điều kiện 01 báo giá cho NCC trong danh mục phải tự đối chiếu.",
-      "App chưa lưu hàng mẫu và văn bản giải trình lựa chọn NCC.",
-    ],
+    /* 📌 App chưa làm thay được (bỏ khỏi giao diện 15/08/2026, giữ để tra):
+     *   · App chưa có “Danh sách nhà cung cấp hàng năm” nên không tự biết NCC nào thuộc danh mục — điều kiện 01 báo giá cho NCC trong danh mục phải tự đối chiếu.
+     *   · App chưa lưu hàng mẫu và văn bản giải trình lựa chọn NCC.
+     */
   },
 
   xet_duyet_bao_gia: {
@@ -148,10 +145,10 @@ export const HUONG_DAN_GIAI_DOAN: Partial<Record<GiaiDoanMuaHang, HuongDanGiaiDo
         ],
       },
     ],
-    chuaLamDuoc: [
-      "App chưa có tài khoản Tổng Giám đốc ký duyệt — đơn từ 10 triệu đồng trở lên vẫn phải trình TGĐ ngoài app rồi mới bấm duyệt.",
-      "App chưa lưu lịch sử báo giá cũ của cùng một mặt hàng để so sánh theo thời gian.",
-    ],
+    /* 📌 App chưa làm thay được (bỏ khỏi giao diện 15/08/2026, giữ để tra):
+     *   · App chưa có tài khoản Tổng Giám đốc ký duyệt — đơn từ 10 triệu đồng trở lên vẫn phải trình TGĐ ngoài app rồi mới bấm duyệt.
+     *   · App chưa lưu lịch sử báo giá cũ của cùng một mặt hàng để so sánh theo thời gian.
+     */
   },
 
   lap_don_mua_hang: {
@@ -180,10 +177,10 @@ export const HUONG_DAN_GIAI_DOAN: Partial<Record<GiaiDoanMuaHang, HuongDanGiaiDo
         luuY: "Trường hợp Tổng Giám đốc chưa ký duyệt hợp đồng, TP.TMCU có thể thực hiện các bước tiếp theo với điều kiện NCC đã ký tên đóng dấu trên hợp đồng và Tổng Giám đốc đã thông qua.",
       },
     ],
-    chuaLamDuoc: [
-      "App chưa quản lý hợp đồng kinh tế / mua bán / nguyên tắc — đơn từ 20 triệu đồng trở lên phải soạn và ký hợp đồng ngoài app.",
-      "App chưa lưu chữ ký xác nhận của NCC trên đơn mua hàng.",
-    ],
+    /* 📌 App chưa làm thay được (bỏ khỏi giao diện 15/08/2026, giữ để tra):
+     *   · App chưa quản lý hợp đồng kinh tế / mua bán / nguyên tắc — đơn từ 20 triệu đồng trở lên phải soạn và ký hợp đồng ngoài app.
+     *   · App chưa lưu chữ ký xác nhận của NCC trên đơn mua hàng.
+     */
   },
 
   dat_hang: {
@@ -217,9 +214,9 @@ export const HUONG_DAN_GIAI_DOAN: Partial<Record<GiaiDoanMuaHang, HuongDanGiaiDo
         luuY: "Khi phát sinh sự không phù hợp trong quá trình giao hàng thì ghi nhận thông tin vào “Phiếu theo dõi nhà cung cấp”.",
       },
     ],
-    chuaLamDuoc: [
-      "App chưa có “Phiếu theo dõi nhà cung cấp” để ghi sự không phù hợp khi giao hàng.",
-    ],
+    /* 📌 App chưa làm thay được (bỏ khỏi giao diện 15/08/2026, giữ để tra):
+     *   · App chưa có “Phiếu theo dõi nhà cung cấp” để ghi sự không phù hợp khi giao hàng.
+     */
   },
 
   // ---- HAI CỘT KẾT THÚC: nội dung là CÁCH APP XÁC ĐỊNH, không phải quy trình công ty ----
