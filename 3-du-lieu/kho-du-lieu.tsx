@@ -287,7 +287,8 @@ interface GiaTriDuLieu {
    */
   nhanBanDeNghi: (
     prId: string,
-    nguoiThucHien: string,
+    /** Người bấm nhân bản — nhận luôn phần việc của bản mới (Ban lãnh đạo 15/08/2026). */
+    nguoi: { uid: string; ten: string },
     sttGiuLai?: number[],
     duocPhep?: (deNghi: DeNghiMuaHang) => boolean,
   ) => string;
@@ -1879,14 +1880,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * ⚠️ PHÂN BIỆT "thông tin" và "tiến trình":
    *   · Thông tin (dự án, công trình, mặt hàng, ngày cần hàng, mức ưu tiên, **người theo
    *     dõi**, **tài liệu đính kèm**) → CHÉP HẾT, đúng chữ "giữ nguyên toàn bộ".
-   *   · Tiến trình (ai đang phụ trách dòng nào, nhật ký, cờ lưu trữ) → KHÔNG chép. Chép
-   *     phân bổ sang thì bản mới trông như đã có người làm — mà mục đích tách phiếu chính
-   *     là để giao lại cho người phù hợp, nên giữ phân bổ cũ là đi ngược ý muốn.
+   *   · Tiến trình (nhật ký, cờ lưu trữ, chứng từ) → KHÔNG chép. Bản mới bắt đầu vòng mua
+   *     hàng của riêng nó.
+   *   · Người phụ trách → **GÁN CHO NGƯỜI BẤM NHÂN BẢN** (Ban lãnh đạo 15/08/2026), xem
+   *     giải thích đầy đủ ở chỗ dựng `items` bên dưới.
    */
   const nhanBanDeNghi = useCallback(
     (
       prId: string,
-      nguoiThucHien: string,
+      /**
+       * Người bấm nhân bản — cần CẢ uid lẫn tên vì họ nhận luôn phần việc này (Ban lãnh đạo
+       * 15/08/2026). Chỉ có tên thì không gán được người phụ trách, và thẻ lại rơi về bước ①.
+       */
+      nguoi: { uid: string; ten: string },
       sttGiuLai?: number[],
       /**
        * 🔴 CHẶN Ở TẦNG DỮ LIỆU, không chỉ ẩn nút.
@@ -1945,22 +1951,48 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
            * dòng số 3 và 7 mà không có 1, 2 — người đọc tưởng mất dòng, và mọi chỗ đếm
            * "dòng thứ mấy" đều lệch.
            */
+          /**
+           * 🔴 NGƯỜI NHÂN BẢN NHẬN LUÔN PHẦN VIỆC NÀY — Ban lãnh đạo 15/08/2026: *"nhân viên
+           * nào nhân bản thì sẽ do người đó thực hiện, và hiện ngay tại bước đang nhân bản,
+           * chứ không đẩy về bước 1"*.
+           *
+           * ⚠️ Trước 15/08/2026 chỗ này XÓA hết phân bổ với lý do "để giao lại cho người phù
+           * hợp". Giả định đó sai với cách phòng đang làm: người tách phiếu chính là người
+           * nhận việc. Hậu quả thấy rõ trên bảng — bản `(copy 3)` rơi về cột ① *"Tiếp nhận và
+           * kiểm tra"* kèm *"Chưa được giao · Thiếu 1 dòng chưa phân bổ"*, trong khi phiếu
+           * gốc và hai bản copy khác đã ở cột ②. Người tách vừa mất công tách, vừa phải nhờ
+           * trưởng bộ phận phân bổ lại cho chính mình.
+           *
+           * 📌 VÌ SAO GÁN NGƯỜI LÀ ĐỦ ĐỂ THẺ Ở ĐÚNG BƯỚC: giai đoạn được SUY RA từ chứng từ,
+           * và "phân bổ đủ mọi dòng" chính là điều kiện sang bước ②. Gán người xong là bản
+           * copy tự đứng cùng cột với phiếu gốc, không cần lưu thêm trường giai đoạn nào —
+           * giữ đúng nguyên tắc "giai đoạn không lưu thành trường".
+           *
+           * ⚠️ Bản copy KHÔNG nhảy được tới bước ③ trở đi dù phiếu gốc đang ở đó: những bước
+           * ấy đòi chứng từ riêng (bảng báo giá, đơn hàng) mà bản mới chưa có. Đó là đúng —
+           * nói thẻ đã ở bước ⑤ khi chưa có đơn hàng nào là báo tiến độ ảo.
+           */
           items: dongGiuLai.map((d, i) => ({
             ...d,
             stt: i + 1,
-            nguoiPhuTrachUid: undefined,
-            nguoiPhuTrachTen: undefined,
-            nguoiPhanBoTen: undefined,
-            thoiDiemPhanBo: undefined,
+            nguoiPhuTrachUid: nguoi.uid,
+            nguoiPhuTrachTen: nguoi.ten,
+            // Người tách tự nhận việc, nên người phân bổ cũng chính là họ.
+            nguoiPhanBoTen: nguoi.ten,
+            thoiDiemPhanBo: thoiDiemHienTai(),
           })),
           lichSu: [
             {
               thoiDiem: thoiDiemHienTai(),
-              nguoiThucHien,
+              nguoiThucHien: nguoi.ten,
               hanhDong: `Nhân bản từ ${goc.code}`,
-              ghiChu: giu
-                ? `Giữ ${dongGiuLai.length}/${goc.items.length} mặt hàng của phiếu gốc`
-                : `Giữ nguyên toàn bộ ${goc.items.length} mặt hàng`,
+              ghiChu:
+                (giu
+                  ? `Giữ ${dongGiuLai.length}/${goc.items.length} mặt hàng của phiếu gốc`
+                  : `Giữ nguyên toàn bộ ${goc.items.length} mặt hàng`) +
+                // Ghi rõ người tách nhận luôn việc — sau này đọc nhật ký biết vì sao phiếu
+                // này có người phụ trách ngay từ lúc sinh ra.
+                `. Người tách nhận phụ trách toàn bộ ${dongGiuLai.length} dòng.`,
             },
           ],
         },

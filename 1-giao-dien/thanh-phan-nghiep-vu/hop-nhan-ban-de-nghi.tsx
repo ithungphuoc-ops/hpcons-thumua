@@ -86,7 +86,8 @@ export function HopNhanBanDeNghi({
           <DialogTitle>Nhân bản đề nghị {deNghi.code}</DialogTitle>
           <DialogDescription>
             Bản sao giữ nguyên dự án, công trình, ngày cần hàng, người theo dõi và tài liệu
-            đính kèm.
+            đính kèm. <strong>Bạn sẽ là người phụ trách</strong> toàn bộ mặt hàng của bản sao —
+            nói trước để không ai bấm xong mới biết mình vừa nhận thêm việc.
           </DialogDescription>
         </DialogHeader>
 
@@ -162,8 +163,8 @@ export function HopNhanBanDeNghi({
                         {d.quyCach ? `${d.quyCach} · ` : ""}
                         {formatNumber(d.khoiLuongDeNghi)} {d.donViTinh}
                         {/* Dòng đã có người phụ trách ở phiếu GỐC — nói rõ để người tách
-                            biết mình đang cắt phần việc của ai ra. Bản sao thì bỏ trống
-                            phân bổ, vì tách phiếu chính là để giao lại. */}
+                            biết mình đang cắt phần việc của ai ra. Ở BẢN SAO, người phụ
+                            trách được gán cho chính người bấm nhân bản (15/08/2026). */}
                         {d.nguoiPhuTrachTen ? ` · đang giao ${d.nguoiPhuTrachTen}` : ""}
                       </span>
                     </span>

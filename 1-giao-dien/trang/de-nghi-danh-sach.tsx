@@ -375,8 +375,11 @@ export default function TrangDanhSachDeNghi() {
               const goc = dnHoiNhanBan;
               // Truyền cả hàm kiểm quyền: kho dữ liệu tự chặn, không tin vào việc giao diện
               // đã ẩn nút (ẩn nút không phải là chặn).
-              const id = nhanBanDeNghi(hoiNhanBan, nguoiDung.tenHienThi, sttGiuLai, (dn) =>
-                duocNhanBanDeNghi(dn, nguoiDung.uid, quyen),
+              const id = nhanBanDeNghi(
+                hoiNhanBan,
+                { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
+                sttGiuLai,
+                (dn) => duocNhanBanDeNghi(dn, nguoiDung.uid, quyen),
               );
               if (!id) {
                 // Nói thật khi không tạo được, đừng im lặng để người dùng tưởng đã xong.
