@@ -22,7 +22,11 @@ import type {
   PhieuNhanHang,
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
-import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
+import {
+  caiDatCuaBuoc,
+  type CauHinhQuyTrinh,
+  type CongViecGiaiDoan,
+} from "@/2-quy-trinh/cau-hinh-quy-trinh";
 // Luật đối chiếu khối lượng đã lên đơn — dùng lại, không tự cộng ở đây.
 // (`tinh-toan.ts` chỉ import kiểu dữ liệu nên không tạo vòng import.)
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
@@ -424,11 +428,40 @@ const THU_TU_GIAI_DOAN: GiaiDoanMuaHang[] = GIAI_DOAN_MUA_HANG.map((g) => g.ma);
  *
  * ⚠️ Đây là LUẬT CỨNG (chặn), khác `dungXacNhanKeoTha` là cảnh báo mềm (chỉ hỏi lại).
  */
+/**
+ * ★ CÔNG VIỆC BẮT BUỘC CỦA BƯỚC MÀ ĐỀ NGHỊ NÀY CHƯA TÍCH XONG.
+ *
+ * 🔴 MỘT CHỖ DUY NHẤT trả lời câu "còn vướng việc gì". Luật chặn chuyển bước, chữ hiện trên
+ * hộp xác nhận, và khối "Công việc của bước" ở trang chi tiết đều gọi vào đây — nếu mỗi chỗ
+ * tự lọc lấy thì sớm muộn có chỗ quên xét cờ `batBuocXongCongViec` và chặn (hoặc thả) sai.
+ *
+ * Trả về mảng rỗng khi: bước không khai việc nào · đã tích xong hết · hoặc cài đặt của bước
+ * TẮT "bắt buộc hoàn thành công việc" (khi đó danh sách chỉ còn là lời nhắc).
+ */
+export function congViecChuaXongCuaBuoc(
+  deNghi: DeNghiMuaHang,
+  giaiDoan: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+): CongViecGiaiDoan[] {
+  if (!caiDatCuaBuoc(cauHinh, giaiDoan).batBuocXongCongViec) return [];
+  const daXong = deNghi.congViecDaXong ?? [];
+  return (cauHinh.congViecTheoBuoc?.[giaiDoan] ?? []).filter(
+    (cv) => cv.batBuoc && !daXong.some((x) => x.maCongViec === cv.ma),
+  );
+}
+
 export function vuongMacSangBuocSau(
   deNghi: DeNghiMuaHang,
   giaiDoan: GiaiDoanMuaHang,
   baoGiaCuaDeNghi: BaoGia[],
-  congViecCuaBuoc: CongViecGiaiDoan[],
+  /**
+   * Cấu hình quy trình đang áp dụng — hàm tự tra danh sách công việc và các cờ của bước.
+   *
+   * 🔴 NHẬN CẢ CẤU HÌNH thay vì nhận rời từng mảnh: nơi gọi chỉ việc đưa `cauHinh` vào, không
+   * phải tự quyết "có bắt buộc hay không" — quyết định đó là luật nghiệp vụ, để ở giao diện
+   * là sớm muộn hai màn hình xử khác nhau.
+   */
+  cauHinh: CauHinhQuyTrinh,
 ): string | null {
   const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
 
@@ -443,9 +476,7 @@ export function vuongMacSangBuocSau(
    * giá) — đúng nếp "một luật, mọi đường dùng chung" của hàm này. Danh mục công việc do nơi
    * gọi lấy từ cấu hình quy trình (sửa được ở trang Cài đặt), không viết cứng ở đây.
    */
-  const conViecChuaXong = congViecCuaBuoc.filter(
-    (cv) => cv.batBuoc && !(deNghi.congViecDaXong ?? []).some((x) => x.maCongViec === cv.ma),
-  );
+  const conViecChuaXong = congViecChuaXongCuaBuoc(deNghi, giaiDoan, cauHinh);
   if (conViecChuaXong.length > 0) {
     const ds = conViecChuaXong.map((cv) => `“${cv.ten}”`).join(", ");
     return `Còn ${conViecChuaXong.length} công việc bắt buộc của bước này chưa hoàn thành: ${ds}. Tích hoàn thành ở khối “Công việc của bước” trong trang chi tiết đề nghị.`;
@@ -567,8 +598,8 @@ export function quyetDinhKeoTha(
   dich: GiaiDoanMuaHang,
   poCuaDeNghi: DonDatHang[],
   baoGiaCuaDeNghi: BaoGia[],
-  /** Công việc bắt buộc của bước ĐANG ĐỨNG — nơi gọi lấy từ cấu hình quy trình. */
-  congViecCuaBuoc: CongViecGiaiDoan[],
+  /** Cấu hình quy trình — hàm tự tra công việc bắt buộc và cài đặt của bước đang đứng. */
+  cauHinh: CauHinhQuyTrinh,
 ): HanhDongKeoTha | null {
   const tu = the.giaiDoan;
   if (tu === dich) return null;
@@ -621,18 +652,15 @@ export function quyetDinhKeoTha(
    * nguyên tắc "giai đoạn suy ra từ chứng từ, kéo thả không đổi nhãn chay".
    */
   if (tu === "tiep_nhan") {
-    const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, congViecCuaBuoc);
+    const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, cauHinh);
     if (vuongMac) return { loai: "khong_the", lyDo: vuongMac };
   } else {
     /**
      * Các bước sau không áp chốt riêng của bước, NHƯNG công việc bắt buộc thì bước nào cũng
-     * phải xong — Base bật "Bắt buộc hoàn thành công việc của giai đoạn hiện tại" cho cả
-     * bước 01 và 02 (ảnh Ban lãnh đạo gửi 14/08/2026).
+     * phải xong — Base bật "Bắt buộc hoàn thành công việc của giai đoạn hiện tại" cho cả 8
+     * giai đoạn (ảnh Ban lãnh đạo gửi 14–15/08/2026).
      */
-    const conViec = congViecCuaBuoc.filter(
-      (cv) =>
-        cv.batBuoc && !(the.deNghi.congViecDaXong ?? []).some((x) => x.maCongViec === cv.ma),
-    );
+    const conViec = congViecChuaXongCuaBuoc(the.deNghi, tu, cauHinh);
     if (conViec.length > 0) {
       return {
         loai: "khong_the",

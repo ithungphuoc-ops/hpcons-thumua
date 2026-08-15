@@ -167,13 +167,7 @@ export default function TrangDanhSachDeNghi() {
     const baoGiaCuaDeNghi = baoGia.filter((b) => b.prId === prId && b.trangThai !== "huy");
     // Công việc bắt buộc của bước đang đứng — lấy từ cấu hình quy trình (sửa được ở trang
     // Cài đặt), KHÔNG viết cứng trong luật kéo thả.
-    const hanhDong = quyetDinhKeoTha(
-      the,
-      dich,
-      poCuaDeNghi,
-      baoGiaCuaDeNghi,
-      cauHinh.congViecTheoBuoc[the.giaiDoan] ?? [],
-    );
+    const hanhDong = quyetDinhKeoTha(the, dich, poCuaDeNghi, baoGiaCuaDeNghi, cauHinh);
     if (!hanhDong) return;
 
     // Bước không hợp lệ: chặn ngay, không cần hỏi — hỏi rồi vẫn không cho làm thì vô nghĩa.

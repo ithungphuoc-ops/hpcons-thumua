@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, ListChecks, Lock, RotateCcw, Save, Settings, Timer } from "lucide-react";
+import { AlertTriangle, Lock, RotateCcw, Save, Settings, Timer } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/1-giao-dien/nen-tang-ui/card";
@@ -18,7 +18,7 @@ import {
   loiCauHinh,
   type CauHinhQuyTrinh,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
-import { GIAI_DOAN_MUA_HANG } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { KhoiCaiDatGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-cai-dat-giai-doan";
 import { formatCurrencyVnd, formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 
 /**
@@ -159,111 +159,28 @@ export default function TrangCaiDatQuyTrinh() {
         </CardContent>
       </Card>
 
-      {/* ===== ② THỜI HẠN TỪNG GIAI ĐOẠN =====
-          Theo cột giai đoạn trong ảnh Base: "01 Tiếp nhận và kiểm tra · 4.00 Giờ". */}
+      {/* ===== ② CÀI ĐẶT TỪNG GIAI ĐOẠN =====
+          Ban lãnh đạo gửi ảnh cài đặt CẢ 8 GIAI ĐOẠN trên Base (14–15/08/2026) rồi chốt:
+          *"đủ thông tin 8 bước, em xây thêm tính năng cài đặt thông tin này"*.
+
+          Gộp thời hạn + công việc + các cờ của bước vào MỘT khối gập theo từng giai đoạn,
+          đúng cách Base xếp: mở một giai đoạn ra là thấy đủ mọi cài đặt của nó. Trước đây
+          hai thứ này nằm ở hai thẻ rời, muốn cài xong một bước phải nhảy qua lại. */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Timer className="size-4 shrink-0 text-primary" aria-hidden />
-            Thời hạn xử lý từng giai đoạn
+            Cài đặt từng giai đoạn
           </CardTitle>
           <p className="text-xs text-text-desc">
-            Số giờ tối đa một hồ sơ được nằm ở mỗi bước. Đặt <strong>0</strong> nghĩa là bước đó
-            không đặt thời hạn.
+            Bấm vào tên giai đoạn để mở. Con số cạnh tên là số công việc bắt buộc của bước đó.
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          {GIAI_DOAN_MUA_HANG.filter(
-            (g) => g.ma !== "hoan_thanh" && g.ma !== "that_bai",
-          ).map((g, i) => (
-            <div
-              key={g.ma}
-              className="flex flex-wrap items-center justify-between gap-2 border-b border-divider pb-2 last:border-0 last:pb-0"
-            >
-              <span className="flex min-w-0 flex-col">
-                <span className="text-sm font-medium text-text-primary">
-                  {String(i + 1).padStart(2, "0")} · {g.nhan}
-                </span>
-                <span className="truncate text-xs text-text-desc">{g.moTa}</span>
-              </span>
-              <span className="flex shrink-0 items-center gap-1.5">
-                <Input
-                  type="number"
-                  min={0}
-                  max={720}
-                  value={nhap.hanGioTheoBuoc[g.ma] ?? 0}
-                  onChange={(e) =>
-                    setNhap({
-                      ...nhap,
-                      hanGioTheoBuoc: {
-                        ...nhap.hanGioTheoBuoc,
-                        [g.ma]: Math.trunc(Number(e.target.value)),
-                      },
-                    })
-                  }
-                  className="w-24"
-                  aria-label={`Thời hạn bước ${g.nhan}, tính bằng giờ`}
-                />
-                <span className="text-sm text-text-desc">giờ</span>
-              </span>
-            </div>
-          ))}
+          <KhoiCaiDatGiaiDoan nhap={nhap} setNhap={setNhap} />
           <p className="text-xs text-text-desc">
-            Hai bước cuối (Hoàn thành · Thất bại) không có thời hạn — chúng là điểm dừng, không
-            phải việc đang chờ ai làm.
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* ===== ②b CÔNG VIỆC BẮT BUỘC TỪNG BƯỚC =====
-          Mục "Danh sách công việc" của bảng Base (Ban lãnh đạo gửi ảnh cài đặt giai đoạn
-          14/08/2026). Hiện CHỈ ĐỌC: app chưa cho thêm/sửa/xóa công việc qua giao diện, và
-          nói thẳng ra thay vì để nút bấm không làm gì. */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ListChecks className="size-4 shrink-0 text-primary" aria-hidden />
-            Công việc bắt buộc của từng bước
-          </CardTitle>
-          <p className="text-xs text-text-desc">
-            Việc phải tích hoàn thành mới sang được bước sau. Tích ở khối{" "}
-            <strong>“Công việc của bước”</strong> trong trang chi tiết đề nghị.
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "hoan_thanh" && g.ma !== "that_bai").map(
-            (g, i) => {
-              const ds = nhap.congViecTheoBuoc[g.ma] ?? [];
-              return (
-                <div
-                  key={g.ma}
-                  className="flex flex-col gap-1 border-b border-divider pb-2 last:border-0 last:pb-0"
-                >
-                  <span className="text-sm font-medium text-text-primary">
-                    {String(i + 1).padStart(2, "0")} · {g.nhan}
-                  </span>
-                  {ds.length === 0 ? (
-                    <span className="text-xs text-text-desc">Không có công việc</span>
-                  ) : (
-                    <ul className="flex flex-col gap-0.5">
-                      {ds.map((cv) => (
-                        <li key={cv.ma} className="text-xs text-text-secondary">
-                          • {cv.ten}
-                          {cv.moTa ? ` — ${cv.moTa}` : ""}
-                          {cv.batBuoc ? " (bắt buộc)" : " (chỉ nhắc)"}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            },
-          )}
-          <p className="text-xs text-text-desc">
-            Danh sách này <strong>chưa sửa được trên giao diện</strong> — thêm hoặc bỏ công việc
-            hiện phải nhờ đội triển khai. Nội dung đang lấy đúng theo ảnh cài đặt quy trình trên
-            Base: bước 01 có <strong>Checkin hàng tồn kho</strong>, các bước còn lại chưa khai
-            việc nào.
+            Hai bước cuối (Hoàn thành · Thất bại) không có ở đây — chúng là điểm dừng, không có
+            việc phải làm và không có thời hạn, đúng như bảng Base.
           </p>
         </CardContent>
       </Card>

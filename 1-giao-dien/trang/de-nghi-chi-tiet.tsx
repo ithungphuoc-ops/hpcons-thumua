@@ -42,6 +42,7 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
+import { caiDatCuaBuoc } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
@@ -128,7 +129,9 @@ export default function TrangChiTietDeNghi() {
    * Công việc bắt buộc của bước ĐANG ĐỨNG — mục "Danh sách công việc" của bảng Base.
    * Bước không khai việc nào thì mảng rỗng (ảnh Base ghi "Không có công việc").
    */
-  const congViecCuaBuoc = cauHinh.congViecTheoBuoc[giaiDoan] ?? [];
+  const congViecCuaBuoc = cauHinh.congViecTheoBuoc?.[giaiDoan] ?? [];
+  /** Cài đặt riêng của bước — quyết định có hiện nút "Chuyển tiếp", có bắt buộc xong việc... */
+  const caiDatBuoc = caiDatCuaBuoc(cauHinh, giaiDoan);
 
   /**
    * MỐC THỜI GIAN của từng giai đoạn, lấy từ CHỨNG TỪ THẬT.
@@ -551,7 +554,10 @@ export default function TrangChiTietDeNghi() {
                     08/08/2026): phân bổ xong thì việc còn lại là của nhân viên, nên nút
                     CHÍNH là "Chuyển tiếp", không phải "Lập đơn đặt hàng". Vẫn giữ nút lập
                     đơn ở dạng phụ để trưởng bộ phận tự làm được khi cần. */}
-                {quyen.phanBoCongViec && (
+                {/* ⚙️ Nút này BẬT/TẮT ĐƯỢC ở trang Cài đặt quy trình → ô "Cho phép giao lại
+                    nhiệm vụ cho người khác" của từng bước. Base đặt "Không cho phép" ở cả 8
+                    giai đoạn; app để Ban lãnh đạo tự chọn thay vì âm thầm gỡ nút đang chạy. */}
+                {quyen.phanBoCongViec && caiDatBuoc.chuyenViecDuoc && (
                   <Button size="sm" className="w-full" onClick={() => setMoChuyenTiep(true)}>
                     <Forward className="size-4" aria-hidden />
                     Chuyển tiếp
@@ -654,7 +660,7 @@ export default function TrangChiTietDeNghi() {
         onDong={() => setHoiLapBaoGia(false)}
         onDongY={() => {
           // Bước trước phải xong mới đi tiếp — dùng chung luật với kéo thả.
-          const vuongMac = vuongMacSangBuocSau(dn, "tiep_nhan", baoGiaLienQuan, congViecCuaBuoc);
+          const vuongMac = vuongMacSangBuocSau(dn, "tiep_nhan", baoGiaLienQuan, cauHinh);
           if (vuongMac) {
             toast.error("Chưa xong bước Tiếp nhận và kiểm tra", { description: vuongMac });
             return;
