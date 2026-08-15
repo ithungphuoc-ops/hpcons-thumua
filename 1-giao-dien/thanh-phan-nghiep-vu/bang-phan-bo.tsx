@@ -265,6 +265,16 @@ export function BangPhanBo({
    */
   const hienCongCuPhanBo = quyen.phanBoCongViec && dangOBuocPhanBo;
 
+  /**
+   * Số NGƯỜI khác nhau đang được giao việc trong phiếu này — dùng để báo trước việc tách.
+   *
+   * 📌 Đếm trên `deNghi.items` chứ không phải `tienDo`: `tienDo` có thể đã bị lọc chỉ còn phần
+   * việc của người đang xem, đếm trên đó thì nhân viên nào cũng thấy "1 người".
+   */
+  const soNguoiDuocGiao = new Set(
+    deNghi.items.map((d) => d.nguoiPhuTrachUid).filter(Boolean),
+  ).size;
+
   /** Dòng này có hiện dấu × không. Luật đầy đủ ở `suaMatHangDeNghi`, đây là phép lịch sự. */
   function xoaDuoc(stt: number) {
     return quyen.phanBoCongViec && !biLoc && deNghi.items.length > 1 && !sttDaLenDon.includes(stt);
@@ -382,6 +392,33 @@ export function BangPhanBo({
             </span>
           )}
         </div>
+
+        {/* ★ BÁO TRƯỚC VIỆC TÁCH PHIẾU — Ban lãnh đạo 15/08/2026 chốt: giao cho nhiều người
+            thì sang bước ② phiếu tự tách, mỗi người một phiếu.
+
+            🔴 Phải nói TRƯỚC khi nó xảy ra. Tách phiếu là việc khó đảo ngược (sinh hồ sơ mới,
+            ăn vào 12 mã dự phòng của bản chạy thử); để người dùng phân bổ xong mới phát hiện
+            phiếu của mình đã bị chia ba là đúng kiểu app tự tiện làm thay người. */}
+        {hienCongCuPhanBo && soNguoiDuocGiao > 1 && (
+          <p className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary-bg px-3 py-2 text-sm text-primary">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>
+              Đang giao cho <strong>{soNguoiDuocGiao} người</strong>.{" "}
+              {soChuaPhanBo > 0 ? (
+                <>
+                  Khi phân bổ hết {soChuaPhanBo} dòng còn lại, phiếu sẽ <strong>tự tách thành{" "}
+                  {soNguoiDuocGiao} phiếu</strong> — mỗi người một phiếu chứa đúng phần việc của
+                  họ, vẫn gom lại được vì cùng mã gốc.
+                </>
+              ) : (
+                <>
+                  Phiếu sẽ <strong>tự tách thành {soNguoiDuocGiao} phiếu</strong> khi sang bước
+                  Yêu cầu NCC báo giá — mỗi người một phiếu, vẫn gom lại được vì cùng mã gốc.
+                </>
+              )}
+            </span>
+          </p>
+        )}
 
         {/* Thanh hành động khi đã chọn dòng — chỉ ở bước phân bổ, xem `hienCongCuPhanBo`. */}
         {hienCongCuPhanBo && chon.length > 0 && (

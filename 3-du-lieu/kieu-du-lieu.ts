@@ -212,6 +212,37 @@ export interface DeNghiMuaHang {
    * im lặng (đã dính thật với khóa `cauHinh` ngày 13/08/2026).
    */
   congViecDaXong?: CongViecDaXong[];
+  /**
+   * ★ BÌNH LUẬN trao đổi trong quy trình (Ban lãnh đạo 15/08/2026).
+   *
+   * 🔴 KHÁC HẲN `lichSu`, đừng gộp hai thứ. `lichSu` là **app tự ghi** những gì đã xảy ra —
+   * không ai sửa, không ai xóa, dùng để truy trách nhiệm. `binhLuan` là **người tự viết** để
+   * trao đổi, có thể xóa bài của chính mình. Trộn chung thì một dòng người dùng gõ tay trông
+   * y hệt một dòng máy ghi, và nhật ký mất giá trị làm bằng chứng.
+   */
+  binhLuan?: BinhLuan[];
+}
+
+/** Một lời bình trong hồ sơ. Ảnh/tài liệu kèm theo nằm ở `tep`. */
+export interface BinhLuan {
+  id: string;
+  nguoiVietUid: string;
+  nguoiVietTen: string;
+  /** ISO đầy đủ giờ phút. */
+  thoiDiem: NgayISO;
+  noiDung: string;
+  /**
+   * Ảnh và tài liệu đính kèm — phần MÔ TẢ, nội dung tệp nằm ở kho tệp
+   * (`3-du-lieu/kho-tep.ts` → Firestore) nên máy khác mở xem được.
+   */
+  tep?: MoTaTep[];
+  /**
+   * Trả lời bình luận nào — trống là bình luận gốc.
+   *
+   * 📌 CHỈ MỘT CẤP, giống cách làm với `deNghiGocId`: trả lời của trả lời vẫn trỏ về bài gốc
+   * đầu tiên. Cây nhiều tầng đọc trên màn hẹp là không xem được, mà nghiệp vụ cũng không cần.
+   */
+  traLoiChoId?: string;
 }
 
 /** Một công việc của giai đoạn đã được tích hoàn thành. */

@@ -65,3 +65,93 @@ export function maBanSaoTiepTheo(dn: DeNghiMuaHang, tatCa: DeNghiMuaHang[]): str
   }
   return ma;
 }
+
+// ============================================================
+// TÁCH TỰ ĐỘNG THEO PHÂN CÔNG CỦA TRƯỞNG BỘ PHẬN
+//
+// 🔴 Ban lãnh đạo 15/08/2026: *"Khi trưởng phòng giao việc cho nhân viên khác nhau thì ở
+// bước 2 sẽ tự copy đề nghị đó ra và công việc ứng với các tích chọn của trưởng phòng"*.
+//
+// Nghĩa là: ở bước ① trưởng bộ phận tích chọn dòng nào cho ai; khi phiếu đủ điều kiện sang
+// bước ②, mỗi người nhận một phiếu riêng chứa **đúng những dòng mình được giao**.
+//
+// 👉 Hàm ở đây chỉ TÍNH RA phương án tách. Việc tạo phiếu nằm ở `kho-du-lieu.tsx` — tách đôi
+// như vậy để luật kiểm được bằng mắt mà không phải chạy React.
+// ============================================================
+
+/** Một phần tách: người phụ trách và những dòng (theo `stt`) thuộc về họ. */
+export interface PhanTachTheoNguoi {
+  uid: string;
+  ten: string;
+  /** `stt` của các dòng người này phụ trách, theo đúng thứ tự trong phiếu gốc. */
+  stt: number[];
+}
+
+/**
+ * Nhóm các dòng của phiếu theo NGƯỜI PHỤ TRÁCH.
+ *
+ * Trả về mảng rỗng khi phiếu chưa phân bổ đủ — chưa đủ thì chưa sang bước ②, mà chưa sang
+ * bước ② thì chưa tới lúc tách.
+ *
+ * ⚠️ Thứ tự trả về bám theo `stt` NHỎ NHẤT của mỗi người, không phải thứ tự ngẫu nhiên của
+ * `Map`. Nhờ vậy người giữ phiếu gốc luôn là một người xác định, chạy lại bao nhiêu lần cũng
+ * ra cùng kết quả — nếu để thứ tự đổi lung tung thì cùng một phiếu, hai máy tách ra hai kiểu.
+ */
+export function nhomDongTheoNguoiPhuTrach(dn: DeNghiMuaHang): PhanTachTheoNguoi[] {
+  if (dn.items.length === 0) return [];
+  // Còn dòng chưa giao cho ai → chưa phải lúc tách.
+  if (dn.items.some((d) => !d.nguoiPhuTrachUid)) return [];
+
+  const theoNguoi = new Map<string, PhanTachTheoNguoi>();
+  for (const d of dn.items) {
+    const uid = d.nguoiPhuTrachUid as string;
+    const da = theoNguoi.get(uid);
+    if (da) da.stt.push(d.stt);
+    else theoNguoi.set(uid, { uid, ten: d.nguoiPhuTrachTen ?? uid, stt: [d.stt] });
+  }
+  return [...theoNguoi.values()].sort((a, b) => Math.min(...a.stt) - Math.min(...b.stt));
+}
+
+/** Kết quả tính phương án tách — nói rõ tách được hay không và vì sao. */
+export type PhuongAnTach =
+  | { tach: false; lyDo: string }
+  | {
+      tach: true;
+      /** Người giữ nguyên phiếu gốc (nhóm có dòng đầu tiên). */
+      giuPhieuGoc: PhanTachTheoNguoi;
+      /** Các nhóm cần tạo phiếu mới. */
+      canTaoPhieu: PhanTachTheoNguoi[];
+    };
+
+/**
+ * Quyết định có tách phiếu hay không.
+ *
+ * 🔴 NGƯỜI CÓ DÒNG ĐẦU TIÊN GIỮ PHIẾU GỐC, các người còn lại nhận phiếu copy. Vì sao không
+ * tạo phiếu mới cho tất cả rồi bỏ phiếu gốc: bản chạy thử chỉ có **12 mã dự phòng**
+ * (`generateStaticParams`), tạo dư một phiếu mỗi lần tách là rất nhanh hết mã. Giữ phiếu gốc
+ * cũng đúng nghiệp vụ hơn — mã `PR-001` vẫn tồn tại thay vì biến mất thành ba mã "(copy)".
+ *
+ * ⚠️ KIỂM ĐỦ MÃ TRƯỚC KHI TÁCH, đây là lý do hàm nhận `soMaConTrong`. Tách được 1 trong 2
+ * phiếu rồi hết mã là tệ hơn không tách: phiếu gốc đã bị lấy mất dòng của người thứ hai,
+ * mà phiếu của người đó thì không tồn tại — khối lượng biến mất khỏi hệ thống.
+ */
+export function tinhPhuongAnTach(dn: DeNghiMuaHang, soMaConTrong: number): PhuongAnTach {
+  // Bản đã là copy thì không tách tiếp — quan hệ cha–con chỉ một cấp (xem `deNghiGocId`).
+  if (dn.deNghiGocId) return { tach: false, lyDo: "Phiếu này đã là một bản tách." };
+
+  const nhom = nhomDongTheoNguoiPhuTrach(dn);
+  if (nhom.length === 0) {
+    return { tach: false, lyDo: "Còn dòng chưa phân bổ người phụ trách." };
+  }
+  if (nhom.length === 1) {
+    return { tach: false, lyDo: "Cả phiếu giao cho một người nên không cần tách." };
+  }
+  const canTao = nhom.length - 1;
+  if (soMaConTrong < canTao) {
+    return {
+      tach: false,
+      lyDo: `Cần ${canTao} mã hồ sơ để tách cho ${nhom.length} người nhưng chỉ còn ${soMaConTrong}. Bản chạy thử giới hạn 12 đề nghị — xóa bớt phiếu cũ rồi thử lại.`,
+    };
+  }
+  return { tach: true, giuPhieuGoc: nhom[0], canTaoPhieu: nhom.slice(1) };
+}

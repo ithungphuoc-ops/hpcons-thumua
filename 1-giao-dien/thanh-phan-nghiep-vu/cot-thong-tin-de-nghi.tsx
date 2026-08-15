@@ -1,7 +1,6 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
 import {
   GIAI_DOAN_MUA_HANG,
   NHAN_GIAI_DOAN,
@@ -264,36 +263,10 @@ export function CotThongTinDeNghi({
           đầu trang cạnh tiêu đề, đúng chỗ Base đặt chúng. Bỏ khối mà quên nút là người dùng
           mất đường làm việc. */}
 
-      {/* ================= LỊCH SỬ HOẠT ĐỘNG ================= */}
-      {/* Gập sẵn như trong ảnh mẫu — dài và chỉ tra khi cần. */}
-      <KhoiGap tieuDe="Lịch sử hoạt động" soLuong={deNghi.lichSu.length}>
-        {deNghi.lichSu.length === 0 ? (
-          <p className="text-sm text-text-desc">Chưa có thao tác nào được ghi lại.</p>
-        ) : (
-          <>
-            {/* Mới nhất lên đầu — người xem thường quan tâm việc vừa xảy ra. */}
-            <ul className="flex flex-col gap-2.5">
-              {[...deNghi.lichSu].reverse().map((m, i) => (
-                <li key={i} className="flex flex-col gap-0.5 text-sm leading-tight">
-                  <span className="font-mono text-xs text-text-desc tabular-nums">
-                    {formatMocThoiGian(m.thoiDiem)}
-                  </span>
-                  <span className="text-text-secondary">
-                    <strong className="font-medium text-text-primary">
-                      {m.nguoiThucHien}
-                    </strong>{" "}
-                    {m.hanhDong}
-                  </span>
-                  {m.ghiChu && <span className="text-text-desc italic">{m.ghiChu}</span>}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2.5 border-t border-divider pt-2 text-xs text-text-desc">
-              Giờ theo múi giờ Việt Nam (UTC+7).
-            </p>
-          </>
-        )}
-      </KhoiGap>
+      {/* 📌 LỊCH SỬ HOẠT ĐỘNG ĐÃ DỜI sang `khoi-trao-doi.tsx` (Ban lãnh đạo 15/08/2026), nơi
+          nó thành một thẻ nằm cạnh thẻ Bình luận, ngay dưới khối Người theo dõi.
+          🔴 Dời chứ KHÔNG nhân đôi: để lại bản cũ ở đây thì hai chỗ cùng hiện một danh sách,
+          sửa cách hiển thị ở một chỗ là lệch ngay. */}
     </div>
   );
 }

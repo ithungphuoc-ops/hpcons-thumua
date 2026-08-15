@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 // Chỉ dùng để SUY RA giai đoạn khi phát thông báo chuyển bước — import type-only
 // chiều ngược lại nên không tạo vòng phụ thuộc runtime.
 import {
@@ -29,7 +30,11 @@ import {
   type CongViecGiaiDoan,
   type VetDoiCauHinh,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
-import { maBanSaoTiepTheo, phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import {
+  maBanSaoTiepTheo,
+  phieuGocCua,
+  tinhPhuongAnTach,
+} from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { nhanSuDangLamViec, tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import {
   DE_NGHI_MAU,
@@ -292,6 +297,17 @@ interface GiaTriDuLieu {
     sttGiuLai?: number[],
     duocPhep?: (deNghi: DeNghiMuaHang) => boolean,
   ) => string;
+  /**
+   * Tách phiếu thành nhiều phiếu con theo phân công của trưởng bộ phận — mỗi người nhận
+   * đúng những dòng mình được giao (Ban lãnh đạo 15/08/2026).
+   *
+   * Trả `null` khi không tách (chỉ một người phụ trách, còn dòng chưa giao, hết mã dự phòng,
+   * hoặc phiếu này vốn đã là bản tách).
+   */
+  tachTheoPhanBo: (
+    prId: string,
+    nguoiThucHienTen: string,
+  ) => { soPhieu: number; ten: string[] } | null;
   /** Xóa hẳn (chỉ bản chạy thử). Trả lý do bị chặn, `null` nghĩa là đã xóa. */
   xoaDeNghi: (prId: string) => string | null;
 
@@ -331,6 +347,28 @@ interface GiaTriDuLieu {
     xong: boolean,
     nguoiTen: string,
   ) => void;
+
+  // --- Bình luận trao đổi (Ban lãnh đạo 15/08/2026) ---
+  /**
+   * Viết một lời bình vào hồ sơ. `tep` là phần mô tả ảnh/tài liệu đã cất xong ở kho tệp.
+   *
+   * 🔴 KHÔNG ghi bình luận vào `lichSu`. Nhật ký là thứ app tự ghi để truy trách nhiệm; chen
+   * chữ người dùng gõ tay vào đó là làm hỏng giá trị làm bằng chứng của nó.
+   */
+  vietBinhLuan: (
+    prId: string,
+    nguoi: { uid: string; ten: string },
+    noiDung: string,
+    tep?: MoTaTep[],
+    traLoiChoId?: string,
+  ) => void;
+  /**
+   * Xóa một lời bình.
+   *
+   * ⚠️ Chỉ xóa được bài của CHÍNH MÌNH — chốt chặn nằm ngay trong hàm này chứ không chỉ ở
+   * giao diện, để không ai gọi vòng qua nút bấm mà xóa được lời người khác.
+   */
+  xoaBinhLuan: (prId: string, binhLuanId: string, nguoiXoaUid: string) => void;
 
   /**
    * Trưởng bộ phận bấm "Chuyển tiếp": bàn giao đề nghị cho các nhân viên đã được
@@ -627,6 +665,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   phieuNhanRef.current = phieuNhan;
   const thongBaoRef = useRef(thongBao);
   thongBaoRef.current = thongBao;
+  /**
+   * Cầu nối tới `tachTheoPhanBo` — hàm đó khai báo phía dưới nên effect ở trên không gọi
+   * thẳng được. Dùng ref thay vì dời hàm lên: dời lên là phải kéo theo cả cụm `homNay`,
+   * `ID_DE_NGHI_GIA_LAP`, làm rối thứ tự đọc của file.
+   */
+  const tachTheoPhanBoRef = useRef<
+    ((prId: string, nguoiThucHienTen: string) => { soPhieu: number; ten: string[] } | null) | null
+  >(null);
 
   // ------------------------------------------------------------
   // THÔNG BÁO CHUYỂN BƯỚC — theo dõi giai đoạn SUY RA của từng đề nghị.
@@ -718,6 +764,33 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     }
     // Giữ tối đa 30 thông báo gần nhất — đủ cho một phiên trình diễn.
     if (moi.length > 0) setThongBao((truocDo) => [...moi, ...truocDo].slice(0, 30));
+
+    /**
+     * ★ TỰ TÁCH PHIẾU KHI VÀO BƯỚC ② — Ban lãnh đạo 15/08/2026: *"Khi trưởng phòng giao việc
+     * cho nhân viên khác nhau thì ở bước 2 sẽ tự copy đề nghị đó ra và công việc ứng với các
+     * tích chọn của trưởng phòng"*.
+     *
+     * 🔴 ĐẶT TRONG CHÍNH EFFECT NÀY, không tách ra effect riêng. Effect này là chỗ duy nhất
+     * biết bước TRƯỚC và bước SAU, và quan trọng hơn: nó giữ cờ `dangNhanTuNoiKhac` rồi hạ
+     * xuống ngay khi dùng xong. Một effect thứ hai đọc cờ đó sẽ luôn thấy cờ đã hạ, nên khi
+     * kho chung đẩy về một phiếu vừa được MÁY KHÁC tách, máy này sẽ tách thêm một lần nữa —
+     * cùng một phiếu bị chia hai lần, khối lượng bốc hơi.
+     *
+     * 📌 Không sợ lặp vô hạn: tách xong mỗi phiếu chỉ còn một người phụ trách, mà một người
+     * thì `tinhPhuongAnTach` trả `tach: false`.
+     *
+     * ⚠️ Người thực hiện ghi là "Hệ thống" vì đúng là app tự làm, không ai bấm nút. Muốn biết
+     * ai gây ra thì đọc dòng nhật ký phân bổ ngay phía trên — nó có tên trưởng bộ phận.
+     */
+    for (const dn of deNghi) {
+      if (truoc.get(dn.id) !== "tiep_nhan" || hienTai.get(dn.id) !== "yeu_cau_bao_gia") continue;
+      const kq = tachTheoPhanBoRef.current?.(dn.id, "Hệ thống");
+      if (kq) {
+        toast.info(`Đã tách ${dn.code} thành ${kq.soPhieu} phiếu`, {
+          description: `Mỗi người một phiếu theo phân công: ${kq.ten.join(", ")}.`,
+        });
+      }
+    }
   }, [deNghi, donHang, baoGia, phieuNhan]);
 
   /** Ghi một dòng nhật ký vào lịch sử của đề nghị — dùng cho MỌI thao tác sửa dữ liệu. */
@@ -2061,6 +2134,106 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * ★ TÁCH PHIẾU THEO PHÂN CÔNG — Ban lãnh đạo 15/08/2026: *"Khi trưởng phòng giao việc cho
+   * nhân viên khác nhau thì ở bước 2 sẽ tự copy đề nghị đó ra và công việc ứng với các tích
+   * chọn của trưởng phòng"*.
+   *
+   * Người có dòng đầu tiên giữ phiếu gốc (chỉ còn dòng của mình), mỗi người còn lại nhận một
+   * phiếu `(copy)` chứa đúng dòng được giao. Luật ở `2-quy-trinh/nhan-ban-de-nghi.ts`.
+   *
+   * 🔴 LÀM TRỌN GÓI TRONG MỘT LẦN `setDeNghi`. Gọi `nhanBanDeNghi` nhiều lần rồi sửa phiếu
+   * gốc sau là nhiều lần ghi liên tiếp: lần ghi giữa chừng có thể đẩy lên kho chung một trạng
+   * thái nửa vời (phiếu gốc còn đủ dòng nhưng đã có phiếu con) — máy khác đọc được đúng lúc
+   * đó là thấy khối lượng bị đếm hai lần.
+   *
+   * Trả về mô tả kết quả để nơi gọi báo cho người dùng; `null` nghĩa là không tách gì.
+   */
+  const tachTheoPhanBo = useCallback(
+    (prId: string, nguoiThucHienTen: string): { soPhieu: number; ten: string[] } | null => {
+      const goc = deNghiRef.current.find((d) => d.id === prId);
+      if (!goc) return null;
+
+      const maTrong = ID_DE_NGHI_GIA_LAP.filter(
+        (id) => !deNghiRef.current.some((d) => d.id === id),
+      );
+      const pa = tinhPhuongAnTach(goc, maTrong.length);
+      if (!pa.tach) return null;
+
+      const luc = thoiDiemHienTai();
+      const ngay = homNay();
+      const gocDau = phieuGocCua(goc, deNghiRef.current);
+      const tenMoiNguoi = [pa.giuPhieuGoc, ...pa.canTaoPhieu].map((n) => n.ten);
+
+      /* Mã bản sao phải tính DẦN theo danh sách đang lớn lên: tính hết một lượt trên danh
+         sách cũ thì hai phiếu tách cùng lúc nhận cùng một mã "(copy)". */
+      const dangCo = [...deNghiRef.current];
+      const phieuMoi: DeNghiMuaHang[] = [];
+      pa.canTaoPhieu.forEach((nhom, i) => {
+        const giu = new Set(nhom.stt);
+        const dong = goc.items.filter((d) => giu.has(d.stt));
+        const p: DeNghiMuaHang = {
+          ...goc,
+          id: maTrong[i],
+          code: maBanSaoTiepTheo(goc, dangCo),
+          tieuDe: gocDau.tieuDe,
+          deNghiGocId: gocDau.id,
+          maDeNghiGoc: gocDau.code,
+          ngayDeNghi: ngay,
+          ngayDuyet: ngay,
+          trangThai: "da_duyet",
+          luuTru: undefined,
+          // Chứng từ và trao đổi KHÔNG chép sang: chúng thuộc về phiếu gốc. Chép bình luận
+          // sang mọi phiếu con là mỗi người đọc lại một bản y hệt, trả lời vào bản nào cũng
+          // không ai thấy.
+          binhLuan: undefined,
+          congViecDaXong: undefined,
+          // Đánh số lại từ 1 — `stt` là khóa đối chiếu khối lượng (xem `nhanBanDeNghi`).
+          items: dong.map((d, k) => ({ ...d, stt: k + 1 })),
+          lichSu: [
+            {
+              thoiDiem: luc,
+              nguoiThucHien: nguoiThucHienTen,
+              hanhDong: `Tách tự động từ ${goc.code} theo phân công`,
+              ghiChu: `Nhận ${dong.length}/${goc.items.length} mặt hàng, do ${nhom.ten} phụ trách.`,
+            },
+          ],
+        };
+        phieuMoi.push(p);
+        dangCo.push(p);
+      });
+
+      const sttGiuLai = new Set(pa.giuPhieuGoc.stt);
+      setDeNghi((truoc) => [
+        ...truoc.map((d) =>
+          d.id !== prId
+            ? d
+            : {
+                ...d,
+                items: d.items
+                  .filter((x) => sttGiuLai.has(x.stt))
+                  .map((x, k) => ({ ...x, stt: k + 1 })),
+                lichSu: [
+                  ...d.lichSu,
+                  {
+                    thoiDiem: luc,
+                    nguoiThucHien: nguoiThucHienTen,
+                    hanhDong: `Tách thành ${tenMoiNguoi.length} phiếu theo phân công`,
+                    ghiChu: `Mỗi người một phiếu: ${tenMoiNguoi.join(", ")}. Phiếu này giữ ${sttGiuLai.size}/${d.items.length} mặt hàng của ${pa.giuPhieuGoc.ten}.`,
+                  },
+                ],
+              },
+        ),
+        ...phieuMoi,
+      ]);
+
+      return { soPhieu: tenMoiNguoi.length, ten: tenMoiNguoi };
+    },
+    [],
+  );
+  // Nối vào ref để effect theo dõi chuyển bước (khai báo phía trên) gọi được.
+  tachTheoPhanBoRef.current = tachTheoPhanBo;
+
+  /**
    * XÓA HẲN đề nghị.
    *
    * 🔴 CHỈ CÓ Ý NGHĨA Ở BẢN CHẠY THỬ. Khi nối Firestore thật, xóa hồ sơ phải bị Security
@@ -2190,6 +2363,70 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * BÌNH LUẬN — người dùng tự viết, khác hẳn nhật ký do app ghi.
+   *
+   * 📌 Không đụng tới `lichSu`: xem chú thích ở phần khai báo kiểu.
+   */
+  const vietBinhLuan = useCallback(
+    (
+      prId: string,
+      nguoi: { uid: string; ten: string },
+      noiDung: string,
+      tep?: MoTaTep[],
+      traLoiChoId?: string,
+    ) => {
+      const chu = noiDung.trim();
+      // Không có chữ mà cũng không có tệp thì chẳng có gì để lưu.
+      if (!chu && (tep ?? []).length === 0) return;
+      setDeNghi((truoc) =>
+        truoc.map((dn) => {
+          if (dn.id !== prId) return dn;
+          const cu = dn.binhLuan ?? [];
+          /* Trả lời của trả lời quy về bài gốc — giữ đúng MỘT CẤP như đã khai ở kiểu dữ
+             liệu. Nếu không quy về, cây bình luận lồng vô hạn, màn hẹp không đọc nổi. */
+          const goc = traLoiChoId
+            ? (cu.find((b) => b.id === traLoiChoId)?.traLoiChoId ?? traLoiChoId)
+            : undefined;
+          return {
+            ...dn,
+            binhLuan: [
+              ...cu,
+              {
+                id: `bl-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+                nguoiVietUid: nguoi.uid,
+                nguoiVietTen: nguoi.ten,
+                thoiDiem: thoiDiemHienTai(),
+                noiDung: chu,
+                ...((tep ?? []).length > 0 ? { tep } : {}),
+                ...(goc ? { traLoiChoId: goc } : {}),
+              },
+            ],
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  const xoaBinhLuan = useCallback((prId: string, binhLuanId: string, nguoiXoaUid: string) => {
+    setDeNghi((truoc) =>
+      truoc.map((dn) => {
+        if (dn.id !== prId) return dn;
+        const cu = dn.binhLuan ?? [];
+        const bai = cu.find((b) => b.id === binhLuanId);
+        // 🔴 Chốt chặn ở TẦNG DỮ LIỆU, không chỉ ẩn nút trên giao diện.
+        if (!bai || bai.nguoiVietUid !== nguoiXoaUid) return dn;
+        return {
+          ...dn,
+          /* Xóa luôn các trả lời của bài đó — để lại thì chúng thành mồ côi, người đọc
+             thấy câu trả lời mà không biết đang trả lời cái gì. */
+          binhLuan: cu.filter((b) => b.id !== binhLuanId && b.traLoiChoId !== binhLuanId),
+        };
+      }),
+    );
+  }, []);
+
+  /**
    * 🔴 `nguoiBoTen` LÀ NGƯỜI ĐANG BẤM BỎ, không phải người đã thêm.
    *
    * Trước 14/08/2026 chỗ này ghi `bi.nguoiThemTen` vào nhật ký — tức tên người ĐÃ THÊM người
@@ -2316,12 +2553,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiLuuTru,
       suaTruongBoSung,
       nhanBanDeNghi,
+      tachTheoPhanBo,
       xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
       ghiLichSuDeNghi,
       datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
+      vietBinhLuan,
+      xoaBinhLuan,
       chuyenTiepChoNhanVien,
       thongBao,
       cauHinh,
@@ -2365,12 +2605,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiLuuTru,
       suaTruongBoSung,
       nhanBanDeNghi,
+      tachTheoPhanBo,
       xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
       ghiLichSuDeNghi,
       datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
+      vietBinhLuan,
+      xoaBinhLuan,
       chuyenTiepChoNhanVien,
       thongBao,
       cauHinh,

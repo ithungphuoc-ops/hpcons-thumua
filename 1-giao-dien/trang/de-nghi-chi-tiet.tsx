@@ -25,6 +25,7 @@ import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
+import { KhoiTraoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
 import {
   CotThongTinDeNghi,
@@ -72,6 +73,8 @@ export default function TrangChiTietDeNghi() {
     taoBaoGiaGiaLap,
     cauHinh,
     danhDauCongViecGiaiDoan,
+    vietBinhLuan,
+    xoaBinhLuan,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
@@ -581,13 +584,6 @@ export default function TrangChiTietDeNghi() {
             ⚠️ KHÔNG dùng `sticky` nữa: cột này giờ dài (có cả lịch sử) nên dán cứng vào
             đầu trang sẽ bị cắt mất phần dưới, cuộn không tới. */}
         <aside className="flex min-w-0 flex-col gap-(--hp-md-section)">
-          {/* ★ NGƯỜI THEO DÕI dời từ cột trái sang đây (Ban lãnh đạo 15/08/2026: *"bố cục lại
-              sang tab phải"*). Đúng chỗ Base đặt nó, và hợp lý: đây là thông tin "ai đang
-              nắm hồ sơ", cùng loại với các khối tra cứu khác ở cột phải — không phải việc
-              phải làm, nên không nên chiếm chỗ giữa vùng làm việc.
-              ⚠️ Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
-          <KhoiNguoiTheoDoi deNghi={dn} />
-
           <CotThongTinDeNghi
             deNghi={dn}
             giaiDoan={giaiDoan}
@@ -596,6 +592,29 @@ export default function TrangChiTietDeNghi() {
             // Hạn chuẩn từng bước lấy từ cấu hình quy trình (sửa được ở trang Cài đặt),
             // KHÔNG viết cứng trong component hiển thị.
             hanGioTheoBuoc={cauHinh.hanGioTheoBuoc}
+          />
+
+          {/* ★ NGƯỜI THEO DÕI — cột phải, NGAY TRÊN khối trao đổi (Ban lãnh đạo 15/08/2026:
+              *"mục người theo dõi này đưa xuống dưới, trên mục lịch sử hoạt động"*).
+              Hợp lý: "ai đang nắm hồ sơ" đứng liền trên chỗ những người đó trao đổi và chỗ
+              ghi lại họ đã làm gì.
+              ⚠️ Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
+          <KhoiNguoiTheoDoi deNghi={dn} />
+
+          {/* ★ TRAO ĐỔI — thẻ Bình luận + thẻ Lịch sử hoạt động (15/08/2026). */}
+          <KhoiTraoDoi
+            deNghi={dn}
+            nguoiDung={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+            onGui={(noiDung, tep, traLoiChoId) =>
+              vietBinhLuan(
+                dn.id,
+                { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
+                noiDung,
+                tep,
+                traLoiChoId,
+              )
+            }
+            onXoa={(binhLuanId) => xoaBinhLuan(dn.id, binhLuanId, nguoiDung.uid)}
           />
         </aside>
       </div>
