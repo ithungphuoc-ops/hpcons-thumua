@@ -156,7 +156,7 @@ export function MenuTaiKhoan() {
           Dữ liệu đọc qua `layHoSoNhanSu` — bản chạy thử dựng từ tài khoản mẫu; nối Firebase
           thì hàm đó đọc `users/{uid}` của App Tổng, hộp này KHÔNG phải sửa. */}
       <Dialog open={moHoSo} onOpenChange={(v: boolean) => !v && doiMoHoSo(false)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Thông tin cá nhân</DialogTitle>
             <DialogDescription>

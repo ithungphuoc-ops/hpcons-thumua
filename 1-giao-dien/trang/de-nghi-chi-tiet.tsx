@@ -602,7 +602,7 @@ export default function TrangChiTietDeNghi() {
 
       {/* HỘP CHUYỂN TIẾP — trưởng bộ phận bàn giao việc cho nhân viên đã phân bổ */}
       <Dialog open={moChuyenTiep} onOpenChange={setMoChuyenTiep}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Chuyển tiếp {dn.code}</DialogTitle>
             <DialogDescription>

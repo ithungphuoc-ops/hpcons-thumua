@@ -23,6 +23,7 @@ import type {
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
 import {
+  CAU_HINH_MAC_DINH,
   caiDatCuaBuoc,
   type CauHinhQuyTrinh,
   type CongViecGiaiDoan,
@@ -324,6 +325,11 @@ export interface TheDeNghiTrenBang {
   /** Người phụ trách lấy từ các dòng đã phân bổ, không trùng lặp. */
   nguoiPhuTrach: string[];
   soDongChuaPhanBo: number;
+  /**
+   * Lý do thẻ này chưa chuyển sang bước sau được — `null` là chuyển được.
+   * Hiện thẳng lên thẻ để người dùng khỏi kéo đi kéo lại rồi tưởng app hỏng.
+   */
+  vuongMac: string | null;
   /** Mã các đơn đặt hàng đã lập cho đề nghị này. */
   maPOLienQuan: string[];
 }
@@ -361,6 +367,26 @@ export function dungBangQuyTrinh(
         ),
       ],
       soDongChuaPhanBo: deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length,
+      /**
+       * ★ VÌ SAO THẺ NÀY CHƯA CHUYỂN BƯỚC ĐƯỢC — `null` là chuyển được.
+       *
+       * 🔴 Ban lãnh đạo 15/08/2026: *"sao tk trưởng phòng vẫn chưa thể kéo chuyển bước 1 sang
+       * bước 2 được"*. App chặn ĐÚNG luật (còn 3 dòng chưa giao ai), nhưng thẻ chỉ ghi
+       * *"Thiếu 3 dòng chưa phân bổ"* — không nói rằng **vì vậy** không kéo được, cũng không
+       * chỉ phải làm gì. Người dùng kéo đi kéo lại rồi tưởng app hỏng.
+       *
+       * Tính sẵn ở đây để thẻ hiện thẳng lý do, dùng CHUNG hàm với chỗ thật sự chặn — hai
+       * chỗ không bao giờ nói khác nhau.
+       *
+       * ⚠️ `cauHinh` không truyền vào hàm này (nó là hàm thuần, nhiều nơi gọi), nên phần
+       * "công việc bắt buộc chưa xong" KHÔNG tính ở đây — chỗ kéo thả vẫn kiểm đủ. Thẻ nói
+       * được lý do phổ biến nhất là đủ để người dùng biết đường đi tiếp.
+       */
+      vuongMac: vuongMacSangBuocSau(deNghi, giaiDoan, tatCaBaoGia.filter((b) => b.prId === deNghi.id), {
+        ...CAU_HINH_MAC_DINH,
+        // Bỏ qua công việc bắt buộc ở đây — xem chú thích trên.
+        congViecTheoBuoc: {},
+      }),
       maPOLienQuan: tatCaPO
         .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
         .map((po) => po.code),

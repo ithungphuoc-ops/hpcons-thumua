@@ -84,7 +84,7 @@ export function HopXemTep({
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
       {/* `max-w-4xl` + `max-h-[90vh]`: pop-up CĂN GIỮA màn hình (mặc định của Dialog) và
           rộng gần hết màn để đọc được chữ trên phiếu chụp bằng điện thoại. */}
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="min-w-0 truncate">{tep.tenTep}</DialogTitle>
           <DialogDescription>

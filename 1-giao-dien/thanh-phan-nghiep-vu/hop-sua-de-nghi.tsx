@@ -59,7 +59,7 @@ export function HopSuaThongTinChung({
 
   return (
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Sửa thông tin chung</DialogTitle>
           <DialogDescription>
@@ -179,7 +179,7 @@ export function HopSuaThoiHan({
 
   return (
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Chỉnh sửa thời hạn</DialogTitle>
           <DialogDescription>
@@ -259,7 +259,7 @@ export function HopSuaTruongBoSung({
 
   return (
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Chỉnh sửa dữ liệu tùy chỉnh</DialogTitle>
           <DialogDescription>

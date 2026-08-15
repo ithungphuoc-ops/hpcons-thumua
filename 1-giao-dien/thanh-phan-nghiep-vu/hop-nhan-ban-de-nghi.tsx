@@ -81,7 +81,7 @@ export function HopNhanBanDeNghi({
 
   return (
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nhân bản đề nghị {deNghi.code}</DialogTitle>
           <DialogDescription>

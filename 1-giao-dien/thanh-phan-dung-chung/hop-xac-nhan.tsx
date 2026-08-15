@@ -74,7 +74,7 @@ export function HopXacNhan({
 }) {
   return (
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{tieuDe}</DialogTitle>
           {moTa && <DialogDescription>{moTa}</DialogDescription>}

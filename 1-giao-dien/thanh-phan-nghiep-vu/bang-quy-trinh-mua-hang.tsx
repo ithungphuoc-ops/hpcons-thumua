@@ -455,11 +455,29 @@ function TheDeNghi({
 
       {/* Cảnh báo riêng của app (Base không có): còn dòng vật tư chưa giao cho ai. Để dòng
           riêng vì đây là việc phải xử lý, không phải thông tin nền. */}
-      {soDongChuaPhanBo > 0 && (
-        <span className="inline-flex items-center gap-1 text-xs text-danger-soft">
-          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-          Thiếu {soDongChuaPhanBo} dòng chưa phân bổ
+      {/* ★ LÝ DO CHƯA CHUYỂN BƯỚC ĐƯỢC — Ban lãnh đạo 15/08/2026: *"sao tk trưởng phòng vẫn
+          chưa thể kéo chuyển bước 1 sang bước 2 được"*.
+
+          🔴 App chặn ĐÚNG luật, nhưng trước đây thẻ chỉ ghi "Thiếu 3 dòng chưa phân bổ" — không
+          nói rằng VÌ VẬY không kéo được, cũng không chỉ phải làm gì. Người dùng kéo đi kéo lại
+          rồi tưởng app hỏng. Nay nói thẳng lý do kèm việc phải làm.
+
+          Lý do lấy từ `the.vuongMac` — CÙNG hàm với chỗ thật sự chặn, nên thẻ không bao giờ
+          nói khác với thứ app làm. */}
+      {the.vuongMac ? (
+        <span className="flex items-start gap-1 rounded-md bg-danger-bg px-2 py-1 text-xs leading-snug text-danger-soft">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>
+            <strong>Chưa chuyển bước được.</strong> {the.vuongMac}
+          </span>
         </span>
+      ) : (
+        soDongChuaPhanBo > 0 && (
+          <span className="inline-flex items-center gap-1 text-xs text-danger-soft">
+            <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+            Thiếu {soDongChuaPhanBo} dòng chưa phân bổ
+          </span>
+        )
       )}
     </Link>
   );

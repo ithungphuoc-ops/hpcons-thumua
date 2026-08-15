@@ -404,10 +404,17 @@ export default function TrangDanhSachDeNghi() {
               });
             }}
           />
+          {/* 🔴 NÓI RÕ THẺ TỰ CHUYỂN — Ban lãnh đạo 15/08/2026 hỏi "sao tk trưởng phòng vẫn
+              chưa thể kéo chuyển bước 1 sang bước 2 được". Gốc của hiểu nhầm: người dùng tưởng
+              phải KÉO thì thẻ mới sang cột, nên cứ kéo đi kéo lại một hồ sơ chưa đủ điều kiện.
+              Thật ra làm xong việc của bước là thẻ TỰ sang — kéo thả chỉ là lối tắt để mở đúng
+              màn hình làm việc. */}
           {quyen.lapPO && (
             <p className="text-xs text-text-desc">
-              Kéo thẻ sang cột kế tiếp để làm bước đó: bước làm ngay được thì thẻ tự chuyển, bước
-              cần quyết định (chọn NCC, lập đơn, ghi phiếu nhận) sẽ mở đúng màn hình tương ứng.
+              <strong>Thẻ tự sang cột kế tiếp khi bước hiện tại làm xong</strong> — không cần
+              kéo. Ví dụ phân bổ hết người phụ trách là thẻ tự vào “Yêu cầu NCC báo giá”. Kéo
+              thẻ chỉ là lối tắt để mở màn hình làm bước đó. Thẻ nào chưa đi tiếp được thì ghi
+              rõ lý do ngay trên thẻ.
             </p>
           )}
         </div>

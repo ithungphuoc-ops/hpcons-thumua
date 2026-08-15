@@ -235,7 +235,9 @@ function HopChonNhanSu({
         if (!v) setTuKhoa("");
       }}
     >
-      <DialogContent className="max-w-lg">
+      {/* Dàn ngang cho gọn: hộp rộng ra, danh bạ xếp 2 cột nên nhìn hết phòng ban mà
+          không phải cuộn dài. Màn hẹp (điện thoại) tự về 1 cột. */}
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Chọn người theo dõi</DialogTitle>
           <DialogDescription>
@@ -301,9 +303,9 @@ function HopChonNhanSu({
           aria-label="Tìm nhân sự"
         />
 
-        <div className="flex max-h-[50vh] flex-col gap-(--hp-md-card-gap) overflow-y-auto">
+        <div className="grid max-h-[55vh] grid-cols-1 items-start gap-x-6 gap-y-(--hp-md-card-gap) overflow-y-auto sm:grid-cols-2">
           {theoPhongBan.length === 0 ? (
-            <p className="py-6 text-center text-sm text-text-desc">
+            <p className="col-span-full py-6 text-center text-sm text-text-desc">
               Không tìm thấy ai khớp “{tuKhoa}”.
             </p>
           ) : (
