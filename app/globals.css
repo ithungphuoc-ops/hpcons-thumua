@@ -93,19 +93,27 @@
   --hp-bottom-nav-height: 60px;
 
   /* ------------------------------------------------------------
-   * BỀ RỘNG VÙNG LÀM VIỆC — theo khổ giấy A4 (chỉ đạo Ban lãnh đạo 08/08/2026)
+   * BỀ RỘNG VÙNG LÀM VIỆC
    *
-   * Màn hình rộng 1920px+ mà trải hết bề ngang thì hai đầu một dòng cách nhau
-   * cả gang tay, mắt phải quét ngang rất mỏi và nhãn dễ lạc khỏi giá trị của nó.
-   * Bó lại đúng một khổ giấy rồi căn giữa là cách người ta vẫn đọc văn bản.
+   * 🔴 NỚI RỘNG 15/08/2026 — Ban lãnh đạo nhìn màn chi tiết đề nghị, khoanh hai vùng trắng
+   * hai bên và chốt: *"có thể dàn trang ra để tăng cỡ chữ"*.
    *
-   * Đang dùng A4 NGANG (297mm ≈ 1123px) vì app có nhiều bảng nhiều cột.
-   * 👉 Muốn đổi sang A4 DỌC thì sửa ĐÚNG MỘT DÒNG này thành 210mm.
-   *    Dùng đơn vị mm để đúng nghĩa "khổ giấy", không quy đổi ra px cho khỏi lệch.
+   * Trước đó bó đúng một khổ giấy A4 ngang (297mm ≈ 1123px) theo chỉ đạo 08/08/2026, với lý
+   * do: màn 1920px trải hết bề ngang thì hai đầu một dòng cách nhau cả gang tay, mắt quét
+   * ngang rất mỏi. Lý do đó vẫn đúng — nên KHÔNG bỏ hẳn giới hạn, chỉ nới lên 1440px.
+   *
+   * Vì sao 1440px: trang chi tiết chia HAI CỘT, nên bề rộng chia đôi chứ không thành một
+   * dòng chữ dài. Ở 1123px cột phải chỉ còn ~330px, ép mọi thứ trong đó xuống cỡ chữ 11px —
+   * đúng chỗ Ban lãnh đạo kêu "hơi nhỏ". Nới lên 1440px thì cột phải rộng thêm ~90px, đủ để
+   * nâng cỡ chữ mà chữ không bị ngắt dòng lung tung.
+   *
+   * ⚠️ ĐỪNG BỎ HẲN giới hạn (max-w-none) cho toàn app: màn 2560px mà trải hết thì bảng thông
+   * tin kéo dài, nhãn ở đầu dòng và giá trị ở cuối dòng cách nhau cả màn hình, mắt phải rà
+   * ngang mới ghép được cặp — chính lỗi mà giới hạn này sinh ra để tránh.
    *
    * ⚠️ Bảng quy trình 8 cột KHÔNG theo giới hạn này — xem `khung-tong.tsx`.
    * ------------------------------------------------------------ */
-  --hp-be-rong-lam-viec: 297mm;
+  --hp-be-rong-lam-viec: 1440px;
 
   /* --- Bảng màu chủ đạo cho người dùng chọn (xem khối MÀU CHỦ ĐẠO bên dưới) --- */
   --hp-mau-xanh-duong: #096aa7; /* chuẩn V1.1 */

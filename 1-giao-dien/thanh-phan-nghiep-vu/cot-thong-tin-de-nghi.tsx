@@ -79,7 +79,7 @@ export function CotThongTinDeNghi({
           🔴 Vì sao đáng đặt lên đầu: câu hỏi số một khi mở một hồ sơ là "đang ở đâu, ai phải
           làm gì tiếp". Trước đây phải đọc thanh giai đoạn ở cột trái rồi tự đếm. */}
       <section className="rounded-xl bg-primary p-(--hp-md-card-pad) text-white">
-        <span className="text-[11px] font-semibold tracking-wide text-white/80 uppercase">
+        <span className="text-xs font-semibold tracking-wide text-white/80 uppercase">
           Giai đoạn hiện tại
         </span>
         <p className="mt-1 text-sm font-semibold leading-snug">
@@ -91,7 +91,7 @@ export function CotThongTinDeNghi({
 
         {/* Hạn chuẩn của bước — Base gọi là "KỲ VỌNG". 0 giờ = bước không đặt hạn. */}
         {!ketThuc && (
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/25 pt-2 text-xs">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/25 pt-2 text-sm">
             <span className="text-white/80">Thời hạn chuẩn của bước</span>
             <span className="font-semibold tabular-nums">
               {hanGioTheoBuoc[giaiDoan] ? `${hanGioTheoBuoc[giaiDoan]} giờ` : "Không đặt hạn"}
@@ -101,7 +101,7 @@ export function CotThongTinDeNghi({
 
         {/* Bước kế tiếp — người dùng biết trước phải chuẩn bị gì. */}
         {buocKeTiep && (
-          <p className="mt-1.5 text-xs text-white/90">
+          <p className="mt-1.5 text-sm text-white/90">
             » Bước kế tiếp: <strong className="font-semibold">{buocKeTiep.nhan}</strong>
             {hanGioTheoBuoc[buocKeTiep.ma] ? ` (${hanGioTheoBuoc[buocKeTiep.ma]} giờ)` : ""}
           </p>
@@ -111,7 +111,7 @@ export function CotThongTinDeNghi({
             lịch sử chuyển giai đoạn; app suy giai đoạn từ chứng từ nên không biết hồ sơ đã
             ngồi ở bước này bao lâu. Giấu đi là để người dùng tưởng app đang canh giờ hộ. */}
         {!ketThuc && (
-          <p className="mt-2 text-[11px] leading-snug text-white/75">
+          <p className="mt-2 text-xs leading-snug text-white/75">
             App chưa đếm được số giờ đã ở bước này — thời hạn đang tính theo ngày cần hàng của
             cả đề nghị (xem khối Tổng thời gian).
           </p>
@@ -121,10 +121,10 @@ export function CotThongTinDeNghi({
       {/* ================= THÔNG TIN NHIỆM VỤ =================
           Theo khối cùng tên trong ảnh Base: mã, ai tạo, tạo lúc nào, cập nhật gần nhất. */}
       <section className="rounded-xl border border-border bg-surface p-(--hp-md-card-pad)">
-        <span className="text-[11px] font-semibold tracking-wide text-text-desc uppercase">
+        <span className="text-xs font-semibold tracking-wide text-text-desc uppercase">
           Thông tin nhiệm vụ
         </span>
-        <dl className="mt-2 flex flex-col gap-1.5 text-xs">
+        <dl className="mt-2 flex flex-col gap-1.5 text-sm">
           <DongTin nhan="Mã hồ sơ" giaTri={deNghi.code} />
           <DongTin
             nhan="Người đề nghị"
@@ -145,10 +145,10 @@ export function CotThongTinDeNghi({
       {/* ================= TỔNG THỜI GIAN ================= */}
       <section className="rounded-xl border border-border bg-surface p-(--hp-md-card-pad)">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="text-[11px] font-semibold tracking-wide text-text-desc uppercase">
+          <span className="text-xs font-semibold tracking-wide text-text-desc uppercase">
             Tổng thời gian
           </span>
-          <span className="text-xs text-text-secondary tabular-nums">
+          <span className="text-sm text-text-secondary tabular-nums">
             Đã dùng <strong className="text-text-primary">{daDung}</strong> của {tongSoNgay}{" "}
             ngày
           </span>
@@ -162,13 +162,13 @@ export function CotThongTinDeNghi({
         </div>
 
         {/* Trạng thái thời hạn ghi bằng CẢ CHỮ, không chỉ dựa vào màu thanh (V1.1). */}
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="text-text-desc">Ngày cần hàng</span>
           <span className="font-semibold text-text-primary">
             {formatDate(deNghi.ngayCanHang)}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="text-text-desc">Thời hạn</span>
           <span
             className={`rounded px-1.5 py-0.5 font-semibold ${
@@ -182,7 +182,7 @@ export function CotThongTinDeNghi({
 
       {/* ============ TIẾN TRÌNH CỦA CÁC GIAI ĐOẠN ============ */}
       <section className="rounded-xl border border-border bg-surface p-(--hp-md-card-pad)">
-        <span className="text-[11px] font-semibold tracking-wide text-text-desc uppercase">
+        <span className="text-xs font-semibold tracking-wide text-text-desc uppercase">
           Tiến trình của các giai đoạn
         </span>
 
@@ -198,7 +198,7 @@ export function CotThongTinDeNghi({
                 {/* Số tròn: xong = xanh lá có dấu ✓ · đang làm = xanh chủ đạo ·
                     chưa tới = viền xám. Phân biệt bằng cả hình dạng lẫn màu. */}
                 <span
-                  className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                  className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                     hienTai
                       ? "bg-primary text-white"
                       : daQua
@@ -213,7 +213,7 @@ export function CotThongTinDeNghi({
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
                     <span
-                      className={`text-xs leading-tight ${
+                      className={`text-sm leading-tight ${
                         hienTai
                           ? "font-semibold text-text-primary"
                           : chuaToi
@@ -224,7 +224,7 @@ export function CotThongTinDeNghi({
                       {g.nhan}
                     </span>
                     {thoiDiem && (
-                      <span className="shrink-0 font-mono text-[11px] text-text-desc tabular-nums">
+                      <span className="shrink-0 font-mono text-xs text-text-desc tabular-nums">
                         {formatMocThoiGian(thoiDiem)}
                       </span>
                     )}
@@ -239,7 +239,7 @@ export function CotThongTinDeNghi({
                     />
                   </div>
 
-                  <span className="text-[11px] leading-tight text-text-desc">
+                  <span className="text-xs leading-tight text-text-desc">
                     {chuaToi
                       ? "Giai đoạn chờ đến lượt"
                       : hienTai
@@ -256,7 +256,7 @@ export function CotThongTinDeNghi({
         </ol>
 
         {/* ⚠️ Nói thẳng chỗ chưa có dữ liệu, đừng để người xem tưởng app quên ghi. */}
-        <p className="mt-2.5 border-t border-divider pt-2 text-[11px] text-text-desc">
+        <p className="mt-2.5 border-t border-divider pt-2 text-xs text-text-desc">
           Giai đoạn được suy ra từ chứng từ thật, nên chỉ giai đoạn nào có chứng từ mới có
           mốc thời gian.
         </p>
@@ -270,7 +270,7 @@ export function CotThongTinDeNghi({
           <DongSo nhan="Đã lên đơn hàng" so={tomTat.daLenPO} tong={tomTat.tongSoDong} />
           <DongSo nhan="Đã nhận đủ" so={tomTat.daNhanDu} tong={tomTat.tongSoDong} />
 
-          <div className="flex flex-col gap-1 border-t border-divider pt-2 text-xs">
+          <div className="flex flex-col gap-1 border-t border-divider pt-2 text-sm">
             <span className="text-text-desc">Người đề nghị</span>
             <span className="flex items-center gap-1.5 font-medium text-text-primary">
               <User className="size-3.5 shrink-0 text-text-desc" aria-hidden />
@@ -290,14 +290,14 @@ export function CotThongTinDeNghi({
       {/* Gập sẵn như trong ảnh mẫu — dài và chỉ tra khi cần. */}
       <KhoiGap tieuDe="Lịch sử hoạt động" soLuong={deNghi.lichSu.length}>
         {deNghi.lichSu.length === 0 ? (
-          <p className="text-xs text-text-desc">Chưa có thao tác nào được ghi lại.</p>
+          <p className="text-sm text-text-desc">Chưa có thao tác nào được ghi lại.</p>
         ) : (
           <>
             {/* Mới nhất lên đầu — người xem thường quan tâm việc vừa xảy ra. */}
             <ul className="flex flex-col gap-2.5">
               {[...deNghi.lichSu].reverse().map((m, i) => (
-                <li key={i} className="flex flex-col gap-0.5 text-xs leading-tight">
-                  <span className="font-mono text-[11px] text-text-desc tabular-nums">
+                <li key={i} className="flex flex-col gap-0.5 text-sm leading-tight">
+                  <span className="font-mono text-xs text-text-desc tabular-nums">
                     {formatMocThoiGian(m.thoiDiem)}
                   </span>
                   <span className="text-text-secondary">
@@ -310,7 +310,7 @@ export function CotThongTinDeNghi({
                 </li>
               ))}
             </ul>
-            <p className="mt-2.5 border-t border-divider pt-2 text-[11px] text-text-desc">
+            <p className="mt-2.5 border-t border-divider pt-2 text-xs text-text-desc">
               Giờ theo múi giờ Việt Nam (UTC+7).
             </p>
           </>
@@ -335,7 +335,7 @@ function DongSo({ nhan, so, tong }: { nhan: string; so: number; tong: number }) 
   const phanTram = tong > 0 ? Math.round((so / tong) * 100) : 0;
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-2 text-xs">
+      <div className="flex items-baseline justify-between gap-2 text-sm">
         <span className="text-text-desc">{nhan}</span>
         <span className="font-medium text-text-primary tabular-nums">
           {so}/{tong} dòng
