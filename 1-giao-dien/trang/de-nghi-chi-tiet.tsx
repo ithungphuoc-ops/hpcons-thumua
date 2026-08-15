@@ -532,7 +532,14 @@ export default function TrangChiTietDeNghi() {
                 được bằng cách kéo thẻ từ cột ① sang cột ② trên bảng quy trình — khó phát hiện,
                 và trên điện thoại thì không kéo được nên tắc hẳn. Không có bảng báo giá thì
                 không tách được khối lượng cho nhiều nhà cung cấp, tức không tách được PO. */}
-            {quyen.lapPO && (
+            {/* 📌 CHỈ HIỆN KHI CHƯA CÓ BẢNG NÀO — Ban lãnh đạo 15/08/2026 khoanh nút này và
+                ghi *"bỏ nút này"*, trên màn đã có sẵn `260001-HPCS-BG-001` đang thu thập.
+
+                🔴 Bỏ HẲN thì không còn đường lập bảng báo giá đầu tiên — đúng lỗi "làm module
+                mồ côi" mà CLAUDE.md mục 3.4b cảnh báo (phiên 03 suýt mắc với module Báo giá).
+                Nên chỉ ẩn khi đã có bảng: lúc đó thêm nhà cung cấp là việc làm BÊN TRONG bảng
+                đang có, không phải lập bảng thứ hai. */}
+            {quyen.lapPO && baoGiaLienQuan.length === 0 && (
               <Button
                 size="sm"
                 variant="outline"
@@ -617,6 +624,21 @@ export default function TrangChiTietDeNghi() {
         </div>
         <Card>
           <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
+            {/* ★ NÓI RÕ VÌ SAO NÚT LẬP ĐƠN ĐANG KHÓA — Ban lãnh đạo 15/08/2026 chỉ vào nút xám
+                và hỏi *"sao nút này không dùng được"*.
+
+                🔴 App chặn ĐÚNG (bảng báo giá còn đang thu thập, chưa qua xét duyệt — chính
+                luật Ban lãnh đạo yêu cầu hôm nay), nhưng lý do chỉ nằm trong `title`, mà
+                `title` phải rê chuột mới thấy và trên máy tính bảng thì không có. Nút xám
+                không lời giải thích trông y như app hỏng. */}
+            {quyen.lapPO && chanLapDon && !giaiDoanDaKetThuc(giaiDoan) && (
+              <p className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-soft">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>
+                  <strong>Chưa lập được đơn đặt hàng.</strong> {chanLapDon}
+                </span>
+              </p>
+            )}
             {poLienQuan.length === 0 && (
               <p className="text-sm text-text-desc">
                 Chưa có đơn đặt hàng nào. Một đề nghị tách được thành nhiều đơn khi chia hàng

@@ -275,7 +275,7 @@ function CotQuyTrinh({
        * `grow` vẫn giữ: khi 8 cột đã vừa, phần dư được chia đều nên không có khoảng trống bên
        * phải bảng.
        */
-      className={`flex min-w-[272px] shrink-0 grow basis-[272px] flex-col bg-muted transition-opacity xl:min-w-[208px] xl:basis-[208px] 2xl:min-w-[176px] 2xl:basis-[176px] ${
+      className={`flex min-w-[272px] shrink-0 grow basis-[272px] flex-col bg-muted transition-opacity xl:min-w-[224px] xl:basis-[224px] 2xl:min-w-[200px] 2xl:basis-[200px] ${
         dangKeoQua ? "ring-2 ring-primary ring-inset" : ""
       } ${moDi ? "opacity-40" : ""}`}
       {...suKienKeoTha}
@@ -286,9 +286,16 @@ function CotQuyTrinh({
       >
         <div className="flex items-start justify-between gap-2">
           {/* `title` để người mới rê chuột là hiểu cột này đang chờ việc gì. */}
+          {/* 🔴 `min-h-[2.25rem]` = CHỖ CHO ĐÚNG HAI DÒNG — Ban lãnh đạo 15/08/2026: *"sao thụt
+              lên xuống không đều vậy"*.
+
+              Tên các bước dài ngắn khác nhau ("Tiếp nhận và kiểm tra" xuống 2 dòng, "Hoàn
+              thành" chỉ 1 dòng), nên đầu cột cao thấp lệch nhau và dòng "N đề nghị" bên dưới
+              chạy thành bậc thang. Đặt sẵn chỗ cho hai dòng thì mọi cột bằng nhau bất kể tên
+              dài bao nhiêu — cùng cách đã dùng cho `min-h-7` ở hàng nút bên phải. */}
           <h2
             title={giaiDoan.moTa}
-            className={`text-sm font-semibold leading-tight ${LOP_CHU_DAM[giaiDoan.tong]}`}
+            className={`min-h-[2.25rem] text-sm font-semibold leading-tight ${LOP_CHU_DAM[giaiDoan.tong]}`}
           >
             {giaiDoan.nhan}
           </h2>
