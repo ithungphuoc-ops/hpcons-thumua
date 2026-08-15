@@ -14,6 +14,7 @@ import { docDanhDau, ghiDanhDau } from "@/3-du-lieu/danh-dau-ca-nhan";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { laViecCuaToi } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -85,7 +86,7 @@ export default function TrangViecCuaToi() {
       : deNghi.filter(
           (dn) =>
             dn.nguoiDeNghiUid === nguoiDung.uid ||
-            dn.items.some((d) => d.nguoiPhuTrachUid === nguoiDung.uid) ||
+            laViecCuaToi(dn, nguoiDung.uid) ||
             dn.nguoiTheoDoi?.some((n) => n.uid === nguoiDung.uid),
         );
 
@@ -103,8 +104,9 @@ export default function TrangViecCuaToi() {
         soMatHang: dn.items.length,
         soDaNhanDu: tomTat.soDongDaNhanDu,
         // "Đến lượt tôi": tôi đang phụ trách ít nhất một dòng và hồ sơ chưa xong.
-        denLuotToi:
-          !xong && dn.items.some((d) => d.nguoiPhuTrachUid === nguoiDung.uid),
+        // Dùng `laViecCuaToi` chứ không tự viết lại điều kiện — cùng một câu hỏi với bảng
+        // quy trình, phải cùng một câu trả lời.
+        denLuotToi: !xong && laViecCuaToi(dn, nguoiDung.uid),
         toiTheoDoi: Boolean(dn.nguoiTheoDoi?.some((n) => n.uid === nguoiDung.uid)),
         // Quá hạn chỉ tính khi CHƯA xong — hồ sơ đã nhận đủ thì hạn không còn ý nghĩa.
         quaHan: !xong && conLai < 0,
@@ -139,12 +141,20 @@ export default function TrangViecCuaToi() {
         return kho.includes(k);
       })
       .sort((a, b) => {
-        // Ghim lên đầu, rồi hồ sơ quá hạn, rồi theo ngày cần hàng gần nhất.
+        /* Ghim lên đầu — người dùng tự tay đánh dấu thì ý muốn của họ đứng trên mọi luật
+           tự động. */
         const ga = daGhim.includes(a.dn.id) ? 0 : 1;
         const gb = daGhim.includes(b.dn.id) ? 0 : 1;
         if (ga !== gb) return ga - gb;
+        /* ★ VIỆC ĐẾN LƯỢT MÌNH LÊN TRƯỚC — Ban lãnh đạo 15/08/2026.
+           `denLuotToi` đã tính sẵn ở trên (mình phụ trách VÀ hồ sơ chưa xong), tab "Tất cả"
+           trước đây bỏ quên nó nên việc của mình lẫn giữa việc của đồng nghiệp. */
+        if (a.denLuotToi !== b.denLuotToi) return a.denLuotToi ? -1 : 1;
         if (a.quaHan !== b.quaHan) return a.quaHan ? -1 : 1;
-        return a.dn.ngayCanHang.localeCompare(b.dn.ngayCanHang);
+        const han = a.dn.ngayCanHang.localeCompare(b.dn.ngayCanHang);
+        // Phá hòa bằng mã hồ sơ — thiếu bước này thì hồ sơ cùng ngày cần hàng đảo chỗ
+        // mỗi lần dữ liệu đổi, người đang nhìn tưởng bấm nhầm.
+        return han !== 0 ? han : a.dn.code.localeCompare(b.dn.code, "vi");
       });
   }, [dong, loc, tuKhoa, daGhim]);
 

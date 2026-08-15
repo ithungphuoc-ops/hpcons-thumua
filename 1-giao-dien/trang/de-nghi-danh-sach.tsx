@@ -29,6 +29,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocNhanBanDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+import { soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
   congViecChuaXongCuaBuoc,
   dungBangQuyTrinh,
@@ -140,20 +141,34 @@ export default function TrangDanhSachDeNghi() {
 
   const danhSach = useMemo(
     () =>
-      deNghi.map((dn) => {
-        const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
-        return {
-          dn,
-          tomTat: tomTatTienDoDeNghi(tienDo),
-          soChuaPhanBo: tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo").length,
-        };
-      }),
-    [deNghi, donHang, phieuNhan],
+      deNghi
+        .map((dn) => {
+          const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
+          return {
+            dn,
+            tomTat: tomTatTienDoDeNghi(tienDo),
+            soChuaPhanBo: tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo").length,
+          };
+        })
+        /* Chế độ "Danh sách" xếp CÙNG MỘT HÀM với chế độ "Dạng bảng" — người dùng chuyển qua
+           lại giữa hai chế độ, thấy thứ tự khác nhau là tưởng mất hồ sơ. Luật ở
+           `2-quy-trinh/sap-xep-uu-tien.ts`, đừng chép lại điều kiện vào đây. */
+        .sort((a, b) => soSanhDeNghiUuTien(a.dn, b.dn, nguoiDung.uid)),
+    [deNghi, donHang, phieuNhan, nguoiDung.uid],
   );
 
+  /**
+   * ★ VIỆC CỦA NGƯỜI ĐANG XEM LÊN ĐẦU MỖI CỘT — Ban lãnh đạo 15/08/2026: *"ở các tài khoản
+   * nhân viên, hãy ưu tiên hiển thị các công việc của nhân viên đó đảm nhiệm trước"*.
+   *
+   * 📌 Truyền uid cho MỌI vai trò, không chỉ nhân viên. Trưởng bộ phận cũng trực tiếp phụ
+   * trách một số dòng, và việc của chính mình lên đầu thì cũng đúng với họ. Ai không phụ
+   * trách dòng nào thì không thẻ nào được ưu tiên, bảng xếp y như cũ — không cần tách nhánh
+   * theo vai trò, một luật chạy đúng cho tất cả.
+   */
   const cot = useMemo(
-    () => dungBangQuyTrinh(deNghi, donHang, baoGia, phieuNhan),
-    [deNghi, donHang, baoGia, phieuNhan],
+    () => dungBangQuyTrinh(deNghi, donHang, baoGia, phieuNhan, new Date(), nguoiDung.uid),
+    [deNghi, donHang, baoGia, phieuNhan, nguoiDung.uid],
   );
 
   /**

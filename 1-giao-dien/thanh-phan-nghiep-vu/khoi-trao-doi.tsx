@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { CornerDownRight, Eye, ImagePlus, Paperclip, Send, Trash2, X } from "lucide-react";
+import { CornerDownRight, Eye, Paperclip, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
@@ -261,6 +261,14 @@ function OSoanBinhLuan({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
+        {/* ★ ICON KẸP GIẤY — Ban lãnh đạo 15/08/2026: *"thay icon chỗ up tài liệu theo chuẩn
+            hiện đại"*. Kẹp giấy là ký hiệu đính kèm mà Gmail, Slack, Zalo, Teams đều dùng, nên
+            người dùng nhận ra ngay không cần đọc chữ. Icon cũ (`ImagePlus` — khung ảnh có dấu
+            cộng) trông giống nút "chèn ảnh vào bài viết" hơn là "đính kèm tệp", mà chỗ này
+            nhận cả PDF/Word/Excel chứ không riêng ảnh.
+
+            📌 VẪN GIỮ CHỮ bên cạnh icon: Design System V1.1 không cho phép truyền đạt chỉ
+            bằng hình. Nút icon trần đẹp nhưng người mới vào phải rê chuột mới biết nó làm gì. */}
         <label
           className={`inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium transition-colors ${
             dangCat
@@ -283,8 +291,8 @@ function OSoanBinhLuan({
               if (chep && chep.files.length > 0) void themTep(chep.files);
             }}
           />
-          <ImagePlus className="size-4 shrink-0" aria-hidden />
-          {dangCat ? "Đang lưu tệp…" : "Ảnh / tài liệu"}
+          <Paperclip className="size-4 shrink-0" aria-hidden />
+          {dangCat ? "Đang lưu tệp…" : "Đính kèm"}
         </label>
 
         {onHuy && (

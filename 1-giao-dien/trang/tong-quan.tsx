@@ -13,11 +13,12 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { phanTramPO, soNgayConLai, tinhTienDoDeNghi, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { deNghiConDangChay } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { soSanhDonHangUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { cn } from "@/6-tien-ich/gop-lop";
 
 export default function TrangTongQuan() {
   const { deNghi, donHang, phieuNhan, giaDonHang } = useDuLieu();
-  const { quyen } = useNguoiDung();
+  const { nguoiDung, quyen } = useNguoiDung();
 
   const soLieu = useMemo(() => {
     // Chỉ đếm đề nghị còn đang chạy — đề nghị đã hoàn thành hoặc đóng dở
@@ -49,13 +50,20 @@ export default function TrangTongQuan() {
     };
   }, [deNghi, donHang, phieuNhan, giaDonHang]);
 
+  /**
+   * ★ ĐƠN CỦA MÌNH LÊN ĐẦU — Ban lãnh đạo 15/08/2026: *"ở các tài khoản nhân viên, hãy ưu
+   * tiên hiển thị các công việc của nhân viên đó đảm nhiệm trước"*. Chỉ đạo nói "công việc"
+   * chứ không riêng đề nghị, nên đơn đặt hàng cũng theo luật đó.
+   *
+   * Luật ở `2-quy-trinh/sap-xep-uu-tien.ts` — cùng một chỗ với đề nghị.
+   */
   const poCanChuY = useMemo(
     () =>
       donHang
         .filter((po) => po.trangThai !== "hoan_thanh" && po.trangThai !== "huy")
         .map((po) => ({ po, conLai: soNgayConLai(po.ngayGiaoDuKien) }))
-        .sort((a, b) => a.conLai - b.conLai),
-    [donHang],
+        .sort((a, b) => soSanhDonHangUuTien(a.po, b.po, nguoiDung.uid)),
+    [donHang, nguoiDung.uid],
   );
 
   return (

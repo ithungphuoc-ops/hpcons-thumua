@@ -14,6 +14,8 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
 import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { laViecCuaToi, soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
+import { laNguoiTheoDoi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -26,11 +28,28 @@ export default function TrangTheoDoi() {
   const router = useRouter();
   const { nguoiDung, quyen } = useNguoiDung();
 
-  /** Người đề nghị chỉ thấy đề nghị của mình; vai trò quản lý thấy hết. */
+  /**
+   * Vai trò quản lý thấy hết; còn lại chỉ thấy hồ sơ mình có dính vào.
+   *
+   * 🔴 SỬA 15/08/2026 — TRƯỚC ĐÂY MÀN HÌNH NÓI SAI VỀ CHÍNH NÓ. Bộ lọc chỉ kiểm
+   * `nguoiDeNghiUid`, trong khi màn hình trống lại ghi *"Chưa có đề nghị nào do bạn lập hoặc
+   * **có tên bạn trong danh sách theo dõi**"*. Nghĩa là ai được thêm vào danh sách theo dõi
+   * mở trang này ra vẫn thấy trống trơn, và tin rằng chưa có hồ sơ nào — đúng cái bẫy
+   * "giao diện hứa một việc app không làm" mà CLAUDE.md mục 3.5 cấm.
+   *
+   * 📌 Sửa BỘ LỌC chứ không sửa lời văn: được thêm vào danh sách theo dõi chính là để nắm
+   * tiến trình, mà đây là trang tiến trình. Người được chia việc cũng phải thấy phần việc của
+   * mình. Trang này vốn không hiện giá và nhà cung cấp nên mở rộng ở đây không hở thông tin.
+   */
   const danhSach = useMemo(() => {
     const nguon = quyen.xemMoiHoSo
       ? deNghi
-      : deNghi.filter((dn) => dn.nguoiDeNghiUid === nguoiDung.uid);
+      : deNghi.filter(
+          (dn) =>
+            dn.nguoiDeNghiUid === nguoiDung.uid ||
+            laViecCuaToi(dn, nguoiDung.uid) ||
+            laNguoiTheoDoi(dn, nguoiDung.uid),
+        );
     return nguon.map((dn) => {
       const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
       return {
@@ -68,28 +87,51 @@ export default function TrangTheoDoi() {
       | { loai: "nhom"; id: string; ma: string; tieuDe: string; ds: typeof danhSach }
       | ((typeof danhSach)[number] & { loai: "the"; trongNhom: boolean })
     )[] = [];
-    for (const [gocId, ds] of map) {
+    /**
+     * ★ NHÓM CÓ VIỆC CỦA MÌNH LÊN ĐẦU — Ban lãnh đạo 15/08/2026.
+     *
+     * 🔴 Trước đây trang này KHÔNG sắp xếp gì cả: thứ tự nhóm là thứ tự chèn vào `Map`, tức
+     * thứ tự đề nghị trong kho dữ liệu. Nghĩa là hồ sơ lập trước luôn nằm trên, dù người đang
+     * xem chẳng liên quan gì tới nó.
+     *
+     * 📌 Xếp nhóm theo phiếu ĐẠI DIỆN (phiếu đầu sau khi sắp xếp trong nhóm) — nhóm nào có
+     * phần việc của mình thì phiếu đại diện của nó là việc của mình, nên nhóm nổi lên trên.
+     */
+    const nhomSapXep = [...map.entries()].sort(([, dsA], [, dsB]) =>
+      soSanhDeNghiUuTien(dsA[0].dn, dsB[0].dn, nguoiDung.uid),
+    );
+    for (const [gocId, ds] of nhomSapXep) {
       // Phiếu gốc có thể KHÔNG nằm trong danh sách (không được xem, hoặc đã xóa) — khi đó
       // lấy mã gốc chép sẵn trên phiếu con để vẫn gọi tên được nhóm.
       const goc = ds.find((x) => x.dn.id === gocId)?.dn;
-      const trongNhom = ds.length > 1;
+      /**
+       * ★ GOM NHÓM CẢ PHIẾU KHÔNG TÁCH — Ban lãnh đạo 15/08/2026: *"mục này dù không tách
+       * đơn hàng thì cũng phải group lại cho gọn giống các đề nghị tách"*.
+       *
+       * 🔴 Trước đây chỉ nhóm khi có từ 2 phiếu (`ds.length > 1`), nên trang thành hai kiểu
+       * trình bày lẫn lộn: phiếu đã tách gọn thành một dòng, phiếu chưa tách bung nguyên tấm
+       * thẻ cao gấp năm lần. Mắt phải nhảy giữa hai nhịp, và muốn xem lướt cả trang thì thẻ
+       * to chiếm hết màn hình.
+       *
+       * 📌 Nay MỌI đề nghị đều có một dòng gập, mặc định thu gọn. Trang thành một danh sách
+       * đều nhau, bung ra cái nào cần xem kỹ.
+       */
+      const trongNhom = true;
       // Phiếu gốc lên đầu, các bản tách xếp theo mã cho thứ tự ổn định.
       const sapXep = [...ds].sort((a, b) =>
         a.dn.id === gocId ? -1 : b.dn.id === gocId ? 1 : a.dn.code.localeCompare(b.dn.code),
       );
-      if (trongNhom) {
-        ra.push({
-          loai: "nhom",
-          id: gocId,
-          ma: goc?.code ?? ds[0].dn.maDeNghiGoc ?? ds[0].dn.code,
-          tieuDe: goc?.tieuDe ?? ds[0].dn.tieuDe,
-          ds: sapXep,
-        });
-      }
+      ra.push({
+        loai: "nhom",
+        id: gocId,
+        ma: goc?.code ?? ds[0].dn.maDeNghiGoc ?? ds[0].dn.code,
+        tieuDe: goc?.tieuDe ?? ds[0].dn.tieuDe,
+        ds: sapXep,
+      });
       for (const m of sapXep) ra.push({ ...m, loai: "the", trongNhom });
     }
     return ra;
-  }, [danhSach]);
+  }, [danhSach, nguoiDung.uid]);
 
   /**
    * Nhóm đang MỞ. Ban lãnh đạo 13/08/2026: *"thêm nút group lại cho gọn nha"* — nên mặc
@@ -131,9 +173,10 @@ export default function TrangTheoDoi() {
           icon={Eye}
           title="Chưa có đề nghị nào để theo dõi"
           description={
+            // Nêu ĐỦ ba đường vào, đúng bằng bộ lọc ở trên — không hứa hơn, không giấu bớt.
             quyen.taoDeNghi
-              ? "Chưa có đề nghị nào do bạn lập hoặc có tên bạn trong danh sách theo dõi. Bạn lập được đề nghị ngay trong app."
-              : "Chưa có đề nghị nào do bạn lập hoặc có tên bạn trong danh sách theo dõi."
+              ? "Chưa có đề nghị nào do bạn lập, được giao cho bạn, hoặc có tên bạn trong danh sách theo dõi. Bạn lập được đề nghị ngay trong app."
+              : "Chưa có đề nghị nào do bạn lập, được giao cho bạn, hoặc có tên bạn trong danh sách theo dõi."
           }
           action={
             quyen.taoDeNghi
@@ -159,11 +202,15 @@ export default function TrangTheoDoi() {
                     className={`size-4 shrink-0 text-primary transition-transform ${dangMo ? "rotate-90" : ""}`}
                     aria-hidden
                   />
-                  <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
+                  {/* Biểu tượng nhánh chỉ đúng khi hồ sơ THẬT SỰ đã tách. Phiếu đơn lẻ mà
+                      đeo icon nhánh là nói sai — người đọc tưởng nó có phiếu con ở đâu đó. */}
+                  {m.ds.length > 1 && (
+                    <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
+                  )}
                   <span className="font-semibold text-text-primary">{m.ma}</span>
                   <span className="min-w-0 truncate text-text-secondary">— {m.tieuDe}</span>
                   <span className="rounded bg-card px-1.5 py-0.5 text-xs font-medium text-primary">
-                    {m.ds.length} phiếu đã tách
+                    {m.ds.length > 1 ? `${m.ds.length} phiếu đã tách` : "Chưa tách"}
                   </span>
                   {/* 🔴 Khi GỌN vẫn phải thấy nhóm đang ở đâu, nếu không thu gọn chỉ là
                       giấu thông tin. Hiện mã từng phiếu kèm bước hiện tại — đủ để quyết

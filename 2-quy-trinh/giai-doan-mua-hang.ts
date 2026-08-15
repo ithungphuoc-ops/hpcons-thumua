@@ -22,6 +22,7 @@ import type {
   PhieuNhanHang,
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
+import { soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
   CAU_HINH_MAC_DINH,
   caiDatCuaBuoc,
@@ -324,6 +325,14 @@ export interface TheDeNghiTrenBang {
   han: HanXuLy;
   /** Người phụ trách lấy từ các dòng đã phân bổ, không trùng lặp. */
   nguoiPhuTrach: string[];
+  /**
+   * UID của những người phụ trách — dùng để biết thẻ này có phải việc của người đang xem không.
+   *
+   * 🔴 PHẢI SO BẰNG UID, KHÔNG SO BẰNG TÊN. `nguoiPhuTrach` chỉ có tên hiển thị, mà công ty
+   * hoàn toàn có thể có hai người trùng tên — so tên là đẩy nhầm việc của người khác lên đầu
+   * bảng của mình, mà không có dấu hiệu nào để phát hiện.
+   */
+  uidPhuTrach: string[];
   soDongChuaPhanBo: number;
   /**
    * Lý do thẻ này chưa chuyển sang bước sau được — `null` là chuyển được.
@@ -347,6 +356,13 @@ export function dungBangQuyTrinh(
   tatCaBaoGia: BaoGia[],
   tatCaPhieu: PhieuNhanHang[],
   moc: Date = new Date(),
+  /**
+   * UID người đang xem bảng — việc của họ được đẩy lên đầu mỗi cột.
+   *
+   * Bỏ trống (nơi gọi không quan tâm ai đang xem, VD trang in) thì bảng xếp thuần theo ngày
+   * cần hàng như trước.
+   */
+  uidNguoiXem?: string,
 ): CotBangQuyTrinh[] {
   // 🔴 BỎ HỒ SƠ ĐÃ LƯU TRỮ khỏi bảng (chỉ đạo Ban lãnh đạo 10/08/2026, menu ⋯ theo Base).
   // Lưu trữ ≠ đóng dở: hồ sơ vẫn nguyên trạng thái nghiệp vụ, chỉ không hiện trên bảng cho
@@ -363,6 +379,13 @@ export function dungBangQuyTrinh(
         ...new Set(
           deNghi.items
             .map((d) => d.nguoiPhuTrachTen)
+            .filter((x): x is string => Boolean(x)),
+        ),
+      ],
+      uidPhuTrach: [
+        ...new Set(
+          deNghi.items
+            .map((d) => d.nguoiPhuTrachUid)
             .filter((x): x is string => Boolean(x)),
         ),
       ],
@@ -397,14 +420,30 @@ export function dungBangQuyTrinh(
     const cuaCot = the.filter((t) => t.giaiDoan === giaiDoan.ma);
     return {
       giaiDoan,
-      // Việc gấp và việc sắp trễ nổi lên trên — đúng thói quen đọc bảng của trưởng bộ phận.
-      the: [...cuaCot].sort(
-        (a, b) => new Date(a.deNghi.ngayCanHang).getTime() - new Date(b.deNghi.ngayCanHang).getTime(),
-      ),
+      the: [...cuaCot].sort((a, b) => soSanhTheTrenBang(a, b, uidNguoiXem)),
       soQuaHan: cuaCot.filter((t) => t.han.quaHan).length,
     };
   });
 }
+
+/**
+ * THỨ TỰ THẺ TRONG MỘT CỘT — một chỗ duy nhất, dùng cho cả bảng lẫn danh sách.
+ *
+ * 🔴 Ban lãnh đạo 15/08/2026: *"ở các tài khoản nhân viên, hãy ưu tiên hiển thị các công việc
+ * của nhân viên đó đảm nhiệm trước"*. Trước đó nhân viên mở bảng lên thì thẻ của đồng nghiệp
+ * nằm chen giữa, phải đọc hết cột mới thấy việc của mình.
+ *
+ * 👉 Luật thật nằm ở `2-quy-trinh/sap-xep-uu-tien.ts`, MỘT CHỖ DUY NHẤT. Hàm này chỉ là lớp
+ * vỏ mỏng để bảng quy trình gọi cho tiện — đừng chép luật vào đây.
+ */
+export function soSanhTheTrenBang(
+  a: TheDeNghiTrenBang,
+  b: TheDeNghiTrenBang,
+  uidNguoiXem?: string,
+): number {
+  return soSanhDeNghiUuTien(a.deNghi, b.deNghi, uidNguoiXem);
+}
+
 
 // ------------------------------------------------------------
 // KÉO THẢ TRÊN BẢNG
@@ -533,6 +572,38 @@ export function vuongMacSangBuocSau(
       // Các bước sau đã được chặn bằng chứng từ thật (đơn hàng, phiếu nhận, 3 lớp xác nhận).
       return null;
   }
+}
+
+/**
+ * ★ CÓ ĐƯỢC LẬP ĐƠN ĐẶT HÀNG CHƯA — trả lý do bị chặn, `null` là được phép.
+ *
+ * 🔴 Ban lãnh đạo 15/08/2026 bắt lỗi: *"bước này sao trưởng phòng chưa duyệt đã đẩy qua tiến
+ * hành đặt hàng rồi"*. Thẻ `260001-HPCS-PR-001` đang ở cột ⑤ *Tiến hành đặt hàng* kèm
+ * `260001-HPCS-PO-001`, trong khi cột ③ *Xét duyệt báo giá* và cột ④ *Lập đơn mua hàng* đều
+ * trống — tức đơn hàng ra đời mà **không ai duyệt giá**.
+ *
+ * Nguyên nhân: `themDonHang` tạo đơn thẳng ở trạng thái `da_chot` mà không kiểm điều kiện gì.
+ * Giai đoạn thì SUY RA từ chứng từ (nguyên tắc đầu file), nên có đơn đã chốt là thẻ nhảy
+ * thẳng lên bước ⑤, bỏ qua hai bước giữa. Luật chặn cũ chỉ nằm ở đường KÉO THẢ
+ * (`vuongMacSangBuocSau`), còn nút "Lập đơn đặt hàng" đi đường khác nên lọt hết.
+ *
+ * 🔴 ĐÂY LÀ LỖ HỔNG KIỂM SOÁT CHI TIÊU, không phải lỗi hiển thị. Đơn hàng là cam kết trả tiền
+ * cho nhà cung cấp; lập được đơn mà không qua duyệt giá nghĩa là một người có thể tự chọn nhà
+ * cung cấp và tự chốt giá, không ai đối chiếu.
+ *
+ * 📌 Đòi bảng báo giá ở trạng thái `da_chon_ncc` chính là đòi bước ③ đã xong: trạng thái đó
+ * chỉ được đặt khi trưởng bộ phận chốt nhà cung cấp hoặc duyệt phương án chia đơn.
+ */
+export function vuongMacLapDonHang(baoGiaCuaDeNghi: BaoGia[]): string | null {
+  const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
+  if (conSong.length === 0) {
+    return "Chưa có bảng báo giá nào cho đề nghị này. Phải lập bảng báo giá, thu thập giá rồi trình trưởng bộ phận duyệt trước khi lập đơn đặt hàng.";
+  }
+  if (conSong.some((b) => b.trangThai === "da_chon_ncc")) return null;
+  if (conSong.some((b) => b.trangThai === "da_so_sanh")) {
+    return "Bảng báo giá đã trình nhưng trưởng bộ phận CHƯA DUYỆT. Phải chốt nhà cung cấp (hoặc duyệt phương án chia đơn) ở bước Xét duyệt báo giá trước khi lập đơn đặt hàng.";
+  }
+  return "Bảng báo giá còn đang thu thập giá, chưa trình duyệt. Nhập đủ giá rồi bấm trình xét duyệt, trưởng bộ phận duyệt xong mới lập được đơn đặt hàng.";
 }
 
 /**

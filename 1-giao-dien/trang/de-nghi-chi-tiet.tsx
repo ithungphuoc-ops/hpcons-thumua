@@ -51,6 +51,7 @@ import { soNgayConLai } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import {
   NHAN_GIAI_DOAN,
+  vuongMacLapDonHang,
   vuongMacSangBuocSau,
   xacDinhGiaiDoan,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -125,6 +126,14 @@ export default function TrangChiTietDeNghi() {
   // component tự tính lại rồi lệch nhau.
   const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan);
   const conLai = soNgayConLai(dn.ngayCanHang);
+
+  /**
+   * Lý do CHƯA lập được đơn đặt hàng — `null` là lập được.
+   *
+   * Dùng CHUNG hàm với chốt chặn thật trong `themDonHang`, nên nút bị khóa vì lý do gì thì
+   * đúng là lý do app sẽ chặn — không có chuyện nút mở mà bấm vào lại báo lỗi, hay ngược lại.
+   */
+  const chanLapDon = vuongMacLapDonHang(baoGia.filter((b) => b.prId === dn.id));
 
   /**
    * Công việc bắt buộc của bước ĐANG ĐỨNG — mục "Danh sách công việc" của bảng Base.
@@ -225,17 +234,39 @@ export default function TrangChiTietDeNghi() {
                 Chuyển tiếp
               </Button>
             )}
-            {quyen.lapPO && (
-              <Button
-                size="sm"
-                variant={quyen.phanBoCongViec ? "outline" : "default"}
-                nativeButton={false}
-                render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
-              >
-                <ShoppingCart className="size-4" aria-hidden />
-                Lập đơn đặt hàng
-              </Button>
-            )}
+            {/* ★ KHÓA NÚT KHI CHƯA DUYỆT BÁO GIÁ — Ban lãnh đạo 15/08/2026: *"bước này sao
+                trưởng phòng chưa duyệt đã đẩy qua tiến hành đặt hàng rồi"*.
+
+                🔴 Nút này là đường CHÍNH dẫn tới việc lập đơn, mà trước đây nó mở ở MỌI bước:
+                đang ở bước ① cũng bấm được, lập xong là thẻ nhảy thẳng lên bước ⑤, bỏ qua cả
+                xét duyệt báo giá lẫn lập đơn mua hàng.
+
+                📌 Khóa kèm lý do chứ không ẩn: ẩn nút thì người dùng tưởng app thiếu chức
+                năng và đi tìm đường khác; ghi rõ "chưa duyệt báo giá" thì họ biết phải làm gì.
+                Chốt chặn thật nằm ở `themDonHang` — đây chỉ là phép lịch sự. */}
+            {quyen.lapPO &&
+              (chanLapDon ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled
+                  title={chanLapDon}
+                  aria-label={`Chưa lập đơn đặt hàng được: ${chanLapDon}`}
+                >
+                  <ShoppingCart className="size-4" aria-hidden />
+                  Lập đơn đặt hàng
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant={quyen.phanBoCongViec ? "outline" : "default"}
+                  nativeButton={false}
+                  render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+                >
+                  <ShoppingCart className="size-4" aria-hidden />
+                  Lập đơn đặt hàng
+                </Button>
+              ))}
           </div>
         }
       />
@@ -576,8 +607,27 @@ export default function TrangChiTietDeNghi() {
         </Card>
       </section>
 
-      {/* Lịch sử đã dời sang khối "Lịch sử hoạt động" ở CỘT PHẢI (bố cục Base.vn).
-          Không để hai chỗ cùng hiện một danh sách — sửa một chỗ là lệch ngay. */}
+      {/* ★ TRAO ĐỔI — thẻ Bình luận + thẻ Lịch sử hoạt động, đặt ở CỘT GIỮA (Ban lãnh đạo
+          15/08/2026: *"mục bình luận này e kéo ra tab giữa luôn"*).
+
+          🔴 Ban đầu đặt ở cột phải cùng khối Người theo dõi, nhưng cột đó chỉ rộng ~300px:
+          ô soạn bị bóp còn hai chữ một dòng, nút "Gửi bình luận" tràn ra ngoài khung, câu
+          hướng dẫn dài hơn cả ô nhập. Bình luận là chỗ NGƯỜI TA GÕ, không phải thông tin tra
+          cứu — nó thuộc vùng làm việc chính. */}
+      <KhoiTraoDoi
+        deNghi={dn}
+        nguoiDung={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+        onGui={(noiDung, tep, traLoiChoId) =>
+          vietBinhLuan(
+            dn.id,
+            { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
+            noiDung,
+            tep,
+            traLoiChoId,
+          )
+        }
+        onXoa={(binhLuanId) => xoaBinhLuan(dn.id, binhLuanId, nguoiDung.uid)}
+      />
         </div>
 
         {/* Cột phải — thời hạn tổng, tiến trình từng giai đoạn, hoạt động chính, lịch sử.
@@ -600,22 +650,6 @@ export default function TrangChiTietDeNghi() {
               ghi lại họ đã làm gì.
               ⚠️ Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
           <KhoiNguoiTheoDoi deNghi={dn} />
-
-          {/* ★ TRAO ĐỔI — thẻ Bình luận + thẻ Lịch sử hoạt động (15/08/2026). */}
-          <KhoiTraoDoi
-            deNghi={dn}
-            nguoiDung={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-            onGui={(noiDung, tep, traLoiChoId) =>
-              vietBinhLuan(
-                dn.id,
-                { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
-                noiDung,
-                tep,
-                traLoiChoId,
-              )
-            }
-            onXoa={(binhLuanId) => xoaBinhLuan(dn.id, binhLuanId, nguoiDung.uid)}
-          />
         </aside>
       </div>
 

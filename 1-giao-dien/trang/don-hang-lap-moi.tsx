@@ -569,7 +569,7 @@ function NoiDungLapDonHang() {
       return;
     }
 
-    const id = themDonHang({
+    const ketQua = themDonHang({
       maDuAn: dn.maDuAn,
       maHopDongCDT: dn.maHopDongCDT,
       prId: dn.id,
@@ -593,18 +593,19 @@ function NoiDungLapDonHang() {
       },
     });
 
-    // Đơn mới giờ lấy id từ `ID_DON_HANG_GIA_LAP` (đã sinh sẵn trang) nên mở thẳng
-    // được trang chi tiết. Trước đây phải quay về danh sách vì id tự nghĩ ra 404.
-    if (!id) {
-      toast.error("Đã hết chỗ cho đơn hàng thử", {
-        description: "Bản chạy thử chỉ lập được 20 đơn. Tải lại trang để về dữ liệu gốc.",
-      });
+    /* Bị chặn thì nói ĐÚNG LÝ DO. Lý do hay gặp nhất là bảng báo giá chưa được trưởng bộ
+       phận duyệt — người dùng cần biết phải đi làm gì tiếp, không phải một câu báo lỗi chung
+       chung rồi tự đoán. */
+    if ("loi" in ketQua) {
+      toast.error("Chưa lập được đơn đặt hàng", { description: ketQua.loi });
       return;
     }
+    // Đơn mới giờ lấy id từ `ID_DON_HANG_GIA_LAP` (đã sinh sẵn trang) nên mở thẳng
+    // được trang chi tiết. Trước đây phải quay về danh sách vì id tự nghĩ ra 404.
     toast.success("Đã chốt đơn hàng", {
       description: "Đơn đã được đẩy sang app Kho và app QLDA.",
     });
-    router.push(`/don-hang/${id}`);
+    router.push(`/don-hang/${ketQua.id}`);
   }
 
   return (

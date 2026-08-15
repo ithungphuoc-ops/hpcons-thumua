@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import {
   NHAN_GIAI_DOAN,
   nguoiCanXuLy,
+  vuongMacLapDonHang,
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -193,7 +194,14 @@ interface GiaTriDuLieu {
     nguoiThucHien: string,
   ) => void;
   /** Lập PO mới từ các dòng đề nghị. Trả về id PO vừa tạo. */
-  themDonHang: (dauVao: DauVaoDonHangMoi) => string;
+  /**
+   * Lập đơn đặt hàng. Trả `{ id }` khi lập được, `{ loi }` kèm lý do khi bị chặn.
+   *
+   * 🔴 KIỂU TRẢ VỀ CỐ Ý BẮT NƠI GỌI PHẢI XỬ LÝ LỖI. Bản cũ trả chuỗi id, hết chỗ thì trả
+   * chuỗi rỗng — một giá trị "giả" rất dễ bị bỏ qua. Nay đơn có thể bị chặn vì lý do NGHIỆP VỤ
+   * (chưa duyệt báo giá), mà lý do đó phải tới được mắt người dùng.
+   */
+  themDonHang: (dauVao: DauVaoDonHangMoi) => { id: string } | { loi: string };
   themPhieuNhan: (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => void;
   doiTrangThaiPhieu: (
     phieuId: string,
@@ -1262,6 +1270,25 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   const themDonHang = useCallback(
     (dauVao: DauVaoDonHangMoi) => {
       const { donGia, phanTien, ...po } = dauVao;
+
+      /**
+       * 🔴 CHẶN LẬP ĐƠN KHI CHƯA QUA XÉT DUYỆT BÁO GIÁ — Ban lãnh đạo 15/08/2026: *"bước này
+       * sao trưởng phòng chưa duyệt đã đẩy qua tiến hành đặt hàng rồi"*.
+       *
+       * Trước đây hàm này tạo đơn thẳng ở `da_chot` mà không kiểm gì, nên `260001-HPCS-PR-001`
+       * nhảy từ bước ② lên thẳng bước ⑤, hai cột giữa trống trơn. Đơn hàng là cam kết trả
+       * tiền — lập được đơn mà không ai duyệt giá là hở kiểm soát chi tiêu, không phải lỗi
+       * hiển thị.
+       *
+       * ⚠️ CHẶN Ở ĐÂY chứ không chỉ khóa nút. Trang lập đơn mở được bằng URL trực tiếp
+       * (`/don-hang/tao-moi?prId=…`), nhập Excel cũng gọi thẳng vào hàm này — khóa nút chỉ che
+       * một đường trong ba.
+       *
+       * Trả về chuỗi lý do (khác id là chuỗi rỗng khi hết chỗ) để nơi gọi báo cho người dùng.
+       */
+      const chan = vuongMacLapDonHang(baoGiaRef.current.filter((b) => b.prId === po.prId));
+      if (chan) return { loi: chan };
+
       // Số thứ tự PO chạy theo DỰ ÁN, đúng quy tắc mã hồ sơ Thông báo 09/2026.
       const soHienCo = donHangRef.current.filter((p) => p.maDuAn === po.maDuAn).length;
       const stt = String(soHienCo + 1).padStart(3, "0");
@@ -1272,7 +1299,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const id = ID_DON_HANG_GIA_LAP.find(
         (x) => !donHangRef.current.some((p) => p.id === x),
       );
-      if (!id) return ""; // Hết chỗ — trang gọi tự báo cho người dùng.
+      if (!id) {
+        return {
+          loi: "Bản chạy thử chỉ lập được 20 đơn và đã dùng hết. Tải lại trang để về dữ liệu gốc.",
+        };
+      }
 
       setDonHang((truoc) => [...truoc, { ...po, id, code, trangThai: "da_chot" }]);
       setGiaDonHang((truoc) => [
@@ -1289,7 +1320,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ]);
       // Không ghi tên NCC vào nhật ký — lịch sử đề nghị hiện cho cả vai trò không được xem NCC.
       ghiLichSuDeNghi(po.prId, po.nguoiPhuTrachTen, `Lập và chốt đơn hàng ${code}`);
-      return id;
+      return { id };
     },
     [ghiLichSuDeNghi],
   );

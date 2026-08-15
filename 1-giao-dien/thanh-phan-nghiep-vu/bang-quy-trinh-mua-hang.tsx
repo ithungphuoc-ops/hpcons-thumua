@@ -45,6 +45,7 @@ import {
   type TheDeNghiTrenBang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 
 /**
@@ -335,6 +336,14 @@ function TheDeNghi({
   thaoTac?: ThaoTacThe;
 }) {
   const { deNghi, han, nguoiPhuTrach, soDongChuaPhanBo, maPOLienQuan } = the;
+  const { nguoiDung } = useNguoiDung();
+  /**
+   * Thẻ này có phải việc của chính người đang xem không.
+   *
+   * 🔴 SO BẰNG UID chứ không so tên hiển thị — hai người trùng tên là chuyện có thật, và so
+   * tên thì thẻ của người khác sẽ đeo nhãn "Việc của bạn" mà không có cách nào phát hiện.
+   */
+  const laViecCuaToi = the.uidPhuTrach.includes(nguoiDung.uid);
 
   // Nền thẻ: đỏ nhạt khi quá hạn, xanh nhạt khi đã kết thúc tốt — giống cách đọc
   // bảng Base hiện tại. Luôn có chữ đi kèm nên không vi phạm luật "không chỉ dùng màu".
@@ -442,11 +451,24 @@ function TheDeNghi({
           Base ghi "Chưa được giao" khi chưa có ai; app dùng đúng chữ đó thay cho "Chưa phân
           bổ" để người đã quen bảng Base đọc không phải dịch lại trong đầu. */}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-divider pt-1.5 text-xs">
-        <span className="flex min-w-0 items-center gap-1.5 text-text-desc">
+        <span
+          className={`flex min-w-0 items-center gap-1.5 ${
+            laViecCuaToi ? "font-medium text-primary" : "text-text-desc"
+          }`}
+        >
           <UserRound className="size-3.5 shrink-0" aria-hidden />
           <span className="truncate">
             {nguoiPhuTrach.length > 0 ? nguoiPhuTrach.join(" · ") : "Chưa được giao"}
           </span>
+          {/* ★ NÓI RÕ VÌ SAO THẺ NÀY NẰM TRÊN — Ban lãnh đạo 15/08/2026 yêu cầu ưu tiên việc
+              của chính người đang xem. Đổi thứ tự mà không có dấu hiệu gì thì người dùng
+              không biết bảng đang sắp theo luật nào, và tưởng thẻ tự nhảy lung tung.
+              ⚠️ Có CẢ chữ lẫn màu, không chỉ tô màu (Design System V1.1). */}
+          {laViecCuaToi && (
+            <span className="shrink-0 rounded-full bg-primary-bg px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+              Việc của bạn
+            </span>
+          )}
         </span>
         {/* Hạn nằm CÙNG DÒNG với người phụ trách, dồn về phải — đúng mẫu Base. Vẫn là
             StatusBadge nên trạng thái luôn có cả màu lẫn chữ (Design System V1.1). */}
