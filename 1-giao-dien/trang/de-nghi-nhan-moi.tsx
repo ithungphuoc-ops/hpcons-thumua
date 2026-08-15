@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Inbox, Paperclip, Plus, Save, Trash2, Wand2, X } from "lucide-react";
+import { AlertTriangle, Inbox, Paperclip, Plus, Save, Trash2, Wand2, X } from "lucide-react";
+import { vatTuKiemSoatDinhMuc } from "@/2-quy-trinh/kiem-soat-dinh-muc";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
@@ -78,7 +79,7 @@ function congNgay(soNgay: number): string {
 
 export default function TrangNhanDeNghiMoi() {
   const router = useRouter();
-  const { deNghi, themDeNghiGiaLap } = useDuLieu();
+  const { deNghi, themDeNghiGiaLap, cauHinh } = useDuLieu();
   const { nguoiDung, danhSachTaiKhoan } = useNguoiDung();
   /** 🔴 Danh bạ đọc từ TÀI KHOẢN THẬT, không phải mảng mẫu — xem `dung-danh-ba.ts`. */
   const danhBa = useDanhBa();
@@ -220,7 +221,28 @@ export default function TrangNhanDeNghiMoi() {
   }
 
   function suaDong(i: number, thayDoi: Partial<DongNhap>) {
-    setDong((truoc) => truoc.map((d, idx) => (idx === i ? { ...d, ...thayDoi } : d)));
+    setDong((truoc) =>
+      truoc.map((d, idx) => {
+        if (idx !== i) return d;
+        const moi = { ...d, ...thayDoi };
+        /**
+         * ★ TỰ NHẬN RA VẬT TƯ KIỂM SOÁT ĐỊNH MỨC — Ban lãnh đạo 15/08/2026: *"gặp các vật tư
+         * này sẽ tự động hiện dòng thông báo định mức và báo cho bộ phận QLDA"*.
+         *
+         * 🔴 CHỈ TỰ BẬT, KHÔNG TỰ TẮT. Người dùng bỏ tích là có lý do của họ (vd "lưới chắn
+         * côn trùng" khớp nhầm mục "Lưới"); tự tắt lại mỗi lần gõ thêm một chữ thì họ không
+         * bao giờ bỏ được, còn tự bật lại sau khi họ đã tắt là app cãi lại người dùng.
+         *
+         * Danh mục lấy từ cấu hình (sửa được ở trang Cài đặt), không viết cứng ở đây.
+         */
+        if (thayDoi.tenVatLieu !== undefined && !d.vatTuKiemSoatDinhMuc) {
+          if (vatTuKiemSoatDinhMuc(moi.tenVatLieu, cauHinh.vatTuDinhMuc)) {
+            moi.vatTuKiemSoatDinhMuc = true;
+          }
+        }
+        return moi;
+      }),
+    );
   }
 
   /** Gợi ý người theo dõi — bỏ người đã chọn, gõ không dấu vẫn ra. Chỉ hiện khi đang gõ. */
@@ -642,6 +664,30 @@ export default function TrangNhanDeNghiMoi() {
                           Kiểm soát định mức — Ban QLDA nhận cảnh báo
                         </span>
                       </label>
+                      {/* ★ DÒNG THÔNG BÁO ĐỊNH MỨC — hiện ngay khi app nhận ra vật tư nằm
+                          trong danh mục, kèm TÊN MỤC ĐÃ KHỚP và NHÓM.
+
+                          🔴 Nói rõ khớp mục nào là bắt buộc: gõ "Lưới B40" mà app chỉ báo
+                          "cần kiểm soát định mức" thì người dùng không biết vì sao, tưởng
+                          app lỗi. Ghi ra "khớp mục Lưới · nhóm Vật tư kết cấu thép, mái,
+                          vách" thì họ tự thấy đúng hay app khớp nhầm. */}
+                      {(() => {
+                        const khop = vatTuKiemSoatDinhMuc(d.tenVatLieu, cauHinh.vatTuDinhMuc);
+                        if (!khop) return null;
+                        return (
+                          <p className="mt-1 flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning-bg px-2 py-1 text-[11px] leading-snug text-text-secondary">
+                            <AlertTriangle
+                              className="mt-0.5 size-3 shrink-0 text-warning-soft"
+                              aria-hidden
+                            />
+                            <span>
+                              Vật tư có <strong>định mức</strong> — khớp mục “{khop.tenTrongDanhMuc}
+                              ”, nhóm {khop.tenNhom}. Ban QLDA sẽ nhận cảnh báo để đối chiếu
+                              định mức công trình.
+                            </span>
+                          </p>
+                        );
+                      })()}
                     </td>
                     <td className="px-2 py-2 align-top">
                       <Input

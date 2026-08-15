@@ -30,7 +30,7 @@ import {
   type VetDoiCauHinh,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { maBanSaoTiepTheo, phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
-import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
+import { nhanSuDangLamViec, tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import {
   DE_NGHI_MAU,
   DON_HANG_MAU,
@@ -804,6 +804,35 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             nguoiThemTen: dauVao.nguoiDeNghiTen,
             thoiDiemThem: dauVao.ngayDeNghi,
           })),
+        /**
+         * ★ BÁO CHO BAN QLDA khi phiếu có vật tư kiểm soát định mức — Ban lãnh đạo
+         * 15/08/2026: *"gặp các vật tư này sẽ tự động hiện dòng thông báo định mức và báo
+         * cho bộ phận QLDA"*.
+         *
+         * Cách báo: thêm người QLDA vào danh sách THEO DÕI. App không có kênh gửi ra ngoài
+         * (bản xuất tĩnh, không máy chủ), nhưng người theo dõi thì nhận thông báo mỗi lần
+         * hồ sơ chuyển bước và mở xem được tiến trình — đó là cách báo THẬT trong phạm vi
+         * app làm được, thay vì hiện một dòng chữ "đã báo QLDA" mà chẳng gửi đi đâu.
+         *
+         * ⚠️ Chỉ thêm khi THẬT SỰ có dòng được đánh dấu; phiếu không có vật tư định mức mà
+         * cũng kéo QLDA vào thì họ ngập trong hồ sơ không liên quan rồi bỏ qua hết.
+         */
+        ...(dauVao.items.some((d) => d.vatTuKiemSoatDinhMuc)
+          ? nhanSuDangLamViec()
+              .filter((n) => n.department === "quan_ly_du_an")
+              .filter(
+                (n) =>
+                  n.uid !== dauVao.nguoiDeNghiUid &&
+                  !(dauVao.nguoiTheoDoi ?? []).some((x) => x.uid === n.uid),
+              )
+              .map((n) => ({
+                uid: n.uid,
+                ten: n.displayName,
+                chucDanh: n.title,
+                nguoiThemTen: "Hệ thống",
+                thoiDiemThem: dauVao.ngayDeNghi,
+              }))
+          : []),
       ],
       lichSu: [
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },
@@ -813,6 +842,21 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           hanhDong: "Chuyển sang Phòng Thu mua",
           ghiChu: "Việc duyệt đề nghị nằm ở app của bộ phận đề xuất — phiếu vào đây là đã duyệt",
         },
+        // Ghi vết việc app tự kéo QLDA vào — sau này đọc nhật ký biết ngay vì sao họ có tên
+        // trong phiếu, thay vì tưởng ai đó thêm nhầm.
+        ...(dauVao.items.some((d) => d.vatTuKiemSoatDinhMuc)
+          ? [
+              {
+                thoiDiem: thoiDiemHienTai(),
+                nguoiThucHien: "Hệ thống",
+                hanhDong: "Báo Ban QLDA — phiếu có vật tư kiểm soát định mức",
+                ghiChu: dauVao.items
+                  .filter((d) => d.vatTuKiemSoatDinhMuc)
+                  .map((d) => d.tenVatLieu)
+                  .join(", "),
+              },
+            ]
+          : []),
       ],
     };
 

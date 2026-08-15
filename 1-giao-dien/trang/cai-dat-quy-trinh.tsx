@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Lock, RotateCcw, Save, Settings, Timer } from "lucide-react";
+import {
+  AlertTriangle,
+  ClipboardList,
+  Lock,
+  RotateCcw,
+  Save,
+  Settings,
+  Timer,
+} from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/1-giao-dien/nen-tang-ui/card";
@@ -19,6 +27,7 @@ import {
   type CauHinhQuyTrinh,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { KhoiCaiDatGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-cai-dat-giai-doan";
+import { KhoiVatTuDinhMuc } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-vat-tu-dinh-muc";
 import { formatCurrencyVnd, formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 
 /**
@@ -182,6 +191,26 @@ export default function TrangCaiDatQuyTrinh() {
             Hai bước cuối (Hoàn thành · Thất bại) không có ở đây — chúng là điểm dừng, không có
             việc phải làm và không có thời hạn, đúng như bảng Base.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* ===== ②c VẬT TƯ KIỂM SOÁT ĐỊNH MỨC =====
+          Ban lãnh đạo 15/08/2026 gửi danh sách 5 nhóm và chốt: gặp vật tư trong danh mục thì
+          app tự hiện dòng thông báo định mức và báo Ban QLDA; danh sách phải sửa được. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ClipboardList className="size-4 shrink-0 text-primary" aria-hidden />
+            Vật tư kiểm soát định mức
+          </CardTitle>
+          <p className="text-xs text-text-desc">
+            Lập phiếu gặp vật tư trong danh mục này thì app <strong>tự đánh dấu</strong> và{" "}
+            <strong>tự thêm Ban QLDA</strong> vào danh sách theo dõi để họ đối chiếu định mức
+            công trình.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <KhoiVatTuDinhMuc nhap={nhap} setNhap={setNhap} />
         </CardContent>
       </Card>
 

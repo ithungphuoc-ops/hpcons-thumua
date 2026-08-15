@@ -19,6 +19,11 @@
 // app đang chạy theo luật gì; ẩn đi thì họ đi tìm trong mã nguồn hoặc hỏi vòng quanh.
 // ============================================================
 
+import {
+  NHOM_VAT_TU_DINH_MUC_MAC_DINH,
+  type NhomVatTuDinhMuc,
+} from "@/2-quy-trinh/kiem-soat-dinh-muc";
+
 /**
  * ★ MỘT CÔNG VIỆC BẮT BUỘC TRONG GIAI ĐOẠN — mục "Danh sách công việc" của bảng Base.
  *
@@ -147,6 +152,14 @@ export interface CauHinhQuyTrinh {
    * cờ đều tắt" — tắt `batBuocXongCongViec` là âm thầm bỏ luật chặn chuyển bước.
    */
   caiDatTungBuoc: Record<string, CaiDatGiaiDoan>;
+  /**
+   * ★ DANH MỤC VẬT TƯ KIỂM SOÁT ĐỊNH MỨC — Ban lãnh đạo 15/08/2026.
+   *
+   * Gặp vật tư trong danh mục này thì app tự gắn cờ kiểm soát định mức và nhắc báo QLDA.
+   * Để trong cấu hình vì *"danh sách này sẽ được thêm mới hoặc xóa bớt"* — sửa được ngay
+   * trên trang Cài đặt quy trình, không phải nhờ đội triển khai.
+   */
+  vatTuDinhMuc: NhomVatTuDinhMuc[];
 }
 
 /**
@@ -240,6 +253,9 @@ export const CAU_HINH_MAC_DINH: CauHinhQuyTrinh = {
    * "Chuyển tiếp" đang chạy thật và Ban lãnh đạo chưa chốt bỏ; đổi ở trang cài đặt là tắt
    * được ngay, không cần sửa mã nguồn.
    */
+  // Danh mục vật tư kiểm soát định mức — chép đúng ảnh Ban lãnh đạo gửi 15/08/2026.
+  // Nội dung và lý do ở `2-quy-trinh/kiem-soat-dinh-muc.ts`.
+  vatTuDinhMuc: NHOM_VAT_TU_DINH_MUC_MAC_DINH,
   caiDatTungBuoc: {
     tiep_nhan: { ...CAI_DAT_GIAI_DOAN_MAC_DINH },
     yeu_cau_bao_gia: { ...CAI_DAT_GIAI_DOAN_MAC_DINH, cachGiaoViec: "de_quan_ly_giao" },
@@ -380,7 +396,7 @@ export interface MoTaThamSo {
    */
   khoa: Exclude<
     keyof CauHinhQuyTrinh,
-    "hanGioTheoBuoc" | "congViecTheoBuoc" | "caiDatTungBuoc"
+    "hanGioTheoBuoc" | "congViecTheoBuoc" | "caiDatTungBuoc" | "vatTuDinhMuc"
   >;
   nhan: string;
   moTa: string;
