@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowRight, FileText, Inbox, LayoutGrid, List } from "lucide-react";
+import { FileText, Inbox, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
@@ -24,20 +24,13 @@ import { HopNhanBanDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-ba
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/1-giao-dien/nen-tang-ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocNhanBanDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import {
+  congViecChuaXongCuaBuoc,
   dungBangQuyTrinh,
   NHAN_GIAI_DOAN,
   dungXacNhanKeoTha,
@@ -46,6 +39,8 @@ import {
   type HanhDongKeoTha,
   type XacNhanKeoTha,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
+import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
+import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen-giai-doan";
 import { nhanAnToan, NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
 
 /** Hai cách xem cùng một dữ liệu — đặt tên giống bảng Base để anh em quen việc đọc ra ngay. */
@@ -69,6 +64,7 @@ export default function TrangDanhSachDeNghi() {
     xoaDeNghi,
     luiVeBuoc,
     cauHinh,
+    ghiLichSuDeNghi,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [cachXem, setCachXem] = useState<CachXem>("bang");
@@ -129,6 +125,11 @@ export default function TrangDanhSachDeNghi() {
     prId: string;
     hanhDong: HanhDongKeoTha;
     noiDung: XacNhanKeoTha;
+    /** Mã bước nguồn và bước đích — hộp cần để tra cài đặt của giai đoạn đích. */
+    tuBuoc: GiaiDoanMuaHang;
+    denBuoc: GiaiDoanMuaHang;
+    /** Việc bắt buộc còn treo ở bước hiện tại — hộp hiện và KHÓA nút chuyển. */
+    congViecChuaXong: CongViecGiaiDoan[];
   } | null>(null);
   const [moHopXacNhan, setMoHopXacNhan] = useState(false);
 
@@ -183,6 +184,11 @@ export default function TrangDanhSachDeNghi() {
     setXacNhan({
       prId,
       hanhDong,
+      tuBuoc: the.giaiDoan,
+      denBuoc: dich,
+      // Việc bắt buộc còn treo — hỏi CHUNG một hàm với luật chặn, để hộp không bao giờ nói
+      // khác với thứ app thật sự chặn.
+      congViecChuaXong: congViecChuaXongCuaBuoc(the.deNghi, the.giaiDoan, cauHinh),
       noiDung: dungXacNhanKeoTha(
         the,
         dich,
@@ -511,64 +517,41 @@ export default function TrangDanhSachDeNghi() {
 
       {/* HỘP XÁC NHẬN CHUYỂN BƯỚC — chặn thao tác lỡ tay khi kéo thả.
           Chỉ đạo Ban lãnh đạo 08/08/2026. */}
-      <Dialog open={moHopXacNhan} onOpenChange={setMoHopXacNhan}>
-        <DialogContent className="max-w-lg">
-          {xacNhan && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Chuyển bước cho {xacNhan.noiDung.maDeNghi}?</DialogTitle>
-                <DialogDescription>
-                  Kiểm lại một lượt trước khi chuyển — thao tác này tạo chứng từ thật.
-                </DialogDescription>
-              </DialogHeader>
+      {/* ★ HỘP CHUYỂN GIAI ĐOẠN — dựng theo ảnh Base Ban lãnh đạo gửi 15/08/2026:
+          *"điều chỉnh tính năng kéo thả sang bước tiếp theo, sẽ có cửa sổ thông báo giống
+          vậy và các trường nhập thông tin tương tự"*.
 
-              {/* Bước cũ → bước mới, để người dùng thấy ngay mình vừa kéo đi đâu */}
-              <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-(--hp-md-row-pad) text-sm">
-                <span className="font-medium text-text-primary">{xacNhan.noiDung.tuBuoc}</span>
-                <ArrowRight className="size-4 shrink-0 text-text-desc" aria-hidden />
-                <span className="font-semibold text-primary">{xacNhan.noiDung.denBuoc}</span>
-              </div>
-
-              <p className="text-sm text-text-secondary">{xacNhan.noiDung.seLam}</p>
-
-              {/* Việc còn dang dở ở bước hiện tại — CẢNH BÁO, không chặn.
-                  Có cả biểu tượng và chữ theo V1.1, không chỉ dựa vào màu. */}
-              {xacNhan.noiDung.canhBao.length > 0 && (
-                <div className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad)">
-                  <p className="flex items-center gap-2 text-sm font-semibold text-warning-soft">
-                    <AlertTriangle className="size-4 shrink-0" aria-hidden />
-                    Bước hiện tại còn việc chưa xong
-                  </p>
-                  <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-text-secondary">
-                    {xacNhan.noiDung.canhBao.map((c) => (
-                      <li key={c}>{c}</li>
-                    ))}
-                  </ul>
-                  <p className="text-xs text-text-desc">
-                    Vẫn chuyển được nếu việc này đã xử lý xong ngoài hệ thống — đây chỉ là
-                    nhắc để khỏi kéo nhầm.
-                  </p>
-                </div>
-              )}
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setMoHopXacNhan(false)}>
-                  Hủy, giữ nguyên
-                </Button>
-                <Button
-                  variant={xacNhan.noiDung.nguyHiem ? "destructive" : "default"}
-                  onClick={() => {
-                    setMoHopXacNhan(false);
-                    thucThiKeoTha(xacNhan.prId, xacNhan.hanhDong);
-                  }}
-                >
-                  {xacNhan.noiDung.nhanNut}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+          Thay cho hộp xác nhận gọn trước đây. Hộp mới hiện thêm: đầu vào của giai đoạn đích
+          (cách giao việc + thời hạn, dạng ô KHÓA), ô ghi chú "Những việc đã hoàn thành?",
+          và danh sách công việc bắt buộc còn treo ở bước hiện tại. */}
+      {xacNhan && (
+        <HopChuyenGiaiDoan
+          mo={moHopXacNhan}
+          deNghi={deNghi.find((d) => d.id === xacNhan.prId)}
+          tuBuoc={xacNhan.tuBuoc}
+          denBuoc={xacNhan.denBuoc}
+          cauHinh={cauHinh}
+          seLam={xacNhan.noiDung.seLam}
+          canhBao={xacNhan.noiDung.canhBao}
+          nhanNut={xacNhan.noiDung.nhanNut}
+          nguyHiem={xacNhan.noiDung.nguyHiem}
+          congViecChuaXong={xacNhan.congViecChuaXong}
+          onDong={() => setMoHopXacNhan(false)}
+          onXacNhan={(ghiChu) => {
+            setMoHopXacNhan(false);
+            // Ghi chú của người chuyển bước vào NHẬT KÝ đề nghị — chỉ ghi khi có nội dung,
+            // đừng làm bẩn lịch sử bằng những dòng trống.
+            if (ghiChu) {
+              ghiLichSuDeNghi(
+                xacNhan.prId,
+                nguoiDung.tenHienThi,
+                `Chuyển bước: ${ghiChu}`,
+              );
+            }
+            thucThiKeoTha(xacNhan.prId, xacNhan.hanhDong);
+          }}
+        />
+      )}
     </>
   );
 }

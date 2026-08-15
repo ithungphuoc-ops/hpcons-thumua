@@ -111,25 +111,29 @@ export function sttDongDuocXem(
 /**
  * AI ĐƯỢC CHUYỂN VIỆC của một dòng vật tư sang người khác.
  *
- * 🔴 Chỉ đạo Ban lãnh đạo 12/08/2026: *"Chỉ thêm tính năng chuyển công việc cho nhân viên
- * khác khi nhân viên được giao việc không thể thực hiện"*.
+ * 🔴 SIẾT LẠI 15/08/2026 — Ban lãnh đạo: *"tài khoản của nhân viên thì không được có chức
+ * năng này, chỉ cấp quản lý và cấp quản trị mới có quyền giao lại việc cho người khác"*.
  *
- * Hai người được chuyển:
- *   1. Trưởng bộ phận (`phanBoCongViec`) — chuyển được mọi dòng, họ là người điều phối.
- *   2. **Chính người đang phụ trách dòng đó** — đây là điểm mới. Người biết mình không làm
- *      được là chính họ; bắt phải chờ trưởng bộ phận rảnh mới chuyển được thì việc nằm đó,
- *      và họ sẽ gọi điện nhờ chuyển — đúng thứ app sinh ra để bỏ.
+ * Chỉ `quyen.phanBoCongViec` (Trưởng bộ phận cấp 3 trở lên · Quản trị hệ thống).
  *
- * ⚠️ KHÔNG cho người ngoài chuyển việc của người khác. Không có ràng buộc này thì bất kỳ
- * nhân viên nào cũng đẩy được việc của đồng nghiệp đi, không ai chịu trách nhiệm.
+ * ⚠️ ĐỔI SO VỚI CHỈ ĐẠO 12/08/2026. Trước đó **chính người đang phụ trách** cũng tự chuyển
+ * được, với lý lẽ "người biết mình không làm được là chính họ". Ban lãnh đạo cân nhắc lại và
+ * quyết theo hướng chặt hơn: giao việc cho ai là quyết định của người điều phối, để nhân
+ * viên tự đẩy việc qua lại thì trưởng bộ phận không còn nắm được ai đang làm gì.
+ *
+ * 📌 Nhân viên không làm được thì báo trưởng bộ phận — họ có nút này. Đường đi dài hơn một
+ * nhịp, nhưng người chịu trách nhiệm phân công vẫn là người quyết.
+ *
+ * ⚠️ Tham số `dong` và `uid` GIỮ LẠI dù không còn dùng để xét: chữ ký hàm là chỗ mọi nơi gọi
+ * đang bám vào, và nếu Ban lãnh đạo mở lại quyền cho người phụ trách thì chỉ sửa đúng thân
+ * hàm này. Đổi chữ ký chỉ để bớt hai tham số là đụng vào mọi nơi gọi, lợi bất cập hại.
  */
 export function duocChuyenViecDong(
-  dong: { nguoiPhuTrachUid?: string },
-  uid: string,
+  _dong: { nguoiPhuTrachUid?: string },
+  _uid: string,
   quyen: Quyen,
 ): boolean {
-  if (quyen.phanBoCongViec) return true;
-  return Boolean(dong.nguoiPhuTrachUid) && dong.nguoiPhuTrachUid === uid;
+  return quyen.phanBoCongViec;
 }
 
 /** Có bị giấu bớt dòng nào không — để giao diện nói rõ "đang chỉ hiện phần của bạn". */

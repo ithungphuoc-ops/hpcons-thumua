@@ -207,7 +207,37 @@ export default function TrangChiTietDeNghi() {
         ]}
         title={dn.tieuDe}
         description={`${dn.code} · ${dn.tenCongTrinh} · ${nhanPhongBan(dn.phongBanNguon)}`}
-        actions={<StatusBadge label={tt.nhan} tone={tt.tong} />}
+        actions={
+          /* ★ NÚT HÀNH ĐỘNG LÊN ĐẦU TRANG — Ban lãnh đạo 15/08/2026 chốt bỏ khối "Hoạt động
+             chính" ở cột phải vì trùng thông tin. Hai nút trong đó dời lên đây, đúng chỗ
+             Base đặt (góc trên phải, cạnh tiêu đề).
+
+             📌 Đặt cạnh trạng thái là hợp lý: người mở hồ sơ nhìn một chỗ thấy ngay "đang ở
+             tình trạng nào" và "làm gì tiếp được". */
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge label={tt.nhan} tone={tt.tong} />
+            {/* ⚙️ Nút này BẬT/TẮT ĐƯỢC ở trang Cài đặt quy trình → ô "Cho phép giao lại
+                nhiệm vụ cho người khác" của từng bước. Base đặt "Không cho phép" ở cả 8 giai
+                đoạn; app để Ban lãnh đạo tự chọn thay vì âm thầm gỡ nút đang chạy. */}
+            {quyen.phanBoCongViec && caiDatBuoc.chuyenViecDuoc && (
+              <Button size="sm" onClick={() => setMoChuyenTiep(true)}>
+                <Forward className="size-4" aria-hidden />
+                Chuyển tiếp
+              </Button>
+            )}
+            {quyen.lapPO && (
+              <Button
+                size="sm"
+                variant={quyen.phanBoCongViec ? "outline" : "default"}
+                nativeButton={false}
+                render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+              >
+                <ShoppingCart className="size-4" aria-hidden />
+                Lập đơn đặt hàng
+              </Button>
+            )}
+          </div>
+        }
       />
 
       {/* Dải mũi tên 7 bước — nhìn ra ngay đề nghị đang đứng ở đâu trong quy trình */}
@@ -563,41 +593,6 @@ export default function TrangChiTietDeNghi() {
             // Hạn chuẩn từng bước lấy từ cấu hình quy trình (sửa được ở trang Cài đặt),
             // KHÔNG viết cứng trong component hiển thị.
             hanGioTheoBuoc={cauHinh.hanGioTheoBuoc}
-            tomTat={{
-              daPhanBo: tienDo.filter((d) => d.trangThaiDong !== "chua_phan_bo").length,
-              daLenPO: tienDo.filter((d) => d.maPOLienQuan.length > 0).length,
-              daNhanDu: tomTat.soDongDaNhanDu,
-              tongSoDong: tomTat.tongSoDong,
-            }}
-            hoatDongChinh={
-              <>
-                {/* 🔴 Màn này là CHỖ LÀM VIỆC CỦA TRƯỞNG BỘ PHẬN (chỉ đạo Ban lãnh đạo
-                    08/08/2026): phân bổ xong thì việc còn lại là của nhân viên, nên nút
-                    CHÍNH là "Chuyển tiếp", không phải "Lập đơn đặt hàng". Vẫn giữ nút lập
-                    đơn ở dạng phụ để trưởng bộ phận tự làm được khi cần. */}
-                {/* ⚙️ Nút này BẬT/TẮT ĐƯỢC ở trang Cài đặt quy trình → ô "Cho phép giao lại
-                    nhiệm vụ cho người khác" của từng bước. Base đặt "Không cho phép" ở cả 8
-                    giai đoạn; app để Ban lãnh đạo tự chọn thay vì âm thầm gỡ nút đang chạy. */}
-                {quyen.phanBoCongViec && caiDatBuoc.chuyenViecDuoc && (
-                  <Button size="sm" className="w-full" onClick={() => setMoChuyenTiep(true)}>
-                    <Forward className="size-4" aria-hidden />
-                    Chuyển tiếp
-                  </Button>
-                )}
-                {quyen.lapPO && (
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    variant={quyen.phanBoCongViec ? "outline" : "default"}
-                    nativeButton={false}
-                    render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
-                  >
-                    <ShoppingCart className="size-4" aria-hidden />
-                    Lập đơn đặt hàng
-                  </Button>
-                )}
-              </>
-            }
           />
         </aside>
       </div>

@@ -1,7 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Check, User } from "lucide-react";
+import { Check } from "lucide-react";
 import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
 import {
   GIAI_DOAN_MUA_HANG,
@@ -36,18 +35,12 @@ export function CotThongTinDeNghi({
   giaiDoan,
   soNgayConLai,
   moc = {},
-  tomTat,
-  hoatDongChinh,
   hanGioTheoBuoc = {},
 }: {
   deNghi: DeNghiMuaHang;
   giaiDoan: GiaiDoanMuaHang;
   soNgayConLai: number;
   moc?: MocGiaiDoan;
-  /** Mấy con số tóm tắt tiến độ, hiện trong khối "Hoạt động chính". */
-  tomTat: { daPhanBo: number; daLenPO: number; daNhanDu: number; tongSoDong: number };
-  /** Các nút hành động của trang, đặt trong khối "Hoạt động chính" như bố cục Base. */
-  hoatDongChinh?: ReactNode;
   /**
    * Thời hạn CHUẨN từng bước (giờ), lấy từ cấu hình quy trình — Base gọi là "Kỳ vọng"
    * và "DURATION". 0 = bước không đặt hạn.
@@ -262,29 +255,14 @@ export function CotThongTinDeNghi({
         </p>
       </section>
 
-      {/* ================= HOẠT ĐỘNG CHÍNH ================= */}
-      {/* Mở sẵn: đây là nơi đặt các nút làm việc, gập lại thì người dùng không thấy. */}
-      <KhoiGap tieuDe="Hoạt động chính" moSan>
-        <div className="flex flex-col gap-2.5">
-          <DongSo nhan="Đã phân bổ" so={tomTat.daPhanBo} tong={tomTat.tongSoDong} />
-          <DongSo nhan="Đã lên đơn hàng" so={tomTat.daLenPO} tong={tomTat.tongSoDong} />
-          <DongSo nhan="Đã nhận đủ" so={tomTat.daNhanDu} tong={tomTat.tongSoDong} />
-
-          <div className="flex flex-col gap-1 border-t border-divider pt-2 text-sm">
-            <span className="text-text-desc">Người đề nghị</span>
-            <span className="flex items-center gap-1.5 font-medium text-text-primary">
-              <User className="size-3.5 shrink-0 text-text-desc" aria-hidden />
-              {deNghi.nguoiDeNghiTen}
-            </span>
-          </div>
-
-          {hoatDongChinh && (
-            <div className="flex flex-col gap-2 border-t border-divider pt-2.5">
-              {hoatDongChinh}
-            </div>
-          )}
-        </div>
-      </KhoiGap>
+      {/* 📌 ĐÃ BỎ khối "Hoạt động chính" (Ban lãnh đạo 15/08/2026: *"mục này đang bị dư"*).
+          Mọi thứ trong đó đã có chỗ khác nói rồi:
+            · "Đã phân bổ / Đã lên đơn / Đã nhận đủ" → bảng Phân bổ công việc ở cột trái hiện
+              chi tiết hơn, tới từng dòng vật tư
+            · "Người đề nghị" → khối Thông tin nhiệm vụ ngay trên
+          🔴 Hai NÚT trong khối đó (Chuyển tiếp · Lập đơn đặt hàng) KHÔNG mất — đã dời lên
+          đầu trang cạnh tiêu đề, đúng chỗ Base đặt chúng. Bỏ khối mà quên nút là người dùng
+          mất đường làm việc. */}
 
       {/* ================= LỊCH SỬ HOẠT ĐỘNG ================= */}
       {/* Gập sẵn như trong ảnh mẫu — dài và chỉ tra khi cần. */}
@@ -330,23 +308,8 @@ function DongTin({ nhan, giaTri }: { nhan: string; giaTri: string }) {
   );
 }
 
-/** Một dòng "nhãn — x/y" kèm thanh tiến độ mảnh. */
-function DongSo({ nhan, so, tong }: { nhan: string; so: number; tong: number }) {
-  const phanTram = tong > 0 ? Math.round((so / tong) * 100) : 0;
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="text-text-desc">{nhan}</span>
-        <span className="font-medium text-text-primary tabular-nums">
-          {so}/{tong} dòng
-        </span>
-      </div>
-      <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${phanTram}%` }} />
-      </div>
-    </div>
-  );
-}
+/* 📌 Đã bỏ `DongSo` cùng khối "Hoạt động chính" (15/08/2026) — bảng Phân bổ công việc ở cột
+   trái đã hiện các con số đó chi tiết tới từng dòng vật tư. */
 
 /**
  * Số ngày giữa hai mốc, tối thiểu 1 để không chia cho 0 khi ngày duyệt trùng ngày cần hàng.

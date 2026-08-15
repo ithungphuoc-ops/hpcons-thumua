@@ -310,6 +310,14 @@ interface GiaTriDuLieu {
    * Tích / bỏ tích một công việc bắt buộc của giai đoạn. Bỏ tích được (tích nhầm sửa lại
    * được), mọi lần đổi đều vào nhật ký đề nghị.
    */
+  /**
+   * Ghi một dòng vào nhật ký đề nghị.
+   *
+   * 🔴 KHÔNG ghi tên nhà cung cấp qua đây — khối Lịch sử hiện cho cả vai trò không được xem
+   * NCC (quy ước ở CLAUDE.md mục 7).
+   */
+  ghiLichSuDeNghi: (prId: string, nguoiThucHien: string, hanhDong: string) => void;
+
   danhDauCongViecGiaiDoan: (
     prId: string,
     congViec: CongViecGiaiDoan,
@@ -2279,6 +2287,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
+      ghiLichSuDeNghi,
       danhDauCongViecGiaiDoan,
       chuyenTiepChoNhanVien,
       thongBao,
@@ -2326,6 +2335,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
+      ghiLichSuDeNghi,
       danhDauCongViecGiaiDoan,
       chuyenTiepChoNhanVien,
       thongBao,
