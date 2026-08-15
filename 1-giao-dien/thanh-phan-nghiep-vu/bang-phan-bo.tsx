@@ -92,7 +92,26 @@ function YeuCauGiaoViec({ soBaoGia, ghiChu }: { soBaoGia?: number; ghiChu?: stri
  * Giá trị: thấy ngay dòng nào CHƯA PHÂN BỔ và dòng nào ĐÃ PHÂN MÀ CHƯA LÊN PO —
  * đây là chỗ hay bỏ sót nhất trong mua hàng thực tế.
  */
-export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
+export function BangPhanBo({
+  deNghi,
+  dangOBuocPhanBo = true,
+}: {
+  deNghi: DeNghiMuaHang;
+  /**
+   * ★ CÓ CÒN Ở BƯỚC PHÂN BỔ KHÔNG — Ban lãnh đạo 15/08/2026: *"sao ở bước 2 sau khi đã giao
+   * việc cho nhân viên rồi mà quy trình phân bổ này vẫn còn"*.
+   *
+   * `false` = đã qua bước ①: bảng chuyển sang chế độ **chỉ xem** — bỏ ô tích chọn dòng và
+   * thanh "phân cho ai", chỉ giữ bảng để tra ai đang phụ trách phần nào.
+   *
+   * 🔴 Vì sao đáng ẩn: phân bổ là việc CỦA BƯỚC ①. Sang bước ② mà công cụ vẫn bày ra thì
+   * vừa rối vừa dễ bấm nhầm — người đang đi hỏi giá vô tình phân lại việc cho người khác.
+   *
+   * ⚠️ Trang gọi vẫn mở lại công cụ khi CÒN DÒNG CHƯA PHÂN BỔ (thêm vật tư mới ở bước sau),
+   * vì lúc đó thật sự cần phân bổ chứ không phải bày cho có.
+   */
+  dangOBuocPhanBo?: boolean;
+}) {
   const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi, cauHinh } =
     useDuLieu();
   /**
@@ -235,6 +254,17 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
     [donHang, deNghi.id],
   );
 
+  /**
+   * ★ CÓ BÀY CÔNG CỤ PHÂN BỔ HÀNG LOẠT KHÔNG (ô tích chọn dòng + thanh "phân cho ai").
+   *
+   * Cần CẢ HAI: có quyền phân bổ, VÀ đang ở bước phân bổ (hoặc còn dòng chưa ai nhận).
+   *
+   * ⚠️ KHÁC với `quyen.phanBoCongViec` đơn thuần — các chỗ khác trong bảng vẫn dùng quyền
+   * đó (nút xóa vật tư, menu ⋯, nút phân cho dòng lẻ chưa có người). Chỉ bộ công cụ chọn
+   * hàng loạt mới ẩn đi sau bước ①.
+   */
+  const hienCongCuPhanBo = quyen.phanBoCongViec && dangOBuocPhanBo;
+
   /** Dòng này có hiện dấu × không. Luật đầy đủ ở `suaMatHangDeNghi`, đây là phép lịch sự. */
   function xoaDuoc(stt: number) {
     return quyen.phanBoCongViec && !biLoc && deNghi.items.length > 1 && !sttDaLenDon.includes(stt);
@@ -353,8 +383,8 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
           )}
         </div>
 
-        {/* Thanh hành động khi đã chọn dòng */}
-        {quyen.phanBoCongViec && chon.length > 0 && (
+        {/* Thanh hành động khi đã chọn dòng — chỉ ở bước phân bổ, xem `hienCongCuPhanBo`. */}
+        {hienCongCuPhanBo && chon.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary-bg p-3">
             <span className="text-sm font-medium text-primary">Đã chọn {chon.length} dòng — phân cho:</span>
             {nhanVienThuMua.map((nv) => (
@@ -374,7 +404,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
           <Table>
             <TableHeader>
               <TableRow>
-                {quyen.phanBoCongViec && <TableHead className="w-10" />}
+                {hienCongCuPhanBo && <TableHead className="w-10" />}
                 <TableHead className="w-12 text-right">Dòng</TableHead>
                 <TableHead>Vật liệu</TableHead>
                 {/* 🔴 GỘP ĐVT VÀO CỘT KHỐI LƯỢNG — Ban lãnh đạo 12/08/2026 yêu cầu tối ưu.
@@ -394,7 +424,7 @@ export function BangPhanBo({ deNghi }: { deNghi: DeNghiMuaHang }) {
                 const daPhan = Boolean(d.nguoiPhuTrachUid);
                 return (
                   <TableRow key={d.stt} className={d.trangThaiDong === "chua_phan_bo" ? "bg-danger-bg/40" : undefined}>
-                    {quyen.phanBoCongViec && (
+                    {hienCongCuPhanBo && (
                       <TableCell>
                         <Checkbox
                           checked={chon.includes(d.stt)}

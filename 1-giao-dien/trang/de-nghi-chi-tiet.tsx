@@ -30,7 +30,6 @@ import {
   CotThongTinDeNghi,
   type MocGiaiDoan,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
-import { TimelineDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/timeline-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import {
@@ -47,7 +46,7 @@ import { caiDatCuaBuoc } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
-import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+import { soNgayConLai } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import {
   NHAN_GIAI_DOAN,
@@ -103,10 +102,9 @@ export default function TrangChiTietDeNghi() {
     return phieuNhan.filter((p) => idDon.has(p.poId));
   }, [phieuNhan, poLienQuan]);
 
-  const tienDo = useMemo(
-    () => (dn ? tinhTienDoDeNghi(dn, donHang, phieuNhan) : []),
-    [dn, donHang, phieuNhan],
-  );
+  /* 📌 Không còn tính `tienDo` ở trang này (15/08/2026): khối "Hoạt động chính" và timeline
+     ngang — hai chỗ duy nhất dùng nó — đã bỏ theo yêu cầu Ban lãnh đạo. Bảng Phân bổ tự tính
+     lấy phần của nó, nên tính lại ở đây là thừa. */
 
   if (!dn) {
     return (
@@ -118,7 +116,6 @@ export default function TrangChiTietDeNghi() {
     );
   }
 
-  const tomTat = tomTatTienDoDeNghi(tienDo);
 
   // Giai đoạn KHÔNG lưu thành trường — suy ra từ chứng từ thật, đúng nguyên tắc ở
   // `2-quy-trinh/giai-doan-mua-hang.ts`. Tính một lần rồi truyền xuống, tránh mỗi
@@ -252,8 +249,13 @@ export default function TrangChiTietDeNghi() {
           {/* ===== THÔNG TIN ĐỀ NGHỊ — danh sách trường đánh số =====
               Bố cục theo trang nhiệm vụ Base.vn (ảnh Ban lãnh đạo cung cấp 10/08/2026):
               trường nào cũng có số thứ tự để trao đổi qua điện thoại chỉ nhau được ngay
-              (*"ô số 4 điền gì"*). Mở sẵn vì đây là phần đọc đầu tiên khi vào hồ sơ. */}
-          <KhoiGap tieuDe="Thông tin đề nghị" moSan>
+              (*"ô số 4 điền gì"*).
+
+              📌 GẬP SẴN từ 15/08/2026 (Ban lãnh đạo: *"hãy luôn group này lại"*). Phần lớn
+              thông tin ở đây đã có ở tiêu đề trang và khối "Thông tin nhiệm vụ" bên phải;
+              mở sẵn thì đẩy phần việc thật (phân bổ, báo giá, đơn hàng) xuống dưới màn hình.
+              Cần tra chi tiết thì bấm một cái là mở. */}
+          <KhoiGap tieuDe="Thông tin đề nghị">
             <DanhSachTruong
               truong={[
                 // `daiCaHang` cho hai trường chữ dài — để trong một ô hẹp thì bị cắt mất.
@@ -380,23 +382,12 @@ export default function TrangChiTietDeNghi() {
             )}
           </KhoiGap>
 
-          {/* Người theo dõi — chọn từ danh bạ nhân sự công ty, xem `khoi-nguoi-theo-doi.tsx`.
-              Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
-          <KhoiNguoiTheoDoi deNghi={dn} />
-
-      {/* Timeline tổng */}
-      <Card>
-        <CardContent>
-          <TimelineDeNghi
-            ngayDuyet={dn.ngayDuyet}
-            ngayCanHang={dn.ngayCanHang}
-            soDongDaNhanDu={tomTat.soDongDaNhanDu}
-            tongSoDong={tomTat.tongSoDong}
-            soDongDaPhanBo={tienDo.filter((d) => d.trangThaiDong !== "chua_phan_bo").length}
-            soDongDaLenPO={tienDo.filter((d) => d.maPOLienQuan.length > 0).length}
-          />
-        </CardContent>
-      </Card>
+          {/* 📌 15/08/2026 — Ban lãnh đạo:
+                · *"bố cục lại sang tab phải"* → khối **Người theo dõi** đã dời sang cột phải
+                · *"mục này đã có trong tab theo dõi đề nghị thì ở đây ko cần hiển thị"* →
+                  **Timeline ngang** (Duyệt → Đã phân bổ → Đã lên đơn → Đang giao → Nhận đủ)
+                  đã BỎ, vì màn "Theo dõi đề nghị" đã vẽ đúng thứ đó.
+             Cột trái giờ chỉ còn phần LÀM VIỆC: công việc của bước, phân bổ, báo giá, đơn hàng. */}
 
       {/* ★ CÔNG VIỆC BẮT BUỘC CỦA BƯỚC ĐANG ĐỨNG — mục "Danh sách công việc" của bảng Base
           (Ban lãnh đạo gửi ảnh cài đặt giai đoạn 14/08/2026).
@@ -482,7 +473,12 @@ export default function TrangChiTietDeNghi() {
         <h2 className="text-h3 text-text-primary">
           {quyen.phanBoCongViec ? "Phân bổ công việc" : "Chi tiết mặt hàng"}
         </h2>
-        <BangPhanBo deNghi={dn} />
+        {/* Công cụ phân bổ hàng loạt chỉ bày ở bước ①, HOẶC khi còn dòng chưa ai nhận (thêm
+            vật tư mới ở bước sau) — Ban lãnh đạo 15/08/2026. Xem `dangOBuocPhanBo`. */}
+        <BangPhanBo
+          deNghi={dn}
+          dangOBuocPhanBo={giaiDoan === "tiep_nhan" || soDongChuaPhanBo > 0}
+        />
       </section>
 
       {/* Bảng báo giá — từ 06/08/2026 menu không còn mục "Báo giá & so sánh NCC",
@@ -584,7 +580,14 @@ export default function TrangChiTietDeNghi() {
         {/* Cột phải — thời hạn tổng, tiến trình từng giai đoạn, hoạt động chính, lịch sử.
             ⚠️ KHÔNG dùng `sticky` nữa: cột này giờ dài (có cả lịch sử) nên dán cứng vào
             đầu trang sẽ bị cắt mất phần dưới, cuộn không tới. */}
-        <aside className="min-w-0">
+        <aside className="flex min-w-0 flex-col gap-(--hp-md-section)">
+          {/* ★ NGƯỜI THEO DÕI dời từ cột trái sang đây (Ban lãnh đạo 15/08/2026: *"bố cục lại
+              sang tab phải"*). Đúng chỗ Base đặt nó, và hợp lý: đây là thông tin "ai đang
+              nắm hồ sơ", cùng loại với các khối tra cứu khác ở cột phải — không phải việc
+              phải làm, nên không nên chiếm chỗ giữa vùng làm việc.
+              ⚠️ Có tên ở đây KHÔNG mở khóa xem giá (nguyên tắc dữ liệu số 3). */}
+          <KhoiNguoiTheoDoi deNghi={dn} />
+
           <CotThongTinDeNghi
             deNghi={dn}
             giaiDoan={giaiDoan}
@@ -675,10 +678,19 @@ export default function TrangChiTietDeNghi() {
         nhanDongY="Lập bảng báo giá"
         onDong={() => setHoiLapBaoGia(false)}
         onDongY={() => {
-          // Bước trước phải xong mới đi tiếp — dùng chung luật với kéo thả.
-          const vuongMac = vuongMacSangBuocSau(dn, "tiep_nhan", baoGiaLienQuan, cauHinh);
+          /**
+           * Bước trước phải xong mới đi tiếp — dùng chung luật với kéo thả.
+           *
+           * 🔴 KIỂM THEO BƯỚC ĐANG ĐỨNG, KHÔNG viết cứng "tiep_nhan". Đã dính lỗi thật
+           * 15/08/2026: phiếu đã sang bước ② nhưng chỗ này vẫn xét luật bước ①, mà bước ① có
+           * việc bắt buộc "Checkin hàng tồn kho" — nhân viên bấm "Lập bảng báo giá" thì bị
+           * chặn bằng một câu nói về bước họ đã đi qua từ lâu, không hiểu vì sao.
+           */
+          const vuongMac = vuongMacSangBuocSau(dn, giaiDoan, baoGiaLienQuan, cauHinh);
           if (vuongMac) {
-            toast.error("Chưa xong bước Tiếp nhận và kiểm tra", { description: vuongMac });
+            toast.error(`Chưa xong bước ${NHAN_GIAI_DOAN[giaiDoan]?.nhan ?? giaiDoan}`, {
+              description: vuongMac,
+            });
             return;
           }
           const id = taoBaoGiaGiaLap(dn.id, nguoiDung.tenHienThi);

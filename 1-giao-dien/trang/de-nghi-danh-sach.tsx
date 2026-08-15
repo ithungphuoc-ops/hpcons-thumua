@@ -65,6 +65,7 @@ export default function TrangDanhSachDeNghi() {
     luiVeBuoc,
     cauHinh,
     ghiLichSuDeNghi,
+    datSoBaoGiaChoPhieu,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [cachXem, setCachXem] = useState<CachXem>("bang");
@@ -537,8 +538,13 @@ export default function TrangDanhSachDeNghi() {
           nguyHiem={xacNhan.noiDung.nguyHiem}
           congViecChuaXong={xacNhan.congViecChuaXong}
           onDong={() => setMoHopXacNhan(false)}
-          onXacNhan={(ghiChu) => {
+          onXacNhan={(ghiChu, soBaoGia) => {
             setMoHopXacNhan(false);
+            // Số báo giá đặt TRƯỚC khi chuyển bước: bước ② bắt đầu bằng việc đi hỏi giá, nên
+            // yêu cầu phải nằm sẵn trong phiếu lúc nhân viên mở ra.
+            if (soBaoGia) {
+              datSoBaoGiaChoPhieu(xacNhan.prId, soBaoGia, nguoiDung.tenHienThi);
+            }
             // Ghi chú của người chuyển bước vào NHẬT KÝ đề nghị — chỉ ghi khi có nội dung,
             // đừng làm bẩn lịch sử bằng những dòng trống.
             if (ghiChu) {

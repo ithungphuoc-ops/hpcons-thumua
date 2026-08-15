@@ -318,6 +318,12 @@ interface GiaTriDuLieu {
    */
   ghiLichSuDeNghi: (prId: string, nguoiThucHien: string, hanhDong: string) => void;
 
+  /**
+   * Đặt số báo giá cần lấy cho MỌI dòng của phiếu — dùng ở hộp chuyển sang bước ②
+   * (trường bắt buộc "SL Báo giá" theo mẫu Base).
+   */
+  datSoBaoGiaChoPhieu: (prId: string, soBaoGia: number, nguoiThucHien: string) => void;
+
   danhDauCongViecGiaiDoan: (
     prId: string,
     congViec: CongViecGiaiDoan,
@@ -2111,14 +2117,40 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * ★ TÍCH / BỎ TÍCH MỘT CÔNG VIỆC BẮT BUỘC CỦA GIAI ĐOẠN.
+   * ★ ĐẶT SỐ BÁO GIÁ CẦN LẤY CHO MỌI DÒNG CỦA PHIẾU.
    *
-   * 🔴 Ban lãnh đạo 14/08/2026 gửi ảnh cài đặt giai đoạn trên Base: mỗi giai đoạn có "Danh
-   * sách công việc" phải hoàn thành mới sang bước sau. Bước 01 có *"Checkin hàng tồn kho"*.
+   * 🔴 Dùng khi chuyển sang bước ② — Base có trường bắt buộc *"SL Báo giá"* ngay trong hộp
+   * chuyển giai đoạn (ảnh Ban lãnh đạo 15/08/2026). Yêu cầu này phải nằm sẵn trong phiếu lúc
+   * nhân viên mở ra, vì đi hỏi giá là việc đầu tiên của bước đó.
    *
-   * ⚠️ CHO BỎ TÍCH ĐƯỢC. Tích nhầm mà không sửa lại được thì người dùng đi tìm cách lách
-   * (xóa phiếu, lập lại phiếu) — tệ hơn nhiều so với việc cho sửa và ghi rõ vào nhật ký.
+   * ⚠️ ĐẶT CHO MỌI DÒNG, kể cả dòng đã có số riêng: người chuyển bước đang ra một yêu cầu
+   * chung cho cả phiếu. Muốn mỗi dòng một số khác nhau thì sửa ở bảng Phân bổ công việc —
+   * chỗ đó vốn cho đặt theo từng dòng.
    */
+  const datSoBaoGiaChoPhieu = useCallback(
+    (prId: string, soBaoGia: number, nguoiThucHien: string) => {
+      setDeNghi((truoc) =>
+        truoc.map((dn) =>
+          dn.id !== prId
+            ? dn
+            : {
+                ...dn,
+                items: dn.items.map((d) => ({ ...d, soBaoGiaYeuCau: soBaoGia })),
+                lichSu: [
+                  ...dn.lichSu,
+                  {
+                    thoiDiem: thoiDiemHienTai(),
+                    nguoiThucHien,
+                    hanhDong: `Yêu cầu lấy ${soBaoGia} báo giá cho mọi mặt hàng`,
+                  },
+                ],
+              },
+        ),
+      );
+    },
+    [],
+  );
+
   const danhDauCongViecGiaiDoan = useCallback(
     (prId: string, congViec: CongViecGiaiDoan, giaiDoan: string, xong: boolean, nguoiTen: string) => {
       setDeNghi((truoc) =>
@@ -2288,6 +2320,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themNguoiTheoDoi,
       boNguoiTheoDoi,
       ghiLichSuDeNghi,
+      datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
       chuyenTiepChoNhanVien,
       thongBao,
@@ -2336,6 +2369,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themNguoiTheoDoi,
       boNguoiTheoDoi,
       ghiLichSuDeNghi,
+      datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
       chuyenTiepChoNhanVien,
       thongBao,

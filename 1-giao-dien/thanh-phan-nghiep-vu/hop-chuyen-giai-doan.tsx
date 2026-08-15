@@ -20,6 +20,7 @@ import {
   type CongViecGiaiDoan,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { NHAN_GIAI_DOAN, type GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { chuTien } from "@/2-quy-trinh/nguong-gia-tri";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -69,23 +70,41 @@ export function HopChuyenGiaiDoan({
   /** Công việc bắt buộc của bước ĐANG ĐỨNG mà đề nghị này chưa tích xong. */
   congViecChuaXong: CongViecGiaiDoan[];
   onDong: () => void;
-  /** `ghiChu` là nội dung ô "Những việc đã hoàn thành?" — rỗng thì không ghi nhật ký. */
-  onXacNhan: (ghiChu: string) => void;
+  /**
+   * `ghiChu` là nội dung ô "Những việc đã hoàn thành?" — rỗng thì không ghi nhật ký.
+   * `soBaoGia` chỉ có khi chuyển sang bước ② (xem trường "SL Báo giá" bên dưới).
+   */
+  onXacNhan: (ghiChu: string, soBaoGia?: number) => void;
 }) {
   const [ghiChu, setGhiChu] = useState("");
+  /**
+   * ★ SL BÁO GIÁ — trường bắt buộc riêng của bước ② trong ảnh Base (*"SL Báo giá *"*).
+   *
+   * `""` = chưa chọn. Base cũng để "-- Lựa chọn --" và đánh dấu sao đỏ: người chuyển bước
+   * phải quyết định đi hỏi mấy nhà cung cấp, vì đó là việc đầu tiên của bước sau.
+   */
+  const [soBaoGia, setSoBaoGia] = useState("");
 
   // Mỗi lần mở lại là ô ghi chú trắng. Giữ nội dung cũ thì lần sau người dùng vô tình gửi
   // lại ghi chú của hồ sơ khác — nhật ký ghi sai mà không ai để ý.
   useEffect(() => {
-    if (mo) setGhiChu("");
+    if (mo) {
+      setGhiChu("");
+      setSoBaoGia("");
+    }
   }, [mo]);
 
   const nhanDich = NHAN_GIAI_DOAN[denBuoc]?.nhan ?? denBuoc;
   const nhanNguon = NHAN_GIAI_DOAN[tuBuoc]?.nhan ?? tuBuoc;
   const caiDatDich = caiDatCuaBuoc(cauHinh, denBuoc);
   const hanDich = cauHinh.hanGioTheoBuoc?.[denBuoc] ?? 0;
-  /** Còn việc bắt buộc chưa xong thì KHÔNG cho chuyển — luật ở `congViecChuaXongCuaBuoc`. */
-  const bikhoa = congViecChuaXong.length > 0;
+  /** Bước ② mới hỏi số báo giá — các bước khác không có trường này (đúng như Base). */
+  const hoiSoBaoGia = denBuoc === "yeu_cau_bao_gia";
+  /**
+   * Nút khoá khi: còn việc bắt buộc chưa xong, HOẶC chưa chọn số báo giá ở bước ②.
+   * Luật việc bắt buộc lấy từ `congViecChuaXongCuaBuoc` — cùng hàm với chỗ app thật sự chặn.
+   */
+  const bikhoa = congViecChuaXong.length > 0 || (hoiSoBaoGia && soBaoGia === "");
 
   return (
     <Dialog open={mo} onOpenChange={(v) => !v && onDong()}>
@@ -136,6 +155,40 @@ export function HopChuyenGiaiDoan({
                 nghị, người sau đọc lại biết bước trước đã làm những gì.
               </p>
             </div>
+
+            {/* ★ SL BÁO GIÁ — trường bắt buộc của bước ②, đúng ảnh Base (có dấu sao đỏ).
+                Chỉ hỏi khi chuyển sang bước "Yêu cầu NCC báo giá": các bước khác không cần. */}
+            {hoiSoBaoGia && (
+              <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3">
+                <Label htmlFor="so-bao-gia-chuyen-buoc">
+                  SL Báo giá <span className="text-danger">*</span>
+                </Label>
+                <select
+                  id="so-bao-gia-chuyen-buoc"
+                  value={soBaoGia}
+                  onChange={(e) => setSoBaoGia(e.target.value)}
+                  className="min-h-11 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+                >
+                  <option value="">— Lựa chọn —</option>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <option key={n} value={n}>
+                      {String(n).padStart(2, "0")} báo giá
+                    </option>
+                  ))}
+                </select>
+                {/* Nhắc luật thật của công ty, SINH TỪ CẤU HÌNH chứ không viết cứng con số —
+                    ngưỡng sửa được ở trang Cài đặt, chữ cứng sẽ nói dối. */}
+                <p className="text-xs text-text-desc">
+                  Quy trình yêu cầu tối thiểu{" "}
+                  <strong>
+                    {String(cauHinh.soBaoGiaToiThieu).padStart(2, "0")} báo giá
+                  </strong>{" "}
+                  với đơn từ {chuTien(cauHinh.nguongHaiBaoGia)} đồng trở lên. Số này áp cho{" "}
+                  <strong>mọi mặt hàng</strong> của phiếu; muốn khác nhau từng dòng thì sửa ở
+                  bảng Phân bổ công việc.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* ===== ③ CÔNG VIỆC ĐANG CHỜ Ở GIAI ĐOẠN TRƯỚC ===== */}
@@ -188,7 +241,9 @@ export function HopChuyenGiaiDoan({
             className="w-full"
             variant={nguyHiem ? "destructive" : "default"}
             disabled={bikhoa}
-            onClick={() => onXacNhan(ghiChu.trim())}
+            onClick={() =>
+              onXacNhan(ghiChu.trim(), hoiSoBaoGia && soBaoGia ? Number(soBaoGia) : undefined)
+            }
           >
             {nhanNut}
           </Button>
