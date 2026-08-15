@@ -20,7 +20,12 @@ import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { tinhTienDoPO } from "@/2-quy-trinh/tinh-toan";
+import {
+  tinhTienDoPO,
+  vuongMacGhiThemPhieuNhan,
+  vuongMacKhoiLuongNhan,
+  vuongMacSoPhieuNCC,
+} from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PHIEU } from "@/2-quy-trinh/trang-thai";
 import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import type { MoTaTep } from "@/3-du-lieu/kho-tep";
@@ -54,6 +59,8 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
     [phieuNhan, po.id],
   );
   const tienDo = useMemo(() => tinhTienDoPO(po, phieuCuaPO), [po, phieuCuaPO]);
+  /** Lý do không được ghi thêm phiếu — `null` là còn ghi được. Luật ở `2-quy-trinh`. */
+  const chanGhiThemPhieu = vuongMacGhiThemPhieuNhan(tienDo);
 
   /** Các lần giao ĐÃ NHẬP KHO — thành cột động trong bảng. */
   const lanGiaoDaTinh = phieuCuaPO.filter((p) => p.trangThai === "da_nhap_kho");
@@ -69,7 +76,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
    */
   const vuongMacLuuPhieu: string | null =
     dongCoKhoiLuong.length === 0
-      ? "Chưa nhập khối lượng nhận cho dòng vật tư nào."
+      ? "Chưa nhập khối lượng nhận cho công việc nào."
       : /**
          * 🔴 PHẢI CHẶN NGÀY RỖNG. Ô ngày xóa trống được, và trước 14/08/2026 chỗ này không
          * kiểm — phiếu lưu với `ngayNhanThucTe: ""` thì mọi chỗ hiển thị ra **"Invalid Date"**
@@ -80,7 +87,17 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
         ? "Chưa chọn ngày nhận hàng thực tế."
         : !tepPhieuGiao
           ? "Chưa đính kèm phiếu giao nhận của nhà cung cấp."
-          : null;
+          : /**
+             * ★ HAI LUẬT MỚI 15/08/2026 — Ban lãnh đạo: *"khi đã nhận đủ hàng thì không được
+             * thêm phiếu ghi nhận nữa, và tên phiếu giao nhận phải khác nhau, không được trùng
+             * tên để sau này có thể tổng hợp"*.
+             *
+             * 🔴 Kiểm ở đây, chỗ ĐANG NHẬP, chứ không đợi lúc lưu xong mới báo: phiếu nhận là
+             * chứng từ của Kho, lưu rồi thì Thu mua không sửa được (nguyên tắc dữ liệu số 2).
+             * Luật ở `2-quy-trinh/tinh-toan.ts`, dùng chung với chỗ khóa nút bên trên.
+             */
+            (vuongMacKhoiLuongNhan(tienDo, dongCoKhoiLuong) ??
+            vuongMacSoPhieuNCC(soPhieuNCC, phieuCuaPO));
 
   function luuPhieu() {
     if (vuongMacLuuPhieu) return;
@@ -107,13 +124,31 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
       <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-h3 text-text-primary">Tiến độ nhận hàng</h2>
+          {/* ★ ĐÃ NHẬN ĐỦ THÌ KHÓA NÚT, kèm lý do (Ban lãnh đạo 15/08/2026).
+              📌 Khóa chứ không ẩn: ẩn nút thì thủ kho tưởng mình mất quyền ghi phiếu và đi hỏi
+              vòng quanh; ghi rõ "đã nhận đủ" là họ biết ngay không cần làm gì nữa. */}
           {quyen.ghiPhieuNhanHang && po.trangThai !== "hoan_thanh" && po.trangThai !== "huy" && (
-            <Button size="sm" onClick={() => setMoForm((v) => !v)}>
+            <Button
+              size="sm"
+              disabled={Boolean(chanGhiThemPhieu)}
+              title={chanGhiThemPhieu ?? undefined}
+              onClick={() => setMoForm((v) => !v)}
+            >
               <Plus className="size-4" aria-hidden />
-              Ghi phiếu nhận hàng lần {phieuCuaPO.length + 1}
+              {chanGhiThemPhieu
+                ? "Đã nhận đủ hàng"
+                : `Ghi phiếu nhận hàng lần ${phieuCuaPO.length + 1}`}
             </Button>
           )}
         </div>
+
+        {/* Nói rõ lý do ngay dưới nút — `title` chỉ hiện khi rê chuột, mà trên máy tính bảng
+            thì không có thao tác rê chuột. */}
+        {quyen.ghiPhieuNhanHang && chanGhiThemPhieu && (
+          <p className="rounded-lg border border-success bg-success-bg px-3 py-2 text-sm text-success-soft">
+            {chanGhiThemPhieu}
+          </p>
+        )}
 
         {/* Form ghi phiếu nhận hàng — chỉ thủ kho (apps.kh >= 2) */}
         {moForm && (

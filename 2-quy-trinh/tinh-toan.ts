@@ -88,6 +88,84 @@ export function vuongMacXacNhanKho(phieuCuaPO: PhieuNhanHang[]): string | null {
 }
 
 /**
+ * ★ CÒN ĐƯỢC GHI THÊM PHIẾU NHẬN HÀNG KHÔNG — trả lý do bị chặn, `null` là còn được.
+ *
+ * 🔴 Ban lãnh đạo 15/08/2026: *"khi đã nhận đủ hàng thì không được thêm phiếu ghi nhận nữa"*.
+ *
+ * Ảnh Sếp gửi cho thấy hậu quả thật: đơn đặt **150 bao**, hai lần giao mỗi lần 150, tổng
+ * **đã nhận 300** — nhận gấp đôi số đặt — mà app vẫn ghi *"Đã nhận đủ · Còn lại 0"* và vẫn
+ * mời *"Ghi phiếu nhận hàng lần 3"*. Con số 0 đó là do `khoiLuongConLai` dùng `Math.max(0, …)`
+ * nên phần vượt bị cắt mất, không ai nhìn ra.
+ *
+ * 🔴 ĐÂY LÀ LỖI TIỀN BẠC, không phải lỗi giao diện. Khối lượng nhận là căn cứ để kế toán trả
+ * tiền nhà cung cấp; nhận thừa mà hệ thống báo "đủ" thì phần thừa vẫn nằm trong sổ và vẫn
+ * được thanh toán.
+ */
+export function vuongMacGhiThemPhieuNhan(tienDo: TienDoDongPO[]): string | null {
+  if (tienDo.length === 0) return null;
+  if (tienDo.every((d) => d.khoiLuongConLai === 0)) {
+    return "Đơn hàng đã nhận đủ toàn bộ khối lượng nên không ghi thêm phiếu nhận được. Nếu nhận thừa hoặc ghi nhầm, sửa lại phiếu đã ghi thay vì thêm phiếu mới.";
+  }
+  return null;
+}
+
+/**
+ * ★ KHỐI LƯỢNG GHI TRONG PHIẾU CÓ VƯỢT SỐ CÒN LẠI KHÔNG.
+ *
+ * Chặn ngay lúc nhập, vì sau khi lưu thì không có đường sửa khối lượng phiếu nhận (phiếu là
+ * chứng từ của Kho — nguyên tắc dữ liệu số 2, Thu mua không sửa của họ).
+ */
+export function vuongMacKhoiLuongNhan(
+  tienDo: TienDoDongPO[],
+  dongNhap: { sttDongPO: number; khoiLuongThucNhan: number }[],
+): string | null {
+  const vuot = dongNhap
+    .map((l) => {
+      const d = tienDo.find((x) => x.sttDong === l.sttDongPO);
+      if (!d) return null;
+      const thua = l.khoiLuongThucNhan - d.khoiLuongConLai;
+      return thua > 0
+        ? { ten: d.tenVatLieu, thua, conLai: d.khoiLuongConLai, dvt: d.donViTinh }
+        : null;
+    })
+    .filter((x): x is { ten: string; thua: number; conLai: number; dvt: string } => x !== null);
+  if (vuot.length === 0) return null;
+  const ds = vuot
+    .map((v) => `${v.ten} (còn ${v.conLai} ${v.dvt}, nhập thừa ${v.thua})`)
+    .join("; ")
+  return `Khối lượng nhập vượt số còn lại: ${ds}. Nhận thừa so với đơn đặt phải xử lý bằng đơn bổ sung, không ghi vượt vào phiếu.`;
+}
+
+/**
+ * ★ SỐ PHIẾU GIAO NHẬN CỦA NHÀ CUNG CẤP KHÔNG ĐƯỢC TRÙNG NHAU.
+ *
+ * 🔴 Ban lãnh đạo 15/08/2026: *"tên phiếu giao nhận phải khác nhau, không được trùng tên để
+ * sau này có thể tổng hợp"*. Ảnh cho thấy cả hai lần giao đều ghi *"Phiếu NCC: 231"*.
+ *
+ * Trùng số phiếu thì không đối chiếu được với chứng từ giấy của nhà cung cấp: hai lần giao
+ * khác nhau mà cùng một số, kế toán không biết hóa đơn nào ứng với lần giao nào, và một lần
+ * giao hoàn toàn có thể bị trả tiền hai lần.
+ *
+ * 📌 So sau khi bỏ khoảng trắng thừa và không phân biệt hoa/thường — "231" và " 231 " là cùng
+ * một tờ phiếu, chặn được cả kiểu gõ lại cho khác.
+ */
+export function vuongMacSoPhieuNCC(
+  soPhieuMoi: string,
+  phieuCuaPO: PhieuNhanHang[],
+  /** Bỏ qua phiếu này khi so (dùng khi sửa phiếu cũ, không phải thêm mới). */
+  boQuaPhieuId?: string,
+): string | null {
+  const moi = soPhieuMoi.trim().toLowerCase();
+  // Để trống được — không phải nhà cung cấp nào cũng đánh số phiếu.
+  if (moi === "") return null;
+  const trung = phieuCuaPO.find(
+    (p) => p.id !== boQuaPhieuId && (p.soPhieuGiaoNCC ?? "").trim().toLowerCase() === moi,
+  );
+  if (!trung) return null;
+  return `Số phiếu "${soPhieuMoi.trim()}" đã dùng cho lần giao ${trung.lanGiaoThu}. Mỗi lần giao phải mang một số phiếu riêng thì sau này mới đối chiếu và tổng hợp được.`;
+}
+
+/**
  * Đủ điều kiện đánh dấu hoàn thành (Phần 4.3) — nay là BỐN, không còn ba:
  * giao đủ · **có phiếu giao nhận cho mọi lần giao** · thủ kho xác nhận · trưởng bộ phận xác nhận.
  *

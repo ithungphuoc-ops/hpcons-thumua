@@ -141,7 +141,7 @@ export function tinhPhuongAnTach(dn: DeNghiMuaHang, soMaConTrong: number): Phuon
 
   const nhom = nhomDongTheoNguoiPhuTrach(dn);
   if (nhom.length === 0) {
-    return { tach: false, lyDo: "Còn dòng chưa phân bổ người phụ trách." };
+    return { tach: false, lyDo: "Còn công việc chưa phân bổ người phụ trách." };
   }
   if (nhom.length === 1) {
     return { tach: false, lyDo: "Cả phiếu giao cho một người nên không cần tách." };

@@ -524,7 +524,7 @@ export default function TrangDanhSachDeNghi() {
                       <span className="text-text-desc">Cần hàng</span>
                       <span>{new Date(dn.ngayCanHang).toLocaleDateString("vi-VN")}</span>
                     </div>
-                    {soChuaPhanBo > 0 && <StatusBadge label={`Thiếu ${soChuaPhanBo} dòng chưa phân bổ`} tone="danger" />}
+                    {soChuaPhanBo > 0 && <StatusBadge label={`Thiếu ${soChuaPhanBo} công việc chưa phân bổ`} tone="danger" />}
                     <ThanhTienDo
                       phanTram={tomTat.phanTram}
                       tong={tomTat.phanTram === 100 ? "success" : "primary"}

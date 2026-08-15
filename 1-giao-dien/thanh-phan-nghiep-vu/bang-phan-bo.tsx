@@ -95,6 +95,7 @@ function YeuCauGiaoViec({ soBaoGia, ghiChu }: { soBaoGia?: number; ghiChu?: stri
 export function BangPhanBo({
   deNghi,
   dangOBuocPhanBo = true,
+  hoSoDaDong = false,
 }: {
   deNghi: DeNghiMuaHang;
   /**
@@ -111,6 +112,16 @@ export function BangPhanBo({
    * vì lúc đó thật sự cần phân bổ chứ không phải bày cho có.
    */
   dangOBuocPhanBo?: boolean;
+  /**
+   * ★ HỒ SƠ ĐÃ ĐÓNG (hoàn thành hoặc đóng dở) — Ban lãnh đạo 15/08/2026: *"sao hoàn thành
+   * rồi mà vẫn được thêm vật tư"*.
+   *
+   * `true` = khóa mọi thao tác đổi nội dung: thêm vật tư, xóa vật tư, phân bổ lại.
+   *
+   * 🔴 Chốt chặn thật nằm ở `suaMatHangDeNghi` (tầng dữ liệu); cờ này chỉ để KHÔNG BÀY nút ra.
+   * Bày nút rồi bấm vào mới báo lỗi là bắt người dùng phát hiện luật bằng cách gặp lỗi.
+   */
+  hoSoDaDong?: boolean;
 }) {
   const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi, cauHinh } =
     useDuLieu();
@@ -277,7 +288,14 @@ export function BangPhanBo({
 
   /** Dòng này có hiện dấu × không. Luật đầy đủ ở `suaMatHangDeNghi`, đây là phép lịch sự. */
   function xoaDuoc(stt: number) {
-    return quyen.phanBoCongViec && !biLoc && deNghi.items.length > 1 && !sttDaLenDon.includes(stt);
+    return (
+      quyen.phanBoCongViec &&
+      !biLoc &&
+      // Hồ sơ đã đóng thì cả xóa cũng khóa, không riêng thêm mới.
+      !hoSoDaDong &&
+      deNghi.items.length > 1 &&
+      !sttDaLenDon.includes(stt)
+    );
   }
 
   function xoaMatHang(stt: number) {
@@ -369,26 +387,29 @@ export function BangPhanBo({
         {biLoc && (
           <p className="rounded-lg bg-primary-bg px-3 py-2 text-xs text-primary">
             Đang chỉ hiện <strong>phần việc được giao cho bạn</strong> ({tienDo.length}/
-            {deNghi.items.length} dòng vật tư của đề nghị này). Các dòng còn lại do người khác
-            phụ trách.
+            {deNghi.items.length} công việc của đề nghị này). Các công việc còn lại do người
+            khác phụ trách.
           </p>
         )}
 
-        {/* Tóm tắt cảnh báo */}
+        {/* Tóm tắt cảnh báo.
+            📌 Gọi là "công việc" chứ không phải "dòng" (Ban lãnh đạo 15/08/2026). Với người
+            dùng, mỗi dòng vật tư được giao cho một người CHÍNH LÀ một đầu việc — "dòng" là
+            cách gọi theo cấu trúc bảng, nói đúng thứ họ phải làm mới dễ hiểu. */}
         <div className="flex flex-wrap items-center gap-3">
           {soChuaPhanBo > 0 ? (
             <span className="flex items-center gap-2 rounded-lg bg-danger-bg px-3 py-1.5 text-sm font-medium text-danger-soft">
               <AlertTriangle className="size-4 shrink-0" aria-hidden />
-              {soChuaPhanBo} dòng chưa phân bổ
+              {soChuaPhanBo} công việc chưa phân bổ
             </span>
           ) : (
             <span className="rounded-lg bg-success-bg px-3 py-1.5 text-sm font-medium text-success-soft">
-              Đã phân bổ đủ {tienDo.length} dòng
+              Đã phân bổ đủ {tienDo.length} công việc
             </span>
           )}
           {soDaPhanChuaLenPO > 0 && (
             <span className="rounded-lg bg-warning-bg px-3 py-1.5 text-sm font-medium text-warning-soft">
-              {soDaPhanChuaLenPO} dòng đã phân nhưng chưa lên đơn hàng
+              {soDaPhanChuaLenPO} công việc đã phân nhưng chưa lên đơn hàng
             </span>
           )}
         </div>
@@ -591,7 +612,8 @@ export function BangPhanBo({
               {/* ★ THÊM VẬT TƯ MỚI — nút cây bút ở cuối danh sách (Ban lãnh đạo 13/08/2026).
                   Bấm bút thì chính hàng này thành ba ô nhập, gõ xong bấm dấu ✓ là xong —
                   không mở hộp thoại, không rời khỏi bảng. */}
-              {quyen.phanBoCongViec && !biLoc && (
+              {/* Hồ sơ đã đóng thì không bày nút thêm — xem `hoSoDaDong`. */}
+              {quyen.phanBoCongViec && !biLoc && !hoSoDaDong && (
                 <TableRow>
                   <TableCell colSpan={quyen.phanBoCongViec ? 7 : 6} className="py-2">
                     {dongMoi === null ? (
@@ -740,7 +762,7 @@ export function BangPhanBo({
         tieuDe="Giao việc cho nhân viên?"
         moTa={
           giaoViec &&
-          `Giao ${giaoViec.dong.length} dòng vật tư (dòng ${giaoViec.dong.join(", ")}) của đề nghị ${deNghi.code} cho ${giaoViec.ten}.`
+          `Giao ${giaoViec.dong.length} công việc (dòng ${giaoViec.dong.join(", ")}) của đề nghị ${deNghi.code} cho ${giaoViec.ten}.`
         }
         nhanDongY="Giao việc"
         onDong={() => setMoHop(false)}

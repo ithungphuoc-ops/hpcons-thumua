@@ -50,6 +50,7 @@ import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { soNgayConLai } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import {
+  giaiDoanDaKetThuc,
   NHAN_GIAI_DOAN,
   vuongMacLapDonHang,
   vuongMacSangBuocSau,
@@ -512,6 +513,9 @@ export default function TrangChiTietDeNghi() {
         <BangPhanBo
           deNghi={dn}
           dangOBuocPhanBo={giaiDoan === "tiep_nhan" || soDongChuaPhanBo > 0}
+          // Hồ sơ đã chốt (hoàn thành / đóng dở) thì khóa mọi thao tác đổi nội dung —
+          // Ban lãnh đạo 15/08/2026. Dùng `giaiDoanDaKetThuc` cho khớp với luật chung.
+          hoSoDaDong={giaiDoanDaKetThuc(giaiDoan)}
         />
       </section>
 
@@ -575,12 +579,50 @@ export default function TrangChiTietDeNghi() {
         </section>
       )}
 
-      {/* Đơn hàng đã tách */}
+      {/* Đơn đặt hàng của đề nghị này */}
       <section className="flex flex-col gap-(--hp-md-row-gap)">
-        <h2 className="text-h3 text-text-primary">Đơn đặt hàng đã tách ({poLienQuan.length})</h2>
+        {/* 📌 Tiêu đề gọi thẳng là "Đơn đặt hàng" (Ban lãnh đạo 15/08/2026). Chữ "đã tách" là
+            cách nói của người làm hệ thống — với người dùng thì đây đơn giản là danh sách đơn
+            của đề nghị này, dù có tách cho nhiều nhà cung cấp hay chỉ một đơn duy nhất. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-h3 text-text-primary">Đơn đặt hàng ({poLienQuan.length})</h2>
+          {/* ★ TÁCH ĐƠN NGAY TẠI ĐÂY — Ban lãnh đạo 15/08/2026: *"thêm tính năng tách đơn cho
+              tài khoản nhân viên"*.
+
+              🔴 Nhân viên VỐN ĐÃ có quyền lập đơn (`lapPO` mở cho nhân viên thu mua cấp ≥2),
+              nhưng đường vào chỉ có MỘT nút ở tận đầu trang. Đứng ở khối đơn hàng — đúng lúc
+              nhìn thấy "cần thêm một đơn nữa cho nhà cung cấp khác" — thì không có nút nào.
+              Người dùng tưởng mình không được tách và đi nhờ trưởng bộ phận.
+
+              📌 Dùng CHUNG `chanLapDon` với nút đầu trang: hai nút không bao giờ nói khác nhau
+              về việc có được lập đơn hay chưa. */}
+          {quyen.lapPO &&
+            !giaiDoanDaKetThuc(giaiDoan) &&
+            (chanLapDon ? (
+              <Button size="sm" variant="outline" disabled title={chanLapDon}>
+                <ShoppingCart className="size-4" aria-hidden />
+                {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                nativeButton={false}
+                render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+              >
+                <ShoppingCart className="size-4" aria-hidden />
+                {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
+              </Button>
+            ))}
+        </div>
         <Card>
           <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
-            {poLienQuan.length === 0 && <p className="text-sm text-text-desc">Chưa tách đơn hàng nào.</p>}
+            {poLienQuan.length === 0 && (
+              <p className="text-sm text-text-desc">
+                Chưa có đơn đặt hàng nào. Một đề nghị tách được thành nhiều đơn khi chia hàng
+                cho nhiều nhà cung cấp.
+              </p>
+            )}
             {poLienQuan.map((po) => {
               const ttPO = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
               return (

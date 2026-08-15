@@ -36,6 +36,12 @@ import {
   phieuGocCua,
   tinhPhuongAnTach,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import {
+  tinhTienDoPO,
+  vuongMacGhiThemPhieuNhan,
+  vuongMacKhoiLuongNhan,
+  vuongMacSoPhieuNCC,
+} from "@/2-quy-trinh/tinh-toan";
 import { nhanSuDangLamViec, tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import {
   DE_NGHI_MAU,
@@ -1327,7 +1333,34 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
   const themPhieuNhan = useCallback(
     (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => {
-      const lanGiaoThu = phieuNhanRef.current.filter((p) => p.poId === phieu.poId).length + 1;
+      const cuaPO = phieuNhanRef.current.filter((p) => p.poId === phieu.poId);
+
+      /**
+       * 🔴 CHỐT CHẶN Ở TẦNG DỮ LIỆU — Ban lãnh đạo 15/08/2026: không ghi thêm phiếu khi đã
+       * nhận đủ, và số phiếu giao nhận không được trùng.
+       *
+       * Giao diện đã khóa nút và báo lý do, nhưng khóa nút KHÔNG PHẢI LÀ CHẶN: form vẫn có thể
+       * đang mở sẵn từ trước lúc phiếu cuối được ghi (hai người cùng làm trên kho chung), và
+       * còn đường gọi khác về sau. Kiểm lại ở đây thì mọi đường đều bị chặn như nhau.
+       *
+       * ⚠️ Chặn bằng cách KHÔNG GHI và trả về — hàm này vốn không trả lỗi cho nơi gọi, mà đổi
+       * chữ ký thì phải sửa cả luồng. Nơi gọi duy nhất đã kiểm đúng ba luật này trước khi gọi,
+       * nên tới được đây mà vẫn vướng nghĩa là có đường vòng — thà mất một lần ghi còn hơn ghi
+       * một phiếu sai vào chứng từ kho.
+       */
+      const poDangGhi = donHangRef.current.find((p) => p.id === phieu.poId);
+      if (poDangGhi) {
+        const tienDo = tinhTienDoPO(poDangGhi, cuaPO);
+        if (
+          vuongMacGhiThemPhieuNhan(tienDo) ||
+          vuongMacKhoiLuongNhan(tienDo, phieu.lines) ||
+          vuongMacSoPhieuNCC(phieu.soPhieuGiaoNCC ?? "", cuaPO)
+        ) {
+          return;
+        }
+      }
+
+      const lanGiaoThu = cuaPO.length + 1;
       const id = `grn-${phieu.poId}-${lanGiaoThu}`;
       const code = `${phieu.poCode}-DO${String(lanGiaoThu).padStart(2, "0")}`;
       setPhieuNhan((truoc) => [...truoc, { ...phieu, id, code, lanGiaoThu }]);
@@ -1970,6 +2003,32 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     (prId: string, dongMoi: DongDeNghi[], nguoiThucHien: string): string | null => {
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
+
+      /**
+       * 🔴 HỒ SƠ ĐÃ ĐÓNG THÌ KHÔNG SỬA NỘI DUNG NỮA — Ban lãnh đạo 15/08/2026: *"sao hoàn
+       * thành rồi mà vẫn được thêm vật tư"*.
+       *
+       * Ảnh cho thấy `260001-HPCS-PR-001` đứng ở bước ⑦ *Hoàn thành* (đã nhận đủ, kho và
+       * trưởng bộ phận đều đã xác nhận) mà bảng vẫn mời *"Thêm vật tư mới"*.
+       *
+       * Thêm một dòng vào lúc này là hồ sơ đang "hoàn thành" bỗng có phần chưa mua: giai đoạn
+       * được suy ra từ chứng từ nên thẻ lập tức rơi ngược về bước ①, mọi xác nhận đã ký trở
+       * thành xác nhận cho một nội dung khác với nội dung hiện tại. Cần mua thêm thì lập đề
+       * nghị mới, không sửa vào hồ sơ đã chốt.
+       */
+      const giaiDoanHienTai = xacDinhGiaiDoan(
+        dn,
+        donHangRef.current,
+        baoGiaRef.current,
+        phieuNhanRef.current,
+      );
+      if (giaiDoanHienTai === "hoan_thanh") {
+        return "Đề nghị đã hoàn thành nên không sửa được danh sách vật tư. Cần mua thêm thì lập một đề nghị mới — thêm vào hồ sơ đã chốt sẽ làm hỏng các xác nhận đã ký.";
+      }
+      if (giaiDoanHienTai === "that_bai") {
+        return "Đề nghị đã đóng dở nên không sửa được danh sách vật tư. Muốn mua tiếp thì lập đề nghị mới.";
+      }
+
       if (dongMoi.length === 0) {
         return "Phiếu phải còn ít nhất một mặt hàng. Phiếu không có vật tư thì không đi tiếp được bước nào — dùng “Xóa hẳn đề nghị” hoặc “Đánh dấu thất bại” nếu muốn bỏ cả phiếu.";
       }

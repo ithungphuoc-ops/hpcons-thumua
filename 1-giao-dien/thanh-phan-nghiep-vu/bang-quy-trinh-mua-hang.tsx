@@ -176,10 +176,15 @@ export function BangQuyTrinhMuaHang({
     // `flex-1 min-h-0`: bảng SỔ XUỐNG kín chiều cao còn lại của màn hình
     // (yêu cầu Ban lãnh đạo 07/08/2026) — cột dài quá thì cuộn bên trong cột.
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-auto rounded-xl border border-border">
-      {/* `w-max min-w-full` + cột `grow`: màn hẹp thì giữ 272px/cột và cuộn ngang,
-          màn rộng thì các cột TỰ DÀN ĐỀU kín bề ngang — yêu cầu Ban lãnh đạo 07/08/2026.
+      {/* 🔴 `w-full` CHỨ KHÔNG PHẢI `w-max` — sửa 15/08/2026.
+          `w-max` là `max-content`: bề ngang hàng cột bằng TỔNG bề rộng nội dung tự nhiên của
+          chúng, nên một mã hồ sơ dài (`260001-HPCS-PR-001 (copy 2) - NHÀ XƯỞNG ABC — GIAI
+          ĐOẠN 2`) tự kéo cột phình ra 264px, bất chấp `basis` đã đặt 176px. Kết quả: bảng
+          rộng 2.108px trong khung 1.626px và luôn phải cuộn ngang, dù cột đã được thu nhỏ.
+          `w-full` thì cột nghe theo `basis`/`grow`; cột nào không đủ chỗ vẫn tràn ra và khung
+          cha `overflow-x-auto` cho cuộn — đúng hành vi cần cho màn nhỏ.
           `flex-1` (không dùng min-h-full vì cha bọc ngoài từng là block): cột ăn hết chiều cao bảng. */}
-      <div className="flex min-h-0 w-max min-w-full flex-1 items-stretch divide-x divide-border">
+      <div className="flex min-h-0 w-full flex-1 items-stretch divide-x divide-border">
         {cot.map((c) => (
           <CotQuyTrinh
             key={c.giaiDoan.ma}
@@ -255,7 +260,22 @@ function CotQuyTrinh({
 
   return (
     <section
-      className={`flex min-w-[272px] shrink-0 grow basis-[272px] flex-col bg-muted transition-opacity ${
+      /**
+       * ★ BỀ RỘNG CỘT CO THEO MÀN HÌNH — Ban lãnh đạo 15/08/2026: *"thu gọn lại các ô này để
+       * hiển thị đủ trong 1 màn hình, và phải fix cho các màn hình khác"*.
+       *
+       * 8 cột × 272px = 2.176px, cộng thanh bên 260px là 2.436px — màn 1920px cũng không đủ,
+       * nên bảng luôn phải cuộn ngang và không bao giờ nhìn được cả quy trình một lượt.
+       *
+       * 🔴 KHÔNG ĐẶT MỘT BỀ RỘNG DUY NHẤT CHO MỌI MÀN. Bóp xuống 176px cho vừa màn 1920px thì
+       * laptop 1366px vẫn cuộn (vì màn nhỏ hơn) mà thẻ lại chật thêm — vừa không giải quyết
+       * được gì, vừa làm hỏng trải nghiệm của máy nhỏ. Vì vậy: máy nhỏ giữ 272px và cuộn như
+       * cũ, màn càng rộng thì cột càng được phép co để đủ 8 cột.
+       *
+       * `grow` vẫn giữ: khi 8 cột đã vừa, phần dư được chia đều nên không có khoảng trống bên
+       * phải bảng.
+       */
+      className={`flex min-w-[272px] shrink-0 grow basis-[272px] flex-col bg-muted transition-opacity xl:min-w-[208px] xl:basis-[208px] 2xl:min-w-[176px] 2xl:basis-[176px] ${
         dangKeoQua ? "ring-2 ring-primary ring-inset" : ""
       } ${moDi ? "opacity-40" : ""}`}
       {...suKienKeoTha}
@@ -497,7 +517,7 @@ function TheDeNghi({
         soDongChuaPhanBo > 0 && (
           <span className="inline-flex items-center gap-1 text-xs text-danger-soft">
             <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-            Thiếu {soDongChuaPhanBo} dòng chưa phân bổ
+            Thiếu {soDongChuaPhanBo} công việc chưa phân bổ
           </span>
         )
       )}

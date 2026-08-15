@@ -83,7 +83,7 @@ export default function TrangPhanBo() {
 
                 <div className="flex flex-wrap gap-2">
                   {chuaPhanBo.length > 0 && (
-                    <StatusBadge label={`${chuaPhanBo.length} dòng chưa phân bổ`} tone="danger" />
+                    <StatusBadge label={`${chuaPhanBo.length} công việc chưa phân bổ`} tone="danger" />
                   )}
                   {daPhanChuaLenPO.length > 0 && (
                     <StatusBadge label={`${daPhanChuaLenPO.length} dòng chưa lên đơn hàng`} tone="warning" />

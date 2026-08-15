@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ChevronRight, Clock, Eye, GitBranch, UserCheck } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
@@ -25,7 +24,6 @@ import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
  */
 export default function TrangTheoDoi() {
   const { deNghi, donHang, baoGia, phieuNhan } = useDuLieu();
-  const router = useRouter();
   const { nguoiDung, quyen } = useNguoiDung();
 
   /**
@@ -165,24 +163,18 @@ export default function TrangTheoDoi() {
       />
 
       {danhSach.length === 0 ? (
-        /* 🔴 12/08/2026: câu cũ ghi *"Đề nghị bạn lập trên HPcore… sẽ hiện ở đây"* — chỉ
-           người dùng sang một hệ thống khác để làm việc mà app này đang làm được. Từ khi
-           mọi tài khoản lập được đề nghị NGAY TRONG APP, câu đó đẩy người mới đi lạc đúng
-           lúc họ cần chỉ đúng nhất. Nay nói thật, và mở luôn đường vào. */
+        /* 📌 ĐÃ BỎ nút "Tạo đề nghị mua hàng" ở đây (Ban lãnh đạo 15/08/2026: *"bỏ mục chọn
+           này, đang bị dư"*).
+
+           Đây là màn TRA CỨU tiến trình, không phải nơi lập hồ sơ — đường lập đề nghị đã nằm
+           ở trang Quy trình mua hàng. Nút còn dư ở đây gây hai chuyện: người vào tra tiến độ
+           bị mời làm một việc khác, và vai trò như thủ kho (ảnh Ban lãnh đạo gửi) thấy nút
+           lập đề nghị mua hàng ngay trên màn của mình. */
         <EmptyState
           icon={Eye}
           title="Chưa có đề nghị nào để theo dõi"
-          description={
-            // Nêu ĐỦ ba đường vào, đúng bằng bộ lọc ở trên — không hứa hơn, không giấu bớt.
-            quyen.taoDeNghi
-              ? "Chưa có đề nghị nào do bạn lập, được giao cho bạn, hoặc có tên bạn trong danh sách theo dõi. Bạn lập được đề nghị ngay trong app."
-              : "Chưa có đề nghị nào do bạn lập, được giao cho bạn, hoặc có tên bạn trong danh sách theo dõi."
-          }
-          action={
-            quyen.taoDeNghi
-              ? { label: "Tạo đề nghị mua hàng", onClick: () => router.push("/de-nghi/nhan-moi") }
-              : undefined
-          }
+          // Nêu ĐỦ ba đường vào, đúng bằng bộ lọc ở trên — không hứa hơn, không giấu bớt.
+          description="Chưa có đề nghị nào do bạn lập, được giao cho bạn, hoặc có tên bạn trong danh sách theo dõi."
         />
       ) : (
         <div className="flex flex-col gap-(--hp-md-card-gap)">

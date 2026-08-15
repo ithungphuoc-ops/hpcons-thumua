@@ -553,7 +553,7 @@ export function vuongMacSangBuocSau(
       // đi tiếp là bỏ rơi dòng đó: không ai đi hỏi giá, không ai lập đơn cho nó.
       const chuaPhanBo = deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length;
       return chuaPhanBo > 0
-        ? `Còn ${chuaPhanBo} trong ${deNghi.items.length} dòng vật tư chưa phân bổ người phụ trách. Phân bổ hết ở bảng "Phân bổ công việc" trước khi sang bước sau.`
+        ? `Còn ${chuaPhanBo} trong ${deNghi.items.length} công việc chưa phân bổ người phụ trách. Phân bổ hết ở bảng "Phân bổ công việc" trước khi sang bước sau.`
         : null;
     }
 
@@ -866,7 +866,7 @@ export function dungXacNhanKeoTha(
   // ① Còn dòng chưa phân bổ cho ai — hay gặp nhất, và là thứ thẻ đã cảnh báo sẵn trên bảng.
   if (the.soDongChuaPhanBo > 0) {
     canhBao.push(
-      `Còn ${the.soDongChuaPhanBo} dòng vật tư chưa phân bổ cho nhân viên nào.`,
+      `Còn ${the.soDongChuaPhanBo} công việc chưa phân bổ cho nhân viên nào.`,
     );
   }
 
