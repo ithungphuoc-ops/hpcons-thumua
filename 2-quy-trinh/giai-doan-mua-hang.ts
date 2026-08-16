@@ -726,24 +726,28 @@ export function quyetDinhKeoTha(
    * để làm việc thật (lập bảng / chọn NCC), thẻ chỉ chuyển cột khi chứng từ có thật — đúng
    * nguyên tắc "giai đoạn suy ra từ chứng từ, kéo thả không đổi nhãn chay".
    */
+  /**
+   * ★ CÔNG VIỆC BẮT BUỘC CHƯA XONG THÌ MỞ HỘP CHO TÍCH NGAY, KHÔNG CHẶN BẰNG MỘT CÂU BÁO LỖI.
+   *
+   * 🔴 Ban lãnh đạo 16/08/2026: *"khi trưởng bộ phận kéo sang bước 2 là phải hiện xác nhận đã
+   * check hàng tồn kho, nếu chưa tích xác nhận thì chưa cho chuyển"*.
+   *
+   * Trước đây chỗ này trả `khong_the` kèm câu *"Tích hoàn thành ở khối Công việc của bước
+   * trong trang chi tiết đề nghị"* — người dùng đang đứng ở BẢNG QUY TRÌNH, bị đuổi sang một
+   * màn khác, làm xong lại phải quay về kéo lại. Hộp chuyển bước vốn đã có sẵn chỗ hiện việc
+   * còn treo và khóa nút; chặn từ đây thì hộp đó không bao giờ mở ra được.
+   *
+   * 📌 Nút trong hộp VẪN KHÓA cho tới khi tích đủ — đây là mở đường làm việc, không phải mở
+   * đường đi tắt. Luật chặn vẫn là `congViecChuaXongCuaBuoc`, một chỗ duy nhất.
+   */
   if (tu === "tiep_nhan") {
-    const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, cauHinh);
+    /* Vướng mắc KHÁC công việc bắt buộc (còn dòng chưa phân bổ người) thì vẫn chặn thẳng:
+       việc đó phải làm ở bảng Phân bổ, hộp chuyển bước không giải quyết được. */
+    const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, {
+      ...cauHinh,
+      congViecTheoBuoc: {},
+    });
     if (vuongMac) return { loai: "khong_the", lyDo: vuongMac };
-  } else {
-    /**
-     * Các bước sau không áp chốt riêng của bước, NHƯNG công việc bắt buộc thì bước nào cũng
-     * phải xong — Base bật "Bắt buộc hoàn thành công việc của giai đoạn hiện tại" cho cả 8
-     * giai đoạn (ảnh Ban lãnh đạo gửi 14–15/08/2026).
-     */
-    const conViec = congViecChuaXongCuaBuoc(the.deNghi, tu, cauHinh);
-    if (conViec.length > 0) {
-      return {
-        loai: "khong_the",
-        lyDo: `Còn ${conViec.length} công việc bắt buộc của bước này chưa hoàn thành: ${conViec
-          .map((cv) => `“${cv.ten}”`)
-          .join(", ")}. Tích hoàn thành ở khối “Công việc của bước” trong trang chi tiết đề nghị.`,
-      };
-    }
   }
 
   // Từ đây trở xuống: dich là bước LIỀN KỀ phía trước

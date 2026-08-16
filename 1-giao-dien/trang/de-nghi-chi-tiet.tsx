@@ -435,11 +435,13 @@ export default function TrangChiTietDeNghi() {
       {congViecCuaBuoc.length > 0 && (
         <Card>
           <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
+            {/* Tên khối và cách xếp bám đúng Base (ảnh Ban lãnh đạo gửi 16/08/2026): tiêu đề
+                "Danh sách công việc", ngay dưới là TÊN GIAI ĐOẠN đang đứng, rồi tới các việc.
+                Người của phòng đã quen bảng Base nên đọc không phải dịch lại trong đầu. */}
             <div className="flex flex-col gap-1">
-              <h2 className="text-h3 text-text-primary">Công việc của bước</h2>
-              <p className="text-xs text-text-desc">
-                Bước <strong>{NHAN_GIAI_DOAN[giaiDoan]?.nhan ?? giaiDoan}</strong> yêu cầu hoàn
-                thành các việc dưới đây trước khi sang bước sau.
+              <h2 className="text-h3 text-text-primary">Danh sách công việc</h2>
+              <p className="text-xs font-semibold tracking-wide text-text-desc uppercase">
+                {NHAN_GIAI_DOAN[giaiDoan]?.nhan ?? giaiDoan}
               </p>
             </div>
             <ul className="flex flex-col gap-2">

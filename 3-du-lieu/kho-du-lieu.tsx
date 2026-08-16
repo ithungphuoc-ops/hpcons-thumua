@@ -2251,15 +2251,44 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
            * ấy đòi chứng từ riêng (bảng báo giá, đơn hàng) mà bản mới chưa có. Đó là đúng —
            * nói thẻ đã ở bước ⑤ khi chưa có đơn hàng nào là báo tiến độ ảo.
            */
-          items: dongGiuLai.map((d, i) => ({
-            ...d,
-            stt: i + 1,
-            nguoiPhuTrachUid: nguoi.uid,
-            nguoiPhuTrachTen: nguoi.ten,
-            // Người tách tự nhận việc, nên người phân bổ cũng chính là họ.
-            nguoiPhanBoTen: nguoi.ten,
-            thoiDiemPhanBo: thoiDiemHienTai(),
-          })),
+          /**
+           * 🔴 CHỈ GÁN NGƯỜI CHO DÒNG GỐC ĐÃ CÓ NGƯỜI — Ban lãnh đạo 16/08/2026: *"nhân bản ở
+           * bước nào thì sẽ trả nhân bản ở đúng bước đó"*.
+           *
+           * ⚠️ Bản trước gán người cho MỌI dòng, kể cả dòng gốc chưa ai nhận. Hậu quả thấy
+           * ngay trên bảng: phiếu `PR-002` đứng ở cột ① *"Chưa được giao · Thiếu 3 công việc
+           * chưa phân bổ"*, nhân bản ra thì bản `(copy)` lại nhảy sang cột ② — vì giai đoạn
+           * suy ra từ chứng từ, mà "phân bổ đủ mọi dòng" chính là điều kiện sang bước ②.
+           * Bản sao đi trước bản gốc một bước, không ai hiểu vì sao.
+           *
+           * 📌 VẪN GIỮ chỉ đạo 15/08/2026 (*"nhân viên nào nhân bản thì do người đó thực hiện,
+           * hiện ngay tại bước đang nhân bản"*): dòng gốc ĐÃ có người thì bản copy sang tên
+           * người nhân bản. Hai chỉ đạo không mâu thuẫn — cái sau nói VỀ AI, cái này nói CÓ
+           * GÁN HAY KHÔNG.
+           */
+          items: dongGiuLai.map((d, i) => {
+            const goc = Boolean(d.nguoiPhuTrachUid);
+            return {
+              ...d,
+              stt: i + 1,
+              ...(goc
+                ? {
+                    nguoiPhuTrachUid: nguoi.uid,
+                    nguoiPhuTrachTen: nguoi.ten,
+                    // Người tách tự nhận việc, nên người phân bổ cũng chính là họ.
+                    nguoiPhanBoTen: nguoi.ten,
+                    thoiDiemPhanBo: thoiDiemHienTai(),
+                  }
+                : {
+                    // Dòng gốc chưa ai nhận thì bản copy cũng để trống — trưởng bộ phận phân
+                    // bổ như với mọi dòng mới.
+                    nguoiPhuTrachUid: undefined,
+                    nguoiPhuTrachTen: undefined,
+                    nguoiPhanBoTen: undefined,
+                    thoiDiemPhanBo: undefined,
+                  }),
+            };
+          }),
           lichSu: [
             {
               thoiDiem: thoiDiemHienTai(),
@@ -2269,9 +2298,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                 (giu
                   ? `Giữ ${dongGiuLai.length}/${goc.items.length} mặt hàng của phiếu gốc`
                   : `Giữ nguyên toàn bộ ${goc.items.length} mặt hàng`) +
-                // Ghi rõ người tách nhận luôn việc — sau này đọc nhật ký biết vì sao phiếu
-                // này có người phụ trách ngay từ lúc sinh ra.
-                `. Người tách nhận phụ trách toàn bộ ${dongGiuLai.length} dòng.`,
+                // Nói đúng số dòng thật sự được giao — dòng gốc chưa ai nhận thì bản copy
+                // cũng để trống, nên câu cũ ("nhận phụ trách toàn bộ") có thể sai.
+                (dongGiuLai.some((d) => d.nguoiPhuTrachUid)
+                  ? `. Người tách nhận ${
+                      dongGiuLai.filter((d) => d.nguoiPhuTrachUid).length
+                    } công việc đã được giao ở phiếu gốc.`
+                  : ". Các công việc chưa phân bổ, giữ nguyên như phiếu gốc."),
             },
           ],
         },

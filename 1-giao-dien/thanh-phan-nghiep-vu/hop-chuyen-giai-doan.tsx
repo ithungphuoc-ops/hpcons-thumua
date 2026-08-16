@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import {
@@ -53,6 +54,8 @@ export function HopChuyenGiaiDoan({
   nhanNut,
   nguyHiem = false,
   congViecChuaXong,
+  daXong,
+  onTichCongViec,
   onDong,
   onXacNhan,
 }: {
@@ -67,8 +70,18 @@ export function HopChuyenGiaiDoan({
   canhBao: string[];
   nhanNut: string;
   nguyHiem?: boolean;
-  /** Công việc bắt buộc của bước ĐANG ĐỨNG mà đề nghị này chưa tích xong. */
+  /**
+   * Công việc bắt buộc của bước ĐANG ĐỨNG.
+   *
+   * ⚠️ Danh sách này KHÔNG đổi khi người dùng tích trong hộp — nó là ảnh chụp lúc mở hộp. Ô
+   * nào đã tích thì `daXong` biết, nhờ vậy việc vừa tích không biến mất khỏi danh sách giữa
+   * chừng (biến mất thì người dùng tưởng mình bấm hụt).
+   */
   congViecChuaXong: CongViecGiaiDoan[];
+  /** Mã các công việc đã tích xong — cập nhật theo dữ liệu thật. */
+  daXong: string[];
+  /** Tích / bỏ tích một công việc ngay trong hộp. */
+  onTichCongViec: (congViec: CongViecGiaiDoan, xong: boolean) => void;
   onDong: () => void;
   /**
    * `ghiChu` là nội dung ô "Những việc đã hoàn thành?" — rỗng thì không ghi nhật ký.
@@ -100,11 +113,15 @@ export function HopChuyenGiaiDoan({
   const hanDich = cauHinh.hanGioTheoBuoc?.[denBuoc] ?? 0;
   /** Bước ② mới hỏi số báo giá — các bước khác không có trường này (đúng như Base). */
   const hoiSoBaoGia = denBuoc === "yeu_cau_bao_gia";
+  /** Việc trong danh sách mà người dùng CHƯA tích — tính theo dữ liệu thật, cập nhật ngay. */
+  const conViecChuaTich = congViecChuaXong.filter((cv) => !daXong.includes(cv.ma)).length;
   /**
-   * Nút khoá khi: còn việc bắt buộc chưa xong, HOẶC chưa chọn số báo giá ở bước ②.
-   * Luật việc bắt buộc lấy từ `congViecChuaXongCuaBuoc` — cùng hàm với chỗ app thật sự chặn.
+   * Nút khoá khi: còn việc bắt buộc chưa tích, HOẶC chưa chọn số báo giá ở bước ②.
+   *
+   * 🔴 Tích trong hộp KHÔNG PHẢI đường đi tắt: người dùng vẫn phải xác nhận từng việc, chỉ là
+   * làm ngay tại chỗ thay vì bị đuổi sang màn khác. Luật chặn vẫn là `congViecChuaXongCuaBuoc`.
    */
-  const bikhoa = congViecChuaXong.length > 0 || (hoiSoBaoGia && soBaoGia === "");
+  const bikhoa = conViecChuaTich > 0 || (hoiSoBaoGia && soBaoGia === "");
 
   return (
     <Dialog open={mo} onOpenChange={(v) => !v && onDong()}>
@@ -199,7 +216,14 @@ export function HopChuyenGiaiDoan({
             </div>
           </div>
 
-          {/* ===== ③ CÔNG VIỆC ĐANG CHỜ Ở GIAI ĐOẠN TRƯỚC ===== */}
+          {/* ===== ③ CÔNG VIỆC ĐANG CHỜ Ở GIAI ĐOẠN TRƯỚC =====
+              ★ TÍCH ĐƯỢC NGAY TẠI ĐÂY — Ban lãnh đạo 16/08/2026: *"khi trưởng bộ phận kéo sang
+              bước 2 là phải hiện xác nhận đã check hàng tồn kho, nếu chưa tích xác nhận thì
+              chưa cho chuyển"*.
+
+              🔴 Trước đây chỗ này chỉ liệt kê việc còn treo rồi bảo *"tích ở trang chi tiết đề
+              nghị"* — người dùng đang đứng ở bảng quy trình, bị đuổi sang màn khác, làm xong
+              lại phải quay về kéo lại. Nay tích ngay trong hộp, xong là nút mở khóa. */}
           {congViecChuaXong.length > 0 && (
             <div className="flex flex-col gap-2 border-t border-divider pt-3">
               <p className="text-center text-xs font-semibold tracking-wide text-text-desc uppercase">
@@ -207,24 +231,42 @@ export function HopChuyenGiaiDoan({
               </p>
               <p className="text-xs text-text-desc">{nhanNguon}</p>
               <ul className="flex flex-col gap-1.5">
-                {congViecChuaXong.map((cv) => (
-                  <li
-                    key={cv.ma}
-                    className="flex items-start justify-between gap-2 rounded-lg border border-warning/40 bg-warning-bg px-3 py-2"
-                  >
-                    <span className="flex min-w-0 flex-col">
-                      <span className="text-sm font-medium text-text-primary">{cv.ten}</span>
-                      {cv.moTa && <span className="text-xs text-text-desc">{cv.moTa}</span>}
-                    </span>
-                    <StatusBadge label="Chưa xong" tone="warning" />
-                  </li>
-                ))}
+                {congViecChuaXong.map((cv) => {
+                  const daTich = daXong.includes(cv.ma);
+                  return (
+                    <li key={cv.ma}>
+                      {/* Cả dòng là vùng bấm — vùng chạm rộng hơn nhiều so với riêng ô tích,
+                          đúng luật ≥44px của Design System. */}
+                      <label
+                        className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
+                          daTich
+                            ? "border-success bg-success-bg"
+                            : "border-warning/40 bg-warning-bg hover:border-warning"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={daTich}
+                          onCheckedChange={(v: boolean) => onTichCongViec(cv, Boolean(v))}
+                        />
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="text-sm font-medium text-text-primary">{cv.ten}</span>
+                          {cv.moTa && <span className="text-xs text-text-desc">{cv.moTa}</span>}
+                        </span>
+                        {/* Trạng thái luôn có CẢ MÀU LẪN CHỮ (Design System V1.1). */}
+                        <StatusBadge
+                          label={daTich ? "Hoàn thành" : "Chưa xong"}
+                          tone={daTich ? "success" : "warning"}
+                        />
+                      </label>
+                    </li>
+                  );
+                })}
               </ul>
-              {/* 🔴 Chỉ đường tới chỗ tích, đừng bắt người dùng tự mò. */}
-              <p className="text-xs text-warning-soft">
-                Phải tích hoàn thành các việc trên mới chuyển bước được. Tích ở khối{" "}
-                <strong>“Công việc của bước”</strong> trong trang chi tiết đề nghị.
-              </p>
+              {conViecChuaTich > 0 && (
+                <p className="text-xs text-warning-soft">
+                  Còn {conViecChuaTich} việc chưa xác nhận — tích xong mới chuyển bước được.
+                </p>
+              )}
             </div>
           )}
 

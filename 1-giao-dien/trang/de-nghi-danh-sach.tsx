@@ -66,6 +66,7 @@ export default function TrangDanhSachDeNghi() {
     luiVeBuoc,
     cauHinh,
     ghiLichSuDeNghi,
+    danhDauCongViecGiaiDoan,
     datSoBaoGiaChoPhieu,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
@@ -553,6 +554,20 @@ export default function TrangDanhSachDeNghi() {
           nhanNut={xacNhan.noiDung.nhanNut}
           nguyHiem={xacNhan.noiDung.nguyHiem}
           congViecChuaXong={xacNhan.congViecChuaXong}
+          /* Đọc từ dữ liệu THẬT nên tích xong là ô đổi màu và nút mở khóa ngay, không phải
+             đóng hộp mở lại. */
+          daXong={(deNghi.find((d) => d.id === xacNhan.prId)?.congViecDaXong ?? []).map(
+            (x) => x.maCongViec,
+          )}
+          onTichCongViec={(congViec, xong) =>
+            danhDauCongViecGiaiDoan(
+              xacNhan.prId,
+              congViec,
+              xacNhan.tuBuoc,
+              xong,
+              nguoiDung.tenHienThi,
+            )
+          }
           onDong={() => setMoHopXacNhan(false)}
           onXacNhan={(ghiChu, soBaoGia) => {
             setMoHopXacNhan(false);
