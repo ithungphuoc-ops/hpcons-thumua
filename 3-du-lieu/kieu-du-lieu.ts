@@ -217,10 +217,51 @@ export interface DeNghiMuaHang {
    *
    * 🔴 KHÁC HẲN `lichSu`, đừng gộp hai thứ. `lichSu` là **app tự ghi** những gì đã xảy ra —
    * không ai sửa, không ai xóa, dùng để truy trách nhiệm. `binhLuan` là **người tự viết** để
-   * trao đổi, có thể xóa bài của chính mình. Trộn chung thì một dòng người dùng gõ tay trông
-   * y hệt một dòng máy ghi, và nhật ký mất giá trị làm bằng chứng.
+   * trao đổi. Trộn chung thì một dòng người dùng gõ tay trông y hệt một dòng máy ghi, và nhật
+   * ký mất giá trị làm bằng chứng.
+   *
+   * ⚠️ Từ 16/08/2026 bình luận **KHÔNG XÓA ĐƯỢC**, chỉ sửa (có lưu vết) hoặc thu hồi — xem
+   * `lichSuSua` và `thuHoi` bên dưới.
    */
   binhLuan?: BinhLuan[];
+}
+
+/**
+ * Một lần sửa bình luận.
+ *
+ * 🔴 PHẢI LƯU CẢ NỘI DUNG CŨ, không chỉ mốc thời gian. Ban lãnh đạo 16/08/2026 yêu cầu *"ghi
+ * lại lịch sử"* — mà biết "đã sửa lúc 14:20" nhưng không biết sửa TỪ GÌ THÀNH GÌ thì vết sửa
+ * vô dụng đúng lúc cần nhất: khi hai bên nói khác nhau về việc đã trao đổi gì.
+ */
+export interface LanSuaBinhLuan {
+  thoiDiem: NgayISO;
+  nguoiSuaUid: string;
+  nguoiSuaTen: string;
+  /**
+   * Nội dung TRƯỚC lần sửa này. Vắng nghĩa là đã bị rơi bớt để tiết kiệm dung lượng — xem
+   * luật cắt ở `suaBinhLuan`. Bản gốc đầu tiên thì không bao giờ rơi.
+   */
+  noiDungTruoc?: string;
+}
+
+/**
+ * Tệp đã bị gỡ khỏi bài.
+ *
+ * ⚠️ NỘI DUNG TỆP VẪN CÒN trong kho tệp — chỉ gỡ khỏi bài, không xóa. Gỡ mà xóa luôn nội dung
+ * thì "không cho xóa" chỉ đúng với chữ, còn chứng từ đính kèm vẫn biến mất được.
+ */
+export interface TepDaGo {
+  tep: MoTaTep;
+  nguoiGoUid: string;
+  nguoiGoTen: string;
+  thoiDiem: NgayISO;
+}
+
+/** Bài bị thu hồi — thay cho việc xóa. Bài vẫn nằm nguyên chỗ, chỉ ẩn phần chữ. */
+export interface ThuHoiBinhLuan {
+  nguoiUid: string;
+  nguoiTen: string;
+  thoiDiem: NgayISO;
 }
 
 /** Một lời bình trong hồ sơ. Ảnh/tài liệu kèm theo nằm ở `tep`. */
@@ -243,6 +284,17 @@ export interface BinhLuan {
    * đầu tiên. Cây nhiều tầng đọc trên màn hẹp là không xem được, mà nghiệp vụ cũng không cần.
    */
   traLoiChoId?: string;
+
+  // --- Ba trường dưới thêm 16/08/2026: chỉ sửa, không xóa, có lưu vết ---
+  // ⚠️ TẤT CẢ ĐỀU TÙY CHỌN. Bình luận viết trước ngày này không có chúng, và như vậy là đúng:
+  // chúng chưa từng bị sửa nên không được đeo nhãn "đã sửa".
+
+  /** Các lần đã sửa, cũ trước mới sau. Trống hoặc vắng = chưa sửa lần nào. */
+  lichSuSua?: LanSuaBinhLuan[];
+  /** Tệp đã gỡ khỏi bài — giữ lại để thấy bài từng đính kèm gì. */
+  tepDaGo?: TepDaGo[];
+  /** Có thì bài này đã bị thu hồi; phần chữ chỉ người có quyền mới xem lại được. */
+  thuHoi?: ThuHoiBinhLuan;
 }
 
 /** Một công việc của giai đoạn đã được tích hoàn thành. */

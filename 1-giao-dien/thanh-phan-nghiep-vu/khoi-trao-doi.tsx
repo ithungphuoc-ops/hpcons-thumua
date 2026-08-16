@@ -1,9 +1,34 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { CornerDownRight, Eye, Paperclip, Send, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  CornerDownRight,
+  Eye,
+  MoreHorizontal,
+  Paperclip,
+  Pencil,
+  Send,
+  Undo2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/1-giao-dien/nen-tang-ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
+import { AnhDaiDienChu } from "@/1-giao-dien/thanh-phan-dung-chung/anh-dai-dien-chu";
+import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import {
@@ -13,8 +38,8 @@ import {
   coTep,
   type MoTaTep,
 } from "@/3-du-lieu/kho-tep";
-import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
-import type { BinhLuan, DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import { formatMocThoiGian, formatThoiGianTuongDoi } from "@/6-tien-ich/dinh-dang";
+import type { BinhLuan, DeNghiMuaHang, LanSuaBinhLuan } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
  * KHỐI TRAO ĐỔI — hai thẻ "Bình luận" và "Lịch sử hoạt động" của trang chi tiết đề nghị.
@@ -34,15 +59,35 @@ export function KhoiTraoDoi({
   deNghi,
   nguoiDung,
   onGui,
-  onXoa,
+  onSua,
+  onThuHoi,
+  duocThuHoiBaiNguoiKhac = false,
 }: {
   deNghi: DeNghiMuaHang;
   nguoiDung: { uid: string; ten: string };
   onGui: (noiDung: string, tep: MoTaTep[], traLoiChoId?: string) => void;
-  onXoa: (binhLuanId: string) => void;
+  onSua: (binhLuanId: string, noiDungMoi: string, tepThem: MoTaTep[], idTepGo: string[]) => void;
+  onThuHoi: (binhLuanId: string) => void;
+  /** Trưởng bộ phận / quản trị thu hồi được bài của người khác (không sửa được). */
+  duocThuHoiBaiNguoiKhac?: boolean;
 }) {
   const [the, setThe] = useState<"binh_luan" | "lich_su">("binh_luan");
   const binhLuan = useMemo(() => deNghi.binhLuan ?? [], [deNghi.binhLuan]);
+
+  /**
+   * Mốc "bây giờ" để tính thời gian tương đối ("3 giờ trước").
+   *
+   * 🔴 PHẢI LẤY SAU KHI MOUNT, không lấy lúc dựng component. App xuất trang tĩnh nên chuỗi
+   * sinh lúc build khác chuỗi sinh trên máy người dùng → React báo lệch hydration. Lần vẽ đầu
+   * `moc = 0` nên hiện mốc tuyệt đối; sau khi mount mới đổi sang tương đối.
+   */
+  const [moc, setMoc] = useState(0);
+  useEffect(() => {
+    setMoc(Date.now());
+    // Cập nhật mỗi phút để "vừa xong" không đứng mãi khi mở trang lâu.
+    const h = setInterval(() => setMoc(Date.now()), 60_000);
+    return () => clearInterval(h);
+  }, []);
 
   /* Gom trả lời về dưới bài gốc. Bài gốc xếp theo thời gian, trả lời nằm ngay dưới bài
      mình trả lời — đọc theo mạch hội thoại chứ không nhảy cóc. */
@@ -82,25 +127,36 @@ export function KhoiTraoDoi({
                 Chưa có bình luận nào.
               </p>
             ) : (
-              <ul className="flex flex-col gap-(--hp-md-row-gap)">
+              /* Khoảng cách 20px giữa các cụm — khoảng trắng thay vai trò của viền. */
+              <ul className="flex flex-col gap-5">
                 {daSapXep.map(({ bai, traLoi }) => (
-                  <li key={bai.id} className="flex flex-col gap-2">
+                  <li key={bai.id} className="flex flex-col gap-3">
                     <MotBinhLuan
                       bai={bai}
                       laCuaToi={bai.nguoiVietUid === nguoiDung.uid}
-                      onXoa={() => onXoa(bai.id)}
+                      onSua={(nd, tepThem, idGo) => onSua(bai.id, nd, tepThem, idGo)}
+                      onThuHoi={() => onThuHoi(bai.id)}
                       onTraLoi={(nd, tep) => onGui(nd, tep, bai.id)}
                       nguoiDung={nguoiDung}
+                      duocThuHoiBaiNguoiKhac={duocThuHoiBaiNguoiKhac}
+                      moc={moc}
                     />
                     {traLoi.length > 0 && (
-                      <ul className="ml-6 flex flex-col gap-2 border-l-2 border-divider pl-3">
+                      /* Ba tín hiệu cùng lúc để thấy đây là trả lời: thụt vào đúng bề rộng cột
+                         ảnh đại diện của bài gốc (mép chữ thẳng hàng), trục dọc màu chủ đạo
+                         thay vì xám như mọi đường kẻ khác, và ảnh đại diện nhỏ hơn. */
+                      <ul className="ml-4 flex flex-col gap-3 border-l-2 border-primary/30 pl-4 sm:ml-6">
                         {traLoi.map((t) => (
                           <li key={t.id}>
                             <MotBinhLuan
                               bai={t}
+                              laTraLoi
                               laCuaToi={t.nguoiVietUid === nguoiDung.uid}
-                              onXoa={() => onXoa(t.id)}
+                              onSua={(nd, tepThem, idGo) => onSua(t.id, nd, tepThem, idGo)}
+                              onThuHoi={() => onThuHoi(t.id)}
                               nguoiDung={nguoiDung}
+                              duocThuHoiBaiNguoiKhac={duocThuHoiBaiNguoiKhac}
+                              moc={moc}
                             />
                           </li>
                         ))}
@@ -169,23 +225,36 @@ function OSoanBinhLuan({
   gonNhe = false,
   nhanNut = "Gửi bình luận",
   onHuy,
+  chuBanDau = "",
+  tepHienCo = [],
 }: {
   nguoiDung: { uid: string; ten: string };
-  onGui: (noiDung: string, tep: MoTaTep[]) => void;
+  /** `idTepGo` chỉ có khi đang SỬA — id các tệp cũ người dùng gỡ khỏi bài. */
+  onGui: (noiDung: string, tep: MoTaTep[], idTepGo?: string[]) => void;
   gonNhe?: boolean;
   nhanNut?: string;
   onHuy?: () => void;
+  /** Nạp sẵn chữ cũ khi mở ở chế độ sửa. */
+  chuBanDau?: string;
+  /** Tệp đã đính kèm từ trước — hiện kèm nút gỡ, chỉ dùng ở chế độ sửa. */
+  tepHienCo?: MoTaTep[];
 }) {
-  const [chu, setChu] = useState("");
+  const [chu, setChu] = useState(chuBanDau);
   const [tep, setTep] = useState<MoTaTep[]>([]);
+  /** Id tệp cũ bị gỡ khỏi bài trong lần sửa này. */
+  const [tepGo, setTepGo] = useState<string[]>([]);
   const [dangCat, setDangCat] = useState(false);
   const oNhap = useRef<HTMLTextAreaElement>(null);
 
   /** Tối đa 5 tệp mỗi bình luận — đủ cho một bộ ảnh chụp phiếu, mà không làm hồ sơ phình. */
   const TOI_DA_TEP = 5;
+  /** Khớp với `DAI_TOI_DA_BINH_LUAN` ở tầng dữ liệu — chỗ đó mới là chốt chặn thật. */
+  const DAI_TOI_DA = 1000;
+
+  const tepCuConLai = tepHienCo.filter((t) => !tepGo.includes(t.id));
 
   async function themTep(ds: FileList) {
-    const conNhan = TOI_DA_TEP - tep.length;
+    const conNhan = TOI_DA_TEP - (tep.length + tepCuConLai.length);
     if (conNhan <= 0) {
       toast.error("Đã đủ tệp", { description: `Mỗi bình luận tối đa ${TOI_DA_TEP} tệp.` });
       return;
@@ -206,14 +275,19 @@ function OSoanBinhLuan({
     setDangCat(false);
   }
 
-  const coGiDeGui = chu.trim().length > 0 || tep.length > 0;
+  const dangSua = chuBanDau !== "" || tepHienCo.length > 0;
+  const coGiDeGui =
+    chu.trim().length > 0 || tep.length > 0 || (dangSua && tepCuConLai.length > 0);
 
   function gui() {
     if (!coGiDeGui) return;
-    onGui(chu, tep);
-    setChu("");
-    setTep([]);
-    oNhap.current?.focus();
+    onGui(chu, tep, tepGo);
+    // Ở chế độ sửa thì component bị gỡ ngay sau khi lưu, không cần dọn ô.
+    if (!dangSua) {
+      setChu("");
+      setTep([]);
+      oNhap.current?.focus();
+    }
   }
 
   return (
@@ -221,7 +295,8 @@ function OSoanBinhLuan({
       <textarea
         ref={oNhap}
         value={chu}
-        onChange={(e) => setChu(e.target.value)}
+        onChange={(e) => setChu(e.target.value.slice(0, DAI_TOI_DA))}
+        maxLength={DAI_TOI_DA}
         rows={gonNhe ? 2 : 3}
         placeholder={
           gonNhe ? "Trả lời…" : "Viết trao đổi về hồ sơ này — hỏi, nhắc việc, ghi chú kết quả…"
@@ -233,6 +308,33 @@ function OSoanBinhLuan({
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") gui();
         }}
       />
+
+      {/* Tệp ĐÃ ĐÍNH KÈM TỪ TRƯỚC (chỉ có ở chế độ sửa) — gỡ được, nhưng gọi đúng tên là
+          "gỡ khỏi bài": nội dung tệp vẫn còn trong kho, không bị xóa. */}
+      {tepCuConLai.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5">
+          {tepCuConLai.map((t) => (
+            <li
+              key={t.id}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted py-0.5 pr-0.5 pl-2.5"
+            >
+              <Paperclip className="size-3 shrink-0 text-text-desc" aria-hidden />
+              <span className="truncate text-xs text-text-primary" title={t.tenTep}>
+                {rutGonTenTep(t.tenTep, 28)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setTepGo((x) => [...x, t.id])}
+                className="flex size-6 shrink-0 items-center justify-center rounded-full text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
+                aria-label={`Gỡ ${t.tenTep} khỏi bài`}
+                title="Gỡ khỏi bài"
+              >
+                <X className="size-3.5" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {tep.length > 0 && (
         <ul className="flex flex-wrap gap-1.5">
@@ -315,95 +417,294 @@ function OSoanBinhLuan({
   );
 }
 
-/** Một bài bình luận, kèm tệp đính kèm và nút trả lời / xóa. */
+/**
+ * MỘT BÀI BÌNH LUẬN.
+ *
+ * 🔴 BỎ KHUNG VIỀN quanh mỗi bài (Ban lãnh đạo 16/08/2026: *"thiết kế lại… dễ theo dõi hơn"*).
+ * Trước đây mọi bài đều mang `rounded-lg border bg-surface`, thành ra 10 hình chữ nhật giống
+ * hệt nhau — viền dùng cho 100% số bài thì không còn phân biệt được gì. Nay dùng **cột ảnh đại
+ * diện + khoảng trắng** để phân cụm, viền chỉ để dành cho cái bất thường (bài đã thu hồi).
+ */
 function MotBinhLuan({
   bai,
   laCuaToi,
-  onXoa,
+  onSua,
+  onThuHoi,
   onTraLoi,
   nguoiDung,
+  duocThuHoiBaiNguoiKhac,
+  moc,
+  laTraLoi = false,
 }: {
   bai: BinhLuan;
   laCuaToi: boolean;
-  onXoa: () => void;
+  onSua: (noiDungMoi: string, tepThem: MoTaTep[], idTepGo: string[]) => void;
+  onThuHoi: () => void;
   onTraLoi?: (noiDung: string, tep: MoTaTep[]) => void;
   nguoiDung: { uid: string; ten: string };
+  duocThuHoiBaiNguoiKhac: boolean;
+  /** Mốc "bây giờ" để tính thời gian tương đối — 0 nghĩa là chưa mount xong. */
+  moc: number;
+  laTraLoi?: boolean;
 }) {
   const [dangTraLoi, setDangTraLoi] = useState(false);
+  const [dangSua, setDangSua] = useState(false);
   const [xemTep, setXemTep] = useState<MoTaTep | null>(null);
+  const [moBanTruoc, setMoBanTruoc] = useState(false);
+  const [hoiThuHoi, setHoiThuHoi] = useState(false);
+
+  const lanSua = bai.lichSuSua ?? [];
+  const daThuHoi = Boolean(bai.thuHoi);
+  /** Người viết và cấp quản lý xem lại được nội dung đã thu hồi; người khác thì không. */
+  const duocXemBanTruoc = laCuaToi || duocThuHoiBaiNguoiKhac;
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <span className="text-sm font-semibold text-text-primary">{bai.nguoiVietTen}</span>
-        <span className="font-mono text-xs text-text-desc tabular-nums">
-          {formatMocThoiGian(bai.thoiDiem)}
-        </span>
-        {laCuaToi && (
+    <div className="flex gap-3">
+      <AnhDaiDienChu ten={bai.nguoiVietTen} co={laTraLoi ? 24 : 32} laToi={laCuaToi} />
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        {/* Hàng danh tính */}
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          <span className="text-sm font-semibold text-text-primary">{bai.nguoiVietTen}</span>
+          {laCuaToi && <span className="text-xs text-text-desc">(Bạn)</span>}
+          <span className="text-text-disabled">·</span>
+          {/* `title` LUÔN là mốc tuyệt đối — chữ tương đối tiện đọc lướt nhưng khi đối chiếu
+              chứng từ thì phải có ngày giờ chính xác. */}
+          <time
+            dateTime={bai.thoiDiem}
+            title={formatMocThoiGian(bai.thoiDiem)}
+            className="text-xs text-text-desc"
+          >
+            {moc > 0 ? formatThoiGianTuongDoi(bai.thoiDiem, moc) : formatMocThoiGian(bai.thoiDiem)}
+          </time>
+
+          {/* Nhãn "đã sửa" — CHỮ chứ không phải icon bút chì: icon bút chì mơ hồ giữa "đã
+              sửa" và "bấm để sửa", mà Design System cũng cấm truyền đạt chỉ bằng hình. */}
+          {lanSua.length > 0 && !daThuHoi && (
+            <>
+              <span className="text-text-disabled">·</span>
+              <button
+                type="button"
+                onClick={() => setMoBanTruoc(true)}
+                className="text-xs text-text-desc underline decoration-dotted underline-offset-2 transition-colors hover:text-primary"
+              >
+                {lanSua.length === 1 ? "đã sửa" : `đã sửa ${lanSua.length} lần`}
+              </button>
+            </>
+          )}
+
+          {/* Menu ⋯ thay cho nút Xóa đứng thường trực ở mọi bài. */}
+          {!daThuHoi && (laCuaToi || duocThuHoiBaiNguoiKhac) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type="button"
+                    aria-label={`Thao tác với bình luận của ${bai.nguoiVietTen}`}
+                    className="ml-auto flex size-11 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-muted hover:text-text-primary sm:size-9"
+                  >
+                    <MoreHorizontal className="size-4" aria-hidden />
+                  </button>
+                }
+              />
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  {laCuaToi && (
+                    <DropdownMenuItem onClick={() => setDangSua(true)}>
+                      <Pencil className="size-4" aria-hidden />
+                      Sửa bình luận
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => setHoiThuHoi(true)}>
+                    <Undo2 className="size-4" aria-hidden />
+                    Thu hồi
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+
+        {/* ===== Nội dung ===== */}
+        {daThuHoi ? (
+          /* Bài đã thu hồi: khối xám có CẢ MÀU LẪN CHỮ, không chỉ tô nhạt. */
+          <div className="flex flex-col gap-1.5 rounded-lg bg-muted px-3 py-2">
+            <span className="flex items-center gap-1.5 text-xs text-text-desc">
+              <Undo2 className="size-3.5 shrink-0" aria-hidden />
+              Nội dung đã được thu hồi bởi {bai.thuHoi?.nguoiTen} ·{" "}
+              {formatMocThoiGian(bai.thuHoi?.thoiDiem)}
+            </span>
+            {duocXemBanTruoc && lanSua.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setMoBanTruoc(true)}
+                className="w-fit text-xs text-primary underline underline-offset-2"
+              >
+                Xem nội dung đã thu hồi
+              </button>
+            )}
+          </div>
+        ) : dangSua ? (
+          <OSoanBinhLuan
+            gonNhe
+            nhanNut="Lưu chỉnh sửa"
+            nguoiDung={nguoiDung}
+            chuBanDau={bai.noiDung}
+            tepHienCo={bai.tep ?? []}
+            onHuy={() => setDangSua(false)}
+            onGui={(nd, tepThem, idTepGo) => {
+              onSua(nd, tepThem, idTepGo ?? []);
+              setDangSua(false);
+            }}
+          />
+        ) : (
+          <>
+            {/* `whitespace-pre-wrap` để giữ đúng cách xuống dòng người viết đã gõ. */}
+            {bai.noiDung && (
+              <p className="text-sm leading-relaxed whitespace-pre-wrap text-text-secondary">
+                {bai.noiDung}
+              </p>
+            )}
+
+            {(bai.tep ?? []).length > 0 && (
+              <ul className="flex flex-wrap gap-1.5">
+                {(bai.tep ?? []).map((t) => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => setXemTep(t)}
+                      className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <Eye className="size-3.5 shrink-0" aria-hidden />
+                      <span className="truncate" title={t.tenTep}>
+                        {rutGonTenTep(t.tenTep, 32)}
+                      </span>
+                      <span className="shrink-0 text-text-desc">{coTep(t.kichThuoc)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Tệp đã gỡ — vẫn nói ra, vì "không cho xóa" phải đúng với cả chứng từ đính kèm. */}
+            {(bai.tepDaGo ?? []).length > 0 && (
+              <span className="text-xs text-text-desc">
+                Đã gỡ {(bai.tepDaGo ?? []).length} tệp khỏi bài này
+              </span>
+            )}
+          </>
+        )}
+
+        {/* Trả lời — chỉ ở bài gốc, và bài đã thu hồi thì không trả lời tiếp. */}
+        {onTraLoi && !dangTraLoi && !dangSua && !daThuHoi && (
           <button
             type="button"
-            onClick={onXoa}
-            className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
+            onClick={() => setDangTraLoi(true)}
+            className="inline-flex w-fit min-h-9 items-center gap-1.5 rounded-lg pr-2 text-xs font-medium text-text-desc transition-colors hover:text-primary"
           >
-            <Trash2 className="size-3.5" aria-hidden />
-            Xóa
+            <CornerDownRight className="size-3.5" aria-hidden />
+            Trả lời
           </button>
+        )}
+
+        {onTraLoi && dangTraLoi && (
+          <OSoanBinhLuan
+            gonNhe
+            nhanNut="Gửi trả lời"
+            nguoiDung={nguoiDung}
+            onHuy={() => setDangTraLoi(false)}
+            onGui={(nd, tep) => {
+              onTraLoi(nd, tep);
+              setDangTraLoi(false);
+            }}
+          />
         )}
       </div>
 
-      {/* `whitespace-pre-wrap` để giữ đúng cách xuống dòng người viết đã gõ. */}
-      {bai.noiDung && (
-        <p className="text-sm whitespace-pre-wrap text-text-secondary">{bai.noiDung}</p>
-      )}
+      {xemTep && <HopXemTep tep={xemTep} mo onDong={() => setXemTep(null)} />}
 
-      {(bai.tep ?? []).length > 0 && (
-        <ul className="flex flex-wrap gap-1.5">
-          {(bai.tep ?? []).map((t) => (
-            <li key={t.id}>
-              <button
-                type="button"
-                onClick={() => setXemTep(t)}
-                className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs text-text-secondary transition-colors hover:border-primary hover:text-primary"
-              >
-                <Eye className="size-3.5 shrink-0" aria-hidden />
-                <span className="truncate" title={t.tenTep}>
-                  {rutGonTenTep(t.tenTep, 32)}
-                </span>
-                <span className="shrink-0 text-text-desc">{coTep(t.kichThuoc)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <HopBanTruoc
+        mo={moBanTruoc}
+        onDong={() => setMoBanTruoc(false)}
+        lanSua={lanSua}
+        duocXem={duocXemBanTruoc}
+      />
 
-      {onTraLoi && !dangTraLoi && (
-        <button
-          type="button"
-          onClick={() => setDangTraLoi(true)}
-          className="inline-flex w-fit min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-text-desc transition-colors hover:bg-muted hover:text-primary"
-        >
-          <CornerDownRight className="size-3.5" aria-hidden />
-          Trả lời
-        </button>
-      )}
-
-      {onTraLoi && dangTraLoi && (
-        <OSoanBinhLuan
-          gonNhe
-          nhanNut="Gửi trả lời"
-          nguoiDung={nguoiDung}
-          onHuy={() => setDangTraLoi(false)}
-          onGui={(nd, tep) => {
-            onTraLoi(nd, tep);
-            setDangTraLoi(false);
-          }}
-        />
-      )}
-
-      {xemTep && (
-        <HopXemTep tep={xemTep} mo onDong={() => setXemTep(null)} />
-      )}
+      <HopXacNhan
+        mo={hoiThuHoi}
+        tieuDe="Thu hồi bình luận này?"
+        moTa={`Bình luận của ${bai.nguoiVietTen}.`}
+        canhBao="Bài vẫn nằm nguyên chỗ, chỉ phần chữ bị ẩn với người khác. Nội dung gốc được lưu lại và không xóa được."
+        nhanDongY="Thu hồi"
+        nguyHiem
+        onDong={() => setHoiThuHoi(false)}
+        onDongY={onThuHoi}
+      />
     </div>
+  );
+}
+
+/**
+ * Hộp xem các bản trước của một bình luận.
+ *
+ * ⚠️ Phải viết `sm:max-w-2xl`. Viết `max-w-2xl` trơn là VÔ HIỆU — `DialogContent` của base-nova
+ * đã có `sm:max-w-sm` trong lớp gốc và sẽ đè lên, hộp kẹt 384px (bài học 15/08/2026).
+ */
+function HopBanTruoc({
+  mo,
+  onDong,
+  lanSua,
+  duocXem,
+}: {
+  mo: boolean;
+  onDong: () => void;
+  lanSua: LanSuaBinhLuan[];
+  duocXem: boolean;
+}) {
+  return (
+    <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Các bản trước của bình luận</DialogTitle>
+        </DialogHeader>
+
+        {!duocXem ? (
+          <p className="text-sm text-text-desc">
+            Chỉ người viết và trưởng bộ phận xem lại được nội dung này.
+          </p>
+        ) : (
+          <ol className="flex flex-col gap-(--hp-md-row-gap)">
+            {[...lanSua].reverse().map((m, i) => (
+              <li
+                key={`${m.thoiDiem}-${i}`}
+                className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)"
+              >
+                <span className="text-xs text-text-desc">
+                  {m.nguoiSuaTen} · {formatMocThoiGian(m.thoiDiem)}
+                </span>
+                {/* 🔴 NÓI THẲNG khi bản đó không còn nội dung, đừng để trống cho người đọc
+                    tưởng bản ấy vốn rỗng — xem luật cắt ở `catLichSuSua`. */}
+                {m.noiDungTruoc === undefined ? (
+                  <span className="text-sm text-text-disabled italic">
+                    Không còn lưu nội dung bản này
+                  </span>
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap text-text-primary">
+                    {m.noiDungTruoc || "(để trống)"}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onDong}>
+            Đóng
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

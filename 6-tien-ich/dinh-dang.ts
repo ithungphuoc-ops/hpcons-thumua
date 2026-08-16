@@ -105,6 +105,60 @@ export function thoiDiemHienTai(): string {
   return new Date().toISOString();
 }
 
+/**
+ * Thời gian TƯƠNG ĐỐI cho dòng bình luận: "vừa xong", "3 giờ trước", "Hôm qua 14:20".
+ *
+ * 🔴 `moc` LÀ THAM SỐ BẮT BUỘC, không lấy `Date.now()` bên trong. App xuất trang tĩnh
+ * (`generateStaticParams`), nên nếu hàm tự lấy giờ thì chuỗi sinh lúc dựng trang khác chuỗi
+ * sinh trên máy người dùng → React báo lệch hydration và chữ nhảy một nhịp khi tải xong.
+ * Nơi gọi phải lấy mốc trong `useEffect` (sau khi trang đã hiện) rồi truyền vào.
+ *
+ * 📌 Quá 7 ngày thì trả về ngày tháng tuyệt đối: "12 ngày trước" bắt người đọc tự tính ngược,
+ * trong khi hồ sơ mua hàng cần mốc chính xác để đối chiếu chứng từ.
+ */
+export function formatThoiGianTuongDoi(
+  iso: string | undefined | null,
+  moc: number,
+): string {
+  if (!iso) return KHONG_CO_NGAY;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return KHONG_CO_NGAY;
+
+  const giay = Math.round((moc - t) / 1000);
+  // Đồng hồ hai máy lệch nhau vài giây là chuyện thường — thời điểm ở "tương lai gần"
+  // vẫn coi là vừa xong, đừng hiện "-3 giây trước".
+  if (giay < 60) return "vừa xong";
+  const phut = Math.floor(giay / 60);
+  if (phut < 60) return `${phut} phút trước`;
+  const gio = Math.floor(phut / 60);
+  if (gio < 24) return `${gio} giờ trước`;
+
+  const ngay = Math.floor(gio / 24);
+  if (ngay === 1) return `Hôm qua ${formatTime(iso)}`;
+  if (ngay <= 7) return `${ngay} ngày trước`;
+  return formatDateTime(iso);
+}
+
+/**
+ * Nhãn dải phân cách ngày giữa các cụm bình luận: "Hôm nay", "Hôm qua", hoặc ngày đầy đủ.
+ * Cùng lý do với hàm trên: `moc` truyền từ ngoài vào.
+ */
+export function nhanNgayPhanCach(iso: string | undefined | null, moc: number): string {
+  if (!iso) return KHONG_CO_NGAY;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return KHONG_CO_NGAY;
+  const hienTai = new Date(moc);
+  // So theo NGÀY LỊCH chứ không theo số giờ chênh lệch: 23h hôm qua và 1h hôm nay chỉ cách
+  // nhau 2 tiếng nhưng là hai ngày khác nhau, người đọc hồ sơ hiểu theo ngày.
+  const cungNgay = (a: Date, b: Date) =>
+    a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+  if (cungNgay(d, hienTai)) return "Hôm nay";
+  const homQua = new Date(hienTai);
+  homQua.setDate(homQua.getDate() - 1);
+  if (cungNgay(d, homQua)) return "Hôm qua";
+  return formatDate(iso);
+}
+
 /** Số ngày còn lại tới `iso` tính từ `now` (âm nếu đã quá hạn). Làm tròn theo ngày lịch. */
 export function daysUntil(iso: string, now: Date = new Date()): number {
   const target = new Date(iso);

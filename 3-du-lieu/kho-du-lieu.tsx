@@ -80,6 +80,7 @@ import type {
   CongNo,
   TepBaoGiaNCC,
   ThongTinThuongMaiNCC,
+  LanSuaBinhLuan,
   MoTaTep,
   PhongBanNguon,
   NhomDeXuat,
@@ -379,12 +380,31 @@ interface GiaTriDuLieu {
     traLoiChoId?: string,
   ) => void;
   /**
-   * Xóa một lời bình.
+   * Sửa một lời bình. Trả lý do bị chặn, `null` là sửa xong.
    *
-   * ⚠️ Chỉ xóa được bài của CHÍNH MÌNH — chốt chặn nằm ngay trong hàm này chứ không chỉ ở
-   * giao diện, để không ai gọi vòng qua nút bấm mà xóa được lời người khác.
+   * ⚠️ CHỈ NGƯỜI VIẾT sửa được bài của mình — chốt chặn nằm trong hàm, không chỉ ở giao diện.
    */
-  xoaBinhLuan: (prId: string, binhLuanId: string, nguoiXoaUid: string) => void;
+  suaBinhLuan: (
+    prId: string,
+    binhLuanId: string,
+    nguoi: { uid: string; ten: string },
+    noiDungMoi: string,
+    tepThem?: MoTaTep[],
+    /** Id các tệp gỡ khỏi bài — nội dung tệp KHÔNG bị xóa, chỉ gỡ khỏi bài. */
+    idTepGo?: string[],
+  ) => string | null;
+  /**
+   * Thu hồi một lời bình — thay cho việc xóa (Ban lãnh đạo 16/08/2026).
+   *
+   * Bài vẫn nằm nguyên chỗ, chỉ ẩn phần chữ với người ngoài; nội dung gốc cất vào `lichSuSua`.
+   * Trả lý do bị chặn, `null` là thu hồi xong.
+   */
+  thuHoiBinhLuan: (
+    prId: string,
+    binhLuanId: string,
+    nguoi: { uid: string; ten: string },
+    duocThuHoiBaiNguoiKhac: boolean,
+  ) => string | null;
 
   /**
    * Trưởng bộ phận bấm "Chuyển tiếp": bàn giao đề nghị cho các nhân viên đã được
@@ -431,6 +451,45 @@ interface GiaTriDuLieu {
 }
 
 const Context = createContext<GiaTriDuLieu | null>(null);
+
+// ------------------------------------------------------------
+// LUẬT BÌNH LUẬN (Ban lãnh đạo 16/08/2026: chỉ sửa, không xóa, có lưu vết)
+//
+// 🔴 Ba con số dưới đây tồn tại vì KHO DỮ LIỆU CẢ PHÒNG NẰM TRONG MỘT DOCUMENT FIRESTORE,
+// mà Firestore giới hạn 1MB mỗi document. Lưu vết sửa nghĩa là mỗi lần sửa lại nhân đôi phần
+// chữ của bài đó — không chặn thì tới lúc nào đó lần ghi bị từ chối và CẢ PHÒNG mất dữ liệu
+// vừa nhập, chứ không riêng bình luận.
+// ------------------------------------------------------------
+
+/** Số ký tự tối đa một bình luận. Chặn ở tầng dữ liệu, không chỉ ở ô nhập. */
+const DAI_TOI_DA_BINH_LUAN = 1000;
+/** Sửa quá số lần này thì khóa — nên viết bình luận bổ sung thay vì sửa mãi một bài. */
+const SO_LAN_SUA_BINH_LUAN_TOI_DA = 10;
+/** Số mốc sửa giữ lại. Vượt thì bỏ mốc cũ nhất (trừ bản gốc — xem `catLichSuSua`). */
+const SO_MOC_SUA_GIU_LAI = 10;
+
+/**
+ * Cắt bớt lịch sử sửa cho khỏi phình, theo hai nguyên tắc:
+ *
+ *   1. **BẢN GỐC KHÔNG BAO GIỜ MẤT NỘI DUNG.** Đây là thứ có giá trị nhất khi đối chất: bài
+ *      lúc đầu viết gì. Bỏ nó đi thì cả cơ chế lưu vết mất ý nghĩa.
+ *   2. Hai lần sửa gần nhất giữ nguyên nội dung; các lần ở giữa chỉ giữ MỐC (ai · lúc nào),
+ *      bỏ phần chữ. Vẫn thấy đủ "bài này bị sửa mấy lần, ai sửa", chỉ không đọc lại được
+ *      từng bản trung gian.
+ *
+ * ⚠️ Chỗ nào không còn nội dung thì giao diện phải NÓI THẲNG *"không còn lưu nội dung bản
+ * này"*, đừng để trống cho người đọc tưởng bản đó rỗng.
+ */
+function catLichSuSua(ds: LanSuaBinhLuan[]): LanSuaBinhLuan[] {
+  const giu = ds.length > SO_MOC_SUA_GIU_LAI ? [ds[0], ...ds.slice(-(SO_MOC_SUA_GIU_LAI - 1))] : ds;
+  return giu.map((m, i) => {
+    const laGoc = i === 0;
+    const laHaiLanCuoi = i >= giu.length - 2;
+    if (laGoc || laHaiLanCuoi) return m;
+    // Giữ mốc (ai · lúc nào), bỏ phần chữ — vẫn thấy bài bị sửa mấy lần và ai sửa.
+    return { thoiDiem: m.thoiDiem, nguoiSuaUid: m.nguoiSuaUid, nguoiSuaTen: m.nguoiSuaTen };
+  });
+}
 
 /**
  * Kho dữ liệu chạy thử — giữ trong bộ nhớ để mọi thao tác (phân bổ, ghi nhận hàng,
@@ -2509,23 +2568,174 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const xoaBinhLuan = useCallback((prId: string, binhLuanId: string, nguoiXoaUid: string) => {
-    setDeNghi((truoc) =>
-      truoc.map((dn) => {
-        if (dn.id !== prId) return dn;
-        const cu = dn.binhLuan ?? [];
-        const bai = cu.find((b) => b.id === binhLuanId);
-        // 🔴 Chốt chặn ở TẦNG DỮ LIỆU, không chỉ ẩn nút trên giao diện.
-        if (!bai || bai.nguoiVietUid !== nguoiXoaUid) return dn;
-        return {
-          ...dn,
-          /* Xóa luôn các trả lời của bài đó — để lại thì chúng thành mồ côi, người đọc
-             thấy câu trả lời mà không biết đang trả lời cái gì. */
-          binhLuan: cu.filter((b) => b.id !== binhLuanId && b.traLoiChoId !== binhLuanId),
-        };
-      }),
-    );
-  }, []);
+  /**
+   * SỬA BÌNH LUẬN — thay cho việc xóa (Ban lãnh đạo 16/08/2026).
+   *
+   * Trả lý do bị chặn, `null` là sửa xong.
+   *
+   * 🔴 CHỐT CHẶN Ở TẦNG DỮ LIỆU, không chỉ ẩn nút: chỉ người viết mới sửa bài của mình.
+   * Trưởng bộ phận thu hồi được bài người khác nhưng **không đổi được một chữ nào** — bài
+   * mang tên anh A mà chữ do chị B viết là thứ không màn hình nào nhìn ra được.
+   */
+  const suaBinhLuan = useCallback(
+    (
+      prId: string,
+      binhLuanId: string,
+      nguoi: { uid: string; ten: string },
+      noiDungMoi: string,
+      tepThem?: MoTaTep[],
+      idTepGo?: string[],
+    ): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+      const bai = (dn.binhLuan ?? []).find((b) => b.id === binhLuanId);
+      if (!bai) return "Không tìm thấy bình luận.";
+      if (bai.nguoiVietUid !== nguoi.uid) return "Chỉ người viết mới sửa được bình luận này.";
+      if (bai.thuHoi) return "Bình luận đã thu hồi nên không sửa được nữa.";
+
+      const giaiDoanHienTai = xacDinhGiaiDoan(
+        dn,
+        donHangRef.current,
+        baoGiaRef.current,
+        phieuNhanRef.current,
+      );
+      // Hồ sơ đã đóng thì giữ nguyên để đối chiếu — cùng tinh thần với `suaMatHangDeNghi`.
+      if (giaiDoanHienTai === "hoan_thanh" || giaiDoanHienTai === "that_bai") {
+        return "Hồ sơ đã đóng nên không sửa được bình luận nữa. Viết một bình luận mới nếu cần bổ sung.";
+      }
+
+      const daSua = (bai.lichSuSua ?? []).length;
+      if (daSua >= SO_LAN_SUA_BINH_LUAN_TOI_DA) {
+        return `Bình luận này đã sửa ${daSua} lần — viết một bình luận bổ sung thay vì sửa tiếp.`;
+      }
+
+      const chuMoi = noiDungMoi.trim().slice(0, DAI_TOI_DA_BINH_LUAN);
+      const goSet = new Set(idTepGo ?? []);
+      const tepConLai = (bai.tep ?? []).filter((t) => !goSet.has(t.id));
+      const tepMoi = [...tepConLai, ...(tepThem ?? [])];
+      const coDoiChu = chuMoi !== bai.noiDung;
+      const coDoiTep = goSet.size > 0 || (tepThem ?? []).length > 0;
+      // Bấm Lưu mà không đổi gì thì đừng đẻ ra một vết sửa rác.
+      if (!coDoiChu && !coDoiTep) return null;
+      if (!chuMoi && tepMoi.length === 0) {
+        return "Bình luận phải còn nội dung hoặc ít nhất một tệp đính kèm.";
+      }
+
+      const luc = thoiDiemHienTai();
+      setDeNghi((truoc) =>
+        truoc.map((d) => {
+          if (d.id !== prId) return d;
+          return {
+            ...d,
+            binhLuan: (d.binhLuan ?? []).map((b) => {
+              if (b.id !== binhLuanId) return b;
+              const goRa = (b.tep ?? []).filter((t) => goSet.has(t.id));
+              return {
+                ...b,
+                noiDung: chuMoi,
+                ...(tepMoi.length > 0 ? { tep: tepMoi } : { tep: undefined }),
+                ...(goRa.length > 0
+                  ? {
+                      tepDaGo: [
+                        ...(b.tepDaGo ?? []),
+                        ...goRa.map((t) => ({
+                          tep: t,
+                          nguoiGoUid: nguoi.uid,
+                          nguoiGoTen: nguoi.ten,
+                          thoiDiem: luc,
+                        })),
+                      ],
+                    }
+                  : {}),
+                lichSuSua: catLichSuSua([
+                  ...(b.lichSuSua ?? []),
+                  {
+                    thoiDiem: luc,
+                    nguoiSuaUid: nguoi.uid,
+                    nguoiSuaTen: nguoi.ten,
+                    noiDungTruoc: b.noiDung,
+                  },
+                ]),
+              };
+            }),
+          };
+        }),
+      );
+      // 🔴 KHÔNG chép nội dung bình luận vào nhật ký — nhật ký hiện cho cả vai trò không
+      // được xem nhà cung cấp (quy ước ở `ghiLichSuDeNghi`).
+      ghiLichSuDeNghi(prId, nguoi.ten, "Sửa một bình luận");
+      return null;
+    },
+    [ghiLichSuDeNghi],
+  );
+
+  /**
+   * THU HỒI BÌNH LUẬN — thay cho xóa (Ban lãnh đạo 16/08/2026: *"chỉ cho chỉnh sửa không cho
+   * xoá"*).
+   *
+   * Bài vẫn nằm nguyên chỗ, chỉ phần chữ bị ẩn với người ngoài. Nội dung gốc được đẩy vào
+   * `lichSuSua` trước khi ẩn, nên người viết và trưởng bộ phận vẫn xem lại được.
+   *
+   * 🔴 KHÔNG ĐỤNG TỚI CÁC TRẢ LỜI BÊN DƯỚI. Hàm `xoaBinhLuan` cũ xóa luôn mọi trả lời của bài
+   * đó — tức xóa chữ của NGƯỜI KHÁC mà họ không hề hay biết. Đó là lỗi, không phải tính năng.
+   */
+  const thuHoiBinhLuan = useCallback(
+    (
+      prId: string,
+      binhLuanId: string,
+      nguoi: { uid: string; ten: string },
+      /** Trưởng bộ phận / quản trị thu hồi được bài của người khác. */
+      duocThuHoiBaiNguoiKhac: boolean,
+    ): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+      const bai = (dn.binhLuan ?? []).find((b) => b.id === binhLuanId);
+      if (!bai) return "Không tìm thấy bình luận.";
+      if (bai.thuHoi) return "Bình luận này đã được thu hồi rồi.";
+      if (bai.nguoiVietUid !== nguoi.uid && !duocThuHoiBaiNguoiKhac) {
+        return "Chỉ người viết hoặc trưởng bộ phận mới thu hồi được bình luận này.";
+      }
+
+      const luc = thoiDiemHienTai();
+      setDeNghi((truoc) =>
+        truoc.map((d) => {
+          if (d.id !== prId) return d;
+          return {
+            ...d,
+            binhLuan: (d.binhLuan ?? []).map((b) =>
+              b.id !== binhLuanId
+                ? b
+                : {
+                    ...b,
+                    // Cất nội dung gốc TRƯỚC khi xóa khỏi `noiDung` — thu hồi là ẩn đi, không
+                    // phải làm mất.
+                    lichSuSua: catLichSuSua([
+                      ...(b.lichSuSua ?? []),
+                      {
+                        thoiDiem: luc,
+                        nguoiSuaUid: nguoi.uid,
+                        nguoiSuaTen: nguoi.ten,
+                        noiDungTruoc: b.noiDung,
+                      },
+                    ]),
+                    noiDung: "",
+                    thuHoi: { nguoiUid: nguoi.uid, nguoiTen: nguoi.ten, thoiDiem: luc },
+                  },
+            ),
+          };
+        }),
+      );
+      ghiLichSuDeNghi(
+        prId,
+        nguoi.ten,
+        bai.nguoiVietUid === nguoi.uid
+          ? "Thu hồi bình luận của mình"
+          : `Thu hồi bình luận của ${bai.nguoiVietTen}`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi],
+  );
 
   /**
    * 🔴 `nguoiBoTen` LÀ NGƯỜI ĐANG BẤM BỎ, không phải người đã thêm.
@@ -2662,7 +2872,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
       vietBinhLuan,
-      xoaBinhLuan,
+      suaBinhLuan,
+      thuHoiBinhLuan,
       chuyenTiepChoNhanVien,
       thongBao,
       cauHinh,
@@ -2714,7 +2925,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
       vietBinhLuan,
-      xoaBinhLuan,
+      suaBinhLuan,
+      thuHoiBinhLuan,
       chuyenTiepChoNhanVien,
       thongBao,
       cauHinh,
