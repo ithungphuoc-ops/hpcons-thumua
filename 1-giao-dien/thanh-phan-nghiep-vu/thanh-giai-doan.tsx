@@ -6,7 +6,6 @@ import { GIAI_DOAN_MUA_HANG, type GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doa
 import { HUONG_DAN_GIAI_DOAN } from "@/2-quy-trinh/huong-dan-giai-doan";
 import {
   HopHuongDanGiaiDoan,
-  NutHuongDanGiaiDoan,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 
 /**
@@ -109,9 +108,9 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
         ) : (
           <span />
         )}
-        {/* Nút chữ cho bước hiện tại — bấm được vào ô bước rồi, nhưng nhiều người không đoán
-            ra là ô bấm được, nên vẫn cần một nút nói rõ bằng chữ. */}
-        <NutHuongDanGiaiDoan giaiDoan={giaiDoan} kieu="nut_chu" />
+        {/* 📌 ĐÃ BỎ nút chữ "Hướng dẫn bước này" (Ban lãnh đạo 16/08/2026: *"bỏ các mục này"*).
+            🔴 Hướng dẫn KHÔNG mồ côi: bấm thẳng vào ô bước trên dải mũi tên vẫn mở hộp hướng
+            dẫn, và bảng quy trình có nút ⓘ ở đầu mỗi cột. */}
       </div>
 
       {/* Hộp hướng dẫn của ô bước vừa bấm (khác với nút chữ — nút đó tự quản hộp của nó). */}

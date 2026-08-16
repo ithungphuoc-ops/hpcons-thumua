@@ -66,25 +66,32 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
         const truongCoSo = g.truong.map((t) => ({ ...t, so: ++so }));
 
         return (
-          <section key={g.ma} className="rounded-xl border border-border bg-card">
+          /* Nền và khoảng đệm cũng lấy đúng của `KhoiGap` — hai khối xếp liền nhau, lệch nền
+             một chút là nhìn ra ngay. */
+          <section key={g.ma} className="rounded-xl border border-border bg-surface">
             <button
               type="button"
               onClick={() =>
                 setMo((cu) => (cu.includes(g.ma) ? cu.filter((x) => x !== g.ma) : [...cu, g.ma]))
               }
               aria-expanded={dangMo}
-              className="flex min-h-11 w-full items-center gap-2 px-(--hp-md-card-pad) py-2.5 text-left"
+              className="flex min-h-11 w-full items-center gap-2 px-(--hp-md-card-pad) py-3 text-left"
             >
               <ChevronRight
                 className={`size-4 shrink-0 text-text-desc transition-transform ${dangMo ? "rotate-90" : ""}`}
                 aria-hidden
               />
-              <span className="text-xs font-semibold tracking-wide text-text-secondary uppercase">
+              {/* 🔴 DÙNG ĐÚNG KIỂU CHỮ CỦA `KhoiGap` (Ban lãnh đạo 16/08/2026: *"đưa cỡ chữ và
+                  font chữ về giống nhau"*). Khối "Thông tin đề nghị" ngay phía trên là một
+                  `KhoiGap`, nên hai khối nằm cạnh nhau mà lệch cỡ chữ là thấy ngay. Nếu sau
+                  này đổi kiểu tiêu đề gập thì phải đổi cả hai chỗ. */}
+              <span className="text-[11px] font-semibold tracking-wide text-text-desc uppercase">
                 {g.nhan}
               </span>
-              {/* Số trường bên trong — biết khối có gì mà không phải mở ra. */}
-              <span className="ml-auto shrink-0 text-xs text-text-desc">
-                {g.truong.length} trường
+              {/* Nhãn trạng thái gập bên phải — Base ghi "COLLAPSED" / "THU GỌN". Kèm số
+                  trường để biết khối có gì mà không phải mở ra. */}
+              <span className="ml-auto shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-text-secondary tabular-nums">
+                {dangMo ? `${g.truong.length} trường` : `THU GỌN · ${g.truong.length}`}
               </span>
             </button>
 

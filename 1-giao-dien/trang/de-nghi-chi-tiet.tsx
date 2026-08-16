@@ -44,7 +44,6 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
-import { caiDatCuaBuoc } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
@@ -60,7 +59,6 @@ import {
 import {
   nhanAnToan,
   NHAN_TRANG_THAI_BAO_GIA,
-  NHAN_TRANG_THAI_DE_NGHI,
   NHAN_TRANG_THAI_PO,
 } from "@/2-quy-trinh/trang-thai";
 
@@ -142,8 +140,6 @@ export default function TrangChiTietDeNghi() {
    * Bước không khai việc nào thì mảng rỗng (ảnh Base ghi "Không có công việc").
    */
   const congViecCuaBuoc = cauHinh.congViecTheoBuoc?.[giaiDoan] ?? [];
-  /** Cài đặt riêng của bước — quyết định có hiện nút "Chuyển tiếp", có bắt buộc xong việc... */
-  const caiDatBuoc = caiDatCuaBuoc(cauHinh, giaiDoan);
 
   /**
    * MỐC THỜI GIAN của từng giai đoạn, lấy từ CHỨNG TỪ THẬT.
@@ -193,7 +189,6 @@ export default function TrangChiTietDeNghi() {
     ...new Set(dn.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x))),
   ];
   const soDongChuaPhanBo = dn.items.filter((d) => !d.nguoiPhuTrachUid).length;
-  const tt = nhanAnToan(NHAN_TRANG_THAI_DE_NGHI, dn.trangThai);
 
   return (
     <>
@@ -218,59 +213,14 @@ export default function TrangChiTietDeNghi() {
         ]}
         title={dn.tieuDe}
         description={`${dn.code} · ${dn.tenCongTrinh} · ${nhanPhongBan(dn.phongBanNguon)}`}
-        actions={
-          /* ★ NÚT HÀNH ĐỘNG LÊN ĐẦU TRANG — Ban lãnh đạo 15/08/2026 chốt bỏ khối "Hoạt động
-             chính" ở cột phải vì trùng thông tin. Hai nút trong đó dời lên đây, đúng chỗ
-             Base đặt (góc trên phải, cạnh tiêu đề).
+        /* 📌 ĐÃ BỎ nhóm nút góc trên phải (Ban lãnh đạo 16/08/2026: *"bỏ các mục này"*):
+           huy hiệu trạng thái · nút "Chuyển tiếp" · nút "Lập đơn đặt hàng".
 
-             📌 Đặt cạnh trạng thái là hợp lý: người mở hồ sơ nhìn một chỗ thấy ngay "đang ở
-             tình trạng nào" và "làm gì tiếp được". */
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge label={tt.nhan} tone={tt.tong} />
-            {/* ⚙️ Nút này BẬT/TẮT ĐƯỢC ở trang Cài đặt quy trình → ô "Cho phép giao lại
-                nhiệm vụ cho người khác" của từng bước. Base đặt "Không cho phép" ở cả 8 giai
-                đoạn; app để Ban lãnh đạo tự chọn thay vì âm thầm gỡ nút đang chạy. */}
-            {quyen.phanBoCongViec && caiDatBuoc.chuyenViecDuoc && (
-              <Button size="sm" onClick={() => setMoChuyenTiep(true)}>
-                <Forward className="size-4" aria-hidden />
-                Chuyển tiếp
-              </Button>
-            )}
-            {/* ★ KHÓA NÚT KHI CHƯA DUYỆT BÁO GIÁ — Ban lãnh đạo 15/08/2026: *"bước này sao
-                trưởng phòng chưa duyệt đã đẩy qua tiến hành đặt hàng rồi"*.
-
-                🔴 Nút này là đường CHÍNH dẫn tới việc lập đơn, mà trước đây nó mở ở MỌI bước:
-                đang ở bước ① cũng bấm được, lập xong là thẻ nhảy thẳng lên bước ⑤, bỏ qua cả
-                xét duyệt báo giá lẫn lập đơn mua hàng.
-
-                📌 Khóa kèm lý do chứ không ẩn: ẩn nút thì người dùng tưởng app thiếu chức
-                năng và đi tìm đường khác; ghi rõ "chưa duyệt báo giá" thì họ biết phải làm gì.
-                Chốt chặn thật nằm ở `themDonHang` — đây chỉ là phép lịch sự. */}
-            {quyen.lapPO &&
-              (chanLapDon ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled
-                  title={chanLapDon}
-                  aria-label={`Chưa lập đơn đặt hàng được: ${chanLapDon}`}
-                >
-                  <ShoppingCart className="size-4" aria-hidden />
-                  Lập đơn đặt hàng
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant={quyen.phanBoCongViec ? "outline" : "default"}
-                  nativeButton={false}
-                  render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
-                >
-                  <ShoppingCart className="size-4" aria-hidden />
-                  Lập đơn đặt hàng
-                </Button>
-              ))}
-          </div>
-        }
+           🔴 ĐÃ KIỂM CẢ BA CÒN ĐƯỜNG VÀO KHÁC trước khi bỏ (quy ước CLAUDE.md 3.4b — phiên
+           03 suýt làm module Báo giá thành mồ côi):
+             · Chuyển tiếp → menu ⋯ trên thẻ ở bảng quy trình
+             · Lập đơn đặt hàng → nút ở khối "Đơn đặt hàng" ngay trong trang này
+             · Trạng thái → khối "Giai đoạn hiện tại" ở cột phải, chi tiết hơn */
       />
 
       {/* Dải mũi tên 7 bước — nhìn ra ngay đề nghị đang đứng ở đâu trong quy trình */}
