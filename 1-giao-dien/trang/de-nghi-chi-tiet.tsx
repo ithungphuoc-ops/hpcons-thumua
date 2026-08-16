@@ -26,6 +26,7 @@ import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
 import { KhoiTraoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi";
+import { KhoiDauVaoTheoGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
 import {
   CotThongTinDeNghi,
@@ -416,6 +417,87 @@ export default function TrangChiTietDeNghi() {
               </div>
             )}
           </KhoiGap>
+
+          {/* ★ ĐẦU VÀO THEO GIAI ĐOẠN — Ban lãnh đạo 16/08/2026: *"đây là quy trình thu mua
+              khi mở trên 1 trang, e bố cục giống 100% như vậy"*.
+
+              🔴 Base gom dữ liệu theo GIAI ĐOẠN, app trước gom theo LOẠI CHỨNG TỪ. Muốn biết
+              "bước ③ đã nộp những gì" thì trước đây phải đi tìm khắp trang; nay mở đúng khối
+              của bước đó là thấy. Trường đánh số liên tục 01→N như Base. */}
+          <KhoiDauVaoTheoGiaiDoan
+            giaiDoan={[
+              {
+                ma: "tiep_nhan",
+                nhan: NHAN_GIAI_DOAN.tiep_nhan.nhan,
+                dangODay: giaiDoan === "tiep_nhan",
+                truong: [
+                  { nhan: "Bộ phận", giaTri: nhanPhongBan(dn.phongBanNguon) },
+                  {
+                    nhan: "Nhóm đề xuất",
+                    giaTri: NHAN_NHOM_DE_XUAT[dn.nhomDeXuat ?? "khac"],
+                  },
+                  { nhan: "Ngày đề nghị cấp", giaTri: formatMocThoiGian(dn.ngayCanHang) },
+                  { nhan: "Chi tiết", giaTri: `${dn.items.length} mặt hàng` },
+                  ...(dn.taiLieu && dn.taiLieu.length > 0
+                    ? [{ nhan: "Tài liệu đính kèm", tep: dn.taiLieu }]
+                    : []),
+                ],
+              },
+              {
+                ma: "yeu_cau_bao_gia",
+                nhan: NHAN_GIAI_DOAN.yeu_cau_bao_gia.nhan,
+                dangODay: giaiDoan === "yeu_cau_bao_gia",
+                truong: [
+                  {
+                    nhan: "SL Báo giá",
+                    // Số báo giá đặt cho cả phiếu — lấy của dòng đầu tiên có yêu cầu.
+                    giaTri: String(
+                      dn.items.find((d) => d.soBaoGiaYeuCau)?.soBaoGiaYeuCau ?? "—",
+                    ),
+                  },
+                ],
+              },
+              {
+                ma: "xet_duyet_bao_gia",
+                nhan: NHAN_GIAI_DOAN.xet_duyet_bao_gia.nhan,
+                dangODay: giaiDoan === "xet_duyet_bao_gia",
+                truong: baoGiaLienQuan.flatMap((bg) =>
+                  (bg.tepBaoGia ?? []).length > 0
+                    ? [{ nhan: `Báo giá NCC — ${bg.code}`, tep: bg.tepBaoGia }]
+                    : [],
+                ),
+              },
+              {
+                ma: "lap_don_mua_hang",
+                nhan: NHAN_GIAI_DOAN.lap_don_mua_hang.nhan,
+                dangODay: giaiDoan === "lap_don_mua_hang",
+                truong: baoGiaLienQuan.flatMap((bg) =>
+                  (bg.tepChonNCC ?? []).length > 0
+                    ? [{ nhan: "Căn cứ chọn nhà cung cấp", tep: bg.tepChonNCC }]
+                    : [],
+                ),
+              },
+              {
+                ma: "dat_hang",
+                nhan: NHAN_GIAI_DOAN.dat_hang.nhan,
+                dangODay: giaiDoan === "dat_hang",
+                truong: poLienQuan.map((po) => ({
+                  nhan: "Đơn mua hàng",
+                  giaTri: po.code,
+                })),
+              },
+              {
+                ma: "nhan_hang",
+                nhan: NHAN_GIAI_DOAN.nhan_hang.nhan,
+                dangODay: giaiDoan === "nhan_hang" || giaiDoan === "hoan_thanh",
+                truong: phieuLienQuan.flatMap((p) =>
+                  p.tepPhieuGiao
+                    ? [{ nhan: `Phiếu giao nhận lần ${p.lanGiaoThu}`, tep: [p.tepPhieuGiao] }]
+                    : [],
+                ),
+              },
+            ]}
+          />
 
           {/* 📌 15/08/2026 — Ban lãnh đạo:
                 · *"bố cục lại sang tab phải"* → khối **Người theo dõi** đã dời sang cột phải
