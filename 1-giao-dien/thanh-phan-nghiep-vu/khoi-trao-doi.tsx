@@ -28,7 +28,6 @@ import {
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { AnhDaiDienChu } from "@/1-giao-dien/thanh-phan-dung-chung/anh-dai-dien-chu";
-import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import {
@@ -60,16 +59,14 @@ export function KhoiTraoDoi({
   nguoiDung,
   onGui,
   onSua,
-  onThuHoi,
-  duocThuHoiBaiNguoiKhac = false,
+  duocXemBaiThuHoi = false,
 }: {
   deNghi: DeNghiMuaHang;
   nguoiDung: { uid: string; ten: string };
   onGui: (noiDung: string, tep: MoTaTep[], traLoiChoId?: string) => void;
   onSua: (binhLuanId: string, noiDungMoi: string, tepThem: MoTaTep[], idTepGo: string[]) => void;
-  onThuHoi: (binhLuanId: string) => void;
-  /** Trưởng bộ phận / quản trị thu hồi được bài của người khác (không sửa được). */
-  duocThuHoiBaiNguoiKhac?: boolean;
+  /** Trưởng bộ phận / quản trị xem lại được nội dung bài đã thu hồi trước đây. */
+  duocXemBaiThuHoi?: boolean;
 }) {
   const [the, setThe] = useState<"binh_luan" | "lich_su">("binh_luan");
   const binhLuan = useMemo(() => deNghi.binhLuan ?? [], [deNghi.binhLuan]);
@@ -135,10 +132,9 @@ export function KhoiTraoDoi({
                       bai={bai}
                       laCuaToi={bai.nguoiVietUid === nguoiDung.uid}
                       onSua={(nd, tepThem, idGo) => onSua(bai.id, nd, tepThem, idGo)}
-                      onThuHoi={() => onThuHoi(bai.id)}
                       onTraLoi={(nd, tep) => onGui(nd, tep, bai.id)}
                       nguoiDung={nguoiDung}
-                      duocThuHoiBaiNguoiKhac={duocThuHoiBaiNguoiKhac}
+                      duocXemBaiThuHoi={duocXemBaiThuHoi}
                       moc={moc}
                     />
                     {traLoi.length > 0 && (
@@ -153,9 +149,8 @@ export function KhoiTraoDoi({
                               laTraLoi
                               laCuaToi={t.nguoiVietUid === nguoiDung.uid}
                               onSua={(nd, tepThem, idGo) => onSua(t.id, nd, tepThem, idGo)}
-                              onThuHoi={() => onThuHoi(t.id)}
                               nguoiDung={nguoiDung}
-                              duocThuHoiBaiNguoiKhac={duocThuHoiBaiNguoiKhac}
+                              duocXemBaiThuHoi={duocXemBaiThuHoi}
                               moc={moc}
                             />
                           </li>
@@ -429,20 +424,19 @@ function MotBinhLuan({
   bai,
   laCuaToi,
   onSua,
-  onThuHoi,
   onTraLoi,
   nguoiDung,
-  duocThuHoiBaiNguoiKhac,
+  duocXemBaiThuHoi,
   moc,
   laTraLoi = false,
 }: {
   bai: BinhLuan;
   laCuaToi: boolean;
   onSua: (noiDungMoi: string, tepThem: MoTaTep[], idTepGo: string[]) => void;
-  onThuHoi: () => void;
   onTraLoi?: (noiDung: string, tep: MoTaTep[]) => void;
   nguoiDung: { uid: string; ten: string };
-  duocThuHoiBaiNguoiKhac: boolean;
+  /** Trưởng bộ phận / quản trị xem lại được nội dung bài đã thu hồi trước đây. */
+  duocXemBaiThuHoi: boolean;
   /** Mốc "bây giờ" để tính thời gian tương đối — 0 nghĩa là chưa mount xong. */
   moc: number;
   laTraLoi?: boolean;
@@ -451,12 +445,11 @@ function MotBinhLuan({
   const [dangSua, setDangSua] = useState(false);
   const [xemTep, setXemTep] = useState<MoTaTep | null>(null);
   const [moBanTruoc, setMoBanTruoc] = useState(false);
-  const [hoiThuHoi, setHoiThuHoi] = useState(false);
 
   const lanSua = bai.lichSuSua ?? [];
   const daThuHoi = Boolean(bai.thuHoi);
   /** Người viết và cấp quản lý xem lại được nội dung đã thu hồi; người khác thì không. */
-  const duocXemBanTruoc = laCuaToi || duocThuHoiBaiNguoiKhac;
+  const duocXemBanTruoc = laCuaToi || duocXemBaiThuHoi;
 
   return (
     <div className="flex gap-3">
@@ -493,8 +486,13 @@ function MotBinhLuan({
             </>
           )}
 
-          {/* Menu ⋯ thay cho nút Xóa đứng thường trực ở mọi bài. */}
-          {!daThuHoi && (laCuaToi || duocThuHoiBaiNguoiKhac) && (
+          {/* Menu ⋯ thay cho nút Xóa đứng thường trực ở mọi bài.
+              📌 ĐÃ BỎ mục "Thu hồi" (Ban lãnh đạo 16/08/2026). Đúng tinh thần chỉ đạo gốc
+              *"chỉ cho chỉnh sửa không cho xoá"*: viết nhầm thì sửa lại, và vết cũ vẫn nằm
+              trong lịch sử sửa nên không ai giấu được gì. Thu hồi là thứ em tự thêm.
+              ⚠️ Phần HIỂN THỊ bài đã thu hồi vẫn giữ — trên bản chạy đã có bài bị thu hồi từ
+              trước, gỡ luôn thì bài đó hiện trống trơn. */}
+          {!daThuHoi && laCuaToi && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -509,15 +507,9 @@ function MotBinhLuan({
               />
               <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
-                  {laCuaToi && (
-                    <DropdownMenuItem onClick={() => setDangSua(true)}>
-                      <Pencil className="size-4" aria-hidden />
-                      Sửa bình luận
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => setHoiThuHoi(true)}>
-                    <Undo2 className="size-4" aria-hidden />
-                    Thu hồi
+                  <DropdownMenuItem onClick={() => setDangSua(true)}>
+                    <Pencil className="size-4" aria-hidden />
+                    Chỉnh sửa
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>
@@ -628,17 +620,6 @@ function MotBinhLuan({
         onDong={() => setMoBanTruoc(false)}
         lanSua={lanSua}
         duocXem={duocXemBanTruoc}
-      />
-
-      <HopXacNhan
-        mo={hoiThuHoi}
-        tieuDe="Thu hồi bình luận này?"
-        moTa={`Bình luận của ${bai.nguoiVietTen}.`}
-        canhBao="Bài vẫn nằm nguyên chỗ, chỉ phần chữ bị ẩn với người khác. Nội dung gốc được lưu lại và không xóa được."
-        nhanDongY="Thu hồi"
-        nguyHiem
-        onDong={() => setHoiThuHoi(false)}
-        onDongY={onThuHoi}
       />
     </div>
   );

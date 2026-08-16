@@ -393,18 +393,6 @@ interface GiaTriDuLieu {
     /** Id các tệp gỡ khỏi bài — nội dung tệp KHÔNG bị xóa, chỉ gỡ khỏi bài. */
     idTepGo?: string[],
   ) => string | null;
-  /**
-   * Thu hồi một lời bình — thay cho việc xóa (Ban lãnh đạo 16/08/2026).
-   *
-   * Bài vẫn nằm nguyên chỗ, chỉ ẩn phần chữ với người ngoài; nội dung gốc cất vào `lichSuSua`.
-   * Trả lý do bị chặn, `null` là thu hồi xong.
-   */
-  thuHoiBinhLuan: (
-    prId: string,
-    binhLuanId: string,
-    nguoi: { uid: string; ten: string },
-    duocThuHoiBaiNguoiKhac: boolean,
-  ) => string | null;
 
   /**
    * Trưởng bộ phận bấm "Chuyển tiếp": bàn giao đề nghị cho các nhân viên đã được
@@ -2669,73 +2657,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [ghiLichSuDeNghi],
   );
 
-  /**
-   * THU HỒI BÌNH LUẬN — thay cho xóa (Ban lãnh đạo 16/08/2026: *"chỉ cho chỉnh sửa không cho
-   * xoá"*).
-   *
-   * Bài vẫn nằm nguyên chỗ, chỉ phần chữ bị ẩn với người ngoài. Nội dung gốc được đẩy vào
-   * `lichSuSua` trước khi ẩn, nên người viết và trưởng bộ phận vẫn xem lại được.
-   *
-   * 🔴 KHÔNG ĐỤNG TỚI CÁC TRẢ LỜI BÊN DƯỚI. Hàm `xoaBinhLuan` cũ xóa luôn mọi trả lời của bài
-   * đó — tức xóa chữ của NGƯỜI KHÁC mà họ không hề hay biết. Đó là lỗi, không phải tính năng.
-   */
-  const thuHoiBinhLuan = useCallback(
-    (
-      prId: string,
-      binhLuanId: string,
-      nguoi: { uid: string; ten: string },
-      /** Trưởng bộ phận / quản trị thu hồi được bài của người khác. */
-      duocThuHoiBaiNguoiKhac: boolean,
-    ): string | null => {
-      const dn = deNghiRef.current.find((d) => d.id === prId);
-      if (!dn) return "Không tìm thấy đề nghị.";
-      const bai = (dn.binhLuan ?? []).find((b) => b.id === binhLuanId);
-      if (!bai) return "Không tìm thấy bình luận.";
-      if (bai.thuHoi) return "Bình luận này đã được thu hồi rồi.";
-      if (bai.nguoiVietUid !== nguoi.uid && !duocThuHoiBaiNguoiKhac) {
-        return "Chỉ người viết hoặc trưởng bộ phận mới thu hồi được bình luận này.";
-      }
-
-      const luc = thoiDiemHienTai();
-      setDeNghi((truoc) =>
-        truoc.map((d) => {
-          if (d.id !== prId) return d;
-          return {
-            ...d,
-            binhLuan: (d.binhLuan ?? []).map((b) =>
-              b.id !== binhLuanId
-                ? b
-                : {
-                    ...b,
-                    // Cất nội dung gốc TRƯỚC khi xóa khỏi `noiDung` — thu hồi là ẩn đi, không
-                    // phải làm mất.
-                    lichSuSua: catLichSuSua([
-                      ...(b.lichSuSua ?? []),
-                      {
-                        thoiDiem: luc,
-                        nguoiSuaUid: nguoi.uid,
-                        nguoiSuaTen: nguoi.ten,
-                        noiDungTruoc: b.noiDung,
-                      },
-                    ]),
-                    noiDung: "",
-                    thuHoi: { nguoiUid: nguoi.uid, nguoiTen: nguoi.ten, thoiDiem: luc },
-                  },
-            ),
-          };
-        }),
-      );
-      ghiLichSuDeNghi(
-        prId,
-        nguoi.ten,
-        bai.nguoiVietUid === nguoi.uid
-          ? "Thu hồi bình luận của mình"
-          : `Thu hồi bình luận của ${bai.nguoiVietTen}`,
-      );
-      return null;
-    },
-    [ghiLichSuDeNghi],
-  );
 
   /**
    * 🔴 `nguoiBoTen` LÀ NGƯỜI ĐANG BẤM BỎ, không phải người đã thêm.
@@ -2873,7 +2794,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauCongViecGiaiDoan,
       vietBinhLuan,
       suaBinhLuan,
-      thuHoiBinhLuan,
       chuyenTiepChoNhanVien,
       thongBao,
       cauHinh,
@@ -2926,7 +2846,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauCongViecGiaiDoan,
       vietBinhLuan,
       suaBinhLuan,
-      thuHoiBinhLuan,
       chuyenTiepChoNhanVien,
       thongBao,
       cauHinh,

@@ -77,7 +77,6 @@ export default function TrangChiTietDeNghi() {
     danhDauCongViecGiaiDoan,
     vietBinhLuan,
     suaBinhLuan,
-    thuHoiBinhLuan,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
@@ -703,17 +702,8 @@ export default function TrangChiTietDeNghi() {
           // Bị chặn thì nói ĐÚNG LÝ DO — luật ở tầng dữ liệu, không đoán lại ở đây.
           if (loi) toast.error("Chưa sửa được bình luận", { description: loi });
         }}
-        onThuHoi={(binhLuanId) => {
-          const loi = thuHoiBinhLuan(
-            dn.id,
-            binhLuanId,
-            { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
-            quyen.xacNhanTruongBP,
-          );
-          if (loi) toast.error("Chưa thu hồi được", { description: loi });
-        }}
-        // Trưởng bộ phận thu hồi được bài người khác, nhưng KHÔNG sửa chữ của họ.
-        duocThuHoiBaiNguoiKhac={quyen.xacNhanTruongBP}
+        // Trưởng bộ phận xem lại được nội dung của bài đã thu hồi từ trước.
+        duocXemBaiThuHoi={quyen.xacNhanTruongBP}
       />
         </div>
 
