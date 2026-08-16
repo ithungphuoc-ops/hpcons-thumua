@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { AlertTriangle, ArrowLeft, Check, FileWarning, ShoppingCart, Split } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  FileWarning,
+  Paperclip,
+  ShoppingCart,
+  Split,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -14,6 +22,10 @@ import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
+import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
+import { ODinhKemNhieuTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-nhieu-tep";
+import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
+import { coTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
 import { Card, CardContent, CardHeader, CardTitle } from "@/1-giao-dien/nen-tang-ui/card";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Badge } from "@/1-giao-dien/nen-tang-ui/badge";
@@ -93,6 +105,10 @@ export default function TrangBaoGiaChiTiet() {
    * không chọn bên rẻ nhất"*, người quyết định phải tự bảo vệ bằng ký ức.
    */
   const [lyDoChon, setLyDoChon] = useState("");
+  /** Tài liệu dẫn chứng đính kèm cho quyết định chốt NCC (Ban lãnh đạo 16/08/2026). */
+  const [tepChon, setTepChon] = useState<MoTaTep[]>([]);
+  /** Tệp đang mở xem ở khối "Căn cứ chọn nhà cung cấp". */
+  const [xemTepCanCu, setXemTepCanCu] = useState<MoTaTep | null>(null);
 
   if (!bg) {
     return (
@@ -274,23 +290,65 @@ export default function TrangBaoGiaChiTiet() {
             </p>
           </div>
 
-          {/* ★ CĂN CỨ CHỌN NHÀ CUNG CẤP — Ban lãnh đạo 13/08/2026. Hiện ngay cạnh tên nhà
-              cung cấp đã chốt, không giấu trong nhật ký: ai mở bảng báo giá này ra cũng phải
-              đọc được vì sao chọn bên đó. Chiếm cả hàng vì lý do thường dài hơn một dòng. */}
-          {bg.lyDoChonNCC && (
-            <div className="col-span-full rounded-lg border border-success/30 bg-success-bg p-(--hp-md-row-pad)">
-              <p className="text-xs text-text-desc">Lý do / dẫn chứng chọn nhà cung cấp</p>
-              <p className="text-sm text-text-primary">{bg.lyDoChonNCC}</p>
-              {bg.nguoiChonTen && (
-                <p className="mt-0.5 text-xs text-text-desc">
-                  {bg.nguoiChonTen}
-                  {bg.thoiDiemChon ? ` · ${formatDate(bg.thoiDiemChon)}` : ""}
-                </p>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {/* ★ CĂN CỨ CHỌN NHÀ CUNG CẤP — khối RIÊNG, không chen vào hàng thông tin.
+          Ban lãnh đạo 16/08/2026: *"bố cục lại mục ghi chú này chuyên nghiệp hơn"*.
+
+          🔴 Trước đây khối này nhét làm ô thứ năm trong hàng "Đề nghị · Ngày tạo · Cập nhật ·
+          NCC đã chọn": bốn ô kia là dữ liệu một dòng, ô này là đoạn văn nhiều dòng có nền màu
+          — cao gấp ba, phá nhịp cả hàng và trông như dán thêm vào.
+
+          Nay đứng thành một khối riêng có tiêu đề, ngang hàng với các khối khác của trang, và
+          chứa được cả TÀI LIỆU DẪN CHỨNG. */}
+      {bg.lyDoChonNCC && (
+        <Card>
+          <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h2 className="text-h3 text-text-primary">Căn cứ chọn nhà cung cấp</h2>
+              {bg.nguoiChonTen && (
+                <span className="text-xs text-text-desc">
+                  {bg.nguoiChonTen}
+                  {bg.thoiDiemChon ? ` · ${formatDate(bg.thoiDiemChon)}` : ""}
+                </span>
+              )}
+            </div>
+
+            {/* `whitespace-pre-wrap` giữ đúng cách xuống dòng người quyết định đã gõ — lý do
+                nhiều ý thường được viết thành từng gạch đầu dòng. */}
+            <p className="text-sm whitespace-pre-wrap text-text-primary">{bg.lyDoChonNCC}</p>
+
+            {(bg.tepChonNCC ?? []).length > 0 && (
+              <div className="flex flex-col gap-1.5 border-t border-divider pt-2.5">
+                <span className="text-xs font-semibold text-text-desc">
+                  Tài liệu dẫn chứng ({(bg.tepChonNCC ?? []).length})
+                </span>
+                <ul className="flex flex-wrap gap-1.5">
+                  {(bg.tepChonNCC ?? []).map((t) => (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        onClick={() => setXemTepCanCu(t)}
+                        className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                      >
+                        <Paperclip className="size-3.5 shrink-0" aria-hidden />
+                        <span className="truncate" title={t.tenTep}>
+                          {rutGonTenTep(t.tenTep, 34)}
+                        </span>
+                        <span className="shrink-0 text-text-desc">{coTep(t.kichThuoc)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      {xemTepCanCu && (
+        <HopXemTep tep={xemTepCanCu} mo onDong={() => setXemTepCanCu(null)} />
+      )}
 
       {/* ===== SOÁT NGƯỠNG GIÁ TRỊ =====
           Đặt NGAY TRÊN khối nhập giá và bảng so sánh, không giấu xuống cuối trang: người
@@ -834,8 +892,9 @@ export default function TrangBaoGiaChiTiet() {
         onDong={() => {
           setViecChoXacNhan(null);
           // Xóa ô nhập khi đóng — mở lại cho lần chốt khác phải là ô trắng, không phải
-          // câu gõ dở cho nhà cung cấp trước.
+          // câu gõ dở cho nhà cung cấp trước. Tệp cũng vậy.
           setLyDoChon("");
+          setTepChon([]);
         }}
         onDongY={() => {
           const v = viecChoXacNhan;
@@ -855,7 +914,7 @@ export default function TrangBaoGiaChiTiet() {
             });
             return;
           }
-          chonNCCChoBaoGia(bg.id, v.nccId, v.tenNCC, nguoiDung.tenHienThi, lyDoChon);
+          chonNCCChoBaoGia(bg.id, v.nccId, v.tenNCC, nguoiDung.tenHienThi, lyDoChon, tepChon);
           toast.success("Đã chốt nhà cung cấp", {
             description: `${v.tenNCC} — ${bg.prCode} chuyển sang “Lập đơn mua hàng”.`,
           });
@@ -864,19 +923,39 @@ export default function TrangBaoGiaChiTiet() {
         {/* ★ Ô GHI LÝ DO — chỉ hiện khi đang chốt nhà cung cấp. Hai việc kia (trình xét
             duyệt, duyệt phương án) chỉ chuyển bước nên không đòi lý do. */}
         {viecChoXacNhan?.loai === "chot_ncc" && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ly-do-chon-ncc">Lý do / dẫn chứng chọn nhà cung cấp này *</Label>
-            <Textarea
-              id="ly-do-chon-ncc"
-              rows={3}
-              placeholder="Ví dụ: giá thấp nhất trong 3 báo giá · giao 5 ngày đáp ứng tiến độ móng · bên rẻ hơn báo hết hàng, có email xác nhận ngày 12/8"
-              value={lyDoChon}
-              onChange={(e) => setLyDoChon(e.target.value)}
-            />
-            <p className="text-xs text-text-desc">
-              Lưu vào bảng báo giá kèm tên bạn và thời điểm. Đây là căn cứ khi cần giải trình vì
-              sao không chọn bên rẻ nhất — ghi cụ thể, đừng ghi “giá tốt”.
-            </p>
+          <div className="flex flex-col gap-(--hp-md-card-gap)">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ly-do-chon-ncc">Lý do / dẫn chứng chọn nhà cung cấp này *</Label>
+              <Textarea
+                id="ly-do-chon-ncc"
+                rows={3}
+                value={lyDoChon}
+                onChange={(e) => setLyDoChon(e.target.value)}
+              />
+              {/* Giữ đúng phần HƯỚNG DẪN GHI (ghi cụ thể, đừng ghi "giá tốt") — đây là chỗ dễ
+                  làm cho có nhất, mà lý do sơ sài thì sáu tháng sau không giải trình được. */}
+              <p className="text-xs text-text-desc">
+                Ghi cụ thể, đừng ghi “giá tốt”.
+              </p>
+            </div>
+
+            {/* ★ ĐÍNH KÈM TÀI LIỆU — Ban lãnh đạo 16/08/2026: *"thêm mục đính kèm tài liệu vào
+                đây"*.
+
+                🔴 Dẫn chứng thật phần lớn là TỆP chứ không phải chữ: văn bản Tổng Giám đốc ký
+                duyệt (đơn từ 10 triệu trở lên bắt buộc có — chính cảnh báo ngay trong hộp này
+                nói vậy), email nhà cung cấp báo hết hàng, bản báo giá gốc có dấu. Không có chỗ
+                đính kèm thì giấy tờ nằm trong hộp thư riêng của người quyết định, kiểm toán hỏi
+                thì không lấy ra được. */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Tài liệu dẫn chứng</Label>
+              <ODinhKemNhieuTep
+                tep={tepChon}
+                onDoi={setTepChon}
+                nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+                nhan="Đính kèm tài liệu"
+              />
+            </div>
           </div>
         )}
       </HopXacNhan>

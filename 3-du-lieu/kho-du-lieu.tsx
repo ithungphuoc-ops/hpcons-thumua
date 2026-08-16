@@ -239,6 +239,8 @@ interface GiaTriDuLieu {
     tenNCC: string,
     nguoiThucHien: string,
     lyDo?: string,
+    /** Tài liệu dẫn chứng cho quyết định — xem `tepChonNCC` ở `kieu-du-lieu.ts`. */
+    tep?: MoTaTep[],
   ) => void;
   /**
    * TÁCH BÁO GIÁ: lưu phân bổ khối lượng từng dòng cho nhiều nhà cung cấp.
@@ -1529,7 +1531,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   const chonNCCChoBaoGia = useCallback(
-    (bgId: string, nccId: string, tenNCC: string, nguoiThucHien: string, lyDo?: string) => {
+    (
+      bgId: string,
+      nccId: string,
+      tenNCC: string,
+      nguoiThucHien: string,
+      lyDo?: string,
+      /** Tài liệu dẫn chứng đính kèm — văn bản TGĐ duyệt, email NCC, báo giá gốc… */
+      tep?: MoTaTep[],
+    ) => {
       const ngay = homNay();
       setBaoGia((truoc) =>
         truoc.map((b) =>
@@ -1542,6 +1552,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                 // ★ Lý do / dẫn chứng chọn NCC — căn cứ của quyết định chi tiền, xem
                 // `lyDoChonNCC` trong `kieu-du-lieu.ts`.
                 lyDoChonNCC: lyDo?.trim() || undefined,
+                ...((tep ?? []).length > 0 ? { tepChonNCC: tep } : {}),
                 nguoiChonTen: nguoiThucHien,
                 thoiDiemChon: thoiDiemHienTai(),
                 ngayCapNhat: ngay,

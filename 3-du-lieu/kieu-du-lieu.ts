@@ -651,6 +651,17 @@ export interface BaoGia {
    * không được xem nhà cung cấp — xem quy ước ở `ghiLichSuDeNghi`.
    */
   lyDoChonNCC?: string;
+  /**
+   * ★ TÀI LIỆU ĐÍNH KÈM CHO QUYẾT ĐỊNH CHỌN NCC — Ban lãnh đạo 16/08/2026.
+   *
+   * 🔴 Ô lý do chỉ cho gõ chữ, trong khi dẫn chứng thật đa số là TỆP: văn bản Tổng Giám đốc
+   * ký duyệt (đơn từ 10 triệu trở lên bắt buộc có), email nhà cung cấp báo hết hàng, bản báo
+   * giá gốc có dấu. Không có chỗ đính kèm thì những giấy tờ đó nằm rải rác trong hộp thư
+   * riêng của người quyết định — sáu tháng sau kiểm toán hỏi thì không ai lấy ra được.
+   *
+   * Đây chỉ là phần MÔ TẢ; nội dung tệp nằm ở kho tệp (`3-du-lieu/kho-tep.ts`).
+   */
+  tepChonNCC?: MoTaTep[];
   /** Người ghi lý do và lúc nào — để biết ai chịu trách nhiệm về quyết định này. */
   nguoiChonTen?: string;
   thoiDiemChon?: string;
