@@ -79,8 +79,7 @@ export function KhoiTraoDoi({
 
             {daSapXep.length === 0 ? (
               <p className="py-2 text-sm text-text-desc">
-                Chưa có bình luận nào. Trao đổi ở đây để mọi thắc mắc về hồ sơ nằm cùng một
-                chỗ, khỏi phải tìm lại trong tin nhắn riêng.
+                Chưa có bình luận nào.
               </p>
             ) : (
               <ul className="flex flex-col gap-(--hp-md-row-gap)">
@@ -430,9 +429,9 @@ function KhoiLichSu({ deNghi }: { deNghi: DeNghiMuaHang }) {
           </li>
         ))}
       </ul>
-      <p className="mt-2.5 border-t border-divider pt-2 text-xs text-text-desc">
-        Nhật ký do hệ thống tự ghi, không sửa được. Giờ theo múi giờ Việt Nam (UTC+7).
-      </p>
+      {/* 📌 ĐÃ BỎ câu "Nhật ký do hệ thống tự ghi, không sửa được. Giờ theo múi giờ Việt Nam"
+          (Ban lãnh đạo 16/08/2026) — không có nút sửa nào ở đây thì cũng không ai tưởng sửa
+          được, và múi giờ thì cả công ty dùng chung một múi. */}
     </>
   );
 }

@@ -219,10 +219,13 @@ export default function TrangChiTietDonHang() {
         <Card>
           <CardContent className="flex items-center gap-3 text-sm text-text-desc">
             <Lock className="size-4 shrink-0" aria-hidden />
+            {/* Chỉ nói ĐIỀU NGƯỜI DÙNG CẦN BIẾT. Phần "đơn giá nằm ở collection riêng
+                tm_donhang_gia, chặn ở tầng dữ liệu" đã bỏ (Ban lãnh đạo 16/08/2026) — tên
+                collection và cách chặn quyền là chuyện bên trong hệ thống, người dùng đọc vào
+                chỉ thấy rối, mà lộ cấu trúc dữ liệu ra ngoài cũng không nên. */}
             <span>
-              Vai trò <strong className="text-text-secondary">{nguoiDung.chucDanh}</strong> không được xem
-              giá. Đơn giá nằm ở collection riêng <code className="text-xs">tm_donhang_gia</code> — chặn ở
-              tầng dữ liệu, không phải ẩn ở giao diện.
+              Vai trò <strong className="text-text-secondary">{nguoiDung.chucDanh}</strong> không
+              được xem giá.
             </span>
           </CardContent>
         </Card>

@@ -602,9 +602,7 @@ function NoiDungLapDonHang() {
     }
     // Đơn mới giờ lấy id từ `ID_DON_HANG_GIA_LAP` (đã sinh sẵn trang) nên mở thẳng
     // được trang chi tiết. Trước đây phải quay về danh sách vì id tự nghĩ ra 404.
-    toast.success("Đã chốt đơn hàng", {
-      description: "Đơn đã được đẩy sang app Kho và app QLDA.",
-    });
+    toast.success("Đã chốt đơn hàng");
     router.push(`/don-hang/${ketQua.id}`);
   }
 
@@ -1051,11 +1049,11 @@ function NoiDungLapDonHang() {
               </span>
             )}
           </div>
-          <p className="text-xs text-text-desc">
-            Chốt đơn = đẩy PO sang app Kho và app QLDA. Đơn giá, chiết khấu, thuế và điều khoản
-            thanh toán lưu riêng ở <code className="text-xs">tm_donhang_gia</code> nên thủ kho
-            không đọc được.
-          </p>
+          {/* 📌 ĐÃ BỎ câu "Chốt đơn = đẩy PO sang app Kho và app QLDA. Đơn giá… lưu riêng ở
+              tm_donhang_gia nên thủ kho không đọc được" (Ban lãnh đạo 16/08/2026).
+              Đó là mô tả kiến trúc hệ thống, không phải việc người lập đơn cần biết. Hậu quả
+              thật sự quan trọng (khối lượng bị trừ, không hoàn lại được) vẫn nằm ở hộp xác
+              nhận ngay bên dưới. */}
         </CardContent>
       </Card>
       {/* Hỏi trước khi chốt — xem `HopXacNhan` về nguyên tắc áp cho việc nào. */}
@@ -1063,7 +1061,8 @@ function NoiDungLapDonHang() {
         mo={hoiChotDon}
         tieuDe="Chốt đơn đặt hàng này?"
         moTa={`Đơn cho ${tenNCC.trim() || "nhà cung cấp"} với ${chon.length} mặt hàng, giao dự kiến ${ngayGiao || "—"}.`}
-        canhBao="Chốt xong, đơn được đẩy sang app Kho và app QLDA, khối lượng bị trừ khỏi phần chưa lên đơn của đề nghị. Không hoàn lại được."
+        // Giữ đúng hai hậu quả người dùng cần cân nhắc; bỏ vế "đẩy sang app Kho và app QLDA".
+        canhBao="Khối lượng bị trừ khỏi phần chưa lên đơn của đề nghị. Không hoàn lại được."
         nhanDongY="Chốt đơn hàng"
         onDong={() => setHoiChotDon(false)}
         onDongY={luu}

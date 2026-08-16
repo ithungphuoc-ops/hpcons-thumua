@@ -799,7 +799,7 @@ export function BangPhanBo({
             <Textarea
               id="ghi-chu-giao-viec"
               rows={3}
-              placeholder="Ví dụ: ưu tiên nhà cung cấp giao trong 3 ngày, hỏi thêm giá cho phương án thay thế..."
+              
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
             />
@@ -853,7 +853,7 @@ export function BangPhanBo({
             <Textarea
               id="ly-do-chuyen"
               rows={2}
-              placeholder="Ví dụ: đang đi công trường, không kịp hạn báo giá..."
+              
               value={lyDoChuyen}
               onChange={(e) => setLyDoChuyen(e.target.value)}
             />

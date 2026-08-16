@@ -504,33 +504,20 @@ function TheDeNghi({
         <StatusBadge label={han.nhan} tone={han.tong} />
       </div>
 
-      {/* ★ LÝ DO CHƯA CHUYỂN BƯỚC — RÚT VỀ MỘT DÒNG (Ban lãnh đạo 15/08/2026: *"bỏ hiển thị
-          thông báo này đi"*).
+      {/* 📌 ĐÃ BỎ dòng "Chưa chuyển bước được" khỏi thẻ (Ban lãnh đạo 16/08/2026: *"bỏ hết các
+          ghi chú kiểu này đi, đây là ứng dụng chuyên nghiệp"*).
 
-          🔴 Ngày 15/08 sáng, Ban lãnh đạo hỏi *"sao chưa kéo chuyển bước được"* nên thẻ được
-          bổ sung lý do đầy đủ. Nhưng câu lý do dài tới 5–7 dòng trên cột hẹp, chiếm chỗ hơn
-          cả nội dung chính của thẻ — chiều chuộng một lần hỏi mà làm hỏng màn hình dùng
-          hằng ngày.
+          Thẻ chỉ còn dữ liệu nghiệp vụ. Lý do không chuyển bước được vẫn nói ra ĐÚNG LÚC người
+          dùng cần: hộp xác nhận hiện lý do khi kéo thẻ, và trang chi tiết đề nghị ghi rõ ở
+          khối tương ứng — cả hai gọi cùng một hàm với chỗ thật sự chặn.
 
-          📌 GIỮ MỘT DÒNG NGẮN, KHÔNG BỎ HẲN: người dùng vẫn phải biết thẻ này đang kẹt, nếu
-          không lại quay về đúng câu hỏi ban đầu. Lý do đầy đủ nằm ở `title` (rê chuột), ở hộp
-          xác nhận khi kéo thả, và ở trang chi tiết đề nghị — ba chỗ đều dùng chung một hàm
-          nên không bao giờ nói khác nhau. */}
-      {the.vuongMac ? (
-        <span
-          title={the.vuongMac}
-          className="inline-flex items-center gap-1 text-xs font-medium text-danger-soft"
-        >
+          🔴 Vẫn GIỮ dòng "Thiếu N công việc chưa phân bổ": đó là SỐ LIỆU nghiệp vụ (còn bao
+          nhiêu đầu việc chưa ai nhận), không phải câu giải thích cách app hoạt động. */}
+      {soDongChuaPhanBo > 0 && (
+        <span className="inline-flex items-center gap-1 text-xs text-danger-soft">
           <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-          Chưa chuyển bước được
+          Thiếu {soDongChuaPhanBo} công việc chưa phân bổ
         </span>
-      ) : (
-        soDongChuaPhanBo > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs text-danger-soft">
-            <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-            Thiếu {soDongChuaPhanBo} công việc chưa phân bổ
-          </span>
-        )
       )}
     </Link>
   );

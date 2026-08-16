@@ -9,7 +9,6 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -123,12 +122,9 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
             </p>
           )}
 
-          {duocSua && (
-            <p className="text-xs text-text-desc">
-              Người theo dõi nắm được tiến trình đề nghị nhưng <strong>không thấy đơn giá</strong> nếu
-              vai trò của họ vốn không được xem giá — giá nằm ở chứng từ riêng, không mở theo danh sách này.
-            </p>
-          )}
+          {/* 📌 ĐÃ BỎ đoạn giải thích "Người theo dõi nắm được tiến trình nhưng không thấy đơn
+              giá…" (Ban lãnh đạo 16/08/2026). Luật quyền xem giá do hệ thống bảo đảm, không cần
+              nhắc lại trên màn hình mỗi lần mở khối này. */}
         </CardContent>
       </Card>
 
@@ -239,11 +235,9 @@ function HopChonNhanSu({
           không phải cuộn dài. Màn hẹp (điện thoại) tự về 1 cột. */}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
+          {/* Bỏ câu hướng dẫn "Bấm tên trong danh bạ để đưa vào danh sách…" — thao tác đã tự
+              rõ, và nút "Lưu thay đổi" ở cuối hộp nói đủ (Ban lãnh đạo 16/08/2026). */}
           <DialogTitle>Chọn người theo dõi</DialogTitle>
-          <DialogDescription>
-            Bấm tên trong danh bạ để đưa vào danh sách, soát lại rồi bấm{" "}
-            <strong>Lưu thay đổi</strong>. Chưa lưu thì chưa có gì thay đổi.
-          </DialogDescription>
         </DialogHeader>
 
         {/* DANH SÁCH SẼ LƯU — gom mọi thao tác vào đây để soát trước khi đồng ý. */}
@@ -336,11 +330,12 @@ function HopChonNhanSu({
           )}
         </div>
 
-        <p className="text-xs text-text-desc">
-          Danh bạ đang là <strong>dữ liệu mẫu</strong>. Khi nối Firebase sẽ đọc thẳng danh sách
-          nhân sự thật từ App Tổng HPcore; người đã nghỉ việc tự động không hiện ở đây.
-        </p>
+        {/* 🔴 ĐÃ BỎ câu "Danh bạ đang là dữ liệu mẫu. Khi nối Firebase sẽ đọc thẳng danh sách
+            nhân sự thật…" — vừa là ghi chú thừa, vừa ĐÃ SAI SỰ THẬT.
 
+            Kiểm lại `4-phan-quyen/dung-danh-ba.ts`: app đã đọc danh sách tài khoản thật, chỉ
+            rơi về danh bạ mẫu khi chạy chế độ tài khoản mẫu. Câu này nói app còn dùng dữ liệu
+            giả trong khi nó không còn dùng — người dùng đọc xong không dám tin danh sách. */}
         <DialogFooter>
           <Button variant="outline" onClick={() => doiMo(false)}>
             Hủy

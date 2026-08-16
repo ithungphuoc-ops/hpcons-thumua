@@ -99,15 +99,9 @@ export function CotThongTinDeNghi({
           </p>
         )}
 
-        {/* ⚠️ NÓI THẲNG chỗ app chưa làm được. Base hiện "ĐÃ SỬ DỤNG 31.58h" vì bên đó lưu
-            lịch sử chuyển giai đoạn; app suy giai đoạn từ chứng từ nên không biết hồ sơ đã
-            ngồi ở bước này bao lâu. Giấu đi là để người dùng tưởng app đang canh giờ hộ. */}
-        {!ketThuc && (
-          <p className="mt-2 text-xs leading-snug text-white/75">
-            App chưa đếm được số giờ đã ở bước này — thời hạn đang tính theo ngày cần hàng của
-            cả đề nghị (xem khối Tổng thời gian).
-          </p>
-        )}
+        {/* 📌 ĐÃ BỎ câu "App chưa đếm được số giờ đã ở bước này…" (Ban lãnh đạo 16/08/2026).
+            App tự kể giới hạn kỹ thuật của mình ngay giữa màn làm việc; người dùng đọc xong
+            cũng không làm gì khác đi. Thời hạn thật đã hiện ở khối Tổng thời gian ngay dưới. */}
       </section>
 
       {/* ================= THÔNG TIN NHIỆM VỤ =================
@@ -247,11 +241,8 @@ export function CotThongTinDeNghi({
           })}
         </ol>
 
-        {/* ⚠️ Nói thẳng chỗ chưa có dữ liệu, đừng để người xem tưởng app quên ghi. */}
-        <p className="mt-2.5 border-t border-divider pt-2 text-xs text-text-desc">
-          Giai đoạn được suy ra từ chứng từ thật, nên chỉ giai đoạn nào có chứng từ mới có
-          mốc thời gian.
-        </p>
+        {/* 📌 ĐÃ BỎ câu "Giai đoạn được suy ra từ chứng từ thật…" (Ban lãnh đạo 16/08/2026):
+            cách app tính giai đoạn là chuyện bên trong, không phải thứ người dùng cần đọc. */}
       </section>
 
       {/* 📌 ĐÃ BỎ khối "Hoạt động chính" (Ban lãnh đạo 15/08/2026: *"mục này đang bị dư"*).

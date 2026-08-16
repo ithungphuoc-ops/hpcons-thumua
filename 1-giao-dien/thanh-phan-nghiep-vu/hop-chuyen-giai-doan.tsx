@@ -157,14 +157,11 @@ export function HopChuyenGiaiDoan({
                 rows={3}
                 value={ghiChu}
                 onChange={(e) => setGhiChu(e.target.value)}
-                placeholder="Ghi nhanh những gì đã làm xong ở bước trước — sẽ vào nhật ký đề nghị."
                 className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
               />
-              {/* Nói rõ ghi chú đi đâu. Không nói thì người dùng ngại gõ vì sợ mất công vô ích. */}
-              <p className="text-xs text-text-desc">
-                Để trống cũng được. Có nội dung thì app ghi vào <strong>Lịch sử</strong> của đề
-                nghị, người sau đọc lại biết bước trước đã làm những gì.
-              </p>
+              {/* 📌 ĐÃ BỎ placeholder gợi ý và câu "Để trống cũng được. Có nội dung thì app ghi
+                  vào Lịch sử…" (Ban lãnh đạo 16/08/2026). Nhãn ô đã nói rõ phải điền gì, và
+                  trường không có dấu sao đỏ thì đương nhiên không bắt buộc. */}
             </div>
 
             {/* ★ SL BÁO GIÁ — trường bắt buộc của bước ②, đúng ảnh Base (có dấu sao đỏ).
@@ -187,16 +184,15 @@ export function HopChuyenGiaiDoan({
                     </option>
                   ))}
                 </select>
-                {/* Nhắc luật thật của công ty, SINH TỪ CẤU HÌNH chứ không viết cứng con số —
-                    ngưỡng sửa được ở trang Cài đặt, chữ cứng sẽ nói dối. */}
+                {/* GIỮ luật công ty (đây là quy định thật, sinh từ cấu hình nên không nói dối
+                    khi ngưỡng đổi), BỎ vế chỉ đường "muốn khác nhau từng dòng thì sửa ở bảng
+                    Phân bổ công việc" — Ban lãnh đạo 16/08/2026. */}
                 <p className="text-xs text-text-desc">
                   Quy trình yêu cầu tối thiểu{" "}
                   <strong>
                     {String(cauHinh.soBaoGiaToiThieu).padStart(2, "0")} báo giá
                   </strong>{" "}
-                  với đơn từ {chuTien(cauHinh.nguongHaiBaoGia)} đồng trở lên. Số này áp cho{" "}
-                  <strong>mọi mặt hàng</strong> của phiếu; muốn khác nhau từng dòng thì sửa ở
-                  bảng Phân bổ công việc.
+                  với đơn từ {chuTien(cauHinh.nguongHaiBaoGia)} đồng trở lên.
                 </p>
               </div>
             )}

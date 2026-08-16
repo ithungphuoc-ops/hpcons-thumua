@@ -419,19 +419,13 @@ export default function TrangDanhSachDeNghi() {
               });
             }}
           />
-          {/* 🔴 NÓI RÕ THẺ TỰ CHUYỂN — Ban lãnh đạo 15/08/2026 hỏi "sao tk trưởng phòng vẫn
-              chưa thể kéo chuyển bước 1 sang bước 2 được". Gốc của hiểu nhầm: người dùng tưởng
-              phải KÉO thì thẻ mới sang cột, nên cứ kéo đi kéo lại một hồ sơ chưa đủ điều kiện.
-              Thật ra làm xong việc của bước là thẻ TỰ sang — kéo thả chỉ là lối tắt để mở đúng
-              màn hình làm việc. */}
-          {quyen.lapPO && (
-            <p className="text-xs text-text-desc">
-              <strong>Thẻ tự sang cột kế tiếp khi bước hiện tại làm xong</strong> — không cần
-              kéo. Ví dụ phân bổ hết người phụ trách là thẻ tự vào “Yêu cầu NCC báo giá”. Kéo
-              thẻ chỉ là lối tắt để mở màn hình làm bước đó. Thẻ nào chưa đi tiếp được thì ghi
-              rõ lý do ngay trên thẻ.
-            </p>
-          )}
+          {/* 📌 ĐÃ BỎ đoạn hướng dẫn "Thẻ tự sang cột kế tiếp khi bước hiện tại làm xong…"
+              (Ban lãnh đạo 16/08/2026: *"bỏ hết các ghi chú kiểu này đi, đây là ứng dụng chuyên
+              nghiệp nên không cần các cảnh báo kiểu này"*).
+
+              Cách app vận hành thì người dùng học một lần rồi thuộc; câu hướng dẫn nằm cố định
+              dưới mọi màn hình chỉ chiếm chỗ. Muốn tra lại thì đã có nút ⓘ ở đầu mỗi cột
+              (`NutHuongDanGiaiDoan`) — hướng dẫn nằm đúng chỗ người dùng đi tìm nó. */}
         </div>
       ) : (
         <Card>

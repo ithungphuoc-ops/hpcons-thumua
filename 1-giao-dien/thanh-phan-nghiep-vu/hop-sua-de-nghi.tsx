@@ -204,7 +204,7 @@ export function HopSuaThoiHan({
               id="ly-do-doi-han"
               value={lyDo}
               onChange={(e) => setLyDo(e.target.value)}
-              placeholder="Nhà cung cấp báo hết hàng, giao sớm nhất được ngày 25/8"
+              
             />
             <span className="text-xs text-text-desc">
               Bắt buộc — ngày cần hàng là cam kết với công trình, đổi phải nói rõ vì sao.
@@ -273,7 +273,7 @@ export function HopSuaTruongBoSung({
               <Input
                 value={t.nhan}
                 onChange={(e) => sua(i, { nhan: e.target.value })}
-                placeholder="Tên trường (vd Số điện thoại BCH)"
+                placeholder="Tên trường"
                 aria-label={`Tên trường thứ ${i + 1}`}
                 className="min-w-0 flex-1"
               />
