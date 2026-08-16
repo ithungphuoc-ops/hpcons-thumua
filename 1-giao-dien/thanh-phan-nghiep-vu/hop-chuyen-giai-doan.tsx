@@ -108,7 +108,10 @@ export function HopChuyenGiaiDoan({
 
   return (
     <Dialog open={mo} onOpenChange={(v) => !v && onDong()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      {/* Dàn ngang cho gọn (Ban lãnh đạo 15/08/2026): hộp rộng ra, các trường xếp hai cột nên
+          hộp ngắn lại rõ rệt — trước đây bốn khối xếp dọc làm hộp cao gần hết màn hình, phải
+          cuộn mới thấy nút bấm. Màn hẹp tự về một cột. */}
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Chuyển nhiệm vụ sang giai đoạn tiếp theo</DialogTitle>
           <DialogDescription>
@@ -129,15 +132,23 @@ export function HopChuyenGiaiDoan({
               </span>
             </p>
 
-            {/* Ô KHÓA 1 — cách giao việc của bước đích. */}
-            <OKhoa nhan="Giao lại cho" giaTri={NHAN_CACH_GIAO_VIEC[caiDatDich.cachGiaoViec]} />
+            {/* Hai ô KHÓA nằm cạnh nhau — chúng chỉ để đọc, ngắn, không đáng chiếm hai hàng. */}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {/* Ô KHÓA 1 — cách giao việc của bước đích. */}
+              <OKhoa nhan="Giao lại cho" giaTri={NHAN_CACH_GIAO_VIEC[caiDatDich.cachGiaoViec]} />
 
-            {/* Ô KHÓA 2 — thời hạn chuẩn của bước đích (Base ghi "DURATION"). */}
-            <OKhoa
-              nhan="Thời hạn của bước"
-              giaTri={hanDich > 0 ? `${hanDich} giờ` : "Không đặt thời hạn"}
-            />
+              {/* Ô KHÓA 2 — thời hạn chuẩn của bước đích (Base ghi "DURATION"). */}
+              <OKhoa
+                nhan="Thời hạn của bước"
+                giaTri={hanDich > 0 ? `${hanDich} giờ` : "Không đặt thời hạn"}
+              />
+            </div>
 
+            {/* Hai ô NHẬP cũng xếp cạnh nhau khi có cả hai. `items-start` để ô ngắn không bị
+                kéo cao bằng ô dài. */}
+            <div
+              className={`grid grid-cols-1 items-start gap-2 ${hoiSoBaoGia ? "sm:grid-cols-2" : ""}`}
+            >
             {/* Ô NHẬP — "Những việc đã hoàn thành?" đúng chữ trong ảnh Base. */}
             <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3">
               <Label htmlFor="ghi-chu-chuyen-buoc">Những việc đã hoàn thành?</Label>
@@ -189,6 +200,7 @@ export function HopChuyenGiaiDoan({
                 </p>
               </div>
             )}
+            </div>
           </div>
 
           {/* ===== ③ CÔNG VIỆC ĐANG CHỜ Ở GIAI ĐOẠN TRƯỚC ===== */}

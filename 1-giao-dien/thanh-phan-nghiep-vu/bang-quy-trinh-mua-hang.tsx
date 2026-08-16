@@ -261,21 +261,23 @@ function CotQuyTrinh({
   return (
     <section
       /**
-       * ★ BỀ RỘNG CỘT CO THEO MÀN HÌNH — Ban lãnh đạo 15/08/2026: *"thu gọn lại các ô này để
-       * hiển thị đủ trong 1 màn hình, và phải fix cho các màn hình khác"*.
+       * ★ BỀ RỘNG CỘT — Ban lãnh đạo 15/08/2026, qua ba lần chỉnh:
+       *   1. *"thu gọn lại các ô này để hiển thị đủ trong 1 màn hình"* → bóp xuống 176px
+       *   2. *"dãn cột rộng hơn chút nữa, này hẹp quá"* → 200px
+       *   3. *"tăng bề rộng cột, a đã nói e sửa cho này rồi mà"* → 240px
        *
-       * 8 cột × 272px = 2.176px, cộng thanh bên 260px là 2.436px — màn 1920px cũng không đủ,
-       * nên bảng luôn phải cuộn ngang và không bao giờ nhìn được cả quy trình một lượt.
+       * 🔴 ĐÂY LÀ MỘT ĐÁNH ĐỔI KHÔNG THỂ TRÁNH, ghi lại để người sau khỏi "sửa lại cho vừa
+       * màn" rồi đi hết một vòng. Chỗ trống cho bảng ≈ bề ngang màn − 260px thanh bên − lề.
+       * Muốn 8 cột cùng nằm gọn trên màn 1650px thì mỗi cột chỉ được ~169px — hẹp tới mức
+       * mã hồ sơ vỡ làm ba dòng. Không có bề rộng nào vừa lòng cả hai yêu cầu.
        *
-       * 🔴 KHÔNG ĐẶT MỘT BỀ RỘNG DUY NHẤT CHO MỌI MÀN. Bóp xuống 176px cho vừa màn 1920px thì
-       * laptop 1366px vẫn cuộn (vì màn nhỏ hơn) mà thẻ lại chật thêm — vừa không giải quyết
-       * được gì, vừa làm hỏng trải nghiệm của máy nhỏ. Vì vậy: máy nhỏ giữ 272px và cuộn như
-       * cũ, màn càng rộng thì cột càng được phép co để đủ 8 cột.
+       * 👉 Đã chốt theo hướng ĐỌC ĐƯỢC: cột 240px, màn không đủ thì cuộn ngang. Cuộn là thao
+       * tác quen thuộc của bảng Kanban (Trello để 272px và luôn cuộn); chữ vỡ thì không đọc
+       * được, không có cách nào bù.
        *
-       * `grow` vẫn giữ: khi 8 cột đã vừa, phần dư được chia đều nên không có khoảng trống bên
-       * phải bảng.
+       * `grow` vẫn giữ: màn đủ rộng thì phần dư chia đều, không để khoảng trống bên phải.
        */
-      className={`flex min-w-[272px] shrink-0 grow basis-[272px] flex-col bg-muted transition-opacity xl:min-w-[224px] xl:basis-[224px] 2xl:min-w-[200px] 2xl:basis-[200px] ${
+      className={`flex min-w-[272px] shrink-0 grow basis-[272px] flex-col bg-muted transition-opacity xl:min-w-[248px] xl:basis-[248px] 2xl:min-w-[240px] 2xl:basis-[240px] ${
         dangKeoQua ? "ring-2 ring-primary ring-inset" : ""
       } ${moDi ? "opacity-40" : ""}`}
       {...suKienKeoTha}
@@ -502,23 +504,25 @@ function TheDeNghi({
         <StatusBadge label={han.nhan} tone={han.tong} />
       </div>
 
-      {/* Cảnh báo riêng của app (Base không có): còn dòng vật tư chưa giao cho ai. Để dòng
-          riêng vì đây là việc phải xử lý, không phải thông tin nền. */}
-      {/* ★ LÝ DO CHƯA CHUYỂN BƯỚC ĐƯỢC — Ban lãnh đạo 15/08/2026: *"sao tk trưởng phòng vẫn
-          chưa thể kéo chuyển bước 1 sang bước 2 được"*.
+      {/* ★ LÝ DO CHƯA CHUYỂN BƯỚC — RÚT VỀ MỘT DÒNG (Ban lãnh đạo 15/08/2026: *"bỏ hiển thị
+          thông báo này đi"*).
 
-          🔴 App chặn ĐÚNG luật, nhưng trước đây thẻ chỉ ghi "Thiếu 3 dòng chưa phân bổ" — không
-          nói rằng VÌ VẬY không kéo được, cũng không chỉ phải làm gì. Người dùng kéo đi kéo lại
-          rồi tưởng app hỏng. Nay nói thẳng lý do kèm việc phải làm.
+          🔴 Ngày 15/08 sáng, Ban lãnh đạo hỏi *"sao chưa kéo chuyển bước được"* nên thẻ được
+          bổ sung lý do đầy đủ. Nhưng câu lý do dài tới 5–7 dòng trên cột hẹp, chiếm chỗ hơn
+          cả nội dung chính của thẻ — chiều chuộng một lần hỏi mà làm hỏng màn hình dùng
+          hằng ngày.
 
-          Lý do lấy từ `the.vuongMac` — CÙNG hàm với chỗ thật sự chặn, nên thẻ không bao giờ
-          nói khác với thứ app làm. */}
+          📌 GIỮ MỘT DÒNG NGẮN, KHÔNG BỎ HẲN: người dùng vẫn phải biết thẻ này đang kẹt, nếu
+          không lại quay về đúng câu hỏi ban đầu. Lý do đầy đủ nằm ở `title` (rê chuột), ở hộp
+          xác nhận khi kéo thả, và ở trang chi tiết đề nghị — ba chỗ đều dùng chung một hàm
+          nên không bao giờ nói khác nhau. */}
       {the.vuongMac ? (
-        <span className="flex items-start gap-1 rounded-md bg-danger-bg px-2 py-1 text-xs leading-snug text-danger-soft">
-          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          <span>
-            <strong>Chưa chuyển bước được.</strong> {the.vuongMac}
-          </span>
+        <span
+          title={the.vuongMac}
+          className="inline-flex items-center gap-1 text-xs font-medium text-danger-soft"
+        >
+          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+          Chưa chuyển bước được
         </span>
       ) : (
         soDongChuaPhanBo > 0 && (
