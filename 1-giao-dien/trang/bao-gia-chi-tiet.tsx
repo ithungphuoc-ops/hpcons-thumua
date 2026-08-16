@@ -17,7 +17,6 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { lyDoKhongXemBaoGia } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { KhoiThuThapBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-thu-thap-bao-gia";
-import { KhoiNguongGiaTri } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguong-gia-tri";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -293,67 +292,13 @@ export default function TrangBaoGiaChiTiet() {
         </CardContent>
       </Card>
 
-      {/* ★ CĂN CỨ CHỌN NHÀ CUNG CẤP — khối RIÊNG, không chen vào hàng thông tin.
-          Ban lãnh đạo 16/08/2026: *"bố cục lại mục ghi chú này chuyên nghiệp hơn"*.
+      {/* 📌 ĐÃ BỎ khối "Soát theo ngưỡng giá trị của quy trình" (Ban lãnh đạo 16/08/2026).
+          Khối đó liệt kê ba gạch đầu dòng "việc phải làm ngoài app" trên MỌI bảng báo giá, kể
+          cả đơn nhỏ không dính ngưỡng nào.
 
-          🔴 Trước đây khối này nhét làm ô thứ năm trong hàng "Đề nghị · Ngày tạo · Cập nhật ·
-          NCC đã chọn": bốn ô kia là dữ liệu một dòng, ô này là đoạn văn nhiều dòng có nền màu
-          — cao gấp ba, phá nhịp cả hàng và trông như dán thêm vào.
-
-          Nay đứng thành một khối riêng có tiêu đề, ngang hàng với các khối khác của trang, và
-          chứa được cả TÀI LIỆU DẪN CHỨNG. */}
-      {bg.lyDoChonNCC && (
-        <Card>
-          <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <h2 className="text-h3 text-text-primary">Căn cứ chọn nhà cung cấp</h2>
-              {bg.nguoiChonTen && (
-                <span className="text-xs text-text-desc">
-                  {bg.nguoiChonTen}
-                  {bg.thoiDiemChon ? ` · ${formatDate(bg.thoiDiemChon)}` : ""}
-                </span>
-              )}
-            </div>
-
-            {/* `whitespace-pre-wrap` giữ đúng cách xuống dòng người quyết định đã gõ — lý do
-                nhiều ý thường được viết thành từng gạch đầu dòng. */}
-            <p className="text-sm whitespace-pre-wrap text-text-primary">{bg.lyDoChonNCC}</p>
-
-            {(bg.tepChonNCC ?? []).length > 0 && (
-              <div className="flex flex-col gap-1.5 border-t border-divider pt-2.5">
-                <span className="text-xs font-semibold text-text-desc">
-                  Tài liệu dẫn chứng ({(bg.tepChonNCC ?? []).length})
-                </span>
-                <ul className="flex flex-wrap gap-1.5">
-                  {(bg.tepChonNCC ?? []).map((t) => (
-                    <li key={t.id}>
-                      <button
-                        type="button"
-                        onClick={() => setXemTepCanCu(t)}
-                        className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs text-text-secondary transition-colors hover:border-primary hover:text-primary"
-                      >
-                        <Paperclip className="size-3.5 shrink-0" aria-hidden />
-                        <span className="truncate" title={t.tenTep}>
-                          {rutGonTenTep(t.tenTep, 34)}
-                        </span>
-                        <span className="shrink-0 text-text-desc">{coTep(t.kichThuoc)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-      {xemTepCanCu && (
-        <HopXemTep tep={xemTepCanCu} mo onDong={() => setXemTepCanCu(null)} />
-      )}
-
-      {/* ===== SOÁT NGƯỠNG GIÁ TRỊ =====
-          Đặt NGAY TRÊN khối nhập giá và bảng so sánh, không giấu xuống cuối trang: người
-          dùng cần biết "đơn này cần mấy báo giá, ai duyệt" TRƯỚC khi trình, chứ không phải
-          sau khi đã trình xong. Luật ở `2-quy-trinh/nguong-gia-tri.ts`. */}
+          🔴 KHÔNG mồ côi thông tin: cùng luật (`soatNguongBaoGia`) vẫn chạy và hiện đúng lúc
+          cần — trong hộp xác nhận khi trình duyệt / chốt NCC, kèm số tiền thật của đơn và cấp
+          có thẩm quyền duyệt. Đọc lúc sắp bấm nút thì đúng việc hơn đọc lúc vừa mở trang. */}
       {/* ===== ★ ĐỀ XUẤT CỦA NHÂN VIÊN THU MUA =====
           🔴 Ban lãnh đạo 13/08/2026: nhân viên phải đề xuất chọn NCC nào kèm dẫn chứng cụ thể.
 
@@ -380,7 +325,6 @@ export default function TrangBaoGiaChiTiet() {
         </Card>
       )}
 
-      <KhoiNguongGiaTri baoGia={bg} />
 
       {/* ===== CHỜ NHÀ CUNG CẤP GỬI GIÁ VỀ =====
           🔴 MẮT NỐI của chuỗi tách PO. Bảng báo giá vừa lập ra chưa có giá của ai, nên
@@ -809,6 +753,58 @@ export default function TrangBaoGiaChiTiet() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ★ CĂN CỨ CHỌN NHÀ CUNG CẤP — đặt CUỐI TRANG (Ban lãnh đạo 16/08/2026: *"đưa xuống
+          cuối trang"*).
+
+          📌 Đúng thứ tự làm việc: mở màn này ra là để SO GIÁ rồi mới QUYẾT. Căn cứ của quyết
+          định là thứ đọc lại sau khi đã chốt — hoặc khi cần giải trình — chứ không phải thứ
+          chắn đường vào bảng so sánh. */}
+      {bg.lyDoChonNCC && (
+        <Card>
+          <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h2 className="text-h3 text-text-primary">Căn cứ chọn nhà cung cấp</h2>
+              {bg.nguoiChonTen && (
+                <span className="text-xs text-text-desc">
+                  {bg.nguoiChonTen}
+                  {bg.thoiDiemChon ? ` · ${formatDate(bg.thoiDiemChon)}` : ""}
+                </span>
+              )}
+            </div>
+
+            {/* `whitespace-pre-wrap` giữ đúng cách xuống dòng người quyết định đã gõ — lý do
+                nhiều ý thường được viết thành từng gạch đầu dòng. */}
+            <p className="text-sm whitespace-pre-wrap text-text-primary">{bg.lyDoChonNCC}</p>
+
+            {(bg.tepChonNCC ?? []).length > 0 && (
+              <div className="flex flex-col gap-1.5 border-t border-divider pt-2.5">
+                <span className="text-xs font-semibold text-text-desc">
+                  Tài liệu dẫn chứng ({(bg.tepChonNCC ?? []).length})
+                </span>
+                <ul className="flex flex-wrap gap-1.5">
+                  {(bg.tepChonNCC ?? []).map((t) => (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        onClick={() => setXemTepCanCu(t)}
+                        className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                      >
+                        <Paperclip className="size-3.5 shrink-0" aria-hidden />
+                        <span className="truncate" title={t.tenTep}>
+                          {rutGonTenTep(t.tenTep, 34)}
+                        </span>
+                        <span className="shrink-0 text-text-desc">{coTep(t.kichThuoc)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      {xemTepCanCu && <HopXemTep tep={xemTepCanCu} mo onDong={() => setXemTepCanCu(null)} />}
 
       <div>
         <Button variant="outline" nativeButton={false} render={<Link href="/bao-gia" />}>
