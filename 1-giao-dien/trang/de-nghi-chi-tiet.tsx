@@ -228,9 +228,16 @@ export default function TrangChiTietDeNghi() {
 
       {/* BỐ CỤC HAI CỘT (theo trang nhiệm vụ của Base): nội dung làm việc bên trái,
           thông tin tra cứu bên phải. Dưới 1024px cột phải tự xuống dưới. */}
-      {/* Cột phải 320px: vùng làm việc bị giới hạn bằng bề rộng A4 ngang (~1123px) nên
-          320px cho tỷ lệ ~28%, đúng như tỷ lệ cột phải trong ảnh mẫu Base.vn. */}
-      <div className="grid gap-(--hp-md-section) lg:grid-cols-[1fr_320px] lg:items-start">
+      {/* Cột phải rộng THEO TỶ LỆ ~27% chứ không cố định 320px: vùng làm việc đã bỏ
+          giới hạn 1440px nên trải kín màn hình — cột phải cố định sẽ càng ngày càng
+          lép so với cột trái trên màn rộng, mất cân đối như ảnh Ban lãnh đạo gửi
+          16/08/2026. Tỷ lệ ~27% lấy theo ảnh mẫu Base.vn trong cùng đợt phản hồi đó.
+          Hai chỗ minmax đều có lý do sống còn:
+          · Cột trái minmax(0,1fr): không có sàn 0 thì bảng rộng bên trong lấy min-content
+            làm sàn, đẩy vỡ grid và tràn ngang cả trang.
+          · Cột phải minmax(320px,27%): sàn 320px giữ cho các khối tra cứu không bị bóp
+            nát trên màn hẹp (1280px trở xuống, khi 27% chỉ còn ~260px). */}
+      <div className="grid gap-(--hp-md-section) lg:grid-cols-[minmax(0,1fr)_minmax(320px,27%)] lg:items-start">
         <div className="flex min-w-0 flex-col gap-(--hp-md-section)">
           {/* ===== THÔNG TIN ĐỀ NGHỊ — danh sách trường đánh số =====
               Bố cục theo trang nhiệm vụ Base.vn (ảnh Ban lãnh đạo cung cấp 10/08/2026):
