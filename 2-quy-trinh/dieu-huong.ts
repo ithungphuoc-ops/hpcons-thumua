@@ -121,13 +121,19 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     nhanNgan: "Quy trình",
     href: "/de-nghi",
     icon: FileText,
-    // 🔴 Ban lãnh đạo 12/08/2026: *"cho tài khoản thủ kho được thấy quy trình thu mua, để
-    // biết request đang ở bước nào"*. Thủ kho phải chuẩn bị mặt bằng và nhân công nhận
-    // hàng, nên cần biết đơn sắp về hay còn đang đi hỏi giá — `ghiPhieuNhanHang` nhận diện
-    // đúng vai đó.
-    // ⚠️ Bảng quy trình KHÔNG lộ giá cho họ: mọi chỗ hiện tiền đều đã kiểm `quyen.xemGia`,
-    // mà thủ kho không có quyền đó. Mở lối vào màn hình khác với mở quyền xem giá.
-    duocThay: (q) => q.xemMoiHoSo || q.lapPO || q.phanBoCongViec || q.ghiPhieuNhanHang,
+    /**
+     * 🔴 CHỈ NGƯỜI LÀM THU MUA (Ban lãnh đạo 16/08/2026: *"ở tk thủ kho và tk của phòng ban
+     * khác thì không được phép thấy quy trình mua hàng, chỉ thấy tiến độ đơn hàng ở tab theo
+     * dõi đơn hàng thôi"*).
+     *
+     * ⚠️ CHỈ ĐẠO NÀY ĐẢO NGƯỢC QUYẾT ĐỊNH 12/08/2026 — lúc đó Ban lãnh đạo yêu cầu *"cho tài
+     * khoản thủ kho được thấy quy trình thu mua, để biết request đang ở bước nào"*. Ghi lại cả
+     * hai để người sau không tưởng là bỏ sót rồi mở lại.
+     *
+     * 📌 Thủ kho, QLDA, kế toán, các phòng ban đề xuất vẫn theo dõi được tiến độ ở mục "Theo
+     * dõi đề nghị" — mục đó mở cho mọi vai trò, chỉ không hiện giá và nhà cung cấp.
+     */
+    duocThay: (q) => q.xemQuyTrinhMuaHang,
   },
   {
     nhan: "Theo dõi đề nghị",

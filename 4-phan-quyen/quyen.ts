@@ -119,6 +119,20 @@ export interface Quyen {
   xuatHoSo: boolean;
   xemBaoGia: boolean;
   xemCongNo: boolean;
+  /**
+   * ★ ĐƯỢC VÀO MÀN "QUY TRÌNH MUA HÀNG" (bảng 8 cột) KHÔNG.
+   *
+   * 🔴 Ban lãnh đạo 16/08/2026: *"ở tk thủ kho và tk của phòng ban khác thì không được phép
+   * thấy quy trình mua hàng, chỉ thấy tiến độ đơn hàng ở tab theo dõi đơn hàng thôi"*.
+   *
+   * ⚠️ ĐẢO NGƯỢC quyết định 12/08/2026 (khi đó mở cho thủ kho xem). Ghi lại để người sau
+   * không tưởng là bỏ sót rồi mở lại.
+   *
+   * 📌 CỜ RIÊNG, không ghép từ các cờ sẵn có. Ghép `xemMoiHoSo || lapPO` nghe gọn nhưng
+   * `xemMoiHoSo` bao gồm cả QLDA — đúng loại "phòng ban khác" mà chỉ đạo này muốn chặn. Cờ
+   * riêng thì đọc một dòng là biết ai vào được, và sửa sau cũng không kéo theo màn khác.
+   */
+  xemQuyTrinhMuaHang: boolean;
 }
 
 /**
@@ -178,6 +192,10 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     xuatHoSo: capTM >= 1,
     xemBaoGia: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laQLDA || laKeToan,
     xemCongNo: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laKeToan,
+
+    // Chỉ người LÀM thu mua, cộng quản trị và Ban Giám đốc. Thủ kho, QLDA, kế toán và các
+    // phòng ban đề xuất theo dõi tiến độ ở mục "Theo dõi đề nghị" — xem `xemQuyTrinhMuaHang`.
+    xemQuyTrinhMuaHang: laQuanTri || laBGD || laTruongBP || laNhanVienTM,
   };
 }
 
@@ -185,6 +203,16 @@ export function tinhQuyen(u: NguoiDung): Quyen {
 export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
   if (duongDan.startsWith("/phan-bo")) return q.phanBoCongViec;
   if (duongDan.startsWith("/don-hang/tao-moi")) return q.lapPO;
+  /**
+   * 🔴 CHẶN CẢ ĐƯỜNG DẪN, không chỉ ẩn mục menu (Ban lãnh đạo 16/08/2026).
+   *
+   * Ẩn menu KHÔNG PHẢI LÀ CHẶN: địa chỉ `/de-nghi` gõ thẳng vào thanh địa chỉ vẫn vào được,
+   * và người từng có quyền còn nguyên trong lịch sử trình duyệt. Chặn ở đây thì mọi đường
+   * vào — menu, gõ tay, thẻ đã lưu — đều bị chặn như nhau.
+   *
+   * ⚠️ Phải bắt cả `/de-nghi/…` (trang chi tiết) chứ không riêng `/de-nghi`.
+   */
+  if (duongDan.startsWith("/de-nghi")) return q.xemQuyTrinhMuaHang;
   return q.xemDuocApp;
 }
 
