@@ -380,7 +380,24 @@ export default function TrangChiTietDeNghi() {
 
               🔴 Base gom dữ liệu theo GIAI ĐOẠN, app trước gom theo LOẠI CHỨNG TỪ. Muốn biết
               "bước ③ đã nộp những gì" thì trước đây phải đi tìm khắp trang; nay mở đúng khối
-              của bước đó là thấy. Trường đánh số liên tục 01→N như Base. */}
+              của bước đó là thấy. Trường đánh số liên tục 01→N như Base.
+
+              🔴 BA KHỐI NGHIỆP VỤ NẰM TRONG GIAI ĐOẠN — cùng chỉ đạo 16/08/2026. Khi được
+              báo là app có ba khối Base không có (Phân bổ công việc · Bảng báo giá · Đơn đặt
+              hàng), Ban lãnh đạo trả lời: *"những mục này base ko có, e kiểm tra xem nó đang
+              trùng ở bước nào thì thêm nó vào bước đó"*.
+
+              Nghĩa là KHÔNG bỏ ba khối (bỏ là mất chức năng chính của app), mà xếp mỗi khối
+              vào đúng bước sinh ra nó, qua prop `noiDungNghiepVu`:
+                · Phân bổ công việc  → ① Tiếp nhận        (giao người phụ trách là việc bước ①)
+                · Bảng báo giá       → ② Yêu cầu NCC báo giá (bảng được LẬP ở bước ② để đi hỏi giá)
+                · Đơn đặt hàng       → ④ Lập đơn mua hàng  (đơn được LẬP ở bước ④)
+
+              ⚠️ Chỉ ĐỔI CHỖ, không đổi hành vi: mọi điều kiện hiện/ẩn, mọi prop, mọi lý do
+              khóa nút của ba khối giữ y nguyên như khi chúng còn nằm rời ở cuối trang.
+
+              📌 "Danh sách công việc" CỐ Ý đứng riêng bên dưới, không nhét vào đây — Base
+              cũng để nó thành mục ngang hàng với khối giai đoạn. */}
           <KhoiDauVaoTheoGiaiDoan
             giaiDoan={[
               {
@@ -399,6 +416,30 @@ export default function TrangChiTietDeNghi() {
                     ? [{ nhan: "Tài liệu đính kèm", tep: dn.taiLieu }]
                     : []),
                 ],
+                /* M3 — PHÂN BỔ, thuộc bước ① (chỉ đạo 16/08/2026, xem chú thích đầu khối).
+                   Giao ai làm dòng vật tư nào là việc đầu tiên Thu mua phải làm sau khi nhận
+                   phiếu, nên nó đứng cùng chỗ với dữ liệu tiếp nhận chứ không rời xuống cuối
+                   trang như trước.
+                   Các nút hành động đã dời sang cột phải theo bố cục Base.vn (10/08/2026) —
+                   mọi việc bấm được gom một chỗ, không rải rác cạnh từng tiêu đề. */
+                noiDungNghiepVu: (
+                  <section className="flex flex-col gap-(--hp-md-row-gap)">
+                    <h2 className="text-h3 text-text-primary">
+                      {quyen.phanBoCongViec ? "Phân bổ công việc" : "Chi tiết mặt hàng"}
+                    </h2>
+                    {/* Công cụ phân bổ hàng loạt chỉ bày ở bước ①, HOẶC khi còn dòng chưa ai
+                        nhận (thêm vật tư mới ở bước sau) — Ban lãnh đạo 15/08/2026. Xem
+                        `dangOBuocPhanBo`. */}
+                    <BangPhanBo
+                      deNghi={dn}
+                      dangOBuocPhanBo={giaiDoan === "tiep_nhan" || soDongChuaPhanBo > 0}
+                      // Hồ sơ đã chốt (hoàn thành / đóng dở) thì khóa mọi thao tác đổi nội
+                      // dung — Ban lãnh đạo 15/08/2026. Dùng `giaiDoanDaKetThuc` cho khớp
+                      // với luật chung.
+                      hoSoDaDong={giaiDoanDaKetThuc(giaiDoan)}
+                    />
+                  </section>
+                ),
               },
               {
                 ma: "yeu_cau_bao_gia",
@@ -413,6 +454,86 @@ export default function TrangChiTietDeNghi() {
                     ),
                   },
                 ],
+                /* BẢNG BÁO GIÁ, thuộc bước ② (chỉ đạo 16/08/2026, xem chú thích đầu khối):
+                   bảng được LẬP ở chính bước này để đi mời nhà cung cấp chào giá, nên đứng
+                   ngay cạnh trường "SL Báo giá" của bước.
+
+                   🔴 Từ 06/08/2026 menu không còn mục "Báo giá & so sánh NCC", nên đây là lối
+                   vào DUY NHẤT tới module đó. Bỏ khối này là module thành mồ côi.
+
+                   🔴 Dùng CHUNG luật với trang bảng báo giá (chỉ đạo 10/08/2026): chỉ người
+                   được chia việc hoặc người theo dõi mới thấy. Chặn ngay ở đây để không lộ mã
+                   bảng báo giá và tên nhà cung cấp đã chọn cho người không có quyền. */
+                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
+                  <section className="flex flex-col gap-(--hp-md-row-gap)">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-h3 text-text-primary">
+                        Bảng báo giá ({baoGiaLienQuan.length})
+                      </h2>
+                      {/* 🔴 NÚT NÀY LÀ ĐƯỜNG VÀO CHUỖI TÁCH PO. Trước 10/08/2026 bảng báo giá
+                          CHỈ tạo được bằng cách kéo thẻ từ cột ① sang cột ② trên bảng quy
+                          trình — khó phát hiện, và trên điện thoại không kéo được nên tắc
+                          hẳn. Không có bảng báo giá thì không tách được khối lượng cho nhiều
+                          nhà cung cấp, tức không tách được PO. */}
+                      {/* 📌 CHỈ HIỆN KHI CHƯA CÓ BẢNG NÀO — Ban lãnh đạo 15/08/2026 khoanh nút
+                          này và ghi *"bỏ nút này"*, trên màn đã có sẵn `260001-HPCS-BG-001`
+                          đang thu thập.
+
+                          🔴 Bỏ HẲN thì không còn đường lập bảng báo giá đầu tiên — đúng lỗi
+                          "làm module mồ côi" mà CLAUDE.md mục 3.4b cảnh báo (phiên 03 suýt
+                          mắc với module Báo giá). Nên chỉ ẩn khi đã có bảng: lúc đó thêm nhà
+                          cung cấp là việc làm BÊN TRONG bảng đang có, không phải lập bảng thứ
+                          hai. */}
+                      {quyen.lapPO && baoGiaLienQuan.length === 0 && (
+                        <Button size="sm" variant="outline" onClick={() => setHoiLapBaoGia(true)}>
+                          <Split className="size-4" aria-hidden />
+                          Lập bảng báo giá
+                        </Button>
+                      )}
+                    </div>
+                    <Card>
+                      <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
+                        {baoGiaLienQuan.length === 0 && (
+                          <p className="text-sm text-text-desc">
+                            Chưa lập bảng báo giá nào cho đề nghị này. Bấm{" "}
+                            <strong>Lập bảng báo giá</strong> để nhập giá nhiều nhà cung cấp và{" "}
+                            <strong>chia một mặt hàng cho nhiều nhà cung cấp</strong> khi một
+                            bên không giao đủ số lượng.
+                          </p>
+                        )}
+                        {baoGiaLienQuan.map((bg) => {
+                          const ttBG = nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, bg.trangThai);
+                          return (
+                            <Link
+                              key={bg.id}
+                              href={`/bao-gia/${bg.id}`}
+                              className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) transition-colors hover:border-primary/40"
+                            >
+                              <span className="text-sm font-semibold text-text-primary">
+                                {bg.code}
+                              </span>
+                              <span className="text-xs text-text-desc">{bg.tieuDe}</span>
+                              <span className="text-xs text-text-desc">
+                                {bg.items.length} vật tư · hạn nộp{" "}
+                                {new Date(bg.hanNop).toLocaleDateString("vi-VN")}
+                              </span>
+                              {bg.nccDaChonTen && (
+                                <span className="text-xs text-text-desc">
+                                  Đã chọn: {bg.nccDaChonTen}
+                                </span>
+                              )}
+                              <StatusBadge
+                                label={ttBG.nhan}
+                                tone={ttBG.tong}
+                                className="ml-auto"
+                              />
+                            </Link>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  </section>
+                ),
               },
               {
                 ma: "xet_duyet_bao_gia",
@@ -432,6 +553,109 @@ export default function TrangChiTietDeNghi() {
                   (bg.tepChonNCC ?? []).length > 0
                     ? [{ nhan: "Căn cứ chọn nhà cung cấp", tep: bg.tepChonNCC }]
                     : [],
+                ),
+                /* ĐƠN ĐẶT HÀNG, thuộc bước ④ (chỉ đạo 16/08/2026, xem chú thích đầu khối):
+                   đơn được LẬP ở chính bước này, ngay sau khi đã có căn cứ chọn nhà cung cấp
+                   nằm phía trên.
+
+                   📌 Tiêu đề gọi thẳng là "Đơn đặt hàng" (Ban lãnh đạo 15/08/2026). Chữ "đã
+                   tách" là cách nói của người làm hệ thống — với người dùng thì đây đơn giản
+                   là danh sách đơn của đề nghị này, dù tách cho nhiều nhà cung cấp hay chỉ
+                   một đơn duy nhất. */
+                noiDungNghiepVu: (
+                  <section className="flex flex-col gap-(--hp-md-row-gap)">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h2 className="text-h3 text-text-primary">
+                        Đơn đặt hàng ({poLienQuan.length})
+                      </h2>
+                      {/* ★ TÁCH ĐƠN NGAY TẠI ĐÂY — Ban lãnh đạo 15/08/2026: *"thêm tính năng
+                          tách đơn cho tài khoản nhân viên"*.
+
+                          🔴 Nhân viên VỐN ĐÃ có quyền lập đơn (`lapPO` mở cho nhân viên thu
+                          mua cấp ≥2), nhưng đường vào chỉ có MỘT nút ở tận đầu trang. Đứng ở
+                          khối đơn hàng — đúng lúc nhìn thấy "cần thêm một đơn nữa cho nhà
+                          cung cấp khác" — thì không có nút nào. Người dùng tưởng mình không
+                          được tách và đi nhờ trưởng bộ phận.
+
+                          📌 Dùng CHUNG `chanLapDon` với chốt chặn thật trong `themDonHang`:
+                          nút khóa vì lý do gì thì đúng là lý do app sẽ chặn. */}
+                      {quyen.lapPO &&
+                        !giaiDoanDaKetThuc(giaiDoan) &&
+                        (chanLapDon ? (
+                          <Button size="sm" variant="outline" disabled title={chanLapDon}>
+                            <ShoppingCart className="size-4" aria-hidden />
+                            {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            nativeButton={false}
+                            render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+                          >
+                            <ShoppingCart className="size-4" aria-hidden />
+                            {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
+                          </Button>
+                        ))}
+                    </div>
+                    <Card>
+                      <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
+                        {/* ★ NÓI RÕ VÌ SAO NÚT LẬP ĐƠN ĐANG KHÓA — Ban lãnh đạo 15/08/2026
+                            chỉ vào nút xám và hỏi *"sao nút này không dùng được"*.
+
+                            🔴 App chặn ĐÚNG (bảng báo giá còn đang thu thập, chưa qua xét
+                            duyệt — chính luật Ban lãnh đạo yêu cầu hôm đó), nhưng lý do chỉ
+                            nằm trong `title`, mà `title` phải rê chuột mới thấy và trên máy
+                            tính bảng thì không có. Nút xám không lời giải thích trông y như
+                            app hỏng. */}
+                        {quyen.lapPO && chanLapDon && !giaiDoanDaKetThuc(giaiDoan) && (
+                          <p className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-soft">
+                            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                            <span>
+                              <strong>Chưa lập được đơn đặt hàng.</strong> {chanLapDon}
+                            </span>
+                          </p>
+                        )}
+                        {poLienQuan.length === 0 && (
+                          <p className="text-sm text-text-desc">
+                            Chưa có đơn đặt hàng nào. Một đề nghị tách được thành nhiều đơn khi
+                            chia hàng cho nhiều nhà cung cấp.
+                          </p>
+                        )}
+                        {poLienQuan.map((po) => {
+                          const ttPO = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
+                          return (
+                            <Link
+                              key={po.id}
+                              href={`/don-hang/${po.id}`}
+                              className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) transition-colors hover:border-primary/40"
+                            >
+                              <span className="text-sm font-semibold text-text-primary">
+                                {po.code}
+                              </span>
+                              {quyen.xemNguoiPhuTrach && (
+                                <span className="text-xs text-text-desc">
+                                  {po.nguoiPhuTrachTen}
+                                </span>
+                              )}
+                              {quyen.xemNhaCungCap && (
+                                <span className="text-xs text-text-desc">{po.supplierTen}</span>
+                              )}
+                              <span className="text-xs text-text-desc">
+                                {po.items.length} dòng · giao dự kiến{" "}
+                                {new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
+                              </span>
+                              <StatusBadge
+                                label={ttPO.nhan}
+                                tone={ttPO.tong}
+                                className="ml-auto"
+                              />
+                            </Link>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  </section>
                 ),
               },
               {
@@ -461,16 +685,22 @@ export default function TrangChiTietDeNghi() {
                 · *"mục này đã có trong tab theo dõi đề nghị thì ở đây ko cần hiển thị"* →
                   **Timeline ngang** (Duyệt → Đã phân bổ → Đã lên đơn → Đang giao → Nhận đủ)
                   đã BỎ, vì màn "Theo dõi đề nghị" đã vẽ đúng thứ đó.
-             Cột trái giờ chỉ còn phần LÀM VIỆC: công việc của bước, phân bổ, báo giá, đơn hàng. */}
 
-      {/* ★ CÔNG VIỆC BẮT BUỘC CỦA BƯỚC ĐANG ĐỨNG — mục "Danh sách công việc" của bảng Base
-          (Ban lãnh đạo gửi ảnh cài đặt giai đoạn 14/08/2026).
+             📌 16/08/2026: ba khối làm việc (phân bổ · báo giá · đơn hàng) không còn xếp
+             rời ở đây nữa — đã vào trong đúng giai đoạn của chúng ở khối ngay phía trên.
+             Cột trái giờ còn: thông tin đề nghị · các giai đoạn (kèm phần làm việc) ·
+             danh sách công việc của bước đang đứng · trao đổi. */}
 
-          📌 Chỉ hiện khi bước hiện tại CÓ khai công việc. Năm bước còn lại trong ảnh ghi
-          "Không có công việc", hiện khối rỗng chỉ làm trang dài ra.
+          {/* ★ CÔNG VIỆC BẮT BUỘC CỦA BƯỚC ĐANG ĐỨNG — mục "Danh sách công việc" của bảng
+              Base (Ban lãnh đạo gửi ảnh cài đặt giai đoạn 14/08/2026).
 
-          ⚠️ Đặt NGAY TRÊN bảng phân bổ, vì đây là việc phải làm TRƯỚC khi giao việc đi hỏi
-          giá — kiểm tồn kho xong mới biết có cần mua hay không. */}
+              📌 Chỉ hiện khi bước hiện tại CÓ khai công việc. Năm bước còn lại trong ảnh ghi
+              "Không có công việc", hiện khối rỗng chỉ làm trang dài ra.
+
+              📌 CỐ Ý ĐỨNG RIÊNG, không nhét vào khối giai đoạn ở trên: Base cũng để nó thành
+              mục ngang hàng. Nó nói về BƯỚC ĐANG ĐỨNG (một bước duy nhất), còn khối trên liệt
+              kê cả sáu bước — nhét vào trong sẽ phải nhân bản cho từng bước hoặc chôn nó vào
+              một bước, cả hai đều sai ý nghĩa. */}
       {congViecCuaBuoc.length > 0 && (
         <Card>
           <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
@@ -540,177 +770,6 @@ export default function TrangChiTietDeNghi() {
           </CardContent>
         </Card>
       )}
-
-      {/* M3 — Phân bổ.
-          Các nút hành động đã dời sang khối "Hoạt động chính" ở CỘT PHẢI theo bố cục
-          Base.vn (chỉ đạo Ban lãnh đạo 10/08/2026) — mọi việc bấm được gom về một chỗ,
-          không rải rác cạnh từng tiêu đề. */}
-      <section className="flex flex-col gap-(--hp-md-row-gap)">
-        <h2 className="text-h3 text-text-primary">
-          {quyen.phanBoCongViec ? "Phân bổ công việc" : "Chi tiết mặt hàng"}
-        </h2>
-        {/* Công cụ phân bổ hàng loạt chỉ bày ở bước ①, HOẶC khi còn dòng chưa ai nhận (thêm
-            vật tư mới ở bước sau) — Ban lãnh đạo 15/08/2026. Xem `dangOBuocPhanBo`. */}
-        <BangPhanBo
-          deNghi={dn}
-          dangOBuocPhanBo={giaiDoan === "tiep_nhan" || soDongChuaPhanBo > 0}
-          // Hồ sơ đã chốt (hoàn thành / đóng dở) thì khóa mọi thao tác đổi nội dung —
-          // Ban lãnh đạo 15/08/2026. Dùng `giaiDoanDaKetThuc` cho khớp với luật chung.
-          hoSoDaDong={giaiDoanDaKetThuc(giaiDoan)}
-        />
-      </section>
-
-      {/* Bảng báo giá — từ 06/08/2026 menu không còn mục "Báo giá & so sánh NCC",
-          nên đây là lối vào duy nhất tới module đó. Bỏ khối này là module thành mồ côi. */}
-      {/* 🔴 Dùng CHUNG luật với trang bảng báo giá (chỉ đạo Ban lãnh đạo 10/08/2026): chỉ
-          người được chia việc hoặc người theo dõi mới thấy. Chặn ở đây để không hiện cả mã
-          bảng báo giá và danh sách nhà cung cấp đã chọn cho người không có quyền. */}
-      {duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
-        <section className="flex flex-col gap-(--hp-md-row-gap)">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-h3 text-text-primary">Bảng báo giá ({baoGiaLienQuan.length})</h2>
-            {/* 🔴 NÚT NÀY LÀ ĐƯỜNG VÀO CHUỖI TÁCH PO. Trước 10/08/2026 bảng báo giá CHỈ tạo
-                được bằng cách kéo thẻ từ cột ① sang cột ② trên bảng quy trình — khó phát hiện,
-                và trên điện thoại thì không kéo được nên tắc hẳn. Không có bảng báo giá thì
-                không tách được khối lượng cho nhiều nhà cung cấp, tức không tách được PO. */}
-            {/* 📌 CHỈ HIỆN KHI CHƯA CÓ BẢNG NÀO — Ban lãnh đạo 15/08/2026 khoanh nút này và
-                ghi *"bỏ nút này"*, trên màn đã có sẵn `260001-HPCS-BG-001` đang thu thập.
-
-                🔴 Bỏ HẲN thì không còn đường lập bảng báo giá đầu tiên — đúng lỗi "làm module
-                mồ côi" mà CLAUDE.md mục 3.4b cảnh báo (phiên 03 suýt mắc với module Báo giá).
-                Nên chỉ ẩn khi đã có bảng: lúc đó thêm nhà cung cấp là việc làm BÊN TRONG bảng
-                đang có, không phải lập bảng thứ hai. */}
-            {quyen.lapPO && baoGiaLienQuan.length === 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setHoiLapBaoGia(true)}
-              >
-                <Split className="size-4" aria-hidden />
-                Lập bảng báo giá
-              </Button>
-            )}
-          </div>
-          <Card>
-            <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
-              {baoGiaLienQuan.length === 0 && (
-                <p className="text-sm text-text-desc">
-                  Chưa lập bảng báo giá nào cho đề nghị này. Bấm{" "}
-                  <strong>Lập bảng báo giá</strong> để nhập giá nhiều nhà cung cấp và{" "}
-                  <strong>chia một mặt hàng cho nhiều nhà cung cấp</strong> khi một bên không
-                  giao đủ số lượng.
-                </p>
-              )}
-              {baoGiaLienQuan.map((bg) => {
-                const ttBG = nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, bg.trangThai);
-                return (
-                  <Link
-                    key={bg.id}
-                    href={`/bao-gia/${bg.id}`}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) transition-colors hover:border-primary/40"
-                  >
-                    <span className="text-sm font-semibold text-text-primary">{bg.code}</span>
-                    <span className="text-xs text-text-desc">{bg.tieuDe}</span>
-                    <span className="text-xs text-text-desc">
-                      {bg.items.length} vật tư · hạn nộp{" "}
-                      {new Date(bg.hanNop).toLocaleDateString("vi-VN")}
-                    </span>
-                    {bg.nccDaChonTen && (
-                      <span className="text-xs text-text-desc">Đã chọn: {bg.nccDaChonTen}</span>
-                    )}
-                    <StatusBadge label={ttBG.nhan} tone={ttBG.tong} className="ml-auto" />
-                  </Link>
-                );
-              })}
-            </CardContent>
-          </Card>
-        </section>
-      )}
-
-      {/* Đơn đặt hàng của đề nghị này */}
-      <section className="flex flex-col gap-(--hp-md-row-gap)">
-        {/* 📌 Tiêu đề gọi thẳng là "Đơn đặt hàng" (Ban lãnh đạo 15/08/2026). Chữ "đã tách" là
-            cách nói của người làm hệ thống — với người dùng thì đây đơn giản là danh sách đơn
-            của đề nghị này, dù có tách cho nhiều nhà cung cấp hay chỉ một đơn duy nhất. */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-h3 text-text-primary">Đơn đặt hàng ({poLienQuan.length})</h2>
-          {/* ★ TÁCH ĐƠN NGAY TẠI ĐÂY — Ban lãnh đạo 15/08/2026: *"thêm tính năng tách đơn cho
-              tài khoản nhân viên"*.
-
-              🔴 Nhân viên VỐN ĐÃ có quyền lập đơn (`lapPO` mở cho nhân viên thu mua cấp ≥2),
-              nhưng đường vào chỉ có MỘT nút ở tận đầu trang. Đứng ở khối đơn hàng — đúng lúc
-              nhìn thấy "cần thêm một đơn nữa cho nhà cung cấp khác" — thì không có nút nào.
-              Người dùng tưởng mình không được tách và đi nhờ trưởng bộ phận.
-
-              📌 Dùng CHUNG `chanLapDon` với nút đầu trang: hai nút không bao giờ nói khác nhau
-              về việc có được lập đơn hay chưa. */}
-          {quyen.lapPO &&
-            !giaiDoanDaKetThuc(giaiDoan) &&
-            (chanLapDon ? (
-              <Button size="sm" variant="outline" disabled title={chanLapDon}>
-                <ShoppingCart className="size-4" aria-hidden />
-                {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                nativeButton={false}
-                render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
-              >
-                <ShoppingCart className="size-4" aria-hidden />
-                {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
-              </Button>
-            ))}
-        </div>
-        <Card>
-          <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
-            {/* ★ NÓI RÕ VÌ SAO NÚT LẬP ĐƠN ĐANG KHÓA — Ban lãnh đạo 15/08/2026 chỉ vào nút xám
-                và hỏi *"sao nút này không dùng được"*.
-
-                🔴 App chặn ĐÚNG (bảng báo giá còn đang thu thập, chưa qua xét duyệt — chính
-                luật Ban lãnh đạo yêu cầu hôm nay), nhưng lý do chỉ nằm trong `title`, mà
-                `title` phải rê chuột mới thấy và trên máy tính bảng thì không có. Nút xám
-                không lời giải thích trông y như app hỏng. */}
-            {quyen.lapPO && chanLapDon && !giaiDoanDaKetThuc(giaiDoan) && (
-              <p className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-soft">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-                <span>
-                  <strong>Chưa lập được đơn đặt hàng.</strong> {chanLapDon}
-                </span>
-              </p>
-            )}
-            {poLienQuan.length === 0 && (
-              <p className="text-sm text-text-desc">
-                Chưa có đơn đặt hàng nào. Một đề nghị tách được thành nhiều đơn khi chia hàng
-                cho nhiều nhà cung cấp.
-              </p>
-            )}
-            {poLienQuan.map((po) => {
-              const ttPO = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
-              return (
-                <Link
-                  key={po.id}
-                  href={`/don-hang/${po.id}`}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) transition-colors hover:border-primary/40"
-                >
-                  <span className="text-sm font-semibold text-text-primary">{po.code}</span>
-                  {quyen.xemNguoiPhuTrach && (
-                    <span className="text-xs text-text-desc">{po.nguoiPhuTrachTen}</span>
-                  )}
-                  {quyen.xemNhaCungCap && (
-                    <span className="text-xs text-text-desc">{po.supplierTen}</span>
-                  )}
-                  <span className="text-xs text-text-desc">
-                    {po.items.length} dòng · giao dự kiến {new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
-                  </span>
-                  <StatusBadge label={ttPO.nhan} tone={ttPO.tong} className="ml-auto" />
-                </Link>
-              );
-            })}
-          </CardContent>
-        </Card>
-      </section>
 
       {/* ★ TRAO ĐỔI — thẻ Bình luận + thẻ Lịch sử hoạt động, đặt ở CỘT GIỮA (Ban lãnh đạo
           15/08/2026: *"mục bình luận này e kéo ra tab giữa luôn"*).

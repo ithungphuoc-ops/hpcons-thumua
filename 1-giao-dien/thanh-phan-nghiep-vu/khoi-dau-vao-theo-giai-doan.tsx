@@ -39,6 +39,16 @@ export interface GiaiDoanDauVao {
   truong: TruongDauVao[];
   /** Giai đoạn đang đứng — mở sẵn, các giai đoạn khác gập lại. */
   dangODay?: boolean;
+  /**
+   * Phần LÀM VIỆC thật của giai đoạn này (bảng phân bổ, bảng báo giá, đơn hàng…).
+   *
+   * 🔴 Ban lãnh đạo 16/08/2026 — về ba khối app có mà Base không có: *"những mục này base
+   * ko có, e kiểm tra xem nó đang trùng ở bước nào thì thêm nó vào bước đó"*. Tức là KHÔNG
+   * bỏ ba khối đó, mà đưa vào đúng giai đoạn của chúng, để trang vẫn gom theo GIAI ĐOẠN
+   * như Base. Nhờ vậy đứng ở bước nào là thấy đủ cả *dữ liệu đã nhập* lẫn *việc phải làm*
+   * của bước đó, không phải cuộn xuống cuối trang tìm bảng tương ứng.
+   */
+  noiDungNghiepVu?: React.ReactNode;
 }
 
 export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[] }) {
@@ -65,6 +75,19 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
         // người dùng gập mở khối nào.
         const truongCoSo = g.truong.map((t) => ({ ...t, so: ++so }));
 
+        /**
+         * Giai đoạn KHÔNG có trường nhập nào nhưng CÓ phần làm việc (bước ① chỉ có bảng
+         * Phân bổ chẳng hạn) thì bỏ luôn con số trên nhãn gập.
+         *
+         * Ghi "THU GỌN · 0" là nói dối người xem: họ đọc số 0 rồi bỏ qua khối, trong khi
+         * bên trong là đúng cái bảng họ cần làm việc. Con số chỉ đếm TRƯỜNG ĐẦU VÀO, cố
+         * cộng thêm phần làm việc vào cũng sai vì đó không phải trường đánh số.
+         */
+        const anSoTruong = g.truong.length === 0 && Boolean(g.noiDungNghiepVu);
+        const nhanKhiMo = anSoTruong ? "" : `${g.truong.length} trường`;
+        const nhanKhiGap = anSoTruong ? "THU GỌN" : `THU GỌN · ${g.truong.length}`;
+        const nhanGap = dangMo ? nhanKhiMo : nhanKhiGap;
+
         return (
           /* Nền và khoảng đệm cũng lấy đúng của `KhoiGap` — hai khối xếp liền nhau, lệch nền
              một chút là nhìn ra ngay. */
@@ -89,13 +112,17 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                 {g.nhan}
               </span>
               {/* Nhãn trạng thái gập bên phải — Base ghi "COLLAPSED" / "THU GỌN". Kèm số
-                  trường để biết khối có gì mà không phải mở ra. */}
-              <span className="ml-auto shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-text-secondary tabular-nums">
-                {dangMo ? `${g.truong.length} trường` : `THU GỌN · ${g.truong.length}`}
-              </span>
+                  trường để biết khối có gì mà không phải mở ra. Nhãn rỗng thì không vẽ ô,
+                  một ô xám trống trơn còn khó hiểu hơn là không có gì. */}
+              {nhanGap && (
+                <span className="ml-auto shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-text-secondary tabular-nums">
+                  {nhanGap}
+                </span>
+              )}
             </button>
 
             {dangMo && (
+              <>
               <div className="border-t border-divider p-(--hp-md-card-pad)">
                 <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-desc">
                   <LogIn className="size-3.5 shrink-0" aria-hidden />
@@ -150,6 +177,18 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                   </dl>
                 )}
               </div>
+
+              {/* PHẦN LÀM VIỆC của giai đoạn — nằm NGOÀI nhánh "chưa có dữ liệu nhập vào"
+                  ở trên, vì hai thứ độc lập nhau: bước ① chưa nhập trường nào nhưng vẫn
+                  phải phân bổ người phụ trách. Gộp vào nhánh đó là khối làm việc biến mất
+                  đúng lúc cần nó nhất.
+                  Đường kẻ ngang tách bạch "cái đã nhập vào" với "cái phải làm". */}
+              {g.noiDungNghiepVu && (
+                <div className="border-t border-divider p-(--hp-md-card-pad)">
+                  {g.noiDungNghiepVu}
+                </div>
+              )}
+              </>
             )}
           </section>
         );
