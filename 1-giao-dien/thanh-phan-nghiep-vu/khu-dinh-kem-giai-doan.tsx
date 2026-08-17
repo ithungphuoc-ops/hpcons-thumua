@@ -255,8 +255,22 @@ export function KhuDinhKemGiaiDoan({
                         `line-clamp-2` chứ không `truncate`: ghi chú dài tới 200 ký tự, cắt
                         một dòng thì mất gần hết câu; hai dòng đủ đọc mà không kéo dòng tệp
                         cao lên mãi. Câu đầy đủ vẫn nằm ở `title`. */}
+                    {/* 🔴 CỠ CHỮ 14px, KHÔNG PHẢI 12px — Ban lãnh đạo 17/08/2026:
+                        *"e tăng cỡ chữ ghi chú đó lên"*.
+
+                        Đúng về thứ bậc: tên tệp là chuỗi máy sinh không đọc ra nghĩa gì, còn
+                        ghi chú mới là thứ người tra hồ sơ thật sự đọc. Để nó 12px xám mờ như
+                        dòng "Ảnh · 266 KB · người tải" là xếp nó ngang hàng với chú thích phụ,
+                        trong khi nó là NHÃN của chứng từ.
+
+                        Màu cũng nâng lên `text-text-secondary` (đậm hơn `text-text-desc`):
+                        tăng cỡ chữ mà vẫn để màu mờ nhất thì đọc vẫn khó, chưa giải quyết
+                        đúng cái Ban lãnh đạo đang thấy. */}
                     {t.ghiChu && (
-                      <span className="line-clamp-2 text-xs text-text-desc italic" title={t.ghiChu}>
+                      <span
+                        className="line-clamp-2 text-sm text-text-secondary italic"
+                        title={t.ghiChu}
+                      >
                         {t.ghiChu}
                       </span>
                     )}
