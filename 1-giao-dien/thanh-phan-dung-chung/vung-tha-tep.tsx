@@ -190,17 +190,22 @@ export function VungThaTep({
      */
     <label
       className={cn(
-        /* 🔴 THU NHỎ CẢ HAI CHIỀU — Ban lãnh đạo 17/08/2026, hai lần:
-           *"phạm vi này thì hẹp lại"* rồi *"này thu hẹp lại, rộng quá"*.
+        /* 🔴 THẤP HẲN, GIỮ NGUYÊN BỀ NGANG — Ban lãnh đạo 17/08/2026, ba lần mới đúng ý:
+           *"phạm vi này thì hẹp lại"* → hạ 96px xuống 64px;
+           *"này thu hẹp lại, rộng quá"* → tôi hiểu sai thành bóp ngang, thêm `sm:max-w-lg`;
+           *"Ý a là giảm chiều cao, chứ ko phải bóp chiều ngang"* → **bỏ giới hạn ngang**,
+           dồn cho thấp.
 
-           · Cao: `min-h-24` (96px) + `py-4` → `min-h-16` (64px) + `py-3`. Khối giai đoạn có
-             tới sáu khu đính kèm; sáu ô cao 96px đẩy phần việc thật xuống quá sâu.
-           · Ngang: `sm:max-w-lg` (512px) thay vì trải kín bề ngang cột. Một ô viền đứt dài
-             gần 1.200px trên màn rộng nhìn như vùng nội dung bị lỗi, chứ không ra một ô nhận
-             tệp. Điện thoại vẫn để full (`w-full`) vì ở đó 512px đã rộng hơn cả màn.
+           Bóp ngang còn làm CAO THÊM: dòng ghi chú giới hạn bị gãy hai dòng trong ô hẹp nên
+           ô lại phình lên ~110px — ngược hẳn thứ đang cần.
 
-           Vẫn thừa vùng chạm 44px và vẫn đủ rộng để thả tệp trúng. */
-        "relative flex min-h-16 w-full flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-dashed px-4 py-3 text-center transition-colors sm:max-w-lg",
+           Nay xếp NGANG từ `sm:` trở lên (biểu tượng · dòng chính · dòng giới hạn cùng một
+           hàng) → cả ô còn một dòng chữ, cao ~48px. Điện thoại vẫn xếp dọc vì một hàng ba
+           phần không vừa 375px.
+
+           Khối giai đoạn có tới sáu khu đính kèm; mỗi ô tiết kiệm 50px là cả trang ngắn lại
+           300px. Vẫn thừa vùng chạm 44px (`min-h-12` = 48px). */
+        "relative flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-dashed px-4 py-2 text-center transition-colors sm:min-h-12 sm:flex-row sm:gap-2.5 sm:py-1.5",
         "focus-within:border-primary focus-within:ring-2 focus-within:ring-primary",
         dangCat
           ? // Khóa vùng trong lúc cất: bấm thêm lượt nữa lúc này là chồng chéo, và
@@ -253,12 +258,14 @@ export function VungThaTep({
         }}
       />
 
+      {/* Biểu tượng nhỏ lại `size-5`: khi cả ô xếp ngang thì nó phải cao bằng dòng chữ, không
+          còn là hình minh họa đứng riêng một dòng như lúc ô cao 96px. */}
       {dangCat ? (
-        <Loader2 className="size-6 shrink-0 animate-spin text-primary" aria-hidden />
+        <Loader2 className="size-5 shrink-0 animate-spin text-primary" aria-hidden />
       ) : (
         <CloudUpload
           className={cn(
-            "size-6 shrink-0 transition-colors",
+            "size-5 shrink-0 transition-colors",
             dangKeo ? "text-primary" : "text-text-desc",
           )}
           aria-hidden
@@ -272,8 +279,17 @@ export function VungThaTep({
       </span>
       {/* 🔴 CHỮ NGHIÊNG — Ban lãnh đạo 17/08/2026: *"cái ghi chú nên dùng chữ in nghiêng"*.
           Dòng này là ghi chú về giới hạn, không phải việc phải làm; nghiêng nó thì mắt đọc
-          dòng chính trước, đúng thứ bậc. */}
-      <span className="text-xs text-text-desc italic">{dongPhu}</span>
+          dòng chính trước, đúng thứ bậc.
+
+          📌 `min-w-0` + `truncate` từ `sm:` trở lên: khi cả ô xếp ngang, chuỗi giới hạn dài
+          (5 tệp · 10MB · 9 đuôi tệp) mà gãy dòng là ô lại cao lên — đúng thứ vừa phải sửa.
+          Cắt gọn kèm `title` để vẫn tra được đầy đủ. Điện thoại xếp dọc nên cho hiện hết. */}
+      <span
+        className="min-w-0 text-xs text-text-desc italic sm:truncate"
+        title={dongPhu}
+      >
+        {dongPhu}
+      </span>
     </label>
   );
 }
