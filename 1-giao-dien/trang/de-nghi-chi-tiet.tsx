@@ -225,38 +225,6 @@ export default function TrangChiTietDeNghi() {
     <>
       {/* NÚT QUAY LẠI — chỉ đạo Ban lãnh đạo 10/08/2026. Breadcrumb ở dưới vẫn còn,
           nhưng người dùng quen bấm một nút "quay lại" rõ ràng hơn là dò chữ nhỏ. */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-fit -ml-2"
-        nativeButton={false}
-        render={<Link href="/de-nghi" />}
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        Quay lại danh sách đề nghị
-      </Button>
-
-      <PageHeader
-        crumbs={[
-          { label: "Thu mua", href: "/tong-quan" },
-          { label: "Quy trình mua hàng", href: "/de-nghi" },
-          { label: dn.code },
-        ]}
-        title={dn.tieuDe}
-        description={`${dn.code} · ${dn.tenCongTrinh} · ${nhanPhongBan(dn.phongBanNguon)}`}
-        /* 📌 ĐÃ BỎ nhóm nút góc trên phải (Ban lãnh đạo 16/08/2026: *"bỏ các mục này"*):
-           huy hiệu trạng thái · nút "Chuyển tiếp" · nút "Lập đơn đặt hàng".
-
-           🔴 ĐÃ KIỂM CẢ BA CÒN ĐƯỜNG VÀO KHÁC trước khi bỏ (quy ước CLAUDE.md 3.4b — phiên
-           03 suýt làm module Báo giá thành mồ côi):
-             · Chuyển tiếp → menu ⋯ trên thẻ ở bảng quy trình
-             · Lập đơn đặt hàng → nút ở khối "Đơn đặt hàng" ngay trong trang này
-             · Trạng thái → khối "Giai đoạn hiện tại" ở cột phải, chi tiết hơn */
-      />
-
-      {/* Dải mũi tên 7 bước — nhìn ra ngay đề nghị đang đứng ở đâu trong quy trình */}
-      <ThanhGiaiDoan giaiDoan={giaiDoan} />
-
       {/* BỐ CỤC HAI CỘT (theo trang nhiệm vụ của Base): nội dung làm việc bên trái,
           thông tin tra cứu bên phải. Dưới 1024px cột phải tự xuống dưới. */}
       {/* Cột phải rộng THEO TỶ LỆ ~27% chứ không cố định 320px: vùng làm việc đã bỏ
@@ -270,6 +238,47 @@ export default function TrangChiTietDeNghi() {
             nát trên màn hẹp (1280px trở xuống, khi 27% chỉ còn ~260px). */}
       <div className="grid gap-(--hp-md-section) lg:grid-cols-[minmax(0,1fr)_minmax(320px,27%)] lg:items-start">
         <div className="flex min-w-0 flex-col gap-(--hp-md-section)">
+          {/* 🔴 NÚT QUAY LẠI · TIÊU ĐỀ · DẢI BƯỚC NẰM TRONG CỘT TRÁI — Ban lãnh đạo 17/08/2026:
+              *"kéo tịnh tiến lên trên"* (mũi tên chỉ vào khoảng trống góc trên phải).
+
+              Trước đó ba khối này chiếm hết bề ngang phía trên lưới, nên cột phải chỉ bắt đầu
+              được từ dưới dải bước — để lại một vùng trắng cao gần 200px ở góc trên phải, đúng
+              chỗ Ban lãnh đạo khoanh. Đưa vào cột trái thì cột phải kéo lên sát dòng đầu trang,
+              giống trang nhiệm vụ Base.
+
+              ⚠️ Dải 7 bước giờ chỉ còn ~73% bề ngang. Nó vốn đã có khung cuộn ngang riêng nên
+              không tràn trang, nhưng nếu sau này thêm bước thì kiểm lại trên màn 1280px. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-fit -ml-2"
+            nativeButton={false}
+            render={<Link href="/de-nghi" />}
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Quay lại danh sách đề nghị
+          </Button>
+
+          <PageHeader
+            crumbs={[
+              { label: "Thu mua", href: "/tong-quan" },
+              { label: "Quy trình mua hàng", href: "/de-nghi" },
+              { label: dn.code },
+            ]}
+            title={dn.tieuDe}
+            description={`${dn.code} · ${dn.tenCongTrinh} · ${nhanPhongBan(dn.phongBanNguon)}`}
+            /* 📌 ĐÃ BỎ nhóm nút góc trên phải (Ban lãnh đạo 16/08/2026: *"bỏ các mục này"*):
+               huy hiệu trạng thái · nút "Chuyển tiếp" · nút "Lập đơn đặt hàng".
+
+               🔴 ĐÃ KIỂM CẢ BA CÒN ĐƯỜNG VÀO KHÁC trước khi bỏ (quy ước CLAUDE.md 3.4b —
+               phiên 03 suýt làm module Báo giá thành mồ côi):
+                 · Chuyển tiếp → menu ⋯ trên thẻ ở bảng quy trình
+                 · Lập đơn đặt hàng → nút ở khối "Đơn đặt hàng" ngay trong trang này
+                 · Trạng thái → khối "Giai đoạn hiện tại" ở cột phải, chi tiết hơn */
+          />
+
+          {/* Dải mũi tên 7 bước — nhìn ra ngay đề nghị đang đứng ở đâu trong quy trình */}
+          <ThanhGiaiDoan giaiDoan={giaiDoan} />
           {/* ===== THÔNG TIN ĐỀ NGHỊ — danh sách trường đánh số =====
               Bố cục theo trang nhiệm vụ Base.vn (ảnh Ban lãnh đạo cung cấp 10/08/2026):
               trường nào cũng có số thứ tự để trao đổi qua điện thoại chỉ nhau được ngay

@@ -190,11 +190,17 @@ export function VungThaTep({
      */
     <label
       className={cn(
-        /* 🔴 THẤP LẠI — Ban lãnh đạo 17/08/2026: *"phạm vi này thì hẹp lại"*. Bản đầu để
-           `min-h-24` (96px) + `py-4`; khối giai đoạn có tới sáu khu đính kèm nên sáu ô cao
-           như vậy đẩy phần việc thật xuống quá sâu. Nay `min-h-16` (64px) + `py-3` — vẫn
-           thừa vùng chạm 44px và vẫn đủ rộng để thả tệp trúng. */
-        "relative flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-dashed px-4 py-3 text-center transition-colors",
+        /* 🔴 THU NHỎ CẢ HAI CHIỀU — Ban lãnh đạo 17/08/2026, hai lần:
+           *"phạm vi này thì hẹp lại"* rồi *"này thu hẹp lại, rộng quá"*.
+
+           · Cao: `min-h-24` (96px) + `py-4` → `min-h-16` (64px) + `py-3`. Khối giai đoạn có
+             tới sáu khu đính kèm; sáu ô cao 96px đẩy phần việc thật xuống quá sâu.
+           · Ngang: `sm:max-w-lg` (512px) thay vì trải kín bề ngang cột. Một ô viền đứt dài
+             gần 1.200px trên màn rộng nhìn như vùng nội dung bị lỗi, chứ không ra một ô nhận
+             tệp. Điện thoại vẫn để full (`w-full`) vì ở đó 512px đã rộng hơn cả màn.
+
+           Vẫn thừa vùng chạm 44px và vẫn đủ rộng để thả tệp trúng. */
+        "relative flex min-h-16 w-full flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-dashed px-4 py-3 text-center transition-colors sm:max-w-lg",
         "focus-within:border-primary focus-within:ring-2 focus-within:ring-primary",
         dangCat
           ? // Khóa vùng trong lúc cất: bấm thêm lượt nữa lúc này là chồng chéo, và
