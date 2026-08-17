@@ -84,6 +84,19 @@ export default function TrangTheoDoi() {
     const ra: (
       | { loai: "nhom"; id: string; ma: string; tieuDe: string; ds: typeof danhSach }
       | ((typeof danhSach)[number] & { loai: "the"; trongNhom: boolean })
+      /**
+       * 🔴 DÒNG THU GỌN Ở CUỐI NHÓM — Ban lãnh đạo 17/08/2026: *"bung xem chi tiết từng mặt
+       * hàng ra xong ko group lại được"*.
+       *
+       * Đã đo trên máy: phép gập/mở CHẠY ĐÚNG (`aria-expanded` đảo, chữ trong vùng nội dung
+       * 223 → 520 ký tự). Cái sai là KHÔNG CÒN CHỖ BẤM: nhóm 3 phiếu bung ra cao hơn 800px,
+       * nên dòng tiêu đề — chỗ duy nhất gập lại được — trôi hẳn khỏi màn hình. Người dùng
+       * thấy đúng như "không gập lại được", dù mã không hỏng.
+       *
+       * Nên thêm một dòng gập ngay dưới thẻ cuối: gập được tại chỗ đang đứng, không phải
+       * cuộn ngược lên tìm.
+       */
+      | { loai: "cuoi_nhom"; id: string; ma: string; soPhieu: number }
     )[] = [];
     /**
      * ★ NHÓM CÓ VIỆC CỦA MÌNH LÊN ĐẦU — Ban lãnh đạo 15/08/2026.
@@ -127,6 +140,12 @@ export default function TrangTheoDoi() {
         ds: sapXep,
       });
       for (const m of sapXep) ra.push({ ...m, loai: "the", trongNhom });
+      ra.push({
+        loai: "cuoi_nhom",
+        id: gocId,
+        ma: goc?.code ?? ds[0].dn.maDeNghiGoc ?? ds[0].dn.code,
+        soPhieu: sapXep.length,
+      });
     }
     return ra;
   }, [danhSach, nguoiDung.uid]);
@@ -219,6 +238,27 @@ export default function TrangTheoDoi() {
                       ))}
                     </span>
                   )}
+                </button>
+              );
+            }
+            /* Dòng thu gọn cuối nhóm — chỉ vẽ khi nhóm ĐANG MỞ. Nhóm gọn rồi thì thêm một
+               dòng "Thu gọn" nữa là vô nghĩa. Xem lý do ở khai báo `cuoi_nhom`. */
+            if (m.loai === "cuoi_nhom") {
+              if (!nhomMo.has(m.id)) return null;
+              return (
+                <button
+                  key={`cuoi-${m.id}`}
+                  type="button"
+                  onClick={() => doiMoNhom(m.id)}
+                  /* Lùi vào 12px cho thẳng với các thẻ trong nhóm (`ml-3`), để thấy ngay dòng
+                     này thuộc nhóm phía trên chứ không phải một mục mới. */
+                  className="ml-3 flex min-h-11 w-full items-center gap-2 rounded-lg border border-border border-dashed bg-card px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                >
+                  <ChevronRight className="size-4 shrink-0 rotate-[-90deg]" aria-hidden />
+                  Thu gọn nhóm {m.ma}
+                  <span className="text-xs text-text-desc">
+                    ({m.soPhieu} {m.soPhieu > 1 ? "phiếu" : "phiếu"})
+                  </span>
                 </button>
               );
             }

@@ -546,22 +546,18 @@ export default function TrangChiTietDeNghi() {
                     </Card>
                   </section>
                 ),
-                /* 🔴 ĐÂY LÀ CHỖ BAN LÃNH ĐẠO KHOANH ĐỎ 17/08/2026. Bản báo giá nhà cung cấp
-                   gửi về qua Zalo/email trước đây chỉ gắn được sau khi đã vào trong trang
-                   bảng báo giá — mà lúc chưa lập bảng nào thì không có chỗ nào bỏ tệp vào cả.
+                /* 🔴 BƯỚC ② KHÔNG CÓ KHU ĐÍNH KÈM — Ban lãnh đạo 17/08/2026: *"bước này không
+                   cần thêm chức năng đính kèm file"*.
 
-                   📌 KHÔNG chặn theo `duocXemBaoGiaCuaDeNghi` như khối Bảng báo giá ngay
-                   trên: khối đó bị chặn vì nó lộ MÃ BẢNG và TÊN NHÀ CUNG CẤP đã chọn. Tệp
-                   đính kèm của bước thì không tự nó lộ hai thứ đó, mà chặn thêm ở đây sẽ làm
-                   chính người đi hỏi giá không dán được báo giá vào hồ sơ. */
-                khuDinhKem: (
-                  <KhuDinhKemGiaiDoan
-                    deNghi={dn}
-                    maGiaiDoan="yeu_cau_bao_gia"
-                    duocSua={duocSuaTepBuoc}
-                    khoa={hoSoDaDong}
-                  />
-                ),
+                   Đúng về nghiệp vụ: bước ② chỉ là ĐI HỎI GIÁ — gửi yêu cầu cho nhà cung cấp.
+                   Bản báo giá họ gửi về là **đầu vào của bước ③ Xét duyệt báo giá**, và bước ③
+                   đã có khu đính kèm riêng. Để cả hai bước đều nhận tệp thì cùng một bản báo
+                   giá nằm hai chỗ, sau này không ai biết bản nào là bản đã xét duyệt.
+
+                   ⚠️ Tệp đã đính vào bước này TRƯỚC 17/08/2026 (nếu có) vẫn còn nguyên trong
+                   `deNghi.tepGiaiDoan.yeu_cau_bao_gia` — chỉ không hiện ra nữa. KHÔNG xóa dữ
+                   liệu: gỡ một khu giao diện không phải là cái cớ để hủy chứng từ của ai đó.
+                   Cần lấy lại thì trả prop `khuDinhKem` về là hiện lại đủ. */
               },
               {
                 ma: "xet_duyet_bao_gia",
