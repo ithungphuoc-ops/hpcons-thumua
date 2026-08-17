@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -14,7 +14,6 @@ import {
   Forward,
   Package,
   ShoppingCart,
-  Split,
 } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
@@ -24,7 +23,6 @@ import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { DanhSachTruong } from "@/1-giao-dien/thanh-phan-dung-chung/danh-sach-truong";
 import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
-import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { KhoiDeXuatCon } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-de-xuat-con";
 import { OSuaSoBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-sua-so-bao-gia";
@@ -61,7 +59,6 @@ import {
   giaiDoanDaKetThuc,
   NHAN_GIAI_DOAN,
   vuongMacLapDonHang,
-  vuongMacSangBuocSau,
   xacDinhGiaiDoan,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
@@ -72,14 +69,12 @@ import {
 
 export default function TrangChiTietDeNghi() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const {
     deNghi,
     donHang,
     phieuNhan,
     baoGia,
     chuyenTiepChoNhanVien,
-    taoBaoGiaGiaLap,
     cauHinh,
     danhDauCongViecGiaiDoan,
     vietBinhLuan,
@@ -88,8 +83,6 @@ export default function TrangChiTietDeNghi() {
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
-  /** Hỏi trước khi lập bảng báo giá — việc này CHUYỂN BƯỚC đề nghị sang ② (nguyên tắc 10/08/2026). */
-  const [hoiLapBaoGia, setHoiLapBaoGia] = useState(false);
   const [loiNhan, setLoiNhan] = useState("");
 
   const dn = deNghi.find((x) => x.id === params.id);
@@ -491,39 +484,24 @@ export default function TrangChiTietDeNghi() {
                    🔴 Dùng CHUNG luật với trang bảng báo giá (chỉ đạo 10/08/2026): chỉ người
                    được chia việc hoặc người theo dõi mới thấy. Chặn ngay ở đây để không lộ mã
                    bảng báo giá và tên nhà cung cấp đã chọn cho người không có quyền. */
-                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
+                /* 📌 CHƯA CÓ BẢNG NÀO THÌ CẢ KHỐI BIẾN MẤT — Ban lãnh đạo 17/08/2026 khoanh nút
+                   "Lập bảng báo giá" và ghi *"bỏ nút này"*. Bỏ nút xong thì khối chỉ còn trơ
+                   một dòng tiêu đề "BẢNG BÁO GIÁ (0)" không dẫn đi đâu, nên ẩn luôn cả khối.
+
+                   🔴 MODULE BÁO GIÁ KHÔNG BỊ MỒ CÔI: việc "Lập bảng báo giá" đã chuyển vào
+                   menu ⋯ trên thẻ ở bảng quy trình (`bang-quy-trinh-mua-hang.tsx`). Bắt buộc
+                   phải có một lối vào bấm được TRÊN ĐIỆN THOẠI — đường còn lại là kéo thẻ từ
+                   cột ① sang ②, mà điện thoại không kéo được. Trước 10/08/2026 app đã tắc
+                   đúng kiểu này. Xem CLAUDE.md mục 3.4b. */
+                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) &&
+                  baoGiaLienQuan.length > 0 && (
                   <section className="flex flex-col gap-(--hp-md-row-gap)">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       {/* Cùng kiểu chữ với "ĐẦU VÀO" — xem `NhanPhanTrongGiaiDoan`. */}
                       <NhanPhanTrongGiaiDoan the="h2" icon={FileText}>
                         Bảng báo giá ({baoGiaLienQuan.length})
                       </NhanPhanTrongGiaiDoan>
-                      {/* 🔴 NÚT NÀY LÀ ĐƯỜNG VÀO CHUỖI TÁCH PO. Trước 10/08/2026 bảng báo giá
-                          CHỈ tạo được bằng cách kéo thẻ từ cột ① sang cột ② trên bảng quy
-                          trình — khó phát hiện, và trên điện thoại không kéo được nên tắc
-                          hẳn. Không có bảng báo giá thì không tách được khối lượng cho nhiều
-                          nhà cung cấp, tức không tách được PO. */}
-                      {/* 📌 CHỈ HIỆN KHI CHƯA CÓ BẢNG NÀO — Ban lãnh đạo 15/08/2026 khoanh nút
-                          này và ghi *"bỏ nút này"*, trên màn đã có sẵn `260001-HPCS-BG-001`
-                          đang thu thập.
-
-                          🔴 Bỏ HẲN thì không còn đường lập bảng báo giá đầu tiên — đúng lỗi
-                          "làm module mồ côi" mà CLAUDE.md mục 3.4b cảnh báo (phiên 03 suýt
-                          mắc với module Báo giá). Nên chỉ ẩn khi đã có bảng: lúc đó thêm nhà
-                          cung cấp là việc làm BÊN TRONG bảng đang có, không phải lập bảng thứ
-                          hai. */}
-                      {quyen.lapPO && baoGiaLienQuan.length === 0 && (
-                        <Button size="sm" variant="outline" onClick={() => setHoiLapBaoGia(true)}>
-                          <Split className="size-4" aria-hidden />
-                          Lập bảng báo giá
-                        </Button>
-                      )}
                     </div>
-                    {/* 📌 CHƯA CÓ BẢNG NÀO THÌ KHÔNG VẼ GÌ — Ban lãnh đạo 17/08/2026 khoanh đỏ
-                        đoạn hướng dẫn cũ ở đây và ghi *"bỏ phần này"*. Trước đó chỗ này là một
-                        thẻ rỗng chứa mỗi câu chỉ dẫn cách bấm nút đứng ngay cạnh nó.
-                        Nút "Lập bảng báo giá" vẫn nguyên, nên không mất đường vào module. */}
-                    {baoGiaLienQuan.length > 0 && (
                     <Card>
                       <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
                         {baoGiaLienQuan.map((bg) => {
@@ -557,7 +535,6 @@ export default function TrangChiTietDeNghi() {
                         })}
                       </CardContent>
                     </Card>
-                    )}
                   </section>
                 ),
                 /* 🔴 ĐÂY LÀ CHỖ BAN LÃNH ĐẠO KHOANH ĐỎ 17/08/2026. Bản báo giá nhà cung cấp
@@ -983,44 +960,13 @@ export default function TrangChiTietDeNghi() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Hỏi trước khi lập bảng báo giá — việc này chuyển đề nghị sang bước ② (nguyên tắc
-          Ban lãnh đạo 10/08/2026, xem `HopXacNhan`). */}
-      <HopXacNhan
-        mo={hoiLapBaoGia}
-        tieuDe="Lập bảng báo giá cho đề nghị này?"
-        moTa={`Hệ thống lập bảng báo giá cho ${dn.items.length} mặt hàng của ${dn.code} để bạn mời nhà cung cấp chào giá.`}
-        canhBao="Đề nghị sẽ chuyển sang bước “Yêu cầu NCC báo giá” trên bảng quy trình. Muốn lùi lại phải hủy bảng báo giá."
-        nhanDongY="Lập bảng báo giá"
-        onDong={() => setHoiLapBaoGia(false)}
-        onDongY={() => {
-          /**
-           * Bước trước phải xong mới đi tiếp — dùng chung luật với kéo thả.
-           *
-           * 🔴 KIỂM THEO BƯỚC ĐANG ĐỨNG, KHÔNG viết cứng "tiep_nhan". Đã dính lỗi thật
-           * 15/08/2026: phiếu đã sang bước ② nhưng chỗ này vẫn xét luật bước ①, mà bước ① có
-           * việc bắt buộc "Checkin hàng tồn kho" — nhân viên bấm "Lập bảng báo giá" thì bị
-           * chặn bằng một câu nói về bước họ đã đi qua từ lâu, không hiểu vì sao.
-           */
-          const vuongMac = vuongMacSangBuocSau(dn, giaiDoan, baoGiaLienQuan, cauHinh);
-          if (vuongMac) {
-            toast.error(`Chưa xong bước ${NHAN_GIAI_DOAN[giaiDoan]?.nhan ?? giaiDoan}`, {
-              description: vuongMac,
-            });
-            return;
-          }
-          const id = taoBaoGiaGiaLap(dn.id, nguoiDung.tenHienThi);
-          if (id) {
-            toast.success("Đã lập bảng báo giá", {
-              description: "Nhập giá các nhà cung cấp, rồi trình trưởng bộ phận xem xét.",
-            });
-            router.push(`/bao-gia/${id}`);
-          } else {
-            toast.error("Không lập được bảng báo giá", {
-              description: "Đã hết mã dự phòng cho bản chạy thử.",
-            });
-          }
-        }}
-      />
+      {/* 📌 ĐÃ BỎ hộp "Lập bảng báo giá cho đề nghị này?" (Ban lãnh đạo 17/08/2026 khoanh nút
+          mở nó và ghi *"bỏ nút này"*). Bỏ nút mà để hộp lại là mã chết — đúng thứ đang phải
+          dọn ở hộp "Chuyển tiếp".
+
+          🔴 CHỐT KIỂM KHÔNG MẤT THEO: việc lập bảng báo giá chuyển sang menu ⋯ trên thẻ ở
+          bảng quy trình, và ở đó nó gọi `xuLyTha` — cùng đường với kéo thả, nên vẫn qua
+          `quyetDinhKeoTha` (kiểm bước đang đứng đã xong chưa) và vẫn mở hộp xác nhận. */}
     </>
   );
 }

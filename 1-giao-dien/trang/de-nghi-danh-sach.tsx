@@ -33,9 +33,11 @@ import { soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
   congViecChuaXongCuaBuoc,
   dungBangQuyTrinh,
+  giaiDoanDaKetThuc,
   NHAN_GIAI_DOAN,
   dungXacNhanKeoTha,
   quyetDinhKeoTha,
+  xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
   type HanhDongKeoTha,
   type XacNhanKeoTha,
@@ -114,6 +116,24 @@ export default function TrangDanhSachDeNghi() {
     // Nhân viên chỉ tách được phiếu mình phụ trách (Ban lãnh đạo 15/08/2026); trưởng bộ phận
     // và quản trị tách được mọi phiếu. Luật ở `4-phan-quyen/quyen-theo-ho-so.ts`.
     duocNhanBan: (dn) => duocNhanBanDeNghi(dn, nguoiDung.uid, quyen),
+    /* 🔴 ĐƯỜNG VÀO MODULE BÁO GIÁ, thay cho nút đã bỏ ở trang chi tiết (Ban lãnh đạo
+       17/08/2026: *"bỏ nút này"*). Xem chú thích `onLapBaoGia` ở `ThaoTacThe`.
+
+       🔴 GỌI LẠI `xuLyTha` chứ KHÔNG gọi thẳng `taoBaoGiaGiaLap`. Lập bảng báo giá là việc
+       CHUYỂN PHIẾU sang bước ②, nên phải đi qua đúng chốt của việc chuyển bước: kiểm bước
+       đang đứng đã xong chưa (vd việc bắt buộc "Checkin hàng tồn kho"), rồi mở hộp xác nhận
+       (nguyên tắc Ban lãnh đạo 10/08/2026).
+
+       Bản đầu của mục menu này gọi thẳng hàm tạo, tức BỎ QUA cả hai chốt — nhân viên bấm menu
+       là nhảy bước không ai kiểm. Đi qua `xuLyTha` thì luật nằm một chỗ duy nhất
+       (`quyetDinhKeoTha`), menu và kéo thả không bao giờ nói khác nhau. */
+    onLapBaoGia: (prId) => xuLyTha(prId, "yeu_cau_bao_gia"),
+    /* Đủ quyền lập PO · phiếu chưa có bảng báo giá nào · hồ sơ chưa đóng.
+       Đã có bảng thì thêm nhà cung cấp là việc làm BÊN TRONG bảng đó, không lập bảng thứ hai. */
+    duocLapBaoGia: (dn) =>
+      quyen.lapPO &&
+      !giaiDoanDaKetThuc(xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan)) &&
+      !baoGia.some((bg) => bg.prId === dn.id),
   };
 
   /**

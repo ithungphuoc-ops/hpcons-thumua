@@ -190,7 +190,11 @@ export function VungThaTep({
      */
     <label
       className={cn(
-        "relative flex min-h-24 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-4 text-center transition-colors",
+        /* 🔴 THẤP LẠI — Ban lãnh đạo 17/08/2026: *"phạm vi này thì hẹp lại"*. Bản đầu để
+           `min-h-24` (96px) + `py-4`; khối giai đoạn có tới sáu khu đính kèm nên sáu ô cao
+           như vậy đẩy phần việc thật xuống quá sâu. Nay `min-h-16` (64px) + `py-3` — vẫn
+           thừa vùng chạm 44px và vẫn đủ rộng để thả tệp trúng. */
+        "relative flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-dashed px-4 py-3 text-center transition-colors",
         "focus-within:border-primary focus-within:ring-2 focus-within:ring-primary",
         dangCat
           ? // Khóa vùng trong lúc cất: bấm thêm lượt nữa lúc này là chồng chéo, và
@@ -260,7 +264,10 @@ export function VungThaTep({
       <span className="text-sm font-medium text-text-primary" aria-live="polite">
         {dongChinh}
       </span>
-      <span className="text-xs text-text-desc">{dongPhu}</span>
+      {/* 🔴 CHỮ NGHIÊNG — Ban lãnh đạo 17/08/2026: *"cái ghi chú nên dùng chữ in nghiêng"*.
+          Dòng này là ghi chú về giới hạn, không phải việc phải làm; nghiêng nó thì mắt đọc
+          dòng chính trước, đúng thứ bậc. */}
+      <span className="text-xs text-text-desc italic">{dongPhu}</span>
     </label>
   );
 }

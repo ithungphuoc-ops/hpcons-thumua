@@ -21,6 +21,7 @@ import {
   Pencil,
   PictureInPicture2,
   Printer,
+  Split,
   Trash2,
   UserRound,
   UsersRound,
@@ -122,6 +123,17 @@ export interface ThaoTacThe {
    * Luật thật ở `4-phan-quyen/quyen-theo-ho-so.ts` → `duocNhanBanDeNghi`.
    */
   duocNhanBan: (deNghi: DeNghiMuaHang) => boolean;
+  /**
+   * Lập bảng báo giá cho phiếu này.
+   *
+   * 🔴 ĐƯỜNG VÀO DUY NHẤT BẤM ĐƯỢC TRÊN ĐIỆN THOẠI — Ban lãnh đạo 17/08/2026 bảo bỏ nút
+   * "Lập bảng báo giá" khỏi trang chi tiết. Đường còn lại là kéo thẻ từ cột ① sang ②, mà
+   * điện thoại không kéo được; trước 10/08/2026 app đã tắc đúng kiểu này. Bỏ mục này khỏi
+   * menu là module Báo giá thành mồ côi — xem CLAUDE.md mục 3.4b.
+   */
+  onLapBaoGia: (prId: string) => void;
+  /** Phiếu NÀY có lập được bảng báo giá không (đúng bước, chưa có bảng, đủ quyền). */
+  duocLapBaoGia: (deNghi: DeNghiMuaHang) => boolean;
 }
 
 export function BangQuyTrinhMuaHang({
@@ -638,6 +650,14 @@ function MenuThaoTacThe({
                   <DropdownMenuItem onClick={() => thaoTac.onNhanBan(deNghi.id)}>
                     <CopyPlus className="size-4 shrink-0" aria-hidden />
                     Nhân bản
+                  </DropdownMenuItem>
+                )}
+                {/* 🔴 Xem chú thích `onLapBaoGia` ở `ThaoTacThe`: đây là đường vào module Báo
+                    giá bấm được trên điện thoại, sau khi nút ở trang chi tiết bị bỏ. */}
+                {thaoTac.duocLapBaoGia(deNghi) && (
+                  <DropdownMenuItem onClick={() => thaoTac.onLapBaoGia(deNghi.id)}>
+                    <Split className="size-4 shrink-0" aria-hidden />
+                    Lập bảng báo giá
                   </DropdownMenuItem>
                 )}
               </>

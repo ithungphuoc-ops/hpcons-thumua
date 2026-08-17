@@ -265,10 +265,20 @@ export function KhuDinhKemGiaiDoan({
         mo={hoiGo !== null}
         nguyHiem
         tieuDe="Gỡ tệp này khỏi bước?"
+        /* 🔴 RÚT GỌN TÊN TỆP — Ban lãnh đạo 17/08/2026 chụp hộp này và bảo kiểm lại giao diện.
+           Trước đó đổ NGUYÊN tên tệp ra: ảnh tải từ Zalo có tên kiểu
+           `1785921139635_1967909016357413267_…_bb904d0c….jpg` dài 88 ký tự, tràn hai dòng và
+           đẩy hộp thoại méo hẳn. Danh sách tệp phía trên vốn đã rút gọn, riêng chỗ này quên.
+           `title` giữ tên đầy đủ để di chuột vào vẫn đọc được. */
         moTa={
-          hoiGo
-            ? `“${hoiGo.tenTep}” sẽ không còn nằm trong bước này của hồ sơ ${deNghi.code}.`
-            : undefined
+          hoiGo ? (
+            <>
+              <span className="font-medium text-text-primary" title={hoiGo.tenTep}>
+                {rutGonTenTep(hoiGo.tenTep, 42)}
+              </span>{" "}
+              sẽ không còn nằm trong bước này của hồ sơ {deNghi.code}.
+            </>
+          ) : undefined
         }
         canhBao="Hồ sơ mất một chứng từ. Nội dung tệp vẫn còn trong kho nên đính kèm lại được, nhưng phải tìm lại tệp gốc trên máy."
         nhanDongY="Gỡ khỏi bước"
