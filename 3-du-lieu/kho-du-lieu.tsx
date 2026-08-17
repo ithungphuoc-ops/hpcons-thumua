@@ -405,6 +405,23 @@ interface GiaTriDuLieu {
     tepId: string,
     nguoiThucHienTen: string,
   ) => string | null;
+  /**
+   * Đặt / sửa / bỏ GHI CHÚ của một tệp đã đính kèm vào một bước.
+   * Trả lý do bị chặn, `null` là đã ghi.
+   *
+   * 🔴 Ghi chú là NHÃN NGƯỜI ĐỌC ĐƯỢC thay cho tên tệp máy sinh — xem `MoTaTep.ghiChu`.
+   *
+   * ⚠️ `ghiChu` rỗng (hoặc chỉ toàn khoảng trắng) nghĩa là XÓA ghi chú, không lưu chuỗi rỗng
+   * vào hồ sơ. Có như vậy thì chỗ hiển thị chỉ cần hỏi `t.ghiChu` là đủ, không phải nhớ kiểm
+   * thêm chuỗi rỗng ở từng nơi.
+   */
+  datGhiChuTepGiaiDoan: (
+    prId: string,
+    maGiaiDoan: string,
+    tepId: string,
+    ghiChu: string,
+    nguoiThucHienTen: string,
+  ) => string | null;
 
   // --- Bình luận trao đổi (Ban lãnh đạo 15/08/2026) ---
   /**
@@ -510,6 +527,42 @@ const SO_MOC_SUA_GIU_LAI = 10;
  * chặn ở 3, người dùng chỉ thấy tệp "biến mất".
  */
 export const TOI_DA_TEP_MOI_BUOC = 5;
+
+/**
+ * Số ký tự tối đa của một ghi chú tệp — Ban lãnh đạo 17/08/2026.
+ *
+ * 🔴 CHẶN Ở TẦNG DỮ LIỆU, không chỉ ở ô nhập. Kho dữ liệu cả phòng nằm trong MỘT document
+ * Firestore mà Firestore chỉ cho 1MB mỗi document; mỗi bước 5 tệp × 6 bước × 12 đề nghị, thả
+ * cho gõ tự do là ăn dần vào đúng cái hạn mức đó, và lần ghi bị từ chối thì CẢ PHÒNG mất dữ
+ * liệu vừa nhập chứ không riêng ghi chú.
+ *
+ * 📌 200 ký tự là đủ cho một nhãn kiểu *"Báo giá công ty A, đã có dấu, giao hàng 15 ngày"* —
+ * ghi chú là NHÃN của chứng từ, cần dài hơn thì viết vào khối Trao đổi (1000 ký tự).
+ *
+ * 🔴 EXPORT ĐỂ GIAO DIỆN DÙNG LẠI, đừng chép số ra file giao diện — cùng lý do đã ghi ở
+ * `TOI_DA_TEP_MOI_BUOC` ngay trên.
+ */
+export const DAI_TOI_DA_GHI_CHU_TEP = 200;
+
+/**
+ * Tên tệp rút ngắn để ghi vào MỘT DÒNG NHẬT KÝ.
+ *
+ * 🔴 KHÔNG gọi `rutGonTenTep` của giao diện: tầng `3-du-lieu` không được nhập từ
+ * `1-giao-dien` (phụ thuộc ngược tầng). Việc cũng khác nhau — bên kia rút cho VỪA Ô trên màn
+ * hình, còn đây rút để dòng nhật ký không phình: tên ảnh tải từ Zalo dài 88 ký tự, cộng thêm
+ * 200 ký tự ghi chú là một dòng nhật ký gần 300 ký tự, mà nhật ký nằm chung trong document
+ * Firestore 1MB của cả phòng.
+ *
+ * Giữ lại phần đuôi vì đó là thứ cho biết chứng từ là ảnh hay PDF.
+ */
+function tenTepChoNhatKy(ten: string, toiDa = 32): string {
+  if (ten.length <= toiDa) return ten;
+  const cham = ten.lastIndexOf(".");
+  // Không có đuôi, hoặc "đuôi" dài bất thường (không phải phần mở rộng thật) → cắt bình thường.
+  if (cham <= 0 || ten.length - cham > 8) return `${ten.slice(0, toiDa - 1)}…`;
+  const duoi = ten.slice(cham);
+  return `${ten.slice(0, Math.max(1, toiDa - duoi.length - 1))}…${duoi}`;
+}
 
 /**
  * Tên bước để ghi vào nhật ký.
@@ -2759,6 +2812,92 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * ★ GHI CHÚ CHO MỘT TỆP ĐÍNH KÈM — Ban lãnh đạo 17/08/2026: *"thêm chức năng ghi chú cho
+   * mỗi tệp đính kèm thêm"*.
+   *
+   * 🔴 VÌ SAO CẦN: app KHÔNG đổi được tên tệp. Ảnh nhà cung cấp gửi qua Zalo về máy mang tên
+   * máy sinh (`1785921139635_1967909016357413267_…jpg`). Ba tháng sau mở hồ sơ ra, cả năm tệp
+   * đều mang tên như vậy thì không ai biết đâu là bản báo giá của nhà cung cấp nào, đâu là hóa
+   * đơn, đâu là ảnh phiếu giao nhận. Ghi chú chính là NHÃN NGƯỜI ĐỌC ĐƯỢC thay cho cái tên đó.
+   *
+   * 🔴 CHẶN KHI HỒ SƠ ĐÃ ĐÓNG, cùng luật với `themTepGiaiDoan` / `goTepGiaiDoan`: nhãn của
+   * chứng từ cũng là một phần nội dung hồ sơ mà kho và trưởng bộ phận đã ký xác nhận. XEM thì
+   * vẫn xem được bình thường.
+   */
+  const datGhiChuTepGiaiDoan = useCallback(
+    (
+      prId: string,
+      maGiaiDoan: string,
+      tepId: string,
+      ghiChu: string,
+      nguoiThucHienTen: string,
+    ): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+
+      const loi = loiKhiHoSoDaDong(dn, "ghi chú cho tệp đính kèm");
+      if (loi) return loi;
+
+      const tep = (dn.tepGiaiDoan?.[maGiaiDoan] ?? []).find((t) => t.id === tepId);
+      if (!tep) return "Tệp này không còn trong hồ sơ — có thể người khác vừa gỡ trước.";
+
+      /**
+       * 🔴 CHẶN ĐỘ DÀI Ở ĐÂY chứ không chỉ ở ô nhập — xem lý do 1MB/document ở
+       * `DAI_TOI_DA_GHI_CHU_TEP`. Giao diện chặn là để người dùng khỏi gõ thừa; còn chốt chặn
+       * thật phải nằm cùng chỗ ghi dữ liệu.
+       */
+      const chu = ghiChu.trim();
+      if (chu.length > DAI_TOI_DA_GHI_CHU_TEP) {
+        return `Ghi chú dài quá ${DAI_TOI_DA_GHI_CHU_TEP} ký tự (đang ${chu.length}). Ghi chú chỉ là nhãn ngắn để tra cứu — nội dung dài thì viết vào khối Trao đổi.`;
+      }
+
+      /**
+       * Không có gì đổi thì không ghi gì cả. Mở hộp ra rồi bấm Lưu mà chưa sửa chữ nào là
+       * chuyện thường; ghi nhật ký lúc đó chỉ làm loãng đúng cái khối dùng để truy trách nhiệm.
+       */
+      if (chu === (tep.ghiChu ?? "")) return null;
+
+      setDeNghi((truoc) =>
+        truoc.map((d) => {
+          if (d.id !== prId) return d;
+          const dsMoi = (d.tepGiaiDoan?.[maGiaiDoan] ?? []).map((t) => {
+            if (t.id !== tepId) return t;
+            const sao: MoTaTep = { ...t };
+            // Gõ rỗng = XÓA ghi chú. Bỏ hẳn khóa chứ không lưu chuỗi rỗng, để mọi chỗ hiển
+            // thị chỉ cần hỏi `t.ghiChu` là đủ.
+            if (chu) sao.ghiChu = chu;
+            else delete sao.ghiChu;
+            return sao;
+          });
+          return {
+            ...d,
+            tepGiaiDoan: { ...(d.tepGiaiDoan ?? {}), [maGiaiDoan]: dsMoi },
+          };
+        }),
+      );
+
+      /**
+       * 🔴 GHI NHẬT KÝ — quy ước CLAUDE.md mục 7: mọi hàm ghi dữ liệu trong file này đều phải
+       * gọi `ghiLichSuDeNghi`. Nhãn của chứng từ đổi mà không để lại vết thì hai người sửa qua
+       * lại chẳng ai biết ai đã đặt lại tên cho cái gì.
+       *
+       * 🔴 KHÔNG ghi tên nhà cung cấp: khối Lịch sử hiện cho cả vai trò không được xem NCC.
+       * Riêng phần ghi chú thì chép NGUYÊN VĂN — đó là chữ người dùng tự gõ, khác hẳn việc app
+       * tự lôi tên NCC trong dữ liệu ra.
+       */
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHienTen,
+        chu
+          ? `Ghi chú cho tệp ${tenTepChoNhatKy(tep.tenTep)} ở bước ${tenBuoc(maGiaiDoan)}: ${chu}`
+          : `Bỏ ghi chú của tệp ${tenTepChoNhatKy(tep.tenTep)} ở bước ${tenBuoc(maGiaiDoan)}`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+  );
+
+  /**
    * BÌNH LUẬN — người dùng tự viết, khác hẳn nhật ký do app ghi.
    *
    * 📌 Không đụng tới `lichSu`: xem chú thích ở phần khai báo kiểu.
@@ -3042,6 +3181,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauCongViecGiaiDoan,
       themTepGiaiDoan,
       goTepGiaiDoan,
+      datGhiChuTepGiaiDoan,
       vietBinhLuan,
       suaBinhLuan,
       chuyenTiepChoNhanVien,
@@ -3096,6 +3236,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauCongViecGiaiDoan,
       themTepGiaiDoan,
       goTepGiaiDoan,
+      datGhiChuTepGiaiDoan,
       vietBinhLuan,
       suaBinhLuan,
       chuyenTiepChoNhanVien,

@@ -102,7 +102,11 @@ Khi có mã vật tư, chỉ thêm trường `maVatTu` vào dòng cũ — **khô
 
 🔴 **Tệp KHÔNG được nhét vào localStorage.** localStorage chỉ nhận chuỗi (tệp phải mã hóa base64, phình thêm ~33%), giới hạn khoảng 5MB cho **cả tên miền**, mà chỗ đó đang giữ toàn bộ dữ liệu nghiệp vụ. Một ảnh chụp phiếu giao nhận đã 2–5MB → nhét vào là tràn, và `ghiDuLieu` đang **nuốt lỗi im lặng** nên người dùng mất dữ liệu mà không có cảnh báo nào.
 
-IndexedDB chứa được hàng trăm MB và lưu thẳng Blob. Chứng từ chỉ giữ phần **mô tả** (`MoTaTep`: tên, cỡ, kiểu, ai tải, lúc nào, `id` để tra); nội dung nằm trong kho tệp.
+IndexedDB chứa được hàng trăm MB và lưu thẳng Blob. Chứng từ chỉ giữ phần **mô tả** (`MoTaTep`: tên, cỡ, kiểu, ai tải, lúc nào, `id` để tra, và `ghiChu` tùy chọn); nội dung nằm trong kho tệp.
+
+🔴 **`MoTaTep.ghiChu` là NHÃN NGƯỜI ĐỌC ĐƯỢC của chứng từ, không phải trang trí** (Ban lãnh đạo 17/08/2026: *"thêm chức năng ghi chú cho mỗi tệp đính kèm thêm"*). App **không đổi được tên tệp**: ảnh nhà cung cấp gửi qua Zalo mang tên máy sinh kiểu `1785921139635_1967909016357413267_….jpg`. Ba tháng sau mở hồ sơ ra, năm tệp cùng kiểu tên đó thì không ai biết đâu là báo giá của NCC nào, đâu là hóa đơn, đâu là ảnh phiếu giao nhận — hồ sơ lưu chứng từ mà không tra cứu được thì coi như không lưu.
+
+⚠️ **Trường để TÙY CHỌN là cố ý** — sáu chỗ dưới đây đều dùng `MoTaTep`, và mọi tệp đính kèm trước 17/08/2026 đều không có trường này. Hiện chỉ `tepGiaiDoan` có giao diện ghi chú (`datGhiChuTepGiaiDoan`); năm chỗ còn lại đọc được nhưng chưa có chỗ nhập.
 
 | Hàm | Việc |
 |---|---|
@@ -117,7 +121,7 @@ IndexedDB chứa được hàng trăm MB và lưu thẳng Blob. Chứng từ ch�
 | Trường | Nghĩa | Hàm ghi |
 |---|---|---|
 | `DeNghiMuaHang.taiLieu` | **Hồ sơ đầu vào** nộp kèm lúc lập phiếu: catalogue, bản vẽ, chứng chỉ. Cố định, không sinh thêm | `themDeNghiGiaLap` (một lần duy nhất) |
-| `DeNghiMuaHang.tepGiaiDoan` | **Chứng từ phát sinh trong từng bước**, khóa = mã giai đoạn. Báo giá NCC ở bước ②, hợp đồng ở bước ④, hóa đơn ở bước ⑥ (Ban lãnh đạo 17/08/2026) | `themTepGiaiDoan` · `goTepGiaiDoan` |
+| `DeNghiMuaHang.tepGiaiDoan` | **Chứng từ phát sinh trong từng bước**, khóa = mã giai đoạn. Báo giá NCC ở bước ②, hợp đồng ở bước ④, hóa đơn ở bước ⑥ (Ban lãnh đạo 17/08/2026) | `themTepGiaiDoan` · `goTepGiaiDoan` · `datGhiChuTepGiaiDoan` |
 | `PhieuNhanHang.tepPhieuGiao` | Phiếu giao nhận của **một lần giao**. 🔴 Luật `vuongMacXacNhanKho` kiểm **từng phiếu** qua trường này — `tepGiaiDoan` KHÔNG thay thế được | `themPhieuNhan` · `dinhKemPhieuGiao` |
 | `BaoGia.tepBaoGia` | Bản báo giá gốc gắn **trong bảng báo giá**, có kèm `nccId` | `dinhKemBaoGia` |
 | `BaoGia.tepChonNCC` | Dẫn chứng chốt nhà cung cấp | `chonNCCChoBaoGia` |

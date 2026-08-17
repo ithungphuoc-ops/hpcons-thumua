@@ -43,6 +43,25 @@ export interface MoTaTep {
   nguoiTaiTen: string;
   /** ISO đầy đủ giờ phút. */
   thoiDiem: string;
+  /**
+   * ★ GHI CHÚ NGƯỜI DÙNG TỰ ĐẶT CHO TỆP — Ban lãnh đạo 17/08/2026: *"thêm chức năng ghi chú
+   * cho mỗi tệp đính kèm thêm"*.
+   *
+   * 🔴 ĐÂY LÀ NHÃN NGƯỜI ĐỌC ĐƯỢC CỦA CHỨNG TỪ, KHÔNG PHẢI TRANG TRÍ. App không đổi được tên
+   * tệp: ảnh tải từ Zalo về máy mang tên máy sinh kiểu
+   * `1785921139635_1967909016357413267_…_bb904d0c6e7377de.jpg`. Ba tháng sau mở hồ sơ ra, năm
+   * tệp đều mang tên như vậy thì không ai biết đâu là bản báo giá của nhà cung cấp nào, đâu là
+   * hóa đơn, đâu là ảnh phiếu giao nhận. Hồ sơ lưu chứng từ mà không tra cứu được thì coi như
+   * không lưu.
+   *
+   * ⚠️ ĐỂ TÙY CHỌN là cố ý: `MoTaTep` đang được dùng ở sáu chỗ khác (tài liệu đầu vào, tệp
+   * bình luận, phiếu giao nhận, báo giá NCC, tệp chọn NCC, tệp đơn hàng) và mọi tệp đã đính
+   * kèm trước 17/08/2026 đều không có trường này — bắt buộc là hỏng sạch dữ liệu cũ.
+   *
+   * 📌 Giới hạn độ dài và chốt chặn nằm ở `3-du-lieu/kho-du-lieu.tsx` →
+   * `DAI_TOI_DA_GHI_CHU_TEP` + `datGhiChuTepGiaiDoan`, vì đó mới là chỗ ghi vào hồ sơ.
+   */
+  ghiChu?: string;
 }
 
 /**

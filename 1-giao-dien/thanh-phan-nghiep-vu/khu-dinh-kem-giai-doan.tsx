@@ -1,8 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Paperclip, Trash2 } from "lucide-react";
+import { Eye, NotebookPen, Paperclip, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/1-giao-dien/nen-tang-ui/dialog";
+import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import {
   bieuTuongTheoLoaiTep,
   tenLoaiTep,
@@ -12,7 +22,11 @@ import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { VungThaTep } from "@/1-giao-dien/thanh-phan-dung-chung/vung-tha-tep";
 import { NhanPhanTrongGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
-import { TOI_DA_TEP_MOI_BUOC, useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import {
+  DAI_TOI_DA_GHI_CHU_TEP,
+  TOI_DA_TEP_MOI_BUOC,
+  useDuLieu,
+} from "@/3-du-lieu/kho-du-lieu";
 import { coTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -53,6 +67,20 @@ import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
  *    giấy dùng chung cho mọi tệp, thêm tên loại bằng chữ và `title` xem tên đầy đủ.
  * 3. **Đang tải lên thì hiện ra.** Cất một tệp 5MB lên Firestore mất hơn chục lần gọi mạng;
  *    trước đây trong lúc đó giao diện đứng im nên người dùng bấm lại lần hai.
+ *
+ * ---
+ * 🔴 GHI CHÚ CHO TỪNG TỆP 17/08/2026 — Ban lãnh đạo: *"thêm chức năng ghi chú cho mỗi tệp
+ * đính kèm thêm"*, kèm chỉ đạo *"cái ghi chú nên dùng chữ in nghiêng"*.
+ *
+ * VÌ SAO ĐÂY KHÔNG PHẢI TRANG TRÍ: app **không đổi được tên tệp**. Ảnh nhà cung cấp gửi qua
+ * Zalo về máy mang tên máy sinh, kiểu `1785921139635_1967909016357413267_…_bb904d0c.jpg`. Ba
+ * tháng sau mở hồ sơ ra, năm tệp đều mang tên như vậy thì không ai biết đâu là bản báo giá của
+ * nhà cung cấp nào, đâu là hóa đơn, đâu là ảnh phiếu giao nhận. Hồ sơ lưu chứng từ mà không
+ * tra cứu được thì coi như không lưu. Ghi chú chính là **nhãn người đọc được** thay cho cái tên
+ * máy sinh ấy — nên nó nằm ngay dưới tên tệp, và có cả trong `aria-label` của dòng.
+ *
+ * Ghi vào hồ sơ ở `3-du-lieu/kho-du-lieu.tsx` → `datGhiChuTepGiaiDoan`; giới hạn 200 ký tự
+ * chặn ở chính hàm đó, giao diện chỉ bày đúng con số `DAI_TOI_DA_GHI_CHU_TEP`.
  */
 
 /**
@@ -80,15 +108,46 @@ export function KhuDinhKemGiaiDoan({
   /** Hồ sơ đã đóng (hoàn thành / đóng dở) — khóa thêm và gỡ, nhưng XEM thì vẫn xem được. */
   khoa?: boolean;
 }) {
-  const { themTepGiaiDoan, goTepGiaiDoan } = useDuLieu();
+  const { themTepGiaiDoan, goTepGiaiDoan, datGhiChuTepGiaiDoan } = useDuLieu();
   const { nguoiDung } = useNguoiDung();
   const [xemTep, setXemTep] = useState<MoTaTep | null>(null);
   /** Tệp đang hỏi gỡ — `null` là chưa hỏi ai. */
   const [hoiGo, setHoiGo] = useState<MoTaTep | null>(null);
+  /** Tệp đang mở hộp ghi chú — `null` là chưa mở hộp nào. */
+  const [ghiChuTep, setGhiChuTep] = useState<MoTaTep | null>(null);
+  /**
+   * Chữ đang gõ trong hộp ghi chú.
+   *
+   * ⚠️ GIỮ Ở ĐÂY, KHÔNG giữ bên trong hộp thoại. Nếu hộp tự quản lấy chữ thì phải gắn `key`
+   * theo id tệp cho nó nạp lại mỗi lần đổi tệp — mà lúc đóng hộp, `key` đổi làm cây con bị
+   * tháo GIỮA LÚC hiệu ứng đóng đang chạy, đúng cái lỗi đã ghi ở `HopXacNhan`. Để ở đây thì
+   * đóng hộp chỉ xóa `ghiChuTep`, chữ còn nguyên tới lần mở sau nên không có gì bị tháo dở.
+   */
+  const [chuGhiChu, setChuGhiChu] = useState("");
 
   const daCo = deNghi.tepGiaiDoan?.[maGiaiDoan] ?? [];
   const duocThemGo = duocSua && !khoa;
   const conNhan = TOI_DA_TEP_MOI_BUOC - daCo.length;
+
+  /**
+   * Lưu ghi chú rồi đóng hộp. Lỗi thì GIỮ HỘP MỞ để người dùng không mất câu vừa gõ — đây là
+   * lý do không mượn `HopXacNhan` cho việc này (hộp đó luôn tự đóng sau khi bấm Đồng ý).
+   */
+  function luuGhiChu() {
+    if (!ghiChuTep) return;
+    const loi = datGhiChuTepGiaiDoan(
+      deNghi.id,
+      maGiaiDoan,
+      ghiChuTep.id,
+      chuGhiChu,
+      nguoiDung.tenHienThi,
+    );
+    if (loi) {
+      toast.error("Chưa lưu được ghi chú", { description: loi });
+      return;
+    }
+    setGhiChuTep(null);
+  }
 
   /**
    * Chưa có tệp nào MÀ cũng không được thêm thì không vẽ gì cả.
@@ -149,8 +208,12 @@ export function KhuDinhKemGiaiDoan({
                   className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 py-1.5 pl-2 text-left"
                   /* Gộp đủ thông tin của dòng vào nhãn: `aria-label` THAY THẾ nội dung bên
                      trong khi trình đọc màn hình đọc lên, nên thiếu chỗ nào là mất hẳn chỗ
-                     đó — người không nhìn màn hình sẽ không biết ai gắn tệp, gắn lúc nào. */
-                  aria-label={`Xem ${loai}: ${t.tenTep} · ${coTep(t.kichThuoc)} · ${t.nguoiTaiTen} · ${formatMocThoiGian(t.thoiDiem)}`}
+                     đó — người không nhìn màn hình sẽ không biết ai gắn tệp, gắn lúc nào.
+
+                     🔴 GHI CHÚ PHẢI CÓ TRONG NHÃN (17/08/2026). Với tệp tên máy sinh thì ghi
+                     chú mới là thứ DUY NHẤT cho biết đây là chứng từ gì; bỏ nó ra khỏi nhãn
+                     là người dùng trình đọc màn hình chỉ nghe được một dãy số vô nghĩa. */
+                  aria-label={`Xem ${loai}: ${t.tenTep}${t.ghiChu ? ` · Ghi chú: ${t.ghiChu}` : ""} · ${coTep(t.kichThuoc)} · ${t.nguoiTaiTen} · ${formatMocThoiGian(t.thoiDiem)}`}
                 >
                   {/* Ô biểu tượng dùng cặp token `bg-primary-bg` + `text-primary` — cả hai đều
                       tự đổi theo Sáng/Tối, không có mã màu nào viết cứng ở đây. */}
@@ -169,6 +232,24 @@ export function KhuDinhKemGiaiDoan({
                     >
                       {rutGonTenTep(t.tenTep, 40)}
                     </span>
+
+                    {/* 🔴 GHI CHÚ NẰM NGAY DƯỚI TÊN TỆP — Ban lãnh đạo 17/08/2026: *"thêm
+                        chức năng ghi chú cho mỗi tệp đính kèm thêm"*, và *"cái ghi chú nên
+                        dùng chữ in nghiêng"*.
+
+                        Đặt trên dòng cỡ tệp / người tải là cố ý: tên tệp máy sinh không đọc
+                        được nghĩa gì, nên ghi chú mới là thứ người tra hồ sơ cần thấy ngay
+                        sau tên — đẩy nó xuống cuối là lại phải dò từng dòng như cũ.
+
+                        `line-clamp-2` chứ không `truncate`: ghi chú dài tới 200 ký tự, cắt
+                        một dòng thì mất gần hết câu; hai dòng đủ đọc mà không kéo dòng tệp
+                        cao lên mãi. Câu đầy đủ vẫn nằm ở `title`. */}
+                    {t.ghiChu && (
+                      <span className="line-clamp-2 text-xs text-text-desc italic" title={t.ghiChu}>
+                        {t.ghiChu}
+                      </span>
+                    )}
+
                     <span className="truncate text-xs text-text-desc">
                       {loai} · {coTep(t.kichThuoc)}
                       {/* Ai gắn, lúc nào — cần để truy khi hai bên nói khác nhau về chứng từ.
@@ -193,6 +274,39 @@ export function KhuDinhKemGiaiDoan({
                 >
                   <Eye className="size-4" aria-hidden />
                 </button>
+
+                {duocThemGo && (
+                  /* ★ NÚT GHI CHÚ — Ban lãnh đạo 17/08/2026.
+
+                     📌 VÌ SAO DÙNG `NotebookPen` chứ không dùng biểu tượng bong bóng chat
+                     (`MessageSquare`): app đã có khối Trao đổi (`khoi-trao-doi.tsx`) là chỗ
+                     bình luận thật sự, nên bong bóng chat ở đây sẽ đọc thành "bình luận về
+                     tệp" và mời người dùng vào nhầm chỗ. `NotebookPen` cũng đúng biểu tượng
+                     mà app đang dùng cho THAO TÁC viết ghi chú ở màn Lịch công việc — một
+                     việc thì giữ một biểu tượng, khỏi phải học hai lần.
+
+                     Nhãn đổi theo trạng thái ("Thêm" / "Sửa") và tệp đã có ghi chú thì nút
+                     mang màu nhận diện: trạng thái có CẢ màu LẪN chữ theo Design System
+                     V1.1, không bắt người dùng đoán bằng riêng màu. */
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGhiChuTep(t);
+                      setChuGhiChu(t.ghiChu ?? "");
+                    }}
+                    className={`flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-primary-bg hover:text-primary ${
+                      t.ghiChu ? "text-primary" : "text-text-desc"
+                    }`}
+                    aria-label={
+                      t.ghiChu
+                        ? `Sửa ghi chú của tệp ${t.tenTep}`
+                        : `Thêm ghi chú cho tệp ${t.tenTep}`
+                    }
+                    title={t.ghiChu ? "Sửa ghi chú" : "Thêm ghi chú"}
+                  >
+                    <NotebookPen className="size-4" aria-hidden />
+                  </button>
+                )}
 
                 {duocThemGo && (
                   /* Vùng chạm 44×44 theo Design System V1.1 — nút này nằm cạnh nút mở tệp,
@@ -289,6 +403,80 @@ export function KhuDinhKemGiaiDoan({
           if (loi) toast.error("Chưa gỡ được tệp", { description: loi });
         }}
       />
+
+      {/* ★ HỘP GHI CHÚ CHO TỆP — Ban lãnh đạo 17/08/2026.
+          Esc để hủy do `Dialog` của base-nova lo sẵn; Enter để lưu gắn ở ô nhập bên dưới. */}
+      <Dialog
+        open={ghiChuTep !== null}
+        onOpenChange={(v: boolean) => !v && setGhiChuTep(null)}
+      >
+        {/* 🔴 PHẢI VIẾT `sm:max-w-md`, KHÔNG được viết `max-w-md` trơn. Lớp gốc của
+            `DialogContent` đã có sẵn `sm:max-w-sm`; class không có tiền tố `sm:` thua ở độ ưu
+            tiên nên bị đè IM LẶNG — không lỗi lint, không lỗi build, hộp cứ kẹt 384px. */}
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ghi chú cho tệp</DialogTitle>
+            {/* Hiện TÊN TỆP để biết đang ghi chú cho cái nào — rút gọn vì tên ảnh tải từ Zalo
+                dài tới 88 ký tự, đổ nguyên ra là tràn hai dòng và đẩy hộp thoại méo hẳn.
+                Tên đầy đủ nằm ở `title`, rê chuột là đọc được. */}
+            <DialogDescription>
+              {ghiChuTep ? (
+                <span className="font-medium text-text-primary" title={ghiChuTep.tenTep}>
+                  {rutGonTenTep(ghiChuTep.tenTep, 42)}
+                </span>
+              ) : undefined}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-1.5">
+            <Textarea
+              autoFocus
+              value={chuGhiChu}
+              // Cắt luôn khi dán một đoạn dài — `maxLength` chặn lúc gõ nhưng không chặn dán.
+              onChange={(e) => setChuGhiChu(e.target.value.slice(0, DAI_TOI_DA_GHI_CHU_TEP))}
+              maxLength={DAI_TOI_DA_GHI_CHU_TEP}
+              rows={2}
+              placeholder="Ví dụ: Báo giá công ty A, đã ký đóng dấu"
+              aria-label="Nội dung ghi chú cho tệp"
+              onKeyDown={(e) => {
+                /* Enter LƯU chứ không xuống dòng — ghi chú là một NHÃN ngắn thay cho tên tệp,
+                   không phải đoạn văn (đoạn văn thì viết vào khối Trao đổi). Vẫn chừa
+                   Shift+Enter cho ai muốn tách hai ý. Dùng ô nhiều dòng thay vì ô một dòng chỉ
+                   để 200 ký tự tự xuống hàng, đọc được hết mà không phải kéo ngang. */
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  luuGhiChu();
+                }
+              }}
+            />
+
+            {/* Chỉ đếm khi SẮP hết chỗ. Hiện số ngay từ ký tự đầu là bắt người dùng để mắt
+                tới một con số họ chưa cần biết. */}
+            {DAI_TOI_DA_GHI_CHU_TEP - chuGhiChu.length <= 30 && (
+              <p className="text-right text-xs text-warning-soft">
+                Còn {DAI_TOI_DA_GHI_CHU_TEP - chuGhiChu.length} ký tự
+              </p>
+            )}
+
+            {/* Chỉ nói cách BỎ ghi chú khi tệp đang có ghi chú — lúc chưa có thì câu này thừa.
+                Không có nút "Xóa" riêng: thêm một nút đỏ nữa vào hộp chỉ để làm việc mà xóa
+                chữ đi là xong. */}
+            {ghiChuTep?.ghiChu && (
+              <p className="text-xs text-text-desc">Xóa hết chữ rồi bấm Lưu để bỏ ghi chú.</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGhiChuTep(null)}>
+              Hủy
+            </Button>
+            <Button onClick={luuGhiChu}>
+              <NotebookPen className="size-4" aria-hidden />
+              Lưu ghi chú
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
