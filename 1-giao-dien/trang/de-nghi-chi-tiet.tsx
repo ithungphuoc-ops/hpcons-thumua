@@ -27,6 +27,7 @@ import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { KhoiDeXuatCon } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-de-xuat-con";
+import { OSuaSoBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-sua-so-bao-gia";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
 import { KhoiTraoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi";
 import {
@@ -83,6 +84,7 @@ export default function TrangChiTietDeNghi() {
     danhDauCongViecGiaiDoan,
     vietBinhLuan,
     suaBinhLuan,
+    datSoBaoGiaChoPhieu,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
@@ -461,9 +463,21 @@ export default function TrangChiTietDeNghi() {
                 truong: [
                   {
                     nhan: "SL Báo giá",
-                    // Số báo giá đặt cho cả phiếu — lấy của dòng đầu tiên có yêu cầu.
-                    giaTri: String(
-                      dn.items.find((d) => d.soBaoGiaYeuCau)?.soBaoGiaYeuCau ?? "—",
+                    /* ★ SỬA ĐƯỢC NGAY TẠI ĐÂY — Ban lãnh đạo 17/08/2026: *"phần đầu vào thêm
+                       chức năng sửa số lượng báo giá"*. Trước đó con số chỉ đặt được một lần
+                       lúc kéo phiếu sang bước ②, đặt xong là kẹt.
+
+                       📌 Dùng `noiDung` chứ không dùng `giaTri`: `giaTri` chỉ nhận chữ. */
+                    noiDung: (
+                      <OSuaSoBaoGia
+                        // Số báo giá đặt cho cả phiếu — lấy của dòng đầu tiên có yêu cầu.
+                        soHienTai={dn.items.find((d) => d.soBaoGiaYeuCau)?.soBaoGiaYeuCau}
+                        duocSua={duocSuaTepBuoc && !hoSoDaDong}
+                        onLuu={(so) => {
+                          datSoBaoGiaChoPhieu(dn.id, so, nguoiDung.tenHienThi);
+                          toast.success(`Đã đổi thành ${so} báo giá cho mọi mặt hàng`);
+                        }}
+                      />
                     ),
                   },
                 ],
@@ -505,16 +519,13 @@ export default function TrangChiTietDeNghi() {
                         </Button>
                       )}
                     </div>
+                    {/* 📌 CHƯA CÓ BẢNG NÀO THÌ KHÔNG VẼ GÌ — Ban lãnh đạo 17/08/2026 khoanh đỏ
+                        đoạn hướng dẫn cũ ở đây và ghi *"bỏ phần này"*. Trước đó chỗ này là một
+                        thẻ rỗng chứa mỗi câu chỉ dẫn cách bấm nút đứng ngay cạnh nó.
+                        Nút "Lập bảng báo giá" vẫn nguyên, nên không mất đường vào module. */}
+                    {baoGiaLienQuan.length > 0 && (
                     <Card>
                       <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
-                        {baoGiaLienQuan.length === 0 && (
-                          <p className="text-sm text-text-desc">
-                            Chưa lập bảng báo giá nào cho đề nghị này. Bấm{" "}
-                            <strong>Lập bảng báo giá</strong> để nhập giá nhiều nhà cung cấp và{" "}
-                            <strong>chia một mặt hàng cho nhiều nhà cung cấp</strong> khi một
-                            bên không giao đủ số lượng.
-                          </p>
-                        )}
                         {baoGiaLienQuan.map((bg) => {
                           const ttBG = nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, bg.trangThai);
                           return (
@@ -546,6 +557,7 @@ export default function TrangChiTietDeNghi() {
                         })}
                       </CardContent>
                     </Card>
+                    )}
                   </section>
                 ),
                 /* 🔴 ĐÂY LÀ CHỖ BAN LÃNH ĐẠO KHOANH ĐỎ 17/08/2026. Bản báo giá nhà cung cấp

@@ -9,7 +9,7 @@ import { ODinhKemNhieuTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { NhanPhanTrongGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 import { TOI_DA_TEP_MOI_BUOC, useDuLieu } from "@/3-du-lieu/kho-du-lieu";
-import { CO_TOI_DA, coTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
+import { coTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
@@ -88,12 +88,11 @@ export function KhuDinhKemGiaiDoan({
         TỆP ĐÍNH KÈM ({daCo.length})
       </NhanPhanTrongGiaiDoan>
 
-      {daCo.length === 0 ? (
-        <p className="text-sm text-text-desc">
-          Chưa có tệp nào ở bước này. Bỏ vào đây chứng từ phát sinh trong bước — bản báo giá
-          nhà cung cấp gửi về, hợp đồng, đơn có chữ ký, hóa đơn…
-        </p>
-      ) : (
+      {/* 📌 Chưa có tệp thì KHÔNG viết câu hướng dẫn nào — Ban lãnh đạo 17/08/2026 khoanh đỏ
+          đúng chỗ này và ghi *"bỏ phần này"*, cùng tinh thần chỉ đạo 16/08/2026: *"đây là ứng
+          dụng chuyên nghiệp nên không cần các cảnh báo kiểu này"*. Nút "Đính kèm tệp cho bước
+          này" ngay bên dưới đã nói đủ việc phải làm. */}
+      {daCo.length > 0 && (
         <ul className="flex flex-col gap-1.5">
           {daCo.map((t) => (
             <li
@@ -170,16 +169,10 @@ export function KhuDinhKemGiaiDoan({
           </p>
         ))}
 
-      {/* Nói rõ giới hạn ngay chỗ dùng, đừng để người dùng phát hiện bằng cách gặp lỗi.
-          (Ô chọn tệp ở trên tự ghi phần cỡ tệp và số còn nhận thêm; dòng này ghi mức trần
-          của cả bước, thứ ô kia không biết.) */}
-      {duocThemGo && (
-        <p className="text-xs text-text-desc">
-          Tối đa {TOI_DA_TEP_MOI_BUOC} tệp mỗi bước, {CO_TOI_DA / 1024 / 1024}MB mỗi tệp. Nhận
-          ảnh, PDF, Word, Excel.
-        </p>
-      )}
-
+      {/* 📌 ĐÃ BỎ dòng nhắc giới hạn ở đây (Ban lãnh đạo 17/08/2026: *"bỏ phần này"*).
+          Nó lặp lại đúng thứ nút chọn tệp đã ghi sẵn — trên màn hình hiện hai lần
+          "tối đa 5 tệp, 10MB" cạnh nhau. Giới hạn vẫn được chặn thật ở
+          `themTepGiaiDoan`, không phải chỉ nhắc bằng chữ. */}
       {/* Hồ sơ đóng thì nói vì sao nút biến mất — người vốn có quyền sẽ đi tìm nút. Người
           không có quyền thì không hiện gì, khỏi mời gọi một việc họ không làm được. */}
       {khoa && duocSua && (
