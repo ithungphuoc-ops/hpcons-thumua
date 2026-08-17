@@ -619,24 +619,35 @@ export default function TrangChiTietDeNghi() {
 
                           📌 Dùng CHUNG `chanLapDon` với chốt chặn thật trong `themDonHang`:
                           nút khóa vì lý do gì thì đúng là lý do app sẽ chặn. */}
-                      {quyen.lapPO &&
-                        !giaiDoanDaKetThuc(giaiDoan) &&
-                        (chanLapDon ? (
-                          <Button size="sm" variant="outline" disabled title={chanLapDon}>
-                            <ShoppingCart className="size-4" aria-hidden />
-                            {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            nativeButton={false}
-                            render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
-                          >
-                            <ShoppingCart className="size-4" aria-hidden />
-                            {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
-                          </Button>
-                        ))}
+                      {/* 🔴 NÚT MỞ ĐƯỢC KỂ CẢ KHI CÒN VƯỚNG — Ban lãnh đạo 17/08/2026 hỏi năm
+                          lần *"mục giao diện giống misa ở bước lập đơn mua hàng đâu"* /
+                          *"mục này vẫn chưa có phần import"*.
+
+                          Nguyên do: nút này để `disabled` nên KHÔNG AI VÀO ĐƯỢC màn lập đơn —
+                          mà chính màn đó mới có bộ trường theo MISA và nút Nhập từ Excel. App
+                          bảo *"phải lập bảng báo giá..."* rồi đứng im, không cho một đường nào
+                          đi tiếp. Đó là ngõ cụt, không phải bảo vệ.
+
+                          🔴 LUẬT KHÔNG BỊ NỚI MỘT LY: chốt chặn thật nằm ở `themDonHang` (dùng
+                          chung `vuongMacLapDonHang`), nên vẫn KHÔNG cất được đơn khi chưa chốt
+                          nhà cung cấp. Mở nút chỉ là cho vào NHẬP LIỆU và NHẬP EXCEL; ô cảnh
+                          báo vàng ngay dưới đây nói rõ còn thiếu gì trước khi cất được.
+
+                          ⚠️ Đánh đổi đã cân: người dùng có thể gõ cả đơn rồi mới bị chặn ở nút
+                          Cất. Chấp nhận, vì thà vậy còn hơn không có đường nào tới màn nhập
+                          liệu — và ô cảnh báo đã đứng ngay cạnh nút này từ trước khi bấm. */}
+                      {quyen.lapPO && !giaiDoanDaKetThuc(giaiDoan) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          nativeButton={false}
+                          title={chanLapDon ?? undefined}
+                          render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+                        >
+                          <ShoppingCart className="size-4" aria-hidden />
+                          {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
+                        </Button>
+                      )}
                     </div>
                     <Card>
                       <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
@@ -649,12 +660,34 @@ export default function TrangChiTietDeNghi() {
                             tính bảng thì không có. Nút xám không lời giải thích trông y như
                             app hỏng. */}
                         {quyen.lapPO && chanLapDon && !giaiDoanDaKetThuc(giaiDoan) && (
-                          <p className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-soft">
-                            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-                            <span>
-                              <strong>Chưa lập được đơn đặt hàng.</strong> {chanLapDon}
-                            </span>
-                          </p>
+                          <div className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-bg px-3 py-2">
+                            <p className="flex items-start gap-2 text-sm text-warning-soft">
+                              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                              <span>
+                                {/* Nhãn đổi từ "Chưa lập được đơn" sang "Chưa CẤT được đơn":
+                                    từ 17/08/2026 vào màn nhập liệu được rồi, chỉ nút Cất còn
+                                    bị chặn. Để nguyên chữ cũ là nói sai việc app đang làm. */}
+                                <strong>Chưa cất được đơn đặt hàng.</strong> {chanLapDon} Vào màn
+                                lập đơn thì nhập liệu và nhập từ Excel vẫn dùng được, chỉ nút
+                                Cất còn khóa.
+                              </span>
+                            </p>
+                            {/* 🔴 GỠ NGÕ CỤT: trước đây ô này nói "phải lập bảng báo giá" mà
+                                không cho chỗ nào làm việc đó — muốn lập phải quay ra /de-nghi
+                                rồi tìm menu ⋯ trên thẻ, không ai đoán được.
+                                Đi qua bảng quy trình chứ không gọi thẳng hàm tạo: ở đó việc lập
+                                bảng báo giá đi qua đúng chốt `quyetDinhKeoTha` và hộp xác nhận. */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-fit"
+                              nativeButton={false}
+                              render={<Link href="/de-nghi" />}
+                            >
+                              <FileText className="size-4" aria-hidden />
+                              Sang bảng quy trình để lập bảng báo giá
+                            </Button>
+                          </div>
                         )}
                         {poLienQuan.length === 0 && (
                           <p className="text-sm text-text-desc">
