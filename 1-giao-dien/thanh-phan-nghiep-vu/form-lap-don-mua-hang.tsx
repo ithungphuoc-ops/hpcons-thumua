@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  ChevronRight,
   Download,
   FileSpreadsheet,
   FileText,
@@ -215,6 +216,18 @@ export function FormLapDonMuaHang({
   // ---------------------------------------------------------------------------
   const [dangDocFile, setDangDocFile] = useState(false);
   const [dangTaoFile, setDangTaoFile] = useState(false);
+  /**
+   * Phần nhập liệu đang mở hay đã thu gọn — Ban lãnh đạo 17/08/2026: *"mục tự động nhập này
+   * e tạo nút group lại"*.
+   *
+   * 📌 MẶC ĐỊNH MỞ. Ban lãnh đạo vừa mất sáu lượt trao đổi chỉ để thấy được phần nhập liệu
+   * này; gập sẵn là đưa nó trở lại chỗ không ai thấy. Yêu cầu là "tạo nút", không phải "đổi
+   * mặc định".
+   *
+   * ⚠️ CHỈ có ý nghĩa khi `nhung`. Ở trang riêng `/don-hang/tao-moi` thì cả trang chính là
+   * form này — gập nó lại là trang trắng, nên trang riêng không vẽ nút gập.
+   */
+  const [moNhapLieu, setMoNhapLieu] = useState(true);
   /** Dữ liệu file vừa đọc, đang chờ người dùng soát. `null` = chưa đọc file nào. */
   const [xemTruocExcel, setXemTruocExcel] = useState<DuLieuXemTruocExcel | null>(null);
   /** Giữ riêng phần đã khớp để đổ vào bảng khi người dùng bấm đồng ý. */
@@ -1006,29 +1019,63 @@ export function FormLapDonMuaHang({
       {/* ===== DÒNG ĐẦU: tiêu đề phần nhập liệu + hai nút Excel ===== */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {nhung ? (
-          <div className="flex min-w-0 flex-col gap-1">
-            {/* 🔴 DÙNG `NhanPhanTrongGiaiDoan` — KHÔNG dùng `text-h3`. Tiêu đề của khối bước
-                chỉ 11px, nên một tiêu đề con 18px là to hơn tiêu đề cha: đúng lỗi thứ bậc chữ
-                Ban lãnh đạo khoanh đỏ 16/08/2026. */}
-            <NhanPhanTrongGiaiDoan the="h2" icon={ShoppingCart}>
-              Nhập đơn đặt hàng mới
-            </NhanPhanTrongGiaiDoan>
-            {/* Nói rõ vì sao người khác không thấy phần này — chỉ đạo 17/08/2026 *"chỉ ai được
-                cấp quyền thì mới xem được phần nhập liệu đó"*. Không có câu này thì người
-                dùng tưởng ai mở phiếu cũng lập được đơn. */}
-            <p className="text-xs text-text-desc">
-              Chỉ người được cấp quyền lập đơn thấy phần nhập liệu này. Nhập tay từng dòng,
-              hoặc lấy sẵn từ file Excel.
-            </p>
-          </div>
+          /* 🔴 CẢ CỤM TIÊU ĐỀ LÀ MỘT NÚT GẬP — Ban lãnh đạo 17/08/2026: *"mục tự động nhập
+             này e tạo nút group lại"*. Form này dài hơn 1.000px; để bung mãi thì khối bước ④
+             đẩy phần "Đơn đặt hàng" và các bước sau xuống quá sâu. */
+          <button
+            type="button"
+            onClick={() => setMoNhapLieu((v) => !v)}
+            aria-expanded={moNhapLieu}
+            className="flex min-h-11 min-w-0 flex-1 items-start gap-2 text-left"
+          >
+            <ChevronRight
+              className={`mt-0.5 size-4 shrink-0 text-primary transition-transform ${moNhapLieu ? "rotate-90" : ""}`}
+              aria-hidden
+            />
+            <span className="flex min-w-0 flex-col gap-1">
+              {/* 🔴 DÙNG `NhanPhanTrongGiaiDoan` — KHÔNG dùng `text-h3`. Tiêu đề của khối bước
+                  chỉ 11px, nên một tiêu đề con 18px là to hơn tiêu đề cha: đúng lỗi thứ bậc chữ
+                  Ban lãnh đạo khoanh đỏ 16/08/2026. */}
+              <NhanPhanTrongGiaiDoan the="h2" icon={ShoppingCart}>
+                Nhập đơn đặt hàng mới
+              </NhanPhanTrongGiaiDoan>
+              {/* Nói rõ vì sao người khác không thấy phần này — chỉ đạo 17/08/2026 *"chỉ ai được
+                  cấp quyền thì mới xem được phần nhập liệu đó"*. Không có câu này thì người
+                  dùng tưởng ai mở phiếu cũng lập được đơn.
+                  Khi gập thì đổi thành lời mời bấm mở, để dòng tiêu đề không đứng trơ vô nghĩa. */}
+              <span className="text-xs text-text-desc">
+                {moNhapLieu
+                  ? "Chỉ người được cấp quyền lập đơn thấy phần nhập liệu này. Nhập tay từng dòng, hoặc lấy sẵn từ file Excel."
+                  : "Đã thu gọn — bấm để mở phần nhập liệu (nhập tay hoặc lấy từ file Excel)."}
+              </span>
+            </span>
+          </button>
         ) : (
           <p className="text-sm text-text-desc">
             Nhập tay từng dòng, hoặc lấy sẵn từ file Excel:
           </p>
         )}
-        {nutNhapExcel}
+        {/* Hai nút Excel thuộc phần nhập liệu, nên gập cùng nó. Để chúng đứng lại một mình
+            trên dòng tiêu đề đã thu gọn thì bấm vào là đổ dữ liệu vào một cái bảng đang ẩn. */}
+        {(!nhung || moNhapLieu) && nutNhapExcel}
       </div>
 
+      {/* 🔴 GẬP = ẨN BẰNG `hidden`, KHÔNG THÁO KHỎI CÂY REACT.
+          Tháo là mất sạch mọi ô người dùng đang gõ dở — đúng bài học của `giuNoiDungKhiGap`
+          ở khối bước. `display:none` cũng đưa nội dung ra khỏi thứ tự Tab và khỏi trình đọc
+          màn hình, nên vẫn đúng nghĩa "đã thu gọn".
+
+          Lớp `flex flex-col gap-…` phải chép đúng của `<section>` bao ngoài: thêm một lớp bọc
+          vào giữa là khoảng cách giữa các khối bên trong mất nếu không khai lại. */}
+      <div
+        className={
+          nhung && !moNhapLieu
+            ? "hidden"
+            : nhung
+              ? "flex min-w-0 flex-col gap-(--hp-md-row-gap)"
+              : "flex min-w-0 flex-col gap-(--hp-md-section)"
+        }
+      >
       {/* ===== DẢI THÔNG BÁO: đơn này là MỘT PHẦN tách ra từ bảng báo giá =====
           Không có dòng này thì người lập mở màn ra thấy số liệu tự có sẵn mà không hiểu
           vì sao, dễ tưởng app điền sai rồi xóa đi làm lại. */}
@@ -1544,7 +1591,11 @@ export function FormLapDonMuaHang({
           </div>
         </CardContent>
       </Card>
+      </div>
 
+      {/* Bốn hộp thoại đặt NGOÀI lớp bọc gập: chúng vẽ qua portal nên không nằm trong luồng
+          bố cục, mà để trong lớp `hidden` thì lỡ có hộp đang mở lúc người dùng bấm gập là hộp
+          biến mất giữa chừng. */}
       {/* ===== Hộp chọn mặt hàng cho [Thêm dòng] / phím F9 ===== */}
       <HopChonMatHang
         mo={moChonMatHang}
