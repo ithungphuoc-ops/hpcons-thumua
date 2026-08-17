@@ -26,16 +26,30 @@
 
 import { boDau } from "@/6-tien-ich/bo-dau";
 
-/** Một dòng hàng đọc được từ file. Khớp cột A→J của bảng trong biểu mẫu. */
+/** Một dòng hàng đọc được từ file. */
 export interface DongExcel {
   stt: number;
+  /**
+   * ★ SỐ DÒNG THẬT TRONG FILE EXCEL (1-based, đúng số hiện ở lề trái khi mở Excel).
+   *
+   * 🔴 KHÁC HẲN `stt`. `stt` là số thứ tự app đánh lại sau khi bỏ dòng hỏng; `dongTrongFile`
+   * là chỗ người dùng phải bấm vào để sửa. Báo lỗi mà đưa `stt` thì người dùng dò mãi không
+   * ra dòng nào sai — yêu cầu Ban lãnh đạo 17/08/2026 là chỉ đúng dòng trong file.
+   */
+  dongTrongFile: number;
   maHang?: string;
   tenHang: string;
   thongSoKyThuat?: string;
   donViTinh: string;
   soLuong: number;
   donGia?: number;
+  /** Cột "% Thuế GTGT" của màn MISA — thuế suất riêng của dòng, đơn vị %. */
+  thueSuatGTGT?: number;
+  /** Cột "Trường mở rộng 1" của màn MISA. */
+  truongMoRong1?: string;
   mucDichSuDung?: string;
+  /** Dòng này là DÒNG GHI CHÚ chèn giữa bảng (nút "Thêm ghi chú" của MISA), không phải hàng. */
+  laDongGhiChu?: boolean;
 }
 
 /** Phần thông tin chung ở đầu và cuối phiếu. */
@@ -54,11 +68,59 @@ export interface ThongTinChungExcel {
   diaDiemGiaoHang?: string;
   dieuKhoanKhac?: string;
   dieuKhoanThanhToan?: string;
+  // --- Các ô bám màn Đơn mua hàng MISA (chỉ đạo Ban lãnh đạo 17/08/2026) ---
+  /** Ô "Mã nhà cung cấp". */
+  maNCC?: string;
+  /** Ô "Người liên hệ" — người bên nhà cung cấp. */
+  nguoiLienHe?: string;
+  /** Ô "Nhân viên mua hàng" — người bên mình. */
+  nhanVienMuaHang?: string;
+  /** Ô "Diễn giải". */
+  dienGiai?: string;
+  /** Ô "Tham chiếu". */
+  thamChieu?: string;
+  /** Ô "Số ngày được nợ". */
+  soNgayDuocNo?: number;
+  /** Ô "Ngày đơn hàng" — khác "Ngày giao hàng". */
+  ngayDonHang?: string;
+  /** Ô "Ngày hợp đồng". */
+  ngayHopDong?: string;
+}
+
+/** Một dòng file KHÔNG đọc được, kèm chỗ người dùng phải mở ra sửa. */
+export interface LoiDongExcel {
+  /** Số dòng thật trong file Excel. */
+  dongTrongFile: number;
+  /** Tên hàng đọc được (nếu có) — để người dùng nhận ra dòng nào mà không cần mở file. */
+  tenHang?: string;
+  lyDo: string;
 }
 
 export interface KetQuaDocExcel {
   thongTinChung: ThongTinChungExcel;
   dong: DongExcel[];
+  /**
+   * ★ DÒNG GHI CHÚ chèn giữa bảng — tách riêng khỏi `dong`.
+   *
+   * 🔴 Tách ra là CỐ Ý: gộp vào `dong` thì chúng đi thẳng vào khâu đối chiếu với đề nghị và
+   * bị báo "không có trong đề nghị", đẩy người dùng đi sửa tên một thứ vốn không phải hàng hóa.
+   */
+  dongGhiChu: DongExcel[];
+  /**
+   * ★ TỪNG DÒNG FILE BỊ LOẠI, kèm SỐ DÒNG TRONG EXCEL và lý do.
+   *
+   * 🔴 KHÔNG ĐƯỢC IM LẶNG BỎ DÒNG (yêu cầu Ban lãnh đạo 17/08/2026). Đơn thiếu một mặt hàng
+   * mà không ai biết thì công trình thiếu vật tư, phát hiện ra lúc đã trễ tiến độ.
+   */
+  dongLoi: LoiDongExcel[];
+  /**
+   * ★ TÊN CÁC CỘT BẮT BUỘC KHÔNG TÌM THẤY trong dòng tiêu đề của file.
+   *
+   * Bảng thực tế của kế toán hiếm khi gõ đúng từng ký tự, nên app khớp tên cột không phân biệt
+   * hoa thường và bỏ dấu cách thừa. Khớp không ra thì phải NÓI RÕ THIẾU CỘT NÀO chứ không
+   * lặng lẽ đọc thiếu — người dùng nhìn số liệu đúng một nửa mà tưởng đã nhập đủ.
+   */
+  thieuCot: string[];
   /** Việc cần người dùng biết: dòng bị bỏ qua, ô đọc không ra số... */
   canhBao: string[];
   /**
@@ -135,6 +197,134 @@ export function docNgayVN(s: string | undefined): string | undefined {
   return iso ? `${iso[1]}-${iso[2]}-${iso[3]}` : undefined;
 }
 
+/**
+ * ★ ĐỌC Ô "% THUẾ GTGT" — phải đỡ được cả hai cách Excel giữ phần trăm.
+ *
+ * 🔴 CÁI BẪY: ô định dạng Phần trăm hiện "8%" nhưng Excel lưu bên trong là **0.08**. Thư viện
+ * trả về đúng 0.08, đọc thẳng thành thuế suất **0,08%** — tiền thuế thiếu gần hết mà không có
+ * một dòng cảnh báo nào. Còn ô gõ tay "8%" hay "8" thì lại là 8 thật.
+ *
+ * Cách phân biệt: thuế suất GTGT ở Việt Nam là 0 · 5 · 8 · 10 (%), không có mức nào dưới 1%.
+ * Nên số nằm trong khoảng (0;1) chắc chắn là dạng thập phân → nhân 100.
+ *
+ * ⚠️ Đánh đổi đã biết: mức thuế thật dưới 1% sẽ bị hiểu sai. Chấp nhận được vì mức đó không tồn
+ * tại trong biểu thuế hiện hành; nếu sau này có thì phải đọc thêm định dạng ô, không đoán nữa.
+ */
+function docThueSuat(o: unknown): number | undefined {
+  const n = docSo(o);
+  if (n === undefined) return undefined;
+  if (n > 0 && n < 1) return n * 100;
+  return n;
+}
+
+// ============================================================
+// KHỚP CỘT THEO TÊN TIÊU ĐỀ
+//
+// 🔴 VÌ SAO ĐỔI TỪ VỊ TRÍ CỨNG SANG KHỚP TÊN (chỉ đạo Ban lãnh đạo 17/08/2026):
+// Trước đây app đọc cứng cột A→J. Màn Đơn mua hàng của MISA có thêm cột "% Thuế GTGT",
+// "Tiền thuế GTGT", "Trường mở rộng 1" và cột đầu ghi "#" chứ không phải "STT" — chỉ cần
+// người dùng chèn một cột là mọi cột sau đó lệch hết, mà lệch IM LẶNG: app vẫn đọc ra số,
+// chỉ là lấy nhầm ô. Đơn giá đọc nhầm sang cột thành tiền thì đơn hàng sai giá.
+//
+// Khớp theo tên thì chèn cột, đổi thứ tự, thêm cột lạ đều không ảnh hưởng.
+// ============================================================
+
+/** Các cột app biết đọc. */
+export type MaCot =
+  | "stt"
+  | "maHang"
+  | "tenHang"
+  | "thongSoKyThuat"
+  | "donViTinh"
+  | "soLuong"
+  | "donGia"
+  | "thanhTien"
+  | "thueSuatGTGT"
+  | "tienThueGTGT"
+  | "truongMoRong1"
+  | "mucDichSuDung";
+
+/** Tên hiển thị của cột — dùng khi báo "thiếu cột nào". */
+export const TEN_COT: Record<MaCot, string> = {
+  stt: "STT",
+  maHang: "Mã hàng",
+  tenHang: "Tên hàng",
+  thongSoKyThuat: "Thông số kỹ thuật",
+  donViTinh: "ĐVT",
+  soLuong: "Số lượng",
+  donGia: "Đơn giá",
+  thanhTien: "Thành tiền",
+  thueSuatGTGT: "% Thuế GTGT",
+  tienThueGTGT: "Tiền thuế GTGT",
+  truongMoRong1: "Trường mở rộng 1",
+  mucDichSuDung: "Mục đích sử dụng",
+};
+
+/**
+ * Các cách viết chấp nhận được cho mỗi cột — đã bỏ dấu và viết thường.
+ *
+ * ⚠️ SO KHỚP ĐÚNG BẰNG CẢ CHUỖI, không dùng "chứa" hay "bắt đầu bằng". Nếu dùng "chứa" thì
+ * "tien thue gtgt" chứa luôn "thue gtgt" → hai cột khác nhau tranh nhau một ô, và cột nào
+ * thắng phụ thuộc thứ tự duyệt. Sai kiểu đó không có triệu chứng nào ngoài con số lệch.
+ *
+ * 📌 Thêm cách viết mới thì thêm vào đây, đừng sửa chỗ đọc.
+ */
+const CACH_VIET_COT: Record<MaCot, string[]> = {
+  stt: ["stt", "#", "so tt", "so thu tu"],
+  maHang: ["ma hang", "ma vat tu", "ma vt", "ma hang hoa", "ma san pham"],
+  tenHang: ["ten hang", "ten vat tu", "ten vat lieu", "ten hang hoa", "ten hang hoa dich vu"],
+  thongSoKyThuat: ["thong so ky thuat", "thong so", "quy cach", "quy cach ky thuat", "tskt"],
+  donViTinh: ["dvt", "don vi tinh", "don vi", "dv tinh"],
+  soLuong: ["sl", "so luong", "khoi luong", "so luong dat", "kl"],
+  donGia: ["don gia", "gia", "don gia chua thue", "don gia truoc thue"],
+  thanhTien: ["thanh tien", "thanh tien chua thue"],
+  thueSuatGTGT: ["% thue gtgt", "thue suat gtgt", "% vat", "thue gtgt", "thue suat", "vat", "% thue"],
+  tienThueGTGT: ["tien thue gtgt", "tien thue", "tien vat"],
+  truongMoRong1: ["truong mo rong 1", "truong mo rong"],
+  mucDichSuDung: ["muc dich su dung", "muc dich", "ghi chu su dung"],
+};
+
+/**
+ * Chuẩn hóa một ô tiêu đề để đem so.
+ *
+ * Bỏ dấu tiếng Việt · viết thường · bỏ dấu `*` (MISA đánh dấu trường bắt buộc bằng dấu sao) ·
+ * gộp mọi khoảng trắng và dấu chấm/hai chấm thành một dấu cách · cắt hai đầu.
+ * Nhờ vậy `"  SỐ LƯỢNG "`, `"Số lượng"`, `"số  lượng"` đều ra `"so luong"`.
+ */
+function chuanHoaTieuDe(s: string): string {
+  return boDau(s)
+    .replace(/\*/g, "")
+    .replace(/[:.]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Vị trí cột (1-based) của từng loại dữ liệu trong file đang đọc. */
+export type BanDoCot = Partial<Record<MaCot, number>>;
+
+/**
+ * Đọc dòng tiêu đề thành bản đồ cột.
+ *
+ * ⚠️ CỘT KHỚP ĐẦU TIÊN THẮNG. Biểu mẫu công ty gộp ô "Thành tiền" hết H:I, mà thư viện trả
+ * giá trị ô gốc cho mọi ô con trong vùng gộp — nên cột I cũng "tên là Thành tiền". Giữ cột
+ * khớp đầu tiên (H) thì đọc đúng ô có số; để cột sau đè lên là đọc trúng ô rỗng.
+ */
+function doBanDoCot(oChu: (r: number, c: number) => string, dongTieuDe: number, soCot: number): BanDoCot {
+  const banDo: BanDoCot = {};
+  for (let c = 1; c <= soCot; c++) {
+    const tieuDe = chuanHoaTieuDe(oChu(dongTieuDe, c));
+    if (tieuDe === "") continue;
+    for (const ma of Object.keys(CACH_VIET_COT) as MaCot[]) {
+      if (banDo[ma] !== undefined) continue;
+      if (CACH_VIET_COT[ma].includes(tieuDe)) {
+        banDo[ma] = c;
+        break;
+      }
+    }
+  }
+  return banDo;
+}
+
 /** Lấy chuỗi hiển thị của một ô ExcelJS (ô có công thức trả về object `{ result }`). */
 function chuOi(o: unknown): string {
   if (o === null || o === undefined) return "";
@@ -157,39 +347,117 @@ function chuOi(o: unknown): string {
 export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExcel> {
   const ExcelJS = await import("exceljs");
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(file);
 
-  const ws = wb.worksheets[0];
-  if (!ws) {
-    return {
-      thongTinChung: {},
-      dong: [],
-      canhBao: ["File không có trang tính nào."],
-      bangTrong: true,
-    };
+  /**
+   * 🔴 KHÔNG NUỐT LỖI ĐỊNH DẠNG. Ném ra một câu nói rõ phải làm gì, kèm nguyên nhân gốc ở
+   * `cause` để còn chẩn đoán được khi người dùng báo lỗi. Trước đây lỗi thô của thư viện đi
+   * thẳng lên giao diện, mà nó viết bằng tiếng Anh và không nói được file sai ở chỗ nào.
+   */
+  try {
+    await wb.xlsx.load(file);
+  } catch (loi) {
+    throw new Error(
+      "Không mở được file. File phải là .xlsx (Excel 2007 trở lên) và không bị hỏng. " +
+        "File .xls đời cũ cần mở bằng Excel rồi “Lưu thành” định dạng .xlsx.",
+      { cause: loi },
+    );
   }
 
+  /** Kết quả rỗng dùng cho các đường thoát sớm — khai một chỗ để không sót trường mới. */
+  const ketQuaRong = (canhBao: string[]): KetQuaDocExcel => ({
+    thongTinChung: {},
+    dong: [],
+    dongGhiChu: [],
+    dongLoi: [],
+    thieuCot: [],
+    canhBao,
+    bangTrong: true,
+  });
+
+  const ws = wb.worksheets[0];
+  if (!ws) return ketQuaRong(["File không có trang tính nào."]);
+
   const canhBao: string[] = [];
+  const dongLoi: LoiDongExcel[] = [];
   const oChu = (r: number, c: number) => chuOi(ws.getRow(r).getCell(c).value).trim();
 
-  // --- Dò dòng tiêu đề bảng: dòng nào có ô A = "STT" ---
+  /**
+   * --- Dò dòng tiêu đề bảng ---
+   *
+   * 🔴 KHÔNG CÒN ĐÒI Ô A PHẢI LÀ "STT". Màn Đơn mua hàng của MISA đánh cột đầu là "#", và
+   * bảng của kế toán hay chèn thêm cột trước STT. Dấu hiệu chắc chắn hơn: dòng nào vừa có cột
+   * TÊN HÀNG vừa có cột SỐ LƯỢNG thì đó là dòng tiêu đề bảng — không bảng hàng nào thiếu hai
+   * cột này, và không dòng dữ liệu nào vô tình có cả hai cái tên đó.
+   */
+  const SO_COT_QUET = Math.max(ws.columnCount, 20);
   let dongTieuDe = -1;
+  let banDoCot: BanDoCot = {};
   for (let r = 1; r <= Math.min(ws.rowCount, 40); r++) {
-    if (oChu(r, 1).toUpperCase() === "STT") {
+    const thu = doBanDoCot(oChu, r, SO_COT_QUET);
+    if (thu.tenHang !== undefined && thu.soLuong !== undefined) {
       dongTieuDe = r;
+      banDoCot = thu;
       break;
     }
   }
   if (dongTieuDe < 0) {
-    return {
-      thongTinChung: {},
-      dong: [],
-      canhBao: [
-        "Không tìm thấy bảng hàng trong file. File phải theo biểu mẫu “1. DON HANG HPCONS.xlsx” (có dòng tiêu đề bắt đầu bằng ô STT).",
-      ],
-      bangTrong: true,
-    };
+    return ketQuaRong([
+      "Không tìm thấy bảng hàng trong file. Dòng tiêu đề của bảng phải có ít nhất hai cột " +
+        "“Tên hàng” và “Số lượng” (viết hoa hay thường đều được). " +
+        "Bấm “Tải file mẫu” để lấy bản đúng cấu trúc.",
+    ]);
   }
+
+  /**
+   * --- Báo thiếu cột, KHÔNG lặng lẽ đọc thiếu ---
+   *
+   * Bảy cột Ban lãnh đạo yêu cầu (17/08/2026) đối chiếu với màn MISA. Thiếu thì vẫn đọc tiếp
+   * bằng những cột có thật — chặn hẳn sẽ làm biểu mẫu công ty đang lưu hành (không có cột
+   * "% Thuế GTGT") không nhập được nữa. Nhưng phải NÊU ĐÍCH DANH cột thiếu để người dùng biết
+   * số liệu nào không được lấy vào.
+   */
+  const COT_BAT_BUOC: MaCot[] = [
+    "maHang",
+    "tenHang",
+    "thongSoKyThuat",
+    "donViTinh",
+    "soLuong",
+    "donGia",
+    "thueSuatGTGT",
+  ];
+  const thieuCot = COT_BAT_BUOC.filter((ma) => banDoCot[ma] === undefined).map((ma) => TEN_COT[ma]);
+  if (thieuCot.length > 0) {
+    canhBao.push(
+      `File thiếu ${thieuCot.length} cột so với mẫu đơn mua hàng: ${thieuCot.join(" · ")}. ` +
+        "Các cột này sẽ để trống, cần điền tay sau khi nhập.",
+    );
+  }
+  // Cột "% Thuế GTGT" thiếu là chuyện thường với biểu mẫu công ty — nói rõ app lấy gì thay thế,
+  // đừng để người dùng tưởng thuế bị bỏ qua.
+  if (banDoCot.thueSuatGTGT === undefined) {
+    canhBao.push(
+      "File không có cột “% Thuế GTGT” theo từng dòng — app sẽ dùng thuế suất chung của cả đơn.",
+    );
+  }
+
+  /** Đọc một ô theo LOẠI dữ liệu thay vì theo vị trí. Cột không có trong file → chuỗi rỗng. */
+  const oTheoCot = (r: number, ma: MaCot): string => {
+    const c = banDoCot[ma];
+    return c === undefined ? "" : oChu(r, c);
+  };
+  const oThoTheoCot = (r: number, ma: MaCot): unknown => {
+    const c = banDoCot[ma];
+    return c === undefined ? undefined : ws.getRow(r).getCell(c).value;
+  };
+  /**
+   * Cột STT thật (nếu file có). Dùng cho chốt chặn "ô STT luôn là số" ở dưới.
+   *
+   * 🔴 KHÔNG ĐƯỢC THAY BẰNG CỘT 1 KHI FILE KHÔNG CÓ CỘT STT. Bảng nào không có cột STT thì
+   * cột 1 thường chính là "Tên hàng" — mà tên hàng là chữ, nên chốt chặn kia cắt đứt bảng
+   * ngay dòng hàng đầu tiên và app đọc ra 0 dòng. Lỗi này IM LẶNG hoàn toàn: không cảnh báo,
+   * chỉ là đơn hàng trống. Đã dựng lại được khi thử với bảng đảo thứ tự cột.
+   */
+  const cotSTT = banDoCot.stt;
 
   // --- Thông tin chung: dò theo NHÃN chứ không theo số dòng cứng ---
   // Người dùng có thể chèn/xóa dòng phía trên bảng, dò theo nhãn thì vẫn đúng.
@@ -286,10 +554,22 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
     diaDiemGiaoHang: timTheoNhan("địa điểm giao hàng"),
     dieuKhoanKhac: timTheoNhan("điều khoản khác"),
     dieuKhoanThanhToan: timTheoNhan("điều khoản thanh toán"),
+    // --- Các ô của màn Đơn mua hàng MISA (chỉ đạo Ban lãnh đạo 17/08/2026) ---
+    // ⚠️ Dò "mã nhà cung cấp" PHẢI đứng trước và tách khỏi "mã số thuế": hai nhãn đều bắt đầu
+    // bằng "mã " nhưng `timTheoNhan` so bằng `startsWith` cả cụm nên không lẫn nhau.
+    maNCC: timTheoNhan("mã nhà cung cấp"),
+    nguoiLienHe: timTheoNhan("người liên hệ"),
+    nhanVienMuaHang: timTheoNhan("nhân viên mua hàng"),
+    dienGiai: timTheoNhan("diễn giải"),
+    thamChieu: timTheoNhan("tham chiếu"),
+    soNgayDuocNo: docSo(timTheoNhan("số ngày được nợ")),
+    ngayDonHang: timTheoNhan("ngày đơn hàng"),
+    ngayHopDong: timTheoNhan("ngày hợp đồng"),
   };
 
   // --- Bảng hàng: đọc từ dòng dưới tiêu đề, dừng ở "Cộng tiền hàng" ---
   const dong: DongExcel[] = [];
+  const dongGhiChu: DongExcel[] = [];
   let soDongTrongLienTiep = 0;
   /** Có gặp ô nào có dữ liệu trong vùng bảng chưa — để phân biệt biểu mẫu trống. */
   let coODuLieuTrongBang = false;
@@ -304,25 +584,39 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
   const NHAN_HET_BANG = ["cộng tiền hàng", "số tiền ck", "thuế suất", "số tiền viết bằng chữ"];
 
   for (let r = dongTieuDe + 1; r <= ws.rowCount; r++) {
-    const oA = oChu(r, 1);
-    const oAThuong = oA.toLowerCase();
-    if (NHAN_HET_BANG.some((nhan) => oAThuong.startsWith(nhan))) break;
+    /**
+     * Nhãn kết thúc bảng — soi CẢ cột 1 LẪN cột Tên hàng.
+     *
+     * Vùng tổng kết là các ô GỘP hết chiều ngang, mà thư viện trả giá trị ô gốc cho mọi ô con
+     * trong vùng gộp. Bảng bắt đầu ở cột 1 thì nhãn nằm ở cột 1; bảng thụt vào (hoặc không có
+     * cột STT) thì chính cột Tên hàng nhận được chữ đó. Soi cả hai mới chặn đủ.
+     */
+    const oMoc = [oChu(r, 1), oTheoCot(r, "tenHang")];
+    if (oMoc.some((s) => NHAN_HET_BANG.some((nhan) => s.toLowerCase().startsWith(nhan)))) break;
 
-    // 🔴 CHẶN THÊM MỘT LỚP: cột STT của vùng bảng luôn là SỐ. Ô A có chữ mà không
-    // phải "Cộng tiền hàng" nghĩa là đã đi quá bảng, xuống vùng tổng kết
+    // 🔴 CHẶN THÊM MỘT LỚP: ô cột STT của vùng bảng luôn là SỐ. Có chữ mà không phải
+    // "Cộng tiền hàng" nghĩa là đã đi quá bảng, xuống vùng tổng kết
     // ("Thuế suất thuế GTGT:", "Số tiền viết bằng chữ:"...). Dừng luôn.
     //
-    // Cần lớp này vì vùng tổng kết là các Ô GỘP hết chiều ngang — thư viện đọc sẽ
-    // trả giá trị của ô gộp cho MỌI cột trong vùng, nên cột "Tên hàng" bỗng có chữ
-    // và dòng rác lọt vào danh sách. Đã gặp thật khi thử.
-    if (oA !== "" && docSo(oA) === undefined) break;
+    // ⚠️ CHỈ ÁP DỤNG KHI FILE THẬT SỰ CÓ CỘT STT. Trước đây chỗ này rơi về cột 1 khi không
+    // tìm thấy cột STT — mà bảng không có cột STT thì cột 1 chính là "Tên hàng", vốn là chữ,
+    // nên bảng bị cắt ngay dòng hàng đầu tiên và app đọc ra 0 dòng, không một cảnh báo nào.
+    if (cotSTT !== undefined) {
+      const oSTT = oChu(r, cotSTT);
+      if (oSTT !== "" && docSo(oSTT) === undefined) break;
+    }
 
-    const tenHang = oChu(r, 3);
-    const soLuong = docSo(ws.getRow(r).getCell(6).value);
+    const tenHang = oTheoCot(r, "tenHang");
+    const soLuong = docSo(oThoTheoCot(r, "soLuong"));
+    const maHang = oTheoCot(r, "maHang");
+    const donViTinh = oTheoCot(r, "donViTinh");
+    const donGia = docSo(oThoTheoCot(r, "donGia"));
+    const thueSuatDong = docThueSuat(oThoTheoCot(r, "thueSuatGTGT"));
+
     // Bất kỳ ô nào trong vùng bảng có nội dung — kể cả chỉ điền STT hoặc chỉ điền ĐVT.
     // Dùng để nói đúng "biểu mẫu chưa điền gì" thay vì đoán bừa lý do.
     if (!coODuLieuTrongBang) {
-      for (let c = 1; c <= 10; c++) {
+      for (let c = 1; c <= SO_COT_QUET; c++) {
         if (oChu(r, c) !== "") {
           coODuLieuTrongBang = true;
           break;
@@ -342,23 +636,66 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
     // Có tên nhưng thiếu số lượng (hoặc ngược lại) — báo cho người dùng biết dòng nào hỏng,
     // KHÔNG tự đoán giá trị thay họ.
     if (tenHang === "") {
-      canhBao.push(`Dòng ${r}: có số liệu nhưng thiếu tên hàng — đã bỏ qua.`);
+      const lyDo = "có số liệu nhưng thiếu tên hàng";
+      dongLoi.push({ dongTrongFile: r, lyDo });
+      canhBao.push(`Dòng ${r}: ${lyDo} — đã bỏ qua.`);
       continue;
     }
-    if (soLuong === undefined || soLuong <= 0) {
-      canhBao.push(`Dòng ${r} (${tenHang}): thiếu số lượng hoặc số lượng không hợp lệ — đã bỏ qua.`);
+
+    /**
+     * ★ DÒNG GHI CHÚ chèn giữa bảng (nút "Thêm ghi chú" của MISA) — CHỈ có chữ ở cột Tên hàng.
+     *
+     * 🔴 PHÂN BIỆT VỚI DÒNG HÀNG QUÊN ĐIỀN SỐ LƯỢNG, nếu không thì mọi dòng thiếu SL đều bị
+     * nuốt thành ghi chú và người dùng mất hàng mà không hay. Dấu hiệu: dòng ghi chú không có
+     * mã hàng, không ĐVT, không đơn giá, không thuế suất — quên điền SL thì thường vẫn còn ít
+     * nhất một trong số đó.
+     *
+     * Vẫn ghi ra `canhBao` chứ không im lặng: người dùng phải thấy app đã hiểu dòng đó thế nào.
+     */
+    const trongMoiCotSo =
+      maHang === "" && donViTinh === "" && donGia === undefined && thueSuatDong === undefined;
+    if (soLuong === undefined && trongMoiCotSo) {
+      dongGhiChu.push({
+        stt: dongGhiChu.length + 1,
+        dongTrongFile: r,
+        tenHang,
+        donViTinh: "",
+        soLuong: 0,
+        laDongGhiChu: true,
+      });
+      canhBao.push(`Dòng ${r}: đọc thành DÒNG GHI CHÚ (“${tenHang}”), không phải mặt hàng.`);
       continue;
+    }
+
+    if (soLuong === undefined || soLuong <= 0) {
+      const lyDo = "thiếu số lượng hoặc số lượng không hợp lệ";
+      dongLoi.push({ dongTrongFile: r, tenHang, lyDo });
+      canhBao.push(`Dòng ${r} (${tenHang}): ${lyDo} — đã bỏ qua.`);
+      continue;
+    }
+
+    // Thuế suất đọc ra ngoài khoảng hợp lý thì BỎ giá trị đó và báo, chứ không đem đi tính:
+    // một con số vô lý lọt vào là tổng thanh toán sai mà nhìn bảng không thấy chỗ nào sai.
+    let thueSuat = thueSuatDong;
+    if (thueSuat !== undefined && (thueSuat < 0 || thueSuat > 100)) {
+      const lyDo = `% thuế GTGT không hợp lệ (${thueSuat})`;
+      dongLoi.push({ dongTrongFile: r, tenHang, lyDo });
+      canhBao.push(`Dòng ${r} (${tenHang}): ${lyDo} — dùng thuế suất chung của đơn thay thế.`);
+      thueSuat = undefined;
     }
 
     dong.push({
       stt: dong.length + 1,
-      maHang: oChu(r, 2) || undefined,
+      dongTrongFile: r,
+      maHang: maHang || undefined,
       tenHang,
-      thongSoKyThuat: oChu(r, 4) || undefined,
-      donViTinh: oChu(r, 5) || "",
+      thongSoKyThuat: oTheoCot(r, "thongSoKyThuat") || undefined,
+      donViTinh,
       soLuong,
-      donGia: docSo(ws.getRow(r).getCell(7).value),
-      mucDichSuDung: oChu(r, 10) || undefined,
+      donGia,
+      thueSuatGTGT: thueSuat,
+      truongMoRong1: oTheoCot(r, "truongMoRong1") || undefined,
+      mucDichSuDung: oTheoCot(r, "mucDichSuDung") || undefined,
     });
   }
 
@@ -379,7 +716,14 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
   const thieuDVT = dong.filter((d) => d.donViTinh === "").length;
   if (thieuDVT > 0) canhBao.push(`${thieuDVT} dòng chưa có ĐVT — cần điền trước khi chốt đơn.`);
 
-  return { thongTinChung, dong, canhBao, bangTrong };
+  // Thiếu đơn giá thì không chốt được đơn (luật ở màn lập đơn), nên nói ngay từ lúc nhập file
+  // thay vì để người dùng bấm "Chốt đơn hàng" rồi mới bị chặn.
+  const thieuGia = dong.filter((d) => d.donGia === undefined || d.donGia <= 0).length;
+  if (thieuGia > 0) {
+    canhBao.push(`${thieuGia} dòng chưa có đơn giá — phải điền đủ mới chốt được đơn hàng.`);
+  }
+
+  return { thongTinChung, dong, dongGhiChu, dongLoi, thieuCot, canhBao, bangTrong };
 }
 
 // ============================================================

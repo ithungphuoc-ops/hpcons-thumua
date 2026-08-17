@@ -13,7 +13,7 @@ Thư mục này **không có giao diện** và **không chứa dữ liệu**. Sa
 | **`lich-cong-viec.ts`** | Suy ra **việc đến hạn theo ngày** của từng người + lưới tháng | Lịch thiếu/thừa việc, sai ngày, hiện việc của người khác |
 | **`xuat-don-hang-excel.ts`** | **Xuất đơn ĐÃ LẬP** ra .xlsx đúng biểu mẫu công ty (gửi NCC, lưu hồ sơ) | File xuất ra lệch biểu mẫu, sai ô, sai công thức |
 | **`ghi-don-hang-excel.ts`** | **Biểu mẫu TRỐNG** để người lập điền đơn giá rồi nhập lại vào app | Nút "Tải file mẫu" ở màn lập đơn ra file sai |
-| **`doc-don-hang-excel.ts`** | Đọc file Excel người dùng chọn để điền sẵn màn lập đơn | Nhập từ Excel không nhận dòng, sai cột |
+| **`doc-don-hang-excel.ts`** | Đọc file Excel người dùng chọn để điền sẵn màn lập đơn. **Khớp cột theo TÊN tiêu đề**, báo rõ thiếu cột nào và dòng nào hỏng (kèm số dòng trong file) | Nhập từ Excel không nhận dòng, sai cột |
 | **`tinh-toan.ts`** | Toàn bộ công thức của app | Số đã nhận / còn lại / % sai; điều kiện hoàn thành PO sai; sai chiết khấu / thuế / tổng thanh toán |
 | **`tim-kiem.ts`** | Luật ô tìm kiếm trên thanh trên + **lọc kết quả theo quyền** | Tìm không ra hồ sơ; vai trò thấy hồ sơ lẽ ra không được thấy |
 | **`trang-thai.ts`** | Chữ và tông màu cho mọi trạng thái | Muốn đổi cách gọi trạng thái, đổi màu badge |
@@ -60,13 +60,45 @@ làm người dùng bí việc. Muốn cấm hẳn một bước thì thêm lu�
 | `vuongMacXacNhanKho` | Lý do thủ kho CHƯA được bấm xác nhận (còn phiếu nào thiếu tệp phiếu giao nhận), `null` là được phép |
 | `tinhTienDoDeNghi` | Tiến độ từng dòng đề nghị, **gộp từ nhiều PO** |
 | `tomTatTienDoDeNghi` | "6/10 mặt hàng đã nhận đủ" |
+| `laDongHang` | Dòng PO này là **hàng thật** hay **dòng ghi chú** chèn giữa bảng. 🔴 Mọi vòng lặp qua `po.items` phải lọc qua đây |
 | `tongGiaTriPO` | Tổng tiền hàng — **chỉ gọi khi vai trò được xem giá** |
-| `tinhKhoiTongTien` | Khối tổng theo **đúng trình tự biểu mẫu công ty**: cộng tiền hàng → trừ CK → thuế GTGT → tổng thanh toán. Nhận ba con số thô nên **màn LẬP đơn xem trước được khi PO chưa tồn tại** |
-| `tinhTienDonHang` | Như trên nhưng nhận thẳng (PO, chứng từ giá) — dùng ở màn xem và trang in |
+| **`tinhTienChiTiet`** | ★ **MÁY TÍNH TIỀN — nơi duy nhất tính mọi con số tiền.** Nhận danh sách dòng + phần thương lượng, trả về **từng dòng** (thành tiền · chiết khấu phân bổ · % thuế · tiền thuế) **và khối tổng** |
+| `tinhTienChiTietPO` | Như trên nhưng nhận thẳng (PO, chứng từ giá) — cho bảng "Hàng tiền" có dòng TỔNG CỘNG |
+| `tinhKhoiTongTien` | Khối tổng từ **ba con số thô**, để **màn LẬP đơn xem trước được khi PO chưa tồn tại**. Chỉ là lớp vỏ gọi vào `tinhTienChiTiet` |
+| `tinhTienDonHang` | Khối tổng của đơn đã lập — dùng ở màn xem và trang in |
+| `lamTronDong` | Quy ước làm tròn tiền của toàn app: **về đồng, nửa lên** |
+| `thanhTienDong` · `tienThueDong` · `tienChietKhau` | Ba phép tính lẻ, tách ra để gọi riêng được |
+| `chiaTheoTyLe` | Chia một số tiền cho các dòng theo tỷ lệ, **không rơi mất đồng nào** |
+| `moTaThueSuat` | Chữ in ra chứng từ: `"8%"` hoặc `"nhiều mức"` |
 | `soNgayConLai` · `tongMauTheoThoiGian` | Số ngày còn lại và màu thanh timeline |
 
 🔴 **Thuế GTGT tính TRÊN GIÁ ĐÃ TRỪ CHIẾT KHẤU** — đúng thứ tự các dòng trên biểu mẫu
 `1. INPUT/Bieu mau/1. DON HANG HPCONS.xlsx`. Đảo thứ tự là ra số thuế khác.
+
+### Ba quy ước làm tròn tiền (chỉ đạo Ban lãnh đạo 17/08/2026 — bám màn Đơn mua hàng MISA)
+
+Lệch một đồng giữa màn hình và bản in là mất uy tín với nhà cung cấp, nên ba việc dưới đây
+**không được đổi nếu chưa hiểu hết hậu quả**:
+
+1. **Chiết khấu phân bổ về từng dòng theo tỷ lệ thành tiền.** Bắt buộc, không phải cho đẹp:
+   đơn trộn nhiều mức thuế mà để chiết khấu ở mức tổng thì không biết phần nào thuộc hàng 8%,
+   phần nào thuộc hàng 10% → không tính nổi tiền thuế.
+2. **Thuế làm tròn MỘT LẦN cho mỗi MỨC thuế suất**, không phải làm tròn từng dòng rồi cộng.
+   Đây là cách tờ khai thuế GTGT gộp số liệu, và nhờ nó mà đơn một mức thuế cho ra kết quả
+   **trùng khít** với `tinhKhoiTongTien` — phần xem trước lúc lập đơn không bao giờ lệch số
+   đã lưu của đơn.
+3. **Cột "Tiền thuế GTGT" từng dòng là phần chia lại** từ số đã làm tròn của nhóm, qua
+   `chiaTheoTyLe`. Nhờ vậy cộng cột luôn đúng bằng dòng TỔNG CỘNG.
+
+🔴 **Đơn trộn nhiều mức thuế: KHÔNG được in `thueSuatGTGT` như thuế suất của cả đơn.** Lúc đó
+trường ấy chỉ là mức của nhóm lớn nhất; in ra thành *"Tiền thuế GTGT (thuế suất 8%)"* trong khi
+đơn có cả 10% là **ghi sai chứng từ thuế**. Kiểm cờ `nhieuMucThue`, dùng `moTaThueSuat`.
+
+### Dòng ghi chú chèn giữa bảng
+
+Nút "Thêm ghi chú" của MISA chèn một **dòng** vào bảng hàng chứ không mở ô ghi chú riêng.
+Đánh dấu bằng `DongPO.laDongGhiChu`. 🔴 Quên lọc nó ra thì nó bị đếm vào mẫu số của
+`phanTramPO` (sai % tiến độ) và **nằm chờ nhận hàng vĩnh viễn** ở bảng tiến độ.
 
 ## `lich-cong-viec.ts` — việc tự động SUY RA, không lưu bản sao
 
@@ -97,7 +129,17 @@ Bốn mốc tự lên lịch (Ban lãnh đạo chốt 11/08/2026): **ngày cần
 
 🔴 **Không gộp ba file này.** Hai luồng khác đầu vào, khác quyền (xuất PO **bắt buộc** quyền `xemGia`, tải mẫu thì không), khác mục đích. Gộp lại là sớm muộn có ngày xuất bản trống gửi cho nhà cung cấp.
 
-⚠️ **Thứ tự cột phải trùng nhau ở cả ba file**: `A=STT · B=Mã hàng · C=Tên hàng · D=Thông số kỹ thuật · E=ĐVT · F=SL · G=Đơn giá · H=Thành tiền (gộp H:I) · J=Mục đích sử dụng`. Sửa một bên mà quên bên kia là file app xuất ra chính app lại không đọc được.
+📌 **Thứ tự cột A→J của biểu mẫu công ty**: `A=STT · B=Mã hàng · C=Tên hàng · D=Thông số kỹ thuật · E=ĐVT · F=SL · G=Đơn giá · H=Thành tiền (gộp H:I) · J=Mục đích sử dụng`. Hai file **ghi** (`ghi-` và `xuat-`) vẫn phải giữ đúng thứ tự này — đây là chứng từ đang lưu hành và trang in A4 bám theo.
+
+🔴 **Từ 17/08/2026 bên ĐỌC không còn phụ thuộc vị trí cột — nó khớp theo TÊN TIÊU ĐỀ** (`CACH_VIET_COT` trong `doc-don-hang-excel.ts`), không phân biệt hoa thường, bỏ dấu cách thừa, bỏ dấu `*`.
+
+Lý do đổi: màn Đơn mua hàng của MISA có thêm cột `% Thuế GTGT`, `Tiền thuế GTGT`, `Trường mở rộng 1` và cột đầu ghi `#` chứ không phải `STT`. Đọc theo vị trí thì **chỉ cần chèn một cột là mọi cột sau lệch hết, mà lệch IM LẶNG** — app vẫn đọc ra số, chỉ là lấy nhầm ô; đơn giá đọc trúng cột thành tiền thì đơn hàng sai giá mà không cảnh báo gì.
+
+Nhờ vậy `ghi-don-hang-excel.ts` thêm được `K=% Thuế GTGT` và `L=Trường mở rộng 1` **vào cuối** mà không phải đụng vào A→J.
+
+⚠️ **Đổi chữ ở dòng tiêu đề bảng thì phải thêm cách viết mới vào `CACH_VIET_COT`**, nếu không app báo "thiếu cột" và bỏ trống cột đó.
+
+🔴 **So khớp tên cột phải là SO CẢ CHUỖI, không dùng "chứa".** `"tien thue gtgt"` chứa luôn `"thue gtgt"` → hai cột khác nhau tranh nhau một ô, cột nào thắng phụ thuộc thứ tự duyệt. Sai kiểu đó không có triệu chứng nào ngoài con số lệch.
 
 📌 **Bố cục ô của `xuat-don-hang-excel.ts` đọc trực tiếp từ XML biểu mẫu thật**, không suy từ trang in. Cách đọc an toàn: copy file sang thư mục tạm → đổi đuôi `.zip` → giải nén → đọc `xl/worksheets/sheet1.xml`. 🔴 **KHÔNG mở bằng Excel COM** — Excel ghi lại metadata làm đổi file gốc, vi phạm quy tắc "không sửa file trong `1. INPUT/`".
 

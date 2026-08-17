@@ -46,13 +46,16 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Sai ở **danh sách Đơn hàng** | `1-giao-dien/trang/don-hang-danh-sach.tsx` |
 | Sai ở **chi tiết Đơn hàng** | `1-giao-dien/trang/don-hang-chi-tiet.tsx` |
 | Sai ở **bảng tiến độ nhận hàng** (cột theo từng lần giao) | `thanh-phan-nghiep-vu/bang-tien-do-po.tsx` |
-| Sai ở **màn Lập đơn đặt hàng** | `1-giao-dien/trang/don-hang-lap-moi.tsx` |
+| Sai ở **màn Lập đơn mua hàng** (bố cục chung, khối thông tin 3 cột, hai khối dưới, thanh nút Hủy / Cất / Cất và In) | `1-giao-dien/trang/don-hang-lap-moi.tsx` — bám màn "Đơn mua hàng" của MISA theo chỉ đạo Ban lãnh đạo 17/08/2026 |
+| Sai ở **bảng "Hàng tiền"** của màn lập đơn (cột, thứ tự cột, dòng TỔNG CỘNG, nút Thêm dòng / Thêm ghi chú / Xóa hết dòng) | `thanh-phan-nghiep-vu/bang-hang-tien.tsx`. 🔴 Con số tiền **không tính ở đó** — sửa công thức thì vào `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet` |
+| **Nhập Excel vào màn lập đơn** báo sai / bỏ sót dòng | Đọc file: `2-quy-trinh/doc-don-hang-excel.ts` (khớp cột theo TÊN tiêu đề, trả `dongLoi` kèm **số dòng thật trong file**) · Hộp xem trước: `thanh-phan-nghiep-vu/hop-xem-truoc-nhap-excel.tsx` · Đổ vào bảng: `trang/don-hang-lap-moi.tsx` → `doVaoBang` |
 | **Trang IN đơn mua hàng A4** sai bố cục / thiếu ô so với biểu mẫu giấy | `1-giao-dien/trang/don-hang-in.tsx` — địa chỉ `/in/don-hang/[id]` |
 | **File Excel xuất ra lệch biểu mẫu** (nút "Xuất Excel" ở chi tiết đơn hàng) | `2-quy-trinh/xuat-don-hang-excel.ts` — bố cục ô đọc từ XML biểu mẫu thật, xem mục "Ba file Excel" trong `2-quy-trinh/README.md` |
 | **Nút "Xuất Excel" bị khóa** | `2-quy-trinh/xuat-don-hang-excel.ts` → `vuongMacXuatPO` (thường là chưa có đơn giá) |
 | **Ô tìm kiếm** trên thanh trên không ra kết quả / ra sai | Giao diện: `khung-app/o-tim-kiem.tsx` · **Luật tìm và lọc quyền**: `2-quy-trinh/tim-kiem.ts` |
 | **Khối "Người theo dõi"** sai / không thêm được người | `thanh-phan-nghiep-vu/khoi-nguoi-theo-doi.tsx` + danh sách người chọn ở `3-du-lieu/danh-ba-nhan-su.ts` |
 | **Khối "Đã tách thành N đề xuất con"** — gập/mở, danh sách phiếu con, bảng "Ai đang làm phần nào" | `thanh-phan-nghiep-vu/khoi-de-xuat-con.tsx` (bọc `bang-nang-luc-theo-nhan-vien.tsx`). Quan hệ cha–con dựa trên `DeNghiMuaHang.deNghiGocId`, **không dựa vào tên** |
+| **Sửa "SL Báo giá"** ở phần ĐẦU VÀO bước ② | Ô sửa: `thanh-phan-nghiep-vu/o-sua-so-bao-gia.tsx` · Ghi dữ liệu: `3-du-lieu/kho-du-lieu.tsx` → `datSoBaoGiaChoPhieu` (đặt cho **mọi dòng** của phiếu). Muốn mỗi dòng một số khác nhau thì sửa ở bảng Phân bổ công việc |
 | Sai ở **màn Theo dõi đề nghị** (cho Phòng Thi công) | `1-giao-dien/trang/theo-doi-danh-sach.tsx` · `theo-doi-chi-tiet.tsx` |
 | Sai ở **danh sách Báo giá** | `1-giao-dien/trang/bao-gia-danh-sach.tsx` |
 | Sai ở **bảng so sánh giá nhà cung cấp** | `1-giao-dien/trang/bao-gia-chi-tiet.tsx` |
@@ -89,7 +92,10 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Nhân bản / tách phiếu** sai mã, mất liên kết cha–con | `2-quy-trinh/nhan-ban-de-nghi.ts` — `maBanSaoTiepTheo` (thêm `(copy)` vào **mã**, không phải tiêu đề) · `phieuGocCua` (cha–con theo **id**, chỉ **một cấp**) |
 | Sai **tên / mã phòng ban** | `3-du-lieu/danh-muc-phong-ban.ts` — 16 phòng ban, một chỗ duy nhất, sẵn để nối App Tổng. Kiểu mở (`MaPhongBan = string`) nên App Tổng thêm phòng mới **không làm hỏng build** |
 | **Đề xuất NCC của nhân viên** lẫn với **lý do chốt của trưởng bộ phận** | Hai trường **cố ý tách**: `deXuatNCC*` + `lyDoDeXuat` (nhân viên, bước ②) vs `lyDoChonNCC` (trưởng bộ phận, bước ③) — xem `3-du-lieu/kieu-du-lieu.ts` → `BaoGia`. Gộp lại là mất tiếng nói của người đi hỏi giá |
-| Sai **chiết khấu · thuế GTGT · tổng tiền thanh toán** của đơn hàng | `2-quy-trinh/tinh-toan.ts` → `tinhKhoiTongTien` (**nơi duy nhất** tính; màn lập đơn, màn xem, trang in đều gọi về đây) |
+| Sai **chiết khấu · thuế GTGT · tổng tiền thanh toán** của đơn hàng | `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet` (**nơi duy nhất** tính; `tinhKhoiTongTien`, `tinhTienDonHang`, `tongGiaTriPO` đều gọi vào đây, màn lập đơn / màn xem / trang in đều dùng chung) |
+| **Cột tiền cộng lại không khớp dòng TỔNG CỘNG** | `2-quy-trinh/tinh-toan.ts` → `chiaTheoTyLe` (dồn phần dư vào dòng cuối có trọng số, nên cột luôn cộng đúng bằng tổng) |
+| Đơn **trộn nhiều mức thuế** (8% + 10%) in ra sai thuế suất | `2-quy-trinh/tinh-toan.ts` → `moTaThueSuat` + cờ `nhieuMucThue`. 🔴 Không được in thẳng `thueSuatGTGT` khi cờ bật |
+| **Nhập Excel không nhận cột / lấy nhầm cột** | `2-quy-trinh/doc-don-hang-excel.ts` → `CACH_VIET_COT` (khớp theo TÊN tiêu đề, không theo vị trí). Thêm cách viết mới thì thêm vào bảng đó |
 | Sai **số tiền viết bằng chữ** | `6-tien-ich/doc-so-tien.ts` |
 | Vai trò **tìm ra hồ sơ lẽ ra không được thấy** | `2-quy-trinh/tim-kiem.ts` — mọi loại hồ sơ mới đều phải khai quyền ở đây |
 

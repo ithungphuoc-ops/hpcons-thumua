@@ -60,6 +60,20 @@ const NHAN = {
   dieuKhoanThanhToan: "Điều khoản thanh toán:",
 } as const;
 
+/**
+ * Tiêu đề bảng.
+ *
+ * 🔴 CỘT A→J GIỮ NGUYÊN THỨ TỰ CỦA BIỂU MẪU CÔNG TY — đây là chứng từ đang lưu hành, và cả
+ * `xuat-don-hang-excel.ts` lẫn trang in A4 đều bám thứ tự này.
+ *
+ * ★ Hai cột MỚI (K, L) theo màn Đơn mua hàng MISA (chỉ đạo Ban lãnh đạo 17/08/2026) được
+ * ĐẶT THÊM VÀO CUỐI, không chen vào giữa. MISA xếp "% Thuế GTGT" ngay sau "Thành tiền", nhưng
+ * chen vào đó sẽ đẩy cột "Mục đích sử dụng" của biểu mẫu công ty sang chỗ khác — mà biểu mẫu
+ * công ty mới là chứng từ có hiệu lực.
+ *
+ * 📌 Chen được vào cuối là nhờ `doc-don-hang-excel.ts` nay khớp cột THEO TÊN TIÊU ĐỀ chứ không
+ * theo vị trí, nên thứ tự cột không còn là ràng buộc giữa hai file.
+ */
 const TIEU_DE_BANG = [
   "STT",
   "Mã hàng",
@@ -71,6 +85,8 @@ const TIEU_DE_BANG = [
   "Thành tiền",
   "",
   "Mục đích sử dụng",
+  "% Thuế GTGT",
+  "Trường mở rộng 1",
 ];
 
 /**
@@ -95,6 +111,8 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
     { width: 16 }, // H Thành tiền
     { width: 4 }, // I (bản gốc gộp H:I)
     { width: 24 }, // J Mục đích sử dụng
+    { width: 12 }, // K % Thuế GTGT
+    { width: 20 }, // L Trường mở rộng 1
   ];
 
   const datNhan = (dong: number, chu: string) => {
@@ -133,6 +151,9 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
     r.getCell(6).value = d.soLuong;
     // Cột 7 (Đơn giá) và 8 (Thành tiền) để TRỐNG — đây chính là phần người lập điền.
     if (d.mucDichSuDung) r.getCell(10).value = d.mucDichSuDung;
+    // Cột 11 (% Thuế GTGT) và 12 (Trường mở rộng 1) cũng để TRỐNG. Bỏ trống cột thuế là CỐ Ý:
+    // app hiểu "dùng thuế suất chung của đơn", còn điền sẵn một con số vào đây thì người lập
+    // tưởng đã được duyệt và không rà lại nữa.
   });
 
   // --- Khối tổng và các điều khoản, đặt sau bảng ---
@@ -151,7 +172,10 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
   ghiChu.value =
     "Hướng dẫn: điền cột Đơn giá (G) cho từng dòng, sửa SL (F) nếu chia nhỏ đơn cho nhiều nhà cung cấp, " +
     "ghi tên nhà cung cấp ngay sau dấu hai chấm ở dòng “Tên nhà cung cấp:”. " +
-    "KHÔNG đổi tên hàng ở cột C — app đối chiếu theo tên này. Lưu lại rồi bấm “Chọn file Excel” trong app.";
+    "Cột “% Thuế GTGT” (K) chỉ điền khi dòng đó có thuế suất KHÁC thuế suất chung của đơn; để trống là dùng thuế suất chung. " +
+    "KHÔNG đổi tên hàng ở cột C — app đối chiếu theo tên này. " +
+    "KHÔNG đổi chữ ở dòng tiêu đề bảng — app tìm cột theo đúng những tên đó. " +
+    "Lưu lại rồi bấm “Chọn file Excel” trong app.";
   ghiChu.font = { italic: true, size: 10 };
   ghiChu.alignment = { wrapText: true };
 

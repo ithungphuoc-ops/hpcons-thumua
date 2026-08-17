@@ -58,6 +58,23 @@ Firestore chặn quyền ở mức **chứng từ**, **không chặn được t�
 
 🔴 **Khi thêm trường mới, phải hỏi: trường này có phải thông tin nhạy cảm không?** Nếu có, đặt vào `tm_donhang_gia`, đừng đặt vào `tm_donhang`.
 
+#### Các trường thêm ngày 17/08/2026 — bám màn Đơn mua hàng của MISA
+
+Chỉ đạo Ban lãnh đạo: *"cấu hình cho a bước lập đơn mua hàng có chức năng giống này 100% và được import được file excel"*.
+
+| Vào `tm_donhang` (ai trong dự án cũng đọc được) | Vào `tm_donhang_gia` (chỉ vai trò xem giá) |
+|---|---|
+| `tenCongTrinh` · `maSoThueNCC` · `diaChiNCC` · `nguoiLienHeNCC` · `dienGiai` · `thamChieu` · `ngayHopDongCDT` · `tepDinhKem` | `DongGiaPO.thueSuatGTGT` (% thuế từng dòng) · `kieuChietKhau` · `tyLeChietKhau` · `soNgayDuocNo` |
+| `DongPO.truongMoRong1` · `DongPO.laDongGhiChu` | |
+
+🔴 **`soNgayDuocNo` để bên GIÁ dù nghe như thông tin hành chính.** Đây là điều kiện thương mại đàm phán được — NCC cho nợ 45 ngày thường báo giá cao hơn NCC thu tiền ngay. Lộ nó ra `tm_donhang` là lộ một phần thế đàm phán.
+
+🔴 **`maSoThueNCC` và `diaChiNCC` chép thẳng lên đơn là để VÁ MỘT LỖ HỔNG THẬT.** Trước 17/08/2026 màn lập đơn **có** hai ô nhập này nhưng **không lưu đi đâu cả** — chỉ `supplierId` + `supplierTen` được truyền vào `themDonHang`. Trang in phải tra ngược danh mục `NHA_CUNG_CAP`, mà danh mục đó là hằng số cứng và app **không có đường thêm NCC mới**. Hệ quả: nhà cung cấp ngoài danh mục thì đơn in ra hiện `—` ở dòng Địa chỉ và Mã số thuế — chứng từ gửi ra ngoài công ty thiếu mã số thuế.
+
+⚠️ **`laDongGhiChu` — dòng ghi chú chèn giữa bảng hàng.** Nút "Thêm ghi chú" của MISA chèn một *dòng* vào bảng chứ không mở ô ghi chú riêng. Khi cờ này bật: `tenVatLieu` giữ nội dung ghi chú, `sttDongDeNghi = 0`, `khoiLuongDat = 0`. 🔴 **Mọi vòng lặp qua `po.items` phải lọc bằng `laDongHang()`** (`2-quy-trinh/tinh-toan.ts`) — quên lọc thì dòng ghi chú bị đếm vào mẫu số của `phanTramPO` và nằm chờ nhận hàng vĩnh viễn.
+
+📌 **Mã đơn hàng KHÔNG đổi.** Vẫn là `260001-HPCS-PO-001` theo Thông báo 09/2026 (TGĐ ký), **không** lấy kiểu `DMH0532-26` của MISA. Bám màn hình MISA là bám *bố cục và chức năng*, không phải bám hệ mã hồ sơ.
+
 🔴 **Danh sách `nguoiTheoDoi` KHÔNG được dùng để mở khóa xem giá.** Khi viết Security Rules,
 có thể cho `nguoiTheoDoi` quyền đọc `tm_denghi` và `tm_donhang`, **nhưng tuyệt đối không cho đọc
 `tm_donhang_gia`** — nếu không thì thêm thủ kho vào danh sách theo dõi là thủ kho thấy đơn giá,

@@ -376,6 +376,20 @@ export interface NhaCungCap {
   diaChi?: string;
   /** Ô "Mã số thuế" trên mẫu đơn mua hàng của công ty. */
   maSoThue?: string;
+  /**
+   * ★ Mã nhà cung cấp do người dùng đặt (vd `NCC0001`) — ô "Mã nhà cung cấp" trên màn
+   * Đơn mua hàng của MISA (chỉ đạo Ban lãnh đạo 17/08/2026: *"cấu hình cho a bước lập đơn
+   * mua hàng có chức năng giống này 100%"*).
+   *
+   * ⚠️ KHÁC HẲN `id`. `id` là khóa kỹ thuật, người dùng không nhìn thấy và không gõ được;
+   * `maNCC` là mã nghiệp vụ in trên chứng từ, có thể đổi mà không làm mồ côi dữ liệu cũ.
+   * Gộp hai thứ này là mỗi lần kế toán đổi mã thì mọi đơn hàng cũ mất liên kết nhà cung cấp.
+   *
+   * 🔴 KHÔNG bám hệ mã `DMH…` của MISA. Mã hồ sơ của công ty theo Thông báo 09/2026 (TGĐ ký).
+   */
+  maNCC?: string;
+  /** ★ Ô "Người liên hệ" trên màn MISA — người bên NCC để gọi khi cần giục hàng. */
+  nguoiLienHe?: string;
 }
 
 // ------------------------------------------------------------
@@ -417,6 +431,30 @@ export interface DongPO {
   khoiLuongDat: number;
   /** Cột "Mục đích sử dụng" — dùng cho hạng mục nào của công trình. */
   mucDichSuDung?: string;
+  /**
+   * ★ Cột "Trường mở rộng 1" của màn Đơn mua hàng MISA (chỉ đạo Ban lãnh đạo 17/08/2026).
+   *
+   * Ô chữ tự do, app KHÔNG diễn giải nội dung. Cố ý để trống nghĩa: mỗi công trình dùng nó
+   * cho một việc khác nhau (số lô, ký hiệu bản vẽ, đợt đổ bê tông…). Đặt tên có nghĩa sẵn
+   * thì chỗ nào không dùng đúng nghĩa đó lại phải thêm cột mới.
+   */
+  truongMoRong1?: string;
+  /**
+   * ★ ĐÂY LÀ DÒNG GHI CHÚ, KHÔNG PHẢI DÒNG HÀNG.
+   *
+   * Nút "Thêm ghi chú" của MISA chèn một DÒNG vào giữa bảng hàng (không phải ô ghi chú riêng
+   * bên ngoài), dùng để tách nhóm vật tư hoặc dặn nhà cung cấp ngay tại chỗ.
+   *
+   * Quy ước khi `laDongGhiChu === true`:
+   *   • `tenVatLieu` giữ NỘI DUNG ghi chú (cột "Tên hàng" trên mẫu in).
+   *   • `sttDongDeNghi = 0` · `donViTinh = ""` · `khoiLuongDat = 0` — dòng này không trỏ về
+   *     đề nghị nào và không có khối lượng.
+   *
+   * 🔴 MỌI HÀM TÍNH TOÁN PHẢI LOẠI DÒNG NÀY RA TRƯỚC. Dùng `laDongHang()` ở
+   * `2-quy-trinh/tinh-toan.ts`. Không loại thì dòng ghi chú bị đếm vào mẫu số của
+   * `phanTramPO` (% tiến độ sai) và nằm chờ nhận hàng vĩnh viễn ở bảng tiến độ.
+   */
+  laDongGhiChu?: boolean;
 }
 
 export interface XacNhan {
@@ -427,15 +465,59 @@ export interface XacNhan {
 
 export interface DonDatHang {
   id: string;
-  /** vd 260001-HPCS-PO-001 */
+  /**
+   * vd 260001-HPCS-PO-001 — theo Thông báo 09/2026/TB-HPCS (TGĐ ký 11/07/2026).
+   *
+   * 🔴 KHÔNG đổi sang kiểu `DMH0532-26` của MISA dù màn hình bám theo MISA. Bản thân mã
+   * loại `PO` vẫn ĐANG CHỜ đơn vị quản lý hệ thống duyệt (quy tắc E-6), nên nó để ở
+   * `2-quy-trinh/cau-hinh-quy-trinh.ts` sửa được, không viết cứng ở đây.
+   */
   code: string;
   maDuAn: string;
   maHopDongCDT?: string;
+  /** ★ Ô "Ngày hợp đồng" của màn MISA — đi kèm `maHopDongCDT` trên ô "Hợp đồng - Ngày hợp đồng". */
+  ngayHopDongCDT?: NgayISO;
   prId: string;
   prCode: string;
+  /**
+   * ★ Ô "Mã RQ - Tên Công trình" của màn MISA. `prCode` đã giữ mã RQ, còn TÊN công trình
+   * trước 17/08/2026 KHÔNG có chỗ nào trên đơn — trang in `/in/don-hang/[id]` in dòng
+   * "Mã đề xuất và tên công trình" mà chỉ ra được mã, phần tên bỏ trống.
+   *
+   * Chép sang đơn (thay vì tra ngược đề nghị mỗi lần hiển thị) là CỐ Ý: đơn mua hàng là
+   * chứng từ gửi ra ngoài công ty, nội dung đã in phải đứng yên kể cả khi đề nghị nguồn
+   * bị sửa tên hoặc bị đóng sau đó.
+   */
+  tenCongTrinh?: string;
   supplierId: string;
   supplierTen: string;
+  /**
+   * ★ BA TRƯỜNG NHÀ CUNG CẤP CHÉP THẲNG LÊN ĐƠN (chỉ đạo Ban lãnh đạo 17/08/2026).
+   *
+   * 🔴 Trước 17/08/2026 màn lập đơn CÓ ô nhập mã số thuế và địa chỉ nhưng KHÔNG lưu đi đâu:
+   * chỉ `supplierId` + `supplierTen` được truyền vào `themDonHang`. Trang in phải tra ngược
+   * danh mục `NHA_CUNG_CAP` qua `supplierId`, mà danh mục đó là hằng số cứng và app không có
+   * đường thêm nhà cung cấp mới. Hệ quả: NCC ngoài danh mục thì đơn in ra hiện "—" ở dòng
+   * Địa chỉ và Mã số thuế — chứng từ gửi nhà cung cấp thiếu mã số thuế.
+   *
+   * Vì vậy lưu ngay trên đơn. Danh mục chỉ còn là chỗ GỢI Ý lúc nhập, không phải nguồn duy nhất.
+   *
+   * ⚠️ Đây KHÔNG phải thông tin nhạy cảm về giá → để ở `tm_donhang` là đúng chỗ. Thủ kho cần
+   * biết địa chỉ và người liên hệ của NCC để nhận hàng.
+   */
+  maSoThueNCC?: string;
+  diaChiNCC?: string;
+  /** Ô "Người liên hệ" trên màn MISA — người bên NCC, kèm số điện thoại nếu có. */
+  nguoiLienHeNCC?: string;
+  /**
+   * ★ Ô "Diễn giải" của màn MISA — một câu mô tả ngắn cả đơn, hiện ở danh sách đơn hàng.
+   * Khác `ghiChu` (dặn dò nội bộ) và khác `dieuKhoanKhac` (điều khoản với nhà cung cấp).
+   */
+  dienGiai?: string;
+  /** ★ Ô "Tham chiếu" của màn MISA — số chứng từ bên ngoài liên quan (đơn cũ, email, hợp đồng). */
+  thamChieu?: string;
   nguoiPhuTrachUid: string;
+  /** Ô "Nhân viên mua hàng" trên màn MISA. */
   nguoiPhuTrachTen: string;
   ngayLapPO: NgayISO;
   /** 1 ngày cho cả PO — KHÔNG nhập kế hoạch từng đợt (chỉ đạo Ban lãnh đạo). */
@@ -448,6 +530,17 @@ export interface DonDatHang {
   /** Ô "Điều khoản khác" trên mẫu đơn (bảo hành, bốc xếp, chứng chỉ chất lượng...). */
   dieuKhoanKhac?: string;
   ghiChu?: string;
+  /**
+   * ★ Khối "Đính kèm" của màn MISA (MISA ghi "Dung lượng tối đa 5MB").
+   *
+   * 🔴 Chỉ giữ phần MÔ TẢ tệp. Nội dung nằm ở `3-du-lieu/kho-tep.ts` (IndexedDB), tuyệt đối
+   * không nhét vào localStorage — chỗ đó chỉ ~5MB cho cả tên miền và đang giữ toàn bộ dữ
+   * liệu nghiệp vụ, nhét một ảnh 2–5MB vào là mất sạch.
+   *
+   * ⚠️ Giới hạn cỡ tệp của app là `CO_TOI_DA` (10MB) ở `kho-tep.ts`, KHÔNG phải 5MB của MISA.
+   * Giữ một con số duy nhất cho cả app, không đặt thêm giới hạn riêng cho đơn hàng.
+   */
+  tepDinhKem?: MoTaTep[];
   trangThai: TrangThaiPO;
   items: DongPO[];
   /** Điều kiện ② hoàn thành PO. */
@@ -466,7 +559,30 @@ export interface DonDatHang {
 export interface DongGiaPO {
   sttDong: number;
   donGia: number;
+  /**
+   * ★ Cột "% Thuế GTGT" của màn Đơn mua hàng MISA — thuế suất RIÊNG của dòng này, đơn vị %.
+   *
+   * Bỏ trống = dùng `GiaDonDatHang.thueSuatGTGT` (thuế suất chung của cả đơn). Hầu hết đơn chỉ
+   * có một mức thuế nên để trống là đúng; chỉ ghi khi đơn trộn nhiều mức (vd vật tư 8% đi chung
+   * với dịch vụ vận chuyển 10%).
+   *
+   * 🔴 NẰM Ở CHỨNG TỪ GIÁ, KHÔNG nằm ở `DongPO`. Firestore chặn quyền theo DOCUMENT chứ không
+   * theo trường: để thuế suất trong `tm_donhang` là cho thủ kho đọc đơn hàng thấy luôn phần
+   * thương mại, và từ thuế suất + tổng tiền suy ngược ra được đơn giá.
+   */
+  thueSuatGTGT?: number;
 }
+
+/**
+ * ★ Cách tính chiết khấu — ô "Chiết khấu" ở góc phải bảng hàng tiền của MISA.
+ *
+ * `"khong"` không chiết khấu · `"ty_le"` theo % tiền hàng · `"so_tien"` nhập thẳng số tiền.
+ *
+ * ⚠️ Dữ liệu lập TRƯỚC 17/08/2026 không có trường này. Quy ước đọc bản cũ (xem
+ * `tienChietKhau` ở `2-quy-trinh/tinh-toan.ts`): có `chietKhau > 0` thì hiểu là `"so_tien"`,
+ * không có thì hiểu là `"khong"`. Nhờ vậy không phải chuyển đổi dữ liệu cũ.
+ */
+export type KieuChietKhau = "khong" | "ty_le" | "so_tien";
 
 /**
  * Phần TIỀN của một đơn mua hàng — tách hẳn khỏi `DonDatHang`.
@@ -491,10 +607,32 @@ export interface GiaDonDatHang {
   loaiTien?: string;
   /** Ô "Số tiền CK" — chiết khấu tính bằng SỐ TIỀN, không phải phần trăm (đúng mẫu công ty). */
   chietKhau?: number;
+  /**
+   * ★ Ô chọn "Chiết khấu" của MISA. Bỏ trống thì suy từ dữ liệu cũ, xem `KieuChietKhau`.
+   */
+  kieuChietKhau?: KieuChietKhau;
+  /**
+   * ★ Tỷ lệ chiết khấu, đơn vị %. CHỈ dùng khi `kieuChietKhau === "ty_le"`.
+   *
+   * 🔴 Giữ CẢ tỷ lệ lẫn số tiền (`chietKhau`) là cố ý, không phải thừa: chứng từ phải nói được
+   * "chiết khấu 5%" chứ không chỉ "giảm 1.250.000 ₫" — nhà cung cấp đối chiếu theo tỷ lệ đã
+   * thỏa thuận. Số tiền vẫn là con số DUY NHẤT đem đi tính, `tinhTienChiTiet` tự suy ra từ tỷ lệ
+   * để hai giá trị không bao giờ lệch nhau.
+   */
+  tyLeChietKhau?: number;
   /** Ô "Thuế suất thuế GTGT", đơn vị phần trăm. vd 8 hoặc 10. Trống = không chịu thuế. */
   thueSuatGTGT?: number;
   /** Ô "Điều khoản thanh toán" — vd "Thanh toán 100% trong 30 ngày sau khi nhận đủ hàng". */
   dieuKhoanThanhToan?: string;
+  /**
+   * ★ Ô "Số ngày được nợ" của màn MISA — số ngày nhà cung cấp cho nợ kể từ ngày nhận hàng.
+   *
+   * 🔴 ĐỂ Ở CHỨNG TỪ GIÁ chứ không ở `DonDatHang`, dù nghe như thông tin hành chính. Đây là
+   * điều kiện thương mại đàm phán được (NCC cho nợ 45 ngày thường báo giá cao hơn NCC thu tiền
+   * ngay) — lộ nó ra `tm_donhang` là lộ một phần thế đàm phán, đúng thứ nguyên tắc dữ liệu số 3
+   * của dự án muốn chặn.
+   */
+  soNgayDuocNo?: number;
 }
 
 // ------------------------------------------------------------

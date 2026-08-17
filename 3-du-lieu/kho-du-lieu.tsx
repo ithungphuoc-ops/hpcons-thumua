@@ -134,10 +134,24 @@ export interface DauVaoDeNghiGiaLap {
 export type DauVaoDonHangMoi = Omit<DonDatHang, "id" | "code" | "trangThai"> & {
   /** Đơn giá theo số thứ tự dòng PO. */
   donGia: Record<number, number>;
+  /**
+   * ★ Thuế suất RIÊNG của từng dòng (%), theo số thứ tự dòng PO — cột "% Thuế GTGT" của màn
+   * Đơn mua hàng MISA (chỉ đạo Ban lãnh đạo 17/08/2026).
+   *
+   * Dòng không có mặt ở đây thì dùng `phanTien.thueSuatGTGT` (thuế suất chung). Để trống cả
+   * bảng là chuyện thường — hầu hết đơn chỉ có một mức thuế.
+   */
+  thueSuatDong?: Record<number, number>;
   /** Chiết khấu · thuế suất · loại tiền · điều khoản thanh toán — theo mẫu Excel công ty. */
   phanTien?: Pick<
     GiaDonDatHang,
-    "loaiTien" | "chietKhau" | "thueSuatGTGT" | "dieuKhoanThanhToan"
+    | "loaiTien"
+    | "chietKhau"
+    | "kieuChietKhau"
+    | "tyLeChietKhau"
+    | "thueSuatGTGT"
+    | "dieuKhoanThanhToan"
+    | "soNgayDuocNo"
   >;
 };
 
@@ -1379,7 +1393,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
   const themDonHang = useCallback(
     (dauVao: DauVaoDonHangMoi) => {
-      const { donGia, phanTien, ...po } = dauVao;
+      const { donGia, thueSuatDong, phanTien, ...po } = dauVao;
 
       /**
        * 🔴 CHẶN LẬP ĐƠN KHI CHƯA QUA XÉT DUYỆT BÁO GIÁ — Ban lãnh đạo 15/08/2026: *"bước này
@@ -1422,7 +1436,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           poId: id,
           poCode: code,
           maDuAn: po.maDuAn,
-          lines: po.items.map((d) => ({ sttDong: d.sttDong, donGia: donGia[d.sttDong] ?? 0 })),
+          // Thuế suất riêng của dòng chỉ ghi khi người lập thật sự nhập — để `undefined` thì
+          // `tinhTienChiTiet` tự lấy thuế suất chung, và chứng từ nói đúng "dòng này không có
+          // thỏa thuận thuế riêng" thay vì chép cứng một con số rồi sau đổi thuế suất chung
+          // mà dòng cũ vẫn giữ mức cũ.
+          lines: po.items.map((d) => ({
+            sttDong: d.sttDong,
+            donGia: donGia[d.sttDong] ?? 0,
+            thueSuatGTGT: thueSuatDong?.[d.sttDong],
+          })),
           // Chiết khấu / thuế / điều khoản thanh toán đi cùng GIÁ, không đi cùng PO —
           // nếu để trong PO thì cho thủ kho đọc PO là hở luôn phần thương mại.
           ...phanTien,
