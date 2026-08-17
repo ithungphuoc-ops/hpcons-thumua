@@ -45,6 +45,23 @@ import { nhanAnToan, NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
+ * Lớp chung cho mọi mục trong menu ⋯ của bảng này.
+ *
+ * 🔴 Ban lãnh đạo 16/08/2026 khoanh đỏ menu ⋯ vì hai mục cao thấp khác nhau. Lớp gốc của
+ * thư viện chỉ có `py-1` và KHÔNG đặt chiều cao tối thiểu, nên mục xuống 2 dòng cao 48px
+ * còn mục 1 dòng chỉ 28px.
+ *
+ * · `min-h-11` = 44px — vùng chạm tối thiểu theo Design System V1.1, đồng thời làm mọi
+ *   mục cao bằng nhau kể cả khi nhãn dài ngắn khác nhau.
+ * · `whitespace-nowrap` — nhãn không xuống dòng nữa, đi cùng `w-auto` của menu.
+ *
+ * ⚠️ Không sửa được thẳng trong `nen-tang-ui/dropdown-menu.tsx` vì đó là thư viện ngoài
+ * (quy ước CLAUDE.md mục 3.4b), nên để hằng số ở đây cho hai mục dùng chung — sửa một chỗ
+ * là cả menu đổi theo, không phải chép class ra từng mục rồi lệch nhau.
+ */
+const LOP_MUC_MENU = "min-h-11 whitespace-nowrap";
+
+/**
  * Nhãn ngắn cho nút phân bổ.
  *
  * ⚠️ KHÔNG được dựa vào việc chức danh có ngoặc đơn. Chức danh mẫu là "Nhân viên Thu mua
@@ -520,7 +537,11 @@ export function BangPhanBo({
                           </span>
                         )}
                         {d.vatTuKiemSoatDinhMuc && (
-                          <span className="mt-0.5 w-fit rounded bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning-soft">
+                          /* 11px chứ không phải 10px: đây là chữ CẢNH BÁO người dùng phải
+                             đọc được, mà 10px nằm ngoài thang chữ của dự án (11/12/14/16/18)
+                             và phạm quy tắc "cấm chữ <12px cho nội dung quan trọng"
+                             (CLAUDE.md mục 3.2). 11px là bậc nhỏ nhất còn được dùng cho nhãn. */
+                          <span className="mt-0.5 w-fit rounded bg-warning-bg px-1.5 py-0.5 text-[11px] font-semibold text-warning-soft">
                             Vật tư kiểm soát định mức
                           </span>
                         )}
@@ -564,10 +585,20 @@ export function BangPhanBo({
                                 </DropdownMenuTrigger>
                                 {/* ⚠️ base-nova bắt buộc Item nằm trong Group — thiếu là
                                     "MenuGroupContext is missing" và crash cả trang khi mở. */}
-                                <DropdownMenuContent align="end" className="w-56">
+                                {/* 🔴 `w-auto min-w-64` chứ KHÔNG phải `w-56` (224px): Ban lãnh
+                                    đạo 16/08/2026 khoanh đỏ menu này vì hai mục cao thấp khác
+                                    nhau. Nguyên do là "Chuyển việc cho người khác" không đủ
+                                    chỗ nên xuống 2 dòng (48px) trong khi mục kia 1 dòng (28px).
+                                    `w-auto` cho menu nở theo nội dung, `min-w-64` giữ sàn 256px
+                                    để menu không hẹp hơn menu ⋯ ở bảng quy trình.
+                                    ⚠️ Phải ghi `w-auto`: lớp gốc của thư viện là
+                                    `w-(--anchor-width)` — bề rộng của nút ⋯, tức 28px — chỉ
+                                    thêm `min-w-*` thì bề rộng vẫn bị chốt cứng ở sàn đó. */}
+                                <DropdownMenuContent align="end" className="w-auto min-w-64">
                                   <DropdownMenuGroup>
                                     {duocChuyenViecDong(d, nguoiDung.uid, quyen) && (
                                       <DropdownMenuItem
+                                        className={LOP_MUC_MENU}
                                         onClick={() =>
                                           moChuyenViec(d.stt, d.nguoiPhuTrachTen ?? "")
                                         }
@@ -578,6 +609,7 @@ export function BangPhanBo({
                                     )}
                                     {quyen.phanBoCongViec && (
                                       <DropdownMenuItem
+                                        className={LOP_MUC_MENU}
                                         onClick={() =>
                                           boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi)
                                         }
@@ -602,7 +634,10 @@ export function BangPhanBo({
                     <TableCell className="whitespace-nowrap">
                       <StatusBadge label={tt.nhan} tone={tt.tong} />
                     </TableCell>
-                    <TableCell className="hidden text-xs text-text-desc xl:table-cell">
+                    {/* Bỏ `text-xs`: mọi ô dữ liệu khác trong cùng một hàng đều 14px, riêng
+                        cột này 12px làm hàng ngang nhìn so le (Ban lãnh đạo 16/08/2026 về
+                        chiều cao chữ không đồng đều). Màu xám vẫn giữ để nó lùi về sau. */}
+                    <TableCell className="hidden text-text-desc xl:table-cell">
                       {d.maPOLienQuan.length > 0 ? d.maPOLienQuan.join(", ") : "—"}
                     </TableCell>
                   </TableRow>

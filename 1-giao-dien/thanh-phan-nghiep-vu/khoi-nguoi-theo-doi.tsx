@@ -73,7 +73,14 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
   return (
     <section className="flex flex-col gap-(--hp-md-row-gap)">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-h3 text-text-primary">Người theo dõi ({dsTheoDoi.length})</h2>
+        {/* 🔴 Cùng kiểu chữ với bốn khối kia ở cột phải (Giai đoạn hiện tại · Thông tin
+            nhiệm vụ · Tổng thời gian · Tiến trình các giai đoạn) — chúng NGANG HÀNG nhau
+            trong cùng một `<aside>`. Trước 16/08/2026 khối này để `text-h3` 18px, to gấp
+            rưỡi các khối anh em 12px, nên cột phải nhìn như xếp lệch (Ban lãnh đạo:
+            *"kiểm tra xem chiều cao chữ đang ko đồng đều"*). */}
+        <h2 className="text-xs font-semibold tracking-wide text-text-desc uppercase">
+          Người theo dõi ({dsTheoDoi.length})
+        </h2>
         <div className="flex flex-wrap items-center gap-2">
           {toiDangTheoDoi && <StatusBadge label="Bạn đang theo dõi đề nghị này" tone="primary" />}
           {/* Đã có người thì nhãn phải là "Sửa" — vì việc bỏ theo dõi cũng nằm trong

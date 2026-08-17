@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, LogIn } from "lucide-react";
+import { ChevronRight, LogIn, type LucideIcon } from "lucide-react";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { coTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
+import { cn } from "@/6-tien-ich/gop-lop";
 
 /**
  * KHỐI "ĐẦU VÀO THEO GIAI ĐOẠN" — dựng theo trang chi tiết job của Base.
@@ -49,6 +50,54 @@ export interface GiaiDoanDauVao {
    * của bước đó, không phải cuộn xuống cuối trang tìm bảng tương ứng.
    */
   noiDungNghiepVu?: React.ReactNode;
+}
+
+/**
+ * NHÃN CỦA MỘT PHẦN BÊN TRONG KHỐI GIAI ĐOẠN.
+ *
+ * Một khối giai đoạn có hai phần NGANG HÀNG nhau: *dữ liệu đã nhập vào* ("ĐẦU VÀO") và
+ * *việc phải làm* (Phân bổ công việc · Bảng báo giá · Đơn đặt hàng). Hai phần ngang hàng
+ * thì phải cùng một cỡ chữ.
+ *
+ * 🔴 Ban lãnh đạo 16/08/2026 nhìn màn chi tiết và nói *"kiểm tra xem chiều cao chữ đang
+ * ko đồng đều"*, khoanh đỏ đúng hai tiêu đề "Phân bổ công việc" và "Bảng báo giá". Nguyên
+ * do: ba khối nghiệp vụ vốn đứng RỜI ngoài trang nên có tiêu đề `text-h3` 18px; cùng ngày
+ * chúng được đưa VÀO trong khối giai đoạn (tiêu đề khối chỉ 11px) mà cỡ chữ giữ nguyên —
+ * thành ra tiêu đề con to hơn tiêu đề cha 7px, ngược thứ bậc.
+ *
+ * 🔴 VÌ SAO PHẢI LÀ MỘT COMPONENT DÙNG CHUNG, không chép class ra bốn nơi: bốn nhãn này
+ * bắt buộc phải luôn bằng nhau. Chép ra rồi lần sau ai đó chỉnh một nơi là lệch lại đúng
+ * cái lỗi hôm nay, mà lệch 1–2px thì không ai soi ra khi đọc code.
+ */
+export function NhanPhanTrongGiaiDoan({
+  icon: BieuTuong,
+  the = "p",
+  className,
+  children,
+}: {
+  icon: LucideIcon;
+  /**
+   * Thẻ ngữ nghĩa. "ĐẦU VÀO" chỉ là nhãn của danh sách trường nên để `p`; còn ba khối
+   * nghiệp vụ là tiêu đề thật của một vùng nội dung nên giữ `h2` cho trình đọc màn hình
+   * và mục lục trang — đổi kiểu chữ KHÔNG được kéo theo hạ cấp ngữ nghĩa.
+   */
+  the?: "p" | "h2";
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const lop = cn(
+    "flex items-center gap-1.5 text-xs font-semibold text-text-desc uppercase",
+    className,
+  );
+  const noiDung = (
+    <>
+      <BieuTuong className="size-3.5 shrink-0" aria-hidden />
+      {children}
+    </>
+  );
+  // Viết tách hai nhánh thay vì dựng thẻ động: TypeScript kiểm được đúng thuộc tính của
+  // từng thẻ, và người đọc thấy ngay component này chỉ sinh ra p hoặc h2, không gì khác.
+  return the === "h2" ? <h2 className={lop}>{noiDung}</h2> : <p className={lop}>{noiDung}</p>;
 }
 
 export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[] }) {
@@ -123,11 +172,13 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
 
             {dangMo && (
               <>
-              <div className="border-t border-divider p-(--hp-md-card-pad)">
-                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-desc">
-                  <LogIn className="size-3.5 shrink-0" aria-hidden />
+              {/* `text-sm` khai rõ ở đây để chữ nào quên khai cỡ cũng ra 14px như phần còn
+                  lại của trang, chứ không rơi về 16px mặc định của trình duyệt rồi to hơn
+                  cả nội dung xung quanh. */}
+              <div className="border-t border-divider p-(--hp-md-card-pad) text-sm">
+                <NhanPhanTrongGiaiDoan icon={LogIn} className="mb-2">
                   ĐẦU VÀO
-                </p>
+                </NhanPhanTrongGiaiDoan>
 
                 {g.truong.length === 0 ? (
                   <p className="text-sm text-text-desc">Giai đoạn này chưa có dữ liệu nhập vào.</p>
@@ -184,7 +235,9 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                   đúng lúc cần nó nhất.
                   Đường kẻ ngang tách bạch "cái đã nhập vào" với "cái phải làm". */}
               {g.noiDungNghiepVu && (
-                <div className="border-t border-divider p-(--hp-md-card-pad)">
+                /* Cũng khai `text-sm` như phần ĐẦU VÀO — hai phần nằm trong cùng một khối
+                   thì nền cỡ chữ phải giống nhau, không để một bên 14px một bên 16px. */
+                <div className="border-t border-divider p-(--hp-md-card-pad) text-sm">
                   {g.noiDungNghiepVu}
                 </div>
               )}

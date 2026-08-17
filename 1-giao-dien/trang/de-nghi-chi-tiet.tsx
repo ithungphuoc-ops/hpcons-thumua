@@ -7,9 +7,12 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
+  ClipboardList,
+  FileText,
   FileWarning,
   GitBranch,
   Forward,
+  Package,
   ShoppingCart,
   Split,
 } from "lucide-react";
@@ -26,7 +29,10 @@ import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
 import { KhoiTraoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi";
-import { KhoiDauVaoTheoGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
+import {
+  KhoiDauVaoTheoGiaiDoan,
+  NhanPhanTrongGiaiDoan,
+} from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
 import {
   CotThongTinDeNghi,
@@ -300,8 +306,11 @@ export default function TrangChiTietDeNghi() {
               </div>
             )}
             {deNghiCon.length > 0 && (
-              <div className="mt-2 flex flex-col gap-1.5 rounded-lg border border-primary/30 bg-primary-bg p-(--hp-md-row-pad)">
-                <p className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+              /* Khai `text-sm` ở lớp bọc: hộp này không nằm trong `Card` nên không có nền
+                 cỡ chữ nào, chữ nào quên khai sẽ rơi về 16px mặc định của trình duyệt và
+                 to hơn mọi nội dung quanh nó. */
+              <div className="mt-2 flex flex-col gap-1.5 rounded-lg border border-primary/30 bg-primary-bg p-(--hp-md-row-pad) text-sm">
+                <p className="flex items-center gap-2 font-semibold text-text-primary">
                   <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
                   Đã tách thành {deNghiCon.length} đề xuất con
                 </p>
@@ -359,8 +368,9 @@ export default function TrangChiTietDeNghi() {
             {/* Tài liệu đính kèm lúc lập phiếu — nội dung nằm trên máy chủ (kho tệp),
                 bấm tên tệp để mở. Không có thì không hiện, đừng chiếm chỗ bằng khối rỗng. */}
             {dn.taiLieu && dn.taiLieu.length > 0 && (
-              <div className="mt-2 flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)">
-                <p className="text-sm font-semibold text-text-primary">
+              /* Khai `text-sm` ở lớp bọc, lý do như hộp đề xuất con phía trên. */
+              <div className="mt-2 flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) text-sm">
+                <p className="font-semibold text-text-primary">
                   Tài liệu đính kèm ({dn.taiLieu.length})
                 </p>
                 <ul className="flex flex-col gap-1">
@@ -424,9 +434,12 @@ export default function TrangChiTietDeNghi() {
                    mọi việc bấm được gom một chỗ, không rải rác cạnh từng tiêu đề. */
                 noiDungNghiepVu: (
                   <section className="flex flex-col gap-(--hp-md-row-gap)">
-                    <h2 className="text-h3 text-text-primary">
+                    {/* Tiêu đề dùng chung kiểu chữ với nhãn "ĐẦU VÀO" ngay phía trên —
+                        xem `NhanPhanTrongGiaiDoan`. Ban lãnh đạo 16/08/2026 khoanh đỏ chỗ
+                        này vì tiêu đề con (18px) đang to hơn tiêu đề khối cha (11px). */}
+                    <NhanPhanTrongGiaiDoan the="h2" icon={ClipboardList}>
                       {quyen.phanBoCongViec ? "Phân bổ công việc" : "Chi tiết mặt hàng"}
-                    </h2>
+                    </NhanPhanTrongGiaiDoan>
                     {/* Công cụ phân bổ hàng loạt chỉ bày ở bước ①, HOẶC khi còn dòng chưa ai
                         nhận (thêm vật tư mới ở bước sau) — Ban lãnh đạo 15/08/2026. Xem
                         `dangOBuocPhanBo`. */}
@@ -467,9 +480,10 @@ export default function TrangChiTietDeNghi() {
                 noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
                   <section className="flex flex-col gap-(--hp-md-row-gap)">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h2 className="text-h3 text-text-primary">
+                      {/* Cùng kiểu chữ với "ĐẦU VÀO" — xem `NhanPhanTrongGiaiDoan`. */}
+                      <NhanPhanTrongGiaiDoan the="h2" icon={FileText}>
                         Bảng báo giá ({baoGiaLienQuan.length})
-                      </h2>
+                      </NhanPhanTrongGiaiDoan>
                       {/* 🔴 NÚT NÀY LÀ ĐƯỜNG VÀO CHUỖI TÁCH PO. Trước 10/08/2026 bảng báo giá
                           CHỈ tạo được bằng cách kéo thẻ từ cột ① sang cột ② trên bảng quy
                           trình — khó phát hiện, và trên điện thoại không kéo được nên tắc
@@ -565,9 +579,10 @@ export default function TrangChiTietDeNghi() {
                 noiDungNghiepVu: (
                   <section className="flex flex-col gap-(--hp-md-row-gap)">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h2 className="text-h3 text-text-primary">
+                      {/* Cùng kiểu chữ với "ĐẦU VÀO" — xem `NhanPhanTrongGiaiDoan`. */}
+                      <NhanPhanTrongGiaiDoan the="h2" icon={Package}>
                         Đơn đặt hàng ({poLienQuan.length})
-                      </h2>
+                      </NhanPhanTrongGiaiDoan>
                       {/* ★ TÁCH ĐƠN NGAY TẠI ĐÂY — Ban lãnh đạo 15/08/2026: *"thêm tính năng
                           tách đơn cho tài khoản nhân viên"*.
 

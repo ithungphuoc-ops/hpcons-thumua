@@ -81,6 +81,14 @@ export function CotThongTinDeNghi({
           {moTa?.nhan ?? giaiDoan}
         </p>
 
+        {/* MÔ TẢ BƯỚC — dời từ danh sách "Tiến trình của các giai đoạn" lên đây (16/08/2026).
+            Ở danh sách bên dưới, đây là dòng DUY NHẤT dài 2–3 dòng trong khi mọi giai đoạn
+            khác chỉ 1 dòng, nên nó làm các dòng cao thấp so le — đúng chỗ Ban lãnh đạo
+            khoanh đỏ. Khối này mới là chỗ nói về bước đang đứng, lại đủ bề ngang để đọc.
+            🔴 DỜI chứ không bỏ: bỏ hẳn là mất lời giải thích bước đang làm, không còn chỗ
+            nào khác trong app nói câu đó. */}
+        {moTa?.moTa && <p className="mt-1 text-sm leading-snug text-white/90">{moTa.moTa}</p>}
+
         {/* Hạn chuẩn của bước — Base gọi là "KỲ VỌNG". 0 giờ = bước không đặt hạn. */}
         {!ketThuc && (
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/25 pt-2 text-sm">
@@ -154,7 +162,9 @@ export function CotThongTinDeNghi({
             {formatDate(deNghi.ngayCanHang)}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-sm">
+        {/* `mt-2` bằng đúng dòng "Ngày cần hàng" ngay trên — hai dòng cùng loại mà một dòng
+            cách 8px, một dòng cách 4px thì nhìn như xếp lệch. */}
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="text-text-desc">Thời hạn</span>
           <span
             className={`rounded px-1.5 py-0.5 font-semibold ${
@@ -225,12 +235,17 @@ export function CotThongTinDeNghi({
                     />
                   </div>
 
+                  {/* 🔴 MỖI GIAI ĐOẠN MỘT DÒNG NGẮN BẰNG NHAU — Ban lãnh đạo 16/08/2026:
+                      *"kiểm tra xem chiều cao chữ đang ko đồng đều"*.
+                      Trước đây giai đoạn ĐANG LÀM lấy nguyên câu mô tả dài (66 ký tự) trong
+                      khi các giai đoạn khác chỉ 7–22 ký tự, nên riêng ô đó xuống 2–3 dòng và
+                      danh sách bị gồ lên giữa chừng. Cỡ chữ vốn đã bằng nhau ở cả ba trạng
+                      thái; cái làm lệch là ĐỘ DÀI CHỮ, nên phải nắn ở đây.
+                      Trạng thái vẫn phân biệt bằng ĐỘ ĐẬM + MÀU của dòng tên phía trên và
+                      màu số tròn, không phân biệt bằng cỡ chữ. Câu mô tả dài đã dời lên khối
+                      "Giai đoạn hiện tại" ở đầu cột. */}
                   <span className="text-xs leading-tight text-text-desc">
-                    {chuaToi
-                      ? "Giai đoạn chờ đến lượt"
-                      : hienTai
-                        ? (moTa?.moTa ?? "Đang ở bước này")
-                        : "Đã xong"}
+                    {chuaToi ? "Chờ đến lượt" : hienTai ? "Đang làm bước này" : "Đã xong"}
                     {/* Hạn chuẩn của bước — Base ghi "DURATION: 4.00h" ở mỗi dòng giai đoạn.
                         Bỏ qua bước Hoàn thành / Thất bại: chúng là điểm dừng, không có hạn. */}
                     {hanGioTheoBuoc[g.ma] ? ` · ${hanGioTheoBuoc[g.ma]} giờ` : ""}
