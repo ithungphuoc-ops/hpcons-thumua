@@ -15,6 +15,7 @@ import { toast } from "sonner";
 // chiều ngược lại nên không tạo vòng phụ thuộc runtime.
 import {
   NHAN_GIAI_DOAN,
+  giaiDoanDaKetThuc,
   nguoiCanXuLy,
   vuongMacLapDonHang,
   xacDinhGiaiDoan,
@@ -365,6 +366,32 @@ interface GiaTriDuLieu {
     nguoiTen: string,
   ) => void;
 
+  // --- Tệp đính kèm của từng bước (Ban lãnh đạo 17/08/2026) ---
+  /**
+   * Gắn thêm tệp vào MỘT BƯỚC của đề nghị. `tepMoi` là phần mô tả các tệp ĐÃ cất xong ở
+   * kho tệp — hàm này chỉ ghi vào hồ sơ, không đụng tới nội dung tệp.
+   *
+   * Trả lý do bị chặn, `null` là đã ghi.
+   */
+  themTepGiaiDoan: (
+    prId: string,
+    maGiaiDoan: string,
+    tepMoi: MoTaTep[],
+    nguoiThucHienTen: string,
+  ) => string | null;
+  /**
+   * Gỡ một tệp khỏi một bước. Trả lý do bị chặn, `null` là đã gỡ.
+   *
+   * ⚠️ CHỈ GỠ KHỎI HỒ SƠ, KHÔNG xóa nội dung khỏi kho tệp — giống cách khối bình luận đang
+   * làm. Gỡ nhầm thì chứng từ vẫn còn để tìm lại; xóa thẳng là mất hẳn.
+   */
+  goTepGiaiDoan: (
+    prId: string,
+    maGiaiDoan: string,
+    tepId: string,
+    nguoiThucHienTen: string,
+  ) => string | null;
+
   // --- Bình luận trao đổi (Ban lãnh đạo 15/08/2026) ---
   /**
    * Viết một lời bình vào hồ sơ. `tep` là phần mô tả ảnh/tài liệu đã cất xong ở kho tệp.
@@ -455,6 +482,34 @@ const DAI_TOI_DA_BINH_LUAN = 1000;
 const SO_LAN_SUA_BINH_LUAN_TOI_DA = 10;
 /** Số mốc sửa giữ lại. Vượt thì bỏ mốc cũ nhất (trừ bản gốc — xem `catLichSuSua`). */
 const SO_MOC_SUA_GIU_LAI = 10;
+
+/**
+ * Số tệp tối đa đính kèm cho MỘT BƯỚC của đề nghị.
+ *
+ * 📌 Lấy đúng con số của khối bình luận (`khoi-trao-doi.tsx` → `TOI_DA_TEP = 5`): đủ cho một
+ * bộ ảnh chụp chứng từ mà không làm hồ sơ phình. Cỡ mỗi tệp dùng `CO_TOI_DA` chung của kho
+ * tệp (10MB), không đặt riêng.
+ *
+ * 🔴 EXPORT ĐỂ GIAO DIỆN DÙNG LẠI, đừng chép số ra file giao diện. Khối bình luận đang chép
+ * (`DAI_TOI_DA` viết lại ở `khoi-trao-doi.tsx`) — hai chỗ giữ cùng một con số là sớm muộn
+ * lệch nhau, mà lệch kiểu đó không có lỗi nào báo: ô nhập cho chọn 5 tệp còn tầng dữ liệu
+ * chặn ở 3, người dùng chỉ thấy tệp "biến mất".
+ */
+export const TOI_DA_TEP_MOI_BUOC = 5;
+
+/**
+ * Tên bước để ghi vào nhật ký.
+ *
+ * 📌 Nhật ký là thứ NGƯỜI ĐỌC, nên ghi *"bước Yêu cầu NCC báo giá"* chứ không ghi mã máy
+ * `yeu_cau_bao_gia`. Mã lạ chỉ có người lập trình hiểu.
+ *
+ * ⚠️ Nhận `string` chứ không nhận `GiaiDoanMuaHang`: khóa của `tepGiaiDoan` để kiểu chuỗi
+ * (xem chú thích ở `kieu-du-lieu.ts`), và dữ liệu cũ trên kho chung có thể mang mã đã bỏ.
+ * Tra không ra thì trả về chính mã đó, còn hơn ghi "undefined" vào hồ sơ.
+ */
+function tenBuoc(maGiaiDoan: string): string {
+  return NHAN_GIAI_DOAN[maGiaiDoan as GiaiDoanMuaHang]?.nhan ?? maGiaiDoan;
+}
 
 /**
  * Cắt bớt lịch sử sửa cho khỏi phình, theo hai nguyên tắc:
@@ -2544,6 +2599,144 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * Câu chặn khi hồ sơ đã đóng — `null` là được làm tiếp.
+   *
+   * 🔴 SUY GIAI ĐOẠN TỪ CHỨNG TỪ, KHÔNG đọc trường `trangThai`. Giai đoạn không phải một
+   * trường lưu sẵn (xem `2-quy-trinh/giai-doan-mua-hang.ts`); đọc `trangThai` là đọc một con
+   * số có thể đã cũ so với chứng từ thật.
+   *
+   * 📌 Tách thành hàm riêng để mọi việc "sửa nội dung đề nghị" chặn bằng cùng MỘT luật —
+   * viết lại điều kiện ở từng hàm là kiểu để hai chỗ lệch nhau mà không ai phát hiện.
+   */
+  const loiKhiHoSoDaDong = useCallback(
+    (dn: DeNghiMuaHang, viecDangLam: string): string | null => {
+      const giaiDoanHienTai = xacDinhGiaiDoan(
+        dn,
+        donHangRef.current,
+        baoGiaRef.current,
+        phieuNhanRef.current,
+      );
+      if (!giaiDoanDaKetThuc(giaiDoanHienTai)) return null;
+      return giaiDoanHienTai === "hoan_thanh"
+        ? `Đề nghị đã hoàn thành nên không ${viecDangLam} được nữa. Hồ sơ đã được kho và trưởng bộ phận xác nhận — sửa thêm sẽ làm các xác nhận đã ký không còn khớp với nội dung hồ sơ.`
+        : `Đề nghị đã đóng dở nên không ${viecDangLam} được nữa. Muốn mua tiếp thì lập một đề nghị mới.`;
+    },
+    [],
+  );
+
+  /**
+   * ★ TỆP ĐÍNH KÈM CỦA TỪNG BƯỚC — Ban lãnh đạo 17/08/2026: khoanh đỏ khối "Bảng báo giá"
+   * ở bước ② và ghi *"mục đính kèm file"*.
+   *
+   * 🔴 HỒ SƠ ĐÃ ĐÓNG THÌ KHÔNG GẮN THÊM ĐƯỢC, cùng luật với `suaMatHangDeNghi`: giai đoạn
+   * suy ra từ chứng từ, nên bồi thêm chứng từ vào hồ sơ đã hoàn thành / đã đóng dở là làm
+   * lệch cái mà kho và trưởng bộ phận đã ký xác nhận. XEM thì vẫn xem được bình thường.
+   *
+   * 📌 Trả về CÂU GIẢI THÍCH thay vì im lặng không làm gì — nếp chung của các hàm ghi trong
+   * file này (`suaMatHangDeNghi`, `suaBinhLuan`).
+   */
+  const themTepGiaiDoan = useCallback(
+    (
+      prId: string,
+      maGiaiDoan: string,
+      tepMoi: MoTaTep[],
+      nguoiThucHienTen: string,
+    ): string | null => {
+      if (tepMoi.length === 0) return null;
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+
+      const loi = loiKhiHoSoDaDong(dn, "đính kèm thêm tệp");
+      if (loi) return loi;
+
+      /**
+       * 🔴 CHẶN SỐ TỆP Ở ĐÂY chứ không chỉ ở ô chọn tệp. Giao diện ẩn nút là để người dùng
+       * khỏi bấm nhầm; còn chốt chặn thật phải nằm cùng chỗ ghi dữ liệu, nếu không thì hai
+       * người cùng gắn một lúc là vượt mức mà không ai biết.
+       */
+      const daCo = dn.tepGiaiDoan?.[maGiaiDoan] ?? [];
+      if (daCo.length + tepMoi.length > TOI_DA_TEP_MOI_BUOC) {
+        return `Mỗi bước chỉ nhận tối đa ${TOI_DA_TEP_MOI_BUOC} tệp. Bước này đang có ${daCo.length} tệp nên chỉ gắn thêm được ${Math.max(0, TOI_DA_TEP_MOI_BUOC - daCo.length)} tệp nữa — gỡ bớt tệp cũ rồi thử lại.`;
+      }
+
+      setDeNghi((truoc) =>
+        truoc.map((d) =>
+          d.id !== prId
+            ? d
+            : {
+                ...d,
+                tepGiaiDoan: {
+                  ...(d.tepGiaiDoan ?? {}),
+                  [maGiaiDoan]: [...(d.tepGiaiDoan?.[maGiaiDoan] ?? []), ...tepMoi],
+                },
+              },
+        ),
+      );
+
+      /**
+       * 🔴 Ghi TÊN BƯỚC và TÊN TỆP — người đọc nhật ký cần biết chứng từ nào vào bước nào.
+       * 🔴 KHÔNG ghi tên nhà cung cấp: khối Lịch sử hiện cho cả vai trò không được xem NCC
+       *    (quy ước CLAUDE.md mục 7). Tên tệp do người dùng đặt nên vẫn có thể lộ — nhưng đó
+       *    là chữ họ tự gõ, khác với việc app tự lôi tên NCC trong dữ liệu ra.
+       */
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHienTen,
+        `Đính kèm ${tepMoi.length} tệp ở bước ${tenBuoc(maGiaiDoan)}: ${tepMoi
+          .map((t) => t.tenTep)
+          .join(", ")}`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+  );
+
+  /**
+   * Gỡ một tệp khỏi một bước.
+   *
+   * ⚠️ KHÔNG gọi `xoaTep` — nội dung tệp vẫn nằm trong kho. Gỡ chứng từ là việc dễ làm nhầm
+   * (bấm nhầm dấu ×), mà chứng từ mất là mất hẳn; giữ nội dung lại thì còn đường tìm về.
+   * Đây cũng đúng cách khối bình luận đang làm với tệp bị gỡ khỏi bài.
+   */
+  const goTepGiaiDoan = useCallback(
+    (
+      prId: string,
+      maGiaiDoan: string,
+      tepId: string,
+      nguoiThucHienTen: string,
+    ): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+
+      const loi = loiKhiHoSoDaDong(dn, "gỡ tệp đính kèm");
+      if (loi) return loi;
+
+      const tep = (dn.tepGiaiDoan?.[maGiaiDoan] ?? []).find((t) => t.id === tepId);
+      if (!tep) return "Tệp này không còn trong hồ sơ — có thể người khác vừa gỡ trước.";
+
+      setDeNghi((truoc) =>
+        truoc.map((d) => {
+          if (d.id !== prId) return d;
+          const conLai = (d.tepGiaiDoan?.[maGiaiDoan] ?? []).filter((t) => t.id !== tepId);
+          const moi = { ...(d.tepGiaiDoan ?? {}) };
+          // Bước không còn tệp nào thì bỏ hẳn khóa, đừng để lại mảng rỗng làm rác dữ liệu.
+          if (conLai.length > 0) moi[maGiaiDoan] = conLai;
+          else delete moi[maGiaiDoan];
+          return { ...d, tepGiaiDoan: Object.keys(moi).length > 0 ? moi : undefined };
+        }),
+      );
+
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHienTen,
+        `Gỡ tệp đính kèm ở bước ${tenBuoc(maGiaiDoan)}: ${tep.tenTep}`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+  );
+
+  /**
    * BÌNH LUẬN — người dùng tự viết, khác hẳn nhật ký do app ghi.
    *
    * 📌 Không đụng tới `lichSu`: xem chú thích ở phần khai báo kiểu.
@@ -2825,6 +3018,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ghiLichSuDeNghi,
       datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
+      themTepGiaiDoan,
+      goTepGiaiDoan,
       vietBinhLuan,
       suaBinhLuan,
       chuyenTiepChoNhanVien,
@@ -2877,6 +3072,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ghiLichSuDeNghi,
       datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
+      themTepGiaiDoan,
+      goTepGiaiDoan,
       vietBinhLuan,
       suaBinhLuan,
       chuyenTiepChoNhanVien,

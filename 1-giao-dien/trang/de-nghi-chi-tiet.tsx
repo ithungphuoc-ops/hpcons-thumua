@@ -26,13 +26,14 @@ import { DanhSachTruong } from "@/1-giao-dien/thanh-phan-dung-chung/danh-sach-tr
 import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
-import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
+import { KhoiDeXuatCon } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-de-xuat-con";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
 import { KhoiTraoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi";
 import {
   KhoiDauVaoTheoGiaiDoan,
   NhanPhanTrongGiaiDoan,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
+import { KhuDinhKemGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-dinh-kem-giai-doan";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
 import {
   CotThongTinDeNghi,
@@ -190,6 +191,35 @@ export default function TrangChiTietDeNghi() {
       }),
   };
 
+  /**
+   * HỒ SƠ ĐÃ ĐÓNG (hoàn thành / đóng dở) — khóa mọi thao tác đổi nội dung.
+   *
+   * 📌 Tính một lần rồi dùng chung cho bảng Phân bổ và các khu đính kèm của sáu bước, để
+   * hai chỗ không bao giờ chặn theo hai luật khác nhau.
+   */
+  const hoSoDaDong = giaiDoanDaKetThuc(giaiDoan);
+
+  /**
+   * ★ AI ĐƯỢC GẮN / GỠ TỆP CỦA TỪNG BƯỚC (Ban lãnh đạo 17/08/2026).
+   *
+   * 🔴 KHÔNG BỊA CỜ QUYỀN MỚI. `4-phan-quyen/quyen.ts` không có cờ nào mang nghĩa "được sửa
+   * nội dung đề nghị này" — đã tra hết 16 cờ. Nên dùng lại đúng luật đã có sẵn cho khối
+   * **Người theo dõi** ở cột phải trang này (`khoi-nguoi-theo-doi.tsx`): *"Chỉ Thu mua được
+   * sửa danh sách. Vai trò khác vẫn xem được, chỉ không thêm/bỏ."*
+   *
+   * Vì sao đúng cho việc này:
+   *   · `lapPO` mở cho **nhân viên thu mua cấp ≥2** — chính người nhận báo giá nhà cung cấp
+   *     gửi về qua Zalo/email, tức người mà tính năng này sinh ra để phục vụ.
+   *   · `phanBoCongViec` là trưởng bộ phận và quản trị.
+   *   · Vai trò chỉ đọc (thủ kho, kế toán, QLDA, Phòng Thi công) **xem được nhưng không gỡ
+   *     được** — gỡ chứng từ khỏi hồ sơ là làm mất bằng chứng, không phải việc của họ.
+   *
+   * ⚠️ Đây CHƯA phải bảo mật thật, chỉ chặn ở giao diện. Chốt chặn hồ sơ đã đóng nằm ở tầng
+   * dữ liệu (`themTepGiaiDoan` / `goTepGiaiDoan`); còn chặn theo vai trò thì phải làm bằng
+   * Firestore Security Rules khi lên bản thật.
+   */
+  const duocSuaTepBuoc = quyen.phanBoCongViec || quyen.lapPO;
+
   /** Ai sẽ nhận khi bấm "Chuyển tiếp" — các nhân viên đang phụ trách ít nhất một dòng. */
   const nguoiSeNhan = [
     ...new Set(dn.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x))),
@@ -305,64 +335,19 @@ export default function TrangChiTietDeNghi() {
                 </Link>
               </div>
             )}
+            {/* 🔴 GẬP LẠI ĐƯỢC — Ban lãnh đạo 17/08/2026: *"thêm nút group này lại"*.
+                Khối này (danh sách phiếu con + bảng "Ai đang làm phần nào") từng bung hết
+                và chiếm gần nửa màn hình ngay đầu trang, đẩy các bước của quy trình xuống
+                dưới. Ruột dời sang `KhoiDeXuatCon` — xem chú thích trong file đó. */}
             {deNghiCon.length > 0 && (
-              /* Khai `text-sm` ở lớp bọc: hộp này không nằm trong `Card` nên không có nền
-                 cỡ chữ nào, chữ nào quên khai sẽ rơi về 16px mặc định của trình duyệt và
-                 to hơn mọi nội dung quanh nó. */
-              <div className="mt-2 flex flex-col gap-1.5 rounded-lg border border-primary/30 bg-primary-bg p-(--hp-md-row-pad) text-sm">
-                <p className="flex items-center gap-2 font-semibold text-text-primary">
-                  <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
-                  Đã tách thành {deNghiCon.length} đề xuất con
-                </p>
-                <ul className="flex flex-col gap-1">
-                  {deNghiCon.map((con) => (
-                    <li key={con.id} className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm">
-                      <Link
-                        href={`/de-nghi/${con.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {con.code}
-                      </Link>
-                      <span className="truncate text-xs text-text-desc">
-                        {con.items.length} mặt hàng
-                        {/* Người phụ trách của phiếu con — biết ai đang làm phần nào mà
-                            không phải mở từng phiếu ra xem. */}
-                        {(() => {
-                          const ds = [
-                            ...new Set(
-                              con.items
-                                .map((x) => x.nguoiPhuTrachTen)
-                                .filter((x): x is string => Boolean(x)),
-                            ),
-                          ];
-                          return ds.length > 0 ? ` · ${ds.join(", ")}` : " · chưa giao ai";
-                        })()}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-xs text-text-desc">
-                  Khối lượng của các phiếu con <strong>không cộng vào</strong> phiếu này — mỗi
-                  phiếu đi một vòng mua hàng riêng.
-                </p>
-
-                {/* ★ TỔNG HỢP THEO NGƯỜI — Ban lãnh đạo 15/08/2026: tách việc rồi phải
-                    "tổng hợp lại được để trưởng phòng đánh giá năng lực nhân viên".
-
-                    🔒 Chỉ người phân bổ công việc (trưởng bộ phận, quản trị) mới thấy: đây là
-                    số liệu về người khác, nhân viên nhìn nhau qua bảng này dễ sinh so bì mà
-                    số liệu lại chưa tính độ khó từng phần việc. */}
-                {quyen.phanBoCongViec && (
-                  <div className="mt-1 border-t border-primary/20 pt-2">
-                    <BangNangLucTheoNhanVien
-                      nhom={[dn, ...deNghiCon]}
-                      donHang={donHang}
-                      baoGia={baoGia}
-                      phieuNhan={phieuNhan}
-                    />
-                  </div>
-                )}
-              </div>
+              <KhoiDeXuatCon
+                deNghi={dn}
+                deNghiCon={deNghiCon}
+                donHang={donHang}
+                baoGia={baoGia}
+                phieuNhan={phieuNhan}
+                hienBangNangLuc={quyen.phanBoCongViec}
+              />
             )}
 
             {/* Tài liệu đính kèm lúc lập phiếu — nội dung nằm trên máy chủ (kho tệp),
@@ -449,9 +434,24 @@ export default function TrangChiTietDeNghi() {
                       // Hồ sơ đã chốt (hoàn thành / đóng dở) thì khóa mọi thao tác đổi nội
                       // dung — Ban lãnh đạo 15/08/2026. Dùng `giaiDoanDaKetThuc` cho khớp
                       // với luật chung.
-                      hoSoDaDong={giaiDoanDaKetThuc(giaiDoan)}
+                      hoSoDaDong={hoSoDaDong}
                     />
                   </section>
+                ),
+                /* ★ ĐÍNH KÈM CHO CẢ SÁU BƯỚC — Ban lãnh đạo 17/08/2026: ảnh khoanh đỏ khối
+                   "Bảng báo giá (0)" ở bước ② kèm chữ *"mục đính kèm file"*.
+
+                   🔴 KHÔNG làm riêng bước ②. Việc đang chờ trong danh sách ("thêm chỗ đính
+                   kèm cho hợp đồng, đơn có chữ ký, hóa đơn NCC") chính là cùng một nhu cầu;
+                   làm lẻ từng chỗ là sau này app có 5 cơ chế đính kèm khác nhau, mỗi chỗ một
+                   kiểu. Bước ① nhận biên bản họp, phiếu kiểm tồn kho… */
+                khuDinhKem: (
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="tiep_nhan"
+                    duocSua={duocSuaTepBuoc}
+                    khoa={hoSoDaDong}
+                  />
                 ),
               },
               {
@@ -548,6 +548,22 @@ export default function TrangChiTietDeNghi() {
                     </Card>
                   </section>
                 ),
+                /* 🔴 ĐÂY LÀ CHỖ BAN LÃNH ĐẠO KHOANH ĐỎ 17/08/2026. Bản báo giá nhà cung cấp
+                   gửi về qua Zalo/email trước đây chỉ gắn được sau khi đã vào trong trang
+                   bảng báo giá — mà lúc chưa lập bảng nào thì không có chỗ nào bỏ tệp vào cả.
+
+                   📌 KHÔNG chặn theo `duocXemBaoGiaCuaDeNghi` như khối Bảng báo giá ngay
+                   trên: khối đó bị chặn vì nó lộ MÃ BẢNG và TÊN NHÀ CUNG CẤP đã chọn. Tệp
+                   đính kèm của bước thì không tự nó lộ hai thứ đó, mà chặn thêm ở đây sẽ làm
+                   chính người đi hỏi giá không dán được báo giá vào hồ sơ. */
+                khuDinhKem: (
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="yeu_cau_bao_gia"
+                    duocSua={duocSuaTepBuoc}
+                    khoa={hoSoDaDong}
+                  />
+                ),
               },
               {
                 ma: "xet_duyet_bao_gia",
@@ -557,6 +573,17 @@ export default function TrangChiTietDeNghi() {
                   (bg.tepBaoGia ?? []).length > 0
                     ? [{ nhan: `Báo giá NCC — ${bg.code}`, tep: bg.tepBaoGia }]
                     : [],
+                ),
+                /* Bước ③ nhận biên bản xét duyệt, tờ trình so sánh giá. Khu này đứng riêng
+                   với trường "Báo giá NCC" ở trên: trường đó là tệp gắn TRONG bảng báo giá
+                   (chỉ đọc ở đây), còn khu này là chứng từ gắn thẳng vào bước. */
+                khuDinhKem: (
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="xet_duyet_bao_gia"
+                    duocSua={duocSuaTepBuoc}
+                    khoa={hoSoDaDong}
+                  />
                 ),
               },
               {
@@ -672,6 +699,15 @@ export default function TrangChiTietDeNghi() {
                     </Card>
                   </section>
                 ),
+                /* Bước ④ nhận hợp đồng mua bán, phụ lục, đơn đã có chữ ký. */
+                khuDinhKem: (
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="lap_don_mua_hang"
+                    duocSua={duocSuaTepBuoc}
+                    khoa={hoSoDaDong}
+                  />
+                ),
               },
               {
                 ma: "dat_hang",
@@ -681,6 +717,15 @@ export default function TrangChiTietDeNghi() {
                   nhan: "Đơn mua hàng",
                   giaTri: po.code,
                 })),
+                /* Bước ⑤ nhận đơn đã gửi đi có xác nhận của nhà cung cấp, chứng từ tạm ứng. */
+                khuDinhKem: (
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="dat_hang"
+                    duocSua={duocSuaTepBuoc}
+                    khoa={hoSoDaDong}
+                  />
+                ),
               },
               {
                 ma: "nhan_hang",
@@ -690,6 +735,19 @@ export default function TrangChiTietDeNghi() {
                   p.tepPhieuGiao
                     ? [{ nhan: `Phiếu giao nhận lần ${p.lanGiaoThu}`, tep: [p.tepPhieuGiao] }]
                     : [],
+                ),
+                /* Bước ⑥ nhận hóa đơn nhà cung cấp, chứng chỉ chất lượng, biên bản nghiệm thu.
+                   ⚠️ KHÔNG thay cho tệp phiếu giao nhận. Luật "mỗi lần giao phải có phiếu mới
+                   được xác nhận hoàn thành" (`vuongMacXacNhanKho`) kiểm TỪNG phiếu nhận hàng
+                   qua `tepPhieuGiao`, gắn tệp ở đây không gỡ được vướng mắc đó — và không được
+                   để nó gỡ, nếu không luật thành vô nghĩa. */
+                khuDinhKem: (
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="nhan_hang"
+                    duocSua={duocSuaTepBuoc}
+                    khoa={hoSoDaDong}
+                  />
                 ),
               },
             ]}

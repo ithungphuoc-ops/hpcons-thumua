@@ -95,6 +95,26 @@ IndexedDB chứa được hàng trăm MB và lưu thẳng Blob. Chứng từ ch�
 
 ⚠️ **Tệp nằm trên máy đã tải lên, chưa lên mạng.** Máy khác thấy tên tệp nhưng mở thì báo không còn nội dung — giao diện **phải nói ra**, xem `thanh-phan-dung-chung/o-dinh-kem-tep.tsx`.
 
+### Sáu chỗ hồ sơ giữ `MoTaTep` — đừng gộp chúng lại
+
+| Trường | Nghĩa | Hàm ghi |
+|---|---|---|
+| `DeNghiMuaHang.taiLieu` | **Hồ sơ đầu vào** nộp kèm lúc lập phiếu: catalogue, bản vẽ, chứng chỉ. Cố định, không sinh thêm | `themDeNghiGiaLap` (một lần duy nhất) |
+| `DeNghiMuaHang.tepGiaiDoan` | **Chứng từ phát sinh trong từng bước**, khóa = mã giai đoạn. Báo giá NCC ở bước ②, hợp đồng ở bước ④, hóa đơn ở bước ⑥ (Ban lãnh đạo 17/08/2026) | `themTepGiaiDoan` · `goTepGiaiDoan` |
+| `PhieuNhanHang.tepPhieuGiao` | Phiếu giao nhận của **một lần giao**. 🔴 Luật `vuongMacXacNhanKho` kiểm **từng phiếu** qua trường này — `tepGiaiDoan` KHÔNG thay thế được | `themPhieuNhan` · `dinhKemPhieuGiao` |
+| `BaoGia.tepBaoGia` | Bản báo giá gốc gắn **trong bảng báo giá**, có kèm `nccId` | `dinhKemBaoGia` |
+| `BaoGia.tepChonNCC` | Dẫn chứng chốt nhà cung cấp | `chonNCCChoBaoGia` |
+| `BinhLuan.tep` | Ảnh/tài liệu kèm một lời bình | `vietBinhLuan` · `suaBinhLuan` |
+
+🔴 **Gộp bất kỳ hai cái nào là mất khả năng truy ngược.** Biết "hồ sơ có 8 tệp" mà không biết
+tệp nào thuộc bước nào, tệp nào là phiếu giao của lần giao thứ mấy, thì lúc đối chiếu chứng
+từ phải mở từng cái ra đoán.
+
+⚠️ **Gỡ tệp khỏi hồ sơ KHÔNG xóa nội dung khỏi kho** ở hầu hết các chỗ (`themTepGiaiDoan`,
+bình luận, `ODinhKemNhieuTep`) — cố ý, vì gỡ nhầm thì còn đường tìm lại. Chỉ
+`de-nghi-nhan-moi.tsx` gọi `xoaTep` khi bỏ tài liệu lúc đang lập phiếu. Hệ quả: mảnh base64
+đã đẩy lên Firestore nằm lại và ăn dần hạn mức — **chưa đo thực tế mức độ ảnh hưởng**.
+
 ## Khi nối Firebase thật
 
 Chỉ cần thay phần trong `kho-du-lieu.tsx`: các hàm `phanBoDong`, `themDonHang`, `themPhieuNhan`, `xacNhanKho`, `xacNhanTruongBP` đổi từ ghi vào bộ nhớ sang ghi vào Firestore. **Giao diện không phải sửa một dòng nào.**

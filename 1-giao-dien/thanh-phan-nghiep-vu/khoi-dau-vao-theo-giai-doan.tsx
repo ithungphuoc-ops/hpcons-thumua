@@ -50,6 +50,18 @@ export interface GiaiDoanDauVao {
    * của bước đó, không phải cuộn xuống cuối trang tìm bảng tương ứng.
    */
   noiDungNghiepVu?: React.ReactNode;
+  /**
+   * KHU ĐÍNH KÈM TỆP của riêng bước này — xem `khu-dinh-kem-giai-doan.tsx`.
+   *
+   * 🔴 Ban lãnh đạo 17/08/2026 khoanh đỏ khối "Bảng báo giá (0)" ở bước ② và ghi *"mục đính
+   * kèm file"*. Trước đó bước ② không có chỗ nào bỏ tệp vào: bản báo giá nhà cung cấp gửi
+   * về qua Zalo/email chỉ gắn được sau khi đã lập bảng báo giá.
+   *
+   * 📌 Nhận `ReactNode` chứ không nhận `MoTaTep[]`: khu đính kèm còn phải ghi dữ liệu và
+   * kiểm quyền, mà khối này chỉ biết BÀY. Để nó tự đi lấy dữ liệu là kéo cả kho dữ liệu và
+   * phân quyền vào một component vốn thuần hiển thị.
+   */
+  khuDinhKem?: React.ReactNode;
 }
 
 /**
@@ -126,13 +138,23 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
 
         /**
          * Giai đoạn KHÔNG có trường nhập nào nhưng CÓ phần làm việc (bước ① chỉ có bảng
-         * Phân bổ chẳng hạn) thì bỏ luôn con số trên nhãn gập.
+         * Phân bổ chẳng hạn) hoặc CÓ khu đính kèm thì bỏ luôn con số trên nhãn gập.
          *
          * Ghi "THU GỌN · 0" là nói dối người xem: họ đọc số 0 rồi bỏ qua khối, trong khi
          * bên trong là đúng cái bảng họ cần làm việc. Con số chỉ đếm TRƯỜNG ĐẦU VÀO, cố
          * cộng thêm phần làm việc vào cũng sai vì đó không phải trường đánh số.
+         *
+         * 🔴 TÍNH CẢ `khuDinhKem` từ 17/08/2026. Bước ⑤ chẳng hạn có thể không có trường nào
+         * mà vẫn đang giữ ba tệp hợp đồng — nhãn "THU GỌN · 0" khiến người dùng đọc số 0 rồi
+         * bỏ qua, đúng cái bẫy khối chú thích này sinh ra để tránh. Không cộng số tệp vào con
+         * số ấy được: nó đếm TRƯỜNG ĐẦU VÀO đánh số 01→N, tệp không nằm trong dãy đó.
+         *
+         * ⚠️ Không biết được khu đính kèm có thật sự vẽ ra gì không (nó trả `null` khi trống
+         * và không được sửa) — nên ở đây chọn IM LẶNG về con số thay vì đoán. Nói ít mà đúng
+         * hơn là nói một con số có thể sai.
          */
-        const anSoTruong = g.truong.length === 0 && Boolean(g.noiDungNghiepVu);
+        const anSoTruong =
+          g.truong.length === 0 && (Boolean(g.noiDungNghiepVu) || Boolean(g.khuDinhKem));
         const nhanKhiMo = anSoTruong ? "" : `${g.truong.length} trường`;
         const nhanKhiGap = anSoTruong ? "THU GỌN" : `THU GỌN · ${g.truong.length}`;
         const nhanGap = dangMo ? nhanKhiMo : nhanKhiGap;
@@ -239,6 +261,28 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                    thì nền cỡ chữ phải giống nhau, không để một bên 14px một bên 16px. */
                 <div className="border-t border-divider p-(--hp-md-card-pad) text-sm">
                   {g.noiDungNghiepVu}
+                </div>
+              )}
+
+              {/* ★ TỆP ĐÍNH KÈM CỦA BƯỚC — Ban lãnh đạo 17/08/2026: *"mục đính kèm file"*.
+
+                  Đứng SAU cả "ĐẦU VÀO" lẫn phần làm việc, ngăn bằng cùng một đường kẻ và
+                  cùng cỡ chữ, vì nó là phần thứ ba NGANG HÀNG với hai phần kia: cái đã nhập
+                  vào · việc phải làm · chứng từ kèm theo.
+
+                  🔴 NẰM NGOÀI nhánh "chưa có dữ liệu nhập vào" của phần ĐẦU VÀO — bước ②
+                  chỉ có đúng một trường "SL Báo giá" và bước ③ có thể không có trường nào,
+                  nhưng đó lại chính là hai bước cần chỗ dán báo giá nhất. Gộp vào nhánh ấy
+                  là khu đính kèm biến mất đúng lúc cần nó nhất.
+
+                  ⚠️ `empty:hidden` là CỐ Ý: `KhuDinhKemGiaiDoan` trả `null` khi bước chưa có
+                  tệp và người xem không được thêm — lúc đó thẻ này rỗng và phải tự ẩn, nếu
+                  không sẽ để lại một dải kẻ ngang cùng khoảng đệm trống trơn. Không thể kiểm
+                  bằng `g.khuDinhKem && …` vì một phần tử React luôn "có thật" dù nó vẽ ra
+                  `null`. */}
+              {g.khuDinhKem && (
+                <div className="border-t border-divider p-(--hp-md-card-pad) text-sm empty:hidden">
+                  {g.khuDinhKem}
                 </div>
               )}
               </>

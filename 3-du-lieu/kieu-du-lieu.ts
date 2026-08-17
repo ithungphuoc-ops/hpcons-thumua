@@ -202,6 +202,32 @@ export interface DeNghiMuaHang {
    */
   taiLieu?: MoTaTep[];
   /**
+   * ★ TỆP ĐÍNH KÈM CỦA TỪNG BƯỚC — khóa là mã giai đoạn (`GiaiDoanMuaHang`).
+   *
+   * 🔴 Ban lãnh đạo 17/08/2026 khoanh đỏ khối "Bảng báo giá" ở bước ② và ghi *"mục đính kèm
+   * file"*. Trước đó bước ② KHÔNG có chỗ nào bỏ tệp vào: bản báo giá nhà cung cấp gửi về qua
+   * Zalo/email chỉ gắn được sau khi đã lập bảng báo giá, mà lúc chưa lập bảng nào thì nhân
+   * viên không biết cất vào đâu — chứng từ nằm lại trong điện thoại, hồ sơ thiếu mà không
+   * ai biết.
+   *
+   * 🔴 KHÁC HẲN `taiLieu` ở trên, ĐỪNG GỘP HAI THỨ. `taiLieu` là **hồ sơ đầu vào** người đề
+   * nghị nộp kèm lúc lập phiếu (catalogue, bản vẽ) — cố định, không sinh thêm. Còn đây là
+   * **chứng từ phát sinh trong lúc chạy quy trình**, mỗi bước một tập riêng, và phải biết
+   * chứng từ đó thuộc bước nào mới tra ngược được hồ sơ.
+   *
+   * 📌 LÀM CHO CẢ 6 BƯỚC chứ không riêng bước ②: hợp đồng, đơn có chữ ký, hóa đơn nhà cung
+   * cấp đều là cùng một nhu cầu. Làm lẻ từng chỗ thì sau này app có 5 cơ chế đính kèm khác
+   * nhau, mỗi chỗ một kiểu, sửa một lỗi phải sửa năm nơi.
+   *
+   * 📌 Đây chỉ là phần MÔ TẢ; nội dung tệp nằm ở kho tệp (`3-du-lieu/kho-tep.ts` → Firestore)
+   * nên máy khác mở xem được.
+   *
+   * ⚠️ Khóa để kiểu `string` chứ không phải `GiaiDoanMuaHang`: kiểu giai đoạn nằm ở
+   * `2-quy-trinh/`, mà tầng dữ liệu không được phụ thuộc ngược lên tầng quy trình. Cùng cách
+   * đã dùng cho `CongViecDaXong.giaiDoan`.
+   */
+  tepGiaiDoan?: Record<string, MoTaTep[]>;
+  /**
    * ★ CÔNG VIỆC BẮT BUỘC CỦA GIAI ĐOẠN ĐÃ TÍCH XONG — mục "Danh sách công việc" của Base.
    *
    * Danh mục công việc nằm ở `2-quy-trinh/cau-hinh-quy-trinh.ts` → `congViecTheoBuoc`; ở đây

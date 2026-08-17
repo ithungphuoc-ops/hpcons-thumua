@@ -52,6 +52,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Nút "Xuất Excel" bị khóa** | `2-quy-trinh/xuat-don-hang-excel.ts` → `vuongMacXuatPO` (thường là chưa có đơn giá) |
 | **Ô tìm kiếm** trên thanh trên không ra kết quả / ra sai | Giao diện: `khung-app/o-tim-kiem.tsx` · **Luật tìm và lọc quyền**: `2-quy-trinh/tim-kiem.ts` |
 | **Khối "Người theo dõi"** sai / không thêm được người | `thanh-phan-nghiep-vu/khoi-nguoi-theo-doi.tsx` + danh sách người chọn ở `3-du-lieu/danh-ba-nhan-su.ts` |
+| **Khối "Đã tách thành N đề xuất con"** — gập/mở, danh sách phiếu con, bảng "Ai đang làm phần nào" | `thanh-phan-nghiep-vu/khoi-de-xuat-con.tsx` (bọc `bang-nang-luc-theo-nhan-vien.tsx`). Quan hệ cha–con dựa trên `DeNghiMuaHang.deNghiGocId`, **không dựa vào tên** |
 | Sai ở **màn Theo dõi đề nghị** (cho Phòng Thi công) | `1-giao-dien/trang/theo-doi-danh-sach.tsx` · `theo-doi-chi-tiet.tsx` |
 | Sai ở **danh sách Báo giá** | `1-giao-dien/trang/bao-gia-danh-sach.tsx` |
 | Sai ở **bảng so sánh giá nhà cung cấp** | `1-giao-dien/trang/bao-gia-chi-tiet.tsx` |
@@ -77,6 +78,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Sai **điều kiện hoàn thành PO** (4 lớp: giao đủ · phiếu giao nhận · kho · trưởng BP) | `2-quy-trinh/tinh-toan.ts` → `poDuDieuKienHoanThanh` |
 | **Thủ kho không bấm được "xác nhận đã nhận đủ"** / bấm được khi lẽ ra không nên | `2-quy-trinh/tinh-toan.ts` → `vuongMacXacNhanKho` (**luật**) · nút ở `trang/don-hang-chi-tiet.tsx` |
 | **Đính kèm tệp** không lưu / không mở xem lại được | Kho tệp: `3-du-lieu/kho-tep.ts` (cửa vào) → `kho-tep-firestore.ts` (**chỗ cất thật từ 12/08/2026**, cắt mảnh base64 vì Firestore chỉ cho 1MB/tài liệu) · ô giao diện dùng chung: `thanh-phan-dung-chung/o-dinh-kem-tep.tsx`. ⚠️ `npm run dev` **ngắt khỏi Firebase** nên ở máy lập trình việc đẩy tệp lên sẽ báo lỗi — đó là đúng, phải kiểm trên bản chạy |
+| **Không đính kèm được tệp vào một BƯỚC** của quy trình (bước ② báo giá, hợp đồng, hóa đơn NCC…) | Giao diện: `thanh-phan-nghiep-vu/khu-dinh-kem-giai-doan.tsx` (một khu dùng chung cho **cả 6 bước**, nối vào ở `trang/de-nghi-chi-tiet.tsx` qua prop `khuDinhKem`) · Ghi dữ liệu: `3-du-lieu/kho-du-lieu.tsx` → `themTepGiaiDoan` / `goTepGiaiDoan` · Trường: `DeNghiMuaHang.tepGiaiDoan` (khóa = mã giai đoạn). 🔴 **KHÁC `taiLieu`** — `taiLieu` là hồ sơ đầu vào nộp lúc lập phiếu, `tepGiaiDoan` là chứng từ phát sinh trong từng bước, **đừng gộp**. Ban lãnh đạo 17/08/2026 |
 | **Bấm tên tệp không xem được** / nút tải về sai tên tệp | Một chỗ duy nhất cho cả 5 nơi có tệp: `thanh-phan-dung-chung/lien-ket-tep.tsx` (dòng bấm được) + `hop-xem-tep.tsx` (pop-up căn giữa). Ảnh xem bằng `<img>`, PDF bằng `<iframe>`, Word/Excel **nói thẳng là không xem trước được** thay vì mở ra trang trắng |
 | **Đề nghị nằm sai cột** trên bảng quy trình, hoặc sai chữ "Quá hạn / Còn N ngày" | `2-quy-trinh/giai-doan-mua-hang.ts` |
 | Sai **phân nhóm tuổi nợ 30-60-90** hoặc **mức rủi ro NCC** | `2-quy-trinh/tuoi-no.ts` |
