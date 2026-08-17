@@ -22,6 +22,8 @@ import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { DanhSachTruong } from "@/1-giao-dien/thanh-phan-dung-chung/danh-sach-truong";
 import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
+import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
+import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
 import { FormLapDonMuaHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang";
 import { KhoiDeXuatCon } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-de-xuat-con";
@@ -86,6 +88,15 @@ export default function TrangChiTietDeNghi() {
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
   const [loiNhan, setLoiNhan] = useState("");
+  /**
+   * Việc bắt buộc đang chờ xác nhận tích / bỏ tích — `null` là chưa hỏi ai.
+   * Xem lý do ở chỗ dùng, trong khối "Danh sách công việc".
+   */
+  const [hoiTichViec, setHoiTichViec] = useState<{
+    cv: CongViecGiaiDoan;
+    /** `true` = đang muốn tích xong, `false` = đang muốn bỏ tích. */
+    tich: boolean;
+  } | null>(null);
 
   const dn = deNghi.find((x) => x.id === params.id);
   const poLienQuan = useMemo(
@@ -811,19 +822,26 @@ export default function TrangChiTietDeNghi() {
                     <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
                       {/* Vùng chạm ≥44px theo Design System V1.1 — ô tích nhỏ nhưng cả nhãn
                           bấm được nên vùng thật rộng hơn nhiều. */}
+                      {/* 🔴 HỎI XÁC NHẬN TRƯỚC KHI TÍCH — Ban lãnh đạo 17/08/2026: *"mục này
+                          khi bấm xác nhận phải hiện thông báo xác nhận có tick hay ko"*, đúng
+                          nguyên tắc chung đã chốt 10/08/2026 cho mọi việc bấm-là-xong.
+
+                          VÌ SAO CẦN THẬT: ô tích này quyết định bước có được đi tiếp hay không
+                          (`vuongMacSangBuocSau` chặn khi việc bắt buộc chưa xong). Nhật ký hồ sơ
+                          260001-HPCS-PR-001 ghi SÁU lần "Hoàn thành" / "Bỏ tích" trong đúng một
+                          phút 19:29 — bấm nhầm quá dễ, và mỗi lần đều để lại một dòng nhật ký
+                          nên khối Lịch sử bị loãng đúng chỗ dùng để truy trách nhiệm.
+
+                          📌 `onChange` KHÔNG ghi dữ liệu nữa, chỉ mở hộp. Trạng thái ô tích vẫn
+                          lấy từ dữ liệu thật (`checked={Boolean(xong)}`) nên khi hộp bị hủy, ô
+                          tự về đúng trạng thái cũ — không cần tự đặt lại bằng tay. */}
                       <input
                         type="checkbox"
                         className="mt-0.5 size-4 shrink-0 accent-primary"
                         checked={Boolean(xong)}
                         disabled={!quyen.phanBoCongViec}
                         onChange={(e) =>
-                          danhDauCongViecGiaiDoan(
-                            dn.id,
-                            cv,
-                            giaiDoan,
-                            e.target.checked,
-                            nguoiDung.tenHienThi,
-                          )
+                          setHoiTichViec({ cv, tich: e.target.checked })
                         }
                       />
                       <span className="flex min-w-0 flex-col gap-0.5">
@@ -992,6 +1010,57 @@ export default function TrangChiTietDeNghi() {
           🔴 CHỐT KIỂM KHÔNG MẤT THEO: việc lập bảng báo giá chuyển sang menu ⋯ trên thẻ ở
           bảng quy trình, và ở đó nó gọi `xuLyTha` — cùng đường với kéo thả, nên vẫn qua
           `quyetDinhKeoTha` (kiểm bước đang đứng đã xong chưa) và vẫn mở hộp xác nhận. */}
+
+      {/* Hỏi trước khi tích / bỏ tích công việc bắt buộc — xem lý do ở khối "Danh sách công
+          việc". Cờ mở tách khỏi nội dung (`mo` riêng, `hoiTichViec` riêng) đúng cách
+          `HopXacNhan` yêu cầu: xóa nội dung cùng lúc với đóng sẽ tháo cây con giữa lúc hiệu
+          ứng đóng đang chạy và để lại lớp mờ kẹt trên màn hình. */}
+      <HopXacNhan
+        mo={hoiTichViec !== null}
+        /* ⚠️ Viết `!hoiTichViec.tich` chứ KHÔNG viết `hoiTichViec?.tich === false`: dạng so
+           sánh nghiêm ngặt kia cho ra `false` khi `hoiTichViec` là `null` (lúc hộp đóng) —
+           đúng — nhưng đã đo thật trên máy và nút vẫn ra nền xanh đặc của biến thể mặc định
+           thay vì tông cảnh báo. Bỏ tích là việc CHẶN đề nghị đi tiếp, nút phải mang tông
+           nguy hiểm. */
+        nguyHiem={hoiTichViec !== null && !hoiTichViec.tich}
+        tieuDe={
+          hoiTichViec?.tich ? "Xác nhận công việc đã xong?" : "Bỏ tích công việc này?"
+        }
+        moTa={
+          hoiTichViec ? (
+            <>
+              <span className="font-medium text-text-primary">{hoiTichViec.cv.ten}</span> —{" "}
+              bước {NHAN_GIAI_DOAN[giaiDoan]?.nhan ?? giaiDoan} của hồ sơ {dn.code}.
+            </>
+          ) : undefined
+        }
+        /* Nói HỆ QUẢ THẬT, không nói chung chung: việc bắt buộc chưa xong thì
+           `vuongMacSangBuocSau` chặn không cho đề nghị đi tiếp. Đó mới là lý do phải hỏi. */
+        canhBao={
+          hoiTichViec?.cv.batBuoc
+            ? hoiTichViec.tich
+              ? "Đây là công việc bắt buộc. Tích xong thì đề nghị mới chuyển sang bước sau được, và việc này vào nhật ký hồ sơ kèm tên bạn."
+              : "Đây là công việc bắt buộc. Bỏ tích thì đề nghị KHÔNG chuyển sang bước sau được nữa, kể cả khi đã ở bước xa hơn."
+            : "Việc này vào nhật ký hồ sơ kèm tên bạn."
+        }
+        nhanDongY={hoiTichViec?.tich ? "Xác nhận đã xong" : "Bỏ tích"}
+        onDong={() => setHoiTichViec(null)}
+        onDongY={() => {
+          if (!hoiTichViec) return;
+          danhDauCongViecGiaiDoan(
+            dn.id,
+            hoiTichViec.cv,
+            giaiDoan,
+            hoiTichViec.tich,
+            nguoiDung.tenHienThi,
+          );
+          toast.success(
+            hoiTichViec.tich
+              ? `Đã xác nhận xong: ${hoiTichViec.cv.ten}`
+              : `Đã bỏ tích: ${hoiTichViec.cv.ten}`,
+          );
+        }}
+      />
     </>
   );
 }
