@@ -176,33 +176,51 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
         const nhanGap = dangMo ? nhanKhiMo : nhanKhiGap;
 
         return (
-          /* Nền và khoảng đệm cũng lấy đúng của `KhoiGap` — hai khối xếp liền nhau, lệch nền
-             một chút là nhìn ra ngay. */
-          <section key={g.ma} className="rounded-xl border border-border bg-surface">
+          /* 🔴 KHỐI BƯỚC CÓ VIỀN MÀU NHẬN DIỆN — Ban lãnh đạo 17/08/2026: *"các mục chính này
+             e đánh màu lên cho dễ nhận dạng, đánh màu đường border và đổ nền nhạt thôi"*.
+
+             VÌ SAO CẦN: sáu khối bước và các khối phụ (Thông tin đề nghị, Danh sách công việc,
+             Trao đổi) trước đây dùng CÙNG một viền xám + nền `bg-surface`, nên nhìn cả trang
+             là một dãy hộp giống hệt nhau — không đọc ra đâu là mốc chính của quy trình.
+
+             📌 CHỈ đổi viền và nền, đúng chữ *"thôi"* của Ban lãnh đạo: không đổi cỡ chữ,
+             không thêm biểu tượng, không đổi khoảng cách. `border-primary/30` + `bg-primary-bg`
+             đều là token có sẵn (dùng ở khối "Đã tách thành N đề xuất con"), tự đổi theo
+             Sáng/Tối, không có mã màu viết cứng.
+
+             ⚠️ Chỉ tô DÒNG TIÊU ĐỀ, không tô cả thân khối: tô hết thì phần nội dung bên trong
+             (bảng phân bổ, form lập đơn, danh sách tệp) chìm vào nền xanh và mất chỗ nghỉ mắt. */
+          <section key={g.ma} className="overflow-hidden rounded-xl border border-primary/30 bg-surface">
             <button
               type="button"
               onClick={() =>
                 setMo((cu) => (cu.includes(g.ma) ? cu.filter((x) => x !== g.ma) : [...cu, g.ma]))
               }
               aria-expanded={dangMo}
-              className="flex min-h-11 w-full items-center gap-2 px-(--hp-md-card-pad) py-3 text-left"
+              className="flex min-h-11 w-full items-center gap-2 bg-primary-bg px-(--hp-md-card-pad) py-3 text-left transition-colors hover:bg-primary/10"
             >
               <ChevronRight
-                className={`size-4 shrink-0 text-text-desc transition-transform ${dangMo ? "rotate-90" : ""}`}
+                className={`size-4 shrink-0 text-primary transition-transform ${dangMo ? "rotate-90" : ""}`}
                 aria-hidden
               />
               {/* 🔴 DÙNG ĐÚNG KIỂU CHỮ CỦA `KhoiGap` (Ban lãnh đạo 16/08/2026: *"đưa cỡ chữ và
                   font chữ về giống nhau"*). Khối "Thông tin đề nghị" ngay phía trên là một
                   `KhoiGap`, nên hai khối nằm cạnh nhau mà lệch cỡ chữ là thấy ngay. Nếu sau
-                  này đổi kiểu tiêu đề gập thì phải đổi cả hai chỗ. */}
-              <span className="text-[11px] font-semibold tracking-wide text-text-desc uppercase">
+                  này đổi kiểu tiêu đề gập thì phải đổi cả hai chỗ.
+
+                  📌 Màu chữ nâng từ `text-text-desc` lên `text-primary`: trên nền xanh nhạt,
+                  chữ xám mờ tụt tương phản xuống dưới ngưỡng đọc được. */}
+              <span className="text-[11px] font-semibold tracking-wide text-primary uppercase">
                 {g.nhan}
               </span>
               {/* Nhãn trạng thái gập bên phải — Base ghi "COLLAPSED" / "THU GỌN". Kèm số
                   trường để biết khối có gì mà không phải mở ra. Nhãn rỗng thì không vẽ ô,
                   một ô xám trống trơn còn khó hiểu hơn là không có gì. */}
+              {/* Nền `bg-card` chứ không `bg-muted`: dòng tiêu đề giờ là nền xanh nhạt, mà
+                  `--color-muted` trong `app/globals.css` đúng bằng `--hp-surface` nên ô nhãn
+                  sẽ lẫn vào nền xanh thay vì nổi lên như khi nền còn trắng. */}
               {nhanGap && (
-                <span className="ml-auto shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-text-secondary tabular-nums">
+                <span className="ml-auto shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[11px] font-medium text-text-secondary tabular-nums">
                   {nhanGap}
                 </span>
               )}

@@ -80,7 +80,18 @@ function congNgay(soNgay: number): string {
 export default function TrangNhanDeNghiMoi() {
   const router = useRouter();
   const { deNghi, themDeNghiGiaLap, cauHinh } = useDuLieu();
-  const { nguoiDung, danhSachTaiKhoan } = useNguoiDung();
+  const { nguoiDung, danhSachTaiKhoan, quyen } = useNguoiDung();
+  /**
+   * 🔴 XONG THÌ VỀ ĐÂU — Ban lãnh đạo 17/08/2026: *"sao tài khoản này không tạo được đề nghị"*.
+   *
+   * Trước đây màn này luôn đẩy về `/de-nghi` (bảng quy trình). Nhưng từ 16/08/2026 bảng đó bị
+   * chặn với thủ kho và phòng ban khác — chính những người vừa được mở quyền lập đề nghị. Nên
+   * họ lập xong phiếu là bị đá ra "Bạn không có quyền vào mục này", tưởng phiếu lập thất bại.
+   *
+   * Ai không xem được bảng quy trình thì về "Theo dõi đề nghị" — màn của họ, và phiếu vừa lập
+   * hiện ngay ở đó nên thấy được kết quả việc mình vừa làm.
+   */
+  const duongVeSauKhiXong = quyen.xemQuyTrinhMuaHang ? "/de-nghi" : "/theo-doi";
   /** 🔴 Danh bạ đọc từ TÀI KHOẢN THẬT, không phải mảng mẫu — xem `dung-danh-ba.ts`. */
   const danhBa = useDanhBa();
 
@@ -363,9 +374,11 @@ export default function TrangNhanDeNghiMoi() {
     }
 
     toast.success(`Đã nhận đề nghị từ ${nhanPhongBan(boPhan)}`, {
-      description: "Thẻ mới nằm ở cột đầu tiên — Tiếp nhận và kiểm tra.",
+      description: quyen.xemQuyTrinhMuaHang
+        ? "Thẻ mới nằm ở cột đầu tiên — Tiếp nhận và kiểm tra."
+        : "Phiếu đã vào hệ thống. Theo dõi tiến độ ở mục “Theo dõi đề nghị”.",
     });
-    router.push("/de-nghi");
+    router.push(duongVeSauKhiXong);
   }
 
   return (
@@ -394,8 +407,8 @@ export default function TrangNhanDeNghiMoi() {
           </h1>
           <button
             type="button"
-            onClick={() => router.push("/de-nghi")}
-            aria-label="Đóng, quay lại bảng quy trình"
+            onClick={() => router.push(duongVeSauKhiXong)}
+            aria-label="Đóng, quay lại"
             className="flex size-8 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-text-primary"
           >
             <X className="size-4" aria-hidden />

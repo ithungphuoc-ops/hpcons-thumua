@@ -204,6 +204,25 @@ export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
   if (duongDan.startsWith("/phan-bo")) return q.phanBoCongViec;
   if (duongDan.startsWith("/don-hang/tao-moi")) return q.lapPO;
   /**
+   * 🔴 MÀN LẬP ĐỀ NGHỊ PHẢI ĐỨNG TRƯỚC khối `/de-nghi` bên dưới — Ban lãnh đạo 17/08/2026:
+   * *"sao tài khoản này không tạo được đề nghị"*.
+   *
+   * HAI LUẬT ĐÃ ĐÁNH NHAU, và đây là lỗi tôi gây ra:
+   *   · Ban lãnh đạo chốt 12/08/2026: *"chức năng đề nghị này hãy tạo cho TOÀN BỘ các tài
+   *     khoản hiện có"* → `taoDeNghi` mở cho mọi người (xem chú thích ở khai báo).
+   *   · Ban lãnh đạo chốt 16/08/2026: thủ kho và phòng ban khác KHÔNG được thấy Quy trình
+   *     mua hàng → tôi chặn cả tiền tố `/de-nghi`.
+   *
+   * Màn lập đề nghị có địa chỉ `/de-nghi/nhan-moi`, VÔ TÌNH nằm dưới tiền tố bị chặn. Hậu
+   * quả: nút "Tạo đề nghị" vẫn hiện ở màn Công việc của tôi (đúng `taoDeNghi`), bấm vào thì
+   * bị đá ra "Bạn không có quyền vào mục này". Đúng thứ quy ước dự án cấm — giao diện hứa
+   * một việc app không cho làm.
+   *
+   * ⚠️ THỨ TỰ Ở ĐÂY LÀ LUẬT: dòng này phải nằm TRƯỚC `startsWith("/de-nghi")`, vì
+   * `/de-nghi/nhan-moi` khớp cả hai. Đảo lại là lỗi quay về ngay mà không ai thấy.
+   */
+  if (duongDan.startsWith("/de-nghi/nhan-moi")) return q.taoDeNghi;
+  /**
    * 🔴 CHẶN CẢ ĐƯỜNG DẪN, không chỉ ẩn mục menu (Ban lãnh đạo 16/08/2026).
    *
    * Ẩn menu KHÔNG PHẢI LÀ CHẶN: địa chỉ `/de-nghi` gõ thẳng vào thanh địa chỉ vẫn vào được,
