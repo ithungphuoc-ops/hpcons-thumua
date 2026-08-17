@@ -56,6 +56,32 @@ export const CO_TOI_DA = 10 * 1024 * 1024;
 
 export const KIEU_CHO_PHEP = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx,.xls,.xlsx";
 
+/**
+ * Phần đuôi tệp, viết thường, KHÔNG kèm dấu chấm. Không có đuôi thì trả chuỗi rỗng.
+ *
+ * 📌 Để ở tầng dữ liệu chứ không nằm trong file giao diện: cả việc CHỌN BIỂU TƯỢNG theo loại
+ * tệp lẫn việc CHẶN kiểu tệp đều hỏi đúng câu hỏi này. Tách ra hai nơi thì sau này sửa một
+ * chỗ, chỗ kia lệch mà không ai soi ra.
+ */
+export function duoiTep(tenTep: string): string {
+  const cham = tenTep.lastIndexOf(".");
+  // `cham <= 0` gạt luôn tên kiểu ".gitignore" — đó là tên tệp ẩn, không phải đuôi.
+  if (cham <= 0 || cham === tenTep.length - 1) return "";
+  return tenTep.slice(cham + 1).toLowerCase();
+}
+
+/** Tên tệp có nằm trong danh mục `KIEU_CHO_PHEP` không. */
+export function laKieuTepChoPhep(tenTep: string): boolean {
+  const duoi = duoiTep(tenTep);
+  if (!duoi) return false;
+  return KIEU_CHO_PHEP.split(",").includes(`.${duoi}`);
+}
+
+/** Danh mục đuôi tệp viết cách nhau bằng dấu trắng — để báo cho người dùng app nhận những gì. */
+export function chuoiKieuChoPhep(): string {
+  return KIEU_CHO_PHEP.split(",").join(" ");
+}
+
 function moKho(): Promise<IDBDatabase> {
   return new Promise((nhan, loi) => {
     const yc = indexedDB.open(TEN_KHO, PHIEN_BAN);
@@ -78,6 +104,18 @@ export async function catTep(
   tep: File,
   nguoi: { uid: string; ten: string },
 ): Promise<MoTaTep> {
+  /**
+   * 🔴 CHẶN KIỂU TỆP Ở ĐÂY, không chỉ ở ô chọn tệp — thêm 17/08/2026 khi khu đính kèm của
+   * từng bước có thao tác KÉO THẢ.
+   *
+   * Thuộc tính `accept` chỉ lọc trong hộp thoại chọn tệp của hệ điều hành; tệp kéo thẳng từ
+   * màn hình nền vào KHÔNG đi qua nó, không bị lọc gì cả. Chốt chặn thật phải nằm cùng chỗ
+   * ghi dữ liệu, nếu không thì mỗi nơi gọi lại phải tự nhớ kiểm — rồi sẽ có nơi quên.
+   */
+  if (!laKieuTepChoPhep(tep.name)) {
+    throw new Error(`Không nhận loại tệp này. Chỉ nhận: ${chuoiKieuChoPhep()}.`);
+  }
+
   if (tep.size > CO_TOI_DA) {
     throw new Error(
       `Tệp ${(tep.size / 1024 / 1024).toFixed(1)}MB, vượt mức cho phép ${CO_TOI_DA / 1024 / 1024}MB.`,

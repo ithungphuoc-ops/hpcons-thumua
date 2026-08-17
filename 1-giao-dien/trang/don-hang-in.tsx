@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { PrintToolbar } from "@/1-giao-dien/thanh-phan-dung-chung/print-toolbar";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { tinhTienDonHang } from "@/2-quy-trinh/tinh-toan";
+import { laDongHang, moTaThueSuat, tinhTienChiTietPO } from "@/2-quy-trinh/tinh-toan";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 
 /**
@@ -25,6 +25,23 @@ import { docSoTien } from "@/6-tien-ich/doc-so-tien";
  *  1. Màu và cỡ chữ viết CỨNG, không dùng token theme. Chứng từ in ra gửi nhà cung cấp
  *     không được đổi màu theo tùy chọn cá nhân của người bấm In (quy ước phiên 04).
  *  2. Nền luôn trắng, không theo Dark Mode.
+ *
+ * ★ HAI VIỆC BIỂU MẪU GIẤY KHÔNG DIỄN TẢ NỔI (thêm 17/08/2026, khi màn lập đơn bám MISA bắt
+ *   đầu tạo ra được hai thứ này):
+ *
+ *   1. DÒNG GHI CHÚ chèn giữa bảng hàng (`DongPO.laDongGhiChu`). Vẫn IN RA vì đó là lời dặn
+ *      thật của người lập đơn, nhà cung cấp cần đọc — nhưng KHÔNG có STT, SL, đơn giá, thành
+ *      tiền, thuế, và không cộng vào một dòng tổng nào. Gộp ô ngang + chữ nghiêng để người
+ *      đọc phân biệt ngay với dòng hàng.
+ *      🔴 Trước đó dòng này in ra thành một mặt hàng SL 0 · đơn giá 0 · thành tiền 0 — tức là
+ *      thêm một mặt hàng không có thật vào chứng từ gửi nhà cung cấp.
+ *
+ *   2. ĐƠN TRỘN NHIỀU MỨC THUẾ SUẤT (vừa 8% vừa 10%). Biểu mẫu chỉ có MỘT ô thuế suất cho cả
+ *      đơn nên không nói được đơn kiểu này. Khi và CHỈ KHI trộn mức, bảng thêm hai cột
+ *      "% Thuế GTGT" và "Tiền thuế GTGT" theo từng dòng; đơn một mức (gần như mọi đơn) giữ
+ *      nguyên đúng 9 cột của biểu mẫu, không đổi một ô nào.
+ *      🔴 Trước đó dòng tổng ghi cứng `thueSuatGTGT` — mà khi trộn mức, trường đó chỉ là mức
+ *      của nhóm có giá trị lớn nhất, in ra là ghi sai chứng từ thuế. Nay dùng `moTaThueSuat`.
  *
  * 🔒 Chỉ vai trò được xem giá mới mở được trang này — đơn gửi nhà cung cấp buộc phải có
  *    đơn giá, nên không có bản "ẩn giá" của trang này.
@@ -69,7 +86,27 @@ export default function TrangInDonHang() {
     );
   }
 
-  const tien = tinhTienDonHang(po, gia);
+  /**
+   * 🔴 MỘT NGUỒN TÍNH DUY NHẤT — trang in KHÔNG tự nhân số lượng với đơn giá.
+   *
+   * Trước 17/08/2026 cột "Thành tiền" ở đây tính tay `donGia * khoiLuongDat`, tức là bỏ qua
+   * bước làm tròn về đồng của `thanhTienDong`. Dòng có khối lượng lẻ (12,5 m³) thì bản in ra
+   * số lẻ trong khi màn hình và file Excel ra số nguyên — hai chứng từ của cùng một đơn ghi
+   * hai con số khác nhau.
+   */
+  const tien = tinhTienChiTietPO(po, gia);
+  /** Kết quả tiền của từng dòng, tra theo `sttDong`. Dòng ghi chú KHÔNG có mặt ở đây. */
+  const tienTheoDong = new Map(tien.dong.map((t) => [t.sttDong, t]));
+  /** Đơn trộn nhiều mức thuế → thêm hai cột thuế theo dòng (xem chú thích đầu file, mục 2). */
+  const coCotThue = tien.nhieuMucThue;
+  /**
+   * Bề rộng cột. Tổng phải ĐÚNG 100% — cộng quá 100 là trình duyệt tự bóp cột cuối, chữ
+   * xuống dòng từng chữ một, in ra rất khó đọc. Hai bộ vì đơn trộn thuế có thêm hai cột.
+   */
+  const beRong = coCotThue
+    ? { stt: "4%", ma: "8%", ten: "16%", tskt: "15%", dvt: "5%", sl: "6%", gia: "9%", tt: "10%", muc: "13%" }
+    : { stt: "5%", ma: "9%", ten: "18%", tskt: "20%", dvt: "6%", sl: "7%", gia: "10%", tt: "11%", muc: "14%" };
+
   const donViTien = gia?.loaiTien ?? "VND";
   const soTien = (n: number) => n.toLocaleString("vi-VN");
 
@@ -117,25 +154,50 @@ export default function TrangInDonHang() {
             chứ không để cắt mất cột cuối. `print:overflow-visible` để khi in ra giấy
             bảng vẫn hiện đủ — giấy A4 luôn đủ rộng nên không cần cuộn. */}
         <div className="mt-4 overflow-x-auto print:overflow-visible">
-        <table className="w-full min-w-[170mm] border-collapse text-[10px] print:min-w-0">
+        <table
+          className={`w-full border-collapse text-[10px] print:min-w-0 ${
+            coCotThue ? "min-w-[195mm]" : "min-w-[170mm]"
+          }`}
+        >
           <thead>
             <tr className="bg-[#EAF3F9]">
-              {/* Tổng bề rộng phải đúng 100% — cộng quá 100 là trình duyệt tự bóp
-                  cột cuối, chữ xuống dòng từng chữ một, in ra rất khó đọc. */}
-              <O th w="5%" giua>STT</O>
-              <O th w="9%">Mã hàng</O>
-              <O th w="18%">Tên hàng</O>
-              <O th w="20%">Thông số kỹ thuật</O>
-              <O th w="6%" giua>ĐVT</O>
-              <O th w="7%" phai>SL</O>
-              <O th w="10%" phai>Đơn giá</O>
-              <O th w="11%" phai>Thành tiền</O>
-              <O th w="14%">Mục đích sử dụng</O>
+              <O th w={beRong.stt} giua>STT</O>
+              <O th w={beRong.ma}>Mã hàng</O>
+              <O th w={beRong.ten}>Tên hàng</O>
+              <O th w={beRong.tskt}>Thông số kỹ thuật</O>
+              <O th w={beRong.dvt} giua>ĐVT</O>
+              <O th w={beRong.sl} phai>SL</O>
+              <O th w={beRong.gia} phai>Đơn giá</O>
+              <O th w={beRong.tt} phai>Thành tiền</O>
+              {coCotThue && (
+                <>
+                  <O th w="5%" phai>% Thuế GTGT</O>
+                  <O th w="9%" phai>Tiền thuế GTGT</O>
+                </>
+              )}
+              <O th w={beRong.muc}>Mục đích sử dụng</O>
             </tr>
           </thead>
           <tbody>
             {po.items.map((d) => {
-              const donGia = gia?.lines.find((l) => l.sttDong === d.sttDong)?.donGia ?? 0;
+              /* ===== DÒNG GHI CHÚ — in ra, nhưng KHÔNG phải một mặt hàng =====
+                 Không STT, không SL, không đơn giá, không thành tiền, không thuế; và vì
+                 `tinhTienChiTietPO` đã loại nó ra nên nó cũng không cộng vào dòng tổng nào. */
+              if (!laDongHang(d)) {
+                return (
+                  <tr key={d.sttDong} className="break-inside-avoid">
+                    <O giua />
+                    <O span={coCotThue ? 10 : 8} nghieng>
+                      {d.tenVatLieu}
+                    </O>
+                  </tr>
+                );
+              }
+
+              /* `tinhTienChiTietPO` lọc dòng bằng CHÍNH `laDongHang` ở trên, nên mọi dòng hàng
+                 đều tra ra kết quả. `?? 0` chỉ là chốt chặn kiểu dữ liệu, không phải đường
+                 chạy thật. */
+              const t = tienTheoDong.get(d.sttDong);
               return (
                 <tr key={d.sttDong} className="break-inside-avoid">
                   <O giua>{d.sttDong}</O>
@@ -144,8 +206,15 @@ export default function TrangInDonHang() {
                   <O>{d.thongSoKyThuat ?? ""}</O>
                   <O giua>{d.donViTinh}</O>
                   <O phai>{soTien(d.khoiLuongDat)}</O>
-                  <O phai>{soTien(donGia)}</O>
-                  <O phai>{soTien(donGia * d.khoiLuongDat)}</O>
+                  <O phai>{soTien(t?.donGia ?? 0)}</O>
+                  <O phai>{soTien(t?.thanhTien ?? 0)}</O>
+                  {coCotThue && (
+                    <>
+                      {/* Thuế suất CỦA CHÍNH DÒNG NÀY — không phải mức chung của đơn. */}
+                      <O phai>{`${t?.thueSuatGTGT ?? 0}%`}</O>
+                      <O phai>{soTien(t?.tienThueGTGT ?? 0)}</O>
+                    </>
+                  )}
                   <O>{d.mucDichSuDung ?? ""}</O>
                 </tr>
               );
@@ -162,17 +231,27 @@ export default function TrangInDonHang() {
             <DongTien nhan="Cộng tiền hàng (Chưa trừ CK)" giaTri={soTien(tien.congTienHang)} />
             <DongTien nhan="Số tiền CK" giaTri={soTien(tien.chietKhau)} />
             <DongTien nhan="Cộng tiền hàng (Đã trừ CK)" giaTri={soTien(tien.congTienHangSauCK)} />
+            {/* 🔴 `moTaThueSuat` là chỗ duy nhất quyết định cách viết thuế suất: "8%" khi cả
+                đơn một mức, "nhiều mức" khi trộn. Ghi cứng `tien.thueSuatGTGT` như trước là
+                in mức của nhóm lớn nhất thành mức của cả đơn — sai chứng từ thuế. */}
             <DongTien
-              nhan={`Tiền thuế GTGT (thuế suất ${tien.thueSuatGTGT}%)`}
+              nhan={`Tiền thuế GTGT (thuế suất ${moTaThueSuat(tien)})`}
               giaTri={soTien(tien.tienThueGTGT)}
             />
             <DongTien nhan="Tổng tiền thanh toán" giaTri={soTien(tien.tongThanhToan)} tong />
           </dl>
         </section>
 
+        {/* ⚠️ `docSoTien` đọc theo ĐỒNG VIỆT NAM. Đơn ngoại tệ thì ghi số kèm mã tiền, y hệt
+            `xuat-don-hang-excel.ts` — hai chứng từ của cùng một đơn không được nói khác nhau,
+            mà đọc "… đồng" cho một đơn USD là ghi sai số tiền phải trả. */}
         <p className="mt-2 text-[11px]">
           <span className="text-[#475467]">Số tiền viết bằng chữ: </span>
-          <span className="font-medium italic">{docSoTien(tien.tongThanhToan)}</span>
+          <span className="font-medium italic">
+            {donViTien === "VND"
+              ? docSoTien(tien.tongThanhToan)
+              : `${soTien(tien.tongThanhToan)} ${donViTien}`}
+          </span>
         </p>
 
         {/* ---------- ĐIỀU KHOẢN ---------- */}
@@ -260,15 +339,23 @@ function O({
   w,
   giua,
   phai,
+  span,
+  nghieng,
 }: {
   children?: React.ReactNode;
   th?: boolean;
   w?: string;
   giua?: boolean;
   phai?: boolean;
+  /** Gộp ô ngang qua nhiều cột — dùng cho dòng ghi chú. */
+  span?: number;
+  /** Chữ nghiêng màu nhạt: dấu hiệu "đây là ghi chú, không phải mặt hàng". */
+  nghieng?: boolean;
 }) {
   const canh = giua ? "text-center" : phai ? "text-right" : "text-left";
-  const lop = `border border-[#D0D5DD] px-1.5 py-1 align-top ${canh}`;
+  const lop = `border border-[#D0D5DD] px-1.5 py-1 align-top ${canh}${
+    nghieng ? " italic text-[#475467]" : ""
+  }`;
   if (th) {
     return (
       <th className={`${lop} font-semibold`} style={{ width: w }}>
@@ -276,7 +363,11 @@ function O({
       </th>
     );
   }
-  return <td className={lop}>{children}</td>;
+  return (
+    <td className={lop} colSpan={span}>
+      {children}
+    </td>
+  );
 }
 
 /** Màn báo lỗi của trang in — không dùng EmptyState của app vì trang này nền trắng cố định. */

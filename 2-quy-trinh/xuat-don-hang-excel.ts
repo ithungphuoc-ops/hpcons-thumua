@@ -30,6 +30,26 @@
 // giấy, và cũng đúng cách `doc-don-hang-excel.ts` dò nhãn. Tách ra hai ô là bản in lệch so
 // với giấy VÀ app không đọc lại được file mình vừa xuất.
 //
+// ★ HAI VIỆC BIỂU MẪU GIẤY KHÔNG DIỄN TẢ NỔI (thêm 17/08/2026, khi màn lập đơn bám MISA bắt
+//   đầu tạo ra được hai thứ này):
+//
+//   1. DÒNG GHI CHÚ chèn giữa bảng hàng (`DongPO.laDongGhiChu`). Vẫn IN RA vì đó là lời dặn
+//      thật của người lập đơn, nhà cung cấp cần đọc — nhưng KHÔNG có STT, SL, đơn giá, thành
+//      tiền, thuế, và không lọt vào một dòng tổng nào.
+//      🔴 Ô ghi chú CHỈ gộp C:D, không gộp rộng hơn. `doc-don-hang-excel.ts` nhận ra dòng ghi
+//      chú nhờ các ô Mã hàng (B) · ĐVT (E) · SL (F) · Đơn giá (G) · % Thuế (K) đều TRỐNG, mà
+//      thư viện Excel trả giá trị ô GỐC cho mọi ô con trong vùng gộp. Gộp qua cột E là ô ĐVT
+//      "có nội dung" → nhập lại chính file này thì ghi chú bị xếp thành dòng hàng hỏng và bị
+//      loại. Đã tính đường đó, đừng "gộp cho đẹp".
+//
+//   2. ĐƠN TRỘN NHIỀU MỨC THUẾ SUẤT (vừa 8% vừa 10%). Biểu mẫu chỉ có MỘT ô "Thuế suất thuế
+//      GTGT" cho cả đơn nên không nói được đơn kiểu này. Khi và CHỈ KHI trộn mức, file thêm
+//      hai cột K "% Thuế GTGT" và L "Tiền thuế GTGT", ô thuế suất chung ghi "nhiều mức".
+//      Đơn một mức (gần như mọi đơn) giữ nguyên đúng dải A:J của biểu mẫu, không xê dịch ô nào.
+//      🔴 Trước 17/08/2026 chỗ này in `gia.thueSuatGTGT` như thuế suất của CẢ ĐƠN và ghi công
+//      thức `=H18*8%`. Excel tính lại công thức mỗi lần mở file, nên đơn trộn mức bị ghi thiếu
+//      hẳn phần thuế của nhóm 10% — sai số tiền phải trả trên chứng từ gửi nhà cung cấp.
+//
 // 🔴 ĐỪNG LẪN VỚI `ghi-don-hang-excel.ts`:
 //   · `ghi-don-hang-excel.ts` → biểu mẫu CHƯA CÓ GIÁ, để người lập điền rồi NHẬP LẠI vào app
 //   · file này               → đơn ĐÃ LẬP, ĐÃ CÓ GIÁ, để gửi nhà cung cấp và lưu hồ sơ
@@ -40,7 +60,7 @@
 // ============================================================
 
 import type { DonDatHang, GiaDonDatHang, NhaCungCap } from "@/3-du-lieu/kieu-du-lieu";
-import { tinhTienDonHang } from "@/2-quy-trinh/tinh-toan";
+import { laDongHang, moTaThueSuat, tinhTienChiTietPO } from "@/2-quy-trinh/tinh-toan";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 
 /** Pháp nhân bên mua — in cố định trên đầu đơn, đúng chữ trong biểu mẫu. */
@@ -60,10 +80,28 @@ const BEN_MUA = {
 const DINH_DANG = {
   soLuong: "#,##0.###",
   tien: "#,##0",
+  /**
+   * Cột "% Thuế GTGT" — lưu SỐ NGUYÊN PHẦN TRĂM (8 nghĩa là 8%), chỉ dán chữ "%" vào phần
+   * hiển thị.
+   *
+   * ⚠️ KHÔNG dùng định dạng Phần trăm thật của Excel: định dạng đó bắt giá trị bên trong phải
+   * là 0.08, mà `doc-don-hang-excel.ts` → `docThueSuat` phải đoán xem 0.08 là "0,08%" hay "8%".
+   * Lưu thẳng 8 thì không phải đoán.
+   */
+  thueSuat: '0.##"%"',
 } as const;
 
 /** Bề rộng cột đọc từ biểu mẫu (đơn vị ký tự của Excel). */
 const BE_RONG_COT = [7.57, 13, 22.29, 22.29, 8.86, 13, 12.14, 11.43, 8.29, 17.29];
+
+/**
+ * Bề rộng hai cột K, L — CHỈ có mặt khi đơn trộn nhiều mức thuế suất.
+ *
+ * Đặt ở CUỐI (sau "Mục đích sử dụng") chứ không chèn vào giữa: dải A:J của biểu mẫu giữ
+ * nguyên từng ô, còn `doc-don-hang-excel.ts` khớp cột theo TÊN TIÊU ĐỀ nên thứ tự không
+ * ảnh hưởng gì tới việc nhập lại file.
+ */
+const BE_RONG_COT_THUE = [8, 12];
 
 /** Chiều cao dòng của biểu mẫu, theo số dòng. Dòng không khai thì Excel tự tính. */
 const CAO_DONG: Record<number, number> = {
@@ -97,16 +135,30 @@ export interface DauVaoXuatPO {
   logo?: ArrayBuffer;
 }
 
-/** Vì sao CHƯA xuất được. `null` là xuất được. */
+/**
+ * Vì sao CHƯA xuất được. `null` là xuất được.
+ *
+ * 🔴 CHỈ SOÁT ĐƠN GIÁ TRÊN DÒNG HÀNG — DÒNG GHI CHÚ KHÔNG CÓ GIÁ VÀ KHÔNG BAO GIỜ CÓ.
+ *
+ * Trước đó hàm này soát cả `po.items`, tức là kể cả dòng ghi chú. Mà `kho-du-lieu.tsx` dựng
+ * `gia.lines` bằng `po.items.map(...)` nên dòng ghi chú vẫn có một dòng giá với `donGia: 0` →
+ * mọi đơn có ghi chú đều bị đếm là "còn 1 mặt hàng chưa có đơn giá", nút Xuất Excel bị KHÓA
+ * VĨNH VIỄN và câu báo lỗi gọi nội dung ghi chú là "mặt hàng chưa có đơn giá". Không có đường
+ * nào chữa được từ phía người dùng: xóa ghi chú đi thì mất lời dặn nhà cung cấp.
+ * Dùng `laDongHang` — cùng một hàm mà `tinhTienChiTietPO` dùng để lọc, nên hai chỗ không lệch.
+ */
 export function vuongMacXuatPO({ po, gia }: Pick<DauVaoXuatPO, "po" | "gia">): string | null {
-  if (po.items.length === 0) return "Đơn hàng chưa có mặt hàng nào.";
+  const dongHang = po.items.filter(laDongHang);
+  // Đơn chỉ có ghi chú cũng là đơn không có mặt hàng nào — nói đúng lý do, đừng để người dùng
+  // nhìn nút mờ rồi tưởng ghi chú của mình bị coi là mặt hàng.
+  if (dongHang.length === 0) return "Đơn hàng chưa có mặt hàng nào.";
   // 🔴 Không có chứng từ giá thì mọi đơn giá về 0 và file xuất ra là một tờ giấy vô nghĩa —
   // tệ hơn nữa là nhìn như thật rồi gửi đi. Chặn thẳng, nói rõ lý do.
   if (!gia) return "Chưa có chứng từ giá của đơn hàng này nên không xuất được đơn mua hàng.";
-  const thieuGia = po.items.filter(
+  const thieuGia = dongHang.filter(
     (d) => !(gia.lines.find((l) => l.sttDong === d.sttDong)?.donGia ?? 0),
   );
-  if (thieuGia.length === po.items.length) return "Mọi mặt hàng đều chưa có đơn giá.";
+  if (thieuGia.length === dongHang.length) return "Mọi mặt hàng đều chưa có đơn giá.";
   if (thieuGia.length > 0) {
     return `Còn ${thieuGia.length} mặt hàng chưa có đơn giá (${thieuGia
       .map((d) => d.tenVatLieu)
@@ -127,20 +179,31 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
   wb.creator = "App Thu mua HP Cons";
   const ws = wb.addWorksheet("Mau");
 
-  // 🔴 Con số do `tinhTienDonHang` tính, KHÔNG tự cộng lại ở đây. Thuế GTGT tính TRÊN GIÁ ĐÃ
+  // 🔴 Con số do `tinhTienChiTietPO` tính, KHÔNG tự cộng lại ở đây. Thuế GTGT tính TRÊN GIÁ ĐÃ
   // TRỪ CHIẾT KHẤU — đảo thứ tự là ra số thuế khác (xem 2-quy-trinh/README.md).
-  const tien = tinhTienDonHang(po, gia);
+  const tien = tinhTienChiTietPO(po, gia);
+  /** Kết quả tiền của từng dòng, tra theo `sttDong`. Dòng ghi chú KHÔNG có mặt ở đây. */
+  const tienTheoDong = new Map(tien.dong.map((t) => [t.sttDong, t]));
+  /** Đơn trộn nhiều mức thuế → phải thêm hai cột thuế theo dòng (xem đầu file, mục 2). */
+  const coCotThue = tien.nhieuMucThue;
+  /** Cột cuối cùng của bảng hàng — dùng cho kẻ viền, đổi theo việc có hai cột thuế hay không. */
+  const COT_CUOI = coCotThue ? 12 : 10;
 
-  ws.columns = BE_RONG_COT.map((width) => ({ width }));
+  ws.columns = [...BE_RONG_COT, ...(coCotThue ? BE_RONG_COT_THUE : [])].map((width) => ({ width }));
   for (const [dong, cao] of Object.entries(CAO_DONG)) ws.getRow(Number(dong)).height = cao;
 
-  // Khổ giấy và tỷ lệ in lấy đúng biểu mẫu — scale 71% là mức để đơn vừa một trang A4 dọc.
-  ws.pageSetup = {
+  // Khổ giấy và lề lấy đúng biểu mẫu.
+  const KHUNG_IN = {
     paperSize: 9,
-    orientation: "portrait",
-    scale: 71,
+    orientation: "portrait" as const,
     margins: { left: 0.394, right: 0.197, top: 0.394, bottom: 0.394, header: 0, footer: 0 },
   };
+  // scale 71% là mức của biểu mẫu, vừa đúng một trang A4 dọc với 10 cột. Thêm hai cột thuế thì
+  // 71% tràn sang trang thứ hai theo chiều NGANG (bảng bị xé đôi, không ai đọc nổi) — trường
+  // hợp đó ép vừa một trang bề ngang, còn dài bao nhiêu trang cũng được.
+  ws.pageSetup = coCotThue
+    ? { ...KHUNG_IN, fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+    : { ...KHUNG_IN, scale: 71 };
 
   /** Đặt chữ vào ô rồi gộp tới cột `den` trên cùng dòng. */
   const dat = (dong: number, cot: number, chu: string | number, den?: number) => {
@@ -199,18 +262,37 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     [8, "Thành tiền", "right"],
     [10, "Mục đích sử dụng", "left"],
   ];
+  // Tên hai cột thêm phải viết ĐÚNG cách `doc-don-hang-excel.ts` → `CACH_VIET_COT` chấp nhận,
+  // nếu không thì nhập lại chính file này sẽ không thấy thuế suất từng dòng.
+  if (coCotThue) tieuDe.push([11, "% Thuế GTGT", "right"], [12, "Tiền thuế GTGT", "right"]);
   for (const [cot, chu, canh] of tieuDe) {
     const o = dat(DONG_TIEU_DE, cot, chu, cot === 8 ? 9 : undefined);
     o.font = { bold: true, size: 11 };
     o.alignment = { horizontal: canh, vertical: "middle", wrapText: true };
   }
-  keVien(ws, DONG_TIEU_DE, 1, 10);
+  keVien(ws, DONG_TIEU_DE, 1, COT_CUOI);
 
   po.items.forEach((d, i) => {
     const dong = DONG_TIEU_DE + 1 + i;
     const r = ws.getRow(dong);
     r.height = 30;
-    const donGia = gia?.lines.find((l) => l.sttDong === d.sttDong)?.donGia ?? 0;
+
+    /* ===== DÒNG GHI CHÚ — in ra, nhưng KHÔNG phải một mặt hàng =====
+       Không STT, không SL, không đơn giá, không thành tiền, không thuế. Nhờ vậy nó không lọt
+       vào `SUM` của khối tổng bên dưới, và cũng không thành "mặt hàng 0 đồng" trên chứng từ
+       gửi nhà cung cấp. Chữ nghiêng + ô gộp để người đọc phân biệt ngay với dòng hàng.
+       🔴 Chỉ gộp C:D — lý do ở đầu file, mục 1. */
+    if (!laDongHang(d)) {
+      const oGhiChu = dat(dong, 3, d.tenVatLieu, 4);
+      oGhiChu.font = { size: 11, italic: true };
+      oGhiChu.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+      keVien(ws, dong, 1, COT_CUOI);
+      return;
+    }
+
+    /* `tinhTienChiTietPO` lọc dòng bằng CHÍNH `laDongHang` ở trên, nên mọi dòng hàng đều tra
+       ra kết quả. `?? 0` chỉ là chốt chặn kiểu dữ liệu, không phải đường chạy thật. */
+    const t = tienTheoDong.get(d.sttDong);
 
     dat(dong, 1, d.sttDong).alignment = { horizontal: "center", vertical: "middle" };
     dat(dong, 2, d.maHang ?? "");
@@ -219,7 +301,7 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     dat(dong, 5, d.donViTinh).alignment = { horizontal: "center", vertical: "middle" };
     r.getCell(6).value = d.khoiLuongDat;
     r.getCell(6).numFmt = DINH_DANG.soLuong;
-    r.getCell(7).value = donGia;
+    r.getCell(7).value = t?.donGia ?? 0;
     r.getCell(7).numFmt = DINH_DANG.tien;
     // Thành tiền là CÔNG THỨC như biểu mẫu (bản gốc dùng `=+F12*G12`) — hai bên sửa SL hay
     // đơn giá trên file là thấy số cập nhật theo.
@@ -228,12 +310,28 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     ws.mergeCells(dong, 8, dong, 9);
     dat(dong, 10, d.mucDichSuDung ?? "");
 
-    for (let c = 1; c <= 10; c++) {
+    if (coCotThue) {
+      r.getCell(11).value = t?.thueSuatGTGT ?? 0;
+      r.getCell(11).numFmt = DINH_DANG.thueSuat;
+      /**
+       * 🔴 TIỀN THUẾ TỪNG DÒNG LÀ SỐ CHẾT, KHÔNG PHẢI CÔNG THỨC — cố ý, khác cột "Thành tiền".
+       *
+       * Viết `=ROUND(H*K%,0)` thì file tự tính ra con số KHÁC app: (a) thuế đánh trên giá ĐÃ
+       * TRỪ chiết khấu, mà phần chiết khấu phân bổ về từng dòng không có cột nào trên sheet;
+       * (b) app làm tròn thuế MỘT LẦN cho mỗi mức thuế rồi mới chia lại về dòng, còn công thức
+       * kia làm tròn từng dòng. Hai cách lệch nhau vài đồng, và lệch giữa màn hình với file
+       * gửi nhà cung cấp là đúng thứ `tinh-toan.ts` sinh ra để tránh.
+       */
+      r.getCell(12).value = t?.tienThueGTGT ?? 0;
+      r.getCell(12).numFmt = DINH_DANG.tien;
+    }
+
+    for (let c = 1; c <= COT_CUOI; c++) {
       const o = r.getCell(c);
       o.font = { size: 11 };
       o.alignment = { ...o.alignment, vertical: "middle", wrapText: true };
     }
-    keVien(ws, dong, 1, 10);
+    keVien(ws, dong, 1, COT_CUOI);
   });
 
   // ---------- KHỐI TỔNG TIỀN ----------
@@ -285,17 +383,37 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
   // suất vào nhãn dòng thuế thì `doc-don-hang-excel.ts` dò nhãn không ra → nhập lại file
   // mình vừa xuất là MẤT thuế suất.
   dat(d4, 1, "Thuế suất thuế GTGT:", 2).font = { size: 11 };
-  dat(d4, 3, `${tien.thueSuatGTGT.toLocaleString("vi-VN", { minimumFractionDigits: 2 })} %`).font = {
-    size: 11,
-  };
+  /**
+   * 🔴 ĐƠN TRỘN MỨC THÌ Ô NÀY GHI "nhiều mức", KHÔNG ĐƯỢC ghi đại một con số.
+   *
+   * `tien.thueSuatGTGT` lúc đó chỉ là mức của NHÓM CÓ CƠ SỞ TÍNH THUẾ LỚN NHẤT (xem
+   * `KetQuaTienDonHang.nhieuMucThue`) — in nó ra như thuế suất của cả đơn là ghi sai chứng từ
+   * thuế. `moTaThueSuat` là chỗ duy nhất quyết định cách viết này.
+   *
+   * 📌 Nhập lại file: `docSo("nhiều mức")` trả về `undefined` chứ không phải 0, nên app hiểu
+   * đúng là "đơn này không có một thuế suất chung", rồi lấy thuế suất thật từ cột K.
+   */
+  dat(
+    d4,
+    3,
+    tien.nhieuMucThue
+      ? moTaThueSuat(tien)
+      : `${tien.thueSuatGTGT.toLocaleString("vi-VN", { minimumFractionDigits: 2 })} %`,
+  ).font = { size: 11 };
   // Thuế trên dòng d3 (đã trừ CK), KHÔNG phải d1.
+  //
+  // 🔴 Đơn trộn mức thì tổng thuế = TỔNG CỘT L, chứ tuyệt đối không phải `H(d3) × một mức nào
+  // đó`. Excel tính lại công thức mỗi lần mở file nên công thức sai không có cách nào cứu:
+  // người nhận thấy con số do Excel tính, không phải con số app đã tính.
   datDongTong(
     d4,
     5,
     "Tiền thuế GTGT:",
     tien.tienThueGTGT,
     7,
-    `H${d3}*${tien.thueSuatGTGT}%`,
+    coCotThue
+      ? `SUM(L${DONG_TIEU_DE + 1}:L${dongCuoiBang})`
+      : `H${d3}*${tien.thueSuatGTGT}%`,
   );
   datDongTong(d5, 5, "Tổng tiền thanh toán:", tien.tongThanhToan, 7, `H${d3}+H${d4}`);
 
