@@ -785,7 +785,10 @@ export function quyetDinhKeoTha(
           }
         : {
             loai: "mo_trang",
-            duongDan: "/don-hang/tao-moi",
+            /* 🔴 BẮT BUỘC KÈM `?prId=` (sửa 17/08/2026). Thiếu tham số này thì màn lập đơn
+               không biết đang lập cho đề nghị nào và trả về khối trống "Chưa chọn đề nghị" —
+               người dùng kéo thẻ đúng luật xong bị dẫn tới một trang không làm gì được. */
+            duongDan: `/don-hang/tao-moi?prId=${the.deNghi.id}`,
             thongBao: "Lập đơn hàng cho đề nghị — lập xong thẻ tự chuyển bước.",
           };
     }

@@ -23,7 +23,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `phan-bo.tsx` | Việc tồn cần phân bổ (Trưởng bộ phận) | `/phan-bo` |
 | `don-hang-danh-sach.tsx` | Danh sách đơn đặt hàng | `/don-hang` |
 | `don-hang-chi-tiet.tsx` | Chi tiết PO + tiến độ nhận hàng + xác nhận hoàn thành | `/don-hang/[id]` |
-| `don-hang-lap-moi.tsx` | Lập đơn đặt hàng | `/don-hang/tao-moi` |
+| `don-hang-lap-moi.tsx` | Lập đơn đặt hàng — **vỏ mỏng** bọc `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` (từ 17/08/2026). Giữ lại vì là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (`?rfqId=&nccId=`) | `/don-hang/tao-moi` |
 | `don-hang-in.tsx` | **In đơn mua hàng A4** theo đúng biểu mẫu giấy của công ty | `/in/don-hang/[id]` |
 | `theo-doi-danh-sach.tsx` | Phòng Thi công theo dõi đề nghị | `/theo-doi` |
 | `theo-doi-chi-tiet.tsx` | Chi tiết tiến trình từng mặt hàng | `/theo-doi/[id]` |
@@ -54,7 +54,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `che-do-mau.tsx` | Bộ điều khiển Sáng/Tối (thư viện `next-themes`) |
 | `mat-do.tsx` | Bộ điều khiển mật độ — **mức chuẩn "Vừa" khai ở đây** (`MAT_DO_MAC_DINH`) |
 
-## `thanh-phan-nghiep-vu/` — 25 file
+## `thanh-phan-nghiep-vu/` — 26 file
 
 ⚠️ Bảng dưới **chỉ liệt kê những file hay phải sửa nhất**, không phải danh sách đủ. Danh sách
 đủ tra ở `BAN-DO-MA-NGUON.md` mục 2 (hiện tượng → sửa file nào).
@@ -64,9 +64,10 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `bang-quy-trinh-mua-hang.tsx` | **Bảng quy trình 8 cột dạng Kanban** ở màn `/de-nghi` — dựng theo bảng "TM-QT Mua hàng" đang chạy trên Base.vn. Chỉ hiển thị; việc xác định thẻ thuộc cột nào nằm ở `2-quy-trinh/giai-doan-mua-hang.ts` |
 | `bang-phan-bo.tsx` | Bảng phân bổ dòng đề nghị cho nhân viên (M3). Cảnh báo dòng chưa phân bổ |
 | `bang-tien-do-po.tsx` | Bảng tiến độ nhận hàng **có cột động theo từng lần giao** + form ghi phiếu nhận hàng |
-| `bang-hang-tien.tsx` | **Bảng "Hàng tiền" của màn lập đơn mua hàng**, bám cột và thứ tự cột của MISA (Ban lãnh đạo 17/08/2026) + dòng TỔNG CỘNG + ba nút Thêm dòng · Thêm ghi chú · Xóa hết dòng. 🔴 **Không tự tính một con số tiền nào** — nhận sẵn qua prop `tien` do `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet` tính. 🔴 Bốn cột tiền chỉ hiện khi `quyen.xemGia` |
+| `form-lap-don-mua-hang.tsx` | 🔴 **TOÀN BỘ PHẦN NHẬP LIỆU đơn mua hàng — MỘT FORM DÙNG CHUNG CHO HAI CHỖ** (Ban lãnh đạo 17/08/2026: *"phần nhập liệu phải nằm trong khối, chỉ ai được cấp quyền thì mới xem được"*). Nhúng trong khối bước ④ của `trang/de-nghi-chi-tiet.tsx` (prop `nhung`) **và** dùng ở trang riêng `/don-hang/tao-moi`. Đề nghị nguồn **truyền vào qua prop `deNghi`**, form KHÔNG đọc `useSearchParams` (trang chi tiết không có `Suspense` nên đọc là chặn build). Cổng gác `quyen.lapPO` nằm bên trong. 🔴 **Không chép ruột ra hai bản** |
+| `bang-hang-tien.tsx` | **Bảng "Hàng tiền" của phần nhập liệu đơn mua hàng**, bám cột và thứ tự cột của MISA (Ban lãnh đạo 17/08/2026) + dòng TỔNG CỘNG + ba nút Thêm dòng · Thêm ghi chú · Xóa hết dòng. 🔴 **Không tự tính một con số tiền nào** — nhận sẵn qua prop `tien` do `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet` tính. 🔴 Bốn cột tiền chỉ hiện khi `quyen.xemGia`. Prop `tieuDeTrongKhoiGiaiDoan` hạ cỡ tiêu đề khi bảng nằm trong khối một bước |
 | `hop-xem-truoc-nhap-excel.tsx` | **Hộp xem trước khi đổ file Excel vào bảng hàng tiền.** Bày TỪNG DÒNG file kèm **số dòng thật trong Excel** và kết luận riêng (đưa vào đơn · vượt khối lượng · không có trong đề nghị · chưa lập được đơn · ghi chú · không đọc được). Xem trước rồi mới đổ, vì đổ thẳng là xóa mất số liệu đang gõ dở mà không hoàn lại được |
-| `khoi-dau-vao-theo-giai-doan.tsx` | Khối gập **theo từng bước** ở trang chi tiết đề nghị (bố cục Base). Mỗi bước ba phần ngang hàng: ĐẦU VÀO · phần làm việc (`noiDungNghiepVu`) · tệp đính kèm (`khuDinhKem`). Nhãn ba phần **bắt buộc dùng chung** `NhanPhanTrongGiaiDoan` để không lệch cỡ chữ |
+| `khoi-dau-vao-theo-giai-doan.tsx` | Khối gập **theo từng bước** ở trang chi tiết đề nghị (bố cục Base). Mỗi bước ba phần ngang hàng: ĐẦU VÀO · phần làm việc (`noiDungNghiepVu`) · tệp đính kèm (`khuDinhKem`). Nhãn ba phần **bắt buộc dùng chung** `NhanPhanTrongGiaiDoan` để không lệch cỡ chữ. 🔴 Bước nào có **form nhập liệu** thì phải bật `giuNoiDungKhiGap` — mặc định gập là THÁO khỏi cây React, gõ nửa cái đơn rồi gập là mất sạch |
 | `khu-dinh-kem-giai-doan.tsx` | **Chỗ đính kèm chứng từ của từng bước** (Ban lãnh đạo 17/08/2026). Một khu dùng chung cho cả 6 bước — báo giá NCC ở bước ②, hợp đồng ở bước ④, hóa đơn ở bước ⑥. Tối đa 5 tệp/bước, gỡ tệp **có hỏi xác nhận**. Mỗi tệp có **nút ghi chú** (17/08/2026): app không đổi được tên tệp nên ghi chú là **nhãn người đọc được** thay cho tên máy sinh của ảnh tải từ Zalo — hiện **chữ in nghiêng** ngay dưới tên tệp, tối đa 200 ký tự, ghi vào hồ sơ qua `datGhiChuTepGiaiDoan` |
 | `khoi-de-xuat-con.tsx` | Khối **"Đã tách thành N đề xuất con"** ở trang chi tiết — gập lại được (Ban lãnh đạo 17/08/2026). Dòng tiêu đề luôn hiện kể cả khi gập, vì giấu đi thì người mở phiếu tưởng khối lượng trên màn là toàn bộ. Bên trong bọc `bang-nang-luc-theo-nhan-vien.tsx` |
 | `timeline-de-nghi.tsx` | Thanh 5 mốc tiến trình đề nghị, gộp từ nhiều PO |

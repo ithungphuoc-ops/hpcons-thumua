@@ -62,6 +62,22 @@ export interface GiaiDoanDauVao {
    * phân quyền vào một component vốn thuần hiển thị.
    */
   khuDinhKem?: React.ReactNode;
+  /**
+   * GẬP KHỐI THÌ CHỈ ẨN, KHÔNG THÁO KHỎI CÂY REACT.
+   *
+   * 🔴 BẮT BUỘC BẬT CHO BƯỚC CÓ FORM NHẬP LIỆU (từ 17/08/2026, khi form lập đơn mua hàng
+   * chuyển vào trong khối bước ④ theo chỉ đạo *"phần nhập liệu phải nằm trong khối"*).
+   *
+   * Mặc định khối gập là `{dangMo && …}` — React THÁO nội dung, nên mọi thứ người dùng đang gõ
+   * biến mất không có nút hoàn lại: gõ nửa cái đơn 20 dòng, bấm gập khối (hay chỉ mở khối khác
+   * rồi gập khối này) là mất sạch. Tháo rồi gắn lại còn làm các chốt "chỉ điền sẵn một lần"
+   * chạy lại từ đầu và ghi đè số người dùng đã sửa tay.
+   *
+   * ⚠️ Đánh đổi: nội dung của khối bật cờ này LUÔN được dựng, kể cả lúc đang gập — nặng hơn
+   * một chút. Vì vậy CHỈ bật cho khối có form; các khối chỉ bày dữ liệu thì cứ để mặc định để
+   * trang nhẹ.
+   */
+  giuNoiDungKhiGap?: boolean;
 }
 
 /**
@@ -192,8 +208,13 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
               )}
             </button>
 
-            {dangMo && (
-              <>
+            {/* 🔴 HAI CÁCH GẬP, tùy khối có form nhập liệu hay không — xem `giuNoiDungKhiGap`.
+                · Khối thường: gập là THÁO khỏi cây React (nhẹ trang, không có gì để mất).
+                · Khối có form (bước ④ từ 17/08/2026): gập chỉ ẩn bằng `hidden` (display:none),
+                  giữ nguyên mọi ô người dùng đang gõ. `display:none` cũng đưa nội dung ra khỏi
+                  thứ tự Tab và khỏi trình đọc màn hình, nên vẫn đúng nghĩa "đã thu gọn". */}
+            {(dangMo || g.giuNoiDungKhiGap) && (
+              <div className={dangMo ? undefined : "hidden"}>
               {/* `text-sm` khai rõ ở đây để chữ nào quên khai cỡ cũng ra 14px như phần còn
                   lại của trang, chứ không rơi về 16px mặc định của trình duyệt rồi to hơn
                   cả nội dung xung quanh. */}
@@ -285,7 +306,7 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                   {g.khuDinhKem}
                 </div>
               )}
-              </>
+              </div>
             )}
           </section>
         );

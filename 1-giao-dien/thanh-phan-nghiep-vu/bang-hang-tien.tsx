@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, StickyNote, Trash2 } from "lucide-react";
+import { Coins, Plus, StickyNote, Trash2 } from "lucide-react";
+import { NhanPhanTrongGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import {
@@ -104,6 +105,16 @@ export function BangHangTien({
   onDoiChietKhau,
   /** Còn mặt hàng nào của đề nghị chưa đưa vào bảng không — khóa nút "Thêm dòng" khi hết. */
   conMatHangDeThem,
+  /**
+   * Bảng đang nằm TRONG khối một bước của trang chi tiết đề nghị (chỉ đạo 17/08/2026: phần
+   * nhập liệu phải nằm trong khối) → hạ cỡ tiêu đề "Hàng tiền" xuống bằng các nhãn khác của
+   * khối bước.
+   *
+   * 🔴 KHÔNG chép class ra đây mà dùng `NhanPhanTrongGiaiDoan`: bốn nhãn trong một khối bước
+   * bắt buộc luôn bằng nhau. Ban lãnh đạo 16/08/2026 đã khoanh đỏ đúng lỗi này — tiêu đề con
+   * 18px to hơn tiêu đề khối cha 11px, ngược thứ bậc.
+   */
+  tieuDeTrongKhoiGiaiDoan = false,
 }: {
   dong: DongNhapDonHang[];
   tien: KetQuaTienDonHang;
@@ -121,6 +132,7 @@ export function BangHangTien({
   onDoiTyLeChietKhau: (v: string) => void;
   onDoiChietKhau: (v: string) => void;
   conMatHangDeThem: boolean;
+  tieuDeTrongKhoiGiaiDoan?: boolean;
 }) {
   /**
    * Số cột của phần giữa (từ "Mã hàng" đến "Mục đích sử dụng") — dòng ghi chú gộp hết phần
@@ -136,7 +148,13 @@ export function BangHangTien({
        định không chịu co nhỏ hơn nội dung — bảng rộng sẽ đẩy giãn cả thẻ thay vì cuộn bên trong. */
     <section className="flex min-w-0 flex-col gap-(--hp-md-card-gap)">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-h3 text-text-primary">Hàng tiền</h2>
+        {tieuDeTrongKhoiGiaiDoan ? (
+          <NhanPhanTrongGiaiDoan the="h2" icon={Coins}>
+            Hàng tiền
+          </NhanPhanTrongGiaiDoan>
+        ) : (
+          <h2 className="text-h3 text-text-primary">Hàng tiền</h2>
+        )}
 
         {/* ===== Ô CHỌN CHIẾT KHẤU — MISA đặt ở góc phải bảng, giữ nguyên chỗ =====
             🔴 Chỉ hiện với người xem được giá: chiết khấu là điều kiện thương mại. */}
