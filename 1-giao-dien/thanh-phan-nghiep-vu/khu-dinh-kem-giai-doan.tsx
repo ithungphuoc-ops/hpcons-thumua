@@ -146,6 +146,17 @@ export function KhuDinhKemGiaiDoan({
       toast.error("Chưa lưu được ghi chú", { description: loi });
       return;
     }
+    /* 🔴 BÁO ĐÃ LƯU — Ban lãnh đạo 17/08/2026: *"khi ghi vào nó lại ko hiển thị trên tệp,
+       phải bấm vào nút ghi chú mới xem được nội dung"*.
+
+       Ghi chú CÓ hiện dưới tên tệp, nhưng nó là chữ 12px xám in nghiêng nên lúc hộp vừa đóng
+       mắt không kịp bắt được là đã lưu hay chưa — người dùng phải mở lại hộp để kiểm. Đóng
+       hộp im lặng là không nói gì cả, mà đây là việc ghi vào hồ sơ.
+
+       Đọc luôn ghi chú vừa lưu vào lời báo, để không phải mở lại hộp mới biết mình gõ gì. */
+    toast.success(chuGhiChu.trim() ? "Đã lưu ghi chú" : "Đã bỏ ghi chú", {
+      description: chuGhiChu.trim() || undefined,
+    });
     setGhiChuTep(null);
   }
 
@@ -287,15 +298,28 @@ export function KhuDinhKemGiaiDoan({
 
                      Nhãn đổi theo trạng thái ("Thêm" / "Sửa") và tệp đã có ghi chú thì nút
                      mang màu nhận diện: trạng thái có CẢ màu LẪN chữ theo Design System
-                     V1.1, không bắt người dùng đoán bằng riêng màu. */
+                     V1.1, không bắt người dùng đoán bằng riêng màu.
+
+                     🔴 DÙNG `text-primary-soft`, KHÔNG dùng `text-primary` — sửa sau khi đo
+                     thật trong Chế độ Tối. `--hp-primary` giữ nguyên #096AA7 ở CẢ hai chế độ,
+                     nên đặt nó lên nền thẻ tối (#182531) chỉ được **2,69:1** — dưới mức 3:1
+                     tối thiểu cho biểu tượng, tức dấu hiệu "tệp này đã có ghi chú" gần như
+                     tàng hình đúng ở chế độ mà công trường hay dùng buổi tối. `-soft` là tông
+                     Design System sinh riêng cho việc này (Tối: trộn 60% trắng → **5,87:1**;
+                     Sáng: trộn 62% đen → **10,6:1**), và là tông app đã dùng cho biểu tượng
+                     màu ở `bang-quy-trinh-mua-hang.tsx`, `kpi-card.tsx`, `status-badge.tsx`.
+
+                     Màu khi rê chuột cũng phải `-soft`: nền `bg-primary-bg` ở chế độ Tối gần
+                     như không sáng thêm (#182531 → #131E27), nên rê vào mà đổi về
+                     `text-primary` là contrast TỤT xuống 2,93:1 — rê chuột làm mờ đi. */
                   <button
                     type="button"
                     onClick={() => {
                       setGhiChuTep(t);
                       setChuGhiChu(t.ghiChu ?? "");
                     }}
-                    className={`flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-primary-bg hover:text-primary ${
-                      t.ghiChu ? "text-primary" : "text-text-desc"
+                    className={`flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-primary-bg hover:text-primary-soft ${
+                      t.ghiChu ? "text-primary-soft" : "text-text-desc"
                     }`}
                     aria-label={
                       t.ghiChu
