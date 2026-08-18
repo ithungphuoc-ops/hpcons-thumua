@@ -112,8 +112,28 @@ function chiSoOBaoGia(ghiChu: string | undefined): number {
 /** Bước giữ tệp báo giá nhà cung cấp. */
 const BUOC_BAO_GIA = "xet_duyet_bao_gia";
 
-/** Số báo giá cho ô chọn "SL Báo giá". Trùng ngưỡng của `o-sua-so-bao-gia.tsx`. */
-const CHON_SO_BAO_GIA = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+/**
+ * ★ Ô CHỌN "SL BÁO GIÁ" — đúng bốn mục **1 · 2 · 3 · Nhiều** như ảnh Base (18/08/2026).
+ *
+ * 🔴 "NHIỀU" KHÔNG PHẢI MỘT CON SỐ, mà dữ liệu app thì là số (`DongDeNghi.soBaoGiaYeuCau`). Nên
+ * phải quy ước, và quy ước đó chia làm HAI việc khác nhau — đừng gộp:
+ *
+ *  · **Số ghi vào hồ sơ = 4** (`SO_BAO_GIA_NHIEU`), tức mức thấp nhất của khoảng "nhiều".
+ *    Con số này là YÊU CẦU GIAO CHO NGƯỜI KHÁC: ghi 5 cho "gọn" là bắt nhân viên đi lấy thêm một
+ *    bản báo giá mà trưởng bộ phận không hề yêu cầu, và nhật ký hồ sơ sẽ ghi con số không ai đặt.
+ *
+ *  · **Số ô đính kèm = mở HẾT hạn mức của một bước.** "Nhiều" là khoảng mở, không biết chính xác
+ *    mấy bản, nên cho sẵn nhiều chỗ. Ô chứa rộng hơn thì không hại ai; ngược lại thiếu ô là người
+ *    lập phải dồn chứng từ vào ô "Báo giá khác".
+ *
+ * 🔴 CHỐT CHỐNG GHI ĐÈ SỐ CŨ: hồ sơ lập trước đây có thể đang giữ 7 hay 8 báo giá — những số không
+ * còn trong danh sách. Ô chọn hiện "Nhiều" cho các số ≥ 4, và nếu người dùng KHÔNG đổi mục thì
+ * `capNhat` **không ghi gì**, nên con số 7 giữ nguyên. Không có chốt này thì chỉ cần mở hộp ra bấm
+ * Cập nhật là 7 âm thầm tụt xuống 4.
+ */
+const MA_NHIEU = "nhieu";
+/** Số ghi vào hồ sơ khi chọn "Nhiều" — xem lý do ở khối chú thích ngay trên. */
+const SO_BAO_GIA_NHIEU = 4;
 
 /** Dòng bảng "Chi tiết" ở dạng chuỗi thô đang gõ — đổi sang số lúc lưu. */
 interface DongGo {
@@ -191,7 +211,11 @@ export function HopSuaTruongTuyChinh({
       .map((d) => d.soBaoGiaYeuCau)
       .filter((x): x is number => typeof x === "number" && x > 0);
     const chung = so.length > 0 && Math.min(...so) === Math.max(...so) ? so[0] : undefined;
-    setSoBaoGia(chung === undefined ? "" : String(chung));
+    /* Số ≥ 4 (kể cả 7, 8 của hồ sơ cũ) đều hiện là "Nhiều" — danh sách chỉ còn 1/2/3/Nhiều.
+       Xem chốt chống ghi đè ở khối chú thích của `MA_NHIEU`. */
+    setSoBaoGia(
+      chung === undefined ? "" : chung >= SO_BAO_GIA_NHIEU ? MA_NHIEU : String(chung),
+    );
   }, [mo, deNghi]);
 
   /** Tệp của bước ③, tra theo nhãn ghi chú. */
@@ -199,14 +223,21 @@ export function HopSuaTruongTuyChinh({
 
   /* ---------- SỐ Ô ĐÍNH KÈM CHẠY THEO "SL BÁO GIÁ" (xem ba chốt ở đầu file) ---------- */
 
-  /** Số đang chọn ở ô "SL Báo giá". `0` khi chưa đặt hoặc mỗi dòng một số. */
-  const soChon = Number(soBaoGia) || 0;
+  /**
+   * Số ô cần mở theo ô "SL Báo giá". `0` khi chưa đặt hoặc mỗi dòng một số.
+   * "Nhiều" thì mở HẾT hạn mức — xem khối chú thích của `MA_NHIEU`.
+   */
+  const soChon = soBaoGia === MA_NHIEU ? TOI_DA_TEP_MOI_BUOC : Number(soBaoGia) || 0;
   /** Số hiệu ô CAO NHẤT đang giữ tệp — chốt 1: hạ SL Báo giá không được ẩn mất tệp. */
   const soODaCoTep = tepBuocBaoGia.reduce((max, t) => Math.max(max, chiSoOBaoGia(t.ghiChu)), 0);
   /** Số ô thật sự vẽ ra. Chốt 2: không vượt hạn mức tệp mỗi bước của tầng dữ liệu. */
   const soO = Math.min(Math.max(soChon, soODaCoTep), TOI_DA_TEP_MOI_BUOC);
-  /** Đang bị hạn mức chặn — phải nói ra, đừng để người dùng tự đoán vì sao thiếu ô. */
-  const biChanBoiHanMuc = soChon > TOI_DA_TEP_MOI_BUOC;
+  /**
+   * Đang bị hạn mức chặn — phải nói ra, đừng để người dùng tự đoán vì sao thiếu ô.
+   * ⚠️ So trên `soODaCoTep` nữa, không chỉ số đang chọn: hồ sơ cũ có thể giữ tệp mang nhãn
+   * "Báo giá NCC 8" (từ thời ô chọn còn cho tới 10), lúc đó thiếu ô số 8 mà không có gì giải thích.
+   */
+  const biChanBoiHanMuc = Math.max(soChon, soODaCoTep) > TOI_DA_TEP_MOI_BUOC;
 
   const tepTheoO = Array.from({ length: soO }, (_, i) =>
     tepBuocBaoGia.find((t) => chiSoOBaoGia(t.ghiChu) === i + 1),
@@ -304,9 +335,16 @@ export function HopSuaTruongTuyChinh({
       }
     }
 
-    const soMoi = Number(soBaoGia);
+    /* ---------- SL BÁO GIÁ ----------
+       🔴 CHỐT CHỐNG GHI ĐÈ SỐ CŨ. Hồ sơ lập trước đây có thể đang giữ 7 hay 8 báo giá — những số
+       không còn trong danh sách, nên ô chọn hiện "Nhiều". Nếu người dùng KHÔNG đổi mục thì không
+       được ghi gì: thiếu chốt này, chỉ cần mở hộp ra bấm Cập nhật là 7 âm thầm tụt xuống 4, mà
+       nhật ký sẽ ghi như thể trưởng bộ phận vừa hạ yêu cầu. */
     const soCu = dong[0]?.goc?.soBaoGiaYeuCau;
-    if (soBaoGia !== "" && soMoi > 0 && soMoi !== soCu) {
+    const dangLaNhieu = soBaoGia === MA_NHIEU;
+    const soMoi = dangLaNhieu ? SO_BAO_GIA_NHIEU : Number(soBaoGia);
+    const giuNguyenNhieu = dangLaNhieu && typeof soCu === "number" && soCu >= SO_BAO_GIA_NHIEU;
+    if (soBaoGia !== "" && soMoi > 0 && soMoi !== soCu && !giuNguyenNhieu) {
       datSoBaoGiaChoPhieu(deNghi.id, soMoi, nguoiDung.tenHienThi);
     }
 
@@ -548,18 +586,27 @@ export function HopSuaTruongTuyChinh({
               )
             }
           >
-            <Truong nhan="SL Báo giá" id="tc-sl-bao-gia">
+            <Truong nhan="SL Báo giá" batBuoc id="tc-sl-bao-gia">
+              {/* Đúng bốn mục 1 · 2 · 3 · Nhiều như ảnh Base. Mục "— chưa đặt —" là của app, ảnh
+                  Base không có: dữ liệu app cho phép CHƯA ĐẶT, bỏ mục này thì mở hộp ra ô hiện
+                  "1" trong khi thực tế chưa ai đặt — âm thầm sai. */}
               <OChon id="tc-sl-bao-gia" value={soBaoGia} onChange={setSoBaoGia}>
                 <option value="">— chưa đặt —</option>
-                {CHON_SO_BAO_GIA.map((n) => (
-                  <option key={n} value={String(n)}>
-                    {n} báo giá
-                  </option>
-                ))}
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value={MA_NHIEU}>Nhiều</option>
               </OChon>
               <span className="text-xs text-text-desc">
                 Đặt ở đây là áp cho <strong>mọi dòng</strong> của phiếu. Muốn mỗi dòng một số khác
                 nhau thì đặt lúc giao việc ở bảng Phân bổ.
+                {soBaoGia === MA_NHIEU && (
+                  <>
+                    {" "}
+                    “Nhiều” ghi vào hồ sơ là <strong>từ {SO_BAO_GIA_NHIEU} báo giá</strong>, và mở
+                    sẵn {TOI_DA_TEP_MOI_BUOC} ô đính kèm.
+                  </>
+                )}
               </span>
             </Truong>
           </Nhom>
@@ -599,9 +646,9 @@ export function HopSuaTruongTuyChinh({
             {/* Bị hạn mức chặn thì PHẢI nói ra — thiếu ô mà im lặng là người dùng tưởng app lỗi. */}
             {biChanBoiHanMuc && (
               <p className="text-xs text-text-desc">
-                Đang cần <strong>{soChon}</strong> báo giá, nhưng mỗi bước chỉ giữ được{" "}
-                <strong>{TOI_DA_TEP_MOI_BUOC}</strong> tệp nên chỉ mở {TOI_DA_TEP_MOI_BUOC} ô. Các
-                báo giá còn lại bỏ vào ô “Báo giá khác”.
+                Hồ sơ này cần tới <strong>{Math.max(soChon, soODaCoTep)}</strong> ô, nhưng mỗi bước
+                chỉ giữ được <strong>{TOI_DA_TEP_MOI_BUOC}</strong> tệp nên chỉ mở{" "}
+                {TOI_DA_TEP_MOI_BUOC} ô. Các báo giá còn lại nằm ở ô “Báo giá khác”.
               </p>
             )}
 
@@ -736,26 +783,42 @@ function Truong({
   id?: string;
   children: React.ReactNode;
 }) {
-  /* `shrink-0` cùng lý do như ở `Nhom` — trường nào cũng là con của một flex column có thể bị
-     chặn chiều cao (thân hộp thoại, hoặc phần nội dung của một nhóm). Thiếu nó thì ô nhập bị
-     nén dẹt hoặc mô tả phụ bị cắt mất mà không có gì báo. */
+  /**
+   * 🔴 BỐ CỤC NHÃN BÊN TRÁI — Ô NHẬP BÊN PHẢI, Ban lãnh đạo 18/08/2026: *"hãy bố cục nó giống
+   * vậy"* (ảnh Base: nhãn "SL Báo giá *" nằm cùng hàng với ô chọn, không phải nhãn trên ô dưới).
+   *
+   * 📌 Nhãn cột trái `sm:w-1/3`, ô nhập chiếm phần còn lại — đúng tỉ lệ đọc được từ ảnh.
+   *
+   * 🔴 `min-w-0` ở cột phải là BẮT BUỘC, không phải cho đẹp: bảng "Chi tiết" nằm trong cột này và
+   * dựa vào `overflow-x-auto` để cuộn. Mặc định ô flex không co nhỏ hơn nội dung, thiếu `min-w-0`
+   * là bảng 6 cột đẩy giãn cả hộp thoại thay vì cuộn bên trong.
+   *
+   * ⚠️ CHỈ xếp hai cột từ `sm:` trở lên. Màn 375px chia đôi thì nhãn *"Mục đích sử dụng"* và ô nhập
+   * đều còn vài chục pixel — điện thoại giữ nguyên nhãn trên, ô dưới.
+   *
+   * `shrink-0` cùng lý do như ở `Nhom`: trường nào cũng là con của một flex column có thể bị chặn
+   * chiều cao, thiếu nó thì ô nhập bị nén dẹt mà không có gì báo.
+   */
   return (
-    <div className="flex shrink-0 flex-col gap-1.5">
-      <Label htmlFor={id}>
-        {nhan}
-        {/* Dấu * có `aria-hidden` và kèm chữ cho trình đọc màn hình: chỉ dùng dấu sao thì người
-            dùng trình đọc không biết trường nào bắt buộc. */}
-        {batBuoc && (
-          <>
-            <span aria-hidden className="text-danger">
-              {" *"}
-            </span>
-            <span className="sr-only"> (bắt buộc)</span>
-          </>
-        )}
-      </Label>
-      {moTa && <span className="text-xs text-text-desc">{moTa}</span>}
-      {children}
+    <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-4">
+      {/* `sm:pt-2.5` kéo nhãn xuống cho thẳng hàng chữ với ô nhập cao 44px bên cạnh. */}
+      <div className="sm:w-1/3 sm:shrink-0 sm:pt-2.5">
+        <Label htmlFor={id}>
+          {nhan}
+          {/* Dấu * có `aria-hidden` và kèm chữ cho trình đọc màn hình: chỉ dùng dấu sao thì người
+              dùng trình đọc không biết trường nào bắt buộc. */}
+          {batBuoc && (
+            <>
+              <span aria-hidden className="text-danger">
+                {" *"}
+              </span>
+              <span className="sr-only"> (bắt buộc)</span>
+            </>
+          )}
+        </Label>
+        {moTa && <p className="mt-0.5 text-xs text-text-desc">{moTa}</p>}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">{children}</div>
     </div>
   );
 }
