@@ -24,6 +24,13 @@ export default function TrangTheoDoiChiTiet() {
   const { deNghi, donHang, phieuNhan } = useDuLieu();
   const { quyen } = useNguoiDung();
   const [moDong, setMoDong] = useState<number | null>(null);
+  /**
+   * Khối "Chi tiết từng mặt hàng" đang mở hay đã thu gọn.
+   *
+   * 📌 MẶC ĐỊNH MỞ: đây là nội dung chính của trang, người vào là để xem nó. Gập sẵn thì
+   * vào trang phải bấm mới thấy việc mình cần.
+   */
+  const [moBang, setMoBang] = useState(true);
 
   const dn = deNghi.find((x) => x.id === params.id);
   const tienDo = useMemo(
@@ -112,8 +119,41 @@ export default function TrangTheoDoiChiTiet() {
 
       <Card>
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-          <h2 className="text-h3 text-text-primary">Chi tiết từng mặt hàng</h2>
+          {/* 🔴 CẢ KHỐI GẬP LẠI ĐƯỢC — Ban lãnh đạo 18/08/2026, nhắc BA LẦN: *"bung xem chi
+              tiết xong ko group lại được"*.
 
+              Hai lần trước tôi sửa sai chỗ: lần đầu thêm nút "Thu gọn nhóm" ở trang DANH SÁCH
+              `/theo-doi`, lần hai thêm nút "Quay lại" ở đầu trang này. Đã đo lại cả ba thứ đó
+              và chúng CHẠY ĐÚNG — gập/mở từng dòng đảo được (3 hàng → 4 → 3), nút quay lại về
+              đúng `/theo-doi`, nhóm ở đó đã gập.
+
+              Thứ THẬT SỰ còn thiếu là chính khối này: nó luôn bung, không có nút thu gọn, trong
+              khi mọi khối khác của app đều gập được. Người xem hết ba mặt hàng rồi muốn gom lại
+              cho gọn thì không có chỗ bấm — đúng nghĩa "không group lại được".
+
+              📌 Gập là THÁO nội dung khỏi cây React (khác khối bước ④ phải giữ vì có form nhập
+              liệu): ở đây chỉ là bảng đọc, không có ô nào đang gõ nên không có gì để mất. */}
+          <button
+            type="button"
+            onClick={() => setMoBang((v) => !v)}
+            aria-expanded={moBang}
+            className="flex min-h-11 w-fit items-center gap-2 text-left"
+          >
+            <ChevronDown
+              className={`size-4 shrink-0 text-text-desc transition-transform ${moBang ? "" : "-rotate-90"}`}
+              aria-hidden
+            />
+            <span className="text-h3 text-text-primary">Chi tiết từng mặt hàng</span>
+            {/* Khi gập vẫn phải biết bên trong có gì, nếu không thu gọn chỉ là giấu thông tin. */}
+            {!moBang && (
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-text-secondary tabular-nums">
+                {tienDo.length} mặt hàng
+              </span>
+            )}
+          </button>
+
+          {moBang && (
+            <>
           {/* Bảng — Desktop/Tablet */}
           <div className="hidden overflow-x-auto md:block">
             <Table>
@@ -248,6 +288,9 @@ export default function TrangTheoDoiChiTiet() {
               );
             })}
           </div>
+
+            </>
+          )}
 
           <p className="border-t border-divider pt-3 text-xs text-text-desc">
             🔒 Màn hình này không hiển thị đơn giá, thành tiền, nhà cung cấp và tên nhân viên thu mua phụ trách.
