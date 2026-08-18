@@ -16,7 +16,10 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { ODinhKemNhieuTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-nhieu-tep";
-import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+// `TOI_DA_TEP_MOI_BUOC` là hạn mức THẬT của tầng dữ liệu — lấy về dùng, tuyệt đối không chép con
+// số ra file giao diện (hai chỗ giữ cùng một con số là sớm muộn lệch nhau, mà lệch kiểu đó không có
+// lỗi nào báo: ô nhập cho chọn 5 tệp còn tầng dữ liệu chặn ở 3).
+import { useDuLieu, TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { DANH_MUC_PHONG_BAN } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_GIAI_DOAN } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -60,17 +63,51 @@ import {
  * ô "Lý do đổi thời hạn" chỉ hiện ra **khi ngày-giờ thật sự đổi**, và lúc đó là bắt buộc. Bỏ luật
  * này để cho giống ảnh 100% là làm mất một chốt kiểm soát đã có chủ ý.
  *
- * ## 📌 BA Ô BÁO GIÁ CÓ TÊN RIÊNG
- * App vốn giữ tệp của mỗi bước thành MỘT DANH SÁCH (tối đa 5 tệp), không có khái niệm "ô số 1, ô
- * số 2". Để dựng đúng ba ô có tên như ảnh mà không phải đổi cấu trúc dữ liệu, mỗi ô đánh dấu tệp
- * của mình bằng **ghi chú tệp** (`GHI_CHU_O_BAO_GIA`) — ghi chú vốn đã là chỗ ghi nhãn cho chứng
- * từ. Tệp không mang nhãn nào thì thuộc ô "Báo giá khác".
- * ⚠️ Hệ quả phải biết: người dùng tự sửa ghi chú của một tệp ở khối đính kèm ngoài trang chi tiết
- * thì tệp đó chuyển ô. Không mất dữ liệu, chỉ đổi chỗ hiển thị.
+ * ## 📌 CÁC Ô BÁO GIÁ CÓ TÊN RIÊNG — SỐ Ô CHẠY THEO "SL BÁO GIÁ"
+ * App vốn giữ tệp của mỗi bước thành MỘT DANH SÁCH, không có khái niệm "ô số 1, ô số 2". Để dựng
+ * các ô có tên như ảnh mà không phải đổi cấu trúc dữ liệu, mỗi ô đánh dấu tệp của mình bằng **ghi
+ * chú tệp** (`nhanOBaoGia`) — ghi chú vốn đã là chỗ ghi nhãn cho chứng từ. Tệp không mang nhãn nào
+ * thì thuộc ô "Báo giá khác".
+ *
+ * 🔴 Ban lãnh đạo 18/08/2026: *"thêm 1 báo giá thì có 1 ô đính kèm, 2 báo giá thì 2 ô đính kèm. số
+ * lượng ô đính kèm sẽ nhảy tự động theo số báo giá"*. Số ô đổi NGAY khi chọn ở ô "SL Báo giá",
+ * không phải chờ bấm Cập nhật — người lập cần thấy đúng số ô trước khi đi xin báo giá.
+ *
+ * ### 🔴 BA CHỐT AN TOÀN, đụng vào là tệp biến mất khỏi màn hình
+ *
+ * 1. **KHÔNG BAO GIỜ ẩn một ô đang giữ tệp.** Đang có 3 báo giá đính kèm rồi hạ SL Báo giá xuống 1
+ *    thì ô 2 và ô 3 phải CÒN NGUYÊN. Tệp vẫn nằm trong hồ sơ, chỉ là không còn ô nào hiện nó ra —
+ *    người dùng thấy chứng từ "bốc hơi" mà không có gì báo, và không biết đường nào lấy lại. Vì
+ *    vậy số ô = **max(số đang chọn, số hiệu ô cao nhất đang có tệp)**.
+ * 2. **Chặn trên bằng `TOI_DA_TEP_MOI_BUOC`** (hạn mức thật của tầng dữ liệu, không phải số tự
+ *    đặt ở đây). Chọn 10 báo giá mà vẽ 10 ô là hứa 10 chỗ trong khi hàm ghi chỉ nhận 5 — người
+ *    dùng chọn tệp thứ 6 mới bị từ chối. Vẽ đúng số ô nhận được, và **nói ra** vì sao bị chặn.
+ * 3. **Tệp mang nhãn vượt quá số ô đang vẽ thì rơi vào ô "Báo giá khác"**, không bị lọc mất. Không
+ *    có chốt này thì một tệp nhãn "Báo giá NCC 7" (do hồ sơ cũ, hoặc do hạn mức bị hạ) không hiện
+ *    ở đâu cả — vừa không có ô số 7, vừa bị coi là "đã có nhãn" nên ô "khác" cũng bỏ qua.
+ *
+ * ⚠️ Hạ SL Báo giá **không xóa tệp nào**. Muốn bỏ chứng từ thì gỡ ở khối đính kèm ngoài trang chi
+ * tiết, nơi có hộp hỏi xác nhận — gỡ chứng từ khỏi hồ sơ không hoàn lại được.
+ *
+ * ⚠️ Người dùng tự sửa ghi chú của một tệp ở khối đính kèm ngoài trang chi tiết thì tệp đó chuyển
+ * ô. Không mất dữ liệu, chỉ đổi chỗ hiển thị.
  */
 
-/** Nhãn ghi chú đánh dấu ba ô báo giá có tên riêng — xem khối chú thích đầu file. */
-const GHI_CHU_O_BAO_GIA = ["Báo giá NCC 1", "Báo giá NCC 2", "Báo giá NCC 3"] as const;
+/** Nhãn ghi chú đánh dấu ô báo giá thứ `i` (đếm từ 0) — xem khối chú thích đầu file. */
+function nhanOBaoGia(i: number): string {
+  return `Báo giá NCC ${i + 1}`;
+}
+
+/**
+ * Đọc số hiệu ô từ ghi chú tệp. Trả `0` khi ghi chú không phải nhãn ô nào.
+ *
+ * ⚠️ Phải khớp CHÍNH XÁC dạng `nhanOBaoGia` sinh ra. Nới lỏng thành "có chứa chữ báo giá" là ghi
+ * chú người dùng tự gõ (*"báo giá bên A rẻ hơn"*) bị hiểu thành nhãn ô, tệp nhảy sang chỗ khác.
+ */
+function chiSoOBaoGia(ghiChu: string | undefined): number {
+  const khop = (ghiChu ?? "").trim().match(/^Báo giá NCC (\d+)$/);
+  return khop ? Number(khop[1]) : 0;
+}
 
 /** Bước giữ tệp báo giá nhà cung cấp. */
 const BUOC_BAO_GIA = "xet_duyet_bao_gia";
@@ -159,12 +196,38 @@ export function HopSuaTruongTuyChinh({
 
   /** Tệp của bước ③, tra theo nhãn ghi chú. */
   const tepBuocBaoGia: MoTaTep[] = deNghi.tepGiaiDoan?.[BUOC_BAO_GIA] ?? [];
-  const tepTheoO = GHI_CHU_O_BAO_GIA.map((nhan) =>
-    tepBuocBaoGia.find((t) => (t.ghiChu ?? "").trim() === nhan),
+
+  /* ---------- SỐ Ô ĐÍNH KÈM CHẠY THEO "SL BÁO GIÁ" (xem ba chốt ở đầu file) ---------- */
+
+  /** Số đang chọn ở ô "SL Báo giá". `0` khi chưa đặt hoặc mỗi dòng một số. */
+  const soChon = Number(soBaoGia) || 0;
+  /** Số hiệu ô CAO NHẤT đang giữ tệp — chốt 1: hạ SL Báo giá không được ẩn mất tệp. */
+  const soODaCoTep = tepBuocBaoGia.reduce((max, t) => Math.max(max, chiSoOBaoGia(t.ghiChu)), 0);
+  /** Số ô thật sự vẽ ra. Chốt 2: không vượt hạn mức tệp mỗi bước của tầng dữ liệu. */
+  const soO = Math.min(Math.max(soChon, soODaCoTep), TOI_DA_TEP_MOI_BUOC);
+  /** Đang bị hạn mức chặn — phải nói ra, đừng để người dùng tự đoán vì sao thiếu ô. */
+  const biChanBoiHanMuc = soChon > TOI_DA_TEP_MOI_BUOC;
+
+  const tepTheoO = Array.from({ length: soO }, (_, i) =>
+    tepBuocBaoGia.find((t) => chiSoOBaoGia(t.ghiChu) === i + 1),
   );
-  const tepKhac = tepBuocBaoGia.filter(
-    (t) => !GHI_CHU_O_BAO_GIA.includes((t.ghiChu ?? "").trim() as (typeof GHI_CHU_O_BAO_GIA)[number]),
-  );
+  /* Chốt 3: tệp không có nhãn ô, HOẶC mang nhãn vượt quá số ô đang vẽ, đều rơi vào "Báo giá khác".
+     Nhờ vậy mọi tệp trong hồ sơ luôn hiện ở đúng một chỗ, không tệp nào vô hình. */
+  const tepKhac = tepBuocBaoGia.filter((t) => {
+    const chiSo = chiSoOBaoGia(t.ghiChu);
+    return chiSo === 0 || chiSo > soO;
+  });
+
+  /**
+   * Hạn mức còn lại cho ô "Báo giá khác".
+   *
+   * `ODinhKemNhieuTep` tính số nhận thêm = `toiDa - tep.length`, nên phải trừ sẵn phần các ô có tên
+   * đang chiếm — cả bước dùng CHUNG một hạn mức. Không trừ thì ô này mời chọn 5 tệp trong khi tầng
+   * dữ liệu từ chối ngay tệp đầu, và người dùng chỉ thấy một thông báo lỗi không hiểu vì sao.
+   * `Math.max` với số tệp hiện có: không bao giờ truyền hạn mức nhỏ hơn danh sách đang giữ.
+   */
+  const soTepTrongOCoTen = tepTheoO.filter(Boolean).length;
+  const hanMucOKhac = Math.max(tepKhac.length, TOI_DA_TEP_MOI_BUOC - soTepTrongOCoTen);
 
   const ngayGioMoi = ngay === "" ? "" : gio === "" ? ngay : `${ngay}T${gio}`;
   const doiNgayGio = ngayGioMoi !== "" && ngayGioMoi !== deNghi.ngayCanHang;
@@ -512,16 +575,35 @@ export function HopSuaTruongTuyChinh({
               )
             }
           >
-            {GHI_CHU_O_BAO_GIA.map((nhan, i) => (
-              <Truong key={nhan} nhan={`${nhan} (PDF)`}>
+            {/* Số ô bằng đúng SL Báo giá đang chọn — xem ba chốt an toàn ở đầu file. */}
+            {tepTheoO.map((tep, i) => (
+              <Truong key={nhanOBaoGia(i)} nhan={`${nhanOBaoGia(i)} (PDF)`}>
                 <ODinhKemTep
-                  tep={tepTheoO[i]}
+                  tep={tep}
                   nhanThem="Chọn tệp"
                   nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-                  onXong={(t) => ganTepVaoO(t, nhan)}
+                  onXong={(t) => ganTepVaoO(t, nhanOBaoGia(i))}
                 />
               </Truong>
             ))}
+
+            {/* Chưa đặt SL Báo giá thì KHÔNG bịa ra ô nào — nói thẳng là chưa biết cần mấy ô, và
+                chỉ đường sang chỗ đặt. Vẽ sẵn một ô là đoán hộ người dùng. */}
+            {soO === 0 && (
+              <p className="text-xs text-text-desc">
+                Chọn <strong>SL Báo giá</strong> ở bước “{NHAN_GIAI_DOAN.yeu_cau_bao_gia.nhan}” để mở
+                đúng số ô đính kèm. Chưa đặt thì cứ bỏ tệp vào ô “Báo giá khác” bên dưới.
+              </p>
+            )}
+
+            {/* Bị hạn mức chặn thì PHẢI nói ra — thiếu ô mà im lặng là người dùng tưởng app lỗi. */}
+            {biChanBoiHanMuc && (
+              <p className="text-xs text-text-desc">
+                Đang cần <strong>{soChon}</strong> báo giá, nhưng mỗi bước chỉ giữ được{" "}
+                <strong>{TOI_DA_TEP_MOI_BUOC}</strong> tệp nên chỉ mở {TOI_DA_TEP_MOI_BUOC} ô. Các
+                báo giá còn lại bỏ vào ô “Báo giá khác”.
+              </p>
+            )}
 
             <Truong
               nhan="Báo giá khác (PDF)"
@@ -531,6 +613,7 @@ export function HopSuaTruongTuyChinh({
                 tep={tepKhac}
                 nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
                 nhan="Chọn tệp"
+                toiDa={hanMucOKhac}
                 onDoi={(moi) => {
                   /* Chỉ xử lý phần THÊM. Việc gỡ tệp đi qua khối đính kèm ở trang chi tiết —
                      nơi có hộp hỏi xác nhận, vì gỡ chứng từ khỏi hồ sơ không hoàn lại được. */
