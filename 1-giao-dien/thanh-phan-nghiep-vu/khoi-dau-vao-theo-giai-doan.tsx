@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ChevronRight, LogIn, type LucideIcon } from "lucide-react";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
@@ -128,77 +128,26 @@ export function NhanPhanTrongGiaiDoan({
   return the === "h2" ? <h2 className={lop}>{noiDung}</h2> : <p className={lop}>{noiDung}</p>;
 }
 
-/**
- * Khóa lưu danh sách khối đang mở, riêng từng máy / từng trình duyệt.
- *
- * 🔴 Ban lãnh đạo 18/08/2026: *"chỗ này sửa lại, khi F5 là tự group lại"* — mở một khối ra,
- * tải lại trang là nó gập về, phải bấm mở lại từ đầu. Người soát hồ sơ hay F5 để xem dữ liệu
- * mới của cả phòng, nên mỗi lần F5 lại mất chỗ đang xem.
- *
- * 📌 Lưu trên máy chứ KHÔNG ghi vào hồ sơ — đây là thói quen xem của một người, không phải dữ
- * liệu nghiệp vụ. Nhét vào chứng từ thì mỗi lần gập/mở là cả phòng thấy hồ sơ "vừa được sửa"
- * và nhật ký đầy dòng vô nghĩa (cùng lý do như `3-du-lieu/ghi-chu-ca-nhan.ts`).
- *
- * 📌 Lưu CHUNG cho mọi phiếu, không tách theo từng mã hồ sơ: thói quen là "tôi hay xem khối
- * nào", chứ không phải "ở phiếu này tôi xem khối nào". Tách theo phiếu thì mở phiếu mới lại
- * về mặc định — đúng cái vừa phải sửa.
- */
-const KHOA_KHOI_DANG_MO = "hpcons-thumua-khoi-giai-doan-mo";
-
-function docKhoiDaMo(): string[] | null {
-  // Chạy trên máy chủ lúc dựng trang tĩnh thì không có `localStorage`.
-  if (typeof window === "undefined") return null;
-  try {
-    const v = window.localStorage.getItem(KHOA_KHOI_DANG_MO);
-    if (!v) return null;
-    const ds: unknown = JSON.parse(v);
-    return Array.isArray(ds) && ds.every((x) => typeof x === "string") ? ds : null;
-  } catch {
-    // Dữ liệu hỏng hoặc trình duyệt chặn localStorage — coi như chưa lưu gì, đừng làm vỡ trang.
-    return null;
-  }
-}
-
 export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[] }) {
   /**
-   * Giai đoạn nào đang mở.
+   * Giai đoạn nào đang mở. **Mặc định GẬP HẾT** — mỗi lần vào trang, hoặc F5, đều về gập.
    *
-   * 📌 Mặc định mở giai đoạn ĐANG ĐỨNG, gập các giai đoạn khác — Base cũng vậy. Mở hết thì
-   * trang dài mấy màn hình; gập hết thì người vào phải bấm mới thấy việc đang làm.
+   * 🔴 Ban lãnh đạo nhắc HAI LẦN (18/08/2026): *"chỗ này sửa lại, khi F5 là tự group lại"*, rồi
+   * *"mục này sao F5 vẫn chưa chịu group lại"*.
    *
-   * ⚠️ KHỞI TẠO BẰNG MẶC ĐỊNH, KHÔNG đọc `localStorage` ngay ở đây. App xuất tĩnh nên trang
-   * được dựng sẵn trên máy chủ — nơi không có `localStorage`; đọc ở bước khởi tạo là bản dựng
-   * và bản trên trình duyệt khác nhau, React báo lỗi khớp cây (hydration mismatch). Đọc ở
-   * `useEffect` bên dưới, tức sau khi trang đã gắn xong.
+   * 🔴 LẦN ĐẦU TÔI HIỂU NGƯỢC Ý và làm sai hẳn: tưởng đây là lời phàn nàn *"F5 là bị gập mất"*
+   * nên đi lưu trạng thái đang mở vào `localStorage` để giữ qua F5 — tức làm đúng cái trái
+   * ngược với yêu cầu. Yêu cầu là: **F5 thì gập lại**. Nay đã bỏ hết phần lưu đó.
+   *
+   * 🔴 CŨNG BỎ luôn nếp "tự mở giai đoạn đang đứng". Khối trong ảnh Ban lãnh đạo khoanh đỏ
+   * (*Yêu cầu NCC báo giá*) CHÍNH LÀ giai đoạn hiện tại, nên chỉ bỏ `localStorage` thôi thì F5
+   * nó vẫn bung ra — vẫn đúng lỗi vừa bị nhắc. Muốn "F5 là gập lại" thật thì trạng thái đầu
+   * phải là RỖNG.
+   *
+   * 📌 Không mất thông tin: nhãn phải mỗi khối vẫn ghi số trường bên trong (*"THU GỌN · 4"*),
+   * nên gập hết vẫn đọc được khối nào có gì mà không phải mở ra.
    */
-  const [mo, setMo] = useState<string[]>(() =>
-    giaiDoan.filter((g) => g.dangODay).map((g) => g.ma),
-  );
-
-  /**
-   * Áp lại trạng thái đã lưu, một lần sau khi gắn trang.
-   *
-   * ⚠️ Chỉ chạy MỘT LẦN (`deps` rỗng, có `useRef` chốt): để `giaiDoan` trong `deps` thì mỗi
-   * lần kho dữ liệu chung có tin mới là mảng đó được dựng lại, hiệu ứng chạy lại và đè lên
-   * khối người dùng vừa bấm mở.
-   */
-  const daNapLuu = useRef(false);
-  useEffect(() => {
-    if (daNapLuu.current) return;
-    daNapLuu.current = true;
-    const daLuu = docKhoiDaMo();
-    if (daLuu !== null) setMo(daLuu);
-  }, []);
-
-  // Ghi lại mỗi lần đổi. Không ghi lúc chưa nạp xong, kẻo đè bản đã lưu bằng mặc định.
-  useEffect(() => {
-    if (!daNapLuu.current || typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(KHOA_KHOI_DANG_MO, JSON.stringify(mo));
-    } catch {
-      // Trình duyệt chặn hoặc hết chỗ — mất thói quen xem thì chấp nhận, đừng làm vỡ trang.
-    }
-  }, [mo]);
+  const [mo, setMo] = useState<string[]>([]);
 
   const [xemTep, setXemTep] = useState<MoTaTep | null>(null);
 
