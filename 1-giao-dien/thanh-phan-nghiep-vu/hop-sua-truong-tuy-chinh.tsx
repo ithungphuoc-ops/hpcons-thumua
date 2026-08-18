@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight, LogIn, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -417,12 +417,17 @@ export function HopSuaTruongTuyChinh({
                           />
                         </td>
                         <td className="px-2 py-1.5">
+                          {/* 🔴 `size-11` = 44×44 theo Design System V1.1, KHÔNG thu nhỏ cho
+                              "gọn". Đo được bản trước chỉ 36px — mà đây là nút XÓA DÒNG, bấm
+                              trượt trên máy tính bảng là mất một mặt hàng. Cùng nếp đã ghi ở
+                              `o-sua-so-bao-gia.tsx`: giảm phần NHÌN THẤY thì được, giảm phần bấm
+                              được thì không. */}
                           <button
                             type="button"
                             onClick={() => setDong((x) => x.filter((_, k) => k !== i))}
                             aria-label={`Xóa dòng ${i + 1}`}
                             title="Xóa dòng"
-                            className="flex size-9 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-danger"
+                            className="flex size-11 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-danger"
                           >
                             <Trash2 className="size-4" aria-hidden />
                           </button>
@@ -582,8 +587,29 @@ function Nhom({
   onBam: () => void;
   children: React.ReactNode;
 }) {
+  /**
+   * 🔴 `shrink-0` LÀ BẮT BUỘC, KHÔNG PHẢI TRANG TRÍ — Ban lãnh đạo báo *"lỗi hiển thị"* ngày
+   * 18/08/2026: nhóm đầu tiên bị **cắt ngang đáy**, dòng "Link phiếu đề nghị" chỉ hiện một nửa,
+   * mà hộp thoại thì không cuộn xuống được phần bị mất.
+   *
+   * CƠ CHẾ (đủ hai điều kiện mới sinh lỗi, thiếu một cái là không thấy gì):
+   *  ① Thân hộp là flex column **có chặn chiều cao** (`max-h-[90vh]` trên `DialogContent`), nên
+   *     con của nó bị co lại theo `flex-shrink: 1` mặc định.
+   *  ② Bình thường `min-height: auto` của flex item sẽ chặn không cho co nhỏ hơn nội dung — NHƯNG
+   *     quy tắc đó **không áp dụng cho phần tử là khung cuộn**. `overflow-hidden` (thêm vào để bo
+   *     góc cho gọn) biến `<section>` thành khung cuộn, nên mức co tối thiểu tụt về 0: section co
+   *     tự do, và chính `overflow-hidden` xóa luôn phần thừa ra.
+   *
+   * Đo được trước khi sửa: nhóm 1 cần 679px mà chỉ được 481px (mất 198px); thân hộp có
+   * `scrollHeight === clientHeight` nên **không cuộn được gì** — nội dung không tràn, nó bị co.
+   * Hai nhóm đang gập cũng bị nén còn 31px trong khi nút tiêu đề khai `min-h-11` = 44px, tức
+   * vùng chạm tối thiểu của Design System V1.1 cũng bị phá theo mà nhìn không ra.
+   *
+   * ⚠️ ĐỪNG "sửa" bằng cách bỏ `overflow-hidden`: bỏ nó thì nền xanh của dòng tiêu đề tràn ra
+   * ngoài góc bo. Giữ cả hai, chỉ tắt co.
+   */
   return (
-    <section className="overflow-hidden rounded-xl border border-primary/30">
+    <section className="shrink-0 overflow-hidden rounded-xl border border-primary/30">
       <button
         type="button"
         onClick={onBam}
@@ -627,8 +653,11 @@ function Truong({
   id?: string;
   children: React.ReactNode;
 }) {
+  /* `shrink-0` cùng lý do như ở `Nhom` — trường nào cũng là con của một flex column có thể bị
+     chặn chiều cao (thân hộp thoại, hoặc phần nội dung của một nhóm). Thiếu nó thì ô nhập bị
+     nén dẹt hoặc mô tả phụ bị cắt mất mà không có gì báo. */
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex shrink-0 flex-col gap-1.5">
       <Label htmlFor={id}>
         {nhan}
         {/* Dấu * có `aria-hidden` và kèm chữ cho trình đọc màn hình: chỉ dùng dấu sao thì người
@@ -682,7 +711,14 @@ function OChon({
 
 /**
  * Ô gõ trong bảng "Chi tiết" — viền mảnh, không nền, để bảng đọc như bảng chứ không như một dãy
- * hộp nhập. Vùng chạm vẫn đủ cao (`min-h-9` + đệm hàng của ô bảng).
+ * hộp nhập.
+ *
+ * 🔴 `min-h-11` = 44px, KHÔNG phải `min-h-9`. Bản đầu để `min-h-9`, đo ra chỉ **34px** cao thật —
+ * dưới ngưỡng 44×44 của Design System V1.1. Sáu cột gõ tay trên máy tính bảng mà ô cao 34px là
+ * bấm vào ô bên cạnh.
+ *
+ * 📌 Cao 44px nhưng KHÔNG dày lên về mặt thị giác: viền trong suốt, không nền, nên bảng vẫn đọc
+ * ra bảng. Đúng nếp *"giảm phần nhìn thấy thì được, giảm phần bấm được thì không"*.
  */
 function OGoTrongBang({
   value,
@@ -695,15 +731,13 @@ function OGoTrongBang({
   nhan: string;
   soLuong?: boolean;
 }) {
-  const oRef = useRef<HTMLInputElement>(null);
   return (
     <input
-      ref={oRef}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       aria-label={nhan}
       inputMode={soLuong ? "decimal" : undefined}
-      className={`min-h-9 w-full rounded-md border border-transparent bg-transparent px-1.5 text-sm text-text-primary transition-colors hover:border-border focus:border-primary focus:outline-none ${
+      className={`min-h-11 w-full rounded-md border border-transparent bg-transparent px-1.5 text-sm text-text-primary transition-colors hover:border-border focus:border-primary focus:outline-none ${
         soLuong ? "text-right tabular-nums" : ""
       }`}
     />
