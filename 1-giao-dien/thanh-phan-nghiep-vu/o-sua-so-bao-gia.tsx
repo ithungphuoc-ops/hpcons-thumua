@@ -1,10 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Pencil, X } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/1-giao-dien/nen-tang-ui/button";
-import { Input } from "@/1-giao-dien/nen-tang-ui/input";
+import { useEffect, useRef, useState } from "react";
+import { Minus, Plus } from "lucide-react";
 
 /**
  * Ô SỬA "SL BÁO GIÁ" ngay trong phần ĐẦU VÀO của bước ② — Ban lãnh đạo 17/08/2026:
@@ -13,14 +10,27 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
  * Trước đó con số này chỉ đặt được MỘT LẦN, lúc trưởng bộ phận kéo phiếu sang bước ② (hộp
  * chuyển giai đoạn). Đặt xong không sửa được nữa — mà thực tế hay phải đổi: thị trường chỉ
  * còn hai nhà cung cấp bán mặt hàng đó, hoặc ngược lại hàng lớn cần hỏi thêm bên thứ tư.
- * Không sửa được thì con số trên phiếu sai so với việc đang làm thật.
  *
- * 🔴 KHÔNG cho sửa thành 0. Yêu cầu "lấy 0 báo giá" nghĩa là mua không so giá — muốn vậy thì
- * phải là một quyết định có người chịu trách nhiệm, không phải một ô nhập lặng lẽ về 0.
+ * ---
+ * 🔴 NÚT − / + HIỆN SẴN, KHÔNG CÒN BÚT SỬA — Ban lãnh đạo 18/08/2026: *"hiện nút tăng giảm
+ * luôn, bỏ icon bút đi"*.
+ *
+ * Bản trước phải bấm bút → hiện ô nhập → gõ → bấm Lưu: bốn thao tác cho một con số chỉ chạy
+ * từ 1 đến 20, và hai thao tác đầu chẳng làm gì ngoài việc mở đường.
  */
 
 /** Chặn trên cho số báo giá. Không phải luật công ty, chỉ là ngưỡng bắt lỗi gõ nhầm. */
 const SO_BAO_GIA_TOI_DA = 20;
+
+/**
+ * Chờ bao lâu sau cú bấm cuối mới ghi vào hồ sơ.
+ *
+ * 🔴 VÌ SAO PHẢI CHỜ: `datSoBaoGiaChoPhieu` ghi một dòng nhật ký mỗi lần gọi. Bấm + năm lần
+ * để đi từ 1 lên 6 mà ghi ngay thì hồ sơ có năm dòng "Yêu cầu lấy N báo giá" liên tiếp — đúng
+ * kiểu làm loãng khối Lịch sử mà Ban lãnh đạo đã bắt lỗi ở ô tích công việc (sáu dòng trong
+ * một phút). Gom lại: bấm bao nhiêu lần cũng chỉ ghi MỘT dòng, với con số cuối cùng.
+ */
+const CHO_TRUOC_KHI_GHI = 800;
 
 export function OSuaSoBaoGia({
   soHienTai,
@@ -33,78 +43,97 @@ export function OSuaSoBaoGia({
   duocSua: boolean;
   onLuu: (so: number) => void;
 }) {
-  const [dangSua, setDangSua] = useState(false);
-  const [nhap, setNhap] = useState(String(soHienTai ?? ""));
+  /**
+   * Con số đang hiện trên màn — đổi NGAY khi bấm, không chờ ghi xong.
+   *
+   * Không làm vậy thì nút bấm có cảm giác trễ 0,8 giây và người dùng bấm thêm mấy lần nữa.
+   */
+  const [so, setSo] = useState<number | undefined>(soHienTai);
 
-  function luu() {
-    const so = Number(nhap);
-    if (!Number.isInteger(so) || so < 1) {
-      toast.error("Số báo giá phải là số nguyên từ 1 trở lên");
-      return;
+  /** Giá trị đã ghi vào hồ sơ — để biết còn gì cần ghi hay không. */
+  const daGhi = useRef(soHienTai);
+
+  /**
+   * Người khác sửa con số này (kho dữ liệu dùng chung cả phòng) thì màn phải theo.
+   *
+   * ⚠️ Chỉ đồng bộ khi giá trị máy chủ KHÁC cái mình vừa ghi — nếu không, mỗi lần dữ liệu
+   * quay về sẽ đè lên con số người dùng đang bấm dở.
+   */
+  useEffect(() => {
+    if (soHienTai !== daGhi.current) {
+      daGhi.current = soHienTai;
+      setSo(soHienTai);
     }
-    if (so > SO_BAO_GIA_TOI_DA) {
-      toast.error(`Số báo giá tối đa là ${SO_BAO_GIA_TOI_DA}`);
-      return;
-    }
-    onLuu(so);
-    setDangSua(false);
-  }
+  }, [soHienTai]);
+
+  /**
+   * 🔴 GIỮ `onLuu` QUA REF, KHÔNG ĐỂ NÓ TRONG DANH SÁCH PHỤ THUỘC.
+   *
+   * Trang cha truyền vào một hàm viết thẳng tại chỗ, nên mỗi lần trang vẽ lại là một hàm mới.
+   * Để nó trong `deps` thì hẹn giờ bị hủy và đặt lại sau mỗi lần vẽ — mà trang này vẽ lại mỗi
+   * khi kho dữ liệu chung có tin mới, tức con số có thể KHÔNG BAO GIỜ được ghi. Người dùng
+   * bấm xong thấy số đổi trên màn, đóng trang, và hồ sơ vẫn giữ số cũ.
+   */
+  const luuRef = useRef(onLuu);
+  useEffect(() => {
+    luuRef.current = onLuu;
+  }, [onLuu]);
+
+  // Gom nhiều cú bấm thành một lần ghi — xem `CHO_TRUOC_KHI_GHI`.
+  useEffect(() => {
+    if (so === undefined || so === daGhi.current) return;
+    const hen = setTimeout(() => {
+      daGhi.current = so;
+      luuRef.current(so);
+    }, CHO_TRUOC_KHI_GHI);
+    return () => clearTimeout(hen);
+  }, [so]);
 
   if (!duocSua) {
-    return (
-      <span className="text-sm font-medium text-text-primary">{soHienTai ?? "—"}</span>
-    );
+    return <span className="text-sm font-medium text-text-primary">{so ?? "—"}</span>;
   }
 
-  if (!dangSua) {
-    return (
-      <span className="flex items-center gap-1">
-        <span className="text-sm font-medium text-text-primary">{soHienTai ?? "—"}</span>
-        {/* Vùng chạm 44×44 theo Design System V1.1. */}
-        <button
-          type="button"
-          onClick={() => {
-            setNhap(String(soHienTai ?? ""));
-            setDangSua(true);
-          }}
-          className="flex size-11 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-muted hover:text-primary"
-          aria-label="Sửa số lượng báo giá cần lấy"
-          title="Sửa số lượng báo giá"
-        >
-          <Pencil className="size-3.5" aria-hidden />
-        </button>
-      </span>
-    );
-  }
+  /**
+   * 🔴 SÀN LÀ 1, KHÔNG PHẢI 0. "Lấy 0 báo giá" nghĩa là mua không so giá — việc đó phải là
+   * một quyết định có người chịu trách nhiệm, không phải hệ quả của việc bấm nút trừ thêm
+   * một cái.
+   */
+  const giamDuoc = so !== undefined && so > 1;
+  const tangDuoc = (so ?? 0) < SO_BAO_GIA_TOI_DA;
 
   return (
-    <span className="flex flex-wrap items-center gap-1.5">
-      <Input
-        type="number"
-        min={1}
-        max={SO_BAO_GIA_TOI_DA}
-        value={nhap}
-        autoFocus
-        onChange={(e) => setNhap(e.target.value)}
-        // Enter để lưu, Esc để bỏ — người nhập liệu quen tay không phải rời bàn phím.
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            luu();
-          }
-          if (e.key === "Escape") setDangSua(false);
-        }}
-        className="h-11 w-20"
-        aria-label="Số lượng báo giá cần lấy"
-      />
-      <Button size="sm" onClick={luu}>
-        <Check className="size-4" aria-hidden />
-        Lưu
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => setDangSua(false)}>
-        <X className="size-4" aria-hidden />
-        Hủy
-      </Button>
+    <span className="flex w-fit items-center gap-1 rounded-lg border border-border bg-card p-0.5">
+      {/* Vùng chạm 44×44 theo Design System V1.1 — nút nhỏ hơn thì trên máy tính bảng bấm trượt. */}
+      <button
+        type="button"
+        onClick={() => setSo((v) => (v !== undefined && v > 1 ? v - 1 : v))}
+        disabled={!giamDuoc}
+        className="flex size-11 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-muted hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Bớt một báo giá"
+        title={giamDuoc ? "Bớt một báo giá" : "Ít nhất phải lấy 1 báo giá"}
+      >
+        <Minus className="size-4" aria-hidden />
+      </button>
+
+      {/* `tabular-nums` + bề rộng cố định: con số không nhảy ngang khi đổi từ 9 sang 10.
+          `aria-live` để trình đọc màn hình đọc lên con số mới sau mỗi lần bấm. */}
+      <span
+        className="min-w-8 text-center text-sm font-semibold text-text-primary tabular-nums"
+        aria-live="polite"
+      >
+        {so ?? "—"}
+      </span>
+
+      <button
+        type="button"
+        onClick={() => setSo((v) => (v === undefined ? 1 : Math.min(v + 1, SO_BAO_GIA_TOI_DA)))}
+        disabled={!tangDuoc}
+        className="flex size-11 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-muted hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Thêm một báo giá"
+        title={tangDuoc ? "Thêm một báo giá" : `Tối đa ${SO_BAO_GIA_TOI_DA} báo giá`}
+      >
+        <Plus className="size-4" aria-hidden />
+      </button>
     </span>
   );
 }
