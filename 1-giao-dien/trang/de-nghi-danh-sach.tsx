@@ -19,6 +19,7 @@ import {
   HopSuaThoiHan,
   HopSuaTruongBoSung,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-de-nghi";
+import { HopSuaTruongTuyChinh } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-truong-tuy-chinh";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { HopNhanBanDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-ban-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
@@ -79,7 +80,7 @@ export default function TrangDanhSachDeNghi() {
    * liệu tùy chỉnh) thay vì ba cờ riêng: gộp lại thì không có cách nào mở trùng hai hộp.
    */
   const [dangSua, setDangSua] = useState<{
-    loai: "thong_tin" | "thoi_han" | "truong_bo_sung";
+    loai: "thong_tin" | "thoi_han" | "truong_bo_sung" | "truong_tuy_chinh";
     prId: string;
   } | null>(null);
   /** Đề nghị đang chờ xác nhận xóa — xóa là việc không lùi lại được nên phải hỏi. */
@@ -102,6 +103,7 @@ export default function TrangDanhSachDeNghi() {
     onSuaThongTin: (prId) => setDangSua({ loai: "thong_tin", prId }),
     onSuaThoiHan: (prId) => setDangSua({ loai: "thoi_han", prId }),
     onSuaTruongBoSung: (prId) => setDangSua({ loai: "truong_bo_sung", prId }),
+    onSuaTruongTuyChinh: (prId) => setDangSua({ loai: "truong_tuy_chinh", prId }),
     // Mở hộp chọn mặt hàng trước, không nhân bản ngay — xem `hop-nhan-ban-de-nghi.tsx`.
     onNhanBan: (prId) => setHoiNhanBan(prId),
     onDoiLuuTru: (prId, luuTru) => {
@@ -375,8 +377,18 @@ export default function TrangDanhSachDeNghi() {
                 onDong={() => setDangSua(null)}
                 onLuu={(truong) => {
                   suaTruongBoSung(dnDangSua.id, truong, nguoiDung.tenHienThi);
-                  toast.success("Đã lưu dữ liệu tùy chỉnh", { description: dnDangSua.code });
+                  toast.success("Đã lưu trường tự thêm", { description: dnDangSua.code });
                 }}
+              />
+              {/* ✏️ HỘP BÁM THEO BASE — Ban lãnh đạo 18/08/2026 gửi ảnh và yêu cầu *"cấu hình
+                  giống 100%"*. Khác hộp ngay trên: hộp trên cho gõ TỰ ĐẶT TÊN trường, hộp này bày
+                  đúng các trường của quy trình theo từng bước.
+                  📌 Không truyền `onLuu`: hộp này gọi thẳng các hàm ghi đã có của kho dữ liệu (mỗi
+                  trường một hàm, mỗi hàm giữ luật riêng) — xem chú thích đầu file của nó. */}
+              <HopSuaTruongTuyChinh
+                mo={dangSua?.loai === "truong_tuy_chinh"}
+                deNghi={dnDangSua}
+                onDong={() => setDangSua(null)}
               />
             </>
           )}

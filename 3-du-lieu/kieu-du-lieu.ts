@@ -196,6 +196,24 @@ export interface DeNghiMuaHang {
    */
   truongBoSung?: TruongBoSung[];
   /**
+   * ★ LINK PHIẾU ĐỀ NGHỊ — đường dẫn tới bản gốc của phiếu (Drive, SharePoint, ảnh chụp trên
+   * HPcore…).
+   *
+   * 🔴 Thêm 18/08/2026 theo ảnh Ban lãnh đạo gửi: hộp *"Chỉnh sửa các trường dữ liệu tùy chỉnh"*
+   * trên Base có trường **"Link phiếu đề nghị *"**, còn app thì chưa có chỗ nào giữ nó.
+   *
+   * 📌 KHÁC `taiLieu` (tệp đính kèm): đây là **con trỏ tới bản gốc nằm ngoài app** — bản có chữ
+   * ký tươi, bản scan lưu ở thư mục chung của phòng. `taiLieu` là bản sao NẰM TRONG app. Hai thứ
+   * không thay nhau: có link mà không có tệp thì mở app không xem được nội dung; có tệp mà không
+   * có link thì mất dấu bản gốc để đối chiếu khi cần bản cứng.
+   *
+   * ⚠️ Giữ nguyên chuỗi người dùng gõ, KHÔNG kiểm tra đây có phải địa chỉ web hợp lệ. Chỗ hiển
+   * thị chỉ biến thành liên kết bấm được khi chuỗi bắt đầu bằng `http://` hoặc `https://`; còn
+   * lại hiện như chữ thường. Bắt đúng định dạng thì người dùng dán mã hồ sơ nội bộ vào đây sẽ bị
+   * chặn oan.
+   */
+  linkPhieuDeNghi?: string;
+  /**
    * ★ TÀI LIỆU ĐÍNH KÈM lúc lập phiếu — catalogue, bản vẽ, chứng chỉ; tối đa 10 theo
    * biểu mẫu Base (Ban lãnh đạo 12/08/2026). Đây chỉ là phần MÔ TẢ; nội dung tệp nằm
    * ở kho tệp (`3-du-lieu/kho-tep.ts` → Firestore) nên máy khác mở xem được.

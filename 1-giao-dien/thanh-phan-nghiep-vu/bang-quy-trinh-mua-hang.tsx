@@ -17,6 +17,7 @@ import {
   Forward,
   History,
   ListPlus,
+  SlidersHorizontal,
   MoreHorizontal,
   Pencil,
   PictureInPicture2,
@@ -112,6 +113,8 @@ export interface ThaoTacThe {
   onSuaThongTin: (prId: string) => void;
   onSuaThoiHan: (prId: string) => void;
   onSuaTruongBoSung: (prId: string) => void;
+  /** Mở hộp "Chỉnh sửa các trường dữ liệu tùy chỉnh" (bám ảnh Base, 18/08/2026). */
+  onSuaTruongTuyChinh: (prId: string) => void;
   onNhanBan: (prId: string) => void;
   onDoiLuuTru: (prId: string, luuTru: boolean) => void;
   onXoa: (prId: string) => void;
@@ -677,9 +680,21 @@ function MenuThaoTacThe({
                   <CalendarClock className="size-4 shrink-0" aria-hidden />
                   Chỉnh sửa thời hạn
                 </DropdownMenuItem>
+                {/* ★ HAI MỤC KHÁC NHAU, ĐỪNG GỘP — Ban lãnh đạo 18/08/2026 gửi ảnh hộp của Base
+                    và yêu cầu *"cấu hình giống 100%"*.
+                    · "Chỉnh sửa các trường dữ liệu tùy chỉnh" = bày ĐÚNG các trường của quy
+                      trình, xếp theo từng bước (bám ảnh Base).
+                    · "Trường tự thêm" = bảng cặp tên/giá trị người dùng tự đặt, cho thông tin
+                      quy trình chưa có ô nào.
+                    🔴 Mục cũ đã đổi nhãn từ "Chỉnh sửa dữ liệu tùy chỉnh" thành "Trường tự thêm":
+                    để nguyên hai nhãn gần y nhau thì không ai đoán được bấm cái nào ra cái gì. */}
+                <DropdownMenuItem onClick={() => thaoTac.onSuaTruongTuyChinh(deNghi.id)}>
+                  <SlidersHorizontal className="size-4 shrink-0" aria-hidden />
+                  Chỉnh sửa các trường dữ liệu tùy chỉnh
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => thaoTac.onSuaTruongBoSung(deNghi.id)}>
                   <ListPlus className="size-4 shrink-0" aria-hidden />
-                  Chỉnh sửa dữ liệu tùy chỉnh
+                  Trường tự thêm
                 </DropdownMenuItem>
               </>
             )}

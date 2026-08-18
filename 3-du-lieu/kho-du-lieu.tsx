@@ -87,6 +87,10 @@ import type {
   PhongBanNguon,
   NhomDeXuat,
 } from "@/3-du-lieu/kieu-du-lieu";
+// Nhãn tiếng Việt để ghi nhật ký đọc được: nhật ký ghi mã thô (`thi_cong`, `mm_ccdc`) thì
+// người tra hồ sơ sau này không biết đó là gì.
+import { NHAN_NHOM_DE_XUAT } from "@/3-du-lieu/kieu-du-lieu";
+import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 
 /**
  * Yêu cầu trưởng bộ phận đặt ra khi giao việc (Ban lãnh đạo 12/08/2026:
@@ -307,10 +311,29 @@ interface GiaTriDuLieu {
   dongDoDeNghi: (prId: string, nguoiThucHien: string) => void;
 
   // --- Thao tác trên đề nghị (menu ⋯ của thẻ bảng quy trình) ---
-  /** Sửa tiêu đề / công trình / hợp đồng CĐT / mức độ ưu tiên. */
+  /**
+   * Sửa tiêu đề / công trình / hợp đồng CĐT / mức độ ưu tiên / bộ phận / nhóm đề xuất /
+   * link phiếu đề nghị.
+   *
+   * ⚠️ `Partial<>`: chỉ gửi những trường THẬT SỰ muốn đổi. Trường `undefined` được giữ nguyên,
+   * khác hẳn gửi chuỗi rỗng (nghĩa là xóa). Hộp "Sửa thông tin chung" gửi 4 trường của nó, hộp
+   * "Chỉnh sửa các trường dữ liệu tùy chỉnh" gửi bộ khác — cùng một đường ghi, cùng một chỗ
+   * ghi nhật ký.
+   */
   suaThongTinChung: (
     prId: string,
-    moi: Pick<DeNghiMuaHang, "tieuDe" | "tenCongTrinh" | "maHopDongCDT" | "mucDoUuTien">,
+    moi: Partial<
+      Pick<
+        DeNghiMuaHang,
+        | "tieuDe"
+        | "tenCongTrinh"
+        | "maHopDongCDT"
+        | "mucDoUuTien"
+        | "phongBanNguon"
+        | "nhomDeXuat"
+        | "linkPhieuDeNghi"
+      >
+    >,
     nguoiThucHien: string,
   ) => void;
   /** Đổi ngày cần hàng — bắt ghi lý do vì đây là cam kết với công trình. */
@@ -2271,7 +2294,18 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   const suaThongTinChung = useCallback(
     (
       prId: string,
-      moi: Pick<DeNghiMuaHang, "tieuDe" | "tenCongTrinh" | "maHopDongCDT" | "mucDoUuTien">,
+      moi: Partial<
+        Pick<
+          DeNghiMuaHang,
+          | "tieuDe"
+          | "tenCongTrinh"
+          | "maHopDongCDT"
+          | "mucDoUuTien"
+          | "phongBanNguon"
+          | "nhomDeXuat"
+          | "linkPhieuDeNghi"
+        >
+      >,
       nguoiThucHien: string,
     ) => {
       setDeNghi((truoc) =>
@@ -2280,20 +2314,47 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           // Ghi RÕ đổi trường nào, từ giá trị nào sang giá trị nào. Nhật ký chỉ nói "đã sửa"
           // thì sau này tranh cãi không ai biết sửa cái gì.
           const doi: string[] = [];
-          if (moi.tieuDe !== dn.tieuDe) doi.push(`tiêu đề: “${dn.tieuDe}” → “${moi.tieuDe}”`);
-          if (moi.tenCongTrinh !== dn.tenCongTrinh)
+          if (moi.tieuDe !== undefined && moi.tieuDe !== dn.tieuDe)
+            doi.push(`tiêu đề: “${dn.tieuDe}” → “${moi.tieuDe}”`);
+          if (moi.tenCongTrinh !== undefined && moi.tenCongTrinh !== dn.tenCongTrinh)
             doi.push(`công trình: “${dn.tenCongTrinh}” → “${moi.tenCongTrinh}”`);
-          if ((moi.maHopDongCDT ?? "") !== (dn.maHopDongCDT ?? ""))
-            doi.push(`hợp đồng CĐT: “${dn.maHopDongCDT ?? "—"}” → “${moi.maHopDongCDT ?? "—"}”`);
-          if (moi.mucDoUuTien !== dn.mucDoUuTien)
+          if (moi.maHopDongCDT !== undefined && moi.maHopDongCDT !== (dn.maHopDongCDT ?? ""))
+            doi.push(`hợp đồng CĐT: “${dn.maHopDongCDT ?? "—"}” → “${moi.maHopDongCDT || "—"}”`);
+          if (moi.mucDoUuTien !== undefined && moi.mucDoUuTien !== dn.mucDoUuTien)
             doi.push(
               `ưu tiên: ${dn.mucDoUuTien === "gap" ? "Gấp" : "Bình thường"} → ${moi.mucDoUuTien === "gap" ? "Gấp" : "Bình thường"}`,
+            );
+          /* ★ BA TRƯỜNG THÊM 18/08/2026 cho hộp "Chỉnh sửa các trường dữ liệu tùy chỉnh".
+             🔴 ĐI CHUNG MỘT HÀM, không mở hàm ghi mới: mỗi đường ghi mới là một chỗ nữa có thể
+             quên ghi nhật ký. Đổi sang `Partial<>` để hộp nào chỉ sửa vài trường thì gửi vài
+             trường — hàm bỏ qua trường `undefined`, khác hẳn "gửi chuỗi rỗng để xóa". */
+          if (moi.phongBanNguon !== undefined && moi.phongBanNguon !== dn.phongBanNguon)
+            doi.push(
+              `bộ phận: “${nhanPhongBan(dn.phongBanNguon)}” → “${nhanPhongBan(moi.phongBanNguon)}”`,
+            );
+          if (moi.nhomDeXuat !== undefined && moi.nhomDeXuat !== dn.nhomDeXuat)
+            doi.push(
+              `nhóm đề xuất: “${NHAN_NHOM_DE_XUAT[dn.nhomDeXuat ?? "khac"]}” → “${NHAN_NHOM_DE_XUAT[moi.nhomDeXuat]}”`,
+            );
+          if (
+            moi.linkPhieuDeNghi !== undefined &&
+            moi.linkPhieuDeNghi !== (dn.linkPhieuDeNghi ?? "")
+          )
+            doi.push(
+              `link phiếu đề nghị: “${dn.linkPhieuDeNghi ?? "—"}” → “${moi.linkPhieuDeNghi || "—"}”`,
             );
           if (doi.length === 0) return dn; // Không đổi gì thì đừng ghi nhật ký rác
           return {
             ...dn,
             ...moi,
-            maHopDongCDT: moi.maHopDongCDT?.trim() || undefined,
+            maHopDongCDT:
+              moi.maHopDongCDT === undefined
+                ? dn.maHopDongCDT
+                : moi.maHopDongCDT.trim() || undefined,
+            linkPhieuDeNghi:
+              moi.linkPhieuDeNghi === undefined
+                ? dn.linkPhieuDeNghi
+                : moi.linkPhieuDeNghi.trim() || undefined,
             lichSu: [
               ...dn.lichSu,
               {

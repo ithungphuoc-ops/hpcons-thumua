@@ -419,6 +419,34 @@ export default function TrangChiTietDeNghi() {
                   },
                   { nhan: "Ngày đề nghị cấp", giaTri: formatMocThoiGian(dn.ngayCanHang) },
                   { nhan: "Chi tiết", giaTri: `${dn.items.length} mặt hàng` },
+                  /* ★ LINK PHIẾU ĐỀ NGHỊ — thêm 18/08/2026 cùng hộp "Chỉnh sửa các trường dữ
+                     liệu tùy chỉnh".
+                     🔴 PHẢI HIỆN Ở ĐÂY, không chỉ có ô để nhập: trường mà nhập được nhưng không
+                     chỗ nào đọc lại là người dùng gõ vào rồi tưởng mất, hoặc gõ mỗi lần một chỗ.
+                     📌 Chỉ dựng thành liên kết bấm được khi chuỗi là địa chỉ web — người dùng có
+                     thể dán đường dẫn thư mục nội bộ, mà `<a href>` với chuỗi đó thì bấm vào
+                     không đi đâu cả. */
+                  ...(dn.linkPhieuDeNghi
+                    ? [
+                        {
+                          nhan: "Link phiếu đề nghị",
+                          noiDung: /^https?:\/\//i.test(dn.linkPhieuDeNghi) ? (
+                            <a
+                              href={dn.linkPhieuDeNghi}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+                            >
+                              Mở phiếu gốc
+                            </a>
+                          ) : (
+                            <span className="text-sm font-medium break-all text-text-primary">
+                              {dn.linkPhieuDeNghi}
+                            </span>
+                          ),
+                        },
+                      ]
+                    : []),
                   ...(dn.taiLieu && dn.taiLieu.length > 0
                     ? [{ nhan: "Tài liệu đính kèm", tep: dn.taiLieu }]
                     : []),
