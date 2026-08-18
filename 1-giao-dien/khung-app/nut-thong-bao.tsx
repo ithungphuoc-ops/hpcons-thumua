@@ -92,9 +92,11 @@ export function NutThongBao() {
       <DropdownMenuContent align="end" className="w-96 max-w-[92vw]">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="flex flex-col gap-0.5">
-            <span>Thông báo chuyển bước</span>
+            <span>Thông báo</span>
+            {/* Nói đủ HAI loại tin từ 18/08/2026 — trước đây nhãn ghi "Thông báo chuyển bước",
+                nay chuông còn báo việc mới được giao nên nhãn cũ đã hẹp hơn nội dung. */}
             <span className="text-[11px] font-normal text-text-desc">
-              Đề nghị đổi bước trên bảng quy trình là báo ở đây
+              Việc mới giao cho bạn và đề nghị đổi bước đều báo ở đây
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -117,13 +119,21 @@ export function NutThongBao() {
                     <span className="shrink-0 text-[11px] text-text-desc">{gioPhut(tb.thoiDiem)}</span>
                   </div>
                   <span className="text-xs text-text-primary">
-                    {/* Tin CHUYỂN TIẾP có `tuBuoc` = `denBuoc` (bàn giao người làm, không
-                        đổi bước) nên phải viết riêng — để nguyên sẽ ra "A → A" vô nghĩa. */}
-                    {tb.laChuyenTiep
-                      ? `Trưởng bộ phận chuyển tiếp — mời tiếp tục bước "${nhanBuoc(tb.denBuoc)}"`
-                      : tb.tuBuoc
-                        ? `${nhanBuoc(tb.tuBuoc)} → ${nhanBuoc(tb.denBuoc)}`
-                        : `Đề nghị mới vào bước "${nhanBuoc(tb.denBuoc)}"`}
+                    {/* 🔴 THỨ TỰ CÁC NHÁNH CÓ Ý NGHĨA: tin "việc mới" và tin "chuyển tiếp" đều có
+                        `tuBuoc` = `denBuoc` (không đổi bước hồ sơ), nên phải xét TRƯỚC nhánh so
+                        hai bước — để nguyên sẽ ra "A → A" vô nghĩa. */}
+                    {/* 🔴 KHÔNG in tên bước cho tin "việc mới". Bước được suy ra ở đúng khoảnh
+                        khắc bấm giao việc, tức TRƯỚC khi dòng vừa giao kịp ghi vào dữ liệu — mà
+                        chính cú giao đó có thể đẩy hồ sơ sang bước sau (giao nốt dòng cuối là
+                        ① → ②). In ra là chỉ người nhận sang một bước đã cũ. Bấm "mở phiếu" thì
+                        họ thấy bước thật ngay trên thanh tiến độ, không cần chuông đoán hộ. */}
+                    {tb.laViecMoi
+                      ? `Bạn được giao ${tb.soDongViec ?? ""} dòng vật tư`
+                      : tb.laChuyenTiep
+                        ? `Trưởng bộ phận chuyển tiếp — mời tiếp tục bước "${nhanBuoc(tb.denBuoc)}"`
+                        : tb.tuBuoc
+                          ? `${nhanBuoc(tb.tuBuoc)} → ${nhanBuoc(tb.denBuoc)}`
+                          : `Đề nghị mới vào bước "${nhanBuoc(tb.denBuoc)}"`}
                   </span>
                   {tb.loiNhan && (
                     <span className="text-[11px] text-text-secondary italic">

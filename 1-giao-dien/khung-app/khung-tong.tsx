@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AppSidebar } from "@/1-giao-dien/khung-app/thanh-ben";
 import { AppHeader } from "@/1-giao-dien/khung-app/thanh-tren";
 import { BottomNav } from "@/1-giao-dien/khung-app/thanh-duoi-mobile";
+import { BaoViecMoi } from "@/1-giao-dien/khung-app/bao-viec-moi";
 
 /**
  * Khung bố cục Hybrid (V1.1 Phần C): Sidebar 260px cố định bên trái (Desktop),
@@ -18,6 +19,10 @@ import { BottomNav } from "@/1-giao-dien/khung-app/thanh-duoi-mobile";
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
+      {/* 🔔 Nghe thông báo việc mới rồi bật hộp nổi. Không vẽ gì ra màn hình.
+          Đặt ở khung tổng để mọi trang trong app đều được báo — gắn vào một trang cụ thể thì
+          người đang ở trang khác không nhận được tin, mà đó chính là lúc cần báo nhất. */}
+      <BaoViecMoi />
       <AppSidebar />
       <div className="flex min-h-screen flex-col xl:ml-(--hp-sidebar-width)">
         <AppHeader />

@@ -1283,6 +1283,70 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               },
         ),
       );
+
+      /**
+       * 🔔 BÁO CHO NGƯỜI VỪA ĐƯỢC GIAO VIỆC — Ban lãnh đạo 18/08/2026: *"cài đặt thêm tính năng
+       * thông báo khi có công việc mới"*.
+       *
+       * 🔴 KHOẢNG TRỐNG ĐƯỢC LẤP: trước đây hàm này chỉ ghi dữ liệu và ghi nhật ký, KHÔNG sinh
+       * thông báo. Chuông chỉ báo khi cả phiếu đổi bước, mà bước chỉ đổi khi **mọi dòng** đã
+       * phân bổ — nên giao 2 trong 5 dòng thì người nhận không biết gì. Xem `laViecMoi` trong
+       * `3-du-lieu/kieu-du-lieu.ts`.
+       *
+       * 🔴 GỬI ĐÍCH DANH `[ten]`, không gửi theo vai trò: `thongBaoDanhChoToi` so khớp bằng tên,
+       * nên chỉ đúng người đó thấy. Gửi nhãn vai trò là cả phòng lại thấy việc của nhau — đúng
+       * lỗi Ban lãnh đạo đã bắt ngày 12/08/2026.
+       *
+       * ⚠️ CÓ THỂ TRÙNG với tin đổi bước khi dòng cuối cùng được phân bổ (phiếu ① → ②). Giữ cả
+       * hai là CỐ Ý: một tin nói *"bạn được giao 3 dòng vật tư"*, tin kia nói *"hồ sơ đã sang
+       * bước Yêu cầu NCC báo giá"*. Gộp lại thì mất một trong hai thông tin.
+       *
+       * ⚠️ Đặt NGOÀI `setDeNghi` chứ không nhét vào trong: hàm cập nhật của `setState` phải
+       * thuần, gọi `setThongBao` bên trong nó là React có thể chạy hai lần (StrictMode) và sinh
+       * hai thông báo cho một lần giao việc.
+       */
+      if (sttDong.length > 0) {
+        const dn = deNghiRef.current.find((x) => x.id === prId);
+        if (dn) {
+          const buoc = xacDinhGiaiDoan(
+            dn,
+            donHangRef.current,
+            baoGiaRef.current,
+            phieuNhanRef.current,
+          );
+          setThongBao((truoc) =>
+            [
+              {
+                id: `tb-vm-${soKeTiepThongBao()}`,
+                prId: dn.id,
+                prCode: dn.code,
+                tieuDe: dn.tieuDe,
+                /* `tuBuoc` = `denBuoc`: giao việc KHÔNG phải một bước nghiệp vụ mới (bước suy ra
+                   từ chứng từ). Để trống `tuBuoc` thì chuông sẽ viết "Đề nghị mới vào bước …" —
+                   sai nghĩa.
+
+                   ⚠️ ĐÂY LÀ BƯỚC Ở ĐÚNG KHOẢNH KHẮC BẤM GIAO, tức TRƯỚC khi dòng vừa giao kịp
+                   ghi vào dữ liệu (`setDeNghi` chưa áp xong nên `deNghiRef` vẫn là bản cũ). Giao
+                   nốt dòng cuối cùng thì hồ sơ sẽ sang bước sau ngay sau đó, nên con số này có
+                   thể là bước TRƯỚC ĐÓ MỘT NHỊP. Vì vậy chuông **không in tên bước** cho loại tin
+                   này — giữ trường lại chỉ để tra cứu, đừng đem ra chỉ đường cho người dùng. */
+                tuBuoc: buoc,
+                denBuoc: buoc,
+                thoiDiem: new Date().toISOString(),
+                guiToi: [ten],
+                daDoc: false,
+                laViecMoi: true,
+                soDongViec: sttDong.length,
+                /* Chỉ mang GHI CHÚ giao việc sang, không mang số báo giá: số báo giá đã hiện
+                   thành một trường riêng ở khối ĐẦU VÀO của bước ②, nhắc lại trong lời nhắn là
+                   hai chỗ cùng nói một con số rồi lệch nhau khi sửa. */
+                loiNhan: yeuCau?.ghiChu?.trim() || undefined,
+              },
+              ...truoc,
+            ].slice(0, 30),
+          );
+        }
+      }
     },
     [],
   );
@@ -1495,6 +1559,48 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           };
         }),
       );
+
+      /**
+       * 🔔 BÁO CHO NGƯỜI NHẬN VIỆC MỚI — cùng lý do như ở `phanBoDong`.
+       *
+       * 🔴 Việc bàn giao còn cần báo hơn cả giao mới: người nhận KHÔNG hề chờ đợi việc này, họ
+       * không có lý do gì để đi mở phiếu đó ra xem. Không báo thì dòng vật tư đứng im dưới tên
+       * một người không biết mình đang giữ nó.
+       *
+       * 📌 CHỈ báo cho người NHẬN, không báo cho người bị chuyển đi: họ không còn việc để làm
+       * nữa, và nhật ký hồ sơ đã ghi đủ ai chuyển của ai (kèm lý do) cho việc tra cứu sau này.
+       */
+      if (sttDong.length > 0) {
+        const dn = deNghiRef.current.find((x) => x.id === prId);
+        if (dn) {
+          const buoc = xacDinhGiaiDoan(
+            dn,
+            donHangRef.current,
+            baoGiaRef.current,
+            phieuNhanRef.current,
+          );
+          setThongBao((truoc) =>
+            [
+              {
+                id: `tb-cv-${soKeTiepThongBao()}`,
+                prId: dn.id,
+                prCode: dn.code,
+                tieuDe: dn.tieuDe,
+                tuBuoc: buoc,
+                denBuoc: buoc,
+                thoiDiem: new Date().toISOString(),
+                guiToi: [nguoiMoi.ten],
+                daDoc: false,
+                laViecMoi: true,
+                soDongViec: sttDong.length,
+                // Lý do chuyển việc chính là điều người nhận cần biết nhất.
+                loiNhan: lyDo.trim() || undefined,
+              },
+              ...truoc,
+            ].slice(0, 30),
+          );
+        }
+      }
     },
     [],
   );

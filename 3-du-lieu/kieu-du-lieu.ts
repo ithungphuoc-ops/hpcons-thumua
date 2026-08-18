@@ -774,7 +774,26 @@ export interface ThongBaoChuyenBuoc {
    * lấp đúng khoảng trống đó; `tuBuoc` và `denBuoc` khi ấy bằng nhau.
    */
   laChuyenTiep?: boolean;
-  /** Lời nhắn kèm khi chuyển tiếp — trưởng bộ phận dặn thêm gì thì ghi ở đây. */
+  /**
+   * `true` = **VIỆC MỚI ĐƯỢC GIAO CHO ĐÍCH DANH MỘT NGƯỜI** (trưởng bộ phận phân bổ dòng vật tư,
+   * hoặc chuyển việc của một dòng sang người khác).
+   *
+   * 🔴 Ban lãnh đạo 18/08/2026: *"cài đặt thêm tính năng thông báo khi có công việc mới"*.
+   *
+   * VÌ SAO PHẢI THÊM LOẠI TIN NÀY — khoảng trống thật của bản trước:
+   * Chuông chỉ báo khi **cả phiếu đổi bước**, mà bước chỉ đổi khi **mọi dòng đã được phân bổ**
+   * (`daPhanBoDu`). Trưởng bộ phận giao 2 trong 5 dòng cho một nhân viên thì phiếu VẪN đứng ở
+   * bước ①, nên nhân viên đó **không nhận được một tin nào** — họ chỉ biết mình có việc nếu tự
+   * mở app và đi dò từng phiếu. Việc giao rồi mà người nhận không biết là việc nằm im.
+   *
+   * Và ngay khi bước có đổi thì tin đổi bước cũng gửi cho *"người cần xử lý"* nói chung, nội
+   * dung là *"Tiếp nhận và kiểm tra → Yêu cầu NCC báo giá"* — nói về HỒ SƠ, không nói *"bạn được
+   * giao mấy dòng nào"*. Hai loại tin trả lời hai câu hỏi khác nhau nên giữ cả hai.
+   */
+  laViecMoi?: boolean;
+  /** Số dòng vật tư được giao trong tin `laViecMoi` — để viết "được giao 3 dòng vật tư". */
+  soDongViec?: number;
+  /** Lời nhắn kèm khi chuyển tiếp / giao việc — trưởng bộ phận dặn thêm gì thì ghi ở đây. */
   loiNhan?: string;
 }
 
