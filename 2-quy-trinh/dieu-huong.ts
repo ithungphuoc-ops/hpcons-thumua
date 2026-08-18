@@ -6,6 +6,7 @@ import {
   CircleUser,
   CalendarDays,
   Settings,
+  ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
 import type { Quyen } from "@/4-phan-quyen/quyen";
@@ -68,6 +69,27 @@ export interface MucDieuHuong {
  * Chỉ bỏ lối vào từ menu. Đường vào hiện tại là trang chi tiết đề nghị `/de-nghi/[id]`:
  * ở đó có bảng phân bổ, danh sách bảng báo giá và danh sách đơn hàng đã tách.
  * Muốn trả mục nào về menu thì thêm lại vào mảng dưới đây, không phải dựng lại gì.
+ *
+ * ---
+ *
+ * 🔴 QUY ƯỚC 06/08/2026 ĐÃ ĐƯỢC BAN LÃNH ĐẠO ĐỔI NGÀY 18/08/2026 — ĐỌC KỸ TRƯỚC KHI DỌN MENU.
+ *
+ * Ban lãnh đạo gửi ảnh chụp khối "NHẬP ĐƠN ĐẶT HÀNG MỚI" nằm trong khối bước ④ của trang chi
+ * tiết đề nghị, kèm yêu cầu: *"e đưa mục này ra thành 1 mục riêng bên tab trái, với tiêu đề
+ * là Lập đơn mua hàng (PO)"*.
+ *
+ * Nghĩa là quy ước *"việc nào đã nằm trong bảng quy trình 8 cột thì không để thành mục menu
+ * riêng"* (`CLAUDE.md` mục 3.4b, chốt 06/08/2026) **không còn tuyệt đối**: bước ④ nay có CẢ
+ * thẻ trên bảng quy trình LẪN một mục menu riêng.
+ *
+ * 📌 GHI RÕ ĐỂ NGƯỜI SAU KHÔNG GỠ ĐI: mục "Lập đơn mua hàng (PO)" dưới đây là **quyết định có
+ * chủ đích của Ban lãnh đạo ngày 18/08/2026**, KHÔNG phải sơ suất của người quên quy ước
+ * 06/08/2026. Muốn bỏ mục này thì phải có chỉ đạo mới, không tự bỏ vì "trái quy ước cũ".
+ *
+ * 📌 KHÔNG BỎ FORM KHỎI KHỐI BƯỚC ④. Chỉ đạo 17/08/2026 (*"a cần phần nhập liệu phải nằm
+ * trong khối"*) vẫn còn hiệu lực; chỉ đạo 18/08/2026 nói "đưa ra thành 1 mục riêng" tức là
+ * THÊM một lối vào, không phải dời đi. Hai lối vào dùng CHUNG một component
+ * `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx`, không có bản chép thứ hai.
  */
 export const MUC_DIEU_HUONG: MucDieuHuong[] = [
   {
@@ -134,6 +156,44 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
      * dõi đề nghị" — mục đó mở cho mọi vai trò, chỉ không hiện giá và nhà cung cấp.
      */
     duocThay: (q) => q.xemQuyTrinhMuaHang,
+  },
+  {
+    /**
+     * ★ LẬP ĐƠN MUA HÀNG (PO) — Ban lãnh đạo 18/08/2026: *"e đưa mục này ra thành 1 mục riêng
+     * bên tab trái, với tiêu đề là Lập đơn mua hàng (PO)"*.
+     *
+     * Đây là mục menu ĐẦU TIÊN được thêm lại sau chỉ đạo 06/08/2026 — xem khối chú thích lớn
+     * ở đầu mảng này để biết vì sao đó không phải sơ suất.
+     *
+     * 🔴 ĐẶT NGAY DƯỚI "Quy trình mua hàng" là cố ý: hai mục cùng nói về một dòng công việc,
+     * mục trên trả lời *"hồ sơ đang ở bước nào"*, mục này là lối tắt vào đúng việc của bước ④.
+     * Cùng nhóm "Quy trình thu mua" (`quy_trinh`) nên không sinh thêm tiêu đề nhóm mới.
+     *
+     * 🔴 CHỈ NGƯỜI CÓ `quyen.lapPO` THẤY — dùng ĐÚNG cờ mà `4-phan-quyen/quyen.ts` →
+     * `duocVaoDuongDan` đang gác địa chỉ `/don-hang/tao-moi`, và cũng đúng cờ mà chính form
+     * kiểm bên trong. Ba chỗ một cờ: không có cảnh thấy mục menu rồi bấm vào bị đá ra.
+     * KHÔNG bịa cờ quyền mới cho mục này.
+     *
+     * ⚠️ `nhanNgan` phải NGẮN cho thanh dưới điện thoại (11px, dễ tràn) — "Lập đơn mua hàng
+     * (PO)" đủ dài để tràn cả ba mục bên cạnh. Nhãn dài chỉ dùng trên thanh bên.
+     *
+     * ⚠️ MỤC THỨ 8 TRÊN THANH DƯỚI ĐIỆN THOẠI. Tài khoản quản trị thấy đủ 8 mục:
+     * 8 × 44px = 352px, vẫn vừa màn 375px nhưng đã sát mép. Thêm mục thứ 9 là vượt
+     * (9 × 44 = 396px > 375px) → lúc đó phải xử lý thật ở `khung-app/thanh-duoi-mobile.tsx`
+     * (cuộn ngang trong khung riêng, hoặc mục "Thêm"), TUYỆT ĐỐI không cắt ngầm bằng `slice`
+     * như trước 11/08/2026 — xem chú thích ở file đó.
+     *
+     * 📌 `hrefDangChon` xử lý đúng việc `/don-hang/tao-moi` nằm dưới tiền tố `/don-hang`: hàm
+     * đó chọn mục có `href` khớp và DÀI NHẤT, nên nếu sau này thêm lại mục "Đơn đặt hàng"
+     * (`/don-hang`) thì ở địa chỉ này chỉ mục dưới đây sáng, không sáng cả hai. Đã kiểm, không
+     * phải sửa luật chung.
+     */
+    nhan: "Lập đơn mua hàng (PO)",
+    nhanNgan: "Lập PO",
+    href: "/don-hang/tao-moi",
+    nhom: "quy_trinh",
+    icon: ShoppingCart,
+    duocThay: (q) => q.lapPO,
   },
   {
     nhan: "Theo dõi đề nghị",

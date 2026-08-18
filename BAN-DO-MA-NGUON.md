@@ -50,6 +50,8 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Không thấy phần nhập liệu đơn mua hàng ở bước ④** trong trang chi tiết đề nghị | Chỗ nhúng: `1-giao-dien/trang/de-nghi-chi-tiet.tsx`, giai đoạn `lap_don_mua_hang` → `noiDungNghiepVu`. Điều kiện hiện: `quyen.lapPO && !hoSoDaDong` (chỉ đạo 17/08/2026 *"chỉ ai được cấp quyền thì mới xem được phần nhập liệu đó"* — dùng đúng cờ `lapPO`, **không bịa cờ mới**). ⚠️ Không thấy thì kiểm `apps.tm ≥ 2` và hồ sơ chưa đóng, chứ đừng sửa giao diện |
 | **Gõ nửa cái đơn rồi gập khối bước là mất sạch** | `thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan.tsx` → `giuNoiDungKhiGap`. Bước ④ **bắt buộc bật cờ này**: mặc định khối gập THÁO nội dung khỏi cây React nên mọi ô đang gõ biến mất, còn làm các chốt "chỉ điền sẵn một lần" chạy lại và ghi đè số người dùng đã sửa tay |
 | Sai ở **trang riêng Lập đơn mua hàng** `/don-hang/tao-moi` (breadcrumb, tiêu đề, điều hướng sau khi cất, đọc tham số `prId`/`rfqId`/`nccId`) | `1-giao-dien/trang/don-hang-lap-moi.tsx` — từ 17/08/2026 **chỉ còn là cái vỏ mỏng** bọc `FormLapDonMuaHang`. 🔴 **KHÔNG bỏ trang này**: nó là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (chỉ nó nhận `rfqId` + `nccId` từ `bao-gia-chi-tiet.tsx`), và bảng quy trình cũng mở nó qua `quyetDinhKeoTha` → `mo_trang` |
+| **Mục menu "Lập đơn mua hàng (PO)"** sai nhãn / sai nhóm / hiện với vai trò không được lập đơn | `2-quy-trinh/dieu-huong.ts` → `MUC_DIEU_HUONG`. Thêm ngày **18/08/2026** theo chỉ đạo Ban lãnh đạo — xem **mục 2c** để biết vì sao việc này không trái quy ước cũ, **đừng gỡ đi** |
+| **Bước CHỌN ĐỀ NGHỊ** ở `/don-hang/tao-moi` thiếu phiếu / thừa phiếu / lý do chặn sai | `1-giao-dien/trang/don-hang-lap-moi.tsx` → `BuocChonDeNghi`. 🔴 Luật lấy từ `2-quy-trinh/giai-doan-mua-hang.ts` (`dongLapDuocDonHang` · `dongThuocVeNguoi` · `vuongMacLapDonHang` · `giaiDoanDaKetThuc`), **không tự đặt luật trong file giao diện**. Phiếu chưa đủ điều kiện vẫn được liệt kê kèm lý do — **không được giấu** |
 | Sai ở **bảng "Hàng tiền"** của màn lập đơn (cột, thứ tự cột, dòng TỔNG CỘNG, nút Thêm dòng / Thêm ghi chú / Xóa hết dòng) | `thanh-phan-nghiep-vu/bang-hang-tien.tsx`. 🔴 Con số tiền **không tính ở đó** — sửa công thức thì vào `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet` |
 | **Nhập Excel vào màn lập đơn** báo sai / bỏ sót dòng | Đọc file: `2-quy-trinh/doc-don-hang-excel.ts` (khớp cột theo TÊN tiêu đề, trả `dongLoi` kèm **số dòng thật trong file**) · Hộp xem trước: `thanh-phan-nghiep-vu/hop-xem-truoc-nhap-excel.tsx` · Đổ vào bảng: `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` → `doVaoBang` |
 | **Trang IN đơn mua hàng A4** sai bố cục / thiếu ô so với biểu mẫu giấy | `1-giao-dien/trang/don-hang-in.tsx` — địa chỉ `/in/don-hang/[id]` |
@@ -82,6 +84,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Lịch công việc** thiếu/thừa việc, sai ngày, hiện việc của người khác | Luật: `2-quy-trinh/lich-cong-viec.ts` → `dungLichCuaToi` · Giao diện: `1-giao-dien/trang/lich-cong-viec.tsx` |
 | **Ghi chú trên lịch** mất, hoặc người khác đọc được | `3-du-lieu/ghi-chu-ca-nhan.ts` — lưu theo `uid` trong localStorage, **riêng tư tuyệt đối** (Sếp chốt 11/08/2026) |
 | **"Sao không thấy Phân bổ / Đơn đặt hàng / Báo giá trong menu?"** | Xem mục 2b ngay dưới đây — **cố ý bỏ, không phải mất** |
+| **"Menu có mục Lập đơn mua hàng (PO), trái quy ước 4 mục — gỡ đi?"** | 🔴 **KHÔNG.** Xem mục **2c**: quy ước đó đã được Ban lãnh đạo **đổi ngày 18/08/2026** |
 | Sai **điều kiện hoàn thành PO** (4 lớp: giao đủ · phiếu giao nhận · kho · trưởng BP) | `2-quy-trinh/tinh-toan.ts` → `poDuDieuKienHoanThanh` |
 | **Thủ kho không bấm được "xác nhận đã nhận đủ"** / bấm được khi lẽ ra không nên | `2-quy-trinh/tinh-toan.ts` → `vuongMacXacNhanKho` (**luật**) · nút ở `trang/don-hang-chi-tiet.tsx` |
 | **Đính kèm tệp** không lưu / không mở xem lại được | Kho tệp: `3-du-lieu/kho-tep.ts` (cửa vào) → `kho-tep-firestore.ts` (**chỗ cất thật từ 12/08/2026**, cắt mảnh base64 vì Firestore chỉ cho 1MB/tài liệu) · ô giao diện dùng chung: `thanh-phan-dung-chung/o-dinh-kem-tep.tsx`. ⚠️ `npm run dev` **ngắt khỏi Firebase** nên ở máy lập trình việc đẩy tệp lên sẽ báo lỗi — đó là đúng, phải kiểm trên bản chạy |
@@ -157,6 +160,53 @@ vẫn ra. Kết quả **lọc theo quyền**: vai trò không được xem báo 
 
 ⚠️ **Ô tìm kiếm bị ẩn dưới bề ngang 640px** (`hidden sm:block`, có từ trước). Trên điện thoại
 hiện **chưa có** đường vào tra mã hồ sơ — cần làm nút mở ô tìm kiếm cho mobile.
+
+---
+
+## 2c. 🔴 QUY ƯỚC "MENU CHỈ 4 MỤC" ĐÃ ĐƯỢC BAN LÃNH ĐẠO ĐỔI NGÀY 18/08/2026
+
+Ban lãnh đạo **18/08/2026** gửi ảnh chụp khối *"NHẬP ĐƠN ĐẶT HÀNG MỚI"* nằm trong khối bước ④ của
+trang chi tiết đề nghị, kèm yêu cầu:
+
+> *"e đưa mục này ra thành 1 mục riêng bên tab trái, với tiêu đề là Lập đơn mua hàng (PO)"*
+
+Nghĩa là quy ước ở mục 2b ngay trên (chốt 06/08/2026: *việc nào đã nằm trong bảng quy trình 8 cột
+thì không để thành mục menu riêng*) — cũng chính là quy ước ghi ở `CLAUDE.md` mục **3.4b** —
+**không còn tuyệt đối**. Bước ④ nay có **cả thẻ trên bảng quy trình lẫn một mục menu riêng**.
+
+| | |
+|---|---|
+| Nhãn menu | **Lập đơn mua hàng (PO)** · nhãn ngắn trên điện thoại: **Lập PO** |
+| Địa chỉ | `/don-hang/tao-moi` |
+| Nhóm sidebar | **Quy trình thu mua** (`quy_trinh`), đặt ngay dưới "Quy trình mua hàng" |
+| Ai thấy | Chỉ người có `quyen.lapPO` — đúng cờ mà `duocVaoDuongDan` đang gác địa chỉ này |
+| Khai báo ở | `2-quy-trinh/dieu-huong.ts` → `MUC_DIEU_HUONG` |
+| Màn hình | `1-giao-dien/trang/don-hang-lap-moi.tsx` |
+
+🔴 **ĐỪNG GỠ MỤC NÀY VÌ "TRÁI QUY ƯỚC 06/08/2026".** Đây là **quyết định có chủ đích của Ban lãnh
+đạo ngày 18/08/2026**, không phải sơ suất của người quên quy ước cũ. Muốn bỏ thì phải có chỉ đạo mới.
+
+🔴 **KHÔNG BỎ FORM KHỎI KHỐI BƯỚC ④.** Chỉ đạo 17/08/2026 (*"a cần phần nhập liệu phải nằm trong
+khối"*) vẫn còn hiệu lực. Chỉ đạo 18/08/2026 là **THÊM một lối vào**, không phải dời đi. Hai lối vào
+dùng **chung một component** `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` — không có bản chép thứ hai.
+
+**Vào từ menu thì không có `prId`**, nên trang `/don-hang/tao-moi` có thêm **bước CHỌN ĐỀ NGHỊ**
+(`BuocChonDeNghi` trong cùng file). Ba đường vào, cùng một form:
+
+| Đường vào | Địa chỉ | Hành vi |
+|---|---|---|
+| Mục menu mới | `/don-hang/tao-moi` | Hiện **bước chọn đề nghị**, chọn xong mới ra form |
+| Thẻ trên bảng quy trình | `/don-hang/tao-moi?prId=…` | Vào **thẳng** form (giữ nguyên như trước) |
+| Tách PO từ bảng báo giá | `/don-hang/tao-moi?prId=…&rfqId=…&nccId=…` | Vào **thẳng** form, điền sẵn NCC và giá |
+
+⚠️ **Bước chọn LIỆT KÊ CẢ đề nghị chưa đủ điều kiện**, kèm lý do ngay trên dòng, chỉ là không bấm
+chọn được. Giấu đi thì người dùng không hiểu vì sao phiếu của mình biến mất — ngõ cụt đã phải sửa
+ngày 17/08/2026. Lý do lấy từ `2-quy-trinh/giai-doan-mua-hang.ts` → `vuongMacLapDonHang`, **đúng luật
+mà `themDonHang` dùng để chặn lúc cất đơn**.
+
+⚠️ **Thanh dưới điện thoại nay có tối đa 8 mục** (tài khoản quản trị): 8 × 44px = 352px, vẫn vừa màn
+375px nhưng đã sát mép. **Mục thứ 9 là vượt** → khi đó phải xử lý thật ở
+`khung-app/thanh-duoi-mobile.tsx`, **tuyệt đối không cắt ngầm bằng `slice`** như trước 11/08/2026.
 
 ---
 

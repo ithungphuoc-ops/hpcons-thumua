@@ -17,7 +17,7 @@ Thư mục này **không có giao diện** và **không chứa dữ liệu**. Sa
 | **`tinh-toan.ts`** | Toàn bộ công thức của app | Số đã nhận / còn lại / % sai; điều kiện hoàn thành PO sai; sai chiết khấu / thuế / tổng thanh toán |
 | **`tim-kiem.ts`** | Luật ô tìm kiếm trên thanh trên + **lọc kết quả theo quyền** | Tìm không ra hồ sơ; vai trò thấy hồ sơ lẽ ra không được thấy |
 | **`trang-thai.ts`** | Chữ và tông màu cho mọi trạng thái | Muốn đổi cách gọi trạng thái, đổi màu badge |
-| **`dieu-huong.ts`** | Danh sách mục trong menu + vai trò nào thấy mục nào | Thêm/bớt màn hình trong menu |
+| **`dieu-huong.ts`** | Danh sách mục trong menu + vai trò nào thấy mục nào | Thêm/bớt màn hình trong menu. 🔴 Quy ước *"menu chỉ 4 mục"* (06/08/2026) đã được Ban lãnh đạo **đổi ngày 18/08/2026** khi thêm mục **"Lập đơn mua hàng (PO)"** — đừng gỡ mục đó, xem `BAN-DO-MA-NGUON.md` mục 2c |
 | **`tuoi-no.ts`** | Chia công nợ thành 5 mức tuổi nợ 30-60-90 + đánh giá rủi ro từng NCC | Sai cách chia mức, sai mức rủi ro |
 | **`so-sanh-bao-gia.ts`** | Dựng ma trận vật tư × nhà cung cấp, đánh dấu giá thấp nhất | Sai ô "thấp nhất", sai tổng theo NCC |
 | **`giai-doan-mua-hang.ts`** | 8 giai đoạn của **bảng quy trình dạng cột** (Kanban) ở màn `/de-nghi` | Đề nghị nằm sai cột, sai chữ "Quá hạn / Còn N ngày", muốn đổi tên cột |
@@ -48,6 +48,17 @@ làm người dùng bí việc. Muốn cấm hẳn một bước thì thêm lu�
 | `hanXuLyDeNghi` | "Quá hạn 2 ngày" / "Còn 9 ngày" / "Không còn thời hạn" + tông màu |
 | `dungBangQuyTrinh` | Dựng đủ 8 cột kèm số thẻ và số việc quá hạn mỗi cột |
 | `deNghiConDangChay` | Loại đề nghị đã hoàn thành / đóng dở khỏi hàng chờ phân bổ và thẻ KPI |
+| `vuongMacLapDonHang` | Lý do đề nghị **chưa lập được đơn đặt hàng** (thường là bảng báo giá chưa được trưởng bộ phận duyệt), `null` là được phép. 🔴 Chính là luật `themDonHang` dùng để chặn lúc cất đơn — mọi chỗ giải thích cho người dùng đều phải gọi hàm này, không tự viết câu khác |
+| `dongLapDuocDonHang` | Dòng nào của đề nghị mà **người này** lập được đơn ngay: còn khối lượng chưa lên đơn + đã có người phụ trách + là người đó (hoặc là người có quyền phân bổ) |
+| `dongThuocVeNguoi` | Như trên nhưng **kể cả dòng đã lên đơn đủ** — để phân biệt *"không phải việc của bạn"* với *"việc của bạn và đã xong"* |
+
+📌 **`dongLapDuocDonHang` / `dongThuocVeNguoi` tách ra khỏi file giao diện ngày 18/08/2026** vì nay
+có **hai** chỗ cần đúng luật: form lập đơn (`form-lap-don-mua-hang.tsx`) và **bước chọn đề nghị** của
+mục menu mới *"Lập đơn mua hàng (PO)"* (`trang/don-hang-lap-moi.tsx`). Chép tay thành hai bản thì
+bước chọn sẽ mời người dùng vào một đề nghị mà form mở ra thấy bảng trống.
+
+⚠️ Hai hàm này nhận `laNguoiPhanBo` là **boolean**, không nhận cả đối tượng `Quyen`: `2-quy-trinh/`
+là quy tắc nghiệp vụ thuần, **không được phụ thuộc `4-phan-quyen/`**.
 
 ## `tinh-toan.ts` — các hàm chính
 

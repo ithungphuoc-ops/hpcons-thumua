@@ -20,6 +20,7 @@ import type {
   DeNghiMuaHang,
   DonDatHang,
   PhieuNhanHang,
+  TienDoDongDeNghi,
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
 import { soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
@@ -582,6 +583,62 @@ export function vuongMacLapDonHang(baoGiaCuaDeNghi: BaoGia[]): string | null {
     return "Bảng báo giá đã trình nhưng trưởng bộ phận CHƯA DUYỆT. Phải chốt nhà cung cấp (hoặc duyệt phương án chia đơn) ở bước Xét duyệt báo giá trước khi lập đơn đặt hàng.";
   }
   return "Bảng báo giá còn đang thu thập giá, chưa trình duyệt. Nhập đủ giá rồi bấm trình xét duyệt, trưởng bộ phận duyệt xong mới lập được đơn đặt hàng.";
+}
+
+/**
+ * ★ DÒNG NÀO CỦA ĐỀ NGHỊ MÀ NGƯỜI NÀY LẬP ĐƯỢC ĐƠN — hàm thuần, MỘT CHỖ DUY NHẤT.
+ *
+ * Ba điều kiện, cả ba đều bắt buộc:
+ *   ① Còn khối lượng chưa lên đơn — hết rồi thì đặt thêm là mua vượt phần đã duyệt.
+ *   ② Dòng đã có người phụ trách — dòng chưa phân bổ thuộc bước ①, chưa tới lượt lập đơn.
+ *   ③ Là người phụ trách chính dòng đó, HOẶC là người có quyền phân bổ (trưởng bộ phận /
+ *      quản trị) — trưởng bộ phận lập đơn thay được cho cả nhóm.
+ *
+ * 🔴 TÁCH RA KHỎI FILE GIAO DIỆN NGÀY 18/08/2026 vì nay có HAI chỗ cần đúng luật này:
+ * form lập đơn (`thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` → `dongLapDuoc`) và bước
+ * CHỌN ĐỀ NGHỊ của trang riêng `/don-hang/tao-moi` (mục menu mới "Lập đơn mua hàng (PO)").
+ * Chép tay thành hai bản là kiểu lỗi dự án đã dính: bước chọn sẽ mời người dùng vào một đề
+ * nghị mà form mở ra thấy bảng trống, không hiểu vì sao.
+ *
+ * ⚠️ Nhận `laNguoiPhanBo` là BOOLEAN, không nhận cả đối tượng `Quyen`: `2-quy-trinh/` là quy
+ * tắc nghiệp vụ thuần, không được phụ thuộc vào `4-phan-quyen/`. Chỗ gọi truyền
+ * `quyen.phanBoCongViec` vào.
+ */
+export function dongLapDuocDonHang(
+  tienDo: TienDoDongDeNghi[],
+  uidNguoiLap: string,
+  laNguoiPhanBo: boolean,
+): TienDoDongDeNghi[] {
+  return tienDo.filter(
+    (d) =>
+      d.khoiLuongChuaLenPO > 0 &&
+      Boolean(d.nguoiPhuTrachUid) &&
+      (laNguoiPhanBo || d.nguoiPhuTrachUid === uidNguoiLap),
+  );
+}
+
+/**
+ * ★ DÒNG NÀO THUỘC PHẦN VIỆC CỦA NGƯỜI NÀY — kể cả dòng ĐÃ lên đơn đủ khối lượng.
+ *
+ * 🔴 KHÁC `dongLapDuocDonHang` ở đúng điều kiện ① và đó là toàn bộ lý do hàm này tồn tại:
+ * bước chọn đề nghị phải phân biệt được hai câu trả lời hoàn toàn khác nhau khi danh sách
+ * dòng lập được rỗng —
+ *
+ *   · "Đề nghị này chưa phân bổ dòng nào cho bạn"  → không phải việc của bạn
+ *   · "Mọi dòng của bạn đã lên đơn đủ khối lượng"  → là việc của bạn, và đã xong
+ *
+ * Gộp hai câu đó thành một là đúng cái ngõ cụt Ban lãnh đạo vừa phải sửa hôm qua: người dùng
+ * không hiểu vì sao phiếu của mình không chọn được.
+ */
+export function dongThuocVeNguoi(
+  tienDo: TienDoDongDeNghi[],
+  uidNguoiLap: string,
+  laNguoiPhanBo: boolean,
+): TienDoDongDeNghi[] {
+  return tienDo.filter(
+    (d) =>
+      Boolean(d.nguoiPhuTrachUid) && (laNguoiPhanBo || d.nguoiPhuTrachUid === uidNguoiLap),
+  );
 }
 
 /**

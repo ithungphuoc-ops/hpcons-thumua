@@ -23,7 +23,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `phan-bo.tsx` | Việc tồn cần phân bổ (Trưởng bộ phận) | `/phan-bo` |
 | `don-hang-danh-sach.tsx` | Danh sách đơn đặt hàng | `/don-hang` |
 | `don-hang-chi-tiet.tsx` | Chi tiết PO + tiến độ nhận hàng + xác nhận hoàn thành | `/don-hang/[id]` |
-| `don-hang-lap-moi.tsx` | Lập đơn đặt hàng — **vỏ mỏng** bọc `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` (từ 17/08/2026). Giữ lại vì là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (`?rfqId=&nccId=`) | `/don-hang/tao-moi` |
+| `don-hang-lap-moi.tsx` | Lập đơn đặt hàng — **vỏ mỏng** bọc `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` (từ 17/08/2026) **+ bước CHỌN ĐỀ NGHỊ** (từ 18/08/2026). Giữ lại vì là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (`?rfqId=&nccId=`) | `/don-hang/tao-moi` |
 | `don-hang-in.tsx` | **In đơn mua hàng A4** theo đúng biểu mẫu giấy của công ty | `/in/don-hang/[id]` |
 | `theo-doi-danh-sach.tsx` | Phòng Thi công theo dõi đề nghị | `/theo-doi` |
 | `theo-doi-chi-tiet.tsx` | Chi tiết tiến trình từng mặt hàng | `/theo-doi/[id]` |
@@ -39,7 +39,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 |---|---|
 | `khung-tong.tsx` | Ghép thanh bên + thanh trên + vùng nội dung. **Lề và khoảng cách toàn app đặt ở đây** |
 | `thanh-ben.tsx` | Vỏ thanh bên cố định 260px (chỉ hiện từ 1280px) |
-| `thanh-ben-noi-dung.tsx` | Nội dung menu — dùng chung cho thanh bên và ngăn kéo trên điện thoại |
+| `thanh-ben-noi-dung.tsx` | Nội dung menu — dùng chung cho thanh bên và ngăn kéo trên điện thoại. 🔴 Danh sách mục khai ở `2-quy-trinh/dieu-huong.ts`, **không sửa ở đây**. Từ 18/08/2026 có thêm mục **"Lập đơn mua hàng (PO)"** theo chỉ đạo Ban lãnh đạo — đừng gỡ vì tưởng trái quy ước "menu chỉ 4 mục", xem `BAN-DO-MA-NGUON.md` mục 2c |
 | `thanh-tren.tsx` | Thanh trên 60px: nút menu, tìm kiếm, ngày giờ, các nút bên phải |
 | `o-tim-kiem.tsx` | **Ô tìm kiếm hồ sơ theo mã** — đường vào thay 3 mục menu đã bỏ. Luật tìm ở `2-quy-trinh/tim-kiem.ts` |
 | `thanh-duoi-mobile.tsx` | Thanh điều hướng dưới đáy, chỉ hiện dưới 768px |

@@ -57,7 +57,7 @@ import {
   tinhTienDoDeNghi,
   type DongDeTinhTien,
 } from "@/2-quy-trinh/tinh-toan";
-import { vuongMacLapDonHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { dongLapDuocDonHang, vuongMacLapDonHang } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docDonHangTuExcel, docNgayVN, khopVoiDeNghi } from "@/2-quy-trinh/doc-don-hang-excel";
 import { taoFileNhapDonHang, tenFileNhapDonHang } from "@/2-quy-trinh/ghi-don-hang-excel";
@@ -258,15 +258,16 @@ export function FormLapDonMuaHang({
     [dn, donHang, phieuNhan],
   );
 
-  /** Dòng lập được PO: đã phân bổ cho mình (hoặc mình là trưởng BP) và còn KL chưa lên PO. */
+  /**
+   * Dòng lập được PO: đã phân bổ cho mình (hoặc mình là trưởng BP) và còn KL chưa lên PO.
+   *
+   * 🔴 LUẬT NẰM Ở `2-quy-trinh/giai-doan-mua-hang.ts` → `dongLapDuocDonHang`, KHÔNG viết lại
+   * ở đây. Từ 18/08/2026 bước "chọn đề nghị" của trang riêng `/don-hang/tao-moi` cũng cần
+   * đúng luật này để biết đề nghị nào chọn được — hai bản chép tay thì bước chọn sẽ mời người
+   * dùng vào một đề nghị mà form mở ra thấy bảng trống.
+   */
   const dongLapDuoc = useMemo(
-    () =>
-      tienDo.filter(
-        (d) =>
-          d.khoiLuongChuaLenPO > 0 &&
-          Boolean(d.nguoiPhuTrachUid) &&
-          (quyen.phanBoCongViec || d.nguoiPhuTrachUid === nguoiDung.uid),
-      ),
+    () => dongLapDuocDonHang(tienDo, nguoiDung.uid, quyen.phanBoCongViec),
     [tienDo, quyen.phanBoCongViec, nguoiDung.uid],
   );
 
