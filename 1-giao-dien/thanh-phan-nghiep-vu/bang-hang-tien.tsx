@@ -70,8 +70,10 @@ export interface DongNhapDonHang {
    *
    * 🔴 QUY TẮC CŨ VẪN NGUYÊN KHI ĐƠN CÓ ĐỀ NGHỊ: không dòng hàng nào được đứng ngoài đề nghị,
    * vì khối lượng đặt phải trừ vào một dòng đã được phân bổ — đặt ngoài là mua hàng không ai
-   * duyệt. Chỉ module "Lập đơn mua hàng (PO)" độc lập mới được gõ tự do, và chính vì thế nó
-   * ĐI VÒNG QUA chốt kiểm soát đó (Ban lãnh đạo 18/08/2026 đã được báo và vẫn quyết làm).
+   * duyệt. Dòng gõ tự do chỉ có ở module "Lập đơn mua hàng (PO)", mà module đó **không cất đơn
+   * vào hệ thống** (Ban lãnh đạo chiều 18/08/2026: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"* —
+   * `themDonHang` từ chối đơn thiếu `prId`). Nên dòng `undefined` chỉ tồn tại trong bản mẫu để
+   * in / xuất Excel, không bao giờ nằm trong dữ liệu, và không đi vòng qua chốt nào.
    *
    * ⚠️ Đừng dùng `0` cho dòng độc lập: `0` đã mang nghĩa dòng ghi chú.
    */

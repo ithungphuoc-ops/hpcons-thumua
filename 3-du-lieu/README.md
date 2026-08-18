@@ -10,6 +10,7 @@
 | **`kho-du-lieu.tsx`** | Giữ dữ liệu + các thao tác ghi (phân bổ, lập PO, ghi phiếu nhận, xác nhận) | Bấm nút mà dữ liệu không đổi |
 | **`luu-tren-may.ts`** | Giữ dữ liệu nghiệp vụ qua mỗi lần tải lại trang (localStorage) | F5 mất dữ liệu |
 | **`kho-tep.ts`** | **Nội dung tệp đính kèm** (IndexedDB) — phiếu giao nhận, bản báo giá gốc | Đính kèm không lưu, hoặc không mở xem lại được |
+| **`ban-mau-don-mua-hang.ts`** | **Chỗ cất TẠM để chuyển bản mẫu PO sang tab in** (18/08/2026). ⚠️ **KHÔNG phải dữ liệu nghiệp vụ** — bản mẫu không có mã hồ sơ, không ai tra cứu lại, và bị **xóa ngay khi tab in đọc xong** (để lại thì lần sau mở trang in sẽ in lại bản cũ mà không ai biết). Ghi vào **cả** `sessionStorage` **và** `localStorage` vì mỗi chỗ hụt một kiểu — xem chú thích trong file. Bản mẫu quá **10 phút** thì coi như không có | Bấm "In mẫu PO" mà tab in báo *"Không tìm thấy bản mẫu"* |
 | **`danh-ba-nhan-su.ts`** | **Danh bạ nhân sự công ty** — nguồn cho ô chọn "Thêm người theo dõi" | Thiếu người, sai phòng ban, sai chức danh |
 | **`du-lieu-mau.ts`** | Dữ liệu chạy thử: **9 đề nghị** (phủ đủ 8 giai đoạn của bảng quy trình), 8 PO, 8 phiếu nhận, 6 bảng báo giá | Muốn đổi số liệu để trình bày |
 
@@ -18,6 +19,20 @@
 Ban lãnh đạo 18/08/2026 cho lập đơn **không gắn phiếu đề nghị nào** (module *"Lập đơn mua hàng
 (PO)"*). Bỏ trống cả hai = **đơn độc lập**; `DongPO.sttDongDeNghi` của mọi dòng hàng khi đó là
 `undefined`.
+
+⚠️ **CHIỀU CÙNG NGÀY BAN LÃNH ĐẠO ĐỔI Ý: chế độ đó KHÔNG CẤT ĐƠN NỮA** (*"chỉ cần tạo mẫu PO thôi,
+chưa cần lưu"*) — nó chỉ in / xuất mẫu qua `2-quy-trinh/don-hang-mau.ts`.
+
+🔴 **VÀ `themDonHang` ĐÃ SIẾT LẠI: thiếu `prId` là TỪ CHỐI CẤT.** Không cất thì không qua được chốt
+kiểm soát chi tiêu `vuongMacLapDonHang` (đòi bảng báo giá đã chốt NCC), nên để hàm ghi dữ liệu vẫn
+cho qua là để sẵn một lỗ hổng chờ người vô tình mở lại — bỏ nút trên giao diện **không phải** là chặn.
+
+📌 **PHÂN BIỆT RÕ HAI VIỆC, đừng gộp:**
+- **GHI mới** đơn thiếu `prId` → 🔴 **không còn đường nào**, `themDonHang` trả lỗi.
+- **ĐỌC** đơn thiếu `prId` → ✅ **vẫn phải chạy đúng ở mọi màn hình.** Kiểu dữ liệu giữ tùy chọn, và
+  phần mô tả dưới đây vẫn nguyên hiệu lực, vì các đơn cất trong buổi sáng 18/08/2026 còn nằm trong
+  kho chung của cả phòng. 🔴 **Đừng "dọn cho gọn" bằng cách bắt buộc `prId` trong kiểu dữ liệu** —
+  làm vậy là những đơn cũ đó thành dữ liệu hỏng.
 
 ⚠️ **Ba giá trị của `sttDongDeNghi` mang ba nghĩa khác nhau, đừng gộp:** số ≥ 1 là dòng trừ khối
 lượng vào phiếu đề nghị · `0` là **dòng ghi chú** (quy ước có từ trước) · `undefined` là dòng của

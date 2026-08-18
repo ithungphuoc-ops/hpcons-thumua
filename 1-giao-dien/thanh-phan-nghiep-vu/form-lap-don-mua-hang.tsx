@@ -10,6 +10,7 @@ import {
   FileSpreadsheet,
   FileText,
   FileWarning,
+  Paperclip,
   Printer,
   Save,
   ShoppingCart,
@@ -61,6 +62,14 @@ import { dongLapDuocDonHang, vuongMacLapDonHang } from "@/2-quy-trinh/giai-doan-
 import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docDonHangTuExcel, docNgayVN, khopVoiDeNghi } from "@/2-quy-trinh/doc-don-hang-excel";
 import { taoFileNhapDonHang, tenFileNhapDonHang } from "@/2-quy-trinh/ghi-don-hang-excel";
+import {
+  dongTuDoDuVaoDon,
+  dungDonHangMau,
+  tenFileDonHangMau,
+  SO_DON_BAN_MAU,
+} from "@/2-quy-trinh/don-hang-mau";
+import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
+import { catBanMauDonMuaHang } from "@/3-du-lieu/ban-mau-don-mua-hang";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { boDau } from "@/6-tien-ich/bo-dau";
 
@@ -127,16 +136,46 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  * | [Thêm dòng] | Mở hộp chọn mặt hàng của đề nghị | Chèn **một dòng trắng** gõ tay |
  * | Nhập Excel | Đối chiếu với đề nghị (`khopVoiDeNghi`) | Lấy thẳng mọi dòng đọc được |
  * | Khối lượng | Trừ vào dòng đề nghị, cắt về phần còn lại | Không trừ vào đâu |
- * | Chốt `vuongMacLapDonHang` | **Có** — bảng báo giá phải đã chốt NCC | 🔴 **KHÔNG** |
- * | Nhật ký | `DeNghiMuaHang.lichSu` | `DonDatHang.lichSu` của chính đơn |
+ * | Chốt `vuongMacLapDonHang` | **Có** — bảng báo giá phải đã chốt NCC | 🔴 **KHÔNG ÁP DỤNG** — không cất đơn nên không có gì để chặn |
+ * | Thanh nút cuối | **[Cất]** · **[Cất và In]** | 🔴 **[In mẫu PO]** · **[Xuất Excel]** — KHÔNG có nút cất |
+ * | Ghi vào hệ thống | Có, qua `themDonHang` | 🔴 **KHÔNG GHI GÌ CẢ** |
+ * | Số đơn hàng | `themDonHang` cấp lúc cất, theo Thông báo 09/2026 | Không cấp — in ra `SO_DON_BAN_MAU` |
+ * | Ô "Tình trạng" | Có, chỉ đọc, luôn `da_chot` | 🔴 **Ẩn hẳn** — bản mẫu không ở trạng thái nào |
+ * | Đính kèm tệp | Có — vào `DonDatHang.tepDinhKem` của đơn được cất | 🔴 **Ẩn hẳn, nói rõ lý do** — không có đơn nào để gắn tệp, xem khối ③ |
+ * | Nhật ký | `DeNghiMuaHang.lichSu` | Không có gì để ghi nhật ký |
  *
  * 🔴 ĐƯỜNG CÓ ĐỀ NGHỊ KHÔNG ĐƯỢC ĐỔI MỘT LY. Đó là chức năng **tách PO theo phân bổ báo giá**
  * — thứ mà module độc lập không làm được. Mọi nhánh mới ở dưới đều gác bằng `laDonDocLap`.
  *
- * 🔴 CHẾ ĐỘ ĐỘC LẬP ĐI VÒNG QUA MỘT CHỐT KIỂM SOÁT CHI TIÊU. Đơn lập ra là cam kết trả tiền
- * cho nhà cung cấp mà không qua bước ③ Xét duyệt báo giá — đúng lỗ hổng chỉ đạo 15/08/2026
- * sinh ra để vá, nay mở lại **có chủ đích** cho riêng đường này. Ban lãnh đạo đã được báo.
- * Chốt thật nằm ở `3-du-lieu/kho-du-lieu.tsx` → `themDonHang`, không nằm ở giao diện.
+ * ---
+ *
+ * ★★ CHIỀU 18/08/2026: CHẾ ĐỘ ĐỘC LẬP **KHÔNG CẤT ĐƠN NỮA** ★★
+ *
+ * Chỉ đạo Ban lãnh đạo: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*.
+ *
+ * BỐI CẢNH — vì sao đổi: sáng cùng ngày chế độ độc lập có cất đơn thật, và tôi đã báo lên một
+ * rủi ro: chế độ đó không có bảng báo giá nên **ĐI VÒNG QUA CHỐT KIỂM SOÁT CHI TIÊU**
+ * (`vuongMacLapDonHang` đòi bảng báo giá đã chốt nhà cung cấp mới cắt được đơn) — tức là sinh
+ * ra một cam kết trả tiền cho nhà cung cấp mà không qua bước ③ Xét duyệt báo giá, đúng lỗ hổng
+ * chỉ đạo 15/08/2026 sinh ra để vá. Ban lãnh đạo trả lời: chỉ cần tạo mẫu, chưa cần lưu.
+ *
+ * ✅ KHÔNG LƯU THÌ KHÔNG CÓ ĐƠN TRONG DỮ LIỆU → KHÔNG ĐI VÒNG QUA CHỐT NÀO.
+ *
+ * 🔴 VÌ VẬY: chế độ độc lập **tuyệt đối không được gọi `themDonHang`**. Hai nút cuối form là
+ *    [In mẫu PO] và [Xuất Excel], cả hai chỉ dựng một đơn TẠM trong bộ nhớ
+ *    (`2-quy-trinh/don-hang-mau.ts` → `dungDonHangMau`) rồi in / xuất file. Đừng "cải tiến"
+ *    thành đường cất đơn tắt: làm vậy là mở lại đúng lỗ hổng vừa đóng.
+ *
+ * 🔴 NHƯNG BỎ NÚT KHÔNG PHẢI LÀ CHẶN — `themDonHang` ĐÃ SIẾT LẠI Ở TẦNG DỮ LIỆU. Nay hàm đó
+ *    **từ chối cất đơn thiếu `prId`**, không còn nhánh "bỏ qua chốt cho đơn độc lập" như bản
+ *    sáng 18/08/2026. Hai lý do phải chặn ở đó chứ không chỉ ở đây:
+ *     · Form không phải cửa duy nhất vào hàm ghi dữ liệu (đúng nguyên tắc ghi ở `themDonHang`:
+ *       *"khóa nút chỉ che một đường trong ba"*).
+ *     · Có một đường đua thật: hộp xác nhận Cất vẽ NGOÀI nhánh `laDonDocLap`, nên nếu phiếu đề
+ *       nghị biến mất khỏi kho chung đúng lúc hộp đang mở thì `dn` thành `null` mà `luu()` vẫn
+ *       chạy — trước khi siết, lần bấm đó cất ra một đơn không qua xét duyệt giá.
+ *    Hàm `luu()` bên dưới vì vậy **không cần sửa**, và cũng không được nới: chốt nằm ở kho dữ
+ *    liệu, một chỗ duy nhất.
  */
 export interface PropFormLapDonMuaHang {
   /**
@@ -174,32 +213,16 @@ export interface PropFormLapDonMuaHang {
   onHuy?: () => void;
 }
 
-/**
- * ★ DÒNG GÕ TỰ DO ĐÃ ĐỦ ĐỂ VÀO ĐƠN CHƯA — MỘT LUẬT, BA NƠI DÙNG (sửa 18/08/2026).
- *
- * 🔴 VÌ SAO PHẢI TÁCH RA: luật này trước đó được chép tay ở HAI chỗ — điều kiện `hopLe`
- * (đếm dòng đủ để mở nút Cất) và vòng lọc trong `luu()` — nhưng khối tính tiền `tien` thì
- * KHÔNG có nó. Hệ quả thật: người lập thêm một dòng, gõ Số lượng và Đơn giá nhưng bỏ trống
- * Tên hàng (hoặc ĐVT), màn hình cộng luôn dòng đó vào **"Tổng tiền thanh toán"** cỡ lớn ở
- * đầu form và khối "Tổng hợp"; tới lúc cất thì `luu()` bỏ dòng đó đi, nên đơn cất ra mang
- * một con số NHỎ HƠN con số người lập vừa nhìn và vừa duyệt. Đúng cái sai mà chú thích của
- * `tien` đã cấm: *"hai chỗ buộc phải bằng nhau"*.
- *
- * 📌 Hàm thuần, để NGOÀI component: không phụ thuộc state nào, và như vậy không phải khai
- * vào `deps` của `useMemo` — quên khai là tiền lại tính bằng bản luật cũ.
- *
- * ⚠️ CHỈ ÁP CHO DÒNG GÕ TỰ DO (đơn không gắn đề nghị). Dòng sinh ra từ một dòng đề nghị vốn
- * đã có đủ tên hàng / ĐVT / khối lượng, và khối lượng của nó còn bị cắt về phần còn được đặt
- * — luật riêng, đừng gộp.
- */
-function dongTuDoDuVaoDon(d: DongNhapDonHang): boolean {
-  return (
-    !d.laGhiChu &&
-    d.tenHang.trim() !== "" &&
-    d.dvt.trim() !== "" &&
-    Number(d.soLuong) > 0
-  );
-}
+/* ★ `dongTuDoDuVaoDon` — luật "dòng gõ tự do đã đủ để vào đơn chưa" — ĐÃ CHUYỂN sang
+   `2-quy-trinh/don-hang-mau.ts` (chiều 18/08/2026).
+
+   🔴 VÌ SAO CHUYỂN: đó là luật nghiệp vụ, và quy tắc 3.4b của dự án cấm để hàm nghiệp vụ trong
+   file giao diện. Nay module dựng bản mẫu (`dungDonHangMau`) cũng phải dùng đúng luật đó; để nó
+   ở đây thì `2-quy-trinh/` phải import ngược lên `1-giao-dien/`, hoặc tệ hơn là chép tay bản
+   thứ hai rồi hai bản lệch nhau.
+
+   Vẫn là MỘT bản duy nhất — ba nơi dùng đều import về: điều kiện `hopLe`, khối tính tiền `tien`,
+   và `dungDonHangMau`. (`luu()` cũng gọi, nhưng nhánh đó nay không còn đường tới.) */
 
 export function FormLapDonMuaHang({
   deNghi: dn = null,
@@ -302,6 +325,14 @@ export function FormLapDonMuaHang({
   // ---------------------------------------------------------------------------
   const [dangDocFile, setDangDocFile] = useState(false);
   const [dangTaoFile, setDangTaoFile] = useState(false);
+  /**
+   * Đang dựng file Excel của BẢN MẪU (chế độ độc lập, 18/08/2026).
+   *
+   * 📌 Cờ riêng, không dùng chung `dangTaoFile`: `dangTaoFile` là của nút "Tải file mẫu" (biểu
+   * mẫu CHƯA CÓ GIÁ để nhập lại vào app) — hai việc khác nhau, hai nút khác nhau. Dùng chung
+   * thì bấm nút này lại thấy nút kia đổi chữ thành "Đang tạo file...".
+   */
+  const [dangXuatMau, setDangXuatMau] = useState(false);
   /**
    * Phần nhập liệu đang mở hay đã thu gọn — Ban lãnh đạo 17/08/2026: *"mục tự động nhập này
    * e tạo nút group lại"*.
@@ -895,7 +926,7 @@ export function FormLapDonMuaHang({
         }
 
         toast.success(`Đã đổ ${dongMoi.length} dòng vào bảng`, {
-          description: "Soát lại số liệu rồi bấm Cất.",
+          description: "Soát lại số liệu rồi bấm Lưu.",
         });
       };
 
@@ -1016,6 +1047,175 @@ export function FormLapDonMuaHang({
     }
   }
 
+  // ===========================================================================
+  // ★ BẢN MẪU PO — CHỈ ĐẠO BAN LÃNH ĐẠO 18/08/2026: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*
+  //
+  // 🔴 BA HÀM DƯỚI ĐÂY TUYỆT ĐỐI KHÔNG GỌI `themDonHang`, không ghi một dòng nào vào kho dữ
+  //    liệu. Đó chính là điều làm chế độ độc lập KHÔNG còn đi vòng qua chốt kiểm soát chi tiêu
+  //    `vuongMacLapDonHang` — xem khối chú thích đầu file.
+  //
+  // 🔴 CHỈ CHẠY Ở CHẾ ĐỘ ĐỘC LẬP. Hai nút gọi chúng chỉ được vẽ khi `laDonDocLap`; đường có đề
+  //    nghị vẫn [Cất] / [Cất và In] qua `luu()` như cũ, không đụng một dòng.
+  // ===========================================================================
+
+  /**
+   * Dựng đơn TẠM từ đúng những ô đang hiện trên màn hình.
+   *
+   * 🔴 PHÉP BIẾN ĐỔI NẰM Ở `2-quy-trinh/don-hang-mau.ts` → `dungDonHangMau`, không nằm ở đây:
+   * quy tắc 3.4b của dự án cấm để hàm nghiệp vụ trong file giao diện. Ở đây chỉ nhặt state đưa
+   * sang, không một phép tính nào.
+   *
+   * 📌 Truyền chuỗi thô của ô nhập (không `Number()` trước): hàm kia lo việc đổi số và phân biệt
+   * "ô trống" với "số 0" — hai chỗ cùng làm việc đó là sớm muộn lệch nhau.
+   */
+  function dungDonMau() {
+    return dungDonHangMau({
+      maDuAn: maDuAnDon,
+      tenCongTrinh,
+      maHopDongCDT: maHopDong,
+      ngayHopDongCDT: ngayHopDong,
+      supplierTen: tenNCC,
+      maSoThueNCC: mstNCC,
+      diaChiNCC,
+      nguoiLienHeNCC: nguoiLienHe,
+      dienGiai,
+      thamChieu,
+      nguoiPhuTrachTen: nguoiDung.tenHienThi,
+      ngayLapPO: ngayDonHang,
+      ngayGiaoDuKien: ngayGiao,
+      diaDiemGiaoHang: diaDiemGiao,
+      nguoiNhanHangTen: nguoiNhanHang,
+      dieuKhoanKhac,
+      dong: dongBang,
+      kieuChietKhau,
+      tyLeChietKhau,
+      chietKhau,
+      thueSuatGTGT: thueSuat,
+      dieuKhoanThanhToan,
+      soNgayDuocNo,
+    });
+  }
+
+  /**
+   * IN BẢN MẪU PO — mở tab in `/in/don-hang-mau`.
+   *
+   * 🔴 DÙNG LẠI ĐÚNG BẢN VẼ CHỨNG TỪ CỦA ĐƠN THẬT (`thanh-phan-nghiep-vu/to-don-mua-hang-a4.tsx`,
+   * tách ra khỏi `trang/don-hang-in.tsx` cùng ngày). Bản in bám biểu mẫu giấy thật của công ty;
+   * chép tay thành bản thứ hai là hai tờ giấy lệch nhau sau vài lần sửa rồi một trong hai gửi
+   * sai cho nhà cung cấp.
+   *
+   * 📌 VÌ SAO MỞ TAB MỚI THAY VÌ IN NGAY TẠI TRANG: trang này nằm trong khung app (có thanh bên
+   * và thanh trên), in trực tiếp là lôi theo cả những phần đó. Còn điều hướng ngay trong tab
+   * đang gõ thì form bị tháo khỏi cây React và **mất sạch mọi ô vừa gõ**, không có nút hoàn lại.
+   * Tab in dùng lại `app/in/layout.tsx` — chỗ đã sạch thanh bên và đã có cổng đăng nhập.
+   */
+  function inMauPO() {
+    const { po, gia, ncc } = dungDonMau();
+
+    /* 🔴 DÙNG CHUNG `vuongMacXuatPO` với nút Xuất Excel của đơn thật — một luật cho câu hỏi
+       "tờ PO này đã đủ để đưa ra ngoài chưa". Đòi: có mặt hàng, có chứng từ giá, và MỌI dòng
+       có đơn giá > 0. Viết một luật riêng cho bản mẫu là sớm muộn hai chỗ nói khác nhau.
+
+       🔴 KHÔNG ĐỂ NÚT BẤM KHÔNG PHẢN ỨNG: bị chặn thì nói ngay thiếu gì. */
+    const vuongMac = vuongMacXuatPO({ po, gia });
+    if (vuongMac) {
+      toast.error("Chưa in được bản mẫu", { description: vuongMac });
+      return;
+    }
+
+    // Cất hỏng mà vẫn mở tab thì tab đó hiện "không tìm thấy bản mẫu" — người dùng không hiểu
+    // vì sao. Báo tại chỗ, đúng nguyên nhân.
+    if (!catBanMauDonMuaHang({ po, gia, ncc })) {
+      toast.error("Không chuyển được bản mẫu sang trang in", {
+        description:
+          "Bộ nhớ tạm của trình duyệt đang không ghi được (thường là do đã đầy). Thử đóng vài tab rồi bấm lại, hoặc dùng nút Xuất Excel.",
+      });
+      return;
+    }
+
+    const tab = window.open("/in/don-hang-mau", "_blank");
+    if (!tab) {
+      toast.error("Trình duyệt đã chặn cửa sổ in", {
+        description: "Cho phép mở cửa sổ (pop-up) cho địa chỉ này rồi bấm “In mẫu PO” lại.",
+      });
+      return;
+    }
+    toast.success("Đã mở bản mẫu ở tab mới", {
+      description: "Bản mẫu chưa được lưu vào hệ thống và chưa được cấp số đơn hàng.",
+    });
+  }
+
+  /**
+   * XUẤT BẢN MẪU RA EXCEL, theo đúng biểu mẫu `1. DON HANG HPCONS.xlsx`.
+   *
+   * 🔴 DÙNG LẠI `2-quy-trinh/xuat-don-hang-excel.ts` — cùng một hàm mà đơn thật dùng. Hàm đó
+   * THUẦN (không đọc kho dữ liệu, không kiểm quyền, không dùng `po.id`) nên nhận được đơn tạm.
+   *
+   * ⚠️ KHÔNG dùng lại `NutXuatDonHangExcel`: nút đó chỉ nhận `poId` rồi TỰ tra kho — bản mẫu
+   * không có trong kho nên nút sẽ không vẽ ra gì cả.
+   *
+   * ⚠️ KHÔNG LẪN VỚI NÚT "Tải file mẫu" ở đầu form: cái đó là biểu mẫu CHƯA CÓ GIÁ để người lập
+   * điền rồi nhập lại vào app (`ghi-don-hang-excel.ts`). Nút này ra tờ PO đầy đủ giá, đúng mẫu
+   * gửi nhà cung cấp.
+   */
+  async function xuatExcelMau() {
+    const { po, gia, ncc } = dungDonMau();
+
+    // Cùng một luật với nút In ở trên, và với nút Xuất Excel của đơn thật.
+    const vuongMac = vuongMacXuatPO({ po, gia });
+    if (vuongMac) {
+      toast.error("Chưa xuất được bản mẫu", { description: vuongMac });
+      return;
+    }
+
+    setDangXuatMau(true);
+    try {
+      const { xuatDonHangExcel } = await import("@/2-quy-trinh/xuat-don-hang-excel");
+
+      // Logo lấy từ `public/` để file có nhận diện như biểu mẫu giấy. Không tải được thì vẫn
+      // xuất — thiếu logo đỡ hơn là không xuất được đơn.
+      let logo: ArrayBuffer | undefined;
+      try {
+        const r = await fetch("/logo-hpc.png");
+        if (r.ok) logo = await r.arrayBuffer();
+      } catch {
+        // Bỏ qua, xuất không logo.
+      }
+
+      const blob = await xuatDonHangExcel({
+        po,
+        gia,
+        ncc,
+        /* Tên công trình truyền RIÊNG vì hàm xuất không đọc `po.tenCongTrinh` (chú thích ở
+           `DauVaoXuatPO`). Không truyền là file mất luôn ô "Mã đề xuất và tên công trình". */
+        tenCongTrinh: tenCongTrinh.trim() || undefined,
+        logo,
+      });
+
+      const tenFile = tenFileDonHangMau(maDuAnDon, ngayDonHang);
+      // Tải xuống bằng thẻ <a> tạm — không cần máy chủ, chạy được cả trên hosting tĩnh.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = tenFile;
+      a.click();
+      // Thu hồi địa chỉ tạm, nếu không mỗi lần bấm lại giữ thêm một bản trong bộ nhớ.
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+
+      toast.success("Đã tải bản mẫu đơn mua hàng", {
+        description: `${tenFile} — bản mẫu, chưa lưu vào hệ thống và chưa được cấp số đơn hàng.`,
+      });
+    } catch (loi) {
+      // 🔴 Nói ra lỗi thay vì im lặng — bấm mà không thấy gì thì người dùng tưởng app hỏng.
+      console.error("[bản mẫu PO] không tạo được file Excel:", loi);
+      toast.error("Không tạo được file Excel", {
+        description: loi instanceof Error ? loi.message : "Thử lại, hoặc dùng nút In mẫu PO.",
+      });
+    } finally {
+      setDangXuatMau(false);
+    }
+  }
+
   /**
    * DỌN SẠCH FORM SAU KHI CẤT XONG.
    *
@@ -1094,10 +1294,11 @@ export function FormLapDonMuaHang({
    * được"* — câu đó nói về MỘT MÀN KHÁC, nay form ở ngay tại chỗ nên câu ấy sai văn cảnh. Và
    * trang riêng thì trước đây KHÔNG có cảnh báo nào, người lập gõ hết đơn mới biết bị chặn.
    */
-  /* 🔴 CHỈ ÁP CHO ĐƠN CÓ ĐỀ NGHỊ (18/08/2026). Đơn độc lập không gắn đề nghị nên không có
-     bảng báo giá nào để đối chiếu; chạy luật này với danh sách rỗng thì dải cảnh báo đỏ hiện
-     thường trực và nói một câu vô nghĩa. `themDonHang` cũng bỏ qua chốt này cho đơn độc lập —
-     hai chỗ phải cùng luật, xem chú thích ở đó về việc ĐI VÒNG QUA kiểm soát chi tiêu. */
+  /* 🔴 CHỈ TÍNH KHI CÓ ĐỀ NGHỊ (18/08/2026). Chế độ mẫu không gắn đề nghị nên không có bảng báo
+     giá nào để đối chiếu; chạy luật này với danh sách rỗng thì dải cảnh báo hiện thường trực và
+     nói một câu vô nghĩa — mà chế độ đó cũng không có nút Cất nào để chặn.
+     ⚠️ ĐÂY CHỈ LÀ CÂU GIẢI THÍCH, KHÔNG PHẢI CHỐT CHẶN. Chốt thật ở `themDonHang`, và hàm đó
+     TỪ CHỐI HẲN đơn thiếu `prId` — xem chú thích ở đó. */
   const chanLapDon = dn ? vuongMacLapDonHang(baoGia.filter((b) => b.prId === dn.id)) : null;
 
   function luu(rangIn: boolean) {
@@ -1294,7 +1495,7 @@ export function FormLapDonMuaHang({
       toast.error("Chưa lập được đơn đặt hàng", { description: ketQua.loi });
       return;
     }
-    toast.success("Đã cất đơn hàng", {
+    toast.success("Đã lưu đơn hàng", {
       description: nhung ? "Đơn mới đã hiện trong danh sách đơn của bước này." : undefined,
     });
     // Dọn TRƯỚC khi giao lại cho chỗ gọi: chỗ gọi có thể chỉ đứng yên (bố cục nhúng).
@@ -1423,19 +1624,24 @@ export function FormLapDonMuaHang({
               : "flex min-w-0 flex-col gap-(--hp-md-section)"
         }
       >
-      {/* ===== DẢI THÔNG BÁO: ĐƠN NÀY KHÔNG GẮN ĐỀ NGHỊ NÀO =====
-          🔴 PHẢI NÓI RA, không được để người lập tưởng mình đang lập đơn cho một phiếu đề nghị
-          nào đó. Hai hệ quả dưới đây là thật và Ban lãnh đạo đã được báo trước khi làm:
-          app không đối chiếu được khối lượng, và đơn không hiện trên bảng quy trình 8 cột.
-          Giấu đi thì người dùng chỉ phát hiện khi đi tìm đơn trên bảng mà không thấy. */}
+      {/* ===== DẢI THÔNG BÁO: ĐÂY CHỈ LÀ BẢN MẪU, KHÔNG LƯU VÀO HỆ THỐNG =====
+          🔴 PHẢI NÓI RA NGAY Ở ĐẦU, đúng chỉ đạo 18/08/2026 *"chỉ cần tạo mẫu PO thôi, chưa
+          cần lưu"*. Không nói thì người lập gõ xong cả đơn, bấm In, rồi tưởng đơn đã vào hệ
+          thống — hôm sau đi tìm không thấy. Đó đúng là kiểu "giao diện hứa một việc app không
+          làm" mà quy ước dự án cấm.
+
+          📌 Giữ NGẮN (một câu in đậm + một câu giải thích): dải cảnh báo dài thì người ta bỏ
+          qua, mà câu quan trọng nhất phải đọc được trong một nhịp mắt. */}
       {laDonDocLap && (
         <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning-bg p-(--hp-md-row-pad) text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
           <span className="min-w-0 text-text-secondary">
-            <strong className="text-text-primary">Đơn lập riêng, không gắn phiếu đề nghị.</strong>{" "}
-            Mặt hàng nhập tự do, khối lượng <strong>không trừ vào đề nghị nào</strong> và đơn{" "}
-            <strong>không hiện trên bảng quy trình mua hàng</strong>. Cần đơn gắn với một phiếu
-            đề nghị (để đối chiếu khối lượng đã duyệt) thì vào phiếu đó ở{" "}
+            <strong className="text-text-primary">
+              Mục này chỉ để in và xuất MẪU đơn mua hàng — không lưu vào hệ thống.
+            </strong>{" "}
+            Đơn ở đây <strong>không được cấp số</strong> và{" "}
+            <strong>không có trong danh sách đơn hàng</strong>. Cần một đơn thật thì mở phiếu đề
+            nghị ở{" "}
             <Link href="/de-nghi" className="font-medium text-primary hover:underline">
               Quy trình mua hàng
             </Link>{" "}
@@ -1709,32 +1915,46 @@ export function FormLapDonMuaHang({
                     trước con số. Số thứ tự chạy theo dự án và do `themDonHang` cấp lúc cất —
                     đoán trước ở đây thì hai người cùng lập một lúc sẽ thấy cùng một số, rồi
                     đơn cất ra mang số khác cái đã hiện. Bày dạng mã là đủ để người lập yên tâm.
-                    ⚠️ KHÔNG lấy kiểu `DMH0532-26` của MISA. */}
+                    ⚠️ KHÔNG lấy kiểu `DMH0532-26` của MISA.
+
+                    ★ CHẾ ĐỘ MẪU (18/08/2026) KHÔNG CÓ SỐ, và tuyệt đối KHÔNG được chiếm một số
+                    thật trong dãy `260001-HPCS-PO-001`: chiếm số rồi không cất là **thủng một
+                    số** — đơn cất sau nhảy số và người đối chiếu chứng từ giấy không hiểu vì sao
+                    thiếu. Nặng hơn: một mã hồ sơ nhìn như thật in lên tờ giấy có thể gửi ra
+                    ngoài, trong khi hệ thống không có đơn nào mang mã đó. Vì vậy ô này ghi thẳng
+                    một câu chữ (`SO_DON_BAN_MAU`), nhìn là biết không phải mã. */}
                 <Input
                   id="so-don-hang"
-                  value={`${maDuAnDon || "[mã dự án]"}-PO-…`}
+                  value={laDonDocLap ? SO_DON_BAN_MAU : `${maDuAnDon || "[mã dự án]"}-PO-…`}
                   readOnly
                   disabled
-                  className="w-56"
+                  className={laDonDocLap ? "w-72" : "w-56"}
                 />
                 <span className="text-xs text-text-desc">
-                  {maDuAnDon
-                    ? `Cấp tự động khi cất, theo mã dự án ${maDuAnDon}.`
-                    : "Chọn dự án ở ô trên thì mới cấp được số đơn hàng."}
+                  {laDonDocLap
+                    ? "Bản mẫu không được cấp số. Số đơn hàng chỉ cấp khi lập đơn thật từ phiếu đề nghị."
+                    : maDuAnDon
+                      ? `Cấp tự động khi cất, theo mã dự án ${maDuAnDon}.`
+                      : "Chọn dự án ở ô trên thì mới cấp được số đơn hàng."}
                 </span>
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="tinh-trang">
-                  Tình trạng <span className="text-danger">*</span>
-                </Label>
-                {/* 🔴 CHỈ ĐỌC. MISA cho chọn tình trạng tự do; app này có quy trình 6 trạng thái
-                    riêng đã chốt, và đơn mới luôn vào `da_chot` (xem `themDonHang`). Bày một ô
-                    chọn rồi bỏ qua giá trị người dùng chọn chính là kiểu "giao diện hứa một
-                    việc app không làm" mà dự án cấm. Trạng thái đổi ở màn chi tiết đơn. */}
-                <div id="tinh-trang" className="flex min-h-11 items-center">
-                  <StatusBadge label={nhanTrangThai.nhan} tone={nhanTrangThai.tong} />
+              {/* 🔴 CHẾ ĐỘ MẪU KHÔNG CÓ Ô "TÌNH TRẠNG" — bản mẫu không tồn tại trong hệ thống
+                  nên nó không ở trạng thái nào. Bày "Đã chốt" lên một thứ không được lưu là
+                  đúng kiểu "giao diện hứa một việc app không làm" mà quy ước dự án cấm. */}
+              {!laDonDocLap && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="tinh-trang">
+                    Tình trạng <span className="text-danger">*</span>
+                  </Label>
+                  {/* 🔴 CHỈ ĐỌC. MISA cho chọn tình trạng tự do; app này có quy trình 6 trạng
+                      thái riêng đã chốt, và đơn mới luôn vào `da_chot` (xem `themDonHang`). Bày
+                      một ô chọn rồi bỏ qua giá trị người dùng chọn cũng là kiểu "giao diện hứa
+                      một việc app không làm". Trạng thái đổi ở màn chi tiết đơn. */}
+                  <div id="tinh-trang" className="flex min-h-11 items-center">
+                    <StatusBadge label={nhanTrangThai.nhan} tone={nhanTrangThai.tong} />
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="ngay-giao">Ngày giao hàng</Label>
                 <Input
@@ -1919,28 +2139,63 @@ export function FormLapDonMuaHang({
               />
             </div>
 
-            <div className="flex flex-col gap-2">
-              {/* 🔴 NÓI RÕ ĐÂY LÀ TỆP CỦA ĐƠN, KHÔNG PHẢI TỆP CỦA BƯỚC.
-                  Khi nhúng, khu "Tệp đính kèm của bước ④" (`KhuDinhKemGiaiDoan`) nằm ngay dưới
-                  cùng một khối, cách đây một đường kẻ. Hai chỗ lưu vào HAI NƠI KHÁC NHAU: ô này
-                  đi vào `DonDatHang.tepDinhKem` của đúng đơn đang lập, khu kia đi vào
-                  `DeNghiMuaHang.tepGiaiDoan`. Không phân biệt bằng chữ thì người dùng bỏ hợp
-                  đồng vào nhầm chỗ mà không cách nào biết. */}
-              <Label>Đính kèm cho ĐƠN này</Label>
-              {/* 🔴 DÙNG LẠI `ODinhKemNhieuTep`: nó cất tệp vào kho tệp (IndexedDB + Firestore)
-                  NGAY LÚC CHỌN rồi mới trả mô tả về. Tuyệt đối không nhét nội dung tệp vào
-                  `localStorage` — chỗ đó chỉ ~5MB cho cả tên miền và đang giữ toàn bộ dữ liệu
-                  nghiệp vụ, một ảnh 2–5MB là mất sạch.
-                  ⚠️ MISA ghi "Dung lượng tối đa 5MB"; app dùng giới hạn chung của mình
-                  (`CO_TOI_DA` ở `kho-tep.ts`), do chính ô này in ra — không đặt thêm một con
-                  số riêng cho đơn hàng rồi hai chỗ nói hai kiểu. */}
-              <ODinhKemNhieuTep
-                tep={tepDinhKem}
-                onDoi={setTepDinhKem}
-                nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-                nhan="Đính kèm tệp cho đơn"
-              />
-            </div>
+            {/* =====================================================================
+                🔴 CHẾ ĐỘ MẪU KHÔNG CÓ Ô ĐÍNH KÈM — sửa lỗi thật, phát hiện 18/08/2026 khi
+                soi lại chế độ "chỉ tạo mẫu".
+
+                LỖI ĐÃ XẢY RA: ô này vẽ ở CẢ HAI chế độ. `ODinhKemNhieuTep` cất tệp vào kho tệp
+                NGAY LÚC CHỌN (`3-du-lieu/kho-tep.ts` → `catTep`, ghi thẳng IndexedDB), rồi mới
+                trả mô tả tệp về form. Mà ở chế độ mẫu thì:
+                 · `2-quy-trinh/don-hang-mau.ts` → `dungDonHangMau` KHÔNG mang `tepDinhKem` sang
+                   (đúng — bản mẫu không có đơn nào để đính vào), và
+                 · không có đơn nào được cất, nên không chứng từ nào trỏ tới tệp vừa ghi.
+                Hệ quả: người lập bỏ hợp đồng / báo giá vào đây, thấy tên tệp hiện lên dưới nhãn
+                **"Đính kèm cho ĐƠN này"**, tin là đã lưu — trong khi tệp thành **khối dữ liệu mồ
+                côi** nằm ăn dung lượng kho tệp và không ai tra ra được. Đúng cái quy ước dự án
+                cấm ở mục 3.5: *"Đừng để giao diện hứa một việc app không làm"* — cùng họ với lỗi
+                tải bản báo giá trước 11/08/2026, chỉ đảo chiều (lần đó mất nội dung tệp, lần này
+                giữ tệp nhưng mất hồ sơ).
+
+                ✅ Chức năng chưa làm được thì NÓI RÕ LÝ DO, không bày ra rồi lặng lẽ vứt.
+                ⚠️ Đường có đề nghị giữ nguyên hoàn toàn — tệp ở đó đi vào
+                   `DonDatHang.tepDinhKem` của đúng đơn được cất.
+                ===================================================================== */}
+            {laDonDocLap ? (
+              <div className="flex flex-col gap-2">
+                <Label>Đính kèm cho đơn</Label>
+                <p className="flex items-start gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad) text-sm text-text-secondary">
+                  <Paperclip className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
+                  <span className="min-w-0">
+                    Bản mẫu không lưu vào hệ thống nên <strong>chưa đính kèm được tệp</strong> —
+                    tệp tải lên đây sẽ không có đơn nào để gắn vào. Cần lưu hợp đồng hay báo giá
+                    cùng đơn thì lập đơn thật từ phiếu đề nghị trong Quy trình mua hàng.
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {/* 🔴 NÓI RÕ ĐÂY LÀ TỆP CỦA ĐƠN, KHÔNG PHẢI TỆP CỦA BƯỚC.
+                    Khi nhúng, khu "Tệp đính kèm của bước ④" (`KhuDinhKemGiaiDoan`) nằm ngay dưới
+                    cùng một khối, cách đây một đường kẻ. Hai chỗ lưu vào HAI NƠI KHÁC NHAU: ô này
+                    đi vào `DonDatHang.tepDinhKem` của đúng đơn đang lập, khu kia đi vào
+                    `DeNghiMuaHang.tepGiaiDoan`. Không phân biệt bằng chữ thì người dùng bỏ hợp
+                    đồng vào nhầm chỗ mà không cách nào biết. */}
+                <Label>Đính kèm cho ĐƠN này</Label>
+                {/* 🔴 DÙNG LẠI `ODinhKemNhieuTep`: nó cất tệp vào kho tệp (IndexedDB + Firestore)
+                    NGAY LÚC CHỌN rồi mới trả mô tả về. Tuyệt đối không nhét nội dung tệp vào
+                    `localStorage` — chỗ đó chỉ ~5MB cho cả tên miền và đang giữ toàn bộ dữ liệu
+                    nghiệp vụ, một ảnh 2–5MB là mất sạch.
+                    ⚠️ MISA ghi "Dung lượng tối đa 5MB"; app dùng giới hạn chung của mình
+                    (`CO_TOI_DA` ở `kho-tep.ts`), do chính ô này in ra — không đặt thêm một con
+                    số riêng cho đơn hàng rồi hai chỗ nói hai kiểu. */}
+                <ODinhKemNhieuTep
+                  tep={tepDinhKem}
+                  onDoi={setTepDinhKem}
+                  nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+                  nhan="Đính kèm tệp cho đơn"
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1998,7 +2253,7 @@ export function FormLapDonMuaHang({
             <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span>
               <strong>Chưa cất được đơn đặt hàng.</strong> {chanLapDon} Phần nhập liệu và nhập
-              từ Excel ở trên vẫn dùng được — chỉ nút <strong>Cất</strong> còn bị chặn.
+              từ Excel ở trên vẫn dùng được — chỉ nút <strong>Lưu</strong> còn bị chặn.
             </span>
           </p>
           {/* 🔴 GỠ NGÕ CỤT: trước đây câu này nói "phải lập bảng báo giá" mà không cho chỗ nào
@@ -2035,28 +2290,69 @@ export function FormLapDonMuaHang({
           <div className="flex flex-wrap items-center gap-3">
             {!hopLe && (
               <span className="max-w-80 text-xs text-text-desc">
-                {/* Nói ĐỦ những gì còn thiếu, kể cả cái chỉ chế độ độc lập mới đòi — nút mờ
-                    không giải thích là kiểu bí việc khó chịu nhất (bài học 15/08/2026). */}
+                {/* Nói ĐỦ những gì còn thiếu, kể cả cái chỉ chế độ mẫu mới đòi — nút mờ không
+                    giải thích là kiểu bí việc khó chịu nhất (bài học 15/08/2026). */}
                 Cần {laDonDocLap ? "mã dự án, " : ""}tên nhà cung cấp, ngày đơn hàng, ngày giao
                 hàng và ít nhất một dòng hàng
                 {laDonDocLap ? " có đủ tên hàng, ĐVT và số lượng" : ""}.
               </span>
             )}
-            <Button disabled={!hopLe} onClick={() => setHoiCat("cat")}>
-              <Save className="size-4" aria-hidden />
-              Cất
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!hopLe || !quyen.xemGia}
-              onClick={() => setHoiCat("cat-in")}
-              /* Trang in đòi quyền xem giá (bản in luôn có giá), nên nút mờ phải nói lý do —
-                 nút mờ không giải thích là kiểu bí việc khó chịu nhất. */
-              title={!quyen.xemGia ? "Bản in có giá nên cần quyền xem giá" : undefined}
-            >
-              <Printer className="size-4" aria-hidden />
-              Cất và In
-            </Button>
+
+            {/* ===============================================================
+                🔴 HAI BỘ NÚT KHÁC HẲN NHAU — Ban lãnh đạo 18/08/2026:
+                *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*.
+
+                · CHẾ ĐỘ MẪU (không gắn đề nghị) → [In mẫu PO] [Xuất Excel].
+                  KHÔNG có nút cất, và **không hàm nào ở nhánh này gọi `themDonHang`**. Nhờ vậy
+                  chế độ này không còn đi vòng qua chốt kiểm soát chi tiêu `vuongMacLapDonHang`
+                  — xem khối chú thích đầu file.
+                · CHẾ ĐỘ CÓ ĐỀ NGHỊ → [Cất] [Cất và In] y như cũ, không đổi một ly. Đó là đường
+                  nghiệp vụ chính của app (kể cả chức năng tách PO theo phân bổ báo giá).
+                =============================================================== */}
+            {laDonDocLap ? (
+              <>
+                <Button
+                  disabled={!hopLe || !quyen.xemGia || dangXuatMau}
+                  onClick={inMauPO}
+                  /* Bản in luôn có giá nên đòi quyền xem giá — nút mờ phải nói lý do. */
+                  title={!quyen.xemGia ? "Bản mẫu có giá nên cần quyền xem giá" : undefined}
+                >
+                  <Printer className="size-4" aria-hidden />
+                  In mẫu PO
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!hopLe || !quyen.xemGia || dangXuatMau}
+                  onClick={() => void xuatExcelMau()}
+                  title={
+                    !quyen.xemGia
+                      ? "File Excel có giá nên cần quyền xem giá"
+                      : "Tải bản mẫu ra Excel theo biểu mẫu công ty"
+                  }
+                >
+                  <FileSpreadsheet className="size-4" aria-hidden />
+                  {dangXuatMau ? "Đang tạo file…" : "Xuất Excel"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button disabled={!hopLe} onClick={() => setHoiCat("cat")}>
+                  <Save className="size-4" aria-hidden />
+                  Lưu
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!hopLe || !quyen.xemGia}
+                  onClick={() => setHoiCat("cat-in")}
+                  /* Trang in đòi quyền xem giá (bản in luôn có giá), nên nút mờ phải nói lý do —
+                     nút mờ không giải thích là kiểu bí việc khó chịu nhất. */
+                  title={!quyen.xemGia ? "Bản in có giá nên cần quyền xem giá" : undefined}
+                >
+                  <Printer className="size-4" aria-hidden />
+                  Lưu và In
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -2101,7 +2397,7 @@ export function FormLapDonMuaHang({
       {/* Hỏi trước khi cất — xem `HopXacNhan` về nguyên tắc áp cho việc nào. */}
       <HopXacNhan
         mo={hoiCat !== null}
-        tieuDe="Cất đơn mua hàng này?"
+        tieuDe="Lưu đơn mua hàng này?"
         moTa={`Đơn cho ${tenNCC.trim() || "nhà cung cấp"} với ${soDongHangHopLe} mặt hàng, giao dự kiến ${ngayGiao || "—"}.`}
         /* Câu cảnh báo phải ĐÚNG với việc sắp xảy ra: đơn độc lập không trừ khối lượng của
            đề nghị nào, nói ngược lại là hứa một chuyện app không làm. */
@@ -2110,7 +2406,7 @@ export function FormLapDonMuaHang({
             ? "Đơn không gắn đề nghị nên không trừ khối lượng của phiếu nào, và không hiện trên bảng quy trình. Không hoàn lại được."
             : "Khối lượng bị trừ khỏi phần chưa lên đơn của đề nghị. Không hoàn lại được."
         }
-        nhanDongY={hoiCat === "cat-in" ? "Cất và In" : "Cất"}
+        nhanDongY={hoiCat === "cat-in" ? "Lưu và In" : "Lưu"}
         onDong={() => setHoiCat(null)}
         onDongY={() => luu(hoiCat === "cat-in")}
       />

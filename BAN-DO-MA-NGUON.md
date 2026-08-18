@@ -46,15 +46,18 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Sai ở **danh sách Đơn hàng** | `1-giao-dien/trang/don-hang-danh-sach.tsx` |
 | Sai ở **chi tiết Đơn hàng** | `1-giao-dien/trang/don-hang-chi-tiet.tsx` |
 | Sai ở **bảng tiến độ nhận hàng** (cột theo từng lần giao) | `thanh-phan-nghiep-vu/bang-tien-do-po.tsx` |
-| 🔴 Sai ở **phần NHẬP LIỆU đơn mua hàng** (khối thông tin 3 cột, hai khối dưới, thanh nút Hủy / Cất / Cất và In, hai nút Excel, ô cảnh báo "Chưa cất được đơn") | `1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` — **MỘT FORM, HAI CHẾ ĐỘ** (bảng so sánh ở đầu file), bám màn "Đơn mua hàng" của MISA. 🔴 **Tuyệt đối không chép ruột form ra hai bản**: hai bản chép tay sẽ lệch nhau sau vài lần sửa |
-| **Đơn lập ra KHÔNG gắn đề nghị** (mặt hàng gõ tự do, không trừ khối lượng, không hiện trên bảng quy trình) | Đây là **chế độ ĐỘC LẬP** — chỉ đạo Ban lãnh đạo **18/08/2026**, không phải lỗi. Bật khi `FormLapDonMuaHang` nhận `deNghi={null}` (vào `/don-hang/tao-moi` không kèm `?prId=`). Cờ trong mã: `laDonDocLap`. Dữ liệu: `DonDatHang.prId`/`prCode` bỏ trống, `DongPO.sttDongDeNghi` là `undefined` |
+| 🔴 Sai ở **phần NHẬP LIỆU đơn mua hàng** (khối thông tin 3 cột, hai khối dưới, thanh nút cuối, hai nút Excel, ô cảnh báo "Chưa cất được đơn") | `1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` — **MỘT FORM, HAI CHẾ ĐỘ** (bảng so sánh ở đầu file), bám màn "Đơn mua hàng" của MISA. Thanh nút cuối **khác nhau theo chế độ**: có đề nghị → [Cất] [Cất và In] · mẫu → [In mẫu PO] [Xuất Excel]. 🔴 **Tuyệt đối không chép ruột form ra hai bản**: hai bản chép tay sẽ lệch nhau sau vài lần sửa |
+| **"Vào mục Lập đơn mua hàng (PO) mà không thấy nút Cất — mất chức năng?"** | 🔴 **KHÔNG, đúng chỉ đạo Ban lãnh đạo 18/08/2026**: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*. Chế độ đó **chỉ in / xuất mẫu, không ghi gì vào hệ thống**, nên hai nút là [In mẫu PO] và [Xuất Excel]. Xem mục **2c**. Cần đơn thật thì lập từ phiếu đề nghị (`/don-hang/tao-moi?prId=…`) — đường đó vẫn [Cất] như cũ |
+| **Đơn lập ra KHÔNG gắn đề nghị** (mặt hàng gõ tự do, không trừ khối lượng, không hiện trên bảng quy trình) | Chế độ **mẫu** (trước chiều 18/08/2026 gọi là *độc lập* và có cất đơn thật). Bật khi `FormLapDonMuaHang` nhận `deNghi={null}` (vào `/don-hang/tao-moi` không kèm `?prId=`). Cờ trong mã: `laDonDocLap`. 🔴 **Từ chiều 18/08/2026 chế độ này KHÔNG cất đơn** nên trong dữ liệu **không còn sinh ra** `DonDatHang` nào có `prId` rỗng. Kiểu dữ liệu vẫn cho phép (`prId`/`prCode` tùy chọn, `DongPO.sttDongDeNghi` là `undefined`) để đọc được đơn đã cất sáng cùng ngày |
 | **Không thấy phần nhập liệu đơn mua hàng ở bước ④** trong trang chi tiết đề nghị | ⚠️ **Đúng như thiết kế từ 18/08/2026.** Ban lãnh đạo: *"sai ý a rồi, a cần e đưa CẢ mục import này ra"* → form đã **CHUYỂN HẲN** sang mục menu **Lập đơn mua hàng (PO)**. Khối bước ④ (`trang/de-nghi-chi-tiet.tsx`) nay chỉ còn danh sách đơn + nút dẫn sang `/don-hang/tao-moi?prId=…`, hiện khi `quyen.lapPO && !hoSoDaDong` |
 | Sai ở **trang riêng Lập đơn mua hàng** `/don-hang/tao-moi` (breadcrumb, tiêu đề, điều hướng sau khi cất, đọc tham số `prId`/`rfqId`/`nccId`) | `1-giao-dien/trang/don-hang-lap-moi.tsx` — **cái vỏ mỏng** bọc `FormLapDonMuaHang`. 🔴 **KHÔNG bỏ trang này**: nó là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (chỉ nó nhận `rfqId` + `nccId` từ `bao-gia-chi-tiet.tsx`), bảng quy trình mở nó qua `quyetDinhKeoTha` → `mo_trang`, và nó cũng chính là **module lập đơn độc lập** của mục menu |
 | **Mục menu "Lập đơn mua hàng (PO)"** sai nhãn / sai nhóm / hiện với vai trò không được lập đơn | `2-quy-trinh/dieu-huong.ts` → `MUC_DIEU_HUONG`. Thêm ngày **18/08/2026** theo chỉ đạo Ban lãnh đạo — xem **mục 2c** để biết vì sao việc này không trái quy ước cũ, **đừng gỡ đi** |
 | **Mã đơn hàng sai dạng / trùng nhau** (`260001-HPCS-PO-001`) | `2-quy-trinh/dat-ma-don-hang.ts` → `maDonHangTiepTheo`, gọi từ `3-du-lieu/kho-du-lieu.tsx` → `themDonHang`. 🔴 Lấy **số lớn nhất đã dùng rồi +1**, không đếm số đơn hiện có. Mã dự án rỗng thì `themDonHang` **từ chối cất** thay vì cấp mã `-PO-001` |
 | Sai ở **bảng "Hàng tiền"** của màn lập đơn (cột, thứ tự cột, dòng TỔNG CỘNG, nút Thêm dòng / Thêm ghi chú / Xóa hết dòng) | `thanh-phan-nghiep-vu/bang-hang-tien.tsx`. 🔴 Con số tiền **không tính ở đó** — sửa công thức thì vào `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet` |
 | **Nhập Excel vào màn lập đơn** báo sai / bỏ sót dòng | Đọc file: `2-quy-trinh/doc-don-hang-excel.ts` (khớp cột theo TÊN tiêu đề, trả `dongLoi` kèm **số dòng thật trong file**) · Hộp xem trước: `thanh-phan-nghiep-vu/hop-xem-truoc-nhap-excel.tsx` · Đổ vào bảng: `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` → `doVaoBang` |
-| **Trang IN đơn mua hàng A4** sai bố cục / thiếu ô so với biểu mẫu giấy | `1-giao-dien/trang/don-hang-in.tsx` — địa chỉ `/in/don-hang/[id]` |
+| **Trang IN đơn mua hàng A4** sai bố cục / thiếu ô so với biểu mẫu giấy | 🔴 **BẢN VẼ TỜ GIẤY nằm ở `1-giao-dien/thanh-phan-nghiep-vu/to-don-mua-hang-a4.tsx`** — sửa ở đây, **MỘT BẢN DUY NHẤT** cho cả đơn thật lẫn bản mẫu (tách ra 18/08/2026). Hai trang gọi nó chỉ lo *lấy dữ liệu + gác quyền*: `trang/don-hang-in.tsx` (`/in/don-hang/[id]`, tra kho theo id) và `trang/don-hang-mau-in.tsx` (`/in/don-hang-mau`, đọc bản mẫu chưa lưu). 🔴 **Cấm chép bố cục thành bản thứ hai** — bản in bám biểu mẫu giấy thật, hai bản sẽ lệch nhau rồi một trong hai gửi sai cho nhà cung cấp |
+| **Bản in / file Excel MẪU** (chưa lưu) sai số, thiếu ô, hoặc bấm nút không phản ứng | Dựng đơn tạm: `2-quy-trinh/don-hang-mau.ts` → `dungDonHangMau` (**luật, hàm thuần**) · Hai nút: `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` → `inMauPO` / `xuatExcelMau` · Chuyển sang tab in: `3-du-lieu/ban-mau-don-mua-hang.ts` · Trang in: `trang/don-hang-mau-in.tsx`. Luật chặn dùng chung với đơn thật: `2-quy-trinh/xuat-don-hang-excel.ts` → `vuongMacXuatPO` |
+| **Màn báo lỗi của các trang in** (nền trắng, không theo Dark Mode) | `1-giao-dien/thanh-phan-dung-chung/thong-bao-trang-in.tsx` — dùng chung cho cả hai trang in. 🔴 KHÔNG dùng `EmptyState` ở trang in: trang in nền trắng cố định |
 | **File Excel xuất ra lệch biểu mẫu** (nút "Xuất Excel" ở chi tiết đơn hàng) | `2-quy-trinh/xuat-don-hang-excel.ts` — bố cục ô đọc từ XML biểu mẫu thật, xem mục "Ba file Excel" trong `2-quy-trinh/README.md` |
 | **Nút "Xuất Excel" bị khóa** | `2-quy-trinh/xuat-don-hang-excel.ts` → `vuongMacXuatPO` (thường là chưa có đơn giá) |
 | **Ô tìm kiếm** trên thanh trên không ra kết quả / ra sai | Giao diện: `khung-app/o-tim-kiem.tsx` · **Luật tìm và lọc quyền**: `2-quy-trinh/tim-kiem.ts` |
@@ -191,17 +194,19 @@ liệu phải nằm trong khối"*) đã được Ban lãnh đạo nói lại ng
 mục import này ra"*. Khối bước ④ ở `trang/de-nghi-chi-tiet.tsx` nay chỉ còn **danh sách đơn + một
 cái nút** dẫn sang `/don-hang/tao-moi?prId=…`.
 
-### Module lập đơn ĐỘC LẬP (18/08/2026)
+### Module lập đơn ĐỘC LẬP → nay là **module TẠO MẪU PO** (18/08/2026)
 
 > *"MUC NAY SE LA MODUL RIENG, KHONG LIEN QUAN GI TOI QUY TRINH, NO CHI DE PHUC VU LAP DON DAT
 > HANG, NEN E KO CAN LINK NO TOI CAC BUOC QUY TRINH. va e hay hien thi cac truong nhap lieu cua
-> modun nay luon"*
+> modun nay luon"* (sáng 18/08/2026)
+>
+> *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"* (chiều 18/08/2026)
 
 Ba đường vào, **cùng một component** `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx`:
 
 | Đường vào | Địa chỉ | Hành vi |
 |---|---|---|
-| Mục menu | `/don-hang/tao-moi` | 🔴 **Hiện NGAY toàn bộ ô nhập liệu**, chế độ **đơn không gắn đề nghị** |
+| Mục menu | `/don-hang/tao-moi` | 🔴 Hiện NGAY toàn bộ ô nhập liệu, chế độ **CHỈ TẠO MẪU — không lưu** |
 | Thẻ trên bảng quy trình · nút ở khối bước ④ | `/don-hang/tao-moi?prId=…` | Vào thẳng form, **chế độ có đề nghị** (giữ nguyên như trước) |
 | Tách PO từ bảng báo giá | `/don-hang/tao-moi?prId=…&rfqId=…&nccId=…` | Vào thẳng form, điền sẵn NCC và giá theo phân bổ |
 
@@ -211,22 +216,56 @@ lại thì lấy ở lịch sử git.
 
 **Hai chế độ khác nhau ở đâu** (bảng đầy đủ ở đầu `form-lap-don-mua-hang.tsx`):
 
-| | Có đề nghị | ĐỘC LẬP |
+| | Có đề nghị | CHỈ TẠO MẪU |
 |---|---|---|
 | Mã dự án | Từ phiếu đề nghị | Người lập **chọn dự án đã có** hoặc gõ mã mới |
 | [Thêm dòng] | Hộp chọn mặt hàng của đề nghị | **Dòng trắng** gõ tay |
 | Nhập Excel | Đối chiếu `khopVoiDeNghi` | Lấy thẳng mọi dòng đọc được |
 | Khối lượng | Trừ vào dòng đề nghị, cắt về phần còn lại | Không trừ vào đâu |
-| Chốt `vuongMacLapDonHang` | Có | 🔴 **KHÔNG** |
-| Nhật ký | `DeNghiMuaHang.lichSu` | `DonDatHang.lichSu` (khối "Lịch sử đơn hàng" ở `/don-hang/[id]`) |
+| Thanh nút cuối | **[Cất]** · **[Cất và In]** | 🔴 **[In mẫu PO]** · **[Xuất Excel]** |
+| Ghi vào hệ thống | Có, qua `themDonHang` | 🔴 **KHÔNG GHI GÌ CẢ** |
+| Số đơn hàng | `themDonHang` cấp lúc cất, theo Thông báo 09/2026 | Không cấp — in ra `SO_DON_BAN_MAU` |
+| Chốt `vuongMacLapDonHang` | Có | Không áp dụng (không cất nên không có gì để chặn) |
+| Chốt để in / xuất được | `vuongMacXuatPO` ở nút Xuất Excel | Cùng `vuongMacXuatPO` ở **cả hai** nút |
+| Ô "Tình trạng" | Có, chỉ đọc, luôn `da_chot` | 🔴 **Ẩn hẳn** — bản mẫu không ở trạng thái nào |
+| Ô đính kèm tệp | Có — vào `DonDatHang.tepDinhKem` | 🔴 **Ẩn hẳn, thay bằng câu nói rõ lý do** |
+| Nhật ký | `DeNghiMuaHang.lichSu` | Không có gì để ghi nhật ký |
 
-🔴 **ĐƠN ĐỘC LẬP ĐI VÒNG QUA MỘT CHỐT KIỂM SOÁT CHI TIÊU.** Đơn ra đời mà không qua bước ③ *Xét
-duyệt báo giá* — đúng lỗ hổng chỉ đạo 15/08/2026 sinh ra để vá, nay mở lại **có chủ đích** cho riêng
-đường này. Ban lãnh đạo đã được báo. Chốt thật ở `3-du-lieu/kho-du-lieu.tsx` → `themDonHang`.
+🔴 **VÌ SAO CHẾ ĐỘ MẪU KHÔNG CÓ Ô ĐÍNH KÈM** (lỗi thật, sửa 18/08/2026 khi soi lại). `ODinhKemNhieuTep`
+cất tệp vào kho tệp **ngay lúc chọn** (`3-du-lieu/kho-tep.ts` → `catTep`, ghi thẳng IndexedDB) rồi mới
+trả mô tả về form. Ở chế độ mẫu thì `dungDonHangMau` không mang `tepDinhKem` sang và cũng không có đơn
+nào được cất → tệp thành **khối dữ liệu mồ côi**, ăn dung lượng kho tệp mà không hồ sơ nào trỏ tới,
+trong khi người lập nhìn nhãn *"Đính kèm cho ĐƠN này"* và tin là đã lưu. Đúng cái mục 3.5 của
+`CLAUDE.md` cấm. Nay ẩn ô đó và nói rõ lý do.
 
-⚠️ **HAI THỨ MẤT ĐI, đã báo Ban lãnh đạo:** app không đối chiếu được *"đề nghị này đã đặt bao nhiêu,
-còn thiếu bao nhiêu"*; và đơn độc lập **không hiện trên bảng quy trình 8 cột**, không được
-`xacDinhGiaiDoan` tính vào giai đoạn của đề nghị nào.
+🔴 **VÌ SAO CHIỀU 18/08 BỎ NÚT CẤT.** Sáng cùng ngày chế độ này còn cất đơn thật, và đã báo lên Ban
+lãnh đạo một rủi ro: nó **ĐI VÒNG QUA CHỐT KIỂM SOÁT CHI TIÊU** `vuongMacLapDonHang` (chốt đòi bảng
+báo giá đã chốt NCC mới cắt được đơn) — tức sinh ra cam kết trả tiền cho nhà cung cấp mà không qua
+bước ③ *Xét duyệt báo giá*, đúng lỗ hổng chỉ đạo 15/08/2026 sinh ra để vá. Ban lãnh đạo trả lời:
+*"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*.
+
+✅ **KHÔNG LƯU THÌ KHÔNG CÓ ĐƠN TRONG DỮ LIỆU → KHÔNG ĐI VÒNG QUA CHỐT NÀO.** Vì vậy nhánh mẫu
+**tuyệt đối không được gọi `themDonHang`**; đừng "cải tiến" nó thành đường cất đơn tắt, làm vậy là mở
+lại đúng lỗ hổng vừa đóng.
+
+🔴 **NHƯNG BỎ NÚT KHÔNG PHẢI LÀ CHẶN — ĐÃ SIẾT LẠI CẢ Ở TẦNG DỮ LIỆU.** `themDonHang` nay **từ chối
+cất đơn thiếu `prId`**, không còn nhánh "bỏ qua chốt cho đơn độc lập" của bản sáng 18/08. Hai lý do:
+① hàm ghi dữ liệu còn nhiều đường vào khác ngoài cái nút vừa bỏ (đúng nguyên tắc của chính nó:
+*"khóa nút chỉ che một đường trong ba"*); ② có đường đua thật — hộp xác nhận Cất vẽ ngoài nhánh điều
+kiện, nên nếu phiếu đề nghị biến mất khỏi kho chung đúng lúc hộp đang mở thì `dn` thành `null` mà
+`luu()` vẫn chạy, và trước khi siết thì lần bấm đó cất ra một đơn không qua xét duyệt giá.
+Muốn cho cất đơn không gắn đề nghị thì phải có **luật xét duyệt giá thay thế**, đừng chỉ xóa khối `if`.
+
+🔴 **SỐ ĐƠN CỦA BẢN MẪU KHÔNG PHẢI MÃ HỒ SƠ**, cố ý. Hằng số `SO_DON_BAN_MAU` ở
+`2-quy-trinh/don-hang-mau.ts` ghi thẳng *"(bản mẫu — chưa cấp số)"*. Không gọi `maDonHangTiepTheo`
+vì: ① bản mẫu không cất nên sẽ **chiếm một số rồi bỏ trống**, dãy mã của dự án thủng một số và người
+đối chiếu chứng từ giấy không hiểu vì sao thiếu; ② hàm đó **không giữ chỗ**, hai người lập cùng lúc
+sẽ thấy cùng một số; ③ in một mã nhìn như thật lên tờ giấy có thể gửi ra ngoài, trong khi hệ thống
+không có đơn nào mang mã đó, là **tạo chứng từ giả trôi ra ngoài công ty**.
+
+⚠️ **NÓI RÕ VỚI NGƯỜI DÙNG Ở BA CHỖ**, đừng bỏ chỗ nào: dải cảnh báo đầu form · ô "Số đơn hàng" ·
+và **một dòng in thẳng ra giấy** dưới tiêu đề tờ A4 (prop `banMau` của `ToDonMuaHangA4`). Tờ giấy
+rời khỏi màn hình rồi thì không còn ngữ cảnh nào cho biết nó chưa vào hệ thống.
 
 ⚠️ **Thanh dưới điện thoại nay có tối đa 8 mục** (tài khoản quản trị): 8 × 44px = 352px, vẫn vừa màn
 375px nhưng đã sát mép. **Mục thứ 9 là vượt** → khi đó phải xử lý thật ở

@@ -41,6 +41,15 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
  *
  * 📌 Không có `prId` → form chạy **chế độ độc lập**: hiện ngay toàn bộ ô nhập liệu, mặt hàng
  * gõ tự do, mã dự án do người lập chọn. Xem bảng hai chế độ ở đầu `form-lap-don-mua-hang.tsx`.
+ *
+ * 🔴 CHIỀU 18/08/2026 — CHẾ ĐỘ ĐỘC LẬP **KHÔNG CẤT ĐƠN NỮA**. Ban lãnh đạo: *"chỉ cần tạo mẫu
+ * PO thôi, chưa cần lưu"*. Thanh nút cuối form đổi thành **[In mẫu PO]** và **[Xuất Excel]**;
+ * không có nút Cất, và không hàm nào ở nhánh đó gọi `themDonHang`. Nhờ vậy chế độ này không còn
+ * đi vòng qua chốt kiểm soát chi tiêu `vuongMacLapDonHang` (rủi ro tôi đã báo lên sáng cùng
+ * ngày, khi chế độ này còn cất đơn thật).
+ *
+ * ⚠️ HỆ QUẢ Ở TRANG NÀY: prop `onDaLuu` bên dưới **chỉ còn chạy ở đường có `prId`**. Đừng bỏ nó
+ * đi vì "thấy không dùng" — đường có đề nghị vẫn cần điều hướng sang đơn vừa cất.
  */
 export default function TrangLapDonHang() {
   /**
@@ -86,10 +95,10 @@ function NoiDungLapDonHang() {
   /**
    * Địa chỉ có `prId` mà không tra ra đề nghị = đường dẫn cũ, hoặc hồ sơ đã bị xóa.
    *
-   * 🔴 PHẢI NÓI RA. Người dùng bấm một liên kết cũ và rơi vào form độc lập mà không hay: họ
-   * gõ cả cái đơn, cất xong mới phát hiện đơn không gắn vào phiếu mình định lập cho — mà đơn
-   * đã cất thì không hoàn lại được. Nói rõ mã nào không tìm thấy, và form vẫn dùng được ở chế
-   * độ độc lập nên không ai bị bí việc.
+   * 🔴 PHẢI NÓI RA. Người dùng bấm một liên kết cũ và rơi vào chế độ mẫu mà không hay: họ gõ cả
+   * cái đơn, bấm In, rồi tưởng đã lập được đơn cho phiếu mình định lập — mà từ chiều 18/08/2026
+   * chế độ đó **không lưu gì cả**, nên hôm sau đi tìm đơn là không có. Nói rõ mã nào không tìm
+   * thấy, và form vẫn in/xuất mẫu được nên không ai bị bí việc.
    */
   const maKhongTimThay = prIdTuDiaChi !== null && dn === null ? prIdTuDiaChi : null;
 
@@ -126,10 +135,14 @@ function NoiDungLapDonHang() {
               ]
         }
         title={dn ? "Lập đơn mua hàng" : "Lập đơn mua hàng (PO)"}
+        /* 🔴 CÂU MÔ TẢ PHẢI NÓI THẬT VIỆC APP LÀM. Chế độ không gắn đề nghị (18/08/2026, Ban
+           lãnh đạo: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*) chỉ IN và XUẤT mẫu — nói "nhập
+           đơn đặt hàng gửi nhà cung cấp" như trước là để người lập tưởng đơn đã vào hệ thống.
+           Dải cảnh báo trong form nói kỹ hơn; ở đây chỉ cần một câu. */
         description={
           dn
             ? `Từ ${dn.code} · ${dn.tieuDe}`
-            : "Nhập đơn đặt hàng gửi nhà cung cấp. Đơn lập ở đây không gắn phiếu đề nghị nào."
+            : "Tạo MẪU đơn mua hàng để in hoặc xuất Excel. Đơn ở đây không lưu vào hệ thống."
         }
       />
 
@@ -140,8 +153,8 @@ function NoiDungLapDonHang() {
             Không tìm thấy đề nghị{" "}
             <span className="font-semibold break-all">{maKhongTimThay}</span>. Đường dẫn có thể
             đã cũ, hoặc hồ sơ đã bị xóa. Form dưới đây đang ở chế độ{" "}
-            <strong>đơn không gắn đề nghị</strong> — muốn lập đơn cho đúng phiếu thì mở phiếu đó
-            trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.
+            <strong>chỉ tạo mẫu, không lưu vào hệ thống</strong> — muốn lập đơn thật cho đúng
+            phiếu thì mở phiếu đó trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.
           </p>
         </div>
       )}

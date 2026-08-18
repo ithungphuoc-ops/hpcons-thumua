@@ -135,9 +135,13 @@ export interface DauVaoDeNghiGiaLap {
  * ⚠️ `lichSu` BỊ LOẠI khỏi đầu vào (từ 18/08/2026): nhật ký do kho dữ liệu tự ghi, nơi gọi
  * không được đặt sẵn — xem `ghiNhatKyDonHang`.
  *
- * ⚠️ `prId` / `prCode` nay là TÙY CHỌN. Bỏ trống = đơn độc lập của module "Lập đơn mua hàng
- * (PO)" (chỉ đạo 18/08/2026). `maDuAn` thì VẪN BẮT BUỘC và `themDonHang` từ chối khi rỗng —
- * mã đơn `260001-HPCS-PO-001` lấy phần đầu từ đó.
+ * 🔴 `prId` / `prCode` khai TÙY CHỌN theo kiểu dữ liệu, nhưng `themDonHang` **TỪ CHỐI CẤT khi
+ * `prId` rỗng** (siết lại chiều 18/08/2026 — xem chú thích ở hàm đó). Sáng cùng ngày từng cho
+ * cất đơn không gắn đề nghị; Ban lãnh đạo đã chốt module đó *"chỉ cần tạo mẫu PO thôi, chưa cần
+ * lưu"* nên đường cất ấy không còn. Để kiểu vẫn tùy chọn vì `DonDatHang` cũ có thể thiếu trường.
+ *
+ * ⚠️ `maDuAn` VẪN BẮT BUỘC và `themDonHang` từ chối khi rỗng — mã đơn `260001-HPCS-PO-001` lấy
+ * phần đầu từ đó.
  */
 export type DauVaoDonHangMoi = Omit<DonDatHang, "id" | "code" | "trangThai" | "lichSu"> & {
   /** Đơn giá theo số thứ tự dòng PO. */
@@ -1516,26 +1520,38 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        *
        * ---
        *
-       * 🔴 TỪ 18/08/2026 CHỐT NÀY **CHỈ ÁP CHO ĐƠN CÓ ĐỀ NGHỊ**.
+       * ★ DIỄN BIẾN NGÀY 18/08/2026 — ĐỌC CẢ HAI ĐOẠN, ĐỪNG DỰNG LẠI BẢN SÁNG:
        *
-       * Ban lãnh đạo 18/08/2026: *"MUC NAY SE LA MODUL RIENG, KHONG LIEN QUAN GI TOI QUY
-       * TRINH … NEN E KO CAN LINK NO TOI CAC BUOC QUY TRINH"*. Đơn độc lập không gắn đề nghị
-       * nào, mà bảng báo giá thì luôn thuộc về một đề nghị — nên không có bảng báo giá nào để
-       * đối chiếu. Nếu vẫn chạy luật cũ thì `baoGia.filter(b => b.prId === undefined)` ra mảng
-       * rỗng, `vuongMacLapDonHang` trả *"Chưa có bảng báo giá nào…"*, và **100% đơn độc lập bị
-       * từ chối** — tức module Ban lãnh đạo vừa yêu cầu sẽ không lập được đơn nào.
+       * · SÁNG: module "Lập đơn mua hàng (PO)" thành module độc lập (không gắn đề nghị), và
+       *   chốt này được cho **bỏ qua** với đơn không có `prId` — vì bảng báo giá luôn thuộc về
+       *   một đề nghị nên đơn độc lập không có gì để đối chiếu, chạy luật cũ là từ chối 100%.
+       *   Hệ quả đã báo lên Ban lãnh đạo: đơn ra đời mà KHÔNG qua bước ③ Xét duyệt báo giá,
+       *   tức **đi vòng qua chốt kiểm soát chi tiêu** mà chỉ đạo 15/08/2026 sinh ra để vá.
        *
-       * 🔴 NÓI THẲNG HỆ QUẢ, KHÔNG GIẤU: đơn độc lập **ĐI VÒNG QUA CHỐT KIỂM SOÁT CHI TIÊU**
-       * này. Người có `quyen.lapPO` lập được một cam kết trả tiền cho nhà cung cấp mà KHÔNG
-       * qua bước ③ Xét duyệt báo giá — đúng lỗ hổng mà chỉ đạo 15/08/2026 sinh ra để vá, nay
-       * được mở lại có chủ đích cho riêng đường độc lập. Đây là thay đổi về KIỂM SOÁT CHI
-       * TIÊU, không phải thay đổi giao diện. Muốn siết lại thì thêm luật ở ĐÂY, đừng khóa nút.
+       * · CHIỀU: Ban lãnh đạo trả lời *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*. Module độc lập
+       *   nay **không cất đơn nữa**, chỉ in / xuất mẫu (`2-quy-trinh/don-hang-mau.ts`). Không
+       *   còn đường cất nào thiếu `prId`, nên chốt được **siết lại: thiếu `prId` là TỪ CHỐI**.
+       *
+       * 🔴 VÌ SAO PHẢI CHẶN Ở ĐÂY, KHÔNG CHỈ BỎ NÚT (chính là nguyên tắc ghi ở trên):
+       *  1. Bỏ nút chỉ đóng một đường. Hàm này còn mở cho mọi nơi gọi khác — nay là dòng lệnh
+       *     gỡ lỗi, mai là một tính năng mới ai đó thêm vào.
+       *  2. Có một đường đua thật: hộp xác nhận Cất vẽ NGOÀI nhánh điều kiện, nên nếu phiếu đề
+       *     nghị biến mất khỏi kho chung (người khác xóa, hoặc kho chung đồng bộ lại) đúng lúc
+       *     hộp đang mở, `dn` thành `null` và `luu()` vẫn gọi vào đây với `prId` rỗng.
+       *  3. Nguyên tắc "thiếu thông tin thì chọn mức chặt nhất" (CLAUDE.md 3.6c). Mã chết mà
+       *     CHẶN thì vô hại; mã chết mà CHO QUA là một lỗ hổng chi tiêu đang chờ người vô tình
+       *     mở lại.
+       *
+       * 📌 Muốn cho phép cất đơn không gắn đề nghị thì phải nghĩ ra luật xét duyệt giá THAY THẾ
+       *    rồi thay vào đây — đừng chỉ xóa khối `if` này.
        */
-      const laDonDocLap = !po.prId;
-      if (!laDonDocLap) {
-        const chan = vuongMacLapDonHang(baoGiaRef.current.filter((b) => b.prId === po.prId));
-        if (chan) return { loi: chan };
+      if (!po.prId) {
+        return {
+          loi: "Đơn mua hàng phải gắn một phiếu đề nghị đã có bảng báo giá được duyệt. Module “Lập đơn mua hàng (PO)” chỉ tạo MẪU để in / xuất Excel, không cất vào hệ thống — muốn cất đơn thật thì mở phiếu đề nghị trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.",
+        };
       }
+      const chan = vuongMacLapDonHang(baoGiaRef.current.filter((b) => b.prId === po.prId));
+      if (chan) return { loi: chan };
 
       /**
        * 🔴 MÃ DỰ ÁN RỖNG THÌ TỪ CHỐI HẲN, không cấp mã `-PO-001`.
@@ -1571,29 +1587,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
 
       /**
-       * 🔴 DÒNG NHẬT KÝ ĐẦU TIÊN GẮN NGAY LÚC TẠO, không gọi `ghiNhatKyDonHang` sau đó.
+       * ⚠️ KHÔNG gắn sẵn `lichSu` cho đơn mới. Mọi đơn cất được đều gắn một phiếu đề nghị (chốt
+       * ngay trên), nên dòng nhật ký lập đơn ghi vào **lịch sử của đề nghị** ở ngay dưới — một
+       * hồ sơ chỉ có một dòng thời gian. `lichSu` riêng của đơn dành cho các thao tác về sau,
+       * do `ghiNhatKyDonHang` ghi.
        *
-       * Đơn chưa nằm trong `donHang` tại thời điểm này, nên một lần `setDonHang` thứ hai sẽ
-       * chạy trên bản danh sách CHƯA có đơn vừa lập (React gom nhiều `setState` trong cùng
-       * một lượt) — dòng nhật ký lập đơn rơi mất. Nhét thẳng vào đối tượng là chắc chắn.
-       *
-       * ⚠️ Chỉ đơn ĐỘC LẬP mới có `lichSu` riêng; đơn có đề nghị vẫn ghi vào lịch sử đề nghị
-       * ở ngay dưới, để một hồ sơ chỉ có một dòng thời gian.
+       * 📌 Sáng 18/08/2026 chỗ này có nhánh gắn sẵn `lichSu` cho "đơn không gắn đề nghị". Chiều
+       * cùng ngày đường đó bị bỏ (Ban lãnh đạo: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*) nên
+       * nhánh ấy không bao giờ chạy được nữa — xóa chứ không để lại mã chết. Lấy lại ở git nếu
+       * sau này cho cất đơn không gắn đề nghị.
        */
-      const lichSuBanDau = laDonDocLap
-        ? [
-            {
-              thoiDiem: thoiDiemHienTai(),
-              nguoiThucHien: po.nguoiPhuTrachTen,
-              hanhDong: `Lập và chốt đơn hàng ${code} (đơn không gắn đề nghị)`,
-            },
-          ]
-        : undefined;
-
-      setDonHang((truoc) => [
-        ...truoc,
-        { ...po, id, code, trangThai: "da_chot", lichSu: lichSuBanDau },
-      ]);
+      setDonHang((truoc) => [...truoc, { ...po, id, code, trangThai: "da_chot" }]);
       setGiaDonHang((truoc) => [
         ...truoc,
         {

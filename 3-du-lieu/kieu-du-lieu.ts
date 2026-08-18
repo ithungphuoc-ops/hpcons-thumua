@@ -501,15 +501,20 @@ export interface DonDatHang {
    * QUY TRINH, NO CHI DE PHUC VU LAP DON DAT HANG, NEN E KO CAN LINK NO TOI CAC BUOC QUY
    * TRINH"*. Mục menu "Lập đơn mua hàng (PO)" nay lập được đơn KHÔNG gắn đề nghị nào.
    *
-   * Bỏ trống cả hai (`prId` và `prCode` luôn đi cặp) = **đơn độc lập**. Hệ quả đã báo Ban
-   * lãnh đạo và vẫn làm theo:
+   * Bỏ trống cả hai (`prId` và `prCode` luôn đi cặp) = **đơn KHÔNG gắn đề nghị**.
    *
-   *   ⚠️ App KHÔNG đối chiếu được *"đề nghị này đã đặt bao nhiêu, còn thiếu bao nhiêu"* —
-   *      đơn độc lập không trừ khối lượng của phiếu đề nghị nào.
-   *   ⚠️ `maDuAn` phải đến từ chỗ khác (người lập chọn dự án đã có hoặc gõ tay), vì mã đơn
-   *      `260001-HPCS-PO-001` lấy phần đầu từ mã dự án.
-   *   🔴 Đơn độc lập ĐI VÒNG QUA CHỐT `vuongMacLapDonHang` (đòi bảng báo giá đã chốt NCC).
-   *      Đó là chốt KIỂM SOÁT CHI TIÊU, không phải chốt giao diện — xem `themDonHang`.
+   * 🔴 NHƯNG ĐƠN KIỂU ĐÓ **KHÔNG CẤT ĐƯỢC VÀO HỆ THỐNG** (siết lại chiều 18/08/2026, sau khi
+   * Ban lãnh đạo chốt module "Lập đơn mua hàng (PO)" *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*):
+   * `themDonHang` từ chối ngay khi `prId` rỗng, vì đơn không có bảng báo giá nào để đối chiếu
+   * thì cũng không qua được chốt KIỂM SOÁT CHI TIÊU `vuongMacLapDonHang`.
+   *
+   * Vậy hai trường này để tùy chọn cho ai còn dùng chúng:
+   *   · **Bản mẫu in / xuất Excel** — `2-quy-trinh/don-hang-mau.ts` dựng một `DonDatHang` tạm
+   *     trong bộ nhớ, không bao giờ vào kho. Đây là chỗ dùng thật duy nhất hiện nay.
+   *   · Dữ liệu cũ hoặc nguồn ngoài có thể thiếu trường.
+   *
+   *   ⚠️ `maDuAn` VẪN BẮT BUỘC, kể cả với bản mẫu, vì mã đơn `260001-HPCS-PO-001` lấy phần đầu
+   *      từ mã dự án.
    *
    * 🔴 MỌI CHỖ ĐỌC HAI TRƯỜNG NÀY PHẢI CHỊU ĐƯỢC `undefined`: trang chi tiết đơn (ô "Đề nghị
    * nguồn" + liên kết), danh sách đơn, trang in A4, file Excel xuất ra, thẻ ở Tổng quan, ô

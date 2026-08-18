@@ -23,8 +23,9 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `phan-bo.tsx` | Việc tồn cần phân bổ (Trưởng bộ phận) | `/phan-bo` |
 | `don-hang-danh-sach.tsx` | Danh sách đơn đặt hàng | `/don-hang` |
 | `don-hang-chi-tiet.tsx` | Chi tiết PO + tiến độ nhận hàng + xác nhận hoàn thành | `/don-hang/[id]` |
-| `don-hang-lap-moi.tsx` | Lập đơn đặt hàng — **vỏ mỏng** bọc `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` (từ 17/08/2026). 🔴 Từ **18/08/2026 là MODULE LẬP ĐƠN ĐỘC LẬP**: vào từ menu (không `prId`) thì hiện ngay ô nhập liệu và lập đơn **không gắn đề nghị** — bước "chọn đề nghị" làm sáng hôm đó đã **xóa hẳn**. Vẫn là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (`?prId=&rfqId=&nccId=`) | `/don-hang/tao-moi` |
-| `don-hang-in.tsx` | **In đơn mua hàng A4** theo đúng biểu mẫu giấy của công ty | `/in/don-hang/[id]` |
+| `don-hang-lap-moi.tsx` | Lập đơn đặt hàng — **vỏ mỏng** bọc `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` (từ 17/08/2026). 🔴 Từ **18/08/2026 vào từ menu (không `prId`) là MODULE TẠO MẪU PO**: hiện ngay ô nhập liệu, nhưng **không cất đơn** — hai nút cuối là [In mẫu PO] và [Xuất Excel] (Ban lãnh đạo: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*). Bước "chọn đề nghị" làm sáng hôm đó đã **xóa hẳn**. Vẫn là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (`?prId=&rfqId=&nccId=`) | `/don-hang/tao-moi` |
+| `don-hang-in.tsx` | **In đơn mua hàng A4** — chỉ lo *tra kho theo id + gác 3 lớp quyền*. 🔴 Bản vẽ tờ giấy ở `thanh-phan-nghiep-vu/to-don-mua-hang-a4.tsx` | `/in/don-hang/[id]` |
+| `don-hang-mau-in.tsx` | **In BẢN MẪU đơn mua hàng** (chưa lưu, 18/08/2026) — dùng lại **đúng** tờ A4 của đơn thật, chỉ khác chỗ lấy dữ liệu: đọc kho tạm `3-du-lieu/ban-mau-don-mua-hang.ts` thay vì tra kho theo id. 🔴 Địa chỉ **không có tham số** vì bản mẫu không có id, mà `/in/don-hang/[id]` là trang tĩnh — bịa id tạm là ra 404 | `/in/don-hang-mau` |
 | `theo-doi-danh-sach.tsx` | Phòng Thi công theo dõi đề nghị | `/theo-doi` |
 | `theo-doi-chi-tiet.tsx` | Chi tiết tiến trình từng mặt hàng | `/theo-doi/[id]` |
 | `bao-gia-danh-sach.tsx` | Danh sách bảng báo giá | `/bao-gia` |
@@ -54,7 +55,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `che-do-mau.tsx` | Bộ điều khiển Sáng/Tối (thư viện `next-themes`) |
 | `mat-do.tsx` | Bộ điều khiển mật độ — **mức chuẩn "Vừa" khai ở đây** (`MAT_DO_MAC_DINH`) |
 
-## `thanh-phan-nghiep-vu/` — 26 file
+## `thanh-phan-nghiep-vu/` — 29 file
 
 ⚠️ Bảng dưới **chỉ liệt kê những file hay phải sửa nhất**, không phải danh sách đủ. Danh sách
 đủ tra ở `BAN-DO-MA-NGUON.md` mục 2 (hiện tượng → sửa file nào).
@@ -64,7 +65,8 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `bang-quy-trinh-mua-hang.tsx` | **Bảng quy trình 8 cột dạng Kanban** ở màn `/de-nghi` — dựng theo bảng "TM-QT Mua hàng" đang chạy trên Base.vn. Chỉ hiển thị; việc xác định thẻ thuộc cột nào nằm ở `2-quy-trinh/giai-doan-mua-hang.ts` |
 | `bang-phan-bo.tsx` | Bảng phân bổ dòng đề nghị cho nhân viên (M3). Cảnh báo dòng chưa phân bổ |
 | `bang-tien-do-po.tsx` | Bảng tiến độ nhận hàng **có cột động theo từng lần giao** + form ghi phiếu nhận hàng |
-| `form-lap-don-mua-hang.tsx` | 🔴 **TOÀN BỘ PHẦN NHẬP LIỆU đơn mua hàng — MỘT FORM, HAI CHẾ ĐỘ.** Đề nghị nguồn **truyền vào qua prop `deNghi`** (form KHÔNG đọc `useSearchParams`). `deNghi` **khác `null`** = chế độ cũ, dòng hàng nối về đề nghị, khối lượng bị cắt theo phần còn được đặt, chốt `vuongMacLapDonHang` vẫn chạy. `deNghi` **là `null`** = **chế độ ĐỘC LẬP** (Ban lãnh đạo 18/08/2026): mặt hàng gõ tự do, mã dự án do người lập chọn, không trừ khối lượng của đề nghị nào và 🔴 **đi vòng qua chốt `vuongMacLapDonHang`**. Cổng gác `quyen.lapPO` nằm bên trong. 🔴 **Không chép ruột ra hai bản.** ⚠️ Prop `nhung` (bố cục nhúng trong khối bước ④, 17/08/2026) nay **không nơi nào truyền** — form đã dời hẳn sang trang riêng chiều 18/08/2026 |
+| `form-lap-don-mua-hang.tsx` | 🔴 **TOÀN BỘ PHẦN NHẬP LIỆU đơn mua hàng — MỘT FORM, HAI CHẾ ĐỘ.** Đề nghị nguồn **truyền vào qua prop `deNghi`** (form KHÔNG đọc `useSearchParams`). `deNghi` **khác `null`** = chế độ cũ: dòng hàng nối về đề nghị, khối lượng bị cắt theo phần còn được đặt, chốt `vuongMacLapDonHang` vẫn chạy, thanh nút **[Cất] [Cất và In]**. `deNghi` **là `null`** = **chế độ CHỈ TẠO MẪU** (Ban lãnh đạo chiều 18/08/2026 *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*): mặt hàng gõ tự do, mã dự án do người lập chọn, thanh nút **[In mẫu PO] [Xuất Excel]** và 🔴 **không gọi `themDonHang`, không ghi gì vào hệ thống** — nhờ vậy không còn đi vòng qua chốt kiểm soát chi tiêu (và `themDonHang` cũng đã siết lại: **thiếu `prId` là từ chối cất**, vì bỏ nút không phải là chặn). Chế độ mẫu còn **ẩn hẳn ô "Tình trạng" và ô đính kèm tệp** — tệp tải lên sẽ vào kho tệp ngay lúc chọn nhưng không có đơn nào để gắn, thành dữ liệu mồ côi (sửa 18/08/2026). Cổng gác `quyen.lapPO` nằm bên trong. 🔴 **Không chép ruột ra hai bản.** ⚠️ Prop `nhung` (bố cục nhúng trong khối bước ④, 17/08/2026) nay **không nơi nào truyền** — form đã dời hẳn sang trang riêng chiều 18/08/2026 |
+| `to-don-mua-hang-a4.tsx` | 🔴 **BẢN VẼ TỜ ĐƠN MUA HÀNG A4 — MỘT BẢN DUY NHẤT** cho cả đơn đã cất và bản mẫu chưa lưu (tách khỏi `trang/don-hang-in.tsx` ngày 18/08/2026). Chỉ nhận `po` · `gia` · `ncc` qua prop: **không đọc kho dữ liệu, không đọc địa chỉ URL, không kiểm quyền** — mấy việc đó thuộc TRANG gọi nó. Prop `banMau` in thêm một dòng *"Bản mẫu — chưa cấp số, chưa lưu vào hệ thống"* ngay dưới tiêu đề. 🔴 **Cấm chép bố cục thành bản thứ hai**: tờ giấy bám biểu mẫu thật của công ty, hai bản sẽ lệch nhau rồi một trong hai gửi sai cho nhà cung cấp. ⚠️ Màu và cỡ chữ **viết cứng, cố ý** — chứng từ in ra không đổi màu theo Dark Mode hay tùy chọn cá nhân |
 | `bang-hang-tien.tsx` | **Bảng "Hàng tiền" của phần nhập liệu đơn mua hàng**, bám cột và thứ tự cột của MISA (Ban lãnh đạo 17/08/2026) + dòng TỔNG CỘNG + ba nút Thêm dòng · Thêm ghi chú · Xóa hết dòng. 🔴 **Không tự tính một con số tiền nào** — nhận sẵn qua prop `tien` do `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet` tính. 🔴 Bốn cột tiền chỉ hiện khi `quyen.xemGia`. Prop `tieuDeTrongKhoiGiaiDoan` hạ cỡ tiêu đề khi bảng nằm trong khối một bước |
 | `hop-xem-truoc-nhap-excel.tsx` | **Hộp xem trước khi đổ file Excel vào bảng hàng tiền.** Bày TỪNG DÒNG file kèm **số dòng thật trong Excel** và kết luận riêng (đưa vào đơn · vượt khối lượng · không có trong đề nghị · chưa lập được đơn · ghi chú · không đọc được). Xem trước rồi mới đổ, vì đổ thẳng là xóa mất số liệu đang gõ dở mà không hoàn lại được |
 | `khoi-dau-vao-theo-giai-doan.tsx` | Khối gập **theo từng bước** ở trang chi tiết đề nghị (bố cục Base). Mỗi bước ba phần ngang hàng: ĐẦU VÀO · phần làm việc (`noiDungNghiepVu`) · tệp đính kèm (`khuDinhKem`). Nhãn ba phần **bắt buộc dùng chung** `NhanPhanTrongGiaiDoan` để không lệch cỡ chữ. 🔴 Bước nào có **form nhập liệu** thì phải bật `giuNoiDungKhiGap` — mặc định gập là THÁO khỏi cây React, gõ nửa cái đơn rồi gập là mất sạch |
@@ -77,9 +79,14 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 nó thoát khỏi vùng cắt `overflow-x-hidden` của khung nội dung và kéo giãn cả trang — trên điện
 thoại làm toàn bộ màn hình trôi ngang. Lỗi này đã xảy ra khi làm bảng quy trình.
 
-## `thanh-phan-dung-chung/` — 9 file
+## `thanh-phan-dung-chung/` — 10 file
 
-`kpi-card` · `timeline-progress` · `status-badge` · `empty-state` · `skeletons` · `data-table` · `page-header` · `print-document` · `print-toolbar`
+`kpi-card` · `timeline-progress` · `status-badge` · `empty-state` · `skeletons` · `data-table` · `page-header` · `print-document` · `print-toolbar` · `thong-bao-trang-in`
+
+⚠️ `thong-bao-trang-in.tsx` là **màn báo lỗi riêng của các trang in** (chưa đăng nhập, không đủ
+quyền, không tìm thấy hồ sơ). 🔴 Trang in **không dùng `empty-state`**: trang in nền trắng cố định,
+không theo Dark Mode và không theo tùy chọn màu cá nhân (quy ước phiên 04), nên màu ở file đó viết
+cứng — đúng như `print-toolbar.tsx` và `to-don-mua-hang-a4.tsx`.
 
 Đặt tên tiếng Anh **có lý do**: Design System V1.1 Phần E gọi đúng các tên này, giữ nguyên để đối chiếu được với quy chuẩn và với các app khác trong hệ sinh thái.
 

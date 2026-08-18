@@ -575,17 +575,18 @@ export function vuongMacSangBuocSau(
  *
  * ---
  *
- * 🔴 TỪ 18/08/2026: HÀM NÀY **CHỈ ÁP CHO ĐƠN CÓ ĐỀ NGHỊ**.
+ * 🔴 HÀM NÀY CHỈ NHẬN BẢNG BÁO GIÁ CỦA MỘT ĐỀ NGHỊ — nó không biết gì về việc "đơn có gắn đề
+ * nghị hay không", và **đừng chuyển việc kiểm đó vào đây**: hàm thuộc `2-quy-trinh/` nên chỉ
+ * được biết về bảng báo giá. Nơi gọi tự lo phần đó.
  *
- * Ban lãnh đạo 18/08/2026 cho lập đơn KHÔNG gắn phiếu đề nghị (module "Lập đơn mua hàng (PO)"
- * độc lập). Đơn đó không thuộc đề nghị nào nên không có bảng báo giá nào để đối chiếu — gọi
- * hàm này với mảng rỗng sẽ trả *"Chưa có bảng báo giá nào cho đề nghị này…"* và chặn 100% đơn
- * độc lập.
- *
- * ⚠️ NGHĨA LÀ ĐƠN ĐỘC LẬP **ĐI VÒNG QUA CHỐT KIỂM SOÁT CHI TIÊU NÀY**. Đó là quyết định của
- * Ban lãnh đạo, không phải sơ suất. Hai chỗ gọi (`themDonHang` ở kho dữ liệu và ô cảnh báo
- * trong form lập đơn) đều tự kiểm `prId` trước khi gọi — **đừng chuyển việc kiểm đó vào đây**,
- * vì hàm này thuộc `2-quy-trinh/` và chỉ nên biết về bảng báo giá.
+ * 📌 DIỄN BIẾN 18/08/2026, ghi lại để không ai dựng lại bản sáng:
+ *  · SÁNG — module "Lập đơn mua hàng (PO)" cất được đơn KHÔNG gắn đề nghị. Đơn đó không có bảng
+ *    báo giá nào để đối chiếu (gọi hàm này với mảng rỗng là chặn 100%), nên `themDonHang` được
+ *    cho **bỏ qua** chốt. Tức đường đó **đi vòng qua đúng lỗ hổng kiểm soát chi tiêu** mà chỉ
+ *    đạo 15/08/2026 ở trên sinh ra để vá. Rủi ro đã báo lên Ban lãnh đạo.
+ *  · CHIỀU — Ban lãnh đạo trả lời *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*: module đó không cất
+ *    đơn nữa, chỉ in / xuất mẫu. `themDonHang` vì vậy đã **siết lại — thiếu `prId` là từ chối
+ *    cất**, rồi mới chạy hàm này. Nghĩa là **mọi đơn nằm trong hệ thống đều đã qua chốt này.**
  */
 export function vuongMacLapDonHang(baoGiaCuaDeNghi: BaoGia[]): string | null {
   const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");

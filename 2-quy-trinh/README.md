@@ -11,9 +11,10 @@ Thư mục này **không có giao diện** và **không chứa dữ liệu**. Sa
 | **`huong-dan-giai-doan.ts`** | **Văn bản hướng dẫn nghiệp vụ** của 6 bước, chép nguyên văn quy trình "TM-QT Mua hàng (HP CONS)" trên Base.vn | Công ty ban hành quy trình mới. 🔴 Không tự viết lại cho gọn — người dùng đối chiếu với quy trình giấy |
 | **`nguong-gia-tri.ts`** | Ba ngưỡng tiền **5 / 10 / 20 triệu**: số báo giá tối thiểu, ai duyệt, khi nào cần hợp đồng | Công ty đổi ngưỡng. Mọi nơi cần con số này đều gọi vào đây, không viết số vào chỗ khác |
 | **`lich-cong-viec.ts`** | Suy ra **việc đến hạn theo ngày** của từng người + lưới tháng | Lịch thiếu/thừa việc, sai ngày, hiện việc của người khác |
-| **`xuat-don-hang-excel.ts`** | **Xuất đơn ĐÃ LẬP** ra .xlsx đúng biểu mẫu công ty (gửi NCC, lưu hồ sơ) | File xuất ra lệch biểu mẫu, sai ô, sai công thức |
+| **`xuat-don-hang-excel.ts`** | **Xuất đơn ra .xlsx** đúng biểu mẫu công ty (gửi NCC, lưu hồ sơ). Hàm **thuần** — không đọc kho, không kiểm quyền, **không dùng `po.id`** — nên dùng được cho cả **bản mẫu chưa lưu** (18/08/2026). `vuongMacXuatPO` là **luật duy nhất** trả lời câu *"tờ PO này đã đủ để đưa ra ngoài chưa"*, dùng ở nút Xuất Excel của đơn thật **và** ở cả hai nút của chế độ mẫu | File xuất ra lệch biểu mẫu, sai ô, sai công thức; hoặc nút xuất bị khóa/không phản ứng |
 | **`ghi-don-hang-excel.ts`** | **Biểu mẫu TRỐNG** để người lập điền đơn giá rồi nhập lại vào app. Cờ `nhapTuDo` đổi câu hướng dẫn cho đơn **không gắn đề nghị** (được gõ tên hàng tự do) | Nút "Tải file mẫu" ở màn lập đơn ra file sai |
 | **`dat-ma-don-hang.ts`** | Sinh mã đơn `[mã dự án]-PO-[STT]` theo Thông báo 09/2026/TB-HPCS. 🔴 Lấy **số lớn nhất đã dùng rồi +1**, không đếm số đơn hiện có (đếm rồi +1 là sinh mã TRÙNG khi có đơn bị bỏ) | Mã đơn trùng, sai dạng, hoặc đổi mã loại `PO` khi được duyệt |
+| **`don-hang-mau.ts`** | Dựng **đơn TẠM trong bộ nhớ** từ dữ liệu đang gõ trên form, để in / xuất Excel mà **KHÔNG lưu** (Ban lãnh đạo 18/08/2026: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*). Gồm `dungDonHangMau` · `dongTuDoDuVaoDon` (luật "dòng gõ tự do đã đủ để vào đơn chưa", **chuyển từ file giao diện sang đây** cho đúng quy tắc 3.4b) · hằng `SO_DON_BAN_MAU` · `tenFileDonHangMau`. 🔴 **KHÔNG gọi `themDonHang`, không đụng kho dữ liệu** — chính điều đó làm chế độ mẫu không còn đi vòng qua chốt `vuongMacLapDonHang`. 🔴 **KHÔNG dùng `maDonHangTiepTheo`**: bản mẫu không cất nên chiếm số là **thủng số** trong dãy mã của dự án, và một mã nhìn như thật in ra giấy là chứng từ giả | Bản mẫu in/xuất ra thiếu ô, sai tiền, hoặc muốn đổi câu ghi ở ô "Số đơn hàng" |
 | **`doc-don-hang-excel.ts`** | Đọc file Excel người dùng chọn để điền sẵn màn lập đơn. **Khớp cột theo TÊN tiêu đề**, báo rõ thiếu cột nào và dòng nào hỏng (kèm số dòng trong file) | Nhập từ Excel không nhận dòng, sai cột |
 | **`tinh-toan.ts`** | Toàn bộ công thức của app | Số đã nhận / còn lại / % sai; điều kiện hoàn thành PO sai; sai chiết khấu / thuế / tổng thanh toán |
 | **`tim-kiem.ts`** | Luật ô tìm kiếm trên thanh trên + **lọc kết quả theo quyền** | Tìm không ra hồ sơ; vai trò thấy hồ sơ lẽ ra không được thấy |
@@ -52,11 +53,23 @@ làm người dùng bí việc. Muốn cấm hẳn một bước thì thêm lu�
 | `vuongMacLapDonHang` | Lý do đề nghị **chưa lập được đơn đặt hàng** (thường là bảng báo giá chưa được trưởng bộ phận duyệt), `null` là được phép. 🔴 Chính là luật `themDonHang` dùng để chặn lúc cất đơn — mọi chỗ giải thích cho người dùng đều phải gọi hàm này, không tự viết câu khác |
 | `dongLapDuocDonHang` | Dòng nào của đề nghị mà **người này** lập được đơn ngay: còn khối lượng chưa lên đơn + đã có người phụ trách + là người đó (hoặc là người có quyền phân bổ) |
 
-🔴 **`vuongMacLapDonHang` CHỈ ÁP CHO ĐƠN CÓ ĐỀ NGHỊ (từ 18/08/2026).** Module *"Lập đơn mua hàng
-(PO)"* lập được đơn **không gắn phiếu đề nghị nào**; đơn đó không có bảng báo giá để đối chiếu nên
-`themDonHang` **bỏ qua** chốt này. Nghĩa là đường độc lập **đi vòng qua một chốt kiểm soát chi tiêu**
-— đơn ra đời mà không qua bước ③ Xét duyệt báo giá. Quyết định của Ban lãnh đạo, không phải sơ suất;
-muốn siết lại thì thêm luật ở `themDonHang`, đừng khóa nút.
+🔴 **`vuongMacLapDonHang` ÁP CHO MỌI ĐƠN ĐƯỢC CẤT — và `themDonHang` từ chối đơn không gắn đề nghị.**
+
+Diễn biến ngày 18/08/2026, đọc cả hai đoạn để không dựng lại bản sáng:
+
+- **Sáng:** module *"Lập đơn mua hàng (PO)"* thành module độc lập và **cất được đơn không gắn phiếu
+  đề nghị**. Đơn đó không có bảng báo giá để đối chiếu nên `themDonHang` **bỏ qua** chốt này — tức
+  đường độc lập **đi vòng qua một chốt kiểm soát chi tiêu**, đơn ra đời mà không qua bước ③ Xét
+  duyệt báo giá. Rủi ro này đã được báo lên Ban lãnh đạo.
+- **Chiều:** Ban lãnh đạo trả lời *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*. Module độc lập
+  **không cất đơn nữa**, chỉ in / xuất mẫu (`don-hang-mau.ts` → `dungDonHangMau`). Không còn
+  đường cất nào thiếu `prId`, nên chốt đã được **siết lại**: `themDonHang` trả lỗi ngay khi
+  `prId` rỗng, rồi mới chạy `vuongMacLapDonHang` cho phần còn lại.
+
+⚠️ **Đừng gỡ chốt `prId` ở `themDonHang` để "cho tiện".** Bỏ nút trên giao diện không phải là chặn:
+hàm ghi dữ liệu còn nhiều đường vào khác, và hộp xác nhận Cất vẽ ngoài nhánh điều kiện nên vẫn có
+đường đua khi phiếu đề nghị biến mất khỏi kho chung giữa lúc hộp đang mở. Muốn cho phép cất đơn
+không gắn đề nghị thì phải có **luật xét duyệt giá thay thế** đặt vào đúng chỗ đó.
 
 📌 **`dongLapDuocDonHang` tách ra khỏi file giao diện ngày 18/08/2026.** Hôm đó có hai nơi gọi (form
 lập đơn + bước chọn đề nghị của `/don-hang/tao-moi`); bước chọn đã bị bỏ ngay chiều cùng ngày nên nay
