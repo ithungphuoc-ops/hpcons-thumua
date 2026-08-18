@@ -63,12 +63,19 @@ export interface DongNhapDonHang {
   laGhiChu: boolean;
   /**
    * Số thứ tự dòng trên PHIẾU ĐỀ NGHỊ mà dòng này lấy khối lượng ra — khóa truy vết.
-   * `0` với dòng ghi chú.
    *
-   * 🔴 Không có dòng hàng nào được phép đứng ngoài đề nghị: khối lượng đặt phải trừ vào một
-   * dòng đề nghị đã được phân bổ, nếu không thì đặt hàng ngoài kế hoạch mà không ai duyệt.
+   *   · số ≥ 1     → dòng hàng trừ khối lượng vào đúng dòng đó của phiếu đề nghị
+   *   · `0`        → dòng ghi chú
+   *   · `undefined`→ dòng hàng của ĐƠN KHÔNG GẮN ĐỀ NGHỊ (18/08/2026), gõ tự do
+   *
+   * 🔴 QUY TẮC CŨ VẪN NGUYÊN KHI ĐƠN CÓ ĐỀ NGHỊ: không dòng hàng nào được đứng ngoài đề nghị,
+   * vì khối lượng đặt phải trừ vào một dòng đã được phân bổ — đặt ngoài là mua hàng không ai
+   * duyệt. Chỉ module "Lập đơn mua hàng (PO)" độc lập mới được gõ tự do, và chính vì thế nó
+   * ĐI VÒNG QUA chốt kiểm soát đó (Ban lãnh đạo 18/08/2026 đã được báo và vẫn quyết làm).
+   *
+   * ⚠️ Đừng dùng `0` cho dòng độc lập: `0` đã mang nghĩa dòng ghi chú.
    */
-  sttDeNghi: number;
+  sttDeNghi?: number;
   maHang: string;
   tenHang: string;
   thongSo: string;
@@ -106,6 +113,15 @@ export function BangHangTien({
   /** Còn mặt hàng nào của đề nghị chưa đưa vào bảng không — khóa nút "Thêm dòng" khi hết. */
   conMatHangDeThem,
   /**
+   * ★ ĐƠN KHÔNG GẮN ĐỀ NGHỊ — nút "Thêm dòng" chèn một DÒNG TRẮNG gõ tay (18/08/2026).
+   *
+   * 🔴 CHỈ ĐỔI CHỮ, KHÔNG ĐỔI LUẬT. Việc chèn dòng gì là của chỗ gọi (`onThemDong`); cờ này
+   * chỉ để bảng nói đúng sự thật với người dùng: câu "Bấm Thêm dòng để chọn mặt hàng của đề
+   * nghị" là SAI trong chế độ độc lập, và câu "Đã đưa hết mặt hàng lập được đơn của đề nghị
+   * này vào bảng" thì vô nghĩa vì không có đề nghị nào.
+   */
+  nhapTuDo = false,
+  /**
    * Bảng đang nằm TRONG khối một bước của trang chi tiết đề nghị (chỉ đạo 17/08/2026: phần
    * nhập liệu phải nằm trong khối) → hạ cỡ tiêu đề "Hàng tiền" xuống bằng các nhãn khác của
    * khối bước.
@@ -133,6 +149,7 @@ export function BangHangTien({
   onDoiChietKhau: (v: string) => void;
   conMatHangDeThem: boolean;
   tieuDeTrongKhoiGiaiDoan?: boolean;
+  nhapTuDo?: boolean;
 }) {
   /**
    * Số cột của phần giữa (từ "Mã hàng" đến "Mục đích sử dụng") — dòng ghi chú gộp hết phần
@@ -246,15 +263,19 @@ export function BangHangTien({
             {dong.length === 0 && (
               <TableRow>
                 <TableCell colSpan={soCotGiua + 2} className="h-16 text-center text-text-desc">
-                  Chưa có dòng nào. Bấm <strong>Thêm dòng</strong> để chọn mặt hàng của đề nghị,
-                  hoặc nhập từ file Excel.
+                  Chưa có dòng nào. Bấm <strong>Thêm dòng</strong>{" "}
+                  {nhapTuDo ? "để nhập một mặt hàng" : "để chọn mặt hàng của đề nghị"}, hoặc nhập
+                  từ file Excel.
                 </TableCell>
               </TableRow>
             )}
 
             {dong.map((d, viTri) => {
               const t = tienCuaDong(viTri);
-              const con = conLai[d.sttDeNghi];
+              /* `undefined` = dòng của đơn không gắn đề nghị → không có "phần còn lại" nào để
+                 nhắc, và cũng không cảnh báo vượt. Tra bằng `?? -1` cho tường minh: `conLai`
+                 chỉ có khóa là số thứ tự thật (≥ 1) nên `-1` chắc chắn không trúng. */
+              const con = conLai[d.sttDeNghi ?? -1];
 
               /* ===== DÒNG GHI CHÚ =====
                  Nút "Thêm ghi chú" của MISA chèn một DÒNG vào giữa bảng chứ không mở ô ghi chú
@@ -508,7 +529,9 @@ export function BangHangTien({
         </div>
       </div>
 
-      {!conMatHangDeThem && dong.length > 0 && (
+      {/* Câu này chỉ đúng khi đơn CÓ đề nghị — đơn độc lập thêm bao nhiêu dòng cũng được nên
+          không bao giờ "hết mặt hàng". */}
+      {!nhapTuDo && !conMatHangDeThem && dong.length > 0 && (
         <p className="text-xs text-text-desc">
           Đã đưa hết mặt hàng lập được đơn của đề nghị này vào bảng.
         </p>

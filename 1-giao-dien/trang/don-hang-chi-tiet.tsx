@@ -22,6 +22,7 @@ import {
 } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
+import { formatDateTime } from "@/6-tien-ich/dinh-dang";
 import { NutXuatDonHangExcel } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-don-hang";
 
 export default function TrangChiTietDonHang() {
@@ -81,7 +82,10 @@ export default function TrangChiTietDonHang() {
           { label: po.code },
         ]}
         title={po.code}
-        description={`Từ đề nghị ${po.prCode}${quyen.xemNhaCungCap ? ` · ${po.supplierTen}` : ""}`}
+        /* 🔴 ĐƠN KHÔNG GẮN ĐỀ NGHỊ PHẢI NÓI RA, không để câu cụt "Từ đề nghị " (18/08/2026).
+           Nói rõ luôn hệ quả rút gọn: đơn này không nằm trong quy trình 8 cột nào, nên người
+           đọc không đi tìm hồ sơ nguồn cho mất công. */
+        description={`${po.prCode ? `Từ đề nghị ${po.prCode}` : "Đơn lập riêng, không gắn đề nghị"}${quyen.xemNhaCungCap ? ` · ${po.supplierTen}` : ""}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {/* Chỉ vai trò xem được giá mới in được — đơn gửi NCC bắt buộc có đơn giá.
@@ -106,11 +110,16 @@ export default function TrangChiTietDonHang() {
       <Card>
         <CardContent className="grid grid-cols-2 gap-(--hp-md-card-gap) md:grid-cols-4">
           <ThongTin nhan="Mã dự án" giaTri={po.maDuAn} />
-          <ThongTin
-            nhan="Đề nghị nguồn"
-            giaTri={po.prCode}
-            href={`/de-nghi/${po.prId}`}
-          />
+          {/* 🔴 CHỈ VẼ LIÊN KẾT KHI CÓ ĐỀ NGHỊ THẬT. Để `href={/de-nghi/${undefined}}` là một
+              LIÊN KẾT CHẾT: bấm vào rơi về danh sách đề nghị, người dùng tưởng hồ sơ bị mất.
+              Không có đề nghị thì vẫn phải bày một ô nói rõ "không gắn đề nghị" — bỏ hẳn ô đi
+              thì lưới thông tin khuyết một chỗ và người đọc không biết là cố ý hay lỗi. */}
+          {po.prId && po.prCode ? (
+            <ThongTin nhan="Đề nghị nguồn" giaTri={po.prCode} href={`/de-nghi/${po.prId}`} />
+          ) : (
+            <ThongTin nhan="Đề nghị nguồn" giaTri="Không gắn đề nghị" />
+          )}
+          {po.tenCongTrinh && <ThongTin nhan="Tên công trình" giaTri={po.tenCongTrinh} />}
           {quyen.xemNguoiPhuTrach && <ThongTin nhan="Người phụ trách" giaTri={po.nguoiPhuTrachTen} />}
           <ThongTin nhan="Ngày lập PO" giaTri={new Date(po.ngayLapPO).toLocaleDateString("vi-VN")} />
           <ThongTin
@@ -312,6 +321,47 @@ export default function TrangChiTietDonHang() {
           </CardContent>
         </Card>
       </section>
+
+      {/* =====================================================================
+          LỊCH SỬ — CHỈ hiện với ĐƠN KHÔNG GẮN ĐỀ NGHỊ (18/08/2026)
+          =====================================================================
+          🔴 Đơn CÓ đề nghị thì nhật ký nằm ở khối "Lịch sử" của trang chi tiết đề nghị, y
+          như trước — vẽ thêm ở đây là chẻ một dòng thời gian thành hai chỗ.
+
+          🔴 Đơn KHÔNG có đề nghị thì đây là NƠI DUY NHẤT còn dấu vết: ai lập đơn, ai ghi phiếu
+          nhận, ai duyệt nhập kho, ai xác nhận hoàn thành. Không bày ra thì mọi thao tác trên
+          đơn độc lập coi như không có người chịu trách nhiệm.
+
+          ⚠️ Không in tên nhà cung cấp trong nhật ký (quy ước phiên 04) — chuỗi đã được
+          `kho-du-lieu.tsx` dựng sẵn đúng luật đó, ở đây chỉ hiển thị. */}
+      {!po.prId && (
+        <Card>
+          <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+            <h2 className="text-h3 text-text-primary">Lịch sử đơn hàng</h2>
+            {po.lichSu && po.lichSu.length > 0 ? (
+              <ol className="flex flex-col gap-2">
+                {po.lichSu.map((m, i) => (
+                  <li
+                    key={`${m.thoiDiem}-${i}`}
+                    className="flex flex-col gap-0.5 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)"
+                  >
+                    <span className="text-sm text-text-primary">{m.hanhDong}</span>
+                    <span className="text-xs text-text-desc">
+                      {m.nguoiThucHien} · {formatDateTime(m.thoiDiem)}
+                    </span>
+                    {m.ghiChu && <span className="text-xs text-text-secondary">{m.ghiChu}</span>}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              /* Đơn lập trước 18/08/2026 không có trường này — nói rõ, đừng để khối trống. */
+              <p className="text-sm text-text-desc">
+                Chưa có dòng nhật ký nào cho đơn này.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }

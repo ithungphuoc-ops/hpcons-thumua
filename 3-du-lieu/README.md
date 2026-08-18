@@ -13,6 +13,25 @@
 | **`danh-ba-nhan-su.ts`** | **Danh bạ nhân sự công ty** — nguồn cho ô chọn "Thêm người theo dõi" | Thiếu người, sai phòng ban, sai chức danh |
 | **`du-lieu-mau.ts`** | Dữ liệu chạy thử: **9 đề nghị** (phủ đủ 8 giai đoạn của bảng quy trình), 8 PO, 8 phiếu nhận, 6 bảng báo giá | Muốn đổi số liệu để trình bày |
 
+### 🔴 `DonDatHang.prId` / `prCode` LÀ TÙY CHỌN (từ 18/08/2026)
+
+Ban lãnh đạo 18/08/2026 cho lập đơn **không gắn phiếu đề nghị nào** (module *"Lập đơn mua hàng
+(PO)"*). Bỏ trống cả hai = **đơn độc lập**; `DongPO.sttDongDeNghi` của mọi dòng hàng khi đó là
+`undefined`.
+
+⚠️ **Ba giá trị của `sttDongDeNghi` mang ba nghĩa khác nhau, đừng gộp:** số ≥ 1 là dòng trừ khối
+lượng vào phiếu đề nghị · `0` là **dòng ghi chú** (quy ước có từ trước) · `undefined` là dòng của
+đơn độc lập.
+
+🔴 **Nhật ký định tuyến ở `kho-du-lieu.tsx` → `ghiNhatKyDonHang`, MỘT chỗ duy nhất.** Đơn có `prId`
+ghi vào `DeNghiMuaHang.lichSu` như cũ; đơn độc lập ghi vào `DonDatHang.lichSu` của chính nó. Không
+có hàm này thì `ghiLichSuDeNghi(undefined, …)` **rơi mất im lặng** — sáu thao tác (lập đơn, ghi
+phiếu nhận, duyệt/từ chối phiếu, đính kèm phiếu giao, thủ kho xác nhận, trưởng bộ phận xác nhận)
+không để lại một dấu vết nào.
+
+🔴 **`themDonHang` từ chối cất khi `maDuAn` rỗng.** Mã đơn `260001-HPCS-PO-001` lấy phần đầu từ mã
+dự án; đơn độc lập để người lập tự chọn nên phải chặn ở tầng dữ liệu, không chỉ khóa nút.
+
 ### `danh-ba-nhan-su.ts` — bám đúng `users/{uid}` của App Tổng
 
 Kiểu `NhanSu` ánh xạ **1-1** với `users/{uid}` trong `CAU-TRUC-FIRESTORE.md` §3.1:

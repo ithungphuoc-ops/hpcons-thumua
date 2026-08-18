@@ -108,8 +108,35 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  *     gõ tự do mặt hàng bất kỳ; ở đây không được, vì khối lượng đặt phải trừ vào một dòng đề
  *     nghị đã duyệt — đặt ngoài đề nghị là mua hàng không ai duyệt. Vì vậy [Thêm dòng] mở hộp
  *     chọn mặt hàng của đề nghị thay vì chèn một dòng trắng.
+ *     ⚠️ Điểm 4 này **chỉ còn đúng ở CHẾ ĐỘ CÓ ĐỀ NGHỊ** — xem khối ngay dưới.
  *
  * 📌 ĐÃ BỎ phân trang "20 bản ghi trên 1 trang" của MISA — xem chú thích trong `BangHangTien`.
+ *
+ * ---
+ *
+ * ★★ HAI CHẾ ĐỘ, MỘT FORM — CHỈ ĐẠO BAN LÃNH ĐẠO 18/08/2026 ★★
+ *
+ * *"MUC NAY SE LA MODUL RIENG, KHONG LIEN QUAN GI TOI QUY TRINH, NO CHI DE PHUC VU LAP DON
+ * DAT HANG, NEN E KO CAN LINK NO TOI CAC BUOC QUY TRINH. va e hay hien thi cac truong nhap
+ * lieu cua modun nay luon"*.
+ *
+ * | | Có đề nghị (`deNghi` khác `null`) | ĐỘC LẬP (`deNghi` là `null`) |
+ * |---|---|---|
+ * | Vào từ | `?prId=…` (thẻ bảng quy trình, nút ở khối bước ④) và `?prId=…&rfqId=…&nccId=…` (tách PO từ bảng báo giá) | Mục menu **Lập đơn mua hàng (PO)**, địa chỉ trơn `/don-hang/tao-moi` |
+ * | Mã dự án | Lấy từ phiếu đề nghị | Người lập **chọn dự án đã có** hoặc gõ mã mới |
+ * | [Thêm dòng] | Mở hộp chọn mặt hàng của đề nghị | Chèn **một dòng trắng** gõ tay |
+ * | Nhập Excel | Đối chiếu với đề nghị (`khopVoiDeNghi`) | Lấy thẳng mọi dòng đọc được |
+ * | Khối lượng | Trừ vào dòng đề nghị, cắt về phần còn lại | Không trừ vào đâu |
+ * | Chốt `vuongMacLapDonHang` | **Có** — bảng báo giá phải đã chốt NCC | 🔴 **KHÔNG** |
+ * | Nhật ký | `DeNghiMuaHang.lichSu` | `DonDatHang.lichSu` của chính đơn |
+ *
+ * 🔴 ĐƯỜNG CÓ ĐỀ NGHỊ KHÔNG ĐƯỢC ĐỔI MỘT LY. Đó là chức năng **tách PO theo phân bổ báo giá**
+ * — thứ mà module độc lập không làm được. Mọi nhánh mới ở dưới đều gác bằng `laDonDocLap`.
+ *
+ * 🔴 CHẾ ĐỘ ĐỘC LẬP ĐI VÒNG QUA MỘT CHỐT KIỂM SOÁT CHI TIÊU. Đơn lập ra là cam kết trả tiền
+ * cho nhà cung cấp mà không qua bước ③ Xét duyệt báo giá — đúng lỗ hổng chỉ đạo 15/08/2026
+ * sinh ra để vá, nay mở lại **có chủ đích** cho riêng đường này. Ban lãnh đạo đã được báo.
+ * Chốt thật nằm ở `3-du-lieu/kho-du-lieu.tsx` → `themDonHang`, không nằm ở giao diện.
  */
 export interface PropFormLapDonMuaHang {
   /**
@@ -119,8 +146,11 @@ export interface PropFormLapDonMuaHang {
    * `<Suspense>`, mà trang chi tiết đề nghị không có `Suspense` nào và là trang tĩnh
    * (`generateStaticParams`) — form tự đọc tham số địa chỉ là `next build` dừng ngay với lỗi
    * "missing-suspense-with-csr-bailout".
+   *
+   * 🔴 TỪ 18/08/2026 LÀ TÙY CHỌN. Bỏ trống (hoặc `null`) = **chế độ độc lập**: đơn không gắn
+   * đề nghị nào. Xem bảng hai chế độ ở khối chú thích đầu file trước khi sửa bất cứ gì.
    */
-  deNghi: DeNghiMuaHang;
+  deNghi?: DeNghiMuaHang | null;
   /** Bảng báo giá nguồn khi TÁCH ĐƠN — chỉ trang riêng truyền (đường vào từ màn Báo giá). */
   rfqId?: string | null;
   /** Nhà cung cấp được phân bổ trong bảng báo giá đó. Đi CẶP với `rfqId`, thiếu một là bỏ qua. */
@@ -144,16 +174,51 @@ export interface PropFormLapDonMuaHang {
   onHuy?: () => void;
 }
 
+/**
+ * ★ DÒNG GÕ TỰ DO ĐÃ ĐỦ ĐỂ VÀO ĐƠN CHƯA — MỘT LUẬT, BA NƠI DÙNG (sửa 18/08/2026).
+ *
+ * 🔴 VÌ SAO PHẢI TÁCH RA: luật này trước đó được chép tay ở HAI chỗ — điều kiện `hopLe`
+ * (đếm dòng đủ để mở nút Cất) và vòng lọc trong `luu()` — nhưng khối tính tiền `tien` thì
+ * KHÔNG có nó. Hệ quả thật: người lập thêm một dòng, gõ Số lượng và Đơn giá nhưng bỏ trống
+ * Tên hàng (hoặc ĐVT), màn hình cộng luôn dòng đó vào **"Tổng tiền thanh toán"** cỡ lớn ở
+ * đầu form và khối "Tổng hợp"; tới lúc cất thì `luu()` bỏ dòng đó đi, nên đơn cất ra mang
+ * một con số NHỎ HƠN con số người lập vừa nhìn và vừa duyệt. Đúng cái sai mà chú thích của
+ * `tien` đã cấm: *"hai chỗ buộc phải bằng nhau"*.
+ *
+ * 📌 Hàm thuần, để NGOÀI component: không phụ thuộc state nào, và như vậy không phải khai
+ * vào `deps` của `useMemo` — quên khai là tiền lại tính bằng bản luật cũ.
+ *
+ * ⚠️ CHỈ ÁP CHO DÒNG GÕ TỰ DO (đơn không gắn đề nghị). Dòng sinh ra từ một dòng đề nghị vốn
+ * đã có đủ tên hàng / ĐVT / khối lượng, và khối lượng của nó còn bị cắt về phần còn được đặt
+ * — luật riêng, đừng gộp.
+ */
+function dongTuDoDuVaoDon(d: DongNhapDonHang): boolean {
+  return (
+    !d.laGhiChu &&
+    d.tenHang.trim() !== "" &&
+    d.dvt.trim() !== "" &&
+    Number(d.soLuong) > 0
+  );
+}
+
 export function FormLapDonMuaHang({
-  deNghi: dn,
+  deNghi: dn = null,
   rfqId,
   nccIdTuBaoGia,
   nhung = false,
   onDaLuu,
   onHuy,
 }: PropFormLapDonMuaHang) {
-  const { donHang, baoGia, phieuNhan, nhaCungCap, themDonHang } = useDuLieu();
+  const { deNghi: dsDeNghi, donHang, baoGia, phieuNhan, nhaCungCap, themDonHang } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+
+  /**
+   * ★ CỜ CHIA HAI CHẾ ĐỘ — mọi nhánh mới ngày 18/08/2026 đều gác bằng cờ này.
+   *
+   * 🔴 SUY TỪ `dn`, KHÔNG nhận thêm một prop `docLap` riêng: hai nguồn sự thật cho cùng một
+   * việc thì sớm muộn có chỗ truyền `docLap` mà vẫn kèm `deNghi`, rồi form chạy nửa nọ nửa kia.
+   */
+  const laDonDocLap = dn === null;
 
   // ---------------------------------------------------------------------------
   // ① KHỐI THÔNG TIN CHUNG — đúng thứ tự ô của màn MISA
@@ -204,6 +269,27 @@ export function FormLapDonMuaHang({
   // ③ KHỐI DƯỚI TRÁI
   // ---------------------------------------------------------------------------
   const [tenCongTrinh, setTenCongTrinh] = useState("");
+  /**
+   * ★ MÃ DỰ ÁN GỐC — chỉ dùng ở CHẾ ĐỘ ĐỘC LẬP (18/08/2026).
+   *
+   * 🔴 VÌ SAO PHẢI CÓ: mã đơn `260001-HPCS-PO-001` lấy phần đầu từ mã dự án, mà mã dự án trước
+   * nay luôn đến từ phiếu đề nghị. Đơn độc lập không có phiếu đề nghị nào, nên nếu không hỏi
+   * thì mã đơn ra `-PO-001` — sai Thông báo 09/2026/TB-HPCS và không sửa lại được sau khi đơn
+   * đã gửi nhà cung cấp. `themDonHang` từ chối cất khi ô này rỗng.
+   *
+   * 📌 CÁCH LẤY: chọn từ danh sách dự án ĐÃ CÓ trong hệ thống, hoặc gõ tay khi là dự án mới —
+   * đúng cách màn "Nhận đề nghị mới" (`trang/de-nghi-nhan-moi.tsx`) đang làm. Dùng lại cách
+   * quen thuộc thay vì bịa kiểu nhập mới, và **không tự đặt hệ mã**: mã dự án gốc là do công
+   * ty cấp theo Thông báo 09/2026, app chỉ ghi lại.
+   *
+   * ⚠️ App CHƯA CÓ danh mục dự án riêng. Danh sách gợi ý được suy ra từ đề nghị và đơn hàng
+   * đang có — nên dự án mới tinh bắt buộc phải gõ tay, và đó là lý do luôn có lựa chọn "nhập
+   * tay". Khi HPcore mở danh mục dự án dùng chung thì thay nguồn ở `duAnDaCo`, giao diện giữ
+   * nguyên.
+   */
+  const [maDuAnNhap, setMaDuAnNhap] = useState("");
+  /** `""` chưa chọn · `"__moi__"` gõ tay · còn lại là mã dự án đã có. */
+  const [duAnChon, setDuAnChon] = useState("");
   const [maHopDong, setMaHopDong] = useState("");
   const [ngayHopDong, setNgayHopDong] = useState("");
   const [diaDiemGiao, setDiaDiemGiao] = useState("");
@@ -253,8 +339,55 @@ export function FormLapDonMuaHang({
     soDongBoQua: number;
   } | null>(null);
 
+  /**
+   * ★ MÃ DỰ ÁN THẬT SỰ ĐEM ĐI CẤP SỐ ĐƠN — một chỗ duy nhất, hai chế độ cùng đọc.
+   *
+   * Tách ra thay vì viết `dn ? dn.maDuAn : maDuAnNhap` rải rác: ô "Số đơn hàng" trên màn hình,
+   * câu nhắc dưới ô đó, điều kiện `hopLe` và lúc gọi `themDonHang` bắt buộc phải cùng một giá
+   * trị — lệch nhau là màn hình hứa một mã, đơn cất ra mang mã khác.
+   */
+  const maDuAnDon = dn ? dn.maDuAn : maDuAnNhap.trim();
+
+  /**
+   * Dự án đã có trong hệ thống — nguồn của ô chọn ở chế độ độc lập.
+   *
+   * 📌 Gom từ CẢ đề nghị LẪN đơn hàng: một dự án có thể mới chỉ có đơn độc lập (lập từ chính
+   * module này) mà chưa có đề nghị nào. Bỏ nguồn thứ hai thì lần lập đơn thứ hai cho cùng dự
+   * án lại phải gõ tay, rất dễ gõ lệch một ký tự → hai "dự án" khác nhau, số thứ tự PO chạy
+   * hai dãy riêng.
+   */
+  const duAnDaCo = useMemo(() => {
+    const map = new Map<string, { maDuAn: string; tenCongTrinh: string; maHopDongCDT?: string }>();
+    for (const d of dsDeNghi) {
+      if (d.maDuAn && !map.has(d.maDuAn)) {
+        map.set(d.maDuAn, {
+          maDuAn: d.maDuAn,
+          tenCongTrinh: d.tenCongTrinh,
+          maHopDongCDT: d.maHopDongCDT,
+        });
+      }
+    }
+    for (const p of donHang) {
+      if (p.maDuAn && !map.has(p.maDuAn)) {
+        map.set(p.maDuAn, {
+          maDuAn: p.maDuAn,
+          tenCongTrinh: p.tenCongTrinh ?? "",
+          maHopDongCDT: p.maHopDongCDT,
+        });
+      }
+    }
+    return [...map.values()].sort((a, b) => a.maDuAn.localeCompare(b.maDuAn, "vi"));
+  }, [dsDeNghi, donHang]);
+
+  /**
+   * Tiến độ từng dòng của phiếu đề nghị nguồn.
+   *
+   * ⚠️ Độc lập thì KHÔNG có đề nghị nào → mảng rỗng, và mọi thứ suy ra từ nó (`dongLapDuoc`,
+   * `conLaiTheoDong`, `matHangConThem`) cũng rỗng theo. Đó là ĐÚNG: không có khối lượng đã
+   * duyệt nào để trừ. Các nhánh dùng chúng đều đã gác bằng `laDonDocLap`.
+   */
   const tienDo = useMemo(
-    () => tinhTienDoDeNghi(dn, donHang, phieuNhan),
+    () => (dn ? tinhTienDoDeNghi(dn, donHang, phieuNhan) : []),
     [dn, donHang, phieuNhan],
   );
 
@@ -262,9 +395,10 @@ export function FormLapDonMuaHang({
    * Dòng lập được PO: đã phân bổ cho mình (hoặc mình là trưởng BP) và còn KL chưa lên PO.
    *
    * 🔴 LUẬT NẰM Ở `2-quy-trinh/giai-doan-mua-hang.ts` → `dongLapDuocDonHang`, KHÔNG viết lại
-   * ở đây. Từ 18/08/2026 bước "chọn đề nghị" của trang riêng `/don-hang/tao-moi` cũng cần
-   * đúng luật này để biết đề nghị nào chọn được — hai bản chép tay thì bước chọn sẽ mời người
-   * dùng vào một đề nghị mà form mở ra thấy bảng trống.
+   * ở đây (quy tắc 3.4b: hàm nghiệp vụ không được nằm trong file giao diện).
+   *
+   * 📌 Sáng 18/08/2026 hàm đó có hai nơi gọi (thêm bước "chọn đề nghị" của `/don-hang/tao-moi`);
+   * chiều cùng ngày Ban lãnh đạo bỏ hẳn bước chọn nên nay chỉ còn ĐÂY là nơi gọi duy nhất.
    */
   const dongLapDuoc = useMemo(
     () => dongLapDuocDonHang(tienDo, nguoiDung.uid, quyen.phanBoCongViec),
@@ -305,6 +439,8 @@ export function FormLapDonMuaHang({
   const daDienTuDeNghi = useRef(false);
   useEffect(() => {
     if (daDienTuDeNghi.current) return;
+    // Độc lập thì không có gì để điền sẵn — người lập tự chọn dự án ở ô bên dưới.
+    if (!dn) return;
     setTenCongTrinh(dn.tenCongTrinh);
     setMaHopDong(dn.maHopDongCDT ?? "");
     daDienTuDeNghi.current = true;
@@ -324,6 +460,8 @@ export function FormLapDonMuaHang({
   const daDienTuBaoGia = useRef(false);
   useEffect(() => {
     if (daDienTuBaoGia.current) return;
+    // Bảng báo giá luôn thuộc về một đề nghị — không có đề nghị thì không có gì để điền sẵn.
+    if (!dn) return;
     if (!rfqId || !nccIdTuBaoGia) return;
     const bg = baoGia.find((b) => b.id === rfqId);
     if (!bg) return;
@@ -413,11 +551,19 @@ export function FormLapDonMuaHang({
     dongBang.forEach((d, i) => {
       if (d.laGhiChu) return;
       const nhap = Number(d.soLuong) || 0;
-      const con = conLaiTheoDong[d.sttDeNghi]?.conLai;
+      /* `sttDeNghi === undefined` = dòng của đơn độc lập: không có "phần còn lại" nào để cắt,
+         nên lấy đúng con số người lập gõ. `con === undefined` bên dưới lo tiếp.
+
+         🔴 NHƯNG DÒNG CHƯA ĐỦ THÌ TÍNH BẰNG 0. `luu()` BỎ HẲN dòng gõ tự do còn thiếu Tên
+         hàng / ĐVT / Số lượng; nếu ở đây vẫn cộng tiền của nó thì "Tổng tiền thanh toán" trên
+         màn hình lớn hơn số tiền của đơn thật sự được cất — xem `dongTuDoDuVaoDon`. */
+      const con =
+        d.sttDeNghi === undefined ? undefined : conLaiTheoDong[d.sttDeNghi]?.conLai;
+      const nhapThat = d.sttDeNghi === undefined && !dongTuDoDuVaoDon(d) ? 0 : nhap;
       dongVao.push({
         sttDong: i,
         // Bỏ trống thì lấy hết phần còn lại — y hệt `luu()`.
-        soLuong: con === undefined ? nhap : nhap > 0 ? Math.min(nhap, con) : con,
+        soLuong: con === undefined ? nhapThat : nhapThat > 0 ? Math.min(nhapThat, con) : con,
         donGia: Number(d.donGia) || 0,
         // Ô trống = theo thuế suất chung của đơn. Ép về 0 ở đây là biến "chưa khai" thành
         // "không chịu thuế" — hai việc khác hẳn nhau trên chứng từ thuế.
@@ -445,6 +591,46 @@ export function FormLapDonMuaHang({
   const xoaDong = useCallback((id: string) => {
     setDongBang((t) => t.filter((d) => d.id !== id));
   }, []);
+  /**
+   * ★ CHÈN MỘT DÒNG HÀNG TRẮNG — chỉ ở chế độ độc lập (18/08/2026).
+   *
+   * 🔴 `sttDeNghi` để `undefined`, KHÔNG để `0`: `0` đã mang nghĩa dòng ghi chú (xem
+   * `DongPO.sttDongDeNghi`). Hai nghĩa chồng lên một giá trị là mầm lỗi.
+   *
+   * ⚠️ Đây chính là chỗ chế độ độc lập rời khỏi quy tắc "mỗi dòng hàng phải nối về một dòng
+   * đề nghị đã duyệt" (điểm 4 ở đầu file). Có chủ đích, theo chỉ đạo 18/08/2026.
+   */
+  const themDongTrong = useCallback(() => {
+    setDongBang((t) => [
+      ...t,
+      {
+        id: khoaDongMoi(),
+        laGhiChu: false,
+        sttDeNghi: undefined,
+        maHang: "",
+        tenHang: "",
+        thongSo: "",
+        dvt: "",
+        soLuong: "",
+        donGia: "",
+        thueSuat: "",
+        truongMoRong1: "",
+        mucDich: "",
+      },
+    ]);
+  }, [khoaDongMoi]);
+
+  /**
+   * Nút [Thêm dòng] và phím F9 — MỘT chỗ quyết định, hai chế độ hai việc khác nhau.
+   *
+   * Có đề nghị → mở hộp chọn mặt hàng của đề nghị (khối lượng phải trừ vào dòng đã duyệt).
+   * Độc lập    → chèn một dòng trắng để gõ tay.
+   */
+  const themDong = useCallback(() => {
+    if (laDonDocLap) themDongTrong();
+    else setMoChonMatHang(true);
+  }, [laDonDocLap, themDongTrong]);
+
   const themGhiChu = useCallback(() => {
     setDongBang((t) => [
       ...t,
@@ -466,7 +652,8 @@ export function FormLapDonMuaHang({
   }, [khoaDongMoi]);
 
   /**
-   * PHÍM TẮT F9 — "Thêm nhanh" của MISA, ở đây là mở hộp chọn mặt hàng.
+   * PHÍM TẮT F9 — "Thêm nhanh" của MISA. Có đề nghị thì mở hộp chọn mặt hàng, độc lập thì
+   * chèn một dòng trắng (xem `themDong`).
    *
    * 📌 MISA còn ghi "F3 - Tìm nhanh". ĐÃ BỎ F3: màn này không có ô tìm kiếm nào để mở, gắn
    * một phím tắt không làm gì là đúng cái lỗi "giao diện hứa một việc app không làm".
@@ -482,11 +669,11 @@ export function FormLapDonMuaHang({
     function bamPhim(e: KeyboardEvent) {
       if (e.key !== "F9") return;
       e.preventDefault();
-      setMoChonMatHang(true);
+      themDong();
     }
     window.addEventListener("keydown", bamPhim);
     return () => window.removeEventListener("keydown", bamPhim);
-  }, [nhung]);
+  }, [nhung, themDong]);
 
   /**
    * 🔴 LỚP CHẶN QUYỀN THỨ HAI, cố ý trùng với chỗ gọi.
@@ -525,19 +712,31 @@ export function FormLapDonMuaHang({
     setDangDocFile(true);
     try {
       const kq = await docDonHangTuExcel(await file.arrayBuffer());
-      // Đối chiếu với TOÀN BỘ dòng của đề nghị (không chỉ dòng lập được) để báo đúng
-      // lý do: "không có trong đề nghị" khác hẳn "có nhưng đã lên đơn hết".
-      const { khop, khongKhop, khongLapDuoc } = khopVoiDeNghi(
-        kq.dong,
-        tienDo.map((d) => ({
-          stt: d.stt,
-          tenVatLieu: d.tenVatLieu,
-          // Quy cách giúp phân biệt hai dòng cùng tên vật liệu — xem `khopVoiDeNghi`.
-          quyCach: d.quyCach,
-          khoiLuongChuaLenPO: d.khoiLuongChuaLenPO,
-          lapDuoc: dongLapDuoc.some((x) => x.stt === d.stt),
-        })),
-      );
+      /**
+       * 🔴 CHỈ ĐỐI CHIẾU VỚI ĐỀ NGHỊ KHI CÓ ĐỀ NGHỊ (18/08/2026).
+       *
+       * Chạy `khopVoiDeNghi` với danh sách rỗng thì MỌI dòng của file rơi vào `khongKhop` và
+       * hộp xem trước báo *"Không có trong đề nghị"* cho từng dòng — nút "Đổ vào bảng" khóa
+       * cứng, chức năng nhập Excel của module độc lập coi như không có.
+       */
+      const { khop, khongKhop, khongLapDuoc } = laDonDocLap
+        ? { khop: [], khongKhop: [], khongLapDuoc: [] }
+        : khopVoiDeNghi(
+            kq.dong,
+            // Đối chiếu với TOÀN BỘ dòng của đề nghị (không chỉ dòng lập được) để báo đúng
+            // lý do: "không có trong đề nghị" khác hẳn "có nhưng đã lên đơn hết".
+            tienDo.map((d) => ({
+              stt: d.stt,
+              tenVatLieu: d.tenVatLieu,
+              // Quy cách giúp phân biệt hai dòng cùng tên vật liệu — xem `khopVoiDeNghi`.
+              quyCach: d.quyCach,
+              khoiLuongChuaLenPO: d.khoiLuongChuaLenPO,
+              lapDuoc: dongLapDuoc.some((x) => x.stt === d.stt),
+            })),
+          );
+
+      /** Độc lập: mọi dòng hàng đọc được đều vào bảng, không qua bước đối chiếu nào. */
+      const dongTuDo = laDonDocLap ? kq.dong : [];
 
       const tenDongDeNghi: Record<number, string> = {};
       for (const d of tienDo) tenDongDeNghi[d.stt] = d.tenVatLieu;
@@ -547,6 +746,24 @@ export function FormLapDonMuaHang({
          BÀY RA, còn đây cần đúng bộ dữ liệu vừa đọc. */
       doVaoBang.current = () => {
         const dongMoi: DongNhapDonHang[] = [];
+
+        /* --- Đơn ĐỘC LẬP: lấy nguyên dòng của file, không nối về đề nghị nào --- */
+        for (const e of dongTuDo) {
+          dongMoi.push({
+            id: khoaDongMoi(),
+            laGhiChu: false,
+            sttDeNghi: undefined,
+            maHang: e.maHang ?? "",
+            tenHang: e.tenHang,
+            thongSo: e.thongSoKyThuat ?? "",
+            dvt: e.donViTinh,
+            soLuong: String(e.soLuong),
+            donGia: e.donGia !== undefined ? String(e.donGia) : "",
+            thueSuat: e.thueSuatGTGT !== undefined ? String(e.thueSuatGTGT) : "",
+            truongMoRong1: e.truongMoRong1 ?? "",
+            mucDich: e.mucDichSuDung ?? "",
+          });
+        }
 
         for (const k of khop) {
           const e = k.dongExcel;
@@ -591,10 +808,35 @@ export function FormLapDonMuaHang({
 
         /* ⚠️ THAY dòng cũ của cùng một mặt hàng, không cộng thêm dòng thứ hai. Chọn nhầm file
            rồi chọn lại file đúng mà app cứ nối tiếp thì bảng có hai dòng cùng mặt hàng, cất
-           đơn là đặt gấp đôi khối lượng. */
-        const sttMoi = new Set(dongMoi.filter((d) => !d.laGhiChu).map((d) => d.sttDeNghi));
+           đơn là đặt gấp đôi khối lượng.
+
+           🔴 HAI CÁCH NHẬN DIỆN "CÙNG MỘT MẶT HÀNG", theo chế độ:
+             · Có đề nghị → theo SỐ THỨ TỰ DÒNG ĐỀ NGHỊ. Chính xác tuyệt đối.
+             · Độc lập    → không có số nào để bám, nên theo TÊN HÀNG + ĐVT (bỏ dấu, gộp
+               khoảng trắng, không phân biệt hoa thường).
+
+           🔴 VÌ SAO KHÔNG QUÉT SẠCH BẢNG Ở CHẾ ĐỘ ĐỘC LẬP dù như vậy đơn giản hơn: người lập
+           có thể đã gõ tay vài dòng rồi mới nhập thêm một file. Xóa hết là mất công nhập liệu
+           của họ, im lặng, không có nút hoàn lại — đúng thứ dự án cấm. Cách trên giữ được
+           dòng gõ tay không dính tới file, mà nhập lại đúng file đó hai lần vẫn không nhân
+           đôi dòng. */
+        const khoaTuDo = (d: { tenHang: string; dvt: string }) =>
+          `${boDau(d.tenHang).replace(/\s+/g, " ").trim().toLowerCase()}|${boDau(d.dvt)
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase()}`;
+        const sttMoi = new Set(
+          dongMoi.filter((d) => !d.laGhiChu && d.sttDeNghi !== undefined).map((d) => d.sttDeNghi),
+        );
+        const khoaMoi = new Set(
+          dongMoi.filter((d) => !d.laGhiChu && d.sttDeNghi === undefined).map(khoaTuDo),
+        );
         setDongBang((t) => [
-          ...t.filter((d) => d.laGhiChu || !sttMoi.has(d.sttDeNghi)),
+          ...t.filter((d) => {
+            if (d.laGhiChu) return true;
+            if (d.sttDeNghi !== undefined) return !sttMoi.has(d.sttDeNghi);
+            return !khoaMoi.has(khoaTuDo(d));
+          }),
           ...dongMoi,
         ]);
 
@@ -662,6 +904,8 @@ export function FormLapDonMuaHang({
         khop,
         khongKhop,
         khongLapDuoc,
+        dongTuDo,
+        nhapTuDo: laDonDocLap,
         dongGhiChu: kq.dongGhiChu,
         dongLoi: kq.dongLoi,
         thieuCot: kq.thieuCot,
@@ -692,7 +936,13 @@ export function FormLapDonMuaHang({
    * nên tên hàng chắc chắn khớp — người lập chỉ điền Đơn giá rồi chọn lại file.
    */
   async function taiFileMau() {
-    if (dongLapDuoc.length === 0) {
+    /**
+     * 🔴 CHẶN CHỈ ÁP CHO CHẾ ĐỘ CÓ ĐỀ NGHỊ.
+     *
+     * Đơn độc lập không có "mặt hàng của đề nghị" nào, nên `dongLapDuoc` luôn rỗng — giữ nguyên
+     * chốt cũ là nút "Tải file mẫu" chết vĩnh viễn ở module mới.
+     */
+    if (!laDonDocLap && dongLapDuoc.length === 0) {
       toast.error("Không có mặt hàng nào để đưa vào file", {
         description: "Đề nghị này đã lên đơn hết, hoặc các dòng chưa được phân bổ cho ai.",
       });
@@ -700,33 +950,64 @@ export function FormLapDonMuaHang({
     }
     setDangTaoFile(true);
     try {
+      /**
+       * NGUỒN DÒNG CỦA FILE MẪU, theo chế độ:
+       *   · Có đề nghị → các mặt hàng còn đặt được của đề nghị (đường cũ, không đổi).
+       *   · Độc lập    → chính những dòng đang có trên bảng. Bảng trống thì file ra **chỉ có
+       *     dòng tiêu đề** — và như vậy là ĐÚNG việc người dùng cần: một biểu mẫu sạch đúng
+       *     tên cột mà app đọc lại được, để họ gõ trong Excel rồi nhập vào.
+       */
+      const dongChoFile = laDonDocLap
+        ? dongBang
+            .filter((d) => !d.laGhiChu)
+            .map((d, i) => ({
+              stt: i + 1,
+              tenVatLieu: d.tenHang,
+              quyCach: d.thongSo || undefined,
+              donViTinh: d.dvt,
+              soLuong: Number(d.soLuong) || 0,
+              mucDichSuDung: d.mucDich || undefined,
+            }))
+        : dongLapDuoc.map((d) => ({
+            stt: d.stt,
+            tenVatLieu: d.tenVatLieu,
+            quyCach: d.quyCach,
+            donViTinh: d.donViTinh,
+            soLuong: d.khoiLuongChuaLenPO,
+            mucDichSuDung: d.mucDichSuDung,
+          }));
+
       const blob = await taoFileNhapDonHang({
-        maDeNghi: dn.code,
-        tenCongTrinh: dn.tenCongTrinh,
-        maHopDongCDT: dn.maHopDongCDT,
-        diaDiemGiaoHang: diaDiemGiao || dn.tenCongTrinh,
+        maDeNghi: dn?.code,
+        tenCongTrinh: dn ? dn.tenCongTrinh : tenCongTrinh,
+        maHopDongCDT: dn ? dn.maHopDongCDT : maHopDong || undefined,
+        diaDiemGiaoHang: diaDiemGiao || (dn ? dn.tenCongTrinh : tenCongTrinh),
         nguoiNhanHang,
-        dong: dongLapDuoc.map((d) => ({
-          stt: d.stt,
-          tenVatLieu: d.tenVatLieu,
-          quyCach: d.quyCach,
-          donViTinh: d.donViTinh,
-          soLuong: d.khoiLuongChuaLenPO,
-          mucDichSuDung: d.mucDichSuDung,
-        })),
+        dong: dongChoFile,
+        nhapTuDo: laDonDocLap,
       });
 
+      /* Tên file phải phân biệt được giữa các lần tải. Độc lập thì không có mã đề nghị, dùng
+         mã dự án; chưa chọn dự án thì một nhãn cố định còn hơn tên file cụt. */
+      const tenFile = tenFileNhapDonHang(dn?.code || maDuAnDon || "khong-gan-de-nghi");
       // Tải xuống bằng thẻ <a> tạm — không cần máy chủ, chạy được cả trên hosting tĩnh.
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = tenFileNhapDonHang(dn.code);
+      a.download = tenFile;
       a.click();
       URL.revokeObjectURL(url);
 
-      toast.success(`Đã tải file mẫu với ${dongLapDuoc.length} mặt hàng`, {
-        description: "Điền cột Đơn giá rồi bấm “Chọn file Excel” để nhập lại.",
-      });
+      toast.success(
+        dongChoFile.length > 0
+          ? `Đã tải file mẫu với ${dongChoFile.length} mặt hàng`
+          : "Đã tải biểu mẫu trống",
+        {
+          description: laDonDocLap
+            ? "Điền Tên hàng, ĐVT, SL, Đơn giá trong Excel rồi bấm “Nhập từ Excel”."
+            : "Điền cột Đơn giá rồi bấm “Chọn file Excel” để nhập lại.",
+        },
+      );
     } catch (loi) {
       console.error("[nhập Excel] không tạo được file mẫu:", loi);
       toast.error("Không tạo được file mẫu");
@@ -765,8 +1046,14 @@ export function FormLapDonMuaHang({
     setTyLeChietKhau("");
     setChietKhau("");
     setThueSuat("8");
-    setTenCongTrinh(dn.tenCongTrinh);
-    setMaHopDong(dn.maHopDongCDT ?? "");
+    /* Có đề nghị thì điền lại từ phiếu (hiệu ứng "chạy một lần" đã xong). Độc lập thì GIỮ
+       NGUYÊN dự án / tên công trình / hợp đồng vừa chọn: người lập thường cất liền mấy đơn cho
+       cùng một công trình, xóa đi là bắt chọn lại từ đầu mỗi lần. Mã dự án cũng phải giữ để ô
+       "Số đơn hàng" tiếp tục hiện đúng dãy mã. */
+    if (dn) {
+      setTenCongTrinh(dn.tenCongTrinh);
+      setMaHopDong(dn.maHopDongCDT ?? "");
+    }
     setNgayHopDong("");
     setDiaDiemGiao("");
     setNguoiNhanHang("");
@@ -777,8 +1064,23 @@ export function FormLapDonMuaHang({
 
   /** Dòng hàng thật (bỏ dòng ghi chú) — dùng để biết đơn đã có gì chưa. */
   const soDongHang = dongBang.filter((d) => !d.laGhiChu).length;
+  /**
+   * Ở chế độ độc lập, dòng hàng gõ tay có thể còn trống — phải có ít nhất một dòng ĐỦ tên
+   * hàng, đơn vị tính và số lượng > 0 thì đơn mới có nghĩa. Đường có đề nghị không cần kiểm
+   * việc này vì mọi dòng đều sinh ra từ một dòng đề nghị đã có đủ ba thứ đó.
+   */
+  const soDongHangHopLe = laDonDocLap
+    ? dongBang.filter(dongTuDoDuVaoDon).length
+    : soDongHang;
   // Đòi TÊN nhà cung cấp, không đòi phải có trong danh mục (chỉ đạo Ban lãnh đạo 10/08/2026).
-  const hopLe = soDongHang > 0 && tenNCC.trim() !== "" && ngayGiao !== "" && ngayDonHang !== "";
+  // 🔴 Độc lập đòi thêm MÃ DỰ ÁN: không có thì `themDonHang` từ chối cất, mà để người lập gõ
+  // xong cả đơn rồi mới báo là bắt họ làm không công.
+  const hopLe =
+    soDongHangHopLe > 0 &&
+    tenNCC.trim() !== "" &&
+    ngayGiao !== "" &&
+    ngayDonHang !== "" &&
+    (!laDonDocLap || maDuAnDon !== "");
 
   /**
    * Lý do CHƯA CẤT được đơn — `null` là cất được.
@@ -792,7 +1094,11 @@ export function FormLapDonMuaHang({
    * được"* — câu đó nói về MỘT MÀN KHÁC, nay form ở ngay tại chỗ nên câu ấy sai văn cảnh. Và
    * trang riêng thì trước đây KHÔNG có cảnh báo nào, người lập gõ hết đơn mới biết bị chặn.
    */
-  const chanLapDon = vuongMacLapDonHang(baoGia.filter((b) => b.prId === dn.id));
+  /* 🔴 CHỈ ÁP CHO ĐƠN CÓ ĐỀ NGHỊ (18/08/2026). Đơn độc lập không gắn đề nghị nên không có
+     bảng báo giá nào để đối chiếu; chạy luật này với danh sách rỗng thì dải cảnh báo đỏ hiện
+     thường trực và nói một câu vô nghĩa. `themDonHang` cũng bỏ qua chốt này cho đơn độc lập —
+     hai chỗ phải cùng luật, xem chú thích ở đó về việc ĐI VÒNG QUA kiểm soát chi tiêu. */
+  const chanLapDon = dn ? vuongMacLapDonHang(baoGia.filter((b) => b.prId === dn.id)) : null;
 
   function luu(rangIn: boolean) {
     if (tenNCC.trim() === "") return;
@@ -846,6 +1152,40 @@ export function FormLapDonMuaHang({
         continue;
       }
 
+      /**
+       * ★ HAI ĐƯỜNG TÍNH KHỐI LƯỢNG, tách hẳn theo chế độ.
+       *
+       * · CÓ ĐỀ NGHỊ: dòng phải nằm trong `dongLapDuoc`, và khối lượng bị CẮT về phần còn được
+       *   đặt. Đây là lớp chặn cuối cùng, cố ý trùng với lớp ở chỗ điền sẵn và hộp thêm dòng.
+       * · ĐỘC LẬP: không có gì để trừ vào, lấy đúng con số người lập gõ. Dòng thiếu tên hàng /
+       *   ĐVT / số lượng thì BỎ — một dòng trắng lọt vào đơn gửi nhà cung cấp là lỗi chứng từ.
+       *   (`hopLe` đã khóa nút Cất khi KHÔNG CÒN dòng nào đủ, nhưng bảng vẫn có thể lẫn dòng
+       *   trắng bên cạnh dòng đủ.)
+       */
+      if (d.sttDeNghi === undefined) {
+        if (!laDonDocLap) continue;
+        // Cùng một luật với `hopLe` và với khối tính tiền — xem `dongTuDoDuVaoDon`.
+        if (!dongTuDoDuVaoDon(d)) continue;
+        const soLuong = Number(d.soLuong);
+
+        const sttDongTuDo = items.length + 1;
+        items.push({
+          sttDong: sttDongTuDo,
+          // Không trỏ về đề nghị nào — xem `DongPO.sttDongDeNghi`.
+          sttDongDeNghi: undefined,
+          maHang: d.maHang.trim() || undefined,
+          tenVatLieu: d.tenHang.trim(),
+          thongSoKyThuat: d.thongSo.trim() || undefined,
+          donViTinh: d.dvt.trim(),
+          khoiLuongDat: soLuong,
+          mucDichSuDung: d.mucDich.trim() || undefined,
+          truongMoRong1: d.truongMoRong1.trim() || undefined,
+        });
+        giaTheoDong[sttDongTuDo] = Number(d.donGia) || 0;
+        if (d.thueSuat.trim() !== "") thueSuatTheoDong[sttDongTuDo] = Number(d.thueSuat) || 0;
+        continue;
+      }
+
       if (!sttHopLe.has(d.sttDeNghi)) continue;
       const con = conLai.get(d.sttDeNghi) ?? 0;
       const nhap = Number(d.soLuong);
@@ -877,7 +1217,9 @@ export function FormLapDonMuaHang({
     // Lọc xong không còn dòng hàng nào thì dừng, kèm lý do — đừng lập một đơn hàng trống.
     if (dongHang.length === 0) {
       toast.error("Không có dòng nào lập được đơn", {
-        description: "Các dòng trong bảng hiện chưa được phân bổ, hoặc đã lên đơn đủ khối lượng.",
+        description: laDonDocLap
+          ? "Mỗi dòng hàng phải có đủ Tên hàng, ĐVT và Số lượng lớn hơn 0."
+          : "Các dòng trong bảng hiện chưa được phân bổ, hoặc đã lên đơn đủ khối lượng.",
       });
       return;
     }
@@ -903,11 +1245,15 @@ export function FormLapDonMuaHang({
     }
 
     const ketQua = themDonHang({
-      maDuAn: dn.maDuAn,
+      // Một chỗ duy nhất, hai chế độ — xem `maDuAnDon`.
+      maDuAn: maDuAnDon,
       maHopDongCDT: maHopDong.trim() || undefined,
       ngayHopDongCDT: ngayHopDong || undefined,
-      prId: dn.id,
-      prCode: dn.code,
+      /* 🔴 Đơn độc lập KHÔNG gắn đề nghị: để `undefined` cả hai, không nhét chuỗi rỗng. Chuỗi
+         rỗng vẫn "có giá trị" nên mọi chỗ kiểm `po.prId ?` sẽ tưởng là có đề nghị, rồi vẽ ra
+         một liên kết `/de-nghi/` chết. */
+      prId: dn?.id,
+      prCode: dn?.code,
       tenCongTrinh: tenCongTrinh.trim() || undefined,
       supplierId: ncc.id,
       supplierTen: ncc.ten,
@@ -1077,6 +1423,27 @@ export function FormLapDonMuaHang({
               : "flex min-w-0 flex-col gap-(--hp-md-section)"
         }
       >
+      {/* ===== DẢI THÔNG BÁO: ĐƠN NÀY KHÔNG GẮN ĐỀ NGHỊ NÀO =====
+          🔴 PHẢI NÓI RA, không được để người lập tưởng mình đang lập đơn cho một phiếu đề nghị
+          nào đó. Hai hệ quả dưới đây là thật và Ban lãnh đạo đã được báo trước khi làm:
+          app không đối chiếu được khối lượng, và đơn không hiện trên bảng quy trình 8 cột.
+          Giấu đi thì người dùng chỉ phát hiện khi đi tìm đơn trên bảng mà không thấy. */}
+      {laDonDocLap && (
+        <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning-bg p-(--hp-md-row-pad) text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">Đơn lập riêng, không gắn phiếu đề nghị.</strong>{" "}
+            Mặt hàng nhập tự do, khối lượng <strong>không trừ vào đề nghị nào</strong> và đơn{" "}
+            <strong>không hiện trên bảng quy trình mua hàng</strong>. Cần đơn gắn với một phiếu
+            đề nghị (để đối chiếu khối lượng đã duyệt) thì vào phiếu đó ở{" "}
+            <Link href="/de-nghi" className="font-medium text-primary hover:underline">
+              Quy trình mua hàng
+            </Link>{" "}
+            rồi bấm “Lập đơn đặt hàng”.
+          </span>
+        </div>
+      )}
+
       {/* ===== DẢI THÔNG BÁO: đơn này là MỘT PHẦN tách ra từ bảng báo giá =====
           Không có dòng này thì người lập mở màn ra thấy số liệu tự có sẵn mà không hiểu
           vì sao, dễ tưởng app điền sai rồi xóa đi làm lại. */}
@@ -1258,6 +1625,84 @@ export function FormLapDonMuaHang({
                   className="w-48"
                 />
               </div>
+              {/* ===== Ô CHỌN DỰ ÁN — CHỈ Ở CHẾ ĐỘ ĐỘC LẬP (18/08/2026) =====
+                  🔴 VÌ SAO ĐẶT NGAY TRÊN Ô "Số đơn hàng": số đơn lấy phần đầu từ mã dự án, nên
+                  hai ô này phải nằm cạnh nhau để người lập thấy ngay chọn xong thì mã đơn
+                  thành cái gì.
+
+                  🔴 KHÔNG TỰ BỊA MÃ DỰ ÁN. Mã dự án gốc do công ty cấp theo Thông báo
+                  09/2026/TB-HPCS; app chỉ cho CHỌN LẠI cái đã có hoặc GHI LẠI cái người dùng
+                  gõ. Danh sách gợi ý suy từ đề nghị + đơn hàng đang có (app chưa có danh mục
+                  dự án riêng) — nên luôn phải chừa đường "nhập tay" cho dự án mới.
+
+                  📌 Dùng `<select>` gốc, đúng như màn "Nhận đề nghị mới" — không dựng thêm
+                  kiểu nhập mới cho cùng một việc. `min-h-11` đủ vùng chạm 44px (V1.1 Phần F).
+
+                  🔴 `w-full min-w-0` KHÔNG PHẢI TRANG TRÍ. `<select>` để `width:auto` thì bề
+                  rộng tối thiểu của nó bằng bề rộng của LỰA CHỌN DÀI NHẤT, mà mỗi lựa chọn ở
+                  đây là “mã dự án — tên công trình” (có thể 60–70 ký tự). Ô này nằm trong một
+                  ô lưới `auto`, nên bề rộng tối thiểu đó đẩy giãn cả cột: trên màn 375px phần
+                  bên phải bị `overflow-x-hidden` của `khung-tong.tsx` CẮT MẤT — không trôi
+                  ngang nên đo `scrollWidth` cũng không thấy, chỉ thấy khi mở bằng điện thoại.
+                  `min-w-0` bỏ bề rộng tối thiểu tự động, `w-full` ép ô co theo cột và tên dài
+                  tự cắt bớt. */}
+              {laDonDocLap && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="du-an-don">
+                    Dự án / Công trình <span className="text-danger">*</span>
+                  </Label>
+                  <select
+                    id="du-an-don"
+                    value={duAnChon}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDuAnChon(v);
+                      if (v === "__moi__") {
+                        // Chuyển sang gõ tay thì DỌN ô mã — giữ lại mã của dự án vừa chọn là
+                        // mời người lập bấm Cất mà tưởng đang lập cho dự án mới.
+                        setMaDuAnNhap("");
+                        return;
+                      }
+                      const d = duAnDaCo.find((x) => x.maDuAn === v);
+                      if (!d) {
+                        setMaDuAnNhap("");
+                        return;
+                      }
+                      setMaDuAnNhap(d.maDuAn);
+                      // Điền hộ tên công trình và hợp đồng — hai ô đó nằm ở khối dưới, gõ lại
+                      // là mời sai sót vào chứng từ gửi nhà cung cấp.
+                      if (d.tenCongTrinh) setTenCongTrinh(d.tenCongTrinh);
+                      if (d.maHopDongCDT) setMaHopDong(d.maHopDongCDT);
+                    }}
+                    className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+                  >
+                    <option value="">-- Chọn dự án --</option>
+                    {duAnDaCo.map((d) => (
+                      <option key={d.maDuAn} value={d.maDuAn}>
+                        {d.maDuAn}
+                        {d.tenCongTrinh ? ` — ${d.tenCongTrinh}` : ""}
+                      </option>
+                    ))}
+                    <option value="__moi__">Dự án khác — nhập tay…</option>
+                  </select>
+                  {duAnChon === "__moi__" && (
+                    <>
+                      <Input
+                        value={maDuAnNhap}
+                        onChange={(e) => setMaDuAnNhap(e.target.value)}
+                        placeholder="260001-HPCS"
+                        aria-label="Mã dự án gốc"
+                        className="w-56"
+                      />
+                      <span className="text-xs text-text-desc">
+                        Mã dự án gốc theo Thông báo 09/2026/TB-HPCS, dạng{" "}
+                        <strong>YYUNNN-HPCS</strong>.
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="so-don-hang">Số đơn hàng</Label>
                 {/* 🔴 SINH TỰ ĐỘNG THEO THÔNG BÁO 09/2026/TB-HPCS, không cho gõ và KHÔNG đoán
@@ -1267,13 +1712,15 @@ export function FormLapDonMuaHang({
                     ⚠️ KHÔNG lấy kiểu `DMH0532-26` của MISA. */}
                 <Input
                   id="so-don-hang"
-                  value={`${dn.maDuAn}-PO-…`}
+                  value={`${maDuAnDon || "[mã dự án]"}-PO-…`}
                   readOnly
                   disabled
                   className="w-56"
                 />
                 <span className="text-xs text-text-desc">
-                  Cấp tự động khi cất, theo mã dự án {dn.maDuAn}.
+                  {maDuAnDon
+                    ? `Cấp tự động khi cất, theo mã dự án ${maDuAnDon}.`
+                    : "Chọn dự án ở ô trên thì mới cấp được số đơn hàng."}
                 </span>
               </div>
               <div className="flex flex-col gap-2">
@@ -1332,13 +1779,15 @@ export function FormLapDonMuaHang({
             chietKhau={chietKhau}
             onDoiDong={doiDong}
             onXoaDong={xoaDong}
-            onThemDong={() => setMoChonMatHang(true)}
+            onThemDong={themDong}
             onThemGhiChu={themGhiChu}
             onXoaHetDong={() => setHoiXoaHetDong(true)}
             onDoiKieuChietKhau={setKieuChietKhau}
             onDoiTyLeChietKhau={setTyLeChietKhau}
             onDoiChietKhau={setChietKhau}
-            conMatHangDeThem={matHangConThem.length > 0}
+            /* Độc lập thì luôn thêm được dòng mới — không có danh sách mặt hàng nào để cạn. */
+            conMatHangDeThem={laDonDocLap || matHangConThem.length > 0}
+            nhapTuDo={laDonDocLap}
             /* Khi nhúng thì tiêu đề "Hàng tiền" phải nhỏ hơn tiêu đề khối bước — lý do như
                khối "Tổng tiền thanh toán" ở trên. */
             tieuDeTrongKhoiGiaiDoan={nhung}
@@ -1382,12 +1831,16 @@ export function FormLapDonMuaHang({
         <Card>
           <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="ma-rq">Mã RQ - Tên công trình</Label>
+              {/* 🔴 NHÃN PHẢI ĐỔI THEO CHẾ ĐỘ. Đơn độc lập không có mã RQ nào; để nguyên nhãn
+                  "Mã RQ - Tên công trình" rồi bày mỗi một ô là giao diện nói sai. */}
+              <Label htmlFor="ma-rq">{dn ? "Mã RQ - Tên công trình" : "Tên công trình"}</Label>
               <div className="flex flex-wrap gap-2">
                 {/* Mã RQ chỉ đọc: nó là mã phiếu đề nghị nguồn, đổi tay là mất đường truy vết
                     về khối lượng đã duyệt. Tên công trình thì sửa được — đơn là chứng từ gửi
                     ra ngoài, tên in trên đó phải đứng yên kể cả khi đề nghị bị đổi tên sau. */}
-                <Input value={dn.code} readOnly disabled className="w-44" aria-label="Mã RQ" />
+                {dn && (
+                  <Input value={dn.code} readOnly disabled className="w-44" aria-label="Mã RQ" />
+                )}
                 <Input
                   id="ma-rq"
                   value={tenCongTrinh}
@@ -1396,6 +1849,15 @@ export function FormLapDonMuaHang({
                   placeholder="Tên công trình"
                 />
               </div>
+              {/* Tên công trình được in ra bản A4 và file Excel gửi nhà cung cấp (dòng "Mã đề
+                  xuất và tên công trình"), nên ở chế độ độc lập phải nói rõ để người lập không
+                  bỏ trống. Không bắt buộc: có đơn mua cho việc không gắn công trình nào. */}
+              {laDonDocLap && (
+                <span className="text-xs text-text-desc">
+                  In ra bản đơn A4 và file Excel gửi nhà cung cấp. Chọn dự án ở khối trên thì
+                  ô này tự điền.
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col gap-2">
@@ -1425,7 +1887,9 @@ export function FormLapDonMuaHang({
                   dùng hơn ô gõ tay. Bỏ trống thì lấy tên công trình. */}
               <Input
                 id="dia-diem"
-                placeholder={dn.tenCongTrinh}
+                /* Gợi ý bằng tên công trình đang có trên form — độc lập thì đó là ô người lập
+                   vừa gõ, có đề nghị thì là tên lấy từ phiếu. */
+                placeholder={tenCongTrinh || "Chân công trình"}
                 value={diaDiemGiao}
                 onChange={(e) => setDiaDiemGiao(e.target.value)}
               />
@@ -1570,8 +2034,12 @@ export function FormLapDonMuaHang({
           )}
           <div className="flex flex-wrap items-center gap-3">
             {!hopLe && (
-              <span className="text-xs text-text-desc">
-                Cần tên nhà cung cấp, ngày đơn hàng, ngày giao hàng và ít nhất một dòng hàng.
+              <span className="max-w-80 text-xs text-text-desc">
+                {/* Nói ĐỦ những gì còn thiếu, kể cả cái chỉ chế độ độc lập mới đòi — nút mờ
+                    không giải thích là kiểu bí việc khó chịu nhất (bài học 15/08/2026). */}
+                Cần {laDonDocLap ? "mã dự án, " : ""}tên nhà cung cấp, ngày đơn hàng, ngày giao
+                hàng và ít nhất một dòng hàng
+                {laDonDocLap ? " có đủ tên hàng, ĐVT và số lượng" : ""}.
               </span>
             )}
             <Button disabled={!hopLe} onClick={() => setHoiCat("cat")}>
@@ -1634,8 +2102,14 @@ export function FormLapDonMuaHang({
       <HopXacNhan
         mo={hoiCat !== null}
         tieuDe="Cất đơn mua hàng này?"
-        moTa={`Đơn cho ${tenNCC.trim() || "nhà cung cấp"} với ${soDongHang} mặt hàng, giao dự kiến ${ngayGiao || "—"}.`}
-        canhBao="Khối lượng bị trừ khỏi phần chưa lên đơn của đề nghị. Không hoàn lại được."
+        moTa={`Đơn cho ${tenNCC.trim() || "nhà cung cấp"} với ${soDongHangHopLe} mặt hàng, giao dự kiến ${ngayGiao || "—"}.`}
+        /* Câu cảnh báo phải ĐÚNG với việc sắp xảy ra: đơn độc lập không trừ khối lượng của
+           đề nghị nào, nói ngược lại là hứa một chuyện app không làm. */
+        canhBao={
+          laDonDocLap
+            ? "Đơn không gắn đề nghị nên không trừ khối lượng của phiếu nào, và không hiện trên bảng quy trình. Không hoàn lại được."
+            : "Khối lượng bị trừ khỏi phần chưa lên đơn của đề nghị. Không hoàn lại được."
+        }
         nhanDongY={hoiCat === "cat-in" ? "Cất và In" : "Cất"}
         onDong={() => setHoiCat(null)}
         onDongY={() => luu(hoiCat === "cat-in")}

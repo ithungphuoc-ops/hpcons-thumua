@@ -41,8 +41,19 @@ export function NutXuatDonHangExcel({
 
   const gia = giaDonHang.find((g) => g.poId === poId);
   const ncc = nhaCungCap.find((n) => n.id === po.supplierId);
-  /** Tên công trình nằm ở ĐỀ NGHỊ nguồn — `DonDatHang` không có trường này. */
-  const tenCongTrinh = deNghi.find((d) => d.id === po.prId)?.tenCongTrinh;
+  /**
+   * Tên công trình in vào ô "Mã đề xuất và tên công trình :" của file Excel.
+   *
+   * 🔴 ƯU TIÊN TRƯỜNG TRÊN CHÍNH ĐƠN. `DonDatHang.tenCongTrinh` có từ 17/08/2026 (chép sang
+   * đơn là cố ý: chứng từ gửi ra ngoài phải đứng yên kể cả khi đề nghị bị sửa tên), nhưng chỗ
+   * này vẫn tra ngược đề nghị — và chú thích cũ *"`DonDatHang` không có trường này"* đã lỗi
+   * thời. Với đơn KHÔNG gắn đề nghị (18/08/2026) thì tra ngược cho ra `undefined` và file
+   * Excel mất luôn tên công trình.
+   *
+   * Vẫn giữ đường lùi tra đề nghị cho đơn cũ lập trước 17/08/2026 (chưa có trường trên đơn).
+   */
+  const tenCongTrinh =
+    po.tenCongTrinh ?? (po.prId ? deNghi.find((d) => d.id === po.prId)?.tenCongTrinh : undefined);
 
   const vuongMac = vuongMacXuatPO({ po, gia });
 

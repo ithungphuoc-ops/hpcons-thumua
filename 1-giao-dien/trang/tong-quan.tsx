@@ -145,7 +145,11 @@ export default function TrangTongQuan() {
                   <div className="flex min-w-56 flex-col">
                     <span className="text-sm font-semibold text-text-primary">{po.code}</span>
                     <span className="text-xs text-text-desc">
-                      {quyen.xemNhaCungCap ? po.supplierTen : po.prCode}
+                      {/* Vai trò không xem được NCC thì dòng phụ dùng mã đề nghị nguồn. Đơn
+                          không gắn đề nghị (18/08/2026) thì nói rõ, đừng để thẻ trống trơn. */}
+                      {quyen.xemNhaCungCap
+                        ? po.supplierTen
+                        : (po.prCode ?? "Đơn không gắn đề nghị")}
                     </span>
                   </div>
                   <StatusBadge label={tt.nhan} tone={tt.tong} />

@@ -57,10 +57,17 @@ export default function TrangDanhSachDonHang() {
         <EmptyState
           icon={ShoppingCart}
           title="Chưa có đơn đặt hàng nào"
+          /* 🔴 PHẢI NÊU CẢ HAI ĐƯỜNG (sửa 18/08/2026). Câu cũ chỉ nói *"Đơn đặt hàng sinh ra
+             từ đề nghị"* và chỉ một đường đi qua Quy trình mua hàng — từ 18/08/2026 Ban lãnh
+             đạo đã mở thêm mục menu "Lập đơn mua hàng (PO)" lập được đơn KHÔNG gắn đề nghị.
+             Để nguyên câu cũ là màn hình trống chỉ sai đường: người dùng đi phân bổ, hỏi giá,
+             chờ duyệt báo giá... trong khi việc họ cần chỉ là bấm một mục menu. */
           description={
-            "Đơn đặt hàng sinh ra từ đề nghị. Đường đi: mở Quy trình mua hàng → bấm vào một đề nghị " +
-            "→ phân bổ người phụ trách cho mọi dòng vật tư → nhập giá nhà cung cấp " +
-            "→ trưởng bộ phận chốt nhà cung cấp → Lập đơn đặt hàng. Có đơn rồi mới in và xuất Excel được."
+            "Chưa có đơn nào. Hai đường lập đơn: (1) mục menu “Lập đơn mua hàng (PO)” — đơn lập riêng, " +
+            "không gắn phiếu đề nghị, hiện ngay các ô nhập liệu; (2) đơn GẮN với một phiếu đề nghị: " +
+            "mở Quy trình mua hàng → bấm vào một đề nghị → phân bổ người phụ trách cho mọi dòng vật tư " +
+            "→ nhập giá nhà cung cấp → trưởng bộ phận chốt nhà cung cấp → Lập đơn đặt hàng. " +
+            "Có đơn rồi mới in và xuất Excel được."
           }
         />
       ) : (
@@ -93,7 +100,12 @@ export default function TrangDanhSachDonHang() {
                             {po.code}
                           </Link>
                         </TableCell>
-                        <TableCell className="text-sm text-text-desc">{po.prCode}</TableCell>
+                        {/* Đơn không gắn đề nghị (module Lập PO độc lập, 18/08/2026) thì nói
+                            rõ bằng CHỮ, không để ô trống — ô trống trong bảng đọc ra là "dữ
+                            liệu thiếu", còn đây là chuyện cố ý. */}
+                        <TableCell className="text-sm text-text-desc">
+                          {po.prCode ?? "Không gắn đề nghị"}
+                        </TableCell>
                         {quyen.xemNhaCungCap && <TableCell className="text-sm">{po.supplierTen}</TableCell>}
                         {quyen.xemNguoiPhuTrach && (
                           <TableCell className="text-sm">{po.nguoiPhuTrachTen}</TableCell>

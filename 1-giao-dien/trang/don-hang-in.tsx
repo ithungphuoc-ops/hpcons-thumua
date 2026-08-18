@@ -261,9 +261,19 @@ export default function TrangInDonHang() {
             giaTri={new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
             rong
           />
+          {/* 🔴 DÒNG NÀY IN RA GIẤY GỬI NHÀ CUNG CẤP — không được để trống, và phải in ĐÚNG
+              thứ mà nhãn hứa.
+
+              Sửa 18/08/2026, hai việc:
+              ① Đơn KHÔNG gắn đề nghị thì `prCode` là `undefined` → trước đây in ra chuỗi cụt.
+              ② Nhãn ghi *"Mã đề xuất và **tên công trình**"* mà giá trị cũ ghép `maHopDongCDT`
+                 — mã hợp đồng đã có dòng riêng "Căn cứ hợp đồng số" ngay bên dưới, còn tên
+                 công trình thì không in ở đâu cả. `DonDatHang.tenCongTrinh` có từ 17/08/2026
+                 nhưng trang in chưa dùng. Nay in đúng hai thứ nhãn nói, khớp với file Excel
+                 xuất ra (`2-quy-trinh/xuat-don-hang-excel.ts` cũng ghép `prCode` + tên CT). */}
           <Dong
             nhan="Mã đề xuất và tên công trình"
-            giaTri={`${po.prCode}${po.maHopDongCDT ? ` · ${po.maHopDongCDT}` : ""}`}
+            giaTri={[po.prCode, po.tenCongTrinh].filter(Boolean).join(" · ") || "—"}
             rong
           />
           <Dong nhan="Căn cứ hợp đồng số" giaTri={po.maHopDongCDT ?? "—"} rong />

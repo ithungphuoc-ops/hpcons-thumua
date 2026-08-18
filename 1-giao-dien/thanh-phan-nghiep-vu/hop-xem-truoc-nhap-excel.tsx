@@ -60,6 +60,25 @@ export interface DuLieuXemTruocExcel {
   khop: KetQuaKhop["khop"];
   khongKhop: DongExcel[];
   khongLapDuoc: KetQuaKhop["khongLapDuoc"];
+  /**
+   * ★ DÒNG HÀNG CỦA ĐƠN KHÔNG GẮN ĐỀ NGHỊ (18/08/2026) — vào bảng thẳng, không đối chiếu.
+   *
+   * 🔴 KHÔNG nhét vào `khop`: `khop` mang theo `sttDeNghi` và câu giải thích *"Đề nghị dòng
+   * N"*, mà ở chế độ độc lập không có đề nghị nào để chỉ. In một số dòng đề nghị bịa ra là
+   * đúng kiểu "giao diện hứa một việc app không làm".
+   *
+   * ⚠️ Ở chế độ độc lập thì `khop` / `khongKhop` / `khongLapDuoc` đều RỖNG — app không chạy
+   * `khopVoiDeNghi` nữa. Vẫn giữ ba trường đó vì đường có đề nghị dùng nguyên như cũ.
+   */
+  dongTuDo?: DongExcel[];
+  /**
+   * Đang ở chế độ đơn không gắn đề nghị.
+   *
+   * 🔴 KHÔNG suy từ `dongTuDo.length > 0`: file rỗng cũng cho mảng rỗng, mà lúc đó câu nhắc
+   * "Tải file mẫu để lấy bản đã sẵn mặt hàng của đề nghị này" lại hiện ra — hứa một việc
+   * không có thật vì làm gì có đề nghị nào.
+   */
+  nhapTuDo?: boolean;
   dongGhiChu: DongExcel[];
   dongLoi: LoiDongExcel[];
   thieuCot: string[];
@@ -100,6 +119,19 @@ export function HopXemTruocNhapExcel({
       chiTiet: `Đề nghị dòng ${k.sttDeNghi}${
         duLieu.tenDongDeNghi[k.sttDeNghi] ? ` — ${duLieu.tenDongDeNghi[k.sttDeNghi]}` : ""
       }${k.vuotKhoiLuong ? ". Khi cất đơn sẽ tự cắt về phần còn được đặt." : ""}`,
+      seDo: true,
+    })),
+    ...(duLieu.dongTuDo ?? []).map((e) => ({
+      dongTrongFile: e.dongTrongFile,
+      tenHang: e.tenHang,
+      donViTinh: e.donViTinh,
+      soLuong: e.soLuong,
+      donGia: e.donGia,
+      thueSuat: e.thueSuatGTGT,
+      ketLuan: "Đưa vào đơn",
+      tong: "success" as StatusTone,
+      chiTiet:
+        "Đơn này không gắn phiếu đề nghị nên app không đối chiếu tên hàng với hồ sơ nào — số liệu vào bảng đúng như trong file.",
       seDo: true,
     })),
     ...duLieu.dongGhiChu.map((g) => ({
@@ -178,8 +210,10 @@ export function HopXemTruocNhapExcel({
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger-soft" aria-hidden />
             <span>
               Vùng bảng hàng của file <strong>không có ô dữ liệu nào</strong> — đây là biểu mẫu
-              trống chứ không phải đơn đã điền. Bấm <strong>Tải file mẫu</strong> để lấy bản đã
-              sẵn mặt hàng của đề nghị này.
+              trống chứ không phải đơn đã điền.{" "}
+              {duLieu.nhapTuDo
+                ? "Mở file ra điền Tên hàng, ĐVT, SL, Đơn giá cho từng dòng rồi chọn lại. Bấm Tải file mẫu để lấy bản có sẵn đúng dòng tiêu đề mà app đọc được."
+                : "Bấm Tải file mẫu để lấy bản đã sẵn mặt hàng của đề nghị này."}
             </span>
           </div>
         )}

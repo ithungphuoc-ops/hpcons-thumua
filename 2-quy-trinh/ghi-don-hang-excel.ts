@@ -35,12 +35,27 @@ export interface DongDeGhi {
 }
 
 export interface DauVaoFileMau {
-  maDeNghi: string;
+  /**
+   * Mã phiếu đề nghị nguồn.
+   *
+   * ⚠️ TÙY CHỌN từ 18/08/2026: module "Lập đơn mua hàng (PO)" độc lập không gắn đề nghị nào
+   * (chỉ đạo Ban lãnh đạo). Bỏ trống thì dòng "Mã đề xuất và tên công trình:" chỉ còn tên
+   * công trình — `filter(Boolean)` lo, không in ra dấu gạch ngang trơ.
+   */
+  maDeNghi?: string;
   tenCongTrinh: string;
   maHopDongCDT?: string;
   diaDiemGiaoHang?: string;
   nguoiNhanHang?: string;
   dong: DongDeGhi[];
+  /**
+   * ★ File dành cho đơn KHÔNG gắn đề nghị — đổi CÂU HƯỚNG DẪN ở cuối file.
+   *
+   * 🔴 Không đổi thì file mẫu dặn *"KHÔNG đổi tên hàng ở cột C — app đối chiếu theo tên này"*,
+   * trong khi đơn độc lập chẳng đối chiếu với gì cả và người lập được phép gõ tên bất kỳ. Một
+   * câu hướng dẫn sai còn tệ hơn không có: người dùng làm theo rồi tự trách mình.
+   */
+  nhapTuDo?: boolean;
 }
 
 /** Nhãn của biểu mẫu giấy — giữ nguyên chữ để người dùng nhìn ra ngay là cùng một mẫu. */
@@ -161,7 +176,11 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
   datNhan(sauBang, NHAN.congTienHang);
   datNhan(sauBang + 1, NHAN.thueSuat);
   datNhan(sauBang + 3, NHAN.ngayGiaoHang);
-  datNhan(sauBang + 4, `${NHAN.maDeXuat} ${dv.maDeNghi} — ${dv.tenCongTrinh}`);
+  // `filter(Boolean)`: đơn không gắn đề nghị thì chỉ còn tên công trình, không in " — " trơ.
+  datNhan(
+    sauBang + 4,
+    `${NHAN.maDeXuat} ${[dv.maDeNghi, dv.tenCongTrinh].filter(Boolean).join(" — ")}`.trim(),
+  );
   datNhan(sauBang + 5, `${NHAN.canCuHopDong} ${dv.maHopDongCDT ?? ""}`.trim());
   datNhan(sauBang + 6, `${NHAN.diaDiemGiao} ${dv.diaDiemGiaoHang ?? ""}`.trim());
   datNhan(sauBang + 7, NHAN.dieuKhoanKhac);
@@ -170,10 +189,17 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
   // 📌 Ghi chú cho người điền, đặt cách ra để không lẫn vào vùng app dò nhãn.
   const ghiChu = ws.getRow(sauBang + 11).getCell(1);
   ghiChu.value =
-    "Hướng dẫn: điền cột Đơn giá (G) cho từng dòng, sửa SL (F) nếu chia nhỏ đơn cho nhiều nhà cung cấp, " +
-    "ghi tên nhà cung cấp ngay sau dấu hai chấm ở dòng “Tên nhà cung cấp:”. " +
-    "Cột “% Thuế GTGT” (K) chỉ điền khi dòng đó có thuế suất KHÁC thuế suất chung của đơn; để trống là dùng thuế suất chung. " +
-    "KHÔNG đổi tên hàng ở cột C — app đối chiếu theo tên này. " +
+    (dv.nhapTuDo
+      ? // Đơn không gắn đề nghị: app KHÔNG đối chiếu tên hàng với hồ sơ nào, nên được gõ tự do
+        // và được thêm dòng mới. Nói đúng như vậy, đừng dặn ngược lại.
+        "Hướng dẫn: điền Tên hàng (C), ĐVT (E), SL (F) và Đơn giá (G) cho từng dòng — thêm bao nhiêu dòng cũng được. " +
+        "Ghi tên nhà cung cấp ngay sau dấu hai chấm ở dòng “Tên nhà cung cấp:”. " +
+        "Cột “% Thuế GTGT” (K) chỉ điền khi dòng đó có thuế suất KHÁC thuế suất chung của đơn; để trống là dùng thuế suất chung. " +
+        "Đơn này KHÔNG gắn phiếu đề nghị nên app không đối chiếu tên hàng với hồ sơ nào — tên gõ thế nào thì in ra đơn thế ấy. "
+      : "Hướng dẫn: điền cột Đơn giá (G) cho từng dòng, sửa SL (F) nếu chia nhỏ đơn cho nhiều nhà cung cấp, " +
+        "ghi tên nhà cung cấp ngay sau dấu hai chấm ở dòng “Tên nhà cung cấp:”. " +
+        "Cột “% Thuế GTGT” (K) chỉ điền khi dòng đó có thuế suất KHÁC thuế suất chung của đơn; để trống là dùng thuế suất chung. " +
+        "KHÔNG đổi tên hàng ở cột C — app đối chiếu theo tên này. ") +
     "KHÔNG đổi chữ ở dòng tiêu đề bảng — app tìm cột theo đúng những tên đó. " +
     "Lưu lại rồi bấm “Chọn file Excel” trong app.";
   ghiChu.font = { italic: true, size: 10 };
@@ -185,7 +211,13 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
   });
 }
 
-/** Đặt tên file theo mã đề nghị để không lẫn giữa các đề nghị khi tải nhiều lần. */
+/**
+ * Đặt tên file theo mã đề nghị để không lẫn giữa các đề nghị khi tải nhiều lần.
+ *
+ * ⚠️ Đơn không gắn đề nghị thì nơi gọi truyền mã dự án (hoặc một nhãn thay thế) — tên file
+ * vẫn phải phân biệt được, tải hai lần mà cùng một tên là trình duyệt tự thêm "(1)" và người
+ * dùng không biết file nào của việc nào.
+ */
 export function tenFileNhapDonHang(maDeNghi: string): string {
   return `Don-mua-hang-${maDeNghi}.xlsx`;
 }

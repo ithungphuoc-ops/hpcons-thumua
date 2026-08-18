@@ -12,7 +12,8 @@ Thư mục này **không có giao diện** và **không chứa dữ liệu**. Sa
 | **`nguong-gia-tri.ts`** | Ba ngưỡng tiền **5 / 10 / 20 triệu**: số báo giá tối thiểu, ai duyệt, khi nào cần hợp đồng | Công ty đổi ngưỡng. Mọi nơi cần con số này đều gọi vào đây, không viết số vào chỗ khác |
 | **`lich-cong-viec.ts`** | Suy ra **việc đến hạn theo ngày** của từng người + lưới tháng | Lịch thiếu/thừa việc, sai ngày, hiện việc của người khác |
 | **`xuat-don-hang-excel.ts`** | **Xuất đơn ĐÃ LẬP** ra .xlsx đúng biểu mẫu công ty (gửi NCC, lưu hồ sơ) | File xuất ra lệch biểu mẫu, sai ô, sai công thức |
-| **`ghi-don-hang-excel.ts`** | **Biểu mẫu TRỐNG** để người lập điền đơn giá rồi nhập lại vào app | Nút "Tải file mẫu" ở màn lập đơn ra file sai |
+| **`ghi-don-hang-excel.ts`** | **Biểu mẫu TRỐNG** để người lập điền đơn giá rồi nhập lại vào app. Cờ `nhapTuDo` đổi câu hướng dẫn cho đơn **không gắn đề nghị** (được gõ tên hàng tự do) | Nút "Tải file mẫu" ở màn lập đơn ra file sai |
+| **`dat-ma-don-hang.ts`** | Sinh mã đơn `[mã dự án]-PO-[STT]` theo Thông báo 09/2026/TB-HPCS. 🔴 Lấy **số lớn nhất đã dùng rồi +1**, không đếm số đơn hiện có (đếm rồi +1 là sinh mã TRÙNG khi có đơn bị bỏ) | Mã đơn trùng, sai dạng, hoặc đổi mã loại `PO` khi được duyệt |
 | **`doc-don-hang-excel.ts`** | Đọc file Excel người dùng chọn để điền sẵn màn lập đơn. **Khớp cột theo TÊN tiêu đề**, báo rõ thiếu cột nào và dòng nào hỏng (kèm số dòng trong file) | Nhập từ Excel không nhận dòng, sai cột |
 | **`tinh-toan.ts`** | Toàn bộ công thức của app | Số đã nhận / còn lại / % sai; điều kiện hoàn thành PO sai; sai chiết khấu / thuế / tổng thanh toán |
 | **`tim-kiem.ts`** | Luật ô tìm kiếm trên thanh trên + **lọc kết quả theo quyền** | Tìm không ra hồ sơ; vai trò thấy hồ sơ lẽ ra không được thấy |
@@ -50,14 +51,20 @@ làm người dùng bí việc. Muốn cấm hẳn một bước thì thêm lu�
 | `deNghiConDangChay` | Loại đề nghị đã hoàn thành / đóng dở khỏi hàng chờ phân bổ và thẻ KPI |
 | `vuongMacLapDonHang` | Lý do đề nghị **chưa lập được đơn đặt hàng** (thường là bảng báo giá chưa được trưởng bộ phận duyệt), `null` là được phép. 🔴 Chính là luật `themDonHang` dùng để chặn lúc cất đơn — mọi chỗ giải thích cho người dùng đều phải gọi hàm này, không tự viết câu khác |
 | `dongLapDuocDonHang` | Dòng nào của đề nghị mà **người này** lập được đơn ngay: còn khối lượng chưa lên đơn + đã có người phụ trách + là người đó (hoặc là người có quyền phân bổ) |
-| `dongThuocVeNguoi` | Như trên nhưng **kể cả dòng đã lên đơn đủ** — để phân biệt *"không phải việc của bạn"* với *"việc của bạn và đã xong"* |
 
-📌 **`dongLapDuocDonHang` / `dongThuocVeNguoi` tách ra khỏi file giao diện ngày 18/08/2026** vì nay
-có **hai** chỗ cần đúng luật: form lập đơn (`form-lap-don-mua-hang.tsx`) và **bước chọn đề nghị** của
-mục menu mới *"Lập đơn mua hàng (PO)"* (`trang/don-hang-lap-moi.tsx`). Chép tay thành hai bản thì
-bước chọn sẽ mời người dùng vào một đề nghị mà form mở ra thấy bảng trống.
+🔴 **`vuongMacLapDonHang` CHỈ ÁP CHO ĐƠN CÓ ĐỀ NGHỊ (từ 18/08/2026).** Module *"Lập đơn mua hàng
+(PO)"* lập được đơn **không gắn phiếu đề nghị nào**; đơn đó không có bảng báo giá để đối chiếu nên
+`themDonHang` **bỏ qua** chốt này. Nghĩa là đường độc lập **đi vòng qua một chốt kiểm soát chi tiêu**
+— đơn ra đời mà không qua bước ③ Xét duyệt báo giá. Quyết định của Ban lãnh đạo, không phải sơ suất;
+muốn siết lại thì thêm luật ở `themDonHang`, đừng khóa nút.
 
-⚠️ Hai hàm này nhận `laNguoiPhanBo` là **boolean**, không nhận cả đối tượng `Quyen`: `2-quy-trinh/`
+📌 **`dongLapDuocDonHang` tách ra khỏi file giao diện ngày 18/08/2026.** Hôm đó có hai nơi gọi (form
+lập đơn + bước chọn đề nghị của `/don-hang/tao-moi`); bước chọn đã bị bỏ ngay chiều cùng ngày nên nay
+chỉ còn form. Vẫn để ở đây vì quy tắc 3.4b cấm để hàm nghiệp vụ trong file giao diện.
+Hàm `dongThuocVeNguoi` (đi cặp với nó, chỉ phục vụ bước chọn) đã **xóa hẳn** cùng lúc — mã chết thì
+xóa, không để lại.
+
+⚠️ Hàm này nhận `laNguoiPhanBo` là **boolean**, không nhận cả đối tượng `Quyen`: `2-quy-trinh/`
 là quy tắc nghiệp vụ thuần, **không được phụ thuộc `4-phan-quyen/`**.
 
 ## `tinh-toan.ts` — các hàm chính

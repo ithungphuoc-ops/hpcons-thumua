@@ -23,6 +23,7 @@ import {
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
+import { maDonHangTiepTheo } from "@/2-quy-trinh/dat-ma-don-hang";
 import {
   CAU_HINH_MAC_DINH,
   gopCauHinhVoiMacDinh,
@@ -130,8 +131,15 @@ export interface DauVaoDeNghiGiaLap {
  * 🔴 Cố ý tách làm hai phần vì chúng đi về HAI CHỨNG TỪ khác nhau:
  *  - phần còn lại → `tm_donhang` (mọi vai trò liên quan đọc được)
  *  - `donGia` + `phanTien` → `tm_donhang_gia` (chỉ vai trò được xem giá)
+ *
+ * ⚠️ `lichSu` BỊ LOẠI khỏi đầu vào (từ 18/08/2026): nhật ký do kho dữ liệu tự ghi, nơi gọi
+ * không được đặt sẵn — xem `ghiNhatKyDonHang`.
+ *
+ * ⚠️ `prId` / `prCode` nay là TÙY CHỌN. Bỏ trống = đơn độc lập của module "Lập đơn mua hàng
+ * (PO)" (chỉ đạo 18/08/2026). `maDuAn` thì VẪN BẮT BUỘC và `themDonHang` từ chối khi rỗng —
+ * mã đơn `260001-HPCS-PO-001` lấy phần đầu từ đó.
  */
-export type DauVaoDonHangMoi = Omit<DonDatHang, "id" | "code" | "trangThai"> & {
+export type DauVaoDonHangMoi = Omit<DonDatHang, "id" | "code" | "trangThai" | "lichSu"> & {
   /** Đơn giá theo số thứ tự dòng PO. */
   donGia: Record<number, number>;
   /**
@@ -992,6 +1000,49 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  /**
+   * ★ GHI NHẬT KÝ CHO MỘT THAO TÁC TRÊN ĐƠN ĐẶT HÀNG — MỘT CHỖ ĐỊNH TUYẾN DUY NHẤT.
+   *
+   * 🔴 VÌ SAO CÓ (18/08/2026): từ khi đơn được phép KHÔNG gắn đề nghị (module "Lập đơn mua
+   * hàng (PO)" độc lập), gọi thẳng `ghiLichSuDeNghi(po.prId, …)` là **ghi rơi mất im lặng** —
+   * hàm trên `map` qua danh sách đề nghị tìm `dn.id === undefined`, không khớp dòng nào, không
+   * một dòng báo lỗi. Sáu thao tác (lập đơn · ghi phiếu nhận · duyệt/từ chối phiếu · đính kèm
+   * phiếu giao · thủ kho xác nhận · trưởng bộ phận xác nhận hoàn thành) sẽ không để lại dấu
+   * vết nào.
+   *
+   * Luật định tuyến:
+   *   · Đơn CÓ `prId`  → ghi vào `DeNghiMuaHang.lichSu` **y như cũ**, không đổi một ly.
+   *   · Đơn KHÔNG có   → ghi vào `DonDatHang.lichSu` của chính đơn đó.
+   *
+   * 🔴 KHÔNG ghi cả hai chỗ, và KHÔNG chuyển đơn có đề nghị sang ghi vào đơn: một hồ sơ chỉ
+   * được có MỘT dòng thời gian, tách làm hai là người đọc phải ghép tay rồi bỏ sót một nửa.
+   *
+   * ⚠️ Không ghi tên nhà cung cấp vào nhật ký (quy ước phiên 04) — chỗ gọi phải tự lo, hàm
+   * này chỉ nhận chuỗi đã dựng sẵn.
+   */
+  const ghiNhatKyDonHang = useCallback(
+    (po: Pick<DonDatHang, "id" | "prId">, nguoiThucHien: string, hanhDong: string) => {
+      if (po.prId) {
+        ghiLichSuDeNghi(po.prId, nguoiThucHien, hanhDong);
+        return;
+      }
+      setDonHang((truoc) =>
+        truoc.map((p) =>
+          p.id !== po.id
+            ? p
+            : {
+                ...p,
+                lichSu: [
+                  ...(p.lichSu ?? []),
+                  { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong },
+                ],
+              },
+        ),
+      );
+    },
+    [ghiLichSuDeNghi],
+  );
+
   const themDeNghiGiaLap = useCallback((dauVao: DauVaoDeNghiGiaLap) => {
     const hienCo = deNghiRef.current;
 
@@ -1462,14 +1513,51 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * một đường trong ba.
        *
        * Trả về chuỗi lý do (khác id là chuỗi rỗng khi hết chỗ) để nơi gọi báo cho người dùng.
+       *
+       * ---
+       *
+       * 🔴 TỪ 18/08/2026 CHỐT NÀY **CHỈ ÁP CHO ĐƠN CÓ ĐỀ NGHỊ**.
+       *
+       * Ban lãnh đạo 18/08/2026: *"MUC NAY SE LA MODUL RIENG, KHONG LIEN QUAN GI TOI QUY
+       * TRINH … NEN E KO CAN LINK NO TOI CAC BUOC QUY TRINH"*. Đơn độc lập không gắn đề nghị
+       * nào, mà bảng báo giá thì luôn thuộc về một đề nghị — nên không có bảng báo giá nào để
+       * đối chiếu. Nếu vẫn chạy luật cũ thì `baoGia.filter(b => b.prId === undefined)` ra mảng
+       * rỗng, `vuongMacLapDonHang` trả *"Chưa có bảng báo giá nào…"*, và **100% đơn độc lập bị
+       * từ chối** — tức module Ban lãnh đạo vừa yêu cầu sẽ không lập được đơn nào.
+       *
+       * 🔴 NÓI THẲNG HỆ QUẢ, KHÔNG GIẤU: đơn độc lập **ĐI VÒNG QUA CHỐT KIỂM SOÁT CHI TIÊU**
+       * này. Người có `quyen.lapPO` lập được một cam kết trả tiền cho nhà cung cấp mà KHÔNG
+       * qua bước ③ Xét duyệt báo giá — đúng lỗ hổng mà chỉ đạo 15/08/2026 sinh ra để vá, nay
+       * được mở lại có chủ đích cho riêng đường độc lập. Đây là thay đổi về KIỂM SOÁT CHI
+       * TIÊU, không phải thay đổi giao diện. Muốn siết lại thì thêm luật ở ĐÂY, đừng khóa nút.
        */
-      const chan = vuongMacLapDonHang(baoGiaRef.current.filter((b) => b.prId === po.prId));
-      if (chan) return { loi: chan };
+      const laDonDocLap = !po.prId;
+      if (!laDonDocLap) {
+        const chan = vuongMacLapDonHang(baoGiaRef.current.filter((b) => b.prId === po.prId));
+        if (chan) return { loi: chan };
+      }
+
+      /**
+       * 🔴 MÃ DỰ ÁN RỖNG THÌ TỪ CHỐI HẲN, không cấp mã `-PO-001`.
+       *
+       * Đường cũ luôn có `maDuAn` từ phiếu đề nghị nên chuyện này không xảy ra được. Đường độc
+       * lập thì người lập tự chọn / tự gõ, nên phải chặn tại tầng dữ liệu: một mã hồ sơ mất
+       * phần mã dự án gốc là **sai Thông báo 09/2026/TB-HPCS**, tra cứu không ra và không sửa
+       * lại được sau khi đơn đã gửi nhà cung cấp.
+       */
+      if (!po.maDuAn.trim()) {
+        return {
+          loi: "Chưa có mã dự án gốc nên chưa cấp được số đơn hàng. Chọn dự án đã có hoặc nhập mã dự án theo Thông báo 09/2026/TB-HPCS (vd 260001-HPCS).",
+        };
+      }
 
       // Số thứ tự PO chạy theo DỰ ÁN, đúng quy tắc mã hồ sơ Thông báo 09/2026.
-      const soHienCo = donHangRef.current.filter((p) => p.maDuAn === po.maDuAn).length;
-      const stt = String(soHienCo + 1).padStart(3, "0");
-      const code = `${po.maDuAn}-PO-${stt}`;
+      // 🔴 Luật ở `2-quy-trinh/dat-ma-don-hang.ts` — KHÔNG đếm số đơn hiện có rồi +1 (bỏ một
+      // đơn là mã tiếp theo trùng với đơn đang tồn tại). Xem chú thích ở file đó.
+      const code = maDonHangTiepTheo(
+        po.maDuAn,
+        donHangRef.current.map((p) => p.code),
+      );
 
       // Lấy id dự phòng ĐÃ SINH SẴN TRANG — hosting tĩnh chỉ mở được địa chỉ có sẵn.
       // Trước đây dùng id tự nghĩ (`po-moi-...`) nên bấm vào đơn vừa lập là ra 404.
@@ -1482,7 +1570,30 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      setDonHang((truoc) => [...truoc, { ...po, id, code, trangThai: "da_chot" }]);
+      /**
+       * 🔴 DÒNG NHẬT KÝ ĐẦU TIÊN GẮN NGAY LÚC TẠO, không gọi `ghiNhatKyDonHang` sau đó.
+       *
+       * Đơn chưa nằm trong `donHang` tại thời điểm này, nên một lần `setDonHang` thứ hai sẽ
+       * chạy trên bản danh sách CHƯA có đơn vừa lập (React gom nhiều `setState` trong cùng
+       * một lượt) — dòng nhật ký lập đơn rơi mất. Nhét thẳng vào đối tượng là chắc chắn.
+       *
+       * ⚠️ Chỉ đơn ĐỘC LẬP mới có `lichSu` riêng; đơn có đề nghị vẫn ghi vào lịch sử đề nghị
+       * ở ngay dưới, để một hồ sơ chỉ có một dòng thời gian.
+       */
+      const lichSuBanDau = laDonDocLap
+        ? [
+            {
+              thoiDiem: thoiDiemHienTai(),
+              nguoiThucHien: po.nguoiPhuTrachTen,
+              hanhDong: `Lập và chốt đơn hàng ${code} (đơn không gắn đề nghị)`,
+            },
+          ]
+        : undefined;
+
+      setDonHang((truoc) => [
+        ...truoc,
+        { ...po, id, code, trangThai: "da_chot", lichSu: lichSuBanDau },
+      ]);
       setGiaDonHang((truoc) => [
         ...truoc,
         {
@@ -1504,7 +1615,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         },
       ]);
       // Không ghi tên NCC vào nhật ký — lịch sử đề nghị hiện cho cả vai trò không được xem NCC.
-      ghiLichSuDeNghi(po.prId, po.nguoiPhuTrachTen, `Lập và chốt đơn hàng ${code}`);
+      if (po.prId) {
+        ghiLichSuDeNghi(po.prId, po.nguoiPhuTrachTen, `Lập và chốt đơn hàng ${code}`);
+      }
       return { id };
     },
     [ghiLichSuDeNghi],
@@ -1551,10 +1664,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
       const po = donHangRef.current.find((p) => p.id === phieu.poId);
       if (po) {
-        ghiLichSuDeNghi(po.prId, phieu.nguoiNhanTen, `Ghi phiếu nhận hàng lần ${lanGiaoThu} — ${phieu.poCode}`);
+        // Đơn không gắn đề nghị thì nhật ký vào chính đơn — xem `ghiNhatKyDonHang`.
+        ghiNhatKyDonHang(po, phieu.nguoiNhanTen, `Ghi phiếu nhận hàng lần ${lanGiaoThu} — ${phieu.poCode}`);
       }
     },
-    [ghiLichSuDeNghi],
+    [ghiNhatKyDonHang],
   );
 
   const doiTrangThaiPhieu = useCallback(
@@ -1570,11 +1684,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               : trangThai === "tu_choi_nhan"
                 ? "Từ chối nhận"
                 : "Chuyển chờ kiểm tra";
-          ghiLichSuDeNghi(po.prId, nguoiThucHien, `${nhan} phiếu ${phieu.code}`);
+          ghiNhatKyDonHang(po, nguoiThucHien, `${nhan} phiếu ${phieu.code}`);
         }
       }
     },
-    [ghiLichSuDeNghi],
+    [ghiNhatKyDonHang],
   );
 
   /**
@@ -1594,14 +1708,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (phieu && po) {
         // 🔴 Ghi TÊN TỆP, không ghi tên nhà cung cấp — khối Lịch sử hiện cho cả vai trò
         // không được xem NCC (quy ước phiên 04).
-        ghiLichSuDeNghi(
-          po.prId,
+        ghiNhatKyDonHang(
+          po,
           nguoiThucHien,
           `Đính kèm phiếu giao nhận cho ${phieu.code}: ${tep.tenTep}`,
         );
       }
     },
-    [ghiLichSuDeNghi],
+    [ghiNhatKyDonHang],
   );
 
   const xacNhanKho = useCallback(
@@ -1612,9 +1726,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         ),
       );
       const po = donHangRef.current.find((p) => p.id === poId);
-      if (po) ghiLichSuDeNghi(po.prId, nguoi.ten, `Thủ kho xác nhận đã nhận đủ — ${po.code}`);
+      if (po) ghiNhatKyDonHang(po, nguoi.ten, `Thủ kho xác nhận đã nhận đủ — ${po.code}`);
     },
-    [ghiLichSuDeNghi],
+    [ghiNhatKyDonHang],
   );
 
   const xacNhanTruongBP = useCallback(
@@ -1624,10 +1738,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
       const po = donHangRef.current.find((p) => p.id === poId);
       if (po) {
-        ghiLichSuDeNghi(po.prId, nguoi.ten, `Trưởng bộ phận xác nhận hoàn thành — ${po.code}, chuyển hồ sơ Kế toán`);
+        ghiNhatKyDonHang(po, nguoi.ten, `Trưởng bộ phận xác nhận hoàn thành — ${po.code}, chuyển hồ sơ Kế toán`);
       }
     },
-    [ghiLichSuDeNghi],
+    [ghiNhatKyDonHang],
   );
 
   const taoBaoGiaGiaLap = useCallback(

@@ -439,6 +439,10 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     ["Ngày giao hàng:", new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")],
     [
       "Mã đề xuất và tên công trình :",
+      /* `po.prCode` có thể trống — đơn không gắn đề nghị (module Lập PO độc lập, 18/08/2026).
+         `filter(Boolean)` lo sẵn: còn tên công trình thì ô vẫn có nội dung, không in ra dấu
+         gạch ngang trơ trọi. Nơi gọi (`nut-xuat-don-hang.tsx`) lấy tên công trình TỪ CHÍNH
+         ĐƠN trước, chỉ tra ngược đề nghị khi đơn cũ chưa có trường đó. */
       [po.prCode, tenCongTrinh].filter(Boolean).join(" — "),
     ],
     ["Căn cứ hợp đồng số :", po.maHopDongCDT ?? ""],

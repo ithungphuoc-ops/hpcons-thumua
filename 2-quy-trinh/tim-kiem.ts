@@ -88,13 +88,23 @@ export function timHoSo(
   for (const po of nguon.donHang) {
     const tenVatLieu = po.items.map((d) => `${d.tenVatLieu} ${d.maHang ?? ""}`).join(" ");
     const tenNCC = quyen.xemNhaCungCap ? po.supplierTen : undefined;
-    if (!khop(po.code, po.prCode, po.maDuAn, tenVatLieu, tenNCC)) continue;
+    /* `po.prCode` có thể trống (đơn không gắn đề nghị) — `khop` đã lọc `undefined` nên không
+       vỡ. Thêm `tenCongTrinh` vào vùng đối chiếu: với đơn độc lập, tên công trình là thứ
+       người dùng nhớ để tra, còn mã đề nghị thì không có. */
+    if (!khop(po.code, po.prCode, po.maDuAn, po.tenCongTrinh, tenVatLieu, tenNCC)) continue;
     gom.push({
       loai: "don_hang",
       id: po.id,
       ma: po.code,
       tieuDe: po.items[0]?.tenVatLieu ?? "Đơn đặt hàng",
-      moTaPhu: quyen.xemNhaCungCap ? po.supplierTen : `Từ đề nghị ${po.prCode}`,
+      /* Vai trò không xem được NCC thì dòng phụ là mã đề nghị nguồn. Đơn không gắn đề nghị
+         (module Lập PO độc lập, 18/08/2026) thì lấy tên công trình, cuối cùng mới đến câu
+         chung — tuyệt đối không để câu cụt "Từ đề nghị ". */
+      moTaPhu: quyen.xemNhaCungCap
+        ? po.supplierTen
+        : po.prCode
+          ? `Từ đề nghị ${po.prCode}`
+          : (po.tenCongTrinh ?? "Đơn không gắn đề nghị"),
       duongDan: `/don-hang/${po.id}`,
     });
   }

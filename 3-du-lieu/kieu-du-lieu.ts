@@ -416,8 +416,25 @@ export type TrangThaiPO =
  */
 export interface DongPO {
   sttDong: number;
-  /** ★ Trỏ về DongDeNghi.stt — khóa truy vết khối lượng. */
-  sttDongDeNghi: number;
+  /**
+   * ★ Trỏ về `DongDeNghi.stt` — khóa truy vết khối lượng.
+   *
+   * 🔴 TỪ 18/08/2026 LÀ TÙY CHỌN, và BA giá trị mang BA nghĩa khác hẳn nhau:
+   *
+   *   · một số ≥ 1  → dòng hàng trừ khối lượng vào đúng dòng đó của phiếu đề nghị (đường cũ)
+   *   · `0`         → **dòng ghi chú** (xem `laDongGhiChu` bên dưới) — quy ước có từ trước
+   *   · `undefined` → dòng hàng của **đơn KHÔNG gắn đề nghị nào** (module "Lập đơn mua hàng
+   *     (PO)" độc lập, chỉ đạo Ban lãnh đạo 18/08/2026)
+   *
+   * 🔴 KHÔNG DÙNG `0` CHO DÒNG ĐỘC LẬP dù nghe cũng là "không trỏ về đâu". `0` đã mang nghĩa
+   * dòng ghi chú từ trước; chồng hai nghĩa lên một giá trị là mầm lỗi — mai kia ai đó lọc
+   * `sttDongDeNghi === 0` để tìm dòng ghi chú sẽ vơ luôn cả dòng hàng thật.
+   *
+   * ⚠️ Mọi chỗ so `d.sttDongDeNghi === <stt của đề nghị>` vẫn đúng nguyên: `undefined` không
+   * bằng số nào, nên đơn độc lập **không trừ khối lượng của bất kỳ đề nghị nào** và không
+   * làm lệch `tinhTienDoDeNghi` / `xacDinhGiaiDoan`.
+   */
+  sttDongDeNghi?: number;
   /**
    * Mã hàng trong danh mục vật tư, vd `VT00027` (thấy trên ĐMH0875-25 của công ty).
    * ⚠️ Ver 1 để TRỐNG được: quyết định 1 của dự án là "đặt mã vật tư làm sau",
@@ -477,8 +494,29 @@ export interface DonDatHang {
   maHopDongCDT?: string;
   /** ★ Ô "Ngày hợp đồng" của màn MISA — đi kèm `maHopDongCDT` trên ô "Hợp đồng - Ngày hợp đồng". */
   ngayHopDongCDT?: NgayISO;
-  prId: string;
-  prCode: string;
+  /**
+   * ★ ĐỀ NGHỊ NGUỒN — TỪ 18/08/2026 LÀ TÙY CHỌN.
+   *
+   * 🔴 CHỈ ĐẠO BAN LÃNH ĐẠO 18/08/2026: *"MUC NAY SE LA MODUL RIENG, KHONG LIEN QUAN GI TOI
+   * QUY TRINH, NO CHI DE PHUC VU LAP DON DAT HANG, NEN E KO CAN LINK NO TOI CAC BUOC QUY
+   * TRINH"*. Mục menu "Lập đơn mua hàng (PO)" nay lập được đơn KHÔNG gắn đề nghị nào.
+   *
+   * Bỏ trống cả hai (`prId` và `prCode` luôn đi cặp) = **đơn độc lập**. Hệ quả đã báo Ban
+   * lãnh đạo và vẫn làm theo:
+   *
+   *   ⚠️ App KHÔNG đối chiếu được *"đề nghị này đã đặt bao nhiêu, còn thiếu bao nhiêu"* —
+   *      đơn độc lập không trừ khối lượng của phiếu đề nghị nào.
+   *   ⚠️ `maDuAn` phải đến từ chỗ khác (người lập chọn dự án đã có hoặc gõ tay), vì mã đơn
+   *      `260001-HPCS-PO-001` lấy phần đầu từ mã dự án.
+   *   🔴 Đơn độc lập ĐI VÒNG QUA CHỐT `vuongMacLapDonHang` (đòi bảng báo giá đã chốt NCC).
+   *      Đó là chốt KIỂM SOÁT CHI TIÊU, không phải chốt giao diện — xem `themDonHang`.
+   *
+   * 🔴 MỌI CHỖ ĐỌC HAI TRƯỜNG NÀY PHẢI CHỊU ĐƯỢC `undefined`: trang chi tiết đơn (ô "Đề nghị
+   * nguồn" + liên kết), danh sách đơn, trang in A4, file Excel xuất ra, thẻ ở Tổng quan, ô
+   * tìm kiếm. Để nguyên là link chết `/de-nghi/` và chứng từ in ra trống một dòng.
+   */
+  prId?: string;
+  prCode?: string;
   /**
    * ★ Ô "Mã RQ - Tên Công trình" của màn MISA. `prCode` đã giữ mã RQ, còn TÊN công trình
    * trước 17/08/2026 KHÔNG có chỗ nào trên đơn — trang in `/in/don-hang/[id]` in dòng
@@ -543,6 +581,21 @@ export interface DonDatHang {
   tepDinhKem?: MoTaTep[];
   trangThai: TrangThaiPO;
   items: DongPO[];
+  /**
+   * ★ NHẬT KÝ RIÊNG CỦA ĐƠN — chỉ dùng cho **đơn KHÔNG gắn đề nghị** (từ 18/08/2026).
+   *
+   * 🔴 VÌ SAO PHẢI THÊM: mọi thao tác trên đơn (lập đơn, ghi phiếu nhận, duyệt nhập kho, đính
+   * kèm phiếu giao, thủ kho xác nhận, trưởng bộ phận xác nhận hoàn thành) trước nay đều ghi
+   * vào `DeNghiMuaHang.lichSu` qua `prId`. Đơn độc lập không có `prId`, nên nếu không có chỗ
+   * này thì `ghiLichSuDeNghi(undefined, …)` **rơi mất im lặng** — sáu thao tác không để lại
+   * một dấu vết nào, không một dòng báo lỗi. Đó là mất mát nặng hơn cả hai điều đã báo Ban
+   * lãnh đạo, nên phải vá tại chỗ.
+   *
+   * 🔴 ĐƠN CÓ `prId` THÌ VẪN GHI VÀO ĐỀ NGHỊ, KHÔNG ghi vào đây. Một hồ sơ chỉ được có MỘT
+   * dòng thời gian; tách làm hai chỗ là người đọc phải ghép tay và sớm muộn bỏ sót một nửa.
+   * Luật định tuyến nằm ở `3-du-lieu/kho-du-lieu.tsx` → `ghiNhatKyDonHang`, một chỗ duy nhất.
+   */
+  lichSu?: MocLichSu[];
   /** Điều kiện ② hoàn thành PO. */
   xacNhanKho?: XacNhan;
   /** Điều kiện ③ hoàn thành PO. */

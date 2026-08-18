@@ -572,6 +572,20 @@ export function vuongMacSangBuocSau(
  *
  * 📌 Đòi bảng báo giá ở trạng thái `da_chon_ncc` chính là đòi bước ③ đã xong: trạng thái đó
  * chỉ được đặt khi trưởng bộ phận chốt nhà cung cấp hoặc duyệt phương án chia đơn.
+ *
+ * ---
+ *
+ * 🔴 TỪ 18/08/2026: HÀM NÀY **CHỈ ÁP CHO ĐƠN CÓ ĐỀ NGHỊ**.
+ *
+ * Ban lãnh đạo 18/08/2026 cho lập đơn KHÔNG gắn phiếu đề nghị (module "Lập đơn mua hàng (PO)"
+ * độc lập). Đơn đó không thuộc đề nghị nào nên không có bảng báo giá nào để đối chiếu — gọi
+ * hàm này với mảng rỗng sẽ trả *"Chưa có bảng báo giá nào cho đề nghị này…"* và chặn 100% đơn
+ * độc lập.
+ *
+ * ⚠️ NGHĨA LÀ ĐƠN ĐỘC LẬP **ĐI VÒNG QUA CHỐT KIỂM SOÁT CHI TIÊU NÀY**. Đó là quyết định của
+ * Ban lãnh đạo, không phải sơ suất. Hai chỗ gọi (`themDonHang` ở kho dữ liệu và ô cảnh báo
+ * trong form lập đơn) đều tự kiểm `prId` trước khi gọi — **đừng chuyển việc kiểm đó vào đây**,
+ * vì hàm này thuộc `2-quy-trinh/` và chỉ nên biết về bảng báo giá.
  */
 export function vuongMacLapDonHang(baoGiaCuaDeNghi: BaoGia[]): string | null {
   const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
@@ -594,11 +608,15 @@ export function vuongMacLapDonHang(baoGiaCuaDeNghi: BaoGia[]): string | null {
  *   ③ Là người phụ trách chính dòng đó, HOẶC là người có quyền phân bổ (trưởng bộ phận /
  *      quản trị) — trưởng bộ phận lập đơn thay được cho cả nhóm.
  *
- * 🔴 TÁCH RA KHỎI FILE GIAO DIỆN NGÀY 18/08/2026 vì nay có HAI chỗ cần đúng luật này:
- * form lập đơn (`thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` → `dongLapDuoc`) và bước
- * CHỌN ĐỀ NGHỊ của trang riêng `/don-hang/tao-moi` (mục menu mới "Lập đơn mua hàng (PO)").
- * Chép tay thành hai bản là kiểu lỗi dự án đã dính: bước chọn sẽ mời người dùng vào một đề
- * nghị mà form mở ra thấy bảng trống, không hiểu vì sao.
+ * 📌 Tách ra khỏi file giao diện ngày 18/08/2026, lúc đó có HAI chỗ cần đúng luật này: form
+ * lập đơn (`thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` → `dongLapDuoc`) và bước CHỌN ĐỀ
+ * NGHỊ của `/don-hang/tao-moi`. **Bước chọn đó đã bị bỏ ngay chiều 18/08/2026** (Ban lãnh đạo:
+ * mục menu là module lập đơn ĐỘC LẬP, không hỏi đề nghị nữa), nên nay chỉ còn một nơi gọi.
+ * Vẫn giữ ở đây chứ không nhét ngược vào file giao diện: `2-quy-trinh/` là chỗ của luật, và
+ * quy tắc 3.4b của dự án cấm để hàm nghiệp vụ trong file giao diện.
+ *
+ * ⚠️ Ở CHẾ ĐỘ ĐƠN ĐỘC LẬP hàm này không được gọi tới (không có đề nghị nào để lọc dòng) —
+ * mặt hàng lúc đó do người lập gõ tự do. Xem bảng hai chế độ ở đầu `form-lap-don-mua-hang.tsx`.
  *
  * ⚠️ Nhận `laNguoiPhanBo` là BOOLEAN, không nhận cả đối tượng `Quyen`: `2-quy-trinh/` là quy
  * tắc nghiệp vụ thuần, không được phụ thuộc vào `4-phan-quyen/`. Chỗ gọi truyền
@@ -617,29 +635,17 @@ export function dongLapDuocDonHang(
   );
 }
 
-/**
- * ★ DÒNG NÀO THUỘC PHẦN VIỆC CỦA NGƯỜI NÀY — kể cả dòng ĐÃ lên đơn đủ khối lượng.
+/*
+ * 📌 ĐÃ XÓA `dongThuocVeNguoi` NGÀY 18/08/2026 (chiều).
  *
- * 🔴 KHÁC `dongLapDuocDonHang` ở đúng điều kiện ① và đó là toàn bộ lý do hàm này tồn tại:
- * bước chọn đề nghị phải phân biệt được hai câu trả lời hoàn toàn khác nhau khi danh sách
- * dòng lập được rỗng —
+ * Hàm đó sinh ra sáng cùng ngày, chỉ phục vụ **bước chọn đề nghị** của `/don-hang/tao-moi`:
+ * nó phân biệt *"đề nghị này chưa phân bổ dòng nào cho bạn"* với *"dòng của bạn đã lên đơn đủ
+ * rồi"*. Chiều 18/08/2026 Ban lãnh đạo bỏ hẳn bước chọn (mục menu là module lập đơn ĐỘC LẬP),
+ * nên hàm không còn nơi gọi.
  *
- *   · "Đề nghị này chưa phân bổ dòng nào cho bạn"  → không phải việc của bạn
- *   · "Mọi dòng của bạn đã lên đơn đủ khối lượng"  → là việc của bạn, và đã xong
- *
- * Gộp hai câu đó thành một là đúng cái ngõ cụt Ban lãnh đạo vừa phải sửa hôm qua: người dùng
- * không hiểu vì sao phiếu của mình không chọn được.
+ * 🔴 XÓA CHỨ KHÔNG ĐỂ LẠI: một hàm xuất khẩu không ai gọi trông y như đang có chức năng, và
+ * người sau sẽ mất công dò xem nó chạy ở đâu. Cần lại thì lấy ở lịch sử git.
  */
-export function dongThuocVeNguoi(
-  tienDo: TienDoDongDeNghi[],
-  uidNguoiLap: string,
-  laNguoiPhanBo: boolean,
-): TienDoDongDeNghi[] {
-  return tienDo.filter(
-    (d) =>
-      Boolean(d.nguoiPhuTrachUid) && (laNguoiPhanBo || d.nguoiPhuTrachUid === uidNguoiLap),
-  );
-}
 
 /**
  * ★ KÉO LÙI MỘT BƯỚC — quyết định app phải hủy chứng từ nào.

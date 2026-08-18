@@ -86,10 +86,19 @@ export interface MucDieuHuong {
  * chủ đích của Ban lãnh đạo ngày 18/08/2026**, KHÔNG phải sơ suất của người quên quy ước
  * 06/08/2026. Muốn bỏ mục này thì phải có chỉ đạo mới, không tự bỏ vì "trái quy ước cũ".
  *
- * 📌 KHÔNG BỎ FORM KHỎI KHỐI BƯỚC ④. Chỉ đạo 17/08/2026 (*"a cần phần nhập liệu phải nằm
- * trong khối"*) vẫn còn hiệu lực; chỉ đạo 18/08/2026 nói "đưa ra thành 1 mục riêng" tức là
- * THÊM một lối vào, không phải dời đi. Hai lối vào dùng CHUNG một component
- * `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx`, không có bản chép thứ hai.
+ * 🔴 CHÚ THÍCH CŨ Ở ĐÂY ĐÃ SAI, ĐÃ SỬA 18/08/2026 (chiều). Bản trước ghi *"KHÔNG BỎ FORM KHỎI
+ * KHỐI BƯỚC ④ … Hai lối vào dùng CHUNG một component"* — Ban lãnh đạo nói rõ lại ngay hôm đó:
+ * *"sai ý a rồi, a cần e đưa CẢ mục import này ra"*, tức là **CHUYỂN HẲN**, không phải thêm
+ * lối vào. Khối bước ④ ở `trang/de-nghi-chi-tiet.tsx` nay chỉ còn danh sách đơn + một cái nút
+ * dẫn sang `/don-hang/tao-moi?prId=…`.
+ *
+ * 📌 VÀ MỤC MENU NÀY LÀ **MODULE LẬP ĐƠN ĐỘC LẬP**: vào từ menu (địa chỉ trơn, không `prId`)
+ * thì hiện ngay toàn bộ ô nhập liệu và lập được đơn **không gắn phiếu đề nghị nào** — chỉ đạo
+ * 18/08/2026: *"MUC NAY SE LA MODUL RIENG, KHONG LIEN QUAN GI TOI QUY TRINH"*. Bước "chọn đề
+ * nghị" từng có buổi sáng hôm đó đã bị xóa hẳn.
+ *
+ * ⚠️ Đường `?prId=…` và `?prId=…&rfqId=…&nccId=…` VẪN CHẠY như cũ và vẫn dùng CHUNG một
+ * component `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` — không có bản chép thứ hai.
  */
 export const MUC_DIEU_HUONG: MucDieuHuong[] = [
   {
