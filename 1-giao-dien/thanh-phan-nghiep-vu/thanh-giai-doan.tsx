@@ -48,7 +48,17 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
       {/* Cuộn ngang khi màn hẹp — 7 bước không nhét vừa điện thoại.
           `min-w-0` ở ngoài để khung cuộn không đẩy giãn cả trang. */}
       <div className="min-w-0 overflow-x-auto">
-        <ol className="flex min-w-max items-stretch">
+        {/* 🔴 DẢI BƯỚC TRẢI HẾT BỀ NGANG — Ban lãnh đạo 18/08/2026: *"cân đối kéo thêm thanh
+            tiến độ này ra"* (ảnh khoanh khoảng trống bên phải dải mũi tên).
+
+            Từ 17/08/2026 dải này nằm trong cột trái (~73% bề ngang) thay vì chiếm cả trang,
+            nhưng nó chỉ rộng bằng nội dung (`min-w-max`) nên chừa một mảng trắng bên phải —
+            nhìn như thanh bị cụt.
+
+            `w-full` + `flex-1` ở từng ô: thừa chỗ thì bảy bước chia đều nhau. `min-w-max` GIỮ
+            NGUYÊN vì nó là bề rộng TỐI THIỂU — màn hẹp thì chữ không bị bóp nát, khung ngoài
+            cuộn ngang như cũ. Bỏ `min-w-max` là trên điện thoại các bước chồng chữ lên nhau. */}
+        <ol className="flex w-full min-w-max items-stretch">
           {chuoi.map((g, i) => {
             const daQua = viTri >= 0 && i < viTri;
             const hienTai = i === viTri;
@@ -59,7 +69,8 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
                 aria-current={hienTai ? "step" : undefined}
                 title={coHuongDan ? `${g.moTa} — bấm để xem hướng dẫn` : g.moTa}
                 className={[
-                  "relative flex min-h-11 items-center gap-2 py-2 pr-5 pl-6 text-xs font-medium",
+                  // `flex-1` để bảy bước chia đều phần dư — xem chú thích ở thẻ <ol>.
+                  "relative flex min-h-11 flex-1 items-center justify-center gap-2 py-2 pr-5 pl-6 text-xs font-medium",
                   // Mũi tên: cắt vát cạnh phải, cạnh trái lõm vào cho khớp ô trước.
                   "[clip-path:polygon(0_0,calc(100%-14px)_0,100%_50%,calc(100%-14px)_100%,0_100%,14px_50%)]",
                   i === 0 ? "[clip-path:polygon(0_0,calc(100%-14px)_0,100%_50%,calc(100%-14px)_100%,0_100%)]" : "-ml-3.5",

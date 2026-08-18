@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -13,6 +13,7 @@ import {
   GitBranch,
   Forward,
   Package,
+  ShoppingCart,
 } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
@@ -25,7 +26,6 @@ import { KhoiGap } from "@/1-giao-dien/thanh-phan-dung-chung/khoi-gap";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { BangPhanBo } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo";
-import { FormLapDonMuaHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang";
 import { KhoiDeXuatCon } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-de-xuat-con";
 import { OSuaSoBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-sua-so-bao-gia";
 import { KhoiNguoiTheoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nguoi-theo-doi";
@@ -70,9 +70,6 @@ import {
 
 export default function TrangChiTietDeNghi() {
   const params = useParams<{ id: string }>();
-  /* Chỉ dùng cho nút "Cất và In" của form lập đơn nhúng trong bước ④ — cất xong thì KHÔNG rời
-     trang (đơn mới tự hiện trong danh sách ngay dưới), chỉ mở bản in khi người dùng chọn In. */
-  const router = useRouter();
   const {
     deNghi,
     donHang,
@@ -678,52 +675,49 @@ export default function TrangChiTietDeNghi() {
                       </CardContent>
                     </Card>
 
-                    {/* ★★ PHẦN NHẬP LIỆU ĐƠN MUA HÀNG — NẰM NGAY TRONG KHỐI CỦA BƯỚC ★★
-                        🔴 Chỉ đạo Ban lãnh đạo 17/08/2026: *"a cần phần nhập liệu phải nằm
-                        trong khối, chỉ ai được cấp quyền thì mới xem được phần nhập liệu đó"*.
+                    {/* ★★ ĐƯỜNG SANG MÀN NHẬP LIỆU — KHÔNG NHÚNG FORM Ở ĐÂY ★★
+                        🔴 Ban lãnh đạo 18/08/2026: *"e đưa mục này ra thành 1 mục riêng bên tab
+                        trái"*, rồi nói rõ lại: *"sai ý a rồi, a cần e đưa CẢ mục import này ra"*.
 
-                        Vì sao trước đó làm sai chỗ: yêu cầu gốc là bước này có chức năng giống
-                        màn "Đơn mua hàng" của MISA, mà MISA mở màn đó thành một CỬA SỔ RIÊNG —
-                        nên bản trước làm thành một TRANG riêng (`/don-hang/tao-moi`) và ở đây
-                        chỉ để một cái nút dẫn sang. Đứng ở khối này thì không thấy phần nhập
-                        liệu, nên Ban lãnh đạo hỏi sáu lượt *"mục giao diện giống misa đâu"* /
-                        *"mục này vẫn chưa có phần import"*. Đã kiểm: quyền đủ, nút bật, trang
-                        trả HTTP 200 — không phải lỗi quyền, mà là đặt sai chỗ.
+                        Tức là **CHUYỂN HẲN**, không phải để hai chỗ. Bản 17/08/2026 nhúng cả
+                        form vào đây theo chỉ đạo hôm đó; nay phần nhập liệu về đúng một chỗ là
+                        mục menu **"Lập đơn mua hàng (PO)"** → `/don-hang/tao-moi`.
+
+                        📌 Khối này giờ chỉ còn việc của nó: LIỆT KÊ đơn đã có + một đường sang
+                        màn nhập. Nhờ vậy khối ④ ngắn lại gần 1.900px.
+
+                        🔴 VÌ SAO VẪN PHẢI CÓ NÚT: bỏ luôn nút thì đứng ở phiếu này không có
+                        đường nào sang lập đơn cho CHÍNH nó — phải ra menu rồi tự tìm lại phiếu
+                        trong danh sách. Đó là bắt người dùng làm việc của app. Nút mang sẵn
+                        `?prId=` nên sang là vào thẳng form của đúng phiếu này, không qua bước
+                        chọn.
 
                         🔴 CHỈ NGƯỜI CÓ QUYỀN THẤY: dùng đúng cờ `quyen.lapPO` — cùng cờ mà
-                        `4-phan-quyen/quyen.ts` → `duocVaoDuongDan` dùng cho `/don-hang/tao-moi`.
-                        KHÔNG bịa cờ quyền mới. Form còn tự kiểm `lapPO` một lần nữa bên trong
-                        (lớp chặn thứ hai, cố ý trùng) vì khi nhúng thì cổng gác theo đường dẫn
-                        đổi sang `xemQuyTrinhMuaHang` — cờ đó mở cho cả Ban Giám đốc.
+                        `4-phan-quyen/quyen.ts` → `duocVaoDuongDan` gác `/don-hang/tao-moi`.
+                        Hồ sơ đã đóng thì không hiện nút.
 
-                        🔴 HỒ SƠ ĐÃ ĐÓNG thì không vẽ form: `hoSoDaDong` dùng chung
-                        `giaiDoanDaKetThuc` với mọi chốt khóa khác của trang, không tự đặt luật.
-
-                        🔴 LUẬT CHẶN CẤT KHÔNG ĐỔI MỘT LY: `themDonHang` vẫn chặn khi chưa chốt
-                        nhà cung cấp (`vuongMacLapDonHang`). Nhập được nhưng chưa cất được — ô
-                        cảnh báo vàng trong form nói rõ còn thiếu gì.
-
-                        📌 Cất xong KHÔNG rời trang: đơn mới tự hiện trong danh sách ngay trên,
-                        và form tự dọn sạch để không ai bấm Cất lần nữa thành đặt hàng hai lần.
-                        Chỉ "Cất và In" mới mở trang in. */}
+                        🔴 KHÔNG khóa nút theo `vuongMacLapDonHang` nữa: luật đó chặn lúc CẤT,
+                        và ô cảnh báo trong form đã nói rõ còn thiếu gì. Khóa ở đây là dựng lại
+                        đúng ngõ cụt đã phải gỡ hôm 17/08 — app bảo "phải lập bảng báo giá" rồi
+                        đứng im không cho đường nào đi tiếp. */}
                     {quyen.lapPO && !hoSoDaDong && (
-                      <FormLapDonMuaHang
-                        deNghi={dn}
-                        nhung
-                        onDaLuu={(poId, rangIn) => {
-                          if (rangIn) router.push(`/in/don-hang/${poId}`);
-                        }}
-                      />
+                      <Button
+                        variant="outline"
+                        className="w-fit"
+                        nativeButton={false}
+                        render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+                      >
+                        <ShoppingCart className="size-4" aria-hidden />
+                        {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
+                      </Button>
                     )}
                   </section>
                 ),
-                /* 🔴 GẬP KHỐI NÀY CHỈ ĐƯỢC ẨN, KHÔNG ĐƯỢC THÁO — vì bên trong có form nhập
-                   liệu. Mặc định khối gập tháo hẳn nội dung khỏi cây React, nên người dùng gõ
-                   nửa cái đơn rồi bấm gập là mất sạch, không có nút hoàn lại. Xem
-                   `giuNoiDungKhiGap` trong `khoi-dau-vao-theo-giai-doan.tsx`.
-                   ⚠️ Chỉ bật khi form THẬT SỰ được vẽ — bật cho cả người không có quyền lập
-                   đơn là dựng sẵn một khối rỗng cho mọi lượt mở phiếu, không được gì. */
-                giuNoiDungKhiGap: quyen.lapPO && !hoSoDaDong,
+                /* 📌 KHÔNG CẦN `giuNoiDungKhiGap` NỮA (18/08/2026): cờ đó sinh ra để form nhập
+                   liệu nhúng trong khối không bị tháo khỏi cây React khi gập — gõ nửa cái đơn
+                   rồi gập là mất sạch. Nay form đã dời sang trang riêng, trong khối chỉ còn
+                   danh sách đơn và một cái nút, không có gì để mất. Bật cờ này khi không cần
+                   là dựng sẵn nội dung ẩn cho mọi lượt mở phiếu, không được gì. */
                 /* Bước ④ nhận hợp đồng mua bán, phụ lục, đơn đã có chữ ký. */
                 khuDinhKem: (
                   <KhuDinhKemGiaiDoan
