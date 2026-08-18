@@ -480,8 +480,13 @@ export default function TrangChiTietDeNghi() {
                        📌 Dùng `noiDung` chứ không dùng `giaTri`: `giaTri` chỉ nhận chữ. */
                     noiDung: (
                       <OSuaSoBaoGia
-                        // Số báo giá đặt cho cả phiếu — lấy của dòng đầu tiên có yêu cầu.
-                        soHienTai={dn.items.find((d) => d.soBaoGiaYeuCau)?.soBaoGiaYeuCau}
+                        /* 🔴 TRUYỀN CẢ PHIẾU, không truyền một con số — Ban lãnh đạo
+                           18/08/2026: *"số liệu báo giá này phải tự động link từ bước giao
+                           việc cho nhân viên"*. Con số sinh ra ở lúc PHÂN BỔ (bước ①) và
+                           nằm trên TỪNG DÒNG, nên ô này phải tự tổng hợp lại; đọc dòng đầu
+                           tiên như bản trước là hiện sai khi mỗi dòng một số. Xem
+                           `tongHopSoBaoGia` trong `o-sua-so-bao-gia.tsx`. */
+                        deNghi={dn}
                         duocSua={duocSuaTepBuoc && !hoSoDaDong}
                         onLuu={(so) => {
                           datSoBaoGiaChoPhieu(dn.id, so, nguoiDung.tenHienThi);
