@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { Skeleton } from "@/1-giao-dien/nen-tang-ui/skeleton";
 import { FormLapDonMuaHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang";
@@ -143,6 +143,24 @@ function NoiDungLapDonHang() {
           dn
             ? `Từ ${dn.code} · ${dn.tieuDe}`
             : "Tạo MẪU đơn mua hàng để in hoặc xuất Excel. Đơn ở đây không lưu vào hệ thống."
+        }
+        /* ★ NÚT X ĐÓNG ở góc phải thanh tiêu đề — MISA mở màn này thành một CỬA SỔ nên có nút X
+           (Ban lãnh đạo 18/08/2026: *"giao diện phần PO e chỉnh lại giống 100% như vậy"*).
+           ✅ LÀM VIỆC THẬT: `router.back()`, đúng việc mà nút [Hủy] ở đáy form đang làm. Trùng
+           chức năng với [Hủy] là CỐ Ý — MISA cũng có cả hai.
+           📌 Chỉ có ở TRANG RIÊNG. Khi form nhúng trong khối bước ④ của trang chi tiết đề nghị thì
+           không có "cửa sổ" nào để đóng; ở đó đã có nút gập của chính khối. */
+        actions={
+          <button
+            type="button"
+            onClick={() => router.back()}
+            /* Vùng chạm 44×44 theo V1.1 Phần F. */
+            className="flex size-11 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-danger-bg hover:text-danger"
+            aria-label="Đóng màn lập đơn mua hàng"
+            title="Đóng"
+          >
+            <X className="size-5" aria-hidden />
+          </button>
         }
       />
 

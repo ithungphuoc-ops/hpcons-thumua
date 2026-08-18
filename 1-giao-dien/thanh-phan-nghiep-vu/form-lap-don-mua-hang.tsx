@@ -5,11 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  ChevronDown,
   ChevronRight,
   Download,
   FileSpreadsheet,
   FileText,
   FileWarning,
+  Keyboard,
   Paperclip,
   Printer,
   Save,
@@ -34,10 +36,17 @@ import {
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/1-giao-dien/nen-tang-ui/popover";
+import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
+import {
   BangHangTien,
   type ConLaiDeNghi,
   type DongNhapDonHang,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-hang-tien";
+import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 import {
   HopXemTruocNhapExcel,
   type DuLieuXemTruocExcel,
@@ -49,6 +58,7 @@ import type {
   DeNghiMuaHang,
   DongPO,
   KieuChietKhau,
+  NhaCungCap,
   TienDoDongDeNghi,
 } from "@/3-du-lieu/kieu-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -102,7 +112,10 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  *   ③ Khối dưới trái: Mã RQ - Tên công trình · Hợp đồng - Ngày hợp đồng · Địa điểm giao hàng ·
  *      Điều khoản khác · Đính kèm
  *   ④ Khối dưới phải: Tổng tiền hàng · Tiền chiết khấu · Thuế GTGT · Tổng tiền thanh toán
- *   ⑤ Thanh nút: [Hủy] bên trái — [Cất] [Cất và In] bên phải
+ *   ⑤ Thanh nút: [Hủy] bên trái — [Lưu] [Lưu và In] bên phải
+ *      🔴 NHÃN LÀ "Lưu" / "Lưu và In", KHÔNG phải "Cất" (Ban lãnh đạo đổi ngày 18/08/2026).
+ *      Ảnh MISA ghi "Cất"; đừng đổi lại theo ảnh. Các chú thích cũ trong file này từng viết
+ *      "[Cất] [Cất và In]" — đã sửa hết, nếu còn sót chỗ nào thì mã nguồn mới là căn cứ.
  *
  * 🔴 BỐN ĐIỂM CỐ Ý KHÁC MISA — không được "sửa lại cho giống":
  *
@@ -119,7 +132,9 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  *     chọn mặt hàng của đề nghị thay vì chèn một dòng trắng.
  *     ⚠️ Điểm 4 này **chỉ còn đúng ở CHẾ ĐỘ CÓ ĐỀ NGHỊ** — xem khối ngay dưới.
  *
- * 📌 ĐÃ BỎ phân trang "20 bản ghi trên 1 trang" của MISA — xem chú thích trong `BangHangTien`.
+ * 📌 Phân trang "20 bản ghi trên 1 trang" của MISA: ĐÃ LÀM THẬT (18/08/2026) — chọn 20/50/100,
+ *    nút Trước · Sau đổi trang thật, cột `#` giữ số thứ tự thật của cả bảng. Chú thích ở đây từng
+ *    ghi *"ĐÃ BỎ phân trang"*, đúng lúc viết nhưng SAI từ 18/08/2026; xem `BangHangTien`.
  *
  * ---
  *
@@ -137,7 +152,7 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  * | Nhập Excel | Đối chiếu với đề nghị (`khopVoiDeNghi`) | Lấy thẳng mọi dòng đọc được |
  * | Khối lượng | Trừ vào dòng đề nghị, cắt về phần còn lại | Không trừ vào đâu |
  * | Chốt `vuongMacLapDonHang` | **Có** — bảng báo giá phải đã chốt NCC | 🔴 **KHÔNG ÁP DỤNG** — không cất đơn nên không có gì để chặn |
- * | Thanh nút cuối | **[Cất]** · **[Cất và In]** | 🔴 **[In mẫu PO]** · **[Xuất Excel]** — KHÔNG có nút cất |
+ * | Thanh nút cuối | **[Lưu]** · **[Lưu và In]** (nhãn Ban lãnh đạo chốt 18/08/2026, KHÔNG phải "Cất") | 🔴 **[In mẫu PO]** · **[Xuất Excel]** — KHÔNG có nút lưu |
  * | Ghi vào hệ thống | Có, qua `themDonHang` | 🔴 **KHÔNG GHI GÌ CẢ** |
  * | Số đơn hàng | `themDonHang` cấp lúc cất, theo Thông báo 09/2026 | Không cấp — in ra `SO_DON_BAN_MAU` |
  * | Ô "Tình trạng" | Có, chỉ đọc, luôn `da_chot` | 🔴 **Ẩn hẳn** — bản mẫu không ở trạng thái nào |
@@ -411,6 +426,30 @@ export function FormLapDonMuaHang({
   }, [dsDeNghi, donHang]);
 
   /**
+   * ★ ĐỊA ĐIỂM GIAO HÀNG ĐÃ DÙNG — nguồn cho ô chọn nhanh (18/08/2026).
+   *
+   * 🔴 MISA để "Địa điểm giao hàng" là Ô CHỌN có danh mục. App **không có danh mục địa điểm
+   * giao hàng** nào trong `3-du-lieu/` (chỉ có `DANH_MUC_PHONG_BAN`) và không được tự bịa ra một
+   * danh mục — đó là dữ liệu nghiệp vụ, phải do công ty cấp.
+   *
+   * 📌 CÁCH LÀM THẬT MÀ KHÔNG BỊA: gom các địa điểm đã ghi trên ĐƠN HÀNG THẬT — đúng cách ô
+   * "Dự án / Công trình" ở trên đang làm (`duAnDaCo` suy từ đề nghị + đơn hàng, vì app cũng chưa
+   * có danh mục dự án). Dùng lại cách đã quen thay vì dựng kiểu nhập thứ hai cho cùng một việc.
+   *
+   * ⚠️ HỆ QUẢ PHẢI BIẾT: kho dữ liệu mới (chưa có đơn nào) thì danh sách này RỖNG, và ô chọn
+   * KHÔNG được vẽ ra — bày một ô chọn chỉ có đúng dòng "-- Chọn --" còn khó dùng hơn ô gõ tay.
+   * Ô gõ chữ vì vậy luôn còn đó, và nó mới là ô giữ giá trị thật của đơn.
+   */
+  const diaDiemDaCo = useMemo(() => {
+    const tap = new Set<string>();
+    for (const p of donHang) {
+      const s = (p.diaDiemGiaoHang ?? "").trim();
+      if (s !== "") tap.add(s);
+    }
+    return [...tap].sort((a, b) => a.localeCompare(b, "vi"));
+  }, [donHang]);
+
+  /**
    * Tiến độ từng dòng của phiếu đề nghị nguồn.
    *
    * ⚠️ Độc lập thì KHÔNG có đề nghị nào → mảng rỗng, và mọi thứ suy ra từ nó (`dongLapDuoc`,
@@ -444,6 +483,29 @@ export function FormLapDonMuaHang({
     }
     return bang;
   }, [dongLapDuoc]);
+
+  /**
+   * ★ ĐIỀN CẢ CỤM Ô NHÀ CUNG CẤP TỪ MỘT BẢN GHI DANH MỤC — dùng cho ô tra mã và nút sổ xuống.
+   *
+   * 🔴 DÙNG CHUNG CHO HAI CHỖ ĐÓ, không chép tay hai bản: gõ trúng mã và chọn từ danh mục phải
+   * ra đúng một kết quả, lệch nhau là người lập thấy hai hành vi khác nhau cho cùng một việc.
+   *
+   * ⚠️ KHÔNG dùng cho hai khối điền sẵn kia (từ bảng báo giá và từ file Excel) — CỐ Ý. Hai khối
+   * đó lấy **tên nhà cung cấp theo phân bổ / theo file**, không theo danh mục (chỉ đạo Ban lãnh
+   * đạo 10/08/2026: thông tin lấy theo PO). Gọi hàm này ở đó là ghi đè tên bằng tên trong danh
+   * mục — đúng thứ chỉ đạo hôm đó yêu cầu bỏ.
+   *
+   * ⚠️ CHỈ GHI ĐÈ Ô CÓ DỮ LIỆU TRONG DANH MỤC. Danh mục thiếu địa chỉ mà vẫn ghi đè là **xóa
+   * mất địa chỉ người lập vừa gõ tay** — mà địa chỉ là thông tin pháp lý in trên đơn.
+   */
+  const dienNhaCungCap = useCallback((n: NhaCungCap) => {
+    setSupplierId(n.id);
+    setTenNCC(n.ten);
+    if (n.maNCC) setMaNCC(n.maNCC);
+    if (n.maSoThue) setMstNCC(n.maSoThue);
+    if (n.diaChi) setDiaChiNCC(n.diaChi);
+    if (n.nguoiLienHe) setNguoiLienHe(n.nguoiLienHe);
+  }, []);
 
   /** Dựng một dòng bảng từ một dòng đề nghị. Số lượng bỏ trống = lấy hết phần còn lại. */
   const dungDongTuDeNghi = useCallback(
@@ -686,8 +748,11 @@ export function FormLapDonMuaHang({
    * PHÍM TẮT F9 — "Thêm nhanh" của MISA. Có đề nghị thì mở hộp chọn mặt hàng, độc lập thì
    * chèn một dòng trắng (xem `themDong`).
    *
-   * 📌 MISA còn ghi "F3 - Tìm nhanh". ĐÃ BỎ F3: màn này không có ô tìm kiếm nào để mở, gắn
-   * một phím tắt không làm gì là đúng cái lỗi "giao diện hứa một việc app không làm".
+   * 📌 MISA còn ghi "F3 - Tìm nhanh" — F3 nay LÀM VIỆC THẬT, bắt ở `BangHangTien` (đưa con trỏ
+   * vào ô tìm nhanh của bảng). Chú thích ở đây từng ghi *"ĐÃ BỎ F3: màn này không có ô tìm kiếm
+   * nào để mở"* — đúng vào lúc viết, nhưng SAI kể từ 18/08/2026 khi bảng Hàng tiền có ô tìm thật.
+   * Sửa lại vì một chú thích nói "đã bỏ" trong khi mã đang bắt phím sẽ khiến người sau tưởng
+   * `NutPhimTat` đang rao một phím không tồn tại rồi đi xóa nó.
    *
    * 🔴 CHỈ BẮT PHÍM Ở TRANG RIÊNG (`!nhung`). Bắt trên `window` nên khi form nằm trong trang
    * chi tiết đề nghị, F9 sẽ nhảy ra hộp "Thêm mặt hàng" kể cả lúc người dùng đang gõ bình
@@ -1055,7 +1120,7 @@ export function FormLapDonMuaHang({
   //    `vuongMacLapDonHang` — xem khối chú thích đầu file.
   //
   // 🔴 CHỈ CHẠY Ở CHẾ ĐỘ ĐỘC LẬP. Hai nút gọi chúng chỉ được vẽ khi `laDonDocLap`; đường có đề
-  //    nghị vẫn [Cất] / [Cất và In] qua `luu()` như cũ, không đụng một dòng.
+  //    nghị vẫn [Lưu] / [Lưu và In] qua `luu()` như cũ, không đụng một dòng.
   // ===========================================================================
 
   /**
@@ -1549,6 +1614,31 @@ export function FormLapDonMuaHang({
     </div>
   );
 
+  /**
+   * ★ HAI NÚT TRỢ GIÚP của thanh tiêu đề MISA — [Hướng dẫn sử dụng] và biểu tượng bàn phím.
+   *
+   * ✅ CẢ HAI ĐỀU LÀM VIỆC THẬT, không phải chỗ trống:
+   *  · [Hướng dẫn sử dụng] mở đúng hướng dẫn bước "Lập đơn mua hàng" đã có sẵn trong
+   *    `2-quy-trinh/huong-dan-giai-doan.ts` (khóa `lap_don_mua_hang`, chép nguyên văn từ quy
+   *    trình giấy TM-QT Mua hàng của công ty). Dùng lại `NutHuongDanGiaiDoan` chứ không dựng hộp
+   *    thứ hai — chữ nghiệp vụ chỉ được có MỘT bản.
+   *  · Biểu tượng bàn phím liệt kê phím tắt THẬT SỰ đang bắt (F3, F9).
+   *
+   * 🔴 NÚT BÀN PHÍM CHỈ HIỆN Ở TRANG RIÊNG (`!nhung`). Khi nhúng trong trang chi tiết đề nghị,
+   * app CỐ Ý không bắt F3/F9 (sẽ cướp phím của ô bình luận và bảng phân bổ) — nên ở đó danh sách
+   * phím tắt sẽ rỗng, và một cái nút mở ra hộp rỗng đúng là thứ quy ước dự án cấm.
+   */
+  const nutTroGiup = (
+    <div className="flex flex-wrap items-center gap-2">
+      <NutHuongDanGiaiDoan
+        giaiDoan="lap_don_mua_hang"
+        kieu="nut_chu"
+        nhanNut="Hướng dẫn sử dụng"
+      />
+      {!nhung && <NutPhimTat />}
+    </div>
+  );
+
   return (
     /* 🔴 PHẢI CÓ KHUNG FLEX RIÊNG, không trả về một fragment trần.
        Trang riêng thì khung ngoài của app (`khung-tong.tsx`) là flex-col có `gap-(--hp-md-section)`
@@ -1603,9 +1693,14 @@ export function FormLapDonMuaHang({
             Nhập tay từng dòng, hoặc lấy sẵn từ file Excel:
           </p>
         )}
-        {/* Hai nút Excel thuộc phần nhập liệu, nên gập cùng nó. Để chúng đứng lại một mình
-            trên dòng tiêu đề đã thu gọn thì bấm vào là đổ dữ liệu vào một cái bảng đang ẩn. */}
-        {(!nhung || moNhapLieu) && nutNhapExcel}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Hai nút Excel thuộc phần nhập liệu, nên gập cùng nó. Để chúng đứng lại một mình
+              trên dòng tiêu đề đã thu gọn thì bấm vào là đổ dữ liệu vào một cái bảng đang ẩn. */}
+          {(!nhung || moNhapLieu) && nutNhapExcel}
+          {/* 📌 Hai nút trợ giúp KHÔNG gập theo: đọc hướng dẫn là việc làm được cả khi phần nhập
+              liệu đang thu gọn — chính lúc chưa biết bắt đầu từ đâu thì mới cần hướng dẫn. */}
+          {nutTroGiup}
+        </div>
       </div>
 
       {/* 🔴 GẬP = ẨN BẰNG `hidden`, KHÔNG THÁO KHỎI CÂY REACT.
@@ -1680,55 +1775,137 @@ export function FormLapDonMuaHang({
         </div>
       )}
 
+      {/* --- "Tổng tiền thanh toán" CỠ LỚN ở góc trên phải ---
+          🔴 ĐỂ NGOÀI KHỐI THÔNG TIN, đúng chỗ MISA đặt (18/08/2026): trên ảnh MISA con số này
+          nằm NGOÀI vùng tô nền, ngang hàng với đỉnh khối. Trước đó app để bên trong thẻ.
+          🔴 Chỉ hiện với người có quyền xem giá.
+          📌 Khi nhúng thì hạ một bậc (`text-h3`): 22px trong một khối có tiêu đề 11px là lệch
+          thứ bậc chữ y như lỗi 16/08/2026. Vẫn to hơn hẳn chữ thường 14px nên không mất tính
+          nổi bật mà MISA muốn. */}
+      {quyen.xemGia && (
+        <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
+          <span className="text-sm text-text-desc">Tổng tiền thanh toán</span>
+          <span
+            className={`font-bold tabular-nums text-primary ${nhung ? "text-h3" : "text-h2"}`}
+          >
+            {tien.tongThanhToan.toLocaleString("vi-VN")} ₫
+          </span>
+        </div>
+      )}
+
       {/* =========================================================================
           ① KHỐI THÔNG TIN CHUNG — 3 cột, đúng thứ tự ô của MISA
-          ========================================================================= */}
-      <Card>
-        <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-          {/* --- "Tổng tiền thanh toán" CỠ LỚN ở góc trên phải, đúng chỗ MISA đặt ---
-              🔴 Chỉ hiện với người có quyền xem giá.
-              📌 Khi nhúng thì hạ một bậc (`text-h3`): 22px trong một khối có tiêu đề 11px là
-              lệch thứ bậc chữ y như lỗi 16/08/2026. Vẫn to hơn hẳn chữ thường 14px nên không
-              mất tính nổi bật mà MISA muốn. */}
-          {quyen.xemGia && (
-            <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
-              <span className="text-sm text-text-desc">Tổng tiền thanh toán</span>
-              <span
-                className={`font-bold tabular-nums text-primary ${nhung ? "text-h3" : "text-h2"}`}
-              >
-                {tien.tongThanhToan.toLocaleString("vi-VN")} ₫
-              </span>
-            </div>
-          )}
 
+          🔴 NỀN XANH RẤT NHẠT PHỦ KÍN KHỐI, đúng như MISA (18/08/2026) — nhưng bằng TOKEN CỦA
+          CÔNG TY: `bg-primary-bg` = `color-mix(--hp-primary 12%, transparent)` ở Sáng và `20%`
+          ở Tối. Vì `--hp-primary` = #096AA7 nên ra xanh DƯƠNG nhạt theo V1.1, **không phải tông
+          xanh ngọc của MISA** (Ban lãnh đạo 16/08/2026: *"Về màu sắc thì vẫn theo design
+          system"*). Dùng độ mờ của chính token primary nên tự đúng ở cả Sáng lẫn Tối, và khi
+          người dùng đổi màu chủ đạo thì nền này đi theo — không phải khai thêm mã màu nào.
+          ========================================================================= */}
+      <Card className="bg-primary-bg">
+        {/* 🔴 `[&_input]:bg-card` — Ô NHẬP PHẢI NỔI TRÊN NỀN ĐÃ TÔ, đúng như MISA (ô trắng trên
+            khối nền nhạt). `Input` của bộ nền tảng mặc định `bg-transparent`, nên nếu không khai
+            lại thì cả ô lẫn nền cùng một màu: người dùng không thấy đâu là chỗ gõ được.
+            📌 Khai MỘT LẦN ở đây thay vì thêm class vào từng ô: khối này có hơn mười ô, sửa từng
+            cái là chắc chắn bỏ sót một hai chỗ rồi trông chắp vá.
+            📌 Vẫn là token (`bg-card` = `--hp-card`), không hardcode màu, và tự đúng ở cả Sáng
+            (#ffffff) lẫn Tối (#182531).
+            ⚠️ Ô bị khóa (`disabled`) KHÔNG bị ảnh hưởng: lớp `disabled:bg-input/50` của `Input`
+            có độ ưu tiên cao hơn lớp con-cháu này, nên ô "Nhân viên mua hàng" và "Số đơn hàng"
+            vẫn trông đúng là ô chỉ đọc.
+
+            🔴 PHẢI KHAI CẢ `dark:[&_input]:bg-card`, và đây KHÔNG phải viết thừa. `Input` có sẵn
+            `dark:bg-input/30`; lớp đó là `.dark .bg-input\/30` (độ ưu tiên 0,2,0) nên nó THẮNG lớp
+            con-cháu `[&_input]:bg-card` (0,1,1) — đo trên trình duyệt ở chế độ Tối thì ô nhập ra
+            màu trắng 2,35% chứ không phải `--hp-card`, tức là ô gần như tan vào nền đã tô. Bản
+            `dark:` sinh ra selector 0,2,1 nên mới đè lại được. Đã đo lại sau khi sửa. */}
+        <CardContent className="flex flex-col gap-(--hp-md-card-gap) [&_input]:bg-card dark:[&_input]:bg-card">
           <div className="grid gap-(--hp-md-card-gap) md:grid-cols-2 xl:grid-cols-3">
             {/* ===== CỘT 1 ===== */}
             <div className="flex flex-col gap-(--hp-md-card-gap)">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="ma-ncc">Mã nhà cung cấp</Label>
-                <Input
-                  id="ma-ncc"
-                  value={maNCC}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setMaNCC(v);
-                    /* Ô này là Ô TRA DANH MỤC, không phải ô lưu vào đơn: `DonDatHang` không có
-                       trường mã NCC (mã nằm ở danh mục `NhaCungCap.maNCC`). Gõ trúng mã thì
-                       điền hộ tên / MST / địa chỉ / người liên hệ và giữ liên kết `supplierId`.
-                       Câu trạng thái ngay dưới nói rõ có tra ra hay không — không tra ra mà im
-                       lặng thì người lập tưởng đã chọn đúng nhà cung cấp. */
-                    const tim = nhaCungCap.find(
-                      (n) => n.maNCC && n.maNCC.toLowerCase() === v.trim().toLowerCase(),
-                    );
-                    if (!tim) return;
-                    setSupplierId(tim.id);
-                    setTenNCC(tim.ten);
-                    if (tim.maSoThue) setMstNCC(tim.maSoThue);
-                    if (tim.diaChi) setDiaChiNCC(tim.diaChi);
-                    if (tim.nguoiLienHe) setNguoiLienHe(tim.nguoiLienHe);
-                  }}
-                  placeholder="NCC0001"
-                />
+                {/* ===== Ô TRA MÃ + NÚT SỔ XUỐNG =====
+                    ✅ NÚT SỔ XUỐNG LÀM VIỆC THẬT: nó mở đúng danh mục nhà cung cấp của app
+                    (`nhaCungCap` trong `useDuLieu()`), chọn một dòng là điền cả cụm ô.
+
+                    🔴 KHÔNG CÓ NÚT "+" NHƯ MISA. MISA có nút thêm nhanh nhà cung cấp; app này
+                    **không có một hàm nào ghi vào danh mục nhà cung cấp** — `nhaCungCap` là hằng
+                    số `NHA_CUNG_CAP` và trong toàn bộ mã nguồn không tồn tại `themNhaCungCap`.
+                    Vẽ nút "+" ra là một cái nút bấm không có chỗ ghi, đúng thứ quy ước dự án cấm.
+                    Không mất việc: ô "Tên nhà cung cấp" cho gõ tự do, đơn vẫn lập được với nhà
+                    cung cấp ngoài danh mục (chỉ đạo 10/08/2026 — lấy NCC theo file PO). */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="ma-ncc"
+                    value={maNCC}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setMaNCC(v);
+                      /* Ô này là Ô TRA DANH MỤC, không phải ô lưu vào đơn: `DonDatHang` không có
+                         trường mã NCC (mã nằm ở danh mục `NhaCungCap.maNCC`). Gõ trúng mã thì
+                         điền hộ tên / MST / địa chỉ / người liên hệ và giữ liên kết `supplierId`.
+                         Câu trạng thái ngay dưới ô "Tên nhà cung cấp" nói rõ có tra ra hay không —
+                         không tra ra mà im lặng thì người lập tưởng đã chọn đúng nhà cung cấp. */
+                      const tim = nhaCungCap.find(
+                        (n) => n.maNCC && n.maNCC.toLowerCase() === v.trim().toLowerCase(),
+                      );
+                      if (tim) dienNhaCungCap(tim);
+                    }}
+                    placeholder="NCC0001"
+                  />
+                  <Popover>
+                    <PopoverTrigger
+                      render={
+                        <button
+                          type="button"
+                          /* Vùng chạm 44×44 (V1.1 Phần F) — nút nhỏ hơn thì trên máy tính bảng
+                             bấm không trúng. */
+                          className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                          aria-label="Chọn nhà cung cấp từ danh mục"
+                          title="Chọn nhà cung cấp từ danh mục"
+                        >
+                          <ChevronDown className="size-4" aria-hidden />
+                        </button>
+                      }
+                    />
+                    <PopoverContent align="start" className="w-80">
+                      <p className="text-xs text-text-desc">
+                        Danh mục nhà cung cấp — chọn một dòng để điền mã, tên, mã số thuế, địa chỉ
+                        và người liên hệ.
+                      </p>
+                      {nhaCungCap.length === 0 ? (
+                        <p className="text-sm text-text-secondary">
+                          Danh mục đang trống. Gõ thẳng tên nhà cung cấp ở ô bên cạnh — đơn vẫn
+                          lập được.
+                        </p>
+                      ) : (
+                        <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+                          {nhaCungCap.map((n) => (
+                            <li key={n.id}>
+                              <button
+                                type="button"
+                                onClick={() => dienNhaCungCap(n)}
+                                className="flex min-h-11 w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-primary-bg"
+                              >
+                                <span className="text-sm font-medium text-text-primary">
+                                  {n.maNCC ? `${n.maNCC} — ` : ""}
+                                  {n.ten}
+                                </span>
+                                {n.maSoThue && (
+                                  <span className="text-xs text-text-desc">
+                                    MST {n.maSoThue}
+                                  </span>
+                                )}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="mst-ncc">Mã số thuế</Label>
@@ -1943,14 +2120,21 @@ export function FormLapDonMuaHang({
                   đúng kiểu "giao diện hứa một việc app không làm" mà quy ước dự án cấm. */}
               {!laDonDocLap && (
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="tinh-trang">
+                  {/* ⚠️ KHÔNG có `htmlFor` ở đây, và đó là cố ý. Chỗ hiện tình trạng là một
+                      `<div>` chứa `StatusBadge`, không phải ô nhập — `<label for="…">` trỏ vào một
+                      thẻ không nhập được thì bấm vào nhãn KHÔNG đưa con trỏ đi đâu cả, mà trình
+                      đọc màn hình cũng không nối được hai thứ. Trước 18/08/2026 chỗ này ghi
+                      `htmlFor="tinh-trang"` trỏ vào `<div id="tinh-trang">`: một liên kết chết.
+                      Chữ trạng thái đã nằm ngay trong `StatusBadge` (V1.1 — trạng thái luôn có cả
+                      màu lẫn chữ) nên không mất thông tin nào. */}
+                  <Label>
                     Tình trạng <span className="text-danger">*</span>
                   </Label>
                   {/* 🔴 CHỈ ĐỌC. MISA cho chọn tình trạng tự do; app này có quy trình 6 trạng
                       thái riêng đã chốt, và đơn mới luôn vào `da_chot` (xem `themDonHang`). Bày
                       một ô chọn rồi bỏ qua giá trị người dùng chọn cũng là kiểu "giao diện hứa
                       một việc app không làm". Trạng thái đổi ở màn chi tiết đơn. */}
-                  <div id="tinh-trang" className="flex min-h-11 items-center">
+                  <div className="flex min-h-11 items-center">
                     <StatusBadge label={nhanTrangThai.nhan} tone={nhanTrangThai.tong} />
                   </div>
                 </div>
@@ -1971,7 +2155,10 @@ export function FormLapDonMuaHang({
             </div>
           </div>
 
-          {/* --- Dòng "Tham chiếu" chạy hết bề ngang, đúng chỗ MISA đặt (cuối khối) --- */}
+          {/* --- Dòng "Tham chiếu" ở CUỐI KHỐI, sát lề trái, đúng chỗ MISA đặt ---
+              📌 Bóp lại `max-w-xl` (18/08/2026): trên ảnh MISA ô này gọn ở lề trái chứ không trải
+              hết bề ngang khối. Số chứng từ tham chiếu chỉ vài chục ký tự, kéo dài cả khối là
+              mắt phải chạy ngang rất xa giữa nhãn và ô. */}
           <div className="flex flex-col gap-2 border-t border-divider pt-(--hp-md-card-gap)">
             <Label htmlFor="tham-chieu">Tham chiếu</Label>
             <Input
@@ -1979,6 +2166,7 @@ export function FormLapDonMuaHang({
               value={thamChieu}
               onChange={(e) => setThamChieu(e.target.value)}
               placeholder="Số chứng từ bên ngoài liên quan (đơn cũ, email, hợp đồng…)"
+              className="max-w-xl"
             />
           </div>
         </CardContent>
@@ -2011,6 +2199,10 @@ export function FormLapDonMuaHang({
             /* Khi nhúng thì tiêu đề "Hàng tiền" phải nhỏ hơn tiêu đề khối bước — lý do như
                khối "Tổng tiền thanh toán" ở trên. */
             tieuDeTrongKhoiGiaiDoan={nhung}
+            /* 🔴 F3 CHỈ BẮT PHÍM Ở TRANG RIÊNG — cùng một lý do đã áp cho F9 ngay dưới: nhúng
+               trong trang chi tiết đề nghị thì phím tắt sẽ cướp phím của ô bình luận và bảng
+               phân bổ. Ô tìm vẫn bấm được bằng chuột ở cả hai chỗ. */
+            batPhimTat={!nhung}
           />
 
           {quyen.xemGia && (
@@ -2034,11 +2226,15 @@ export function FormLapDonMuaHang({
             </div>
           )}
 
-          {/* 📌 MISA ghi "F3 - Tìm nhanh, F9 - Thêm nhanh". Ở đây chỉ giữ F9 vì chỉ F9 có thật
-              — xem chú thích ở chỗ bắt phím. Nhúng trong trang thì KHÔNG bắt F9 (sẽ cướp phím
-              của ô bình luận, bảng phân bổ…), nên cũng không được rao là có. */}
+          {/* 📌 DÒNG "F3 - Tìm nhanh, F9 - Thêm nhanh" của MISA — 18/08/2026 ĐÃ ĐỦ CẢ HAI.
+              🔴 F3 trước đây bị bỏ vì màn không có ô tìm nào để mở; nay bảng Hàng tiền đã có ô
+              tìm thật nên F3 làm việc thật (xem `BangHangTien`).
+              🔴 CHỈ RAO KHI CÓ THẬT: nhúng trong trang thì app KHÔNG bắt hai phím này (sẽ cướp
+              phím của ô bình luận, bảng phân bổ…), nên dòng chữ cũng không được hiện. */}
           {!nhung && (
-            <p className="text-xs text-text-desc">F9 — thêm nhanh một mặt hàng vào bảng.</p>
+            <p className="text-xs text-text-desc">
+              F3 — tìm nhanh trong bảng · F9 — thêm nhanh một mặt hàng vào bảng.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -2047,9 +2243,16 @@ export function FormLapDonMuaHang({
           ③ + ④ HAI KHỐI DƯỚI — trái: thông tin giao nhận · phải: bảng tổng hợp tiền
           ========================================================================= */}
       <div className="grid gap-(--hp-md-card-gap) lg:grid-cols-2">
-        {/* --- ③ KHỐI DƯỚI TRÁI --- */}
+        {/* --- ③ KHỐI DƯỚI TRÁI ---
+            📌 `[&_input]:max-w-md [&_textarea]:max-w-md` (18/08/2026): trên ảnh MISA các ô của
+            khối này HẸP, chỉ khoảng một phần ba bề ngang, chứ không trải hết. Ở đây khối trái là
+            một nửa lưới `lg:grid-cols-2`, nên `max-w-md` (448px) cho ra đúng cảm giác đó mà vẫn
+            co lại được trên điện thoại.
+            🔴 Khai một lần thay vì thêm class vào từng ô — cùng lý do như khối ①: sửa từng cái là
+            bỏ sót rồi trông chắp vá. Các ô đã có bề rộng riêng (`w-48` của ô ngày) không bị đụng
+            vì `max-w` chỉ đặt giới hạn trên. */}
         <Card>
-          <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+          <CardContent className="flex flex-col gap-(--hp-md-card-gap) [&_input]:max-w-md [&_textarea]:max-w-md">
             <div className="flex flex-col gap-2">
               {/* 🔴 NHÃN PHẢI ĐỔI THEO CHẾ ĐỘ. Đơn độc lập không có mã RQ nào; để nguyên nhãn
                   "Mã RQ - Tên công trình" rồi bày mỗi một ô là giao diện nói sai. */}
@@ -2102,9 +2305,38 @@ export function FormLapDonMuaHang({
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="dia-diem">Địa điểm giao hàng</Label>
-              {/* 📌 MISA để ô này là ô CHỌN có danh mục địa điểm. App chưa có danh mục địa điểm
-                  giao hàng nào, nên giữ ô nhập chữ: một ô chọn chỉ có đúng một dòng còn khó
-                  dùng hơn ô gõ tay. Bỏ trống thì lấy tên công trình. */}
+              {/* ===== MISA để ô này là Ô CHỌN — 18/08/2026 đã có ô chọn THẬT =====
+                  🔴 KHÔNG BỊA DANH MỤC. App không có danh mục địa điểm giao hàng (chỉ có
+                  `DANH_MUC_PHONG_BAN`), và danh mục là dữ liệu nghiệp vụ phải do công ty cấp.
+                  Danh sách ở đây gom từ ĐỊA ĐIỂM ĐÃ GHI TRÊN ĐƠN THẬT (`diaDiemDaCo`) — đúng cách
+                  ô "Dự án / Công trình" đang làm, vì app cũng chưa có danh mục dự án.
+
+                  🔴 Ô CHỌN CHỈ ĐIỀN HỘ, Ô CHỮ MỚI LÀ GIÁ TRỊ THẬT — cố ý làm vậy, không phải
+                  làm dở. Nếu ô chọn là nguồn duy nhất thì địa điểm đọc từ file Excel
+                  (`doVaoBang` → `setDiaDiemGiao`) sẽ không khớp lựa chọn nào và **biến mất khỏi
+                  màn hình** dù vẫn nằm trong đơn — người lập không biết mà sửa.
+
+                  ⚠️ Kho dữ liệu chưa có đơn nào thì không vẽ ô chọn: một ô chọn chỉ có dòng
+                  "-- Chọn --" còn khó dùng hơn ô gõ tay. */}
+              {diaDiemDaCo.length > 0 && (
+                <select
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value !== "") setDiaDiemGiao(e.target.value);
+                  }}
+                  aria-label="Chọn địa điểm giao hàng đã dùng ở đơn trước"
+                  className="min-h-11 w-full min-w-0 max-w-md rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+                >
+                  {/* `value=""` luôn quay về dòng này sau khi chọn: ô chọn ở đây là một THAO TÁC
+                      điền hộ, không phải chỗ giữ giá trị — giá trị nằm ở ô chữ ngay dưới. */}
+                  <option value="">-- Chọn địa điểm đã dùng --</option>
+                  {diaDiemDaCo.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              )}
               <Input
                 id="dia-diem"
                 /* Gợi ý bằng tên công trình đang có trên form — độc lập thì đó là ô người lập
@@ -2127,15 +2359,22 @@ export function FormLapDonMuaHang({
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="dk-khac">Điều khoản khác</Label>
-              {/* MISA để ô nhiều dòng — dùng textarea gốc vì bộ nền tảng chưa có component
-                  Textarea; vẫn ăn đúng token màu và bo góc của Design System. */}
-              <textarea
+              {/* MISA để ô nhiều dòng, cao khoảng 4 dòng.
+                  🔴 SỬA MỘT CHÚ THÍCH SAI (18/08/2026): chỗ này từng ghi *"dùng textarea gốc vì
+                  bộ nền tảng chưa có component Textarea"* — KHÔNG ĐÚNG, `nen-tang-ui/textarea.tsx`
+                  có thật và export `Textarea`. Hệ quả của chú thích sai đó là một bản chép tay
+                  các lớp CSS: bộ nền tảng đổi cách vẽ ô (viền, vòng focus, nền ở chế độ Tối) thì
+                  ô này đứng yên và lệch hẳn so với mọi ô khác trong app. Nay dùng component thật. */}
+              <Textarea
                 id="dk-khac"
-                rows={3}
+                rows={4}
                 value={dieuKhoanKhac}
                 onChange={(e) => setDieuKhoanKhac(e.target.value)}
                 placeholder="Bảo hành, bốc xếp, chứng chỉ chất lượng kèm theo…"
-                className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-text-primary transition-colors outline-none placeholder:text-text-disabled focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/50"
+                /* `min-h-24` ≈ 4 dòng, đúng chiều cao ô của MISA. `Textarea` có
+                   `field-sizing-content` nên nó vẫn tự cao thêm khi gõ dài — `rows` một mình
+                   không quyết định được chiều cao ban đầu. */
+                className="min-h-24"
               />
             </div>
 
@@ -2199,17 +2438,14 @@ export function FormLapDonMuaHang({
           </CardContent>
         </Card>
 
-        {/* --- ④ KHỐI DƯỚI PHẢI: bảng tổng hợp tiền --- */}
-        <Card>
-          <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-            {/* Cỡ tiêu đề đổi theo bố cục — lý do như tiêu đề "Hàng tiền". */}
-            {nhung ? (
-              <NhanPhanTrongGiaiDoan the="h2" icon={FileText}>
-                Tổng hợp
-              </NhanPhanTrongGiaiDoan>
-            ) : (
-              <h2 className="text-h3 text-text-primary">Tổng hợp</h2>
-            )}
+        {/* --- ④ KHỐI DƯỚI PHẢI: bảng tổng hợp tiền ---
+            🔴 BỎ VIỀN VÀ BỎ TIÊU ĐỀ "Tổng hợp" (18/08/2026). Trên ảnh MISA khối này KHÔNG có viền
+            và KHÔNG có tiêu đề — chỉ bốn dòng nhãn trái / số phải, dòng cuối đậm hơn. Trước đó app
+            bọc trong `<Card>` (có viền) và tự thêm tiêu đề "Tổng hợp" mà MISA không có.
+            📌 Bốn dòng và thứ tự thì GIỮ NGUYÊN vì vốn đã trùng MISA. Hai thứ app có thêm cũng
+            giữ: mức thuế trong nhãn (đơn trộn 8%/10% mà ghi một mức là ghi SAI chứng từ thuế) và
+            dòng đọc số tiền bằng chữ. */}
+        <div className="flex flex-col gap-(--hp-md-card-gap) py-(--hp-md-card-gap)">
             {quyen.xemGia ? (
               <>
                 <dl className="flex flex-col gap-1.5 text-sm">
@@ -2233,8 +2469,7 @@ export function FormLapDonMuaHang({
                 Bạn không có quyền xem giá nên phần tiền của đơn được ẩn.
               </p>
             )}
-          </CardContent>
-        </Card>
+        </div>
       </div>
 
       {/* ===== NÓI RÕ VÌ SAO CHƯA CẤT ĐƯỢC — đứng ngay trên thanh nút =====
@@ -2274,14 +2509,40 @@ export function FormLapDonMuaHang({
       )}
 
       {/* =========================================================================
-          ⑤ THANH NÚT DƯỚI CÙNG — [Hủy] trái · [Cất] [Cất và In] phải
-          ========================================================================= */}
-      <Card>
+          ⑤ THANH NÚT DƯỚI CÙNG — [Hủy] trái · [Lưu] [Lưu và In] phải
+
+          🔴 NỀN TỐI NHƯ MISA (18/08/2026), bằng token có thật của công ty: `bg-nav-base` =
+          `--hp-nav-base` = **#4B4F55**, chính màu thanh bên của V1.1 và **cố định ở cả Sáng lẫn
+          Tối**. Chữ dùng `text-nav-foreground` (#F5F7FA) cho đủ tương phản. Không bịa mã màu mới,
+          không dùng đen thuần.
+
+          🔴 CHỈ ÁP KHI Ở TRANG RIÊNG (`!nhung`). Nhúng trong khối bước ④ của trang chi tiết đề
+          nghị thì một dải tối nằm giữa trang sẽ trông như đáy của cả trang, trong khi phía dưới
+          còn bước ⑤ và ⑥ — người dùng tưởng hết trang. Ở đó giữ nền thẻ sáng như cũ.
+
+          ⚠️ KHÔNG DÁN ĐÁY MÀN HÌNH (`sticky bottom-0`) dù MISA có — lý do kỹ thuật ở báo cáo:
+          `main` trong `khung-app/khung-tong.tsx` có `overflow-x-hidden`, mà theo chuẩn CSS thì một
+          trục `hidden` làm trục còn lại từ `visible` thành `auto` → `main` thành khung cuộn, và
+          `main` lại cao đúng bằng nội dung nên **không bao giờ cuộn**. `sticky` bên trong một
+          khung không cuộn là VÔ HIỆU — thêm vào chỉ để có class mà không dán được gì đúng là kiểu
+          "thành phần trang trí" mà quy ước dự án cấm. */}
+      {/* ⚠️ CHỈ ĐỔI NỀN, TUYỆT ĐỐI KHÔNG đặt `text-nav-foreground` lên cả thẻ. Màu chữ đặt ở thẻ
+          sẽ CHẢY XUỐNG các nút bên trong: nút `variant="outline"` có nền `bg-background` (màu rất
+          sáng ở chế độ Sáng) mà thừa hưởng chữ #F5F7FA cũng rất sáng → **chữ trên nút [Lưu và In]
+          / [Xuất Excel] gần như vô hình**. Nên chỉ hai chỗ thật cần mới khai màu chữ: nút [Hủy]
+          (kiểu `ghost`, không có nền riêng) và câu nhắc còn thiếu gì. */}
+      <Card className={nhung ? undefined : "bg-nav-base ring-0"}>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           {/* Không có chỗ nào để "hủy" khi form nằm trong trang thì không vẽ nút — một nút
               không làm gì còn tệ hơn không có nút. `<span/>` giữ chỗ cho `justify-between`. */}
           {onHuy ? (
-            <Button variant="ghost" onClick={onHuy}>
+            <Button
+              variant="ghost"
+              onClick={onHuy}
+              /* Trên nền tối, nút `ghost` mặc định ăn màu chữ tối → gần như vô hình. Khai lại
+                 bằng token chữ của thanh điều hướng. */
+              className={nhung ? undefined : "text-nav-foreground hover:bg-nav-hover"}
+            >
               Hủy
             </Button>
           ) : (
@@ -2289,7 +2550,9 @@ export function FormLapDonMuaHang({
           )}
           <div className="flex flex-wrap items-center gap-3">
             {!hopLe && (
-              <span className="max-w-80 text-xs text-text-desc">
+              <span
+                className={`max-w-80 text-xs ${nhung ? "text-text-desc" : "text-nav-foreground-muted"}`}
+              >
                 {/* Nói ĐỦ những gì còn thiếu, kể cả cái chỉ chế độ mẫu mới đòi — nút mờ không
                     giải thích là kiểu bí việc khó chịu nhất (bài học 15/08/2026). */}
                 Cần {laDonDocLap ? "mã dự án, " : ""}tên nhà cung cấp, ngày đơn hàng, ngày giao
@@ -2306,7 +2569,7 @@ export function FormLapDonMuaHang({
                   KHÔNG có nút cất, và **không hàm nào ở nhánh này gọi `themDonHang`**. Nhờ vậy
                   chế độ này không còn đi vòng qua chốt kiểm soát chi tiêu `vuongMacLapDonHang`
                   — xem khối chú thích đầu file.
-                · CHẾ ĐỘ CÓ ĐỀ NGHỊ → [Cất] [Cất và In] y như cũ, không đổi một ly. Đó là đường
+                · CHẾ ĐỘ CÓ ĐỀ NGHỊ → [Lưu] [Lưu và In] y như cũ, không đổi một ly. Đó là đường
                   nghiệp vụ chính của app (kể cả chức năng tách PO theo phân bổ báo giá).
                 =============================================================== */}
             {laDonDocLap ? (
@@ -2411,6 +2674,69 @@ export function FormLapDonMuaHang({
         onDongY={() => luu(hoiCat === "cat-in")}
       />
     </section>
+  );
+}
+
+/**
+ * ★ BIỂU TƯỢNG BÀN PHÍM của thanh tiêu đề MISA — danh sách phím tắt.
+ *
+ * 🔴 CHỈ LIỆT KÊ PHÍM CÓ THẬT. Hai phím dưới đây đều đang được bắt thật: F3 ở `BangHangTien`
+ * (đưa con trỏ vào ô tìm nhanh), F9 ở `FormLapDonMuaHang` (thêm nhanh một mặt hàng). Liệt kê
+ * thêm phím mà app không bắt là đúng kiểu "giao diện hứa một việc app không làm".
+ *
+ * 🔴 CHỖ GỌI CHỈ VẼ NÚT NÀY KHI `!nhung` — nhúng trong trang chi tiết đề nghị thì app cố ý không
+ * bắt phím nào, nên danh sách sẽ rỗng. Chốt đó nằm ở chỗ gọi (`nutTroGiup`), không ở đây.
+ */
+function NutPhimTat() {
+  const [mo, setMo] = useState(false);
+
+  const dsPhim: { phim: string; viec: string }[] = [
+    { phim: "F3", viec: "Tìm nhanh trong bảng Hàng tiền — lọc theo mã hàng, tên hàng, thông số, ĐVT, mục đích sử dụng." },
+    { phim: "F9", viec: "Thêm nhanh một mặt hàng vào bảng Hàng tiền." },
+  ];
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setMo(true)}
+        /* Vùng chạm 44×44 theo V1.1 Phần F. */
+        className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:border-primary hover:text-primary"
+        aria-label="Xem danh sách phím tắt"
+        title="Phím tắt"
+      >
+        <Keyboard className="size-4" aria-hidden />
+      </button>
+
+      <Dialog open={mo} onOpenChange={(v: boolean) => !v && setMo(false)}>
+        {/* 🔴 `sm:max-w-md` — viết `max-w-md` trơn là VÔ HIỆU, lớp gốc base-nova đã có
+            `sm:max-w-sm` và tailwind-merge chỉ bỏ được lớp cùng biến thể. */}
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Phím tắt</DialogTitle>
+            <DialogDescription>
+              Chỉ có tác dụng trên màn Lập đơn mua hàng này.
+            </DialogDescription>
+          </DialogHeader>
+          <dl className="flex flex-col gap-2.5 text-sm">
+            {dsPhim.map((p) => (
+              <div key={p.phim} className="flex items-start gap-3">
+                <dt className="shrink-0 rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-xs font-semibold text-text-primary">
+                  {p.phim}
+                </dt>
+                <dd className="min-w-0 text-text-secondary">{p.viec}</dd>
+              </div>
+            ))}
+          </dl>
+          {/* ⚠️ Nói rõ giới hạn thay vì để người dùng bấm F3 ở trang khác rồi tưởng app lỗi. */}
+          <p className="text-xs text-text-desc">
+            Khi phần nhập liệu này nằm trong trang chi tiết phiếu đề nghị, hai phím trên{" "}
+            <strong>cố ý không hoạt động</strong> — ở đó chúng sẽ cướp phím của ô bình luận và
+            bảng phân bổ. Dùng nút <strong>Thêm dòng</strong> và ô tìm trên bảng thay thế.
+          </p>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

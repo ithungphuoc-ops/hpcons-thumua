@@ -109,6 +109,17 @@ Chỉ đạo Ban lãnh đạo: *"cấu hình cho a bước lập đơn mua hàng
 
 📌 **Mã đơn hàng KHÔNG đổi.** Vẫn là `260001-HPCS-PO-001` theo Thông báo 09/2026 (TGĐ ký), **không** lấy kiểu `DMH0532-26` của MISA. Bám màn hình MISA là bám *bố cục và chức năng*, không phải bám hệ mã hồ sơ.
 
+🐛 **18/08/2026 — `NHA_CUNG_CAP` đã được bổ sung `maNCC` và `nguoiLienHe`, đây là SỬA LỖI THẬT.**
+Hai trường đó được thêm vào kiểu `NhaCungCap` khi làm màn lập đơn theo MISA, nhưng **không bản ghi mẫu
+nào được điền**. Hệ quả: ô "Mã nhà cung cấp" ở `form-lap-don-mua-hang.tsx` tra theo `n.maNCC` nên
+**không bao giờ tra ra được gì** — gõ mã nào cũng không điền hộ được tên / MST / địa chỉ, và câu trạng
+thái dưới ô luôn báo *"Chưa có trong danh mục"*. Một ô nhập bày ra mà không làm nổi việc nó hứa, đúng
+thứ mục 3.5 của `CLAUDE.md` cấm. Nay danh mục có `NCC0001`…`NCC0004` và **nút sổ xuống** cạnh ô đó
+liệt kê đúng danh mục này.
+
+⚠️ **`maNCC` KHÁC `id`.** `id` (`ncc-01`) là khóa kỹ thuật — đổi là làm mồ côi mọi đơn cũ.
+`maNCC` (`NCC0001`) là mã nghiệp vụ in trên chứng từ, đổi được. Đừng gộp hai thứ.
+
 🔴 **Danh sách `nguoiTheoDoi` KHÔNG được dùng để mở khóa xem giá.** Khi viết Security Rules,
 có thể cho `nguoiTheoDoi` quyền đọc `tm_denghi` và `tm_donhang`, **nhưng tuyệt đối không cho đọc
 `tm_donhang_gia`** — nếu không thì thêm thủ kho vào danh sách theo dõi là thủ kho thấy đơn giá,

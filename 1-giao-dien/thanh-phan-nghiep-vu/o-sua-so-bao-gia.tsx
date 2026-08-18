@@ -113,12 +113,28 @@ export function OSuaSoBaoGia({
     return () => clearTimeout(hen);
   }, [so]);
 
-  /* Chưa giao việc thì chưa có số nào để nói — và cũng không cho đặt ở đây, vì con số này
-     thuộc về lúc giao việc. Nói rõ chỗ phải làm thay vì để một ô trống vô nghĩa. */
+  /**
+   * 🔴 KHÔNG IN CÂU GIẢI THÍCH RA MÀN — Ban lãnh đạo 18/08/2026: *"bỏ ghi chú kiểu này đi và
+   * điều chỉnh lại font chữ, cỡ chữ đồng nhất"*, cùng tinh thần chỉ đạo 16/08/2026: *"đây là
+   * ứng dụng chuyên nghiệp nên không cần các cảnh báo kiểu này"*.
+   *
+   * 📌 Giải thích chuyển hết vào `title` (rê chuột là thấy): màn gọn mà thông tin không mất.
+   * Bỏ hẳn thì người mở phiếu không hiểu vì sao ô trống, hoặc vì sao "2–4" không sửa được.
+   *
+   * 🔴 CỠ CHỮ DÙNG ĐÚNG `text-sm font-medium text-text-primary` — y hệt mọi giá trị trường
+   * khác trong khối ĐẦU VÀO (xem `khoi-dau-vao-theo-giai-doan.tsx`). Bản trước để
+   * `font-semibold` nên riêng ô này đậm hơn các trường bên cạnh, đúng lỗi "cỡ chữ không đồng
+   * đều" Ban lãnh đạo đã bắt hai lần.
+   */
+  const LOP_GIA_TRI = "text-sm font-medium text-text-primary tabular-nums";
+
   if (tongHop.loai === "chuaGiao") {
     return (
-      <span className="text-sm text-text-desc italic">
-        Chưa giao việc — đặt số báo giá khi phân bổ ở bước ①
+      <span
+        className={LOP_GIA_TRI}
+        title="Chưa giao việc. Số báo giá được đặt khi phân bổ công việc ở bước ① Tiếp nhận và kiểm tra."
+      >
+        —
       </span>
     );
   }
@@ -126,22 +142,22 @@ export function OSuaSoBaoGia({
   /* Mỗi dòng một số: CHỈ ĐỌC. Xem lý do ở khối chú thích đầu file (bấm ± là ghi đè hết). */
   if (tongHop.loai === "khacNhau") {
     return (
-      <span className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-sm font-semibold text-text-primary tabular-nums">
-          {tongHop.nhoNhat}–{tongHop.lonNhat}
-        </span>
-        <span className="text-xs text-text-desc italic">
-          mỗi dòng một số ({tongHop.soDong} dòng) — sửa ở bảng Phân bổ công việc
-        </span>
+      <span
+        className={LOP_GIA_TRI}
+        title={`Mỗi dòng một số (${tongHop.soDong} dòng đã giao việc). Sửa ở bảng Phân bổ công việc — sửa ở đây sẽ ghi đè số của mọi dòng.`}
+      >
+        {tongHop.nhoNhat}–{tongHop.lonNhat}
       </span>
     );
   }
 
   if (!duocSua) {
     return (
-      <span className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-sm font-semibold text-text-primary tabular-nums">{so ?? "—"}</span>
-        <span className="text-xs text-text-desc italic">theo phân bổ ở bước ①</span>
+      <span
+        className={LOP_GIA_TRI}
+        title={`Theo phân bổ công việc ở bước ① (${tongHop.soDong} dòng).`}
+      >
+        {so ?? "—"}
       </span>
     );
   }
@@ -173,10 +189,12 @@ export function OSuaSoBaoGia({
         <Minus className="size-3.5" aria-hidden />
       </button>
 
-      {/* `tabular-nums` + bề rộng cố định: con số không nhảy ngang khi đổi từ 9 sang 10. */}
+      {/* `tabular-nums` + bề rộng cố định: con số không nhảy ngang khi đổi từ 9 sang 10.
+          Cỡ chữ dùng đúng `LOP_GIA_TRI` — bằng mọi giá trị trường khác trong khối ĐẦU VÀO. */}
       <span
-        className="min-w-6 text-center text-sm font-semibold text-text-primary tabular-nums"
+        className={`min-w-6 text-center ${LOP_GIA_TRI}`}
         aria-live="polite"
+        title={`Theo phân bổ công việc ở bước ① (${tongHop.soDong} dòng). Sửa ở đây áp cho mọi dòng của phiếu.`}
       >
         {so ?? "—"}
       </span>
@@ -191,12 +209,6 @@ export function OSuaSoBaoGia({
       >
         <Plus className="size-3.5" aria-hidden />
       </button>
-
-      {/* Nói rõ con số đến từ đâu — chỉ đạo 18/08/2026. Không nói thì người đọc tưởng đây là ô
-          nhập tự do, sửa xong không biết mình vừa đè lên yêu cầu của trưởng bộ phận. */}
-      <span className="ml-1 text-xs text-text-desc italic">
-        theo phân bổ ở bước ① ({tongHop.soDong} dòng)
-      </span>
     </span>
   );
 }

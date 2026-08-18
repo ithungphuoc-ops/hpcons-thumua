@@ -13,7 +13,7 @@
 //    nó biến mất. Đây là lý do file này **tuyệt đối không được gọi `themDonHang`**, và cũng
 //    không được ai "cải tiến" thành đường cất đơn tắt.
 //
-// 🔴 ĐƯỜNG GẮN ĐỀ NGHỊ KHÔNG DÙNG FILE NÀY. Vào form bằng `?prId=…` thì vẫn [Cất] / [Cất và In]
+// 🔴 ĐƯỜNG GẮN ĐỀ NGHỊ KHÔNG DÙNG FILE NÀY. Vào form bằng `?prId=…` thì vẫn [Lưu] / [Lưu và In]
 //    như cũ, vẫn qua `themDonHang`, vẫn bị `vuongMacLapDonHang` chặn. Đó là đường nghiệp vụ
 //    chính của app — file này không đụng tới một dòng nào của nó.
 //

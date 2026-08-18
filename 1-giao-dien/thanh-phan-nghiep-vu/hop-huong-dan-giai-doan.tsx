@@ -39,10 +39,20 @@ export function NutHuongDanGiaiDoan({
   giaiDoan,
   /** `bieu_tuong` cho đầu cột (chật chỗ) · `nut_chu` cho trang chi tiết. */
   kieu = "bieu_tuong",
+  /**
+   * Chữ trên nút, chỉ dùng với `kieu="nut_chu"`. Bỏ trống = "Hướng dẫn bước này".
+   *
+   * 📌 Có tham số này vì màn Lập đơn mua hàng cần đúng chữ **"Hướng dẫn sử dụng"** của MISA
+   * (Ban lãnh đạo 18/08/2026: *"giao diện phần PO e chỉnh lại giống 100% như vậy"*), trong khi
+   * ở bảng quy trình thì "Hướng dẫn bước này" mới đúng nghĩa — nút ở đó gắn với một BƯỚC.
+   * 🔴 Thêm tham số thay vì đổi chữ cứng: đổi chữ cứng là kéo theo mọi nơi đang gọi.
+   */
+  nhanNut,
   className,
 }: {
   giaiDoan: GiaiDoanMuaHang;
   kieu?: "bieu_tuong" | "nut_chu";
+  nhanNut?: string;
   className?: string;
 }) {
   const [mo, setMo] = useState(false);
@@ -73,7 +83,7 @@ export function NutHuongDanGiaiDoan({
           className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary hover:text-primary ${className ?? ""}`}
         >
           <BookOpen className="size-4 shrink-0" aria-hidden />
-          Hướng dẫn bước này
+          {nhanNut ?? "Hướng dẫn bước này"}
         </button>
       )}
 

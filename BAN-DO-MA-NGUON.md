@@ -46,14 +46,14 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Sai ở **danh sách Đơn hàng** | `1-giao-dien/trang/don-hang-danh-sach.tsx` |
 | Sai ở **chi tiết Đơn hàng** | `1-giao-dien/trang/don-hang-chi-tiet.tsx` |
 | Sai ở **bảng tiến độ nhận hàng** (cột theo từng lần giao) | `thanh-phan-nghiep-vu/bang-tien-do-po.tsx` |
-| 🔴 Sai ở **phần NHẬP LIỆU đơn mua hàng** (khối thông tin 3 cột, hai khối dưới, thanh nút cuối, hai nút Excel, ô cảnh báo "Chưa cất được đơn") | `1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` — **MỘT FORM, HAI CHẾ ĐỘ** (bảng so sánh ở đầu file), bám màn "Đơn mua hàng" của MISA. Thanh nút cuối **khác nhau theo chế độ**: có đề nghị → [Cất] [Cất và In] · mẫu → [In mẫu PO] [Xuất Excel]. 🔴 **Tuyệt đối không chép ruột form ra hai bản**: hai bản chép tay sẽ lệch nhau sau vài lần sửa |
-| **"Vào mục Lập đơn mua hàng (PO) mà không thấy nút Cất — mất chức năng?"** | 🔴 **KHÔNG, đúng chỉ đạo Ban lãnh đạo 18/08/2026**: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*. Chế độ đó **chỉ in / xuất mẫu, không ghi gì vào hệ thống**, nên hai nút là [In mẫu PO] và [Xuất Excel]. Xem mục **2c**. Cần đơn thật thì lập từ phiếu đề nghị (`/don-hang/tao-moi?prId=…`) — đường đó vẫn [Cất] như cũ |
+| 🔴 Sai ở **phần NHẬP LIỆU đơn mua hàng** (khối thông tin 3 cột **có nền tô**, sổ xuống Mã NCC, ô chọn Địa điểm giao hàng, hai khối dưới, **thanh nút cuối nền tối**, hai nút Excel, nút Hướng dẫn sử dụng, nút phím tắt, ô cảnh báo "Chưa cất được đơn") | `1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` — **MỘT FORM, HAI CHẾ ĐỘ** (bảng so sánh ở đầu file), bám màn "Đơn mua hàng" của MISA. Thanh nút cuối **khác nhau theo chế độ**: có đề nghị → [Lưu] [Lưu và In] · mẫu → [In mẫu PO] [Xuất Excel]. 🔴 Nhãn là **"Lưu"**, không phải "Cất" (Ban lãnh đạo đổi 18/08/2026) — ảnh MISA ghi "Cất", đừng đổi lại theo ảnh. 🔴 **Tuyệt đối không chép ruột form ra hai bản**: hai bản chép tay sẽ lệch nhau sau vài lần sửa |
+| **"Vào mục Lập đơn mua hàng (PO) mà không thấy nút Lưu — mất chức năng?"** | 🔴 **KHÔNG, đúng chỉ đạo Ban lãnh đạo 18/08/2026**: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*. Chế độ đó **chỉ in / xuất mẫu, không ghi gì vào hệ thống**, nên hai nút là [In mẫu PO] và [Xuất Excel]. Xem mục **2c**. Cần đơn thật thì lập từ phiếu đề nghị (`/don-hang/tao-moi?prId=…`) — đường đó vẫn có [Lưu] và [Lưu và In] như cũ |
 | **Đơn lập ra KHÔNG gắn đề nghị** (mặt hàng gõ tự do, không trừ khối lượng, không hiện trên bảng quy trình) | Chế độ **mẫu** (trước chiều 18/08/2026 gọi là *độc lập* và có cất đơn thật). Bật khi `FormLapDonMuaHang` nhận `deNghi={null}` (vào `/don-hang/tao-moi` không kèm `?prId=`). Cờ trong mã: `laDonDocLap`. 🔴 **Từ chiều 18/08/2026 chế độ này KHÔNG cất đơn** nên trong dữ liệu **không còn sinh ra** `DonDatHang` nào có `prId` rỗng. Kiểu dữ liệu vẫn cho phép (`prId`/`prCode` tùy chọn, `DongPO.sttDongDeNghi` là `undefined`) để đọc được đơn đã cất sáng cùng ngày |
 | **Không thấy phần nhập liệu đơn mua hàng ở bước ④** trong trang chi tiết đề nghị | ⚠️ **Đúng như thiết kế từ 18/08/2026.** Ban lãnh đạo: *"sai ý a rồi, a cần e đưa CẢ mục import này ra"* → form đã **CHUYỂN HẲN** sang mục menu **Lập đơn mua hàng (PO)**. Khối bước ④ (`trang/de-nghi-chi-tiet.tsx`) nay chỉ còn danh sách đơn + nút dẫn sang `/don-hang/tao-moi?prId=…`, hiện khi `quyen.lapPO && !hoSoDaDong` |
-| Sai ở **trang riêng Lập đơn mua hàng** `/don-hang/tao-moi` (breadcrumb, tiêu đề, điều hướng sau khi cất, đọc tham số `prId`/`rfqId`/`nccId`) | `1-giao-dien/trang/don-hang-lap-moi.tsx` — **cái vỏ mỏng** bọc `FormLapDonMuaHang`. 🔴 **KHÔNG bỏ trang này**: nó là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (chỉ nó nhận `rfqId` + `nccId` từ `bao-gia-chi-tiet.tsx`), bảng quy trình mở nó qua `quyetDinhKeoTha` → `mo_trang`, và nó cũng chính là **module lập đơn độc lập** của mục menu |
+| Sai ở **trang riêng Lập đơn mua hàng** `/don-hang/tao-moi` (breadcrumb, tiêu đề, **nút X đóng**, điều hướng sau khi cất, đọc tham số `prId`/`rfqId`/`nccId`) | `1-giao-dien/trang/don-hang-lap-moi.tsx` — **cái vỏ mỏng** bọc `FormLapDonMuaHang`. 🔴 **KHÔNG bỏ trang này**: nó là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (chỉ nó nhận `rfqId` + `nccId` từ `bao-gia-chi-tiet.tsx`), bảng quy trình mở nó qua `quyetDinhKeoTha` → `mo_trang`, và nó cũng chính là **module lập đơn độc lập** của mục menu |
 | **Mục menu "Lập đơn mua hàng (PO)"** sai nhãn / sai nhóm / hiện với vai trò không được lập đơn | `2-quy-trinh/dieu-huong.ts` → `MUC_DIEU_HUONG`. Thêm ngày **18/08/2026** theo chỉ đạo Ban lãnh đạo — xem **mục 2c** để biết vì sao việc này không trái quy ước cũ, **đừng gỡ đi** |
 | **Mã đơn hàng sai dạng / trùng nhau** (`260001-HPCS-PO-001`) | `2-quy-trinh/dat-ma-don-hang.ts` → `maDonHangTiepTheo`, gọi từ `3-du-lieu/kho-du-lieu.tsx` → `themDonHang`. 🔴 Lấy **số lớn nhất đã dùng rồi +1**, không đếm số đơn hiện có. Mã dự án rỗng thì `themDonHang` **từ chối cất** thay vì cấp mã `-PO-001` |
-| Sai ở **bảng "Hàng tiền"** của màn lập đơn (cột, thứ tự cột, dòng TỔNG CỘNG, nút Thêm dòng / Thêm ghi chú / Xóa hết dòng) | `thanh-phan-nghiep-vu/bang-hang-tien.tsx`. 🔴 Con số tiền **không tính ở đó** — sửa công thức thì vào `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet` |
+| Sai ở **bảng "Hàng tiền"** của màn lập đơn (cột, thứ tự cột, nền hàng tiêu đề, dòng TỔNG CỘNG, **phân trang**, **ô tìm nhanh F3**, nút Thêm dòng / Thêm ghi chú / Xóa hết dòng) | `thanh-phan-nghiep-vu/bang-hang-tien.tsx`. 🔴 Con số tiền **không tính ở đó** — sửa công thức thì vào `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet`. 🔴 **Tiền hoặc cột `#` lệch khi sang trang 2 / đang lọc** = ai đó đã đổi `dongTrang` sang `dong.slice().map((d,i)=>…)`; chỉ số phải lấy từ mảng cặp `{ d, viTri }`, xem chú thích đầu file |
 | **Nhập Excel vào màn lập đơn** báo sai / bỏ sót dòng | Đọc file: `2-quy-trinh/doc-don-hang-excel.ts` (khớp cột theo TÊN tiêu đề, trả `dongLoi` kèm **số dòng thật trong file**) · Hộp xem trước: `thanh-phan-nghiep-vu/hop-xem-truoc-nhap-excel.tsx` · Đổ vào bảng: `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` → `doVaoBang` |
 | **Trang IN đơn mua hàng A4** sai bố cục / thiếu ô so với biểu mẫu giấy | 🔴 **BẢN VẼ TỜ GIẤY nằm ở `1-giao-dien/thanh-phan-nghiep-vu/to-don-mua-hang-a4.tsx`** — sửa ở đây, **MỘT BẢN DUY NHẤT** cho cả đơn thật lẫn bản mẫu (tách ra 18/08/2026). Hai trang gọi nó chỉ lo *lấy dữ liệu + gác quyền*: `trang/don-hang-in.tsx` (`/in/don-hang/[id]`, tra kho theo id) và `trang/don-hang-mau-in.tsx` (`/in/don-hang-mau`, đọc bản mẫu chưa lưu). 🔴 **Cấm chép bố cục thành bản thứ hai** — bản in bám biểu mẫu giấy thật, hai bản sẽ lệch nhau rồi một trong hai gửi sai cho nhà cung cấp |
 | **Bản in / file Excel MẪU** (chưa lưu) sai số, thiếu ô, hoặc bấm nút không phản ứng | Dựng đơn tạm: `2-quy-trinh/don-hang-mau.ts` → `dungDonHangMau` (**luật, hàm thuần**) · Hai nút: `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` → `inMauPO` / `xuatExcelMau` · Chuyển sang tab in: `3-du-lieu/ban-mau-don-mua-hang.ts` · Trang in: `trang/don-hang-mau-in.tsx`. Luật chặn dùng chung với đơn thật: `2-quy-trinh/xuat-don-hang-excel.ts` → `vuongMacXuatPO` |
@@ -222,7 +222,7 @@ lại thì lấy ở lịch sử git.
 | [Thêm dòng] | Hộp chọn mặt hàng của đề nghị | **Dòng trắng** gõ tay |
 | Nhập Excel | Đối chiếu `khopVoiDeNghi` | Lấy thẳng mọi dòng đọc được |
 | Khối lượng | Trừ vào dòng đề nghị, cắt về phần còn lại | Không trừ vào đâu |
-| Thanh nút cuối | **[Cất]** · **[Cất và In]** | 🔴 **[In mẫu PO]** · **[Xuất Excel]** |
+| Thanh nút cuối | **[Lưu]** · **[Lưu và In]** | 🔴 **[In mẫu PO]** · **[Xuất Excel]** |
 | Ghi vào hệ thống | Có, qua `themDonHang` | 🔴 **KHÔNG GHI GÌ CẢ** |
 | Số đơn hàng | `themDonHang` cấp lúc cất, theo Thông báo 09/2026 | Không cấp — in ra `SO_DON_BAN_MAU` |
 | Chốt `vuongMacLapDonHang` | Có | Không áp dụng (không cất nên không có gì để chặn) |
@@ -270,6 +270,81 @@ rời khỏi màn hình rồi thì không còn ngữ cảnh nào cho biết nó 
 ⚠️ **Thanh dưới điện thoại nay có tối đa 8 mục** (tài khoản quản trị): 8 × 44px = 352px, vẫn vừa màn
 375px nhưng đã sát mép. **Mục thứ 9 là vượt** → khi đó phải xử lý thật ở
 `khung-app/thanh-duoi-mobile.tsx`, **tuyệt đối không cắt ngầm bằng `slice`** như trước 11/08/2026.
+
+### Giao diện PO bám màn MISA — vòng 18/08/2026: *"giống 100% như vậy"*
+
+> *"giao diện phần PO e chỉnh lại giống 100% như vậy"* — kèm lại ảnh chụp màn
+> **"Đơn mua hàng DMH0532-26"** của MISA.
+
+**Nguyên tắc đã áp, theo đúng thứ tự ưu tiên:** bố cục · thứ tự trường · thứ tự cột bám MISA 100% →
+màu thì dùng **token HPCons V1.1** (Ban lãnh đạo 16/08/2026: *"Về màu sắc thì vẫn theo design
+system"*) → thành phần tương tác thì **làm thật hoặc không làm**.
+
+| Thành phần MISA | Đã làm ở đâu |
+|---|---|
+| Nền tô kín khối thông tin chung | `form-lap-don-mua-hang.tsx` → `<Card className="bg-primary-bg">`. `bg-primary-bg` = `color-mix(--hp-primary 12%, transparent)` (Sáng) / `20%` (Tối) → **xanh DƯƠNG nhạt**, không phải xanh ngọc MISA |
+| Ô nhập trắng nổi trên nền đã tô | Cùng chỗ → `[&_input]:bg-card dark:[&_input]:bg-card`. 🔴 Bản `dark:` **không phải viết thừa** — `Input` có `dark:bg-input/30` (0,2,0) thắng lớp con-cháu (0,1,1), thiếu nó là ô tan vào nền ở chế độ Tối |
+| Nền hàng tiêu đề bảng | `bang-hang-tien.tsx` → `<TableRow className="bg-primary-bg hover:bg-primary-bg">`. 🔴 Sửa tại chỗ gọi, **KHÔNG sửa `nen-tang-ui/table.tsx`** (thư viện nền tảng, quy tắc 3.4b) |
+| "Tổng tiền thanh toán" cỡ lớn **ngoài** khối | Đã dời ra ngoài `<Card>` của khối ① |
+| Khối tổng hợp phải: không viền, không tiêu đề | Bỏ `<Card>` và bỏ tiêu đề "Tổng hợp". **Giữ mức thuế trong nhãn** — đơn trộn 8%/10% mà ghi một mức là ghi SAI chứng từ thuế |
+| Thanh nút đáy nền tối | `bg-nav-base` = **#4B4F55**, cố định cả Sáng lẫn Tối. ⚠️ **KHÔNG đặt màu chữ lên cả thẻ** — nó chảy xuống nút `variant="outline"` (nền `bg-background` rất sáng) làm chữ vô hình |
+| Ô nhiều dòng "Điều khoản khác" | Đổi `<textarea>` gốc sang `Textarea` của bộ nền tảng + `min-h-24` (≈4 dòng như MISA) |
+| Nút **[Hướng dẫn sử dụng]** | `NutHuongDanGiaiDoan giaiDoan="lap_don_mua_hang" kieu="nut_chu" nhanNut="Hướng dẫn sử dụng"`. Nội dung có sẵn ở `2-quy-trinh/huong-dan-giai-doan.ts` |
+| Biểu tượng bàn phím | `form-lap-don-mua-hang.tsx` → `NutPhimTat`. Liệt kê **đúng hai phím app bắt thật**: F3, F9 |
+| Nút **X** đóng góc phải | `trang/don-hang-lap-moi.tsx` → `PageHeader.actions`, gọi `router.back()` |
+| Nút **sổ xuống** ở Mã nhà cung cấp | `Popover` liệt kê danh mục `nhaCungCap`; chọn một dòng thì `dienNhaCungCap` điền mã / tên / MST / địa chỉ / người liên hệ |
+| Ô **CHỌN** Địa điểm giao hàng | Ô chọn gom địa điểm **đã ghi trên đơn thật** (`diaDiemDaCo`), cùng cách `duAnDaCo` đang làm vì app chưa có danh mục. 🔴 Ô chọn chỉ ĐIỀN HỘ, **ô chữ mới giữ giá trị** — nếu ô chọn là nguồn duy nhất thì địa điểm đọc từ Excel sẽ không khớp lựa chọn nào và **biến mất khỏi màn hình** dù vẫn nằm trong đơn |
+| Tiêu đề cột xuống 2 dòng | `% Thuế GTGT`, `Trường mở rộng 1` → `whitespace-normal` + bề rộng (lớp gốc `TableHead` có `whitespace-nowrap`) |
+| Ba nút [Thêm dòng] [Thêm ghi chú] [Xóa hết dòng] sang **trái**, dưới phân trang | `bang-hang-tien.tsx`, hàng riêng dưới hàng phân trang |
+
+#### 🔴 Hai thứ trước đây BỎ với lý do "app không có sẵn" — nay LÀM THẬT
+
+| | Chỗ làm | Bẫy đã xử |
+|---|---|---|
+| **Phân trang "20 bản ghi trên 1 trang" + Trước · N · Sau** | `bang-hang-tien.tsx` → `dongCoViTri` / `dongLoc` / `dongTrang` | 🔴 Bảng tra tiền từng dòng bằng **chỉ số trong mảng `dong`** (`tienCuaDong(viTri)`), cột `#` cũng là `viTri + 1`. Cắt trang bằng `dong.slice().map((d,i)=>…)` là chỉ số về 0 → **tiền của trang 2 nhảy về dòng trang 1, cột `#` đánh lại từ 1**. Nên cắt trang trên mảng CẶP `{ d, viTri }`, `viTri` luôn là chỉ số thật. **Đã đo trên trình duyệt:** 22 dòng → trang 2 hiện đúng `#21`,`#22` và tiền nằm đúng dòng 21 |
+| **"F3 - Tìm nhanh"** | Cùng file, ô tìm + hiệu ứng bắt phím F3 | Bỏ dấu, không phân biệt hoa thường. `preventDefault` bắt buộc vì F3 là phím tìm kiếm của trình duyệt |
+
+| Sai ở **câu nhắc "Chưa tính vào đơn và không in ra — còn thiếu …"** trên một dòng hàng | `bang-hang-tien.tsx`, ngay dưới ô Số lượng (`boQuaSoDaGo`) | 🔴 Chỉ có ở **chế độ gõ tự do** (`nhapTuDo`). Điều kiện "dòng đã đủ chưa" lấy từ `2-quy-trinh/don-hang-mau.ts` → `dongTuDoDuVaoDon`, **không chép tay** — cùng luật với `hopLe`, khối tính tiền và `dungDonHangMau`. Chỉ nhắc khi người lập ĐÃ gõ Số lượng hoặc Đơn giá > 0; dòng vừa thêm còn trắng thì im lặng |
+
+⚠️ **DÒNG GÕ TỰ DO THIẾU Ô THÌ TIỀN BẰNG 0 — PHẢI CÓ CHỮ GIẢI THÍCH TẠI DÒNG ĐÓ.** Lỗi thật, sửa
+18/08/2026: gõ Tên hàng + Số lượng 5 + Đơn giá 2.000 mà bỏ trống ĐVT thì hai ô số vẫn hiện đúng,
+nhưng Thành tiền = 0, TỔNG CỘNG = 0, "Tổng tiền thanh toán" = 0 ₫ và **không một chữ nào nói vì
+sao**; dòng đó còn bị bỏ hẳn khỏi tờ PO in ra. Câu chung "Cần … ít nhất một dòng hàng có đủ tên
+hàng, ĐVT và số lượng" cạnh nút **không chỉ ra dòng nào, ô nào** — bảng có thể dài hơn 20 dòng và
+trải nhiều trang. Đừng bỏ câu nhắc này đi.
+
+⚠️ **DÒNG TỔNG CỘNG KHÔNG THEO TRANG, KHÔNG THEO BỘ LỌC** — luôn là tổng của cả đơn, và có câu nói rõ
+điều đó ngay dưới bảng khi đang lọc hoặc có nhiều trang. Tổng theo trang là con số vô nghĩa trên
+chứng từ.
+
+⚠️ **THÊM DÒNG KHI ĐANG LỌC / ĐANG Ở TRANG 1**: dòng mới nối vào CUỐI mảng nên có thể không khớp bộ
+lọc hoặc rơi ra ngoài trang đang xem → người dùng bấm [Thêm dòng] mà **không thấy gì hiện ra**, bấm
+tiếp mấy lần rồi sinh ra một loạt dòng trắng. Vì vậy hễ số dòng TĂNG là **tự xóa bộ lọc và nhảy tới
+trang cuối** (hiệu ứng `soDongTruoc`). Đã kiểm thật.
+
+#### 🔴 Cố ý KHÔNG làm — và lý do kỹ thuật, đừng "sửa cho giống"
+
+| Thành phần MISA | Vì sao không làm |
+|---|---|
+| **Thanh nút đáy DÍNH ĐÁY màn hình** | `main` ở `khung-app/khung-tong.tsx` có `overflow-x-hidden`; theo chuẩn CSS một trục `hidden` làm trục còn lại từ `visible` thành `auto` → `main` thành khung cuộn, mà `main` lại cao đúng bằng nội dung nên **không bao giờ cuộn**. `sticky bottom-0` bên trong khung không cuộn là **vô hiệu**. Muốn dính đáy thật phải dùng `fixed`, mà `fixed` sẽ đè lên Bottom Navigation 60px trên điện thoại → **cần Ban lãnh đạo chốt** |
+| Nút **"+"** thêm nhanh Nhà cung cấp | **Không tồn tại hàm nào ghi vào danh mục NCC** trong toàn bộ mã nguồn (`nhaCungCap` là hằng số `NHA_CUNG_CAP`, không có `themNhaCungCap`). Không mất việc: ô "Tên nhà cung cấp" cho gõ tự do |
+| Nút **"+"** và sổ xuống **Điều khoản thanh toán** | **Không có danh mục điều khoản thanh toán** nào trong `3-du-lieu/` |
+| Nút **"+"** Nhân viên mua hàng | Thêm nhân sự là việc của **App Tổng**, không phải app này. Ô vẫn `readOnly` vì tên phải khớp `nguoiPhuTrachUid` |
+| **Biểu tượng đồng tiền** cạnh Mã NCC | App **ghi cứng `loaiTien: "VND"`**, không có tỷ giá, không có ô chọn loại tiền. Vẽ nút này là hứa đa tiền tệ mà app không có |
+| **Biểu tượng quét mã** ở ô Diễn giải | Không có thư viện giải mã vạch, không có mã dùng camera. Thêm nữa MISA quét để điền **mã hàng**, copy y vị trí đó sang ô Diễn giải là copy **sai chức năng** |
+| **Đồng hồ lịch sử** cạnh tiêu đề | Nhật ký của app gắn với **phiếu đề nghị**; một PO **chưa được cất** thì không có nhật ký nào. Làm thật được **chỉ ở màn chi tiết đơn** |
+| **Ô tìm "Nhập số đơn đặt hàng"** ở thanh tiêu đề | Làm thật được (dữ liệu `donHang` có sẵn, `command.tsx` chưa nơi nào dùng), **nhưng chưa chốt nó LÀM GÌ**. MISA dùng để kéo đơn đặt hàng của khách vào — app không có khái niệm đó; việc thật gần nhất là *"sao chép nội dung từ một đơn đã lập"*. **Cần Ban lãnh đạo chốt hành vi**, không gắn một ô tìm trang trí |
+| **Hai nút bánh răng** | Không rõ hai nút của MISA làm gì khác nhau. Nghĩa hợp lý nhất (ẩn/hiện cột) đụng vào phép tính `colSpan` của dòng ghi chú và dòng TỔNG CỘNG qua nhiều tổ hợp quyền × ẩn cột — rủi ro lệch số ô so với số cột cao hơn hẳn giá trị mang lại |
+| **Mũi nhọn ▾ trên [Lưu và In]** | Ở chế độ có đề nghị chỉ có **một** việc in → menu một mục là menu giả. Ở chế độ mẫu đã có hai nút riêng rõ ràng hơn |
+| Ô **"Tình trạng"** cho chọn | App có 6 trạng thái riêng đã chốt, đơn mới luôn vào `da_chot`. Bày ô chọn rồi bỏ qua lựa chọn = giao diện hứa việc app không làm |
+| Nhãn nút **"Cất"** | 🔴 Ban lãnh đạo đổi thành **"Lưu" / "Lưu và In"** ngày 18/08/2026 |
+| Số đơn kiểu **`DMH0532-26`** | Hệ mã bám **Thông báo 09/2026/TB-HPCS** (TGĐ ký) |
+| Bỏ hai cột/trường công ty có thêm (`Mục đích sử dụng`, `Người nhận hàng`) | **Chưa bỏ, chờ Ban lãnh đạo quyết** — cả hai đang được biểu mẫu giấy `1. DON HANG HPCONS.xlsx` và trang in dùng |
+
+📌 **Chế độ nhúng (`nhung`) hiện KHÔNG có đường vào nào** — form chỉ còn một chỗ gọi
+(`trang/don-hang-lap-moi.tsx`) và chỗ đó không truyền `nhung`. Các nhánh gác `!nhung` (thanh nút tối,
+nút phím tắt, dòng chữ F3/F9, `batPhimTat`) vì vậy là **đường dự phòng cho lần nhúng lại**, giữ đúng
+để không phải nghĩ lại từ đầu.
 
 ---
 

@@ -65,14 +65,27 @@ export const ID_DON_HANG_GIA_LAP: string[] = Array.from(
 // ------------------------------------------------------------
 // NHÀ CUNG CẤP — GIỮ LẠI, cần để chọn khi lập đơn hàng
 //
-// ⚠️ Tên, địa chỉ và mã số thuế đều là GIẢ ĐỊNH (quyết định 23). Mã số thuế đặt theo
-//    đúng định dạng 10 chữ số của Việt Nam để kiểm được cách hiển thị trên đơn in.
+// ⚠️ Tên, địa chỉ, mã số thuế và người liên hệ đều là GIẢ ĐỊNH (quyết định 23). Mã số
+//    thuế đặt theo đúng định dạng 10 chữ số của Việt Nam để kiểm được cách hiển thị
+//    trên đơn in.
+//
+// 🐛 SỬA LỖI THẬT 18/08/2026 — BỔ SUNG `maNCC` VÀ `nguoiLienHe`.
+//    Hai trường này được thêm vào kiểu `NhaCungCap` khi làm màn lập đơn theo MISA, nhưng
+//    KHÔNG bản ghi mẫu nào được điền. Hệ quả: ô "Mã nhà cung cấp" ở
+//    `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` tra theo `n.maNCC` nên **không bao
+//    giờ tra ra được gì** — gõ đúng mã nào cũng không điền hộ được tên / MST / địa chỉ,
+//    và câu trạng thái dưới ô luôn báo "Chưa có trong danh mục". Một ô nhập bày ra mà
+//    không làm được việc nó hứa, đúng thứ quy ước dự án mục 3.5 cấm.
+//
+// ⚠️ `maNCC` KHÁC `id`: `id` là khóa kỹ thuật (đừng đổi, đổi là mồ côi dữ liệu cũ),
+//    `maNCC` là mã nghiệp vụ in trên chứng từ. Không bám hệ mã `DMH…` của MISA — mã hồ sơ
+//    của công ty theo Thông báo 09/2026/TB-HPCS.
 // ------------------------------------------------------------
 export const NHA_CUNG_CAP: NhaCungCap[] = [
-  { id: "ncc-01", ten: "Công ty TNHH VLXD A", dienThoai: "028 3822 1234", diaChi: "Lô A1, KCN Mỹ Phước 3, TP. Hồ Chí Minh", maSoThue: "0300000001" },
-  { id: "ncc-02", ten: "Công ty CP Thép B", dienThoai: "028 3899 5678", diaChi: "Số 12 Đường số 5, TP. Hồ Chí Minh", maSoThue: "0300000002" },
-  { id: "ncc-03", ten: "Công ty TNHH Cát Đá C", dienThoai: "0274 3745 000", diaChi: "Ấp 4, Xã Tân Thành, Tỉnh Bình Dương", maSoThue: "0300000003" },
-  { id: "ncc-04", ten: "Công ty CP Gạch D", dienThoai: "0251 3888 222", diaChi: "KCN Long Thành, Tỉnh Đồng Nai", maSoThue: "0300000004" },
+  { id: "ncc-01", maNCC: "NCC0001", ten: "Công ty TNHH VLXD A", dienThoai: "028 3822 1234", diaChi: "Lô A1, KCN Mỹ Phước 3, TP. Hồ Chí Minh", maSoThue: "0300000001", nguoiLienHe: "Nguyễn Văn A · 090 000 0001" },
+  { id: "ncc-02", maNCC: "NCC0002", ten: "Công ty CP Thép B", dienThoai: "028 3899 5678", diaChi: "Số 12 Đường số 5, TP. Hồ Chí Minh", maSoThue: "0300000002", nguoiLienHe: "Trần Thị B · 090 000 0002" },
+  { id: "ncc-03", maNCC: "NCC0003", ten: "Công ty TNHH Cát Đá C", dienThoai: "0274 3745 000", diaChi: "Ấp 4, Xã Tân Thành, Tỉnh Bình Dương", maSoThue: "0300000003", nguoiLienHe: "Lê Văn C · 090 000 0003" },
+  { id: "ncc-04", maNCC: "NCC0004", ten: "Công ty CP Gạch D", dienThoai: "0251 3888 222", diaChi: "KCN Long Thành, Tỉnh Đồng Nai", maSoThue: "0300000004", nguoiLienHe: "Phạm Thị D · 090 000 0004" },
 ];
 
 // ------------------------------------------------------------

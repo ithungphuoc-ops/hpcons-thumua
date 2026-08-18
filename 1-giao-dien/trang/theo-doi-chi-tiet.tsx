@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Fragment, useMemo, useState } from "react";
-import { ChevronDown, FileWarning } from "lucide-react";
+import { ArrowLeft, ChevronDown, FileWarning } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { TimelineDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/timeline-de-nghi";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
+import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
@@ -59,6 +61,28 @@ export default function TrangTheoDoiChiTiet() {
 
   return (
     <>
+      {/* 🔴 NÚT QUAY LẠI — Ban lãnh đạo 18/08/2026: *"bung ra xem ko group lại được"*.
+          (Nhắc lần thứ hai; lần đầu tôi sửa SAI CHỖ — thêm nút "Thu gọn nhóm" ở trang DANH
+          SÁCH `/theo-doi`, trong khi Ban lãnh đạo đang đứng ở trang CHI TIẾT này.)
+
+          Vì sao đúng là ngõ cụt: người dùng bấm "Xem chi tiết từng mặt hàng →" ở trang danh
+          sách là RỜI TRANG sang đây. Trang này trước chỉ có breadcrumb — chữ nhỏ, xám, không
+          ai đọc ra là bấm được — nên không có đường về danh sách đã gom, tức "không group lại
+          được". Trang chi tiết đề nghị vốn đã có nút này; trang này bị bỏ sót.
+
+          📌 Cùng kiểu nút, cùng chỗ đặt với `trang/de-nghi-chi-tiet.tsx` — hai trang chi tiết
+          nằm cạnh nhau trong cùng app thì đường về phải ở cùng một chỗ. */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-fit -ml-2"
+        nativeButton={false}
+        render={<Link href="/theo-doi" />}
+      >
+        <ArrowLeft className="size-4" aria-hidden />
+        Quay lại Theo dõi đề nghị
+      </Button>
+
       <PageHeader
         crumbs={[
           { label: "Thu mua", href: "/tong-quan" },
