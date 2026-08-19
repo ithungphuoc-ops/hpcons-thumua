@@ -146,6 +146,81 @@ export async function docHoSoTaiKhoan(firebaseUid: string): Promise<KetQuaHoSo> 
  * ⚠️ Đọc cả collection, chấp nhận được vì cả công ty chỉ vài chục tài khoản. Lên tới hàng
  * trăm thì phải lọc theo phòng ban.
  */
+/** Một hồ sơ kèm MÃ FIREBASE của nó — mã đó chính là id tài liệu, cần để ghi lại. */
+export interface HoSoKemMa {
+  /** Mã Firebase = id tài liệu `nguoi-dung/{firebaseUid}`. */
+  firebaseUid: string;
+  hoSo: HoSoTaiKhoan;
+}
+
+/**
+ * Đọc TOÀN BỘ hồ sơ cho MÀN PHÂN QUYỀN — khác `docTatCaTaiKhoan` ở hai điểm quan trọng.
+ *
+ * 🔴 ① GIỮ CẢ NGƯỜI ĐANG TẠM NGƯNG (`dangLamViec === false`). Hàm kia lọc họ ra vì nó phục vụ
+ * bảng phân bổ — giao việc cho người đã nghỉ là việc treo. Nhưng màn phân quyền thì ngược lại:
+ * lọc mất người tạm ngưng là **không còn đường nào bật họ trở lại**, phải nhờ khóa Admin SDK.
+ *
+ * 🔴 ② TRẢ KÈM `firebaseUid`. `data()` không chứa id tài liệu, mà id đó chính là khóa để ghi.
+ * Thiếu nó thì đọc được danh sách nhưng không sửa được ai — lỗi chỉ lộ ra lúc bấm Lưu.
+ */
+export async function docHoSoDePhanQuyen(): Promise<HoSoKemMa[]> {
+  const app = await moFirebase();
+  if (!app) return [];
+
+  const { getFirestore, collection, getDocs } = await import("firebase/firestore");
+  try {
+    const ds = await getDocs(collection(getFirestore(app), BO_SUU_TAP_NGUOI_DUNG));
+    return ds.docs
+      .map((d) => ({ firebaseUid: d.id, hoSo: d.data() as Partial<HoSoTaiKhoan> }))
+      .filter((x): x is HoSoKemMa => hopLe(x.hoSo));
+  } catch (e) {
+    console.error("[hồ sơ] đọc danh sách phân quyền hỏng:", e);
+    return [];
+  }
+}
+
+/** Kết quả ghi: `null` là xong, có chuỗi là LÝ DO hỏng để hiện thẳng cho người dùng. */
+export type LoiGhiHoSo = string | null;
+
+/**
+ * Ghi cấp quyền mới cho một người.
+ *
+ * 🔴 HIỆN TẠI LỆNH NÀY BỊ MÁY CHỦ TỪ CHỐI, và đó là **đúng thiết kế**:
+ * `5-ket-noi/firestore-chay-thu.rules` khai `match /nguoi-dung/{uid} { allow write: if false; }`
+ * vì hồ sơ chứa `capTM` — cấp quyền của chính người đó. Mở ghi mà không có chốt là bất kỳ ai
+ * cũng tự sửa mình lên cấp 4 và toàn bộ phân quyền thành vô nghĩa.
+ *
+ * Bộ rules mở khóa đã soạn sẵn ở `5-ket-noi/firestore-phan-quyen-DE-XUAT.rules` nhưng **chưa
+ * được Ban lãnh đạo duyệt và chưa deploy**. Cho tới lúc đó, hàm này luôn trả về lý do bị chặn.
+ *
+ * 🔴 VÌ VẬY PHẢI DỊCH LỖI RA TIẾNG NGƯỜI. Ném nguyên `FirebaseError: Missing or insufficient
+ * permissions` ra màn hình thì người dùng tưởng app hỏng và đi báo IT, trong khi đây là một
+ * quyết định có chủ ý đang chờ duyệt. Nói đúng chuyện gì đang xảy ra và đường đi tiếp.
+ */
+export async function ghiCapQuyen(
+  firebaseUid: string,
+  thayDoi: { capTM?: CapQuyen; dangLamViec?: boolean },
+): Promise<LoiGhiHoSo> {
+  const app = await moFirebase();
+  if (!app) return "Chưa cấu hình kết nối máy chủ.";
+
+  const { getFirestore, doc, updateDoc } = await import("firebase/firestore");
+  try {
+    await updateDoc(doc(getFirestore(app), BO_SUU_TAP_NGUOI_DUNG, firebaseUid), thayDoi);
+    return null;
+  } catch (e) {
+    const ma = (e as { code?: string })?.code ?? "";
+    if (ma === "permission-denied") {
+      return (
+        "Máy chủ đang KHÓA ghi hồ sơ phân quyền (Firestore Rules). Đây là khóa cố ý, chưa được mở. " +
+        "Cách đổi quyền hiện tại: chạy script tao-tai-khoan.js bằng khóa Admin SDK."
+      );
+    }
+    console.error("[hồ sơ] ghi cấp quyền hỏng:", e);
+    return "Không ghi được lên máy chủ. Kiểm tra lại mạng rồi thử lại.";
+  }
+}
+
 export async function docTatCaTaiKhoan(): Promise<HoSoTaiKhoan[]> {
   const app = await moFirebase();
   if (!app) return [];

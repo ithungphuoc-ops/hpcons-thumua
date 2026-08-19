@@ -6,6 +6,7 @@ import {
   CircleUser,
   CalendarDays,
   Settings,
+  ShieldCheck,
   ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
@@ -233,6 +234,22 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     nhom: "quan_tri",
     icon: Settings,
     duocThay: (q) => q.suaPODaChot,
+  },
+  {
+    /**
+     * ★ PHÂN QUYỀN NGƯỜI DÙNG — Ban lãnh đạo 18/08/2026: *"thêm tính năng phân quyền cho tài
+     * khoản quản trị và tài khoản trưởng bộ phận"*.
+     *
+     * 📌 Cờ riêng `phanQuyenNguoiDung` chứ không dùng ké `suaPODaChot` như mục trên: đổi quyền
+     * của người khác là việc nặng hơn hẳn sửa một đơn đã chốt, và sau này rất có thể phải siết
+     * lại chỉ còn quản trị — lúc đó chỉ sửa một cờ, không phải đi tách hai màn đang dùng chung.
+     */
+    nhan: "Phân quyền người dùng",
+    nhanNgan: "Phân quyền",
+    href: "/phan-quyen",
+    nhom: "quan_tri",
+    icon: ShieldCheck,
+    duocThay: (q) => q.phanQuyenNguoiDung,
   },
 ];
 

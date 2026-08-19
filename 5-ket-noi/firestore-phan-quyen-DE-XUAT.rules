@@ -1,0 +1,111 @@
+// ============================================================
+// 🔴🔴🔴  BỘ QUY TẮC ĐỀ XUẤT — **CHƯA DUYỆT, CHƯA DEPLOY, CHƯA CÓ HIỆU LỰC**  🔴🔴🔴
+//
+// File này KHÔNG phải bộ rules đang chạy. Bộ đang chạy là `firestore-chay-thu.rules`.
+// Đây là phần soạn sẵn để Ban lãnh đạo duyệt, cho việc: **mở khóa ghi hồ sơ phân quyền**, tức
+// cho màn "Phân quyền người dùng" (`1-giao-dien/trang/phan-quyen.tsx`) lưu được thật.
+//
+// Ban lãnh đạo 18/08/2026 yêu cầu *"thêm tính năng phân quyền cho tài khoản quản trị và tài khoản
+// trưởng bộ phận"*. Màn hình đã làm xong và đọc được danh sách, nhưng nút Đổi còn bị máy chủ từ
+// chối vì `firestore-chay-thu.rules` đang khai:
+//
+//     match /nguoi-dung/{uid} { allow read: if duocVao(); allow write: if false; }
+//
+// ============================================================
+// VÌ SAO KHÓA ĐÓ TỒN TẠI — đọc trước khi định gỡ
+// ============================================================
+// Hồ sơ `nguoi-dung/{uid}` chứa `capTM`, tức **cấp quyền của chính người đó**. Cho ghi tự do là
+// bất kỳ ai cũng sửa hồ sơ của mình lên cấp 4 rồi làm mọi thứ — toàn bộ phân quyền của app thành
+// vô nghĩa, và không có dòng nhật ký nào cho biết chuyện đã xảy ra.
+//
+// Vì vậy bộ dưới đây KHÔNG mở tự do. Nó mở đúng một khe hẹp, kèm năm chốt.
+//
+// ============================================================
+// CÁCH DÙNG (khi đã được duyệt)
+// ============================================================
+// Chép khối `match /nguoi-dung/{uid}` và hai hàm `capNguoiGoi()` / `capDatDuocToiDa()` bên dưới
+// vào `firestore-chay-thu.rules` (thay khối cũ), rồi deploy. Sau đó XÓA file này để không còn hai
+// bản rules cùng tồn tại — hai bản là sớm muộn có người deploy nhầm bản chưa duyệt.
+//
+// ⚠️ Deploy rules cần quyền trên đúng project. `.firebaserc` đang trỏ `hpcons-portal`, còn project
+// chạy thật là `hpcons-thumua` (CLAUDE.md mục 3.6) — kiểm lại trước khi chạy lệnh, deploy nhầm
+// project là mở khóa cho một hệ thống khác.
+//
+// ============================================================
+// NĂM CHỐT — bỏ bất kỳ chốt nào là mở đường lách quyền
+// ============================================================
+// ① PHẢI ĐĂNG NHẬP và phải có hồ sơ. Người lạ không ghi được gì.
+//
+// ② KHÔNG AI SỬA HỒ SƠ CỦA CHÍNH MÌNH (`uid != request.auth.uid`). Đây là chốt quan trọng nhất:
+//    thiếu nó thì cấp 3 chỉ cần tự đặt mình lên cấp 4 là xong, mọi chốt còn lại vô dụng.
+//
+// ③ CHỈ ĐẶT ĐƯỢC CẤP KHÔNG CAO HƠN TẦM CỦA MÌNH (`capDatDuocToiDa`): cấp 4 đặt tới 4, cấp 3 đặt
+//    tới 2. Không ai tạo ra được người ngang hoặc trên mình.
+//    ⚠️ Con số này phải KHỚP `4-phan-quyen/luat-phan-quyen.ts` → `capDatDuocToiDa`. Hai nơi lệch
+//    nhau thì giao diện cho bấm mà máy chủ từ chối (hoặc tệ hơn: ngược lại).
+//
+// ④ KHÔNG SỬA ĐƯỢC NGƯỜI ĐANG CAO HƠN TẦM CỦA MÌNH (xét `resource.data.capTM`, tức cấp HIỆN TẠI).
+//    Thiếu chốt này, trưởng bộ phận có thể HẠ một quản trị xuống cấp 2 rồi tự do làm phần còn lại.
+//
+// ⑤ CHỈ ĐỔI ĐƯỢC HAI TRƯỜNG `capTM` VÀ `dangLamViec`. Đặc biệt phải khóa `uidNghiepVu`: đó là mã
+//    nối hồ sơ với dữ liệu nghiệp vụ, đổi nó là người đó **mất sạch việc đã được giao** — dòng
+//    phân bổ mồ côi, việc biến mất khỏi lịch mọi người (CLAUDE.md mục 3.6c).
+//
+// ⚠️ HẠN CHẾ CÒN LẠI, PHẢI BIẾT: rules KHÔNG ghi được nhật ký. Ai đổi quyền của ai, lúc nào, sẽ
+// không có vết trong app. Muốn có vết thì phải ghi thêm một tài liệu nhật ký ở lần ghi đó — việc
+// đó chưa làm, và nên làm trước khi dùng thật lâu dài.
+// ============================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Hai hàm phụ, chép kèm khi gộp vào bộ rules thật ----
+
+    /** Cấp quyền app Thu mua của NGƯỜI ĐANG GỌI, đọc từ chính hồ sơ của họ. */
+    function capNguoiGoi() {
+      return get(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid)).data.capTM;
+    }
+
+    /**
+     * Cấp cao nhất người gọi đặt được cho người khác.
+     * 🔴 PHẢI KHỚP `4-phan-quyen/luat-phan-quyen.ts` → `capDatDuocToiDa`.
+     */
+    function capDatDuocToiDa() {
+      return capNguoiGoi() >= 4 ? 4 : (capNguoiGoi() >= 3 ? 2 : 0);
+    }
+
+    /** Có hồ sơ trên hệ thống chưa — người đăng nhập được nhưng chưa được cấp hồ sơ thì chưa. */
+    function coHoSo() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid));
+    }
+
+    // ---- Khối thay cho `match /nguoi-dung/{uid}` hiện tại ----
+
+    match /nguoi-dung/{uid} {
+      // Đọc giữ nguyên như bộ đang chạy: bảng phân bổ cần danh sách nhân sự.
+      allow read: if request.auth != null;
+
+      // 🔴 TẠO MỚI VẪN CẤM. Tạo tài khoản phải đi qua script Admin SDK (`tao-tai-khoan.js`) vì
+      // còn phải tạo cả tài khoản Firebase Auth tương ứng — tạo mỗi hồ sơ Firestore là sinh ra
+      // một hồ sơ không ai đăng nhập được vào.
+      allow create: if false;
+      allow delete: if false;
+
+      allow update: if coHoSo()
+        // ② không tự sửa mình
+        && uid != request.auth.uid
+        // ⑤ chỉ hai trường này
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['capTM', 'dangLamViec'])
+        // ③ cấp MỚI không vượt tầm
+        && request.resource.data.capTM is int
+        && request.resource.data.capTM >= 0
+        && request.resource.data.capTM <= capDatDuocToiDa()
+        // ④ cấp HIỆN TẠI của người bị sửa cũng không vượt tầm
+        && resource.data.capTM <= capDatDuocToiDa();
+    }
+  }
+}

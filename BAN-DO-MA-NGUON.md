@@ -130,6 +130,9 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Vai trò **thấy giá mà không được thấy** (hoặc ngược lại) | `4-phan-quyen/quyen.ts` → `tinhQuyen` |
 | Cần **thêm vai trò** để chạy thử | `4-phan-quyen/quyen.ts` → `VAI_TRO_MAU` |
 | Đổi vai trò trên Header không ăn | `4-phan-quyen/nguoi-dung-hien-tai.tsx` |
+| **Ai đổi được quyền của ai**, đặt được tới cấp nào | `4-phan-quyen/luat-phan-quyen.ts` → `capDatDuocToiDa` |
+| Màn **Phân quyền người dùng** (`/phan-quyen`) | `1-giao-dien/trang/phan-quyen.tsx` |
+| Bấm Đổi quyền báo **máy chủ từ chối** | Đúng thiết kế — Firestore đang khóa ghi `nguoi-dung/{uid}`. Bộ rules mở khóa: `5-ket-noi/firestore-phan-quyen-DE-XUAT.rules`, 🔴 **chưa duyệt, chưa deploy** |
 
 ### Kết nối
 

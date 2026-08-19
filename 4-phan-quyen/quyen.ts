@@ -133,6 +133,15 @@ export interface Quyen {
    * riêng thì đọc một dòng là biết ai vào được, và sửa sau cũng không kéo theo màn khác.
    */
   xemQuyTrinhMuaHang: boolean;
+  /**
+   * ★ VÀO ĐƯỢC MÀN "PHÂN QUYỀN NGƯỜI DÙNG" — Ban lãnh đạo 18/08/2026: *"thêm tính năng phân
+   * quyền cho tài khoản quản trị và tài khoản trưởng bộ phận"*.
+   *
+   * 📌 CỜ NÀY CHỈ MỞ MÀN HÌNH. Ai được sửa hồ sơ của ai, và đặt được tới cấp nào, là luật riêng
+   * ở `4-phan-quyen/luat-phan-quyen.ts` — vì nó phụ thuộc vào **cấp của người bị sửa**, thứ mà
+   * một cờ boolean không diễn tả nổi. Đừng gộp hai thứ.
+   */
+  phanQuyenNguoiDung: boolean;
 }
 
 /**
@@ -196,11 +205,20 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     // Chỉ người LÀM thu mua, cộng quản trị và Ban Giám đốc. Thủ kho, QLDA, kế toán và các
     // phòng ban đề xuất theo dõi tiến độ ở mục "Theo dõi đề nghị" — xem `xemQuyTrinhMuaHang`.
     xemQuyTrinhMuaHang: laQuanTri || laBGD || laTruongBP || laNhanVienTM,
+
+    /* Quản trị (cấp 4) và trưởng bộ phận (cấp 3). Giới hạn CỤ THỂ đặt được tới cấp nào nằm ở
+       `luat-phan-quyen.ts` → `capDatDuocToiDa`, không nhét vào đây. */
+    phanQuyenNguoiDung: laQuanTri || capTM >= 3,
   };
 }
 
 /** Kiểm tra quyền vào một đường dẫn. */
 export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
+  /* 🔴 CHẶN CẢ ĐƯỜNG DẪN, không chỉ ẩn mục menu. Đây là màn đổi quyền của người khác — ẩn menu
+     mà để gõ thẳng `/phan-quyen` vào thanh địa chỉ là vào được thì coi như không chặn gì.
+     ⚠️ `/phan-quyen` KHÔNG đụng `/phan-bo` ngay dưới (hai tiền tố khác nhau), nhưng nếu sau này
+     thêm đường dẫn nào bắt đầu bằng `/phan-` thì phải soát lại thứ tự ở đây. */
+  if (duongDan.startsWith("/phan-quyen")) return q.phanQuyenNguoiDung;
   if (duongDan.startsWith("/phan-bo")) return q.phanBoCongViec;
   if (duongDan.startsWith("/don-hang/tao-moi")) return q.lapPO;
   /**
