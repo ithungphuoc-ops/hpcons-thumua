@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CornerDownRight,
   Eye,
-  MoreHorizontal,
   Paperclip,
   Pencil,
   Send,
@@ -20,13 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
+/* 📌 Đã bỏ import menu ⋯ (19/08/2026): thao tác "Sửa" nay là chữ ngay ở hàng chân, không còn
+   giấu sau nút ba chấm nữa — xem chú thích bố cục trong `MotBinhLuan`. */
 import { AnhDaiDienChu } from "@/1-giao-dien/thanh-phan-dung-chung/anh-dai-dien-chu";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
@@ -451,70 +445,29 @@ function MotBinhLuan({
   /** Người viết và cấp quản lý xem lại được nội dung đã thu hồi; người khác thì không. */
   const duocXemBanTruoc = laCuaToi || duocXemBaiThuHoi;
 
+  /**
+   * ★ BỐ CỤC BÁM ẢNH BAN LÃNH ĐẠO GỬI 19/08/2026: *"bố cục lại phần bình luận giống vậy"*.
+   *
+   * Ba thứ đổi so với bản trước:
+   *  ① Cả cụm có **nền xám nhạt** để tách khỏi thân thẻ, thay vì chỉ dựa vào khoảng trắng.
+   *  ② **Thời gian dời xuống hàng chân**, không còn đứng cạnh tên. Hàng trên giờ chỉ có tên
+   *     người viết — đọc lướt danh sách là thấy ngay ai nói, không bị con số chen vào.
+   *  ③ **Bỏ menu ⋯**, đưa "Sửa" ra thành chữ ngay ở hàng chân cạnh "Trả lời". Việc sửa bài của
+   *     chính mình là việc thường xuyên; giấu sau một nút ba chấm là bắt người dùng đi tìm.
+   *
+   * 🔴 KHÔNG CÓ NÚT XÓA — Ban lãnh đạo xác nhận lại 19/08/2026: **giữ chỉ đạo cũ** (16/08/2026,
+   * *"chỉ cho chỉnh sửa không cho xoá"*). Ảnh mẫu có nút Xóa nhưng đó là app khác; ở đây viết
+   * nhầm thì sửa, và vết cũ vẫn nằm trong lịch sử sửa nên không ai giấu được gì.
+   */
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-3 rounded-lg bg-muted p-(--hp-md-row-pad)">
       <AnhDaiDienChu ten={bai.nguoiVietTen} co={laTraLoi ? 24 : 32} laToi={laCuaToi} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        {/* Hàng danh tính */}
+        {/* Hàng danh tính — CHỈ tên. Thời gian và thao tác dồn xuống hàng chân. */}
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
           <span className="text-sm font-semibold text-text-primary">{bai.nguoiVietTen}</span>
           {laCuaToi && <span className="text-xs text-text-desc">(Bạn)</span>}
-          <span className="text-text-disabled">·</span>
-          {/* `title` LUÔN là mốc tuyệt đối — chữ tương đối tiện đọc lướt nhưng khi đối chiếu
-              chứng từ thì phải có ngày giờ chính xác. */}
-          <time
-            dateTime={bai.thoiDiem}
-            title={formatMocThoiGian(bai.thoiDiem)}
-            className="text-xs text-text-desc"
-          >
-            {moc > 0 ? formatThoiGianTuongDoi(bai.thoiDiem, moc) : formatMocThoiGian(bai.thoiDiem)}
-          </time>
-
-          {/* Nhãn "đã sửa" — CHỮ chứ không phải icon bút chì: icon bút chì mơ hồ giữa "đã
-              sửa" và "bấm để sửa", mà Design System cũng cấm truyền đạt chỉ bằng hình. */}
-          {lanSua.length > 0 && !daThuHoi && (
-            <>
-              <span className="text-text-disabled">·</span>
-              <button
-                type="button"
-                onClick={() => setMoBanTruoc(true)}
-                className="text-xs text-text-desc underline decoration-dotted underline-offset-2 transition-colors hover:text-primary"
-              >
-                {lanSua.length === 1 ? "đã sửa" : `đã sửa ${lanSua.length} lần`}
-              </button>
-            </>
-          )}
-
-          {/* Menu ⋯ thay cho nút Xóa đứng thường trực ở mọi bài.
-              📌 ĐÃ BỎ mục "Thu hồi" (Ban lãnh đạo 16/08/2026). Đúng tinh thần chỉ đạo gốc
-              *"chỉ cho chỉnh sửa không cho xoá"*: viết nhầm thì sửa lại, và vết cũ vẫn nằm
-              trong lịch sử sửa nên không ai giấu được gì. Thu hồi là thứ em tự thêm.
-              ⚠️ Phần HIỂN THỊ bài đã thu hồi vẫn giữ — trên bản chạy đã có bài bị thu hồi từ
-              trước, gỡ luôn thì bài đó hiện trống trơn. */}
-          {!daThuHoi && laCuaToi && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <button
-                    type="button"
-                    aria-label={`Thao tác với bình luận của ${bai.nguoiVietTen}`}
-                    className="ml-auto flex size-11 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-muted hover:text-text-primary sm:size-9"
-                  >
-                    <MoreHorizontal className="size-4" aria-hidden />
-                  </button>
-                }
-              />
-              <DropdownMenuContent align="end">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => setDangSua(true)}>
-                    <Pencil className="size-4" aria-hidden />
-                    Chỉnh sửa
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
 
         {/* ===== Nội dung ===== */}
@@ -587,16 +540,62 @@ function MotBinhLuan({
           </>
         )}
 
-        {/* Trả lời — chỉ ở bài gốc, và bài đã thu hồi thì không trả lời tiếp. */}
-        {onTraLoi && !dangTraLoi && !dangSua && !daThuHoi && (
-          <button
-            type="button"
-            onClick={() => setDangTraLoi(true)}
-            className="inline-flex w-fit min-h-9 items-center gap-1.5 rounded-lg pr-2 text-xs font-medium text-text-desc transition-colors hover:text-primary"
-          >
-            <CornerDownRight className="size-3.5" aria-hidden />
-            Trả lời
-          </button>
+        {/* ===== HÀNG CHÂN: thời gian · đã sửa · Trả lời · Sửa =====
+            Bám ảnh Ban lãnh đạo gửi 19/08/2026 — một dòng chữ nhỏ màu xám gom hết mốc thời gian
+            và thao tác, thay vì rải thời gian lên cạnh tên và giấu "Sửa" trong menu ⋯.
+            📌 Ẩn khi đang gõ (sửa / trả lời): lúc đó thao tác đã nằm trong ô soạn, để thêm một
+            dãy nút nữa chỉ làm rối. */}
+        {!dangSua && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {/* `title` LUÔN là mốc tuyệt đối — chữ tương đối tiện đọc lướt nhưng khi đối chiếu
+                chứng từ thì phải có ngày giờ chính xác. */}
+            <time
+              dateTime={bai.thoiDiem}
+              title={formatMocThoiGian(bai.thoiDiem)}
+              className="text-xs text-text-desc"
+            >
+              {moc > 0
+                ? formatThoiGianTuongDoi(bai.thoiDiem, moc)
+                : formatMocThoiGian(bai.thoiDiem)}
+            </time>
+
+            {/* Nhãn "đã sửa" — CHỮ chứ không phải icon bút chì: icon bút chì mơ hồ giữa "đã sửa"
+                và "bấm để sửa", mà Design System cũng cấm truyền đạt chỉ bằng hình. */}
+            {lanSua.length > 0 && !daThuHoi && (
+              <button
+                type="button"
+                onClick={() => setMoBanTruoc(true)}
+                className="text-xs text-text-desc underline decoration-dotted underline-offset-2 transition-colors hover:text-primary"
+              >
+                {lanSua.length === 1 ? "đã sửa" : `đã sửa ${lanSua.length} lần`}
+              </button>
+            )}
+
+            {/* Trả lời — chỉ ở bài gốc, và bài đã thu hồi thì không trả lời tiếp. */}
+            {onTraLoi && !dangTraLoi && !daThuHoi && (
+              <button
+                type="button"
+                onClick={() => setDangTraLoi(true)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-text-desc transition-colors hover:text-primary"
+              >
+                <CornerDownRight className="size-3.5 shrink-0" aria-hidden />
+                Trả lời
+              </button>
+            )}
+
+            {/* Sửa — chỉ bài của chính mình. 🔴 KHÔNG có "Xóa": Ban lãnh đạo giữ chỉ đạo
+                16/08/2026 *"chỉ cho chỉnh sửa không cho xoá"*. */}
+            {!daThuHoi && laCuaToi && (
+              <button
+                type="button"
+                onClick={() => setDangSua(true)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-text-desc transition-colors hover:text-primary"
+              >
+                <Pencil className="size-3.5 shrink-0" aria-hidden />
+                Sửa
+              </button>
+            )}
+          </div>
         )}
 
         {onTraLoi && dangTraLoi && (
