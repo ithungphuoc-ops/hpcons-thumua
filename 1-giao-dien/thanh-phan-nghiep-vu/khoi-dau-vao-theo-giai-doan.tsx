@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, LogIn, type LucideIcon } from "lucide-react";
+import { ChevronRight, LogIn, LogOut, type LucideIcon } from "lucide-react";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { coTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
@@ -309,7 +309,33 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                 /* Cũng khai `text-sm` như phần ĐẦU VÀO — hai phần nằm trong cùng một khối
                    thì nền cỡ chữ phải giống nhau, không để một bên 14px một bên 16px. */
                 <div className="border-t border-divider p-(--hp-md-card-pad) text-sm">
-                  {g.noiDungNghiepVu}
+                  {/**
+                   * ★ NHÃN "KẾT QUẢ" — Ban lãnh đạo 19/08/2026: *"Thêm nút 'Kết quả' để phân biệt
+                   * rõ đâu là đầu vào đâu là đầu ra. Thêm cho tất cả các bước luôn, và có border
+                   * + fill màu xanh lá nhạt"*.
+                   *
+                   * VÌ SAO CẦN: mỗi khối bước có hai phần khác hẳn nhau về nghĩa — thứ **nhập
+                   * vào** để làm bước đó, và thứ bước đó **đẻ ra**. Trước đây chỉ phần trên có
+                   * nhãn ("ĐẦU VÀO"), phần dưới không có nhãn nào, nên bảng báo giá hay danh sách
+                   * đơn hàng nhìn như phần nối tiếp của đầu vào. Người đọc hồ sơ không phân biệt
+                   * được cái gì là dữ liệu đưa vào, cái gì là sản phẩm của bước.
+                   *
+                   * 🔴 MÀU XANH LÁ LÀ TOKEN `success`, KHÔNG phải mã màu viết cứng. Design System
+                   * V1.1: `#60BB46` là tông Success — đúng nghĩa "đã làm ra được", và tương phản
+                   * với xanh dương `primary` đang dùng cho dòng tiêu đề bước. Cả `border-success`
+                   * lẫn `bg-success-bg` đều đã có sẵn trong `app/globals.css` (đã kiểm trước khi
+                   * dùng — Tailwind bỏ qua IM LẶNG lớp màu không tồn tại, mất màu mà không báo).
+                   *
+                   * 📌 Đặt trong `noiDungNghiepVu` nên **tự áp cho mọi bước** có phần kết quả,
+                   * không phải đi sửa từng khối ở `de-nghi-chi-tiet.tsx`. Bước nào chưa có kết
+                   * quả thì cả cụm không vẽ ra — không để lại một khung xanh rỗng.
+                   */}
+                  <div className="rounded-xl border border-success/30 bg-success-bg p-(--hp-md-card-pad)">
+                    <NhanPhanTrongGiaiDoan icon={LogOut} className="mb-2 text-success-soft">
+                      KẾT QUẢ
+                    </NhanPhanTrongGiaiDoan>
+                    {g.noiDungNghiepVu}
+                  </div>
                 </div>
               )}
 
