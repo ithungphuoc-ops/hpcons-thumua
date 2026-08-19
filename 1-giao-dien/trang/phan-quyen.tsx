@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ShieldAlert, ShieldCheck, RefreshCw } from "lucide-react";
+import { Check, Minus, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -10,58 +10,61 @@ import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { useNguoiDung, CHE_DO_XAC_THUC } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
-  cacCapChonDuoc,
   capDatDuocToiDa,
   duocDatCap,
   duocSuaHoSo,
-  MO_TA_CAP_QUYEN,
   NHAN_CAP_QUYEN,
 } from "@/4-phan-quyen/luat-phan-quyen";
-import type { CapQuyen } from "@/4-phan-quyen/quyen";
+import {
+  quyenCuaVaiTro,
+  timVaiTroChuan,
+  vaiTroGanDuocBoi,
+  vaiTroKhopVoiHoSo,
+  VAI_TRO_CHUAN,
+  VIEC_TREN_BANG_DOI_CHIEU,
+  type VaiTroChuan,
+} from "@/4-phan-quyen/vai-tro-chuan";
 import {
   docHoSoDePhanQuyen,
-  ghiCapQuyen,
+  ghiVaiTroChoTaiKhoan,
   type HoSoKemMa,
 } from "@/5-ket-noi/ho-so-tai-khoan";
 
 /**
- * 🛡️ MÀN PHÂN QUYỀN NGƯỜI DÙNG — Ban lãnh đạo 18/08/2026: *"thêm tính năng phân quyền cho tài
- * khoản quản trị và tài khoản trưởng bộ phận"*.
+ * 🛡️ MÀN PHÂN QUYỀN NGƯỜI DÙNG — gán theo VAI TRÒ, không bắt ghép tay bốn trường.
+ *
+ * 🔴 Ban lãnh đạo 18/08/2026, hai chỉ đạo nối tiếp:
+ *   ① *"thêm tính năng phân quyền cho tài khoản quản trị và tài khoản trưởng bộ phận"*
+ *   ② *"tạo cách phân quyền chuyên nghiệp và dễ cài đặt"*
  *
  * ---
- * ## 🔴 TRẠNG THÁI THẬT CỦA TÍNH NĂNG NÀY — ĐỌC TRƯỚC KHI SỬA
+ * ## VÌ SAO BẢN ĐẦU PHẢI VIẾT LẠI
+ * Bản đầu chỉ cho đổi **cấp 1→4**. Nhưng `tinhQuyen` đọc cả `chucNang` và `vaiTro`, nên nâng một
+ * **thủ kho** lên cấp 3 thì họ VẪN không phân bổ được việc và VẪN không thấy giá. Người phân
+ * quyền tưởng đã trao quyền mà thực tế không có gì đổi — sai im lặng, và tin được nhầm.
  *
- * Hồ sơ phân quyền nằm ở Firestore `nguoi-dung/{firebaseUid}`, và
- * `5-ket-noi/firestore-chay-thu.rules` đang khai `allow write: if false` cho collection đó. Khóa
- * ấy **cố ý**: hồ sơ chứa `capTM` — cấp quyền của chính người đó — nên mở ghi mà không có chốt là
- * bất kỳ ai cũng tự sửa mình lên cấp 4.
+ * Nay chọn **một vai trò** (Trưởng bộ phận Thu mua, Thủ kho…) là gán trọn bộ bốn trường đã khớp
+ * nhau. Danh mục ở `4-phan-quyen/vai-tro-chuan.ts`.
  *
- * Vì vậy màn này **đọc được nhưng chưa ghi được**, cho tới khi Ban lãnh đạo duyệt bộ rules ở
- * `5-ket-noi/firestore-phan-quyen-DE-XUAT.rules` và deploy nó.
+ * ## 🔴 BẢNG "LÀM ĐƯỢC GÌ" KHÔNG CHÉP TAY
+ * Cả phần xem trước lẫn bảng đối chiếu cuối trang đều gọi `quyenCuaVaiTro()`, tức chạy chính hàm
+ * `tinhQuyen` của app. Chép tay một bảng mô tả quyền là sớm muộn nó lệch với luật thật — và lúc
+ * đó màn phân quyền **nói dối chính người đang phân quyền**, thứ nguy hiểm nhất ở màn này.
  *
- * 🔴 VÀ MÀN HÌNH PHẢI NÓI RA ĐIỀU ĐÓ, ngay từ đầu trang, chứ không để người dùng sửa xong bấm Lưu
- * mới biết. Quy ước dự án: *"chức năng chưa làm được thì khóa lại và nói rõ lý do, không được làm
- * giả cảm giác đã xong"*. Nút Lưu vẫn bấm được (để thử ngay sau khi rules được mở), nhưng nếu máy
- * chủ từ chối thì `ghiCapQuyen` trả về đúng lý do và màn hiện nguyên văn.
- *
- * ## Luật ai-sửa-được-ai
- * Nằm hết ở `4-phan-quyen/luat-phan-quyen.ts`, màn này chỉ hỏi. Đừng chép điều kiện vào đây: nút
- * bị khóa trên giao diện mà đường ghi vẫn nhận (hoặc ngược lại) là kiểu lỗi phân quyền tệ nhất.
- *
- * ## ⚠️ CHẾ ĐỘ TÀI KHOẢN MẪU
- * Khi `NEXT_PUBLIC_XAC_THUC` chưa đặt `firebase`, app chạy bằng danh sách vai trò viết cứng trong
- * mã nguồn (`VAI_TRO_MAU`) — không có Firestore nào để đọc, cũng không có gì để ghi. Màn này nói
- * thẳng điều đó thay vì hiện một bảng trống khiến người dùng tưởng chưa ai có tài khoản.
+ * ## 🔴 TRẠNG THÁI THẬT: ĐỌC ĐƯỢC, CHƯA GHI ĐƯỢC
+ * Firestore đang khóa ghi `nguoi-dung/{uid}` (`allow write: if false`) vì hồ sơ chứa cấp quyền
+ * của chính người đó. Bộ rules mở khóa soạn ở `5-ket-noi/firestore-phan-quyen-DE-XUAT.rules`,
+ * **chưa duyệt chưa deploy**. Màn hình nói điều đó ngay đầu trang chứ không để người dùng sửa
+ * xong bấm Lưu mới biết.
  */
 export default function TrangPhanQuyen() {
   const { nguoiDung, quyen } = useNguoiDung();
 
   const [danhSach, setDanhSach] = useState<HoSoKemMa[] | null>(null);
   const [dangTai, setDangTai] = useState(false);
-  /** Cấp người dùng vừa chọn nhưng CHƯA lưu, tra theo mã Firebase. */
-  const [capNhap, setCapNhap] = useState<Record<string, CapQuyen>>({});
-  /** Hồ sơ đang chờ xác nhận đổi quyền — `null` là chưa hỏi ai. */
-  const [hoiDoi, setHoiDoi] = useState<{ hs: HoSoKemMa; capMoi: CapQuyen } | null>(null);
+  /** Vai trò vừa chọn nhưng CHƯA lưu, tra theo mã Firebase. */
+  const [vaiTroNhap, setVaiTroNhap] = useState<Record<string, string>>({});
+  const [hoiDoi, setHoiDoi] = useState<{ hs: HoSoKemMa; vt: VaiTroChuan } | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
 
   const laCheDoThat = CHE_DO_XAC_THUC === "firebase";
@@ -80,9 +83,8 @@ export default function TrangPhanQuyen() {
     void tai();
   }, [tai]);
 
-  /* 🔴 CHẶN Ở ĐÂY LÀ LỚP THỨ HAI, không phải lớp duy nhất: `duocVaoDuongDan` đã chặn địa chỉ
-     `/phan-quyen`, và mục menu cũng chỉ hiện cho người có quyền. Giữ cả ba vì mỗi lớp che một
-     đường vào khác nhau (menu · gõ URL · điều hướng trong app). */
+  /* Lớp chặn thứ ba — hai lớp kia là mục menu và `duocVaoDuongDan`. Mỗi lớp che một đường vào
+     khác nhau (menu · gõ URL · điều hướng trong app). */
   if (!quyen.phanQuyenNguoiDung) {
     return (
       <EmptyState
@@ -94,27 +96,32 @@ export default function TrangPhanQuyen() {
   }
 
   const toiDa = capDatDuocToiDa(nguoiDung);
-  const capChonDuoc = cacCapChonDuoc(nguoiDung);
+  /* Vai trò người này gán được — luật ở `vaiTroGanDuocBoi`, KHÔNG lọc tay ở đây. Chỉ bày thứ gán
+     được, để không bày ra rồi báo lỗi khi bấm. */
+  const vaiTroGanDuoc = vaiTroGanDuocBoi(toiDa);
 
-  async function luu(hs: HoSoKemMa, capMoi: CapQuyen) {
+  async function luu(hs: HoSoKemMa, vt: VaiTroChuan) {
     setDangLuu(true);
     try {
-      const loi = await ghiCapQuyen(hs.firebaseUid, { capTM: capMoi });
+      const loi = await ghiVaiTroChoTaiKhoan(hs.firebaseUid, {
+        chucNang: vt.chucNang,
+        vaiTro: vt.vaiTro,
+        capTM: vt.capTM,
+        // ⚠️ Vai trò không có `capKho` thì ghi 0 chứ không bỏ qua: bỏ qua là giữ nguyên quyền kho
+        // cũ, nên đổi một thủ kho sang Kế toán mà họ vẫn ghi được phiếu nhận hàng.
+        capKho: vt.capKho ?? 0,
+      });
       if (loi) {
-        // 🔴 Hiện NGUYÊN VĂN lý do máy chủ từ chối, và để lâu — đây là câu người dùng cần đọc hết
-        // rồi chuyển cho IT, không phải một cảnh báo chớp qua.
         toast.error("Chưa lưu được", { description: loi, duration: 12000 });
         return;
       }
-      toast.success("Đã đổi quyền", {
-        description: `${hs.hoSo.tenHienThi} → cấp ${capMoi} (${NHAN_CAP_QUYEN[capMoi]})`,
+      toast.success("Đã đổi vai trò", {
+        description: `${hs.hoSo.tenHienThi} → ${vt.ten}`,
       });
       // Đọc lại từ máy chủ thay vì tự sửa danh sách trong bộ nhớ: thứ hiện trên màn phải là thứ
       // máy chủ THẬT SỰ đang giữ, nếu không thì ghi hỏng một phần mà màn vẫn xanh.
       await tai();
-      // Bỏ giá trị đang gõ dở của người vừa lưu xong — giữ lại thì lần vẽ sau ô chọn vẫn hiện
-      // con số cũ và nút "Đổi" lại sáng lên như thể còn việc chưa lưu.
-      setCapNhap((c) => {
+      setVaiTroNhap((c) => {
         const conLai = { ...c };
         delete conLai[hs.firebaseUid];
         return conLai;
@@ -129,7 +136,7 @@ export default function TrangPhanQuyen() {
       <PageHeader
         crumbs={[{ label: "Thu mua", href: "/tong-quan" }, { label: "Phân quyền người dùng" }]}
         title="Phân quyền người dùng"
-        description={`Bạn đặt được tới cấp ${toiDa} — ${NHAN_CAP_QUYEN[toiDa]}.`}
+        description={`Chọn một vai trò là gán xong. Bạn gán được tới ${NHAN_CAP_QUYEN[toiDa]}.`}
       />
 
       {/* ---------- NÓI TRƯỚC TÌNH TRẠNG, không để người dùng phát hiện bằng cách gặp lỗi ---------- */}
@@ -142,7 +149,7 @@ export default function TrangPhanQuyen() {
           <p className="text-sm text-text-secondary">
             Hồ sơ phân quyền nằm trên máy chủ và hiện <strong>chỉ cho đọc</strong>. Đây là khóa cố
             ý: hồ sơ chứa cấp quyền của chính mỗi người, mở ghi mà chưa có chốt thì ai cũng tự nâng
-            mình lên cấp Quản trị. Bấm <strong>Đổi</strong> vẫn gửi lệnh lên máy chủ, nhưng sẽ bị từ
+            mình lên Quản trị. Bấm <strong>Đổi</strong> vẫn gửi lệnh lên máy chủ, nhưng sẽ bị từ
             chối cho tới khi bộ quy tắc mới được duyệt và áp dụng.
           </p>
           <p className="text-sm text-text-secondary">
@@ -162,9 +169,7 @@ export default function TrangPhanQuyen() {
           <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-text-secondary">
-                {danhSach === null
-                  ? "Đang đọc danh sách…"
-                  : `${danhSach.length} tài khoản`}
+                {danhSach === null ? "Đang đọc danh sách…" : `${danhSach.length} tài khoản`}
               </p>
               <Button variant="outline" size="sm" onClick={() => void tai()} disabled={dangTai}>
                 <RefreshCw className={`size-4 ${dangTai ? "animate-spin" : ""}`} aria-hidden />
@@ -179,134 +184,224 @@ export default function TrangPhanQuyen() {
             )}
 
             {danhSach !== null && danhSach.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[46rem] border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-xs font-semibold tracking-wide text-text-desc uppercase">
-                      <th className="px-2 py-2">Họ tên</th>
-                      <th className="px-2 py-2">Chức danh</th>
-                      <th className="px-2 py-2">Phòng ban</th>
-                      <th className="px-2 py-2">Cấp hiện tại</th>
-                      <th className="px-2 py-2">Đổi thành</th>
-                      <th className="px-2 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {danhSach.map((hs) => {
-                      /* So bằng `uidNghiepVu` chứ không bằng mã Firebase: `nguoiDung.uid` mà toàn
-                         app dùng là mã NGHIỆP VỤ (`u-tm1`…), hai lớp danh tính khác nhau — xem
-                         `xac-thuc-firebase.ts`. So nhầm lớp là chốt "không tự sửa mình" mất tác
-                         dụng, mà không có gì báo. */
-                      const laChinhMinh = hs.hoSo.uidNghiepVu === nguoiDung.uid;
-                      const xet = duocSuaHoSo(nguoiDung, hs.hoSo.capTM, laChinhMinh);
-                      const capMoi = capNhap[hs.firebaseUid] ?? hs.hoSo.capTM;
-                      const daDoi = capMoi !== hs.hoSo.capTM;
+              <div className="flex flex-col gap-(--hp-md-row-gap)">
+                {danhSach.map((hs) => {
+                  /* So bằng `uidNghiepVu`, KHÔNG bằng mã Firebase: `nguoiDung.uid` mà toàn app
+                     dùng là mã NGHIỆP VỤ (`u-tm1`…) — hai lớp danh tính khác nhau, xem
+                     `xac-thuc-firebase.ts`. So nhầm lớp là chốt "không tự sửa mình" mất tác dụng
+                     mà không có gì báo. */
+                  const laChinhMinh = hs.hoSo.uidNghiepVu === nguoiDung.uid;
+                  const xet = duocSuaHoSo(nguoiDung, hs.hoSo.capTM, laChinhMinh);
+                  const vtHienTai = vaiTroKhopVoiHoSo(hs.hoSo);
+                  const maChon = vaiTroNhap[hs.firebaseUid] ?? vtHienTai?.ma ?? "";
+                  const vtChon = timVaiTroChuan(maChon);
+                  const daDoi = Boolean(vtChon) && maChon !== vtHienTai?.ma;
 
-                      return (
-                        <tr key={hs.firebaseUid} className="border-b border-border align-top">
-                          <td className="px-2 py-2">
-                            <span className="font-medium text-text-primary">
-                              {hs.hoSo.tenHienThi}
+                  return (
+                    <div
+                      key={hs.firebaseUid}
+                      className="flex flex-col gap-3 rounded-xl border border-border p-(--hp-md-card-pad) sm:flex-row sm:items-start"
+                    >
+                      {/* ---- Người ---- */}
+                      <div className="sm:w-1/3 sm:shrink-0">
+                        <p className="font-medium text-text-primary">
+                          {hs.hoSo.tenHienThi}
+                          {hs.hoSo.dangLamViec === false && (
+                            <span className="ml-2 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">
+                              Tạm ngưng
                             </span>
-                            {hs.hoSo.dangLamViec === false && (
-                              <span className="ml-2 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">
-                                Tạm ngưng
-                              </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-text-desc">{hs.hoSo.email}</p>
+                        <p className="mt-1 text-xs text-text-secondary">
+                          {hs.hoSo.chucDanh} · {hs.hoSo.phongBan}
+                        </p>
+                        <p className="mt-1 text-xs text-text-desc">
+                          Hiện tại:{" "}
+                          <strong className="text-text-secondary">
+                            {/* 🔴 Hồ sơ không khớp khuôn nào thì ghi "Tùy chỉnh", KHÔNG chọn đại
+                                một vai trò. Chọn đại rồi bấm Lưu là đổi quyền người ta mà không
+                                ai định làm vậy. Hồ sơ tạo bằng script trước khi có danh mục này
+                                rơi đúng vào ca đó. */}
+                            {vtHienTai?.ten ?? `Tùy chỉnh (${NHAN_CAP_QUYEN[hs.hoSo.capTM]})`}
+                          </strong>
+                        </p>
+                      </div>
+
+                      {/* ---- Chọn vai trò + xem trước quyền ---- */}
+                      <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        {xet.duoc ? (
+                          <>
+                            <select
+                              value={maChon}
+                              onChange={(e) =>
+                                setVaiTroNhap((c) => ({ ...c, [hs.firebaseUid]: e.target.value }))
+                              }
+                              aria-label={`Vai trò cho ${hs.hoSo.tenHienThi}`}
+                              className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
+                            >
+                              {!vtHienTai && <option value="">— chọn vai trò —</option>}
+                              {vaiTroGanDuoc.map((v) => (
+                                <option key={v.ma} value={v.ma}>
+                                  {v.ten}
+                                </option>
+                              ))}
+                            </select>
+
+                            {vtChon && (
+                              <>
+                                <p className="text-xs text-text-desc">{vtChon.moTa}</p>
+                                {/* Xem trước quyền THẬT của vai trò đang chọn — tính từ
+                                    `tinhQuyen`, không phải chữ mô tả. */}
+                                <ViecLamDuoc vt={vtChon} />
+                              </>
                             )}
-                            <span className="block text-xs text-text-desc">{hs.hoSo.email}</span>
-                          </td>
-                          <td className="px-2 py-2 text-text-secondary">{hs.hoSo.chucDanh}</td>
-                          <td className="px-2 py-2 text-text-secondary">{hs.hoSo.phongBan}</td>
-                          <td className="px-2 py-2">
-                            <span className="font-medium text-text-primary tabular-nums">
-                              {hs.hoSo.capTM}
-                            </span>
-                            <span className="block text-xs text-text-desc">
-                              {NHAN_CAP_QUYEN[hs.hoSo.capTM]}
-                            </span>
-                          </td>
-                          <td className="px-2 py-2">
-                            {xet.duoc ? (
-                              <select
-                                value={String(capMoi)}
-                                onChange={(e) =>
-                                  setCapNhap((c) => ({
-                                    ...c,
-                                    [hs.firebaseUid]: Number(e.target.value) as CapQuyen,
-                                  }))
-                                }
-                                aria-label={`Cấp quyền mới cho ${hs.hoSo.tenHienThi}`}
-                                className="min-h-11 w-full min-w-40 rounded-lg border border-border bg-card px-2 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
-                              >
-                                {/* 🔴 CHỈ BÀY CẤP ĐẶT ĐƯỢC. Bày cả 4 cấp rồi báo lỗi khi bấm là bắt
-                                    người dùng học luật bằng cách gặp lỗi. */}
-                                {capChonDuoc.map((c) => (
-                                  <option key={c} value={String(c)}>
-                                    {c} — {NHAN_CAP_QUYEN[c]}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              /* Khóa thì PHẢI nói vì sao — xem `duocSuaHoSo`, luôn kèm lý do. */
-                              <span className="text-xs text-text-desc">{xet.lyDo}</span>
-                            )}
-                            {xet.duoc && (
-                              <span className="mt-1 block text-xs text-text-desc">
-                                {MO_TA_CAP_QUYEN[capMoi]}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-2 py-2">
-                            {xet.duoc && (
-                              <Button
-                                size="sm"
-                                disabled={!daDoi || dangLuu}
-                                onClick={() => setHoiDoi({ hs, capMoi })}
-                              >
-                                Đổi
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </>
+                        ) : (
+                          /* Khóa thì PHẢI nói vì sao — `duocSuaHoSo` luôn kèm lý do. */
+                          <p className="text-xs text-text-desc">{xet.lyDo}</p>
+                        )}
+                      </div>
+
+                      {/* ---- Nút ---- */}
+                      {xet.duoc && (
+                        <div className="sm:shrink-0">
+                          <Button
+                            size="sm"
+                            disabled={!daDoi || dangLuu}
+                            onClick={() => vtChon && setHoiDoi({ hs, vt: vtChon })}
+                          >
+                            Đổi
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* 🔴 HỎI TRƯỚC KHI ĐỔI. Đổi quyền của người khác ảnh hưởng ngay tới việc họ làm được gì —
-          hạ nhầm một cấp là người ta mất quyền giữa lúc đang làm việc, và không tự lấy lại được. */}
+      {/* ---------- BẢNG ĐỐI CHIẾU: vai trò nào làm được gì ---------- */}
+      <Card>
+        <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+          <div>
+            <p className="text-h3 text-text-primary">Vai trò nào làm được gì</p>
+            <p className="text-sm text-text-secondary">
+              Bảng này <strong>tự sinh từ luật phân quyền thật của app</strong>, không phải mô tả
+              chép tay — nên nó không thể nói khác thứ app đang chạy.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[52rem] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs font-semibold tracking-wide text-text-desc uppercase">
+                  <th className="px-2 py-2">Việc</th>
+                  {VAI_TRO_CHUAN.map((v) => (
+                    <th key={v.ma} className="px-2 py-2 text-center align-bottom">
+                      {v.ten}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {VIEC_TREN_BANG_DOI_CHIEU.map((viec) => (
+                  <tr key={viec.khoa} className="border-b border-border">
+                    <td className="px-2 py-2 text-text-secondary">{viec.nhan}</td>
+                    {VAI_TRO_CHUAN.map((v) => {
+                      const co = quyenCuaVaiTro(v)[viec.khoa];
+                      return (
+                        <td key={v.ma} className="px-2 py-2 text-center">
+                          {/* 🔴 CÓ CẢ DẤU LẪN CHỮ CHO TRÌNH ĐỌC — Design System V1.1 cấm dùng
+                              mỗi màu/biểu tượng để diễn tả trạng thái. */}
+                          {co ? (
+                            <>
+                              <Check className="mx-auto size-4 text-success" aria-hidden />
+                              <span className="sr-only">Được</span>
+                            </>
+                          ) : (
+                            <>
+                              <Minus className="mx-auto size-4 text-text-desc" aria-hidden />
+                              <span className="sr-only">Không</span>
+                            </>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 🔴 HỎI TRƯỚC KHI ĐỔI. Đổi vai trò ảnh hưởng ngay tới việc người ta làm được gì — hạ nhầm
+          là họ mất quyền giữa lúc đang làm việc, và không tự lấy lại được. */}
       {hoiDoi && (
         <HopXacNhan
           mo
-          tieuDe="Đổi cấp quyền?"
+          tieuDe="Đổi vai trò?"
           moTa={
-            `Đổi ${hoiDoi.hs.hoSo.tenHienThi} từ cấp ${hoiDoi.hs.hoSo.capTM} (${NHAN_CAP_QUYEN[hoiDoi.hs.hoSo.capTM]}) ` +
-            `sang cấp ${hoiDoi.capMoi} (${NHAN_CAP_QUYEN[hoiDoi.capMoi]}). ` +
-            `${MO_TA_CAP_QUYEN[hoiDoi.capMoi]}. Người này sẽ thấy thay đổi ở lần tải trang kế tiếp.`
+            `Đổi ${hoiDoi.hs.hoSo.tenHienThi} sang vai trò “${hoiDoi.vt.ten}”. ` +
+            `${hoiDoi.vt.moTa} Người này sẽ thấy thay đổi ở lần tải trang kế tiếp.`
           }
-          nhanDongY="Đổi quyền"
-          /* Đỏ khi HẠ cấp: hạ là lấy đi quyền người ta đang dùng, và họ không tự lấy lại được. */
-          nguyHiem={hoiDoi.capMoi < hoiDoi.hs.hoSo.capTM}
+          canhBao={
+            hoiDoi.vt.capTM < hoiDoi.hs.hoSo.capTM
+              ? "Đây là HẠ quyền — người này sẽ mất một số việc đang làm được."
+              : undefined
+          }
+          nhanDongY="Đổi vai trò"
+          nguyHiem={hoiDoi.vt.capTM < hoiDoi.hs.hoSo.capTM}
           onDongY={() => {
-            const { hs, capMoi } = hoiDoi;
+            const { hs, vt } = hoiDoi;
             setHoiDoi(null);
-            /* Hỏi luật LẦN NỮA ngay trước khi ghi. Giữa lúc hộp xác nhận đang mở, danh sách có thể
-               đã được đọc lại và cấp của người kia đã khác. */
-            const xet = duocDatCap(nguoiDung, capMoi);
+            /* Hỏi luật LẦN NỮA ngay trước khi ghi: giữa lúc hộp xác nhận đang mở, danh sách có
+               thể đã được đọc lại và cấp của người kia đã khác. */
+            const xet = duocDatCap(nguoiDung, vt.capTM);
             if (!xet.duoc) {
               toast.error("Không đổi được", { description: xet.lyDo });
               return;
             }
-            void luu(hs, capMoi);
+            /* 🔴 KIỂM CẢ CỜ `chiQuanTriGan`, không chỉ kiểm cấp. Vai trò "Ban Giám đốc" có cấp 1
+               nên qua được `duocDatCap` của người cấp 3, trong khi nó mở quyền xem MỌI hồ sơ kèm
+               giá. Đây đúng là lỗ hổng đã bắt được lúc soát danh mục — xem `chiQuanTriGan`. */
+            if (!vaiTroGanDuocBoi(toiDa).some((x) => x.ma === vt.ma)) {
+              toast.error("Không đổi được", {
+                description: `Vai trò “${vt.ten}” chỉ tài khoản Quản trị mới gán được.`,
+              });
+              return;
+            }
+            void luu(hs, vt);
           }}
           onDong={() => setHoiDoi(null)}
         />
       )}
     </>
+  );
+}
+
+/** Xem trước: vai trò đang chọn làm được những việc nào. Dữ liệu từ `tinhQuyen`, không chép tay. */
+function ViecLamDuoc({ vt }: { vt: VaiTroChuan }) {
+  const q = quyenCuaVaiTro(vt);
+  const duoc = VIEC_TREN_BANG_DOI_CHIEU.filter((v) => q[v.khoa]);
+  if (duoc.length === 0) {
+    return <p className="text-xs text-text-desc">Không làm được việc nào trong app.</p>;
+  }
+  return (
+    <ul className="flex flex-wrap gap-1.5">
+      {duoc.map((v) => (
+        <li
+          key={v.khoa}
+          className="flex items-center gap-1 rounded-md bg-success-bg px-1.5 py-0.5 text-[11px] font-medium text-success-soft"
+        >
+          <Check className="size-3 shrink-0" aria-hidden />
+          {v.nhan}
+        </li>
+      ))}
+    </ul>
   );
 }

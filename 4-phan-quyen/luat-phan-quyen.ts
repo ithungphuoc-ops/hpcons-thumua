@@ -14,25 +14,18 @@
 // hồ sơ phân quyền. Không được coi file này là hàng rào bảo mật.
 // ============================================================
 
-import type { CapQuyen, NguoiDung } from "@/4-phan-quyen/quyen";
+/**
+ * 🔴 NHÃN CẤP QUYỀN LẤY TỪ `quyen.ts`, KHÔNG KHAI LẠI.
+ *
+ * Bản đầu của file này tự khai một bảng `NHAN_CAP_QUYEN` riêng ({0:"Không quyền", 1:"Xem"…})
+ * trong khi `quyen.ts` đã có sẵn một bảng khác chữ ({0:"Không truy cập", 1:"Cấp 1 — Xem"…}).
+ * Hai bảng cùng nói một thứ bằng hai cách gọi khác nhau: người dùng đọc màn phân quyền thấy
+ * "Nhập liệu", đọc chỗ khác thấy "Cấp 2 — Nhập liệu", và không ai biết có phải một thứ không.
+ * Đã bỏ bản trùng, dùng chung một bảng.
+ */
+import { NHAN_CAP_QUYEN, type CapQuyen, type NguoiDung } from "@/4-phan-quyen/quyen";
 
-/** Nhãn của bốn cấp quyền — theo chuẩn App Tổng (CLAUDE.md mục 3.6). */
-export const NHAN_CAP_QUYEN: Record<CapQuyen, string> = {
-  0: "Không quyền",
-  1: "Xem",
-  2: "Nhập liệu",
-  3: "Quản lý",
-  4: "Quản trị",
-};
-
-/** Mô tả ngắn từng cấp, để người phân quyền biết mình đang trao cái gì. */
-export const MO_TA_CAP_QUYEN: Record<CapQuyen, string> = {
-  0: "Không vào được app",
-  1: "Chỉ xem, không nhập liệu",
-  2: "Nhập liệu — lập đề nghị, lập đơn mua hàng",
-  3: "Quản lý — phân bổ công việc, xác nhận hoàn thành, xem giá",
-  4: "Quản trị — làm được mọi việc, kể cả phân quyền",
-};
+export { NHAN_CAP_QUYEN };
 
 /**
  * Cấp CAO NHẤT mà người này đặt được cho NGƯỜI KHÁC. `0` = không được phân quyền.

@@ -47,9 +47,17 @@
 // ④ KHÔNG SỬA ĐƯỢC NGƯỜI ĐANG CAO HƠN TẦM CỦA MÌNH (xét `resource.data.capTM`, tức cấp HIỆN TẠI).
 //    Thiếu chốt này, trưởng bộ phận có thể HẠ một quản trị xuống cấp 2 rồi tự do làm phần còn lại.
 //
-// ⑤ CHỈ ĐỔI ĐƯỢC HAI TRƯỜNG `capTM` VÀ `dangLamViec`. Đặc biệt phải khóa `uidNghiepVu`: đó là mã
-//    nối hồ sơ với dữ liệu nghiệp vụ, đổi nó là người đó **mất sạch việc đã được giao** — dòng
-//    phân bổ mồ côi, việc biến mất khỏi lịch mọi người (CLAUDE.md mục 3.6c).
+// ⑤ CHỈ ĐỔI ĐƯỢC BỐN TRƯỜNG CỦA VAI TRÒ (`chucNang`, `vaiTro`, `capTM`, `capKho`) và
+//    `dangLamViec`. Đặc biệt phải khóa `uidNghiepVu`: đó là mã nối hồ sơ với dữ liệu nghiệp vụ,
+//    đổi nó là người đó **mất sạch việc đã được giao** — dòng phân bổ mồ côi, việc biến mất khỏi
+//    lịch mọi người (CLAUDE.md mục 3.6c). Khóa cả `email` và `tenHienThi`.
+//
+// ⑥ 🔴 CẤM ĐẶT `vaiTro` THÀNH `admin` HOẶC `director` NẾU NGƯỜI GÁN KHÔNG PHẢI CẤP 4.
+//    Đây là chốt sinh ra từ một lỗ hổng thật, bắt được lúc soát danh mục vai trò ngày 18/08/2026:
+//    quyền trong app mở theo CẢ `vaiTro` chứ không chỉ theo cấp. Vai trò "Ban Giám đốc" có
+//    `capTM = 1` — thấp hơn tầm của cấp 3 — nhưng `vaiTro: "director"` bật `xemMoiHoSo` và
+//    `xemGia` cho TOÀN CÔNG TY. Chốt ③ (xét cấp) hoàn toàn không bắt được ca này.
+//    Bài học: **cấp số không đo được mức nguy hiểm của một vai trò.**
 //
 // ⚠️ HẠN CHẾ CÒN LẠI, PHẢI BIẾT: rules KHÔNG ghi được nhật ký. Ai đổi quyền của ai, lúc nào, sẽ
 // không có vết trong app. Muốn có vết thì phải ghi thêm một tài liệu nhật ký ở lần ghi đó — việc
@@ -97,15 +105,19 @@ service cloud.firestore {
       allow update: if coHoSo()
         // ② không tự sửa mình
         && uid != request.auth.uid
-        // ⑤ chỉ hai trường này
+        // ⑤ chỉ các trường của vai trò
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['capTM', 'dangLamViec'])
+             .hasOnly(['chucNang', 'vaiTro', 'capTM', 'capKho', 'dangLamViec'])
         // ③ cấp MỚI không vượt tầm
         && request.resource.data.capTM is int
         && request.resource.data.capTM >= 0
         && request.resource.data.capTM <= capDatDuocToiDa()
         // ④ cấp HIỆN TẠI của người bị sửa cũng không vượt tầm
-        && resource.data.capTM <= capDatDuocToiDa();
+        && resource.data.capTM <= capDatDuocToiDa()
+        // ⑥ chỉ cấp 4 mới đặt được vai trò hệ thống mở quyền rộng
+        && (request.resource.data.vaiTro == 'staff' || capNguoiGoi() >= 4)
+        // ⑥b và cũng không HẠ được một admin/director nếu mình không phải cấp 4
+        && (resource.data.vaiTro == 'staff' || capNguoiGoi() >= 4);
     }
   }
 }

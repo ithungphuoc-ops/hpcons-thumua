@@ -197,9 +197,25 @@ export type LoiGhiHoSo = string | null;
  * permissions` ra màn hình thì người dùng tưởng app hỏng và đi báo IT, trong khi đây là một
  * quyết định có chủ ý đang chờ duyệt. Nói đúng chuyện gì đang xảy ra và đường đi tiếp.
  */
-export async function ghiCapQuyen(
+export async function ghiVaiTroChoTaiKhoan(
   firebaseUid: string,
-  thayDoi: { capTM?: CapQuyen; dangLamViec?: boolean },
+  /**
+   * 🔴 GHI CẢ BỘ, KHÔNG GHI MỖI `capTM`.
+   *
+   * Bản đầu chỉ ghi cấp — mà `tinhQuyen` đọc cả `chucNang` và `vaiTro`. Nâng một **thủ kho** từ
+   * cấp 1 lên cấp 3 thì họ VẪN không phân bổ được công việc và VẪN không thấy giá, vì
+   * `phanBoCongViec` đòi đúng nhóm chức năng. Người phân quyền tưởng đã trao quyền mà thực tế
+   * không có gì đổi — sai im lặng, và tin được nhầm.
+   *
+   * Bộ bốn trường này đi cùng nhau, lấy từ một vai trò trong `4-phan-quyen/vai-tro-chuan.ts`.
+   */
+  thayDoi: {
+    chucNang?: ChucNang;
+    vaiTro?: VaiTroHeThong;
+    capTM?: CapQuyen;
+    capKho?: CapQuyen;
+    dangLamViec?: boolean;
+  },
 ): Promise<LoiGhiHoSo> {
   const app = await moFirebase();
   if (!app) return "Chưa cấu hình kết nối máy chủ.";
