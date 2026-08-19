@@ -545,8 +545,22 @@ export default function TrangChiTietDeNghi() {
                    phải có một lối vào bấm được TRÊN ĐIỆN THOẠI — đường còn lại là kéo thẻ từ
                    cột ① sang ②, mà điện thoại không kéo được. Trước 10/08/2026 app đã tắc
                    đúng kiểu này. Xem CLAUDE.md mục 3.4b. */
-                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) &&
-                  baoGiaLienQuan.length > 0 && (
+                /**
+                 * 🔴 HIỆN CẢ KHI CHƯA CÓ BẢNG NÀO — Ban lãnh đạo 19/08/2026: *"2 mục này sao
+                 * chưa có kết quả"* (ảnh khoanh bước ② và ③ không có cụm KẾT QUẢ).
+                 *
+                 * ⚠️ ĐẢO LẠI quyết định 17/08/2026, và đây là lý do chính đáng chứ không phải
+                 * tôi quên: hồi đó khối rỗng bị ẩn vì sau khi bỏ nút "Lập bảng báo giá" nó *"chỉ
+                 * còn trơ một dòng tiêu đề BẢNG BÁO GIÁ (0) không dẫn đi đâu"*. Nay đã có nhãn
+                 * **KẾT QUẢ**, nên một khối rỗng KHÔNG còn vô nghĩa — nó trả lời đúng câu *"bước
+                 * này đẻ ra cái gì, và hiện đã có chưa"*. Bước ④ vốn đã làm vậy (*"Chưa có đơn
+                 * đặt hàng nào"*), để ② ③ im lặng biến mất là ba bước nói ba kiểu.
+                 *
+                 * 📌 VÀ VẪN KHÔNG THÊM LẠI NÚT — đúng chỉ đạo 17/08/2026. Thay vào đó nhánh rỗng
+                 * **chỉ đường** tới chỗ lập bảng, tức chữa đúng cái lỗi "không dẫn đi đâu" mà
+                 * chỉ đạo ấy nêu ra.
+                 */
+                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
                   <section className="flex flex-col gap-(--hp-md-row-gap)">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       {/* Cùng kiểu chữ với "ĐẦU VÀO" — xem `NhanPhanTrongGiaiDoan`. */}
@@ -554,6 +568,14 @@ export default function TrangChiTietDeNghi() {
                         Bảng báo giá ({baoGiaLienQuan.length})
                       </NhanPhanTrongGiaiDoan>
                     </div>
+
+                    {baoGiaLienQuan.length === 0 && (
+                      <p className="text-sm text-text-secondary">
+                        Chưa lập bảng báo giá nào. Bảng được lập từ menu <strong>⋯</strong> trên
+                        thẻ của phiếu ở màn <strong>Quy trình mua hàng</strong>, hoặc tự sinh khi
+                        kéo thẻ sang cột <strong>Yêu cầu NCC báo giá</strong>.
+                      </p>
+                    )}
                     <Card>
                       <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
                         {baoGiaLienQuan.map((bg) => {
@@ -633,12 +655,21 @@ export default function TrangChiTietDeNghi() {
                  * NCC (Phòng Thi công). Cùng lý do đã ghi ở khối Lịch sử: đừng để tên nhà cung
                  * cấp rò ra qua một khối phụ.
                  */
-                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) &&
-                  baoGiaLienQuan.length > 0 && (
+                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
                   <section className="flex flex-col gap-(--hp-md-row-gap)">
                     <NhanPhanTrongGiaiDoan the="h2" icon={ClipboardCheck}>
                       Xét duyệt phương án giá
                     </NhanPhanTrongGiaiDoan>
+
+                    {/* Chưa có bảng thì nói rõ đang chờ bước nào, thay vì ẩn cả cụm — người đọc
+                        hồ sơ cần biết bước này chưa tới lượt, không phải app thiếu chức năng. */}
+                    {baoGiaLienQuan.length === 0 && (
+                      <p className="text-sm text-text-secondary">
+                        Chưa có bảng báo giá nào để duyệt. Bảng được lập và nhập giá ở bước{" "}
+                        <strong>{NHAN_GIAI_DOAN.yeu_cau_bao_gia.nhan}</strong>, nhân viên trình lên
+                        thì mới có việc duyệt ở đây.
+                      </p>
+                    )}
 
                     {baoGiaLienQuan.map((bg) => {
                       const daDuyet = bg.trangThai === "da_chon_ncc";
