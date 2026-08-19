@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   ClipboardCheck,
   ClipboardList,
   FileText,
@@ -15,6 +16,7 @@ import {
   Forward,
   Package,
   ShoppingCart,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
@@ -44,9 +46,10 @@ import {
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Badge } from "@/1-giao-dien/nen-tang-ui/badge";
-/* Khối nhập giá + đề xuất + trình xét duyệt của bước ② — dùng CHUNG với màn bảng báo giá,
-   không viết bản thứ hai (xem chú thích tại chỗ nhúng). */
-import { KhoiThuThapBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-thu-thap-bao-gia";
+import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
+/* Khối ĐỀ XUẤT + TRÌNH XÉT DUYỆT của bước ② — KHÔNG có phần nhập số liệu giá (chỉ đạo Ban lãnh
+   đạo 19/08/2026). Xem chú thích đầy đủ tại chỗ nhúng. */
+import { KhoiDeXuatBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-de-xuat-bao-gia";
 import {
   Dialog,
   DialogContent,
@@ -86,20 +89,29 @@ export default function TrangChiTietDeNghi() {
     vietBinhLuan,
     suaBinhLuan,
     datSoBaoGiaChoPhieu,
-    /* Bốn hàm cho khối thu thập báo giá nhúng ở bước ② — dùng CHÍNH các hàm màn bảng báo giá
-       đang dùng, không mở đường ghi thứ hai. */
+    /* Các hàm cho khối đề xuất ở bước ② và cặp Duyệt / Không duyệt ở bước ③ — dùng CHÍNH các hàm
+       màn bảng báo giá đang dùng, không mở đường ghi thứ hai. */
     nhaCungCap,
-    nhapGiaNCC,
-    dinhKemBaoGia,
     luuDeXuatNCC,
-    luuThongTinNCC,
     trinhXetDuyetBaoGia,
+    chonNCCChoBaoGia,
+    luiVeBuoc,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
   const [loiNhan, setLoiNhan] = useState("");
   /** Bảng báo giá đang chờ xác nhận trình xét duyệt — `null` là chưa hỏi ai. */
   const [hoiTrinhXetDuyet, setHoiTrinhXetDuyet] = useState<string | null>(null);
+  /** Bảng đang chờ trưởng bộ phận xác nhận duyệt / không duyệt (bước ③). */
+  const [hoiDuyet, setHoiDuyet] = useState<{
+    bgId: string;
+    loai: "duyet" | "khong_duyet";
+  } | null>(null);
+  /**
+   * Lý do duyệt / không duyệt — BẮT BUỘC cả hai chiều (Ban lãnh đạo 19/08/2026: *"phải có ghi
+   * chú bắt buộc lý do vì sao duyệt hoặc không duyệt"*).
+   */
+  const [lyDoDuyet, setLyDoDuyet] = useState("");
   /**
    * Việc bắt buộc đang chờ xác nhận tích / bỏ tích — `null` là chưa hỏi ai.
    * Xem lý do ở chỗ dùng, trong khối "Danh sách công việc".
@@ -642,35 +654,35 @@ export default function TrangChiTietDeNghi() {
                      * thẳng vào bước ② — đúng chỉ đạo 17/08/2026 *"phần nhập liệu phải nằm trong
                      * khối"*.
                      *
-                     * 📌 KHÔNG VIẾT LẠI GIAO DIỆN THỨ HAI. Dùng đúng component đang chạy ở màn bảng
-                     * báo giá; hai bản chép tay của cùng một biểu mẫu nhập giá là sớm muộn lệch nhau
-                     * và một trong hai sẽ ghi thiếu trường.
+                     * 🔴 KHÔNG CÓ PHẦN NHẬP SỐ LIỆU GIÁ — Ban lãnh đạo 19/08/2026: *"chưa cần chức
+                     * năng nhập số liệu NCC, chỉ cần đính kèm file báo giá là được"*.
                      *
-                     * ⚠️ CHỈ HIỆN KHI CÓ BẢNG Ở TRẠNG THÁI `dang_thu_thap`: chưa có bảng thì chưa có
-                     * cái gì để nhập giá vào, và câu chỉ đường lập bảng ở trên đã lo phần đó. Trình
-                     * xong bảng sang `da_so_sanh` thì khối tự biến mất — không cho nhập thêm giá sau
-                     * khi đã trình, đúng cảnh báo trong hộp xác nhận.
+                     * Vì vậy dùng `KhoiDeXuatBaoGia` (gọn: đề xuất + trình) chứ KHÔNG dùng
+                     * `KhoiThuThapBaoGia` của màn bảng báo giá. Khối đó làm việc khác — nhập đơn giá
+                     * từng dòng để dựng bảng so sánh — và cả phần đề xuất lẫn nút trình của nó đều
+                     * đòi *"đã nhập giá ít nhất một nhà cung cấp"*. Bỏ điều kiện ấy là phá luật của
+                     * chính nó; đây là hai chế độ làm việc khác nhau, không phải hai bản chép tay.
                      *
-                     * 🔴 Đòi `quyen.lapPO` y như ở màn bảng báo giá: người chỉ được xem không nhập
-                     * giá, không đề xuất, không trình.
+                     * 📌 Tệp báo giá bỏ vào **khu đính kèm của bước ②** ngay phía trên, không dựng
+                     * chỗ bỏ tệp thứ hai trong cùng một bước.
+                     *
+                     * ⚠️ CHỈ HIỆN KHI CÓ BẢNG Ở TRẠNG THÁI `dang_thu_thap`. Trình xong bảng sang
+                     * `da_so_sanh` thì khối tự biến mất — không sửa đề xuất sau khi đã trình.
+                     *
+                     * 🔴 Đòi `quyen.lapPO`: người chỉ được xem không đề xuất, không trình.
                      */}
                     {quyen.lapPO &&
                       baoGiaLienQuan
                         .filter((bg) => bg.trangThai === "dang_thu_thap")
                         .map((bg) => (
-                          <KhoiThuThapBaoGia
+                          <KhoiDeXuatBaoGia
                             key={bg.id}
                             baoGia={bg}
                             nhaCungCap={nhaCungCap}
-                            nguoiDungTen={nguoiDung.tenHienThi}
-                            onNhapGia={(ncc, gia) =>
-                              nhapGiaNCC(bg.id, ncc, gia, nguoiDung.tenHienThi)
-                            }
-                            onDinhKem={(tep) => dinhKemBaoGia(bg.id, tep, nguoiDung.tenHienThi)}
-                            onLuuDeXuat={(dx) => luuDeXuatNCC(bg.id, dx, nguoiDung.tenHienThi)}
-                            onLuuThongTinNCC={(tt) =>
-                              luuThongTinNCC(bg.id, tt, nguoiDung.tenHienThi)
-                            }
+                            onLuuDeXuat={(dx) => {
+                              luuDeXuatNCC(bg.id, dx, nguoiDung.tenHienThi);
+                              toast.success("Đã lưu đề xuất");
+                            }}
                             /* Trình xét duyệt = chuyển bước, việc không lùi lại được → hỏi trước
                                (nguyên tắc Ban lãnh đạo 10/08/2026). */
                             onTrinhXetDuyet={() => setHoiTrinhXetDuyet(bg.id)}
@@ -820,16 +832,78 @@ export default function TrangChiTietDeNghi() {
                                 Chữ trên nút đổi theo vai trò: người duyệt được thì mời họ duyệt,
                                 người khác thì nói rõ là chỉ xem. Bày nút "Duyệt" cho người không
                                 duyệt được là hứa một việc họ bấm vào sẽ không làm được. */}
+                            {/**
+                             * 🔴 DUYỆT / KHÔNG DUYỆT NGAY TẠI ĐÂY — bắt buộc phải có từ 19/08/2026.
+                             *
+                             * Ban lãnh đạo chốt *"chưa cần chức năng nhập số liệu NCC, chỉ cần đính
+                             * kèm file báo giá"*. Hệ quả: bảng báo giá KHÔNG có cột giá nào, mà nút
+                             * chốt nhà cung cấp ở màn bảng so sánh lại nằm **trên đầu từng cột NCC**
+                             * — không có cột thì không có nút, và **luồng tắc hẳn ở bước ③**.
+                             *
+                             * Vì vậy trưởng bộ phận duyệt ngay trong khối này, theo **đề xuất của
+                             * nhân viên**: đó chính là thứ họ cần xét (tên nhà cung cấp + dẫn chứng),
+                             * còn bản báo giá thì nằm trong tệp đính kèm của bước ②.
+                             *
+                             * ⚠️ Chưa có đề xuất thì KHÔNG cho duyệt — duyệt mà không biết duyệt cho
+                             * nhà cung cấp nào thì đơn hàng sau đó không có đối tượng.
+                             */}
+                            {quyen.xacNhanTruongBP && !daDuyet && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  disabled={!bg.deXuatNCCTen}
+                                  title={
+                                    bg.deXuatNCCTen
+                                      ? undefined
+                                      : "Nhân viên chưa ghi đề xuất chọn nhà cung cấp."
+                                  }
+                                  onClick={() => setHoiDuyet({ bgId: bg.id, loai: "duyet" })}
+                                >
+                                  <Check className="size-4" aria-hidden />
+                                  Duyệt
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setHoiDuyet({ bgId: bg.id, loai: "khong_duyet" })}
+                                >
+                                  <X className="size-4" aria-hidden />
+                                  Không duyệt
+                                </Button>
+                                {!bg.deXuatNCCTen && (
+                                  <span className="text-xs text-warning-soft">
+                                    Nhân viên chưa ghi đề xuất chọn nhà cung cấp.
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Đề xuất của nhân viên — thứ trưởng bộ phận cần đọc để quyết.
+                                Gác `xemNhaCungCap` như mọi chỗ hiện tên NCC. */}
+                            {bg.deXuatNCCTen && !daDuyet && quyen.xemNhaCungCap && (
+                              <div className="rounded-lg border border-border bg-muted p-(--hp-md-row-pad)">
+                                <p className="text-xs font-semibold text-text-desc uppercase">
+                                  Nhân viên đề xuất
+                                </p>
+                                <p className="mt-1 text-sm text-text-primary">
+                                  {bg.deXuatNCCTen}
+                                </p>
+                                {bg.lyDoDeXuat && (
+                                  <p className="mt-1 text-sm text-text-secondary">
+                                    {bg.lyDoDeXuat}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
                             <Button
-                              variant={quyen.xacNhanTruongBP && !daDuyet ? "default" : "outline"}
+                              variant="outline"
                               size="sm"
                               className="w-fit"
                               nativeButton={false}
                               render={<Link href={`/bao-gia/${bg.id}`} />}
                             >
-                              {quyen.xacNhanTruongBP && !daDuyet
-                                ? "Mở bảng để duyệt"
-                                : "Xem bảng so sánh giá"}
+                              Xem bảng so sánh giá
                             </Button>
                           </CardContent>
                         </Card>
@@ -1339,6 +1413,81 @@ export default function TrangChiTietDeNghi() {
           });
         }}
       />
+
+      {/* ★ DUYỆT / KHÔNG DUYỆT — BẮT GHI LÝ DO CẢ HAI CHIỀU (Ban lãnh đạo 19/08/2026). */}
+      <HopXacNhan
+        mo={hoiDuyet !== null}
+        tieuDe={hoiDuyet?.loai === "duyet" ? "Duyệt phương án giá?" : "Không duyệt bảng báo giá?"}
+        moTa={
+          hoiDuyet?.loai === "duyet"
+            ? `Duyệt đề xuất chọn ${baoGiaLienQuan.find((b) => b.id === hoiDuyet.bgId)?.deXuatNCCTen ?? ""}. Phiếu chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`
+            : hoiDuyet
+              ? `Bảng báo giá sẽ quay về bước “${NHAN_GIAI_DOAN.yeu_cau_bao_gia.nhan}” để nhân viên bổ sung rồi trình lại. Tệp đính kèm và đề xuất vẫn giữ nguyên.`
+              : undefined
+        }
+        canhBao={
+          hoiDuyet?.loai === "duyet"
+            ? "Lý do sẽ lưu vào hồ sơ và là căn cứ giải trình với Ban lãnh đạo."
+            : "Lý do sẽ hiện cho nhân viên phụ trách đọc, và lưu lại trong hồ sơ bảng báo giá."
+        }
+        nhanDongY={hoiDuyet?.loai === "duyet" ? "Duyệt" : "Không duyệt, trả lại"}
+        nguyHiem={hoiDuyet?.loai === "khong_duyet"}
+        /* 🔴 Khóa kèm CÂU GIẢI THÍCH, không khóa im lặng. */
+        khoaDongY={
+          lyDoDuyet.trim() === ""
+            ? hoiDuyet?.loai === "duyet"
+              ? "Phải ghi căn cứ duyệt trước khi bấm."
+              : "Phải ghi rõ vì sao không duyệt để nhân viên biết cần bổ sung gì."
+            : undefined
+        }
+        onDong={() => {
+          setHoiDuyet(null);
+          setLyDoDuyet("");
+        }}
+        onDongY={() => {
+          if (!hoiDuyet) return;
+          const bg = baoGiaLienQuan.find((b) => b.id === hoiDuyet.bgId);
+          if (!bg) return;
+          if (hoiDuyet.loai === "duyet") {
+            /* Chốt theo ĐỀ XUẤT của nhân viên — dùng lại đúng hàm ghi của màn bảng báo giá. */
+            chonNCCChoBaoGia(
+              bg.id,
+              bg.deXuatNCCId ?? "",
+              bg.deXuatNCCTen ?? "",
+              nguoiDung.tenHienThi,
+              lyDoDuyet,
+            );
+            toast.success("Đã duyệt", {
+              description: `${dn.code} chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`,
+            });
+          } else {
+            /* Trả lại = lùi bước, dùng lại `luiVeBuoc` kèm lý do (ghi vào `lanTraLai`). */
+            luiVeBuoc(dn.id, "yeu_cau_bao_gia", nguoiDung.tenHienThi, { lyDo: lyDoDuyet });
+            toast.success("Đã trả lại bước Yêu cầu NCC báo giá", {
+              description: "Nhân viên phụ trách sẽ đọc được lý do.",
+            });
+          }
+          setHoiDuyet(null);
+          setLyDoDuyet("");
+        }}
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ly-do-duyet-bao-gia">
+            {hoiDuyet?.loai === "duyet" ? "Căn cứ duyệt *" : "Vì sao không duyệt *"}
+          </Label>
+          <Textarea
+            id="ly-do-duyet-bao-gia"
+            rows={3}
+            value={lyDoDuyet}
+            onChange={(e) => setLyDoDuyet(e.target.value)}
+            placeholder={
+              hoiDuyet?.loai === "duyet"
+                ? "Ví dụ: đồng ý với đề xuất — giá thấp hơn 4,2%, giao đúng tiến độ đợt 1."
+                : "Ví dụ: thiếu báo giá bên thứ ba; đơn giá thép cao hơn mặt bằng, hỏi lại nhà cung cấp."
+            }
+          />
+        </div>
+      </HopXacNhan>
     </>
   );
 }
