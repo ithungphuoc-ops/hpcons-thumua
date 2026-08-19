@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   FileWarning,
@@ -42,6 +43,7 @@ import {
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
+import { Badge } from "@/1-giao-dien/nen-tang-ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -608,6 +610,114 @@ export default function TrangChiTietDeNghi() {
                   (bg.tepBaoGia ?? []).length > 0
                     ? [{ nhan: `Báo giá NCC — ${bg.code}`, tep: bg.tepBaoGia }]
                     : [],
+                ),
+                /**
+                 * ★ KHỐI XÉT DUYỆT — Ban lãnh đạo 19/08/2026: *"chưa có chức năng duyệt báo
+                 * giá"*, kèm ảnh khối này trống trơn.
+                 *
+                 * 🔴 LUẬT DUYỆT VỐN ĐÃ CÓ VÀ ĐANG CHẠY, thứ thiếu là ĐƯỜNG VÀO. Việc duyệt nằm
+                 * ở màn bảng báo giá (`bao-gia-chi-tiet.tsx`): nút chốt nhà cung cấp chỉ hiện
+                 * với người có `xacNhanTruongBP`, và hộp xác nhận **khóa nút Đồng ý cho tới khi
+                 * ghi xong giải trình**. Chưa chốt thì `vuongMacLapDonHang` chặn lập đơn.
+                 *
+                 * Nhưng đứng ở trang đề nghị thì khối này chỉ ghi "chưa có dữ liệu nhập vào" —
+                 * không biết đang chờ ai, không biết đã duyệt chưa, không có đường sang chỗ
+                 * duyệt. Người dùng kết luận "chức năng chưa có" là hoàn toàn hợp lý.
+                 *
+                 * 📌 Ban lãnh đạo 19/08/2026 chốt thêm: **trưởng bộ phận duyệt và giải trình với
+                 * Ban lãnh đạo**. Nên khối này hiện luôn NỘI DUNG GIẢI TRÌNH ngay tại hồ sơ —
+                 * Ban Giám đốc xem được mọi hồ sơ, đọc thẳng ở đây, không phải đi tìm sang màn
+                 * bảng báo giá.
+                 *
+                 * 🔴 GÁC QUYỀN XEM NHÀ CUNG CẤP. Khối bước hiện cho cả vai trò KHÔNG được thấy
+                 * NCC (Phòng Thi công). Cùng lý do đã ghi ở khối Lịch sử: đừng để tên nhà cung
+                 * cấp rò ra qua một khối phụ.
+                 */
+                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) &&
+                  baoGiaLienQuan.length > 0 && (
+                  <section className="flex flex-col gap-(--hp-md-row-gap)">
+                    <NhanPhanTrongGiaiDoan the="h2" icon={ClipboardCheck}>
+                      Xét duyệt phương án giá
+                    </NhanPhanTrongGiaiDoan>
+
+                    {baoGiaLienQuan.map((bg) => {
+                      const daDuyet = bg.trangThai === "da_chon_ncc";
+                      return (
+                        <Card key={bg.id}>
+                          <CardContent className="flex flex-col gap-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-sm font-medium text-text-primary">
+                                {bg.code}
+                              </span>
+                              {/* Trạng thái có CẢ MÀU LẪN CHỮ — Design System V1.1. */}
+                              <Badge
+                                className={
+                                  daDuyet
+                                    ? "border-transparent bg-success-bg text-success-soft"
+                                    : "border-transparent bg-warning-bg text-warning-soft"
+                                }
+                              >
+                                {daDuyet ? "Đã duyệt" : "Chờ Trưởng bộ phận duyệt"}
+                              </Badge>
+                            </div>
+
+                            {daDuyet ? (
+                              <>
+                                {quyen.xemNhaCungCap && bg.nccDaChonTen && (
+                                  <p className="text-sm text-text-secondary">
+                                    Nhà cung cấp được duyệt:{" "}
+                                    <strong className="text-text-primary">
+                                      {bg.nccDaChonTen}
+                                    </strong>
+                                  </p>
+                                )}
+                                {/* Giải trình với Ban lãnh đạo — hiện thẳng tại hồ sơ. */}
+                                {bg.lyDoChonNCC ? (
+                                  <div className="rounded-lg border border-border bg-muted p-(--hp-md-row-pad)">
+                                    <p className="text-xs font-semibold text-text-desc uppercase">
+                                      Giải trình của Trưởng bộ phận
+                                    </p>
+                                    <p className="mt-1 text-sm text-text-primary">
+                                      {bg.lyDoChonNCC}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  /* Hồ sơ duyệt trước khi có luật bắt ghi giải trình thì trống —
+                                     nói thật là trống, đừng để người đọc tưởng chưa tải xong. */
+                                  <p className="text-xs text-text-desc">
+                                    Bảng này được duyệt trước khi app bắt ghi giải trình, nên
+                                    không có nội dung giải trình.
+                                  </p>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-sm text-text-secondary">
+                                Bảng đã so sánh xong, đang chờ Trưởng bộ phận Thu mua duyệt phương
+                                án và ghi giải trình. <strong>Chưa duyệt thì chưa lập được đơn
+                                mua hàng.</strong>
+                              </p>
+                            )}
+
+                            {/* 🔴 NÚT DẪN SANG CHỖ DUYỆT — chính là thứ đang thiếu.
+                                Chữ trên nút đổi theo vai trò: người duyệt được thì mời họ duyệt,
+                                người khác thì nói rõ là chỉ xem. Bày nút "Duyệt" cho người không
+                                duyệt được là hứa một việc họ bấm vào sẽ không làm được. */}
+                            <Button
+                              variant={quyen.xacNhanTruongBP && !daDuyet ? "default" : "outline"}
+                              size="sm"
+                              className="w-fit"
+                              nativeButton={false}
+                              render={<Link href={`/bao-gia/${bg.id}`} />}
+                            >
+                              {quyen.xacNhanTruongBP && !daDuyet
+                                ? "Mở bảng để duyệt"
+                                : "Xem bảng so sánh giá"}
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </section>
                 ),
                 /* Bước ③ nhận biên bản xét duyệt, tờ trình so sánh giá. Khu này đứng riêng
                    với trường "Báo giá NCC" ở trên: trường đó là tệp gắn TRONG bảng báo giá
