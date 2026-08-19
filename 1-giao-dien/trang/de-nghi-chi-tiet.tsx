@@ -576,6 +576,11 @@ export default function TrangChiTietDeNghi() {
                         kéo thẻ sang cột <strong>Yêu cầu NCC báo giá</strong>.
                       </p>
                     )}
+                    {/* 🔴 CHỈ VẼ THẺ KHI CÓ BẢNG — Ban lãnh đạo khoanh đỏ 19/08/2026.
+                        Bản trước tôi thêm nhánh "chưa lập bảng nào" nhưng để `<Card>` render vô
+                        điều kiện, nên danh sách rỗng vẫn đẻ ra một **dải trắng trống trơn** ngay
+                        dưới câu chữ — nhìn như chỗ bấm được mà bấm không có gì. */}
+                    {baoGiaLienQuan.length > 0 && (
                     <Card>
                       <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
                         {baoGiaLienQuan.map((bg) => {
@@ -609,20 +614,41 @@ export default function TrangChiTietDeNghi() {
                         })}
                       </CardContent>
                     </Card>
+                    )}
                   </section>
                 ),
-                /* 🔴 BƯỚC ② KHÔNG CÓ KHU ĐÍNH KÈM — Ban lãnh đạo 17/08/2026: *"bước này không
-                   cần thêm chức năng đính kèm file"*.
-
-                   Đúng về nghiệp vụ: bước ② chỉ là ĐI HỎI GIÁ — gửi yêu cầu cho nhà cung cấp.
-                   Bản báo giá họ gửi về là **đầu vào của bước ③ Xét duyệt báo giá**, và bước ③
-                   đã có khu đính kèm riêng. Để cả hai bước đều nhận tệp thì cùng một bản báo
-                   giá nằm hai chỗ, sau này không ai biết bản nào là bản đã xét duyệt.
-
-                   ⚠️ Tệp đã đính vào bước này TRƯỚC 17/08/2026 (nếu có) vẫn còn nguyên trong
-                   `deNghi.tepGiaiDoan.yeu_cau_bao_gia` — chỉ không hiện ra nữa. KHÔNG xóa dữ
-                   liệu: gỡ một khu giao diện không phải là cái cớ để hủy chứng từ của ai đó.
-                   Cần lấy lại thì trả prop `khuDinhKem` về là hiện lại đủ. */
+                /**
+                 * ★ BƯỚC ② CÓ KHU ĐÍNH KÈM TRỞ LẠI — Ban lãnh đạo 19/08/2026: *"Nhân viên gửi
+                 * đính kèm file báo giá và ghi rõ thông tin đề xuất báo giá chọn → bấm trình xét
+                 * duyệt"*, và hỏi lại *"nút để đính kèm tài liệu vào đâu"*.
+                 *
+                 * ⚠️ ĐÂY LÀ ĐẢO LẠI CHỈ ĐẠO 17/08/2026 (*"bước này không cần thêm chức năng đính
+                 * kèm file"*) — ghi rõ ra đây để người sau không tưởng tôi bỏ sót rồi lại gỡ đi.
+                 * Chỉ đạo 19/08 mới hơn và nói cụ thể việc nhân viên phải làm ở bước này, nên
+                 * theo chỉ đạo mới.
+                 *
+                 * 🔴 LO NGẠI CŨ VẪN CÒN GIÁ TRỊ, và đây là cách nó được xử lý: hồi 17/08 tôi bỏ
+                 * khu này vì sợ *"cùng một bản báo giá nằm hai chỗ, sau này không ai biết bản nào
+                 * là bản đã xét duyệt"*. Ranh giới nay rõ hơn:
+                 *   · Khu ở ĐÂY = **bản báo giá thô nhà cung cấp gửi về** (ảnh Zalo, PDF, email),
+                 *     nhân viên thu được bao nhiêu thì dán vào bấy nhiêu.
+                 *   · `tepBaoGia` TRONG bảng báo giá = bản gắn với **đúng một nhà cung cấp** đã
+                 *     được nhập giá vào bảng so sánh.
+                 *   · `tepChonNCC` ở bước ③ = **dẫn chứng cho quyết định duyệt**.
+                 * Ba thứ khác nhau về vai trò, không phải ba bản sao của một thứ.
+                 *
+                 * 📌 Tệp đính vào đây trước 17/08 vẫn còn nguyên trong
+                 * `deNghi.tepGiaiDoan.yeu_cau_bao_gia` — gỡ giao diện hồi đó KHÔNG xóa dữ liệu,
+                 * nên trả prop về là chúng hiện lại đủ.
+                 */
+                khuDinhKem: (
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="yeu_cau_bao_gia"
+                    duocSua={duocSuaTepBuoc}
+                    khoa={hoSoDaDong}
+                  />
+                ),
               },
               {
                 ma: "xet_duyet_bao_gia",
