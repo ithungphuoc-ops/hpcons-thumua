@@ -11,8 +11,10 @@ import {
   Paperclip,
   ShoppingCart,
   Split,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { lyDoKhongXemBaoGia } from "@/4-phan-quyen/quyen-theo-ho-so";
@@ -65,6 +67,7 @@ export default function TrangBaoGiaChiTiet() {
     dinhKemBaoGia,
     trinhXetDuyetBaoGia,
     duyetPhuongAnTach,
+    luiVeBuoc,
     luuDeXuatNCC,
     luuThongTinNCC,
     cauHinh,
@@ -92,6 +95,8 @@ export default function TrangBaoGiaChiTiet() {
     | { loai: "trinh_xet_duyet" }
     | { loai: "duyet_phuong_an" }
     | { loai: "chot_ncc"; nccId: string; tenNCC: string }
+    /** Trưởng bộ phận KHÔNG DUYỆT, trả bảng về bước ② — Ban lãnh đạo 19/08/2026. */
+    | { loai: "khong_duyet" }
     | null
   >(null);
   /**
@@ -388,19 +393,50 @@ export default function TrangBaoGiaChiTiet() {
                 Bạn không có quyền duyệt bước này.
               </span>
             ) : daTach ? (
-              <Button
-                size="sm"
-                className="ml-auto shrink-0"
-                onClick={() => setViecChoXacNhan({ loai: "duyet_phuong_an" })}
-              >
-                <Check className="size-4" aria-hidden />
-                Duyệt phương án chia đơn
-              </Button>
+              <span className="ml-auto flex shrink-0 flex-wrap gap-2">
+                <NutKhongDuyet onBam={() => setViecChoXacNhan({ loai: "khong_duyet" })} />
+                <Button size="sm" onClick={() => setViecChoXacNhan({ loai: "duyet_phuong_an" })}>
+                  <Check className="size-4" aria-hidden />
+                  Duyệt phương án chia đơn
+                </Button>
+              </span>
             ) : (
-              <span className="ml-auto shrink-0 text-xs text-text-secondary">
-                Bấm <strong>Chọn NCC này</strong> ở bảng so sánh bên dưới để duyệt.
+              /* Chưa tách: việc DUYỆT là bấm "Chọn NCC này" trong bảng so sánh bên dưới (không
+                 thêm nút thứ hai làm cùng việc). Nhưng việc KHÔNG DUYỆT thì phải có nút riêng —
+                 nó không gắn với nhà cung cấp nào cả. */
+              <span className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
+                <span className="text-xs text-text-secondary">
+                  Bấm <strong>Chọn NCC này</strong> ở bảng so sánh bên dưới để duyệt.
+                </span>
+                <NutKhongDuyet onBam={() => setViecChoXacNhan({ loai: "khong_duyet" })} />
               </span>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ★ BỊ TRẢ LẠI — hiện cho nhân viên đọc, Ban lãnh đạo 19/08/2026.
+          🔴 ĐÂY LÀ NỬA CÒN LẠI CỦA CHỨC NĂNG "KHÔNG DUYỆT". Ghi được lý do mà không hiện ra thì
+          nhân viên chỉ thấy phiếu tự nhảy ngược về bước ② — không biết vì sao, không biết sửa gì,
+          và sẽ trình lại y nguyên.
+          📌 Hiện MỌI lượt, mới nhất lên đầu: phiếu đi lại nhiều vòng thì phải đọc được cả quá
+          trình, nếu không lần bác thứ ba vẫn lặp lại đúng cái sai của lần đầu. */}
+      {(bg.lanTraLai ?? []).length > 0 && (
+        <Card className="border-danger/40 bg-danger-bg/30">
+          <CardContent className="flex flex-col gap-2">
+            <span className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+              <X className="size-4 shrink-0 text-danger-soft" aria-hidden />
+              Trưởng bộ phận đã trả lại bảng này{" "}
+              {(bg.lanTraLai ?? []).length > 1 && `${(bg.lanTraLai ?? []).length} lần`}
+            </span>
+            {[...(bg.lanTraLai ?? [])].reverse().map((l, i) => (
+              <div key={i} className="rounded-lg border border-border bg-card p-(--hp-md-row-pad)">
+                <p className="text-sm text-text-primary">{l.lyDo}</p>
+                <p className="mt-1 text-xs text-text-desc">
+                  {l.nguoiTuChoiTen} · {formatMocThoiGian(l.thoiDiem)}
+                </p>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
@@ -821,7 +857,9 @@ export default function TrangBaoGiaChiTiet() {
             ? "Trình trưởng bộ phận xem xét?"
             : viecChoXacNhan?.loai === "duyet_phuong_an"
               ? "Duyệt phương án chia đơn?"
-              : "Chốt nhà cung cấp này?"
+              : viecChoXacNhan?.loai === "khong_duyet"
+                ? "Không duyệt bảng báo giá này?"
+                : "Chốt nhà cung cấp này?"
         }
         moTa={
           viecChoXacNhan?.loai === "trinh_xet_duyet"
@@ -830,10 +868,16 @@ export default function TrangBaoGiaChiTiet() {
               ? `Bảng báo giá ${bg.code} sẽ chuyển sang bước “Lập đơn mua hàng”.`
               : viecChoXacNhan?.loai === "chot_ncc"
                 ? `Chốt ${viecChoXacNhan.tenNCC} cho toàn bộ bảng báo giá ${bg.code}.`
-                : undefined
+                : viecChoXacNhan?.loai === "khong_duyet"
+                  ? `Bảng báo giá ${bg.code} sẽ quay về bước “Yêu cầu NCC báo giá” để nhân viên bổ sung rồi trình lại. Giá đã nhập và đề xuất vẫn giữ nguyên, không phải gõ lại.`
+                  : undefined
         }
         canhBao={
-          viecChoXacNhan?.loai === "trinh_xet_duyet" ? (
+          viecChoXacNhan?.loai === "khong_duyet" ? (
+            /* Không dùng câu cảnh báo chung "không lùi lại được" — không duyệt CHÍNH LÀ lùi, và
+               nó lùi được. Nói đúng thứ người bấm cần biết: ai sẽ đọc lý do này. */
+            <>Lý do sẽ hiện cho nhân viên phụ trách đọc, và lưu lại trong hồ sơ bảng báo giá.</>
+          ) : viecChoXacNhan?.loai === "trinh_xet_duyet" ? (
             <>
               Sau khi trình, bạn không nhập thêm giá nhà cung cấp vào bảng này được nữa.
               {/* Nhắc thiếu báo giá NGAY TRONG hộp xác nhận, không chỉ ở khối trên trang: đây
@@ -873,8 +917,12 @@ export default function TrangBaoGiaChiTiet() {
             ? "Trình xét duyệt"
             : viecChoXacNhan?.loai === "duyet_phuong_an"
               ? "Duyệt"
-              : "Chốt nhà cung cấp"
+              : viecChoXacNhan?.loai === "khong_duyet"
+                ? "Không duyệt, trả lại"
+                : "Chốt nhà cung cấp"
         }
+        /* Đỏ: đây là lấy lại việc đã giao và đẩy phiếu lùi một bước. */
+        nguyHiem={viecChoXacNhan?.loai === "khong_duyet"}
         /**
          * ★ BẮT GHI LÝ DO khi chốt nhà cung cấp — Ban lãnh đạo 13/08/2026.
          * Hai việc kia (trình xét duyệt, duyệt phương án) không đòi lý do: chúng chỉ chuyển
@@ -883,7 +931,12 @@ export default function TrangBaoGiaChiTiet() {
         khoaDongY={
           viecChoXacNhan?.loai === "chot_ncc" && lyDoChon.trim() === ""
             ? "Phải ghi lý do / dẫn chứng vì sao chọn nhà cung cấp này trước khi chốt."
-            : undefined
+            : /* 🔴 KHÔNG DUYỆT CŨNG BẮT GHI LÝ DO — Ban lãnh đạo 19/08/2026: *"phải có ghi chú
+                 bắt buộc lý do vì sao duyệt hoặc không duyệt"*. Trả phiếu về mà không nói vì sao
+                 thì nhân viên chỉ thấy việc tự nhảy ngược, không biết phải sửa gì. */
+              viecChoXacNhan?.loai === "khong_duyet" && lyDoChon.trim() === ""
+              ? "Phải ghi rõ vì sao không duyệt để nhân viên biết cần bổ sung gì."
+              : undefined
         }
         onDong={() => {
           setViecChoXacNhan(null);
@@ -910,12 +963,42 @@ export default function TrangBaoGiaChiTiet() {
             });
             return;
           }
+          if (v.loai === "khong_duyet") {
+            /* 🔴 DÙNG LẠI `luiVeBuoc`, KHÔNG viết hàm hạ trạng thái riêng: nó đã làm đúng việc
+               này (hạ `da_so_sanh` → `dang_thu_thap`, giữ nguyên giá đã nhập). Hai hàm cùng hạ
+               một trạng thái là sớm muộn lệch nhau, mà lệch kiểu đó không có lỗi nào báo.
+               Tham số thứ tư là lý do — có nó thì kho ghi thêm một lượt vào `lanTraLai`. */
+            luiVeBuoc(bg.prId, "yeu_cau_bao_gia", nguoiDung.tenHienThi, { lyDo: lyDoChon });
+            toast.success("Đã trả lại bước Yêu cầu NCC báo giá", {
+              description: `${bg.prCode} — nhân viên phụ trách sẽ đọc được lý do.`,
+            });
+            return;
+          }
           chonNCCChoBaoGia(bg.id, v.nccId, v.tenNCC, nguoiDung.tenHienThi, lyDoChon, tepChon);
           toast.success("Đã chốt nhà cung cấp", {
             description: `${v.tenNCC} — ${bg.prCode} chuyển sang “Lập đơn mua hàng”.`,
           });
         }}
       >
+        {/* ★ Ô GHI LÝ DO KHI KHÔNG DUYỆT — bắt buộc (Ban lãnh đạo 19/08/2026).
+            Dùng chung state `lyDoChon` với ô lý do chốt NCC: hai việc không bao giờ mở cùng
+            lúc, và `onDong` đã xóa trắng ô mỗi lần đóng hộp. */}
+        {viecChoXacNhan?.loai === "khong_duyet" && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ly-do-khong-duyet">Vì sao không duyệt *</Label>
+            <Textarea
+              id="ly-do-khong-duyet"
+              rows={3}
+              value={lyDoChon}
+              onChange={(e) => setLyDoChon(e.target.value)}
+            />
+            <p className="text-xs text-text-desc">
+              Ghi rõ cần bổ sung gì để nhân viên biết đường sửa — ví dụ “thiếu báo giá bên thứ
+              ba”, “đơn giá thép cao hơn mặt bằng, hỏi lại nhà cung cấp”.
+            </p>
+          </div>
+        )}
+
         {/* ★ Ô GHI LÝ DO — chỉ hiện khi đang chốt nhà cung cấp. Hai việc kia (trình xét
             duyệt, duyệt phương án) chỉ chuyển bước nên không đòi lý do. */}
         {viecChoXacNhan?.loai === "chot_ncc" && (
@@ -956,5 +1039,24 @@ export default function TrangBaoGiaChiTiet() {
         )}
       </HopXacNhan>
     </>
+  );
+}
+
+/**
+ * Nút "Không duyệt" — Ban lãnh đạo 19/08/2026.
+ *
+ * 📌 Tách thành một mảnh dùng chung vì nó xuất hiện ở HAI nhánh của khối chờ duyệt (đã tách sẵn
+ * phương án chia, và chưa tách). Viết hai lần là sớm muộn hai chỗ lệch chữ hoặc lệch màu.
+ *
+ * 🔴 `variant="outline"` chứ không phải nút đỏ đặc: đây là hành động bình thường của người duyệt,
+ * không phải việc phá hủy. Phần cảnh báo đỏ nằm ở hộp xác nhận (`nguyHiem`), đúng chỗ người dùng
+ * dừng lại đọc.
+ */
+function NutKhongDuyet({ onBam }: { onBam: () => void }) {
+  return (
+    <Button variant="outline" size="sm" onClick={onBam}>
+      <X className="size-4" aria-hidden />
+      Không duyệt
+    </Button>
   );
 }

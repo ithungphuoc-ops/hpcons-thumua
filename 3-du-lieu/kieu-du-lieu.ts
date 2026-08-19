@@ -939,6 +939,20 @@ export interface ThongTinThuongMaiNCC {
   ghiChu?: string;
 }
 
+/**
+ * Một lượt trưởng bộ phận KHÔNG DUYỆT và trả bảng báo giá về bước ②.
+ *
+ * ⚠️ `lyDo` là chữ người dùng tự gõ nên **rất hay có tên nhà cung cấp** ("bên A thiếu báo giá").
+ * Vì vậy nó nằm ở đây chứ không đẩy vào `DeNghiMuaHang.lichSu` — nhật ký hiện cho cả vai trò
+ * không được xem nhà cung cấp.
+ */
+export interface LanTraLaiBaoGia {
+  /** ISO đầy đủ giờ phút. */
+  thoiDiem: string;
+  nguoiTuChoiTen: string;
+  lyDo: string;
+}
+
 export interface BaoGia {
   id: string;
   code: string;
@@ -976,6 +990,32 @@ export interface BaoGia {
   /** Người ghi lý do và lúc nào — để biết ai chịu trách nhiệm về quyết định này. */
   nguoiChonTen?: string;
   thoiDiemChon?: string;
+
+  /**
+   * ★ TRƯỞNG BỘ PHẬN KHÔNG DUYỆT — Ban lãnh đạo 19/08/2026: *"bước xét duyệt báo giá phải có
+   * chức năng duyệt hoặc không duyệt, và phải có ghi chú bắt buộc lý do vì sao duyệt hoặc không
+   * duyệt"*.
+   *
+   * 🔴 TRƯỚC ĐÂY KHÔNG CÓ ĐƯỜNG TỪ CHỐI. Bước ③ chỉ có một lối đi: chốt nhà cung cấp. Trưởng bộ
+   * phận thấy giá chưa ổn, thiếu báo giá, hay đề xuất chưa thuyết phục thì **không có cách nào
+   * trả phiếu lại** — hoặc nhắn ngoài app, hoặc nhắm mắt chốt. Cả hai đều làm bước xét duyệt
+   * thành hình thức.
+   *
+   * 📌 KHÔNG DUYỆT ĐƯA BẢNG VỀ `dang_thu_thap`, tức quay lại bước ② để nhân viên bổ sung rồi
+   * trình lại. KHÔNG hủy bảng: hủy là mất sạch giá đã nhập và nhân viên phải gõ lại từ đầu.
+   *
+   * 🔴 GIỮ LẠI SAU KHI TRÌNH LẠI, cố ý không xóa khi nhân viên trình lượt mới. Người duyệt cần
+   * đọc "lần trước bị trả vì sao" để biết nhân viên đã sửa đúng chỗ chưa; xóa đi là mỗi lượt
+   * duyệt lại bắt đầu từ con số không.
+   *
+   * 🔴 MẢNG, KHÔNG PHẢI MỘT CHUỖI. Phiếu có thể đi đi về lại ②↔③ nhiều vòng; để một chuỗi thì
+   * lần bác sau **ghi đè** lần trước, và nhân viên lặp lại đúng cái sai cũ mà không ai tra ra.
+   *
+   * ⚠️ TÊN LÀ `lanTraLai`, KHÔNG PHẢI `lyDoTuChoi`: `DongNhanHang.lyDoTuChoi` đã tồn tại và
+   * mang nghĩa khác hẳn (thủ kho từ chối nhận hàng). Hai trường trùng tên khác nghĩa trong cùng
+   * một tệp kiểu dữ liệu là bẫy cho người đọc sau.
+   */
+  lanTraLai?: LanTraLaiBaoGia[];
   /**
    * ★ ĐỀ XUẤT CỦA NHÂN VIÊN THU MUA — Ban lãnh đạo 13/08/2026: *"ở bước cung cấp so sánh báo
    * giá, nhân viên phải đưa ra đề xuất lựa chọn NCC nào và phải có dẫn chứng cụ thể nên hãy

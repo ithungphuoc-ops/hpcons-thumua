@@ -219,7 +219,16 @@ interface GiaTriDuLieu {
    * Lùi đề nghị về MỘT bước trước bằng cách hủy chứng từ tương ứng.
    * Luật "được lùi hay không" ở `2-quy-trinh/giai-doan-mua-hang.ts` → `quyetDinhLui`.
    */
-  luiVeBuoc: (prId: string, ve: GiaiDoanMuaHang, nguoiThucHien: string) => void;
+  /**
+   * `traLai` = lùi vì **trưởng bộ phận KHÔNG DUYỆT** bảng báo giá (Ban lãnh đạo 19/08/2026),
+   * kèm lý do bắt buộc. Bỏ trống = lùi thường (kéo thẻ trên bảng quy trình).
+   */
+  luiVeBuoc: (
+    prId: string,
+    ve: GiaiDoanMuaHang,
+    nguoiThucHien: string,
+    traLai?: { lyDo: string },
+  ) => void;
   /**
    * Chuyển việc sang người khác khi người được giao không thực hiện được
    * (Ban lãnh đạo 12/08/2026). Giữ nguyên yêu cầu số báo giá và ghi chú giao việc.
@@ -562,6 +571,15 @@ const SO_MOC_SUA_GIU_LAI = 10;
  * chặn ở 3, người dùng chỉ thấy tệp "biến mất".
  */
 export const TOI_DA_TEP_MOI_BUOC = 5;
+
+/**
+ * Số lượt "không duyệt" giữ lại trên một bảng báo giá (`BaoGia.lanTraLai`).
+ *
+ * 📌 20 chứ không phải 5: đây là SỔ KIỂM TOÁN của bước xét duyệt, cắt ngắn là mất đúng thứ sinh
+ * ra nó. Ước lượng: 20 lượt × 12 phiếu ≈ vài chục KB — không đáng kể so với hạn 1MB của document
+ * dùng chung, trong khi `lichSu` hiện KHÔNG có trần nào và mới là chỗ phình thật.
+ */
+const SO_LAN_TRA_LAI_GIU_LAI = 20;
 
 /**
  * Số ký tự tối đa của một ghi chú tệp — Ban lãnh đạo 17/08/2026.
@@ -1387,7 +1405,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * ở đây, nếu không hai nơi sẽ nói khác nhau và người dùng không biết tin bên nào.
    */
   const luiVeBuoc = useCallback(
-    (prId: string, ve: GiaiDoanMuaHang, nguoiThucHien: string): void => {
+    (
+      prId: string,
+      ve: GiaiDoanMuaHang,
+      nguoiThucHien: string,
+      /** Có = trưởng bộ phận KHÔNG DUYỆT bảng báo giá, kèm lý do bắt buộc. */
+      traLai?: { lyDo: string },
+    ): void => {
       const ngay = thoiDiemHienTai();
 
       if (ve === "tiep_nhan") {
@@ -1418,16 +1442,42 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           ),
         );
       } else if (ve === "yeu_cau_bao_gia") {
-        // Mở lại bảng để thu thập tiếp — GIỮ NGUYÊN giá đã nhập.
+        /* Mở lại bảng để thu thập tiếp — GIỮ NGUYÊN giá đã nhập.
+           🔴 KHÔNG HỦY BẢNG: lý do bị trả thường chỉ là thiếu một báo giá hoặc đề xuất chưa đủ
+           thuyết phục. Hủy là nhân viên phải gõ lại giá của mọi nhà cung cấp từ đầu.
+           📌 Có `traLai` = trưởng bộ phận KHÔNG DUYỆT → ghi thêm một lượt vào `lanTraLai`. Ghi
+           NỐI VÀO MẢNG chứ không ghi đè: phiếu đi đi về lại ②↔③ nhiều vòng, để một chuỗi thì
+           lần bác sau xóa lần trước và nhân viên lặp lại đúng cái sai cũ. */
         setBaoGia((truoc) =>
           truoc.map((b) =>
             b.prId === prId && b.trangThai === "da_so_sanh"
-              ? { ...b, trangThai: "dang_thu_thap", ngayCapNhat: ngay }
+              ? {
+                  ...b,
+                  trangThai: "dang_thu_thap",
+                  ngayCapNhat: ngay,
+                  ...(traLai
+                    ? {
+                        lanTraLai: [
+                          ...(b.lanTraLai ?? []),
+                          {
+                            thoiDiem: thoiDiemHienTai(),
+                            nguoiTuChoiTen: nguoiThucHien,
+                            lyDo: traLai.lyDo.trim(),
+                          },
+                        ].slice(-SO_LAN_TRA_LAI_GIU_LAI),
+                      }
+                    : {}),
+                }
               : b,
           ),
         );
       } else if (ve === "xet_duyet_bao_gia") {
-        // Bỏ nhà cung cấp đã chốt, đưa bảng về trạng thái chờ duyệt.
+        /* Bỏ nhà cung cấp đã chốt, đưa bảng về trạng thái chờ duyệt.
+           🔴 XÓA ĐỦ CẢ SÁU TRƯỜNG CỦA QUYẾT ĐỊNH, không chỉ hai trường tên nhà cung cấp.
+           Bản trước chỉ xóa `nccDaChonId`/`nccDaChonTen` mà để nguyên lý do chốt, tệp dẫn chứng
+           và tên người chốt — nên sau khi lùi, màn bảng báo giá vẫn hiện nguyên **lý do duyệt
+           của một quyết định đã bị hủy**, kèm tên người chịu trách nhiệm, trong khi không còn
+           nhà cung cấp nào được chọn. Người đọc hồ sơ không cách nào biết đó là dấu vết cũ. */
         setBaoGia((truoc) =>
           truoc.map((b) =>
             b.prId === prId && b.trangThai === "da_chon_ncc"
@@ -1436,6 +1486,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                   trangThai: "da_so_sanh",
                   nccDaChonId: undefined,
                   nccDaChonTen: undefined,
+                  lyDoChonNCC: undefined,
+                  tepChonNCC: undefined,
+                  nguoiChonTen: undefined,
+                  thoiDiemChon: undefined,
                   ngayCapNhat: ngay,
                 }
               : b,
@@ -1455,7 +1509,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ghiLichSuDeNghi(
         prId,
         nguoiThucHien,
-        `Lùi một bước về "${NHAN_GIAI_DOAN[ve].nhan}" — kéo thẻ trên bảng quy trình`,
+        /* 🔴 Câu nhật ký phải nói ĐÚNG chuyện đã xảy ra. Ghi cứng "kéo thẻ trên bảng quy trình"
+           cho cả lượt trưởng bộ phận bấm "Không duyệt" là ghi sai hồ sơ.
+           ⚠️ TUYỆT ĐỐI KHÔNG chép `traLai.lyDo` vào đây — lý do hay nhắc tên nhà cung cấp, mà
+           nhật ký hiện cho cả vai trò không được xem NCC. Lý do nằm ở `BaoGia.lanTraLai`. */
+        traLai
+          ? `Không duyệt bảng báo giá — trả lại bước "${NHAN_GIAI_DOAN[ve].nhan}"`
+          : `Lùi một bước về "${NHAN_GIAI_DOAN[ve].nhan}" — kéo thẻ trên bảng quy trình`,
       );
     },
     [ghiLichSuDeNghi],
@@ -1990,6 +2050,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     },
     [ghiLichSuDeNghi],
   );
+
+  /* 📌 KHÔNG có hàm "không duyệt" riêng — việc đó đi qua `luiVeBuoc(prId, "yeu_cau_bao_gia", …,
+     { lyDo })`. Bản đầu tôi viết một hàm `khongDuyetBaoGia` riêng, nhưng `luiVeBuoc` đã làm
+     đúng y nghiệp vụ đó (hạ `da_so_sanh` → `dang_thu_thap`, giữ nguyên giá đã nhập); hai hàm
+     cùng hạ một trạng thái là sớm muộn lệch nhau, và lệch kiểu đó không có lỗi nào báo. */
 
   /**
    * BƯỚC ② YÊU CẦU NCC BÁO GIÁ — nhân viên thu mua nhập giá của một nhà cung cấp.
