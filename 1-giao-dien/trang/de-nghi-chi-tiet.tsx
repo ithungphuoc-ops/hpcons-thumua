@@ -44,6 +44,9 @@ import {
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Badge } from "@/1-giao-dien/nen-tang-ui/badge";
+/* Khối nhập giá + đề xuất + trình xét duyệt của bước ② — dùng CHUNG với màn bảng báo giá,
+   không viết bản thứ hai (xem chú thích tại chỗ nhúng). */
+import { KhoiThuThapBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-thu-thap-bao-gia";
 import {
   Dialog,
   DialogContent,
@@ -83,10 +86,20 @@ export default function TrangChiTietDeNghi() {
     vietBinhLuan,
     suaBinhLuan,
     datSoBaoGiaChoPhieu,
+    /* Bốn hàm cho khối thu thập báo giá nhúng ở bước ② — dùng CHÍNH các hàm màn bảng báo giá
+       đang dùng, không mở đường ghi thứ hai. */
+    nhaCungCap,
+    nhapGiaNCC,
+    dinhKemBaoGia,
+    luuDeXuatNCC,
+    luuThongTinNCC,
+    trinhXetDuyetBaoGia,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
   const [loiNhan, setLoiNhan] = useState("");
+  /** Bảng báo giá đang chờ xác nhận trình xét duyệt — `null` là chưa hỏi ai. */
+  const [hoiTrinhXetDuyet, setHoiTrinhXetDuyet] = useState<string | null>(null);
   /**
    * Việc bắt buộc đang chờ xác nhận tích / bỏ tích — `null` là chưa hỏi ai.
    * Xem lý do ở chỗ dùng, trong khối "Danh sách công việc".
@@ -615,6 +628,54 @@ export default function TrangChiTietDeNghi() {
                       </CardContent>
                     </Card>
                     )}
+
+                    {/**
+                     * ★ ĐỀ XUẤT CHỌN BÁO GIÁ + TRÌNH XÉT DUYỆT — NGAY TRONG KHỐI BƯỚC ②.
+                     *
+                     * 🔴 Ban lãnh đạo 19/08/2026: *"đã đính kèm được file rồi, nhưng chưa có chức
+                     * năng đề xuất lấy báo giá nào để trình trưởng bộ phận"*.
+                     *
+                     * VÌ SAO TRƯỚC ĐÓ KHÔNG THẤY: khối này (`KhoiThuThapBaoGia`) vốn ĐÃ CÓ đầy đủ
+                     * — nhập giá từng nhà cung cấp, ô *"Đề xuất của bạn: chọn nhà cung cấp nào?"*,
+                     * và nút *"Trình xét duyệt"*. Nhưng nó chỉ được vẽ ở **màn bảng báo giá**
+                     * (`/bao-gia/[id]`), nên đứng ở trang đề nghị thì không có đường tới. Nay nhúng
+                     * thẳng vào bước ② — đúng chỉ đạo 17/08/2026 *"phần nhập liệu phải nằm trong
+                     * khối"*.
+                     *
+                     * 📌 KHÔNG VIẾT LẠI GIAO DIỆN THỨ HAI. Dùng đúng component đang chạy ở màn bảng
+                     * báo giá; hai bản chép tay của cùng một biểu mẫu nhập giá là sớm muộn lệch nhau
+                     * và một trong hai sẽ ghi thiếu trường.
+                     *
+                     * ⚠️ CHỈ HIỆN KHI CÓ BẢNG Ở TRẠNG THÁI `dang_thu_thap`: chưa có bảng thì chưa có
+                     * cái gì để nhập giá vào, và câu chỉ đường lập bảng ở trên đã lo phần đó. Trình
+                     * xong bảng sang `da_so_sanh` thì khối tự biến mất — không cho nhập thêm giá sau
+                     * khi đã trình, đúng cảnh báo trong hộp xác nhận.
+                     *
+                     * 🔴 Đòi `quyen.lapPO` y như ở màn bảng báo giá: người chỉ được xem không nhập
+                     * giá, không đề xuất, không trình.
+                     */}
+                    {quyen.lapPO &&
+                      baoGiaLienQuan
+                        .filter((bg) => bg.trangThai === "dang_thu_thap")
+                        .map((bg) => (
+                          <KhoiThuThapBaoGia
+                            key={bg.id}
+                            baoGia={bg}
+                            nhaCungCap={nhaCungCap}
+                            nguoiDungTen={nguoiDung.tenHienThi}
+                            onNhapGia={(ncc, gia) =>
+                              nhapGiaNCC(bg.id, ncc, gia, nguoiDung.tenHienThi)
+                            }
+                            onDinhKem={(tep) => dinhKemBaoGia(bg.id, tep, nguoiDung.tenHienThi)}
+                            onLuuDeXuat={(dx) => luuDeXuatNCC(bg.id, dx, nguoiDung.tenHienThi)}
+                            onLuuThongTinNCC={(tt) =>
+                              luuThongTinNCC(bg.id, tt, nguoiDung.tenHienThi)
+                            }
+                            /* Trình xét duyệt = chuyển bước, việc không lùi lại được → hỏi trước
+                               (nguyên tắc Ban lãnh đạo 10/08/2026). */
+                            onTrinhXetDuyet={() => setHoiTrinhXetDuyet(bg.id)}
+                          />
+                        ))}
                   </section>
                 ),
                 /**
@@ -1253,6 +1314,29 @@ export default function TrangChiTietDeNghi() {
               ? `Đã xác nhận xong: ${hoiTichViec.cv.ten}`
               : `Đã bỏ tích: ${hoiTichViec.cv.ten}`,
           );
+        }}
+      />
+
+      {/* ★ HỎI TRƯỚC KHI TRÌNH XÉT DUYỆT — chuyển bước là việc không lùi lại được
+          (nguyên tắc Ban lãnh đạo 10/08/2026), và sau khi trình thì không nhập thêm giá được. */}
+      <HopXacNhan
+        mo={hoiTrinhXetDuyet !== null}
+        tieuDe="Trình trưởng bộ phận xét duyệt?"
+        moTa={
+          hoiTrinhXetDuyet
+            ? `Bảng báo giá ${baoGiaLienQuan.find((b) => b.id === hoiTrinhXetDuyet)?.code ?? ""} sẽ chuyển sang bước “${NHAN_GIAI_DOAN.xet_duyet_bao_gia.nhan}”, chờ trưởng bộ phận duyệt hoặc trả lại.`
+            : undefined
+        }
+        canhBao="Sau khi trình, bạn không nhập thêm giá nhà cung cấp vào bảng này được nữa."
+        nhanDongY="Trình xét duyệt"
+        onDong={() => setHoiTrinhXetDuyet(null)}
+        onDongY={() => {
+          if (!hoiTrinhXetDuyet) return;
+          trinhXetDuyetBaoGia(hoiTrinhXetDuyet, nguoiDung.tenHienThi);
+          setHoiTrinhXetDuyet(null);
+          toast.success("Đã trình trưởng bộ phận xem xét", {
+            description: `${dn.code} chuyển sang bước “${NHAN_GIAI_DOAN.xet_duyet_bao_gia.nhan}”.`,
+          });
         }}
       />
     </>
