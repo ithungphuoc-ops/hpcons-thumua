@@ -268,6 +268,21 @@ export interface DeNghiMuaHang {
    * `lichSuSua` và `thuHoi` bên dưới.
    */
   binhLuan?: BinhLuan[];
+
+  /**
+   * ★ MÃ ĐỀ XUẤT gốc bên App Request — khóa liên kết duy nhất giữa App Request, App Thu
+   * mua và (sau này) QLK CTR cho cùng một đề xuất.
+   *
+   * 🔴 Thêm 19/08/2026 cho Việc 1 "liên kết App Request ↔ App Thu mua" (Sếp chốt): App
+   * Request tự sinh mã đề xuất 6 số (vd `01234`) cho MỌI đề xuất duyệt xong, có công trình
+   * hay không. Trường này CHÍNH LÀ mã đó — dùng để (a) chống tạo trùng khi App Request gọi
+   * lại (mạng lỗi, thử lại), (b) sau này khi Việc 2 (PO ↔ QLK CTR) triển khai, đây là khóa
+   * để đối chiếu đúng đề nghị mà không cần biết id nội bộ của app nào.
+   *
+   * Trống = đề nghị lập tay trong app (không qua App Request) — vẫn là phần lớn dữ liệu
+   * chạy thử hiện tại.
+   */
+  maDeXuatAppRequest?: string;
 }
 
 /**

@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   // Hệ quả: Vercel giờ build server thật (không còn bê thư mục `out` đi đâu cũng
   // được nữa) — đổi hạ tầng thì phải dựng lại route xác thực, không phải chỉ đổi
   // build command.
+  //
+  // 📌 19/08/2026: route "cửa tiếp nhận" từ App Request (`app/api/app-request/de-nghi-moi`)
+  // cũng cần đúng điều kiện này — cùng một lý do, không cần bỏ dòng này lần hai.
   images: { unoptimized: true },
   // Cho phép đổi thư mục build qua biến môi trường (dùng cho `npm run build:check`).
   distDir: process.env.NEXT_DIST_DIR || ".next",

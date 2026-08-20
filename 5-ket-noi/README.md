@@ -52,6 +52,32 @@ nhưng đọc `tm_donhang_gia` phải hỏng**.
 
 Bước 4 **không phải sửa giao diện** — chỉ thay phần ghi dữ liệu.
 
+## Nhận đề nghị từ App Request (Việc 1, 19–20/08/2026)
+
+🔴 **Đây là ngoại lệ duy nhất so với nguyên tắc "không có API giữa các app" ở trên.** App
+Request đứng NGOÀI hệ HPcore (repo/hạ tầng riêng do đội khác giữ) — nên không thể "cùng nhìn
+vào một kho dữ liệu" theo cách App Tổng/App Kho/App QLDA đang làm. Phải đi qua REST API,
+giống đúng cách QLK CTR đang nhận từ App Request.
+
+| | |
+|---|---|
+| Route | `app/api/app-request/de-nghi-moi` (`POST`) |
+| Hợp đồng dữ liệu | `3-du-lieu/tich-hop-app-request-types.ts` |
+| Quy tắc đặt mã / phòng ban | `2-quy-trinh/tich-hop-app-request.ts` (hàm thuần) |
+| Nối Firestore | `getHpcoreDb()` ở `5-ket-noi/hpcore-may-chu.ts` — **DÙNG CHUNG** đúng kết nối Admin SDK mà cầu nối SSO (`app/api/auth/hpcore-session`) đang dùng, cùng project `hpcons-portal`, KHÔNG cần khóa/project riêng |
+
+🔴 **Route handler chỉ chạy được vì đã bỏ `output: "export"`** ở `next.config.ts` — việc này đã
+làm chung với đợt chuyển sang SSO App Tổng (20/08/2026), cùng một lý do (route handler cần
+máy chủ thật).
+
+⚠️ Ghi vào ĐÚNG document `chay-thu/du-lieu-chung` mà giao diện đang lắng nghe qua
+`noiKhoChung()` — nên đề nghị mới sẽ **tự hiện ra trên giao diện ngay** (kể cả màn "Theo dõi
+đề nghị"), không cần sửa gì ở tầng giao diện/Provider. Chỉ cập nhật field `deNghi` bằng
+`{merge: true}` — không đụng các mảng khác (`donHang`, `baoGia`…) trong cùng document, để
+giảm rủi ro so với cách giao diện đang ghi đè cả document. Đây vẫn là giải pháp TẠM (một
+document chứa cả bộ dữ liệu) — khi Thu mua tách từng chứng từ ra document riêng (theo đúng
+kế hoạch "lên bản thật" đã ghi ở trên), điểm ghi này phải sửa theo.
+
 ## ⚠️ Không copy `.env.local` bằng tay giữa các máy
 
 Đó là cấu hình môi trường. Xin lại giá trị từ quản trị HPcore, hoặc copy có kiểm tra. Các giá trị `NEXT_PUBLIC_FIREBASE_*` **không phải bí mật** (mọi web app Firebase đều lộ chúng ở phía trình duyệt) — **bảo mật thật nằm ở Security Rules**.

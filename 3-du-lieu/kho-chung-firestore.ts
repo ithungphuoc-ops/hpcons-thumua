@@ -25,8 +25,12 @@
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import { daCauHinhFirebase, moFirebase } from "@/5-ket-noi/firebase-chung";
 
-/** Tất cả người dùng bản chạy thử chung một "phòng" dữ liệu. */
-const DUONG_DAN = { boSuuTap: "chay-thu", tep: "du-lieu-chung" } as const;
+/**
+ * Tất cả người dùng bản chạy thử chung một "phòng" dữ liệu.
+ * Export để route handler phía máy chủ (Admin SDK) trỏ đúng cùng một document —
+ * xem `app/api/app-request/de-nghi-moi/route.ts`.
+ */
+export const DUONG_DAN = { boSuuTap: "chay-thu", tep: "du-lieu-chung" } as const;
 
 /** Đã khai đủ cấu hình Firebase chưa. Thiếu thì app chạy như cũ, chỉ lưu trên máy. */
 export const daCauHinhFirestore = daCauHinhFirebase;
@@ -78,7 +82,7 @@ function chuanHoa(d: Partial<DuLieuLuu>): DuLieuLuu {
  * Đi qua JSON để bỏ sạch `undefined` — đúng thứ localStorage vẫn làm, nên dữ liệu hai bên
  * giống hệt nhau.
  */
-function bo0Undefined<T>(x: T): T {
+export function bo0Undefined<T>(x: T): T {
   return JSON.parse(JSON.stringify(x)) as T;
 }
 

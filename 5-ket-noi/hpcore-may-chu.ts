@@ -60,7 +60,14 @@ function getHpcoreAuth(): Auth {
   return (authCache ??= getAuth(getHpcoreApp()));
 }
 
-function getHpcoreDb(): Firestore {
+/**
+ * 📌 Export thêm 19/08/2026 (trước đó là hàm riêng, không lộ ra ngoài file này) — route
+ * "cửa tiếp nhận" từ App Request (`app/api/app-request/de-nghi-moi`) cần đọc/ghi trực tiếp
+ * document `chay-thu/du-lieu-chung` mà giao diện đang lắng nghe, không có sẵn hàm riêng nào
+ * cho việc đó. Dùng CHUNG kết nối này thay vì mở thêm một Admin SDK app khác trỏ cùng
+ * project — một chỗ khởi tạo duy nhất, đúng nguyên tắc app đang theo.
+ */
+export function getHpcoreDb(): Firestore {
   return (dbCache ??= getFirestore(getHpcoreApp()));
 }
 
