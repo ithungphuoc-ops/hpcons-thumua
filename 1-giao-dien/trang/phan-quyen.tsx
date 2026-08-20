@@ -67,7 +67,7 @@ export default function TrangPhanQuyen() {
   const [hoiDoi, setHoiDoi] = useState<{ hs: HoSoKemMa; vt: VaiTroChuan } | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
 
-  const laCheDoThat = CHE_DO_XAC_THUC === "firebase";
+  const laCheDoThat = CHE_DO_XAC_THUC === "sso";
 
   const tai = useCallback(async () => {
     if (!laCheDoThat) return;

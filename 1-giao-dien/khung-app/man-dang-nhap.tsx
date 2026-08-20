@@ -2,55 +2,87 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { ChevronDown, Eye, EyeOff, LogIn, ShieldAlert } from "lucide-react";
+import { ChevronDown, Loader2, LogIn, ShieldAlert } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { CHE_DO_XAC_THUC, useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { MAT_KHAU_CHAY_THU, NHAN_CAP_QUYEN, VAI_TRO_MAU } from "@/4-phan-quyen/quyen";
-import { guiThuDatLaiMatKhau } from "@/5-ket-noi/xac-thuc-firebase";
 
 /**
  * MÀN ĐĂNG NHẬP — cửa vào app, hiện thay toàn bộ nội dung khi chưa đăng nhập
  * (xem `cong-bao-ve.tsx`).
  *
- * Bố cục hai cột kiểu app doanh nghiệp: bên trái là bảng nhận diện HP CONS, bên phải
- * là biểu mẫu. Dưới 1024px bảng nhận diện ẩn đi, chỉ còn biểu mẫu — điện thoại không
- * cần trang trí, cần nhập nhanh.
+ * 📌 20/08/2026 — ĐÃ NỐI SSO APP TỔNG. Chế độ `sso` KHÔNG có biểu mẫu gì cả: người chưa
+ * đăng nhập được `nguoi-dung-hien-tai.tsx` tự động chuyển thẳng sang
+ * `account.hpcore.vn/login` trước khi component này kịp vẽ ra màn hình. Component chỉ
+ * còn hiện ra trong đúng MỘT tình huống ở chế độ `sso`: có lỗi cần báo (vd chưa được cấp
+ * hồ sơ ở app này, hoặc máy chủ hỏng) — xem nhánh `laCheDoSSO` bên dưới.
  *
- * 📌 DANH SÁCH TÀI KHOẢN THỬ ĐƯỢC THU GỌN, MẶC ĐỊNH ĐÓNG. Trước đây phơi cả 8 tài
- * khoản kèm mật khẩu ra ngoài, nhìn như bản demo chứ không phải app thật. Vẫn giữ lại
- * vì bản chạy thử cần chỗ tra tài khoản, nhưng người dùng bình thường mở lên chỉ thấy
- * một biểu mẫu sạch.
- *
- * 🔴 Đây là đăng nhập GIẢ LẬP: xác thực chạy trong trình duyệt, mật khẩu nằm sẵn trong
- * mã nguồn. Chặn được người vào nhầm, KHÔNG chặn được người cố tình. Bảo mật thật cần
- * Firebase Authentication + Firestore Security Rules — xem ghi chú đầy đủ ở
- * `4-phan-quyen/nguoi-dung-hien-tai.tsx`.
+ * Biểu mẫu "tên đăng nhập/mật khẩu" cũ CHỈ còn giữ lại cho CHẾ ĐỘ MẪU (`mau`) — dùng để
+ * xem thử giao diện trên máy chưa cấu hình Firebase/SSO, KHÔNG PHẢI bảo mật thật.
  */
 export function ManDangNhap() {
-  const { dangNhap, loiHoSo } = useNguoiDung();
+  const { dangNhapMau, loiHoSo, dangXuLySSO } = useNguoiDung();
+  const laCheDoSSO = CHE_DO_XAC_THUC === "sso";
+
+  if (laCheDoSSO) {
+    return <ManChoSSO dangXuLy={dangXuLySSO} loi={loiHoSo} />;
+  }
+
+  return <ManDangNhapMau dangNhapMau={dangNhapMau} />;
+}
+
+/**
+ * Màn chờ/báo lỗi ở chế độ SSO — KHÔNG có ô nhập liệu nào, vì mật khẩu không còn là
+ * chuyện của app này nữa. Đang xử lý thì hiện spinner (`account.hpcore.vn` đang xác minh
+ * và có thể sắp điều hướng đi); có lỗi thì hiện rõ lý do + nút tải lại.
+ */
+function ManChoSSO({ dangXuLy, loi }: { dangXuLy: boolean; loi: string | null }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center">
+      <div className="flex size-14 items-center justify-center rounded-2xl bg-primary-bg p-2">
+        <Image src="/logo-hpc.png" alt="HP Cons" width={40} height={34} className="h-auto w-full object-contain" priority />
+      </div>
+      {loi ? (
+        <>
+          <p role="alert" className="flex max-w-md items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-left text-sm text-danger-soft">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+            {loi}
+          </p>
+          <Button onClick={() => window.location.reload()}>
+            <LogIn className="size-4" aria-hidden /> Thử lại
+          </Button>
+        </>
+      ) : (
+        <p className="flex items-center gap-2 text-sm text-text-desc" aria-busy={dangXuLy}>
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          Đang xác thực với App Tổng…
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Biểu mẫu đăng nhập CHẾ ĐỘ MẪU — bấm chọn 1 trong các vai trò mẫu, mật khẩu chung nằm
+ * sẵn trong mã nguồn. Chỉ để xem thử giao diện, KHÔNG PHẢI bảo mật thật.
+ */
+function ManDangNhapMau({
+  dangNhapMau,
+}: {
+  dangNhapMau: (tenDangNhap: string, matKhau: string, ghiNho: boolean) => string | null;
+}) {
   const [tenDangNhap, setTenDangNhap] = useState("");
   const [matKhau, setMatKhau] = useState("");
-  const [hienMatKhau, setHienMatKhau] = useState(false);
   const [ghiNho, setGhiNho] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [moDanhSach, setMoDanhSach] = useState(false);
-  /** Chặn bấm Đăng nhập hai lần khi đang chờ máy chủ trả lời. */
-  const [dangGui, setDangGui] = useState(false);
 
-  const laCheDoThat = CHE_DO_XAC_THUC === "firebase";
-
-  async function guiForm(e: React.FormEvent) {
+  function guiForm(e: React.FormEvent) {
     e.preventDefault();
-    if (dangGui) return;
-    setDangGui(true);
-    try {
-      setLoi(await dangNhap(tenDangNhap, matKhau, ghiNho));
-    } finally {
-      setDangGui(false);
-    }
+    setLoi(dangNhapMau(tenDangNhap, matKhau, ghiNho));
   }
 
   function chonNhanh(ten: string) {
@@ -94,14 +126,13 @@ export function ManDangNhap() {
         </div>
 
         <p className="text-xs text-white/60">
-          Một module của hệ sinh thái HPcore · Bản chạy thử
+          Một module của hệ sinh thái HPcore · Bản chạy thử (tài khoản mẫu)
         </p>
       </aside>
 
-      {/* ============ BIỂU MẪU ĐĂNG NHẬP ============ */}
+      {/* ============ BIỂU MẪU ĐĂNG NHẬP MẪU ============ */}
       <main className="flex flex-1 items-center justify-center p-6">
         <div className="flex w-full max-w-sm flex-col gap-(--hp-md-section)">
-          {/* Logo cho màn hẹp — bảng nhận diện bên trái đã ẩn */}
           <div className="flex items-center gap-3 lg:hidden">
             <div className="flex size-10 items-center justify-center rounded-lg bg-primary-bg p-1.5">
               <Image
@@ -116,22 +147,21 @@ export function ManDangNhap() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <h2 className="text-h2 text-text-primary">Đăng nhập</h2>
+            <h2 className="text-h2 text-text-primary">Đăng nhập (bản chạy thử)</h2>
             <p className="text-sm text-text-desc">
-              Dùng tài khoản nội bộ do phòng IT cấp.
+              Máy này chưa cấu hình SSO App Tổng — chọn một vai trò mẫu để xem thử giao diện.
             </p>
           </div>
 
           <form onSubmit={guiForm} className="flex flex-col gap-(--hp-md-card-gap)">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="ten-dang-nhap">{laCheDoThat ? "Email" : "Tên đăng nhập"}</Label>
+              <Label htmlFor="ten-dang-nhap">Tên đăng nhập</Label>
               <Input
                 id="ten-dang-nhap"
                 autoFocus
-                // `type=email` để điện thoại bật đúng bàn phím có dấu @.
-                type={laCheDoThat ? "email" : "text"}
-                autoComplete={laCheDoThat ? "email" : "username"}
-                placeholder={laCheDoThat ? "Nhập email được cấp" : "Nhập tên đăng nhập"}
+                type="text"
+                autoComplete="username"
+                placeholder="Nhập tên đăng nhập mẫu"
                 value={tenDangNhap}
                 onChange={(e) => {
                   setTenDangNhap(e.target.value);
@@ -142,33 +172,17 @@ export function ManDangNhap() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="mat-khau">Mật khẩu</Label>
-              {/* Nút hiện/ẩn nằm TRONG ô: gõ trên điện thoại rất dễ sai, phải xem lại được */}
-              <div className="relative">
-                <Input
-                  id="mat-khau"
-                  type={hienMatKhau ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="Nhập mật khẩu"
-                  className="pr-11"
-                  value={matKhau}
-                  onChange={(e) => {
-                    setMatKhau(e.target.value);
-                    setLoi(null);
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setHienMatKhau((v) => !v)}
-                  aria-label={hienMatKhau ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-text-desc transition-colors hover:text-text-primary"
-                >
-                  {hienMatKhau ? (
-                    <EyeOff className="size-4" aria-hidden />
-                  ) : (
-                    <Eye className="size-4" aria-hidden />
-                  )}
-                </button>
-              </div>
+              <Input
+                id="mat-khau"
+                type="text"
+                autoComplete="current-password"
+                placeholder="Nhập mật khẩu"
+                value={matKhau}
+                onChange={(e) => {
+                  setMatKhau(e.target.value);
+                  setLoi(null);
+                }}
+              />
             </div>
 
             <label className="flex min-h-11 items-center gap-2.5">
@@ -185,59 +199,22 @@ export function ManDangNhap() {
               </span>
             </label>
 
-            {/* Báo lỗi có cả biểu tượng và chữ, không chỉ dựa vào màu (V1.1).
-                `loiHoSo` là loại lỗi KHÁC: mật khẩu đúng nhưng chưa được cấp quyền vào app.
-                Gộp chung một chỗ hiện thì người dùng đọc được lý do thật, thay vì bị đá về
-                màn đăng nhập không hiểu vì sao. */}
-            {(loi ?? loiHoSo) && (
+            {loi && (
               <p
                 role="alert"
                 className="flex items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-sm text-danger-soft"
               >
                 <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-                {loi ?? loiHoSo}
+                {loi}
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={dangGui}>
+            <Button type="submit" className="w-full">
               <LogIn className="size-4" aria-hidden />
-              {dangGui ? "Đang kiểm tra..." : "Đăng nhập"}
+              Đăng nhập
             </Button>
           </form>
 
-          {/* 🔴 Chế độ thật thì nút này PHẢI làm thật. Trước đây màn hình ghi "liên hệ phòng
-              IT để được cấp lại" trong khi IT không cấp lại được gì — mật khẩu là hằng số
-              trong mã nguồn. Đó đúng là kiểu "giao diện hứa việc app không làm". */}
-          {laCheDoThat ? (
-            <button
-              type="button"
-              onClick={async () => {
-                if (!tenDangNhap.trim()) {
-                  setLoi("Nhập email của bạn vào ô phía trên rồi bấm lại.");
-                  return;
-                }
-                const kq = await guiThuDatLaiMatKhau(tenDangNhap);
-                setLoi(
-                  kq.loi ??
-                    "Đã gửi thư đặt lại mật khẩu. Mở hộp thư (kiểm tra cả mục Spam) và làm theo hướng dẫn.",
-                );
-              }}
-              className="min-h-11 text-left text-xs text-text-desc underline underline-offset-2 transition-colors hover:text-text-secondary"
-            >
-              Quên mật khẩu? Bấm đây để nhận thư đặt lại.
-            </button>
-          ) : (
-            <p className="text-xs text-text-desc">
-              Quên mật khẩu? Liên hệ <strong className="text-text-secondary">phòng IT</strong> để
-              được cấp lại.
-            </p>
-          )}
-
-          {/* ---- Tài khoản chạy thử ----
-              🔴 CHỈ hiện ở chế độ tài khoản mẫu. Chế độ thật mà còn in danh sách người dùng
-              ra màn hình công khai là tự tay đưa cho người ngoài biết công ty có những ai và
-              ai quyền gì — chỉ còn thiếu mật khẩu. */}
-          {!laCheDoThat && (
           <div className="flex flex-col gap-2 border-t border-divider pt-4">
             <button
               type="button"
@@ -280,13 +257,12 @@ export function ManDangNhap() {
                   ))}
                 </ul>
                 <p className="text-xs text-text-desc">
-                  Đăng nhập ở bản chạy thử chỉ kiểm tra trong trình duyệt. Khi nối Firebase
-                  sẽ thay bằng <strong>Firebase Authentication</strong>.
+                  Đăng nhập ở bản chạy thử chỉ kiểm tra trong trình duyệt, KHÔNG PHẢI bảo
+                  mật thật. Máy đã cấu hình SSO sẽ chuyển thẳng sang đăng nhập App Tổng.
                 </p>
               </div>
             )}
           </div>
-          )}
         </div>
       </main>
     </div>

@@ -20,10 +20,10 @@ import {
   type Quyen,
 } from "@/4-phan-quyen/quyen";
 import {
-  dangNhapEmail,
+  dangNhapBangCustomToken,
   dangXuatFirebase,
-  theoDoiPhien,
-  type NguoiDaDangNhap,
+  hpcoreLoginUrl,
+  layPhienSSO,
 } from "@/5-ket-noi/xac-thuc-firebase";
 import {
   docHoSoTaiKhoan,
@@ -37,42 +37,34 @@ const KHOA_PHIEN = "hpcons-tm-phien-dang-nhap";
 /**
  * HAI CHẾ ĐỘ ĐĂNG NHẬP, chọn bằng biến môi trường `NEXT_PUBLIC_XAC_THUC`.
  *
- * 🔴 CỐ Ý DÙNG CÔNG TẮC RÕ RÀNG, không tự đoán. App có thể đã cấu hình Firebase nhưng
- * Authentication chưa được bật, hoặc đã bật mà chưa kịp tạo tài khoản cho ai. Nếu app tự
- * "phát hiện rồi chuyển chế độ" thì có lúc **cả phòng bị khóa ngoài app** giữa buổi chạy
- * thử mà không ai hiểu vì sao. Có công tắc thì việc chuyển là một quyết định có người bấm,
- * và bấm ngược lại được ngay.
+ * 🔴 CỐ Ý DÙNG CÔNG TẮC RÕ RÀNG, không tự đoán — máy có thể đã cấu hình Firebase nhưng
+ * chưa bật SSO. Có công tắc thì việc chuyển là một quyết định có người bấm.
  *
- *   · `mau`      (mặc định) — tài khoản mẫu, mật khẩu chung nằm trong mã nguồn
- *   · `firebase` — tài khoản thật, mật khẩu do máy chủ Google giữ
- *
- * Thứ tự chuyển sang `firebase`, làm sai thứ tự là khóa người dùng ngoài app:
- *   ① Bật Authentication → Email/Password trong Firebase Console
- *   ② Tạo tài khoản + hồ sơ `nguoi-dung/{uid}` cho TỪNG người
- *   ③ Mới đặt `NEXT_PUBLIC_XAC_THUC=firebase` rồi deploy
+ *   · `mau` (mặc định) — tài khoản mẫu, mật khẩu chung nằm trong mã nguồn. CHỈ dùng để
+ *     xem thử giao diện trên máy chưa cấu hình Firebase.
+ *   · `sso` — đăng nhập thật qua App Tổng (account.hpcore.vn). Đây là chế độ CHÍNH THỨC
+ *     từ 20/08/2026 — thay hẳn cách cũ (8 tài khoản email/mật khẩu tạo tay).
  */
-const CHE_DO: "mau" | "firebase" =
-  // ⚠️ `.trim().toLowerCase()` là bắt buộc, không phải cho đẹp. Giá trị biến môi trường đi
-  // qua nhiều đường (PowerShell, bảng điều khiển Vercel, tệp .env) và rất dễ dính ký tự
-  // xuống dòng hoặc khoảng trắng ở cuối. So sánh thẳng `=== "firebase"` thì "firebase\r"
-  // trượt, app **lặng lẽ chạy chế độ tài khoản mẫu** trong khi mọi người tưởng đã bật xác
-  // thực thật — đúng kiểu lỗi bảo mật tự nó không lộ ra. Đã dính thật ngày 12/08/2026.
-  (process.env.NEXT_PUBLIC_XAC_THUC ?? "").trim().toLowerCase() === "firebase"
-    ? "firebase"
-    : "mau";
+function docCheDo(): "mau" | "sso" {
+  // ⚠️ `.trim().toLowerCase()` là bắt buộc — xem lịch sử lỗi thật ngày 12/08/2026 (biến môi
+  // trường dính ký tự xuống dòng khiến app lặng lẽ chạy chế độ tài khoản mẫu).
+  const gt = (process.env.NEXT_PUBLIC_XAC_THUC ?? "").trim().toLowerCase();
+  // 🔴 Chấp nhận CẢ hai giá trị "sso" (tên mới) và "firebase" (tên cũ, trước khi đổi ý
+  // nghĩa biến 20/08/2026) — máy nào chưa kịp cập nhật biến môi trường vẫn phải chạy đúng
+  // chế độ thật, không được lặng lẽ rơi về chế độ mẫu.
+  return gt === "sso" || gt === "firebase" ? "sso" : "mau";
+}
+
+const CHE_DO: "mau" | "sso" = docCheDo();
 
 interface GiaTriNguoiDung {
   nguoiDung: NguoiDung;
   quyen: Quyen;
   /** Đã đăng nhập chưa. `null` = chưa đọc xong (đang dựng trang / đang hỏi máy chủ). */
   daDangNhap: boolean | null;
-  /**
-   * Đăng nhập. Chế độ `mau` nhận tên đăng nhập, chế độ `firebase` nhận email.
-   * `ghiNho` = true thì phiên sống qua lần đóng trình duyệt, false thì chỉ sống trong tab
-   * đang mở — hợp với máy dùng chung ở công trường, đóng trình duyệt là tự thoát.
-   * Trả `null` nếu thành công, hoặc câu báo lỗi để hiện lên màn hình.
-   */
-  dangNhap: (tenHoacEmail: string, matKhau: string, ghiNho: boolean) => Promise<string | null>;
+  /** Đăng nhập ở CHẾ ĐỘ MẪU — nhận tên đăng nhập mẫu, KHÔNG dùng ở chế độ `sso` (SSO tự
+   *  chuyển hướng, không có biểu mẫu). Trả `null` nếu thành công. */
+  dangNhapMau: (tenDangNhap: string, matKhau: string, ghiNho: boolean) => string | null;
   dangXuat: () => void;
   /** Đổi vai trò — CHỈ có tác dụng ở chế độ tài khoản mẫu. */
   doiVaiTro: (uid: string) => void;
@@ -87,14 +79,13 @@ interface GiaTriNguoiDung {
    */
   danhSachTaiKhoan: NguoiDung[];
   /**
-   * Lý do đăng nhập ĐÚNG mật khẩu mà vẫn không vào được app (chưa được cấp hồ sơ, hồ sơ
-   * thiếu trường, tài khoản tạm ngưng). `null` khi không có vấn đề gì.
-   *
-   * 🔴 Tách hẳn khỏi lỗi sai mật khẩu. Gộp làm một thì người bị thiếu hồ sơ nhận câu
-   * "sai mật khẩu" và sẽ gõ lại mật khẩu đúng đó hàng chục lần — tới khi Firebase khóa
-   * tạm tài khoản vì thử quá nhiều.
+   * Lý do đăng nhập ĐÚNG (App Tổng xác nhận là đúng người) mà vẫn không vào được app
+   * (chưa được cấp hồ sơ, hồ sơ thiếu trường, tài khoản tạm ngưng). `null` khi không có
+   * vấn đề gì.
    */
   loiHoSo: string | null;
+  /** Đang chờ máy chủ trả lời trong lúc xử lý SSO — màn đăng nhập dùng để hiện spinner. */
+  dangXuLySSO: boolean;
 }
 
 const Context = createContext<GiaTriNguoiDung | null>(null);
@@ -106,27 +97,28 @@ const Context = createContext<GiaTriNguoiDung | null>(null);
  * khẩu nằm sẵn trong mã nguồn tải về máy người dùng. Nó chặn được người vào nhầm, KHÔNG
  * chặn được người cố tình.
  *
- * Chế độ `firebase` mới là thật: mật khẩu do máy chủ Google giữ, app không hề biết mật
- * khẩu của ai. Nhưng nhớ rằng xác thực chỉ là một nửa — nửa còn lại là Security Rules
- * chặn ở tầng dữ liệu (`5-ket-noi/firestore*.rules`). Thiếu nửa sau thì người ta vẫn đọc
- * thẳng được dữ liệu mà không cần mở app.
+ * Chế độ `sso` mới là thật: xác thực do App Tổng (account.hpcore.vn) đảm nhiệm, app này
+ * không hề biết mật khẩu của ai. Nhưng nhớ rằng xác thực chỉ là một nửa — nửa còn lại là
+ * Security Rules chặn ở tầng dữ liệu (`5-ket-noi/firestore*.rules`). Thiếu nửa sau thì
+ * người ta vẫn đọc thẳng được dữ liệu mà không cần mở app.
  */
 export function CurrentUserProvider({ children }: { children: ReactNode }) {
   // ---------- Chế độ tài khoản mẫu ----------
   const [uidMau, setUidMau] = useState<string>(VAI_TRO_MAC_DINH.uid);
 
-  // ---------- Chế độ Firebase ----------
-  const [nguoiFirebase, setNguoiFirebase] = useState<NguoiDung | null>(null);
+  // ---------- Chế độ SSO ----------
+  const [nguoiSSO, setNguoiSSO] = useState<NguoiDung | null>(null);
   const [danhSachMayChu, setDanhSachMayChu] = useState<NguoiDung[]>([]);
+  const [dangXuLySSO, setDangXuLySSO] = useState(CHE_DO === "sso");
 
   // `null` = chưa biết. Phải phân biệt với `false` (đã biết, chưa đăng nhập) — gộp làm một
   // thì màn đăng nhập chớp lên một nhịp trước mắt người đã đăng nhập.
   const [daDangNhap, setDaDangNhap] = useState<boolean | null>(null);
 
   /**
-   * Lỗi hồ sơ giữ riêng khỏi lỗi đăng nhập: đăng nhập ĐÚNG mật khẩu nhưng chưa được cấp
-   * quyền vào app là chuyện hoàn toàn khác, và người dùng phải đọc được lý do chứ không
-   * phải nhìn màn hình trống.
+   * Lỗi hồ sơ giữ riêng khỏi lỗi đăng nhập: đăng nhập ĐÚNG nhưng chưa được cấp quyền vào
+   * app là chuyện hoàn toàn khác, và người dùng phải đọc được lý do chứ không phải nhìn
+   * màn hình trống hoặc bị đá lòng vòng về màn đăng nhập App Tổng.
    */
   const [loiHoSo, setLoiHoSo] = useState<string | null>(null);
 
@@ -152,59 +144,70 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ============================================================
-  // CHẾ ĐỘ FIREBASE — theo dõi phiên do máy chủ giữ
+  // CHẾ ĐỘ SSO — xin Custom Token từ App Tổng rồi đọc hồ sơ riêng của app này
   // ============================================================
   useEffect(() => {
-    if (CHE_DO !== "firebase") return;
+    if (CHE_DO !== "sso") return;
     let conSong = true;
-    let ngung: (() => void) | null = null;
 
-    async function xuLy(u: NguoiDaDangNhap | null) {
+    async function chay() {
+      // Luôn hỏi lại cầu nối SSO mỗi lần tải trang (KHÔNG chỉ dựa vào phiên Firebase cũ
+      // trong máy) — đơn giản và tránh kẹt quyền cũ: Sếp đổi vai trò bên App Tổng thì
+      // trang tải lại kế tiếp phải thấy ngay, không phải chờ phiên Firebase hết hạn.
+      const kq = await layPhienSSO();
       if (!conSong) return;
-      if (!u) {
-        setNguoiFirebase(null);
-        setLoiHoSo(null);
+
+      if (kq.trangThai === "chua-dang-nhap-app-tong") {
+        window.location.href = hpcoreLoginUrl(window.location.href);
+        return; // Đang điều hướng đi — không cần đổi state gì thêm.
+      }
+      if (kq.trangThai === "loi") {
+        setNguoiSSO(null);
+        setLoiHoSo(kq.thongDiep);
         setDaDangNhap(false);
+        setDangXuLySSO(false);
         return;
       }
-      // Đăng nhập được rồi vẫn phải đọc hồ sơ: Firebase chỉ biết "người này là ai",
-      // không biết họ là trưởng bộ phận hay thủ kho, cấp mấy.
-      const kq = await docHoSoTaiKhoan(u.firebaseUid);
-      if (!conSong) return;
-      if (!kq.hoSo) {
-        setNguoiFirebase(null);
-        setLoiHoSo(kq.loi);
+
+      let firebaseUid: string;
+      try {
+        firebaseUid = await dangNhapBangCustomToken(kq.token);
+      } catch (e) {
+        if (!conSong) return;
+        console.error("[SSO] đăng nhập Firebase bằng Custom Token hỏng:", e);
+        setNguoiSSO(null);
+        setLoiHoSo("Không đăng nhập được vào Firebase. Thử tải lại trang.");
         setDaDangNhap(false);
+        setDangXuLySSO(false);
         return;
       }
-      setNguoiFirebase(thanhNguoiDung(kq.hoSo));
+      if (!conSong) return;
+
+      const hoSoKq = await docHoSoTaiKhoan(firebaseUid, kq.vaiTroToanCuc, {
+        email: kq.email,
+        tenHienThi: kq.tenHienThi,
+      });
+      if (!conSong) return;
+      if (!hoSoKq.hoSo) {
+        setNguoiSSO(null);
+        setLoiHoSo(hoSoKq.loi);
+        setDaDangNhap(false);
+        setDangXuLySSO(false);
+        return;
+      }
+      setNguoiSSO(thanhNguoiDung(hoSoKq.hoSo));
       setLoiHoSo(null);
       setDaDangNhap(true);
+      setDangXuLySSO(false);
       // Danh sách người có tài khoản — cho bảng phân bổ. Đọc SAU khi đã đăng nhập vì
       // Security Rules chặn người chưa đăng nhập.
       const ds = await docTatCaTaiKhoan();
       if (conSong) setDanhSachMayChu(ds.map(thanhNguoiDung));
     }
 
-    void theoDoiPhien(xuLy).then((huy) => {
-      if (!conSong) {
-        huy?.();
-        return;
-      }
-      ngung = huy;
-      // `null` = chưa cấu hình Firebase mà lại đang ở chế độ firebase → hỏng cấu hình.
-      // Nói ra thay vì để người dùng ngồi nhìn màn hình chờ mãi.
-      if (!huy) {
-        setLoiHoSo(
-          "App đang đặt chế độ đăng nhập bằng Firebase nhưng thiếu cấu hình kết nối. Báo phòng IT.",
-        );
-        setDaDangNhap(false);
-      }
-    });
-
+    void chay();
     return () => {
       conSong = false;
-      ngung?.();
     };
   }, []);
 
@@ -219,16 +222,9 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const dangNhap = useCallback(
-    async (tenHoacEmail: string, matKhau: string, ghiNho: boolean): Promise<string | null> => {
-      if (CHE_DO === "firebase") {
-        const kq = await dangNhapEmail(tenHoacEmail, matKhau, ghiNho);
-        // Thành công thì KHÔNG đặt state ở đây — `theoDoiPhien` sẽ bắn và lo phần đó.
-        // Đặt hai nơi là có lúc lệch nhau, và lệch ở đúng chỗ phân quyền thì rất khó lần.
-        return kq.loi;
-      }
-
-      const tk = timTaiKhoan(tenHoacEmail);
+  const dangNhapMau = useCallback(
+    (tenDangNhap: string, matKhau: string, ghiNho: boolean): string | null => {
+      const tk = timTaiKhoan(tenDangNhap);
       // Báo lỗi CHUNG cho cả sai tên lẫn sai mật khẩu — nói rõ "tên này không tồn tại"
       // là chỉ điểm cho người dò tài khoản.
       if (!tk || matKhau !== MAT_KHAU_CHAY_THU) {
@@ -243,9 +239,15 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   );
 
   const dangXuat = useCallback(() => {
-    if (CHE_DO === "firebase") {
-      void dangXuatFirebase();
-      return; // `theoDoiPhien` sẽ bắn và dọn state.
+    if (CHE_DO === "sso") {
+      void dangXuatFirebase().then(() => {
+        // Đăng xuất Firebase của RIÊNG app này không đăng xuất App Tổng — cố ý: người vẫn
+        // có thể đang dùng app khác cùng phiên hpcore.vn. Đưa về trang chủ App Tổng, không
+        // đưa lại vào /login (vì có thể vẫn còn phiên hpcore hợp lệ → SSO sẽ đăng nhập lại
+        // ngay tức khắc, người dùng tưởng nút "Đăng xuất" không hoạt động).
+        window.location.href = "https://hpcore.vn";
+      });
+      return;
     }
     setDaDangNhap(false);
     setUidMau(VAI_TRO_MAC_DINH.uid);
@@ -259,8 +261,8 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
 
   const doiVaiTro = useCallback(
     (uidMoi: string) => {
-      // Chế độ thật thì đổi vai trò là chuyện vô nghĩa — và nguy hiểm nếu lỡ để lọt.
-      if (CHE_DO === "firebase") return;
+      // Chế độ SSO thì đổi vai trò là chuyện vô nghĩa — và nguy hiểm nếu lỡ để lọt.
+      if (CHE_DO === "sso") return;
       setUidMau(uidMoi);
       // Giữ nguyên kho đang dùng: phiên ở localStorage thì ghi tiếp vào đó.
       let dangGhiNho = false;
@@ -275,28 +277,29 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<GiaTriNguoiDung>(() => {
-    // 🔴 Chế độ thật: chưa đọc được hồ sơ thì là `KHONG_QUYEN` (cấp 0), TUYỆT ĐỐI KHÔNG
+    // 🔴 Chế độ SSO: chưa đọc được hồ sơ thì là `KHONG_QUYEN` (cấp 0), TUYỆT ĐỐI KHÔNG
     // rơi về `VAI_TRO_MAC_DINH`. Mặc định đó là Trưởng bộ phận **cấp 3** — người lạ sẽ âm
     // thầm có quyền phân bổ công việc, xác nhận hoàn thành đơn và xem giá, không một dòng
     // báo lỗi. Đừng tin rằng màn chặn ở giao diện đỡ hộ: quyền được tính TRƯỚC khi màn đó
     // kịp dựng, và bất kỳ khối nào vẽ sớm hơn cũng lộ dữ liệu.
     const nguoiDung =
-      CHE_DO === "firebase"
-        ? (nguoiFirebase ?? KHONG_QUYEN)
+      CHE_DO === "sso"
+        ? (nguoiSSO ?? KHONG_QUYEN)
         : (VAI_TRO_MAU.find((v) => v.uid === uidMau) ?? VAI_TRO_MAC_DINH);
 
     return {
       nguoiDung,
       quyen: tinhQuyen(nguoiDung),
       daDangNhap,
-      dangNhap,
+      dangNhapMau,
       dangXuat,
       doiVaiTro,
       cheDoThu: CHE_DO === "mau",
-      danhSachTaiKhoan: CHE_DO === "firebase" ? danhSachMayChu : VAI_TRO_MAU,
+      danhSachTaiKhoan: CHE_DO === "sso" ? danhSachMayChu : VAI_TRO_MAU,
       loiHoSo,
+      dangXuLySSO,
     };
-  }, [uidMau, nguoiFirebase, danhSachMayChu, daDangNhap, dangNhap, dangXuat, doiVaiTro, loiHoSo]);
+  }, [uidMau, nguoiSSO, danhSachMayChu, daDangNhap, dangNhapMau, dangXuat, doiVaiTro, loiHoSo, dangXuLySSO]);
 
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
@@ -307,5 +310,5 @@ export function useNguoiDung(): GiaTriNguoiDung {
   return ctx;
 }
 
-/** Chế độ xác thực đang chạy — để màn đăng nhập biết hỏi email hay tên đăng nhập. */
+/** Chế độ xác thực đang chạy — để màn đăng nhập biết hiện biểu mẫu mẫu hay màn chờ SSO. */
 export const CHE_DO_XAC_THUC = CHE_DO;

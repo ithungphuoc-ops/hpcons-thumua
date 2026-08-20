@@ -14,17 +14,23 @@
 // ở tầng dữ liệu thì vẫn phải dùng custom claims — việc đó để khi nối App Tổng.
 // Hiện tại: hồ sơ quyết định GIAO DIỆN thấy gì, rules chỉ chặn ở mức "phải đăng nhập".
 //
-// 📌 Khi nối App Tổng thì đổi hàm trong file này sang đọc `users/{uid}` của HPcore —
-// phần còn lại của app KHÔNG phải sửa, vì mọi màn hình chỉ hỏi `quyen`.
+// 📌 20/08/2026 — ĐÃ NỐI APP TỔNG (SSO): `docHoSoTaiKhoan` giờ nhận thêm vai trò toàn cục
+// (`users/{uid}.role` của account.hpcore.vn). CHỈ MỘT trường hợp đặc biệt: `"owner"` được
+// toàn quyền ngay, không cần hồ sơ `nguoi-dung/{uid}` nào — xem khối "OWNER TOÀN QUYỀN"
+// bên dưới. Mọi vai trò toàn cục khác (`admin`/`manager`/`employee`) KHÔNG có gì đặc biệt,
+// vẫn phải có hồ sơ riêng ở app này như trước — phần còn lại của app KHÔNG phải sửa, vì
+// mọi màn hình chỉ hỏi `quyen`.
 // ============================================================
 
 import { moFirebase } from "@/5-ket-noi/firebase-chung";
+import { VAI_TRO_CHUAN } from "@/4-phan-quyen/vai-tro-chuan";
 import type {
   CapQuyen,
   ChucNang,
   ChucVu,
   NguoiDung,
   VaiTroHeThong,
+  VaiTroToanCucAppTong,
 } from "@/4-phan-quyen/quyen";
 
 export const BO_SUU_TAP_NGUOI_DUNG = "nguoi-dung";
@@ -102,8 +108,41 @@ export type KetQuaHoSo =
  * 🔴 Đăng nhập được KHÔNG có nghĩa là được vào app. Người có tài khoản Firebase mà chưa
  * được cấp hồ sơ thì phải bị chặn kèm lý do rõ ràng — nếu lặng lẽ cho vào với quyền mặc
  * định thì hoặc họ thấy thứ không được thấy, hoặc họ bơ vơ không hiểu vì sao app trống trơn.
+ *
+ * ============================================================
+ * OWNER TOÀN QUYỀN — Ban lãnh đạo 20/08/2026: *"owner là quyền được vào app toàn quyền"*.
+ *
+ * `vaiTroToanCuc === "owner"` (App Tổng) → trả thẳng hồ sơ Quản trị (`VAI_TRO_CHUAN` mã
+ * `quan_tri`), KHÔNG đọc `nguoi-dung/{uid}` — owner toàn quyền BẤT KỂ có hồ sơ riêng ở app
+ * này hay không, đúng quy ước chung toàn hệ sinh thái HPcore (owner luôn full quyền app
+ * con). Đây là NGOẠI LỆ DUY NHẤT — `admin`/`manager`/`employee` không có gì đặc biệt, vẫn
+ * rơi xuống nhánh đọc `nguoi-dung/{uid}` như cũ, chờ Sếp gán vai trò cụ thể sau.
+ * ============================================================
  */
-export async function docHoSoTaiKhoan(firebaseUid: string): Promise<KetQuaHoSo> {
+export async function docHoSoTaiKhoan(
+  firebaseUid: string,
+  vaiTroToanCuc: VaiTroToanCucAppTong | null,
+  thongTinSSO?: { email: string; tenHienThi: string },
+): Promise<KetQuaHoSo> {
+  if (vaiTroToanCuc === "owner") {
+    const quanTri = VAI_TRO_CHUAN.find((v) => v.ma === "quan_tri")!;
+    return {
+      hoSo: {
+        uidNghiepVu: firebaseUid,
+        email: thongTinSSO?.email ?? "",
+        tenHienThi: thongTinSSO?.tenHienThi || thongTinSSO?.email || "Chủ sở hữu hệ thống",
+        chucDanh: "Chủ sở hữu hệ thống (App Tổng)",
+        phongBan: "—",
+        chucNang: quanTri.chucNang,
+        vaiTro: quanTri.vaiTro,
+        capTM: quanTri.capTM,
+        capKho: quanTri.capKho,
+        dangLamViec: true,
+      },
+      loi: null,
+    };
+  }
+
   const app = await moFirebase();
   if (!app) return { hoSo: null, loi: "Chưa cấu hình kết nối máy chủ." };
 

@@ -15,6 +15,21 @@
 /** Vai trò toàn hệ thống (App Tổng §2.3). */
 export type VaiTroHeThong = "admin" | "director" | "staff";
 
+/**
+ * VAI TRÒ TOÀN CỤC CỦA APP TỔNG (`users/{uid}.role` tại `account.hpcore.vn`) — KHÁC HẲN
+ * `VaiTroHeThong` ở trên (đó là vai trò RIÊNG của app Thu mua, gán bằng tay từng người).
+ *
+ * 🔴 Chỉ đạo Ban lãnh đạo 20/08/2026: đăng nhập qua SSO App Tổng, và
+ * *"owner là quyền được vào app toàn quyền, còn admin thì Sếp phân sau"*.
+ *
+ * Nên chỉ MỘT giá trị có ý nghĩa đặc biệt ở app này: `"owner"` → luôn toàn quyền (xem
+ * `5-ket-noi/ho-so-tai-khoan.ts` → `docHoSoTaiKhoan`), đúng quy ước chung toàn hệ sinh thái
+ * HPcore (owner luôn full quyền mọi app con). `"admin"/"manager"/"employee"` KHÔNG tự động
+ * có gì thêm — vẫn phải được cấp hồ sơ `nguoi-dung/{uid}` riêng ở app này như bất kỳ ai khác,
+ * cho tới khi Sếp quyết định gán vai trò cụ thể nào.
+ */
+export type VaiTroToanCucAppTong = "owner" | "admin" | "manager" | "employee";
+
 /** Cấp quyền trong một app con. 0 = không được truy cập. */
 export type CapQuyen = 0 | 1 | 2 | 3 | 4;
 
