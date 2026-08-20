@@ -21,7 +21,10 @@ const nextConfig: NextConfig = {
   // "external" thì Next.js BỎ QUA việc đóng gói, để Node.js tự require thẳng từ
   // node_modules lúc chạy — đây là cách sửa chính thức Next.js khuyến nghị cho đúng lớp lỗi
   // này với firebase-admin.
-  serverExternalPackages: ["firebase-admin"],
+  // "firebase-admin" một mình chưa đủ (đã thử, vẫn lỗi) — khai thêm ĐÍCH DANH hai gói con
+  // gây lỗi (`jwks-rsa` require CommonJS gói `jose` bản ESM) để chắc chắn Next.js bỏ qua
+  // đóng gói cả hai, không chỉ gói cha.
+  serverExternalPackages: ["firebase-admin", "jwks-rsa", "jose"],
 };
 
 export default nextConfig;
