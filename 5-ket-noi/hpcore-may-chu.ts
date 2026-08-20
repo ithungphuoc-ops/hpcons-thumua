@@ -1,5 +1,13 @@
 import "server-only";
 
+// 🔴 `firebase-admin` GHIM CỨNG "13.5.0" (không dấu `^`) trong package.json — ĐỪNG nâng lên
+// bản 14.x. Lỗi thật gặp trên Vercel 20/08/2026: bản 14.x kéo theo `jwks-rsa@^4` → phụ
+// thuộc `jose@^6.1.3`, mà jose từ bản 6 đã BỎ HẲN bản CommonJS. `jwks-rsa` vẫn gọi
+// `require("jose")` kiểu cũ nên crash ngay lúc import (`ERR_REQUIRE_ESM`) — xảy ra khi hàm
+// `verifySessionCookie()` bên dưới nạp `firebase-admin/auth`, dù không hề dùng tới JWKS.
+// Bản 13.5.0 kéo `jwks-rsa@3.2.2` → `jose@4.15.9` (còn bản CommonJS thật) nên không dính.
+// Đã thử `serverExternalPackages` (không sửa được — đây là lỗi phiên bản thật giữa hai gói,
+// không phải lỗi đóng gói webpack) trước khi tìm ra đây mới là gốc rễ.
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";

@@ -14,17 +14,10 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   // Cho phép đổi thư mục build qua biến môi trường (dùng cho `npm run build:check`).
   distDir: process.env.NEXT_DIST_DIR || ".next",
-  // 🔴 BẮT BUỘC cho `firebase-admin` (dùng ở `5-ket-noi/hpcore-may-chu.ts`) — lỗi thật gặp
-  // trên Vercel 20/08/2026: `ERR_REQUIRE_ESM` (require() gói ESM `jose` từ `jwks-rsa`, một
-  // gói con của firebase-admin). Webpack của Next.js cố đóng gói firebase-admin vào cùng
-  // bundle route, mà bên trong nó lại trộn CommonJS/ESM không tương thích. Khai gói này là
-  // "external" thì Next.js BỎ QUA việc đóng gói, để Node.js tự require thẳng từ
-  // node_modules lúc chạy — đây là cách sửa chính thức Next.js khuyến nghị cho đúng lớp lỗi
-  // này với firebase-admin.
-  // "firebase-admin" một mình chưa đủ (đã thử, vẫn lỗi) — khai thêm ĐÍCH DANH hai gói con
-  // gây lỗi (`jwks-rsa` require CommonJS gói `jose` bản ESM) để chắc chắn Next.js bỏ qua
-  // đóng gói cả hai, không chỉ gói cha.
-  serverExternalPackages: ["firebase-admin", "jwks-rsa", "jose"],
+  // Giữ `firebase-admin` (dùng ở `5-ket-noi/hpcore-may-chu.ts`) ngoài bundle webpack —
+  // thực hành tốt cho các gói máy chủ nặng, dù KHÔNG PHẢI nguyên nhân của lỗi thật đã gặp
+  // ngày 20/08/2026 (xem chú thích đầy đủ trong package.json ở bản ghim firebase-admin).
+  serverExternalPackages: ["firebase-admin"],
 };
 
 export default nextConfig;
