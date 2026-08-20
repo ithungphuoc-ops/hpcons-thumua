@@ -6,7 +6,8 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   MoreHorizontal,
-  Pencil,
+  Plus,
+  Trash2,
   UserPlus,
   X,
 } from "lucide-react";
@@ -480,6 +481,18 @@ export function BangPhanBo({
             <TableHeader>
               <TableRow>
                 {hienCongCuPhanBo && <TableHead className="w-10" />}
+                {/* ★ CỘT THAO TÁC NẰM BÊN TRÁI — Ban lãnh đạo 20/08/2026: *"mục thêm xoá tên
+                    công tác này a đã nói e đưa về phía trái rồi mà"*. Ngày 19/08 đã thử gom về
+                    cột cuối bên phải; chỉ đạo nay là bên trái, giữ nguyên cách gom một cột.
+                    Tiêu đề để TRỐNG có chủ ý: chữ "Thao tác" chiếm chỗ mà không nói thêm gì so
+                    với chính cái nút nằm dưới. `sr-only` cho trình đọc màn hình biết cột này là gì.
+                    ⚠️ KHÔNG dùng lớp `sr-only` bên trong khung cuộn ngang mà thiếu tổ tiên định
+                    vị — ở đây `<th>` là ô bảng nên có ngữ cảnh riêng, không thoát ra ngoài. */}
+                {quyen.phanBoCongViec && (
+                  <TableHead className="w-11">
+                    <span className="sr-only">Thao tác</span>
+                  </TableHead>
+                )}
                 <TableHead className="w-12 text-right">Dòng</TableHead>
                 <TableHead>Vật liệu</TableHead>
                 {/* 🔴 GỘP ĐVT VÀO CỘT KHỐI LƯỢNG — Ban lãnh đạo 12/08/2026 yêu cầu tối ưu.
@@ -508,23 +521,39 @@ export function BangPhanBo({
                         />
                       </TableCell>
                     )}
+                    {/* ★ Ô THAO TÁC — nằm BÊN TRÁI theo chỉ đạo 20/08/2026.
+                        🔴 Ô VẪN VẼ RA dù dòng không xoá được (`xoaDuoc` sai): bỏ hẳn ô là bảng
+                        thiếu một `<td>` ở hàng đó, các ô sau bị đẩy lệch so với tiêu đề — lỗi
+                        bảng kinh điển, và chỉ lộ ra ở đúng những hàng đã lên đơn.
+                        📌 Vẫn hỏi lại một câu trước khi xoá: mất một dòng vật tư khỏi chứng từ
+                        không lùi lại được. */}
+                    {quyen.phanBoCongViec && (
+                      <TableCell className="w-11">
+                        {xoaDuoc(d.stt) && (
+                          <button
+                            type="button"
+                            onClick={() => setHoiXoa({ stt: d.stt, ten: d.tenVatLieu })}
+                            aria-label={`Xóa ${d.tenVatLieu} khỏi đề nghị`}
+                            title="Xóa dòng này khỏi đề nghị"
+                            /* 44×44 theo Design System V1.1 — đây là nút XOÁ, bấm trượt trên máy
+                               tính bảng là mất một dòng vật tư. */
+                            className="flex size-11 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-danger"
+                          >
+                            <Trash2 className="size-4 shrink-0" aria-hidden />
+                          </button>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right text-text-desc">{d.stt}</TableCell>
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
+                        {/* 📌 KHÔNG CÓ NÚT XOÁ Ở ĐÂY NỮA. Lịch sử để người sau khỏi dời lại lần
+                            thứ tư: 13/08/2026 dấu × nằm ngay trước tên vật tư → 19/08/2026 gom
+                            về cột cuối bên phải → 20/08/2026 Ban lãnh đạo chốt **cột thao tác
+                            nằm bên trái** (*"a đã nói e đưa về phía trái rồi mà"*).
+                            Giữ nguyên nguyên tắc gom một cột: mắt chạy dọc một đường thẳng để
+                            tìm nút, thay vì mỗi hàng lại tìm ở giữa chữ. */}
                         <span className="flex items-baseline gap-1.5">
-                          {/* ★ Dấu × ngay đầu tên vật tư — cách xóa nhanh nhất, đúng chỉ
-                              đạo Ban lãnh đạo 13/08/2026. Vẫn hỏi lại một câu trước khi
-                              xóa: mất một dòng vật tư khỏi chứng từ không lùi lại được. */}
-                          {xoaDuoc(d.stt) && (
-                            <button
-                              type="button"
-                              onClick={() => setHoiXoa({ stt: d.stt, ten: d.tenVatLieu })}
-                              aria-label={`Xóa ${d.tenVatLieu} khỏi đề nghị`}
-                              className="shrink-0 text-base leading-none text-text-desc transition-colors hover:text-danger"
-                            >
-                              ×
-                            </button>
-                          )}
                           <span className="min-w-0">{d.tenVatLieu}</span>
                         </span>
                         {d.quyCach && <span className="text-xs text-text-desc">{d.quyCach}</span>}
@@ -650,14 +679,32 @@ export function BangPhanBo({
               {/* Hồ sơ đã đóng thì không bày nút thêm — xem `hoSoDaDong`. */}
               {quyen.phanBoCongViec && !biLoc && !hoSoDaDong && (
                 <TableRow>
-                  <TableCell colSpan={quyen.phanBoCongViec ? 7 : 6} className="py-2">
+                  {/**
+                   * 🔴 `colSpan` TÍNH TỪ CHÍNH ĐIỀU KIỆN CỦA TỪNG CỘT, không viết một con số chết.
+                   *
+                   * Sáu cột luôn có: Dòng · Vật liệu · KL đề nghị · Người phụ trách · Trạng thái ·
+                   * Đơn hàng. Cộng thêm cột ô tích (`hienCongCuPhanBo`) và cột thao tác
+                   * (`quyen.phanBoCongViec`) — HAI ĐIỀU KIỆN KHÁC NHAU, vì `hienCongCuPhanBo` còn
+                   * đòi đang ở bước phân bổ.
+                   *
+                   * ⚠️ Bản đầu tôi viết `quyen.phanBoCongViec ? 8 : 6` — sai đúng ở ca "có quyền
+                   * nhưng KHÔNG ở bước phân bổ": lúc đó bảng có 7 cột mà `colSpan` khai 8, hàng
+                   * này thừa một ô và đường kẻ lệch. Lỗi kiểu này không có gì báo.
+                   */}
+                  <TableCell
+                    colSpan={6 + (hienCongCuPhanBo ? 1 : 0) + (quyen.phanBoCongViec ? 1 : 0)}
+                    className="py-2"
+                  >
                     {dongMoi === null ? (
+                      /* 📌 Nút nằm SÁT TRÁI cho thẳng cột thao tác — Ban lãnh đạo 20/08/2026
+                         yêu cầu đưa thêm/xoá về phía trái. (Bản 19/08 đẩy phải bằng `ml-auto`,
+                         nay bỏ.) */
                       <button
                         type="button"
                         onClick={() => setDongMoi({ ten: "", kl: "", dvt: "" })}
-                        className="flex items-center gap-2 text-sm text-text-desc transition-colors hover:text-primary"
+                        className="flex min-h-11 items-center gap-2 text-sm text-text-desc transition-colors hover:text-primary"
                       >
-                        <Pencil className="size-4 shrink-0" aria-hidden />
+                        <Plus className="size-4 shrink-0" aria-hidden />
                         Thêm vật tư mới
                       </button>
                     ) : (

@@ -53,7 +53,14 @@ function vietTat(ten: string): string {
  * `text-nav-foreground*` như hồi ở thanh bên — token đó dành cho nền tối #4B4F55.
  */
 export function MenuTaiKhoan() {
-  const { nguoiDung, quyen, dangXuat } = useNguoiDung();
+  /**
+   * `cheDoThu` = đang chạy bằng **tài khoản mẫu viết trong mã nguồn**, không phải Firebase Auth.
+   *
+   * 🔴 Ban lãnh đạo 20/08/2026: *"a đang dùng tk thật sao ở đây vẫn đang hiện tài khoản giả lập"*.
+   * Hai chỗ trong menu này nói "bản chạy thử" **vô điều kiện**, nên người đăng nhập bằng tài
+   * khoản thật vẫn bị app bảo là tài khoản giả lập. Nay hỏi đúng cờ này trước khi nói.
+   */
+  const { nguoiDung, quyen, dangXuat, cheDoThu } = useNguoiDung();
   const { deNghi, xoaDuLieuChayThu, trangThaiKhoChung } = useDuLieu();
   const [hoiXoa, doiHoiXoa] = useState(false);
 
@@ -143,10 +150,20 @@ export function MenuTaiKhoan() {
             Đăng xuất
           </DropdownMenuItem>
 
-          {/* 🔴 BỎ CẢ MỤC NÀY khi nối Firestore thật — chỉ có nghĩa ở bản chạy thử. */}
+          {/**
+           * 🔴 NHÃN PHẢI NÓI ĐÚNG MỨC NGUY HIỂM — Ban lãnh đạo 20/08/2026.
+           *
+           * Nhãn cũ *"Xóa dữ liệu chạy thử"* làm người dùng tưởng đây là nút dọn dữ liệu mẫu,
+           * vô hại. Thực tế nó xóa **mọi đề nghị, báo giá, đơn hàng, phiếu nhận** khỏi kho dữ
+           * liệu dùng chung — tức **cả phòng cùng mất**, và không khôi phục lại được. Hai chữ
+           * "chạy thử" che đúng cái phần nguy hiểm nhất.
+           *
+           * 📌 Vẫn giữ mục này (bản chạy thử cần dọn dữ liệu để thử lại từ đầu), nhưng nói thật
+           * nó làm gì. Hộp xác nhận bên dưới đã nêu đủ hệ quả và đếm số đề nghị sắp mất.
+           */}
           <DropdownMenuItem onClick={() => doiHoiXoa(true)}>
             <Trash2 className="size-4 shrink-0" aria-hidden />
-            Xóa dữ liệu chạy thử
+            Xóa toàn bộ dữ liệu {trangThaiKhoChung === "chung" ? "của cả phòng" : "trên máy này"}
           </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
@@ -210,11 +227,28 @@ export function MenuTaiKhoan() {
                 ]}
               />
 
-              {/* ⚠️ Nói thật nguồn dữ liệu ở bản chạy thử — email/mã NV là giả định. */}
-              <p className="text-[11px] text-text-desc">
-                Bản chạy thử: hồ sơ dựng từ tài khoản mẫu, email và mã nhân viên là giả định.
-                Khi nối App Tổng sẽ hiện hồ sơ thật.
-              </p>
+              {/**
+               * ⚠️ CHỈ NÓI "tài khoản mẫu" KHI THẬT SỰ ĐANG DÙNG TÀI KHOẢN MẪU.
+               *
+               * 🔴 Ban lãnh đạo 20/08/2026 bắt lỗi: câu này trước đây hiện vô điều kiện, nên người
+               * đăng nhập bằng **tài khoản thật** (Firebase Auth) vẫn đọc thấy *"hồ sơ dựng từ tài
+               * khoản mẫu, email và mã nhân viên là giả định"* — app tự nói dối về chính dữ liệu
+               * của nó, và người dùng mất tin vào mọi thông tin còn lại trên màn hình.
+               */}
+              {cheDoThu ? (
+                <p className="text-[11px] text-text-desc">
+                  Bản chạy thử: hồ sơ dựng từ tài khoản mẫu, email và mã nhân viên là giả định.
+                  Khi nối App Tổng sẽ hiện hồ sơ thật.
+                </p>
+              ) : (
+                /* Tài khoản thật, nhưng vẫn phải nói rõ hồ sơ đọc từ ĐÂU — nó là project riêng
+                   `hpcons-thumua`, chưa phải danh bạ của App Tổng (Ban lãnh đạo 20/08/2026 hỏi
+                   đúng chỗ này). Nói nửa vời là người dùng tưởng đã nối App Tổng xong. */
+                <p className="text-[11px] text-text-desc">
+                  Tài khoản thật (Firebase Auth). Hồ sơ đọc từ máy chủ riêng của app Thu mua —
+                  chưa lấy từ danh bạ App Tổng.
+                </p>
+              )}
             </>
           )}
         </DialogContent>

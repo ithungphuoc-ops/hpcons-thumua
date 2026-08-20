@@ -453,6 +453,31 @@ export type HanhDongKeoTha =
 const THU_TU_GIAI_DOAN: GiaiDoanMuaHang[] = GIAI_DOAN_MUA_HANG.map((g) => g.ma);
 
 /**
+ * ★ GIAI ĐOẠN `ma` ĐÃ TỚI LƯỢT CHƯA, so với giai đoạn hiện tại của hồ sơ.
+ *
+ * 🔴 Ban lãnh đạo 19/08/2026: *"Bước 1 thì chỉ hiện trường thông tin của bước 1. Tương tự cho
+ * các bước sau"* — trang chi tiết đang bày cả sáu khối bước, kể cả những bước còn trống trơn vì
+ * chưa tới lượt, nên người xem phải cuộn qua một dãy khối rỗng để tới đúng bước đang làm.
+ *
+ * 📌 ĐỂ Ở TẦNG QUY TRÌNH, không để trong file giao diện (quy tắc 3.4b): đây là luật về thứ tự
+ * các bước, và `THU_TU_GIAI_DOAN` là bản duy nhất giữ thứ tự đó. Giao diện tự dò thứ tự bằng
+ * một mảng chép tay là sớm muộn lệch khi quy trình đổi.
+ *
+ * ⚠️ Mã lạ (hồ sơ cũ, hoặc dữ liệu từ máy khác đang chạy bản khác) → `indexOf` trả `-1`. Khi đó
+ * trả `true` để **hiện ra** chứ không ẩn: thà bày thừa một khối còn hơn giấu mất dữ liệu của
+ * người dùng mà không có gì báo.
+ */
+export function giaiDoanDaToiLuot(
+  ma: string,
+  giaiDoanHienTai: GiaiDoanMuaHang,
+): boolean {
+  const i = THU_TU_GIAI_DOAN.indexOf(ma as GiaiDoanMuaHang);
+  const iHienTai = THU_TU_GIAI_DOAN.indexOf(giaiDoanHienTai);
+  if (i === -1 || iHienTai === -1) return true;
+  return i <= iHienTai;
+}
+
+/**
  * Quyết định điều gì xảy ra khi thả thẻ `the` vào cột `dich`.
  * Hàm thuần — không đụng dữ liệu; việc thực thi nằm ở trang gọi nó.
  * Trả về null khi thả về đúng cột cũ (không làm gì).

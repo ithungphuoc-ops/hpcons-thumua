@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Minus, RefreshCw, Search, ShieldAlert, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
@@ -33,6 +33,15 @@ import {
   type ThanhVienDanhBa,
 } from "@/5-ket-noi/ho-so-tai-khoan";
 import { boDau } from "@/6-tien-ich/bo-dau";
+
+/**
+ * Khóa cho nhóm người CHƯA khai bộ phận ở App Tổng.
+ *
+ * 🔴 Không dùng chuỗi rỗng làm khóa vì rỗng đã mang nghĩa "chưa chọn phòng ban nào" ở ô chọn.
+ * Cũng không dùng tên đọc được (vd "Chưa gán") vì App Tổng có thể có phòng ban trùng đúng tên
+ * đó, và khi ấy hai nhóm khác nhau bị trộn vào một mục.
+ */
+const CHUA_GAN_PHONG_BAN = "__chua-gan-phong-ban__";
 
 /**
  * 🛡️ MÀN PHÂN QUYỀN NGƯỜI DÙNG — gán theo VAI TRÒ, không bắt ghép tay bốn trường.
@@ -82,8 +91,46 @@ export default function TrangPhanQuyen() {
   const [danhBa, setDanhBa] = useState<ThanhVienDanhBa[] | null>(null);
   const [dangTaiDanhBa, setDangTaiDanhBa] = useState(false);
   const [tuKhoaTim, setTuKhoaTim] = useState("");
+  /**
+   * Phòng ban đang chọn để tìm người. `""` = chưa chọn → KHÔNG hiện ai (xem chú thích ở khối
+   * "Thêm người dùng mới"). Giá trị là TÊN phòng ban đúng như App Tổng trả về, hoặc
+   * `CHUA_GAN_PHONG_BAN` cho người chưa khai bộ phận.
+   */
+  const [phongBanChon, setPhongBanChon] = useState("");
   const [vaiTroChonMoi, setVaiTroChonMoi] = useState<Record<string, string>>({});
   const [hoiThemMoi, setHoiThemMoi] = useState<{ tv: ThanhVienDanhBa; vt: VaiTroChuan } | null>(null);
+
+  /**
+   * Danh sách phòng ban để chọn — gom từ CHÍNH danh bạ App Tổng đã tải (trường `phongBan` là
+   * tên phòng, `hpcore-may-chu.ts` đã tra sẵn từ collection `departments`), kèm số người **chưa
+   * có hồ sơ Thu mua** trong phòng đó để người phân quyền biết vào phòng nào còn việc.
+   *
+   * 🔴 PHẢI CÓ MỤC "Chưa gán phòng ban": theo chú thích của `fetchDanhBaCongTy`, người ở App
+   * Tổng có thể THIẾU `departmentId` — hay gặp ở tài khoản owner. Nếu ô chọn chỉ liệt kê các
+   * phòng có tên thì những người này **không bao giờ tìm ra được**, mà không có gì báo lỗi.
+   *
+   * 📌 Sắp theo tên tiếng Việt, đẩy mục "Chưa gán" xuống cuối vì đó là ngoại lệ dữ liệu chứ
+   * không phải một phòng ban thật.
+   */
+  const dsPhongBan = useMemo(() => {
+    const dem = new Map<string, number>();
+    for (const tv of danhBa ?? []) {
+      if (tv.daCoHoSoThuMua) continue;
+      dem.set(
+        tv.phongBan.trim() || CHUA_GAN_PHONG_BAN,
+        (dem.get(tv.phongBan.trim() || CHUA_GAN_PHONG_BAN) ?? 0) + 1,
+      );
+    }
+    return [...dem.entries()]
+      .map(([ten, so]) => ({ ten, so }))
+      .sort((a, b) =>
+        a.ten === CHUA_GAN_PHONG_BAN
+          ? 1
+          : b.ten === CHUA_GAN_PHONG_BAN
+            ? -1
+            : a.ten.localeCompare(b.ten, "vi"),
+      );
+  }, [danhBa]);
 
   const laCheDoThat = CHE_DO_XAC_THUC === "sso";
 
@@ -203,22 +250,46 @@ export default function TrangPhanQuyen() {
               </Button>
             </div>
             <p className="text-sm text-text-secondary">
-              Tìm người trong danh bạ công ty (App Tổng) rồi gán vai trò — không cần biết trước
-              mã tài khoản, không cần làm gì bên ngoài app này.
+              Chọn <strong>phòng ban</strong> của App Tổng để xem người trong phòng đó, hoặc gõ
+              tên nếu đã biết. Không cần biết trước mã tài khoản, không cần làm gì bên ngoài app
+              này.
             </p>
 
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-desc"
-                aria-hidden
-              />
-              <Input
-                value={tuKhoaTim}
-                onChange={(e) => setTuKhoaTim(e.target.value)}
-                placeholder="Tìm theo tên hoặc email…"
-                className="pl-9"
-                aria-label="Tìm người trong danh bạ công ty"
-              />
+            {/* 🔴 KHÔNG TRẢI SẴN DANH BẠ CÔNG TY — Ban lãnh đạo 20/08/2026: *"ẩn thông tin này
+                đi, để mục tìm kiếm theo phòng ban của app tổng"*.
+                Bản trước bày sẵn tới 30 người kèm HỌ TÊN · EMAIL · CHỨC DANH · BỘ PHẬN ngay khi
+                mở trang. Hai chỗ sai: ① phơi danh bạ nhân sự toàn công ty cho bất kỳ ai mở được
+                màn phân quyền, trong khi việc cần làm chỉ là cấp quyền cho MỘT người; ② danh sách
+                dài mà vẫn phải cuộn tìm, tức không giúp gì cho chính việc đó.
+                Nay: chưa chọn phòng ban và chưa gõ gì thì KHÔNG hiện một ai. */}
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <select
+                value={phongBanChon}
+                onChange={(e) => setPhongBanChon(e.target.value)}
+                aria-label="Chọn phòng ban của App Tổng"
+                className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none sm:w-2/5"
+              >
+                <option value="">— chọn phòng ban —</option>
+                {dsPhongBan.map((pb) => (
+                  <option key={pb.ten} value={pb.ten}>
+                    {pb.ten === CHUA_GAN_PHONG_BAN ? "Chưa gán phòng ban" : pb.ten} ({pb.so})
+                  </option>
+                ))}
+              </select>
+
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-desc"
+                  aria-hidden
+                />
+                <Input
+                  value={tuKhoaTim}
+                  onChange={(e) => setTuKhoaTim(e.target.value)}
+                  placeholder="Hoặc gõ tên / email…"
+                  className="pl-9"
+                  aria-label="Tìm người trong danh bạ công ty"
+                />
+              </div>
             </div>
 
             {dangTaiDanhBa && danhBa === null && (
@@ -228,7 +299,6 @@ export default function TrangPhanQuyen() {
             {danhBa !== null && (() => {
               const chuaCoHoSo = danhBa.filter((tv) => !tv.daCoHoSoThuMua);
               const tuKhoa = boDau(tuKhoaTim.trim());
-              const ketQua = (tuKhoa ? chuaCoHoSo.filter((tv) => boDau(tv.hoTen).includes(tuKhoa) || boDau(tv.email).includes(tuKhoa)) : chuaCoHoSo).slice(0, 30);
 
               if (chuaCoHoSo.length === 0) {
                 return (
@@ -237,8 +307,53 @@ export default function TrangPhanQuyen() {
                   </p>
                 );
               }
+
+              /* Chưa chọn phòng ban VÀ chưa gõ gì → không hiện ai. Nói rõ phải làm gì thay vì
+                 để khối trống trơn không giải thích. */
+              if (phongBanChon === "" && tuKhoa === "") {
+                return (
+                  <p className="text-sm text-text-desc">
+                    Chọn một phòng ban ở trên để xem người trong phòng đó, hoặc gõ tên/email nếu
+                    đã biết cần cấp quyền cho ai. Danh bạ công ty không bày sẵn ở đây.
+                  </p>
+                );
+              }
+
+              /* Lọc theo phòng ban trước, rồi mới lọc theo từ khóa TRONG phạm vi đó — hai ô hoạt
+                 động cùng lúc, không cái nào vô hiệu hóa cái nào. */
+              const theoPhong =
+                phongBanChon === ""
+                  ? chuaCoHoSo
+                  : chuaCoHoSo.filter(
+                      (tv) => (tv.phongBan.trim() || CHUA_GAN_PHONG_BAN) === phongBanChon,
+                    );
+              const khop = tuKhoa
+                ? theoPhong.filter(
+                    (tv) => boDau(tv.hoTen).includes(tuKhoa) || boDau(tv.email).includes(tuKhoa),
+                  )
+                : theoPhong;
+              const ketQua = khop.slice(0, 30);
+              /* Bị cắt thì PHẢI NÓI — cắt im lặng làm người dùng tưởng đã xem hết phòng đó rồi
+                 kết luận sai là "phòng này không có ai nữa". */
+              const biCat = khop.length - ketQua.length;
+
               if (ketQua.length === 0) {
-                return <p className="text-sm text-text-desc">Không tìm thấy ai khớp &quot;{tuKhoaTim}&quot;.</p>;
+                return (
+                  <p className="text-sm text-text-desc">
+                    Không tìm thấy ai
+                    {tuKhoa ? <> khớp &quot;{tuKhoaTim}&quot;</> : null}
+                    {phongBanChon !== "" ? (
+                      <>
+                        {" "}
+                        trong{" "}
+                        {phongBanChon === CHUA_GAN_PHONG_BAN
+                          ? "nhóm chưa gán phòng ban"
+                          : `phòng ${phongBanChon}`}
+                      </>
+                    ) : null}
+                    . Người đã có hồ sơ ở app Thu mua không hiện lại ở đây — xem bảng bên dưới.
+                  </p>
+                );
               }
 
               return (
@@ -297,6 +412,13 @@ export default function TrangPhanQuyen() {
                       </div>
                     );
                   })}
+
+                  {biCat > 0 && (
+                    <p className="text-xs text-text-desc">
+                      Còn <strong>{biCat} người</strong> nữa khớp nhưng không hiện ở đây (mỗi lần
+                      chỉ hiện 30). Gõ thêm tên hoặc chọn phòng ban hẹp hơn để thấy họ.
+                    </p>
+                  )}
                 </div>
               );
             })()}

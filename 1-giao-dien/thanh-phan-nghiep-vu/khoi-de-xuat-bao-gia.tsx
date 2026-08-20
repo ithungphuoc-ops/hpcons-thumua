@@ -37,12 +37,23 @@ export function KhoiDeXuatBaoGia({
   nhaCungCap,
   onLuuDeXuat,
   onTrinhXetDuyet,
+  vuongMacBenNgoai,
 }: {
   baoGia: BaoGia;
   /** Chỉ để GỢI Ý khi gõ, không giới hạn lựa chọn. */
   nhaCungCap: NhaCungCap[];
   onLuuDeXuat: (deXuat: { nccId: string; tenNCC: string; lyDo: string }) => void;
   onTrinhXetDuyet: () => void;
+  /**
+   * Vướng mắc do TRANG CHỨA quyết định — hiện tại là *"chưa đính kèm đủ số bản báo giá"*
+   * (Ban lãnh đạo 20/08/2026).
+   *
+   * 🔴 NHẬN VÀO TỪ NGOÀI, không tự tính trong này: luật đếm báo giá thuộc `2-quy-trinh/` và cần
+   * cả `DeNghiMuaHang` (tệp đính kèm nằm trên đề nghị, không nằm trên bảng báo giá). Component
+   * này chỉ biết bảng báo giá, nên tự tính là phải kéo thêm dữ liệu vào đây — và sẽ thành chỗ
+   * thứ hai giữ cùng một luật.
+   */
+  vuongMacBenNgoai?: string | null;
 }) {
   const [tenNCC, setTenNCC] = useState(baoGia.deXuatNCCTen ?? "");
   const [lyDo, setLyDo] = useState(baoGia.lyDoDeXuat ?? "");
@@ -57,13 +68,21 @@ export function KhoiDeXuatBaoGia({
     setLyDo(baoGia.lyDoDeXuat ?? "");
   }, [baoGia.deXuatNCCTen, baoGia.lyDoDeXuat]);
 
-  /** Còn thiếu gì mới trình được — `null` là đủ. Luôn trả CÂU GIẢI THÍCH, không trả boolean. */
+  /**
+   * Còn thiếu gì mới trình được — `null` là đủ. Luôn trả CÂU GIẢI THÍCH, không trả boolean.
+   *
+   * 🔴 XÉT VƯỚNG MẮC BÊN NGOÀI TRƯỚC (chưa đủ bản báo giá): đó là điều kiện bắt buộc của quy
+   * trình, nặng hơn việc còn thiếu chữ trong ô đề xuất. Nói cái nặng trước thì người dùng đi
+   * làm đúng việc cần làm.
+   */
   const thieu: string | null =
-    tenNCC.trim() === ""
-      ? "Ghi nhà cung cấp bạn đề xuất trước khi trình."
-      : lyDo.trim() === ""
-        ? "Ghi dẫn chứng cụ thể cho đề xuất trước khi trình."
-        : null;
+    (vuongMacBenNgoai ?? null) !== null
+      ? vuongMacBenNgoai!
+      : tenNCC.trim() === ""
+        ? "Ghi nhà cung cấp bạn đề xuất trước khi trình."
+        : lyDo.trim() === ""
+          ? "Ghi dẫn chứng cụ thể cho đề xuất trước khi trình."
+          : null;
 
   const daLuu =
     tenNCC.trim() === (baoGia.deXuatNCCTen ?? "") && lyDo.trim() === (baoGia.lyDoDeXuat ?? "");

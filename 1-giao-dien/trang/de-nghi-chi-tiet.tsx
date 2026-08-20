@@ -50,6 +50,9 @@ import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 /* Khối ĐỀ XUẤT + TRÌNH XÉT DUYỆT của bước ② — KHÔNG có phần nhập số liệu giá (chỉ đạo Ban lãnh
    đạo 19/08/2026). Xem chú thích đầy đủ tại chỗ nhúng. */
 import { KhoiDeXuatBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-de-xuat-bao-gia";
+/* N ô đính kèm báo giá theo đúng SL Báo giá đã yêu cầu (Ban lãnh đạo 20/08/2026). */
+import { KhuBaoGiaTheoSoLuong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-bao-gia-theo-so-luong";
+import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +72,7 @@ import {
   giaiDoanDaKetThuc,
   NHAN_GIAI_DOAN,
   xacDinhGiaiDoan,
+  giaiDoanDaToiLuot,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   nhanAnToan,
@@ -683,6 +687,11 @@ export default function TrangChiTietDeNghi() {
                               luuDeXuatNCC(bg.id, dx, nguoiDung.tenHienThi);
                               toast.success("Đã lưu đề xuất");
                             }}
+                            /* 🔴 CHẶN TRÌNH KHI CHƯA ĐỦ BẢN BÁO GIÁ — Ban lãnh đạo 20/08/2026:
+                               đủ số báo giá là **điều kiện bắt buộc để chuyển bước**.
+                               Luật ở `2-quy-trinh/bao-gia-dinh-kem.ts`, cùng hàm mà khu đính kèm
+                               dùng để vẽ ô — hai chỗ không thể nói khác nhau. */
+                            vuongMacBenNgoai={vuongMacTrinhXetDuyet(dn)}
                             /* Trình xét duyệt = chuyển bước, việc không lùi lại được → hỏi trước
                                (nguyên tắc Ban lãnh đạo 10/08/2026). */
                             onTrinhXetDuyet={() => setHoiTrinhXetDuyet(bg.id)}
@@ -714,10 +723,24 @@ export default function TrangChiTietDeNghi() {
                  * `deNghi.tepGiaiDoan.yeu_cau_bao_gia` — gỡ giao diện hồi đó KHÔNG xóa dữ liệu,
                  * nên trả prop về là chúng hiện lại đủ.
                  */
+                /**
+                 * 🔴 SỐ Ô ĐÍNH KÈM BẰNG ĐÚNG SL BÁO GIÁ — Ban lãnh đạo 20/08/2026: *"khi yêu cầu
+                 * 2 báo giá thì phải có 2 mục đính kèm báo giá, và đó là quy tắc bắt buộc để được
+                 * chuyển bước"*.
+                 *
+                 * ⚠️ THAY `KhuDinhKemGiaiDoan` (danh sách tệp không tên) bằng `KhuBaoGiaTheoSoLuong`
+                 * (N ô có tên). Lý do: danh sách không tên KHÔNG đếm được *"đã có mấy bản báo giá"*
+                 * — dán 3 ảnh của cùng một nhà cung cấp cũng ra 3 tệp, mà thực chất vẫn một bản.
+                 * Không đếm được thì không chặn chuyển bước được, tức không làm nổi cái luật vừa
+                 * được chốt.
+                 *
+                 * 📌 Tệp đã đính trước đây vẫn còn nguyên trong `tepGiaiDoan.yeu_cau_bao_gia`;
+                 * chúng không mang nhãn ô nào nên hiện ở mục "Tệp khác của bước này" — không tệp
+                 * nào biến mất.
+                 */
                 khuDinhKem: (
-                  <KhuDinhKemGiaiDoan
+                  <KhuBaoGiaTheoSoLuong
                     deNghi={dn}
-                    maGiaiDoan="yeu_cau_bao_gia"
                     duocSua={duocSuaTepBuoc}
                     khoa={hoSoDaDong}
                   />
@@ -1104,7 +1127,23 @@ export default function TrangChiTietDeNghi() {
                   />
                 ),
               },
-            ]}
+              /**
+               * 🔴 CHỈ HIỆN BƯỚC ĐÃ TỚI LƯỢT — Ban lãnh đạo 19/08/2026: *"Bước 1 thì chỉ hiện
+               * trường thông tin của bước 1. Tương tự cho các bước sau"*.
+               *
+               * Trước đó trang bày cả sáu khối, kể cả bước còn trống trơn vì chưa tới lượt —
+               * người xem phải cuộn qua một dãy khối rỗng mới tới bước đang làm.
+               *
+               * 📌 GIỮ CẢ BƯỚC ĐÃ ĐI QUA, chỉ ẩn bước CHƯA TỚI. Đây là chỗ tôi hiểu rộng hơn câu
+               * chữ một chút, và có lý do: bước đã qua đang GIỮ DỮ LIỆU THẬT (bảng báo giá đã
+               * duyệt, đơn hàng đã lập, tệp chứng từ). Ẩn hẳn là hồ sơ mất đường tra cứu — đứng ở
+               * bước ⑤ thì không cách nào xem lại căn cứ duyệt giá ở bước ③. Bước chưa tới lượt
+               * thì ngược lại: chắc chắn rỗng, hiện ra chỉ làm rối.
+               *
+               * ⚠️ Nếu Ban lãnh đạo muốn ĐÚNG MỘT bước duy nhất thì đổi `giaiDoanDaToiLuot(...)`
+               * thành `g.ma === giaiDoan` — một dòng, và luật thứ tự vẫn nằm ở `2-quy-trinh/`.
+               */
+            ].filter((g) => giaiDoanDaToiLuot(g.ma, giaiDoan))}
           />
 
           {/* 📌 15/08/2026 — Ban lãnh đạo:
