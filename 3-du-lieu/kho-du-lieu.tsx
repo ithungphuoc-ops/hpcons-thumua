@@ -65,6 +65,7 @@ import {
   type DuLieuLuu,
 } from "@/3-du-lieu/luu-tren-may";
 import { noiKhoChung, type KetNoiKhoChung } from "@/3-du-lieu/kho-chung-firestore";
+import { guiPOSangQlkCtr } from "@/5-ket-noi/gui-po-qlk-ctr";
 import type {
   DeNghiMuaHang,
   DongDeNghi,
@@ -839,6 +840,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      */
     if (d.cauHinh) setCauHinh(gopCauHinhVoiMacDinh(d.cauHinh));
     if (d.lichSuCauHinh) setLichSuCauHinh(d.lichSuCauHinh);
+
+    /**
+     * ★ Việc 2 (20/08/2026): TỰ THỬ LẠI những PO lỡ gửi QLK CTR thất bại lần trước — cùng mẫu
+     * "retry-on-view" đã làm bên App Request (mở lại là tự vá, không cần tìm/gửi tay). Chỗ này
+     * chạy mỗi lần có dữ liệu mới từ kho chung — tức mỗi lần MỞ APP hoặc TẢI LẠI trang, không
+     * cần đợi ai bấm gì. An toàn gọi lại nhiều lần vì QLK CTR tự chống trùng theo `poIdThuMua`.
+     */
+    for (const po of d.donHang) {
+      if (po.qlkCtrSyncStatus !== "failed") continue;
+      const deNghiGoc = d.deNghi.find((dn) => dn.id === po.prId);
+      void guiPOSangQlkCtr(po, deNghiGoc).then((ketQua) => {
+        if (!ketQua.apDung) return;
+        setDonHang((truoc) =>
+          truoc.map((p) => (p.id === po.id ? { ...p, qlkCtrSyncStatus: ketQua.thanhCong ? "synced" : "failed" } : p)),
+        );
+        if (!ketQua.thanhCong) console.error("[Việc 2] Tự thử lại gửi PO sang QLK CTR lỗi:", ketQua.loi);
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -1910,7 +1929,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * nhánh ấy không bao giờ chạy được nữa — xóa chứ không để lại mã chết. Lấy lại ở git nếu
        * sau này cho cất đơn không gắn đề nghị.
        */
-      setDonHang((truoc) => [...truoc, { ...po, id, code, trangThai: "da_chot" }]);
+      const donMoi: DonDatHang = { ...po, id, code, trangThai: "da_chot" };
+      setDonHang((truoc) => [...truoc, donMoi]);
+
+      /**
+       * ★ Việc 2 (20/08/2026): báo PO mới sang QLK CTR — bắn rồi quên, không chặn việc lập đơn.
+       * Chỉ có hiệu lực khi đề nghị gốc CÓ mã đề xuất App Request (đề nghị công trình đã đồng
+       * bộ ở Việc 1) — đề nghị phòng ban hoặc dữ liệu cũ trước Việc 1 tự bỏ qua êm, xem
+       * `5-ket-noi/gui-po-qlk-ctr.ts`.
+       */
+      const deNghiGoc = deNghiRef.current.find((d) => d.id === po.prId);
+      void guiPOSangQlkCtr(donMoi, deNghiGoc).then((ketQua) => {
+        if (!ketQua.apDung) return; // đề nghị phòng ban / chưa qua Việc 1 — không liên quan
+        setDonHang((truoc) =>
+          truoc.map((p) => (p.id === id ? { ...p, qlkCtrSyncStatus: ketQua.thanhCong ? "synced" : "failed" } : p)),
+        );
+        if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);
+      });
+
       setGiaDonHang((truoc) => [
         ...truoc,
         {

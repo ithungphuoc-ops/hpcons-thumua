@@ -639,6 +639,13 @@ export interface DonDatHang {
   /** Điều kiện ③ hoàn thành PO. */
   xacNhanTruongBP?: XacNhan;
   lyDoHuyHoacDongDo?: string;
+  /**
+   * ★ Việc 2 (20/08/2026): kết quả lần gửi PO này sang QLK CTR GẦN NHẤT — vắng mặt = chưa
+   * từng thử (đơn không gắn đề nghị có công trình, hoặc đề nghị đó chưa từng đồng bộ ở Việc 1).
+   * "failed" là dấu hiệu để tự thử lại lần sau có người mở lại đúng đơn này — cùng mẫu
+   * `thuMuaSyncStatus` bên App Request đã làm cho Việc 1. Xem `5-ket-noi/gui-po-qlk-ctr.ts`.
+   */
+  qlkCtrSyncStatus?: "synced" | "failed";
 }
 
 // ------------------------------------------------------------
