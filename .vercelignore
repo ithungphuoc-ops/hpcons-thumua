@@ -1,0 +1,16 @@
+# Vercel tự cài lại node_modules và tự build trên máy chủ của họ — không cần (và không
+# nên) tải các thứ này lên cùng mã nguồn. Thiếu file này, lần đầu deploy từ một máy mới
+# (chưa có .vercel/ cache) có thể cố tải cả node_modules lên, vượt giới hạn 100MB/file.
+node_modules
+.next
+.next-check
+out
+build
+dist
+.firebase
+.git
+
+# Bí mật cục bộ — không đưa lên cùng gói tải, dù không phải kênh public.
+.env
+.env.local
+.env*.local
