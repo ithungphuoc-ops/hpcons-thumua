@@ -144,6 +144,13 @@ export interface ThanhVienDanhBa {
  * `base-request-app/app/api/directory/route.ts`). Kèm luôn danh sách ai đã có hồ sơ
  * `nguoi-dung/{uid}` riêng ở app Thu mua, để màn "Thêm người dùng mới" không bày lại người
  * đã được cấp quyền rồi.
+ *
+ * 🔴 LOẠI BỎ `role === "owner"` — phát hiện 20/08/2026: owner đã TỰ ĐỘNG toàn quyền ngay từ
+ * SSO (xem `docHoSoTaiKhoan()` → nhánh owner, không cần hồ sơ `nguoi-dung` nào cả), nên bày
+ * owner trong danh sách "cấp quyền" vừa thừa vừa gây hiểu lầm — có 2 người khác nhau trùng
+ * tên thật ngoài đời (vd "Nguyễn Tấn Hậu": một là owner, một là nhân viên khác), owner lại
+ * thường THIẾU `title`/`departmentId` (không cần khai vì không đi qua luồng phân quyền theo
+ * app con) nên dòng của họ hiện trống trơn, dễ bị tưởng nhầm là lỗi đồng bộ dữ liệu.
  */
 export async function fetchDanhBaCongTy(): Promise<ThanhVienDanhBa[]> {
   const db = getHpcoreDb();
@@ -158,18 +165,20 @@ export async function fetchDanhBaCongTy(): Promise<ThanhVienDanhBa[]> {
 
   const daCoHoSo = new Set(nguoiDungSnap.docs.map((d) => d.id));
 
-  return usersSnap.docs.map((d) => {
-    const data = d.data();
-    const departmentId = data.departmentId as string | null | undefined;
-    return {
-      uid: d.id,
-      hoTen: (data.fullName as string)?.trim() || (data.email as string)?.split("@")[0] || d.id,
-      email: (data.email as string) ?? "",
-      phongBan: departmentId ? (tenPhongBan.get(departmentId) ?? "") : "",
-      chucDanh: (data.title as string) ?? "",
-      daCoHoSoThuMua: daCoHoSo.has(d.id),
-    };
-  });
+  return usersSnap.docs
+    .filter((d) => d.data().role !== "owner")
+    .map((d) => {
+      const data = d.data();
+      const departmentId = data.departmentId as string | null | undefined;
+      return {
+        uid: d.id,
+        hoTen: (data.fullName as string)?.trim() || (data.email as string)?.split("@")[0] || d.id,
+        email: (data.email as string) ?? "",
+        phongBan: departmentId ? (tenPhongBan.get(departmentId) ?? "") : "",
+        chucDanh: (data.title as string) ?? "",
+        daCoHoSoThuMua: daCoHoSo.has(d.id),
+      };
+    });
 }
 
 /** Đọc hồ sơ `nguoi-dung/{uid}` bằng Admin SDK (đi vòng qua Security Rules) — dùng ở API route
