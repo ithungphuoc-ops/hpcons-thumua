@@ -23,6 +23,7 @@
 // ============================================================
 
 import { moFirebase } from "@/5-ket-noi/firebase-chung";
+import { layIdTokenHienTai } from "@/5-ket-noi/xac-thuc-firebase";
 import { VAI_TRO_CHUAN } from "@/4-phan-quyen/vai-tro-chuan";
 import type {
   CapQuyen,
@@ -83,7 +84,9 @@ export function thanhNguoiDung(h: HoSoTaiKhoan): NguoiDung {
  * từ chối cho vào còn hơn cho vào với cấp quyền đoán mò — đoán thấp thì người ta không làm
  * được việc, đoán cao thì thủ kho nhìn thấy giá.
  */
-function hopLe(d: Partial<HoSoTaiKhoan> | undefined): d is HoSoTaiKhoan {
+/** Xuất công khai để API route (`app/api/phan-quyen`) tự kiểm hồ sơ đọc bằng Admin SDK — cùng
+ *  một luật kiểm, không viết lại lần hai để tránh hai nơi lệch nhau. */
+export function hopLe(d: Partial<HoSoTaiKhoan> | undefined): d is HoSoTaiKhoan {
   if (!d) return false;
   const capOk = (x: unknown) => typeof x === "number" && x >= 0 && x <= 4;
   return (
@@ -222,57 +225,61 @@ export async function docHoSoDePhanQuyen(): Promise<HoSoKemMa[]> {
 export type LoiGhiHoSo = string | null;
 
 /**
- * Ghi cấp quyền mới cho một người.
+ * Gán một VAI TRÒ ĐÓNG GÓI (mã trong `4-phan-quyen/vai-tro-chuan.ts`) cho một người, qua API
+ * route `app/api/phan-quyen` — route đó tự kiểm đủ luật rồi ghi bằng Admin SDK.
  *
- * 🔴 HIỆN TẠI LỆNH NÀY BỊ MÁY CHỦ TỪ CHỐI, và đó là **đúng thiết kế**:
- * `5-ket-noi/firestore-chay-thu.rules` khai `match /nguoi-dung/{uid} { allow write: if false; }`
- * vì hồ sơ chứa `capTM` — cấp quyền của chính người đó. Mở ghi mà không có chốt là bất kỳ ai
- * cũng tự sửa mình lên cấp 4 và toàn bộ phân quyền thành vô nghĩa.
+ * 📌 20/08/2026 — Ban lãnh đạo: *"thiết lập phân quyền trực tiếp trên app luôn... không cần
+ * làm ngoài app tổng"*. TRƯỚC ĐÓ hàm này gọi thẳng `updateDoc` từ trình duyệt và luôn bị chặn
+ * (`allow write: if false`) — đã đổi hẳn sang gọi API, không còn đường ghi trực tiếp nào nữa.
  *
- * Bộ rules mở khóa đã soạn sẵn ở `5-ket-noi/firestore-phan-quyen-DE-XUAT.rules` nhưng **chưa
- * được Ban lãnh đạo duyệt và chưa deploy**. Cho tới lúc đó, hàm này luôn trả về lý do bị chặn.
- *
- * 🔴 VÌ VẬY PHẢI DỊCH LỖI RA TIẾNG NGƯỜI. Ném nguyên `FirebaseError: Missing or insufficient
- * permissions` ra màn hình thì người dùng tưởng app hỏng và đi báo IT, trong khi đây là một
- * quyết định có chủ ý đang chờ duyệt. Nói đúng chuyện gì đang xảy ra và đường đi tiếp.
+ * Dùng CHUNG cho cả "thêm người dùng mới" lẫn "đổi vai trò người đã có hồ sơ" — cùng một API,
+ * cùng một luật kiểm, không có hai đường ghi lệch nhau.
  */
-export async function ghiVaiTroChoTaiKhoan(
-  firebaseUid: string,
-  /**
-   * 🔴 GHI CẢ BỘ, KHÔNG GHI MỖI `capTM`.
-   *
-   * Bản đầu chỉ ghi cấp — mà `tinhQuyen` đọc cả `chucNang` và `vaiTro`. Nâng một **thủ kho** từ
-   * cấp 1 lên cấp 3 thì họ VẪN không phân bổ được công việc và VẪN không thấy giá, vì
-   * `phanBoCongViec` đòi đúng nhóm chức năng. Người phân quyền tưởng đã trao quyền mà thực tế
-   * không có gì đổi — sai im lặng, và tin được nhầm.
-   *
-   * Bộ bốn trường này đi cùng nhau, lấy từ một vai trò trong `4-phan-quyen/vai-tro-chuan.ts`.
-   */
-  thayDoi: {
-    chucNang?: ChucNang;
-    vaiTro?: VaiTroHeThong;
-    capTM?: CapQuyen;
-    capKho?: CapQuyen;
-    dangLamViec?: boolean;
-  },
-): Promise<LoiGhiHoSo> {
-  const app = await moFirebase();
-  if (!app) return "Chưa cấu hình kết nối máy chủ.";
+export async function ganVaiTro(firebaseUid: string, maVaiTro: string): Promise<LoiGhiHoSo> {
+  const token = await layIdTokenHienTai();
+  if (!token) return "Chưa đăng nhập, hoặc phiên đăng nhập đã hết hạn. Tải lại trang rồi thử lại.";
 
-  const { getFirestore, doc, updateDoc } = await import("firebase/firestore");
   try {
-    await updateDoc(doc(getFirestore(app), BO_SUU_TAP_NGUOI_DUNG, firebaseUid), thayDoi);
+    const res = await fetch("/api/phan-quyen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ targetUid: firebaseUid, maVaiTro }),
+    });
+    const kq = await res.json().catch(() => ({}));
+    if (!res.ok) return kq.error || `Không gán được quyền (mã ${res.status}).`;
     return null;
   } catch (e) {
-    const ma = (e as { code?: string })?.code ?? "";
-    if (ma === "permission-denied") {
-      return (
-        "Máy chủ đang KHÓA ghi hồ sơ phân quyền (Firestore Rules). Đây là khóa cố ý, chưa được mở. " +
-        "Cách đổi quyền hiện tại: chạy script tao-tai-khoan.js bằng khóa Admin SDK."
-      );
-    }
-    console.error("[hồ sơ] ghi cấp quyền hỏng:", e);
-    return "Không ghi được lên máy chủ. Kiểm tra lại mạng rồi thử lại.";
+    console.error("[hồ sơ] gọi API phân quyền hỏng:", e);
+    return "Không kết nối được máy chủ. Kiểm tra lại mạng rồi thử lại.";
+  }
+}
+
+/** Một người trong danh bạ công ty (App Tổng) — dùng để chọn người "thêm quyền mới". */
+export interface ThanhVienDanhBa {
+  uid: string;
+  hoTen: string;
+  email: string;
+  phongBan: string;
+  chucDanh: string;
+  daCoHoSoThuMua: boolean;
+}
+
+/**
+ * Đọc danh bạ TOÀN CÔNG TY từ App Tổng (qua API `/api/directory`, tự đọc `users`/`departments`
+ * bằng Admin SDK phía máy chủ) — để màn "Phân quyền người dùng" chọn người thêm quyền, không
+ * cần biết trước mã Firebase của họ.
+ */
+export async function docDanhBaCongTy(): Promise<ThanhVienDanhBa[]> {
+  const token = await layIdTokenHienTai();
+  if (!token) return [];
+  try {
+    const res = await fetch("/api/directory", { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return [];
+    const body = await res.json();
+    return (body.danhBa ?? []) as ThanhVienDanhBa[];
+  } catch (e) {
+    console.error("[hồ sơ] đọc danh bạ công ty hỏng:", e);
+    return [];
   }
 }
 

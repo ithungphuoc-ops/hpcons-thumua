@@ -108,3 +108,82 @@ export async function fetchVaiTroToanCuc(uid: string): Promise<VaiTroToanCucAppT
 export async function mintCustomToken(uid: string): Promise<string> {
   return getHpcoreAuth().createCustomToken(uid);
 }
+
+/**
+ * Xác minh ID Token của trình duyệt (header `Authorization: Bearer …`) cho các API NỘI BỘ
+ * của app Thu mua (vd `/api/directory`, `/api/phan-quyen`) — KHÁC với `verifyHpcore` ở trên
+ * (đó xác minh cookie phiên App Tổng lúc đăng nhập LẦN ĐẦU). Ở đây trình duyệt ĐÃ đăng nhập
+ * Firebase (qua Custom Token, xem `xac-thuc-firebase.ts`) nên chỉ cần xác minh ID Token của
+ * chính phiên đó — vẫn CÙNG project `hpcons-portal` nên dùng chung `getHpcoreAuth()`.
+ */
+export async function verifyClientIdToken(
+  idToken: string | undefined | null,
+): Promise<{ uid: string; email: string } | null> {
+  if (!idToken) return null;
+  try {
+    const decoded = await getHpcoreAuth().verifyIdToken(idToken);
+    return { uid: decoded.uid, email: (decoded.email ?? "").trim().toLowerCase() };
+  } catch {
+    return null;
+  }
+}
+
+/** Một người trong danh bạ công ty (App Tổng), kèm cờ đã có hồ sơ Thu mua riêng chưa. */
+export interface ThanhVienDanhBa {
+  uid: string;
+  hoTen: string;
+  email: string;
+  phongBan: string;
+  chucDanh: string;
+  daCoHoSoThuMua: boolean;
+}
+
+/**
+ * Đọc TOÀN BỘ danh bạ nhân sự đang làm việc từ App Tổng (collection `users` + `departments`
+ * của project `hpcons-portal`) — đúng mẫu đã dùng ở các app con khác (vd
+ * `base-request-app/app/api/directory/route.ts`). Kèm luôn danh sách ai đã có hồ sơ
+ * `nguoi-dung/{uid}` riêng ở app Thu mua, để màn "Thêm người dùng mới" không bày lại người
+ * đã được cấp quyền rồi.
+ */
+export async function fetchDanhBaCongTy(): Promise<ThanhVienDanhBa[]> {
+  const db = getHpcoreDb();
+  const [usersSnap, deptSnap, nguoiDungSnap] = await Promise.all([
+    db.collection("users").where("isActive", "==", true).get(),
+    db.collection("departments").get(),
+    db.collection("nguoi-dung").get(),
+  ]);
+
+  const tenPhongBan = new Map<string, string>();
+  deptSnap.forEach((d) => tenPhongBan.set(d.id, (d.data().name as string) ?? ""));
+
+  const daCoHoSo = new Set(nguoiDungSnap.docs.map((d) => d.id));
+
+  return usersSnap.docs.map((d) => {
+    const data = d.data();
+    const departmentId = data.departmentId as string | null | undefined;
+    return {
+      uid: d.id,
+      hoTen: (data.fullName as string)?.trim() || (data.email as string)?.split("@")[0] || d.id,
+      email: (data.email as string) ?? "",
+      phongBan: departmentId ? (tenPhongBan.get(departmentId) ?? "") : "",
+      chucDanh: (data.title as string) ?? "",
+      daCoHoSoThuMua: daCoHoSo.has(d.id),
+    };
+  });
+}
+
+/** Đọc hồ sơ `nguoi-dung/{uid}` bằng Admin SDK (đi vòng qua Security Rules) — dùng ở API route
+ *  để biết CHÍNH XÁC cấp quyền của người đang gọi, không tin dữ liệu do trình duyệt tự khai. */
+export async function docHoSoNguoiDungMayChu(uid: string): Promise<Record<string, unknown> | null> {
+  const snap = await getHpcoreDb().collection("nguoi-dung").doc(uid).get();
+  return snap.exists ? (snap.data() ?? null) : null;
+}
+
+/**
+ * Ghi hồ sơ `nguoi-dung/{uid}` bằng Admin SDK — đi vòng qua Security Rules (đang khóa ghi từ
+ * trình duyệt, xem `firestore-chay-thu.rules`). Đây là đường ghi DUY NHẤT bây giờ — API route
+ * gọi hàm này SAU KHI đã tự kiểm đủ luật ở `4-phan-quyen/luat-phan-quyen.ts`.
+ */
+export async function ghiHoSoNguoiDungMayChu(uid: string, data: Record<string, unknown>): Promise<void> {
+  await getHpcoreDb().collection("nguoi-dung").doc(uid).set(data, { merge: true });
+}

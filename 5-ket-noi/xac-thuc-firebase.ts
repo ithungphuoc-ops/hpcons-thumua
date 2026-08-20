@@ -82,3 +82,20 @@ export async function dangXuatFirebase(): Promise<void> {
   if (!m) return;
   await m.signOut(m.auth);
 }
+
+/**
+ * ID Token của phiên Firebase đang đăng nhập — dùng làm header `Authorization: Bearer …` khi
+ * gọi các API nội bộ cần xác minh danh tính (vd `/api/directory`, `/api/phan-quyen`). Khác hẳn
+ * Custom Token (dùng MỘT LẦN lúc đăng nhập) — ID Token đọc lại được nhiều lần, Firebase tự làm
+ * mới khi gần hết hạn.
+ *
+ * Trả `null` khi chưa đăng nhập hoặc chưa cấu hình Firebase — nơi gọi phải tự xử (thường là
+ * không gọi API, hoặc coi như lỗi xác thực).
+ */
+export async function layIdTokenHienTai(): Promise<string | null> {
+  const m = await moAuth();
+  if (!m) return null;
+  const nguoiDung = m.auth.currentUser;
+  if (!nguoiDung) return null;
+  return nguoiDung.getIdToken();
+}

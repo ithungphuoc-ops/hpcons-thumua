@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Minus, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Check, Minus, RefreshCw, Search, ShieldAlert, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { useNguoiDung, CHE_DO_XAC_THUC } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
@@ -25,10 +26,13 @@ import {
   type VaiTroChuan,
 } from "@/4-phan-quyen/vai-tro-chuan";
 import {
+  docDanhBaCongTy,
   docHoSoDePhanQuyen,
-  ghiVaiTroChoTaiKhoan,
+  ganVaiTro,
   type HoSoKemMa,
+  type ThanhVienDanhBa,
 } from "@/5-ket-noi/ho-so-tai-khoan";
+import { boDau } from "@/6-tien-ich/bo-dau";
 
 /**
  * 🛡️ MÀN PHÂN QUYỀN NGƯỜI DÙNG — gán theo VAI TRÒ, không bắt ghép tay bốn trường.
@@ -51,11 +55,18 @@ import {
  * `tinhQuyen` của app. Chép tay một bảng mô tả quyền là sớm muộn nó lệch với luật thật — và lúc
  * đó màn phân quyền **nói dối chính người đang phân quyền**, thứ nguy hiểm nhất ở màn này.
  *
- * ## 🔴 TRẠNG THÁI THẬT: ĐỌC ĐƯỢC, CHƯA GHI ĐƯỢC
- * Firestore đang khóa ghi `nguoi-dung/{uid}` (`allow write: if false`) vì hồ sơ chứa cấp quyền
- * của chính người đó. Bộ rules mở khóa soạn ở `5-ket-noi/firestore-phan-quyen-DE-XUAT.rules`,
- * **chưa duyệt chưa deploy**. Màn hình nói điều đó ngay đầu trang chứ không để người dùng sửa
- * xong bấm Lưu mới biết.
+ * ## 📌 20/08/2026 — GHI ĐƯỢC THẬT, QUA API RIÊNG
+ * Firestore vẫn khóa ghi `nguoi-dung/{uid}` thẳng từ trình duyệt (`allow write: if false`,
+ * đúng thiết kế — hồ sơ chứa cấp quyền của chính người đó). Nhưng route
+ * `app/api/phan-quyen` (chạy máy chủ, Admin SDK) tự kiểm ĐÚNG luật ở `luat-phan-quyen.ts` rồi
+ * ghi thay — xem `5-ket-noi/ho-so-tai-khoan.ts` → `ganVaiTro()`. Màn hình này giờ ghi được
+ * thật, không cần rời khỏi app.
+ *
+ * ## 📌 THÊM NGƯỜI MỚI — LẤY THẲNG DANH BẠ APP TỔNG
+ * Không cần biết trước mã Firebase của ai: khối "Thêm người dùng mới" đọc danh bạ công ty qua
+ * `app/api/directory` (đọc `users`/`departments` của App Tổng bằng Admin SDK), lọc sẵn những
+ * người CHƯA có hồ sơ Thu mua. Tên/email/phòng ban ghi vào hồ sơ mới lấy THẲNG từ đó — không
+ * gõ tay, không đánh máy sai tên.
  */
 export default function TrangPhanQuyen() {
   const { nguoiDung, quyen } = useNguoiDung();
@@ -66,6 +77,13 @@ export default function TrangPhanQuyen() {
   const [vaiTroNhap, setVaiTroNhap] = useState<Record<string, string>>({});
   const [hoiDoi, setHoiDoi] = useState<{ hs: HoSoKemMa; vt: VaiTroChuan } | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
+
+  // ---------- Khối "Thêm người dùng mới" — danh bạ công ty ----------
+  const [danhBa, setDanhBa] = useState<ThanhVienDanhBa[] | null>(null);
+  const [dangTaiDanhBa, setDangTaiDanhBa] = useState(false);
+  const [tuKhoaTim, setTuKhoaTim] = useState("");
+  const [vaiTroChonMoi, setVaiTroChonMoi] = useState<Record<string, string>>({});
+  const [hoiThemMoi, setHoiThemMoi] = useState<{ tv: ThanhVienDanhBa; vt: VaiTroChuan } | null>(null);
 
   const laCheDoThat = CHE_DO_XAC_THUC === "sso";
 
@@ -79,9 +97,20 @@ export default function TrangPhanQuyen() {
     }
   }, [laCheDoThat]);
 
+  const taiDanhBa = useCallback(async () => {
+    if (!laCheDoThat) return;
+    setDangTaiDanhBa(true);
+    try {
+      setDanhBa(await docDanhBaCongTy());
+    } finally {
+      setDangTaiDanhBa(false);
+    }
+  }, [laCheDoThat]);
+
   useEffect(() => {
     void tai();
-  }, [tai]);
+    void taiDanhBa();
+  }, [tai, taiDanhBa]);
 
   /* Lớp chặn thứ ba — hai lớp kia là mục menu và `duocVaoDuongDan`. Mỗi lớp che một đường vào
      khác nhau (menu · gõ URL · điều hướng trong app). */
@@ -103,14 +132,7 @@ export default function TrangPhanQuyen() {
   async function luu(hs: HoSoKemMa, vt: VaiTroChuan) {
     setDangLuu(true);
     try {
-      const loi = await ghiVaiTroChoTaiKhoan(hs.firebaseUid, {
-        chucNang: vt.chucNang,
-        vaiTro: vt.vaiTro,
-        capTM: vt.capTM,
-        // ⚠️ Vai trò không có `capKho` thì ghi 0 chứ không bỏ qua: bỏ qua là giữ nguyên quyền kho
-        // cũ, nên đổi một thủ kho sang Kế toán mà họ vẫn ghi được phiếu nhận hàng.
-        capKho: vt.capKho ?? 0,
-      });
+      const loi = await ganVaiTro(hs.firebaseUid, vt.ma);
       if (loi) {
         toast.error("Chưa lưu được", { description: loi, duration: 12000 });
         return;
@@ -131,6 +153,28 @@ export default function TrangPhanQuyen() {
     }
   }
 
+  async function themMoi(tv: ThanhVienDanhBa, vt: VaiTroChuan) {
+    setDangLuu(true);
+    try {
+      const loi = await ganVaiTro(tv.uid, vt.ma);
+      if (loi) {
+        toast.error("Chưa cấp được quyền", { description: loi, duration: 12000 });
+        return;
+      }
+      toast.success("Đã cấp quyền", { description: `${tv.hoTen} → ${vt.ten}` });
+      // Đọc lại CẢ HAI danh sách: người mới vừa thêm phải biến mất khỏi danh bạ "chưa có hồ
+      // sơ" và hiện ra ở bảng chỉnh sửa bên dưới — không tự suy đoán, đọc lại máy chủ thật.
+      await Promise.all([tai(), taiDanhBa()]);
+      setVaiTroChonMoi((c) => {
+        const conLai = { ...c };
+        delete conLai[tv.uid];
+        return conLai;
+      });
+    } finally {
+      setDangLuu(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -139,24 +183,126 @@ export default function TrangPhanQuyen() {
         description={`Chọn một vai trò là gán xong. Bạn gán được tới ${NHAN_CAP_QUYEN[toiDa]}.`}
       />
 
-      {/* ---------- NÓI TRƯỚC TÌNH TRẠNG, không để người dùng phát hiện bằng cách gặp lỗi ---------- */}
-      <Card>
-        <CardContent className="flex flex-col gap-2">
-          <p className="flex items-center gap-2 text-sm font-semibold text-text-primary">
-            <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden />
-            Máy chủ đang khóa ghi hồ sơ phân quyền
-          </p>
-          <p className="text-sm text-text-secondary">
-            Hồ sơ phân quyền nằm trên máy chủ và hiện <strong>chỉ cho đọc</strong>. Đây là khóa cố
-            ý: hồ sơ chứa cấp quyền của chính mỗi người, mở ghi mà chưa có chốt thì ai cũng tự nâng
-            mình lên Quản trị. Bấm <strong>Đổi</strong> vẫn gửi lệnh lên máy chủ, nhưng sẽ bị từ
-            chối cho tới khi bộ quy tắc mới được duyệt và áp dụng.
-          </p>
-          <p className="text-sm text-text-secondary">
-            Cách đổi quyền dùng được ngay: chạy <code>tao-tai-khoan.js</code> bằng khóa Admin SDK.
-          </p>
-        </CardContent>
-      </Card>
+      {/* ---------- THÊM NGƯỜI DÙNG MỚI — lấy thẳng danh bạ App Tổng ---------- */}
+      {laCheDoThat && (
+        <Card>
+          <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <UserPlus className="size-4 shrink-0 text-primary" aria-hidden />
+                <p className="text-h3 text-text-primary">Thêm người dùng mới</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void taiDanhBa()}
+                disabled={dangTaiDanhBa}
+              >
+                <RefreshCw className={`size-4 ${dangTaiDanhBa ? "animate-spin" : ""}`} aria-hidden />
+                Đọc lại danh bạ
+              </Button>
+            </div>
+            <p className="text-sm text-text-secondary">
+              Tìm người trong danh bạ công ty (App Tổng) rồi gán vai trò — không cần biết trước
+              mã tài khoản, không cần làm gì bên ngoài app này.
+            </p>
+
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-desc"
+                aria-hidden
+              />
+              <Input
+                value={tuKhoaTim}
+                onChange={(e) => setTuKhoaTim(e.target.value)}
+                placeholder="Tìm theo tên hoặc email…"
+                className="pl-9"
+                aria-label="Tìm người trong danh bạ công ty"
+              />
+            </div>
+
+            {dangTaiDanhBa && danhBa === null && (
+              <p className="text-sm text-text-desc">Đang đọc danh bạ công ty…</p>
+            )}
+
+            {danhBa !== null && (() => {
+              const chuaCoHoSo = danhBa.filter((tv) => !tv.daCoHoSoThuMua);
+              const tuKhoa = boDau(tuKhoaTim.trim());
+              const ketQua = (tuKhoa ? chuaCoHoSo.filter((tv) => boDau(tv.hoTen).includes(tuKhoa) || boDau(tv.email).includes(tuKhoa)) : chuaCoHoSo).slice(0, 30);
+
+              if (chuaCoHoSo.length === 0) {
+                return (
+                  <p className="text-sm text-text-desc">
+                    Toàn bộ công ty đã có hồ sơ ở app Thu mua, hoặc chưa đọc được danh bạ.
+                  </p>
+                );
+              }
+              if (ketQua.length === 0) {
+                return <p className="text-sm text-text-desc">Không tìm thấy ai khớp &quot;{tuKhoaTim}&quot;.</p>;
+              }
+
+              return (
+                <div className="flex flex-col gap-(--hp-md-row-gap)">
+                  {ketQua.map((tv) => {
+                    const maChon = vaiTroChonMoi[tv.uid] ?? "";
+                    const vtChon = timVaiTroChuan(maChon);
+                    return (
+                      <div
+                        key={tv.uid}
+                        className="flex flex-col gap-3 rounded-xl border border-border p-(--hp-md-card-pad) sm:flex-row sm:items-start"
+                      >
+                        <div className="sm:w-1/3 sm:shrink-0">
+                          <p className="font-medium text-text-primary">{tv.hoTen}</p>
+                          <p className="text-xs text-text-desc">{tv.email}</p>
+                          <p className="mt-1 text-xs text-text-secondary">
+                            {tv.chucDanh || "—"} · {tv.phongBan || "—"}
+                          </p>
+                        </div>
+
+                        <div className="flex min-w-0 flex-1 flex-col gap-2">
+                          <select
+                            value={maChon}
+                            onChange={(e) =>
+                              setVaiTroChonMoi((c) => ({ ...c, [tv.uid]: e.target.value }))
+                            }
+                            aria-label={`Vai trò cho ${tv.hoTen}`}
+                            className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
+                          >
+                            <option value="">— chọn vai trò —</option>
+                            {vaiTroGanDuoc
+                              .filter((v) => v.ma !== "ngung_truy_cap")
+                              .map((v) => (
+                                <option key={v.ma} value={v.ma}>
+                                  {v.ten}
+                                </option>
+                              ))}
+                          </select>
+                          {vtChon && (
+                            <>
+                              <p className="text-xs text-text-desc">{vtChon.moTa}</p>
+                              <ViecLamDuoc vt={vtChon} />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="sm:shrink-0">
+                          <Button
+                            size="sm"
+                            disabled={!vtChon || dangLuu}
+                            onClick={() => vtChon && setHoiThemMoi({ tv, vt: vtChon })}
+                          >
+                            Cấp quyền
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
 
       {!laCheDoThat ? (
         <EmptyState
@@ -378,6 +524,37 @@ export default function TrangPhanQuyen() {
             void luu(hs, vt);
           }}
           onDong={() => setHoiDoi(null)}
+        />
+      )}
+
+      {/* Hỏi trước khi CẤP QUYỀN MỚI — người này trước đó chưa vào được app, cấp nhầm vai trò
+          rộng là lộ dữ liệu ngay từ lần đăng nhập đầu tiên. */}
+      {hoiThemMoi && (
+        <HopXacNhan
+          mo
+          tieuDe="Cấp quyền cho người này?"
+          moTa={
+            `Cấp cho ${hoiThemMoi.tv.hoTen} (${hoiThemMoi.tv.email}) vai trò “${hoiThemMoi.vt.ten}”. ` +
+            `${hoiThemMoi.vt.moTa} Người này đăng nhập lần tới bằng đúng tài khoản HPcore của họ là vào được ngay.`
+          }
+          nhanDongY="Cấp quyền"
+          onDongY={() => {
+            const { tv, vt } = hoiThemMoi;
+            setHoiThemMoi(null);
+            const xet = duocDatCap(nguoiDung, vt.capTM);
+            if (!xet.duoc) {
+              toast.error("Không cấp được", { description: xet.lyDo });
+              return;
+            }
+            if (!vaiTroGanDuocBoi(toiDa).some((x) => x.ma === vt.ma)) {
+              toast.error("Không cấp được", {
+                description: `Vai trò “${vt.ten}” chỉ tài khoản Quản trị mới gán được.`,
+              });
+              return;
+            }
+            void themMoi(tv, vt);
+          }}
+          onDong={() => setHoiThemMoi(null)}
         />
       )}
     </>
