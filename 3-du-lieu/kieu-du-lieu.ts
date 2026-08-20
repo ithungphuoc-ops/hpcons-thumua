@@ -922,8 +922,14 @@ export interface DongBaoGia {
    *
    * Trống = chưa tách, cả dòng về một nhà cung cấp (`BaoGia.nccDaChonId`).
    *
-   * ⚠️ Tổng `khoiLuong` phân bổ KHÔNG được vượt `khoiLuong` của dòng — kiểm bằng
-   * `kiemPhanBoDong` trong `2-quy-trinh/so-sanh-bao-gia.ts`, đừng tự tính lại nơi khác.
+   * 🔴 KHÔNG CÒN ĐƯỜNG GHI TRƯỜNG NÀY (20/08/2026). Ban lãnh đạo chốt *"bỏ quy trình so sánh
+   * báo giá đó đi, chỉ đính kèm file và trưởng bộ phận chọn duyệt thôi"*, nên chức năng tách đơn
+   * cho nhiều nhà cung cấp và hàm kiểm `kiemPhanBoDong` (ở `2-quy-trinh/so-sanh-bao-gia.ts`) đã
+   * bị xóa cùng bảng so sánh.
+   *
+   * ⚠️ TRƯỜNG VẪN GIỮ vì dữ liệu cũ trên kho chung của cả phòng có thể đang mang nó — bỏ khỏi
+   * kiểu dữ liệu là mọi chỗ đọc phải phòng `undefined`, mà lợi thì không có. Muốn làm lại tách
+   * đơn thì viết lại hàm kiểm tổng khối lượng trước, đừng ghi trường này mà không kiểm.
    */
   phanBo?: PhanBoNCC[];
 }

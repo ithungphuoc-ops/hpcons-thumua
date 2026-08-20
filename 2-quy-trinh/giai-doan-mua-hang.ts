@@ -856,11 +856,21 @@ export function quyetDinhKeoTha(
         : { loai: "tao_bao_gia" };
 
     case "xet_duyet_bao_gia": {
-      const bg = baoGiaCuaDeNghi.find((b) => b.trangThai === "da_so_sanh");
+      /**
+       * 🔴 DẪN VỀ TRANG CHI TIẾT ĐỀ NGHỊ, không phải màn Báo giá — Ban lãnh đạo 20/08/2026 chốt
+       * **bỏ hẳn màn Báo giá** cùng bảng so sánh giá nhập tay.
+       *
+       * ⚠️ Bản trước dẫn tới `/bao-gia/{id}` kèm câu *"Chọn nhà cung cấp trong bảng so sánh"*.
+       * Để nguyên là người kéo thẻ đúng luật bị đưa tới một trang **không còn tồn tại**, thẻ
+       * đứng yên, và **không lỗi nào báo** — kiểu hỏng khó tìm nhất.
+       *
+       * Nút Duyệt / Không duyệt nay nằm trong khối bước ③ ở trang chi tiết đề nghị.
+       */
       return {
         loai: "mo_trang",
-        duongDan: bg ? `/bao-gia/${bg.id}` : "/bao-gia",
-        thongBao: "Chọn nhà cung cấp trong bảng so sánh — chọn xong thẻ tự chuyển bước.",
+        duongDan: `/de-nghi/${the.deNghi.id}`,
+        thongBao:
+          "Trưởng bộ phận duyệt trong khối bước “Xét duyệt báo giá” ở trang chi tiết đề nghị — duyệt xong thẻ tự chuyển bước.",
       };
     }
 

@@ -50,7 +50,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **"Vào mục Lập đơn mua hàng (PO) mà không thấy nút Lưu — mất chức năng?"** | 🔴 **KHÔNG, đúng chỉ đạo Ban lãnh đạo 18/08/2026**: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*. Chế độ đó **chỉ in / xuất mẫu, không ghi gì vào hệ thống**, nên hai nút là [In mẫu PO] và [Xuất Excel]. Xem mục **2c**. Cần đơn thật thì lập từ phiếu đề nghị (`/don-hang/tao-moi?prId=…`) — đường đó vẫn có [Lưu] và [Lưu và In] như cũ |
 | **Đơn lập ra KHÔNG gắn đề nghị** (mặt hàng gõ tự do, không trừ khối lượng, không hiện trên bảng quy trình) | Chế độ **mẫu** (trước chiều 18/08/2026 gọi là *độc lập* và có cất đơn thật). Bật khi `FormLapDonMuaHang` nhận `deNghi={null}` (vào `/don-hang/tao-moi` không kèm `?prId=`). Cờ trong mã: `laDonDocLap`. 🔴 **Từ chiều 18/08/2026 chế độ này KHÔNG cất đơn** nên trong dữ liệu **không còn sinh ra** `DonDatHang` nào có `prId` rỗng. Kiểu dữ liệu vẫn cho phép (`prId`/`prCode` tùy chọn, `DongPO.sttDongDeNghi` là `undefined`) để đọc được đơn đã cất sáng cùng ngày |
 | **Không thấy phần nhập liệu đơn mua hàng ở bước ④** trong trang chi tiết đề nghị | ⚠️ **Đúng như thiết kế từ 18/08/2026.** Ban lãnh đạo: *"sai ý a rồi, a cần e đưa CẢ mục import này ra"* → form đã **CHUYỂN HẲN** sang mục menu **Lập đơn mua hàng (PO)**. Khối bước ④ (`trang/de-nghi-chi-tiet.tsx`) nay chỉ còn danh sách đơn + nút dẫn sang `/don-hang/tao-moi?prId=…`, hiện khi `quyen.lapPO && !hoSoDaDong` |
-| Sai ở **trang riêng Lập đơn mua hàng** `/don-hang/tao-moi` (breadcrumb, tiêu đề, **nút X đóng**, điều hướng sau khi cất, đọc tham số `prId`/`rfqId`/`nccId`) | `1-giao-dien/trang/don-hang-lap-moi.tsx` — **cái vỏ mỏng** bọc `FormLapDonMuaHang`. 🔴 **KHÔNG bỏ trang này**: nó là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (chỉ nó nhận `rfqId` + `nccId` từ `bao-gia-chi-tiet.tsx`), bảng quy trình mở nó qua `quyetDinhKeoTha` → `mo_trang`, và nó cũng chính là **module lập đơn độc lập** của mục menu |
+| Sai ở **trang riêng Lập đơn mua hàng** `/don-hang/tao-moi` (breadcrumb, tiêu đề, **nút X đóng**, điều hướng sau khi cất, đọc tham số `prId`/`rfqId`/`nccId`) | `1-giao-dien/trang/don-hang-lap-moi.tsx` — **cái vỏ mỏng** bọc `FormLapDonMuaHang`. 🔴 **KHÔNG bỏ trang này**: bảng quy trình mở nó qua `quyetDinhKeoTha` → `mo_trang`, và nó cũng chính là **module lập đơn độc lập** của mục menu. ⚠️ Nó vẫn đọc tham số `rfqId` + `nccId` cho chức năng **tách PO nhiều nhà cung cấp**, nhưng chỗ TRUYỀN hai tham số đó (`bao-gia-chi-tiet.tsx`) **đã xóa 20/08/2026** — nên đường tách PO hiện **không có ai gọi**, chờ Ban lãnh đạo quyết hướng làm lại |
 | **Mục menu "Lập đơn mua hàng (PO)"** sai nhãn / sai nhóm / hiện với vai trò không được lập đơn | `2-quy-trinh/dieu-huong.ts` → `MUC_DIEU_HUONG`. Thêm ngày **18/08/2026** theo chỉ đạo Ban lãnh đạo — xem **mục 2c** để biết vì sao việc này không trái quy ước cũ, **đừng gỡ đi** |
 | **Mã đơn hàng sai dạng / trùng nhau** (`260001-HPCS-PO-001`) | `2-quy-trinh/dat-ma-don-hang.ts` → `maDonHangTiepTheo`, gọi từ `3-du-lieu/kho-du-lieu.tsx` → `themDonHang`. 🔴 Lấy **số lớn nhất đã dùng rồi +1**, không đếm số đơn hiện có. Mã dự án rỗng thì `themDonHang` **từ chối cất** thay vì cấp mã `-PO-001` |
 | Sai ở **bảng "Hàng tiền"** của màn lập đơn (cột, thứ tự cột, nền hàng tiêu đề, dòng TỔNG CỘNG, **phân trang**, **ô tìm nhanh F3**, nút Thêm dòng / Thêm ghi chú / Xóa hết dòng) | `thanh-phan-nghiep-vu/bang-hang-tien.tsx`. 🔴 Con số tiền **không tính ở đó** — sửa công thức thì vào `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet`. 🔴 **Tiền hoặc cột `#` lệch khi sang trang 2 / đang lọc** = ai đó đã đổi `dongTrang` sang `dong.slice().map((d,i)=>…)`; chỉ số phải lấy từ mảng cặp `{ d, viTri }`, xem chú thích đầu file |
@@ -66,8 +66,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Sửa "SL Báo giá"** ở phần ĐẦU VÀO bước ② | Ô sửa: `thanh-phan-nghiep-vu/o-sua-so-bao-gia.tsx` · Ghi dữ liệu: `3-du-lieu/kho-du-lieu.tsx` → `datSoBaoGiaChoPhieu` (đặt cho **mọi dòng** của phiếu). Muốn mỗi dòng một số khác nhau thì sửa ở bảng Phân bổ công việc |
 | 🔴 **"Không lập được bảng báo giá đầu tiên"** / mất đường vào module Báo giá | Đường vào là **menu ⋯ trên thẻ** ở bảng quy trình → *Lập bảng báo giá* (`thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang.tsx` → `ThaoTacThe.onLapBaoGia`, nối ở `trang/de-nghi-danh-sach.tsx`). **Nút ở trang chi tiết đã bỏ 17/08/2026** theo chỉ đạo Ban lãnh đạo. Đường thứ hai là kéo thẻ cột ① → ②, nhưng **điện thoại không kéo được** nên mục menu là lối vào duy nhất trên điện thoại — bỏ nó là module thành mồ côi (mục 3.4b). ⚠️ Mục menu gọi `xuLyTha` chứ không gọi thẳng `taoBaoGiaGiaLap`, để vẫn qua chốt `quyetDinhKeoTha` và vẫn mở hộp xác nhận |
 | Sai ở **màn Theo dõi đề nghị** (cho Phòng Thi công) | `1-giao-dien/trang/theo-doi-danh-sach.tsx` · `theo-doi-chi-tiet.tsx` |
-| Sai ở **danh sách Báo giá** | `1-giao-dien/trang/bao-gia-danh-sach.tsx` |
-| Sai ở **bảng so sánh giá nhà cung cấp** | `1-giao-dien/trang/bao-gia-chi-tiet.tsx` |
+| ~~Sai ở **danh sách Báo giá** / **bảng so sánh giá nhà cung cấp**~~ | ❌ **Cả hai màn đã XÓA HẲN 20/08/2026** — xem mục **2c**. Bản báo giá nay là **tệp đính kèm ở bước ②**: `thanh-phan-nghiep-vu/khu-bao-gia-theo-so-luong.tsx`, luật đếm ở `2-quy-trinh/bao-gia-dinh-kem.ts` |
 | Sai ở **màn Công nợ** (KPI · biểu đồ tuổi nợ · bảng hóa đơn) | `1-giao-dien/trang/cong-no.tsx` |
 | Sai **thanh bên / menu** | `1-giao-dien/khung-app/thanh-ben-noi-dung.tsx` |
 | Sai **thanh trên** (tìm kiếm, ngày giờ, tài khoản) | `1-giao-dien/khung-app/thanh-tren.tsx` |
@@ -151,11 +150,72 @@ thì không để thành mục menu riêng nữa. Vào bằng **thẻ trên bả
 | Màn hình | Địa chỉ vẫn chạy | Vào bằng đường nào |
 |---|---|---|
 | Phân bổ công việc | `/phan-bo` | `/de-nghi/[id]` — bảng phân bổ nằm ngay trong trang. Thẻ trên bảng Kanban cũng cảnh báo "Thiếu N dòng chưa phân bổ" |
-| Báo giá & so sánh NCC | `/bao-gia` · `/bao-gia/[id]` | `/de-nghi/[id]` — khối **"Bảng báo giá"** |
+| ~~Báo giá & so sánh NCC~~ | ❌ **ĐÃ XÓA HẲN 20/08/2026** | xem mục 2c ngay dưới |
 | Đơn đặt hàng | `/don-hang` · `/don-hang/[id]` | `/de-nghi/[id]` — khối **"Đơn đặt hàng đã tách"** |
 
-🔴 **Không được xóa khối "Bảng báo giá" trong `de-nghi-chi-tiet.tsx`** — đó là lối vào **duy nhất**
-tới module Báo giá sau khi bỏ menu. Xóa là module thành mồ côi, không ai vào được.
+## 2c. ❌ MÀN BÁO GIÁ ĐÃ XÓA HẲN (20/08/2026)
+
+Ban lãnh đạo **20/08/2026**: *"E BỎ TÍNH NĂNG SO SÁNH BẰNG CÁCH NHẬP LIỆU NÀY ĐI"*, rồi chốt tiếp
+**"bỏ hẳn luôn"** cả màn hình. Trước đó ngày 19/08 đã chốt *"chưa cần chức năng nhập số liệu NCC,
+chỉ cần đính kèm file báo giá là được"*.
+
+**Đã xóa:** `app/(app)/bao-gia/` (cả hai route) · `1-giao-dien/trang/bao-gia-chi-tiet.tsx` ·
+`1-giao-dien/trang/bao-gia-danh-sach.tsx` · `1-giao-dien/thanh-phan-nghiep-vu/khoi-thu-thap-bao-gia.tsx` ·
+`1-giao-dien/thanh-phan-nghiep-vu/khoi-nguong-gia-tri.tsx` (đã là mã chết từ 16/08).
+
+**Bản báo giá bây giờ ở đâu:** trong **tệp đính kèm bước ②** — khu N ô theo SL Báo giá
+(`thanh-phan-nghiep-vu/khu-bao-gia-theo-so-luong.tsx`, luật ở `2-quy-trinh/bao-gia-dinh-kem.ts`).
+
+🔴 **BỐN đường vào cũ đều đã dọn** — đây là phần dễ sót nhất, kiểm lại nếu thấy màn 404:
+
+| Trước | Nay |
+|---|---|
+| `de-nghi-chi-tiet.tsx` — thẻ danh sách bảng báo giá là `<Link>` | Thành `<div>`, giữ thông tin, **bỏ href** |
+| `de-nghi-chi-tiet.tsx` — nút *"Xem bảng so sánh giá"* | Đã bỏ. Chỗ đó nay là khối **"Trưởng bộ phận đã trả lại"** |
+| `giai-doan-mua-hang.ts` → `quyetDinhKeoTha` cột ③ | `duongDan` → `/de-nghi/{id}` |
+| `lich-cong-viec.ts` (hạn nộp báo giá) · `tim-kiem.ts` | `duongDan` → `/de-nghi/{id}` |
+
+🔴 **Khối "Trưởng bộ phận đã trả lại" (`lanTraLai`) đã DỜI về `de-nghi-chi-tiet.tsx`, khối bước ③.**
+Trước đây nó chỉ có ở `bao-gia-chi-tiet.tsx` — chỗ hiển thị **duy nhất**. Bỏ màn mà không dời khối
+này là làm mất hẳn lý do trả lại khỏi app: nhân viên thấy phiếu tự nhảy ngược về bước ② mà không
+biết vì sao, rồi trình lại y nguyên.
+
+❌ **`2-quy-trinh/so-sanh-bao-gia.ts` ĐÃ XÓA** (20/08/2026) — Ban lãnh đạo chốt tiếp *"bỏ quy trình
+so sánh báo giá đó đi, chỉ đính kèm file và trưởng bộ phận chọn duyệt thôi"*, nên chức năng **tách
+PO cho nhiều nhà cung cấp** cũng bỏ theo. Muốn làm lại thì phải viết lại `kiemPhanBoDong` (kiểm
+tổng khối lượng phân bổ không vượt khối lượng dòng) TRƯỚC khi ghi trường `DongBaoGia.phanBo`.
+
+### 🧹 Mã chết còn để dọn (không ảnh hưởng người dùng)
+
+Bảy hàm ghi trong `3-du-lieu/kho-du-lieu.tsx` **không còn ai gọi** sau khi bỏ màn Báo giá. Chưa xóa
+vì mỗi hàm nằm ở 4 chỗ (khai trong interface · `useCallback` · mảng deps · object context) — 28 vị
+trí, sửa nhầm một chỗ là vỡ cả kho dữ liệu, mà xóa xong người dùng không thấy khác gì:
+
+`luuPhanBoBaoGia` · `nhapGiaNCC` · `dinhKemBaoGia` · `luuDeXuatNCC` · `luuThongTinNCC` ·
+`trinhXetDuyetBaoGia` · `duyetPhuongAnTach`
+
+⚠️ **Đừng gọi lại chúng.** Bản đang dùng là `luuDeXuatNCCChoDeNghi` và `trinhXetDuyetBaoGiaChoDeNghi`
+(nhận **id đề nghị**, tự lập hồ sơ xét duyệt nếu chưa có). Hai hàm cũ nhận `bgId` — mà giao diện
+không còn chỗ nào có `bgId` trong tay.
+
+Cùng loại: `2-quy-trinh/nguong-gia-tri.ts` chỉ còn `chuTien` được dùng (bởi `hop-chuyen-giai-doan.tsx`),
+các export khác đã chết.
+
+### 🔴 KHÔNG CÒN CẤP DUYỆT THEO GIÁ TRỊ (20/08/2026)
+
+Ban lãnh đạo: *"không cần tổng giám đốc duyệt, trưởng phòng sẽ quyết định"*.
+
+Người duyệt báo giá **luôn là trưởng bộ phận Thu mua**, không phân cấp theo số tiền. Và app **không
+tự tính được giá trị hồ sơ** nữa (không nhập giá), nên ba ngưỡng theo đồng trong
+`2-quy-trinh/cau-hinh-quy-trinh.ts` chỉ còn là **mốc tham chiếu** — trang Cài đặt quy trình đã ghi
+rõ điều đó ngay trên các ô nhập, để không ai tưởng app đang tự chặn theo ngưỡng.
+
+📌 Con số app **thật sự chặn** là ô **SL Báo giá** trưởng bộ phận đặt tay khi giao việc ở bước ①
+(luật ở `2-quy-trinh/bao-gia-dinh-kem.ts`).
+
+⚠️ **Trường `DongBaoGia.baoGiaNCC` trong `kieu-du-lieu.ts` GIỮ NGUYÊN.** Có 13 điểm đọc truy cập
+trần (không `?.`, không `?? []`); xóa trường mà sót một chỗ là ném TypeError khi kéo thẻ và trang
+chi tiết trắng màn. Dữ liệu cũ trên máy chủ cũng vẫn mang trường đó.
 
 **Muốn trả một mục về menu:** thêm lại vào mảng `MUC_DIEU_HUONG` trong `2-quy-trinh/dieu-huong.ts`.
 Không phải dựng lại gì, màn hình còn nguyên.

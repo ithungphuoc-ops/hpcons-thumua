@@ -31,6 +31,7 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
+import { TOI_DA_O_BAO_GIA } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
@@ -853,26 +854,34 @@ export function BangPhanBo({
         <div className="flex flex-col gap-(--hp-md-row-gap)">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="so-bao-gia">Số báo giá yêu cầu nhân viên lấy về</Label>
-            <Input
+            {/* ★ NÚT SỔ XUỐNG thay cho ô gõ số — Ban lãnh đạo 20/08/2026: *"tạo nút sổ xuống chọn
+                số lượng báo giá"*.
+                🔴 CHỈ LIỆT KÊ TỚI `TOI_DA_O_BAO_GIA` (4): đó là số ô đính kèm app thật sự mở ra
+                được — mỗi bước giữ tối đa 5 tệp và một suất đã dành cho bảng so sánh bắt buộc.
+                Ô gõ số cũ cho nhập tới 10, và người giao việc đặt 7 thì app chỉ mở 4 ô → yêu cầu
+                của họ không bao giờ thỏa được mà chẳng có gì báo. Sổ xuống thì không chọn được
+                con số app không làm nổi. */}
+            <select
               id="so-bao-gia"
-              type="number"
-              min={1}
-              max={10}
-              inputMode="numeric"
-              placeholder="Để trống nếu không yêu cầu riêng"
               value={soBaoGia}
               onChange={(e) => setSoBaoGia(e.target.value)}
-            />
+              className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
+            >
+              <option value="">Không yêu cầu riêng</option>
+              {Array.from({ length: TOI_DA_O_BAO_GIA }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={String(n)}>
+                  {n} báo giá
+                </option>
+              ))}
+            </select>
             {/* Nêu luật thật của công ty để trưởng bộ phận đặt con số có căn cứ, thay vì
-                đoán. CẢ HAI con số đều lấy từ `cauHinh`, KHÔNG viết số cứng ở đây — số báo giá
-                tối thiểu cũng là tham số sửa được ở trang Cài đặt quy trình, trước 14/08/2026
-                chỗ này còn viết cứng "02". */}
+                đoán. Con số tối thiểu lấy từ `cauHinh`, KHÔNG viết số cứng ở đây — nó là tham số
+                sửa được ở trang Cài đặt quy trình, trước 14/08/2026 chỗ này còn viết cứng "02". */}
             <p className="text-xs text-text-desc">
               Quy trình yêu cầu tối thiểu{" "}
-              <strong>{String(cauHinh.soBaoGiaToiThieu).padStart(2, "0")} báo giá</strong> với đơn
-              từ {(cauHinh.nguongHaiBaoGia / 1_000_000).toLocaleString("vi-VN")} triệu đồng trở lên. Lúc
-              giao việc thì chưa có giá nên app chưa biết đơn này thuộc mức nào — để trống cũng
-              được, app vẫn soát theo ngưỡng khi trình xét duyệt báo giá.
+              <strong>{String(cauHinh.soBaoGiaToiThieu).padStart(2, "0")} báo giá</strong>. Để
+              trống thì app không chặn theo số bản — nhân viên vẫn phải đính kèm{" "}
+              <strong>bảng so sánh</strong> trước khi trình xét duyệt.
             </p>
           </div>
 

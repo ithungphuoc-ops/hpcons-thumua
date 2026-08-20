@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ChevronDown,
+  Plus,
   ChevronRight,
   Download,
   FileSpreadsheet,
@@ -247,7 +248,15 @@ export function FormLapDonMuaHang({
   onDaLuu,
   onHuy,
 }: PropFormLapDonMuaHang) {
-  const { deNghi: dsDeNghi, donHang, baoGia, phieuNhan, nhaCungCap, themDonHang } = useDuLieu();
+  const {
+    deNghi: dsDeNghi,
+    donHang,
+    baoGia,
+    phieuNhan,
+    nhaCungCap,
+    themDonHang,
+    themNhaCungCap,
+  } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   /**
@@ -507,6 +516,22 @@ export function FormLapDonMuaHang({
     if (n.nguoiLienHe) setNguoiLienHe(n.nguoiLienHe);
   }, []);
 
+  /**
+   * Hộp "Thêm nhà cung cấp mới vào danh mục" (Ban lãnh đạo 20/08/2026) và các ô của nó.
+   *
+   * 📌 Giữ state ở đây chứ không dựng component riêng: chỉ có 5 ô, và nó dùng đúng một chỗ. Tách
+   * ra file riêng lúc này là thêm một tầng truyền prop mà không ai dùng lại.
+   */
+  const [moThemNCC, setMoThemNCC] = useState(false);
+  const [nccMoi, setNccMoi] = useState({
+    maNCC: "",
+    ten: "",
+    maSoThue: "",
+    diaChi: "",
+    dienThoai: "",
+    nguoiLienHe: "",
+  });
+
   /** Dựng một dòng bảng từ một dòng đề nghị. Số lượng bỏ trống = lấy hết phần còn lại. */
   const dungDongTuDeNghi = useCallback(
     (d: TienDoDongDeNghi, soLuong?: number, gia?: number): DongNhapDonHang => ({
@@ -538,6 +563,40 @@ export function FormLapDonMuaHang({
     setMaHopDong(dn.maHopDongCDT ?? "");
     daDienTuDeNghi.current = true;
   }, [dn]);
+
+  /**
+   * ★ TỰ NẠP MẶT HÀNG + SỐ LƯỢNG TỪ ĐỀ NGHỊ — Ban lãnh đạo 20/08/2026: *"khi bấm vào bước lập PO
+   * này phải tự động link tên mặt hàng + số lượng theo đề nghị"*.
+   *
+   * 🔴 VÌ SAO TRƯỚC ĐÂY TRỐNG: đường điền sẵn duy nhất là effect TÁCH PO ngay dưới, và nó đòi
+   * `rfqId` + `nccId` — hai tham số chỉ có khi bấm "Lập đơn" từ màn Báo giá. Màn đó **đã xóa**
+   * 20/08/2026, nên vào từ `?prId=…` thì bảng Hàng tiền không có dòng nào và người lập phải gõ
+   * lại toàn bộ mặt hàng đã có trên phiếu — mời sai sót vào chứng từ, đúng cái mà effect điền sẵn
+   * phía trên vốn để tránh.
+   *
+   * 📌 Nạp `khoiLuongChuaLenPO` chứ KHÔNG phải khối lượng đề nghị: dòng đã lên đơn một phần thì
+   * chỉ còn phần chưa đặt là hợp lệ. Đơn giá để TRỐNG — app không còn nhập giá nhà cung cấp nữa
+   * (Ban lãnh đạo 19–20/08/2026), người lập tự điền theo báo giá đã đính kèm.
+   *
+   * ⚠️ KHÔNG ghi đè nếu bảng đã có dòng: người lập có thể vừa thêm tay hoặc nhập từ Excel.
+   */
+  const daNapTuDeNghi = useRef(false);
+  useEffect(() => {
+    if (daNapTuDeNghi.current) return;
+    if (!dn) return;
+    /* Đường TÁCH PO có effect riêng ngay dưới — để nó tự lo, đừng nạp trùng. */
+    if (rfqId && nccIdTuBaoGia) return;
+    /* Dữ liệu có thể chưa về ở lần vẽ đầu: chưa chốt cờ để lần sau còn chạy lại. */
+    if (dongLapDuoc.length === 0) return;
+
+    const dongMoi = dongLapDuoc
+      .filter((d) => d.khoiLuongChuaLenPO > 0)
+      .map((d) => dungDongTuDeNghi(d));
+    if (dongMoi.length === 0) return;
+
+    setDongBang((t) => (t.length > 0 ? t : dongMoi));
+    daNapTuDeNghi.current = true;
+  }, [dn, rfqId, nccIdTuBaoGia, dongLapDuoc, dungDongTuDeNghi]);
 
   /**
    * ĐIỀN SẴN TỪ PHÂN BỔ CỦA BẢNG BÁO GIÁ — mắt nối của chức năng TÁCH PO.
@@ -1903,6 +1962,24 @@ export function FormLapDonMuaHang({
                           ))}
                         </ul>
                       )}
+
+                      {/* ★ THÊM NHÀ CUNG CẤP NGAY TẠI ĐÂY — Ban lãnh đạo 20/08/2026: *"tạo danh
+                          mục NCC do bộ phận thu mua điền thông tin"*.
+                          🔴 Đặt TRONG danh mục, không phải một nút riêng ở đâu khác: người dùng
+                          mở danh mục ra, không thấy bên mình cần, thì đúng lúc đó mới cần thêm.
+                          Bắt họ đóng lại rồi đi tìm nút khác là mời họ gõ tay cho xong. */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMoThemNCC(true);
+                          /* Tên đã gõ ở ô bên cạnh thì mang sang, đỡ gõ lại. */
+                          setNccMoi((c) => ({ ...c, ten: c.ten || tenNCC }));
+                        }}
+                        className="mt-1 flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed border-border px-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary-bg"
+                      >
+                        <Plus className="size-4 shrink-0" aria-hidden />
+                        Thêm nhà cung cấp mới vào danh mục
+                      </button>
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -2636,6 +2713,103 @@ export function FormLapDonMuaHang({
           if (them.length > 0) setDongBang((t) => [...t, ...them]);
         }}
       />
+
+      {/* ===== Hộp THÊM NHÀ CUNG CẤP vào danh mục (Ban lãnh đạo 20/08/2026) ===== */}
+      <HopXacNhan
+        mo={moThemNCC}
+        tieuDe="Thêm nhà cung cấp vào danh mục?"
+        moTa="Nhà cung cấp thêm ở đây dùng chung cho cả phòng, lần sau chọn thẳng trong danh mục."
+        nhanDongY="Thêm vào danh mục"
+        /* 🔴 Khóa kèm CÂU GIẢI THÍCH — mã và tên là hai thứ mọi chứng từ sau này dựa vào để truy
+           về đúng một đối tượng, thiếu là không truy được. */
+        khoaDongY={
+          nccMoi.maNCC.trim() === ""
+            ? "Phải có mã nhà cung cấp (vd NCC0005)."
+            : nccMoi.ten.trim() === ""
+              ? "Phải có tên nhà cung cấp."
+              : undefined
+        }
+        onDong={() => setMoThemNCC(false)}
+        onDongY={() => {
+          const loi = themNhaCungCap(nccMoi);
+          if (loi) {
+            toast.error("Không thêm được vào danh mục", { description: loi });
+            return;
+          }
+          /* Thêm xong thì ĐIỀN LUÔN vào đơn đang lập — người dùng mở hộp này giữa lúc lập đơn,
+             bắt họ mở lại danh mục để chọn là thêm một bước vô ích. */
+          setMaNCC(nccMoi.maNCC.trim());
+          setTenNCC(nccMoi.ten.trim());
+          if (nccMoi.maSoThue.trim()) setMstNCC(nccMoi.maSoThue.trim());
+          if (nccMoi.diaChi.trim()) setDiaChiNCC(nccMoi.diaChi.trim());
+          if (nccMoi.nguoiLienHe.trim()) setNguoiLienHe(nccMoi.nguoiLienHe.trim());
+          toast.success("Đã thêm vào danh mục", { description: nccMoi.ten.trim() });
+          setMoThemNCC(false);
+          setNccMoi({ maNCC: "", ten: "", maSoThue: "", diaChi: "", dienThoai: "", nguoiLienHe: "" });
+        }}
+      >
+        <div className="flex flex-col gap-(--hp-md-row-gap)">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-1.5 sm:w-1/3">
+              <Label htmlFor="ncc-moi-ma">Mã nhà cung cấp *</Label>
+              <Input
+                id="ncc-moi-ma"
+                value={nccMoi.maNCC}
+                onChange={(e) => setNccMoi((c) => ({ ...c, maNCC: e.target.value }))}
+                placeholder="NCC0005"
+              />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <Label htmlFor="ncc-moi-ten">Tên nhà cung cấp *</Label>
+              <Input
+                id="ncc-moi-ten"
+                value={nccMoi.ten}
+                onChange={(e) => setNccMoi((c) => ({ ...c, ten: e.target.value }))}
+                placeholder="CÔNG TY TNHH …"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-1.5 sm:w-1/2">
+              <Label htmlFor="ncc-moi-mst">Mã số thuế</Label>
+              <Input
+                id="ncc-moi-mst"
+                value={nccMoi.maSoThue}
+                onChange={(e) => setNccMoi((c) => ({ ...c, maSoThue: e.target.value }))}
+                placeholder="0300000005"
+              />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <Label htmlFor="ncc-moi-dt">Điện thoại</Label>
+              <Input
+                id="ncc-moi-dt"
+                value={nccMoi.dienThoai}
+                onChange={(e) => setNccMoi((c) => ({ ...c, dienThoai: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ncc-moi-dia-chi">Địa chỉ</Label>
+            <Input
+              id="ncc-moi-dia-chi"
+              value={nccMoi.diaChi}
+              onChange={(e) => setNccMoi((c) => ({ ...c, diaChi: e.target.value }))}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ncc-moi-lien-he">Người liên hệ</Label>
+            <Input
+              id="ncc-moi-lien-he"
+              value={nccMoi.nguoiLienHe}
+              onChange={(e) => setNccMoi((c) => ({ ...c, nguoiLienHe: e.target.value }))}
+              placeholder="Tên · số điện thoại bên nhà cung cấp"
+            />
+          </div>
+        </div>
+      </HopXacNhan>
 
       {/* ===== Hộp xem trước file Excel ===== */}
       <HopXemTruocNhapExcel

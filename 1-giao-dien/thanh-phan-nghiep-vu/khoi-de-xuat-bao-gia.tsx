@@ -6,7 +6,7 @@ import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
-import type { BaoGia, NhaCungCap } from "@/3-du-lieu/kieu-du-lieu";
+import type { NhaCungCap } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
  * ★ KHỐI ĐỀ XUẤT BÁO GIÁ CỦA NHÂN VIÊN — bước ②, **không nhập số liệu giá**.
@@ -33,13 +33,25 @@ import type { BaoGia, NhaCungCap } from "@/3-du-lieu/kieu-du-lieu";
  * gán bừa một tên khác, và mọi chứng từ sau này sai đối tượng. Ô này gõ tự do, có `list` gợi ý.
  */
 export function KhoiDeXuatBaoGia({
-  baoGia,
+  deXuatNCCTen,
+  lyDoDeXuat,
   nhaCungCap,
   onLuuDeXuat,
   onTrinhXetDuyet,
   vuongMacBenNgoai,
 }: {
-  baoGia: BaoGia;
+  /**
+   * Đề xuất đã lưu — đọc từ hồ sơ xét duyệt nếu đề nghị đã có, `undefined` là chưa có gì.
+   *
+   * 🔴 NHẬN HAI TRƯỜNG RỜI, KHÔNG NHẬN CẢ `BaoGia` (sửa 20/08/2026). Trước đây prop là
+   * `baoGia: BaoGia`, nên trang chỉ vẽ được khối này khi đề nghị **đã có** một hồ sơ báo giá.
+   * Mà đề nghị vào bước ② bằng đường phân bổ hết dòng thì chưa có hồ sơ nào — và khối này
+   * **không hiện**, người dùng đứng ở bước ② không thấy nút nào để đi tiếp (Ban lãnh đạo báo:
+   * *"đang không có nút chuyển tiếp quy trình"*). Nay hồ sơ do app tự lập khi lưu đề xuất, nên
+   * khối chỉ cần biết hai chữ đã lưu, không cần cả đối tượng.
+   */
+  deXuatNCCTen?: string;
+  lyDoDeXuat?: string;
   /** Chỉ để GỢI Ý khi gõ, không giới hạn lựa chọn. */
   nhaCungCap: NhaCungCap[];
   onLuuDeXuat: (deXuat: { nccId: string; tenNCC: string; lyDo: string }) => void;
@@ -55,8 +67,8 @@ export function KhoiDeXuatBaoGia({
    */
   vuongMacBenNgoai?: string | null;
 }) {
-  const [tenNCC, setTenNCC] = useState(baoGia.deXuatNCCTen ?? "");
-  const [lyDo, setLyDo] = useState(baoGia.lyDoDeXuat ?? "");
+  const [tenNCC, setTenNCC] = useState(deXuatNCCTen ?? "");
+  const [lyDo, setLyDo] = useState(lyDoDeXuat ?? "");
 
   /**
    * Đồng bộ khi dữ liệu máy chủ đổi (kho dùng chung cả phòng).
@@ -64,9 +76,9 @@ export function KhoiDeXuatBaoGia({
    * tin mới là đè lên chữ người dùng đang gõ dở.
    */
   useEffect(() => {
-    setTenNCC(baoGia.deXuatNCCTen ?? "");
-    setLyDo(baoGia.lyDoDeXuat ?? "");
-  }, [baoGia.deXuatNCCTen, baoGia.lyDoDeXuat]);
+    setTenNCC(deXuatNCCTen ?? "");
+    setLyDo(lyDoDeXuat ?? "");
+  }, [deXuatNCCTen, lyDoDeXuat]);
 
   /**
    * Còn thiếu gì mới trình được — `null` là đủ. Luôn trả CÂU GIẢI THÍCH, không trả boolean.
@@ -85,7 +97,7 @@ export function KhoiDeXuatBaoGia({
           : null;
 
   const daLuu =
-    tenNCC.trim() === (baoGia.deXuatNCCTen ?? "") && lyDo.trim() === (baoGia.lyDoDeXuat ?? "");
+    tenNCC.trim() === (deXuatNCCTen ?? "") && lyDo.trim() === (lyDoDeXuat ?? "");
 
   function luu() {
     const ten = tenNCC.trim();

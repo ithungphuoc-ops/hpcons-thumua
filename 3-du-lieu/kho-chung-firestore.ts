@@ -71,6 +71,9 @@ function chuanHoa(d: Partial<DuLieuLuu>): DuLieuLuu {
     thongBao: Array.isArray(d.thongBao) ? d.thongBao : [],
     ...(d.cauHinh ? { cauHinh: d.cauHinh } : {}),
     ...(Array.isArray(d.lichSuCauHinh) ? { lichSuCauHinh: d.lichSuCauHinh } : {}),
+    /* Danh mục nhà cung cấp thu mua tự thêm (20/08/2026) — khai ở ĐÂY và ở `docDuLieuDaLuu`,
+       hai chỗ, đúng cảnh báo phía trên. Giữ `undefined` khi chưa có. */
+    ...(Array.isArray(d.nhaCungCapThem) ? { nhaCungCapThem: d.nhaCungCapThem } : {}),
   };
 }
 

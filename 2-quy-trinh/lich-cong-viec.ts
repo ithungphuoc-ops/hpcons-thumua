@@ -158,7 +158,9 @@ export function dungLichCuaToi(
       ngay,
       nhan: `Hạn nộp báo giá — ${bg.code}`,
       moTa: dn.code,
-      duongDan: `/bao-gia/${bg.id}`,
+      /* Màn Báo giá đã bỏ hẳn 20/08/2026 → dẫn về trang chi tiết đề nghị, nơi có khối bước ②
+         chứa các ô đính kèm bản báo giá. */
+      duongDan: `/de-nghi/${dn.id}`,
       laGhiChuTay: false,
     });
   }

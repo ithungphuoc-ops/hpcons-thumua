@@ -119,10 +119,9 @@ export default function TrangCaiDatQuyTrinh() {
           <p className="text-xs text-text-secondary">
             Cấu hình này <strong>dùng chung cho cả phòng</strong> và có tác dụng{" "}
             <strong>hồi tố</strong>: app không lưu ngưỡng vào từng hồ sơ mà tính lại mỗi lần mở,
-            nên đổi số là mọi hồ sơ cũ — kể cả hồ sơ đã xong — được xét theo luật mới. Ví dụ đơn
-            12 triệu hôm qua đã trình Tổng Giám đốc ký; nâng ngưỡng lên 15 triệu thì hôm nay app
-            ghi “Trưởng phòng duyệt”, lệch với hồ sơ giấy đang có chữ ký TGĐ. Mọi lần đổi được
-            ghi vết ở cuối trang để giải thích được chuyện đó. Chỉ đổi khi Ban lãnh đạo đã chốt.
+            nên đổi số là mọi hồ sơ cũ — kể cả hồ sơ đã xong — được xét theo luật mới. Mọi lần đổi
+            được ghi vết ở cuối trang để giải thích được chuyện đó. Chỉ đổi khi Ban lãnh đạo đã
+            chốt.
           </p>
         </CardContent>
       </Card>
@@ -136,6 +135,25 @@ export default function TrangCaiDatQuyTrinh() {
           </CardTitle>
           <p className="text-xs text-text-desc">
             Ngưỡng giá trị và số lượng bắt buộc theo quy trình TM-QT Mua hàng.
+          </p>
+          {/* 🔴 NÓI THẬT VỀ THỨ APP KHÔNG LÀM ĐƯỢC — nguyên tắc "đừng để giao diện hứa một việc
+              app không làm" (CLAUDE.md mục 3.5).
+              Ban lãnh đạo 19–20/08/2026 chốt bỏ nhập số liệu giá và bỏ bảng so sánh: bản báo giá
+              nay nằm trong tệp đính kèm. Hệ quả **app không còn biết giá trị tiền của hồ sơ**, nên
+              các ngưỡng theo đồng ở dưới KHÔNG thể tự áp dụng — để nguyên mà không nói ra thì
+              người dùng tưởng app đang tự chặn theo ngưỡng, mà thực tế không chặn gì.
+              Cùng chỉ đạo 20/08: *"không cần tổng giám đốc duyệt, trưởng phòng sẽ quyết định"* —
+              nên cấp duyệt không còn phụ thuộc giá trị nữa. */}
+          <p className="mt-2 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning-bg/40 p-(--hp-md-row-pad) text-xs text-text-secondary">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning-soft" aria-hidden />
+            <span>
+              <strong>Các ngưỡng theo đồng hiện chỉ là mốc tham chiếu.</strong> Từ 20/08/2026 app
+              không nhập giá nhà cung cấp nữa (bản báo giá nằm trong tệp đính kèm), nên app{" "}
+              <strong>không tự tính được giá trị hồ sơ</strong> để áp ngưỡng. Người duyệt là{" "}
+              <strong>trưởng bộ phận Thu mua</strong>, không phân cấp theo giá trị. Số báo giá bắt
+              buộc do trưởng bộ phận đặt ở ô <strong>SL Báo giá</strong> khi giao việc — đó mới là
+              con số app thật sự chặn.
+            </span>
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">

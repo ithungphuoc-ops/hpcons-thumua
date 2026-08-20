@@ -7,8 +7,10 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
+  BadgeCheck,
   Check,
   ClipboardCheck,
+  Send,
   ClipboardList,
   FileText,
   FileWarning,
@@ -49,10 +51,15 @@ import { Badge } from "@/1-giao-dien/nen-tang-ui/badge";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 /* Khối ĐỀ XUẤT + TRÌNH XÉT DUYỆT của bước ② — KHÔNG có phần nhập số liệu giá (chỉ đạo Ban lãnh
    đạo 19/08/2026). Xem chú thích đầy đủ tại chỗ nhúng. */
-import { KhoiDeXuatBaoGia } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-de-xuat-bao-gia";
 /* N ô đính kèm báo giá theo đúng SL Báo giá đã yêu cầu (Ban lãnh đạo 20/08/2026). */
 import { KhuBaoGiaTheoSoLuong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-bao-gia-theo-so-luong";
-import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import {
+  danhSachNCCDaBaoGia,
+  NHAN_O_SO_SANH,
+  tepBaoGiaDaDuyet,
+  tepSoSanh,
+  vuongMacTrinhXetDuyet,
+} from "@/2-quy-trinh/bao-gia-dinh-kem";
 import {
   Dialog,
   DialogContent,
@@ -66,7 +73,7 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
-import { soNgayConLai } from "@/2-quy-trinh/tinh-toan";
+import { soNgayConLai, vuongMacXacNhanKho } from "@/2-quy-trinh/tinh-toan";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import {
   giaiDoanDaKetThuc,
@@ -93,12 +100,14 @@ export default function TrangChiTietDeNghi() {
     vietBinhLuan,
     suaBinhLuan,
     datSoBaoGiaChoPhieu,
-    /* Các hàm cho khối đề xuất ở bước ② và cặp Duyệt / Không duyệt ở bước ③ — dùng CHÍNH các hàm
-       màn bảng báo giá đang dùng, không mở đường ghi thứ hai. */
-    nhaCungCap,
-    luuDeXuatNCC,
-    trinhXetDuyetBaoGia,
+    /* Hàm cho nút trình ở bước ② và cặp Duyệt / Không duyệt ở bước ③.
+       📌 Không còn `luuDeXuatNCCChoDeNghi`: khối nhân viên tự đề xuất đã bỏ 20/08/2026, nay trưởng
+       bộ phận chọn nhà cung cấp ngay khi duyệt. Hàm đó thành mồ côi trong `kho-du-lieu.tsx` —
+       đừng gọi lại, xem `BAN-DO-MA-NGUON.md` mục mã chết. */
+    trinhXetDuyetBaoGiaChoDeNghi,
     chonNCCChoBaoGia,
+    xacNhanKho,
+    xacNhanTruongBP,
     luiVeBuoc,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
@@ -107,9 +116,23 @@ export default function TrangChiTietDeNghi() {
   /** Bảng báo giá đang chờ xác nhận trình xét duyệt — `null` là chưa hỏi ai. */
   const [hoiTrinhXetDuyet, setHoiTrinhXetDuyet] = useState<string | null>(null);
   /** Bảng đang chờ trưởng bộ phận xác nhận duyệt / không duyệt (bước ③). */
+  /**
+   * Nhà cung cấp trưởng bộ phận chọn để duyệt — lấy từ tên ghi ở các ô báo giá bước ②.
+   * Rỗng = chưa chọn, và khi đó nút Duyệt bị khóa kèm lý do.
+   */
+  const [nccDuyet, setNccDuyet] = useState("");
+  /**
+   * Trưởng bộ phận / quản trị đã mở khóa khu báo giá để sửa sau khi duyệt.
+   *
+   * 🔴 CHỈ TRONG PHIÊN, không ghi vào hồ sơ: mở khóa là ngoại lệ, không phải trạng thái mới của
+   * chứng từ. Ghi vào hồ sơ thì có phiếu nằm ở trạng thái "đang mở" hàng tuần mà không ai để ý.
+   */
+  const [moKhoaBaoGia, setMoKhoaBaoGia] = useState(false);
   const [hoiDuyet, setHoiDuyet] = useState<{
     bgId: string;
     loai: "duyet" | "khong_duyet";
+    /** Bản báo giá được bấm Duyệt (vd "Báo giá NCC 2") — chỉ có khi bấm từ nút trên chính bản đó. */
+    nhanO?: string;
   } | null>(null);
   /**
    * Lý do duyệt / không duyệt — BẮT BUỘC cả hai chiều (Ban lãnh đạo 19/08/2026: *"phải có ghi
@@ -135,6 +158,13 @@ export default function TrangChiTietDeNghi() {
     () => baoGia.filter((bg) => bg.prId === params.id),
     [baoGia, params.id],
   );
+  /**
+   * Trưởng bộ phận đã duyệt chọn nhà cung cấp cho phiếu này chưa.
+   *
+   * 📌 `da_chon_ncc` là trạng thái đánh dấu ĐÃ DUYỆT (xem `chonNCCChoBaoGia`) — dùng để khóa khu
+   * báo giá, vì từ lúc này bản báo giá là căn cứ của một quyết định đã ký.
+   */
+  const daDuyetBaoGia = baoGiaLienQuan.some((bg) => bg.trangThai === "da_chon_ncc");
   /**
    * Các đề xuất con đã tách ra từ phiếu này — để "tổng hợp lại các đề xuất con của cái đề
    * xuất lớn" (Ban lãnh đạo 13/08/2026). Lọc theo `deNghiGocId`, KHÔNG theo tên.
@@ -615,10 +645,14 @@ export default function TrangChiTietDeNghi() {
                         {baoGiaLienQuan.map((bg) => {
                           const ttBG = nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, bg.trangThai);
                           return (
-                            <Link
+                            /* 🔴 KHÔNG CÒN LÀ LIÊN KẾT — Ban lãnh đạo 20/08/2026 chốt **bỏ hẳn
+                               màn Báo giá** cùng với bảng so sánh giá nhập tay. Giữ nguyên thẻ
+                               thông tin (mã bảng, số vật tư, hạn nộp, trạng thái) vì đó vẫn là
+                               dữ liệu người dùng cần thấy, nhưng bỏ `href` — để lại liên kết trỏ
+                               vào trang đã xóa là dẫn người dùng tới màn 404. */
+                            <div
                               key={bg.id}
-                              href={`/bao-gia/${bg.id}`}
-                              className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) transition-colors hover:border-primary/40"
+                              className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)"
                             >
                               <span className="text-sm font-semibold text-text-primary">
                                 {bg.code}
@@ -638,7 +672,7 @@ export default function TrangChiTietDeNghi() {
                                 tone={ttBG.tong}
                                 className="ml-auto"
                               />
-                            </Link>
+                            </div>
                           );
                         })}
                       </CardContent>
@@ -675,28 +709,64 @@ export default function TrangChiTietDeNghi() {
                      *
                      * 🔴 Đòi `quyen.lapPO`: người chỉ được xem không đề xuất, không trình.
                      */}
+                    {/**
+                      * 🔴 LUÔN HIỆN KHỐI NÀY Ở BƯỚC ②, KHÔNG ĐÒI PHẢI CÓ HỒ SƠ BÁO GIÁ TRƯỚC
+                      * (sửa 20/08/2026 — Ban lãnh đạo báo *"đang không có nút chuyển tiếp quy
+                      * trình"*).
+                      *
+                      * Bản trước lọc `baoGiaLienQuan.filter(dang_thu_thap).map(...)`, nên đề nghị
+                      * chưa có hồ sơ báo giá nào thì mảng rỗng → **không vẽ gì cả**: không ô đề
+                      * xuất, không nút trình, không một câu giải thích. Người dùng đứng ở bước ②
+                      * không có đường nào đi tiếp.
+                      *
+                      * Vì sao đề nghị lại không có hồ sơ báo giá: hồ sơ đó chỉ được sinh khi **kéo
+                      * thẻ** từ cột ① sang ②. Nhưng phiếu còn một đường khác vào bước ② —
+                      * **phân bổ hết dòng thì tự chuyển bước** — và đường đó không sinh gì.
+                      *
+                      * Nay hồ sơ do `luuDeXuatNCCChoDeNghi` tự lập khi nhân viên lưu đề xuất. Từ
+                      * lúc Ban lãnh đạo chốt *"chỉ đính kèm file và trưởng bộ phận chọn duyệt
+                      * thôi"*, việc bắt người dùng tự đi "lập bảng báo giá" từ menu ⋯ đã hết lý do
+                      * tồn tại — bảng đó nay chỉ là **hồ sơ xét duyệt** (giữ đề xuất, lý do duyệt,
+                      * các lần bị trả lại), không còn bảng so sánh giá nào.
+                      *
+                      * 🔴 Đòi `quyen.lapPO`: người chỉ được xem không đề xuất, không trình.
+                      */}
+                    {/**
+                      * 🔴 ĐÃ BỎ KHỐI NHÂN VIÊN TỰ ĐỀ XUẤT NHÀ CUNG CẤP (20/08/2026 — Ban lãnh đạo
+                      * khoanh đỏ hai ô *"Đề xuất chọn nhà cung cấp nào?"* và *"Dẫn chứng cụ thể"*,
+                      * ghi **"bỏ mục này"**).
+                      *
+                      * Vì sao hợp lý: tên nhà cung cấp nay ghi **ngay cạnh từng ô đính kèm** ở khu
+                      * báo giá phía dưới, nên ô đề xuất là chỗ thứ hai hỏi cùng một thứ. Và theo
+                      * chỉ đạo *"trưởng bộ phận chọn duyệt"*, người quyết chọn nhà cung cấp là
+                      * trưởng bộ phận ở bước ③ — không phải nhân viên đề xuất trước.
+                      *
+                      * 👉 Nhân viên ở bước ② chỉ còn làm ĐÚNG MỘT việc: đính kèm đủ bản báo giá
+                      * rồi bấm trình. Điều kiện chặn vẫn nguyên: đủ số bản mới trình được.
+                      */}
                     {quyen.lapPO &&
-                      baoGiaLienQuan
-                        .filter((bg) => bg.trangThai === "dang_thu_thap")
-                        .map((bg) => (
-                          <KhoiDeXuatBaoGia
-                            key={bg.id}
-                            baoGia={bg}
-                            nhaCungCap={nhaCungCap}
-                            onLuuDeXuat={(dx) => {
-                              luuDeXuatNCC(bg.id, dx, nguoiDung.tenHienThi);
-                              toast.success("Đã lưu đề xuất");
-                            }}
-                            /* 🔴 CHẶN TRÌNH KHI CHƯA ĐỦ BẢN BÁO GIÁ — Ban lãnh đạo 20/08/2026:
-                               đủ số báo giá là **điều kiện bắt buộc để chuyển bước**.
-                               Luật ở `2-quy-trinh/bao-gia-dinh-kem.ts`, cùng hàm mà khu đính kèm
-                               dùng để vẽ ô — hai chỗ không thể nói khác nhau. */
-                            vuongMacBenNgoai={vuongMacTrinhXetDuyet(dn)}
-                            /* Trình xét duyệt = chuyển bước, việc không lùi lại được → hỏi trước
-                               (nguyên tắc Ban lãnh đạo 10/08/2026). */
-                            onTrinhXetDuyet={() => setHoiTrinhXetDuyet(bg.id)}
-                          />
-                        ))}
+                      !baoGiaLienQuan.some((bg) => bg.trangThai !== "dang_thu_thap") &&
+                      (() => {
+                        const vuongMac = vuongMacTrinhXetDuyet(dn);
+                        return (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Nút khóa KÈM LÝ DO, không khóa im lặng — nút mờ mà không nói còn
+                                thiếu gì là kiểu bí việc khó chịu nhất. */}
+                            <Button
+                              size="sm"
+                              disabled={vuongMac !== null}
+                              title={vuongMac ?? undefined}
+                              onClick={() => setHoiTrinhXetDuyet(dn.id)}
+                            >
+                              <Send className="size-4" aria-hidden />
+                              Trình xét duyệt báo giá
+                            </Button>
+                            {vuongMac !== null && (
+                              <span className="text-xs text-warning-soft">{vuongMac}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                   </section>
                 ),
                 /**
@@ -742,7 +812,79 @@ export default function TrangChiTietDeNghi() {
                   <KhuBaoGiaTheoSoLuong
                     deNghi={dn}
                     duocSua={duocSuaTepBuoc}
-                    khoa={hoSoDaDong}
+                    /**
+                     * 🔴 KHÓA SAU KHI DUYỆT — Ban lãnh đạo 20/08/2026: *"khi đã duyệt thì khoá
+                     * chức năng thay đổi báo giá và xoá sửa. Chỉ có cấp trưởng phòng và quản trị
+                     * được mở lại"*.
+                     *
+                     * Vì sao cần: bản báo giá là căn cứ của quyết định duyệt. Sửa hay bỏ nó sau
+                     * khi đã duyệt là làm hồ sơ không còn khớp với thứ trưởng bộ phận đã ký —
+                     * người kiểm tra sau không đối chiếu được.
+                     *
+                     * 📌 Mở khóa chỉ có tác dụng TRONG PHIÊN đang mở (state, không ghi vào hồ
+                     * sơ): người mở sửa xong rời trang là khóa lại, không để hồ sơ ở trạng thái
+                     * "đang mở" vô thời hạn mà không ai biết.
+                     */
+                    khoa={hoSoDaDong || (daDuyetBaoGia && !moKhoaBaoGia)}
+                    lyDoKhoa={
+                      hoSoDaDong || !daDuyetBaoGia
+                        ? undefined
+                        : moKhoaBaoGia
+                          ? "Đang mở khóa: THAY tệp được, BỎ tệp thì không — hồ sơ đã duyệt nên không được để trống chỗ nào. Thay xong nhớ kiểm lại quyết định duyệt còn đúng không."
+                          : "Đã duyệt nên bản báo giá bị khóa: không thay, không bỏ tệp. Xem và tải về vẫn được. Cần bỏ hẳn thì bấm “Không duyệt” ở bước Xét duyệt báo giá để trả hồ sơ về bước trước."
+                    }
+                    onMoKhoa={
+                      daDuyetBaoGia && !moKhoaBaoGia && quyen.xacNhanTruongBP && !hoSoDaDong
+                        ? () => setMoKhoaBaoGia(true)
+                        : undefined
+                    }
+                    /**
+                     * 🔴 ĐÃ DUYỆT THÌ KHÔNG BỎ TỆP, KỂ CẢ ĐÃ MỞ KHÓA — Ban lãnh đạo hỏi lại
+                     * *"sao vẫn xoá được"* (20/08/2026).
+                     *
+                     * Mở khóa nay chỉ cho **thay tệp** (hồ sơ vẫn có chứng từ, chỉ là bản khác).
+                     * Bỏ tệp thì không: bỏ là hồ sơ trống chỗ đó trong khi quyết định duyệt vẫn
+                     * còn — người kiểm tra sau không đối chiếu được, và không có cách nào biết
+                     * trước kia có gì.
+                     *
+                     * 👉 Thật sự cần bỏ thì bấm "Không duyệt" ở bước ③ để trả hồ sơ về bước ②;
+                     * lúc đó quyết định duyệt bị hủy theo, nên không bao giờ có hồ sơ "đã duyệt
+                     * mà thiếu chứng từ".
+                     */
+                    chanXoaTep={daDuyetBaoGia}
+                    /**
+                     * ★ NÚT "DUYỆT BẢN NÀY" TRÊN TỪNG BẢN BÁO GIÁ — Ban lãnh đạo 20/08/2026:
+                     * *"bố cục thêm nút Duyệt và khi bấm nút đó thì file sẽ tự chuyển sang bước
+                     * tiếp theo"*.
+                     *
+                     * 🔴 CHỈ HIỆN KHI ĐỦ BA ĐIỀU: đúng bước ③ (đã trình, đang chờ duyệt) · người
+                     * xem có quyền trưởng bộ phận · hồ sơ chưa duyệt. Thiếu một điều là không
+                     * truyền `onDuyetO`, và khu báo giá không vẽ nút — chứ không bày nút rồi chặn
+                     * khi bấm.
+                     *
+                     * 📌 Trưởng bộ phận vẫn phải ghi tên nhà cung cấp và căn cứ duyệt trong hộp
+                     * xác nhận: bấm nút là chọn BẢN nào, còn duyệt cho BÊN nào và vì sao thì phải
+                     * ghi ra — đó là thứ về sau dùng để giải trình.
+                     */
+                    onDuyetO={
+                      quyen.xacNhanTruongBP &&
+                      giaiDoan === "xet_duyet_bao_gia" &&
+                      !hoSoDaDong &&
+                      baoGiaLienQuan.some((bg) => bg.trangThai === "da_so_sanh")
+                        ? (o) => {
+                            const bg = baoGiaLienQuan.find(
+                              (b) => b.trangThai === "da_so_sanh",
+                            );
+                            if (!bg) return;
+                            if (o.tenNCCDaGhi !== "") setNccDuyet(o.tenNCCDaGhi);
+                            setHoiDuyet({ bgId: bg.id, loai: "duyet", nhanO: o.nhanO });
+                          }
+                        : undefined
+                    }
+                    /* Tên nhà cung cấp cho từng ô báo giá (Ban lãnh đạo 20/08/2026) — gác
+                       `xemNhaCungCap` như mọi chỗ hiện tên NCC. Gõ tự do, KHÔNG truyền danh mục
+                       gợi ý (chỉ đạo 20/08/2026: *"bỏ danh mục gợi ý NCC đi"*). */
+                    hienTenNCC={quyen.xemNhaCungCap}
                   />
                 ),
               },
@@ -750,11 +892,40 @@ export default function TrangChiTietDeNghi() {
                 ma: "xet_duyet_bao_gia",
                 nhan: NHAN_GIAI_DOAN.xet_duyet_bao_gia.nhan,
                 dangODay: giaiDoan === "xet_duyet_bao_gia",
-                truong: baoGiaLienQuan.flatMap((bg) =>
-                  (bg.tepBaoGia ?? []).length > 0
-                    ? [{ nhan: `Báo giá NCC — ${bg.code}`, tep: bg.tepBaoGia }]
-                    : [],
-                ),
+                /**
+                 * ★ ĐẦU VÀO CỦA BƯỚC ③ = BẢN BÁO GIÁ ĐƯỢC CHỌN — Ban lãnh đạo 20/08/2026:
+                 * *"hãy tạo đường link tới báo giá được chọn"*.
+                 *
+                 * Trước đó khối này ghi *"Giai đoạn này chưa có dữ liệu nhập vào"*, trong khi đầu
+                 * vào thật của bước xét duyệt chính là bản báo giá mà trưởng bộ phận chọn. Người
+                 * đọc hồ sơ (kể cả Ban Giám đốc) phải mở lại bước ② rồi tự đoán bản nào — mà sau
+                 * khi duyệt thì căn cứ chỉ còn là dòng chữ `[Báo giá NCC 2]` trong phần giải trình.
+                 *
+                 * Nay hiện thẳng **tệp của bản được chọn**, xem và tải về được ngay tại bước ③.
+                 *
+                 * ⚠️ `tepBaoGiaDaDuyet` trả `undefined` với hồ sơ duyệt TRƯỚC 20/08/2026 (căn cứ
+                 * duyệt hồi đó không ghi kèm số hiệu ô) — khi đó vẫn giữ dòng cũ, không bịa ra
+                 * một bản nào.
+                 */
+                truong: baoGiaLienQuan.flatMap((bg) => {
+                  const daChon = tepBaoGiaDaDuyet(dn, bg.lyDoChonNCC);
+                  return [
+                    ...(daChon
+                      ? [
+                          {
+                            nhan: `Bản báo giá được chọn — ${daChon.nhanO}`,
+                            tep: [daChon.tep],
+                          },
+                        ]
+                      : []),
+                    /* Bảng so sánh cũng là căn cứ trưởng bộ phận đọc để quyết — đưa luôn vào đây
+                       thay vì buộc mở lại bước ②. */
+                    ...(tepSoSanh(dn) ? [{ nhan: NHAN_O_SO_SANH, tep: [tepSoSanh(dn)!] }] : []),
+                    ...((bg.tepBaoGia ?? []).length > 0
+                      ? [{ nhan: `Tệp gắn trong hồ sơ ${bg.code}`, tep: bg.tepBaoGia }]
+                      : []),
+                  ];
+                }),
                 /**
                  * ★ KHỐI XÉT DUYỆT — Ban lãnh đạo 19/08/2026: *"chưa có chức năng duyệt báo
                  * giá"*, kèm ảnh khối này trống trơn.
@@ -870,36 +1041,89 @@ export default function TrangChiTietDeNghi() {
                              * ⚠️ Chưa có đề xuất thì KHÔNG cho duyệt — duyệt mà không biết duyệt cho
                              * nhà cung cấp nào thì đơn hàng sau đó không có đối tượng.
                              */}
-                            {quyen.xacNhanTruongBP && !daDuyet && (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  disabled={!bg.deXuatNCCTen}
-                                  title={
-                                    bg.deXuatNCCTen
-                                      ? undefined
-                                      : "Nhân viên chưa ghi đề xuất chọn nhà cung cấp."
-                                  }
-                                  onClick={() => setHoiDuyet({ bgId: bg.id, loai: "duyet" })}
-                                >
-                                  <Check className="size-4" aria-hidden />
-                                  Duyệt
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setHoiDuyet({ bgId: bg.id, loai: "khong_duyet" })}
-                                >
-                                  <X className="size-4" aria-hidden />
-                                  Không duyệt
-                                </Button>
-                                {!bg.deXuatNCCTen && (
-                                  <span className="text-xs text-warning-soft">
-                                    Nhân viên chưa ghi đề xuất chọn nhà cung cấp.
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                            {/**
+                              * ★ TRƯỞNG BỘ PHẬN CHỌN NHÀ CUNG CẤP RỒI DUYỆT — Ban lãnh đạo
+                              * 20/08/2026: *"chỉ đính kèm file và trưởng bộ phận chọn duyệt thôi"*,
+                              * và bỏ khối nhân viên tự đề xuất.
+                              *
+                              * 🔴 Danh sách chọn LẤY TỪ TÊN GHI Ở TỪNG Ô ĐÍNH KÈM bước ② (hàm
+                              * `danhSachNCCDaBaoGia`), không phải từ danh mục nhà cung cấp: người
+                              * duyệt chỉ được chọn giữa những bên **đã thật sự gửi báo giá** cho
+                              * phiếu này. Cho chọn ngoài danh sách đó là duyệt cho một bên không
+                              * có bản báo giá nào trong hồ sơ.
+                              */}
+                            {quyen.xacNhanTruongBP && !daDuyet && (() => {
+                              /**
+                               * ★ TRƯỞNG BỘ PHẬN GÕ TÊN NHÀ CUNG CẤP KHI DUYỆT — Ban lãnh đạo
+                               * 20/08/2026, sau khi bỏ ô ghi tên ở bước ②
+                               * (*"bỏ mục này và kéo dài thanh đính kèm qua"*).
+                               *
+                               * 🔴 GÕ TỰ DO, KHÔNG CHỌN TỪ DANH SÁCH. Bản trước liệt kê các nhà
+                               * cung cấp lấy từ tên ghi ở từng ô đính kèm — nay bước ② không thu
+                               * tên nữa nên danh sách đó **luôn rỗng**, và nút Duyệt sẽ khóa vĩnh
+                               * viễn. Đây là chỗ duy nhất còn thu tên, nên nó phải nhập được.
+                               *
+                               * 📌 Hồ sơ cũ có tên ghi ở ô báo giá thì điền sẵn vào đây, đỡ phải
+                               * gõ lại — nhưng vẫn sửa được, vì người quyết là trưởng bộ phận.
+                               */
+                              const goiY = danhSachNCCDaBaoGia(dn)[0]?.tenNCC ?? "";
+                              const thieu =
+                                nccDuyet.trim() === ""
+                                  ? "Ghi tên nhà cung cấp được duyệt trước khi duyệt."
+                                  : null;
+                              return (
+                                <div className="flex flex-col gap-2">
+                                  {quyen.xemNhaCungCap && (
+                                    <div className="flex flex-col gap-1.5">
+                                      <Label htmlFor="chon-ncc-duyet">
+                                        Duyệt cho nhà cung cấp nào? *
+                                      </Label>
+                                      <Input
+                                        id="chon-ncc-duyet"
+                                        value={nccDuyet}
+                                        onChange={(e) => setNccDuyet(e.target.value)}
+                                        onFocus={() => {
+                                          /* Điền gợi ý từ hồ sơ cũ đúng MỘT LẦN, chỉ khi ô còn
+                                             trống — không đè lên chữ trưởng bộ phận đang gõ. */
+                                          if (nccDuyet === "" && goiY !== "") setNccDuyet(goiY);
+                                        }}
+                                        placeholder="Gõ tên nhà cung cấp được chọn"
+                                        className="sm:w-2/3"
+                                      />
+                                      <p className="text-xs text-text-desc">
+                                        Tên này đi vào quyết định duyệt và là căn cứ lập đơn đặt
+                                        hàng — ghi đúng tên trên báo giá đã đính kèm.
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      disabled={thieu !== null}
+                                      title={thieu ?? undefined}
+                                      onClick={() => setHoiDuyet({ bgId: bg.id, loai: "duyet" })}
+                                    >
+                                      <Check className="size-4" aria-hidden />
+                                      Duyệt
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        setHoiDuyet({ bgId: bg.id, loai: "khong_duyet" })
+                                      }
+                                    >
+                                      <X className="size-4" aria-hidden />
+                                      Không duyệt
+                                    </Button>
+                                    {thieu !== null && (
+                                      <span className="text-xs text-warning-soft">{thieu}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {/* Đề xuất của nhân viên — thứ trưởng bộ phận cần đọc để quyết.
                                 Gác `xemNhaCungCap` như mọi chỗ hiện tên NCC. */}
@@ -919,15 +1143,37 @@ export default function TrangChiTietDeNghi() {
                               </div>
                             )}
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-fit"
-                              nativeButton={false}
-                              render={<Link href={`/bao-gia/${bg.id}`} />}
-                            >
-                              Xem bảng so sánh giá
-                            </Button>
+                            {/* ★ BỊ TRẢ LẠI — DỜI VỀ ĐÂY 20/08/2026 khi bỏ hẳn màn Báo giá.
+                                🔴 ĐÂY LÀ NỬA CÒN LẠI CỦA CHỨC NĂNG "KHÔNG DUYỆT". Ghi được lý do
+                                mà không hiện ra thì nhân viên chỉ thấy phiếu tự nhảy ngược về
+                                bước ② — không biết vì sao, không biết sửa gì, và sẽ trình lại y
+                                nguyên. Trước đây khối này nằm ở `bao-gia-chi-tiet.tsx`, là chỗ
+                                hiển thị DUY NHẤT; bỏ màn đó mà không dời khối này là làm mất
+                                hẳn lý do trả lại khỏi app.
+                                📌 Hiện MỌI lượt, mới nhất lên đầu: phiếu đi lại nhiều vòng thì
+                                phải đọc được cả quá trình, nếu không lần bác thứ ba vẫn lặp lại
+                                đúng cái sai của lần đầu. */}
+                            {(bg.lanTraLai ?? []).length > 0 && (
+                              <div className="flex flex-col gap-2 rounded-lg border border-danger/40 bg-danger-bg/30 p-(--hp-md-row-pad)">
+                                <span className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                                  <X className="size-4 shrink-0 text-danger-soft" aria-hidden />
+                                  Trưởng bộ phận đã trả lại{" "}
+                                  {(bg.lanTraLai ?? []).length > 1 &&
+                                    `${(bg.lanTraLai ?? []).length} lần`}
+                                </span>
+                                {[...(bg.lanTraLai ?? [])].reverse().map((l, i) => (
+                                  <div
+                                    key={i}
+                                    className="rounded-lg border border-border bg-card p-(--hp-md-row-pad)"
+                                  >
+                                    <p className="text-sm text-text-primary">{l.lyDo}</p>
+                                    <p className="mt-1 text-xs text-text-desc">
+                                      {l.nguoiTuChoiTen} · {formatMocThoiGian(l.thoiDiem)}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       );
@@ -1113,6 +1359,112 @@ export default function TrangChiTietDeNghi() {
                     ? [{ nhan: `Phiếu giao nhận lần ${p.lanGiaoThu}`, tep: [p.tepPhieuGiao] }]
                     : [],
                 ),
+                /**
+                 * ★ XÁC NHẬN HOÀN THÀNH CỦA TRƯỞNG BỘ PHẬN — Ban lãnh đạo 20/08/2026: *"đang chưa
+                 * có bước xác nhận của trưởng bộ phận ở bước này"*.
+                 *
+                 * 🔴 VÌ SAO TRƯỚC ĐÂY KHÔNG THẤY: việc xác nhận VỐN ĐÃ CÓ, nhưng chỉ nằm ở màn
+                 * **Đơn hàng chi tiết**. Trưởng bộ phận đứng ở trang đề nghị — nơi họ theo dõi cả
+                 * quy trình — thì bước ⑥ chỉ có tệp đính kèm, không một nút nào. Họ phải tự biết
+                 * mở sang từng đơn hàng mới xác nhận được.
+                 *
+                 * 🔴 GÁC ĐÚNG LUẬT ĐÃ CHỐT, KHÔNG NỚI: `vuongMacXacNhanKho` — *"mỗi lần giao phải
+                 * có tệp phiếu giao nhận đính kèm mới được xác nhận hoàn thành"* (Ban lãnh đạo
+                 * 11/08/2026, quy tắc dữ liệu số 5 ở CLAUDE.md). Luật ở `2-quy-trinh/tinh-toan.ts`,
+                 * gọi lại đúng hàm đó chứ không kiểm lại theo cách khác.
+                 *
+                 * 📌 Thứ tự hai lớp giữ nguyên: **kho xác nhận trước**, trưởng bộ phận sau. Bỏ thứ
+                 * tự là trưởng bộ phận chốt xong mà kho chưa nhận đủ hàng.
+                 */
+                noiDungNghiepVu: (() => {
+                  const poChoXacNhan = poLienQuan.filter(
+                    (po) => po.trangThai !== "hoan_thanh" && po.trangThai !== "huy",
+                  );
+                  if (poChoXacNhan.length === 0) return undefined;
+                  return (
+                    <div className="flex flex-col gap-(--hp-md-row-gap)">
+                      {poChoXacNhan.map((po) => {
+                        const phieuCuaPO = phieuNhan.filter((p) => p.poId === po.id);
+                        const vuongMacTep = vuongMacXacNhanKho(phieuCuaPO);
+                        const daKhoXacNhan = Boolean(po.xacNhanKho);
+                        return (
+                          <div
+                            key={po.id}
+                            className="flex flex-col gap-2 rounded-xl border border-border bg-card p-(--hp-md-row-pad)"
+                          >
+                            <p className="flex flex-wrap items-center gap-2 text-sm">
+                              <span className="font-semibold text-text-primary">{po.code}</span>
+                              <StatusBadge
+                                label={daKhoXacNhan ? "Kho đã xác nhận" : "Chờ kho xác nhận"}
+                                tone={daKhoXacNhan ? "success" : "warning"}
+                              />
+                            </p>
+
+                            {/* Kho xác nhận trước — nút chỉ hiện cho người có quyền kho. */}
+                            {!daKhoXacNhan && quyen.xacNhanKho && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  disabled={vuongMacTep !== null}
+                                  title={vuongMacTep ?? undefined}
+                                  onClick={() => {
+                                    xacNhanKho(po.id, {
+                                      uid: nguoiDung.uid,
+                                      ten: nguoiDung.tenHienThi,
+                                      thoiDiem: new Date().toISOString().slice(0, 10),
+                                    });
+                                    toast.success("Kho đã xác nhận nhận đủ hàng", {
+                                      description: `${po.code} chuyển sang chờ trưởng bộ phận xác nhận.`,
+                                    });
+                                  }}
+                                >
+                                  <Check className="size-4" aria-hidden />
+                                  Kho xác nhận nhận đủ hàng
+                                </Button>
+                                {vuongMacTep !== null && (
+                                  <span className="text-xs text-warning-soft">{vuongMacTep}</span>
+                                )}
+                              </div>
+                            )}
+
+                            {daKhoXacNhan && !po.xacNhanTruongBP && quyen.xacNhanTruongBP && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    xacNhanTruongBP(po.id, {
+                                      uid: nguoiDung.uid,
+                                      ten: nguoiDung.tenHienThi,
+                                      thoiDiem: new Date().toISOString().slice(0, 10),
+                                    });
+                                    toast.success("Đã xác nhận hoàn thành", {
+                                      description: `${po.code} hoàn thành — đề nghị chuyển sang bước “${NHAN_GIAI_DOAN.hoan_thanh.nhan}”.`,
+                                    });
+                                  }}
+                                >
+                                  <BadgeCheck className="size-4" aria-hidden />
+                                  Trưởng bộ phận xác nhận hoàn thành
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Không có quyền thì nói rõ đang chờ ai, đừng để khối trống. */}
+                            {((!daKhoXacNhan && !quyen.xacNhanKho) ||
+                              (daKhoXacNhan &&
+                                !po.xacNhanTruongBP &&
+                                !quyen.xacNhanTruongBP)) && (
+                              <p className="text-xs text-text-desc">
+                                {daKhoXacNhan
+                                  ? "Đang chờ trưởng bộ phận xác nhận hoàn thành."
+                                  : "Đang chờ kho xác nhận đã nhận đủ hàng."}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })(),
                 /* Bước ⑥ nhận hóa đơn nhà cung cấp, chứng chỉ chất lượng, biên bản nghiệm thu.
                    ⚠️ KHÔNG thay cho tệp phiếu giao nhận. Luật "mỗi lần giao phải có phiếu mới
                    được xác nhận hoàn thành" (`vuongMacXacNhanKho`) kiểm TỪNG phiếu nhận hàng
@@ -1435,18 +1787,22 @@ export default function TrangChiTietDeNghi() {
       <HopXacNhan
         mo={hoiTrinhXetDuyet !== null}
         tieuDe="Trình trưởng bộ phận xét duyệt?"
-        moTa={
-          hoiTrinhXetDuyet
-            ? `Bảng báo giá ${baoGiaLienQuan.find((b) => b.id === hoiTrinhXetDuyet)?.code ?? ""} sẽ chuyển sang bước “${NHAN_GIAI_DOAN.xet_duyet_bao_gia.nhan}”, chờ trưởng bộ phận duyệt hoặc trả lại.`
-            : undefined
-        }
-        canhBao="Sau khi trình, bạn không nhập thêm giá nhà cung cấp vào bảng này được nữa."
+        /* 🔴 `hoiTrinhXetDuyet` nay giữ **id ĐỀ NGHỊ**, không phải id hồ sơ báo giá (sửa
+           20/08/2026): giao diện không còn cần biết mã hồ sơ, vì hồ sơ do app tự lập. */
+        moTa={`Đề nghị ${dn.code} sẽ chuyển sang bước “${NHAN_GIAI_DOAN.xet_duyet_bao_gia.nhan}”, chờ trưởng bộ phận duyệt hoặc trả lại.`}
+        canhBao="Sau khi trình, bạn không sửa đề xuất chọn nhà cung cấp được nữa. Bản báo giá đính kèm vẫn xem lại được."
         nhanDongY="Trình xét duyệt"
         onDong={() => setHoiTrinhXetDuyet(null)}
         onDongY={() => {
           if (!hoiTrinhXetDuyet) return;
-          trinhXetDuyetBaoGia(hoiTrinhXetDuyet, nguoiDung.tenHienThi);
+          const loi = trinhXetDuyetBaoGiaChoDeNghi(hoiTrinhXetDuyet, nguoiDung.tenHienThi);
           setHoiTrinhXetDuyet(null);
+          /* Tầng ghi có thể từ chối (hồ sơ đã đóng, chưa có đề xuất) — nói ra thay vì đóng hộp
+             rồi báo thành công như cũ. */
+          if (loi) {
+            toast.error("Chưa trình được", { description: loi });
+            return;
+          }
           toast.success("Đã trình trưởng bộ phận xem xét", {
             description: `${dn.code} chuyển sang bước “${NHAN_GIAI_DOAN.xet_duyet_bao_gia.nhan}”.`,
           });
@@ -1459,7 +1815,7 @@ export default function TrangChiTietDeNghi() {
         tieuDe={hoiDuyet?.loai === "duyet" ? "Duyệt phương án giá?" : "Không duyệt bảng báo giá?"}
         moTa={
           hoiDuyet?.loai === "duyet"
-            ? `Duyệt đề xuất chọn ${baoGiaLienQuan.find((b) => b.id === hoiDuyet.bgId)?.deXuatNCCTen ?? ""}. Phiếu chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`
+            ? `${hoiDuyet.nhanO ? `Duyệt ${hoiDuyet.nhanO} — ` : "Duyệt "}chọn ${nccDuyet.trim() || "…"}. Phiếu chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`
             : hoiDuyet
               ? `Bảng báo giá sẽ quay về bước “${NHAN_GIAI_DOAN.yeu_cau_bao_gia.nhan}” để nhân viên bổ sung rồi trình lại. Tệp đính kèm và đề xuất vẫn giữ nguyên.`
               : undefined
@@ -1488,13 +1844,22 @@ export default function TrangChiTietDeNghi() {
           const bg = baoGiaLienQuan.find((b) => b.id === hoiDuyet.bgId);
           if (!bg) return;
           if (hoiDuyet.loai === "duyet") {
-            /* Chốt theo ĐỀ XUẤT của nhân viên — dùng lại đúng hàm ghi của màn bảng báo giá. */
+            /**
+             * 🔴 CHỐT THEO NHÀ CUNG CẤP TRƯỞNG BỘ PHẬN CHỌN (20/08/2026), không còn theo đề xuất
+             * của nhân viên — khối đề xuất đã bỏ.
+             *
+             * `nccId` sinh từ tên đã chuẩn hóa: tên nhà cung cấp gõ tự do nên không tra được mã
+             * trong danh mục. Có khóa thì chứng từ sau (đơn hàng, công nợ) còn nối về một đối
+             * tượng, thay vì so chuỗi tên mà hoa/thường lệch một chữ là thành hai bên khác nhau.
+             */
             chonNCCChoBaoGia(
               bg.id,
-              bg.deXuatNCCId ?? "",
-              bg.deXuatNCCTen ?? "",
+              `ncc-tu-go-${nccDuyet.trim().toLowerCase().replace(/\s+/g, "-")}`,
+              nccDuyet.trim(),
               nguoiDung.tenHienThi,
-              lyDoDuyet,
+              /* Ghi kèm BẢN nào được duyệt vào căn cứ — về sau đọc hồ sơ mới biết trưởng bộ phận
+                 chọn bản báo giá nào trong số các bản đã đính kèm. */
+              hoiDuyet.nhanO ? `[${hoiDuyet.nhanO}] ${lyDoDuyet}` : lyDoDuyet,
             );
             toast.success("Đã duyệt", {
               description: `${dn.code} chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`,
@@ -1508,11 +1873,39 @@ export default function TrangChiTietDeNghi() {
           }
           setHoiDuyet(null);
           setLyDoDuyet("");
+          setNccDuyet("");
         }}
       >
+        {/* ★ NÚT SỔ XUỐNG CHỌN ĐỒNG Ý / KHÔNG ĐỒNG Ý — Ban lãnh đạo 20/08/2026: *"thêm nút sổ
+            xuống lựa chọn: 1. Đồng ý · 2. Không đồng ý và phải ghi lý do"*.
+
+            🔴 GỘP HAI QUYẾT ĐỊNH VÀO MỘT HỘP. Trước đây phải đóng hộp này rồi đi tìm nút "Không
+            duyệt" ở khối bước ③ — hai đường cho một việc, mà người đang đọc bản báo giá thì đang ở
+            đây. Nay quyết định ngay tại chỗ: đổi lựa chọn là tiêu đề, nhãn ô lý do, chữ trên nút
+            và màu nút đều đổi theo, nên không ai bấm nhầm.
+
+            📌 Lý do BẮT BUỘC ở CẢ HAI chiều (giữ nguyên chỉ đạo 19/08/2026) — nút bị khóa kèm câu
+            giải thích cho tới khi ghi. */}
+        <div className="mb-3 flex flex-col gap-1.5">
+          <Label htmlFor="quyet-dinh-duyet">Quyết định của trưởng bộ phận *</Label>
+          <select
+            id="quyet-dinh-duyet"
+            value={hoiDuyet?.loai ?? "duyet"}
+            onChange={(e) =>
+              setHoiDuyet((c) =>
+                c ? { ...c, loai: e.target.value as "duyet" | "khong_duyet" } : c,
+              )
+            }
+            className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
+          >
+            <option value="duyet">Đồng ý — duyệt bản báo giá này</option>
+            <option value="khong_duyet">Không đồng ý — trả lại để làm lại</option>
+          </select>
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ly-do-duyet-bao-gia">
-            {hoiDuyet?.loai === "duyet" ? "Căn cứ duyệt *" : "Vì sao không duyệt *"}
+            {hoiDuyet?.loai === "duyet" ? "Căn cứ duyệt *" : "Vì sao không đồng ý *"}
           </Label>
           <Textarea
             id="ly-do-duyet-bao-gia"

@@ -108,7 +108,14 @@ export interface CaiDatGiaiDoan {
 export interface CauHinhQuyTrinh {
   /** Trên mức này (đồng): đơn phải trình Trưởng phòng TMCU ký duyệt, gửi NCC ký xác nhận. */
   nguongKyDuyetDon: number;
-  /** Từ mức này (đồng): cần đủ số báo giá tối thiểu, và Tổng Giám đốc là người duyệt. */
+  /**
+   * Từ mức này (đồng): cần đủ số báo giá tối thiểu.
+   *
+   * 🔴 KHÔNG CÒN GẮN VỚI CẤP DUYỆT (20/08/2026): người duyệt luôn là trưởng bộ phận Thu mua.
+   * ⚠️ Và app hiện KHÔNG tự áp được ngưỡng này, vì từ 20/08 app không nhập giá nhà cung cấp nên
+   * không biết giá trị hồ sơ. Số báo giá bắt buộc lấy từ ô "SL Báo giá" trưởng bộ phận đặt tay
+   * khi giao việc — xem `2-quy-trinh/bao-gia-dinh-kem.ts`.
+   */
   nguongHaiBaoGia: number;
   /** Từ mức này (đồng): phải có hợp đồng do Tổng Giám đốc ký. */
   nguongHopDong: number;
@@ -425,7 +432,9 @@ export const THAM_SO_QUY_TRINH: MoTaThamSo[] = [
   {
     khoa: "nguongHaiBaoGia",
     nhan: "Ngưỡng bắt buộc nhiều báo giá",
-    moTa: "Đơn TỪ mức này phải có đủ số báo giá tối thiểu, và Tổng Giám đốc là người duyệt.",
+    /* 🔴 BỎ CÂU "Tổng Giám đốc là người duyệt" — Ban lãnh đạo 20/08/2026: *"không cần tổng giám
+       đốc duyệt, trưởng phòng sẽ quyết định"*. Cấp duyệt không còn phụ thuộc giá trị đơn. */
+    moTa: "Đơn TỪ mức này phải có đủ số báo giá tối thiểu. Người duyệt luôn là trưởng bộ phận Thu mua, không phân cấp theo giá trị.",
     kieu: "tien",
     toiThieu: 100_000,
     toiDa: 1_000_000_000,

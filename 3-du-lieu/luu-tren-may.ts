@@ -23,6 +23,7 @@ import type {
   PhieuNhanHang,
   BaoGia,
   ThongBaoChuyenBuoc,
+  NhaCungCap,
 } from "@/3-du-lieu/kieu-du-lieu";
 
 /** Tên ngăn chứa trên máy. Tăng số cuối mỗi khi đổi cấu trúc dữ liệu. */
@@ -46,6 +47,18 @@ export interface DuLieuLuu {
   phieuNhan: PhieuNhanHang[];
   baoGia: BaoGia[];
   thongBao: ThongBaoChuyenBuoc[];
+  /**
+   * ★ DANH MỤC NHÀ CUNG CẤP do bộ phận thu mua tự thêm — Ban lãnh đạo 20/08/2026: *"tạo danh mục
+   * NCC do bộ phận thu mua điền thông tin"*.
+   *
+   * ⚠️ TÙY CHỌN: bản lưu cũ không có khóa này. Đọc ra `undefined` thì app dùng **danh mục mẫu**
+   * (`NHA_CUNG_CAP`), KHÔNG được coi là "danh mục rỗng" — coi là rỗng thì ô chọn nhà cung cấp
+   * trắng trơn trong khi dữ liệu mẫu vẫn còn đó.
+   *
+   * 📌 Chỉ chứa nhà cung cấp NGƯỜI DÙNG THÊM. Danh mục mẫu vẫn nằm trong mã nguồn và được gộp
+   * vào lúc đọc — như vậy bản chạy thử không phải chép sẵn 4 dòng mẫu lên kho chung của cả phòng.
+   */
+  nhaCungCapThem?: NhaCungCap[];
 }
 
 /**
@@ -81,6 +94,9 @@ export function docDuLieuDaLuu(): DuLieuLuu | null {
        */
       ...(d.cauHinh ? { cauHinh: d.cauHinh } : {}),
       ...(Array.isArray(d.lichSuCauHinh) ? { lichSuCauHinh: d.lichSuCauHinh } : {}),
+      /* Nhà cung cấp người dùng tự thêm — giữ `undefined` khi chưa có, đừng thay bằng `[]`:
+         bên gọi phân biệt "chưa từng thêm ai" với "đã thêm rồi xóa hết". */
+      ...(Array.isArray(d.nhaCungCapThem) ? { nhaCungCapThem: d.nhaCungCapThem } : {}),
     };
   } catch {
     // JSON hỏng hoặc trình duyệt chặn localStorage → coi như chưa có gì.

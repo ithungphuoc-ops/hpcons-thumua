@@ -133,7 +133,9 @@ export function timHoSo(
         ma: bg.code,
         tieuDe: bg.tieuDe,
         moTaPhu: `Từ đề nghị ${bg.prCode}`,
-        duongDan: `/bao-gia/${bg.id}`,
+        /* Màn Báo giá đã bỏ hẳn 20/08/2026 → dẫn về trang chi tiết đề nghị nguồn. Vẫn giữ kết
+           quả tìm theo mã bảng báo giá vì người dùng có mã đó trên giấy tờ. */
+        duongDan: `/de-nghi/${deNghiNguon.id}`,
       });
     }
   }

@@ -22,6 +22,7 @@ import {
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
+import { boDau } from "@/6-tien-ich/bo-dau";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import { maDonHangTiepTheo } from "@/2-quy-trinh/dat-ma-don-hang";
 import {
@@ -190,6 +191,18 @@ interface GiaTriDuLieu {
   giaDonHang: GiaDonDatHang[];
   phieuNhan: PhieuNhanHang[];
   nhaCungCap: NhaCungCap[];
+  /**
+   * Thêm một nhà cung cấp vào danh mục (Ban lãnh đạo 20/08/2026).
+   * Trả lý do bị chặn (trùng mã / trùng tên / thiếu mã, tên), `null` là đã thêm.
+   */
+  themNhaCungCap: (n: {
+    maNCC: string;
+    ten: string;
+    maSoThue?: string;
+    diaChi?: string;
+    dienThoai?: string;
+    nguoiLienHe?: string;
+  }) => string | null;
   baoGia: BaoGia[];
   congNo: CongNo[];
 
@@ -309,6 +322,23 @@ interface GiaTriDuLieu {
   /** Lưu hình thức thanh toán / thời gian giao / ghi chú của một nhà cung cấp. */
   luuThongTinNCC: (bgId: string, tt: ThongTinThuongMaiNCC, nguoiThucHien: string) => void;
   trinhXetDuyetBaoGia: (bgId: string, nguoiThucHien: string) => void;
+  /**
+   * Ghi đề xuất chọn nhà cung cấp theo ĐỀ NGHỊ — tự lập hồ sơ xét duyệt nếu đề nghị chưa có.
+   *
+   * 🔴 DÙNG HÀM NÀY Ở GIAO DIỆN BƯỚC ②, không dùng `luuDeXuatNCC`: đề nghị vào bước ② bằng đường
+   * phân bổ hết dòng thì KHÔNG có hồ sơ báo giá nào, nên giao diện không có `bgId` để truyền —
+   * và trước 20/08/2026 điều đó làm cả khối đề xuất lẫn nút trình **không hiện**, người dùng
+   * không có đường chuyển bước.
+   *
+   * Trả lý do bị chặn, `null` là đã ghi.
+   */
+  luuDeXuatNCCChoDeNghi: (
+    prId: string,
+    deXuat: { nccId: string; tenNCC: string; lyDo: string },
+    nguoiThucHien: string,
+  ) => string | null;
+  /** Trình xét duyệt theo ĐỀ NGHỊ. Trả lý do bị chặn, `null` là đã trình. */
+  trinhXetDuyetBaoGiaChoDeNghi: (prId: string, nguoiThucHien: string) => string | null;
   /** Duyệt phương án chia đơn cho nhiều NCC — bước ③ Xét duyệt → ④ Lập đơn mua hàng. */
   duyetPhuongAnTach: (bgId: string, nguoiThucHien: string) => void;
   luuPhanBoBaoGia: (
@@ -435,6 +465,24 @@ interface GiaTriDuLieu {
     prId: string,
     maGiaiDoan: string,
     tepMoi: MoTaTep[],
+    nguoiThucHienTen: string,
+  ) => string | null;
+  /**
+   * Đặt một tệp vào "ô có tên" của một bước — THÊM TỆP VÀ GẮN NHÃN TRONG MỘT LẦN GHI.
+   *
+   * 🔴 LUÔN DÙNG HÀM NÀY khi cần tệp mang nhãn, KHÔNG gọi `themTepGiaiDoan` rồi
+   * `datGhiChuTepGiaiDoan` nối tiếp — lý do đầy đủ ở phần cài đặt, tóm lại: hàm thứ hai đọc
+   * `deNghiRef.current` mà ref chỉ cập nhật lúc render, nên nó không thấy tệp vừa thêm và
+   * **nhãn rơi mất im lặng**.
+   *
+   * Ô đã có tệp mang cùng nhãn thì bản cũ bị GỠ (đây là hành vi "thay tệp").
+   * Trả lý do bị chặn, `null` là đã ghi.
+   */
+  datTepVaoOGiaiDoan: (
+    prId: string,
+    maGiaiDoan: string,
+    tepMoi: MoTaTep,
+    nhanO: string,
     nguoiThucHienTen: string,
   ) => string | null;
   /**
@@ -672,6 +720,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   const [baoGia, setBaoGia] = useState<BaoGia[]>(BAO_GIA_MAU);
   const [thongBao, setThongBao] = useState<ThongBaoChuyenBuoc[]>([]);
   /**
+   * Nhà cung cấp do bộ phận thu mua tự thêm — Ban lãnh đạo 20/08/2026.
+   *
+   * 📌 CHỈ giữ phần NGƯỜI DÙNG THÊM. Danh mục mẫu `NHA_CUNG_CAP` vẫn nằm trong mã nguồn và được
+   * gộp vào lúc đọc ra (`nhaCungCap` trong giá trị context). Làm vậy thì bản chạy thử không phải
+   * chép 4 dòng mẫu lên kho chung của cả phòng, và sau này bỏ dữ liệu mẫu đi cũng không mất gì.
+   */
+  const [nhaCungCapThem, setNhaCungCapThem] = useState<NhaCungCap[]>([]);
+  /**
    * ★ CẤU HÌNH QUY TRÌNH — Ban lãnh đạo 13/08/2026: *"thêm chức năng cài đặt quy trình, có
    * thể chỉnh sửa các điều kiện trong quy trình"*.
    *
@@ -759,6 +815,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     setPhieuNhan(d.phieuNhan);
     setBaoGia(d.baoGia);
     setThongBao(d.thongBao);
+    /* 🔴 THIẾU KHÓA ≠ "danh mục rỗng" — cùng loại bẫy với `cauHinh` ngay dưới. Bản lưu cũ không
+       có `nhaCungCapThem`; ghi `[]` vào lúc đó là xóa mất nhà cung cấp người khác vừa thêm khi
+       một máy chưa cập nhật nhận dữ liệu về. */
+    if (Array.isArray(d.nhaCungCapThem)) setNhaCungCapThem(d.nhaCungCapThem);
     /**
      * 🔴 THIẾU KHÓA `cauHinh` ≠ "cấu hình là mặc định" — GIỮ NGUYÊN cái đang có.
      *
@@ -849,7 +909,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   // dữ liệu rỗng — tức xóa sạch việc người dùng đã nhập hôm trước.
   useEffect(() => {
     if (!daNapTuMay) return;
-    const d = { deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh };
+    const d = {
+      deNghi,
+      donHang,
+      giaDonHang,
+      phieuNhan,
+      baoGia,
+      thongBao,
+      cauHinh,
+      lichSuCauHinh,
+      nhaCungCapThem,
+    };
     duLieuHienTai.current = d;
 
     const chuoi = JSON.stringify(d);
@@ -866,7 +936,61 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
     anhChupCuoi.current = chuoi;
     dayLenMayChu(d);
-  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, dayLenMayChu]);
+  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, nhaCungCapThem, dayLenMayChu]);
+
+  /**
+   * ★ THÊM NHÀ CUNG CẤP VÀO DANH MỤC — Ban lãnh đạo 20/08/2026: *"tạo danh mục NCC do bộ phận thu
+   * mua điền thông tin"*.
+   *
+   * Trả câu giải thích khi bị chặn, `null` là đã thêm.
+   *
+   * 🔴 CHẶN TRÙNG THEO MÃ **VÀ** THEO TÊN. Trùng mã thì hai bên khác nhau mang cùng mã, mọi chứng
+   * từ sau đó không truy được về đúng đối tượng. Trùng tên thì danh sách có hai dòng nhìn y hệt,
+   * người lập đơn chọn bừa một cái — và công nợ của một nhà cung cấp bị chia làm hai.
+   *
+   * ⚠️ So tên KHÔNG PHÂN BIỆT hoa thường và dấu cách thừa: *"Công ty TNHH  A"* và *"CÔNG TY TNHH
+   * A"* là một bên. So chuỗi thô là để lọt đúng loại trùng hay gặp nhất.
+   *
+   * 📌 `id` sinh từ mã người dùng đặt, không dùng thời điểm: mã là thứ họ nhìn thấy và tra cứu,
+   * nên khóa kỹ thuật bám theo nó thì về sau đối chiếu dễ hơn.
+   */
+  const themNhaCungCap = useCallback(
+    (n: {
+      maNCC: string;
+      ten: string;
+      maSoThue?: string;
+      diaChi?: string;
+      dienThoai?: string;
+      nguoiLienHe?: string;
+    }): string | null => {
+      const ma = n.maNCC.trim();
+      const ten = n.ten.trim();
+      if (ma === "") return "Chưa có mã nhà cung cấp.";
+      if (ten === "") return "Chưa có tên nhà cung cấp.";
+
+      const chuanHoaTen = (s: string) => boDau(s).replace(/\s+/g, " ").trim().toLowerCase();
+      const daCo = [...NHA_CUNG_CAP, ...nhaCungCapThem];
+      if (daCo.some((x) => (x.maNCC ?? "").trim().toLowerCase() === ma.toLowerCase())) {
+        return `Mã ${ma} đã có trong danh mục — dùng lại nhà cung cấp đó, hoặc đặt mã khác.`;
+      }
+      if (daCo.some((x) => chuanHoaTen(x.ten) === chuanHoaTen(ten))) {
+        return `Đã có nhà cung cấp tên “${ten}” trong danh mục.`;
+      }
+
+      const moi: NhaCungCap = {
+        id: `ncc-them-${ma.toLowerCase().replace(/\s+/g, "-")}`,
+        ten,
+        maNCC: ma,
+        ...(n.maSoThue?.trim() ? { maSoThue: n.maSoThue.trim() } : {}),
+        ...(n.diaChi?.trim() ? { diaChi: n.diaChi.trim() } : {}),
+        ...(n.dienThoai?.trim() ? { dienThoai: n.dienThoai.trim() } : {}),
+        ...(n.nguoiLienHe?.trim() ? { nguoiLienHe: n.nguoiLienHe.trim() } : {}),
+      };
+      setNhaCungCapThem((truoc) => [...truoc, moi]);
+      return null;
+    },
+    [nhaCungCapThem],
+  );
 
   const xoaDuLieuChayThu = useCallback(async () => {
     // 🔴 Từ 12/08/2026 dữ liệu nằm trên máy chủ dùng chung, nên xóa là XÓA CỦA CẢ PHÒNG.
@@ -1985,26 +2109,25 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       setBaoGia((truoc) =>
         truoc.map((b) => {
           if (b.prId !== prId || b.trangThai !== tu) return b;
-          // Sang bước "đã so sánh" mà dòng nào chưa có giá thì điền GIÁ MẪU — mô phỏng
-          // NCC gửi giá về, để bảng so sánh và nút "Chọn NCC này" bấm thử được.
-          // Giá tính theo công thức cố định (không ngẫu nhiên), chỉ dùng khi chạy thử.
-          const items =
-            sang === "da_so_sanh"
-              ? b.items.map((d, iDong) =>
-                  d.baoGiaNCC.length > 0
-                    ? d
-                    : {
-                        ...d,
-                        baoGiaNCC: NHA_CUNG_CAP.slice(0, 3).map((ncc, k) => ({
-                          nccId: ncc.id,
-                          tenNCC: ncc.ten,
-                          donGia: 50_000 + iDong * 10_000 + k * 2_500,
-                          thoiGianGiao: 2 + k,
-                        })),
-                      },
-                )
-              : b.items;
-          return { ...b, items, trangThai: sang, ngayCapNhat: ngay };
+          /**
+           * 🔴 ĐÃ BỎ VIỆC TỰ ĐIỀN "GIÁ MẪU" (20/08/2026).
+           *
+           * Bản trước: mỗi lần ai kéo thẻ sang cột ③, app tự ghi vào từng dòng vật tư ba mức
+           * đơn giá theo công thức `50.000 + dòng×10.000 + cột×2.500`, **kèm tên ba nhà cung cấp
+           * thật trong danh mục**, để bảng so sánh có gì mà bấm thử.
+           *
+           * Vì sao phải bỏ:
+           *   · Đó là **giá bịa ghi vào dữ liệu thật** của cả phòng (`chay-thu/du-lieu-chung`),
+           *     không phải dữ liệu mẫu nằm yên trong mã nguồn. Người sau mở hồ sơ ra không có
+           *     cách nào biết con số đó là giá bịa hay giá nhà cung cấp gửi thật.
+           *   · Nó gán giá cho **nhà cung cấp có tên thật**, tức tạo ra chứng cứ sai về một đối
+           *     tác — hỏng hơn nhiều so với việc bảng so sánh trống.
+           *   · Ban lãnh đạo đã chốt bỏ hẳn bảng so sánh nhập tay (19/08 và 20/08/2026), nên
+           *     không còn chỗ nào cần những con số này để "bấm thử".
+           *
+           * Nay chỉ đổi trạng thái, không đụng vào `items`.
+           */
+          return { ...b, trangThai: sang, ngayCapNhat: ngay };
         }),
       );
       if (sang === "da_so_sanh") {
@@ -2223,6 +2346,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     },
     [ghiLichSuDeNghi],
   );
+
 
   /**
    * DUYỆT PHƯƠNG ÁN TÁCH — bước ③ Xét duyệt báo giá → ④ Lập đơn mua hàng.
@@ -3060,6 +3184,192 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * 📌 Trả về CÂU GIẢI THÍCH thay vì im lặng không làm gì — nếp chung của các hàm ghi trong
    * file này (`suaMatHangDeNghi`, `suaBinhLuan`).
    */
+  /**
+   * ★ GHI ĐỀ XUẤT CHỌN NHÀ CUNG CẤP THEO **ĐỀ NGHỊ** — tự lập hồ sơ xét duyệt nếu chưa có.
+   *
+   * 🔴 VÌ SAO PHẢI CÓ HÀM NÀY — bế tắc thật, Ban lãnh đạo báo 20/08/2026:
+   * *"đang không có nút chuyển tiếp quy trình"*.
+   *
+   * Khối đề xuất + nút "Trình xét duyệt" ở bước ② vốn chỉ hiện khi đề nghị **đã có một bảng báo
+   * giá** ở trạng thái `dang_thu_thap`. Bảng đó được sinh khi kéo thẻ từ cột ① sang ②. Nhưng phiếu
+   * còn một đường khác để vào bước ②: **phân bổ hết dòng thì tự chuyển bước**. Đi đường đó thì
+   * không có bảng nào — và người dùng đứng ở bước ② **không thấy nút nào để đi tiếp**, phải tự
+   * biết đi tìm menu ⋯ trên thẻ ở màn Quy trình mua hàng để "lập bảng báo giá". Không ai đoán ra.
+   *
+   * Từ khi Ban lãnh đạo chốt *"chỉ đính kèm file và trưởng bộ phận chọn duyệt thôi"* (20/08/2026),
+   * việc bắt người dùng lập một "bảng báo giá" trống rỗng càng vô nghĩa: bảng đó nay chỉ còn vai
+   * trò **hồ sơ xét duyệt** (giữ đề xuất, lý do duyệt, các lần bị trả lại). Nên app tự lập nó khi
+   * nhân viên ghi đề xuất, thay vì đòi người dùng làm một thao tác họ không hiểu để làm gì.
+   *
+   * ⚠️ TẠO KÈM ĐỀ XUẤT TRONG MỘT LẦN GHI. Không gọi `taoBaoGiaGiaLap` rồi `luuDeXuatNCC` nối tiếp
+   * — hàm thứ hai đọc `baoGiaRef.current` để ghi nhật ký, mà ref chỉ cập nhật lúc render nên dòng
+   * nhật ký rơi mất. Cùng loại lỗi đã mất cả ngày 20/08 với nhãn ô báo giá.
+   *
+   * Trả lý do bị chặn, `null` là đã ghi.
+   */
+  const luuDeXuatNCCChoDeNghi = useCallback(
+    (
+      prId: string,
+      deXuat: { nccId: string; tenNCC: string; lyDo: string },
+      nguoiThucHien: string,
+    ): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+
+      const loi = loiKhiHoSoDaDong(dn, "ghi đề xuất chọn nhà cung cấp");
+      if (loi) return loi;
+
+      const ngay = homNay();
+      const phanDeXuat = {
+        deXuatNCCId: deXuat.nccId,
+        deXuatNCCTen: deXuat.tenNCC,
+        lyDoDeXuat: deXuat.lyDo.trim() || undefined,
+        nguoiDeXuatTen: nguoiThucHien,
+        thoiDiemDeXuat: thoiDiemHienTai(),
+        ngayCapNhat: ngay,
+      };
+
+      const dangCo = baoGiaRef.current.find(
+        (b) => b.prId === prId && b.trangThai === "dang_thu_thap",
+      );
+
+      if (dangCo) {
+        setBaoGia((truoc) =>
+          truoc.map((b) => (b.id === dangCo.id ? { ...b, ...phanDeXuat } : b)),
+        );
+        /* 🔴 KHÔNG ghi tên nhà cung cấp vào nhật ký — khối Lịch sử hiện cho cả vai trò không
+           được xem NCC (quy ước CLAUDE.md mục 7). */
+        ghiLichSuDeNghi(prId, nguoiThucHien, `Ghi đề xuất chọn nhà cung cấp cho ${dangCo.code}`);
+        return null;
+      }
+
+      /* Chưa có hồ sơ xét duyệt → lập ngay, kèm luôn đề xuất. */
+      const daDung = new Set(baoGiaRef.current.map((b) => b.id));
+      const id = ID_BAO_GIA_GIA_LAP.find((x) => !daDung.has(x));
+      if (!id) {
+        return `Bản chạy thử chỉ giữ được ${ID_BAO_GIA_GIA_LAP.length} hồ sơ báo giá. Xóa bớt dữ liệu cũ rồi thử lại.`;
+      }
+      const soHienCo = baoGiaRef.current.filter((b) =>
+        b.code.startsWith(`${dn.maDuAn}-BG-`),
+      ).length;
+
+      const moi: BaoGia = {
+        id,
+        code: `${dn.maDuAn}-BG-${String(soHienCo + 1).padStart(3, "0")}`,
+        prId,
+        prCode: dn.code,
+        tieuDe: `Báo giá ${dn.tieuDe}`,
+        trangThai: "dang_thu_thap",
+        items: dn.items.map((d) => ({
+          id: `bg-${id}-${d.stt}`,
+          /* Giữ số thứ tự dòng đề nghị — khóa truy vết khi lập đơn từ phân bổ. */
+          sttDongDeNghi: d.stt,
+          tenVatLieu: d.tenVatLieu,
+          donViTinh: d.donViTinh,
+          khoiLuong: d.khoiLuongDeNghi,
+          baoGiaNCC: [],
+        })),
+        hanNop: dn.ngayCanHang,
+        ngayTao: ngay,
+        ...phanDeXuat,
+      };
+      setBaoGia((truoc) => [...truoc, moi]);
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHien,
+        `Lập hồ sơ xét duyệt báo giá ${moi.code} và ghi đề xuất chọn nhà cung cấp`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+  );
+
+  /**
+   * ★ TRÌNH XÉT DUYỆT THEO **ĐỀ NGHỊ** — không cần biết trước mã hồ sơ báo giá.
+   *
+   * Đi cặp với `luuDeXuatNCCChoDeNghi`: giao diện chỉ biết đề nghị đang mở, hồ sơ xét duyệt do
+   * app tự lập nên nơi gọi không có `bgId` trong tay.
+   *
+   * ⚠️ Chưa có hồ sơ thì KHÔNG tự lập ở đây — luồng bắt ghi đề xuất trước khi trình, nên tới bước
+   * này hồ sơ chắc chắn đã tồn tại. Tự lập một hồ sơ RỖNG rồi trình đi là đẩy sang trưởng bộ phận
+   * một thứ không có đề xuất nào để xét.
+   */
+  const trinhXetDuyetBaoGiaChoDeNghi = useCallback(
+    (prId: string, nguoiThucHien: string): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+
+      const loi = loiKhiHoSoDaDong(dn, "trình xét duyệt báo giá");
+      if (loi) return loi;
+
+      const ngay = homNay();
+      const bg = baoGiaRef.current.find(
+        (b) => b.prId === prId && b.trangThai === "dang_thu_thap",
+      );
+
+      if (bg) {
+        setBaoGia((truoc) =>
+          truoc.map((b) =>
+            b.id === bg.id && b.trangThai === "dang_thu_thap"
+              ? { ...b, trangThai: "da_so_sanh", ngayCapNhat: ngay }
+              : b,
+          ),
+        );
+        ghiLichSuDeNghi(
+          prId,
+          nguoiThucHien,
+          `Trình trưởng bộ phận xét duyệt ${bg.code} — bản báo giá nằm trong tệp đính kèm bước “Yêu cầu NCC báo giá”`,
+        );
+        return null;
+      }
+
+      /**
+       * 🔴 CHƯA CÓ HỒ SƠ THÌ TỰ LẬP RỒI TRÌNH LUÔN (20/08/2026).
+       *
+       * Trước đó hàm này trả *"Chưa có đề xuất nào để trình"* vì hồ sơ được lập lúc nhân viên
+       * lưu đề xuất. Nay Ban lãnh đạo đã **bỏ khối đề xuất** — nhân viên chỉ đính kèm rồi bấm
+       * trình — nên không còn bước nào lập hồ sơ trước. Giữ nguyên câu lỗi cũ là nút trình bấm
+       * mãi không được, đúng cái bế tắc vừa sửa sáng nay.
+       */
+      const daDung = new Set(baoGiaRef.current.map((b) => b.id));
+      const id = ID_BAO_GIA_GIA_LAP.find((x) => !daDung.has(x));
+      if (!id) {
+        return `Bản chạy thử chỉ giữ được ${ID_BAO_GIA_GIA_LAP.length} hồ sơ báo giá. Xóa bớt dữ liệu cũ rồi thử lại.`;
+      }
+      const soHienCo = baoGiaRef.current.filter((b) =>
+        b.code.startsWith(`${dn.maDuAn}-BG-`),
+      ).length;
+      const moi: BaoGia = {
+        id,
+        code: `${dn.maDuAn}-BG-${String(soHienCo + 1).padStart(3, "0")}`,
+        prId,
+        prCode: dn.code,
+        tieuDe: `Báo giá ${dn.tieuDe}`,
+        /* Lập ra là đã ở trạng thái chờ trưởng bộ phận duyệt — không qua `dang_thu_thap`, vì
+           chính lúc này người dùng đang bấm trình. */
+        trangThai: "da_so_sanh",
+        items: dn.items.map((d) => ({
+          id: `bg-${id}-${d.stt}`,
+          sttDongDeNghi: d.stt,
+          tenVatLieu: d.tenVatLieu,
+          donViTinh: d.donViTinh,
+          khoiLuong: d.khoiLuongDeNghi,
+          baoGiaNCC: [],
+        })),
+        hanNop: dn.ngayCanHang,
+        ngayTao: ngay,
+        ngayCapNhat: ngay,
+      };
+      setBaoGia((truoc) => [...truoc, moi]);
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHien,
+        `Trình trưởng bộ phận xét duyệt ${moi.code} — bản báo giá nằm trong tệp đính kèm bước “Yêu cầu NCC báo giá”`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+  );
   const themTepGiaiDoan = useCallback(
     (
       prId: string,
@@ -3110,6 +3420,88 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         `Đính kèm ${tepMoi.length} tệp ở bước ${tenBuoc(maGiaiDoan)}: ${tepMoi
           .map((t) => t.tenTep)
           .join(", ")}`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+  );
+
+  /**
+   * ★ ĐẶT MỘT TỆP VÀO "Ô CÓ TÊN" CỦA MỘT BƯỚC — thêm tệp VÀ gắn nhãn trong CÙNG MỘT lần ghi.
+   *
+   * 🔴 VÌ SAO PHẢI GỘP LÀM MỘT HÀM — lỗi thật, mất cả ngày 20/08/2026 mới thấy.
+   * Cách cũ ở giao diện là gọi `themTepGiaiDoan` rồi gọi tiếp `datGhiChuTepGiaiDoan`. Sai ở chỗ:
+   * `themTepGiaiDoan` chỉ **xếp lịch** `setDeNghi`, còn `datGhiChuTepGiaiDoan` đọc
+   * `deNghiRef.current` — mà ref chỉ được gán **lúc render**. Nên tệp vừa thêm CHƯA tồn tại
+   * trong bản mà hàm thứ hai nhìn thấy → nó trả *"Tệp này không còn trong hồ sơ"* và **không ghi
+   * nhãn**. Chỗ gọi lại không bắt giá trị trả về, nên không ai biết.
+   * Hậu quả trên giao diện: ô báo giá **luôn trống** dù người dùng đã đính tệp, app **luôn báo
+   * thiếu bản báo giá**, và nút "Trình xét duyệt" khóa vĩnh viễn.
+   *
+   * 👉 Nhãn được gắn thẳng vào đối tượng tệp TRƯỚC khi thêm, nên không phải đọc lại state.
+   *
+   * 🔴 THAY TỆP THÌ GỠ BẢN CŨ. Nếu ô đã có tệp mang đúng nhãn này, bản cũ bị gỡ khỏi bước.
+   * Không làm vậy thì hai tệp cùng nhãn, mà chỗ hiển thị chỉ lấy được một cái — bản kia **vô
+   * hình** dù vẫn nằm trong hồ sơ. Đây đúng là điều đã xảy ra với nút "Thay tệp".
+   *
+   * Trả câu giải thích, `null` là đã ghi.
+   */
+  const datTepVaoOGiaiDoan = useCallback(
+    (
+      prId: string,
+      maGiaiDoan: string,
+      tepMoi: MoTaTep,
+      nhanO: string,
+      nguoiThucHienTen: string,
+    ): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+
+      const loi = loiKhiHoSoDaDong(dn, "đính kèm tệp vào ô");
+      if (loi) return loi;
+
+      const nhan = nhanO.trim();
+      if (nhan === "") return "Thiếu nhãn ô — đây là lỗi lập trình, báo lại người phát triển.";
+      if (nhan.length > DAI_TOI_DA_GHI_CHU_TEP) {
+        return `Nhãn ô dài quá ${DAI_TOI_DA_GHI_CHU_TEP} ký tự.`;
+      }
+
+      const daCo = dn.tepGiaiDoan?.[maGiaiDoan] ?? [];
+      const tepCu = daCo.find((t) => (t.ghiChu ?? "").trim() === nhan);
+
+      /* Hạn mức tính SAU khi trừ bản cũ sắp gỡ — thay tệp thì tổng số không tăng, nên không
+         được để nó bị hạn mức chặn oan. */
+      const soSauKhiGhi = daCo.length + 1 - (tepCu ? 1 : 0);
+      if (soSauKhiGhi > TOI_DA_TEP_MOI_BUOC) {
+        return `Mỗi bước chỉ nhận tối đa ${TOI_DA_TEP_MOI_BUOC} tệp. Bước này đang có ${daCo.length} tệp — gỡ bớt tệp cũ rồi thử lại.`;
+      }
+
+      setDeNghi((truoc) =>
+        truoc.map((d) =>
+          d.id !== prId
+            ? d
+            : {
+                ...d,
+                tepGiaiDoan: {
+                  ...(d.tepGiaiDoan ?? {}),
+                  [maGiaiDoan]: [
+                    ...(d.tepGiaiDoan?.[maGiaiDoan] ?? []).filter((t) => t.id !== tepCu?.id),
+                    { ...tepMoi, ghiChu: nhan },
+                  ],
+                },
+              },
+        ),
+      );
+
+      /* Một dòng nhật ký cho một việc người dùng làm. Ghi hai dòng (thêm tệp + đặt nhãn) làm
+         khối Lịch sử dài gấp đôi mà không nói thêm gì.
+         🔴 KHÔNG ghi tên nhà cung cấp — nhãn ô là "Báo giá NCC 1", không phải tên hãng. */
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHienTen,
+        tepCu
+          ? `Thay tệp ở ô “${nhan}” (bước ${tenBuoc(maGiaiDoan)}): ${tepCu.tenTep} → ${tepMoi.tenTep}`
+          : `Đính kèm tệp vào ô “${nhan}” ở bước ${tenBuoc(maGiaiDoan)}: ${tepMoi.tenTep}`,
       );
       return null;
     },
@@ -3491,7 +3883,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       donHang,
       giaDonHang,
       phieuNhan,
-      nhaCungCap: NHA_CUNG_CAP,
+      /**
+       * Danh mục nhà cung cấp = **mẫu trong mã nguồn + phần thu mua tự thêm**.
+       *
+       * 📌 Phần tự thêm để SAU danh mục mẫu: người dùng vừa thêm ai thì thấy ở cuối danh sách,
+       * đúng thứ tự thời gian — dễ tìm hơn là chen vào giữa theo bảng chữ cái.
+       */
+      nhaCungCap: [...NHA_CUNG_CAP, ...nhaCungCapThem],
+      themNhaCungCap,
       baoGia,
       congNo: CONG_NO_MAU,
       themDeNghiGiaLap,
@@ -3515,6 +3914,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       luuDeXuatNCC,
       luuThongTinNCC,
       trinhXetDuyetBaoGia,
+      luuDeXuatNCCChoDeNghi,
+      trinhXetDuyetBaoGiaChoDeNghi,
       duyetPhuongAnTach,
       dongDoDeNghi,
       suaThongTinChung,
@@ -3530,6 +3931,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
       themTepGiaiDoan,
+      datTepVaoOGiaiDoan,
       goTepGiaiDoan,
       datGhiChuTepGiaiDoan,
       vietBinhLuan,
@@ -3544,6 +3946,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       trangThaiKhoChung,
     }),
     [
+      nhaCungCapThem,
+      themNhaCungCap,
       deNghi,
       donHang,
       giaDonHang,
@@ -3570,6 +3974,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       luuDeXuatNCC,
       luuThongTinNCC,
       trinhXetDuyetBaoGia,
+      luuDeXuatNCCChoDeNghi,
+      trinhXetDuyetBaoGiaChoDeNghi,
       duyetPhuongAnTach,
       dongDoDeNghi,
       suaThongTinChung,
@@ -3585,6 +3991,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       datSoBaoGiaChoPhieu,
       danhDauCongViecGiaiDoan,
       themTepGiaiDoan,
+      datTepVaoOGiaiDoan,
       goTepGiaiDoan,
       datGhiChuTepGiaiDoan,
       vietBinhLuan,

@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Forward,
   History,
+  Link2 as LinkIcon,
   ListPlus,
   SlidersHorizontal,
   MoreHorizontal,
@@ -417,17 +418,44 @@ function TheDeNghi({
         keoThaDuoc ? "cursor-grab active:cursor-grabbing" : ""
       } ${LOP_VIEN_TRAI[han.quaHan ? "danger" : tongGiaiDoan]} ${nenThe}`}
     >
-      {/* ★ TIÊU ĐỀ MỘT DÒNG — Ban lãnh đạo 14/08/2026 gửi ảnh bảng Base thật và chốt bố cục
-          thẻ: *"hiển thị các trường thông tin cơ bản vậy là đủ"*.
+      {/* ★ BỐ CỤC LẠI TIÊU ĐỀ — Ban lãnh đạo 20/08/2026: *"bố cục thêm thông tin hiển thị này,
+          sau này các app khác sẽ link từ mã đề nghị"*, chỉ rõ ba thứ cần tách: **mã đề nghị ·
+          mã công trình · tên công trình**.
 
-          Base ghép `mã - hợp đồng - CÔNG TRÌNH` thành MỘT dòng tiêu đề, không tách ba dòng
-          như app làm trước 14/08. Gộp lại vừa đúng mẫu vừa hạ chiều cao thẻ, nên một cột
-          nhìn được nhiều việc hơn — thứ quan trọng nhất ở màn này. */}
+          🔴 VÌ SAO BỎ CÁCH GHÉP MỘT DÒNG (làm ngày 14/08 theo mẫu Base): mã đề nghị của công ty
+          này **chứa luôn mã công trình ở đầu** (`29/2025/HĐXD-HPCS-MẠNH TƯỚI` + `-PR-001`). Nối
+          bằng dấu gạch thì thẻ đọc ra thành *"…MẠNH TƯỚI-PR-001 - 29/2025/HĐXD-HPCS-MẠNH TƯỚI"*
+          — nhìn như app in lặp một chuỗi, và không ai tách được đâu là mã hồ sơ đâu là công
+          trình. Có NHÃN đứng trước thì cùng lượng chữ nhưng đọc ra ngay.
+
+          📌 MÃ ĐỀ NGHỊ ĐỨNG RIÊNG MỘT DÒNG vì nó là **khóa liên kết giữa các app** (Kho, QLDA
+          sẽ tra hồ sơ bằng mã này). Nó phải đọc và chọn được nguyên vẹn, không dính đuôi chuỗi
+          khác — nên có `select-all` để bấm một lần là chọn trọn mã. */}
       <div className="flex items-start justify-between gap-2">
-        <span className="text-sm font-semibold leading-tight text-text-primary">
-          <span className="text-primary">{deNghi.code}</span>
-          {deNghi.maHopDongCDT ? ` - ${deNghi.maHopDongCDT}` : ""}
-          {deNghi.tenCongTrinh ? ` - ${deNghi.tenCongTrinh.toUpperCase()}` : ""}
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm font-semibold leading-tight text-primary break-all select-all">
+            {deNghi.code}
+          </span>
+          {/* Chỉ vẽ dòng công trình khi CÓ dữ liệu — nhãn trơ không giá trị là hứa suông. */}
+          {(deNghi.tenCongTrinh || deNghi.maHopDongCDT) && (
+            <span className="text-xs leading-snug text-text-desc">
+              {deNghi.tenCongTrinh && (
+                <>
+                  <span className="text-text-secondary">Công trình:</span>{" "}
+                  <span className="font-medium text-text-primary">
+                    {deNghi.tenCongTrinh.toUpperCase()}
+                  </span>
+                </>
+              )}
+              {deNghi.tenCongTrinh && deNghi.maHopDongCDT ? " · " : ""}
+              {deNghi.maHopDongCDT && (
+                <>
+                  <span className="text-text-secondary">Mã công trình:</span>{" "}
+                  <span className="break-all">{deNghi.maHopDongCDT}</span>
+                </>
+              )}
+            </span>
+          )}
         </span>
         <span className="flex shrink-0 items-center gap-1">
           {deNghi.mucDoUuTien === "gap" && <StatusBadge label="Gấp" tone="danger" />}
@@ -589,6 +617,25 @@ function MenuThaoTacThe({
     }
   }
 
+  /**
+   * ★ SAO CHÉP RIÊNG MÃ ĐỀ NGHỊ — Ban lãnh đạo 20/08/2026: *"sau này các app khác sẽ link từ mã
+   * đề nghị"*.
+   *
+   * 🔴 KHÁC "sao chép đường dẫn": đường dẫn là địa chỉ web của app Thu mua, dùng để mở trang.
+   * Còn app Kho và app QLDA nối hồ sơ với nhau bằng **mã hồ sơ** (theo Thông báo 09/2026), nên
+   * người dùng cần chép được đúng cái mã đó để dán sang app khác — không phải cả một URL.
+   */
+  async function saoChepMa() {
+    try {
+      await navigator.clipboard.writeText(deNghi.code);
+      toast.success("Đã sao chép mã đề nghị", { description: deNghi.code });
+    } catch {
+      toast.error("Trình duyệt không cho sao chép", {
+        description: `Tự chép tay: ${deNghi.code}`,
+      });
+    }
+  }
+
   return (
     /* 🔴 Chặn cả click lẫn kéo NGAY Ở VỎ BỌC: thẻ cha là <Link> và kéo-thả được. Thiếu
        preventDefault/stopPropagation thì bấm ⋯ là mở luôn trang chi tiết; thiếu draggable=false
@@ -636,8 +683,13 @@ function MenuThaoTacThe({
               <PictureInPicture2 className="size-4 shrink-0" aria-hidden />
               Xem trong pop-up
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={saoChepDuongDan}>
+            {/* Mã đứng TRƯỚC đường dẫn: dán mã sang app khác là việc dùng nhiều hơn. */}
+            <DropdownMenuItem onClick={saoChepMa}>
               <Copy className="size-4 shrink-0" aria-hidden />
+              Sao chép mã đề nghị
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={saoChepDuongDan}>
+              <LinkIcon className="size-4 shrink-0" aria-hidden />
               Sao chép đường dẫn
             </DropdownMenuItem>
 

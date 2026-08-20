@@ -66,10 +66,18 @@ export interface MucDieuHuong {
  *     xét `quyen.taoDeNghi` nên ai lập được đề nghị đều thấy. Đây là đường vào chính.
  *   · Nút "Nhận đề nghị mới" ở màn Quy trình mua hàng — chỉ người làm thu mua thấy.
  *
- * ⚠️ Ba MÀN HÌNH đó VẪN CÒN, địa chỉ không đổi (`/phan-bo`, `/bao-gia`, `/don-hang`).
- * Chỉ bỏ lối vào từ menu. Đường vào hiện tại là trang chi tiết đề nghị `/de-nghi/[id]`:
- * ở đó có bảng phân bổ, danh sách bảng báo giá và danh sách đơn hàng đã tách.
- * Muốn trả mục nào về menu thì thêm lại vào mảng dưới đây, không phải dựng lại gì.
+ * ⚠️ CẬP NHẬT 20/08/2026 — chỉ CÒN HAI màn hình, không phải ba:
+ *   · `/phan-bo` và `/don-hang` vẫn còn, địa chỉ không đổi, chỉ bỏ lối vào từ menu.
+ *   · 🔴 `/bao-gia` và `/bao-gia/[id]` **ĐÃ XÓA HẲN** — Ban lãnh đạo chốt bỏ tính năng so sánh
+ *     giá bằng nhập liệu, rồi bỏ luôn cả màn hình. Bản báo giá nay là **tệp đính kèm ở bước ②**
+ *     (`khu-bao-gia-theo-so-luong.tsx`). Chi tiết ở `BAN-DO-MA-NGUON.md` mục 2c.
+ *     👉 Đừng thêm `/bao-gia` trở lại mảng dưới đây: trang đó không còn tồn tại, thêm vào là
+ *     một mục menu dẫn tới màn 404.
+ *
+ * Đường vào hiện tại là trang chi tiết đề nghị `/de-nghi/[id]`: ở đó có bảng phân bổ, khối bảng
+ * báo giá (chỉ còn thông tin, không bấm được nữa) và danh sách đơn hàng đã tách.
+ * Muốn trả `/phan-bo` hay `/don-hang` về menu thì thêm lại vào mảng dưới đây, không phải dựng
+ * lại gì.
  *
  * ---
  *

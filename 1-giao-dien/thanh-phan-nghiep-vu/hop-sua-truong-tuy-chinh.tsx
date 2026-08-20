@@ -162,7 +162,7 @@ export function HopSuaTruongTuyChinh({
     suaMatHangDeNghi,
     datSoBaoGiaChoPhieu,
     themTepGiaiDoan,
-    datGhiChuTepGiaiDoan,
+    datTepVaoOGiaiDoan,
   } = useDuLieu();
   const { nguoiDung } = useNguoiDung();
 
@@ -275,19 +275,19 @@ export function HopSuaTruongTuyChinh({
   }
 
   /**
-   * Đính kèm vào MỘT Ô CÓ TÊN: cất tệp vào danh sách của bước rồi gắn nhãn ghi chú.
+   * Đính kèm vào MỘT Ô CÓ TÊN — MỘT LẦN GHI DUY NHẤT.
    *
-   * ⚠️ Hai lần ghi liên tiếp vào cùng một hồ sơ. Phải chờ `themTepGiaiDoan` xong (nó trả lý do
-   * lỗi chứ không ném) rồi mới gắn ghi chú — gắn trước thì tệp chưa tồn tại, ghi chú rơi mất
-   * lặng lẽ và tệp nằm sai ô.
+   * 🔴 SỬA 20/08/2026. Bản cũ gọi `themTepGiaiDoan` rồi gọi tiếp `datGhiChuTepGiaiDoan`, và
+   * **nhãn không bao giờ được ghi**: hàm thứ hai đọc `deNghiRef.current`, mà ref chỉ cập nhật
+   * lúc render nên nó không thấy tệp vừa thêm, trả *"Tệp này không còn trong hồ sơ"* rồi thôi.
+   * Chú thích cũ ở đây tự tin là đã xử lý đúng ("phải chờ hàm thứ nhất xong") — nhưng "xong" ở
+   * đây chỉ là **xếp lịch `setState`**, không phải state đã đổi. Xem `datTepVaoOGiaiDoan`.
+   *
+   * Hàm mới cũng tự GỠ bản cũ khi ô đã có tệp, nên nút "Thay tệp" nay thay thật thay vì thêm
+   * một tệp thứ hai cùng nhãn rồi bản mới thành vô hình.
    */
-  function ganTepVaoO(tep: MoTaTep, nhan: string) {
-    const loi = themTepGiaiDoan(deNghi.id, BUOC_BAO_GIA, [tep], nguoiDung.tenHienThi);
-    if (loi) {
-      toast.error("Không lưu được tệp vào hồ sơ", { description: loi });
-      return;
-    }
-    datGhiChuTepGiaiDoan(deNghi.id, BUOC_BAO_GIA, tep.id, nhan, nguoiDung.tenHienThi);
+  function ganTepVaoO(tep: MoTaTep, nhan: string): string | null {
+    return datTepVaoOGiaiDoan(deNghi.id, BUOC_BAO_GIA, tep, nhan, nguoiDung.tenHienThi);
   }
 
   function capNhat() {
