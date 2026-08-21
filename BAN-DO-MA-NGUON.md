@@ -153,6 +153,29 @@ thì không để thành mục menu riêng nữa. Vào bằng **thẻ trên bả
 | ~~Báo giá & so sánh NCC~~ | ❌ **ĐÃ XÓA HẲN 20/08/2026** | xem mục 2c ngay dưới |
 | Đơn đặt hàng | `/don-hang` · `/don-hang/[id]` | `/de-nghi/[id]` — khối **"Đơn đặt hàng đã tách"** |
 
+## 🔴🔴 2b-bis. VÙNG CẤM SỬA — code của phiên tích hợp App Tổng
+
+**Chỉ đạo Sếp 20/08/2026: *"không được sửa code của phiên tích hợp app nha"*.**
+
+Dự án có **hai phiên làm việc song song** cùng đẩy lên một repo. Những tệp dưới đây thuộc phiên
+tích hợp — **đọc được, KHÔNG sửa**:
+
+`2-quy-trinh/tich-hop-app-request.ts` · `3-du-lieu/tich-hop-app-request-types.ts` ·
+`app/api/app-request/de-nghi-moi/route.ts` · `app/api/auth/hpcore-session/route.ts` ·
+`app/api/directory/route.ts` · `app/api/phan-quyen/route.ts` · `5-ket-noi/hpcore-may-chu.ts` ·
+`5-ket-noi/xac-thuc-firebase.ts` · `5-ket-noi/ho-so-tai-khoan.ts`
+
+⚠️ **Phần của họ còn nằm LẪN trong tệp dùng chung** — chỗ dễ xóa nhầm nhất:
+
+| Tệp | Giữ nguyên phần này |
+|---|---|
+| `3-du-lieu/kho-chung-firestore.ts` | `DUONG_DAN` · `export function bo0Undefined` |
+| `3-du-lieu/kieu-du-lieu.ts` | trường `maDeXuatAppRequest` |
+| `next.config.ts` · `.env.local.example` | khai gói máy chủ · biến của App Tổng |
+
+📌 Cách push không phá code của nhau: **CLAUDE.md mục 6.6** (đặt việc của mình lên nền commit mới
+nhất của họ bằng `git apply --3way`, rồi kiểm từng thứ của họ còn không TRƯỚC khi commit).
+
 ## 2c. ❌ MÀN BÁO GIÁ ĐÃ XÓA HẲN (20/08/2026)
 
 Ban lãnh đạo **20/08/2026**: *"E BỎ TÍNH NĂNG SO SÁNH BẰNG CÁCH NHẬP LIỆU NÀY ĐI"*, rồi chốt tiếp
