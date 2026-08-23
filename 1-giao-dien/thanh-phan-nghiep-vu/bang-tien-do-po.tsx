@@ -17,6 +17,7 @@ import {
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { ODinhKemTep, rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
+import { LienKetAnhQlkCtr } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-anh-qlk-ctr";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -382,7 +383,15 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                         Phiếu bị từ chối nhận thì không đòi — hàng trả về thì lấy đâu ra
                         phiếu giao nhận đã ký. */}
                     {p.trangThai !== "tu_choi_nhan" &&
-                      (quyen.ghiPhieuNhanHang ? (
+                      (p.anhQlkCtr ? (
+                        // Phiếu do QLK CTR tự tạo — thủ kho đã đính kèm ảnh bên đó rồi, không
+                        // cần đính kèm lại ở đây (vuongMacXacNhanKho đã coi ảnh này là đủ
+                        // bằng chứng giao nhận, xem 2-quy-trinh/tinh-toan.ts).
+                        <span className="flex min-w-0 items-center gap-1.5 text-xs text-success-soft">
+                          <span className="shrink-0">Ảnh phiếu giao (từ QLK CTR):</span>
+                          <LienKetAnhQlkCtr anh={p.anhQlkCtr} />
+                        </span>
+                      ) : quyen.ghiPhieuNhanHang ? (
                         <ODinhKemTep
                           tep={p.tepPhieuGiao}
                           nhanThem="Đính kèm phiếu giao nhận (bắt buộc)"

@@ -779,6 +779,18 @@ export interface PhieuNhanHang {
   trangThai: TrangThaiPhieuNhan;
   ghiChuTinhTrangHang?: string;
   lines: DongNhanHang[];
+  /**
+   * Phiếu do QLK CTR tự động tạo (thủ kho ghi nhận nhập kho bên đó, không ghi tay ở đây) —
+   * xem 3-du-lieu/tich-hop-qlk-ctr-nhan-hang-types.ts. `undefined` = phiếu tự ghi bình
+   * thường ở Thu mua như trước giờ.
+   */
+  maPhieuNhanQlkCtr?: string;
+  /**
+   * Ảnh phiếu giao do QLK CTR gửi kèm — CHỈ LÀ ĐƯỜNG LINK (QLK CTR tự host qua
+   * /api/files/{key}), không phải MoTaTep vì kho tệp của Thu mua không có chỗ chứa link
+   * ngoài. Xem 1-giao-dien/thanh-phan-dung-chung/lien-ket-anh-qlk-ctr.tsx.
+   */
+  anhQlkCtr?: { ten: string; url: string };
 }
 
 // ------------------------------------------------------------

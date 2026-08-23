@@ -102,7 +102,11 @@ export function poDaGiaoDu(tienDo: TienDoDongPO[]): boolean {
  * được ký, bắt đính kèm là làm kẹt đơn vĩnh viễn.
  */
 export function vuongMacXacNhanKho(phieuCuaPO: PhieuNhanHang[]): string | null {
-  const thieu = phieuCuaPO.filter((p) => p.trangThai !== "tu_choi_nhan" && !p.tepPhieuGiao);
+  // `anhQlkCtr` (ảnh QLK CTR tự gửi kèm, 23/08/2026) coi như ĐÃ có bằng chứng giao nhận —
+  // đúng tinh thần chỉ đạo 11/08/2026 (phải có ảnh/phiếu chứng minh hàng đã về), chỉ khác
+  // nguồn đính kèm. Không đòi thêm `tepPhieuGiao` khi đã có ảnh này, tránh bắt thủ kho đính
+  // kèm 2 lần cho cùng 1 lần giao.
+  const thieu = phieuCuaPO.filter((p) => p.trangThai !== "tu_choi_nhan" && !p.tepPhieuGiao && !p.anhQlkCtr);
   if (thieu.length === 0) return null;
   const ds = thieu.map((p) => `lần ${p.lanGiaoThu}`).join(", ");
   return `Còn ${thieu.length} phiếu nhận hàng chưa đính kèm phiếu giao nhận của nhà cung cấp (${ds}). Mở khối "Tiến độ nhận hàng" để bổ sung.`;
