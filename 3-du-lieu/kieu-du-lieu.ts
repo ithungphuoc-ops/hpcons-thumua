@@ -246,6 +246,18 @@ export interface DeNghiMuaHang {
    */
   tepGiaiDoan?: Record<string, MoTaTep[]>;
   /**
+   * ★ LÝ DO CHƯA CÓ MỘT CHỨNG TỪ BẮT BUỘC — Ban lãnh đạo 23/08/2026: *"bắt buộc có file đính kèm
+   * hoặc ghi chú lý do không đính kèm file thì mới cho chuyển bước… Để biết là còn thiếu hồ sơ để
+   * bổ sung sau"*.
+   *
+   * Khóa là hằng số khai trong `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`
+   * (VD `KHOA_LY_DO_THIEU_HOP_DONG`), KHÔNG phải chuỗi gõ tay ở chỗ gọi.
+   *
+   * 🔴 CÓ LÝ DO ≠ ĐỦ HỒ SƠ. Trường này chỉ mở đường ĐI TIẾP; hồ sơ vẫn bị tô đỏ cho tới khi tệp
+   * thật được đính vào. Đừng dùng nó để tắt cảnh báo.
+   */
+  lyDoThieuChungTu?: Record<string, string>;
+  /**
    * ★ CÔNG VIỆC BẮT BUỘC CỦA GIAI ĐOẠN ĐÃ TÍCH XONG — mục "Danh sách công việc" của Base.
    *
    * Danh mục công việc nằm ở `2-quy-trinh/cau-hinh-quy-trinh.ts` → `congViecTheoBuoc`; ở đây
@@ -402,6 +414,28 @@ export interface MocLichSu {
 // NHÀ CUNG CẤP
 // ------------------------------------------------------------
 
+/**
+ * ★ THỦ KHO CÔNG TRÌNH — danh mục người nhận hàng tại chân công trình.
+ *
+ * ★ Ban lãnh đạo 22/08/2026: *"Thêm trường nhập liệu thông tin thủ kho công trình và cho lưu lại"*.
+ *
+ * 🔴 VÌ SAO KHÔNG DÙNG DANH BẠ NHÂN SỰ CHO VIỆC NÀY: danh bạ chỉ có người **đã có tài khoản** trên
+ * hệ thống. Thủ kho ở công trường phần lớn chưa có tài khoản, nên trước đây mỗi lần lập đơn là gõ
+ * lại tên và số điện thoại từ đầu — gõ mười lần thì có mười cách viết, và số điện thoại thì hay
+ * gõ sai một chữ số. Nhà cung cấp gọi vào số sai là hàng không giao được.
+ *
+ * 📌 Đây là danh mục NGƯỜI DÙNG TỰ THÊM, cùng cách làm với `NhaCungCap` do thu mua tự điền.
+ */
+export interface ThuKhoCongTrinh {
+  id: string;
+  ten: string;
+  /** Số nhà cung cấp gọi để hẹn giao hàng — lý do chính phải lưu danh mục này. */
+  soDienThoai?: string;
+  /** Công trình / dự án người này phụ trách, để chọn đúng người khi có nhiều thủ kho. */
+  congTrinh?: string;
+  ghiChu?: string;
+}
+
 export interface NhaCungCap {
   id: string;
   ten: string;
@@ -513,6 +547,26 @@ export interface XacNhan {
   thoiDiem: NgayISO;
 }
 
+/**
+ * ★ HAI MẪU IN ĐƠN MUA HÀNG — biểu mẫu `PO - DEMO 130826.xlsx` (Ban lãnh đạo gửi 21/08/2026).
+ * Xem chú thích của `DonDatHang.mauPO` để biết khi nào dùng mẫu nào.
+ */
+export type MauDonMuaHang = "thoa_thuan" | "theo_hop_dong";
+
+/** Nhãn hai mẫu — dùng chung cho ô chọn ở màn lập đơn và cho tiêu đề tờ in. */
+export const NHAN_MAU_PO: Record<MauDonMuaHang, { nhan: string; tieuDeIn: string; moTa: string }> = {
+  thoa_thuan: {
+    nhan: "Đơn mua hàng / Thỏa thuận mua bán",
+    tieuDeIn: "Đơn mua hàng / Thỏa thuận mua bán",
+    moTa: "Chưa có hợp đồng riêng — chính tờ đơn có giá trị như hợp đồng khi hai bên ký.",
+  },
+  theo_hop_dong: {
+    nhan: "Đơn mua hàng (theo hợp đồng đã ký)",
+    tieuDeIn: "Đơn mua hàng",
+    moTa: "Đã có hợp đồng nguyên tắc — tờ đơn ghi rõ số và ngày ký hợp đồng đó.",
+  },
+};
+
 export interface DonDatHang {
   id: string;
   /**
@@ -585,11 +639,14 @@ export interface DonDatHang {
   diaChiNCC?: string;
   /** Ô "Người liên hệ" trên màn MISA — người bên NCC, kèm số điện thoại nếu có. */
   nguoiLienHeNCC?: string;
-  /**
-   * ★ Ô "Diễn giải" của màn MISA — một câu mô tả ngắn cả đơn, hiện ở danh sách đơn hàng.
-   * Khác `ghiChu` (dặn dò nội bộ) và khác `dieuKhoanKhac` (điều khoản với nhà cung cấp).
+  /*
+   * ❌ ĐÃ BỎ trường `dienGiai` (Ban lãnh đạo 21/08/2026: *"CHẤP NHẬN BỎ"*).
+   * Nó là ô "Diễn giải" bắt chước màn MISA, nhưng trong app này **chưa từng hiện ở đâu**:
+   * không có trên tờ in A4, không có ở danh sách đơn hàng. Người dùng gõ vào rồi không thấy lại
+   * bao giờ — đúng cái lỗi "giao diện hứa một việc app không làm" ở CLAUDE.md §3.5.
+   * Việc mô tả đơn đã có `ghiChu` (dặn dò nội bộ) và `dieuKhoanKhac` (điều khoản với NCC) lo.
+   * ⚠️ Đơn cũ trong Firestore có thể còn khóa `dienGiai`; nó chỉ nằm im, không ai đọc nữa.
    */
-  dienGiai?: string;
   /** ★ Ô "Tham chiếu" của màn MISA — số chứng từ bên ngoài liên quan (đơn cũ, email, hợp đồng). */
   thamChieu?: string;
   nguoiPhuTrachUid: string;
@@ -603,6 +660,44 @@ export interface DonDatHang {
   diaDiemGiaoHang?: string;
   /** Ô "Người Nhận" trên mẫu đơn — người BÊN MUA đứng ra nhận hàng. */
   nguoiNhanHangTen?: string;
+  /**
+   * Số điện thoại người nhận hàng — ô "Số điện thoại" đứng cạnh "Người nhận hàng" trên biểu mẫu
+   * `PO - DEMO 130826.xlsx` (Ban lãnh đạo gửi 21/08/2026).
+   *
+   * 📌 Nhà cung cấp gọi số này để hẹn giao hàng. Thiếu nó thì tài xế tới cổng không biết gọi ai —
+   * đó là lý do biểu mẫu giấy để hẳn một ô riêng.
+   */
+  nguoiNhanHangSdt?: string;
+  /**
+   * ★ CHỌN 1 TRONG 2 MẪU IN — Ban lãnh đạo 21/08/2026: *"có trường tuỳ chọn 1 trong 2 mẫu"*.
+   *
+   * Hai mẫu trong biểu mẫu công ty khác nhau ở chỗ **đơn này đã có hợp đồng trước hay chưa**:
+   *   · `thoa_thuan` — tiêu đề *"ĐƠN MUA HÀNG / THỎA THUẬN MUA BÁN"*. Dùng khi KHÔNG có hợp đồng
+   *     riêng: chính tờ đơn có giá trị như hợp đồng, nên cuối tờ có hai câu cam kết cố định.
+   *   · `theo_hop_dong` — tiêu đề *"ĐƠN MUA HÀNG"*, thêm dòng *"Theo hợp đồng: … Ký ngày …"*.
+   *     Dùng khi đã ký hợp đồng nguyên tắc; điều khoản nằm ở hợp đồng nên tờ đơn không cam kết lại.
+   *
+   * ⚠️ TÙY CHỌN, mặc định `thoa_thuan`: đơn cũ không có trường này, và phần lớn đơn lẻ không có
+   * hợp đồng riêng. Đọc `undefined` thành `theo_hop_dong` là in thiếu hai câu cam kết trên chứng
+   * từ đã gửi nhà cung cấp.
+   */
+  mauPO?: MauDonMuaHang;
+  /**
+   * ★ Khối "Phương thức giao hàng" in ở cuối tờ đơn — SỬA ĐƯỢC từ 22/08/2026
+   * (Ban lãnh đạo: *"mục đơn PO này hãy tạo thành trường có thể sửa được nội dung"*).
+   *
+   * 🔴 `undefined` KHÁC chuỗi rỗng, đừng gộp:
+   *   · `undefined`   → đơn chưa sửa gì → in **bản chuẩn** ở `dieu-khoan-chuan-don-mua-hang.ts`.
+   *   · `""`          → người lập cố ý xóa trắng → tờ in KHÔNG có khối điều khoản nào.
+   * Gộp hai thứ này là đơn cố ý bỏ điều khoản vẫn in đầy đủ điều khoản ra chứng từ gửi nhà cung
+   * cấp — tức app tự thêm cam kết mà người lập đã quyết định bỏ.
+   *
+   * 📌 Lưu bản CỦA TỪNG ĐƠN chứ không trỏ tới bản chuẩn: sửa bản chuẩn về sau không được làm
+   * thay đổi chứng từ đã phát hành.
+   */
+  dieuKhoanGiaoHang?: string;
+  /** ★ Hai câu cam kết cuối tờ, CHỈ in ở mẫu *Thỏa thuận mua bán*. Quy ước `undefined`/`""` như trên. */
+  camKetThoaThuan?: string;
   /** Ô "Điều khoản khác" trên mẫu đơn (bảo hành, bốc xếp, chứng chỉ chất lượng...). */
   dieuKhoanKhac?: string;
   ghiChu?: string;

@@ -36,20 +36,46 @@ export function laViecCuaToi(deNghi: DeNghiMuaHang, uid: string): boolean {
 }
 
 /**
+ * ★ THỜI ĐIỂM HỒ SƠ VÀO APP — mốc để xếp "mới nhất lên đầu".
+ *
+ * 🔴 KHÔNG DÙNG `ngayDeNghi`: đó là ngày người đề xuất lập phiếu **bên App Request**, chỉ có
+ * ngày không có giờ, và cả một đợt duyệt thì trùng nhau hết. Xếp theo nó là hàng chục phiếu
+ * ngang hàng, rơi về phá hòa bằng mã — đúng thứ Ban lãnh đạo đang thấy sai.
+ *
+ * 👉 Dùng dòng nhật ký ĐẦU TIÊN. Cửa tiếp nhận (`app/api/app-request/de-nghi-moi/route.ts`)
+ * ghi `lichSu[0].thoiDiem = new Date().toISOString()` ngay lúc nhận, tức mốc chính xác tới giây
+ * và **không bao giờ trùng** giữa hai phiếu. Phiếu tách ra từ phiếu cha cũng có nhật ký riêng
+ * nên vẫn xếp đúng lượt.
+ *
+ * ⚠️ Trả chuỗi rỗng khi phiếu chưa có nhật ký (dữ liệu mẫu cũ): chuỗi rỗng nhỏ hơn mọi chuỗi
+ * ISO, nên phiếu đó rơi xuống cuối thay vì nhảy lên đầu — im lặng mà đúng hướng.
+ */
+function thoiDiemVaoApp(dn: DeNghiMuaHang): string {
+  return dn.lichSu?.[0]?.thoiDiem ?? "";
+}
+
+/**
  * THỨ TỰ ĐỀ NGHỊ trong mọi danh sách. Truyền `uid` để đẩy việc của người đó lên đầu.
  *
  * Thứ tự xét:
  *   1. Việc MÌNH phụ trách lên trước (bỏ qua nếu không biết `uid`, VD trang in).
- *   2. Ngày cần hàng gần nhất — việc gấp nổi lên trên, giữ nguyên thói quen đọc bảng cũ.
- *   3. Mã hồ sơ, để PHÁ HÒA.
+ *   2. ★ MỚI NHẬN LÊN TRƯỚC (Ban lãnh đạo 23/08/2026: *"cái nào mới sẽ được đưa lên đầu tiên"*).
+ *   3. Ngày cần hàng gần nhất.
+ *   4. Mã hồ sơ, để PHÁ HÒA.
  *
- * ⚠️ BƯỚC 3 KHÔNG THỪA. Nhiều đề nghị cùng `ngayCanHang` là chuyện thường (cùng một đợt
- * duyệt). Thiếu tiêu chí phá hòa thì thứ tự phụ thuộc thuật toán sort của trình duyệt, và mỗi
- * lần dữ liệu đổi một chút là các thẻ ngang hàng lại đảo chỗ — người dùng đang nhìn thì thẻ
- * tự nhảy, tưởng mình bấm nhầm.
+ * 🔴 BƯỚC 2 ĐÃ ĐẨY "NGÀY CẦN HÀNG" XUỐNG HÀNG DƯỚI. Trước 23/08 việc gấp nổi lên đầu; nay thứ
+ * tự là theo lượt nhận, nên **hồ sơ gấp có thể nằm dưới hồ sơ mới nhận**. Đây là đúng chỉ đạo,
+ * không phải sót — dấu hiệu gấp vẫn còn nguyên trên thẻ (nhãn "Còn N ngày" đổi màu, hồ sơ quá
+ * hạn viền đỏ), nên người đọc bảng vẫn nhận ra ngay mà không phải dựa vào thứ tự.
+ *
+ * ⚠️ BƯỚC 4 KHÔNG THỪA. Dữ liệu cũ có thể thiếu nhật ký (`thoiDiemVaoApp` trả rỗng) và nhiều
+ * phiếu cùng `ngayCanHang` là chuyện thường. Thiếu tiêu chí phá hòa thì thứ tự phụ thuộc thuật
+ * toán sort của trình duyệt, và mỗi lần dữ liệu đổi một chút là các thẻ ngang hàng lại đảo chỗ
+ * — người dùng đang nhìn thì thẻ tự nhảy, tưởng mình bấm nhầm.
  *
  * 📌 `ngayCanHang` là chuỗi ISO `YYYY-MM-DD` nên so chuỗi là đủ và đúng thứ tự thời gian —
- * rẻ hơn dựng `new Date()` cho mỗi lần so sánh bên trong `.sort()`.
+ * rẻ hơn dựng `new Date()` cho mỗi lần so sánh bên trong `.sort()`. `thoiDiem` cũng là ISO nên
+ * so chuỗi được y hệt.
  *
  * ⚠️ Bên gọi nhớ `[...ds].sort(...)`: `sort` đổi mảng tại chỗ, sort thẳng mảng lấy từ
  * `useDuLieu()` là đảo luôn dữ liệu gốc mà mọi màn khác đang dùng chung.
@@ -64,6 +90,10 @@ export function soSanhDeNghiUuTien(
     const cuaB = laViecCuaToi(b, uid) ? 0 : 1;
     if (cuaA !== cuaB) return cuaA - cuaB;
   }
+  /* Mới nhận lên trước → so NGƯỢC (b trước a). */
+  const vaoA = thoiDiemVaoApp(a);
+  const vaoB = thoiDiemVaoApp(b);
+  if (vaoA !== vaoB) return vaoA > vaoB ? -1 : 1;
   if (a.ngayCanHang !== b.ngayCanHang) return a.ngayCanHang < b.ngayCanHang ? -1 : 1;
   return a.code.localeCompare(b.code, "vi");
 }

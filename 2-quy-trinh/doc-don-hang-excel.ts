@@ -75,8 +75,8 @@ export interface ThongTinChungExcel {
   nguoiLienHe?: string;
   /** Ô "Nhân viên mua hàng" — người bên mình. */
   nhanVienMuaHang?: string;
-  /** Ô "Diễn giải". */
-  dienGiai?: string;
+  /* ❌ Bỏ ô "Diễn giải" (Ban lãnh đạo 21/08/2026) — xem `kieu-du-lieu.ts`. Đọc lên cũng không có
+     chỗ nào chứa, nên không dò nữa. */
   /** Ô "Tham chiếu". */
   thamChieu?: string;
   /** Ô "Số ngày được nợ". */
@@ -273,7 +273,18 @@ const CACH_VIET_COT: Record<MaCot, string[]> = {
   stt: ["stt", "#", "so tt", "so thu tu"],
   maHang: ["ma hang", "ma vat tu", "ma vt", "ma hang hoa", "ma san pham"],
   tenHang: ["ten hang", "ten vat tu", "ten vat lieu", "ten hang hoa", "ten hang hoa dich vu"],
-  thongSoKyThuat: ["thong so ky thuat", "thong so", "quy cach", "quy cach ky thuat", "tskt"],
+  /* ★ Thêm "quy cach / chung loai" (23/08/2026): đó là nhãn ĐÚNG trên biểu mẫu công ty
+     (`PO - DEMO 130826.xlsx`, ô E11), và từ nay app dùng chính nhãn đó ở bảng nhập lẫn file xuất.
+     Giữ các cách viết cũ để file người dùng đã lưu vẫn đọc được. */
+  thongSoKyThuat: [
+    "quy cach / chung loai",
+    "quy cach chung loai",
+    "thong so ky thuat",
+    "thong so",
+    "quy cach",
+    "quy cach ky thuat",
+    "tskt",
+  ],
   donViTinh: ["dvt", "don vi tinh", "don vi", "dv tinh"],
   soLuong: ["sl", "so luong", "khoi luong", "so luong dat", "kl"],
   donGia: ["don gia", "gia", "don gia chua thue", "don gia truoc thue"],
@@ -560,7 +571,6 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
     maNCC: timTheoNhan("mã nhà cung cấp"),
     nguoiLienHe: timTheoNhan("người liên hệ"),
     nhanVienMuaHang: timTheoNhan("nhân viên mua hàng"),
-    dienGiai: timTheoNhan("diễn giải"),
     thamChieu: timTheoNhan("tham chiếu"),
     soNgayDuocNo: docSo(timTheoNhan("số ngày được nợ")),
     ngayDonHang: timTheoNhan("ngày đơn hàng"),

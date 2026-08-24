@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ChevronDown,
   Plus,
+  Trash2,
   ChevronRight,
   Download,
   FileSpreadsheet,
@@ -15,6 +16,7 @@ import {
   Keyboard,
   Paperclip,
   Printer,
+  RotateCcw,
   Save,
   ShoppingCart,
   Split,
@@ -55,13 +57,20 @@ import {
 import { NhanPhanTrongGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import type { MoTaTep } from "@/3-du-lieu/kho-tep";
+import { NHAN_MAU_PO } from "@/3-du-lieu/kieu-du-lieu";
+import {
+  CAM_KET_THOA_THUAN_CHUAN,
+  DIEU_KHOAN_GIAO_HANG_CHUAN,
+} from "@/3-du-lieu/dieu-khoan-chuan-don-mua-hang";
 import type {
   DeNghiMuaHang,
   DongPO,
   KieuChietKhau,
+  MauDonMuaHang,
   NhaCungCap,
   TienDoDongDeNghi,
 } from "@/3-du-lieu/kieu-du-lieu";
+import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   moTaThueSuat,
@@ -79,6 +88,8 @@ import {
   tenFileDonHangMau,
   SO_DON_BAN_MAU,
 } from "@/2-quy-trinh/don-hang-mau";
+/* Khuôn số đơn hàng — dùng CHUNG với chỗ cấp số thật, không viết lại chuỗi "DMH" ở đây. */
+import { namCuaNgay, TIEN_TO_DON_HANG } from "@/2-quy-trinh/dat-ma-don-hang";
 import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
 import { catBanMauDonMuaHang } from "@/3-du-lieu/ban-mau-don-mua-hang";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
@@ -251,13 +262,25 @@ export function FormLapDonMuaHang({
   const {
     deNghi: dsDeNghi,
     donHang,
+    /* Chứng từ giá nằm RIÊNG (`tm_donhang_gia`) theo nguyên tắc dữ liệu số 3 của dự án — điều
+       khoản thanh toán và số ngày được nợ là điều kiện thương mại, không để lẫn vào `tm_donhang`.
+       Ở đây chỉ đọc để điền sẵn khi tách thêm đơn, và chỉ khi vai trò được xem giá. */
+    giaDonHang,
     baoGia,
     phieuNhan,
     nhaCungCap,
     themDonHang,
     themNhaCungCap,
+    xoaNhaCungCap,
+    /* ★ Danh mục thủ kho công trình (22/08/2026) — người ở công trường phần lớn chưa có tài
+       khoản nên không có trong danh bạ nhân sự. */
+    thuKho,
+    themThuKho,
+    xoaThuKho,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  /* Danh bạ nhân sự — dùng để chọn nhanh thủ kho ở ô "Người nhận hàng". */
+  const danhBa = useDanhBa();
 
   /**
    * ★ CỜ CHIA HAI CHẾ ĐỘ — mọi nhánh mới ngày 18/08/2026 đều gác bằng cờ này.
@@ -285,10 +308,18 @@ export function FormLapDonMuaHang({
    */
   const [tenNCC, setTenNCC] = useState("");
   const [diaChiNCC, setDiaChiNCC] = useState("");
-  const [dienGiai, setDienGiai] = useState("");
   const [dieuKhoanThanhToan, setDieuKhoanThanhToan] = useState("");
   const [soNgayDuocNo, setSoNgayDuocNo] = useState("");
   // Cột 3
+  /**
+   * ★ LOẠI TIỀN — trường "Loại tiền: VND" trên biểu mẫu công ty (`PO - DEMO 130826.xlsx`, ô K8).
+   *
+   * 🔴 Ban lãnh đạo 23/08/2026: *"đủ các trường thông tin như vậy"*. Trước đây app **ghi cứng
+   * "VND"** lúc cất đơn, tờ in vẫn in ra đúng — nhưng người lập không có chỗ nào đổi. Đơn mua
+   * hàng nhập khẩu (thép, thiết bị) trả bằng USD thì chứng từ in ra sai đơn vị tiền, mà không ai
+   * sửa được từ giao diện.
+   */
+  const [loaiTien, setLoaiTien] = useState("VND");
   const [ngayDonHang, setNgayDonHang] = useState(() => new Date().toISOString().slice(0, 10));
   const [ngayGiao, setNgayGiao] = useState("");
   // Dòng cuối khối
@@ -341,7 +372,23 @@ export function FormLapDonMuaHang({
   const [ngayHopDong, setNgayHopDong] = useState("");
   const [diaDiemGiao, setDiaDiemGiao] = useState("");
   const [nguoiNhanHang, setNguoiNhanHang] = useState("");
+  /** So dien thoai nguoi nhan hang — ô riêng trên biểu mẫu (21/08/2026). */
+  const [sdtNguoiNhan, setSdtNguoiNhan] = useState("");
+  /**
+   * Mẫu in đơn mua hàng — Ban lãnh đạo 21/08/2026: *"có trường tuỳ chọn 1 trong 2 mẫu"*.
+   * Mặc định `thoa_thuan`: phần lớn đơn lẻ không có hợp đồng nguyên tắc riêng.
+   */
+  const [mauPO, setMauPO] = useState<MauDonMuaHang>("thoa_thuan");
   const [dieuKhoanKhac, setDieuKhoanKhac] = useState("");
+  /**
+   * ★ Điều khoản in ở cuối tờ đơn — `null` nghĩa là CHƯA SỬA (dùng bản chuẩn của công ty).
+   *
+   * 🔴 Dùng `null` chứ không phải chuỗi rỗng làm giá trị khởi tạo: chuỗi rỗng đã mang nghĩa
+   * "người lập cố ý bỏ khối điều khoản" (xem `DonDatHang.dieuKhoanGiaoHang`). Khởi tạo bằng `""`
+   * là mọi đơn mới đều cất một bản điều khoản TRỐNG, và tờ in không còn dòng điều khoản nào.
+   */
+  const [dieuKhoanGiaoHang, setDieuKhoanGiaoHang] = useState<string | null>(null);
+  const [camKetThoaThuan, setCamKetThoaThuan] = useState<string | null>(null);
   const [tepDinhKem, setTepDinhKem] = useState<MoTaTep[]>([]);
 
   // ---------------------------------------------------------------------------
@@ -459,6 +506,24 @@ export function FormLapDonMuaHang({
   }, [donHang]);
 
   /**
+   * ★ NHÂN SỰ BỘ PHẬN KHO — để chọn nhanh người nhận hàng (Ban lãnh đạo 21/08/2026).
+   *
+   * 📌 Cùng nguồn `useDanhBa()` với ô "Người theo dõi": tài khoản THẬT trên máy chủ khi đã nối
+   * App Tổng, rơi về danh bạ tĩnh khi chạy chế độ tài khoản mẫu. Không dựng danh sách riêng —
+   * hai chỗ cùng chọn người mà lấy hai nguồn khác nhau là sớm muộn lệch nhau.
+   *
+   * ⚠️ Bỏ người đã nghỉ (`status !== "active"`): giao hàng cho người không còn làm ở công ty thì
+   * tài xế tới cổng không ai nhận.
+   */
+  const nhanSuKho = useMemo(
+    () =>
+      danhBa
+        .filter((n) => n.department === "kho" && n.status === "active")
+        .sort((a, b) => a.displayName.localeCompare(b.displayName, "vi")),
+    [danhBa],
+  );
+
+  /**
    * Tiến độ từng dòng của phiếu đề nghị nguồn.
    *
    * ⚠️ Độc lập thì KHÔNG có đề nghị nào → mảng rỗng, và mọi thứ suy ra từ nó (`dongLapDuoc`,
@@ -523,6 +588,15 @@ export function FormLapDonMuaHang({
    * ra file riêng lúc này là thêm một tầng truyền prop mà không ai dùng lại.
    */
   const [moThemNCC, setMoThemNCC] = useState(false);
+  /** Nhà cung cấp đang hỏi xác nhận xóa khỏi danh mục — `null` là không hỏi gì. */
+  const [hoiXoaNCC, setHoiXoaNCC] = useState<NhaCungCap | null>(null);
+
+  /* ★ Danh mục thủ kho công trình (22/08/2026) — hai hộp thoại và ba ô nhập của hộp thêm. */
+  const [moThemThuKho, setMoThemThuKho] = useState(false);
+  const [moXoaThuKho, setMoXoaThuKho] = useState(false);
+  const [tkTen, setTkTen] = useState("");
+  const [tkSdt, setTkSdt] = useState("");
+  const [tkCongTrinh, setTkCongTrinh] = useState("");
   const [nccMoi, setNccMoi] = useState({
     maNCC: "",
     ten: "",
@@ -597,6 +671,24 @@ export function FormLapDonMuaHang({
     setDongBang((t) => (t.length > 0 ? t : dongMoi));
     daNapTuDeNghi.current = true;
   }, [dn, rfqId, nccIdTuBaoGia, dongLapDuoc, dungDongTuDeNghi]);
+
+  /**
+   * ★ ĐIỀN SẴN CÁC Ô CHUNG TỪ ĐƠN TRƯỚC CỦA CÙNG ĐỀ NGHỊ — mắt nối của việc TÁCH THÊM ĐƠN.
+   *
+   * 🔴 Ban lãnh đạo 21/08/2026: *"chức năng tách thêm đơn chưa tự động link thông tin từ các bước
+   * trước nó"*. Đơn thứ hai giao cùng chỗ, cùng người nhận, cùng điều khoản, cùng thuế suất với
+   * đơn thứ nhất — chỉ khác nhà cung cấp và mặt hàng. Trước đây mọi ô đó trắng trơn, người lập
+   * phải mở lại đơn cũ đọc rồi gõ lại từng ô, và hai đơn của cùng một hồ sơ dễ lệch nhau.
+   *
+   * 🔴 CHỈ ĐIỀN Ô ĐANG TRỐNG. Không ghi đè thứ người lập vừa gõ, và không ghi đè thứ vừa đọc từ
+   * file Excel — điền hộ mà xóa việc của người khác thì tệ hơn không điền.
+   *
+   * ⚠️ Chạy MỘT LẦN (`daDienTuDonTruoc`): thiếu chốt này thì mỗi lần người lập xóa trắng một ô,
+   * hiệu ứng lại điền lại — không ai xóa được gì.
+   *
+   * ⚠️ KHÔNG kế thừa nhà cung cấp, mã số thuế, địa chỉ NCC — xem lý do ở `donTruocCuaDeNghi`.
+   */
+  const daDienTuDonTruoc = useRef(false);
 
   /**
    * ĐIỀN SẴN TỪ PHÂN BỔ CỦA BẢNG BÁO GIÁ — mắt nối của chức năng TÁCH PO.
@@ -735,6 +827,91 @@ export function FormLapDonMuaHang({
     const daCo = new Set(dongBang.filter((d) => !d.laGhiChu).map((d) => d.sttDeNghi));
     return dongLapDuoc.filter((d) => !daCo.has(d.stt));
   }, [dongBang, dongLapDuoc]);
+
+  /**
+   * ★ VÌ SAO KHÔNG CÒN MẶT HÀNG NÀO — câu nói thật cho bảng khi nó trống (21/08/2026).
+   *
+   * 🔴 Ba lý do khác nhau hoàn toàn về việc phải làm tiếp, nên không được gộp thành một câu:
+   *   · Phiếu đề nghị chưa có dòng nào  → hồ sơ sai, phải xem lại phiếu.
+   *   · Đã lên đơn hết khối lượng       → không phải lỗi, chỉ là hết việc ở đây.
+   *   · Còn khối lượng nhưng CHƯA PHÂN BỔ cho người đang lập → phải nhờ trưởng bộ phận phân bổ.
+   *
+   * Lý do thứ ba là chỗ dễ mất người nhất: nhân viên thấy đề nghị còn hàng, mở lập đơn ra thì
+   * bảng trống, mà app trước đây chỉ nói "bấm Thêm dòng" — nút thì đã khóa.
+   */
+  const lyDoHetMatHang = useMemo(() => {
+    if (laDonDocLap || !dn) return undefined;
+    if (tienDo.length === 0) {
+      return "Phiếu đề nghị này chưa có mặt hàng nào.";
+    }
+    const conKhoiLuong = tienDo.filter((d) => d.khoiLuongChuaLenPO > 0);
+    if (conKhoiLuong.length === 0) {
+      return "Mọi mặt hàng của đề nghị đã lên đơn hết — không còn khối lượng nào để đặt thêm.";
+    }
+    const sttLapDuoc = new Set(dongLapDuoc.map((d) => d.stt));
+    const chuaPhanBo = conKhoiLuong.filter((d) => !sttLapDuoc.has(d.stt));
+    if (chuaPhanBo.length > 0) {
+      return `Còn ${chuaPhanBo.length} mặt hàng chưa được phân bổ cho bạn — nhờ trưởng bộ phận phân bổ trước khi lập đơn.`;
+    }
+    return undefined;
+  }, [laDonDocLap, dn, tienDo, dongLapDuoc]);
+
+  /**
+   * ★ ĐƠN TRƯỚC CỦA CÙNG ĐỀ NGHỊ — nguồn để điền sẵn khi TÁCH THÊM ĐƠN (21/08/2026).
+   *
+   * 🔴 Ban lãnh đạo: *"chức năng tách thêm đơn chưa tự động link thông tin từ các bước trước nó"*.
+   * Đơn thứ hai của một đề nghị gần như luôn giao cùng chỗ, cùng người nhận, cùng điều khoản
+   * thanh toán và cùng thuế suất với đơn thứ nhất — chỉ khác nhà cung cấp và mặt hàng. Bắt gõ
+   * lại toàn bộ là mời sai lệch giữa hai đơn của cùng một hồ sơ.
+   *
+   * ⚠️ KHÔNG kế thừa nhà cung cấp: tách đơn thường là để đặt bên KHÁC. Điền sẵn tên nhà cung cấp
+   * cũ là dẫn người lập đặt hàng sai đối tượng — sai nặng hơn nhiều so với việc phải gõ lại.
+   */
+  const donTruocCuaDeNghi = useMemo(() => {
+    if (!dn) return undefined;
+    return donHang
+      .filter((p) => p.prId === dn.id && p.trangThai !== "huy")
+      .sort((a, b) => b.ngayLapPO.localeCompare(a.ngayLapPO))[0];
+  }, [dn, donHang]);
+
+  useEffect(() => {
+    if (daDienTuDonTruoc.current) return;
+    if (!donTruocCuaDeNghi) return;
+    const p = donTruocCuaDeNghi;
+
+    if (p.diaDiemGiaoHang) setDiaDiemGiao((v) => v || p.diaDiemGiaoHang!);
+    if (p.nguoiNhanHangTen) setNguoiNhanHang((v) => v || p.nguoiNhanHangTen!);
+    if (p.nguoiNhanHangSdt) setSdtNguoiNhan((v) => v || p.nguoiNhanHangSdt!);
+    if (p.dieuKhoanKhac) setDieuKhoanKhac((v) => v || p.dieuKhoanKhac!);
+    if (p.mauPO) setMauPO(p.mauPO);
+    /* Ngày giao: KHÔNG lấy ngày của đơn cũ (đã qua rồi), mà lấy ngày cần hàng của đề nghị — đó
+       mới là mốc thật người đề nghị đang chờ. */
+    if (dn?.ngayCanHang) setNgayGiao((v) => v || dn.ngayCanHang);
+
+    /* 🔒 Điều khoản thanh toán và số ngày được nợ nằm ở CHỨNG TỪ GIÁ — chỉ điền cho vai trò được
+       xem giá. Vai trò không được xem giá mà thấy "được nợ 45 ngày" là lộ điều kiện thương mại
+       qua đúng cái cửa mà nguyên tắc dữ liệu số 3 dựng lên để chặn. */
+    if (quyen.xemGia) {
+      const gia = giaDonHang.find((g) => g.poId === p.id);
+      if (gia?.dieuKhoanThanhToan) setDieuKhoanThanhToan((v) => v || gia.dieuKhoanThanhToan!);
+      if (gia?.soNgayDuocNo !== undefined) {
+        setSoNgayDuocNo((v) => v || String(gia.soNgayDuocNo));
+      }
+      /* Thuế suất khởi tạo sẵn là "8" nên `v || x` sẽ không bao giờ đổi được. Chỉ ghi đè khi ô
+         vẫn đúng bằng mặc định — người lập đã tự đổi sang 10% thì giữ nguyên ý họ. */
+      if (gia?.thueSuatGTGT !== undefined) {
+        setThueSuat((v) => (v === "8" ? String(gia.thueSuatGTGT) : v));
+      }
+      /* Loại tiền: cùng lối với thuế suất — ô khởi tạo sẵn "VND" nên `v || x` không bao giờ đổi
+         được. Đơn thứ hai của một đề nghị thanh toán bằng đồng khác đơn thứ nhất là chuyện rất
+         hiếm, nên kế thừa; người lập tự đổi rồi thì giữ nguyên ý họ. */
+      if (gia?.loaiTien) {
+        setLoaiTien((v) => (v === "VND" ? gia.loaiTien! : v));
+      }
+    }
+
+    daDienTuDonTruoc.current = true;
+  }, [donTruocCuaDeNghi, dn, quyen.xemGia, giaDonHang]);
 
   // --- Các thao tác trên bảng ---
   const doiDong = useCallback((id: string, phan: Partial<DongNhapDonHang>) => {
@@ -1002,7 +1179,9 @@ export function FormLapDonMuaHang({
         if (c.dieuKhoanKhac) setDieuKhoanKhac(c.dieuKhoanKhac);
         if (c.dieuKhoanThanhToan) setDieuKhoanThanhToan(c.dieuKhoanThanhToan);
         if (c.thueSuatGTGT !== undefined) setThueSuat(String(c.thueSuatGTGT));
-        if (c.dienGiai) setDienGiai(c.dienGiai);
+        /* Ô "Loại tiền" của file — bộ đọc đã nhặt sẵn từ lâu (`doc-don-hang-excel.ts` dòng 560)
+           nhưng trước 23/08/2026 form bỏ qua, nên nhập một file ghi USD vẫn ra đơn VND. */
+        if (c.loaiTien) setLoaiTien(c.loaiTien);
         if (c.thamChieu) setThamChieu(c.thamChieu);
         if (c.nguoiLienHe) setNguoiLienHe(c.nguoiLienHe);
         if (c.maNCC) setMaNCC(c.maNCC);
@@ -1112,25 +1291,57 @@ export function FormLapDonMuaHang({
        *     dòng tiêu đề** — và như vậy là ĐÚNG việc người dùng cần: một biểu mẫu sạch đúng
        *     tên cột mà app đọc lại được, để họ gõ trong Excel rồi nhập vào.
        */
+      /**
+       * ★ GIÁ ĐANG CÓ TRÊN BẢNG, tra theo STT dòng đề nghị (21/08/2026).
+       *
+       * 🔴 Ban lãnh đạo: *"sao file mẫu đơn mua hàng xuất ra lại không giống đơn nhập"*. Chế độ
+       * có đề nghị lấy dòng từ `dongLapDuoc` (hồ sơ đề nghị) — nơi đó KHÔNG có giá, vì giá là
+       * thứ người lập vừa gõ trên bảng. Nên phải nối hai nguồn: tên hàng/khối lượng từ đề nghị,
+       * còn đơn giá và % thuế từ bảng đang mở.
+       */
+      const giaTheoStt = new Map<number, { donGia?: number; thueSuatDong?: number }>();
+      for (const d of dongBang) {
+        if (d.laGhiChu || d.sttDeNghi === undefined) continue;
+        const g = Number(d.donGia);
+        const t = Number(d.thueSuat);
+        giaTheoStt.set(d.sttDeNghi, {
+          donGia: Number.isFinite(g) && g > 0 ? g : undefined,
+          thueSuatDong: d.thueSuat.trim() !== "" && Number.isFinite(t) ? t : undefined,
+        });
+      }
+
       const dongChoFile = laDonDocLap
         ? dongBang
             .filter((d) => !d.laGhiChu)
-            .map((d, i) => ({
-              stt: i + 1,
-              tenVatLieu: d.tenHang,
-              quyCach: d.thongSo || undefined,
-              donViTinh: d.dvt,
-              soLuong: Number(d.soLuong) || 0,
-              mucDichSuDung: d.mucDich || undefined,
-            }))
+            .map((d, i) => {
+              const g = Number(d.donGia);
+              const t = Number(d.thueSuat);
+              return {
+                stt: i + 1,
+                tenVatLieu: d.tenHang,
+                quyCach: d.thongSo || undefined,
+                donViTinh: d.dvt,
+                soLuong: Number(d.soLuong) || 0,
+                mucDichSuDung: d.mucDich || undefined,
+                donGia: Number.isFinite(g) && g > 0 ? g : undefined,
+                thueSuatDong: d.thueSuat.trim() !== "" && Number.isFinite(t) ? t : undefined,
+              };
+            })
         : dongLapDuoc.map((d) => ({
             stt: d.stt,
             tenVatLieu: d.tenVatLieu,
             quyCach: d.quyCach,
             donViTinh: d.donViTinh,
-            soLuong: d.khoiLuongChuaLenPO,
+            /* Khối lượng: ưu tiên con số ĐANG GÕ TRÊN BẢNG, vì người lập có thể đã chia nhỏ đơn.
+               Chưa đưa dòng đó vào bảng thì mới lấy phần còn được đặt của đề nghị. */
+            soLuong:
+              Number(dongBang.find((x) => x.sttDeNghi === d.stt)?.soLuong) || d.khoiLuongChuaLenPO,
             mucDichSuDung: d.mucDichSuDung,
+            donGia: giaTheoStt.get(d.stt)?.donGia,
+            thueSuatDong: giaTheoStt.get(d.stt)?.thueSuatDong,
           }));
+
+      const thueSuatChung = Number(thueSuat);
 
       const blob = await taoFileNhapDonHang({
         maDeNghi: dn?.code,
@@ -1138,6 +1349,30 @@ export function FormLapDonMuaHang({
         maHopDongCDT: dn ? dn.maHopDongCDT : maHopDong || undefined,
         diaDiemGiaoHang: diaDiemGiao || (dn ? dn.tenCongTrinh : tenCongTrinh),
         nguoiNhanHang,
+        /* ★ Những gì người lập đã điền trên form — trước 21/08/2026 tất cả bị bỏ lại, nên file
+           tải về luôn trắng phần nhà cung cấp và điều khoản dù trên màn hình đã có đủ. */
+        tenNhaCungCap: tenNCC.trim() || undefined,
+        diaChiNCC: diaChiNCC.trim() || undefined,
+        maSoThueNCC: mstNCC.replace(/\D/g, "") || undefined,
+        /* ★ Bảy ô của màn MISA: app đã biết đọc chúng từ 17/08/2026 nhưng biểu mẫu chưa từng in
+           ra dòng nào, nên người lập không có chỗ điền và không ai báo là thiếu. */
+        maNCC: maNCC.trim() || undefined,
+        nguoiLienHeNCC: nguoiLienHe.trim() || undefined,
+        nhanVienMuaHang: nguoiDung.tenHienThi,
+        thamChieu: thamChieu.trim() || undefined,
+        soNgayDuocNo: Number(soNgayDuocNo) || undefined,
+        ngayDonHang: ngayDonHang
+          ? new Date(ngayDonHang).toLocaleDateString("vi-VN")
+          : undefined,
+        /* Phiếu đề nghị KHÔNG lưu ngày hợp đồng chủ đầu tư (chỉ có `maHopDongCDT`), nên dòng này
+           chỉ có giá trị ở module lập đơn độc lập — nơi người lập tự gõ ngày. */
+        ngayHopDongCDT: ngayHopDong
+          ? new Date(ngayHopDong).toLocaleDateString("vi-VN")
+          : undefined,
+        ngayGiaoHang: ngayGiao ? new Date(ngayGiao).toLocaleDateString("vi-VN") : undefined,
+        dieuKhoanKhac: dieuKhoanKhac.trim() || undefined,
+        dieuKhoanThanhToan: dieuKhoanThanhToan.trim() || undefined,
+        thueSuatGTGT: Number.isFinite(thueSuatChung) ? thueSuatChung : undefined,
         dong: dongChoFile,
         nhapTuDo: laDonDocLap,
       });
@@ -1202,18 +1437,23 @@ export function FormLapDonMuaHang({
       maSoThueNCC: mstNCC,
       diaChiNCC,
       nguoiLienHeNCC: nguoiLienHe,
-      dienGiai,
       thamChieu,
       nguoiPhuTrachTen: nguoiDung.tenHienThi,
       ngayLapPO: ngayDonHang,
       ngayGiaoDuKien: ngayGiao,
       diaDiemGiaoHang: diaDiemGiao,
       nguoiNhanHangTen: nguoiNhanHang,
+      nguoiNhanHangSdt: sdtNguoiNhan,
+      mauPO,
+      /* `?? undefined`: `null` (chưa sửa) phải thành `undefined` để tờ in rơi về bản chuẩn. */
+      dieuKhoanGiaoHang: dieuKhoanGiaoHang ?? undefined,
+      camKetThoaThuan: camKetThoaThuan ?? undefined,
       dieuKhoanKhac,
       dong: dongBang,
       kieuChietKhau,
       tyLeChietKhau,
       chietKhau,
+      loaiTien,
       thueSuatGTGT: thueSuat,
       dieuKhoanThanhToan,
       soNgayDuocNo,
@@ -1359,7 +1599,6 @@ export function FormLapDonMuaHang({
     setNguoiLienHe("");
     setTenNCC("");
     setDiaChiNCC("");
-    setDienGiai("");
     setDieuKhoanThanhToan("");
     setSoNgayDuocNo("");
     setNgayDonHang(new Date().toISOString().slice(0, 10));
@@ -1585,7 +1824,6 @@ export function FormLapDonMuaHang({
       maSoThueNCC: maSoThue || undefined,
       diaChiNCC: diaChiNCC.trim() || undefined,
       nguoiLienHeNCC: nguoiLienHe.trim() || undefined,
-      dienGiai: dienGiai.trim() || undefined,
       thamChieu: thamChieu.trim() || undefined,
       nguoiPhuTrachUid: nguoiDung.uid,
       nguoiPhuTrachTen: nguoiDung.tenHienThi,
@@ -1593,13 +1831,20 @@ export function FormLapDonMuaHang({
       ngayGiaoDuKien: ngayGiao,
       diaDiemGiaoHang: diaDiemGiao.trim() || undefined,
       nguoiNhanHangTen: nguoiNhanHang.trim() || undefined,
+      nguoiNhanHangSdt: sdtNguoiNhan.trim() || undefined,
+      mauPO,
+      /* 🔴 `?? undefined` chứ KHÔNG `|| undefined`: người lập xóa trắng khối điều khoản thì phải
+         cất đúng chuỗi rỗng đó, để tờ in không tự thêm lại bản chuẩn. `||` biến `""` thành
+         `undefined` và điều khoản họ vừa bỏ lại hiện nguyên trên chứng từ gửi nhà cung cấp. */
+      dieuKhoanGiaoHang: dieuKhoanGiaoHang ?? undefined,
+      camKetThoaThuan: camKetThoaThuan ?? undefined,
       dieuKhoanKhac: dieuKhoanKhac.trim() || undefined,
       tepDinhKem: tepDinhKem.length > 0 ? tepDinhKem : undefined,
       items,
       donGia: giaTheoDong,
       thueSuatDong: Object.keys(thueSuatTheoDong).length > 0 ? thueSuatTheoDong : undefined,
       phanTien: {
-        loaiTien: "VND",
+        loaiTien: loaiTien.trim() || "VND",
         kieuChietKhau,
         /* ⚠️ CHỈ GHI CON SỐ CỦA ĐÚNG KIỂU ĐANG CHỌN. `tienChietKhau` suy số tiền từ tỷ lệ khi
            kiểu là "ty_le", nên ghi thêm `chietKhau` lúc đó là để lại một con số cũ không ai
@@ -1853,14 +2098,33 @@ export function FormLapDonMuaHang({
       )}
 
       {/* =========================================================================
-          ① KHỐI THÔNG TIN CHUNG — 3 cột, đúng thứ tự ô của MISA
+          ① ĐẦU TỜ ĐƠN — bám đúng khối đầu của biểu mẫu công ty (PO - DEMO 130826.xlsx)
 
-          🔴 NỀN XANH RẤT NHẠT PHỦ KÍN KHỐI, đúng như MISA (18/08/2026) — nhưng bằng TOKEN CỦA
-          CÔNG TY: `bg-primary-bg` = `color-mix(--hp-primary 12%, transparent)` ở Sáng và `20%`
-          ở Tối. Vì `--hp-primary` = #096AA7 nên ra xanh DƯƠNG nhạt theo V1.1, **không phải tông
-          xanh ngọc của MISA** (Ban lãnh đạo 16/08/2026: *"Về màu sắc thì vẫn theo design
-          system"*). Dùng độ mờ của chính token primary nên tự đúng ở cả Sáng lẫn Tối, và khi
-          người dùng đổi màu chủ đạo thì nền này đi theo — không phải khai thêm mã màu nào.
+          🔴 BỐ CỤC LẠI 23/08/2026 — Ban lãnh đạo: *"a vẫn thấy tab lập PO là giao diện cũ giống
+          misa"*, rồi nói rõ yêu cầu: *"A cần e bố cục lại giống theo form mẫu PO để dễ dàng nhập
+          liệu cho người mới"*.
+
+          TRƯỚC: lưới 3 cột dày đặc dựng theo ảnh MISA, thứ tự ô KHÔNG theo tờ giấy — người mới
+          vừa nhập vừa phải nhảy mắt qua lại ba cột, và không dò được theo tờ đơn đang cầm tay.
+
+          NAY: đọc DỌC đúng trình tự tờ đơn, mỗi khối là một phần của tờ:
+            ① đầu tờ · ② bảng hàng · ③ khối tiền · ④ giao nhận và điều khoản · ⑤ nội bộ.
+
+          Khối này = phần đầu tờ, chia hai cột ĐÚNG NHƯ TRÊN GIẤY:
+            · trái = BÊN BÁN   (Tên nhà cung cấp · Địa chỉ · Mã số thuế — ô B6 · B7 · B8)
+            · phải = CHỨNG TỪ  (Ngày · Số · Loại tiền — ô J6 · J7 · J8)
+          rồi một dòng riêng "Theo hợp đồng … Ký ngày …" (ô B9), đúng chỗ của nó trên giấy.
+
+          🔴 NHỮNG Ô KHÔNG THUỘC ĐẦU TỜ ĐÃ DỜI ĐI, KHÔNG BỊ BỎ — đừng thêm lại vào đây:
+            · Ngày giao hàng · Điều khoản thanh toán · Số ngày được nợ → khối ④, vì trên tờ chúng
+              nằm ở phần giao nhận (ô B26 · B29/B30), không nằm ở đầu tờ.
+            · Nhân viên mua hàng · Tham chiếu → khối ⑤: hai ô này KHÔNG có trên tờ đơn gửi nhà
+              cung cấp, để lẫn ở đầu tờ là người nhập tưởng chúng sẽ được in.
+
+          🔴 NỀN XANH RẤT NHẠT PHỦ KÍN KHỐI bằng TOKEN CỦA CÔNG TY: `bg-primary-bg` =
+          `color-mix(--hp-primary 12%, transparent)` ở Sáng và `20%` ở Tối. Vì `--hp-primary` =
+          #096AA7 nên ra xanh DƯƠNG nhạt theo V1.1 (Ban lãnh đạo 16/08/2026: *"Về màu sắc thì vẫn
+          theo design system"*), và người dùng đổi màu chủ đạo thì nền này đi theo.
           ========================================================================= */}
       <Card className="bg-primary-bg">
         {/* 🔴 `[&_input]:bg-card` — Ô NHẬP PHẢI NỔI TRÊN NỀN ĐÃ TÔ, đúng như MISA (ô trắng trên
@@ -1880,8 +2144,11 @@ export function FormLapDonMuaHang({
             màu trắng 2,35% chứ không phải `--hp-card`, tức là ô gần như tan vào nền đã tô. Bản
             `dark:` sinh ra selector 0,2,1 nên mới đè lại được. Đã đo lại sau khi sửa. */}
         <CardContent className="flex flex-col gap-(--hp-md-card-gap) [&_input]:bg-card dark:[&_input]:bg-card">
-          <div className="grid gap-(--hp-md-card-gap) md:grid-cols-2 xl:grid-cols-3">
-            {/* ===== CỘT 1 ===== */}
+          <div className="grid gap-(--hp-md-card-gap) lg:grid-cols-2">
+            {/* ===== TRÁI — BÊN BÁN (ô B6 · B7 · B8 của biểu mẫu) =====
+                📌 "Mã nhà cung cấp" đứng đầu tuy trên giấy không có ô này: nó là ô TRA DANH MỤC,
+                gõ trúng mã là điền hộ cả tên · địa chỉ · mã số thuế · người liên hệ ngay dưới.
+                Đặt sau chúng thì người nhập đã gõ tay xong mới thấy, tức là vô ích. */}
             <div className="flex flex-col gap-(--hp-md-card-gap)">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="ma-ncc">Mã nhà cung cấp</Label>
@@ -1942,11 +2209,13 @@ export function FormLapDonMuaHang({
                       ) : (
                         <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
                           {nhaCungCap.map((n) => (
-                            <li key={n.id}>
+                            /* Hàng gồm hai phần: bấm vào phần chữ là CHỌN, nút thùng rác bên
+                               phải là XÓA. Tách rõ để không bấm chọn mà thành xóa. */
+                            <li key={n.id} className="flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => dienNhaCungCap(n)}
-                                className="flex min-h-11 w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-primary-bg"
+                                className="flex min-h-11 min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-primary-bg"
                               >
                                 <span className="text-sm font-medium text-text-primary">
                                   {n.maNCC ? `${n.maNCC} — ` : ""}
@@ -1957,6 +2226,18 @@ export function FormLapDonMuaHang({
                                     MST {n.maSoThue}
                                   </span>
                                 )}
+                              </button>
+                              {/* ★ XÓA KHỎI DANH MỤC — Ban lãnh đạo 21/08/2026.
+                                  🔴 Hỏi lại trước khi xóa, và tầng dữ liệu còn CHẶN nếu nhà cung
+                                  cấp đang có đơn đặt hàng — xem `xoaNhaCungCap`. */}
+                              <button
+                                type="button"
+                                title={`Xóa ${n.ten} khỏi danh mục`}
+                                onClick={() => setHoiXoaNCC(n)}
+                                className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
+                              >
+                                <Trash2 className="size-4 shrink-0" aria-hidden />
+                                <span className="sr-only">Xóa {n.ten} khỏi danh mục</span>
                               </button>
                             </li>
                           ))}
@@ -1984,36 +2265,7 @@ export function FormLapDonMuaHang({
                   </Popover>
                 </div>
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="mst-ncc">Mã số thuế</Label>
-                <Input
-                  id="mst-ncc"
-                  value={mstNCC}
-                  onChange={(e) => setMstNCC(e.target.value)}
-                  placeholder="0300000001"
-                  inputMode="numeric"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="nguoi-lien-he">Người liên hệ</Label>
-                <Input
-                  id="nguoi-lien-he"
-                  value={nguoiLienHe}
-                  onChange={(e) => setNguoiLienHe(e.target.value)}
-                  placeholder="Tên · số điện thoại bên nhà cung cấp"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="nv-mua-hang">Nhân viên mua hàng</Label>
-                {/* 🔴 CHỈ ĐỌC, cố ý. Đơn ghi tên ai thì `nguoiPhuTrachUid` phải là mã người
-                    đó — cho gõ tự do thì tên và mã lệch nhau, và mọi màn "việc của tôi",
-                    lịch công tác, phân bổ đều tra theo mã. */}
-                <Input id="nv-mua-hang" value={nguoiDung.tenHienThi} readOnly disabled />
-              </div>
-            </div>
 
-            {/* ===== CỘT 2 ===== */}
-            <div className="flex flex-col gap-(--hp-md-card-gap)">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="ten-ncc">Tên nhà cung cấp</Label>
                 <Input
@@ -2032,6 +2284,7 @@ export function FormLapDonMuaHang({
                   </span>
                 )}
               </div>
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="dia-chi-ncc">Địa chỉ</Label>
                 <Input
@@ -2041,39 +2294,30 @@ export function FormLapDonMuaHang({
                   placeholder="Số ..., đường ..., tỉnh ..."
                 />
               </div>
+
               <div className="flex flex-col gap-2">
-                <Label htmlFor="dien-giai">Diễn giải</Label>
+                <Label htmlFor="mst-ncc">Mã số thuế</Label>
                 <Input
-                  id="dien-giai"
-                  value={dienGiai}
-                  onChange={(e) => setDienGiai(e.target.value)}
-                  placeholder="Một câu mô tả ngắn cho cả đơn"
+                  id="mst-ncc"
+                  value={mstNCC}
+                  onChange={(e) => setMstNCC(e.target.value)}
+                  placeholder="0300000001"
+                  inputMode="numeric"
                 />
               </div>
+
               <div className="flex flex-col gap-2">
-                <Label htmlFor="dk-tt">Điều khoản thanh toán</Label>
+                <Label htmlFor="nguoi-lien-he">Người liên hệ</Label>
                 <Input
-                  id="dk-tt"
-                  value={dieuKhoanThanhToan}
-                  onChange={(e) => setDieuKhoanThanhToan(e.target.value)}
-                  placeholder="Thanh toán 100% trong 30 ngày sau khi nhận đủ hàng"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="so-ngay-no">Số ngày được nợ</Label>
-                <Input
-                  id="so-ngay-no"
-                  type="number"
-                  min={0}
-                  value={soNgayDuocNo}
-                  onChange={(e) => setSoNgayDuocNo(e.target.value)}
-                  className="w-32"
-                  placeholder="30"
+                  id="nguoi-lien-he"
+                  value={nguoiLienHe}
+                  onChange={(e) => setNguoiLienHe(e.target.value)}
+                  placeholder="Tên · số điện thoại bên nhà cung cấp"
                 />
               </div>
             </div>
 
-            {/* ===== CỘT 3 ===== */}
+            {/* ===== PHẢI — CHỨNG TỪ (ô J6 · J7 · J8 của biểu mẫu) ===== */}
             <div className="flex flex-col gap-(--hp-md-card-gap)">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="ngay-don-hang">Ngày đơn hàng</Label>
@@ -2085,6 +2329,7 @@ export function FormLapDonMuaHang({
                   className="w-48"
                 />
               </div>
+
               {/* ===== Ô CHỌN DỰ ÁN — CHỈ Ở CHẾ ĐỘ ĐỘC LẬP (18/08/2026) =====
                   🔴 VÌ SAO ĐẶT NGAY TRÊN Ô "Số đơn hàng": số đơn lấy phần đầu từ mã dự án, nên
                   hai ô này phải nằm cạnh nhau để người lập thấy ngay chọn xong thì mã đơn
@@ -2165,33 +2410,113 @@ export function FormLapDonMuaHang({
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="so-don-hang">Số đơn hàng</Label>
-                {/* 🔴 SINH TỰ ĐỘNG THEO THÔNG BÁO 09/2026/TB-HPCS, không cho gõ và KHÔNG đoán
-                    trước con số. Số thứ tự chạy theo dự án và do `themDonHang` cấp lúc cất —
-                    đoán trước ở đây thì hai người cùng lập một lúc sẽ thấy cùng một số, rồi
-                    đơn cất ra mang số khác cái đã hiện. Bày dạng mã là đủ để người lập yên tâm.
-                    ⚠️ KHÔNG lấy kiểu `DMH0532-26` của MISA.
-
-                    ★ CHẾ ĐỘ MẪU (18/08/2026) KHÔNG CÓ SỐ, và tuyệt đối KHÔNG được chiếm một số
-                    thật trong dãy `260001-HPCS-PO-001`: chiếm số rồi không cất là **thủng một
-                    số** — đơn cất sau nhảy số và người đối chiếu chứng từ giấy không hiểu vì sao
-                    thiếu. Nặng hơn: một mã hồ sơ nhìn như thật in lên tờ giấy có thể gửi ra
-                    ngoài, trong khi hệ thống không có đơn nào mang mã đó. Vì vậy ô này ghi thẳng
-                    một câu chữ (`SO_DON_BAN_MAU`), nhìn là biết không phải mã. */}
+                {/**
+                  * ★ KÝ HIỆU `DMH[năm]-[0000]` — Ban lãnh đạo 23/08/2026: *"Số đơn hàng này sẽ ký
+                  * hiệu như sau: DMH + năm + số nhảy tự động 0000"*. Đúng ký hiệu in sẵn trên biểu
+                  * mẫu giấy (ô K7: `DMH.......`). Luật ở `2-quy-trinh/dat-ma-don-hang.ts`.
+                  *
+                  * 🔴 KHÔNG CHO GÕ VÀ KHÔNG ĐOÁN TRƯỚC CON SỐ. `themDonHang` cấp số lúc CẤT, nên
+                  * đoán ở đây là hai người cùng lập một lúc sẽ thấy cùng một số, rồi đơn cất ra
+                  * mang số khác cái vừa hiện. Bày phần KHUÔN (`DMH2026-…`) là đủ để người lập yên
+                  * tâm mà không nói một con số có thể sai.
+                  *
+                  * 🔴 NĂM LẤY THEO Ô "NGÀY ĐƠN HÀNG" trên form, không theo hôm nay — cùng lý do
+                  * với `namCuaNgay`: đơn lập bù cho năm trước phải mang số của năm ghi trên chứng
+                  * từ. Đổi ngày đơn hàng thì khuôn hiện ở đây đổi theo, đúng như lúc cất.
+                  *
+                  * ★ CHẾ ĐỘ MẪU (18/08/2026) KHÔNG CÓ SỐ, và tuyệt đối KHÔNG được chiếm một số
+                  * thật trong dãy: chiếm số rồi không cất là **thủng một số** — đơn cất sau nhảy
+                  * số và người đối chiếu chứng từ giấy không hiểu vì sao thiếu. Nặng hơn: một số
+                  * chứng từ nhìn như thật in lên tờ giấy có thể gửi ra ngoài, trong khi hệ thống
+                  * không có đơn nào mang số đó. Vì vậy ô này ghi thẳng một câu chữ
+                  * (`SO_DON_BAN_MAU`), nhìn là biết không phải số thật.
+                  */}
+                {/**
+                  * ❌ ĐÃ BỎ dòng ghi chú dưới ô (Ban lãnh đạo 23/08/2026: *"Bỏ ghi chú ở dưới đi"*).
+                  *
+                  * 📌 Không mất thông tin nào: chính ô đã hiện khuôn `DMH26…`, nhìn là biết số sẽ
+                  * ra dạng gì. Riêng CHẾ ĐỘ MẪU thì giữ một câu — ở đó ô ghi "(bản mẫu — chưa cấp
+                  * số)", và nếu không nói rõ *"số chỉ cấp khi lập đơn thật"* thì người lập tưởng
+                  * app hỏng chỗ cấp số.
+                  */}
                 <Input
                   id="so-don-hang"
-                  value={laDonDocLap ? SO_DON_BAN_MAU : `${maDuAnDon || "[mã dự án]"}-PO-…`}
+                  value={
+                    laDonDocLap
+                      ? SO_DON_BAN_MAU
+                      : `${TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`
+                  }
                   readOnly
                   disabled
                   className={laDonDocLap ? "w-72" : "w-56"}
                 />
-                <span className="text-xs text-text-desc">
-                  {laDonDocLap
-                    ? "Bản mẫu không được cấp số. Số đơn hàng chỉ cấp khi lập đơn thật từ phiếu đề nghị."
-                    : maDuAnDon
-                      ? `Cấp tự động khi cất, theo mã dự án ${maDuAnDon}.`
-                      : "Chọn dự án ở ô trên thì mới cấp được số đơn hàng."}
-                </span>
+                {laDonDocLap && (
+                  <span className="text-xs text-text-desc">
+                    Bản mẫu không được cấp số. Số đơn hàng chỉ cấp khi lập đơn thật từ phiếu đề
+                    nghị.
+                  </span>
+                )}
               </div>
+
+              {/**
+                * ★ LOẠI TIỀN — ô "Loại tiền: VND" của biểu mẫu công ty, đặt ngay dưới "Số" đúng
+                * như trên giấy (Ban lãnh đạo 23/08/2026: *"đủ các trường thông tin như vậy"*).
+                *
+                * 🔴 Trước đây app ghi cứng "VND" lúc cất đơn — tờ in vẫn ra đúng, nhưng người lập
+                * không có chỗ nào đổi. Đơn nhập khẩu trả bằng USD thì chứng từ in sai đơn vị tiền
+                * mà không sửa được từ giao diện.
+                *
+                * 📌 Ô gõ tự do chứ không phải danh sách chọn: app không có danh mục tiền tệ, và
+                * bịa ra một danh mục (VND/USD/EUR…) là tự đặt dữ liệu nghiệp vụ — thứ phải do công
+                * ty cấp. Gõ tự do thì cần đồng nào cũng ghi được.
+                */}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="loai-tien">Loại tiền</Label>
+                <Input
+                  id="loai-tien"
+                  value={loaiTien}
+                  onChange={(e) => setLoaiTien(e.target.value)}
+                  placeholder="VND"
+                  className="w-40"
+                />
+              </div>
+
+              {/**
+                * ★ CHỌN 1 TRONG 2 MẪU IN — Ban lãnh đạo 21/08/2026: *"e chỉnh sửa mẫu ở bước lập Po
+                * nha, có trường tuỳ chọn 1 trong 2 mẫu"*, kèm biểu mẫu `PO - DEMO 130826.xlsx`.
+                *
+                * 🔴 Hai mẫu KHÁC NHAU VỀ PHÁP LÝ, không phải khác cách trình bày:
+                *   · *Thỏa thuận mua bán* — chính tờ đơn có giá trị như hợp đồng, nên tờ in có thêm
+                *     hai câu cam kết cố định ở cuối.
+                *   · *Theo hợp đồng đã ký* — điều khoản nằm ở hợp đồng nguyên tắc, tờ in ghi rõ số và
+                *     ngày ký hợp đồng đó và KHÔNG cam kết lại.
+                * Vì vậy chọn sai mẫu là gửi cho nhà cung cấp một chứng từ nói sai về căn cứ pháp lý —
+                * mô tả bên dưới ô chọn nói rõ điều đó ngay lúc chọn.
+                */}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mau-po">Mẫu in đơn mua hàng *</Label>
+                <select
+                  id="mau-po"
+                  value={mauPO}
+                  onChange={(e) => setMauPO(e.target.value as MauDonMuaHang)}
+                  className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
+                >
+                  {(Object.keys(NHAN_MAU_PO) as MauDonMuaHang[]).map((m) => (
+                    <option key={m} value={m}>
+                      {NHAN_MAU_PO[m].nhan}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-text-desc">{NHAN_MAU_PO[mauPO].moTa}</p>
+                {/* Chọn mẫu theo hợp đồng mà chưa điền hợp đồng thì tờ in ra dấu chấm lửng — nói
+                    trước ở đây, đừng để người dùng phát hiện lúc đã in ra giấy. */}
+                {mauPO === "theo_hop_dong" && maHopDong.trim() === "" && (
+                  <p className="text-xs text-warning-soft">
+                    Chưa điền <strong>Số hợp đồng</strong> ở phần trên — tờ in sẽ để trống chỗ đó.
+                  </p>
+                )}
+              </div>
+
               {/* 🔴 CHẾ ĐỘ MẪU KHÔNG CÓ Ô "TÌNH TRẠNG" — bản mẫu không tồn tại trong hệ thống
                   nên nó không ở trạng thái nào. Bày "Đã chốt" lên một thứ không được lưu là
                   đúng kiểu "giao diện hứa một việc app không làm" mà quy ước dự án cấm. */}
@@ -2216,35 +2541,31 @@ export function FormLapDonMuaHang({
                   </div>
                 </div>
               )}
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="ngay-giao">Ngày giao hàng</Label>
-                <Input
-                  id="ngay-giao"
-                  type="date"
-                  value={ngayGiao}
-                  onChange={(e) => setNgayGiao(e.target.value)}
-                  className="w-48"
-                />
-                <span className="text-xs text-text-desc">
-                  Một ngày cho cả đơn — app không nhập kế hoạch giao từng đợt.
-                </span>
-              </div>
             </div>
           </div>
 
-          {/* --- Dòng "Tham chiếu" ở CUỐI KHỐI, sát lề trái, đúng chỗ MISA đặt ---
-              📌 Bóp lại `max-w-xl` (18/08/2026): trên ảnh MISA ô này gọn ở lề trái chứ không trải
-              hết bề ngang khối. Số chứng từ tham chiếu chỉ vài chục ký tự, kéo dài cả khối là
-              mắt phải chạy ngang rất xa giữa nhãn và ô. */}
-          <div className="flex flex-col gap-2 border-t border-divider pt-(--hp-md-card-gap)">
-            <Label htmlFor="tham-chieu">Tham chiếu</Label>
-            <Input
-              id="tham-chieu"
-              value={thamChieu}
-              onChange={(e) => setThamChieu(e.target.value)}
-              placeholder="Số chứng từ bên ngoài liên quan (đơn cũ, email, hợp đồng…)"
-              className="max-w-xl"
-            />
+          {/* ★ "Theo hợp đồng: … Ký ngày …" — ô B9 của biểu mẫu, MỘT DÒNG RIÊNG dưới hai cột,
+              đúng như trên giấy. Chỉ mẫu *Đơn mua hàng theo hợp đồng* in dòng này, nhưng ô vẫn
+              hiện ở cả hai mẫu: người nhập chọn mẫu sau khi đã gõ, ẩn đi là mất dữ liệu vừa gõ
+              mà không có câu nào báo. */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="hop-dong">Hợp đồng - Ngày hợp đồng</Label>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                id="hop-dong"
+                value={maHopDong}
+                onChange={(e) => setMaHopDong(e.target.value)}
+                className="min-w-48 flex-1"
+                placeholder="Số hợp đồng với chủ đầu tư"
+              />
+              <Input
+                type="date"
+                value={ngayHopDong}
+                onChange={(e) => setNgayHopDong(e.target.value)}
+                className="w-48"
+                aria-label="Ngày hợp đồng"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -2272,6 +2593,7 @@ export function FormLapDonMuaHang({
             onDoiChietKhau={setChietKhau}
             /* Độc lập thì luôn thêm được dòng mới — không có danh sách mặt hàng nào để cạn. */
             conMatHangDeThem={laDonDocLap || matHangConThem.length > 0}
+            lyDoHetMatHang={lyDoHetMatHang}
             nhapTuDo={laDonDocLap}
             /* Khi nhúng thì tiêu đề "Hàng tiền" phải nhỏ hơn tiêu đề khối bước — lý do như
                khối "Tổng tiền thanh toán" ở trên. */
@@ -2317,237 +2639,534 @@ export function FormLapDonMuaHang({
       </Card>
 
       {/* =========================================================================
-          ③ + ④ HAI KHỐI DƯỚI — trái: thông tin giao nhận · phải: bảng tổng hợp tiền
+          ③ KHỐI TIỀN — NGAY DƯỚI BẢNG VÀ CANH PHẢI, đúng như tờ giấy (ô I19 → I22)
+
+          🔴 TRƯỚC ĐÂY khối này là NỬA PHẢI của một lưới 2 cột, nằm ngang hàng với khối giao nhận
+          — tức là số tiền của đơn bị đặt cạnh ô "Địa điểm giao hàng", cách bảng hàng cả một khối.
+          Trên tờ giấy thì bốn dòng tiền nằm SÁT ĐÁY BẢNG, thẳng cột Thành tiền. Người mới dò theo
+          tờ giấy sẽ không tìm ra tổng tiền ở nửa bên kia màn hình.
+
+          📌 `ml-auto max-w-xl`: canh phải và hẹp lại đúng như trên giấy (bốn dòng nhãn trái / số
+          phải), thay vì trải hết bề ngang thành một dải số lạc lõng.
+          📌 KHÔNG có viền và KHÔNG có tiêu đề "Tổng hợp" — tờ giấy cũng không có.
           ========================================================================= */}
-      <div className="grid gap-(--hp-md-card-gap) lg:grid-cols-2">
-        {/* --- ③ KHỐI DƯỚI TRÁI ---
-            📌 `[&_input]:max-w-md [&_textarea]:max-w-md` (18/08/2026): trên ảnh MISA các ô của
-            khối này HẸP, chỉ khoảng một phần ba bề ngang, chứ không trải hết. Ở đây khối trái là
-            một nửa lưới `lg:grid-cols-2`, nên `max-w-md` (448px) cho ra đúng cảm giác đó mà vẫn
-            co lại được trên điện thoại.
-            🔴 Khai một lần thay vì thêm class vào từng ô — cùng lý do như khối ①: sửa từng cái là
-            bỏ sót rồi trông chắp vá. Các ô đã có bề rộng riêng (`w-48` của ô ngày) không bị đụng
-            vì `max-w` chỉ đặt giới hạn trên. */}
-        <Card>
-          <CardContent className="flex flex-col gap-(--hp-md-card-gap) [&_input]:max-w-md [&_textarea]:max-w-md">
-            <div className="flex flex-col gap-2">
-              {/* 🔴 NHÃN PHẢI ĐỔI THEO CHẾ ĐỘ. Đơn độc lập không có mã RQ nào; để nguyên nhãn
-                  "Mã RQ - Tên công trình" rồi bày mỗi một ô là giao diện nói sai. */}
-              <Label htmlFor="ma-rq">{dn ? "Mã RQ - Tên công trình" : "Tên công trình"}</Label>
-              <div className="flex flex-wrap gap-2">
-                {/* Mã RQ chỉ đọc: nó là mã phiếu đề nghị nguồn, đổi tay là mất đường truy vết
-                    về khối lượng đã duyệt. Tên công trình thì sửa được — đơn là chứng từ gửi
-                    ra ngoài, tên in trên đó phải đứng yên kể cả khi đề nghị bị đổi tên sau. */}
-                {dn && (
-                  <Input value={dn.code} readOnly disabled className="w-44" aria-label="Mã RQ" />
-                )}
-                <Input
-                  id="ma-rq"
-                  value={tenCongTrinh}
-                  onChange={(e) => setTenCongTrinh(e.target.value)}
-                  className="min-w-48 flex-1"
-                  placeholder="Tên công trình"
-                />
-              </div>
-              {/* Tên công trình được in ra bản A4 và file Excel gửi nhà cung cấp (dòng "Mã đề
-                  xuất và tên công trình"), nên ở chế độ độc lập phải nói rõ để người lập không
-                  bỏ trống. Không bắt buộc: có đơn mua cho việc không gắn công trình nào. */}
-              {laDonDocLap && (
-                <span className="text-xs text-text-desc">
-                  In ra bản đơn A4 và file Excel gửi nhà cung cấp. Chọn dự án ở khối trên thì
-                  ô này tự điền.
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="hop-dong">Hợp đồng - Ngày hợp đồng</Label>
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  id="hop-dong"
-                  value={maHopDong}
-                  onChange={(e) => setMaHopDong(e.target.value)}
-                  className="min-w-48 flex-1"
-                  placeholder="Số hợp đồng với chủ đầu tư"
-                />
-                <Input
-                  type="date"
-                  value={ngayHopDong}
-                  onChange={(e) => setNgayHopDong(e.target.value)}
-                  className="w-48"
-                  aria-label="Ngày hợp đồng"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="dia-diem">Địa điểm giao hàng</Label>
-              {/* ===== MISA để ô này là Ô CHỌN — 18/08/2026 đã có ô chọn THẬT =====
-                  🔴 KHÔNG BỊA DANH MỤC. App không có danh mục địa điểm giao hàng (chỉ có
-                  `DANH_MUC_PHONG_BAN`), và danh mục là dữ liệu nghiệp vụ phải do công ty cấp.
-                  Danh sách ở đây gom từ ĐỊA ĐIỂM ĐÃ GHI TRÊN ĐƠN THẬT (`diaDiemDaCo`) — đúng cách
-                  ô "Dự án / Công trình" đang làm, vì app cũng chưa có danh mục dự án.
-
-                  🔴 Ô CHỌN CHỈ ĐIỀN HỘ, Ô CHỮ MỚI LÀ GIÁ TRỊ THẬT — cố ý làm vậy, không phải
-                  làm dở. Nếu ô chọn là nguồn duy nhất thì địa điểm đọc từ file Excel
-                  (`doVaoBang` → `setDiaDiemGiao`) sẽ không khớp lựa chọn nào và **biến mất khỏi
-                  màn hình** dù vẫn nằm trong đơn — người lập không biết mà sửa.
-
-                  ⚠️ Kho dữ liệu chưa có đơn nào thì không vẽ ô chọn: một ô chọn chỉ có dòng
-                  "-- Chọn --" còn khó dùng hơn ô gõ tay. */}
-              {diaDiemDaCo.length > 0 && (
-                <select
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value !== "") setDiaDiemGiao(e.target.value);
-                  }}
-                  aria-label="Chọn địa điểm giao hàng đã dùng ở đơn trước"
-                  className="min-h-11 w-full min-w-0 max-w-md rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
-                >
-                  {/* `value=""` luôn quay về dòng này sau khi chọn: ô chọn ở đây là một THAO TÁC
-                      điền hộ, không phải chỗ giữ giá trị — giá trị nằm ở ô chữ ngay dưới. */}
-                  <option value="">-- Chọn địa điểm đã dùng --</option>
-                  {diaDiemDaCo.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <Input
-                id="dia-diem"
-                /* Gợi ý bằng tên công trình đang có trên form — độc lập thì đó là ô người lập
-                   vừa gõ, có đề nghị thì là tên lấy từ phiếu. */
-                placeholder={tenCongTrinh || "Chân công trình"}
-                value={diaDiemGiao}
-                onChange={(e) => setDiaDiemGiao(e.target.value)}
+      <div className="ml-auto flex w-full max-w-xl flex-col gap-(--hp-md-card-gap)">
+        {quyen.xemGia ? (
+          <>
+            {/**
+              * ★ BỐN DÒNG THEO ĐÚNG THỨ TỰ VÀ ĐÚNG CHỮ CỦA BIỂU MẪU (23/08/2026 — Ban lãnh đạo:
+              * *"tạo các trường nhập liệu giống 100% file PO mẫu"*):
+              *
+              *   ô I19  Số tiền Chiết khấu
+              *   ô I20  Cộng tiền hàng (sau trừ chiết khấu)
+              *   ô I21  Tiền thuế GTGT          (nhãn thuế suất nằm ở ô B21 cùng dòng)
+              *   ô I22  Tổng tiền thanh toán
+              *   ô B23  Số tiền viết bằng chữ
+              *
+              * 🔴 TRƯỚC ĐÂY SAI CẢ THỨ TỰ LẪN NGHĨA: dòng đầu ghi *"Tổng tiền hàng"* rồi mới trừ
+              * chiết khấu ở dòng sau. Trên tờ giấy thì chiết khấu đứng TRƯỚC, và dòng kế tiếp là
+              * **tiền hàng ĐÃ TRỪ chiết khấu**. Người đối chiếu tờ in với màn hình thấy hai con số
+              * cùng tên "tiền hàng" mà khác giá trị.
+              *
+              * ⚠️ `tien.congTienHang` LÀ SỐ ĐÃ TRỪ CHIẾT KHẤU (xem `tinhTienChiTiet`), nên nó khớp
+              * đúng ô I20 — đừng đổi nhãn dòng này về "Tổng tiền hàng" cho ngắn, con số sẽ nói
+              * khác cái tên.
+              *
+              * 📌 Giữ mức thuế trong nhãn: đơn nhập từ file có thể trộn 8% và 10%, ghi một mức là
+              * ghi SAI chứng từ thuế. `moTaThueSuat` lo đúng chỗ này.
+              */}
+            <dl className="flex flex-col gap-1.5 text-sm">
+              <DongTongHop nhan="Số tiền Chiết khấu" giaTri={tien.chietKhau} />
+              <DongTongHop
+                nhan="Cộng tiền hàng (sau trừ chiết khấu)"
+                giaTri={tien.congTienHang}
               />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="nguoi-nhan">Người nhận hàng (bên mua)</Label>
-              <Input
-                id="nguoi-nhan"
-                placeholder="Thủ kho công trình"
-                value={nguoiNhanHang}
-                onChange={(e) => setNguoiNhanHang(e.target.value)}
+              <DongTongHop
+                nhan={`Tiền thuế GTGT (${moTaThueSuat(tien)})`}
+                giaTri={tien.tienThueGTGT}
               />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="dk-khac">Điều khoản khác</Label>
-              {/* MISA để ô nhiều dòng, cao khoảng 4 dòng.
-                  🔴 SỬA MỘT CHÚ THÍCH SAI (18/08/2026): chỗ này từng ghi *"dùng textarea gốc vì
-                  bộ nền tảng chưa có component Textarea"* — KHÔNG ĐÚNG, `nen-tang-ui/textarea.tsx`
-                  có thật và export `Textarea`. Hệ quả của chú thích sai đó là một bản chép tay
-                  các lớp CSS: bộ nền tảng đổi cách vẽ ô (viền, vòng focus, nền ở chế độ Tối) thì
-                  ô này đứng yên và lệch hẳn so với mọi ô khác trong app. Nay dùng component thật. */}
-              <Textarea
-                id="dk-khac"
-                rows={4}
-                value={dieuKhoanKhac}
-                onChange={(e) => setDieuKhoanKhac(e.target.value)}
-                placeholder="Bảo hành, bốc xếp, chứng chỉ chất lượng kèm theo…"
-                /* `min-h-24` ≈ 4 dòng, đúng chiều cao ô của MISA. `Textarea` có
-                   `field-sizing-content` nên nó vẫn tự cao thêm khi gõ dài — `rows` một mình
-                   không quyết định được chiều cao ban đầu. */
-                className="min-h-24"
-              />
-            </div>
-
-            {/* =====================================================================
-                🔴 CHẾ ĐỘ MẪU KHÔNG CÓ Ô ĐÍNH KÈM — sửa lỗi thật, phát hiện 18/08/2026 khi
-                soi lại chế độ "chỉ tạo mẫu".
-
-                LỖI ĐÃ XẢY RA: ô này vẽ ở CẢ HAI chế độ. `ODinhKemNhieuTep` cất tệp vào kho tệp
-                NGAY LÚC CHỌN (`3-du-lieu/kho-tep.ts` → `catTep`, ghi thẳng IndexedDB), rồi mới
-                trả mô tả tệp về form. Mà ở chế độ mẫu thì:
-                 · `2-quy-trinh/don-hang-mau.ts` → `dungDonHangMau` KHÔNG mang `tepDinhKem` sang
-                   (đúng — bản mẫu không có đơn nào để đính vào), và
-                 · không có đơn nào được cất, nên không chứng từ nào trỏ tới tệp vừa ghi.
-                Hệ quả: người lập bỏ hợp đồng / báo giá vào đây, thấy tên tệp hiện lên dưới nhãn
-                **"Đính kèm cho ĐƠN này"**, tin là đã lưu — trong khi tệp thành **khối dữ liệu mồ
-                côi** nằm ăn dung lượng kho tệp và không ai tra ra được. Đúng cái quy ước dự án
-                cấm ở mục 3.5: *"Đừng để giao diện hứa một việc app không làm"* — cùng họ với lỗi
-                tải bản báo giá trước 11/08/2026, chỉ đảo chiều (lần đó mất nội dung tệp, lần này
-                giữ tệp nhưng mất hồ sơ).
-
-                ✅ Chức năng chưa làm được thì NÓI RÕ LÝ DO, không bày ra rồi lặng lẽ vứt.
-                ⚠️ Đường có đề nghị giữ nguyên hoàn toàn — tệp ở đó đi vào
-                   `DonDatHang.tepDinhKem` của đúng đơn được cất.
-                ===================================================================== */}
-            {laDonDocLap ? (
-              <div className="flex flex-col gap-2">
-                <Label>Đính kèm cho đơn</Label>
-                <p className="flex items-start gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad) text-sm text-text-secondary">
-                  <Paperclip className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
-                  <span className="min-w-0">
-                    Bản mẫu không lưu vào hệ thống nên <strong>chưa đính kèm được tệp</strong> —
-                    tệp tải lên đây sẽ không có đơn nào để gắn vào. Cần lưu hợp đồng hay báo giá
-                    cùng đơn thì lập đơn thật từ phiếu đề nghị trong Quy trình mua hàng.
-                  </span>
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {/* 🔴 NÓI RÕ ĐÂY LÀ TỆP CỦA ĐƠN, KHÔNG PHẢI TỆP CỦA BƯỚC.
-                    Khi nhúng, khu "Tệp đính kèm của bước ④" (`KhuDinhKemGiaiDoan`) nằm ngay dưới
-                    cùng một khối, cách đây một đường kẻ. Hai chỗ lưu vào HAI NƠI KHÁC NHAU: ô này
-                    đi vào `DonDatHang.tepDinhKem` của đúng đơn đang lập, khu kia đi vào
-                    `DeNghiMuaHang.tepGiaiDoan`. Không phân biệt bằng chữ thì người dùng bỏ hợp
-                    đồng vào nhầm chỗ mà không cách nào biết. */}
-                <Label>Đính kèm cho ĐƠN này</Label>
-                {/* 🔴 DÙNG LẠI `ODinhKemNhieuTep`: nó cất tệp vào kho tệp (IndexedDB + Firestore)
-                    NGAY LÚC CHỌN rồi mới trả mô tả về. Tuyệt đối không nhét nội dung tệp vào
-                    `localStorage` — chỗ đó chỉ ~5MB cho cả tên miền và đang giữ toàn bộ dữ liệu
-                    nghiệp vụ, một ảnh 2–5MB là mất sạch.
-                    ⚠️ MISA ghi "Dung lượng tối đa 5MB"; app dùng giới hạn chung của mình
-                    (`CO_TOI_DA` ở `kho-tep.ts`), do chính ô này in ra — không đặt thêm một con
-                    số riêng cho đơn hàng rồi hai chỗ nói hai kiểu. */}
-                <ODinhKemNhieuTep
-                  tep={tepDinhKem}
-                  onDoi={setTepDinhKem}
-                  nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-                  nhan="Đính kèm tệp cho đơn"
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* --- ④ KHỐI DƯỚI PHẢI: bảng tổng hợp tiền ---
-            🔴 BỎ VIỀN VÀ BỎ TIÊU ĐỀ "Tổng hợp" (18/08/2026). Trên ảnh MISA khối này KHÔNG có viền
-            và KHÔNG có tiêu đề — chỉ bốn dòng nhãn trái / số phải, dòng cuối đậm hơn. Trước đó app
-            bọc trong `<Card>` (có viền) và tự thêm tiêu đề "Tổng hợp" mà MISA không có.
-            📌 Bốn dòng và thứ tự thì GIỮ NGUYÊN vì vốn đã trùng MISA. Hai thứ app có thêm cũng
-            giữ: mức thuế trong nhãn (đơn trộn 8%/10% mà ghi một mức là ghi SAI chứng từ thuế) và
-            dòng đọc số tiền bằng chữ. */}
-        <div className="flex flex-col gap-(--hp-md-card-gap) py-(--hp-md-card-gap)">
-            {quyen.xemGia ? (
-              <>
-                <dl className="flex flex-col gap-1.5 text-sm">
-                  <DongTongHop nhan="Tổng tiền hàng" giaTri={tien.congTienHang} />
-                  <DongTongHop nhan="Tiền chiết khấu" giaTri={tien.chietKhau} />
-                  {/* 🔴 Đơn trộn 8% và 10% thì KHÔNG được ghi "Thuế GTGT (8%)" — đó là ghi sai
-                      chứng từ thuế, không phải lỗi trình bày. `moTaThueSuat` lo đúng chỗ này. */}
-                  <DongTongHop
-                    nhan={`Thuế GTGT (${moTaThueSuat(tien)})`}
-                    giaTri={tien.tienThueGTGT}
-                  />
-                  <DongTongHop nhan="Tổng tiền thanh toán" giaTri={tien.tongThanhToan} tong />
-                </dl>
-                <p className="text-right text-xs italic text-text-desc">
-                  {docSoTien(tien.tongThanhToan)}
-                </p>
-              </>
-            ) : (
-              /* Không có quyền xem giá thì nói rõ vì sao trống, đừng để một thẻ rỗng. */
-              <p className="text-sm text-text-desc">
-                Bạn không có quyền xem giá nên phần tiền của đơn được ẩn.
-              </p>
-            )}
-        </div>
+              <DongTongHop nhan="Tổng tiền thanh toán" giaTri={tien.tongThanhToan} tong />
+            </dl>
+            <p className="text-right text-xs italic text-text-desc">
+              {docSoTien(tien.tongThanhToan)}
+            </p>
+          </>
+        ) : (
+          /* Không có quyền xem giá thì nói rõ vì sao trống, đừng để một thẻ rỗng. */
+          <p className="text-sm text-text-desc">
+            Bạn không có quyền xem giá nên phần tiền của đơn được ẩn.
+          </p>
+        )}
       </div>
+
+      {/* =========================================================================
+          ④ GIAO NHẬN VÀ ĐIỀU KHOẢN — MỘT CỘT DỌC, đúng thứ tự ô B24 → B31 của biểu mẫu:
+
+            Mã đề xuất và tên công trình → Người nhận hàng + Số điện thoại → Ngày giao hàng →
+            Địa điểm giao hàng → Phương thức giao hàng → Điều khoản thanh toán →
+            Điều khoản khác → hai câu cam kết cuối tờ.
+
+          🔴 MỘT CỘT, KHÔNG CHIA HAI: người mới nhập theo tờ giấy thì đọc từ trên xuống. Chia hai
+          cột là buộc họ tự đoán ô nào tương ứng dòng nào trên giấy — chính chỗ khó mà Ban lãnh
+          đạo yêu cầu bỏ.
+
+          📌 `[&_input]:max-w-xl [&_textarea]:max-w-xl` khai MỘT LẦN cho cả khối: ô trải hết bề
+          ngang màn 27 inch thì mắt phải rê rất xa từ nhãn tới chỗ gõ. Ô đã có bề rộng riêng
+          (`w-48` của ô ngày) không bị đụng, vì `max-w` chỉ đặt giới hạn trên.
+          ========================================================================= */}
+      <Card>
+        <CardContent className="flex flex-col gap-(--hp-md-card-gap) [&_input]:max-w-xl [&_textarea]:max-w-xl">
+          <div className="flex flex-col gap-2">
+            {/* 🔴 NHÃN PHẢI ĐỔI THEO CHẾ ĐỘ. Đơn độc lập không có mã RQ nào; để nguyên nhãn
+                "Mã RQ - Tên công trình" rồi bày mỗi một ô là giao diện nói sai. */}
+            {/* ★ Nhãn lấy ĐÚNG CHỮ trên biểu mẫu (ô B24: "Mã đề xuất và tên công trình") để
+                người mới dò theo tờ giấy tìm ra ngay — 23/08/2026. */}
+            {/* ★ Nhãn ĐÚNG CHỮ ô B24 cho CẢ HAI chế độ (23/08/2026 — *"giống 100% file PO mẫu"*).
+                Trước đó chế độ độc lập ghi "Tên công trình" vì không có mã đề nghị nào; nhưng tờ
+                in vẫn in dòng "Mã đề xuất và tên công trình", nên nhãn phải khớp tờ để người mới
+                dò ra. Chế độ độc lập chỉ khác ở chỗ không có ô mã đứng cạnh. */}
+            <Label htmlFor="ma-rq">Mã đề xuất và tên công trình</Label>
+            <div className="flex flex-wrap gap-2">
+              {/* Mã RQ chỉ đọc: nó là mã phiếu đề nghị nguồn, đổi tay là mất đường truy vết
+                  về khối lượng đã duyệt. Tên công trình thì sửa được — đơn là chứng từ gửi
+                  ra ngoài, tên in trên đó phải đứng yên kể cả khi đề nghị bị đổi tên sau. */}
+              {dn && (
+                <Input value={dn.code} readOnly disabled className="w-44" aria-label="Mã RQ" />
+              )}
+              <Input
+                id="ma-rq"
+                value={tenCongTrinh}
+                onChange={(e) => setTenCongTrinh(e.target.value)}
+                className="min-w-48 flex-1"
+                placeholder="Tên công trình"
+              />
+            </div>
+            {/* Tên công trình được in ra bản A4 và file Excel gửi nhà cung cấp (dòng "Mã đề
+                xuất và tên công trình"), nên ở chế độ độc lập phải nói rõ để người lập không
+                bỏ trống. Không bắt buộc: có đơn mua cho việc không gắn công trình nào. */}
+            {laDonDocLap && (
+              <span className="text-xs text-text-desc">
+                In ra bản đơn A4 và file Excel gửi nhà cung cấp. Chọn dự án ở khối trên thì
+                ô này tự điền.
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="nguoi-nhan">Người nhận hàng (bên mua)</Label>
+
+            {/**
+              * ★ CHỌN THỦ KHO TỪ DANH SÁCH NHÂN SỰ BỘ PHẬN KHO — Ban lãnh đạo 21/08/2026:
+              * *"thêm chức năng chọn thủ từ danh sách nhân sự của bộ phận kho"*.
+              *
+              * 📌 Danh sách lấy từ `useDanhBa()` — cùng nguồn với ô "Người theo dõi", tức là
+              * TÀI KHOẢN THẬT trên máy chủ khi đã nối App Tổng, và rơi về danh bạ tĩnh khi chạy
+              * chế độ tài khoản mẫu. Lọc `department === "kho"` nên chỉ ra người của bộ phận kho.
+              *
+              * 🔴 Ô CHỌN CHỈ ĐIỀN HỘ, Ô CHỮ MỚI LÀ GIÁ TRỊ THẬT — cùng quy ước với ô "Địa điểm
+              * giao hàng" ngay trên. Không biến ô chọn thành nguồn duy nhất, vì:
+              *   · thủ kho công trình có thể là người CHƯA CÓ tài khoản trong hệ thống — bắt
+              *     phải chọn trong danh sách là chặn hẳn những đơn giao cho họ;
+              *   · tên người nhận đọc từ file Excel (`doVaoBang` → `setNguoiNhanHang`) sẽ không
+              *     khớp lựa chọn nào và **biến mất khỏi màn hình** dù vẫn nằm trong đơn.
+              *
+              * ⚠️ Không ai thuộc bộ phận kho thì KHÔNG vẽ ô chọn: một ô chọn trống chỉ làm người
+              * dùng bấm vào rồi tự hỏi mình làm sai chỗ nào.
+              */}
+            {/**
+              * ★ TỪ 22/08/2026 GỘP HAI NGUỒN (Ban lãnh đạo: *"Thêm trường nhập liệu thông tin thủ
+              * kho công trình và cho lưu lại"*):
+              *   ① danh bạ nhân sự bộ phận Kho — người ĐÃ CÓ tài khoản;
+              *   ② danh mục thủ kho tự thêm — người ở công trường CHƯA CÓ tài khoản, kèm số điện
+              *      thoại. Chọn ở nhóm này thì điền cả tên VÀ số điện thoại.
+              *
+              * 🔴 Vì sao cần nhóm ②: trước đây thủ kho công trường phải gõ lại tên và số điện
+              * thoại mỗi lần lập đơn. Gõ mười lần thì mười cách viết, và số điện thoại sai một
+              * chữ số là nhà cung cấp gọi không được, hàng không giao được.
+              */}
+            {(nhanSuKho.length > 0 || thuKho.length > 0) && (
+              <select
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") return;
+                  const nhanSu = nhanSuKho.find((n) => n.uid === v);
+                  if (nhanSu) {
+                    setNguoiNhanHang(nhanSu.displayName);
+                    return;
+                  }
+                  const tk = thuKho.find((n) => n.id === v);
+                  if (tk) {
+                    setNguoiNhanHang(tk.ten);
+                    /* Điền luôn số điện thoại — đó là lý do chính phải lưu danh mục này.
+                       Chỉ điền khi có số, để không xóa mất số người lập vừa gõ tay. */
+                    if (tk.soDienThoai) setSdtNguoiNhan(tk.soDienThoai);
+                  }
+                }}
+                aria-label="Chọn thủ kho nhận hàng"
+                className="min-h-11 w-full min-w-0 max-w-md rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+              >
+                {/* `value=""` luôn quay về dòng này sau khi chọn: đây là một THAO TÁC điền hộ,
+                    không phải chỗ giữ giá trị — giá trị nằm ở ô chữ ngay dưới. */}
+                <option value="">-- Chọn thủ kho --</option>
+                {thuKho.length > 0 && (
+                  <optgroup label="Thủ kho công trình (danh mục đã lưu)">
+                    {thuKho.map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {n.ten}
+                        {n.congTrinh ? ` — ${n.congTrinh}` : ""}
+                        {n.soDienThoai ? ` · ${n.soDienThoai}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {nhanSuKho.length > 0 && (
+                  <optgroup label="Nhân sự bộ phận Kho">
+                    {nhanSuKho.map((n) => (
+                      <option key={n.uid} value={n.uid}>
+                        {n.displayName}
+                        {n.title ? ` — ${n.title}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            )}
+
+            <Input
+              id="nguoi-nhan"
+              placeholder="Thủ kho công trình"
+              value={nguoiNhanHang}
+              onChange={(e) => setNguoiNhanHang(e.target.value)}
+            />
+
+            {/* Hai nút quản lý danh mục — đặt ngay dưới ô để người lập thấy đường lưu lại. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  /* Điền sẵn tên và số đang gõ: người lập thường gõ xong mới nghĩ tới việc lưu. */
+                  setTkTen(nguoiNhanHang.trim());
+                  setTkSdt(sdtNguoiNhan.trim());
+                  setTkCongTrinh(tenCongTrinh.trim() || diaDiemGiao.trim());
+                  setMoThemThuKho(true);
+                }}
+                className="min-h-11 text-left text-xs font-medium text-primary underline-offset-2 hover:underline md:min-h-9"
+              >
+                + Lưu thủ kho này vào danh mục
+              </button>
+              {thuKho.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMoXoaThuKho(true)}
+                  className="min-h-11 text-left text-xs font-medium text-danger underline-offset-2 hover:underline md:min-h-9"
+                >
+                  Xóa thủ kho khỏi danh mục
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ★ SỐ ĐIỆN THOẠI NGƯỜI NHẬN — ô riêng trên biểu mẫu `PO - DEMO 130826.xlsx`.
+              Nhà cung cấp gọi số này để hẹn giao; thiếu thì tài xế tới cổng không biết gọi ai. */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="sdt-nguoi-nhan">Số điện thoại người nhận</Label>
+            <Input
+              id="sdt-nguoi-nhan"
+              inputMode="tel"
+              placeholder="Số để nhà cung cấp hẹn giao hàng"
+              value={sdtNguoiNhan}
+              onChange={(e) => setSdtNguoiNhan(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ngay-giao">Ngày giao hàng</Label>
+            <Input
+              id="ngay-giao"
+              type="date"
+              value={ngayGiao}
+              onChange={(e) => setNgayGiao(e.target.value)}
+              className="w-48"
+            />
+            <span className="text-xs text-text-desc">
+              Một ngày cho cả đơn — app không nhập kế hoạch giao từng đợt.
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="dia-diem">Địa điểm giao hàng</Label>
+            {/* ===== MISA để ô này là Ô CHỌN — 18/08/2026 đã có ô chọn THẬT =====
+                🔴 KHÔNG BỊA DANH MỤC. App không có danh mục địa điểm giao hàng (chỉ có
+                `DANH_MUC_PHONG_BAN`), và danh mục là dữ liệu nghiệp vụ phải do công ty cấp.
+                Danh sách ở đây gom từ ĐỊA ĐIỂM ĐÃ GHI TRÊN ĐƠN THẬT (`diaDiemDaCo`) — đúng cách
+                ô "Dự án / Công trình" đang làm, vì app cũng chưa có danh mục dự án.
+
+                🔴 Ô CHỌN CHỈ ĐIỀN HỘ, Ô CHỮ MỚI LÀ GIÁ TRỊ THẬT — cố ý làm vậy, không phải
+                làm dở. Nếu ô chọn là nguồn duy nhất thì địa điểm đọc từ file Excel
+                (`doVaoBang` → `setDiaDiemGiao`) sẽ không khớp lựa chọn nào và **biến mất khỏi
+                màn hình** dù vẫn nằm trong đơn — người lập không biết mà sửa.
+
+                ⚠️ Kho dữ liệu chưa có đơn nào thì không vẽ ô chọn: một ô chọn chỉ có dòng
+                "-- Chọn --" còn khó dùng hơn ô gõ tay. */}
+            {diaDiemDaCo.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value !== "") setDiaDiemGiao(e.target.value);
+                }}
+                aria-label="Chọn địa điểm giao hàng đã dùng ở đơn trước"
+                className="min-h-11 w-full min-w-0 max-w-md rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+              >
+                {/* `value=""` luôn quay về dòng này sau khi chọn: ô chọn ở đây là một THAO TÁC
+                    điền hộ, không phải chỗ giữ giá trị — giá trị nằm ở ô chữ ngay dưới. */}
+                <option value="">-- Chọn địa điểm đã dùng --</option>
+                {diaDiemDaCo.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            )}
+            <Input
+              id="dia-diem"
+              /* Gợi ý bằng tên công trình đang có trên form — độc lập thì đó là ô người lập
+                 vừa gõ, có đề nghị thì là tên lấy từ phiếu. */
+              placeholder={tenCongTrinh || "Chân công trình"}
+              value={diaDiemGiao}
+              onChange={(e) => setDiaDiemGiao(e.target.value)}
+            />
+          </div>
+
+          {/**
+            * ★ KHỐI ĐIỀU KHOẢN IN Ở CUỐI TỜ ĐƠN — sửa được từ 22/08/2026
+            * (Ban lãnh đạo: *"mục đơn PO này hãy tạo thành trường có thể sửa được nội dung"*).
+            *
+            * 🔴 Ô ĐIỀN SẴN BẢN CHUẨN, không để trắng. Người lập cần sửa vài chỗ bỏ trống trong
+            * đó (số ngày khiếu nại `……`, phạm vi bốc xếp) chứ không phải gõ lại cả trang điều
+            * khoản. Ô trắng kèm placeholder là mời họ gõ tay một bản khác bản công ty.
+            *
+            * 🔴 KHÔNG ghi vào state khi chưa ai sửa — xem `dieuKhoanGiaoHang` ở `kieu-du-lieu.ts`:
+            * `undefined` (chưa sửa, in bản chuẩn) khác `""` (cố ý bỏ khối điều khoản). Nếu lúc
+            * mở form đã nhồi bản chuẩn vào state rồi cất, thì mọi đơn đều mang một bản copy —
+            * sau này công ty đổi điều khoản, không đơn nào nhận được bản mới.
+            */}
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {/* ★ Nhãn lấy ĐÚNG CHỮ trên biểu mẫu (ô B28: "Phương thức giao hàng") — 23/08/2026.
+                  Tên cũ "Điều khoản in ở cuối tờ đơn" mô tả CHỖ IN chứ không nói nội dung là gì,
+                  nên người mới dò theo tờ giấy không nhận ra đây là ô nào. */}
+              <Label htmlFor="dk-giao-hang">Phương thức giao hàng</Label>
+              {dieuKhoanGiaoHang !== null && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDieuKhoanGiaoHang(null)}
+                  className="min-h-11 md:min-h-9"
+                >
+                  <RotateCcw className="size-4" aria-hidden />
+                  Khôi phục bản chuẩn
+                </Button>
+              )}
+            </div>
+            <Textarea
+              id="dk-giao-hang"
+              rows={10}
+              value={dieuKhoanGiaoHang ?? DIEU_KHOAN_GIAO_HANG_CHUAN}
+              onChange={(e) => setDieuKhoanGiaoHang(e.target.value)}
+              className="min-h-60 font-mono text-xs"
+            />
+            <p className="text-xs text-text-desc">
+              Dòng kết thúc bằng dấu hai chấm sẽ in <strong>đậm</strong>; dòng trống tạo khoảng
+              cách giữa các nhóm. Chỗ để trống <strong>……</strong> là chỗ cần điền theo từng đơn.
+              {dieuKhoanGiaoHang !== null && (
+                <>
+                  {" "}
+                  ⚠️ Đơn này đang dùng bản đã sửa — tờ in sẽ ghi rõ là khác bản chuẩn của công
+                  ty.
+                </>
+              )}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="dk-tt">Điều khoản thanh toán</Label>
+            <Input
+              id="dk-tt"
+              value={dieuKhoanThanhToan}
+              onChange={(e) => setDieuKhoanThanhToan(e.target.value)}
+              placeholder="Thanh toán 100% trong 30 ngày sau khi nhận đủ hàng"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="so-ngay-no">Số ngày được nợ</Label>
+            <Input
+              id="so-ngay-no"
+              type="number"
+              min={0}
+              value={soNgayDuocNo}
+              onChange={(e) => setSoNgayDuocNo(e.target.value)}
+              className="w-32"
+              placeholder="30"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="dk-khac">Điều khoản khác</Label>
+            {/* MISA để ô nhiều dòng, cao khoảng 4 dòng.
+                🔴 SỬA MỘT CHÚ THÍCH SAI (18/08/2026): chỗ này từng ghi *"dùng textarea gốc vì
+                bộ nền tảng chưa có component Textarea"* — KHÔNG ĐÚNG, `nen-tang-ui/textarea.tsx`
+                có thật và export `Textarea`. Hệ quả của chú thích sai đó là một bản chép tay
+                các lớp CSS: bộ nền tảng đổi cách vẽ ô (viền, vòng focus, nền ở chế độ Tối) thì
+                ô này đứng yên và lệch hẳn so với mọi ô khác trong app. Nay dùng component thật. */}
+            <Textarea
+              id="dk-khac"
+              rows={4}
+              value={dieuKhoanKhac}
+              onChange={(e) => setDieuKhoanKhac(e.target.value)}
+              placeholder="Bảo hành, bốc xếp, chứng chỉ chất lượng kèm theo…"
+              /* `min-h-24` ≈ 4 dòng, đúng chiều cao ô của MISA. `Textarea` có
+                 `field-sizing-content` nên nó vẫn tự cao thêm khi gõ dài — `rows` một mình
+                 không quyết định được chiều cao ban đầu. */
+              className="min-h-24"
+            />
+          </div>
+
+          {/* Hai câu cam kết cuối tờ — chỉ in ở mẫu *Thỏa thuận mua bán*, nên ô nhập cũng chỉ
+              hiện ở mẫu đó. Bày ô cho một thứ không được in là mời người lập gõ vào chỗ vô ích. */}
+          {mauPO === "thoa_thuan" && (
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor="cam-ket">Hai câu cam kết cuối tờ (mẫu Thỏa thuận)</Label>
+                {camKetThoaThuan !== null && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCamKetThoaThuan(null)}
+                    className="min-h-11 md:min-h-9"
+                  >
+                    <RotateCcw className="size-4" aria-hidden />
+                    Khôi phục bản chuẩn
+                  </Button>
+                )}
+              </div>
+              <Textarea
+                id="cam-ket"
+                rows={4}
+                value={camKetThoaThuan ?? CAM_KET_THOA_THUAN_CHUAN}
+                onChange={(e) => setCamKetThoaThuan(e.target.value)}
+                className="min-h-24 font-mono text-xs"
+              />
+            </div>
+          )}
+
+        </CardContent>
+      </Card>
+
+      {/* =========================================================================
+          ⑤ THÔNG TIN NỘI BỘ — KHÔNG in trên tờ đơn gửi nhà cung cấp
+
+          🔴 TÁCH RA THÀNH KHỐI RIÊNG CÓ CHỦ Ý (23/08/2026). Ba thứ dưới đây không có ô nào trên
+          biểu mẫu công ty: người lập đơn · số chứng từ tham chiếu · tệp đính kèm. Để lẫn vào đầu
+          tờ như trước là người nhập tưởng chúng cũng được in ra và gửi cho nhà cung cấp.
+          ========================================================================= */}
+      <Card>
+        <CardContent className="flex flex-col gap-(--hp-md-card-gap) [&_input]:max-w-xl">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="nv-mua-hang">Nhân viên mua hàng</Label>
+            {/* 🔴 CHỈ ĐỌC, cố ý. Đơn ghi tên ai thì `nguoiPhuTrachUid` phải là mã người
+                đó — cho gõ tự do thì tên và mã lệch nhau, và mọi màn "việc của tôi",
+                lịch công tác, phân bổ đều tra theo mã. */}
+            <Input id="nv-mua-hang" value={nguoiDung.tenHienThi} readOnly disabled />
+          </div>
+
+          {/**
+            * ★ "Tham chiếu" DỜI VỀ ĐÂY, thay chỗ ô "Diễn giải" đã bỏ — Ban lãnh đạo
+            * 21/08/2026: *"Bỏ"* (ô Diễn giải) và *"Bố cục cân đối lại"*.
+            *
+            * 🔴 VÌ SAO DỜI CHỨ KHÔNG CHỈ BỎ: khối thông tin xếp lưới 3 cột. Bỏ một ô ở cột
+            * giữa là cột đó ngắn hơn hai cột kia, còn "Tham chiếu" thì vẫn nằm một dòng riêng
+            * dưới đáy khối — đúng chỗ lệch Ban lãnh đạo khoanh. Đưa nó lên đúng ô vừa trống
+            * thì lưới đầy đủ và không còn dòng lẻ nào.
+            *
+            * ❌ Trường `dienGiai` đã bỏ HẲN khỏi mã nguồn (Ban lãnh đạo 21/08/2026:
+            * *"CHẤP NHẬN BỎ"*). Bỏ được sạch vì nó **chưa từng hiện ở đâu** — không có trên
+            * tờ in A4, không có ở danh sách đơn hàng. Đơn cũ trong Firestore còn khóa
+            * `dienGiai` thì nằm im, không ai đọc nữa.
+            */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="tham-chieu">Tham chiếu</Label>
+            <Input
+              id="tham-chieu"
+              value={thamChieu}
+              onChange={(e) => setThamChieu(e.target.value)}
+              placeholder="Số chứng từ liên quan (đơn cũ, email, hợp đồng…)"
+            />
+          </div>
+
+          {/* =====================================================================
+              🔴 CHẾ ĐỘ MẪU KHÔNG CÓ Ô ĐÍNH KÈM — sửa lỗi thật, phát hiện 18/08/2026 khi
+              soi lại chế độ "chỉ tạo mẫu".
+
+              LỖI ĐÃ XẢY RA: ô này vẽ ở CẢ HAI chế độ. `ODinhKemNhieuTep` cất tệp vào kho tệp
+              NGAY LÚC CHỌN (`3-du-lieu/kho-tep.ts` → `catTep`, ghi thẳng IndexedDB), rồi mới
+              trả mô tả tệp về form. Mà ở chế độ mẫu thì:
+               · `2-quy-trinh/don-hang-mau.ts` → `dungDonHangMau` KHÔNG mang `tepDinhKem` sang
+                 (đúng — bản mẫu không có đơn nào để đính vào), và
+               · không có đơn nào được cất, nên không chứng từ nào trỏ tới tệp vừa ghi.
+              Hệ quả: người lập bỏ hợp đồng / báo giá vào đây, thấy tên tệp hiện lên dưới nhãn
+              **"Đính kèm cho ĐƠN này"**, tin là đã lưu — trong khi tệp thành **khối dữ liệu mồ
+              côi** nằm ăn dung lượng kho tệp và không ai tra ra được. Đúng cái quy ước dự án
+              cấm ở mục 3.5: *"Đừng để giao diện hứa một việc app không làm"* — cùng họ với lỗi
+              tải bản báo giá trước 11/08/2026, chỉ đảo chiều (lần đó mất nội dung tệp, lần này
+              giữ tệp nhưng mất hồ sơ).
+
+              ✅ Chức năng chưa làm được thì NÓI RÕ LÝ DO, không bày ra rồi lặng lẽ vứt.
+              ⚠️ Đường có đề nghị giữ nguyên hoàn toàn — tệp ở đó đi vào
+                 `DonDatHang.tepDinhKem` của đúng đơn được cất.
+              ===================================================================== */}
+          {laDonDocLap ? (
+            <div className="flex flex-col gap-2">
+              <Label>Đính kèm cho đơn</Label>
+              <p className="flex items-start gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad) text-sm text-text-secondary">
+                <Paperclip className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
+                <span className="min-w-0">
+                  Bản mẫu không lưu vào hệ thống nên <strong>chưa đính kèm được tệp</strong> —
+                  tệp tải lên đây sẽ không có đơn nào để gắn vào. Cần lưu hợp đồng hay báo giá
+                  cùng đơn thì lập đơn thật từ phiếu đề nghị trong Quy trình mua hàng.
+                </span>
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {/* 🔴 NÓI RÕ ĐÂY LÀ TỆP CỦA ĐƠN, KHÔNG PHẢI TỆP CỦA BƯỚC.
+                  Khi nhúng, khu "Tệp đính kèm của bước ④" (`KhuDinhKemGiaiDoan`) nằm ngay dưới
+                  cùng một khối, cách đây một đường kẻ. Hai chỗ lưu vào HAI NƠI KHÁC NHAU: ô này
+                  đi vào `DonDatHang.tepDinhKem` của đúng đơn đang lập, khu kia đi vào
+                  `DeNghiMuaHang.tepGiaiDoan`. Không phân biệt bằng chữ thì người dùng bỏ hợp
+                  đồng vào nhầm chỗ mà không cách nào biết. */}
+              <Label>Đính kèm cho ĐƠN này</Label>
+              {/* 🔴 DÙNG LẠI `ODinhKemNhieuTep`: nó cất tệp vào kho tệp (IndexedDB + Firestore)
+                  NGAY LÚC CHỌN rồi mới trả mô tả về. Tuyệt đối không nhét nội dung tệp vào
+                  `localStorage` — chỗ đó chỉ ~5MB cho cả tên miền và đang giữ toàn bộ dữ liệu
+                  nghiệp vụ, một ảnh 2–5MB là mất sạch.
+                  ⚠️ MISA ghi "Dung lượng tối đa 5MB"; app dùng giới hạn chung của mình
+                  (`CO_TOI_DA` ở `kho-tep.ts`), do chính ô này in ra — không đặt thêm một con
+                  số riêng cho đơn hàng rồi hai chỗ nói hai kiểu. */}
+              <ODinhKemNhieuTep
+                tep={tepDinhKem}
+                onDoi={setTepDinhKem}
+                nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+                nhan="Đính kèm tệp cho đơn"
+              />
+            </div>
+          )}
+
+        </CardContent>
+      </Card>
 
       {/* ===== NÓI RÕ VÌ SAO CHƯA CẤT ĐƯỢC — đứng ngay trên thanh nút =====
           🔴 Ban lãnh đạo 15/08/2026 chỉ vào nút xám và hỏi *"sao nút này không dùng được"*.
@@ -2713,6 +3332,152 @@ export function FormLapDonMuaHang({
           if (them.length > 0) setDongBang((t) => [...t, ...them]);
         }}
       />
+
+      {/* ===== Hộp XÓA NHÀ CUNG CẤP khỏi danh mục (Ban lãnh đạo 21/08/2026) ===== */}
+      <HopXacNhan
+        mo={hoiXoaNCC !== null}
+        tieuDe="Xóa nhà cung cấp khỏi danh mục?"
+        moTa={
+          hoiXoaNCC && (
+            <>
+              <strong>
+                {hoiXoaNCC.maNCC ? `${hoiXoaNCC.maNCC} — ` : ""}
+                {hoiXoaNCC.ten}
+              </strong>{" "}
+              sẽ không còn trong ô chọn nhà cung cấp. Đơn đặt hàng đã lập không đổi — mã, tên và
+              mã số thuế được lưu ngay trong đơn.
+            </>
+          )
+        }
+        canhBao="Nếu nhà cung cấp này đang có đơn đặt hàng, app sẽ không cho xóa."
+        nhanDongY="Xóa khỏi danh mục"
+        nguyHiem
+        onDong={() => setHoiXoaNCC(null)}
+        onDongY={() => {
+          if (!hoiXoaNCC) return;
+          const loi = xoaNhaCungCap(hoiXoaNCC.id);
+          if (loi) {
+            toast.error("Không xóa được", { description: loi });
+            setHoiXoaNCC(null);
+            return;
+          }
+          toast.success("Đã xóa khỏi danh mục", { description: hoiXoaNCC.ten });
+          setHoiXoaNCC(null);
+        }}
+      />
+
+      {/**
+        * ===== Hộp THÊM THỦ KHO CÔNG TRÌNH vào danh mục =====
+        * ★ Ban lãnh đạo 22/08/2026: *"Thêm trường nhập liệu thông tin thủ kho công trình và cho
+        * lưu lại"*.
+        *
+        * 📌 Chỉ TÊN là bắt buộc. Số điện thoại là lý do chính phải lưu danh mục, nhưng không bắt
+        * buộc — có người lập biết tên trước, xin số sau; chặn lại là họ không lưu được gì.
+        */}
+      <HopXacNhan
+        mo={moThemThuKho}
+        tieuDe="Lưu thủ kho vào danh mục?"
+        moTa="Thủ kho lưu ở đây dùng chung cho cả phòng. Lần sau chọn trong ô là điền sẵn cả tên và số điện thoại."
+        nhanDongY="Lưu vào danh mục"
+        khoaDongY={tkTen.trim() === "" ? "Phải có tên thủ kho." : undefined}
+        onDong={() => setMoThemThuKho(false)}
+        onDongY={() => {
+          const loi = themThuKho({
+            ten: tkTen,
+            soDienThoai: tkSdt,
+            congTrinh: tkCongTrinh,
+          });
+          if (loi) {
+            toast.error("Không lưu được vào danh mục", { description: loi });
+            return;
+          }
+          /* Điền luôn vào đơn đang lập — người dùng mở hộp này giữa lúc lập đơn. */
+          setNguoiNhanHang(tkTen.trim());
+          if (tkSdt.trim()) setSdtNguoiNhan(tkSdt.trim());
+          toast.success("Đã lưu vào danh mục", { description: tkTen.trim() });
+          setMoThemThuKho(false);
+          setTkTen("");
+          setTkSdt("");
+          setTkCongTrinh("");
+        }}
+      >
+        <div className="flex flex-col gap-(--hp-md-row-gap)">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <Label htmlFor="tk-moi-ten">Tên thủ kho *</Label>
+              <Input
+                id="tk-moi-ten"
+                value={tkTen}
+                onChange={(e) => setTkTen(e.target.value)}
+                placeholder="Họ và tên người nhận hàng tại công trình"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 sm:w-48">
+              <Label htmlFor="tk-moi-sdt">Số điện thoại</Label>
+              <Input
+                id="tk-moi-sdt"
+                inputMode="tel"
+                value={tkSdt}
+                onChange={(e) => setTkSdt(e.target.value)}
+                placeholder="Số để NCC hẹn giao"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tk-moi-ct">Công trình phụ trách</Label>
+            <Input
+              id="tk-moi-ct"
+              value={tkCongTrinh}
+              onChange={(e) => setTkCongTrinh(e.target.value)}
+              placeholder="Để phân biệt khi có nhiều thủ kho"
+            />
+          </div>
+        </div>
+      </HopXacNhan>
+
+      {/* ===== Hộp XÓA THỦ KHO khỏi danh mục ===== */}
+      <HopXacNhan
+        mo={moXoaThuKho}
+        tieuDe="Xóa thủ kho khỏi danh mục"
+        moTa="Chọn người cần bỏ khỏi danh mục. Đơn hàng cũ vẫn giữ nguyên tên và số điện thoại đã ghi — chỉ là lần sau không chọn nhanh được nữa."
+        nhanDongY="Đóng"
+        onDong={() => setMoXoaThuKho(false)}
+        onDongY={() => setMoXoaThuKho(false)}
+      >
+        <ul className="flex flex-col gap-1.5">
+          {thuKho.map((n) => (
+            <li
+              key={n.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+            >
+              <span className="min-w-0 text-sm text-text-primary">
+                {n.ten}
+                {n.congTrinh && <span className="text-text-desc"> · {n.congTrinh}</span>}
+                {n.soDienThoai && <span className="text-text-desc"> · {n.soDienThoai}</span>}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="min-h-11 text-danger md:min-h-9"
+                onClick={() => {
+                  const loi = xoaThuKho(n.id);
+                  if (loi) {
+                    toast.error("Không xóa được", { description: loi });
+                    return;
+                  }
+                  toast.success("Đã xóa khỏi danh mục", { description: n.ten });
+                }}
+              >
+                <Trash2 className="size-4" aria-hidden />
+                Xóa
+              </Button>
+            </li>
+          ))}
+          {thuKho.length === 0 && (
+            <li className="text-sm text-text-desc">Danh mục chưa có ai.</li>
+          )}
+        </ul>
+      </HopXacNhan>
 
       {/* ===== Hộp THÊM NHÀ CUNG CẤP vào danh mục (Ban lãnh đạo 20/08/2026) ===== */}
       <HopXacNhan

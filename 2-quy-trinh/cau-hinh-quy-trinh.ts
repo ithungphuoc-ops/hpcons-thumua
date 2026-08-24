@@ -247,6 +247,28 @@ export const CAU_HINH_MAC_DINH: CauHinhQuyTrinh = {
         batBuoc: true,
       },
     ],
+    /**
+     * ★ Bước "Hồ sơ thanh toán" — gộp từ hai bước cũ (Ban lãnh đạo 23/08/2026: *"Gộp 2 mục này
+     * lại thành 1 'Hồ sơ thanh toán'"*).
+     *
+     * 🔴 PHẢI CÓ MỘT CÁI TÍCH cho ủy nhiệm chi, và nó phải BẮT BUỘC — nhưng cái tích nói *"đã xử
+     * lý xong, kể cả khi đơn này không cần UNC"*. Vì phần lớn đơn trả tiền ngay, không có ủy
+     * nhiệm chi nào; nếu điều kiện xong là "phải có tệp UNC" thì những đơn đó kẹt vĩnh viễn.
+     *
+     * ⚠️ Hóa đơn VAT KHÔNG có cái tích riêng: điều kiện xong của nó là **có tệp**, và luật đó chỉ
+     * được nằm ở một chỗ (`coHoaDonVAT`). Thêm một cái tích song song là hai nguồn sự thật — tích
+     * rồi mà chưa có tệp thì app báo xong trong khi hồ sơ vẫn thiếu chứng từ.
+     *
+     * Cửa chặn thật nằm ở `vuongMacTichXongUNC`: chưa có hóa đơn VAT thì không tích được.
+     */
+    ho_so_thanh_toan: [
+      {
+        ma: "unc_xong",
+        ten: "Đã xử lý ủy nhiệm chi (hoặc đơn này không cần)",
+        moTa: "Chỉ tích được sau khi có Hóa đơn VAT — ủy nhiệm chi là lệnh trả tiền",
+        batBuoc: true,
+      },
+    ],
   },
   /**
    * Cài đặt từng bước — LẤY ĐÚNG ẢNH 8 GIAI ĐOẠN Ban lãnh đạo gửi 14–15/08/2026.
@@ -270,6 +292,8 @@ export const CAU_HINH_MAC_DINH: CauHinhQuyTrinh = {
     lap_don_mua_hang: { ...CAI_DAT_GIAI_DOAN_MAC_DINH },
     dat_hang: { ...CAI_DAT_GIAI_DOAN_MAC_DINH },
     nhan_hang: { ...CAI_DAT_GIAI_DOAN_MAC_DINH },
+    /* ★ Bước gộp "Hồ sơ thanh toán" (23/08/2026) — xem `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`. */
+    ho_so_thanh_toan: { ...CAI_DAT_GIAI_DOAN_MAC_DINH },
   },
 };
 

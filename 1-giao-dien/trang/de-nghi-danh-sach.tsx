@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Inbox, LayoutGrid, List } from "lucide-react";
+import { AlertTriangle, FileText, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
+/* Nhãn nhóm đề xuất + định dạng mốc thời gian cho tab Danh sách (23/08/2026). */
+import { NHAN_NHOM_DE_XUAT } from "@/3-du-lieu/kieu-du-lieu";
+import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
-import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import {
   BangQuyTrinhMuaHang,
   type ThaoTacThe,
@@ -22,33 +24,56 @@ import {
 import { HopSuaTruongTuyChinh } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-truong-tuy-chinh";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { HopNhanBanDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-ban-de-nghi";
-import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/1-giao-dien/nen-tang-ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocNhanBanDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
-import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-import { soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
+/* 📌 KHÔNG còn import `tinhTienDoDeNghi` / `tomTatTienDoDeNghi` / `soSanhDeNghiUuTien` ở đây
+   (23/08/2026): cả hai chế độ xem nay lấy dữ liệu từ `dungBangQuyTrinh`, nó đã tính sẵn tiến độ
+   và đã sắp thứ tự. Import lại là mở đường cho một nguồn số thứ hai. */
 import {
   congViecChuaXongCuaBuoc,
   dungBangQuyTrinh,
   giaiDoanDaKetThuc,
+  GIAI_DOAN_MUA_HANG,
   NHAN_GIAI_DOAN,
   dungXacNhanKeoTha,
   quyetDinhKeoTha,
+  soSanhTheTrenBang,
   xacDinhGiaiDoan,
+  type TheDeNghiTrenBang,
   type GiaiDoanMuaHang,
   type HanhDongKeoTha,
   type XacNhanKeoTha,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen-giai-doan";
-import { nhanAnToan, NHAN_TRANG_THAI_DE_NGHI, NHAN_UU_TIEN } from "@/2-quy-trinh/trang-thai";
+/* 📌 KHÔNG còn import nhãn trạng thái đề nghị / mức ưu tiên: tab Danh sách nay suy trạng thái từ
+   GIAI ĐOẠN (`HuyHieuTrangThai`) đúng như bảng Base — ba mức Đang xử lý · Hoàn thành · Thất bại. */
 
 /** Hai cách xem cùng một dữ liệu — đặt tên giống bảng Base để anh em quen việc đọc ra ngay. */
 type CachXem = "bang" | "danh_sach";
+
+/**
+ * Dải tab lọc của tab "Danh sách" — bám ảnh bảng Base Ban lãnh đạo gửi 23/08/2026:
+ * *NHIỆM VỤ · HOÀN THÀNH · ĐANG XỬ LÝ · THẤT BẠI · QUÁ HẠN*.
+ *
+ * 📌 "Nhiệm vụ" của Base = TẤT CẢ, nên ở đây gọi thẳng `tat_ca` cho đỡ nhầm.
+ */
+type LocDanhSach = "tat_ca" | "hoan_thanh" | "dang_xu_ly" | "that_bai" | "qua_han";
+
+const NHAN_LOC_DS: { ma: LocDanhSach; nhan: string }[] = [
+  { ma: "tat_ca", nhan: "Tất cả" },
+  { ma: "dang_xu_ly", nhan: "Đang xử lý" },
+  { ma: "qua_han", nhan: "Quá hạn" },
+  { ma: "hoan_thanh", nhan: "Hoàn thành" },
+  { ma: "that_bai", nhan: "Thất bại" },
+];
+
+/** Chuỗi bước để tính "[n/8]" — bỏ "Thất bại" vì nó không nằm trong chuỗi chạy. */
+const CHUOI_BUOC_DS = GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "that_bai").map((g) => g.ma);
 
 export default function TrangDanhSachDeNghi() {
   const router = useRouter();
@@ -162,23 +187,14 @@ export default function TrangDanhSachDeNghi() {
      nghị diễn ra ở APP KHÁC của bộ phận đề xuất — phiếu vào tới app này nghĩa là ĐÃ duyệt,
      nên bảng quy trình hiện thẳng, không giữ luật duyệt nào ở đây nữa. */
 
-  const danhSach = useMemo(
-    () =>
-      deNghi
-        .map((dn) => {
-          const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
-          return {
-            dn,
-            tomTat: tomTatTienDoDeNghi(tienDo),
-            soChuaPhanBo: tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo").length,
-          };
-        })
-        /* Chế độ "Danh sách" xếp CÙNG MỘT HÀM với chế độ "Dạng bảng" — người dùng chuyển qua
-           lại giữa hai chế độ, thấy thứ tự khác nhau là tưởng mất hồ sơ. Luật ở
-           `2-quy-trinh/sap-xep-uu-tien.ts`, đừng chép lại điều kiện vào đây. */
-        .sort((a, b) => soSanhDeNghiUuTien(a.dn, b.dn, nguoiDung.uid)),
-    [deNghi, donHang, phieuNhan, nguoiDung.uid],
-  );
+  /**
+   * ❌ ĐÃ BỎ `danhSach` (23/08/2026) — tab "Danh sách" nay dùng CHUNG dữ liệu với bảng kanban
+   * (`moiThe`, ghép từ `cot`). Xem chú thích ở `moiThe` bên dưới.
+   *
+   * 🔴 GIỮ LẠI MỘT NGUỒN THỨ HAI LÀ MỜI HAI CHẾ ĐỘ XEM NÓI KHÁC NHAU về cùng một hồ sơ — đúng lỗi
+   * vừa phải sửa: bản cũ tự tính `tomTat` / `soChuaPhanBo` nên không biết gì về giai đoạn, hạn xử
+   * lý, người phụ trách hay chứng từ còn nợ.
+   */
 
   /**
    * ★ VIỆC CỦA NGƯỜI ĐANG XEM LÊN ĐẦU MỖI CỘT — Ban lãnh đạo 15/08/2026: *"ở các tài khoản
@@ -190,8 +206,54 @@ export default function TrangDanhSachDeNghi() {
    * theo vai trò, một luật chạy đúng cho tất cả.
    */
   const cot = useMemo(
-    () => dungBangQuyTrinh(deNghi, donHang, baoGia, phieuNhan, new Date(), nguoiDung.uid),
-    [deNghi, donHang, baoGia, phieuNhan, nguoiDung.uid],
+    () =>
+      dungBangQuyTrinh(deNghi, donHang, baoGia, phieuNhan, cauHinh, new Date(), nguoiDung.uid),
+    [deNghi, donHang, baoGia, phieuNhan, cauHinh, nguoiDung.uid],
+  );
+
+  /**
+   * ★★ NGUỒN DỮ LIỆU CỦA TAB "DANH SÁCH" — GHÉP TỪ CHÍNH `cot` CỦA BẢNG KANBAN (23/08/2026).
+   *
+   * 🔴 Ban lãnh đạo: *"Bố cục lại phần hiển thị dạng danh sách giống vậy"* (ảnh bảng Base
+   * `TM-QT Mua hàng (HP CONS)` → tab **Danh sách**).
+   *
+   * 🔴 VÌ SAO KHÔNG DỰNG NGUỒN RIÊNG: bảng và danh sách là **hai cách xem cùng một thứ**. Bản cũ
+   * tự tính lấy (`danhSach`) nên không biết gì về giai đoạn, hạn xử lý, người phụ trách hay chứng
+   * từ còn nợ — chuyển tab là thấy hai bộ thông tin khác nhau về cùng một hồ sơ. Ghép từ `cot` thì
+   * mọi con số và mọi dấu đỏ đều do `dungBangQuyTrinh` sinh ra một lần.
+   *
+   * 📌 Phải sắp lại bằng `soSanhTheTrenBang`: `cot` đã sắp TRONG từng cột, ghép lại thì thứ tự
+   * thành "theo cột" chứ không theo mức ưu tiên chung.
+   */
+  const moiThe = useMemo(
+    () => [...cot.flatMap((c) => c.the)].sort((a, b) => soSanhTheTrenBang(a, b, nguoiDung.uid)),
+    [cot, nguoiDung.uid],
+  );
+
+  const [locDS, setLocDS] = useState<LocDanhSach>("tat_ca");
+
+  const theHienThi = useMemo(
+    () =>
+      moiThe.filter((t) => {
+        if (locDS === "hoan_thanh") return t.giaiDoan === "hoan_thanh";
+        if (locDS === "that_bai") return t.giaiDoan === "that_bai";
+        if (locDS === "dang_xu_ly") return !giaiDoanDaKetThuc(t.giaiDoan);
+        if (locDS === "qua_han") return t.han.quaHan;
+        return true;
+      }),
+    [moiThe, locDS],
+  );
+
+  /** Đếm cho từng tab — Base ghi số ngay cạnh tên tab. */
+  const demTheoLoc: Record<LocDanhSach, number> = useMemo(
+    () => ({
+      tat_ca: moiThe.length,
+      hoan_thanh: moiThe.filter((t) => t.giaiDoan === "hoan_thanh").length,
+      dang_xu_ly: moiThe.filter((t) => !giaiDoanDaKetThuc(t.giaiDoan)).length,
+      that_bai: moiThe.filter((t) => t.giaiDoan === "that_bai").length,
+      qua_han: moiThe.filter((t) => t.han.quaHan).length,
+    }),
+    [moiThe],
   );
 
   /**
@@ -274,13 +336,23 @@ export default function TrangDanhSachDeNghi() {
         toast.info("Bước này cần thao tác nghiệp vụ", { description: hanhDong.thongBao });
         router.push(hanhDong.duongDan);
         break;
-      case "lui_buoc":
+      case "lui_buoc": {
         // Hủy chứng từ tương ứng để thẻ thật sự về bước trước — xem `luiVeBuoc`.
-        luiVeBuoc(prId, hanhDong.ve, nguoiDung.tenHienThi);
-        toast.success("Đã lùi một bước", {
-          description: `${the.deNghi.code} về "${NHAN_GIAI_DOAN[hanhDong.ve].nhan}".`,
-        });
+        const gop = luiVeBuoc(prId, hanhDong.ve, nguoiDung.tenHienThi);
+        /* 🔴 NÓI ĐÚNG CHUYỆN VỪA XẢY RA (22/08/2026). Lùi về bước ① có thể GỘP các bản tách trở
+           lại phiếu gốc, và khi đó chính thẻ vừa kéo có thể không còn. Báo *"{mã} về Tiếp nhận"*
+           cho một mã vừa bị gộp mất là nói sai với người dùng — họ đi tìm thẻ đó không thấy. */
+        if (gop) {
+          toast.success("Đã hoàn trả về phiếu đề nghị gốc", {
+            description: `Gộp ${gop.soPhieuDaGop} phiếu tách trở lại ${gop.maGoc} — hồ sơ về "${NHAN_GIAI_DOAN[hanhDong.ve].nhan}".`,
+          });
+        } else {
+          toast.success("Đã lùi một bước", {
+            description: `${the.deNghi.code} về "${NHAN_GIAI_DOAN[hanhDong.ve].nhan}".`,
+          });
+        }
         break;
+      }
       case "khong_the":
         // Đã chặn ở `xuLyTha` trước khi mở hộp xác nhận — nhánh này chỉ để đủ kiểu.
         toast.error("Không chuyển được", { description: hanhDong.lyDo });
@@ -297,20 +369,21 @@ export default function TrangDanhSachDeNghi() {
           crumbs={[{ label: "Thu mua", href: "/tong-quan" }, { label: "Quy trình mua hàng" }]}
           title="Quy trình mua hàng"
           description="Đề nghị mua hàng đã duyệt, nhận từ các phòng ban trong công ty"
-          actions={
-            /* 🔴 12/08/2026: bỏ chữ "(giả lập)" và chú thích "ở bản thật đề nghị tự vào từ
-               HPcore". Lập đề nghị nay là nghiệp vụ THẬT, mọi tài khoản làm được — để chữ
-               "giả lập" là người dùng không dám nhập liệu thật vào đó. */
-            <Button
-              size="sm"
-              variant="outline"
-              nativeButton={false}
-              render={<Link href="/de-nghi/nhan-moi" />}
-            >
-              <Inbox className="size-4" aria-hidden />
-              Tạo đề nghị mới
-            </Button>
-          }
+          /**
+           * 🔴 ĐÃ BỎ NÚT "Tạo đề nghị mới" (21/08/2026) — Ban lãnh đạo: *"chức năng này nay đã có
+           * trong app request nên có thể bỏ nó đi"*.
+           *
+           * Từ 20/08/2026 đề nghị vào app bằng cửa tiếp nhận tự động
+           * (`app/api/app-request/de-nghi-moi/route.ts`): App Request duyệt xong là đẩy sang, kèm
+           * mã đề xuất để đối chiếu. Lập tay ở màn này là mở đường thứ hai sinh đề nghị **không
+           * có mã đề xuất**, và về sau không ai tra được phiếu đó từ App Request.
+           *
+           * ⚠️ MÀN `/de-nghi/nhan-moi` VẪN CÒN VÀ VẪN CÓ ĐƯỜNG VÀO — nút "Tạo đề nghị" ở màn
+           * **Công việc của tôi** (`trang/viec-cua-toi.tsx`). Đã kiểm trước khi bỏ, đúng luật
+           * `BAN-DO-MA-NGUON.md` mục 2b (phiên 03 suýt làm module Báo giá thành mồ côi vì bỏ
+           * đường vào mà không kiểm). Muốn bỏ hẳn chức năng lập tay thì phải bỏ cả nút đó —
+           * việc này chờ Ban lãnh đạo chốt, không tự suy rộng từ một câu.
+           */
         />
 
         {/* Cao 44px trên điện thoại cho đủ vùng chạm theo V1.1. */}
@@ -462,105 +535,88 @@ export default function TrangDanhSachDeNghi() {
         </div>
       ) : (
         <Card>
-          <CardContent>
-            {/* Bảng — Desktop/Tablet */}
-            <div className="hidden overflow-x-auto md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mã đề nghị</TableHead>
-                    <TableHead>Công trình</TableHead>
-                    <TableHead>Nội dung</TableHead>
-                    <TableHead>Nguồn</TableHead>
-                    <TableHead>Cần hàng</TableHead>
-                    <TableHead className="text-right">Số dòng</TableHead>
-                    <TableHead>Phân bổ</TableHead>
-                    <TableHead>Tiến độ nhận</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {danhSach.map(({ dn, tomTat, soChuaPhanBo }) => {
-                    const tt = nhanAnToan(NHAN_TRANG_THAI_DE_NGHI, dn.trangThai);
-                    const ut = NHAN_UU_TIEN[dn.mucDoUuTien];
-                    return (
-                      <TableRow key={dn.id}>
-                        <TableCell>
-                          <Link
-                            href={`/de-nghi/${dn.id}`}
-                            className="font-semibold text-primary hover:underline"
-                          >
-                            {dn.code}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="text-sm">{dn.tenCongTrinh}</TableCell>
-                        <TableCell className="text-sm">
-                          <div className="flex flex-col gap-1">
-                            <span>{dn.tieuDe}</span>
-                            {dn.mucDoUuTien === "gap" && <StatusBadge label={ut.nhan} tone={ut.tong} />}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm text-text-desc">
-                          {nhanPhongBan(dn.phongBanNguon)}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(dn.ngayCanHang).toLocaleDateString("vi-VN")}
-                        </TableCell>
-                        <TableCell className="text-right">{dn.items.length}</TableCell>
-                        <TableCell>
-                          {soChuaPhanBo > 0 ? (
-                            <StatusBadge label={`Thiếu ${soChuaPhanBo} dòng`} tone="danger" />
-                          ) : (
-                            <StatusBadge label="Đủ" tone="success" />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <ThanhTienDo
-                            phanTram={tomTat.phanTram}
-                            tong={tomTat.phanTram === 100 ? "success" : "primary"}
-                            nhan={`${tomTat.soDongDaNhanDu}/${tomTat.tongSoDong} mặt hàng`}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge label={tt.nhan} tone={tt.tong} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Card List — Mobile */}
-            <div className="flex flex-col gap-(--hp-md-row-gap) md:hidden">
-              {danhSach.map(({ dn, tomTat, soChuaPhanBo }) => {
-                const tt = nhanAnToan(NHAN_TRANG_THAI_DE_NGHI, dn.trangThai);
+          <CardContent className="flex min-w-0 flex-col gap-(--hp-md-card-gap)">
+            {/**
+              * ★★ DẢI TAB LỌC — bám ảnh bảng Base (Ban lãnh đạo 23/08/2026).
+              *
+              * 📌 `<button>` thật trong `role="tablist"` như dải "Nhóm theo" ở màn Theo dõi — bấm
+              * bằng Tab/Enter được, `min-h-11` đủ vùng chạm 44px (V1.1 Phần F).
+              */}
+            <div
+              className="-mx-(--hp-md-card-pad) flex gap-1 overflow-x-auto border-b border-divider px-(--hp-md-card-pad)"
+              role="tablist"
+              aria-label="Lọc danh sách hồ sơ"
+            >
+              {NHAN_LOC_DS.map((l) => {
+                const dangChon = locDS === l.ma;
                 return (
-                  <Link
-                    key={dn.id}
-                    href={`/de-nghi/${dn.id}`}
-                    className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"
+                  <button
+                    key={l.ma}
+                    type="button"
+                    role="tab"
+                    aria-selected={dangChon}
+                    onClick={() => setLocDS(l.ma)}
+                    className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-xs font-semibold tracking-wide uppercase transition-colors ${
+                      dangChon
+                        ? "border-primary text-primary"
+                        : "border-transparent text-text-desc hover:text-text-primary"
+                    }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-sm font-semibold text-primary">{dn.code}</span>
-                      <StatusBadge label={tt.nhan} tone={tt.tong} />
-                    </div>
-                    <span className="text-sm text-text-primary">{dn.tieuDe}</span>
-                    <span className="text-xs text-text-desc">{dn.tenCongTrinh}</span>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-text-desc">Cần hàng</span>
-                      <span>{new Date(dn.ngayCanHang).toLocaleDateString("vi-VN")}</span>
-                    </div>
-                    {soChuaPhanBo > 0 && <StatusBadge label={`Thiếu ${soChuaPhanBo} công việc chưa phân bổ`} tone="danger" />}
-                    <ThanhTienDo
-                      phanTram={tomTat.phanTram}
-                      tong={tomTat.phanTram === 100 ? "success" : "primary"}
-                      nhan={`${tomTat.soDongDaNhanDu}/${tomTat.tongSoDong} mặt hàng đã nhận đủ`}
-                    />
-                  </Link>
+                    {l.nhan}
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[11px] tabular-nums ${
+                        l.ma === "qua_han" && demTheoLoc[l.ma] > 0
+                          ? "bg-danger-bg font-bold text-danger"
+                          : "bg-muted text-text-secondary"
+                      }`}
+                    >
+                      {demTheoLoc[l.ma]}
+                    </span>
+                  </button>
                 );
               })}
             </div>
+
+            {theHienThi.length === 0 ? (
+              <p className="py-6 text-center text-sm text-text-desc">
+                Không có hồ sơ nào ở mục này.
+              </p>
+            ) : (
+              <>
+                {/* Bảng — Desktop/Tablet. `thanh-keo-ngang-ro`: 9 cột nên màn hẹp phải cuộn ngang,
+                    dùng đúng thanh cuộn dày đã chỉnh cho bảng quy trình. */}
+                <div className="thanh-keo-ngang-ro hidden overflow-x-auto md:block">
+                  <Table>
+                    <TableHeader>
+                      {/* Nhãn cột lấy ĐÚNG CHỮ của Base để người đang dùng Base đọc ra ngay. */}
+                      <TableRow>
+                        <TableHead>Nhiệm vụ</TableHead>
+                        <TableHead className="w-48">Giai đoạn</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead>Đã giao cho</TableHead>
+                        <TableHead>Thời hạn</TableHead>
+                        <TableHead>Còn lại</TableHead>
+                        <TableHead>Công việc</TableHead>
+                        <TableHead>Người tạo</TableHead>
+                        <TableHead>Cập nhật</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {theHienThi.map((t) => (
+                        <DongDanhSachHoSo key={t.deNghi.id} the={t} />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Card List — Mobile. V1.1: bảng nhiều cột trên màn hẹp phải đổi sang thẻ. */}
+                <div className="flex flex-col gap-(--hp-md-row-gap) md:hidden">
+                  {theHienThi.map((t) => (
+                    <TheDanhSachHoSo key={t.deNghi.id} the={t} />
+                  ))}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -591,15 +647,19 @@ export default function TrangDanhSachDeNghi() {
           daXong={(deNghi.find((d) => d.id === xacNhan.prId)?.congViecDaXong ?? []).map(
             (x) => x.maCongViec,
           )}
-          onTichCongViec={(congViec, xong) =>
-            danhDauCongViecGiaiDoan(
+          onTichCongViec={(congViec, xong) => {
+            /* 🔴 ĐỌC KẾT QUẢ (22/08/2026): tầng ghi nay có thể từ chối — việc "đã xử lý ủy nhiệm
+               chi" đòi có Hóa đơn VAT trước. Trả về mà không đọc là cái tích không ăn mà người
+               dùng không biết vì sao. */
+            const loi = danhDauCongViecGiaiDoan(
               xacNhan.prId,
               congViec,
               xacNhan.tuBuoc,
               xong,
               nguoiDung.tenHienThi,
-            )
-          }
+            );
+            if (loi !== null) toast.error("Chưa tích được việc này", { description: loi });
+          }}
           onDong={() => setMoHopXacNhan(false)}
           onXacNhan={(ghiChu, soBaoGia) => {
             setMoHopXacNhan(false);
@@ -622,5 +682,219 @@ export default function TrangDanhSachDeNghi() {
         />
       )}
     </>
+  );
+}
+
+
+// ============================================================
+// TAB "DANH SÁCH" — MỘT DÒNG / MỘT THẺ CHO MỘT HỒ SƠ
+//
+// ★ Ban lãnh đạo 23/08/2026: *"Bố cục lại phần hiển thị dạng danh sách giống vậy"*, kèm ảnh tab
+//   **Danh sách** của bảng Base `TM-QT Mua hàng (HP CONS)`.
+//
+// 🔴 CHỈ NHẬN `TheDeNghiTrenBang` VÀ BÀY — không tự tính gì. Mọi con số (giai đoạn, hạn, người
+//    phụ trách, chứng từ còn nợ) do `dungBangQuyTrinh` sinh ra một lần cho CẢ hai chế độ xem, nên
+//    chuyển tab không bao giờ thấy hai bộ số khác nhau. Đây chính là lỗi của bản cũ: tab Danh sách
+//    tự tính lấy nên không biết gì về giai đoạn hay chứng từ còn nợ.
+//
+// ⚠️ CÓ HAI THỨ CỦA BASE APP NÀY KHÔNG LÀM ĐƯỢC, đã thay bằng thứ tương đương — đừng "sửa cho
+//    giống" mà không đọc lý do:
+//   · **Ảnh đại diện người dùng** → app không lưu ảnh, nên dùng chữ viết tắt trong vòng tròn, đúng
+//     cách thanh trên đang làm ("TM").
+//   · **Cột "Công việc" của Base là một icon tròn** không rõ nghĩa → thay bằng SỐ MỤC CÒN THIẾU
+//     (đỏ), thứ người quản lý thật sự cần đọc ở cột đó.
+// ============================================================
+
+/** Nền đặc cho vạch đã qua — không dùng token `*-bg` vì chúng pha trong suốt, vạch sẽ mờ tịt. */
+const LOP_NEN_VACH: Record<string, string> = {
+  primary: "bg-primary",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
+  neutral: "bg-neutral",
+};
+
+/** Chữ viết tắt cho vòng tròn thay ảnh đại diện — lấy chữ đầu của hai từ cuối. */
+function chuVietTat(ten: string): string {
+  const tu = ten.trim().split(/\s+/).filter(Boolean);
+  if (tu.length === 0) return "?";
+  return tu
+    .slice(-2)
+    .map((x) => x.charAt(0).toUpperCase())
+    .join("");
+}
+
+function VongTronTen({ ten }: { ten: string }) {
+  return (
+    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-bg text-[10px] font-bold text-primary">
+      {chuVietTat(ten)}
+    </span>
+  );
+}
+
+/** Ô "Giai đoạn": thanh vạch theo từng bước + "[n/8] Tên bước", đúng như Base. */
+function OGiaiDoan({ the }: { the: TheDeNghiTrenBang }) {
+  const viTri = CHUOI_BUOC_DS.indexOf(the.giaiDoan);
+  const tong = CHUOI_BUOC_DS.length;
+  /* Thất bại không nằm trong chuỗi → `viTri = -1`. Hiện 0 vạch chứ không hiện số âm. */
+  const soVachXong = viTri < 0 ? 0 : viTri + 1;
+  const nhan = NHAN_GIAI_DOAN[the.giaiDoan];
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      {/* Mỗi bước một vạch, đúng kiểu Base — nhìn là biết đang ở đoạn nào của cả quy trình. */}
+      <span className="flex gap-0.5" aria-hidden>
+        {CHUOI_BUOC_DS.map((ma, i) => (
+          <span
+            key={ma}
+            className={`h-1.5 flex-1 rounded-full ${
+              i < soVachXong ? LOP_NEN_VACH[nhan.tong] : "bg-neutral/25"
+            }`}
+          />
+        ))}
+      </span>
+      <span className="truncate text-xs text-text-secondary">
+        {viTri >= 0 ? `[${soVachXong}/${tong}] ` : ""}
+        {nhan.nhan}
+      </span>
+    </div>
+  );
+}
+
+/** Dòng phụ dưới tên nhiệm vụ — đúng bốn thông tin Base hiện. */
+function MoTaPhu({ the }: { the: TheDeNghiTrenBang }) {
+  const dn = the.deNghi;
+  return (
+    <span className="text-xs text-text-desc">
+      Bộ phận: {nhanPhongBan(dn.phongBanNguon)} · Nhóm đề xuất:{" "}
+      {NHAN_NHOM_DE_XUAT[dn.nhomDeXuat ?? "khac"]} · Ngày đề nghị cấp:{" "}
+      {new Date(dn.ngayCanHang).toLocaleDateString("vi-VN")} · Chi tiết: {dn.items.length} mặt hàng
+    </span>
+  );
+}
+
+/** Tên nhiệm vụ: mã đề xuất (App Request nếu có) + tên công trình — đúng cách Base ghép. */
+function TenNhiemVu({ the }: { the: TheDeNghiTrenBang }) {
+  const dn = the.deNghi;
+  return (
+    <Link href={`/de-nghi/${dn.id}`} className="text-sm font-semibold text-primary hover:underline">
+      {dn.maDeXuatAppRequest || dn.code}
+      {dn.tenCongTrinh ? ` - ${dn.tenCongTrinh}` : ""}
+    </Link>
+  );
+}
+
+/** Huy hiệu trạng thái suy từ giai đoạn — Base có 3 mức, app suy ra đủ cả 3. */
+function HuyHieuTrangThai({ the }: { the: TheDeNghiTrenBang }) {
+  if (the.giaiDoan === "hoan_thanh") return <StatusBadge label="Hoàn thành" tone="success" />;
+  if (the.giaiDoan === "that_bai") return <StatusBadge label="Thất bại" tone="danger" />;
+  return <StatusBadge label="Đang xử lý" tone="primary" />;
+}
+
+/** Ô "Công việc": số mục còn thiếu — xem chú thích đầu khối về việc thay icon của Base. */
+function OConThieu({ the }: { the: TheDeNghiTrenBang }) {
+  const so = the.dsConNo?.length ?? 0;
+  if (so === 0) return <span className="text-xs text-text-disabled">—</span>;
+  return (
+    <span
+      title={the.conNo}
+      className="inline-flex items-center gap-1 text-xs font-semibold text-danger"
+    >
+      <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+      {so} còn thiếu
+    </span>
+  );
+}
+
+/** Thời điểm cập nhật gần nhất — dòng nhật ký CUỐI, đúng cột "Thời gian cập nhật" của Base. */
+function capNhatGanNhat(the: TheDeNghiTrenBang): string {
+  const ls = the.deNghi.lichSu ?? [];
+  const cuoi = ls[ls.length - 1];
+  return cuoi ? formatMocThoiGian(cuoi.thoiDiem) : "—";
+}
+
+function DongDanhSachHoSo({ the }: { the: TheDeNghiTrenBang }) {
+  const dn = the.deNghi;
+  return (
+    <TableRow>
+      <TableCell className="min-w-72 align-top">
+        <div className="flex flex-col gap-1">
+          <TenNhiemVu the={the} />
+          <MoTaPhu the={the} />
+        </div>
+      </TableCell>
+      <TableCell className="align-top">
+        <OGiaiDoan the={the} />
+      </TableCell>
+      <TableCell className="align-top">
+        <HuyHieuTrangThai the={the} />
+      </TableCell>
+      <TableCell className="align-top">
+        {the.nguoiPhuTrach.length === 0 ? (
+          <span className="text-xs text-text-desc">Chưa được giao</span>
+        ) : (
+          <span className="flex flex-col gap-1">
+            {the.nguoiPhuTrach.map((ten) => (
+              <span key={ten} className="flex items-center gap-1.5 text-xs text-text-primary">
+                <VongTronTen ten={ten} />
+                <span className="truncate">{ten}</span>
+              </span>
+            ))}
+          </span>
+        )}
+      </TableCell>
+      <TableCell className="align-top text-xs whitespace-nowrap text-text-primary">
+        {new Date(dn.ngayCanHang).toLocaleDateString("vi-VN")}
+      </TableCell>
+      <TableCell className="align-top">
+        <StatusBadge label={the.han.nhan} tone={the.han.tong} />
+      </TableCell>
+      <TableCell className="align-top">
+        <OConThieu the={the} />
+      </TableCell>
+      <TableCell className="align-top">
+        <span className="flex items-center gap-1.5 text-xs text-text-primary">
+          <VongTronTen ten={dn.nguoiDeNghiTen} />
+          <span className="truncate">{dn.nguoiDeNghiTen}</span>
+        </span>
+      </TableCell>
+      <TableCell className="align-top text-xs whitespace-nowrap text-text-desc">
+        {capNhatGanNhat(the)}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function TheDanhSachHoSo({ the }: { the: TheDeNghiTrenBang }) {
+  const dn = the.deNghi;
+  return (
+    <div
+      className={`flex flex-col gap-2 rounded-xl border bg-card p-(--hp-md-card-pad) ${
+        the.conNo ? "border-danger" : "border-border"
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <TenNhiemVu the={the} />
+        <HuyHieuTrangThai the={the} />
+      </div>
+      <MoTaPhu the={the} />
+      <OGiaiDoan the={the} />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="flex items-center gap-1.5 text-text-primary">
+          {the.nguoiPhuTrach.length === 0 ? (
+            <span className="text-text-desc">Chưa được giao</span>
+          ) : (
+            <>
+              <VongTronTen ten={the.nguoiPhuTrach[0] ?? ""} />
+              {the.nguoiPhuTrach.join(" · ")}
+            </>
+          )}
+        </span>
+        <StatusBadge label={the.han.nhan} tone={the.han.tong} />
+      </div>
+      <OConThieu the={the} />
+      <span className="text-xs text-text-desc">
+        Người tạo: {dn.nguoiDeNghiTen} · Cập nhật: {capNhatGanNhat(the)}
+      </span>
+    </div>
   );
 }

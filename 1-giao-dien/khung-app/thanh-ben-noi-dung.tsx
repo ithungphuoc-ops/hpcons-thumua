@@ -13,7 +13,26 @@ import {
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { cn } from "@/6-tien-ich/gop-lop";
 
-const APP_TONG_URL = process.env.NEXT_PUBLIC_APP_TONG_URL ?? "https://hpcore.vn";
+/**
+ * Trang chủ App Tổng — nơi nút "Về trang chủ" ở cuối thanh bên dẫn tới.
+ *
+ * 🔴 PHẢI LÀ `account.hpcore.vn`, KHÔNG PHẢI `hpcore.vn` — Ban lãnh đạo 21/08/2026: *"bấm về
+ * trang chủ là sẽ về trang đã đăng nhập"*.
+ *
+ * 🔴 ĐÚNG ĐỊA CHỈ LÀ `account.hpcore.vn/profile` — Ban lãnh đạo chỉ rõ bằng ảnh 21/08/2026
+ * (*"bấm về trang chủ là sẽ về đây nhé"*). Đó là trang tài khoản trong portal, có thanh biểu
+ * tượng bên trái để sang danh sách app · thông báo · thêm người.
+ *
+ * Hai lần trước tôi trỏ sai, ghi lại để người sau khỏi thử lại:
+ *   · `hpcore.vn` → *"HP CONS – Nhà Thầu Công Nghiệp"* = **website giới thiệu công ty**, không có
+ *     phiên đăng nhập, không có danh sách app.
+ *   · `account.hpcore.vn` (gốc) → khi CHƯA có phiên thì chuyển hướng sang `/login`.
+ *
+ * 📌 Phiên KHÔNG mất khi bấm: cookie `session` đặt ở miền `.hpcore.vn` (xem
+ * `5-ket-noi/hpcore-may-chu.ts`), nên portal nhận ra người dùng và vào thẳng.
+ */
+const APP_TONG_URL =
+  process.env.NEXT_PUBLIC_APP_TONG_URL ?? "https://account.hpcore.vn/profile";
 
 export interface SidebarNavProps {
   /** Gọi khi bấm một mục — dùng để đóng Drawer trên tablet/mobile. */
@@ -104,14 +123,21 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
         })}
       </nav>
 
+      {/* ★ NÚT VỀ TRANG CHỦ — Ban lãnh đạo 21/08/2026: *"sửa tên thành Về trang chủ, và sửa lại
+          đường link dẫn tới trang chủ thật"*.
+          🔴 DÙNG THẺ `<a>` CHỨ KHÔNG PHẢI `<Link>` của Next.js: đây là địa chỉ NGOÀI app. `Link`
+          dùng cho điều hướng trong app — trỏ nó ra ngoài thì Next.js vẫn cố nạp trước như một
+          route nội bộ, chậm và có thể trượt.
+          📌 Địa chỉ lấy từ biến `NEXT_PUBLIC_APP_TONG_URL`, mặc định `https://hpcore.vn`. Đổi nơi
+          chạy thì đổi biến, không phải sửa mã. */}
       <div className="border-t border-white/10 p-3">
-        <Link
+        <a
           href={APP_TONG_URL}
           className="flex h-(--hp-menu-l2-height) items-center gap-2 rounded-lg px-3 text-xs font-medium text-nav-foreground-muted transition-colors hover:bg-nav-hover hover:text-nav-foreground"
         >
           <ArrowLeft className="size-4 shrink-0" aria-hidden />
-          <span className="truncate">Về App Tổng HPcore</span>
-        </Link>
+          <span className="truncate">Về trang chủ</span>
+        </a>
       </div>
     </div>
   );

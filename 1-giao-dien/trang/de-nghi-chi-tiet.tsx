@@ -73,14 +73,47 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
-import { soNgayConLai, vuongMacXacNhanKho } from "@/2-quy-trinh/tinh-toan";
+// Quyền theo TỪNG hồ sơ: ai đang phụ trách dòng nào của đề nghị này.
+import { laViecCuaToi } from "@/2-quy-trinh/sap-xep-uu-tien";
+import {
+  poDaGiaoDu,
+  soNgayConLai,
+  tinhTienDoDeNghi,
+  tinhTienDoPO,
+  vuongMacXacNhanKho,
+} from "@/2-quy-trinh/tinh-toan";
+import { BangTienDoPO } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-tien-do-po";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import {
+  GIAI_DOAN_MUA_HANG,
   giaiDoanDaKetThuc,
   NHAN_GIAI_DOAN,
   xacDinhGiaiDoan,
   giaiDoanDaToiLuot,
+  conNoCuaBuoc,
+  type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
+// Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, xem chú thích đầu file đó.
+import {
+  BUOC_DINH_KEM_HO_SO_THANH_TOAN,
+  BUOC_DINH_KEM_HOP_DONG,
+  coHopDong,
+  KHOA_LY_DO_THIEU_HOP_DONG,
+  lyDoThieuHopDong,
+  NHAN_TEP_HOA_DON_VAT,
+  NHAN_TEP_HOP_DONG,
+  NHAN_TEP_UNC,
+  TEN_HIEN_HOP_DONG,
+  tepHoaDonVAT,
+  tepHopDong,
+  tepUNC,
+  thieuHopDongDaGhiLyDo,
+  vuongMacDuyetHoanThanhDeNghi,
+  vuongMacHoanThanhQuyTrinh,
+  vuongMacRoiBuocLapDon,
+  vuongMacTichXongUNC,
+} from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
+import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
 import {
   nhanAnToan,
   NHAN_TRANG_THAI_BAO_GIA,
@@ -97,6 +130,7 @@ export default function TrangChiTietDeNghi() {
     chuyenTiepChoNhanVien,
     cauHinh,
     danhDauCongViecGiaiDoan,
+    hoanThanhQuyTrinh,
     vietBinhLuan,
     suaBinhLuan,
     datSoBaoGiaChoPhieu,
@@ -109,6 +143,7 @@ export default function TrangChiTietDeNghi() {
     xacNhanKho,
     xacNhanTruongBP,
     luiVeBuoc,
+    ghiLyDoThieuChungTu,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
@@ -149,13 +184,28 @@ export default function TrangChiTietDeNghi() {
     tich: boolean;
   } | null>(null);
 
+  /** Hộp xác nhận trước khi đóng hồ sơ — `true` là đang hỏi. */
+  const [hoiHoanThanh, setHoiHoanThanh] = useState(false);
+
   const dn = deNghi.find((x) => x.id === params.id);
   const poLienQuan = useMemo(
     () => donHang.filter((po) => po.prId === params.id),
     [donHang, params.id],
   );
+  /**
+   * Tiến độ từng dòng của đề nghị — cần cho nút "Hoàn thành quy trình".
+   *
+   * 📌 Dùng `tinhTienDoDeNghi` chứ không tự cộng: luật đối chiếu khối lượng chỉ có MỘT chỗ.
+   */
+  const tienDoDong = useMemo(
+    () => (dn ? tinhTienDoDeNghi(dn, donHang, phieuNhan) : []),
+    [dn, donHang, phieuNhan],
+  );
   const baoGiaLienQuan = useMemo(
-    () => baoGia.filter((bg) => bg.prId === params.id),
+    /* 🔴 LOC BO HỒ SƠ ĐÃ HỦY (21/08/2026): hồ sơ hủy vẫn nằm trong dữ liệu, mà điều kiện bày nút
+       ở bước ② xét "có hồ sơ nào KHÁC dang_thu_thap không" — một hồ sơ hủy cũng tính, nên
+       cả cụm nút biến mất mà không một dòng giải thích. `xacDinhGiaiDoan` cũng lọc `huy`. */
+    () => baoGia.filter((bg) => bg.prId === params.id && bg.trangThai !== "huy"),
     [baoGia, params.id],
   );
   /**
@@ -213,6 +263,33 @@ export default function TrangChiTietDeNghi() {
   const congViecCuaBuoc = cauHinh.congViecTheoBuoc?.[giaiDoan] ?? [];
 
   /**
+   * ★ BƯỚC NÀY CÒN THIẾU GÌ — nguồn của VIỀN ĐỎ trên khối bước (Ban lãnh đạo 23/08/2026:
+   * *"Các border này cần hiển thị màu đỏ nếu như công việc trong các mục này chưa hoàn thành
+   * hoặc thiếu đính kèm file"*).
+   *
+   * 🔴 GỌI `conNoCuaBuoc`, KHÔNG GỌI `vuongMacSangBuocSau` — hai câu hỏi khác nhau, xem chú thích
+   * dài ở khai báo `conNoCuaBuoc`. Bản đầu tôi dùng hàm kia và **đo được trên trình duyệt** rằng
+   * hồ sơ đang ở bước ④ bị tô đỏ cả *"Tiếp nhận và kiểm tra"* lẫn *"Yêu cầu NCC báo giá"* — hai
+   * bước đã xong đúng quy trình. Đỏ ba trong bốn khối thì cảnh báo mất hết tác dụng.
+   *
+   * 🔴 CHỈ TÔ BƯỚC ĐANG LÀM VÀ BƯỚC ĐÃ QUA — không tô bước chưa tới lượt: bước chưa tới thì
+   * đương nhiên chưa có gì, tô đỏ là đỏ cả tám khối.
+   *
+   * ⚠️ Bước ĐÃ QUA mà còn nợ thì PHẢI tô — đó đúng là *"còn thiếu hồ sơ để bổ sung sau"*: hồ sơ
+   * đi tiếp được nhờ ghi lý do, và nếu không tô thì không còn chỗ nào nhắc.
+   */
+  const chuoiBuoc = GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "that_bai").map((g) => g.ma);
+  const viTriHienTai = chuoiBuoc.indexOf(giaiDoan);
+  /* ⚠️ Gán ra biến riêng: `dn` đã qua `if (!dn) return` phía trên, nhưng TypeScript KHÔNG giữ
+     phép thu hẹp kiểu đó vào trong thân một hàm khai báo (hàm có thể được gọi ở lúc khác). */
+  const hoSo = dn;
+  function conThieuCuaBuoc(ma: GiaiDoanMuaHang): string | undefined {
+    const viTri = chuoiBuoc.indexOf(ma);
+    if (viTri < 0 || viTriHienTai < 0 || viTri > viTriHienTai) return undefined;
+    return conNoCuaBuoc(hoSo, ma, cauHinh, donHang, phieuNhan) ?? undefined;
+  }
+
+  /**
    * MỐC THỜI GIAN của từng giai đoạn, lấy từ CHỨNG TỪ THẬT.
    *
    * 🔴 Chỉ điền mốc cho giai đoạn nào có chứng từ tương ứng. Giai đoạn được suy ra từ
@@ -227,10 +304,14 @@ export default function TrangChiTietDeNghi() {
       yeu_cau_bao_gia: [...baoGiaLienQuan].sort((a, b) => a.ngayTao.localeCompare(b.ngayTao))[0]
         .ngayTao,
     }),
-    // Chỉ tính là đã xét duyệt khi thực sự đã chốt được nhà cung cấp.
-    ...(baoGiaLienQuan.some((bg) => bg.nccDaChonId) && {
+    /* Chỉ tính là đã xét duyệt khi bảng báo giá thực sự ĐÃ ĐƯỢC DUYỆT.
+       🔴 Xét `trangThai === "da_chon_ncc"`, KHÔNG xét `nccDaChonId` (sửa 23/08/2026): từ hôm nay
+       việc duyệt không đòi gõ tên nhà cung cấp nữa (Ban lãnh đạo: bản báo giá được tích chọn đã
+       tự link sang bước sau), nên `nccDaChonId` có thể trống ở hồ sơ duyệt đúng quy trình. Xét
+       trường đó là mốc "Xét duyệt báo giá" biến mất khỏi tiến trình dù bước đã xong. */
+    ...(baoGiaLienQuan.some((bg) => bg.trangThai === "da_chon_ncc") && {
       xet_duyet_bao_gia: [...baoGiaLienQuan]
-        .filter((bg) => bg.nccDaChonId)
+        .filter((bg) => bg.trangThai === "da_chon_ncc")
         .sort((a, b) => b.ngayCapNhat.localeCompare(a.ngayCapNhat))[0].ngayCapNhat,
     }),
     ...(poLienQuan.length > 0 && {
@@ -283,6 +364,26 @@ export default function TrangChiTietDeNghi() {
    * Firestore Security Rules khi lên bản thật.
    */
   const duocSuaTepBuoc = quyen.phanBoCongViec || quyen.lapPO;
+
+  /**
+   * ★ AI ĐƯỢC DUYỆT HOÀN THÀNH ĐƠN Ở BƯỚC ⑥ — Ban lãnh đạo 22/08/2026: *"Bước này sẽ để nhân viên
+   * phụ trách [của] đề nghị này duyệt"*.
+   *
+   * 🔴 NỚI THÊM, KHÔNG THAY THẾ. Trước đây chỉ vai trò `xacNhanTruongBP` (trưởng bộ phận / quản
+   * trị) thấy nút, nên nhân viên đi trọn quy trình vẫn phải chờ trưởng bộ phận bấm hộ một việc
+   * mà chính họ mới biết hàng đã về đủ chưa. Nay người **đang phụ trách ít nhất một dòng của đề
+   * nghị này** cũng duyệt được; trưởng bộ phận vẫn giữ nguyên quyền — cắt quyền của họ là chặn
+   * đường xử lý khi nhân viên nghỉ phép.
+   *
+   * ⚠️ Đây là quyền theo TỪNG HỒ SƠ, không phải theo cấp. `laViecCuaToi` là hàm dùng chung đã
+   * quyết định "việc của tôi" ở mọi màn khác — dùng lại nó để một người không thấy hồ sơ này ở
+   * màn "Công việc của tôi" mà lại duyệt được nó ở đây.
+   *
+   * ⚠️ Chốt chặn ĐIỀU KIỆN NGHIỆP VỤ (đủ hàng, đủ phiếu giao, có hóa đơn VAT) nằm ở tầng ghi
+   * `xacNhanTruongBP`, không phải ở đây. Biến này chỉ quyết định AI THẤY NÚT.
+   */
+  const duocDuyetHoanThanhDon =
+    !!dn && (quyen.xacNhanTruongBP || laViecCuaToi(dn, nguoiDung.uid));
 
   /** Ai sẽ nhận khi bấm "Chuyển tiếp" — các nhân viên đang phụ trách ít nhất một dòng. */
   const nguoiSeNhan = [
@@ -364,6 +465,18 @@ export default function TrangChiTietDeNghi() {
                 { nhan: "Tiêu đề", giaTri: dn.tieuDe, daiCaHang: true },
                 { nhan: "Tên công trình", giaTri: dn.tenCongTrinh, daiCaHang: true },
                 { nhan: "Mã đề nghị", giaTri: dn.code },
+                /**
+                 * ★ MÃ ĐỀ XUẤT APP REQUEST — Ban lãnh đạo 21/08/2026: *"để sau này có thể từ mã
+                 * request để lọc lại dữ liệu"*.
+                 *
+                 * Đây là khóa nối hai app: phiếu sinh tự động từ App Request mang mã bên đó (vd
+                 * `000000032`). Đặt ngay dưới "Mã đề nghị" để hai mã của cùng một hồ sơ đứng
+                 * cạnh nhau — đối chiếu là đọc một chỗ.
+                 *
+                 * 📌 Phiếu lập tay trong app không có mã này. `DanhSachTruong` tự bỏ trường
+                 * `undefined`, nên không hiện nhãn trống.
+                 */
+                { nhan: "Mã đề xuất (App Request)", giaTri: dn.maDeXuatAppRequest },
                 { nhan: "Mã dự án", giaTri: dn.maDuAn },
                 { nhan: "Số hợp đồng CĐT", giaTri: dn.maHopDongCDT },
                 { nhan: "Phòng ban đề nghị", giaTri: nhanPhongBan(dn.phongBanNguon) },
@@ -472,6 +585,7 @@ export default function TrangChiTietDeNghi() {
                 ma: "tiep_nhan",
                 nhan: NHAN_GIAI_DOAN.tiep_nhan.nhan,
                 dangODay: giaiDoan === "tiep_nhan",
+                conThieu: conThieuCuaBuoc("tiep_nhan"),
                 truong: [
                   { nhan: "Bộ phận", giaTri: nhanPhongBan(dn.phongBanNguon) },
                   {
@@ -559,6 +673,7 @@ export default function TrangChiTietDeNghi() {
                 ma: "yeu_cau_bao_gia",
                 nhan: NHAN_GIAI_DOAN.yeu_cau_bao_gia.nhan,
                 dangODay: giaiDoan === "yeu_cau_bao_gia",
+                conThieu: conThieuCuaBuoc("yeu_cau_bao_gia"),
                 truong: [
                   {
                     nhan: "SL Báo giá",
@@ -657,7 +772,14 @@ export default function TrangChiTietDeNghi() {
                               <span className="text-sm font-semibold text-text-primary">
                                 {bg.code}
                               </span>
-                              <span className="text-xs text-text-desc">{bg.tieuDe}</span>
+                              {/* ❌ ĐÃ BỎ `bg.tieuDe` (23/08/2026 — Ban lãnh đạo: *"Mục này chỉ
+                                  cần đính kèm links được chọn, không cần hiển thị tên HĐ"*).
+
+                                  Tiêu đề bảng báo giá được sinh theo mẫu "Báo giá <tên đề nghị>",
+                                  mà tên đề nghị lại mang **nguyên số hợp đồng** — nên dòng này in
+                                  tên hợp đồng HAI LẦN, một lần trong mã bảng và một lần nữa ngay
+                                  cạnh. Mã bảng thì giữ: đó là đường tra hồ sơ, bỏ đi là không
+                                  còn gì nối dòng này với chứng từ nào. */}
                               <span className="text-xs text-text-desc">
                                 {bg.items.length} vật tư · hạn nộp{" "}
                                 {new Date(bg.hanNop).toLocaleDateString("vi-VN")}
@@ -744,8 +866,36 @@ export default function TrangChiTietDeNghi() {
                       * 👉 Nhân viên ở bước ② chỉ còn làm ĐÚNG MỘT việc: đính kèm đủ bản báo giá
                       * rồi bấm trình. Điều kiện chặn vẫn nguyên: đủ số bản mới trình được.
                       */}
+                    {/**
+                      * 🔴🔴 BỎ QUA BẢNG ĐÃ HỦY — SỬA LỖI MẤT NÚT SAU KHI LÙI BƯỚC (23/08/2026).
+                      *
+                      * Ban lãnh đạo: *"lỗi khi lùi bước, bị mất chức năng trình duyệt báo giá đính
+                      * kèm lại"*, ảnh cho thấy bước ② có đủ 3 tệp, dòng chữ *"Đã đủ 2 bản báo giá
+                      * theo yêu cầu — trình xét duyệt được"* vẫn hiện, mà **không có nút nào để
+                      * trình**.
+                      *
+                      * NGUYÊN NHÂN: lùi bước làm `luiVeBuoc` HỦY hồ sơ báo giá cũ (BG-004 →
+                      * `huy`) rồi lập hồ sơ mới (BG-005 → `dang_thu_thap`). Điều kiện cũ viết
+                      * `!baoGiaLienQuan.some(bg => bg.trangThai !== "dang_thu_thap")` — tức "không
+                      * có bảng nào khác `dang_thu_thap`". Bảng đã HỦY cũng khác `dang_thu_thap`,
+                      * nên điều kiện thành sai và **nút không được vẽ ra**. Càng lùi nhiều lần
+                      * càng chắc chắn kẹt, vì mỗi lần lùi để lại thêm một bảng hủy.
+                      *
+                      * 🔴 KHÔNG PHẢI LỖI HIỂN THỊ: hồ sơ kẹt hẳn ở bước ②, không đường nào trình
+                      * lại, và app không nói một câu nào về lý do.
+                      *
+                      * 📌 Ý NGHĨA GỐC của điều kiện vẫn giữ: chỉ cho trình khi **mọi hồ sơ CÒN
+                      * SỐNG** đều đang thu thập (chưa trình, chưa duyệt). Bảng đã hủy không còn là
+                      * hồ sơ sống nên không được có tiếng nói ở đây.
+                      *
+                      * ⚠️ Ở file này còn nhiều chỗ khác dùng `baoGiaLienQuan` — chúng lọc theo
+                      * trạng thái CỤ THỂ (`da_chon_ncc`, `da_so_sanh`) nên bảng hủy tự loại. Chỉ
+                      * phép so "khác `dang_thu_thap`" mới dính bẫy này.
+                      */}
                     {quyen.lapPO &&
-                      !baoGiaLienQuan.some((bg) => bg.trangThai !== "dang_thu_thap") &&
+                      !baoGiaLienQuan
+                        .filter((bg) => bg.trangThai !== "huy")
+                        .some((bg) => bg.trangThai !== "dang_thu_thap") &&
                       (() => {
                         const vuongMac = vuongMacTrinhXetDuyet(dn);
                         return (
@@ -870,13 +1020,34 @@ export default function TrangChiTietDeNghi() {
                       quyen.xacNhanTruongBP &&
                       giaiDoan === "xet_duyet_bao_gia" &&
                       !hoSoDaDong &&
-                      baoGiaLienQuan.some((bg) => bg.trangThai === "da_so_sanh")
+                      /**
+                       * 🔴 CHỈ BÀY NÚT KHI CÓ ĐÚNG **MỘT** HỒ SƠ CHỜ DUYỆT (sửa 21/08/2026).
+                       *
+                       * Bản trước dùng `.find()` — lấy hồ sơ ĐẦU TIÊN trong danh sách, không phải
+                       * hồ sơ tương ứng bản báo giá vừa bấm. Phiếu có hai hồ sơ chờ duyệt thì bấm
+                       * "Duyệt bản này" ở hồ sơ thứ hai lại ghi quyết định vào hồ sơ thứ nhất —
+                       * duyệt sai hồ sơ, và không có gì báo.
+                       *
+                       * 👉 Nhiều hơn một thì không bày nút tắt này; người duyệt dùng cặp nút
+                       * Duyệt / Không duyệt trong từng khối hồ sơ ở dưới, nơi mỗi nút gắn đúng
+                       * `bg.id` của khối đó.
+                       */
+                      baoGiaLienQuan.filter((bg) => bg.trangThai === "da_so_sanh").length === 1
                         ? (o) => {
                             const bg = baoGiaLienQuan.find(
                               (b) => b.trangThai === "da_so_sanh",
                             );
                             if (!bg) return;
-                            if (o.tenNCCDaGhi !== "") setNccDuyet(o.tenNCCDaGhi);
+                            /* Điền hộ tên nhà cung cấp nếu tra ra được: ưu tiên tên ghi ở chính ô
+                               báo giá vừa bấm, sau đó tới tên hồ sơ cũ còn lưu. Tra không ra thì
+                               để trống — người duyệt gõ ngay trong hộp thoại (ô "Duyệt cho nhà
+                               cung cấp nào?"), không còn phải đi tìm ô ở khối khác như trước
+                               23/08/2026. */
+                            const tenGoiY =
+                              o.tenNCCDaGhi !== ""
+                                ? o.tenNCCDaGhi
+                                : (danhSachNCCDaBaoGia(dn)[0]?.tenNCC ?? "");
+                            if (tenGoiY !== "") setNccDuyet(tenGoiY);
                             setHoiDuyet({ bgId: bg.id, loai: "duyet", nhanO: o.nhanO });
                           }
                         : undefined
@@ -892,6 +1063,7 @@ export default function TrangChiTietDeNghi() {
                 ma: "xet_duyet_bao_gia",
                 nhan: NHAN_GIAI_DOAN.xet_duyet_bao_gia.nhan,
                 dangODay: giaiDoan === "xet_duyet_bao_gia",
+                conThieu: conThieuCuaBuoc("xet_duyet_bao_gia"),
                 /**
                  * ★ ĐẦU VÀO CỦA BƯỚC ③ = BẢN BÁO GIÁ ĐƯỢC CHỌN — Ban lãnh đạo 20/08/2026:
                  * *"hãy tạo đường link tới báo giá được chọn"*.
@@ -1052,7 +1224,7 @@ export default function TrangChiTietDeNghi() {
                               * phiếu này. Cho chọn ngoài danh sách đó là duyệt cho một bên không
                               * có bản báo giá nào trong hồ sơ.
                               */}
-                            {quyen.xacNhanTruongBP && !daDuyet && (() => {
+                            {quyen.xacNhanTruongBP && !daDuyet && !hoSoDaDong && (() => {
                               /**
                                * ★ TRƯỞNG BỘ PHẬN GÕ TÊN NHÀ CUNG CẤP KHI DUYỆT — Ban lãnh đạo
                                * 20/08/2026, sau khi bỏ ô ghi tên ở bước ②
@@ -1066,61 +1238,39 @@ export default function TrangChiTietDeNghi() {
                                * 📌 Hồ sơ cũ có tên ghi ở ô báo giá thì điền sẵn vào đây, đỡ phải
                                * gõ lại — nhưng vẫn sửa được, vì người quyết là trưởng bộ phận.
                                */
+                              /**
+                               * ❌ ĐÃ BỎ Ô "Duyệt cho nhà cung cấp nào?" VÀ CHỐT KHÓA NÚT THEO NÓ
+                               * (Ban lãnh đạo 23/08/2026 — xem chú thích đầy đủ ở hộp thoại duyệt).
+                               *
+                               * Duyệt là chốt BẢN BÁO GIÁ; tên bên bán được gõ ở bước ④ khi lập
+                               * đơn mua hàng. Vì vậy cặp nút dưới đây không còn điều kiện nào.
+                               *
+                               * 📌 Vẫn điền hộ tên nếu tra ra được từ ô báo giá của hồ sơ cũ — có
+                               * thì `chonNCCChoBaoGia` ghi lại, không có thì bỏ trống, không chặn.
+                               */
                               const goiY = danhSachNCCDaBaoGia(dn)[0]?.tenNCC ?? "";
-                              const thieu =
-                                nccDuyet.trim() === ""
-                                  ? "Ghi tên nhà cung cấp được duyệt trước khi duyệt."
-                                  : null;
                               return (
-                                <div className="flex flex-col gap-2">
-                                  {quyen.xemNhaCungCap && (
-                                    <div className="flex flex-col gap-1.5">
-                                      <Label htmlFor="chon-ncc-duyet">
-                                        Duyệt cho nhà cung cấp nào? *
-                                      </Label>
-                                      <Input
-                                        id="chon-ncc-duyet"
-                                        value={nccDuyet}
-                                        onChange={(e) => setNccDuyet(e.target.value)}
-                                        onFocus={() => {
-                                          /* Điền gợi ý từ hồ sơ cũ đúng MỘT LẦN, chỉ khi ô còn
-                                             trống — không đè lên chữ trưởng bộ phận đang gõ. */
-                                          if (nccDuyet === "" && goiY !== "") setNccDuyet(goiY);
-                                        }}
-                                        placeholder="Gõ tên nhà cung cấp được chọn"
-                                        className="sm:w-2/3"
-                                      />
-                                      <p className="text-xs text-text-desc">
-                                        Tên này đi vào quyết định duyệt và là căn cứ lập đơn đặt
-                                        hàng — ghi đúng tên trên báo giá đã đính kèm.
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <Button
-                                      size="sm"
-                                      disabled={thieu !== null}
-                                      title={thieu ?? undefined}
-                                      onClick={() => setHoiDuyet({ bgId: bg.id, loai: "duyet" })}
-                                    >
-                                      <Check className="size-4" aria-hidden />
-                                      Duyệt
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        setHoiDuyet({ bgId: bg.id, loai: "khong_duyet" })
-                                      }
-                                    >
-                                      <X className="size-4" aria-hidden />
-                                      Không duyệt
-                                    </Button>
-                                    {thieu !== null && (
-                                      <span className="text-xs text-warning-soft">{thieu}</span>
-                                    )}
-                                  </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      if (nccDuyet === "" && goiY !== "") setNccDuyet(goiY);
+                                      setHoiDuyet({ bgId: bg.id, loai: "duyet" });
+                                    }}
+                                  >
+                                    <Check className="size-4" aria-hidden />
+                                    Duyệt
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      setHoiDuyet({ bgId: bg.id, loai: "khong_duyet" })
+                                    }
+                                  >
+                                    <X className="size-4" aria-hidden />
+                                    Không duyệt
+                                  </Button>
                                 </div>
                               );
                             })()}
@@ -1196,6 +1346,7 @@ export default function TrangChiTietDeNghi() {
                 ma: "lap_don_mua_hang",
                 nhan: NHAN_GIAI_DOAN.lap_don_mua_hang.nhan,
                 dangODay: giaiDoan === "lap_don_mua_hang",
+                conThieu: conThieuCuaBuoc("lap_don_mua_hang"),
                 truong: baoGiaLienQuan.flatMap((bg) =>
                   (bg.tepChonNCC ?? []).length > 0
                     ? [{ nhan: "Căn cứ chọn nhà cung cấp", tep: bg.tepChonNCC }]
@@ -1265,7 +1416,7 @@ export default function TrangChiTietDeNghi() {
                                 <span className="text-xs text-text-desc">{po.supplierTen}</span>
                               )}
                               <span className="text-xs text-text-desc">
-                                {po.items.length} dòng · giao dự kiến{" "}
+                                {(po.items ?? []).length} dòng · giao dự kiến{" "}
                                 {new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
                               </span>
                               <StatusBadge
@@ -1304,17 +1455,49 @@ export default function TrangChiTietDeNghi() {
                         và ô cảnh báo trong form đã nói rõ còn thiếu gì. Khóa ở đây là dựng lại
                         đúng ngõ cụt đã phải gỡ hôm 17/08 — app bảo "phải lập bảng báo giá" rồi
                         đứng im không cho đường nào đi tiếp. */}
-                    {quyen.lapPO && !hoSoDaDong && (
-                      <Button
-                        variant="outline"
-                        className="w-fit"
-                        nativeButton={false}
-                        render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
-                      >
-                        <ShoppingCart className="size-4" aria-hidden />
-                        {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
-                      </Button>
-                    )}
+                    {/**
+                      * ★★ ẨN NÚT KHI CHƯA CÓ TỆP HỢP ĐỒNG **VÀ** CHƯA GHI LÝ DO — Ban lãnh đạo
+                      * 23/08/2026: *"Nếu chưa có đính kèm file hoặc chưa có ghi chú thì nút lập
+                      * đơn đặt hàng sẽ bị ẩn đi. Khi hoàn thành 1 trong 2 điều kiện đó thì mới
+                      * được lập đơn"*.
+                      *
+                      * 🔴 VÌ SAO NAY LÀM ĐƯỢC MÀ TRƯỚC THÌ KHÔNG: chú thích ở
+                      * `2-quy-trinh/giai-doan-mua-hang.ts` (nhánh `dat_hang`) ghi rõ *"đòi có hợp
+                      * đồng mới cho cất đơn thì thành VÒNG TRÒN KHÔNG THOÁT: hợp đồng mua bán
+                      * thường ghi số đơn hàng, mà số đơn chỉ sinh ra khi cất đơn"*. Vòng tròn đó
+                      * ĐÃ ĐƯỢC MỞ sáng nay, khi Ban lãnh đạo cho phép **ghi lý do** thay cho tệp:
+                      * người lập chỉ cần ghi *"hợp đồng ký sau khi có số đơn"* là lập được đơn
+                      * ngay. Nếu sau này ai bỏ đường "ghi lý do" đi thì PHẢI bỏ luôn chốt này,
+                      * nếu không quy trình tắc hẳn ở bước ④.
+                      *
+                      * 🔴 ẨN NÚT KHÔNG PHẢI IM LẶNG — đó là điều kiện để làm cách này. Dải đỏ ngay
+                      * đầu khối đã ghi *"Chưa đính kèm Hợp đồng/Đơn mua hàng"*, ô ghi lý do nằm
+                      * ngay trên nút, và dòng chữ dưới đây nói rõ hệ quả. Ẩn nút mà không câu nào
+                      * giải thích thì người dùng đi tìm chức năng đã mất — đúng thứ quy ước dự án
+                      * cấm.
+                      *
+                      * 📌 DÙNG LẠI `vuongMacRoiBuocLapDon` — cùng hàm với chốt chuyển bước và câu
+                      * trong hộp kéo thả. Ba chỗ một luật, không chỗ nào nói khác chỗ nào.
+                      */}
+                    {quyen.lapPO &&
+                      !hoSoDaDong &&
+                      (vuongMacRoiBuocLapDon(dn) === null ? (
+                        <Button
+                          variant="outline"
+                          className="w-fit"
+                          nativeButton={false}
+                          render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+                        >
+                          <ShoppingCart className="size-4" aria-hidden />
+                          {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
+                        </Button>
+                      ) : (
+                        <p className="flex items-start gap-1.5 text-xs font-medium text-danger">
+                          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                          Đính kèm {TEN_HIEN_HOP_DONG} <strong>hoặc</strong> ghi lý do chưa có ở ô
+                          trên thì mới lập được đơn đặt hàng.
+                        </p>
+                      ))}
                   </section>
                 ),
                 /* 📌 KHÔNG CẦN `giuNoiDungKhiGap` NỮA (18/08/2026): cờ đó sinh ra để form nhập
@@ -1324,22 +1507,156 @@ export default function TrangChiTietDeNghi() {
                    là dựng sẵn nội dung ẩn cho mọi lượt mở phiếu, không được gì. */
                 /* Bước ④ nhận hợp đồng mua bán, phụ lục, đơn đã có chữ ký. */
                 khuDinhKem: (
-                  <KhuDinhKemGiaiDoan
-                    deNghi={dn}
-                    maGiaiDoan="lap_don_mua_hang"
-                    duocSua={duocSuaTepBuoc}
-                    khoa={hoSoDaDong}
-                  />
+                  <div className="flex flex-col gap-(--hp-md-card-gap)">
+                    {/* ★ Ô HỢP ĐỒNG BẮT BUỘC — Ban lãnh đạo 22/08/2026: *"thêm cho 1 trường đính
+                        kèm Hợp đồng ở mục kết quả và phải có đính kèm thì mới cho chuyển bước"*.
+                        Luật chặn ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, không viết lại ở đây. */}
+                    <OChungTuBatBuoc
+                      deNghi={dn}
+                      maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
+                      nhanO={NHAN_TEP_HOP_DONG}
+                      /* ★ Tên hiển thị đổi theo chỉ đạo 23/08/2026; NHÃN LƯU (`nhanO`) giữ nguyên
+                         "Hợp đồng" để hợp đồng đã đính kèm trước hôm nay vẫn được nhận ra. */
+                      tieuDe={TEN_HIEN_HOP_DONG}
+                      moTa="Bản hợp đồng mua bán / đơn mua hàng đã ký với nhà cung cấp. Chưa có thì ghi lý do ở ô dưới để hồ sơ đi tiếp được — nhưng hồ sơ sẽ bị đánh dấu còn nợ chứng từ."
+                      batBuoc
+                      duocSua={duocSuaTepBuoc}
+                      khoa={hoSoDaDong}
+                      tepDaCo={tepHopDong(dn)}
+                    />
+
+                    {/**
+                      * ★ Ô GHI LÝ DO CHƯA CÓ HỢP ĐỒNG — Ban lãnh đạo 23/08/2026: *"Thêm hàm bắt
+                      * buộc có file đính kèm hoặc ghi chú lý do không đính kèm file thì mới cho
+                      * chuyển bước và phải tô màu đỏ lại. Để biết là còn thiếu hồ sơ để bổ sung
+                      * sau"*.
+                      *
+                      * 🔴 CHỈ HIỆN KHI CHƯA CÓ TỆP. Đã có hợp đồng rồi mà vẫn bày ô "vì sao chưa
+                      * có" là mời người dùng gõ vào một ô vô nghĩa, rồi hồ sơ mang một lý do sai.
+                      *
+                      * 🔴 DẢI ĐỎ Ở NGAY ĐÂY, không phải một dòng chữ xám: đây là hồ sơ **còn nợ
+                      * chứng từ** mà vẫn được đi tiếp — thứ dễ bị quên nhất trong cả quy trình.
+                      */}
+                    {!coHopDong(dn) && (
+                      <div
+                        className={`flex flex-col gap-2 rounded-lg border p-(--hp-md-row-pad) ${
+                          thieuHopDongDaGhiLyDo(dn)
+                            ? "border-danger bg-danger-bg"
+                            : "border-border bg-muted"
+                        }`}
+                      >
+                        <Label htmlFor="ly-do-thieu-hop-dong">
+                          Chưa có {TEN_HIEN_HOP_DONG} thì ghi rõ vì sao *
+                        </Label>
+                        <Textarea
+                          id="ly-do-thieu-hop-dong"
+                          rows={2}
+                          defaultValue={lyDoThieuHopDong(dn)}
+                          disabled={!duocSuaTepBuoc || hoSoDaDong}
+                          placeholder="Ví dụ: hai bên đã thống nhất qua email, bản ký sẽ có trong tuần này."
+                          /* 🔴 GHI KHI RỜI Ô (`onBlur`), KHÔNG ghi theo từng ký tự: mỗi lần ghi là
+                             một dòng nhật ký và một lần đẩy dữ liệu lên kho chung của cả phòng —
+                             gõ một câu 60 chữ mà ghi 60 lần thì nhật ký thành rác và tốn quota.
+                             Vì vậy ô này dùng `defaultValue`, không phải `value`. */
+                          onBlur={(e) => {
+                            const loi = ghiLyDoThieuChungTu(
+                              dn.id,
+                              KHOA_LY_DO_THIEU_HOP_DONG,
+                              e.target.value,
+                              nguoiDung.tenHienThi,
+                            );
+                            if (loi) toast.error("Chưa ghi được lý do", { description: loi });
+                          }}
+                        />
+                        {thieuHopDongDaGhiLyDo(dn) ? (
+                          <p className="flex items-start gap-1.5 text-xs font-medium text-danger">
+                            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                            Còn thiếu {TEN_HIEN_HOP_DONG} — hồ sơ đi tiếp được nhưng phải bổ sung
+                            bản đã ký sau. Đính kèm vào ô trên là dấu đỏ này tự hết.
+                          </p>
+                        ) : (
+                          <p className="text-xs text-text-desc">
+                            Có tệp <strong>hoặc</strong> có lý do thì mới chuyển bước được. Ghi lý
+                            do rồi thì hồ sơ bị đánh dấu đỏ là còn nợ chứng từ.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/**
+                      * ❌ ĐÃ BỎ khu "TỆP ĐÍNH KÈM" tự do khỏi bước ④ (Ban lãnh đạo 23/08/2026:
+                      * *"Nút này đang thấy dư"*, khoanh đúng ô kéo thả tệp).
+                      *
+                      * 🔴 BỎ LÀ ĐÚNG CẢ VỀ KỸ THUẬT, không chỉ vì gọn: `KhuDinhKemGiaiDoan` đọc
+                      * **toàn bộ** `tepGiaiDoan["lap_don_mua_hang"]` và KHÔNG lọc theo nhãn — mà ô
+                      * "Hợp đồng/Đơn mua hàng" ngay trên cũng lưu vào đúng khóa đó. Nghĩa là hợp
+                      * đồng vừa đính sẽ hiện HAI LẦN trên cùng một khối; ảnh Ban lãnh đạo gửi ghi
+                      * "(0)" chỉ vì lúc đó chưa có tệp nào.
+                      *
+                      * ⚠️ NHƯNG KHÔNG ẨN TỆP CŨ. Hồ sơ nào từng đính tệp tự do ở bước này (phụ
+                      * lục, đơn đã ký…) thì vẫn phải xem được, nếu không chứng từ biến mất khỏi
+                      * tầm nhìn mà vẫn nằm trong dữ liệu — đúng thứ quy ước dự án cấm. Vì vậy khu
+                      * này chỉ hiện khi CÓ tệp không mang nhãn hợp đồng, và ở chế độ CHỈ ĐỌC:
+                      * xem/tải được, không thêm mới, nên không sinh thêm trùng lặp.
+                      */}
+                    {(dn.tepGiaiDoan?.[BUOC_DINH_KEM_HOP_DONG] ?? []).some(
+                      (t) => (t.ghiChu ?? "").trim() !== NHAN_TEP_HOP_DONG,
+                    ) && (
+                      <KhuDinhKemGiaiDoan
+                        deNghi={dn}
+                        maGiaiDoan="lap_don_mua_hang"
+                        duocSua={false}
+                        khoa
+                      />
+                    )}
+                  </div>
                 ),
               },
               {
                 ma: "dat_hang",
                 nhan: NHAN_GIAI_DOAN.dat_hang.nhan,
                 dangODay: giaiDoan === "dat_hang",
+                conThieu: conThieuCuaBuoc("dat_hang"),
                 truong: poLienQuan.map((po) => ({
                   nhan: "Đơn mua hàng",
                   giaTri: po.code,
                 })),
+                /**
+                 * ★ GHI NHẬN HÀNG NGAY TẠI BƯỚC ⑤ — Ban lãnh đạo 21/08/2026: *"sao bước này đang
+                 * bị treo"*.
+                 *
+                 * 🔴 VÌ SAO TREO: điều kiện để hồ sơ rời bước ⑤ là đơn có **phiếu nhận hàng**
+                 * (hoặc đơn chuyển sang `dang_giao`, mà chính việc ghi phiếu đầu tiên mới đổi nó).
+                 * Việc ghi phiếu chỉ có ở **màn Đơn hàng chi tiết**, nên người đứng ở trang đề
+                 * nghị — nơi họ theo dõi cả quy trình — không thấy nút nào, và hồ sơ đứng mãi ở
+                 * bước ⑤. Đúng cùng loại bế tắc với bước ⑥ hôm 20/08.
+                 *
+                 * 📌 NHÚNG LẠI `BangTienDoPO` chứ KHÔNG viết bảng thứ hai: nó đang giữ luật ghi
+                 * phiếu (đối chiếu khối lượng, chặn ghi vượt, **bắt buộc tệp phiếu giao nhận** theo
+                 * chỉ đạo 11/08/2026). Dựng bảng riêng ở đây là có hai chỗ cùng ghi phiếu nhận
+                 * hàng theo hai bộ luật, sớm muộn lệch nhau.
+                 *
+                 * ⚠️ Chỉ hiện đơn ĐÃ CHỐT trở đi — đơn còn nháp thì chưa gửi nhà cung cấp, chưa
+                 * thể có hàng về.
+                 */
+                noiDungNghiepVu: (() => {
+                  const poDaChot = poLienQuan.filter(
+                    (po) => po.trangThai !== "nhap" && po.trangThai !== "huy",
+                  );
+                  if (poDaChot.length === 0) return undefined;
+                  return (
+                    <div className="flex flex-col gap-(--hp-md-card-gap)">
+                      {poDaChot.map((po) => (
+                        <div key={po.id} className="flex flex-col gap-2">
+                          <p className="text-xs font-semibold text-text-desc uppercase">
+                            {po.code}
+                          </p>
+                          <BangTienDoPO po={po} />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })(),
                 /* Bước ⑤ nhận đơn đã gửi đi có xác nhận của nhà cung cấp, chứng từ tạm ứng. */
                 khuDinhKem: (
                   <KhuDinhKemGiaiDoan
@@ -1354,6 +1671,7 @@ export default function TrangChiTietDeNghi() {
                 ma: "nhan_hang",
                 nhan: NHAN_GIAI_DOAN.nhan_hang.nhan,
                 dangODay: giaiDoan === "nhan_hang" || giaiDoan === "hoan_thanh",
+                conThieu: conThieuCuaBuoc("nhan_hang"),
                 truong: phieuLienQuan.flatMap((p) =>
                   p.tepPhieuGiao
                     ? [{ nhan: `Phiếu giao nhận lần ${p.lanGiaoThu}`, tep: [p.tepPhieuGiao] }]
@@ -1377,8 +1695,30 @@ export default function TrangChiTietDeNghi() {
                  * tự là trưởng bộ phận chốt xong mà kho chưa nhận đủ hàng.
                  */
                 noiDungNghiepVu: (() => {
+                  /**
+                   * 🔴 SỬA LỖI NGHIÊM TRỌNG (21/08/2026) — bản tôi làm ngày 20/08 **cho xác nhận
+                   * hoàn thành khi hàng chưa về đủ**, và cả khi đơn còn là bản nháp.
+                   *
+                   * Hai chỗ thiếu so với màn Đơn hàng chi tiết (`don-hang-chi-tiet.tsx:288` và
+                   * `:304`, cả hai đều có `daGiaoDu &&`):
+                   *   ① Không gác `poDaGiaoDu` → bấm được dù mới nhận 1/10 khối lượng.
+                   *   ② Không loại đơn `nhap` → đơn chưa gửi nhà cung cấp cũng hiện nút "đã nhận
+                   *      đủ hàng".
+                   * Nguy hiểm vì xác nhận hoàn thành là **căn cứ thanh toán**: xác nhận sớm là
+                   * trả tiền cho hàng chưa nhận, và chứng từ đã ký thì không sửa lại được.
+                   *
+                   * ⚠️ `vuongMacXacNhanKho([])` trả `null` (mảng rỗng thì không có phiếu nào
+                   * thiếu tệp), nên MỘT MÌNH nó KHÔNG chặn được ca "chưa giao gì cả". Phải có
+                   * `poDaGiaoDu` đứng cùng.
+                   *
+                   * 📌 Dùng lại `tinhTienDoPO` + `poDaGiaoDu` ở `2-quy-trinh/tinh-toan.ts` — đúng
+                   * hai hàm màn Đơn hàng đang dùng, để hai chỗ không thể nói khác nhau.
+                   */
                   const poChoXacNhan = poLienQuan.filter(
-                    (po) => po.trangThai !== "hoan_thanh" && po.trangThai !== "huy",
+                    (po) =>
+                      po.trangThai !== "hoan_thanh" &&
+                      po.trangThai !== "huy" &&
+                      po.trangThai !== "nhap",
                   );
                   if (poChoXacNhan.length === 0) return undefined;
                   return (
@@ -1386,6 +1726,7 @@ export default function TrangChiTietDeNghi() {
                       {poChoXacNhan.map((po) => {
                         const phieuCuaPO = phieuNhan.filter((p) => p.poId === po.id);
                         const vuongMacTep = vuongMacXacNhanKho(phieuCuaPO);
+                        const daGiaoDu = poDaGiaoDu(tinhTienDoPO(po, phieuCuaPO));
                         const daKhoXacNhan = Boolean(po.xacNhanKho);
                         return (
                           <div
@@ -1401,7 +1742,7 @@ export default function TrangChiTietDeNghi() {
                             </p>
 
                             {/* Kho xác nhận trước — nút chỉ hiện cho người có quyền kho. */}
-                            {!daKhoXacNhan && quyen.xacNhanKho && (
+                            {!daKhoXacNhan && daGiaoDu && quyen.xacNhanKho && (
                               <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                   size="sm"
@@ -1427,38 +1768,75 @@ export default function TrangChiTietDeNghi() {
                               </div>
                             )}
 
-                            {daKhoXacNhan && !po.xacNhanTruongBP && quyen.xacNhanTruongBP && (
+                            {daKhoXacNhan && daGiaoDu && !po.xacNhanTruongBP && duocDuyetHoanThanhDon && (
                               <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                   size="sm"
                                   onClick={() => {
-                                    xacNhanTruongBP(po.id, {
+                                    /* 🔴 Từ 22/08/2026 phải có Hóa đơn VAT mới duyệt được — đọc
+                                       kết quả trả về, đừng báo thành công vô điều kiện. */
+                                    const loi = xacNhanTruongBP(po.id, {
                                       uid: nguoiDung.uid,
                                       ten: nguoiDung.tenHienThi,
                                       thoiDiem: new Date().toISOString().slice(0, 10),
                                     });
+                                    if (loi !== null) {
+                                      toast.error("Chưa duyệt hoàn thành được", { description: loi });
+                                      return;
+                                    }
                                     toast.success("Đã xác nhận hoàn thành", {
                                       description: `${po.code} hoàn thành — đề nghị chuyển sang bước “${NHAN_GIAI_DOAN.hoan_thanh.nhan}”.`,
                                     });
                                   }}
                                 >
                                   <BadgeCheck className="size-4" aria-hidden />
-                                  Trưởng bộ phận xác nhận hoàn thành
+                                  {/* 🔴 NHÃN NÓI ĐÚNG AI ĐANG BẤM (22/08/2026). Từ khi nhân viên
+                                      phụ trách cũng duyệt được, để nguyên chữ "Trưởng bộ phận
+                                      xác nhận" là nút nói sai về chính nó — nhân viên bấm vào một
+                                      nút mang tên người khác, rồi tự hỏi mình có được phép không. */}
+                                  {quyen.xacNhanTruongBP
+                                    ? "Trưởng bộ phận xác nhận hoàn thành"
+                                    : "Xác nhận hoàn thành đơn này"}
                                 </Button>
                               </div>
                             )}
 
-                            {/* Không có quyền thì nói rõ đang chờ ai, đừng để khối trống. */}
-                            {((!daKhoXacNhan && !quyen.xacNhanKho) ||
-                              (daKhoXacNhan &&
-                                !po.xacNhanTruongBP &&
-                                !quyen.xacNhanTruongBP)) && (
-                              <p className="text-xs text-text-desc">
-                                {daKhoXacNhan
-                                  ? "Đang chờ trưởng bộ phận xác nhận hoàn thành."
-                                  : "Đang chờ kho xác nhận đã nhận đủ hàng."}
+                            {/* Nói trước điều kiện còn thiếu, ngay cạnh nút — đừng để người dùng
+                                bấm rồi mới biết. */}
+                            {daKhoXacNhan &&
+                              daGiaoDu &&
+                              !po.xacNhanTruongBP &&
+                              duocDuyetHoanThanhDon &&
+                              vuongMacDuyetHoanThanhDeNghi(dn) !== null && (
+                                <p className="text-xs text-warning-soft">
+                                  {vuongMacDuyetHoanThanhDeNghi(dn)}
+                                </p>
+                              )}
+
+                            {/* 🔴 CHƯA GIAO ĐỦ thì nói rõ, đừng để khối trống không giải thích —
+                                người dùng thấy không có nút sẽ tưởng mình thiếu quyền. */}
+                            {!daGiaoDu && (
+                              <p className="text-xs text-warning-soft">
+                                Chưa nhận đủ khối lượng của đơn này nên chưa xác nhận hoàn thành
+                                được. Ghi phiếu nhận hàng ở bước “Tiến hành đặt hàng” cho tới khi
+                                đủ.
                               </p>
                             )}
+
+                            {/* Không có quyền thì nói rõ đang chờ ai, đừng để khối trống. */}
+                            {daGiaoDu &&
+                              ((!daKhoXacNhan && !quyen.xacNhanKho) ||
+                                (daKhoXacNhan &&
+                                  !po.xacNhanTruongBP &&
+                                  !duocDuyetHoanThanhDon)) && (
+                                <p className="text-xs text-text-desc">
+                                  {daKhoXacNhan
+                                    ? /* Từ 22/08/2026 người duyệt có thể là nhân viên phụ trách,
+                                         nên câu chờ không được chỉ nêu trưởng bộ phận. */
+                                      "Đang chờ nhân viên phụ trách hoặc trưởng bộ phận xác nhận hoàn thành."
+                                    : "Đang chờ kho xác nhận đã nhận đủ hàng."}
+                                </p>
+                              )}
                           </div>
                         );
                       })}
@@ -1477,6 +1855,102 @@ export default function TrangChiTietDeNghi() {
                     duocSua={duocSuaTepBuoc}
                     khoa={hoSoDaDong}
                   />
+                ),
+              },
+
+              /**
+               * ★ BƯỚC "HỒ SƠ THANH TOÁN" — gộp từ hai bước cũ.
+               *
+               * 📌 Ban lãnh đạo 22/08/2026 đặt ra hai bước riêng (*Hóa đơn VAT* và *UNC (nếu có)*),
+               * rồi 23/08/2026 chốt: *"Gộp 2 mục này lại thành 1 'Hồ sơ thanh toán'"*. Luật giữ
+               * nguyên, chỉ gộp chỗ hiển thị — hai chứng từ này thuộc cùng một việc.
+               *
+               * 📌 Cái tích của ủy nhiệm chi KHÔNG vẽ ở đây — nó là công việc bắt buộc của bước
+               * (`unc_xong` trong `cau-hinh-quy-trinh.ts`), nên hiện ở khối "Danh sách công việc"
+               * dùng chung phía dưới trang. Vẽ thêm một cái tích thứ hai ở đây là hai nguồn sự thật
+               * cho cùng một việc.
+               */
+              {
+                ma: "ho_so_thanh_toan",
+                nhan: NHAN_GIAI_DOAN.ho_so_thanh_toan.nhan,
+                dangODay: giaiDoan === "ho_so_thanh_toan",
+                conThieu: conThieuCuaBuoc("ho_so_thanh_toan"),
+                truong: [
+                  ...tepHoaDonVAT(dn).map((t) => ({
+                    nhan: t.ghiChu?.trim() || "Hóa đơn VAT",
+                    giaTri: t.tenTep,
+                  })),
+                  ...tepUNC(dn).map((t) => ({
+                    nhan: t.ghiChu?.trim() || "Ủy nhiệm chi",
+                    giaTri: t.tenTep,
+                  })),
+                ],
+                khuDinhKem: (
+                  <div className="flex flex-col gap-(--hp-md-card-gap)">
+                    <OChungTuBatBuoc
+                      deNghi={dn}
+                      maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
+                      nhanO={NHAN_TEP_HOA_DON_VAT}
+                      tieuDe="Hóa đơn VAT"
+                      moTa="Hóa đơn GTGT nhà cung cấp xuất cho đơn hàng này. Bắt buộc phải có mới duyệt hoàn thành được. Đơn tách cho nhiều nhà cung cấp thì thêm từng bản."
+                      batBuoc
+                      duocSua={duocSuaTepBuoc}
+                      khoa={hoSoDaDong}
+                      tepDaCo={tepHoaDonVAT(dn)}
+                    />
+                    <OChungTuBatBuoc
+                      deNghi={dn}
+                      maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
+                      nhanO={NHAN_TEP_UNC}
+                      tieuDe="Ủy nhiệm chi"
+                      moTa="Đơn nào cần chuyển khoản qua ngân hàng thì đính kèm ủy nhiệm chi. Đơn trả tiền ngay thì để trống — chỉ cần tích xong việc của bước này."
+                      duocSua={duocSuaTepBuoc}
+                      khoa={hoSoDaDong}
+                      tepDaCo={tepUNC(dn)}
+                    />
+                    {/* Nói rõ vì sao cái tích đang khóa, thay vì để người dùng bấm mãi không được. */}
+                    {vuongMacTichXongUNC(dn) !== null && (
+                      <p className="rounded-lg bg-warning/10 p-3 text-xs text-text-secondary">
+                        ⚠️ {vuongMacTichXongUNC(dn)}
+                      </p>
+                    )}
+
+                    {/**
+                      * ★ NÚT "HOÀN THÀNH QUY TRÌNH" — Ban lãnh đạo 22/08/2026: *"Thêm nút bấm hoàn
+                      * thành quy trình"*.
+                      *
+                      * 📌 ĐẶT Ở ĐÂY vì đây là trạm cuối trước cột Hoàn thành — mọi chứng từ đã đủ
+                      * ở đúng chỗ này. Đặt ở cột Hoàn thành thì phải vào được cột đó mới bấm được,
+                      * mà vào cột đó chính là việc nút này làm.
+                      *
+                      * 🔴 Chỉ vai trò xác nhận hoàn thành mới thấy nút. Điều kiện thật do
+                      * `vuongMacHoanThanhQuyTrinh` giữ (tầng ghi cũng hỏi lại hàm đó) — ở đây chỉ
+                      * hiện lý do cho người dùng đọc trước khi bấm.
+                      */}
+                    {quyen.xacNhanTruongBP && !hoSoDaDong && (
+                      <div className="flex flex-col gap-2 border-t border-divider pt-3">
+                        {vuongMacHoanThanhQuyTrinh(dn, tienDoDong) !== null ? (
+                          <p className="text-xs text-warning-soft">
+                            Chưa hoàn thành được: {vuongMacHoanThanhQuyTrinh(dn, tienDoDong)}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-text-desc">
+                            Mọi mặt hàng đã nhận đủ, chứng từ đã đủ. Bấm để đóng hồ sơ và chuyển
+                            sang bước “{NHAN_GIAI_DOAN.hoan_thanh.nhan}”.
+                          </p>
+                        )}
+                        <Button
+                          size="sm"
+                          className="w-fit"
+                          disabled={vuongMacHoanThanhQuyTrinh(dn, tienDoDong) !== null}
+                          onClick={() => setHoiHoanThanh(true)}
+                        >
+                          <BadgeCheck className="size-4" aria-hidden />
+                          Hoàn thành quy trình
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 ),
               },
               /**
@@ -1767,18 +2241,48 @@ export default function TrangChiTietDeNghi() {
         onDong={() => setHoiTichViec(null)}
         onDongY={() => {
           if (!hoiTichViec) return;
-          danhDauCongViecGiaiDoan(
+          /* 🔴 PHẢI ĐỌC KẾT QUẢ TRẢ VỀ (22/08/2026). Từ nay tầng ghi có thể TỪ CHỐI — việc "đã
+             xử lý ủy nhiệm chi" đòi có Hóa đơn VAT trước. Báo thành công vô điều kiện là hứa hộ
+             một việc chưa xảy ra, đúng lỗi mà quy ước dự án §3.5 cấm. */
+          const loi = danhDauCongViecGiaiDoan(
             dn.id,
             hoiTichViec.cv,
             giaiDoan,
             hoiTichViec.tich,
             nguoiDung.tenHienThi,
           );
+          if (loi !== null) {
+            toast.error("Chưa tích được việc này", { description: loi });
+            return;
+          }
           toast.success(
             hoiTichViec.tich
               ? `Đã xác nhận xong: ${hoiTichViec.cv.ten}`
               : `Đã bỏ tích: ${hoiTichViec.cv.ten}`,
           );
+        }}
+      />
+
+      {/* ★ HỎI TRƯỚC KHI ĐÓNG HỒ SƠ — Ban lãnh đạo 22/08/2026 (*"Thêm nút bấm hoàn thành quy
+          trình"*). Đóng hồ sơ là việc không lùi lại được bằng đường thường, nên phải hỏi. */}
+      <HopXacNhan
+        mo={hoiHoanThanh}
+        tieuDe="Hoàn thành quy trình mua hàng?"
+        moTa={`Đề nghị ${dn.code} sẽ chuyển sang bước “${NHAN_GIAI_DOAN.hoan_thanh.nhan}” và hồ sơ đóng lại.`}
+        canhBao="Sau khi hoàn thành, hồ sơ không nhận thêm chứng từ và không sửa được nữa."
+        nhanDongY="Hoàn thành quy trình"
+        onDong={() => setHoiHoanThanh(false)}
+        onDongY={() => {
+          setHoiHoanThanh(false);
+          /* Đọc kết quả: tầng ghi kiểm lại đủ năm điều kiện, có thể từ chối. */
+          const loi = hoanThanhQuyTrinh(dn.id, nguoiDung.tenHienThi);
+          if (loi !== null) {
+            toast.error("Chưa hoàn thành được", { description: loi });
+            return;
+          }
+          toast.success("Đã hoàn thành quy trình", {
+            description: `${dn.code} — hồ sơ đóng lại và chuyển sang bước “${NHAN_GIAI_DOAN.hoan_thanh.nhan}”.`,
+          });
         }}
       />
 
@@ -1822,17 +2326,36 @@ export default function TrangChiTietDeNghi() {
         }
         canhBao={
           hoiDuyet?.loai === "duyet"
-            ? "Lý do sẽ lưu vào hồ sơ và là căn cứ giải trình với Ban lãnh đạo."
+            ? "Ghi được căn cứ thì tốt — về sau đọc hồ sơ biết vì sao chọn bên này. Để trống vẫn duyệt được."
             : "Lý do sẽ hiện cho nhân viên phụ trách đọc, và lưu lại trong hồ sơ bảng báo giá."
         }
         nhanDongY={hoiDuyet?.loai === "duyet" ? "Duyệt" : "Không duyệt, trả lại"}
         nguyHiem={hoiDuyet?.loai === "khong_duyet"}
-        /* 🔴 Khóa kèm CÂU GIẢI THÍCH, không khóa im lặng. */
+        /**
+         * 🔴 Khóa kèm CÂU GIẢI THÍCH, không khóa im lặng.
+         *
+         * ★ 23/08/2026 — Ban lãnh đạo: *"Bỏ bắt buộc ghi chú khi đồng ý duyệt chọn NCC"*. Chiều
+         * ĐỒNG Ý nay không đòi lý do nữa (thay bằng đòi TÊN nhà cung cấp — thứ thật sự bắt buộc,
+         * xem dưới). Chiều KHÔNG ĐỒNG Ý vẫn đòi, và đó là chủ ý: nhân viên phải đọc được mình
+         * cần bổ sung gì, chứ phiếu bị trả về trắng thì họ trình lại y nguyên rồi lại bị trả.
+         *
+         * 🔴 ĐỔI ĐIỀU KIỆN KHÓA CHIỀU ĐỒNG Ý, KHÔNG BỎ KHÓA: trước đây chỉ ô lý do bị kiểm, nên
+         * bỏ nó đi là hộp thoại **hết chốt** — bấm Duyệt với ô nhà cung cấp trống sẽ chốt một nhà
+         * cung cấp tên rỗng, sinh khóa `ncc-tu-go-` và mọi chứng từ sau (đơn hàng, công nợ) nối
+         * về một đối tượng vô danh. Ô tên nhà cung cấp trước giờ chỉ bị chặn ở NÚT MỞ hộp thoại
+         * (dòng ~1155), mà trong hộp người duyệt vẫn xóa trắng lại được.
+         */
+        /**
+         * 🔴 CHIỀU ĐỒNG Ý KHÔNG CÒN CHỐT NÀO — và đó là chủ ý, không phải sót.
+         *
+         * Ban lãnh đạo 23/08/2026 bỏ cả hai thứ từng khóa nút này: ghi chú lý do, rồi tên nhà
+         * cung cấp. Bấm "Duyệt bản này" là đã xác định đủ (bản nào được duyệt), nên không còn gì
+         * để đòi. Chiều KHÔNG ĐỒNG Ý vẫn đòi lý do: nhân viên phải đọc được mình cần bổ sung gì,
+         * chứ phiếu bị trả về trắng thì họ trình lại y nguyên rồi lại bị trả.
+         */
         khoaDongY={
-          lyDoDuyet.trim() === ""
-            ? hoiDuyet?.loai === "duyet"
-              ? "Phải ghi căn cứ duyệt trước khi bấm."
-              : "Phải ghi rõ vì sao không duyệt để nhân viên biết cần bổ sung gì."
+          hoiDuyet?.loai === "khong_duyet" && lyDoDuyet.trim() === ""
+            ? "Phải ghi rõ vì sao không duyệt để nhân viên biết cần bổ sung gì."
             : undefined
         }
         onDong={() => {
@@ -1845,16 +2368,26 @@ export default function TrangChiTietDeNghi() {
           if (!bg) return;
           if (hoiDuyet.loai === "duyet") {
             /**
-             * 🔴 CHỐT THEO NHÀ CUNG CẤP TRƯỞNG BỘ PHẬN CHỌN (20/08/2026), không còn theo đề xuất
-             * của nhân viên — khối đề xuất đã bỏ.
+             * ★ DUYỆT LÀ CHỐT **BẢN BÁO GIÁ**, KHÔNG BẮT GÕ TÊN NHÀ CUNG CẤP (23/08/2026).
              *
-             * `nccId` sinh từ tên đã chuẩn hóa: tên nhà cung cấp gõ tự do nên không tra được mã
-             * trong danh mục. Có khóa thì chứng từ sau (đơn hàng, công nợ) còn nối về một đối
-             * tượng, thay vì so chuỗi tên mà hoa/thường lệch một chữ là thành hai bên khác nhau.
+             * `nccDuyet` nay gần như luôn rỗng vì ô nhập đã bỏ (xem chú thích ở hộp thoại). Khi
+             * rỗng thì truyền **chuỗi rỗng cho cả hai tham số**, để `chonNCCChoBaoGia` ghi
+             * `undefined`.
+             *
+             * 🔴 TUYỆT ĐỐI KHÔNG GHÉP `ncc-tu-go-${tên}` KHI TÊN RỖNG: kết quả là khóa cụt
+             * `"ncc-tu-go-"` — một chuỗi KHÁC RỖNG nên mọi chỗ kiểm `if (bg.nccDaChonId)` sẽ tin
+             * là đã chọn được một nhà cung cấp, và mọi bảng báo giá duyệt kiểu này đều mang **cùng
+             * một khóa**, tức bị gom thành một đối tượng duy nhất trong bất kỳ phép nhóm nào.
+             *
+             * 📌 Còn tên (hồ sơ cũ, hoặc ô báo giá có ghi tên) thì vẫn sinh khóa như trước — có
+             * khóa thì chứng từ sau còn nối về một đối tượng, thay vì so chuỗi tên mà hoa/thường
+             * lệch một chữ là thành hai bên khác nhau.
              */
             chonNCCChoBaoGia(
               bg.id,
-              `ncc-tu-go-${nccDuyet.trim().toLowerCase().replace(/\s+/g, "-")}`,
+              nccDuyet.trim() === ""
+                ? ""
+                : `ncc-tu-go-${nccDuyet.trim().toLowerCase().replace(/\s+/g, "-")}`,
               nccDuyet.trim(),
               nguoiDung.tenHienThi,
               /* Ghi kèm BẢN nào được duyệt vào căn cứ — về sau đọc hồ sơ mới biết trưởng bộ phận
@@ -1884,8 +2417,9 @@ export default function TrangChiTietDeNghi() {
             đây. Nay quyết định ngay tại chỗ: đổi lựa chọn là tiêu đề, nhãn ô lý do, chữ trên nút
             và màu nút đều đổi theo, nên không ai bấm nhầm.
 
-            📌 Lý do BẮT BUỘC ở CẢ HAI chiều (giữ nguyên chỉ đạo 19/08/2026) — nút bị khóa kèm câu
-            giải thích cho tới khi ghi. */}
+            📌 Lý do CHỈ CÒN BẮT BUỘC Ở CHIỀU KHÔNG ĐỒNG Ý (Ban lãnh đạo 23/08/2026 bỏ bắt buộc ở
+            chiều đồng ý). Dấu `*` trên nhãn ô cũng phải đổi theo — để `*` mà nút vẫn bấm được là
+            nhãn nói dối, người dùng gõ cho có rồi thành nhật ký rác. */}
         <div className="mb-3 flex flex-col gap-1.5">
           <Label htmlFor="quyet-dinh-duyet">Quyết định của trưởng bộ phận *</Label>
           <select
@@ -1903,9 +2437,48 @@ export default function TrangChiTietDeNghi() {
           </select>
         </div>
 
+        {/**
+          * ❌ ĐÃ BỎ Ô "Duyệt cho nhà cung cấp nào?" (Ban lãnh đạo 23/08/2026: *"Sao lại có thêm
+          * mục này. Đã tích chọn báo giá nào thì báo giá đó sẽ tự động links qua bước sau rồi mà"*).
+          *
+          * Đúng: bấm "Duyệt bản này" ở một ô báo giá là đã xác định **bản nào** được duyệt, và
+          * bản đó được link sang khối ĐẦU VÀO của bước ③ (dòng *"Bản báo giá được chọn — Báo giá
+          * NCC 1"*). Bắt gõ lại tên nhà cung cấp là hỏi một thứ hồ sơ đã có câu trả lời.
+          *
+          * 🔴 TÊN NHÀ CUNG CẤP KHÔNG MẤT KHỎI HỒ SƠ — nó được gõ ở BƯỚC ④, ô "Tên nhà cung cấp"
+          * của form lập đơn mua hàng, và chính đơn hàng mới là chứng từ mang tên bên bán ra ngoài
+          * công ty. Đã kiểm: không luật nghiệp vụ nào đòi `nccDaChonId` — chuyển bước xét theo
+          * `trangThai === "da_chon_ncc"`, còn công nợ nối theo nhà cung cấp của ĐƠN HÀNG.
+          *
+          * ⚠️ Vì vậy `chonNCCChoBaoGia` nay có thể nhận tên rỗng. Chỗ gọi phải truyền khóa RỖNG
+          * chứ không phải `ncc-tu-go-` cụt đuôi — xem chú thích ở `onDongY` bên dưới.
+          *
+          * 📌 Giữ lại câu chuyện cũ để người sau khỏi "thêm lại cho chắc": ô này từng nằm ở khối
+          * bước ③ ngoài hộp thoại, tôi đưa vào hộp sáng 23/08 để chữa việc nút Duyệt bị khóa mà
+          * không có chỗ gỡ. Nay bỏ hẳn cả hai chỗ thì không còn khóa nào để gỡ.
+          *
+          * 🔴 CHUYỆN ĐÃ XẢY RA: bỏ bắt buộc ghi chú ở chiều đồng ý (đúng chỉ đạo), tôi chuyển điều
+          * kiện khóa nút sang ô TÊN NHÀ CUNG CẤP. Nhưng ô đó nằm ở khối bước ③ **bên ngoài hộp
+          * thoại**, còn nút "Duyệt bản này" ở bước ② thì mở hộp thoại ngay — và nó chỉ điền hộ tên
+          * khi tệp báo giá có ghi tên, mà bước ② đã bỏ chỗ ghi tên từ 20/08/2026 nên gần như luôn
+          * rỗng. Kết quả: hộp mở ra với nút Duyệt bị khóa và **không có ô nào trong hộp để gỡ khóa**
+          * — Ban lãnh đạo báo *"Chức năng này sao không còn hoạt động"*. Đúng: tôi làm tắc.
+          *
+          * ✅ Nay ô tên nằm NGAY TRONG HỘP. Người duyệt đọc bản báo giá, bấm "Duyệt bản này", gõ
+          * tên bên được chọn rồi bấm Duyệt — xong trong một hộp, không phải đi tìm ô ở khối khác.
+          *
+          * 🔴 VÌ SAO KHÔNG BỎ LUÔN ĐÒI HỎI NÀY cho nhanh: tên nhà cung cấp là thứ `chonNCCChoBaoGia`
+          * dùng để sinh khóa `ncc-tu-go-…`. Để trống là chốt một nhà cung cấp **tên rỗng**, và mọi
+          * chứng từ sau (đơn đặt hàng, công nợ) nối về một đối tượng vô danh — hỏng dữ liệu, không
+          * chỉ hỏng giao diện. Đây là ô bắt buộc THẬT, khác hẳn ô ghi chú mà Ban lãnh đạo cho bỏ.
+          *
+          */}
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ly-do-duyet-bao-gia">
-            {hoiDuyet?.loai === "duyet" ? "Căn cứ duyệt *" : "Vì sao không đồng ý *"}
+            {hoiDuyet?.loai === "duyet"
+              ? "Căn cứ duyệt (không bắt buộc)"
+              : "Vì sao không đồng ý *"}
           </Label>
           <Textarea
             id="ly-do-duyet-bao-gia"

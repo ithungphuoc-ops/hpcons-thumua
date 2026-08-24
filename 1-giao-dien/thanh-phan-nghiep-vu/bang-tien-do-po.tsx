@@ -382,6 +382,23 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                         đó KẸT VĨNH VIỄN, không bao giờ bấm hoàn thành được.
                         Phiếu bị từ chối nhận thì không đòi — hàng trả về thì lấy đâu ra
                         phiếu giao nhận đã ký. */}
+                    {/**
+                      * ★★ ĐƠN ĐÃ HOÀN THÀNH THÌ KHÔNG ĐỔI TỆP PHIẾU GIAO NHẬN NỮA (23/08/2026).
+                      *
+                      * 🔴 VÌ SAO PHẢI KHÓA: luật "mỗi lần giao phải có phiếu giao nhận đính kèm mới
+                      * được xác nhận hoàn thành" (Ban lãnh đạo 11/08/2026) kiểm TỪNG phiếu qua
+                      * `tepPhieuGiao`. Đơn đã qua đủ hai lớp xác nhận (thủ kho + trưởng bộ phận) mà
+                      * tệp vẫn thay được thì **chứng từ làm căn cứ xác nhận bị đổi sau khi đã ký** —
+                      * hai lớp xác nhận kia thành xác nhận cho một nội dung khác nội dung hiện tại.
+                      * Đây là lỗ hổng chứng từ, không phải chuyện tiện dụng.
+                      *
+                      * 📌 VẪN XEM VÀ TẢI VỀ ĐƯỢC — nhánh dưới lo việc đó. Khóa nghĩa là không THAY,
+                      * không GỠ; chứ giấu tệp đi thì hồ sơ mất bằng chứng.
+                      *
+                      * ⚠️ CHỈ KHÓA KHI `hoan_thanh`. Đơn đang giao vẫn phải cho bổ sung: phiếu ghi
+                      * trước 11/08/2026 không có tệp, chặn mà không cho bổ sung thì các đơn đó KẸT
+                      * VĨNH VIỄN, không bao giờ bấm hoàn thành được (chú thích cũ ngay dưới).
+                      */}
                     {p.trangThai !== "tu_choi_nhan" &&
                       (p.anhQlkCtr ? (
                         // Phiếu do QLK CTR tự tạo — thủ kho đã đính kèm ảnh bên đó rồi, không
@@ -391,7 +408,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                           <span className="shrink-0">Ảnh phiếu giao (từ QLK CTR):</span>
                           <LienKetAnhQlkCtr anh={p.anhQlkCtr} />
                         </span>
-                      ) : quyen.ghiPhieuNhanHang ? (
+                      ) : quyen.ghiPhieuNhanHang && po.trangThai !== "hoan_thanh" ? (
                         <ODinhKemTep
                           tep={p.tepPhieuGiao}
                           nhanThem="Đính kèm phiếu giao nhận (bắt buộc)"

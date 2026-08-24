@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Fragment, useMemo, useState } from "react";
-import { ArrowLeft, ChevronDown, FileWarning } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, FileWarning } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -79,10 +79,13 @@ export default function TrangTheoDoiChiTiet() {
 
           📌 Cùng kiểu nút, cùng chỗ đặt với `trang/de-nghi-chi-tiet.tsx` — hai trang chi tiết
           nằm cạnh nhau trong cùng app thì đường về phải ở cùng một chỗ. */}
+      {/* 📌 `outline` chứ không phải `ghost` (22/08/2026): sau khi bỏ nút ở cuối khối, đây là
+          đường về DUY NHẤT trên trang, nên nó phải nhìn ra ngay là bấm được. `ghost` không viền,
+          chữ hòa vào nền — đúng cái đã làm người dùng nói "không có nút quay về" bốn lần. */}
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
-        className="w-fit -ml-2"
+        className="w-fit"
         nativeButton={false}
         render={<Link href="/theo-doi" />}
       >
@@ -132,25 +135,62 @@ export default function TrangTheoDoiChiTiet() {
               cho gọn thì không có chỗ bấm — đúng nghĩa "không group lại được".
 
               📌 Gập là THÁO nội dung khỏi cây React (khác khối bước ④ phải giữ vì có form nhập
-              liệu): ở đây chỉ là bảng đọc, không có ô nào đang gõ nên không có gì để mất. */}
-          <button
-            type="button"
-            onClick={() => setMoBang((v) => !v)}
-            aria-expanded={moBang}
-            className="flex min-h-11 w-fit items-center gap-2 text-left"
-          >
-            <ChevronDown
-              className={`size-4 shrink-0 text-text-desc transition-transform ${moBang ? "" : "-rotate-90"}`}
-              aria-hidden
-            />
-            <span className="text-h3 text-text-primary">Chi tiết từng mặt hàng</span>
-            {/* Khi gập vẫn phải biết bên trong có gì, nếu không thu gọn chỉ là giấu thông tin. */}
-            {!moBang && (
-              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-text-secondary tabular-nums">
-                {tienDo.length} mặt hàng
-              </span>
-            )}
-          </button>
+              liệu): ở đây chỉ là bảng đọc, không có ô nào đang gõ nên không có gì để mất.
+
+              🔴 LẦN THỨ TƯ (21/08/2026): *"Mục này khi bung ra xem chi tiết thì lại không có nút
+              quay về"* — ảnh khoanh đỏ đúng khối này, lúc nó ĐANG BUNG.
+
+              Nguyên nhân thật, khác cả ba lần đoán trước: nút thu gọn CÓ SẴN và chạy đúng, nhưng
+              nó chỉ là một mũi tên xám 16px, không một chữ nào. Người dùng nhìn khối đã bung
+              không thấy chỗ nào ghi "quay về" nên kết luận là không có — và họ đúng: một icon
+              trơn thì không tự nói được nó làm gì. Đây chính là điều Design System đã dặn cho ô
+              trạng thái (*"luôn có cả màu và chữ"*), áp cho nút cũng vậy.
+
+              Nên từ nay: (1) nút thu gọn có CHỮ, đứng bên phải tiêu đề; (2) thêm một nút nữa ở
+              CUỐI khối — xem hết bảng thì mắt đang ở dưới, bắt cuộn ngược lên đầu mới đóng được
+              cũng là một kiểu ngõ cụt; (3) dòng mặt hàng bung ra có nút "Đóng" riêng. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setMoBang((v) => !v)}
+              aria-expanded={moBang}
+              className="flex min-h-11 w-fit items-center gap-2 text-left"
+            >
+              <ChevronDown
+                className={`size-4 shrink-0 text-text-desc transition-transform ${moBang ? "" : "-rotate-90"}`}
+                aria-hidden
+              />
+              <span className="text-h3 text-text-primary">Chi tiết từng mặt hàng</span>
+              {/* Khi gập vẫn phải biết bên trong có gì, nếu không thu gọn chỉ là giấu thông tin. */}
+              {!moBang && (
+                <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-text-secondary tabular-nums">
+                  {tienDo.length} mặt hàng
+                </span>
+              )}
+            </button>
+
+            {/* Nút CÓ CHỮ — thứ người dùng tìm mà không thấy. Cùng hành động với mũi tên bên
+                trái; để hai chỗ bấm là cố ý, vì mắt người tìm chữ trước khi tìm icon. */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMoBang((v) => !v)}
+              aria-expanded={moBang}
+              className="min-h-11 md:min-h-9"
+            >
+              {moBang ? (
+                <>
+                  <ChevronUp className="size-4" aria-hidden />
+                  Thu gọn
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="size-4" aria-hidden />
+                  Mở ra xem
+                </>
+              )}
+            </Button>
+          </div>
 
           {moBang && (
             <>
@@ -212,18 +252,30 @@ export default function TrangTheoDoiChiTiet() {
                       {moDong === d.stt && (
                         <TableRow>
                           <TableCell colSpan={7} className="bg-surface">
-                            {ls.length === 0 ? (
-                              <p className="text-sm text-text-desc">Chưa có lần nhận hàng nào.</p>
-                            ) : (
-                              <ul className="flex flex-col gap-1">
-                                {ls.map((x, i) => (
-                                  <li key={i} className="text-sm text-text-secondary">
-                                    Lần {x.lan} · {new Date(x.ngay).toLocaleDateString("vi-VN")} · nhận{" "}
-                                    <strong>{x.khoiLuong.toLocaleString("vi-VN")}</strong> {d.donViTinh}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
+                            <div className="flex flex-col items-start gap-2">
+                              {ls.length === 0 ? (
+                                <p className="text-sm text-text-desc">Chưa có lần nhận hàng nào.</p>
+                              ) : (
+                                <ul className="flex flex-col gap-1">
+                                  {ls.map((x, i) => (
+                                    <li key={i} className="text-sm text-text-secondary">
+                                      Lần {x.lan} · {new Date(x.ngay).toLocaleDateString("vi-VN")} · nhận{" "}
+                                      <strong>{x.khoiLuong.toLocaleString("vi-VN")}</strong> {d.donViTinh}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              {/* Đóng ngay tại dòng vừa bung — không phải mò lại đúng dòng ở trên. */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setMoDong(null)}
+                                className="min-h-11 md:min-h-9"
+                              >
+                                <ChevronUp className="size-4" aria-hidden />
+                                Đóng dòng này
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       )}
@@ -289,6 +341,16 @@ export default function TrangTheoDoiChiTiet() {
             })}
           </div>
 
+          {/* ❌ ĐÃ BỎ hai nút ở cuối khối (22/08/2026 — Ban lãnh đạo: *"Bỏ nút này vì đã có ở
+              trên"* cho nút Thu gọn, và *"Di chuyển nút này nên trên"* cho nút Quay lại).
+
+              Hôm 21/08 tôi thêm chúng để người xem hết bảng không phải cuộn ngược lên mới đóng
+              được. Nhưng khối này chỉ dài ba dòng, nên cả hai nút đều nằm trong cùng một khung
+              nhìn với nút ở trên — thành ra là hai cặp nút giống nhau cách nhau vài trăm pixel.
+              Nút thừa làm người dùng phải đọc lại để biết hai nút có khác nhau không.
+
+              📌 Cả hai việc vẫn làm được ở hàng tiêu đề khối: nút "Thu gọn" ở đó, và đường về
+              nằm ở nút "Quay lại Theo dõi đề nghị" ngay đầu trang. */}
             </>
           )}
 

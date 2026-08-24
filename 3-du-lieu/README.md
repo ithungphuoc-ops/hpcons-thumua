@@ -11,7 +11,8 @@
 | **`luu-tren-may.ts`** | Giữ dữ liệu nghiệp vụ qua mỗi lần tải lại trang (localStorage) | F5 mất dữ liệu |
 | **`kho-tep.ts`** | **Nội dung tệp đính kèm** (IndexedDB) — phiếu giao nhận, bản báo giá gốc | Đính kèm không lưu, hoặc không mở xem lại được |
 | **`ban-mau-don-mua-hang.ts`** | **Chỗ cất TẠM để chuyển bản mẫu PO sang tab in** (18/08/2026). ⚠️ **KHÔNG phải dữ liệu nghiệp vụ** — bản mẫu không có mã hồ sơ, không ai tra cứu lại, và bị **xóa ngay khi tab in đọc xong** (để lại thì lần sau mở trang in sẽ in lại bản cũ mà không ai biết). Ghi vào **cả** `sessionStorage` **và** `localStorage` vì mỗi chỗ hụt một kiểu — xem chú thích trong file. Bản mẫu quá **10 phút** thì coi như không có | Bấm "In mẫu PO" mà tab in báo *"Không tìm thấy bản mẫu"* |
-| **`danh-ba-nhan-su.ts`** | **Danh bạ nhân sự công ty** — nguồn cho ô chọn "Thêm người theo dõi" | Thiếu người, sai phòng ban, sai chức danh |
+| **`danh-ba-nhan-su.ts`** | **Danh bạ nhân sự công ty** — nguồn cho ô chọn "Thêm người theo dõi" và ô chọn **thủ kho** ở màn lập đơn (lọc `department === "kho"`) | Thiếu người, sai phòng ban, sai chức danh |
+| **`dieu-khoan-chuan-don-mua-hang.ts`** | **Văn bản điều khoản chuẩn in ở cuối tờ PO** (khối "Phương thức giao hàng" + 2 câu cam kết của mẫu Thỏa thuận), kèm `tachDongDieuKhoan` để tờ in và ô nhập trình bày giống nhau. Từ 22/08/2026 **người lập sửa được** — bản đã sửa lưu trên từng đơn (`DonDatHang.dieuKhoanGiaoHang`), bản chuẩn ở đây chỉ dùng khi đơn chưa sửa gì | Điều khoản in ra sai chữ · muốn đổi bản chuẩn cho **đơn lập từ nay** (đơn cũ giữ bản của nó) |
 | **`du-lieu-mau.ts`** | Dữ liệu chạy thử: **9 đề nghị** (phủ đủ 8 giai đoạn của bảng quy trình), 8 PO, 8 phiếu nhận, 6 bảng báo giá | Muốn đổi số liệu để trình bày |
 
 ### 🔴 `DonDatHang.prId` / `prCode` LÀ TÙY CHỌN (từ 18/08/2026)

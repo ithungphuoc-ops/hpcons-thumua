@@ -24,6 +24,7 @@ import type {
   BaoGia,
   ThongBaoChuyenBuoc,
   NhaCungCap,
+  ThuKhoCongTrinh,
 } from "@/3-du-lieu/kieu-du-lieu";
 
 /** Tên ngăn chứa trên máy. Tăng số cuối mỗi khi đổi cấu trúc dữ liệu. */
@@ -59,6 +60,19 @@ export interface DuLieuLuu {
    * vào lúc đọc — như vậy bản chạy thử không phải chép sẵn 4 dòng mẫu lên kho chung của cả phòng.
    */
   nhaCungCapThem?: NhaCungCap[];
+  /**
+   * ★ DANH MỤC THỦ KHO CÔNG TRÌNH — Ban lãnh đạo 22/08/2026: *"Thêm trường nhập liệu thông tin
+   * thủ kho công trình và cho lưu lại"*.
+   *
+   * ⚠️ TÙY CHỌN như `nhaCungCapThem`: bản lưu cũ không có khóa này. `undefined` = chưa ai thêm ai,
+   * và app chỉ còn danh bạ nhân sự bộ phận Kho để chọn — KHÔNG phải lỗi.
+   *
+   * 🔴 PHẢI KHAI Ở CẢ HAI CHỖ: đây (`docDuLieuDaLuu`, đọc từ máy) **và** `chuanHoa` trong
+   * `kho-chung-firestore.ts` (đọc từ kho chung). Hai hàm đó dựng lại dữ liệu theo **danh sách
+   * trắng**; quên khai một bên là dữ liệu biến mất **không một dòng lỗi** — đã dính thật với khóa
+   * `cauHinh` ngày 13/08/2026.
+   */
+  thuKhoThem?: ThuKhoCongTrinh[];
 }
 
 /**
@@ -97,6 +111,7 @@ export function docDuLieuDaLuu(): DuLieuLuu | null {
       /* Nhà cung cấp người dùng tự thêm — giữ `undefined` khi chưa có, đừng thay bằng `[]`:
          bên gọi phân biệt "chưa từng thêm ai" với "đã thêm rồi xóa hết". */
       ...(Array.isArray(d.nhaCungCapThem) ? { nhaCungCapThem: d.nhaCungCapThem } : {}),
+      ...(Array.isArray(d.thuKhoThem) ? { thuKhoThem: d.thuKhoThem } : {}),
     };
   } catch {
     // JSON hỏng hoặc trình duyệt chặn localStorage → coi như chưa có gì.

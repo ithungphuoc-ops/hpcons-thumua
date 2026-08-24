@@ -28,6 +28,7 @@ import type {
   GiaDonDatHang,
   DongGiaPO,
   KieuChietKhau,
+  MauDonMuaHang,
   NhaCungCap,
 } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -116,7 +117,7 @@ export interface DauVaoDonHangMau {
   maSoThueNCC?: string;
   diaChiNCC?: string;
   nguoiLienHeNCC?: string;
-  dienGiai?: string;
+  /* ❌ Bỏ `dienGiai` (Ban lãnh đạo 21/08/2026) — xem `kieu-du-lieu.ts`. */
   thamChieu?: string;
   /** Người lập đơn — in ở ô ký "Bên mua hàng". */
   nguoiPhuTrachTen: string;
@@ -124,12 +125,26 @@ export interface DauVaoDonHangMau {
   ngayGiaoDuKien: string;
   diaDiemGiaoHang?: string;
   nguoiNhanHangTen?: string;
+  /** So dien thoai nguoi nhan hang — ô riêng trên biểu mẫu (21/08/2026). */
+  nguoiNhanHangSdt?: string;
+  /** Mẫu in đơn — bản mẫu cũng phải in đúng mẫu người lập chọn. */
+  mauPO?: MauDonMuaHang;
+  /**
+   * ★ Điều khoản cuối tờ, sửa được từ 22/08/2026.
+   *
+   * 🔴 Bản mẫu PHẢI mang theo: người lập sửa điều khoản rồi bấm "In" để soát trước khi cất — bản
+   * xem trước mà in bản chuẩn thì họ soát một tờ khác tờ sẽ phát hành.
+   */
+  dieuKhoanGiaoHang?: string;
+  camKetThoaThuan?: string;
   dieuKhoanKhac?: string;
   dong: readonly DongNhapDonMau[];
   kieuChietKhau: KieuChietKhau;
   /** Chuỗi thô của ô nhập — hàm tự đổi sang số, ô trống thành `undefined`. */
   tyLeChietKhau: string;
   chietKhau: string;
+  /** ★ Loại tiền in trên tờ đơn (23/08/2026) — bản mẫu phải theo đúng thứ người lập chọn. */
+  loaiTien?: string;
   thueSuatGTGT: string;
   dieuKhoanThanhToan?: string;
   soNgayDuocNo?: string;
@@ -227,7 +242,6 @@ export function dungDonHangMau(dv: DauVaoDonHangMau): DonHangBanMau {
     maSoThueNCC: dv.maSoThueNCC?.replace(/\D/g, "") || undefined,
     diaChiNCC: dv.diaChiNCC?.trim() || undefined,
     nguoiLienHeNCC: dv.nguoiLienHeNCC?.trim() || undefined,
-    dienGiai: dv.dienGiai?.trim() || undefined,
     thamChieu: dv.thamChieu?.trim() || undefined,
     /* Bản mẫu không thuộc về ai trong hệ thống — chỉ giữ TÊN để in vào ô ký "Bên mua hàng".
        Mã người dùng để trống: gán mã thật vào một chứng từ không tồn tại là mời nhầm lẫn khi
@@ -238,6 +252,10 @@ export function dungDonHangMau(dv: DauVaoDonHangMau): DonHangBanMau {
     ngayGiaoDuKien: dv.ngayGiaoDuKien,
     diaDiemGiaoHang: dv.diaDiemGiaoHang?.trim() || undefined,
     nguoiNhanHangTen: dv.nguoiNhanHangTen?.trim() || undefined,
+    nguoiNhanHangSdt: dv.nguoiNhanHangSdt?.trim() || undefined,
+    mauPO: dv.mauPO,
+    dieuKhoanGiaoHang: dv.dieuKhoanGiaoHang,
+    camKetThoaThuan: dv.camKetThoaThuan,
     dieuKhoanKhac: dv.dieuKhoanKhac?.trim() || undefined,
     /* 🔴 `nhap` chứ KHÔNG phải `da_chot`. Bản mẫu chưa qua bất kỳ bước duyệt nào; ghi "đã
        chốt" lên một thứ không tồn tại trong hệ thống là đúng kiểu "giao diện hứa một việc app
@@ -251,7 +269,9 @@ export function dungDonHangMau(dv: DauVaoDonHangMau): DonHangBanMau {
     poCode: SO_DON_BAN_MAU,
     maDuAn: dv.maDuAn,
     lines,
-    loaiTien: "VND",
+    /* Bản in thử phải in ĐÚNG loại tiền người lập đang chọn, không ghi cứng VND — nếu không,
+       họ đổi sang USD rồi bấm In mà tờ giấy vẫn ghi VND. */
+    loaiTien: dv.loaiTien?.trim() || "VND",
     kieuChietKhau: dv.kieuChietKhau,
     /* ⚠️ CHỈ GIỮ CON SỐ CỦA ĐÚNG KIỂU ĐANG CHỌN — y hệt lúc cất đơn thật. `tienChietKhau` suy
        số tiền từ tỷ lệ khi kiểu là "ty_le", nên ghi thêm `chietKhau` lúc đó là để lại một con

@@ -127,6 +127,15 @@ export function KhuDinhKemGiaiDoan({
 
   const daCo = deNghi.tepGiaiDoan?.[maGiaiDoan] ?? [];
   const duocThemGo = duocSua && !khoa;
+
+  /**
+   * Đã bấm "Đính kèm chứng từ khác" chưa — xem chú thích ở nhánh trả về sớm bên dưới.
+   *
+   * ⚠️ Mặc định `false`, và KHÔNG ghi vào hồ sơ: đây là trạng thái của màn hình, không phải dữ
+   * liệu nghiệp vụ. Mở rồi rời trang thì lần sau vào lại thu về một dòng — đúng ý, vì khu này
+   * chỉ dùng khi thật sự cần.
+   */
+  const [moVungTha, setMoVungTha] = useState(false);
   const conNhan = TOI_DA_TEP_MOI_BUOC - daCo.length;
 
   /**
@@ -167,6 +176,36 @@ export function KhuDinhKemGiaiDoan({
    * chỗ đang có việc phải làm.
    */
   if (daCo.length === 0 && !duocThemGo) return null;
+
+  /**
+   * ★ CHƯA CÓ TỆP THÌ CHỈ HIỆN MỘT DÒNG BẤM, KHÔNG HIỆN CẢ KHU (23/08/2026).
+   *
+   * 🔴 Ban lãnh đạo khoanh đỏ khu này ở bước ④ rồi bước ⑥ và ghi *"Nút này đang thấy dư"* /
+   * *"Đang bị dư"*. Đúng: khu chiếm gần 100px chiều cao với một tiêu đề "TỆP ĐÍNH KÈM (0)" và
+   * một ô kéo thả to, trong khi phần lớn bước KHÔNG cần đính thêm gì — các chứng từ bắt buộc đều
+   * đã có ô riêng có tên (Hợp đồng · Hóa đơn VAT · Ủy nhiệm chi · phiếu giao nhận của từng lần
+   * giao · từng bản báo giá). Khu này chỉ còn dùng cho chứng từ lẻ: CO/CQ, biên bản nghiệm thu…
+   *
+   * 🔴 THU LẠI CHỨ KHÔNG BỎ HẲN — và đây là chỗ dễ làm sai. Bỏ hẳn thì app **mất đường đính kèm
+   * chứng từ lẻ ở mọi bước**, mà không câu nào nói ra: người dùng đi tìm chỗ bấm rồi kết luận app
+   * thiếu chức năng. Nay chỉ một dòng chữ nhỏ, bấm mới bung ô kéo thả — hết chiếm chỗ mà không
+   * mất gì.
+   *
+   * 📌 Sửa MỘT chỗ, áp cho cả 5 bước đang dùng khu này (①③④⑤⑥). Đi sửa từng bước ở
+   * `de-nghi-chi-tiet.tsx` là chắc chắn bỏ sót một bước rồi trang thành hai kiểu trình bày.
+   */
+  if (daCo.length === 0 && !moVungTha) {
+    return (
+      <button
+        type="button"
+        onClick={() => setMoVungTha(true)}
+        className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-text-desc transition-colors hover:bg-primary-bg hover:text-primary"
+      >
+        <Paperclip className="size-3.5 shrink-0" aria-hidden />
+        Đính kèm chứng từ khác
+      </button>
+    );
+  }
 
   return (
     <section className="flex flex-col gap-(--hp-md-row-gap)">

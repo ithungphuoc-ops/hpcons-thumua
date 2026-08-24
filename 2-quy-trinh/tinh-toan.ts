@@ -44,6 +44,28 @@ export function laDongHang(d: Pick<DongPO, "laDongGhiChu">): boolean {
   return d.laDongGhiChu !== true;
 }
 
+/**
+ * ★★ DÒNG HÀNG THẬT CỦA MỘT ĐƠN — dùng THAY CHO `po.items.filter(laDongHang)` ở mọi chỗ.
+ *
+ * 🔴🔴 `?? []` LÀ CHỐT CHỐNG SẬP TRANG, KHÔNG PHẢI VIẾT CHO ĐẸP (23/08/2026).
+ *
+ * `items` là trường bắt buộc theo kiểu dữ liệu, nên TypeScript tin nó luôn có — nhưng **dữ liệu
+ * thật thì không đảm bảo điều đó**: kho chung là một document Firestore mà nhiều máy cùng ghi,
+ * đơn nhập từ Excel hoặc đơn của bản chạy thử cũ có thể thiếu khóa `items`. Gặp một đơn như vậy
+ * thì `po.items.filter(...)` ném `Cannot read properties of undefined (reading 'filter')` — và vì
+ * `tinhTienDoDeNghi` nay được gọi cho **mọi thẻ trên bảng quy trình** (dấu đỏ "chưa nhận đủ
+ * hàng"), một đơn hỏng là **cả bảng trắng trơn**, không chỉ một thẻ.
+ *
+ * 📌 Đã dính thật: lỗi này bắt được lúc chạy thử luật mới ngày 23/08/2026, và trước đó cùng ngày
+ * đã làm trang chi tiết đề nghị trắng màn khi nạp một đơn thiếu trường.
+ *
+ * ⚠️ Trả mảng rỗng nghĩa là đơn đó **không có dòng hàng nào để tính tiến độ** — đúng với thực tế
+ * dữ liệu đang có, và không giả vờ tính ra một con số từ hư không.
+ */
+export function dongHangCuaPO(po: Pick<DonDatHang, "items">): DongPO[] {
+  return (po.items ?? []).filter(laDongHang);
+}
+
 // ------------------------------------------------------------
 // TIẾN ĐỘ THEO PO
 // ------------------------------------------------------------
@@ -54,12 +76,18 @@ export function tinhTienDoPO(po: DonDatHang, phieuCuaPO: PhieuNhanHang[]): TienD
     .sort((a, b) => a.lanGiaoThu - b.lanGiaoThu);
 
   // Dòng ghi chú không phải hàng hóa nên không có tiến độ nhận — xem `laDongHang`.
-  return po.items.filter(laDongHang).map((dong) => {
+  return dongHangCuaPO(po).map((dong) => {
     const theoLanGiao = phieuHopLe
       .map((p) => {
-        const line = p.lines.find((l) => l.sttDongPO === dong.sttDong);
+        const line = (p.lines ?? []).find((l) => l.sttDongPO === dong.sttDong);
+        /* `|| 0` và `?? []`: cùng chốt chống `NaN` / sập trang như trong `tinhTienDoDeNghi` —
+           xem chú thích dài ở đó. Thiếu chốt này là tiến độ PO báo "đã nhận đủ" khi chưa đủ. */
         return line
-          ? { lanGiaoThu: p.lanGiaoThu, ngayNhan: p.ngayNhanThucTe, khoiLuong: line.khoiLuongThucNhan }
+          ? {
+              lanGiaoThu: p.lanGiaoThu,
+              ngayNhan: p.ngayNhanThucTe,
+              khoiLuong: line.khoiLuongThucNhan || 0,
+            }
           : null;
       })
       .filter((x): x is { lanGiaoThu: number; ngayNhan: string; khoiLuong: number } => x !== null);
@@ -106,7 +134,9 @@ export function vuongMacXacNhanKho(phieuCuaPO: PhieuNhanHang[]): string | null {
   // đúng tinh thần chỉ đạo 11/08/2026 (phải có ảnh/phiếu chứng minh hàng đã về), chỉ khác
   // nguồn đính kèm. Không đòi thêm `tepPhieuGiao` khi đã có ảnh này, tránh bắt thủ kho đính
   // kèm 2 lần cho cùng 1 lần giao.
-  const thieu = phieuCuaPO.filter((p) => p.trangThai !== "tu_choi_nhan" && !p.tepPhieuGiao && !p.anhQlkCtr);
+  const thieu = phieuCuaPO.filter(
+    (p) => p.trangThai !== "tu_choi_nhan" && !p.tepPhieuGiao && !p.anhQlkCtr,
+  );
   if (thieu.length === 0) return null;
   const ds = thieu.map((p) => `lần ${p.lanGiaoThu}`).join(", ");
   return `Còn ${thieu.length} phiếu nhận hàng chưa đính kèm phiếu giao nhận của nhà cung cấp (${ds}). Mở khối "Tiến độ nhận hàng" để bổ sung.`;
@@ -234,9 +264,7 @@ export function tinhTienDoDeNghi(
     for (const po of poCuaDeNghi) {
       // Lọc dòng ghi chú cho chắc: nó mang `sttDongDeNghi = 0` nên không khớp stt nào (stt
       // của đề nghị bắt đầu từ 1), nhưng lọc tường minh thì quy ước kia có đổi cũng không vỡ.
-      const dongPOLienQuan = po.items
-        .filter(laDongHang)
-        .filter((d) => d.sttDongDeNghi === dong.stt);
+      const dongPOLienQuan = dongHangCuaPO(po).filter((d) => d.sttDongDeNghi === dong.stt);
       if (dongPOLienQuan.length === 0) continue;
 
       maPOLienQuan.push(po.code);
@@ -246,8 +274,22 @@ export function tinhTienDoDeNghi(
       const phieuCuaPO = tatCaPhieu.filter((p) => p.poId === po.id).filter(phieuDuocTinh);
       for (const p of phieuCuaPO) {
         for (const d of dongPOLienQuan) {
-          const line = p.lines.find((l) => l.sttDongPO === d.sttDong);
-          if (line) khoiLuongDaNhan += line.khoiLuongThucNhan;
+          const line = (p.lines ?? []).find((l) => l.sttDongPO === d.sttDong);
+          /**
+           * 🔴 `|| 0` LÀ CHỐT CHỐNG `NaN`, KHÔNG PHẢI VIẾT THÊM (23/08/2026).
+           *
+           * `khoiLuongThucNhan` là trường bắt buộc theo kiểu dữ liệu, nhưng dữ liệu thật thì không
+           * đảm bảo: kho chung là một document nhiều máy cùng ghi, và phiếu của bản chạy thử cũ có
+           * thể thiếu khóa này. Thiếu một lần là `khoiLuongDaNhan` thành `NaN`, rồi:
+           *   · `khoiLuongConLai = Math.max(0, NaN)` → `NaN`
+           *   · `NaN > 0` là **false**, nên app IM LẶNG coi như **đã nhận đủ**
+           * Tức tiến độ báo xong trong khi hàng chưa về — thứ nguy hiểm nhất trong cả file này, vì
+           * nó không sập, không báo lỗi, chỉ nói sai.
+           *
+           * 📌 Bắt được lúc chạy thử luật "chưa nhận đủ hàng" ngày 23/08/2026: một phiếu thử thiếu
+           * trường này làm cả hai phép thử (chưa đủ / đã đủ) đều trả về "không thiếu gì".
+           */
+          if (line) khoiLuongDaNhan += line.khoiLuongThucNhan || 0;
         }
       }
     }
@@ -552,7 +594,7 @@ export function tongGiaTriPO(
   if (!gia) return 0;
   // Làm tròn TỪNG DÒNG rồi mới cộng — đúng con số cột "Thành tiền" hiện trên bảng, để cộng
   // cột bằng tay ra đúng dòng tổng. Bỏ dòng ghi chú vì nó không phải hàng hóa.
-  return po.items.filter(laDongHang).reduce((tong, dong) => {
+  return dongHangCuaPO(po).reduce((tong, dong) => {
     const g = gia.lines.find((l) => l.sttDong === dong.sttDong);
     return tong + (g ? thanhTienDong(dong.khoiLuongDat, g.donGia) : 0);
   }, 0);
@@ -626,7 +668,7 @@ export function tinhTienChiTietPO(
   po: DonDatHang,
   gia: GiaDonDatHang | undefined,
 ): KetQuaTienDonHang {
-  const dong: DongDeTinhTien[] = po.items.filter(laDongHang).map((d) => {
+  const dong: DongDeTinhTien[] = dongHangCuaPO(po).map((d) => {
     const g = gia?.lines.find((l) => l.sttDong === d.sttDong);
     return {
       sttDong: d.sttDong,

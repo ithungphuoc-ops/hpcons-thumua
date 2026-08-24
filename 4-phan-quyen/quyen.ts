@@ -237,24 +237,21 @@ export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
   if (duongDan.startsWith("/phan-bo")) return q.phanBoCongViec;
   if (duongDan.startsWith("/don-hang/tao-moi")) return q.lapPO;
   /**
-   * 🔴 MÀN LẬP ĐỀ NGHỊ PHẢI ĐỨNG TRƯỚC khối `/de-nghi` bên dưới — Ban lãnh đạo 17/08/2026:
-   * *"sao tài khoản này không tạo được đề nghị"*.
+   * ❌ ĐÃ BỎ DÒNG `if (duongDan.startsWith("/de-nghi/nhan-moi")) return q.taoDeNghi;`
+   * (23/08/2026) vì màn `/de-nghi/nhan-moi` KHÔNG CÒN — Ban lãnh đạo: *"Đã có app riêng tạo đề
+   * nghị, hãy link tới app đó. Và bỏ chức năng tạo đề nghị thử nghiệm của app này đi"*. Nút
+   * "Tạo đề nghị" nay mở app ngoài (https://request.hpcore.vn/request), là địa chỉ ngoài app
+   * nên không đi qua hàm phân quyền này.
    *
-   * HAI LUẬT ĐÃ ĐÁNH NHAU, và đây là lỗi tôi gây ra:
-   *   · Ban lãnh đạo chốt 12/08/2026: *"chức năng đề nghị này hãy tạo cho TOÀN BỘ các tài
-   *     khoản hiện có"* → `taoDeNghi` mở cho mọi người (xem chú thích ở khai báo).
-   *   · Ban lãnh đạo chốt 16/08/2026: thủ kho và phòng ban khác KHÔNG được thấy Quy trình
-   *     mua hàng → tôi chặn cả tiền tố `/de-nghi`.
+   * 📌 GIỮ LẠI CÂU CHUYỆN CŨ vì cái bẫy vẫn còn nguyên cho lần sau: quyền `taoDeNghi` mở cho
+   * MỌI tài khoản (chỉ đạo 12/08/2026), còn tiền tố `/de-nghi` thì bị chặn theo chỉ đạo
+   * 16/08/2026 (thủ kho và phòng ban khác không được thấy Quy trình mua hàng). Hai luật đó
+   * đánh nhau, nên bất kỳ màn nào đặt dưới `/de-nghi/…` mà muốn mở rộng hơn đều PHẢI khai
+   * trước khối `/de-nghi` bên dưới — khớp cả hai thì dòng đứng trước thắng. Đặt sau là người
+   * dùng thấy nút, bấm vào bị đá ra "không có quyền", đúng thứ quy ước dự án cấm.
    *
-   * Màn lập đề nghị có địa chỉ `/de-nghi/nhan-moi`, VÔ TÌNH nằm dưới tiền tố bị chặn. Hậu
-   * quả: nút "Tạo đề nghị" vẫn hiện ở màn Công việc của tôi (đúng `taoDeNghi`), bấm vào thì
-   * bị đá ra "Bạn không có quyền vào mục này". Đúng thứ quy ước dự án cấm — giao diện hứa
-   * một việc app không cho làm.
-   *
-   * ⚠️ THỨ TỰ Ở ĐÂY LÀ LUẬT: dòng này phải nằm TRƯỚC `startsWith("/de-nghi")`, vì
-   * `/de-nghi/nhan-moi` khớp cả hai. Đảo lại là lỗi quay về ngay mà không ai thấy.
+   * `taoDeNghi` vẫn được giữ trong bộ quyền: nút mở app đề nghị hiện theo nó.
    */
-  if (duongDan.startsWith("/de-nghi/nhan-moi")) return q.taoDeNghi;
   /**
    * 🔴 CHẶN CẢ ĐƯỜNG DẪN, không chỉ ẩn mục menu (Ban lãnh đạo 16/08/2026).
    *

@@ -37,6 +37,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
+/* 📌 KHÔNG còn import gì từ `chung-tu-cuoi-quy-trinh` ở đây (23/08/2026): câu "bước này còn
+   thiếu gì" nay do `conNoCuaBuoc` sinh sẵn và đi theo thẻ ở trường `conNo`. Thẻ chỉ bày, không
+   tự tra luật chứng từ — một chỗ tính, mọi chỗ đọc. */
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_NHOM_DE_XUAT, type DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -91,6 +94,21 @@ const LOP_CHU_DAM: Record<Tong, string> = {
   warning: "text-warning-soft",
   danger: "text-danger-soft",
   neutral: "text-neutral-soft",
+};
+/**
+ * ★ NỀN ĐẶC (không pha trong suốt) — dùng cho phần đã chạy của thanh tiến độ đầu cột.
+ *
+ * 🔴 KHÔNG DÙNG `LOP_NEN_NHAT` cho việc này. Các token `*-bg` là màu pha với trong suốt
+ * (`color-mix(… 14%, transparent)`), nên vẽ lên rãnh xám thì phần đã chạy gần như không phân biệt
+ * được với phần chưa chạy — thanh tiến độ thành một vệt xám vô nghĩa. Đây đúng là cái bẫy đã làm
+ * đầu cột `sticky` bị nhìn xuyên qua hôm 23/08/2026, chỉ khác chỗ áp dụng.
+ */
+const LOP_NEN_DAC: Record<Tong, string> = {
+  primary: "bg-primary",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
+  neutral: "bg-neutral",
 };
 
 export interface BangQuyTrinhMuaHangProps {
@@ -191,7 +209,60 @@ export function BangQuyTrinhMuaHang({
     // Viền và bo góc nằm ở khung ngoài để cả bảng trông như một khối.
     // `flex-1 min-h-0`: bảng SỔ XUỐNG kín chiều cao còn lại của màn hình
     // (yêu cầu Ban lãnh đạo 07/08/2026) — cột dài quá thì cuộn bên trong cột.
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-auto rounded-xl border border-border">
+    /* `thanh-keo-ngang-ro`: thanh cuộn ngang LUÔN HIỆN (Ban lãnh đạo 22/08/2026 — xem
+       `app/globals.css`). Từ khi có 9 bước, bảng rộng hơn màn hình ở mọi cỡ máy thường dùng,
+       mà thanh cuộn mặc định của Chrome tự mờ đi nên không ai thấy chỗ để kéo.
+
+       🔴 CHIỀU CAO TỐI ĐA — Ban lãnh đạo 22/08/2026: *"nút kéo trang vẫn chưa hiển thị, phải kéo
+       hết xuống trang mới thấy"*.
+
+       📌 CON SỐ TÍNH TỪ CLASS THẬT, không ước lượng (rà lại 23/08/2026 — bản đầu tôi viết `13rem`
+       cho mọi cỡ máy và nó THIẾU phần dưới):
+
+         Phần TRÊN bảng   = thanh trên 60 + đệm main + tiêu đề trang 68 + gap 12 + thanh tab + gap 16
+         Phần DƯỚI bảng   = đệm dưới của `main`
+
+         · Từ 768px  : đáy thanh tab **192** + gap 16 + đệm dưới **16** = 224px → **14rem**
+         · Dưới 768px: đáy thanh tab **197** + gap 16 + đệm dưới **76** = 289px → **18rem**
+           (đệm dưới mobile = thanh điều hướng dưới 60 + safe-area + 16 — xem `khung-tong.tsx`)
+
+       ✅ HAI CON SỐ IN ĐẬM LÀ ĐO THẬT trên trình duyệt (`getBoundingClientRect().bottom` của thanh
+       tab và `paddingBottom` của `main`), ở 1280×720 và 375×812 — không phải cộng nhẩm từ class.
+       Phép cộng từ class ra 208/273; đo thật ra 192/197 và 224/289. Lệch đủ để thanh kéo vẫn bị
+       thanh điều hướng dưới che trên điện thoại, nên phải đo chứ đừng tin phép cộng.
+
+       🔴 VÌ SAO PHẢI TRỪ CẢ PHẦN DƯỚI: `13rem` trùng khít phần trên, nên đáy bảng dán đúng mép
+       dưới khung nhìn — trên máy tính thì thanh kéo còn thấy nhưng không dư một pixel, còn trên
+       điện thoại **thanh điều hướng dưới (`fixed bottom-0`, cao 60px) phủ lên đúng chỗ đó**, tức
+       thanh kéo nằm hẳn sau nó. Đó là lý do vẫn phải cuộn mới thấy.
+
+       Nguyên nhân: thanh cuộn ngang của một vùng nằm ở ĐÁY chính vùng đó. Khung app dùng
+       `min-h-screen` (`khung-app/khung-tong.tsx`) — cao TỐI THIỂU bằng màn hình nhưng **được
+       phép cao hơn** — nên cột nào nhiều thẻ là bảng đẩy cả trang dài ra, và cái thanh kéo trôi
+       xuống dưới đáy màn hình. Làm thanh dày hơn không chữa được, vì nó không nằm trong khung
+       nhìn để mà thấy.
+
+       Chặn chiều cao vùng bảng thì đáy vùng — chỗ đặt thanh kéo — luôn ở trong khung nhìn. Cột
+       dài quá thì cuộn dọc BÊN TRONG thân cột, thứ đã có sẵn `overflow-y-auto`.
+
+       ⚠️ `dvh` chứ không phải `vh`: trên điện thoại thanh địa chỉ co giãn làm `vh` sai, `dvh`
+       theo đúng phần thấy được. Trừ `13rem` cho thanh trên + tiêu đề trang + khoảng đệm.
+       ⚠️ `min-h-[420px]` ở khung cha (`de-nghi-danh-sach.tsx`) vẫn thắng khi màn hình rất thấp —
+       thà bảng cao hơn khung nhìn một chút còn hơn bóp còn vài chục pixel không đọc được gì. */
+    /* 🔴 `overflow-y-hidden` LÀ BẮT BUỘC, KHÔNG PHẢI TRANG TRÍ — Ban lãnh đạo 23/08/2026 khoanh
+       đúng dải lạ chen giữa cột "Hoàn thành" và cột "Thất bại".
+
+       Nguyên nhân theo spec CSS: khi MỘT trục đặt `auto` mà trục kia để mặc định (`visible`), thì
+       trục `visible` **bị xử lý như `auto`**. Nên chỉ khai `overflow-x-auto` thôi là trình duyệt
+       tự bật luôn cuộn dọc — và từ lúc thêm `max-h` ở trên, nội dung cao hơn khung nên nó vẽ ra
+       một thanh cuộn dọc thật, ăn 15px và cắt mất cột cuối.
+
+       Đã đo tại chỗ trên trình duyệt: không khai `overflow-y` → `overflowY` tính ra `auto`, thanh
+       dọc rộng **15px**; khai `hidden` → rộng **0px**, thanh ngang vẫn 15px như mong muốn.
+
+       ⚠️ `hidden` KHÔNG làm mất nội dung: thân mỗi cột đã có `overflow-y-auto` riêng (dòng ~344)
+       và chuỗi `flex-1 min-h-0` liền mạch, nên cột dài tự cuộn bên trong đúng như thiết kế. */
+    <div className="thanh-keo-ngang-ro flex max-h-[calc(100dvh-18rem)] min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-muted md:max-h-[calc(100dvh-14rem)]">
       {/* 🔴 `w-full` CHỨ KHÔNG PHẢI `w-max` — sửa 15/08/2026.
           `w-max` là `max-content`: bề ngang hàng cột bằng TỔNG bề rộng nội dung tự nhiên của
           chúng, nên một mã hồ sơ dài (`260001-HPCS-PR-001 (copy 2) - NHÀ XƯỞNG ABC — GIAI
@@ -199,8 +270,22 @@ export function BangQuyTrinhMuaHang({
           rộng 2.108px trong khung 1.626px và luôn phải cuộn ngang, dù cột đã được thu nhỏ.
           `w-full` thì cột nghe theo `basis`/`grow`; cột nào không đủ chỗ vẫn tràn ra và khung
           cha `overflow-x-auto` cho cuộn — đúng hành vi cần cho màn nhỏ.
-          `flex-1` (không dùng min-h-full vì cha bọc ngoài từng là block): cột ăn hết chiều cao bảng. */}
-      <div className="flex min-h-0 w-full flex-1 items-stretch divide-x divide-border">
+
+          🔴 BỎ `flex-1 min-h-0` (23/08/2026) — Ban lãnh đạo: *"cố định nội dung trong khung màn
+          hình máy và thêm thanh kéo"*, và ảnh cho thấy **cột rỗng bị cắt ngắn giữa bảng**.
+
+          `flex-1 min-h-0` khóa chiều cao hàng cột **bằng chiều cao khung**, còn cột nhiều thẻ thì
+          tràn ra ngoài hàng. Hệ quả: cột dài vẫn hiện (nhờ khung cuộn) nhưng NỀN và VẠCH CHIA của
+          các cột khác dừng ở đáy hàng — cuộn xuống là thấy bảng như bị cắt ngang.
+
+          Đã đo ba phương án, cùng một cột 900px trong khung 250px:
+            · `flex-1 min-h-0`                  → hàng 235, cột ngắn 235 ✗ (bị cắt)
+            · `height:max-content;min-h-full`   → hàng 235 ✗ (vẫn bị khóa)
+            · để chiều cao TỰ NHIÊN (bỏ cả hai) → hàng **940**, cột ngắn **940** ✓, cuộn dọc vẫn được
+
+          `items-stretch` khi đó kéo mọi cột cao bằng cột dài nhất, nên nền và vạch chia liền mạch
+          suốt chiều dài bảng. */}
+      <div className="flex w-full items-stretch divide-x divide-border">
         {cot.map((c) => (
           <CotQuyTrinh
             key={c.giaiDoan.ma}
@@ -241,6 +326,24 @@ function CotQuyTrinh({
   thaoTac?: ThaoTacThe;
 }) {
   const { giaiDoan, the, soQuaHan } = cot;
+
+  /**
+   * ★ SỐ HỒ SƠ ĐÃ CÓ NGƯỜI PHỤ TRÁCH — nguồn của thanh tiến độ đầu cột (23/08/2026).
+   *
+   * 📌 Đọc thẳng `nguoiPhuTrach` của từng thẻ, đúng cái mà dòng chữ trên thẻ đang hiện
+   * ("Chưa được giao" khi mảng rỗng — xem `TheDeNghi`). Một nguồn cho hai chỗ, nên con số ở đầu
+   * cột không bao giờ nói khác những thẻ nằm ngay dưới nó.
+   *
+   * ⚠️ Cột trống thì để 0 chứ KHÔNG để 100%: chia cho `the.length = 0` ra `NaN`, mà `width: NaN%`
+   * bị trình duyệt bỏ qua — thanh giữ nguyên bề rộng của lần vẽ trước, tức cột trống có thể hiện
+   * một thanh đầy. Sai kiểu này không có lỗi nào báo.
+   */
+  const soDaGiao = the.filter((t) => t.nguoiPhuTrach.length > 0).length;
+  const tyLeDaGiao = the.length === 0 ? 0 : Math.round((soDaGiao / the.length) * 100);
+  /* Số hồ sơ trong cột còn nợ chứng từ / công việc — nguồn của con số đỏ ở đầu cột. Luật ở
+     `2-quy-trinh/giai-doan-mua-hang.ts` → `conNoCuaBuoc`, thẻ chỉ mang sẵn kết quả. */
+  const soConThieu = the.filter((t) => Boolean(t.conNo)).length;
+
   // Sáng viền cột khi đang kéo thẻ ngang qua — người dùng biết mình sắp thả vào đâu.
   const [dangKeoQua, setDangKeoQua] = useState(false);
 
@@ -298,10 +401,31 @@ function CotQuyTrinh({
       } ${moDi ? "opacity-40" : ""}`}
       {...suKienKeoTha}
     >
-      {/* Đầu cột */}
-      <header
-        className={`flex flex-col gap-1 border-b border-border p-(--hp-md-row-pad) ${LOP_NEN_NHAT[giaiDoan.tong]}`}
-      >
+      {/**
+        * Đầu cột — DÁN LẠI KHI CUỘN (`sticky`).
+        *
+        * 🔴 Cần từ 23/08/2026, khi chuyển sang **cuộn dọc chung cho cả bảng** (Ban lãnh đạo:
+        * *"Đưa ra ngoài cùng"*). Cuộn chung thì đầu cột trôi lên mất, người dùng cuộn xuống giữa
+        * bảng là không còn biết thẻ đang thuộc bước nào.
+        *
+        * 🔴🔴 HAI LỚP NỀN LÀ BẮT BUỘC — Ban lãnh đạo báo *"khi kéo xuống thì nội dung header và
+        * nội dung bị đè lên nhau"*.
+        *
+        * Vì sao lần đầu tôi làm sai: tôi đặt `bg-muted` cùng chỗ với `LOP_NEN_NHAT`, tưởng thế là
+        * có nền đục. Nhưng các token `*-bg` của Design System là **màu pha với trong suốt**
+        * (`--hp-warning-bg: color-mix(in srgb, var(--hp-warning) 14%, transparent)`) — tức nền chỉ
+        * 14% màu, **86% nhìn xuyên qua**. Và hai lớp `bg-*` trên CÙNG một thẻ thì không cộng vào
+        * nhau: cái nào định nghĩa sau trong tệp CSS sẽ thắng, ta không kiểm soát được thứ tự đó.
+        * Kết quả: thẻ cuộn qua hiện xuyên qua chữ tên cột, đúng như ảnh.
+        *
+        * Nay tách làm hai thẻ lồng nhau: thẻ ngoài giữ nền ĐỤC (`bg-surface`) để chặn hẳn nội
+        * dung phía sau, thẻ trong vẽ màu nhạt của bước lên trên. `shadow-sm` tạo một gờ mỏng để
+        * mắt thấy đầu cột đang nổi trên nội dung đang cuộn.
+        */}
+      <header className="sticky top-0 z-20 flex flex-col bg-surface shadow-sm">
+        <div
+          className={`flex flex-col gap-1 border-b border-border p-(--hp-md-row-pad) ${LOP_NEN_NHAT[giaiDoan.tong]}`}
+        >
         <div className="flex items-start justify-between gap-2">
           {/* `title` để người mới rê chuột là hiểu cột này đang chờ việc gì. */}
           {/* 🔴 `min-h-[2.25rem]` = CHỖ CHO ĐÚNG HAI DÒNG — Ban lãnh đạo 15/08/2026: *"sao thụt
@@ -331,14 +455,97 @@ function CotQuyTrinh({
             </span>
           </span>
         </div>
-        <p className="text-xs text-text-desc">
-          {soQuaHan > 0 ? `${the.length} đề nghị · ${soQuaHan} quá hạn` : `${the.length} đề nghị`}
-        </p>
+          {/**
+            * ★ THANH TIẾN ĐỘ ĐẦU CỘT — Ban lãnh đạo 23/08/2026: *"thêm thanh tiến độ giống vậy
+            * trên header"*, kèm ảnh bảng Base thật (`TM-QT Mua hàng (HP CONS)`): dưới tên bước là
+            * một thanh ngang mảnh, rồi một dòng thống kê nhỏ.
+            *
+            * 🔴 THANH ĐO CÁI GÌ — CHỌN THEO DỮ LIỆU APP CÓ THẬT, không bắt chước con số của Base.
+            * Base ghi `10/10 NV · 3 Q.hạn · ⏱ 4.00h`; app này KHÔNG có giờ định mức cho từng bước
+            * nên không có gì để điền vào chỗ `⏱ 4.00h`. Bịa ra một con số giờ để trông giống ảnh
+            * là dựng số liệu không có nguồn — thứ nặng hơn hẳn việc thiếu một cụm chữ.
+            *
+            * 👉 Thanh chạy theo **số hồ sơ đã có người phụ trách / tổng số hồ sơ trong cột** —
+            * đúng câu hỏi người quản lý nhìn đầu cột để trả lời: *"việc ở bước này đã giao hết
+            * chưa"*. Cùng nghĩa với `10/10 NV` của Base (nhiệm vụ đã nhận / tổng).
+            *
+            * 🔴 MÀU ĐỎ KHI CÓ HỒ SƠ QUÁ HẠN, đúng như thanh đỏ trong ảnh. Nhưng con số quá hạn
+            * VẪN ĐƯỢC VIẾT RA CHỮ ở dòng dưới — Design System V1.1 buộc trạng thái phải có cả màu
+            * lẫn chữ, người không phân biệt được màu vẫn phải đọc ra.
+            *
+            * ⚠️ CỘT TRỐNG: vẽ rãnh xám và không tô gì, kèm chữ "0 đề nghị". Không ẩn thanh đi —
+            * ẩn thì tám cột cao thấp lệch nhau, đúng lỗi "thụt lên xuống không đều" Ban lãnh đạo
+            * đã bắt ngày 15/08/2026.
+            *
+            * 📌 `role="progressbar"` + `aria-*`: thanh này chở thông tin thật nên trình đọc màn
+            * hình phải đọc được, không chỉ là một vệt màu trang trí.
+            */}
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={the.length}
+            aria-valuenow={soDaGiao}
+            aria-label={`${giaiDoan.nhan}: đã giao ${soDaGiao} trên ${the.length} hồ sơ`}
+            className="h-1.5 w-full overflow-hidden rounded-full bg-neutral/25"
+          >
+            <div
+              className={`h-full rounded-full transition-[width] ${
+                soQuaHan > 0 ? LOP_NEN_DAC.danger : LOP_NEN_DAC[giaiDoan.tong]
+              }`}
+              /* Bề rộng là SỐ TÍNH RA nên buộc phải đặt qua `style` — Tailwind chỉ sinh được lớp
+                 cho những giá trị viết sẵn trong mã, `w-[${…}%]` động sẽ không có lớp nào cả và
+                 thanh im lặng mất luôn phần đã chạy. */
+              style={{ width: `${tyLeDaGiao}%` }}
+            />
+          </div>
+          <p className="text-xs text-text-desc">
+            {the.length === 0
+              ? "0 đề nghị"
+              : `${soDaGiao}/${the.length} đã giao${soQuaHan > 0 ? ` · ${soQuaHan} quá hạn` : ""}`}
+            {/* ★ SỐ HỒ SƠ CÒN THIẾU Ở NGAY ĐẦU CỘT (23/08/2026) — Ban lãnh đạo: *"cần hiển thị đỏ
+                để biết đang thiếu ở bước nào"*. Đọc đầu cột là biết bước nào có hồ sơ còn nợ, không
+                phải rà từng thẻ; thẻ nào nợ thì đã có viền đỏ để tìm ra ngay. */}
+            {soConThieu > 0 && (
+              <span className="font-semibold text-danger"> · {soConThieu} còn thiếu</span>
+            )}
+          </p>
+        </div>
       </header>
 
       {/* Thân cột — `flex-1 min-h-0` để mọi cột cao bằng nhau và kín đáy bảng;
           nội dung vượt chiều cao thì cuộn dọc BÊN TRONG cột, trang không dài ra. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-(--hp-md-row-gap) overflow-y-auto p-(--hp-md-row-pad)">
+      {/**
+        * Thân cột — KHÔNG CÒN CUỘN RIÊNG từ 23/08/2026.
+        *
+        * 🔴 Ban lãnh đạo chỉ mũi tên ra mép phải bảng: *"Đưa ra ngoài cùng"*. Trước đây mỗi cột
+        * tự cuộn dọc, nên cột nào nhiều thẻ là mọc một thanh cuộn **giữa lòng bảng**, chen ngay
+        * cạnh vạch chia hai cột — ba lần tôi chỉnh bề dày và đệm đều không chữa được, vì cái sai
+        * là CHỖ ĐẶT chứ không phải hình dáng.
+        *
+        * Nay cả bảng cuộn dọc một lần, thanh nằm ở mép phải ngoài cùng (`overflow-auto` ở khung
+        * ngoài), và đầu cột `sticky` nên tên bước không trôi mất.
+        *
+        * ⚠️ Bỏ `min-h-0` cùng lúc với bỏ `overflow-y-auto`: `min-h-0` chỉ có nghĩa khi phần tử
+        * phải co lại để cuộn bên trong. Giữ lại mà không còn cuộn thì cột cao nhất không kéo được
+        * các cột khác cao theo, bảng thành so le.
+        */}
+      {/* ★ ĐỆM NGANG = 0 (Ban lãnh đạo 23/08/2026: *"khoảng cách chỗ này thu nhỏ lại hoặc bỏ luôn
+          đi, để full viền luôn"* — ảnh khoanh đỏ đúng hai dải trống hai bên thẻ).
+
+          Thẻ nay chạy sát vạch chia cột, nên bề rộng dùng được cho nội dung thẻ tăng thêm 2 ×
+          12px = 24px trên mỗi cột — chính là chỗ đang làm tiêu đề hồ sơ gãy thành 3–4 dòng.
+
+          Lượt sau Ban lãnh đạo chỉ tiếp dải trống phía TRÊN thẻ đầu: *"Bỏ khoảng cách này luôn"*
+          → đệm dọc cũng về 0. Thẻ đầu dán ngay dưới vạch chân đầu cột.
+
+          ★ LƯỢT BA (`"vẫn còn khoảng cách"`, ảnh khoanh đúng dải xám GIỮA hai thẻ): `gap` cũng về
+          0. Nay cột là một khối thẻ xếp liền, không còn một milimét nền xám nào lọt giữa.
+
+          🔴 `gap-0` MỘT MÌNH THÌ RA HAI ĐƯỜNG VIỀN SÁT NHAU (viền dưới thẻ trên + viền trên thẻ
+          dưới = vạch dày 2px, đậm hơn mọi vạch khác trên bảng). Vì vậy thẻ phải kéo lên 1px để
+          hai viền chồng thành một — xử ở `TheDeNghi` bằng `-mb-px`, xem chú thích ở đó. Sửa một
+          chỗ mà bỏ chỗ kia là bảng có vạch đôi, nhìn như lỗi kẻ bảng. */}
+      <div className="flex flex-1 flex-col gap-0 p-0">
         {the.length === 0 ? (
           <p className="py-4 text-center text-xs text-text-disabled">Không có đề nghị nào</p>
         ) : (
@@ -380,7 +587,9 @@ function TheDeNghi({
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
 }) {
-  const { deNghi, han, nguoiPhuTrach, soDongChuaPhanBo, maPOLienQuan } = the;
+  /* `soDongChuaPhanBo` không lấy ra nữa — số đó đã nằm trong câu `the.conNo`. Trường vẫn còn
+     trên `TheDeNghiTrenBang` cho nơi khác dùng, chỉ thẻ này thôi đọc trực tiếp. */
+  const { deNghi, han, nguoiPhuTrach, maPOLienQuan } = the;
   const { nguoiDung } = useNguoiDung();
   /**
    * Thẻ này có phải việc của chính người đang xem không.
@@ -414,48 +623,66 @@ function TheDeNghi({
       /* ⚠️ `onDragEnd` BẮN CẢ KHI BỎ GIỮA ĐƯỜNG (nhả chuột ngoài cột, bấm Esc). Không dọn ở
          đây thì các cột ngoài phạm vi bị mờ vĩnh viễn cho tới lần kéo sau. */
       onDragEnd={keoThaDuoc ? onKetThucKeo : undefined}
-      className={`flex flex-col gap-1.5 rounded-lg border border-border border-l-4 p-(--hp-md-row-pad) transition-colors hover:border-primary ${
+      /**
+        * ★ THẺ XẾP LIỀN, KHÔNG BO GÓC (23/08/2026 — Ban lãnh đạo: *"vẫn còn khoảng cách"*, khoanh
+        * đúng dải xám giữa hai thẻ). Thân cột đã về `gap-0`, nên:
+        *
+        *   · `rounded-none` thay `rounded-lg`: góc bo mà thẻ dán nhau thì hai góc cong quay vào
+        *     nhau, hở ra bốn mẩu nền xám hình tam giác — đúng thứ vừa được yêu cầu bỏ, chỉ nhỏ
+        *     hơn. Xếp liền thì phải vuông góc.
+        *   · `-mb-px` kéo mỗi thẻ lên 1px để viền dưới thẻ trên và viền trên thẻ dưới CHỒNG
+        *     thành một vạch 1px, thay vì cộng lại thành vạch đôi 2px đậm hơn mọi vạch khác.
+        *
+        * ⚠️ `-mb-px` áp cho CẢ thẻ cuối (Tailwind không có biến thể `not-last` gọn ở đây). Hệ quả
+        * duy nhất: cột ngắn đi 1px ở đáy — không thấy được, vì thân cột đã hết đệm và viền đáy
+        * bảng nằm ở khung ngoài.
+        */
+      /**
+        * ★ VIỀN ĐỎ KHI BƯỚC ĐANG ĐỨNG CÒN NỢ — Ban lãnh đạo 23/08/2026: *"ở quy trình này cũng
+        * cần hiển thị đỏ để biết đang thiếu ở bước nào"*.
+        *
+        * 📌 Thẻ nằm ở cột nào = bước hiện tại của nó, nên tô thẻ là đã trả lời đúng câu *"thiếu ở
+        * bước nào"* — không cần thêm dấu gì ở cột.
+        *
+        * ⚠️ Chỉ đổi VIỀN NGOÀI, giữ nguyên `border-l-4` màu bước ở lề trái: dải màu đó là cái để
+        * mắt nhận ra thẻ thuộc bước nào khi cuộn ngang, đổi nó sang đỏ là mất luôn thông tin đó.
+        * Nhãn hạn (`Còn 6 ngày` / viền đỏ khi quá hạn) cũng giữ — hai việc khác nhau: quá hạn là
+        * chuyện THỜI GIAN, còn nợ chứng từ là chuyện HỒ SƠ.
+        */
+      className={`-mb-px flex flex-col gap-1.5 rounded-none border border-l-4 p-(--hp-md-row-pad) transition-colors hover:border-primary ${
+        the.conNo ? "border-danger" : "border-border"
+      } ${
         keoThaDuoc ? "cursor-grab active:cursor-grabbing" : ""
       } ${LOP_VIEN_TRAI[han.quaHan ? "danger" : tongGiaiDoan]} ${nenThe}`}
     >
-      {/* ★ BỐ CỤC LẠI TIÊU ĐỀ — Ban lãnh đạo 20/08/2026: *"bố cục thêm thông tin hiển thị này,
-          sau này các app khác sẽ link từ mã đề nghị"*, chỉ rõ ba thứ cần tách: **mã đề nghị ·
-          mã công trình · tên công trình**.
-
-          🔴 VÌ SAO BỎ CÁCH GHÉP MỘT DÒNG (làm ngày 14/08 theo mẫu Base): mã đề nghị của công ty
-          này **chứa luôn mã công trình ở đầu** (`29/2025/HĐXD-HPCS-MẠNH TƯỚI` + `-PR-001`). Nối
-          bằng dấu gạch thì thẻ đọc ra thành *"…MẠNH TƯỚI-PR-001 - 29/2025/HĐXD-HPCS-MẠNH TƯỚI"*
-          — nhìn như app in lặp một chuỗi, và không ai tách được đâu là mã hồ sơ đâu là công
-          trình. Có NHÃN đứng trước thì cùng lượng chữ nhưng đọc ra ngay.
-
-          📌 MÃ ĐỀ NGHỊ ĐỨNG RIÊNG MỘT DÒNG vì nó là **khóa liên kết giữa các app** (Kho, QLDA
-          sẽ tra hồ sơ bằng mã này). Nó phải đọc và chọn được nguyên vẹn, không dính đuôi chuỗi
-          khác — nên có `select-all` để bấm một lần là chọn trọn mã. */}
+      {/**
+        * ★ TIÊU ĐỀ MỘT DÒNG THEO ĐÚNG MẪU BASE — Ban lãnh đạo 21/08/2026 gửi ảnh bảng Base thật
+        * (`TM-QT Mua hàng (HP CONS)`) kèm chú giải, và ghi *"bố cục giống vậy"*:
+        *
+        *     2975818 - 01/2026/HĐXD-HPCS - NHÀ MÁY HOWELL
+        *     └ mã đề xuất   └ số hợp đồng      └ tên công trình
+        *
+        * 🔴 LẦN NÀY GHÉP ĐƯỢC, LẦN 20/08 THÌ KHÔNG — khác nhau ở PHẦN ĐẦU:
+        *   · 20/08 phần đầu là **mã đề nghị của app** (`29/2025/HĐXD-HPCS-MẠNH TƯỚI-PR-001`), mà
+        *     mã đó **chứa luôn số hợp đồng ở đầu**. Ghép vào là đọc ra *"…MẠNH TƯỚI-PR-001 -
+        *     29/2025/HĐXD-HPCS-MẠNH TƯỚI"* — như in lặp một chuỗi, nên Sếp yêu cầu tách ra.
+        *   · Nay phần đầu là **mã đề xuất App Request** (`2975818` — số ngắn, không chứa gì của
+        *     công trình), nên ba phần rời nhau rõ ràng, không lặp một ký tự nào.
+        * 👉 Đừng đổi phần đầu về `deNghi.code`: làm vậy là quay lại đúng cái đã bị bác.
+        *
+        * 📌 Phiếu LẬP TAY trong app không có mã đề xuất — lúc đó phần đầu lùi về mã đề nghị, vì
+        * thẻ vẫn phải có một mã để gọi tên. Không bỏ trống.
+        */}
       <div className="flex items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-sm font-semibold leading-tight text-primary break-all select-all">
-            {deNghi.code}
-          </span>
-          {/* Chỉ vẽ dòng công trình khi CÓ dữ liệu — nhãn trơ không giá trị là hứa suông. */}
-          {(deNghi.tenCongTrinh || deNghi.maHopDongCDT) && (
-            <span className="text-xs leading-snug text-text-desc">
-              {deNghi.tenCongTrinh && (
-                <>
-                  <span className="text-text-secondary">Công trình:</span>{" "}
-                  <span className="font-medium text-text-primary">
-                    {deNghi.tenCongTrinh.toUpperCase()}
-                  </span>
-                </>
-              )}
-              {deNghi.tenCongTrinh && deNghi.maHopDongCDT ? " · " : ""}
-              {deNghi.maHopDongCDT && (
-                <>
-                  <span className="text-text-secondary">Mã công trình:</span>{" "}
-                  <span className="break-all">{deNghi.maHopDongCDT}</span>
-                </>
-              )}
+          <span className="text-sm font-semibold leading-tight text-text-primary">
+            {/* Mã đứng đầu tô màu chủ đạo để mắt bắt được ngay trong một cột dài các thẻ. */}
+            <span className="text-primary select-all">
+              {deNghi.maDeXuatAppRequest || deNghi.code}
             </span>
-          )}
+            {deNghi.maHopDongCDT ? ` - ${deNghi.maHopDongCDT}` : ""}
+            {deNghi.tenCongTrinh ? ` - ${deNghi.tenCongTrinh.toUpperCase()}` : ""}
+          </span>
         </span>
         <span className="flex shrink-0 items-center gap-1">
           {deNghi.mucDoUuTien === "gap" && <StatusBadge label="Gấp" tone="danger" />}
@@ -478,6 +705,11 @@ function TheDeNghi({
           vùng cắt của khung cuộn ngang và kéo giãn cả trang — trên điện thoại làm toàn bộ
           màn hình trôi ngang. */}
       <p className="text-xs leading-snug text-text-desc">
+        {/* 📌 ĐÃ BỎ "Mã hồ sơ" khỏi dòng này (21/08/2026) — Ban lãnh đạo khoanh đỏ đúng dòng này
+            và ghi *"bố cục hiển thị giống vậy"*, mà Base chỉ có: Bộ phận · Nhóm đề xuất · Ngày
+            đề nghị cấp · Chi tiết · Link phiếu đề nghị.
+            ⚠️ Mã hồ sơ của app KHÔNG mất: vẫn ở menu ⋯ (*"Sao chép mã đề nghị"*), ở trang chi
+            tiết, và tìm kiếm vẫn ra. Chỉ bỏ khỏi thẻ cho gọn đúng mẫu. */}
         <span className="text-text-secondary">Bộ phận:</span>{" "}
         {nhanPhongBan(deNghi.phongBanNguon)}
         {" · "}
@@ -495,6 +727,27 @@ function TheDeNghi({
           <>
             {" · "}
             <span className="text-text-secondary">Tài liệu:</span> {deNghi.taiLieu.length} tệp
+          </>
+        )}
+        {/* ★ LINK PHIẾU ĐỀ NGHỊ — thành phần cuối của dòng meta trong Base (*"Link phiếu đề …"*).
+            🔴 BẤM ĐƯỢC, không chỉ là chữ: Base cắt cụt thành "Link phiếu đề…" nên bên đó phải mở
+            thẻ ra mới dùng được. Ở đây bấm là mở luôn phiếu gốc — đó mới là việc người ta cần khi
+            đọc thẻ.
+            ⚠️ `stopPropagation` là bắt buộc: cả thẻ là một <Link> và kéo-thả được, thiếu nó thì
+            bấm vào đây là mở trang chi tiết thay vì mở phiếu gốc. */}
+        {deNghi.linkPhieuDeNghi && (
+          <>
+            {" · "}
+            <a
+              href={deNghi.linkPhieuDeNghi}
+              target="_blank"
+              rel="noopener noreferrer"
+              draggable={false}
+              onClick={(e) => e.stopPropagation()}
+              className="font-medium text-primary underline decoration-dotted hover:decoration-solid"
+            >
+              Link phiếu đề nghị
+            </a>
           </>
         )}
       </p>
@@ -556,10 +809,36 @@ function TheDeNghi({
 
           🔴 Vẫn GIỮ dòng "Thiếu N công việc chưa phân bổ": đó là SỐ LIỆU nghiệp vụ (còn bao
           nhiêu đầu việc chưa ai nhận), không phải câu giải thích cách app hoạt động. */}
-      {soDongChuaPhanBo > 0 && (
-        <span className="inline-flex items-center gap-1 text-xs text-danger-soft">
-          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-          Thiếu {soDongChuaPhanBo} công việc chưa phân bổ
+      {/**
+        * ★ MỘT DÒNG ĐỎ DUY NHẤT, NÓI ĐỦ BƯỚC NÀY CÒN THIẾU GÌ (23/08/2026).
+        *
+        * 🔴 GỘP TỪ HAI DÒNG RỜI: trước đây thẻ có "Thiếu N công việc chưa phân bổ" và "Còn nợ Hợp
+        * đồng/Đơn mua hàng" viết tay riêng. Hai dòng đó nay nằm trong `conNo` — một hàm
+        * (`conNoCuaBuoc`) sinh ra cả câu, nên thẻ trên bảng, viền đỏ ở trang chi tiết và hộp kéo
+        * thả **không bao giờ nói khác nhau**. Thêm loại thiếu mới thì sửa đúng một chỗ.
+        *
+        * 🔴 ĐÂY LÀ SỐ LIỆU NGHIỆP VỤ, KHÔNG PHẢI CÂU GIẢI THÍCH CÁCH APP CHẠY — nên KHÔNG rơi vào
+        * chỉ đạo 16/08/2026 (*"bỏ hết các ghi chú kiểu này đi"*). Nếu chỉ hiện ở trang chi tiết thì
+        * phải mở từng phiếu mới biết, tức là sẽ quên.
+        *
+        * 🔴 HIỆN ĐỦ MỌI MỤC, MỖI MỤC MỘT DÒNG — Ban lãnh đạo 23/08/2026: *"Thiếu những mục gì thì
+        * hiển thị đủ luôn"*.
+        *
+        * ⚠️ BẢN TRƯỚC CẮT BỚT BẰNG `line-clamp-2` và đó là sai: thẻ kanban rộng ~240px nên một câu
+        * gộp *"còn 1 công việc chưa hoàn thành … · chưa đính kèm Hóa đơn VAT"* bị cắt ngay ở mục
+        * thứ hai — người đọc tưởng chỉ thiếu một thứ, mà thứ bị giấu lại chính là chứng từ. Thẻ cao
+        * thêm vài dòng là cái giá rẻ hơn nhiều so với giấu mất một mục thiếu.
+        */}
+      {(the.dsConNo?.length ?? 0) > 0 && (
+        <span className="flex flex-col gap-0.5 text-xs font-medium text-danger">
+          {the.dsConNo!.map((muc) => (
+            <span key={muc} className="flex items-start gap-1">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              {/* Viết hoa chữ đầu từng dòng — `dsConNoCuaBuoc` trả các mảnh chữ thường để nối
+                  thành câu, đứng riêng một dòng thì phải đọc ra như một câu. */}
+              <span>{muc.charAt(0).toUpperCase() + muc.slice(1)}</span>
+            </span>
+          ))}
         </span>
       )}
     </Link>

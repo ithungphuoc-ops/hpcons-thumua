@@ -18,13 +18,23 @@ import {
   giaiDoanDaKetThuc,
   nguoiCanXuLy,
   vuongMacLapDonHang,
+  /* Chốt "công việc bắt buộc của bước trước còn treo" — dùng ở 4 cửa ghi, xem `themDonHang`. */
+  vuongMacViecBatBuocCacBuocTruoc,
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
+import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
-import { maDonHangTiepTheo } from "@/2-quy-trinh/dat-ma-don-hang";
+import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
+// Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
+import {
+  VIEC_UNC_XONG,
+  vuongMacDuyetHoanThanhDeNghi,
+  vuongMacHoanThanhQuyTrinh,
+  vuongMacTichXongUNC,
+} from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import {
   CAU_HINH_MAC_DINH,
   gopCauHinhVoiMacDinh,
@@ -36,24 +46,24 @@ import {
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import {
   maBanSaoTiepTheo,
+  tenBanSaoTheoMa,
   phieuGocCua,
   tinhPhuongAnTach,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import {
+  tinhTienDoDeNghi,
   tinhTienDoPO,
   vuongMacGhiThemPhieuNhan,
   vuongMacKhoiLuongNhan,
   vuongMacSoPhieuNCC,
 } from "@/2-quy-trinh/tinh-toan";
 import { nhanSuDangLamViec, tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
+/* Luật "vật tư kiểm soát định mức" — một chỗ duy nhất, xem effect báo Ban QLDA. */
+import { dongCanKiemSoatDinhMuc } from "@/2-quy-trinh/kiem-soat-dinh-muc";
 import {
   DE_NGHI_MAU,
   DON_HANG_MAU,
   GIA_DON_HANG_MAU,
-  ID_BAO_GIA_GIA_LAP,
-  ID_DE_NGHI_GIA_LAP,
-  ID_DON_HANG_GIA_LAP,
-  NHA_CUNG_CAP,
   PHIEU_NHAN_MAU,
   BAO_GIA_MAU,
   CONG_NO_MAU,
@@ -74,6 +84,7 @@ import type {
   GiaDonDatHang,
   NguoiTheoDoi,
   NhaCungCap,
+  ThuKhoCongTrinh,
   PhanBoNCC,
   PhieuNhanHang,
   ThongBaoChuyenBuoc,
@@ -204,6 +215,27 @@ interface GiaTriDuLieu {
     dienThoai?: string;
     nguoiLienHe?: string;
   }) => string | null;
+  /** Xoa mot nha cung cap khoi danh muc. Tra ly do bi chan, `null` la da xoa. */
+  xoaNhaCungCap: (id: string) => string | null;
+
+  /**
+   * ★ DANH MỤC THỦ KHO CÔNG TRÌNH — Ban lãnh đạo 22/08/2026: *"Thêm trường nhập liệu thông tin
+   * thủ kho công trình và cho lưu lại"*.
+   *
+   * 📌 KHÁC danh bạ nhân sự (`4-phan-quyen/dung-danh-ba.ts`): danh bạ chỉ có người đã có tài
+   * khoản, còn đây là người ở công trường phần lớn chưa có tài khoản. Ô chọn thủ kho ở màn lập
+   * đơn gộp cả hai nguồn.
+   */
+  thuKho: ThuKhoCongTrinh[];
+  /** Thêm thủ kho vào danh mục. Trả lý do bị chặn (thiếu tên / trùng tên), `null` là đã thêm. */
+  themThuKho: (n: {
+    ten: string;
+    soDienThoai?: string;
+    congTrinh?: string;
+    ghiChu?: string;
+  }) => string | null;
+  /** Xóa một thủ kho khỏi danh mục. `null` là đã xóa. */
+  xoaThuKho: (id: string) => string | null;
   baoGia: BaoGia[];
   congNo: CongNo[];
 
@@ -237,12 +269,20 @@ interface GiaTriDuLieu {
    * `traLai` = lùi vì **trưởng bộ phận KHÔNG DUYỆT** bảng báo giá (Ban lãnh đạo 19/08/2026),
    * kèm lý do bắt buộc. Bỏ trống = lùi thường (kéo thẻ trên bảng quy trình).
    */
+  /**
+   * ★ TRẢ VỀ KẾT QUẢ GỘP từ 22/08/2026 (trước là `void`).
+   *
+   * Lùi từ bước ② về ① có thể **gộp các bản tách trở lại phiếu gốc** (Ban lãnh đạo: *"khi kéo từ
+   * bước 2 về bước 1 thì phải hoàn trả đúng phiếu đề nghị chứ"*). Khi đó chính cái thẻ người dùng
+   * vừa kéo có thể **biến mất** (nếu nó là một bản tách), nên nơi gọi phải biết mà nói đúng —
+   * không thể báo *"{mã bản tách} đã về bước Tiếp nhận"* cho một mã vừa bị gộp mất.
+   */
   luiVeBuoc: (
     prId: string,
     ve: GiaiDoanMuaHang,
     nguoiThucHien: string,
     traLai?: { lyDo: string },
-  ) => void;
+  ) => { soPhieuDaGop: number; maGoc: string } | null;
   /**
    * Chuyển việc sang người khác khi người được giao không thực hiện được
    * (Ban lãnh đạo 12/08/2026). Giữ nguyên yêu cầu số báo giá và ghi chú giao việc.
@@ -272,7 +312,13 @@ interface GiaTriDuLieu {
   /** Đính kèm / thay phiếu giao nhận cho một phiếu nhận hàng đã ghi. */
   dinhKemPhieuGiao: (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => void;
   xacNhanKho: (poId: string, nguoi: XacNhan) => void;
-  xacNhanTruongBP: (poId: string, nguoi: XacNhan) => void;
+  /**
+   * Trưởng bộ phận xác nhận hoàn thành đơn — đơn khóa lại và hồ sơ sang Kế toán.
+   *
+   * ★ TRẢ `string | null` từ 22/08/2026: bắt buộc phải có Hóa đơn VAT mới duyệt được (chỉ đạo
+   * Ban lãnh đạo). Trả câu lý do để nút hiện ra, thay vì bấm mà không có gì xảy ra.
+   */
+  xacNhanTruongBP: (poId: string, nguoi: XacNhan) => string | null;
   /** Kéo thả ① Tiếp nhận → ② Yêu cầu báo giá: tạo bảng báo giá đang thu thập cho đề nghị. */
   taoBaoGiaGiaLap: (prId: string, nguoiThucHien: string) => string | null;
   /** Kéo thả ② → ③: chuyển mọi bảng báo giá của đề nghị từ trạng thái `tu` sang `sang`. */
@@ -349,6 +395,12 @@ interface GiaTriDuLieu {
   ) => void;
   /** Kéo thả vào cột Thất bại: đóng dở đề nghị, ghi lịch sử. */
   dongDoDeNghi: (prId: string, nguoiThucHien: string) => void;
+  /**
+   * ★ Đóng hồ sơ khi mọi việc đã xong — nút "Hoàn thành quy trình" (22/08/2026).
+   *
+   * Trả câu lý do nếu chưa đủ điều kiện (`vuongMacHoanThanhQuyTrinh`), `null` là đã hoàn thành.
+   */
+  hoanThanhQuyTrinh: (prId: string, nguoiThucHien: string) => string | null;
 
   // --- Thao tác trên đề nghị (menu ⋯ của thẻ bảng quy trình) ---
   /**
@@ -447,13 +499,20 @@ interface GiaTriDuLieu {
    */
   datSoBaoGiaChoPhieu: (prId: string, soBaoGia: number, nguoiThucHien: string) => void;
 
+  /**
+   * Tích / bỏ tích một công việc bắt buộc của bước.
+   *
+   * ★ TRẢ VỀ `string | null` từ 22/08/2026 (trước là `void`): có công việc **chỉ được tích khi
+   * điều kiện khác đã đủ** — cụ thể việc "đã xử lý ủy nhiệm chi" đòi có Hóa đơn VAT trước
+   * (chỉ đạo Ban lãnh đạo). Trả câu lý do để nơi gọi hiện ra, thay vì im lặng không làm gì.
+   */
   danhDauCongViecGiaiDoan: (
     prId: string,
     congViec: CongViecGiaiDoan,
     giaiDoan: string,
     xong: boolean,
     nguoiTen: string,
-  ) => void;
+  ) => string | null;
 
   // --- Tệp đính kèm của từng bước (Ban lãnh đạo 17/08/2026) ---
   /**
@@ -484,6 +543,17 @@ interface GiaTriDuLieu {
     maGiaiDoan: string,
     tepMoi: MoTaTep,
     nhanO: string,
+    nguoiThucHienTen: string,
+  ) => string | null;
+  /**
+   * Ghi (hoặc xóa, khi truyền chuỗi rỗng) lý do chưa có một chứng từ bắt buộc.
+   * `khoa` là hằng số ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, đừng gõ tay chuỗi.
+   * 🔴 Có lý do chỉ MỞ ĐƯỜNG ĐI TIẾP, không phải là đã đủ hồ sơ — hồ sơ vẫn bị tô đỏ.
+   */
+  ghiLyDoThieuChungTu: (
+    prId: string,
+    khoa: string,
+    lyDo: string,
     nguoiThucHienTen: string,
   ) => string | null;
   /**
@@ -728,6 +798,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * chép 4 dòng mẫu lên kho chung của cả phòng, và sau này bỏ dữ liệu mẫu đi cũng không mất gì.
    */
   const [nhaCungCapThem, setNhaCungCapThem] = useState<NhaCungCap[]>([]);
+  /** Danh mục thủ kho công trình người dùng tự thêm (22/08/2026). */
+  const [thuKhoThem, setThuKhoThem] = useState<ThuKhoCongTrinh[]>([]);
   /**
    * ★ CẤU HÌNH QUY TRÌNH — Ban lãnh đạo 13/08/2026: *"thêm chức năng cài đặt quy trình, có
    * thể chỉnh sửa các điều kiện trong quy trình"*.
@@ -820,6 +892,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        có `nhaCungCapThem`; ghi `[]` vào lúc đó là xóa mất nhà cung cấp người khác vừa thêm khi
        một máy chưa cập nhật nhận dữ liệu về. */
     if (Array.isArray(d.nhaCungCapThem)) setNhaCungCapThem(d.nhaCungCapThem);
+    /* Cùng bẫy "thiếu khóa ≠ rỗng" như dòng trên — xem chú thích ngay trên. */
+    if (Array.isArray(d.thuKhoThem)) setThuKhoThem(d.thuKhoThem);
     /**
      * 🔴 THIẾU KHÓA `cauHinh` ≠ "cấu hình là mặc định" — GIỮ NGUYÊN cái đang có.
      *
@@ -938,6 +1012,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       cauHinh,
       lichSuCauHinh,
       nhaCungCapThem,
+      thuKhoThem,
     };
     duLieuHienTai.current = d;
 
@@ -955,7 +1030,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
     anhChupCuoi.current = chuoi;
     dayLenMayChu(d);
-  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, nhaCungCapThem, dayLenMayChu]);
+  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, nhaCungCapThem, thuKhoThem, dayLenMayChu]);
 
   /**
    * ★ THÊM NHÀ CUNG CẤP VÀO DANH MỤC — Ban lãnh đạo 20/08/2026: *"tạo danh mục NCC do bộ phận thu
@@ -988,7 +1063,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (ten === "") return "Chưa có tên nhà cung cấp.";
 
       const chuanHoaTen = (s: string) => boDau(s).replace(/\s+/g, " ").trim().toLowerCase();
-      const daCo = [...NHA_CUNG_CAP, ...nhaCungCapThem];
+      /* Chỉ so với danh mục THẬT (phần tự thêm) — danh mục mẫu đã bỏ 21/08/2026. */
+      const daCo = nhaCungCapThem;
       if (daCo.some((x) => (x.maNCC ?? "").trim().toLowerCase() === ma.toLowerCase())) {
         return `Mã ${ma} đã có trong danh mục — dùng lại nhà cung cấp đó, hoặc đặt mã khác.`;
       }
@@ -1010,6 +1086,85 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     },
     [nhaCungCapThem],
   );
+
+  /**
+   * ★ XÓA MỘT NHÀ CUNG CẤP KHỎI DANH MỤC — Ban lãnh đạo 21/08/2026: *"thêm chức năng xoá NCC"*.
+   *
+   * Trả câu giải thích khi bị chặn, `null` là đã xóa.
+   *
+   * 🔴 CHẶN XÓA KHI ĐANG CÓ ĐƠN HÀNG DÙNG. Đơn hàng lưu sẵn mã/tên/MST nên xóa không làm vỡ đơn
+   * cũ, NHƯNG người sau mở đơn ra sẽ không tra được nhà cung cấp đó trong danh mục để lấy địa
+   * chỉ, người liên hệ — và không có cách nào biết bên đó từng tồn tại. Với chứng từ đã phát
+   * hành thì mất đường tra cứu là mất thứ cần khi đối chiếu công nợ.
+   *
+   * 👉 Muốn ngừng dùng một nhà cung cấp đang có đơn thì phải làm chức năng "ngừng dùng" (ẩn khỏi
+   * ô chọn nhưng vẫn tra được) — khác hẳn xóa. Chưa có, nên chặn ở đây và nói rõ.
+   */
+  const xoaNhaCungCap = useCallback(
+    (id: string): string | null => {
+      const ncc = nhaCungCapThem.find((n) => n.id === id);
+      if (!ncc) return "Nhà cung cấp này không còn trong danh mục.";
+
+      /* Đếm theo `supplierId` — khóa đơn hàng dùng để trỏ về danh mục. */
+      const soDon = donHangRef.current.filter((po) => po.supplierId === id).length;
+      if (soDon > 0) {
+        return `Đang có ${soDon} đơn đặt hàng dùng nhà cung cấp này nên không xóa được. Xóa đi là các đơn đó mất đường tra cứu địa chỉ và người liên hệ.`;
+      }
+
+      setNhaCungCapThem((truoc) => truoc.filter((n) => n.id !== id));
+      return null;
+    },
+    [nhaCungCapThem],
+  );
+
+  /**
+   * ★ THÊM THỦ KHO CÔNG TRÌNH VÀO DANH MỤC — Ban lãnh đạo 22/08/2026: *"Thêm trường nhập liệu
+   * thông tin thủ kho công trình và cho lưu lại"*.
+   *
+   * Trả câu lý do khi bị chặn, `null` là đã thêm.
+   *
+   * 🔴 CHẶN TRÙNG THEO TÊN ĐÃ BỎ DẤU. Người lập gõ *"Nguyễn Văn A"* hôm nay, *"nguyen van a"* hôm
+   * sau — hai dòng khác nhau trong ô chọn, và không ai biết dòng nào có số điện thoại đúng.
+   *
+   * ⚠️ KHÔNG chặn trùng số điện thoại: hai thủ kho ở hai công trình hoàn toàn có thể dùng chung
+   * một số của phòng bảo vệ / văn phòng công trường.
+   */
+  const themThuKho = useCallback(
+    (n: { ten: string; soDienThoai?: string; congTrinh?: string; ghiChu?: string }): string | null => {
+      const ten = n.ten.trim();
+      if (ten === "") return "Chưa có tên thủ kho.";
+
+      const chuanHoaTen = (s: string) => boDau(s).replace(/\s+/g, " ").trim().toLowerCase();
+      if (thuKhoThem.some((x) => chuanHoaTen(x.ten) === chuanHoaTen(ten))) {
+        return `Đã có thủ kho tên “${ten}” trong danh mục — chọn lại người đó, hoặc ghi thêm công trình để phân biệt.`;
+      }
+
+      const moi: ThuKhoCongTrinh = {
+        /* Khóa sinh từ tên đã bỏ dấu + số thứ tự: tên có dấu và khoảng trắng không dùng làm khóa
+           được, còn thêm số thứ tự để hai người tên gần giống nhau không đụng khóa. */
+        id: `tk-${boDau(ten).toLowerCase().replace(/\s+/g, "-")}-${thuKhoThem.length + 1}`,
+        ten,
+        ...(n.soDienThoai?.trim() ? { soDienThoai: n.soDienThoai.trim() } : {}),
+        ...(n.congTrinh?.trim() ? { congTrinh: n.congTrinh.trim() } : {}),
+        ...(n.ghiChu?.trim() ? { ghiChu: n.ghiChu.trim() } : {}),
+      };
+      setThuKhoThem((truoc) => [...truoc, moi]);
+      return null;
+    },
+    [thuKhoThem],
+  );
+
+  /**
+   * ★ XÓA MỘT THỦ KHO KHỎI DANH MỤC.
+   *
+   * ⚠️ KHÔNG chặn như xóa nhà cung cấp: đơn hàng lưu **tên và số điện thoại** người nhận thành
+   * chữ (`nguoiNhanHangTen`, `nguoiNhanHangSdt`), không trỏ khóa về danh mục này. Nên xóa khỏi
+   * danh mục không làm đơn cũ mất thông tin gì — chỉ là lần sau không chọn nhanh được nữa.
+   */
+  const xoaThuKho = useCallback((id: string): string | null => {
+    setThuKhoThem((truoc) => truoc.filter((n) => n.id !== id));
+    return null;
+  }, []);
 
   const xoaDuLieuChayThu = useCallback(async () => {
     // 🔴 Từ 12/08/2026 dữ liệu nằm trên máy chủ dùng chung, nên xóa là XÓA CỦA CẢ PHÒNG.
@@ -1128,6 +1283,41 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * là hàm tạo đề nghị (`themDeNghiGiaLap`) — nơi biết CHẮC hồ sơ vừa được thêm, chứ
        * không phải suy đoán từ chỗ "chưa từng thấy".
        */
+      /**
+       * ★ ĐỀ NGHỊ MỚI TỪ APP REQUEST — Ban lãnh đạo 21/08/2026: *"khi nhận được request nhưng
+       * tài khoản trưởng bộ phận lại không thấy thông báo"*.
+       *
+       * 🔴 VÌ SAO TRƯỚC ĐÂY KHÔNG CÓ: chú thích ngay trên nói đúng — effect này cố ý KHÔNG báo
+       * "đề nghị mới", và việc đó do hàm tạo đề nghị lo. Nhưng đề nghị từ App Request **ghi thẳng
+       * vào Firestore từ máy chủ** (`app/api/app-request/de-nghi-moi/route.ts`), không đi qua hàm
+       * tạo nào ở trình duyệt — nên không có chỗ nào báo, và trưởng bộ phận chỉ biết khi tự mở
+       * bảng ra xem.
+       *
+       * ⚠️ CHỐT CHỐNG BÃO THÔNG BÁO (đúng lỗi đã dính, ghi ở chú thích trên):
+       *   ① Chỉ xét hồ sơ có `maDeXuatAppRequest` — hồ sơ lập tay đã có đường báo riêng.
+       *   ② `buocCu === undefined` sau khi ref ĐÃ khởi tạo nghĩa là hồ sơ **vừa xuất hiện**, chứ
+       *      không phải "lần chạy đầu chưa có ref" — câu `if (!truoc) return` phía trên đã chặn
+       *      lần đầu.
+       *   ③ Lọc trùng theo `prId` NGAY TRONG updater ở dưới: kho thông báo dùng chung cả phòng,
+       *      nên máy thứ hai nhận cùng dữ liệu sẽ thấy tin đã có và không tạo thêm.
+       */
+      if (buocCu === undefined && dn.maDeXuatAppRequest && buocMoi) {
+        moi.push({
+          id: `tb-req-${soKeTiepThongBao()}`,
+          prId: dn.id,
+          prCode: dn.code,
+          tieuDe: dn.tieuDe,
+          /* `tuBuoc` = `denBuoc`: đây không phải một lần CHUYỂN bước, mà là hồ sơ mới vào app.
+             Chuông không in tên bước cho loại tin này (cùng quy ước với tin giao việc). */
+          tuBuoc: buocMoi,
+          denBuoc: buocMoi,
+          thoiDiem: new Date().toISOString(),
+          guiToi: nguoiCanXuLy(dn, buocMoi),
+          daDoc: false,
+        });
+        continue;
+      }
+
       if (!buocMoi || buocCu === undefined || buocCu === buocMoi) continue;
 
       moi.push({
@@ -1144,7 +1334,28 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       });
     }
     // Giữ tối đa 30 thông báo gần nhất — đủ cho một phiên trình diễn.
-    if (moi.length > 0) setThongBao((truocDo) => [...moi, ...truocDo].slice(0, 30));
+    if (moi.length > 0) {
+      setThongBao((truocDo) => {
+        /**
+         * 🔴 LỌC TRÙNG NGAY Ở ĐÂY, không lọc bên ngoài updater.
+         *
+         * Kho thông báo dùng chung cả phòng: cùng một đề nghị mới từ App Request sẽ tới MỌI máy
+         * đang mở app, và máy nào cũng chạy effect này. Lọc theo bản `truocDo` mới nhất là máy
+         * thứ hai thấy tin đã có và không tạo bản thứ hai.
+         *
+         * ⚠️ Chỉ chặn trùng cho tin loại "hồ sơ mới" (`tb-req-`): tin CHUYỂN BƯỚC thì một đề nghị
+         * đi qua nhiều bước nên có nhiều tin cùng `prId` là đúng, chặn theo `prId` sẽ mất tin.
+         */
+        const daCoReq = new Set(
+          truocDo.filter((t) => t.id.startsWith("tb-req-")).map((t) => t.prId),
+        );
+        const themVao = moi.filter(
+          (t) => !t.id.startsWith("tb-req-") || !daCoReq.has(t.prId),
+        );
+        if (themVao.length === 0) return truocDo;
+        return [...themVao, ...truocDo].slice(0, 30);
+      });
+    }
 
     /**
      * ★ TỰ TÁCH PHIẾU KHI VÀO BƯỚC ② — Ban lãnh đạo 15/08/2026: *"Khi trưởng phòng giao việc
@@ -1163,8 +1374,34 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * ⚠️ Người thực hiện ghi là "Hệ thống" vì đúng là app tự làm, không ai bấm nút. Muốn biết
      * ai gây ra thì đọc dòng nhật ký phân bổ ngay phía trên — nó có tên trưởng bộ phận.
      */
+    /**
+     * 🔴 SỬA 22/08/2026 — TRƯỚC ĐÂY LUẬT NÀY GẦN NHƯ KHÔNG BAO GIỜ CHẠY.
+     *
+     * Ban lãnh đạo báo *"code tách này trước đã có, mà sao khi sửa lại bị mất"*. Đã tra git:
+     * mã tách **chưa từng bị xóa** (chỉ một commit `68a247f` tạo ra, không commit nào sửa).
+     * Cái sai là ĐIỀU KIỆN GỌI: nó bắt đúng **khoảnh khắc** giai đoạn nhảy `tiep_nhan` →
+     * `yeu_cau_bao_gia`, nên bỏ lọt ba tình huống rất thường gặp:
+     *
+     *   ① Lần vẽ đầu sau khi mở app: `truoc` là Map rỗng nên MỌI phiếu bị bỏ qua. Phiếu đã ở
+     *      bước ② với hai người từ trước đó thì không bao giờ được tách nữa.
+     *   ② Phiếu đã ở bước ② rồi trưởng bộ phận mới phân bổ (hoặc phân bổ thêm người thứ hai):
+     *      bước trước = bước sau = ② → không khớp → bỏ qua.
+     *   ③ Phiếu từ App Request vào app đã kèm người phụ trách: lần đầu thấy nó đã ở ② luôn.
+     *
+     * Đúng cảnh trong ảnh Ban lãnh đạo gửi: phiếu `000000038` nằm ở cột ② với hai người phụ
+     * trách mà vẫn là một thẻ.
+     *
+     * 📌 NAY XÉT TRẠNG THÁI, KHÔNG XÉT KHOẢNH KHẮC: thấy phiếu đang ở bước ② mà còn nhiều người
+     * phụ trách thì tách. Không sợ chạy lặp — tách xong mỗi phiếu chỉ còn một người, và
+     * `tinhPhuongAnTach` trả `tach: false` cho cả phiếu gốc lẫn phiếu con.
+     *
+     * ⚠️ CHỈ TÁCH KHI CHƯA CÓ BẢNG BÁO GIÁ NÀO của phiếu. Bảng báo giá trỏ về `prId`, nên tách
+     * sau khi đã đi hỏi giá là bảng đó nằm lại phiếu gốc còn phiếu con trắng tay — người nhận
+     * phiếu con không hiểu giá đã hỏi ở đâu.
+     */
     for (const dn of deNghi) {
-      if (truoc.get(dn.id) !== "tiep_nhan" || hienTai.get(dn.id) !== "yeu_cau_bao_gia") continue;
+      if (hienTai.get(dn.id) !== "yeu_cau_bao_gia") continue;
+      if (baoGia.some((bg) => bg.prId === dn.id && bg.trangThai !== "huy")) continue;
       const kq = tachTheoPhanBoRef.current?.(dn.id, "Hệ thống");
       if (kq) {
         toast.info(`Đã tách ${dn.code} thành ${kq.soPhieu} phiếu`, {
@@ -1231,12 +1468,34 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [ghiLichSuDeNghi],
   );
 
+  /**
+   * ❌ KHÔNG CÒN ĐƯỜNG GỌI TỚI HÀM NÀY (23/08/2026) — và ĐỪNG NỐI LẠI.
+   *
+   * Ban lãnh đạo: *"Đã có app riêng tạo đề nghị… bỏ chức năng tạo đề nghị thử nghiệm của app
+   * này đi"*. Màn duy nhất gọi nó (`1-giao-dien/trang/de-nghi-nhan-moi.tsx`) và địa chỉ
+   * `/de-nghi/nhan-moi` đã bị xóa cùng lượt. Phiếu đề nghị nay CHỈ vào app qua một cửa duy
+   * nhất: `app/api/app-request/de-nghi-moi/route.ts`.
+   *
+   * 🔴 GIỮ MÃ LẠI, KHÔNG XÓA, vì hai lý do:
+   *   ① Đây là bản mô tả đầy đủ nhất một phiếu đề nghị "đúng chuẩn" gồm những gì — cửa tiếp
+   *      nhận từ App Request đang dựng phiếu MỎNG hơn (xem ⚠️ dưới), nên đây là chỗ đối chiếu.
+   *   ② Xóa nó là xóa luôn luật *"vật tư kiểm soát định mức thì tự báo cho QLDA"* (Ban lãnh
+   *      đạo 15/08/2026), mà luật đó chưa được dựng lại ở cửa App Request.
+   *
+   * ⚠️ VIỆC CÒN NỢ, PHẢI BÁO KHI CÓ DỊP: luật QLDA ở dưới **hiện không chạy cho phiếu thật**,
+   * vì phiếu thật không đi qua đây. Không phải do lượt xóa 23/08 — cửa App Request chưa bao
+   * giờ có luật đó. Muốn khôi phục thì làm cùng cách với effect "tự đưa người đề nghị vào danh
+   * sách theo dõi" (tìm `Tự đưa người đề nghị` trong file này), chứ đừng sửa route của phiên
+   * tích hợp.
+   */
   const themDeNghiGiaLap = useCallback((dauVao: DauVaoDeNghiGiaLap) => {
     const hienCo = deNghiRef.current;
 
-    // Lấy id dự phòng đầu tiên chưa dùng — hosting tĩnh chỉ mở được địa chỉ đã sinh sẵn.
-    const id = ID_DE_NGHI_GIA_LAP.find((x) => !hienCo.some((dn) => dn.id === x));
-    if (!id) return "";
+    /* ✅ BỎ GIỚI HẠN 12 ĐỀ NGHỊ (22/08/2026 — xem `6-tien-ich/sinh-id-ho-so.ts`).
+       ⚠️ Trước đây hàm này trả về chuỗi rỗng khi hết id, và nơi gọi hiểu đó là "không tạo được"
+       — nhưng KHÔNG có câu nào nói vì sao. Người dùng bấm tạo mà không thấy gì xảy ra. Nay không
+       còn nhánh đó nữa. */
+    const id = sinhIdHoSo("pr");
 
     // Số thứ tự chạy THEO DỰ ÁN, đúng quy tắc mã hồ sơ Thông báo 09/2026.
     // 🔴 Luật sinh mã ở `2-quy-trinh/dat-ten-de-nghi.ts` — KHÔNG đếm số phiếu hiện có rồi +1,
@@ -1554,32 +1813,131 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       nguoiThucHien: string,
       /** Có = trưởng bộ phận KHÔNG DUYỆT bảng báo giá, kèm lý do bắt buộc. */
       traLai?: { lyDo: string },
-    ): void => {
+    ): { soPhieuDaGop: number; maGoc: string } | null => {
       const ngay = thoiDiemHienTai();
+      /** Kết quả gộp bản tách — nơi gọi cần để nói đúng trong thông báo. */
+      let ketQuaGop: { soPhieuDaGop: number; maGoc: string } | null = null;
 
       if (ve === "tiep_nhan") {
-        // Bỏ hết phân bổ + hủy bảng báo giá trống.
-        setDeNghi((truoc) =>
-          truoc.map((dn) =>
-            dn.id !== prId
-              ? dn
-              : {
-                  ...dn,
-                  items: dn.items.map((d) => ({
-                    ...d,
-                    nguoiPhuTrachUid: undefined,
-                    nguoiPhuTrachTen: undefined,
-                    nguoiPhanBoTen: undefined,
-                    thoiDiemPhanBo: undefined,
-                    soBaoGiaYeuCau: undefined,
-                    ghiChuPhanBo: undefined,
-                  })),
-                },
-          ),
+        /**
+         * ★ GỘP CÁC BẢN TÁCH VỀ ĐÚNG PHIẾU GỐC — Ban lãnh đạo 22/08/2026: *"khi kéo từ bước 2 về
+         * bước 1 thì phải hoàn trả đúng phiếu đề nghị chứ"*.
+         *
+         * 🔴 VÌ SAO CẦN: từ khi app tự tách phiếu theo phân công, một đề nghị hai người thành hai
+         * phiếu. Trước đây kéo một phiếu về bước ① chỉ bỏ phân bổ của **chính phiếu đó** — phiếu
+         * kia vẫn nằm ở bước ②, và phiếu gốc thì chỉ còn một nửa số dòng. Người dùng tưởng đã
+         * hoàn tác việc chia việc, thực tế hồ sơ bị chẻ đôi vĩnh viễn.
+         *
+         * 📌 Gộp về PHIẾU GỐC ĐẦU TIÊN, kể cả khi người dùng kéo chính một bản tách: "hoàn trả
+         * đúng phiếu đề nghị" nghĩa là trả lại nguyên trạng phiếu ban đầu, không phải trả nửa này
+         * nửa kia.
+         *
+         * 🔴 CHỈ GỘP KHI CÁC PHIẾU CHƯA PHÁT SINH CHỨNG TỪ. Bản tách nào đã có đơn hàng thì
+         * `quyetDinhLui` đã chặn từ trước (nó không cho lùi khi có giá NCC), nhưng ở đây kiểm lại
+         * lần nữa cho chắc: gộp mà xóa một phiếu đang có đơn là làm đơn đó mồ côi.
+         *
+         * ⚠️ `stt` ĐÁNH SỐ LẠI TỪ 1 sau khi gộp. Bản tách không lưu `stt` gốc (xem `tachTheoPhanBo`)
+         * nên không khôi phục số cũ được — nhưng ở bước ① chưa có đơn hàng nào trỏ vào `stt`, nên
+         * đánh lại là an toàn. Nếu sau này cho lùi từ bước có đơn hàng thì PHẢI lưu `stt` gốc trước.
+         */
+        const dsHienTai = deNghiRef.current;
+        const phieuKeo = dsHienTai.find((d) => d.id === prId);
+        const idGoc = phieuKeo?.deNghiGocId ?? prId;
+        const banTach = dsHienTai.filter((d) => d.deNghiGocId === idGoc && d.id !== idGoc);
+        const coChungTu = [idGoc, ...banTach.map((d) => d.id)].some(
+          (id) =>
+            donHangRef.current.some((po) => po.prId === id && po.trangThai !== "huy") ||
+            baoGiaRef.current.some(
+              (bg) => bg.prId === id && bg.trangThai !== "huy" && bg.items.some((it) => it.baoGiaNCC.length > 0),
+            ),
         );
+        const gopDuoc = banTach.length > 0 && !coChungTu;
+        if (gopDuoc) {
+          ketQuaGop = {
+            soPhieuDaGop: banTach.length,
+            maGoc: dsHienTai.find((d) => d.id === idGoc)?.code ?? "",
+          };
+        }
+
+        setDeNghi((truoc) => {
+          /* Không có bản tách (hoặc không gộp được) → giữ đúng hành vi cũ: chỉ bỏ phân bổ. */
+          if (!gopDuoc) {
+            return truoc.map((dn) =>
+              dn.id !== prId
+                ? dn
+                : {
+                    ...dn,
+                    items: dn.items.map((d) => ({
+                      ...d,
+                      nguoiPhuTrachUid: undefined,
+                      nguoiPhuTrachTen: undefined,
+                      nguoiPhanBoTen: undefined,
+                      thoiDiemPhanBo: undefined,
+                      soBaoGiaYeuCau: undefined,
+                      ghiChuPhanBo: undefined,
+                    })),
+                  },
+            );
+          }
+
+          const goc = truoc.find((d) => d.id === idGoc);
+          if (!goc) return truoc;
+          const idBanTach = new Set(banTach.map((d) => d.id));
+          /* Dòng của gốc trước, rồi dòng của từng bản tách theo đúng thứ tự mã — để danh sách
+             sau khi gộp có thứ tự đoán được, không phụ thuộc thứ tự trong kho dữ liệu. */
+          const dongGop = [
+            ...goc.items,
+            ...[...banTach]
+              .sort((a, b) => a.code.localeCompare(b.code, "vi"))
+              .flatMap((d) => d.items),
+          ].map((d, i) => ({
+            ...d,
+            stt: i + 1,
+            nguoiPhuTrachUid: undefined,
+            nguoiPhuTrachTen: undefined,
+            nguoiPhanBoTen: undefined,
+            thoiDiemPhanBo: undefined,
+            soBaoGiaYeuCau: undefined,
+            ghiChuPhanBo: undefined,
+          }));
+
+          return truoc
+            .filter((d) => !idBanTach.has(d.id))
+            .map((dn) =>
+              dn.id !== idGoc
+                ? dn
+                : {
+                    ...dn,
+                    items: dongGop,
+                    lichSu: [
+                      ...dn.lichSu,
+                      {
+                        thoiDiem: ngay,
+                        nguoiThucHien,
+                        hanhDong: `Gộp ${banTach.length} phiếu tách trở lại phiếu gốc — kéo về bước tiếp nhận`,
+                        ghiChu: `Đã bỏ: ${banTach.map((d) => d.code).join(", ")}. Phiếu gốc nhận lại đủ ${dongGop.length} mặt hàng.`,
+                      },
+                    ],
+                  },
+            );
+        });
+
+        /**
+         * Hủy bảng báo giá trống — MỘT LẦN GHI cho cả nhóm.
+         *
+         * 🔴 Khi có gộp thì phải hủy cả bảng của CÁC BẢN TÁCH, không chỉ của phiếu được kéo:
+         * phiếu đã bị xóa mà bảng báo giá của nó còn sống là bảng mồ côi, không màn nào mở ra
+         * được nữa mà vẫn nằm trong dữ liệu.
+         *
+         * ⚠️ Gọi `setBaoGia` HAI LẦN liên tiếp (bản đầu tôi viết vậy) là hai lượt ghi, và effect
+         * đẩy lên kho chung có thể bắt đúng lượt giữa — đẩy lên một trạng thái nửa vời.
+         */
+        const idHuyBaoGia = gopDuoc
+          ? new Set([idGoc, ...banTach.map((d) => d.id)])
+          : new Set([prId]);
         setBaoGia((truoc) =>
           truoc.map((b) =>
-            b.prId === prId && b.trangThai !== "huy"
+            idHuyBaoGia.has(b.prId) && b.trangThai !== "huy"
               ? { ...b, trangThai: "huy", ngayCapNhat: ngay }
               : b,
           ),
@@ -1660,6 +2018,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           ? `Không duyệt bảng báo giá — trả lại bước "${NHAN_GIAI_DOAN[ve].nhan}"`
           : `Lùi một bước về "${NHAN_GIAI_DOAN[ve].nhan}" — kéo thẻ trên bảng quy trình`,
       );
+      /* ⚠️ `ghiLichSuDeNghi(prId, …)` ở trên ghi vào PHIẾU ĐANG KÉO. Nếu phiếu đó vừa bị gộp mất
+         thì dòng nhật ký này không tới đâu — nhưng phiếu gốc đã có dòng "Gộp N phiếu tách trở
+         lại phiếu gốc" ghi trong cùng lần cập nhật ở trên, nên hồ sơ vẫn có vết. */
+      return ketQuaGop;
     },
     [ghiLichSuDeNghi],
   );
@@ -1836,6 +2198,28 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const { donGia, thueSuatDong, phanTien, ...po } = dauVao;
 
       /**
+       * 🔴🔴 CHỐT CÔNG VIỆC BẮT BUỘC CỦA CÁC BƯỚC TRƯỚC (Sếp chốt 23/08/2026, sau khi phát hiện
+       * hồ sơ đã ở bước ⑥ mà bước ① vẫn treo việc *"Checkin hàng tồn kho"*).
+       *
+       * Luật ở `2-quy-trinh/giai-doan-mua-hang.ts` → `vuongMacViecBatBuocCacBuocTruoc` — xem chú
+       * thích dài ở đó để biết vì sao chặn tại CỬA GHI chứ không chặn ở chỗ tính giai đoạn.
+       *
+       * ⚠️ ĐỪNG BỎ CHỐT NÀY Ở MỘT CỬA MÀ GIỮ Ở CỬA KHÁC. Bỏ một chỗ là hồ sơ đi vòng qua đúng
+       * chỗ đó — đúng cách lỗ hổng này sinh ra: luật vốn CHỈ có trên đường kéo thả.
+       */
+      if (po.prId) {
+        const dnGoc = deNghiRef.current.find((x) => x.id === po.prId);
+        if (dnGoc) {
+          const chanViec = vuongMacViecBatBuocCacBuocTruoc(
+            dnGoc,
+            xacDinhGiaiDoan(dnGoc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
+            cauHinhRef.current,
+          );
+          if (chanViec) return { loi: chanViec };
+        }
+      }
+
+      /**
        * 🔴 CHẶN LẬP ĐƠN KHI CHƯA QUA XÉT DUYỆT BÁO GIÁ — Ban lãnh đạo 15/08/2026: *"bước này
        * sao trưởng phòng chưa duyệt đã đẩy qua tiến hành đặt hàng rồi"*.
        *
@@ -1899,24 +2283,34 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      // Số thứ tự PO chạy theo DỰ ÁN, đúng quy tắc mã hồ sơ Thông báo 09/2026.
-      // 🔴 Luật ở `2-quy-trinh/dat-ma-don-hang.ts` — KHÔNG đếm số đơn hiện có rồi +1 (bỏ một
-      // đơn là mã tiếp theo trùng với đơn đang tồn tại). Xem chú thích ở file đó.
+      /**
+       * ★ SỐ ĐƠN `DMH[năm]-[0000]` — Ban lãnh đạo 23/08/2026 (xem `2-quy-trinh/dat-ma-don-hang.ts`).
+       *
+       * 🔴 NĂM LẤY THEO NGÀY LẬP ĐƠN, không theo hôm nay — lý do ở `namCuaNgay`.
+       * 🔴 CHẶN Ở ĐÂY khi ngày lập đơn không đúng khuôn: `nam` rỗng cho ra `DMH-0001`, một số
+       *    chứng từ không tra cứu được và không sửa lại được sau khi đơn đã gửi nhà cung cấp.
+       * 🔴 Truyền MỌI mã đang có (cả dãy cũ `…-PO-001`) để vòng chống trùng nhìn được toàn bộ.
+       */
+      const namLap = namCuaNgay(po.ngayLapPO ?? "");
+      if (!namLap) {
+        return {
+          loi: "Ngày lập đơn không hợp lệ nên chưa cấp được số đơn hàng. Chọn lại ngày đơn hàng rồi thử lại.",
+        };
+      }
       const code = maDonHangTiepTheo(
-        po.maDuAn,
+        namLap,
         donHangRef.current.map((p) => p.code),
       );
 
-      // Lấy id dự phòng ĐÃ SINH SẴN TRANG — hosting tĩnh chỉ mở được địa chỉ có sẵn.
-      // Trước đây dùng id tự nghĩ (`po-moi-...`) nên bấm vào đơn vừa lập là ra 404.
-      const id = ID_DON_HANG_GIA_LAP.find(
-        (x) => !donHangRef.current.some((p) => p.id === x),
-      );
-      if (!id) {
-        return {
-          loi: "Bản chạy thử chỉ lập được 20 đơn và đã dùng hết. Tải lại trang để về dữ liệu gốc.",
-        };
-      }
+      /* ✅ BỎ GIỚI HẠN 20 ĐƠN (22/08/2026, cùng lý do với hồ sơ báo giá — xem
+         `6-tien-ich/sinh-id-ho-so.ts`).
+
+         Chú thích cũ ở đây ghi *"hosting tĩnh chỉ mở được địa chỉ có sẵn"* — đúng ở thời điểm đó,
+         nhưng `output: "export"` đã bị bỏ ngày 20/08/2026 nên máy chủ dựng trang theo yêu cầu.
+         `generateStaticParams` trong `app/(app)/don-hang/[id]/page.tsx` giờ chỉ *sinh sẵn* một số
+         trang cho nhanh, id ngoài danh sách vẫn mở được — đã chứng minh bằng đề nghị của App
+         Request mang id UUID. */
+      const id = sinhIdHoSo("po");
 
       /**
        * ⚠️ KHÔNG gắn sẵn `lichSu` cho đơn mới. Mọi đơn cất được đều gắn một phiếu đề nghị (chốt
@@ -2003,6 +2397,25 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         ) {
           return;
         }
+
+        /**
+         * 🔴 Chốt công việc bắt buộc của các bước trước — xem chú thích ở `themDonHang`.
+         *
+         * ⚠️ Đây là cửa NHẠY NHẤT trong bốn cửa: ghi phiếu nhận là việc của THỦ KHO, mà người chặn
+         * lại là công việc treo bên Thu mua (VD "Checkin hàng tồn kho" ở bước ①). Nếu về sau Sếp
+         * thấy thủ kho bị kẹt vì việc của phòng khác thì đây là chỗ cần nới, không phải ba cửa kia.
+         */
+        const dnGoc = poDangGhi.prId
+          ? deNghiRef.current.find((x) => x.id === poDangGhi.prId)
+          : undefined;
+        if (dnGoc) {
+          const chanViec = vuongMacViecBatBuocCacBuocTruoc(
+            dnGoc,
+            xacDinhGiaiDoan(dnGoc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
+            cauHinhRef.current,
+          );
+          if (chanViec) return;
+        }
       }
 
       const lanGiaoThu = cuaPO.length + 1;
@@ -2053,6 +2466,28 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const dinhKemPhieuGiao = useCallback(
     (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => {
+      /**
+       * 🔴🔴 CHẶN Ở TẦNG GHI KHI ĐƠN ĐÃ HOÀN THÀNH (23/08/2026).
+       *
+       * Giao diện đã ẩn ô đính kèm (`bang-tien-do-po.tsx`), nhưng **ẩn nút KHÔNG PHẢI LÀ CHẶN**:
+       * form có thể đang mở sẵn từ trước lúc đơn được xác nhận (hai người cùng làm trên kho chung),
+       * và về sau có thể có đường gọi khác. Kiểm lại ở đây thì mọi đường đều bị chặn như nhau.
+       *
+       * VÌ SAO QUAN TRỌNG: luật "mỗi lần giao phải có phiếu giao nhận mới được xác nhận hoàn thành"
+       * (Ban lãnh đạo 11/08/2026) lấy chính tệp này làm căn cứ. Thay tệp sau khi thủ kho và trưởng
+       * bộ phận đã xác nhận là **đổi chứng từ đã ký** — hai lớp xác nhận thành xác nhận cho một nội
+       * dung khác nội dung hiện tại.
+       *
+       * ⚠️ Hàm này không trả lỗi cho nơi gọi (chữ ký `void`), nên chặn bằng cách KHÔNG GHI và trả
+       * về — cùng cách `themPhieuNhan` đang làm. Đổi chữ ký thì phải sửa cả luồng, để lần khác.
+       */
+      {
+        const phieuHienTai = phieuNhanRef.current.find((p) => p.id === phieuId);
+        const poHienTai =
+          phieuHienTai && donHangRef.current.find((x) => x.id === phieuHienTai.poId);
+        if (poHienTai?.trangThai === "hoan_thanh") return;
+      }
+
       setPhieuNhan((truoc) =>
         truoc.map((p) => (p.id === phieuId ? { ...p, tepPhieuGiao: tep } : p)),
       );
@@ -2085,14 +2520,34 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   const xacNhanTruongBP = useCallback(
-    (poId: string, nguoi: XacNhan) => {
-      setDonHang((truoc) =>
-        truoc.map((po) => (po.id === poId ? { ...po, xacNhanTruongBP: nguoi, trangThai: "hoan_thanh" } : po)),
-      );
+    (poId: string, nguoi: XacNhan): string | null => {
+      /**
+       * 🔴 BẮT BUỘC CÓ HÓA ĐƠN VAT MỚI DUYỆT HOÀN THÀNH ĐƯỢC (Ban lãnh đạo 22/08/2026:
+       * *"Hoá đơn VAT - bắt buộc phải có thì trưởng bộ phận mới duyệt hoàn thành được"*).
+       *
+       * 🔴 CHẶN Ở TẦNG GHI. Đây là thao tác **chuyển hồ sơ sang Kế toán** — duyệt xong là đơn
+       * khóa lại. Chặn ở nút thì mọi đường khác (kéo thả sang cột Hoàn thành, màn danh sách) vẫn
+       * lọt, và không ai biết cho tới khi hồ sơ đã sang Kế toán thiếu hóa đơn.
+       *
+       * ⚠️ Đơn KHÔNG GẮN đề nghị thì không có chỗ đính hóa đơn VAT (hóa đơn gắn ở bước của đề
+       * nghị) — nên bỏ qua luật này, thay vì khóa vĩnh viễn một đơn không có đường thỏa điều kiện.
+       */
       const po = donHangRef.current.find((p) => p.id === poId);
+      if (po?.prId) {
+        const dn = deNghiRef.current.find((d) => d.id === po.prId);
+        if (dn) {
+          const vuong = vuongMacDuyetHoanThanhDeNghi(dn);
+          if (vuong !== null) return vuong;
+        }
+      }
+
+      setDonHang((truoc) =>
+        truoc.map((p) => (p.id === poId ? { ...p, xacNhanTruongBP: nguoi, trangThai: "hoan_thanh" } : p)),
+      );
       if (po) {
         ghiNhatKyDonHang(po, nguoi.ten, `Trưởng bộ phận xác nhận hoàn thành — ${po.code}, chuyển hồ sơ Kế toán`);
       }
+      return null;
     },
     [ghiNhatKyDonHang],
   );
@@ -2101,9 +2556,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     (prId: string, nguoiThucHien: string) => {
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return null;
-      const daDung = new Set(baoGiaRef.current.map((b) => b.id));
-      const id = ID_BAO_GIA_GIA_LAP.find((x) => !daDung.has(x));
-      if (!id) return null;
+      /* ✅ Bỏ giới hạn 12 hồ sơ báo giá — xem `6-tien-ich/sinh-id-ho-so.ts`. */
+      const id = sinhIdHoSo("rfq");
 
       const soHienCo = baoGiaRef.current.filter((b) => b.code.startsWith(`${dn.maDuAn}-BG-`)).length;
       const code = `${dn.maDuAn}-BG-${String(soHienCo + 1).padStart(3, "0")}`;
@@ -2183,6 +2637,28 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       /** Tài liệu dẫn chứng đính kèm — văn bản TGĐ duyệt, email NCC, báo giá gốc… */
       tep?: MoTaTep[],
     ) => {
+      /**
+       * 🔴 Chốt công việc bắt buộc của các bước trước — xem chú thích ở `themDonHang`.
+       *
+       * ⚠️ Hàm này KHÔNG trả lỗi cho nơi gọi (chữ ký `void`), nên chặn bằng cách **không ghi gì và
+       * trả về**. Giao diện đã có viền đỏ + dòng "Còn thiếu" trên khối bước nên người duyệt vẫn
+       * thấy lý do; đổi chữ ký ở đây thì phải sửa cả luồng gọi, để lần khác.
+       */
+      {
+        const bgHienTai = baoGiaRef.current.find((b) => b.id === bgId);
+        const dnGoc = bgHienTai
+          ? deNghiRef.current.find((x) => x.id === bgHienTai.prId)
+          : undefined;
+        if (dnGoc) {
+          const chanViec = vuongMacViecBatBuocCacBuocTruoc(
+            dnGoc,
+            xacDinhGiaiDoan(dnGoc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
+            cauHinhRef.current,
+          );
+          if (chanViec) return;
+        }
+      }
+
       const ngay = homNay();
       setBaoGia((truoc) =>
         truoc.map((b) =>
@@ -2190,8 +2666,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             ? {
                 ...b,
                 trangThai: "da_chon_ncc",
-                nccDaChonId: nccId,
-                nccDaChonTen: tenNCC,
+                /* 🔴 RỖNG THÌ GHI `undefined`, không ghi chuỗi rỗng (23/08/2026): từ hôm nay việc
+                   duyệt không đòi gõ tên nhà cung cấp nữa, nên hai trường này thường trống. Chuỗi
+                   rỗng vẫn là giá trị "có", nên `if (bg.nccDaChonId)` ở các màn khác đọc ra sai —
+                   `undefined` mới là "chưa có". */
+                nccDaChonId: nccId.trim() || undefined,
+                nccDaChonTen: tenNCC.trim() || undefined,
                 // ★ Lý do / dẫn chứng chọn NCC — căn cứ của quyết định chi tiền, xem
                 // `lyDoChonNCC` trong `kieu-du-lieu.ts`.
                 lyDoChonNCC: lyDo?.trim() || undefined,
@@ -2505,6 +2985,53 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  /**
+   * ★ HOÀN THÀNH QUY TRÌNH — đóng hồ sơ tường minh (Ban lãnh đạo 22/08/2026: *"Thêm nút bấm hoàn
+   * thành quy trình"*).
+   *
+   * 🔴 TRƯỚC ĐÂY KHÔNG CÓ ĐƯỜNG NÀO đặt `trangThai = "hoan_thanh"` cho đề nghị. Hồ sơ chỉ sang
+   * cột Hoàn thành gián tiếp khi mọi đơn hàng của nó được xác nhận xong, nên nhánh
+   * `if (deNghi.trangThai === "hoan_thanh")` trong `xacDinhGiaiDoan` là mã không đường tới.
+   *
+   * 🔴 CHẶN Ở ĐÂY, KHÔNG CHỈ Ở NÚT. Đóng hồ sơ là việc **không lùi lại được** bằng đường thường
+   * (mở lại phải qua nghiệp vụ khác), nên điều kiện phải kiểm ở tầng ghi — nút chỉ là lớp nhắc.
+   *
+   * ⚠️ Dùng `deNghiRef.current` để đọc trạng thái mới nhất, và tính tiến độ bằng
+   * `tinhTienDoDeNghi` — cùng một luật khối lượng với mọi chỗ khác.
+   */
+  const hoanThanhQuyTrinh = useCallback(
+    (prId: string, nguoiThucHien: string): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị này.";
+      if (dn.trangThai === "hoan_thanh") return "Đề nghị này đã hoàn thành trước đó.";
+      if (dn.trangThai === "dong_do") return "Đề nghị này đã bị đóng dở, không hoàn thành được.";
+
+      const tienDo = tinhTienDoDeNghi(dn, donHangRef.current, phieuNhanRef.current);
+      const vuong = vuongMacHoanThanhQuyTrinh(dn, tienDo);
+      if (vuong !== null) return vuong;
+
+      setDeNghi((truoc) =>
+        truoc.map((x) =>
+          x.id !== prId
+            ? x
+            : {
+                ...x,
+                trangThai: "hoan_thanh",
+                lichSu: [
+                  ...x.lichSu,
+                  {
+                    thoiDiem: thoiDiemHienTai(),
+                    nguoiThucHien,
+                    hanhDong: "Hoàn thành quy trình mua hàng — hồ sơ đóng lại",
+                  },
+                ],
+              },
+        ),
+      );
+      return null;
+    },
+    [],
+  );
 
   // ------------------------------------------------------------
   // THAO TÁC TRÊN ĐỀ NGHỊ — menu ⋯ của thẻ bảng quy trình
@@ -2828,8 +3355,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const goc = deNghiRef.current.find((d) => d.id === prId);
       if (!goc) return "";
       if (duocPhep && !duocPhep(goc)) return "";
-      const idMoi = ID_DE_NGHI_GIA_LAP.find((id) => !deNghiRef.current.some((d) => d.id === id));
-      if (!idMoi) return ""; // Hết id dự phòng — người gọi phải báo cho người dùng
+      /* ✅ Không còn giới hạn số phiếu — xem `6-tien-ich/sinh-id-ho-so.ts`. */
+      const idMoi = sinhIdHoSo("pr");
       const ngay = homNay();
 
       const giu = sttGiuLai && sttGiuLai.length > 0 ? new Set(sttGiuLai) : null;
@@ -2852,11 +3379,16 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           ...goc,
           id: idMoi,
           code,
-          // 🔴 TIÊU ĐỀ GIỮ NGUYÊN TUYỆT ĐỐI. Ban lãnh đạo 13/08/2026 làm rõ bằng ví dụ
-          // *"26001-HPCS-PR-001 (copy)"*: dấu "(copy)" nằm ở MÃ, không nằm ở tiêu đề. Các
-          // phần tách của cùng một đề xuất mang cùng một tiêu đề là đúng — chúng là một
-          // việc, chỉ chia ra cho nhiều người làm.
-          tieuDe: goc1.tieuDe,
+          /* ★ TIÊU ĐỀ CÓ THÊM "(copy N)" — Ban lãnh đạo 22/08/2026: *"Tên của quy trình giống
+             nhau và thêm chữ copy phía sau"*.
+
+             📌 ĐỔI so với chỉ đạo 13/08/2026 (*"(copy)" chỉ nằm ở MÃ, tiêu đề giữ nguyên tuyệt
+             đối*). Lý do đổi: trên bảng quy trình và màn theo dõi, hai phiếu tách trông y hệt
+             nhau vì tiêu đề giống nhau — phải mở ra mới biết đâu là phần của ai.
+
+             ⚠️ Việc "tổng hợp lại các bản tách" KHÔNG mất: nó dựa vào `deNghiGocId` +
+             `maDeNghiGoc` ngay dưới đây, không dựa vào tên. */
+          tieuDe: tenBanSaoTheoMa(goc1.tieuDe, code),
           // ★ Quan hệ cha–con để TỔNG HỢP LẠI được các bản tách (xem `deNghiGocId`).
           deNghiGocId: goc1.id,
           maDeNghiGoc: goc1.code,
@@ -2974,10 +3506,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const goc = deNghiRef.current.find((d) => d.id === prId);
       if (!goc) return null;
 
-      const maTrong = ID_DE_NGHI_GIA_LAP.filter(
-        (id) => !deNghiRef.current.some((d) => d.id === id),
-      );
-      const pa = tinhPhuongAnTach(goc, maTrong.length);
+      /* ✅ Không còn giới hạn mã hồ sơ (22/08/2026 — xem `6-tien-ich/sinh-id-ho-so.ts`), nên số
+         phiếu tách được không còn bị chặn. Vẫn truyền `soMaConTrong` vào `tinhPhuongAnTach` vì
+         hàm luật đó dùng chung, và giữ tham số cho nó kiểm được trường hợp thật sự hết chỗ. */
+      const pa = tinhPhuongAnTach(goc, Number.MAX_SAFE_INTEGER);
       if (!pa.tach) return null;
 
       const luc = thoiDiemHienTai();
@@ -2989,14 +3521,18 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          sách cũ thì hai phiếu tách cùng lúc nhận cùng một mã "(copy)". */
       const dangCo = [...deNghiRef.current];
       const phieuMoi: DeNghiMuaHang[] = [];
-      pa.canTaoPhieu.forEach((nhom, i) => {
+      pa.canTaoPhieu.forEach((nhom) => {
         const giu = new Set(nhom.stt);
         const dong = goc.items.filter((d) => giu.has(d.stt));
+        /* Tính mã TRƯỚC để tên bám đúng số của mã — xem `tenBanSaoTheoMa`. */
+        const maMoi = maBanSaoTiepTheo(goc, dangCo);
         const p: DeNghiMuaHang = {
           ...goc,
-          id: maTrong[i],
-          code: maBanSaoTiepTheo(goc, dangCo),
-          tieuDe: gocDau.tieuDe,
+          id: sinhIdHoSo("pr"),
+          code: maMoi,
+          /* ★ Tên có thêm "(copy N)" (Ban lãnh đạo 22/08/2026) — trước đây giữ nguyên tên gốc
+             nên hai phiếu trông y hệt nhau trên bảng, chỉ khác mã. */
+          tieuDe: tenBanSaoTheoMa(gocDau.tieuDe, maMoi),
           deNghiGocId: gocDau.id,
           maDeNghiGoc: gocDau.code,
           ngayDeNghi: ngay,
@@ -3146,7 +3682,32 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   const danhDauCongViecGiaiDoan = useCallback(
-    (prId: string, congViec: CongViecGiaiDoan, giaiDoan: string, xong: boolean, nguoiTen: string) => {
+    (
+      prId: string,
+      congViec: CongViecGiaiDoan,
+      giaiDoan: string,
+      xong: boolean,
+      nguoiTen: string,
+    ): string | null => {
+      /**
+       * 🔴 CHẶN TÍCH "ĐÃ XỬ LÝ UNC" KHI CHƯA CÓ HÓA ĐƠN VAT (Ban lãnh đạo 22/08/2026:
+       * *"bắt buộc phải hoàn thành bước 1 thì mới được tích hoàn thành"*).
+       *
+       * Chặn ở TẦNG GHI chứ không chỉ ở nút: nút có thể bị đi vòng (kéo thả, màn danh sách cũng
+       * có cái tích này — `de-nghi-danh-sach.tsx:595`). Luật nằm ở
+       * `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, đây chỉ hỏi lại.
+       *
+       * ⚠️ Chỉ chặn lúc TÍCH XONG (`xong === true`). Bỏ tích thì luôn cho — không được khóa
+       * người dùng lại với một cái tích họ vừa đặt sai.
+       */
+      if (xong && congViec.ma === VIEC_UNC_XONG) {
+        const dn = deNghiRef.current.find((x) => x.id === prId);
+        if (dn) {
+          const vuong = vuongMacTichXongUNC(dn);
+          if (vuong !== null) return vuong;
+        }
+      }
+
       setDeNghi((truoc) =>
         truoc.map((dn) => {
           if (dn.id !== prId) return dn;
@@ -3179,6 +3740,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           };
         }),
       );
+      return null;
     },
     [],
   );
@@ -3280,11 +3842,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
 
       /* Chưa có hồ sơ xét duyệt → lập ngay, kèm luôn đề xuất. */
-      const daDung = new Set(baoGiaRef.current.map((b) => b.id));
-      const id = ID_BAO_GIA_GIA_LAP.find((x) => !daDung.has(x));
-      if (!id) {
-        return `Bản chạy thử chỉ giữ được ${ID_BAO_GIA_GIA_LAP.length} hồ sơ báo giá. Xóa bớt dữ liệu cũ rồi thử lại.`;
-      }
+      /* ✅ KHÔNG CÒN GIỚI HẠN 12 HỒ SƠ (Ban lãnh đạo 22/08/2026: *"mở khoá chỗ này"*).
+         Lý do bỏ được nằm ở `6-tien-ich/sinh-id-ho-so.ts`: app không còn xuất tĩnh, và bảng báo
+         giá không còn trang riêng nào — nên id không cần khai trước lúc build. */
+      const id = sinhIdHoSo("rfq");
       const soHienCo = baoGiaRef.current.filter((b) =>
         b.code.startsWith(`${dn.maDuAn}-BG-`),
       ).length;
@@ -3338,6 +3899,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const loi = loiKhiHoSoDaDong(dn, "trình xét duyệt báo giá");
       if (loi) return loi;
 
+      /* 🔴 Chốt công việc bắt buộc của các bước trước — xem chú thích ở `themDonHang`. */
+      const chanViec = vuongMacViecBatBuocCacBuocTruoc(
+        dn,
+        xacDinhGiaiDoan(dn, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
+        cauHinhRef.current,
+      );
+      if (chanViec) return chanViec;
+
       const ngay = homNay();
       const bg = baoGiaRef.current.find(
         (b) => b.prId === prId && b.trangThai === "dang_thu_thap",
@@ -3367,11 +3936,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * trình — nên không còn bước nào lập hồ sơ trước. Giữ nguyên câu lỗi cũ là nút trình bấm
        * mãi không được, đúng cái bế tắc vừa sửa sáng nay.
        */
-      const daDung = new Set(baoGiaRef.current.map((b) => b.id));
-      const id = ID_BAO_GIA_GIA_LAP.find((x) => !daDung.has(x));
-      if (!id) {
-        return `Bản chạy thử chỉ giữ được ${ID_BAO_GIA_GIA_LAP.length} hồ sơ báo giá. Xóa bớt dữ liệu cũ rồi thử lại.`;
-      }
+      /* ✅ KHÔNG CÒN GIỚI HẠN 12 HỒ SƠ (Ban lãnh đạo 22/08/2026: *"mở khoá chỗ này"*).
+         Lý do bỏ được nằm ở `6-tien-ich/sinh-id-ho-so.ts`: app không còn xuất tĩnh, và bảng báo
+         giá không còn trang riêng nào — nên id không cần khai trước lúc build. */
+      const id = sinhIdHoSo("rfq");
       const soHienCo = baoGiaRef.current.filter((b) =>
         b.code.startsWith(`${dn.maDuAn}-BG-`),
       ).length;
@@ -3538,6 +4106,56 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         tepCu
           ? `Thay tệp ở ô “${nhan}” (bước ${tenBuoc(maGiaiDoan)}): ${tepCu.tenTep} → ${tepMoi.tenTep}`
           : `Đính kèm tệp vào ô “${nhan}” ở bước ${tenBuoc(maGiaiDoan)}: ${tepMoi.tenTep}`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+  );
+
+  /**
+   * ★ GHI LÝ DO CHƯA CÓ MỘT CHỨNG TỪ BẮT BUỘC — Ban lãnh đạo 23/08/2026: *"bắt buộc có file đính
+   * kèm hoặc ghi chú lý do không đính kèm file thì mới cho chuyển bước"*.
+   *
+   * 🔴 GHI LÝ DO KHÔNG PHẢI LÀ "ĐÃ CÓ CHỨNG TỪ". Nó chỉ mở đường đi tiếp; giao diện vẫn tô đỏ hồ
+   * sơ (xem `thieuHopDongDaGhiLyDo`). Đừng dùng hàm này để tắt cảnh báo thiếu hồ sơ.
+   *
+   * 📌 Ghi vào nhật ký để về sau tra được ai cho đi tiếp và vì sao — đây là một quyết định nghiệp
+   * vụ (đi tiếp khi hồ sơ còn thiếu), không phải một ô ghi chú cho vui.
+   *
+   * ⚠️ Xóa lý do (`lyDo` rỗng) thì XÓA HẲN KHÓA khỏi bản ghi, không để chuỗi rỗng: hàm
+   * `lyDoThieuHopDong` đọc `.trim() !== ""` nên chuỗi rỗng vẫn đúng, nhưng để rác lại thì dữ liệu
+   * đẩy lên Firestore phình thêm một khóa vô nghĩa cho mỗi hồ sơ.
+   */
+  const ghiLyDoThieuChungTu = useCallback(
+    (prId: string, khoa: string, lyDo: string, nguoiThucHienTen: string): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+      const loi = loiKhiHoSoDaDong(dn, "ghi lý do chưa có chứng từ");
+      if (loi) return loi;
+
+      const noiDung = lyDo.trim();
+      const cu = (dn.lyDoThieuChungTu?.[khoa] ?? "").trim();
+      if (noiDung === cu) return null;
+
+      setDeNghi((truoc) =>
+        truoc.map((d) => {
+          if (d.id !== prId) return d;
+          const con = { ...(d.lyDoThieuChungTu ?? {}) };
+          if (noiDung === "") delete con[khoa];
+          else con[khoa] = noiDung;
+          /* Không còn khóa nào thì bỏ luôn trường, đừng để một object rỗng. */
+          return Object.keys(con).length === 0
+            ? { ...d, lyDoThieuChungTu: undefined }
+            : { ...d, lyDoThieuChungTu: con };
+        }),
+      );
+
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHienTen,
+        noiDung === ""
+          ? "Xóa lý do chưa có chứng từ bắt buộc"
+          : `Ghi lý do chưa có chứng từ bắt buộc: ${noiDung}`,
       );
       return null;
     },
@@ -3855,6 +4473,155 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
+   * ★ TỰ ĐƯA NGƯỜI ĐỀ NGHỊ VÀO DANH SÁCH THEO DÕI (Ban lãnh đạo 23/08/2026:
+   * *"Tự động link người theo dõi từ phiếu đề nghị qua"*).
+   *
+   * 🔴 VÌ SAO CẦN: cửa tiếp nhận từ App Request (`app/api/app-request/de-nghi-moi/route.ts`)
+   * ghi `nguoiDeNghiUid` / `nguoiDeNghiTen` nhưng **không ghi `nguoiTheoDoi`**. Nghĩa là người
+   * đề xuất — người đang chờ hàng — không nhận được thông báo chuyển bước nào, và phiếu của
+   * chính họ không hiện ở tab "Tôi theo dõi". Luật này trước đây chỉ có trong hàm tạo đề nghị
+   * thử nghiệm của app, nên phiếu thật từ App Request rơi hết.
+   *
+   * 🔴 LÀM Ở TẦNG GHI, KHÔNG PHẢI TÍNH RA LÚC ĐỌC. Nếu chỉ "coi như" người đề nghị là người
+   * theo dõi ở chỗ hiển thị thì nút bỏ theo dõi trong hộp chọn nhân sự bấm xong sẽ không có
+   * tác dụng — giao diện hứa một việc app không làm, đúng thứ quy ước dự án cấm. Ghi thật thì
+   * thêm/bỏ/nhật ký/thông báo đều chạy đúng cơ chế sẵn có.
+   *
+   * ⚠️ CHẶN VÒNG LẶP VÔ HẠN: phải kiểm "đã có chưa" **trước khi** gọi. `themNguoiTheoDoi` gọi
+   * `setDeNghi(map(...))`, mà `map` luôn sinh mảng MỚI kể cả khi không sửa gì → `deNghi` đổi
+   * danh tính → effect chạy lại → gọi lại → lặp vĩnh viễn, treo tab. Guard bên trong hàm đó
+   * không đủ, vì nó chặn việc SỬA chứ không chặn việc TẠO MẢNG.
+   *
+   * ⚠️ TÔN TRỌNG VIỆC ĐÃ BỎ TAY: ai đã chủ động bỏ người đề nghị khỏi danh sách thì không kéo
+   * họ vào lại — nếu không, người dùng bỏ xong thấy tên hiện lại ngay, tưởng app hỏng. Dấu vết
+   * đọc từ nhật ký (`boNguoiTheoDoi` ghi dòng "Bỏ … khỏi danh sách theo dõi").
+   *
+   * 📌 `chucDanh` ghi thẳng "Người đề nghị" chứ không tra danh bạ: uid của người đề xuất từ App
+   * Request là uid HPcore hoặc email, phần lớn không có trong danh bạ nội bộ của app — tra
+   * không ra rồi để trống thì dòng hiển thị mất một nửa thông tin.
+   */
+  /**
+   * 🔴🔴 CHỐT MỘT-LẦN-MỘT-PHIẾU — SỬA LỖI THẺ "NHÁY NHÁY" (Ban lãnh đạo 23/08/2026:
+   * *"ĐANG LỖI CODE HAY SAO MÀ 2 ĐỀ XUẤT NÀY CỨ NHÁY NHÁY"*).
+   *
+   * VÌ SAO GUARD ĐỌC DỮ LIỆU LÀ KHÔNG ĐỦ: effect này GHI dữ liệu rồi lại đọc chính dữ liệu đó để
+   * quyết định có ghi nữa hay không. Cả phòng dùng **một document Firestore duy nhất** (xem
+   * `kho-chung-firestore.ts`), nên vòng này xảy ra thật:
+   *
+   *   máy A thêm người theo dõi cho phiếu X → đẩy CẢ document lên
+   *   → máy B (chưa nhận kịp) cũng thêm và đẩy CẢ document lên, ĐÈ bản của A
+   *   → A nhận về bản của B, thấy phiếu X lại thiếu người theo dõi → thêm lần nữa → đẩy lên…
+   *
+   * Hai máy đá qua đá lại vô hạn: mỗi lượt là một lần vẽ lại, mắt thấy đúng là thẻ nháy liên
+   * tục — và mỗi lượt là một lần GHI lên Firestore, tốn quota của cả phòng.
+   *
+   * 👉 `daXuLy` là chốt nằm NGOÀI dữ liệu: mỗi phiếu chỉ được ghi **một lần cho mỗi lần mở
+   * trang**. Máy chủ có trả về bản cũ thì cũng không ghi lại; lần mở trang sau mới thử lại. Mất
+   * nhiều nhất là một lượt chậm, đổi lấy việc không bao giờ lặp.
+   *
+   * ⚠️ ĐỪNG THAY `useRef` BẰNG `useState`: đổi state là vẽ lại, mà vẽ lại chính là thứ đang cần
+   * chặn. Và đừng bỏ chốt này rồi tin vào guard `if (đã có) continue` bên trong
+   * `themNguoiTheoDoi` — guard đó chặn việc SỬA phiếu, không chặn được vòng ghi qua máy chủ ở
+   * trên.
+   */
+  const daXuLyTheoDoiNguoiDeNghi = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    for (const dn of deNghi) {
+      if (!dn.nguoiDeNghiUid || !dn.nguoiDeNghiTen) continue;
+      if ((dn.nguoiTheoDoi ?? []).some((n) => n.uid === dn.nguoiDeNghiUid)) continue;
+      if (daXuLyTheoDoiNguoiDeNghi.current.has(dn.id)) continue;
+      const daBoTay = dn.lichSu.some(
+        (m) => m.hanhDong === `Bỏ ${dn.nguoiDeNghiTen} khỏi danh sách theo dõi`,
+      );
+      if (daBoTay) continue;
+      /* Đánh dấu TRƯỚC khi gọi: `themNguoiTheoDoi` làm state đổi ngay, effect có thể chạy lại
+         trước khi vòng `for` này kết thúc nếu về sau ai đó thêm `await` vào đây. */
+      daXuLyTheoDoiNguoiDeNghi.current.add(dn.id);
+      themNguoiTheoDoi(
+        dn.id,
+        { uid: dn.nguoiDeNghiUid, ten: dn.nguoiDeNghiTen, chucDanh: "Người đề nghị" },
+        "Hệ thống",
+      );
+    }
+  }, [deNghi, themNguoiTheoDoi]);
+
+  /**
+   * ★★ BÁO CHO BAN QLDA KHI PHIẾU CÓ VẬT TƯ KIỂM SOÁT ĐỊNH MỨC — khôi phục luật Ban lãnh đạo đã
+   * chốt 15/08/2026: *"gặp các vật tư này sẽ tự động hiện dòng thông báo định mức và báo cho bộ
+   * phận QLDA"*.
+   *
+   * 🔴 VÌ SAO PHẢI KHÔI PHỤC (23/08/2026): luật này trước nay **chỉ nằm trong hàm tạo đề nghị thử
+   * nghiệm** (`themDeNghiGiaLap`). Phiếu thật vào app qua cửa tiếp nhận App Request nên **chưa bao
+   * giờ** đi qua nó — nghĩa là từ 15/08 tới nay chưa một phiếu thật nào báo cho QLDA. Sếp yêu cầu
+   * xử lý các việc còn treo, và đây là một trong số đó.
+   *
+   * 🔴 CÁCH BÁO: thêm người QLDA vào danh sách THEO DÕI. App không có kênh gửi ra ngoài, nhưng
+   * người theo dõi nhận thông báo mỗi lần hồ sơ chuyển bước và mở xem được tiến trình — đó là cách
+   * báo THẬT trong phạm vi app làm được, thay vì hiện một dòng chữ "đã báo QLDA" mà chẳng gửi đi
+   * đâu.
+   *
+   * 🔴 SUY TỪ TÊN VẬT LIỆU, KHÔNG DỰA VÀO CỜ `vatTuKiemSoatDinhMuc`. Cờ đó chỉ được tích ở màn lập
+   * phiếu thủ công — màn đã xóa — nên phiếu thật luôn để trống. `dongCanKiemSoatDinhMuc` dò theo
+   * danh mục trong Cài đặt quy trình, tức sửa danh mục là luật đổi theo, không phải sửa mã.
+   *
+   * ⚠️ CHỐT MỘT-LẦN-MỘT-PHIẾU (`daBaoQLDA`) — cùng lý do với effect người theo dõi ngay trên: hàm
+   * này GHI dữ liệu rồi đọc lại chính dữ liệu đó, mà cả phòng ghi vào một document Firestore. Thiếu
+   * chốt ngoài dữ liệu là hai máy đá qua đá lại vô hạn, thẻ nháy liên tục và tốn quota.
+   *
+   * ⚠️ TÔN TRỌNG VIỆC ĐÃ BỎ TAY: ai đã chủ động bỏ người QLDA khỏi danh sách thì không kéo vào lại.
+   */
+  const daBaoQLDA = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    /* Danh mục rỗng thì không có gì để dò — thoát sớm, đỡ chạy vòng lặp vô ích mỗi lần vẽ. */
+    const nhomDinhMuc = cauHinh.vatTuDinhMuc ?? [];
+    if (nhomDinhMuc.length === 0) return;
+
+    const nguoiQLDA = nhanSuDangLamViec().filter((n) => n.department === "quan_ly_du_an");
+    if (nguoiQLDA.length === 0) return;
+
+    for (const dn of deNghi) {
+      if (daBaoQLDA.current.has(dn.id)) continue;
+      /* Hồ sơ đã lưu trữ thì không thêm ai nữa, nếu không mỗi lần mở app lại ghi một dòng nhật ký
+         vào hồ sơ đã dọn khỏi bảng. */
+      if (dn.luuTru) continue;
+
+      const dongDinhMuc = dongCanKiemSoatDinhMuc(dn.items, nhomDinhMuc);
+      if (dongDinhMuc.length === 0) continue;
+
+      const dsTheoDoi = dn.nguoiTheoDoi ?? [];
+      const canThem = nguoiQLDA.filter((n) => {
+        if (dsTheoDoi.some((x) => x.uid === n.uid)) return false;
+        /* Người đề nghị có thể chính là người QLDA — họ đã ở trong danh sách, không thêm lần hai. */
+        if (n.uid === dn.nguoiDeNghiUid) return false;
+        const daBoTay = dn.lichSu.some(
+          (m) => m.hanhDong === `Bỏ ${n.displayName} khỏi danh sách theo dõi`,
+        );
+        return !daBoTay;
+      });
+
+      daBaoQLDA.current.add(dn.id);
+      if (canThem.length === 0) continue;
+
+      for (const n of canThem) {
+        themNguoiTheoDoi(dn.id, { uid: n.uid, ten: n.displayName, chucDanh: n.title }, "Hệ thống");
+      }
+      /* Một dòng nhật ký nói RÕ VÌ SAO họ được thêm — đọc hồ sơ về sau mới hiểu, chứ chỉ thấy
+         "Thêm X vào danh sách theo dõi" thì không ai biết là do luật định mức.
+         🔴 Ghi TÊN VẬT LIỆU, không ghi tên nhà cung cấp — khối Lịch sử hiện cho cả vai trò không
+         được xem NCC (quy ước dự án mục 7). */
+      ghiLichSuDeNghi(
+        dn.id,
+        "Hệ thống",
+        `Báo Ban QLDA vì phiếu có vật tư kiểm soát định mức: ${dongDinhMuc
+          .map((x) => `${x.dong.tenVatLieu} (${x.khop.tenNhom})`)
+          .join(", ")}`,
+      );
+    }
+  }, [deNghi, cauHinh.vatTuDinhMuc, themNguoiTheoDoi, ghiLichSuDeNghi]);
+
+  /**
    * CHUYỂN TIẾP — trưởng bộ phận bàn giao việc cho nhân viên đã phân bổ.
    *
    * 🔴 Không đụng tới giai đoạn của đề nghị. Giai đoạn vẫn suy ra từ chứng từ
@@ -3920,13 +4687,26 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       giaDonHang,
       phieuNhan,
       /**
-       * Danh mục nhà cung cấp = **mẫu trong mã nguồn + phần thu mua tự thêm**.
+       * Danh mục nhà cung cấp = **CHỈ phần thu mua tự thêm**.
        *
-       * 📌 Phần tự thêm để SAU danh mục mẫu: người dùng vừa thêm ai thì thấy ở cuối danh sách,
-       * đúng thứ tự thời gian — dễ tìm hơn là chen vào giữa theo bảng chữ cái.
+       * 🔴 ĐÃ BỎ 4 NHÀ CUNG CẤP MẪU (21/08/2026 — Ban lãnh đạo: *"bỏ thông tin này đi"*, khoanh
+       * đỏ đúng bốn dòng NCC0001–NCC0004 trong danh mục).
+       *
+       * Vì sao hợp lý: chúng là tên giả định (`Công ty TNHH VLXD A`…) dựng ra để bấm thử hồi
+       * chưa có đường thêm nhà cung cấp. Nay thu mua tự thêm được, để chúng lại thì danh mục
+       * thật lẫn với dữ liệu giả — và người lập đơn hoàn toàn có thể chọn nhầm một bên không
+       * tồn tại vào chứng từ thật.
+       *
+       * ⚠️ Đơn hàng cũ KHÔNG vỡ: mã, tên, MST của nhà cung cấp được lưu ngay trong đơn, không
+       * tra lại danh mục mỗi lần mở. Chỉ mất liên kết "đơn này thuộc dòng nào trong danh mục",
+       * và mọi chỗ tra đều đã phòng trường hợp không tìm thấy.
        */
-      nhaCungCap: [...NHA_CUNG_CAP, ...nhaCungCapThem],
+      nhaCungCap: nhaCungCapThem,
       themNhaCungCap,
+      xoaNhaCungCap,
+      thuKho: thuKhoThem,
+      themThuKho,
+      xoaThuKho,
       baoGia,
       congNo: CONG_NO_MAU,
       themDeNghiGiaLap,
@@ -3954,6 +4734,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       trinhXetDuyetBaoGiaChoDeNghi,
       duyetPhuongAnTach,
       dongDoDeNghi,
+      hoanThanhQuyTrinh,
       suaThongTinChung,
       suaThoiHan,
       doiLuuTru,
@@ -3968,6 +4749,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauCongViecGiaiDoan,
       themTepGiaiDoan,
       datTepVaoOGiaiDoan,
+      ghiLyDoThieuChungTu,
       goTepGiaiDoan,
       datGhiChuTepGiaiDoan,
       vietBinhLuan,
@@ -3983,7 +4765,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     }),
     [
       nhaCungCapThem,
+      thuKhoThem,
       themNhaCungCap,
+      xoaNhaCungCap,
+      themThuKho,
+      xoaThuKho,
       deNghi,
       donHang,
       giaDonHang,
@@ -4014,6 +4800,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       trinhXetDuyetBaoGiaChoDeNghi,
       duyetPhuongAnTach,
       dongDoDeNghi,
+      hoanThanhQuyTrinh,
       suaThongTinChung,
       suaThoiHan,
       doiLuuTru,
@@ -4028,6 +4815,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauCongViecGiaiDoan,
       themTepGiaiDoan,
       datTepVaoOGiaiDoan,
+      ghiLyDoThieuChungTu,
       goTepGiaiDoan,
       datGhiChuTepGiaiDoan,
       vietBinhLuan,

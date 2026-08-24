@@ -70,10 +70,32 @@ export function timHoSo(
 
   const gom: KetQuaTimKiem[] = [];
 
-  // --- Đề nghị mua hàng: mã · tiêu đề · công trình · mã dự án · tên vật liệu từng dòng ---
+  /**
+   * --- Đề nghị mua hàng: mã · tiêu đề · công trình · mã dự án · tên vật liệu từng dòng ---
+   *
+   * ★ TÌM ĐƯỢC THEO **MÃ ĐỀ XUẤT APP REQUEST** — Ban lãnh đạo 21/08/2026: *"bố cục sao cho để
+   * sau này có thể từ mã request để lọc lại dữ liệu"*.
+   *
+   * 🔴 Đây là khóa nối hai app. Đề nghị sinh tự động từ App Request mang mã đề xuất bên đó (vd
+   * `000000032`); khi cần đối chiếu, người dùng có mã đó trên tay chứ không có mã hồ sơ Thu mua.
+   * Không tìm được theo mã này thì phải mở từng phiếu ra dò — mà mã Thu mua lại do app tự đặt.
+   *
+   * 📌 Gõ không dấu, gõ một phần cũng ra (xem `khop`), nên `32` cũng tìm được `000000032`.
+   */
   for (const dn of nguon.deNghi) {
     const tenVatLieu = dn.items.map((d) => d.tenVatLieu).join(" ");
-    if (!khop(dn.code, dn.tieuDe, dn.tenCongTrinh, dn.maDuAn, dn.maHopDongCDT, tenVatLieu)) continue;
+    if (
+      !khop(
+        dn.code,
+        dn.tieuDe,
+        dn.tenCongTrinh,
+        dn.maDuAn,
+        dn.maHopDongCDT,
+        dn.maDeXuatAppRequest,
+        tenVatLieu,
+      )
+    )
+      continue;
     gom.push({
       loai: "de_nghi",
       id: dn.id,
@@ -86,7 +108,11 @@ export function timHoSo(
 
   // --- Đơn đặt hàng: mã · mã đề nghị nguồn · tên và mã vật tư · (tên NCC nếu được xem) ---
   for (const po of nguon.donHang) {
-    const tenVatLieu = po.items.map((d) => `${d.tenVatLieu} ${d.maHang ?? ""}`).join(" ");
+    /* `?? []` — ô tìm kiếm quét MỌI đơn; một đơn thiếu `items` (dữ liệu cũ / nhập từ Excel) là
+       sập cả thanh tìm. Xem `dongHangCuaPO` trong `tinh-toan.ts`. */
+    const tenVatLieu = (po.items ?? [])
+      .map((d) => `${d.tenVatLieu} ${d.maHang ?? ""}`)
+      .join(" ");
     const tenNCC = quyen.xemNhaCungCap ? po.supplierTen : undefined;
     /* `po.prCode` có thể trống (đơn không gắn đề nghị) — `khop` đã lọc `undefined` nên không
        vỡ. Thêm `tenCongTrinh` vào vùng đối chiếu: với đơn độc lập, tên công trình là thứ

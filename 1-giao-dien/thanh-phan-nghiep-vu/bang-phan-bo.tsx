@@ -280,7 +280,8 @@ export function BangPhanBo({
     () =>
       donHang
         .filter((p) => p.prId === deNghi.id && p.trangThai !== "huy")
-        .flatMap((p) => p.items.map((x) => x.sttDongDeNghi)),
+        /* `?? []` — quét nhiều đơn, một đơn thiếu `items` là sập bảng phân bổ. */
+        .flatMap((p) => (p.items ?? []).map((x) => x.sttDongDeNghi)),
     [donHang, deNghi.id],
   );
 
@@ -394,6 +395,22 @@ export function BangPhanBo({
       giaoViec.ten,
     );
     setChon([]);
+    /**
+     * ★ BÁO NGAY CHO NGƯỜI VỪA GIAO — Ban lãnh đạo 21/08/2026: *"khi giao việc cho nhân viên cũng
+     * chưa hiện thông báo"*.
+     *
+     * 🔴 HAI LOẠI THÔNG BÁO KHÁC NHAU, trước đây chỉ có một:
+     *   · `phanBoDong` đã tạo tin vào **chuông của người NHẬN việc** — đúng, giữ nguyên.
+     *   · Nhưng người VỪA BẤM thì không thấy gì: hộp thoại đóng lại, bảng lặng lẽ đổi. Không có
+     *     gì xác nhận việc đã giao cho ai và mấy dòng, nên người giao không biết mình bấm được
+     *     hay chưa — đúng cảm giác Ban lãnh đạo báo.
+     *
+     * 📌 Nói rõ SỐ DÒNG và TÊN NGƯỜI: đó là hai thứ người giao cần soát lại ngay, và cũng là hai
+     * thứ dễ bấm nhầm nhất (chọn thiếu dòng, chọn sai người).
+     */
+    toast.success(`Đã giao ${giaoViec.dong.length} công việc`, {
+      description: `${giaoViec.ten} sẽ thấy việc mới trong chuông thông báo và ở màn “Công việc của tôi”.`,
+    });
     // ⚠️ KHÔNG `setGiaoViec(null)` ở đây — xem ghi chú ở chỗ khai `moHop`.
     // `HopXacNhan` tự gọi `onDong` ngay sau hàm này để đóng hộp.
   }
@@ -870,7 +887,13 @@ export function BangPhanBo({
               <option value="">Không yêu cầu riêng</option>
               {Array.from({ length: TOI_DA_O_BAO_GIA }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={String(n)}>
-                  {n} báo giá
+                  {/* ★ MỨC TRẦN GHI LÀ "NHIỀU" — Ban lãnh đạo 21/08/2026: *"sửa thành chữ nhiều"*
+                      (khoanh đỏ đúng mục cuối).
+                      🔴 VẪN GHI RÕ CON SỐ TRONG NGOẶC: quy trình có thể cần 5–6 báo giá, nhưng app
+                      chỉ mở được {TOI_DA_O_BAO_GIA} ô (mỗi bước giữ tối đa 5 tệp, một suất đã dành
+                      cho bảng so sánh bắt buộc). Ghi trơ chữ "Nhiều" là để người giao việc tưởng
+                      app nhận bao nhiêu cũng được, rồi yêu cầu của họ không bao giờ thỏa. */}
+                  {n === TOI_DA_O_BAO_GIA ? `Nhiều báo giá (tối đa ${n})` : `${n} báo giá`}
                 </option>
               ))}
             </select>

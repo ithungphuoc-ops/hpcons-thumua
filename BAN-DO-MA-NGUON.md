@@ -107,6 +107,8 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | Đơn **trộn nhiều mức thuế** (8% + 10%) in ra sai thuế suất | `2-quy-trinh/tinh-toan.ts` → `moTaThueSuat` + cờ `nhieuMucThue`. 🔴 Không được in thẳng `thueSuatGTGT` khi cờ bật |
 | **Nhập Excel không nhận cột / lấy nhầm cột** | `2-quy-trinh/doc-don-hang-excel.ts` → `CACH_VIET_COT` (khớp theo TÊN tiêu đề, không theo vị trí). Thêm cách viết mới thì thêm vào bảng đó |
 | Sai **số tiền viết bằng chữ** | `6-tien-ich/doc-so-tien.ts` |
+| **Điều khoản ở cuối tờ PO** sai chữ / mất / in cả khi người lập đã bỏ | Bản chuẩn: `3-du-lieu/dieu-khoan-chuan-don-mua-hang.ts` · Bản của từng đơn: `DonDatHang.dieuKhoanGiaoHang` + `camKetThoaThuan` · Ô nhập: `form-lap-don-mua-hang.tsx` · In: `to-don-mua-hang-a4.tsx`. 🔴 `undefined` = **chưa sửa → in bản chuẩn**; `""` = **cố ý bỏ → không in gì**. Dùng `??` chứ đừng `\|\|`, `\|\|` gộp hai thứ đó và in lại đúng khối điều khoản người lập vừa xóa |
+| **Chọn thủ kho** ở ô "Người nhận hàng" không ra ai | `form-lap-don-mua-hang.tsx` → `nhanSuKho` (lọc `useDanhBa()` theo `department === "kho"`, bỏ người `inactive`). Nguồn danh bạ: `4-phan-quyen/dung-danh-ba.ts` — tài khoản thật khi đã nối máy chủ, danh bạ tĩnh khi chạy chế độ tài khoản mẫu. ⚠️ Ô chữ vẫn giữ: thủ kho công trình có thể chưa có tài khoản |
 | Vai trò **tìm ra hồ sơ lẽ ra không được thấy** | `2-quy-trinh/tim-kiem.ts` — mọi loại hồ sơ mới đều phải khai quyền ở đây |
 
 ### Dữ liệu

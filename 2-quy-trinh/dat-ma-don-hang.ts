@@ -1,75 +1,113 @@
 // ============================================================
-// SINH MÃ ĐƠN ĐẶT HÀNG — `[mã dự án gốc]-PO-[STT 3 chữ số]`
+// SINH SỐ ĐƠN MUA HÀNG — `DMH[năm 2 chữ số][STT 4 chữ số]`, ví dụ `DMH260001`
 //
-// 🔴 BÁM THÔNG BÁO 09/2026/TB-HPCS (TGĐ ký 11/07/2026). Mã hồ sơ =
-//     [Mã dự án gốc]-[Mã loại]-[STT], ví dụ `260001-HPCS-PO-001`.
-//     KHÔNG tự bịa hệ mã mới, KHÔNG lấy kiểu `DMH0532-26` của MISA.
+// 🔴 CHỈ ĐẠO BAN LÃNH ĐẠO 23/08/2026: *"Số đơn hàng này sẽ ký hiệu như sau: DMH + năm + số nhảy
+//    tự động 0000"*. Đúng ký hiệu in trên biểu mẫu giấy của công ty — ô K7 của
+//    `PO - DEMO 130826.xlsx` ghi sẵn `DMH.......`.
 //
-// ✅ `PO` LÀ MÃ LOẠI ĐÃ ĐƯỢC DUYỆT, nằm trong danh mục chính thức của Thông báo 09/2026 cùng
-//    với HDXD · HDTK · HDMH · HDTC · BBNT · BG · HSTK · TT · PL · QD · CV · TB. Ba mã ĐANG
-//    CHỜ duyệt là `PR` · `DO` · `GRN` (quy tắc E-6), KHÔNG phải `PO` — đừng chép nhầm sang
-//    đây, vì một dòng ghi sai tình trạng phê duyệt sẽ khiến người sau đi xin lại một thứ đã
-//    có, hoặc coi mã đơn hàng là tạm bợ mà đổi đi.
+// ⚠️ ĐÂY LÀ THAY ĐỔI HỆ MÃ, PHẢI BIẾT RÕ MÌNH ĐANG ĐỔI GÌ.
+//    Trước 23/08/2026 số đơn theo Thông báo 09/2026/TB-HPCS: `[Mã dự án gốc]-PO-[STT 3 chữ số]`
+//    (vd `260001-HPCS-PO-001`). Ba khác biệt, không phải một:
 //
-// 📌 Chuỗi `PO` vẫn để ở HẰNG SỐ `MA_LOAI_DON_HANG` dưới đây — một chỗ duy nhất, đổi được
-//    bằng một dòng nếu Thông báo có bản sửa. (Mã đề nghị `PR` thì hiện còn viết thẳng trong
-//    `dat-ten-de-nghi.ts`, chưa tách hằng số — chỗ đó mới là chỗ đang chờ duyệt.)
+//      ① Mã loại `PO` (đã có trong danh mục duyệt của Thông báo) → đổi thành `DMH`. Mã `DMH`
+//         **chưa có trong danh mục mã loại** của Thông báo 09/2026, và quy tắc E-6 đòi mọi điều
+//         chỉnh phải được đơn vị quản lý hệ thống phê duyệt. Việc xin bổ sung `DMH` vào danh mục
+//         là việc CÒN NỢ — đã báo Ban lãnh đạo cùng ngày.
+//      ② Số thứ tự trước chạy theo DỰ ÁN, nay chạy theo NĂM. Nghĩa là hai đơn của hai công
+//         trình khác nhau nay dùng chung một dãy số.
+//      ③ Mã không còn chứa mã dự án gốc, nên **nhìn số đơn không còn suy ra được công trình**.
+//         Công trình vẫn nằm trong đơn (`maDuAn`, `tenCongTrinh`) và vẫn in trên tờ giấy ở dòng
+//         "Mã đề xuất và tên công trình" — chỉ là không đọc được từ chính con số.
 //
-// 🔴 VÌ SAO TÁCH THÀNH HÀM THUẦN NGÀY 18/08/2026: mã đơn trước nay sinh THẲNG trong
-//    `3-du-lieu/kho-du-lieu.tsx` → `themDonHang` bằng công thức **đếm số đơn hiện có rồi +1**.
-//    Công thức đó sinh mã TRÙNG ngay khi có một đơn bị bỏ đi — đúng cái sai mà
-//    `dat-ten-de-nghi.ts` → `maDeNghiTiepTheo` đã phải sửa ngày 14/08/2026 cho mã đề nghị,
-//    nhưng mã đơn hàng thì chưa được sửa theo.
-//
-//    Từ 18/08/2026 việc này thành cấp bách hơn: module "Lập đơn mua hàng (PO)" độc lập cho
-//    người lập TỰ CHỌN / TỰ GÕ mã dự án, nên một mã dự án có thể nhận đơn từ nhiều đường khác
-//    nhau và khả năng đụng số cao hơn hẳn.
+// 📌 ĐƠN CŨ GIỮ NGUYÊN MÃ. Hàm này chỉ cấp số cho đơn MỚI; những đơn đã mang mã
+//    `260001-HPCS-PO-001` vẫn tra cứu và hiển thị bình thường. Đổi mã đơn đã phát hành là làm
+//    lệch chứng từ giấy đã gửi nhà cung cấp.
 //
 // Hàm ở đây là hàm THUẦN, không đụng giao diện, không đụng kho dữ liệu.
 // ============================================================
 
 /**
- * Mã loại của đơn đặt hàng theo Thông báo 09/2026/TB-HPCS — **đã có trong danh mục duyệt**.
+ * Tiền tố số đơn mua hàng — một chỗ sửa duy nhất.
  *
- * Để ở đây làm một chỗ sửa duy nhất, phòng khi Thông báo có bản sửa.
+ * 🔴 Đổi hằng số này là đổi ký hiệu của MỌI đơn cấp số về sau. Đơn đã cấp thì không đổi theo
+ * (mã nằm trong `DonDatHang.code`), nên hai dãy mã sẽ cùng tồn tại — đó là chuyện bình thường
+ * của việc đổi hệ mã, nhưng phải biết trước chứ đừng ngạc nhiên.
  */
-export const MA_LOAI_DON_HANG = "PO";
+export const TIEN_TO_DON_HANG = "DMH";
 
 /**
- * Sinh mã đơn đặt hàng tiếp theo của một dự án.
+ * Số chữ số của phần STT. `0000` theo đúng chỉ đạo, tức tối đa 9.999 đơn một năm.
+ *
+ * ⚠️ Vượt 9.999 thì mã tự dài ra thành 5 chữ số (`padStart` không cắt bớt) — thà mã dài hơn
+ * khuôn còn hơn cấp trùng số. Không có chốt nào chặn ở đây vì chặn là app không lập được đơn.
+ */
+const SO_CHU_SO_STT = 4;
+
+/** Mã loại cũ theo Thông báo 09/2026 — GIỮ LẠI để nhận ra đơn cấp số trước 23/08/2026. */
+export const MA_LOAI_DON_HANG_CU = "PO";
+
+/**
+ * Năm dùng để cấp số, **HAI chữ số cuối**, lấy từ ngày lập đơn (chuỗi ISO `YYYY-MM-DD`).
+ *
+ * ★ HAI chữ số theo chỉ đạo Ban lãnh đạo 23/08/2026 (lượt hai): *"định dạng lại DMH260001"* —
+ * tức `DMH` + `26` + `0001`, viết LIỀN, không dấu phân cách. Cùng lối với mã dự án gốc của
+ * Thông báo 09/2026 (`YYUNNN-HPCS`, vd `260001-HPCS`) nên đọc quen mắt.
+ *
+ * 🔴 LẤY THEO NGÀY LẬP ĐƠN, KHÔNG LẤY `new Date()`:
+ *   · Đơn lập bù cho tháng trước (chuyện thường vào đầu năm) phải mang số của năm ghi trên
+ *     chứng từ, không phải năm hôm nay — nếu không, chứng từ ghi ngày 28/12/2026 mà số lại là
+ *     `DMH270001`, kế toán không đối chiếu được.
+ *   · Hàm thuần không được phụ thuộc thời điểm chạy, nếu không thì không kiểm thử được.
+ *
+ * Trả chuỗi rỗng khi ngày không đúng khuôn — bên gọi phải chặn trước, xem `themDonHang`.
+ */
+export function namCuaNgay(ngayISO: string): string {
+  const khop = /^\d{2}(\d{2})-\d{2}-\d{2}/.exec(ngayISO.trim());
+  return khop ? khop[1] : "";
+}
+
+/**
+ * Sinh số đơn mua hàng tiếp theo của một NĂM.
  *
  * 🔴 LẤY SỐ LỚN NHẤT ĐÃ TỪNG DÙNG RỒI +1, **không đếm số đơn hiện có rồi +1**.
- * Đếm rồi +1 thì: lập PO-001 · PO-002 · PO-003, bỏ PO-002 → còn 2 đơn → đơn tiếp theo lại ra
- * PO-003, trùng với đơn đang tồn tại. Hai chứng từ cùng một mã là hỏng cả hệ mã của Thông báo
- * 09/2026 — tra cứu ra nhầm đơn, hồ sơ giấy lẫn lộn, công nợ cộng nhầm.
+ * Đếm rồi +1 thì: lập 0001 · 0002 · 0003, bỏ 0002 → còn 2 đơn → đơn tiếp theo lại ra 0003,
+ * trùng với đơn đang tồn tại. Hai chứng từ cùng một số là hỏng cả hệ mã — tra cứu ra nhầm đơn,
+ * hồ sơ giấy lẫn lộn, công nợ cộng nhầm. (Đúng cái sai `dat-ten-de-nghi.ts` đã phải sửa ngày
+ * 14/08/2026 cho mã đề nghị.)
  *
  * 📌 Vòng `while` cuối là chốt chặn cuối: dữ liệu có thể chứa mã không theo khuôn (nhập tay,
- * nhập từ Excel, đơn của bản chạy thử cũ), lúc đó `lonNhat` không phản ánh hết thực tế.
+ * nhập từ Excel, đơn của bản chạy thử cũ, và cả dãy mã cũ `…-PO-001`), lúc đó `lonNhat` không
+ * phản ánh hết thực tế.
  *
- * @param maDuAn  Mã dự án gốc, vd `260001-HPCS`. Gọi hàm phải bảo đảm KHÔNG rỗng — mã rỗng
- *                cho ra `-PO-001`, một mã hồ sơ vô nghĩa. Chốt chặn ở `themDonHang`.
- * @param maDaDung Mã của MỌI đơn đang có (không chỉ đơn cùng dự án) — để vòng `while` chống
- *                trùng nhìn được toàn bộ.
+ * @param nam      Năm HAI chữ số, lấy bằng `namCuaNgay(ngayLapPO)`. Rỗng là lỗi lập trình —
+ *                 bên gọi phải chặn trước, vì mã `DMH0001` đọc ra như năm 00 số 01.
+ * @param maDaDung Số của MỌI đơn đang có (cả năm khác, cả dãy mã cũ) — để vòng `while` chống
+ *                 trùng nhìn được toàn bộ.
  */
-export function maDonHangTiepTheo(maDuAn: string, maDaDung: readonly string[]): string {
-  const duAn = maDuAn.trim();
-  // Thoát ký tự đặc biệt: mã dự án là chuỗi người dùng gõ, có thể chứa `.`, `(`, `+`…
-  const cungDuAn = new RegExp(
-    `^${duAn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-${MA_LOAI_DON_HANG}-(\\d+)`,
-  );
+export function maDonHangTiepTheo(nam: string, maDaDung: readonly string[]): string {
+  /* ⚠️ VIẾT LIỀN, KHÔNG DẤU PHÂN CÁCH (`DMH260001`) — chỉ đạo 23/08/2026 lượt hai. */
+  const tienTo = `${TIEN_TO_DON_HANG}${nam.trim()}`;
+  /* Neo cả hai đầu (`^…$`): thiếu `$` thì `DMH2600012` cũng khớp và bị đọc thành số 1, nên số
+     lớn nhất tính ra sai và mã tiếp theo trùng.
+
+     ⚠️ VÌ MÃ VIẾT LIỀN NÊN TIỀN TỐ PHẢI GỒM CẢ NĂM, không được chỉ là `DMH`: `^DMH(\\d+)$` sẽ
+     ăn luôn cả phần năm vào số thứ tự (`DMH260001` → 260001), rồi đơn tiếp theo ra `DMH260002`
+     một cách tình cờ đúng, nhưng đơn của năm 27 lại tính từ số 270001 — dãy số nhảy vọt và
+     không bao giờ về 0001 đầu năm. */
+  const cungNam = new RegExp(`^${tienTo}(\\d+)$`);
 
   let lonNhat = 0;
   for (const ma of maDaDung) {
-    const khop = cungDuAn.exec(ma.trim());
+    const khop = cungNam.exec(ma.trim());
     if (khop) lonNhat = Math.max(lonNhat, Number(khop[1]));
   }
 
   const daDung = new Set(maDaDung.map((m) => m.trim()));
   let so = lonNhat + 1;
-  let ma = `${duAn}-${MA_LOAI_DON_HANG}-${String(so).padStart(3, "0")}`;
+  let ma = `${tienTo}${String(so).padStart(SO_CHU_SO_STT, "0")}`;
   while (daDung.has(ma)) {
     so += 1;
-    ma = `${duAn}-${MA_LOAI_DON_HANG}-${String(so).padStart(3, "0")}`;
+    ma = `${tienTo}${String(so).padStart(SO_CHU_SO_STT, "0")}`;
   }
   return ma;
 }

@@ -129,7 +129,7 @@ export function ODinhKemTep({
            🔴 Bản cũ để tất cả trên một hàng `flex-wrap`: gặp tên tệp dài (ảnh chụp từ điện
            thoại có tên cả trăm ký tự) là tên chiếm trọn hàng, đẩy nút "Xem" xuống dòng
            dưới, và `ml-auto` mất tác dụng — mỗi lần giao một kiểu cao thấp khác nhau. */
-        <div className="flex items-center gap-3 rounded-lg border border-success bg-success-bg p-(--hp-md-row-pad)">
+        <div className="flex items-center gap-2 rounded-lg border border-success bg-success-bg px-2.5 py-1.5">
           <Paperclip className="size-4 shrink-0 text-success-soft" aria-hidden />
 
           {/* `min-w-0` là bắt buộc để `truncate` bên trong hoạt động: mặc định ô flex
@@ -157,13 +157,20 @@ export function ODinhKemTep({
                 🔴 BỎ CHỮ HIỂN THỊ NHƯNG KHÔNG BỎ NHÃN: mỗi nút giữ `title` (rê chuột là hiện chữ)
                 và `sr-only` cho trình đọc màn hình. Nút icon trơ không nhãn là người dùng phải
                 đoán, và trình đọc màn hình chỉ đọc được "button".
-                🔴 KÍCH THƯỚC 44×44 (`size-11`) theo Design System V1.1: nút chỉ có icon thì vùng
-                bấm chính là cả nút, không còn phần chữ để bấm trượt vào. */}
+                🔴 KÍCH THƯỚC THEO THIẾT BỊ (sửa 21/08/2026 — Ban lãnh đạo: *"giảm chiều cao lại
+                cho gọn, này đang lớn quá. Giảm luôn icon để không bị tràn"*):
+                  · **44×44 trên cảm ứng** (`size-11`) — Design System V1.1 đòi vùng chạm ≥44px,
+                    và nút chỉ có icon thì vùng bấm chính là cả nút, không còn phần chữ để bấm
+                    trượt vào.
+                  · **36×36 từ `md` trở lên** (`md:size-9`) — trên máy tính bấm bằng chuột nên
+                    không cần 44px, mà bốn nút × 44px thì hàng tệp bị tràn đúng như đã thấy.
+                ⚠️ ĐỪNG hạ `size-11` ở cỡ nhỏ: làm vậy là phá quy tắc vùng chạm trên điện thoại,
+                nơi người dùng bấm bằng ngón tay. */}
             <button
               type="button"
               onClick={() => setMoXem(true)}
               title="Xem tệp"
-              className="inline-flex size-11 items-center justify-center rounded-lg border border-border bg-card text-text-secondary transition-colors hover:border-primary hover:text-primary"
+              className="inline-flex size-11 items-center justify-center rounded-lg border border-border bg-card text-text-secondary transition-colors hover:border-primary hover:text-primary md:size-9"
             >
               <Eye className="size-4 shrink-0" aria-hidden />
               <span className="sr-only">Xem tệp</span>
@@ -175,7 +182,7 @@ export function ODinhKemTep({
               type="button"
               onClick={tai}
               title="Tải tệp về máy"
-              className="inline-flex size-11 items-center justify-center rounded-lg border border-border bg-card text-text-secondary transition-colors hover:border-primary hover:text-primary"
+              className="inline-flex size-11 items-center justify-center rounded-lg border border-border bg-card text-text-secondary transition-colors hover:border-primary hover:text-primary md:size-9"
             >
               <Download className="size-4 shrink-0" aria-hidden />
               <span className="sr-only">Tải tệp về máy</span>
@@ -183,7 +190,7 @@ export function ODinhKemTep({
             {!khoa && (
               <label
                 title="Thay bằng tệp khác"
-                className="inline-flex size-11 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                className="inline-flex size-11 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-text-secondary transition-colors hover:border-primary hover:text-primary md:size-9"
               >
                 <input
                   type="file"
@@ -211,7 +218,7 @@ export function ODinhKemTep({
                 type="button"
                 onClick={() => setHoiXoa(true)}
                 title="Bỏ tệp khỏi hồ sơ"
-                className="inline-flex size-11 items-center justify-center rounded-lg border border-border bg-card text-text-secondary transition-colors hover:border-danger hover:text-danger"
+                className="inline-flex size-11 items-center justify-center rounded-lg border border-border bg-card text-text-secondary transition-colors hover:border-danger hover:text-danger md:size-9"
               >
                 <Trash2 className="size-4 shrink-0" aria-hidden />
                 <span className="sr-only">Bỏ tệp khỏi hồ sơ</span>
@@ -246,7 +253,7 @@ export function ODinhKemTep({
         </div>
       ) : (
         <label
-          className={`inline-flex w-fit min-h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
+          className={`inline-flex w-fit min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors md:min-h-9 ${
             khoa || dangCat
               ? "pointer-events-none border-border opacity-60"
               : batBuoc

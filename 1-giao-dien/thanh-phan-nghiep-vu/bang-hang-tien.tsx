@@ -144,6 +144,14 @@ export function BangHangTien({
   /** Còn mặt hàng nào của đề nghị chưa đưa vào bảng không — khóa nút "Thêm dòng" khi hết. */
   conMatHangDeThem,
   /**
+   * ★ Câu nói RÕ VÌ SAO không còn mặt hàng nào — hiện khi bảng trống và nút "Thêm dòng" đã khóa.
+   *
+   * Nơi gọi biết lý do thật (đã lên đơn hết / chưa được phân bổ cho người đang lập / phiếu đề
+   * nghị rỗng), bảng thì không. Bỏ trống thì dùng câu chung, nhưng câu chung không giúp người
+   * dùng biết phải làm gì tiếp.
+   */
+  lyDoHetMatHang,
+  /**
    * ★ ĐƠN KHÔNG GẮN ĐỀ NGHỊ — nút "Thêm dòng" chèn một DÒNG TRẮNG gõ tay (18/08/2026).
    *
    * 🔴 CHỈ ĐỔI CHỮ, KHÔNG ĐỔI LUẬT. Việc chèn dòng gì là của chỗ gọi (`onThemDong`); cờ này
@@ -191,6 +199,7 @@ export function BangHangTien({
   onDoiTyLeChietKhau: (v: string) => void;
   onDoiChietKhau: (v: string) => void;
   conMatHangDeThem: boolean;
+  lyDoHetMatHang?: string;
   tieuDeTrongKhoiGiaiDoan?: boolean;
   nhapTuDo?: boolean;
   batPhimTat?: boolean;
@@ -199,7 +208,19 @@ export function BangHangTien({
    * Số cột của phần giữa (từ "Mã hàng" đến "Mục đích sử dụng") — dòng ghi chú gộp hết phần
    * này thành một ô chữ, đúng cách MISA vẽ dòng ghi chú.
    */
-  const soCotGiua = 7 + (xemGia ? 4 : 0);
+  /**
+   * 🔴 SỬA CON SỐ NÀY CÙNG LÚC MỖI KHI THÊM / BỚT CỘT. Sai là dòng "Chưa có dòng nào" và dòng
+   * ghi chú gộp thừa hoặc thiếu một ô — bảng lệch mà **không có lỗi nào báo**.
+   *
+   * Lịch sử: 7 → 6 (bỏ "Trường mở rộng 1") → 5 và 4 → 2 phần giá (23/08/2026, bỏ "Mã hàng" và
+   * hai cột thuế theo dòng để khớp 100% biểu mẫu công ty).
+   *
+   * Đếm hiện tại — phần GIỮA (từ cột sau "#" tới "Mục đích sử dụng"):
+   *   Tên hàng · Quy cách/chủng loại · ĐVT · Số lượng · Mục đích sử dụng = 5
+   *   + khi xem được giá: Đơn giá · Thành tiền = 2
+   * Cả bảng = phần giữa + cột "#" + cột nút xóa.
+   */
+  const soCotGiua = 5 + (xemGia ? 2 : 0);
   /** Tổng số cột thật của bảng — dùng cho `colSpan` của các dòng chiếm cả bề ngang. */
   const soCotCaBang = soCotGiua + 2;
 
@@ -233,7 +254,9 @@ export function BangHangTien({
        `tinhTienChiTiet` tính ra và định dạng lại theo tiếng Việt, gõ "1.000" hay "1000" ra hai
        kết quả khác nhau — một ô tìm lúc trúng lúc không còn tệ hơn không có. */
     return dongCoViTri.filter(({ d }) =>
-      [d.maHang, d.tenHang, d.thongSo, d.dvt, d.truongMoRong1, d.mucDich].some((v) =>
+      /* `truongMoRong1` đã rời khỏi đây cùng lúc với việc bỏ cột đó (23/08/2026): tìm trên một
+         ô không còn hiện là người dùng gõ đúng chữ mà **không thấy nó ở đâu trên bảng**. */
+      [d.maHang, d.tenHang, d.thongSo, d.dvt, d.mucDich].some((v) =>
         boDau(v).toLowerCase().includes(tuTim),
       ),
     );
@@ -403,35 +426,82 @@ export function BangHangTien({
                 này, các bảng khác của app giữ nguyên. */}
             <TableRow className="bg-primary-bg hover:bg-primary-bg">
               <TableHead className="w-10 text-center">#</TableHead>
-              <TableHead>Mã hàng</TableHead>
+              {/* ❌ ĐÃ BỎ CỘT "Mã hàng" (23/08/2026 — Ban lãnh đạo: *"tạo các trường nhập liệu
+                  giống 100% file PO mẫu"*). Biểu mẫu công ty chỉ có 8 cột: STT · Tên hàng ·
+                  Quy cách/chủng loại · ĐVT · SL · Đơn giá · Thành tiền · Mục đích sử dụng.
+                  ⚠️ Trường `maHang` GIỮ NGUYÊN trong dữ liệu: bộ đọc file Excel vẫn nhận nó, và
+                  dòng chọn từ phiếu đề nghị vẫn mang mã sang. Chỉ thôi hiện cột trên màn nhập. */}
               <TableHead>Tên hàng</TableHead>
-              <TableHead>Thông số kỹ thuật</TableHead>
+              {/* ★ Nhãn ĐÚNG theo biểu mẫu công ty `PO - DEMO 130826.xlsx` ô E11
+                  (Ban lãnh đạo 23/08/2026: *"đủ các trường thông tin như vậy"*). Trước đây app gọi
+                  "Thông số kỹ thuật" — cùng nghĩa nhưng lệch chữ với chứng từ đang lưu hành. */}
+              <TableHead>Quy cách / chủng loại</TableHead>
               <TableHead>ĐVT</TableHead>
               <TableHead className="text-right">Số lượng</TableHead>
               {xemGia && (
                 <>
                   <TableHead className="text-right">Đơn giá</TableHead>
                   <TableHead className="text-right">Thành tiền</TableHead>
-                  {/* MISA để tiêu đề này XUỐNG 2 DÒNG. `TableHead` gốc có `whitespace-nowrap`
-                      nên phải khai `whitespace-normal` kèm bề rộng, không thì chữ vẫn một dòng. */}
-                  <TableHead className="w-20 text-right whitespace-normal">% Thuế GTGT</TableHead>
-                  <TableHead className="text-right">Tiền thuế GTGT</TableHead>
+                  {/**
+                    * ❌ ĐÃ BỎ HAI CỘT "% Thuế GTGT" và "Tiền thuế GTGT" THEO DÒNG (23/08/2026 —
+                    * Ban lãnh đạo: *"giống 100% file PO mẫu"*).
+                    *
+                    * Biểu mẫu công ty chỉ có MỘT thuế suất cho cả đơn (ô B21 *"Thuế suất thuế
+                    * GTGT: …,…%"*) và MỘT dòng tiền thuế ở khối tổng (ô E21) — không có thuế theo
+                    * từng dòng hàng. Hai cột kia là của MISA.
+                    *
+                    * ⚠️ HỆ QUẢ PHẢI BIẾT: đơn TRỘN nhiều mức thuế (8% và 10% trong cùng một đơn)
+                    * nay **không nhập được từ màn hình** — thuế lấy theo ô "Thuế suất GTGT chung"
+                    * ngay dưới bảng. Phép tính theo dòng thì vẫn còn nguyên trong
+                    * `2-quy-trinh/tinh-toan.ts` và bộ đọc Excel vẫn nhận `thueSuat` của từng dòng,
+                    * nên đơn nhập từ file có trộn thuế vẫn tính đúng. Cần nhập tay trộn thuế trở
+                    * lại thì mở lại hai cột này, đừng viết phép tính mới.
+                    */}
                 </>
               )}
-              {/* "Trường mở rộng 1" của MISA cũng xuống 2 dòng. */}
-              <TableHead className="w-28 whitespace-normal">Trường mở rộng 1</TableHead>
+              {/* ❌ ĐÃ BỎ CỘT "Trường mở rộng 1" khỏi bảng nhập (23/08/2026).
+                  Cột đó là của MISA, **không có trên biểu mẫu công ty** (`PO - DEMO 130826.xlsx`
+                  chỉ có STT · Tên hàng · Quy cách/chủng loại · ĐVT · SL · Đơn giá · Thành tiền ·
+                  Mục đích sử dụng). Ban lãnh đạo 23/08/2026 yêu cầu bố cục theo tờ mẫu *"để dễ
+                  dàng nhập liệu cho người mới"* — một cột trống không nhãn nghĩa, không in ra tờ
+                  nào, chỉ làm người mới dừng lại tự hỏi phải điền gì.
+
+                  ⚠️ TRƯỜNG DỮ LIỆU `truongMoRong1` THÌ GIỮ NGUYÊN, cố ý: bộ đọc và bộ ghi file
+                  Excel vẫn dùng nó, và đơn cũ đã lưu có thể đang có nội dung ở đó. Bỏ cả trường
+                  là xóa dữ liệu người ta đã gõ mà không báo. Cột chỉ thôi hiện trên màn nhập. */}
               <TableHead>Mục đích sử dụng</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
 
           <TableBody>
+            {/* 🔴 BẢNG TRỐNG PHẢI NÓI ĐÚNG LÝ DO (21/08/2026 — Ban lãnh đạo: *"chức năng tách
+                thêm đơn chưa tự động link thông tin từ các bước trước nó"*).
+
+                Trước đây câu này luôn là *"Bấm Thêm dòng để chọn mặt hàng của đề nghị"* — kể cả
+                khi nút "Thêm dòng" ĐÃ BỊ KHÓA vì đề nghị không còn khối lượng nào để đặt. Người
+                lập đọc câu đó, bấm không được, và kết luận app hỏng hoặc chưa nối dữ liệu. App
+                chỉ dẫn một việc chính nó vừa chặn.
+
+                Nay khi hết mặt hàng thì nói thẳng là hết, kèm lý do do nơi gọi truyền vào (đã
+                đặt hết ≠ chưa được phân bổ — hai việc phải xử lý khác nhau). */}
             {dong.length === 0 && (
               <TableRow>
                 <TableCell colSpan={soCotCaBang} className="h-16 text-center text-text-desc">
-                  Chưa có dòng nào. Bấm <strong>Thêm dòng</strong>{" "}
-                  {nhapTuDo ? "để nhập một mặt hàng" : "để chọn mặt hàng của đề nghị"}, hoặc nhập
-                  từ file Excel.
+                  {nhapTuDo || conMatHangDeThem ? (
+                    <>
+                      Chưa có dòng nào. Bấm <strong>Thêm dòng</strong>{" "}
+                      {nhapTuDo ? "để nhập một mặt hàng" : "để chọn mặt hàng của đề nghị"}, hoặc
+                      nhập từ file Excel.
+                    </>
+                  ) : (
+                    <>
+                      {lyDoHetMatHang ?? "Đề nghị này không còn mặt hàng nào để đưa vào đơn."}{" "}
+                      <span className="text-text-secondary">
+                        Vẫn nhập được từ file Excel, hoặc thêm ghi chú cho đơn.
+                      </span>
+                    </>
+                  )}
                 </TableCell>
               </TableRow>
             )}
@@ -541,15 +611,7 @@ export function BangHangTien({
                 <TableRow key={d.id}>
                   <TableCell className="text-center text-text-desc">{viTri + 1}</TableCell>
 
-                  <TableCell>
-                    <Input
-                      value={d.maHang}
-                      onChange={(e) => onDoiDong(d.id, { maHang: e.target.value })}
-                      placeholder="VT00027"
-                      className="w-28"
-                      aria-label={`Mã hàng dòng ${viTri + 1}`}
-                    />
-                  </TableCell>
+                  {/* ❌ Ô "Mã hàng" đã bỏ khỏi bảng nhập — xem chú thích ở dòng tiêu đề. */}
 
                   <TableCell>
                     <div className="flex flex-col gap-1">
@@ -578,7 +640,7 @@ export function BangHangTien({
                       onChange={(e) => onDoiDong(d.id, { thongSo: e.target.value })}
                       placeholder="Mác, tiêu chuẩn, quy cách"
                       className="w-48"
-                      aria-label={`Thông số kỹ thuật dòng ${viTri + 1}`}
+                      aria-label={`Quy cách / chủng loại dòng ${viTri + 1}`}
                     />
                   </TableCell>
 
@@ -599,7 +661,7 @@ export function BangHangTien({
                         max={con?.conLai}
                         value={d.soLuong}
                         onChange={(e) => onDoiDong(d.id, { soLuong: e.target.value })}
-                        className="w-28 text-right"
+                        className="w-28 text-right khong-nut-tang-giam"
                         aria-label={`Số lượng dòng ${viTri + 1}`}
                       />
                       {/* Cảnh báo vượt: CẢ màu lẫn chữ, và nói luôn hệ quả để người lập tự
@@ -632,42 +694,27 @@ export function BangHangTien({
                           min={0}
                           value={d.donGia}
                           onChange={(e) => onDoiDong(d.id, { donGia: e.target.value })}
-                          className="w-32 text-right"
-                          placeholder="0"
+                          /* `khong-nut-tang-giam`: xem `app/globals.css`. Ô căn phải mà còn cặp
+                             mũi tên tăng/giảm của Chrome thì mũi tên đè lên chữ số. */
+                          className="w-32 text-right khong-nut-tang-giam"
+                          /* 🔴 KHÔNG để placeholder "0" (21/08/2026 — Ban lãnh đạo: *"Điều chỉnh
+                             các lỗi hiển thị này"*, khoanh đúng ô này).
+                             Ô trống nghĩa là CHƯA CÓ GIÁ, còn "0" mờ trong ô đọc lên y như đã
+                             điền đơn giá bằng 0 đồng — hai việc khác nhau hoàn toàn: một cái là
+                             thiếu dữ liệu, một cái là hàng cho không. Ô số không cần gợi ý cách
+                             gõ, nên bỏ hẳn cho sạch. */
                           aria-label={`Đơn giá dòng ${viTri + 1}`}
                         />
                       </TableCell>
                       <TableCell className="text-right font-medium text-text-primary tabular-nums">
                         {(t?.thanhTien ?? 0).toLocaleString("vi-VN")}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={d.thueSuat}
-                          onChange={(e) => onDoiDong(d.id, { thueSuat: e.target.value })}
-                          /* Bỏ trống là dùng thuế suất chung của đơn — hầu hết đơn chỉ một
-                             mức thuế nên đây mới là cách dùng thường ngày. */
-                          placeholder={String(tien.thueSuatGTGT)}
-                          className="w-24 text-right"
-                          aria-label={`Phần trăm thuế GTGT dòng ${viTri + 1}`}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-text-secondary">
-                        {(t?.tienThueGTGT ?? 0).toLocaleString("vi-VN")}
-                      </TableCell>
+                      {/* ❌ Hai ô "% Thuế GTGT" và "Tiền thuế GTGT" theo dòng đã bỏ khỏi bảng nhập
+                          — xem chú thích ở dòng tiêu đề. */}
                     </>
                   )}
 
-                  <TableCell>
-                    <Input
-                      value={d.truongMoRong1}
-                      onChange={(e) => onDoiDong(d.id, { truongMoRong1: e.target.value })}
-                      className="w-40"
-                      aria-label={`Trường mở rộng 1 dòng ${viTri + 1}`}
-                    />
-                  </TableCell>
+                  {/* ❌ Ô "Trường mở rộng 1" đã bỏ khỏi bảng nhập — xem chú thích ở dòng tiêu đề. */}
 
                   <TableCell>
                     <Input
@@ -698,7 +745,8 @@ export function BangHangTien({
           {dong.length > 0 && (
             <TableFooter>
               <TableRow className="bg-muted">
-                <TableCell colSpan={5} className="font-bold text-text-primary">
+                {/* 5 → 4 (23/08/2026): che [#][Tên hàng][Quy cách][ĐVT] sau khi bỏ cột "Mã hàng". */}
+                <TableCell colSpan={4} className="font-bold text-text-primary">
                   TỔNG CỘNG
                 </TableCell>
                 <TableCell className="text-right font-bold tabular-nums text-text-primary">
@@ -708,17 +756,17 @@ export function BangHangTien({
                 </TableCell>
                 {xemGia && (
                   <>
+                    {/* Cột Đơn giá không có tổng (cộng đơn giá là con số vô nghĩa). */}
                     <TableCell />
                     <TableCell className="text-right font-bold tabular-nums text-text-primary">
                       {tien.congTienHang.toLocaleString("vi-VN")}
                     </TableCell>
-                    <TableCell />
-                    <TableCell className="text-right font-bold tabular-nums text-text-primary">
-                      {tien.tienThueGTGT.toLocaleString("vi-VN")}
-                    </TableCell>
+                    {/* ❌ Đã bỏ 2 ô tổng của hai cột thuế theo dòng — hai cột đó không còn.
+                        Tổng tiền thuế nay chỉ nằm ở khối tiền dưới bảng, đúng như biểu mẫu (ô E21). */}
                   </>
                 )}
-                <TableCell colSpan={3} />
+                {/* Còn [Mục đích sử dụng] + [nút xóa]. */}
+                <TableCell colSpan={2} />
               </TableRow>
             </TableFooter>
           )}

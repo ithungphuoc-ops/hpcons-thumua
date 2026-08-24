@@ -10,7 +10,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "verify": "npm run lint && npm run typecheck && npm run build:check",
-    "deploy": "npx --yes vercel --prod"
+    "kiem-truoc-deploy": "node kiem-truoc-deploy.mjs",
+    "kiem-route": "node kiem-route-san-xuat.mjs",
+    "deploy": "node kiem-truoc-deploy.mjs && npx --yes vercel --prod --archive=tgz --yes && node kiem-route-san-xuat.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

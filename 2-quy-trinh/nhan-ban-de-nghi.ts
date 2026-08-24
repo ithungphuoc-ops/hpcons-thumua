@@ -47,6 +47,26 @@ export function cacBanTachCua(gocId: string, tatCa: DeNghiMuaHang[]): DeNghiMuaH
  * mà lần nào cũng nối thì bản thứ ba thành *"…PR-001 (copy) (copy) (copy)"*. Nay: bản đầu
  * "(copy)", các bản sau "(copy 2)", "(copy 3)"…
  */
+/**
+ * ★ TÊN (TIÊU ĐỀ) CỦA MỘT BẢN TÁCH — Ban lãnh đạo 22/08/2026: *"Tên của quy trình giống nhau và
+ * thêm chữ copy phía sau"*, và *"tên của nó sẽ vẫn giống như công việc cha chỉ thêm từ copy + số
+ * tt của công việc con đó trong công việc cha"*.
+ *
+ * 🔴 ĐỔI MỘT QUYẾT ĐỊNH CŨ. Quyết định 44 (phiên 09, 13/08/2026) ghi *"tiêu đề giữ nguyên tuyệt
+ * đối"* để sau này tổng hợp lại được. Nay Ban lãnh đạo yêu cầu tên có `copy`, nên tôi làm theo —
+ * và việc tổng hợp KHÔNG mất: quan hệ cha–con vẫn nằm ở `deNghiGocId` + `maDeNghiGoc`, hai trường
+ * đó mới là khóa nối, chứ không phải tên.
+ *
+ * 📌 Số thứ tự lấy ĐÚNG số của mã (`(copy)`, `(copy 2)`…) nên tên và mã luôn khớp nhau. Tính số
+ * riêng ở đây là sớm muộn tên nói "copy 2" mà mã nói "(copy 3)".
+ */
+export function tenBanSaoTheoMa(tieuDeGoc: string, maBanSao: string): string {
+  const khop = maBanSao.match(/\(copy(?: (\d+))?\)\s*$/);
+  if (!khop) return tieuDeGoc;
+  const so = khop[1] ? ` ${khop[1]}` : " 1";
+  return `${tieuDeGoc} (copy${so})`;
+}
+
 export function maBanSaoTiepTheo(dn: DeNghiMuaHang, tatCa: DeNghiMuaHang[]): string {
   const goc = phieuGocCua(dn, tatCa);
   /**
@@ -150,7 +170,10 @@ export function tinhPhuongAnTach(dn: DeNghiMuaHang, soMaConTrong: number): Phuon
   if (soMaConTrong < canTao) {
     return {
       tach: false,
-      lyDo: `Cần ${canTao} mã hồ sơ để tách cho ${nhom.length} người nhưng chỉ còn ${soMaConTrong}. Bản chạy thử giới hạn 12 đề nghị — xóa bớt phiếu cũ rồi thử lại.`,
+      /* ⚠️ Câu này gần như không còn xảy ra: từ 22/08/2026 id hồ sơ sinh động, không còn danh sách
+         12 mã khai trước (xem `6-tien-ich/sinh-id-ho-so.ts`), và nơi gọi truyền số rất lớn. Giữ
+         nhánh kiểm là cố ý — hàm luật này dùng chung, nơi gọi khác vẫn có thể có hạn mức thật. */
+      lyDo: `Cần ${canTao} mã hồ sơ để tách cho ${nhom.length} người nhưng chỉ còn ${soMaConTrong}.`,
     };
   }
   return { tach: true, giuPhieuGoc: nhom[0], canTaoPhieu: nhom.slice(1) };

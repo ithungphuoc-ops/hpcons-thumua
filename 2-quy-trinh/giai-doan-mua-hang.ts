@@ -32,6 +32,23 @@ import {
 // Luật đối chiếu khối lượng đã lên đơn — dùng lại, không tự cộng ở đây.
 // (`tinh-toan.ts` chỉ import kiểu dữ liệu nên không tạo vòng import.)
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+// Luật ba chứng từ cuối quy trình (hợp đồng · hóa đơn VAT · UNC) — một chỗ duy nhất.
+import {
+  coHoaDonVAT,
+  /**
+   * ⚠️ `coHopDong` CHỈ ĐƯỢC DÙNG TRONG `conNoCuaBuoc` (viền đỏ "còn nợ chứng từ").
+   *
+   * 🔴 TUYỆT ĐỐI KHÔNG dùng nó để trả lời *"đã rời được bước ④ chưa"* — câu đó chỉ có MỘT nơi
+   * trả lời là `vuongMacRoiBuocLapDon` (tệp HOẶC lý do). Dùng lẫn là dựng lại đúng cái bẫy ngày
+   * 23/08/2026: thẻ kẹt lại cột ④ dù nút chuyển bước đã mở, không lỗi nào báo.
+   */
+  coHopDong,
+  lyDoThieuHopDong,
+  NHAN_TEP_HOA_DON_VAT,
+  TEN_HIEN_HOP_DONG,
+  vuongMacRoiBuocLapDon,
+  vuongMacTichXongUNC,
+} from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { daysUntil } from "@/6-tien-ich/dinh-dang";
 
 export type GiaiDoanMuaHang =
@@ -41,6 +58,21 @@ export type GiaiDoanMuaHang =
   | "lap_don_mua_hang"
   | "dat_hang"
   | "nhan_hang"
+  /**
+   * ★ HỒ SƠ THANH TOÁN — một bước, chèn NGAY SAU "Tiến hành nhận hàng".
+   *
+   * 📌 Ban lãnh đạo 22/08/2026 đặt ra hai bước riêng (`hoa_don_vat` và `unc`), rồi 23/08/2026
+   * chốt **gộp lại một**: *"Gộp 2 mục này lại thành 1 'Hồ sơ thanh toán'"*. Hợp lý về nghiệp vụ —
+   * hóa đơn VAT và ủy nhiệm chi là hai chứng từ của CÙNG một việc: hoàn tất hồ sơ để trả tiền.
+   *
+   * Luật bên trong KHÔNG đổi, chỉ gộp chỗ hiển thị:
+   *   · hóa đơn VAT **bắt buộc** mới duyệt hoàn thành được;
+   *   · ủy nhiệm chi **tùy có**, nhưng chỉ tích xong được sau khi đã có hóa đơn VAT.
+   *
+   * 📌 Vẫn đúng nguyên tắc "giai đoạn suy ra từ chứng từ có thật": bước này xong khi có TỆP hóa
+   * đơn VAT đính kèm, không phải khi ai đó gõ một trạng thái.
+   */
+  | "ho_so_thanh_toan"
   | "hoan_thanh"
   | "that_bai";
 
@@ -94,9 +126,17 @@ export const GIAI_DOAN_MUA_HANG: MoTaGiaiDoan[] = [
     tong: "primary",
   },
   {
+    ma: "ho_so_thanh_toan",
+    nhan: "Hồ sơ thanh toán",
+    // Nói rõ cái nào bắt buộc, cái nào không — nếu không, người nhìn bảng tưởng mọi đơn đều phải
+    // có ủy nhiệm chi mới xong được.
+    moTa: "Đã nhận đủ hàng — chờ hóa đơn VAT (bắt buộc) và ủy nhiệm chi nếu đơn này cần",
+    tong: "warning",
+  },
+  {
     ma: "hoan_thanh",
     nhan: "Hoàn thành",
-    moTa: "Đã nhận đủ, kho và trưởng bộ phận đã xác nhận",
+    moTa: "Đã nhận đủ, có hóa đơn VAT, kho và trưởng bộ phận đã xác nhận",
     tong: "success",
   },
   {
@@ -158,6 +198,35 @@ export function xacDinhGiaiDoan(
     // chứng từ đang có.
   }
 
+  /**
+   * ⑦ HỒ SƠ THANH TOÁN — hóa đơn VAT (bắt buộc) + ủy nhiệm chi (nếu có).
+   *
+   * 🔴 ĐIỀU KIỆN VÀO LÀ "HÀNG ĐÃ VỀ ĐỦ", KHÔNG PHẢI "ĐƠN ĐÃ HOÀN THÀNH". Đây là chỗ dễ làm sai
+   * nhất và nếu sai thì kẹt vĩnh viễn:
+   *   · Trưởng bộ phận chỉ được duyệt hoàn thành khi ĐÃ CÓ hóa đơn VAT (chỉ đạo của Sếp).
+   *   · Mà hóa đơn VAT lại đính kèm ở chính hai cột này.
+   *   → Nếu hai cột chỉ hiện SAU khi đơn hoàn thành thì không bao giờ có chỗ để bỏ hóa đơn vào,
+   *     và không đơn nào hoàn thành được nữa. Vòng tròn khép kín.
+   * Nên: hàng về đủ là hai cột mở ra ngay, người lập bỏ hóa đơn vào, rồi trưởng bộ phận mới duyệt.
+   *
+   * ⚠️ ĐỨNG TRƯỚC NHÁNH `nhan_hang` bên dưới. Đảo lại là `daCoPhieuNhan` bắt trước và thẻ nằm
+   * mãi ở cột "Tiến hành nhận hàng" dù hàng đã về đủ — hai cột mới rỗng vĩnh viễn mà không một
+   * dòng lỗi nào.
+   *
+   * 📌 Chứng từ xong cả mà đơn chưa được xác nhận thì thẻ ĐỨNG LẠI Ở CỘT "UNC": đó là trạm cuối
+   * trước Hoàn thành, và nút duyệt hoàn thành nằm ở đó. Trả về `hoan_thanh` lúc này là báo xong
+   * trước khi có ai duyệt.
+   */
+  if (poCuaDeNghi.length > 0) {
+    const tienDoDong = tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu);
+    const daVeDu =
+      tienDoDong.length > 0 &&
+      tienDoDong.every((d) => d.khoiLuongChuaLenPO <= 0 && d.khoiLuongConLai <= 0);
+    if (daVeDu) {
+      return "ho_so_thanh_toan";
+    }
+  }
+
   // ⑥ Tiến hành nhận hàng — đã có hàng về, hoặc đơn đã chuyển sang trạng thái đang giao.
   const daCoPhieuNhan = tatCaPhieu.some((p) => poCuaDeNghi.some((po) => po.id === p.poId));
   const dangGiao = poCuaDeNghi.some(
@@ -165,8 +234,35 @@ export function xacDinhGiaiDoan(
   );
   if (daCoPhieuNhan || dangGiao) return "nhan_hang";
 
-  // ⑤ Tiến hành đặt hàng — đơn đã chốt, chưa có hàng nào về.
-  if (poCuaDeNghi.some((po) => po.trangThai === "da_chot")) return "dat_hang";
+  /**
+   * ⑤ Tiến hành đặt hàng — đơn đã chốt, chưa có hàng nào về.
+   *
+   * ★ TỪ 22/08/2026 PHẢI CÓ TỆP HỢP ĐỒNG MỚI RỜI ĐƯỢC BƯỚC ④ — Ban lãnh đạo: *"thêm cho 1 trường
+   * đính kèm Hợp đồng ở mục kết quả và phải có đính kèm thì mới cho chuyển bước"*.
+   *
+   * ★ TỪ 23/08/2026 CHẤP NHẬN ĐƯỜNG THỨ HAI: chưa có tệp thì **ghi lý do** cũng đi tiếp được
+   * (Ban lãnh đạo: *"bắt buộc có file đính kèm hoặc ghi chú lý do không đính kèm file thì mới cho
+   * chuyển bước"*).
+   *
+   * 🔴🔴 GỌI `vuongMacRoiBuocLapDon`, TUYỆT ĐỐI KHÔNG GỌI `coHopDong` Ở ĐÂY.
+   * Đây là lỗi tôi vừa gây ra và Ban lãnh đạo bắt được ngay trong ngày: sáng 23/08 tôi nới luật
+   * trong `vuongMacRoiBuocLapDon` (tệp HOẶC lý do) nhưng **để nguyên `coHopDong` ở dòng này**. Hai
+   * chỗ cùng trả lời một câu hỏi *"đã rời được bước ④ chưa"* mà nói khác nhau, nên: hộp xác nhận
+   * cho kéo thẻ đi, nút chuyển bước mở, mà **thẻ vẫn nằm lại cột ④** — Ban lãnh đạo hỏi *"Sao đã
+   * tạo PO xong vẫn chưa tự động chuyển qua bước đặt hàng"*. Không một dòng lỗi nào báo.
+   *
+   * 🔴 CHẶN Ở ĐÂY, KHÔNG CHẶN Ở HÀM CẤT ĐƠN. Nếu đòi có hợp đồng mới cho cất đơn thì thành vòng
+   * tròn không thoát: hợp đồng mua bán thường ghi số đơn hàng, mà số đơn chỉ sinh ra khi cất đơn.
+   * Chặn ở đây thì người lập vẫn cất được đơn, chỉ là **thẻ nằm lại cột ④** cho tới khi có bản
+   * hợp đồng đã ký hoặc có lý do — nhìn bảng là thấy ngay hồ sơ đang thiếu gì.
+   *
+   * ⚠️ Nhánh `nhan_hang` ở TRÊN vẫn thắng: hàng đã về thật thì thẻ phải sang cột nhận hàng dù
+   * hồ sơ còn thiếu hợp đồng. Tiến độ thực tế không được giấu đi vì thiếu giấy tờ — thiếu giấy
+   * thì nhắc, chứ không báo sai chỗ hàng đang ở đâu.
+   */
+  if (poCuaDeNghi.some((po) => po.trangThai === "da_chot")) {
+    return vuongMacRoiBuocLapDon(deNghi) === null ? "dat_hang" : "lap_don_mua_hang";
+  }
 
   // ④ Lập đơn mua hàng — đang có đơn nháp, hoặc đã chọn NCC mà chưa lên đơn.
   if (poCuaDeNghi.some((po) => po.trangThai === "nhap")) return "lap_don_mua_hang";
@@ -334,6 +430,29 @@ export interface TheDeNghiTrenBang {
    */
   uidPhuTrach: string[];
   soDongChuaPhanBo: number;
+  /**
+   * ★ BƯỚC HIỆN TẠI CỦA THẺ CÒN NỢ GÌ — `undefined` là không nợ (23/08/2026).
+   *
+   * 🔴 Ban lãnh đạo: *"ở quy trình này cũng cần hiển thị đỏ để biết đang thiếu ở bước nào"*, sau
+   * khi viền đỏ đã làm ở trang chi tiết đề nghị.
+   *
+   * 📌 Tính SẴN Ở ĐÂY, không để thẻ tự tính: thẻ là thành phần thuần hiển thị, còn `conNoCuaBuoc`
+   * cần cả cấu hình quy trình. Đưa cấu hình xuống tận thẻ là kéo một tầng dữ liệu nữa vào chỗ chỉ
+   * để bày — và hai chỗ cùng tính một câu trả lời thì sớm muộn lệch nhau.
+   *
+   * ⚠️ CHỈ tính cho BƯỚC ĐANG ĐỨNG. Bảng kanban đặt thẻ đúng cột của bước hiện tại, nên "thiếu ở
+   * bước nào" trên bảng chính là "thiếu ở cột thẻ đang nằm" — không cần soát cả bảy bước như trang
+   * chi tiết.
+   */
+  conNo?: string;
+  /**
+   * ★ TỪNG MỤC CÒN THIẾU, tách riêng để thẻ vẽ mỗi mục một dòng — Ban lãnh đạo 23/08/2026:
+   * *"Thiếu những mục gì thì hiển thị đủ luôn"*.
+   *
+   * 🔴 Có `conNo` (một câu) rồi vẫn cần mảng này: thẻ kanban chỉ rộng ~240px, một câu dài phải cắt
+   * bớt mới vừa — và cắt là giấu đúng mục thiếu thứ hai đi. Rỗng khi không nợ gì.
+   */
+  dsConNo?: string[];
   /* 📌 ĐÃ BỎ trường `vuongMac` (Ban lãnh đạo 16/08/2026 yêu cầu bỏ dòng cảnh báo trên thẻ).
      Không giữ lại trường không ai đọc: mỗi lần dựng bảng nó vẫn chạy `vuongMacSangBuocSau`
      cho từng hồ sơ, tốn công tính một chuỗi rồi vứt đi. Lý do chặn vẫn được tính ĐÚNG LÚC cần
@@ -354,6 +473,17 @@ export function dungBangQuyTrinh(
   tatCaPO: DonDatHang[],
   tatCaBaoGia: BaoGia[],
   tatCaPhieu: PhieuNhanHang[],
+  /**
+   * Cấu hình quy trình — cần để biết bước đang đứng còn nợ công việc bắt buộc nào (`conNo`).
+   *
+   * ⚠️ BẮT BUỘC, cố ý không cho bỏ trống: để `?` thì nơi gọi nào quên truyền sẽ **mất sạch dấu
+   * đỏ mà không một lỗi nào báo** — đúng kiểu hỏng đã dính nhiều lần trong dự án này. Thà
+   * TypeScript báo đỏ ở mọi chỗ gọi để phải xử lý cho hết.
+   *
+   * ⚠️ ĐỨNG TRƯỚC `moc` và `uidNguoiXem` vì hai tham số đó có giá trị mặc định / không bắt buộc —
+   * TypeScript không cho tham số bắt buộc nằm sau tham số tùy chọn.
+   */
+  cauHinh: CauHinhQuyTrinh,
   moc: Date = new Date(),
   /**
    * UID người đang xem bảng — việc của họ được đẩy lên đầu mỗi cột.
@@ -389,6 +519,10 @@ export function dungBangQuyTrinh(
         ),
       ],
       soDongChuaPhanBo: deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length,
+      /* Dấu đỏ trên thẻ — xem chú thích ở khai báo `conNo`. `?? undefined` vì `conNoCuaBuoc`
+         trả `null` khi không nợ gì, còn trường này khai kiểu `string | undefined`. */
+      conNo: conNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu) ?? undefined,
+      dsConNo: dsConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu),
       maPOLienQuan: tatCaPO
         .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
         .map((po) => po.code),
@@ -519,6 +653,171 @@ export function congViecChuaXongCuaBuoc(
   );
 }
 
+/**
+ * ★★ BƯỚC NÀY CÒN NỢ GÌ — nguồn của VIỀN ĐỎ trên khối bước (Ban lãnh đạo 23/08/2026:
+ * *"Các border này cần hiển thị màu đỏ nếu như công việc trong các mục này chưa hoàn thành hoặc
+ * thiếu đính kèm file"*). Trả câu mô tả, `null` là không nợ gì.
+ *
+ * 🔴🔴 KHÁC `vuongMacSangBuocSau`, VÀ ĐỪNG DÙNG LẪN — đây là hai câu hỏi khác nhau:
+ *
+ *   · `vuongMacSangBuocSau` = *"đã đủ để TIẾN sang bước sau chưa"*. Câu này **hết nghĩa khi bước
+ *     đã qua**: bước ② hỏi *"có bảng báo giá đang thu thập không"*, mà bảng duyệt xong thì đổi
+ *     sang `da_chon_ncc` — tức bước ② làm xong đúng quy trình lại bị báo là chưa xong.
+ *   · `conNoCuaBuoc` (hàm này) = *"còn thiếu gì mà PHẢI BỔ SUNG"*. Chỉ gồm hai thứ Ban lãnh đạo
+ *     nêu: **công việc bắt buộc chưa tích** và **chứng từ bắt buộc chưa có tệp**. Hai thứ đó nợ
+ *     là nợ mãi, không tự hết khi hồ sơ đi tiếp.
+ *
+ * 🔴 ĐO ĐƯỢC LỖI NÀY TRÊN TRÌNH DUYỆT trước khi phát hành: bản đầu tôi dùng
+ * `vuongMacSangBuocSau` cho viền đỏ, và hồ sơ đang ở bước ④ bị tô đỏ cả *"Tiếp nhận và kiểm
+ * tra"* lẫn *"Yêu cầu NCC báo giá"* — hai bước đã xong. Đỏ ba trong bốn khối thì người dùng
+ * thôi để ý, đúng lúc cần để ý nhất.
+ *
+ * 🔴 HỢP ĐỒNG: xét `coHopDong` (CÓ TỆP hay không), KHÔNG xét `vuongMacRoiBuocLapDon`. Đó là chủ
+ * ý của Ban lãnh đạo cùng ngày: ghi lý do thì **cho đi tiếp** nhưng *"phải tô màu đỏ lại. Để biết
+ * là còn thiếu hồ sơ để bổ sung sau"*. Dùng hàm kia thì ghi lý do là hết đỏ — mất đúng cái dấu
+ * nhắc mà Ban lãnh đạo cần.
+ */
+export function conNoCuaBuoc(
+  deNghi: DeNghiMuaHang,
+  giaiDoan: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+  tatCaPO: DonDatHang[],
+  tatCaPhieu: PhieuNhanHang[],
+): string | null {
+  const ds = dsConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu);
+  if (ds.length === 0) return null;
+  /* Viết hoa chữ đầu để câu đọc lên thành một câu hoàn chỉnh trên giao diện. */
+  const cau = ds.join(" · ");
+  return cau.charAt(0).toUpperCase() + cau.slice(1) + ".";
+}
+
+/**
+ * ★ TỪNG MỤC CÒN THIẾU, TÁCH RIÊNG — Ban lãnh đạo 23/08/2026: *"Thiếu những mục gì thì hiển thị
+ * đủ luôn"*.
+ *
+ * 🔴 VÌ SAO CẦN BẢN MẢNG bên cạnh `conNoCuaBuoc`: thẻ trên bảng kanban chỉ rộng ~240px. Một câu
+ * nối bằng dấu "·" phải cắt bớt mới vừa (`line-clamp`), mà cắt là **giấu đúng cái mục thiếu thứ
+ * hai** — người đọc tưởng chỉ thiếu một thứ. Có mảng thì vẽ mỗi mục một dòng, không mất mục nào.
+ *
+ * 📌 `conNoCuaBuoc` giữ nguyên và gọi vào đây — hai cách đọc, MỘT luật. Chỗ cần một câu (viền đỏ
+ * khối bước, chữ hiện khi rê chuột) vẫn dùng bản câu.
+ */
+export function dsConNoCuaBuoc(
+  deNghi: DeNghiMuaHang,
+  giaiDoan: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+  /**
+   * Đơn hàng và phiếu nhận của TOÀN BỘ app — cần để biết hàng đã về đủ chưa.
+   *
+   * ⚠️ BẮT BUỘC, cố ý không cho bỏ trống: để `?` thì nơi gọi nào quên truyền sẽ **mất im lặng dấu
+   * đỏ "chưa nhận đủ hàng"** — đúng kiểu hỏng đã dính nhiều lần trong dự án này.
+   */
+  tatCaPO: DonDatHang[],
+  tatCaPhieu: PhieuNhanHang[],
+): string[] {
+  const thieu: string[] = [];
+
+  const viecChuaXong = congViecChuaXongCuaBuoc(deNghi, giaiDoan, cauHinh);
+  if (viecChuaXong.length > 0) {
+    thieu.push(
+      `còn ${viecChuaXong.length} công việc chưa hoàn thành: ${viecChuaXong
+        .map((cv) => `“${cv.ten}”`)
+        .join(", ")}`,
+    );
+  }
+
+  /* Dòng chưa ai nhận là "công việc chưa hoàn thành" đúng nghĩa nhất của bước ①. */
+  if (giaiDoan === "tiep_nhan") {
+    const chuaPhanBo = deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length;
+    if (chuaPhanBo > 0) {
+      thieu.push(`còn ${chuaPhanBo}/${deNghi.items.length} công việc chưa phân bổ người phụ trách`);
+    }
+  }
+
+  if (giaiDoan === "lap_don_mua_hang" && !coHopDong(deNghi)) {
+    const lyDo = lyDoThieuHopDong(deNghi);
+    thieu.push(
+      lyDo
+        ? `chưa có tệp ${TEN_HIEN_HOP_DONG} (đã ghi lý do: ${lyDo}) — phải bổ sung bản đã ký`
+        : `chưa đính kèm ${TEN_HIEN_HOP_DONG}`,
+    );
+  }
+
+  /**
+   * ★ CHƯA NHẬN ĐỦ HÀNG — Ban lãnh đạo 23/08/2026: *"Mục này nếu chưa nhận đủ hàng cũng phải có
+   * hiển thị thông báo"*, khoanh đúng khối KẾT QUẢ của bước ⑤ *Tiến hành đặt hàng* (bảng tiến độ
+   * ghi xi măng 150/200, con kê 50/500 mà khối vẫn viền xanh).
+   *
+   * 🔴 GẮN VÀO BƯỚC ⑤, KHÔNG GẮN VÀO ⑥: bảng "Tiến độ nhận hàng" nằm trong khối KẾT QUẢ của bước
+   * ⑤ (đơn hàng là kết quả của bước đó, và hàng về theo đơn đó). Bước ⑥ thì việc CỦA NÓ là nhận
+   * hàng — đang làm mà báo "còn thiếu" là nói một câu vô nghĩa, và sẽ tô đỏ mọi hồ sơ đang nhận.
+   *
+   * 📌 Đếm theo SỐ DÒNG chưa về đủ, không đọc từng con số khối lượng: thẻ kanban không đủ chỗ, mà
+   * bảng tiến độ ngay dưới đã ghi rõ từng dòng thiếu bao nhiêu.
+   */
+  if (giaiDoan === "dat_hang") {
+    const tienDo = tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu);
+    const dongChuaDu = tienDo.filter((d) => d.khoiLuongConLai > 0).length;
+    if (dongChuaDu > 0) {
+      thieu.push(`còn ${dongChuaDu}/${tienDo.length} dòng chưa nhận đủ hàng`);
+    }
+  }
+
+  if (giaiDoan === "ho_so_thanh_toan" && !coHoaDonVAT(deNghi)) {
+    thieu.push(`chưa đính kèm ${NHAN_TEP_HOA_DON_VAT}`);
+  }
+
+  return thieu;
+}
+
+/**
+ * ★★ CÔNG VIỆC BẮT BUỘC CỦA CÁC BƯỚC TRƯỚC CÒN TREO KHÔNG — CHỐT CHẶN Ở CỬA GHI DỮ LIỆU.
+ *
+ * 🔴 Ban lãnh đạo 23/08/2026 phát hiện lỗ hổng: hồ sơ đã ở **bước ⑥** mà bước ① vẫn treo việc
+ * *"Checkin hàng tồn kho"* — *"Nếu chưa check in hàng tồn kho sao lại đi tới được bước này rồi"*.
+ * Sếp chốt cách xử: **chặn ở cửa ghi dữ liệu**.
+ *
+ * VÌ SAO TRƯỚC ĐÂY LỌT: giai đoạn được **suy ra từ chứng từ**, còn chốt công việc bắt buộc chỉ
+ * nằm trên đường KÉO THẢ (`vuongMacSangBuocSau`). Mọi đường khác đi vòng qua nó:
+ *   · phân bổ đủ người → tự sang bước ②
+ *   · lập bảng báo giá · trình · duyệt → sang ③, ④
+ *   · lập đơn hàng · ghi phiếu nhận → sang ⑤, ⑥
+ * Đây cùng họ với lỗ hổng ngày 15/08/2026 (*"trưởng phòng chưa duyệt đã đẩy qua đặt hàng"*), và
+ * cách chữa cũng cùng một kiểu: chặn ở **hàm ghi**, không chặn ở chỗ hiển thị.
+ *
+ * 🔴 CHẶN Ở CỬA GHI, KHÔNG CHẶN Ở `xacDinhGiaiDoan`. Nếu bắt giai đoạn phải lùi lại vì giấy tờ
+ * còn treo thì bảng báo **sai chỗ hàng đang ở đâu** — hàng đã về mà thẻ vẫn nằm cột ①. Nguyên
+ * tắc đã ghi ở nhánh `nhan_hang`: *"thiếu giấy thì nhắc, chứ không báo sai chỗ hàng đang ở"*.
+ *
+ * 🔴 CHỈ SOÁT CÁC BƯỚC **TRƯỚC** BƯỚC HIỆN TẠI. Việc của bước đang làm thì đương nhiên còn treo —
+ * soát cả nó là không ai làm được gì ở bước mình đang đứng.
+ *
+ * ⚠️ ÁP CHO CẢ HỒ SƠ CŨ. Sếp đã cân nhắc và chọn phương án này khi biết rõ hệ quả: hồ sơ đang
+ * chạy mà chưa tích việc bắt buộc sẽ **kẹt ngay** cho tới khi có người vào tích bù. Vì vậy câu lỗi
+ * phải nói ĐÚNG tên việc và ĐÚNG chỗ tích — người bị chặn phải biết đi đâu, không được để họ đoán.
+ *
+ * @returns Câu lý do bị chặn, `null` là đi được.
+ */
+export function vuongMacViecBatBuocCacBuocTruoc(
+  deNghi: DeNghiMuaHang,
+  giaiDoanHienTai: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+): string | null {
+  const viTriHienTai = THU_TU_GIAI_DOAN.indexOf(giaiDoanHienTai);
+  if (viTriHienTai <= 0) return null;
+
+  for (const buoc of THU_TU_GIAI_DOAN.slice(0, viTriHienTai)) {
+    /* "Thất bại" không nằm trong chuỗi chạy — bỏ qua, nếu không hồ sơ nào cũng vướng. */
+    if (buoc === "that_bai") continue;
+    const treo = congViecChuaXongCuaBuoc(deNghi, buoc, cauHinh);
+    if (treo.length > 0) {
+      const ds = treo.map((cv) => `“${cv.ten}”`).join(", ");
+      return `Bước “${NHAN_GIAI_DOAN[buoc].nhan}” còn ${treo.length} công việc bắt buộc chưa hoàn thành: ${ds}. Mở khối bước đó ở trang chi tiết đề nghị, tích hoàn thành rồi làm tiếp.`;
+    }
+  }
+  return null;
+}
+
 export function vuongMacSangBuocSau(
   deNghi: DeNghiMuaHang,
   giaiDoan: GiaiDoanMuaHang,
@@ -572,8 +871,23 @@ export function vuongMacSangBuocSau(
         ? "Bảng báo giá chưa được duyệt. Trưởng bộ phận phải chốt nhà cung cấp (hoặc duyệt phương án chia đơn) trước khi lập đơn đặt hàng."
         : null;
 
+    /* ★ Ba bước có chứng từ bắt buộc, thêm 22/08/2026 — luật ở
+       `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, KHÔNG viết lại điều kiện ở đây. */
+    case "lap_don_mua_hang":
+      return vuongMacRoiBuocLapDon(deNghi);
+
+    case "ho_so_thanh_toan":
+      /* Hai điều kiện của bước gộp, xét theo thứ tự người dùng gặp:
+         ① phải có hóa đơn VAT — bắt buộc;
+         ② rồi mới tích được "đã xử lý ủy nhiệm chi" (cái tích là công việc bắt buộc của bước,
+            đã bị chặn ở khối `conViecChuaXong` phía trên; nhắc lại ở đây để phòng trường hợp
+            cấu hình bị đổi làm việc đó thành không bắt buộc). */
+      return coHoaDonVAT(deNghi)
+        ? vuongMacTichXongUNC(deNghi)
+        : "Chưa đính kèm Hóa đơn VAT ở khối kết quả của bước này.";
+
     default:
-      // Các bước sau đã được chặn bằng chứng từ thật (đơn hàng, phiếu nhận, 3 lớp xác nhận).
+      // Các bước còn lại đã được chặn bằng chứng từ thật (đơn hàng, phiếu nhận, 3 lớp xác nhận).
       return null;
   }
 }
@@ -829,17 +1143,105 @@ export function quyetDinhKeoTha(
    * 📌 Nút trong hộp VẪN KHÓA cho tới khi tích đủ — đây là mở đường làm việc, không phải mở
    * đường đi tắt. Luật chặn vẫn là `congViecChuaXongCuaBuoc`, một chỗ duy nhất.
    */
-  if (tu === "tiep_nhan") {
-    /* Vướng mắc KHÁC công việc bắt buộc (còn dòng chưa phân bổ người) thì vẫn chặn thẳng:
-       việc đó phải làm ở bảng Phân bổ, hộp chuyển bước không giải quyết được. */
-    const vuongMac = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, {
-      ...cauHinh,
-      congViecTheoBuoc: {},
-    });
-    if (vuongMac) return { loai: "khong_the", lyDo: vuongMac };
+  /**
+   * ★★ MỘT ĐIỀU KIỆN CHO MỌI ĐƯỜNG CHUYỂN BƯỚC — Ban lãnh đạo 23/08/2026: *"kiểm tra lại tính
+   * năng kéo chuyển bước, khi kéo chuyển bước thì các điều kiện chuyển bước phải đồng nhất với
+   * khi chuyển bước ở cửa sổ chi tiết"*.
+   *
+   * 🔴 CHỖ LỆCH ĐÃ TÌM RA: trước hôm nay `vuongMacSangBuocSau` chỉ được hỏi khi đứng ở bước ①.
+   * Kéo từ ④ sang ⑤ thì hàm này **im lặng dẫn người dùng đi lập đơn**, không hề nói rằng bước ④
+   * còn đòi bản hợp đồng (hoặc lý do chưa có). Người dùng lập đơn xong, quay lại thấy thẻ vẫn
+   * nằm cột ④ và không hiểu vì sao — đúng câu Ban lãnh đạo hỏi lúc 17:44 cùng ngày.
+   *
+   * 👉 Nay hỏi cho MỌI bước tiến, và xử theo bản chất của hành động:
+   *   · Hành động là MỞ TRANG (④ ⑤ ⑦) → vẫn mở, nhưng **ghép lý do vướng vào thông báo**. Mở
+   *     trang chính là cách gỡ vướng, chặn lại thì người dùng không có đường nào để làm.
+   *   · Hành động là GHI DỮ LIỆU (lập bảng báo giá, chốt so sánh) → chặn kèm lý do, như cũ.
+   *
+   * ⚠️ VÌ SAO KHÔNG CHẶN THẲNG MỌI BƯỚC CHO GỌN: bước ② khi chưa có bảng báo giá thì
+   * `vuongMacSangBuocSau` trả *"Chưa có bảng báo giá nào đang thu thập"* — mà hành động của
+   * nhánh đó chính là LẬP BẢNG, tức là việc gỡ đúng cái vướng vừa nêu. Chặn là dựng lại đúng cái
+   * bí đã phải sửa ngày 14/08/2026: đứng cột ②, kéo sang ③ bị chặn, mà trên bảng không có đường
+   * nào khác để lập bảng báo giá.
+   *
+   * 📌 `congViecTheoBuoc: {}` — bỏ phần "công việc bắt buộc của bước" khỏi lần hỏi này, vì việc
+   * đó đã có đường riêng: hộp chuyển bước bày danh sách việc còn treo và khóa nút cho tới khi
+   * tích đủ (chỉ đạo 16/08/2026). Để nguyên thì hộp đó không bao giờ mở ra được.
+   */
+  /**
+   * ★★ CHỐT CÔNG VIỆC BẮT BUỘC CỦA CÁC BƯỚC **TRƯỚC** — bổ sung 23/08/2026 (tối), sau khi Sếp hỏi
+   * lại: *"e vẫn chưa sửa điều kiện khi kéo chuyển bước đúng ko?"*.
+   *
+   * 🔴 SÁNG NAY TÔI SỬA THIẾU MỘT NỬA. Lượt sửa trước chỉ gộp điều kiện của **bước đang đứng**
+   * (`vuongMacSangBuocSau`); còn chốt *"công việc bắt buộc của bước TRƯỚC còn treo"*
+   * (`vuongMacViecBatBuocCacBuocTruoc`) thì chiều nay mới thêm, và **chỉ thêm cho 4 cửa ghi dữ
+   * liệu** — kéo thả bị bỏ sót. Nghĩa là hồ sơ chưa tích *"Checkin hàng tồn kho"* bị chặn khi bấm
+   * nút, mà kéo thẻ thì vẫn đi. Đúng kiểu lệch mà Sếp yêu cầu dẹp.
+   *
+   * 🔴 CHẶN CỨNG, KHÔNG "MỞ HỘP CHO TÍCH NGAY" như việc của bước đang đứng: việc treo nằm ở **bước
+   * khác**, mà hộp chuyển bước chỉ bày và tích được việc của bước đang đứng. Mở hộp ra thì người
+   * dùng thấy một danh sách không chứa cái đang chặn họ — bí và không hiểu vì sao.
+   *
+   * 📌 CHỈ CHẶN KHI TIẾN. Kéo LÙI đã `return` ở dòng trên, không đi qua đây — lùi là để sửa sai,
+   * chặn lùi vì giấy tờ còn treo là khóa luôn đường sửa.
+   */
+  const chanViecBuocTruoc = vuongMacViecBatBuocCacBuocTruoc(the.deNghi, tu, cauHinh);
+  if (chanViecBuocTruoc) return { loai: "khong_the", lyDo: chanViecBuocTruoc };
+
+  const vuongMacBuocDangDung = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, {
+    ...cauHinh,
+    congViecTheoBuoc: {},
+  });
+
+  const hanhDong = hanhDongTienMotBuoc(tu, the, poCuaDeNghi, baoGiaCuaDeNghi);
+  if (!vuongMacBuocDangDung) return hanhDong;
+
+  /**
+   * 🔴 BƯỚC CÓ VƯỚNG MẮC **KHÔNG GỠ ĐƯỢC BẰNG CHÍNH VIỆC SẮP LÀM** thì chặn thẳng.
+   *
+   * Hiện chỉ có bước ①: vướng mắc là *"còn dòng chưa phân bổ người phụ trách"*, mà việc kéo sang
+   * ② lại là **lập bảng báo giá** — làm xong vẫn còn dòng không ai nhận. Phân bổ phải làm ở bảng
+   * "Phân bổ công việc", hộp chuyển bước không giải quyết được, nên cho đi là để lọt dòng mồ côi.
+   *
+   * ⚠️ ĐỪNG THÊM BƯỚC VÀO ĐÂY MÀ KHÔNG THỬ. Bộ thử ngày 23/08/2026 bắt được đúng lỗi này khi tôi
+   * chặn chung mọi bước: kéo ② → ③ lúc chưa có bảng báo giá bị chặn với câu *"Chưa có bảng báo giá
+   * nào đang thu thập"*, trong khi việc sắp làm CHÍNH LÀ lập bảng đó — người dùng bí hoàn toàn, vì
+   * trên bảng quy trình không có đường nào khác để lập bảng báo giá. Đúng cái bí đã phải sửa ngày
+   * 14/08/2026.
+   */
+  const CHAN_CUNG: GiaiDoanMuaHang[] = ["tiep_nhan"];
+  if (CHAN_CUNG.includes(tu)) return { loai: "khong_the", lyDo: vuongMacBuocDangDung };
+
+  /* Mở trang thì NÓI RÕ còn thiếu gì — đây chính là phần "đồng nhất với cửa sổ chi tiết" mà Ban
+     lãnh đạo yêu cầu: cùng một câu, do cùng một hàm sinh ra. */
+  if (hanhDong.loai === "mo_trang") {
+    return {
+      ...hanhDong,
+      thongBao: `${vuongMacBuocDangDung} ${hanhDong.thongBao ?? ""}`.trim(),
+    };
   }
 
-  // Từ đây trở xuống: dich là bước LIỀN KỀ phía trước
+  /* Còn lại là hành động LÀM VIỆC THẬT (lập bảng báo giá, chốt so sánh) — chính là cách gỡ vướng,
+     nên cho đi. Thẻ vẫn chỉ chuyển cột khi chứng từ có thật, vì giai đoạn suy ra từ chứng từ. */
+  return hanhDong;
+}
+
+/**
+ * Việc phải làm để tiến MỘT bước từ `tu` — phần `switch` tách khỏi `quyetDinhKeoTha`.
+ *
+ * 🔴 TÁCH RA ĐỂ CÓ THỂ HỎI ĐIỀU KIỆN TRƯỚC RỒI MỚI QUYẾT (23/08/2026). Trước đây `switch` nằm
+ * thẳng trong `quyetDinhKeoTha` nên không có cách nào vừa biết hành động vừa biết vướng mắc mà
+ * không chép luật ra hai chỗ.
+ *
+ * ⚠️ HÀM NÀY KHÔNG TỰ KIỂM ĐIỀU KIỆN. Nó chỉ trả lời *"muốn tiến từ bước này thì làm việc gì"*.
+ * Việc kiểm điều kiện là của `vuongMacSangBuocSau`, gọi ở đúng một chỗ bên trên.
+ */
+function hanhDongTienMotBuoc(
+  tu: GiaiDoanMuaHang,
+  the: TheDeNghiTrenBang,
+  poCuaDeNghi: DonDatHang[],
+  baoGiaCuaDeNghi: BaoGia[],
+): HanhDongKeoTha {
   switch (tu) {
     case "tiep_nhan":
       return { loai: "tao_bao_gia" };
@@ -900,6 +1302,23 @@ export function quyetDinhKeoTha(
         thongBao: "Ghi phiếu nhận hàng lần đầu — có hàng về là thẻ tự chuyển bước.",
       };
     }
+
+    /**
+     * ★ CỘT "HỒ SƠ THANH TOÁN" — phải khai ở đây, nếu không kéo thẻ sang nó sẽ nhận đúng câu
+     * *"Bước chuyển này chưa được hỗ trợ"* ở nhánh `default`. TypeScript KHÔNG bắt được lỗi này
+     * (switch có `default`), nên nó chỉ hiện ra khi người dùng thử kéo.
+     *
+     * 📌 Dẫn về trang chi tiết đề nghị: việc phải làm là ĐÍNH KÈM CHỨNG TỪ, mà ô đính kèm nằm
+     * trong khối của bước ở trang đó. Kéo thả không tự sinh chứng từ được — đúng nguyên tắc
+     * "kéo thả làm đúng nghiệp vụ của cột đích, không đổi nhãn chay".
+     */
+    case "ho_so_thanh_toan":
+      return {
+        loai: "mo_trang",
+        duongDan: `/de-nghi/${the.deNghi.id}`,
+        thongBao:
+          "Đính kèm Hóa đơn VAT (bắt buộc) và Ủy nhiệm chi nếu có, trong khối “Hồ sơ thanh toán” ở trang chi tiết đề nghị.",
+      };
 
     default:
       return { loai: "khong_the", lyDo: "Bước chuyển này chưa được hỗ trợ." };

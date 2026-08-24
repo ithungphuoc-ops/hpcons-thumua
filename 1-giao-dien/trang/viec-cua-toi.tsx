@@ -14,7 +14,7 @@ import { docDanhDau, ghiDanhDau } from "@/3-du-lieu/danh-dau-ca-nhan";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { laViecCuaToi } from "@/2-quy-trinh/sap-xep-uu-tien";
+import { laViecCuaToi, soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -35,6 +35,16 @@ import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
  * hồ sơ mình gửi, và cố tình ẩn giá + nhà cung cấp. Màn này dành cho NGƯỜI LÀM THU MUA
  * xem việc đang tới tay mình. Hai màn khác nhau về đối tượng, đừng gộp.
  */
+
+/**
+ * ★ ĐỊA CHỈ APP ĐỀ NGHỊ — nơi duy nhất lập phiếu đề nghị mua hàng (23/08/2026).
+ *
+ * 📌 Đổi được bằng biến môi trường `NEXT_PUBLIC_APP_DE_NGHI_URL`, cùng nếp với
+ * `NEXT_PUBLIC_APP_TONG_URL` ở thanh bên. Mặc định là địa chỉ Ban lãnh đạo cho, để thiếu biến
+ * cũng không ra một cái nút bấm chẳng đi đâu.
+ */
+const DIA_CHI_APP_DE_NGHI =
+  process.env.NEXT_PUBLIC_APP_DE_NGHI_URL ?? "https://request.hpcore.vn/request";
 
 /** Các tab lọc, dịch từ dải tab trong ảnh mẫu sang đúng nghiệp vụ thu mua. */
 type MaLoc =
@@ -151,10 +161,17 @@ export default function TrangViecCuaToi() {
            trước đây bỏ quên nó nên việc của mình lẫn giữa việc của đồng nghiệp. */
         if (a.denLuotToi !== b.denLuotToi) return a.denLuotToi ? -1 : 1;
         if (a.quaHan !== b.quaHan) return a.quaHan ? -1 : 1;
-        const han = a.dn.ngayCanHang.localeCompare(b.dn.ngayCanHang);
-        // Phá hòa bằng mã hồ sơ — thiếu bước này thì hồ sơ cùng ngày cần hàng đảo chỗ
-        // mỗi lần dữ liệu đổi, người đang nhìn tưởng bấm nhầm.
-        return han !== 0 ? han : a.dn.code.localeCompare(b.dn.code, "vi");
+        /* ★ MỚI NHẬN LÊN TRƯỚC — Ban lãnh đạo 23/08/2026: *"cái nào mới sẽ được đưa lên đầu
+           tiên"*. Mốc là dòng nhật ký đầu tiên, tức lúc cửa tiếp nhận App Request ghi phiếu vào
+           app; chính xác tới giây nên không có hai phiếu ngang hàng.
+
+           🔴 GỌI CHUNG `soSanhDeNghiUuTien` chứ KHÔNG chép lại phép so ở đây: màn này và bảng
+           quy trình phải xếp cùng một kiểu, người chuyển qua lại giữa hai màn mà thấy hai thứ tự
+           khác nhau là tưởng hồ sơ biến mất (đúng lý do file `sap-xep-uu-tien.ts` sinh ra).
+
+           📌 Không truyền `uid`: bước "việc đến lượt mình" đã xử ở dòng trên, dùng `denLuotToi`
+           (mình phụ trách VÀ hồ sơ chưa xong) — chặt hơn `laViecCuaToi` của hàm chung. */
+        return soSanhDeNghiUuTien(a.dn, b.dn);
       });
   }, [dong, loc, tuKhoa, daGhim]);
 
@@ -197,14 +214,44 @@ export default function TrangViecCuaToi() {
               className="w-64 pl-9"
             />
           </div>
-          {/* 🔴 Kiểm ĐÚNG quyền `taoDeNghi`, không phải `xemMoiHoSo`.
-              Hai quyền này khác nhau: `xemMoiHoSo` là "xem được mọi hồ sơ" (cấp 3 trở lên),
-              còn lập đề nghị thì MỌI tài khoản đều được (chỉ đạo 12/08/2026). Dùng nhầm làm
-              nhân viên cấp 2 — người lập đề nghị nhiều nhất — **mất hẳn nút này**. */}
+          {/**
+            * ★ NÚT NÀY NAY DẪN RA APP ĐỀ NGHỊ RIÊNG (Ban lãnh đạo 23/08/2026: *"Đã có app riêng
+            * tạo đề nghị, hãy link tới app đó. Và bỏ chức năng tạo đề nghị thử nghiệm của app
+            * này đi"*). Địa chỉ Sếp cho: https://request.hpcore.vn/request
+            *
+            * 🔴 MÀN `/de-nghi/nhan-moi` ĐÃ XÓA cùng lượt này. Việc lập đề nghị thuộc app đề nghị,
+            * app Thu mua chỉ NHẬN phiếu đã duyệt qua cửa `app/api/app-request/de-nghi-moi`. Giữ
+            * hai đường tạo phiếu song song là hai hệ mã và hai dòng dữ liệu, sớm muộn lệch nhau.
+            *
+            * 🔴 ĐỂ Ở BIẾN MÔI TRƯỜNG, không viết cứng: app đề nghị đổi tên miền thì đây phải đổi
+            * theo mà không cần dựng lại mã nguồn. Mặc định là địa chỉ đang chạy thật, nên thiếu
+            * biến vẫn không ra nút chết.
+            *
+            * 📌 `<a>` thật + `target="_blank"` chứ không `<Link>` của Next: đây là địa chỉ NGOÀI
+            * app, `<Link>` sẽ cố điều hướng nội bộ. `rel="noreferrer"` theo nếp an toàn thường
+            * lệ cho liên kết mở tab mới.
+            *
+            * 🔴 Kiểm ĐÚNG quyền `taoDeNghi`, không phải `xemMoiHoSo`. Hai quyền này khác nhau:
+            * `xemMoiHoSo` là "xem được mọi hồ sơ" (cấp 3 trở lên), còn lập đề nghị thì MỌI tài
+            * khoản đều được (chỉ đạo 12/08/2026). Dùng nhầm làm nhân viên cấp 2 — người lập đề
+            * nghị nhiều nhất — **mất hẳn nút này**.
+            */}
           {quyen.taoDeNghi && (
-            <Button nativeButton={false} render={<Link href="/de-nghi/nhan-moi" />}>
+            <Button
+              nativeButton={false}
+              render={
+                <a
+                  href={DIA_CHI_APP_DE_NGHI}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Mở app Đề nghị trong tab mới"
+                />
+              }
+            >
               <Plus className="size-4" aria-hidden />
               Tạo đề nghị
+              {/* ❌ ĐÃ BỎ icon "mở tab mới" (Ban lãnh đạo 23/08/2026: *"bỏ cái icon này đi"*).
+                  Việc nút dẫn ra app ngoài vẫn nói rõ ở `title` khi trỏ chuột vào. */}
             </Button>
           )}
         </div>

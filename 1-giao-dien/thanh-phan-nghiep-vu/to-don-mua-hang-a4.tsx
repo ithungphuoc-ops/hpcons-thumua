@@ -1,6 +1,18 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import type { DonDatHang, GiaDonDatHang, NhaCungCap } from "@/3-du-lieu/kieu-du-lieu";
+import {
+  NHAN_MAU_PO,
+  type DonDatHang,
+  type GiaDonDatHang,
+  type MauDonMuaHang,
+  type NhaCungCap,
+} from "@/3-du-lieu/kieu-du-lieu";
+import {
+  CAM_KET_THOA_THUAN_CHUAN,
+  DIEU_KHOAN_GIAO_HANG_CHUAN,
+  daSuaKhacBanChuan,
+  tachDongDieuKhoan,
+} from "@/3-du-lieu/dieu-khoan-chuan-don-mua-hang";
 import { laDongHang, moTaThueSuat, tinhTienChiTietPO } from "@/2-quy-trinh/tinh-toan";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 
@@ -111,6 +123,21 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
    * số lẻ trong khi màn hình và file Excel ra số nguyên — hai chứng từ của cùng một đơn ghi
    * hai con số khác nhau.
    */
+  /**
+   * Mẫu in đang dùng. Đơn cũ không có `mauPO` → mặc định `thoa_thuan` (xem `DonDatHang.mauPO`).
+   */
+  const mau: MauDonMuaHang = po.mauPO ?? "thoa_thuan";
+
+  /* ★ Điều khoản in ra: bản của ĐƠN nếu có, không thì bản chuẩn của công ty (22/08/2026).
+     🔴 `??` chứ KHÔNG phải `||`: chuỗi rỗng là người lập cố ý xóa trắng khối điều khoản, còn
+     `undefined` là đơn chưa sửa gì. `||` gộp hai thứ đó lại và in điều khoản vào đúng tờ đơn mà
+     người lập đã quyết định bỏ. */
+  const dieuKhoanIn = po.dieuKhoanGiaoHang ?? DIEU_KHOAN_GIAO_HANG_CHUAN;
+  const camKetIn = po.camKetThoaThuan ?? CAM_KET_THOA_THUAN_CHUAN;
+  const daSuaBanChuan =
+    daSuaKhacBanChuan(po.dieuKhoanGiaoHang, DIEU_KHOAN_GIAO_HANG_CHUAN) ||
+    (mau === "thoa_thuan" && daSuaKhacBanChuan(po.camKetThoaThuan, CAM_KET_THOA_THUAN_CHUAN));
+
   const tien = tinhTienChiTietPO(po, gia);
   /** Kết quả tiền của từng dòng, tra theo `sttDong`. Dòng ghi chú KHÔNG có mặt ở đây. */
   const tienTheoDong = new Map(tien.dong.map((t) => [t.sttDong, t]));
@@ -165,8 +192,13 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
         </div>
 
         {/* Ô A4:J4 của biểu mẫu: canh giữa cả trang, 22pt, đậm, MÀU ĐEN (không phải màu app). */}
+        {/* ★ TIÊU ĐỀ THEO MẪU ĐÃ CHỌN — Ban lãnh đạo 21/08/2026: *"có trường tuỳ chọn 1 trong
+            2 mẫu"*. Hai mẫu của biểu mẫu công ty khác nhau ngay ở dòng này; xem `NHAN_MAU_PO`.
+            📌 Đơn cũ không có `mauPO` → mặc định `thoa_thuan`, vì phần lớn đơn lẻ không có hợp
+            đồng riêng, và mẫu đó IN THÊM hai câu cam kết — thiếu thì chứng từ yếu hơn, còn in
+            thừa thì chỉ là dài hơn. Chọn phía an toàn cho chứng từ. */}
         <h1 className="mt-3 text-center text-[22px] font-bold uppercase tracking-wide text-[#000000]">
-          Đơn mua hàng
+          {NHAN_MAU_PO[mau].tieuDeIn}
         </h1>
         {/* 🔴 IN RA GIẤY, không phải chỉ hiện trên màn hình. Màu viết cứng như cả trang in. */}
         {banMau && (
@@ -184,7 +216,10 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           <Dong nhan="Tên nhà cung cấp" giaTri={po.supplierTen} dam />
           <Dong nhan="Địa chỉ" giaTri={ncc?.diaChi ?? "—"} />
           <Dong nhan="Mã số thuế" giaTri={ncc?.maSoThue ?? "—"} />
-          <Dong nhan="Người Nhận" giaTri={po.nguoiNhanHangTen ?? "—"} />
+          <Dong nhan="Người nhận hàng" giaTri={po.nguoiNhanHangTen ?? "—"} />
+          {/* Ô "Số điện thoại" đứng cạnh "Người nhận hàng" trên biểu mẫu — nhà cung cấp gọi số
+              này để hẹn giao. */}
+          <Dong nhan="Số điện thoại" giaTri={po.nguoiNhanHangSdt ?? "—"} />
         </dl>
         <dl className="flex w-[62mm] shrink-0 flex-col gap-1">
           <Dong nhan="Ngày" giaTri={new Date(po.ngayLapPO).toLocaleDateString("vi-VN")} />
@@ -211,7 +246,7 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
               <O th w={beRong.stt} giua>STT</O>
               <O th w={beRong.ma}>Mã hàng</O>
               <O th w={beRong.ten}>Tên hàng</O>
-              <O th w={beRong.tskt}>Thông số kỹ thuật</O>
+              <O th w={beRong.tskt}>Quy cách / chủng loại</O>
               <O th w={beRong.dvt} giua>ĐVT</O>
               <O th w={beRong.sl} phai>SL</O>
               <O th w={beRong.gia} phai>Đơn giá</O>
@@ -327,11 +362,81 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           giaTri={[po.prCode, po.tenCongTrinh].filter(Boolean).join(" · ") || "—"}
           rong
         />
-        <Dong nhan="Căn cứ hợp đồng số" giaTri={po.maHopDongCDT ?? "—"} rong />
+        {/* 🔴 DÒNG HỢP ĐỒNG CHỈ CÓ Ở MẪU "theo hợp đồng" — biểu mẫu `PO. HDNT` có ô
+            *"Theo hợp đồng: ………… Ký ngày ……/…../……."*, còn mẫu thỏa thuận thì KHÔNG có dòng này
+            (chính tờ đơn đóng vai trò hợp đồng, in thêm là nói ngược nhau trên cùng một tờ).
+            📌 In cả NGÀY KÝ: `ngayHopDongCDT` có sẵn trong dữ liệu nhưng trang in chưa dùng, mà
+            biểu mẫu để hẳn chỗ điền — thiếu ngày thì không truy được đúng bản hợp đồng nào. */}
+        {mau === "theo_hop_dong" && (
+          <Dong
+            nhan="Theo hợp đồng"
+            giaTri={
+              [
+                po.maHopDongCDT ?? "………",
+                po.ngayHopDongCDT
+                  ? `ký ngày ${new Date(po.ngayHopDongCDT).toLocaleDateString("vi-VN")}`
+                  : "ký ngày ……/……/……",
+              ].join(" · ")
+            }
+            rong
+          />
+        )}
         <Dong nhan="Địa điểm giao hàng" giaTri={po.diaDiemGiaoHang ?? "—"} rong />
-        <Dong nhan="Điều khoản khác" giaTri={po.dieuKhoanKhac ?? po.dieuKienGiaoHang ?? "—"} rong />
         <Dong nhan="Điều khoản thanh toán" giaTri={gia?.dieuKhoanThanhToan ?? "—"} rong />
+        <Dong nhan="Điều khoản khác" giaTri={po.dieuKhoanKhac ?? po.dieuKienGiaoHang ?? "—"} rong />
       </section>
+
+      {/**
+        * ---------- ĐIỀU KHOẢN CỦA BIỂU MẪU ----------
+        *
+        * ★ Ban lãnh đạo 21/08/2026 gửi biểu mẫu `PO - DEMO 130826.xlsx` — ba đoạn này là chữ in
+        * sẵn trên giấy. Ngày 22/08/2026 Ban lãnh đạo yêu cầu **cho sửa được nội dung**, nên nay
+        * chúng đọc từ chính đơn, và chỉ rơi về bản chuẩn khi đơn chưa sửa gì.
+        *
+        * 📌 Văn bản chuẩn ở `3-du-lieu/dieu-khoan-chuan-don-mua-hang.ts` — MỘT chỗ duy nhất, dùng
+        * chung với ô nhập trong form lập đơn. Hai nơi tự giữ một bản chữ là lệch nhau ngay lần
+        * sửa đầu.
+        *
+        * ⚠️ Hai câu cuối CHỈ IN Ở MẪU THỎA THUẬN: chúng nói *"đơn này có giá trị như hợp đồng"* —
+        * in vào đơn đặt theo hợp đồng đã ký là hai văn bản cùng nhận vai trò hợp đồng cho một
+        * giao dịch.
+        */}
+      {(dieuKhoanIn !== "" || camKetIn !== "") && (
+        <section className="mt-3 flex flex-col gap-1.5 text-[10px] leading-snug">
+          {dieuKhoanIn !== "" && (
+            <div>
+              {tachDongDieuKhoan(dieuKhoanIn).map((d, i) =>
+                /* Dòng trống giữ khoảng thở giữa các nhóm — `&nbsp;` để thẻ không bị co về 0. */
+                d.laDongTrong ? (
+                  <p key={i}>&nbsp;</p>
+                ) : (
+                  <p key={i} className={d.laTieuDe ? "font-semibold" : undefined}>
+                    {d.chu}
+                  </p>
+                ),
+              )}
+            </div>
+          )}
+
+          {mau === "thoa_thuan" && camKetIn !== "" && (
+            <div className="italic">
+              {tachDongDieuKhoan(camKetIn).map((d, i) =>
+                d.laDongTrong ? <p key={i}>&nbsp;</p> : <p key={i}>{d.chu}</p>,
+              )}
+            </div>
+          )}
+
+          {/* 🔴 NÓI RÕ KHI BẢN ĐIỀU KHOẢN ĐÃ BỊ SỬA KHÁC BẢN CHUẨN.
+              Cho sửa thì mỗi đơn có thể mang một bản khác nhau; lúc đối chiếu hồ sơ, người đọc
+              phải nhận ra ngay tờ này không phải bản chuẩn của công ty — nếu không thì điều khoản
+              bị đổi âm thầm và chỉ phát hiện khi đã tranh chấp. */}
+          {daSuaBanChuan && (
+            <p className="mt-1 text-[9px] not-italic text-neutral-600">
+              (Điều khoản của đơn này đã được sửa khác bản chuẩn của công ty.)
+            </p>
+          )}
+        </section>
+      )}
 
       {/* ---------- CHỮ KÝ ---------- */}
       <section className="mt-10 grid grid-cols-2 gap-8 text-center text-[11px] break-inside-avoid">

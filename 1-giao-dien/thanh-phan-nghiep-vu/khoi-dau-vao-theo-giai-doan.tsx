@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, LogIn, LogOut, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ChevronRight, LogIn, LogOut, type LucideIcon } from "lucide-react";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { coTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
@@ -40,6 +40,24 @@ export interface GiaiDoanDauVao {
   truong: TruongDauVao[];
   /** Giai đoạn đang đứng — mở sẵn, các giai đoạn khác gập lại. */
   dangODay?: boolean;
+  /**
+   * ★ BƯỚC NÀY CÒN THIẾU GÌ — câu vướng mắc, hoặc `undefined` là đủ (23/08/2026).
+   *
+   * 🔴 Ban lãnh đạo: *"Các border này cần hiển thị màu đỏ nếu như công việc trong các mục này
+   * chưa hoàn thành hoặc thiếu đính kèm file"*.
+   *
+   * VÌ SAO CẦN: mọi khối mặc định GẬP (chỉ đạo 18/08/2026 *"F5 là tự group lại"*), nên nhìn
+   * trang chỉ thấy một dãy tiêu đề giống nhau — muốn biết bước nào còn nợ chứng từ thì phải mở
+   * từng khối. Viền đỏ trả lời câu đó ngay khi khối vẫn đang gập.
+   *
+   * 🔴 NHẬN SẴN CÂU VƯỚNG MẮC, KHÔNG TỰ TÍNH. Khối này thuần hiển thị; luật "bước nào còn
+   * thiếu" nằm ở `2-quy-trinh/giai-doan-mua-hang.ts` → `vuongMacSangBuocSau`. Để nó tự tính là
+   * kéo cả cấu hình quy trình, bảng báo giá và kho dữ liệu vào một component chỉ để bày.
+   *
+   * ⚠️ NƠI GỌI PHẢI TỰ LỌC BƯỚC CHƯA TỚI LƯỢT. Bước chưa tới thì đương nhiên còn thiếu — truyền
+   * hết vào là **tô đỏ cả tám khối**, đỏ khắp trang thành vô nghĩa và người dùng thôi để ý.
+   */
+  conThieu?: string;
   /**
    * Phần LÀM VIỆC thật của giai đoạn này (bảng phân bổ, bảng báo giá, đơn hàng…).
    *
@@ -200,17 +218,30 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
 
              ⚠️ Chỉ tô DÒNG TIÊU ĐỀ, không tô cả thân khối: tô hết thì phần nội dung bên trong
              (bảng phân bổ, form lập đơn, danh sách tệp) chìm vào nền xanh và mất chỗ nghỉ mắt. */
-          <section key={g.ma} className="overflow-hidden rounded-xl border border-primary/30 bg-surface">
+          /* ★ VIỀN ĐỎ KHI BƯỚC CÒN THIẾU (23/08/2026) — xem chú thích ở khai báo `conThieu`.
+             📌 Đổi CẢ viền lẫn nền dòng tiêu đề sang tông danger, giữ đúng nếp "chỉ tô dòng tiêu
+             đề" của khối này. Và luôn kèm CHỮ (dòng lý do ngay dưới tiêu đề) — V1.1 buộc trạng
+             thái phải có cả màu lẫn chữ, người không phân biệt được màu vẫn phải đọc ra. */
+          <section
+            key={g.ma}
+            className={`overflow-hidden rounded-xl border bg-surface ${
+              g.conThieu ? "border-danger" : "border-primary/30"
+            }`}
+          >
             <button
               type="button"
               onClick={() =>
                 setMo((cu) => (cu.includes(g.ma) ? cu.filter((x) => x !== g.ma) : [...cu, g.ma]))
               }
               aria-expanded={dangMo}
-              className="flex min-h-11 w-full items-center gap-2 bg-primary-bg px-(--hp-md-card-pad) py-3 text-left transition-colors hover:bg-primary/10"
+              className={`flex min-h-11 w-full items-center gap-2 px-(--hp-md-card-pad) py-3 text-left transition-colors ${
+                g.conThieu ? "bg-danger-bg hover:bg-danger/10" : "bg-primary-bg hover:bg-primary/10"
+              }`}
             >
               <ChevronRight
-                className={`size-4 shrink-0 text-primary transition-transform ${dangMo ? "rotate-90" : ""}`}
+                className={`size-4 shrink-0 transition-transform ${dangMo ? "rotate-90" : ""} ${
+                  g.conThieu ? "text-danger" : "text-primary"
+                }`}
                 aria-hidden
               />
               {/* 🔴 DÙNG ĐÚNG KIỂU CHỮ CỦA `KhoiGap` (Ban lãnh đạo 16/08/2026: *"đưa cỡ chữ và
@@ -220,9 +251,25 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
 
                   📌 Màu chữ nâng từ `text-text-desc` lên `text-primary`: trên nền xanh nhạt,
                   chữ xám mờ tụt tương phản xuống dưới ngưỡng đọc được. */}
-              <span className="text-[11px] font-semibold tracking-wide text-primary uppercase">
+              <span
+                className={`text-[11px] font-semibold tracking-wide uppercase ${
+                  g.conThieu ? "text-danger" : "text-primary"
+                }`}
+              >
                 {g.nhan}
               </span>
+              {/* ★ CHỮ ĐI KÈM MÀU ĐỎ (23/08/2026) — V1.1 buộc trạng thái phải có cả màu lẫn chữ.
+                  Chỉ một chữ "Còn thiếu" ở đây, còn lý do đầy đủ nằm ở `title` và ở dải đỏ trong
+                  thân khối: tiêu đề khối phải giữ một dòng, nhồi cả câu vướng mắc vào là vỡ hàng
+                  trên màn hẹp. */}
+              {g.conThieu && (
+                <span
+                  title={g.conThieu}
+                  className="shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[11px] font-semibold text-danger"
+                >
+                  Còn thiếu
+                </span>
+              )}
               {/* Nhãn trạng thái gập bên phải — Base ghi "COLLAPSED" / "THU GỌN". Kèm số
                   trường để biết khối có gì mà không phải mở ra. Nhãn rỗng thì không vẽ ô,
                   một ô xám trống trơn còn khó hiểu hơn là không có gì. */}
@@ -247,6 +294,17 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                   lại của trang, chứ không rơi về 16px mặc định của trình duyệt rồi to hơn
                   cả nội dung xung quanh. */}
               <div className="border-t border-divider p-(--hp-md-card-pad) text-sm">
+                {/* ★ DẢI ĐỎ NÓI RÕ CÒN THIẾU GÌ — đặt ở ĐẦU thân khối, trên cả "ĐẦU VÀO"
+                    (23/08/2026). Người mở khối ra là để xử lý chỗ thiếu, nên câu đó phải là thứ
+                    đọc được đầu tiên, không phải nằm lẫn giữa các trường dữ liệu.
+                    📌 Câu chữ do `vuongMacSangBuocSau` sinh ra — CÙNG một câu với hộp kéo thả và
+                    nút chuyển bước, nên ba chỗ không bao giờ nói khác nhau. */}
+                {g.conThieu && (
+                  <p className="mb-3 flex items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-xs font-medium text-danger">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    {g.conThieu}
+                  </p>
+                )}
                 <NhanPhanTrongGiaiDoan icon={LogIn} className="mb-2">
                   ĐẦU VÀO
                 </NhanPhanTrongGiaiDoan>
@@ -300,6 +358,35 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                 )}
               </div>
 
+              {/* ★ TỆP ĐÍNH KÈM CỦA BƯỚC — Ban lãnh đạo 17/08/2026: *"mục đính kèm file"*.
+
+                  🔴 ĐỨNG TRƯỚC KHỐI "KẾT QUẢ" từ 22/08/2026 — Ban lãnh đạo: *"Đưa trường này
+                  xuống dưới phần đính kèm file"* (mũi tên chỉ khối KẾT QUẢ của bước ②).
+
+                  VÌ SAO ĐÚNG: khối KẾT QUẢ chứa nút đi tiếp ("Trình xét duyệt báo giá", "Lập đơn
+                  đặt hàng"), mà **điều kiện bấm được nút đó chính là các tệp ở khu đính kèm**.
+                  Xếp nút lên trên các ô tệp là bắt người dùng đọc ngược: thấy nút khóa trước, rồi
+                  mới thấy chỗ làm cho nó mở. Nay đọc từ trên xuống đúng mạch làm việc:
+                  đầu vào → chứng từ đính kèm → kết quả và nút đi tiếp.
+
+                  📌 SỬA MỘT LẦN ÁP CHO MỌI BƯỚC — thứ tự này chỉ dựng ở đây, cả 9 bước dùng chung.
+
+                  🔴 NẰM NGOÀI nhánh "chưa có dữ liệu nhập vào" của phần ĐẦU VÀO — bước ②
+                  chỉ có đúng một trường "SL Báo giá" và bước ③ có thể không có trường nào,
+                  nhưng đó lại chính là hai bước cần chỗ dán báo giá nhất. Gộp vào nhánh ấy
+                  là khu đính kèm biến mất đúng lúc cần nó nhất.
+
+                  ⚠️ `empty:hidden` là CỐ Ý: `KhuDinhKemGiaiDoan` trả `null` khi bước chưa có
+                  tệp và người xem không được thêm — lúc đó thẻ này rỗng và phải tự ẩn, nếu
+                  không sẽ để lại một dải kẻ ngang cùng khoảng đệm trống trơn. Không thể kiểm
+                  bằng `g.khuDinhKem && …` vì một phần tử React luôn "có thật" dù nó vẽ ra
+                  `null`. */}
+              {g.khuDinhKem && (
+                <div className="border-t border-divider p-(--hp-md-card-pad) text-sm empty:hidden">
+                  {g.khuDinhKem}
+                </div>
+              )}
+
               {/* PHẦN LÀM VIỆC của giai đoạn — nằm NGOÀI nhánh "chưa có dữ liệu nhập vào"
                   ở trên, vì hai thứ độc lập nhau: bước ① chưa nhập trường nào nhưng vẫn
                   phải phân bổ người phụ trách. Gộp vào nhánh đó là khối làm việc biến mất
@@ -330,7 +417,16 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                    * không phải đi sửa từng khối ở `de-nghi-chi-tiet.tsx`. Bước nào chưa có kết
                    * quả thì cả cụm không vẽ ra — không để lại một khung xanh rỗng.
                    */}
-                  <div className="rounded-xl border border-success/30 bg-success-bg p-(--hp-md-card-pad)">
+                  {/* 🔴 NỀN XANH NHẠT HƠN — Ban lãnh đạo 21/08/2026: *"giảm màu xanh nhạt hơn,
+                      sửa cho các bước khác luôn"*.
+                      Hạ `bg-success-bg` → `/30` và viền `/30` → `/20`: khối KẾT QUẢ chứa cả bảng
+                      dữ liệu, nền đậm làm chữ trong bảng phải cạnh tranh với nền. Vẫn giữ đủ sắc
+                      xanh để phân biệt với khối ĐẦU VÀO.
+                      📌 SỬA MỘT LẦN ÁP CHO MỌI BƯỚC: khối KẾT QUẢ chỉ dựng ở đây, cả 7 bước đều
+                      dùng chung — không có chỗ thứ hai phải sửa theo.
+                      ⚠️ Dùng ĐỘ MỜ của token thay vì thêm mã màu mới (quy tắc Design System: chỉ
+                      4 tông ngữ nghĩa), nên Dark Mode tự thích ứng, không phải khai màu riêng. */}
+                  <div className="rounded-xl border border-success/20 bg-success-bg/30 p-(--hp-md-card-pad)">
                     <NhanPhanTrongGiaiDoan icon={LogOut} className="mb-2 text-success-soft">
                       KẾT QUẢ
                     </NhanPhanTrongGiaiDoan>
@@ -339,27 +435,6 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                 </div>
               )}
 
-              {/* ★ TỆP ĐÍNH KÈM CỦA BƯỚC — Ban lãnh đạo 17/08/2026: *"mục đính kèm file"*.
-
-                  Đứng SAU cả "ĐẦU VÀO" lẫn phần làm việc, ngăn bằng cùng một đường kẻ và
-                  cùng cỡ chữ, vì nó là phần thứ ba NGANG HÀNG với hai phần kia: cái đã nhập
-                  vào · việc phải làm · chứng từ kèm theo.
-
-                  🔴 NẰM NGOÀI nhánh "chưa có dữ liệu nhập vào" của phần ĐẦU VÀO — bước ②
-                  chỉ có đúng một trường "SL Báo giá" và bước ③ có thể không có trường nào,
-                  nhưng đó lại chính là hai bước cần chỗ dán báo giá nhất. Gộp vào nhánh ấy
-                  là khu đính kèm biến mất đúng lúc cần nó nhất.
-
-                  ⚠️ `empty:hidden` là CỐ Ý: `KhuDinhKemGiaiDoan` trả `null` khi bước chưa có
-                  tệp và người xem không được thêm — lúc đó thẻ này rỗng và phải tự ẩn, nếu
-                  không sẽ để lại một dải kẻ ngang cùng khoảng đệm trống trơn. Không thể kiểm
-                  bằng `g.khuDinhKem && …` vì một phần tử React luôn "có thật" dù nó vẽ ra
-                  `null`. */}
-              {g.khuDinhKem && (
-                <div className="border-t border-divider p-(--hp-md-card-pad) text-sm empty:hidden">
-                  {g.khuDinhKem}
-                </div>
-              )}
               </div>
             )}
           </section>

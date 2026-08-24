@@ -292,6 +292,107 @@
 }
 
 /* ============================================================
+ * Ô SỐ TRONG BẢNG NHẬP LIỆU — bỏ cặp mũi tên tăng/giảm
+ *
+ * 🔴 Vì sao (21/08/2026, Ban lãnh đạo khoanh đỏ hai ô Đơn giá và % Thuế GTGT: *"Điều chỉnh các
+ * lỗi hiển thị này"*): `input[type=number]` của Chrome vẽ cặp mũi tên tăng/giảm ở SÁT LỀ PHẢI khi
+ * trỏ chuột vào hoặc khi ô đang nhập. Ô tiền trong bảng thì căn phải — nên mũi tên **đè lên đúng
+ * những chữ số cuối**, tức phần hàng đơn vị. Đã đo tại chỗ: `appearance: auto` và
+ * `::-webkit-inner-spin-button` là `inline-block`, chiếm ~17px trong ô "% Thuế GTGT" chỉ rộng
+ * 96px (vùng chữ 70px).
+ *
+ * Bỏ mũi tên KHÔNG mất chức năng nào: bàn phím vẫn tăng/giảm bằng ↑ ↓, và người nhập đơn giá thì
+ * gõ số chứ không ai bấm mũi tên để đi từ 0 tới 1.500.000.
+ *
+ * ⚠️ Đặt ngoài `@layer` là CỐ Ý — quy tắc trong `@layer` bị Tailwind xếp độ ưu tiên thấp hơn lớp
+ * tiện ích, còn đây phải thắng để ghi đè `appearance` mặc định của trình duyệt.
+ * ============================================================ */
+/* ============================================================
+ * THANH KÉO NGANG LUÔN HIỆN — cho bảng quy trình 9 cột
+ *
+ * ★ Ban lãnh đạo 22/08/2026: *"Thêm thanh kéo ngang để xem được hết nội dung"*.
+ *
+ * 🔴 VÙNG CUỘN VỐN ĐÃ CÓ (`overflow-x-auto` ở `bang-quy-trinh-mua-hang.tsx`) và 9 cột × 240px
+ * chắc chắn rộng hơn màn hình — nhưng Chrome/Edge trên Windows vẽ thanh cuộn kiểu **overlay**:
+ * nó chỉ hiện lúc đang cuộn rồi mờ đi. Người dùng nhìn bảng bị cắt mà không thấy chỗ nào để kéo,
+ * nên tưởng app hiển thị thiếu.
+ *
+ * Nay thanh cao 14px, luôn thấy, có màu tương phản với nền và đậm lên khi trỏ vào.
+ *
+ * ⚠️ Đặt NGOÀI `@layer` là cố ý (cùng lý do với `.khong-nut-tang-giam` ngay dưới): quy tắc trong
+ * `@layer` bị xếp ưu tiên thấp hơn lớp tiện ích, còn đây phải thắng mặc định của trình duyệt.
+ *
+ * 📌 Dùng token, không viết cứng mã màu — nên Dark Mode tự đúng (cả 4 token đều có bản tối).
+ * ============================================================ */
+/* 🔴🔴 KHÔNG ĐƯỢC KHAI `scrollbar-width` / `scrollbar-color` Ở ĐÂY — nếu khai, Chrome BỎ QUA
+   TOÀN BỘ các quy tắc `::-webkit-scrollbar-*` bên dưới và độ dày ta đặt thành vô nghĩa.
+   Đây là lý do THẬT của ba lần sửa không có tác dụng gì (14px → 12pt → 8pt), Ban lãnh đạo báo
+   *"vẫn không có thay đổi"*. Không lỗi lint, không lỗi build, CSS lên bản thật đầy đủ — chỉ là
+   trình duyệt lặng lẽ dùng thanh mặc định.
+
+   Đã ĐO trên trình duyệt để chứng minh (cùng một khai báo `::-webkit-scrollbar{height:30px}`):
+     · chỉ khai webkit                        → dày **30px** (có tác dụng)
+     · khai kèm `scrollbar-width`/`-color`    → dày **15px** (bị bỏ qua, y như không khai gì)
+
+   Nên: bề dày và màu đặt bằng webkit ở dưới; các thuộc tính chuẩn CHỈ dành cho trình duyệt không
+   hiểu webkit (Firefox), gói trong `@supports not selector(::-webkit-scrollbar)` ở cuối khối. */
+.thanh-keo-ngang-ro::-webkit-scrollbar {
+  /* ★ 10pt — Ban lãnh đạo 23/08/2026: *"nâng lên 10 pt"* (đường đi: 14px → 12pt → 8pt → 10pt).
+     Đặt CẢ hai chiều: khung bảng nay cuộn cả ngang lẫn dọc (xem `bang-quy-trinh-mua-hang.tsx`). */
+  width: 10pt;
+  height: 10pt;
+}
+.thanh-keo-ngang-ro::-webkit-scrollbar-track {
+  /* 🔴 MÁNG TRONG SUỐT — Ban lãnh đạo: *"nhìn chuyên nghiệp hơn đi"*.
+     Bản trước tôi tô máng bằng `--hp-border`, nên nó vẽ một VẠCH XÁM LIỀN suốt chiều dài vùng
+     cuộn — kể cả quãng không có tay nắm. Đúng cái "dải lạ" bị bắt lỗi mấy lượt: mắt đọc nó thành
+     một đường kẻ đặt sai chỗ, không ai nghĩ đó là máng thanh cuộn. Để trong suốt thì chỉ còn tay
+     nắm nổi trên nội dung, đúng kiểu các app hiện nay. */
+  background: transparent;
+}
+.thanh-keo-ngang-ro::-webkit-scrollbar-thumb {
+  /* 🔴 TAY NẮM PHẢI ĐẬM RÕ — Ban lãnh đạo 23/08/2026: *"bị lỗi mất thanh kéo ngang rồi"*.
+     Không phải mất thật: cấu trúc vẫn cuộn được cả hai chiều (đã mô phỏng và đo: scrollWidth
+     2176 > clientWidth 683). Cái sai là MÀU — tôi làm tay nắm nhạt còn 45% cho "gọn mắt", mà
+     thanh ngang nằm trên nền trắng ở đáy bảng nên nhạt như vậy là gần như vô hình.
+     Bài học: máng thì để trong suốt (tránh vạch xám liền), nhưng TAY NẮM phải đủ tương phản —
+     hai thứ đó không đánh đổi cho nhau. */
+  background: var(--hp-text-desc);
+  border-radius: 999px;
+  /* Khe trong suốt hai bên: tay nắm mảnh hơn rãnh nhưng vùng bấm vẫn đủ 10pt. */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.thanh-keo-ngang-ro::-webkit-scrollbar-thumb:hover {
+  background: var(--hp-primary);
+  background-clip: content-box;
+}
+/* Góc giao giữa thanh ngang và thanh dọc — không tô thì Chrome vẽ một ô xám vuông ở góc phải dưới. */
+.thanh-keo-ngang-ro::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* Firefox không có `::-webkit-scrollbar` nên chỉ nó vào khối này; khai thuộc tính chuẩn ở đây
+   KHÔNG làm Chrome bỏ qua webkit ở trên (xem chú thích đầu khối). Firefox chỉ nhận
+   `auto | thin | none`, không đặt được số đo — lấy `thin` cho gần 10pt nhất. */
+@supports not selector(::-webkit-scrollbar) {
+  .thanh-keo-ngang-ro {
+    scrollbar-width: thin;
+    scrollbar-color: var(--hp-text-desc) transparent;
+  }
+}
+
+.khong-nut-tang-giam {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.khong-nut-tang-giam::-webkit-outer-spin-button,
+.khong-nut-tang-giam::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ============================================================
  * CHỮ GỢI Ý TRONG Ô NHẬP (placeholder) — IN NGHIÊNG + MỜ
  *
  * Chỉ đạo Ban lãnh đạo 08/08/2026: chữ ví dụ kiểu "truongbp" phải nhìn ra ngay

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
 import { AlertTriangle, BadgeCheck, FileWarning, Lock, Printer } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -66,11 +67,18 @@ export default function TrangChiTietDonHang() {
   }
 
   function bamXacNhanTruongBP() {
-    xacNhanTruongBP(po!.id, {
+    /* 🔴 Từ 22/08/2026 tầng ghi có thể TỪ CHỐI: bắt buộc có Hóa đơn VAT mới duyệt hoàn thành
+       được. Bỏ qua giá trị trả về là nút bấm không có gì xảy ra mà không ai biết vì sao. */
+    const loi = xacNhanTruongBP(po!.id, {
       uid: nguoiDung.uid,
       ten: nguoiDung.tenHienThi,
       thoiDiem: new Date().toISOString().slice(0, 10),
     });
+    if (loi !== null) {
+      toast.error("Chưa duyệt hoàn thành được", { description: loi });
+      return;
+    }
+    toast.success("Đã duyệt hoàn thành đơn", { description: `${po!.code} — hồ sơ chuyển Kế toán` });
   }
 
   return (
@@ -131,6 +139,12 @@ export default function TrangChiTietDonHang() {
           {/* Các ô dưới đây lấy đúng tên nhãn trên biểu mẫu giấy của công ty */}
           {po.diaDiemGiaoHang && <ThongTin nhan="Địa điểm giao hàng" giaTri={po.diaDiemGiaoHang} />}
           {po.nguoiNhanHangTen && <ThongTin nhan="Người nhận hàng" giaTri={po.nguoiNhanHangTen} />}
+          {/* ★ Số điện thoại người nhận (21/08/2026): trường này thêm cho tờ in PO nhưng CHƯA hiện
+              ở màn chi tiết — người lập gõ số vào form rồi mở lại đơn không thấy đâu, tưởng mất.
+              Nhà cung cấp gọi đúng số này để hẹn giao, nên nó phải xem lại được. */}
+          {po.nguoiNhanHangSdt && (
+            <ThongTin nhan="Số điện thoại người nhận" giaTri={po.nguoiNhanHangSdt} />
+          )}
           {po.dieuKhoanKhac && <ThongTin nhan="Điều khoản khác" giaTri={po.dieuKhoanKhac} />}
         </CardContent>
       </Card>

@@ -74,6 +74,9 @@ function chuanHoa(d: Partial<DuLieuLuu>): DuLieuLuu {
     /* Danh mục nhà cung cấp thu mua tự thêm (20/08/2026) — khai ở ĐÂY và ở `docDuLieuDaLuu`,
        hai chỗ, đúng cảnh báo phía trên. Giữ `undefined` khi chưa có. */
     ...(Array.isArray(d.nhaCungCapThem) ? { nhaCungCapThem: d.nhaCungCapThem } : {}),
+    /* ★ Danh mục thủ kho công trình (22/08/2026) — khai ở CẢ ĐÂY và `docDuLieuDaLuu`, xem chú
+       thích của khóa này trong `luu-tren-may.ts`. */
+    ...(Array.isArray(d.thuKhoThem) ? { thuKhoThem: d.thuKhoThem } : {}),
   };
 }
 
