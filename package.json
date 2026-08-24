@@ -9,10 +9,11 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run lint && npm run typecheck && npm run build:check",
+    "verify": "npm run lint && npm run typecheck && npm run kiem-luat && npm run build:check",
     "kiem-truoc-deploy": "node kiem-truoc-deploy.mjs",
+    "kiem-luat": "node kiem-luat-dung-chung.mjs",
     "kiem-route": "node kiem-route-san-xuat.mjs",
-    "deploy": "node kiem-truoc-deploy.mjs && npx --yes vercel --prod --archive=tgz --yes && node kiem-route-san-xuat.mjs"
+    "deploy": "node kiem-truoc-deploy.mjs && node kiem-luat-dung-chung.mjs && node huong-dan-phat-hanh.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

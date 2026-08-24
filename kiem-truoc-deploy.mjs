@@ -85,6 +85,77 @@ try {
 }
 
 /**
+ * ---------- QUÉT TOÀN BỘ CÂY: TỆP NÀO TRÊN GITHUB MÀ MÁY NÀY KHÔNG CÓ ----------
+ *
+ * 🔴 PHẦN NÀY SINH RA TỪ ĐÚNG MỘT LẦN CHỐT NÀY TRẢ VỀ MÀU XANH SAI, NGÀY 24/08/2026.
+ *
+ * Bản đầu chỉ soát các tệp nằm trong `HEAD..FETCH_HEAD` — tức **chỉ những tệp phiên kia vừa
+ * sửa trong mấy commit mới nhất**. Hôm đó máy này thiếu 2 tệp còn nằm trên GitHub, chốt in
+ * "✓ Phiên kia chưa đẩy gì mới — deploy an toàn" và thoát mã 0. Phải tìm ra bằng tay.
+ *
+ * Vì sao lọt: tệp của họ ở commit CŨ HƠN mốc `HEAD` của bản sao thì không xuất hiện trong
+ * `HEAD..FETCH_HEAD`. Cửa sổ so sánh hẹp hơn sự thật.
+ *
+ * 👉 Nên phép quét NÀY ĐỘC LẬP với việc "họ có commit mới hay không": kể cả khi họ chưa đẩy
+ *    gì, vẫn phải soát đủ cây. Deploy là thay TOÀN BỘ production, nên câu hỏi đúng là
+ *    "bản trên máy có đủ mọi tệp đang có trên GitHub không", chứ không phải "họ vừa sửa gì".
+ *
+ * ⚠️ CHỈ SOÁT SỰ TỒN TẠI, không so nội dung từng tệp: so nội dung 219 tệp mỗi lần deploy thì
+ *    quá chậm, và tệp trùng khác nội dung là BÌNH THƯỜNG (đã trộn phần của họ rồi thêm phần
+ *    của mình). Cái chết người là tệp BIẾN MẤT — đó mới là xoá code của phiên kia.
+ */
+
+/**
+ * Danh sách tệp CỐ Ý xoá, kèm lý do — mỗi dòng `đường/dẫn = lý do`.
+ *
+ * 📌 Có tệp này vì đôi khi xoá là ĐÚNG (Ban lãnh đạo yêu cầu bỏ một màn hình chẳng hạn).
+ * Nhưng bắt buộc phải GHI LÝ DO RA: chặn theo mặc định, muốn miễn thì phải viết xuống. Nếu
+ * cho miễn im lặng thì lần sau không ai phân biệt được "cố ý bỏ" với "vô tình xoá".
+ */
+const TEP_CO_Y_XOA = "da-co-y-xoa.txt";
+const coYXoa = new Map();
+if (existsSync(join(process.cwd(), TEP_CO_Y_XOA))) {
+  for (const dong of readFileSync(join(process.cwd(), TEP_CO_Y_XOA), "utf8").split("\n")) {
+    const s = dong.trim();
+    if (s === "" || s.startsWith("#")) continue;
+    const i = s.indexOf("=");
+    if (i > 0) coYXoa.set(s.slice(0, i).trim(), s.slice(i + 1).trim());
+  }
+}
+
+const tepTrenGitHub = chay('git ls-tree -r --name-only FETCH_HEAD', BAN_SAO)
+  .split("\n")
+  .map((x) => x.trim())
+  .filter(Boolean);
+
+const bienMat = [];
+for (const tep of tepTrenGitHub) {
+  if (existsSync(join(process.cwd(), tep))) continue;
+  if (coYXoa.has(tep)) continue;
+  bienMat.push(tep);
+}
+
+if (bienMat.length > 0) {
+  dung("MÁY NÀY THIẾU TỆP ĐANG CÓ TRÊN GITHUB", [
+    `${DO}${bienMat.length} tệp có trên GitHub mà KHÔNG có trên máy này.${HET}`,
+    `${VANG}Deploy bây giờ là XOÁ chúng khỏi production.${HET}`,
+    "",
+    ...bienMat.map((t) => `  ✗ ${t}`),
+    "",
+    `${XAM}Nếu đây là tệp của phiên kia → lấy về:${HET}`,
+    ...bienMat.slice(0, 8).map((t) => `  git -C "${BAN_SAO}" show FETCH_HEAD:"${t}" > "${t}"`),
+    bienMat.length > 8 ? `  … và ${bienMat.length - 8} tệp nữa` : "",
+    "",
+    `${XAM}Nếu CỐ Ý xoá (Ban lãnh đạo yêu cầu bỏ) → ghi vào ${HET}${TEP_CO_Y_XOA}${XAM}, mỗi dòng:${HET}`,
+    `  ${XAM}đường/dẫn/tệp = lý do xoá, ai yêu cầu, ngày nào${HET}`,
+    "",
+    `${VANG}🔴 Trước khi ghi vào ${TEP_CO_Y_XOA}, BẮT BUỘC kiểm tệp đó do ai viết:${HET}`,
+    `  git -C "${BAN_SAO}" log --format="%h %an %s" -- <tệp>`,
+    `  ${XAM}Nếu tác giả là phiên tích hợp (ithungphuoc-ops / Phuoc) thì KHÔNG được tự xoá.${HET}`,
+  ]);
+}
+
+/**
  * Commit của phiên kia mà bản sao chưa có.
  *
  * ⚠️ So `HEAD..FETCH_HEAD` chứ không so với repo gốc: `HEAD` của bản sao là lần push cuối của
@@ -93,7 +164,15 @@ try {
 const commitMoi = chay('git log --format="%h|%an|%ad|%s" --date=format:"%d/%m %H:%M" HEAD..FETCH_HEAD', BAN_SAO);
 
 if (commitMoi === "") {
-  console.log(`${XANH}✓ Phiên kia chưa đẩy gì mới — deploy an toàn.${HET}\n`);
+  /* 📌 NÓI ĐÚNG PHẠM VI ĐÃ KIỂM, KHÔNG HỨA QUÁ. Câu cũ là "deploy an toàn" — nghe như đã
+     soát mọi thứ, trong khi chốt này KHÔNG kiểm nội dung tệp, KHÔNG kiểm ai đang deploy
+     cùng lúc với mình. Một chốt hứa quá thì lần sau người ta tin nó thay vì tự soát. */
+  console.log(
+    `${XANH}✓ Đủ ${tepTrenGitHub.length} tệp đang có trên GitHub; phiên kia chưa đẩy commit mới.${HET}`,
+  );
+  console.log(
+    `${XAM}  Chốt này CHỈ kiểm tệp có/không. KHÔNG kiểm nội dung, và KHÔNG biết phiên kia có\n  đang deploy cùng lúc hay không — deploy sau vẫn đè deploy trước.${HET}\n`,
+  );
   process.exit(0);
 }
 
@@ -170,7 +249,13 @@ if (trungCanSoat.length > 0) {
     `${XAM}   Nhưng nếu chưa soát thì soát ngay:  git -C "${BAN_SAO}" diff HEAD FETCH_HEAD -- <tệp>${HET}`,
   );
 }
-console.log(`\n${XANH}✓ Không thiếu tệp nào của phiên kia — cho deploy.${HET}`);
+/* 📌 Nói đúng cái đã kiểm. Câu cũ là "Không thiếu tệp nào của phiên kia — cho deploy",
+   nghe như đã bảo đảm an toàn. Thực tế chốt này KHÔNG kiểm nội dung tệp trùng, và không
+   thể biết phiên kia có đang bấm deploy cùng lúc. Xem chú thích đầu tệp. */
+console.log(`\n${XANH}✓ Đủ ${tepTrenGitHub.length} tệp đang có trên GitHub — không tệp nào biến mất.${HET}`);
+console.log(
+  `${XAM}  Chưa kiểm: nội dung ${trungCanSoat.length} tệp trùng ở trên, và việc phiên kia có\n  đang deploy cùng lúc hay không.${HET}`,
+);
 console.log(
   `${XAM}  Nhắc: deploy xong chạy ${HET}npm run kiem-route${XAM} để chắc chắn không route nào bị 404.${HET}\n`,
 );

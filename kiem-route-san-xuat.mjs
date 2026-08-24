@@ -85,8 +85,20 @@ async function do1(duong, pt) {
   }
 
   if (r.status === 405) {
-    /* Route CÓ nhưng không nhận phương thức này → sai bảng `ROUTE`, không phải app hỏng. */
-    return { ma: 405, song: false, vi: `route không nhận ${pt} — sửa cột \`pt\` trong bảng ROUTE` };
+    /* 🔴 405 = ROUTE CÓ THẬT, chỉ là không nhận phương thức này. Đây là BẰNG CHỨNG route còn
+       sống — Next.js chỉ trả 405 khi tệp `route.ts` tồn tại và được nạp; route bị xoá thì
+       trả 404. Nên phải tính là SỐNG.
+
+       ⚠️ Bản trước tính 405 là CHẾT và đã báo động sai 2 route (`hpcore-session`, `directory`
+       chỉ export GET). Chữa bằng cách thêm cột `pt`, nhưng vẫn để 405 = chết là còn nửa lỗi:
+       lần sau ai thêm phương thức mới mà quên sửa bảng `ROUTE` là chốt lại hô hoán oan, rồi
+       người ta bỏ qua nó — mất tin cậy còn tệ hơn không có chốt. */
+    return {
+      ma: 405,
+      song: true,
+      vi: `route CÓ THẬT nhưng không nhận ${pt} — sửa cột \`pt\` trong bảng ROUTE`,
+      saiBang: true,
+    };
   }
 
   const chu = await r.text();
@@ -105,13 +117,38 @@ async function do1(duong, pt) {
   return { ma: r.status, song: false, vi: "JSON lạ, không có khoá ok/error" };
 }
 
+/**
+ * Đo một route, THỬ LẠI khi kết quả có thể do khởi động nguội.
+ *
+ * 🔴 VÌ SAO PHẢI THỬ LẠI: function trên Vercel ngủ khi không ai gọi. Lần gọi đầu sau khi ngủ
+ * có thể hết thời gian chờ hoặc trả về trang HTML của hạ tầng thay vì JSON của route — chốt
+ * đọc không thấy JSON rồi kết luận "function crash". Kết luận đó SAI, và nó sai vào đúng lúc
+ * người ta cần tin chốt nhất: ngay sau khi deploy, khi mọi function đều vừa khởi động lạnh.
+ *
+ * ⚠️ KHÔNG thử lại với `404`: route không tồn tại thì gọi bao nhiêu lần cũng không tồn tại,
+ * và đó chính là ca ta cần báo NGAY. Chỉ thử lại khi lỗi có thể do khởi động/mạng.
+ */
+async function doCoThuLai(duong, pt) {
+  let kq = await do1(duong, pt);
+  const dangNghiKhoiDongNguoi =
+    !kq.song && kq.ma !== 404 && (kq.ma === "—" || String(kq.vi).includes("không phải JSON"));
+  if (!dangNghiKhoiDongNguoi) return kq;
+
+  /* Cho function 3 giây thức hẳn rồi đo lại một lần. Vẫn hỏng thì mới kết luận. */
+  await new Promise((x) => setTimeout(x, 3000));
+  const lan2 = await do1(duong, pt);
+  return lan2.song ? { ...lan2, vi: `${lan2.vi} (lần đầu lỗi do khởi động nguội)` } : lan2;
+}
+
 console.log(`\n${XAM}Đo các cửa API trên ${DIA_CHI}${HET}`);
 console.log(`${XAM}(đo bằng NỘI DUNG trả về, không bằng mã HTTP — xem chú thích đầu tệp)${HET}\n`);
 
 let soHong = 0;
+let soSaiBang = 0;
 for (const r of ROUTE) {
-  const kq = await do1(r.duong, r.pt);
+  const kq = await doCoThuLai(r.duong, r.pt);
   if (!kq.song) soHong += 1;
+  if (kq.saiBang) soSaiBang += 1;
   const dau = kq.song ? `${XANH}✓${HET}` : `${DO}✗${HET}`;
   const mauMa = kq.song ? `${XANH}${kq.ma}${HET}` : `${DO}${kq.ma}${HET}`;
   console.log(
@@ -123,7 +160,19 @@ for (const r of ROUTE) {
 
 console.log("");
 if (soHong === 0) {
-  console.log(`${XANH}✓ Đủ ${ROUTE.length} cửa API còn sống. Không xoá code của phiên nào.${HET}\n`);
+  console.log(`${XANH}✓ Đủ ${ROUTE.length} cửa API còn sống — không route nào bị 404.${HET}`);
+  /* 📌 Nói đúng cái đã đo. Câu cũ là "Không xoá code của phiên nào" — hứa quá: chốt này chỉ
+     biết route CÓ TỒN TẠI, không biết bên trong route còn đủ logic không. Ai xoá một dòng
+     điều kiện trong route mà route vẫn trả JSON thì chốt này vẫn xanh. */
+  console.log(
+    `${XAM}  Chốt này chỉ biết route CÓ tồn tại. KHÔNG biết bên trong còn đủ logic không —\n  xoá một dòng điều kiện mà route vẫn trả JSON thì chốt này vẫn xanh.${HET}`,
+  );
+  if (soSaiBang > 0) {
+    console.log(
+      `${VANG}  ⚠ ${soSaiBang} route trả 405: route sống nhưng cột \`pt\` trong bảng ROUTE ghi sai\n    phương thức. Sửa lại, không thì lần sau đọc kết quả sẽ nhầm.${HET}`,
+    );
+  }
+  console.log("");
   process.exit(0);
 }
 
