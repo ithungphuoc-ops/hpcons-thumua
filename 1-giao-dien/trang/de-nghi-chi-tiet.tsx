@@ -288,7 +288,8 @@ export default function TrangChiTietDeNghi() {
     /* Dấu đỏ "thiếu báo giá" ở bước ② — cùng luật với nút "Trình xét duyệt báo giá" ngay trong
        khối đó, nên viền đỏ và nút không bao giờ nói khác nhau (Ban lãnh đạo 24/08/2026). */
     return (
-      conNoCuaBuoc(hoSo, ma, cauHinh, donHang, phieuNhan, vuongMacTrinhXetDuyet(hoSo)) ?? undefined
+      conNoCuaBuoc(hoSo, ma, cauHinh, donHang, phieuNhan, vuongMacTrinhXetDuyet(hoSo, cauHinh)) ??
+      undefined
     );
   }
 
@@ -900,7 +901,7 @@ export default function TrangChiTietDeNghi() {
                         .filter((bg) => bg.trangThai !== "huy")
                         .some((bg) => bg.trangThai !== "dang_thu_thap") &&
                       (() => {
-                        const vuongMac = vuongMacTrinhXetDuyet(dn);
+                        const vuongMac = vuongMacTrinhXetDuyet(dn, cauHinh);
                         return (
                           <div className="flex flex-wrap items-center gap-2">
                             {/* Nút khóa KÈM LÝ DO, không khóa im lặng — nút mờ mà không nói còn

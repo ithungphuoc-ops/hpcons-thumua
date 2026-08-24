@@ -217,8 +217,10 @@ export default function TrangDanhSachDeNghi() {
         new Date(),
         nguoiDung.uid,
         /* Dấu đỏ "thiếu báo giá" ở bước ② — cùng luật với nút "Trình xét duyệt báo giá" nên thẻ
-           và nút không bao giờ nói khác nhau (Ban lãnh đạo 24/08/2026). */
-        vuongMacTrinhXetDuyet,
+           và nút không bao giờ nói khác nhau (Ban lãnh đạo 24/08/2026).
+           📌 Bọc lại vì từ 24/08 hàm này cần cả `cauHinh` (nó đọc `soBaoGiaToiThieu`), còn
+           `dungBangQuyTrinh` chỉ truyền một tham số là đề nghị. */
+        (dn) => vuongMacTrinhXetDuyet(dn, cauHinh),
       ),
     [deNghi, donHang, baoGia, phieuNhan, cauHinh, nguoiDung.uid],
   );
@@ -303,7 +305,7 @@ export default function TrangDanhSachDeNghi() {
       poCuaDeNghi,
       baoGiaCuaDeNghi,
       cauHinh,
-      vuongMacTrinhXetDuyet(the.deNghi),
+      vuongMacTrinhXetDuyet(the.deNghi, cauHinh),
     );
     if (!hanhDong) return;
 

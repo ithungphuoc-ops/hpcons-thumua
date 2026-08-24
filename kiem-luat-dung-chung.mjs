@@ -80,6 +80,19 @@ try {
   process.exit(1);
 }
 
+const tepRa4 = join(thuMuc, "bao-gia.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/bao-gia-dinh-kem.ts" --bundle --platform=node --format=cjs --outfile="${tepRa4}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/bao-gia-dinh-kem.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
@@ -695,6 +708,72 @@ kiem(
       thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 80)}"` : ""}`,
       mongDoi: 'loai = "khong_the" kèm câu còn dòng chưa phân bổ',
     };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// SỐ BẢN BÁO GIÁ: KHÔNG ĐẶT RIÊNG THÌ RƠI VỀ CẤU HÌNH QUY TRÌNH
+//
+// 🔴 Lỗ hổng đo được 24/08/2026: `soBaoGiaCanCo` chỉ đọc `items[].soBaoGiaYeuCau`, không đọc
+//    `cauHinh.soBaoGiaToiThieu`. Trưởng bộ phận giao việc mà để ô "Số báo giá yêu cầu" ở mục
+//    "Không yêu cầu riêng" (ô đó KHÔNG bắt buộc) → cần 0 bản → `vuongMacTrinhXetDuyet` trả null
+//    NGAY, bỏ qua cả phép kiểm bảng so sánh. Hồ sơ 0 tệp báo giá vẫn trình xét duyệt được, CẢ
+//    bằng nút LẪN bằng kéo thả. Tức cấu hình quy trình của công ty bị vô hiệu hoàn toàn — trong
+//    khi bảng phân bổ vẫn in "Quy trình yêu cầu tối thiểu 02 báo giá".
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "Không đặt số riêng → rơi về cấu hình quy trình, KHÔNG phải 0",
+  "Ban lãnh đạo · 20/08/2026 (luật bị vô hiệu tới 24/08)",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dn = { id: "x", items: [{ stt: 1 }, { stt: 2 }], tepGiaiDoan: {} };
+    const can = BG.soBaoGiaCanCo(dn, { soBaoGiaToiThieu: 2 });
+    return {
+      duoc: can === 2,
+      thucTe: `cần ${can} bản`,
+      mongDoi: "2 (lấy từ cauHinh.soBaoGiaToiThieu)",
+    };
+  },
+);
+
+kiem(
+  "Đặt riêng cho dòng thì con số đó THẮNG cấu hình chung",
+  "Ban lãnh đạo · 20/08/2026",
+  () => {
+    /* Trưởng bộ phận biết dòng nào cần hỏi kỹ hơn mức tối thiểu — số riêng phải thắng. */
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dn = { id: "x", items: [{ stt: 1, soBaoGiaYeuCau: 3 }, { stt: 2 }], tepGiaiDoan: {} };
+    const can = BG.soBaoGiaCanCo(dn, { soBaoGiaToiThieu: 2 });
+    return { duoc: can === 3, thucTe: `cần ${can} bản`, mongDoi: "3 (số riêng > mức tối thiểu)" };
+  },
+);
+
+kiem(
+  "Hồ sơ 0 tệp báo giá → PHẢI chặn trình xét duyệt (trước đây lọt)",
+  "Ban lãnh đạo · 20/08/2026",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dn = { id: "x", items: [{ stt: 1 }], tepGiaiDoan: {} };
+    const r = BG.vuongMacTrinhXetDuyet(dn, { soBaoGiaToiThieu: 2 });
+    return {
+      duoc: typeof r === "string" && r.includes("báo giá"),
+      thucTe: r === null ? "null (LỌT — lỗ hổng đã mở lại!)" : `"${String(r).slice(0, 80)}"`,
+      mongDoi: "câu chặn nói còn thiếu bản báo giá",
+    };
+  },
+);
+
+kiem(
+  "Cấu hình đặt 0 → KHÔNG chặn (quyết định có người bấm)",
+  "Ban lãnh đạo · 24/08/2026 (chống chặn quá tay)",
+  () => {
+    /* Vẫn phải còn đường tắt luật: đặt `soBaoGiaToiThieu = 0` ở trang Cài đặt. Khác hẳn việc
+       bỏ trống một ô tuỳ chọn lúc giao việc. */
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dn = { id: "x", items: [{ stt: 1 }], tepGiaiDoan: {} };
+    const r = BG.vuongMacTrinhXetDuyet(dn, { soBaoGiaToiThieu: 0 });
+    return { duoc: r === null, thucTe: r === null ? "null" : `"${String(r).slice(0, 70)}"`, mongDoi: "null" };
   },
 );
 

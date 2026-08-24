@@ -12,8 +12,9 @@
 // đường khác vẫn trình được — và không có gì báo cho tới khi hồ sơ đã đi tiếp.
 // ============================================================
 
-import { TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/kho-du-lieu";
+import { TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/gioi-han-dinh-kem";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
+import type { CauHinhQuyTrinh } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 
 /** Bước giữ bản báo giá nhà cung cấp — nơi nhân viên dán tệp vào. */
 export const BUOC_DINH_KEM_BAO_GIA = "yeu_cau_bao_gia";
@@ -90,14 +91,33 @@ export function tenNCCCuaO(ghiChu: string | undefined): string {
  * còn dòng cát 2 báo giá. Đòi theo số nhỏ hơn là bỏ qua yêu cầu chặt nhất của chính người giao
  * việc — mà đó thường là dòng có giá trị lớn nhất.
  *
- * 📌 Trả `0` khi chưa ai đặt số nào: lúc đó KHÔNG chặn chuyển bước. Chặn bằng một con số không
- * ai đặt ra là bắt người dùng đi tìm luật không tồn tại.
+ * 🔴🔴 KHÔNG ĐẶT RIÊNG THÌ RƠI VỀ `cauHinh.soBaoGiaToiThieu` — sửa 24/08/2026.
+ *
+ * BẢN TRƯỚC TRẢ `0` khi không dòng nào đặt số, kèm chú thích *"chặn bằng một con số không ai đặt
+ * ra là bắt người dùng đi tìm luật không tồn tại"*. Câu đó **sai ở một chỗ chết người**: con số đó
+ * CÓ người đặt ra — chính là ô *"Số báo giá tối thiểu"* trong trang **Cài đặt quy trình**
+ * (`cauHinh.soBaoGiaToiThieu`, mặc định 2).
+ *
+ * Hậu quả đo được: trưởng bộ phận giao việc mà để ô "Số báo giá yêu cầu" ở mục *"Không yêu cầu
+ * riêng"* (ô đó KHÔNG bắt buộc) → `can = 0` → `vuongMacTrinhXetDuyet` trả `null` NGAY, bỏ qua cả
+ * phép kiểm bảng so sánh. Hồ sơ **0 tệp báo giá, không bảng so sánh** vẫn trình xét duyệt được —
+ * cả bằng nút lẫn bằng kéo thả. Tức **cấu hình quy trình của công ty bị vô hiệu hoàn toàn**.
+ *
+ * ⚠️ Và giao diện thì nói ngược lại: bảng phân bổ in *"Quy trình yêu cầu tối thiểu 02 báo giá"* —
+ * app hứa một luật nó không áp, đúng thứ `CLAUDE.md` §3.5 cấm.
+ *
+ * 📌 Vẫn còn đường về `0`: đặt `soBaoGiaToiThieu = 0` ở trang Cài đặt. Khi đó KHÔNG chặn — nhưng
+ * đó là một quyết định **có người bấm**, không phải hệ quả của việc bỏ trống một ô tuỳ chọn.
  */
-export function soBaoGiaCanCo(deNghi: DeNghiMuaHang): number {
+export function soBaoGiaCanCo(deNghi: DeNghiMuaHang, cauHinh: CauHinhQuyTrinh): number {
   const so = deNghi.items
     .map((d) => d.soBaoGiaYeuCau)
     .filter((x): x is number => typeof x === "number" && x > 0);
-  return so.length === 0 ? 0 : Math.min(Math.max(...so), TOI_DA_O_BAO_GIA);
+  /* Đặt riêng cho dòng nào thì con số đó THẮNG cấu hình chung — trưởng bộ phận biết dòng nào cần
+     hỏi kỹ hơn mức tối thiểu. */
+  const canRieng = so.length === 0 ? 0 : Math.max(...so);
+  const canChung = Math.max(0, Math.trunc(cauHinh.soBaoGiaToiThieu ?? 0));
+  return Math.min(Math.max(canRieng, canChung), TOI_DA_O_BAO_GIA);
 }
 
 /** Tệp báo giá đang đính ở bước ②. */
@@ -156,8 +176,8 @@ export function tepBaoGiaDaDuyet(
  * 🔴 `max(số cần, số hiệu ô cao nhất đang có tệp)`: hạ SL Báo giá xuống mà ẩn mất ô đang giữ tệp
  * thì người dùng thấy chứng từ "bốc hơi" — tệp vẫn trong hồ sơ nhưng không còn ô nào hiện nó ra.
  */
-export function soOBaoGia(deNghi: DeNghiMuaHang): number {
-  const can = soBaoGiaCanCo(deNghi);
+export function soOBaoGia(deNghi: DeNghiMuaHang, cauHinh: CauHinhQuyTrinh): number {
+  const can = soBaoGiaCanCo(deNghi, cauHinh);
   const daCo = tepBaoGiaDaCo(deNghi).reduce(
     (max, t) => Math.max(max, chiSoOBaoGia(t.ghiChu)),
     0,
@@ -202,8 +222,11 @@ export function danhSachNCCDaBaoGia(
  * 📌 Đếm theo Ô CÓ TÊN (`Báo giá NCC 1..N`), không đếm tổng số tệp: dán 3 tệp vào ô số 1 không
  * phải là có 3 bản báo giá của 3 nhà cung cấp. Đếm tổng là mở đường lách đúng cái luật này.
  */
-export function vuongMacTrinhXetDuyet(deNghi: DeNghiMuaHang): string | null {
-  const can = soBaoGiaCanCo(deNghi);
+export function vuongMacTrinhXetDuyet(
+  deNghi: DeNghiMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+): string | null {
+  const can = soBaoGiaCanCo(deNghi, cauHinh);
   if (can === 0) return null;
 
   const tep = tepBaoGiaDaCo(deNghi);

@@ -67,6 +67,16 @@ import {
 import { nhanSuDangLamViec, tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 /* Luật "vật tư kiểm soát định mức" — một chỗ duy nhất, xem effect báo Ban QLDA. */
 import { dongCanKiemSoatDinhMuc } from "@/2-quy-trinh/kiem-soat-dinh-muc";
+import { TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/gioi-han-dinh-kem";
+/**
+ * 🔴 IMPORT ĐƯỢC LÀ NHỜ VỪA CẮT VÒNG TRÒN (24/08/2026).
+ *
+ * Trước đây `bao-gia-dinh-kem.ts` phải `import` hằng số `TOI_DA_TEP_MOI_BUOC` từ chính tệp này,
+ * nên tệp này KHÔNG thể import ngược lại — và vì vậy luật số bản báo giá **chưa bao giờ có chốt ở
+ * tầng ghi**, dù chú thích đầu `bao-gia-dinh-kem.ts` khẳng định là có. Hằng số nay ở
+ * `3-du-lieu/gioi-han-dinh-kem.ts` (tệp không import gì), nên vòng tròn không còn.
+ */
+import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import {
   DE_NGHI_MAU,
   DON_HANG_MAU,
@@ -708,7 +718,9 @@ const SO_MOC_SUA_GIU_LAI = 10;
  * lệch nhau, mà lệch kiểu đó không có lỗi nào báo: ô nhập cho chọn 5 tệp còn tầng dữ liệu
  * chặn ở 3, người dùng chỉ thấy tệp "biến mất".
  */
-export const TOI_DA_TEP_MOI_BUOC = 5;
+/* 🔴 ĐÃ DỜI sang `3-du-lieu/gioi-han-dinh-kem.ts` để cắt vòng tròn import — xem chú thích đầu
+   tệp đó. Vẫn re-export ở đây để ba tệp giao diện đang dùng không phải sửa. */
+export { TOI_DA_TEP_MOI_BUOC };
 
 /**
  * Số lượt "không duyệt" giữ lại trên một bảng báo giá (`BaoGia.lanTraLai`).
@@ -4061,13 +4073,30 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const loi = loiKhiHoSoDaDong(dn, "trình xét duyệt báo giá");
       if (loi) return loi;
 
-      /* 🔴 Chốt công việc bắt buộc của các bước trước — xem chú thích ở `themDonHang`. */
-      const chanViec = vuongMacViecBatBuocCacBuocTruoc(
-        dn,
-        xacDinhGiaiDoan(dn, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
-        cauHinhRef.current,
-      );
+      /**
+       * 🔴 DÙNG `vuongMacRoiBuoc`, KHÔNG DÙNG `vuongMacViecBatBuocCacBuocTruoc` — sửa 24/08/2026.
+       *
+       * Trình xét duyệt là hành động LÀM HỒ SƠ RỜI BƯỚC ②, nên phải soát cả việc bắt buộc CỦA
+       * bước ② — đúng danh sách mà hộp kéo thả đang khóa nút theo. Bản trước chỉ soát các bước
+       * TRƯỚC, nên việc treo của chính bước ② không ai hỏi: kéo thẻ ②→③ bị khóa nút, bấm "Trình
+       * xét duyệt" thì đi. Cùng lỗi đã sửa cho hướng ③→④ (`chonNCCChoBaoGia`) nhưng hướng ②→③
+       * còn sót.
+       */
+      const chanViec = vuongMacRoiBuoc(dn, "yeu_cau_bao_gia", cauHinhRef.current);
       if (chanViec) return chanViec;
+
+      /**
+       * 🔴🔴 CHỐT SỐ BẢN BÁO GIÁ Ở TẦNG GHI — thêm 24/08/2026.
+       *
+       * Chú thích đầu `2-quy-trinh/bao-gia-dinh-kem.ts` từ lâu ghi luật này được hỏi ở BA nơi,
+       * trong đó *"③ tầng ghi `trinhXetDuyetBaoGia` (chặn thật, vì nút có thể bị đi vòng)"*.
+       * **Lớp ③ đó chưa bao giờ tồn tại**: grep toàn dự án cho thấy `vuongMacTrinhXetDuyet` chỉ
+       * được gọi ở hai tệp giao diện. Luật sống hoàn toàn ở tầng hiển thị, nên thêm một nơi gọi
+       * mới là lọt im lặng — đúng kiểu "chú thích tự tin hơn mã nguồn" mà §6.4 `CLAUDE.md` cảnh
+       * báo. Nay lớp ③ có thật.
+       */
+      const thieuBaoGia = vuongMacTrinhXetDuyet(dn, cauHinhRef.current);
+      if (thieuBaoGia) return thieuBaoGia;
 
       const ngay = homNay();
       const bg = baoGiaRef.current.find(

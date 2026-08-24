@@ -113,13 +113,13 @@ export function KhuBaoGiaTheoSoLuong({
    */
   chanXoaTep?: boolean;
 }) {
-  const { datTepVaoOGiaiDoan, datGhiChuTepGiaiDoan, goTepGiaiDoan } = useDuLieu();
+  const { datTepVaoOGiaiDoan, datGhiChuTepGiaiDoan, goTepGiaiDoan, cauHinh } = useDuLieu();
   const { nguoiDung } = useNguoiDung();
 
-  const can = soBaoGiaCanCo(deNghi);
-  const soO = soOBaoGia(deNghi);
+  const can = soBaoGiaCanCo(deNghi, cauHinh);
+  const soO = soOBaoGia(deNghi, cauHinh);
   const tepDaCo = tepBaoGiaDaCo(deNghi);
-  const vuongMac = vuongMacTrinhXetDuyet(deNghi);
+  const vuongMac = vuongMacTrinhXetDuyet(deNghi, cauHinh);
 
   const tepTheoO = Array.from({ length: soO }, (_, i) =>
     tepDaCo.find((t) => chiSoOBaoGia(t.ghiChu) === i + 1),
