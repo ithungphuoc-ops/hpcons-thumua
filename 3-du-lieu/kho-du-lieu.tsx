@@ -394,7 +394,8 @@ interface GiaTriDuLieu {
     nguoiThucHien: string,
   ) => void;
   /** Kéo thả vào cột Thất bại: đóng dở đề nghị, ghi lịch sử. */
-  dongDoDeNghi: (prId: string, nguoiThucHien: string) => void;
+  /** Đóng dở đề nghị (vào cột Thất bại). `lyDo` bắt buộc về nghiệp vụ — xem hàm cùng tên. */
+  dongDoDeNghi: (prId: string, nguoiThucHien: string, lyDo: string) => void;
   /**
    * ★ Đóng hồ sơ khi mọi việc đã xong — nút "Hoàn thành quy trình" (22/08/2026).
    *
@@ -2983,7 +2984,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
 
 
-  const dongDoDeNghi = useCallback((prId: string, nguoiThucHien: string) => {
+  /**
+   * ★ ĐÓNG DỞ ĐỀ NGHỊ — chuyển hồ sơ vào cột Thất bại.
+   *
+   * 🔴 `lyDo` LÀ BẮT BUỘC VỀ NGHIỆP VỤ — Ban lãnh đạo 24/08/2026: *"Ở bước thất bại chỉ cần ghi
+   * lý do thất bại. Không cần ghi các thông tin thiếu này"*.
+   *
+   * Trước 24/08 hàm này KHÔNG nhận lý do: nhật ký chỉ ghi *"Đóng dở đề nghị"* và trường
+   * hồ sơ nằm cột Thất bại không ai biết vì sao — mà đây đúng là loại thông tin phải giữ lâu
+   * nhất (thống kê nhà cung cấp trượt, giải trình với công trình).
+   *
+   * 📌 Ghi vào CẢ HAI chỗ: trường `lyDoThatBai` (để thẻ và trang chi tiết bày ra được) và dòng
+   * nhật ký (để biết ai đóng, lúc nào). Một chỗ thiếu là mất một nửa câu chuyện.
+   *
+   * ⚠️ Dùng `lyDoThatBai` của `DeNghiMuaHang`, KHÔNG dùng `lyDoHuyHoacDongDo` — trường đó thuộc
+   * `DonDatHang` (lý do hủy một ĐƠN HÀNG), khác hẳn lý do cả HỒ SƠ không mua được.
+   */
+  const dongDoDeNghi = useCallback((prId: string, nguoiThucHien: string, lyDo: string) => {
+    const lyDoSach = lyDo.trim();
     setDeNghi((truoc) =>
       truoc.map((dn) =>
         dn.id !== prId
@@ -2991,9 +3009,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           : {
               ...dn,
               trangThai: "dong_do",
+              lyDoThatBai: lyDoSach || undefined,
               lichSu: [
                 ...dn.lichSu,
-                { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong: "Đóng dở đề nghị" },
+                {
+                  thoiDiem: thoiDiemHienTai(),
+                  nguoiThucHien,
+                  hanhDong: lyDoSach ? `Đóng dở đề nghị — lý do: ${lyDoSach}` : "Đóng dở đề nghị",
+                },
               ],
             },
       ),

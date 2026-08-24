@@ -729,6 +729,17 @@ export function mucConNoToanHoSo(
   tatCaPO: DonDatHang[],
   tatCaPhieu: PhieuNhanHang[],
 ): MucConNo[] {
+  /**
+   * 🔴 HỒ SƠ THẤT BẠI THÌ KHÔNG NHẮC NỢ CHỨNG TỪ — Ban lãnh đạo 24/08/2026: *"Ở bước thất bại
+   * chỉ cần ghi lý do thất bại. Không cần ghi các thông tin thiếu này"*.
+   *
+   * Nợ chứng từ là lời nhắc **đi bổ sung**. Hồ sơ đã hủy/thất bại thì không ai bổ sung hợp đồng
+   * hay hóa đơn cho nó nữa — bày bốn dòng "thiếu HĐ · thiếu hoá đơn · thiếu hàng 2/2 dòng" chỉ
+   * làm người đọc tưởng còn việc phải làm, và che mất thứ duy nhất cần đọc ở cột này: **lý do
+   * thất bại**.
+   */
+  if (giaiDoanHienTai === "that_bai") return [];
+
   const viTri = THU_TU_GIAI_DOAN.indexOf(giaiDoanHienTai);
   /* Mã lạ (hồ sơ cũ / máy khác chạy bản khác) → chỉ soát đúng bước đó, đừng đoán thứ tự. */
   const cacBuoc = viTri < 0 ? [giaiDoanHienTai] : THU_TU_GIAI_DOAN.slice(0, viTri + 1);

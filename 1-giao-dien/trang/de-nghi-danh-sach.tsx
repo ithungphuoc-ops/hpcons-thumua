@@ -301,8 +301,14 @@ export default function TrangDanhSachDeNghi() {
     setMoHopXacNhan(true);
   }
 
-  /** Thực thi sau khi người dùng đã bấm xác nhận trong hộp thoại. */
-  function thucThiKeoTha(prId: string, hanhDong: HanhDongKeoTha) {
+  /**
+   * Thực thi sau khi người dùng đã bấm xác nhận trong hộp thoại.
+   *
+   * `ghiChu` là nội dung ô chữ tự do của hộp. Với hành động `dong_do` thì ô đó chính là **lý do
+   * thất bại** (bắt buộc, xem `HopChuyenGiaiDoan`) — phải chuyển tiếp xuống tầng ghi, nếu không
+   * hồ sơ vào cột Thất bại mà không ai biết vì sao.
+   */
+  function thucThiKeoTha(prId: string, hanhDong: HanhDongKeoTha, ghiChu = "") {
     const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
     if (!the) return;
 
@@ -329,8 +335,11 @@ export default function TrangDanhSachDeNghi() {
       case "dong_do":
         // Hộp xác nhận đã hỏi rồi (nút tông nguy hiểm) nên ở đây làm luôn,
         // không hỏi lại lần hai trên thông báo như trước.
-        dongDoDeNghi(prId, nguoiDung.tenHienThi);
-        toast.success("Đã đóng dở đề nghị", { description: the.deNghi.code });
+        dongDoDeNghi(prId, nguoiDung.tenHienThi, ghiChu);
+        toast.success("Đã đóng dở đề nghị", {
+          /* Nhắc lại lý do vừa ghi: người bấm thấy ngay app đã nhận đúng chữ mình nhập. */
+          description: ghiChu ? `${the.deNghi.code} — ${ghiChu}` : the.deNghi.code,
+        });
         break;
       case "mo_trang":
         toast.info("Bước này cần thao tác nghiệp vụ", { description: hanhDong.thongBao });
@@ -668,16 +677,18 @@ export default function TrangDanhSachDeNghi() {
             if (soBaoGia) {
               datSoBaoGiaChoPhieu(xacNhan.prId, soBaoGia, nguoiDung.tenHienThi);
             }
-            // Ghi chú của người chuyển bước vào NHẬT KÝ đề nghị — chỉ ghi khi có nội dung,
-            // đừng làm bẩn lịch sử bằng những dòng trống.
-            if (ghiChu) {
+            /* 🔴 KHI ĐÓNG DỞ, `ghiChu` LÀ LÝ DO THẤT BẠI — không ghi thành dòng "Chuyển bước"
+               nữa. Hộp đã đổi nhãn ô thành "Lý do thất bại" và bắt buộc nhập (Ban lãnh đạo
+               24/08/2026), còn `dongDoDeNghi` tự ghi nhật ký kèm lý do. Ghi thêm ở đây là hai
+               dòng nhật ký cho một việc, và dòng "Chuyển bước: …" nói sai bản chất. */
+            if (ghiChu && xacNhan.hanhDong.loai !== "dong_do") {
               ghiLichSuDeNghi(
                 xacNhan.prId,
                 nguoiDung.tenHienThi,
                 `Chuyển bước: ${ghiChu}`,
               );
             }
-            thucThiKeoTha(xacNhan.prId, xacNhan.hanhDong);
+            thucThiKeoTha(xacNhan.prId, xacNhan.hanhDong, ghiChu);
           }}
         />
       )}

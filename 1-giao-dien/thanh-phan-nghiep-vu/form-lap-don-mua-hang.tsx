@@ -296,7 +296,6 @@ export function FormLapDonMuaHang({
   // Cột 1
   const [maNCC, setMaNCC] = useState("");
   const [mstNCC, setMstNCC] = useState("");
-  const [nguoiLienHe, setNguoiLienHe] = useState("");
   // Cột 2
   /**
    * NHÀ CUNG CẤP CỦA ĐƠN — lấy từ file PO, không bắt chọn từ danh mục.
@@ -578,7 +577,6 @@ export function FormLapDonMuaHang({
     if (n.maNCC) setMaNCC(n.maNCC);
     if (n.maSoThue) setMstNCC(n.maSoThue);
     if (n.diaChi) setDiaChiNCC(n.diaChi);
-    if (n.nguoiLienHe) setNguoiLienHe(n.nguoiLienHe);
   }, []);
 
   /**
@@ -755,7 +753,6 @@ export function FormLapDonMuaHang({
       if (trongDanhMuc?.maNCC) setMaNCC(trongDanhMuc.maNCC);
       if (trongDanhMuc?.maSoThue) setMstNCC(trongDanhMuc.maSoThue);
       if (trongDanhMuc?.diaChi) setDiaChiNCC(trongDanhMuc.diaChi);
-      if (trongDanhMuc?.nguoiLienHe) setNguoiLienHe(trongDanhMuc.nguoiLienHe);
       setNguonTuBaoGia({
         maBaoGia: bg.code,
         tenNCC: tenNCCPhanBo,
@@ -1183,7 +1180,6 @@ export function FormLapDonMuaHang({
            nhưng trước 23/08/2026 form bỏ qua, nên nhập một file ghi USD vẫn ra đơn VND. */
         if (c.loaiTien) setLoaiTien(c.loaiTien);
         if (c.thamChieu) setThamChieu(c.thamChieu);
-        if (c.nguoiLienHe) setNguoiLienHe(c.nguoiLienHe);
         if (c.maNCC) setMaNCC(c.maNCC);
         if (c.soNgayDuocNo !== undefined) setSoNgayDuocNo(String(c.soNgayDuocNo));
         if (c.canCuHopDong) setMaHopDong(c.canCuHopDong);
@@ -1345,8 +1341,22 @@ export function FormLapDonMuaHang({
 
       const blob = await taoFileNhapDonHang({
         maDeNghi: dn?.code,
-        tenCongTrinh: dn ? dn.tenCongTrinh : tenCongTrinh,
-        maHopDongCDT: dn ? dn.maHopDongCDT : maHopDong || undefined,
+        /**
+         * 🔴 LUÔN LẤY GIÁ TRỊ TRÊN FORM, KHÔNG ĐỌC LẠI TỪ `dn` — Ban lãnh đạo 24/08/2026:
+         * *"Link từ đề nghị và có chức năng sửa"*.
+         *
+         * Bản trước viết `dn ? dn.tenCongTrinh : tenCongTrinh`, tức khi lập đơn TỪ ĐỀ NGHỊ thì
+         * file Excel xuất ra **bỏ qua** ô người lập vừa sửa và in lại giá trị gốc của đề nghị.
+         * Ô trên form vẫn cho gõ, PO lưu vào hệ thống vẫn nhận giá trị đã sửa — chỉ tờ Excel gửi
+         * nhà cung cấp là sai. Đúng kiểu hỏng nguy nhất: giao diện nhận, chứng từ thì không.
+         *
+         * 📌 Không mất đường link: hai ô này đã được điền sẵn từ `dn` ở `useEffect` phía trên
+         * (`daDienTuDeNghi`), nên đọc từ form là đọc đúng giá trị đã link — cộng thêm phần người
+         * lập sửa. Còn `maDeNghi` thì vẫn lấy thẳng từ `dn`: đó là khoá truy vết, sửa tay được là
+         * mất đường về khối lượng đã duyệt.
+         */
+        tenCongTrinh: tenCongTrinh,
+        maHopDongCDT: maHopDong.trim() || undefined,
         diaDiemGiaoHang: diaDiemGiao || (dn ? dn.tenCongTrinh : tenCongTrinh),
         nguoiNhanHang,
         /* ★ Những gì người lập đã điền trên form — trước 21/08/2026 tất cả bị bỏ lại, nên file
@@ -1357,7 +1367,6 @@ export function FormLapDonMuaHang({
         /* ★ Bảy ô của màn MISA: app đã biết đọc chúng từ 17/08/2026 nhưng biểu mẫu chưa từng in
            ra dòng nào, nên người lập không có chỗ điền và không ai báo là thiếu. */
         maNCC: maNCC.trim() || undefined,
-        nguoiLienHeNCC: nguoiLienHe.trim() || undefined,
         nhanVienMuaHang: nguoiDung.tenHienThi,
         thamChieu: thamChieu.trim() || undefined,
         soNgayDuocNo: Number(soNgayDuocNo) || undefined,
@@ -1436,7 +1445,6 @@ export function FormLapDonMuaHang({
       supplierTen: tenNCC,
       maSoThueNCC: mstNCC,
       diaChiNCC,
-      nguoiLienHeNCC: nguoiLienHe,
       thamChieu,
       nguoiPhuTrachTen: nguoiDung.tenHienThi,
       ngayLapPO: ngayDonHang,
@@ -1596,7 +1604,6 @@ export function FormLapDonMuaHang({
     setDongBang([]);
     setMaNCC("");
     setMstNCC("");
-    setNguoiLienHe("");
     setTenNCC("");
     setDiaChiNCC("");
     setDieuKhoanThanhToan("");
@@ -1823,7 +1830,6 @@ export function FormLapDonMuaHang({
       supplierTen: ncc.ten,
       maSoThueNCC: maSoThue || undefined,
       diaChiNCC: diaChiNCC.trim() || undefined,
-      nguoiLienHeNCC: nguoiLienHe.trim() || undefined,
       thamChieu: thamChieu.trim() || undefined,
       nguoiPhuTrachUid: nguoiDung.uid,
       nguoiPhuTrachTen: nguoiDung.tenHienThi,
@@ -2306,15 +2312,13 @@ export function FormLapDonMuaHang({
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="nguoi-lien-he">Người liên hệ</Label>
-                <Input
-                  id="nguoi-lien-he"
-                  value={nguoiLienHe}
-                  onChange={(e) => setNguoiLienHe(e.target.value)}
-                  placeholder="Tên · số điện thoại bên nhà cung cấp"
-                />
-              </div>
+              {/* 🔴 Ô "Người liên hệ" ĐÃ BỎ — Ban lãnh đạo 24/08/2026: *"Bỏ thông tin này"*.
+                  Bên mua liên hệ nhà cung cấp qua kênh riêng, không cần lưu vào chứng từ đơn.
+
+                  📌 Trường `nguoiLienHeNCC` VẪN GIỮ trong `3-du-lieu/kieu-du-lieu.ts` và vẫn được
+                  `2-quy-trinh/ghi-don-hang-excel.ts` in ra — cố ý: đơn lập TRƯỚC 24/08 đã có giá
+                  trị, xoá trường là mất dữ liệu đã lưu và tờ Excel của đơn cũ hụt một dòng.
+                  `datNhanCoGiaTri` chỉ in khi có giá trị, nên đơn mới không còn dòng đó. */}
             </div>
 
             {/* ===== PHẢI — CHỨNG TỪ (ô J6 · J7 · J8 của biểu mẫu) ===== */}
@@ -3507,7 +3511,6 @@ export function FormLapDonMuaHang({
           setTenNCC(nccMoi.ten.trim());
           if (nccMoi.maSoThue.trim()) setMstNCC(nccMoi.maSoThue.trim());
           if (nccMoi.diaChi.trim()) setDiaChiNCC(nccMoi.diaChi.trim());
-          if (nccMoi.nguoiLienHe.trim()) setNguoiLienHe(nccMoi.nguoiLienHe.trim());
           toast.success("Đã thêm vào danh mục", { description: nccMoi.ten.trim() });
           setMoThemNCC(false);
           setNccMoi({ maNCC: "", ten: "", maSoThue: "", diaChi: "", dienThoai: "", nguoiLienHe: "" });

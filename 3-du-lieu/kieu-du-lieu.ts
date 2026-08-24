@@ -295,6 +295,24 @@ export interface DeNghiMuaHang {
    * chạy thử hiện tại.
    */
   maDeXuatAppRequest?: string;
+  /**
+   * ★ LÝ DO HỒ SƠ THẤT BẠI — ghi khi đóng dở đề nghị (`trangThai === "dong_do"`).
+   *
+   * 🔴 Ban lãnh đạo 24/08/2026: *"Ở bước thất bại chỉ cần ghi lý do thất bại. Không cần ghi các
+   * thông tin thiếu này"*. Trước đó `dongDoDeNghi` KHÔNG nhận lý do, nhật ký chỉ ghi *"Đóng dở đề
+   * nghị"* — hồ sơ nằm cột Thất bại mà không ai biết vì sao, trong khi đây là dữ liệu phải giữ
+   * lâu nhất (thống kê nhà cung cấp trượt, giải trình với công trình).
+   *
+   * ⚠️ ĐẶT TÊN KHÁC `lyDoHuyHoacDongDo` của `DonDatHang` là CỐ Ý, không phải quên dùng lại: đó là
+   * lý do hủy/đóng dở một ĐƠN HÀNG (chuyện giữa Thu mua và nhà cung cấp), còn đây là lý do cả HỒ
+   * SƠ ĐỀ NGHỊ không mua được (chuyện với công trình). Gộp một tên là sớm muộn có người đọc lý do
+   * của đơn rồi tưởng là lý do của hồ sơ.
+   *
+   * ⚠️ Trống ở hồ sơ đóng dở TRƯỚC 24/08/2026 — khi đó app chưa có chỗ ghi. Giao diện phải chịu
+   * được `undefined`, và KHÔNG bịa câu thay thế (nói "không rõ lý do" thì người đọc tưởng app
+   * mất dữ liệu).
+   */
+  lyDoThatBai?: string;
 }
 
 /**

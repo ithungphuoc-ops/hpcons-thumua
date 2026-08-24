@@ -90,6 +90,22 @@ export function HopChuyenGiaiDoan({
   onXacNhan: (ghiChu: string, soBaoGia?: number) => void;
 }) {
   const [ghiChu, setGhiChu] = useState("");
+
+  /**
+   * ★ Ô GHI CHÚ ĐỔI VAI KHI ĐÓNG DỞ — Ban lãnh đạo 24/08/2026: *"Ở bước thất bại chỉ cần ghi lý
+   * do thất bại"*.
+   *
+   * 🔴 KHÔNG THÊM Ô MỚI, ĐỔI VAI Ô ĐANG CÓ. Hộp này đã có đúng một ô chữ tự do; thêm ô thứ hai
+   * chỉ để hỏi lý do là bắt người dùng nhìn hai ô gần giống nhau rồi đoán điền vào đâu. Đổi nhãn
+   * thì ô nói đúng việc của nó ở từng ngữ cảnh.
+   *
+   * 🔴 BẮT BUỘC nhập khi đóng dở, còn các bước khác vẫn để trống được. Hồ sơ vào cột Thất bại mà
+   * không ai biết vì sao là thứ mất giá trị nhanh nhất: một tuần sau không ai nhớ, mà đây lại là
+   * dữ liệu để thống kê nhà cung cấp trượt và giải trình với công trình.
+   */
+  const laDongDo = denBuoc === "that_bai";
+  const nhanOChu = laDongDo ? "Lý do thất bại" : "Những việc đã hoàn thành?";
+  const thieuLyDo = laDongDo && ghiChu.trim() === "";
   /**
    * ★ SL BÁO GIÁ — trường bắt buộc riêng của bước ② trong ảnh Base (*"SL Báo giá *"*).
    *
@@ -121,7 +137,9 @@ export function HopChuyenGiaiDoan({
    * 🔴 Tích trong hộp KHÔNG PHẢI đường đi tắt: người dùng vẫn phải xác nhận từng việc, chỉ là
    * làm ngay tại chỗ thay vì bị đuổi sang màn khác. Luật chặn vẫn là `congViecChuaXongCuaBuoc`.
    */
-  const bikhoa = conViecChuaTich > 0 || (hoiSoBaoGia && soBaoGia === "");
+  /* `thieuLyDo`: đóng dở mà chưa ghi lý do — xem `laDongDo`. Cùng nếp với "SL Báo giá" của
+     bước ②: trường bắt buộc thì khóa nút, không cho bấm rồi mới báo lỗi. */
+  const bikhoa = conViecChuaTich > 0 || (hoiSoBaoGia && soBaoGia === "") || thieuLyDo;
 
   return (
     <Dialog open={mo} onOpenChange={(v) => !v && onDong()}>
@@ -166,9 +184,14 @@ export function HopChuyenGiaiDoan({
             <div
               className={`grid grid-cols-1 items-start gap-2 ${hoiSoBaoGia ? "sm:grid-cols-2" : ""}`}
             >
-            {/* Ô NHẬP — "Những việc đã hoàn thành?" đúng chữ trong ảnh Base. */}
+            {/* Ô NHẬP — "Những việc đã hoàn thành?" đúng chữ trong ảnh Base; đổi thành
+                "Lý do thất bại" khi đang đóng dở (xem `laDongDo`). */}
             <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3">
-              <Label htmlFor="ghi-chu-chuyen-buoc">Những việc đã hoàn thành?</Label>
+              <Label htmlFor="ghi-chu-chuyen-buoc">
+                {nhanOChu}
+                {/* Dấu sao đỏ theo đúng nếp ô "SL Báo giá" bên cạnh — bắt buộc thì phải thấy. */}
+                {laDongDo && <span className="text-danger"> *</span>}
+              </Label>
               <textarea
                 id="ghi-chu-chuyen-buoc"
                 rows={3}
@@ -179,6 +202,11 @@ export function HopChuyenGiaiDoan({
               {/* 📌 ĐÃ BỎ placeholder gợi ý và câu "Để trống cũng được. Có nội dung thì app ghi
                   vào Lịch sử…" (Ban lãnh đạo 16/08/2026). Nhãn ô đã nói rõ phải điền gì, và
                   trường không có dấu sao đỏ thì đương nhiên không bắt buộc. */}
+              {laDongDo && (
+                <span className="text-xs text-text-desc">
+                  Lý do này hiện trên thẻ ở cột Thất bại và lưu vào Lịch sử hồ sơ.
+                </span>
+              )}
             </div>
 
             {/* ★ SL BÁO GIÁ — trường bắt buộc của bước ②, đúng ảnh Base (có dấu sao đỏ).

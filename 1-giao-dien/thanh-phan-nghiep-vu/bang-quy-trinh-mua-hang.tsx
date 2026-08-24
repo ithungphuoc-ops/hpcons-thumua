@@ -841,6 +841,25 @@ function TheDeNghi({
           ))}
         </span>
       )}
+
+      {/**
+        * ★ CỘT THẤT BẠI: BÀY LÝ DO, KHÔNG BÀY NỢ CHỨNG TỪ — Ban lãnh đạo 24/08/2026: *"Ở bước
+        * thất bại chỉ cần ghi lý do thất bại. Không cần ghi các thông tin thiếu này"*.
+        *
+        * 🔴 PHẦN "KHÔNG BÀY NỢ" nằm ở tầng quy trình (`mucConNoToanHoSo` trả mảng rỗng khi giai
+        * đoạn là `that_bai`), KHÔNG lọc ở đây. Lọc ở giao diện thì bảng, danh sách và trang chi
+        * tiết mỗi chỗ phải tự nhớ lọc — sớm muộn một chỗ quên.
+        *
+        * ⚠️ Hồ sơ đóng dở TRƯỚC 24/08/2026 không có lý do (hàm `dongDoDeNghi` khi đó chưa nhận
+        * lý do), nên phải chịu được `undefined`: khi đó thẻ chỉ có nhãn trạng thái "Thất bại".
+        * Không bịa một câu thay thế — nói "không rõ lý do" thì người đọc tưởng app mất dữ liệu.
+        */}
+      {the.giaiDoan === "that_bai" && the.deNghi.lyDoThatBai && (
+        <span className="flex items-start gap-1 text-xs font-medium text-danger">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>Lý do: {the.deNghi.lyDoThatBai}</span>
+        </span>
+      )}
     </Link>
   );
 }
