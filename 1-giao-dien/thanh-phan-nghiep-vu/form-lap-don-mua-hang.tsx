@@ -44,6 +44,7 @@ import {
   PopoverTrigger,
 } from "@/1-giao-dien/nen-tang-ui/popover";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
+import { KhoiDieuKhoanTachDong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dieu-khoan-tach-dong";
 import {
   BangHangTien,
   type ConLaiDeNghi,
@@ -2756,6 +2757,70 @@ export function FormLapDonMuaHang({
             )}
           </div>
 
+          {/**
+            * ★ MÃ HỢP ĐỒNG + MÃ REQUEST — Ban lãnh đạo 24/08/2026 (*"Thêm mã hợp đồng"*,
+            * *"mã request"*, khoanh đúng vùng trống bên phải khối này).
+            *
+            * 🔴 HAI MÃ NÀY KHÁC NHAU, ĐỪNG GỘP:
+            *   · **Mã hợp đồng** = hợp đồng với CHỦ ĐẦU TƯ (`maHopDongCDT`). Đây là căn cứ để
+            *     công trình quyết toán, nên in lên đơn gửi nhà cung cấp. SỬA ĐƯỢC: đề nghị điền
+            *     sẵn, nhưng đơn là chứng từ gửi ra ngoài — người lập phải sửa được nếu đề nghị
+            *     ghi thiếu/sai.
+            *   · **Mã request** = mã đề xuất bên App Request (`maDeXuatAppRequest`). CHỈ ĐỌC: đó
+            *     là mã do app KHÁC sinh ra, sửa tay ở đây là mất đường đối chiếu giữa hai app.
+            *
+            * 📌 Cùng một state `maHopDong` với ô "Hợp đồng - Ngày hợp đồng" ở khối trên — một giá
+            * trị, một nguồn. Sửa ở ô nào thì ô kia đổi theo, không có chuyện hai ô lệch nhau.
+            *
+            * ⚠️ Ô mã request chỉ hiện khi đề nghị THẬT SỰ có mã đó. Đề nghị lập tay trong app
+            * không đi qua App Request nên không có mã — bày một ô trống vĩnh viễn là mời người
+            * lập đi tìm xem phải điền gì.
+            */}
+          <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="ma-hop-dong-duoi">Mã hợp đồng</Label>
+              <Input
+                id="ma-hop-dong-duoi"
+                value={maHopDong}
+                onChange={(e) => setMaHopDong(e.target.value)}
+                placeholder="Số hợp đồng với chủ đầu tư"
+              />
+              <span className="text-xs text-text-desc">
+                Hợp đồng với chủ đầu tư. Lấy từ phiếu đề nghị, sửa được.
+              </span>
+            </div>
+
+            {dn?.maDeXuatAppRequest && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="ma-request">Mã request</Label>
+                <Input
+                  id="ma-request"
+                  value={dn.maDeXuatAppRequest}
+                  readOnly
+                  disabled
+                  className="font-mono"
+                />
+                <span className="text-xs text-text-desc">
+                  Mã đề xuất bên App Request — chỉ đọc, dùng để đối chiếu giữa hai app.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/**
+            * ★ NGƯỜI NHẬN HÀNG + SỐ ĐIỆN THOẠI XẾP CÙNG MỘT HÀNG — Ban lãnh đạo 24/08/2026
+            * (*"Đưa lên đây"*, mũi tên từ chỗ trống bên phải trỏ vào ô Số điện thoại).
+            *
+            * 🔴 ĐÂY LÀ NGOẠI LỆ CÓ CHỦ Ý của quy tắc "MỘT CỘT, KHÔNG CHIA HAI" ghi ở đầu khối ④.
+            * Quy tắc đó sinh ra để người mới dò theo tờ giấy đọc từ trên xuống. Nhưng tên người
+            * nhận và số điện thoại của CHÍNH người đó là **một cặp**: đặt hai dòng liền nhau thì
+            * nửa bên phải màn hình trống trơn suốt cả khối, mà mắt vẫn phải đi hai chặng cho một
+            * thông tin. Các ô KHÁC vẫn giữ một cột.
+            *
+            * ⚠️ `items-start`: khối bên trái cao hơn (có ô chọn nhân sự + hai nút danh mục), để
+            * `items-stretch` là ô số điện thoại bị kéo cao bằng, trông như một ô lỗi.
+            */}
+          <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="nguoi-nhan">Người nhận hàng (bên mua)</Label>
 
@@ -2883,6 +2948,7 @@ export function FormLapDonMuaHang({
               onChange={(e) => setSdtNguoiNhan(e.target.value)}
             />
           </div>
+          </div>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="ngay-giao">Ngày giao hàng</Label>
@@ -2900,38 +2966,23 @@ export function FormLapDonMuaHang({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="dia-diem">Địa điểm giao hàng</Label>
-            {/* ===== MISA để ô này là Ô CHỌN — 18/08/2026 đã có ô chọn THẬT =====
-                🔴 KHÔNG BỊA DANH MỤC. App không có danh mục địa điểm giao hàng (chỉ có
-                `DANH_MUC_PHONG_BAN`), và danh mục là dữ liệu nghiệp vụ phải do công ty cấp.
-                Danh sách ở đây gom từ ĐỊA ĐIỂM ĐÃ GHI TRÊN ĐƠN THẬT (`diaDiemDaCo`) — đúng cách
-                ô "Dự án / Công trình" đang làm, vì app cũng chưa có danh mục dự án.
-
-                🔴 Ô CHỌN CHỈ ĐIỀN HỘ, Ô CHỮ MỚI LÀ GIÁ TRỊ THẬT — cố ý làm vậy, không phải
-                làm dở. Nếu ô chọn là nguồn duy nhất thì địa điểm đọc từ file Excel
-                (`doVaoBang` → `setDiaDiemGiao`) sẽ không khớp lựa chọn nào và **biến mất khỏi
-                màn hình** dù vẫn nằm trong đơn — người lập không biết mà sửa.
-
-                ⚠️ Kho dữ liệu chưa có đơn nào thì không vẽ ô chọn: một ô chọn chỉ có dòng
-                "-- Chọn --" còn khó dùng hơn ô gõ tay. */}
-            {diaDiemDaCo.length > 0 && (
-              <select
-                value=""
-                onChange={(e) => {
-                  if (e.target.value !== "") setDiaDiemGiao(e.target.value);
-                }}
-                aria-label="Chọn địa điểm giao hàng đã dùng ở đơn trước"
-                className="min-h-11 w-full min-w-0 max-w-md rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
-              >
-                {/* `value=""` luôn quay về dòng này sau khi chọn: ô chọn ở đây là một THAO TÁC
-                    điền hộ, không phải chỗ giữ giá trị — giá trị nằm ở ô chữ ngay dưới. */}
-                <option value="">-- Chọn địa điểm đã dùng --</option>
-                {diaDiemDaCo.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            )}
+            {/**
+              * ★ MỘT Ô DUY NHẤT: GÕ TRỰC TIẾP HOẶC CHỌN TỪ DANH SÁCH — Ban lãnh đạo 24/08/2026:
+              * *"Nhập trực tiếp hoặc chọn từ danh sách. Bỏ dòng dưới đi"*.
+              *
+              * 🔴 DÙNG `<datalist>`, KHÔNG DÙNG `<select>` + ô chữ RIÊNG như trước. Bản cũ có hai
+              * dòng: một ô chọn "-- Chọn địa điểm đã dùng --" chỉ để **điền hộ**, và ô chữ bên
+              * dưới mới giữ giá trị thật. Hai dòng cho một thông tin, và người lập phải hiểu ô
+              * trên không phải chỗ nhập.
+              *
+              * ✅ `<datalist>` giữ được ĐÚNG điều mà chú thích cũ lo: ô vẫn là `<input>` nên giá
+              * trị đọc từ file Excel (`doVaoBang` → `setDiaDiemGiao`) luôn hiện ra, kể cả khi
+              * không khớp mục nào trong danh sách. Nếu là `<select>` thuần thì địa điểm lạ **biến
+              * mất khỏi màn hình** dù vẫn nằm trong đơn — người lập không biết mà sửa.
+              *
+              * ⚠️ Danh sách vẫn gom từ ĐỊA ĐIỂM ĐÃ GHI TRÊN ĐƠN THẬT (`diaDiemDaCo`). KHÔNG bịa
+              * danh mục: danh mục địa điểm là dữ liệu nghiệp vụ phải do công ty cấp.
+              */}
             <Input
               id="dia-diem"
               /* Gợi ý bằng tên công trình đang có trên form — độc lập thì đó là ô người lập
@@ -2939,7 +2990,15 @@ export function FormLapDonMuaHang({
               placeholder={tenCongTrinh || "Chân công trình"}
               value={diaDiemGiao}
               onChange={(e) => setDiaDiemGiao(e.target.value)}
+              list={diaDiemDaCo.length > 0 ? "dia-diem-da-dung" : undefined}
             />
+            {diaDiemDaCo.length > 0 && (
+              <datalist id="dia-diem-da-dung">
+                {diaDiemDaCo.map((d) => (
+                  <option key={d} value={d} />
+                ))}
+              </datalist>
+            )}
           </div>
 
           {/**
@@ -2955,44 +3014,21 @@ export function FormLapDonMuaHang({
             * mở form đã nhồi bản chuẩn vào state rồi cất, thì mọi đơn đều mang một bản copy —
             * sau này công ty đổi điều khoản, không đơn nào nhận được bản mới.
             */}
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {/* ★ Nhãn lấy ĐÚNG CHỮ trên biểu mẫu (ô B28: "Phương thức giao hàng") — 23/08/2026.
-                  Tên cũ "Điều khoản in ở cuối tờ đơn" mô tả CHỖ IN chứ không nói nội dung là gì,
-                  nên người mới dò theo tờ giấy không nhận ra đây là ô nào. */}
-              <Label htmlFor="dk-giao-hang">Phương thức giao hàng</Label>
-              {dieuKhoanGiaoHang !== null && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDieuKhoanGiaoHang(null)}
-                  className="min-h-11 md:min-h-9"
-                >
-                  <RotateCcw className="size-4" aria-hidden />
-                  Khôi phục bản chuẩn
-                </Button>
-              )}
-            </div>
-            <Textarea
-              id="dk-giao-hang"
-              rows={10}
-              value={dieuKhoanGiaoHang ?? DIEU_KHOAN_GIAO_HANG_CHUAN}
-              onChange={(e) => setDieuKhoanGiaoHang(e.target.value)}
-              className="min-h-60 font-mono text-xs"
-            />
-            <p className="text-xs text-text-desc">
-              Dòng kết thúc bằng dấu hai chấm sẽ in <strong>đậm</strong>; dòng trống tạo khoảng
-              cách giữa các nhóm. Chỗ để trống <strong>……</strong> là chỗ cần điền theo từng đơn.
-              {dieuKhoanGiaoHang !== null && (
-                <>
-                  {" "}
-                  ⚠️ Đơn này đang dùng bản đã sửa — tờ in sẽ ghi rõ là khác bản chuẩn của công
-                  ty.
-                </>
-              )}
-            </p>
-          </div>
+          {/* ★ Nhãn lấy ĐÚNG CHỮ trên biểu mẫu (ô B28: "Phương thức giao hàng") — 23/08/2026.
+              Tên cũ "Điều khoản in ở cuối tờ đơn" mô tả CHỖ IN chứ không nói nội dung là gì,
+              nên người mới dò theo tờ giấy không nhận ra đây là ô nào.
+
+              🔴 TỪ 24/08/2026 TÁCH TỪNG ĐẦU MỤC (Ban lãnh đạo: *"Tách từng đầu mục riêng và được
+              phép chỉnh sửa"*). Luật ba trạng thái `null` / `""` / chuỗi giữ nguyên — xem chú
+              thích đầu `khoi-dieu-khoan-tach-dong.tsx`. */}
+          <KhoiDieuKhoanTachDong
+            id="dk-giao-hang"
+            nhan="Phương thức giao hàng"
+            giaTri={dieuKhoanGiaoHang}
+            banChuan={DIEU_KHOAN_GIAO_HANG_CHUAN}
+            onDoi={setDieuKhoanGiaoHang}
+            moTa="Mục kết thúc bằng dấu hai chấm sẽ in đậm. Chỗ để trống …… là chỗ cần điền theo từng đơn. Bấm + để thêm mục, thùng rác để xoá."
+          />
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="dk-tt">Điều khoản thanh toán</Label>
