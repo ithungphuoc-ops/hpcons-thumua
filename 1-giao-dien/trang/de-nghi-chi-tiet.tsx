@@ -1537,20 +1537,42 @@ export default function TrangChiTietDeNghi() {
                       * 🔴 DẢI ĐỎ Ở NGAY ĐÂY, không phải một dòng chữ xám: đây là hồ sơ **còn nợ
                       * chứng từ** mà vẫn được đi tiếp — thứ dễ bị quên nhất trong cả quy trình.
                       */}
+                    {/**
+                      * 🔴 GỌN CÒN MỘT HÀNG — Ban lãnh đạo 24/08/2026: *"để hiển thị 1 dòng được
+                      * rồi"*. Bản trước chiếm ~5 dòng: nhãn một dòng, ô chữ `rows={2}`, rồi một
+                      * câu đỏ hai dòng.
+                      *
+                      * 🔴 CÂU ĐỎ DƯỚI Ô ĐÃ BỎ VÌ TRÙNG, không phải vì rút cho ngắn. Đầu khối bước
+                      * này đã có sẵn dòng *"Chưa có tệp Hợp đồng/Đơn mua hàng (đã ghi lý do: …) —
+                      * phải bổ sung bản đã ký"* do `conNoCuaBuoc` sinh ra. Hai câu nói y một việc,
+                      * cách nhau ba dòng: người đọc phải đọc hai lần mới biết là **một** việc.
+                      *
+                      * 📌 Câu xám ở nhánh chưa-ghi-lý-do cũng bỏ: điều kiện *"có tệp HOẶC có lý
+                      * do"* đã nằm trong `moTa` của ô đính kèm ngay trên.
+                      *
+                      * ⚠️ `Input` thay `Textarea`: lý do thiếu chứng từ là một câu ngắn ("bản ký
+                      * tuần này"), không phải đoạn văn. Ô hai dòng chỉ chiếm chỗ mà chưa lần nào
+                      * dùng hết.
+                      */}
                     {!coHopDong(dn) && (
                       <div
-                        className={`flex flex-col gap-2 rounded-lg border p-(--hp-md-row-pad) ${
+                        className={`flex flex-wrap items-center gap-2 rounded-lg border p-(--hp-md-row-pad) ${
                           thieuHopDongDaGhiLyDo(dn)
                             ? "border-danger bg-danger-bg"
                             : "border-border bg-muted"
                         }`}
                       >
-                        <Label htmlFor="ly-do-thieu-hop-dong">
-                          Chưa có {TEN_HIEN_HOP_DONG} thì ghi rõ vì sao *
+                        {/* Nhãn ngắn để vừa một hàng; `title` giữ nguyên câu đầy đủ cho người cần. */}
+                        <Label
+                          htmlFor="ly-do-thieu-hop-dong"
+                          className="shrink-0"
+                          title={`Chưa có ${TEN_HIEN_HOP_DONG} thì ghi rõ vì sao`}
+                        >
+                          Lý do chưa có <span className="text-danger">*</span>
                         </Label>
-                        <Textarea
+                        <Input
                           id="ly-do-thieu-hop-dong"
-                          rows={2}
+                          className="min-w-48 flex-1"
                           defaultValue={lyDoThieuHopDong(dn)}
                           disabled={!duocSuaTepBuoc || hoSoDaDong}
                           placeholder="Ví dụ: hai bên đã thống nhất qua email, bản ký sẽ có trong tuần này."
@@ -1568,18 +1590,6 @@ export default function TrangChiTietDeNghi() {
                             if (loi) toast.error("Chưa ghi được lý do", { description: loi });
                           }}
                         />
-                        {thieuHopDongDaGhiLyDo(dn) ? (
-                          <p className="flex items-start gap-1.5 text-xs font-medium text-danger">
-                            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                            Còn thiếu {TEN_HIEN_HOP_DONG} — hồ sơ đi tiếp được nhưng phải bổ sung
-                            bản đã ký sau. Đính kèm vào ô trên là dấu đỏ này tự hết.
-                          </p>
-                        ) : (
-                          <p className="text-xs text-text-desc">
-                            Có tệp <strong>hoặc</strong> có lý do thì mới chuyển bước được. Ghi lý
-                            do rồi thì hồ sơ bị đánh dấu đỏ là còn nợ chứng từ.
-                          </p>
-                        )}
                       </div>
                     )}
 
