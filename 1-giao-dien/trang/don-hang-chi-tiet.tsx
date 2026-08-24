@@ -59,11 +59,17 @@ export default function TrangChiTietDonHang() {
   const tien = tinhTienDonHang(po, gia);
 
   function bamXacNhanKho() {
-    xacNhanKho(po!.id, {
+    /* 🔴 Từ 24/08/2026 tầng ghi có thể TỪ CHỐI (hàng chưa về đủ, hoặc còn phiếu thiếu tệp giao
+       nhận) — cùng nếp với `bamXacNhanTruongBP` ngay dưới. Bỏ qua giá trị trả về là nút bấm
+       không có gì xảy ra mà không ai biết vì sao. */
+    const loi = xacNhanKho(po!.id, {
       uid: nguoiDung.uid,
       ten: nguoiDung.tenHienThi,
       thoiDiem: new Date().toISOString().slice(0, 10),
     });
+    if (loi !== null) {
+      toast.error("Chưa xác nhận được", { description: loi });
+    }
   }
 
   function bamXacNhanTruongBP() {

@@ -379,7 +379,15 @@ export function BangPhanBo({
   function xacNhanGiaoViec() {
     if (!giaoViec) return;
     const so = Number.parseInt(soBaoGia, 10);
-    phanBoDong(
+    /**
+     * 🔴 ĐỌC KẾT QUẢ RỒI MỚI BÁO — sửa 24/08/2026.
+     *
+     * Từ hôm nay `phanBoDong` có thể TỪ CHỐI: phân bổ nốt dòng cuối là hồ sơ rời bước ①, nên nó
+     * hỏi việc bắt buộc của bước ① (VD *"Checkin hàng tồn kho"*) — đúng danh sách mà hộp kéo thả
+     * đang khóa nút theo. Trước đây hàm không kiểm gì, nên gán người cho dòng cuối là hồ sơ nhảy
+     * sang bước ② với việc ấy vẫn treo; kéo thẻ thì bị chặn, bấm nút thì đi.
+     */
+    const loi = phanBoDong(
       deNghi.id,
       giaoViec.dong,
       giaoViec.uid,
@@ -394,6 +402,10 @@ export function BangPhanBo({
       // cứng, để kho dữ liệu tự tra là màn hình hiện mã thô thay vì tên người.
       giaoViec.ten,
     );
+    if (loi) {
+      toast.error("Chưa giao được việc", { description: loi });
+      return;
+    }
     setChon([]);
     /**
      * ★ BÁO NGAY CHO NGƯỜI VỪA GIAO — Ban lãnh đạo 21/08/2026: *"khi giao việc cho nhân viên cũng

@@ -492,6 +492,17 @@ export function dungBangQuyTrinh(
    * cần hàng như trước.
    */
   uidNguoiXem?: string,
+  /**
+   * ★ Hàm tính câu vướng mắc bước ② cho MỘT đề nghị — thường là `vuongMacTrinhXetDuyet`.
+   *
+   * 🔴 NHẬN HÀM, KHÔNG NHẬN CHUỖI: câu này khác nhau theo từng hồ sơ (mỗi hồ sơ đặt số bản báo
+   * giá riêng và đính kèm khác nhau), nên một chuỗi dùng chung cho cả bảng là sai ngay từ thiết
+   * kế.
+   *
+   * 📌 Bỏ trống thì thẻ ở bước ② không có dấu đỏ "thiếu báo giá" — chấp nhận được ở những nơi
+   * chỉ bày (trang in), vì thiếu một lời nhắc không cho lọt hành động sai nào.
+   */
+  tinhVuongMacBaoGia?: (dn: DeNghiMuaHang) => string | null,
 ): CotBangQuyTrinh[] {
   // 🔴 BỎ HỒ SƠ ĐÃ LƯU TRỮ khỏi bảng (chỉ đạo Ban lãnh đạo 10/08/2026, menu ⋯ theo Base).
   // Lưu trữ ≠ đóng dở: hồ sơ vẫn nguyên trạng thái nghiệp vụ, chỉ không hiện trên bảng cho
@@ -525,8 +536,23 @@ export function dungBangQuyTrinh(
          🔴 DÙNG BẢN `...ToanHoSo`, KHÔNG DÙNG `conNoCuaBuoc`. Ban lãnh đạo báo lỗi 24/08/2026:
          hồ sơ ở bước ⑦ mà nợ ở bước ④ thì thẻ trắng trơn, trong khi trang chi tiết tô đỏ đúng
          khối ④. Vì bản `...CuaBuoc` chỉ soát ĐÚNG MỘT bước — bước thẻ đang đứng. */
-      conNo: conNoToanHoSo(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu) ?? undefined,
-      dsConNo: dsConNoToanHoSo(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu),
+      conNo:
+        conNoToanHoSo(
+          deNghi,
+          giaiDoan,
+          cauHinh,
+          tatCaPO,
+          tatCaPhieu,
+          tinhVuongMacBaoGia?.(deNghi) ?? null,
+        ) ?? undefined,
+      dsConNo: dsConNoToanHoSo(
+        deNghi,
+        giaiDoan,
+        cauHinh,
+        tatCaPO,
+        tatCaPhieu,
+        tinhVuongMacBaoGia?.(deNghi) ?? null,
+      ),
       maPOLienQuan: tatCaPO
         .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
         .map((po) => po.code),
@@ -687,8 +713,10 @@ export function conNoCuaBuoc(
   cauHinh: CauHinhQuyTrinh,
   tatCaPO: DonDatHang[],
   tatCaPhieu: PhieuNhanHang[],
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
+  vuongMacBaoGia?: string | null,
 ): string | null {
-  const ds = dsConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu);
+  const ds = dsConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu, vuongMacBaoGia);
   return thanhCauConNo(ds);
 }
 
@@ -728,6 +756,8 @@ export function mucConNoToanHoSo(
   cauHinh: CauHinhQuyTrinh,
   tatCaPO: DonDatHang[],
   tatCaPhieu: PhieuNhanHang[],
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
+  vuongMacBaoGia?: string | null,
 ): MucConNo[] {
   /**
    * 🔴 HỒ SƠ THẤT BẠI THÌ KHÔNG NHẮC NỢ CHỨNG TỪ — Ban lãnh đạo 24/08/2026: *"Ở bước thất bại
@@ -749,7 +779,14 @@ export function mucConNoToanHoSo(
     /* "Thất bại" không nằm trong chuỗi chạy — cùng cách xử như `vuongMacViecBatBuocCacBuocTruoc`. */
     if (buoc === "that_bai") continue;
     const cuaBuocNay = buoc === giaiDoanHienTai;
-    for (const muc of mucConNoCuaBuoc(deNghi, buoc, cauHinh, tatCaPO, tatCaPhieu)) {
+    for (const muc of mucConNoCuaBuoc(
+      deNghi,
+      buoc,
+      cauHinh,
+      tatCaPO,
+      tatCaPhieu,
+      vuongMacBaoGia,
+    )) {
       ra.push(
         cuaBuocNay
           ? muc
@@ -770,8 +807,10 @@ export function dsConNoToanHoSo(
   cauHinh: CauHinhQuyTrinh,
   tatCaPO: DonDatHang[],
   tatCaPhieu: PhieuNhanHang[],
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
+  vuongMacBaoGia?: string | null,
 ): string[] {
-  return mucConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu).map(
+  return mucConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu, vuongMacBaoGia).map(
     (m) => m.ngan,
   );
 }
@@ -788,9 +827,13 @@ export function conNoToanHoSo(
   cauHinh: CauHinhQuyTrinh,
   tatCaPO: DonDatHang[],
   tatCaPhieu: PhieuNhanHang[],
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
+  vuongMacBaoGia?: string | null,
 ): string | null {
   return thanhCauConNo(
-    mucConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu).map((m) => m.day),
+    mucConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu, vuongMacBaoGia).map(
+      (m) => m.day,
+    ),
   );
 }
 
@@ -811,8 +854,12 @@ export function dsConNoCuaBuoc(
   cauHinh: CauHinhQuyTrinh,
   tatCaPO: DonDatHang[],
   tatCaPhieu: PhieuNhanHang[],
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
+  vuongMacBaoGia?: string | null,
 ): string[] {
-  return mucConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu).map((m) => m.day);
+  return mucConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu, vuongMacBaoGia).map(
+    (m) => m.day,
+  );
 }
 
 /**
@@ -859,6 +906,15 @@ export function mucConNoCuaBuoc(
    */
   tatCaPO: DonDatHang[],
   tatCaPhieu: PhieuNhanHang[],
+  /**
+   * ★ Câu vướng mắc của bước ② (đủ bản báo giá + bảng so sánh) — `null` là không thiếu.
+   *
+   * ⚠️ CÓ `?` ở đây (khác `quyetDinhKeoTha` để bắt buộc): hàm này được gọi từ **rất nhiều** chỗ
+   * hiển thị, mà thiếu dấu đỏ ở bước ② chỉ làm mất một lời nhắc — không cho lọt một hành động
+   * sai. Bắt buộc hoá sẽ làm mọi nơi bày thẻ phải import `vuongMacTrinhXetDuyet`, kéo theo
+   * `kho-du-lieu` vào những tệp không cần nó.
+   */
+  vuongMacBaoGia?: string | null,
 ): MucConNo[] {
   const thieu: MucConNo[] = [];
 
@@ -883,6 +939,30 @@ export function mucConNoCuaBuoc(
         day: `còn ${chuaPhanBo}/${deNghi.items.length} công việc chưa phân bổ người phụ trách`,
       });
     }
+  }
+
+  /**
+   * ★ BƯỚC ② THIẾU BẢN BÁO GIÁ / BẢNG SO SÁNH — thêm 24/08/2026.
+   *
+   * 🔴 Lệch đo được giữa THỨ APP BÀY RA và THỨ APP THẬT SỰ CHẶN: hồ sơ ở bước ② thiếu 2/3 bản
+   * báo giá và chưa có bảng so sánh thì nút "Trình xét duyệt báo giá" MỜ, in rõ *"Quy trình yêu
+   * cầu 3 bản báo giá, hiện còn thiếu 2 bản"* — nhưng thẻ trên bảng **không viền đỏ, không nhãn
+   * "Còn thiếu"**, trông y như một hồ sơ sạch đang chờ xử lý.
+   *
+   * 📌 ĐÚNG PHẠM VI TỰ KHAI của hàm này (*"công việc bắt buộc chưa tích và chứng từ bắt buộc chưa
+   * có tệp"*): bản báo giá và bảng so sánh LÀ chứng từ bắt buộc chưa có tệp. Nên đây là thiếu sót
+   * thật, không phải chủ ý loại trừ như trường hợp "chưa nhận đủ hàng" ở bước ⑥.
+   *
+   * ⚠️ NHẬN QUA THAM SỐ, không import `vuongMacTrinhXetDuyet` — `bao-gia-dinh-kem.ts` import từ
+   * `kho-du-lieu`, mà `kho-du-lieu` import ngược lại tệp này (vòng tròn). Nơi gọi tính hộ.
+   */
+  if (giaiDoan === "yeu_cau_bao_gia" && vuongMacBaoGia) {
+    thieu.push({
+      /* Nhãn ngắn KHÔNG nhồi con số: câu đầy đủ đã ghi thiếu mấy bản, còn thẻ chỉ cần nói
+         thiếu CÁI GÌ (Ban lãnh đạo 24/08/2026 — tối giản ký tự). */
+      ngan: "thiếu báo giá",
+      day: vuongMacBaoGia,
+    });
   }
 
   if (giaiDoan === "lap_don_mua_hang" && !coHopDong(deNghi)) {
@@ -979,6 +1059,52 @@ export function vuongMacViecBatBuocCacBuocTruoc(
   return null;
 }
 
+/**
+ * ★★★ ĐƯỢC RỜI BƯỚC NÀY CHƯA — HÀM DÙNG CHUNG CHO **CẢ HAI** ĐƯỜNG CHUYỂN BƯỚC.
+ *
+ * 🔴 Ban lãnh đạo báo LẦN THỨ HAI ngày 24/08/2026: *"Các điều kiện chuyển bước khi kéo ở bảng
+ * kanban chưa được sửa đồng nhất với điều kiện khi thao tác trực tiếp"*.
+ *
+ * VÌ SAO LẦN SỬA TRƯỚC CHƯA ĐỦ: hôm 23/08 tôi thêm `vuongMacViecBatBuocCacBuocTruoc` vào bốn
+ * cửa ghi. Hàm đó **cố ý chỉ soát các bước TRƯỚC**, nên việc bắt buộc của **chính bước đang
+ * đứng** vẫn không ai hỏi ở đường thao tác trực tiếp — trong khi hộp kéo thả thì khóa nút theo
+ * đúng danh sách đó. Đo được: hồ sơ ở bước ③ còn treo việc "Đối chiếu đơn giá với dự toán";
+ * kéo thẻ ③→④ bị khóa nút, còn bấm "Duyệt" trên khối báo giá thì đi được.
+ *
+ * 🔴 PHÂN BIỆT HAI CÂU HỎI KHÁC NHAU — đây là chỗ dễ sai nhất:
+ *   · `vuongMacViecBatBuocCacBuocTruoc` = *"đứng ở bước X, các bước TRƯỚC còn nợ việc không"*.
+ *     Dùng cho mọi thao tác ghi trong lòng một bước. KHÔNG soát bước X, vì việc của bước đang
+ *     làm đương nhiên còn treo — soát cả nó thì không ai làm được gì.
+ *   · `vuongMacRoiBuoc` (hàm này) = *"được RỜI bước X sang bước sau chưa"*. Soát cả bước X.
+ *     Chỉ dùng ở thao tác **làm hồ sơ rời bước** (chốt bảng báo giá, duyệt chọn NCC, ghi phiếu
+ *     nhận đầu tiên…).
+ *
+ * 🔴 KHÔNG DÙNG `vuongMacSangBuocSau` CHO CỬA GHI — đã cân nhắc và loại. Hàm đó gồm cả điều
+ * kiện CHỨNG TỪ của bước, mà chính cửa ghi là hành động tạo ra chứng từ đó: gọi nó trước khi
+ * ghi thì `chonNCCChoBaoGia` bị chặn bởi câu *"Bảng báo giá chưa được duyệt"* — tức app chặn
+ * đúng cái hành động duyệt. Vòng tròn không thoát.
+ *
+ * @param buocDangRoi Bước mà thao tác này làm hồ sơ RỜI KHỎI. Nơi gọi biết rõ (mỗi cửa ghi
+ *   phục vụ đúng một bước), nên truyền tường minh thay vì để hàm tự suy — suy từ dữ liệu thì
+ *   sau khi ghi giai đoạn đã đổi, hỏi muộn mất một bước.
+ * @returns Câu lý do bị chặn, `null` là được rời.
+ */
+export function vuongMacRoiBuoc(
+  deNghi: DeNghiMuaHang,
+  buocDangRoi: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+): string | null {
+  const truoc = vuongMacViecBatBuocCacBuocTruoc(deNghi, buocDangRoi, cauHinh);
+  if (truoc) return truoc;
+
+  const treo = congViecChuaXongCuaBuoc(deNghi, buocDangRoi, cauHinh);
+  if (treo.length > 0) {
+    const ds = treo.map((cv) => `“${cv.ten}”`).join(", ");
+    return `Bước “${NHAN_GIAI_DOAN[buocDangRoi].nhan}” còn ${treo.length} công việc bắt buộc chưa hoàn thành: ${ds}. Tích hoàn thành ở khối bước đó trong trang chi tiết đề nghị rồi làm tiếp.`;
+  }
+  return null;
+}
+
 export function vuongMacSangBuocSau(
   deNghi: DeNghiMuaHang,
   giaiDoan: GiaiDoanMuaHang,
@@ -991,6 +1117,12 @@ export function vuongMacSangBuocSau(
    * là sớm muộn hai màn hình xử khác nhau.
    */
   cauHinh: CauHinhQuyTrinh,
+  /**
+   * ★ Câu vướng mắc của bước ② — nơi gọi tính bằng `vuongMacTrinhXetDuyet` rồi truyền vào.
+   * BẮT BUỘC, không cho `?`. Xem chú thích cùng tham số ở `quyetDinhKeoTha` để biết vì sao
+   * không import thẳng (vòng tròn import qua `kho-du-lieu`).
+   */
+  vuongMacBaoGia: string | null,
 ): string | null {
   const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
 
@@ -1022,9 +1154,24 @@ export function vuongMacSangBuocSau(
     }
 
     case "yeu_cau_bao_gia":
-      return conSong.some((b) => b.trangThai === "dang_thu_thap")
-        ? null
-        : "Chưa có bảng báo giá nào đang thu thập giá cho đề nghị này.";
+      /**
+       * 🔴 HỎI ĐỦ HAI THỨ — sửa 24/08/2026, trước đó CHỈ hỏi "có bảng đang thu thập không".
+       *
+       * Đo được lỗ hổng: hồ sơ đặt SL Báo giá = 3, mới đính 1 bản, chưa có bảng so sánh. Nút
+       * "Trình xét duyệt báo giá" ở trang chi tiết MỜ, in rõ *"Quy trình yêu cầu 3 bản báo giá,
+       * hiện còn thiếu 2 bản"*. Nhưng kéo thẻ ② → ③ thì đi được, toast xanh *"Đã chốt đủ báo
+       * giá"*, và trưởng bộ phận mở ra thấy đúng 1 bản mà app báo đã chốt đủ.
+       *
+       * Chỉ đạo Ban lãnh đạo 20/08/2026 (*"mục này bắt buộc phải có"* — đủ số bản báo giá và
+       * bảng so sánh) trước đây **chỉ có hiệu lực trên đường bấm nút**, bị lách bằng một cú kéo.
+       *
+       * 📌 Thứ tự câu: có bảng thu thập chưa → rồi mới tới đủ bản/bảng so sánh. Chưa lập bảng
+       * thì hỏi số bản báo giá là hỏi một việc chưa tới lượt.
+       */
+      if (!conSong.some((b) => b.trangThai === "dang_thu_thap")) {
+        return "Chưa có bảng báo giá nào đang thu thập giá cho đề nghị này.";
+      }
+      return vuongMacBaoGia;
 
     case "xet_duyet_bao_gia":
       // Xong bước ③ = đã DUYỆT (chốt nhà cung cấp hoặc duyệt phương án chia đơn).
@@ -1239,6 +1386,19 @@ export function quyetDinhKeoTha(
   baoGiaCuaDeNghi: BaoGia[],
   /** Cấu hình quy trình — hàm tự tra công việc bắt buộc và cài đặt của bước đang đứng. */
   cauHinh: CauHinhQuyTrinh,
+  /**
+   * ★ Câu vướng mắc của bước ② (đủ số bản báo giá + bảng so sánh) — `null` là không vướng.
+   *
+   * 🔴 NHẬN VÀO CHỨ KHÔNG TỰ TÍNH, và là tham số **BẮT BUỘC**. Luật đó nằm ở
+   * `2-quy-trinh/bao-gia-dinh-kem.ts` → `vuongMacTrinhXetDuyet`, mà tệp đó `import` từ
+   * `3-du-lieu/kho-du-lieu` (một hằng số), còn `kho-du-lieu` thì `import` ngược lại tệp này —
+   * gọi thẳng là tạo **vòng tròn import**. Nên nơi gọi (tầng giao diện, chỗ đã có cả hai) tính
+   * hộ rồi truyền vào.
+   *
+   * ⚠️ CỐ Ý KHÔNG cho `?`: để trống được thì nơi gọi nào quên truyền sẽ **mất im lặng** đúng
+   * cái chốt vừa phải đi sửa. Thà TypeScript báo đỏ ngay.
+   */
+  vuongMacBaoGia: string | null,
 ): HanhDongKeoTha | null {
   const tu = the.giaiDoan;
   if (tu === dich) return null;
@@ -1247,15 +1407,41 @@ export function quyetDinhKeoTha(
     return { loai: "khong_the", lyDo: "Đề nghị đã kết thúc — không kéo được nữa." };
   }
 
+  /**
+   * 🔴 ĐÓNG DỞ KHÔNG BỊ CHẶN BỞI BẤT KỲ ĐIỀU KIỆN NÀO — cố ý, và đây là chủ ý mới 24/08/2026.
+   *
+   * Đo được trước đó: hồ sơ ở bước ① còn treo việc "Checkin hàng tồn kho"; công trình hủy nhu
+   * cầu vật tư nên chẳng ai cần kiểm tồn kho nữa, nhưng hộp kéo thả **khóa nút** cho tới khi
+   * tích việc đó. Tức app buộc người dùng **ghi một dữ liệu SAI** (báo đã kiểm tồn kho khi
+   * không kiểm) chỉ để hủy một hồ sơ. Xem thêm chốt bỏ khóa nút ở `hop-chuyen-giai-doan.tsx`.
+   */
   if (dich === "that_bai") return { loai: "dong_do" };
 
   if (dich === "hoan_thanh") {
+    /**
+     * 🔴 GỌI HÀM LUẬT, KHÔNG VIẾT CỨNG CÂU CHẶN — sửa 24/08/2026 sau khi Ban lãnh đạo báo lệch
+     * lần thứ hai.
+     *
+     * Câu cũ viết cứng: *"Hoàn thành cần đủ 4 điều kiện: giao đủ khối lượng + phiếu giao nhận +
+     * thủ kho xác nhận + trưởng bộ phận xác nhận — thao tác ở trang chi tiết ĐƠN HÀNG"*. Đo được
+     * là nó **sai cả điều kiện lẫn nơi phải đến**:
+     *   · Hồ sơ chỉ vào được bước ⑦ khi hàng ĐÃ về đủ, nên cả bốn điều kiện đó thường đã xong.
+     *     Thứ thật sự chặn là **Hóa đơn VAT** và ô tích **ủy nhiệm chi** — câu cũ không hề nhắc.
+     *   · Nút "Hoàn thành quy trình" nằm ở trang chi tiết **ĐỀ NGHỊ**, còn câu cũ chỉ sang trang
+     *     đơn hàng — nơi KHÔNG có ô nào đính hóa đơn VAT. Người dùng sang đó tìm, thấy mọi thứ
+     *     xanh, không hiểu app đang đòi gì.
+     *
+     * Nay dùng chung `vuongMacSangBuocSau` với nút, nên hai đường **không thể nói khác nhau**.
+     */
+    const vuong = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, cauHinh, vuongMacBaoGia);
+    if (vuong) return { loai: "khong_the", lyDo: vuong };
+    /* Đủ điều kiện thì DẪN tới đúng nút, đừng chặn tuyệt đối: việc hoàn thành là một quyết
+       định có người bấm (Ban lãnh đạo 22/08/2026), không phải hệ quả của một cú kéo. */
     return {
-      loai: "khong_the",
-      // ⚠️ ĐỦ BỐN, không phải ba. Điều kiện tệp phiếu giao nhận thêm ngày 11/08/2026 nhưng
-      // câu này quên cập nhật — người dùng làm đủ đúng ba việc như app hướng dẫn mà nút vẫn
-      // khóa, lại không chỗ nào nói điều kiện thứ tư đang chặn họ.
-      lyDo: "Hoàn thành cần đủ 4 điều kiện: giao đủ khối lượng + mọi lần giao đều có phiếu giao nhận đính kèm + thủ kho xác nhận + trưởng bộ phận xác nhận — thao tác ở trang chi tiết đơn hàng.",
+      loai: "mo_trang",
+      duongDan: `/de-nghi/${the.deNghi.id}`,
+      thongBao:
+        "Hồ sơ đã đủ điều kiện hoàn thành. Bấm “Hoàn thành quy trình” ở cuối trang chi tiết đề nghị để đóng hồ sơ.",
     };
   }
 
@@ -1349,10 +1535,13 @@ export function quyetDinhKeoTha(
   const chanViecBuocTruoc = vuongMacViecBatBuocCacBuocTruoc(the.deNghi, tu, cauHinh);
   if (chanViecBuocTruoc) return { loai: "khong_the", lyDo: chanViecBuocTruoc };
 
-  const vuongMacBuocDangDung = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, {
-    ...cauHinh,
-    congViecTheoBuoc: {},
-  });
+  const vuongMacBuocDangDung = vuongMacSangBuocSau(
+    the.deNghi,
+    tu,
+    baoGiaCuaDeNghi,
+    { ...cauHinh, congViecTheoBuoc: {} },
+    vuongMacBaoGia,
+  );
 
   const hanhDong = hanhDongTienMotBuoc(tu, the, poCuaDeNghi, baoGiaCuaDeNghi);
   if (!vuongMacBuocDangDung) return hanhDong;
@@ -1480,6 +1669,29 @@ function hanhDongTienMotBuoc(
         thongBao:
           "Đính kèm Hóa đơn VAT (bắt buộc) và Ủy nhiệm chi nếu có, trong khối “Hồ sơ thanh toán” ở trang chi tiết đề nghị.",
       };
+
+    /**
+     * ★ CỘT ⑥ → ⑦: NÓI ĐÚNG VIỆC CẦN LÀM, KHÔNG NÓI "CHƯA ĐƯỢC HỖ TRỢ" — sửa 24/08/2026.
+     *
+     * 🔴 CHẶN Ở ĐÂY LÀ ĐÚNG, đừng "sửa" thành cho đi. Hồ sơ chỉ vào cột ⑦ khi hàng ĐÃ về đủ
+     * (`daVeDu` — mọi dòng đã lên đơn và đã nhận đủ). Thẻ còn đứng ở ⑥ nghĩa là hàng CHƯA đủ,
+     * và không thao tác nào — kéo thả hay bấm nút — chuyển được nó sang ⑦. Kéo thả không tự
+     * sinh phiếu nhận hàng được.
+     *
+     * ⚠️ CÁI SAI LÀ CÂU BÁO. Trước đây bước này rơi vào nhánh `default` và trả *"Bước chuyển
+     * này chưa được hỗ trợ"* — nghe như **lỗi phần mềm**, nên người dùng đi hỏi IT thay vì đi
+     * ghi nốt phiếu nhận. Trong khi kéo LÙI ⑥ → ⑤ thì lại nói đúng lý do. Một hồ sơ, hai
+     * hướng, hai chất lượng câu trả lời.
+     */
+    case "nhan_hang": {
+      const po = poCuaDeNghi.find((p) => p.trangThai === "da_chot") ?? poCuaDeNghi[0];
+      return {
+        loai: "mo_trang",
+        duongDan: po ? `/don-hang/${po.id}` : `/de-nghi/${the.deNghi.id}`,
+        thongBao:
+          "Hồ sơ chỉ sang “Hồ sơ thanh toán” khi hàng đã về đủ. Ghi tiếp phiếu nhận hàng ở khối “Tiến độ nhận hàng”, đủ khối lượng là thẻ tự chuyển bước.",
+      };
+    }
 
     default:
       return { loai: "khong_the", lyDo: "Bước chuyển này chưa được hỗ trợ." };

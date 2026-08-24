@@ -342,6 +342,159 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// LỆCH ĐIỀU KIỆN CHUYỂN BƯỚC — Ban lãnh đạo báo LẦN THỨ HAI 24/08/2026:
+// "Các điều kiện chuyển bước khi kéo ở bảng kanban chưa được sửa đồng
+//  nhất với điều kiện khi thao tác trực tiếp"
+//
+// 🔴 MỖI BÀI DƯỚI ĐÂY LÀ MỘT ĐIỂM LỆCH ĐÃ ĐO ĐƯỢC THẬT. Đừng "dọn cho
+//    gọn": xoá bài nào là mở lại đúng lỗ hổng đó.
+// ════════════════════════════════════════════════════════════════════
+
+/** Cấu hình có việc bắt buộc ở một bước, để kiểm chốt công việc. */
+function cauHinhCoViecBatBuoc(buoc, tenViec) {
+  const goc = G.CAU_HINH_MAC_DINH ?? {};
+  return {
+    ...goc,
+    congViecTheoBuoc: { [buoc]: [{ ma: "viec-thu", ten: tenViec, batBuoc: true }] },
+    caiDatTheoBuoc: {
+      ...(goc.caiDatTheoBuoc ?? {}),
+      [buoc]: { ...(goc.caiDatTheoBuoc?.[buoc] ?? {}), batBuocXongCongViec: true },
+    },
+  };
+}
+
+kiem(
+  "vuongMacRoiBuoc soát CẢ việc của bước đang rời (đường bấm nút = đường kéo thả)",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    /* 🔴 Đây là điểm lệch nặng nhất: hộp kéo thả khóa nút theo việc bắt buộc của bước ĐANG
+       ĐỨNG, còn cửa ghi chỉ hỏi các bước TRƯỚC — nên kéo thẻ ③→④ bị chặn mà bấm "Duyệt" thì
+       đi được. `vuongMacRoiBuoc` sinh ra để hai đường hỏi cùng một câu. */
+    const ch = cauHinhCoViecBatBuoc("xet_duyet_bao_gia", "Đối chiếu đơn giá với dự toán");
+    const r = G.vuongMacRoiBuoc(deNghiThu(), "xet_duyet_bao_gia", ch);
+    return {
+      duoc: typeof r === "string" && r.includes("Đối chiếu đơn giá với dự toán"),
+      thucTe: r === null ? "null (KHÔNG CHẶN — lỗ hổng đã mở lại!)" : `"${String(r).slice(0, 90)}…"`,
+      mongDoi: "chặn và gọi đúng tên việc còn treo của bước đang rời",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: vuongMacViecBatBuocCacBuocTruoc KHÔNG soát bước đang đứng",
+  "Ban lãnh đạo · 24/08/2026 (chống chặn quá tay)",
+  () => {
+    /* 🔴 Nếu hàm này cũng soát bước đang đứng thì không ai làm được gì ở bước mình đang ở —
+       việc của bước đang làm đương nhiên còn treo. Bài kiểm giữ ranh giới giữa hai hàm. */
+    const ch = cauHinhCoViecBatBuoc("xet_duyet_bao_gia", "Đối chiếu đơn giá với dự toán");
+    const r = G.vuongMacViecBatBuocCacBuocTruoc(deNghiThu(), "xet_duyet_bao_gia", ch);
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null" : `"${String(r).slice(0, 80)}…"`,
+      mongDoi: "null (việc của CHÍNH bước đang đứng không phải cớ để chặn)",
+    };
+  },
+);
+
+kiem(
+  "Bước ② phải hỏi ĐỦ BẢN BÁO GIÁ, không chỉ hỏi 'có bảng thu thập không'",
+  "Ban lãnh đạo · 20/08/2026, bị lách tới 24/08/2026",
+  () => {
+    /* Đo được: hồ sơ mới đính 1/3 bản báo giá thì nút "Trình xét duyệt" mờ, nhưng kéo thẻ
+       ②→③ đi được với toast xanh "Đã chốt đủ báo giá". */
+    const bangDangThuThap = [{ id: "bg1", prId: "x", trangThai: "dang_thu_thap" }];
+    const cauBaoGia = "Quy trình yêu cầu 3 bản báo giá, hiện còn thiếu 2 bản.";
+    const r = G.vuongMacSangBuocSau(
+      deNghiThu(),
+      "yeu_cau_bao_gia",
+      bangDangThuThap,
+      G.CAU_HINH_MAC_DINH ?? {},
+      cauBaoGia,
+    );
+    return {
+      duoc: r === cauBaoGia,
+      thucTe: r === null ? "null (LÁCH ĐƯỢC — lỗ hổng đã mở lại!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "trả đúng câu vướng mắc báo giá do nơi gọi truyền vào",
+    };
+  },
+);
+
+kiem(
+  "Thẻ ở bước ② phải có dấu đỏ khi thiếu bản báo giá",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    /* Lệch giữa THỨ APP BÀY RA và THỨ APP THẬT SỰ CHẶN: nút thì khóa, mà thẻ không viền đỏ
+       nên trông y như hồ sơ sạch đang chờ xử lý. */
+    const ds = G.dsConNoToanHoSo(
+      deNghiThu(),
+      "yeu_cau_bao_gia",
+      G.CAU_HINH_MAC_DINH ?? {},
+      [],
+      [],
+      "Quy trình yêu cầu 3 bản báo giá, hiện còn thiếu 2 bản.",
+    );
+    return {
+      duoc: ds.some((m) => m.includes("báo giá")),
+      thucTe: JSON.stringify(ds),
+      mongDoi: 'có mục nhắc thiếu báo giá (nhãn ngắn "thiếu báo giá")',
+    };
+  },
+);
+
+kiem(
+  "Kéo sang cột Hoàn thành phải nói ĐÚNG thứ đang chặn, không nói câu viết cứng",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    /* 🔴 Câu cũ viết cứng nói "giao đủ khối lượng + phiếu giao nhận + thủ kho + trưởng bộ phận
+       xác nhận, thao tác ở trang chi tiết ĐƠN HÀNG" — sai cả điều kiện (không nhắc Hóa đơn
+       VAT, thứ thật sự chặn) lẫn nơi phải đến (trang đơn hàng không có ô đính hóa đơn). */
+    const the = { deNghi: deNghiThu(), giaiDoan: "ho_so_thanh_toan" };
+    const r = G.quyetDinhKeoTha(the, "hoan_thanh", [], [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    const cau = r?.lyDo ?? r?.thongBao ?? "";
+    return {
+      duoc: cau.includes("Hóa đơn VAT") || cau.includes("Hoá đơn VAT"),
+      thucTe: `${r?.loai ?? "?"}: "${String(cau).slice(0, 110)}"`,
+      mongDoi: "câu chặn phải nhắc Hóa đơn VAT (thứ thật sự đang chặn ở bước ⑦)",
+    };
+  },
+);
+
+kiem(
+  "Kéo ⑥ → ⑦ phải nói việc cần làm, KHÔNG nói 'chưa được hỗ trợ'",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    /* Chặn là ĐÚNG (hồ sơ chỉ vào ⑦ khi hàng về đủ). Cái sai là câu báo nghe như lỗi phần
+       mềm, khiến người dùng đi hỏi IT thay vì đi ghi nốt phiếu nhận. */
+    const the = { deNghi: deNghiThu(), giaiDoan: "nhan_hang" };
+    const r = G.quyetDinhKeoTha(the, "ho_so_thanh_toan", [], [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    const cau = r?.thongBao ?? r?.lyDo ?? "";
+    return {
+      duoc: !cau.includes("chưa được hỗ trợ") && cau.includes("phiếu nhận"),
+      thucTe: `${r?.loai ?? "?"}: "${String(cau).slice(0, 110)}"`,
+      mongDoi: "câu nói rõ phải ghi tiếp phiếu nhận hàng",
+    };
+  },
+);
+
+kiem(
+  "Kéo sang cột Thất bại KHÔNG bị chặn bởi việc bắt buộc còn treo",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    /* 🔴 App từng buộc người dùng tích "Checkin hàng tồn kho" — tức ghi một dữ liệu SAI — chỉ
+       để hủy một hồ sơ mà công trình đã bỏ nhu cầu. Việc bắt buộc là điều kiện ĐI TIẾP trong
+       quy trình; hủy hồ sơ là RA KHỎI quy trình. */
+    const ch = cauHinhCoViecBatBuoc("tiep_nhan", "Checkin hàng tồn kho");
+    const the = { deNghi: deNghiThu(), giaiDoan: "tiep_nhan" };
+    const r = G.quyetDinhKeoTha(the, "that_bai", [], [], ch, null);
+    return {
+      duoc: r?.loai === "dong_do",
+      thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 70)}"` : ""}`,
+      mongDoi: 'loai = "dong_do" (cho đóng dở, chỉ đòi ghi lý do)',
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 

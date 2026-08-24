@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { AlertTriangle, PackageCheck, Plus } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
@@ -103,7 +104,17 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
   function luuPhieu() {
     if (vuongMacLuuPhieu) return;
 
-    themPhieuNhan({
+    /**
+     * 🔴 ĐỌC KẾT QUẢ RỒI MỚI XOÁ FORM — sửa 24/08/2026.
+     *
+     * Bản trước gọi `themPhieuNhan` rồi **xoá sạch form và đóng khối** vô điều kiện. Khi tầng ghi
+     * chặn (bước trước còn treo việc bắt buộc, hoặc có người vừa ghi nốt phiếu cuối trên kho
+     * chung) thì nó không ghi gì, mà thủ kho thấy form đóng lại nên tưởng đã lưu — số liệu vừa gõ
+     * mất luôn, và không có phiếu nào trong hồ sơ. Đúng điều `CLAUDE.md` §3.5 cấm.
+     *
+     * 📌 Vướng thì GIỮ NGUYÊN form: người ghi phiếu không phải gõ lại từ đầu sau khi đọc lý do.
+     */
+    const loi = themPhieuNhan({
       poId: po.id,
       poCode: po.code,
       ngayNhanThucTe: ngayNhan,
@@ -114,6 +125,10 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
       trangThai: "da_nhap_kho",
       lines: dongCoKhoiLuong,
     });
+    if (loi) {
+      toast.error("Chưa ghi được phiếu nhận", { description: loi });
+      return;
+    }
     setKhoiLuong({});
     setSoPhieuNCC("");
     setTepPhieuGiao(undefined);

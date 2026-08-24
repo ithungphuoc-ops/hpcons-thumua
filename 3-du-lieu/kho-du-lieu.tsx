@@ -20,6 +20,9 @@ import {
   vuongMacLapDonHang,
   /* Chốt "công việc bắt buộc của bước trước còn treo" — dùng ở 4 cửa ghi, xem `themDonHang`. */
   vuongMacViecBatBuocCacBuocTruoc,
+  /* Chốt "được RỜI bước này chưa" — soát cả việc bắt buộc CỦA bước đang đứng. Dùng ở những cửa
+     ghi làm hồ sơ rời bước, để đường bấm nút chặn y như đường kéo thả (Ban lãnh đạo 24/08/2026). */
+  vuongMacRoiBuoc,
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -51,11 +54,15 @@ import {
   tinhPhuongAnTach,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import {
+  poDaGiaoDu,
   tinhTienDoDeNghi,
   tinhTienDoPO,
   vuongMacGhiThemPhieuNhan,
   vuongMacKhoiLuongNhan,
   vuongMacSoPhieuNCC,
+  /* Chốt "mỗi lần giao phải có tệp phiếu giao nhận" (Ban lãnh đạo 11/08/2026) — kiểm lại ở tầng
+     ghi vì khóa nút không phải là chặn. Xem `xacNhanKho`. */
+  vuongMacXacNhanKho,
 } from "@/2-quy-trinh/tinh-toan";
 import { nhanSuDangLamViec, tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 /* Luật "vật tư kiểm soát định mức" — một chỗ duy nhất, xem effect báo Ban QLDA. */
@@ -259,7 +266,15 @@ interface GiaTriDuLieu {
     yeuCau?: YeuCauPhanBo,
     /** Tên người nhận việc. Bỏ trống thì tra danh bạ — chỉ đúng với tài khoản mẫu. */
     tenNguoiPhuTrach?: string,
-  ) => void;
+    /**
+     * @returns Câu lý do bị chặn, `null` là đã ghi xong.
+     *
+     * 🔴 KHAI `string | null`, KHÔNG KHAI `void` — sửa 24/08/2026. TypeScript **cho phép** gán
+     * một hàm trả giá trị vào chỗ khai `=> void`, nên để `void` thì hàm vẫn chặn đúng mà **nơi
+     * gọi không đọc được lý do**: không lỗi biên dịch, chỉ là người dùng thấy toast xanh trong
+     * khi chẳng có gì được ghi. Đúng cái lỗi vừa phải đi sửa ở `chonNCCChoBaoGia`.
+     */
+  ) => string | null;
   boPhanBoDong: (prId: string, sttDong: number, nguoiThucHien: string) => void;
   /**
    * Lùi đề nghị về MỘT bước trước bằng cách hủy chứng từ tương ứng.
@@ -303,7 +318,8 @@ interface GiaTriDuLieu {
    * (chưa duyệt báo giá), mà lý do đó phải tới được mắt người dùng.
    */
   themDonHang: (dauVao: DauVaoDonHangMoi) => { id: string } | { loi: string };
-  themPhieuNhan: (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => void;
+  /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
+  themPhieuNhan: (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => string | null;
   doiTrangThaiPhieu: (
     phieuId: string,
     trangThai: PhieuNhanHang["trangThai"],
@@ -311,7 +327,8 @@ interface GiaTriDuLieu {
   ) => void;
   /** Đính kèm / thay phiếu giao nhận cho một phiếu nhận hàng đã ghi. */
   dinhKemPhieuGiao: (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => void;
-  xacNhanKho: (poId: string, nguoi: XacNhan) => void;
+  /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
+  xacNhanKho: (poId: string, nguoi: XacNhan) => string | null;
   /**
    * Trưởng bộ phận xác nhận hoàn thành đơn — đơn khóa lại và hồ sơ sang Kế toán.
    *
@@ -342,7 +359,8 @@ interface GiaTriDuLieu {
     lyDo?: string,
     /** Tài liệu dẫn chứng cho quyết định — xem `tepChonNCC` ở `kieu-du-lieu.ts`. */
     tep?: MoTaTep[],
-  ) => void;
+    /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
+  ) => string | null;
   /**
    * TÁCH BÁO GIÁ: lưu phân bổ khối lượng từng dòng cho nhiều nhà cung cấp.
    * Khóa của `phanBoTheoDong` là `DongBaoGia.id`.
@@ -1681,7 +1699,41 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       nguoiPhanBoTen: string,
       yeuCau?: YeuCauPhanBo,
       tenNguoiPhuTrach?: string,
-    ) => {
+    ): string | null => {
+      /**
+       * 🔴🔴 CHỐT: PHÂN BỔ NỐT DÒNG CUỐI LÀ HỒ SƠ RỜI BƯỚC ① — sửa 24/08/2026.
+       *
+       * Đo được lỗ hổng: hàm này trước đây **không có một phép kiểm nào**. Gán người cho dòng
+       * cuối làm `daPhanBoDu` thành `true`, và `xacDinhGiaiDoan` tự trả `"yeu_cau_bao_gia"` —
+       * hồ sơ nhảy sang bước ② trong khi việc bắt buộc *"Checkin hàng tồn kho"* của bước ① vẫn
+       * treo, không một dòng cảnh báo. Cùng hồ sơ đó, kéo thẻ ①→② thì hộp **khóa nút** buộc tích
+       * việc ấy mới đi được.
+       *
+       * Chỉ đạo Ban lãnh đạo 16/08/2026 (*"chưa tích xác nhận thì chưa cho chuyển"*) vì vậy chỉ
+       * có hiệu lực trên đường kéo thả — đúng cái lệch Ban lãnh đạo báo.
+       *
+       * 🔴 CHỈ CHẶN KHI PHÉP GÁN NÀY LÀM HỒ SƠ RỜI BƯỚC ①. Chặn mọi lần phân bổ là sai: phân bổ
+       * dòng thứ nhất trong năm dòng thì hồ sơ vẫn ở bước ①, mà việc *"Checkin hàng tồn kho"* có
+       * thể phải làm SAU khi phân bổ (chính người được phân bổ đi kiểm tồn kho). Chặn sớm là kẹt
+       * ngay từ dòng đầu, không ai làm được gì.
+       */
+      {
+        const dnGoc = deNghiRef.current.find((x) => x.id === prId);
+        if (dnGoc) {
+          const boDangGan = new Set(sttDong);
+          /* `DongDeNghi` định danh bằng `stt` (xem `kieu-du-lieu.ts`), KHÔNG phải `sttDong` —
+             `sttDong` là tên ở dòng PO và dòng phiếu nhận, hai thứ khác nhau. */
+          const conThieuSauKhiGan = dnGoc.items.filter(
+            (d) => !d.nguoiPhuTrachUid && !boDangGan.has(d.stt),
+          ).length;
+          /* Gán xong mà không còn dòng nào trống = hồ sơ rời bước ① ngay sau lần ghi này. */
+          if (conThieuSauKhiGan === 0) {
+            const chan = vuongMacRoiBuoc(dnGoc, "tiep_nhan", cauHinhRef.current);
+            if (chan) return chan;
+          }
+        }
+      }
+
       /**
        * Tên người nhận việc: LẤY TỪ NƠI GỌI trước, danh bạ chỉ là phương án dự phòng.
        *
@@ -1800,6 +1852,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           );
         }
       }
+      /* `null` = da ghi xong. Noi goi CHI duoc bao thanh cong khi nhan `null`. */
+      return null;
     },
     [],
   );
@@ -2398,21 +2452,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * đang mở sẵn từ trước lúc phiếu cuối được ghi (hai người cùng làm trên kho chung), và
        * còn đường gọi khác về sau. Kiểm lại ở đây thì mọi đường đều bị chặn như nhau.
        *
-       * ⚠️ Chặn bằng cách KHÔNG GHI và trả về — hàm này vốn không trả lỗi cho nơi gọi, mà đổi
-       * chữ ký thì phải sửa cả luồng. Nơi gọi duy nhất đã kiểm đúng ba luật này trước khi gọi,
-       * nên tới được đây mà vẫn vướng nghĩa là có đường vòng — thà mất một lần ghi còn hơn ghi
-       * một phiếu sai vào chứng từ kho.
+       * 🔴🔴 TRẢ LÝ DO CHO NƠI GỌI — sửa 24/08/2026 (Ban lãnh đạo báo lệch lần thứ hai).
+       *
+       * Bản trước chặn bằng `return;` trơn kèm chú thích *"đổi chữ ký thì phải sửa cả luồng"*.
+       * Hậu quả đo được: `bang-tien-do-po.tsx` gọi hàm này rồi **xoá form và đóng khối như đã lưu
+       * xong**, không đọc kết quả. Thủ kho ghi phiếu, thấy form đóng lại, tưởng đã lưu — mà không
+       * có phiếu nào được ghi. Đây đúng điều `CLAUDE.md` §3.5 cấm: giao diện hứa một việc app
+       * không làm.
        */
       const poDangGhi = donHangRef.current.find((p) => p.id === phieu.poId);
       if (poDangGhi) {
         const tienDo = tinhTienDoPO(poDangGhi, cuaPO);
-        if (
+        /* Trả ĐÚNG câu của luật nào đang vướng, không trả một câu chung: người ghi phiếu cần
+           biết mình sai số lượng, sai số phiếu, hay đơn đã nhận đủ. */
+        const vuongMac =
           vuongMacGhiThemPhieuNhan(tienDo) ||
           vuongMacKhoiLuongNhan(tienDo, phieu.lines) ||
-          vuongMacSoPhieuNCC(phieu.soPhieuGiaoNCC ?? "", cuaPO)
-        ) {
-          return;
-        }
+          vuongMacSoPhieuNCC(phieu.soPhieuGiaoNCC ?? "", cuaPO);
+        if (vuongMac) return vuongMac;
 
         /**
          * 🔴 Chốt công việc bắt buộc của các bước trước — xem chú thích ở `themDonHang`.
@@ -2420,6 +2477,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          * ⚠️ Đây là cửa NHẠY NHẤT trong bốn cửa: ghi phiếu nhận là việc của THỦ KHO, mà người chặn
          * lại là công việc treo bên Thu mua (VD "Checkin hàng tồn kho" ở bước ①). Nếu về sau Sếp
          * thấy thủ kho bị kẹt vì việc của phòng khác thì đây là chỗ cần nới, không phải ba cửa kia.
+         *
+         * 📌 CỐ Ý vẫn dùng `vuongMacViecBatBuocCacBuocTruoc` (không đổi sang `vuongMacRoiBuoc`):
+         * ghi phiếu nhận là việc CỦA bước ⑥, soát cả việc của bước ⑥ thì thủ kho không ghi được
+         * phiếu nào — đúng cái bẫy mà chú thích của `vuongMacRoiBuoc` cảnh báo.
          */
         const dnGoc = poDangGhi.prId
           ? deNghiRef.current.find((x) => x.id === poDangGhi.prId)
@@ -2430,7 +2491,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             xacDinhGiaiDoan(dnGoc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
             cauHinhRef.current,
           );
-          if (chanViec) return;
+          if (chanViec) return chanViec;
         }
       }
 
@@ -2449,6 +2510,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         // Đơn không gắn đề nghị thì nhật ký vào chính đơn — xem `ghiNhatKyDonHang`.
         ghiNhatKyDonHang(po, phieu.nguoiNhanTen, `Ghi phiếu nhận hàng lần ${lanGiaoThu} — ${phieu.poCode}`);
       }
+      /* `null` = đã ghi xong. Nơi gọi CHỈ được xoá form / đóng khối khi nhận `null`. */
+      return null;
     },
     [ghiNhatKyDonHang],
   );
@@ -2523,14 +2586,41 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   const xacNhanKho = useCallback(
-    (poId: string, nguoi: XacNhan) => {
+    (poId: string, nguoi: XacNhan): string | null => {
+      /**
+       * 🔴🔴 KIỂM LẠI Ở TẦNG GHI — thêm 24/08/2026. Trước đó hàm này **không kiểm một điều kiện
+       * nào**, dù cả hai màn hình gọi nó đều khóa nút đúng luật.
+       *
+       * ⚠️ KHÓA NÚT KHÔNG PHẢI LÀ CHẶN — chính dự án này viết ra nguyên tắc đó ở `themPhieuNhan`
+       * và `dinhKemPhieuGiao`, nhưng hai hàm xác nhận lại không áp. Kịch bản đo được, xảy ra
+       * được thật vì cả phòng dùng chung MỘT tài liệu Firestore:
+       *   ① Thủ kho A mở `/don-hang/{po}` lúc đơn đã giao đủ và mọi phiếu đều có tệp → nút sáng.
+       *   ② Người khác chuyển một phiếu về `cho_kiem_tra` hoặc `tu_choi_nhan` → phiếu đó thôi
+       *      được tính, đơn không còn giao đủ.
+       *   ③ A bấm nút trên trang đang mở (React chưa vẽ lại kịp) → ghi thẳng, đơn sang
+       *      `cho_xac_nhan_hoan_thanh` rồi được duyệt hoàn thành với hàng chưa về đủ.
+       *
+       * 📌 Dùng đúng hai hàm mà nút đang dùng (`poDaGiaoDu` + `vuongMacXacNhanKho`) nên câu chặn
+       * và chữ trên nút không bao giờ nói khác nhau.
+       */
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (po) {
+        const phieuCuaPO = phieuNhanRef.current.filter((p) => p.poId === poId);
+        if (!poDaGiaoDu(tinhTienDoPO(po, phieuCuaPO))) {
+          return "Đơn hàng chưa nhận đủ khối lượng nên chưa xác nhận được. Ghi tiếp phiếu nhận ở khối “Tiến độ nhận hàng”.";
+        }
+        const thieuPhieu = vuongMacXacNhanKho(phieuCuaPO);
+        if (thieuPhieu) return thieuPhieu;
+      }
+
       setDonHang((truoc) =>
         truoc.map((po) =>
           po.id === poId ? { ...po, xacNhanKho: nguoi, trangThai: "cho_xac_nhan_hoan_thanh" } : po,
         ),
       );
-      const po = donHangRef.current.find((p) => p.id === poId);
-      if (po) ghiNhatKyDonHang(po, nguoi.ten, `Thủ kho xác nhận đã nhận đủ — ${po.code}`);
+      const poSau = donHangRef.current.find((p) => p.id === poId);
+      if (poSau) ghiNhatKyDonHang(poSau, nguoi.ten, `Thủ kho xác nhận đã nhận đủ — ${poSau.code}`);
+      return null;
     },
     [ghiNhatKyDonHang],
   );
@@ -2549,6 +2639,28 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * nghị) — nên bỏ qua luật này, thay vì khóa vĩnh viễn một đơn không có đường thỏa điều kiện.
        */
       const po = donHangRef.current.find((p) => p.id === poId);
+
+      /**
+       * 🔴 KIỂM ĐỦ BA THỨ, KHÔNG CHỈ HÓA ĐƠN — thêm 24/08/2026.
+       *
+       * Bản trước CHỈ kiểm hóa đơn VAT, nên hai điều kiện còn lại của lớp xác nhận này không ai
+       * hỏi ở tầng ghi: **hàng đã về đủ** và **thủ kho đã xác nhận trước**. Hậu quả là thứ tự hai
+       * lớp xác nhận có thể bị đảo — trưởng bộ phận duyệt hoàn thành một đơn mà thủ kho chưa hề
+       * xác nhận, hoặc hàng chưa về đủ. Nút thì khóa đúng, nhưng khóa nút không phải là chặn
+       * (xem chú thích ở `xacNhanKho`).
+       *
+       * 📌 Thứ tự câu theo đúng thứ tự người dùng gặp: hàng về đủ → thủ kho xác nhận → hóa đơn.
+       */
+      if (po) {
+        const phieuCuaPO = phieuNhanRef.current.filter((p) => p.poId === poId);
+        if (!poDaGiaoDu(tinhTienDoPO(po, phieuCuaPO))) {
+          return "Đơn hàng chưa nhận đủ khối lượng nên chưa duyệt hoàn thành được.";
+        }
+        if (!po.xacNhanKho) {
+          return "Thủ kho chưa xác nhận đã nhận đủ hàng. Trưởng bộ phận duyệt sau bước đó.";
+        }
+      }
+
       if (po?.prId) {
         const dn = deNghiRef.current.find((d) => d.id === po.prId);
         if (dn) {
@@ -2654,25 +2766,35 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       tep?: MoTaTep[],
     ) => {
       /**
-       * 🔴 Chốt công việc bắt buộc của các bước trước — xem chú thích ở `themDonHang`.
+       * 🔴🔴 TRẢ LÝ DO CHO NƠI GỌI — sửa 24/08/2026 sau khi Ban lãnh đạo báo lệch lần thứ hai.
        *
-       * ⚠️ Hàm này KHÔNG trả lỗi cho nơi gọi (chữ ký `void`), nên chặn bằng cách **không ghi gì và
-       * trả về**. Giao diện đã có viền đỏ + dòng "Còn thiếu" trên khối bước nên người duyệt vẫn
-       * thấy lý do; đổi chữ ký ở đây thì phải sửa cả luồng gọi, để lần khác.
+       * BẢN TRƯỚC CHẶN BẰNG `return;` TRƠN vì chữ ký là `void`, kèm chú thích *"giao diện đã có
+       * viền đỏ nên người duyệt vẫn thấy lý do; đổi chữ ký thì phải sửa cả luồng gọi, để lần
+       * khác"*. Đo được hậu quả thật: nơi gọi (`de-nghi-chi-tiet.tsx`) **không đọc kết quả**, nên
+       * nó vẫn hiện toast xanh *"Đã duyệt"* rồi đóng hộp — trong khi bảng báo giá không đổi và
+       * không một dòng nào được ghi. Người dùng báo lại là *"app treo, bấm duyệt không được"*,
+       * chứ không biết mình bị chặn vì bước ① còn treo việc, nên **không ai đi tích** và hồ sơ
+       * kẹt vô thời hạn.
+       *
+       * Đây đúng điều `CLAUDE.md` §3.5 cấm: *"Đừng để giao diện hứa một việc app không làm"*.
+       * "Để lần khác" hoá ra là để tới lúc Ban lãnh đạo phát hiện.
+       *
+       * 🔴 DÙNG `vuongMacRoiBuoc`, KHÔNG DÙNG `vuongMacViecBatBuocCacBuocTruoc`. Duyệt chọn nhà
+       * cung cấp làm hồ sơ RỜI bước ③, nên phải soát cả việc bắt buộc CỦA bước ③ — đúng danh sách
+       * mà hộp kéo thả đang khóa nút theo. Bản trước chỉ soát các bước TRƯỚC, nên việc của bước ③
+       * không ai hỏi: kéo thẻ ③→④ thì bị chặn, bấm "Duyệt" thì đi.
        */
-      {
-        const bgHienTai = baoGiaRef.current.find((b) => b.id === bgId);
-        const dnGoc = bgHienTai
-          ? deNghiRef.current.find((x) => x.id === bgHienTai.prId)
-          : undefined;
-        if (dnGoc) {
-          const chanViec = vuongMacViecBatBuocCacBuocTruoc(
-            dnGoc,
-            xacDinhGiaiDoan(dnGoc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
-            cauHinhRef.current,
-          );
-          if (chanViec) return;
-        }
+      const bgHienTai = baoGiaRef.current.find((b) => b.id === bgId);
+      const dnGoc = bgHienTai
+        ? deNghiRef.current.find((x) => x.id === bgHienTai.prId)
+        : undefined;
+      if (dnGoc) {
+        const chanViec = vuongMacRoiBuoc(
+          dnGoc,
+          xacDinhGiaiDoan(dnGoc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
+          cauHinhRef.current,
+        );
+        if (chanViec) return chanViec;
       }
 
       const ngay = homNay();
@@ -2702,6 +2824,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const bg = baoGiaRef.current.find((b) => b.id === bgId);
       // Không ghi tên NCC vào nhật ký — lịch sử đề nghị hiện cho cả vai trò không được xem NCC.
       if (bg) ghiLichSuDeNghi(bg.prId, nguoiThucHien, `Chốt nhà cung cấp cho bảng báo giá ${bg.code}`);
+      /* `null` = đã ghi xong. Nơi gọi CHỈ được báo thành công khi nhận `null`. */
+      return null;
     },
     [ghiLichSuDeNghi],
   );

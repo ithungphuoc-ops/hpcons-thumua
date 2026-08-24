@@ -286,7 +286,11 @@ export default function TrangChiTietDeNghi() {
   function conThieuCuaBuoc(ma: GiaiDoanMuaHang): string | undefined {
     const viTri = chuoiBuoc.indexOf(ma);
     if (viTri < 0 || viTriHienTai < 0 || viTri > viTriHienTai) return undefined;
-    return conNoCuaBuoc(hoSo, ma, cauHinh, donHang, phieuNhan) ?? undefined;
+    /* Dấu đỏ "thiếu báo giá" ở bước ② — cùng luật với nút "Trình xét duyệt báo giá" ngay trong
+       khối đó, nên viền đỏ và nút không bao giờ nói khác nhau (Ban lãnh đạo 24/08/2026). */
+    return (
+      conNoCuaBuoc(hoSo, ma, cauHinh, donHang, phieuNhan, vuongMacTrinhXetDuyet(hoSo)) ?? undefined
+    );
   }
 
   /**
@@ -1759,11 +1763,19 @@ export default function TrangChiTietDeNghi() {
                                   disabled={vuongMacTep !== null}
                                   title={vuongMacTep ?? undefined}
                                   onClick={() => {
-                                    xacNhanKho(po.id, {
+                                    /* 🔴 Từ 24/08/2026 tầng ghi có thể TỪ CHỐI (hàng chưa về đủ,
+                                       hoặc còn phiếu thiếu tệp giao nhận) — cùng nếp với
+                                       `xacNhanTruongBP`. Bỏ qua giá trị trả về là nút bấm không
+                                       có gì xảy ra mà người dùng vẫn thấy toast xanh. */
+                                    const loiKho = xacNhanKho(po.id, {
                                       uid: nguoiDung.uid,
                                       ten: nguoiDung.tenHienThi,
                                       thoiDiem: new Date().toISOString().slice(0, 10),
                                     });
+                                    if (loiKho) {
+                                      toast.error("Chưa xác nhận được", { description: loiKho });
+                                      return;
+                                    }
                                     toast.success("Kho đã xác nhận nhận đủ hàng", {
                                       description: `${po.code} chuyển sang chờ trưởng bộ phận xác nhận.`,
                                     });
@@ -2393,7 +2405,16 @@ export default function TrangChiTietDeNghi() {
              * khóa thì chứng từ sau còn nối về một đối tượng, thay vì so chuỗi tên mà hoa/thường
              * lệch một chữ là thành hai bên khác nhau.
              */
-            chonNCCChoBaoGia(
+            /**
+             * 🔴 ĐỌC KẾT QUẢ RỒI MỚI BÁO — sửa 24/08/2026.
+             *
+             * Bản trước gọi hàm rồi hiện toast xanh *"Đã duyệt"* **vô điều kiện**. Khi tầng ghi
+             * chặn (bước trước còn treo việc bắt buộc) thì nó `return` không ghi gì, mà người
+             * dùng vẫn thấy "Đã duyệt" và hộp đóng lại. Họ báo lại là *"app treo, bấm duyệt không
+             * được"* chứ không biết bị chặn vì lý do gì, nên không ai đi tích việc còn treo và hồ
+             * sơ kẹt vô thời hạn. Đúng điều `CLAUDE.md` §3.5 cấm.
+             */
+            const loiDuyet = chonNCCChoBaoGia(
               bg.id,
               nccDuyet.trim() === ""
                 ? ""
@@ -2404,6 +2425,10 @@ export default function TrangChiTietDeNghi() {
                  chọn bản báo giá nào trong số các bản đã đính kèm. */
               hoiDuyet.nhanO ? `[${hoiDuyet.nhanO}] ${lyDoDuyet}` : lyDoDuyet,
             );
+            if (loiDuyet) {
+              toast.error("Chưa duyệt được", { description: loiDuyet });
+              return;
+            }
             toast.success("Đã duyệt", {
               description: `${dn.code} chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`,
             });

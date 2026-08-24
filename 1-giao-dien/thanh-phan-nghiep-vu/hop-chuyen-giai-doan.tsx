@@ -137,9 +137,23 @@ export function HopChuyenGiaiDoan({
    * 🔴 Tích trong hộp KHÔNG PHẢI đường đi tắt: người dùng vẫn phải xác nhận từng việc, chỉ là
    * làm ngay tại chỗ thay vì bị đuổi sang màn khác. Luật chặn vẫn là `congViecChuaXongCuaBuoc`.
    */
-  /* `thieuLyDo`: đóng dở mà chưa ghi lý do — xem `laDongDo`. Cùng nếp với "SL Báo giá" của
-     bước ②: trường bắt buộc thì khóa nút, không cho bấm rồi mới báo lỗi. */
-  const bikhoa = conViecChuaTich > 0 || (hoiSoBaoGia && soBaoGia === "") || thieuLyDo;
+  /**
+   * `thieuLyDo`: đóng dở mà chưa ghi lý do — xem `laDongDo`. Cùng nếp với "SL Báo giá" của
+   * bước ②: trường bắt buộc thì khóa nút, không cho bấm rồi mới báo lỗi.
+   *
+   * 🔴 ĐÓNG DỞ KHÔNG BỊ KHÓA BỞI CÔNG VIỆC BẮT BUỘC — sửa 24/08/2026.
+   *
+   * Đo được: hồ sơ ở bước ① còn treo việc "Checkin hàng tồn kho"; công trình hủy nhu cầu vật tư
+   * nên chẳng ai cần kiểm tồn kho nữa. Nhưng `conViecChuaTich` khóa nút cho **cả ba hướng**
+   * (tiến / lùi / đóng dở), nên app buộc người dùng **tích một việc không hề làm** — tức ghi một
+   * dữ liệu SAI vào hồ sơ — chỉ để hủy nó. Người dùng sẽ tích bừa, và từ đó ô "đã hoàn thành"
+   * mất hết ý nghĩa.
+   *
+   * ⚠️ Việc bắt buộc là điều kiện để ĐI TIẾP trong quy trình. Hủy hồ sơ là RA KHỎI quy trình —
+   * hai chuyện khác nhau. Chốt duy nhất còn lại cho hướng này là **phải ghi lý do**, và đó là
+   * chốt đúng: cần biết vì sao hủy, không cần biết tồn kho bao nhiêu.
+   */
+  const bikhoa = (!laDongDo && conViecChuaTich > 0) || (hoiSoBaoGia && soBaoGia === "") || thieuLyDo;
 
   return (
     <Dialog open={mo} onOpenChange={(v) => !v && onDong()}>

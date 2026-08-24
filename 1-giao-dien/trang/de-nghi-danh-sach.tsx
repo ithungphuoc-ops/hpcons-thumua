@@ -28,6 +28,7 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/1-giao-dien/nen-tang-ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocNhanBanDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 /* 📌 KHÔNG còn import `tinhTienDoDeNghi` / `tomTatTienDoDeNghi` / `soSanhDeNghiUuTien` ở đây
@@ -207,7 +208,18 @@ export default function TrangDanhSachDeNghi() {
    */
   const cot = useMemo(
     () =>
-      dungBangQuyTrinh(deNghi, donHang, baoGia, phieuNhan, cauHinh, new Date(), nguoiDung.uid),
+      dungBangQuyTrinh(
+        deNghi,
+        donHang,
+        baoGia,
+        phieuNhan,
+        cauHinh,
+        new Date(),
+        nguoiDung.uid,
+        /* Dấu đỏ "thiếu báo giá" ở bước ② — cùng luật với nút "Trình xét duyệt báo giá" nên thẻ
+           và nút không bao giờ nói khác nhau (Ban lãnh đạo 24/08/2026). */
+        vuongMacTrinhXetDuyet,
+      ),
     [deNghi, donHang, baoGia, phieuNhan, cauHinh, nguoiDung.uid],
   );
 
@@ -273,7 +285,26 @@ export default function TrangDanhSachDeNghi() {
     const baoGiaCuaDeNghi = baoGia.filter((b) => b.prId === prId && b.trangThai !== "huy");
     // Công việc bắt buộc của bước đang đứng — lấy từ cấu hình quy trình (sửa được ở trang
     // Cài đặt), KHÔNG viết cứng trong luật kéo thả.
-    const hanhDong = quyetDinhKeoTha(the, dich, poCuaDeNghi, baoGiaCuaDeNghi, cauHinh);
+    /**
+     * 🔴 TRUYỀN CÂU VƯỚNG MẮC BƯỚC ② VÀO LUẬT KÉO THẢ — Ban lãnh đạo báo lệch 24/08/2026.
+     *
+     * `vuongMacTrinhXetDuyet` là luật *"đủ số bản báo giá + có bảng so sánh"* (chỉ đạo
+     * 20/08/2026). Trước đây nó CHỈ được nút "Trình xét duyệt báo giá" ở trang chi tiết hỏi, nên
+     * kéo thẻ ② → ③ lách được: hồ sơ mới có 1/3 bản báo giá vẫn sang cột ③ với toast xanh "Đã
+     * chốt đủ báo giá".
+     *
+     * 📌 Tính Ở ĐÂY chứ không để `quyetDinhKeoTha` tự gọi: `bao-gia-dinh-kem.ts` import từ
+     * `kho-du-lieu`, mà `kho-du-lieu` import ngược lại `giai-doan-mua-hang` — gọi thẳng trong
+     * tầng quy trình là vòng tròn import. Tầng giao diện có sẵn cả hai nên tính hộ.
+     */
+    const hanhDong = quyetDinhKeoTha(
+      the,
+      dich,
+      poCuaDeNghi,
+      baoGiaCuaDeNghi,
+      cauHinh,
+      vuongMacTrinhXetDuyet(the.deNghi),
+    );
     if (!hanhDong) return;
 
     // Bước không hợp lệ: chặn ngay, không cần hỏi — hỏi rồi vẫn không cho làm thì vô nghĩa.
