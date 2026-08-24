@@ -576,6 +576,128 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// KÉO ② → ③ PHẢI CHẶN KHI THIẾU BÁO GIÁ / BẢNG SO SÁNH
+//
+// 🔴 Ban lãnh đạo báo LẦN THỨ BA ngày 24/08/2026: *"sao kéo chuyển bước
+//    chưa có các điều kiện giống chuyển bước trong chi tiết. Ví dụ: Bước
+//    2 sang bước 3 phải đính kèm báo giá và bảng so sánh giá..."*
+//
+// Hai lần sửa trước KHÔNG ăn vì `quyetDinhKeoTha` tính ra vướng mắc rồi
+// VỨT ĐI: đoạn cuối hàm ghi "hành động làm việc thật chính là cách gỡ
+// vướng, nên cho đi". Câu đó đúng với MỘT ca (chưa có bảng → lập bảng)
+// và sai với ca này: `chot_so_sanh` KHÔNG làm cho có thêm bản báo giá.
+// ════════════════════════════════════════════════════════════════════
+
+/** Bảng báo giá đang thu thập — đủ để `hanhDongTienMotBuoc` trả `chot_so_sanh`. */
+const bangDangThuThap = [{ id: "bg1", prId: "pr-thu", trangThai: "dang_thu_thap" }];
+
+kiem(
+  "Kéo ② → ③ khi THIẾU bản báo giá → phải CHẶN (đúng ca Ban lãnh đạo nêu)",
+  "Ban lãnh đạo · 24/08/2026 (báo lần thứ ba)",
+  () => {
+    const cauThieu = "Quy trình yêu cầu 3 bản báo giá, hiện còn thiếu 2 bản.";
+    const the = { deNghi: deNghiThu(), giaiDoan: "yeu_cau_bao_gia" };
+    const r = G.quyetDinhKeoTha(
+      the,
+      "xet_duyet_bao_gia",
+      [],
+      bangDangThuThap,
+      G.CAU_HINH_MAC_DINH ?? {},
+      cauThieu,
+    );
+    return {
+      duoc: r?.loai === "khong_the" && String(r.lyDo).includes("bản báo giá"),
+      thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 80)}"` : ""}`,
+      mongDoi: 'loai = "khong_the" kèm đúng câu thiếu bản báo giá',
+    };
+  },
+);
+
+kiem(
+  "Kéo ② → ③ khi thiếu BẢNG SO SÁNH → phải CHẶN",
+  "Ban lãnh đạo · 20/08/2026 + 24/08/2026",
+  () => {
+    const cauThieu = 'Chưa đính kèm “Bảng so sánh báo giá”. Bảng này bắt buộc phải có trước khi trình.';
+    const the = { deNghi: deNghiThu(), giaiDoan: "yeu_cau_bao_gia" };
+    const r = G.quyetDinhKeoTha(
+      the,
+      "xet_duyet_bao_gia",
+      [],
+      bangDangThuThap,
+      G.CAU_HINH_MAC_DINH ?? {},
+      cauThieu,
+    );
+    return {
+      duoc: r?.loai === "khong_the" && String(r.lyDo).includes("so sánh"),
+      thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 80)}"` : ""}`,
+      mongDoi: 'loai = "khong_the" kèm câu thiếu bảng so sánh',
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: đủ báo giá thì kéo ② → ③ phải ĐI ĐƯỢC",
+  "Ban lãnh đạo · 24/08/2026 (chống chặn quá tay)",
+  () => {
+    /* Chặn cả khi đã đủ là quy trình tắc hẳn — bài kiểm này giữ cho bản sửa không đi quá. */
+    const the = { deNghi: deNghiThu(), giaiDoan: "yeu_cau_bao_gia" };
+    const r = G.quyetDinhKeoTha(
+      the,
+      "xet_duyet_bao_gia",
+      [],
+      bangDangThuThap,
+      G.CAU_HINH_MAC_DINH ?? {},
+      null,
+    );
+    return {
+      duoc: r?.loai === "chot_so_sanh",
+      thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 70)}"` : ""}`,
+      mongDoi: 'loai = "chot_so_sanh" (đủ điều kiện thì cho chốt)',
+    };
+  },
+);
+
+kiem(
+  "NGOẠI LỆ vẫn sống: bước ② CHƯA CÓ bảng báo giá thì cho lập bảng",
+  "Bài học 14/08 + 23/08/2026 (đừng chặn quá tay)",
+  () => {
+    /* 🔴 Chặn ca này là người dùng BÍ HOÀN TOÀN: trên bảng quy trình không còn đường nào khác
+       để lập bảng báo giá. Đã phải sửa một lần ngày 14/08, và bộ thử 23/08 bắt lại đúng lỗi
+       này. Đây là ngoại lệ DUY NHẤT được đi tiếp khi còn vướng. */
+    const the = { deNghi: deNghiThu(), giaiDoan: "yeu_cau_bao_gia" };
+    const r = G.quyetDinhKeoTha(the, "xet_duyet_bao_gia", [], [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    return {
+      duoc: r?.loai === "tao_bao_gia",
+      thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 70)}"` : ""}`,
+      mongDoi: 'loai = "tao_bao_gia" (mở màn lập bảng, không chặn)',
+    };
+  },
+);
+
+kiem(
+  "Bước ① còn dòng chưa phân bổ → vẫn CHẶN (ngoại lệ không được nới sang bước ①)",
+  "Ban lãnh đạo · 10/08/2026",
+  () => {
+    /* ⚠️ Bước ① cũng trả `tao_bao_gia`, nhưng vướng mắc của nó là "còn dòng chưa phân bổ" —
+       lập bảng báo giá xong vẫn còn dòng không ai nhận. Nếu ai rút gọn điều kiện ngoại lệ
+       thành mỗi `loai === "tao_bao_gia"` thì ca này lọt. */
+    const dnThieuPhanBo = {
+      id: "x",
+      items: [{ stt: 1, nguoiPhuTrachUid: "u1" }, { stt: 2 }],
+      congViecDaXong: [],
+      tepTheoKhoa: {},
+    };
+    const the = { deNghi: dnThieuPhanBo, giaiDoan: "tiep_nhan" };
+    const r = G.quyetDinhKeoTha(the, "yeu_cau_bao_gia", [], [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    return {
+      duoc: r?.loai === "khong_the" && String(r.lyDo).includes("phân bổ"),
+      thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 80)}"` : ""}`,
+      mongDoi: 'loai = "khong_the" kèm câu còn dòng chưa phân bổ',
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 

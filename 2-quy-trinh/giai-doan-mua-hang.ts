@@ -1563,23 +1563,29 @@ export function quyetDinhKeoTha(
   if (!vuongMacBuocDangDung) return hanhDong;
 
   /**
-   * 🔴 BƯỚC CÓ VƯỚNG MẮC **KHÔNG GỠ ĐƯỢC BẰNG CHÍNH VIỆC SẮP LÀM** thì chặn thẳng.
+   * 🔴🔴 CÒN VƯỚNG MẮC THÌ **MẶC ĐỊNH CHẶN** — sửa 24/08/2026 sau khi Ban lãnh đạo báo LẦN THỨ BA.
    *
-   * Hiện chỉ có bước ①: vướng mắc là *"còn dòng chưa phân bổ người phụ trách"*, mà việc kéo sang
-   * ② lại là **lập bảng báo giá** — làm xong vẫn còn dòng không ai nhận. Phân bổ phải làm ở bảng
-   * "Phân bổ công việc", hộp chuyển bước không giải quyết được, nên cho đi là để lọt dòng mồ côi.
+   * Ban lãnh đạo: *"sao kéo chuyển bước chưa có các điều kiện giống chuyển bước trong chi tiết.
+   * Ví dụ: Bước 2 sang bước 3 phải đính kèm báo giá và bảng so sánh giá"*.
    *
-   * ⚠️ ĐỪNG THÊM BƯỚC VÀO ĐÂY MÀ KHÔNG THỬ. Bộ thử ngày 23/08/2026 bắt được đúng lỗi này khi tôi
-   * chặn chung mọi bước: kéo ② → ③ lúc chưa có bảng báo giá bị chặn với câu *"Chưa có bảng báo giá
-   * nào đang thu thập"*, trong khi việc sắp làm CHÍNH LÀ lập bảng đó — người dùng bí hoàn toàn, vì
-   * trên bảng quy trình không có đường nào khác để lập bảng báo giá. Đúng cái bí đã phải sửa ngày
-   * 14/08/2026.
+   * ⚠️ VÌ SAO HAI LẦN SỬA TRƯỚC CHƯA ĂN: tôi đã cho `vuongMacSangBuocSau` hỏi đủ điều kiện báo
+   * giá, nhưng đoạn dưới đây **tính ra vướng mắc rồi vứt đi**. Chú thích cũ ghi *"Còn lại là hành
+   * động LÀM VIỆC THẬT — chính là cách gỡ vướng, nên cho đi"*. Câu đó ĐÚNG với một ca duy nhất
+   * (chưa có bảng báo giá → lập bảng), và SAI với ca Ban lãnh đạo vừa nêu:
+   *
+   *   Hồ sơ có bảng báo giá đang thu thập nhưng mới đính 1/3 bản, chưa có bảng so sánh.
+   *   → `hanhDongTienMotBuoc` trả `chot_so_sanh` (một hành động **GHI DỮ LIỆU**).
+   *   → Chốt so sánh KHÔNG làm cho có thêm bản báo giá nào, tức KHÔNG gỡ được vướng mắc.
+   *   → Vậy mà code cũ vẫn `return hanhDong` → bảng chuyển `da_so_sanh`, thẻ sang cột ③.
+   *
+   * 🔴 ĐẢO MẶC ĐỊNH: trước là "cho đi trừ khi nằm trong `CHAN_CUNG`", nay là "chặn trừ đúng một
+   * ngoại lệ". Một chốt phải mặc định CHẶN — danh sách miễn trừ thì người ta nhớ bổ sung, còn
+   * danh sách cấm thì sớm muộn thiếu một mục và lọt im lặng, đúng như đã xảy ra ba lần.
    */
-  const CHAN_CUNG: GiaiDoanMuaHang[] = ["tiep_nhan"];
-  if (CHAN_CUNG.includes(tu)) return { loai: "khong_the", lyDo: vuongMacBuocDangDung };
 
-  /* Mở trang thì NÓI RÕ còn thiếu gì — đây chính là phần "đồng nhất với cửa sổ chi tiết" mà Ban
-     lãnh đạo yêu cầu: cùng một câu, do cùng một hàm sinh ra. */
+  /* ① Hành động chỉ ĐIỀU HƯỚNG: mở trang kèm câu vướng, để người dùng tới đúng chỗ mà gỡ.
+     Không ghi gì nên không có gì lọt — đây chính là phần "đồng nhất với cửa sổ chi tiết":
+     cùng một câu, do cùng một hàm sinh ra. */
   if (hanhDong.loai === "mo_trang") {
     return {
       ...hanhDong,
@@ -1587,9 +1593,26 @@ export function quyetDinhKeoTha(
     };
   }
 
-  /* Còn lại là hành động LÀM VIỆC THẬT (lập bảng báo giá, chốt so sánh) — chính là cách gỡ vướng,
-     nên cho đi. Thẻ vẫn chỉ chuyển cột khi chứng từ có thật, vì giai đoạn suy ra từ chứng từ. */
-  return hanhDong;
+  /**
+   * ② NGOẠI LỆ DUY NHẤT: hành động sắp làm TẠO RA CHÍNH THỨ ĐANG THIẾU.
+   *
+   * Chỉ đúng một ca: đứng ở bước ② mà **chưa có bảng báo giá nào** — vướng mắc là *"Chưa có bảng
+   * báo giá nào đang thu thập"* và việc sắp làm là **lập bảng đó**. Chặn ở đây là bí hoàn toàn:
+   * trên bảng quy trình không còn đường nào khác để lập bảng báo giá (đã phải sửa ngày
+   * 14/08/2026, và bộ thử 23/08 bắt lại đúng lỗi này khi tôi chặn chung mọi bước).
+   *
+   * 📌 `hanhDongTienMotBuoc` chỉ trả `tao_bao_gia` cho bước ② KHI chưa có bảng nào — nên cặp điều
+   * kiện dưới đây nhận diện đúng ca đó, không cần thêm cờ.
+   *
+   * ⚠️ Bước ① cũng trả `tao_bao_gia`, nhưng vướng mắc của nó là *"còn dòng chưa phân bổ người phụ
+   * trách"* — lập bảng báo giá xong vẫn còn dòng không ai nhận. Vì vậy điều kiện phải kèm
+   * `tu === "yeu_cau_bao_gia"`, không được rút gọn thành mỗi `loai === "tao_bao_gia"`.
+   */
+  if (tu === "yeu_cau_bao_gia" && hanhDong.loai === "tao_bao_gia") return hanhDong;
+
+  /* ③ Còn lại: hành động GHI DỮ LIỆU mà vướng mắc vẫn nguyên → CHẶN, kèm đúng câu của hàm luật.
+     Đây là chỗ ca "bước ② → ③ thiếu bản báo giá / bảng so sánh" bị chặn lại. */
+  return { loai: "khong_the", lyDo: vuongMacBuocDangDung };
 }
 
 /**
