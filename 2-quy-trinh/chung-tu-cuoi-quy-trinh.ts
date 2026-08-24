@@ -26,8 +26,29 @@
 
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
-/** Bước giữ tệp hợp đồng — chính bước lập đơn, nơi hợp đồng được ký kèm đơn. */
-export const BUOC_DINH_KEM_HOP_DONG = "lap_don_mua_hang";
+/**
+ * ★ Bước giữ tệp hợp đồng — **bước ⑤ "Tiến hành đặt hàng"** (Ban lãnh đạo 24/08/2026: *"Hợp đồng
+ * mua hàng em đưa sang bước tiến hành đặt hàng"*).
+ *
+ * 🔴 ĐỔI TỪ ④ SANG ⑤ LÀ SỬA ĐÚNG GỐC RỄ, không phải dời cho gọn. Trước đây hợp đồng nằm ở bước ④
+ * *Lập đơn mua hàng* và bị đòi **trước khi** được lập đơn — mà **hợp đồng mua bán thường ghi số
+ * đơn hàng**, còn số đơn chỉ sinh ra khi cất đơn. Thành vòng tròn: muốn có đơn phải có hợp đồng,
+ * muốn có hợp đồng phải có số đơn. Chú thích ở `giai-doan-mua-hang.ts` đã cảnh báo đúng vòng tròn
+ * này, và app chỉ thoát được nhờ đường "ghi lý do thay cho tệp".
+ *
+ * Đặt ở ⑤ thì thứ tự thành thuận: lập đơn (có số đơn) → ký hợp đồng theo số đơn đó → đặt hàng.
+ */
+export const BUOC_DINH_KEM_HOP_DONG = "dat_hang";
+
+/**
+ * 🔴 KHÓA CŨ CỦA HỢP ĐỒNG — PHẢI ĐỌC TIẾP, KHÔNG ĐƯỢC BỎ.
+ *
+ * Tới 24/08/2026 hợp đồng được cất theo khóa `"lap_don_mua_hang"` trong `tepGiaiDoan`. Chỉ đọc
+ * khóa mới thì **mọi hợp đồng đã đính kèm trước hôm nay biến mất khỏi hồ sơ**: app báo "chưa có
+ * Hợp đồng/Đơn mua hàng", tô đỏ và chặn, trong khi tệp vẫn nằm nguyên trong dữ liệu. Cùng cách
+ * đã xử với `BUOC_CU_HOA_DON_VAT` — rẻ hơn nhiều so với viết mã chuyển đổi dữ liệu.
+ */
+const BUOC_CU_HOP_DONG = "lap_don_mua_hang";
 
 /**
  * ★ Bước giữ CẢ hóa đơn VAT VÀ ủy nhiệm chi — Ban lãnh đạo 23/08/2026: *"Gộp 2 mục này lại thành
@@ -82,6 +103,14 @@ export const TEN_HIEN_HOP_DONG = "Hợp đồng/Đơn mua hàng";
  * diện **tô đỏ** — hồ sơ đi tiếp được nhưng vẫn mang dấu "còn nợ chứng từ", không biến mất khỏi
  * tầm nhìn của người quản lý.
  */
+/**
+ * ⚠️ KHÓA NÀY **GIỮ NGUYÊN CHUỖI CŨ** dù hợp đồng đã chuyển sang bước ⑤ (24/08/2026).
+ *
+ * Đây là khóa **lưu dữ liệu** trong `lyDoThieuChungTu`, không phải tên bước. Đổi nó là mọi lý do
+ * người dùng đã ghi trước hôm nay **không đọc ra được nữa** — hồ sơ đang đi tiếp bằng đường ghi
+ * lý do sẽ đột ngột bị chặn lại, và người dùng thấy ô lý do trống trong khi mình đã điền. Cùng
+ * bài học với `NHAN_TEP_HOP_DONG` ở trên: khóa lưu và chữ hiển thị là hai thứ khác nhau.
+ */
 export const KHOA_LY_DO_THIEU_HOP_DONG = "lap_don_mua_hang|hop_dong";
 
 /**
@@ -102,7 +131,12 @@ function tepTheoNhan(deNghi: DeNghiMuaHang, buoc: string, nhan: string): MoTaTep
 }
 
 export function tepHopDong(deNghi: DeNghiMuaHang): MoTaTep[] {
-  return tepTheoNhan(deNghi, BUOC_DINH_KEM_HOP_DONG, NHAN_TEP_HOP_DONG);
+  /* Đọc CẢ khóa mới (bước ⑤) và khóa cũ (bước ④) — xem `BUOC_CU_HOP_DONG`. Khử trùng theo id
+     vì một tệp có thể nằm ở cả hai khóa nếu ai đó đính lại sau khi chuyển bước. */
+  const moi = tepTheoNhan(deNghi, BUOC_DINH_KEM_HOP_DONG, NHAN_TEP_HOP_DONG);
+  const cu = tepTheoNhan(deNghi, BUOC_CU_HOP_DONG, NHAN_TEP_HOP_DONG);
+  const daCo = new Set(moi.map((t) => t.id));
+  return [...moi, ...cu.filter((t) => !daCo.has(t.id))];
 }
 
 /**
@@ -167,7 +201,9 @@ export function thieuHopDongDaGhiLyDo(deNghi: DeNghiMuaHang): boolean {
 export function vuongMacRoiBuocLapDon(deNghi: DeNghiMuaHang): string | null {
   if (coHopDong(deNghi)) return null;
   if (lyDoThieuHopDong(deNghi) !== "") return null;
-  return `Chưa đính kèm ${TEN_HIEN_HOP_DONG}, và cũng chưa ghi lý do chưa có. Làm một trong hai việc đó ở khối kết quả của bước Lập đơn mua hàng.`;
+  /* 📌 Câu chỉ sang bước ⑤ "Tiến hành đặt hàng" — nơi ô đính kèm hợp đồng đã chuyển tới
+     (Ban lãnh đạo 24/08/2026). Chỉ sai chỗ là người dùng đi tìm ô ở khối không có nó. */
+  return `Chưa đính kèm ${TEN_HIEN_HOP_DONG}, và cũng chưa ghi lý do chưa có. Làm một trong hai việc đó ở khối kết quả của bước Tiến hành đặt hàng.`;
 }
 
 /**

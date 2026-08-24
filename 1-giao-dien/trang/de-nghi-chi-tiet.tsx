@@ -110,7 +110,6 @@ import {
   thieuHopDongDaGhiLyDo,
   vuongMacDuyetHoanThanhDeNghi,
   vuongMacHoanThanhQuyTrinh,
-  vuongMacRoiBuocLapDon,
   vuongMacTichXongUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
@@ -1460,48 +1459,34 @@ export default function TrangChiTietDeNghi() {
                         đúng ngõ cụt đã phải gỡ hôm 17/08 — app bảo "phải lập bảng báo giá" rồi
                         đứng im không cho đường nào đi tiếp. */}
                     {/**
-                      * ★★ ẨN NÚT KHI CHƯA CÓ TỆP HỢP ĐỒNG **VÀ** CHƯA GHI LÝ DO — Ban lãnh đạo
-                      * 23/08/2026: *"Nếu chưa có đính kèm file hoặc chưa có ghi chú thì nút lập
-                      * đơn đặt hàng sẽ bị ẩn đi. Khi hoàn thành 1 trong 2 điều kiện đó thì mới
-                      * được lập đơn"*.
+                      * ★★ NÚT LẬP ĐƠN KHÔNG CÒN BỊ ẨN VÌ THIẾU HỢP ĐỒNG — Ban lãnh đạo
+                      * 24/08/2026 chuyển hợp đồng sang bước ⑤ *Tiến hành đặt hàng*.
                       *
-                      * 🔴 VÌ SAO NAY LÀM ĐƯỢC MÀ TRƯỚC THÌ KHÔNG: chú thích ở
-                      * `2-quy-trinh/giai-doan-mua-hang.ts` (nhánh `dat_hang`) ghi rõ *"đòi có hợp
-                      * đồng mới cho cất đơn thì thành VÒNG TRÒN KHÔNG THOÁT: hợp đồng mua bán
-                      * thường ghi số đơn hàng, mà số đơn chỉ sinh ra khi cất đơn"*. Vòng tròn đó
-                      * ĐÃ ĐƯỢC MỞ sáng nay, khi Ban lãnh đạo cho phép **ghi lý do** thay cho tệp:
-                      * người lập chỉ cần ghi *"hợp đồng ký sau khi có số đơn"* là lập được đơn
-                      * ngay. Nếu sau này ai bỏ đường "ghi lý do" đi thì PHẢI bỏ luôn chốt này,
-                      * nếu không quy trình tắc hẳn ở bước ④.
+                      * 🔴 ĐÂY LÀ CHỖ VÒNG TRÒN ĐƯỢC THÁO. Chỉ đạo 23/08 (*"chưa có đính kèm file
+                      * hoặc chưa có ghi chú thì nút lập đơn đặt hàng sẽ bị ẩn đi"*) đúng khi hợp
+                      * đồng còn là chứng từ của bước ④. Nhưng **hợp đồng mua bán thường ghi số đơn
+                      * hàng**, mà số đơn chỉ sinh ra khi cất đơn — nên đòi hợp đồng TRƯỚC khi cho
+                      * lập đơn là bắt người dùng làm việc bất khả thi. App chỉ thoát được nhờ đường
+                      * "ghi lý do thay cho tệp", tức một lối vòng.
                       *
-                      * 🔴 ẨN NÚT KHÔNG PHẢI IM LẶNG — đó là điều kiện để làm cách này. Dải đỏ ngay
-                      * đầu khối đã ghi *"Chưa đính kèm Hợp đồng/Đơn mua hàng"*, ô ghi lý do nằm
-                      * ngay trên nút, và dòng chữ dưới đây nói rõ hệ quả. Ẩn nút mà không câu nào
-                      * giải thích thì người dùng đi tìm chức năng đã mất — đúng thứ quy ước dự án
-                      * cấm.
+                      * Nay hợp đồng thuộc bước ⑤ nên thứ tự thành thuận: lập đơn (có số đơn) → ký
+                      * hợp đồng theo số đơn đó → đặt hàng. Nút mở lại đúng nghĩa.
                       *
-                      * 📌 DÙNG LẠI `vuongMacRoiBuocLapDon` — cùng hàm với chốt chuyển bước và câu
-                      * trong hộp kéo thả. Ba chỗ một luật, không chỗ nào nói khác chỗ nào.
+                      * 📌 KHÔNG MẤT CHỐT NÀO: `vuongMacRoiBuocLapDon` vẫn chặn **rời bước ⑤** khi
+                      * chưa có tệp lẫn lý do, và thẻ vẫn bị tô đỏ "thiếu HĐ" ở bước ⑤. Nợ chứng từ
+                      * đi theo chứng từ, chỉ dời chỗ chứ không biến mất.
                       */}
-                    {quyen.lapPO &&
-                      !hoSoDaDong &&
-                      (vuongMacRoiBuocLapDon(dn) === null ? (
-                        <Button
-                          variant="outline"
-                          className="w-fit"
-                          nativeButton={false}
-                          render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
-                        >
-                          <ShoppingCart className="size-4" aria-hidden />
-                          {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
-                        </Button>
-                      ) : (
-                        <p className="flex items-start gap-1.5 text-xs font-medium text-danger">
-                          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                          Đính kèm {TEN_HIEN_HOP_DONG} <strong>hoặc</strong> ghi lý do chưa có ở ô
-                          trên thì mới lập được đơn đặt hàng.
-                        </p>
-                      ))}
+                    {quyen.lapPO && !hoSoDaDong && (
+                      <Button
+                        variant="outline"
+                        className="w-fit"
+                        nativeButton={false}
+                        render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+                      >
+                        <ShoppingCart className="size-4" aria-hidden />
+                        {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
+                      </Button>
+                    )}
                   </section>
                 ),
                 /* 📌 KHÔNG CẦN `giuNoiDungKhiGap` NỮA (18/08/2026): cờ đó sinh ra để form nhập
@@ -1510,6 +1495,73 @@ export default function TrangChiTietDeNghi() {
                    danh sách đơn và một cái nút, không có gì để mất. Bật cờ này khi không cần
                    là dựng sẵn nội dung ẩn cho mọi lượt mở phiếu, không được gì. */
                 /* Bước ④ nhận hợp đồng mua bán, phụ lục, đơn đã có chữ ký. */
+                /**
+                 * 🔴 Ô HỢP ĐỒNG ĐÃ CHUYỂN SANG BƯỚC ⑤ — Ban lãnh đạo 24/08/2026: *"Hợp đồng mua
+                 * hàng em đưa sang bước tiến hành đặt hàng"*. Xem khối `dat_hang` ngay dưới.
+                 *
+                 * Bước ④ nay chỉ giữ **tệp cũ** của hồ sơ từng đính kèm ở đây — kể cả hợp đồng
+                 * đính trước 24/08, khi ô hợp đồng còn nằm ở bước này. Không ẩn đi: chứng từ biến
+                 * mất khỏi tầm nhìn mà vẫn nằm trong dữ liệu là thứ quy ước dự án cấm.
+                 *
+                 * 🔴 ĐỌC CHUỖI CỨNG `"lap_don_mua_hang"`, KHÔNG dùng `BUOC_DINH_KEM_HOP_DONG` —
+                 * hằng số đó nay trỏ `"dat_hang"`, dùng ở đây là khu này đi bày lại đúng thứ khối
+                 * ⑤ đang bày.
+                 */
+                khuDinhKem: (dn.tepGiaiDoan?.lap_don_mua_hang ?? []).length > 0 ? (
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="lap_don_mua_hang"
+                    duocSua={false}
+                    khoa
+                  />
+                ) : undefined,
+              },
+              {
+                ma: "dat_hang",
+                nhan: NHAN_GIAI_DOAN.dat_hang.nhan,
+                dangODay: giaiDoan === "dat_hang",
+                conThieu: conThieuCuaBuoc("dat_hang"),
+                truong: poLienQuan.map((po) => ({
+                  nhan: "Đơn mua hàng",
+                  giaTri: po.code,
+                })),
+                /**
+                 * ★ GHI NHẬN HÀNG NGAY TẠI BƯỚC ⑤ — Ban lãnh đạo 21/08/2026: *"sao bước này đang
+                 * bị treo"*.
+                 *
+                 * 🔴 VÌ SAO TREO: điều kiện để hồ sơ rời bước ⑤ là đơn có **phiếu nhận hàng**
+                 * (hoặc đơn chuyển sang `dang_giao`, mà chính việc ghi phiếu đầu tiên mới đổi nó).
+                 * Việc ghi phiếu chỉ có ở **màn Đơn hàng chi tiết**, nên người đứng ở trang đề
+                 * nghị — nơi họ theo dõi cả quy trình — không thấy nút nào, và hồ sơ đứng mãi ở
+                 * bước ⑤. Đúng cùng loại bế tắc với bước ⑥ hôm 20/08.
+                 *
+                 * 📌 NHÚNG LẠI `BangTienDoPO` chứ KHÔNG viết bảng thứ hai: nó đang giữ luật ghi
+                 * phiếu (đối chiếu khối lượng, chặn ghi vượt, **bắt buộc tệp phiếu giao nhận** theo
+                 * chỉ đạo 11/08/2026). Dựng bảng riêng ở đây là có hai chỗ cùng ghi phiếu nhận
+                 * hàng theo hai bộ luật, sớm muộn lệch nhau.
+                 *
+                 * ⚠️ Chỉ hiện đơn ĐÃ CHỐT trở đi — đơn còn nháp thì chưa gửi nhà cung cấp, chưa
+                 * thể có hàng về.
+                 */
+                noiDungNghiepVu: (() => {
+                  const poDaChot = poLienQuan.filter(
+                    (po) => po.trangThai !== "nhap" && po.trangThai !== "huy",
+                  );
+                  if (poDaChot.length === 0) return undefined;
+                  return (
+                    <div className="flex flex-col gap-(--hp-md-card-gap)">
+                      {poDaChot.map((po) => (
+                        <div key={po.id} className="flex flex-col gap-2">
+                          <p className="text-xs font-semibold text-text-desc uppercase">
+                            {po.code}
+                          </p>
+                          <BangTienDoPO po={po} />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })(),
+                /* Bước ⑤ nhận đơn đã gửi đi có xác nhận của nhà cung cấp, chứng từ tạm ứng. */
                 khuDinhKem: (
                   <div className="flex flex-col gap-(--hp-md-card-gap)">
                     {/* ★ Ô HỢP ĐỒNG BẮT BUỘC — Ban lãnh đạo 22/08/2026: *"thêm cho 1 trường đính
@@ -1598,87 +1650,24 @@ export default function TrangChiTietDeNghi() {
                     )}
 
                     {/**
-                      * ❌ ĐÃ BỎ khu "TỆP ĐÍNH KÈM" tự do khỏi bước ④ (Ban lãnh đạo 23/08/2026:
-                      * *"Nút này đang thấy dư"*, khoanh đúng ô kéo thả tệp).
+                      * 🔴 KHU TỆP TỰ DO CHỈ HIỆN KHI CÓ TỆP **KHÔNG MANG NHÃN HỢP ĐỒNG**.
                       *
-                      * 🔴 BỎ LÀ ĐÚNG CẢ VỀ KỸ THUẬT, không chỉ vì gọn: `KhuDinhKemGiaiDoan` đọc
-                      * **toàn bộ** `tepGiaiDoan["lap_don_mua_hang"]` và KHÔNG lọc theo nhãn — mà ô
-                      * "Hợp đồng/Đơn mua hàng" ngay trên cũng lưu vào đúng khóa đó. Nghĩa là hợp
-                      * đồng vừa đính sẽ hiện HAI LẦN trên cùng một khối; ảnh Ban lãnh đạo gửi ghi
-                      * "(0)" chỉ vì lúc đó chưa có tệp nào.
-                      *
-                      * ⚠️ NHƯNG KHÔNG ẨN TỆP CŨ. Hồ sơ nào từng đính tệp tự do ở bước này (phụ
-                      * lục, đơn đã ký…) thì vẫn phải xem được, nếu không chứng từ biến mất khỏi
-                      * tầm nhìn mà vẫn nằm trong dữ liệu — đúng thứ quy ước dự án cấm. Vì vậy khu
-                      * này chỉ hiện khi CÓ tệp không mang nhãn hợp đồng, và ở chế độ CHỈ ĐỌC:
-                      * xem/tải được, không thêm mới, nên không sinh thêm trùng lặp.
+                      * `KhuDinhKemGiaiDoan` đọc TOÀN BỘ `tepGiaiDoan["dat_hang"]` và KHÔNG lọc theo
+                      * nhãn — mà ô "Hợp đồng/Đơn mua hàng" ngay trên nay cũng lưu vào đúng khóa đó.
+                      * Bày vô điều kiện là hợp đồng vừa đính hiện **HAI LẦN** trên cùng một khối.
+                      * Đây đúng cái bẫy đã ghi ở bước ④ hôm 23/08/2026, chỉ khác khóa.
                       */}
-                    {(dn.tepGiaiDoan?.[BUOC_DINH_KEM_HOP_DONG] ?? []).some(
+                    {(dn.tepGiaiDoan?.dat_hang ?? []).some(
                       (t) => (t.ghiChu ?? "").trim() !== NHAN_TEP_HOP_DONG,
                     ) && (
                       <KhuDinhKemGiaiDoan
                         deNghi={dn}
-                        maGiaiDoan="lap_don_mua_hang"
-                        duocSua={false}
-                        khoa
+                        maGiaiDoan="dat_hang"
+                        duocSua={duocSuaTepBuoc}
+                        khoa={hoSoDaDong}
                       />
                     )}
                   </div>
-                ),
-              },
-              {
-                ma: "dat_hang",
-                nhan: NHAN_GIAI_DOAN.dat_hang.nhan,
-                dangODay: giaiDoan === "dat_hang",
-                conThieu: conThieuCuaBuoc("dat_hang"),
-                truong: poLienQuan.map((po) => ({
-                  nhan: "Đơn mua hàng",
-                  giaTri: po.code,
-                })),
-                /**
-                 * ★ GHI NHẬN HÀNG NGAY TẠI BƯỚC ⑤ — Ban lãnh đạo 21/08/2026: *"sao bước này đang
-                 * bị treo"*.
-                 *
-                 * 🔴 VÌ SAO TREO: điều kiện để hồ sơ rời bước ⑤ là đơn có **phiếu nhận hàng**
-                 * (hoặc đơn chuyển sang `dang_giao`, mà chính việc ghi phiếu đầu tiên mới đổi nó).
-                 * Việc ghi phiếu chỉ có ở **màn Đơn hàng chi tiết**, nên người đứng ở trang đề
-                 * nghị — nơi họ theo dõi cả quy trình — không thấy nút nào, và hồ sơ đứng mãi ở
-                 * bước ⑤. Đúng cùng loại bế tắc với bước ⑥ hôm 20/08.
-                 *
-                 * 📌 NHÚNG LẠI `BangTienDoPO` chứ KHÔNG viết bảng thứ hai: nó đang giữ luật ghi
-                 * phiếu (đối chiếu khối lượng, chặn ghi vượt, **bắt buộc tệp phiếu giao nhận** theo
-                 * chỉ đạo 11/08/2026). Dựng bảng riêng ở đây là có hai chỗ cùng ghi phiếu nhận
-                 * hàng theo hai bộ luật, sớm muộn lệch nhau.
-                 *
-                 * ⚠️ Chỉ hiện đơn ĐÃ CHỐT trở đi — đơn còn nháp thì chưa gửi nhà cung cấp, chưa
-                 * thể có hàng về.
-                 */
-                noiDungNghiepVu: (() => {
-                  const poDaChot = poLienQuan.filter(
-                    (po) => po.trangThai !== "nhap" && po.trangThai !== "huy",
-                  );
-                  if (poDaChot.length === 0) return undefined;
-                  return (
-                    <div className="flex flex-col gap-(--hp-md-card-gap)">
-                      {poDaChot.map((po) => (
-                        <div key={po.id} className="flex flex-col gap-2">
-                          <p className="text-xs font-semibold text-text-desc uppercase">
-                            {po.code}
-                          </p>
-                          <BangTienDoPO po={po} />
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })(),
-                /* Bước ⑤ nhận đơn đã gửi đi có xác nhận của nhà cung cấp, chứng từ tạm ứng. */
-                khuDinhKem: (
-                  <KhuDinhKemGiaiDoan
-                    deNghi={dn}
-                    maGiaiDoan="dat_hang"
-                    duocSua={duocSuaTepBuoc}
-                    khoa={hoSoDaDong}
-                  />
                 ),
               },
               {

@@ -67,6 +67,19 @@ try {
   process.exit(1);
 }
 
+const tepRa3 = join(thuMuc, "chung-tu.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/chung-tu-cuoi-quy-trinh.ts" --bundle --platform=node --format=cjs --outfile="${tepRa3}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/chung-tu-cuoi-quy-trinh.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
@@ -269,12 +282,15 @@ kiem(
       [],
       [],
     );
-    /* Ban lãnh đạo 24/08 yêu cầu tối giản ký tự -> bản ngắn dùng số bước khoanh tròn “④”. */
-    const coNhacBuoc4 = ds.some((m) => m.startsWith("④"));
+    /* Ban lãnh đạo 24/08 yêu cầu tối giản ký tự -> bản ngắn dùng số bước khoanh tròn.
+       ⚠️ Là bước ⑤ chứ không phải ④: cùng ngày 24/08 Ban lãnh đạo chuyển ô Hợp đồng sang bước
+       "Tiến hành đặt hàng" (*"Hợp đồng mua hàng em đưa sang bước tiến hành đặt hàng"*). Đây là
+       ĐỔI YÊU CẦU, không phải sửa bài kiểm cho vừa mã nguồn. */
+    const coNhacBuoc5 = ds.some((m) => m.startsWith("⑤"));
     return {
-      duoc: coNhacBuoc4,
+      duoc: coNhacBuoc5,
       thucTe: ds.length === 0 ? "[] (THẺ TRẮNG TRƠN — đúng lỗi đã báo)" : JSON.stringify(ds),
-      mongDoi: 'có ít nhất một mục nhắc bước ④ (Lập đơn mua hàng)',
+      mongDoi: 'có ít nhất một mục nhắc bước ⑤ (Tiến hành đặt hàng)',
     };
   },
 );
@@ -335,9 +351,9 @@ kiem(
       [],
     );
     return {
-      duoc: typeof cau === "string" && cau.includes("Lập đơn mua hàng"),
+      duoc: typeof cau === "string" && cau.includes("Tiến hành đặt hàng"),
       thucTe: cau === null ? "null" : `"${String(cau).slice(0, 110)}…"`,
-      mongDoi: "câu đầy đủ có ghi tên bước “Lập đơn mua hàng”",
+      mongDoi: "câu đầy đủ có ghi tên bước “Tiến hành đặt hàng”",
     };
   },
 );
@@ -491,6 +507,71 @@ kiem(
       duoc: r?.loai === "dong_do",
       thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 70)}"` : ""}`,
       mongDoi: 'loai = "dong_do" (cho đóng dở, chỉ đòi ghi lý do)',
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// HỢP ĐỒNG CHUYỂN TỪ BƯỚC ④ SANG ⑤ — Ban lãnh đạo 24/08/2026:
+// "Hợp đồng mua hàng em đưa sang bước tiến hành đặt hàng"
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "Hợp đồng đính TRƯỚC 24/08 (khóa cũ bước ④) vẫn phải đọc ra được",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    /* 🔴 BÀI KIỂM QUAN TRỌNG NHẤT CỦA LẦN CHUYỂN NÀY. Chỉ đọc khóa mới thì mọi hợp đồng đã
+       đính kèm trước hôm nay BIẾN MẤT khỏi hồ sơ: app báo "chưa có Hợp đồng", tô đỏ và chặn,
+       trong khi tệp vẫn nằm nguyên trong dữ liệu. Người dùng không hiểu vì sao. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const dnCu = {
+      id: "x",
+      items: [],
+      tepGiaiDoan: {
+        lap_don_mua_hang: [{ id: "t1", ten: "HD-2026.pdf", ghiChu: "Hợp đồng" }],
+      },
+    };
+    return {
+      duoc: CT.coHopDong(dnCu) === true,
+      thucTe: `coHopDong = ${CT.coHopDong(dnCu)}, số tệp đọc ra = ${CT.tepHopDong(dnCu).length}`,
+      mongDoi: "true (đọc được hợp đồng đính ở khóa cũ `lap_don_mua_hang`)",
+    };
+  },
+);
+
+kiem(
+  "Hợp đồng đính ở khóa MỚI (bước ⑤) cũng đọc ra được",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const dnMoi = {
+      id: "x",
+      items: [],
+      tepGiaiDoan: { dat_hang: [{ id: "t2", ten: "HD-moi.pdf", ghiChu: "Hợp đồng" }] },
+    };
+    return {
+      duoc: CT.coHopDong(dnMoi) === true,
+      thucTe: `coHopDong = ${CT.coHopDong(dnMoi)}`,
+      mongDoi: "true (khóa mới `dat_hang`)",
+    };
+  },
+);
+
+kiem(
+  "Thiếu hợp đồng thì tô đỏ ở bước ⑤, KHÔNG tô ở bước ④",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    /* Tô đỏ ở ④ là chỉ người dùng mở một khối không còn chứa ô đính kèm đó — họ đi tìm và
+       không thấy. */
+    const CH = G.CAU_HINH_MAC_DINH ?? {};
+    const o4 = G.dsConNoCuaBuoc(deNghiThu(), "lap_don_mua_hang", CH, [], []);
+    const o5 = G.dsConNoCuaBuoc(deNghiThu(), "dat_hang", CH, [], []);
+    const coO5 = o5.some((m) => m.includes("Hợp đồng") || m.includes("HĐ"));
+    const coO4 = o4.some((m) => m.includes("Hợp đồng") || m.includes("HĐ"));
+    return {
+      duoc: coO5 && !coO4,
+      thucTe: `bước ④ = ${JSON.stringify(o4)} · bước ⑤ = ${JSON.stringify(o5)}`,
+      mongDoi: "bước ⑤ có nhắc hợp đồng, bước ④ thì không",
     };
   },
 );

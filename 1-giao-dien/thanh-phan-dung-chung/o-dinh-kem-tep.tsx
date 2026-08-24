@@ -311,7 +311,22 @@ export function ODinhKemTep({
  * Vẫn giữ `truncate` ở lớp CSS làm lưới an toàn cho màn hình rất hẹp.
  * Tên đầy đủ nằm ở thuộc tính `title` — rê chuột là xem được.
  */
-export function rutGonTenTep(ten: string, toiDa = 48): string {
+export function rutGonTenTep(ten: string | undefined, toiDa = 48): string {
+  /**
+   * 🔴 CHỊU ĐƯỢC TÊN TRỐNG — thêm 24/08/2026 sau khi làm sập cả trang chi tiết đề nghị.
+   *
+   * Một bản ghi tệp thiếu `tenTep` (dữ liệu từ máy khác, từ bản app cũ, hay tay ai đó sửa kho
+   * chung) làm hàm này ném `Cannot read properties of undefined (reading 'length')`, và vì nó
+   * chạy trong lúc React vẽ nên **cả trang trắng** — người dùng chỉ thấy *"Application error"*,
+   * không đọc được hồ sơ nào nữa.
+   *
+   * ⚠️ Cả phòng dùng chung MỘT tài liệu Firestore, nên một bản ghi lỗi của một người là mọi
+   * người mất trang. Cái giá của một dòng phòng vệ ở đây rẻ hơn nhiều so với hậu quả đó.
+   *
+   * 📌 Trả "(không có tên tệp)" chứ không trả chuỗi rỗng: chuỗi rỗng thì ô đính kèm hiện một
+   * dòng trắng, người dùng tưởng app lỗi vẽ. Nói thẳng là thiếu tên thì họ biết đi sửa.
+   */
+  if (!ten) return "(không có tên tệp)";
   if (ten.length <= toiDa) return ten;
   const cham = ten.lastIndexOf(".");
   // Không có đuôi, hoặc "đuôi" dài bất thường (không phải phần mở rộng thật) → cắt bình thường.

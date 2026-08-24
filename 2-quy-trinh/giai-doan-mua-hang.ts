@@ -251,18 +251,28 @@ export function xacDinhGiaiDoan(
    * cho kéo thẻ đi, nút chuyển bước mở, mà **thẻ vẫn nằm lại cột ④** — Ban lãnh đạo hỏi *"Sao đã
    * tạo PO xong vẫn chưa tự động chuyển qua bước đặt hàng"*. Không một dòng lỗi nào báo.
    *
-   * 🔴 CHẶN Ở ĐÂY, KHÔNG CHẶN Ở HÀM CẤT ĐƠN. Nếu đòi có hợp đồng mới cho cất đơn thì thành vòng
-   * tròn không thoát: hợp đồng mua bán thường ghi số đơn hàng, mà số đơn chỉ sinh ra khi cất đơn.
-   * Chặn ở đây thì người lập vẫn cất được đơn, chỉ là **thẻ nằm lại cột ④** cho tới khi có bản
-   * hợp đồng đã ký hoặc có lý do — nhìn bảng là thấy ngay hồ sơ đang thiếu gì.
+   * 🔴🔴 TỪ 24/08/2026 KHÔNG GIỮ THẺ LẠI CỘT ④ VÌ THIẾU HỢP ĐỒNG NỮA — Ban lãnh đạo: *"Hợp đồng
+   * mua hàng em đưa sang bước tiến hành đặt hàng"*.
+   *
+   * Hợp đồng nay là chứng từ của **bước ⑤**, nên đòi nó để RỜI bước ④ là vô nghĩa: đơn đã chốt
+   * thì việc của bước ④ đã xong. Giữ lại là dựng đúng cái vòng tròn mà chú thích cũ (còn ở dưới)
+   * đã cảnh báo — hợp đồng ghi số đơn hàng, mà số đơn chỉ sinh khi cất đơn.
+   *
+   * 📌 VẪN KHÔNG MẤT DẤU NỢ CHỨNG TỪ: thẻ sang cột ⑤ nhưng `mucConNoCuaBuoc` tô đỏ "thiếu HĐ" ở
+   * đúng bước ⑤, và `vuongMacSangBuocSau` chặn rời ⑤ khi chưa có tệp lẫn lý do. Nợ chuyển theo
+   * chứng từ, không biến mất.
+   *
+   * ⚠️ GHI LẠI BÀI HỌC CŨ ĐỂ KHÔNG TÁI DIỄN: sáng 23/08 tôi nới luật trong
+   * `vuongMacRoiBuocLapDon` nhưng để nguyên `coHopDong` ở chính dòng này — hai chỗ cùng trả lời
+   * *"đã rời được bước ④ chưa"* mà nói khác nhau, nên hộp xác nhận cho kéo đi, nút mở, mà thẻ vẫn
+   * nằm lại cột ④. Ban lãnh đạo hỏi *"Sao đã tạo PO xong vẫn chưa tự động chuyển qua bước đặt
+   * hàng"*, và không một dòng lỗi nào báo.
    *
    * ⚠️ Nhánh `nhan_hang` ở TRÊN vẫn thắng: hàng đã về thật thì thẻ phải sang cột nhận hàng dù
    * hồ sơ còn thiếu hợp đồng. Tiến độ thực tế không được giấu đi vì thiếu giấy tờ — thiếu giấy
    * thì nhắc, chứ không báo sai chỗ hàng đang ở đâu.
    */
-  if (poCuaDeNghi.some((po) => po.trangThai === "da_chot")) {
-    return vuongMacRoiBuocLapDon(deNghi) === null ? "dat_hang" : "lap_don_mua_hang";
-  }
+  if (poCuaDeNghi.some((po) => po.trangThai === "da_chot")) return "dat_hang";
 
   // ④ Lập đơn mua hàng — đang có đơn nháp, hoặc đã chọn NCC mà chưa lên đơn.
   if (poCuaDeNghi.some((po) => po.trangThai === "nhap")) return "lap_don_mua_hang";
@@ -965,7 +975,10 @@ export function mucConNoCuaBuoc(
     });
   }
 
-  if (giaiDoan === "lap_don_mua_hang" && !coHopDong(deNghi)) {
+  /* 🔴 GẮN VÀO BƯỚC ⑤, KHÔNG CÒN Ở ④ — Ban lãnh đạo 24/08/2026 chuyển hợp đồng sang bước
+     "Tiến hành đặt hàng". Để nguyên ở ④ là tô đỏ một khối không còn chứa ô đính kèm đó, người
+     dùng mở khối ④ đi tìm ô hợp đồng và không thấy. */
+  if (giaiDoan === "dat_hang" && !coHopDong(deNghi)) {
     const lyDo = lyDoThieuHopDong(deNghi);
     thieu.push({
       /* 📌 CÙNG MỘT NHÃN NGẮN dù đã ghi lý do hay chưa — thiếu tệp là thiếu tệp. Lý do đã ghi
@@ -1179,9 +1192,12 @@ export function vuongMacSangBuocSau(
         ? "Bảng báo giá chưa được duyệt. Trưởng bộ phận phải chốt nhà cung cấp (hoặc duyệt phương án chia đơn) trước khi lập đơn đặt hàng."
         : null;
 
-    /* ★ Ba bước có chứng từ bắt buộc, thêm 22/08/2026 — luật ở
-       `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, KHÔNG viết lại điều kiện ở đây. */
-    case "lap_don_mua_hang":
+    /* ★ Các bước có chứng từ bắt buộc, thêm 22/08/2026 — luật ở
+       `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, KHÔNG viết lại điều kiện ở đây.
+
+       🔴 HỢP ĐỒNG CHUYỂN TỪ ④ SANG ⑤ (Ban lãnh đạo 24/08/2026). Bước ④ nay chỉ cần có đơn đã
+       chốt — đã được `xacDinhGiaiDoan` bảo đảm, nên không còn điều kiện riêng nào. */
+    case "dat_hang":
       return vuongMacRoiBuocLapDon(deNghi);
 
     case "ho_so_thanh_toan":
