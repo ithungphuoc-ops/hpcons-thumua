@@ -75,7 +75,7 @@ import {
   type DuLieuLuu,
 } from "@/3-du-lieu/luu-tren-may";
 import { noiKhoChung, type KetNoiKhoChung } from "@/3-du-lieu/kho-chung-firestore";
-import { guiPOSangQlkCtr } from "@/5-ket-noi/gui-po-qlk-ctr";
+import { guiPOSangQlkCtr, canDongBoLaiPO } from "@/5-ket-noi/gui-po-qlk-ctr";
 import type {
   DeNghiMuaHang,
   DongDeNghi,
@@ -916,20 +916,29 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     if (d.lichSuCauHinh) setLichSuCauHinh(d.lichSuCauHinh);
 
     /**
-     * ★ Việc 2 (20/08/2026): TỰ THỬ LẠI những PO lỡ gửi QLK CTR thất bại lần trước — cùng mẫu
-     * "retry-on-view" đã làm bên App Request (mở lại là tự vá, không cần tìm/gửi tay). Chỗ này
-     * chạy mỗi lần có dữ liệu mới từ kho chung — tức mỗi lần MỞ APP hoặc TẢI LẠI trang, không
-     * cần đợi ai bấm gì. An toàn gọi lại nhiều lần vì QLK CTR tự chống trùng theo `poIdThuMua`.
+     * ★ Việc 2 (20/08/2026, mở rộng 24/08/2026): TỰ ĐỒNG BỘ LẠI những PO cần gửi/gửi lại sang
+     * QLK CTR — (a) lần gửi trước THẤT BẠI (retry-on-view, cùng mẫu App Request), HOẶC (b) Thu
+     * mua đã SỬA LẠI PO sau khi đồng bộ thành công (`canDongBoLaiPO` so khớp dấu vân tay lần gửi
+     * gần nhất với dữ liệu hiện tại — khác nhau nghĩa là có thay đổi chưa gửi). Chỗ này chạy mỗi
+     * lần có dữ liệu mới từ kho chung — tức mỗi lần MỞ APP, TẢI LẠI trang, hoặc SỬA XONG một PO,
+     * không cần đợi ai bấm gì thêm. An toàn gọi lại nhiều lần vì QLK CTR tự chống trùng/tự cập
+     * nhật theo `poIdThuMua`.
      */
     for (const po of d.donHang) {
-      if (po.qlkCtrSyncStatus !== "failed") continue;
       const deNghiGoc = d.deNghi.find((dn) => dn.id === po.prId);
+      if (po.qlkCtrSyncStatus !== "failed" && !canDongBoLaiPO(po, deNghiGoc)) continue;
       void guiPOSangQlkCtr(po, deNghiGoc).then((ketQua) => {
         if (!ketQua.apDung) return;
         setDonHang((truoc) =>
-          truoc.map((p) => (p.id === po.id ? { ...p, qlkCtrSyncStatus: ketQua.thanhCong ? "synced" : "failed" } : p)),
+          truoc.map((p) =>
+            p.id !== po.id
+              ? p
+              : ketQua.thanhCong
+                ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
+                : { ...p, qlkCtrSyncStatus: "failed" },
+          ),
         );
-        if (!ketQua.thanhCong) console.error("[Việc 2] Tự thử lại gửi PO sang QLK CTR lỗi:", ketQua.loi);
+        if (!ketQua.thanhCong) console.error("[Việc 2] Tự đồng bộ lại PO sang QLK CTR lỗi:", ketQua.loi);
       });
     }
   }, []);
@@ -2336,7 +2345,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       void guiPOSangQlkCtr(donMoi, deNghiGoc).then((ketQua) => {
         if (!ketQua.apDung) return; // đề nghị phòng ban / chưa qua Việc 1 — không liên quan
         setDonHang((truoc) =>
-          truoc.map((p) => (p.id === id ? { ...p, qlkCtrSyncStatus: ketQua.thanhCong ? "synced" : "failed" } : p)),
+          truoc.map((p) =>
+            p.id !== id
+              ? p
+              : ketQua.thanhCong
+                ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
+                : { ...p, qlkCtrSyncStatus: "failed" },
+          ),
         );
         if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);
       });

@@ -741,6 +741,13 @@ export interface DonDatHang {
    * `thuMuaSyncStatus` bên App Request đã làm cho Việc 1. Xem `5-ket-noi/gui-po-qlk-ctr.ts`.
    */
   qlkCtrSyncStatus?: "synced" | "failed";
+  /**
+   * ★ (24/08/2026): dấu vân tay (JSON.stringify) của đúng phần dữ liệu đã gửi sang QLK CTR ở lần
+   * "synced" gần nhất — dùng để phát hiện Thu mua SỬA LẠI PO sau khi đã đồng bộ (đổi NCC/số
+   * lượng/ngày giao...). So khớp ở `5-ket-noi/gui-po-qlk-ctr.ts` → `canDongBoLaiPO`; khác thì tự
+   * gửi lại lần nữa ở `apDung()`, cùng cơ chế "retry-on-view" đã có cho trạng thái "failed".
+   */
+  qlkCtrSyncedSnapshot?: string;
 }
 
 // ------------------------------------------------------------
