@@ -54,8 +54,22 @@ try {
   process.exit(1);
 }
 
+const tepRa2 = join(thuMuc, "giai-doan.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/giai-doan-mua-hang.ts" --bundle --platform=node --format=cjs --outfile="${tepRa2}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/giai-doan-mua-hang.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
+const G = nap(tepRa2);
 
 /* ---------- Bộ khung chấm ---------- */
 let dat = 0;
@@ -221,6 +235,83 @@ kiem(
       duoc: Array.isArray(r) && r.length === 0,
       thucTe: JSON.stringify(r),
       mongDoi: "[] (mảng rỗng, không ném lỗi)",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LỖI BAN LÃNH ĐẠO BÁO 24/08/2026 — "Sao có bước chưa hoàn thành nhưng
+// ở bảng kanban lại không hiện thông báo"
+//
+// Hồ sơ ở bước ⑦ Hồ sơ thanh toán, còn nợ tệp Hợp đồng ở bước ④.
+// Trang chi tiết tô đỏ khối ④ + nhãn "Còn thiếu"; thẻ kanban thì TRẮNG TRƠN.
+// Nguyên nhân: thẻ chỉ soát ĐÚNG MỘT bước — bước nó đang đứng.
+// ════════════════════════════════════════════════════════════════════
+
+/** Đề nghị tối giản, đủ để các hàm nợ chứng từ chạy. */
+const deNghiThu = (them) => ({
+  id: "pr-thu",
+  items: [{ sttDong: 1, nguoiPhuTrachUid: "u-tm-01", nguoiPhuTrachTen: "A" }],
+  congViecDaXong: [],
+  tepTheoKhoa: {},
+  ...them,
+});
+
+kiem(
+  "Hồ sơ ở bước ⑦ mà nợ tệp Hợp đồng ở bước ④ → THẺ KANBAN phải báo",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    /* Không có tệp Hợp đồng nào -> bước ④ còn nợ. Giai đoạn hiện tại là ⑦. */
+    const ds = G.dsConNoToanHoSo(
+      deNghiThu(),
+      "ho_so_thanh_toan",
+      G.CAU_HINH_MAC_DINH ?? {},
+      [],
+      [],
+    );
+    const coNhacBuoc4 = ds.some((m) => m.includes("Lập đơn mua hàng"));
+    return {
+      duoc: coNhacBuoc4,
+      thucTe: ds.length === 0 ? "[] (THẺ TRẮNG TRƠN — đúng lỗi đã báo)" : JSON.stringify(ds),
+      mongDoi: 'có ít nhất một mục nhắc bước “Lập đơn mua hàng”',
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: hồ sơ mới ở bước ① thì KHÔNG được báo nợ của bước sau",
+  "Ban lãnh đạo · 24/08/2026 (chống tô đỏ mọi thẻ)",
+  () => {
+    /* 🔴 Nếu gộp cả bước CHƯA TỚI thì mọi thẻ đỏ ngay từ bước ① — rơi đúng bẫy "đỏ hết thì
+       người ta thôi để ý". Bài kiểm này giữ cho bản sửa không đi quá. */
+    const ds = G.dsConNoToanHoSo(deNghiThu(), "tiep_nhan", G.CAU_HINH_MAC_DINH ?? {}, [], []);
+    const nhacBuocSau = ds.filter(
+      (m) => m.includes("Lập đơn mua hàng") || m.includes("Hồ sơ thanh toán"),
+    );
+    return {
+      duoc: nhacBuocSau.length === 0,
+      thucTe: nhacBuocSau.length === 0 ? "không nhắc bước chưa tới" : JSON.stringify(nhacBuocSau),
+      mongDoi: "không có mục nào nhắc bước chưa tới lượt",
+    };
+  },
+);
+
+kiem(
+  "Nợ của bước CŨ phải GHI RÕ TÊN BƯỚC (thẻ kanban không bày tên bước)",
+  "Ban lãnh đạo · 24/08/2026",
+  () => {
+    const ds = G.dsConNoToanHoSo(
+      deNghiThu(),
+      "ho_so_thanh_toan",
+      G.CAU_HINH_MAC_DINH ?? {},
+      [],
+      [],
+    );
+    const mucBuocCu = ds.find((m) => m.includes("Lập đơn mua hàng"));
+    return {
+      duoc: typeof mucBuocCu === "string" && mucBuocCu.startsWith("bước"),
+      thucTe: mucBuocCu ? `"${mucBuocCu.slice(0, 80)}"` : "(không có mục nào)",
+      mongDoi: 'mục bắt đầu bằng “bước …” để người đọc biết mở khối nào bổ sung',
     };
   },
 );

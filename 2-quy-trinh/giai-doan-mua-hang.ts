@@ -519,10 +519,14 @@ export function dungBangQuyTrinh(
         ),
       ],
       soDongChuaPhanBo: deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length,
-      /* Dấu đỏ trên thẻ — xem chú thích ở khai báo `conNo`. `?? undefined` vì `conNoCuaBuoc`
-         trả `null` khi không nợ gì, còn trường này khai kiểu `string | undefined`. */
-      conNo: conNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu) ?? undefined,
-      dsConNo: dsConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu),
+      /* Dấu đỏ trên thẻ — xem chú thích ở khai báo `conNo`. `?? undefined` vì hàm trả `null`
+         khi không nợ gì, còn trường này khai kiểu `string | undefined`.
+
+         🔴 DÙNG BẢN `...ToanHoSo`, KHÔNG DÙNG `conNoCuaBuoc`. Ban lãnh đạo báo lỗi 24/08/2026:
+         hồ sơ ở bước ⑦ mà nợ ở bước ④ thì thẻ trắng trơn, trong khi trang chi tiết tô đỏ đúng
+         khối ④. Vì bản `...CuaBuoc` chỉ soát ĐÚNG MỘT bước — bước thẻ đang đứng. */
+      conNo: conNoToanHoSo(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu) ?? undefined,
+      dsConNo: dsConNoToanHoSo(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu),
       maPOLienQuan: tatCaPO
         .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
         .map((po) => po.code),
@@ -685,10 +689,71 @@ export function conNoCuaBuoc(
   tatCaPhieu: PhieuNhanHang[],
 ): string | null {
   const ds = dsConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu);
+  return thanhCauConNo(ds);
+}
+
+/** Nối danh sách mục thiếu thành một câu, `null` khi không thiếu gì. Một chỗ duy nhất. */
+function thanhCauConNo(ds: string[]): string | null {
   if (ds.length === 0) return null;
   /* Viết hoa chữ đầu để câu đọc lên thành một câu hoàn chỉnh trên giao diện. */
   const cau = ds.join(" · ");
   return cau.charAt(0).toUpperCase() + cau.slice(1) + ".";
+}
+
+/**
+ * ★★ CẢ HỒ SƠ CÒN NỢ GÌ — gộp nợ của MỌI BƯỚC ĐÃ ĐI QUA, không chỉ bước đang đứng.
+ *
+ * 🔴 SINH RA TỪ LỖI BAN LÃNH ĐẠO BÁO 24/08/2026: *"Sao có bước chưa hoàn thành nhưng ở bảng
+ * kanban lại không hiện thông báo"*. Hồ sơ đã ở bước ⑦ *Hồ sơ thanh toán*, trang chi tiết tô đỏ
+ * khối ④ *Lập đơn mua hàng* kèm nhãn *"Còn thiếu"* — mà thẻ trên bảng thì **trắng trơn**.
+ *
+ * NGUYÊN NHÂN: `dungBangQuyTrinh` gọi `conNoCuaBuoc` với **đúng một bước** — bước thẻ đang đứng.
+ * Thẻ ở ⑦ nên chỉ soát ⑦, không bao giờ thấy nợ của ④. Còn trang chi tiết vẽ sáu khối nên gọi
+ * cho **từng bước** → thấy. Hai chỗ cùng trả lời một câu hỏi mà khác nhau, đúng cái nếp dự án
+ * này cấm.
+ *
+ * 🔴 CHỈ GỘP CÁC BƯỚC **ĐÃ TỚI LƯỢT** (từ đầu tới bước hiện tại), TUYỆT ĐỐI KHÔNG GỘP BƯỚC CHƯA
+ * TỚI. Hồ sơ đang ở bước ② thì chưa có tệp Hợp đồng/Đơn mua hàng là **bình thường**, không phải
+ * nợ. Gộp cả bước chưa tới thì **mọi thẻ đều đỏ ngay từ bước ①** — rơi đúng vào cái bẫy đã ghi ở
+ * `conNoCuaBuoc`: *"đỏ ba trong bốn khối thì người dùng thôi để ý, đúng lúc cần để ý nhất"*.
+ *
+ * 📌 GHI RÕ TÊN BƯỚC cho nợ của bước cũ. Thẻ kanban không bày tên bước, nên câu *"chưa đính kèm
+ * Hợp đồng/Đơn mua hàng"* trơ trọi thì người đọc không biết mở khối nào để bổ sung. Nợ của chính
+ * bước đang đứng thì không thêm tiền tố — cột đã nói bước nào rồi, thêm nữa là câu dài vô ích.
+ */
+export function dsConNoToanHoSo(
+  deNghi: DeNghiMuaHang,
+  giaiDoanHienTai: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+  tatCaPO: DonDatHang[],
+  tatCaPhieu: PhieuNhanHang[],
+): string[] {
+  const viTri = THU_TU_GIAI_DOAN.indexOf(giaiDoanHienTai);
+  /* Mã lạ (hồ sơ cũ / máy khác chạy bản khác) → chỉ soát đúng bước đó, đừng đoán thứ tự. */
+  const cacBuoc = viTri < 0 ? [giaiDoanHienTai] : THU_TU_GIAI_DOAN.slice(0, viTri + 1);
+
+  const ra: string[] = [];
+  for (const buoc of cacBuoc) {
+    /* "Thất bại" không nằm trong chuỗi chạy — cùng cách xử như `vuongMacViecBatBuocCacBuocTruoc`. */
+    if (buoc === "that_bai") continue;
+    for (const muc of dsConNoCuaBuoc(deNghi, buoc, cauHinh, tatCaPO, tatCaPhieu)) {
+      ra.push(buoc === giaiDoanHienTai ? muc : `bước “${NHAN_GIAI_DOAN[buoc].nhan}” ${muc}`);
+    }
+  }
+  return ra;
+}
+
+/** Bản một câu của {@link dsConNoToanHoSo} — dùng cho viền đỏ và chữ hiện khi rê chuột. */
+export function conNoToanHoSo(
+  deNghi: DeNghiMuaHang,
+  giaiDoanHienTai: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+  tatCaPO: DonDatHang[],
+  tatCaPhieu: PhieuNhanHang[],
+): string | null {
+  return thanhCauConNo(
+    dsConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu),
+  );
 }
 
 /**
