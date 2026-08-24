@@ -58,6 +58,24 @@ export default function TrangChiTietDonHang() {
   const daGiaoDu = poDaGiaoDu(tienDo);
   const tien = tinhTienDonHang(po, gia);
 
+  /**
+   * ★ AI ĐƯỢC DUYỆT HOÀN THÀNH ĐƠN — Ban lãnh đạo 24/08/2026: *"Mục này là do nhân viên phụ
+   * trách đơn hàng này duyệt"*.
+   *
+   * 🔴 SỬA MỘT LỆCH GIỮA HAI MÀN HÌNH cho CÙNG một việc: trang chi tiết ĐỀ NGHỊ đã cho nhân viên
+   * phụ trách duyệt từ 22/08/2026 (`quyen.xacNhanTruongBP || laViecCuaToi(...)`), còn trang này
+   * vẫn chỉ cho `quyen.xacNhanTruongBP`. Cùng một đơn, mở ở màn này thì không thấy nút, mở ở màn
+   * kia thì bấm được — người dùng không thể hiểu vì sao.
+   *
+   * 📌 Ở màn ĐƠN HÀNG thì "việc của tôi" xét theo `po.nguoiPhuTrachUid` (người phụ trách chính
+   * đơn này), chứ không xét theo dòng của đề nghị: đây là trang của một đơn cụ thể.
+   *
+   * ⚠️ Tầng ghi (`xacNhanTruongBP`) vẫn kiểm lại đủ điều kiện nghiệp vụ — mở quyền ở đây KHÔNG
+   * nới bất kỳ điều kiện nào (hàng về đủ · thủ kho đã xác nhận · có Hóa đơn VAT).
+   */
+  const duocDuyetHoanThanhDon =
+    quyen.xacNhanTruongBP || (!!po.nguoiPhuTrachUid && po.nguoiPhuTrachUid === nguoiDung.uid);
+
   function bamXacNhanKho() {
     /* 🔴 Từ 24/08/2026 tầng ghi có thể TỪ CHỐI (hàng chưa về đủ, hoặc còn phiếu thiếu tệp giao
        nhận) — cùng nếp với `bamXacNhanTruongBP` ngay dưới. Bỏ qua giá trị trả về là nút bấm
@@ -292,14 +310,26 @@ export default function TrangChiTietDonHang() {
                     : "Chưa xác nhận"
                 }
               />
+              {/**
+                * ★ NHÃN NÓI ĐÚNG AI DUYỆT — Ban lãnh đạo 24/08/2026: *"Mục này là do nhân viên
+                * phụ trách đơn hàng này duyệt"*.
+                *
+                * 🔴 Nhãn cũ ghi cứng *"Trưởng bộ phận thu mua xác nhận"*, nhưng từ 22/08/2026
+                * **nhân viên phụ trách đơn cũng duyệt được** — trang chi tiết ĐỀ NGHỊ đã đổi nhãn
+                * theo người đang xem, còn trang này thì không. Nhân viên phụ trách đọc dòng này
+                * tưởng phải chờ trưởng bộ phận, rồi đi hỏi vòng quanh trong khi chính họ bấm được.
+                */}
               <DieuKien
                 so={4}
-                nhan="Trưởng bộ phận thu mua xác nhận"
+                nhan="Thu mua xác nhận hoàn thành"
                 xong={Boolean(po.xacNhanTruongBP)}
                 moTa={
                   po.xacNhanTruongBP
                     ? `${po.xacNhanTruongBP.ten} · ${new Date(po.xacNhanTruongBP.thoiDiem).toLocaleDateString("vi-VN")}`
-                    : "Chưa xác nhận"
+                    : /* Nói rõ AI được bấm, thay vì để người đọc tự đoán. */
+                      po.nguoiPhuTrachTen
+                      ? `Chưa xác nhận — nhân viên phụ trách (${po.nguoiPhuTrachTen}) hoặc trưởng bộ phận`
+                      : "Chưa xác nhận — nhân viên phụ trách đơn hoặc trưởng bộ phận"
                 }
               />
             </ol>
@@ -321,10 +351,13 @@ export default function TrangChiTietDonHang() {
                   )}
                 </>
               )}
-              {quyen.xacNhanTruongBP && daGiaoDu && po.xacNhanKho && !po.xacNhanTruongBP && (
+              {duocDuyetHoanThanhDon && daGiaoDu && po.xacNhanKho && !po.xacNhanTruongBP && (
                 <Button onClick={bamXacNhanTruongBP}>
                   <BadgeCheck className="size-4" aria-hidden />
-                  Trưởng bộ phận xác nhận hoàn thành
+                  {/* Nhãn theo đúng người đang bấm — cùng nếp với trang chi tiết đề nghị. */}
+                  {quyen.xacNhanTruongBP
+                    ? "Trưởng bộ phận xác nhận hoàn thành"
+                    : "Xác nhận hoàn thành đơn này"}
                 </Button>
               )}
               {po.trangThai === "hoan_thanh" && (
@@ -337,6 +370,22 @@ export default function TrangChiTietDonHang() {
                   Chưa đủ điều kiện — phải giao đủ khối lượng trước khi xác nhận hoàn thành.
                 </p>
               )}
+
+              {/* 🔴 KHÔNG ĐỂ KHỐI TRỐNG khi người xem không được duyệt — cùng nếp với nút thủ kho
+                  ngay trên: không có nút mà không giải thích thì người dùng tưởng app lỗi hoặc
+                  tưởng mình thiếu quyền, rồi đi hỏi vòng quanh. Nói rõ đang chờ AI. */}
+              {daGiaoDu &&
+                po.xacNhanKho &&
+                !po.xacNhanTruongBP &&
+                !duocDuyetHoanThanhDon && (
+                  <p className="text-sm text-text-desc">
+                    Đang chờ{" "}
+                    {po.nguoiPhuTrachTen
+                      ? `nhân viên phụ trách đơn (${po.nguoiPhuTrachTen})`
+                      : "nhân viên phụ trách đơn"}{" "}
+                    hoặc trưởng bộ phận thu mua xác nhận hoàn thành.
+                  </p>
+                )}
             </div>
           </CardContent>
         </Card>
