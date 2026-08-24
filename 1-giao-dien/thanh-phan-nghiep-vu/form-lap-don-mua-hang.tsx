@@ -2105,6 +2105,64 @@ export function FormLapDonMuaHang({
       )}
 
       {/* =========================================================================
+          ★ MẪU IN ĐƠN MUA HÀNG — Ô ĐẦU TIÊN CỦA FORM (Ban lãnh đạo 24/08/2026:
+          *"Đưa lên trên đầu và bố cục lại giao diện PO"*).
+
+          🔴 VÌ SAO PHẢI ĐỨNG ĐẦU: mẫu in quyết định tờ đơn in ra như thế nào — chọn *Thỏa thuận
+          mua bán* thì tờ in có thêm hai câu cam kết pháp lý ở cuối; chọn *Theo hợp đồng đã ký*
+          thì tờ in dẫn số và ngày hợp đồng và KHÔNG cam kết lại. Đó là quyết định về CĂN CỨ PHÁP
+          LÝ của chứng từ, không phải một tuỳ chọn trình bày.
+
+          Trước đây ô này nằm lẫn ở giữa cột phải của khối đầu tờ, sau "Loại tiền" — người lập gõ
+          xong gần hết đơn mới thấy nó, và nếu chọn *theo hợp đồng* thì phải quay lên điền Số hợp
+          đồng ở khối trên. Đặt đầu form thì thứ tự thành thuận: chọn mẫu → biết cần điền gì → nhập.
+          ========================================================================= */}
+      <Card className="bg-primary-bg">
+        <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+          <div className="grid items-start gap-(--hp-md-card-gap) lg:grid-cols-2">
+                {/**
+                  * ★ CHỌN 1 TRONG 2 MẪU IN — Ban lãnh đạo 21/08/2026: *"e chỉnh sửa mẫu ở bước lập Po
+                  * nha, có trường tuỳ chọn 1 trong 2 mẫu"*, kèm biểu mẫu `PO - DEMO 130826.xlsx`.
+                  *
+                  * 🔴 Hai mẫu KHÁC NHAU VỀ PHÁP LÝ, không phải khác cách trình bày:
+                  *   · *Thỏa thuận mua bán* — chính tờ đơn có giá trị như hợp đồng, nên tờ in có thêm
+                  *     hai câu cam kết cố định ở cuối.
+                  *   · *Theo hợp đồng đã ký* — điều khoản nằm ở hợp đồng nguyên tắc, tờ in ghi rõ số và
+                  *     ngày ký hợp đồng đó và KHÔNG cam kết lại.
+                  * Vì vậy chọn sai mẫu là gửi cho nhà cung cấp một chứng từ nói sai về căn cứ pháp lý —
+                  * mô tả bên dưới ô chọn nói rõ điều đó ngay lúc chọn.
+                  */}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="mau-po">Mẫu in đơn mua hàng *</Label>
+                  <select
+                    id="mau-po"
+                    value={mauPO}
+                    onChange={(e) => setMauPO(e.target.value as MauDonMuaHang)}
+                    className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
+                  >
+                    {(Object.keys(NHAN_MAU_PO) as MauDonMuaHang[]).map((m) => (
+                      <option key={m} value={m}>
+                        {NHAN_MAU_PO[m].nhan}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-text-desc">{NHAN_MAU_PO[mauPO].moTa}</p>
+                  {/* Chọn mẫu theo hợp đồng mà chưa điền hợp đồng thì tờ in ra dấu chấm lửng — nói
+                      trước ở đây, đừng để người dùng phát hiện lúc đã in ra giấy. */}
+                  {mauPO === "theo_hop_dong" && maHopDong.trim() === "" && (
+                    <p className="text-xs text-warning-soft">
+                      Chưa điền <strong>Số hợp đồng</strong> ở phần trên — tờ in sẽ để trống chỗ đó.
+                    </p>
+                  )}
+                </div>
+
+            {/* Cột phải để trống có chủ ý: khối này chỉ có MỘT quyết định, nhồi thêm ô vào cạnh
+                là làm loãng đúng thứ cần được chú ý đầu tiên. */}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* =========================================================================
           ① ĐẦU TỜ ĐƠN — bám đúng khối đầu của biểu mẫu công ty (PO - DEMO 130826.xlsx)
 
           🔴 BỐ CỤC LẠI 23/08/2026 — Ban lãnh đạo: *"a vẫn thấy tab lập PO là giao diện cũ giống
@@ -2486,41 +2544,6 @@ export function FormLapDonMuaHang({
                 />
               </div>
 
-              {/**
-                * ★ CHỌN 1 TRONG 2 MẪU IN — Ban lãnh đạo 21/08/2026: *"e chỉnh sửa mẫu ở bước lập Po
-                * nha, có trường tuỳ chọn 1 trong 2 mẫu"*, kèm biểu mẫu `PO - DEMO 130826.xlsx`.
-                *
-                * 🔴 Hai mẫu KHÁC NHAU VỀ PHÁP LÝ, không phải khác cách trình bày:
-                *   · *Thỏa thuận mua bán* — chính tờ đơn có giá trị như hợp đồng, nên tờ in có thêm
-                *     hai câu cam kết cố định ở cuối.
-                *   · *Theo hợp đồng đã ký* — điều khoản nằm ở hợp đồng nguyên tắc, tờ in ghi rõ số và
-                *     ngày ký hợp đồng đó và KHÔNG cam kết lại.
-                * Vì vậy chọn sai mẫu là gửi cho nhà cung cấp một chứng từ nói sai về căn cứ pháp lý —
-                * mô tả bên dưới ô chọn nói rõ điều đó ngay lúc chọn.
-                */}
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="mau-po">Mẫu in đơn mua hàng *</Label>
-                <select
-                  id="mau-po"
-                  value={mauPO}
-                  onChange={(e) => setMauPO(e.target.value as MauDonMuaHang)}
-                  className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
-                >
-                  {(Object.keys(NHAN_MAU_PO) as MauDonMuaHang[]).map((m) => (
-                    <option key={m} value={m}>
-                      {NHAN_MAU_PO[m].nhan}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-text-desc">{NHAN_MAU_PO[mauPO].moTa}</p>
-                {/* Chọn mẫu theo hợp đồng mà chưa điền hợp đồng thì tờ in ra dấu chấm lửng — nói
-                    trước ở đây, đừng để người dùng phát hiện lúc đã in ra giấy. */}
-                {mauPO === "theo_hop_dong" && maHopDong.trim() === "" && (
-                  <p className="text-xs text-warning-soft">
-                    Chưa điền <strong>Số hợp đồng</strong> ở phần trên — tờ in sẽ để trống chỗ đó.
-                  </p>
-                )}
-              </div>
 
               {/* 🔴 CHẾ ĐỘ MẪU KHÔNG CÓ Ô "TÌNH TRẠNG" — bản mẫu không tồn tại trong hệ thống
                   nên nó không ở trạng thái nào. Bày "Đã chốt" lên một thứ không được lưu là
