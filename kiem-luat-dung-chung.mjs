@@ -269,11 +269,12 @@ kiem(
       [],
       [],
     );
-    const coNhacBuoc4 = ds.some((m) => m.includes("Lập đơn mua hàng"));
+    /* Ban lãnh đạo 24/08 yêu cầu tối giản ký tự -> bản ngắn dùng số bước khoanh tròn “④”. */
+    const coNhacBuoc4 = ds.some((m) => m.startsWith("④"));
     return {
       duoc: coNhacBuoc4,
       thucTe: ds.length === 0 ? "[] (THẺ TRẮNG TRƠN — đúng lỗi đã báo)" : JSON.stringify(ds),
-      mongDoi: 'có ít nhất một mục nhắc bước “Lập đơn mua hàng”',
+      mongDoi: 'có ít nhất một mục nhắc bước ④ (Lập đơn mua hàng)',
     };
   },
 );
@@ -285,9 +286,7 @@ kiem(
     /* 🔴 Nếu gộp cả bước CHƯA TỚI thì mọi thẻ đỏ ngay từ bước ① — rơi đúng bẫy "đỏ hết thì
        người ta thôi để ý". Bài kiểm này giữ cho bản sửa không đi quá. */
     const ds = G.dsConNoToanHoSo(deNghiThu(), "tiep_nhan", G.CAU_HINH_MAC_DINH ?? {}, [], []);
-    const nhacBuocSau = ds.filter(
-      (m) => m.includes("Lập đơn mua hàng") || m.includes("Hồ sơ thanh toán"),
-    );
+    const nhacBuocSau = ds.filter((m) => /^[②③④⑤⑥⑦⑧]/.test(m));
     return {
       duoc: nhacBuocSau.length === 0,
       thucTe: nhacBuocSau.length === 0 ? "không nhắc bước chưa tới" : JSON.stringify(nhacBuocSau),
@@ -297,9 +296,11 @@ kiem(
 );
 
 kiem(
-  "Nợ của bước CŨ phải GHI RÕ TÊN BƯỚC (thẻ kanban không bày tên bước)",
+  "Nhãn trên thẻ phải NGẮN — Ban lãnh đạo 24/08: “Tối giản ký tự thông báo lại”",
   "Ban lãnh đạo · 24/08/2026",
   () => {
+    /* 🔴 Câu cũ dài 120+ ký tự, bày trên thẻ rộng 240px thành bốn dòng chữ; ba thẻ như vậy là
+       hết cả cột. Ngưỡng 34 ký tự ≈ hai dòng ngắn, vẫn đủ chỗ cho “④ thiếu hàng 2/3 dòng”. */
     const ds = G.dsConNoToanHoSo(
       deNghiThu(),
       "ho_so_thanh_toan",
@@ -307,11 +308,36 @@ kiem(
       [],
       [],
     );
-    const mucBuocCu = ds.find((m) => m.includes("Lập đơn mua hàng"));
+    const qua = ds.filter((m) => m.length > 34);
     return {
-      duoc: typeof mucBuocCu === "string" && mucBuocCu.startsWith("bước"),
-      thucTe: mucBuocCu ? `"${mucBuocCu.slice(0, 80)}"` : "(không có mục nào)",
-      mongDoi: 'mục bắt đầu bằng “bước …” để người đọc biết mở khối nào bổ sung',
+      duoc: ds.length > 0 && qua.length === 0,
+      thucTe:
+        ds.length === 0
+          ? "[] (không có mục nào — bài kiểm mất ý nghĩa)"
+          : qua.length === 0
+            ? `dài nhất ${Math.max(...ds.map((m) => m.length))} ký tự: ${JSON.stringify(ds)}`
+            : `${qua.length} mục quá dài: ${JSON.stringify(qua)}`,
+      mongDoi: "mỗi nhãn trên thẻ ≤ 34 ký tự",
+    };
+  },
+);
+
+kiem(
+  "Bản ĐẦY ĐỦ (chữ rê chuột) phải GIỮ nguyên lý do, không bị rút theo",
+  "Ban lãnh đạo · 24/08/2026 (rút ngắn chỗ BÀY, không rút thông tin)",
+  () => {
+    /* Người rê chuột là người đang muốn biết chi tiết — cắt ở đây là mất đường tra cuối cùng. */
+    const cau = G.conNoToanHoSo(
+      deNghiThu(),
+      "ho_so_thanh_toan",
+      G.CAU_HINH_MAC_DINH ?? {},
+      [],
+      [],
+    );
+    return {
+      duoc: typeof cau === "string" && cau.includes("Lập đơn mua hàng"),
+      thucTe: cau === null ? "null" : `"${String(cau).slice(0, 110)}…"`,
+      mongDoi: "câu đầy đủ có ghi tên bước “Lập đơn mua hàng”",
     };
   },
 );

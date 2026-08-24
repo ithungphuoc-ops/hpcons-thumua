@@ -717,10 +717,42 @@ function thanhCauConNo(ds: string[]): string | null {
  * nợ. Gộp cả bước chưa tới thì **mọi thẻ đều đỏ ngay từ bước ①** — rơi đúng vào cái bẫy đã ghi ở
  * `conNoCuaBuoc`: *"đỏ ba trong bốn khối thì người dùng thôi để ý, đúng lúc cần để ý nhất"*.
  *
- * 📌 GHI RÕ TÊN BƯỚC cho nợ của bước cũ. Thẻ kanban không bày tên bước, nên câu *"chưa đính kèm
- * Hợp đồng/Đơn mua hàng"* trơ trọi thì người đọc không biết mở khối nào để bổ sung. Nợ của chính
- * bước đang đứng thì không thêm tiền tố — cột đã nói bước nào rồi, thêm nữa là câu dài vô ích.
+ * 📌 CHỈ RÕ BƯỚC cho nợ của bước cũ. Thẻ kanban không bày tên bước, nên *"thiếu HĐ"* trơ trọi thì
+ * người đọc không biết mở khối nào để bổ sung. Bản ngắn dùng **số bước khoanh tròn** (`④ thiếu
+ * HĐ`) — Ban lãnh đạo 24/08/2026 yêu cầu tối giản ký tự, mà tên bước đầy đủ thì dài gấp năm lần
+ * cả phần nội dung. Nợ của chính bước đang đứng không thêm tiền tố: cột đã nói bước nào rồi.
  */
+export function mucConNoToanHoSo(
+  deNghi: DeNghiMuaHang,
+  giaiDoanHienTai: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+  tatCaPO: DonDatHang[],
+  tatCaPhieu: PhieuNhanHang[],
+): MucConNo[] {
+  const viTri = THU_TU_GIAI_DOAN.indexOf(giaiDoanHienTai);
+  /* Mã lạ (hồ sơ cũ / máy khác chạy bản khác) → chỉ soát đúng bước đó, đừng đoán thứ tự. */
+  const cacBuoc = viTri < 0 ? [giaiDoanHienTai] : THU_TU_GIAI_DOAN.slice(0, viTri + 1);
+
+  const ra: MucConNo[] = [];
+  for (const buoc of cacBuoc) {
+    /* "Thất bại" không nằm trong chuỗi chạy — cùng cách xử như `vuongMacViecBatBuocCacBuocTruoc`. */
+    if (buoc === "that_bai") continue;
+    const cuaBuocNay = buoc === giaiDoanHienTai;
+    for (const muc of mucConNoCuaBuoc(deNghi, buoc, cauHinh, tatCaPO, tatCaPhieu)) {
+      ra.push(
+        cuaBuocNay
+          ? muc
+          : {
+              ngan: `${kyHieuNganCuaBuoc(buoc)} ${muc.ngan}`.trim(),
+              day: `bước “${NHAN_GIAI_DOAN[buoc].nhan}” ${muc.day}`,
+            },
+      );
+    }
+  }
+  return ra;
+}
+
+/** Bản NGẮN, bày trên thẻ kanban — mỗi mục một dòng. */
 export function dsConNoToanHoSo(
   deNghi: DeNghiMuaHang,
   giaiDoanHienTai: GiaiDoanMuaHang,
@@ -728,22 +760,17 @@ export function dsConNoToanHoSo(
   tatCaPO: DonDatHang[],
   tatCaPhieu: PhieuNhanHang[],
 ): string[] {
-  const viTri = THU_TU_GIAI_DOAN.indexOf(giaiDoanHienTai);
-  /* Mã lạ (hồ sơ cũ / máy khác chạy bản khác) → chỉ soát đúng bước đó, đừng đoán thứ tự. */
-  const cacBuoc = viTri < 0 ? [giaiDoanHienTai] : THU_TU_GIAI_DOAN.slice(0, viTri + 1);
-
-  const ra: string[] = [];
-  for (const buoc of cacBuoc) {
-    /* "Thất bại" không nằm trong chuỗi chạy — cùng cách xử như `vuongMacViecBatBuocCacBuocTruoc`. */
-    if (buoc === "that_bai") continue;
-    for (const muc of dsConNoCuaBuoc(deNghi, buoc, cauHinh, tatCaPO, tatCaPhieu)) {
-      ra.push(buoc === giaiDoanHienTai ? muc : `bước “${NHAN_GIAI_DOAN[buoc].nhan}” ${muc}`);
-    }
-  }
-  return ra;
+  return mucConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu).map(
+    (m) => m.ngan,
+  );
 }
 
-/** Bản một câu của {@link dsConNoToanHoSo} — dùng cho viền đỏ và chữ hiện khi rê chuột. */
+/**
+ * Bản ĐẦY ĐỦ, một câu — dùng cho chữ hiện khi rê chuột lên thẻ.
+ *
+ * 📌 Cố ý KHÔNG rút ngắn theo yêu cầu 24/08/2026: yêu cầu đó nói về chỗ BÀY trên thẻ. Người rê
+ * chuột là người đang muốn biết chi tiết, cắt bớt ở đây là làm mất đường tra duy nhất còn lại.
+ */
 export function conNoToanHoSo(
   deNghi: DeNghiMuaHang,
   giaiDoanHienTai: GiaiDoanMuaHang,
@@ -752,7 +779,7 @@ export function conNoToanHoSo(
   tatCaPhieu: PhieuNhanHang[],
 ): string | null {
   return thanhCauConNo(
-    dsConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu),
+    mucConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu).map((m) => m.day),
   );
 }
 
@@ -771,6 +798,48 @@ export function dsConNoCuaBuoc(
   deNghi: DeNghiMuaHang,
   giaiDoan: GiaiDoanMuaHang,
   cauHinh: CauHinhQuyTrinh,
+  tatCaPO: DonDatHang[],
+  tatCaPhieu: PhieuNhanHang[],
+): string[] {
+  return mucConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu).map((m) => m.day);
+}
+
+/**
+ * ★ MỘT MỤC CÒN NỢ — hai cách đọc, MỘT luật.
+ *
+ * 🔴 Ban lãnh đạo 24/08/2026: *"Tối giản ký tự thông báo lại. Ví dụ: Thiếu hoá đơn, thiếu HĐ…"*.
+ * Trước đó thẻ kanban bày nguyên câu *"Bước “Lập đơn mua hàng” chưa có tệp Hợp đồng/Đơn mua hàng
+ * (đã ghi lý do: bổ sung sau) — phải bổ sung bản đã ký"* — bốn dòng chữ trên một thẻ rộng 240px,
+ * ba thẻ như vậy là hết cả cột, không còn đọc được cái gì.
+ *
+ * 🔴 KHÔNG XOÁ BẢN ĐẦY ĐỦ, chỉ đổi CHỖ BÀY nó. Câu đầy đủ vẫn cần ở hai nơi: chữ hiện khi rê
+ * chuột lên thẻ, và viền đỏ + nhãn ở trang chi tiết (chỗ đó rộng, và người vào đó là người sắp
+ * đi bổ sung — họ cần biết đủ lý do, kể cả lý do đã ghi trước đó).
+ *
+ * ⚠️ SINH CẢ HAI TỪ CÙNG MỘT CHỖ. Viết hai hàm riêng là sớm muộn lệch nhau: sửa luật một bên,
+ * bên kia im lặng nói sai — đúng cái lỗi vừa phải chữa hôm nay (thẻ và trang chi tiết trả lời
+ * khác nhau cho cùng một câu hỏi).
+ */
+export interface MucConNo {
+  /** Bản NGẮN, bày trên thẻ kanban. Càng ít chữ càng tốt, nhưng phải nói được thiếu CÁI GÌ. */
+  ngan: string;
+  /** Bản ĐẦY ĐỦ, dùng cho chữ rê chuột và trang chi tiết. */
+  day: string;
+}
+
+/** Số bước khoanh tròn (①②③…) — tiền tố cực ngắn để thẻ biết nợ nằm ở bước nào. */
+const SO_KHOANH = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"];
+
+/** Ký hiệu ngắn của một bước, dùng làm tiền tố trên thẻ. Rỗng nếu không tra được thứ tự. */
+export function kyHieuNganCuaBuoc(giaiDoan: GiaiDoanMuaHang): string {
+  const i = THU_TU_GIAI_DOAN.indexOf(giaiDoan);
+  return i >= 0 && i < SO_KHOANH.length ? SO_KHOANH[i] : "";
+}
+
+export function mucConNoCuaBuoc(
+  deNghi: DeNghiMuaHang,
+  giaiDoan: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
   /**
    * Đơn hàng và phiếu nhận của TOÀN BỘ app — cần để biết hàng đã về đủ chưa.
    *
@@ -779,33 +848,43 @@ export function dsConNoCuaBuoc(
    */
   tatCaPO: DonDatHang[],
   tatCaPhieu: PhieuNhanHang[],
-): string[] {
-  const thieu: string[] = [];
+): MucConNo[] {
+  const thieu: MucConNo[] = [];
 
   const viecChuaXong = congViecChuaXongCuaBuoc(deNghi, giaiDoan, cauHinh);
   if (viecChuaXong.length > 0) {
-    thieu.push(
-      `còn ${viecChuaXong.length} công việc chưa hoàn thành: ${viecChuaXong
+    thieu.push({
+      /* Trên thẻ chỉ ghi SỐ việc, không liệt kê tên: tên việc do người dùng tự đặt, có thể dài
+         cả dòng. Muốn biết việc nào thì rê chuột hoặc mở trang chi tiết. */
+      ngan: `${viecChuaXong.length} việc chưa xong`,
+      day: `còn ${viecChuaXong.length} công việc chưa hoàn thành: ${viecChuaXong
         .map((cv) => `“${cv.ten}”`)
         .join(", ")}`,
-    );
+    });
   }
 
   /* Dòng chưa ai nhận là "công việc chưa hoàn thành" đúng nghĩa nhất của bước ①. */
   if (giaiDoan === "tiep_nhan") {
     const chuaPhanBo = deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length;
     if (chuaPhanBo > 0) {
-      thieu.push(`còn ${chuaPhanBo}/${deNghi.items.length} công việc chưa phân bổ người phụ trách`);
+      thieu.push({
+        ngan: `chưa phân bổ ${chuaPhanBo}/${deNghi.items.length}`,
+        day: `còn ${chuaPhanBo}/${deNghi.items.length} công việc chưa phân bổ người phụ trách`,
+      });
     }
   }
 
   if (giaiDoan === "lap_don_mua_hang" && !coHopDong(deNghi)) {
     const lyDo = lyDoThieuHopDong(deNghi);
-    thieu.push(
-      lyDo
+    thieu.push({
+      /* 📌 CÙNG MỘT NHÃN NGẮN dù đã ghi lý do hay chưa — thiếu tệp là thiếu tệp. Lý do đã ghi
+         là thông tin của người đi bổ sung, thuộc bản đầy đủ; nhồi vào thẻ chỉ làm dài mà
+         không đổi việc phải làm. */
+      ngan: `thiếu HĐ`,
+      day: lyDo
         ? `chưa có tệp ${TEN_HIEN_HOP_DONG} (đã ghi lý do: ${lyDo}) — phải bổ sung bản đã ký`
         : `chưa đính kèm ${TEN_HIEN_HOP_DONG}`,
-    );
+    });
   }
 
   /**
@@ -824,12 +903,18 @@ export function dsConNoCuaBuoc(
     const tienDo = tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu);
     const dongChuaDu = tienDo.filter((d) => d.khoiLuongConLai > 0).length;
     if (dongChuaDu > 0) {
-      thieu.push(`còn ${dongChuaDu}/${tienDo.length} dòng chưa nhận đủ hàng`);
+      thieu.push({
+        ngan: `thiếu hàng ${dongChuaDu}/${tienDo.length} dòng`,
+        day: `còn ${dongChuaDu}/${tienDo.length} dòng chưa nhận đủ hàng`,
+      });
     }
   }
 
   if (giaiDoan === "ho_so_thanh_toan" && !coHoaDonVAT(deNghi)) {
-    thieu.push(`chưa đính kèm ${NHAN_TEP_HOA_DON_VAT}`);
+    thieu.push({
+      ngan: `thiếu hoá đơn`,
+      day: `chưa đính kèm ${NHAN_TEP_HOA_DON_VAT}`,
+    });
   }
 
   return thieu;
