@@ -393,6 +393,42 @@ function cauHinhCoViecBatBuoc(buoc, tenViec) {
   };
 }
 
+/**
+ * 🔴🔴 HAI HÀM DƯỚI ĐÂY GIỮ MỘT ĐIỀU BẤT BIẾN QUA HAI CHỈ ĐẠO KHÁC NHAU — đọc kỹ trước khi sửa.
+ *
+ *   · Ban lãnh đạo 24/08/2026: *"Bước 2 sang bước 3 phải đính kèm báo giá và bảng so sánh giá"*
+ *     → lúc đó cài bằng `khong_the` (chặn kèm toast đỏ).
+ *   · Ban lãnh đạo 25/08/2026: *"Kéo qua bước phải hiển thị các trường nhập nhanh các điều kiện
+ *     chuyển bước"* + *"Phải được duyệt thì mới nhảy"*
+ *     → nay còn thêm `can_go_vuong`: hộp MỞ RA kèm ô đính kèm, **nút vẫn khoá** tới khi hết vướng.
+ *
+ * ⚠️ CHỈ ĐẠO 24/08 KHÔNG BỊ HUỶ. Điều Ban lãnh đạo đòi là *"thẻ không được sang cột khi thiếu
+ * chứng từ"* — điều đó vẫn nguyên. Cái đổi chỉ là CÁCH BÁO: trước là ngõ cụt, nay là ô để gỡ tại
+ * chỗ. Nên bài kiểm chuyển từ soát *một kiểu trả về* sang soát *đúng điều bất biến* — chặt hơn,
+ * không lỏng đi: `can_go_vuong` còn bị đòi thêm điều kiện mà `khong_the` không bị (xem dưới).
+ *
+ * 🔴 TUYỆT ĐỐI KHÔNG nới thành "cho qua nếu loại nào cũng được". Còn đúng hai loại được phép, và
+ * mọi loại khác (`chot_so_sanh`, `tao_bao_gia`, `mo_trang`…) đều là ĐỂ THẺ ĐI — tức lỗi đã phải
+ * sửa ba lần.
+ */
+function khongChoThenNhayCot(r) {
+  if (r?.loai === "khong_the") return true;
+  if (r?.loai !== "can_go_vuong") return false;
+  /* Vướng mắc phải gỡ được HẾT ngay trong hộp. Lẫn một mục phải sang màn khác thì người dùng
+     đính đủ tệp vẫn không mở được nút — kẹt mà không hiểu vì sao. */
+  return (
+    Array.isArray(r.dieuKien) &&
+    r.dieuKien.length > 0 &&
+    r.dieuKien.every((d) => d.goDuocTaiCho === true)
+  );
+}
+
+/** Câu đang chặn, đọc được ở CẢ HAI kiểu trả về — để bài kiểm không phải biết kiểu nào. */
+function cauDangChan(r) {
+  if (r?.loai === "can_go_vuong") return r.dieuKien?.map((d) => d.cau).join(" · ") ?? "";
+  return r?.lyDo ?? r?.thongBao ?? "";
+}
+
 kiem(
   "vuongMacRoiBuoc soát CẢ việc của bước đang rời (đường bấm nút = đường kéo thả)",
   "Ban lãnh đạo · 24/08/2026",
@@ -480,11 +516,15 @@ kiem(
        VAT, thứ thật sự chặn) lẫn nơi phải đến (trang đơn hàng không có ô đính hóa đơn). */
     const the = { deNghi: deNghiThu(), giaiDoan: "ho_so_thanh_toan" };
     const r = G.quyetDinhKeoTha(the, "hoan_thanh", [], [], G.CAU_HINH_MAC_DINH ?? {}, null);
-    const cau = r?.lyDo ?? r?.thongBao ?? "";
+    /* 📌 Đọc bằng `cauDangChan` chứ không đọc thẳng `.lyDo`: từ 25/08/2026 cửa ⑦→⑧ trả
+       `can_go_vuong` (hộp kèm ô đính hóa đơn) thay vì `khong_the`. Điều bài kiểm giữ vẫn y
+       nguyên — câu báo phải nêu đích danh Hóa đơn VAT, không nói câu viết cứng. */
+    const cau = cauDangChan(r);
     return {
-      duoc: cau.includes("Hóa đơn VAT") || cau.includes("Hoá đơn VAT"),
+      duoc:
+        khongChoThenNhayCot(r) && (cau.includes("Hóa đơn VAT") || cau.includes("Hoá đơn VAT")),
       thucTe: `${r?.loai ?? "?"}: "${String(cau).slice(0, 110)}"`,
-      mongDoi: "câu chặn phải nhắc Hóa đơn VAT (thứ thật sự đang chặn ở bước ⑦)",
+      mongDoi: "không cho thẻ nhảy cột, và câu báo phải nhắc Hóa đơn VAT (thứ thật sự chặn ở ⑦)",
     };
   },
 );
@@ -619,10 +659,13 @@ kiem(
       G.CAU_HINH_MAC_DINH ?? {},
       cauThieu,
     );
+    /* ⚠️ TỪ 25/08/2026 ĐÚNG HAI KIỂU TRẢ VỀ ĐƯỢC CHẤP NHẬN — xem `khongChoThenNhayCot`. Điều Ban
+       lãnh đạo đòi ngày 24/08 (*"thẻ không sang cột ③ khi thiếu bản báo giá"*) vẫn nguyên; chỉ
+       khác là nay hộp mở ra kèm ô đính kèm thay vì một toast đỏ ngõ cụt. */
     return {
-      duoc: r?.loai === "khong_the" && String(r.lyDo).includes("bản báo giá"),
-      thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 80)}"` : ""}`,
-      mongDoi: 'loai = "khong_the" kèm đúng câu thiếu bản báo giá',
+      duoc: khongChoThenNhayCot(r) && cauDangChan(r).includes("bản báo giá"),
+      thucTe: `${r?.loai ?? "?"}: "${String(cauDangChan(r)).slice(0, 80)}"`,
+      mongDoi: "không cho thẻ sang cột ③, kèm đúng câu thiếu bản báo giá",
     };
   },
 );
@@ -642,9 +685,9 @@ kiem(
       cauThieu,
     );
     return {
-      duoc: r?.loai === "khong_the" && String(r.lyDo).includes("so sánh"),
-      thucTe: `${r?.loai ?? "?"}${r?.lyDo ? `: "${String(r.lyDo).slice(0, 80)}"` : ""}`,
-      mongDoi: 'loai = "khong_the" kèm câu thiếu bảng so sánh',
+      duoc: khongChoThenNhayCot(r) && cauDangChan(r).includes("so sánh"),
+      thucTe: `${r?.loai ?? "?"}: "${String(cauDangChan(r)).slice(0, 80)}"`,
+      mongDoi: "không cho thẻ sang cột ③, kèm câu thiếu bảng so sánh",
     };
   },
 );
@@ -860,6 +903,157 @@ kiem(
       duoc: nhom.length === 0,
       thucTe: JSON.stringify(nhom.map((n) => n.buoc)),
       mongDoi: "[] (bước ① không có bước nào trước nó)",
+    };
+  },
+);
+
+kiem(
+  "dsDieuKienConVuong phải trả ĐỦ các điều kiện cùng lúc, không phải một câu rồi thoát",
+  "Ban lãnh đạo · 25/08/2026 (yêu cầu nhúng ô nhập nhanh vào hộp kéo thả)",
+  () => {
+    /* 🔴 ĐÂY LÀ LÝ DO CÓ HÀM DANH SÁCH.
+       Mọi hàm luật trước nay trả MỘT câu rồi `return`. Nếu hộp kéo thả đọc câu đó để bày ô
+       nhập, người dùng gỡ xong điều kiện thứ nhất thì hộp mới lòi ra điều kiện thứ hai —
+       ba vòng bất ngờ liên tiếp. Bài kiểm này dựng một hồ sơ vướng ĐỒNG THỜI hai thứ:
+         · còn công việc bắt buộc của bước chưa tích
+         · chưa đủ bản báo giá
+       và đòi danh sách phải nêu CẢ HAI. */
+    const ch = cauHinhCoViecBatBuoc("yeu_cau_bao_gia", "Khảo sát giá thị trường");
+    const bangDangThuThap = [{ id: "bg1", prId: "x", trangThai: "dang_thu_thap" }];
+    const cauBaoGia = "Quy trình yêu cầu 3 bản báo giá, hiện còn thiếu 2 bản.";
+    const ds = G.dsDieuKienConVuong(
+      deNghiThu(),
+      "yeu_cau_bao_gia",
+      bangDangThuThap,
+      ch,
+      cauBaoGia,
+    );
+    const ma = ds.map((d) => d.ma);
+    return {
+      duoc: ma.includes("cong_viec_bat_buoc") && ma.includes("thieu_ban_bao_gia"),
+      thucTe: `${ds.length} mục: ${JSON.stringify(ma)}`,
+      mongDoi: 'đủ cả ["cong_viec_bat_buoc","thieu_ban_bao_gia"]',
+    };
+  },
+);
+
+kiem(
+  "vuongMacSangBuocSau phải LẤY TỪ danh sách, không giữ bản luật riêng",
+  "Ban lãnh đạo · 25/08/2026 (chống hai chỗ cùng trả lời một câu hỏi)",
+  () => {
+    /* Hàm một-câu và hàm danh sách phải là MỘT luật. Nếu ai đó chép lại điều kiện vào hàm
+       một-câu, hai bên sẽ lệch nhau theo thời gian — kiểu lỗi đã phải sửa nhiều lần ở dự
+       án này. Đo bằng cách đòi câu trả lời của hàm một-câu KHỚP mục đầu của danh sách. */
+    const ch = cauHinhCoViecBatBuoc("yeu_cau_bao_gia", "Khảo sát giá thị trường");
+    const bangDangThuThap = [{ id: "bg1", prId: "x", trangThai: "dang_thu_thap" }];
+    const cauBaoGia = "Quy trình yêu cầu 3 bản báo giá, hiện còn thiếu 2 bản.";
+    const doiSo = [deNghiThu(), "yeu_cau_bao_gia", bangDangThuThap, ch, cauBaoGia];
+    const mot = G.vuongMacSangBuocSau(...doiSo);
+    const ds = G.dsDieuKienConVuong(...doiSo);
+    return {
+      duoc: ds.length > 0 && mot === ds[0].cau,
+      thucTe: `một-câu="${String(mot).slice(0, 60)}" · đầu-danh-sách="${String(ds[0]?.cau).slice(0, 60)}"`,
+      mongDoi: "hai bên trùng khít (hàm một-câu chỉ lấy mục đầu của danh sách)",
+    };
+  },
+);
+
+kiem(
+  "Hồ sơ đủ điều kiện thì danh sách phải RỖNG (kiểm chiều ngược)",
+  "Ban lãnh đạo · 25/08/2026",
+  () => {
+    /* Chiều ngược bắt buộc: nếu ai sửa hàm thành trả về mảng cứng thì hai bài trên vẫn xanh
+       mà app sẽ chặn cả hồ sơ hợp lệ. */
+    const bangDangThuThap = [{ id: "bg1", prId: "x", trangThai: "dang_thu_thap" }];
+    const ds = G.dsDieuKienConVuong(
+      deNghiThu(),
+      "yeu_cau_bao_gia",
+      bangDangThuThap,
+      G.CAU_HINH_MAC_DINH ?? {},
+      null,
+    );
+    return {
+      duoc: ds.length === 0,
+      thucTe: `${ds.length} mục: ${JSON.stringify(ds.map((d) => d.ma))}`,
+      mongDoi: "[] (không vướng gì thì không được bịa ra điều kiện)",
+    };
+  },
+);
+
+kiem(
+  "Kéo ② → ③ thiếu báo giá phải MỞ HỘP KÈM Ô, không phải ngõ cụt",
+  "Ban lãnh đạo · 25/08/2026 (*\"hiển thị các trường nhập nhanh\"*)",
+  () => {
+    /* 🔴 BÀI KIỂM CỦA CHÍNH CHỈ ĐẠO 25/08. Bài trên (`khongChoThenNhayCot`) chấp nhận CẢ
+       `khong_the` lẫn `can_go_vuong` — nên nếu ai đó lặng lẽ quay về chặn bằng toast đỏ thì bài
+       đó vẫn xanh. Bài này đòi ĐÚNG `can_go_vuong` cho ca Ban lãnh đạo nêu đích danh, để việc
+       quay lui bị bắt ngay chứ không im lặng. */
+    const cauThieu = "Quy trình yêu cầu 3 bản báo giá, hiện còn thiếu 2 bản.";
+    const the = { deNghi: deNghiThu(), giaiDoan: "yeu_cau_bao_gia" };
+    const r = G.quyetDinhKeoTha(
+      the,
+      "xet_duyet_bao_gia",
+      [],
+      bangDangThuThap,
+      G.CAU_HINH_MAC_DINH ?? {},
+      cauThieu,
+    );
+    return {
+      duoc: r?.loai === "can_go_vuong" && r.dieuKien?.some((d) => d.ma === "thieu_ban_bao_gia"),
+      thucTe: `${r?.loai ?? "?"} · ${JSON.stringify(r?.dieuKien?.map((d) => d.ma) ?? [])}`,
+      mongDoi: 'loai = "can_go_vuong" có mục "thieu_ban_bao_gia" để hộp bày ô đính báo giá',
+    };
+  },
+);
+
+kiem(
+  "can_go_vuong phải mang theo HÀNH ĐỘNG SAU — thẻ chỉ nhảy khi bấm duyệt",
+  "Ban lãnh đạo · 25/08/2026 (*\"Phải được duyệt thì mới nhảy\"*)",
+  () => {
+    /* 🔴 Thiếu `hanhDongSau` thì người dùng đính đủ tệp, bấm nút, và KHÔNG CÓ GÌ XẢY RA — thẻ
+       đứng yên, không lỗi nào báo. Đúng kiểu hỏng khó tìm nhất trong dự án này. */
+    const cauThieu = "Quy trình yêu cầu 3 bản báo giá, hiện còn thiếu 2 bản.";
+    const the = { deNghi: deNghiThu(), giaiDoan: "yeu_cau_bao_gia" };
+    const r = G.quyetDinhKeoTha(
+      the,
+      "xet_duyet_bao_gia",
+      [],
+      bangDangThuThap,
+      G.CAU_HINH_MAC_DINH ?? {},
+      cauThieu,
+    );
+    const sau = r?.hanhDongSau;
+    return {
+      duoc: r?.loai === "can_go_vuong" && !!sau && sau.loai !== "khong_the",
+      thucTe: `hanhDongSau = ${sau?.loai ?? "(khong co)"}`,
+      mongDoi: "có hành động thật để chạy khi bấm duyệt (ở ca này là chot_so_sanh)",
+    };
+  },
+);
+
+kiem(
+  "can_go_vuong KHÔNG được chứa điều kiện phải sang màn khác mới gỡ",
+  "Ban lãnh đạo · 25/08/2026 (chống hộp gỡ hết vẫn kẹt)",
+  () => {
+    /* Bước ① vướng "chưa phân bổ người phụ trách" — việc đó cần cả bảng phân bổ, không nhồi vào
+       hộp được (`goDuocTaiCho: false`). Nếu app mở hộp cho ca này thì người dùng đính hết mọi
+       thứ trong hộp mà nút vẫn khoá, không hiểu vì sao. Phải chặn thẳng và chỉ đúng chỗ. */
+    const dn = deNghiThu();
+    dn.items = [{ id: "d1", ten: "Thép", donViTinh: "kg", khoiLuongDat: 10 }];
+    const the = { deNghi: dn, giaiDoan: "tiep_nhan", soDongChuaPhanBo: 1 };
+    const r = G.quyetDinhKeoTha(
+      the,
+      "yeu_cau_bao_gia",
+      [],
+      [],
+      G.CAU_HINH_MAC_DINH ?? {},
+      null,
+    );
+    const oK = r?.loai !== "can_go_vuong" || r.dieuKien.every((d) => d.goDuocTaiCho === true);
+    return {
+      duoc: oK,
+      thucTe: `${r?.loai ?? "?"} · ${JSON.stringify(r?.dieuKien?.map((d) => `${d.ma}:${d.goDuocTaiCho}`) ?? [])}`,
+      mongDoi: "không mở hộp khi còn mục goDuocTaiCho=false",
     };
   },
 );

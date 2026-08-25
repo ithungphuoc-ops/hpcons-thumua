@@ -36,6 +36,7 @@ import { duocNhanBanDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
    và đã sắp thứ tự. Import lại là mở đường cho một nguồn số thứ hai. */
 import {
   congViecChuaXongCuaBuoc,
+  dsDieuKienConVuong,
   dungBangQuyTrinh,
   giaiDoanDaKetThuc,
   GIAI_DOAN_MUA_HANG,
@@ -395,6 +396,23 @@ export default function TrangDanhSachDeNghi() {
         }
         break;
       }
+      /**
+       * ★★ ĐÃ GỠ XONG VƯỚNG MẮC TRONG HỘP → CHẠY ĐÚNG VIỆC ĐÃ ĐỊNH TỪ ĐẦU.
+       * Ban lãnh đạo 25/08/2026: *"Phải được duyệt thì mới nhảy"* — nhánh này CHÍNH LÀ cái
+       * "được duyệt": nó chỉ chạy khi người dùng bấm nút trong hộp, không chạy lúc đính tệp.
+       *
+       * 🔴 KHÔNG TÍNH LẠI HÀNH ĐỘNG Ở ĐÂY. `hanhDongSau` do `quyetDinhKeoTha` quyết một lần
+       * lúc thả thẻ; hỏi lại lần hai ở tầng giao diện là mở đường cho hai câu trả lời khác nhau
+       * cho cùng một cú kéo — đúng kiểu lệch đã phải sửa nhiều lần.
+       *
+       * ⚠️ TypeScript KHÔNG bắt được nếu quên nhánh này: `switch` không có `default` nhưng cũng
+       * không có chốt `never`, nên thiếu một `case` là **rơi im lặng** — bấm nút, không có gì
+       * xảy ra, không lỗi nào báo. Bài kiểm *"can_go_vuong phải mang theo HÀNH ĐỘNG SAU"* trong
+       * `kiem-luat-dung-chung.mjs` canh đúng chỗ này.
+       */
+      case "can_go_vuong":
+        thucThiKeoTha(prId, hanhDong.hanhDongSau, ghiChu);
+        break;
       case "khong_the":
         // Đã chặn ở `xuLyTha` trước khi mở hộp xác nhận — nhánh này chỉ để đủ kiểu.
         toast.error("Không chuyển được", { description: hanhDong.lyDo });
@@ -684,6 +702,30 @@ export default function TrangDanhSachDeNghi() {
           nhanNut={xacNhan.noiDung.nhanNut}
           nguyHiem={xacNhan.noiDung.nguyHiem}
           congViecChuaXong={xacNhan.congViecChuaXong}
+          /**
+           * ★★ ĐIỀU KIỆN CÒN VƯỚNG — TÍNH LẠI MỖI LẦN VẼ, KHÔNG DÙNG ẢNH CHỤP LÚC THẢ THẺ.
+           * Ban lãnh đạo 25/08/2026: *"hiển thị các trường nhập nhanh các điều kiện chuyển bước"*.
+           *
+           * 🔴 ĐÂY LÀ THỨ LÀM NÚT TỰ MỞ KHÓA. Nếu lấy `xacNhan.hanhDong.dieuKien` (chụp lúc thả
+           * thẻ) thì người dùng đính đủ tệp xong danh sách vẫn y nguyên, nút vẫn khóa, phải đóng
+           * hộp mở lại mới thấy đổi — và họ sẽ tưởng việc đính kèm không ăn.
+           *
+           * 📌 `congViecTheoBuoc: {}` — bỏ việc bắt buộc khỏi danh sách này vì chúng đã có khối
+           * tích riêng ngay bên dưới trong hộp (chỉ đạo 16/08/2026). Để nguyên là một việc hiện
+           * hai chỗ, tích một chỗ mà chỗ kia không đổi.
+           */
+          dieuKienConVuong={(() => {
+            if (xacNhan.hanhDong.loai !== "can_go_vuong") return [];
+            const dn = deNghi.find((d) => d.id === xacNhan.prId);
+            if (!dn) return [];
+            return dsDieuKienConVuong(
+              dn,
+              xacNhan.tuBuoc,
+              baoGia.filter((b) => b.prId === xacNhan.prId && b.trangThai !== "huy"),
+              { ...cauHinh, congViecTheoBuoc: {} },
+              vuongMacTrinhXetDuyet(dn, cauHinh),
+            );
+          })()}
           /* Đọc từ dữ liệu THẬT nên tích xong là ô đổi màu và nút mở khóa ngay, không phải
              đóng hộp mở lại. */
           daXong={(deNghi.find((d) => d.id === xacNhan.prId)?.congViecDaXong ?? []).map(

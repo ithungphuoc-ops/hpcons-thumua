@@ -2738,12 +2738,19 @@ export function FormLapDonMuaHang({
           cột là buộc họ tự đoán ô nào tương ứng dòng nào trên giấy — chính chỗ khó mà Ban lãnh
           đạo yêu cầu bỏ.
 
-          📌 `[&_input]:max-w-xl [&_textarea]:max-w-xl` khai MỘT LẦN cho cả khối: ô trải hết bề
-          ngang màn 27 inch thì mắt phải rê rất xa từ nhãn tới chỗ gõ. Ô đã có bề rộng riêng
-          (`w-48` của ô ngày) không bị đụng, vì `max-w` chỉ đặt giới hạn trên.
+          🔴 ĐÃ BỎ CHẶN BỀ RỘNG Ở CẤP KHỐI — Ban lãnh đạo 25/08/2026: *"dàn trang ra"*.
+
+          Trước đó khối này khai `[&_input]:max-w-xl [&_textarea]:max-w-xl` một lần cho cả thẻ, với
+          lý do *"ô trải hết bề ngang màn 27 inch thì mắt phải rê rất xa từ nhãn tới chỗ gõ"*. Lý do
+          đó đúng cho màn siêu rộng, nhưng thẻ ở đây chỉ rộng ~1140px mà ô dừng ở 576px, nên **gần
+          nửa thẻ bỏ trống** — nhìn ra là lỗi bố cục chứ không ra chủ ý. Nay ô trải theo bề rộng thẻ.
+
+          📌 Ô nào cần hẹp thì tự khai bề rộng RIÊNG tại chỗ (`w-32` của "Số ngày được nợ", `w-48`
+          của ô ngày) — cách đó nói rõ ý đồ ngay tại ô, không phụ thuộc một lớp cha ở xa. Đừng đặt
+          lại chặn cấp khối: nó âm thầm bóp mọi ô con, kể cả ô thêm sau này.
           ========================================================================= */}
       <Card>
-        <CardContent className="flex flex-col gap-(--hp-md-card-gap) [&_input]:max-w-xl [&_textarea]:max-w-xl">
+        <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
           <div className="flex flex-col gap-2">
             {/* 🔴 NHÃN PHẢI ĐỔI THEO CHẾ ĐỘ. Đơn độc lập không có mã RQ nào; để nguyên nhãn
                 "Mã RQ - Tên công trình" rồi bày mỗi một ô là giao diện nói sai. */}
@@ -3135,9 +3142,12 @@ export function FormLapDonMuaHang({
           🔴 TÁCH RA THÀNH KHỐI RIÊNG CÓ CHỦ Ý (23/08/2026). Ba thứ dưới đây không có ô nào trên
           biểu mẫu công ty: người lập đơn · số chứng từ tham chiếu · tệp đính kèm. Để lẫn vào đầu
           tờ như trước là người nhập tưởng chúng cũng được in ra và gửi cho nhà cung cấp.
+
+          🔴 Bỏ `[&_input]:max-w-xl` cùng lý do với khối ④ (Ban lãnh đạo 25/08/2026: *"dàn trang
+          ra"*) — hai khối nằm liền nhau nên phải cùng bề rộng, lệch một khối là thấy ngay.
           ========================================================================= */}
       <Card>
-        <CardContent className="flex flex-col gap-(--hp-md-card-gap) [&_input]:max-w-xl">
+        <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
           <div className="flex flex-col gap-2">
             <Label htmlFor="nv-mua-hang">Nhân viên mua hàng</Label>
             {/* 🔴 CHỈ ĐỌC, cố ý. Đơn ghi tên ai thì `nguoiPhuTrachUid` phải là mã người

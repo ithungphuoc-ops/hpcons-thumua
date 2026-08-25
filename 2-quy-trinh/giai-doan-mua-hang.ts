@@ -622,6 +622,32 @@ export type HanhDongKeoTha =
    * từ của bước đang đứng, và người dùng cần đọc trước mình sắp hủy cái gì.
    */
   | { loai: "lui_buoc"; ve: GiaiDoanMuaHang; viec: string }
+  /**
+   * ★★ CÒN VƯỚNG NHƯNG GỠ ĐƯỢC NGAY TRONG HỘP — Ban lãnh đạo 25/08/2026: *"Kéo qua bước phải
+   * hiển thị các trường nhập nhanh các điều kiện chuyển bước"*.
+   *
+   * 🔴 ĐÂY KHÔNG PHẢI ĐƯỜNG ĐI TẮT, và phân biệt này là cốt lõi:
+   *   · `khong_the` = chặn, báo lý do, hộp KHÔNG mở. Dành cho vướng mắc phải sang màn khác mới
+   *     gỡ được (phân bổ người, duyệt bảng so sánh) — mở hộp ra chỉ để bày một câu mà trong hộp
+   *     không có gì bấm được là làm người dùng bí thêm.
+   *   · `can_go_vuong` = hộp MỞ RA kèm đúng ô để gỡ tại chỗ, **nút vẫn khóa** cho tới khi hết
+   *     vướng. Người dùng đính tệp ngay trên bảng quy trình, không bị đuổi sang màn khác rồi
+   *     phải quay về kéo lại.
+   *
+   * 🔴 THẺ KHÔNG TỰ NHẢY CỘT KHI ĐÍNH TỆP — Ban lãnh đạo 25/08/2026: *"Phải được duyệt thì mới
+   * nhảy"*. Điều này đúng nhờ kiến trúc chứ không nhờ một chốt riêng: `xacDinhGiaiDoan` suy giai
+   * đoạn từ **đơn hàng · phiếu nhận · trạng thái PO**, không đọc tệp đính kèm hay ô tích. Nên
+   * đính tệp chỉ gỡ khóa nút; thẻ chuyển cột khi `hanhDongSau` chạy, tức khi có người bấm duyệt.
+   * ⚠️ Ai về sau đưa "có tệp X" vào `xacDinhGiaiDoan` là phá luật này mà không có gì báo.
+   *
+   * `hanhDongSau` là việc app làm khi người dùng đã gỡ hết và bấm duyệt — giữ nguyên hành động
+   * mà `hanhDongTienMotBuoc` đã quyết, không tính lại lần hai ở tầng giao diện.
+   */
+  | {
+      loai: "can_go_vuong";
+      dieuKien: DieuKienConVuong[];
+      hanhDongSau: HanhDongKeoTha;
+    }
   | { loai: "khong_the"; lyDo: string };
 
 const THU_TU_GIAI_DOAN: GiaiDoanMuaHang[] = GIAI_DOAN_MUA_HANG.map((g) => g.ma);
@@ -1153,6 +1179,145 @@ export function vuongMacRoiBuoc(
   return null;
 }
 
+/**
+ * ★★★ MỘT ĐIỀU KIỆN CÒN VƯỚNG — có mã để giao diện biết bày ô gì cho người dùng gỡ tại chỗ.
+ *
+ * 🔴 Ban lãnh đạo 25/08/2026: *"Kéo qua bước phải hiển thị các trường nhập nhanh các điều kiện
+ * chuyển bước"*, kèm ảnh mẫu hộp chuyển bước của Base — trong đó các ô *"Báo giá NCC 1 (PDF) *"*,
+ * *"Báo giá NCC 2 (PDF) *"* nằm ngay trong hộp.
+ *
+ * 🔴 VÌ SAO PHẢI CÓ `ma`, KHÔNG CHỈ MỘT CÂU CHỮ: giao diện cần biết vướng mắc này gỡ bằng **ô
+ * nào**. Đoán bằng cách dò chữ trong câu (`cau.includes("báo giá")`) là kiểu ràng buộc mong manh
+ * nhất — sửa một chữ trong câu thông báo là ô biến mất, và không có gì báo.
+ *
+ * 🔴 VÌ SAO PHẢI CÓ `goDuocTaiCho`: không phải điều kiện nào cũng nhập nhanh được. *"Chưa nhận đủ
+ * hàng"* thì phải ghi phiếu nhận thật ở màn đơn hàng — bày một ô trong hộp cho nó là hứa một việc
+ * hộp không làm được, đúng thứ `CLAUDE.md` §3.5 cấm.
+ */
+export interface DieuKienConVuong {
+  /** Mã để giao diện tra ra ô cần bày. */
+  ma:
+    | "cong_viec_bat_buoc"
+    | "chua_phan_bo"
+    | "chua_lap_bang_bao_gia"
+    | "thieu_ban_bao_gia"
+    | "chua_duyet_bao_gia"
+    | "thieu_hop_dong"
+    | "thieu_hoa_don_vat"
+    | "chua_tich_unc";
+  /** Câu nói cho người dùng — giữ nguyên chữ của các hàm luật đang dùng. */
+  cau: string;
+  /**
+   * Gỡ được ngay trong hộp chuyển bước không.
+   *
+   * `false` = phải sang màn khác làm việc thật (lập đơn hàng, ghi phiếu nhận hàng). Giao diện khi
+   * đó bày một dòng dẫn đường, KHÔNG bày ô nhập.
+   */
+  goDuocTaiCho: boolean;
+}
+
+/**
+ * ★★★ TẤT CẢ điều kiện còn vướng để rời bước — bản DANH SÁCH của `vuongMacSangBuocSau`.
+ *
+ * 🔴 VÌ SAO PHẢI CÓ BẢN DANH SÁCH: mọi hàm luật trong app tới nay chỉ trả **một** câu vướng rồi
+ * thoát. Nếu nhúng ô vào hộp mà vẫn dùng bản một câu thì hồ sơ vướng ba thứ sẽ cho người dùng gỡ
+ * từng cái một — gỡ xong cái này hộp lòi ra cái khác, ba vòng liên tiếp, mỗi vòng lòi một yêu cầu
+ * trước đó họ không hề thấy. Khó chịu hơn hiện nay, vì hôm nay ít nhất mở trang chi tiết là thấy
+ * hết mọi ô cùng lúc.
+ *
+ * 📌 `vuongMacSangBuocSau` GIỮ NGUYÊN và gọi vào đây, lấy mục đầu tiên — hai cách đọc, MỘT luật.
+ * Nhờ vậy mọi nơi đang dùng bản một câu (chốt kéo thả, chốt tầng ghi) không phải sửa gì.
+ *
+ * ⚠️ THỨ TỰ CÓ Ý NGHĨA: xếp theo đúng thứ tự người dùng phải làm. Bản một câu lấy mục đầu, nên
+ * đảo thứ tự ở đây là đổi luôn câu mà chốt chặn nói ra.
+ */
+export function dsDieuKienConVuong(
+  deNghi: DeNghiMuaHang,
+  giaiDoan: GiaiDoanMuaHang,
+  baoGiaCuaDeNghi: BaoGia[],
+  cauHinh: CauHinhQuyTrinh,
+  vuongMacBaoGia: string | null,
+): DieuKienConVuong[] {
+  const ra: DieuKienConVuong[] = [];
+  const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
+
+  /* ① Công việc bắt buộc của bước — tích ngay trong hộp được (khối đó đã chạy từ 16/08/2026). */
+  const conViecChuaXong = congViecChuaXongCuaBuoc(deNghi, giaiDoan, cauHinh);
+  if (conViecChuaXong.length > 0) {
+    const ds = conViecChuaXong.map((cv) => `“${cv.ten}”`).join(", ");
+    ra.push({
+      ma: "cong_viec_bat_buoc",
+      cau: `Còn ${conViecChuaXong.length} công việc bắt buộc của bước này chưa hoàn thành: ${ds}.`,
+      goDuocTaiCho: true,
+    });
+  }
+
+  switch (giaiDoan) {
+    case "tiep_nhan": {
+      const chuaPhanBo = deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length;
+      if (chuaPhanBo > 0) {
+        ra.push({
+          ma: "chua_phan_bo",
+          cau: `Còn ${chuaPhanBo} trong ${deNghi.items.length} công việc chưa phân bổ người phụ trách.`,
+          /* Phân bổ cần chọn người cho từng dòng — bảng phân bổ có bộ lọc, chọn nhiều dòng, ô
+             yêu cầu số báo giá. Nhồi cả bảng đó vào hộp thì hộp thành một màn hình thứ hai. */
+          goDuocTaiCho: false,
+        });
+      }
+      break;
+    }
+
+    case "yeu_cau_bao_gia":
+      if (!conSong.some((b) => b.trangThai === "dang_thu_thap")) {
+        ra.push({
+          ma: "chua_lap_bang_bao_gia",
+          cau: "Chưa có bảng báo giá nào đang thu thập giá cho đề nghị này.",
+          /* Lập bảng báo giá chính là hành động của nút xác nhận trong hộp — không cần ô riêng. */
+          goDuocTaiCho: false,
+        });
+      } else if (vuongMacBaoGia) {
+        ra.push({ ma: "thieu_ban_bao_gia", cau: vuongMacBaoGia, goDuocTaiCho: true });
+      }
+      break;
+
+    case "xet_duyet_bao_gia":
+      if (conSong.some((b) => b.trangThai === "da_so_sanh")) {
+        ra.push({
+          ma: "chua_duyet_bao_gia",
+          cau: "Bảng báo giá chưa được duyệt. Trưởng bộ phận phải chốt nhà cung cấp (hoặc duyệt phương án chia đơn) trước khi lập đơn đặt hàng.",
+          /* Duyệt chọn NCC cần đọc bảng so sánh và ghi căn cứ — việc cân nhắc, không phải một ô. */
+          goDuocTaiCho: false,
+        });
+      }
+      break;
+
+    case "dat_hang": {
+      const vuong = vuongMacRoiBuocLapDon(deNghi);
+      if (vuong) ra.push({ ma: "thieu_hop_dong", cau: vuong, goDuocTaiCho: true });
+      break;
+    }
+
+    case "ho_so_thanh_toan":
+      if (!coHoaDonVAT(deNghi)) {
+        ra.push({
+          ma: "thieu_hoa_don_vat",
+          cau: "Chưa đính kèm Hóa đơn VAT ở khối kết quả của bước này.",
+          goDuocTaiCho: true,
+        });
+      } else {
+        const vuongUNC = vuongMacTichXongUNC(deNghi);
+        if (vuongUNC) ra.push({ ma: "chua_tich_unc", cau: vuongUNC, goDuocTaiCho: true });
+      }
+      break;
+
+    default:
+      /* Các bước còn lại chặn bằng chứng từ thật (đơn hàng, phiếu nhận, 3 lớp xác nhận). */
+      break;
+  }
+
+  return ra;
+}
+
 export function vuongMacSangBuocSau(
   deNghi: DeNghiMuaHang,
   giaiDoan: GiaiDoanMuaHang,
@@ -1172,83 +1337,18 @@ export function vuongMacSangBuocSau(
    */
   vuongMacBaoGia: string | null,
 ): string | null {
-  const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
-
   /**
-   * ★ CÔNG VIỆC BẮT BUỘC CỦA BƯỚC — kiểm TRƯỚC các điều kiện riêng của từng bước.
+   * 🔴 GỌI VÀO BẢN DANH SÁCH, KHÔNG CHÉP LẠI ĐIỀU KIỆN — sửa 25/08/2026.
    *
-   * 🔴 Ban lãnh đạo 14/08/2026 gửi ảnh cài đặt giai đoạn 01 trên Base: ô *"Yêu cầu hoàn thành
-   * các công việc được quy định"* đặt là **"Bắt buộc hoàn thành công việc của giai đoạn hiện
-   * tại"**, và bước 01 có công việc *"Checkin hàng tồn kho — QLK/TK báo tồn kho thực tế"*.
+   * Trước đây thân hàm này tự xét từng bước rồi trả một câu. Nay `dsDieuKienConVuong` giữ toàn
+   * bộ luật, còn hàm này chỉ lấy MỤC ĐẦU TIÊN. Hai chỗ cùng trả lời một câu hỏi mà mỗi chỗ giữ
+   * một bản điều kiện riêng là kiểu lệch đã phải sửa nhiều lần trong dự án này.
    *
-   * Kiểm ở đây nên MỌI đường chuyển bước đều bị chặn như nhau (kéo thả, nút lập bảng báo
-   * giá) — đúng nếp "một luật, mọi đường dùng chung" của hàm này. Danh mục công việc do nơi
-   * gọi lấy từ cấu hình quy trình (sửa được ở trang Cài đặt), không viết cứng ở đây.
+   * 📌 Lấy mục đầu chứ không nối hết: nơi gọi hàm này là các CHỐT CHẶN, chúng cần một câu ngắn
+   * nói việc phải làm trước nhất. Muốn thấy đủ điều kiện thì gọi thẳng `dsDieuKienConVuong`.
    */
-  const conViecChuaXong = congViecChuaXongCuaBuoc(deNghi, giaiDoan, cauHinh);
-  if (conViecChuaXong.length > 0) {
-    const ds = conViecChuaXong.map((cv) => `“${cv.ten}”`).join(", ");
-    return `Còn ${conViecChuaXong.length} công việc bắt buộc của bước này chưa hoàn thành: ${ds}. Tích hoàn thành ở khối “Công việc của bước” trong trang chi tiết đề nghị.`;
-  }
-
-  switch (giaiDoan) {
-    case "tiep_nhan": {
-      // Xong bước ① = đã có người phụ trách cho MỌI dòng vật tư. Còn dòng chưa ai nhận thì
-      // đi tiếp là bỏ rơi dòng đó: không ai đi hỏi giá, không ai lập đơn cho nó.
-      const chuaPhanBo = deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length;
-      return chuaPhanBo > 0
-        ? `Còn ${chuaPhanBo} trong ${deNghi.items.length} công việc chưa phân bổ người phụ trách. Phân bổ hết ở bảng "Phân bổ công việc" trước khi sang bước sau.`
-        : null;
-    }
-
-    case "yeu_cau_bao_gia":
-      /**
-       * 🔴 HỎI ĐỦ HAI THỨ — sửa 24/08/2026, trước đó CHỈ hỏi "có bảng đang thu thập không".
-       *
-       * Đo được lỗ hổng: hồ sơ đặt SL Báo giá = 3, mới đính 1 bản, chưa có bảng so sánh. Nút
-       * "Trình xét duyệt báo giá" ở trang chi tiết MỜ, in rõ *"Quy trình yêu cầu 3 bản báo giá,
-       * hiện còn thiếu 2 bản"*. Nhưng kéo thẻ ② → ③ thì đi được, toast xanh *"Đã chốt đủ báo
-       * giá"*, và trưởng bộ phận mở ra thấy đúng 1 bản mà app báo đã chốt đủ.
-       *
-       * Chỉ đạo Ban lãnh đạo 20/08/2026 (*"mục này bắt buộc phải có"* — đủ số bản báo giá và
-       * bảng so sánh) trước đây **chỉ có hiệu lực trên đường bấm nút**, bị lách bằng một cú kéo.
-       *
-       * 📌 Thứ tự câu: có bảng thu thập chưa → rồi mới tới đủ bản/bảng so sánh. Chưa lập bảng
-       * thì hỏi số bản báo giá là hỏi một việc chưa tới lượt.
-       */
-      if (!conSong.some((b) => b.trangThai === "dang_thu_thap")) {
-        return "Chưa có bảng báo giá nào đang thu thập giá cho đề nghị này.";
-      }
-      return vuongMacBaoGia;
-
-    case "xet_duyet_bao_gia":
-      // Xong bước ③ = đã DUYỆT (chốt nhà cung cấp hoặc duyệt phương án chia đơn).
-      return conSong.some((b) => b.trangThai === "da_so_sanh")
-        ? "Bảng báo giá chưa được duyệt. Trưởng bộ phận phải chốt nhà cung cấp (hoặc duyệt phương án chia đơn) trước khi lập đơn đặt hàng."
-        : null;
-
-    /* ★ Các bước có chứng từ bắt buộc, thêm 22/08/2026 — luật ở
-       `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, KHÔNG viết lại điều kiện ở đây.
-
-       🔴 HỢP ĐỒNG CHUYỂN TỪ ④ SANG ⑤ (Ban lãnh đạo 24/08/2026). Bước ④ nay chỉ cần có đơn đã
-       chốt — đã được `xacDinhGiaiDoan` bảo đảm, nên không còn điều kiện riêng nào. */
-    case "dat_hang":
-      return vuongMacRoiBuocLapDon(deNghi);
-
-    case "ho_so_thanh_toan":
-      /* Hai điều kiện của bước gộp, xét theo thứ tự người dùng gặp:
-         ① phải có hóa đơn VAT — bắt buộc;
-         ② rồi mới tích được "đã xử lý ủy nhiệm chi" (cái tích là công việc bắt buộc của bước,
-            đã bị chặn ở khối `conViecChuaXong` phía trên; nhắc lại ở đây để phòng trường hợp
-            cấu hình bị đổi làm việc đó thành không bắt buộc). */
-      return coHoaDonVAT(deNghi)
-        ? vuongMacTichXongUNC(deNghi)
-        : "Chưa đính kèm Hóa đơn VAT ở khối kết quả của bước này.";
-
-    default:
-      // Các bước còn lại đã được chặn bằng chứng từ thật (đơn hàng, phiếu nhận, 3 lớp xác nhận).
-      return null;
-  }
+  const ds = dsDieuKienConVuong(deNghi, giaiDoan, baoGiaCuaDeNghi, cauHinh, vuongMacBaoGia);
+  return ds.length === 0 ? null : ds[0].cau;
 }
 
 /**
@@ -1517,16 +1617,45 @@ export function quyetDinhKeoTha(
      *
      * Nay dùng chung `vuongMacSangBuocSau` với nút, nên hai đường **không thể nói khác nhau**.
      */
-    const vuong = vuongMacSangBuocSau(the.deNghi, tu, baoGiaCuaDeNghi, cauHinh, vuongMacBaoGia);
-    if (vuong) return { loai: "khong_the", lyDo: vuong };
     /* Đủ điều kiện thì DẪN tới đúng nút, đừng chặn tuyệt đối: việc hoàn thành là một quyết
        định có người bấm (Ban lãnh đạo 22/08/2026), không phải hệ quả của một cú kéo. */
-    return {
+    const danToiNutHoanThanh: HanhDongKeoTha = {
       loai: "mo_trang",
       duongDan: `/de-nghi/${the.deNghi.id}`,
       thongBao:
         "Hồ sơ đã đủ điều kiện hoàn thành. Bấm “Hoàn thành quy trình” ở cuối trang chi tiết đề nghị để đóng hồ sơ.",
     };
+
+    /**
+     * ★★ CỬA ⑦ → ⑧ CŨNG PHẢI CÓ Ô NHẬP NHANH — bổ sung 25/08/2026 cùng lượt với khối bên dưới.
+     *
+     * 🔴 SUÝT BỎ SÓT ĐÚNG CỬA QUAN TRỌNG NHẤT. Nhánh `dich === "hoan_thanh"` này `return` **trước**
+     * khối `can_go_vuong` ở cuối hàm, nên nếu chỉ sửa dưới đó thì **hóa đơn VAT và ủy nhiệm chi**
+     * — hai chứng từ Ban lãnh đạo nêu đích danh — vẫn bị chặn bằng một câu chữ, hộp không mở, ô
+     * nhập không bao giờ hiện. Sửa xong mà màn hình không đổi gì.
+     *
+     * 📌 Ở ĐÂY GIỮ NGUYÊN `cauHinh` (KHÔNG xoá `congViecTheoBuoc`), khác khối cuối hàm. Cửa hoàn
+     * thành phải soát cả việc bắt buộc của bước ⑦, và hộp có sẵn danh sách tích được cho chúng.
+     */
+    const dsHoanThanh = dsDieuKienConVuong(
+      the.deNghi,
+      tu,
+      baoGiaCuaDeNghi,
+      cauHinh,
+      vuongMacBaoGia,
+    );
+    if (dsHoanThanh.length > 0) {
+      if (dsHoanThanh.every((d) => d.goDuocTaiCho)) {
+        return {
+          loai: "can_go_vuong",
+          dieuKien: dsHoanThanh,
+          hanhDongSau: danToiNutHoanThanh,
+        };
+      }
+      /* Còn mục phải sang màn khác mới gỡ được → chặn, nói đúng câu của hàm luật (mục đầu). */
+      return { loai: "khong_the", lyDo: dsHoanThanh[0].cau };
+    }
+    return danToiNutHoanThanh;
   }
 
   /**
@@ -1615,6 +1744,43 @@ export function quyetDinhKeoTha(
   if (!vuongMacBuocDangDung) return hanhDong;
 
   /**
+   * ★★ VƯỚNG MẮC GỠ ĐƯỢC NGAY TRONG HỘP → MỞ HỘP KÈM Ô, KHÔNG ĐUỔI ĐI ĐÂU CẢ.
+   * Ban lãnh đạo 25/08/2026: *"Kéo qua bước phải hiển thị các trường nhập nhanh các điều kiện
+   * chuyển bước"*.
+   *
+   * 🔴🔴 KHỐI NÀY PHẢI ĐỨNG **TRƯỚC** NHÁNH `mo_trang` BÊN DƯỚI — và đây đúng là chỗ tôi vừa đặt
+   * sai rồi phải sửa ngay trong lượt này. Lý do: hai bước mà Ban lãnh đạo cần ô nhập nhanh nhất
+   * đều trả `mo_trang`:
+   *   · bước ⑤ "Tiến hành đặt hàng"  → vướng **tệp hợp đồng**
+   *   · bước ⑦ "Hồ sơ thanh toán"    → vướng **hóa đơn VAT / ủy nhiệm chi**
+   * Đặt sau `mo_trang` thì hai ca đó không bao giờ tới đây, app vẫn đá người dùng sang trang chi
+   * tiết như cũ — sửa xong mà **không có gì đổi trên màn hình**, đúng kiểu "tưởng xong mà chưa".
+   *
+   * 🔴 CHIA THEO `goDuocTaiCho`, KHÔNG CHIA THEO BƯỚC. Chia theo bước thì mỗi lần quy trình đổi
+   * lại phải nhớ sửa một danh sách bước ở đây — kiểu chốt sớm muộn thiếu một mục rồi lọt im lặng
+   * (đã xảy ra ba lần với chính hàm này). Còn `goDuocTaiCho` do chính nơi định nghĩa điều kiện
+   * khai, nên thêm điều kiện mới là tự động đúng.
+   *
+   * ⚠️ ĐÒI **MỌI** MỤC GỠ ĐƯỢC TẠI CHỖ, không phải "có ít nhất một mục". Còn lẫn một mục phải
+   * sang màn khác mới gỡ được thì hộp mở ra sẽ bày một bộ ô mà gỡ hết vẫn không mở được nút —
+   * người dùng làm xong vẫn kẹt và không hiểu vì sao. Ca đó để rơi xuống dưới, chặn thẳng và chỉ
+   * đúng chỗ phải tới.
+   *
+   * 📌 `congViecTheoBuoc: {}` giống hệt lần hỏi trên: việc bắt buộc của bước đã có đường riêng
+   * trong hộp (danh sách tích được, chỉ đạo 16/08/2026), đưa vào đây là đếm hai lần.
+   */
+  const dsVuong = dsDieuKienConVuong(
+    the.deNghi,
+    tu,
+    baoGiaCuaDeNghi,
+    { ...cauHinh, congViecTheoBuoc: {} },
+    vuongMacBaoGia,
+  );
+  if (dsVuong.length > 0 && dsVuong.every((d) => d.goDuocTaiCho)) {
+    return { loai: "can_go_vuong", dieuKien: dsVuong, hanhDongSau: hanhDong };
+  }
+
+  /**
    * 🔴🔴 CÒN VƯỚNG MẮC THÌ **MẶC ĐỊNH CHẶN** — sửa 24/08/2026 sau khi Ban lãnh đạo báo LẦN THỨ BA.
    *
    * Ban lãnh đạo: *"sao kéo chuyển bước chưa có các điều kiện giống chuyển bước trong chi tiết.
@@ -1663,7 +1829,7 @@ export function quyetDinhKeoTha(
   if (tu === "yeu_cau_bao_gia" && hanhDong.loai === "tao_bao_gia") return hanhDong;
 
   /* ③ Còn lại: hành động GHI DỮ LIỆU mà vướng mắc vẫn nguyên → CHẶN, kèm đúng câu của hàm luật.
-     Đây là chỗ ca "bước ② → ③ thiếu bản báo giá / bảng so sánh" bị chặn lại. */
+     Đây là chỗ ca "bước ② → ③ thiếu bảng so sánh" bị chặn lại. */
   return { loai: "khong_the", lyDo: vuongMacBuocDangDung };
 }
 
@@ -1903,6 +2069,25 @@ export function dungXacNhanKeoTha(
         nhanNut: "Lùi một bước",
         nguyHiem: true,
       };
+    /**
+     * ★★ CÒN VƯỚNG NHƯNG GỠ ĐƯỢC TẠI CHỖ — Ban lãnh đạo 25/08/2026.
+     *
+     * 🔴 KHÔNG TỰ NGHĨ RA CÂU MỚI, mà hỏi lại chính hàm này cho `hanhDongSau`. Nút phải nói đúng
+     * việc app sẽ làm SAU KHI gỡ xong — nếu viết cứng một câu chung chung ("Xác nhận") thì người
+     * bấm không biết mình sắp chốt báo giá hay sắp được dẫn sang màn khác.
+     *
+     * 🔴 CÂU DẪN NÓI THẲNG LÀ THẺ CHƯA NHẢY — Ban lãnh đạo 25/08/2026: *"Phải được duyệt thì mới
+     * nhảy"*. Người dùng đính tệp xong rất dễ tưởng đã xong việc rồi đóng hộp; nói trước thì họ
+     * biết còn một nút phải bấm.
+     */
+    case "can_go_vuong": {
+      const sau = dungXacNhanKeoTha(the, dich, hanhDong.hanhDongSau, poCuaDeNghi, phieuCuaDeNghi);
+      return {
+        ...sau,
+        seLam: `Bổ sung đủ chứng từ còn thiếu ở trên, rồi bấm nút bên dưới — thẻ chỉ chuyển bước sau khi bấm. ${sau.seLam}`.trim(),
+      };
+    }
+
     default:
       // "khong_the" không bao giờ tới được đây — trang gọi đã chặn và báo lý do trước.
       return { ...chung, seLam: "", nhanNut: "Xác nhận", nguyHiem: false };

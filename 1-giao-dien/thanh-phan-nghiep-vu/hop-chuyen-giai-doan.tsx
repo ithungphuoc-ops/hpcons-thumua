@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, Lock } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +21,31 @@ import {
   type CauHinhQuyTrinh,
   type CongViecGiaiDoan,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
-import { NHAN_GIAI_DOAN, type GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import {
+  NHAN_GIAI_DOAN,
+  type DieuKienConVuong,
+  type GiaiDoanMuaHang,
+} from "@/2-quy-trinh/giai-doan-mua-hang";
 import { chuTien } from "@/2-quy-trinh/nguong-gia-tri";
+import {
+  BUOC_DINH_KEM_HOP_DONG,
+  BUOC_DINH_KEM_HO_SO_THANH_TOAN,
+  KHOA_LY_DO_THIEU_HOP_DONG,
+  lyDoThieuHopDong,
+  NHAN_TEP_HOA_DON_VAT,
+  NHAN_TEP_HOP_DONG,
+  NHAN_TEP_UNC,
+  TEN_HIEN_HOP_DONG,
+  tepHoaDonVAT,
+  tepHopDong,
+  tepUNC,
+} from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
+import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
+import { KhuBaoGiaTheoSoLuong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-bao-gia-theo-so-luong";
+import { Input } from "@/1-giao-dien/nen-tang-ui/input";
+import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 
 /**
  * HỘP CHUYỂN NHIỆM VỤ SANG GIAI ĐOẠN TIẾP THEO — dựng theo ảnh Base Ban lãnh đạo gửi
@@ -55,6 +78,7 @@ export function HopChuyenGiaiDoan({
   nguyHiem = false,
   congViecChuaXong,
   daXong,
+  dieuKienConVuong,
   onTichCongViec,
   onDong,
   onXacNhan,
@@ -80,6 +104,15 @@ export function HopChuyenGiaiDoan({
   congViecChuaXong: CongViecGiaiDoan[];
   /** Mã các công việc đã tích xong — cập nhật theo dữ liệu thật. */
   daXong: string[];
+  /**
+   * ★★ ĐIỀU KIỆN CHUYỂN BƯỚC CÒN VƯỚNG, gỡ được ngay trong hộp — Ban lãnh đạo 25/08/2026:
+   * *"Kéo qua bước phải hiển thị các trường nhập nhanh các điều kiện chuyển bước"*.
+   *
+   * 🔴 PHẢI TÍNH LẠI MỖI LẦN VẼ Ở NƠI GỌI, không được là ảnh chụp lúc thả thẻ. Danh sách rỗng
+   * chính là điều kiện mở khóa nút; đưa vào một ảnh chụp thì người dùng đính đủ tệp mà nút vẫn
+   * khóa, phải đóng hộp mở lại mới thấy đổi — và họ sẽ tưởng việc đính kèm không ăn.
+   */
+  dieuKienConVuong: DieuKienConVuong[];
   /** Tích / bỏ tích một công việc ngay trong hộp. */
   onTichCongViec: (congViec: CongViecGiaiDoan, xong: boolean) => void;
   onDong: () => void;
@@ -153,7 +186,25 @@ export function HopChuyenGiaiDoan({
    * hai chuyện khác nhau. Chốt duy nhất còn lại cho hướng này là **phải ghi lý do**, và đó là
    * chốt đúng: cần biết vì sao hủy, không cần biết tồn kho bao nhiêu.
    */
-  const bikhoa = (!laDongDo && conViecChuaTich > 0) || (hoiSoBaoGia && soBaoGia === "") || thieuLyDo;
+  /**
+   * ★★ CÒN ĐIỀU KIỆN CHƯA GỠ THÌ KHÓA NÚT — Ban lãnh đạo 25/08/2026: *"Phải được duyệt thì mới
+   * nhảy"*.
+   *
+   * 🔴 ĐÍNH TỆP KHÔNG PHẢI LÀ DUYỆT. Đính xong chỉ làm danh sách này rỗng đi, tức **mở khóa** nút;
+   * thẻ chuyển bước khi và chỉ khi có người bấm nút đó. Kiến trúc đã bảo đảm phần còn lại:
+   * `xacDinhGiaiDoan` suy giai đoạn từ đơn hàng · phiếu nhận · trạng thái PO, **không đọc tệp đính
+   * kèm**, nên không có đường nào để một cú đính kèm tự đẩy thẻ sang cột.
+   *
+   * ⚠️ KHÔNG khóa khi đang ĐÓNG DỞ, cùng lý do với công việc bắt buộc (xem chú thích dưới): hủy
+   * hồ sơ là RA KHỎI quy trình, đòi đủ chứng từ để hủy là bắt người dùng đi xin giấy tờ cho một
+   * việc sắp bỏ.
+   */
+  const conDieuKienChuaGo = !laDongDo && dieuKienConVuong.length > 0;
+  const bikhoa =
+    (!laDongDo && conViecChuaTich > 0) ||
+    conDieuKienChuaGo ||
+    (hoiSoBaoGia && soBaoGia === "") ||
+    thieuLyDo;
 
   return (
     <Dialog open={mo} onOpenChange={(v) => !v && onDong()}>
@@ -258,6 +309,38 @@ export function HopChuyenGiaiDoan({
             </div>
           </div>
 
+          {/* ===== ②b ĐIỀU KIỆN CHUYỂN BƯỚC — ĐÍNH KÈM NGAY TẠI ĐÂY =====
+              ★★ Ban lãnh đạo 25/08/2026: *"Kéo qua bước phải hiển thị các trường nhập nhanh các
+              điều kiện chuyển bước"*, sau khi báo ba lần rằng kéo thả và bấm nút không giống nhau.
+
+              🔴 TRƯỚC HÔM NAY chỗ này là NGÕ CỤT: kéo thẻ mà thiếu chứng từ thì app hiện một toast
+              đỏ rồi thôi — người dùng đang đứng ở bảng quy trình, phải tự đoán đường sang trang chi
+              tiết, cuộn tìm đúng khối, đính kèm, rồi quay về kéo lại. Nay đính ngay tại đây.
+
+              🔴 KHÔNG MỞ HỘP THOẠI LỒNG NHAU. Các ô dưới đây là ô đính kèm tại chỗ, dùng lại đúng
+              hai thành phần trang chi tiết đang dùng (`KhuBaoGiaTheoSoLuong`, `OChungTuBatBuoc`) —
+              nên tệp đính ở đây và đính ở trang chi tiết vào **cùng một chỗ**, không sinh hai
+              đường lưu khác nhau.
+
+              📌 CHỈ BÀY, KHÔNG TỰ QUYẾT ĐIỀU KIỆN. Danh sách do `dsDieuKienConVuong` sinh ở tầng
+              quy trình — cùng hàm mà luật chặn hỏi, nên hộp không bao giờ nói khác thứ app chặn. */}
+          {dieuKienConVuong.length > 0 && deNghi && (
+            <div className="flex flex-col gap-3 border-t border-divider pt-3">
+              <p className="text-center text-xs font-semibold tracking-wide text-text-desc uppercase">
+                Điều kiện chuyển bước còn thiếu
+              </p>
+              {dieuKienConVuong.map((dk) => (
+                <OGoDieuKien key={dk.ma} dieuKien={dk} deNghi={deNghi} />
+              ))}
+              {/* Nói trước là còn một nút phải bấm — người dùng đính tệp xong rất dễ tưởng xong
+                  việc rồi đóng hộp, và thẻ đứng nguyên cột cũ mà không hiểu vì sao. */}
+              <p className="text-xs text-warning-soft">
+                Bổ sung đủ các mục trên thì nút bên dưới mở khóa. Thẻ chỉ chuyển bước sau khi bấm
+                nút đó.
+              </p>
+            </div>
+          )}
+
           {/* ===== ③ CÔNG VIỆC ĐANG CHỜ Ở GIAI ĐOẠN TRƯỚC =====
               ★ TÍCH ĐƯỢC NGAY TẠI ĐÂY — Ban lãnh đạo 16/08/2026: *"khi trưởng bộ phận kéo sang
               bước 2 là phải hiện xác nhận đã check hàng tồn kho, nếu chưa tích xác nhận thì
@@ -346,6 +429,134 @@ export function HopChuyenGiaiDoan({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * ★★ MỘT Ô GỠ MỘT ĐIỀU KIỆN — Ban lãnh đạo 25/08/2026.
+ *
+ * 🔴 CHỌN Ô THEO `ma`, KHÔNG THEO BƯỚC. Cùng một điều kiện có thể chặn ở nhiều cửa (hóa đơn VAT
+ * chặn cả ⑦→⑧ lẫn nút "Hoàn thành quy trình"); bám theo bước là phải nhớ liệt kê đủ mọi cửa, kiểu
+ * danh sách sớm muộn thiếu một mục rồi lọt im lặng.
+ *
+ * 🔴 TÁI SỬ DỤNG ĐÚNG THÀNH PHẦN CỦA TRANG CHI TIẾT, không dựng ô mới. Chúng ghi qua
+ * `datTepVaoOGiaiDoan` với đúng nhãn mà các hàm luật (`tepHopDong`, `tepHoaDonVAT`,
+ * `tepBaoGiaDaCo`) đi tìm. Dựng ô riêng ở đây là mở đường cho tệp đính trong hộp không được luật
+ * nhận ra — người dùng đính xong mà nút vẫn khóa.
+ *
+ * ⚠️ Nhánh `default` CỐ Ý chỉ in câu chữ: nó chỉ tới được khi ai đó thêm mã điều kiện mới mà quên
+ * khai ô. Khi ấy hộp vẫn nói rõ đang thiếu gì (không im lặng), còn nút thì vẫn khóa — an toàn
+ * hơn là cho đi.
+ */
+function OGoDieuKien({
+  dieuKien,
+  deNghi,
+}: {
+  dieuKien: DieuKienConVuong;
+  deNghi: DeNghiMuaHang;
+}) {
+  const { ghiLyDoThieuChungTu } = useDuLieu();
+  const { nguoiDung, quyen } = useNguoiDung();
+  /* Cùng điều kiện quyền với trang chi tiết (`duocSuaTepBuoc`) — hai nơi đính vào cùng một chỗ
+     thì không được nơi cho nơi cấm. */
+  const duocSua = quyen.phanBoCongViec || quyen.lapPO;
+
+  /**
+   * `hienCau` — có in câu vướng mắc ở đầu khối không.
+   *
+   * 🔴 MẶC ĐỊNH IN, NHƯNG TẮT ĐI KHI Ô BÊN TRONG ĐÃ NÓI ĐÚNG CÂU ĐÓ. Đo được ngay lần chạy thử
+   * đầu tiên (25/08/2026): `KhuBaoGiaTheoSoLuong` tự in sẵn dòng cảnh báo *"Quy trình yêu cầu 2
+   * bản báo giá, hiện còn thiếu 2 bản…"*, nên hộp hiện **y hệt câu đó hai lần liền nhau** — thừa
+   * gần 150 ký tự trong một hộp vốn đã dài, đúng thứ Ban lãnh đạo bảo dẹp ngày 24/08/2026
+   * (*"Tối giản ký tự thông báo lại"*).
+   *
+   * ⚠️ ĐỪNG bỏ hẳn câu này cho gọn: các ô khác (hợp đồng, hóa đơn VAT) KHÔNG tự nói lý do, tắt
+   * chung là người dùng thấy một ô đính kèm mọc ra giữa hộp mà không biết vì sao nó ở đó.
+   */
+  const khung = (noiDung: React.ReactNode, hienCau = true) => (
+    <div className="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning-bg p-3">
+      {hienCau && <p className="text-xs text-text-secondary">{dieuKien.cau}</p>}
+      {noiDung}
+    </div>
+  );
+
+  switch (dieuKien.ma) {
+    case "thieu_ban_bao_gia":
+      /* `false`: khu báo giá tự in đúng câu này rồi — xem chú thích `hienCau` ở trên. */
+      return khung(
+        <KhuBaoGiaTheoSoLuong deNghi={deNghi} duocSua={duocSua} chanXoaTep />,
+        false,
+      );
+
+    case "thieu_hop_dong":
+      return khung(
+        <>
+          <OChungTuBatBuoc
+            deNghi={deNghi}
+            maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
+            nhanO={NHAN_TEP_HOP_DONG}
+            tieuDe={TEN_HIEN_HOP_DONG}
+            batBuoc
+            duocSua={duocSua}
+            tepDaCo={tepHopDong(deNghi)}
+          />
+          {/* ★ ĐƯỜNG THỨ HAI: chưa có bản ký thì GHI LÝ DO cũng đi tiếp được (Ban lãnh đạo
+              23/08/2026). Không bày ô này ở đây là hồ sơ chưa kịp ký hợp đồng bị kẹt cứng trong
+              hộp — đúng cái ngõ cụt hôm nay đang đi sửa, chỉ đổi chỗ. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="ly-do-thieu-hd-hop" className="shrink-0">
+              Hoặc ghi lý do chưa có
+            </Label>
+            <Input
+              id="ly-do-thieu-hd-hop"
+              className="min-w-48 flex-1"
+              /* 🔴 `defaultValue` + ghi khi RỜI Ô, giống hệt trang chi tiết: mỗi lần ghi là một
+                 dòng nhật ký và một lần đẩy lên kho chung của cả phòng. Ghi theo từng ký tự thì
+                 gõ một câu 60 chữ thành 60 dòng nhật ký. */
+              defaultValue={lyDoThieuHopDong(deNghi)}
+              disabled={!duocSua}
+              placeholder="Ví dụ: hai bên đã thống nhất qua email, bản ký sẽ có trong tuần này."
+              onBlur={(e) => {
+                const loi = ghiLyDoThieuChungTu(
+                  deNghi.id,
+                  KHOA_LY_DO_THIEU_HOP_DONG,
+                  e.target.value,
+                  nguoiDung.tenHienThi,
+                );
+                if (loi) toast.error("Chưa ghi được lý do", { description: loi });
+              }}
+            />
+          </div>
+        </>,
+      );
+
+    case "thieu_hoa_don_vat":
+      return khung(
+        <OChungTuBatBuoc
+          deNghi={deNghi}
+          maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
+          nhanO={NHAN_TEP_HOA_DON_VAT}
+          tieuDe="Hóa đơn VAT"
+          batBuoc
+          duocSua={duocSua}
+          tepDaCo={tepHoaDonVAT(deNghi)}
+        />,
+      );
+
+    case "chua_tich_unc":
+      return khung(
+        <OChungTuBatBuoc
+          deNghi={deNghi}
+          maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
+          nhanO={NHAN_TEP_UNC}
+          tieuDe="Ủy nhiệm chi"
+          duocSua={duocSua}
+          tepDaCo={tepUNC(deNghi)}
+        />,
+      );
+
+    default:
+      return khung(null);
+  }
 }
 
 /**
