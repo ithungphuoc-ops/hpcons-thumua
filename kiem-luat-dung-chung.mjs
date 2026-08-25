@@ -1058,6 +1058,64 @@ kiem(
   },
 );
 
+kiem(
+  "Buoc ② CHUA co bang bao gia van phai bay O DINH KEM (ca Sep chup 25/08)",
+  "Ban lãnh đạo · 25/08/2026 (*\"sao vẫn chưa sửa mục này\"*)",
+  () => {
+    /* 🔴 CA NÀY ĐÃ LỌT MỘT LẦN. Bản sửa sáng 25/08 chỉ chạy đúng khi hồ sơ ĐÃ có bảng báo giá;
+       hồ sơ chưa có bảng thì `dsDieuKienConVuong` viết `else` nên **không thèm hỏi** có thiếu
+       bản báo giá hay không, chỉ trả `chua_lap_bang_bao_gia` (goDuocTaiCho: false) → hộp mở ra
+       TRỐNG TRƠN, chỉ có ô ghi chú và nút "Tạo bảng báo giá". Ban lãnh đạo chụp đúng màn đó. */
+    const the = { deNghi: deNghiThu(), giaiDoan: "yeu_cau_bao_gia" };
+    const cauThieu = "Quy trình yêu cầu 2 bản báo giá, hiện còn thiếu 2 bản.";
+    const r = G.quyetDinhKeoTha(
+      the,
+      "xet_duyet_bao_gia",
+      [],
+      [] /* KHONG co bang bao gia nao — day la diem khac biet */,
+      G.CAU_HINH_MAC_DINH ?? {},
+      cauThieu,
+    );
+    return {
+      duoc: r?.loai === "can_go_vuong" && r.dieuKien?.some((d) => d.ma === "thieu_ban_bao_gia"),
+      thucTe: `${r?.loai ?? "?"} · ${JSON.stringify(r?.dieuKien?.map((d) => d.ma) ?? [])}`,
+      mongDoi: 'can_go_vuong co "thieu_ban_bao_gia" (khong duoc chi tra chua_lap_bang_bao_gia)',
+    };
+  },
+);
+
+kiem(
+  "Tao bang bao gia tu buoc ② phai CHOT LUON de the sang cot ③",
+  "Ban lãnh đạo · 25/08/2026 (chong 'bam ma khong thay gi')",
+  () => {
+    /* Bang moi tao mang trang thai `dang_thu_thap`, ma `xacDinhGiaiDoan` suy trang thai do ve
+       COT ②. Thieu co `chotLuon` thi nguoi dung dinh du tep, bam nut, the dung nguyen cho cu. */
+    const the = { deNghi: deNghiThu(), giaiDoan: "yeu_cau_bao_gia" };
+    const r = G.quyetDinhKeoTha(the, "xet_duyet_bao_gia", [], [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    return {
+      duoc: r?.loai === "tao_bao_gia" && r.chotLuon === true,
+      thucTe: `${r?.loai ?? "?"} · chotLuon = ${String(r?.chotLuon)}`,
+      mongDoi: "tao_bao_gia kem chotLuon = true",
+    };
+  },
+);
+
+kiem(
+  "Keo ① → ② KHONG duoc chot luon (chong day the vuot mot buoc)",
+  "Ban lãnh đạo · 25/08/2026 (chieu nguoc cua bai tren)",
+  () => {
+    /* Buoc ① cung tra `tao_bao_gia`, nhung o do dich den DUNG LA cot ②. Chot luon la day the
+       sang ③ — vuot mot buoc khong ai yeu cau. Bai kiem nay giu cho ban sua khong di qua tay. */
+    const the = { deNghi: deNghiThu(), giaiDoan: "tiep_nhan" };
+    const r = G.quyetDinhKeoTha(the, "yeu_cau_bao_gia", [], [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    return {
+      duoc: r?.loai !== "tao_bao_gia" || !r.chotLuon,
+      thucTe: `${r?.loai ?? "?"} · chotLuon = ${String(r?.chotLuon)}`,
+      mongDoi: "khong co chotLuon khi keo tu buoc ①",
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 

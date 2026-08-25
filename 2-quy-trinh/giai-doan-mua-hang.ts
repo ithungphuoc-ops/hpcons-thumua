@@ -609,7 +609,18 @@ export function soSanhTheTrenBang(
 // ------------------------------------------------------------
 
 export type HanhDongKeoTha =
-  | { loai: "tao_bao_gia" }
+  /**
+   * `chotLuon` — tạo bảng XONG thì chốt sang so sánh luôn, để thẻ sang cột ③ trong MỘT lần bấm.
+   *
+   * 🔴 THÊM 25/08/2026, vì nếu không thì người dùng lại gặp *"bấm mà không thấy gì"*.
+   * Đo được: kéo thẻ ②→③ khi hồ sơ chưa có bảng báo giá thì hành động là `tao_bao_gia`, mà bảng
+   * mới tạo mang trạng thái `dang_thu_thap` — và `xacDinhGiaiDoan` suy `dang_thu_thap` → cột ②.
+   * Tức người dùng đính đủ tệp, bấm nút, rồi **thẻ vẫn đứng nguyên cột cũ**, phải kéo lần thứ hai.
+   *
+   * ⚠️ CHỈ đặt cờ khi kéo TỪ bước ② (ý định là sang ③). Kéo ①→② cũng trả `tao_bao_gia` nhưng ở
+   * đó đích đến ĐÚNG LÀ cột ②, chốt luôn là đẩy thẻ vượt một bước không ai yêu cầu.
+   */
+  | { loai: "tao_bao_gia"; chotLuon?: boolean }
   | { loai: "chot_so_sanh" }
   | { loai: "dong_do" }
   | { loai: "mo_trang"; duongDan: string; thongBao: string }
@@ -1268,15 +1279,34 @@ export function dsDieuKienConVuong(
     }
 
     case "yeu_cau_bao_gia":
+      /**
+       * 🔴🔴 HAI ĐIỀU KIỆN NÀY ĐỘC LẬP — TRƯỚC ĐÂY VIẾT `else` VÀ ĐÓ LÀ LỖI (sửa 25/08/2026).
+       *
+       * Ban lãnh đạo báo: kéo thẻ ②→③ mà hộp **không hề hiện ô đính kèm nào**, chỉ có nút
+       * *"Tạo bảng báo giá"*. Đo lại đúng ca đó:
+       *   hồ sơ CHƯA có bảng báo giá  →  danh sách chỉ trả `chua_lap_bang_bao_gia`
+       *   → mục đó `goDuocTaiCho: false` → không mở khối ô → hộp trống trơn.
+       *
+       * ⚠️ Nguyên nhân là chữ `else`: chưa có bảng thì hàm **không thèm hỏi** có thiếu bản báo
+       * giá hay không — trong khi thực tế thiếu CẢ HAI. Hai thứ này không loại trừ nhau: bảng là
+       * chứng từ nội bộ app, còn bản báo giá là tệp nhà cung cấp gửi. Thiếu tệp thì vẫn phải nói
+       * ra, bất kể đã lập bảng hay chưa.
+       *
+       * 📌 THỨ TỰ CÓ CHỦ Ý: nói việc NGƯỜI DÙNG phải làm (đính tệp) trước việc APP tự làm (lập
+       * bảng). `vuongMacSangBuocSau` lấy mục đầu, nên câu chặn ngắn cũng nói đúng việc cần làm.
+       */
+      if (vuongMacBaoGia) {
+        ra.push({ ma: "thieu_ban_bao_gia", cau: vuongMacBaoGia, goDuocTaiCho: true });
+      }
       if (!conSong.some((b) => b.trangThai === "dang_thu_thap")) {
         ra.push({
           ma: "chua_lap_bang_bao_gia",
           cau: "Chưa có bảng báo giá nào đang thu thập giá cho đề nghị này.",
-          /* Lập bảng báo giá chính là hành động của nút xác nhận trong hộp — không cần ô riêng. */
+          /* Lập bảng báo giá chính là hành động của nút xác nhận trong hộp — không cần ô riêng.
+             Vì vậy `quyetDinhKeoTha` LỌC BỎ mục này khi hành động sắp làm là `tao_bao_gia`:
+             giữ lại thì nó kéo cả danh sách xuống "không gỡ được tại chỗ" và hộp lại trống. */
           goDuocTaiCho: false,
         });
-      } else if (vuongMacBaoGia) {
-        ra.push({ ma: "thieu_ban_bao_gia", cau: vuongMacBaoGia, goDuocTaiCho: true });
       }
       break;
 
@@ -1775,7 +1805,24 @@ export function quyetDinhKeoTha(
     baoGiaCuaDeNghi,
     { ...cauHinh, congViecTheoBuoc: {} },
     vuongMacBaoGia,
-  );
+  ).filter((d) => {
+    /**
+     * 🔴 BỎ MỤC MÀ CHÍNH CÁI NÚT SẼ LÀM — sửa 25/08/2026 sau khi Ban lãnh đạo báo hộp trống.
+     *
+     * *"Chưa có bảng báo giá nào"* là việc APP tự làm khi bấm nút (`tao_bao_gia`), không phải
+     * việc người dùng phải gỡ. Giữ nó trong danh sách thì nó kéo cả danh sách xuống "còn mục
+     * không gỡ được tại chỗ" → hộp không bày ô nào → đúng cái màn hình trống Ban lãnh đạo chụp:
+     * chỉ có ô ghi chú và nút *"Tạo bảng báo giá"*, không một ô đính kèm báo giá nào.
+     *
+     * ⚠️ CHỈ bỏ khi hành động sắp làm ĐÚNG LÀ lập bảng. Ở ca khác (đã có bảng) mục này không
+     * sinh ra, còn nếu về sau có nhánh nào khác thì nó vẫn phải chặn như cũ.
+     */
+    const nutSeTuLam =
+      d.ma === "chua_lap_bang_bao_gia" &&
+      tu === "yeu_cau_bao_gia" &&
+      hanhDong.loai === "tao_bao_gia";
+    return !nutSeTuLam;
+  });
   if (dsVuong.length > 0 && dsVuong.every((d) => d.goDuocTaiCho)) {
     return { loai: "can_go_vuong", dieuKien: dsVuong, hanhDongSau: hanhDong };
   }
@@ -1862,7 +1909,10 @@ function hanhDongTienMotBuoc(
        */
       return baoGiaCuaDeNghi.some((b) => b.trangThai === "dang_thu_thap")
         ? { loai: "chot_so_sanh" }
-        : { loai: "tao_bao_gia" };
+        : /* `chotLuon`: đang đứng ở ② và kéo sang ③, nên tạo bảng xong phải chốt luôn — xem
+             chú thích ở khai báo `HanhDongKeoTha`. Không có cờ này thì thẻ đứng nguyên cột ②
+             sau khi bấm, và người dùng phải kéo lần thứ hai mà không hiểu vì sao. */
+          { loai: "tao_bao_gia", chotLuon: true };
 
     case "xet_duyet_bao_gia": {
       /**

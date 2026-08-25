@@ -350,6 +350,26 @@ export default function TrangDanhSachDeNghi() {
       case "tao_bao_gia": {
         const id = taoBaoGiaGiaLap(prId, nguoiDung.tenHienThi);
         if (id) {
+          /**
+           * ★ CHỐT LUÔN KHI ĐANG KÉO ②→③ — thêm 25/08/2026 (xem cờ `chotLuon`).
+           *
+           * 🔴 Bảng vừa tạo mang trạng thái `dang_thu_thap`, mà `xacDinhGiaiDoan` suy trạng thái
+           * đó về **cột ②**. Không chốt tiếp thì người dùng đính đủ báo giá, bấm nút, và thẻ
+           * đứng nguyên chỗ cũ — đúng kiểu "bấm mà không thấy gì" Ban lãnh đạo đã báo nhiều lần.
+           *
+           * 📌 An toàn vì nhánh này chỉ chạy khi hồ sơ CHƯA có bảng `dang_thu_thap` nào, nên
+           * `doiTrangThaiBaoGiaTheoDeNghi` chỉ đụng đúng bảng vừa tạo.
+           *
+           * ⚠️ Điều kiện đính kèm KHÔNG bị bỏ qua ở đây: hộp đã khoá nút cho tới khi đủ tệp
+           * (`dieuKienConVuong`), nên tới được dòng này nghĩa là đã đủ.
+           */
+          if (hanhDong.chotLuon) {
+            doiTrangThaiBaoGiaTheoDeNghi(prId, "dang_thu_thap", "da_so_sanh", nguoiDung.tenHienThi);
+            toast.success("Đã chốt đủ báo giá", {
+              description: `${the.deNghi.code} chuyển sang "Xét duyệt báo giá".`,
+            });
+            break;
+          }
           toast.success("Đã tạo bảng báo giá", {
             description: `${the.deNghi.code} chuyển sang "Yêu cầu NCC báo giá".`,
           });
