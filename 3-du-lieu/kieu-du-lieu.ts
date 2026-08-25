@@ -571,17 +571,40 @@ export interface XacNhan {
  */
 export type MauDonMuaHang = "thoa_thuan" | "theo_hop_dong";
 
-/** Nhãn hai mẫu — dùng chung cho ô chọn ở màn lập đơn và cho tiêu đề tờ in. */
+/**
+ * Nhãn hai mẫu — dùng chung cho ô chọn ở màn lập đơn và cho tiêu đề tờ in.
+ *
+ * ★ ĐẶT TÊN THEO MÃ BIỂU MẪU — Ban lãnh đạo 25/08/2026: *"Đổi tên 2 mẫu này: 1. Mẫu PO-01 - Đơn
+ * mua hàng · 2. Mẫu PO-02 - Đơn mua hàng kèm thoả thuận"*.
+ *
+ * 🔴🔴 `nhan` VÀ `tieuDeIn` LÀ HAI THỨ KHÁC NHAU, ĐỪNG GỘP:
+ *   · `nhan`     = chữ trong ô chọn, người **nội bộ** đọc để chọn đúng biểu mẫu → mang mã PO-01 /
+ *                  PO-02 cho khớp bộ biểu mẫu của công ty.
+ *   · `tieuDeIn` = chữ **in lên tờ giấy gửi nhà cung cấp** → TUYỆT ĐỐI không mang mã nội bộ. Nhà
+ *                  cung cấp nhận một chứng từ đề *"Mẫu PO-01"* thì không hiểu đó là văn bản gì;
+ *                  tờ đơn phải tự xưng đúng loại văn bản của nó.
+ *
+ * 🔴 ÁNH XẠ THEO NGHĨA PHÁP LÝ, KHÔNG THEO THỨ TỰ CŨ TRONG Ô CHỌN:
+ *   · PO-02 *"kèm thoả thuận"* → `thoa_thuan` — chính tờ đơn có giá trị như hợp đồng, nên tờ in
+ *     có thêm hai câu cam kết ở cuối.
+ *   · PO-01 *"Đơn mua hàng"*   → `theo_hop_dong` — điều khoản nằm ở hợp đồng nguyên tắc đã ký, tờ
+ *     in chỉ dẫn số và ngày hợp đồng đó và KHÔNG cam kết lại.
+ * Đổi nhãn máy móc theo vị trí cũ là gán tên "kèm thoả thuận" cho mẫu **không** có thoả thuận —
+ * người lập chọn nhầm là gửi cho nhà cung cấp một chứng từ nói sai về căn cứ pháp lý.
+ *
+ * 📌 THỨ TỰ KHAI Ở ĐÂY QUYẾT ĐỊNH THỨ TỰ TRONG Ô CHỌN (dropdown dựng bằng `Object.keys`). Xếp
+ * PO-01 trước PO-02 cho đúng số thứ tự Ban lãnh đạo đánh.
+ */
 export const NHAN_MAU_PO: Record<MauDonMuaHang, { nhan: string; tieuDeIn: string; moTa: string }> = {
-  thoa_thuan: {
-    nhan: "Đơn mua hàng / Thỏa thuận mua bán",
-    tieuDeIn: "Đơn mua hàng / Thỏa thuận mua bán",
-    moTa: "Chưa có hợp đồng riêng — chính tờ đơn có giá trị như hợp đồng khi hai bên ký.",
-  },
   theo_hop_dong: {
-    nhan: "Đơn mua hàng (theo hợp đồng đã ký)",
+    nhan: "Mẫu PO-01 — Đơn mua hàng",
     tieuDeIn: "Đơn mua hàng",
     moTa: "Đã có hợp đồng nguyên tắc — tờ đơn ghi rõ số và ngày ký hợp đồng đó.",
+  },
+  thoa_thuan: {
+    nhan: "Mẫu PO-02 — Đơn mua hàng kèm thoả thuận",
+    tieuDeIn: "Đơn mua hàng / Thỏa thuận mua bán",
+    moTa: "Chưa có hợp đồng riêng — chính tờ đơn có giá trị như hợp đồng khi hai bên ký.",
   },
 };
 
