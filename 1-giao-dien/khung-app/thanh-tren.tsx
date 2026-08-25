@@ -6,6 +6,7 @@ import { SidebarNav } from "@/1-giao-dien/khung-app/thanh-ben-noi-dung";
 import { HeaderClock } from "@/1-giao-dien/khung-app/dong-ho";
 import { ThemeToggle } from "@/1-giao-dien/khung-app/nut-sang-toi";
 import { NutThongBao } from "@/1-giao-dien/khung-app/nut-thong-bao";
+import { NutQuaCuaToi } from "@/1-giao-dien/khung-app/qua-cua-toi";
 import { MenuTaiKhoan } from "@/1-giao-dien/khung-app/menu-tai-khoan";
 import { ChiBaoKhoChung } from "@/1-giao-dien/khung-app/chi-bao-kho-chung";
 
@@ -58,6 +59,9 @@ export function AppHeader() {
         <ChiBaoKhoChung />
         <HeaderClock />
         <NutThongBao />
+        {/* 🎁 "Quà của tôi" — popup nhiệm vụ đổi điểm UrBox, xem `qua-cua-toi.tsx`. Đặt cạnh
+            chuông thông báo, đúng vị trí quy ước hệ sinh thái (hpcons-portal, ITAsset...). */}
+        <NutQuaCuaToi />
         <ThemeToggle />
         <MenuTaiKhoan />
       </div>
