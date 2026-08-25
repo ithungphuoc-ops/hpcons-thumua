@@ -136,6 +136,7 @@ export function BangHangTien({
   onDoiDong,
   onXoaDong,
   onThemDong,
+  onChenDongDuoi,
   onThemGhiChu,
   onXoaHetDong,
   onDoiKieuChietKhau,
@@ -193,6 +194,11 @@ export function BangHangTien({
   onDoiDong: (id: string, phan: Partial<DongNhapDonHang>) => void;
   onXoaDong: (id: string) => void;
   onThemDong: () => void;
+  /**
+   * ★ Chèn một dòng trắng NGAY DƯỚI dòng có id truyền vào — Ban lãnh đạo 25/08/2026.
+   * Khác `onThemDong` (thêm vào cuối bảng, và ở chế độ có đề nghị thì mở hộp chọn mặt hàng).
+   */
+  onChenDongDuoi: (idTren: string) => void;
   onThemGhiChu: () => void;
   onXoaHetDong: () => void;
   onDoiKieuChietKhau: (k: KieuChietKhau) => void;
@@ -562,7 +568,28 @@ export function BangHangTien({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <NutXoaDong nhan={`ghi chú dòng ${viTri + 1}`} onXoa={() => onXoaDong(d.id)} />
+                      {/* 🔴 DÒNG GHI CHÚ CŨNG PHẢI CÓ DẤU [+], không được bỏ sót: ghi chú đóng vai
+                          TIÊU ĐỀ NHÓM, nên cách dựng một nhóm là bấm [Thêm ghi chú] rồi bấm [+]
+                          ngay trên dòng đó để đẻ các dòng hàng bên dưới nó. Thiếu dấu này thì
+                          nhóm nào cũng phải thêm hàng ở cuối bảng rồi chịu, vì bảng không kéo dời
+                          dòng được. */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onChenDongDuoi(d.id)}
+                          title={`Thêm một dòng hàng ngay dưới ghi chú này`}
+                          className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-primary-bg hover:text-primary"
+                        >
+                          <Plus className="size-4 shrink-0" aria-hidden />
+                          <span className="sr-only">
+                            Thêm một dòng hàng ngay dưới ghi chú dòng {viTri + 1}
+                          </span>
+                        </button>
+                        <NutXoaDong
+                          nhan={`ghi chú dòng ${viTri + 1}`}
+                          onXoa={() => onXoaDong(d.id)}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -608,8 +635,25 @@ export function BangHangTien({
                 thieuOBatBuoc.length > 0 && (soLuongNhap > 0 || Number(d.donGia) > 0);
 
               return (
-                <TableRow key={d.id}>
-                  <TableCell className="text-center text-text-desc">{viTri + 1}</TableCell>
+                /**
+                 * 🔴 `[&>td]:align-top` — CÁC Ô PHẢI THẲNG ĐỈNH, Ban lãnh đạo 25/08/2026:
+                 * *"Điều chỉnh ngay dòng thẳng lối"*.
+                 *
+                 * Ô bảng mặc định căn GIỮA theo chiều cao dòng. Hai cột "Tên hàng" và "Số lượng"
+                 * có thêm dòng chú thích bên dưới (*"Đề nghị dòng 1 · còn 250 kg"*, cảnh báo vượt
+                 * khối lượng) nên chúng cao hơn các cột khác — và vì căn giữa, ô nhập của chúng
+                 * bị đẩy LÊN vài pixel so với ô nhập các cột còn lại. Đo được trên ảnh Ban lãnh
+                 * đạo gửi: ô "Thép D10" cao hơn ô "CB350" khoảng 10px.
+                 *
+                 * Căn đỉnh thì mọi ô nhập bắt đầu ở cùng một đường, còn chú thích cứ dài xuống
+                 * dưới bao nhiêu cũng không kéo lệch hàng.
+                 *
+                 * ⚠️ Ô CHỈ CÓ CHỮ (số thứ tự · thành tiền) phải thêm `pt-3` bù lại: chữ cao ~20px
+                 * còn ô nhập cao 44px, căn đỉnh trần thì chữ nằm sát mép trên trông như rơi ra
+                 * khỏi hàng. `pt-3` (12px) đưa chữ về đúng tâm ô nhập bên cạnh.
+                 */
+                <TableRow key={d.id} className="[&>td]:align-top">
+                  <TableCell className="pt-3 text-center text-text-desc">{viTri + 1}</TableCell>
 
                   {/* ❌ Ô "Mã hàng" đã bỏ khỏi bảng nhập — xem chú thích ở dòng tiêu đề. */}
 
@@ -706,7 +750,8 @@ export function BangHangTien({
                           aria-label={`Đơn giá dòng ${viTri + 1}`}
                         />
                       </TableCell>
-                      <TableCell className="text-right font-medium text-text-primary tabular-nums">
+                      {/* `pt-3`: ô chỉ có chữ, bù cho `align-top` — xem chú thích ở `TableRow`. */}
+                      <TableCell className="pt-3 text-right font-medium text-text-primary tabular-nums">
                         {(t?.thanhTien ?? 0).toLocaleString("vi-VN")}
                       </TableCell>
                       {/* ❌ Hai ô "% Thuế GTGT" và "Tiền thuế GTGT" theo dòng đã bỏ khỏi bảng nhập
@@ -727,10 +772,27 @@ export function BangHangTien({
                   </TableCell>
 
                   <TableCell>
-                    <NutXoaDong
-                      nhan={`${d.tenHang || `dòng ${viTri + 1}`}`}
-                      onXoa={() => onXoaDong(d.id)}
-                    />
+                    {/* ★ DẤU CỘNG CHÈN DÒNG NGAY BÊN DƯỚI — Ban lãnh đạo 25/08/2026: *"Thêm dấu
+                        cộng để thêm dòng ngay bên dưới"*.
+                        🔴 Khác hẳn nút [Thêm dòng] ở cuối bảng: nút đó thêm vào CUỐI, còn dấu này
+                        chèn đúng chỗ người dùng đang đứng. Đơn có 20 dòng mà muốn chèn một dòng
+                        vào giữa thì trước đây phải thêm ở cuối rồi không có cách nào dời lên. */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onChenDongDuoi(d.id)}
+                        title={`Thêm một dòng ngay dưới dòng ${viTri + 1}`}
+                        /* Vùng chạm 44×44 (V1.1 Phần F) — cùng cỡ nút xóa bên cạnh. */
+                        className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-primary-bg hover:text-primary"
+                      >
+                        <Plus className="size-4 shrink-0" aria-hidden />
+                        <span className="sr-only">Thêm một dòng ngay dưới dòng {viTri + 1}</span>
+                      </button>
+                      <NutXoaDong
+                        nhan={`${d.tenHang || `dòng ${viTri + 1}`}`}
+                        onXoa={() => onXoaDong(d.id)}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               );

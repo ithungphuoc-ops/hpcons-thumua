@@ -31,6 +31,7 @@ import { boDau } from "@/6-tien-ich/bo-dau";
 import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
+import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
 import {
   VIEC_UNC_XONG,
@@ -224,14 +225,24 @@ interface GiaTriDuLieu {
    * Thêm một nhà cung cấp vào danh mục (Ban lãnh đạo 20/08/2026).
    * Trả lý do bị chặn (trùng mã / trùng tên / thiếu mã, tên), `null` là đã thêm.
    */
+  /**
+   * Thêm nhà cung cấp vào danh mục.
+   *
+   * 🔴 KHÔNG NHẬN `maNCC` — mã do chính hàm này cấp theo `NC0000` (Ban lãnh đạo 25/08/2026:
+   * *"Mã NCC sẽ tự động sinh ra… Và mục này sẽ không được sửa"*). Bỏ hẳn khỏi chữ ký thay vì
+   * để tuỳ chọn rồi lặng lẽ bỏ qua: để lại là nơi gọi vẫn truyền mã, tưởng app dùng nó.
+   *
+   * 🔴 TRẢ VỀ UNION PHÂN BIỆT, không trả `string | null` như trước. Nơi gọi cần biết MÃ VỪA
+   * ĐƯỢC CẤP để điền vào đơn đang lập — mà mã chỉ có sau khi ghi. Dùng union thì TypeScript
+   * **ép** phải tách hai nhánh, không thể lỡ tay đọc `.ma` trên kết quả lỗi.
+   */
   themNhaCungCap: (n: {
-    maNCC: string;
     ten: string;
     maSoThue?: string;
     diaChi?: string;
     dienThoai?: string;
     nguoiLienHe?: string;
-  }) => string | null;
+  }) => { loi: string } | { ma: string };
   /** Xoa mot nha cung cap khoi danh muc. Tra ly do bi chan, `null` la da xoa. */
   xoaNhaCungCap: (id: string) => string | null;
 
@@ -1090,26 +1101,37 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const themNhaCungCap = useCallback(
     (n: {
-      maNCC: string;
       ten: string;
       maSoThue?: string;
       diaChi?: string;
       dienThoai?: string;
       nguoiLienHe?: string;
-    }): string | null => {
-      const ma = n.maNCC.trim();
+    }): { loi: string } | { ma: string } => {
       const ten = n.ten.trim();
-      if (ma === "") return "Chưa có mã nhà cung cấp.";
-      if (ten === "") return "Chưa có tên nhà cung cấp.";
+      if (ten === "") return { loi: "Chưa có tên nhà cung cấp." };
+
+      /**
+       * ★★ MÃ DO TẦNG GHI TỰ CẤP — Ban lãnh đạo 25/08/2026: *"Mã NCC sẽ tự động sinh ra sau khi
+       * nhập thông tin NCC. Theo cấu trúc: NC+0000. Và mục này sẽ không được sửa"*.
+       *
+       * 🔴 CẤP Ở ĐÂY, KHÔNG CẤP Ở GIAO DIỆN — cùng lối với `themDonHang`. Giao diện cấp mã thì
+       * hai người mở hộp cùng lúc sẽ thấy CÙNG một mã, rồi người ghi sau đè lên bản ghi của
+       * người trước hoặc bị chặn vì trùng. Cấp tại nơi ghi thì mã luôn tính trên danh mục ngay
+       * tại thời điểm ghi.
+       *
+       * 📌 `nhaCungCapThem` LÀ TOÀN BỘ DANH MỤC — danh mục mẫu đã bỏ hẳn 21/08/2026, và giá trị
+       * `nhaCungCap` mà app phát ra cho giao diện cũng chính là biến này (xem chỗ dựng context).
+       * Nên tập chống trùng ở đây đã nhìn hết mọi mã đang có, kể cả mã cũ dạng `NCC0001`.
+       */
+      const ma = maNhaCungCapTiepTheo(
+        nhaCungCapThem.map((x) => (x.maNCC ?? "").trim()).filter((x) => x !== ""),
+      );
 
       const chuanHoaTen = (s: string) => boDau(s).replace(/\s+/g, " ").trim().toLowerCase();
       /* Chỉ so với danh mục THẬT (phần tự thêm) — danh mục mẫu đã bỏ 21/08/2026. */
       const daCo = nhaCungCapThem;
-      if (daCo.some((x) => (x.maNCC ?? "").trim().toLowerCase() === ma.toLowerCase())) {
-        return `Mã ${ma} đã có trong danh mục — dùng lại nhà cung cấp đó, hoặc đặt mã khác.`;
-      }
       if (daCo.some((x) => chuanHoaTen(x.ten) === chuanHoaTen(ten))) {
-        return `Đã có nhà cung cấp tên “${ten}” trong danh mục.`;
+        return { loi: `Đã có nhà cung cấp tên “${ten}” trong danh mục.` };
       }
 
       const moi: NhaCungCap = {
@@ -1122,8 +1144,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         ...(n.nguoiLienHe?.trim() ? { nguoiLienHe: n.nguoiLienHe.trim() } : {}),
       };
       setNhaCungCapThem((truoc) => [...truoc, moi]);
-      return null;
+      /* Trả MÃ VỪA CẤP để nơi gọi điền thẳng vào đơn đang lập — người dùng thêm nhà cung cấp
+         giữa lúc lập đơn, bắt họ mở lại danh mục để chọn là thêm một bước vô ích. */
+      return { ma };
     },
+    /* `nhaCungCapThem` vừa là tập chống trùng TÊN vừa là tập chống trùng MÃ, nên chỉ cần nó.
+       ⚠️ Đừng bỏ nó khỏi danh sách phụ thuộc cho "gọn": `useCallback` sẽ giữ bản đóng gói cũ và
+       mã được tính trên một danh mục đã lỗi thời — cấp trùng mà không có gì báo. */
     [nhaCungCapThem],
   );
 

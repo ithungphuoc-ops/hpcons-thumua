@@ -596,8 +596,10 @@ export function FormLapDonMuaHang({
   const [tkTen, setTkTen] = useState("");
   const [tkSdt, setTkSdt] = useState("");
   const [tkCongTrinh, setTkCongTrinh] = useState("");
+  /* 🔴 KHÔNG CÒN `maNCC` — mã do `themNhaCungCap` tự cấp theo `NC0000` (Ban lãnh đạo
+     25/08/2026). Giữ lại một ô rỗng ở đây là mời người sau nối nó vào ô nhập rồi tưởng app
+     dùng giá trị đó. */
   const [nccMoi, setNccMoi] = useState({
-    maNCC: "",
     ten: "",
     maSoThue: "",
     diaChi: "",
@@ -958,25 +960,65 @@ export function FormLapDonMuaHang({
     else setMoChonMatHang(true);
   }, [laDonDocLap, themDongTrong]);
 
+  /** Một dòng trắng — dùng chung cho [Thêm dòng], dấu [+] và [Thêm ghi chú]. */
+  const dongTrong = useCallback(
+    (laGhiChu: boolean) => ({
+      id: khoaDongMoi(),
+      laGhiChu,
+      /* Dòng ghi chú mang `sttDeNghi: 0` (không nối về dòng đề nghị nào), dòng hàng để trống. */
+      sttDeNghi: laGhiChu ? 0 : undefined,
+      maHang: "",
+      tenHang: "",
+      thongSo: "",
+      dvt: "",
+      soLuong: "",
+      donGia: "",
+      thueSuat: "",
+      truongMoRong1: "",
+      mucDich: "",
+    }),
+    [khoaDongMoi],
+  );
+
+  /**
+   * ★ CHÈN MỘT DÒNG TRẮNG NGAY DƯỚI DÒNG ĐANG ĐỨNG — Ban lãnh đạo 25/08/2026: *"Thêm dấu cộng
+   * để thêm dòng ngay bên dưới"*.
+   *
+   * 🔴 Chèn ĐÚNG VỊ TRÍ, không thêm vào cuối rồi mong người dùng tự dời: bảng không có chức năng
+   * kéo dời dòng, nên thêm ở cuối là không có cách nào đưa dòng về giữa.
+   *
+   * ⚠️ Dòng chèn LUÔN là dòng trắng gõ tay, kể cả khi đơn lập từ đề nghị — khác [Thêm dòng] (mở
+   * hộp chọn mặt hàng của đề nghị). Dòng trắng không nối về dòng đề nghị nào nên không trừ khối
+   * lượng đã duyệt; nó dành cho thứ phát sinh tại chỗ (bốc xếp, vận chuyển…). Muốn thêm mặt hàng
+   * CÓ trong đề nghị thì vẫn dùng [Thêm dòng] để khối lượng được trừ đúng chỗ.
+   */
+  const chenDongDuoi = useCallback(
+    (idTren: string) => {
+      setDongBang((t) => {
+        const i = t.findIndex((d) => d.id === idTren);
+        /* Không tìm thấy (dòng vừa bị xóa ở tab khác) thì thêm vào cuối — thà thêm sai chỗ còn
+           hơn nuốt mất thao tác của người dùng mà không có gì hiện ra. */
+        if (i === -1) return [...t, dongTrong(false)];
+        return [...t.slice(0, i + 1), dongTrong(false), ...t.slice(i + 1)];
+      });
+    },
+    [dongTrong],
+  );
+
+  /**
+   * ★ GHI CHÚ CHÈN LÊN TRÊN, KHÔNG THÊM VÀO CUỐI — Ban lãnh đạo 25/08/2026: *"Mục thêm ghi chú
+   * sẽ tạo thêm dòng ở bên trên công tác"*.
+   *
+   * 🔴 Trước đây thêm vào CUỐI bảng, nên ghi chú luôn nằm dưới mọi dòng hàng. Trên tờ đơn thì
+   * dòng ghi chú đóng vai TIÊU ĐỀ NHÓM (*"Phần móng:"* rồi các dòng thép, bê tông bên dưới) —
+   * đặt nó ở cuối là nó chú thích cho một nhóm nằm phía trên nó, đọc ngược.
+   *
+   * 📌 Chèn lên ĐẦU bảng (trên toàn bộ công tác). Muốn ghi chú giữa bảng thì thêm ở đây rồi dùng
+   * dấu [+] của chính dòng ghi chú để dựng tiếp các dòng hàng bên dưới nó.
+   */
   const themGhiChu = useCallback(() => {
-    setDongBang((t) => [
-      ...t,
-      {
-        id: khoaDongMoi(),
-        laGhiChu: true,
-        sttDeNghi: 0,
-        maHang: "",
-        tenHang: "",
-        thongSo: "",
-        dvt: "",
-        soLuong: "",
-        donGia: "",
-        thueSuat: "",
-        truongMoRong1: "",
-        mucDich: "",
-      },
-    ]);
-  }, [khoaDongMoi]);
+    setDongBang((t) => [dongTrong(true), ...t]);
+  }, [dongTrong]);
 
   /**
    * PHÍM TẮT F9 — "Thêm nhanh" của MISA. Có đề nghị thì mở hộp chọn mặt hàng, độc lập thì
@@ -2642,6 +2684,7 @@ export function FormLapDonMuaHang({
             onDoiDong={doiDong}
             onXoaDong={xoaDong}
             onThemDong={themDong}
+            onChenDongDuoi={chenDongDuoi}
             onThemGhiChu={themGhiChu}
             onXoaHetDong={() => setHoiXoaHetDong(true)}
             onDoiKieuChietKhau={setKieuChietKhau}
@@ -3586,43 +3629,52 @@ export function FormLapDonMuaHang({
         tieuDe="Thêm nhà cung cấp vào danh mục?"
         moTa="Nhà cung cấp thêm ở đây dùng chung cho cả phòng, lần sau chọn thẳng trong danh mục."
         nhanDongY="Thêm vào danh mục"
-        /* 🔴 Khóa kèm CÂU GIẢI THÍCH — mã và tên là hai thứ mọi chứng từ sau này dựa vào để truy
-           về đúng một đối tượng, thiếu là không truy được. */
-        khoaDongY={
-          nccMoi.maNCC.trim() === ""
-            ? "Phải có mã nhà cung cấp (vd NCC0005)."
-            : nccMoi.ten.trim() === ""
-              ? "Phải có tên nhà cung cấp."
-              : undefined
-        }
+        /* 🔴 Khóa kèm CÂU GIẢI THÍCH — tên là thứ mọi chứng từ sau này dựa vào để truy về đúng
+           một đối tượng, thiếu là không truy được.
+           📌 KHÔNG còn đòi mã: từ 25/08/2026 mã do tầng ghi tự cấp (`themNhaCungCap`), người
+           dùng không nhập nên không thể thiếu. */
+        khoaDongY={nccMoi.ten.trim() === "" ? "Phải có tên nhà cung cấp." : undefined}
         onDong={() => setMoThemNCC(false)}
         onDongY={() => {
-          const loi = themNhaCungCap(nccMoi);
-          if (loi) {
-            toast.error("Không thêm được vào danh mục", { description: loi });
+          const kq = themNhaCungCap(nccMoi);
+          if ("loi" in kq) {
+            toast.error("Không thêm được vào danh mục", { description: kq.loi });
             return;
           }
           /* Thêm xong thì ĐIỀN LUÔN vào đơn đang lập — người dùng mở hộp này giữa lúc lập đơn,
-             bắt họ mở lại danh mục để chọn là thêm một bước vô ích. */
-          setMaNCC(nccMoi.maNCC.trim());
+             bắt họ mở lại danh mục để chọn là thêm một bước vô ích.
+             📌 Mã lấy từ KẾT QUẢ trả về, không lấy từ ô nhập: từ 25/08/2026 người dùng không
+             nhập mã nữa, `themNhaCungCap` mới là nơi biết mã vừa cấp là gì. */
+          setMaNCC(kq.ma);
           setTenNCC(nccMoi.ten.trim());
           if (nccMoi.maSoThue.trim()) setMstNCC(nccMoi.maSoThue.trim());
           if (nccMoi.diaChi.trim()) setDiaChiNCC(nccMoi.diaChi.trim());
-          toast.success("Đã thêm vào danh mục", { description: nccMoi.ten.trim() });
+          /* Nhắc lại mã vừa cấp — người dùng không tự đặt nên cần thấy app đã cấp số nào. */
+          toast.success("Đã thêm vào danh mục", {
+            description: `${kq.ma} — ${nccMoi.ten.trim()}`,
+          });
           setMoThemNCC(false);
-          setNccMoi({ maNCC: "", ten: "", maSoThue: "", diaChi: "", dienThoai: "", nguoiLienHe: "" });
+          setNccMoi({ ten: "", maSoThue: "", diaChi: "", dienThoai: "", nguoiLienHe: "" });
         }}
       >
         <div className="flex flex-col gap-(--hp-md-row-gap)">
           <div className="flex flex-col gap-2 sm:flex-row">
+            {/**
+              * ★★ MÃ DO APP TỰ CẤP, KHÔNG CHO SỬA — Ban lãnh đạo 25/08/2026: *"Mã NCC sẽ tự động
+              * sinh ra sau khi nhập thông tin NCC. Theo cấu trúc: NC+0000. Và mục này sẽ không
+              * được sửa"*.
+              *
+              * 🔴 KHÔNG ĐOÁN TRƯỚC CON SỐ, cùng lối với ô "Số đơn hàng". `themNhaCungCap` cấp mã
+              * lúc GHI, nên đoán ở đây là hai người cùng thêm một lúc sẽ thấy cùng một mã, rồi
+              * bản ghi ra lại mang mã khác cái vừa hiện. Bày phần KHUÔN (`NC0000`) là đủ để
+              * người dùng biết mã sẽ ra dạng gì mà không nói một con số có thể sai.
+              *
+              * 📌 VẪN GIỮ Ô, không bỏ hẳn: bỏ đi thì người dùng không biết app có cấp mã hay
+              * không, và lần sau mở danh mục thấy một dãy `NC…` lạ không hiểu ở đâu ra.
+              */}
             <div className="flex flex-col gap-1.5 sm:w-1/3">
-              <Label htmlFor="ncc-moi-ma">Mã nhà cung cấp *</Label>
-              <Input
-                id="ncc-moi-ma"
-                value={nccMoi.maNCC}
-                onChange={(e) => setNccMoi((c) => ({ ...c, maNCC: e.target.value }))}
-                placeholder="NCC0005"
-              />
+              <Label htmlFor="ncc-moi-ma">Mã nhà cung cấp</Label>
+              <Input id="ncc-moi-ma" value="NC0000 (app tự cấp)" readOnly disabled />
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <Label htmlFor="ncc-moi-ten">Tên nhà cung cấp *</Label>
