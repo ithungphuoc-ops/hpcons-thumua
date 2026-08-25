@@ -2211,12 +2211,30 @@ export function FormLapDonMuaHang({
         <CardContent className="flex flex-col gap-(--hp-md-card-gap) [&_input]:bg-card dark:[&_input]:bg-card">
           <div className="grid gap-(--hp-md-card-gap) lg:grid-cols-2">
             {/* ===== TRÁI — BÊN BÁN (ô B6 · B7 · B8 của biểu mẫu) =====
-                📌 "Mã nhà cung cấp" đứng đầu tuy trên giấy không có ô này: nó là ô TRA DANH MỤC,
-                gõ trúng mã là điền hộ cả tên · địa chỉ · mã số thuế · người liên hệ ngay dưới.
-                Đặt sau chúng thì người nhập đã gõ tay xong mới thấy, tức là vô ích. */}
+
+                🔴🔴 BA HÀNG NÀY PHẢI THẲNG ĐÚNG BA DÒNG CỦA TỜ IN — Ban lãnh đạo 25/08/2026:
+                *"Bố cục các trường nhập liệu này giống mẫu PO để người dùng dễ hình dung và thao
+                tác"*, kèm ảnh tờ đơn.
+
+                      TỜ IN                        FORM (phải khớp từng hàng)
+                  Tên nhà cung cấp │ Ngày      →   Tên nhà cung cấp │ Ngày đơn hàng
+                  Địa chỉ          │ Số        →   Địa chỉ          │ Số đơn hàng
+                  Mã số thuế       │ Loại tiền →   Mã số thuế       │ Loại tiền
+
+                ⚠️ TRƯỚC ĐÂY "Mã nhà cung cấp" CHIẾM NGUYÊN HÀNG 1, nên **mọi hàng lệch xuống một
+                dòng**: người cầm tờ giấy dò sang màn hình thấy "Mã NCC ↔ Ngày", "Tên NCC ↔ Số"…
+                — không hàng nào khớp hàng nào. Đó đúng là chỗ khó mà chỉ đạo trên yêu cầu bỏ.
+
+                📌 Ô mã KHÔNG BỊ BỎ, chỉ GỘP VÀO CÙNG HÀNG với "Tên nhà cung cấp". Nó là ô TRA
+                DANH MỤC (gõ trúng mã là điền hộ tên · địa chỉ · mã số thuế), nên phải đứng TRƯỚC
+                ba ô đó — đẩy xuống dưới thì người nhập gõ tay xong mới thấy, tức là vô ích. Đứng
+                cùng hàng thì vừa giữ được công dụng, vừa không chiếm một dòng của tờ giấy.
+
+                📌 Tờ in không có ô mã, nên nó không có nhãn riêng — dùng `aria-label` + `title`
+                cho trình đọc màn hình, và placeholder `NCC0001` đã nói rõ phải gõ gì. */}
             <div className="flex flex-col gap-(--hp-md-card-gap)">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="ma-ncc">Mã nhà cung cấp</Label>
+                <Label htmlFor="ten-ncc">Tên nhà cung cấp</Label>
                 {/* ===== Ô TRA MÃ + NÚT SỔ XUỐNG =====
                     ✅ NÚT SỔ XUỐNG LÀM VIỆC THẬT: nó mở đúng danh mục nhà cung cấp của app
                     (`nhaCungCap` trong `useDuLieu()`), chọn một dòng là điền cả cụm ô.
@@ -2227,9 +2245,17 @@ export function FormLapDonMuaHang({
                     Vẽ nút "+" ra là một cái nút bấm không có chỗ ghi, đúng thứ quy ước dự án cấm.
                     Không mất việc: ô "Tên nhà cung cấp" cho gõ tự do, đơn vẫn lập được với nhà
                     cung cấp ngoài danh mục (chỉ đạo 10/08/2026 — lấy NCC theo file PO). */}
-                <div className="flex items-center gap-2">
+                {/* 🔴 `flex-wrap`: trên màn hẹp ba thứ (mã · nút sổ · tên) không đủ chỗ một hàng,
+                    để `nowrap` là ô tên bị bóp còn vài chục pixel. Cho phép xuống dòng thì mã và
+                    nút ở trên, tên xuống dưới — vẫn đọc được, không vỡ lưới. */}
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     id="ma-ncc"
+                    /* Ô tra danh mục nên để ngắn — mã có dạng `NCC0001`, không cần rộng.
+                       `shrink-0` giữ nó không bị ô tên (flex-1) ép co lại. */
+                    className="w-32 shrink-0"
+                    aria-label="Mã nhà cung cấp"
+                    title="Mã nhà cung cấp — gõ đúng mã là điền hộ tên, địa chỉ và mã số thuế"
                     value={maNCC}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -2328,17 +2354,19 @@ export function FormLapDonMuaHang({
                       </button>
                     </PopoverContent>
                   </Popover>
-                </div>
-              </div>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="ten-ncc">Tên nhà cung cấp</Label>
-                <Input
-                  id="ten-ncc"
-                  value={tenNCC}
-                  onChange={(e) => setTenNCC(e.target.value)}
-                  placeholder="CÔNG TY TNHH ..."
-                />
+                  {/* ★ Ô TÊN NẰM CÙNG HÀNG với ô mã và nút sổ (25/08/2026) — nhãn của cả hàng là
+                      "Tên nhà cung cấp", đúng dòng đầu tiên của tờ in.
+                      📌 `min-w-48 flex-1`: chiếm hết chỗ còn lại, và khi hàng chật thì `flex-wrap`
+                      của cha đưa nó xuống dòng thay vì bóp còn vài chục pixel. */}
+                  <Input
+                    id="ten-ncc"
+                    value={tenNCC}
+                    onChange={(e) => setTenNCC(e.target.value)}
+                    placeholder="CÔNG TY TNHH ..."
+                    className="min-w-48 flex-1"
+                  />
+                </div>
                 {/* Cho biết có tra ra trong danh mục hay không — hữu ích để quản trị bổ sung
                     sau, nhưng KHÔNG chặn lập đơn. */}
                 {tenNCC.trim() !== "" && (
