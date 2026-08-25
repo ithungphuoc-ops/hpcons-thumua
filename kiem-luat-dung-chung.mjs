@@ -777,6 +777,93 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// HAI LỖI VÁ NGÀY 25/08/2026 — Ban lãnh đạo: "sao ko còn kéo qua bước được"
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "Kéo NHẢY CÓC sang cột Hoàn thành phải bị chặn",
+  "lỗi hồi quy do tôi gây 24/08/2026",
+  () => {
+    /* 🔴 Hôm 24/08 tôi đặt nhánh `hoan_thanh` ở ĐẦU hàm, trước cả phép kiểm "chỉ kéo được sang
+       bước liền kề". Đo được: kéo thẻ từ bước ① thẳng sang cột Hoàn thành thì app trả
+       *"Hồ sơ đã đủ điều kiện hoàn thành"* — trong khi hồ sơ chưa có báo giá, chưa có đơn hàng,
+       chưa nhận hàng. Vì `vuongMacSangBuocSau` hỏi điều kiện rời BƯỚC ĐANG ĐỨNG, không hỏi
+       khoảng cách tới bước đích. */
+    const the = { deNghi: deNghiThu(), giaiDoan: "tiep_nhan" };
+    const r = G.quyetDinhKeoTha(the, "hoan_thanh", [], [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    return {
+      duoc: r?.loai === "khong_the" && String(r.lyDo).includes("liền kề"),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.thongBao ?? "").slice(0, 70)}"`,
+      mongDoi: 'khong_the kèm câu "chỉ kéo được sang bước liền kề"',
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: ⑦ → ⑧ vẫn phải đi được (đường đúng duy nhất)",
+  "Ban lãnh đạo · 22/08/2026",
+  () => {
+    /* Vá nhảy cóc mà chặn luôn đường đúng thì hồ sơ không bao giờ hoàn thành được. */
+    const dn = {
+      id: "x",
+      items: [{ stt: 1, nguoiPhuTrachUid: "u1" }],
+      congViecDaXong: [{ maCongViec: "unc_xong" }],
+      tepGiaiDoan: { ho_so_thanh_toan: [{ id: "t", tenTep: "hd.pdf", ghiChu: "Hóa đơn VAT" }] },
+    };
+    const r = G.quyetDinhKeoTha(
+      { deNghi: dn, giaiDoan: "ho_so_thanh_toan" },
+      "hoan_thanh",
+      [],
+      [],
+      G.CAU_HINH_MAC_DINH ?? {},
+      null,
+    );
+    return {
+      duoc: r?.loai === "mo_trang",
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.thongBao ?? r?.lyDo ?? "").slice(0, 70)}"`,
+      mongDoi: 'mo_trang (dẫn tới nút "Hoàn thành quy trình")',
+    };
+  },
+);
+
+kiem(
+  "Việc bắt buộc còn treo của bước TRƯỚC phải có chỗ để tích (gỡ ngõ cụt)",
+  "Ban lãnh đạo · 25/08/2026",
+  () => {
+    /* 🔴 ĐÂY LÀ LÝ DO THẬT Ban lãnh đạo không kéo được. Chốt chặn bảo "mở khối bước đó ở trang
+       chi tiết, tích hoàn thành rồi làm tiếp" — nhưng khối đó chỉ bày việc của BƯỚC ĐANG ĐỨNG,
+       nên việc của bước ① không còn ô nào để tích trong toàn app. App chỉ người dùng tới một
+       chỗ không tồn tại. */
+    const ch = cauHinhCoViecBatBuoc("tiep_nhan", "Checkin hàng tồn kho");
+    const nhom = G.congViecConTreoCacBuocTruoc(deNghiThu(), "yeu_cau_bao_gia", ch);
+    const coViec = nhom.some((n) => n.viec.some((v) => v.ten === "Checkin hàng tồn kho"));
+    const coNhanBuoc = nhom.some((n) => typeof n.nhanBuoc === "string" && n.nhanBuoc.length > 0);
+    return {
+      duoc: coViec && coNhanBuoc,
+      thucTe:
+        nhom.length === 0
+          ? "[] (KHÔNG CÓ CHỖ TÍCH — ngõ cụt đã mở lại!)"
+          : JSON.stringify(nhom.map((n) => ({ buoc: n.buoc, nhan: n.nhanBuoc, so: n.viec.length }))),
+      mongDoi: "có nhóm bước ① kèm tên bước và việc còn treo",
+    };
+  },
+);
+
+kiem(
+  "Đứng ở bước ① thì KHÔNG có nhóm bước trước nào",
+  "Ban lãnh đạo · 25/08/2026 (chống bày thừa)",
+  () => {
+    const ch = cauHinhCoViecBatBuoc("tiep_nhan", "Checkin hàng tồn kho");
+    const nhom = G.congViecConTreoCacBuocTruoc(deNghiThu(), "tiep_nhan", ch);
+    return {
+      duoc: nhom.length === 0,
+      thucTe: JSON.stringify(nhom.map((n) => n.buoc)),
+      mongDoi: "[] (bước ① không có bước nào trước nó)",
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 

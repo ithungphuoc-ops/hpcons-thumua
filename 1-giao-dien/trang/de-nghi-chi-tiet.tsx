@@ -91,6 +91,7 @@ import {
   xacDinhGiaiDoan,
   giaiDoanDaToiLuot,
   conNoCuaBuoc,
+  congViecConTreoCacBuocTruoc,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, xem chú thích đầu file đó.
@@ -181,6 +182,15 @@ export default function TrangChiTietDeNghi() {
     cv: CongViecGiaiDoan;
     /** `true` = đang muốn tích xong, `false` = đang muốn bỏ tích. */
     tich: boolean;
+    /**
+     * 🔴 MÃ BƯỚC CỦA CHÍNH VIỆC NÀY — bắt buộc, thêm 25/08/2026.
+     *
+     * Từ hôm nay khối "Danh sách công việc" bày cả việc còn treo của các bước TRƯỚC, nên việc
+     * đang tích **không nhất thiết** thuộc bước đang đứng. `danhDauCongViecGiaiDoan` dùng mã bước
+     * để biết cất cái tích vào đâu; truyền bước đang đứng cho một việc của bước trước là ghi sai
+     * chỗ — người dùng thấy đã tích mà việc đó vẫn treo, và chốt chuyển bước vẫn chặn.
+     */
+    buoc: GiaiDoanMuaHang;
   } | null>(null);
 
   /** Hộp xác nhận trước khi đóng hồ sơ — `true` là đang hỏi. */
@@ -260,6 +270,44 @@ export default function TrangChiTietDeNghi() {
    * Bước không khai việc nào thì mảng rỗng (ảnh Base ghi "Không có công việc").
    */
   const congViecCuaBuoc = cauHinh.congViecTheoBuoc?.[giaiDoan] ?? [];
+
+  /**
+   * ★★ DANH SÁCH CÔNG VIỆC, XẾP THEO NHÓM BƯỚC — sửa 25/08/2026 để gỡ một NGÕ CỤT.
+   *
+   * 🔴 Ban lãnh đạo báo *"sao ko còn kéo qua bước được"*. Đo ra thì lý do thật không phải cái chốt
+   * chặn, mà là: hồ sơ đã sang bước ② thì việc bắt buộc còn treo của bước ① **không còn ô nào để
+   * tích trong toàn app** — khối này trước đây chỉ bày việc của bước ĐANG ĐỨNG. Trong khi câu chặn
+   * lại bảo *"mở khối bước đó ở trang chi tiết, tích hoàn thành rồi làm tiếp"*, tức app chỉ người
+   * dùng tới một chỗ không tồn tại.
+   *
+   * 📌 Nhóm của bước đang đứng luôn đứng ĐẦU, rồi tới các bước trước theo đúng thứ tự quy trình —
+   * người đọc thấy việc của mình trước, việc còn nợ sau.
+   *
+   * ⚠️ Nhóm bước trước CHỈ bày việc CÒN TREO (`congViecConTreoCacBuocTruoc` đã lọc), không bày
+   * việc đã xong: bước trước đã qua rồi, bày lại cả danh sách chỉ làm trang dài mà không giúp gì.
+   * Nhóm bước đang đứng thì bày ĐỦ cả việc đã xong — đó là danh sách việc của chính bước này.
+   */
+  const nhomCongViec: {
+    buoc: GiaiDoanMuaHang;
+    nhanBuoc: string;
+    viec: CongViecGiaiDoan[];
+    laBuocTruoc: boolean;
+  }[] = [
+    ...(congViecCuaBuoc.length > 0
+      ? [
+          {
+            buoc: giaiDoan,
+            nhanBuoc: NHAN_GIAI_DOAN[giaiDoan]?.nhan ?? giaiDoan,
+            viec: congViecCuaBuoc,
+            laBuocTruoc: false,
+          },
+        ]
+      : []),
+    ...congViecConTreoCacBuocTruoc(dn, giaiDoan, cauHinh).map((n) => ({
+      ...n,
+      laBuocTruoc: true,
+    })),
+  ];
 
   /**
    * ★ BƯỚC NÀY CÒN THIẾU GÌ — nguồn của VIỀN ĐỎ trên khối bước (Ban lãnh đạo 23/08/2026:
@@ -2005,20 +2053,30 @@ export default function TrangChiTietDeNghi() {
               mục ngang hàng. Nó nói về BƯỚC ĐANG ĐỨNG (một bước duy nhất), còn khối trên liệt
               kê cả sáu bước — nhét vào trong sẽ phải nhân bản cho từng bước hoặc chôn nó vào
               một bước, cả hai đều sai ý nghĩa. */}
-      {congViecCuaBuoc.length > 0 && (
+      {nhomCongViec.length > 0 && (
         <Card>
           <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
             {/* Tên khối và cách xếp bám đúng Base (ảnh Ban lãnh đạo gửi 16/08/2026): tiêu đề
-                "Danh sách công việc", ngay dưới là TÊN GIAI ĐOẠN đang đứng, rồi tới các việc.
+                "Danh sách công việc", ngay dưới là TÊN GIAI ĐOẠN, rồi tới các việc.
                 Người của phòng đã quen bảng Base nên đọc không phải dịch lại trong đầu. */}
-            <div className="flex flex-col gap-1">
-              <h2 className="text-h3 text-text-primary">Danh sách công việc</h2>
-              <p className="text-xs font-semibold tracking-wide text-text-desc uppercase">
-                {NHAN_GIAI_DOAN[giaiDoan]?.nhan ?? giaiDoan}
-              </p>
-            </div>
-            <ul className="flex flex-col gap-2">
-              {congViecCuaBuoc.map((cv) => {
+            <h2 className="text-h3 text-text-primary">Danh sách công việc</h2>
+
+            {nhomCongViec.map((nhom) => (
+              <div key={nhom.buoc} className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-semibold tracking-wide text-text-desc uppercase">
+                    {nhom.nhanBuoc}
+                  </p>
+                  {/* 🔴 NÓI RÕ ĐÂY LÀ VIỆC CÒN NỢ TỪ BƯỚC TRƯỚC. Không có nhãn này thì người dùng
+                      tưởng bước đang đứng đòi thêm việc, rồi đi tìm xem mình bỏ sót gì. */}
+                  {nhom.laBuocTruoc && (
+                    <span className="rounded-md bg-danger/10 px-1.5 py-0.5 text-xs font-medium text-danger">
+                      Bước trước còn treo — phải xong mới đi tiếp
+                    </span>
+                  )}
+                </div>
+                <ul className="flex flex-col gap-2">
+                  {nhom.viec.map((cv) => {
                 const xong = (dn.congViecDaXong ?? []).find((x) => x.maCongViec === cv.ma);
                 return (
                   <li
@@ -2047,7 +2105,9 @@ export default function TrangChiTietDeNghi() {
                         checked={Boolean(xong)}
                         disabled={!quyen.phanBoCongViec}
                         onChange={(e) =>
-                          setHoiTichViec({ cv, tich: e.target.checked })
+                          /* `buoc` lấy từ CHÍNH NHÓM đang vẽ, không lấy `giaiDoan` — việc của
+                             bước trước phải ghi vào đúng bước của nó. */
+                          setHoiTichViec({ cv, tich: e.target.checked, buoc: nhom.buoc })
                         }
                       />
                       <span className="flex min-w-0 flex-col gap-0.5">
@@ -2070,8 +2130,11 @@ export default function TrangChiTietDeNghi() {
                     />
                   </li>
                 );
-              })}
-            </ul>
+                  })}
+                </ul>
+              </div>
+            ))}
+
             {/* Nói rõ ai được tích, thay vì để ô mờ không lời giải thích. */}
             {!quyen.phanBoCongViec && (
               <p className="text-xs text-text-desc">
@@ -2259,7 +2322,8 @@ export default function TrangChiTietDeNghi() {
           const loi = danhDauCongViecGiaiDoan(
             dn.id,
             hoiTichViec.cv,
-            giaiDoan,
+            /* 🔴 Bước CỦA CHÍNH VIỆC ĐÓ, không phải bước đang đứng — xem chú thích ở `hoiTichViec`. */
+            hoiTichViec.buoc,
             hoiTichViec.tich,
             nguoiDung.tenHienThi,
           );

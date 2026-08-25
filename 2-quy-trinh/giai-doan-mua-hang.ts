@@ -1073,6 +1073,41 @@ export function vuongMacViecBatBuocCacBuocTruoc(
 }
 
 /**
+ * ★★ VIỆC BẮT BUỘC CÒN TREO Ở CÁC BƯỚC **TRƯỚC** — kèm tên bước, để giao diện bày ra cho tích.
+ *
+ * 🔴 SINH RA TỪ MỘT NGÕ CỤT ĐO ĐƯỢC NGÀY 25/08/2026.
+ *
+ * Khi hồ sơ đã sang bước ②, khối "Danh sách công việc" ở trang chi tiết chỉ bày việc của **bước
+ * đang đứng** (`cauHinh.congViecTheoBuoc[giaiDoan]`). Việc bắt buộc còn treo của bước ① vì vậy
+ * **không còn một ô nào để tích trong toàn app**.
+ *
+ * Trong khi đó chốt chuyển bước lại chặn kèm câu *"Mở khối bước đó ở trang chi tiết đề nghị, tích
+ * hoàn thành rồi làm tiếp"* — app chỉ người dùng tới một chỗ **không tồn tại**. Ban lãnh đạo báo
+ * *"sao ko còn kéo qua bước được"*, và đây mới là lý do thật, chứ không phải bản thân cái chốt.
+ *
+ * ⚠️ TRẢ KÈM `buoc` LÀ BẮT BUỘC, không chỉ để hiện nhãn. Hàm ghi `danhDauCongViecGiaiDoan` nhận
+ * mã bước để biết cất cái tích vào đâu; truyền bước ĐANG ĐỨNG cho một việc thuộc bước trước là ghi
+ * sai chỗ, và việc đó vẫn treo mãi dù người dùng đã tích.
+ */
+export function congViecConTreoCacBuocTruoc(
+  deNghi: DeNghiMuaHang,
+  giaiDoanHienTai: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+): { buoc: GiaiDoanMuaHang; nhanBuoc: string; viec: CongViecGiaiDoan[] }[] {
+  const viTri = THU_TU_GIAI_DOAN.indexOf(giaiDoanHienTai);
+  if (viTri <= 0) return [];
+
+  const ra: { buoc: GiaiDoanMuaHang; nhanBuoc: string; viec: CongViecGiaiDoan[] }[] = [];
+  for (const buoc of THU_TU_GIAI_DOAN.slice(0, viTri)) {
+    /* "Thất bại" không nằm trong chuỗi chạy — cùng cách xử như `vuongMacViecBatBuocCacBuocTruoc`. */
+    if (buoc === "that_bai") continue;
+    const treo = congViecChuaXongCuaBuoc(deNghi, buoc, cauHinh);
+    if (treo.length > 0) ra.push({ buoc, nhanBuoc: NHAN_GIAI_DOAN[buoc].nhan, viec: treo });
+  }
+  return ra;
+}
+
+/**
  * ★★★ ĐƯỢC RỜI BƯỚC NÀY CHƯA — HÀM DÙNG CHUNG CHO **CẢ HAI** ĐƯỜNG CHUYỂN BƯỚC.
  *
  * 🔴 Ban lãnh đạo báo LẦN THỨ HAI ngày 24/08/2026: *"Các điều kiện chuyển bước khi kéo ở bảng
@@ -1433,6 +1468,39 @@ export function quyetDinhKeoTha(
    */
   if (dich === "that_bai") return { loai: "dong_do" };
 
+
+  const buocTu = THU_TU_GIAI_DOAN.indexOf(tu);
+  const buocDich = THU_TU_GIAI_DOAN.indexOf(dich);
+
+  /**
+   * ★ PHẠM VI KÉO THẢ: ĐÚNG MỘT BƯỚC, cả tiến lẫn lùi — Ban lãnh đạo 13/08/2026.
+   * Bản trước chặn lùi hoàn toàn; nay lùi được nhưng chỉ một bước.
+   */
+  if (buocDich < buocTu - 1 || buocDich > buocTu + 1) {
+    return {
+      loai: "khong_the",
+      lyDo: "Chỉ kéo được sang bước liền kề — tiến một bước hoặc lùi một bước, không nhảy cóc.",
+    };
+  }
+
+  if (buocDich === buocTu - 1) return quyetDinhLui(tu, dich, poCuaDeNghi, baoGiaCuaDeNghi);
+
+  /**
+   * 🔴 KHỐI NÀY PHẢI ĐỨNG **SAU** PHÉP KIỂM NHẢY CÓC — sửa 25/08/2026.
+   *
+   * Ngày 24/08 tôi đặt nó ở ĐẦU hàm, trước cả phép kiểm "chỉ kéo được sang bước liền kề". Hậu
+   * quả đo được: kéo thẻ từ bước ① (hoặc ④) thẳng sang cột **Hoàn thành** thì app trả về câu
+   * *"Hồ sơ đã đủ điều kiện hoàn thành"* — trong khi hồ sơ mới ở bước đầu, chưa có báo giá,
+   * chưa có đơn hàng, chưa nhận hàng. Cùng lúc đó kéo ① sang một cột khác thì vẫn bị chặn đúng
+   * bằng câu "Chỉ kéo được sang bước liền kề".
+   *
+   * ⚠️ Vì sao lọt: `vuongMacSangBuocSau(deNghi, tu, …)` hỏi điều kiện rời **bước ĐANG ĐỨNG**,
+   * không hỏi khoảng cách tới bước đích. Đứng ở ① thì bước ① đã xong (đã phân bổ đủ người) nên
+   * hàm trả `null` = "không vướng" — và câu trả lời đó hoàn toàn đúng với câu hỏi của nó. Sai là
+   * ở chỗ tôi hỏi nó thay cho một câu hỏi khác hẳn.
+   *
+   * 📌 Đặt sau phép kiểm liền kề thì chỉ còn đúng một đường vào đây: từ ⑦ sang ⑧.
+   */
   if (dich === "hoan_thanh") {
     /**
      * 🔴 GỌI HÀM LUẬT, KHÔNG VIẾT CỨNG CÂU CHẶN — sửa 24/08/2026 sau khi Ban lãnh đạo báo lệch
@@ -1460,22 +1528,6 @@ export function quyetDinhKeoTha(
         "Hồ sơ đã đủ điều kiện hoàn thành. Bấm “Hoàn thành quy trình” ở cuối trang chi tiết đề nghị để đóng hồ sơ.",
     };
   }
-
-  const buocTu = THU_TU_GIAI_DOAN.indexOf(tu);
-  const buocDich = THU_TU_GIAI_DOAN.indexOf(dich);
-
-  /**
-   * ★ PHẠM VI KÉO THẢ: ĐÚNG MỘT BƯỚC, cả tiến lẫn lùi — Ban lãnh đạo 13/08/2026.
-   * Bản trước chặn lùi hoàn toàn; nay lùi được nhưng chỉ một bước.
-   */
-  if (buocDich < buocTu - 1 || buocDich > buocTu + 1) {
-    return {
-      loai: "khong_the",
-      lyDo: "Chỉ kéo được sang bước liền kề — tiến một bước hoặc lùi một bước, không nhảy cóc.",
-    };
-  }
-
-  if (buocDich === buocTu - 1) return quyetDinhLui(tu, dich, poCuaDeNghi, baoGiaCuaDeNghi);
 
   /**
    * 🔴 BƯỚC TRƯỚC PHẢI XONG MỚI ĐI TIẾP (chỉ đạo Ban lãnh đạo 10/08/2026) — nhưng CHỈ chặn
