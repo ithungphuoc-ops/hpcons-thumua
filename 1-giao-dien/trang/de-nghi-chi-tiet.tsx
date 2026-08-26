@@ -1989,6 +1989,7 @@ export default function TrangChiTietDeNghi() {
                         deNghi={dn}
                         poCuaDeNghi={poLienQuan}
                         phieuCuaDeNghi={phieuLienQuan}
+                        baoGiaCuaDeNghi={baoGiaLienQuan}
                         xemGia={quyen.xemGia}
                       />
                     </div>

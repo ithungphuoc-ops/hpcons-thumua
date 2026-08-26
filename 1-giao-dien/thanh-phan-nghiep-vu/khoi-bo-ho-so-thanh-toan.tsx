@@ -27,21 +27,24 @@ import {
   mucDaCo,
   tomTatBoHoSo,
 } from "@/2-quy-trinh/bo-ho-so-thanh-toan";
-import type { DeNghiMuaHang, DonDatHang, PhieuNhanHang } from "@/3-du-lieu/kieu-du-lieu";
+import type { BaoGia, DeNghiMuaHang, DonDatHang, PhieuNhanHang } from "@/3-du-lieu/kieu-du-lieu";
 
 export function KhoiBoHoSoThanhToan({
   deNghi,
   poCuaDeNghi,
   phieuCuaDeNghi,
+  /** Bảng báo giá của đề nghị — chỉ để tra ra bản báo giá ĐÃ ĐƯỢC CHỌN (Sếp 26/08/2026). */
+  baoGiaCuaDeNghi,
   /** Vai trò có được xem giá — chỉ để quyết định có cho mở tờ PO in hay không. */
   xemGia,
 }: {
   deNghi: DeNghiMuaHang;
   poCuaDeNghi: DonDatHang[];
   phieuCuaDeNghi: PhieuNhanHang[];
+  baoGiaCuaDeNghi: BaoGia[];
   xemGia: boolean;
 }) {
-  const muc = dungBoHoSoThanhToan(deNghi, poCuaDeNghi, phieuCuaDeNghi);
+  const muc = dungBoHoSoThanhToan(deNghi, poCuaDeNghi, phieuCuaDeNghi, baoGiaCuaDeNghi);
   const tomTat = tomTatBoHoSo(muc);
 
   return (
@@ -102,6 +105,29 @@ export function KhoiBoHoSoThanhToan({
               {/* Tệp của mục — chỉ XEM và TẢI, không gỡ được từ đây (sửa ở bước của nó). */}
               {m.tep.map((t) => (
                 <LienKetTep key={t.id} tep={t} />
+              ))}
+
+              {/**
+                * ★★ NHÓM BÊN TRONG MỤC — Ban lãnh đạo 26/08/2026: *"Tạo group lại nhé"*.
+                * Mục 2 (bản được chọn / bảng so sánh) và mục 6 (hóa đơn / ủy nhiệm chi) dùng nhóm.
+                *
+                * 📌 Nhóm RỖNG vẫn hiện tên kèm câu "chưa có" — người đọc phải thấy là *đã kiểm và
+                * chưa có*, khác hẳn với *không biết có hay không*. Ẩn nhóm rỗng đi là bộ hồ sơ
+                * trông đủ trong khi thiếu.
+                */}
+              {(m.nhom ?? []).map((n) => (
+                <div key={n.ten} className="flex flex-col gap-1 pl-6">
+                  <span className="text-xs font-medium text-text-secondary">{n.ten}</span>
+                  {n.tep.map((t) => (
+                    <LienKetTep key={t.id} tep={t} />
+                  ))}
+                  {n.tep.length === 0 && (
+                    <span className="text-xs text-text-desc">{n.ghiChu ?? "Chưa có."}</span>
+                  )}
+                  {n.tep.length > 0 && n.ghiChu && (
+                    <span className="text-xs text-warning-soft">{n.ghiChu}</span>
+                  )}
+                </div>
               ))}
 
               {/**
