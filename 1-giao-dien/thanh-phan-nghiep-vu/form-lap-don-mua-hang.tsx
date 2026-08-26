@@ -368,6 +368,15 @@ export function FormLapDonMuaHang({
   const [maDuAnNhap, setMaDuAnNhap] = useState("");
   /** `""` chưa chọn · `"__moi__"` gõ tay · còn lại là mã dự án đã có. */
   const [duAnChon, setDuAnChon] = useState("");
+  /**
+   * ★ TÊN NHÂN VIÊN MUA HÀNG in trên tờ đơn — mở cho sửa 26/08/2026 (Ban lãnh đạo).
+   *
+   * 🔴 Khởi tạo bằng người đang lập, nhưng KHÔNG khóa: người lập đơn trong app không nhất thiết
+   * là người đứng tên mua hàng trên chứng từ. Ghi vào `DonDatHang.nguoiPhuTrachTen`; mã
+   * `nguoiPhuTrachUid` vẫn là người đang lập — xem chú thích tại ô nhập.
+   */
+  const [tenNhanVienMua, setTenNhanVienMua] = useState(nguoiDung.tenHienThi);
+
   const [maHopDong, setMaHopDong] = useState("");
   const [ngayHopDong, setNgayHopDong] = useState("");
   const [diaDiemGiao, setDiaDiemGiao] = useState("");
@@ -1489,7 +1498,9 @@ export function FormLapDonMuaHang({
       maSoThueNCC: mstNCC,
       diaChiNCC,
       thamChieu,
-      nguoiPhuTrachTen: nguoiDung.tenHienThi,
+      /* Tên NGƯỜI ĐỨNG TÊN trên tờ, sửa được (Ban lãnh đạo 26/08/2026). Rỗng thì lấy người đang
+         lập — tờ in không được để trống dòng này. */
+      nguoiPhuTrachTen: tenNhanVienMua.trim() || nguoiDung.tenHienThi,
       ngayLapPO: ngayDonHang,
       ngayGiaoDuKien: ngayGiao,
       diaDiemGiaoHang: diaDiemGiao,
@@ -1877,7 +1888,9 @@ export function FormLapDonMuaHang({
       diaChiNCC: diaChiNCC.trim() || undefined,
       thamChieu: thamChieu.trim() || undefined,
       nguoiPhuTrachUid: nguoiDung.uid,
-      nguoiPhuTrachTen: nguoiDung.tenHienThi,
+      /* Tên NGƯỜI ĐỨNG TÊN trên tờ, sửa được (Ban lãnh đạo 26/08/2026). Rỗng thì lấy người đang
+         lập — tờ in không được để trống dòng này. */
+      nguoiPhuTrachTen: tenNhanVienMua.trim() || nguoiDung.tenHienThi,
       ngayLapPO: ngayDonHang,
       ngayGiaoDuKien: ngayGiao,
       diaDiemGiaoHang: diaDiemGiao.trim() || undefined,
@@ -3236,10 +3249,35 @@ export function FormLapDonMuaHang({
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
           <div className="flex flex-col gap-2">
             <Label htmlFor="nv-mua-hang">Nhân viên mua hàng</Label>
-            {/* 🔴 CHỈ ĐỌC, cố ý. Đơn ghi tên ai thì `nguoiPhuTrachUid` phải là mã người
-                đó — cho gõ tự do thì tên và mã lệch nhau, và mọi màn "việc của tôi",
-                lịch công tác, phân bổ đều tra theo mã. */}
-            <Input id="nv-mua-hang" value={nguoiDung.tenHienThi} readOnly disabled />
+            {/**
+              * ★★ ĐÃ MỞ KHÓA CHO SỬA — Ban lãnh đạo 26/08/2026: *"Chỗ tên nhân viên mua hàng hãy
+              * mở khoá cho chỉnh sửa nhé"*.
+              *
+              * 🔴 CHÚ THÍCH CŨ Ở ĐÂY LO ĐÚNG NHƯNG KẾT LUẬN SAI. Nó ghi *"cho gõ tự do thì tên và
+              * mã lệch nhau, và mọi màn việc-của-tôi / lịch / phân bổ đều tra theo mã"*. Đọc lại
+              * kiểu dữ liệu thì `DonDatHang` có **HAI trường tách riêng**:
+              *   · `nguoiPhuTrachUid` — MÃ người, thứ mọi màn kia tra theo
+              *   · `nguoiPhuTrachTen` — TÊN in trên tờ đơn gửi nhà cung cấp
+              * Ô này chỉ ghi vào trường TÊN. Mã vẫn là người đang lập đơn, nên không màn nào bị
+              * ảnh hưởng — cái lo của chú thích cũ không xảy ra được.
+              *
+              * 📌 VÌ SAO CẦN SỬA ĐƯỢC: người lập đơn trong app không nhất thiết là người đứng tên
+              * mua hàng trên chứng từ (trưởng bộ phận lập thay, hoặc đơn do người khác phụ trách).
+              * Khóa cứng là tờ in ghi sai người, mà không có cách nào chữa.
+              *
+              * ⚠️ ĐÂY KHÔNG PHẢI CHỖ ĐỔI NGƯỜI PHỤ TRÁCH TRONG APP. Đổi tên ở đây chỉ đổi chữ in
+              * trên tờ; muốn đổi người phụ trách thật thì vào bảng Phân bổ công việc.
+              */}
+            <Input
+              id="nv-mua-hang"
+              value={tenNhanVienMua}
+              onChange={(e) => setTenNhanVienMua(e.target.value)}
+              placeholder={nguoiDung.tenHienThi}
+            />
+            <span className="text-xs text-text-desc">
+              Tên in trên tờ đơn. Sửa được khi người đứng tên mua hàng không phải người đang lập
+              đơn — không đổi người phụ trách trong app.
+            </span>
           </div>
 
           {/**

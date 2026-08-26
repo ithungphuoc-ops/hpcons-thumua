@@ -18,5 +18,30 @@ import { CongBaoVe } from "@/1-giao-dien/khung-app/cong-bao-ve";
  * 📌 Layout này KHÔNG thêm thanh bên / thanh trên, giữ đúng ý đồ ban đầu của trang in.
  */
 export default function BoCucTrangIn({ children }: { children: ReactNode }) {
-  return <CongBaoVe>{children}</CongBaoVe>;
+  return (
+    <>
+      {/**
+        * ★★ BỎ HAI DÒNG TRÌNH DUYỆT TỰ IN — Ban lãnh đạo 26/08/2026: *"Bỏ 2 mục này"*, khoanh
+        * đúng dòng trên (ngày giờ + tên tab) và dòng dưới (địa chỉ web + số trang) của tờ in.
+        *
+        * 🔴 HAI DÒNG ĐÓ KHÔNG PHẢI NỘI DUNG CỦA APP. Chrome tự in chúng vào lề giấy khi tùy chọn
+        * *Headers and footers* đang bật — nên không có cách nào xóa bằng cách sửa tờ đơn.
+        * Cách duy nhất từ phía web: đặt `@page { margin: 0 }`. Chrome không còn chỗ trong lề để
+        * viết nên bỏ luôn cả hai dòng.
+        *
+        * 🔴 VÌ THẾ PHẢI TỰ LO LỀ GIẤY. Lề trang nay bằng 0, nếu tờ đơn không có phần đệm riêng
+        * thì chữ chạy sát mép giấy và máy in cắt mất. Phần đệm nằm ở `to-don-mua-hang-a4.tsx`
+        * (`px-[15mm] py-[12mm]`) — trước đây bị bỏ khi in (`print:px-0`), nay giữ lại.
+        * ⚠️ Sửa một trong hai chỗ mà quên chỗ kia là tờ in mất lề hoặc lề gấp đôi.
+        *
+        * 📌 ĐẶT Ở LAYOUT CỦA `/in`, KHÔNG đặt vào `globals.css`: `@page` là quy tắc cấp tài liệu,
+        * không giới hạn được theo vùng. Để ở CSS chung thì mọi trang app bấm Ctrl+P đều mất lề.
+        *
+        * 📌 Người dùng vẫn bật lại được hai dòng đó trong hộp thoại in nếu cần (tuỳ chọn
+        * *Headers and footers*) — app không khoá tay họ, chỉ đổi mặc định.
+        */}
+      <style>{`@page { size: A4; margin: 0; }`}</style>
+      <CongBaoVe>{children}</CongBaoVe>
+    </>
+  );
 }

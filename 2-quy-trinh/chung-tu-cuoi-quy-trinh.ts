@@ -91,6 +91,16 @@ const BUOC_CU_UNC = "unc";
 export const NHAN_TEP_HOP_DONG = "Hợp đồng";
 export const NHAN_TEP_HOA_DON_VAT = "Hóa đơn VAT";
 export const NHAN_TEP_UNC = "Ủy nhiệm chi";
+/**
+ * ★★ PHIẾU CHI — mục 7 của bộ hồ sơ thanh toán (Ban lãnh đạo 26/08/2026).
+ *
+ * 📌 TÙY CHỌN, đúng chữ Sếp: *"7. Phiếu chi (Nếu có)"*. Không phải đơn nào cũng có phiếu chi —
+ * đơn trả qua ngân hàng thì chứng từ là ủy nhiệm chi, phiếu chi là của khoản trả bằng tiền mặt.
+ *
+ * ⚠️ ĐỪNG BẮT BUỘC nó chỉ vì "cho đủ bảy mục": đòi một chứng từ mà nghiệp vụ không sinh ra là
+ * buộc người dùng đính bừa hoặc ghi lý do bừa, rồi cả hai thứ mất nghĩa.
+ */
+export const NHAN_TEP_PHIEU_CHI = "Phiếu chi";
 
 /**
  * ★ TÊN HIỂN THỊ của ô hợp đồng — Ban lãnh đạo 23/08/2026: *"Sửa tên: Hợp đồng/Đơn mua hàng"*.
@@ -170,6 +180,17 @@ export function tepHoaDonVAT(deNghi: DeNghiMuaHang): MoTaTep[] {
 }
 export function tepUNC(deNghi: DeNghiMuaHang): MoTaTep[] {
   return gopTepHaiKhoa(deNghi, BUOC_CU_UNC, NHAN_TEP_UNC);
+}
+
+/**
+ * ★★ Tệp PHIẾU CHI — mục 7 của bộ hồ sơ thanh toán (Ban lãnh đạo 26/08/2026).
+ *
+ * 📌 CHỈ ĐỌC MỘT KHÓA, không gộp khóa cũ như hai hàm trên: ô này mới có từ 26/08/2026 nên không
+ * có dữ liệu cũ nào nằm ở khóa khác. Thêm khóa cũ cho "đối xứng" là mời người sau tin rằng từng
+ * có một bước Phiếu chi riêng — chuyện chưa bao giờ xảy ra.
+ */
+export function tepPhieuChi(deNghi: DeNghiMuaHang): MoTaTep[] {
+  return tepTheoNhan(deNghi, BUOC_DINH_KEM_HO_SO_THANH_TOAN, NHAN_TEP_PHIEU_CHI);
 }
 
 export function coHopDong(deNghi: DeNghiMuaHang): boolean {

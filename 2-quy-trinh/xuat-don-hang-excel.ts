@@ -500,7 +500,63 @@ function keVien(
   }
 }
 
-/** Tên file theo mã PO — mã đã là duy nhất nên không cần thêm ngày. */
-export function tenFileDonHang(maPO: string): string {
-  return `${maPO}.xlsx`;
+/**
+ * ★★ TÊN FILE PO = **mã đề xuất + tên công trình / phòng ban** — Ban lãnh đạo 26/08/2026:
+ * *"Lưu ý tên của file Po khi lưu sẽ là Mã số đề xuất + tên công trình/phòng ban"*, và Sếp chốt
+ * *"mã số đề xuất"* là **mã đề xuất bên App Request** (vd `01234`).
+ *
+ * 🔴 KHÔNG DÙNG MÃ PO NỮA (`DMH260003.xlsx`). Mã đó không nói được đơn thuộc công trình nào, nên
+ * mở thư mục ra thấy một dãy `DMH2600xx.xlsx` giống nhau, phải mở từng file mới biết của ai.
+ *
+ * 🔴 LÙI VỀ MÃ HỒ SƠ CỦA APP khi không có mã App Request — đơn lập từ đề nghị **không** đến từ
+ * App Request thì trường đó rỗng. Để rỗng là tên file bắt đầu bằng dấu gạch, và hai đơn khác
+ * công trình có thể ra cùng tên.
+ *
+ * 🔴🔴 PHẢI LÀM SẠCH KÝ TỰ — đây là chỗ dễ hỏng nhất, và đã kiểm bằng dữ liệu thật:
+ * mã hồ sơ của app chứa **dấu `/`** (vd `26003-HDXD/HOWELL-Nhà xưởng Howell-PR-001`), mà `/` là
+ * ký tự **không hợp lệ trong tên file** trên Windows lẫn macOS. Không làm sạch thì trình duyệt
+ * âm thầm cắt tên hoặc lưu ra một tên khác hẳn — người dùng không hiểu vì sao file "mất tên".
+ */
+export function tenFileDonHang(
+  /** Mã đề xuất App Request — rỗng / `undefined` thì hàm tự lùi về `maHoSo`. */
+  maDeXuat: string | undefined,
+  /** Mã hồ sơ của app (`DeNghiMuaHang.code`) — đường lùi. */
+  maHoSo: string,
+  /** Tên công trình; đơn của phòng ban (không gắn công trình) thì truyền tên phòng ban. */
+  tenCongTrinhHoacPhongBan: string,
+): string {
+  const dau = (maDeXuat ?? "").trim() || maHoSo.trim();
+  const sau = tenCongTrinhHoacPhongBan.trim();
+  const tho = sau === "" ? dau : `${dau} - ${sau}`;
+  return `${lamSachTenTep(tho)}.xlsx`;
+}
+
+/**
+ * ★ Bỏ những ký tự hệ điều hành không cho phép trong tên file.
+ *
+ * 📌 Danh sách `\ / : * ? " < > |` là của Windows (khắt khe nhất trong ba hệ), cộng ký tự điều
+ * khiển. Dùng chuẩn khắt khe nhất thì file mở được ở mọi máy — làm theo macOS (chỉ cấm `:`) là
+ * tên hỏng ngay khi ai đó lưu trên Windows.
+ *
+ * 📌 Thay bằng `-` chứ không XOÁ: `26003-HDXD/HOWELL` xoá dấu gạch chéo thành `26003-HDXDHOWELL`,
+ * đọc ra như một mã khác. Thay thì vẫn thấy được ranh giới.
+ *
+ * 🔴 GIỮ DẤU CÁCH. Dấu cách là ký tự HỢP LỆ trong tên file, và tên có dấu cách dễ đọc hơn nhiều:
+ * `01234 - Nhà xưởng Howell.xlsx` so với `01234-Nhà-xưởng-Howell.xlsx`. Đừng gom nó vào danh sách
+ * thay thế cho "an toàn" — đó là làm xấu tên file mà không được gì.
+ *
+ * ⚠️ Gom nhiều dấu gạch (và nhiều dấu cách) liền nhau thành một, bỏ dấu ở hai đầu: mã hồ sơ có
+ * sẵn dấu gạch cuối thì ghép ra tên kiểu `abc- - xyz`.
+ */
+export function lamSachTenTep(ten: string): string {
+  /* Danh sach ky tu CAM cua Windows. KHONG dung day \xNN trong regex: cong cu ghi tep co the
+     dien giai escape thanh BYTE THAT, bien tep ma nguon thanh nhi phan (da dinh 26/08/2026 —
+     grep bao "Binary file matches"). Liet ke tung ky tu thi khong bao gio gap chuyen do. */
+  const KY_TU_CAM = /[\/:*?"<>|]/g;
+  return ten
+    .replace(KY_TU_CAM, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[-\s]+|[-\s]+$/g, "")
+    .trim();
 }

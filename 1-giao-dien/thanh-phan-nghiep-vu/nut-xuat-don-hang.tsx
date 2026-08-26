@@ -5,6 +5,7 @@ import { FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
 
@@ -55,6 +56,25 @@ export function NutXuatDonHangExcel({
   const tenCongTrinh =
     po.tenCongTrinh ?? (po.prId ? deNghi.find((d) => d.id === po.prId)?.tenCongTrinh : undefined);
 
+  /**
+   * ★★ TÊN FILE = mã đề xuất App Request + tên công trình / phòng ban (Ban lãnh đạo 26/08/2026).
+   *
+   * 🔴 CẢ BA GIÁ TRỊ ĐỀU LẤY TỪ ĐỀ NGHỊ NGUỒN, không có trên `DonDatHang` — nên phải tra ở đây,
+   * nơi có `deNghi` trong tay. Hàm đặt tên là hàm thuần, không tự đi tra kho.
+   *
+   * 📌 Đơn KHÔNG gắn đề nghị (đơn cũ lập trước 18/08/2026) thì `dnNguon` là `undefined`: lúc đó
+   * lùi về mã PO, vì không có mã đề xuất nào để dùng. Thà tên cũ còn hơn tên rỗng.
+   *
+   * 📌 Không có công trình (đơn của một phòng ban) thì dùng **tên phòng ban** — đúng chữ Sếp
+   * *"tên công trình/phòng ban"*.
+   */
+  const dnNguon = po?.prId ? deNghi.find((d) => d.id === po.prId) : undefined;
+  const tenFileGoi = {
+    maDeXuat: dnNguon?.maDeXuatAppRequest,
+    maHoSo: dnNguon?.code ?? po?.code ?? "",
+    tenSau: tenCongTrinh?.trim() || nhanPhongBan(dnNguon?.phongBanNguon),
+  };
+
   const vuongMac = vuongMacXuatPO({ po, gia });
 
   async function tai() {
@@ -76,11 +96,11 @@ export function NutXuatDonHangExcel({
       const diaChi = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = diaChi;
-      a.download = tenFileDonHang(po!.code);
+      a.download = tenFileDonHang(tenFileGoi.maDeXuat, tenFileGoi.maHoSo, tenFileGoi.tenSau);
       a.click();
       // Thu hồi địa chỉ tạm, nếu không mỗi lần bấm lại giữ thêm một bản trong bộ nhớ.
       setTimeout(() => URL.revokeObjectURL(diaChi), 10_000);
-      toast.success("Đã tải đơn mua hàng", { description: tenFileDonHang(po!.code) });
+      toast.success("Đã tải đơn mua hàng", { description: tenFileDonHang(tenFileGoi.maDeXuat, tenFileGoi.maHoSo, tenFileGoi.tenSau) });
     } catch (e) {
       // Nói ra lỗi thay vì im lặng — bấm mà không thấy gì thì người dùng tưởng app hỏng.
       toast.error("Không tạo được file Excel", {

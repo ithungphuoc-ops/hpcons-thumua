@@ -161,7 +161,18 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
     /* Khổ A4 dọc: 210mm trừ lề 15mm mỗi bên = 180mm bề ngang in được.
        🔴 PHÔNG TIMES NEW ROMAN cho cả tờ giấy — mọi ô của biểu mẫu công ty đều dùng phông này.
        Khai ở thẻ ngoài cùng để mọi mảnh bên trong thừa hưởng, khỏi phải nhắc lại từng chỗ. */
-    <article className="mx-auto w-full max-w-[210mm] px-[15mm] py-[12mm] [font-family:'Times_New_Roman',Times,serif] print:px-0 print:py-0">
+    /**
+     * 🔴 GIỮ PHẦN ĐỆM KHI IN — sửa 26/08/2026, cùng lượt với việc bỏ hai dòng header/footer của
+     * trình duyệt.
+     *
+     * Trước đây có `print:px-0 print:py-0`: bỏ đệm khi in vì đã dựa vào **lề giấy của trình
+     * duyệt**. Nay `app/in/layout.tsx` đặt `@page { margin: 0 }` để Chrome không còn chỗ in ngày
+     * giờ và địa chỉ web vào lề — nghĩa là lề giấy nay bằng 0, và tờ đơn phải tự lo phần đệm.
+     *
+     * ⚠️ HAI CHỖ NÀY ĐI CẶP. Bỏ `@page margin: 0` mà để đệm ở đây thì lề gấp đôi; giữ `@page`
+     * mà bỏ đệm ở đây thì chữ sát mép giấy và máy in cắt mất chữ.
+     */
+    <article className="mx-auto w-full max-w-[210mm] px-[15mm] py-[12mm] [font-family:'Times_New_Roman',Times,serif]">
       {/* ---------- ĐẦU TRANG: logo + pháp nhân bên mua ----------
           Bám ô A1:B4 (logo, góc trên bên trái) và C1:J1 / C2:I2 (tên + địa chỉ, canh trái)
           của biểu mẫu. `items-start` để tên công ty thẳng đỉnh logo như trên giấy. */}

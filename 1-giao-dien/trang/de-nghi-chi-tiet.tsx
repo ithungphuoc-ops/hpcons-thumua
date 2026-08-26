@@ -103,7 +103,9 @@ import {
   lyDoThieuHopDong,
   NHAN_TEP_HOA_DON_VAT,
   NHAN_TEP_HOP_DONG,
+  NHAN_TEP_PHIEU_CHI,
   NHAN_TEP_UNC,
+  tepPhieuChi,
   TEN_HIEN_HOP_DONG,
   tepHoaDonVAT,
   tepHopDong,
@@ -114,6 +116,8 @@ import {
   vuongMacTichXongUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
+/* Khối "Kết quả" của bước ⑦ — bộ hồ sơ thanh toán 7 mục (Ban lãnh đạo 26/08/2026). */
+import { KhoiBoHoSoThanhToan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan";
 import {
   nhanAnToan,
   NHAN_TRANG_THAI_BAO_GIA,
@@ -1961,6 +1965,34 @@ export default function TrangChiTietDeNghi() {
                       khoa={hoSoDaDong}
                       tepDaCo={tepUNC(dn)}
                     />
+                    {/* ★★ PHIẾU CHI — mục 7 của bộ hồ sơ thanh toán (Ban lãnh đạo 26/08/2026).
+                        📌 TÙY CHỌN đúng chữ Sếp *"(Nếu có)"*: đơn trả qua ngân hàng thì chứng từ
+                        là ủy nhiệm chi ở trên, phiếu chi là của khoản trả bằng tiền mặt. */}
+                    <OChungTuBatBuoc
+                      deNghi={dn}
+                      maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
+                      nhanO={NHAN_TEP_PHIEU_CHI}
+                      tieuDe="Phiếu chi"
+                      moTa="Phiếu chi của khoản trả bằng tiền mặt. Đơn chuyển khoản thì để trống — chứng từ là ủy nhiệm chi ở trên."
+                      duocSua={duocSuaTepBuoc}
+                      khoa={hoSoDaDong}
+                      tepDaCo={tepPhieuChi(dn)}
+                    />
+                    {/* ★★ TRƯỜNG "KẾT QUẢ" — BỘ HỒ SƠ THANH TOÁN BẢY MỤC (Ban lãnh đạo 26/08/2026:
+                        *"Tạo thêm 1 trường Kết quả. Sẽ được link kết quả từ các bước trên"*).
+                        📌 Đặt SAU các ô đính kèm của bước này: người dùng đính hóa đơn / UNC /
+                        phiếu chi xong thì cuộn xuống thấy ngay bộ hồ sơ vừa đủ lên mấy mục.
+                        🔴 Chỉ BÀY, không cho đính lại — xem chú thích đầu
+                        `thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan.tsx`. */}
+                    <div className="border-t border-divider pt-3">
+                      <KhoiBoHoSoThanhToan
+                        deNghi={dn}
+                        poCuaDeNghi={poLienQuan}
+                        phieuCuaDeNghi={phieuLienQuan}
+                        xemGia={quyen.xemGia}
+                      />
+                    </div>
+
                     {/* Nói rõ vì sao cái tích đang khóa, thay vì để người dùng bấm mãi không được. */}
                     {vuongMacTichXongUNC(dn) !== null && (
                       <p className="rounded-lg bg-warning/10 p-3 text-xs text-text-secondary">
