@@ -2036,14 +2036,21 @@ export function FormLapDonMuaHang({
                   Khi gập thì đổi thành lời mời bấm mở, để dòng tiêu đề không đứng trơ vô nghĩa. */}
               <span className="text-xs text-text-desc">
                 {moNhapLieu
-                  ? "Chỉ người được cấp quyền lập đơn thấy phần nhập liệu này. Nhập tay từng dòng, hoặc lấy sẵn từ file Excel."
+                  ? "Chỉ người được cấp quyền lập đơn thấy phần nhập liệu này. Nhập tay từng dòng, hoặc lấy sẵn từ file Excel bằng hai nút dưới bảng Hàng tiền."
                   : "Đã thu gọn — bấm để mở phần nhập liệu (nhập tay hoặc lấy từ file Excel)."}
               </span>
             </span>
           </button>
         ) : (
+          /* 🔴 BỎ DẤU HAI CHẤM VÀ NÓI RÕ NÚT NẰM Ở ĐÂU — sửa 26/08/2026, ngay sau khi dời hai nút
+             Excel xuống bảng. Câu cũ kết thúc bằng *"…từ file Excel:"*, mà dấu hai chấm trỏ vào
+             cụm nút đứng ngay dưới nó — cụm nút nay không còn ở đó nữa. Để nguyên là câu dẫn trỏ
+             vào chỗ trống, đúng kiểu "giao diện nói một đằng làm một nẻo" mà quy ước dự án cấm. */
           <p className="text-sm text-text-desc">
-            Nhập tay từng dòng, hoặc lấy sẵn từ file Excel:
+            Nhập tay từng dòng, hoặc lấy sẵn từ file Excel — hai nút{" "}
+            <strong className="font-medium text-text-secondary">Tải file mẫu</strong> và{" "}
+            <strong className="font-medium text-text-secondary">Nhập từ Excel</strong> nằm ngay
+            dưới bảng Hàng tiền.
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
