@@ -582,7 +582,10 @@ export const DIEU_KIEN_KHONG_SUA: { nhan: string; giaTri: string; lyDo: string }
   },
   {
     nhan: "Ba lớp xác nhận để hoàn thành đơn hàng",
-    giaTri: "Giao đủ khối lượng · Thủ kho xác nhận · Trưởng bộ phận xác nhận",
+    /* 🔴 "Thu mua xác nhận", KHÔNG phải "Trưởng bộ phận xác nhận" — sửa 26/08/2026.
+       Từ 22/08 nhân viên phụ trách đơn cũng xác nhận được (chỉ đạo Ban lãnh đạo), nên ghi cứng
+       "Trưởng bộ phận" là bảng cài đặt nói sai thứ app đang làm. */
+    giaTri: "Giao đủ khối lượng · Thủ kho xác nhận · Thu mua xác nhận",
     lyDo: "Ba lớp là ba người khác nhau kiểm chéo. Bỏ một lớp thì mất chỗ đối chiếu, không phải nhanh hơn.",
   },
   {

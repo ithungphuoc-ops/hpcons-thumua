@@ -1827,14 +1827,30 @@ export default function TrangChiTietDeNghi() {
                                   }}
                                 >
                                   <BadgeCheck className="size-4" aria-hidden />
-                                  {/* 🔴 NHÃN NÓI ĐÚNG AI ĐANG BẤM (22/08/2026). Từ khi nhân viên
-                                      phụ trách cũng duyệt được, để nguyên chữ "Trưởng bộ phận
-                                      xác nhận" là nút nói sai về chính nó — nhân viên bấm vào một
-                                      nút mang tên người khác, rồi tự hỏi mình có được phép không. */}
-                                  {quyen.xacNhanTruongBP
-                                    ? "Trưởng bộ phận xác nhận hoàn thành"
-                                    : "Xác nhận hoàn thành đơn này"}
+                                  {/**
+                                    * ★★ NHÃN NÓI TÊN CỦA VIỆC, KHÔNG NÓI TÊN NGƯỜI BẤM — Ban lãnh
+                                    * đạo 26/08/2026: *"Bước này là nhân viên phụ trách đơn hàng
+                                    * xác nhận"*, chỉ đúng vào nút này.
+                                    *
+                                    * 🔴 VÌ SAO BẢN CŨ SAI: nó đổi nhãn theo VAI TRÒ NGƯỜI ĐANG XEM
+                                    * — trưởng bộ phận mở ra thì đọc *"Trưởng bộ phận xác nhận hoàn
+                                    * thành"*. Đúng về ai đang bấm, nhưng **che mất** việc bước này
+                                    * thuộc trách nhiệm của nhân viên phụ trách đơn: trưởng bộ phận
+                                    * tưởng đây là việc của mình, còn nhân viên thì không biết mình
+                                    * là người phải làm.
+                                    *
+                                    * 📌 Nay một nhãn cho mọi vai trò, và câu dưới nút nói rõ ai
+                                    * chịu trách nhiệm chính. Quyền KHÔNG đổi (Sếp chốt 26/08: *"chỉ
+                                    * sửa nhãn nút"*) — trưởng bộ phận vẫn bấm được, vì cắt quyền họ
+                                    * là đơn kẹt khi nhân viên nghỉ phép (lý do đã ghi 22/08/2026).
+                                    */}
+                                  Xác nhận hoàn thành đơn
                                 </Button>
+                                {/* Một dòng, chữ nhỏ — nói đúng trách nhiệm mà không kéo dài khối
+                                    (Ban lãnh đạo 24/08 đã yêu cầu tối giản chữ ở khu này). */}
+                                <span className="text-xs text-text-desc">
+                                  Nhân viên phụ trách đơn xác nhận. Trưởng bộ phận bấm thay khi cần.
+                                </span>
                               </div>
                             )}
 

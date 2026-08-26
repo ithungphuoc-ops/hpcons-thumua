@@ -354,7 +354,13 @@ interface GiaTriDuLieu {
   /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
   xacNhanKho: (poId: string, nguoi: XacNhan) => string | null;
   /**
-   * Trưởng bộ phận xác nhận hoàn thành đơn — đơn khóa lại và hồ sơ sang Kế toán.
+   * Thu mua xác nhận hoàn thành đơn — đơn khóa lại và hồ sơ sang Kế toán.
+   *
+   * ⚠️ TÊN HÀM CÒN CHỮ `TruongBP` NHƯNG NGƯỜI BẤM KHÔNG CHỈ LÀ TRƯỞNG BỘ PHẬN. Từ 22/08/2026
+   * **nhân viên phụ trách đơn** cũng xác nhận được (Ban lãnh đạo), và 26/08/2026 Sếp xác nhận lại
+   * *"bước này là nhân viên phụ trách đơn hàng xác nhận"*. Giữ tên hàm cũ là cố ý: nó nằm trong
+   * `DonDatHang.xacNhanTruongBP` đã lưu trong dữ liệu chạy thử, đổi tên trường là mọi đơn đã xác
+   * nhận **mất dấu xác nhận**. Đổi tên hàm mà không đổi trường thì hai chỗ gọi một thứ hai tên.
    *
    * ★ TRẢ `string | null` từ 22/08/2026: bắt buộc phải có Hóa đơn VAT mới duyệt được (chỉ đạo
    * Ban lãnh đạo). Trả câu lý do để nút hiện ra, thay vì bấm mà không có gì xảy ra.
@@ -2740,7 +2746,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         truoc.map((p) => (p.id === poId ? { ...p, xacNhanTruongBP: nguoi, trangThai: "hoan_thanh" } : p)),
       );
       if (po) {
-        ghiNhatKyDonHang(po, nguoi.ten, `Trưởng bộ phận xác nhận hoàn thành — ${po.code}, chuyển hồ sơ Kế toán`);
+        /* 🔴 KHÔNG ghi cứng "Trưởng bộ phận xác nhận" — sửa 26/08/2026.
+           Từ 22/08 nhân viên phụ trách đơn cũng bấm được nút này, nên câu cũ ghi SAI vai người
+           thực hiện cho mọi lần nhân viên bấm: nhật ký nói trưởng bộ phận làm, trong khi tên ghi
+           bên cạnh lại là nhân viên. Người đọc lại hồ sơ sau này không biết tin cái nào.
+           📌 "Thu mua xác nhận hoàn thành" đúng cho cả hai vai — và `nguoi.ten` ngay cạnh đã nói
+           chính xác ai bấm, nên không mất thông tin nào. */
+        ghiNhatKyDonHang(po, nguoi.ten, `Thu mua xác nhận hoàn thành — ${po.code}, chuyển hồ sơ Kế toán`);
       }
       return null;
     },

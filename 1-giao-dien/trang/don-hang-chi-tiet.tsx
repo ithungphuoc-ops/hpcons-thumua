@@ -352,13 +352,19 @@ export default function TrangChiTietDonHang() {
                 </>
               )}
               {duocDuyetHoanThanhDon && daGiaoDu && po.xacNhanKho && !po.xacNhanTruongBP && (
-                <Button onClick={bamXacNhanTruongBP}>
-                  <BadgeCheck className="size-4" aria-hidden />
-                  {/* Nhãn theo đúng người đang bấm — cùng nếp với trang chi tiết đề nghị. */}
-                  {quyen.xacNhanTruongBP
-                    ? "Trưởng bộ phận xác nhận hoàn thành"
-                    : "Xác nhận hoàn thành đơn này"}
-                </Button>
+                <div className="flex flex-col gap-1">
+                  <Button onClick={bamXacNhanTruongBP}>
+                    <BadgeCheck className="size-4" aria-hidden />
+                    {/* 🔴 Nhãn nói TÊN CỦA VIỆC, không nói vai trò người đang bấm — Ban lãnh đạo
+                        26/08/2026. Xem chú thích đầy đủ ở `trang/de-nghi-chi-tiet.tsx`, cùng nút
+                        này. ⚠️ Hai trang phải nói GIỐNG NHAU: cùng một việc mà hai màn gọi hai
+                        tên là người dùng tưởng có hai chức năng khác nhau. */}
+                    Xác nhận hoàn thành đơn
+                  </Button>
+                  <span className="text-xs text-text-desc">
+                    Nhân viên phụ trách đơn xác nhận. Trưởng bộ phận bấm thay khi cần.
+                  </span>
+                </div>
               )}
               {po.trangThai === "hoan_thanh" && (
                 <p className="rounded-lg bg-success-bg px-3 py-2 text-sm text-success-soft">
