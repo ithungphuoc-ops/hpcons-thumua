@@ -27,28 +27,41 @@
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
- * ★ Bước giữ tệp hợp đồng — **bước ⑤ "Tiến hành đặt hàng"** (Ban lãnh đạo 24/08/2026: *"Hợp đồng
- * mua hàng em đưa sang bước tiến hành đặt hàng"*).
+ * ★★ Bước giữ tệp hợp đồng — **bước ④ "Lập đơn mua hàng"** (Ban lãnh đạo 26/08/2026: *"Phải có
+ * hợp đồng hoặc thoả thuận mua bán thì mới tiến hành lập PO được, vậy nên hãy kéo bước đính kèm
+ * hợp đồng về bước này"*).
  *
- * 🔴 ĐỔI TỪ ④ SANG ⑤ LÀ SỬA ĐÚNG GỐC RỄ, không phải dời cho gọn. Trước đây hợp đồng nằm ở bước ④
- * *Lập đơn mua hàng* và bị đòi **trước khi** được lập đơn — mà **hợp đồng mua bán thường ghi số
- * đơn hàng**, còn số đơn chỉ sinh ra khi cất đơn. Thành vòng tròn: muốn có đơn phải có hợp đồng,
- * muốn có hợp đồng phải có số đơn. Chú thích ở `giai-doan-mua-hang.ts` đã cảnh báo đúng vòng tròn
- * này, và app chỉ thoát được nhờ đường "ghi lý do thay cho tệp".
+ * 🔴 ĐÂY LÀ LẦN ĐỔI THỨ HAI — ĐỌC KỸ TRƯỚC KHI ĐỔI LẦN NỮA.
  *
- * Đặt ở ⑤ thì thứ tự thành thuận: lập đơn (có số đơn) → ký hợp đồng theo số đơn đó → đặt hàng.
+ *   · tới 24/08/2026 : ở ④, và bị đòi TRƯỚC khi lập đơn
+ *   · 24 → 26/08/2026: dời sang ⑤ "Tiến hành đặt hàng"
+ *   · từ 26/08/2026  : **về lại ④**
+ *
+ * ⚠️ LẦN DỜI SANG ⑤ CÓ LÝ DO THẬT, và lý do đó nay đã được Ban lãnh đạo GỠ. Lý do cũ: hợp đồng
+ * mua bán thường **ghi số đơn hàng**, mà số đơn chỉ sinh khi cất đơn → vòng tròn *"muốn có đơn
+ * phải có hợp đồng, muốn có hợp đồng phải có số đơn"*.
+ *
+ * ✅ Vòng tròn đó **không còn**, vì cùng chỉ đạo 26/08 Ban lãnh đạo chốt: *"số HĐ ở PO sẽ được
+ * nhập thủ công"*. Tức hợp đồng KHÔNG cần số đơn để lập; thứ tự nay là: ký hợp đồng → lập đơn và
+ * **gõ tay** số hợp đồng vào ô "Hợp đồng - Ngày hợp đồng" của form PO.
+ *
+ * 🔴 Ai định dời lại sang ⑤ thì phải kiểm trước: ô số hợp đồng trên form PO còn cho gõ tay không.
+ * Nếu ô đó quay lại kiểu tự sinh theo số đơn thì vòng tròn cũ sống dậy.
  */
-export const BUOC_DINH_KEM_HOP_DONG = "dat_hang";
+export const BUOC_DINH_KEM_HOP_DONG = "lap_don_mua_hang";
 
 /**
  * 🔴 KHÓA CŨ CỦA HỢP ĐỒNG — PHẢI ĐỌC TIẾP, KHÔNG ĐƯỢC BỎ.
  *
- * Tới 24/08/2026 hợp đồng được cất theo khóa `"lap_don_mua_hang"` trong `tepGiaiDoan`. Chỉ đọc
- * khóa mới thì **mọi hợp đồng đã đính kèm trước hôm nay biến mất khỏi hồ sơ**: app báo "chưa có
- * Hợp đồng/Đơn mua hàng", tô đỏ và chặn, trong khi tệp vẫn nằm nguyên trong dữ liệu. Cùng cách
- * đã xử với `BUOC_CU_HOA_DON_VAT` — rẻ hơn nhiều so với viết mã chuyển đổi dữ liệu.
+ * Từ 24 đến 26/08/2026 hợp đồng được cất theo khóa `"dat_hang"` (bước ⑤). Chỉ đọc khóa mới thì
+ * **mọi hợp đồng đính kèm trong ba ngày đó biến mất khỏi hồ sơ**: app báo "chưa có Hợp đồng/Đơn
+ * mua hàng", tô đỏ và chặn lập đơn, trong khi tệp vẫn nằm nguyên trong dữ liệu.
+ *
+ * 📌 Hai hằng số này vừa **hoán đổi cho nhau** (26/08) — trước đó khóa mới là `dat_hang`, khóa cũ
+ * là `lap_don_mua_hang`. Vì `tepHopDong` đọc CẢ HAI nên không đợt tệp nào bị bỏ lại, dù hồ sơ
+ * được đính ở đợt nào. Cùng cách đã xử với `BUOC_CU_HOA_DON_VAT`.
  */
-const BUOC_CU_HOP_DONG = "lap_don_mua_hang";
+const BUOC_CU_HOP_DONG = "dat_hang";
 
 /**
  * ★ Bước giữ CẢ hóa đơn VAT VÀ ủy nhiệm chi — Ban lãnh đạo 23/08/2026: *"Gộp 2 mục này lại thành
@@ -201,9 +214,10 @@ export function thieuHopDongDaGhiLyDo(deNghi: DeNghiMuaHang): boolean {
 export function vuongMacRoiBuocLapDon(deNghi: DeNghiMuaHang): string | null {
   if (coHopDong(deNghi)) return null;
   if (lyDoThieuHopDong(deNghi) !== "") return null;
-  /* 📌 Câu chỉ sang bước ⑤ "Tiến hành đặt hàng" — nơi ô đính kèm hợp đồng đã chuyển tới
-     (Ban lãnh đạo 24/08/2026). Chỉ sai chỗ là người dùng đi tìm ô ở khối không có nó. */
-  return `Chưa đính kèm ${TEN_HIEN_HOP_DONG}, và cũng chưa ghi lý do chưa có. Làm một trong hai việc đó ở khối kết quả của bước Tiến hành đặt hàng.`;
+  /* 📌 Câu chỉ về bước ④ "Lập đơn mua hàng" — nơi ô đính kèm hợp đồng đã quay lại (Ban lãnh đạo
+     26/08/2026). Chỉ sai chỗ là người dùng đi tìm ô ở khối không có nó; đã từng xảy ra khi ô dời
+     sang ⑤ mà câu này còn chỉ về ④. */
+  return `Chưa đính kèm ${TEN_HIEN_HOP_DONG}, và cũng chưa ghi lý do chưa có. Làm một trong hai việc đó ở khối kết quả của bước Lập đơn mua hàng.`;
 }
 
 /**

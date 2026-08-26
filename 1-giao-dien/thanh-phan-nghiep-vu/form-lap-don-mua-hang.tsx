@@ -1712,7 +1712,9 @@ export function FormLapDonMuaHang({
      nói một câu vô nghĩa — mà chế độ đó cũng không có nút Cất nào để chặn.
      ⚠️ ĐÂY CHỈ LÀ CÂU GIẢI THÍCH, KHÔNG PHẢI CHỐT CHẶN. Chốt thật ở `themDonHang`, và hàm đó
      TỪ CHỐI HẲN đơn thiếu `prId` — xem chú thích ở đó. */
-  const chanLapDon = dn ? vuongMacLapDonHang(baoGia.filter((b) => b.prId === dn.id)) : null;
+  /* ★ Truyền `dn` để chốt kiểm luôn điều kiện HỢP ĐỒNG (Ban lãnh đạo 26/08/2026) — cùng một hàm
+     với chốt thật trong `themDonHang`, nên câu báo trên form không thể nói khác lúc cất. */
+  const chanLapDon = dn ? vuongMacLapDonHang(baoGia.filter((b) => b.prId === dn.id), dn) : null;
 
   function luu(rangIn: boolean) {
     if (tenNCC.trim() === "") return;

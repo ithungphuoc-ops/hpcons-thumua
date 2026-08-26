@@ -1321,7 +1321,20 @@ export function dsDieuKienConVuong(
       }
       break;
 
-    case "dat_hang": {
+    /**
+     * ★★ HỢP ĐỒNG CHUYỂN TỪ BƯỚC ⑤ VỀ BƯỚC ④ — Ban lãnh đạo 26/08/2026: *"Phải có hợp đồng hoặc
+     * thoả thuận mua bán thì mới tiến hành lập PO được, vậy nên hãy kéo bước đính kèm hợp đồng về
+     * bước này"*.
+     *
+     * 🔴 PHẢI ĐỔI CẢ CHỖ NÀY, không chỉ đổi hằng số `BUOC_DINH_KEM_HOP_DONG`. Ô đính kèm mà nằm ở
+     * ④ trong khi điều kiện chuyển bước vẫn treo ở ⑤ thì: kéo thẻ ④→⑤ đi lọt dù chưa có hợp đồng,
+     * rồi tới ⑤ mới bị chặn — mà lúc đó ô để gỡ lại nằm ngược về ④. Đúng kiểu "hai chỗ cùng trả
+     * lời một câu hỏi mà nói khác nhau" đã phải sửa nhiều lần ở dự án này.
+     *
+     * 📌 `goDuocTaiCho: true` nên kéo thẻ ④→⑤ khi thiếu hợp đồng sẽ **mở hộp kèm ô đính kèm ngay
+     * tại chỗ**, không phải toast đỏ ngõ cụt (chỉ đạo 25/08/2026).
+     */
+    case "lap_don_mua_hang": {
       const vuong = vuongMacRoiBuocLapDon(deNghi);
       if (vuong) ra.push({ ma: "thieu_hop_dong", cau: vuong, goDuocTaiCho: true });
       break;
@@ -1416,12 +1429,40 @@ export function vuongMacSangBuocSau(
  *    đơn nữa, chỉ in / xuất mẫu. `themDonHang` vì vậy đã **siết lại — thiếu `prId` là từ chối
  *    cất**, rồi mới chạy hàm này. Nghĩa là **mọi đơn nằm trong hệ thống đều đã qua chốt này.**
  */
-export function vuongMacLapDonHang(baoGiaCuaDeNghi: BaoGia[]): string | null {
+export function vuongMacLapDonHang(
+  baoGiaCuaDeNghi: BaoGia[],
+  /**
+   * ★★ Đề nghị — CHỈ để kiểm điều kiện HỢP ĐỒNG (Ban lãnh đạo 26/08/2026: *"Phải có hợp đồng
+   * hoặc thoả thuận mua bán thì mới tiến hành lập PO được"*).
+   *
+   * 🔴 CỐ Ý ĐỂ TÙY CHỌN. Chế độ lập đơn MẪU (`/don-hang/tao-moi` không kèm `?prId=`) không có đề
+   * nghị nào, mà nó cũng **không cất đơn** nên không có gì để chặn. Bắt buộc tham số này là chế
+   * độ mẫu hết dùng được.
+   */
+  deNghi?: DeNghiMuaHang,
+): string | null {
   const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
   if (conSong.length === 0) {
     return "Chưa có bảng báo giá nào cho đề nghị này. Phải lập bảng báo giá, thu thập giá rồi trình trưởng bộ phận duyệt trước khi lập đơn đặt hàng.";
   }
-  if (conSong.some((b) => b.trangThai === "da_chon_ncc")) return null;
+  if (conSong.some((b) => b.trangThai === "da_chon_ncc")) {
+    /**
+     * ★★ HỢP ĐỒNG PHẢI CÓ TRƯỚC KHI LẬP ĐƠN — Ban lãnh đạo 26/08/2026.
+     *
+     * 🔴 XÉT SAU CÙNG, khi mọi điều kiện báo giá đã xong: nói cái nặng trước (chưa duyệt báo
+     * giá) thì người dùng đi làm đúng việc cần làm, không nhảy qua nhảy lại giữa hai lời nhắc.
+     *
+     * 🔴 GỌI `vuongMacRoiBuocLapDon`, TUYỆT ĐỐI KHÔNG GỌI `coHopDong` — cùng bài học đã ghi ở
+     * `xacDinhGiaiDoan`: `vuongMacRoiBuocLapDon` chấp nhận **tệp HOẶC lý do** (chỉ đạo
+     * 23/08/2026), còn `coHopDong` chỉ hỏi có tệp. Dùng lẫn là hai chỗ cùng trả lời một câu hỏi
+     * mà nói khác nhau — đúng lỗi đã phải sửa ngày 23/08.
+     *
+     * 📌 Đường "ghi lý do" VẪN GIỮ, và đó là chủ ý: mẫu **PO-02 — Đơn mua hàng kèm thoả thuận**
+     * thì chính tờ đơn là thoả thuận, không có hợp đồng riêng để đính. Bỏ đường đó là khoá cứng
+     * mọi đơn dùng mẫu PO-02.
+     */
+    return deNghi ? vuongMacRoiBuocLapDon(deNghi) : null;
+  }
   if (conSong.some((b) => b.trangThai === "da_so_sanh")) {
     return "Bảng báo giá đã trình nhưng trưởng bộ phận CHƯA DUYỆT. Phải chốt nhà cung cấp (hoặc duyệt phương án chia đơn) ở bước Xét duyệt báo giá trước khi lập đơn đặt hàng.";
   }

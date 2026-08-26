@@ -1543,27 +1543,90 @@ export default function TrangChiTietDeNghi() {
                    rồi gập là mất sạch. Nay form đã dời sang trang riêng, trong khối chỉ còn
                    danh sách đơn và một cái nút, không có gì để mất. Bật cờ này khi không cần
                    là dựng sẵn nội dung ẩn cho mọi lượt mở phiếu, không được gì. */
-                /* Bước ④ nhận hợp đồng mua bán, phụ lục, đơn đã có chữ ký. */
                 /**
-                 * 🔴 Ô HỢP ĐỒNG ĐÃ CHUYỂN SANG BƯỚC ⑤ — Ban lãnh đạo 24/08/2026: *"Hợp đồng mua
-                 * hàng em đưa sang bước tiến hành đặt hàng"*. Xem khối `dat_hang` ngay dưới.
+                 * ★★ Ô HỢP ĐỒNG QUAY VỀ BƯỚC ④ — Ban lãnh đạo 26/08/2026: *"Phải có hợp đồng hoặc
+                 * thoả thuận mua bán thì mới tiến hành lập PO được, vậy nên hãy kéo bước đính kèm
+                 * hợp đồng về bước này"*.
                  *
-                 * Bước ④ nay chỉ giữ **tệp cũ** của hồ sơ từng đính kèm ở đây — kể cả hợp đồng
-                 * đính trước 24/08, khi ô hợp đồng còn nằm ở bước này. Không ẩn đi: chứng từ biến
-                 * mất khỏi tầm nhìn mà vẫn nằm trong dữ liệu là thứ quy ước dự án cấm.
+                 * ⚠️ Từ 24 đến 26/08 ô này nằm ở bước ⑤. Tệp đính trong ba ngày đó vẫn đọc được vì
+                 * `tepHopDong` gộp CẢ HAI khóa — xem `BUOC_CU_HOP_DONG`.
                  *
-                 * 🔴 ĐỌC CHUỖI CỨNG `"lap_don_mua_hang"`, KHÔNG dùng `BUOC_DINH_KEM_HOP_DONG` —
-                 * hằng số đó nay trỏ `"dat_hang"`, dùng ở đây là khu này đi bày lại đúng thứ khối
-                 * ⑤ đang bày.
+                 * 🔴 Luật chặn ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts` → `vuongMacRoiBuocLapDon`,
+                 * và `vuongMacLapDonHang` gọi nó để **chặn cất đơn khi chưa có hợp đồng**. Không
+                 * viết lại điều kiện ở đây.
                  */
-                khuDinhKem: (dn.tepGiaiDoan?.lap_don_mua_hang ?? []).length > 0 ? (
-                  <KhuDinhKemGiaiDoan
-                    deNghi={dn}
-                    maGiaiDoan="lap_don_mua_hang"
-                    duocSua={false}
-                    khoa
-                  />
-                ) : undefined,
+                khuDinhKem: (
+                  <div className="flex flex-col gap-(--hp-md-card-gap)">
+                    <OChungTuBatBuoc
+                      deNghi={dn}
+                      maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
+                      nhanO={NHAN_TEP_HOP_DONG}
+                      /* ★ Tên hiển thị đổi theo chỉ đạo 23/08/2026; NHÃN LƯU (`nhanO`) giữ nguyên
+                         "Hợp đồng" để hợp đồng đã đính kèm trước đó vẫn được nhận ra. */
+                      tieuDe={TEN_HIEN_HOP_DONG}
+                      moTa="Bản hợp đồng mua bán / thoả thuận đã ký với nhà cung cấp. PHẢI có bản này (hoặc ghi lý do chưa có ở ô dưới) thì mới lập được đơn mua hàng."
+                      batBuoc
+                      duocSua={duocSuaTepBuoc}
+                      khoa={hoSoDaDong}
+                      tepDaCo={tepHopDong(dn)}
+                    />
+
+                    {/* ★ Ô GHI LÝ DO — chỉ đạo 23/08/2026, GIỮ NGUYÊN khi dời bước.
+                        🔴 Đây là lối thoát cho mẫu **PO-02 — Đơn mua hàng kèm thoả thuận**: ở mẫu
+                        đó chính tờ đơn là thoả thuận, không có hợp đồng riêng để đính. Bỏ ô này là
+                        khoá cứng mọi đơn dùng mẫu PO-02.
+                        🔴 Chỉ hiện khi CHƯA có tệp — đã có rồi mà vẫn hỏi "vì sao chưa có" là mời
+                        người dùng ghi một lý do sai vào hồ sơ. */}
+                    {!coHopDong(dn) && (
+                      <div
+                        className={`flex flex-wrap items-center gap-2 rounded-lg border p-(--hp-md-row-pad) ${
+                          thieuHopDongDaGhiLyDo(dn)
+                            ? "border-danger bg-danger-bg"
+                            : "border-border bg-muted"
+                        }`}
+                      >
+                        <Label
+                          htmlFor="ly-do-thieu-hop-dong"
+                          className="shrink-0"
+                          title={`Chưa có ${TEN_HIEN_HOP_DONG} thì ghi rõ vì sao`}
+                        >
+                          Lý do chưa có <span className="text-danger">*</span>
+                        </Label>
+                        <Input
+                          id="ly-do-thieu-hop-dong"
+                          className="min-w-48 flex-1"
+                          defaultValue={lyDoThieuHopDong(dn)}
+                          disabled={!duocSuaTepBuoc || hoSoDaDong}
+                          placeholder="Ví dụ: dùng mẫu PO-02, chính tờ đơn là thoả thuận mua bán."
+                          /* 🔴 GHI KHI RỜI Ô (`onBlur`), không ghi theo từng ký tự: mỗi lần ghi là
+                             một dòng nhật ký và một lần đẩy lên kho chung của cả phòng. */
+                          onBlur={(e) => {
+                            const loi = ghiLyDoThieuChungTu(
+                              dn.id,
+                              KHOA_LY_DO_THIEU_HOP_DONG,
+                              e.target.value,
+                              nguoiDung.tenHienThi,
+                            );
+                            if (loi) toast.error("Chưa ghi được lý do", { description: loi });
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* 🔴 Khu tệp tự do CHỈ hiện khi có tệp KHÔNG mang nhãn hợp đồng — nếu không,
+                        hợp đồng vừa đính sẽ hiện HAI LẦN trên cùng một khối. */}
+                    {(dn.tepGiaiDoan?.lap_don_mua_hang ?? []).some(
+                      (t) => (t.ghiChu ?? "").trim() !== NHAN_TEP_HOP_DONG,
+                    ) && (
+                      <KhuDinhKemGiaiDoan
+                        deNghi={dn}
+                        maGiaiDoan="lap_don_mua_hang"
+                        duocSua={duocSuaTepBuoc}
+                        khoa={hoSoDaDong}
+                      />
+                    )}
+                  </div>
+                ),
               },
               {
                 ma: "dat_hang",
@@ -1610,114 +1673,28 @@ export default function TrangChiTietDeNghi() {
                     </div>
                   );
                 })(),
-                /* Bước ⑤ nhận đơn đã gửi đi có xác nhận của nhà cung cấp, chứng từ tạm ứng. */
-                khuDinhKem: (
-                  <div className="flex flex-col gap-(--hp-md-card-gap)">
-                    {/* ★ Ô HỢP ĐỒNG BẮT BUỘC — Ban lãnh đạo 22/08/2026: *"thêm cho 1 trường đính
-                        kèm Hợp đồng ở mục kết quả và phải có đính kèm thì mới cho chuyển bước"*.
-                        Luật chặn ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, không viết lại ở đây. */}
-                    <OChungTuBatBuoc
-                      deNghi={dn}
-                      maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
-                      nhanO={NHAN_TEP_HOP_DONG}
-                      /* ★ Tên hiển thị đổi theo chỉ đạo 23/08/2026; NHÃN LƯU (`nhanO`) giữ nguyên
-                         "Hợp đồng" để hợp đồng đã đính kèm trước hôm nay vẫn được nhận ra. */
-                      tieuDe={TEN_HIEN_HOP_DONG}
-                      moTa="Bản hợp đồng mua bán / đơn mua hàng đã ký với nhà cung cấp. Chưa có thì ghi lý do ở ô dưới để hồ sơ đi tiếp được — nhưng hồ sơ sẽ bị đánh dấu còn nợ chứng từ."
-                      batBuoc
-                      duocSua={duocSuaTepBuoc}
-                      khoa={hoSoDaDong}
-                      tepDaCo={tepHopDong(dn)}
-                    />
-
-                    {/**
-                      * ★ Ô GHI LÝ DO CHƯA CÓ HỢP ĐỒNG — Ban lãnh đạo 23/08/2026: *"Thêm hàm bắt
-                      * buộc có file đính kèm hoặc ghi chú lý do không đính kèm file thì mới cho
-                      * chuyển bước và phải tô màu đỏ lại. Để biết là còn thiếu hồ sơ để bổ sung
-                      * sau"*.
-                      *
-                      * 🔴 CHỈ HIỆN KHI CHƯA CÓ TỆP. Đã có hợp đồng rồi mà vẫn bày ô "vì sao chưa
-                      * có" là mời người dùng gõ vào một ô vô nghĩa, rồi hồ sơ mang một lý do sai.
-                      *
-                      * 🔴 DẢI ĐỎ Ở NGAY ĐÂY, không phải một dòng chữ xám: đây là hồ sơ **còn nợ
-                      * chứng từ** mà vẫn được đi tiếp — thứ dễ bị quên nhất trong cả quy trình.
-                      */}
-                    {/**
-                      * 🔴 GỌN CÒN MỘT HÀNG — Ban lãnh đạo 24/08/2026: *"để hiển thị 1 dòng được
-                      * rồi"*. Bản trước chiếm ~5 dòng: nhãn một dòng, ô chữ `rows={2}`, rồi một
-                      * câu đỏ hai dòng.
-                      *
-                      * 🔴 CÂU ĐỎ DƯỚI Ô ĐÃ BỎ VÌ TRÙNG, không phải vì rút cho ngắn. Đầu khối bước
-                      * này đã có sẵn dòng *"Chưa có tệp Hợp đồng/Đơn mua hàng (đã ghi lý do: …) —
-                      * phải bổ sung bản đã ký"* do `conNoCuaBuoc` sinh ra. Hai câu nói y một việc,
-                      * cách nhau ba dòng: người đọc phải đọc hai lần mới biết là **một** việc.
-                      *
-                      * 📌 Câu xám ở nhánh chưa-ghi-lý-do cũng bỏ: điều kiện *"có tệp HOẶC có lý
-                      * do"* đã nằm trong `moTa` của ô đính kèm ngay trên.
-                      *
-                      * ⚠️ `Input` thay `Textarea`: lý do thiếu chứng từ là một câu ngắn ("bản ký
-                      * tuần này"), không phải đoạn văn. Ô hai dòng chỉ chiếm chỗ mà chưa lần nào
-                      * dùng hết.
-                      */}
-                    {!coHopDong(dn) && (
-                      <div
-                        className={`flex flex-wrap items-center gap-2 rounded-lg border p-(--hp-md-row-pad) ${
-                          thieuHopDongDaGhiLyDo(dn)
-                            ? "border-danger bg-danger-bg"
-                            : "border-border bg-muted"
-                        }`}
-                      >
-                        {/* Nhãn ngắn để vừa một hàng; `title` giữ nguyên câu đầy đủ cho người cần. */}
-                        <Label
-                          htmlFor="ly-do-thieu-hop-dong"
-                          className="shrink-0"
-                          title={`Chưa có ${TEN_HIEN_HOP_DONG} thì ghi rõ vì sao`}
-                        >
-                          Lý do chưa có <span className="text-danger">*</span>
-                        </Label>
-                        <Input
-                          id="ly-do-thieu-hop-dong"
-                          className="min-w-48 flex-1"
-                          defaultValue={lyDoThieuHopDong(dn)}
-                          disabled={!duocSuaTepBuoc || hoSoDaDong}
-                          placeholder="Ví dụ: hai bên đã thống nhất qua email, bản ký sẽ có trong tuần này."
-                          /* 🔴 GHI KHI RỜI Ô (`onBlur`), KHÔNG ghi theo từng ký tự: mỗi lần ghi là
-                             một dòng nhật ký và một lần đẩy dữ liệu lên kho chung của cả phòng —
-                             gõ một câu 60 chữ mà ghi 60 lần thì nhật ký thành rác và tốn quota.
-                             Vì vậy ô này dùng `defaultValue`, không phải `value`. */
-                          onBlur={(e) => {
-                            const loi = ghiLyDoThieuChungTu(
-                              dn.id,
-                              KHOA_LY_DO_THIEU_HOP_DONG,
-                              e.target.value,
-                              nguoiDung.tenHienThi,
-                            );
-                            if (loi) toast.error("Chưa ghi được lý do", { description: loi });
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {/**
-                      * 🔴 KHU TỆP TỰ DO CHỈ HIỆN KHI CÓ TỆP **KHÔNG MANG NHÃN HỢP ĐỒNG**.
-                      *
-                      * `KhuDinhKemGiaiDoan` đọc TOÀN BỘ `tepGiaiDoan["dat_hang"]` và KHÔNG lọc theo
-                      * nhãn — mà ô "Hợp đồng/Đơn mua hàng" ngay trên nay cũng lưu vào đúng khóa đó.
-                      * Bày vô điều kiện là hợp đồng vừa đính hiện **HAI LẦN** trên cùng một khối.
-                      * Đây đúng cái bẫy đã ghi ở bước ④ hôm 23/08/2026, chỉ khác khóa.
-                      */}
-                    {(dn.tepGiaiDoan?.dat_hang ?? []).some(
-                      (t) => (t.ghiChu ?? "").trim() !== NHAN_TEP_HOP_DONG,
-                    ) && (
-                      <KhuDinhKemGiaiDoan
-                        deNghi={dn}
-                        maGiaiDoan="dat_hang"
-                        duocSua={duocSuaTepBuoc}
-                        khoa={hoSoDaDong}
-                      />
-                    )}
-                  </div>
-                ),
+                /**
+                 * Bước ⑤ nhận đơn đã gửi đi có xác nhận của nhà cung cấp, chứng từ tạm ứng.
+                 *
+                 * 🔴 Ô HỢP ĐỒNG ĐÃ QUAY VỀ BƯỚC ④ — Ban lãnh đạo 26/08/2026: *"Phải có hợp đồng
+                 * hoặc thoả thuận mua bán thì mới tiến hành lập PO được"*. Xem khối
+                 * `lap_don_mua_hang` ở trên.
+                 *
+                 * Bước ⑤ nay chỉ giữ **tệp cũ** — hồ sơ nào đính hợp đồng trong ba ngày 24→26/08
+                 * (lúc ô nằm ở đây) thì tệp vẫn nằm dưới khóa `dat_hang`. Không ẩn đi: chứng từ
+                 * biến mất khỏi tầm nhìn mà vẫn nằm trong dữ liệu là thứ quy ước dự án cấm.
+                 *
+                 * 📌 Ô đính kèm ở bước ④ vẫn ĐỌC ĐƯỢC những tệp này (`tepHopDong` gộp hai khóa),
+                 * nên khối dưới đây chỉ để xem, không cho sửa — sửa ở đúng một chỗ là bước ④.
+                 */
+                khuDinhKem: (dn.tepGiaiDoan?.dat_hang ?? []).length > 0 ? (
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="dat_hang"
+                    duocSua={false}
+                    khoa
+                  />
+                ) : undefined,
               },
               {
                 ma: "nhan_hang",

@@ -1116,6 +1116,81 @@ kiem(
   },
 );
 
+kiem(
+  "CHUA CO HOP DONG thi KHONG lap duoc don mua hang",
+  "Ban lãnh đạo · 26/08/2026 (*\"Phải có hợp đồng hoặc thoả thuận mua bán thì mới tiến hành lập PO được\"*)",
+  () => {
+    /* 🔴 Chot THAT nam o tang ghi (`themDonHang` goi `vuongMacLapDonHang`). Nut mo tren giao dien
+       chi la loi nhac. Bai kiem nay goi thang ham luat. */
+    const bangDaChonNCC = [{ id: "bg1", prId: "x", trangThai: "da_chon_ncc" }];
+    const dn = deNghiThu();           // khong co tep hop dong, khong co ly do
+    const r = G.vuongMacLapDonHang(bangDaChonNCC, dn);
+    return {
+      duoc: typeof r === "string" && /[Hh]ợp đồng/.test(r),
+      thucTe: r === null ? "null (LOT — lap duoc don khi chua co hop dong!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "tra cau chan co nhac Hop dong",
+    };
+  },
+);
+
+kiem(
+  "CO LY DO chua co hop dong thi VAN lap duoc don (loi thoat cho mau PO-02)",
+  "Ban lãnh đạo · 23/08/2026, giu nguyen khi doi buoc 26/08",
+  () => {
+    /* 🔴 CHIEU NGUOC BAT BUOC. Mau PO-02 'Don mua hang kem thoa thuan' thi chinh to don LA thoa
+       thuan, khong co hop dong rieng de dinh. Bo duong 'ghi ly do' la khoa cung moi don dung mau
+       do — chan qua tay con te hon khong chan. */
+    const bangDaChonNCC = [{ id: "bg1", prId: "x", trangThai: "da_chon_ncc" }];
+    const dn = deNghiThu();
+    /* 📌 Ly do luu o `lyDoThieuChungTu`, KHONG phai `truongBoSung` — khoa la
+       KHOA_LY_DO_THIEU_HOP_DONG = "lap_don_mua_hang|hop_dong" (chuoi nay CO Y giu nguyen qua ca
+       hai lan doi buoc, de ly do da ghi truoc do khong mat). */
+    dn.lyDoThieuChungTu = { "lap_don_mua_hang|hop_dong": "Dung mau PO-02" };
+    const r = G.vuongMacLapDonHang(bangDaChonNCC, dn);
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null (di duoc — dung)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "null — co ly do thi lap duoc don",
+    };
+  },
+);
+
+kiem(
+  "Che do lap don MAU (khong co de nghi) KHONG bi chan boi dieu kien hop dong",
+  "Ban lãnh đạo · 18/08/2026 + 26/08/2026",
+  () => {
+    /* Che do mau khong cat don nen khong co gi de chan; bat buoc tham so `deNghi` la che do do
+       het dung duoc. */
+    const bangDaChonNCC = [{ id: "bg1", prId: "x", trangThai: "da_chon_ncc" }];
+    const r = G.vuongMacLapDonHang(bangDaChonNCC, undefined);
+    return {
+      duoc: r === null,
+      thucTe: String(r),
+      mongDoi: "null — khong co de nghi thi khong xet hop dong",
+    };
+  },
+);
+
+kiem(
+  "Dieu kien HOP DONG phai gan vao buoc ④ Lap don mua hang, KHONG phai buoc ⑤",
+  "Ban lãnh đạo · 26/08/2026 (*\"kéo bước đính kèm hợp đồng về bước này\"*)",
+  () => {
+    /* 🔴 Doi hang so BUOC_DINH_KEM_HOP_DONG thoi la CHUA DU. O dinh kem nam o ④ ma dieu kien
+       chuyen buoc con treo o ⑤ thi: keo the ④→⑤ di lot du chua co hop dong, roi toi ⑤ moi bi chan
+       — ma o de go lai nam nguoc ve ④. */
+    const dn = deNghiThu();
+    const ds4 = G.dsDieuKienConVuong(dn, "lap_don_mua_hang", [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    const ds5 = G.dsDieuKienConVuong(dn, "dat_hang", [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    const o4 = ds4.some((d) => d.ma === "thieu_hop_dong");
+    const o5 = ds5.some((d) => d.ma === "thieu_hop_dong");
+    return {
+      duoc: o4 && !o5,
+      thucTe: `buoc ④ co dieu kien hop dong: ${o4} · buoc ⑤: ${o5}`,
+      mongDoi: "④ = true, ⑤ = false",
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 

@@ -65,7 +65,10 @@ import {
      ghi vì khóa nút không phải là chặn. Xem `xacNhanKho`. */
   vuongMacXacNhanKho,
 } from "@/2-quy-trinh/tinh-toan";
-import { nhanSuDangLamViec, tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
+import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
+/* 🔴 DÙNG DANH BẠ THẬT, KHÔNG DÙNG `nhanSuDangLamViec()` (danh bạ MẪU, tên giả định) —
+   Ban lãnh đạo 26/08/2026. Xem chú thích ở `const danhBa` trong `DuLieuProvider`. */
+import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 /* Luật "vật tư kiểm soát định mức" — một chỗ duy nhất, xem effect báo Ban QLDA. */
 import { dongCanKiemSoatDinhMuc } from "@/2-quy-trinh/kiem-soat-dinh-muc";
 import { TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/gioi-han-dinh-kem";
@@ -826,6 +829,22 @@ function catLichSuSua(ds: LanSuaBinhLuan[]): LanSuaBinhLuan[] {
  * và **bỏ hẳn phần lưu trên máy** để tránh hai nguồn dữ liệu lệch nhau.
  */
 export function DuLieuProvider({ children }: { children: ReactNode }) {
+  /**
+   * ★★ DANH BẠ THẬT — Ban lãnh đạo 26/08/2026: *"Sao vẫn còn người theo dõi giả lập ở đây"*.
+   *
+   * 🔴 GỐC RỄ: app tự kéo người phòng QLDA vào danh sách theo dõi khi phiếu có vật tư kiểm soát
+   * định mức (chỉ đạo 15/08/2026) — nhưng lấy từ `nhanSuDangLamViec()`, tức **danh bạ MẪU với tên
+   * giả định** (`Vũ Văn G`, `Lý Thị P`). Trong khi app ĐÃ CÓ danh bạ thật từ App Tổng, chỉ là chỗ
+   * này không dùng tới. Đúng kiểu hai nguồn cho một việc, và chỗ này chọn nhầm nguồn.
+   *
+   * ⚠️ Hệ quả không chỉ là tên xấu: chọn một người không tồn tại vào danh sách theo dõi nghĩa là
+   * **họ không bao giờ nhận được thông báo** — tức việc "báo cho QLDA" chỉ có trên màn hình.
+   *
+   * 📌 An toàn về thứ tự provider: `DuLieuProvider` nằm TRONG `CurrentUserProvider`
+   * (xem `app/layout.tsx`), nên gọi hook này ở đây hợp lệ.
+   */
+  const danhBa = useDanhBa();
+
   const [deNghi, setDeNghi] = useState<DeNghiMuaHang[]>(DE_NGHI_MAU);
   const [donHang, setDonHang] = useState<DonDatHang[]>(DON_HANG_MAU);
   const [giaDonHang, setGiaDonHang] = useState<GiaDonDatHang[]>(GIA_DON_HANG_MAU);
@@ -1655,7 +1674,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          * cũng kéo QLDA vào thì họ ngập trong hồ sơ không liên quan rồi bỏ qua hết.
          */
         ...(dauVao.items.some((d) => d.vatTuKiemSoatDinhMuc)
-          ? nhanSuDangLamViec()
+          ? danhBa
               .filter((n) => n.department === "quan_ly_du_an")
               .filter(
                 (n) =>
@@ -1728,7 +1747,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     );
 
     return id;
-  }, []);
+    /* 🔴 `danhBa` PHẢI có trong danh sách phụ thuộc — hàm này đọc danh bạ để kéo người QLDA vào
+       danh sách theo dõi. Danh bạ thật về CHẬM HƠN lần vẽ đầu; thiếu nó thì `useCallback` giữ bản
+       đóng gói cũ với danh bạ RỖNG, và đề nghị tạo ra sẽ không báo được cho ai. */
+  }, [danhBa]);
 
   const phanBoDong = useCallback(
     (
@@ -2369,7 +2391,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           loi: "Đơn mua hàng phải gắn một phiếu đề nghị đã có bảng báo giá được duyệt. Module “Lập đơn mua hàng (PO)” chỉ tạo MẪU để in / xuất Excel, không cất vào hệ thống — muốn cất đơn thật thì mở phiếu đề nghị trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.",
         };
       }
-      const chan = vuongMacLapDonHang(baoGiaRef.current.filter((b) => b.prId === po.prId));
+      /* ★ Truyền cả ĐỀ NGHỊ để chốt kiểm luôn điều kiện HỢP ĐỒNG (Ban lãnh đạo 26/08/2026:
+         *"Phải có hợp đồng hoặc thoả thuận mua bán thì mới tiến hành lập PO được"*).
+         🔴 Đây là chốt THẬT ở tầng ghi — nút mờ trên giao diện chỉ là lời nhắc, không phải chặn. */
+      const chan = vuongMacLapDonHang(
+        baoGiaRef.current.filter((b) => b.prId === po.prId),
+        deNghiRef.current.find((d) => d.id === po.prId),
+      );
       if (chan) return { loi: chan };
 
       /**
@@ -4796,7 +4824,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     const nhomDinhMuc = cauHinh.vatTuDinhMuc ?? [];
     if (nhomDinhMuc.length === 0) return;
 
-    const nguoiQLDA = nhanSuDangLamViec().filter((n) => n.department === "quan_ly_du_an");
+    /* Danh bạ THẬT — xem chú thích ở `const danhBa`. Danh bạ rỗng (chưa đọc được từ App Tổng)
+       thì THOÁT, không rơi về danh bạ mẫu: thà chưa báo QLDA còn hơn thêm một cái tên không
+       tồn tại vào hồ sơ rồi tưởng đã báo. */
+    const nguoiQLDA = danhBa.filter((n) => n.department === "quan_ly_du_an");
     if (nguoiQLDA.length === 0) return;
 
     for (const dn of deNghi) {
@@ -4837,7 +4868,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           .join(", ")}`,
       );
     }
-  }, [deNghi, cauHinh.vatTuDinhMuc, themNguoiTheoDoi, ghiLichSuDeNghi]);
+    /* 🔴 `danhBa` PHẢI có trong danh sách phụ thuộc: danh bạ thật đọc từ App Tổng về CHẬM HƠN lần
+       vẽ đầu (lúc đó còn rỗng). Thiếu nó thì `useEffect` giữ bản rỗng và **không bao giờ chạy lại**
+       khi danh bạ về — tức không hồ sơ nào được báo cho QLDA, mà không có gì báo lỗi. */
+  }, [deNghi, cauHinh.vatTuDinhMuc, themNguoiTheoDoi, ghiLichSuDeNghi, danhBa]);
 
   /**
    * CHUYỂN TIẾP — trưởng bộ phận bàn giao việc cho nhân viên đã phân bổ.
