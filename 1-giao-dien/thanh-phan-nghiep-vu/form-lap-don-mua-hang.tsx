@@ -2047,11 +2047,14 @@ export function FormLapDonMuaHang({
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Hai nút Excel thuộc phần nhập liệu, nên gập cùng nó. Để chúng đứng lại một mình
-              trên dòng tiêu đề đã thu gọn thì bấm vào là đổ dữ liệu vào một cái bảng đang ẩn. */}
-          {(!nhung || moNhapLieu) && nutNhapExcel}
-          {/* 📌 Hai nút trợ giúp KHÔNG gập theo: đọc hướng dẫn là việc làm được cả khi phần nhập
-              liệu đang thu gọn — chính lúc chưa biết bắt đầu từ đâu thì mới cần hướng dẫn. */}
+          {/* 🔴 HAI NÚT EXCEL ĐÃ DỜI XUỐNG BẢNG "Hàng tiền" — Ban lãnh đạo 25/08/2026: *"Chỉ cần
+              tạo import file ở mục này thôi"*, khoanh đúng vùng bảng.
+              Lý do: việc chúng làm là **đổ dữ liệu vào cái bảng đó**, mà đứng ở đây thì cách bảng
+              gần hai màn hình cuộn — bấm xong phải cuộn xuống mới biết có ăn không.
+              ⚠️ ĐỪNG thêm lại vào đây. Nếu cần đổi chỗ lần nữa thì đổi chỗ TRUYỀN `nutNhapExcel`
+              cho `BangHangTien`, giữ một bản duy nhất. */}
+          {/* 📌 Hai nút trợ giúp KHÔNG gập theo phần nhập liệu: đọc hướng dẫn là việc làm được cả
+              khi phần đó đang thu gọn — chính lúc chưa biết bắt đầu từ đâu thì mới cần hướng dẫn. */}
           {nutTroGiup}
         </div>
       </div>
@@ -2686,6 +2689,9 @@ export function FormLapDonMuaHang({
             onThemDong={themDong}
             onChenDongDuoi={chenDongDuoi}
             onThemGhiChu={themGhiChu}
+            /* Hai nút Excel dời về cụm nút của bảng (Ban lãnh đạo 25/08/2026) — xem chú thích ở
+               chỗ dựng `nutNhapExcel` và ở `BangHangTien`. */
+            nutNhapExcel={nutNhapExcel}
             onXoaHetDong={() => setHoiXoaHetDong(true)}
             onDoiKieuChietKhau={setKieuChietKhau}
             onDoiTyLeChietKhau={setTyLeChietKhau}

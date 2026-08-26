@@ -678,7 +678,27 @@ export default function TrangDanhSachDeNghi() {
                         <TableHead>Còn lại</TableHead>
                         <TableHead>Công việc</TableHead>
                         <TableHead>Người tạo</TableHead>
-                        <TableHead>Cập nhật</TableHead>
+                        {/**
+                          * 🔴 `w-full` Ở CỘT CUỐI — Ban lãnh đạo 25/08/2026: *"Sao này có khoảng
+                          * trống"*, khoanh vùng trống giữa cột "Nhiệm vụ" và "Giai đoạn".
+                          *
+                          * NGUYÊN NHÂN (đo được, không đoán): `TableCell` có sẵn `whitespace-nowrap`
+                          * nên mọi cột co về đúng nội dung; bảng lại là `w-full`, nên phần dư giữa
+                          * bề rộng bảng và tổng nội dung **dồn hết vào cột rộng nhất** — chính là
+                          * cột "Nhiệm vụ". Đo ở khung 1790px: cột đó **664px** trong khi nội dung
+                          * chỉ **598px** → thừa 66px nằm ngay giữa bảng, đọc ra như một cột rỗng.
+                          *
+                          * `w-full` ở đây nghĩa là *"cột này xin 100%"*, nên nó hút toàn bộ phần dư
+                          * và các cột khác co sát nội dung. Đo lại: "Nhiệm vụ" về **598px** (vừa
+                          * khít), phần dư chuyển sang "Cập nhật" — tức ra **rìa phải**, nơi không
+                          * kẹp giữa hai cột có chữ.
+                          *
+                          * ⚠️ Khoảng trống KHÔNG BIẾN MẤT được: bảng rộng hơn tổng nội dung thì
+                          * chỗ dư phải nằm đâu đó. Việc chọn được là **nằm ở đâu**. Muốn bảng co
+                          * sát nội dung thì bỏ `w-full` của `Table` — nhưng khi đó viền bảng ngắn
+                          * hơn khung, trông cụt.
+                          */}
+                        <TableHead className="w-full">Cập nhật</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

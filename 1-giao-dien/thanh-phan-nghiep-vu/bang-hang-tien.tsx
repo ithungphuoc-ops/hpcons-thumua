@@ -138,6 +138,7 @@ export function BangHangTien({
   onThemDong,
   onChenDongDuoi,
   onThemGhiChu,
+  nutNhapExcel,
   onXoaHetDong,
   onDoiKieuChietKhau,
   onDoiTyLeChietKhau,
@@ -200,6 +201,15 @@ export function BangHangTien({
    */
   onChenDongDuoi: (idTren: string) => void;
   onThemGhiChu: () => void;
+  /**
+   * ★ Cụm nút [Tải file mẫu] + [Nhập từ Excel], do trang lập đơn dựng sẵn rồi truyền vào —
+   * Ban lãnh đạo 25/08/2026: *"Chỉ cần tạo import file ở mục này thôi"*.
+   *
+   * 📌 Nhận sẵn nút thay vì nhận callback: hai nút đó phụ thuộc `dangTaoFile` / `dangDocFile`
+   * và cả một `<input type=file>` ẩn — dựng lại ở đây là chép logic ra hai chỗ.
+   * Để `?` vì bảng còn dùng ở chỗ khác không cần nhập Excel.
+   */
+  nutNhapExcel?: React.ReactNode;
   onXoaHetDong: () => void;
   onDoiKieuChietKhau: (k: KieuChietKhau) => void;
   onDoiTyLeChietKhau: (v: string) => void;
@@ -929,6 +939,23 @@ export function BangHangTien({
 
       {/* Ba nút thao tác — MISA đặt bên TRÁI, dưới phân trang. */}
       <div className="flex flex-wrap items-center gap-2">
+        {/**
+          * ★★ HAI NÚT EXCEL DỜI VỀ ĐÂY — Ban lãnh đạo 25/08/2026: *"Chỉ cần tạo import file ở mục
+          * này thôi"*, khoanh đúng vùng bảng Hàng tiền.
+          *
+          * 🔴 Trước đây chúng đứng ở ĐẦU FORM, cách bảng gần hai màn hình cuộn. Mà việc chúng làm
+          * là **đổ dữ liệu vào đúng cái bảng này** — đặt xa nơi có kết quả thì người lập bấm xong
+          * phải cuộn xuống mới biết có ăn hay không.
+          *
+          * 📌 Dời CẢ CẶP, không chỉ nút nhập: [Tải file mẫu] sinh ra chính file mà [Nhập từ Excel]
+          * đọc vào. Tách hai nút ra hai nơi là bắt người dùng nhớ đường đi giữa hai bước của một
+          * việc.
+          *
+          * 📌 Nhận `React.ReactNode` chứ không tự dựng nút: chỗ lo việc đọc/ghi file là
+          * `form-lap-don-mua-hang.tsx` (nó giữ `dangTaoFile`, `dangDocFile`, `nhapTuExcel`).
+          * Dựng lại ở đây là chép logic ra hai chỗ.
+          */}
+        {nutNhapExcel}
         <Button
           type="button"
           variant="outline"
