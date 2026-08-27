@@ -253,10 +253,24 @@ export function vuongMacTichXongUNC(deNghi: DeNghiMuaHang): string | null {
 }
 
 /**
- * ③ Vướng mắc khi trưởng bộ phận duyệt hoàn thành đề nghị — `null` là duyệt được.
+ * ③ Vướng mắc khi đóng HỒ SƠ ĐỀ NGHỊ (bước ⑧ "Hoàn thành quy trình") — `null` là duyệt được.
  *
  * 🔴 ĐÂY LÀ CHỖ DUY NHẤT giữ luật "phải có hóa đơn VAT mới hoàn thành". Mọi nút và mọi tầng ghi
  * đều phải hỏi hàm này, đừng chép điều kiện đi nơi khác.
+ *
+ * 🔴🔴 PHẠM VI ĐÃ THU HẸP 27/08/2026 — Ban lãnh đạo: *"Phần xác nhận đơn hàng này chỉ cần có
+ * đính kèm phiếu giao hàng là được xác nhận hoàn thành"*.
+ *
+ * Trước ngày đó hàm này còn được gọi ở nút **Xác nhận hoàn thành ĐƠN** (bước ⑦, `xacNhanTruongBP`
+ * trong `kho-du-lieu.tsx`). Nay KHÔNG còn. Phân biệt hai việc, đừng gộp lại:
+ *
+ *   · **Hoàn thành ĐƠN HÀNG** (⑦) — hàng về đủ + thủ kho xác nhận (tức mọi lần giao đều có tệp
+ *     phiếu giao nhận, luật 11/08/2026). Việc mua bán đã xong. KHÔNG đòi hóa đơn.
+ *   · **Hoàn thành QUY TRÌNH** (⑧) — đóng cả hồ sơ để đẩy sang Kế toán. ĐÒI hóa đơn VAT, vì
+ *     không có hóa đơn thì Kế toán không hạch toán và không thanh toán được.
+ *
+ * ⚠️ ĐỪNG "DỌN CHO GỌN" bằng cách gọi lại hàm này ở nút ⑦. Nhà cung cấp thường xuất hóa đơn sau,
+ * có khi cuối tháng — đòi hóa đơn ở ⑦ là giữ đơn dở dang hàng tuần dù thực tế không còn việc gì.
  *
  * ⚠️ KHÔNG đòi UNC: bước đó tùy chọn. Đòi cả UNC là chặn mọi đơn trả tiền ngay.
  */

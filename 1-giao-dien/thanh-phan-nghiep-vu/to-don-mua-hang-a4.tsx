@@ -12,7 +12,7 @@ import {
   CAM_KET_THOA_THUAN_CHUAN,
   GOI_Y_DIEU_KHOAN_KHAC,
   GOI_Y_DIEU_KHOAN_THANH_TOAN,
-  DIEU_KHOAN_GIAO_HANG_CHUAN,
+  dieuKhoanGiaoHangChuanTheoMau,
   daSuaKhacBanChuan,
   tachDongDieuKhoan,
 } from "@/3-du-lieu/dieu-khoan-chuan-don-mua-hang";
@@ -135,10 +135,17 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
      🔴 `??` chứ KHÔNG phải `||`: chuỗi rỗng là người lập cố ý xóa trắng khối điều khoản, còn
      `undefined` là đơn chưa sửa gì. `||` gộp hai thứ đó lại và in điều khoản vào đúng tờ đơn mà
      người lập đã quyết định bỏ. */
-  const dieuKhoanIn = po.dieuKhoanGiaoHang ?? DIEU_KHOAN_GIAO_HANG_CHUAN;
+  /**
+   * 🔴 BẢN CHUẨN CHỌN THEO MẪU ĐANG IN — sửa 26/08/2026 (Ban lãnh đạo: *"làm form giống 100% mẫu
+   * a gửi"*). Mẫu PO-01 chỉ có HAI dòng "Phương thức giao hàng"; mẫu PO-02 mới có thêm khối 5
+   * điều khoản. Trước đây in CHUNG một bản, tức mọi đơn theo hợp đồng đều in thừa 5 điều khoản
+   * mà biểu mẫu giấy không có — lệch NỘI DUNG PHÁP LÝ, không phải lệch trình bày.
+   */
+  const banChuanTheoMau = dieuKhoanGiaoHangChuanTheoMau(mau);
+  const dieuKhoanIn = po.dieuKhoanGiaoHang ?? banChuanTheoMau;
   const camKetIn = po.camKetThoaThuan ?? CAM_KET_THOA_THUAN_CHUAN;
   const daSuaBanChuan =
-    daSuaKhacBanChuan(po.dieuKhoanGiaoHang, DIEU_KHOAN_GIAO_HANG_CHUAN) ||
+    daSuaKhacBanChuan(po.dieuKhoanGiaoHang, banChuanTheoMau) ||
     (mau === "thoa_thuan" && daSuaKhacBanChuan(po.camKetThoaThuan, CAM_KET_THOA_THUAN_CHUAN));
 
   const tien = tinhTienChiTietPO(po, gia);
@@ -150,12 +157,23 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
    * Bề rộng cột. Tổng phải ĐÚNG 100% — cộng quá 100 là trình duyệt tự bóp cột cuối, chữ
    * xuống dòng từng chữ một, in ra rất khó đọc. Hai bộ vì đơn trộn thuế có thêm hai cột.
    */
-  /* Tỉ lệ lấy từ bề rộng cột A→J của biểu mẫu (A=7,57 B=13 C=22,29 D=22,29 E=8,86 F=13 G=12,14
-     H+I=20,57 J=17,29 — tổng 137,01), quy về phần trăm. Bản có thêm hai cột thuế thì bóp đều
-     mọi cột theo hệ số 0,86 để nhường 14% cho hai cột mới. */
+  /* Tỉ lệ lấy từ bề rộng cột A→J của biểu mẫu, quy về phần trăm. Bản có thêm hai cột thuế thì
+     bóp đều mọi cột để nhường 14% cho hai cột mới.
+
+     🔴 ĐÃ BỎ CỘT `ma` (cột thứ hai, không tiêu đề) — Ban lãnh đạo 27/08/2026: *"Bỏ cột trống này
+     đi"*. Cột đó chiếm gần 1/10 bề ngang bảng mà LUÔN TRẮNG: ô nhập "Mã hàng" đã bị bỏ khỏi màn
+     lập đơn từ 23/08/2026, nên chỉ đơn nhập từ file Excel mới có giá trị, và cũng không in ra
+     tiêu đề nào để người nhận biết cột đó là gì.
+
+     ⚠️ TRƯỜNG `maHang` VẪN CÒN trong dữ liệu và vẫn hiện ở trang chi tiết đơn — chỉ TỜ IN bỏ
+     cột. Bộ đọc file Excel vẫn nhận cột "Mã hàng", đừng dọn theo.
+
+     📌 Phần 9,5% (bản không thuế) / 8,2% (bản có thuế) của cột bỏ đi được chia cho ba cột CHỮ
+     (Tên hàng · Quy cách · Mục đích sử dụng) — đó là những cột hay bị bó chữ nhất. Tổng vẫn phải
+     ĐÚNG 100%, cộng quá là trình duyệt tự bóp cột cuối và chữ xuống dòng từng chữ một. */
   const beRong = coCotThue
-    ? { stt: "4.7%", ma: "8.2%", ten: "14%", tskt: "14%", dvt: "5.6%", sl: "8.2%", gia: "7.6%", tt: "12.9%", muc: "10.8%" }
-    : { stt: "5.5%", ma: "9.5%", ten: "16.3%", tskt: "16.3%", dvt: "6.5%", sl: "9.5%", gia: "8.9%", tt: "15%", muc: "12.5%" };
+    ? { stt: "4.7%", ten: "17.5%", tskt: "17%", dvt: "5.6%", sl: "8.2%", gia: "7.6%", tt: "12.9%", muc: "12.5%" }
+    : { stt: "5.5%", ten: "20.3%", tskt: "19.8%", dvt: "6.5%", sl: "9.5%", gia: "8.9%", tt: "15%", muc: "14.5%" };
 
   const donViTien = gia?.loaiTien ?? "VND";
   const soTien = (n: number) => n.toLocaleString("vi-VN");
@@ -227,9 +245,31 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           Khi IN thì giấy luôn đủ rộng nên vẫn nằm hai cột như mẫu. */}
       <section className="mt-4 flex flex-wrap justify-between gap-x-8 gap-y-2 text-[11px]">
         <dl className="flex min-w-[80mm] flex-1 flex-col gap-1">
+          {/**
+            * 🔴 ĐỌC TRƯỜNG CỦA CHÍNH ĐƠN TRƯỚC, DANH MỤC CHỈ LÀ ĐƯỜNG LUI.
+            *
+            * Ban lãnh đạo 27/08/2026: *"Nhứng trường ký tự đó hãy điều chỉnh sao để có thể sửa"*.
+            *
+            * TRƯỚC ĐÂY hai dòng này chỉ đọc `ncc` — mà trang in đơn đã cất lấy `ncc` bằng cách
+            * TRA DANH MỤC theo `po.supplierId` (`trang/don-hang-in.tsx`). Nhà cung cấp chưa có
+            * trong danh mục thì `ncc` là `undefined` và tờ in ra dấu "—" **dù người lập đã gõ đủ
+            * địa chỉ và mã số thuế trên form** — gõ mà không sửa được tờ in, đúng thứ Sếp nói.
+            *
+            * 🔴 MÃ SỐ THUẾ LÀ THÔNG TIN PHÁP LÝ BẮT BUỘC trên chứng từ gửi ra ngoài. In ra "—" là
+            * phát hành một tờ đơn thiếu, mà không có dòng nào báo.
+            *
+            * ⚠️ VÌ SAO ĐƠN ĐỨNG TRƯỚC DANH MỤC, KHÔNG PHẢI NGƯỢC LẠI: đơn là chứng từ ĐÃ PHÁT
+            * HÀNH, phải giữ nguyên thông tin tại thời điểm lập. Ưu tiên danh mục thì ai sửa hồ sơ
+            * nhà cung cấp hôm nay là đổi luôn nội dung những tờ đơn đã gửi đi từ tháng trước.
+            * Danh mục chỉ dùng để lấp chỗ trống cho các đơn cũ chưa lưu hai trường này.
+            *
+            * 📌 Lỗi này TRƯỚC GIỜ KHÔNG LỘ RA khi thử, vì trang in BẢN MẪU tự dựng `ncc` từ đúng
+            * ô người lập gõ (`2-quy-trinh/don-hang-mau.ts`) nên xem trước lúc nào cũng đúng — chỉ
+            * đơn thật đã cất mới hiện dấu "—".
+            */}
           <Dong nhan="Tên nhà cung cấp" giaTri={po.supplierTen} dam />
-          <Dong nhan="Địa chỉ" giaTri={ncc?.diaChi ?? "—"} />
-          <Dong nhan="Mã số thuế" giaTri={ncc?.maSoThue ?? "—"} />
+          <Dong nhan="Địa chỉ" giaTri={po.diaChiNCC?.trim() || ncc?.diaChi || "—"} />
+          <Dong nhan="Mã số thuế" giaTri={po.maSoThueNCC?.trim() || ncc?.maSoThue || "—"} />
           {/**
             * ★★ "Theo hợp đồng" ĐỨNG NGAY SAU MÃ SỐ THUẾ, ở KHỐI ĐẦU — Ban lãnh đạo 26/08/2026
             * gửi hai biểu mẫu chuẩn và yêu cầu *"sửa lại các trường thông tin giống vậy"*.
@@ -242,15 +282,26 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
             * vai hợp đồng — in thêm dòng này là hai văn bản cùng nhận vai trò hợp đồng cho một
             * giao dịch.
             */}
+          {/**
+            * 🔴 IN NGUYÊN VĂN NHỮNG GÌ NGƯỜI LẬP GÕ — KHÔNG GHÉP THÊM CHỮ NÀO.
+            *
+            * Ban lãnh đạo 27/08/2026: *"Dòng theo hợp đồng sẽ nhập thủ công, e để sẵn ô để ghi chú"*.
+            *
+            * TRƯỚC ĐÂY app tự dựng dòng này từ hai mảnh: `[số hợp đồng, "Ký ngày …"].join(" · ")`.
+            * Cách đó ép mọi đơn vào đúng một khuôn chữ, trong khi hợp đồng ngoài đời ghi đủ kiểu
+            * (số + phụ lục, "theo thoả thuận khung ngày …", nhiều hợp đồng cùng lúc). Nay ô trên
+            * form là ghi chú tự do, nên tờ in chỉ việc chép lại.
+            *
+            * ⚠️ PHẢI DÙNG `?.trim() ||` CHỨ KHÔNG PHẢI `??`. Ô ghi chú rất dễ mang giá trị chuỗi
+            * rỗng hoặc toàn khoảng trắng (người lập gõ rồi xoá); `??` chỉ bắt `undefined` nên tờ in
+            * sẽ ra một dòng "Theo hợp đồng:" cụt, mất luôn chỗ chừa để viết tay.
+            *
+            * 📌 Để trống LÀ HỢP LỆ: dải chấm lửng chính là chỗ điền tay khi ký ngoài hiện trường.
+            */}
           {mau === "theo_hop_dong" && (
             <Dong
               nhan="Theo hợp đồng"
-              giaTri={[
-                po.maHopDongCDT ?? "…………",
-                po.ngayHopDongCDT
-                  ? `Ký ngày ${new Date(po.ngayHopDongCDT).toLocaleDateString("vi-VN")}`
-                  : "Ký ngày ……/……/…….",
-              ].join(" · ")}
+              giaTri={po.maHopDongCDT?.trim() || "……………………………………………………………"}
               dam
             />
           )}
@@ -281,7 +332,7 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
                 có trên tờ giấy — và in bằng máy in đen trắng thì nó thành một dải xám. */}
             <tr className="text-[#000066]">
               <O th w={beRong.stt} giua>STT</O>
-              <O th w={beRong.ma}>Mã hàng</O>
+              {/* 📌 ĐÃ BỎ cột thứ hai (không tiêu đề, luôn trắng) — xem chú thích ở `beRong`. */}
               <O th w={beRong.ten}>Tên hàng</O>
               <O th w={beRong.tskt}>Quy cách / chủng loại</O>
               <O th w={beRong.dvt} giua>ĐVT</O>
@@ -306,7 +357,9 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
                 return (
                   <tr key={d.sttDong} className="break-inside-avoid">
                     <O giua />
-                    <O span={coCotThue ? 10 : 8} nghieng>
+                    {/* Gộp hết các cột còn lại sau ô STT. Tổng cột của bảng là 8 (hoặc 10 khi
+                        đơn trộn nhiều mức thuế) — đã trừ cột thứ hai bỏ đi ngày 27/08/2026. */}
+                    <O span={coCotThue ? 9 : 7} nghieng>
                       {d.tenVatLieu}
                     </O>
                   </tr>
@@ -320,7 +373,6 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
               return (
                 <tr key={d.sttDong} className="break-inside-avoid">
                   <O giua>{d.sttDong}</O>
-                  <O>{d.maHang ?? ""}</O>
                   <O>{d.tenVatLieu}</O>
                   <O>{d.thongSoKyThuat ?? ""}</O>
                   <O giua>{d.donViTinh}</O>
@@ -338,50 +390,74 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
                 </tr>
               );
             })}
+            {/**
+              * ★★ KHỐI TIỀN NẰM TRONG BẢNG, CÓ KẺ Ô — Ban lãnh đạo 26/08/2026: *"ở bảng này cũng
+              * cần bố cục lại cho giống nha"*, kèm ảnh chụp tờ in hiện tại.
+              *
+              * 🔴 TRƯỚC ĐÂY KHỐI TIỀN LÀ MỘT DANH SÁCH RỜI đặt bên phải, DƯỚI bảng và KHÔNG có
+              * đường kẻ nào. Trên hai biểu mẫu chuẩn, bốn dòng tiền là **phần tiếp theo của chính
+              * bảng hàng**, kẻ ô đầy đủ và thẳng cột với cột "Thành tiền".
+              *
+              * 🔴 "Thuế suất thuế GTGT" NẰM Ở Ô BÊN TRÁI, cùng hàng với "Tiền thuế GTGT" — đúng ô
+              * A17 của biểu mẫu. Bản trước xếp nó thành một dòng riêng trong danh sách bên phải,
+              * tức bỏ mất cách trình bày của tờ giấy.
+              *
+              * 📌 Cột "Mục đích sử dụng" (và hai cột thuế khi đơn trộn mức) để TRỐNG ở khối tiền,
+              * đúng như trên giấy — không gộp vào ô số tiền.
+              */}
+            {(() => {
+              /* Số cột sau "Thành tiền" — để ô cuối gộp đúng, không lệch bảng khi đơn trộn thuế. */
+              const soCotCuoi = coCotThue ? 3 : 1;
+              const DongTienTrongBang = ({
+                nhanTrai,
+                nhan,
+                giaTri,
+                tong,
+              }: {
+                nhanTrai?: string;
+                nhan: string;
+                giaTri: string;
+                tong?: boolean;
+              }) => (
+                /* Sáu cột trước ô số tiền (3 + 3) để ô tiền rơi ĐÚNG cột "Thành tiền" — bảng có
+                   8 cột sau khi bỏ cột trống 27/08/2026. Sửa số cột của bảng thì phải sửa cả
+                   hai số này, nếu không khối tiền lệch khỏi cột Thành tiền. */
+                <tr className={tong ? "font-bold text-[#000066]" : undefined}>
+                  <O span={3}>{nhanTrai ?? ""}</O>
+                  <O span={3}>
+                    <span className="font-semibold">{nhan}:</span>
+                  </O>
+                  <O phai>{giaTri}</O>
+                  <O span={soCotCuoi}>{""}</O>
+                </tr>
+              );
+              return (
+                <>
+                  <DongTienTrongBang nhan="Số tiền Chiết khấu" giaTri={soTien(tien.chietKhau)} />
+                  <DongTienTrongBang
+                    nhan="Cộng tiền hàng (sau trừ chiết khấu)"
+                    giaTri={soTien(tien.congTienHangSauCK)}
+                  />
+                  {/* `moTaThueSuat` là chỗ duy nhất quyết định cách viết: "8%" khi cả đơn một mức,
+                      "nhiều mức" khi trộn. Ghi cứng `tien.thueSuatGTGT` là in mức của nhóm lớn
+                      nhất thành mức của cả đơn — sai chứng từ thuế. */}
+                  <DongTienTrongBang
+                    nhanTrai={`Thuế suất thuế GTGT: ${moTaThueSuat(tien)}`}
+                    nhan="Tiền thuế GTGT"
+                    giaTri={soTien(tien.tienThueGTGT)}
+                  />
+                  <DongTienTrongBang
+                    nhan="Tổng tiền thanh toán"
+                    giaTri={soTien(tien.tongThanhToan)}
+                    tong
+                  />
+                </>
+              );
+            })()}
           </tbody>
         </table>
       </div>
 
-      {/* ---------- KHỐI TỔNG TIỀN ---------- */}
-      {/* Đúng trình tự của biểu mẫu. Con số do `tinhTienDonHang` tính, tờ in
-          không tự cộng lại — tránh hai chỗ ra hai kết quả khác nhau. */}
-      <section className="mt-3 flex justify-end">
-        <dl className="w-[95mm] text-[11px]">
-          {/**
-            * ★★ ĐÚNG CHỮ VÀ ĐÚNG SỐ DÒNG CỦA BIỂU MẪU CHUẨN (Ban lãnh đạo 26/08/2026).
-            *
-            * 🔴 ĐÃ BỎ DÒNG "Cộng tiền hàng (Chưa trừ CK)". Hai biểu mẫu chuẩn chỉ có BỐN dòng:
-            *   Số tiền Chiết khấu → Cộng tiền hàng (sau trừ chiết khấu) → Thuế suất + Tiền thuế
-            *   GTGT → Tổng tiền thanh toán.
-            * Dòng "chưa trừ CK" là app tự thêm. Trên chứng từ gửi ra ngoài, một dòng tiền không
-            * có trên mẫu công ty là chỗ để người đối chiếu hiểu nhầm — họ thấy HAI con số cùng
-            * tên "cộng tiền hàng" và không biết lấy số nào.
-            *
-            * 🔴 CHỮ NHÃN CHÉP NGUYÊN VĂN: "Số tiền Chiết khấu" (không viết tắt "CK"), và
-            * "(sau trừ chiết khấu)" chứ không phải "(Đã trừ CK)". Người đối chiếu tờ in với biểu
-            * mẫu giấy dò theo CHỮ, lệch một chữ là phải đọc lại cả khối mới chắc.
-            *
-            * ⚠️ KHÔNG mất thông tin nào: tiền hàng trước chiết khấu = "sau trừ chiết khấu" +
-            * "Số tiền Chiết khấu", hai số đều đang in ngay trên tờ.
-            */}
-          <DongTien nhan="Số tiền Chiết khấu" giaTri={soTien(tien.chietKhau)} />
-          <DongTien
-            nhan="Cộng tiền hàng (sau trừ chiết khấu)"
-            giaTri={soTien(tien.congTienHangSauCK)}
-            dam
-          />
-          {/* 🔴 HAI DÒNG RIÊNG, không gộp — biểu mẫu có ô A17 *"Thuế suất thuế GTGT:"* độc lập
-              với ô E17 *"Tiền thuế GTGT:"*. Bản trước nhét mức thuế vào trong ngoặc của nhãn
-              tiền thuế, tức bỏ mất một trường của biểu mẫu.
-
-              `moTaThueSuat` vẫn là chỗ duy nhất quyết định cách viết: "8%" khi cả đơn một mức,
-              "nhiều mức" khi trộn. Ghi cứng `tien.thueSuatGTGT` là in mức của nhóm lớn nhất
-              thành mức của cả đơn — sai chứng từ thuế. */}
-          <DongTien nhan="Thuế suất thuế GTGT" giaTri={moTaThueSuat(tien)} />
-          <DongTien nhan="Tiền thuế GTGT" giaTri={soTien(tien.tienThueGTGT)} />
-          <DongTien nhan="Tổng tiền thanh toán" giaTri={soTien(tien.tongThanhToan)} tong />
-        </dl>
-      </section>
 
       {/* ⚠️ `docSoTien` đọc theo ĐỒNG VIỆT NAM. Đơn ngoại tệ thì ghi số kèm mã tiền, y hệt
           `xuat-don-hang-excel.ts` — hai chứng từ của cùng một đơn không được nói khác nhau,
@@ -578,34 +654,13 @@ function Dong({
   );
 }
 
-/**
- * Một dòng trong khối tổng tiền.
- * `tong` = dòng Tổng tiền thanh toán (kẻ viền trên, giá trị đậm màu `#000066` — đúng ô H18 của
- * biểu mẫu). `dam` = nhãn in đậm, dùng cho "Cộng tiền hàng (Chưa trừ CK)" theo ô A14.
+/*
+ * 📌 ĐÃ BỎ component `DongTien` (khối tổng tiền dạng danh sách rời bên phải bảng) — Ban lãnh đạo
+ * 26/08/2026: *"ở bảng này cũng cần bố cục lại cho giống nha"*. Trên hai biểu mẫu chuẩn, bốn dòng
+ * tiền là **các hàng CÓ KẺ Ô nằm trong chính bảng hàng hóa**, không phải danh sách trôi ngoài
+ * khung. Nay dùng `DongTienTrongBang` (khai ngay trong thân tờ in, vì nó cần biết bảng đang có bao
+ * nhiêu cột mới gộp ô đúng). Đừng dựng lại kiểu danh sách rời.
  */
-function DongTien({
-  nhan,
-  giaTri,
-  tong,
-  dam,
-}: {
-  nhan: string;
-  giaTri: string;
-  tong?: boolean;
-  dam?: boolean;
-}) {
-  return (
-    <div
-      className={`flex items-baseline justify-between gap-4 py-0.5 ${
-        tong ? "mt-1 border-t border-[#000000] pt-1.5" : ""
-      }`}
-    >
-      {/* Nhãn màu ĐEN như biểu mẫu, không phải xám `#475467` của bản trước. */}
-      <dt className={tong || dam ? "font-bold" : ""}>{nhan}</dt>
-      <dd className={tong ? "text-[13px] font-bold text-[#000066]" : "font-medium"}>{giaTri}</dd>
-    </div>
-  );
-}
 
 /**
  * Một ô của bảng hàng hóa. Gộp `<th>` và `<td>` vào một chỗ để chiều rộng cột và

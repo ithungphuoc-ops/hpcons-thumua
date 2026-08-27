@@ -25,7 +25,7 @@
 // ============================================================
 
 import { execSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -625,6 +625,70 @@ kiem(
       duoc: coO5 && !coO4,
       thucTe: `bước ④ = ${JSON.stringify(o4)} · bước ⑤ = ${JSON.stringify(o5)}`,
       mongDoi: "bước ⑤ có nhắc hợp đồng, bước ④ thì không",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// HÓA ĐƠN VAT: CHẶN Ở BƯỚC ⑧, KHÔNG CHẶN Ở BƯỚC ⑦
+//
+// 🔴 Ban lãnh đạo 27/08/2026: *"Phần xác nhận đơn hàng này chỉ cần có
+//    đính kèm phiếu giao hàng là được xác nhận hoàn thành"*.
+//
+// Hai bài dưới đây kiểm HAI CHIỀU, cố ý. Chỉ kiểm một chiều thì:
+//   · chỉ kiểm ⑦ không đòi  → ai bỏ nốt luật ở ⑧ vẫn xanh, mà bỏ là hồ
+//     sơ đóng được khi chưa có hóa đơn, Kế toán không hạch toán được;
+//   · chỉ kiểm ⑧ có đòi     → ai gọi lại hàm ở nút ⑦ "cho chắc" vẫn
+//     xanh, và đơn lại kẹt dở dang chờ hóa đơn như trước 27/08.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "Hoàn thành QUY TRÌNH (⑧) vẫn ĐÒI hóa đơn VAT",
+  "Ban lãnh đạo · 27/08/2026",
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const dnKhongHoaDon = { id: "x", items: [], tepGiaiDoan: {} };
+    const cau = CT.vuongMacDuyetHoanThanhDeNghi(dnKhongHoaDon);
+    return {
+      duoc: typeof cau === "string" && /[Hh]óa đơn/.test(cau),
+      thucTe: `vuongMacDuyetHoanThanhDeNghi = ${JSON.stringify(cau)}`,
+      mongDoi: "một câu chặn có nhắc tới hóa đơn (KHÔNG được trả null)",
+    };
+  },
+);
+
+kiem(
+  "Xác nhận hoàn thành ĐƠN (⑦) KHÔNG được đòi hóa đơn VAT",
+  "Ban lãnh đạo · 27/08/2026",
+  () => {
+    /* Đo trên MÃ NGUỒN của tầng ghi, vì điều kiện nằm trong `useCallback` của kho dữ liệu —
+       không gọi thẳng ra được.
+
+       🔴 NEO BẰNG CHUỖI KHAI BÁO ĐẦY ĐỦ, KHÔNG NEO BẰNG TÊN TRỜI. Bản đầu của bài kiểm này neo
+       bằng `indexOf("xacNhanTruongBP")` và trúng ngay dòng CHÚ THÍCH ở đầu tệp, cắt ra một khối
+       541 ký tự chẳng liên quan — bài kiểm XANH GIẢ, không bắt được gì. Đã đo lại và sửa. */
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const dau = nguon.indexOf("const xacNhanTruongBP = useCallback(");
+    const cuoi = nguon.indexOf("const taoBaoGiaGiaLap", dau);
+    if (dau < 0 || cuoi < 0) {
+      return {
+        duoc: false,
+        thucTe: `không tìm ra thân hàm (dau=${dau}, cuoi=${cuoi}) — có ai đổi tên hàm?`,
+        mongDoi: "đọc được thân hàm `xacNhanTruongBP` để soát",
+      };
+    }
+    const khoiXacNhan = nguon.slice(dau, cuoi);
+    /* Bỏ chú thích trước khi tìm — chú thích của chính luật này có nhắc tên hàm, mà chú thích
+       thì không chạy được nên không được tính là "đang gọi". Đúng bài học 24/08/2026. */
+    const chayThat = khoiXacNhan
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^[ \t]*\/\/.*$/gm, "");
+    const conGoi = /vuongMacDuyetHoanThanhDeNghi\s*\(/.test(chayThat);
+    return {
+      /* Đòi khối đủ dài: cắt trượt thành chuỗi ngắn thì phép `!conGoi` luôn đúng — xanh giả. */
+      duoc: !conGoi && chayThat.length > 800,
+      thucTe: `thân hàm ${khoiXacNhan.length} ký tự (bỏ chú thích còn ${chayThat.length}) · còn gọi luật hóa đơn = ${conGoi}`,
+      mongDoi: "nút ⑦ chỉ đòi: hàng về đủ + thủ kho xác nhận (tức có tệp phiếu giao nhận)",
     };
   },
 );

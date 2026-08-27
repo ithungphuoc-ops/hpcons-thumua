@@ -61,7 +61,8 @@ import type { MoTaTep } from "@/3-du-lieu/kho-tep";
 import { NHAN_MAU_PO } from "@/3-du-lieu/kieu-du-lieu";
 import {
   CAM_KET_THOA_THUAN_CHUAN,
-  DIEU_KHOAN_GIAO_HANG_CHUAN,
+  conDieuKhoanRiengThoaThuan,
+  dieuKhoanGiaoHangChuanTheoMau,
 } from "@/3-du-lieu/dieu-khoan-chuan-don-mua-hang";
 import type {
   DeNghiMuaHang,
@@ -377,8 +378,18 @@ export function FormLapDonMuaHang({
    */
   const [tenNhanVienMua, setTenNhanVienMua] = useState(nguoiDung.tenHienThi);
 
+  /**
+   * Ghi chú hợp đồng — chữ in nguyên văn sau *"Theo hợp đồng:"* trên tờ đơn mẫu PO-01.
+   *
+   * 🔴 Ban lãnh đạo 27/08/2026: *"Dòng theo hợp đồng sẽ nhập thủ công, e để sẵn ô để ghi chú"*.
+   * Trước đó có thêm state `ngayHopDong` (ô chọn ngày) và tờ in tự ghép *"<số> · Ký ngày <ngày>"*.
+   * Nay bỏ ô ngày: ngày ký nếu cần thì gõ thẳng vào ô này.
+   *
+   * ⚠️ Tên biến giữ nguyên `maHopDong` → trường `maHopDongCDT`, ĐỪNG ĐỔI TÊN. Trường đó được đọc
+   * ở `5-ket-noi/gui-po-qlk-ctr.ts` — tệp thuộc vùng cấm sửa của phiên tích hợp (CLAUDE.md §6.6),
+   * đổi tên là gãy typecheck ở chỗ mình không được phép sửa.
+   */
   const [maHopDong, setMaHopDong] = useState("");
-  const [ngayHopDong, setNgayHopDong] = useState("");
   const [diaDiemGiao, setDiaDiemGiao] = useState("");
   const [nguoiNhanHang, setNguoiNhanHang] = useState("");
   /** So dien thoai nguoi nhan hang — ô riêng trên biểu mẫu (21/08/2026). */
@@ -1234,7 +1245,24 @@ export function FormLapDonMuaHang({
         if (c.thamChieu) setThamChieu(c.thamChieu);
         if (c.maNCC) setMaNCC(c.maNCC);
         if (c.soNgayDuocNo !== undefined) setSoNgayDuocNo(String(c.soNgayDuocNo));
-        if (c.canCuHopDong) setMaHopDong(c.canCuHopDong);
+        /**
+         * File Excel giữ hợp đồng ở HAI Ô TÁCH RỜI ("Căn cứ hợp đồng số" và "Ngày hợp đồng"),
+         * còn form từ 27/08/2026 chỉ còn MỘT ô ghi chú tự do. Nên đọc vào thì GỘP lại.
+         *
+         * 🔴 Đừng bỏ `c.ngayHopDong` đi cho gọn: file do người khác lập vẫn điền ô ngày, bỏ qua
+         * là nhập file vào rồi mất ngày ký mà không có dòng nào báo — người lập tưởng file thiếu.
+         *
+         * 📌 Giữ nguyên văn chuỗi ngày của file (dd/MM/yyyy), KHÔNG đổi qua `Date`: đây là chữ
+         * để in, không phải mốc thời gian để tính toán, mà `new Date("01/08/2026")` thì trình
+         * duyệt đọc theo kiểu Mỹ và ra lệch một tháng.
+         */
+        const ghiChuHopDongTuFile = [
+          c.canCuHopDong?.trim(),
+          c.ngayHopDong?.trim() ? `ký ngày ${c.ngayHopDong.trim()}` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        if (ghiChuHopDongTuFile) setMaHopDong(ghiChuHopDongTuFile);
 
         // Ngày: đổi dd/MM/yyyy sang yyyy-MM-dd, xem `docNgayVN` — đưa thẳng chuỗi Việt vào ô
         // ngày là ô trống trơn, còn để `new Date()` đọc thì lệch một tháng.
@@ -1242,8 +1270,6 @@ export function FormLapDonMuaHang({
         if (ngayGiaoISO) setNgayGiao(ngayGiaoISO);
         const ngayDonISO = docNgayVN(c.ngayDonHang);
         if (ngayDonISO) setNgayDonHang(ngayDonISO);
-        const ngayHopDongISO = docNgayVN(c.ngayHopDong);
-        if (ngayHopDongISO) setNgayHopDong(ngayHopDongISO);
 
         /**
          * NHẬN DIỆN NHÀ CUNG CẤP — theo MÃ SỐ THUẾ trước, rồi mới đến tên.
@@ -1425,11 +1451,10 @@ export function FormLapDonMuaHang({
         ngayDonHang: ngayDonHang
           ? new Date(ngayDonHang).toLocaleDateString("vi-VN")
           : undefined,
-        /* Phiếu đề nghị KHÔNG lưu ngày hợp đồng chủ đầu tư (chỉ có `maHopDongCDT`), nên dòng này
-           chỉ có giá trị ở module lập đơn độc lập — nơi người lập tự gõ ngày. */
-        ngayHopDongCDT: ngayHopDong
-          ? new Date(ngayHopDong).toLocaleDateString("vi-VN")
-          : undefined,
+        /* 📌 KHÔNG còn truyền `ngayHopDongCDT` — từ 27/08/2026 form chỉ còn một ô ghi chú tự do,
+           ngày ký (nếu có) nằm ngay trong chuỗi `maHopDongCDT`. Ô "Ngày hợp đồng" của file Excel
+           vì vậy để trống cho người dùng tự điền trong Excel. Vòng đọc ngược vẫn đúng: bộ đọc gộp
+           hai ô lại thành đúng câu người lập đã gõ (xem chỗ `ghiChuHopDongTuFile`). */
         ngayGiaoHang: ngayGiao ? new Date(ngayGiao).toLocaleDateString("vi-VN") : undefined,
         dieuKhoanKhac: dieuKhoanKhac.trim() || undefined,
         dieuKhoanThanhToan: dieuKhoanThanhToan.trim() || undefined,
@@ -1493,7 +1518,6 @@ export function FormLapDonMuaHang({
       maDuAn: maDuAnDon,
       tenCongTrinh,
       maHopDongCDT: maHopDong,
-      ngayHopDongCDT: ngayHopDong,
       supplierTen: tenNCC,
       maSoThueNCC: mstNCC,
       diaChiNCC,
@@ -1678,7 +1702,6 @@ export function FormLapDonMuaHang({
       setTenCongTrinh(dn.tenCongTrinh);
       setMaHopDong(dn.maHopDongCDT ?? "");
     }
-    setNgayHopDong("");
     setDiaDiemGiao("");
     setNguoiNhanHang("");
     setDieuKhoanKhac("");
@@ -1874,8 +1897,10 @@ export function FormLapDonMuaHang({
     const ketQua = themDonHang({
       // Một chỗ duy nhất, hai chế độ — xem `maDuAnDon`.
       maDuAn: maDuAnDon,
+      /* Ghi chú hợp đồng, in nguyên văn lên tờ đơn (Ban lãnh đạo 27/08/2026). `.trim() || undefined`
+         phải giữ: ô ghi chú rất dễ còn lại khoảng trắng, mà tờ in phân biệt "rỗng" để chừa chỗ
+         viết tay. Không còn `ngayHopDongCDT` — ngày ký nằm ngay trong chuỗi này. */
       maHopDongCDT: maHopDong.trim() || undefined,
-      ngayHopDongCDT: ngayHopDong || undefined,
       /* 🔴 Đơn độc lập KHÔNG gắn đề nghị: để `undefined` cả hai, không nhét chuỗi rỗng. Chuỗi
          rỗng vẫn "có giá trị" nên mọi chỗ kiểm `po.prId ?` sẽ tưởng là có đề nghị, rồi vẽ ra
          một liên kết `/de-nghi/` chết. */
@@ -2177,12 +2202,12 @@ export function FormLapDonMuaHang({
 
           🔴 VÌ SAO PHẢI ĐỨNG ĐẦU: mẫu in quyết định tờ đơn in ra như thế nào — chọn *Thỏa thuận
           mua bán* thì tờ in có thêm hai câu cam kết pháp lý ở cuối; chọn *Theo hợp đồng đã ký*
-          thì tờ in dẫn số và ngày hợp đồng và KHÔNG cam kết lại. Đó là quyết định về CĂN CỨ PHÁP
-          LÝ của chứng từ, không phải một tuỳ chọn trình bày.
+          thì tờ in dẫn hợp đồng đó và KHÔNG cam kết lại. Đó là quyết định về CĂN CỨ PHÁP LÝ của
+          chứng từ, không phải một tuỳ chọn trình bày.
 
           Trước đây ô này nằm lẫn ở giữa cột phải của khối đầu tờ, sau "Loại tiền" — người lập gõ
-          xong gần hết đơn mới thấy nó, và nếu chọn *theo hợp đồng* thì phải quay lên điền Số hợp
-          đồng ở khối trên. Đặt đầu form thì thứ tự thành thuận: chọn mẫu → biết cần điền gì → nhập.
+          xong gần hết đơn mới thấy nó, và nếu chọn *theo hợp đồng* thì phải quay lên điền ghi chú
+          hợp đồng ở khối trên. Đặt đầu form thì thứ tự thành thuận: chọn mẫu → biết cần điền gì → nhập.
           ========================================================================= */}
       <Card className="bg-primary-bg">
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
@@ -2194,8 +2219,8 @@ export function FormLapDonMuaHang({
                   * 🔴 Hai mẫu KHÁC NHAU VỀ PHÁP LÝ, không phải khác cách trình bày:
                   *   · *Thỏa thuận mua bán* — chính tờ đơn có giá trị như hợp đồng, nên tờ in có thêm
                   *     hai câu cam kết cố định ở cuối.
-                  *   · *Theo hợp đồng đã ký* — điều khoản nằm ở hợp đồng nguyên tắc, tờ in ghi rõ số và
-                  *     ngày ký hợp đồng đó và KHÔNG cam kết lại.
+                  *   · *Theo hợp đồng đã ký* — điều khoản nằm ở hợp đồng nguyên tắc, tờ in dẫn lại hợp
+                  *     đồng đó (nguyên văn ghi chú người lập gõ) và KHÔNG cam kết lại.
                   * Vì vậy chọn sai mẫu là gửi cho nhà cung cấp một chứng từ nói sai về căn cứ pháp lý —
                   * mô tả bên dưới ô chọn nói rõ điều đó ngay lúc chọn.
                   */}
@@ -2214,11 +2239,15 @@ export function FormLapDonMuaHang({
                     ))}
                   </select>
                   <p className="text-xs text-text-desc">{NHAN_MAU_PO[mauPO].moTa}</p>
-                  {/* Chọn mẫu theo hợp đồng mà chưa điền hợp đồng thì tờ in ra dấu chấm lửng — nói
-                      trước ở đây, đừng để người dùng phát hiện lúc đã in ra giấy. */}
+                  {/* 📌 CÂU THÔNG BÁO, KHÔNG PHẢI CẢNH BÁO THIẾU SÓT. Từ 27/08/2026 để trống ô ghi
+                      chú LÀ HỢP LỆ — tờ in chừa sẵn dải chấm để ký tay ngoài hiện trường. Trước đây
+                      câu này tô màu warning và gọi là *"Chưa điền Số hợp đồng"*, tức app tự coi một
+                      cách làm đúng là lỗi. Vẫn giữ câu để người lập biết trước tờ in ra thế nào,
+                      nhưng bằng giọng trung tính. */}
                   {mauPO === "theo_hop_dong" && maHopDong.trim() === "" && (
-                    <p className="text-xs text-warning-soft">
-                      Chưa điền <strong>Số hợp đồng</strong> ở phần trên — tờ in sẽ để trống chỗ đó.
+                    <p className="text-xs text-text-desc">
+                      Ô <strong>Theo hợp đồng</strong> đang để trống — tờ in sẽ chừa dải chấm ở dòng
+                      đó để viết tay.
                     </p>
                   )}
                 </div>
@@ -2245,7 +2274,8 @@ export function FormLapDonMuaHang({
           Khối này = phần đầu tờ, chia hai cột ĐÚNG NHƯ TRÊN GIẤY:
             · trái = BÊN BÁN   (Tên nhà cung cấp · Địa chỉ · Mã số thuế — ô B6 · B7 · B8)
             · phải = CHỨNG TỪ  (Ngày · Số · Loại tiền — ô J6 · J7 · J8)
-          rồi một dòng riêng "Theo hợp đồng … Ký ngày …" (ô B9), đúng chỗ của nó trên giấy.
+          rồi một dòng riêng "Theo hợp đồng: …" (ô B9) — nội dung do người lập gõ tay, đúng chỗ
+          của nó trên giấy.
 
           🔴 NHỮNG Ô KHÔNG THUỘC ĐẦU TỜ ĐÃ DỜI ĐI, KHÔNG BỊ BỎ — đừng thêm lại vào đây:
             · Ngày giao hàng · Điều khoản thanh toán · Số ngày được nợ → khối ④, vì trên tờ chúng
@@ -2667,28 +2697,31 @@ export function FormLapDonMuaHang({
             </div>
           </div>
 
-          {/* ★ "Theo hợp đồng: … Ký ngày …" — ô B9 của biểu mẫu, MỘT DÒNG RIÊNG dưới hai cột,
-              đúng như trên giấy. Chỉ mẫu *Đơn mua hàng theo hợp đồng* in dòng này, nhưng ô vẫn
-              hiện ở cả hai mẫu: người nhập chọn mẫu sau khi đã gõ, ẩn đi là mất dữ liệu vừa gõ
-              mà không có câu nào báo. */}
+          {/* ★ "Theo hợp đồng: …" — ô B9 của biểu mẫu, MỘT DÒNG RIÊNG dưới hai cột, đúng như
+              trên giấy. Chỉ mẫu *Đơn mua hàng theo hợp đồng* in dòng này, nhưng ô vẫn hiện ở cả
+              hai mẫu: người nhập chọn mẫu sau khi đã gõ, ẩn đi là mất dữ liệu vừa gõ mà không có
+              câu nào báo.
+
+              🔴 Ô GHI CHÚ TỰ DO, KHÔNG PHẢI Ô "SỐ HỢP ĐỒNG" — Ban lãnh đạo 27/08/2026: *"Dòng
+              theo hợp đồng sẽ nhập thủ công, e để sẵn ô để ghi chú"*. Trước đây đây là HAI ô (số
+              hợp đồng + ô chọn ngày) rồi app tự ghép thành *"<số> · Ký ngày <ngày>"*. Nay gõ gì
+              in nấy, nên bỏ ô chọn ngày: giữ lại một ô mà tờ in không dùng tới chính là kiểu
+              giao diện hứa một việc app không làm.
+
+              ⚠️ GIỮ MỘT DÒNG, ĐỪNG ĐỔI SANG Textarea. Giá trị này còn đi ra ô Excel gộp và đi
+              sang app QLK CTR; ký tự xuống dòng ở hai chỗ đó hiển thị không lường trước được. */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="hop-dong">Hợp đồng - Ngày hợp đồng</Label>
-            <div className="flex flex-wrap gap-2">
-              <Input
-                id="hop-dong"
-                value={maHopDong}
-                onChange={(e) => setMaHopDong(e.target.value)}
-                className="min-w-48 flex-1"
-                placeholder="Số hợp đồng với chủ đầu tư"
-              />
-              <Input
-                type="date"
-                value={ngayHopDong}
-                onChange={(e) => setNgayHopDong(e.target.value)}
-                className="w-48"
-                aria-label="Ngày hợp đồng"
-              />
-            </div>
+            <Label htmlFor="hop-dong">Theo hợp đồng — ghi chú in lên tờ đơn</Label>
+            <Input
+              id="hop-dong"
+              value={maHopDong}
+              onChange={(e) => setMaHopDong(e.target.value)}
+              placeholder="VD: HĐ số 089/2026/HĐKT-HPC ký ngày 01/08/2026"
+            />
+            <p className="text-[13px] text-text-secondary">
+              Gõ nguyên văn phần muốn in sau chữ <strong>&quot;Theo hợp đồng:&quot;</strong>. Để
+              trống thì tờ in chừa sẵn chỗ chấm để viết tay.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -2898,8 +2931,12 @@ export function FormLapDonMuaHang({
             *   · **Mã request** = mã đề xuất bên App Request (`maDeXuatAppRequest`). CHỈ ĐỌC: đó
             *     là mã do app KHÁC sinh ra, sửa tay ở đây là mất đường đối chiếu giữa hai app.
             *
-            * 📌 Cùng một state `maHopDong` với ô "Hợp đồng - Ngày hợp đồng" ở khối trên — một giá
-            * trị, một nguồn. Sửa ở ô nào thì ô kia đổi theo, không có chuyện hai ô lệch nhau.
+            * 📌 Cùng một state `maHopDong` với ô "Theo hợp đồng" ở khối trên — một giá trị, một
+            * nguồn. Sửa ở ô nào thì ô kia đổi theo, không có chuyện hai ô lệch nhau.
+            *
+            * 🔴 SỬA Ô TRÊN THÌ PHẢI SỬA Ô NÀY THEO. Từ 27/08/2026 đây là GHI CHÚ TỰ DO in nguyên
+            * văn lên tờ đơn, không còn là ô "mã hợp đồng" thuần. Để nhãn cũ ở đây là một ô bảo
+            * "nhập mã", ô kia bảo "gõ cả câu" — cùng đổ vào một chỗ.
             *
             * ⚠️ Ô mã request chỉ hiện khi đề nghị THẬT SỰ có mã đó. Đề nghị lập tay trong app
             * không đi qua App Request nên không có mã — bày một ô trống vĩnh viễn là mời người
@@ -2907,15 +2944,16 @@ export function FormLapDonMuaHang({
             */}
           <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="ma-hop-dong-duoi">Mã hợp đồng</Label>
+              <Label htmlFor="ma-hop-dong-duoi">Theo hợp đồng</Label>
               <Input
                 id="ma-hop-dong-duoi"
                 value={maHopDong}
                 onChange={(e) => setMaHopDong(e.target.value)}
-                placeholder="Số hợp đồng với chủ đầu tư"
+                placeholder="VD: HĐ số 089/2026/HĐKT-HPC ký ngày 01/08/2026"
               />
               <span className="text-xs text-text-desc">
-                Hợp đồng với chủ đầu tư. Lấy từ phiếu đề nghị, sửa được.
+                Hợp đồng với chủ đầu tư — in nguyên văn lên tờ đơn. Đề nghị điền sẵn mã, gõ thêm
+                ngày ký hoặc sửa lại tuỳ đơn.
               </span>
             </div>
 
@@ -3150,14 +3188,55 @@ export function FormLapDonMuaHang({
               🔴 TỪ 24/08/2026 TÁCH TỪNG ĐẦU MỤC (Ban lãnh đạo: *"Tách từng đầu mục riêng và được
               phép chỉnh sửa"*). Luật ba trạng thái `null` / `""` / chuỗi giữ nguyên — xem chú
               thích đầu `khoi-dieu-khoan-tach-dong.tsx`. */}
+          {/**
+            * 🔴🔴 BẢN CHUẨN PHẢI THEO ĐÚNG MẪU ĐANG CHỌN — SỬA 27/08/2026, ĐÂY LÀ LỖI PHÁP LÝ.
+            *
+            * TRƯỚC ĐÂY dòng này truyền cứng `DIEU_KHOAN_GIAO_HANG_CHUAN` (bản PO-02, đủ 9 dòng)
+            * cho CẢ HAI mẫu, trong khi tờ in lại chọn theo mẫu bằng `dieuKhoanGiaoHangChuanTheoMau`.
+            * Hai bên đọc hai bản khác nhau, và hậu quả không dừng ở chỗ bày sai trên màn hình:
+            *
+            *   người lập chọn mẫu PO-01 → form vẫn bày 5 điều khoản của PO-02 → họ sửa MỘT chữ
+            *   → `dieuKhoanGiaoHang` thành chuỗi đủ 9 dòng → tờ in PO-01 **in thừa 5 điều khoản**.
+            *
+            * Đó đúng là thứ chỉ đạo 26/08/2026 bắt phải bỏ khỏi PO-01: 5 điều khoản đó nói về
+            * kiểm đếm, khiếu nại, đổi trả, chi phí phát sinh — những việc hợp đồng nguyên tắc đã
+            * quy định. In lại trên đơn là hai văn bản cùng quy định một việc, và khi hai bản khác
+            * nhau thì không biết theo bản nào.
+            *
+            * ⚠️ KHÔNG CÓ DẤU HIỆU NÀO BÁO: không lỗi lint, không lỗi build, tờ in vẫn ra đẹp — chỉ
+            * là chứng từ gửi nhà cung cấp mang thừa năm điều khoản.
+            *
+            * 📌 Dùng CHUNG một hàm với tờ in (`dieuKhoanGiaoHangChuanTheoMau`) chính là điều mà
+            * chú thích của hàm đó đã dặn. Ai thêm mẫu PO thứ ba thì chỉ sửa trong hàm ấy.
+            */}
           <KhoiDieuKhoanTachDong
             id="dk-giao-hang"
             nhan="Phương thức giao hàng"
             giaTri={dieuKhoanGiaoHang}
-            banChuan={DIEU_KHOAN_GIAO_HANG_CHUAN}
+            banChuan={dieuKhoanGiaoHangChuanTheoMau(mauPO)}
             onDoi={setDieuKhoanGiaoHang}
             moTa="Mục kết thúc bằng dấu hai chấm sẽ in đậm. Chỗ để trống …… là chỗ cần điền theo từng đơn. Bấm + để thêm mục, thùng rác để xoá."
           />
+
+          {/**
+            * ⚠️ CA ĐỔI MẪU SAU KHI ĐÃ SỬA — chốt còn lại sau khi bản chuẩn đã đi theo mẫu.
+            *
+            * Sửa điều khoản ở mẫu PO-02 (khối thành bản riêng của đơn) rồi đổi sang PO-01 thì bản
+            * riêng vẫn giữ nguyên 5 điều khoản của PO-02, mà tờ in ưu tiên bản riêng hơn bản
+            * chuẩn — nên tờ PO-01 vẫn in thừa. Đổi `banChuan` không tự chữa được ca này.
+            *
+            * 🔴 BÁO CHỨ KHÔNG TỰ XOÁ. Xoá giúp là vứt phần người lập vừa gõ mà không hỏi; để họ
+            * quyết bằng nút "Khôi phục bản chuẩn" có sẵn ngay trong khối bên trên.
+            */}
+          {mauPO === "theo_hop_dong" && conDieuKhoanRiengThoaThuan(dieuKhoanGiaoHang) && (
+            <p className="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning-soft">
+              Khối <strong>Phương thức giao hàng</strong> đang còn các điều khoản riêng của mẫu
+              PO-02 (kiểm đếm, khiếu nại, đổi trả…). Mẫu <strong>PO-01 theo hợp đồng</strong> không
+              in những mục đó — hợp đồng nguyên tắc đã quy định rồi. Bấm{" "}
+              <strong>Khôi phục bản chuẩn</strong> ở khối trên để lấy đúng bản của mẫu PO-01, hoặc
+              xoá từng mục thừa bằng nút thùng rác.
+            </p>
+          )}
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="dk-tt">Điều khoản thanh toán</Label>

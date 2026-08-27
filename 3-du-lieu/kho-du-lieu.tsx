@@ -35,7 +35,6 @@ import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
 import {
   VIEC_UNC_XONG,
-  vuongMacDuyetHoanThanhDeNghi,
   vuongMacHoanThanhQuyTrinh,
   vuongMacTichXongUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
@@ -2734,13 +2733,22 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (po?.prId) {
-        const dn = deNghiRef.current.find((d) => d.id === po.prId);
-        if (dn) {
-          const vuong = vuongMacDuyetHoanThanhDeNghi(dn);
-          if (vuong !== null) return vuong;
-        }
-      }
+      /**
+       * 🔴 KHÔNG ĐÒI HÓA ĐƠN VAT Ở ĐÂY — Ban lãnh đạo 27/08/2026: *"Phần xác nhận đơn hàng này
+       * chỉ cần có đính kèm phiếu giao hàng là được xác nhận hoàn thành"*.
+       *
+       * Trước đó chỗ này còn gọi `vuongMacDuyetHoanThanhDeNghi(dn)`, tức đòi thêm hóa đơn VAT.
+       * Hai việc đó lệch nhịp trong thực tế: hàng về đủ và có phiếu giao nhận là **việc mua bán
+       * đã xong**, còn hóa đơn VAT thì nhà cung cấp xuất sau, có khi cuối tháng. Đòi hóa đơn ở
+       * đây là giữ đơn ở trạng thái dở dang hàng tuần dù thực tế không còn gì để làm.
+       *
+       * ⚠️ LUẬT VAT KHÔNG BỊ BỎ, CHỈ CHUYỂN CHỖ. Nó vẫn chặn ở nút **Hoàn thành quy trình**
+       * (bước ⑧, qua `vuongMacHoanThanhQuyTrinh`) — đóng cả hồ sơ để đẩy sang Kế toán thì bắt
+       * buộc phải có hóa đơn. Đừng bỏ nốt chỗ đó khi dọn dẹp.
+       *
+       * 📌 Hai điều kiện còn giữ ở ngay trên vẫn đủ nghĩa "phiếu giao hàng": `po.xacNhanKho` chỉ
+       * bật được khi mọi lần giao đều có tệp đính kèm — luật 11/08/2026 ở `vuongMacXacNhanKho`.
+       */
 
       setDonHang((truoc) =>
         truoc.map((p) => (p.id === poId ? { ...p, xacNhanTruongBP: nguoi, trangThai: "hoan_thanh" } : p)),

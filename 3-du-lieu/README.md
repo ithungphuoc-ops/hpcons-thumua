@@ -99,8 +99,10 @@ Chỉ đạo Ban lãnh đạo: *"cấu hình cho a bước lập đơn mua hàng
 
 | Vào `tm_donhang` (ai trong dự án cũng đọc được) | Vào `tm_donhang_gia` (chỉ vai trò xem giá) |
 |---|---|
-| `tenCongTrinh` · `maSoThueNCC` · `diaChiNCC` · `nguoiLienHeNCC` · `dienGiai` · `thamChieu` · `ngayHopDongCDT` · `tepDinhKem` | `DongGiaPO.thueSuatGTGT` (% thuế từng dòng) · `kieuChietKhau` · `tyLeChietKhau` · `soNgayDuocNo` |
+| `tenCongTrinh` · `maSoThueNCC` · `diaChiNCC` · `nguoiLienHeNCC` · `dienGiai` · `thamChieu` · `maHopDongCDT` · `tepDinhKem` | `DongGiaPO.thueSuatGTGT` (% thuế từng dòng) · `kieuChietKhau` · `tyLeChietKhau` · `soNgayDuocNo` |
 | `DongPO.truongMoRong1` · `DongPO.laDongGhiChu` | |
+
+📌 **`ngayHopDongCDT` đã rời khỏi bảng trên từ 27/08/2026** — form bỏ ô chọn ngày, ngày ký nay nằm ngay trong chuỗi ghi chú `maHopDongCDT`. Trường vẫn còn trong kiểu dữ liệu vì các đơn lập trước ngày đó đang mang giá trị này.
 
 🔴 **`soNgayDuocNo` để bên GIÁ dù nghe như thông tin hành chính.** Đây là điều kiện thương mại đàm phán được — NCC cho nợ 45 ngày thường báo giá cao hơn NCC thu tiền ngay. Lộ nó ra `tm_donhang` là lộ một phần thế đàm phán.
 

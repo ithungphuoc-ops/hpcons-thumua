@@ -111,7 +111,6 @@ import {
   tepHopDong,
   tepUNC,
   thieuHopDongDaGhiLyDo,
-  vuongMacDuyetHoanThanhDeNghi,
   vuongMacHoanThanhQuyTrinh,
   vuongMacTichXongUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
@@ -1858,17 +1857,12 @@ export default function TrangChiTietDeNghi() {
                               </div>
                             )}
 
-                            {/* Nói trước điều kiện còn thiếu, ngay cạnh nút — đừng để người dùng
-                                bấm rồi mới biết. */}
-                            {daKhoXacNhan &&
-                              daGiaoDu &&
-                              !po.xacNhanTruongBP &&
-                              duocDuyetHoanThanhDon &&
-                              vuongMacDuyetHoanThanhDeNghi(dn) !== null && (
-                                <p className="text-xs text-warning-soft">
-                                  {vuongMacDuyetHoanThanhDeNghi(dn)}
-                                </p>
-                              )}
+            {/* 📌 ĐÃ BỎ câu cảnh báo "Chưa đính kèm Hóa đơn VAT…" ở cạnh nút này — Ban lãnh đạo
+                27/08/2026: *"Phần xác nhận đơn hàng này chỉ cần có đính kèm phiếu giao hàng là
+                được xác nhận hoàn thành"*. Nút không còn đòi hóa đơn nên câu cảnh báo cũng phải
+                đi theo; để lại là báo một điều kiện không còn tồn tại.
+
+                ⚠️ Luật hóa đơn VAT vẫn còn, chỉ ở bước sau: nút **Hoàn thành quy trình** (⑧). */}
 
                             {/* 🔴 CHƯA GIAO ĐỦ thì nói rõ, đừng để khối trống không giải thích —
                                 người dùng thấy không có nút sẽ tưởng mình thiếu quyền. */}

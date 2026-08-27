@@ -28,15 +28,59 @@
  * ⚠️ Giữ nguyên các chỗ bỏ trống `……` — đó là chỗ người lập điền theo từng đơn (số ngày khiếu
  * nại, phạm vi bốc xếp). Trước đây chúng in ra dấu chấm lửng trơ vì không có đường nào để điền.
  */
-export const DIEU_KHOAN_GIAO_HANG_CHUAN = `Phương thức giao hàng:
+/**
+ * 🔴🔴 HAI MẪU CÓ KHỐI ĐIỀU KHOẢN KHÁC NHAU — Ban lãnh đạo 26/08/2026: *"E làm form giống 100%
+ * mẫu a gửi"*, kèm hai ảnh biểu mẫu chuẩn.
+ *
+ *   · **PO-02 (thỏa thuận)** — có ĐỦ: 2 dòng chung + **5 điều khoản** (khối nền vàng trên giấy)
+ *   · **PO-01 (theo hợp đồng)** — CHỈ có **2 dòng chung**, KHÔNG có 5 điều khoản đó
+ *
+ * ⚠️ VÌ SAO KHÁC — không phải giấy in thiếu: 5 điều khoản kia nói về kiểm đếm, khiếu nại, đổi
+ * trả, chi phí phát sinh. Với PO-01 thì **hợp đồng gốc đã quy định những việc đó**; in lại trên
+ * đơn là hai văn bản cùng quy định một việc, và khi hai bản khác nhau thì không biết theo bản
+ * nào. Đó cũng đúng tinh thần câu kết của PO-01: *"các điều khoản chưa nêu … áp dụng theo hợp
+ * đồng trên"*.
+ *
+ * 🔴 TRƯỚC 26/08/2026 APP IN CHUNG MỘT BẢN cho cả hai mẫu — tức mọi đơn theo hợp đồng đều in
+ * thừa 5 điều khoản. Đây là lệch NỘI DUNG PHÁP LÝ trên chứng từ gửi ra ngoài, không phải lệch
+ * trình bày.
+ */
+const PHAN_CHUNG_GIAO_HANG = `Phương thức giao hàng:
 - Bên bán chịu trách nhiệm: vận chuyển, cẩu hạ hàng, bốc xếp 1 đầu / 2 đầu, quấn PE sản phẩm ….
-- Hàng hóa phải đảm bảo: đúng chủng loại, quy cách, hàng mới 100%, có chứng chỉ CO/CQ, bao bì nguyên vẹn / không trầy xước, cong vênh, …
+- Hàng hóa phải đảm bảo: đúng chủng loại, quy cách, hàng mới 100%, có chứng chỉ CO/CQ, bao bì nguyên vẹn / không trầy xước, cong vênh, …`;
 
-- Khi giao hàng, hai bên phải tiến hành kiểm đếm thực tế về số lượng, quy cách, nhãn hiệu và tình trạng hàng hóa và lập Biên bản giao nhận có chữ ký đại diện hai bên.
+/** Năm điều khoản của khối nền vàng — CHỈ có trên mẫu PO-02. */
+const PHAN_RIENG_THOA_THUAN = `- Khi giao hàng, hai bên phải tiến hành kiểm đếm thực tế về số lượng, quy cách, nhãn hiệu và tình trạng hàng hóa và lập Biên bản giao nhận có chữ ký đại diện hai bên.
 - Biên bản giao nhận là căn cứ xác nhận việc giao nhận hàng hóa. Mọi khiếu nại về sai lệch số lượng phải được ghi nhận tại thời điểm giao nhận.
 - Trong vòng …… ngày kể từ ngày nhận hàng, nếu phát hiện hàng hóa không đạt chất lượng hoặc không đúng quy cách, Bên Mua phải thông báo bằng văn bản cho Bên Bán để kiểm tra và xử lý.
 - Nếu xác định hàng hóa không đạt yêu cầu do lỗi của Bên Bán, Bên Bán phải thu hồi, đổi trả hàng và chịu toàn bộ chi phí phát sinh trong vòng 07 ngày. Ngược lại Bên Mua phải chịu toàn bộ chi phí đi lại phát sinh của Bên Bán.
 - Hàng hóa bị lỗi phải được niêm phong và tách riêng, không đưa vào sử dụng cho đến khi hai bên thống nhất phương án xử lý.`;
+
+/**
+ * Bản chuẩn của mẫu **PO-02 — Đơn mua hàng kèm thỏa thuận**.
+ *
+ * ⚠️ GIỮ NGUYÊN TÊN HẰNG SỐ NÀY. Nó đang được dùng ở form lập đơn và ở phép so "đã sửa khác bản
+ * chuẩn chưa"; đổi tên là phải sửa theo ở nhiều chỗ, mà giá trị thì không đổi.
+ */
+export const DIEU_KHOAN_GIAO_HANG_CHUAN = `${PHAN_CHUNG_GIAO_HANG}
+
+${PHAN_RIENG_THOA_THUAN}`;
+
+/** Bản chuẩn của mẫu **PO-01 — Đơn mua hàng theo hợp đồng**: chỉ hai dòng chung. */
+export const DIEU_KHOAN_GIAO_HANG_THEO_HOP_DONG = PHAN_CHUNG_GIAO_HANG;
+
+/**
+ * ★ Bản chuẩn ĐÚNG THEO MẪU ĐANG CHỌN — dùng ở cả tờ in lẫn ô nhập của form.
+ *
+ * 🔴 MỘT CHỖ QUYẾT ĐỊNH DUY NHẤT. Nếu tờ in tự chọn một bản còn form chọn bản khác thì người lập
+ * sửa điều khoản trên form mà tờ in ra nội dung khác — kiểu lệch không ai phát hiện cho tới lúc
+ * đối chiếu chứng từ đã gửi đi.
+ */
+export function dieuKhoanGiaoHangChuanTheoMau(mau: "thoa_thuan" | "theo_hop_dong"): string {
+  return mau === "theo_hop_dong"
+    ? DIEU_KHOAN_GIAO_HANG_THEO_HOP_DONG
+    : DIEU_KHOAN_GIAO_HANG_CHUAN;
+}
 
 /**
  * Hai câu cam kết cuối tờ — CHỈ in ở mẫu *Thỏa thuận mua bán*.
@@ -44,9 +88,18 @@ export const DIEU_KHOAN_GIAO_HANG_CHUAN = `Phương thức giao hàng:
  * 🔴 Đừng in vào mẫu *theo hợp đồng*: chúng nói "đơn này có giá trị như hợp đồng", mà đơn đặt
  * theo hợp đồng đã ký thì hợp đồng mới là văn bản gốc — in cả hai là hai văn bản cùng nhận vai
  * trò hợp đồng cho một giao dịch.
+ *
+ * 📌 GỌI TỜ CHỨNG TỪ LÀ **"ĐMH"** — Ban lãnh đạo 27/08/2026: *"Điều chỉnh ghi là ĐMH nhé"*.
+ * Trước đó hai câu này gọi cùng một tờ giấy bằng HAI tên khác nhau (*"Đơn mua hàng"* ở câu trên,
+ * *"Đơn đặt hàng"* ở câu dưới), mà mẫu PO-01 lại gọi là *"ĐMH"* — ba cách gọi cho một chứng từ.
+ * Trên văn bản có giá trị như hợp đồng, tên gọi không nhất quán là chỗ để tranh cãi phạm vi áp
+ * dụng: bên kia hỏi *"Đơn đặt hàng"* có phải chính tờ này không thì không có gì để trả lời.
+ *
+ * ⚠️ TIÊU ĐỀ TO GIỮA TỜ VẪN IN TÊN ĐẦY ĐỦ (`NHAN_MAU_PO[...].tieuDeIn`) — biểu mẫu chuẩn công ty
+ * ghi vậy. Viết tắt chỉ dùng trong CÂU VĂN, sau khi tờ đã tự xưng tên đầy đủ ở đầu.
  */
-export const CAM_KET_THOA_THUAN_CHUAN = `Các nội dung chưa được quy định tại Đơn mua hàng / Thỏa thuận mua bán này được thực hiện theo thỏa thuận giữa hai bên và quy định pháp luật hiện hành.
-Đơn đặt hàng này có giá trị như hợp đồng mua bán giữa hai bên khi được ký xác nhận.`;
+export const CAM_KET_THOA_THUAN_CHUAN = `Các nội dung chưa được quy định tại ĐMH / Thỏa thuận mua bán này được thực hiện theo thỏa thuận giữa hai bên và quy định pháp luật hiện hành.
+ĐMH này có giá trị như hợp đồng mua bán giữa hai bên khi được ký xác nhận.`;
 
 /**
  * ★★ CÂU KẾT CỦA MẪU **PO-01 — theo hợp đồng** (Ban lãnh đạo 26/08/2026, gửi kèm biểu mẫu chuẩn).
@@ -95,6 +148,31 @@ export function tachDongDieuKhoan(
       laDongTrong: chu.trim() === "",
     };
   });
+}
+
+/**
+ * ★ Bản điều khoản của đơn này có còn mang điều khoản RIÊNG CỦA MẪU PO-02 không?
+ *
+ * 🔴 VÌ SAO CẦN: người lập chọn mẫu PO-02, sửa vài mục (khối thành bản riêng của đơn), rồi ĐỔI
+ * SANG MẪU PO-01. Bản riêng đó vẫn còn nguyên 5 điều khoản của PO-02, và tờ in ưu tiên bản riêng
+ * hơn bản chuẩn — nên tờ PO-01 in ra thừa 5 điều khoản mà biểu mẫu PO-01 không có. Đây là lệch
+ * NỘI DUNG PHÁP LÝ trên chứng từ gửi ra ngoài, không phải lệch trình bày.
+ *
+ * ⚠️ SO THEO ĐẦU CÂU, KHÔNG SO NGUYÊN VĂN CẢ DÒNG: người lập có quyền sửa chữ bên trong mỗi điều
+ * khoản (điền số ngày vào chỗ `……`, thêm bớt vài từ). So nguyên văn thì họ vừa điền số ngày là
+ * phép kiểm mù, đúng lúc cần nó nhất.
+ *
+ * 📌 Lấy 40 ký tự đầu là đủ dài để không đụng nhầm hai dòng chung, và đủ ngắn để chịu được việc
+ * người lập sửa phần đuôi câu.
+ */
+export function conDieuKhoanRiengThoaThuan(vanBan: string | null | undefined): boolean {
+  if (!vanBan) return false;
+  const dauCau = (d: string) => d.trim().replace(/\s+/g, " ").slice(0, 40).toLowerCase();
+  const dauCuaPhanRieng = PHAN_RIENG_THOA_THUAN.split("\n").map(dauCau).filter(Boolean);
+  return vanBan
+    .split(/\r?\n/)
+    .map(dauCau)
+    .some((d) => d.length > 0 && dauCuaPhanRieng.includes(d));
 }
 
 /** Bản điều khoản của đơn này có khác bản chuẩn không — để tờ in nói rõ. */

@@ -1520,6 +1520,18 @@ export function dongLapDuocDonHang(
 /**
  * ★ KÉO LÙI MỘT BƯỚC — quyết định app phải hủy chứng từ nào.
  *
+ * 🔴🔴 HÀM NÀY HIỆN KHÔNG AI GỌI, VÀ ĐÓ LÀ CỐ Ý — ĐỪNG XÓA.
+ *
+ * ⚠️ Khối chú thích ngay phía trên nói *"hàm không ai gọi thì xóa"* — câu đó nói về
+ * `dongThuocVeNguoi`, **KHÔNG áp cho hàm này**. Đây là ngoại lệ có lý do:
+ *
+ * Ban lãnh đạo 26/08/2026: *"e tạm đóng gói chức năng kéo lùi bước trong bảng kanban, tính năng
+ * này sẽ xử lý sau"* — chữ **"tạm"** và **"xử lý sau"**, tức sẽ bật lại. Nên chốt chặn đặt ở
+ * `quyetDinhKeoTha` (một khối `if`, xóa đi là bật lại), còn toàn bộ luật hủy chứng từ theo từng
+ * bước thì giữ nguyên tại đây. Luật đó là chỉ đạo 13/08/2026 và có những ca đã xử riêng: bảng
+ * báo giá đã có giá thì chặn lùi · đơn nháp phải hủy trước · phiếu nhận của Kho thì Thu mua
+ * không được xóa. Xóa hàm là lúc bật lại phải viết lại từ đầu và **mất sạch các ca đó**.
+ *
  * 🔴 Ban lãnh đạo 13/08/2026: *"chỉ cho tiến hoặc lùi trong phạm vi 1 bước"*.
  *
  * ⚠️ LÙI KHÔNG PHẢI ĐỔI NHÃN. Giai đoạn được SUY RA từ chứng từ có thật, nên muốn thẻ về
@@ -1529,6 +1541,7 @@ export function dongLapDuocDonHang(
  * 🔒 CHẶN LÙI TỪ "NHẬN HÀNG": phiếu nhận là chứng từ của KHO, và theo nguyên tắc dữ liệu số
  * 2 thì Kho là nguồn duy nhất của số lượng thực nhận — Thu mua không được xóa phiếu của họ.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- xem khối chú thích ngay trên
 function quyetDinhLui(
   tu: GiaiDoanMuaHang,
   ve: GiaiDoanMuaHang,

@@ -588,7 +588,7 @@ export type MauDonMuaHang = "thoa_thuan" | "theo_hop_dong";
  *   · PO-02 *"kèm thoả thuận"* → `thoa_thuan` — chính tờ đơn có giá trị như hợp đồng, nên tờ in
  *     có thêm hai câu cam kết ở cuối.
  *   · PO-01 *"Đơn mua hàng"*   → `theo_hop_dong` — điều khoản nằm ở hợp đồng nguyên tắc đã ký, tờ
- *     in chỉ dẫn số và ngày hợp đồng đó và KHÔNG cam kết lại.
+ *     in chỉ dẫn lại hợp đồng đó (nguyên văn ghi chú người lập gõ) và KHÔNG cam kết lại.
  * Đổi nhãn máy móc theo vị trí cũ là gán tên "kèm thoả thuận" cho mẫu **không** có thoả thuận —
  * người lập chọn nhầm là gửi cho nhà cung cấp một chứng từ nói sai về căn cứ pháp lý.
  *
@@ -599,7 +599,9 @@ export const NHAN_MAU_PO: Record<MauDonMuaHang, { nhan: string; tieuDeIn: string
   theo_hop_dong: {
     nhan: "Mẫu PO-01 — Đơn mua hàng",
     tieuDeIn: "Đơn mua hàng",
-    moTa: "Đã có hợp đồng nguyên tắc — tờ đơn ghi rõ số và ngày ký hợp đồng đó.",
+    /* ⚠️ CHỮ CHẠY TRÊN GIAO DIỆN (hiện dưới ô chọn mẫu ở form lập đơn), không phải chú thích.
+       Từ 27/08/2026 app KHÔNG tự dựng số và ngày nữa — nói ngược lại là hứa một việc app không làm. */
+    moTa: "Đã có hợp đồng nguyên tắc — tờ đơn dẫn lại hợp đồng đó theo ô ghi chú bạn nhập.",
   },
   thoa_thuan: {
     nhan: "Mẫu PO-02 — Đơn mua hàng kèm thoả thuận",
@@ -619,8 +621,28 @@ export interface DonDatHang {
    */
   code: string;
   maDuAn: string;
+  /**
+   * ★ GHI CHÚ HỢP ĐỒNG — chữ in nguyên văn sau *"Theo hợp đồng:"* trên tờ đơn mẫu PO-01.
+   *
+   * 🔴 Ban lãnh đạo 27/08/2026: *"Dòng theo hợp đồng sẽ nhập thủ công, e để sẵn ô để ghi chú"*.
+   * Trước đó đây là SỐ hợp đồng thuần và tờ in tự ghép thêm *"· Ký ngày …"*. Nay là chuỗi tự do:
+   * người lập gõ cả số lẫn ngày ký (hoặc bất cứ gì cần dẫn), app chép lại y nguyên.
+   *
+   * ⚠️ ĐỪNG ĐỔI TÊN TRƯỜNG dù tên không còn khớp nghĩa: `5-ket-noi/gui-po-qlk-ctr.ts` đọc nó để
+   * dựng payload gửi sang QLK CTR, mà tệp đó thuộc vùng cấm sửa của phiên tích hợp (CLAUDE.md
+   * §6.6) — đổi tên là gãy typecheck ở chỗ mình không được phép sửa.
+   *
+   * ⚠️ CÙNG TÊN nhưng KHÁC THỰC THỂ với `DuAn.maHopDongCDT` và `DeNghiMuaHang.maHopDongCDT` —
+   * hai chỗ đó vẫn là MÃ hợp đồng thuần, đừng dọn nhầm.
+   */
   maHopDongCDT?: string;
-  /** ★ Ô "Ngày hợp đồng" của màn MISA — đi kèm `maHopDongCDT` trên ô "Hợp đồng - Ngày hợp đồng". */
+  /**
+   * ⚠️ TRƯỜNG CŨ — KHÔNG CÒN NHẬP MỚI TỪ 27/08/2026, nhưng ĐỪNG XÓA.
+   *
+   * Ô "Ngày hợp đồng" của màn MISA đã bị bỏ khỏi form: ngày ký nay nằm ngay trong `maHopDongCDT`.
+   * Giữ khai báo vì các đơn lập trước ngày đó còn mang giá trị này trong Firestore — xóa đi là
+   * đọc lên gãy kiểu, mà dữ liệu chứng từ đã phát hành thì không được sửa ngược.
+   */
   ngayHopDongCDT?: NgayISO;
   /**
    * ★ ĐỀ NGHỊ NGUỒN — TỪ 18/08/2026 LÀ TÙY CHỌN.
@@ -715,7 +737,8 @@ export interface DonDatHang {
    * Hai mẫu trong biểu mẫu công ty khác nhau ở chỗ **đơn này đã có hợp đồng trước hay chưa**:
    *   · `thoa_thuan` — tiêu đề *"ĐƠN MUA HÀNG / THỎA THUẬN MUA BÁN"*. Dùng khi KHÔNG có hợp đồng
    *     riêng: chính tờ đơn có giá trị như hợp đồng, nên cuối tờ có hai câu cam kết cố định.
-   *   · `theo_hop_dong` — tiêu đề *"ĐƠN MUA HÀNG"*, thêm dòng *"Theo hợp đồng: … Ký ngày …"*.
+   *   · `theo_hop_dong` — tiêu đề *"ĐƠN MUA HÀNG"*, thêm dòng *"Theo hợp đồng: …"* in nguyên văn
+   *     ghi chú người lập gõ ở `maHopDongCDT` (để trống thì in dải chấm để viết tay).
    *     Dùng khi đã ký hợp đồng nguyên tắc; điều khoản nằm ở hợp đồng nên tờ đơn không cam kết lại.
    *
    * ⚠️ TÙY CHỌN, mặc định `thoa_thuan`: đơn cũ không có trường này, và phần lớn đơn lẻ không có
