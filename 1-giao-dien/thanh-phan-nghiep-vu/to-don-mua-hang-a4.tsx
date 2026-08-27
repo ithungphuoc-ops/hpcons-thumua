@@ -524,16 +524,29 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           * ⚠️ `po.ngayGiaoDenNgay` là trường THÊM SAU, đơn cũ không có — phải kiểm rỗng trước
           * khi đưa vào `new Date()`.
           */}
+        {/**
+          * 📌 GHI CHÚ THỜI GIAN GIAO IN KÈM DÒNG NÀY, không tách một dòng riêng (Ban lãnh đạo
+          * 27/08/2026). Nó nói về chính khoảng ngày bên cạnh — *"giao buổi sáng"*, *"gọi trước 1
+          * ngày"* — tách ra thành dòng riêng thì người đọc phải tự nối hai dòng lại với nhau.
+          *
+          * ⚠️ Ngăn bằng dấu "·" chứ không phải dấu phẩy: khoảng ngày đã dùng "—", thêm dấu phẩy
+          * nữa thì ba loại dấu trên một dòng, đọc ra như một câu liệt kê.
+          */}
         <Dong
           nhan="Ngày giao hàng"
           giaTri={[
-            new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN"),
-            po.ngayGiaoDenNgay
-              ? new Date(po.ngayGiaoDenNgay).toLocaleDateString("vi-VN")
-              : undefined,
+            [
+              new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN"),
+              po.ngayGiaoDenNgay
+                ? new Date(po.ngayGiaoDenNgay).toLocaleDateString("vi-VN")
+                : undefined,
+            ]
+              .filter(Boolean)
+              .join(" — "),
+            po.ghiChuThoiGianGiao?.trim() || undefined,
           ]
             .filter(Boolean)
-            .join(" — ")}
+            .join(" · ")}
           rong
         />
         <Dong nhan="Địa điểm giao hàng" giaTri={po.diaDiemGiaoHang ?? "—"} rong />

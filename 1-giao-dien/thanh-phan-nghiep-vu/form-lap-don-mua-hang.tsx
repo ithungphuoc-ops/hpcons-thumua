@@ -324,6 +324,11 @@ export function FormLapDonMuaHang({
   const [ngayGiao, setNgayGiao] = useState("");
   /** Ngày KẾT THÚC của khoảng nhận hàng (Ban lãnh đạo 27/08/2026) — tùy chọn, xem ô nhập. */
   const [ngayGiaoDen, setNgayGiaoDen] = useState("");
+  /**
+   * Ghi chú thêm về thời gian giao (Ban lãnh đạo 27/08/2026) — in kèm dòng "Ngày giao hàng".
+   * Chỗ cho những điều kiện khoảng ngày không nói được: giao buổi sáng, gọi trước 1 ngày…
+   */
+  const [ghiChuThoiGianGiao, setGhiChuThoiGianGiao] = useState("");
   // Dòng cuối khối
   const [thamChieu, setThamChieu] = useState("");
   /** `supplierId` chỉ có khi tra ra trong danh mục — không tra ra vẫn lập được đơn. */
@@ -1558,6 +1563,7 @@ export function FormLapDonMuaHang({
       ngayGiaoDuKien: ngayGiao,
       /* Chuoi rong -> undefined: don giao gon mot ngay khong co ngay ket thuc. */
       ngayGiaoDenNgay: ngayGiaoDen || undefined,
+      ghiChuThoiGianGiao: ghiChuThoiGianGiao.trim() || undefined,
       diaDiemGiaoHang: diaDiemGiao,
       nguoiNhanHangTen: nguoiNhanHang,
       nguoiNhanHangSdt: sdtNguoiNhan,
@@ -1720,6 +1726,7 @@ export function FormLapDonMuaHang({
     setNgayDonHang(new Date().toISOString().slice(0, 10));
     setNgayGiao("");
     setNgayGiaoDen("");
+    setGhiChuThoiGianGiao("");
     setThamChieu("");
     setSupplierId("");
     setKieuChietKhau("khong");
@@ -1958,6 +1965,7 @@ export function FormLapDonMuaHang({
       ngayGiaoDuKien: ngayGiao,
       /* Chuoi rong -> undefined: don giao gon mot ngay khong co ngay ket thuc. */
       ngayGiaoDenNgay: ngayGiaoDen || undefined,
+      ghiChuThoiGianGiao: ghiChuThoiGianGiao.trim() || undefined,
       diaDiemGiaoHang: diaDiemGiao.trim() || undefined,
       nguoiNhanHangTen: nguoiNhanHang.trim() || undefined,
       nguoiNhanHangSdt: sdtNguoiNhan.trim() || undefined,
@@ -3195,10 +3203,30 @@ export function FormLapDonMuaHang({
                 className="w-44"
                 aria-label="Nhận hàng đến ngày"
               />
+              {/**
+                * ★ Ô GHI CHÚ THỜI GIAN GIAO — Ban lãnh đạo 27/08/2026: *"Thêm cột ghi chú thời
+                * gian giao hàng"*, mũi tên chỉ đúng chỗ trống này.
+                *
+                * 📌 VÌ SAO CẦN DÙ ĐÃ CÓ KHOẢNG NGÀY: khoảng ngày nói được *"giao trong tuần
+                * này"*, nhưng không nói được điều kiện thật khi hẹn xe — *"giao buổi sáng sau
+                * 8h"*, *"gọi trước 1 ngày"*, *"chia 2 đợt"*. Không có chỗ ghi thì người lập nhét
+                * vào ô "Điều khoản khác", lẫn với điều khoản thương mại.
+                *
+                * 📌 `min-w-48 flex-1`: chiếm hết chỗ còn lại của hàng, và màn hẹp thì `flex-wrap`
+                * của cha đưa xuống dòng thay vì bóp còn vài chục pixel.
+                */}
+              <Input
+                id="ghi-chu-thoi-gian-giao"
+                value={ghiChuThoiGianGiao}
+                onChange={(e) => setGhiChuThoiGianGiao(e.target.value)}
+                className="min-w-48 flex-1"
+                placeholder="VD: giao buổi sáng, gọi trước 1 ngày…"
+                aria-label="Ghi chú thời gian giao hàng"
+              />
             </div>
             <span className="text-xs text-text-desc">
               Khoảng thời gian nhà cung cấp được giao hàng. Giao gọn trong một ngày thì chỉ điền ô
-              đầu — tờ in sẽ ghi đúng một ngày.
+              đầu — tờ in sẽ ghi đúng một ngày. Ô cuối để ghi chú thêm, in kèm trên tờ đơn.
             </span>
             {/* Nói ngay khi sai, đừng đợi tới lúc bấm Cất. */}
             {ngayGiao !== "" && ngayGiaoDen !== "" && ngayGiaoDen < ngayGiao && (

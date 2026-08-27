@@ -751,6 +751,19 @@ export interface DonDatHang {
    * nó mà không kiểm rỗng trước.
    */
   ngayGiaoDenNgay?: NgayISO;
+  /**
+   * ★ GHI CHÚ về thời gian giao hàng — Ban lãnh đạo 27/08/2026: *"Thêm cột ghi chú thời gian
+   * giao hàng"*, mũi tên chỉ đúng chỗ trống cạnh hai ô ngày.
+   *
+   * 📌 VÌ SAO CẦN, DÙ ĐÃ CÓ KHOẢNG NGÀY: khoảng ngày nói được *"giao trong tuần này"*, nhưng
+   * không nói được những điều kiện thật hay gặp khi hẹn xe — *"giao buổi sáng, sau 8h"*, *"gọi
+   * trước 1 ngày"*, *"chia 2 đợt, đợt sau khi có mặt bằng"*, *"nghỉ lễ không nhận hàng"*. Không
+   * có chỗ ghi thì người lập nhét vào ô "Điều khoản khác" — lẫn với điều khoản thương mại, và
+   * nhà cung cấp đọc tờ đơn không thấy nó ở chỗ đáng thấy.
+   *
+   * 📌 Tùy chọn. In kèm dòng "Ngày giao hàng" trên tờ đơn, không phải một dòng riêng.
+   */
+  ghiChuThoiGianGiao?: string;
   dieuKienGiaoHang?: string;
   /** Ô "Địa điểm giao hàng" trên mẫu đơn — thường là chân công trình. */
   diaDiemGiaoHang?: string;
