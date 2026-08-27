@@ -321,6 +321,8 @@ export function FormLapDonMuaHang({
   const [loaiTien, setLoaiTien] = useState("VND");
   const [ngayDonHang, setNgayDonHang] = useState(() => new Date().toISOString().slice(0, 10));
   const [ngayGiao, setNgayGiao] = useState("");
+  /** Ngày KẾT THÚC của khoảng nhận hàng (Ban lãnh đạo 27/08/2026) — tùy chọn, xem ô nhập. */
+  const [ngayGiaoDen, setNgayGiaoDen] = useState("");
   // Dòng cuối khối
   const [thamChieu, setThamChieu] = useState("");
   /** `supplierId` chỉ có khi tra ra trong danh mục — không tra ra vẫn lập được đơn. */
@@ -1264,8 +1266,27 @@ export function FormLapDonMuaHang({
 
         // Ngày: đổi dd/MM/yyyy sang yyyy-MM-dd, xem `docNgayVN` — đưa thẳng chuỗi Việt vào ô
         // ngày là ô trống trơn, còn để `new Date()` đọc thì lệch một tháng.
-        const ngayGiaoISO = docNgayVN(c.ngayGiaoHang);
+        /**
+         * 🔴 Ô "Ngày giao hàng" của file Excel nay có thể chứa MỘT KHOẢNG — "02/09/2026 —
+         * 05/09/2026" (xem chỗ ghi ở `taoFileNhapDonHang`). Đưa nguyên chuỗi đó vào `docNgayVN`
+         * là đọc hỏng, và hỏng IM LẶNG: hàm trả rỗng nên ô ngày giao trống trơn sau khi nhập
+         * file, người lập tưởng file thiếu dữ liệu.
+         *
+         * 🔴 TÁCH BẰNG GẠCH DÀI "—" / "–" HOẶC CHỮ "đến", TUYỆT ĐỐI KHÔNG TÁCH BẰNG GẠCH
+         * THƯỜNG "-". Ngày dạng ISO `2026-09-02` cũng dùng gạch thường; cho nó vào bộ tách là
+         * một ngày duy nhất bị xé thành ba mảnh "2026" · "09" · "02", và ô ngày ra sai hẳn.
+         */
+        const manhNgayGiao = String(c.ngayGiaoHang ?? "")
+          /* ⚠️ KHÔNG dùng `\b` quanh "đến": ranh giới từ của JavaScript chỉ hiểu chữ ASCII, nên
+             `\bđến\b` KHÔNG khớp chữ có dấu — đã đo, ca "02/09/2026 đến 05/09/2026" trượt sạch.
+             Dùng khoảng trắng hai bên thay cho ranh giới từ. */
+          .split(/\s*(?:—|–)\s*|\s+(?:đến|den)\s+/i)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const ngayGiaoISO = docNgayVN(manhNgayGiao[0]);
         if (ngayGiaoISO) setNgayGiao(ngayGiaoISO);
+        const ngayGiaoDenISO = manhNgayGiao[1] ? docNgayVN(manhNgayGiao[1]) : undefined;
+        if (ngayGiaoDenISO) setNgayGiaoDen(ngayGiaoDenISO);
         const ngayDonISO = docNgayVN(c.ngayDonHang);
         if (ngayDonISO) setNgayDonHang(ngayDonISO);
 
@@ -1453,7 +1474,16 @@ export function FormLapDonMuaHang({
            ngày ký (nếu có) nằm ngay trong chuỗi `maHopDongCDT`. Ô "Ngày hợp đồng" của file Excel
            vì vậy để trống cho người dùng tự điền trong Excel. Vòng đọc ngược vẫn đúng: bộ đọc gộp
            hai ô lại thành đúng câu người lập đã gõ (xem chỗ `ghiChuHopDongTuFile`). */
-        ngayGiaoHang: ngayGiao ? new Date(ngayGiao).toLocaleDateString("vi-VN") : undefined,
+        /* Khoảng nhận hàng ghép vào MỘT ô của file Excel — ô đó vốn là ô chữ, và biểu mẫu chỉ có
+           một dòng "Ngày giao hàng:". Có ngày kết thúc thì ghi "02/09/2026 — 05/09/2026", không
+           thì ghi đúng một ngày như trước. */
+        ngayGiaoHang:
+          [
+            ngayGiao ? new Date(ngayGiao).toLocaleDateString("vi-VN") : undefined,
+            ngayGiaoDen ? new Date(ngayGiaoDen).toLocaleDateString("vi-VN") : undefined,
+          ]
+            .filter(Boolean)
+            .join(" — ") || undefined,
         dieuKhoanKhac: dieuKhoanKhac.trim() || undefined,
         dieuKhoanThanhToan: dieuKhoanThanhToan.trim() || undefined,
         thueSuatGTGT: Number.isFinite(thueSuatChung) ? thueSuatChung : undefined,
@@ -1525,6 +1555,8 @@ export function FormLapDonMuaHang({
       nguoiPhuTrachTen: tenNhanVienMua.trim() || nguoiDung.tenHienThi,
       ngayLapPO: ngayDonHang,
       ngayGiaoDuKien: ngayGiao,
+      /* Chuoi rong -> undefined: don giao gon mot ngay khong co ngay ket thuc. */
+      ngayGiaoDenNgay: ngayGiaoDen || undefined,
       diaDiemGiaoHang: diaDiemGiao,
       nguoiNhanHangTen: nguoiNhanHang,
       nguoiNhanHangSdt: sdtNguoiNhan,
@@ -1686,6 +1718,7 @@ export function FormLapDonMuaHang({
     setSoNgayDuocNo("");
     setNgayDonHang(new Date().toISOString().slice(0, 10));
     setNgayGiao("");
+    setNgayGiaoDen("");
     setThamChieu("");
     setSupplierId("");
     setKieuChietKhau("khong");
@@ -1720,10 +1753,16 @@ export function FormLapDonMuaHang({
   // Đòi TÊN nhà cung cấp, không đòi phải có trong danh mục (chỉ đạo Ban lãnh đạo 10/08/2026).
   // 🔴 Độc lập đòi thêm MÃ DỰ ÁN: không có thì `themDonHang` từ chối cất, mà để người lập gõ
   // xong cả đơn rồi mới báo là bắt họ làm không công.
+  /* 🔴 KHOẢNG NGƯỢC THÌ CHẶN CẤT, không chỉ tô cảnh báo ở ô. Thuộc tính `min` của ô ngày là
+     gợi ý của trình duyệt — dán ngày vào ô hoặc gõ tay vẫn lọt qua được. Chốt thật phải ở đây,
+     nơi quyết định cho cất hay không. */
+  const khoangGiaoNguoc = ngayGiao !== "" && ngayGiaoDen !== "" && ngayGiaoDen < ngayGiao;
+
   const hopLe =
     soDongHangHopLe > 0 &&
     tenNCC.trim() !== "" &&
     ngayGiao !== "" &&
+    !khoangGiaoNguoc &&
     ngayDonHang !== "" &&
     (!laDonDocLap || maDuAnDon !== "");
 
@@ -1916,6 +1955,8 @@ export function FormLapDonMuaHang({
       nguoiPhuTrachTen: tenNhanVienMua.trim() || nguoiDung.tenHienThi,
       ngayLapPO: ngayDonHang,
       ngayGiaoDuKien: ngayGiao,
+      /* Chuoi rong -> undefined: don giao gon mot ngay khong co ngay ket thuc. */
+      ngayGiaoDenNgay: ngayGiaoDen || undefined,
       diaDiemGiaoHang: diaDiemGiao.trim() || undefined,
       nguoiNhanHangTen: nguoiNhanHang.trim() || undefined,
       nguoiNhanHangSdt: sdtNguoiNhan.trim() || undefined,
@@ -3111,18 +3152,52 @@ export function FormLapDonMuaHang({
           </div>
           </div>
 
+          {/**
+            * ★★ THỜI GIAN NHẬN HÀNG LÀ MỘT KHOẢNG — Ban lãnh đạo 27/08/2026: *"Mục này cho chọn
+            * thời gian nhận hàng. Từ ngày này tới ngày khác"*.
+            *
+            * 🔴 THÊM Ô KẾT THÚC, KHÔNG ĐỔI Ô CŨ. Ô "từ ngày" vẫn ghi vào `ngayGiaoDuKien` — trường
+            * bắt buộc đã có trong mọi đơn đang chạy. Đổi tên hay cho phép rỗng là đơn cũ đọc lên
+            * gãy kiểu.
+            *
+            * 📌 "Đến ngày" TÙY CHỌN: đơn hẹn giao gọn trong một ngày thì chỉ điền ô đầu, tờ in ra
+            * đúng một ngày như trước. Bắt điền cả hai là ép người lập bịa một ngày kết thúc.
+            */}
           <div className="muc-ngang">
-            <Label htmlFor="ngay-giao">Ngày giao hàng</Label>
-            <Input
-              id="ngay-giao"
-              type="date"
-              value={ngayGiao}
-              onChange={(e) => setNgayGiao(e.target.value)}
-              className="w-48"
-            />
+            <Label htmlFor="ngay-giao">Thời gian nhận hàng</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                id="ngay-giao"
+                type="date"
+                value={ngayGiao}
+                onChange={(e) => setNgayGiao(e.target.value)}
+                className="w-44"
+                aria-label="Nhận hàng từ ngày"
+              />
+              <span className="text-sm text-text-secondary">đến</span>
+              <Input
+                id="ngay-giao-den"
+                type="date"
+                value={ngayGiaoDen}
+                /* 🔴 `min` chặn ngay tại ô: chọn ngày kết thúc trước ngày bắt đầu là một khoảng
+                   không tồn tại. Chặn ở đây thì người lập biết ngay lúc chọn, không phải bấm Cất
+                   rồi mới thấy báo lỗi. */
+                min={ngayGiao || undefined}
+                onChange={(e) => setNgayGiaoDen(e.target.value)}
+                className="w-44"
+                aria-label="Nhận hàng đến ngày"
+              />
+            </div>
             <span className="text-xs text-text-desc">
-              Một ngày cho cả đơn — app không nhập kế hoạch giao từng đợt.
+              Khoảng thời gian nhà cung cấp được giao hàng. Giao gọn trong một ngày thì chỉ điền ô
+              đầu — tờ in sẽ ghi đúng một ngày.
             </span>
+            {/* Nói ngay khi sai, đừng đợi tới lúc bấm Cất. */}
+            {ngayGiao !== "" && ngayGiaoDen !== "" && ngayGiaoDen < ngayGiao && (
+              <span className="text-xs text-warning-soft">
+                Ngày kết thúc đang trước ngày bắt đầu — sửa lại một trong hai ô.
+              </span>
+            )}
           </div>
 
           <div className="muc-ngang">

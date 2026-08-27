@@ -729,8 +729,28 @@ export interface DonDatHang {
   /** Ô "Nhân viên mua hàng" trên màn MISA. */
   nguoiPhuTrachTen: string;
   ngayLapPO: NgayISO;
-  /** 1 ngày cho cả PO — KHÔNG nhập kế hoạch từng đợt (chỉ đạo Ban lãnh đạo). */
+  /**
+   * ★ NGÀY GIAO HÀNG — nay là **ngày BẮT ĐẦU** của khoảng nhận hàng.
+   *
+   * Ban lãnh đạo 27/08/2026: *"Mục này cho chọn thời gian nhận hàng. Từ ngày này tới ngày
+   * khác"*. Trước đó đây là một ngày duy nhất cho cả đơn.
+   *
+   * 🔴 GIỮ NGUYÊN TÊN VÀ GIỮ BẮT BUỘC. Đây là trường đã có trong mọi đơn đang chạy; đổi tên
+   * hoặc cho phép rỗng là đơn cũ đọc lên gãy kiểu, mà chứng từ đã phát hành thì không được sửa
+   * ngược. Khoảng ngày làm bằng cách THÊM một trường kết thúc, không đụng trường này.
+   */
   ngayGiaoDuKien: NgayISO;
+  /**
+   * ★ Ngày KẾT THÚC của khoảng nhận hàng — thêm 27/08/2026.
+   *
+   * 📌 TÙY CHỌN, và bỏ trống là chuyện bình thường: đơn hẹn giao gọn trong một ngày thì chỉ
+   * điền ngày bắt đầu. Nơi hiển thị phải tự lo hai ca — có khoảng thì in "từ … đến …", không
+   * thì in đúng một ngày như trước.
+   *
+   * ⚠️ ĐƠN CŨ KHÔNG CÓ TRƯỜNG NÀY. Đừng viết chỗ nào đọc thẳng `.slice()` hay `new Date()` lên
+   * nó mà không kiểm rỗng trước.
+   */
+  ngayGiaoDenNgay?: NgayISO;
   dieuKienGiaoHang?: string;
   /** Ô "Địa điểm giao hàng" trên mẫu đơn — thường là chân công trình. */
   diaDiemGiaoHang?: string;

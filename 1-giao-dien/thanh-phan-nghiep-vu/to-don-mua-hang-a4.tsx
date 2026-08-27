@@ -509,9 +509,31 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           <Dong nhan="Người nhận hàng" giaTri={po.nguoiNhanHangTen ?? "—"} />
           <Dong nhan="Số điện thoại" giaTri={po.nguoiNhanHangSdt ?? "—"} />
         </div>
+        {/**
+          * ★ THỜI GIAN NHẬN HÀNG LÀ MỘT KHOẢNG — Ban lãnh đạo 27/08/2026: *"Mục này cho chọn
+          * thời gian nhận hàng. Từ ngày này tới ngày khác"*.
+          *
+          * 📌 HAI CÁCH IN, TÙY ĐƠN: có ngày kết thúc thì in *"02/09/2026 — 05/09/2026"*; không
+          * có thì in đúng một ngày như trước. Đơn hẹn giao gọn trong một ngày mà in ra một
+          * khoảng "02/09 — 02/09" là chữ thừa trên chứng từ gửi ra ngoài.
+          *
+          * ⚠️ NHÃN VẪN LÀ "Ngày giao hàng" — đó là chữ trên biểu mẫu giấy của công ty. Ô nhập
+          * trên form gọi là "Thời gian nhận hàng" cho đúng nghĩa mới, nhưng tờ in thì chép theo
+          * giấy; đừng "thống nhất" bằng cách sửa nhãn tờ in.
+          *
+          * ⚠️ `po.ngayGiaoDenNgay` là trường THÊM SAU, đơn cũ không có — phải kiểm rỗng trước
+          * khi đưa vào `new Date()`.
+          */}
         <Dong
           nhan="Ngày giao hàng"
-          giaTri={new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
+          giaTri={[
+            new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN"),
+            po.ngayGiaoDenNgay
+              ? new Date(po.ngayGiaoDenNgay).toLocaleDateString("vi-VN")
+              : undefined,
+          ]
+            .filter(Boolean)
+            .join(" — ")}
           rong
         />
         <Dong nhan="Địa điểm giao hàng" giaTri={po.diaDiemGiaoHang ?? "—"} rong />

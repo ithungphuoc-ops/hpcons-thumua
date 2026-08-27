@@ -124,6 +124,8 @@ export interface DauVaoDonHangMau {
   nguoiPhuTrachTen: string;
   ngayLapPO: string;
   ngayGiaoDuKien: string;
+  /** Ngày kết thúc khoảng nhận hàng (Ban lãnh đạo 27/08/2026) — tùy chọn, xem `DonDatHang`. */
+  ngayGiaoDenNgay?: string;
   diaDiemGiaoHang?: string;
   nguoiNhanHangTen?: string;
   /** So dien thoai nguoi nhan hang — ô riêng trên biểu mẫu (21/08/2026). */
@@ -250,6 +252,7 @@ export function dungDonHangMau(dv: DauVaoDonHangMau): DonHangBanMau {
     nguoiPhuTrachTen: dv.nguoiPhuTrachTen,
     ngayLapPO: dv.ngayLapPO,
     ngayGiaoDuKien: dv.ngayGiaoDuKien,
+    ngayGiaoDenNgay: dv.ngayGiaoDenNgay || undefined,
     diaDiemGiaoHang: dv.diaDiemGiaoHang?.trim() || undefined,
     nguoiNhanHangTen: dv.nguoiNhanHangTen?.trim() || undefined,
     nguoiNhanHangSdt: dv.nguoiNhanHangSdt?.trim() || undefined,
