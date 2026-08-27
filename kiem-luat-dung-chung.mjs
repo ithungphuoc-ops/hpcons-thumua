@@ -476,6 +476,50 @@ kiem(
 );
 
 kiem(
+  "Bước ① còn treo việc bắt buộc → KHÔNG được giao việc sang bước ②",
+  "Ban lãnh đạo · 27/08/2026 (*'Tíck chọn xong mới cho giao việc'*)",
+  () => {
+    /* 🔴 Việc bắt buộc mặc định của bước ① là *"Checkin hàng tồn kho"* — tra kho trước khi đi
+       hỏi giá, để không mua thứ đang có sẵn. Trước 27/08/2026 nó chỉ chặn trên đường KÉO THẢ;
+       ba cửa ghi (lập bảng báo giá, lưu đề xuất NCC, đóng hồ sơ) đi vòng qua được. */
+    const ch = cauHinhCoViecBatBuoc("tiep_nhan", "Checkin hàng tồn kho");
+    const r = G.vuongMacRoiBuoc(deNghiThu(), "tiep_nhan", ch);
+    return {
+      duoc: typeof r === "string" && r.includes("Checkin hàng tồn kho"),
+      thucTe: r === null ? "null (KHÔNG CHẶN — lỗ hổng đã mở lại!)" : `"${String(r).slice(0, 90)}…"`,
+      mongDoi: "chặn và gọi đúng tên việc còn treo của bước ①",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: tích xong việc bước ① thì PHẢI cho đi tiếp (không kẹt cứng)",
+  "Ban lãnh đạo · 27/08/2026 (chống chặn quá tay)",
+  () => {
+    /* 🔴 Bài kiểm này quan trọng ngang bài trên. Một chốt chặn được nhưng KHÔNG mở ra được thì
+       hồ sơ kẹt vĩnh viễn — đúng cái bẫy đã ghi ở luật phiếu giao nhận 11/08/2026. Tích xong
+       việc thì cửa phải thông ngay, không đòi thêm điều kiện nào khác. */
+    const ch = cauHinhCoViecBatBuoc("tiep_nhan", "Checkin hàng tồn kho");
+    const dn = deNghiThu({
+      congViecDaXong: [
+        {
+          maCongViec: "viec-thu",
+          giaiDoan: "tiep_nhan",
+          nguoiXongTen: "A",
+          thoiDiem: "2026-08-27",
+        },
+      ],
+    });
+    const r = G.vuongMacRoiBuoc(dn, "tiep_nhan", ch);
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null" : `"${String(r).slice(0, 90)}…" (CHẶN QUÁ TAY — hồ sơ kẹt!)`,
+      mongDoi: "null (đã tích xong thì đi được)",
+    };
+  },
+);
+
+kiem(
   "Bước ② phải hỏi ĐỦ BẢN BÁO GIÁ, không chỉ hỏi 'có bảng thu thập không'",
   "Ban lãnh đạo · 20/08/2026, bị lách tới 24/08/2026",
   () => {

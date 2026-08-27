@@ -2771,6 +2771,29 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     (prId: string, nguoiThucHien: string) => {
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return null;
+
+      /**
+       * 🔴🔴 ĐÂY LÀ CỬA ĐÃ LÀM LỌT LỖI BAN LÃNH ĐẠO BÁO 27/08/2026 — thẻ ở bước ② mà việc bắt
+       * buộc *"Checkin hàng tồn kho"* của bước ① vẫn chưa tick.
+       *
+       * VÌ SAO LỌT: lập một bảng báo giá là sinh ra bảng ở trạng thái `dang_thu_thap`, mà
+       * `xacDinhGiaiDoan` đọc đúng trạng thái đó để đẩy thẻ sang bước ②. Hàm này không hỏi công
+       * việc bắt buộc lần nào, nên nó là một đường đi vòng qua mọi chốt: nút "Trình xét duyệt"
+       * và hàm phân bổ đều đã chặn, riêng cửa này thì không.
+       *
+       * ✅ Ban lãnh đạo chốt: *"Tíck chọn xong mới cho giao việc"*. Dùng lại `vuongMacRoiBuoc`,
+       * không tự viết điều kiện.
+       *
+       * 📌 KHÔNG TRẢ VỀ CÂU LỖI ĐƯỢC — hàm này khai trả `BaoGia | null`, mọi nơi gọi đang đọc
+       * `null` là "không tạo được". Nên chặn bằng `null` và ghi lý do vào nhật ký để còn tra ra
+       * được. Nút gọi hàm này đã tự khoá khi còn việc treo (`dsDieuKienConVuong`), nên `null` ở
+       * đây là lưới cuối, không phải đường người dùng gặp hằng ngày.
+       */
+      const chanViec = vuongMacRoiBuoc(dn, "tiep_nhan", cauHinhRef.current);
+      if (chanViec) {
+        ghiLichSuDeNghi(dn.id, nguoiThucHien, `Chưa lập được bảng báo giá — ${chanViec}`);
+        return null;
+      }
       /* ✅ Bỏ giới hạn 12 hồ sơ báo giá — xem `6-tien-ich/sinh-id-ho-so.ts`. */
       const id = sinhIdHoSo("rfq");
 
@@ -3258,6 +3281,21 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const tienDo = tinhTienDoDeNghi(dn, donHangRef.current, phieuNhanRef.current);
       const vuong = vuongMacHoanThanhQuyTrinh(dn, tienDo);
       if (vuong !== null) return vuong;
+
+      /**
+       * 🔴🔴 CÔNG VIỆC BẮT BUỘC PHẢI TÍCH XONG MỚI ĐÓNG ĐƯỢC HỒ SƠ — Ban lãnh đạo 27/08/2026:
+       * *"Tíck chọn xong mới cho giao việc"*.
+       *
+       * ĐÂY LÀ CỬA NẶNG NHẤT trong bảy cửa chuyển bước: nó đóng hồ sơ và đẩy bộ chứng từ sang app
+       * Kế toán. Trước sửa này nó KHÔNG hỏi công việc bắt buộc của bất kỳ bước nào —
+       * `vuongMacHoanThanhQuyTrinh` chỉ kiểm khối lượng, hoá đơn VAT và ô tích UNC. Nên một việc
+       * bắt buộc treo từ bước ① vẫn để hồ sơ đóng lại và đi sang Kế toán.
+       *
+       * 📌 `vuongMacRoiBuoc` soát CẢ hai thứ: việc treo của các bước TRƯỚC và việc của CHÍNH bước
+       * đang đứng. Dùng lại nó chứ không tự viết điều kiện — luật một chỗ.
+       */
+      const chanViec = vuongMacRoiBuoc(dn, "ho_so_thanh_toan", cauHinhRef.current);
+      if (chanViec) return chanViec;
 
       setDeNghi((truoc) =>
         truoc.map((x) =>
@@ -3792,7 +3830,23 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           // sang mọi phiếu con là mỗi người đọc lại một bản y hệt, trả lời vào bản nào cũng
           // không ai thấy.
           binhLuan: undefined,
-          congViecDaXong: undefined,
+          /**
+           * 🔴 KẾ THỪA VIỆC ĐÃ TÍCH CỦA PHIẾU GỐC — sửa 27/08/2026, trước đó chỗ này ghi
+           * `undefined` (xóa sạch).
+           *
+           * Việc bắt buộc của bước ① (*"Checkin hàng tồn kho"*) là việc làm MỘT LẦN cho cả đề
+           * nghị: tra kho xem có sẵn hàng hay không. Tách phiếu ra bốn phần không làm việc đó
+           * phải làm lại bốn lần.
+           *
+           * ⚠️ XÓA Ở ĐÂY GÂY RA ĐÚNG LỖI SẾP BÁO 27/08/2026: phiếu tách vừa được gán người phụ
+           * trách (chỉ đạo 15/08/2026) nên đủ điều kiện rời bước ①, mà việc bắt buộc của bước ①
+           * lại về trạng thái *chưa tích* — thẻ nằm ở bước ② kèm dòng "còn 1 việc chưa xong" mà
+           * không ai tích được, vì việc đó đã làm xong từ phiếu gốc.
+           *
+           * 📌 KHÁC với `binhLuan` ngay trên: bình luận thuộc về phiếu gốc nên không chép; còn
+           * việc đã tích là DỮ KIỆN NGHIỆP VỤ chung của cả đề nghị nên phải chép.
+           */
+          congViecDaXong: gocDau.congViecDaXong,
           // Đánh số lại từ 1 — `stt` là khóa đối chiếu khối lượng (xem `nhanBanDeNghi`).
           items: dong.map((d, k) => ({ ...d, stt: k + 1 })),
           lichSu: [
@@ -4065,6 +4119,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
       const loi = loiKhiHoSoDaDong(dn, "ghi đề xuất chọn nhà cung cấp");
       if (loi) return loi;
+
+      /* 🔴 Cửa thứ hai vào bước ② (Ban lãnh đạo 27/08/2026: *"Tíck chọn xong mới cho giao
+         việc"*). Hàm này cũng sinh bảng báo giá `dang_thu_thap` như `taoBaoGiaGiaLap`, nên bịt
+         một cửa mà bỏ cửa này thì chốt vẫn có đường đi vòng. Hàm trả `string | null` nên nói
+         được lý do thẳng cho người dùng. */
+      const chanViec = vuongMacRoiBuoc(dn, "tiep_nhan", cauHinhRef.current);
+      if (chanViec) return chanViec;
 
       const ngay = homNay();
       const phanDeXuat = {
