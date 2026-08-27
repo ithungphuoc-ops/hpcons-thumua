@@ -120,20 +120,32 @@ export function CotThongTinDeNghi({
         </span>
         <dl className="mt-2 flex flex-col gap-1.5 text-sm">
           {/**
-            * ★ GỌI LÀ "MÃ ĐỀ NGHỊ" — Ban lãnh đạo 27/08/2026, khoanh đúng dòng này: *"Đây là mã
-            * đề nghị"*, rồi chốt lại *"ghi là mã đề nghị"*.
+            * ★★ "MÃ ĐỀ NGHỊ" = MÃ BÊN APP REQUEST, KHÔNG PHẢI `deNghi.code`.
             *
-            * 🔴 "Mã hồ sơ" là chữ CHUNG CHUNG — app có mã hồ sơ cho đề nghị, cho đơn hàng, cho
-            * phiếu nhận, tất cả đều theo Thông báo 09/2026. Đứng trong trang chi tiết đề nghị mà
-            * ghi "Mã hồ sơ" thì người đọc phải tự suy ra là hồ sơ nào.
+            * 🔴 Ban lãnh đạo 27/08/2026 nói dứt khoát: *"Sao mã đề nghị lại là số hợp đồng + tên
+            * công trình. Mã đề nghị là 0000046 lấy từ mã request"*.
             *
-            * ⚠️ ĐỪNG NHẦM VỚI Ô "Mã đề nghị" Ở FORM LẬP ĐƠN. Ô đó hiện mã bên **App Request**
-            * (`maDeXuatAppRequest`, dạng `000000043`) — mã do app KHÁC sinh ra để hai bên đối
-            * chiếu. Còn đây là mã hồ sơ trong app Thu mua (`deNghi.code`, dạng
-            * `26001/HDXD-…-PR-001`). Hai mã của cùng một phiếu, sinh ở hai nơi; câu chú thích
-            * dưới ô bên kia đã nói rõ nguồn nên không lẫn được.
+            * VÌ SAO `deNghi.code` KHÔNG PHẢI MÃ ĐỀ NGHỊ: với phiếu đến từ App Request, `code` được
+            * dựng theo công thức đặt tên của quy trình mua hàng — *mã đề xuất · mã hợp đồng · TÊN
+            * CÔNG TRÌNH* — nên nó ra một chuỗi dài kiểu `26001/HDXD-Công trình HOWELL-PR-001`.
+            * Đó là TÊN HỒ SƠ để đọc cho biết đây là việc gì, không phải cái mã người ta đọc cho
+            * nhau qua điện thoại.
+            *
+            * ✅ Mã người dùng thật sự dùng để đối chiếu hằng ngày là `maDeXuatAppRequest`
+            * (`000000046`) — cùng một mã với ô "Mã đề nghị" ở form lập đơn, nên hai màn hình nói
+            * cùng một con số.
+            *
+            * 📌 `?? deNghi.code` là ĐƯỜNG LUI THẬT: phiếu lập TAY trong app không đi qua App
+            * Request nên không có mã đó — để trống là dòng rỗng vĩnh viễn.
+            *
+            * 📌 `deNghi.code` chuyển vào `title`: vẫn tra được khi cần đối chiếu nội bộ, mà không
+            * chiếm một dòng trên khối thông tin.
             */}
-          <DongTin nhan="Mã đề nghị" giaTri={deNghi.code} />
+          <DongTin
+            nhan="Mã đề nghị"
+            giaTri={deNghi.maDeXuatAppRequest ?? deNghi.code}
+            ghiChu={`Mã hồ sơ trong app Thu mua: ${deNghi.code}`}
+          />
           <DongTin
             nhan="Người đề nghị"
             giaTri={`${deNghi.nguoiDeNghiTen} · ${formatMocThoiGian(deNghi.ngayDeNghi)}`}
@@ -292,11 +304,25 @@ export function CotThongTinDeNghi({
 }
 
 /** Một dòng "nhãn — giá trị" trong khối Thông tin nhiệm vụ. */
-function DongTin({ nhan, giaTri }: { nhan: string; giaTri: string }) {
+/**
+ * @param ghiChu Chữ hiện khi rê chuột — chỗ để thông tin tra cứu ít dùng (vd mã hồ sơ nội bộ)
+ *   mà không phải thêm hẳn một dòng vào khối. Bỏ trống thì không gắn `title`.
+ */
+function DongTin({
+  nhan,
+  giaTri,
+  ghiChu,
+}: {
+  nhan: string;
+  giaTri: string;
+  ghiChu?: string;
+}) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
       <dt className="text-text-desc">{nhan}</dt>
-      <dd className="min-w-0 text-right font-medium text-text-primary">{giaTri}</dd>
+      <dd className="min-w-0 text-right font-medium text-text-primary" title={ghiChu}>
+        {giaTri}
+      </dd>
     </div>
   );
 }

@@ -643,6 +643,110 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
+// ĐƠN XONG HÀNG ≠ ĐỀ NGHỊ HOÀN THÀNH — Ban lãnh đạo 27/08/2026
+//
+// 🔴 LỖI THẬT ĐÃ XẢY RA TRÊN BẢN CHẠY THẬT, và nó là hậu quả DÂY CHUYỀN:
+//   · Sáng 27/08 gỡ điều kiện hoá đơn VAT khỏi nút "Xác nhận hoàn thành đơn" (đúng chỉ đạo).
+//   · Từ đó `po.trangThai = "hoan_thanh"` chỉ còn nghĩa "hàng về đủ + có phiếu giao nhận".
+//   · Nhưng `xacDinhGiaiDoan` còn một nhánh TỰ SUY: mọi đơn `hoan_thanh` → đề nghị `hoan_thanh`.
+//   · Kết quả: thẻ nhảy thẳng sang cột Hoàn thành trong khi còn thiếu hoá đơn, thiếu hợp đồng
+//     và còn một việc chưa xong — Ban lãnh đạo chụp lại đúng ba cờ đỏ đó.
+//
+// Ban lãnh đạo: *"Việc xác nhận đó mới chỉ là hoàn thành công việc của bước tiến hành nhận
+// hàng thôi. Và chỉ được đẩy qua bước hồ sơ thanh toán. Khi nào bổ sung đủ điều kiện của bước
+// HSTT thì mới được đẩy qua hoàn thành"*.
+//
+// 👉 BÀI HỌC: đổi Ý NGHĨA của một trạng thái thì phải soát MỌI nơi ĐỌC nó, không chỉ nơi ghi.
+// ════════════════════════════════════════════════════════════════════
+
+/**
+ * Bộ dữ liệu cho ba bài kiểm giai đoạn.
+ *
+ * 🔴 TÊN TRƯỜNG PHẢI ĐÚNG TỪNG CHỮ, và đây là chỗ đã sai một lần: bản đầu của bài kiểm này dùng
+ * `sttDongPR` và `khoiLuong`, trong khi `tinhTienDoDeNghi` đọc `sttDongDeNghi` và `khoiLuongDeNghi`.
+ * Sai tên trường thì `tinhTienDoDeNghi` không khớp được dòng nào, `daVeDu` thành false, và hàm trả
+ * "nhan_hang" — bài kiểm viết `duoc: gd !== "hoan_thanh"` vẫn XANH, tức xanh giả.
+ *
+ * 👉 Vì vậy cả ba bài dưới đòi ĐÚNG một giá trị, không dùng phép "khác X".
+ */
+function boGiaiDoanThu() {
+  return {
+    dn: {
+      id: "d1",
+      code: "26001/HDXD-X-PR-001",
+      trangThai: "dang_xu_ly",
+      items: [{ stt: 1, tenVatLieu: "Thep", donViTinh: "kg", khoiLuongDeNghi: 100 }],
+    },
+    po: {
+      id: "po1",
+      prId: "d1",
+      code: "DMH260001",
+      trangThai: "hoan_thanh",
+      maDuAn: "X",
+      ngayGiaoDuKien: "2026-08-20",
+      items: [
+        { sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Thep", donViTinh: "kg", khoiLuongDat: 100 },
+      ],
+    },
+    phieu: (kl) => [
+      {
+        poId: "po1",
+        lanGiaoThu: 1,
+        ngayNhanThucTe: "2026-08-20",
+        trangThai: "da_nhap_kho",
+        lines: [{ sttDongPO: 1, khoiLuongThucNhan: kl }],
+      },
+    ],
+  };
+}
+
+kiem(
+  "Mọi đơn đã xong hàng nhưng CHƯA bấm nút → đề nghị dừng ở ⑦, KHÔNG nhảy sang Hoàn thành",
+  "Ban lãnh đạo · 27/08/2026",
+  () => {
+    const b = boGiaiDoanThu();
+    const gd = G.xacDinhGiaiDoan(b.dn, [b.po], [], b.phieu(100));
+    return {
+      /* Đòi ĐÚNG "ho_so_thanh_toan", không chỉ "khác hoan_thanh". Chặn quá tay cũng là lỗi:
+         thẻ kẹt lại ở "nhan_hang" thì hồ sơ không bao giờ đóng được. */
+      duoc: gd === "ho_so_thanh_toan",
+      thucTe: `xacDinhGiaiDoan = "${gd}"`,
+      mongDoi: '"ho_so_thanh_toan" — đúng lời Sếp: "chỉ được đẩy qua bước hồ sơ thanh toán"',
+    };
+  },
+);
+
+kiem(
+  "Bấm nút Hoàn thành quy trình (deNghi.trangThai) thì MỚI vào cột Hoàn thành",
+  "Ban lãnh đạo · 27/08/2026",
+  () => {
+    /* Chiều ngược: chặn quá tay là hồ sơ không bao giờ đóng được. */
+    const b = boGiaiDoanThu();
+    const gd = G.xacDinhGiaiDoan({ ...b.dn, trangThai: "hoan_thanh" }, [b.po], [], b.phieu(100));
+    return {
+      duoc: gd === "hoan_thanh",
+      thucTe: `xacDinhGiaiDoan = "${gd}"`,
+      mongDoi: '"hoan_thanh" — đây là đường DUY NHẤT còn lại vào cột Hoàn thành',
+    };
+  },
+);
+
+kiem(
+  "Hàng CHƯA về đủ thì thẻ vẫn ở ⑥ Tiến hành nhận hàng",
+  "Ban lãnh đạo · 27/08/2026",
+  () => {
+    /* Chốt thứ ba: bảo đảm hai bài trên không xanh nhờ hàm trả bừa một giá trị cố định. */
+    const b = boGiaiDoanThu();
+    const gd = G.xacDinhGiaiDoan(b.dn, [b.po], [], b.phieu(50));
+    return {
+      duoc: gd === "nhan_hang",
+      thucTe: `xacDinhGiaiDoan = "${gd}" (mới nhận 50/100)`,
+      mongDoi: '"nhan_hang" — chưa đủ hàng thì chưa mở hồ sơ thanh toán',
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // CÔNG NỢ THEO ĐƠN HÀNG — bảng 8 cột, Ban lãnh đạo 27/08/2026
 //
 // ⚠️ HAI QUY TẮC DƯỚI ĐÂY LÀ GIẢ ĐỊNH CỦA PHIÊN NGHIỆP VỤ, CHƯA ĐƯỢC SẾP XÁC NHẬN

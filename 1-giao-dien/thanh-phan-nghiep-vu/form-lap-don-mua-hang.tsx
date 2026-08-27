@@ -61,6 +61,7 @@ import {
   CAM_KET_THOA_THUAN_CHUAN,
   conDieuKhoanRiengThoaThuan,
   dieuKhoanGiaoHangChuanTheoMau,
+  ghiChuHopDongTuMa,
 } from "@/3-du-lieu/dieu-khoan-chuan-don-mua-hang";
 import type {
   DeNghiMuaHang,
@@ -655,7 +656,7 @@ export function FormLapDonMuaHang({
     // Độc lập thì không có gì để điền sẵn — người lập tự chọn dự án ở ô bên dưới.
     if (!dn) return;
     setTenCongTrinh(dn.tenCongTrinh);
-    setMaHopDong(dn.maHopDongCDT ?? "");
+    setMaHopDong(ghiChuHopDongTuMa(dn.maHopDongCDT));
     daDienTuDeNghi.current = true;
   }, [dn]);
 
@@ -1731,7 +1732,7 @@ export function FormLapDonMuaHang({
        "Số đơn hàng" tiếp tục hiện đúng dãy mã. */
     if (dn) {
       setTenCongTrinh(dn.tenCongTrinh);
-      setMaHopDong(dn.maHopDongCDT ?? "");
+      setMaHopDong(ghiChuHopDongTuMa(dn.maHopDongCDT));
     }
     setDiaDiemGiao("");
     setNguoiNhanHang("");
@@ -3459,7 +3460,7 @@ export function FormLapDonMuaHang({
                   // Điền hộ tên công trình và hợp đồng — hai ô đó nằm ở KHỐI ĐẦU TỜ, gõ lại là
                   // mời sai sót vào chứng từ gửi nhà cung cấp.
                   if (d.tenCongTrinh) setTenCongTrinh(d.tenCongTrinh);
-                  if (d.maHopDongCDT) setMaHopDong(d.maHopDongCDT);
+                  if (d.maHopDongCDT) setMaHopDong(ghiChuHopDongTuMa(d.maHopDongCDT));
                 }}
                 className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
               >
@@ -4039,13 +4040,36 @@ export function FormLapDonMuaHang({
       <HopXacNhan
         mo={hoiCat !== null}
         tieuDe="Lưu đơn mua hàng này?"
-        moTa={`Đơn cho ${tenNCC.trim() || "nhà cung cấp"} với ${soDongHangHopLe} mặt hàng, giao dự kiến ${ngayGiao || "—"}.`}
-        /* Câu cảnh báo phải ĐÚNG với việc sắp xảy ra: đơn độc lập không trừ khối lượng của
-           đề nghị nào, nói ngược lại là hứa một chuyện app không làm. */
+        /* Ngày hiện theo kiểu Việt Nam, và nói rõ là KHOẢNG khi đơn có ngày kết thúc — chuỗi
+           `2026-08-30` kiểu máy đọc thì người lập phải dịch trong đầu. */
+        moTa={`Đơn cho ${tenNCC.trim() || "nhà cung cấp"} với ${soDongHangHopLe} mặt hàng, nhận hàng ${
+          ngayGiao
+            ? [ngayGiao, ngayGiaoDen]
+                .filter(Boolean)
+                .map((d) => new Date(d).toLocaleDateString("vi-VN"))
+                .join(" — ")
+            : "chưa chọn ngày"
+        }.`}
+        /**
+         * ★ VIẾT LẠI CHO NGƯỜI DÙNG HIỂU — Ban lãnh đạo 27/08/2026 chỉ đúng câu này: *"này là
+         * sao, a không hiểu"*.
+         *
+         * 🔴 CÂU CŨ VIẾT THEO GÓC NHÌN DỮ LIỆU: *"Khối lượng bị trừ khỏi phần chưa lên đơn của
+         * đề nghị"* — đúng về mặt kỹ thuật, nhưng "phần chưa lên đơn" là một khái niệm bên trong
+         * app, người lập không có lý do gì phải biết. Và *"Không hoàn lại được"* thì không nói
+         * được là KHÔNG HOÀN LẠI CÁI GÌ.
+         *
+         * ✅ Câu mới nói đúng ba việc người lập cần biết trước khi bấm: đơn được cấp số thật,
+         * phần vật tư này coi như đã đặt nên không lập đơn khác cho nó nữa, và muốn sửa thì phải
+         * huỷ đơn chứ không có nút hoàn lại.
+         *
+         * 📌 Câu cảnh báo phải ĐÚNG với việc sắp xảy ra: đơn độc lập không trừ khối lượng của đề
+         * nghị nào, nói ngược lại là hứa một chuyện app không làm.
+         */
         canhBao={
           laDonDocLap
-            ? "Đơn không gắn đề nghị nên không trừ khối lượng của phiếu nào, và không hiện trên bảng quy trình. Không hoàn lại được."
-            : "Khối lượng bị trừ khỏi phần chưa lên đơn của đề nghị. Không hoàn lại được."
+            ? "Đơn này không gắn phiếu đề nghị nào nên không hiện trên bảng quy trình mua hàng. Lưu xong muốn sửa thì phải huỷ đơn rồi lập lại."
+            : "Lưu xong, số vật tư trong đơn này được tính là đã đặt hàng — phần còn lại của phiếu đề nghị giảm đi tương ứng, và không lập đơn khác cho phần đó nữa. Muốn sửa thì phải huỷ đơn rồi lập lại."
         }
         nhanDongY={hoiCat === "cat-in" ? "Lưu và In" : "Lưu"}
         onDong={() => setHoiCat(null)}

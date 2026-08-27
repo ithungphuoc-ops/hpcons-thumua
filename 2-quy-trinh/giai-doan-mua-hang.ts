@@ -170,33 +170,37 @@ export function xacDinhGiaiDoan(
 
   const poCuaDeNghi = tatCaPO.filter((po) => po.prId === deNghi.id && po.trangThai !== "huy");
 
-  // ⑦ Hoàn thành — mọi đơn hàng của đề nghị đều đã xong VÀ không còn dòng vật tư nào chưa
-  // lên đơn.
+  /**
+   * ⑧ HOÀN THÀNH — CHỈ KHI CÓ NGƯỜI BẤM NÚT "Hoàn thành quy trình". KHÔNG tự suy ra.
+   *
+   * 🔴🔴 SỬA 27/08/2026 — Ban lãnh đạo báo lỗi: *"Sao chỉ mới xác nhận nhận đủ hàng mà đã nhảy
+   * qua bước này rồi. Việc xác nhận đó mới chỉ là hoàn thành công việc của bước tiến hành nhận
+   * hàng thôi. Và chỉ được đẩy qua bước hồ sơ thanh toán. Khi nào bổ sung đủ điều kiện của bước
+   * HSTT thì mới được đẩy qua hoàn thành"*.
+   *
+   * ĐÃ BỎ nhánh tự suy: *"mọi đơn của đề nghị đều `hoan_thanh` và không còn dòng nào chưa lên
+   * đơn → trả `hoan_thanh`"*.
+   *
+   * 🔴 VÌ SAO NHÁNH ĐÓ THÀNH SAI — ĐÂY LÀ HẬU QUẢ DÂY CHUYỀN, GHI LẠI ĐỂ KHÔNG LẶP:
+   * Nhánh đó vốn an toàn vì trước đây một đơn CHỈ hoàn thành được khi đã có hoá đơn VAT — điều
+   * kiện nằm ở nút "Xác nhận hoàn thành đơn". Cùng ngày 27/08/2026, theo chỉ đạo *"Phần xác nhận
+   * đơn hàng này chỉ cần có đính kèm phiếu giao hàng là được xác nhận hoàn thành"*, điều kiện hoá
+   * đơn bị gỡ khỏi nút đó. Từ giây phút ấy `po.trangThai = "hoan_thanh"` chỉ còn nghĩa **hàng đã
+   * về đủ và có phiếu giao nhận** — không còn nói gì về hồ sơ thanh toán. Nhánh tự suy vẫn đọc nó
+   * như cũ, nên đề nghị nhảy thẳng sang cột Hoàn thành trong khi còn thiếu hoá đơn VAT, thiếu
+   * hợp đồng và còn một việc chưa xong (đúng ba cờ đỏ trên thẻ Ban lãnh đạo chụp).
+   *
+   * 👉 BÀI HỌC: đổi Ý NGHĨA của một trạng thái thì phải soát MỌI nơi đọc trạng thái đó, không chỉ
+   * nơi ghi. Sửa ở cổng ghi mà quên chỗ đọc thì lỗi hiện ra ở một màn hình khác hẳn.
+   *
+   * ✅ Nay chỉ còn MỘT đường vào cột Hoàn thành: `deNghi.trangThai === "hoan_thanh"`, do nút
+   * "Hoàn thành quy trình" đặt — và nút đó đi qua `vuongMacHoanThanhQuyTrinh`, nơi vẫn đòi đủ
+   * hoá đơn VAT, đã tích UNC, hàng về đủ, không còn dòng chưa lên đơn.
+   *
+   * 📌 Mọi đơn xong mà chưa ai bấm nút thì thẻ RƠI XUỐNG nhánh `ho_so_thanh_toan` ngay dưới —
+   * đúng chỗ Ban lãnh đạo nói: *"chỉ được đẩy qua bước hồ sơ thanh toán"*.
+   */
   if (deNghi.trangThai === "hoan_thanh") return "hoan_thanh";
-  if (poCuaDeNghi.length > 0 && poCuaDeNghi.every((po) => po.trangThai === "hoan_thanh")) {
-    /**
-     * 🔴 PHẢI KIỂM ĐỦ PHỦ TOÀN BỘ DÒNG, không chỉ nhìn các đơn đã tồn tại.
-     *
-     * App cố ý cho lập đơn TỪNG PHẦN (tách đơn cho nhiều NCC, mỗi NCC một đơn riêng), và
-     * một đơn được xác nhận hoàn thành chỉ dựa trên phạm vi của chính nó. Nên đề nghị 5
-     * dòng mới lập 1 đơn cho 2 dòng, đơn đó xong là cả đề nghị bị coi như xong — trong khi
-     * 3 dòng kia còn đang hỏi giá.
-     *
-     * Hậu quả trước 14/08/2026: thẻ nhảy sang cột Hoàn thành, `hanXuLyDeNghi` tắt luôn cảnh
-     * báo quá hạn, ba dòng vật tư còn lại biến mất khỏi tầm mắt trưởng bộ phận và có thể
-     * trễ ngày cần hàng mà không ai thấy. Đúng thứ "báo tiến độ ảo" mà nguyên tắc đầu file
-     * này sinh ra để chống.
-     *
-     * Dùng lại `tinhTienDoDeNghi` chứ KHÔNG tự cộng khối lượng ở đây — luật đối chiếu
-     * khối lượng chỉ được có MỘT chỗ, hai chỗ cùng tính là sớm muộn cũng lệch nhau.
-     */
-    const conDongChuaLenDon = tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu).some(
-      (d) => d.khoiLuongChuaLenPO > 0,
-    );
-    if (!conDongChuaLenDon) return "hoan_thanh";
-    // Còn dòng chưa lên đơn thì rơi tiếp xuống dưới, các nhánh sau tự xếp đúng cột theo
-    // chứng từ đang có.
-  }
 
   /**
    * ⑦ HỒ SƠ THANH TOÁN — hóa đơn VAT (bắt buộc) + ủy nhiệm chi (nếu có).

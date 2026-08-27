@@ -128,6 +128,33 @@ export const GOI_Y_DIEU_KHOAN_KHAC =
   "(bổ sung ghi chú về đơn giá, thông số kỹ thuật, bảo hành ….)";
 
 /**
+ * ★★ DỰNG SẴN GHI CHÚ HỢP ĐỒNG cho ô "Theo hợp đồng" khi điền hộ từ phiếu đề nghị / dự án.
+ *
+ * 🔴 Ban lãnh đạo 27/08/2026: *"Thiếu ngày ký"*, khoanh ô đang hiện đúng mỗi mã `HDNT-HPC-THM`.
+ *
+ * VÌ SAO TRƯỚC ĐÓ THIẾU: phiếu đề nghị chỉ lưu **mã** hợp đồng (`maHopDongCDT`), KHÔNG có trường
+ * ngày ký — nên app điền hộ được đúng phần nó biết. Người lập phải tự nhớ gõ thêm ngày, và
+ * không có gì nhắc nên quên là chuyện đương nhiên.
+ *
+ * ✅ Nay điền sẵn CẢ KHUNG ngày ký. Người lập chỉ việc gõ số vào chỗ chấm — thấy ngay là còn
+ * thiếu, thay vì phải nhớ ra là thiếu.
+ *
+ * ⚠️ KHÔNG PHẢI APP TỰ GHÉP KHI IN. Đây là chữ đặt sẵn TRONG Ô NHẬP, người lập xoá hoặc sửa
+ * thoải mái — đúng chỉ đạo cùng ngày: *"Dòng theo hợp đồng sẽ nhập thủ công, e để sẵn ô để ghi
+ * chú"*. Tờ in vẫn chép nguyên văn những gì trong ô, không thêm chữ nào.
+ *
+ * 📌 Để chỗ chấm chứ không để trống trơn: đơn ký ngoài hiện trường thì in ra vẫn có chỗ viết tay.
+ *
+ * 📌 MỘT CHỖ DUY NHẤT dựng chuỗi này. Form có BA đường điền hộ (từ phiếu đề nghị, khi dọn form,
+ * khi chọn dự án) — mỗi chỗ tự ghép một kiểu là ba đơn ra ba cách viết.
+ */
+export function ghiChuHopDongTuMa(maHopDong: string | undefined): string {
+  const ma = maHopDong?.trim();
+  if (!ma) return "";
+  return `${ma} ký ngày ……/……/…….`;
+}
+
+/**
  * Cắt một khối văn bản thành từng dòng để in.
  *
  * 🔴 Dùng CHUNG cho tờ in A4 và mọi chỗ hiển thị khác — nếu mỗi nơi tự tách chuỗi theo cách
