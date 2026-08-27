@@ -119,6 +119,19 @@ export interface BangQuyTrinhMuaHangProps {
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   /** Các thao tác của menu ⋯ trên thẻ. Không truyền thì menu chỉ còn mục xem/sao chép. */
   thaoTac?: ThaoTacThe;
+  /**
+   * ★★ BẤM THẺ MỞ HỘP BƯỚC HIỆN TẠI thay vì mở cả trang chi tiết — Ban lãnh đạo 27/08/2026:
+   * *"khi bấm vào xem chi tiết thay vì mở full màn hình thì bước này sẽ hiển thị, kiểu dạng
+   * trang pop-up"*.
+   *
+   * 🔴 KHÔNG TRUYỀN THÌ THẺ VẪN MỞ TRANG ĐẦY ĐỦ như trước. Bảng này còn dùng ở màn khác, và
+   * một component hiển thị thuần không được tự quyết định thay trang chứa nó.
+   *
+   * 📌 GIỮ NGUYÊN `href` trên thẻ dù có prop này: Ctrl+click và chuột giữa vẫn phải mở được
+   * trang đầy đủ ở tab mới. Chặn bằng `preventDefault` trong `onClick` chỉ ăn với cú bấm
+   * thường — đó là chủ ý, không phải sót.
+   */
+  onXemNhanh?: (prId: string) => void;
 }
 
 /**
@@ -163,6 +176,7 @@ export function BangQuyTrinhMuaHang({
   keoThaDuoc = false,
   onTha,
   thaoTac,
+  onXemNhanh,
 }: BangQuyTrinhMuaHangProps) {
   /**
    * ★ GIAI ĐOẠN CỦA THẺ ĐANG KÉO — `null` là không kéo gì.
@@ -297,6 +311,7 @@ export function BangQuyTrinhMuaHang({
             onKetThucKeo={() => setGiaiDoanDangKeo(null)}
             onTha={onTha}
             thaoTac={thaoTac}
+            onXemNhanh={onXemNhanh}
           />
         ))}
       </div>
@@ -313,6 +328,7 @@ function CotQuyTrinh({
   onKetThucKeo,
   onTha,
   thaoTac,
+  onXemNhanh,
 }: {
   cot: CotBangQuyTrinh;
   keoThaDuoc: boolean;
@@ -324,6 +340,7 @@ function CotQuyTrinh({
   onKetThucKeo: () => void;
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
+  onXemNhanh?: (prId: string) => void;
 }) {
   const { giaiDoan, the, soQuaHan } = cot;
 
@@ -559,6 +576,7 @@ function CotQuyTrinh({
               onKetThucKeo={onKetThucKeo}
               onTha={onTha}
               thaoTac={thaoTac}
+              onXemNhanh={onXemNhanh}
             />
           ))
         )}
@@ -575,6 +593,7 @@ function TheDeNghi({
   onKetThucKeo,
   onTha,
   thaoTac,
+  onXemNhanh,
 }: {
   the: TheDeNghiTrenBang;
   tongGiaiDoan: Tong;
@@ -586,6 +605,8 @@ function TheDeNghi({
   /** Dùng lại cho menu ⋯ "Chuyển sang giai đoạn kế tiếp" — cùng luật với kéo thả. */
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
+  /** Bấm thẻ mở hộp bước hiện tại thay vì mở trang — xem `BangQuyTrinhMuaHangProps`. */
+  onXemNhanh?: (prId: string) => void;
 }) {
   /* `soDongChuaPhanBo` không lấy ra nữa — số đó đã nằm trong câu `the.conNo`. Trường vẫn còn
      trên `TheDeNghiTrenBang` cho nơi khác dùng, chỉ thẻ này thôi đọc trực tiếp. */
@@ -610,6 +631,23 @@ function TheDeNghi({
   return (
     <Link
       href={`/de-nghi/${deNghi.id}`}
+      /**
+       * ★★ BẤM THƯỜNG → MỞ HỘP BƯỚC HIỆN TẠI (Ban lãnh đạo 27/08/2026). `href` giữ nguyên nên
+       * Ctrl+click / chuột giữa vẫn mở trang đầy đủ ở tab mới.
+       *
+       * 🔴 BỎ QUA KHI CÓ PHÍM PHỤ hoặc bấm chuột giữa: `preventDefault` vô điều kiện là cướp
+       * luôn cả cú "mở tab mới" mà trình duyệt vốn làm được — người dùng bấm Ctrl mà không có
+       * gì xảy ra thì tưởng app treo.
+       */
+      onClick={
+        onXemNhanh
+          ? (e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+              e.preventDefault();
+              onXemNhanh(deNghi.id);
+            }
+          : undefined
+      }
       draggable={keoThaDuoc}
       onDragStart={
         keoThaDuoc

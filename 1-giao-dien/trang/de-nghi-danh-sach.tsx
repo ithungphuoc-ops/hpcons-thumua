@@ -280,7 +280,18 @@ export default function TrangDanhSachDeNghi() {
    * mà mỗi bước ở đây là một nghiệp vụ thật (tạo bảng báo giá, chốt so sánh, đóng dở).
    * Lỡ tay là sinh chứng từ thừa, và người sau đọc bảng tưởng bước trước đã xong.
    */
-  function xuLyTha(prId: string, dich: GiaiDoanMuaHang) {
+  function xuLyTha(
+    prId: string,
+    dich: GiaiDoanMuaHang,
+    /**
+     * ★★ GỌI TỪ CÚ BẤM THẺ (xem nhanh), không phải từ kéo thả — Ban lãnh đạo 27/08/2026.
+     *
+     * 🔴 Khác nhau đúng MỘT chỗ: ca `khong_the`. Kéo thả thì người dùng CHỦ Ý chuyển bước nên
+     * toast đỏ *"Không chuyển được"* là câu trả lời đúng. Còn bấm thẻ thì họ chỉ muốn XEM —
+     * bắn toast đỏ vào mặt là app tự tố cáo một việc người dùng chưa hề làm.
+     */
+    laXemNhanh = false,
+  ) {
     const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
     if (!the) return;
 
@@ -308,12 +319,29 @@ export default function TrangDanhSachDeNghi() {
       cauHinh,
       vuongMacTrinhXetDuyet(the.deNghi, cauHinh),
     );
-    if (!hanhDong) return;
-
-    // Bước không hợp lệ: chặn ngay, không cần hỏi — hỏi rồi vẫn không cho làm thì vô nghĩa.
-    if (hanhDong.loai === "khong_the") {
-      toast.error("Không chuyển được", { description: hanhDong.lyDo });
+    if (!hanhDong) {
+      // Xem nhanh mà luật không dựng nổi hành động nào (bước cuối chuỗi) → mở trang đầy đủ.
+      if (laXemNhanh) router.push(`/de-nghi/${prId}`);
       return;
+    }
+
+    /**
+     * Bước không hợp lệ.
+     *
+     * · KÉO THẢ → chặn ngay bằng toast, không mở hộp: hỏi rồi vẫn không cho làm thì vô nghĩa.
+     * · XEM NHANH → VẪN MỞ HỘP, nhưng khóa nút và in lý do (`chanCung`). Người dùng bấm thẻ là
+     *   để XEM bước hiện tại đang vướng gì; bắn toast đỏ rồi không hiện gì là câu trả lời cho
+     *   một câu hỏi họ không hỏi.
+     *
+     * 🔴 BẮT BUỘC TRUYỀN `chanCung` XUỐNG HỘP. `dungXacNhanKeoTha` trả nhãn nút mặc định
+     * *"Xác nhận"* cho ca này (nhánh `default`), nên mở hộp mà không khóa là app cho bấm đúng
+     * việc luật vừa từ chối.
+     */
+    if (hanhDong.loai === "khong_the") {
+      if (!laXemNhanh) {
+        toast.error("Không chuyển được", { description: hanhDong.lyDo });
+        return;
+      }
     }
 
     setXacNhan({
@@ -333,6 +361,35 @@ export default function TrangDanhSachDeNghi() {
       ),
     });
     setMoHopXacNhan(true);
+  }
+
+  /**
+   * ★★ BẤM THẺ → MỞ HỘP BƯỚC HIỆN TẠI, KHÔNG MỞ CẢ TRANG — Ban lãnh đạo 27/08/2026: *"khi bấm
+   * vào xem chi tiết thay vì mở full màn hình thì bước này sẽ hiển thị, kiểu dạng trang pop-up"*.
+   *
+   * Hộp mở ra là `HopChuyenGiaiDoan` — thứ đã có sẵn từ 15/08/2026 và bày đúng những gì Sếp cần
+   * xem ở một bước: điều kiện còn vướng, ô đính kèm chứng từ, việc bắt buộc tích được, và nút
+   * chuyển bước tự mở khóa khi hết vướng.
+   *
+   * 🔴 ĐÂY CŨNG LÀ ĐƯỜNG VÀO DUY NHẤT CÒN LẠI CỦA HỘP ĐÓ. Từ 27/08/2026 kéo thả đã tắt hết
+   * (chỉ đạo *"Tắt hết"*), mà trước đó hộp chỉ mở được bằng cách thả thẻ — nên nó đã thành mồ
+   * côi. Bỏ hàm này là bỏ luôn toàn bộ khối gỡ vướng chuyển bước; xem CLAUDE.md mục 3.4b về
+   * việc phải kiểm màn hình còn đường vào nào khác trước khi bỏ.
+   *
+   * 📌 ĐÍCH LÀ BƯỚC KẾ TIẾP trong chuỗi 7 bước. Hộp vốn sinh ra để trả lời câu *"đi tiếp cần
+   * gì"*, nên phải có bước đích; không có bước kế (đã Hoàn thành / Thất bại) thì mở trang đầy
+   * đủ, vì lúc đó chẳng còn gì để gỡ vướng.
+   */
+  function xemNhanhThe(prId: string) {
+    const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
+    const viTri = the ? CHUOI_BUOC_DS.indexOf(the.giaiDoan) : -1;
+    const buocKe =
+      viTri >= 0 && viTri < CHUOI_BUOC_DS.length - 1 ? CHUOI_BUOC_DS[viTri + 1] : undefined;
+    if (!buocKe) {
+      router.push(`/de-nghi/${prId}`);
+      return;
+    }
+    xuLyTha(prId, buocKe, true);
   }
 
   /**
@@ -530,6 +587,14 @@ export default function TrangDanhSachDeNghi() {
             onTha={undefined}
             // Menu ⋯ chỉ mở cho vai trò làm nghiệp vụ; người chỉ xem không thấy thao tác ghi.
             thaoTac={quyen.lapPO ? thaoTacThe : undefined}
+            /**
+             * ★★ Bấm thẻ mở hộp bước hiện tại (Sếp 27/08/2026) — xem `xemNhanhThe`.
+             *
+             * 🔴 CHỈ CHO VAI TRÒ LÀM NGHIỆP VỤ. Hộp này có ô đính kèm và nút chuyển bước; người
+             * chỉ được XEM mà mở ra là bày một loạt ô bấm vào không ăn. Họ giữ hành vi cũ: bấm
+             * thẻ mở trang chi tiết, ở đó mọi thứ đã tự khóa theo quyền.
+             */
+            onXemNhanh={quyen.lapPO ? xemNhanhThe : undefined}
           />
 
           {/* ===== BA HỘP SỬA của menu ⋯ ===== */}
@@ -773,6 +838,12 @@ export default function TrangDanhSachDeNghi() {
           nhanNut={xacNhan.noiDung.nhanNut}
           nguyHiem={xacNhan.noiDung.nguyHiem}
           congViecChuaXong={xacNhan.congViecChuaXong}
+          /* Đường ra trang đầy đủ — bắt buộc từ 27/08/2026 vì cú bấm thẻ nay dừng ở hộp này. */
+          duongDanChiTiet={`/de-nghi/${xacNhan.prId}`}
+          /* Lý do bước này không đi được → hộp in lý do và KHÓA nút. Xem `chanCung` ở hộp. */
+          chanCung={
+            xacNhan.hanhDong.loai === "khong_the" ? xacNhan.hanhDong.lyDo : undefined
+          }
           /**
            * ★★ ĐIỀU KIỆN CÒN VƯỚNG — TÍNH LẠI MỖI LẦN VẼ, KHÔNG DÙNG ẢNH CHỤP LÚC THẢ THẺ.
            * Ban lãnh đạo 25/08/2026: *"hiển thị các trường nhập nhanh các điều kiện chuyển bước"*.

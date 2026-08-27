@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Lock } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ExternalLink, Lock } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -80,6 +81,8 @@ export function HopChuyenGiaiDoan({
   daXong,
   dieuKienConVuong,
   onTichCongViec,
+  duongDanChiTiet,
+  chanCung,
   onDong,
   onXacNhan,
 }: {
@@ -115,6 +118,30 @@ export function HopChuyenGiaiDoan({
   dieuKienConVuong: DieuKienConVuong[];
   /** Tích / bỏ tích một công việc ngay trong hộp. */
   onTichCongViec: (congViec: CongViecGiaiDoan, xong: boolean) => void;
+  /**
+   * ★★ ĐƯỜNG MỞ TRANG ĐẦY ĐỦ — thêm 27/08/2026 cùng việc bấm thẻ mở hộp này thay vì mở trang.
+   *
+   * 🔴 KHÔNG CÓ NÚT NÀY THÌ HỘP THÀNH ĐƯỜNG CỤT. Từ 27/08/2026 cú bấm thẻ dừng ở hộp, nên nếu
+   * hộp không có đường đi tiếp thì mọi thứ chỉ xem được ở trang chi tiết (dòng vật tư, lịch sử,
+   * trao đổi, bộ hồ sơ thanh toán) trở thành không tới được bằng chuột — người dùng phải biết
+   * mẹo Ctrl+click mới vào nổi.
+   *
+   * Không truyền thì nút không hiện (hộp mở từ đường khác, VD kéo thả trước đây).
+   */
+  duongDanChiTiet?: string;
+  /**
+   * ★★ LÝ DO BƯỚC NÀY KHÔNG ĐI ĐƯỢC — hộp bày lý do và KHÓA nút (thêm 27/08/2026).
+   *
+   * Dùng cho ca luật trả `khong_the`: khác hẳn `dieuKienConVuong` (gỡ được ngay trong hộp bằng
+   * cách đính tệp / tích việc), đây là "chưa tới lúc" — VD đang ở bước ② mà chưa có bản báo giá
+   * nào thì không có gì để xét duyệt.
+   *
+   * 🔴 CÓ PROP NÀY LÀ VÌ KHÔNG ĐƯỢC MỞ HỘP MÀ ĐỂ NÚT BẤM ĐƯỢC. Hộp vốn chỉ mở cho ca đi tiếp
+   * được; từ 27/08/2026 cú bấm thẻ mở hộp cho MỌI ca, và `dungXacNhanKeoTha` trả về nhãn nút
+   * mặc định *"Xác nhận"* cho ca `khong_the` — bày nút đó không khóa là mời người dùng bấm một
+   * việc luật vừa nói là không được, rồi app im lặng làm theo.
+   */
+  chanCung?: string;
   onDong: () => void;
   /**
    * `ghiChu` là nội dung ô "Những việc đã hoàn thành?" — rỗng thì không ghi nhật ký.
@@ -204,7 +231,10 @@ export function HopChuyenGiaiDoan({
     (!laDongDo && conViecChuaTich > 0) ||
     conDieuKienChuaGo ||
     (hoiSoBaoGia && soBaoGia === "") ||
-    thieuLyDo;
+    thieuLyDo ||
+    /* 🔴 CHẶN CỨNG — luật nói bước này không đi được, không gỡ bằng cách đính thêm gì.
+       Xem chú thích `chanCung`. */
+    Boolean(chanCung);
 
   return (
     <Dialog open={mo} onOpenChange={(v) => !v && onDong()}>
@@ -397,7 +427,16 @@ export function HopChuyenGiaiDoan({
 
           {/* ===== Việc app sẽ làm + cảnh báo ===== */}
           <div className="flex flex-col gap-2 border-t border-divider pt-3">
-            <p className="text-sm text-text-secondary">{seLam}</p>
+            {/* 🔴 LÝ DO CHẶN CỨNG đứng TRƯỚC `seLam`: ca này `seLam` rỗng (xem nhánh `default`
+                của `dungXacNhanKeoTha`), nên nếu không in dòng này thì hộp mở ra trống trơn với
+                một cái nút mờ — người dùng không biết vì sao. */}
+            {chanCung && (
+              <p className="flex items-start gap-1.5 text-sm text-danger">
+                <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>{chanCung}</span>
+              </p>
+            )}
+            {seLam && <p className="text-sm text-text-secondary">{seLam}</p>}
             {canhBao.length > 0 && (
               <ul className="flex flex-col gap-1">
                 {canhBao.map((c) => (
@@ -422,6 +461,19 @@ export function HopChuyenGiaiDoan({
           >
             {nhanNut}
           </Button>
+          {/* 🔴 ĐƯỜNG RA TRANG ĐẦY ĐỦ — xem chú thích `duongDanChiTiet`. Đặt TRƯỚC "Đóng lại"
+              để nó không bị coi là nút phụ của nút phụ. */}
+          {duongDanChiTiet && (
+            <Button
+              variant="outline"
+              className="w-full"
+              nativeButton={false}
+              render={<Link href={duongDanChiTiet} />}
+            >
+              <ExternalLink className="size-4 shrink-0" aria-hidden />
+              Mở trang đầy đủ của đề nghị
+            </Button>
+          )}
           <Button variant="ghost" className="w-full" onClick={onDong}>
             Đóng lại
           </Button>
