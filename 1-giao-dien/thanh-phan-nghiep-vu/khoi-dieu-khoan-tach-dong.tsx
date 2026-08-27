@@ -98,7 +98,12 @@ export function KhoiDieuKhoanTachDong({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Label htmlFor={`${id}-0`}>{nhan}</Label>
+        {/* `nhan-hai-cham`: dấu hai chấm cuối nhãn do CSS thêm, đúng lối biểu mẫu giấy — xem chú
+            thích của lớp đó trong `app/globals.css`. Khối này không dùng `.muc-ngang` (nhãn phải
+            đứng trên vì các ô bên dưới là textarea nhiều dòng), nên khai riêng. */}
+        <Label htmlFor={`${id}-0`} className="nhan-hai-cham">
+          {nhan}
+        </Label>
         {daSua && (
           <Button
             type="button"

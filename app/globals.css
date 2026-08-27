@@ -466,4 +466,83 @@ textarea::placeholder {
     font-weight: 600;
     line-height: 1.4;
   }
+
+  /* ================================================================
+     MỤC NHẬP LIỆU KIỂU NGANG — nhãn bên trái, ô nhập bên phải, CÙNG MỘT DÒNG.
+
+     ★ Ban lãnh đạo 27/08/2026: *"Đưa các trường dữ liệu này nằm cùng dòng với các tên trường.
+     Không đưa xuống dòng như cách hiện tại"*, khoanh khối giao nhận của màn lập đơn.
+
+     🔴 VÌ SAO LÀ MỘT LỚP CSS CHỨ KHÔNG SỬA VÁ TỪNG Ô: khối đó có hơn mười mục, mỗi mục lại kèm
+     một câu chú thích nhỏ hoặc một nút phụ. Viết tay lưới ở từng chỗ là mười cơ hội để lệch bề
+     rộng nhãn, và người sửa sau phải đoán xem con số nào mới là chuẩn.
+
+     🔴 LỚP NÀY TỰ LO CẢ HAI CHẾ ĐỘ, nên chỗ dùng phải BỎ HẲN `flex flex-col gap-2` — đừng để
+     lẫn hai bộ lớp cùng khai `display`. Tailwind xếp utilities theo thứ tự riêng trong tệp CSS
+     chứ không theo thứ tự viết trong `class`, nên cái nào thắng là chuyện may rủi và hỏng IM
+     LẶNG (đúng bài học `max-w-none` vs `max-w-xl` đã ghi trong CLAUDE.md).
+
+     📌 Dưới 640px vẫn xếp DỌC: màn điện thoại không đủ chỗ cho nhãn và ô cùng hàng, ép ngang là
+     ô nhập teo còn vài chục pixel.
+
+     📌 `minmax(120px, 190px)` chứ không phải một con số cứng: mục nằm trong lưới hai cột thì cột
+     nhãn tự co lại nhường chỗ cho ô nhập.
+
+     ⚠️ Mọi thứ KHÔNG PHẢI `<label>` đều rơi xuống cột 2 — ô nhập, câu chú thích nhỏ, nút phụ đều
+     thẳng hàng dưới ô, không chui vào cột nhãn.
+     ================================================================ */
+  .muc-ngang {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* ★ DẤU HAI CHẤM CUỐI NHÃN — Ban lãnh đạo 27/08/2026: *"nhớ thêm dấu 2 chấm ở các nhãn"*.
+     Đúng cách biểu mẫu giấy viết ("Tên nhà cung cấp:", "Ngày giao hàng:").
+
+     🔴 THÊM BẰNG CSS, KHÔNG GÕ VÀO TỪNG CHUỖI NHÃN. Chuỗi nhãn còn được dùng làm `aria-label` và
+     làm chữ trong câu thông báo lỗi; nhét dấu hai chấm vào chuỗi là những chỗ đó cũng dính theo
+     ("Chưa điền Ngày giao hàng: ..."). Đây thuần là cách TRÌNH BÀY nên để CSS lo.
+
+     📌 Chỉ áp trong khối dùng `.muc-ngang` và chỗ nào khai `.nhan-hai-cham` — không áp toàn app,
+     vì nhãn ở màn khác không theo lối biểu mẫu này.
+
+     ⚠️ Nhãn nào ĐÃ có sẵn dấu hai chấm thì đừng thêm lớp, sẽ ra "::". */
+  .muc-ngang > label::after,
+  .nhan-hai-cham::after {
+    content: ":";
+  }
+  @variant sm {
+    .muc-ngang {
+      display: grid;
+      grid-template-columns: minmax(120px, 190px) minmax(0, 1fr);
+      align-items: start;
+      column-gap: 1rem;
+      row-gap: 0.25rem;
+    }
+    .muc-ngang > :not(label) {
+      grid-column: 2;
+    }
+    /* 🔴 NHÃN CAO BẰNG Ô RỒI CĂN GIỮA BÊN TRONG — chứ KHÔNG đẩy xuống bằng `padding-top`.
+       Đo được: cách cũ (`align-items:center` cho cả mục, rồi bù `padding-top` cho mục có chú
+       thích) làm nhãn tụt 15px so với ô ở ba mục — vì `center` căn giữa CẢ CỤM (ô + câu chú
+       thích) chứ không căn theo ô, và con số bù thì đoán chứ không tính được.
+       📌 `2.75rem` = 44px = đúng chiều cao ô nhập (vùng chạm tối thiểu V1.1). Nhãn cao bằng ô nên
+       chữ hai bên tự thẳng nhau, và với ô nhiều dòng thì nhãn thẳng DÒNG ĐẦU — đúng lối biểu mẫu.
+       📌 Không dùng `:has()`: luật cũ phụ thuộc nó, mà đây là việc trình bày cơ bản, không đáng
+       đánh cược vào một bộ chọn máy cũ có thể không hiểu. */
+    .muc-ngang > label {
+      display: flex;
+      align-items: center;
+      min-height: 2.75rem;
+    }
+    /* 🔴 DẤU SAO BẮT BUỘC PHẢI ĐỨNG SAU DẤU HAI CHẤM: "Dự án / Công trình: *", không phải
+       "Dự án / Công trình *:". Nhãn là flex nên đẩy được bằng `order` — dấu hai chấm (::after)
+       giữ order mặc định 0 cùng phần chữ, dấu sao nhảy xuống cuối.
+       ⚠️ Nhắm đúng `.text-danger` chứ không phải mọi `span`: nhãn khác có thể bọc span cho việc
+       khác, đẩy hết xuống cuối là đảo lộn chữ mà không ai ngờ tới. */
+    .muc-ngang > label > .text-danger {
+      order: 1;
+    }
+  }
 }

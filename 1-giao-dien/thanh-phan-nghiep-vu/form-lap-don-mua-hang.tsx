@@ -2330,7 +2330,10 @@ export function FormLapDonMuaHang({
                 📌 Tờ in không có ô mã, nên nó không có nhãn riêng — dùng `aria-label` + `title`
                 cho trình đọc màn hình, và placeholder `NCC0001` đã nói rõ phải gõ gì. */}
             <div className="flex flex-col gap-(--hp-md-card-gap)">
-              <div className="flex flex-col gap-2">
+              {/* `sm:col-span-2`: mục này CHIẾM CẢ HÀNG. Cột phải của mục chứa tới ba thứ (ô mã ·
+                  nút sổ danh mục · ô tên) — nhét vào nửa lưới thì ô tên bị đẩy xuống dòng thứ hai
+                  và nhãn không còn thẳng hàng với nó. Đã đo: lệch 52px trước khi cho span. */}
+              <div className="muc-ngang sm:col-span-2">
                 <Label htmlFor="ten-ncc">Tên nhà cung cấp</Label>
                 {/* ===== Ô TRA MÃ + NÚT SỔ XUỐNG =====
                     ✅ NÚT SỔ XUỐNG LÀM VIỆC THẬT: nó mở đúng danh mục nhà cung cấp của app
@@ -2342,33 +2345,24 @@ export function FormLapDonMuaHang({
                     Vẽ nút "+" ra là một cái nút bấm không có chỗ ghi, đúng thứ quy ước dự án cấm.
                     Không mất việc: ô "Tên nhà cung cấp" cho gõ tự do, đơn vẫn lập được với nhà
                     cung cấp ngoài danh mục (chỉ đạo 10/08/2026 — lấy NCC theo file PO). */}
-                {/* 🔴 `flex-wrap`: trên màn hẹp ba thứ (mã · nút sổ · tên) không đủ chỗ một hàng,
-                    để `nowrap` là ô tên bị bóp còn vài chục pixel. Cho phép xuống dòng thì mã và
-                    nút ở trên, tên xuống dưới — vẫn đọc được, không vỡ lưới. */}
+                {/**
+                  * 🔴 ĐÃ BỎ Ô "MÃ NHÀ CUNG CẤP" — Ban lãnh đạo 27/08/2026: *"các trường nhập số
+                  * liệu này cũng phải giống 100% mẫu … nội dung nào khác thì bỏ hết"*.
+                  *
+                  * Ô đó KHÔNG có trên biểu mẫu giấy và cũng không in ra tờ A4 ở bất kỳ chỗ nào —
+                  * nó chỉ là một lối tắt: gõ đúng mã thì app điền hộ tên / MST / địa chỉ. Việc đó
+                  * nút sổ danh mục ngay cạnh làm được y nguyên (cùng gọi `dienNhaCungCap`), nên bỏ
+                  * ô KHÔNG mất chức năng nào.
+                  *
+                  * 📌 Bỏ ô còn chữa đúng cái Sếp chỉ ở việc bố cục ngang: ba thứ (mã · nút · tên)
+                  * chật quá nên ô TÊN bị đẩy xuống dòng hai, lệch 52px so với nhãn. Nay còn hai
+                  * thứ, ô tên nằm thẳng hàng với nhãn.
+                  *
+                  * ⚠️ STATE `maNCC` VẪN GIỮ, ĐỪNG DỌN THEO: nó còn được ghi vào FILE EXCEL gửi nhà
+                  * cung cấp (ô "Mã nhà cung cấp:" hàng 7) và còn nhận giá trị từ bốn đường khác —
+                  * chọn NCC trong danh mục, đọc file Excel vào, thêm NCC mới, dọn form.
+                  */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    id="ma-ncc"
-                    /* Ô tra danh mục nên để ngắn — mã có dạng `NCC0001`, không cần rộng.
-                       `shrink-0` giữ nó không bị ô tên (flex-1) ép co lại. */
-                    className="w-32 shrink-0"
-                    aria-label="Mã nhà cung cấp"
-                    title="Mã nhà cung cấp — gõ đúng mã là điền hộ tên, địa chỉ và mã số thuế"
-                    value={maNCC}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setMaNCC(v);
-                      /* Ô này là Ô TRA DANH MỤC, không phải ô lưu vào đơn: `DonDatHang` không có
-                         trường mã NCC (mã nằm ở danh mục `NhaCungCap.maNCC`). Gõ trúng mã thì
-                         điền hộ tên / MST / địa chỉ / người liên hệ và giữ liên kết `supplierId`.
-                         Câu trạng thái ngay dưới ô "Tên nhà cung cấp" nói rõ có tra ra hay không —
-                         không tra ra mà im lặng thì người lập tưởng đã chọn đúng nhà cung cấp. */
-                      const tim = nhaCungCap.find(
-                        (n) => n.maNCC && n.maNCC.toLowerCase() === v.trim().toLowerCase(),
-                      );
-                      if (tim) dienNhaCungCap(tim);
-                    }}
-                    placeholder="NCC0001"
-                  />
                   <Popover>
                     <PopoverTrigger
                       render={
@@ -2376,7 +2370,12 @@ export function FormLapDonMuaHang({
                           type="button"
                           /* Vùng chạm 44×44 (V1.1 Phần F) — nút nhỏ hơn thì trên máy tính bảng
                              bấm không trúng. */
-                          className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                          /* `order-1`: nút sổ đứng SAU ô tên. Trước đây thứ tự là [ô mã][nút][ô
+                             tên]; bỏ ô mã ngày 27/08/2026 thì nút thành cái đứng đầu hàng — trông
+                             như một nút mồ côi, và khác thứ tự của khối "Người nhận hàng" ngay
+                             dưới (ô rồi mới tới nút). Đẩy bằng `order` để không phải dời cả khối
+                             `Popover` dài 80 dòng xuống dưới. */
+                          className="order-1 flex size-11 shrink-0 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:border-primary hover:text-primary"
                           aria-label="Chọn nhà cung cấp từ danh mục"
                           title="Chọn nhà cung cấp từ danh mục"
                         >
@@ -2475,7 +2474,7 @@ export function FormLapDonMuaHang({
                 )}
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="muc-ngang">
                 <Label htmlFor="dia-chi-ncc">Địa chỉ</Label>
                 <Input
                   id="dia-chi-ncc"
@@ -2485,7 +2484,7 @@ export function FormLapDonMuaHang({
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="muc-ngang">
                 <Label htmlFor="mst-ncc">Mã số thuế</Label>
                 <Input
                   id="mst-ncc"
@@ -2507,7 +2506,7 @@ export function FormLapDonMuaHang({
 
             {/* ===== PHẢI — CHỨNG TỪ (ô J6 · J7 · J8 của biểu mẫu) ===== */}
             <div className="flex flex-col gap-(--hp-md-card-gap)">
-              <div className="flex flex-col gap-2">
+              <div className="muc-ngang">
                 <Label htmlFor="ngay-don-hang">Ngày đơn hàng</Label>
                 <Input
                   id="ngay-don-hang"
@@ -2540,7 +2539,7 @@ export function FormLapDonMuaHang({
                   `min-w-0` bỏ bề rộng tối thiểu tự động, `w-full` ép ô co theo cột và tên dài
                   tự cắt bớt. */}
               {laDonDocLap && (
-                <div className="flex flex-col gap-2">
+                <div className="muc-ngang">
                   <Label htmlFor="du-an-don">
                     Dự án / Công trình <span className="text-danger">*</span>
                   </Label>
@@ -2596,7 +2595,7 @@ export function FormLapDonMuaHang({
                 </div>
               )}
 
-              <div className="flex flex-col gap-2">
+              <div className="muc-ngang">
                 <Label htmlFor="so-don-hang">Số đơn hàng</Label>
                 {/**
                   * ★ KÝ HIỆU `DMH[năm]-[0000]` — Ban lãnh đạo 23/08/2026: *"Số đơn hàng này sẽ ký
@@ -2658,7 +2657,7 @@ export function FormLapDonMuaHang({
                 * bịa ra một danh mục (VND/USD/EUR…) là tự đặt dữ liệu nghiệp vụ — thứ phải do công
                 * ty cấp. Gõ tự do thì cần đồng nào cũng ghi được.
                 */}
-              <div className="flex flex-col gap-2">
+              <div className="muc-ngang">
                 <Label htmlFor="loai-tien">Loại tiền</Label>
                 <Input
                   id="loai-tien"
@@ -2674,7 +2673,7 @@ export function FormLapDonMuaHang({
                   nên nó không ở trạng thái nào. Bày "Đã chốt" lên một thứ không được lưu là
                   đúng kiểu "giao diện hứa một việc app không làm" mà quy ước dự án cấm. */}
               {!laDonDocLap && (
-                <div className="flex flex-col gap-2">
+                <div className="muc-ngang">
                   {/* ⚠️ KHÔNG có `htmlFor` ở đây, và đó là cố ý. Chỗ hiện tình trạng là một
                       `<div>` chứa `StatusBadge`, không phải ô nhập — `<label for="…">` trỏ vào một
                       thẻ không nhập được thì bấm vào nhãn KHÔNG đưa con trỏ đi đâu cả, mà trình
@@ -2710,7 +2709,7 @@ export function FormLapDonMuaHang({
 
               ⚠️ GIỮ MỘT DÒNG, ĐỪNG ĐỔI SANG Textarea. Giá trị này còn đi ra ô Excel gộp và đi
               sang app QLK CTR; ký tự xuống dòng ở hai chỗ đó hiển thị không lường trước được. */}
-          <div className="flex flex-col gap-2">
+          <div className="muc-ngang">
             <Label htmlFor="hop-dong">Theo hợp đồng — ghi chú in lên tờ đơn</Label>
             <Input
               id="hop-dong"
@@ -2883,40 +2882,53 @@ export function FormLapDonMuaHang({
           ========================================================================= */}
       <Card>
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-          <div className="flex flex-col gap-2">
-            {/* 🔴 NHÃN PHẢI ĐỔI THEO CHẾ ĐỘ. Đơn độc lập không có mã RQ nào; để nguyên nhãn
-                "Mã RQ - Tên công trình" rồi bày mỗi một ô là giao diện nói sai. */}
-            {/* ★ Nhãn lấy ĐÚNG CHỮ trên biểu mẫu (ô B24: "Mã đề xuất và tên công trình") để
-                người mới dò theo tờ giấy tìm ra ngay — 23/08/2026. */}
-            {/* ★ Nhãn ĐÚNG CHỮ ô B24 cho CẢ HAI chế độ (23/08/2026 — *"giống 100% file PO mẫu"*).
-                Trước đó chế độ độc lập ghi "Tên công trình" vì không có mã đề nghị nào; nhưng tờ
-                in vẫn in dòng "Mã đề xuất và tên công trình", nên nhãn phải khớp tờ để người mới
-                dò ra. Chế độ độc lập chỉ khác ở chỗ không có ô mã đứng cạnh. */}
-            <Label htmlFor="ma-rq">Mã đề xuất và tên công trình</Label>
-            <div className="flex flex-wrap gap-2">
-              {/* Mã RQ chỉ đọc: nó là mã phiếu đề nghị nguồn, đổi tay là mất đường truy vết
-                  về khối lượng đã duyệt. Tên công trình thì sửa được — đơn là chứng từ gửi
-                  ra ngoài, tên in trên đó phải đứng yên kể cả khi đề nghị bị đổi tên sau. */}
-              {dn && (
-                <Input value={dn.code} readOnly disabled className="w-44" aria-label="Mã RQ" />
-              )}
+          {/**
+            * ★★ HAI MỤC RIÊNG, MỖI MỤC MỘT NHÃN, CÙNG MỘT HÀNG — Ban lãnh đạo 27/08/2026: *"tạo 2
+            * mục này cùng dòng và được tự động link từ đề nghị"*, kèm ảnh viết rõ hai chữ
+            * *"Mã đề nghị"* và *"Tên công trình"* lên đúng hai ô.
+            *
+            * 🔴 VÌ SAO PHẢI TÁCH: trước đây hai ô nằm dưới MỘT nhãn chung *"Mã đề xuất và tên công
+            * trình"*. Nhìn vào chỉ thấy hai ô trắng cạnh nhau, không biết ô nào là gì — mà một ô
+            * thì CHỈ ĐỌC còn ô kia SỬA ĐƯỢC, hai hành vi khác hẳn nhau dưới cùng một cái tên.
+            *
+            * 📌 Xếp lưới 2 cột GIỐNG HỆT hàng "Theo hợp đồng · Mã request" ngay dưới — bốn ô của
+            * khối này thành một lưới đều, thay vì một hàng dính liền rồi một hàng chia đôi.
+            *
+            * ⚠️ NHÃN TỜ IN KHÔNG ĐỔI. Tờ A4 và file Excel vẫn in MỘT dòng *"Mã đề xuất và tên công
+            * trình"* (ô B24 của biểu mẫu, chỉ đạo 23/08/2026) ghép từ hai ô này. Đừng "thống nhất"
+            * bằng cách tách dòng đó trên tờ in — đó là chữ chép từ giấy công ty.
+            */}
+          <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) sm:grid-cols-2">
+            {/* Mã đề nghị — CHỈ ĐỌC, và chỉ có khi đơn lập từ một phiếu đề nghị.
+                🔴 Không cho sửa: đây là mã phiếu đề nghị nguồn, đổi tay là mất đường truy vết về
+                khối lượng đã duyệt. Đơn độc lập thì KHÔNG vẽ ô này — bày một ô trống vĩnh viễn là
+                mời người lập đi tìm xem phải điền gì. */}
+            {dn && (
+              <div className="muc-ngang">
+                <Label htmlFor="ma-de-nghi">Mã đề nghị</Label>
+                <Input id="ma-de-nghi" value={dn.code} readOnly disabled className="font-mono" />
+                <span className="text-xs text-text-desc">
+                  Lấy tự động từ phiếu đề nghị — chỉ đọc, để giữ đường truy vết khối lượng đã duyệt.
+                </span>
+              </div>
+            )}
+
+            <div className="muc-ngang">
+              <Label htmlFor="ma-rq">Tên công trình</Label>
+              {/* Sửa được — đơn là chứng từ gửi ra ngoài, tên in trên đó phải đứng yên kể cả khi
+                  đề nghị bị đổi tên sau. */}
               <Input
                 id="ma-rq"
                 value={tenCongTrinh}
                 onChange={(e) => setTenCongTrinh(e.target.value)}
-                className="min-w-48 flex-1"
                 placeholder="Tên công trình"
               />
-            </div>
-            {/* Tên công trình được in ra bản A4 và file Excel gửi nhà cung cấp (dòng "Mã đề
-                xuất và tên công trình"), nên ở chế độ độc lập phải nói rõ để người lập không
-                bỏ trống. Không bắt buộc: có đơn mua cho việc không gắn công trình nào. */}
-            {laDonDocLap && (
               <span className="text-xs text-text-desc">
-                In ra bản đơn A4 và file Excel gửi nhà cung cấp. Chọn dự án ở khối trên thì
-                ô này tự điền.
+                {dn
+                  ? "Lấy tự động từ phiếu đề nghị, sửa được nếu phiếu ghi thiếu."
+                  : "In ra bản đơn A4 và file Excel gửi nhà cung cấp. Chọn dự án ở khối trên thì ô này tự điền."}
               </span>
-            )}
+            </div>
           </div>
 
           {/**
@@ -2943,7 +2955,7 @@ export function FormLapDonMuaHang({
             * lập đi tìm xem phải điền gì.
             */}
           <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
+            <div className="muc-ngang">
               <Label htmlFor="ma-hop-dong-duoi">Theo hợp đồng</Label>
               <Input
                 id="ma-hop-dong-duoi"
@@ -2958,7 +2970,7 @@ export function FormLapDonMuaHang({
             </div>
 
             {dn?.maDeXuatAppRequest && (
-              <div className="flex flex-col gap-2">
+              <div className="muc-ngang">
                 <Label htmlFor="ma-request">Mã request</Label>
                 <Input
                   id="ma-request"
@@ -2988,7 +3000,7 @@ export function FormLapDonMuaHang({
             * `items-stretch` là ô số điện thoại bị kéo cao bằng, trông như một ô lỗi.
             */}
           <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
+          <div className="muc-ngang">
             <Label htmlFor="nguoi-nhan">Người nhận hàng (bên mua)</Label>
 
             {/**
@@ -3155,7 +3167,7 @@ export function FormLapDonMuaHang({
 
           {/* ★ SỐ ĐIỆN THOẠI NGƯỜI NHẬN — ô riêng trên biểu mẫu `PO - DEMO 130826.xlsx`.
               Nhà cung cấp gọi số này để hẹn giao; thiếu thì tài xế tới cổng không biết gọi ai. */}
-          <div className="flex flex-col gap-2">
+          <div className="muc-ngang">
             <Label htmlFor="sdt-nguoi-nhan">Số điện thoại người nhận</Label>
             <Input
               id="sdt-nguoi-nhan"
@@ -3167,7 +3179,7 @@ export function FormLapDonMuaHang({
           </div>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="muc-ngang">
             <Label htmlFor="ngay-giao">Ngày giao hàng</Label>
             <Input
               id="ngay-giao"
@@ -3181,7 +3193,7 @@ export function FormLapDonMuaHang({
             </span>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="muc-ngang">
             <Label htmlFor="dia-diem">Địa điểm giao hàng</Label>
             {/**
               * ★ MỘT Ô DUY NHẤT: GÕ TRỰC TIẾP HOẶC CHỌN TỪ DANH SÁCH — Ban lãnh đạo 24/08/2026:
@@ -3290,7 +3302,7 @@ export function FormLapDonMuaHang({
             </p>
           )}
 
-          <div className="flex flex-col gap-2">
+          <div className="muc-ngang">
             <Label htmlFor="dk-tt">Điều khoản thanh toán</Label>
             <Input
               id="dk-tt"
@@ -3300,7 +3312,7 @@ export function FormLapDonMuaHang({
             />
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="muc-ngang">
             <Label htmlFor="so-ngay-no">Số ngày được nợ</Label>
             <Input
               id="so-ngay-no"
@@ -3313,7 +3325,7 @@ export function FormLapDonMuaHang({
             />
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="muc-ngang">
             <Label htmlFor="dk-khac">Điều khoản khác</Label>
             {/* MISA để ô nhiều dòng, cao khoảng 4 dòng.
                 🔴 SỬA MỘT CHÚ THÍCH SAI (18/08/2026): chỗ này từng ghi *"dùng textarea gốc vì
@@ -3337,7 +3349,7 @@ export function FormLapDonMuaHang({
           {/* Hai câu cam kết cuối tờ — chỉ in ở mẫu *Thỏa thuận mua bán*, nên ô nhập cũng chỉ
               hiện ở mẫu đó. Bày ô cho một thứ không được in là mời người lập gõ vào chỗ vô ích. */}
           {mauPO === "thoa_thuan" && (
-            <div className="flex flex-col gap-2">
+            <div className="muc-ngang">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label htmlFor="cam-ket">Hai câu cam kết cuối tờ (mẫu Thỏa thuận)</Label>
                 {camKetThoaThuan !== null && (
