@@ -119,7 +119,21 @@ export function CotThongTinDeNghi({
           Thông tin nhiệm vụ
         </span>
         <dl className="mt-2 flex flex-col gap-1.5 text-sm">
-          <DongTin nhan="Mã hồ sơ" giaTri={deNghi.code} />
+          {/**
+            * ★ GỌI LÀ "MÃ ĐỀ NGHỊ" — Ban lãnh đạo 27/08/2026, khoanh đúng dòng này: *"Đây là mã
+            * đề nghị"*, rồi chốt lại *"ghi là mã đề nghị"*.
+            *
+            * 🔴 "Mã hồ sơ" là chữ CHUNG CHUNG — app có mã hồ sơ cho đề nghị, cho đơn hàng, cho
+            * phiếu nhận, tất cả đều theo Thông báo 09/2026. Đứng trong trang chi tiết đề nghị mà
+            * ghi "Mã hồ sơ" thì người đọc phải tự suy ra là hồ sơ nào.
+            *
+            * ⚠️ ĐỪNG NHẦM VỚI Ô "Mã đề nghị" Ở FORM LẬP ĐƠN. Ô đó hiện mã bên **App Request**
+            * (`maDeXuatAppRequest`, dạng `000000043`) — mã do app KHÁC sinh ra để hai bên đối
+            * chiếu. Còn đây là mã hồ sơ trong app Thu mua (`deNghi.code`, dạng
+            * `26001/HDXD-…-PR-001`). Hai mã của cùng một phiếu, sinh ở hai nơi; câu chú thích
+            * dưới ô bên kia đã nói rõ nguồn nên không lẫn được.
+            */}
+          <DongTin nhan="Mã đề nghị" giaTri={deNghi.code} />
           <DongTin
             nhan="Người đề nghị"
             giaTri={`${deNghi.nguoiDeNghiTen} · ${formatMocThoiGian(deNghi.ngayDeNghi)}`}
