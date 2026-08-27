@@ -836,9 +836,12 @@ kiem(
     const the = { deNghi: deNghiThu(), giaiDoan: "tiep_nhan" };
     const r = G.quyetDinhKeoTha(the, "hoan_thanh", [], [], G.CAU_HINH_MAC_DINH ?? {}, null);
     return {
-      duoc: r?.loai === "khong_the" && String(r.lyDo).includes("liền kề"),
+      /* 📌 So KHONG phan biet hoa thuong: chu trong cau chan doi ngay 26/08/2026 (bo ve "lui mot
+         buoc" vi keo lui da tam tat), nhung DIEU BAT BIEN van la "cau chan phai nhac toi viec chi
+         keo duoc sang buoc lien ke". Bai kiem soat dieu do, khong soat tung chu hoa. */
+      duoc: r?.loai === "khong_the" && String(r.lyDo).toLowerCase().includes("liền kề"),
       thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.thongBao ?? "").slice(0, 70)}"`,
-      mongDoi: 'khong_the kèm câu "chỉ kéo được sang bước liền kề"',
+      mongDoi: 'khong_the kem cau nhac "bước liền kề"',
     };
   },
 );
@@ -1187,6 +1190,32 @@ kiem(
       duoc: o4 && !o5,
       thucTe: `buoc ④ co dieu kien hop dong: ${o4} · buoc ⑤: ${o5}`,
       mongDoi: "④ = true, ⑤ = false",
+    };
+  },
+);
+
+kiem(
+  "KEO LUI dang TAM TAT — phai chan, va noi duong go khac",
+  "Ban lanh dao 26/08/2026 (*\"tam dong goi chuc nang keo lui buoc\"*)",
+  () => {
+    /* 🔴 Chan o `quyetDinhKeoTha`, KHONG xoa `quyetDinhLui` — ham do giu toan bo luat huy chung
+       tu tuong ung tung buoc (chi dao 13/08/2026). Bat lai chi can xoa mot khoi `if`.
+       ⚠️ Cau chan phai NOI DUONG GO KHAC (huy chung tu dang giu the o buoc do), neu khong nguoi
+       dung tuong ho so di nham buoc la ket vinh vien. */
+    const the = { deNghi: deNghiThu(), giaiDoan: "xet_duyet_bao_gia" };
+    const r = G.quyetDinhKeoTha(
+      the,
+      "yeu_cau_bao_gia",   // lui MOT buoc
+      [],
+      [],
+      G.CAU_HINH_MAC_DINH ?? {},
+      null,
+    );
+    const cau = String(r?.lyDo ?? "");
+    return {
+      duoc: r?.loai === "khong_the" && /tạm tắt/i.test(cau) && /hủy/i.test(cau),
+      thucTe: `${r?.loai ?? "?"}: "${cau.slice(0, 80)}"`,
+      mongDoi: 'khong_the, cau co "tam tat" VA chi duong "huy chung tu"',
     };
   },
 );

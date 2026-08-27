@@ -49,6 +49,32 @@ export const CAM_KET_THOA_THUAN_CHUAN = `Các nội dung chưa được quy đ�
 Đơn đặt hàng này có giá trị như hợp đồng mua bán giữa hai bên khi được ký xác nhận.`;
 
 /**
+ * ★★ CÂU KẾT CỦA MẪU **PO-01 — theo hợp đồng** (Ban lãnh đạo 26/08/2026, gửi kèm biểu mẫu chuẩn).
+ *
+ * 🔴 TRƯỚC ĐÂY MẪU PO-01 KHÔNG CÓ CÂU KẾT NÀO — thiếu hẳn so với giấy. Tờ đơn đặt theo hợp đồng
+ * phải nói rõ những gì nó không nêu thì áp theo hợp đồng gốc; không có câu đó thì hai bên tranh
+ * cãi về một điều khoản không có trên tờ đơn sẽ không biết căn cứ vào đâu.
+ *
+ * ⚠️ KHÁC HẲN `CAM_KET_THOA_THUAN_CHUAN`, ĐỪNG DÙNG LẪN: câu kia nói *"đơn này có giá trị như hợp
+ * đồng"* (đơn LÀ hợp đồng), câu này nói *"áp dụng theo hợp đồng trên"* (đơn PHỤ THUỘC hợp đồng).
+ * In nhầm là đảo ngược vai trò pháp lý của tờ chứng từ.
+ */
+export const CAM_KET_THEO_HOP_DONG_CHUAN =
+  "Các điều khoản chưa nêu trong ĐMH này được áp dụng theo hợp đồng trên.";
+
+/**
+ * ★ Chữ MẪU IN SẴN của hai dòng điều khoản cuối tờ — chép đúng biểu mẫu chuẩn 26/08/2026.
+ *
+ * 📌 Đây là phần chữ có SẴN TRÊN GIẤY, in ra kể cả khi người lập chưa điền gì — khác với giá trị
+ * người lập nhập. Trước đây tờ in chỉ in giá trị, nên đơn chưa điền ra một dòng cụt "Điều khoản
+ * thanh toán: —", mất hẳn phần chữ mẫu mà nhà cung cấp cần đọc.
+ */
+export const GOI_Y_DIEU_KHOAN_THANH_TOAN =
+  "kể từ khi Bên Bán giao đủ: số lượng hàng hóa (biên bản xác nhận), COCQ và Hóa đơn";
+export const GOI_Y_DIEU_KHOAN_KHAC =
+  "(bổ sung ghi chú về đơn giá, thông số kỹ thuật, bảo hành ….)";
+
+/**
  * Cắt một khối văn bản thành từng dòng để in.
  *
  * 🔴 Dùng CHUNG cho tờ in A4 và mọi chỗ hiển thị khác — nếu mỗi nơi tự tách chuỗi theo cách

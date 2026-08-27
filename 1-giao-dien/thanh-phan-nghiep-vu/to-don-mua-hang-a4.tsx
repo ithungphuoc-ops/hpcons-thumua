@@ -8,7 +8,10 @@ import {
   type NhaCungCap,
 } from "@/3-du-lieu/kieu-du-lieu";
 import {
+  CAM_KET_THEO_HOP_DONG_CHUAN,
   CAM_KET_THOA_THUAN_CHUAN,
+  GOI_Y_DIEU_KHOAN_KHAC,
+  GOI_Y_DIEU_KHOAN_THANH_TOAN,
   DIEU_KHOAN_GIAO_HANG_CHUAN,
   daSuaKhacBanChuan,
   tachDongDieuKhoan,
@@ -227,10 +230,33 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           <Dong nhan="Tên nhà cung cấp" giaTri={po.supplierTen} dam />
           <Dong nhan="Địa chỉ" giaTri={ncc?.diaChi ?? "—"} />
           <Dong nhan="Mã số thuế" giaTri={ncc?.maSoThue ?? "—"} />
-          <Dong nhan="Người nhận hàng" giaTri={po.nguoiNhanHangTen ?? "—"} />
-          {/* Ô "Số điện thoại" đứng cạnh "Người nhận hàng" trên biểu mẫu — nhà cung cấp gọi số
-              này để hẹn giao. */}
-          <Dong nhan="Số điện thoại" giaTri={po.nguoiNhanHangSdt ?? "—"} />
+          {/**
+            * ★★ "Theo hợp đồng" ĐỨNG NGAY SAU MÃ SỐ THUẾ, ở KHỐI ĐẦU — Ban lãnh đạo 26/08/2026
+            * gửi hai biểu mẫu chuẩn và yêu cầu *"sửa lại các trường thông tin giống vậy"*.
+            *
+            * 🔴 TRƯỚC ĐÂY DÒNG NÀY NẰM Ở KHỐI DƯỚI (cạnh "Mã đề xuất"). Trên giấy nó thuộc khối
+            * nhận diện bên bán, in đậm màu xanh dương ngay dưới mã số thuế — người cầm tờ đơn đọc
+            * hợp đồng căn cứ ngay ở đầu tờ, không phải tìm xuống nửa dưới.
+            *
+            * 📌 CHỈ CÓ Ở MẪU PO-01 "theo hợp đồng". Mẫu PO-02 (thỏa thuận) thì chính tờ đơn đóng
+            * vai hợp đồng — in thêm dòng này là hai văn bản cùng nhận vai trò hợp đồng cho một
+            * giao dịch.
+            */}
+          {mau === "theo_hop_dong" && (
+            <Dong
+              nhan="Theo hợp đồng"
+              giaTri={[
+                po.maHopDongCDT ?? "…………",
+                po.ngayHopDongCDT
+                  ? `Ký ngày ${new Date(po.ngayHopDongCDT).toLocaleDateString("vi-VN")}`
+                  : "Ký ngày ……/……/…….",
+              ].join(" · ")}
+              dam
+            />
+          )}
+          {/* 🔴 "Người nhận hàng" và "Số điện thoại" ĐÃ DỜI XUỐNG KHỐI ĐIỀU KHOẢN — trên cả hai
+              biểu mẫu chuẩn, hai ô đó nằm ở nửa dưới tờ, cùng nhóm với "Ngày giao hàng" và "Địa
+              điểm giao hàng" (thông tin GIAO NHẬN), không thuộc khối nhận diện bên bán ở đầu tờ. */}
         </dl>
         <dl className="flex w-[62mm] shrink-0 flex-col gap-1">
           <Dong nhan="Ngày" giaTri={new Date(po.ngayLapPO).toLocaleDateString("vi-VN")} />
@@ -321,10 +347,29 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           không tự cộng lại — tránh hai chỗ ra hai kết quả khác nhau. */}
       <section className="mt-3 flex justify-end">
         <dl className="w-[95mm] text-[11px]">
-          {/* Đậm, đúng ô A14 của biểu mẫu (`bold` màu đen). */}
-          <DongTien nhan="Cộng tiền hàng (Chưa trừ CK)" giaTri={soTien(tien.congTienHang)} dam />
-          <DongTien nhan="Số tiền CK" giaTri={soTien(tien.chietKhau)} />
-          <DongTien nhan="Cộng tiền hàng (Đã trừ CK)" giaTri={soTien(tien.congTienHangSauCK)} />
+          {/**
+            * ★★ ĐÚNG CHỮ VÀ ĐÚNG SỐ DÒNG CỦA BIỂU MẪU CHUẨN (Ban lãnh đạo 26/08/2026).
+            *
+            * 🔴 ĐÃ BỎ DÒNG "Cộng tiền hàng (Chưa trừ CK)". Hai biểu mẫu chuẩn chỉ có BỐN dòng:
+            *   Số tiền Chiết khấu → Cộng tiền hàng (sau trừ chiết khấu) → Thuế suất + Tiền thuế
+            *   GTGT → Tổng tiền thanh toán.
+            * Dòng "chưa trừ CK" là app tự thêm. Trên chứng từ gửi ra ngoài, một dòng tiền không
+            * có trên mẫu công ty là chỗ để người đối chiếu hiểu nhầm — họ thấy HAI con số cùng
+            * tên "cộng tiền hàng" và không biết lấy số nào.
+            *
+            * 🔴 CHỮ NHÃN CHÉP NGUYÊN VĂN: "Số tiền Chiết khấu" (không viết tắt "CK"), và
+            * "(sau trừ chiết khấu)" chứ không phải "(Đã trừ CK)". Người đối chiếu tờ in với biểu
+            * mẫu giấy dò theo CHỮ, lệch một chữ là phải đọc lại cả khối mới chắc.
+            *
+            * ⚠️ KHÔNG mất thông tin nào: tiền hàng trước chiết khấu = "sau trừ chiết khấu" +
+            * "Số tiền Chiết khấu", hai số đều đang in ngay trên tờ.
+            */}
+          <DongTien nhan="Số tiền Chiết khấu" giaTri={soTien(tien.chietKhau)} />
+          <DongTien
+            nhan="Cộng tiền hàng (sau trừ chiết khấu)"
+            giaTri={soTien(tien.congTienHangSauCK)}
+            dam
+          />
           {/* 🔴 HAI DÒNG RIÊNG, không gộp — biểu mẫu có ô A17 *"Thuế suất thuế GTGT:"* độc lập
               với ô E17 *"Tiền thuế GTGT:"*. Bản trước nhét mức thuế vào trong ngoặc của nhãn
               tiền thuế, tức bỏ mất một trường của biểu mẫu.
@@ -352,12 +397,20 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
       </p>
 
       {/* ---------- ĐIỀU KHOẢN ---------- */}
+      {/**
+        * ★★ THỨ TỰ ĐÚNG THEO BIỂU MẪU CHUẨN (Ban lãnh đạo 26/08/2026):
+        *     Mã đề xuất và tên công trình
+        *     Người nhận hàng          |  Số điện thoại
+        *     Ngày giao hàng
+        *     Địa điểm giao hàng
+        *     Phương thức giao hàng …
+        *     Điều khoản thanh toán …
+        *     Điều khoản khác …
+        *
+        * 🔴 TRƯỚC ĐÂY "Ngày giao hàng" đứng ĐẦU và "Người nhận hàng" thì nằm tít trên khối đầu tờ.
+        * Người cầm tờ giấy dò xuống không thấy hàng nào khớp hàng nào.
+        */}
       <section className="mt-4 flex flex-col gap-1 text-[11px]">
-        <Dong
-          nhan="Ngày giao hàng"
-          giaTri={new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
-          rong
-        />
         {/* 🔴 DÒNG NÀY IN RA GIẤY GỬI NHÀ CUNG CẤP — không được để trống, và phải in ĐÚNG
             thứ mà nhãn hứa.
 
@@ -373,28 +426,19 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           giaTri={[po.prCode, po.tenCongTrinh].filter(Boolean).join(" · ") || "—"}
           rong
         />
-        {/* 🔴 DÒNG HỢP ĐỒNG CHỈ CÓ Ở MẪU "theo hợp đồng" — biểu mẫu `PO. HDNT` có ô
-            *"Theo hợp đồng: ………… Ký ngày ……/…../……."*, còn mẫu thỏa thuận thì KHÔNG có dòng này
-            (chính tờ đơn đóng vai trò hợp đồng, in thêm là nói ngược nhau trên cùng một tờ).
-            📌 In cả NGÀY KÝ: `ngayHopDongCDT` có sẵn trong dữ liệu nhưng trang in chưa dùng, mà
-            biểu mẫu để hẳn chỗ điền — thiếu ngày thì không truy được đúng bản hợp đồng nào. */}
-        {mau === "theo_hop_dong" && (
-          <Dong
-            nhan="Theo hợp đồng"
-            giaTri={
-              [
-                po.maHopDongCDT ?? "………",
-                po.ngayHopDongCDT
-                  ? `ký ngày ${new Date(po.ngayHopDongCDT).toLocaleDateString("vi-VN")}`
-                  : "ký ngày ……/……/……",
-              ].join(" · ")
-            }
-            rong
-          />
-        )}
+        {/* ★ "Người nhận hàng" và "Số điện thoại" NẰM CÙNG MỘT HÀNG, đúng như hai biểu mẫu chuẩn
+            (Ban lãnh đạo 26/08/2026). Đây là thông tin GIAO NHẬN nên thuộc nhóm này, không thuộc
+            khối nhận diện bên bán ở đầu tờ — nhà cung cấp gọi số này để hẹn giao. */}
+        <div className="flex flex-wrap gap-x-10 gap-y-1">
+          <Dong nhan="Người nhận hàng" giaTri={po.nguoiNhanHangTen ?? "—"} />
+          <Dong nhan="Số điện thoại" giaTri={po.nguoiNhanHangSdt ?? "—"} />
+        </div>
+        <Dong
+          nhan="Ngày giao hàng"
+          giaTri={new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
+          rong
+        />
         <Dong nhan="Địa điểm giao hàng" giaTri={po.diaDiemGiaoHang ?? "—"} rong />
-        <Dong nhan="Điều khoản thanh toán" giaTri={gia?.dieuKhoanThanhToan ?? "—"} rong />
-        <Dong nhan="Điều khoản khác" giaTri={po.dieuKhoanKhac ?? po.dieuKienGiaoHang ?? "—"} rong />
       </section>
 
       {/**
@@ -429,12 +473,50 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
             </div>
           )}
 
+          {/**
+            * ★★ HAI DÒNG ĐIỀU KHOẢN CUỐI — đúng vị trí và đúng chữ mẫu của biểu mẫu chuẩn
+            * (Ban lãnh đạo 26/08/2026: *"sửa lại các trường thông tin giống vậy"*).
+            *
+            * 🔴 HAI CHỖ SỬA:
+            *   ① VỊ TRÍ — trước đây hai dòng này nằm ở khối GIAO NHẬN phía trên (cạnh "Địa điểm
+            *     giao hàng"). Trên giấy chúng đứng SAU khối "Phương thức giao hàng", ngay trước
+            *     câu kết. Dò theo tờ giấy thì không thấy chúng ở chỗ mong đợi.
+            *   ② CHỮ MẪU IN SẴN — giấy có sẵn *"kể từ khi Bên Bán giao đủ: …"* và *"(bổ sung ghi
+            *     chú về đơn giá …)"*. Bản cũ chỉ in giá trị người lập nhập, nên đơn chưa điền ra
+            *     một dòng cụt *"Điều khoản thanh toán: —"* — mất phần chữ nhà cung cấp cần đọc.
+            */}
+          <div className="flex flex-col gap-1">
+            <p>
+              <span className="font-semibold">Điều khoản thanh toán: </span>
+              {gia?.dieuKhoanThanhToan?.trim() || "…………………………."}{" "}
+              {GOI_Y_DIEU_KHOAN_THANH_TOAN}
+            </p>
+            <p>
+              <span className="font-semibold">Điều khoản khác: </span>
+              {(po.dieuKhoanKhac ?? po.dieuKienGiaoHang)?.trim() || (
+                <span className="italic">{GOI_Y_DIEU_KHOAN_KHAC}</span>
+              )}
+            </p>
+          </div>
+
           {mau === "thoa_thuan" && camKetIn !== "" && (
             <div className="italic">
               {tachDongDieuKhoan(camKetIn).map((d, i) =>
                 d.laDongTrong ? <p key={i}>&nbsp;</p> : <p key={i}>{d.chu}</p>,
               )}
             </div>
+          )}
+
+          {/**
+            * ★★ CÂU KẾT CỦA MẪU PO-01 — trước 26/08/2026 mẫu này KHÔNG CÓ câu kết nào, thiếu hẳn
+            * so với giấy. Tờ đơn đặt theo hợp đồng phải nói rõ phần không nêu thì áp theo hợp
+            * đồng gốc; thiếu câu đó thì tranh chấp về một điều khoản không có trên tờ đơn sẽ
+            * không biết căn cứ vào đâu.
+            *
+            * 🔴 KHÁC HẲN hai câu của mẫu thỏa thuận ở trên — xem `CAM_KET_THEO_HOP_DONG_CHUAN`.
+            */}
+          {mau === "theo_hop_dong" && (
+            <p className="font-semibold">{CAM_KET_THEO_HOP_DONG_CHUAN}</p>
           )}
 
           {/* 🔴 NÓI RÕ KHI BẢN ĐIỀU KHOẢN ĐÃ BỊ SỬA KHÁC BẢN CHUẨN.

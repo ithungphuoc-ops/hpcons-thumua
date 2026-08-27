@@ -1650,11 +1650,32 @@ export function quyetDinhKeoTha(
   if (buocDich < buocTu - 1 || buocDich > buocTu + 1) {
     return {
       loai: "khong_the",
-      lyDo: "Chỉ kéo được sang bước liền kề — tiến một bước hoặc lùi một bước, không nhảy cóc.",
+      /* Câu này không nhắc "lùi một bước" nữa — kéo lùi đang tạm tắt, xem khối ngay dưới. */
+      lyDo: "Chỉ kéo được sang bước LIỀN KỀ phía sau, không nhảy cóc.",
     };
   }
 
-  if (buocDich === buocTu - 1) return quyetDinhLui(tu, dich, poCuaDeNghi, baoGiaCuaDeNghi);
+  /**
+   * ★★ KÉO LÙI ĐANG TẠM TẮT — Ban lãnh đạo 26/08/2026: *"e tạm đóng gói chức năng kéo lùi bước
+   * trong bảng kanban, tính năng này sẽ xử lý sau"*.
+   *
+   * 🔴 CHẶN Ở ĐÂY, KHÔNG XOÁ `quyetDinhLui`. Hàm đó giữ nguyên toàn bộ luật hủy chứng từ tương
+   * ứng từng bước (chỉ đạo 13/08/2026) — xoá đi thì lúc bật lại phải viết lại từ đầu, và viết
+   * lại thì mất những ca đã xử: bảng báo giá đã có giá thì chặn lùi, đơn nháp phải hủy trước,
+   * phiếu nhận của Kho thì Thu mua không được xoá.
+   *
+   * ✅ CÁCH BẬT LẠI: xoá đúng khối `if` này. Một dòng, không cần dựng lại gì.
+   *
+   * ⚠️ TẮT KÉO LÙI KHÔNG PHẢI LÀ KHÔNG LÙI ĐƯỢC. Hồ sơ đi nhầm bước vẫn sửa được bằng cách hủy
+   * chứng từ đang giữ nó ở bước đó (hủy đơn nháp, hủy bảng báo giá…) — giai đoạn suy ra từ chứng
+   * từ nên thẻ tự về. Câu dưới nói đúng đường đó, đừng để người dùng tưởng hồ sơ kẹt vĩnh viễn.
+   */
+  if (buocDich === buocTu - 1) {
+    return {
+      loai: "khong_the",
+      lyDo: "Chức năng kéo lùi bước đang tạm tắt. Hồ sơ đi nhầm bước thì hủy chứng từ đang giữ nó ở bước đó (đơn nháp, bảng báo giá…) — thẻ sẽ tự về bước trước.",
+    };
+  }
 
   /**
    * 🔴 KHỐI NÀY PHẢI ĐỨNG **SAU** PHÉP KIỂM NHẢY CÓC — sửa 25/08/2026.
