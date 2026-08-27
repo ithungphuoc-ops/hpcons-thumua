@@ -2517,83 +2517,10 @@ export function FormLapDonMuaHang({
                 />
               </div>
 
-              {/* ===== Ô CHỌN DỰ ÁN — CHỈ Ở CHẾ ĐỘ ĐỘC LẬP (18/08/2026) =====
-                  🔴 VÌ SAO ĐẶT NGAY TRÊN Ô "Số đơn hàng": số đơn lấy phần đầu từ mã dự án, nên
-                  hai ô này phải nằm cạnh nhau để người lập thấy ngay chọn xong thì mã đơn
-                  thành cái gì.
-
-                  🔴 KHÔNG TỰ BỊA MÃ DỰ ÁN. Mã dự án gốc do công ty cấp theo Thông báo
-                  09/2026/TB-HPCS; app chỉ cho CHỌN LẠI cái đã có hoặc GHI LẠI cái người dùng
-                  gõ. Danh sách gợi ý suy từ đề nghị + đơn hàng đang có (app chưa có danh mục
-                  dự án riêng) — nên luôn phải chừa đường "nhập tay" cho dự án mới.
-
-                  📌 Dùng `<select>` gốc, đúng như màn "Nhận đề nghị mới" — không dựng thêm
-                  kiểu nhập mới cho cùng một việc. `min-h-11` đủ vùng chạm 44px (V1.1 Phần F).
-
-                  🔴 `w-full min-w-0` KHÔNG PHẢI TRANG TRÍ. `<select>` để `width:auto` thì bề
-                  rộng tối thiểu của nó bằng bề rộng của LỰA CHỌN DÀI NHẤT, mà mỗi lựa chọn ở
-                  đây là “mã dự án — tên công trình” (có thể 60–70 ký tự). Ô này nằm trong một
-                  ô lưới `auto`, nên bề rộng tối thiểu đó đẩy giãn cả cột: trên màn 375px phần
-                  bên phải bị `overflow-x-hidden` của `khung-tong.tsx` CẮT MẤT — không trôi
-                  ngang nên đo `scrollWidth` cũng không thấy, chỉ thấy khi mở bằng điện thoại.
-                  `min-w-0` bỏ bề rộng tối thiểu tự động, `w-full` ép ô co theo cột và tên dài
-                  tự cắt bớt. */}
-              {laDonDocLap && (
-                <div className="muc-ngang">
-                  <Label htmlFor="du-an-don">
-                    Dự án / Công trình <span className="text-danger">*</span>
-                  </Label>
-                  <select
-                    id="du-an-don"
-                    value={duAnChon}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setDuAnChon(v);
-                      if (v === "__moi__") {
-                        // Chuyển sang gõ tay thì DỌN ô mã — giữ lại mã của dự án vừa chọn là
-                        // mời người lập bấm Cất mà tưởng đang lập cho dự án mới.
-                        setMaDuAnNhap("");
-                        return;
-                      }
-                      const d = duAnDaCo.find((x) => x.maDuAn === v);
-                      if (!d) {
-                        setMaDuAnNhap("");
-                        return;
-                      }
-                      setMaDuAnNhap(d.maDuAn);
-                      // Điền hộ tên công trình và hợp đồng — hai ô đó nằm ở khối dưới, gõ lại
-                      // là mời sai sót vào chứng từ gửi nhà cung cấp.
-                      if (d.tenCongTrinh) setTenCongTrinh(d.tenCongTrinh);
-                      if (d.maHopDongCDT) setMaHopDong(d.maHopDongCDT);
-                    }}
-                    className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
-                  >
-                    <option value="">-- Chọn dự án --</option>
-                    {duAnDaCo.map((d) => (
-                      <option key={d.maDuAn} value={d.maDuAn}>
-                        {d.maDuAn}
-                        {d.tenCongTrinh ? ` — ${d.tenCongTrinh}` : ""}
-                      </option>
-                    ))}
-                    <option value="__moi__">Dự án khác — nhập tay…</option>
-                  </select>
-                  {duAnChon === "__moi__" && (
-                    <>
-                      <Input
-                        value={maDuAnNhap}
-                        onChange={(e) => setMaDuAnNhap(e.target.value)}
-                        placeholder="260001-HPCS"
-                        aria-label="Mã dự án gốc"
-                        className="w-56"
-                      />
-                      <span className="text-xs text-text-desc">
-                        Mã dự án gốc theo Thông báo 09/2026/TB-HPCS, dạng{" "}
-                        <strong>YYUNNN-HPCS</strong>.
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* 📌 Ô "Dự án / Công trình" ĐÃ DỜI XUỐNG KHỐI ⑤ (thông tin nội bộ) ngày
+                  27/08/2026 — Ban lãnh đạo: *"các trường nhập số liệu này cũng phải giống 100%
+                  mẫu … nội dung nào khác thì bỏ hết"*. Ô đó không có trên biểu mẫu giấy và không
+                  in ra tờ đơn, nên không thuộc khối đầu tờ. Đừng đưa lại lên đây. */}
 
               <div className="muc-ngang">
                 <Label htmlFor="so-don-hang">Số đơn hàng</Label>
@@ -2926,7 +2853,9 @@ export function FormLapDonMuaHang({
               <span className="text-xs text-text-desc">
                 {dn
                   ? "Lấy tự động từ phiếu đề nghị, sửa được nếu phiếu ghi thiếu."
-                  : "In ra bản đơn A4 và file Excel gửi nhà cung cấp. Chọn dự án ở khối trên thì ô này tự điền."}
+                  : /* "khối cuối" chứ không phải "khối trên" — ô Dự án đã dời xuống khối ⑤ ngày
+                       27/08/2026. Chỉ sai chỗ là người lập đi tìm ở khối không có nó. */
+                    "In ra bản đơn A4 và file Excel gửi nhà cung cấp. Chọn dự án ở khối cuối form thì ô này tự điền."}
               </span>
             </div>
           </div>
@@ -3390,7 +3319,100 @@ export function FormLapDonMuaHang({
           ========================================================================= */}
       <Card>
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-          <div className="flex flex-col gap-2">
+          {/**
+            * ★★ Ô "DỰ ÁN / CÔNG TRÌNH" ĐÃ DỜI TỪ KHỐI ① XUỐNG ĐÂY — Ban lãnh đạo 27/08/2026, sau
+            * khi em trình bày: *"các trường nhập số liệu này cũng phải giống 100% mẫu … nội dung
+            * nào khác thì bỏ hết"*, và Sếp đồng ý phương án CHUYỂN thay vì bỏ.
+            *
+            * 🔴 VÌ SAO CHUYỂN CHỨ KHÔNG BỎ: ô này không có trên biểu mẫu giấy và không in ra tờ
+            * đơn — đúng là "nội dung khác mẫu". NHƯNG bỏ hẳn là **không cất được đơn độc lập
+            * nào**: `themDonHang` trong `kho-du-lieu.tsx` chặn thẳng khi `po.maDuAn` rỗng
+            * (*"Chưa có mã dự án gốc nên chưa cấp được số đơn hàng"*). Chuyển xuống khối nội bộ
+            * vừa làm khối đầu tờ sạch đúng mẫu, vừa không mất chức năng nào.
+            *
+            * 📌 ĐÚNG CHỖ VỀ Ý NGHĨA: khối ⑤ đúng là nơi gom những thứ KHÔNG in trên tờ đơn gửi
+            * nhà cung cấp — mã dự án thuộc về đúng nhóm đó.
+            *
+            * ⚠️ CHỌN Ở ĐÂY VẪN ĐIỀN HỘ HAI Ô Ở KHỐI ĐẦU (tên công trình · ghi chú hợp đồng). Thứ
+            * tự trên màn hình thành ngược (chọn ở cuối, chữ hiện ở đầu) nên câu chú thích dưới ô
+            * phải nói rõ, nếu không người lập tưởng app tự ý sửa ô họ đã gõ.
+            *
+            * 🔴 KHÔNG TỰ BỊA MÃ DỰ ÁN. Mã dự án gốc do công ty cấp theo Thông báo 09/2026/TB-HPCS;
+            * app chỉ cho CHỌN LẠI cái đã có hoặc GHI LẠI cái người dùng gõ. Danh sách gợi ý suy
+            * từ đề nghị + đơn hàng đang có (app chưa có danh mục dự án riêng) — nên luôn phải
+            * chừa đường "nhập tay" cho dự án mới.
+            *
+            * 🔴 `w-full min-w-0` KHÔNG PHẢI TRANG TRÍ. `<select>` để `width:auto` thì bề rộng tối
+            * thiểu của nó bằng bề rộng của LỰA CHỌN DÀI NHẤT, mà mỗi lựa chọn ở đây là "mã dự án
+            * — tên công trình" (có thể 60–70 ký tự). Bề rộng đó đẩy giãn cả cột: trên màn 375px
+            * phần bên phải bị `overflow-x-hidden` của `khung-tong.tsx` CẮT MẤT — không trôi ngang
+            * nên đo `scrollWidth` cũng không thấy, chỉ thấy khi mở bằng điện thoại.
+            */}
+          {laDonDocLap && (
+            <div className="muc-ngang">
+              <Label htmlFor="du-an-don">
+                Dự án / Công trình <span className="text-danger">*</span>
+              </Label>
+              <select
+                id="du-an-don"
+                value={duAnChon}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDuAnChon(v);
+                  if (v === "__moi__") {
+                    // Chuyển sang gõ tay thì DỌN ô mã — giữ lại mã của dự án vừa chọn là
+                    // mời người lập bấm Cất mà tưởng đang lập cho dự án mới.
+                    setMaDuAnNhap("");
+                    return;
+                  }
+                  const d = duAnDaCo.find((x) => x.maDuAn === v);
+                  if (!d) {
+                    setMaDuAnNhap("");
+                    return;
+                  }
+                  setMaDuAnNhap(d.maDuAn);
+                  // Điền hộ tên công trình và hợp đồng — hai ô đó nằm ở KHỐI ĐẦU TỜ, gõ lại là
+                  // mời sai sót vào chứng từ gửi nhà cung cấp.
+                  if (d.tenCongTrinh) setTenCongTrinh(d.tenCongTrinh);
+                  if (d.maHopDongCDT) setMaHopDong(d.maHopDongCDT);
+                }}
+                className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+              >
+                <option value="">-- Chọn dự án --</option>
+                {duAnDaCo.map((d) => (
+                  <option key={d.maDuAn} value={d.maDuAn}>
+                    {d.maDuAn}
+                    {d.tenCongTrinh ? ` — ${d.tenCongTrinh}` : ""}
+                  </option>
+                ))}
+                <option value="__moi__">Dự án khác — nhập tay…</option>
+              </select>
+              {duAnChon === "__moi__" && (
+                <>
+                  <Input
+                    value={maDuAnNhap}
+                    onChange={(e) => setMaDuAnNhap(e.target.value)}
+                    placeholder="260001-HPCS"
+                    aria-label="Mã dự án gốc"
+                    className="w-56"
+                  />
+                  <span className="text-xs text-text-desc">
+                    Mã dự án gốc theo Thông báo 09/2026/TB-HPCS, dạng{" "}
+                    <strong>YYUNNN-HPCS</strong>.
+                  </span>
+                </>
+              )}
+              {/* Nói trước việc app điền hộ — chọn ở cuối form mà chữ hiện ở đầu form thì phải
+                  báo, nếu không người lập tưởng app tự ý sửa ô họ đã gõ. */}
+              <span className="text-xs text-text-desc">
+                Không in trên tờ đơn — dùng để cấp số đơn hàng và lưu hồ sơ theo dự án. Chọn xong
+                thì <strong>Tên công trình</strong> và <strong>Theo hợp đồng</strong> ở khối đầu
+                tự điền.
+              </span>
+            </div>
+          )}
+
+          <div className="muc-ngang">
             <Label htmlFor="nv-mua-hang">Nhân viên mua hàng</Label>
             {/**
               * ★★ ĐÃ MỞ KHÓA CHO SỬA — Ban lãnh đạo 26/08/2026: *"Chỗ tên nhân viên mua hàng hãy
