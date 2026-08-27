@@ -93,6 +93,19 @@ try {
   process.exit(1);
 }
 
+const tepRa5 = join(thuMuc, "tuoi-no.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/tuoi-no.ts" --bundle --platform=node --format=cjs --outfile="${tepRa5}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/tuoi-no.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
@@ -625,6 +638,108 @@ kiem(
       duoc: coO5 && !coO4,
       thucTe: `bước ④ = ${JSON.stringify(o4)} · bước ⑤ = ${JSON.stringify(o5)}`,
       mongDoi: "bước ⑤ có nhắc hợp đồng, bước ④ thì không",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// CÔNG NỢ THEO ĐƠN HÀNG — bảng 8 cột, Ban lãnh đạo 27/08/2026
+//
+// ⚠️ HAI QUY TẮC DƯỚI ĐÂY LÀ GIẢ ĐỊNH CỦA PHIÊN NGHIỆP VỤ, CHƯA ĐƯỢC SẾP XÁC NHẬN
+//    · mốc tính nợ = ngày nhận hàng LẦN CUỐI
+//    · ngưỡng "sắp đến hạn" = 7 ngày
+// Căn cứ đã có: chú thích của `soNgayDuocNo` ghi "kể từ ngày nhận hàng", và thẻ KPI ghi
+// "Cần bố trí thanh toán trong tuần". Sếp chốt khác thì SỬA CẢ HÀM LẪN BÀI KIỂM, và ghi
+// lại ngày chốt ở đây.
+//
+// 🔴 Ba bài kiểm này bảo vệ những thứ SAI LÀ RA SỐ TIỀN SAI. Trước 27/08/2026 màn công nợ
+// không có dòng nào nên không ai nhìn ra được lỗi bằng mắt.
+// ════════════════════════════════════════════════════════════════════
+
+/** Dựng bộ dữ liệu công nợ để gọi thật — tên trường lấy đúng theo `tinhTienDoPO`. */
+function boCongNoThu() {
+  const po = (id, code, ncc) => ({
+    id,
+    code,
+    supplierTen: ncc,
+    trangThai: "da_chot",
+    maDuAn: "X",
+    items: [{ sttDong: 1, tenVatLieu: "Thep", donViTinh: "kg", khoiLuongDat: 100 }],
+  });
+  const gia = (poId, donGia, ngayNo) => ({
+    poId,
+    lines: [{ sttDong: 1, donGia, thueSuatGTGT: 8 }],
+    thueSuatGTGT: 8,
+    soNgayDuocNo: ngayNo,
+  });
+  const phieu = (poId, lan, ngay, kl) => ({
+    poId,
+    lanGiaoThu: lan,
+    ngayNhanThucTe: ngay,
+    trangThai: "da_nhap_kho",
+    lines: [{ sttDongPO: 1, khoiLuongThucNhan: kl }],
+  });
+  return {
+    moc: new Date(2026, 7, 27), // 27/08/2026
+    donHang: [
+      po("p1", "DMH260001", "NCC A"), // giao 2 đợt: 01/06 rồi 01/07
+      po("p2", "DMH260003", "NCC C"), // không ghi số ngày được nợ
+      po("p3", "DMH260004", "NCC D"), // mới nhận 50/100
+    ],
+    giaDon: [gia("p1", 10000, 30), gia("p2", 30000, undefined), gia("p3", 40000, 30)],
+    phieuNhan: [
+      phieu("p1", 1, "2026-06-01", 60),
+      phieu("p1", 2, "2026-07-01", 40),
+      phieu("p2", 1, "2026-08-20", 100),
+      phieu("p3", 1, "2026-08-01", 50),
+    ],
+  };
+}
+
+kiem(
+  "Công nợ tính từ ngày nhận hàng LẦN CUỐI, không phải lần đầu",
+  "phiên nghiệp vụ · 27/08/2026 (giả định, chờ Sếp xác nhận)",
+  () => {
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const b = boCongNoThu();
+    const ra = TN.congNoTheoDonHang(b.donHang, b.giaDon, b.phieuNhan, b.moc);
+    const d = ra.find((x) => x.maDonHang === "DMH260001");
+    return {
+      duoc: d?.ngayBatDau === "2026-07-01" && d?.ngayToiHan === "2026-07-31",
+      thucTe: `ngayBatDau = ${d?.ngayBatDau} · ngayToiHan = ${d?.ngayToiHan}`,
+      mongDoi: "batDau = 2026-07-01 (lần giao thứ 2), toiHan = 2026-07-31 (+30 ngày)",
+    };
+  },
+);
+
+kiem(
+  "Đơn CHƯA nhận đủ hàng KHÔNG được vào bảng công nợ",
+  "phiên nghiệp vụ · 27/08/2026",
+  () => {
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const b = boCongNoThu();
+    const ra = TN.congNoTheoDonHang(b.donHang, b.giaDon, b.phieuNhan, b.moc);
+    const co = ra.some((x) => x.maDonHang === "DMH260004");
+    return {
+      duoc: !co && ra.length === 2,
+      thucTe: `số dòng = ${ra.length}, có DMH260004 (mới nhận 50/100) = ${co}`,
+      mongDoi: "2 dòng, KHÔNG có đơn chưa nhận đủ — đưa vào là thổi phồng dư nợ",
+    };
+  },
+);
+
+kiem(
+  "Thiếu số ngày được nợ thì KHÔNG bịa ngày tới hạn",
+  "phiên nghiệp vụ · 27/08/2026",
+  () => {
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const b = boCongNoThu();
+    const ra = TN.congNoTheoDonHang(b.donHang, b.giaDon, b.phieuNhan, b.moc);
+    const d = ra.find((x) => x.maDonHang === "DMH260003");
+    return {
+      duoc: d?.ngayToiHan === undefined && d?.canhBao?.tong === "neutral",
+      thucTe: `ngayToiHan = ${d?.ngayToiHan} · cảnh báo = ${JSON.stringify(d?.canhBao)}`,
+      mongDoi: 'ngayToiHan undefined và cảnh báo tông "neutral" — không được báo là trong hạn',
     };
   },
 );

@@ -20,6 +20,7 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { nhanAnToan, NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
 import {
+  congNoTheoDonHang,
   tinhTuoiNo,
   nhomTuoiNoTheoNCC,
   soTienConLai,
@@ -108,7 +109,23 @@ const columns: ColumnDef<CongNo, unknown>[] = [
 
 /** M8 — Công nợ nhà cung cấp: hóa đơn phải trả lấy từ PO và phân tích tuổi nợ 30-60-90. */
 export default function TrangCongNo() {
-  const { congNo } = useDuLieu();
+  /**
+   * 🔴 LẤY THÊM ĐƠN HÀNG · BẢNG GIÁ · PHIẾU NHẬN để DỰNG công nợ — Ban lãnh đạo 27/08/2026.
+   *
+   * Trước ngày này trang chỉ đọc `congNo`, mà `congNo` là hằng số `CONG_NO_MAU = []` gán cứng
+   * trong kho dữ liệu: không `useState`, không hàm ghi, và không có mặt trong
+   * `kho-chung-firestore.ts` lẫn `luu-tren-may.ts`. Nghĩa là màn này **không bao giờ** có được
+   * một dòng nào, không phải "chưa có dữ liệu chạy thử".
+   *
+   * ✅ Nay công nợ được SUY RA từ đơn hàng thật (`congNoTheoDonHang` ở `2-quy-trinh/tuoi-no.ts`).
+   * Suy ra thì không bao giờ lệch với đơn gốc; lưu một bản sao thì sớm muộn hai chỗ nói hai con
+   * số khác nhau.
+   *
+   * ⚠️ `congNo` VẪN GIỮ: bảng "Danh sách hóa đơn phải trả" và màn Lịch công việc
+   * (`lich-cong-viec.ts` sinh mốc "Hạn thanh toán") còn đọc nó. Đây là hai nguồn song song cho
+   * tới khi có sổ công nợ thật — đừng bỏ cái nào khi chưa chuyển hết chỗ dùng.
+   */
+  const { congNo, donHang, giaDonHang, phieuNhan } = useDuLieu();
   const { quyen } = useNguoiDung();
 
   /**
@@ -143,6 +160,10 @@ export default function TrangCongNo() {
   const tongDuNo = mucTuoiNo.reduce((s, m) => s + m.soTien, 0);
   const tongQuaHan = mucTuoiNo.slice(1).reduce((s, m) => s + m.soTien, 0);
   const theoNCC = nhomTuoiNoTheoNCC(congNo);
+
+  /* Bảng 8 cột theo từng đơn hàng — luật tính nằm hết ở `2-quy-trinh/tuoi-no.ts`, ở đây chỉ
+     gọi và vẽ. Quy tắc 3.4b: không để hàm tính nghiệp vụ trong tệp giao diện. */
+  const theoDon = congNoTheoDonHang(donHang, giaDonHang, phieuNhan);
 
   return (
     <>
@@ -240,6 +261,114 @@ export default function TrangCongNo() {
                 </div>
               );
             })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/**
+        * ★★ BẢNG THEO DÕI CÔNG NỢ — 8 CỘT THEO TỪNG ĐƠN HÀNG (Ban lãnh đạo 27/08/2026:
+        * *"bố cục lại thông tin của tab theo dõi công nợ"*, kèm ảnh ghi rõ tên 8 cột).
+        *
+        * 🔴 ĐÂY LÀ ĐỔI TRỤC BẢNG, KHÔNG PHẢI ĐỔI CHỖ VÀI CỘT. Bảng cũ mỗi dòng là MỘT NHÀ CUNG
+        * CẤP, các cột là 5 khoảng tuổi nợ. Bảng này mỗi dòng là MỘT ĐƠN HÀNG — trả lời đúng câu
+        * người dùng hỏi hằng ngày: *"đơn này tới hạn trả chưa?"*
+        *
+        * 📌 BẢNG CŨ GIỮ NGUYÊN Ở NGAY DƯỚI, không xoá. Nó cho biết bốn thứ bảng này không nói
+        * được: ma trận 5 khoảng tuổi nợ của từng NCC · số hoá đơn chưa tất toán mỗi NCC · mức rủi
+        * ro CẤP NHÀ CUNG CẤP · và NCC nào đang nợ nhiều nhất. Thay hẳn là mất cả bốn.
+        *
+        * ⚠️ CHƯA PHẢI SỔ CÔNG NỢ ĐẦY ĐỦ — app chưa theo dõi từng lần chi, nên cột "Tổng công nợ"
+        * là TOÀN BỘ giá trị đơn, chưa trừ phần đã trả. Câu chú ngay dưới tiêu đề nói rõ điều đó
+        * với người dùng, không để họ tưởng đây là số dư thật.
+        */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Wallet className="size-4 text-primary" aria-hidden />
+            Theo dõi công nợ theo đơn hàng
+          </CardTitle>
+          <p className="text-sm text-text-secondary">
+            Đơn đã nhận đủ hàng · nợ tính từ <strong>ngày nhận hàng lần cuối</strong> cộng số ngày
+            được nợ ghi trên đơn. Số tiền là toàn bộ giá trị đơn — app chưa theo dõi từng lần chi.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-14 text-center">STT</TableHead>
+                  <TableHead>Tên đơn hàng (PO)</TableHead>
+                  <TableHead>Tên NCC</TableHead>
+                  <TableHead className="text-right">Tổng công nợ</TableHead>
+                  <TableHead className="text-center">Thời gian C.Nợ</TableHead>
+                  <TableHead className="text-center">Ngày bắt đầu tính</TableHead>
+                  <TableHead className="text-center">Ngày tới hạn</TableHead>
+                  <TableHead className="text-center">Cảnh báo tới hạn</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {theoDon.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-6 text-center text-sm text-text-desc">
+                      Chưa có đơn hàng nào nhận đủ hàng — chưa phát sinh công nợ.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  theoDon.map((r, i) => (
+                    <TableRow key={r.poId}>
+                      <TableCell className="text-center tabular-nums text-text-desc">
+                        {i + 1}
+                      </TableCell>
+                      <TableCell>
+                        {/* Mã đơn bấm được sang chính đơn đó — dùng lại lối đi đã có ở bảng hóa
+                            đơn bên dưới, đừng bày một mã chết rồi bắt người dùng tự đi tìm. */}
+                        <Link
+                          href={`/don-hang/${r.poId}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {r.maDonHang}
+                        </Link>
+                        {r.tenCongTrinh && (
+                          <span className="block text-xs text-text-desc">{r.tenCongTrinh}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-text-primary">{r.tenNCC}</TableCell>
+                      <TableCell className="text-right font-bold text-text-primary">
+                        {formatCurrencyVnd(r.tongCongNo)}
+                      </TableCell>
+                      {/* 🔴 Ô TRỐNG PHẢI NÓI RÕ LÀ TRỐNG. Đơn không ghi số ngày được nợ thì in
+                          "—" chứ không in "0 ngày" — số 0 nghĩa là phải trả ngay, khác hẳn
+                          nghĩa "chưa ai điền". */}
+                      <TableCell className="text-center tabular-nums">
+                        {r.soNgayDuocNo !== undefined ? (
+                          `${r.soNgayDuocNo} ngày`
+                        ) : (
+                          <span className="text-text-desc">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center tabular-nums">
+                        {r.ngayBatDau ? (
+                          formatDate(r.ngayBatDau)
+                        ) : (
+                          <span className="text-text-desc">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center font-medium tabular-nums text-text-primary">
+                        {r.ngayToiHan ? (
+                          formatDate(r.ngayToiHan)
+                        ) : (
+                          <span className="font-normal text-text-desc">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <StatusBadge label={r.canhBao.nhan} tone={r.canhBao.tong} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>

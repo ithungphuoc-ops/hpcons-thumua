@@ -14,7 +14,6 @@ import {
   FileText,
   FileWarning,
   Keyboard,
-  Paperclip,
   Printer,
   RotateCcw,
   Save,
@@ -23,7 +22,6 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
-import { ODinhKemNhieuTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-nhieu-tep";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
@@ -2826,16 +2824,43 @@ export function FormLapDonMuaHang({
             * bằng cách tách dòng đó trên tờ in — đó là chữ chép từ giấy công ty.
             */}
           <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) sm:grid-cols-2">
-            {/* Mã đề nghị — CHỈ ĐỌC, và chỉ có khi đơn lập từ một phiếu đề nghị.
-                🔴 Không cho sửa: đây là mã phiếu đề nghị nguồn, đổi tay là mất đường truy vết về
-                khối lượng đã duyệt. Đơn độc lập thì KHÔNG vẽ ô này — bày một ô trống vĩnh viễn là
-                mời người lập đi tìm xem phải điền gì. */}
+            {/**
+              * ★★ MÃ ĐỀ NGHỊ = MÃ ĐỀ XUẤT BÊN APP REQUEST — Ban lãnh đạo 27/08/2026, chỉ thẳng
+              * vào ô đang gắn nhãn *"Mã request"* và nói: *"Này chính là mã đề nghị"*.
+              *
+              * 🔴 TRƯỚC ĐÂY Ô NÀY HIỆN `dn.code` VÀ ĐÓ LÀ CHỮ SAI NGHĨA. Đề nghị đến từ App
+              * Request có `code` là một chuỗi dài kiểu *"HDXD test-TEST Cong trinh-…201"* — người
+              * lập nhìn vào không nhận ra đó là mã gì, trong khi mã họ dùng để đối chiếu hằng ngày
+              * (`000000043`) lại nằm ở một ô khác mang tên lạ *"Mã request"*. Hai ô, một khái niệm,
+              * và ô mang đúng tên thì hiện sai giá trị.
+              *
+              * 🔴 GỘP THÀNH MỘT Ô, KHÔNG GIỮ CẢ HAI. Bày hai ô cho cùng một thứ là mời người dùng
+              * đi tìm xem cái nào mới đúng để chép vào chứng từ.
+              *
+              * 📌 `?? dn.code` là ĐƯỜNG LUI THẬT, không phải cho chắc: đề nghị lập TAY trong app
+              * không đi qua App Request nên không có mã đó — để trống là ô rỗng vĩnh viễn.
+              *
+              * 📌 `dn.code` chuyển vào `title`: vẫn tra được khi cần đối chiếu nội bộ, mà không
+              * chiếm một ô trên màn hình.
+              *
+              * ⚠️ CHỈ ĐỌC. Đây là mã do app KHÁC sinh ra; sửa tay ở đây là mất đường đối chiếu
+              * giữa hai app, và mất luôn đường truy vết về khối lượng đã duyệt.
+              */}
             {dn && (
               <div className="muc-ngang">
                 <Label htmlFor="ma-de-nghi">Mã đề nghị</Label>
-                <Input id="ma-de-nghi" value={dn.code} readOnly disabled className="font-mono" />
+                <Input
+                  id="ma-de-nghi"
+                  value={dn.maDeXuatAppRequest ?? dn.code}
+                  readOnly
+                  disabled
+                  className="font-mono"
+                  title={`Mã hồ sơ trong app Thu mua: ${dn.code}`}
+                />
                 <span className="text-xs text-text-desc">
-                  Lấy tự động từ phiếu đề nghị — chỉ đọc, để giữ đường truy vết khối lượng đã duyệt.
+                  {dn.maDeXuatAppRequest
+                    ? "Mã đề xuất bên App Request — lấy tự động, chỉ đọc, dùng để đối chiếu giữa hai app."
+                    : "Lấy tự động từ phiếu đề nghị — chỉ đọc, để giữ đường truy vết khối lượng đã duyệt."}
                 </span>
               </div>
             )}
@@ -2861,58 +2886,36 @@ export function FormLapDonMuaHang({
           </div>
 
           {/**
-            * ★ MÃ HỢP ĐỒNG + MÃ REQUEST — Ban lãnh đạo 24/08/2026 (*"Thêm mã hợp đồng"*,
-            * *"mã request"*, khoanh đúng vùng trống bên phải khối này).
+            * ★ Ô "THEO HỢP ĐỒNG" — hợp đồng với CHỦ ĐẦU TƯ (`maHopDongCDT`). Căn cứ để công trình
+            * quyết toán, nên in lên đơn gửi nhà cung cấp. SỬA ĐƯỢC: đề nghị điền sẵn, nhưng đơn là
+            * chứng từ gửi ra ngoài — người lập phải sửa được nếu đề nghị ghi thiếu/sai.
             *
-            * 🔴 HAI MÃ NÀY KHÁC NHAU, ĐỪNG GỘP:
-            *   · **Mã hợp đồng** = hợp đồng với CHỦ ĐẦU TƯ (`maHopDongCDT`). Đây là căn cứ để
-            *     công trình quyết toán, nên in lên đơn gửi nhà cung cấp. SỬA ĐƯỢC: đề nghị điền
-            *     sẵn, nhưng đơn là chứng từ gửi ra ngoài — người lập phải sửa được nếu đề nghị
-            *     ghi thiếu/sai.
-            *   · **Mã request** = mã đề xuất bên App Request (`maDeXuatAppRequest`). CHỈ ĐỌC: đó
-            *     là mã do app KHÁC sinh ra, sửa tay ở đây là mất đường đối chiếu giữa hai app.
-            *
-            * 📌 Cùng một state `maHopDong` với ô "Theo hợp đồng" ở khối trên — một giá trị, một
+            * 📌 Cùng một state `maHopDong` với ô "Theo hợp đồng" ở khối đầu tờ — một giá trị, một
             * nguồn. Sửa ở ô nào thì ô kia đổi theo, không có chuyện hai ô lệch nhau.
             *
             * 🔴 SỬA Ô TRÊN THÌ PHẢI SỬA Ô NÀY THEO. Từ 27/08/2026 đây là GHI CHÚ TỰ DO in nguyên
             * văn lên tờ đơn, không còn là ô "mã hợp đồng" thuần. Để nhãn cũ ở đây là một ô bảo
             * "nhập mã", ô kia bảo "gõ cả câu" — cùng đổ vào một chỗ.
             *
-            * ⚠️ Ô mã request chỉ hiện khi đề nghị THẬT SỰ có mã đó. Đề nghị lập tay trong app
-            * không đi qua App Request nên không có mã — bày một ô trống vĩnh viễn là mời người
-            * lập đi tìm xem phải điền gì.
+            * 📌 ĐÃ BỎ Ô "MÃ REQUEST" đứng cạnh (27/08/2026): nó và ô "Mã đề nghị" ở hàng trên là
+            * CÙNG MỘT THỨ — Ban lãnh đạo chỉ thẳng vào nó và nói *"Này chính là mã đề nghị"*. Nay
+            * gộp về ô "Mã đề nghị". Đừng dựng lại ô này.
+            *
+            * 📌 Chiếm CẢ HÀNG: ô ghi chú hợp đồng hay dài (số hợp đồng + ngày ký + phụ lục), mà
+            * hàng này không còn ô nào đứng cạnh nữa.
             */}
-          <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) sm:grid-cols-2">
-            <div className="muc-ngang">
-              <Label htmlFor="ma-hop-dong-duoi">Theo hợp đồng</Label>
-              <Input
-                id="ma-hop-dong-duoi"
-                value={maHopDong}
-                onChange={(e) => setMaHopDong(e.target.value)}
-                placeholder="VD: HĐ số 089/2026/HĐKT-HPC ký ngày 01/08/2026"
-              />
-              <span className="text-xs text-text-desc">
-                Hợp đồng với chủ đầu tư — in nguyên văn lên tờ đơn. Đề nghị điền sẵn mã, gõ thêm
-                ngày ký hoặc sửa lại tuỳ đơn.
-              </span>
-            </div>
-
-            {dn?.maDeXuatAppRequest && (
-              <div className="muc-ngang">
-                <Label htmlFor="ma-request">Mã request</Label>
-                <Input
-                  id="ma-request"
-                  value={dn.maDeXuatAppRequest}
-                  readOnly
-                  disabled
-                  className="font-mono"
-                />
-                <span className="text-xs text-text-desc">
-                  Mã đề xuất bên App Request — chỉ đọc, dùng để đối chiếu giữa hai app.
-                </span>
-              </div>
-            )}
+          <div className="muc-ngang">
+            <Label htmlFor="ma-hop-dong-duoi">Theo hợp đồng</Label>
+            <Input
+              id="ma-hop-dong-duoi"
+              value={maHopDong}
+              onChange={(e) => setMaHopDong(e.target.value)}
+              placeholder="VD: HĐ số 089/2026/HĐKT-HPC ký ngày 01/08/2026"
+            />
+            <span className="text-xs text-text-desc">
+              Hợp đồng với chủ đầu tư — in nguyên văn lên tờ đơn. Đề nghị điền sẵn mã, gõ thêm
+              ngày ký hoặc sửa lại tuỳ đơn.
+            </span>
           </div>
 
           {/**
@@ -3459,15 +3462,17 @@ export function FormLapDonMuaHang({
             * tờ in A4, không có ở danh sách đơn hàng. Đơn cũ trong Firestore còn khóa
             * `dienGiai` thì nằm im, không ai đọc nữa.
             */}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="tham-chieu">Tham chiếu</Label>
-            <Input
-              id="tham-chieu"
-              value={thamChieu}
-              onChange={(e) => setThamChieu(e.target.value)}
-              placeholder="Số chứng từ liên quan (đơn cũ, email, hợp đồng…)"
-            />
-          </div>
+          {/**
+            * ❌ ĐÃ BỎ Ô "THAM CHIẾU" — Ban lãnh đạo 27/08/2026: *"Bỏ mục này đi"*, khoanh đúng ô
+            * này và ô đính kèm ngay dưới.
+            *
+            * 📌 Ô đó không in trên tờ đơn A4 (đã kiểm: `to-don-mua-hang-a4.tsx` không đọc
+            * `thamChieu` một lần nào) — nó chỉ đi ra một dòng của file Excel.
+            *
+            * ⚠️ STATE `thamChieu` VẪN GIỮ, ĐỪNG DỌN THEO: bộ đọc file Excel còn nhặt ô "Tham
+            * chiếu:" vào (`doc-don-hang-excel.ts`), và bộ ghi còn ghi ra. Bỏ state là nhập một
+            * file có giá trị đó rồi xuất lại thì mất — vòng đọc/ghi hỏng im lặng.
+            */}
 
           {/* =====================================================================
               🔴 CHẾ ĐỘ MẪU KHÔNG CÓ Ô ĐÍNH KÈM — sửa lỗi thật, phát hiện 18/08/2026 khi
@@ -3490,42 +3495,24 @@ export function FormLapDonMuaHang({
               ⚠️ Đường có đề nghị giữ nguyên hoàn toàn — tệp ở đó đi vào
                  `DonDatHang.tepDinhKem` của đúng đơn được cất.
               ===================================================================== */}
-          {laDonDocLap ? (
-            <div className="flex flex-col gap-2">
-              <Label>Đính kèm cho đơn</Label>
-              <p className="flex items-start gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad) text-sm text-text-secondary">
-                <Paperclip className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
-                <span className="min-w-0">
-                  Bản mẫu không lưu vào hệ thống nên <strong>chưa đính kèm được tệp</strong> —
-                  tệp tải lên đây sẽ không có đơn nào để gắn vào. Cần lưu hợp đồng hay báo giá
-                  cùng đơn thì lập đơn thật từ phiếu đề nghị trong Quy trình mua hàng.
-                </span>
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {/* 🔴 NÓI RÕ ĐÂY LÀ TỆP CỦA ĐƠN, KHÔNG PHẢI TỆP CỦA BƯỚC.
-                  Khi nhúng, khu "Tệp đính kèm của bước ④" (`KhuDinhKemGiaiDoan`) nằm ngay dưới
-                  cùng một khối, cách đây một đường kẻ. Hai chỗ lưu vào HAI NƠI KHÁC NHAU: ô này
-                  đi vào `DonDatHang.tepDinhKem` của đúng đơn đang lập, khu kia đi vào
-                  `DeNghiMuaHang.tepGiaiDoan`. Không phân biệt bằng chữ thì người dùng bỏ hợp
-                  đồng vào nhầm chỗ mà không cách nào biết. */}
-              <Label>Đính kèm cho ĐƠN này</Label>
-              {/* 🔴 DÙNG LẠI `ODinhKemNhieuTep`: nó cất tệp vào kho tệp (IndexedDB + Firestore)
-                  NGAY LÚC CHỌN rồi mới trả mô tả về. Tuyệt đối không nhét nội dung tệp vào
-                  `localStorage` — chỗ đó chỉ ~5MB cho cả tên miền và đang giữ toàn bộ dữ liệu
-                  nghiệp vụ, một ảnh 2–5MB là mất sạch.
-                  ⚠️ MISA ghi "Dung lượng tối đa 5MB"; app dùng giới hạn chung của mình
-                  (`CO_TOI_DA` ở `kho-tep.ts`), do chính ô này in ra — không đặt thêm một con
-                  số riêng cho đơn hàng rồi hai chỗ nói hai kiểu. */}
-              <ODinhKemNhieuTep
-                tep={tepDinhKem}
-                onDoi={setTepDinhKem}
-                nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-                nhan="Đính kèm tệp cho đơn"
-              />
-            </div>
-          )}
+          {/**
+            * ❌ ĐÃ BỎ KHỐI "ĐÍNH KÈM CHO ĐƠN NÀY" — Ban lãnh đạo 27/08/2026: *"Bỏ mục này đi"*.
+            *
+            * 🔴 BỎ LÀ ĐÚNG, VÀ ĐÂY LÀ LÝ DO ĐO ĐƯỢC: tệp đính vào đơn **không có màn hình nào
+            * hiển thị lại**. Đã grep `tepDinhKem` trên toàn bộ `1-giao-dien/trang/`: KHÔNG một
+            * kết quả nào; tờ in A4 cũng không đọc. Nghĩa là người lập bỏ hợp đồng / báo giá vào
+            * đây, thấy tên tệp hiện lên, tin là đã lưu vào hồ sơ — rồi không ai tra ra được nữa.
+            * Đúng thứ quy ước dự án cấm ở mục 3.5: *"Đừng để giao diện hứa một việc app không
+            * làm"*.
+            *
+            * 📌 CHỖ ĐÍNH KÈM ĐÚNG VẪN CÒN NGUYÊN: khu "Tệp đính kèm của bước" (`KhuDinhKemGiaiDoan`)
+            * trên trang chi tiết đề nghị — tệp ở đó vào `DeNghiMuaHang.tepGiaiDoan`, có màn hình
+            * xem lại, và được bộ hồ sơ thanh toán đếm. Hợp đồng, báo giá, phiếu giao nhận, hoá đơn
+            * đều nộp ở đó.
+            *
+            * ⚠️ STATE `tepDinhKem` VẪN GIỮ: `themDonHang` còn nhận trường này, và đơn cũ trong
+            * Firestore còn dữ liệu. Bỏ state là phải sửa cả tầng ghi cho một việc không cần thiết.
+            */}
 
         </CardContent>
       </Card>
