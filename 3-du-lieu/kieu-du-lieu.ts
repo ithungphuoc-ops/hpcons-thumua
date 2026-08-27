@@ -577,6 +577,18 @@ export type MauDonMuaHang = "thoa_thuan" | "theo_hop_dong";
  * ★ ĐẶT TÊN THEO MÃ BIỂU MẪU — Ban lãnh đạo 25/08/2026: *"Đổi tên 2 mẫu này: 1. Mẫu PO-01 - Đơn
  * mua hàng · 2. Mẫu PO-02 - Đơn mua hàng kèm thoả thuận"*.
  *
+ * ★★ ĐỔI LẦN HAI — Ban lãnh đạo 27/08/2026: *"ĐỔI TÊN 2 MẪU NÀY CHO A"*, kèm ảnh ghi rõ:
+ *     `Mẫu PO-01 - ĐƠN MUA HÀNG` · `Mẫu PO-02 - ĐƠN MUA HÀNG / THOẢ THUẬN MUA BÁN`
+ *
+ * 🔴 KHÔNG PHẢI CHỈ VIẾT HOA. Tên mẫu PO-02 đổi cả NGHĨA: từ *"kèm thoả thuận"* (nghe như đơn
+ * mua hàng có kèm thêm một thoả thuận) thành *"ĐƠN MUA HÀNG / THOẢ THUẬN MUA BÁN"* — tức chính
+ * tờ đơn ĐÓNG CẢ HAI vai. Đó mới đúng bản chất pháp lý của mẫu này, và nay khớp y hệt tiêu đề
+ * in trên giấy (`tieuDeIn`), nên người lập chọn ở ô nào cũng đọc ra đúng tờ mình sắp in.
+ *
+ * ⚠️ CHÍNH TẢ ĐỂ NGUYÊN NHƯ SẾP VIẾT: nhãn dùng **"THOẢ"**, còn `tieuDeIn` vẫn là **"Thỏa"** theo
+ * biểu mẫu giấy của công ty. Hai cách viết đều đúng tiếng Việt; đừng "thống nhất" bằng cách sửa
+ * `tieuDeIn` — đó là chữ chép từ giấy, sửa là lệch biểu mẫu.
+ *
  * 🔴🔴 `nhan` VÀ `tieuDeIn` LÀ HAI THỨ KHÁC NHAU, ĐỪNG GỘP:
  *   · `nhan`     = chữ trong ô chọn, người **nội bộ** đọc để chọn đúng biểu mẫu → mang mã PO-01 /
  *                  PO-02 cho khớp bộ biểu mẫu của công ty.
@@ -585,11 +597,12 @@ export type MauDonMuaHang = "thoa_thuan" | "theo_hop_dong";
  *                  tờ đơn phải tự xưng đúng loại văn bản của nó.
  *
  * 🔴 ÁNH XẠ THEO NGHĨA PHÁP LÝ, KHÔNG THEO THỨ TỰ CŨ TRONG Ô CHỌN:
- *   · PO-02 *"kèm thoả thuận"* → `thoa_thuan` — chính tờ đơn có giá trị như hợp đồng, nên tờ in
- *     có thêm hai câu cam kết ở cuối.
- *   · PO-01 *"Đơn mua hàng"*   → `theo_hop_dong` — điều khoản nằm ở hợp đồng nguyên tắc đã ký, tờ
- *     in chỉ dẫn lại hợp đồng đó (nguyên văn ghi chú người lập gõ) và KHÔNG cam kết lại.
- * Đổi nhãn máy móc theo vị trí cũ là gán tên "kèm thoả thuận" cho mẫu **không** có thoả thuận —
+ *   · PO-02 *"ĐƠN MUA HÀNG / THOẢ THUẬN MUA BÁN"* → `thoa_thuan` — chính tờ đơn có giá trị như
+ *     hợp đồng, nên tờ in có thêm hai câu cam kết ở cuối.
+ *   · PO-01 *"ĐƠN MUA HÀNG"*                      → `theo_hop_dong` — điều khoản nằm ở hợp đồng
+ *     nguyên tắc đã ký, tờ in chỉ dẫn lại hợp đồng đó (nguyên văn ghi chú người lập gõ) và KHÔNG
+ *     cam kết lại.
+ * Đổi nhãn máy móc theo vị trí cũ là gán tên có chữ "thoả thuận" cho mẫu **không** có thoả thuận —
  * người lập chọn nhầm là gửi cho nhà cung cấp một chứng từ nói sai về căn cứ pháp lý.
  *
  * 📌 THỨ TỰ KHAI Ở ĐÂY QUYẾT ĐỊNH THỨ TỰ TRONG Ô CHỌN (dropdown dựng bằng `Object.keys`). Xếp
@@ -597,14 +610,14 @@ export type MauDonMuaHang = "thoa_thuan" | "theo_hop_dong";
  */
 export const NHAN_MAU_PO: Record<MauDonMuaHang, { nhan: string; tieuDeIn: string; moTa: string }> = {
   theo_hop_dong: {
-    nhan: "Mẫu PO-01 — Đơn mua hàng",
+    nhan: "Mẫu PO-01 - ĐƠN MUA HÀNG",
     tieuDeIn: "Đơn mua hàng",
     /* ⚠️ CHỮ CHẠY TRÊN GIAO DIỆN (hiện dưới ô chọn mẫu ở form lập đơn), không phải chú thích.
        Từ 27/08/2026 app KHÔNG tự dựng số và ngày nữa — nói ngược lại là hứa một việc app không làm. */
     moTa: "Đã có hợp đồng nguyên tắc — tờ đơn dẫn lại hợp đồng đó theo ô ghi chú bạn nhập.",
   },
   thoa_thuan: {
-    nhan: "Mẫu PO-02 — Đơn mua hàng kèm thoả thuận",
+    nhan: "Mẫu PO-02 - ĐƠN MUA HÀNG / THOẢ THUẬN MUA BÁN",
     tieuDeIn: "Đơn mua hàng / Thỏa thuận mua bán",
     moTa: "Chưa có hợp đồng riêng — chính tờ đơn có giá trị như hợp đồng khi hai bên ký.",
   },

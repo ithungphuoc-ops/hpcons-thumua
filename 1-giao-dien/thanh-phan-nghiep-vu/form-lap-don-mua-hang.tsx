@@ -3020,86 +3020,136 @@ export function FormLapDonMuaHang({
               * thoại mỗi lần lập đơn. Gõ mười lần thì mười cách viết, và số điện thoại sai một
               * chữ số là nhà cung cấp gọi không được, hàng không giao được.
               */}
-            {(nhanSuKho.length > 0 || thuKho.length > 0) && (
-              <select
-                value=""
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "") return;
-                  const nhanSu = nhanSuKho.find((n) => n.uid === v);
-                  if (nhanSu) {
-                    setNguoiNhanHang(nhanSu.displayName);
-                    return;
-                  }
-                  const tk = thuKho.find((n) => n.id === v);
-                  if (tk) {
-                    setNguoiNhanHang(tk.ten);
-                    /* Điền luôn số điện thoại — đó là lý do chính phải lưu danh mục này.
-                       Chỉ điền khi có số, để không xóa mất số người lập vừa gõ tay. */
-                    if (tk.soDienThoai) setSdtNguoiNhan(tk.soDienThoai);
-                  }
-                }}
-                aria-label="Chọn thủ kho nhận hàng"
-                className="min-h-11 w-full min-w-0 max-w-md rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
-              >
-                {/* `value=""` luôn quay về dòng này sau khi chọn: đây là một THAO TÁC điền hộ,
-                    không phải chỗ giữ giá trị — giá trị nằm ở ô chữ ngay dưới. */}
-                <option value="">-- Chọn thủ kho --</option>
-                {thuKho.length > 0 && (
-                  <optgroup label="Thủ kho công trình (danh mục đã lưu)">
-                    {thuKho.map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {n.ten}
-                        {n.congTrinh ? ` — ${n.congTrinh}` : ""}
-                        {n.soDienThoai ? ` · ${n.soDienThoai}` : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {nhanSuKho.length > 0 && (
-                  <optgroup label="Nhân sự bộ phận Kho">
-                    {nhanSuKho.map((n) => (
-                      <option key={n.uid} value={n.uid}>
-                        {n.displayName}
-                        {n.title ? ` — ${n.title}` : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            )}
-
-            <Input
-              id="nguoi-nhan"
-              placeholder="Thủ kho công trình"
-              value={nguoiNhanHang}
-              onChange={(e) => setNguoiNhanHang(e.target.value)}
-            />
-
-            {/* Hai nút quản lý danh mục — đặt ngay dưới ô để người lập thấy đường lưu lại. */}
+            {/**
+              * ★★ DỰNG THEO ĐÚNG KHUÔN Ô NHÀ CUNG CẤP — Ban lãnh đạo 27/08/2026: *"Tạo phần nhập
+              * thông tin giống NCC"*, mũi tên chỉ đúng khối này.
+              *
+              * 🔴 TRƯỚC ĐÂY LÀ BA THỨ RỜI NHAU, mỗi thứ một kiểu: một ô `<select>` chiếm trọn
+              * hàng, một ô chữ ở dưới, rồi hai *đường dẫn chữ nhỏ* ("+ Lưu thủ kho…" / "Xóa thủ
+              * kho…"). Cùng một việc — chọn người từ danh mục rồi thêm/bớt danh mục — mà ô nhà
+              * cung cấp ngay phía trên làm bằng **nút sổ xuống**, còn ô này làm bằng ba kiểu khác.
+              * Người lập phải học lại cách dùng ở mỗi khối.
+              *
+              * 📌 Nay giống hệt khối NCC: [ô chữ] + [nút sổ ▾], danh mục mở ra trong `Popover`,
+              * mỗi dòng có nút xoá riêng, và nút "Thêm … vào danh mục" nằm CUỐI danh sách — đúng
+              * lúc người dùng mở ra, không thấy người mình cần, thì mới cần thêm.
+              *
+              * 🔴 GIỮ NGUYÊN LUẬT CŨ: ô chữ vẫn là GIÁ TRỊ THẬT, nút sổ chỉ ĐIỀN HỘ. Thủ kho công
+              * trình có thể chưa có tài khoản, và tên đọc từ file Excel phải hiện được — bắt chọn
+              * trong danh sách là chặn hẳn những đơn đó.
+              */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  /* Điền sẵn tên và số đang gõ: người lập thường gõ xong mới nghĩ tới việc lưu. */
-                  setTkTen(nguoiNhanHang.trim());
-                  setTkSdt(sdtNguoiNhan.trim());
-                  setTkCongTrinh(tenCongTrinh.trim() || diaDiemGiao.trim());
-                  setMoThemThuKho(true);
-                }}
-                className="min-h-11 text-left text-xs font-medium text-primary underline-offset-2 hover:underline md:min-h-9"
-              >
-                + Lưu thủ kho này vào danh mục
-              </button>
-              {thuKho.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setMoXoaThuKho(true)}
-                  className="min-h-11 text-left text-xs font-medium text-danger underline-offset-2 hover:underline md:min-h-9"
-                >
-                  Xóa thủ kho khỏi danh mục
-                </button>
-              )}
+              <Input
+                id="nguoi-nhan"
+                placeholder="Thủ kho công trình"
+                value={nguoiNhanHang}
+                onChange={(e) => setNguoiNhanHang(e.target.value)}
+                className="min-w-48 flex-1"
+              />
+              <Popover>
+                <PopoverTrigger
+                  render={
+                    <button
+                      type="button"
+                      /* Vùng chạm 44×44 (V1.1 Phần F) — y hệt nút của ô nhà cung cấp. */
+                      className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                      aria-label="Chọn thủ kho từ danh mục"
+                      title="Chọn thủ kho từ danh mục"
+                    >
+                      <ChevronDown className="size-4" aria-hidden />
+                    </button>
+                  }
+                />
+                <PopoverContent align="start" className="w-80">
+                  <p className="text-xs text-text-desc">
+                    Chọn một dòng để điền tên người nhận
+                    {thuKho.length > 0 ? " và số điện thoại" : ""}.
+                  </p>
+
+                  {nhanSuKho.length === 0 && thuKho.length === 0 ? (
+                    <p className="text-sm text-text-secondary">
+                      Danh mục đang trống. Gõ thẳng tên ở ô bên cạnh — đơn vẫn lập được.
+                    </p>
+                  ) : (
+                    <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+                      {/* ===== NHÓM ①: thủ kho công trình tự thêm — có nút XOÁ riêng từng dòng.
+                          🔴 Đây là nhóm DUY NHẤT xoá được: nhóm ② lấy từ danh bạ nhân sự của App
+                          Tổng, app Thu mua không có quyền xoá tài khoản người khác. */}
+                      {thuKho.length > 0 && (
+                        <li className="px-1 pt-1 text-xs font-medium text-text-desc">
+                          Thủ kho công trình (danh mục đã lưu)
+                        </li>
+                      )}
+                      {thuKho.map((n) => (
+                        <li key={n.id} className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNguoiNhanHang(n.ten);
+                              /* Điền luôn số điện thoại — đó là lý do chính phải lưu danh mục này.
+                                 Chỉ điền khi CÓ số, để không xoá mất số người lập vừa gõ tay. */
+                              if (n.soDienThoai) setSdtNguoiNhan(n.soDienThoai);
+                            }}
+                            className="flex min-h-11 min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-primary-bg"
+                          >
+                            <span className="text-sm font-medium text-text-primary">{n.ten}</span>
+                            {(n.congTrinh || n.soDienThoai) && (
+                              <span className="text-xs text-text-desc">
+                                {[n.congTrinh, n.soDienThoai].filter(Boolean).join(" · ")}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            title={`Xóa ${n.ten} khỏi danh mục`}
+                            onClick={() => setMoXoaThuKho(true)}
+                            className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
+                          >
+                            <Trash2 className="size-4 shrink-0" aria-hidden />
+                            <span className="sr-only">Xóa {n.ten} khỏi danh mục</span>
+                          </button>
+                        </li>
+                      ))}
+
+                      {/* ===== NHÓM ②: nhân sự bộ phận Kho, lấy từ danh bạ — CHỈ CHỌN, không xoá. */}
+                      {nhanSuKho.length > 0 && (
+                        <li className="px-1 pt-2 text-xs font-medium text-text-desc">
+                          Nhân sự bộ phận Kho
+                        </li>
+                      )}
+                      {nhanSuKho.map((n) => (
+                        <li key={n.uid} className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setNguoiNhanHang(n.displayName)}
+                            className="flex min-h-11 min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-primary-bg"
+                          >
+                            <span className="text-sm font-medium text-text-primary">
+                              {n.displayName}
+                            </span>
+                            {n.title && <span className="text-xs text-text-desc">{n.title}</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      /* Điền sẵn tên và số đang gõ: người lập thường gõ xong mới nghĩ tới việc lưu. */
+                      setTkTen(nguoiNhanHang.trim());
+                      setTkSdt(sdtNguoiNhan.trim());
+                      setTkCongTrinh(tenCongTrinh.trim() || diaDiemGiao.trim());
+                      setMoThemThuKho(true);
+                    }}
+                    className="mt-1 flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed border-border px-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary-bg"
+                  >
+                    <Plus className="size-4 shrink-0" aria-hidden />
+                    Thêm thủ kho vào danh mục
+                  </button>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -3215,7 +3265,9 @@ export function FormLapDonMuaHang({
             giaTri={dieuKhoanGiaoHang}
             banChuan={dieuKhoanGiaoHangChuanTheoMau(mauPO)}
             onDoi={setDieuKhoanGiaoHang}
-            moTa="Mục kết thúc bằng dấu hai chấm sẽ in đậm. Chỗ để trống …… là chỗ cần điền theo từng đơn. Bấm + để thêm mục, thùng rác để xoá."
+            /* 📌 Không còn vế "Bấm + để thêm mục" — nút đó đã bỏ 27/08/2026. Câu mô tả nói một
+               thao tác không còn tồn tại là người dùng đi tìm cái nút không có. */
+            moTa="Chỗ để trống …… là chỗ cần điền theo từng đơn. Thùng rác để xoá một mục; xoá nhầm thì bấm Khôi phục bản chuẩn."
           />
 
           {/**

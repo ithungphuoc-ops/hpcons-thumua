@@ -25,7 +25,7 @@
 // `kieu-du-lieu.ts`.
 // ============================================================
 
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
@@ -73,11 +73,27 @@ export function KhoiDieuKhoanTachDong({
     ghi(cacDong.filter((_, k) => k !== i));
   }
 
-  function themDongSau(i: number) {
-    const moi = [...cacDong];
-    moi.splice(i + 1, 0, "");
-    ghi(moi);
-  }
+  /**
+   * 🔴 DÒNG TIÊU ĐỀ TRÙNG NHÃN KHỐI THÌ KHÔNG BÀY THÀNH Ô NHẬP — Ban lãnh đạo 27/08/2026:
+   * *"Bỏ ô này đang dư"*, chỉ đúng ô số 1 ghi *"Phương thức giao hàng:"* nằm ngay dưới cái nhãn
+   * cũng ghi *"Phương thức giao hàng"*. Đọc hai lần cùng một chữ, mà ô đó chẳng có gì để sửa.
+   *
+   * 🔴🔴 ẨN Ô NHẬP, TUYỆT ĐỐI KHÔNG XOÁ DÒNG KHỎI DỮ LIỆU. Dòng đó là **tiêu đề in đậm trên tờ
+   * giấy gửi nhà cung cấp** (biểu mẫu chuẩn có nó). Xoá khỏi bản chuẩn cho "gọn form" là tờ in
+   * mất hẳn dòng tiêu đề — sửa một chỗ trên màn hình, hỏng một chỗ trên chứng từ.
+   *
+   * ⚠️ So sau khi bỏ dấu hai chấm và chuẩn hoá khoảng trắng, không phân biệt hoa thường: nhãn
+   * khối và dòng tiêu đề do hai người khác nhau viết ở hai tệp khác nhau, đòi khớp từng ký tự là
+   * đổi một dấu cách cũng hết ẩn.
+   */
+  const chuGon = (s: string) =>
+    s.trim().replace(/:$/, "").replace(/\s+/g, " ").toLowerCase();
+  const anDongDau = cacDong.length > 0 && chuGon(cacDong[0]) === chuGon(nhan);
+
+  /** Các dòng ĐEM RA BÀY, kèm chỉ số GỐC để `suaDong`/`xoaDong` vẫn trỏ đúng dòng trong chuỗi. */
+  const dongBay = cacDong
+    .map((chu, iGoc) => ({ chu, iGoc }))
+    .filter((_, k) => !(anDongDau && k === 0));
 
   return (
     <div className="flex flex-col gap-2">
@@ -112,15 +128,18 @@ export function KhoiDieuKhoanTachDong({
         * (ô trải hết bề ngang màn 27 inch thì mắt phải rê rất xa từ nhãn tới chỗ gõ).
         */}
       <div className="flex flex-col gap-1.5 [&_textarea]:max-w-none!">
-        {cacDong.map((dong, i) => {
+        {dongBay.map(({ chu: dong, iGoc }, viTri) => {
           const laTieuDe = dong.trim().endsWith(":");
           const laDongTrong = dong.trim() === "";
+          /* Đánh số theo thứ tự NGƯỜI DÙNG NHÌN THẤY, không theo chỉ số trong chuỗi: ẩn dòng đầu
+             mà vẫn đánh số từ 2 thì họ đi tìm "mục 1" không có thật. */
+          const soHien = dongBay.slice(0, viTri + 1).filter((d) => d.chu.trim() !== "").length;
           return (
-            <div key={i} className="flex items-start gap-1.5">
+            <div key={iGoc} className="flex items-start gap-1.5">
               {/* Số thứ tự để nói chuyện được với nhau ("mục 5 sửa lại") — dòng trống thì không
                   đánh số, nó chỉ là khoảng cách trên tờ in. */}
               <span className="w-6 shrink-0 pt-2.5 text-right text-xs tabular-nums text-text-desc">
-                {laDongTrong ? "" : i + 1}
+                {laDongTrong ? "" : soHien}
               </span>
 
               {laDongTrong ? (
@@ -132,34 +151,34 @@ export function KhoiDieuKhoanTachDong({
                 </span>
               ) : (
                 <Textarea
-                  id={`${id}-${i}`}
+                  id={`${id}-${iGoc}`}
                   rows={soDongCanCho(dong)}
                   value={dong}
                   disabled={khoa}
-                  onChange={(e) => suaDong(i, e.target.value)}
-                  aria-label={`${nhan} — mục ${i + 1}`}
+                  onChange={(e) => suaDong(iGoc, e.target.value)}
+                  aria-label={`${nhan} — mục ${soHien}`}
                   className={`flex-1 text-xs ${laTieuDe ? "font-semibold" : ""}`}
                 />
               )}
 
-              {/* Hai nút thao tác của TỪNG mục — xếp dọc để không kéo hàng rộng thêm. */}
+              {/**
+                * 📌 CHỈ CÒN NÚT XOÁ — Ban lãnh đạo 27/08/2026: *"Tính năng dấu + này bỏ luôn"*.
+                *
+                * Nút [+] trước đây chèn một mục TRẮNG vào giữa khối. Nhưng khối này là **điều
+                * khoản chuẩn của công ty**, không phải chỗ soạn văn bản tự do: mục người lập tự
+                * thêm sẽ in thẳng lên chứng từ gửi ra ngoài mà không ai duyệt nội dung.
+                *
+                * ⚠️ VẪN CÒN ĐƯỜNG VỀ khi lỡ xoá nhầm: nút **Khôi phục bản chuẩn** ở góc phải nhãn
+                * khối (hiện ngay khi khối đã bị sửa) lấy lại nguyên bản của mẫu đang chọn. Đừng bỏ
+                * nốt nút đó — bỏ là xoá nhầm một mục thì mất vĩnh viễn.
+                */}
               <span className="flex shrink-0 flex-col gap-0.5">
                 <button
                   type="button"
-                  onClick={() => themDongSau(i)}
-                  disabled={khoa}
-                  title="Thêm một mục ngay dưới"
-                  aria-label={`Thêm mục dưới mục ${i + 1}`}
-                  className="rounded-md p-1.5 text-text-desc transition-colors hover:bg-muted hover:text-primary disabled:opacity-40"
-                >
-                  <Plus className="size-3.5" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => xoaDong(i)}
+                  onClick={() => xoaDong(iGoc)}
                   disabled={khoa}
                   title="Xoá mục này"
-                  aria-label={`Xoá mục ${i + 1}`}
+                  aria-label={`Xoá mục ${soHien}`}
                   className="rounded-md p-1.5 text-text-desc transition-colors hover:bg-danger-bg hover:text-danger disabled:opacity-40"
                 >
                   <Trash2 className="size-3.5" aria-hidden />
@@ -170,19 +189,25 @@ export function KhoiDieuKhoanTachDong({
         })}
       </div>
 
-      {/* Xoá hết mục thì không còn ô nào để bấm "+" — phải có đường quay lại, nếu không khối
-          chết hẳn và người lập chỉ còn cách tải lại trang. */}
-      {cacDong.length === 0 && (
+      {/**
+        * Xoá hết mục thì phải có đường quay lại, nếu không khối chết hẳn và người lập chỉ còn
+        * cách tải lại trang.
+        *
+        * 📌 Từ 27/08/2026 nút này lấy lại BẢN CHUẨN chứ không chèn một mục trắng — Ban lãnh đạo
+        * bỏ tính năng thêm mục tự do (*"Tính năng dấu + này bỏ luôn"*), mà một ô trắng cũng chính
+        * là mục tự do. Lấy lại bản chuẩn còn đúng hơn: khối này vốn là điều khoản của công ty.
+        */}
+      {cacDong.every((d) => d.trim() === "") && (
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => ghi([""])}
+          onClick={() => onDoi(null)}
           disabled={khoa}
           className="w-fit"
         >
-          <Plus className="size-4" aria-hidden />
-          Thêm mục đầu tiên
+          <RotateCcw className="size-4" aria-hidden />
+          Lấy lại bản chuẩn
         </Button>
       )}
 

@@ -325,17 +325,77 @@ export function BangHangTien({
     /* `min-w-0` ở ngay khối ngoài cùng: khối này là con của một khung flex, mà con flex mặc
        định không chịu co nhỏ hơn nội dung — bảng rộng sẽ đẩy giãn cả thẻ thay vì cuộn bên trong. */
     <section className="flex min-w-0 flex-col gap-(--hp-md-card-gap)">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {tieuDeTrongKhoiGiaiDoan ? (
-          <NhanPhanTrongGiaiDoan the="h2" icon={Coins}>
-            Hàng tiền
-          </NhanPhanTrongGiaiDoan>
-        ) : (
-          <h2 className="text-h3 text-text-primary">Hàng tiền</h2>
-        )}
+      {/**
+        * ★★ THANH CÔNG CỤ ĐỨNG NGANG TIÊU ĐỀ — Ban lãnh đạo 27/08/2026: *"đưa lên vị trí này và
+        * bố cục đẹp mắt"*, mũi tên chỉ đúng khoảng trống cạnh tiêu đề "Hàng tiền".
+        *
+        * 🔴 TRƯỚC ĐÂY NĂM NÚT NẰM DƯỚI BẢNG, dưới cả bộ phân trang. Bảng dài 20 dòng là chúng
+        * trôi khỏi màn hình: người lập muốn thêm một dòng phải cuộn qua hết bảng, thêm xong lại
+        * cuộn ngược lên xem kết quả. Nay việc và chỗ nhìn thấy kết quả nằm cùng một tầm mắt.
+        *
+        * 📌 BỐ CỤC BA CỤM, xếp theo *"tôi muốn làm gì"* chứ không theo thứ tự cũ:
+        *     trái  = tiêu đề · [đổ dữ liệu vào bảng] │ [thêm/xoá dòng]
+        *     phải  = [tìm trong bảng] · [chiết khấu]
+        *   Vách dọc `border-l` tách hai cụm bên trái: hai nút Excel làm việc với CẢ BẢNG, ba nút
+        *   sau làm việc với TỪNG DÒNG — không có vách thì năm nút trông như một dãy đồng hạng.
+        *
+        * ⚠️ `flex-wrap` ở cả ba tầng và KHÔNG hạ `min-h-11`: màn hẹp thì các cụm tự xuống dòng,
+        * chứ không bóp nút xuống dưới 44px — vùng chạm tối thiểu của Design System V1.1.
+        */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {tieuDeTrongKhoiGiaiDoan ? (
+            <NhanPhanTrongGiaiDoan the="h2" icon={Coins}>
+              Hàng tiền
+            </NhanPhanTrongGiaiDoan>
+          ) : (
+            <h2 className="text-h3 text-text-primary">Hàng tiền</h2>
+          )}
+
+          {/* Cụm ĐỔ DỮ LIỆU VÀO BẢNG.
+              📌 Nhận `React.ReactNode` chứ không tự dựng nút: chỗ lo việc đọc/ghi file là
+              `form-lap-don-mua-hang.tsx` (nó giữ `dangTaoFile`, `dangDocFile`, `nhapTuExcel`).
+              Dựng lại ở đây là chép logic ra hai chỗ.
+              📌 Cặp [Tải file mẫu] + [Nhập từ Excel] đi LIỀN NHAU — nút đầu sinh ra chính file
+              mà nút sau đọc vào; tách hai nơi là bắt người dùng nhớ đường đi giữa hai bước. */}
+          {nutNhapExcel && <div className="flex flex-wrap items-center gap-2">{nutNhapExcel}</div>}
+
+          {/* Cụm THÊM / XOÁ DÒNG — có vách tách khỏi cụm Excel. */}
+          <div className="flex flex-wrap items-center gap-2 border-border pl-0 sm:border-l sm:pl-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={onThemDong}
+              disabled={!conMatHangDeThem}
+            >
+              <Plus className="size-4" aria-hidden />
+              Thêm dòng
+            </Button>
+            <Button type="button" variant="outline" className="min-h-11" onClick={onThemGhiChu}>
+              <StickyNote className="size-4" aria-hidden />
+              Thêm ghi chú
+            </Button>
+            {/* 🔴 "Xóa hết dòng" HỎI LẠI trước khi làm — việc hỏi do trang lập đơn lo qua
+                `HopXacNhan`. Bấm nhầm nút này là mất sạch công nhập liệu, không có nút hoàn lại. */}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={onXoaHetDong}
+              disabled={dong.length === 0}
+            >
+              <Trash2 className="size-4" aria-hidden />
+              Xóa hết dòng
+            </Button>
+          </div>
+        </div>
 
         <div className="flex flex-wrap items-center gap-3">
         {/* ===== Ô TÌM NHANH (F3) — thành phần THẬT, không phải chỗ trống =====
+            📌 Ô này và ô chiết khấu ở lại NHÓM PHẢI khi năm nút dời lên (27/08/2026): chúng không
+            thay đổi nội dung bảng, chỉ đổi cách NHÌN bảng — trộn vào cụm nút hành động là mất
+            đường phân biệt "xem" với "sửa".
             🔴 Không có ô này thì dòng chữ "F3 - Tìm nhanh" ở cuối form là lời hứa suông. Ô lọc
             trên đúng các cột đang hiện; dòng TỔNG CỘNG vẫn là tổng của cả đơn (có câu nói rõ
             ngay dưới bảng khi đang lọc).
@@ -419,6 +479,16 @@ export function BangHangTien({
         )}
         </div>
       </div>
+
+      {/* 📌 CÂU NÀY ĐI THEO NÚT, KHÔNG Ở LẠI DƯỚI BẢNG. Nó giải thích vì sao [Thêm dòng] đang bị
+          khóa — để dưới bảng thì lời giải thích cách cái nút bị khóa cả màn hình cuộn.
+          ⚠️ Chỉ đúng khi đơn CÓ đề nghị: đơn độc lập thêm bao nhiêu dòng cũng được nên không bao
+          giờ "hết mặt hàng". */}
+      {!nhapTuDo && !conMatHangDeThem && dong.length > 0 && (
+        <p className="-mt-1 text-xs text-text-desc">
+          Đã đưa hết mặt hàng lập được đơn của đề nghị này vào bảng.
+        </p>
+      )}
 
       {/* 🔴 `min-w-0` BẮT BUỘC. Con của flex mặc định `min-width:auto` nên bảng rộng sẽ đẩy
           giãn cả cột cha thay vì cuộn bên trong — điện thoại trôi ngang cả trang. `Table` đã
@@ -846,11 +916,12 @@ export function BangHangTien({
       </div>
 
       {/* ===================================================================
-          DƯỚI BẢNG — bám đúng bố cục MISA:
-            hàng 1: "Tổng số: N bản ghi" bên TRÁI · ô chọn số bản ghi/trang + Trước · N · Sau
-                    bên PHẢI
-            hàng 2: [Thêm dòng] [Thêm ghi chú] [Xóa hết dòng] bên TRÁI
-          (Trước 18/08/2026 ba nút này nằm bên phải cùng dòng với "Tổng số".)
+          DƯỚI BẢNG — chỉ còn PHÂN TRANG:
+            "Tổng số: N bản ghi" bên TRÁI · ô chọn số bản ghi/trang + Trước · N · Sau bên PHẢI
+
+          📌 Năm nút thao tác ĐÃ DỜI LÊN NGANG TIÊU ĐỀ ngày 27/08/2026 (Ban lãnh đạo: *"đưa lên
+          vị trí này và bố cục đẹp mắt"*). Trước đó chúng nằm ở đây, dưới cả phân trang — bảng
+          dài 20 dòng là trôi khỏi màn hình.
           =================================================================== */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-text-secondary">
@@ -937,60 +1008,9 @@ export function BangHangTien({
         </p>
       )}
 
-      {/* Ba nút thao tác — MISA đặt bên TRÁI, dưới phân trang. */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/**
-          * ★★ HAI NÚT EXCEL DỜI VỀ ĐÂY — Ban lãnh đạo 25/08/2026: *"Chỉ cần tạo import file ở mục
-          * này thôi"*, khoanh đúng vùng bảng Hàng tiền.
-          *
-          * 🔴 Trước đây chúng đứng ở ĐẦU FORM, cách bảng gần hai màn hình cuộn. Mà việc chúng làm
-          * là **đổ dữ liệu vào đúng cái bảng này** — đặt xa nơi có kết quả thì người lập bấm xong
-          * phải cuộn xuống mới biết có ăn hay không.
-          *
-          * 📌 Dời CẢ CẶP, không chỉ nút nhập: [Tải file mẫu] sinh ra chính file mà [Nhập từ Excel]
-          * đọc vào. Tách hai nút ra hai nơi là bắt người dùng nhớ đường đi giữa hai bước của một
-          * việc.
-          *
-          * 📌 Nhận `React.ReactNode` chứ không tự dựng nút: chỗ lo việc đọc/ghi file là
-          * `form-lap-don-mua-hang.tsx` (nó giữ `dangTaoFile`, `dangDocFile`, `nhapTuExcel`).
-          * Dựng lại ở đây là chép logic ra hai chỗ.
-          */}
-        {nutNhapExcel}
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-11"
-          onClick={onThemDong}
-          disabled={!conMatHangDeThem}
-        >
-          <Plus className="size-4" aria-hidden />
-          Thêm dòng
-        </Button>
-        <Button type="button" variant="outline" className="min-h-11" onClick={onThemGhiChu}>
-          <StickyNote className="size-4" aria-hidden />
-          Thêm ghi chú
-        </Button>
-        {/* 🔴 "Xóa hết dòng" HỎI LẠI trước khi làm — việc hỏi do trang lập đơn lo qua
-            `HopXacNhan`. Bấm nhầm nút này là mất sạch công nhập liệu, không có nút hoàn lại. */}
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-11"
-          onClick={onXoaHetDong}
-          disabled={dong.length === 0}
-        >
-          <Trash2 className="size-4" aria-hidden />
-          Xóa hết dòng
-        </Button>
-      </div>
-
-      {/* Câu này chỉ đúng khi đơn CÓ đề nghị — đơn độc lập thêm bao nhiêu dòng cũng được nên
-          không bao giờ "hết mặt hàng". */}
-      {!nhapTuDo && !conMatHangDeThem && dong.length > 0 && (
-        <p className="text-xs text-text-desc">
-          Đã đưa hết mặt hàng lập được đơn của đề nghị này vào bảng.
-        </p>
-      )}
+      {/* 📌 KHỐI NĂM NÚT ĐÃ DỜI LÊN NGANG TIÊU ĐỀ (Ban lãnh đạo 27/08/2026) — xem chú thích ở
+          thanh công cụ đầu khối. Đừng dựng lại ở đây: hai chỗ cùng có nút thêm dòng thì người
+          dùng không biết bấm cái nào, và một trong hai sẽ bị bỏ quên khi sửa luật. */}
     </section>
   );
 }
