@@ -2277,18 +2277,25 @@ export function FormLapDonMuaHang({
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-text-desc">{NHAN_MAU_PO[mauPO].moTa}</p>
-                  {/* 📌 CÂU THÔNG BÁO, KHÔNG PHẢI CẢNH BÁO THIẾU SÓT. Từ 27/08/2026 để trống ô ghi
-                      chú LÀ HỢP LỆ — tờ in chừa sẵn dải chấm để ký tay ngoài hiện trường. Trước đây
-                      câu này tô màu warning và gọi là *"Chưa điền Số hợp đồng"*, tức app tự coi một
-                      cách làm đúng là lỗi. Vẫn giữ câu để người lập biết trước tờ in ra thế nào,
-                      nhưng bằng giọng trung tính. */}
-                  {mauPO === "theo_hop_dong" && maHopDong.trim() === "" && (
-                    <p className="text-xs text-text-desc">
-                      Ô <strong>Theo hợp đồng</strong> đang để trống — tờ in sẽ chừa dải chấm ở dòng
-                      đó để viết tay.
-                    </p>
-                  )}
+                  {/**
+                    * ★ MỘT CÂU NGẮN, KHÔNG GIẢNG GIẢI — Ban lãnh đạo 27/08/2026: *"Chỉ cần ghi
+                    * chú: Chọn biểu mẫu PO phù hợp"*, khoanh đúng hai dòng chữ từng đứng ở đây.
+                    *
+                    * 🔴 HAI DÒNG BỎ ĐI GIẢI THÍCH THỨ NGƯỜI LẬP KHÔNG CẦN LÚC NÀY: một dòng mô tả
+                    * mẫu đang chọn dẫn hợp đồng ra sao, một dòng báo trước tờ in sẽ chừa dải chấm
+                    * khi ô ghi chú để trống. Cả hai đều đúng, nhưng chúng trả lời câu hỏi *"tờ in
+                    * ra thế nào"* — trong khi ở ngay ô chọn mẫu, việc duy nhất cần làm là CHỌN.
+                    * Chữ đúng mà đặt sai lúc thì cũng là chữ phải đọc lướt qua.
+                    *
+                    * 📌 Thông tin không mất: tên hai mẫu đã tự nói (*"ĐƠN MUA HÀNG"* vs *"ĐƠN MUA
+                    * HÀNG / THOẢ THUẬN MUA BÁN"*), còn việc để trống ô ghi chú thì tờ in ra chừa
+                    * chấm — câu đó đã có sẵn ngay dưới chính ô "Theo hợp đồng".
+                    *
+                    * ⚠️ `NHAN_MAU_PO[...].moTa` KHÔNG XOÁ khỏi kiểu dữ liệu: trước khi bỏ phải kiểm
+                    * còn nơi nào đọc không. Hiện chỉ chỗ này đọc, nhưng để nguyên thì bật lại được
+                    * mà không phải viết lại hai câu mô tả pháp lý.
+                    */}
+                  <p className="text-xs text-text-desc">Chọn biểu mẫu PO phù hợp.</p>
                 </div>
 
             {/* Cột phải để trống có chủ ý: khối này chỉ có MỘT quyết định, nhồi thêm ô vào cạnh
