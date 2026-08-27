@@ -128,6 +128,8 @@ export interface DauVaoDonHangMau {
   ngayGiaoDenNgay?: string;
   /** Ghi chú thời gian giao (Ban lãnh đạo 27/08/2026) — in kèm dòng "Ngày giao hàng". */
   ghiChuThoiGianGiao?: string;
+  /** Mã đề xuất bên App Request — để bản xem trước in đúng như đơn thật (27/08/2026). */
+  maDeXuatAppRequest?: string;
   diaDiemGiaoHang?: string;
   nguoiNhanHangTen?: string;
   /** So dien thoai nguoi nhan hang — ô riêng trên biểu mẫu (21/08/2026). */
@@ -237,6 +239,9 @@ export function dungDonHangMau(dv: DauVaoDonHangMau): DonHangBanMau {
        rỗng. Chuỗi rỗng vẫn "có giá trị" nên mọi chỗ kiểm `po.prId ?` sẽ tưởng là có đề nghị. */
     prId: undefined,
     prCode: undefined,
+    /* 📌 Mã App Request thì CÓ mang sang, khác `prCode`: nó là chữ IN TRÊN TỜ, và bản xem trước
+       phải giống hệt đơn thật. `prCode` để `undefined` vì bản mẫu không gắn đề nghị nào. */
+    maDeXuatAppRequest: dv.maDeXuatAppRequest?.trim() || undefined,
     tenCongTrinh: dv.tenCongTrinh?.trim() || undefined,
     /* `supplierId` là trường bắt buộc theo kiểu dữ liệu nhưng bản mẫu không liên kết danh mục
        nào — và cả tờ in lẫn file Excel đều KHÔNG đọc trường này. Để chuỗi rỗng cho rõ là

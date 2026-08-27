@@ -29,12 +29,22 @@ import { RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
+import {
+  goiNgatDongTrongMuc,
+  moNgatDongTrongMuc,
+  NGAT_DONG_TRONG_MUC,
+} from "@/3-du-lieu/dieu-khoan-chuan-don-mua-hang";
 
 /** Số dòng của ô nhập, tính theo độ dài chữ để ô không bị cuộn ngầm. */
 function soDongCanCho(chu: string): number {
   /* ~92 ký tự một dòng ở cỡ chữ 12px trên khối rộng cả trang. Tối thiểu 1, tối đa 6 — dài hơn
      nữa thì để ô tự cuộn, chứ một ô cao 10 dòng lại thành đúng cái vừa bỏ. */
-  return Math.min(6, Math.max(1, Math.ceil(chu.length / 92)));
+  const theoDoDai = Math.ceil(chu.length / 92);
+  /* 🔴 CỘNG CẢ SỐ LẦN NGƯỜI DÙNG BẤM ENTER (27/08/2026). Chỉ đếm độ dài thì một mục ngắn xuống
+     dòng ba lần vẫn ra `rows=1`, ô cao đúng một dòng và hai dòng sau bị cuộn ngầm — người gõ
+     tưởng chữ mình biến mất. */
+  const soLanXuongDong = chu.split(NGAT_DONG_TRONG_MUC).length - 1;
+  return Math.min(6, Math.max(1, theoDoDai + soLanXuongDong));
 }
 
 export function KhoiDieuKhoanTachDong({
@@ -65,8 +75,19 @@ export function KhoiDieuKhoanTachDong({
     onDoi(dongMoi.join("\n"));
   }
 
+  /**
+   * 🔴 GÓI XUỐNG DÒNG TRƯỚC KHI LƯU — Ban lãnh đạo 27/08/2026: *"xuống dòng trong trường đó chứ
+   * không phải tạo thêm khoảng cách giữa 2 nhóm"*.
+   *
+   * Textarea trả về `\n` khi người dùng bấm Enter, mà `\n` ở đây là **dấu tách mục**. Để nguyên
+   * là `join("\n")` rồi `split("\n")` cắt mục làm đôi ngay lần vẽ kế — chữ vừa gõ nhảy sang ô
+   * dưới, hoặc sinh một mục rỗng hiện thành vạch "khoảng cách giữa hai nhóm".
+   *
+   * ✅ Đổi sang ký tự ngắt dòng riêng (`NGAT_DONG_TRONG_MUC`) thì `\n` chỉ còn một nghĩa duy
+   * nhất, và mục giữ được nhiều dòng bên trong.
+   */
   function suaDong(i: number, chu: string) {
-    ghi(cacDong.map((d, k) => (k === i ? chu : d)));
+    ghi(cacDong.map((d, k) => (k === i ? goiNgatDongTrongMuc(chu) : d)));
   }
 
   function xoaDong(i: number) {
@@ -158,7 +179,9 @@ export function KhoiDieuKhoanTachDong({
                 <Textarea
                   id={`${id}-${iGoc}`}
                   rows={soDongCanCho(dong)}
-                  value={dong}
+                  /* Mở ngắt dòng về `\n` để Textarea hiển thị đúng nhiều dòng — chiều ngược của
+                     `goiNgatDongTrongMuc` ở `suaDong`. */
+                  value={moNgatDongTrongMuc(dong)}
                   disabled={khoa}
                   onChange={(e) => suaDong(iGoc, e.target.value)}
                   aria-label={`${nhan} — mục ${soHien}`}

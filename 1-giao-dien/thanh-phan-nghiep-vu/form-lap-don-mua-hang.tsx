@@ -1552,6 +1552,8 @@ export function FormLapDonMuaHang({
       maDuAn: maDuAnDon,
       tenCongTrinh,
       maHopDongCDT: maHopDong,
+      /* Bản xem trước phải in đúng mã như đơn thật — xem chú thích trong `dungDonHangMau`. */
+      maDeXuatAppRequest: dn?.maDeXuatAppRequest,
       supplierTen: tenNCC,
       maSoThueNCC: mstNCC,
       diaChiNCC,
@@ -1951,6 +1953,9 @@ export function FormLapDonMuaHang({
          một liên kết `/de-nghi/` chết. */
       prId: dn?.id,
       prCode: dn?.code,
+      /* Chép mã App Request sang đơn để tờ in dùng — xem chú thích của trường trên `DonDatHang`.
+         Đơn không qua App Request thì `undefined`, tờ in tự lùi về `prCode`. */
+      maDeXuatAppRequest: dn?.maDeXuatAppRequest,
       tenCongTrinh: tenCongTrinh.trim() || undefined,
       supplierId: ncc.id,
       supplierTen: ncc.ten,

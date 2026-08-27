@@ -493,10 +493,41 @@ export default function TrangDanhSachDeNghi() {
         // `data-rong-toan-man`: xin khung tổng bỏ giới hạn bề rộng A4 cho riêng
         // màn này — 8 cột cần trải hết bề ngang mới chia đều được (xem `khung-tong.tsx`).
         <div data-rong-toan-man className="flex min-h-[420px] flex-1 flex-col gap-2">
+          {/**
+            * ★★★ KÉO THẢ ĐÃ TẮT HOÀN TOÀN — Ban lãnh đạo 27/08/2026 trả lời thẳng câu hỏi *"sao
+            * vẫn còn chức năng kéo thả"*: **"Tắt hết"**.
+            *
+            * (26/08/2026 mới tắt kéo LÙI; kéo tiến vẫn chạy nên Ban lãnh đạo còn thấy hộp thoại
+            * "Chuyển nhiệm vụ sang giai đoạn tiếp theo" khi kéo thẻ.)
+            *
+            * 🔴 VÌ SAO TẮT LÀ ĐÚNG: giai đoạn của hồ sơ được SUY RA TỪ CHỨNG TỪ CÓ THẬT
+            * (`xacDinhGiaiDoan` đọc đơn hàng, bảng báo giá, phiếu nhận). Kéo thẻ không tạo ra
+            * chứng từ nào, nên nó chỉ còn hai lựa chọn: mở hộp thoại bắt người dùng làm việc thật
+            * — tức một đường ĐI VÒNG tới đúng cái nút đã có trong trang chi tiết; hoặc đổi nhãn
+            * chay — mà nhãn chay thì lần vẽ bảng kế tiếp thẻ tự nhảy về chỗ cũ.
+            *
+            * 🔴🔴 TẮT Ở ĐÂY — TẦNG GIAO DIỆN — CHỨ KHÔNG CHẶN TRONG `quyetDinhKeoTha`.
+            * Đã thử chặn ở tầng luật và ĐO ĐƯỢC HẬU QUẢ: **13/57 bài kiểm luật lập tức đỏ**, vì
+            * `quyetDinhKeoTha` là nơi giữ toàn bộ điều kiện chuyển bước do Ban lãnh đạo chốt từ
+            * 10/08 tới 25/08 (phải có đủ báo giá · phải có bảng so sánh · không nhảy cóc · ngoại
+            * lệ cho lập bảng khi bước ② chưa có bảng…). Chặn ở đó là những luật ấy thành code
+            * chết và **mất dấu vết chỉ đạo** — đúng thứ `CLAUDE.md` §6.6 cấm.
+            *
+            * ✅ Luật vẫn sống và vẫn được dùng: nút chuyển bước trong trang chi tiết đề nghị hỏi
+            * cùng bộ điều kiện qua `dsDieuKienConVuong`.
+            *
+            * ✅ CÁCH BẬT LẠI: đổi lại thành `keoThaDuoc={quyen.lapPO}` và bỏ `onTha={undefined}`.
+            * Không phải dựng lại gì — `xuLyTha` và toàn bộ luật vẫn còn nguyên.
+            *
+            * ⚠️ PHẢI TẮT CẢ HAI: `keoThaDuoc` bỏ `draggable` khỏi thẻ, `onTha` bỏ chỗ nhận thả.
+            * Chỉ tắt một cái thì trình duyệt vẫn cho kéo (hoặc vẫn có cột nhận), và người dùng
+            * kéo được một nửa quãng đường rồi thả xuống không có gì xảy ra — khó hiểu hơn là
+            * không kéo được.
+            */}
           <BangQuyTrinhMuaHang
             cot={cot}
-            keoThaDuoc={quyen.lapPO}
-            onTha={xuLyTha}
+            keoThaDuoc={false}
+            onTha={undefined}
             // Menu ⋯ chỉ mở cho vai trò làm nghiệp vụ; người chỉ xem không thấy thao tác ghi.
             thaoTac={quyen.lapPO ? thaoTacThe : undefined}
           />

@@ -443,7 +443,11 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
          `filter(Boolean)` lo sẵn: còn tên công trình thì ô vẫn có nội dung, không in ra dấu
          gạch ngang trơ trọi. Nơi gọi (`nut-xuat-don-hang.tsx`) lấy tên công trình TỪ CHÍNH
          ĐƠN trước, chỉ tra ngược đề nghị khi đơn cũ chưa có trường đó. */
-      [po.prCode, tenCongTrinh].filter(Boolean).join(" — "),
+      /* 🔴 MÃ ĐỀ XUẤT = mã bên App Request, y như tờ in A4 (Ban lãnh đạo 27/08/2026). `prCode`
+         với phiếu đến từ App Request là chuỗi dài đã chứa sẵn tên công trình, ghép thêm nữa là
+         tên công trình hiện HAI LẦN. Hai đường xuất phải nói cùng một chữ, nếu không cùng một
+         đơn mà tờ in và file Excel ghi khác nhau. */
+      [po.maDeXuatAppRequest ?? po.prCode, tenCongTrinh].filter(Boolean).join(" — "),
     ],
     ["Căn cứ hợp đồng số :", po.maHopDongCDT ?? ""],
     ["Địa điểm giao hàng:", po.diaDiemGiaoHang ?? ""],

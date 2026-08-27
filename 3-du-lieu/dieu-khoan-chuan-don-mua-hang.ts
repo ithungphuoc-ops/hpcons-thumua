@@ -155,6 +155,44 @@ export function ghiChuHopDongTuMa(maHopDong: string | undefined): string {
 }
 
 /**
+ * ★★ KÝ TỰ NGẮT DÒNG **BÊN TRONG MỘT MỤC** — Ban lãnh đạo 27/08/2026: *"mục enter xuống dòng
+ * sửa lại, xuống dòng trong trường đó chứ không phải tạo thêm khoảng cách giữa 2 nhóm, cái đó
+ * vô chi không có ích gì"*.
+ *
+ * 🔴 VẤN ĐỀ GỐC: khối điều khoản dùng `\n` làm **dấu tách mục**. Mà `\n` cũng chính là ký tự phím
+ * Enter sinh ra. Nên bấm Enter trong một ô thì chuỗi bị `split("\n")` cắt làm đôi ở lần vẽ kế —
+ * chữ vừa gõ nhảy sang ô dưới, con trỏ mất, và nếu bấm ở cuối ô thì sinh một mục RỖNG hiện thành
+ * vạch *"— khoảng cách giữa hai nhóm —"*. Đã đo: 7 mục thành 8 mục.
+ *
+ * ✅ CÁCH GIẢI: xuống dòng ben trong muc luu bang ky tu U+2028 (LINE SEPARATOR — ký tự Unicode sinh ra
+ * đúng cho việc này), còn `\n` giữ nguyên vai trò tách mục. Hai việc, hai ký tự, không giẫm nhau.
+ *
+ * 🔴 VÌ SAO KHÔNG ĐỔI DẤU TÁCH MỤC SANG KÝ TỰ KHÁC: đơn CŨ đã lưu trong Firestore đang dùng `\n`
+ * làm dấu tách. Đổi dấu tách là mọi đơn cũ đọc lên thành MỘT mục dài dính liền — sửa một chỗ,
+ * hỏng toàn bộ hồ sơ đã phát hành.
+ *
+ * 📌 ĐƠN CŨ KHONG CO ky tu U+2028 nên đọc lên y như trước — thay đổi này chỉ thêm khả năng, không
+ * đụng dữ liệu cũ.
+ *
+ * ⚠️ NƠI HIỂN THỊ PHẢI TU DOI ky tu U+2028 VE XUỐNG DÒNG THẬT. Quên là tờ in ra một ký tự lạ giữa
+ * câu (nhiều phông vẽ nó thành ô vuông rỗng).
+ */
+/* ⚠️ VIET BANG ESCAPE \u2028, KHONG go ky tu that vao ma nguon: U+2028 la mot ky tu
+   KET THUC DONG hop le cua JavaScript. Go thang vao thi no vo hinh trong trinh soan thao, va
+   mot so cong cu doc file se cat dong ngay giua chuoi. Escape thi nhin la biet dang co gi. */
+export const NGAT_DONG_TRONG_MUC = String.fromCharCode(0x2028);
+
+/** Đổi ngắt dòng trong mục về `\n` để hiển thị / gõ. */
+export function moNgatDongTrongMuc(chu: string): string {
+  return chu.split(NGAT_DONG_TRONG_MUC).join("\n");
+}
+
+/** Đổi ngược lại khi lưu — để `\n` chỉ còn một nghĩa duy nhất là "tách mục". */
+export function goiNgatDongTrongMuc(chu: string): string {
+  return chu.split(/\r?\n/).join(NGAT_DONG_TRONG_MUC);
+}
+
+/**
  * Cắt một khối văn bản thành từng dòng để in.
  *
  * 🔴 Dùng CHUNG cho tờ in A4 và mọi chỗ hiển thị khác — nếu mỗi nơi tự tách chuỗi theo cách

@@ -9,6 +9,7 @@ import {
 } from "@/3-du-lieu/kieu-du-lieu";
 import {
   CAM_KET_THEO_HOP_DONG_CHUAN,
+  moNgatDongTrongMuc,
   CAM_KET_THOA_THUAN_CHUAN,
   GOI_Y_DIEU_KHOAN_KHAC,
   GOI_Y_DIEU_KHOAN_THANH_TOAN,
@@ -496,10 +497,20 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
                — mã hợp đồng đã có dòng riêng "Căn cứ hợp đồng số" ngay bên dưới, còn tên
                công trình thì không in ở đâu cả. `DonDatHang.tenCongTrinh` có từ 17/08/2026
                nhưng trang in chưa dùng. Nay in đúng hai thứ nhãn nói, khớp với file Excel
-               xuất ra (`2-quy-trinh/xuat-don-hang-excel.ts` cũng ghép `prCode` + tên CT). */}
+               xuất ra (`2-quy-trinh/xuat-don-hang-excel.ts` ghép cùng công thức).
+
+            🔴 SỬA 27/08/2026 — MÃ ĐỀ XUẤT LÀ MÃ BÊN APP REQUEST (`000000046`), KHÔNG PHẢI
+            `prCode`. Ban lãnh đạo khoanh đỏ đúng dòng này: *"Hiển thị ở đây đang bị sai · Mã đề
+            xuất từ đề nghị 0000046"*. Với phiếu đến từ App Request, `prCode` là chuỗi dài
+            *mã · hợp đồng · TÊN CÔNG TRÌNH* — nên dòng này in ra TÊN CÔNG TRÌNH HAI LẦN.
+            Giữ `prCode` làm đường lui cho đơn không qua App Request. */}
         <Dong
           nhan="Mã đề xuất và tên công trình"
-          giaTri={[po.prCode, po.tenCongTrinh].filter(Boolean).join(" · ") || "—"}
+          giaTri={
+            [po.maDeXuatAppRequest ?? po.prCode, po.tenCongTrinh]
+              .filter(Boolean)
+              .join(" · ") || "—"
+          }
           rong
         />
         {/* ★ "Người nhận hàng" và "Số điện thoại" NẰM CÙNG MỘT HÀNG, đúng như hai biểu mẫu chuẩn
@@ -576,8 +587,23 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
                 d.laDongTrong ? (
                   <p key={i}>&nbsp;</p>
                 ) : (
-                  <p key={i} className={d.laTieuDe ? "font-semibold" : undefined}>
-                    {d.chu}
+                  /**
+                   * 🔴 `whitespace-pre-line` + `moNgatDongTrongMuc` — BẮT BUỘC ĐI CẶP (27/08/2026).
+                   *
+                   * Từ 27/08/2026 một mục có thể chứa nhiều dòng bên trong, ngắt bằng ký tự riêng
+                   * (`NGAT_DONG_TRONG_MUC`) để không đụng dấu tách mục. Ở đây phải đổi nó về xuống
+                   * dòng thật, và HTML thì gộp mọi khoảng trắng nên còn cần `whitespace-pre-line`
+                   * mới thấy được.
+                   *
+                   * ⚠️ Thiếu `moNgatDongTrongMuc` là tờ in ra một ký tự lạ giữa câu — nhiều phông
+                   * vẽ nó thành ô vuông rỗng. Thiếu `whitespace-pre-line` thì hai dòng dính liền
+                   * thành một, không lỗi gì cả, chỉ là chứng từ in ra khác ý người lập.
+                   */
+                  <p
+                    key={i}
+                    className={`whitespace-pre-line ${d.laTieuDe ? "font-semibold" : ""}`}
+                  >
+                    {moNgatDongTrongMuc(d.chu)}
                   </p>
                 ),
               )}

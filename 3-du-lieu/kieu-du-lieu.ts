@@ -764,6 +764,21 @@ export interface DonDatHang {
    * 📌 Tùy chọn. In kèm dòng "Ngày giao hàng" trên tờ đơn, không phải một dòng riêng.
    */
   ghiChuThoiGianGiao?: string;
+  /**
+   * ★ MÃ ĐỀ XUẤT BÊN APP REQUEST của phiếu đề nghị nguồn — CHÉP SANG lúc lập đơn.
+   *
+   * 🔴 Ban lãnh đạo 27/08/2026, chỉ dòng "Mã đề xuất và tên công trình" trên tờ in: *"Hiển thị ở
+   * đây đang bị sai … Mã đề xuất từ đề nghị 0000046"*.
+   *
+   * VÌ SAO PHẢI CHÉP SANG PO chứ không tra ngược đề nghị: tờ in `ToDonMuaHangA4` chỉ nhận `po`,
+   * và bản in MẪU thì không có đề nghị nào để tra. Chép sang lúc lập đơn cũng đúng bản chất chứng
+   * từ: đơn đã phát hành phải giữ nguyên mã tại thời điểm lập.
+   *
+   * ⚠️ ĐỪNG NHẦM VỚI `prCode`. `prCode` là mã hồ sơ nội bộ (`DeNghiMuaHang.code`), với phiếu đến
+   * từ App Request thì nó là chuỗi dài *mã · hợp đồng · TÊN CÔNG TRÌNH* — chính thứ in ra sai mà
+   * Ban lãnh đạo khoanh đỏ. Giữ `prCode` làm đường lui cho đơn không qua App Request.
+   */
+  maDeXuatAppRequest?: string;
   dieuKienGiaoHang?: string;
   /** Ô "Địa điểm giao hàng" trên mẫu đơn — thường là chân công trình. */
   diaDiemGiaoHang?: string;
