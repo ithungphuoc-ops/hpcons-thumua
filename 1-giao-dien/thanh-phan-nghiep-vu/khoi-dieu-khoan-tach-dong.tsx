@@ -25,7 +25,7 @@
 // `kieu-du-lieu.ts`.
 // ============================================================
 
-import { RotateCcw, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
@@ -92,6 +92,18 @@ export function KhoiDieuKhoanTachDong({
 
   function xoaDong(i: number) {
     ghi(cacDong.filter((_, k) => k !== i));
+  }
+
+  /**
+   * ★ Thêm một MỤC MỚI ngay dưới mục thứ `i` — nút [+], Ban lãnh đạo 27/08/2026.
+   *
+   * 📌 Chèn ngay dưới chứ không thêm vào cuối: người lập bấm [+] ở mục nào là muốn viết tiếp
+   * ngay sau mục đó, không phải nhảy xuống cuối danh sách rồi tự kéo lên.
+   */
+  function themDongSau(i: number) {
+    const moi = [...cacDong];
+    moi.splice(i + 1, 0, "");
+    ghi(moi);
   }
 
   /**
@@ -163,20 +175,28 @@ export function KhoiDieuKhoanTachDong({
           return (
             <div key={iGoc} className="flex items-start gap-1.5">
               {/* Số thứ tự để nói chuyện được với nhau ("mục 5 sửa lại") — dòng trống thì không
-                  đánh số, nó chỉ là khoảng cách trên tờ in. */}
+                  đánh số, nó chưa có nội dung gì để gọi tên. */}
               <span className="w-6 shrink-0 pt-2.5 text-right text-xs tabular-nums text-text-desc">
                 {laDongTrong ? "" : soHien}
               </span>
 
-              {laDongTrong ? (
-                /* Dòng trống = khoảng cách giữa hai nhóm trên tờ in. Bày thành một vạch mờ có
-                   nhãn, chứ không bày ô nhập rỗng: ô rỗng làm người lập tưởng mình bỏ sót chưa
-                   điền, rồi gõ vào đó và mất khoảng cách của tờ in. */
-                <span className="flex min-h-11 flex-1 items-center gap-2 rounded-lg border border-dashed border-divider px-3 text-xs text-text-desc md:min-h-9">
-                  — khoảng cách giữa hai nhóm —
-                </span>
-              ) : (
-                <Textarea
+              {/**
+                * 🔴 MỌI DÒNG ĐỀU LÀ Ô GÕ ĐƯỢC — kể cả dòng trống. Sửa 27/08/2026 (chiều).
+                *
+                * TRƯỚC ĐÂY dòng trống được bày thành một vạch mờ ghi *"— khoảng cách giữa hai nhóm
+                * —"*, không phải ô nhập. Hai hậu quả, cả hai đều Ban lãnh đạo đã nói:
+                *   ① *"tạo thêm khoảng cách giữa 2 nhóm, cái đó vô chi không có ích gì"* — vạch đó
+                *      chiếm một dòng trên màn hình mà không làm được gì.
+                *   ② Nút [+] chèn một dòng TRỐNG, nên bấm [+] ra đúng cái vạch vô ích đó chứ không
+                *      ra ô để gõ. Đã đo: bấm [+] thì số ô nhập không tăng — nút như không chạy.
+                *
+                * ✅ Nay dòng trống là một ô rỗng, gõ vào được ngay. Người lập bấm [+] rồi gõ luôn.
+                *
+                * 📌 KHÔNG MẤT CHỨC NĂNG CỦA TỜ IN: dòng trống vẫn được lưu là dòng trống, và tờ in
+                * vẫn dựng nó thành khoảng thở giữa hai nhóm điều khoản (`laDongTrong` ở
+                * `to-don-mua-hang-a4.tsx`). Chỉ đổi cách BÀY trên form.
+                */}
+              <Textarea
                   id={`${id}-${iGoc}`}
                   rows={soDongCanCho(dong)}
                   /* Mở ngắt dòng về `\n` để Textarea hiển thị đúng nhiều dòng — chiều ngược của
@@ -185,22 +205,38 @@ export function KhoiDieuKhoanTachDong({
                   disabled={khoa}
                   onChange={(e) => suaDong(iGoc, e.target.value)}
                   aria-label={`${nhan} — mục ${soHien}`}
+                  placeholder={laDongTrong ? "Gõ nội dung mục mới…" : undefined}
                   className={`flex-1 text-xs ${laTieuDe ? "font-semibold" : ""}`}
-                />
-              )}
+              />
 
               {/**
-                * 📌 CHỈ CÒN NÚT XOÁ — Ban lãnh đạo 27/08/2026: *"Tính năng dấu + này bỏ luôn"*.
+                * ★★ NÚT [+] ĐÃ CÓ LẠI — Ban lãnh đạo 27/08/2026 (chiều): *"Thêm chức năng được
+                * thêm dòng và dùng icon dấu +"*.
                 *
-                * Nút [+] trước đây chèn một mục TRẮNG vào giữa khối. Nhưng khối này là **điều
-                * khoản chuẩn của công ty**, không phải chỗ soạn văn bản tự do: mục người lập tự
-                * thêm sẽ in thẳng lên chứng từ gửi ra ngoài mà không ai duyệt nội dung.
+                * 📌 SÁNG CÙNG NGÀY Ban lãnh đạo bảo bỏ nút này (*"Tính năng dấu + này bỏ luôn"*),
+                * nay cần lại. Ghi cả hai mốc để người sau đọc lịch sử không tưởng là ai đó tự ý
+                * thêm vào — đây là chỉ đạo mới đè chỉ đạo cũ trong cùng một ngày.
+                *
+                * 🔴 [+] KHÁC HẲN PHÍM ENTER, HAI VIỆC KHÁC NHAU CÙNG TỒN TẠI:
+                *   · [+]   → thêm một MỤC MỚI (một gạch đầu dòng riêng, in thành dòng riêng)
+                *   · Enter → xuống dòng BÊN TRONG mục đang gõ (không sinh mục mới)
+                * Trước 27/08/2026 Enter bị hiểu thành "thêm mục" nên hai việc chồng nhau và không
+                * ai làm được việc thứ hai — xem `NGAT_DONG_TRONG_MUC`.
                 *
                 * ⚠️ VẪN CÒN ĐƯỜNG VỀ khi lỡ xoá nhầm: nút **Khôi phục bản chuẩn** ở góc phải nhãn
-                * khối (hiện ngay khi khối đã bị sửa) lấy lại nguyên bản của mẫu đang chọn. Đừng bỏ
-                * nốt nút đó — bỏ là xoá nhầm một mục thì mất vĩnh viễn.
+                * khối lấy lại nguyên bản của mẫu đang chọn. Đừng bỏ nút đó.
                 */}
               <span className="flex shrink-0 flex-col gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => themDongSau(iGoc)}
+                  disabled={khoa}
+                  title="Thêm một mục ngay dưới"
+                  aria-label={`Thêm mục dưới mục ${soHien}`}
+                  className="rounded-md p-1.5 text-text-desc transition-colors hover:bg-muted hover:text-primary disabled:opacity-40"
+                >
+                  <Plus className="size-3.5" aria-hidden />
+                </button>
                 <button
                   type="button"
                   onClick={() => xoaDong(iGoc)}

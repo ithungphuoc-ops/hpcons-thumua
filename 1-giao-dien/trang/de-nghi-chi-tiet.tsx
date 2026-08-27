@@ -1938,6 +1938,44 @@ export default function TrangChiTietDeNghi() {
                 ],
                 khuDinhKem: (
                   <div className="flex flex-col gap-(--hp-md-card-gap)">
+                    {/**
+                      * ★★ NÚT "HOÀN THÀNH QUY TRÌNH" ĐỨNG ĐẦU KHỐI — Ban lãnh đạo 27/08/2026:
+                      * *"nút hoàn thành quy trình đưa ra vị trí dễ nhìn"*.
+                      *
+                      * 🔴 TRƯỚC ĐÂY NÓ Ở CUỐI, sau khối "Bộ hồ sơ thanh toán đầy đủ" dài 7 mục —
+                      * mở bước ⑦ ra phải cuộn qua hết bảy dòng chứng từ mới thấy cái nút đóng hồ
+                      * sơ. Mà đó chính là việc duy nhất cần làm ở bước này.
+                      *
+                      * 📌 Câu lý do đi kèm ngay dưới nút, không phải ở chỗ khác: bấm không được
+                      * thì người dùng phải đọc được VÌ SAO ở đúng chỗ vừa bấm.
+                      *
+                      * 🔴 Chỉ vai trò xác nhận hoàn thành mới thấy nút. Điều kiện thật do
+                      * `vuongMacHoanThanhQuyTrinh` giữ (tầng ghi cũng hỏi lại hàm đó) — ở đây chỉ
+                      * hiện lý do cho người dùng đọc trước khi bấm.
+                      */}
+                    {quyen.xacNhanTruongBP && !hoSoDaDong && (
+                      <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary-bg p-(--hp-md-row-pad)">
+                        <Button
+                          className="w-fit"
+                          disabled={vuongMacHoanThanhQuyTrinh(dn, tienDoDong) !== null}
+                          onClick={() => setHoiHoanThanh(true)}
+                        >
+                          <BadgeCheck className="size-4" aria-hidden />
+                          Hoàn thành quy trình
+                        </Button>
+                        {vuongMacHoanThanhQuyTrinh(dn, tienDoDong) !== null ? (
+                          <p className="text-xs text-warning-soft">
+                            Chưa hoàn thành được: {vuongMacHoanThanhQuyTrinh(dn, tienDoDong)}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-text-secondary">
+                            Mọi mặt hàng đã nhận đủ, chứng từ đã đủ. Bấm để đóng hồ sơ và chuyển
+                            sang bước “{NHAN_GIAI_DOAN.hoan_thanh.nhan}”.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <OChungTuBatBuoc
                       deNghi={dn}
                       maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}

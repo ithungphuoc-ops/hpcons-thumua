@@ -15,8 +15,9 @@
 //    liệu đẩy đi không thể lệch nhau.
 // ============================================================
 
-import { Check, ExternalLink, FileText, Minus } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ExternalLink, FileText, Minus } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 /* 🔴 DÙNG `LienKetTep`, KHÔNG dùng `ODinhKemTep`: ô đính kèm cần `onXong` / `nguoi` để GHI, mà
    khối này chỉ XEM. Truyền prop giả cho một ô đính kèm rồi khóa lại là mời người sau mở khóa —
    `LienKetTep` không có đường ghi nào nên không thể lỡ tay. */
@@ -47,6 +48,18 @@ export function KhoiBoHoSoThanhToan({
   const muc = dungBoHoSoThanhToan(deNghi, poCuaDeNghi, phieuCuaDeNghi, baoGiaCuaDeNghi);
   const tomTat = tomTatBoHoSo(muc);
 
+  /**
+   * ★ THU GỌN ĐƯỢC — Ban lãnh đạo 27/08/2026: *"Mục này thêm nút group lại cho a"*.
+   *
+   * 🔴 MẶC ĐỊNH MỞ KHI CÒN THIẾU, THU LẠI KHI ĐÃ ĐỦ. Đây là điểm chính, không phải chi tiết
+   * trang trí: khối này dài 7 mục, và người dùng chỉ cần đọc nó khi CÒN THIẾU chứng từ. Hồ sơ
+   * đã đủ thì bảy dòng dấu tích chỉ đẩy nút "Hoàn thành quy trình" xuống khỏi tầm mắt.
+   *
+   * ⚠️ ĐỪNG mặc định thu gọn cả khi còn thiếu: người lập mở trang ra phải thấy ngay mình thiếu
+   * gì, chứ không phải bấm thêm một cái mới biết.
+   */
+  const [moRong, setMoRong] = useState(tomTat.thieu.length > 0);
+
   return (
     <section className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -63,13 +76,36 @@ export function KhoiBoHoSoThanhToan({
           }
           tone={tomTat.thieu.length === 0 ? "success" : "warning"}
         />
+        {/* 📌 Nút đẩy sang phải bằng `ml-auto` — cùng hàng với tiêu đề, không chiếm thêm dòng.
+            Vùng chạm 44px theo V1.1; `md:min-h-9` cho gọn lại trên máy tính. */}
+        <button
+          type="button"
+          onClick={() => setMoRong((v) => !v)}
+          aria-expanded={moRong}
+          className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-medium text-primary transition-colors hover:bg-primary-bg md:min-h-9"
+        >
+          {moRong ? (
+            <ChevronUp className="size-4" aria-hidden />
+          ) : (
+            <ChevronDown className="size-4" aria-hidden />
+          )}
+          {moRong ? "Thu gọn" : `Xem ${tomTat.tong} mục`}
+        </button>
       </div>
-      <p className="text-xs text-text-desc">
-        Gom từ các bước trên, không đính kèm lại ở đây. Đây là bộ chứng từ sẽ chuyển sang app Kế
-        toán.
-      </p>
+      {moRong && (
+        <p className="text-xs text-text-desc">
+          Gom từ các bước trên, không đính kèm lại ở đây. Đây là bộ chứng từ sẽ chuyển sang app
+          Kế toán.
+        </p>
+      )}
 
-      <ol className="flex flex-col gap-2">
+      {/* 🔴 KHI THU GỌN VẪN PHẢI NÓI THIẾU GÌ. Thu gọn để đỡ dài, không phải để giấu việc còn
+          nợ chứng từ — nêu tên mục thiếu ngay trên một dòng. */}
+      {!moRong && tomTat.thieu.length > 0 && (
+        <p className="text-xs text-warning-soft">Còn thiếu: {tomTat.thieu.join(" · ")}.</p>
+      )}
+
+      <ol className={`flex flex-col gap-2 ${moRong ? "" : "hidden"}`}>
         {muc.map((m) => {
           const co = mucDaCo(m);
           return (

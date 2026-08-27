@@ -2908,24 +2908,37 @@ export function FormLapDonMuaHang({
               * ⚠️ CHỈ ĐỌC. Đây là mã do app KHÁC sinh ra; sửa tay ở đây là mất đường đối chiếu
               * giữa hai app, và mất luôn đường truy vết về khối lượng đã duyệt.
               */}
-            {dn && (
-              <div className="muc-ngang">
-                <Label htmlFor="ma-de-nghi">Mã đề nghị</Label>
-                <Input
-                  id="ma-de-nghi"
-                  value={dn.maDeXuatAppRequest ?? dn.code}
-                  readOnly
-                  disabled
-                  className="font-mono"
-                  title={`Mã hồ sơ trong app Thu mua: ${dn.code}`}
-                />
-                <span className="text-xs text-text-desc">
-                  {dn.maDeXuatAppRequest
+            {/**
+              * 🔴 LUÔN HIỆN Ô NÀY, KỂ CẢ ĐƠN ĐỘC LẬP — Ban lãnh đạo 27/08/2026: *"sửa lại chỗ
+              * này"*, khoanh hàng đang chỉ có một ô "Tên công trình" và ghi rõ hai ô cần có:
+              * **Mã đề nghị** (trái) · **Tên công trình** (phải).
+              *
+              * TRƯỚC ĐÂY ô này bị ẩn khi đơn không gắn đề nghị, nên hàng lưới 2 cột bị lệch: "Tên
+              * công trình" nhảy sang cột trái và cột phải trống trơ. Ẩn để "đỡ bày ô vô nghĩa" hoá
+              * ra làm bố cục vỡ, còn khó hiểu hơn cái nó tránh.
+              *
+              * ✅ Nay ô luôn có mặt; đơn độc lập thì nói thẳng là không gắn phiếu nào, thay vì để
+              * trống cho người lập tự đoán phải điền gì.
+              */}
+            <div className="muc-ngang">
+              <Label htmlFor="ma-de-nghi">Mã đề nghị</Label>
+              <Input
+                id="ma-de-nghi"
+                value={dn ? (dn.maDeXuatAppRequest ?? dn.code) : ""}
+                readOnly
+                disabled
+                className={dn ? "font-mono" : undefined}
+                placeholder={dn ? undefined : "— Đơn không gắn phiếu đề nghị —"}
+                title={dn ? `Mã hồ sơ trong app Thu mua: ${dn.code}` : undefined}
+              />
+              <span className="text-xs text-text-desc">
+                {!dn
+                  ? "Đơn lập độc lập, không gắn phiếu đề nghị nào — nên không có mã."
+                  : dn.maDeXuatAppRequest
                     ? "Mã đề xuất bên App Request — lấy tự động, chỉ đọc, dùng để đối chiếu giữa hai app."
                     : "Lấy tự động từ phiếu đề nghị — chỉ đọc, để giữ đường truy vết khối lượng đã duyệt."}
-                </span>
-              </div>
-            )}
+              </span>
+            </div>
 
             <div className="muc-ngang">
               <Label htmlFor="ma-rq">Tên công trình</Label>
@@ -3325,9 +3338,10 @@ export function FormLapDonMuaHang({
             giaTri={dieuKhoanGiaoHang}
             banChuan={dieuKhoanGiaoHangChuanTheoMau(mauPO)}
             onDoi={setDieuKhoanGiaoHang}
-            /* 📌 Không còn vế "Bấm + để thêm mục" — nút đó đã bỏ 27/08/2026. Câu mô tả nói một
-               thao tác không còn tồn tại là người dùng đi tìm cái nút không có. */
-            moTa="Chỗ để trống …… là chỗ cần điền theo từng đơn. Thùng rác để xoá một mục; xoá nhầm thì bấm Khôi phục bản chuẩn."
+            /* 📌 Câu này phải nói ĐỦ BA thao tác, và nói rõ [+] khác Enter — hai việc dễ lẫn nhất
+               ở khối này (Ban lãnh đạo 27/08/2026: *"Thêm chức năng được thêm dòng và dùng icon
+               dấu +"*, cùng ngày với *"xuống dòng trong trường đó"*). */
+            moTa="Chỗ để trống …… là chỗ cần điền theo từng đơn. Bấm + để thêm một mục mới, Enter để xuống dòng trong cùng một mục, thùng rác để xoá mục; xoá nhầm thì bấm Khôi phục bản chuẩn."
           />
 
           {/**
