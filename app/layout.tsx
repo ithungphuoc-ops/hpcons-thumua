@@ -45,6 +45,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </MauChuDaoProvider>
           </MatDoProvider>
         </ThemeProvider>
+        {/* Bong bóng góp ý/báo lỗi xuyên suốt hệ sinh thái — file phục vụ từ app tổng, đọc
+            cookie SSO .hpcore.vn có sẵn để xác thực, không cần code riêng ở đây ngoài đúng
+            1 dòng này (đúng mẫu đã dùng ở PKD/Đấu Thầu...). */}
+        <script src="https://account.hpcore.vn/feedback-widget.js" data-app="HPC Thu Mua" async />
       </body>
     </html>
   );
