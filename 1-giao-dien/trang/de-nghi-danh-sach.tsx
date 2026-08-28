@@ -668,16 +668,23 @@ export default function TrangDanhSachDeNghi() {
            * `app/(app)/layout.tsx`, dựng MỘT LẦN cho cả app — `TrangChiTietDeNghi` không tự vẽ
            * lại nó, nên nhúng vào Dialog tự động không bị lặp, không cần cắt/ẩn gì thêm.
            *
-           * ⚠️ `sm:max-w-6xl`, KHÔNG PHẢI `max-w-6xl` SUÔNG. `DialogContent` mặc định có sẵn
+           * ⚠️ `sm:max-w-[94vw]`, KHÔNG PHẢI SỐ `rem` CỐ ĐỊNH. `DialogContent` mặc định có sẵn
            * `sm:max-w-sm` (384px) — cùng biến thể `sm:`, Tailwind xếp lớp SAU cùng breakpoint
-           * theo thứ tự định nghĩa, không theo thứ tự trong `className`, nên một `max-w-6xl`
-           * KHÔNG có tiền tố thua `sm:max-w-sm` ngay từ 640px trở lên (đã dính lỗi này khi làm:
-           * hộp co lại còn ~384px, chữ vỡ dòng từng chữ một, xem ảnh demo trước khi vá).
+           * theo thứ tự định nghĩa, không theo thứ tự trong `className`, nên một giá trị không
+           * tiền tố `sm:` KHÔNG thắng nổi `sm:max-w-sm` từ 640px trở lên (đã dính lỗi này khi
+           * làm: hộp co lại còn ~384px, chữ vỡ dòng từng chữ một, xem ảnh demo trước khi vá).
            *
-           * 📌 RỘNG HƠN — Sếp xem ảnh thật, thấy hộp còn hẹp, hai bên board lộ ra quá nhiều
-           * (28/08/2026): đổi từ `max-w-4xl` (896px) lên `max-w-6xl` (1152px), rộng ra thêm mỗi
-           * bên khoảng 128px. `DialogContent` gốc vẫn giữ trần `max-w-[calc(100%-2rem)]` nên màn
-           * hẹp hơn 1152px+32px không bị tràn — tự co theo màn như cũ.
+           * 📌 GẦN TRÀN MÀN HÌNH — 2 lần chỉnh liên tiếp cùng ngày:
+           *   1. `max-w-4xl` (896px) → `max-w-6xl` (1152px): Sếp thấy hộp còn hẹp so với board.
+           *   2. `max-w-6xl` → `94vw`: Sếp gửi ảnh đúng hộp của Base.vn thật, chỉ ra Base để hộp
+           *      GẦN TRÀN HẲN màn hình (chỉ chừa viền mờ mỏng), không phải một cỡ cố định vài
+           *      trăm px giữa màn hình.
+           *
+           * 🔴 PHẢI DÙNG ĐƠN VỊ `vw` (theo % chiều rộng màn hình), KHÔNG PHẢI RÌA `rem` CỐ ĐỊNH
+           * NHƯ TRƯỚC: `max-w-6xl` trên màn 1280px đã gần kín, nhưng trên màn 3840px (như ảnh
+           * Base Sếp gửi, máy màn hình rất rộng) vẫn chỉ chiếm 1152px — một dải hẹp lọt thỏm giữa
+           * màn hình, đúng thứ Sếp vừa chê. `94vw` luôn tỉ lệ đúng theo màn hình đang xem, không
+           * phân biệt máy nhỏ hay màn hình rộng.
            *
            * ⚠️⚠️ `overflow-y-auto` PHẢI Ở DIV BỌC BÊN TRONG, KHÔNG ĐẶT THẲNG LÊN `DialogContent`
            * — vá lỗi thật bắt được lúc review đầu tiên: nút Đóng (×) mặc định của `DialogContent`
@@ -706,7 +713,7 @@ export default function TrangDanhSachDeNghi() {
                 cao cho nhau. */}
             <DialogContent
               showCloseButton={false}
-              className="sm:max-w-6xl max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0"
+              className="sm:max-w-[94vw] max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0"
             >
               <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-4 py-3 text-primary-foreground">
                 <div className="min-w-0">
