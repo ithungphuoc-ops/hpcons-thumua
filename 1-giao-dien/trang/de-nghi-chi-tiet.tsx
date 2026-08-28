@@ -123,8 +123,34 @@ import {
   NHAN_TRANG_THAI_PO,
 } from "@/2-quy-trinh/trang-thai";
 
-export default function TrangChiTietDeNghi() {
-  const params = useParams<{ id: string }>();
+export default function TrangChiTietDeNghi({
+  id: idTruyenVao,
+  onDongPopup,
+}: {
+  /**
+   * ★ CHO PHÉP GHI ĐÈ ID — thêm 28/08/2026, phục vụ mục "Xem trong pop-up" ở menu ⋯ của thẻ
+   * Kanban (`MenuThaoTacThe`). Màn đó nhúng NGUYÊN component này vào một `Dialog`, KHÔNG đổi
+   * URL (`/de-nghi` vẫn đứng nguyên) — nên không có đoạn `[id]` nào trong địa chỉ để
+   * `useParams()` đọc ra.
+   *
+   * 📌 Route thật `/de-nghi/[id]/page.tsx` (xem file đó) KHÔNG truyền prop này — nó vẫn để
+   * `useParams()` tự đọc như cũ, đúng hành vi gốc. Toàn bộ ~30 chỗ dùng `params.id` bên dưới
+   * không cần sửa gì: `params` ở đây chỉ là một object gộp, ưu tiên prop khi có.
+   */
+  id?: string;
+  /**
+   * ★★ ĐÓNG POP-UP thay vì điều hướng — thêm 28/08/2026, vá lỗi thật bắt được lúc review:
+   * nút "Quay lại danh sách đề nghị" vốn là `<Link href="/de-nghi">`. Khi nhúng trong Dialog
+   * ở `/de-nghi`, bấm vào đó là điều hướng tới ĐÚNG URL đang đứng — Next.js coi là no-op, Dialog
+   * không đóng, người dùng tưởng nút chết.
+   *
+   * 📌 CHỈ ảnh hưởng nút "Quay lại" chính — không đổi các đường breadcrumb khác (chúng dẫn tới
+   * nơi khác, điều hướng thật vẫn đúng, chỉ tiện thể đóng Dialog theo vì unmount).
+   */
+  onDongPopup?: () => void;
+} = {}) {
+  const routeParams = useParams<{ id: string }>();
+  const params = { id: idTruyenVao ?? routeParams.id };
   const {
     deNghi,
     donHang,
@@ -473,16 +499,31 @@ export default function TrangChiTietDeNghi() {
 
               ⚠️ Dải 7 bước giờ chỉ còn ~73% bề ngang. Nó vốn đã có khung cuộn ngang riêng nên
               không tràn trang, nhưng nếu sau này thêm bước thì kiểm lại trên màn 1280px. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-fit -ml-2"
-            nativeButton={false}
-            render={<Link href="/de-nghi" />}
-          >
-            <ArrowLeft className="size-4" aria-hidden />
-            Quay lại danh sách đề nghị
-          </Button>
+          {/**
+            * ★★ NÚT ĐÓNG POP-UP, KHÔNG PHẢI LINK — khi có `onDongPopup` (đang nhúng trong
+            * Dialog ở "cách 3"). Xem chú thích ở tham số `onDongPopup` đầu file: `<Link
+            * href="/de-nghi">` lúc đó điều hướng tới ĐÚNG URL đang đứng nên trình duyệt coi là
+            * no-op, nút trông như chết. Route thật (`/de-nghi/[id]/page.tsx`) không truyền
+            * `onDongPopup` nên vẫn giữ nguyên `<Link>` — Ctrl+click/chuột giữa vẫn mở tab mới
+            * được, đúng hành vi cũ.
+            */}
+          {onDongPopup ? (
+            <Button variant="ghost" size="sm" className="w-fit -ml-2" onClick={onDongPopup}>
+              <ArrowLeft className="size-4" aria-hidden />
+              Quay lại danh sách đề nghị
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-fit -ml-2"
+              nativeButton={false}
+              render={<Link href="/de-nghi" />}
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              Quay lại danh sách đề nghị
+            </Button>
+          )}
 
           <PageHeader
             crumbs={[
