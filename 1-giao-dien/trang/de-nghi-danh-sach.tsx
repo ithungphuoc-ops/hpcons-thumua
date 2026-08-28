@@ -4,7 +4,23 @@ import Link from "next/link";
 import NextDynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, FileText, LayoutGrid, List, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ExternalLink,
+  FileText,
+  LayoutGrid,
+  List,
+  Maximize2,
+  MoreHorizontal,
+  X,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
@@ -53,13 +69,7 @@ import {
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen-giai-doan";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/1-giao-dien/nen-tang-ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Loader2 } from "lucide-react";
 /**
@@ -156,8 +166,6 @@ export default function TrangDanhSachDeNghi() {
   const dnDangSua = dangSua ? deNghi.find((d) => d.id === dangSua.prId) : undefined;
   const dnHoiXoa = hoiXoa ? deNghi.find((d) => d.id === hoiXoa) : undefined;
   const dnHoiNhanBan = hoiNhanBan ? deNghi.find((d) => d.id === hoiNhanBan) : undefined;
-  /** Đề nghị đang mở "Xem trong pop-up" — chỉ để lấy mã hiện lên thanh tiêu đề của Dialog. */
-  const dnXemPopup = xemPopupId ? deNghi.find((d) => d.id === xemPopupId) : undefined;
 
   /**
    * Các thao tác của menu ⋯ trên thẻ.
@@ -715,32 +723,76 @@ export default function TrangDanhSachDeNghi() {
               showCloseButton={false}
               className="sm:max-w-[94vw] max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0"
             >
+              {/**
+                * ★★ ĐƠN GIẢN LẠI THANH TIÊU ĐỀ — 28/08/2026, video thứ hai Sếp quay: thanh của
+                * Base.vn thật chỉ có "‹ Chi tiết nhiệm vụ" trơn (không có mã đề nghị, không có
+                * mô tả "Pop-up đè lên board..."). Bỏ `DialogDescription` — `DialogTitle` một
+                * mình vẫn đủ gán `aria-labelledby` cho Base UI, không cần cặp tiêu đề+mô tả nữa.
+                *
+                * 🔴 GIỮ `truncate` + `min-w-0`: mã đề nghị dài (đã thấy thực tế: mã hợp đồng +
+                * tên công trình dài) vẫn phải nhường chỗ cho cụm nút bên phải, không đẩy tràn.
+                */}
               <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-4 py-3 text-primary-foreground">
-                <div className="min-w-0">
-                  <DialogTitle className="truncate text-sm font-semibold text-primary-foreground">
-                    Xem nhanh
-                    {dnXemPopup
-                      ? ` — ${dnXemPopup.maDeXuatAppRequest || dnXemPopup.code}${
-                          dnXemPopup.maHopDongCDT ? ` · ${dnXemPopup.maHopDongCDT}` : ""
-                        }`
-                      : ""}
-                  </DialogTitle>
-                  <DialogDescription className="truncate text-xs text-primary-foreground/85">
-                    Pop-up đè lên board · đóng lại là về ngay
-                  </DialogDescription>
+                <DialogTitle className="min-w-0 truncate text-sm font-semibold text-primary-foreground">
+                  ‹ Chi tiết đề nghị
+                </DialogTitle>
+                <div className="flex shrink-0 items-center gap-1">
+                  {/**
+                    * ★★ MENU "•••" THỨ HAI, RIÊNG BÊN TRONG POP-UP — thêm 28/08/2026, đúng
+                    * video Base.vn thật: pop-up đang mở có SẴN 1 menu "•••" của chính nó (khác
+                    * menu ⋯ trên thẻ Kanban ở "cách 2"/"cách 3") để PHÓNG NGAY view đang xem
+                    * thành to hơn — không cần đóng pop-up rồi mở lại đúng đề nghị đó từ đầu.
+                    *
+                    * 🔴 "Xem toàn màn hình" GỌI `router.push`, KHÔNG GỌI `setXemPopupId(null)`
+                    * TRƯỚC: điều hướng làm unmount cả trang board (kèm Dialog) trong cùng một
+                    * nhịp — gọi tắt state trước là thao tác thừa, có thể gây nháy giao diện
+                    * (đóng Dialog rồi mới điều hướng) thay vì chuyển thẳng.
+                    */}
+                  {xemPopupId && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                            aria-label="Thêm lựa chọn xem"
+                          />
+                        }
+                      >
+                        <MoreHorizontal className="size-4" aria-hidden />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem onClick={() => router.push(`/de-nghi/${xemPopupId}`)}>
+                            <Maximize2 className="size-4 shrink-0" aria-hidden />
+                            Xem toàn màn hình
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              window.open(`/de-nghi/${xemPopupId}`, "_blank", "noopener")
+                            }
+                          >
+                            <ExternalLink className="size-4 shrink-0" aria-hidden />
+                            Xem trong tab mới
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  <DialogClose
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                        aria-label="Đóng"
+                      />
+                    }
+                  >
+                    <X className="size-4" aria-hidden />
+                  </DialogClose>
                 </div>
-                <DialogClose
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="shrink-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-                      aria-label="Đóng"
-                    />
-                  }
-                >
-                  <X className="size-4" aria-hidden />
-                </DialogClose>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {/**
