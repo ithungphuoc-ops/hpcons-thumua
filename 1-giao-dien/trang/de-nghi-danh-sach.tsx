@@ -4,7 +4,7 @@ import Link from "next/link";
 import NextDynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, FileText, LayoutGrid, List } from "lucide-react";
+import { AlertTriangle, FileText, LayoutGrid, List, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
@@ -53,7 +53,14 @@ import {
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen-giai-doan";
-import { Dialog, DialogContent, DialogTitle } from "@/1-giao-dien/nen-tang-ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/1-giao-dien/nen-tang-ui/dialog";
+import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Loader2 } from "lucide-react";
 /**
  * ★★ NHÚNG NGUYÊN TRANG CHI TIẾT VÀO DIALOG — cho mục menu ⋯ "Xem trong pop-up" (28/08/2026,
@@ -149,6 +156,8 @@ export default function TrangDanhSachDeNghi() {
   const dnDangSua = dangSua ? deNghi.find((d) => d.id === dangSua.prId) : undefined;
   const dnHoiXoa = hoiXoa ? deNghi.find((d) => d.id === hoiXoa) : undefined;
   const dnHoiNhanBan = hoiNhanBan ? deNghi.find((d) => d.id === hoiNhanBan) : undefined;
+  /** Đề nghị đang mở "Xem trong pop-up" — chỉ để lấy mã hiện lên thanh tiêu đề của Dialog. */
+  const dnXemPopup = xemPopupId ? deNghi.find((d) => d.id === xemPopupId) : undefined;
 
   /**
    * Các thao tác của menu ⋯ trên thẻ.
@@ -666,21 +675,62 @@ export default function TrangDanhSachDeNghi() {
            * hộp co lại còn ~384px, chữ vỡ dòng từng chữ một, xem ảnh demo trước khi vá).
            *
            * ⚠️⚠️ `overflow-y-auto` PHẢI Ở DIV BỌC BÊN TRONG, KHÔNG ĐẶT THẲNG LÊN `DialogContent`
-           * — vá lỗi thật bắt được lúc review. Nút Đóng (×) mặc định của `DialogContent` là
-           * `position: absolute` NẰM TRONG chính khối đó; đặt `overflow-y-auto` lên cùng khối
-           * thì khối đó trở thành vùng cuộn, và nút Đóng — vì định vị theo chính khối đang cuộn —
-           * TRÔI THEO nội dung xuống dưới luôn, đúng thứ chú thích cũ nói là đã tránh được nhưng
-           * thật ra chưa. Tách riêng: `DialogContent` giữ `overflow-hidden` (không tự cuộn, nút
-           * Đóng đứng yên theo khối `fixed` bên ngoài), còn nội dung cuộn TRONG MỘT DIV CON.
+           * — vá lỗi thật bắt được lúc review đầu tiên: nút Đóng (×) mặc định của `DialogContent`
+           * là `position: absolute` NẰM TRONG chính khối đó, đặt `overflow-y-auto` lên cùng khối
+           * thì nút Đóng TRÔI THEO nội dung khi cuộn. Bản đầu chỉ tách khối cuộn ra một div con để
+           * né lỗi này; bản này (28/08/2026, sau khi Sếp đối chiếu ảnh code thật với ảnh demo) đi
+           * xa hơn — bỏ hẳn nút Đóng mặc định, dựng thanh xanh `shrink-0` (không cuộn, vì
+           * `DialogContent` giờ là `flex flex-col`) chứa cả tiêu đề lẫn nút Đóng riêng, còn vùng
+           * nội dung là `flex-1 overflow-y-auto` bên dưới — nguyên lý "tách khối cuộn khỏi khối
+           * chứa nút Đóng" vẫn giữ, chỉ đổi CÁCH tách cho khớp luôn với bản demo đã duyệt.
            */}
           <Dialog open={xemPopupId !== null} onOpenChange={(mo) => !mo && setXemPopupId(null)}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden p-0">
-              {/* Ẩn mắt (`sr-only`), không ẩn trình đọc màn hình — CodeRabbit bắt đúng: Base UI
-                  cần `DialogTitle` để gán `aria-labelledby`, thiếu thì hộp không có tên truy cập.
-                  Trang chi tiết bên trong đã tự có tiêu đề riêng cho người NHÌN THẤY, nên không
-                  cần thêm tiêu đề hiện ra lần hai — chỉ cần bản cho trình đọc màn hình. */}
-              <DialogTitle className="sr-only">Chi tiết đề nghị</DialogTitle>
-              <div className="max-h-[90vh] overflow-y-auto">
+            {/**
+              * ★★ THANH TIÊU ĐỀ XANH + NÚT ĐÓNG NỔI BẬT — thêm 28/08/2026, Sếp đối chiếu ảnh
+              * code thật với ảnh demo đã duyệt và chỉ ra: bản code thiếu hẳn khối chrome này,
+              * chỉ có nút × nhỏ mặc định của `DialogContent` (dễ lẫn với nút × của khối "GIAI
+              * ĐOẠN HIỆN TẠI" bên trong trang, nhìn không giống 2 nút khác nhau). Không có thanh
+              * này, hộp trông như "trang đầy đủ bị bóp hẹp lại" chứ không rõ đang xem PO-UP.
+              *
+              * 🔴 TẮT `showCloseButton` MẶC ĐỊNH của `DialogContent` — tự dựng nút Đóng riêng
+              * trong thanh xanh (đúng vị trí/kiểu dáng bản demo), tránh 2 nút Đóng chồng nhau.
+              */}
+            {/* `flex flex-col` GHI ĐÈ HẲN `grid` mặc định của `DialogContent` — twMerge chỉ dedup
+                trong đúng nhóm xung đột của nó; `flex-col` một mình (thiếu `flex`) không tắt được
+                `display: grid` nền, thanh xanh + vùng cuộn bên dưới sẽ không tự chia đúng chiều
+                cao cho nhau. */}
+            <DialogContent
+              showCloseButton={false}
+              className="sm:max-w-4xl max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-4 py-3 text-primary-foreground">
+                <div className="min-w-0">
+                  <DialogTitle className="truncate text-sm font-semibold text-primary-foreground">
+                    Xem nhanh
+                    {dnXemPopup
+                      ? ` — ${dnXemPopup.maDeXuatAppRequest || dnXemPopup.code}${
+                          dnXemPopup.maHopDongCDT ? ` · ${dnXemPopup.maHopDongCDT}` : ""
+                        }`
+                      : ""}
+                  </DialogTitle>
+                  <DialogDescription className="truncate text-xs text-primary-foreground/85">
+                    Pop-up đè lên board · đóng lại là về ngay
+                  </DialogDescription>
+                </div>
+                <DialogClose
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="shrink-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                      aria-label="Đóng"
+                    />
+                  }
+                >
+                  <X className="size-4" aria-hidden />
+                </DialogClose>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
                 {/**
                  * ★ `key={xemPopupId}` — mỗi đề nghị mở pop-up là MỘT PHIÊN COMPONENT MỚI, không
                  * tái dùng lại state cũ (state form dở dang, hộp xác nhận đang mở...) của đề nghị
