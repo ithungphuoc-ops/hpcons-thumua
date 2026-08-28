@@ -123,8 +123,23 @@ import {
   NHAN_TRANG_THAI_PO,
 } from "@/2-quy-trinh/trang-thai";
 
-export default function TrangChiTietDeNghi() {
-  const params = useParams<{ id: string }>();
+export default function TrangChiTietDeNghi({
+  id: idTruyenVao,
+}: {
+  /**
+   * ★ CHO PHÉP GHI ĐÈ ID — thêm 28/08/2026, phục vụ mục "Xem trong pop-up" ở menu ⋯ của thẻ
+   * Kanban (`MenuThaoTacThe`). Màn đó nhúng NGUYÊN component này vào một `Dialog`, KHÔNG đổi
+   * URL (`/de-nghi` vẫn đứng nguyên) — nên không có đoạn `[id]` nào trong địa chỉ để
+   * `useParams()` đọc ra.
+   *
+   * 📌 Route thật `/de-nghi/[id]/page.tsx` (xem file đó) KHÔNG truyền prop này — nó vẫn để
+   * `useParams()` tự đọc như cũ, đúng hành vi gốc. Toàn bộ ~30 chỗ dùng `params.id` bên dưới
+   * không cần sửa gì: `params` ở đây chỉ là một object gộp, ưu tiên prop khi có.
+   */
+  id?: string;
+} = {}) {
+  const routeParams = useParams<{ id: string }>();
+  const params = { id: idTruyenVao ?? routeParams.id };
   const {
     deNghi,
     donHang,

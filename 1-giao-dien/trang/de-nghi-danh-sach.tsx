@@ -52,6 +52,13 @@ import {
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen-giai-doan";
+import { Dialog, DialogContent } from "@/1-giao-dien/nen-tang-ui/dialog";
+/**
+ * ★★ NHÚNG NGUYÊN TRANG CHI TIẾT VÀO DIALOG — cho mục menu ⋯ "Xem trong pop-up" (28/08/2026,
+ * "cách 3" trong 3 cách xem Sếp chốt). Trang chỉ nhận thêm `id` khi dùng kiểu này — route thật
+ * `/de-nghi/[id]` vẫn gọi không tham số như cũ, xem chú thích ở đầu `de-nghi-chi-tiet.tsx`.
+ */
+import TrangChiTietDeNghi from "@/1-giao-dien/trang/de-nghi-chi-tiet";
 /* 📌 KHÔNG còn import nhãn trạng thái đề nghị / mức ưu tiên: tab Danh sách nay suy trạng thái từ
    GIAI ĐOẠN (`HuyHieuTrangThai`) đúng như bảng Base — ba mức Đang xử lý · Hoàn thành · Thất bại. */
 
@@ -114,6 +121,12 @@ export default function TrangDanhSachDeNghi() {
   const [hoiXoa, setHoiXoa] = useState<string | null>(null);
   /** Phiếu đang mở hộp nhân bản — `null` là hộp đóng. */
   const [hoiNhanBan, setHoiNhanBan] = useState<string | null>(null);
+  /**
+   * Phiếu đang xem nhanh dạng pop-up — menu ⋯ "Xem trong pop-up" ("cách 3", 28/08/2026).
+   * `null` là đóng. KHÔNG đổi URL: `/de-nghi` vẫn đứng nguyên, board vẫn ở dưới lớp phủ —
+   * đóng lại là về ngay đúng chỗ đang xem, không mất bộ lọc/vị trí cuộn.
+   */
+  const [xemPopupId, setXemPopupId] = useState<string | null>(null);
 
   const dnDangSua = dangSua ? deNghi.find((d) => d.id === dangSua.prId) : undefined;
   const dnHoiXoa = hoiXoa ? deNghi.find((d) => d.id === hoiXoa) : undefined;
@@ -364,32 +377,21 @@ export default function TrangDanhSachDeNghi() {
   }
 
   /**
-   * ★★ BẤM THẺ → MỞ HỘP BƯỚC HIỆN TẠI, KHÔNG MỞ CẢ TRANG — Ban lãnh đạo 27/08/2026: *"khi bấm
-   * vào xem chi tiết thay vì mở full màn hình thì bước này sẽ hiển thị, kiểu dạng trang pop-up"*.
+   * ★★ ĐÃ BỎ `xemNhanhThe` (28/08/2026) — hàm cũ này "bấm thẻ mở hộp bước hiện tại" (chỉ đạo
+   * 27/08/2026), nay Sếp xem video Base.vn thật và chốt lại thành 3 cách xem riêng biệt:
    *
-   * Hộp mở ra là `HopChuyenGiaiDoan` — thứ đã có sẵn từ 15/08/2026 và bày đúng những gì Sếp cần
-   * xem ở một bước: điều kiện còn vướng, ô đính kèm chứng từ, việc bắt buộc tích được, và nút
-   * chuyển bước tự mở khóa khi hết vướng.
+   *   1. Bấm thẳng vào thẻ → ra thẳng trang đầy đủ, cùng tab — không cần hàm nào ở đây nữa,
+   *      `<Link href="/de-nghi/[id]">` trong `bang-quy-trinh-mua-hang.tsx` tự lo.
+   *   2. Menu ⋯ → "Xem trong tab mới" → đã có sẵn từ trước (`window.open`), không đổi gì.
+   *   3. Menu ⋯ → "Xem trong pop-up" → `onXemPopupThe` ngay dưới, mở `Dialog` tại chỗ.
    *
-   * 🔴 ĐÂY CŨNG LÀ ĐƯỜNG VÀO DUY NHẤT CÒN LẠI CỦA HỘP ĐÓ. Từ 27/08/2026 kéo thả đã tắt hết
-   * (chỉ đạo *"Tắt hết"*), mà trước đó hộp chỉ mở được bằng cách thả thẻ — nên nó đã thành mồ
-   * côi. Bỏ hàm này là bỏ luôn toàn bộ khối gỡ vướng chuyển bước; xem CLAUDE.md mục 3.4b về
-   * việc phải kiểm màn hình còn đường vào nào khác trước khi bỏ.
-   *
-   * 📌 ĐÍCH LÀ BƯỚC KẾ TIẾP trong chuỗi 7 bước. Hộp vốn sinh ra để trả lời câu *"đi tiếp cần
-   * gì"*, nên phải có bước đích; không có bước kế (đã Hoàn thành / Thất bại) thì mở trang đầy
-   * đủ, vì lúc đó chẳng còn gì để gỡ vướng.
+   * `HopChuyenGiaiDoan` (hộp gỡ vướng chuyển bước) KHÔNG mất đường vào — dời sang menu ⋯ mục
+   * "Chuyển sang giai đoạn kế tiếp"/"Chuyển về giai đoạn trước", gọi lại đúng `xuLyTha` bên
+   * dưới qua `onTha` (xem chú thích tại chỗ truyền `onTha` cho `<BangQuyTrinhMuaHang>`). Đây
+   * vẫn là một đường vào thật, không phải bỏ hẳn — không vi phạm CLAUDE.md mục 3.4b.
    */
-  function xemNhanhThe(prId: string) {
-    const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
-    const viTri = the ? CHUOI_BUOC_DS.indexOf(the.giaiDoan) : -1;
-    const buocKe =
-      viTri >= 0 && viTri < CHUOI_BUOC_DS.length - 1 ? CHUOI_BUOC_DS[viTri + 1] : undefined;
-    if (!buocKe) {
-      router.push(`/de-nghi/${prId}`);
-      return;
-    }
-    xuLyTha(prId, buocKe, true);
+  function onXemPopupThe(prId: string) {
+    setXemPopupId(prId);
   }
 
   /**
@@ -580,22 +582,67 @@ export default function TrangDanhSachDeNghi() {
             * Chỉ tắt một cái thì trình duyệt vẫn cho kéo (hoặc vẫn có cột nhận), và người dùng
             * kéo được một nửa quãng đường rồi thả xuống không có gì xảy ra — khó hiểu hơn là
             * không kéo được.
+            *
+            * 📌 CẬP NHẬT 28/08/2026: `onTha` bên dưới KHÔNG còn là `undefined` nữa — nó vẫn đúng
+            * cho DRAG (thẻ vẫn không kéo được, `keoThaDuoc` vẫn `false`), nhưng giờ menu ⋯ cần
+            * gọi lại `xuLyTha` cho 2 mục "Chuyển sang giai đoạn kế tiếp"/"Chuyển về giai đoạn
+            * trước" (đường vào mới của `HopChuyenGiaiDoan`, xem `bang-quy-trinh-mua-hang.tsx` →
+            * `MenuThaoTacThe`). Đừng đọc dòng `onTha={xuLyTha}` bên dưới là "đã bật lại kéo thả"
+            * — hai việc đã tách rời hẳn nhau kể từ đây.
             */}
           <BangQuyTrinhMuaHang
             cot={cot}
             keoThaDuoc={false}
-            onTha={undefined}
+            /**
+             * ★★ CHỈ CHO VAI TRÒ LÀM NGHIỆP VỤ — giữ đúng luật cũ của `onXemNhanh`: hộp
+             * `HopChuyenGiaiDoan` có ô đính kèm và nút chuyển bước, người chỉ xem mà thấy 2 mục
+             * "Chuyển sang giai đoạn kế tiếp"/"Chuyển về giai đoạn trước" thì bấm vào không ăn.
+             */
+            onTha={quyen.lapPO ? xuLyTha : undefined}
             // Menu ⋯ chỉ mở cho vai trò làm nghiệp vụ; người chỉ xem không thấy thao tác ghi.
             thaoTac={quyen.lapPO ? thaoTacThe : undefined}
             /**
-             * ★★ Bấm thẻ mở hộp bước hiện tại (Sếp 27/08/2026) — xem `xemNhanhThe`.
+             * ★★ 3 CÁCH XEM (chốt 28/08/2026, xem video Base.vn) — không còn `onXemNhanh`:
              *
-             * 🔴 CHỈ CHO VAI TRÒ LÀM NGHIỆP VỤ. Hộp này có ô đính kèm và nút chuyển bước; người
-             * chỉ được XEM mà mở ra là bày một loạt ô bấm vào không ăn. Họ giữ hành vi cũ: bấm
-             * thẻ mở trang chi tiết, ở đó mọi thứ đã tự khóa theo quyền.
+             *   1. Bấm thẳng vào thẻ → `<Link href="/de-nghi/[id]">` trong bảng tự điều hướng,
+             *      không cần gì thêm ở đây.
+             *   2. Menu ⋯ → "Xem trong tab mới" → bảng tự `window.open`, cũng không cần gì thêm.
+             *   3. Menu ⋯ → "Xem trong pop-up" → `onXemPopup` dưới đây, MỞ CHO MỌI VAI TRÒ (kể
+             *      cả người chỉ xem) — đây là thao tác XEM, khác hẳn `thaoTac`/`onTha` ở trên.
              */
-            onXemNhanh={quyen.lapPO ? xemNhanhThe : undefined}
+            onXemPopup={onXemPopupThe}
           />
+
+          {/**
+           * ★★ "CÁCH 3": XEM NHANH DẠNG POP-UP — 28/08/2026, đúng hành vi Sếp xem trong video
+           * Base.vn: nội dung ĐẦY ĐỦ y hệt trang riêng, nhưng hiện dạng lớp phủ đè lên board
+           * (board vẫn đứng nguyên phía sau, KHÔNG đổi URL) — đóng lại là về ngay đúng chỗ đang
+           * xem, không mất bộ lọc/vị trí cuộn.
+           *
+           * 🔴 NHÚNG NGUYÊN `TrangChiTietDeNghi` — không viết lại nội dung lần hai. Trang đó đã
+           * là bản "đầy đủ" đúng nghĩa (tiến trình các giai đoạn, người theo dõi, danh sách công
+           * việc, thảo luận...); viết thêm một bản rút gọn ở đây là hai nguồn nói khác nhau về
+           * cùng một hồ sơ — đúng lỗi đã sửa nhiều lần trong file này (xem `moiThe` ở trên).
+           *
+           * 📌 KHÔNG LẶP SIDEBAR CỦA APP: sidebar (`Phòng Thu mua`, menu trái) nằm ở
+           * `app/(app)/layout.tsx`, dựng MỘT LẦN cho cả app — `TrangChiTietDeNghi` không tự vẽ
+           * lại nó, nên nhúng vào Dialog tự động không bị lặp, không cần cắt/ẩn gì thêm.
+           *
+           * ⚠️ `sm:max-w-4xl`, KHÔNG PHẢI `max-w-4xl` SUÔNG. `DialogContent` mặc định có sẵn
+           * `sm:max-w-sm` (384px) — cùng biến thể `sm:`, Tailwind xếp lớp SAU cùng breakpoint
+           * theo thứ tự định nghĩa, không theo thứ tự trong `className`, nên một `max-w-4xl`
+           * KHÔNG có tiền tố thua `sm:max-w-sm` ngay từ 640px trở lên (đã dính lỗi này khi làm:
+           * hộp co lại còn ~384px, chữ vỡ dòng từng chữ một, xem ảnh demo trước khi vá).
+           *
+           * ⚠️ `max-h-[90vh] overflow-y-auto p-0`: trang chi tiết cao hơn khung nhìn rất nhiều
+           * (nhiều khối xếp dọc) — không giới hạn chiều cao + cho cuộn riêng thì Dialog tràn khỏi
+           * màn hình, người dùng không bấm được nút Đóng ở góc.
+           */}
+          <Dialog open={xemPopupId !== null} onOpenChange={(mo) => !mo && setXemPopupId(null)}>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+              {xemPopupId && <TrangChiTietDeNghi id={xemPopupId} />}
+            </DialogContent>
+          </Dialog>
 
           {/* ===== BA HỘP SỬA của menu ⋯ ===== */}
           {dnDangSua && (

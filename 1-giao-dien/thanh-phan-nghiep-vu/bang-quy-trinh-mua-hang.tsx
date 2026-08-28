@@ -120,18 +120,34 @@ export interface BangQuyTrinhMuaHangProps {
   /** Các thao tác của menu ⋯ trên thẻ. Không truyền thì menu chỉ còn mục xem/sao chép. */
   thaoTac?: ThaoTacThe;
   /**
-   * ★★ BẤM THẺ MỞ HỘP BƯỚC HIỆN TẠI thay vì mở cả trang chi tiết — Ban lãnh đạo 27/08/2026:
-   * *"khi bấm vào xem chi tiết thay vì mở full màn hình thì bước này sẽ hiển thị, kiểu dạng
-   * trang pop-up"*.
+   * ★★ BẤM THẺ → MỞ HỘP BƯỚC HIỆN TẠI thay vì mở trang đầy đủ — CHỈ ĐẠO 27/08/2026, ĐÃ BỊ
+   * THAY 28/08/2026 sau khi Sếp xem video Base.vn thật và chỉ rõ: bấm thẻ phải ra thẳng trang
+   * đầy đủ (cùng tab); hộp bước hiện tại (`HopChuyenGiaiDoan`) dời sang mục "Chuyển sang giai
+   * đoạn kế tiếp" trong menu ⋯ (xem `onTha` + `MenuThaoTacThe`), còn xem nhanh không rời board
+   * thì có mục "Xem trong pop-up" riêng (xem `onXemPopup` ngay dưới).
    *
-   * 🔴 KHÔNG TRUYỀN THÌ THẺ VẪN MỞ TRANG ĐẦY ĐỦ như trước. Bảng này còn dùng ở màn khác, và
-   * một component hiển thị thuần không được tự quyết định thay trang chứa nó.
-   *
-   * 📌 GIỮ NGUYÊN `href` trên thẻ dù có prop này: Ctrl+click và chuột giữa vẫn phải mở được
-   * trang đầy đủ ở tab mới. Chặn bằng `preventDefault` trong `onClick` chỉ ăn với cú bấm
-   * thường — đó là chủ ý, không phải sót.
+   * 🔴 KHÔNG XOÁ PROP — chỉ không còn nơi nào truyền giá trị khác `undefined` nữa. Giữ lại vì
+   * đây vẫn là API công khai của một "component hiển thị thuần" (xem chú thích đầu file): có
+   * thể có màn khác trong tương lai muốn đúng hành vi cũ.
    */
   onXemNhanh?: (prId: string) => void;
+  /**
+   * ★★ MỤC "XEM TRONG POP-UP" Ở MENU ⋯ — thêm 28/08/2026, đúng "cách 3" trong 3 cách Sếp chốt
+   * (xem cả `onXemNhanh` ở trên và `onTha`):
+   *
+   *   1. Bấm thẳng vào thẻ           → `href` của `<Link>` tự lo, KHÔNG cần prop nào ở đây.
+   *   2. Menu ⋯ → "Xem trong tab mới" → tự làm bằng `window.open`, không cần trang chứa.
+   *   3. Menu ⋯ → "Xem trong pop-up"  → PROP NÀY. Phải hỏi trang chứa vì pop-up là một
+   *      `Dialog` bọc NGUYÊN trang chi tiết (`TrangChiTietDeNghi`) — component đó gọi
+   *      `useDuLieu()`, mà bảng này (component hiển thị thuần) không được đụng vào kho dữ
+   *      liệu. Trang chứa đứng ra dựng `Dialog` đó và chỉ đưa xuống đây một hàm "mở".
+   *
+   * 🔴 KHÔNG GẮN VÀO `ThaoTacThe`: đây là thao tác XEM, không phải thao tác GHI — phải chạy
+   * được cho cả vai trò chỉ xem, không được khoá theo `quyen.lapPO` như các mục còn lại của
+   * `thaoTac`. Không truyền thì mục menu vẫn hiện nhưng bấm không có gì xảy ra — xem cách xử lý
+   * ở `MenuThaoTacThe`.
+   */
+  onXemPopup?: (prId: string) => void;
 }
 
 /**
@@ -177,6 +193,7 @@ export function BangQuyTrinhMuaHang({
   onTha,
   thaoTac,
   onXemNhanh,
+  onXemPopup,
 }: BangQuyTrinhMuaHangProps) {
   /**
    * ★ GIAI ĐOẠN CỦA THẺ ĐANG KÉO — `null` là không kéo gì.
@@ -312,6 +329,7 @@ export function BangQuyTrinhMuaHang({
             onTha={onTha}
             thaoTac={thaoTac}
             onXemNhanh={onXemNhanh}
+            onXemPopup={onXemPopup}
           />
         ))}
       </div>
@@ -329,6 +347,7 @@ function CotQuyTrinh({
   onTha,
   thaoTac,
   onXemNhanh,
+  onXemPopup,
 }: {
   cot: CotBangQuyTrinh;
   keoThaDuoc: boolean;
@@ -341,6 +360,7 @@ function CotQuyTrinh({
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
   onXemNhanh?: (prId: string) => void;
+  onXemPopup?: (prId: string) => void;
 }) {
   const { giaiDoan, the, soQuaHan } = cot;
 
@@ -577,6 +597,7 @@ function CotQuyTrinh({
               onTha={onTha}
               thaoTac={thaoTac}
               onXemNhanh={onXemNhanh}
+              onXemPopup={onXemPopup}
             />
           ))
         )}
@@ -594,6 +615,7 @@ function TheDeNghi({
   onTha,
   thaoTac,
   onXemNhanh,
+  onXemPopup,
 }: {
   the: TheDeNghiTrenBang;
   tongGiaiDoan: Tong;
@@ -607,6 +629,8 @@ function TheDeNghi({
   thaoTac?: ThaoTacThe;
   /** Bấm thẻ mở hộp bước hiện tại thay vì mở trang — xem `BangQuyTrinhMuaHangProps`. */
   onXemNhanh?: (prId: string) => void;
+  /** Menu ⋯ → "Xem trong pop-up" — xem `BangQuyTrinhMuaHangProps`. */
+  onXemPopup?: (prId: string) => void;
 }) {
   /* `soDongChuaPhanBo` không lấy ra nữa — số đó đã nằm trong câu `the.conNo`. Trường vẫn còn
      trên `TheDeNghiTrenBang` cho nơi khác dùng, chỉ thẻ này thôi đọc trực tiếp. */
@@ -632,12 +656,17 @@ function TheDeNghi({
     <Link
       href={`/de-nghi/${deNghi.id}`}
       /**
-       * ★★ BẤM THƯỜNG → MỞ HỘP BƯỚC HIỆN TẠI (Ban lãnh đạo 27/08/2026). `href` giữ nguyên nên
-       * Ctrl+click / chuột giữa vẫn mở trang đầy đủ ở tab mới.
+       * ★★ BẤM THƯỜNG → RA THẲNG TRANG ĐẦY ĐỦ, CÙNG TAB — "cách 1" trong 3 cách xem, chốt lại
+       * 28/08/2026 sau khi Sếp xem video Base.vn thật (thay chỉ đạo 27/08/2026 cũ: khi đó bấm
+       * thẻ mở hộp bước hiện tại — nay hộp đó dời sang menu ⋯, xem `onTha`/`onXemPopup`).
        *
-       * 🔴 BỎ QUA KHI CÓ PHÍM PHỤ hoặc bấm chuột giữa: `preventDefault` vô điều kiện là cướp
-       * luôn cả cú "mở tab mới" mà trình duyệt vốn làm được — người dùng bấm Ctrl mà không có
-       * gì xảy ra thì tưởng app treo.
+       * 🔴 KHÔNG CẦN `onClick` NỮA để ra hành vi này: không còn nơi nào truyền `onXemNhanh`, nên
+       * nhánh dưới luôn rơi vào `undefined` và `<Link>` tự điều hướng như một link bình thường —
+       * đúng "cùng tab, thay hẳn màn hình" mà không cần code thêm gì.
+       *
+       * 📌 GIỮ NGUYÊN cả nhánh `onXemNhanh` lẫn `preventDefault`: đây vẫn là API công khai của
+       * bảng (xem `BangQuyTrinhMuaHangProps`), lỡ có màn khác cần đúng hành vi "bấm thẻ mở hộp"
+       * cũ thì chỉ cần truyền lại prop, không phải viết lại đoạn này.
        */
       onClick={
         onXemNhanh
@@ -726,8 +755,23 @@ function TheDeNghi({
           {deNghi.mucDoUuTien === "gap" && <StatusBadge label="Gấp" tone="danger" />}
           <MenuThaoTacThe
             the={the}
-            onTha={keoThaDuoc ? onTha : undefined}
+            /**
+             * ★★ HẾT GẮN VỚI `keoThaDuoc` — sửa 28/08/2026. Trước đây dòng này viết
+             * `keoThaDuoc ? onTha : undefined`, nên lúc kéo thả bị tắt (`keoThaDuoc={false}`,
+             * đang vậy từ 27/08/2026) thì 2 mục menu "Chuyển sang giai đoạn kế tiếp"/"Chuyển về
+             * giai đoạn trước" cũng biến mất theo — dù 2 mục đó KHÔNG kéo thả gì cả, chỉ gọi lại
+             * `onTha` để mở đúng `HopChuyenGiaiDoan` (xem `de-nghi-danh-sach.tsx` → `xuLyTha`).
+             *
+             * 🔴 Đây chính là đường vào mới của hộp đó sau khi bấm thẻ đổi sang mở thẳng trang
+             * đầy đủ ("cách 1") — không phục hồi lại thì `HopChuyenGiaiDoan` thành mồ côi, xem
+             * CLAUDE.md mục 3.4b.
+             *
+             * ⚠️ `draggable`/`onDragStart`/`onDragEnd` của thẻ (phía trên) vẫn khoá riêng theo
+             * `keoThaDuoc` như cũ — tắt gate ở ĐÂY không bật lại kéo thả.
+             */
+            onTha={onTha}
             thaoTac={thaoTac}
+            onXemPopup={onXemPopup}
           />
         </span>
       </div>
@@ -925,10 +969,12 @@ function MenuThaoTacThe({
   the,
   onTha,
   thaoTac,
+  onXemPopup,
 }: {
   the: TheDeNghiTrenBang;
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
+  onXemPopup?: (prId: string) => void;
 }) {
   const router = useRouter();
   const { deNghi, giaiDoan } = the;
@@ -1007,14 +1053,16 @@ function MenuThaoTacThe({
               <ExternalLink className="size-4 shrink-0" aria-hidden />
               Xem trong tab mới
             </DropdownMenuItem>
+            {/**
+             * ★★ ĐỔI SANG DIALOG TRONG APP — sửa 28/08/2026. Bản cũ mở `window.open` với
+             * `width/height` cố định, tức một CỬA SỔ HỆ ĐIỀU HÀNH riêng — không phải "pop-up
+             * đè lên board" như Sếp xem trong video Base.vn (board vẫn thấy mờ phía sau, đóng
+             * lại là về ngay, không phải cửa sổ trình duyệt thứ hai). `onXemPopup` do trang
+             * chứa (`de-nghi-danh-sach.tsx`) đưa xuống, tự mở `Dialog` bọc `TrangChiTietDeNghi`.
+             */}
             <DropdownMenuItem
-              onClick={() =>
-                window.open(
-                  duongDan,
-                  "_blank",
-                  "noopener,width=1100,height=860,scrollbars=yes,resizable=yes",
-                )
-              }
+              disabled={!onXemPopup}
+              onClick={() => onXemPopup?.(deNghi.id)}
             >
               <PictureInPicture2 className="size-4 shrink-0" aria-hidden />
               Xem trong pop-up
