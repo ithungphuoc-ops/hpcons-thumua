@@ -4,21 +4,11 @@ import Link from "next/link";
 import NextDynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertTriangle,
-  ExternalLink,
-  FileText,
-  LayoutGrid,
-  List,
-  Maximize2,
-  MoreHorizontal,
-  X,
-} from "lucide-react";
+import { AlertTriangle, FileText, LayoutGrid, List, MoreHorizontal, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { toast } from "sonner";
@@ -72,6 +62,7 @@ import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Loader2 } from "lucide-react";
+import { MucMenuXemDayDu } from "@/1-giao-dien/thanh-phan-dung-chung/muc-menu-xem-day-du";
 /**
  * ★★ NHÚNG NGUYÊN TRANG CHI TIẾT VÀO DIALOG — cho mục menu ⋯ "Xem trong pop-up" (28/08/2026,
  * "cách 3" trong 3 cách xem Sếp chốt). Trang chỉ nhận thêm `id` khi dùng kiểu này — route thật
@@ -771,18 +762,10 @@ export default function TrangDanhSachDeNghi() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuGroup>
-                          <DropdownMenuItem onClick={() => router.push(`/de-nghi/${xemPopupId}`)}>
-                            <Maximize2 className="size-4 shrink-0" aria-hidden />
-                            Xem toàn màn hình
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              window.open(`/de-nghi/${xemPopupId}`, "_blank", "noopener")
-                            }
-                          >
-                            <ExternalLink className="size-4 shrink-0" aria-hidden />
-                            Xem trong tab mới
-                          </DropdownMenuItem>
+                          {/* Dùng chung `MucMenuXemDayDu` với menu ⋯ trên thẻ Kanban
+                              (`bang-quy-trinh-mua-hang.tsx`) — tách ra 28/08/2026, xem chú
+                              thích ở file đó. */}
+                          <MucMenuXemDayDu duongDan={`/de-nghi/${xemPopupId}`} />
                         </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>

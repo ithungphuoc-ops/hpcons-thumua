@@ -13,13 +13,11 @@ import {
   Copy,
   CopyPlus,
   Eye,
-  ExternalLink,
   Forward,
   History,
   Link2 as LinkIcon,
   ListPlus,
   SlidersHorizontal,
-  Maximize2,
   MoreHorizontal,
   Pencil,
   Printer,
@@ -37,6 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
+import { MucMenuXemDayDu } from "@/1-giao-dien/thanh-phan-dung-chung/muc-menu-xem-day-du";
 /* 📌 KHÔNG còn import gì từ `chung-tu-cuoi-quy-trinh` ở đây (23/08/2026): câu "bước này còn
    thiếu gì" nay do `conNoCuaBuoc` sinh sẵn và đi theo thẻ ở trường `conNo`. Thẻ chỉ bày, không
    tự tra luật chứng từ — một chỗ tính, mọi chỗ đọc. */
@@ -664,6 +663,18 @@ function TheDeNghi({
             }
           : undefined
       }
+      /**
+       * 🔴 ĐÃ THỬ VÀ BỎ (28/08/2026): thêm guard `window.getSelection().toString().length > 0`
+       * để "bỏ qua khi vừa bôi đen chữ" (góp ý thật từ agent review, lo ngại bấm thẻ sau khi kéo
+       * chọn mã đề xuất sẽ mất lựa chọn + mở nhầm pop-up). KHÔNG DÙNG ĐƯỢC: mã đề xuất trong thẻ
+       * có `select-all` (dòng ~733) — CSS `user-select: all` khiến TRÌNH DUYỆT TỰ CHỌN TOÀN BỘ
+       * CHỮ NGAY TỪ MỘT CÚ BẤM ĐƠN, không cần kéo. Guard đó coi MỌI cú bấm vào đúng mã đề xuất
+       * là "đang bôi đen" → chặn pop-up mở VĨNH VIỄN ở đúng chỗ người dùng hay bấm nhất (chữ đầu
+       * thẻ). Kiểm bằng Playwright thật, xác nhận lỗi bằng ảnh chụp trước khi bỏ đi — không phải
+       * suy đoán. Muốn vá đúng ca "kéo-chọn-rồi-nhả" phải phân biệt được KÉO thật (so lệch toạ độ
+       * mousedown/mouseup) với "tự chọn do CSS" — chưa làm vì chi phí/lợi ích không đáng cho một
+       * ca hiếm, còn cái giá phải trả (chặn nhầm mọi cú bấm bình thường) là quá lớn.
+       */
       draggable={keoThaDuoc}
       onDragStart={
         keoThaDuoc
@@ -1039,17 +1050,10 @@ function MenuThaoTacThe({
               * `<Link>` bên trên) — giữ thêm một mục menu làm ĐÚNG Y HỆT việc đó là thừa, hai
               * đường tới cùng một kết quả chỉ gây rối. Mục menu này giờ đứng vai "leo thang" ra
               * trang đầy đủ, CÙNG TAB — đối xứng đúng 2 mục của menu "•••" bên TRONG pop-up
-              * (`de-nghi-danh-sach.tsx` → "Xem toàn màn hình"/"Xem trong tab mới"), để người
-              * dùng học một lần dùng được ở cả hai chỗ.
+              * (`de-nghi-danh-sach.tsx`), dùng CHUNG `MucMenuXemDayDu` (tách ra sau khi agent
+              * review bắt đúng: chép tay cùng 2 mục ở 2 nơi là mở đường lệch nhau dần).
               */}
-            <DropdownMenuItem onClick={() => router.push(duongDan)}>
-              <Maximize2 className="size-4 shrink-0" aria-hidden />
-              Xem toàn màn hình
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.open(duongDan, "_blank", "noopener")}>
-              <ExternalLink className="size-4 shrink-0" aria-hidden />
-              Xem trong tab mới
-            </DropdownMenuItem>
+            <MucMenuXemDayDu duongDan={duongDan} />
             {/* Mã đứng TRƯỚC đường dẫn: dán mã sang app khác là việc dùng nhiều hơn. */}
             <DropdownMenuItem onClick={saoChepMa}>
               <Copy className="size-4 shrink-0" aria-hidden />
