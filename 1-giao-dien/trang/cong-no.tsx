@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  Building2,
   Lock,
   Search,
 } from "lucide-react";
@@ -29,16 +28,16 @@ import {
   TableRow,
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { nhanAnToan, NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
-import {
-  congNoTheoDonHang,
-  /* `tinhTuoiNo` KHÔNG còn được trang này nhập — khối "Phân tích tuổi nợ" đã bỏ 28/08/2026.
-     🔴 Hàm vẫn GIỮ NGUYÊN trong `2-quy-trinh/tuoi-no.ts`, đừng xóa: đó là luật chia 5 khoảng
-     tuổi nợ, và `nhomTuoiNoTheoNCC` ngay dưới gọi tới nó. */
-  nhomTuoiNoTheoNCC,
-  soTienConLai,
-  MUC_TUOI_NO,
-  type MaMucTuoiNo,
-} from "@/2-quy-trinh/tuoi-no";
+/**
+ * 🔴 TRANG NÀY CHỈ CÒN NHẬP HAI THỨ TỪ `tuoi-no.ts` — Ban lãnh đạo 28/08/2026 bỏ cả hai khối
+ * dựa trên tuổi nợ (*"Phân tích tuổi nợ 30-60-90"* rồi *"Tuổi nợ theo nhà cung cấp"*).
+ *
+ * ⚠️ `tinhTuoiNo` · `nhomTuoiNoTheoNCC` · `MUC_TUOI_NO` · `MaMucTuoiNo` VẪN CÒN NGUYÊN trong
+ * `2-quy-trinh/tuoi-no.ts`, chỉ là trang này thôi gọi. **Đừng xóa chúng khỏi tệp gốc**: đó là
+ * luật chia 5 khoảng tuổi nợ, sẽ cần lại đầy đủ khi app có sổ công nợ thật (theo dõi từng lần
+ * chi). Xóa đi rồi dựng lại là dựng lại một luật tài chính từ trí nhớ.
+ */
+import { congNoTheoDonHang, soTienConLai } from "@/2-quy-trinh/tuoi-no";
 import { formatCurrencyVnd, formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
@@ -54,14 +53,13 @@ function chuanHoaTim(s: string): string {
   return boDau(s).toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-/** Sắc độ 5 mức tuổi nợ — chỉ dùng token ngữ nghĩa, không hardcode mã màu (V1.1 Phần B). */
-const SAC_DO_MUC: Record<MaMucTuoiNo, { thanh: string; the: string; chu: string }> = {
-  trong_han: { thanh: "bg-success", the: "border-success/30 bg-success-bg", chu: "text-success-soft" },
-  d1_30: { thanh: "bg-warning", the: "border-warning/30 bg-warning-bg", chu: "text-warning-soft" },
-  d31_60: { thanh: "bg-danger/50", the: "border-danger/25 bg-danger-bg/60", chu: "text-danger-soft" },
-  d61_90: { thanh: "bg-danger/75", the: "border-danger/40 bg-danger-bg", chu: "text-danger-soft" },
-  tren_90: { thanh: "bg-danger", the: "border-danger/60 bg-danger-bg", chu: "text-danger-soft" },
-};
+/**
+ * ❌ ĐÃ BỎ `SAC_DO_MUC` — bảng sắc độ 5 mức tuổi nợ, cùng lúc với hai khối dùng nó (28/08/2026).
+ *
+ * 📌 Ghi lại quy ước ở đây phòng khi dựng lại: 5 bậc đó KHÔNG dùng 5 mã màu mới, mà dùng **độ mờ
+ * của cùng một token** — `bg-success` → `bg-warning` → `bg-danger/50` → `bg-danger/75` →
+ * `bg-danger`. Design System V1.1 chỉ có 4 tông ngữ nghĩa, nên thêm mã màu thứ năm là phá chuẩn.
+ */
 
 const columns: ColumnDef<CongNo, unknown>[] = [
   {
@@ -190,9 +188,8 @@ export default function TrangCongNo() {
   const daTraDu = congNo.filter((p) => p.trangThai === "da_thanh_toan");
   const tongConNo = congNo.reduce((s, p) => s + soTienConLai(p), 0);
 
-  /* `mucTuoiNo` · `tongDuNo` · `tongQuaHan` đã bỏ cùng khối "Phân tích tuổi nợ" (28/08/2026) —
-     xem chú thích tại chỗ khối đó từng đứng, phía dưới trong phần vẽ. */
-  const theoNCC = nhomTuoiNoTheoNCC(congNo);
+  /* Đã bỏ cùng hai khối tuổi nợ (28/08/2026): `mucTuoiNo` · `tongDuNo` · `tongQuaHan` · `theoNCC`.
+     Xem chú thích tại chỗ hai khối đó từng đứng, phía dưới trong phần vẽ. */
 
   /* Bảng 8 cột theo từng đơn hàng — luật tính nằm hết ở `2-quy-trinh/tuoi-no.ts`, ở đây chỉ
      gọi và vẽ. Quy tắc 3.4b: không để hàm tính nghiệp vụ trong tệp giao diện. */
@@ -462,66 +459,24 @@ export default function TrangCongNo() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Building2 className="size-4 text-primary" aria-hidden />
-            Tuổi nợ theo nhà cung cấp
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nhà cung cấp</TableHead>
-                  <TableHead className="text-right">Tổng nợ</TableHead>
-                  {MUC_TUOI_NO.map((m) => (
-                    <TableHead key={m.ma} className={`text-right ${SAC_DO_MUC[m.ma].chu}`}>
-                      {m.nhanNgan}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-center">Mức rủi ro</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {theoNCC.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={MUC_TUOI_NO.length + 3}
-                      className="py-6 text-center text-sm text-text-desc"
-                    >
-                      Không còn công nợ tồn đọng.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  theoNCC.map((r) => (
-                    <TableRow key={r.nccId}>
-                      <TableCell>
-                        <span className="font-medium text-text-primary">{r.tenNCC}</span>
-                        <span className="block text-xs text-text-desc">
-                          {r.soHoaDon} hóa đơn chưa tất toán
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-text-primary">
-                        {formatCurrencyVnd(r.tongNo)}
-                      </TableCell>
-                      {MUC_TUOI_NO.map((m) => (
-                        <TableCell key={m.ma} className={`text-right ${SAC_DO_MUC[m.ma].chu}`}>
-                          {r.theoMuc[m.ma] > 0 ? formatCurrencyVnd(r.theoMuc[m.ma]) : "—"}
-                        </TableCell>
-                      ))}
-                      <TableCell className="text-center">
-                        <StatusBadge label={r.rui.nhan} tone={r.rui.tong} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      {/**
+        * ❌ ĐÃ BỎ KHỐI "TUỔI NỢ THEO NHÀ CUNG CẤP" — Ban lãnh đạo 28/08/2026 khoanh đỏ và chốt
+        * *"bỏ này luôn"*, ngay sau khi bỏ khối "Phân tích tuổi nợ (30-60-90 ngày)" cùng ngày.
+        *
+        * Khối đó là ma trận: mỗi dòng một nhà cung cấp, các cột là 5 khoảng tuổi nợ + mức rủi ro.
+        *
+        * 📌 CÙNG MỘT NGUYÊN NHÂN với khối trước: nó đọc `congNo` — hằng số `CONG_NO_MAU = []` gán
+        * cứng trong kho dữ liệu, không có hàm ghi, không nằm trong cả hai lớp lưu trữ. Nên nó luôn
+        * hiện *"Không còn công nợ tồn đọng"* dù đơn hàng có nợ thật.
+        *
+        * ⚠️ CÒN HAI KHỐI NỮA TRÊN TRANG NÀY CÙNG ĐỌC `congNo` và cùng luôn rỗng: bốn thẻ KPI ở
+        * đầu trang · bảng "Danh sách hóa đơn phải trả" ở cuối. Đã hỏi Sếp, chưa có chỉ đạo nên
+        * GIỮ NGUYÊN — không tự bỏ thêm.
+        *
+        * 🔴 `nhomTuoiNoTheoNCC` và `MUC_TUOI_NO` trong `2-quy-trinh/tuoi-no.ts` VẪN GIỮ NGUYÊN,
+        * chỉ là trang này thôi gọi. Xóa hàm gốc là mất luật chia 5 khoảng tuổi nợ, mà luật đó sẽ
+        * cần lại nguyên vẹn khi app có sổ công nợ thật.
+        */}
 
       <Card>
         <CardHeader>
