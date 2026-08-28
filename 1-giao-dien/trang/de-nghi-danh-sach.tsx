@@ -4,21 +4,11 @@ import Link from "next/link";
 import NextDynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertTriangle,
-  ExternalLink,
-  FileText,
-  LayoutGrid,
-  List,
-  Maximize2,
-  MoreHorizontal,
-  X,
-} from "lucide-react";
+import { AlertTriangle, FileText, LayoutGrid, List, MoreHorizontal, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { toast } from "sonner";
@@ -72,6 +62,7 @@ import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Loader2 } from "lucide-react";
+import { MucMenuXemDayDu } from "@/1-giao-dien/thanh-phan-dung-chung/muc-menu-xem-day-du";
 /**
  * ★★ NHÚNG NGUYÊN TRANG CHI TIẾT VÀO DIALOG — cho mục menu ⋯ "Xem trong pop-up" (28/08/2026,
  * "cách 3" trong 3 cách xem Sếp chốt). Trang chỉ nhận thêm `id` khi dùng kiểu này — route thật
@@ -412,18 +403,24 @@ export default function TrangDanhSachDeNghi() {
   }
 
   /**
-   * ★★ ĐÃ BỎ `xemNhanhThe` (28/08/2026) — hàm cũ này "bấm thẻ mở hộp bước hiện tại" (chỉ đạo
-   * 27/08/2026), nay Sếp xem video Base.vn thật và chốt lại thành 3 cách xem riêng biệt:
+   * ★★★ 3 CÁCH XEM — CHỐT LẦN 3 CÙNG NGÀY 28/08/2026. Đã bỏ `xemNhanhThe` cũ ("bấm thẻ mở hộp
+   * bước hiện tại", chỉ đạo 27/08/2026). Sếp xem video Base.vn thật 2 LẦN trong ngày, lần đầu
+   * và lần hai kết luận khác nhau — bản này theo đúng lần hai (xem lịch sử đủ 3 mốc ở JSDoc
+   * `onXemNhanh` trong `bang-quy-trinh-mua-hang.tsx`):
    *
-   *   1. Bấm thẳng vào thẻ → ra thẳng trang đầy đủ, cùng tab — không cần hàm nào ở đây nữa,
-   *      `<Link href="/de-nghi/[id]">` trong `bang-quy-trinh-mua-hang.tsx` tự lo.
-   *   2. Menu ⋯ → "Xem trong tab mới" → đã có sẵn từ trước (`window.open`), không đổi gì.
-   *   3. Menu ⋯ → "Xem trong pop-up" → `onXemPopupThe` ngay dưới, mở `Dialog` tại chỗ.
+   *   1. Bấm thẳng vào thẻ → MỞ POP-UP NÀY (hàm ngay dưới) — không còn ra thẳng trang đầy đủ
+   *      như bản giữa ngày nữa. `<Link href>` trong `bang-quy-trinh-mua-hang.tsx` vẫn giữ
+   *      nguyên `href` đúng, Ctrl+click/chuột giữa vẫn mở tab mới bình thường.
+   *   2. Menu ⋯ trên thẻ → "Xem trong tab mới" → `window.open`, không đổi.
+   *   3. Menu ⋯ trên thẻ → "Xem toàn màn hình" (đổi tên từ "Xem trong pop-up" — bấm thẻ đã ra
+   *      pop-up rồi, giữ mục cũ là 2 đường tới cùng 1 kết quả) → `router.push`, cùng tab.
    *
-   * `HopChuyenGiaiDoan` (hộp gỡ vướng chuyển bước) KHÔNG mất đường vào — dời sang menu ⋯ mục
-   * "Chuyển sang giai đoạn kế tiếp"/"Chuyển về giai đoạn trước", gọi lại đúng `xuLyTha` bên
-   * dưới qua `onTha` (xem chú thích tại chỗ truyền `onTha` cho `<BangQuyTrinhMuaHang>`). Đây
-   * vẫn là một đường vào thật, không phải bỏ hẳn — không vi phạm CLAUDE.md mục 3.4b.
+   * Bên TRONG pop-up còn có thêm 1 menu ⋯ riêng (xem JSX của `Dialog` bên dưới) với đúng 2 mục
+   * "Xem toàn màn hình"/"Xem trong tab mới" — để leo thang tiếp từ pop-up sang trang đầy đủ mà
+   * không cần đóng lại trước.
+   *
+   * `HopChuyenGiaiDoan` (hộp gỡ vướng chuyển bước) không đụng gì ở đây — vẫn đường vào riêng qua
+   * menu ⋯ mục "Chuyển sang giai đoạn kế tiếp"/"Chuyển về giai đoạn trước" (`onTha`).
    */
   function onXemPopupThe(prId: string) {
     setXemPopupId(prId);
@@ -650,15 +647,16 @@ export default function TrangDanhSachDeNghi() {
             // Menu ⋯ chỉ mở cho vai trò làm nghiệp vụ; người chỉ xem không thấy thao tác ghi.
             thaoTac={quyen.lapPO ? thaoTacThe : undefined}
             /**
-             * ★★ 3 CÁCH XEM (chốt 28/08/2026, xem video Base.vn) — không còn `onXemNhanh`:
+             * ★★★ BẤM THẺ = MỞ POP-UP — chốt lần 3 cùng ngày 28/08/2026 (xem lịch sử đủ ở JSDoc
+             * `onXemPopupThe` phía trên và JSDoc `onXemNhanh` trong `bang-quy-trinh-mua-hang.tsx`).
+             * Truyền thẳng `onXemPopupThe` làm `onXemNhanh` — cùng một hàm mở pop-up, chỉ khác
+             * lối vào (bấm thẻ trực tiếp, thay vì qua menu ⋯ như trước 28/08/2026).
              *
-             *   1. Bấm thẳng vào thẻ → `<Link href="/de-nghi/[id]">` trong bảng tự điều hướng,
-             *      không cần gì thêm ở đây.
-             *   2. Menu ⋯ → "Xem trong tab mới" → bảng tự `window.open`, cũng không cần gì thêm.
-             *   3. Menu ⋯ → "Xem trong pop-up" → `onXemPopup` dưới đây, MỞ CHO MỌI VAI TRÒ (kể
-             *      cả người chỉ xem) — đây là thao tác XEM, khác hẳn `thaoTac`/`onTha` ở trên.
+             * 🔴 MỞ CHO MỌI VAI TRÒ (kể cả người chỉ xem) — KHÔNG gate theo `quyen.lapPO` như
+             * `onTha`/`thaoTac` ở trên: đây là thao tác XEM, người chỉ xem bấm thẻ vẫn phải thấy
+             * được nội dung, chỉ riêng các nút GHI bên trong (nếu có) mới tự khoá theo quyền.
              */
-            onXemPopup={onXemPopupThe}
+            onXemNhanh={onXemPopupThe}
           />
 
           {/**
@@ -764,18 +762,10 @@ export default function TrangDanhSachDeNghi() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuGroup>
-                          <DropdownMenuItem onClick={() => router.push(`/de-nghi/${xemPopupId}`)}>
-                            <Maximize2 className="size-4 shrink-0" aria-hidden />
-                            Xem toàn màn hình
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              window.open(`/de-nghi/${xemPopupId}`, "_blank", "noopener")
-                            }
-                          >
-                            <ExternalLink className="size-4 shrink-0" aria-hidden />
-                            Xem trong tab mới
-                          </DropdownMenuItem>
+                          {/* Dùng chung `MucMenuXemDayDu` với menu ⋯ trên thẻ Kanban
+                              (`bang-quy-trinh-mua-hang.tsx`) — tách ra 28/08/2026, xem chú
+                              thích ở file đó. */}
+                          <MucMenuXemDayDu duongDan={`/de-nghi/${xemPopupId}`} />
                         </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
