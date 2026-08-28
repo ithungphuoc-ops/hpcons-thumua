@@ -668,11 +668,16 @@ export default function TrangDanhSachDeNghi() {
            * `app/(app)/layout.tsx`, dựng MỘT LẦN cho cả app — `TrangChiTietDeNghi` không tự vẽ
            * lại nó, nên nhúng vào Dialog tự động không bị lặp, không cần cắt/ẩn gì thêm.
            *
-           * ⚠️ `sm:max-w-4xl`, KHÔNG PHẢI `max-w-4xl` SUÔNG. `DialogContent` mặc định có sẵn
+           * ⚠️ `sm:max-w-6xl`, KHÔNG PHẢI `max-w-6xl` SUÔNG. `DialogContent` mặc định có sẵn
            * `sm:max-w-sm` (384px) — cùng biến thể `sm:`, Tailwind xếp lớp SAU cùng breakpoint
-           * theo thứ tự định nghĩa, không theo thứ tự trong `className`, nên một `max-w-4xl`
+           * theo thứ tự định nghĩa, không theo thứ tự trong `className`, nên một `max-w-6xl`
            * KHÔNG có tiền tố thua `sm:max-w-sm` ngay từ 640px trở lên (đã dính lỗi này khi làm:
            * hộp co lại còn ~384px, chữ vỡ dòng từng chữ một, xem ảnh demo trước khi vá).
+           *
+           * 📌 RỘNG HƠN — Sếp xem ảnh thật, thấy hộp còn hẹp, hai bên board lộ ra quá nhiều
+           * (28/08/2026): đổi từ `max-w-4xl` (896px) lên `max-w-6xl` (1152px), rộng ra thêm mỗi
+           * bên khoảng 128px. `DialogContent` gốc vẫn giữ trần `max-w-[calc(100%-2rem)]` nên màn
+           * hẹp hơn 1152px+32px không bị tràn — tự co theo màn như cũ.
            *
            * ⚠️⚠️ `overflow-y-auto` PHẢI Ở DIV BỌC BÊN TRONG, KHÔNG ĐẶT THẲNG LÊN `DialogContent`
            * — vá lỗi thật bắt được lúc review đầu tiên: nút Đóng (×) mặc định của `DialogContent`
@@ -701,7 +706,7 @@ export default function TrangDanhSachDeNghi() {
                 cao cho nhau. */}
             <DialogContent
               showCloseButton={false}
-              className="sm:max-w-4xl max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0"
+              className="sm:max-w-6xl max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0"
             >
               <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-4 py-3 text-primary-foreground">
                 <div className="min-w-0">
