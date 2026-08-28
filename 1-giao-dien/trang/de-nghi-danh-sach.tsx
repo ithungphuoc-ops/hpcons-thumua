@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import NextDynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, FileText, LayoutGrid, List } from "lucide-react";
@@ -53,12 +54,29 @@ import {
 import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen-giai-doan";
 import { Dialog, DialogContent } from "@/1-giao-dien/nen-tang-ui/dialog";
+import { Loader2 } from "lucide-react";
 /**
  * ★★ NHÚNG NGUYÊN TRANG CHI TIẾT VÀO DIALOG — cho mục menu ⋯ "Xem trong pop-up" (28/08/2026,
  * "cách 3" trong 3 cách xem Sếp chốt). Trang chỉ nhận thêm `id` khi dùng kiểu này — route thật
  * `/de-nghi/[id]` vẫn gọi không tham số như cũ, xem chú thích ở đầu `de-nghi-chi-tiet.tsx`.
+ *
+ * 🔴 `next/dynamic`, KHÔNG PHẢI IMPORT TĨNH — vá theo góp ý lúc review. `TrangChiTietDeNghi` là
+ * trang ~2600 dòng, kéo theo cả chục component nghiệp vụ (bảng phân bổ, khối đề xuất con, khu
+ * báo giá, khối trao đổi...). Import tĩnh gói toàn bộ chỗ đó vào CHUNG gói JS của TRANG BOARD —
+ * ai mở `/de-nghi` cũng tải về ngần ấy mã, kể cả người không bao giờ bấm "Xem trong pop-up".
+ * `dynamic()` chỉ tải gói đó lúc THẬT SỰ mở pop-up lần đầu.
  */
-import TrangChiTietDeNghi from "@/1-giao-dien/trang/de-nghi-chi-tiet";
+const TrangChiTietDeNghi = NextDynamic(() => import("@/1-giao-dien/trang/de-nghi-chi-tiet"), {
+  // Không cần SSR: chỉ hiện SAU một cú bấm của người dùng (mở pop-up), chưa từng có mặt lúc
+  // trang board tải lần đầu — kể cả bản tĩnh (`○ /de-nghi`, prerender lúc build).
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-[50vh] items-center justify-center gap-2 p-8 text-sm text-text-desc">
+      <Loader2 className="size-4 animate-spin" aria-hidden />
+      Đang tải nội dung đề nghị…
+    </div>
+  ),
+});
 /* 📌 KHÔNG còn import nhãn trạng thái đề nghị / mức ưu tiên: tab Danh sách nay suy trạng thái từ
    GIAI ĐOẠN (`HuyHieuTrangThai`) đúng như bảng Base — ba mức Đang xử lý · Hoàn thành · Thất bại. */
 
@@ -597,8 +615,21 @@ export default function TrangDanhSachDeNghi() {
              * ★★ CHỈ CHO VAI TRÒ LÀM NGHIỆP VỤ — giữ đúng luật cũ của `onXemNhanh`: hộp
              * `HopChuyenGiaiDoan` có ô đính kèm và nút chuyển bước, người chỉ xem mà thấy 2 mục
              * "Chuyển sang giai đoạn kế tiếp"/"Chuyển về giai đoạn trước" thì bấm vào không ăn.
+             *
+             * 🔴 PHẢI GỌI VỚI `laXemNhanh = true` — vá lỗi thật bắt được lúc review (agent review
+             * độc lập bắt được, kiểm lại đúng). Hàm `xemNhanhThe` đã bỏ LUÔN gọi
+             * `xuLyTha(prId, buocKe, true)`; viết `onTha={xuLyTha}` trần ở đây bỏ mất tham số thứ
+             * 3, `laXemNhanh` lặng lẽ rơi về mặc định `false` — bước bị chặn cứng (`khong_the`)
+             * thì chỉ bắn toast đỏ rồi thôi, `HopChuyenGiaiDoan` (hộp giải thích lý do vướng)
+             * KHÔNG mở — đúng lúc người dùng cần xem lý do nhất. Bọc lại đây để giữ nguyên hành
+             * vi "xem nhanh" cũ khi hộp mở qua menu ⋯ (không phải kéo thả thật).
+             *
+             * ⚠️ NẾU SAU NÀY BẬT LẠI KÉO THẢ (`keoThaDuoc={true}`, xem chú thích phía trên): `onTha`
+             * lúc đó CÒN được gọi từ chính việc kéo thả, mà kéo thả cần `laXemNhanh=false` (chặn
+             * bằng toast, không mở hộp — xem chú thích ở `xuLyTha`). Khi đó phải TÁCH hai đường gọi
+             * ra 2 hàm khác nhau, không dùng chung dòng này nữa.
              */
-            onTha={quyen.lapPO ? xuLyTha : undefined}
+            onTha={quyen.lapPO ? (prId, dich) => xuLyTha(prId, dich, true) : undefined}
             // Menu ⋯ chỉ mở cho vai trò làm nghiệp vụ; người chỉ xem không thấy thao tác ghi.
             thaoTac={quyen.lapPO ? thaoTacThe : undefined}
             /**
@@ -634,13 +665,32 @@ export default function TrangDanhSachDeNghi() {
            * KHÔNG có tiền tố thua `sm:max-w-sm` ngay từ 640px trở lên (đã dính lỗi này khi làm:
            * hộp co lại còn ~384px, chữ vỡ dòng từng chữ một, xem ảnh demo trước khi vá).
            *
-           * ⚠️ `max-h-[90vh] overflow-y-auto p-0`: trang chi tiết cao hơn khung nhìn rất nhiều
-           * (nhiều khối xếp dọc) — không giới hạn chiều cao + cho cuộn riêng thì Dialog tràn khỏi
-           * màn hình, người dùng không bấm được nút Đóng ở góc.
+           * ⚠️⚠️ `overflow-y-auto` PHẢI Ở DIV BỌC BÊN TRONG, KHÔNG ĐẶT THẲNG LÊN `DialogContent`
+           * — vá lỗi thật bắt được lúc review. Nút Đóng (×) mặc định của `DialogContent` là
+           * `position: absolute` NẰM TRONG chính khối đó; đặt `overflow-y-auto` lên cùng khối
+           * thì khối đó trở thành vùng cuộn, và nút Đóng — vì định vị theo chính khối đang cuộn —
+           * TRÔI THEO nội dung xuống dưới luôn, đúng thứ chú thích cũ nói là đã tránh được nhưng
+           * thật ra chưa. Tách riêng: `DialogContent` giữ `overflow-hidden` (không tự cuộn, nút
+           * Đóng đứng yên theo khối `fixed` bên ngoài), còn nội dung cuộn TRONG MỘT DIV CON.
            */}
           <Dialog open={xemPopupId !== null} onOpenChange={(mo) => !mo && setXemPopupId(null)}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-              {xemPopupId && <TrangChiTietDeNghi id={xemPopupId} />}
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden p-0">
+              <div className="max-h-[90vh] overflow-y-auto">
+                {/**
+                 * ★ `key={xemPopupId}` — mỗi đề nghị mở pop-up là MỘT PHIÊN COMPONENT MỚI, không
+                 * tái dùng lại state cũ (state form dở dang, hộp xác nhận đang mở...) của đề nghị
+                 * trước đó. Hiện tại luôn đóng hẳn (unmount, `xemPopupId=null`) trước khi mở đề
+                 * nghị khác nên chưa có đường nào thật sự dính lỗi này — thêm sẵn để chặn trước,
+                 * phòng khi sau này có nút "đề nghị liên quan" bấm thẳng sang pop-up khác.
+                 */}
+                {xemPopupId && (
+                  <TrangChiTietDeNghi
+                    key={xemPopupId}
+                    id={xemPopupId}
+                    onDongPopup={() => setXemPopupId(null)}
+                  />
+                )}
+              </div>
             </DialogContent>
           </Dialog>
 
