@@ -53,7 +53,7 @@ import {
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen-giai-doan";
-import { Dialog, DialogContent } from "@/1-giao-dien/nen-tang-ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Loader2 } from "lucide-react";
 /**
  * ★★ NHÚNG NGUYÊN TRANG CHI TIẾT VÀO DIALOG — cho mục menu ⋯ "Xem trong pop-up" (28/08/2026,
@@ -675,6 +675,11 @@ export default function TrangDanhSachDeNghi() {
            */}
           <Dialog open={xemPopupId !== null} onOpenChange={(mo) => !mo && setXemPopupId(null)}>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden p-0">
+              {/* Ẩn mắt (`sr-only`), không ẩn trình đọc màn hình — CodeRabbit bắt đúng: Base UI
+                  cần `DialogTitle` để gán `aria-labelledby`, thiếu thì hộp không có tên truy cập.
+                  Trang chi tiết bên trong đã tự có tiêu đề riêng cho người NHÌN THẤY, nên không
+                  cần thêm tiêu đề hiện ra lần hai — chỉ cần bản cho trình đọc màn hình. */}
+              <DialogTitle className="sr-only">Chi tiết đề nghị</DialogTitle>
               <div className="max-h-[90vh] overflow-y-auto">
                 {/**
                  * ★ `key={xemPopupId}` — mỗi đề nghị mở pop-up là MỘT PHIÊN COMPONENT MỚI, không
