@@ -102,6 +102,7 @@ import type {
   DongNhanHang,
   DonDatHang,
   GiaDonDatHang,
+  NgayISO,
   NguoiTheoDoi,
   NhaCungCap,
   ThuKhoCongTrinh,
@@ -350,6 +351,20 @@ interface GiaTriDuLieu {
   ) => void;
   /** Đính kèm / thay phiếu giao nhận cho một phiếu nhận hàng đã ghi. */
   dinhKemPhieuGiao: (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => void;
+  /**
+   * ★★ Sửa điều khoản công nợ của một đơn đã lập (Ban lãnh đạo 28/08/2026).
+   *
+   * `null` trong `thayDoi` = XÓA về tự tính · bỏ trống trường = KHÔNG động tới trường đó.
+   *
+   * 🔴 Chỉ mở cho vai trò **được xem giá** — hai trường này nằm trên chứng từ giá riêng.
+   *
+   * @returns Câu lý do bị chặn, `null` là đã ghi xong (hoặc không có gì đổi).
+   */
+  datDieuKhoanCongNo: (
+    poId: string,
+    thayDoi: { soNgayDuocNo?: number | null; ngayToiHanThanhToan?: NgayISO | null },
+    nguoiThucHien: string,
+  ) => string | null;
   /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
   xacNhanKho: (poId: string, nguoi: XacNhan) => string | null;
   /**
@@ -1284,6 +1299,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   // Đọc danh sách hiện có khi sinh mã mới, không cần đưa state vào deps.
   const donHangRef = useRef(donHang);
   donHangRef.current = donHang;
+  /* Chứng từ giá — `datDieuKhoanCongNo` cần đọc giá trị CŨ để dựng câu nhật ký "30 → 45", mà
+     nó không được để `giaDonHang` trong deps (hàm sẽ dựng lại mỗi lần bảng giá đổi). */
+  const giaDonHangRef = useRef(giaDonHang);
+  giaDonHangRef.current = giaDonHang;
   const deNghiRef = useRef(deNghi);
   deNghiRef.current = deNghi;
   const baoGiaRef = useRef(baoGia);
@@ -1557,6 +1576,99 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
     },
     [ghiLichSuDeNghi],
+  );
+
+  /**
+   * ★★ SỬA ĐIỀU KHOẢN CÔNG NỢ CỦA MỘT ĐƠN ĐÃ LẬP — Ban lãnh đạo 28/08/2026: *"cột thời gian công
+   * nợ được phép sửa và có ghi lại lịch sử, ngày tới hạn cũng là trường nhập thủ công"*.
+   *
+   * 🔴 GHI VÀO `giaDonHang`, KHÔNG PHẢI `donHang`. Cả hai trường (`soNgayDuocNo`,
+   * `ngayToiHanThanhToan`) nằm trên chứng từ giá riêng theo nguyên tắc dữ liệu số 3 — chuyển
+   * chúng sang `tm_donhang` cho tiện là phá đúng lớp bảo mật đó, và Firestore Rules chặn theo
+   * document nên không có cách nào vá lại bằng giao diện.
+   *
+   * 🔴 ĐÂY LÀ HÀM ĐẦU TIÊN TRONG APP SỬA MỘT ĐƠN ĐÃ LẬP. Trước 28/08/2026 `setGiaDonHang` chỉ
+   * được gọi hai chỗ: nạp dữ liệu và thêm đơn mới. Nên hàm này phải tự lo mọi thứ mà các hàm
+   * khác vốn được `themDonHang` lo hộ — nhất là ca **đơn chưa có chứng từ giá**.
+   *
+   * ⚠️ ĐƠN KHÔNG CÓ CHỨNG TỪ GIÁ THÌ TỪ CHỐI, KHÔNG TỰ TẠO. Dựng một `GiaDonDatHang` rỗng ở đây
+   * là sinh ra một chứng từ giá không có dòng đơn giá nào, rồi `tinhTienChiTietPO` đọc nó và trả
+   * về 0 đồng — bảng công nợ hiện đơn "0 ₫" trông như đã trả hết.
+   *
+   * ⚠️ `null` = XÓA VỀ TỰ TÍNH, khác hẳn `undefined` = KHÔNG ĐỘNG TỚI. Gộp hai thứ này thì
+   * người dùng không còn đường quay lại chế độ tự tính sau khi lỡ gõ tay một ngày.
+   */
+  const datDieuKhoanCongNo = useCallback(
+    (
+      poId: string,
+      thayDoi: {
+        soNgayDuocNo?: number | null;
+        ngayToiHanThanhToan?: NgayISO | null;
+      },
+      nguoiThucHien: string,
+    ): string | null => {
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po) return "Không tìm thấy đơn hàng này.";
+      const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
+      if (!giaCu) {
+        return "Đơn này chưa có chứng từ giá nên chưa đặt được điều khoản công nợ.";
+      }
+
+      /* Dựng câu nhật ký TRƯỚC khi ghi, để so được giá trị cũ với giá trị mới. Sau khi
+         `setGiaDonHang` chạy thì giá trị cũ không còn ở đâu để đọc lại. */
+      const moc: string[] = [];
+      if (thayDoi.soNgayDuocNo !== undefined) {
+        const cu = giaCu.soNgayDuocNo;
+        const moi = thayDoi.soNgayDuocNo;
+        if (cu !== (moi ?? undefined)) {
+          moc.push(
+            `số ngày được nợ: ${cu === undefined ? "chưa đặt" : `${cu} ngày`} → ${
+              moi === null || moi === undefined ? "chưa đặt" : `${moi} ngày`
+            }`,
+          );
+        }
+      }
+      if (thayDoi.ngayToiHanThanhToan !== undefined) {
+        const cu = giaCu.ngayToiHanThanhToan;
+        const moi = thayDoi.ngayToiHanThanhToan?.trim() || null;
+        if ((cu ?? null) !== moi) {
+          moc.push(
+            `ngày tới hạn: ${cu ?? "để app tự tính"} → ${moi ?? "để app tự tính"}`,
+          );
+        }
+      }
+      // Không có gì đổi thì KHÔNG ghi — nếu không, mỗi lần rời ô nhập lại đẻ một dòng nhật ký
+      // y hệt dòng trước, và sổ lịch sử thành vô dụng vì phải lội qua hàng chục dòng trùng.
+      if (moc.length === 0) return null;
+
+      setGiaDonHang((truoc) =>
+        truoc.map((g) => {
+          if (g.poId !== poId) return g;
+          const sau: GiaDonDatHang = { ...g };
+          if (thayDoi.soNgayDuocNo !== undefined) {
+            sau.soNgayDuocNo = thayDoi.soNgayDuocNo ?? undefined;
+          }
+          if (thayDoi.ngayToiHanThanhToan !== undefined) {
+            sau.ngayToiHanThanhToan = thayDoi.ngayToiHanThanhToan?.trim() || undefined;
+          }
+          sau.lichSuDieuKhoanCongNo = [
+            ...(g.lichSuDieuKhoanCongNo ?? []),
+            {
+              thoiDiem: thoiDiemHienTai(),
+              nguoiThucHien,
+              hanhDong: `Sửa điều khoản công nợ — ${moc.join(" · ")}`,
+            },
+          ];
+          return sau;
+        }),
+      );
+      /* 🔴 CỐ Ý KHÔNG gọi `ghiNhatKyDonHang`: đơn có `prId` thì hàm đó đẩy dòng nhật ký sang
+         `DeNghiMuaHang.lichSu`, mà khối "Lịch sử" của đề nghị hiện cho CẢ vai trò không được xem
+         giá — đưa "số ngày được nợ 30 → 45" vào đó là lộ điều kiện thương mại. Xem chú thích
+         `lichSuDieuKhoanCongNo` trong `kieu-du-lieu.ts`. */
+      return null;
+    },
+    [],
   );
 
   /**
@@ -5052,6 +5164,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themPhieuNhan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
+      datDieuKhoanCongNo,
       xacNhanKho,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,
@@ -5118,6 +5231,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themPhieuNhan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
+      datDieuKhoanCongNo,
       xacNhanKho,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,

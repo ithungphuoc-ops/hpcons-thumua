@@ -845,6 +845,52 @@ function boCongNoThu() {
 }
 
 kiem(
+  "Ngày tới hạn NHẬP TAY đè lên ngày app tự tính",
+  "Ban lãnh đạo · 28/08/2026 (*'ngày tới hạn cũng là trường nhập thủ công'*)",
+  () => {
+    /* 🔴 Thứ tự này không được đảo. Người gõ tay là người vừa chốt với nhà cung cấp; phép cộng
+       chỉ là ước lượng khi chưa ai chốt. Để tự tính đè lên tay là mỗi lần thêm một phiếu nhập
+       kho, ngày hạn TỰ NHẢY và xóa mất con số đã thỏa thuận. */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const b = boCongNoThu();
+    // p1 tự tính ra 2026-07-31 (xem bài kiểm ngay dưới). Gõ tay một ngày KHÁC hẳn.
+    const gia = b.giaDon.map((g) =>
+      g.poId === "p1" ? { ...g, ngayToiHanThanhToan: "2026-09-15" } : g,
+    );
+    const d = TN.congNoTheoDonHang(b.donHang, gia, b.phieuNhan, b.moc).find(
+      (x) => x.maDonHang === "DMH260001",
+    );
+    return {
+      duoc: d?.ngayToiHan === "2026-09-15" && d?.toiHanNhapTay === true,
+      thucTe: `ngayToiHan = ${d?.ngayToiHan} · toiHanNhapTay = ${d?.toiHanNhapTay}`,
+      mongDoi: "2026-09-15 (ngày gõ tay) và toiHanNhapTay = true",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: xóa ngày gõ tay thì QUAY VỀ tự tính, không mất hạn",
+  "Ban lãnh đạo · 28/08/2026 (chống kẹt)",
+  () => {
+    /* 🔴 Quan trọng ngang bài trên. Một trường nhập tay mà không xóa được để về tự tính thì
+       người lỡ gõ nhầm một ngày sẽ mắc kẹt với nó vĩnh viễn.
+       ⚠️ Kiểm cả chuỗi RỖNG: ô `<input type="date">` bị xóa trắng trả về `""`, mà `"" ?? x` cho
+       ra `""` chứ không rơi về `x` — để lọt là ngày hạn thành rỗng và cột cảnh báo hiện NaN. */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const b = boCongNoThu();
+    const gia = b.giaDon.map((g) => (g.poId === "p1" ? { ...g, ngayToiHanThanhToan: "" } : g));
+    const d = TN.congNoTheoDonHang(b.donHang, gia, b.phieuNhan, b.moc).find(
+      (x) => x.maDonHang === "DMH260001",
+    );
+    return {
+      duoc: d?.ngayToiHan === "2026-07-31" && d?.toiHanNhapTay === false,
+      thucTe: `ngayToiHan = ${d?.ngayToiHan} · toiHanNhapTay = ${d?.toiHanNhapTay}`,
+      mongDoi: "2026-07-31 (tự tính lại) và toiHanNhapTay = false",
+    };
+  },
+);
+
+kiem(
   "Công nợ tính từ ngày nhận hàng LẦN CUỐI, không phải lần đầu",
   "phiên nghiệp vụ · 27/08/2026 (giả định, chờ Sếp xác nhận)",
   () => {

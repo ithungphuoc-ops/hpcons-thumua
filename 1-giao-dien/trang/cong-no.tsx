@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Wallet, AlertTriangle, Clock, CheckCircle2, Building2, Lock } from "lucide-react";
+import { useState } from "react";
+import {
+  Wallet,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  Building2,
+  Lock,
+  Search,
+} from "lucide-react";
+import { toast } from "sonner";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -28,7 +38,19 @@ import {
   type MaMucTuoiNo,
 } from "@/2-quy-trinh/tuoi-no";
 import { formatCurrencyVnd, formatDate } from "@/6-tien-ich/dinh-dang";
+import { boDau } from "@/6-tien-ich/bo-dau";
+import { Input } from "@/1-giao-dien/nen-tang-ui/input";
+import {
+  NutLichSuCongNo,
+  ONgayToiHan,
+  OSoNgayDuocNo,
+} from "@/1-giao-dien/thanh-phan-nghiep-vu/o-dieu-khoan-cong-no";
 import type { CongNo } from "@/3-du-lieu/kieu-du-lieu";
+
+/** Chuẩn hóa chuỗi để so khi tìm kiếm: bỏ dấu, thường hóa, gộp khoảng trắng. */
+function chuanHoaTim(s: string): string {
+  return boDau(s).toLowerCase().replace(/\s+/g, " ").trim();
+}
 
 /** Sắc độ 5 mức tuổi nợ — chỉ dùng token ngữ nghĩa, không hardcode mã màu (V1.1 Phần B). */
 const SAC_DO_MUC: Record<MaMucTuoiNo, { thanh: string; the: string; chu: string }> = {
@@ -125,8 +147,18 @@ export default function TrangCongNo() {
    * (`lich-cong-viec.ts` sinh mốc "Hạn thanh toán") còn đọc nó. Đây là hai nguồn song song cho
    * tới khi có sổ công nợ thật — đừng bỏ cái nào khi chưa chuyển hết chỗ dùng.
    */
-  const { congNo, donHang, giaDonHang, phieuNhan } = useDuLieu();
-  const { quyen } = useNguoiDung();
+  const { congNo, donHang, giaDonHang, phieuNhan, datDieuKhoanCongNo } = useDuLieu();
+  const { quyen, nguoiDung } = useNguoiDung();
+
+  /**
+   * ★★ Ô TÌM THEO TÊN NHÀ CUNG CẤP — Ban lãnh đạo 28/08/2026.
+   *
+   * 🔴 KHAI HOOK Ở ĐÂY, TRƯỚC `if (!quyen.xemCongNo) return`. Đặt sau early return là vi phạm
+   * Rules of Hooks: người không có quyền thì React chỉ chạy tới câu `return` nên số hook gọi ra
+   * ít hơn lần vẽ trước, và app chết với *"Rendered fewer hooks than expected"* — lỗi chỉ hiện
+   * với đúng nhóm người dùng đó, nên rất dễ lọt khi thử bằng tài khoản Thu mua.
+   */
+  const [timNCC, setTimNCC] = useState("");
 
   /**
    * 🔴 CHẶN NGAY TẠI TRANG, không chỉ ẩn mục menu.
@@ -163,7 +195,52 @@ export default function TrangCongNo() {
 
   /* Bảng 8 cột theo từng đơn hàng — luật tính nằm hết ở `2-quy-trinh/tuoi-no.ts`, ở đây chỉ
      gọi và vẽ. Quy tắc 3.4b: không để hàm tính nghiệp vụ trong tệp giao diện. */
-  const theoDon = congNoTheoDonHang(donHang, giaDonHang, phieuNhan);
+  const theoDonTatCa = congNoTheoDonHang(donHang, giaDonHang, phieuNhan);
+
+  /**
+   * Lọc theo tên nhà cung cấp (Ban lãnh đạo 28/08/2026).
+   *
+   * 📌 BỎ DẤU TIẾNG VIỆT trước khi so, và so cả MÃ ĐƠN. Gõ "tan hoang minh" phải ra được
+   * "Tân Hoàng Minh" — bắt người dùng gõ đủ dấu là ô tìm kiếm gần như vô dụng trên thực tế.
+   *
+   * ⚠️ Dùng `theoDonTatCa` để đếm tổng, `theoDon` để vẽ — nếu lấy nhầm bản đã lọc đi đếm thì
+   * dòng "đang lọc N/M đơn" luôn nói N/N và người dùng không biết mình đang giấu bao nhiêu đơn.
+   */
+  /**
+   * ★★ AI ĐƯỢC SỬA ĐIỀU KHOẢN CÔNG NỢ.
+   *
+   * 🔴 DÙNG `quyen.lapPO`, KHÔNG dùng `quyen.xemCongNo`. Xem và sửa là hai việc khác nhau: Kế
+   * toán cần ĐỌC công nợ nhưng điều kiện thanh toán là thứ Thu mua đàm phán với nhà cung cấp.
+   * Cho cả hai bên cùng sửa là hai phòng đổi qua đổi lại một con số mà không ai chịu trách nhiệm.
+   *
+   * ⚠️ Đây vẫn là chặn ở trình duyệt. Chặn thật phải bằng Firestore Rules trên `tm_donhang_gia`.
+   */
+  const suaDuocDieuKhoan = quyen.lapPO;
+
+  /**
+   * Ghi một thay đổi điều khoản công nợ.
+   *
+   * 🔴 BÁO KHI BỊ CHẶN, KHÔNG NUỐT LỖI. `datDieuKhoanCongNo` trả câu lý do khi đơn chưa có
+   * chứng từ giá; im lặng ở đây là người dùng gõ xong, ô nhảy về giá trị cũ, và họ không hiểu
+   * vì sao — rồi gõ lại lần nữa.
+   *
+   * 📌 KHÔNG báo "đã lưu" khi hàm trả `null` do KHÔNG CÓ GÌ ĐỔI (rời ô mà không sửa gì) — toast
+   * xanh mỗi lần bấm ra bấm vào một ô là nhiễu. Hàm ghi tự lo việc đó: nó chỉ ghi khi có khác biệt.
+   */
+  function luuDieuKhoan(
+    poId: string,
+    thayDoi: { soNgayDuocNo?: number | null; ngayToiHanThanhToan?: string | null },
+  ) {
+    const loi = datDieuKhoanCongNo(poId, thayDoi, nguoiDung.tenHienThi);
+    if (loi) toast.error("Chưa lưu được điều khoản công nợ", { description: loi });
+  }
+
+  const chuTim = chuanHoaTim(timNCC);
+  const theoDon = chuTim
+    ? theoDonTatCa.filter(
+        (r) => chuanHoaTim(r.tenNCC).includes(chuTim) || chuanHoaTim(r.maDonHang).includes(chuTim),
+      )
+    : theoDonTatCa;
 
   return (
     <>
@@ -291,6 +368,30 @@ export default function TrangCongNo() {
             Đơn đã nhận đủ hàng · nợ tính từ <strong>ngày nhận hàng lần cuối</strong> cộng số ngày
             được nợ ghi trên đơn. Số tiền là toàn bộ giá trị đơn — app chưa theo dõi từng lần chi.
           </p>
+          {/* ★★ Ô TÌM THEO TÊN NHÀ CUNG CẤP (Ban lãnh đạo 28/08/2026). Dựng theo đúng mẫu ô tìm
+              của `data-table.tsx`: icon Search đặt tuyệt đối trong ô, `pl-9` chừa chỗ cho icon. */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <div className="relative w-full sm:w-80">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-desc"
+                aria-hidden
+              />
+              <Input
+                value={timNCC}
+                onChange={(e) => setTimNCC(e.target.value)}
+                placeholder="Tìm theo tên nhà cung cấp hoặc mã đơn..."
+                aria-label="Tìm theo tên nhà cung cấp"
+                className="pl-9"
+              />
+            </div>
+            {/* 🔴 ĐANG LỌC THÌ PHẢI NÓI RÕ ĐANG GIẤU BAO NHIÊU ĐƠN. Không có dòng này thì người
+                dùng gõ tìm rồi quên xóa, hôm sau mở lại thấy bảng thiếu đơn mà tưởng mất dữ liệu. */}
+            {chuTim !== "" && (
+              <span className="text-xs text-text-desc">
+                Đang lọc: {theoDon.length}/{theoDonTatCa.length} đơn
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -305,13 +406,19 @@ export default function TrangCongNo() {
                   <TableHead className="text-center">Ngày bắt đầu tính</TableHead>
                   <TableHead className="text-center">Ngày tới hạn</TableHead>
                   <TableHead className="text-center">Cảnh báo tới hạn</TableHead>
+                  <TableHead className="text-center">Lịch sử</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {theoDon.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-6 text-center text-sm text-text-desc">
-                      Chưa có đơn hàng nào nhận đủ hàng — chưa phát sinh công nợ.
+                    <TableCell colSpan={9} className="py-6 text-center text-sm text-text-desc">
+                      {/* 🔴 NÓI ĐÚNG LÝ DO BẢNG RỖNG. Đang lọc mà vẫn in "chưa phát sinh công nợ"
+                          là app nói sai: người dùng tưởng mất dữ liệu trong khi chỉ là ô tìm kiếm
+                          còn chữ. */}
+                      {chuTim !== ""
+                        ? `Không có đơn nào khớp "${timNCC.trim()}". Xóa ô tìm kiếm để xem lại ${theoDonTatCa.length} đơn.`
+                        : "Chưa có đơn hàng nào nhận đủ hàng — chưa phát sinh công nợ."}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -337,15 +444,14 @@ export default function TrangCongNo() {
                       <TableCell className="text-right font-bold text-text-primary">
                         {formatCurrencyVnd(r.tongCongNo)}
                       </TableCell>
-                      {/* 🔴 Ô TRỐNG PHẢI NÓI RÕ LÀ TRỐNG. Đơn không ghi số ngày được nợ thì in
-                          "—" chứ không in "0 ngày" — số 0 nghĩa là phải trả ngay, khác hẳn
-                          nghĩa "chưa ai điền". */}
-                      <TableCell className="text-center tabular-nums">
-                        {r.soNgayDuocNo !== undefined ? (
-                          `${r.soNgayDuocNo} ngày`
-                        ) : (
-                          <span className="text-text-desc">—</span>
-                        )}
+                      {/* ★★ SỬA ĐƯỢC TẠI CHỖ (Ban lãnh đạo 28/08/2026). Ô trống vẫn nói rõ là
+                          trống — số 0 nghĩa "phải trả ngay", khác hẳn "chưa ai điền". */}
+                      <TableCell className="w-28 text-center tabular-nums">
+                        <OSoNgayDuocNo
+                          giaTri={r.soNgayDuocNo}
+                          suaDuoc={suaDuocDieuKhoan}
+                          onLuu={(soNgay) => luuDieuKhoan(r.poId, { soNgayDuocNo: soNgay })}
+                        />
                       </TableCell>
                       <TableCell className="text-center tabular-nums">
                         {r.ngayBatDau ? (
@@ -354,15 +460,30 @@ export default function TrangCongNo() {
                           <span className="text-text-desc">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-center font-medium tabular-nums text-text-primary">
-                        {r.ngayToiHan ? (
-                          formatDate(r.ngayToiHan)
-                        ) : (
-                          <span className="font-normal text-text-desc">—</span>
-                        )}
+                      {/* ★★ NHẬP TAY ĐÈ LÊN TỰ TÍNH (Ban lãnh đạo 28/08/2026). Ô hiện rõ con số
+                          đang đến từ đâu — xem `ONgayToiHan`. */}
+                      <TableCell className="w-40 text-center font-medium tabular-nums text-text-primary">
+                        <ONgayToiHan
+                          giaTri={r.ngayToiHan}
+                          nhapTay={r.toiHanNhapTay}
+                          suaDuoc={suaDuocDieuKhoan}
+                          onLuu={(ngay) => luuDieuKhoan(r.poId, { ngayToiHanThanhToan: ngay })}
+                        />
                       </TableCell>
                       <TableCell className="text-center">
                         <StatusBadge label={r.canhBao.nhan} tone={r.canhBao.tong} />
+                      </TableCell>
+                      {/* ★★ Cột ⑨ — nhật ký sửa điều khoản (Ban lãnh đạo 28/08/2026: *"có ghi
+                          lại lịch sử"*).
+                          📌 Ai VÀO được trang này đều xem được sổ, kể cả vai trò không sửa được:
+                          trang đã chặn sẵn bằng `quyen.xemCongNo` ngay đầu hàm, nên tới đây thì
+                          người đọc vốn đã được phép thấy giá. Che thêm một lớp nữa chỉ làm kế
+                          toán không tra được ai đổi điều khoản. */}
+                      <TableCell className="w-16 text-center">
+                        <NutLichSuCongNo
+                          maDonHang={r.maDonHang}
+                          lichSu={giaDonHang.find((g) => g.poId === r.poId)?.lichSuDieuKhoanCongNo}
+                        />
                       </TableCell>
                     </TableRow>
                   ))

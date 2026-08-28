@@ -178,8 +178,21 @@ export interface CongNoTheoDon {
   soNgayDuocNo?: number;
   /** Cột ⑥ — `undefined` = chưa lần giao nào được nhập kho. */
   ngayBatDau?: NgayISO;
-  /** Cột ⑦ — `undefined` khi thiếu một trong hai vế của phép cộng. */
+  /**
+   * Cột ⑦ — ngày phải trả tiền.
+   *
+   * Lấy theo thứ tự: NGÀY NHẬP TAY trước (`GiaDonDatHang.ngayToiHanThanhToan`), không có thì
+   * suy ra *ngày nhận hàng lần cuối + số ngày được nợ*. `undefined` = không có cả hai.
+   */
   ngayToiHan?: NgayISO;
+  /**
+   * ★★ Ngày tới hạn này do người dùng GÕ TAY hay do app tự suy ra (Ban lãnh đạo 28/08/2026).
+   *
+   * 🔴 GIAO DIỆN PHẢI PHÂN BIỆT ĐƯỢC HAI THỨ. Cùng hiện một ngày mà không nói cái nào là tay,
+   * cái nào là tính, thì người dùng không biết đơn nào đã có người chốt hạn thật với nhà cung
+   * cấp — và cũng không biết đơn nào sẽ TỰ ĐỔI ngày khi có thêm một lần giao hàng nữa.
+   */
+  toiHanNhapTay: boolean;
   /** Cột ⑧ — nhãn + tông màu, dùng thẳng cho `StatusBadge`. */
   canhBao: MoTaTrangThai;
   /** Âm = đã quá hạn từng này ngày. `undefined` khi chưa tính được hạn. */
@@ -252,10 +265,28 @@ export function congNoTheoDonHang(
     const tien = tinhTienChiTietPO(po, gia);
     const ngayBatDau = ngayBatDauTinhNo(phieuCuaPO);
     const soNgayDuocNo = gia?.soNgayDuocNo;
-    const ngayToiHan =
+    /**
+     * ★★ NGÀY TỚI HẠN: NHẬP TAY THẮNG TỰ TÍNH (Ban lãnh đạo 28/08/2026: *"ngày tới hạn cũng là
+     * trường nhập thủ công"*).
+     *
+     * 🔴 THỨ TỰ NÀY LÀ CHỦ Ý, KHÔNG ĐƯỢC ĐẢO. Người gõ tay là người vừa nói chuyện với nhà cung
+     * cấp; phép cộng chỉ là ước lượng khi chưa ai chốt. Để tự tính đè lên tay là mỗi lần có thêm
+     * một phiếu nhập kho, `ngayBatDauTinhNo` đổi sang ngày giao mới nhất và ngày hạn TỰ NHẢY —
+     * xoá mất con số đã thỏa thuận mà không một dòng nào báo.
+     *
+     * 🔴 GIỮ NGUYÊN PHÉP TỰ TÍNH LÀM NỀN. Bỏ nó đi thì mọi đơn cũ mất sạch ngày tới hạn cho tới
+     * khi có người gõ tay từng đơn, và trong lúc đó cột cảnh báo quá hạn im lặng tắt.
+     *
+     * ⚠️ Chuỗi rỗng cũng phải coi như KHÔNG CÓ: ô `<input type="date">` bị xóa trắng trả về `""`,
+     * mà `"" ?? x` cho ra `""` chứ không rơi về `x` — để lọt là ngày hạn thành chuỗi rỗng và
+     * `new Date("")` cho `Invalid Date`, cột cảnh báo hiện `NaN`.
+     */
+    const toiHanGoTay = gia?.ngayToiHanThanhToan?.trim() || undefined;
+    const toiHanTuTinh =
       ngayBatDau !== undefined && soNgayDuocNo !== undefined
         ? congNgay(ngayBatDau, soNgayDuocNo)
         : undefined;
+    const ngayToiHan = toiHanGoTay ?? toiHanTuTinh;
     const { canhBao, soNgayConLai } = canhBaoToiHan(ngayToiHan, moc);
 
     ra.push({
@@ -271,6 +302,7 @@ export function congNoTheoDonHang(
       soNgayDuocNo,
       ngayBatDau,
       ngayToiHan,
+      toiHanNhapTay: toiHanGoTay !== undefined,
       canhBao,
       soNgayConLai,
     });

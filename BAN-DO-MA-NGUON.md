@@ -68,7 +68,9 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | 🔴 **"Không lập được bảng báo giá đầu tiên"** / mất đường vào module Báo giá | Đường vào là **menu ⋯ trên thẻ** ở bảng quy trình → *Lập bảng báo giá* (`thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang.tsx` → `ThaoTacThe.onLapBaoGia`, nối ở `trang/de-nghi-danh-sach.tsx`). **Nút ở trang chi tiết đã bỏ 17/08/2026** theo chỉ đạo Ban lãnh đạo. Đường thứ hai là kéo thẻ cột ① → ②, nhưng **điện thoại không kéo được** nên mục menu là lối vào duy nhất trên điện thoại — bỏ nó là module thành mồ côi (mục 3.4b). ⚠️ Mục menu gọi `xuLyTha` chứ không gọi thẳng `taoBaoGiaGiaLap`, để vẫn qua chốt `quyetDinhKeoTha` và vẫn mở hộp xác nhận |
 | Sai ở **màn Theo dõi đề nghị** (cho Phòng Thi công) | `1-giao-dien/trang/theo-doi-danh-sach.tsx` · `theo-doi-chi-tiet.tsx` |
 | ~~Sai ở **danh sách Báo giá** / **bảng so sánh giá nhà cung cấp**~~ | ❌ **Cả hai màn đã XÓA HẲN 20/08/2026** — xem mục **2c**. Bản báo giá nay là **tệp đính kèm ở bước ②**: `thanh-phan-nghiep-vu/khu-bao-gia-theo-so-luong.tsx`, luật đếm ở `2-quy-trinh/bao-gia-dinh-kem.ts` |
-| Sai ở **màn Công nợ** (KPI · biểu đồ tuổi nợ · bảng hóa đơn) | `1-giao-dien/trang/cong-no.tsx` |
+| Sai ở **màn Công nợ** (KPI · biểu đồ tuổi nợ · bảng hóa đơn · ô tìm theo NCC) | `1-giao-dien/trang/cong-no.tsx` |
+| Sai ở **bảng "Theo dõi công nợ theo đơn hàng"** — ngày bắt đầu tính, ngày tới hạn, cảnh báo | **Luật**: `2-quy-trinh/tuoi-no.ts` → `congNoTheoDonHang` (🔴 mọi phép tính ở đây, tệp giao diện chỉ vẽ) |
+| **Ô sửa "Thời gian C.Nợ" / "Ngày tới hạn"** ngay trên bảng công nợ, và nút xem lịch sử sửa | Ô: `thanh-phan-nghiep-vu/o-dieu-khoan-cong-no.tsx` · **Chỗ ghi**: `3-du-lieu/kho-du-lieu.tsx` → `datDieuKhoanCongNo` · **Chỗ cất**: `GiaDonDatHang.soNgayDuocNo` · `.ngayToiHanThanhToan` · `.lichSuDieuKhoanCongNo` (🔴 nằm ở **chứng từ giá riêng**, không ở `DonDatHang` — nguyên tắc dữ liệu số 3) |
 | Sai **thanh bên / menu** | `1-giao-dien/khung-app/thanh-ben-noi-dung.tsx` |
 | Sai **thanh trên** (tìm kiếm, ngày giờ, tài khoản) | `1-giao-dien/khung-app/thanh-tren.tsx` |
 | Sai **thanh dưới trên điện thoại** | `1-giao-dien/khung-app/thanh-duoi-mobile.tsx` |

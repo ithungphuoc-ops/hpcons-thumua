@@ -958,6 +958,32 @@ export interface GiaDonDatHang {
    * của dự án muốn chặn.
    */
   soNgayDuocNo?: number;
+  /**
+   * ★★ NGÀY TỚI HẠN THANH TOÁN — NHẬP TAY, ĐÈ LÊN GIÁ TRỊ TỰ TÍNH (Ban lãnh đạo 28/08/2026:
+   * *"ngày tới hạn cũng là trường nhập thủ công"*).
+   *
+   * 🔴 KHÔNG BỎ PHÉP TỰ TÍNH. Trống ở đây thì `congNoTheoDonHang` vẫn suy ra từ *ngày nhận hàng
+   * lần cuối + `soNgayDuocNo`* như trước. Bỏ tự tính đi là mọi đơn cũ mất sạch ngày tới hạn cho
+   * tới khi có người gõ tay từng đơn — và trong lúc đó cảnh báo quá hạn im lặng tắt.
+   *
+   * 📌 Đặt CÙNG CHỖ với `soNgayDuocNo`, không đưa sang `DonDatHang`: hai trường này là một cặp
+   * điều kiện thanh toán. Tách ra hai chứng từ là mở đường cho một bên đổi mà bên kia không biết,
+   * rồi hai con số cùng nói về một ngày lại lệch nhau.
+   */
+  ngayToiHanThanhToan?: NgayISO;
+  /**
+   * ★★ NHẬT KÝ SỬA ĐIỀU KHOẢN CÔNG NỢ (Ban lãnh đạo 28/08/2026: *"có ghi lại lịch sử"*).
+   *
+   * 🔴 CẤT Ở ĐÂY CHỨ KHÔNG GHI VÀO NHẬT KÝ ĐỀ NGHỊ, và đây là lý do bảo mật chứ không phải chọn
+   * cho tiện: khối "Lịch sử" của đề nghị hiện cho MỌI vai trò, kể cả người không được xem giá.
+   * Một dòng *"đổi số ngày được nợ từ 30 sang 45"* nằm ở đó là lộ đúng cái điều kiện thương mại
+   * mà nguyên tắc dữ liệu số 3 dựng cả một chứng từ riêng để giấu. Cùng lý do với luật đã có:
+   * *"không ghi tên nhà cung cấp vào nhật ký đề nghị"*.
+   *
+   * ⚠️ Vì vậy KHÔNG gọi `ghiNhatKyDonHang` cho việc sửa điều khoản công nợ — hàm đó định tuyến
+   * sang lịch sử đề nghị khi đơn có `prId`, tức là đi thẳng vào chỗ vừa nói.
+   */
+  lichSuDieuKhoanCongNo?: MocLichSu[];
 }
 
 // ------------------------------------------------------------
