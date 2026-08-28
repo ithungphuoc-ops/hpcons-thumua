@@ -31,7 +31,9 @@ import {
 import { nhanAnToan, NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
 import {
   congNoTheoDonHang,
-  tinhTuoiNo,
+  /* `tinhTuoiNo` KHÔNG còn được trang này nhập — khối "Phân tích tuổi nợ" đã bỏ 28/08/2026.
+     🔴 Hàm vẫn GIỮ NGUYÊN trong `2-quy-trinh/tuoi-no.ts`, đừng xóa: đó là luật chia 5 khoảng
+     tuổi nợ, và `nhomTuoiNoTheoNCC` ngay dưới gọi tới nó. */
   nhomTuoiNoTheoNCC,
   soTienConLai,
   MUC_TUOI_NO,
@@ -188,9 +190,8 @@ export default function TrangCongNo() {
   const daTraDu = congNo.filter((p) => p.trangThai === "da_thanh_toan");
   const tongConNo = congNo.reduce((s, p) => s + soTienConLai(p), 0);
 
-  const mucTuoiNo = tinhTuoiNo(congNo);
-  const tongDuNo = mucTuoiNo.reduce((s, m) => s + m.soTien, 0);
-  const tongQuaHan = mucTuoiNo.slice(1).reduce((s, m) => s + m.soTien, 0);
+  /* `mucTuoiNo` · `tongDuNo` · `tongQuaHan` đã bỏ cùng khối "Phân tích tuổi nợ" (28/08/2026) —
+     xem chú thích tại chỗ khối đó từng đứng, phía dưới trong phần vẽ. */
   const theoNCC = nhomTuoiNoTheoNCC(congNo);
 
   /* Bảng 8 cột theo từng đơn hàng — luật tính nằm hết ở `2-quy-trinh/tuoi-no.ts`, ở đây chỉ
@@ -285,62 +286,25 @@ export default function TrangCongNo() {
         />
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-wrap items-start justify-between gap-2">
-          <div className="flex flex-col gap-0.5">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="size-4 text-primary" aria-hidden />
-              Phân tích tuổi nợ (30 - 60 - 90 ngày)
-            </CardTitle>
-            <p className="text-xs text-text-desc">
-              Chỉ tính phần còn phải trả; hóa đơn đã tất toán không đưa vào biểu đồ.
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-text-desc">Tổng nợ quá hạn</p>
-            <p className="text-sm font-bold text-danger-soft">{formatCurrencyVnd(tongQuaHan)}</p>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex h-4 w-full gap-0.5 overflow-hidden rounded-full bg-muted p-0.5">
-              {mucTuoiNo.map((m) => {
-                if (m.soTien === 0) return null;
-                const tyLe = tongDuNo > 0 ? (m.soTien / tongDuNo) * 100 : 0;
-                return (
-                  <div
-                    key={m.ma}
-                    style={{ width: `${Math.max(tyLe, 2)}%` }}
-                    className={`h-full rounded-full ${SAC_DO_MUC[m.ma].thanh}`}
-                    title={`${m.nhan}: ${formatCurrencyVnd(m.soTien)} (${tyLe.toFixed(1)}%)`}
-                  />
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-desc">
-              <span>Trong hạn: {formatCurrencyVnd(mucTuoiNo[0].soTien)}</span>
-              <span>Tổng dư nợ: {formatCurrencyVnd(tongDuNo)}</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-(--hp-md-card-gap) sm:grid-cols-3 xl:grid-cols-5">
-            {mucTuoiNo.map((m) => {
-              const tyLe = tongDuNo > 0 ? (m.soTien / tongDuNo) * 100 : 0;
-              const sac = SAC_DO_MUC[m.ma];
-              return (
-                <div key={m.ma} className={`flex flex-col gap-1 rounded-lg border p-3 ${sac.the}`}>
-                  <p className={`text-xs font-semibold ${sac.chu}`}>{m.nhan}</p>
-                  <p className="text-sm font-bold text-text-primary">{formatCurrencyVnd(m.soTien)}</p>
-                  <div className="flex items-center justify-between text-xs text-text-desc">
-                    <span>{m.soHoaDon} hóa đơn</span>
-                    <span className="font-medium">{tyLe.toFixed(1)}%</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      {/**
+        * ❌ ĐÃ BỎ KHỐI "PHÂN TÍCH TUỔI NỢ (30 - 60 - 90 NGÀY)" — Ban lãnh đạo 28/08/2026 khoanh đỏ
+        * nguyên khối và chốt *"bỏ tính năng này đi"*.
+        *
+        * Khối đó gồm: một thanh tỷ lệ 5 màu + 5 thẻ (Trong hạn · Quá hạn 1-30 · 31-60 · 61-90 ·
+        * trên 90 ngày) + dòng "Tổng dư nợ".
+        *
+        * 📌 VÌ SAO NÓ LUÔN HIỆN 0 ₫: nó đọc `congNo`, mà `congNo` là hằng số `CONG_NO_MAU = []`
+        * gán cứng trong kho dữ liệu — không `useState`, không hàm ghi, không có mặt trong
+        * `kho-chung-firestore.ts` lẫn `luu-tren-may.ts`. Nghĩa là khối này **không bao giờ** có
+        * được một con số nào, chứ không phải "chưa có dữ liệu chạy thử".
+        *
+        * ⚠️ BA KHỐI KHÁC TRÊN TRANG NÀY CŨNG ĐỌC CÙNG NGUỒN RỖNG ĐÓ và cùng luôn hiện 0: bốn thẻ
+        * KPI ở đầu trang · bảng "Tuổi nợ theo nhà cung cấp" · bảng "Danh sách hóa đơn phải trả".
+        * CỐ Ý GIỮ LẠI vì Sếp chỉ khoanh một khối — đã báo để Sếp quyết, không tự bỏ thêm.
+        *
+        * 🔴 KHÔNG XÓA `tinhTuoiNo` / `nhomTuoiNoTheoNCC` / `MUC_TUOI_NO` trong `2-quy-trinh/tuoi-no.ts`.
+        * `nhomTuoiNoTheoNCC` và `MUC_TUOI_NO` còn nuôi bảng "Tuổi nợ theo nhà cung cấp" ngay dưới.
+        */}
 
       {/**
         * ★★ BẢNG THEO DÕI CÔNG NỢ — 8 CỘT THEO TỪNG ĐƠN HÀNG (Ban lãnh đạo 27/08/2026:
@@ -466,6 +430,10 @@ export default function TrangCongNo() {
                         <ONgayToiHan
                           giaTri={r.ngayToiHan}
                           nhapTay={r.toiHanNhapTay}
+                          /* Mốc để lịch cộng hộ "+N ngày" — đúng mốc app đang dùng để tự tính,
+                             nên nút lối tắt và con số tự tính không bao giờ lệch nhau. */
+                          ngayBatDau={r.ngayBatDau}
+                          soNgayDuocNo={r.soNgayDuocNo}
                           suaDuoc={suaDuocDieuKhoan}
                           onLuu={(ngay) => luuDieuKhoan(r.poId, { ngayToiHanThanhToan: ngay })}
                         />
