@@ -115,9 +115,18 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
       };
 
       /**
-       * ★★★ TỰ ĐỘNG GẮN PO "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026 (Sếp chốt qua demo "Ngã Rẽ Lập
+       * ★★★ TỰ ĐỘNG ĐIỀN PO "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026 (Sếp chốt qua demo "Ngã Rẽ Lập
        * PO"), việc 3 của Cách 3: PO lập trước qua module độc lập, đề nghị về sau qua đường
        * bình thường này, tự khớp lại — không cần app Đề Xuất biết gì về PO bên Thu Mua.
+       *
+       * 🔴 CHỈ ĐIỀN, KHÔNG TỰ CHỐT — sửa lại 29/08/2026 (chiều), sau review PR (CodeRabbit +
+       * nội bộ): bản đầu tự set `trangThai: "da_chot"` ngay khi khớp — Sếp xác nhận CẦN thêm
+       * một lớp NGƯỜI THẬT xác nhận trước khi chốt, vì `maDuAn` dù đúng khuôn Thông báo 09/2026
+       * vẫn có xác suất trùng ngẫu nhiên giữa hai dự án khác nhau (lỗi đặt mã, dự án đổi tên…).
+       * PO vẫn GIỮ `"cho_de_nghi"` sau khi điền `prId`/`prCode` — chỉ khác trước ở chỗ giờ đã có
+       * `prId` (phân biệt với PO "cho_de_nghi" CHƯA khớp gì bằng chính field này, xem
+       * `HopGanDeNghi`/`HopXacNhanTuDongGan`). Trưởng bộ phận xác nhận thật ở
+       * `xacNhanTuDongGanDeNghi` (`kho-du-lieu.tsx`) mới chuyển "da_chot".
        *
        * 🔴 KHÓA CHÍNH LÀ `maDuAn`, KHÔNG PHẢI "Theo hợp đồng" — đọc kỹ trước khi đổi:
        * `maHopDongCDT` của đề nghị chỉ là phần TRƯỚC dấu " - " trong ô "Tên đề xuất"
@@ -130,29 +139,28 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
        * lại không tự gắn; thiếu ở một bên (rất hay gặp, vì cả hai đều là ô tuỳ chọn) thì
        * không tính là mâu thuẫn, vẫn cho gắn theo `maDuAn`.
        *
-       * 🔴 CHỈ GẮN KHI TÌM RA ĐÚNG 1 ỨNG VIÊN. Ra 0 hoặc ≥2 kết quả đều để nguyên "chờ đề
-       * nghị" — nhiều PO cùng mã dự án là chuyện thật (nhiều lần mua cho cùng công trình), tự
-       * chọn bừa 1 cái là gắn nhầm PO của người khác vào đề nghị này. Người dùng vẫn gắn tay
-       * được qua hộp thoại "+ Gắn đề nghị" (`hop-gan-de-nghi.tsx`) như bình thường.
+       * 🔴 CHỈ ĐIỀN KHI TÌM RA ĐÚNG 1 ỨNG VIÊN. Ra 0 hoặc ≥2 kết quả đều để nguyên "chờ đề
+       * nghị" KHÔNG `prId` — nhiều PO cùng mã dự án là chuyện thật (nhiều lần mua cho cùng công
+       * trình), tự chọn bừa 1 cái là gắn nhầm PO của người khác vào đề nghị này. Người dùng vẫn
+       * gắn tay được qua hộp thoại "+ Gắn đề nghị" (`hop-gan-de-nghi.tsx`) như bình thường.
        *
-       * ⚠️ CỐ Ý KHÔNG GỌI `vuongMacLapDonHang`/`vuongMacViecBatBuocCacBuocTruoc` Ở ĐÂY — khác
-       * `ganDeNghiVaoPO` (gắn tay, `kho-du-lieu.tsx`). Đã cân nhắc kỹ, không phải bỏ sót:
+       * ⚠️ KHÔNG GỌI `vuongMacLapDonHang`/`vuongMacViecBatBuocCacBuocTruoc` Ở ĐÂY, và cũng
+       * KHÔNG gọi ở bước xác nhận sau này — khác `ganDeNghiVaoPO` (gắn tay từ danh sách báo giá
+       * đã chốt). Đã cân nhắc kỹ, không phải bỏ sót:
        *   · `vuongMacLapDonHang` đòi ít nhất MỘT `BaoGia` của đề nghị. `deNghiMoi` ở route này
        *     VỪA được tạo ra trong chính request này (giai đoạn ①) — CHƯA THỂ nào có `BaoGia`
-       *     nào cả, vì báo giá là bước ③ làm SAU, thủ công, bên trong Thu Mua. Gọi hàm này ở
-       *     đây luôn trả về chặn ("Chưa có bảng báo giá nào…") — tính năng tự khớp sẽ CHẾT,
-       *     không bao giờ tới được `"da_chot"`. Đây không phải chỗ đi vòng qua chốt kiểm soát
-       *     chi tiêu: chốt kiểm soát chi tiêu của PO ĐỘC LẬP là quyền `taoPoDoiLap` (chỉ Trưởng
-       *     bộ phận trở lên) ĐÃ CHẠY khi PO được TẠO (`themDonHang`) — NCC/đơn giá/hợp đồng của
-       *     PO đó đã được người có thẩm quyền quyết định RỒI, việc còn lại chỉ là hành chính
-       *     (gắn đúng số hồ sơ đề nghị vào PO đã có sẵn), không phải một quyết định chi tiền mới.
+       *     nào cả, vì báo giá là bước ③ làm SAU, thủ công, bên trong Thu Mua, và có thể KHÔNG
+       *     BAO GIỜ xảy ra cho đề nghị này (PO đã tự đủ NCC/giá từ lúc lập độc lập). Gọi hàm
+       *     này ở đây (hoặc ở bước xác nhận) luôn trả về chặn ("Chưa có bảng báo giá nào…") —
+       *     tính năng tự khớp sẽ CHẾT. Kiểm soát chi tiêu của PO ĐỘC LẬP là quyền `taoPoDoiLap`
+       *     (chỉ Trưởng bộ phận trở lên) ĐÃ CHẠY khi PO được TẠO (`themDonHang`) — NCC/đơn giá/
+       *     hợp đồng của PO đó đã được người có thẩm quyền quyết định RỒI.
        *   · `vuongMacViecBatBuocCacBuocTruoc` soát các bước TRƯỚC bước hiện tại — `deNghiMoi`
        *     luôn ở giai đoạn ① (`viTriHienTai <= 0`) nên hàm này luôn trả `null` (không có gì
        *     để soát); gọi vào đây là code chết, không thêm an toàn nào.
-       * Nếu sau này đổi ý muốn thêm một lớp xác nhận NGƯỜI THẬT trước khi chốt (thay vì tự động
-       * 100%), hướng đúng là giữ PO ở `"cho_de_nghi"` sau khi điền `prId` (không tự set
-       * `"da_chot"`) và để Trưởng bộ phận bấm xác nhận ở hộp "+ Gắn đề nghị" — KHÔNG phải nhét
-       * `vuongMacLapDonHang` vào đây.
+       * Lớp an toàn cho đường này là XÁC NHẬN NGƯỜI THẬT (`xacNhanTuDongGanDeNghi`), không phải
+       * chạy lại 2 hàm trên — mục tiêu là bắt lỗi TRÙNG MÃ DỰ ÁN NGẪU NHIÊN giữa hai công
+       * trình khác nhau, không phải bắt lỗi thiếu báo giá (không áp dụng cho đường này).
        */
       const donHangHienCo: DonDatHang[] = Array.isArray(data.donHang) ? data.donHang : [];
       const chuanHoa = (s: string) => boDau(s).replace(/[^a-z0-9]/g, "");
@@ -182,7 +190,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
           prId: deNghiMoi.id,
           prCode: deNghiMoi.code,
           maDeXuatAppRequest: deNghiMoi.maDeXuatAppRequest,
-          trangThai: "da_chot",
+          // ⚠️ GIỮ "cho_de_nghi" — KHÔNG tự chốt "da_chot". Xem khối chú thích phía trên
+          // ("CHỈ ĐIỀN, KHÔNG TỰ CHỐT") và `xacNhanTuDongGanDeNghi` (`kho-du-lieu.tsx`).
+          trangThai: "cho_de_nghi",
         };
         donHangMoi = donHangHienCo.map((p) => (p.id === po.id ? poMoi : p));
         poDaGan = poMoi;
@@ -190,8 +200,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
         deNghiMoi.lichSu.push({
           thoiDiem: new Date().toISOString(),
           nguoiThucHien: "Hệ thống (tự động khớp App Request)",
-          hanhDong: "Tự động gắn với đơn hàng đã lập trước",
-          ghiChu: `Đơn hàng ${po.code} — lập trước ${soNgay} ngày, cùng mã dự án ${po.maDuAn}.`,
+          hanhDong: "Tự động điền đơn hàng đã lập trước — chờ xác nhận",
+          ghiChu: `Đơn hàng ${po.code} — lập trước ${soNgay} ngày, cùng mã dự án ${po.maDuAn}. Chờ Trưởng bộ phận xác nhận ở trang chi tiết đơn hàng.`,
         });
       }
 
@@ -209,8 +219,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
           thoiDiem: FieldValue.serverTimestamp(),
           nguoiThucHienUid: "he-thong",
           nguoiThucHienTen: "Hệ thống (tự động khớp App Request)",
-          hanhDong: "gan_de_nghi_vao_po",
-          moTa: `Tự động gắn đề nghị ${deNghiMoi.code} vào đơn hàng ${poDaGan.code} — khớp mã dự án ${poDaGan.maDuAn}.`,
+          hanhDong: "tu_dong_dien_de_nghi_cho_xac_nhan",
+          moTa: `Tự động điền đề nghị ${deNghiMoi.code} vào đơn hàng ${poDaGan.code} — khớp mã dự án ${poDaGan.maDuAn}. Đơn vẫn ở "Chờ đề nghị", chờ Trưởng bộ phận xác nhận.`,
         });
       }
 

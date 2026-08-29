@@ -198,6 +198,10 @@ function NoiDungLapDonHang() {
       <FormLapDonMuaHang
         /* `null` = chế độ độc lập. Truyền tường minh cho người đọc thấy ngay là có chủ đích. */
         deNghi={dn}
+        /* ★ Liên kết cũ/hỏng (CodeRabbit review 29/08/2026) — khoá form về mẫu-thôi dù có
+           `quyen.taoPoDoiLap`, tránh cất nhầm một PO độc lập thật khi người dùng chỉ đang tìm
+           đúng phiếu đề nghị đã mất/xóa. Xem chú thích đầy đủ ở `maKhongTimThay` phía trên. */
+        duongDanHongPrId={maKhongTimThay !== null}
         /* 🔴 CHỈ ĐIỀN SẴN TỪ BẢNG BÁO GIÁ KHI TRA RA ĐỀ NGHỊ THẬT.
            `prId` + `rfqId` + `nccId` là MỘT GÓI do màn Báo giá gửi sang. `prId` hỏng mà `rfqId`
            còn thì phần điền sẵn sẽ đem phân bổ của một hồ sơ khác áp vào đơn đang lập — khớp

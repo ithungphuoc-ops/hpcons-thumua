@@ -356,6 +356,13 @@ interface GiaTriDuLieu {
    * PO hoàn chỉnh. `null` là gắn xong, chuỗi là lý do bị chặn.
    */
   ganDeNghiVaoPO: (poId: string, baoGiaId: string) => string | null;
+  /**
+   * Xác nhận đề nghị mà route tự động khớp (`app-request/de-nghi-moi`) đã điền sẵn vào PO
+   * "chờ đề nghị" — chuyển PO sang "đã chốt" thật. Xem chú thích đầy đủ ở nơi định nghĩa.
+   */
+  xacNhanTuDongGanDeNghi: (poId: string) => string | null;
+  /** Gỡ liên kết tự động khớp (trường hợp xác nhận thấy KHÔNG đúng) — PO quay về "chờ đề nghị". */
+  huyKhopTuDongDeNghi: (poId: string) => string | null;
   /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
   themPhieuNhan: (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => string | null;
   doiTrangThaiPhieu: (
@@ -2738,6 +2745,30 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const dnGoc = deNghiRef.current.find((d) => d.id === bg.prId);
       if (!dnGoc) return "Không tìm thấy đề nghị gốc của bảng báo giá này.";
 
+      /**
+       * ★ MÃ DỰ ÁN PHẢI KHỚP — thêm sau review PR (CodeRabbit): `HopGanDeNghi` đã lọc danh sách
+       * chỉ còn cùng dự án, nhưng cửa ghi CHẶN LẠI LẦN NỮA — phòng `donHang`/`deNghi` đổi giữa
+       * lúc mở dialog và lúc bấm gắn (dữ liệu tới qua `onSnapshot`, không đồng bộ tức thời).
+       */
+      if (dnGoc.maDuAn !== po.maDuAn) {
+        return `Đề nghị ${dnGoc.code} thuộc dự án "${dnGoc.maDuAn}", khác mã dự án "${po.maDuAn}" trên đơn hàng này. Không gắn được đề nghị khác dự án.`;
+      }
+
+      /**
+       * ★ NHÀ CUNG CẤP PHẢI KHỚP — thêm sau review PR: trước đây "Khác NCC" chỉ là cảnh báo
+       * hiển thị, nút vẫn bấm được — nghĩa là một PO của NCC X có thể được hợp thức hoá bằng
+       * bảng báo giá đã chốt giá cho NCC Y, tức PO đó CHƯA TỪNG qua duyệt giá thật. `po.supplierId`
+       * có thể là mã tự sinh từ MST/tên (xem `luu()` trong `form-lap-don-mua-hang.tsx`) nên so
+       * thêm cả tên đã chuẩn hoá làm phương án dự phòng — khớp một trong hai là đủ.
+       */
+      const khopNCC =
+        !!bg.nccDaChonId &&
+        (bg.nccDaChonId === po.supplierId ||
+          boDau(bg.nccDaChonTen ?? "").trim() === boDau(po.supplierTen ?? "").trim());
+      if (!khopNCC) {
+        return `Bảng báo giá này chốt nhà cung cấp "${bg.nccDaChonTen ?? "—"}", khác nhà cung cấp "${po.supplierTen}" trên đơn hàng ${po.code}. Chọn đúng đề nghị đã chốt nhà cung cấp này, hoặc lập bảng báo giá cho đúng nhà cung cấp trên đơn.`;
+      }
+
       /* Chạy LẠI đúng luật chặn của PO thường (Ban lãnh đạo 15/08/2026 + 26/08/2026) — PO
          "chờ đề nghị" chưa qua bước này lúc tạo vì lúc đó chưa có gì để đối chiếu. */
       const chan = vuongMacLapDonHang(
@@ -2789,6 +2820,98 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       return null;
     },
     [ghiLichSuDeNghi, nguoiDung],
+  );
+
+  /**
+   * ★ XÁC NHẬN ĐỀ NGHỊ TỰ ĐỘNG KHỚP — thêm 29/08/2026 (chiều), sau khi Sếp chọn "Thêm 1 bước
+   * xác nhận cuối" trước tính năng tự động khớp (`app/api/app-request/de-nghi-moi/route.ts`).
+   *
+   * 🔴 CHỈ DÀNH CHO PO ĐÃ CÓ `prId` MÀ VẪN `"cho_de_nghi"` — dấu hiệu route tự động vừa điền
+   * đề nghị vào nhưng chưa chốt. KHÔNG chạy `vuongMacLapDonHang` — xem chú thích đầy đủ ở
+   * route.ts ("CHỈ ĐIỀN, KHÔNG TỰ CHỐT"): đường này không có báo giá để đối chiếu, không phải
+   * chỗ đi vòng kiểm soát chi tiêu. Việc này CHỈ xác nhận DANH TÍNH (đúng đề nghị, không phải
+   * trùng mã dự án ngẫu nhiên) — kiểm lại `maDuAn` một lần cuối vì dữ liệu có thể đã đổi giữa
+   * lúc tự động khớp và lúc người dùng bấm xác nhận.
+   */
+  const xacNhanTuDongGanDeNghi = useCallback(
+    (poId: string): string | null => {
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po) return "Không tìm thấy đơn hàng này.";
+      if (po.trangThai !== "cho_de_nghi" || !po.prId) {
+        return "Đơn hàng này chưa có đề nghị nào tự động khớp để xác nhận.";
+      }
+      const dnGoc = deNghiRef.current.find((d) => d.id === po.prId);
+      if (!dnGoc) {
+        return "Không tìm thấy đề nghị đã khớp — hồ sơ có thể đã bị xóa. Gỡ liên kết rồi gắn lại bằng tay.";
+      }
+      if (dnGoc.maDuAn !== po.maDuAn) {
+        return `Mã dự án đã khác nhau ("${dnGoc.maDuAn}" so với "${po.maDuAn}") kể từ lúc tự động khớp. Gỡ liên kết rồi gắn lại đúng đề nghị.`;
+      }
+
+      const poMoi: DonDatHang = { ...po, trangThai: "da_chot" };
+      setDonHang((truoc) => truoc.map((p) => (p.id === poId ? poMoi : p)));
+
+      ghiLichSuDeNghi(
+        dnGoc.id,
+        nguoiDung.tenHienThi,
+        `Xác nhận đơn hàng ${po.code} (hệ thống tự động khớp) đúng là đơn cho đề nghị này`,
+      );
+
+      void ghiNhatKyHeThong(
+        nguoiDung,
+        "xac_nhan_tu_dong_gan_de_nghi",
+        `Xác nhận đề nghị ${dnGoc.code} tự động khớp với đơn hàng ${po.code} là đúng — chuyển "Đã chốt".`,
+      ).catch((e) => console.error("[nhat ky he thong] ghi hỏng:", e));
+
+      void guiPOSangQlkCtr(poMoi, dnGoc).then((ketQua) => {
+        if (!ketQua.apDung) return;
+        setDonHang((truoc) =>
+          truoc.map((p) =>
+            p.id !== poId
+              ? p
+              : ketQua.thanhCong
+                ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
+                : { ...p, qlkCtrSyncStatus: "failed" },
+          ),
+        );
+        if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);
+      });
+
+      return null;
+    },
+    [ghiLichSuDeNghi, nguoiDung],
+  );
+
+  /**
+   * ★ GỠ LIÊN KẾT TỰ ĐỘNG KHỚP — cặp với `xacNhanTuDongGanDeNghi`: người xác nhận thấy KHÔNG
+   * đúng (trùng mã dự án ngẫu nhiên với công trình khác) thì gỡ, PO quay về "cho_de_nghi" y hệt
+   * lúc mới lập, chờ gắn tay đúng đề nghị qua `HopGanDeNghi`.
+   */
+  const huyKhopTuDongDeNghi = useCallback(
+    (poId: string): string | null => {
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po) return "Không tìm thấy đơn hàng này.";
+      if (po.trangThai !== "cho_de_nghi" || !po.prId) {
+        return "Đơn hàng này chưa có đề nghị nào tự động khớp để gỡ.";
+      }
+      const maDeNghiCu = po.prCode;
+      const poMoi: DonDatHang = {
+        ...po,
+        prId: undefined,
+        prCode: undefined,
+        maDeXuatAppRequest: undefined,
+      };
+      setDonHang((truoc) => truoc.map((p) => (p.id === poId ? poMoi : p)));
+
+      void ghiNhatKyHeThong(
+        nguoiDung,
+        "huy_khop_tu_dong_de_nghi",
+        `Gỡ liên kết tự động (đề nghị ${maDeNghiCu ?? "?"}) khỏi đơn hàng ${po.code} — không đúng đề nghị, chờ gắn lại đúng.`,
+      ).catch((e) => console.error("[nhat ky he thong] ghi hỏng:", e));
+
+      return null;
+    },
+    [nguoiDung],
   );
 
   const themPhieuNhan = useCallback(
@@ -5404,6 +5527,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chuyenViecDong,
       themDonHang,
       ganDeNghiVaoPO,
+      xacNhanTuDongGanDeNghi,
+      huyKhopTuDongDeNghi,
       themPhieuNhan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
@@ -5472,6 +5597,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chuyenViecDong,
       themDonHang,
       ganDeNghiVaoPO,
+      xacNhanTuDongGanDeNghi,
+      huyKhopTuDongDeNghi,
       themPhieuNhan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,

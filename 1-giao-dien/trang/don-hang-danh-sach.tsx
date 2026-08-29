@@ -105,7 +105,11 @@ export default function TrangDanhSachDonHang() {
                             rõ bằng CHỮ, không để ô trống — ô trống trong bảng đọc ra là "dữ
                             liệu thiếu", còn đây là chuyện cố ý. */}
                         <TableCell className="text-sm text-text-desc">
-                          {po.prCode ?? "Không gắn đề nghị"}
+                          {po.prCode
+                            ? po.trangThai === "cho_de_nghi"
+                              ? `${po.prCode} (chờ xác nhận)`
+                              : po.prCode
+                            : "Không gắn đề nghị"}
                         </TableCell>
                         {quyen.xemNhaCungCap && <TableCell className="text-sm">{po.supplierTen}</TableCell>}
                         {quyen.xemNguoiPhuTrach && (

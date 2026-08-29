@@ -248,6 +248,19 @@ export interface PropFormLapDonMuaHang {
    * đề nghị nào. Xem bảng hai chế độ ở khối chú thích đầu file trước khi sửa bất cứ gì.
    */
   deNghi?: DeNghiMuaHang | null;
+  /**
+   * ★ ĐỊA CHỈ CÓ `prId` NHƯNG TRA KHÔNG RA ĐỀ NGHỊ — thêm 29/08/2026 (CodeRabbit review PR "PO
+   * chờ đề nghị"). `true` khi trang gọi vào đây vì một liên kết CŨ/HỎNG (`prId` không tồn tại
+   * hoặc hồ sơ đã xóa), KHÁC với việc người dùng chủ ý vào thẳng menu để lập PO độc lập.
+   *
+   * 🔴 VÌ SAO CẦN CỜ RIÊNG, KHÔNG SUY TỪ `deNghi === null`: cả hai trường hợp đều truyền
+   * `deNghi={null}` (không tra ra thì cũng là `null`) — nếu không tách, một người có
+   * `quyen.taoPoDoiLap` bấm nhầm một liên kết cũ sẽ cất được một PO ĐỘC LẬP THẬT mà không hề
+   * định làm vậy (họ đang tìm ĐÚNG phiếu đề nghị kia, không phải muốn tạo PO tay). `true` ⇒ khoá
+   * về đúng chế độ mẫu-thôi (không cất thật) bất kể `quyen.taoPoDoiLap`, và câu cảnh báo ở trang
+   * gọi (`don-hang-lap-moi.tsx`) đã nói rõ lý do + hướng đi đúng.
+   */
+  duongDanHongPrId?: boolean;
   /** Bảng báo giá nguồn khi TÁCH ĐƠN — chỉ trang riêng truyền (đường vào từ màn Báo giá). */
   rfqId?: string | null;
   /** Nhà cung cấp được phân bổ trong bảng báo giá đó. Đi CẶP với `rfqId`, thiếu một là bỏ qua. */
@@ -284,6 +297,7 @@ export interface PropFormLapDonMuaHang {
 
 export function FormLapDonMuaHang({
   deNghi: dn = null,
+  duongDanHongPrId = false,
   rfqId,
   nccIdTuBaoGia,
   nhung = false,
@@ -320,6 +334,12 @@ export function FormLapDonMuaHang({
    * việc thì sớm muộn có chỗ truyền `docLap` mà vẫn kèm `deNghi`, rồi form chạy nửa nọ nửa kia.
    */
   const laDonDocLap = dn === null;
+  /**
+   * ★ QUYỀN LẬP PO ĐỘC LẬP THẬT SỰ ĐƯỢC DÙNG Ở ĐÂY — thêm 29/08/2026 cùng `duongDanHongPrId`.
+   * KHÁC `quyen.taoPoDoiLap` trần: liên kết cũ/hỏng (`duongDanHongPrId`) khoá về mẫu-thôi bất kể
+   * có quyền hay không — xem chú thích đầy đủ ở `PropFormLapDonMuaHang.duongDanHongPrId`.
+   */
+  const coQuyenTaoDocLapThat = quyen.taoPoDoiLap && !duongDanHongPrId;
 
   // ---------------------------------------------------------------------------
   // ① KHỐI THÔNG TIN CHUNG — đúng thứ tự ô của màn MISA
@@ -2222,7 +2242,7 @@ export function FormLapDonMuaHang({
           nghị" — nói "không lưu vào hệ thống" với họ là ĐÚNG KIỂU LỖI mà dải này sinh ra để
           chống (giao diện nói một đằng, hàm làm một nẻo) — chỉ khác chiều, quên cập nhật khi
           mở lại đường cất đơn. Phát hiện bằng Playwright thật trước khi merge, không phải đoán. */}
-      {laDonDocLap && !quyen.taoPoDoiLap && (
+      {laDonDocLap && !coQuyenTaoDocLapThat && (
         <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning-bg p-(--hp-md-row-pad) text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
           <span className="min-w-0 text-text-secondary">
@@ -2243,7 +2263,7 @@ export function FormLapDonMuaHang({
       {/* ===== DẢI THÔNG BÁO: ĐÃ ĐỦ QUYỀN, CẤT ĐƯỢC NHƯNG SẼ "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026.
           Đối xứng với dải trên: người CÓ quyền cũng cần biết trước khi gõ, chỉ khác nội dung —
           không phải "không lưu được", mà là "lưu được nhưng còn thiếu 1 bước". */}
-      {laDonDocLap && quyen.taoPoDoiLap && (
+      {laDonDocLap && coQuyenTaoDocLapThat && (
         <div className="flex items-start gap-2 rounded-lg border border-primary/40 bg-primary-bg p-(--hp-md-row-pad) text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 text-text-secondary">
@@ -2681,15 +2701,15 @@ export function FormLapDonMuaHang({
                 <Input
                   id="so-don-hang"
                   value={
-                    laDonDocLap && !quyen.taoPoDoiLap
+                    laDonDocLap && !coQuyenTaoDocLapThat
                       ? SO_DON_BAN_MAU
                       : `${TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`
                   }
                   readOnly
                   disabled
-                  className={laDonDocLap && !quyen.taoPoDoiLap ? "w-72" : "w-56"}
+                  className={laDonDocLap && !coQuyenTaoDocLapThat ? "w-72" : "w-56"}
                 />
-                {laDonDocLap && !quyen.taoPoDoiLap && (
+                {laDonDocLap && !coQuyenTaoDocLapThat && (
                   <span className="text-xs text-text-desc">
                     Bản mẫu không được cấp số. Số đơn hàng chỉ cấp khi lập đơn thật từ phiếu đề
                     nghị.
@@ -2728,7 +2748,7 @@ export function FormLapDonMuaHang({
                   ✅ CẬP NHẬT 29/08/2026: độc lập + `quyen.taoPoDoiLap` GIỜ CẤT ĐƯỢC (vào
                   `"cho_de_nghi"`) nên ô này phải hiện — ẩn đi là đúng lỗi ngược lại, hứa app
                   "không lưu gì" trong khi bấm Lưu là lưu thật. */}
-              {(!laDonDocLap || quyen.taoPoDoiLap) && (
+              {(!laDonDocLap || coQuyenTaoDocLapThat) && (
                 <div className="muc-ngang">
                   {/* ⚠️ KHÔNG có `htmlFor` ở đây, và đó là cố ý. Chỗ hiện tình trạng là một
                       `<div>` chứa badge, không phải ô nhập — `<label for="…">` trỏ vào một
@@ -3825,7 +3845,7 @@ export function FormLapDonMuaHang({
                 · CHẾ ĐỘ CÓ ĐỀ NGHỊ → [Lưu] [Lưu và In] y như cũ, không đổi một ly. Đó là đường
                   nghiệp vụ chính của app (kể cả chức năng tách PO theo phân bổ báo giá).
                 =============================================================== */}
-            {laDonDocLap && !quyen.taoPoDoiLap ? (
+            {laDonDocLap && !coQuyenTaoDocLapThat ? (
               <>
                 <Button
                   disabled={!hopLe || !quyen.xemGia || dangXuatMau}

@@ -98,18 +98,20 @@ export function NutThongBao() {
         <DropdownMenuGroup>
           <DropdownMenuLabel className="flex flex-col gap-0.5">
             <span>Thông báo</span>
-            {/* Nói đủ HAI loại tin từ 18/08/2026 — trước đây nhãn ghi "Thông báo chuyển bước",
-                nay chuông còn báo việc mới được giao nên nhãn cũ đã hẹp hơn nội dung. */}
+            {/* Nói đủ BA loại tin (cập nhật 29/08/2026 thêm cảnh báo PO treo — trước đó chỉ nói
+                hai loại "việc mới" và "đổi bước", khiến người nhận cảnh báo PO treo (Trưởng bộ
+                phận/Ban lãnh đạo) đọc phụ đề không thấy mình thuộc diện nào — CodeRabbit review). */}
             <span className="text-[11px] font-normal text-text-desc">
-              Việc mới giao cho bạn và đề nghị đổi bước đều báo ở đây
+              Việc mới giao cho bạn, đề nghị đổi bước, và PO chờ đề nghị treo quá hạn đều báo ở
+              đây
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
 
           {thongBao.length === 0 ? (
             <p className="px-2 py-5 text-center text-xs text-text-desc">
-              Chưa có thông báo nào gửi cho bạn. Chuông chỉ hiện việc giao cho bạn, không hiện
-              việc của người khác.
+              Chưa có thông báo nào gửi cho bạn. Chuông chỉ hiện việc giao cho bạn (và, nếu bạn là
+              Trưởng bộ phận/Ban lãnh đạo, cảnh báo PO treo), không hiện việc của người khác.
             </p>
           ) : (
             thongBao.slice(0, 8).map((tb) => (

@@ -29,10 +29,20 @@ import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
  * Một đề nghị có thể có NHIỀU bảng báo giá (nhiều NCC khác nhau cho các phần khác nhau — đúng
  * cơ chế "Tách thêm đơn" đã có sẵn), nên có thể thấy cùng một mã đề nghị xuất hiện nhiều dòng.
  *
- * 🔴 SO KHỚP NCC LÀ GỢI Ý, KHÔNG PHẢI CHỐT CHẶN. `po.supplierId` có thể là mã tự sinh từ MST/tên
- * khi NCC không nằm trong danh mục (xem `luu()` trong `form-lap-don-mua-hang.tsx`), nên so
- * thẳng ID có thể trật dù cùng một NCC thật — vì vậy so thêm cả tên đã chuẩn hoá làm phương án
- * dự phòng. Khác NCC vẫn cho gắn (người lập có thể biết rõ hơn máy tại sao khác), chỉ cảnh báo.
+ * 🔴 CHỈ LIỆT KÊ CÙNG MÃ DỰ ÁN (`maDuAn`) VỚI PO — thêm sau review PR (CodeRabbit): trước đây
+ * liệt kê TOÀN HỆ THỐNG rồi chỉ sắp cùng dự án lên đầu, khiến người lập có thể vô ý chọn nhầm
+ * một đề nghị của công trình KHÁC (danh sách không hề báo "khác dự án", chỉ có badge NCC). Cùng
+ * khoá `maDuAn` mà `route.ts` (tự động khớp) đã dùng làm điều kiện BẮT BUỘC — dialog gắn tay
+ * không được LỎNG hơn đường tự động. `ganDeNghiVaoPO` chặn lại lần nữa ở cửa ghi (phòng trường
+ * hợp `donHang`/`deNghi` đổi giữa lúc mở dialog và lúc bấm gắn).
+ *
+ * 🔴 SO KHỚP NCC LÀ CHỐT CHẶN, KHÔNG PHẢI GỢI Ý — sửa sau review PR (trước đây "Khác NCC" chỉ
+ * cảnh báo mà nút vẫn bấm được, nghĩa là ai đó có thể gắn một PO của NCC X vào đề nghị đã chốt
+ * giá cho NCC Y, hợp thức hoá một PO chưa từng qua duyệt giá — đúng lỗ hổng kiểm soát chi tiêu mà
+ * `vuongMacLapDonHang` sinh ra để chặn). `po.supplierId` có thể là mã tự sinh từ MST/tên khi NCC
+ * không nằm trong danh mục (xem `luu()` trong `form-lap-don-mua-hang.tsx`), nên so thẳng ID có
+ * thể trật dù cùng một NCC thật — vì vậy so thêm cả tên đã chuẩn hoá làm phương án dự phòng, và
+ * CHỈ khớp một trong hai là đủ (không đòi cả hai).
  *
  * Điều kiện "đủ để gắn" CHẠY LẠI đúng `vuongMacLapDonHang` — xem `ganDeNghiVaoPO` trong
  * `kho-du-lieu.tsx` — nên bảng báo giá chưa đủ điều kiện (đề nghị chưa có hợp đồng, báo giá
@@ -47,30 +57,27 @@ export function HopGanDeNghi({ po }: { po: DonDatHang }) {
 
   const ungVien = useMemo(() => {
     const daChot = baoGia.filter((bg) => bg.trangThai === "da_chon_ncc");
-    const ds = daChot.map((bg) => {
-      const dnGoc = deNghi.find((d) => d.id === bg.prId);
-      const khopNCC =
-        !!bg.nccDaChonId &&
-        (bg.nccDaChonId === po.supplierId ||
-          boDau(bg.nccDaChonTen ?? "").trim() === boDau(po.supplierTen ?? "").trim());
-      /**
-       * ★ CẢNH BÁO MỀM (không chặn) — thêm sau review PR: đề nghị này đã có MỘT PO khác trỏ
-       * `prId` về nó rồi. KHÔNG chặn — "Tách thêm đơn" (nhiều PO cho cùng 1 đề nghị, chia khối
-       * lượng/nhà cung cấp khác nhau) là cơ chế hợp lệ đã có sẵn trong app. Chỉ báo để người lập
-       * biết mà tự kiểm tra khối lượng, tránh gắn nhầm PO không liên quan vào đúng đề nghị đã đủ.
-       */
-      const daCoPOKhac = !!dnGoc && donHang.some((p) => p.id !== po.id && p.prId === dnGoc.id);
-      return { bg, dnGoc, khopNCC, daCoPOKhac, tongGiaTri: tongGiaTriBaoGiaDaChot(bg) };
-    });
-    // Cùng mã dự án với PO lên đầu — đỡ phải kéo cả danh sách để tìm.
-    const sapXep = [...ds].sort((a, b) => {
-      const aCung = a.dnGoc?.maDuAn === po.maDuAn ? 0 : 1;
-      const bCung = b.dnGoc?.maDuAn === po.maDuAn ? 0 : 1;
-      return aCung - bCung;
-    });
-    if (!tuKhoa.trim()) return sapXep;
+    const ds = daChot
+      .map((bg) => {
+        const dnGoc = deNghi.find((d) => d.id === bg.prId);
+        const khopNCC =
+          !!bg.nccDaChonId &&
+          (bg.nccDaChonId === po.supplierId ||
+            boDau(bg.nccDaChonTen ?? "").trim() === boDau(po.supplierTen ?? "").trim());
+        /**
+         * ★ CẢNH BÁO MỀM (không chặn) — thêm sau review PR: đề nghị này đã có MỘT PO khác trỏ
+         * `prId` về nó rồi. KHÔNG chặn — "Tách thêm đơn" (nhiều PO cho cùng 1 đề nghị, chia khối
+         * lượng/nhà cung cấp khác nhau) là cơ chế hợp lệ đã có sẵn trong app. Chỉ báo để người lập
+         * biết mà tự kiểm tra khối lượng, tránh gắn nhầm PO không liên quan vào đúng đề nghị đã đủ.
+         */
+        const daCoPOKhac = !!dnGoc && donHang.some((p) => p.id !== po.id && p.prId === dnGoc.id);
+        return { bg, dnGoc, khopNCC, daCoPOKhac, tongGiaTri: tongGiaTriBaoGiaDaChot(bg) };
+      })
+      // Khác mã dự án là khác công trình — không phải ứng viên hợp lệ cho PO này.
+      .filter((u) => u.dnGoc?.maDuAn === po.maDuAn);
+    if (!tuKhoa.trim()) return ds;
     const kt = boDau(tuKhoa).trim();
-    return sapXep.filter((u) =>
+    return ds.filter((u) =>
       [u.bg.prCode, u.dnGoc?.tenCongTrinh, u.bg.nccDaChonTen]
         .filter(Boolean)
         .some((s) => boDau(String(s)).includes(kt)),
@@ -108,21 +115,29 @@ export function HopGanDeNghi({ po }: { po: DonDatHang }) {
           <DialogHeader>
             <DialogTitle>Gắn đề nghị cho {po.code}</DialogTitle>
             <DialogDescription>
-              Chỉ hiện bảng báo giá đã chốt nhà cung cấp — đề nghị chưa qua bước Xét duyệt báo
-              giá thì chưa đủ điều kiện gắn.
+              Chỉ hiện bảng báo giá cùng mã dự án <strong>{po.maDuAn}</strong> và đã chốt nhà
+              cung cấp — đề nghị khác dự án, hoặc chưa qua bước Xét duyệt báo giá, sẽ không hiện
+              ở đây.
             </DialogDescription>
           </DialogHeader>
 
           <Input
             placeholder="Tìm theo mã đề nghị, công trình, nhà cung cấp…"
             value={tuKhoa}
-            onChange={(e) => setTuKhoa(e.target.value)}
+            onChange={(e) => {
+              /* ★ ĐỔI TỪ KHOÁ PHẢI BỎ CHỌN — CodeRabbit review: chọn ứng viên A, gõ lọc sang B
+                 (A biến khỏi danh sách hiện trên màn hình) rồi bấm "Gắn đề nghị này" thì vẫn
+                 gắn A — người dùng KHÔNG CÒN THẤY A trên màn hình lúc bấm nút. */
+              setTuKhoa(e.target.value);
+              setDaChon(null);
+            }}
           />
 
           {ungVien.length === 0 ? (
             <p className="text-sm text-text-desc">
-              Chưa có bảng báo giá nào đã chốt nhà cung cấp trong toàn hệ thống. Đợi đề nghị về
-              và qua bước Xét duyệt báo giá rồi quay lại.
+              Chưa có bảng báo giá nào cùng mã dự án <strong>{po.maDuAn}</strong> đã chốt nhà
+              cung cấp. Đợi đề nghị của đúng dự án này về và qua bước Xét duyệt báo giá rồi quay
+              lại.
             </p>
           ) : (
             <ul className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
@@ -130,7 +145,9 @@ export function HopGanDeNghi({ po }: { po: DonDatHang }) {
                 <li key={bg.id}>
                   <label
                     className={cn(
-                      "flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-2.5",
+                      "flex min-h-11 items-start gap-3 rounded-lg border p-2.5",
+                      !khopNCC && "cursor-not-allowed opacity-60",
+                      khopNCC && "cursor-pointer",
                       daChon === bg.id ? "border-primary bg-primary-bg" : "border-border",
                     )}
                   >
@@ -140,6 +157,9 @@ export function HopGanDeNghi({ po }: { po: DonDatHang }) {
                       className="mt-1"
                       checked={daChon === bg.id}
                       onChange={() => setDaChon(bg.id)}
+                      /* Khác NCC là chốt chặn thật ở cửa ghi (`ganDeNghiVaoPO`), không chỉ cảnh
+                         báo — khoá chọn tại đây để khỏi phí một cú bấm rồi nhận lỗi. */
+                      disabled={!khopNCC}
                       aria-label={`Chọn ${bg.prCode ?? bg.code}`}
                     />
                     <span className="flex flex-1 flex-col gap-0.5">
@@ -164,7 +184,7 @@ export function HopGanDeNghi({ po }: { po: DonDatHang }) {
                         khopNCC ? "bg-success-bg text-success-soft" : "bg-warning-bg text-warning-soft",
                       )}
                     >
-                      {khopNCC ? "✓ Khớp NCC" : "⚠ Khác NCC"}
+                      {khopNCC ? "✓ Khớp NCC" : "⛔ Khác NCC"}
                     </span>
                   </label>
                 </li>
