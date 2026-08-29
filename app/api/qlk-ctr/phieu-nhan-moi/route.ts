@@ -74,16 +74,38 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanPhi
 
       // Khớp theo TÊN vật liệu (không theo số thứ tự) — cả 2 hệ thống đều có sẵn tên gốc
       // từ cùng 1 đề nghị, ổn định hơn số thứ tự có thể lệch giữa 2 hệ thống.
-      const chuanHoa = (s: string) => s.trim().toLowerCase();
-      const dongTheoTen = new Map(
-        tienDo.filter(laDongHang).map((d) => [chuanHoa(d.tenVatLieu), d] as const),
-      );
+      //
+      // 🔴 (29/08/2026): PO có thể có NHIỀU dòng CÙNG tên nhưng khác quy cách (vd "Ống nước"
+      // D34 và D90, PO DMH260002) — Map cũ (1 tên → 1 dòng) bị dòng sau ghi đè dòng trước,
+      // khiến khối lượng nhận bị gán nhầm sang dòng khác và kích hoạt nhầm chặn "vượt quá số
+      // lượng" (vuongMacKhoiLuongNhan), rollback cả phiếu dù dữ liệu gửi lên đúng. Sửa: gom
+      // theo tên thành MẢNG ứng viên, chỉ nhận khi đúng 1 ứng viên — nếu nhiều ứng viên trùng
+      // tên thì bắt buộc phân biệt tiếp bằng thongSoKyThuat (mirror đúng cách QLK CTR tự dùng
+      // nội bộ, hàm `chonMotVatTu` trong app-mua-hang-actions.ts).
+      const chuanHoa = (s: string | undefined | null) => (s ?? "").trim().toLowerCase();
+      const dongTheoTen = new Map<string, (typeof tienDo)[number][]>();
+      for (const d of tienDo.filter(laDongHang)) {
+        const key = chuanHoa(d.tenVatLieu);
+        const ds = dongTheoTen.get(key);
+        if (ds) ds.push(d);
+        else dongTheoTen.set(key, [d]);
+      }
+
+      function chonMotDong(l: PhieuNhanMoiTuQlkCtr["lines"][number]) {
+        const ungVien = dongTheoTen.get(chuanHoa(l.tenVatLieu)) ?? [];
+        if (ungVien.length === 1) return ungVien[0];
+        if (ungVien.length > 1) {
+          const theoQuyCach = ungVien.filter((d) => chuanHoa(d.thongSoKyThuat) === chuanHoa(l.thongSoKyThuat));
+          if (theoQuyCach.length === 1) return theoQuyCach[0];
+        }
+        return null;
+      }
 
       const khongKhop: string[] = [];
       const lines: DongNhanHang[] = payload.lines.map((l) => {
-        const dong = dongTheoTen.get(chuanHoa(l.tenVatLieu));
+        const dong = chonMotDong(l);
         if (!dong) {
-          khongKhop.push(l.tenVatLieu);
+          khongKhop.push(l.thongSoKyThuat ? `${l.tenVatLieu} (${l.thongSoKyThuat})` : l.tenVatLieu);
           return { sttDongPO: -1, khoiLuongThucNhan: l.khoiLuongThucNhan };
         }
         return { sttDongPO: dong.sttDong, khoiLuongThucNhan: l.khoiLuongThucNhan };

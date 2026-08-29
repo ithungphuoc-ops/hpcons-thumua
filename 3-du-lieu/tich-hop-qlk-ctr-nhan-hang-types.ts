@@ -24,6 +24,11 @@ export type DongNhanHangTuQlkCtr = {
   tenVatLieu: string;
   /** Của CHÍNH LẦN NÀY, không phải cộng dồn — khớp đúng quy ước PhieuNhanHang.lines. */
   khoiLuongThucNhan: number;
+  /** Khớp DongPO.thongSoKyThuat — BẮT BUỘC dùng để phân biệt khi 1 PO có nhiều dòng CÙNG
+   *  tenVatLieu nhưng khác quy cách (vd "Ống nước" D34 và D90). QLK CTR gửi kèm từ 29/08/2026
+   *  sau sự cố PO DMH260002: so khớp chỉ theo tên gán nhầm khối lượng sang dòng khác, kích
+   *  hoạt nhầm chặn "vượt quá số lượng" làm rollback cả phiếu. */
+  thongSoKyThuat?: string;
 };
 
 export type AnhTuQlkCtr = {
