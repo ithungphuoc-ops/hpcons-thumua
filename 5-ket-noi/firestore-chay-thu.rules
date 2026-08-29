@@ -62,6 +62,22 @@ service cloud.firestore {
       allow read, write: if conHanChayThu() && duocVao();
     }
 
+    /**
+     * Hồ sơ của CHÍNH người đang gọi rule (nếu có) — dùng để soi quyền
+     * `phanQuyenNguoiDung` (xem `4-phan-quyen/quyen.ts`: `laQuanTri || capTM >= 3`) ngay ở
+     * tầng dữ liệu, không chỉ ở màn hình. `exists()` đứng trước để `get()` phía sau không
+     * bao giờ chạy khi hồ sơ chưa có (rules đánh giá `&&` theo kiểu ngắn mạch).
+     */
+    function tmHoSoNguoiGoi() {
+      return get(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid)).data;
+    }
+
+    function tmDuocXemNhatKy() {
+      return duocVao()
+        && exists(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid))
+        && (tmHoSoNguoiGoi().vaiTro == 'admin' || tmHoSoNguoiGoi().capTM >= 3);
+    }
+
     // ------------------------------------------------------------------
     // NHẬT KÝ HỆ THỐNG — thêm 29/08/2026, xem chú thích đầy đủ ở
     // `3-du-lieu/nhat-ky-he-thong.ts`.
@@ -71,10 +87,19 @@ service cloud.firestore {
     // dòng nhật ký tố cáo chính mình. KHÔNG áp `conHanChayThu()` như collection trên: nhật ký
     // vẫn phải ghi/đọc được ngay cả khi qua ngày hết hạn "chạy thử" — tách khỏi vòng đời dữ
     // liệu tạm để phục vụ đúng vai trò của nó.
+    //
+    // 🔴 ĐỌC: giới hạn đúng bằng quyền `phanQuyenNguoiDung` ở màn hình (cùng mức nhạy cảm
+    // với "Phân quyền người dùng") — KHÔNG chỉ "đã đăng nhập là đủ" như bản đầu (29/08/2026),
+    // vì "đã đăng nhập là đủ" nghĩa là bất kỳ tài khoản nào cũng gọi thẳng Firestore SDK từ
+    // console trình duyệt để đọc toàn bộ nhật ký ai-xóa-gì-lúc-nào, bỏ qua hẳn màn chặn UI.
+    //
+    // 🔴 TẠO: bắt buộc `nguoiThucHienUid` khớp đúng người đang ghi — không thì bất kỳ ai đã
+    // đăng nhập cũng `addDoc` thẳng một dòng nhật ký giả, đổ tội hành động cho người khác, mà
+    // rule cấm sửa/xóa nên tạo giả xong thì không ai gỡ được nữa.
     // ------------------------------------------------------------------
     match /nhat-ky-he-thong/{id} {
-      allow read: if duocVao();
-      allow create: if duocVao();
+      allow read: if tmDuocXemNhatKy();
+      allow create: if duocVao() && request.resource.data.nguoiThucHienUid == request.auth.uid;
       allow update, delete: if false;
     }
 

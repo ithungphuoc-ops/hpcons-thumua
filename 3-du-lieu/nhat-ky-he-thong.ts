@@ -80,46 +80,79 @@ export function dangNgheNhatKyHeThong(
   khiCoDuLieu: (muc: MucNhatKyHeThong[]) => void,
   khiLoi?: (e: unknown) => void,
 ): () => void {
-  let huyThat: (() => void) | null = null;
-  let daHuy = false;
+  /**
+   * Gộp hai cờ hủy vào MỘT object thay vì hai biến `let` rời — hai `let` bị gán bên trong
+   * closure lồng nhau (hàm `nghe` bên dưới, chạy bất đồng bộ theo Firebase Auth) khiến
+   * TypeScript suy luận sai kiểu tại điểm gọi cuối cùng (báo "Type 'never' has no call
+   * signatures"). Đây thuần là hạn chế của trình kiểm kiểu, không phải lỗi logic — gộp
+   * thành thuộc tính object thì tránh được, vẫn cùng một hành vi runtime.
+   */
+  const tay: { huyNghe: (() => void) | null; huyAuth: (() => void) | null; daHuy: boolean } = {
+    huyNghe: null,
+    huyAuth: null,
+    daHuy: false,
+  };
   void (async () => {
-    const app = await moFirebase();
-    if (!app || daHuy) return;
-    const { getFirestore, collection, query, orderBy, limit, onSnapshot } = await import(
-      "firebase/firestore"
-    );
-    const db = getFirestore(app);
-    const q = query(
-      collection(db, TEN_COLLECTION_NHAT_KY),
-      orderBy("thoiDiem", "desc"),
-      limit(200),
-    );
-    huyThat = onSnapshot(
-      q,
-      (snap) => {
-        khiCoDuLieu(
-          snap.docs.map((d) => {
-            const v = d.data() as Record<string, unknown>;
-            const moc = v.thoiDiem as { toDate?: () => Date } | undefined;
-            return {
-              id: d.id,
-              thoiDiem: moc?.toDate?.() ?? new Date(),
-              nguoiThucHienUid: (v.nguoiThucHienUid as string) ?? "",
-              nguoiThucHienTen: (v.nguoiThucHienTen as string) ?? "",
-              hanhDong: (v.hanhDong as string) ?? "",
-              moTa: (v.moTa as string) ?? "",
-            };
-          }),
+    try {
+      const app = await moFirebase();
+      if (!app || tay.daHuy) return;
+      const { getFirestore, collection, query, orderBy, limit, onSnapshot } = await import(
+        "firebase/firestore"
+      );
+      /**
+       * 🔴 PHẢI CHỜ FIREBASE AUTH ỔN ĐỊNH RỒI MỚI LẮNG NGHE — ĐÚNG lỗi đã dính thật
+       * 12/08/2026, xem chú thích đầy đủ ở `noiKhoChung()` trong `kho-chung-firestore.ts`.
+       * Rules đòi phải đăng nhập mới đọc được, mà Firebase Auth khôi phục phiên cũ theo
+       * kiểu bất đồng bộ — lắng nghe ngay lúc mở trang thì lần gọi đầu đi khi chưa có danh
+       * tính, máy chủ trả "không có quyền" dù người dùng đã đăng nhập đàng hoàng.
+       */
+      const { getAuth, onAuthStateChanged } = await import("firebase/auth");
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+      const q = query(
+        collection(db, TEN_COLLECTION_NHAT_KY),
+        orderBy("thoiDiem", "desc"),
+        limit(200),
+      );
+      const nghe = () => {
+        tay.huyNghe?.();
+        tay.huyNghe = onSnapshot(
+          q,
+          (snap) => {
+            khiCoDuLieu(
+              snap.docs.map((d) => {
+                const v = d.data() as Record<string, unknown>;
+                const moc = v.thoiDiem as { toDate?: () => Date } | undefined;
+                return {
+                  id: d.id,
+                  thoiDiem: moc?.toDate?.() ?? new Date(),
+                  nguoiThucHienUid: (v.nguoiThucHienUid as string) ?? "",
+                  nguoiThucHienTen: (v.nguoiThucHienTen as string) ?? "",
+                  hanhDong: (v.hanhDong as string) ?? "",
+                  moTa: (v.moTa as string) ?? "",
+                };
+              }),
+            );
+          },
+          (e) => khiLoi?.(e),
         );
-      },
-      (e) => khiLoi?.(e),
-    );
-    // `duocVao()` ở phía server cần lúc Auth ổn định — nếu bị hủy TRƯỚC khi effect này chạy
-    // xong (component gỡ bỏ rất nhanh), gỡ luôn listener vừa tạo, đừng để nó treo lại.
-    if (daHuy) huyThat();
+      };
+      tay.huyAuth = onAuthStateChanged(auth, nghe);
+      // Bị hủy TRƯỚC khi effect này chạy xong (component gỡ bỏ rất nhanh) — gỡ luôn,
+      // đừng để listener vừa tạo treo lại.
+      if (tay.daHuy) {
+        tay.huyNghe?.();
+        tay.huyAuth?.();
+      }
+    } catch (e) {
+      // Trước đây: lỗi ở bước mở Firebase/nạp gói làm promise này reject âm thầm
+      // (unhandled rejection), khiLoi không bao giờ được gọi, trang kẹt mãi ở "Đang tải…".
+      khiLoi?.(e);
+    }
   })();
   return () => {
-    daHuy = true;
-    huyThat?.();
+    tay.daHuy = true;
+    tay.huyNghe?.();
+    tay.huyAuth?.();
   };
 }
