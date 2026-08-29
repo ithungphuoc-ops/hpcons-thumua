@@ -92,14 +92,17 @@ service cloud.firestore {
      * mã BỀN VỮNG trong dữ liệu nghiệp vụ (`u-tm1`…), KHÔNG PHẢI mã Firebase — xem
      * "hai lớp danh tính" ở `ho-so-tai-khoan.ts`. Tài khoản cũ giữ nguyên `uidNghiepVu` cũ
      * dù đổi vai trò, nên `uidNghiepVu` có thể KHÁC `request.auth.uid`. So khớp thẳng với
-     * `request.auth.uid` (như bản đầu 29/08/2026) sẽ làm rớt nhật ký của mọi tài khoản cũ.
-     * Owner không có hồ sơ (nhánh trên) thì `uidNghiepVu` luôn = chính `firebaseUid` — khớp
-     * đúng nhánh dự phòng `: request.auth.uid` dưới đây.
+     * `request.auth.uid` (bản vá đầu 29/08/2026) làm rớt nhật ký của mọi tài khoản cũ.
+     *
+     * 🔴 KHÔNG có nhánh dự phòng `: request.auth.uid` cho người CHƯA có hồ sơ như bản vá lần
+     * 2 từng làm — review lần 3 chỉ đúng: làm vậy là mở cửa cho BẤT KỲ tài khoản nào (không
+     * riêng owner) ghi được một dòng nhật ký "hợp lệ" dù chưa từng được cấp quyền Thu mua.
+     * File này không có collection `users` để tự kiểm ai thật sự là owner App Tổng (khác bản
+     * deploy thật `hpcons-portal/firestore.rules`, có nhánh `tmLaOwnerAppTong()` riêng) — nên
+     * ở ĐÂY, thiếu hồ sơ là bị `exists()` ở luật `create` chặn thẳng, không có ngoại lệ nào.
      */
     function tmUidNghiepVuCuaNguoiGoi() {
-      return exists(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid))
-        ? get(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid)).data.uidNghiepVu
-        : request.auth.uid;
+      return get(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid)).data.uidNghiepVu;
     }
 
     // ------------------------------------------------------------------
@@ -117,13 +120,16 @@ service cloud.firestore {
     // vì "đã đăng nhập là đủ" nghĩa là bất kỳ tài khoản nào cũng gọi thẳng Firestore SDK từ
     // console trình duyệt để đọc toàn bộ nhật ký ai-xóa-gì-lúc-nào, bỏ qua hẳn màn chặn UI.
     //
-    // 🔴 TẠO: bắt buộc `nguoiThucHienUid` khớp đúng người đang ghi — không thì bất kỳ ai đã
-    // đăng nhập cũng `addDoc` thẳng một dòng nhật ký giả, đổ tội hành động cho người khác, mà
-    // rule cấm sửa/xóa nên tạo giả xong thì không ai gỡ được nữa.
+    // 🔴 TẠO: bắt buộc `nguoiThucHienUid` khớp đúng `uidNghiepVu` trong hồ sơ CỦA CHÍNH người
+    // đang ghi — không thì bất kỳ ai đã đăng nhập cũng `addDoc` thẳng một dòng nhật ký giả,
+    // đổ tội hành động cho người khác, mà rule cấm sửa/xóa nên tạo giả xong thì không ai gỡ
+    // được nữa. Chưa có hồ sơ (`exists()` phía dưới) thì bị chặn hẳn, không có ngoại lệ nào —
+    // xem vì sao ở `tmUidNghiepVuCuaNguoiGoi()`.
     // ------------------------------------------------------------------
     match /nhat-ky-he-thong/{id} {
       allow read: if tmDuocXemNhatKy();
       allow create: if duocVao()
+        && exists(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid))
         && request.resource.data.nguoiThucHienUid == tmUidNghiepVuCuaNguoiGoi();
       allow update, delete: if false;
     }

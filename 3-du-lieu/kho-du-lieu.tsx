@@ -1294,33 +1294,38 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       thongBao: [],
     };
     /**
-     * ★★★ GHI NHẬT KÝ HỆ THỐNG TRƯỚC KHI XÓA — thêm 29/08/2026, sau sự cố mất trắng
-     * `deNghi/donHang/...` sáng cùng ngày mà không cách nào tra được ai đã bấm nút này lúc
-     * nào (xem chú thích đầu `nhat-ky-he-thong.ts`).
+     * ★★★ NHẬT KÝ HỆ THỐNG — thêm 29/08/2026, sau sự cố mất trắng `deNghi/donHang/...` sáng
+     * cùng ngày mà không cách nào tra được ai đã bấm nút này lúc nào (xem chú thích đầu
+     * `nhat-ky-he-thong.ts`).
      *
-     * 🔴 PHẢI `await` — dòng dưới cùng của hàm này gọi `window.location.href = "/de-nghi"`,
-     * điều hướng có thể hủy ngang một request mạng đang bay dở. Bản đầu (29/08/2026) cố ý
-     * không `await` để không chặn việc xóa, nhưng CodeRabbit chỉ đúng: không `await` thì
-     * không có gì đảm bảo request ghi log đã thật sự gửi đi trước khi `day(rong)` resolve và
-     * trang điều hướng — đúng kịch bản tính năng này sinh ra để chống. `try/catch` quanh nó
-     * vẫn giữ nguyên ý ban đầu: lỗi ghi log (mất mạng) chỉ in console, không chặn nút "Xóa
-     * dữ liệu chạy thử" hoạt động — chỉ khác là giờ chờ NÓ XONG (thành công hay lỗi) rồi mới
-     * đi tiếp, thay vì thả trôi.
+     * 🔴 GHI SAU KHI XÓA, KHÔNG PHẢI TRƯỚC — ĐẢO THỨ TỰ 29/08/2026 (lần 2), sau khi bản đầu
+     * (ghi trước) bị CodeRabbit chỉ đúng lỗi khác: ghi trước thì nhật ký có thể nói "đã xóa"
+     * trong khi `day(rong)` bên dưới thất bại thật (mất mạng) và dữ liệu VẪN CÒN NGUYÊN —
+     * nhật ký nói dối đúng lúc cần tin nhất. Sửa bằng cách xóa trước, biết chắc kết quả, rồi
+     * ghi ĐÚNG kết quả đó (thành công hay thất bại) — không phải đoán trước.
+     *
+     * 🔴 VẪN PHẢI `await` (không thả trôi) — dòng dưới cùng hàm này gọi
+     * `window.location.href`, điều hướng có thể hủy ngang request ghi log đang bay dở nếu
+     * không đợi nó xong trước. Lỗi ghi log (mất mạng) chỉ in console, không chặn điều hướng.
      */
-    try {
-      await ghiNhatKyHeThong(
-        nguoiDung,
-        "xoa_du_lieu_chay_thu",
-        `Xóa TOÀN BỘ dữ liệu chạy thử của cả phòng (${deNghi.length} đề nghị, ${donHang.length} đơn hàng, ${baoGia.length} bảng báo giá, ${phieuNhan.length} phiếu nhận hàng).`,
-      );
-    } catch (e) {
-      console.error("[nhat ky he thong] ghi hỏng:", e);
-    }
     anhChupCuoi.current = JSON.stringify(rong);
+    let xoaThanhCong = true;
     try {
       await ketNoiChung.current?.day(rong);
     } catch (e) {
       console.error("[kho chung] xóa hỏng:", e);
+      xoaThanhCong = false;
+    }
+    try {
+      await ghiNhatKyHeThong(
+        nguoiDung,
+        "xoa_du_lieu_chay_thu",
+        xoaThanhCong
+          ? `Xóa TOÀN BỘ dữ liệu chạy thử của cả phòng (${deNghi.length} đề nghị, ${donHang.length} đơn hàng, ${baoGia.length} bảng báo giá, ${phieuNhan.length} phiếu nhận hàng).`
+          : `[GHI CHÚ: GHI LÊN MÁY CHỦ THẤT BẠI] Bấm "Xóa dữ liệu chạy thử" (${deNghi.length} đề nghị, ${donHang.length} đơn hàng, ${baoGia.length} bảng báo giá, ${phieuNhan.length} phiếu nhận hàng) nhưng máy chủ báo lỗi khi ghi — dữ liệu CÓ THỂ vẫn còn nguyên, kiểm tra lại kho chung trước khi kết luận đã mất.`,
+      );
+    } catch (e) {
+      console.error("[nhat ky he thong] ghi hỏng:", e);
     }
     xoaDuLieuDaLuu();
     // Tải lại cả trang thay vì chỉ đặt state rỗng: dứt điểm mọi thứ đang giữ trong bộ
@@ -4063,8 +4068,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       setDeNghi((truoc) => truoc.filter((d) => d.id !== prId));
       // Dọn luôn thông báo của đề nghị đã xóa, tránh bấm vào ra trang trống.
       setThongBao((truoc) => truoc.filter((t) => t.prId !== prId));
-      // Xem chú thích đầy đủ ở `xoaDuLieuChayThu` — nguyên tắc ghi nhật ký giống hệt: không
-      // `await`, lỗi ghi log không được chặn việc xóa đã thực hiện xong.
+      /**
+       * ⚠️ CodeRabbit (review PR #8) đề nghị áp cùng nguyên tắc "ghi log đúng kết quả thật"
+       * như `xoaDuLieuChayThu` — CÓ CÂN NHẮC nhưng KHÔNG áp ở đây, lý do khác nhau thật sự:
+       * `setDeNghi` ở trên là cập nhật STATE TRÊN MÁY, luôn "thành công" ngay lập tức (không
+       * có network call nào ở đây để await/bắt lỗi) — việc đẩy thay đổi này lên kho chung
+       * diễn ra ở một `useEffect` HOÀN TOÀN KHÁC, bất đồng bộ với chính hàm này (kiến trúc
+       * "sửa state trước, đồng bộ sau" chung của cả file, xem đầu `kho-chung-firestore.ts`).
+       * Không có kết quả mạng nào ở ĐÂY để chờ hay biết đúng/sai — cưỡng ép có thì phải viết
+       * lại cách cả app đồng bộ dữ liệu, vượt xa phạm vi PR này. Vẫn không `await`: lỗi ghi
+       * log (mất mạng) không được chặn việc xóa state đã thực hiện xong.
+       */
       void ghiNhatKyHeThong(
         nguoiDung,
         "xoa_de_nghi",
