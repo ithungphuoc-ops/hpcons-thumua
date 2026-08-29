@@ -234,6 +234,11 @@ export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
      ⚠️ `/phan-quyen` KHÔNG đụng `/phan-bo` ngay dưới (hai tiền tố khác nhau), nhưng nếu sau này
      thêm đường dẫn nào bắt đầu bằng `/phan-` thì phải soát lại thứ tự ở đây. */
   if (duongDan.startsWith("/phan-quyen")) return q.phanQuyenNguoiDung;
+  /**
+   * ★ CHẶN CẢ ĐƯỜNG DẪN, không chỉ ẩn mục menu — cùng lý do với `/phan-quyen` ngay trên
+   * (thêm 29/08/2026, xem chú thích ở `2-quy-trinh/dieu-huong.ts`).
+   */
+  if (duongDan.startsWith("/nhat-ky-he-thong")) return q.phanQuyenNguoiDung;
   if (duongDan.startsWith("/phan-bo")) return q.phanBoCongViec;
   if (duongDan.startsWith("/don-hang/tao-moi")) return q.lapPO;
   /**

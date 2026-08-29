@@ -8,6 +8,7 @@ import {
   Settings,
   ShieldCheck,
   ShoppingCart,
+  History,
   type LucideIcon,
 } from "lucide-react";
 import type { Quyen } from "@/4-phan-quyen/quyen";
@@ -257,6 +258,23 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/phan-quyen",
     nhom: "quan_tri",
     icon: ShieldCheck,
+    duocThay: (q) => q.phanQuyenNguoiDung,
+  },
+  {
+    /**
+     * ★ NHẬT KÝ HỆ THỐNG — thêm 29/08/2026, sau sự cố mất trắng dữ liệu chạy thử sáng cùng
+     * ngày mà không cách nào tra được ai đã bấm "Xóa dữ liệu chạy thử" lúc nào (xem chú thích
+     * đầu `3-du-lieu/nhat-ky-he-thong.ts`).
+     *
+     * 📌 DÙNG KÉ CỜ `phanQuyenNguoiDung` như mục "Phân quyền người dùng" ngay trên — cùng mức
+     * nhạy cảm (biết được hành vi của MỌI người trong phòng, không chỉ của riêng mình), không
+     * bịa cờ quyền mới chỉ dùng một chỗ.
+     */
+    nhan: "Nhật ký hệ thống",
+    nhanNgan: "Nhật ký",
+    href: "/nhat-ky-he-thong",
+    nhom: "quan_tri",
+    icon: History,
     duocThay: (q) => q.phanQuyenNguoiDung,
   },
 ];

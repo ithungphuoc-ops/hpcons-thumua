@@ -68,6 +68,8 @@ import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 /* 🔴 DÙNG DANH BẠ THẬT, KHÔNG DÙNG `nhanSuDangLamViec()` (danh bạ MẪU, tên giả định) —
    Ban lãnh đạo 26/08/2026. Xem chú thích ở `const danhBa` trong `DuLieuProvider`. */
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { ghiNhatKyHeThong } from "@/3-du-lieu/nhat-ky-he-thong";
 /* Luật "vật tư kiểm soát định mức" — một chỗ duy nhất, xem effect báo Ban QLDA. */
 import { dongCanKiemSoatDinhMuc } from "@/2-quy-trinh/kiem-soat-dinh-muc";
 import { TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/gioi-han-dinh-kem";
@@ -865,6 +867,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const danhBa = useDanhBa();
 
+  /**
+   * ★ NGƯỜI ĐANG ĐĂNG NHẬP — thêm 29/08/2026, phục vụ nhật ký hệ thống (`ghiNhatKyHeThong`).
+   * Cùng lý do an toàn thứ tự provider như `danhBa` ngay trên: gọi hợp lệ vì `DuLieuProvider`
+   * nằm trong `CurrentUserProvider`.
+   */
+  const { nguoiDung } = useNguoiDung();
+
   const [deNghi, setDeNghi] = useState<DeNghiMuaHang[]>(DE_NGHI_MAU);
   const [donHang, setDonHang] = useState<DonDatHang[]>(DON_HANG_MAU);
   const [giaDonHang, setGiaDonHang] = useState<GiaDonDatHang[]>(GIA_DON_HANG_MAU);
@@ -1284,17 +1293,49 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       baoGia: [],
       thongBao: [],
     };
+    /**
+     * ★★★ NHẬT KÝ HỆ THỐNG — thêm 29/08/2026, sau sự cố mất trắng `deNghi/donHang/...` sáng
+     * cùng ngày mà không cách nào tra được ai đã bấm nút này lúc nào (xem chú thích đầu
+     * `nhat-ky-he-thong.ts`).
+     *
+     * 🔴 GHI SAU KHI XÓA, KHÔNG PHẢI TRƯỚC — ĐẢO THỨ TỰ 29/08/2026 (lần 2), sau khi bản đầu
+     * (ghi trước) bị CodeRabbit chỉ đúng lỗi khác: ghi trước thì nhật ký có thể nói "đã xóa"
+     * trong khi `day(rong)` bên dưới thất bại thật (mất mạng) và dữ liệu VẪN CÒN NGUYÊN —
+     * nhật ký nói dối đúng lúc cần tin nhất. Sửa bằng cách xóa trước, biết chắc kết quả, rồi
+     * ghi ĐÚNG kết quả đó (thành công hay thất bại) — không phải đoán trước.
+     *
+     * 🔴 VẪN PHẢI `await` (không thả trôi) — dòng dưới cùng hàm này gọi
+     * `window.location.href`, điều hướng có thể hủy ngang request ghi log đang bay dở nếu
+     * không đợi nó xong trước. Lỗi ghi log (mất mạng) chỉ in console, không chặn điều hướng.
+     */
     anhChupCuoi.current = JSON.stringify(rong);
+    let xoaThanhCong = false;
     try {
-      await ketNoiChung.current?.day(rong);
+      // `?.` ở bản trước coi "chưa nối được kho chung" là THÀNH CÔNG (optional chaining
+      // không ném lỗi khi null) — nhật ký ghi "đã xóa" dù chẳng có request nào gửi đi.
+      const ketNoi = ketNoiChung.current;
+      if (!ketNoi) throw new Error("Chưa nối được kho dữ liệu chung.");
+      await ketNoi.day(rong);
+      xoaThanhCong = true;
     } catch (e) {
       console.error("[kho chung] xóa hỏng:", e);
+    }
+    try {
+      await ghiNhatKyHeThong(
+        nguoiDung,
+        "xoa_du_lieu_chay_thu",
+        xoaThanhCong
+          ? `Xóa TOÀN BỘ dữ liệu chạy thử của cả phòng (${deNghi.length} đề nghị, ${donHang.length} đơn hàng, ${baoGia.length} bảng báo giá, ${phieuNhan.length} phiếu nhận hàng).`
+          : `[GHI CHÚ: GHI LÊN MÁY CHỦ THẤT BẠI] Bấm "Xóa dữ liệu chạy thử" (${deNghi.length} đề nghị, ${donHang.length} đơn hàng, ${baoGia.length} bảng báo giá, ${phieuNhan.length} phiếu nhận hàng) nhưng máy chủ báo lỗi khi ghi — dữ liệu CÓ THỂ vẫn còn nguyên, kiểm tra lại kho chung trước khi kết luận đã mất.`,
+      );
+    } catch (e) {
+      console.error("[nhat ky he thong] ghi hỏng:", e);
     }
     xoaDuLieuDaLuu();
     // Tải lại cả trang thay vì chỉ đặt state rỗng: dứt điểm mọi thứ đang giữ trong bộ
     // nhớ (form đang mở, bộ lọc, thông báo) — sạch đúng như mở app lần đầu.
     if (typeof window !== "undefined") window.location.href = "/de-nghi";
-  }, []);
+  }, [nguoiDung, deNghi.length, donHang.length, baoGia.length, phieuNhan.length]);
 
   // Đọc danh sách hiện có khi sinh mã mới, không cần đưa state vào deps.
   const donHangRef = useRef(donHang);
@@ -4015,17 +4056,42 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * ⚠️ Chặn xóa khi đã phát sinh chứng từ con: xóa đề nghị mà còn bảng báo giá / đơn hàng trỏ
    * về nó thì các chứng từ đó thành mồ côi, mọi phép tính khối lượng hỏng theo.
    */
-  const xoaDeNghi = useCallback((prId: string): string | null => {
-    const coBaoGia = baoGiaRef.current.some((b) => b.prId === prId && b.trangThai !== "huy");
-    const coDonHang = donHangRef.current.some((p) => p.prId === prId && p.trangThai !== "huy");
-    if (coBaoGia || coDonHang) {
-      return "Đề nghị đã phát sinh bảng báo giá hoặc đơn đặt hàng nên không xóa được — xóa sẽ làm các chứng từ đó mồ côi. Dùng “Đánh dấu thất bại” để đóng dở.";
-    }
-    setDeNghi((truoc) => truoc.filter((d) => d.id !== prId));
-    // Dọn luôn thông báo của đề nghị đã xóa, tránh bấm vào ra trang trống.
-    setThongBao((truoc) => truoc.filter((t) => t.prId !== prId));
-    return null;
-  }, []);
+  const xoaDeNghi = useCallback(
+    (prId: string): string | null => {
+      const coBaoGia = baoGiaRef.current.some((b) => b.prId === prId && b.trangThai !== "huy");
+      const coDonHang = donHangRef.current.some((p) => p.prId === prId && p.trangThai !== "huy");
+      if (coBaoGia || coDonHang) {
+        return "Đề nghị đã phát sinh bảng báo giá hoặc đơn đặt hàng nên không xóa được — xóa sẽ làm các chứng từ đó mồ côi. Dùng “Đánh dấu thất bại” để đóng dở.";
+      }
+      // ★ Đọc TRƯỚC khi filter — sau khi setDeNghi thì bản ghi này không còn trong mảng nữa
+      // để mà lấy mã/tiêu đề cho dòng nhật ký.
+      const dnXoa = deNghiRef.current.find((d) => d.id === prId);
+      // Đề nghị đã bị xóa từ máy khác hoặc lời gọi bị lặp — không có gì để xóa thêm, và
+      // ghi một dòng nhật ký "đã xóa" cho việc không thật sự xảy ra là báo sai.
+      if (!dnXoa) return "Đề nghị này không còn tồn tại.";
+      setDeNghi((truoc) => truoc.filter((d) => d.id !== prId));
+      // Dọn luôn thông báo của đề nghị đã xóa, tránh bấm vào ra trang trống.
+      setThongBao((truoc) => truoc.filter((t) => t.prId !== prId));
+      /**
+       * ⚠️ CodeRabbit (review PR #8) đề nghị áp cùng nguyên tắc "ghi log đúng kết quả thật"
+       * như `xoaDuLieuChayThu` — CÓ CÂN NHẮC nhưng KHÔNG áp ở đây, lý do khác nhau thật sự:
+       * `setDeNghi` ở trên là cập nhật STATE TRÊN MÁY, luôn "thành công" ngay lập tức (không
+       * có network call nào ở đây để await/bắt lỗi) — việc đẩy thay đổi này lên kho chung
+       * diễn ra ở một `useEffect` HOÀN TOÀN KHÁC, bất đồng bộ với chính hàm này (kiến trúc
+       * "sửa state trước, đồng bộ sau" chung của cả file, xem đầu `kho-chung-firestore.ts`).
+       * Không có kết quả mạng nào ở ĐÂY để chờ hay biết đúng/sai — cưỡng ép có thì phải viết
+       * lại cách cả app đồng bộ dữ liệu, vượt xa phạm vi PR này. Vẫn không `await`: lỗi ghi
+       * log (mất mạng) không được chặn việc xóa state đã thực hiện xong.
+       */
+      void ghiNhatKyHeThong(
+        nguoiDung,
+        "xoa_de_nghi",
+        `Xóa đề nghị ${dnXoa.code} — ${dnXoa.tieuDe}`,
+      ).catch((e) => console.error("[nhat ky he thong] ghi hỏng:", e));
+      return null;
+    },
+    [nguoiDung],
+  );
 
   // ------------------------------------------------------------
   // NGƯỜI THEO DÕI
