@@ -63,6 +63,22 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------------
+    // NHẬT KÝ HỆ THỐNG — thêm 29/08/2026, xem chú thích đầy đủ ở
+    // `3-du-lieu/nhat-ky-he-thong.ts`.
+    //
+    // 🔴 CHỈ CHO TẠO (`create`), TUYỆT ĐỐI KHÔNG CHO SỬA/XÓA. Nhật ký mà tự sửa/xóa được thì
+    // mất hết ý nghĩa tồn tại — đúng người vừa xóa dữ liệu chạy thử lại tiện tay xóa luôn
+    // dòng nhật ký tố cáo chính mình. KHÔNG áp `conHanChayThu()` như collection trên: nhật ký
+    // vẫn phải ghi/đọc được ngay cả khi qua ngày hết hạn "chạy thử" — tách khỏi vòng đời dữ
+    // liệu tạm để phục vụ đúng vai trò của nó.
+    // ------------------------------------------------------------------
+    match /nhat-ky-he-thong/{id} {
+      allow read: if duocVao();
+      allow create: if duocVao();
+      allow update, delete: if false;
+    }
+
+    // ------------------------------------------------------------------
     // HỒ SƠ PHÂN QUYỀN — mỗi người một tài liệu `nguoi-dung/{firebaseUid}`
     // ------------------------------------------------------------------
     //
