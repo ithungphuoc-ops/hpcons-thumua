@@ -72,10 +72,34 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid)).data;
     }
 
+    /**
+     * ⚠️ Chưa xử lý ở đây: tài khoản OWNER App Tổng (xem `ho-so-tai-khoan.ts`, khối "OWNER
+     * TOÀN QUYỀN") KHÔNG có tài liệu `nguoi-dung/{uid}` — `docHoSoTaiKhoan()` trả hồ sơ dựng
+     * sẵn, không đụng Firestore. Bản deploy thật (`hpcons-portal/firestore.rules`) cộng thêm
+     * nhánh kiểm `users/{uid}.role == 'owner'` (collection có sẵn ở project đó vì SSO dùng
+     * chung project). File NÀY là bản nguồn cho một project ĐỘC LẬP giả định
+     * (xem đầu file) nên không có collection `users` để kiểm — đừng copy y nguyên hàm này
+     * sang App Tổng mà thiếu nhánh owner, kẻo khóa luôn owner khỏi trang Nhật ký hệ thống.
+     */
     function tmDuocXemNhatKy() {
       return duocVao()
         && exists(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid))
         && (tmHoSoNguoiGoi().vaiTro == 'admin' || tmHoSoNguoiGoi().capTM >= 3);
+    }
+
+    /**
+     * `nguoiDung.uid` mà toàn app dùng (kể cả khi ghi nhật ký) thực ra là `uidNghiepVu` —
+     * mã BỀN VỮNG trong dữ liệu nghiệp vụ (`u-tm1`…), KHÔNG PHẢI mã Firebase — xem
+     * "hai lớp danh tính" ở `ho-so-tai-khoan.ts`. Tài khoản cũ giữ nguyên `uidNghiepVu` cũ
+     * dù đổi vai trò, nên `uidNghiepVu` có thể KHÁC `request.auth.uid`. So khớp thẳng với
+     * `request.auth.uid` (như bản đầu 29/08/2026) sẽ làm rớt nhật ký của mọi tài khoản cũ.
+     * Owner không có hồ sơ (nhánh trên) thì `uidNghiepVu` luôn = chính `firebaseUid` — khớp
+     * đúng nhánh dự phòng `: request.auth.uid` dưới đây.
+     */
+    function tmUidNghiepVuCuaNguoiGoi() {
+      return exists(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid)).data.uidNghiepVu
+        : request.auth.uid;
     }
 
     // ------------------------------------------------------------------
@@ -99,7 +123,8 @@ service cloud.firestore {
     // ------------------------------------------------------------------
     match /nhat-ky-he-thong/{id} {
       allow read: if tmDuocXemNhatKy();
-      allow create: if duocVao() && request.resource.data.nguoiThucHienUid == request.auth.uid;
+      allow create: if duocVao()
+        && request.resource.data.nguoiThucHienUid == tmUidNghiepVuCuaNguoiGoi();
       allow update, delete: if false;
     }
 
