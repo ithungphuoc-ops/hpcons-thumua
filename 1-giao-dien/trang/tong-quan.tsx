@@ -6,6 +6,7 @@ import { AlertTriangle, ClipboardList, FileText, PackageCheck, ShoppingCart, Tim
 import { KpiCard } from "@/1-giao-dien/thanh-phan-dung-chung/kpi-card";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
@@ -30,7 +31,12 @@ export default function TrangTongQuan() {
     const dongDaPhanChuaLenPO = deNghiDangChay.flatMap((dn) =>
       tinhTienDoDeNghi(dn, donHang, phieuNhan).filter((d) => d.trangThaiDong === "da_phan_bo"),
     );
-    const poDangGiao = donHang.filter((po) => po.trangThai === "dang_giao" || po.trangThai === "da_chot");
+    /* "cho_de_nghi" NẰM TRONG danh sách này (thêm 29/08/2026) — PO này đã đặt hàng thật (NCC,
+       giá, ngày giao đều có), chỉ thiếu giấy đề nghị đi kèm; hàng có thể giao trễ y hệt PO
+       thường, Ban lãnh đạo cần thấy đúng số "PO quá hạn" kể cả loại này. */
+    const poDangGiao = donHang.filter(
+      (po) => po.trangThai === "dang_giao" || po.trangThai === "da_chot" || po.trangThai === "cho_de_nghi",
+    );
     const poQuaHan = poDangGiao.filter((po) => soNgayConLai(po.ngayGiaoDuKien) < 0);
     const poChoXacNhan = donHang.filter((po) => po.trangThai === "cho_xac_nhan_hoan_thanh");
 
@@ -152,7 +158,11 @@ export default function TrangTongQuan() {
                         : (po.prCode ?? "Đơn không gắn đề nghị")}
                     </span>
                   </div>
-                  <StatusBadge label={tt.nhan} tone={tt.tong} />
+                  {po.trangThai === "cho_de_nghi" ? (
+                    <BadgeChoDeNghi />
+                  ) : (
+                    <StatusBadge label={tt.nhan} tone={tt.tong} />
+                  )}
                   <span
                     className={`flex items-center gap-1 text-xs font-semibold ${quaHan ? "text-danger-soft" : conLai <= 3 ? "text-warning-soft" : "text-text-desc"}`}
                   >

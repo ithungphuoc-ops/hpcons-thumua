@@ -57,6 +57,7 @@ import {
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import {
   poDaGiaoDu,
+  soNgayDaTroiQua,
   tinhTienDoDeNghi,
   tinhTienDoPO,
   vuongMacGhiThemPhieuNhan,
@@ -2745,10 +2746,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
       if (chan) return chan;
 
-      const soNgay = Math.max(
-        0,
-        Math.round((Date.now() - new Date(po.ngayLapPO).getTime()) / 86_400_000),
-      );
+      const soNgay = soNgayDaTroiQua(po.ngayLapPO);
 
       const poMoi: DonDatHang = {
         ...po,
@@ -5282,7 +5280,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (po.trangThai !== "cho_de_nghi") continue;
       if (daBaoTreoPO.current.has(po.id)) continue;
 
-      const soNgay = Math.floor((Date.now() - new Date(po.ngayLapPO).getTime()) / 86_400_000);
+      const soNgay = soNgayDaTroiQua(po.ngayLapPO);
       if (soNgay < HAN_NGAY_CHO_DE_NGHI) continue;
 
       const idThongBao = `tb-treo-po-${po.id}`;

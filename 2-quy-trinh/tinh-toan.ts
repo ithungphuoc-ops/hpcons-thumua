@@ -708,6 +708,25 @@ export function soNgayConLai(denNgay: string, tuNgay: Date = new Date()): number
   return Math.round((den.getTime() - moc.getTime()) / 86_400_000);
 }
 
+/**
+ * ★ SỐ NGÀY ĐÃ TRÔI QUA từ một mốc ISO (có giờ phút) tới bây giờ — dùng cho câu "đơn hàng X đã
+ * lập trước N ngày" (gắn đề nghị, tự động khớp, cảnh báo treo).
+ *
+ * 🔴 THÊM 29/08/2026, RÚT TỪ 3 BẢN CHÉP TAY LỆCH NHAU (review PR "PO chờ đề nghị"): trước đây mỗi
+ * nơi tự viết `(Date.now() - new Date(iso).getTime()) / 86_400_000` — hai nơi bọc
+ * `Math.max(0, Math.round(...))`, một nơi chỉ `Math.floor(...)` không chặn âm. Lệch công thức ra
+ * kết quả lệch 1 ngày ở biên, và **`iso` hỏng (không parse được) từng lọt `NaN` thẳng vào câu ghi
+ * lịch sử/nhật ký** ("đã lập trước NaN ngày") vì không nơi nào kiểm `isNaN` trước khi dùng.
+ *
+ * @returns Số ngày nguyên, KHÔNG ÂM (mốc tương lai hoặc lỗi giờ máy → 0), và KHÔNG BAO GIỜ `NaN`
+ *   (mốc hỏng/parse lỗi → 0, coi như "vừa mới" thay vì lan `NaN` ra chỗ hiển thị).
+ */
+export function soNgayDaTroiQua(isoThoiDiem: string, tuThoiDiem: number = Date.now()): number {
+  const moc = new Date(isoThoiDiem).getTime();
+  if (Number.isNaN(moc)) return 0;
+  return Math.max(0, Math.round((tuThoiDiem - moc) / 86_400_000));
+}
+
 /** Màu thanh tiến độ theo Design System V1.1 Phần E2. */
 export type TongMau = "primary" | "warning" | "danger" | "success";
 

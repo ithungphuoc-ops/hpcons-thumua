@@ -14,6 +14,7 @@ import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import type { DeNghiMoiTuAppRequest, KetQuaNhanDeNghiTuAppRequest } from "@/3-du-lieu/tich-hop-app-request-types";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { TEN_COLLECTION_NHAT_KY } from "@/3-du-lieu/nhat-ky-he-thong";
+import { soNgayDaTroiQua } from "@/2-quy-trinh/tinh-toan";
 
 // "Cửa tiếp nhận" của App Thu mua cho App Request — xem hợp đồng dữ liệu đầy đủ tại
 // 3-du-lieu/tich-hop-app-request-types.ts.
@@ -133,18 +134,41 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
        * nghị" — nhiều PO cùng mã dự án là chuyện thật (nhiều lần mua cho cùng công trình), tự
        * chọn bừa 1 cái là gắn nhầm PO của người khác vào đề nghị này. Người dùng vẫn gắn tay
        * được qua hộp thoại "+ Gắn đề nghị" (`hop-gan-de-nghi.tsx`) như bình thường.
+       *
+       * ⚠️ CỐ Ý KHÔNG GỌI `vuongMacLapDonHang`/`vuongMacViecBatBuocCacBuocTruoc` Ở ĐÂY — khác
+       * `ganDeNghiVaoPO` (gắn tay, `kho-du-lieu.tsx`). Đã cân nhắc kỹ, không phải bỏ sót:
+       *   · `vuongMacLapDonHang` đòi ít nhất MỘT `BaoGia` của đề nghị. `deNghiMoi` ở route này
+       *     VỪA được tạo ra trong chính request này (giai đoạn ①) — CHƯA THỂ nào có `BaoGia`
+       *     nào cả, vì báo giá là bước ③ làm SAU, thủ công, bên trong Thu Mua. Gọi hàm này ở
+       *     đây luôn trả về chặn ("Chưa có bảng báo giá nào…") — tính năng tự khớp sẽ CHẾT,
+       *     không bao giờ tới được `"da_chot"`. Đây không phải chỗ đi vòng qua chốt kiểm soát
+       *     chi tiêu: chốt kiểm soát chi tiêu của PO ĐỘC LẬP là quyền `taoPoDoiLap` (chỉ Trưởng
+       *     bộ phận trở lên) ĐÃ CHẠY khi PO được TẠO (`themDonHang`) — NCC/đơn giá/hợp đồng của
+       *     PO đó đã được người có thẩm quyền quyết định RỒI, việc còn lại chỉ là hành chính
+       *     (gắn đúng số hồ sơ đề nghị vào PO đã có sẵn), không phải một quyết định chi tiền mới.
+       *   · `vuongMacViecBatBuocCacBuocTruoc` soát các bước TRƯỚC bước hiện tại — `deNghiMoi`
+       *     luôn ở giai đoạn ① (`viTriHienTai <= 0`) nên hàm này luôn trả `null` (không có gì
+       *     để soát); gọi vào đây là code chết, không thêm an toàn nào.
+       * Nếu sau này đổi ý muốn thêm một lớp xác nhận NGƯỜI THẬT trước khi chốt (thay vì tự động
+       * 100%), hướng đúng là giữ PO ở `"cho_de_nghi"` sau khi điền `prId` (không tự set
+       * `"da_chot"`) và để Trưởng bộ phận bấm xác nhận ở hộp "+ Gắn đề nghị" — KHÔNG phải nhét
+       * `vuongMacLapDonHang` vào đây.
        */
       const donHangHienCo: DonDatHang[] = Array.isArray(data.donHang) ? data.donHang : [];
-      const chuanHoa = (s: string) =>
-        boDau(s)
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "");
+      const chuanHoa = (s: string) => boDau(s).replace(/[^a-z0-9]/g, "");
       const ungVien = donHangHienCo.filter((po) => {
         if (po.trangThai !== "cho_de_nghi" || po.maDuAn !== deNghiMoi.maDuAn) return false;
         if (po.maHopDongCDT && deNghiMoi.maHopDongCDT) {
           const a = chuanHoa(po.maHopDongCDT);
           const b = chuanHoa(deNghiMoi.maHopDongCDT);
-          if (!a.includes(b) && !b.includes(a)) return false; // mâu thuẫn — dừng, không đoán
+          /**
+           * ★ NGƯỠNG ĐỘ DÀI TỐI THIỂU (6 ký tự) trước khi coi 1 chuỗi "chứa" chuỗi kia là
+           * bằng chứng khớp — thêm sau review PR, phát hiện mã ngắn thuần số (vd "0001") dễ là
+           * substring TRÙNG NGẪU NHIÊN của một mã hợp đồng dài không liên quan (vd "260001hpcs"),
+           * biến "mâu thuẫn" thật thành "khớp" giả. Chuỗi quá ngắn thì coi như KHÔNG SO ĐƯỢC —
+           * lùi về đúng nhánh "thiếu 1 bên" (bỏ qua, không tính mâu thuẫn), không suy diễn.
+           */
+          if (a.length >= 6 && b.length >= 6 && !a.includes(b) && !b.includes(a)) return false;
         }
         return true;
       });
@@ -162,10 +186,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
         };
         donHangMoi = donHangHienCo.map((p) => (p.id === po.id ? poMoi : p));
         poDaGan = poMoi;
-        const soNgay = Math.max(
-          0,
-          Math.round((Date.now() - new Date(po.ngayLapPO).getTime()) / 86_400_000),
-        );
+        const soNgay = soNgayDaTroiQua(po.ngayLapPO);
         deNghiMoi.lichSu.push({
           thoiDiem: new Date().toISOString(),
           nguoiThucHien: "Hệ thống (tự động khớp App Request)",

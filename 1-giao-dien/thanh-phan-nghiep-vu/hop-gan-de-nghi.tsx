@@ -40,7 +40,7 @@ import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
  * người lập biết đề nghị đó tồn tại và vì sao chưa gắn được (thông báo lỗi nói rõ lý do).
  */
 export function HopGanDeNghi({ po }: { po: DonDatHang }) {
-  const { baoGia, deNghi, ganDeNghiVaoPO } = useDuLieu();
+  const { baoGia, deNghi, donHang, ganDeNghiVaoPO } = useDuLieu();
   const [mo, setMo] = useState(false);
   const [tuKhoa, setTuKhoa] = useState("");
   const [daChon, setDaChon] = useState<string | null>(null);
@@ -52,8 +52,15 @@ export function HopGanDeNghi({ po }: { po: DonDatHang }) {
       const khopNCC =
         !!bg.nccDaChonId &&
         (bg.nccDaChonId === po.supplierId ||
-          boDau(bg.nccDaChonTen ?? "").trim() === boDau(po.supplierTen).trim());
-      return { bg, dnGoc, khopNCC, tongGiaTri: tongGiaTriBaoGiaDaChot(bg) };
+          boDau(bg.nccDaChonTen ?? "").trim() === boDau(po.supplierTen ?? "").trim());
+      /**
+       * ★ CẢNH BÁO MỀM (không chặn) — thêm sau review PR: đề nghị này đã có MỘT PO khác trỏ
+       * `prId` về nó rồi. KHÔNG chặn — "Tách thêm đơn" (nhiều PO cho cùng 1 đề nghị, chia khối
+       * lượng/nhà cung cấp khác nhau) là cơ chế hợp lệ đã có sẵn trong app. Chỉ báo để người lập
+       * biết mà tự kiểm tra khối lượng, tránh gắn nhầm PO không liên quan vào đúng đề nghị đã đủ.
+       */
+      const daCoPOKhac = !!dnGoc && donHang.some((p) => p.id !== po.id && p.prId === dnGoc.id);
+      return { bg, dnGoc, khopNCC, daCoPOKhac, tongGiaTri: tongGiaTriBaoGiaDaChot(bg) };
     });
     // Cùng mã dự án với PO lên đầu — đỡ phải kéo cả danh sách để tìm.
     const sapXep = [...ds].sort((a, b) => {
@@ -68,7 +75,7 @@ export function HopGanDeNghi({ po }: { po: DonDatHang }) {
         .filter(Boolean)
         .some((s) => boDau(String(s)).includes(kt)),
     );
-  }, [baoGia, deNghi, po.maDuAn, po.supplierId, po.supplierTen, tuKhoa]);
+  }, [baoGia, deNghi, donHang, po.id, po.maDuAn, po.supplierId, po.supplierTen, tuKhoa]);
 
   function dong() {
     setMo(false);
@@ -119,7 +126,7 @@ export function HopGanDeNghi({ po }: { po: DonDatHang }) {
             </p>
           ) : (
             <ul className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
-              {ungVien.map(({ bg, dnGoc, khopNCC, tongGiaTri }) => (
+              {ungVien.map(({ bg, dnGoc, khopNCC, daCoPOKhac, tongGiaTri }) => (
                 <li key={bg.id}>
                   <label
                     className={cn(
@@ -144,6 +151,12 @@ export function HopGanDeNghi({ po }: { po: DonDatHang }) {
                         NCC đã chốt: {bg.nccDaChonTen ?? "—"}
                         {tongGiaTri > 0 ? ` · ${tongGiaTri.toLocaleString("vi-VN")} ₫` : ""}
                       </span>
+                      {daCoPOKhac && (
+                        <span className="text-xs font-medium text-warning-soft">
+                          ⚠ Đề nghị này đã có đơn hàng khác gắn vào — kiểm tra lại khối lượng
+                          trước khi gắn thêm (nếu là tách đơn cho nhiều NCC thì cứ tiếp tục).
+                        </span>
+                      )}
                     </span>
                     <span
                       className={cn(
