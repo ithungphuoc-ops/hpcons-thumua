@@ -72,7 +72,12 @@ export function BaoViecMoi() {
       (t) =>
         t.laViecMoi &&
         !t.daDoc &&
-        thongBaoDanhChoToi(t.guiToi, nguoiDung.tenHienThi, quyen.phanBoCongViec),
+        thongBaoDanhChoToi(
+          t.guiToi,
+          nguoiDung.tenHienThi,
+          quyen.phanBoCongViec,
+          nguoiDung.vaiTro === "director",
+        ),
     );
 
     // Lần đầu: chỉ ghi nhớ, không báo (chốt số 1).
@@ -102,7 +107,7 @@ export function BaoViecMoi() {
         },
       });
     }
-  }, [thongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec]);
+  }, [thongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec, nguoiDung.vaiTro]);
 
   // Không vẽ gì — chỉ nghe dữ liệu rồi gọi hộp nổi dùng chung ở `app/layout.tsx`.
   return null;

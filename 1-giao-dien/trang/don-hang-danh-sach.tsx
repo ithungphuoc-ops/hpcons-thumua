@@ -14,6 +14,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { phanTramPO, soNgayConLai, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
+import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
 
 export default function TrangDanhSachDonHang() {
   const { donHang, phieuNhan, giaDonHang } = useDuLieu();
@@ -104,7 +105,11 @@ export default function TrangDanhSachDonHang() {
                             rõ bằng CHỮ, không để ô trống — ô trống trong bảng đọc ra là "dữ
                             liệu thiếu", còn đây là chuyện cố ý. */}
                         <TableCell className="text-sm text-text-desc">
-                          {po.prCode ?? "Không gắn đề nghị"}
+                          {po.prCode
+                            ? po.trangThai === "cho_de_nghi"
+                              ? `${po.prCode} (chờ xác nhận)`
+                              : po.prCode
+                            : "Không gắn đề nghị"}
                         </TableCell>
                         {quyen.xemNhaCungCap && <TableCell className="text-sm">{po.supplierTen}</TableCell>}
                         {quyen.xemNguoiPhuTrach && (
@@ -137,7 +142,13 @@ export default function TrangDanhSachDonHang() {
                           />
                         </TableCell>
                         <TableCell>
-                          <StatusBadge label={tt.nhan} tone={tt.tong} />
+                          {/* PO "chờ đề nghị" (29/08/2026) dùng badge tím riêng, KHÔNG phải
+                              StatusBadge chuẩn — xem `badge-cho-de-nghi.tsx` vì sao. */}
+                          {po.trangThai === "cho_de_nghi" ? (
+                            <BadgeChoDeNghi />
+                          ) : (
+                            <StatusBadge label={tt.nhan} tone={tt.tong} />
+                          )}
                         </TableCell>
                         {/* Xuất Excel ngay tại danh sách — không phải mở chi tiết mới xuất được. */}
                         {quyen.xemGia && (
@@ -165,7 +176,11 @@ export default function TrangDanhSachDonHang() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-sm font-semibold text-primary">{po.code}</span>
-                      <StatusBadge label={tt.nhan} tone={tt.tong} />
+                      {po.trangThai === "cho_de_nghi" ? (
+                        <BadgeChoDeNghi />
+                      ) : (
+                        <StatusBadge label={tt.nhan} tone={tt.tong} />
+                      )}
                     </div>
                     {quyen.xemNhaCungCap && <span className="text-sm text-text-secondary">{po.supplierTen}</span>}
                     <div className="flex items-center justify-between text-sm">

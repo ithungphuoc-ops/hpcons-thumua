@@ -23,6 +23,7 @@ import {
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
@@ -157,7 +158,11 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  * DAT HANG, NEN E KO CAN LINK NO TOI CAC BUOC QUY TRINH. va e hay hien thi cac truong nhap
  * lieu cua modun nay luon"*.
  *
- * | | Có đề nghị (`deNghi` khác `null`) | ĐỘC LẬP (`deNghi` là `null`) |
+ * ⚠️ BẢNG DƯỚI GIỮ NGUYÊN Ý GỐC 18/08/2026 — với cột ĐỘC LẬP, đọc đúng cho người KHÔNG có
+ * `quyen.taoPoDoiLap` (đa số — nhân viên thường). Người CÓ quyền đó (Trưởng bộ phận trở lên)
+ * thì cột ĐỘC LẬP đổi khác ở đúng 4 dòng đánh dấu (✳️) — xem khối "29/08/2026" ngay dưới bảng.
+ *
+ * | | Có đề nghị (`deNghi` khác `null`) | ĐỘC LẬP, KHÔNG có `quyen.taoPoDoiLap` |
  * |---|---|---|
  * | Vào từ | `?prId=…` (thẻ bảng quy trình, nút ở khối bước ④) và `?prId=…&rfqId=…&nccId=…` (tách PO từ bảng báo giá) | Mục menu **Lập đơn mua hàng (PO)**, địa chỉ trơn `/don-hang/tao-moi` |
  * | Mã dự án | Lấy từ phiếu đề nghị | Người lập **chọn dự án đã có** hoặc gõ mã mới |
@@ -165,10 +170,10 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  * | Nhập Excel | Đối chiếu với đề nghị (`khopVoiDeNghi`) | Lấy thẳng mọi dòng đọc được |
  * | Khối lượng | Trừ vào dòng đề nghị, cắt về phần còn lại | Không trừ vào đâu |
  * | Chốt `vuongMacLapDonHang` | **Có** — bảng báo giá phải đã chốt NCC | 🔴 **KHÔNG ÁP DỤNG** — không cất đơn nên không có gì để chặn |
- * | Thanh nút cuối | **[Lưu]** · **[Lưu và In]** (nhãn Ban lãnh đạo chốt 18/08/2026, KHÔNG phải "Cất") | 🔴 **[In mẫu PO]** · **[Xuất Excel]** — KHÔNG có nút lưu |
- * | Ghi vào hệ thống | Có, qua `themDonHang` | 🔴 **KHÔNG GHI GÌ CẢ** |
- * | Số đơn hàng | `themDonHang` cấp lúc cất, theo Thông báo 09/2026 | Không cấp — in ra `SO_DON_BAN_MAU` |
- * | Ô "Tình trạng" | Có, chỉ đọc, luôn `da_chot` | 🔴 **Ẩn hẳn** — bản mẫu không ở trạng thái nào |
+ * | ✳️ Thanh nút cuối | **[Lưu]** · **[Lưu và In]** (nhãn Ban lãnh đạo chốt 18/08/2026, KHÔNG phải "Cất") | 🔴 **[In mẫu PO]** · **[Xuất Excel]** — KHÔNG có nút lưu |
+ * | ✳️ Ghi vào hệ thống | Có, qua `themDonHang` | 🔴 **KHÔNG GHI GÌ CẢ** |
+ * | ✳️ Số đơn hàng | `themDonHang` cấp lúc cất, theo Thông báo 09/2026 | Không cấp — in ra `SO_DON_BAN_MAU` |
+ * | ✳️ Ô "Tình trạng" | Có, chỉ đọc, luôn `da_chot` | 🔴 **Ẩn hẳn** — bản mẫu không ở trạng thái nào |
  * | Đính kèm tệp | Có — vào `DonDatHang.tepDinhKem` của đơn được cất | 🔴 **Ẩn hẳn, nói rõ lý do** — không có đơn nào để gắn tệp, xem khối ③ |
  * | Nhật ký | `DeNghiMuaHang.lichSu` | Không có gì để ghi nhật ký |
  *
@@ -204,6 +209,31 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  *       chạy — trước khi siết, lần bấm đó cất ra một đơn không qua xét duyệt giá.
  *    Hàm `luu()` bên dưới vì vậy **không cần sửa**, và cũng không được nới: chốt nằm ở kho dữ
  *    liệu, một chỗ duy nhất.
+ *
+ * ---
+ *
+ * ★★★ 29/08/2026 — MỞ LẠI CÓ KIỂM SOÁT, KHÔNG PHẢI QUAY VỀ BẢN SÁNG 18/08 ★★★
+ *
+ * Sếp chốt sau khi bàn qua demo trực quan (Artifact "Ngã Rẽ Lập PO"): PO độc lập ĐƯỢC cất
+ * thật, NHƯNG chỉ cho Trưởng bộ phận trở lên (`quyen.taoPoDoiLap`, xem `4-phan-quyen/quyen.ts`)
+ * và cất ra ở trạng thái `"cho_de_nghi"` — KHÔNG phải `"da_chot"` như bản sáng 18/08. Khác biệt
+ * mấu chốt với lỗ hổng đã đóng:
+ *   · Bản sáng 18/08: cất thẳng `"da_chot"`, coi như PO hoàn chỉnh ngay, KHÔNG ai kiểm được nữa.
+ *   · Bản 29/08: cất ra `"cho_de_nghi"` — vẫn CHƯA qua `vuongMacLapDonHang` lúc này (đúng, vì
+ *     chưa có gì để đối chiếu), nhưng BẮT BUỘC phải gắn đúng 1 đề nghị đã duyệt + có bảng báo
+ *     giá chốt NCC (nút "+ Gắn đề nghị", xem `1-giao-dien/thanh-phan-nghiep-vu/hop-gan-de-nghi.tsx`)
+ *     — nơi CHẠY LẠI đúng `vuongMacLapDonHang` — mới chuyển được sang `"da_chot"`. Không có
+ *     đường nào ở lại `"cho_de_nghi"` vĩnh viễn mà vẫn được coi là PO hoàn chỉnh.
+ *
+ * Vậy: `themDonHang` KHÔNG còn "từ chối tuyệt đối thiếu `prId`" như đoạn trên mô tả — xem chú
+ * thích MỚI ngay tại chỗ chặn đó trong `3-du-lieu/kho-du-lieu.tsx` để biết luật thay thế chính
+ * xác. Hàm `luu()` bên dưới VẪN không cần sửa gì (nó vốn đã truyền `prId: dn?.id` là
+ * `undefined` cho cả hai chế độ) — chỉ có ĐIỀU KIỆN VẼ NÚT ở khối cuối form là đổi, xem đó.
+ *
+ * PO "chờ đề nghị" hoạt động GẦN NHƯ BÌNH THƯỜNG (Sếp chốt): in được, tính vào Công nợ nhà cung
+ * cấp ngay — chỉ khác 1 badge tím riêng (`BadgeChoDeNghi`) và KHÔNG hiện trên bảng "Quy trình
+ * mua hàng" (bảng đó liệt kê theo đề nghị, PO này chưa có đề nghị nào để liệt) cho tới khi gắn
+ * xong — vẫn hiện bình thường ở "Danh sách đơn hàng".
  */
 export interface PropFormLapDonMuaHang {
   /**
@@ -218,6 +248,19 @@ export interface PropFormLapDonMuaHang {
    * đề nghị nào. Xem bảng hai chế độ ở khối chú thích đầu file trước khi sửa bất cứ gì.
    */
   deNghi?: DeNghiMuaHang | null;
+  /**
+   * ★ ĐỊA CHỈ CÓ `prId` NHƯNG TRA KHÔNG RA ĐỀ NGHỊ — thêm 29/08/2026 (CodeRabbit review PR "PO
+   * chờ đề nghị"). `true` khi trang gọi vào đây vì một liên kết CŨ/HỎNG (`prId` không tồn tại
+   * hoặc hồ sơ đã xóa), KHÁC với việc người dùng chủ ý vào thẳng menu để lập PO độc lập.
+   *
+   * 🔴 VÌ SAO CẦN CỜ RIÊNG, KHÔNG SUY TỪ `deNghi === null`: cả hai trường hợp đều truyền
+   * `deNghi={null}` (không tra ra thì cũng là `null`) — nếu không tách, một người có
+   * `quyen.taoPoDoiLap` bấm nhầm một liên kết cũ sẽ cất được một PO ĐỘC LẬP THẬT mà không hề
+   * định làm vậy (họ đang tìm ĐÚNG phiếu đề nghị kia, không phải muốn tạo PO tay). `true` ⇒ khoá
+   * về đúng chế độ mẫu-thôi (không cất thật) bất kể `quyen.taoPoDoiLap`, và câu cảnh báo ở trang
+   * gọi (`don-hang-lap-moi.tsx`) đã nói rõ lý do + hướng đi đúng.
+   */
+  duongDanHongPrId?: boolean;
   /** Bảng báo giá nguồn khi TÁCH ĐƠN — chỉ trang riêng truyền (đường vào từ màn Báo giá). */
   rfqId?: string | null;
   /** Nhà cung cấp được phân bổ trong bảng báo giá đó. Đi CẶP với `rfqId`, thiếu một là bỏ qua. */
@@ -254,6 +297,7 @@ export interface PropFormLapDonMuaHang {
 
 export function FormLapDonMuaHang({
   deNghi: dn = null,
+  duongDanHongPrId = false,
   rfqId,
   nccIdTuBaoGia,
   nhung = false,
@@ -290,6 +334,12 @@ export function FormLapDonMuaHang({
    * việc thì sớm muộn có chỗ truyền `docLap` mà vẫn kèm `deNghi`, rồi form chạy nửa nọ nửa kia.
    */
   const laDonDocLap = dn === null;
+  /**
+   * ★ QUYỀN LẬP PO ĐỘC LẬP THẬT SỰ ĐƯỢC DÙNG Ở ĐÂY — thêm 29/08/2026 cùng `duongDanHongPrId`.
+   * KHÁC `quyen.taoPoDoiLap` trần: liên kết cũ/hỏng (`duongDanHongPrId`) khoá về mẫu-thôi bất kể
+   * có quyền hay không — xem chú thích đầy đủ ở `PropFormLapDonMuaHang.duongDanHongPrId`.
+   */
+  const coQuyenTaoDocLapThat = quyen.taoPoDoiLap && !duongDanHongPrId;
 
   // ---------------------------------------------------------------------------
   // ① KHỐI THÔNG TIN CHUNG — đúng thứ tự ô của màn MISA
@@ -2016,7 +2066,10 @@ export function FormLapDonMuaHang({
     onDaLuu?.(ketQua.id, rangIn);
   }
 
-  const nhanTrangThai = NHAN_TRANG_THAI_PO.da_chot;
+  /* ★ CẬP NHẬT 29/08/2026: độc lập + `quyen.taoPoDoiLap` giờ CŨNG cất được đơn (xem khối nút
+     cuối form), và `themDonHang` tạo PO đó ở `"cho_de_nghi"` chứ không phải `"da_chot"` — badge
+     "Tình trạng" phải nói đúng cái sẽ xảy ra khi bấm Lưu, không phải luôn hiện "Đã chốt". */
+  const nhanTrangThai = laDonDocLap ? NHAN_TRANG_THAI_PO.cho_de_nghi : NHAN_TRANG_THAI_PO.da_chot;
 
   /* Hai nút NHẬP EXCEL — nửa sau của yêu cầu 17/08/2026, dựng một lần dùng cho cả hai bố cục.
      Đặt ở dòng đầu của form để thấy ngay: người lập thường có sẵn file của nhà cung cấp, gõ
@@ -2182,8 +2235,14 @@ export function FormLapDonMuaHang({
           làm" mà quy ước dự án cấm.
 
           📌 Giữ NGẮN (một câu in đậm + một câu giải thích): dải cảnh báo dài thì người ta bỏ
-          qua, mà câu quan trọng nhất phải đọc được trong một nhịp mắt. */}
-      {laDonDocLap && (
+          qua, mà câu quan trọng nhất phải đọc được trong một nhịp mắt.
+
+          ✅ CẬP NHẬT 29/08/2026: câu này CHỈ còn đúng cho người KHÔNG có `quyen.taoPoDoiLap`.
+          Người có quyền (Trưởng bộ phận trở lên) đã cất được đơn thật ở trạng thái "Chờ đề
+          nghị" — nói "không lưu vào hệ thống" với họ là ĐÚNG KIỂU LỖI mà dải này sinh ra để
+          chống (giao diện nói một đằng, hàm làm một nẻo) — chỉ khác chiều, quên cập nhật khi
+          mở lại đường cất đơn. Phát hiện bằng Playwright thật trước khi merge, không phải đoán. */}
+      {laDonDocLap && !coQuyenTaoDocLapThat && (
         <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning-bg p-(--hp-md-row-pad) text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
           <span className="min-w-0 text-text-secondary">
@@ -2197,6 +2256,26 @@ export function FormLapDonMuaHang({
               Quy trình mua hàng
             </Link>{" "}
             rồi bấm “Lập đơn đặt hàng”.
+          </span>
+        </div>
+      )}
+
+      {/* ===== DẢI THÔNG BÁO: ĐÃ ĐỦ QUYỀN, CẤT ĐƯỢC NHƯNG SẼ "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026.
+          Đối xứng với dải trên: người CÓ quyền cũng cần biết trước khi gõ, chỉ khác nội dung —
+          không phải "không lưu được", mà là "lưu được nhưng còn thiếu 1 bước". */}
+      {laDonDocLap && coQuyenTaoDocLapThat && (
+        <div className="flex items-start gap-2 rounded-lg border border-primary/40 bg-primary-bg p-(--hp-md-row-pad) text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">
+              Đơn lập ở đây sẽ vào trạng thái &quot;Chờ đề nghị&quot; — lưu thật vào hệ thống, được
+              cấp số, tính vào Công nợ nhà cung cấp.
+            </strong>{" "}
+            Chỉ khác PO thường ở chỗ chưa gắn phiếu đề nghị nào, nên không hiện trên bảng{" "}
+            <Link href="/de-nghi" className="font-medium text-primary hover:underline">
+              Quy trình mua hàng
+            </Link>
+            . Bổ sung đề nghị sau bằng nút &quot;+ Gắn đề nghị&quot; ở trang chi tiết đơn.
           </span>
         </div>
       )}
@@ -2598,33 +2677,39 @@ export function FormLapDonMuaHang({
                   * với `namCuaNgay`: đơn lập bù cho năm trước phải mang số của năm ghi trên chứng
                   * từ. Đổi ngày đơn hàng thì khuôn hiện ở đây đổi theo, đúng như lúc cất.
                   *
-                  * ★ CHẾ ĐỘ MẪU (18/08/2026) KHÔNG CÓ SỐ, và tuyệt đối KHÔNG được chiếm một số
-                  * thật trong dãy: chiếm số rồi không cất là **thủng một số** — đơn cất sau nhảy
-                  * số và người đối chiếu chứng từ giấy không hiểu vì sao thiếu. Nặng hơn: một số
-                  * chứng từ nhìn như thật in lên tờ giấy có thể gửi ra ngoài, trong khi hệ thống
-                  * không có đơn nào mang số đó. Vì vậy ô này ghi thẳng một câu chữ
+                  * ★ CHẾ ĐỘ MẪU (không `quyen.taoPoDoiLap`) KHÔNG CÓ SỐ, và tuyệt đối KHÔNG được
+                  * chiếm một số thật trong dãy: chiếm số rồi không cất là **thủng một số** — đơn
+                  * cất sau nhảy số và người đối chiếu chứng từ giấy không hiểu vì sao thiếu. Nặng
+                  * hơn: một số chứng từ nhìn như thật in lên tờ giấy có thể gửi ra ngoài, trong
+                  * khi hệ thống không có đơn nào mang số đó. Vì vậy ô này ghi thẳng một câu chữ
                   * (`SO_DON_BAN_MAU`), nhìn là biết không phải số thật.
+                  *
+                  * ✅ CẬP NHẬT 29/08/2026: độc lập + `quyen.taoPoDoiLap` GIỜ CẤT ĐƯỢC và ĐƯỢC CẤP
+                  * SỐ THẬT (`themDonHang` → `maDonHangTiepTheo`, giống hệt chế độ có đề nghị) —
+                  * hiện khuôn xem trước `DMH2026-…` như chế độ có đề nghị, không còn ghi
+                  * `SO_DON_BAN_MAU` (câu đó giờ CHỈ đúng cho người không đủ quyền, vẫn ở chế độ
+                  * mẫu thật sự).
                   */}
                 {/**
                   * ❌ ĐÃ BỎ dòng ghi chú dưới ô (Ban lãnh đạo 23/08/2026: *"Bỏ ghi chú ở dưới đi"*).
                   *
                   * 📌 Không mất thông tin nào: chính ô đã hiện khuôn `DMH26…`, nhìn là biết số sẽ
-                  * ra dạng gì. Riêng CHẾ ĐỘ MẪU thì giữ một câu — ở đó ô ghi "(bản mẫu — chưa cấp
-                  * số)", và nếu không nói rõ *"số chỉ cấp khi lập đơn thật"* thì người lập tưởng
-                  * app hỏng chỗ cấp số.
+                  * ra dạng gì. Riêng CHẾ ĐỘ MẪU (không đủ quyền) thì giữ một câu — ở đó ô ghi
+                  * "(bản mẫu — chưa cấp số)", và nếu không nói rõ *"số chỉ cấp khi lập đơn thật"*
+                  * thì người lập tưởng app hỏng chỗ cấp số.
                   */}
                 <Input
                   id="so-don-hang"
                   value={
-                    laDonDocLap
+                    laDonDocLap && !coQuyenTaoDocLapThat
                       ? SO_DON_BAN_MAU
                       : `${TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`
                   }
                   readOnly
                   disabled
-                  className={laDonDocLap ? "w-72" : "w-56"}
+                  className={laDonDocLap && !coQuyenTaoDocLapThat ? "w-72" : "w-56"}
                 />
-                {laDonDocLap && (
+                {laDonDocLap && !coQuyenTaoDocLapThat && (
                   <span className="text-xs text-text-desc">
                     Bản mẫu không được cấp số. Số đơn hàng chỉ cấp khi lập đơn thật từ phiếu đề
                     nghị.
@@ -2656,27 +2741,36 @@ export function FormLapDonMuaHang({
               </div>
 
 
-              {/* 🔴 CHẾ ĐỘ MẪU KHÔNG CÓ Ô "TÌNH TRẠNG" — bản mẫu không tồn tại trong hệ thống
-                  nên nó không ở trạng thái nào. Bày "Đã chốt" lên một thứ không được lưu là
-                  đúng kiểu "giao diện hứa một việc app không làm" mà quy ước dự án cấm. */}
-              {!laDonDocLap && (
+              {/* 🔴 CHẾ ĐỘ MẪU (không `quyen.taoPoDoiLap`) KHÔNG CÓ Ô "TÌNH TRẠNG" — bản mẫu
+                  không tồn tại trong hệ thống nên nó không ở trạng thái nào. Bày một trạng thái
+                  lên thứ không được lưu là đúng kiểu "giao diện hứa một việc app không làm" mà
+                  quy ước dự án cấm.
+                  ✅ CẬP NHẬT 29/08/2026: độc lập + `quyen.taoPoDoiLap` GIỜ CẤT ĐƯỢC (vào
+                  `"cho_de_nghi"`) nên ô này phải hiện — ẩn đi là đúng lỗi ngược lại, hứa app
+                  "không lưu gì" trong khi bấm Lưu là lưu thật. */}
+              {(!laDonDocLap || coQuyenTaoDocLapThat) && (
                 <div className="muc-ngang">
                   {/* ⚠️ KHÔNG có `htmlFor` ở đây, và đó là cố ý. Chỗ hiện tình trạng là một
-                      `<div>` chứa `StatusBadge`, không phải ô nhập — `<label for="…">` trỏ vào một
+                      `<div>` chứa badge, không phải ô nhập — `<label for="…">` trỏ vào một
                       thẻ không nhập được thì bấm vào nhãn KHÔNG đưa con trỏ đi đâu cả, mà trình
                       đọc màn hình cũng không nối được hai thứ. Trước 18/08/2026 chỗ này ghi
                       `htmlFor="tinh-trang"` trỏ vào `<div id="tinh-trang">`: một liên kết chết.
-                      Chữ trạng thái đã nằm ngay trong `StatusBadge` (V1.1 — trạng thái luôn có cả
-                      màu lẫn chữ) nên không mất thông tin nào. */}
+                      Chữ trạng thái đã nằm ngay trong badge (V1.1 — trạng thái luôn có cả màu
+                      lẫn chữ) nên không mất thông tin nào. */}
                   <Label>
                     Tình trạng <span className="text-danger">*</span>
                   </Label>
-                  {/* 🔴 CHỈ ĐỌC. MISA cho chọn tình trạng tự do; app này có quy trình 6 trạng
-                      thái riêng đã chốt, và đơn mới luôn vào `da_chot` (xem `themDonHang`). Bày
-                      một ô chọn rồi bỏ qua giá trị người dùng chọn cũng là kiểu "giao diện hứa
-                      một việc app không làm". Trạng thái đổi ở màn chi tiết đơn. */}
+                  {/* 🔴 CHỈ ĐỌC. MISA cho chọn tình trạng tự do; app này có quy trình trạng thái
+                      riêng đã chốt. Bày một ô chọn rồi bỏ qua giá trị người dùng chọn cũng là
+                      kiểu "giao diện hứa một việc app không làm". Trạng thái đổi ở màn chi tiết
+                      đơn. Độc lập dùng badge tím riêng (`BadgeChoDeNghi`) — StatusBadge không có
+                      tông màu riêng cho trạng thái cục bộ này, xem `trang-thai.ts`. */}
                   <div className="flex min-h-11 items-center">
-                    <StatusBadge label={nhanTrangThai.nhan} tone={nhanTrangThai.tong} />
+                    {laDonDocLap ? (
+                      <BadgeChoDeNghi />
+                    ) : (
+                      <StatusBadge label={nhanTrangThai.nhan} tone={nhanTrangThai.tong} />
+                    )}
                   </div>
                 </div>
               )}
@@ -3737,17 +3831,21 @@ export function FormLapDonMuaHang({
             )}
 
             {/* ===============================================================
-                🔴 HAI BỘ NÚT KHÁC HẲN NHAU — Ban lãnh đạo 18/08/2026:
-                *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*.
+                🔴 BA TRƯỜNG HỢP, KHÔNG PHẢI HAI — siết lại 29/08/2026 (Sếp chốt).
 
-                · CHẾ ĐỘ MẪU (không gắn đề nghị) → [In mẫu PO] [Xuất Excel].
-                  KHÔNG có nút cất, và **không hàm nào ở nhánh này gọi `themDonHang`**. Nhờ vậy
-                  chế độ này không còn đi vòng qua chốt kiểm soát chi tiêu `vuongMacLapDonHang`
-                  — xem khối chú thích đầu file.
+                · CHẾ ĐỘ MẪU (độc lập, KHÔNG có `quyen.taoPoDoiLap`) → [In mẫu PO] [Xuất Excel].
+                  KHÔNG có nút cất, không hàm nào ở nhánh này gọi `themDonHang`. Y HỆT chỉ đạo
+                  18/08/2026 *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"* — vẫn áp dụng cho nhân
+                  viên thường (dưới Trưởng bộ phận), không đổi một ly.
+                · ĐỘC LẬP + CÓ `quyen.taoPoDoiLap` (thêm 29/08/2026) → [Lưu] [Lưu và In], gọi
+                  `luu()` y hệt chế độ có đề nghị — hàm này VỐN ĐÃ hỗ trợ `prId: dn?.id` là
+                  `undefined` (xem thân hàm), chỉ là trước đây không có đường nào tới được nút
+                  gọi nó. `themDonHang` tự nhận biết thiếu `prId` để tạo PO ở `"cho_de_nghi"`
+                  thay vì `"da_chot"` — xem chú thích ở đó.
                 · CHẾ ĐỘ CÓ ĐỀ NGHỊ → [Lưu] [Lưu và In] y như cũ, không đổi một ly. Đó là đường
                   nghiệp vụ chính của app (kể cả chức năng tách PO theo phân bổ báo giá).
                 =============================================================== */}
-            {laDonDocLap ? (
+            {laDonDocLap && !coQuyenTaoDocLapThat ? (
               <>
                 <Button
                   disabled={!hopLe || !quyen.xemGia || dangXuatMau}
@@ -4112,10 +4210,17 @@ export function FormLapDonMuaHang({
          *
          * 📌 Câu cảnh báo phải ĐÚNG với việc sắp xảy ra: đơn độc lập không trừ khối lượng của đề
          * nghị nào, nói ngược lại là hứa một chuyện app không làm.
+         *
+         * 🔴 CÂU RIÊNG CHO ĐỘC LẬP CẬP NHẬT 29/08/2026: trước đây đơn độc lập không cất được nên
+         * câu này chưa từng chạy tới người dùng thật (xem lịch sử ở khối chú thích đầu file).
+         * Nay chạy thật với `quyen.taoPoDoiLap` — phải nói rõ đơn vào trạng thái "Chờ đề nghị",
+         * không hiện trên bảng Quy trình mua hàng (bảng đó liệt kê theo đề nghị, đơn này chưa có
+         * đề nghị nào), nhưng VẪN hiện ở "Danh sách đơn hàng" và tính vào Công nợ nhà cung cấp
+         * bình thường — và phải bổ sung đề nghị (nút "+ Gắn đề nghị") thì mới hết cảnh báo màu.
          */
         canhBao={
           laDonDocLap
-            ? "Đơn này không gắn phiếu đề nghị nào nên không hiện trên bảng quy trình mua hàng. Lưu xong muốn sửa thì phải huỷ đơn rồi lập lại."
+            ? "Đơn vào trạng thái \"Chờ đề nghị\" — chưa gắn phiếu đề nghị nào nên không hiện trên bảng Quy trình mua hàng, nhưng vẫn hiện ở Danh sách đơn hàng và tính vào Công nợ nhà cung cấp bình thường. Bổ sung đề nghị sau bằng nút “+ Gắn đề nghị” ở trang chi tiết đơn."
             : "Lưu xong, số vật tư trong đơn này được tính là đã đặt hàng — phần còn lại của phiếu đề nghị giảm đi tương ứng, và không lập đơn khác cho phần đó nữa. Muốn sửa thì phải huỷ đơn rồi lập lại."
         }
         nhanDongY={hoiCat === "cat-in" ? "Lưu và In" : "Lưu"}

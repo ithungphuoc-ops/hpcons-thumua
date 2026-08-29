@@ -25,6 +25,9 @@ import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { formatDateTime } from "@/6-tien-ich/dinh-dang";
 import { NutXuatDonHangExcel } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-don-hang";
+import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
+import { HopGanDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-gan-de-nghi";
+import { HopXacNhanTuDongGan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-xac-nhan-tu-dong-gan";
 
 export default function TrangChiTietDonHang() {
   const params = useParams<{ id: string }>();
@@ -133,7 +136,11 @@ export default function TrangChiTietDonHang() {
                 In đơn mua hàng
               </Button>
             )}
-            <StatusBadge label={tt.nhan} tone={tt.tong} />
+            {po.trangThai === "cho_de_nghi" ? (
+              <BadgeChoDeNghi />
+            ) : (
+              <StatusBadge label={tt.nhan} tone={tt.tong} />
+            )}
           </div>
         }
       />
@@ -146,8 +153,26 @@ export default function TrangChiTietDonHang() {
               LIÊN KẾT CHẾT: bấm vào rơi về danh sách đề nghị, người dùng tưởng hồ sơ bị mất.
               Không có đề nghị thì vẫn phải bày một ô nói rõ "không gắn đề nghị" — bỏ hẳn ô đi
               thì lưới thông tin khuyết một chỗ và người đọc không biết là cố ý hay lỗi. */}
-          {po.prId && po.prCode ? (
+          {po.trangThai === "cho_de_nghi" && po.prId ? (
+            /* ★ ĐÃ TỰ ĐỘNG ĐIỀN, CHỜ XÁC NHẬN (29/08/2026, chiều) — route tự động khớp
+               (`app-request/de-nghi-moi`) chỉ điền `prId` chứ không tự chốt nữa (Sếp chọn
+               "thêm 1 bước xác nhận cuối" sau review PR). XÉT TRƯỚC nhánh `prId && prCode` bên
+               dưới — nếu không, trạng thái "chờ xác nhận" này sẽ bị nhánh đó nuốt mất, hiện như
+               một đề nghị đã chốt bình thường. */
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-text-desc">Đề nghị nguồn</span>
+              <HopXacNhanTuDongGan po={po} />
+            </div>
+          ) : po.prId && po.prCode ? (
             <ThongTin nhan="Đề nghị nguồn" giaTri={po.prCode} href={`/de-nghi/${po.prId}`} />
+          ) : po.trangThai === "cho_de_nghi" ? (
+            /* ★ PO "chờ đề nghị" (29/08/2026) — nút gắn đề nghị ngay tại đây, đúng chỗ đang
+               nói "chưa có đề nghị". Xem `hop-gan-de-nghi.tsx` cho toàn bộ luồng chọn + kiểm
+               điều kiện + đổi trạng thái. */
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-text-desc">Đề nghị nguồn</span>
+              <HopGanDeNghi po={po} />
+            </div>
           ) : (
             <ThongTin nhan="Đề nghị nguồn" giaTri="Không gắn đề nghị" />
           )}

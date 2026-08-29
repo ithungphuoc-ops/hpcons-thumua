@@ -53,6 +53,15 @@ export const NHAN_TRANG_THAI_DE_NGHI: Record<TrangThaiDeNghi, MoTaTrangThai> = {
 };
 
 export const NHAN_TRANG_THAI_PO: Record<TrangThaiPO, MoTaTrangThai> = {
+  /**
+   * ★ Dùng `tong: "warning"` CHỈ CHO CÁC CHỖ TRA NHÃN CHUNG CHUNG (vd lọc/xuất Excel) —
+   * `StatusBadge` chỉ có 5 tông chuẩn của Design System V1.1, không có tông tím riêng.
+   * Ở màn hình chính (danh sách/chi tiết đơn hàng) PHẢI tự vẽ badge tím riêng, KHÔNG dùng
+   * tong ở đây — xem `1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi.tsx`. Lý do tách
+   * badge riêng thay vì xin thêm 1 tông chuẩn: trạng thái này chỉ có ở module PO, không nên
+   * mở rộng bảng màu dùng chung cho cả hệ thống chỉ vì một trạng thái cục bộ.
+   */
+  cho_de_nghi: { nhan: "Chờ đề nghị", tong: "warning" },
   nhap: { nhan: "Nháp", tong: "neutral" },
   da_chot: { nhan: "Đã chốt — chờ giao", tong: "primary" },
   dang_giao: { nhan: "Đang giao", tong: "primary" },

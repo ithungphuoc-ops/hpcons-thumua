@@ -7,6 +7,7 @@ import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { Skeleton } from "@/1-giao-dien/nen-tang-ui/skeleton";
 import { FormLapDonMuaHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 
 /**
  * M4 — LẬP ĐƠN MUA HÀNG, bản MỘT TRANG RIÊNG (`/don-hang/tao-moi`).
@@ -48,8 +49,18 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
  * đi vòng qua chốt kiểm soát chi tiêu `vuongMacLapDonHang` (rủi ro tôi đã báo lên sáng cùng
  * ngày, khi chế độ này còn cất đơn thật).
  *
- * ⚠️ HỆ QUẢ Ở TRANG NÀY: prop `onDaLuu` bên dưới **chỉ còn chạy ở đường có `prId`**. Đừng bỏ nó
+ * ✅ MỞ LẠI CÓ KIỂM SOÁT 29/08/2026 — ĐỌC TIẾP TRƯỚC KHI TIN CÁI TRÊN LÀ HIỆN TRẠNG: người có
+ * `quyen.taoPoDoiLap` (Trưởng bộ phận trở lên) GIỜ CẤT ĐƯỢC THẬT, vào trạng thái `"cho_de_nghi"`
+ * chứ không phải `"da_chot"` — xem chú thích đầy đủ ở `themDonHang` (kho-du-lieu.tsx) và bảng
+ * hai chế độ đầu `form-lap-don-mua-hang.tsx`. Đoạn trên vẫn ĐÚNG cho người KHÔNG có quyền đó.
+ *
+ * ⚠️ HỆ QUẢ Ở TRANG NÀY: prop `onDaLuu` bên dưới **chỉ chạy ở đường có `prId`**. Đừng bỏ nó
  * đi vì "thấy không dùng" — đường có đề nghị vẫn cần điều hướng sang đơn vừa cất.
+ *
+ * ✅ CẬP NHẬT 29/08/2026: câu trên KHÔNG còn đúng tuyệt đối — độc lập + `quyen.taoPoDoiLap`
+ * (Trưởng bộ phận trở lên) GIỜ CŨNG gọi `luu()` và cũng nhận `onDaLuu` (hàm `luu()` vốn đã gọi
+ * `onDaLuu?.(...)` bất kể có `prId` hay không). Đúng hành vi mong muốn: điều hướng sang trang
+ * chi tiết PO vừa tạo, nơi có nút "+ Gắn đề nghị" để bổ sung sau — xem `hop-gan-de-nghi.tsx`.
  */
 export default function TrangLapDonHang() {
   /**
@@ -82,6 +93,7 @@ function NoiDungLapDonHang() {
   const rfqId = searchParams.get("rfqId");
   const nccIdTuBaoGia = searchParams.get("nccId");
   const { deNghi } = useDuLieu();
+  const { quyen } = useNguoiDung();
 
   /**
    * Đề nghị nguồn — CHỈ lấy từ địa chỉ. `null` khi vào từ menu (không có `prId`), HOẶC có
@@ -138,11 +150,17 @@ function NoiDungLapDonHang() {
         /* 🔴 CÂU MÔ TẢ PHẢI NÓI THẬT VIỆC APP LÀM. Chế độ không gắn đề nghị (18/08/2026, Ban
            lãnh đạo: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*) chỉ IN và XUẤT mẫu — nói "nhập
            đơn đặt hàng gửi nhà cung cấp" như trước là để người lập tưởng đơn đã vào hệ thống.
-           Dải cảnh báo trong form nói kỹ hơn; ở đây chỉ cần một câu. */
+           Dải cảnh báo trong form nói kỹ hơn; ở đây chỉ cần một câu.
+
+           ✅ CẬP NHẬT 29/08/2026: câu "không lưu vào hệ thống" chỉ còn đúng khi KHÔNG có
+           `quyen.taoPoDoiLap` — người có quyền (Trưởng bộ phận trở lên) đã cất được đơn thật
+           ở trạng thái "Chờ đề nghị", xem `themDonHang`/`form-lap-don-mua-hang.tsx`. */
         description={
           dn
             ? `Từ ${dn.code} · ${dn.tieuDe}`
-            : "Tạo MẪU đơn mua hàng để in hoặc xuất Excel. Đơn ở đây không lưu vào hệ thống."
+            : quyen.taoPoDoiLap
+              ? 'Lập đơn mua hàng khi chưa có đề nghị — vào trạng thái "Chờ đề nghị", bổ sung đề nghị sau.'
+              : "Tạo MẪU đơn mua hàng để in hoặc xuất Excel. Đơn ở đây không lưu vào hệ thống."
         }
         /* ★ NÚT X ĐÓNG ở góc phải thanh tiêu đề — MISA mở màn này thành một CỬA SỔ nên có nút X
            (Ban lãnh đạo 18/08/2026: *"giao diện phần PO e chỉnh lại giống 100% như vậy"*).
@@ -180,6 +198,10 @@ function NoiDungLapDonHang() {
       <FormLapDonMuaHang
         /* `null` = chế độ độc lập. Truyền tường minh cho người đọc thấy ngay là có chủ đích. */
         deNghi={dn}
+        /* ★ Liên kết cũ/hỏng (CodeRabbit review 29/08/2026) — khoá form về mẫu-thôi dù có
+           `quyen.taoPoDoiLap`, tránh cất nhầm một PO độc lập thật khi người dùng chỉ đang tìm
+           đúng phiếu đề nghị đã mất/xóa. Xem chú thích đầy đủ ở `maKhongTimThay` phía trên. */
+        duongDanHongPrId={maKhongTimThay !== null}
         /* 🔴 CHỈ ĐIỀN SẴN TỪ BẢNG BÁO GIÁ KHI TRA RA ĐỀ NGHỊ THẬT.
            `prId` + `rfqId` + `nccId` là MỘT GÓI do màn Báo giá gửi sang. `prId` hỏng mà `rfqId`
            còn thì phần điền sẵn sẽ đem phân bổ của một hồ sơ khác áp vào đơn đang lập — khớp

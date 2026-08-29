@@ -52,9 +52,14 @@ export function NutThongBao() {
   const thongBao = useMemo(
     () =>
       tatCaThongBao.filter((t) =>
-        thongBaoDanhChoToi(t.guiToi, nguoiDung.tenHienThi, quyen.phanBoCongViec),
+        thongBaoDanhChoToi(
+          t.guiToi,
+          nguoiDung.tenHienThi,
+          quyen.phanBoCongViec,
+          nguoiDung.vaiTro === "director",
+        ),
       ),
-    [tatCaThongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec],
+    [tatCaThongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec, nguoiDung.vaiTro],
   );
 
   // ⚠️ Đếm trên danh sách ĐÃ LỌC. Đếm trên danh sách gốc thì chuông báo số đỏ cho những
@@ -93,24 +98,31 @@ export function NutThongBao() {
         <DropdownMenuGroup>
           <DropdownMenuLabel className="flex flex-col gap-0.5">
             <span>Thông báo</span>
-            {/* Nói đủ HAI loại tin từ 18/08/2026 — trước đây nhãn ghi "Thông báo chuyển bước",
-                nay chuông còn báo việc mới được giao nên nhãn cũ đã hẹp hơn nội dung. */}
+            {/* Nói đủ BA loại tin (cập nhật 29/08/2026 thêm cảnh báo PO treo — trước đó chỉ nói
+                hai loại "việc mới" và "đổi bước", khiến người nhận cảnh báo PO treo (Trưởng bộ
+                phận/Ban lãnh đạo) đọc phụ đề không thấy mình thuộc diện nào — CodeRabbit review). */}
             <span className="text-[11px] font-normal text-text-desc">
-              Việc mới giao cho bạn và đề nghị đổi bước đều báo ở đây
+              Việc mới giao cho bạn, đề nghị đổi bước, và PO chờ đề nghị treo quá hạn đều báo ở
+              đây
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
 
           {thongBao.length === 0 ? (
             <p className="px-2 py-5 text-center text-xs text-text-desc">
-              Chưa có thông báo nào gửi cho bạn. Chuông chỉ hiện việc giao cho bạn, không hiện
-              việc của người khác.
+              Chưa có thông báo nào gửi cho bạn. Chuông chỉ hiện việc giao cho bạn (và, nếu bạn là
+              Trưởng bộ phận/Ban lãnh đạo, cảnh báo PO treo), không hiện việc của người khác.
             </p>
           ) : (
             thongBao.slice(0, 8).map((tb) => (
               <DropdownMenuItem
                 key={tb.id}
-                onClick={() => router.push(`/de-nghi/${tb.prId}`)}
+                /* ★ Tin cảnh báo PO treo (29/08/2026) mang id/mã CỦA PO trong `prId`/`prCode`
+                   (xem chú thích ở `ThongBaoChuyenBuoc.laCanhBaoTreo`) — điều hướng sang
+                   trang PO, không phải trang đề nghị. */
+                onClick={() =>
+                  router.push(tb.laCanhBaoTreo ? `/don-hang/${tb.prId}` : `/de-nghi/${tb.prId}`)
+                }
                 className="items-start"
               >
                 <div className="flex w-full flex-col gap-1">
@@ -127,13 +139,18 @@ export function NutThongBao() {
                         chính cú giao đó có thể đẩy hồ sơ sang bước sau (giao nốt dòng cuối là
                         ① → ②). In ra là chỉ người nhận sang một bước đã cũ. Bấm "mở phiếu" thì
                         họ thấy bước thật ngay trên thanh tiến độ, không cần chuông đoán hộ. */}
-                    {tb.laViecMoi
-                      ? `Bạn được giao ${tb.soDongViec ?? ""} dòng vật tư`
-                      : tb.laChuyenTiep
-                        ? `Trưởng bộ phận chuyển tiếp — mời tiếp tục bước "${nhanBuoc(tb.denBuoc)}"`
-                        : tb.tuBuoc
-                          ? `${nhanBuoc(tb.tuBuoc)} → ${nhanBuoc(tb.denBuoc)}`
-                          : `Đề nghị mới vào bước "${nhanBuoc(tb.denBuoc)}"`}
+                    {/* ★ Cảnh báo PO treo (29/08/2026) — xét TRƯỚC mọi nhánh khác, đọc thẳng
+                        `tieuDe` thay vì suy diễn từ bước đề nghị (tin này không nói về đề
+                        nghị nào cả, xem `ThongBaoChuyenBuoc.laCanhBaoTreo`). */}
+                    {tb.laCanhBaoTreo
+                      ? tb.tieuDe
+                      : tb.laViecMoi
+                        ? `Bạn được giao ${tb.soDongViec ?? ""} dòng vật tư`
+                        : tb.laChuyenTiep
+                          ? `Trưởng bộ phận chuyển tiếp — mời tiếp tục bước "${nhanBuoc(tb.denBuoc)}"`
+                          : tb.tuBuoc
+                            ? `${nhanBuoc(tb.tuBuoc)} → ${nhanBuoc(tb.denBuoc)}`
+                            : `Đề nghị mới vào bước "${nhanBuoc(tb.denBuoc)}"`}
                   </span>
                   {tb.loiNhan && (
                     <span className="text-[11px] text-text-secondary italic">

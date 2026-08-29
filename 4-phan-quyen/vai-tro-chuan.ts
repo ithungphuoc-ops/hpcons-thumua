@@ -245,6 +245,10 @@ export const VIEC_TREN_BANG_DOI_CHIEU: { khoa: keyof Quyen; nhan: string }[] = [
   { khoa: "xemQuyTrinhMuaHang", nhan: "Vào Quy trình mua hàng" },
   { khoa: "phanBoCongViec", nhan: "Phân bổ công việc" },
   { khoa: "lapPO", nhan: "Lập đơn mua hàng" },
+  /* Thêm 29/08/2026 cùng tính năng "PO chờ đề nghị" — cùng mức nhạy cảm với `suaPODaChot`/
+     `xacNhanTruongBP` (lập được PO thật, tính công nợ ngay, KHÔNG cần đề nghị nào trước), nên
+     phải hiện trong bảng đối chiếu để người phân quyền thấy rõ ai đang có quyền này. */
+  { khoa: "taoPoDoiLap", nhan: "Lập PO độc lập (chờ đề nghị)" },
   { khoa: "suaPODaChot", nhan: "Sửa đơn đã chốt" },
   { khoa: "ghiPhieuNhanHang", nhan: "Ghi phiếu nhận hàng" },
   { khoa: "xacNhanKho", nhan: "Xác nhận nhập kho" },
