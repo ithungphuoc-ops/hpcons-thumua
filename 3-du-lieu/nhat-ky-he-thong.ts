@@ -116,6 +116,11 @@ export function dangNgheNhatKyHeThong(
       );
       const nghe = () => {
         tay.huyNghe?.();
+        tay.huyNghe = null;
+        // `onAuthStateChanged` cũng bắn khi ĐĂNG XUẤT (user = null) — lắng nghe lúc đó chỉ
+        // để nhận "permission-denied" (đúng, vì rules đòi đăng nhập) rồi hiện nhầm thành lỗi
+        // mạng cho người dùng. Không có phiên hợp lệ thì không có gì để lắng nghe cả.
+        if (!auth.currentUser) return;
         tay.huyNghe = onSnapshot(
           q,
           (snap) => {
@@ -147,7 +152,8 @@ export function dangNgheNhatKyHeThong(
     } catch (e) {
       // Trước đây: lỗi ở bước mở Firebase/nạp gói làm promise này reject âm thầm
       // (unhandled rejection), khiLoi không bao giờ được gọi, trang kẹt mãi ở "Đang tải…".
-      khiLoi?.(e);
+      // Chỉ gọi khi CHƯA bị hủy — component đã gỡ bỏ thì gọi callback vào đó cũng vô nghĩa.
+      if (!tay.daHuy) khiLoi?.(e);
     }
   })();
   return () => {

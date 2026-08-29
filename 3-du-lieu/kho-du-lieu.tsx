@@ -1298,18 +1298,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * `deNghi/donHang/...` sáng cùng ngày mà không cách nào tra được ai đã bấm nút này lúc
      * nào (xem chú thích đầu `nhat-ky-he-thong.ts`).
      *
-     * 🔴 BẮT BUỘC GỌI TRƯỚC `day(rong)`, KHÔNG PHẢI SAU: dòng dưới cùng của hàm này gọi
-     * `window.location.href = "/de-nghi"` — điều hướng có thể hủy ngang một request mạng
-     * đang bay dở, nên log phải RA ĐI TRƯỚC khi có bất kỳ điều gì (kể cả việc xóa thật) có
-     * cơ hội cắt ngang nó. Cố ý KHÔNG `await` — chờ log xong mới xóa là để một việc ghi chép
-     * phụ trở thành cửa chặn cho việc chính người dùng đang cần; lỗi ghi log (mất mạng) chỉ
-     * in ra console, không được ngăn nút "Xóa dữ liệu chạy thử" hoạt động.
+     * 🔴 PHẢI `await` — dòng dưới cùng của hàm này gọi `window.location.href = "/de-nghi"`,
+     * điều hướng có thể hủy ngang một request mạng đang bay dở. Bản đầu (29/08/2026) cố ý
+     * không `await` để không chặn việc xóa, nhưng CodeRabbit chỉ đúng: không `await` thì
+     * không có gì đảm bảo request ghi log đã thật sự gửi đi trước khi `day(rong)` resolve và
+     * trang điều hướng — đúng kịch bản tính năng này sinh ra để chống. `try/catch` quanh nó
+     * vẫn giữ nguyên ý ban đầu: lỗi ghi log (mất mạng) chỉ in console, không chặn nút "Xóa
+     * dữ liệu chạy thử" hoạt động — chỉ khác là giờ chờ NÓ XONG (thành công hay lỗi) rồi mới
+     * đi tiếp, thay vì thả trôi.
      */
-    void ghiNhatKyHeThong(
-      nguoiDung,
-      "xoa_du_lieu_chay_thu",
-      `Xóa TOÀN BỘ dữ liệu chạy thử của cả phòng (${deNghi.length} đề nghị, ${donHang.length} đơn hàng, ${baoGia.length} bảng báo giá, ${phieuNhan.length} phiếu nhận hàng).`,
-    ).catch((e) => console.error("[nhat ky he thong] ghi hỏng:", e));
+    try {
+      await ghiNhatKyHeThong(
+        nguoiDung,
+        "xoa_du_lieu_chay_thu",
+        `Xóa TOÀN BỘ dữ liệu chạy thử của cả phòng (${deNghi.length} đề nghị, ${donHang.length} đơn hàng, ${baoGia.length} bảng báo giá, ${phieuNhan.length} phiếu nhận hàng).`,
+      );
+    } catch (e) {
+      console.error("[nhat ky he thong] ghi hỏng:", e);
+    }
     anhChupCuoi.current = JSON.stringify(rong);
     try {
       await ketNoiChung.current?.day(rong);
@@ -4051,6 +4057,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       // ★ Đọc TRƯỚC khi filter — sau khi setDeNghi thì bản ghi này không còn trong mảng nữa
       // để mà lấy mã/tiêu đề cho dòng nhật ký.
       const dnXoa = deNghiRef.current.find((d) => d.id === prId);
+      // Đề nghị đã bị xóa từ máy khác hoặc lời gọi bị lặp — không có gì để xóa thêm, và
+      // ghi một dòng nhật ký "đã xóa" cho việc không thật sự xảy ra là báo sai.
+      if (!dnXoa) return "Đề nghị này không còn tồn tại.";
       setDeNghi((truoc) => truoc.filter((d) => d.id !== prId));
       // Dọn luôn thông báo của đề nghị đã xóa, tránh bấm vào ra trang trống.
       setThongBao((truoc) => truoc.filter((t) => t.prId !== prId));
@@ -4059,9 +4068,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       void ghiNhatKyHeThong(
         nguoiDung,
         "xoa_de_nghi",
-        dnXoa
-          ? `Xóa đề nghị ${dnXoa.code} — ${dnXoa.tieuDe}`
-          : `Xóa đề nghị (id ${prId}, không đọc được mã/tiêu đề trước khi xóa)`,
+        `Xóa đề nghị ${dnXoa.code} — ${dnXoa.tieuDe}`,
       ).catch((e) => console.error("[nhat ky he thong] ghi hỏng:", e));
       return null;
     },
