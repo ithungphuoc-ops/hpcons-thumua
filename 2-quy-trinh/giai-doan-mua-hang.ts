@@ -346,6 +346,14 @@ export function nguoiCanXuLy(deNghi: DeNghiMuaHang, buoc: GiaiDoanMuaHang): stri
 export const NHAN_TRUONG_BO_PHAN = "Trưởng bộ phận Thu mua";
 /** Nhãn khi chưa ai được phân bổ — việc vẫn thuộc trưởng bộ phận. */
 export const NHAN_CHUA_PHAN_BO = "Chưa phân bổ người phụ trách";
+/**
+ * ★ Nhãn VAI TRÒ cho Ban lãnh đạo — thêm 29/08/2026, dùng cho van an toàn "PO chờ đề nghị
+ * treo quá 7 ngày" (`kho-du-lieu.tsx` → hiệu ứng kiểm tra lúc tải app). Trước đây
+ * `thongBaoDanhChoToi` chỉ biết vai trò Trưởng bộ phận (`NHAN_TRUONG_BO_PHAN`) — Ban Giám đốc
+ * (`vaiTro === "director"`) không có `quyen.phanBoCongViec`, nên KHÔNG lọt qua nhánh đó,
+ * cần nhãn + tham số riêng.
+ */
+export const NHAN_BAN_LANH_DAO = "Ban lãnh đạo";
 
 /**
  * THÔNG BÁO NÀY CÓ PHẢI GỬI CHO TÔI KHÔNG.
@@ -364,11 +372,17 @@ export const NHAN_CHUA_PHAN_BO = "Chưa phân bổ người phụ trách";
  * ⚠️ So khớp bằng TÊN vì `guiToi` đang lưu tên, không lưu mã người. Đây là điểm yếu đã
  * biết: hai người trùng tên sẽ thấy tin của nhau. Sửa tận gốc là lưu thêm mã người vào
  * thông báo — việc còn lại, chưa làm vì phải chuyển đổi dữ liệu cũ.
+ *
+ * 📌 THAM SỐ `laBanLanhDao` — thêm 29/08/2026, MẶC ĐỊNH `false` để 2 nơi gọi cũ
+ * (`nut-thong-bao.tsx`, `bao-viec-moi.tsx`) không phải sửa nếu chưa cần — nhưng van an toàn
+ * "PO chờ đề nghị treo quá hạn" PHẢI truyền đúng giá trị này (`nguoiDung.vaiTro === "director"`)
+ * thì Ban lãnh đạo mới thấy được cảnh báo gửi cho nhãn `NHAN_BAN_LANH_DAO`.
  */
 export function thongBaoDanhChoToi(
   guiToi: string[],
   tenToi: string,
   laNguoiPhanBo: boolean,
+  laBanLanhDao = false,
 ): boolean {
   if (guiToi.length === 0) return true;
   if (guiToi.includes(tenToi)) return true;
@@ -378,6 +392,7 @@ export function thongBaoDanhChoToi(
   ) {
     return true;
   }
+  if (laBanLanhDao && guiToi.includes(NHAN_BAN_LANH_DAO)) return true;
   return false;
 }
 

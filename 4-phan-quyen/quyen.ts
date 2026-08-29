@@ -124,6 +124,15 @@ export interface Quyen {
      app Thu mua không giữ luật duyệt nào nữa. Đừng thêm lại vào file này: hai app cùng
      giữ một luật duyệt là kiểu chắc chắn lệch nhau, và người dùng sẽ không biết tin bên nào. */
   lapPO: boolean;
+  /**
+   * ★ TẠO PO "CHỜ ĐỀ NGHỊ" (lập từ module độc lập, chưa có đề nghị nào) — thêm 29/08/2026.
+   *
+   * 🔴 KHÁC `lapPO`: `lapPO` là lập đơn TỪ MỘT ĐỀ NGHỊ ĐÃ DUYỆT (mở cho cả nhân viên thu mua,
+   * `capTM >= 2`). Quyền này CHỈ mở cho Trưởng bộ phận trở lên (`capTM >= 3`) — vì đây là
+   * quyết định mua trước khi có đề nghị chính thức, rủi ro cao hơn hẳn nên siết cấp cao hơn.
+   * Cùng mức nhạy cảm với `suaPODaChot`/`xacNhanTruongBP` bên dưới, dùng chung khuôn quyền.
+   */
+  taoPoDoiLap: boolean;
   suaPODaChot: boolean;
   /** Thủ kho lập phiếu nhận hàng từng lần. */
   ghiPhieuNhanHang: boolean;
@@ -207,6 +216,7 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     taoDeNghi: capTM >= 1,
 
     lapPO: laQuanTri || ((laTruongBP || laNhanVienTM) && capTM >= 2),
+    taoPoDoiLap: laQuanTri || (laTruongBP && capTM >= 3),
     suaPODaChot: laQuanTri || (laTruongBP && capTM >= 3),
 
     ghiPhieuNhanHang: laQuanTri || (laThuKho && (u.capKho ?? 0) >= 2),

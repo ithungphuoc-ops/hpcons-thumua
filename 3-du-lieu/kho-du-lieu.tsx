@@ -25,6 +25,8 @@ import {
   vuongMacRoiBuoc,
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
+  NHAN_TRUONG_BO_PHAN,
+  NHAN_BAN_LANH_DAO,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
@@ -69,6 +71,7 @@ import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
    Ban lãnh đạo 26/08/2026. Xem chú thích ở `const danhBa` trong `DuLieuProvider`. */
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { tinhQuyen } from "@/4-phan-quyen/quyen";
 import { ghiNhatKyHeThong } from "@/3-du-lieu/nhat-ky-he-thong";
 /* Luật "vật tư kiểm soát định mức" — một chỗ duy nhất, xem effect báo Ban QLDA. */
 import { dongCanKiemSoatDinhMuc } from "@/2-quy-trinh/kiem-soat-dinh-muc";
@@ -344,6 +347,14 @@ interface GiaTriDuLieu {
    * (chưa duyệt báo giá), mà lý do đó phải tới được mắt người dùng.
    */
   themDonHang: (dauVao: DauVaoDonHangMoi) => { id: string } | { loi: string };
+  /**
+   * ★ GẮN ĐỀ NGHỊ VÀO PO "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026 (hộp thoại "+ Gắn đề nghị").
+   *
+   * Chạy LẠI đúng `vuongMacLapDonHang` (y hệt `themDonHang` khi có `prId`) trước khi cho gắn —
+   * PO "chờ đề nghị" chưa hề qua chốt đó lúc tạo, đây là chỗ DUY NHẤT nó phải qua để trở thành
+   * PO hoàn chỉnh. `null` là gắn xong, chuỗi là lý do bị chặn.
+   */
+  ganDeNghiVaoPO: (poId: string, baoGiaId: string) => string | null;
   /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
   themPhieuNhan: (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => string | null;
   doiTrangThaiPhieu: (
@@ -2543,20 +2554,45 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        *
        * 📌 Muốn cho phép cất đơn không gắn đề nghị thì phải nghĩ ra luật xét duyệt giá THAY THẾ
        *    rồi thay vào đây — đừng chỉ xóa khối `if` này.
+       *
+       * ============================================================
+       * ★★★ SIẾT LẠI 29/08/2026 — LUẬT THAY THẾ ĐÃ CÓ, MỞ LẠI CÓ KIỂM SOÁT:
+       *
+       * KHÔNG còn chặn tuyệt đối thiếu `prId` nữa — nhưng KHÔNG mở lại nguyên trạng đường cũ
+       * (đường cũ cho ra thẳng `"da_chot"`, coi như PO hoàn chỉnh). Thay vào đó:
+       *   ① Chỉ Trưởng bộ phận trở lên (`quyen.taoPoDoiLap`) mới tạo được — chặn CẢ Ở ĐÂY, không
+       *      chỉ ẩn nút, đúng nguyên tắc đã ghi ở trên.
+       *   ② PO tạo ra ở trạng thái `"cho_de_nghi"` — KHÔNG được `vuongMacLapDonHang` (không có
+       *      gì để đối chiếu, đề nghị chưa tồn tại), KHÔNG đồng bộ QLK CTR (xem đoạn dưới), và
+       *      PHẢI qua đúng nút "+ Gắn đề nghị" (`ganDeNghiVaoPO`) — nơi CHẠY LẠI đúng luật
+       *      `vuongMacLapDonHang` này — mới chuyển được sang `"da_chot"`. Không có đường tắt.
+       *   ③ Ghi Nhật ký hệ thống ngay khi tạo — đây là quyết định mua trước khi có đề nghị
+       *      chính thức, cùng mức cần truy vết như xóa dữ liệu chạy thử.
+       *
+       * Sếp chốt 29/08/2026: PO này vẫn tính vào Công nợ nhà cung cấp ngay (không đặc cách gì
+       * ở `2-quy-trinh/tuoi-no.ts` — hàm đó chỉ loại `"huy"`, tính theo khối lượng đã giao thật,
+       * PO mới tạo chưa giao gì nên tự nhiên chưa vào công nợ, y hệt PO thường).
+       * ============================================================
        */
       if (!po.prId) {
-        return {
-          loi: "Đơn mua hàng phải gắn một phiếu đề nghị đã có bảng báo giá được duyệt. Module “Lập đơn mua hàng (PO)” chỉ tạo MẪU để in / xuất Excel, không cất vào hệ thống — muốn cất đơn thật thì mở phiếu đề nghị trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.",
-        };
+        const quyen = tinhQuyen(nguoiDung);
+        if (!quyen.taoPoDoiLap) {
+          return {
+            loi: "Chỉ Trưởng bộ phận trở lên mới lập được đơn khi chưa có đề nghị. Muốn lập đơn qua đường thường thì mở phiếu đề nghị trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.",
+          };
+        }
+      } else {
+        /* ★ Truyền cả ĐỀ NGHỊ để chốt kiểm luôn điều kiện HỢP ĐỒNG (Ban lãnh đạo 26/08/2026:
+           *"Phải có hợp đồng hoặc thoả thuận mua bán thì mới tiến hành lập PO được"*).
+           🔴 Đây là chốt THẬT ở tầng ghi — nút mờ trên giao diện chỉ là lời nhắc, không phải chặn.
+           CHỈ áp cho PO có `prId` — PO "chờ đề nghị" chạy lại đúng luật này ở `ganDeNghiVaoPO`
+           lúc gắn, không phải ở đây (lúc này chưa có bảng báo giá nào để đối chiếu). */
+        const chan = vuongMacLapDonHang(
+          baoGiaRef.current.filter((b) => b.prId === po.prId),
+          deNghiRef.current.find((d) => d.id === po.prId),
+        );
+        if (chan) return { loi: chan };
       }
-      /* ★ Truyền cả ĐỀ NGHỊ để chốt kiểm luôn điều kiện HỢP ĐỒNG (Ban lãnh đạo 26/08/2026:
-         *"Phải có hợp đồng hoặc thoả thuận mua bán thì mới tiến hành lập PO được"*).
-         🔴 Đây là chốt THẬT ở tầng ghi — nút mờ trên giao diện chỉ là lời nhắc, không phải chặn. */
-      const chan = vuongMacLapDonHang(
-        baoGiaRef.current.filter((b) => b.prId === po.prId),
-        deNghiRef.current.find((d) => d.id === po.prId),
-      );
-      if (chan) return { loi: chan };
 
       /**
        * 🔴 MÃ DỰ ÁN RỖNG THÌ TỪ CHỐI HẲN, không cấp mã `-PO-001`.
@@ -2612,7 +2648,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * nhánh ấy không bao giờ chạy được nữa — xóa chứ không để lại mã chết. Lấy lại ở git nếu
        * sau này cho cất đơn không gắn đề nghị.
        */
-      const donMoi: DonDatHang = { ...po, id, code, trangThai: "da_chot" };
+      const donMoi: DonDatHang = { ...po, id, code, trangThai: po.prId ? "da_chot" : "cho_de_nghi" };
       setDonHang((truoc) => [...truoc, donMoi]);
 
       /**
@@ -2620,21 +2656,27 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * Chỉ có hiệu lực khi đề nghị gốc CÓ mã đề xuất App Request (đề nghị công trình đã đồng
        * bộ ở Việc 1) — đề nghị phòng ban hoặc dữ liệu cũ trước Việc 1 tự bỏ qua êm, xem
        * `5-ket-noi/gui-po-qlk-ctr.ts`.
+       *
+       * 🔴 CHỈ GỬI KHI CÓ `prId` (thêm 29/08/2026) — PO "chờ đề nghị" chưa có đề nghị gốc nào để
+       * đối chiếu khối lượng đã duyệt, gửi lúc này chỉ tổ tạo dữ liệu rác bên QLK CTR. Đồng bộ
+       * lại đúng lúc `ganDeNghiVaoPO` gắn xong (prId có giá trị), không sớm hơn.
        */
-      const deNghiGoc = deNghiRef.current.find((d) => d.id === po.prId);
-      void guiPOSangQlkCtr(donMoi, deNghiGoc).then((ketQua) => {
-        if (!ketQua.apDung) return; // đề nghị phòng ban / chưa qua Việc 1 — không liên quan
-        setDonHang((truoc) =>
-          truoc.map((p) =>
-            p.id !== id
-              ? p
-              : ketQua.thanhCong
-                ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
-                : { ...p, qlkCtrSyncStatus: "failed" },
-          ),
-        );
-        if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);
-      });
+      if (po.prId) {
+        const deNghiGoc = deNghiRef.current.find((d) => d.id === po.prId);
+        void guiPOSangQlkCtr(donMoi, deNghiGoc).then((ketQua) => {
+          if (!ketQua.apDung) return; // đề nghị phòng ban / chưa qua Việc 1 — không liên quan
+          setDonHang((truoc) =>
+            truoc.map((p) =>
+              p.id !== id
+                ? p
+                : ketQua.thanhCong
+                  ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
+                  : { ...p, qlkCtrSyncStatus: "failed" },
+            ),
+          );
+          if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);
+        });
+      }
 
       setGiaDonHang((truoc) => [
         ...truoc,
@@ -2659,10 +2701,96 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       // Không ghi tên NCC vào nhật ký — lịch sử đề nghị hiện cho cả vai trò không được xem NCC.
       if (po.prId) {
         ghiLichSuDeNghi(po.prId, po.nguoiPhuTrachTen, `Lập và chốt đơn hàng ${code}`);
+      } else {
+        // ★ PO "chờ đề nghị" không có đề nghị nào để ghi lịch sử vào — ghi thẳng Nhật ký hệ
+        // thống, cùng mức truy vết như xóa dữ liệu chạy thử (đây là quyết định mua trước khi
+        // có đề nghị chính thức, đáng ghi lại ai làm/lúc nào). Không `await`, lỗi ghi log
+        // không được chặn việc lập đơn đã thực hiện xong.
+        void ghiNhatKyHeThong(
+          nguoiDung,
+          "lap_po_cho_de_nghi",
+          `Lập đơn mua hàng ${code} khi CHƯA có đề nghị (${po.tenCongTrinh || po.maDuAn} — ${po.supplierTen}), chờ gắn đề nghị sau.`,
+        ).catch((e) => console.error("[nhat ky he thong] ghi hỏng:", e));
       }
       return { id };
     },
-    [ghiLichSuDeNghi],
+    [ghiLichSuDeNghi, nguoiDung],
+  );
+
+  /**
+   * ★ GẮN ĐỀ NGHỊ VÀO PO "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026, xem chú thích đầy đủ ở chỗ khai báo
+   * kiểu `ganDeNghiVaoPO` phía trên (interface của context). Đây là chỗ DUY NHẤT chạy
+   * `vuongMacLapDonHang` cho PO loại này — `themDonHang` cố ý bỏ qua luật đó lúc tạo vì chưa
+   * có gì để đối chiếu.
+   */
+  const ganDeNghiVaoPO = useCallback(
+    (poId: string, baoGiaId: string): string | null => {
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po) return "Không tìm thấy đơn hàng này.";
+      if (po.trangThai !== "cho_de_nghi") {
+        return "Đơn hàng này đã gắn đề nghị rồi, không cần gắn lại.";
+      }
+      const bg = baoGiaRef.current.find((b) => b.id === baoGiaId);
+      if (!bg || bg.trangThai !== "da_chon_ncc") {
+        return "Bảng báo giá này chưa được chốt nhà cung cấp, chưa gắn được.";
+      }
+      const dnGoc = deNghiRef.current.find((d) => d.id === bg.prId);
+      if (!dnGoc) return "Không tìm thấy đề nghị gốc của bảng báo giá này.";
+
+      /* Chạy LẠI đúng luật chặn của PO thường (Ban lãnh đạo 15/08/2026 + 26/08/2026) — PO
+         "chờ đề nghị" chưa qua bước này lúc tạo vì lúc đó chưa có gì để đối chiếu. */
+      const chan = vuongMacLapDonHang(
+        baoGiaRef.current.filter((b) => b.prId === dnGoc.id),
+        dnGoc,
+      );
+      if (chan) return chan;
+
+      const soNgay = Math.max(
+        0,
+        Math.round((Date.now() - new Date(po.ngayLapPO).getTime()) / 86_400_000),
+      );
+
+      const poMoi: DonDatHang = {
+        ...po,
+        prId: dnGoc.id,
+        prCode: dnGoc.code,
+        maDeXuatAppRequest: dnGoc.maDeXuatAppRequest,
+        trangThai: "da_chot",
+      };
+      setDonHang((truoc) => truoc.map((p) => (p.id === poId ? poMoi : p)));
+
+      ghiLichSuDeNghi(
+        dnGoc.id,
+        po.nguoiPhuTrachTen,
+        `Gắn đơn hàng ${po.code} (đã lập trước ${soNgay} ngày) vào đề nghị này`,
+      );
+
+      // ★ MINH BẠCH — ghi rõ PO này từng "chờ đề nghị" bao lâu, không giấu việc mua trước.
+      void ghiNhatKyHeThong(
+        nguoiDung,
+        "gan_de_nghi_vao_po",
+        `Gắn đề nghị ${dnGoc.code} vào đơn hàng ${po.code} — đơn đã lập trước đó ${soNgay} ngày.`,
+      ).catch((e) => console.error("[nhat ky he thong] ghi hỏng:", e));
+
+      /* Đồng bộ QLK CTR hoãn từ `themDonHang` tới đây — giờ đã có đề nghị gốc để đối chiếu
+         khối lượng đã duyệt, xem chú thích ở `themDonHang`. */
+      void guiPOSangQlkCtr(poMoi, dnGoc).then((ketQua) => {
+        if (!ketQua.apDung) return;
+        setDonHang((truoc) =>
+          truoc.map((p) =>
+            p.id !== poId
+              ? p
+              : ketQua.thanhCong
+                ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
+                : { ...p, qlkCtrSyncStatus: "failed" },
+          ),
+        );
+        if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);
+      });
+
+      return null;
+    },
+    [ghiLichSuDeNghi, nguoiDung],
   );
 
   const themPhieuNhan = useCallback(
@@ -5133,6 +5261,56 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   }, [deNghi, cauHinh.vatTuDinhMuc, themNguoiTheoDoi, ghiLichSuDeNghi, danhBa]);
 
   /**
+   * ★★ VAN AN TOÀN "PO CHỜ ĐỀ NGHỊ TREO QUÁ 7 NGÀY" — thêm 29/08/2026 (Sếp chốt qua demo
+   * "Ngã Rẽ Lập PO"): tránh PO tạo qua module độc lập bị quên trôi mãi ở trạng thái tạm.
+   *
+   * 🔴 TÍNH RUNTIME MỖI LẦN AI ĐÓ MỞ APP, không có cron/job nền — app này không có tầng máy
+   * chủ chạy định kỳ, đúng kiến trúc "mọi trạng thái phái sinh tính lại từ dữ liệu gốc" đã
+   * dùng cho "quá hạn giao hàng" (`soNgayConLai`). Mốc tính là `ngayLapPO` — cùng cách đo
+   * "N ngày" đã dùng cho các hạn khác trong app, không phải một quy ước mới.
+   *
+   * 🔴 ID THÔNG BÁO CỐ ĐỊNH (`tb-treo-po-{id}`), KHÔNG dùng `soKeTiepThongBao()` — đây là chốt
+   * chống trùng THẬT (tra lại đúng `thongBaoRef.current`, sống sót qua tải lại trang/máy khác
+   * mở app), không chỉ dựa vào `useRef` trong bộ nhớ (`daBaoTreoPO`, chỉ để đỡ phải quét lại
+   * mảng đã biết chắc có tin mỗi lần render — không phải chốt chống trùng chính).
+   */
+  const daBaoTreoPO = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const HAN_NGAY_CHO_DE_NGHI = 7;
+    for (const po of donHang) {
+      if (po.trangThai !== "cho_de_nghi") continue;
+      if (daBaoTreoPO.current.has(po.id)) continue;
+
+      const soNgay = Math.floor((Date.now() - new Date(po.ngayLapPO).getTime()) / 86_400_000);
+      if (soNgay < HAN_NGAY_CHO_DE_NGHI) continue;
+
+      const idThongBao = `tb-treo-po-${po.id}`;
+      daBaoTreoPO.current.add(po.id);
+      if (thongBaoRef.current.some((t) => t.id === idThongBao)) continue; // đã báo từ trước
+
+      setThongBao((truoc) =>
+        [
+          {
+            id: idThongBao,
+            /* Mang id/mã CỦA PO, không phải đề nghị — xem chú thích ở
+               `ThongBaoChuyenBuoc.laCanhBaoTreo` (kieu-du-lieu.ts). */
+            prId: po.id,
+            prCode: po.code,
+            tieuDe: `⚠️ Đơn hàng ${po.code} đã "Chờ đề nghị" ${soNgay} ngày — chưa gắn đề nghị nào`,
+            denBuoc: "cho_de_nghi",
+            thoiDiem: new Date().toISOString(),
+            guiToi: [NHAN_TRUONG_BO_PHAN, NHAN_BAN_LANH_DAO],
+            daDoc: false,
+            laCanhBaoTreo: true,
+          },
+          ...truoc,
+        ].slice(0, 30),
+      );
+    }
+  }, [donHang]);
+
+  /**
    * CHUYỂN TIẾP — trưởng bộ phận bàn giao việc cho nhân viên đã phân bổ.
    *
    * 🔴 Không đụng tới giai đoạn của đề nghị. Giai đoạn vẫn suy ra từ chứng từ
@@ -5227,6 +5405,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       suaMatHangDeNghi,
       chuyenViecDong,
       themDonHang,
+      ganDeNghiVaoPO,
       themPhieuNhan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
@@ -5294,6 +5473,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       suaMatHangDeNghi,
       chuyenViecDong,
       themDonHang,
+      ganDeNghiVaoPO,
       themPhieuNhan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,

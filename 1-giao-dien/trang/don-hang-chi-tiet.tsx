@@ -25,6 +25,8 @@ import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { formatDateTime } from "@/6-tien-ich/dinh-dang";
 import { NutXuatDonHangExcel } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-don-hang";
+import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
+import { HopGanDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-gan-de-nghi";
 
 export default function TrangChiTietDonHang() {
   const params = useParams<{ id: string }>();
@@ -133,7 +135,11 @@ export default function TrangChiTietDonHang() {
                 In đơn mua hàng
               </Button>
             )}
-            <StatusBadge label={tt.nhan} tone={tt.tong} />
+            {po.trangThai === "cho_de_nghi" ? (
+              <BadgeChoDeNghi />
+            ) : (
+              <StatusBadge label={tt.nhan} tone={tt.tong} />
+            )}
           </div>
         }
       />
@@ -148,6 +154,14 @@ export default function TrangChiTietDonHang() {
               thì lưới thông tin khuyết một chỗ và người đọc không biết là cố ý hay lỗi. */}
           {po.prId && po.prCode ? (
             <ThongTin nhan="Đề nghị nguồn" giaTri={po.prCode} href={`/de-nghi/${po.prId}`} />
+          ) : po.trangThai === "cho_de_nghi" ? (
+            /* ★ PO "chờ đề nghị" (29/08/2026) — nút gắn đề nghị ngay tại đây, đúng chỗ đang
+               nói "chưa có đề nghị". Xem `hop-gan-de-nghi.tsx` cho toàn bộ luồng chọn + kiểm
+               điều kiện + đổi trạng thái. */
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-text-desc">Đề nghị nguồn</span>
+              <HopGanDeNghi po={po} />
+            </div>
           ) : (
             <ThongTin nhan="Đề nghị nguồn" giaTri="Không gắn đề nghị" />
           )}

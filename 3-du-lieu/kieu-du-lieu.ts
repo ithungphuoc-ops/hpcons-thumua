@@ -482,6 +482,22 @@ export interface NhaCungCap {
 // ------------------------------------------------------------
 
 export type TrangThaiPO =
+  /**
+   * ★ PO "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026, module "Lập đơn mua hàng (PO)" (không gắn `prId`).
+   *
+   * 🔴 KHÁC HẲN việc bỏ chặn `themDonHang` hồi 18/08/2026 (đã đóng vì đi vòng chốt kiểm soát
+   * chi tiêu — xem chú thích ở `themDonHang`). Lần này KHÔNG mở lại đường cũ: PO trạng thái
+   * này vẫn phải qua đúng luật cấp quyền riêng (`quyen.taoPoDoiLap`, chỉ Trưởng bộ phận trở
+   * lên) và bắt buộc phải "hợp thức hóa" bằng cách gắn đúng 1 đề nghị đã duyệt + có bảng báo
+   * giá chốt NCC (nút "+ Gắn đề nghị") mới chuyển được sang `"da_chot"` — không có đường nào
+   * ở lại vĩnh viễn ở trạng thái này mà vẫn coi là PO hoàn chỉnh.
+   *
+   * 📌 Sếp chốt 29/08/2026: hoạt động GẦN NHƯ BÌNH THƯỜNG như PO thật (in được, tính vào
+   * Công nợ nhà cung cấp ngay, không khóa chức năng nào) — chỉ khác 1 màu badge riêng để nhận
+   * biết còn thiếu đề nghị, và bị chặn đồng bộ QLK CTR cho tới khi gắn xong (xem `themDonHang`
+   * và `guiPOSangQlkCtr`) vì chưa có đề nghị gốc để đối chiếu khối lượng đã duyệt.
+   */
+  | "cho_de_nghi"
   | "nhap"
   | "da_chot"
   | "dang_giao"
@@ -1100,6 +1116,17 @@ export interface ThongBaoChuyenBuoc {
   soDongViec?: number;
   /** Lời nhắn kèm khi chuyển tiếp / giao việc — trưởng bộ phận dặn thêm gì thì ghi ở đây. */
   loiNhan?: string;
+  /**
+   * ★ VAN AN TOÀN "PO CHỜ ĐỀ NGHỊ TREO QUÁ HẠN" — thêm 29/08/2026 (Sếp chốt qua demo "Ngã Rẽ
+   * Lập PO"). `true` = tin CẢNH BÁO, không phải tin đổi bước đề nghị — đọc thẳng `tieuDe`,
+   * không suy diễn từ `tuBuoc`/`denBuoc`/`laViecMoi` (xem nhánh riêng ở `nut-thong-bao.tsx`).
+   *
+   * 🔴 `prId`/`prCode` Ở ĐÂY MANG ID/MÃ CỦA **PO**, KHÔNG PHẢI ĐỀ NGHỊ — tái dùng 2 field có
+   * sẵn thay vì thêm `poId`/`poCode` song song, vì cả hai đều chỉ dùng để "điều hướng khi bấm
+   * vào tin". Nơi hiển thị (`nut-thong-bao.tsx`) PHẢI kiểm cờ này trước khi điều hướng, kẻo
+   * đưa người dùng tới `/de-nghi/{id PO}` — một địa chỉ không tồn tại.
+   */
+  laCanhBaoTreo?: boolean;
 }
 
 // ------------------------------------------------------------

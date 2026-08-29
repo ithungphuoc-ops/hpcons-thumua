@@ -52,9 +52,14 @@ export function NutThongBao() {
   const thongBao = useMemo(
     () =>
       tatCaThongBao.filter((t) =>
-        thongBaoDanhChoToi(t.guiToi, nguoiDung.tenHienThi, quyen.phanBoCongViec),
+        thongBaoDanhChoToi(
+          t.guiToi,
+          nguoiDung.tenHienThi,
+          quyen.phanBoCongViec,
+          nguoiDung.vaiTro === "director",
+        ),
       ),
-    [tatCaThongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec],
+    [tatCaThongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec, nguoiDung.vaiTro],
   );
 
   // ⚠️ Đếm trên danh sách ĐÃ LỌC. Đếm trên danh sách gốc thì chuông báo số đỏ cho những
@@ -110,7 +115,12 @@ export function NutThongBao() {
             thongBao.slice(0, 8).map((tb) => (
               <DropdownMenuItem
                 key={tb.id}
-                onClick={() => router.push(`/de-nghi/${tb.prId}`)}
+                /* ★ Tin cảnh báo PO treo (29/08/2026) mang id/mã CỦA PO trong `prId`/`prCode`
+                   (xem chú thích ở `ThongBaoChuyenBuoc.laCanhBaoTreo`) — điều hướng sang
+                   trang PO, không phải trang đề nghị. */
+                onClick={() =>
+                  router.push(tb.laCanhBaoTreo ? `/don-hang/${tb.prId}` : `/de-nghi/${tb.prId}`)
+                }
                 className="items-start"
               >
                 <div className="flex w-full flex-col gap-1">
@@ -127,13 +137,18 @@ export function NutThongBao() {
                         chính cú giao đó có thể đẩy hồ sơ sang bước sau (giao nốt dòng cuối là
                         ① → ②). In ra là chỉ người nhận sang một bước đã cũ. Bấm "mở phiếu" thì
                         họ thấy bước thật ngay trên thanh tiến độ, không cần chuông đoán hộ. */}
-                    {tb.laViecMoi
-                      ? `Bạn được giao ${tb.soDongViec ?? ""} dòng vật tư`
-                      : tb.laChuyenTiep
-                        ? `Trưởng bộ phận chuyển tiếp — mời tiếp tục bước "${nhanBuoc(tb.denBuoc)}"`
-                        : tb.tuBuoc
-                          ? `${nhanBuoc(tb.tuBuoc)} → ${nhanBuoc(tb.denBuoc)}`
-                          : `Đề nghị mới vào bước "${nhanBuoc(tb.denBuoc)}"`}
+                    {/* ★ Cảnh báo PO treo (29/08/2026) — xét TRƯỚC mọi nhánh khác, đọc thẳng
+                        `tieuDe` thay vì suy diễn từ bước đề nghị (tin này không nói về đề
+                        nghị nào cả, xem `ThongBaoChuyenBuoc.laCanhBaoTreo`). */}
+                    {tb.laCanhBaoTreo
+                      ? tb.tieuDe
+                      : tb.laViecMoi
+                        ? `Bạn được giao ${tb.soDongViec ?? ""} dòng vật tư`
+                        : tb.laChuyenTiep
+                          ? `Trưởng bộ phận chuyển tiếp — mời tiếp tục bước "${nhanBuoc(tb.denBuoc)}"`
+                          : tb.tuBuoc
+                            ? `${nhanBuoc(tb.tuBuoc)} → ${nhanBuoc(tb.denBuoc)}`
+                            : `Đề nghị mới vào bước "${nhanBuoc(tb.denBuoc)}"`}
                   </span>
                   {tb.loiNhan && (
                     <span className="text-[11px] text-text-secondary italic">

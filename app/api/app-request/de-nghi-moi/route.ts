@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { getHpcoreDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
 import { maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
@@ -8,9 +9,11 @@ import {
   tachCongTrinhTuChuoi,
   xacDinhMaDuAnTamThoi,
 } from "@/2-quy-trinh/tich-hop-app-request";
-import type { DeNghiMuaHang, DongDeNghi } from "@/3-du-lieu/kieu-du-lieu";
+import type { DeNghiMuaHang, DongDeNghi, DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import type { DeNghiMoiTuAppRequest, KetQuaNhanDeNghiTuAppRequest } from "@/3-du-lieu/tich-hop-app-request-types";
+import { boDau } from "@/6-tien-ich/bo-dau";
+import { TEN_COLLECTION_NHAT_KY } from "@/3-du-lieu/nhat-ky-he-thong";
 
 // "Cửa tiếp nhận" của App Thu mua cho App Request — xem hợp đồng dữ liệu đầy đủ tại
 // 3-du-lieu/tich-hop-app-request-types.ts.
@@ -110,7 +113,86 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
         maDeXuatAppRequest: payload.requestCode,
       };
 
-      tx.set(docRef, bo0Undefined({ deNghi: [...deNghiHienCo, deNghiMoi] }), { merge: true });
+      /**
+       * ★★★ TỰ ĐỘNG GẮN PO "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026 (Sếp chốt qua demo "Ngã Rẽ Lập
+       * PO"), việc 3 của Cách 3: PO lập trước qua module độc lập, đề nghị về sau qua đường
+       * bình thường này, tự khớp lại — không cần app Đề Xuất biết gì về PO bên Thu Mua.
+       *
+       * 🔴 KHÓA CHÍNH LÀ `maDuAn`, KHÔNG PHẢI "Theo hợp đồng" — đọc kỹ trước khi đổi:
+       * `maHopDongCDT` của đề nghị chỉ là phần TRƯỚC dấu " - " trong ô "Tên đề xuất"
+       * (`tachCongTrinhTuChuoi`), một MÃ NGẮN theo khuôn Thông báo 09/2026 — CÙNG KHUÔN với
+       * `maDuAn` bên PO (chọn từ dự án có sẵn hoặc gõ tay theo đúng khuôn đó). Còn "Theo hợp
+       * đồng" bên PO (từ 27/08/2026) là GHI CHÚ TỰ DO cả câu ("HĐ số 089/2026/HĐKT-HPC ký
+       * ngày 01/08") — không cùng định dạng với mã ngắn bên đề nghị, so trực tiếp hai chuỗi
+       * này dễ trật. Vì vậy `maDuAn` là điều kiện BẮT BUỘC; "Theo hợp đồng" chỉ là TÍN HIỆU
+       * PHỤ — có ở cả hai bên mà KHÁC nhau (sau khi chuẩn hoá) thì coi là cờ báo động, dừng
+       * lại không tự gắn; thiếu ở một bên (rất hay gặp, vì cả hai đều là ô tuỳ chọn) thì
+       * không tính là mâu thuẫn, vẫn cho gắn theo `maDuAn`.
+       *
+       * 🔴 CHỈ GẮN KHI TÌM RA ĐÚNG 1 ỨNG VIÊN. Ra 0 hoặc ≥2 kết quả đều để nguyên "chờ đề
+       * nghị" — nhiều PO cùng mã dự án là chuyện thật (nhiều lần mua cho cùng công trình), tự
+       * chọn bừa 1 cái là gắn nhầm PO của người khác vào đề nghị này. Người dùng vẫn gắn tay
+       * được qua hộp thoại "+ Gắn đề nghị" (`hop-gan-de-nghi.tsx`) như bình thường.
+       */
+      const donHangHienCo: DonDatHang[] = Array.isArray(data.donHang) ? data.donHang : [];
+      const chuanHoa = (s: string) =>
+        boDau(s)
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+      const ungVien = donHangHienCo.filter((po) => {
+        if (po.trangThai !== "cho_de_nghi" || po.maDuAn !== deNghiMoi.maDuAn) return false;
+        if (po.maHopDongCDT && deNghiMoi.maHopDongCDT) {
+          const a = chuanHoa(po.maHopDongCDT);
+          const b = chuanHoa(deNghiMoi.maHopDongCDT);
+          if (!a.includes(b) && !b.includes(a)) return false; // mâu thuẫn — dừng, không đoán
+        }
+        return true;
+      });
+
+      let donHangMoi = donHangHienCo;
+      let poDaGan: DonDatHang | null = null;
+      if (ungVien.length === 1) {
+        const po = ungVien[0];
+        const poMoi: DonDatHang = {
+          ...po,
+          prId: deNghiMoi.id,
+          prCode: deNghiMoi.code,
+          maDeXuatAppRequest: deNghiMoi.maDeXuatAppRequest,
+          trangThai: "da_chot",
+        };
+        donHangMoi = donHangHienCo.map((p) => (p.id === po.id ? poMoi : p));
+        poDaGan = poMoi;
+        const soNgay = Math.max(
+          0,
+          Math.round((Date.now() - new Date(po.ngayLapPO).getTime()) / 86_400_000),
+        );
+        deNghiMoi.lichSu.push({
+          thoiDiem: new Date().toISOString(),
+          nguoiThucHien: "Hệ thống (tự động khớp App Request)",
+          hanhDong: "Tự động gắn với đơn hàng đã lập trước",
+          ghiChu: `Đơn hàng ${po.code} — lập trước ${soNgay} ngày, cùng mã dự án ${po.maDuAn}.`,
+        });
+      }
+
+      tx.set(
+        docRef,
+        bo0Undefined({ deNghi: [...deNghiHienCo, deNghiMoi], donHang: donHangMoi }),
+        { merge: true },
+      );
+
+      if (poDaGan) {
+        // ★ MINH BẠCH — ghi thẳng bằng Admin SDK (route này không có phiên đăng nhập người
+        // dùng để dùng `ghiNhatKyHeThong` phía client). Cùng collection, cùng hình dạng dữ
+        // liệu — trang "Nhật ký hệ thống" đọc được bình thường, không cần biết ai ghi.
+        tx.create(db.collection(TEN_COLLECTION_NHAT_KY).doc(), {
+          thoiDiem: FieldValue.serverTimestamp(),
+          nguoiThucHienUid: "he-thong",
+          nguoiThucHienTen: "Hệ thống (tự động khớp App Request)",
+          hanhDong: "gan_de_nghi_vao_po",
+          moTa: `Tự động gắn đề nghị ${deNghiMoi.code} vào đơn hàng ${poDaGan.code} — khớp mã dự án ${poDaGan.maDuAn}.`,
+        });
+      }
+
       return { moi: true as const, deNghi: deNghiMoi };
     });
 

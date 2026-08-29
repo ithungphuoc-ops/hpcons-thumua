@@ -10,6 +10,7 @@
 // ============================================================
 
 import type {
+  BaoGia,
   DeNghiMuaHang,
   DongPO,
   DonDatHang,
@@ -597,6 +598,23 @@ export function tongGiaTriPO(
   return dongHangCuaPO(po).reduce((tong, dong) => {
     const g = gia.lines.find((l) => l.sttDong === dong.sttDong);
     return tong + (g ? thanhTienDong(dong.khoiLuongDat, g.donGia) : 0);
+  }, 0);
+}
+
+/**
+ * ★ TỔNG GIÁ TRỊ CỦA BẢNG BÁO GIÁ ĐÃ CHỐT — thêm 29/08/2026, phục vụ hộp thoại "+ Gắn đề
+ * nghị" (`hop-gan-de-nghi.tsx`): người lập PO "chờ đề nghị" cần thấy sơ bộ giá trị của từng
+ * đề nghị ứng viên trước khi chọn gắn, để không phải mở từng đề nghị ra xem.
+ *
+ * 🔴 KHÔNG CÓ FIELD TỔNG SẴN TRÊN `BaoGia` — phải tự cộng từ `items[].baoGiaNCC[]`, lọc đúng
+ * dòng giá của NCC đã chốt (`nccDaChonId`). Trả `0` nếu chưa chốt NCC nào hoặc dòng nào thiếu
+ * giá của đúng NCC đó (không đoán, không lấy giá của NCC khác thay thế).
+ */
+export function tongGiaTriBaoGiaDaChot(bg: BaoGia): number {
+  if (!bg.nccDaChonId) return 0;
+  return bg.items.reduce((tong, dong) => {
+    const gia = dong.baoGiaNCC.find((n) => n.nccId === bg.nccDaChonId)?.donGia;
+    return tong + (gia ? dong.khoiLuong * gia : 0);
   }, 0);
 }
 
