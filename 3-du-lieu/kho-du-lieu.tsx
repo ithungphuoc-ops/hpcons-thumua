@@ -2832,9 +2832,18 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * chỗ đi vòng kiểm soát chi tiêu. Việc này CHỈ xác nhận DANH TÍNH (đúng đề nghị, không phải
    * trùng mã dự án ngẫu nhiên) — kiểm lại `maDuAn` một lần cuối vì dữ liệu có thể đã đổi giữa
    * lúc tự động khớp và lúc người dùng bấm xác nhận.
+   *
+   * 🔴 CHỐT QUYỀN Ở ĐÂY, KHÔNG CHỈ Ở GIAO DIỆN — CodeRabbit review 29/08/2026: hộp
+   * `HopXacNhanTuDongGan` (`don-hang-chi-tiet.tsx`) không hề gác quyền, nghĩa là bất kỳ ai xem
+   * được trang chi tiết PO cũng bấm "Xác nhận" chốt thật được. Đòi đúng `taoPoDoiLap` — cùng
+   * quyền đã gác lúc TẠO PO độc lập (`themDonHang`); người không đủ quyền lập thì cũng không đủ
+   * quyền tự tay xác nhận chốt nó.
    */
   const xacNhanTuDongGanDeNghi = useCallback(
     (poId: string): string | null => {
+      if (!tinhQuyen(nguoiDung).taoPoDoiLap) {
+        return "Chỉ Trưởng bộ phận trở lên mới được xác nhận đề nghị tự động khớp.";
+      }
       const po = donHangRef.current.find((p) => p.id === poId);
       if (!po) return "Không tìm thấy đơn hàng này.";
       if (po.trangThai !== "cho_de_nghi" || !po.prId) {
@@ -2886,9 +2895,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * ★ GỠ LIÊN KẾT TỰ ĐỘNG KHỚP — cặp với `xacNhanTuDongGanDeNghi`: người xác nhận thấy KHÔNG
    * đúng (trùng mã dự án ngẫu nhiên với công trình khác) thì gỡ, PO quay về "cho_de_nghi" y hệt
    * lúc mới lập, chờ gắn tay đúng đề nghị qua `HopGanDeNghi`.
+   *
+   * 🔴 CÙNG QUYỀN VỚI XÁC NHẬN — xem chú thích ở `xacNhanTuDongGanDeNghi` (CodeRabbit review).
    */
   const huyKhopTuDongDeNghi = useCallback(
     (poId: string): string | null => {
+      if (!tinhQuyen(nguoiDung).taoPoDoiLap) {
+        return "Chỉ Trưởng bộ phận trở lên mới được gỡ liên kết tự động khớp.";
+      }
       const po = donHangRef.current.find((p) => p.id === poId);
       if (!po) return "Không tìm thấy đơn hàng này.";
       if (po.trangThai !== "cho_de_nghi" || !po.prId) {

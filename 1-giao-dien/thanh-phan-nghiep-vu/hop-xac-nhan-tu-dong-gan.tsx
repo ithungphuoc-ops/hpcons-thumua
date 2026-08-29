@@ -4,6 +4,7 @@ import { Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -17,6 +18,7 @@ import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
  */
 export function HopXacNhanTuDongGan({ po }: { po: DonDatHang }) {
   const { deNghi, xacNhanTuDongGanDeNghi, huyKhopTuDongDeNghi } = useDuLieu();
+  const { quyen } = useNguoiDung();
   const dnGoc = deNghi.find((d) => d.id === po.prId);
 
   function xacNhan() {
@@ -50,16 +52,25 @@ export function HopXacNhanTuDongGan({ po }: { po: DonDatHang }) {
         <span className="font-semibold text-text-primary">{po.maDuAn}</span>. Đúng đề nghị này
         không?
       </span>
-      <div className="flex gap-2">
-        <Button size="sm" onClick={xacNhan}>
-          <Check className="size-4" aria-hidden />
-          Xác nhận
-        </Button>
-        <Button size="sm" variant="outline" onClick={huy}>
-          <X className="size-4" aria-hidden />
-          Không đúng, gỡ liên kết
-        </Button>
-      </div>
+      {/* ⚠️ ẨN NÚT CHO NGƯỜI KHÔNG ĐỦ QUYỀN (CodeRabbit review 29/08/2026) — cửa ghi
+          (`xacNhanTuDongGanDeNghi`/`huyKhopTuDongDeNghi`) đã chặn lại lần nữa, đây là lớp thứ
+          nhất để người không đủ quyền không thấy nút bấm-vào-rồi-nhận-lỗi. */}
+      {quyen.taoPoDoiLap ? (
+        <div className="flex gap-2">
+          <Button size="sm" onClick={xacNhan}>
+            <Check className="size-4" aria-hidden />
+            Xác nhận
+          </Button>
+          <Button size="sm" variant="outline" onClick={huy}>
+            <X className="size-4" aria-hidden />
+            Không đúng, gỡ liên kết
+          </Button>
+        </div>
+      ) : (
+        <span className="text-xs text-text-desc">
+          Chỉ Trưởng bộ phận trở lên mới xác nhận được.
+        </span>
+      )}
     </div>
   );
 }
