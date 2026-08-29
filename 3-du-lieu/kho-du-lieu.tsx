@@ -1309,12 +1309,16 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * không đợi nó xong trước. Lỗi ghi log (mất mạng) chỉ in console, không chặn điều hướng.
      */
     anhChupCuoi.current = JSON.stringify(rong);
-    let xoaThanhCong = true;
+    let xoaThanhCong = false;
     try {
-      await ketNoiChung.current?.day(rong);
+      // `?.` ở bản trước coi "chưa nối được kho chung" là THÀNH CÔNG (optional chaining
+      // không ném lỗi khi null) — nhật ký ghi "đã xóa" dù chẳng có request nào gửi đi.
+      const ketNoi = ketNoiChung.current;
+      if (!ketNoi) throw new Error("Chưa nối được kho dữ liệu chung.");
+      await ketNoi.day(rong);
+      xoaThanhCong = true;
     } catch (e) {
       console.error("[kho chung] xóa hỏng:", e);
-      xoaThanhCong = false;
     }
     try {
       await ghiNhatKyHeThong(
