@@ -62,6 +62,78 @@ service cloud.firestore {
       allow read, write: if conHanChayThu() && duocVao();
     }
 
+    /**
+     * Hồ sơ của CHÍNH người đang gọi rule (nếu có) — dùng để soi quyền
+     * `phanQuyenNguoiDung` (xem `4-phan-quyen/quyen.ts`: `laQuanTri || capTM >= 3`) ngay ở
+     * tầng dữ liệu, không chỉ ở màn hình. `exists()` đứng trước để `get()` phía sau không
+     * bao giờ chạy khi hồ sơ chưa có (rules đánh giá `&&` theo kiểu ngắn mạch).
+     */
+    function tmHoSoNguoiGoi() {
+      return get(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid)).data;
+    }
+
+    /**
+     * ⚠️ Chưa xử lý ở đây: tài khoản OWNER App Tổng (xem `ho-so-tai-khoan.ts`, khối "OWNER
+     * TOÀN QUYỀN") KHÔNG có tài liệu `nguoi-dung/{uid}` — `docHoSoTaiKhoan()` trả hồ sơ dựng
+     * sẵn, không đụng Firestore. Bản deploy thật (`hpcons-portal/firestore.rules`) cộng thêm
+     * nhánh kiểm `users/{uid}.role == 'owner'` (collection có sẵn ở project đó vì SSO dùng
+     * chung project). File NÀY là bản nguồn cho một project ĐỘC LẬP giả định
+     * (xem đầu file) nên không có collection `users` để kiểm — đừng copy y nguyên hàm này
+     * sang App Tổng mà thiếu nhánh owner, kẻo khóa luôn owner khỏi trang Nhật ký hệ thống.
+     */
+    function tmDuocXemNhatKy() {
+      return duocVao()
+        && exists(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid))
+        && (tmHoSoNguoiGoi().vaiTro == 'admin' || tmHoSoNguoiGoi().capTM >= 3);
+    }
+
+    /**
+     * `nguoiDung.uid` mà toàn app dùng (kể cả khi ghi nhật ký) thực ra là `uidNghiepVu` —
+     * mã BỀN VỮNG trong dữ liệu nghiệp vụ (`u-tm1`…), KHÔNG PHẢI mã Firebase — xem
+     * "hai lớp danh tính" ở `ho-so-tai-khoan.ts`. Tài khoản cũ giữ nguyên `uidNghiepVu` cũ
+     * dù đổi vai trò, nên `uidNghiepVu` có thể KHÁC `request.auth.uid`. So khớp thẳng với
+     * `request.auth.uid` (bản vá đầu 29/08/2026) làm rớt nhật ký của mọi tài khoản cũ.
+     *
+     * 🔴 KHÔNG có nhánh dự phòng `: request.auth.uid` cho người CHƯA có hồ sơ như bản vá lần
+     * 2 từng làm — review lần 3 chỉ đúng: làm vậy là mở cửa cho BẤT KỲ tài khoản nào (không
+     * riêng owner) ghi được một dòng nhật ký "hợp lệ" dù chưa từng được cấp quyền Thu mua.
+     * File này không có collection `users` để tự kiểm ai thật sự là owner App Tổng (khác bản
+     * deploy thật `hpcons-portal/firestore.rules`, có nhánh `tmLaOwnerAppTong()` riêng) — nên
+     * ở ĐÂY, thiếu hồ sơ là bị `exists()` ở luật `create` chặn thẳng, không có ngoại lệ nào.
+     */
+    function tmUidNghiepVuCuaNguoiGoi() {
+      return get(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid)).data.uidNghiepVu;
+    }
+
+    // ------------------------------------------------------------------
+    // NHẬT KÝ HỆ THỐNG — thêm 29/08/2026, xem chú thích đầy đủ ở
+    // `3-du-lieu/nhat-ky-he-thong.ts`.
+    //
+    // 🔴 CHỈ CHO TẠO (`create`), TUYỆT ĐỐI KHÔNG CHO SỬA/XÓA. Nhật ký mà tự sửa/xóa được thì
+    // mất hết ý nghĩa tồn tại — đúng người vừa xóa dữ liệu chạy thử lại tiện tay xóa luôn
+    // dòng nhật ký tố cáo chính mình. KHÔNG áp `conHanChayThu()` như collection trên: nhật ký
+    // vẫn phải ghi/đọc được ngay cả khi qua ngày hết hạn "chạy thử" — tách khỏi vòng đời dữ
+    // liệu tạm để phục vụ đúng vai trò của nó.
+    //
+    // 🔴 ĐỌC: giới hạn đúng bằng quyền `phanQuyenNguoiDung` ở màn hình (cùng mức nhạy cảm
+    // với "Phân quyền người dùng") — KHÔNG chỉ "đã đăng nhập là đủ" như bản đầu (29/08/2026),
+    // vì "đã đăng nhập là đủ" nghĩa là bất kỳ tài khoản nào cũng gọi thẳng Firestore SDK từ
+    // console trình duyệt để đọc toàn bộ nhật ký ai-xóa-gì-lúc-nào, bỏ qua hẳn màn chặn UI.
+    //
+    // 🔴 TẠO: bắt buộc `nguoiThucHienUid` khớp đúng `uidNghiepVu` trong hồ sơ CỦA CHÍNH người
+    // đang ghi — không thì bất kỳ ai đã đăng nhập cũng `addDoc` thẳng một dòng nhật ký giả,
+    // đổ tội hành động cho người khác, mà rule cấm sửa/xóa nên tạo giả xong thì không ai gỡ
+    // được nữa. Chưa có hồ sơ (`exists()` phía dưới) thì bị chặn hẳn, không có ngoại lệ nào —
+    // xem vì sao ở `tmUidNghiepVuCuaNguoiGoi()`.
+    // ------------------------------------------------------------------
+    match /nhat-ky-he-thong/{id} {
+      allow read: if tmDuocXemNhatKy();
+      allow create: if duocVao()
+        && exists(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid))
+        && request.resource.data.nguoiThucHienUid == tmUidNghiepVuCuaNguoiGoi();
+      allow update, delete: if false;
+    }
+
     // ------------------------------------------------------------------
     // HỒ SƠ PHÂN QUYỀN — mỗi người một tài liệu `nguoi-dung/{firebaseUid}`
     // ------------------------------------------------------------------
