@@ -647,9 +647,16 @@ export function dungBangQuyTrinh(
       giaiDoan,
       the: [...cuaCot].sort((a, b) => soSanhTheTrenBang(a, b, uidNguoiXem)),
       theDocLap: laCotLapDon ? theDocLapDaSap : [],
-      soQuaHan:
-        cuaCot.filter((t) => t.han.quaHan).length +
-        (laCotLapDon ? theDocLapDaSap.filter((t) => t.han.quaHan).length : 0),
+      /**
+       * 🔴 CHỈ ĐẾM `the` (đề nghị), KHÔNG GỘP `theDocLap` — sửa lại sau review PR (CodeRabbit):
+       * bản trước cộng cả PO độc lập vào `soQuaHan` nhưng mẫu số "X/Y đã giao" ở đầu cột
+       * (`the.length`, xem `CotQuyTrinh` trong `bang-quy-trinh-mua-hang.tsx`) KHÔNG gồm PO độc
+       * lập — ra câu vô lý kiểu "1/2 đã giao · 3 quá hạn" (tử số quá hạn lớn hơn cả mẫu số).
+       * Mỗi thẻ PO độc lập đã tự hiện hạn riêng của nó (`StatusBadge` trên `TheDonHangDocLap`),
+       * không mất thông tin — chỉ là không gộp vào con số tổng của đầu cột, vì đó là hai loại
+       * đếm khác nhau (hồ sơ đề nghị vs PO chưa gắn đề nghị).
+       */
+      soQuaHan: cuaCot.filter((t) => t.han.quaHan).length,
     };
   });
 }
