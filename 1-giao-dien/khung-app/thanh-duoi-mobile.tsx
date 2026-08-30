@@ -18,11 +18,23 @@ import { cn } from "@/6-tien-ich/gop-lop";
  * Muốn giới hạn số mục thì giới hạn ở `dieu-huong.ts` (nơi khai báo), và phải nói rõ ra.
  * Hiện 6 mục vẫn vừa màn 375px: mỗi mục tối thiểu 44px → 6 × 44 = 264px < 375px. `flex-1` +
  * `truncate` lo phần chia đều và cắt chữ dài.
+ *
+ * ✅ CẬP NHẬT 30/08/2026: tài khoản quản trị đã lên tới 8 mục (352px, sát mép 375px) từ lúc
+ * thêm "Lập đơn mua hàng (PO)" 18/08/2026. Mục "Đơn hàng" thêm cùng ngày này đúng ra là mục
+ * thứ 9 (396px, vỡ vùng chạm 44px) — xử lý bằng cờ `chiSidebar` khai Ở TỪNG MỤC trong
+ * `dieu-huong.ts` (không phải `.slice` cắt ngầm theo số lượng như luật cấm ở trên), lọc ngay
+ * dưới đây trước khi vẽ. Sidebar desktop không lọc cờ này.
  */
 export function BottomNav() {
   const pathname = usePathname();
   const { quyen } = useNguoiDung();
-  const muc = mucDieuHuongChoVaiTro(quyen);
+  /**
+   * 🔴 LỌC `chiSidebar` — thêm 30/08/2026 cùng mục "Đơn hàng". KHÔNG PHẢI `.slice` cắt ngầm
+   * theo số lượng (đúng thứ bị cấm ở chú thích trên) — đây là cờ TỪNG MỤC khai rõ ràng ở
+   * `dieu-huong.ts`, lọc thế nào và vì sao đã ghi ở `MucDieuHuong.chiSidebar`. Sidebar desktop
+   * (`thanh-ben-noi-dung.tsx`) không lọc cờ này — mục vẫn hiện đủ ở đó.
+   */
+  const muc = mucDieuHuongChoVaiTro(quyen).filter((m) => !m.chiSidebar);
   /**
    * 🔴 Mục đang chọn tính ở MỘT CHỖ (`hrefDangChon`), không tự so ở đây.
    * Tự so bằng `startsWith` làm HAI mục cùng sáng khi một href là tiền tố của href kia

@@ -8,6 +8,7 @@ import {
   Settings,
   ShieldCheck,
   ShoppingCart,
+  Package,
   History,
   type LucideIcon,
 } from "lucide-react";
@@ -45,6 +46,17 @@ export interface MucDieuHuong {
   duocThay: (q: Quyen) => boolean;
   /** Nhóm trên sidebar. Thiếu thì xếp vào "Quy trình thu mua". */
   nhom?: NhomMenu;
+  /**
+   * ★ CHỈ HIỆN Ở SIDEBAR, ẨN KHỎI THANH DƯỚI ĐIỆN THOẠI — thêm 30/08/2026 cùng mục "Đơn hàng".
+   *
+   * 🔴 VÌ SAO CẦN CỜ NÀY: `thanh-duoi-mobile.tsx` không cắt bớt danh sách (đã cấm từ 11/08/2026,
+   * xem chú thích ở đó) — mọi mục `duocThay` đúng đều tự lên thanh dưới. Tài khoản quản trị đã
+   * thấy ĐỦ 8 mục ở đó (352px, sát mép màn 375px); thêm mục thứ 9 mà không lọc sẽ vượt màn
+   * (9×44=396px>375px) hoặc bóp mỗi mục dưới 44px — vỡ luôn vùng chạm tối thiểu V1.1 Phần F.
+   * `/don-hang` (xem lại PO) không phải thao tác cần một ngón tay chạm ngay như "Lập đơn mua
+   * hàng (PO)" — sidebar/menu kéo ra trên mobile vẫn vào được, không mất lối vào nào.
+   */
+  chiSidebar?: boolean;
 }
 
 /**
@@ -213,6 +225,33 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     nhom: "quy_trinh",
     icon: ShoppingCart,
     duocThay: (q) => q.lapPO,
+  },
+  {
+    /**
+     * ★ ĐƠN HÀNG — thêm 30/08/2026, Ban lãnh đạo: *"thiếu 1 chỗ là ở sidebar để [xem] đơn
+     * hàng"*. Trước đây trang `/don-hang` (danh sách toàn bộ PO) chỉ vào được qua breadcrumb
+     * "Đơn đặt hàng" của trang chi tiết 1 PO, hoặc gõ thẳng địa chỉ — không có lối vào từ menu.
+     *
+     * 🔴 ĐẶT NGAY DƯỚI "Lập đơn mua hàng (PO)" — cùng nhóm nghiệp vụ (lập PO / xem lại PO đã
+     * lập), Sếp duyệt đúng vị trí này qua demo Artifact.
+     *
+     * 📌 KHÔNG cần cờ quyền riêng: trang `/don-hang` không có chốt quyền vào trang nào ngoài
+     * `xemDuocApp` mặc định (`4-phan-quyen/quyen.ts` → `duocVaoDuongDan`, không có nhánh
+     * `/don-hang` riêng) — bản thân trang đã tự ẩn cột giá/NCC theo `quyen.xemGia`/
+     * `quyen.xemNhaCungCap`. Bịa thêm cờ menu ở đây mà trang không kiểm lại là hứa suông.
+     *
+     * ⚠️ `hrefDangChon` (khớp DÀI NHẤT) đã được kiểm từ lúc thêm mục "Lập đơn mua hàng (PO)" ở
+     * trên — hai mục `/don-hang` và `/don-hang/tao-moi` không bao giờ cùng sáng, xem chú thích
+     * ở mục đó.
+     */
+    nhan: "Đơn hàng",
+    nhanNgan: "Đơn hàng",
+    href: "/don-hang",
+    nhom: "quy_trinh",
+    icon: Package,
+    duocThay: () => true,
+    // Xem chú thích đầy đủ ở `MucDieuHuong.chiSidebar` — tránh vỡ thanh dưới điện thoại.
+    chiSidebar: true,
   },
   {
     nhan: "Theo dõi đề nghị",

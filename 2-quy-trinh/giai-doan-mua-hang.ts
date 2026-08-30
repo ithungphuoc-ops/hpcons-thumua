@@ -23,7 +23,7 @@ import type {
   TienDoDongDeNghi,
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
-import { soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
+import { soSanhDeNghiUuTien, soSanhDonHangUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
   caiDatCuaBuoc,
   type CauHinhQuyTrinh,
@@ -440,6 +440,19 @@ export function hanXuLyDeNghi(
   return { nhan: `Còn ${soNgay} ngày`, tong: "primary", quaHan: false };
 }
 
+/**
+ * ★ HẠN XỬ LÝ CHO PO ĐỘC LẬP "CHỜ ĐỀ NGHỊ" — thêm 30/08/2026, cùng lúc PO này được cho hiện
+ * thẻ trên bảng Kanban (xem `TheDonHangDocLapTrenBang`). Y hệt `hanXuLyDeNghi` nhưng tính theo
+ * `po.ngayGiaoDuKien` — PO không có khái niệm "giai đoạn đã kết thúc" nên bỏ nhánh đó.
+ */
+export function hanXuLyPODocLap(po: DonDatHang, moc: Date = new Date()): HanXuLy {
+  const soNgay = daysUntil(po.ngayGiaoDuKien, moc);
+  if (soNgay < 0) return { nhan: `Quá hạn ${-soNgay} ngày`, tong: "danger", quaHan: true };
+  if (soNgay === 0) return { nhan: "Đến hạn hôm nay", tong: "danger", quaHan: true };
+  if (soNgay <= 3) return { nhan: `Còn ${soNgay} ngày`, tong: "warning", quaHan: false };
+  return { nhan: `Còn ${soNgay} ngày`, tong: "primary", quaHan: false };
+}
+
 // ------------------------------------------------------------
 // GOM NHÓM CHO BẢNG
 // ------------------------------------------------------------
@@ -490,9 +503,31 @@ export interface TheDeNghiTrenBang {
   maPOLienQuan: string[];
 }
 
+/**
+ * ★★ THẺ PO ĐỘC LẬP "CHỜ ĐỀ NGHỊ" TRÊN BẢNG KANBAN — thêm 30/08/2026 (Ban lãnh đạo demo bằng
+ * Artifact, chốt: *"vẫn hiển thị trên bảng kanban luôn nhưng màu tím... để quản lý còn chia việc
+ * làm cho nhân viên như bình thường, khi nào có đề nghị gắn vào thì chuyển sang màu khác"*).
+ *
+ * 🔴 CỐ Ý TÁCH RIÊNG KHỎI `TheDeNghiTrenBang`, KHÔNG NHÉT `deNghi` THÀNH TÙY CHỌN. PO này CHƯA
+ * CÓ đề nghị nào để gắn — không có `items`/phân bổ/chứng từ còn nợ để tính `nguoiPhuTrach`,
+ * `conNo`, `dsConNo`. Ép nó vào `TheDeNghiTrenBang` (làm `deNghi` optional) buộc `TheDeNghi`
+ * (component vẽ thẻ, có kéo thả + pop-up xem nhanh theo `deNghi.id`) phải rẽ nhánh `deNghi` có
+ * hay không ở HÀNG CHỤC chỗ — rủi ro cao hơn nhiều so với dựng một thẻ riêng, đơn giản hơn nhiều
+ * (không kéo thả được, không có pop-up xem nhanh — bấm là điều hướng thẳng `/don-hang/{id}`).
+ *
+ * 📌 CHỈ CÓ Ở CỘT "Lập đơn mua hàng" (`ma: "lap_don_mua_hang"`) — PO chưa gắn đề nghị luôn dừng
+ * ở đúng bước này cho tới khi được hợp thức hoá; mọi cột khác mảng này luôn rỗng.
+ */
+export interface TheDonHangDocLapTrenBang {
+  po: DonDatHang;
+  han: HanXuLy;
+}
+
 export interface CotBangQuyTrinh {
   giaiDoan: MoTaGiaiDoan;
   the: TheDeNghiTrenBang[];
+  /** Rỗng ở mọi cột trừ "Lập đơn mua hàng" — xem chú thích ở `TheDonHangDocLapTrenBang`. */
+  theDocLap: TheDonHangDocLapTrenBang[];
   soQuaHan: number;
 }
 
@@ -588,12 +623,26 @@ export function dungBangQuyTrinh(
     };
   });
 
+  /**
+   * ★ THẺ PO ĐỘC LẬP "CHỜ ĐỀ NGHỊ" — chỉ đổ vào cột "Lập đơn mua hàng", xem chú thích ở
+   * `TheDonHangDocLapTrenBang`. Sắp theo đúng luật ưu tiên của PO (`soSanhDonHangUuTien`, MỘT chỗ
+   * duy nhất, cùng chỗ trang Tổng quan đang dùng) — không tự bịa thứ tự riêng ở đây.
+   */
+  const poDocLap = tatCaPO.filter((po) => po.trangThai === "cho_de_nghi");
+  const theDocLapDaSap: TheDonHangDocLapTrenBang[] = [...poDocLap]
+    .sort((a, b) => soSanhDonHangUuTien(a, b, uidNguoiXem))
+    .map((po) => ({ po, han: hanXuLyPODocLap(po, moc) }));
+
   return GIAI_DOAN_MUA_HANG.map((giaiDoan) => {
     const cuaCot = the.filter((t) => t.giaiDoan === giaiDoan.ma);
+    const laCotLapDon = giaiDoan.ma === "lap_don_mua_hang";
     return {
       giaiDoan,
       the: [...cuaCot].sort((a, b) => soSanhTheTrenBang(a, b, uidNguoiXem)),
-      soQuaHan: cuaCot.filter((t) => t.han.quaHan).length,
+      theDocLap: laCotLapDon ? theDocLapDaSap : [],
+      soQuaHan:
+        cuaCot.filter((t) => t.han.quaHan).length +
+        (laCotLapDon ? theDocLapDaSap.filter((t) => t.han.quaHan).length : 0),
     };
   });
 }
