@@ -374,6 +374,9 @@ function CotQuyTrinh({
   /* Số hồ sơ trong cột còn nợ chứng từ / công việc — nguồn của con số đỏ ở đầu cột. Luật ở
      `2-quy-trinh/giai-doan-mua-hang.ts` → `conNoCuaBuoc`, thẻ chỉ mang sẵn kết quả. */
   const soConThieu = the.filter((t) => Boolean(t.conNo)).length;
+  /* Đếm RIÊNG cho PO độc lập — cố ý KHÔNG gộp vào `soQuaHan` (đó là mẫu số của `the`), xem chú
+     thích đầy đủ ở nơi hiển thị và ở `dungBangQuyTrinh` (`giai-doan-mua-hang.ts`). */
+  const soPODocLapQuaHan = theDocLap.filter((t) => t.han.quaHan).length;
 
   // Sáng viền cột khi đang kéo thẻ ngang qua — người dùng biết mình sắp thả vào đâu.
   const [dangKeoQua, setDangKeoQua] = useState(false);
@@ -538,6 +541,18 @@ function CotQuyTrinh({
                 phải rà từng thẻ; thẻ nào nợ thì đã có viền đỏ để tìm ra ngay. */}
             {soConThieu > 0 && (
               <span className="font-semibold text-danger"> · {soConThieu} còn thiếu</span>
+            )}
+            {/* ★ ĐẾM RIÊNG PO ĐỘC LẬP — thêm sau review PR (CodeRabbit): KHÔNG gộp vào phân số
+                "X/Y đã giao" phía trên (đó là mẫu số của HỒ SƠ ĐỀ NGHỊ, PO độc lập chưa có hồ sơ
+                nào). Tách hẳn một cụm riêng, tự nói rõ mẫu số của chính nó — người đọc không thể
+                hiểu lầm thành một phần của con số đề nghị ở trên. */}
+            {theDocLap.length > 0 && (
+              <span className="block">
+                {theDocLap.length} PO chờ đề nghị
+                {soPODocLapQuaHan > 0 && (
+                  <span className="font-semibold text-danger"> · {soPODocLapQuaHan} quá hạn</span>
+                )}
+              </span>
             )}
           </p>
         </div>
