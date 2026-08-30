@@ -42,16 +42,19 @@ import { MucMenuXemDayDu } from "@/1-giao-dien/thanh-phan-dung-chung/muc-menu-xe
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_NHOM_DE_XUAT, type DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import { laDongHang } from "@/2-quy-trinh/tinh-toan";
 import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 import {
   GIAI_DOAN_MUA_HANG,
   type CotBangQuyTrinh,
   type GiaiDoanMuaHang,
   type TheDeNghiTrenBang,
+  type TheDonHangDocLapTrenBang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
+import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
 
 /**
  * BẢNG QUY TRÌNH MUA HÀNG — dạng cột (Kanban), dựng theo bảng
@@ -353,7 +356,7 @@ function CotQuyTrinh({
   thaoTac?: ThaoTacThe;
   onXemNhanh?: (prId: string) => void;
 }) {
-  const { giaiDoan, the, soQuaHan } = cot;
+  const { giaiDoan, the, theDocLap, soQuaHan } = cot;
 
   /**
    * ★ SỐ HỒ SƠ ĐÃ CÓ NGƯỜI PHỤ TRÁCH — nguồn của thanh tiến độ đầu cột (23/08/2026).
@@ -371,6 +374,9 @@ function CotQuyTrinh({
   /* Số hồ sơ trong cột còn nợ chứng từ / công việc — nguồn của con số đỏ ở đầu cột. Luật ở
      `2-quy-trinh/giai-doan-mua-hang.ts` → `conNoCuaBuoc`, thẻ chỉ mang sẵn kết quả. */
   const soConThieu = the.filter((t) => Boolean(t.conNo)).length;
+  /* Đếm RIÊNG cho PO độc lập — cố ý KHÔNG gộp vào `soQuaHan` (đó là mẫu số của `the`), xem chú
+     thích đầy đủ ở nơi hiển thị và ở `dungBangQuyTrinh` (`giai-doan-mua-hang.ts`). */
+  const soPODocLapQuaHan = theDocLap.filter((t) => t.han.quaHan).length;
 
   // Sáng viền cột khi đang kéo thẻ ngang qua — người dùng biết mình sắp thả vào đâu.
   const [dangKeoQua, setDangKeoQua] = useState(false);
@@ -536,6 +542,18 @@ function CotQuyTrinh({
             {soConThieu > 0 && (
               <span className="font-semibold text-danger"> · {soConThieu} còn thiếu</span>
             )}
+            {/* ★ ĐẾM RIÊNG PO ĐỘC LẬP — thêm sau review PR (CodeRabbit): KHÔNG gộp vào phân số
+                "X/Y đã giao" phía trên (đó là mẫu số của HỒ SƠ ĐỀ NGHỊ, PO độc lập chưa có hồ sơ
+                nào). Tách hẳn một cụm riêng, tự nói rõ mẫu số của chính nó — người đọc không thể
+                hiểu lầm thành một phần của con số đề nghị ở trên. */}
+            {theDocLap.length > 0 && (
+              <span className="block">
+                {theDocLap.length} PO chờ đề nghị
+                {soPODocLapQuaHan > 0 && (
+                  <span className="font-semibold text-danger"> · {soPODocLapQuaHan} quá hạn</span>
+                )}
+              </span>
+            )}
           </p>
         </div>
       </header>
@@ -574,22 +592,29 @@ function CotQuyTrinh({
           hai viền chồng thành một — xử ở `TheDeNghi` bằng `-mb-px`, xem chú thích ở đó. Sửa một
           chỗ mà bỏ chỗ kia là bảng có vạch đôi, nhìn như lỗi kẻ bảng. */}
       <div className="flex flex-1 flex-col gap-0 p-0">
-        {the.length === 0 ? (
+        {the.length === 0 && theDocLap.length === 0 ? (
           <p className="py-4 text-center text-xs text-text-disabled">Không có đề nghị nào</p>
         ) : (
-          the.map((t) => (
-            <TheDeNghi
-              key={t.deNghi.id}
-              the={t}
-              tongGiaiDoan={giaiDoan.tong}
-              keoThaDuoc={keoThaDuoc}
-              onBatDauKeo={() => onBatDauKeo(giaiDoan.ma)}
-              onKetThucKeo={onKetThucKeo}
-              onTha={onTha}
-              thaoTac={thaoTac}
-              onXemNhanh={onXemNhanh}
-            />
-          ))
+          <>
+            {/* ★ PO ĐỘC LẬP "CHỜ ĐỀ NGHỊ" LÊN ĐẦU — chưa gắn đề nghị nào là việc cần chú ý
+                trước hết, cùng nguyên tắc "việc cần xử lý lên đầu" đã áp cho các thẻ khác. */}
+            {theDocLap.map((t) => (
+              <TheDonHangDocLap key={t.po.id} the={t} />
+            ))}
+            {the.map((t) => (
+              <TheDeNghi
+                key={t.deNghi.id}
+                the={t}
+                tongGiaiDoan={giaiDoan.tong}
+                keoThaDuoc={keoThaDuoc}
+                onBatDauKeo={() => onBatDauKeo(giaiDoan.ma)}
+                onKetThucKeo={onKetThucKeo}
+                onTha={onTha}
+                thaoTac={thaoTac}
+                onXemNhanh={onXemNhanh}
+              />
+            ))}
+          </>
         )}
       </div>
     </section>
@@ -943,6 +968,62 @@ function TheDeNghi({
   );
 }
 
+/**
+ * ★★ THẺ PO ĐỘC LẬP "CHỜ ĐỀ NGHỊ" — thêm 30/08/2026, xem chú thích đầy đủ ở
+ * `TheDonHangDocLapTrenBang` (`2-quy-trinh/giai-doan-mua-hang.ts`) cho lý do tách riêng khỏi
+ * `TheDeNghi`. Cố ý ĐƠN GIẢN HƠN NHIỀU:
+ *   · Không kéo thả được — PO này không có "giai đoạn" để chuyển, nó dừng ở cột này cho tới khi
+ *     hợp thức hoá xong (gắn đề nghị), lúc đó card biến thành `TheDeNghi` bình thường.
+ *   · Không có pop-up xem nhanh — bấm là điều hướng thẳng `/don-hang/{id}` (trang PO, không phải
+ *     trang đề nghị, không có gì để mở pop-up "theo đề nghị" ở đây).
+ *   · Không có menu ⋯ — chưa có thao tác nhanh nào định nghĩa cho PO độc lập trên bảng này.
+ * Viền/nền TÍM RIÊNG (không dùng `LOP_VIEN_TRAI`/`LOP_NEN_NHAT` — "tím" không phải một `Tong`
+ * ngữ nghĩa của Design System V1.1, đây là màu CHUYÊN BIỆT cho đúng 1 trạng thái này, khớp màu
+ * `BadgeChoDeNghi` đã dùng ở nơi khác).
+ */
+function TheDonHangDocLap({ the }: { the: TheDonHangDocLapTrenBang }) {
+  const { po, han } = the;
+  const soMatHang = po.items.filter(laDongHang).length;
+
+  return (
+    <Link
+      href={`/don-hang/${po.id}`}
+      className={`-mb-px flex flex-col gap-1.5 rounded-none border border-l-4 border-violet-300 bg-violet-50/60 p-(--hp-md-row-pad) transition-colors hover:border-violet-500 dark:border-violet-800 dark:bg-violet-500/10 ${
+        han.quaHan ? "border-danger" : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm font-semibold leading-tight text-violet-700 dark:text-violet-300">
+            {po.code}
+            {po.maDuAn ? ` - ${po.maDuAn.toUpperCase()}` : ""}
+          </span>
+        </span>
+        <span className="shrink-0">
+          <BadgeChoDeNghi />
+        </span>
+      </div>
+
+      <p className="text-xs leading-snug text-text-desc">
+        <span className="text-text-secondary">Nhà cung cấp:</span> {po.supplierTen}
+        {" · "}
+        <span className="text-text-secondary">Chi tiết:</span> {soMatHang} mặt hàng
+      </p>
+
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-divider pt-1.5 text-xs">
+        <span className="flex min-w-0 items-center gap-1.5 text-text-desc">
+          <UserRound className="size-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{po.nguoiPhuTrachTen || "Chưa có người phụ trách"}</span>
+        </span>
+        <StatusBadge label={han.nhan} tone={han.tong} />
+      </div>
+
+      <p className="text-xs italic leading-snug text-violet-600 dark:text-violet-400">
+        Chưa gắn đề nghị nào — bấm vào để bổ sung qua nút &quot;+ Gắn đề nghị&quot;.
+      </p>
+    </Link>
+  );
+}
 
 /**
  * MENU ⋯ TRÊN THẺ — các thao tác nhanh với một đề nghị, dựng theo menu ngữ cảnh của Base.vn
