@@ -37,9 +37,16 @@ function xayDungPayloadPO(po: DonDatHang, maDeXuat: string) {
     diaDiemGiao: po.diaDiemGiaoHang,
     dieuKhoanKhac: po.dieuKhoanKhac,
     nguoiNhan: po.nguoiNhanHangTen,
+    // 🔴 (30/08/2026): KHÔNG còn lọc bỏ dòng thiếu `sttDongDeNghi` — trước đây lọc ở đây làm PO
+    // "độc lập" (lập trước khi có đề nghị, xem `DongPO.sttDongDeNghi`) mất sạch vật tư lúc gắn
+    // vào đề nghị thật: dòng nào cũng thiếu `sttDongDeNghi` (đúng thiết kế, đơn độc lập chưa
+    // trỏ về đề nghị nào) nên bị lọc hết, gửi sang QLK CTR một mảng RỖNG → QLK CTR từ chối vì
+    // thiếu dữ liệu bắt buộc → `qlkCtrSyncStatus: "failed"` dù PO đã gắn đề nghị đúng và đã chốt.
+    // QLK CTR đã có sẵn cơ chế dự phòng khớp theo TÊN + ĐVT khi thiếu `stt` (xem `chonMotVatTu`,
+    // `app-mua-hang-actions.ts` bên QLK CTR) — bỏ lọc ở đây là tận dụng đúng cơ chế đó, không cần
+    // sửa gì thêm bên QLK CTR.
     vatTu: po.items
       .filter(laDongHang) // bỏ dòng ghi chú — không có trong đề nghị gốc, QLK CTR tra theo stt sẽ hỏng
-      .filter((d) => d.sttDongDeNghi != null)
       .map((d) => ({
         stt: d.sttDongDeNghi,
         tenVatTu: d.tenVatLieu,
