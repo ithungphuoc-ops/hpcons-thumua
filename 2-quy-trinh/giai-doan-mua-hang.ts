@@ -627,8 +627,15 @@ export function dungBangQuyTrinh(
    * ★ THẺ PO ĐỘC LẬP "CHỜ ĐỀ NGHỊ" — chỉ đổ vào cột "Lập đơn mua hàng", xem chú thích ở
    * `TheDonHangDocLapTrenBang`. Sắp theo đúng luật ưu tiên của PO (`soSanhDonHangUuTien`, MỘT chỗ
    * duy nhất, cùng chỗ trang Tổng quan đang dùng) — không tự bịa thứ tự riêng ở đây.
+   *
+   * 🔴 PHẢI LOẠI PO ĐÃ CÓ `prId` — bắt bởi CodeRabbit review 30/08/2026. Route tự động khớp
+   * (`app-request/de-nghi-moi`) điền `prId` vào PO nhưng CỐ Ý giữ `trangThai: "cho_de_nghi"`
+   * cho tới khi người dùng xác nhận (`xacNhanTuDongGanDeNghi`, xem chú thích ở đó). Thiếu điều
+   * kiện `!po.prId` thì PO này vừa lọt vào đây (thẻ tím) VỪA lọt vào `the` phía trên qua chính
+   * đề nghị nó vừa gắn (`the` build từ TOÀN BỘ `tatCaDeNghi`, không quan tâm PO đã "chờ đề
+   * nghị" hay "đã chốt") — HAI thẻ cho CÙNG một PO trên cùng một bảng.
    */
-  const poDocLap = tatCaPO.filter((po) => po.trangThai === "cho_de_nghi");
+  const poDocLap = tatCaPO.filter((po) => po.trangThai === "cho_de_nghi" && !po.prId);
   const theDocLapDaSap: TheDonHangDocLapTrenBang[] = [...poDocLap]
     .sort((a, b) => soSanhDonHangUuTien(a, b, uidNguoiXem))
     .map((po) => ({ po, han: hanXuLyPODocLap(po, moc) }));
