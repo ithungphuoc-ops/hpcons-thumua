@@ -2,21 +2,27 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Check, Lock, LockOpen } from "lucide-react";
+import { Check, Lock, LockOpen, Plus, Undo2, X } from "lucide-react";
 import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
+import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
+import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu, TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   BUOC_DINH_KEM_BAO_GIA,
   chiSoOBaoGia,
+  khoaLyDoBoQuaBaoGia,
+  lyDoBoQuaBaoGia,
   nhanOBaoGia,
   NHAN_O_SO_SANH,
   soBaoGiaCanCo,
   soOBaoGia,
+  soSanhBaoGiaBatBuoc,
   tenNCCCuaO,
   tepBaoGiaDaCo,
   tepSoSanh,
+  TOI_DA_O_BAO_GIA,
   vuongMacTrinhXetDuyet,
 } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
@@ -113,7 +119,8 @@ export function KhuBaoGiaTheoSoLuong({
    */
   chanXoaTep?: boolean;
 }) {
-  const { datTepVaoOGiaiDoan, datGhiChuTepGiaiDoan, goTepGiaiDoan, cauHinh } = useDuLieu();
+  const { datTepVaoOGiaiDoan, datGhiChuTepGiaiDoan, goTepGiaiDoan, ghiLyDoThieuChungTu, cauHinh } =
+    useDuLieu();
   const { nguoiDung } = useNguoiDung();
 
   const can = soBaoGiaCanCo(deNghi, cauHinh);
@@ -121,19 +128,44 @@ export function KhuBaoGiaTheoSoLuong({
   const tepDaCo = tepBaoGiaDaCo(deNghi);
   const vuongMac = vuongMacTrinhXetDuyet(deNghi, cauHinh);
 
-  const tepTheoO = Array.from({ length: soO }, (_, i) =>
+  /**
+   * ★ THÊM Ô NGOÀI SỐ BẮT BUỘC — Ban lãnh đạo 31/08/2026: *"nếu tìm được nhà cung cấp tốt hơn
+   * thì thêm 1 nút cho nhân viên thêm báo giá nhà cung cấp khác"*.
+   *
+   * 🔴 CHỈ LÀ STATE MÀN HÌNH, KHÔNG LƯU GÌ. Ô thêm chỉ cần TỒN TẠI để có chỗ đính tệp — một khi
+   * đã đính, `soOBaoGia` (`max(can, chỉ số ô cao nhất đang có tệp)`) tự nhận ra ô đó ở lần tải
+   * lại sau, không cần một trường "đã thêm mấy ô" nào cả. Bấm nút mà chưa đính gì thì rời trang
+   * là ô biến mất — không sao, vì đó cũng chưa phải chứng từ thật.
+   */
+  const [soThem, setSoThem] = useState(0);
+  const soOHienThi = Math.min(soO + soThem, TOI_DA_O_BAO_GIA);
+
+  const tepTheoO = Array.from({ length: soOHienThi }, (_, i) =>
     tepDaCo.find((t) => chiSoOBaoGia(t.ghiChu) === i + 1),
   );
   /** Tệp ở ô "Bảng so sánh báo giá" — ô riêng, không tính vào số bản báo giá bắt buộc. */
   const tepBangSoSanh = tepSoSanh(deNghi);
+  /* ★ Đúng MỘT LUẬT với `vuongMacTrinhXetDuyet` — gọi thẳng `soSanhBaoGiaBatBuoc` (xét CẢ
+     `can === 0` lẫn số bản thật), không tự tính riêng. Trước 31/08/2026 thẻ này tự đặt
+     `batBuoc={!tepBangSoSanh}`; sau đó tự đổi thành `soBanBaoGiaThat(deNghi) >= 2` nhưng quên
+     lặp lại điều kiện `can === 0` — khi trưởng bộ phận chủ ý đặt "Không yêu cầu riêng" +
+     `soBaoGiaToiThieu` = 0, thẻ vẫn hiện dấu * đỏ dù cổng ghi thật không hề chặn. */
+  const soSanhBatBuoc = soSanhBaoGiaBatBuoc(deNghi, cauHinh);
   /* Chốt ②: tệp không nhãn, hoặc nhãn vượt số ô, vẫn phải hiện ở đâu đó.
      ⚠️ TRỪ tệp của ô "Bảng so sánh báo giá" — nó đã có ô riêng bên dưới; không trừ thì nó hiện
      hai lần, và người dùng tưởng hồ sơ có hai tệp. */
   const tepKhac = tepDaCo.filter((t) => {
     if ((t.ghiChu ?? "").trim() === NHAN_O_SO_SANH) return false;
     const n = chiSoOBaoGia(t.ghiChu);
-    return n === 0 || n > soO;
+    return n === 0 || n > soOHienThi;
   });
+
+  /**
+   * ★ HỘP GHI LÝ DO BỎ QUA MỘT Ô — xem `khoaLyDoBoQuaBaoGia`. `null` = hộp đóng, số là chỉ số ô
+   * (đếm từ 0) đang hỏi.
+   */
+  const [hoiBoQuaO, setHoiBoQuaO] = useState<number | null>(null);
+  const [lyDoNhap, setLyDoNhap] = useState("");
   /**
    * Chỉ số các ô còn TRỐNG (đếm từ 0, khớp `nhanOBaoGia`) — để gán tệp sẵn có vào đúng ô.
    *
@@ -220,6 +252,33 @@ export function KhuBaoGiaTheoSoLuong({
       return;
     }
     toast.success("Đã bỏ tệp khỏi bước này");
+  }
+
+  /** Ghi lý do bỏ qua ô đang hỏi (`hoiBoQuaO`) — dùng LẠI đúng cơ chế `lyDoThieuChungTu`. */
+  function xacNhanBoQua() {
+    if (hoiBoQuaO === null) return;
+    const loi = ghiLyDoThieuChungTu(
+      deNghi.id,
+      khoaLyDoBoQuaBaoGia(hoiBoQuaO),
+      lyDoNhap,
+      nguoiDung.tenHienThi,
+    );
+    if (loi) {
+      toast.error("Không ghi được lý do", { description: loi });
+      return;
+    }
+    toast.success(`Đã bỏ qua "${nhanOBaoGia(hoiBoQuaO)}"`);
+    setHoiBoQuaO(null);
+  }
+
+  /** Tìm được nhà cung cấp sau khi đã bỏ qua — xóa lý do để ô trở lại trạng thái "còn thiếu". */
+  function huyBoQua(i: number) {
+    const loi = ghiLyDoThieuChungTu(deNghi.id, khoaLyDoBoQuaBaoGia(i), "", nguoiDung.tenHienThi);
+    if (loi) {
+      toast.error("Không hủy được", { description: loi });
+      return;
+    }
+    toast.success(`Đã hủy bỏ qua "${nhanOBaoGia(i)}"`);
   }
 
   return (
@@ -365,9 +424,57 @@ export function KhuBaoGiaTheoSoLuong({
                 ) : undefined
               }
             />
+
+            {/* ★ BỎ QUA MỘT Ô CÒN THIẾU — xem `khoaLyDoBoQuaBaoGia`. CHỈ hiện cho ô BẮT BUỘC
+                (`i < can`) mà chưa có tệp — ô vượt số bắt buộc hoặc ô đã có tệp không có gì để
+                bỏ qua. */}
+            {i < can && !tep && duocSua && !khoa && (
+              lyDoBoQuaBaoGia(deNghi, i) !== "" ? (
+                <div className="flex items-start justify-between gap-2 rounded-lg border border-warning/40 bg-warning-bg/60 p-2.5 text-xs">
+                  <span className="min-w-0 text-text-secondary">
+                    <span className="font-semibold text-warning-soft">🚫 Đã bỏ qua ô này</span>
+                    {" — "}
+                    lý do: {lyDoBoQuaBaoGia(deNghi, i)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => huyBoQua(i)}
+                    className="inline-flex shrink-0 items-center gap-1 text-text-desc hover:text-danger"
+                    title="Tìm được nhà cung cấp rồi — hủy bỏ qua"
+                  >
+                    <Undo2 className="size-3.5" aria-hidden />
+                    Hủy bỏ qua
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHoiBoQuaO(i);
+                    setLyDoNhap("");
+                  }}
+                  className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-full border border-warning/40 bg-warning-bg px-3 text-xs font-semibold text-warning-soft transition-colors hover:bg-warning/20"
+                >
+                  <X className="size-3.5 shrink-0" aria-hidden />
+                  Không tìm được nhà cung cấp cho ô này — bỏ qua, ghi lý do
+                </button>
+              )
+            )}
           </div>
         ))}
       </div>
+
+      {/* ★ THÊM Ô NGOÀI SỐ BẮT BUỘC — xem chú thích ở `soThem`. */}
+      {duocSua && !khoa && soOHienThi < TOI_DA_O_BAO_GIA && (
+        <button
+          type="button"
+          onClick={() => setSoThem((n) => n + 1)}
+          className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-primary/40 bg-primary-bg px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+        >
+          <Plus className="size-3.5 shrink-0" aria-hidden />
+          Thêm báo giá NCC khác (ngoài số bắt buộc)
+        </button>
+      )}
 
       {/* ★ Ô "BẢNG SO SÁNH BÁO GIÁ" — Ban lãnh đạo 20/08/2026: *"thêm trường đính kèm file so
           sánh"*.
@@ -382,12 +489,18 @@ export function KhuBaoGiaTheoSoLuong({
         <div className="flex flex-col gap-1.5 rounded-xl border border-dashed border-border bg-card p-(--hp-md-row-pad)">
           <p className="flex items-center gap-2 text-xs font-semibold text-text-desc uppercase">
             {NHAN_O_SO_SANH}
-            {/* 🔴 BẮT BUỘC từ 20/08/2026 — Ban lãnh đạo: *"mục này bắt buộc phải có"*. Luật thật
-                nằm ở `vuongMacTrinhXetDuyet`, dấu * ở đây chỉ là hiện ra cho người dùng thấy. */}
-            <span aria-hidden className="text-danger">
-              *
-            </span>
-            <span className="sr-only">(bắt buộc)</span>
+            {/* 🔴 BẮT BUỘC khi có ≥2 bản báo giá thật — Ban lãnh đạo 20/08/2026: *"mục này bắt
+                buộc phải có"*; nới lại 31/08/2026: 1 bản thật thì không có gì để so sánh. Luật
+                thật nằm ở `vuongMacTrinhXetDuyet`/`soSanhBaoGiaBatBuoc`, dấu * ở đây chỉ hiện đúng
+                theo luật đó cho người dùng thấy — KHÔNG tự đặt điều kiện riêng. */}
+            {soSanhBatBuoc && (
+              <>
+                <span aria-hidden className="text-danger">
+                  *
+                </span>
+                <span className="sr-only">(bắt buộc)</span>
+              </>
+            )}
             {tepBangSoSanh && (
               <span className="font-normal normal-case text-success-soft">· đã có tệp</span>
             )}
@@ -396,7 +509,7 @@ export function KhuBaoGiaTheoSoLuong({
             tep={tepBangSoSanh}
             nhanThem="Chọn tệp bảng so sánh"
             nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-            batBuoc={!tepBangSoSanh}
+            batBuoc={soSanhBatBuoc && !tepBangSoSanh}
             khoa={!duocSua || khoa}
             anHuongDan
             onXong={(t) => ganVaoO(t, NHAN_O_SO_SANH)}
@@ -511,6 +624,28 @@ export function KhuBaoGiaTheoSoLuong({
           setHoiGan(null);
         }}
       />
+
+      {/* Hỏi lý do trước khi bỏ qua một ô báo giá còn thiếu — xem `khoaLyDoBoQuaBaoGia`. */}
+      <HopXacNhan
+        mo={hoiBoQuaO !== null}
+        tieuDe={`Bỏ qua "${hoiBoQuaO !== null ? nhanOBaoGia(hoiBoQuaO) : ""}"?`}
+        moTa="Ghi rõ vì sao chưa tìm được nhà cung cấp cho ô này — bắt buộc phải có lý do mới bỏ
+          qua được. Tìm được nhà cung cấp sau thì vẫn đính kèm bình thường."
+        khoaDongY={lyDoNhap.trim() === "" ? "Nhập lý do trước khi bỏ qua." : undefined}
+        nhanDongY="Bỏ qua ô này"
+        onDong={() => setHoiBoQuaO(null)}
+        onDongY={() => xacNhanBoQua()}
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ly-do-bo-qua-bao-gia">Lý do</Label>
+          <Textarea
+            id="ly-do-bo-qua-bao-gia"
+            value={lyDoNhap}
+            onChange={(e) => setLyDoNhap(e.target.value)}
+            placeholder="VD: Mặt hàng đặc thù, chỉ một nhà cung cấp trong khu vực có hàng…"
+          />
+        </div>
+      </HopXacNhan>
     </div>
   );
 }

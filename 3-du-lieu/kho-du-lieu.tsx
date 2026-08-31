@@ -56,6 +56,8 @@ import {
   tinhPhuongAnTach,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import {
+  dongPOBiKhoaNoiDung,
+  laDongHang,
   poDaGiaoDu,
   soNgayDaTroiQua,
   tinhTienDoDeNghi,
@@ -105,7 +107,9 @@ import { guiPOSangQlkCtr, canDongBoLaiPO, guiPOSangQlkCtrDocLap, canDongBoLaiPOD
 import type {
   DeNghiMuaHang,
   DongDeNghi,
+  DongGiaPO,
   DongNhanHang,
+  DongPO,
   DonDatHang,
   GiaDonDatHang,
   NgayISO,
@@ -222,6 +226,39 @@ const homNay = () => new Date().toISOString().slice(0, 10);
  * sinh ra chính là để truy được thứ tự thao tác. Lưu ISO đầy đủ, hiển thị quy về
  * giờ Việt Nam bằng `formatDateTime` (xem `6-tien-ich/dinh-dang.ts`).
  */
+
+/**
+ * ★ CÁC TRƯỜNG SỬA ĐƯỢC KHI SỬA MỘT ĐƠN HÀNG ĐÃ LẬP — xem `suaDonHang` (`GiaTriDuLieu`).
+ *
+ * 🔴 CHỈ NHÓM 1 (thông tin hành chính) VÀ NHÓM 2 (ngày giao, mặt hàng, đơn giá, nhà cung cấp) —
+ * Nhóm 3 (mã PO, trạng thái, liên kết đề nghị, mã dự án…) CỐ Ý KHÔNG khai ở đây. Không phải chỉ
+ * ẩn ô nhập trên giao diện: `suaDonHang` chỉ nhận đúng kiểu này, nên gọi hàm với một trong các
+ * trường Nhóm 3 là **lỗi biên dịch**, không phải lỗi runtime người dùng có thể vô tình đi vòng
+ * qua.
+ */
+export interface ThayDoiDonHang {
+  nguoiLienHeNCC?: string;
+  diaChiNCC?: string;
+  maSoThueNCC?: string;
+  nguoiNhanHangTen?: string;
+  nguoiNhanHangSdt?: string;
+  diaDiemGiaoHang?: string;
+  dieuKienGiaoHang?: string;
+  ghiChuThoiGianGiao?: string;
+  ghiChu?: string;
+  dieuKhoanKhac?: string;
+  thamChieu?: string;
+  ngayGiaoDuKien?: NgayISO;
+  /** `""` = xóa về không có ngày kết thúc. `undefined` = không đụng tới trường này. */
+  ngayGiaoDenNgay?: NgayISO | "";
+  /** Đổi hẳn nhà cung cấp — LUÔN bắt lý do, xem chú thích ở `suaDonHang`. */
+  supplierId?: string;
+  supplierTen?: string;
+  /** Toàn bộ mảng mới — dòng đã có phiếu nhận "da_nhap_kho" bị chặn nếu đổi nội dung/số lượng. */
+  items?: DongPO[];
+  /** Có mặt (kể cả mảng rỗng) = có sửa giá. Khóa nếu đơn đã `xacNhanTruongBP`. */
+  gia?: { lines: DongGiaPO[] };
+}
 
 interface GiaTriDuLieu {
   deNghi: DeNghiMuaHang[];
@@ -386,6 +423,16 @@ interface GiaTriDuLieu {
     thayDoi: { soNgayDuocNo?: number | null; ngayToiHanThanhToan?: NgayISO | null },
     nguoiThucHien: string,
   ) => string | null;
+  /**
+   * ★★★ Sửa một đơn hàng đã lập (còn ở 1 trong 6 bước đầu) — Sếp demo bằng Artifact, chốt
+   * 31/08/2026. Xem chú thích đầy đủ ở nơi định nghĩa (`GiaTriDuLieu` → `suaDonHang`).
+   *
+   * @param lyDo Bắt buộc khi: người sửa KHÔNG có `quyen.suaPODaChot`, HOẶC có đổi ngày giao,
+   *   HOẶC có đổi nhà cung cấp (`supplierId` HOẶC `supplierTen` — hộp thoại hôm nay chỉ đổi tên
+   *   tự do, không đổi `supplierId`) — không bắt buộc ở các trường hợp khác.
+   * @returns Câu lý do bị chặn, `null` là đã ghi xong (hoặc không có gì đổi).
+   */
+  suaDonHang: (poId: string, thayDoi: ThayDoiDonHang, lyDo: string) => string | null;
   /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
   xacNhanKho: (poId: string, nguoi: XacNhan) => string | null;
   /**
@@ -1753,6 +1800,203 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       return null;
     },
     [],
+  );
+
+  /**
+   * ★★★ SỬA MỘT ĐƠN HÀNG ĐÃ LẬP — thêm 31/08/2026, sau khi Sếp demo bằng Artifact và chốt:
+   * *"1-6 bước đầu sửa được PO, quyền theo ai giao việc/ai đang làm, nhân viên sửa phải ghi lý
+   * do bắt buộc"*.
+   *
+   * 🔴 CHỈ 3 NHÓM TRƯỜNG ĐƯỢC NHẬN — xem kiểu `ThayDoiDonHang`. Nhóm 3 (mã PO, trạng thái, liên
+   * kết đề nghị, mã dự án…) CỐ Ý KHÔNG có mặt trong kiểu tham số: TypeScript tự chặn việc gọi
+   * hàm này với những trường đó, không cần một dòng kiểm tra runtime nào — khóa CHẶT hơn hẳn
+   * việc chỉ ẩn ô nhập trên giao diện.
+   *
+   * 🔴 QUYỀN: dùng LẠI `quyen.suaPODaChot` (Trưởng bộ phận cấp 3+ / quản trị — "người giao việc
+   * xuống"), không sinh cờ quyền mới. Người phụ trách trực tiếp đơn (`po.nguoiPhuTrachUid`) cũng
+   * sửa được nhưng KHÔNG có `suaPODaChot` thì bắt buộc ghi lý do cho MỌI thay đổi — đúng ý Sếp
+   * *"nhân viên sửa phải có thêm dòng ghi chú tại sao sửa"*.
+   *
+   * 🔴 NGÀY GIAO LUÔN BẮT LÝ DO, KỂ CẢ NGƯỜI CÓ `suaPODaChot` — đổi cam kết giao hàng với nhà
+   * cung cấp/công trình không phải chuyện nội bộ của quản lý, đúng luật đã có cho đề nghị
+   * (`suaThoiHan`). Đổi hẳn nhà cung cấp cũng vậy — công nợ nhà cung cấp gộp theo NCC, đổi lặng
+   * lẽ là công nợ cũ "biến" sang tên khác mà không ai giải trình.
+   *
+   * 🔴 DÒNG MẶT HÀNG ĐÃ CÓ PHIẾU NHẬN "da_nhap_kho" THÌ KHÓA NỘI DUNG/SỐ LƯỢNG — phiếu nhận trỏ
+   * về đúng VỊ TRÍ dòng (`DongNhanHang.sttDongPO` → `DongPO.sttDong`), không trỏ theo nội dung.
+   * Cho đổi tên hàng/số lượng của dòng đó là phiếu nhận cũ bỗng nói về một thứ khác hẳn với thực
+   * tế đã ghi, không truy vết lại được. Dòng CHƯA nhận gì thì sửa tự do; thêm dòng mới luôn được.
+   *
+   * 🔴 ĐƠN GIÁ KHÓA SAU KHI ĐÃ `xacNhanTruongBP` — công nợ đã tính theo con số đó, Trưởng bộ
+   * phận đã ký xác nhận hoàn thành trên cơ sở giá đó.
+   *
+   * @returns Câu lý do bị chặn, `null` là đã ghi xong.
+   */
+  const suaDonHang = useCallback(
+    (poId: string, thayDoi: ThayDoiDonHang, lyDo: string): string | null => {
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po) return "Không tìm thấy đơn hàng này.";
+      if (po.trangThai === "hoan_thanh" || po.trangThai === "huy") {
+        return "Đơn đã hoàn thành hoặc đã hủy — không sửa lại được nữa.";
+      }
+
+      const quyen = tinhQuyen(nguoiDung);
+      const laQuanLy = quyen.suaPODaChot;
+      const laNguoiPhuTrach = po.nguoiPhuTrachUid === nguoiDung.uid;
+      if (!laQuanLy && !laNguoiPhuTrach) {
+        return "Chỉ Trưởng bộ phận trở lên, hoặc người phụ trách đơn này, mới sửa được đơn hàng.";
+      }
+
+      const doiNgayGiao =
+        (thayDoi.ngayGiaoDuKien !== undefined && thayDoi.ngayGiaoDuKien !== po.ngayGiaoDuKien) ||
+        (thayDoi.ngayGiaoDenNgay !== undefined &&
+          (thayDoi.ngayGiaoDenNgay || undefined) !== po.ngayGiaoDenNgay);
+      /* So cả `supplierTen` — hộp thoại `HopSuaDonHang` CHỈ đổi tên tự do (giữ nguyên `supplierId`
+         cũ, xem chú thích ở nơi gọi), không có đường nào trong app hôm nay đổi `supplierId` qua
+         hàm này. Nếu chỉ so `supplierId` thì điều kiện bắt buộc lý do + dòng nhật ký "Nhà cung
+         cấp: X → Y" phía dưới sẽ CHẾT vĩnh viễn — im lặng bỏ qua đúng thứ hộp thoại vừa cảnh báo
+         "cần lý do" ở phía client. */
+      const doiNCC =
+        (thayDoi.supplierId !== undefined && thayDoi.supplierId !== po.supplierId) ||
+        (thayDoi.supplierTen !== undefined && thayDoi.supplierTen !== po.supplierTen);
+      const batBuocLyDo = !laQuanLy || doiNgayGiao || doiNCC;
+      if (batBuocLyDo && lyDo.trim() === "") {
+        if (doiNgayGiao) return "Đổi ngày giao phải ghi lý do, dù là ai sửa.";
+        if (doiNCC) return "Đổi nhà cung cấp phải ghi lý do, dù là ai sửa.";
+        return "Bạn không phải Trưởng bộ phận/quản trị — sửa đơn hàng phải ghi lý do.";
+      }
+
+      /* 🔴 PHẢI CÒN ÍT NHẤT 1 DÒNG HÀNG THẬT — nút "Xóa dòng" ở hộp thoại xóa được TỪNG dòng một,
+         không có gì chặn xóa hết. Một PO 0 mặt hàng là vô nghĩa về nghiệp vụ (0 ₫, không còn gì
+         để giao/nhận) nhưng vẫn hợp lệ về mặt kiểu dữ liệu (`items: []`) nếu không kiểm ở đây. */
+      if (thayDoi.items && !thayDoi.items.some((d) => laDongHang(d))) {
+        return "Đơn hàng phải còn ít nhất 1 dòng mặt hàng — không xóa hết được.";
+      }
+
+      /* Dòng đang có phiếu nhận tham chiếu tới thì khóa nội dung/số lượng — luật DÙNG CHUNG với
+         hộp thoại, xem chú thích đầy đủ ở `dongPOBiKhoaNoiDung` (2-quy-trinh/tinh-toan.ts). */
+      if (thayDoi.items) {
+        const dongDaNhan = dongPOBiKhoaNoiDung(
+          phieuNhanRef.current.filter((p) => p.poId === poId),
+        );
+        for (const dongCu of po.items) {
+          if (!dongDaNhan.has(dongCu.sttDong)) continue;
+          const dongMoi = thayDoi.items.find((d) => d.sttDong === dongCu.sttDong);
+          if (
+            !dongMoi ||
+            dongMoi.tenVatLieu !== dongCu.tenVatLieu ||
+            dongMoi.donViTinh !== dongCu.donViTinh ||
+            dongMoi.khoiLuongDat !== dongCu.khoiLuongDat
+          ) {
+            return `Dòng "${dongCu.tenVatLieu}" đã có phiếu nhận hàng — không sửa mặt hàng/số lượng dòng này được nữa. Thêm dòng mới nếu cần đặt thêm.`;
+          }
+        }
+      }
+
+      if (thayDoi.gia && po.xacNhanTruongBP) {
+        return "Trưởng bộ phận đã xác nhận hoàn thành đơn này — không sửa giá được nữa.";
+      }
+
+      /* 🔴 TỰ LỌC, không tin nguyên `thayDoi.gia.lines` từ nơi gọi — dòng giá của một `sttDong`
+         không còn trong `items` cuối cùng (dòng vừa bị xóa ở hộp thoại) là một dòng giá "mồ côi",
+         cứ ghi thẳng vào `GiaDonDatHang` thì để lại rác trỏ về một dòng PO không tồn tại. Tầng ghi
+         là nơi quyết định cuối, không phải UI — dù `HopSuaDonHang` đã tự lọc phía trên rồi, ở đây
+         vẫn lọc lại một lần cho chắc (một hàm khác gọi `suaDonHang` sau này không nhất thiết lọc
+         đúng như UI hôm nay). */
+      if (thayDoi.gia) {
+        const sttConLai = new Set((thayDoi.items ?? po.items).map((d) => d.sttDong));
+        thayDoi.gia = {
+          lines: thayDoi.gia.lines.filter((l) => sttConLai.has(l.sttDong)),
+        };
+      }
+
+      /* Dựng câu nhật ký TRƯỚC khi ghi, để so được giá trị cũ với giá trị mới — sau khi
+         `setDonHang` chạy thì giá trị cũ không còn ở đâu để đọc lại (cùng cách `datDieuKhoanCongNo`
+         đã làm ở trên). */
+      const moc: string[] = [];
+      const soSanh = (nhan: string, cu: string | undefined, moi: string | undefined) => {
+        if (moi === undefined) return;
+        const a = (cu ?? "").trim();
+        const b = moi.trim();
+        if (a !== b) moc.push(`${nhan}: ${a === "" ? "trống" : a} → ${b === "" ? "trống" : b}`);
+      };
+      soSanh("Người liên hệ NCC", po.nguoiLienHeNCC, thayDoi.nguoiLienHeNCC);
+      soSanh("Địa chỉ NCC", po.diaChiNCC, thayDoi.diaChiNCC);
+      soSanh("Mã số thuế NCC", po.maSoThueNCC, thayDoi.maSoThueNCC);
+      soSanh("Người nhận hàng", po.nguoiNhanHangTen, thayDoi.nguoiNhanHangTen);
+      soSanh("SĐT người nhận", po.nguoiNhanHangSdt, thayDoi.nguoiNhanHangSdt);
+      soSanh("Địa điểm giao hàng", po.diaDiemGiaoHang, thayDoi.diaDiemGiaoHang);
+      soSanh("Điều kiện giao hàng", po.dieuKienGiaoHang, thayDoi.dieuKienGiaoHang);
+      soSanh("Ghi chú thời gian giao", po.ghiChuThoiGianGiao, thayDoi.ghiChuThoiGianGiao);
+      soSanh("Ghi chú", po.ghiChu, thayDoi.ghiChu);
+      soSanh("Điều khoản khác", po.dieuKhoanKhac, thayDoi.dieuKhoanKhac);
+      soSanh("Tham chiếu", po.thamChieu, thayDoi.thamChieu);
+      if (doiNgayGiao) moc.push(`Ngày giao: ${po.ngayGiaoDuKien} → ${thayDoi.ngayGiaoDuKien ?? po.ngayGiaoDuKien}`);
+      if (doiNCC) moc.push(`Nhà cung cấp: ${po.supplierTen} → ${thayDoi.supplierTen ?? ""}`);
+      /* Hộp "Sửa đơn hàng" gửi lại NGUYÊN state (kể cả phần không đổi) mỗi lần lưu — nên ở đây
+         PHẢI so nội dung thật với `po.items`/giá hiện tại, không chỉ xét "có gửi lên hay không",
+         nếu không nhật ký sẽ báo sai "sửa bảng mặt hàng/đơn giá" ở MỌI lần sửa, kể cả khi chỉ đổi
+         một dòng Nhóm 1 — phá đúng mục đích truy vết ban đầu của tính năng này. */
+      const khoaDong = (d: { sttDong: number; tenVatLieu: string; donViTinh: string; khoiLuongDat: number }) =>
+        `${d.sttDong}|${d.tenVatLieu}|${d.donViTinh}|${d.khoiLuongDat}`;
+      const doiItems =
+        thayDoi.items !== undefined &&
+        (thayDoi.items.length !== po.items.length ||
+          [...po.items].sort((a, b) => a.sttDong - b.sttDong).map(khoaDong).join(";") !==
+            [...thayDoi.items].sort((a, b) => a.sttDong - b.sttDong).map(khoaDong).join(";"));
+      if (doiItems) moc.push("sửa bảng mặt hàng");
+
+      const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
+      const khoaGia = (l: { sttDong: number; donGia: number }) => `${l.sttDong}|${l.donGia}`;
+      const doiGia =
+        thayDoi.gia !== undefined &&
+        ((giaCu?.lines.length ?? 0) !== thayDoi.gia.lines.length ||
+          [...(giaCu?.lines ?? [])].sort((a, b) => a.sttDong - b.sttDong).map(khoaGia).join(";") !==
+            [...thayDoi.gia.lines].sort((a, b) => a.sttDong - b.sttDong).map(khoaGia).join(";"));
+      if (doiGia) moc.push("sửa đơn giá");
+
+      if (moc.length === 0) return null;
+
+      setDonHang((truoc) =>
+        truoc.map((p) => {
+          if (p.id !== poId) return p;
+          const sau: DonDatHang = { ...p };
+          if (thayDoi.nguoiLienHeNCC !== undefined) sau.nguoiLienHeNCC = thayDoi.nguoiLienHeNCC || undefined;
+          if (thayDoi.diaChiNCC !== undefined) sau.diaChiNCC = thayDoi.diaChiNCC || undefined;
+          if (thayDoi.maSoThueNCC !== undefined) sau.maSoThueNCC = thayDoi.maSoThueNCC || undefined;
+          if (thayDoi.nguoiNhanHangTen !== undefined) sau.nguoiNhanHangTen = thayDoi.nguoiNhanHangTen || undefined;
+          if (thayDoi.nguoiNhanHangSdt !== undefined) sau.nguoiNhanHangSdt = thayDoi.nguoiNhanHangSdt || undefined;
+          if (thayDoi.diaDiemGiaoHang !== undefined) sau.diaDiemGiaoHang = thayDoi.diaDiemGiaoHang || undefined;
+          if (thayDoi.dieuKienGiaoHang !== undefined) sau.dieuKienGiaoHang = thayDoi.dieuKienGiaoHang || undefined;
+          if (thayDoi.ghiChuThoiGianGiao !== undefined) sau.ghiChuThoiGianGiao = thayDoi.ghiChuThoiGianGiao || undefined;
+          if (thayDoi.ghiChu !== undefined) sau.ghiChu = thayDoi.ghiChu || undefined;
+          if (thayDoi.dieuKhoanKhac !== undefined) sau.dieuKhoanKhac = thayDoi.dieuKhoanKhac || undefined;
+          if (thayDoi.thamChieu !== undefined) sau.thamChieu = thayDoi.thamChieu || undefined;
+          if (thayDoi.ngayGiaoDuKien !== undefined) sau.ngayGiaoDuKien = thayDoi.ngayGiaoDuKien;
+          if (thayDoi.ngayGiaoDenNgay !== undefined) sau.ngayGiaoDenNgay = thayDoi.ngayGiaoDenNgay || undefined;
+          if (thayDoi.supplierId !== undefined) sau.supplierId = thayDoi.supplierId;
+          if (thayDoi.supplierTen !== undefined) sau.supplierTen = thayDoi.supplierTen;
+          if (thayDoi.items !== undefined) sau.items = thayDoi.items;
+          return sau;
+        }),
+      );
+      if (thayDoi.gia) {
+        setGiaDonHang((truoc) =>
+          truoc.map((g) => (g.poId === poId ? { ...g, lines: thayDoi.gia!.lines } : g)),
+        );
+      }
+
+      const hanhDong = `Sửa đơn hàng ${po.code} — ${moc.join(" · ")}`;
+      ghiNhatKyDonHang(po, nguoiDung.tenHienThi, hanhDong);
+      /* Lý do (nếu có) đứng riêng ngoài câu hành động — người đọc lịch sử phân biệt được "việc
+         đã làm" và "vì sao làm" ngay từ hai dòng khác nhau, không phải lọc chữ trong một câu dài. */
+      if (lyDo.trim() !== "") {
+        ghiNhatKyDonHang(po, nguoiDung.tenHienThi, `Lý do sửa: ${lyDo.trim()}`);
+      }
+
+      return null;
+    },
+    [ghiNhatKyDonHang, nguoiDung],
   );
 
   /**
@@ -5591,6 +5835,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
+      suaDonHang,
       xacNhanKho,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,
@@ -5661,6 +5906,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
+      suaDonHang,
       xacNhanKho,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,

@@ -144,6 +144,29 @@ export function vuongMacXacNhanKho(phieuCuaPO: PhieuNhanHang[]): string | null {
 }
 
 /**
+ * ★ CÁC `sttDong` (của `DongPO`) ĐANG BỊ KHÓA SỬA NỘI DUNG/SỐ LƯỢNG — vì đang có phiếu nhận
+ * hàng SỐNG tham chiếu tới, dùng cho `suaDonHang` (`3-du-lieu/kho-du-lieu.tsx`) và hộp thoại
+ * "Sửa đơn hàng" (`hop-sua-don-hang.tsx`).
+ *
+ * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý, đúng nếp `vuongMacXacNhanKho` phía trên — MỘT LUẬT, HAI NƠI DÙNG (tầng
+ * ghi kiểm thật, hộp thoại bày đúng trạng thái khóa) — không tự chép lại filter này ở nơi thứ
+ * hai, lệch một chữ là UI hứa sửa được rồi tầng ghi âm thầm từ chối.
+ *
+ * 🔴 KHÁC hẳn khái niệm "khối lượng đã nhận" (CHỈ tính phiếu `da_nhap_kho`, xem chú thích ở
+ * `TrangThaiPhieuNhan`) — câu hỏi ở đây là "có phiếu nào ĐANG trỏ về dòng này, mà nội dung phiếu
+ * đã ghi rõ tên hàng/ĐVT/số lượng theo đúng dòng PO hiện tại". `cho_kiem_tra` (hàng đã về, chờ
+ * duyệt) VẪN khóa vì lý do đó; `da_nhap_kho` (đã duyệt) càng phải khóa. `tu_choi_nhan` KHÔNG
+ * khóa — phiếu bị từ chối không còn là một tham chiếu sống.
+ */
+export function dongPOBiKhoaNoiDung(phieuCuaPO: PhieuNhanHang[]): Set<number> {
+  return new Set(
+    phieuCuaPO
+      .filter((p) => p.trangThai === "da_nhap_kho" || p.trangThai === "cho_kiem_tra")
+      .flatMap((p) => p.lines.map((l) => l.sttDongPO)),
+  );
+}
+
+/**
  * ★ CÒN ĐƯỢC GHI THÊM PHIẾU NHẬN HÀNG KHÔNG — trả lý do bị chặn, `null` là còn được.
  *
  * 🔴 Ban lãnh đạo 15/08/2026: *"khi đã nhận đủ hàng thì không được thêm phiếu ghi nhận nữa"*.
