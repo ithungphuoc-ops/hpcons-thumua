@@ -56,6 +56,7 @@ import {
   tinhPhuongAnTach,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import {
+  dongPOBiKhoaNoiDung,
   poDaGiaoDu,
   soNgayDaTroiQua,
   tinhTienDoDeNghi,
@@ -426,7 +427,8 @@ interface GiaTriDuLieu {
    * 31/08/2026. Xem chú thích đầy đủ ở nơi định nghĩa (`GiaTriDuLieu` → `suaDonHang`).
    *
    * @param lyDo Bắt buộc khi: người sửa KHÔNG có `quyen.suaPODaChot`, HOẶC có đổi ngày giao,
-   *   HOẶC có đổi hẳn nhà cung cấp (`supplierId`) — không bắt buộc ở các trường hợp khác.
+   *   HOẶC có đổi nhà cung cấp (`supplierId` HOẶC `supplierTen` — hộp thoại hôm nay chỉ đổi tên
+   *   tự do, không đổi `supplierId`) — không bắt buộc ở các trường hợp khác.
    * @returns Câu lý do bị chặn, `null` là đã ghi xong (hoặc không có gì đổi).
    */
   suaDonHang: (poId: string, thayDoi: ThayDoiDonHang, lyDo: string) => string | null;
@@ -1824,8 +1826,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         (thayDoi.ngayGiaoDuKien !== undefined && thayDoi.ngayGiaoDuKien !== po.ngayGiaoDuKien) ||
         (thayDoi.ngayGiaoDenNgay !== undefined &&
           (thayDoi.ngayGiaoDenNgay || undefined) !== po.ngayGiaoDenNgay);
+      /* So cả `supplierTen` — hộp thoại `HopSuaDonHang` CHỈ đổi tên tự do (giữ nguyên `supplierId`
+         cũ, xem chú thích ở nơi gọi), không có đường nào trong app hôm nay đổi `supplierId` qua
+         hàm này. Nếu chỉ so `supplierId` thì điều kiện bắt buộc lý do + dòng nhật ký "Nhà cung
+         cấp: X → Y" phía dưới sẽ CHẾT vĩnh viễn — im lặng bỏ qua đúng thứ hộp thoại vừa cảnh báo
+         "cần lý do" ở phía client. */
       const doiNCC =
-        thayDoi.supplierId !== undefined && thayDoi.supplierId !== po.supplierId;
+        (thayDoi.supplierId !== undefined && thayDoi.supplierId !== po.supplierId) ||
+        (thayDoi.supplierTen !== undefined && thayDoi.supplierTen !== po.supplierTen);
       const batBuocLyDo = !laQuanLy || doiNgayGiao || doiNCC;
       if (batBuocLyDo && lyDo.trim() === "") {
         if (doiNgayGiao) return "Đổi ngày giao phải ghi lý do, dù là ai sửa.";
@@ -1833,12 +1841,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         return "Bạn không phải Trưởng bộ phận/quản trị — sửa đơn hàng phải ghi lý do.";
       }
 
-      /* Dòng đã có phiếu nhận "da_nhap_kho" thì khóa nội dung/số lượng — xem chú thích trên. */
+      /* Dòng đang có phiếu nhận tham chiếu tới thì khóa nội dung/số lượng — luật DÙNG CHUNG với
+         hộp thoại, xem chú thích đầy đủ ở `dongPOBiKhoaNoiDung` (2-quy-trinh/tinh-toan.ts). */
       if (thayDoi.items) {
-        const dongDaNhan = new Set(
-          phieuNhanRef.current
-            .filter((p) => p.poId === poId && p.trangThai === "da_nhap_kho")
-            .flatMap((p) => p.lines.map((l) => l.sttDongPO)),
+        const dongDaNhan = dongPOBiKhoaNoiDung(
+          phieuNhanRef.current.filter((p) => p.poId === poId),
         );
         for (const dongCu of po.items) {
           if (!dongDaNhan.has(dongCu.sttDong)) continue;

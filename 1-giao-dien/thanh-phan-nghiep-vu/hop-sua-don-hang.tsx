@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Lock, Pencil, Plus, Undo2 } from "lucide-react";
+import { Lock, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { useDuLieu, type ThayDoiDonHang } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { laDongHang } from "@/2-quy-trinh/tinh-toan";
+import { dongPOBiKhoaNoiDung, laDongHang } from "@/2-quy-trinh/tinh-toan";
 import type { DongPO, DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -43,13 +43,10 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
 
   const giaHienTai = giaDonHang.find((g) => g.poId === po.id);
 
-  /** Dòng đã có phiếu nhận "da_nhap_kho" — khóa nội dung/số lượng, đúng luật `suaDonHang`. */
+  /** Dòng đang có phiếu nhận tham chiếu — khóa nội dung/số lượng, đúng luật DÙNG CHUNG với
+   *  tầng ghi `suaDonHang`. Xem chú thích đầy đủ ở `dongPOBiKhoaNoiDung`. */
   const dongDaNhan = useMemo(() => {
-    return new Set(
-      phieuNhan
-        .filter((p) => p.poId === po.id && p.trangThai === "da_nhap_kho")
-        .flatMap((p) => p.lines.map((l) => l.sttDongPO)),
-    );
+    return dongPOBiKhoaNoiDung(phieuNhan.filter((p) => p.poId === po.id));
   }, [phieuNhan, po.id]);
 
   // ------------------------------------------------------------
@@ -381,6 +378,18 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
                             setGia((truoc) => ({ ...truoc, [d.sttDong]: e.target.value }))
                           }
                         />
+                      )}
+                      {!khoa && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="shrink-0 text-text-desc hover:bg-danger-bg hover:text-danger"
+                          aria-label={`Xóa dòng ${idx + 1}`}
+                          title="Xóa dòng"
+                          onClick={() => setItems((truoc) => truoc.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 className="size-4" aria-hidden />
+                        </Button>
                       )}
                       {khoa && (
                         <span
