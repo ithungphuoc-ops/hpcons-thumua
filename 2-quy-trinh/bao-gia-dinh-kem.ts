@@ -260,6 +260,23 @@ export function danhSachNCCDaBaoGia(
 }
 
 /**
+ * ★ BẢNG SO SÁNH BÁO GIÁ CÓ BẮT BUỘC KHÔNG — dùng CHUNG cho cả `vuongMacTrinhXetDuyet` (cổng ghi
+ * thật) LẪN thẻ UI (`khu-bao-gia-theo-so-luong.tsx`).
+ *
+ * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý — MỘT LUẬT, HAI NƠI DÙNG, đúng nếp `dongPOBiKhoaNoiDung`
+ * (`2-quy-trinh/tinh-toan.ts`). Trước 31/08/2026, thẻ UI tự tính `soSanhBatBuoc` riêng
+ * (`soBanBaoGiaThat(deNghi) >= 2`) mà KHÔNG lặp lại điều kiện `can === 0` bên dưới — khi trưởng
+ * bộ phận chủ ý đặt "Số báo giá yêu cầu" = Không yêu cầu riêng + `soBaoGiaToiThieu` = 0 (một cấu
+ * hình HỢP LỆ, xem chú thích ở `soBaoGiaCanCo`), thẻ vẫn hiện dấu `*` đỏ "bắt buộc" dù cổng ghi
+ * thật (`can === 0` → return sớm) không hề chặn — UI nói một đằng, hàm làm một nẻo.
+ */
+export function soSanhBaoGiaBatBuoc(deNghi: DeNghiMuaHang, cauHinh: CauHinhQuyTrinh): boolean {
+  const can = soBaoGiaCanCo(deNghi, cauHinh);
+  if (can === 0) return false;
+  return soBanBaoGiaThat(deNghi) >= 2;
+}
+
+/**
  * ★ CÒN VƯỚNG GÌ KHÔNG CHO TRÌNH XÉT DUYỆT — `null` là đủ điều kiện.
  *
  * 🔴 Ban lãnh đạo 20/08/2026: đủ số bản báo giá là **điều kiện bắt buộc để chuyển bước**.

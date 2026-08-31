@@ -393,7 +393,22 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
                           className="shrink-0 text-text-desc hover:bg-danger-bg hover:text-danger"
                           aria-label={`Xóa dòng ${idx + 1}`}
                           title="Xóa dòng"
-                          onClick={() => setItems((truoc) => truoc.filter((_, i) => i !== idx))}
+                          onClick={() => {
+                            setItems((truoc) => truoc.filter((_, i) => i !== idx));
+                            /* 🔴 DỌN LUÔN `gia[sttDong]` — nếu không, "Thêm dòng mới" ngay sau đó
+                               (sttKeTiep = max(sttDong còn lại) + 1) HOÀN TOÀN có thể trùng đúng
+                               `sttDong` vừa xóa (vd xóa dòng có stt cao nhất rồi thêm dòng mới),
+                               khi đó ô Đơn giá của dòng MẶT HÀNG MỚI sẽ tự hiện lại giá của dòng
+                               ĐÃ XÓA (đọc `gia[d.sttDong]` ở ô Đơn giá bên dưới) — gán nhầm giá
+                               sang một mặt hàng khác hẳn mà người dùng chưa hề gõ gì. Bộ lọc "giá
+                               mồ côi" (sttConLai) ở `sua()`/`suaDonHang` KHÔNG bắt được ca này vì
+                               sttDong đó vẫn hợp lệ, chỉ là đã đổi chủ. */
+                            setGia((truoc) => {
+                              const con = { ...truoc };
+                              delete con[d.sttDong];
+                              return con;
+                            });
+                          }}
                         >
                           <Trash2 className="size-4" aria-hidden />
                         </Button>

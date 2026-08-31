@@ -17,8 +17,8 @@ import {
   nhanOBaoGia,
   NHAN_O_SO_SANH,
   soBaoGiaCanCo,
-  soBanBaoGiaThat,
   soOBaoGia,
+  soSanhBaoGiaBatBuoc,
   tenNCCCuaO,
   tepBaoGiaDaCo,
   tepSoSanh,
@@ -145,11 +145,12 @@ export function KhuBaoGiaTheoSoLuong({
   );
   /** Tệp ở ô "Bảng so sánh báo giá" — ô riêng, không tính vào số bản báo giá bắt buộc. */
   const tepBangSoSanh = tepSoSanh(deNghi);
-  /* ★ Đúng MỘT LUẬT với `vuongMacTrinhXetDuyet` — xem chú thích ở `soBanBaoGiaThat`. Trước
-     31/08/2026 thẻ bên dưới tự đặt `batBuoc={!tepBangSoSanh}` không xét số bản thật, lệch với
-     luật thật (1 bản thật thì bảng so sánh KHÔNG bắt buộc; ô thêm ngoài số bắt buộc vẫn tính là
-     bản thật). */
-  const soSanhBatBuoc = soBanBaoGiaThat(deNghi) >= 2;
+  /* ★ Đúng MỘT LUẬT với `vuongMacTrinhXetDuyet` — gọi thẳng `soSanhBaoGiaBatBuoc` (xét CẢ
+     `can === 0` lẫn số bản thật), không tự tính riêng. Trước 31/08/2026 thẻ này tự đặt
+     `batBuoc={!tepBangSoSanh}`; sau đó tự đổi thành `soBanBaoGiaThat(deNghi) >= 2` nhưng quên
+     lặp lại điều kiện `can === 0` — khi trưởng bộ phận chủ ý đặt "Không yêu cầu riêng" +
+     `soBaoGiaToiThieu` = 0, thẻ vẫn hiện dấu * đỏ dù cổng ghi thật không hề chặn. */
+  const soSanhBatBuoc = soSanhBaoGiaBatBuoc(deNghi, cauHinh);
   /* Chốt ②: tệp không nhãn, hoặc nhãn vượt số ô, vẫn phải hiện ở đâu đó.
      ⚠️ TRỪ tệp của ô "Bảng so sánh báo giá" — nó đã có ô riêng bên dưới; không trừ thì nó hiện
      hai lần, và người dùng tưởng hồ sơ có hai tệp. */
@@ -490,7 +491,7 @@ export function KhuBaoGiaTheoSoLuong({
             {NHAN_O_SO_SANH}
             {/* 🔴 BẮT BUỘC khi có ≥2 bản báo giá thật — Ban lãnh đạo 20/08/2026: *"mục này bắt
                 buộc phải có"*; nới lại 31/08/2026: 1 bản thật thì không có gì để so sánh. Luật
-                thật nằm ở `vuongMacTrinhXetDuyet`/`soBanBaoGiaThat`, dấu * ở đây chỉ hiện đúng
+                thật nằm ở `vuongMacTrinhXetDuyet`/`soSanhBaoGiaBatBuoc`, dấu * ở đây chỉ hiện đúng
                 theo luật đó cho người dùng thấy — KHÔNG tự đặt điều kiện riêng. */}
             {soSanhBatBuoc && (
               <>
