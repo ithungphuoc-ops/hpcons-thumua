@@ -17,6 +17,7 @@ import {
   nhanOBaoGia,
   NHAN_O_SO_SANH,
   soBaoGiaCanCo,
+  soBanBaoGiaThat,
   soOBaoGia,
   tenNCCCuaO,
   tepBaoGiaDaCo,
@@ -144,6 +145,11 @@ export function KhuBaoGiaTheoSoLuong({
   );
   /** Tệp ở ô "Bảng so sánh báo giá" — ô riêng, không tính vào số bản báo giá bắt buộc. */
   const tepBangSoSanh = tepSoSanh(deNghi);
+  /* ★ Đúng MỘT LUẬT với `vuongMacTrinhXetDuyet` — xem chú thích ở `soBanBaoGiaThat`. Trước
+     31/08/2026 thẻ bên dưới tự đặt `batBuoc={!tepBangSoSanh}` không xét số bản thật, lệch với
+     luật thật (1 bản thật thì bảng so sánh KHÔNG bắt buộc; ô thêm ngoài số bắt buộc vẫn tính là
+     bản thật). */
+  const soSanhBatBuoc = soBanBaoGiaThat(deNghi) >= 2;
   /* Chốt ②: tệp không nhãn, hoặc nhãn vượt số ô, vẫn phải hiện ở đâu đó.
      ⚠️ TRỪ tệp của ô "Bảng so sánh báo giá" — nó đã có ô riêng bên dưới; không trừ thì nó hiện
      hai lần, và người dùng tưởng hồ sơ có hai tệp. */
@@ -482,12 +488,18 @@ export function KhuBaoGiaTheoSoLuong({
         <div className="flex flex-col gap-1.5 rounded-xl border border-dashed border-border bg-card p-(--hp-md-row-pad)">
           <p className="flex items-center gap-2 text-xs font-semibold text-text-desc uppercase">
             {NHAN_O_SO_SANH}
-            {/* 🔴 BẮT BUỘC từ 20/08/2026 — Ban lãnh đạo: *"mục này bắt buộc phải có"*. Luật thật
-                nằm ở `vuongMacTrinhXetDuyet`, dấu * ở đây chỉ là hiện ra cho người dùng thấy. */}
-            <span aria-hidden className="text-danger">
-              *
-            </span>
-            <span className="sr-only">(bắt buộc)</span>
+            {/* 🔴 BẮT BUỘC khi có ≥2 bản báo giá thật — Ban lãnh đạo 20/08/2026: *"mục này bắt
+                buộc phải có"*; nới lại 31/08/2026: 1 bản thật thì không có gì để so sánh. Luật
+                thật nằm ở `vuongMacTrinhXetDuyet`/`soBanBaoGiaThat`, dấu * ở đây chỉ hiện đúng
+                theo luật đó cho người dùng thấy — KHÔNG tự đặt điều kiện riêng. */}
+            {soSanhBatBuoc && (
+              <>
+                <span aria-hidden className="text-danger">
+                  *
+                </span>
+                <span className="sr-only">(bắt buộc)</span>
+              </>
+            )}
             {tepBangSoSanh && (
               <span className="font-normal normal-case text-success-soft">· đã có tệp</span>
             )}
@@ -496,7 +508,7 @@ export function KhuBaoGiaTheoSoLuong({
             tep={tepBangSoSanh}
             nhanThem="Chọn tệp bảng so sánh"
             nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-            batBuoc={!tepBangSoSanh}
+            batBuoc={soSanhBatBuoc && !tepBangSoSanh}
             khoa={!duocSua || khoa}
             anHuongDan
             onXong={(t) => ganVaoO(t, NHAN_O_SO_SANH)}

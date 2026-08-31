@@ -170,6 +170,27 @@ export function tepSoSanh(deNghi: DeNghiMuaHang): MoTaTep | undefined {
 }
 
 /**
+ * ★ SỐ Ô BÁO GIÁ ĐANG CÓ TỆP THẬT — đếm TOÀN BỘ ô (kể cả ô thêm ngoài số bắt buộc qua nút
+ * "+ Thêm báo giá NCC khác"), KHÔNG chặn `<= can`.
+ *
+ * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý, MỘT LUẬT — dùng cho cả điều kiện trình xét duyệt (`vuongMacTrinhXetDuyet`)
+ * LẪN thẻ "Bảng so sánh báo giá" ở UI (`khu-bao-gia-theo-so-luong.tsx`). Trước 31/08/2026 UI tự
+ * tính riêng theo cách khác (chỉ xét `can`) — lệch với điều kiện thật, có lúc thẻ báo "bắt buộc"
+ * dù hàm ghi coi là không bắt buộc, có lúc ngược lại.
+ *
+ * Đừng nhầm với `oDaCoTep` cục bộ trong `vuongMacTrinhXetDuyet` — đại lượng đó CHỈ đếm trong
+ * phạm vi `can` ô bắt buộc, dùng cho vòng lặp "ô bắt buộc nào còn thiếu tệp hoặc lý do", một câu
+ * hỏi khác hẳn câu hỏi ở đây ("tổng cộng có mấy bản thật để mà so sánh").
+ */
+export function soBanBaoGiaThat(deNghi: DeNghiMuaHang): number {
+  return new Set(
+    tepBaoGiaDaCo(deNghi)
+      .map((t) => chiSoOBaoGia(t.ghiChu))
+      .filter((n) => n >= 1),
+  ).size;
+}
+
+/**
  * ★ BẢN BÁO GIÁ ĐÃ ĐƯỢC DUYỆT — đọc từ căn cứ duyệt mà trưởng bộ phận đã ghi.
  *
  * 🔴 Ban lãnh đạo 20/08/2026: *"hãy tạo đường link tới báo giá được chọn"* — bước ③ đang ghi
@@ -282,11 +303,13 @@ export function vuongMacTrinhXetDuyet(
    * Xét SAU khi đã đủ số bản báo giá: nói cái nặng trước (còn thiếu mấy bản) thì người dùng đi
    * làm đúng việc cần làm, chứ không nhảy qua nhảy lại giữa hai lời nhắc.
    *
-   * ⚠️ Đếm `oDaCoTep.size` (số ô CÓ TỆP THẬT), không đếm `can` — hồ sơ yêu cầu 2 bản nhưng chỉ
-   * còn 1 bản thật (bản kia đã ghi lý do bỏ qua) thì không có bản thứ hai nào để đối chiếu, đòi
-   * bảng so sánh lúc đó là đòi một chứng từ không có nguồn để dựng.
+   * ⚠️ Dùng `soBanBaoGiaThat` (đếm TOÀN BỘ ô, không chặn `<= can`) — KHÁC `oDaCoTep` ở trên (chỉ
+   * tính ô BẮT BUỘC, dùng cho vòng lặp "còn thiếu ô nào"). Ô thêm ngoài số bắt buộc (nút "+ Thêm
+   * báo giá NCC khác") vẫn là một bản báo giá thật — có 1 ô bắt buộc + 1 ô thêm thì vẫn là 2 bản
+   * thật, vẫn có gì để so sánh, bảng so sánh vẫn phải bắt buộc. Dùng `oDaCoTep.size` (đã bị chặn
+   * `<= can`) ở đây sẽ đếm thiếu, cho qua khi lẽ ra còn phải đòi bảng so sánh.
    */
-  if (oDaCoTep.size >= 2 && !tepSoSanh(deNghi)) {
+  if (soBanBaoGiaThat(deNghi) >= 2 && !tepSoSanh(deNghi)) {
     return `Chưa đính kèm “${NHAN_O_SO_SANH}”. Bảng này bắt buộc phải có trước khi trình — lập ngoài (Excel/PDF) rồi đính vào ô cuối ở bước “Yêu cầu NCC báo giá”.`;
   }
 

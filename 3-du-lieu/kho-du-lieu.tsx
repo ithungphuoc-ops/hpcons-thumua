@@ -1865,6 +1865,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         return "Trưởng bộ phận đã xác nhận hoàn thành đơn này — không sửa giá được nữa.";
       }
 
+      /* 🔴 TỰ LỌC, không tin nguyên `thayDoi.gia.lines` từ nơi gọi — dòng giá của một `sttDong`
+         không còn trong `items` cuối cùng (dòng vừa bị xóa ở hộp thoại) là một dòng giá "mồ côi",
+         cứ ghi thẳng vào `GiaDonDatHang` thì để lại rác trỏ về một dòng PO không tồn tại. Tầng ghi
+         là nơi quyết định cuối, không phải UI — dù `HopSuaDonHang` đã tự lọc phía trên rồi, ở đây
+         vẫn lọc lại một lần cho chắc (một hàm khác gọi `suaDonHang` sau này không nhất thiết lọc
+         đúng như UI hôm nay). */
+      if (thayDoi.gia) {
+        const sttConLai = new Set((thayDoi.items ?? po.items).map((d) => d.sttDong));
+        thayDoi.gia = {
+          lines: thayDoi.gia.lines.filter((l) => sttConLai.has(l.sttDong)),
+        };
+      }
+
       /* Dựng câu nhật ký TRƯỚC khi ghi, để so được giá trị cũ với giá trị mới — sau khi
          `setDonHang` chạy thì giá trị cũ không còn ở đâu để đọc lại (cùng cách `datDieuKhoanCongNo`
          đã làm ở trên). */

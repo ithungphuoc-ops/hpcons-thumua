@@ -130,6 +130,7 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
       return;
     }
 
+    const itemsConLai = items.filter((d) => d.tenVatLieu.trim() !== "");
     const thayDoi: ThayDoiDonHang = {
       nguoiLienHeNCC,
       diaChiNCC,
@@ -143,7 +144,7 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
       dieuKhoanKhac,
       thamChieu,
       ngayGiaoDuKien,
-      items: items.filter((d) => d.tenVatLieu.trim() !== ""),
+      items: itemsConLai,
     };
     if (doiNCC) {
       thayDoi.supplierTen = supplierTen.trim();
@@ -152,11 +153,17 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
       // sang một NCC khác trong danh mục là việc lớn hơn, để riêng cho một tính năng khác.
     }
     if (quyen.xemGia && Object.keys(gia).length > 0) {
+      /* 🔴 CHỈ giữ giá của dòng CÒN TRONG `itemsConLai` — nút "Xóa dòng" chỉ xóa khỏi `items`,
+         `gia` (state riêng, xem NHÓM 2) không tự dọn theo. Gửi cả giá của dòng đã xóa lên là để
+         lại một dòng giá "mồ côi", trỏ về `sttDong` không còn tồn tại trong PO nữa. */
+      const sttConLai = new Set(itemsConLai.map((d) => d.sttDong));
       thayDoi.gia = {
-        lines: Object.entries(gia).map(([sttDong, donGia]) => ({
-          sttDong: Number(sttDong),
-          donGia: Number(donGia) || 0,
-        })),
+        lines: Object.entries(gia)
+          .filter(([sttDong]) => sttConLai.has(Number(sttDong)))
+          .map(([sttDong, donGia]) => ({
+            sttDong: Number(sttDong),
+            donGia: Number(donGia) || 0,
+          })),
       };
     }
 
