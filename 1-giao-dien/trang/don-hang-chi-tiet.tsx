@@ -28,6 +28,7 @@ import { NutXuatDonHangExcel } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat
 import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
 import { HopGanDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-gan-de-nghi";
 import { HopXacNhanTuDongGan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-xac-nhan-tu-dong-gan";
+import { HopSuaDonHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-don-hang";
 
 export default function TrangChiTietDonHang() {
   const params = useParams<{ id: string }>();
@@ -130,6 +131,9 @@ export default function TrangChiTietDonHang() {
             {/* Nút xuất Excel dùng chung với màn danh sách — xem `nut-xuat-don-hang.tsx`.
                 Component tự lo quyền `xemGia` và luật chặn nên ở đây không kiểm lại. */}
             <NutXuatDonHangExcel poId={po.id} />
+            {/* Ẩn hẳn khi không đủ quyền hoặc đơn đã hoàn thành/hủy — component tự kiểm cả hai,
+                xem `hop-sua-don-hang.tsx`. */}
+            <HopSuaDonHang po={po} />
             {quyen.xemGia && (
               <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/in/don-hang/${po.id}`} target="_blank" />}>
                 <Printer className="size-4" aria-hidden />

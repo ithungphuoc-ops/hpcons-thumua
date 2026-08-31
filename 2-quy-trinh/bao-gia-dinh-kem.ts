@@ -126,6 +126,33 @@ export function tepBaoGiaDaCo(deNghi: DeNghiMuaHang): MoTaTep[] {
 }
 
 /**
+ * ★★ BỎ QUA MỘT Ô BÁO GIÁ CÒN THIẾU — Ban lãnh đạo 31/08/2026: *"nếu chỉ kiếm được 1 nhà cung
+ * cấp thì cho nhân viên quyền bỏ qua báo giá thứ 2 và có ghi chú bắt buộc để note lại"*.
+ *
+ * 🔴 TÁI DÙNG NGUYÊN VẸN CƠ CHẾ `lyDoThieuChungTu` đã có cho 3 chứng từ cuối quy trình
+ * (`chung-tu-cuoi-quy-trinh.ts` → `KHOA_LY_DO_THIEU_HOP_DONG` và hàm ghi
+ * `ghiLyDoThieuChungTu` trong `kho-du-lieu.tsx`) — KHÔNG mở trường dữ liệu mới. Cùng một khuôn
+ * "bắt buộc có chứng từ HOẶC ghi lý do vì sao chưa có", chỉ khác khóa lưu.
+ *
+ * 🔴 KHÓA THEO TỪNG Ô (đếm từ 0, khớp `chiSoOBaoGia`), KHÔNG PHẢI MỘT KHÓA CHUNG CHO CẢ HỒ SƠ.
+ * Đề nghị có thể yêu cầu 3 bản, nhân viên chỉ bỏ được đúng bản còn thiếu — không phải "bỏ hết
+ * yêu cầu báo giá". Ô nào có lý do riêng thì ô đó coi là đã xử lý, các ô khác vẫn đòi tệp bình
+ * thường.
+ *
+ * ⚠️ KHÁC HẲN việc Trưởng bộ phận tự hạ `soBaoGiaYeuCau`/`cauHinh.soBaoGiaToiThieu` — đó là đổi
+ * LUẬT (số cần), không cần lý do vì người đổi luật không cần giải trình cho chính mình. Đây là
+ * xin MIỄN một ô cụ thể trong khi luật vẫn giữ nguyên, nên bắt buộc phải ghi vì sao.
+ */
+export function khoaLyDoBoQuaBaoGia(i: number): string {
+  return `${BUOC_DINH_KEM_BAO_GIA}|bao_gia_${i + 1}`;
+}
+
+/** Lý do đã ghi cho việc bỏ qua ô báo giá thứ `i` (đếm từ 0). Chuỗi rỗng = chưa xin bỏ qua. */
+export function lyDoBoQuaBaoGia(deNghi: DeNghiMuaHang, i: number): string {
+  return (deNghi.lyDoThieuChungTu?.[khoaLyDoBoQuaBaoGia(i)] ?? "").trim();
+}
+
+/**
  * ★ NHÃN Ô "BẢNG SO SÁNH BÁO GIÁ" — Ban lãnh đạo 20/08/2026: *"thêm trường đính kèm file so
  * sánh"*.
  *
@@ -140,6 +167,27 @@ export const NHAN_O_SO_SANH = "Bảng so sánh báo giá";
 /** Tệp đang nằm ở ô "Bảng so sánh báo giá", `undefined` là chưa có. */
 export function tepSoSanh(deNghi: DeNghiMuaHang): MoTaTep | undefined {
   return tepBaoGiaDaCo(deNghi).find((t) => (t.ghiChu ?? "").trim() === NHAN_O_SO_SANH);
+}
+
+/**
+ * ★ SỐ Ô BÁO GIÁ ĐANG CÓ TỆP THẬT — đếm TOÀN BỘ ô (kể cả ô thêm ngoài số bắt buộc qua nút
+ * "+ Thêm báo giá NCC khác"), KHÔNG chặn `<= can`.
+ *
+ * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý, MỘT LUẬT — dùng cho cả điều kiện trình xét duyệt (`vuongMacTrinhXetDuyet`)
+ * LẪN thẻ "Bảng so sánh báo giá" ở UI (`khu-bao-gia-theo-so-luong.tsx`). Trước 31/08/2026 UI tự
+ * tính riêng theo cách khác (chỉ xét `can`) — lệch với điều kiện thật, có lúc thẻ báo "bắt buộc"
+ * dù hàm ghi coi là không bắt buộc, có lúc ngược lại.
+ *
+ * Đừng nhầm với `oDaCoTep` cục bộ trong `vuongMacTrinhXetDuyet` — đại lượng đó CHỈ đếm trong
+ * phạm vi `can` ô bắt buộc, dùng cho vòng lặp "ô bắt buộc nào còn thiếu tệp hoặc lý do", một câu
+ * hỏi khác hẳn câu hỏi ở đây ("tổng cộng có mấy bản thật để mà so sánh").
+ */
+export function soBanBaoGiaThat(deNghi: DeNghiMuaHang): number {
+  return new Set(
+    tepBaoGiaDaCo(deNghi)
+      .map((t) => chiSoOBaoGia(t.ghiChu))
+      .filter((n) => n >= 1),
+  ).size;
 }
 
 /**
@@ -212,6 +260,23 @@ export function danhSachNCCDaBaoGia(
 }
 
 /**
+ * ★ BẢNG SO SÁNH BÁO GIÁ CÓ BẮT BUỘC KHÔNG — dùng CHUNG cho cả `vuongMacTrinhXetDuyet` (cổng ghi
+ * thật) LẪN thẻ UI (`khu-bao-gia-theo-so-luong.tsx`).
+ *
+ * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý — MỘT LUẬT, HAI NƠI DÙNG, đúng nếp `dongPOBiKhoaNoiDung`
+ * (`2-quy-trinh/tinh-toan.ts`). Trước 31/08/2026, thẻ UI tự tính `soSanhBatBuoc` riêng
+ * (`soBanBaoGiaThat(deNghi) >= 2`) mà KHÔNG lặp lại điều kiện `can === 0` bên dưới — khi trưởng
+ * bộ phận chủ ý đặt "Số báo giá yêu cầu" = Không yêu cầu riêng + `soBaoGiaToiThieu` = 0 (một cấu
+ * hình HỢP LỆ, xem chú thích ở `soBaoGiaCanCo`), thẻ vẫn hiện dấu `*` đỏ "bắt buộc" dù cổng ghi
+ * thật (`can === 0` → return sớm) không hề chặn — UI nói một đằng, hàm làm một nẻo.
+ */
+export function soSanhBaoGiaBatBuoc(deNghi: DeNghiMuaHang, cauHinh: CauHinhQuyTrinh): boolean {
+  const can = soBaoGiaCanCo(deNghi, cauHinh);
+  if (can === 0) return false;
+  return soBanBaoGiaThat(deNghi) >= 2;
+}
+
+/**
  * ★ CÒN VƯỚNG GÌ KHÔNG CHO TRÌNH XÉT DUYỆT — `null` là đủ điều kiện.
  *
  * 🔴 Ban lãnh đạo 20/08/2026: đủ số bản báo giá là **điều kiện bắt buộc để chuyển bước**.
@@ -233,21 +298,47 @@ export function vuongMacTrinhXetDuyet(
   const oDaCoTep = new Set(
     tep.map((t) => chiSoOBaoGia(t.ghiChu)).filter((n) => n >= 1 && n <= can),
   );
-  const thieu = can - oDaCoTep.size;
-  if (thieu > 0) {
-    return `Quy trình yêu cầu ${can} bản báo giá, hiện còn thiếu ${thieu} bản. Đính kèm đủ ${can} ô “Báo giá NCC” ở bước “Yêu cầu NCC báo giá” trước khi trình.`;
+  /**
+   * ★ Ô THIẾU MÀ CÓ LÝ DO BỎ QUA THÌ COI LÀ ĐÃ XỬ LÝ — Ban lãnh đạo 31/08/2026, xem
+   * `khoaLyDoBoQuaBaoGia`. Đếm theo TỪNG Ô: ô 2 có lý do không tự động miễn luôn ô 3 nếu đề nghị
+   * yêu cầu 3 bản — mỗi ô phải tự có tệp hoặc tự có lý do của chính nó.
+   */
+  let oChuaXuLy = 0;
+  for (let i = 0; i < can; i++) {
+    const coTep = oDaCoTep.has(i + 1);
+    const coLyDo = lyDoBoQuaBaoGia(deNghi, i) !== "";
+    if (!coTep && !coLyDo) oChuaXuLy++;
+  }
+  if (oChuaXuLy > 0) {
+    return `Quy trình yêu cầu ${can} bản báo giá, hiện còn thiếu ${oChuaXuLy} bản chưa đính kèm hoặc chưa ghi lý do bỏ qua. Đính kèm đủ ${can} ô “Báo giá NCC” (hoặc ghi lý do bỏ qua) ở bước “Yêu cầu NCC báo giá” trước khi trình.`;
   }
 
   /**
-   * 🔴 BẢNG SO SÁNH LÀ BẮT BUỘC — Ban lãnh đạo 20/08/2026: *"mục này bắt buộc phải có"*.
+   * 🔴 PHẢI CÒN ÍT NHẤT 1 BẢN THẬT — Ban lãnh đạo 31/08/2026 chỉ cho phép bỏ qua khi *"chỉ tìm
+   * được 1 nhà cung cấp"*, tức luôn còn 1 bản thật, KHÔNG PHẢI cho bỏ qua toàn bộ. Vòng lặp trên
+   * chỉ đòi "mỗi ô có tệp HOẶC có lý do", nên nếu người dùng ghi lý do bỏ qua cho MỌI ô bắt buộc
+   * (0 tệp thật nào), `oChuaXuLy` vẫn về 0 — hồ sơ trình xét duyệt được với đúng 0 báo giá đính
+   * kèm, đi ngược tinh thần chỉ đạo. Chặn riêng ca này bằng một câu khác hẳn (không lẫn với câu
+   * "còn thiếu N bản" ở trên, vì đủ số ô rồi chỉ là ô nào cũng ghi lý do).
+   */
+  if (soBanBaoGiaThat(deNghi) === 0) {
+    return `Đã ghi lý do bỏ qua cho toàn bộ ${can} ô báo giá — phải còn ít nhất 1 bản báo giá thật mới trình xét duyệt được. Hủy bỏ qua ở một ô và đính kèm tệp báo giá thật cho ô đó.`;
+  }
+
+  /**
+   * 🔴 BẢNG SO SÁNH — BẮT BUỘC KHI CÓ TỪ 2 BẢN BÁO GIÁ THẬT TRỞ LÊN (Ban lãnh đạo 20/08/2026:
+   * *"mục này bắt buộc phải có"*; nới lại 31/08/2026: 1 bản thật thì không có gì để so sánh).
    *
    * Xét SAU khi đã đủ số bản báo giá: nói cái nặng trước (còn thiếu mấy bản) thì người dùng đi
    * làm đúng việc cần làm, chứ không nhảy qua nhảy lại giữa hai lời nhắc.
    *
-   * ⚠️ Chỉ đòi khi phiếu có yêu cầu báo giá (`can > 0`) — không có bản báo giá nào thì cũng không
-   * có gì để so sánh.
+   * ⚠️ Dùng `soBanBaoGiaThat` (đếm TOÀN BỘ ô, không chặn `<= can`) — KHÁC `oDaCoTep` ở trên (chỉ
+   * tính ô BẮT BUỘC, dùng cho vòng lặp "còn thiếu ô nào"). Ô thêm ngoài số bắt buộc (nút "+ Thêm
+   * báo giá NCC khác") vẫn là một bản báo giá thật — có 1 ô bắt buộc + 1 ô thêm thì vẫn là 2 bản
+   * thật, vẫn có gì để so sánh, bảng so sánh vẫn phải bắt buộc. Dùng `oDaCoTep.size` (đã bị chặn
+   * `<= can`) ở đây sẽ đếm thiếu, cho qua khi lẽ ra còn phải đòi bảng so sánh.
    */
-  if (!tepSoSanh(deNghi)) {
+  if (soBanBaoGiaThat(deNghi) >= 2 && !tepSoSanh(deNghi)) {
     return `Chưa đính kèm “${NHAN_O_SO_SANH}”. Bảng này bắt buộc phải có trước khi trình — lập ngoài (Excel/PDF) rồi đính vào ô cuối ở bước “Yêu cầu NCC báo giá”.`;
   }
 
