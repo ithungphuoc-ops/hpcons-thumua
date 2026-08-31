@@ -3074,7 +3074,7 @@ export function FormLapDonMuaHang({
             * hàng này không còn ô nào đứng cạnh nữa.
             */}
           <div className="muc-ngang">
-            <Label htmlFor="ma-hop-dong-duoi">Theo hợp đồng</Label>
+            <Label htmlFor="ma-hop-dong-duoi">Số hợp đồng CĐT</Label>
             <Input
               id="ma-hop-dong-duoi"
               value={maHopDong}

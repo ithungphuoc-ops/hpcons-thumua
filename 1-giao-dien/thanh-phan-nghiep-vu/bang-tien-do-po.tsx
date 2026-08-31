@@ -1,12 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import { AlertTriangle, PackageCheck, Plus } from "lucide-react";
-import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { useMemo } from "react";
+import { AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
-import { Input } from "@/1-giao-dien/nen-tang-ui/input";
-import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import {
   Table,
   TableBody,
@@ -22,15 +18,9 @@ import { LienKetAnhQlkCtr } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-a
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import {
-  tinhTienDoPO,
-  vuongMacGhiThemPhieuNhan,
-  vuongMacKhoiLuongNhan,
-  vuongMacSoPhieuNCC,
-} from "@/2-quy-trinh/tinh-toan";
+import { tinhTienDoPO } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PHIEU } from "@/2-quy-trinh/trang-thai";
 import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
-import type { MoTaTep } from "@/3-du-lieu/kho-tep";
 
 /**
  * M5 — Bảng tiến độ nhận hàng của một PO, có CỘT ĐỘNG theo từng lần giao.
@@ -40,222 +30,34 @@ import type { MoTaTep } from "@/3-du-lieu/kho-tep";
  * "ngày 06/08 nhận 10/20 bao xi măng".
  *
  * Quy tắc: CHỈ phiếu ở trạng thái "đã nhập kho" được tính vào khối lượng đã nhận.
+ *
+ * 🔴 (30/08/2026): BỎ HẲN GHI PHIẾU NHẬN HÀNG THỦ CÔNG TẠI ĐÂY — Sếp chốt bỏ vì đây là tính năng
+ * có TRƯỚC khi đồng bộ QLK CTR → Thu mua (Việc "phiếu-nhận-moi") ra đời, giờ tồn tại song song
+ * gây rủi ro thật: ai đó dùng nút này tạo ra 1 phiếu nhận hàng KHÔNG tương ứng dữ liệu thật nào
+ * ở kho, trong khi nguồn thật duy nhất bây giờ là thủ kho ghi nhận nhập kho bên QLK CTR rồi tự
+ * đồng bộ sang. Component này giờ CHỈ CÒN HIỂN THỊ (tiến độ + lịch sử phiếu), không còn tạo mới.
+ * Vẫn giữ `ODinhKemTep` ở lịch sử phiếu (nhánh `else if` bên dưới) để bổ sung file cho phiếu THỦ
+ * CÔNG CŨ đã lỡ tạo trước ngày này — không có tệp thì đơn đó kẹt vĩnh viễn không bấm hoàn thành
+ * được (đúng lý do đã ghi trong chính nhánh đó).
  */
 export function BangTienDoPO({ po }: { po: DonDatHang }) {
-  const { phieuNhan, themPhieuNhan, dinhKemPhieuGiao } = useDuLieu();
+  const { phieuNhan, dinhKemPhieuGiao } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
-  const [moForm, setMoForm] = useState(false);
-  const [ngayNhan, setNgayNhan] = useState(new Date().toISOString().slice(0, 10));
-  const [soPhieuNCC, setSoPhieuNCC] = useState("");
-  const [khoiLuong, setKhoiLuong] = useState<Record<number, string>>({});
-  /**
-   * Tệp phiếu giao nhận của lần ghi này — BẮT BUỘC mới lưu được phiếu.
-   * 🔴 Chỉ đạo Ban lãnh đạo 11/08/2026: *"thủ kho khi nhận hàng phải đính kèm file phiếu
-   * giao nhận thì mới được bấm hoàn thành"*. Bắt ngay lúc ghi phiếu là chỗ tự nhiên nhất —
-   * lúc đó tờ phiếu đang cầm trên tay.
-   */
-  const [tepPhieuGiao, setTepPhieuGiao] = useState<MoTaTep | undefined>();
 
   const phieuCuaPO = useMemo(
     () => phieuNhan.filter((p) => p.poId === po.id).sort((a, b) => a.lanGiaoThu - b.lanGiaoThu),
     [phieuNhan, po.id],
   );
   const tienDo = useMemo(() => tinhTienDoPO(po, phieuCuaPO), [po, phieuCuaPO]);
-  /** Lý do không được ghi thêm phiếu — `null` là còn ghi được. Luật ở `2-quy-trinh`. */
-  const chanGhiThemPhieu = vuongMacGhiThemPhieuNhan(tienDo);
 
   /** Các lần giao ĐÃ NHẬP KHO — thành cột động trong bảng. */
   const lanGiaoDaTinh = phieuCuaPO.filter((p) => p.trangThai === "da_nhap_kho");
   const phieuChoKiemTra = phieuCuaPO.filter((p) => p.trangThai === "cho_kiem_tra");
 
-  const dongCoKhoiLuong = po.items
-    .map((d) => ({ sttDongPO: d.sttDong, khoiLuongThucNhan: Number(khoiLuong[d.sttDong] ?? 0) }))
-    .filter((l) => l.khoiLuongThucNhan > 0);
-
-  /**
-   * Vì sao chưa lưu được phiếu. Trả chuỗi để hiện thẳng cho người dùng thay vì chỉ làm mờ
-   * cái nút — nút mờ không lý do là kiểu bí việc khó chịu nhất.
-   */
-  const vuongMacLuuPhieu: string | null =
-    dongCoKhoiLuong.length === 0
-      ? "Chưa nhập khối lượng nhận cho công việc nào."
-      : /**
-         * 🔴 PHẢI CHẶN NGÀY RỖNG. Ô ngày xóa trống được, và trước 14/08/2026 chỗ này không
-         * kiểm — phiếu lưu với `ngayNhanThucTe: ""` thì mọi chỗ hiển thị ra **"Invalid Date"**
-         * vĩnh viễn, mà phiếu nhận hàng nằm trên kho chung nên cả phòng cùng thấy. Không có
-         * đường sửa ngày sau khi lưu, nên hỏng là hỏng luôn.
-         */
-        !ngayNhan.trim() || Number.isNaN(new Date(ngayNhan).getTime())
-        ? "Chưa chọn ngày nhận hàng thực tế."
-        : !tepPhieuGiao
-          ? "Chưa đính kèm phiếu giao nhận của nhà cung cấp."
-          : /**
-             * ★ HAI LUẬT MỚI 15/08/2026 — Ban lãnh đạo: *"khi đã nhận đủ hàng thì không được
-             * thêm phiếu ghi nhận nữa, và tên phiếu giao nhận phải khác nhau, không được trùng
-             * tên để sau này có thể tổng hợp"*.
-             *
-             * 🔴 Kiểm ở đây, chỗ ĐANG NHẬP, chứ không đợi lúc lưu xong mới báo: phiếu nhận là
-             * chứng từ của Kho, lưu rồi thì Thu mua không sửa được (nguyên tắc dữ liệu số 2).
-             * Luật ở `2-quy-trinh/tinh-toan.ts`, dùng chung với chỗ khóa nút bên trên.
-             */
-            (vuongMacKhoiLuongNhan(tienDo, dongCoKhoiLuong) ??
-            vuongMacSoPhieuNCC(soPhieuNCC, phieuCuaPO));
-
-  function luuPhieu() {
-    if (vuongMacLuuPhieu) return;
-
-    /**
-     * 🔴 ĐỌC KẾT QUẢ RỒI MỚI XOÁ FORM — sửa 24/08/2026.
-     *
-     * Bản trước gọi `themPhieuNhan` rồi **xoá sạch form và đóng khối** vô điều kiện. Khi tầng ghi
-     * chặn (bước trước còn treo việc bắt buộc, hoặc có người vừa ghi nốt phiếu cuối trên kho
-     * chung) thì nó không ghi gì, mà thủ kho thấy form đóng lại nên tưởng đã lưu — số liệu vừa gõ
-     * mất luôn, và không có phiếu nào trong hồ sơ. Đúng điều `CLAUDE.md` §3.5 cấm.
-     *
-     * 📌 Vướng thì GIỮ NGUYÊN form: người ghi phiếu không phải gõ lại từ đầu sau khi đọc lý do.
-     */
-    const loi = themPhieuNhan({
-      poId: po.id,
-      poCode: po.code,
-      ngayNhanThucTe: ngayNhan,
-      nguoiNhanUid: nguoiDung.uid,
-      nguoiNhanTen: nguoiDung.tenHienThi,
-      soPhieuGiaoNCC: soPhieuNCC || undefined,
-      tepPhieuGiao,
-      trangThai: "da_nhap_kho",
-      lines: dongCoKhoiLuong,
-    });
-    if (loi) {
-      toast.error("Chưa ghi được phiếu nhận", { description: loi });
-      return;
-    }
-    setKhoiLuong({});
-    setSoPhieuNCC("");
-    setTepPhieuGiao(undefined);
-    setMoForm(false);
-  }
-
   return (
     <Card>
       <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-h3 text-text-primary">Tiến độ nhận hàng</h2>
-          {/* ★ ĐÃ NHẬN ĐỦ THÌ KHÓA NÚT, kèm lý do (Ban lãnh đạo 15/08/2026).
-              📌 Khóa chứ không ẩn: ẩn nút thì thủ kho tưởng mình mất quyền ghi phiếu và đi hỏi
-              vòng quanh; ghi rõ "đã nhận đủ" là họ biết ngay không cần làm gì nữa. */}
-          {quyen.ghiPhieuNhanHang && po.trangThai !== "hoan_thanh" && po.trangThai !== "huy" && (
-            <Button
-              size="sm"
-              disabled={Boolean(chanGhiThemPhieu)}
-              title={chanGhiThemPhieu ?? undefined}
-              onClick={() => setMoForm((v) => !v)}
-            >
-              <Plus className="size-4" aria-hidden />
-              {chanGhiThemPhieu
-                ? "Đã nhận đủ hàng"
-                : `Ghi phiếu nhận hàng lần ${phieuCuaPO.length + 1}`}
-            </Button>
-          )}
-        </div>
-
-        {/* Nói rõ lý do ngay dưới nút — `title` chỉ hiện khi rê chuột, mà trên máy tính bảng
-            thì không có thao tác rê chuột. */}
-        {quyen.ghiPhieuNhanHang && chanGhiThemPhieu && (
-          <p className="rounded-lg border border-success bg-success-bg px-3 py-2 text-sm text-success-soft">
-            {chanGhiThemPhieu}
-          </p>
-        )}
-
-        {/* Form ghi phiếu nhận hàng — chỉ thủ kho (apps.kh >= 2) */}
-        {moForm && (
-          <div className="flex flex-col gap-4 rounded-xl border border-primary/30 bg-primary-bg/40 p-4">
-            <p className="text-sm font-semibold text-text-primary">
-              Phiếu nhận hàng lần {phieuCuaPO.length + 1} — nhập khối lượng CỦA LẦN NÀY, không phải cộng dồn
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="ngay-nhan">Ngày nhận thực tế</Label>
-                <Input
-                  id="ngay-nhan"
-                  type="date"
-                  value={ngayNhan}
-                  onChange={(e) => setNgayNhan(e.target.value)}
-                  className="w-44"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="so-phieu-ncc">Số phiếu giao của NCC</Label>
-                <Input
-                  id="so-phieu-ncc"
-                  value={soPhieuNCC}
-                  onChange={(e) => setSoPhieuNCC(e.target.value)}
-                  placeholder="HT-2026-08-0412"
-                  className="w-56"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-(--hp-md-row-gap)">
-              {tienDo.map((d) => (
-                <div key={d.sttDong} className="flex flex-wrap items-end gap-4">
-                  <div className="flex min-w-56 flex-col gap-2">
-                    <Label htmlFor={`kl-${d.sttDong}`}>
-                      {d.tenVatLieu} ({d.donViTinh})
-                    </Label>
-                    <Input
-                      id={`kl-${d.sttDong}`}
-                      type="number"
-                      min={0}
-                      max={d.khoiLuongConLai}
-                      value={khoiLuong[d.sttDong] ?? ""}
-                      onChange={(e) => setKhoiLuong((t) => ({ ...t, [d.sttDong]: e.target.value }))}
-                      placeholder="0"
-                      className="w-40"
-                    />
-                  </div>
-                  <span className="pb-2 text-xs text-text-desc">
-                    còn lại {d.khoiLuongConLai.toLocaleString("vi-VN")} {d.donViTinh}
-                  </span>
-                </div>
-              ))}
-            </div>
-            {/* ---- Phiếu giao nhận: BẮT BUỘC ---- */}
-            <div className="flex flex-col gap-2 border-t border-divider pt-3">
-              <Label>
-                Phiếu giao nhận của nhà cung cấp{" "}
-                <span className="font-normal text-danger-soft">(bắt buộc)</span>
-              </Label>
-              <p className="text-xs text-text-desc">
-                Chụp hoặc quét tờ phiếu giao nhận đã ký của lần giao này. Đây là chứng từ gốc
-                chứng minh hàng đã về — thiếu nó thì số liệu trong app không đối chiếu được với
-                giấy tờ.
-              </p>
-              <ODinhKemTep
-                tep={tepPhieuGiao}
-                nhanThem="Đính kèm phiếu giao nhận"
-                batBuoc={!tepPhieuGiao}
-                nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-                onXong={setTepPhieuGiao}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={luuPhieu} disabled={vuongMacLuuPhieu !== null}>
-                <PackageCheck className="size-4" aria-hidden />
-                Lưu phiếu &amp; nhập kho
-              </Button>
-              <Button variant="ghost" onClick={() => setMoForm(false)}>
-                Hủy
-              </Button>
-              {/* Nói RÕ vì sao chưa bấm được, không để nút mờ câm lặng. */}
-              {vuongMacLuuPhieu && (
-                <span className="flex items-center gap-1.5 text-xs text-warning-soft">
-                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-                  {vuongMacLuuPhieu}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+        <h2 className="text-h3 text-text-primary">Tiến độ nhận hàng</h2>
 
         {/* Bảng tiến độ — Desktop/Tablet */}
         <div className="hidden overflow-x-auto md:block">

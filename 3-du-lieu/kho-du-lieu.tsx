@@ -60,9 +60,6 @@ import {
   soNgayDaTroiQua,
   tinhTienDoDeNghi,
   tinhTienDoPO,
-  vuongMacGhiThemPhieuNhan,
-  vuongMacKhoiLuongNhan,
-  vuongMacSoPhieuNCC,
   /* Chốt "mỗi lần giao phải có tệp phiếu giao nhận" (Ban lãnh đạo 11/08/2026) — kiểm lại ở tầng
      ghi vì khóa nút không phải là chặn. Xem `xacNhanKho`. */
   vuongMacXacNhanKho,
@@ -363,8 +360,6 @@ interface GiaTriDuLieu {
   xacNhanTuDongGanDeNghi: (poId: string) => string | null;
   /** Gỡ liên kết tự động khớp (trường hợp xác nhận thấy KHÔNG đúng) — PO quay về "chờ đề nghị". */
   huyKhopTuDongDeNghi: (poId: string) => string | null;
-  /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
-  themPhieuNhan: (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => string | null;
   doiTrangThaiPhieu: (
     phieuId: string,
     trangThai: PhieuNhanHang["trangThai"],
@@ -2972,82 +2967,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [nguoiDung],
   );
 
-  const themPhieuNhan = useCallback(
-    (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">) => {
-      const cuaPO = phieuNhanRef.current.filter((p) => p.poId === phieu.poId);
-
-      /**
-       * 🔴 CHỐT CHẶN Ở TẦNG DỮ LIỆU — Ban lãnh đạo 15/08/2026: không ghi thêm phiếu khi đã
-       * nhận đủ, và số phiếu giao nhận không được trùng.
-       *
-       * Giao diện đã khóa nút và báo lý do, nhưng khóa nút KHÔNG PHẢI LÀ CHẶN: form vẫn có thể
-       * đang mở sẵn từ trước lúc phiếu cuối được ghi (hai người cùng làm trên kho chung), và
-       * còn đường gọi khác về sau. Kiểm lại ở đây thì mọi đường đều bị chặn như nhau.
-       *
-       * 🔴🔴 TRẢ LÝ DO CHO NƠI GỌI — sửa 24/08/2026 (Ban lãnh đạo báo lệch lần thứ hai).
-       *
-       * Bản trước chặn bằng `return;` trơn kèm chú thích *"đổi chữ ký thì phải sửa cả luồng"*.
-       * Hậu quả đo được: `bang-tien-do-po.tsx` gọi hàm này rồi **xoá form và đóng khối như đã lưu
-       * xong**, không đọc kết quả. Thủ kho ghi phiếu, thấy form đóng lại, tưởng đã lưu — mà không
-       * có phiếu nào được ghi. Đây đúng điều `CLAUDE.md` §3.5 cấm: giao diện hứa một việc app
-       * không làm.
-       */
-      const poDangGhi = donHangRef.current.find((p) => p.id === phieu.poId);
-      if (poDangGhi) {
-        const tienDo = tinhTienDoPO(poDangGhi, cuaPO);
-        /* Trả ĐÚNG câu của luật nào đang vướng, không trả một câu chung: người ghi phiếu cần
-           biết mình sai số lượng, sai số phiếu, hay đơn đã nhận đủ. */
-        const vuongMac =
-          vuongMacGhiThemPhieuNhan(tienDo) ||
-          vuongMacKhoiLuongNhan(tienDo, phieu.lines) ||
-          vuongMacSoPhieuNCC(phieu.soPhieuGiaoNCC ?? "", cuaPO);
-        if (vuongMac) return vuongMac;
-
-        /**
-         * 🔴 Chốt công việc bắt buộc của các bước trước — xem chú thích ở `themDonHang`.
-         *
-         * ⚠️ Đây là cửa NHẠY NHẤT trong bốn cửa: ghi phiếu nhận là việc của THỦ KHO, mà người chặn
-         * lại là công việc treo bên Thu mua (VD "Checkin hàng tồn kho" ở bước ①). Nếu về sau Sếp
-         * thấy thủ kho bị kẹt vì việc của phòng khác thì đây là chỗ cần nới, không phải ba cửa kia.
-         *
-         * 📌 CỐ Ý vẫn dùng `vuongMacViecBatBuocCacBuocTruoc` (không đổi sang `vuongMacRoiBuoc`):
-         * ghi phiếu nhận là việc CỦA bước ⑥, soát cả việc của bước ⑥ thì thủ kho không ghi được
-         * phiếu nào — đúng cái bẫy mà chú thích của `vuongMacRoiBuoc` cảnh báo.
-         */
-        const dnGoc = poDangGhi.prId
-          ? deNghiRef.current.find((x) => x.id === poDangGhi.prId)
-          : undefined;
-        if (dnGoc) {
-          const chanViec = vuongMacViecBatBuocCacBuocTruoc(
-            dnGoc,
-            xacDinhGiaiDoan(dnGoc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
-            cauHinhRef.current,
-          );
-          if (chanViec) return chanViec;
-        }
-      }
-
-      const lanGiaoThu = cuaPO.length + 1;
-      const id = `grn-${phieu.poId}-${lanGiaoThu}`;
-      const code = `${phieu.poCode}-DO${String(lanGiaoThu).padStart(2, "0")}`;
-      setPhieuNhan((truoc) => [...truoc, { ...phieu, id, code, lanGiaoThu }]);
-      // PO chuyển sang "đang giao" ngay khi có phiếu nhận đầu tiên
-      setDonHang((truoc) =>
-        truoc.map((po) =>
-          po.id === phieu.poId && po.trangThai === "da_chot" ? { ...po, trangThai: "dang_giao" } : po,
-        ),
-      );
-      const po = donHangRef.current.find((p) => p.id === phieu.poId);
-      if (po) {
-        // Đơn không gắn đề nghị thì nhật ký vào chính đơn — xem `ghiNhatKyDonHang`.
-        ghiNhatKyDonHang(po, phieu.nguoiNhanTen, `Ghi phiếu nhận hàng lần ${lanGiaoThu} — ${phieu.poCode}`);
-      }
-      /* `null` = đã ghi xong. Nơi gọi CHỈ được xoá form / đóng khối khi nhận `null`. */
-      return null;
-    },
-    [ghiNhatKyDonHang],
-  );
-
   const doiTrangThaiPhieu = useCallback(
     (phieuId: string, trangThai: PhieuNhanHang["trangThai"], nguoiThucHien?: string) => {
       setPhieuNhan((truoc) => truoc.map((p) => (p.id === phieuId ? { ...p, trangThai } : p)));
@@ -5587,7 +5506,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ganDeNghiVaoPO,
       xacNhanTuDongGanDeNghi,
       huyKhopTuDongDeNghi,
-      themPhieuNhan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
@@ -5657,7 +5575,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ganDeNghiVaoPO,
       xacNhanTuDongGanDeNghi,
       huyKhopTuDongDeNghi,
-      themPhieuNhan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
