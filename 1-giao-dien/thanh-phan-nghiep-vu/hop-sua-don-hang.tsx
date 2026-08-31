@@ -105,11 +105,17 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
   }
 
   function themDongMoi() {
-    const sttKeTiep = Math.max(0, ...items.map((d) => d.sttDong)) + 1;
+    /* 🔴 TÍNH `sttKeTiep` BÊN TRONG functional update, KHÔNG đọc `items` (closure ngoài) — đọc
+       ngoài là snapshot tại thời điểm render, hai lần bấm liên tiếp trước khi React kịp render
+       lại (double-click, giữ phím) sẽ tính ra CÙNG một `sttKeTiep` cho cả hai dòng mới, sinh 2
+       dòng trùng `sttDong` (trùng React `key`, trùng key trong `gia`, phá giả định "sttDong duy
+       nhất trong 1 PO" mà `dongPOBiKhoaNoiDung`/`DongNhanHang.sttDongPO` dựa vào). Tính bên trong
+       updater thì luôn thấy đúng `truoc` mới nhất — React áp lần lượt các updater theo hàng đợi,
+       không phụ thuộc closure cũ. */
     setItems((truoc) => [
       ...truoc,
       {
-        sttDong: sttKeTiep,
+        sttDong: Math.max(0, ...truoc.map((d) => d.sttDong)) + 1,
         sttDongDeNghi: undefined,
         tenVatLieu: "",
         donViTinh: "",

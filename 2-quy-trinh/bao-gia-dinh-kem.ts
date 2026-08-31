@@ -314,6 +314,18 @@ export function vuongMacTrinhXetDuyet(
   }
 
   /**
+   * 🔴 PHẢI CÒN ÍT NHẤT 1 BẢN THẬT — Ban lãnh đạo 31/08/2026 chỉ cho phép bỏ qua khi *"chỉ tìm
+   * được 1 nhà cung cấp"*, tức luôn còn 1 bản thật, KHÔNG PHẢI cho bỏ qua toàn bộ. Vòng lặp trên
+   * chỉ đòi "mỗi ô có tệp HOẶC có lý do", nên nếu người dùng ghi lý do bỏ qua cho MỌI ô bắt buộc
+   * (0 tệp thật nào), `oChuaXuLy` vẫn về 0 — hồ sơ trình xét duyệt được với đúng 0 báo giá đính
+   * kèm, đi ngược tinh thần chỉ đạo. Chặn riêng ca này bằng một câu khác hẳn (không lẫn với câu
+   * "còn thiếu N bản" ở trên, vì đủ số ô rồi chỉ là ô nào cũng ghi lý do).
+   */
+  if (soBanBaoGiaThat(deNghi) === 0) {
+    return `Đã ghi lý do bỏ qua cho toàn bộ ${can} ô báo giá — phải còn ít nhất 1 bản báo giá thật mới trình xét duyệt được. Hủy bỏ qua ở một ô và đính kèm tệp báo giá thật cho ô đó.`;
+  }
+
+  /**
    * 🔴 BẢNG SO SÁNH — BẮT BUỘC KHI CÓ TỪ 2 BẢN BÁO GIÁ THẬT TRỞ LÊN (Ban lãnh đạo 20/08/2026:
    * *"mục này bắt buộc phải có"*; nới lại 31/08/2026: 1 bản thật thì không có gì để so sánh).
    *

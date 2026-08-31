@@ -57,6 +57,7 @@ import {
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import {
   dongPOBiKhoaNoiDung,
+  laDongHang,
   poDaGiaoDu,
   soNgayDaTroiQua,
   tinhTienDoDeNghi,
@@ -1839,6 +1840,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         if (doiNgayGiao) return "Đổi ngày giao phải ghi lý do, dù là ai sửa.";
         if (doiNCC) return "Đổi nhà cung cấp phải ghi lý do, dù là ai sửa.";
         return "Bạn không phải Trưởng bộ phận/quản trị — sửa đơn hàng phải ghi lý do.";
+      }
+
+      /* 🔴 PHẢI CÒN ÍT NHẤT 1 DÒNG HÀNG THẬT — nút "Xóa dòng" ở hộp thoại xóa được TỪNG dòng một,
+         không có gì chặn xóa hết. Một PO 0 mặt hàng là vô nghĩa về nghiệp vụ (0 ₫, không còn gì
+         để giao/nhận) nhưng vẫn hợp lệ về mặt kiểu dữ liệu (`items: []`) nếu không kiểm ở đây. */
+      if (thayDoi.items && !thayDoi.items.some((d) => laDongHang(d))) {
+        return "Đơn hàng phải còn ít nhất 1 dòng mặt hàng — không xóa hết được.";
       }
 
       /* Dòng đang có phiếu nhận tham chiếu tới thì khóa nội dung/số lượng — luật DÙNG CHUNG với
