@@ -1598,6 +1598,11 @@ export default function TrangChiTietDeNghi({
                  * 🔴 Luật chặn ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts` → `vuongMacRoiBuocLapDon`,
                  * và `vuongMacLapDonHang` gọi nó để **chặn cất đơn khi chưa có hợp đồng**. Không
                  * viết lại điều kiện ở đây.
+                 *
+                 * 📌 TỪ 01/09/2026: Ô Y HỆT (cùng `tepHopDong`) CŨNG hiện ở bước ⑤ (khối `dat_hang`
+                 * bên dưới) để cập nhật bản đã ký đóng mộc ngay khi NCC gửi về — quyền sửa ở ⑤ hẹp
+                 * hơn ở đây (chỉ `phanBoCongViec`, không có `lapPO`). Đây KHÔNG PHẢI một tệp khác;
+                 * sửa ở đâu cũng ghi vào đúng một chỗ.
                  */
                 khuDinhKem: (
                   <div className="flex flex-col gap-(--hp-md-card-gap)">
@@ -1720,25 +1725,50 @@ export default function TrangChiTietDeNghi({
                 /**
                  * Bước ⑤ nhận đơn đã gửi đi có xác nhận của nhà cung cấp, chứng từ tạm ứng.
                  *
-                 * 🔴 Ô HỢP ĐỒNG ĐÃ QUAY VỀ BƯỚC ④ — Ban lãnh đạo 26/08/2026: *"Phải có hợp đồng
-                 * hoặc thoả thuận mua bán thì mới tiến hành lập PO được"*. Xem khối
-                 * `lap_don_mua_hang` ở trên.
+                 * 🔴 Ô HỢP ĐỒNG — CÙNG MỘT TỆP VỚI BƯỚC ④, GIỜ SỬA ĐƯỢC Ở CẢ HAI NƠI (Sếp
+                 * 01/09/2026, phản hồi qua ảnh chụp bước ⑤): bản nhà cung cấp KÝ VÀ ĐÓNG MỘC
+                 * thường chỉ gửi về sau khi đơn đã đặt (tức đang ở bước ⑤), nên cần sửa/thay được
+                 * ngay tại đây — không bắt quay lại bước ④ mới cập nhật được bản ký chính thức.
                  *
-                 * Bước ⑤ nay chỉ giữ **tệp cũ** — hồ sơ nào đính hợp đồng trong ba ngày 24→26/08
-                 * (lúc ô nằm ở đây) thì tệp vẫn nằm dưới khóa `dat_hang`. Không ẩn đi: chứng từ
-                 * biến mất khỏi tầm nhìn mà vẫn nằm trong dữ liệu là thứ quy ước dự án cấm.
+                 * 🔴 NỚI LẠI đúng 1 phần quyết định 26/08/2026 ("sửa ở đúng một chỗ là bước ④",
+                 * xem khối `lap_don_mua_hang` ở trên) — Sếp xác nhận VẪN đúng 1 tệp (không tách
+                 * chứng từ mới), chỉ khác: quyền sửa ở ⑤ SIẾT LẠI CHẶT HƠN bước ④ — chỉ Trưởng bộ
+                 * phận/quản trị (`quyen.phanBoCongViec`), không mở cho nhân viên thu mua cấp ≥2
+                 * (`quyen.lapPO`) như ở ④ — bản đã ký đóng mộc là chứng từ chính thức, siết người
+                 * được thay lại ở giai đoạn này.
                  *
-                 * 📌 Ô đính kèm ở bước ④ vẫn ĐỌC ĐƯỢC những tệp này (`tepHopDong` gộp hai khóa),
-                 * nên khối dưới đây chỉ để xem, không cho sửa — sửa ở đúng một chỗ là bước ④.
+                 * 📌 Vẫn gọi `OChungTuBatBuoc` với ĐÚNG `maGiaiDoan`/`nhanO` như bước ④
+                 * (`BUOC_DINH_KEM_HOP_DONG`/`NHAN_TEP_HOP_DONG`) — ghi vào CÙNG một chỗ trong
+                 * `tepGiaiDoan.lap_don_mua_hang`, không phải một khóa mới. Sửa ở đây, bước ④ thấy
+                 * ngay, và ngược lại — đúng ý "một dữ liệu, nhiều chỗ sửa" Sếp vừa chốt.
                  */
-                khuDinhKem: (dn.tepGiaiDoan?.dat_hang ?? []).length > 0 ? (
-                  <KhuDinhKemGiaiDoan
-                    deNghi={dn}
-                    maGiaiDoan="dat_hang"
-                    duocSua={false}
-                    khoa
-                  />
-                ) : undefined,
+                khuDinhKem: (
+                  <div className="flex flex-col gap-(--hp-md-card-gap)">
+                    <OChungTuBatBuoc
+                      deNghi={dn}
+                      maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
+                      nhanO={NHAN_TEP_HOP_DONG}
+                      tieuDe={TEN_HIEN_HOP_DONG}
+                      moTa="Bản đã ký, đóng mộc từ nhà cung cấp gửi về khi đặt hàng — cùng tệp với bước ④, sửa ở đây bước ④ cũng thấy ngay. Chỉ Trưởng bộ phận/quản trị sửa được ở bước này."
+                      batBuoc
+                      duocSua={quyen.phanBoCongViec}
+                      khoa={hoSoDaDong}
+                      tepDaCo={tepHopDong(dn)}
+                    />
+
+                    {/* 🔴 Tệp mồ côi từ 3 ngày 24→26/08/2026 khi ô hợp đồng từng nằm hẳn ở bước ⑤
+                        (khóa lưu khác, xem chú thích gốc ở `chung-tu-cuoi-quy-trinh.ts`) — vẫn chỉ
+                        để xem, không phải nơi sửa hợp đồng chính (đã có khối ở trên). */}
+                    {(dn.tepGiaiDoan?.dat_hang ?? []).length > 0 && (
+                      <KhuDinhKemGiaiDoan
+                        deNghi={dn}
+                        maGiaiDoan="dat_hang"
+                        duocSua={false}
+                        khoa
+                      />
+                    )}
+                  </div>
+                ),
               },
               {
                 ma: "nhan_hang",
