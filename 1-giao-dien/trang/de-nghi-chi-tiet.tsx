@@ -89,6 +89,7 @@ import {
   giaiDoanDaKetThuc,
   NHAN_GIAI_DOAN,
   xacDinhGiaiDoan,
+  duocSuaHopDongTheoGiaiDoan,
   giaiDoanDaToiLuot,
   conNoCuaBuoc,
   congViecConTreoCacBuocTruoc,
@@ -448,21 +449,17 @@ export default function TrangChiTietDeNghi({
 
   /**
    * ★ QUYỀN SỬA RIÊNG CHO Ô "HỢP ĐỒNG/ĐƠN MUA HÀNG" — Sếp 01/09/2026: ô này giờ hiện Ở CẢ HAI
-   * bước ④ và ⑤ (cùng đọc/ghi đúng một tệp, xem 2 khối `khuDinhKem` bên dưới), nhưng người được
-   * sửa PHẢI GIỐNG NHAU ở cả hai nơi — nếu không, "siết quyền ở ⑤" chỉ là ảo: ai bị chặn ở khối
-   * ⑤ vẫn mở khối ④ (accordion nào cũng luôn hiện, không ẩn theo bước hiện tại) để sửa đúng tệp
-   * đó, vì cả hai khối trỏ về CÙNG MỘT dữ liệu.
+   * bước ④ và ⑤ (cùng đọc/ghi đúng một tệp, xem 2 khối `khuDinhKem` bên dưới), CẢ hộp "Gỡ vướng"
+   * trên Kanban (`hop-chuyen-giai-doan.tsx`, kéo thẻ gặp `thieu_hop_dong`) cũng hiện đúng ô này —
+   * người được sửa PHẢI GIỐNG NHAU ở MỌI nơi, nếu không "siết quyền ở ⑤" chỉ là ảo: ai bị chặn ở
+   * một nơi vẫn còn nơi khác (đã render, hoặc chưa tới lượt ẩn) để sửa đúng tệp đó.
    *
-   * 🔴 Còn ở bước ④ (chưa tới ⑤): giữ nguyên `duocSuaTepBuoc` — nhân viên thu mua cấp ≥2
-   * (`lapPO`) vẫn đính được bản hợp đồng/thoả thuận đầu tiên, như trước giờ.
-   * 🔴 Đã QUA bước ④ (đang ở ⑤ trở đi, `giaiDoanDaToiLuot("dat_hang", giaiDoan)`): CHỈ Trưởng bộ
-   * phận/quản trị (`phanBoCongViec`) còn sửa được — bản ký, đóng mộc là chứng từ chính thức, siết
-   * người được thay lại kể từ giai đoạn này, đúng chỉ đạo. Áp DÙNG CHUNG cho cả khối ④ lẫn ⑤,
-   * không chỉ riêng khối mới thêm ở ⑤.
+   * 🔴 GỌI THẲNG `duocSuaHopDongTheoGiaiDoan` (2-quy-trinh/giai-doan-mua-hang.ts) — KHÔNG tự tính
+   * lại `giaiDoanDaToiLuot(...)` ở đây. Hàm đó là MỘT LUẬT DÙNG CHUNG với `hop-chuyen-giai-doan.tsx`;
+   * tự tính riêng ở từng nơi là hai nơi có thể lệch nhau khi sau này ai đó sửa một chỗ mà quên
+   * chỗ kia — xem chú thích đầy đủ ở nơi khai báo hàm.
    */
-  const duocSuaHopDong = giaiDoanDaToiLuot("dat_hang", giaiDoan)
-    ? quyen.phanBoCongViec
-    : duocSuaTepBuoc;
+  const duocSuaHopDong = duocSuaHopDongTheoGiaiDoan(quyen, giaiDoan);
 
   /**
    * ★ AI ĐƯỢC DUYỆT HOÀN THÀNH ĐƠN Ở BƯỚC ⑥ — Ban lãnh đạo 22/08/2026: *"Bước này sẽ để nhân viên

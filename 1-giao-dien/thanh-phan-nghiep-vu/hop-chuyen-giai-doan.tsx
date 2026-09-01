@@ -23,6 +23,7 @@ import {
   type CongViecGiaiDoan,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import {
+  duocSuaHopDongTheoGiaiDoan,
   NHAN_GIAI_DOAN,
   type DieuKienConVuong,
   type GiaiDoanMuaHang,
@@ -38,7 +39,7 @@ import {
   NHAN_TEP_UNC,
   TEN_HIEN_HOP_DONG,
   tepHoaDonVAT,
-  tepHopDong,
+  tepHopDongSuaDuoc,
   tepUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
@@ -360,7 +361,7 @@ export function HopChuyenGiaiDoan({
                 Điều kiện chuyển bước còn thiếu
               </p>
               {dieuKienConVuong.map((dk) => (
-                <OGoDieuKien key={dk.ma} dieuKien={dk} deNghi={deNghi} />
+                <OGoDieuKien key={dk.ma} dieuKien={dk} deNghi={deNghi} giaiDoan={tuBuoc} />
               ))}
               {/* Nói trước là còn một nút phải bấm — người dùng đính tệp xong rất dễ tưởng xong
                   việc rồi đóng hộp, và thẻ đứng nguyên cột cũ mà không hiểu vì sao. */}
@@ -502,15 +503,23 @@ export function HopChuyenGiaiDoan({
 function OGoDieuKien({
   dieuKien,
   deNghi,
+  giaiDoan,
 }: {
   dieuKien: DieuKienConVuong;
   deNghi: DeNghiMuaHang;
+  /** Giai đoạn ĐANG ĐỨNG (bước kéo thẻ ĐI TỪ) — dùng để tính đúng quyền sửa hợp đồng theo bước. */
+  giaiDoan: GiaiDoanMuaHang;
 }) {
   const { ghiLyDoThieuChungTu } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   /* Cùng điều kiện quyền với trang chi tiết (`duocSuaTepBuoc`) — hai nơi đính vào cùng một chỗ
-     thì không được nơi cho nơi cấm. */
+     thì không được nơi cho nơi cấm. Riêng ô hợp đồng dùng `duocSuaHopDong` hẹp hơn — xem dưới. */
   const duocSua = quyen.phanBoCongViec || quyen.lapPO;
+  /* 🔴 GỌI ĐÚNG HÀM DÙNG CHUNG với `de-nghi-chi-tiet.tsx` (bước ④/⑤) — xem chú thích đầy đủ ở
+     `duocSuaHopDongTheoGiaiDoan`. Không tự tính lại `giaiDoanDaToiLuot` ở đây: hộp này và trang
+     chi tiết đính vào ĐÚNG CÙNG MỘT tệp, "siết quyền" mà mỗi nơi tự tính riêng là hai luật có thể
+     lệch nhau. */
+  const duocSuaHopDong = duocSuaHopDongTheoGiaiDoan(quyen, giaiDoan);
 
   /**
    * `hienCau` — có in câu vướng mắc ở đầu khối không.
@@ -548,8 +557,8 @@ function OGoDieuKien({
             nhanO={NHAN_TEP_HOP_DONG}
             tieuDe={TEN_HIEN_HOP_DONG}
             batBuoc
-            duocSua={duocSua}
-            tepDaCo={tepHopDong(deNghi)}
+            duocSua={duocSuaHopDong}
+            tepDaCo={tepHopDongSuaDuoc(deNghi)}
           />
           {/* ★ ĐƯỜNG THỨ HAI: chưa có bản ký thì GHI LÝ DO cũng đi tiếp được (Ban lãnh đạo
               23/08/2026). Không bày ô này ở đây là hồ sơ chưa kịp ký hợp đồng bị kẹt cứng trong
@@ -565,7 +574,7 @@ function OGoDieuKien({
                  dòng nhật ký và một lần đẩy lên kho chung của cả phòng. Ghi theo từng ký tự thì
                  gõ một câu 60 chữ thành 60 dòng nhật ký. */
               defaultValue={lyDoThieuHopDong(deNghi)}
-              disabled={!duocSua}
+              disabled={!duocSuaHopDong}
               placeholder="Ví dụ: hai bên đã thống nhất qua email, bản ký sẽ có trong tuần này."
               onBlur={(e) => {
                 const loi = ghiLyDoThieuChungTu(
