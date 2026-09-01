@@ -108,7 +108,7 @@ import {
   tepPhieuChi,
   TEN_HIEN_HOP_DONG,
   tepHoaDonVAT,
-  tepHopDong,
+  tepHopDongSuaDuoc,
   tepUNC,
   thieuHopDongDaGhiLyDo,
   vuongMacHoanThanhQuyTrinh,
@@ -1610,19 +1610,23 @@ export default function TrangChiTietDeNghi({
                  * thoả thuận mua bán thì mới tiến hành lập PO được, vậy nên hãy kéo bước đính kèm
                  * hợp đồng về bước này"*.
                  *
-                 * ⚠️ Từ 24 đến 26/08 ô này nằm ở bước ⑤. Tệp đính trong ba ngày đó vẫn đọc được vì
-                 * `tepHopDong` gộp CẢ HAI khóa — xem `BUOC_CU_HOP_DONG`.
+                 * ⚠️ Từ 24 đến 26/08 ô này nằm ở bước ⑤. Tệp đính trong ba ngày đó vẫn còn trong dữ
+                 * liệu (khóa cũ `BUOC_CU_HOP_DONG`) nhưng KHÔNG hiện ở hộp sửa được này nữa — xem
+                 * `tepHopDongSuaDuoc` (chỉ đọc khóa canonical). Xem/xóa tệp cũ đó thì đúng chỗ là
+                 * khối đọc-only `KhuDinhKemGiaiDoan maGiaiDoan="dat_hang"` ở bước ⑤ bên dưới.
                  *
                  * 🔴 Luật chặn ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts` → `vuongMacRoiBuocLapDon`,
-                 * và `vuongMacLapDonHang` gọi nó để **chặn cất đơn khi chưa có hợp đồng**. Không
+                 * và `vuongMacLapDonHang` gọi nó để **chặn cất đơn khi chưa có hợp đồng**. Hàm đó
+                 * vẫn dùng `tepHopDong` (gộp cả khóa cũ) cho câu hỏi "có hợp đồng chưa" — không
                  * viết lại điều kiện ở đây.
                  *
-                 * 📌 TỪ 01/09/2026: Ô Y HỆT (cùng `tepHopDong`) CŨNG hiện ở bước ⑤ (khối `dat_hang`
-                 * bên dưới) để cập nhật bản đã ký đóng mộc ngay khi NCC gửi về. Đây KHÔNG PHẢI một
-                 * tệp khác; sửa ở đâu cũng ghi vào đúng một chỗ — nên dùng CHUNG `duocSuaHopDong`
-                 * ở CẢ HAI khối (không phải `duocSuaTepBuoc` cố định ở đây), nếu không thì "siết
-                 * quyền ở ⑤" chỉ là ảo: ai bị chặn ở ⑤ vẫn mở khối này (luôn hiện, không ẩn theo
-                 * bước hiện tại) để sửa đúng tệp đó. Xem `duocSuaHopDong` để biết luật đầy đủ.
+                 * 📌 TỪ 01/09/2026: Ô Y HỆT (cùng `tepHopDongSuaDuoc`) CŨNG hiện ở bước ⑤ (khối
+                 * `dat_hang` bên dưới) để cập nhật bản đã ký đóng mộc ngay khi NCC gửi về. Đây
+                 * KHÔNG PHẢI một tệp khác; sửa ở đâu cũng ghi vào đúng một chỗ — nên dùng CHUNG
+                 * `duocSuaHopDong` ở CẢ HAI khối (không phải `duocSuaTepBuoc` cố định ở đây), nếu
+                 * không thì "siết quyền ở ⑤" chỉ là ảo: ai bị chặn ở ⑤ vẫn mở khối này (luôn hiện,
+                 * không ẩn theo bước hiện tại) để sửa đúng tệp đó. Xem `duocSuaHopDong` để biết
+                 * luật đầy đủ.
                  */
                 khuDinhKem: (
                   <div className="flex flex-col gap-(--hp-md-card-gap)">
@@ -1637,7 +1641,7 @@ export default function TrangChiTietDeNghi({
                       batBuoc
                       duocSua={duocSuaHopDong}
                       khoa={hoSoDaDong}
-                      tepDaCo={tepHopDong(dn)}
+                      tepDaCo={tepHopDongSuaDuoc(dn)}
                     />
 
                     {/* ★ Ô GHI LÝ DO — chỉ đạo 23/08/2026, GIỮ NGUYÊN khi dời bước.
@@ -1767,6 +1771,11 @@ export default function TrangChiTietDeNghi({
                  * (`BUOC_DINH_KEM_HOP_DONG`/`NHAN_TEP_HOP_DONG`) — ghi vào CÙNG một chỗ trong
                  * `tepGiaiDoan.lap_don_mua_hang`, không phải một khóa mới. Sửa ở đây, bước ④ thấy
                  * ngay, và ngược lại — đúng ý "một dữ liệu, nhiều chỗ sửa" Sếp vừa chốt.
+                 *
+                 * 🔴 `tepDaCo` PHẢI LÀ `tepHopDongSuaDuoc`, KHÔNG PHẢI `tepHopDong` — hộp này xóa
+                 * tệp bằng `maGiaiDoan` cố định (`BUOC_DINH_KEM_HOP_DONG`), nên chỉ được bày đúng
+                 * tệp nằm ở khóa đó. Đưa `tepHopDong` (gộp cả khóa cũ `dat_hang`) vào đây thì bấm
+                 * xóa một tệp mồ côi cũ sẽ tìm nhầm khóa và báo sai "tệp không còn trong hồ sơ".
                  */
                 khuDinhKem: (
                   <div className="flex flex-col gap-(--hp-md-card-gap)">
@@ -1779,7 +1788,7 @@ export default function TrangChiTietDeNghi({
                       batBuoc
                       duocSua={duocSuaHopDong}
                       khoa={hoSoDaDong}
-                      tepDaCo={tepHopDong(dn)}
+                      tepDaCo={tepHopDongSuaDuoc(dn)}
                     />
 
                     {/* 🔴 Tệp mồ côi từ 3 ngày 24→26/08/2026 khi ô hợp đồng từng nằm hẳn ở bước ⑤

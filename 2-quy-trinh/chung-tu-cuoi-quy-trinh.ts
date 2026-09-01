@@ -163,6 +163,26 @@ export function tepHopDong(deNghi: DeNghiMuaHang): MoTaTep[] {
 }
 
 /**
+ * ★ CHỈ TỆP Ở ĐÚNG KHÓA CANONICAL (`BUOC_DINH_KEM_HOP_DONG`) — dùng cho `tepDaCo` của MỌI hộp
+ * `OChungTuBatBuoc` sửa/xóa hợp đồng (cả bước ④ lẫn bước ⑤ từ 01/09/2026), KHÔNG dùng `tepHopDong`
+ * ở đây.
+ *
+ * 🔴 VÌ SAO PHẢI TÁCH RIÊNG — CodeRabbit bắt đúng ở PR thêm hộp bước ⑤: `OChungTuBatBuoc` xóa/thay
+ * tệp bằng `goTepGiaiDoan(id, maGiaiDoan, tepId, ...)` với `maGiaiDoan` CỐ ĐỊNH là
+ * `BUOC_DINH_KEM_HOP_DONG` — hàm đó chỉ tìm trong ĐÚNG khóa đó
+ * (`dn.tepGiaiDoan?.[maGiaiDoan]`), không dò cả khóa cũ `BUOC_CU_HOP_DONG`. Đưa nguyên
+ * `tepHopDong(dn)` (đã GỘP hai khóa) vào `tepDaCo` thì hộp vẽ ra cả tệp mồ côi cũ — bấm xóa/thay
+ * đúng tệp đó sẽ báo sai *"Tệp này không còn trong hồ sơ"* vì tìm nhầm khóa.
+ *
+ * 📌 Chỗ nào chỉ hỏi "có hợp đồng chưa" (`coHopDong`, `vuongMacRoiBuocLapDon`...) thì VẪN dùng
+ * `tepHopDong` (gộp) như cũ — tệp cũ vẫn tính là có hợp đồng, chỉ là không sửa/xóa được qua hộp
+ * này. Xem tệp cũ, xóa tệp cũ thì đúng chỗ là khối đọc-only (`KhuDinhKemGiaiDoan maGiaiDoan="dat_hang"`).
+ */
+export function tepHopDongSuaDuoc(deNghi: DeNghiMuaHang): MoTaTep[] {
+  return tepTheoNhan(deNghi, BUOC_DINH_KEM_HOP_DONG, NHAN_TEP_HOP_DONG);
+}
+
+/**
  * Gộp tệp của khóa MỚI và khóa CŨ, bỏ trùng theo id — xem `BUOC_CU_HOA_DON_VAT`.
  *
  * ⚠️ Phải khử trùng: một tệp có thể được ghi ở cả hai khóa nếu ai đó đính lại sau khi gộp bước.
