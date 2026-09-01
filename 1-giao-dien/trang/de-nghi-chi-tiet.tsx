@@ -447,6 +447,24 @@ export default function TrangChiTietDeNghi({
   const duocSuaTepBuoc = quyen.phanBoCongViec || quyen.lapPO;
 
   /**
+   * ★ QUYỀN SỬA RIÊNG CHO Ô "HỢP ĐỒNG/ĐƠN MUA HÀNG" — Sếp 01/09/2026: ô này giờ hiện Ở CẢ HAI
+   * bước ④ và ⑤ (cùng đọc/ghi đúng một tệp, xem 2 khối `khuDinhKem` bên dưới), nhưng người được
+   * sửa PHẢI GIỐNG NHAU ở cả hai nơi — nếu không, "siết quyền ở ⑤" chỉ là ảo: ai bị chặn ở khối
+   * ⑤ vẫn mở khối ④ (accordion nào cũng luôn hiện, không ẩn theo bước hiện tại) để sửa đúng tệp
+   * đó, vì cả hai khối trỏ về CÙNG MỘT dữ liệu.
+   *
+   * 🔴 Còn ở bước ④ (chưa tới ⑤): giữ nguyên `duocSuaTepBuoc` — nhân viên thu mua cấp ≥2
+   * (`lapPO`) vẫn đính được bản hợp đồng/thoả thuận đầu tiên, như trước giờ.
+   * 🔴 Đã QUA bước ④ (đang ở ⑤ trở đi, `giaiDoanDaToiLuot("dat_hang", giaiDoan)`): CHỈ Trưởng bộ
+   * phận/quản trị (`phanBoCongViec`) còn sửa được — bản ký, đóng mộc là chứng từ chính thức, siết
+   * người được thay lại kể từ giai đoạn này, đúng chỉ đạo. Áp DÙNG CHUNG cho cả khối ④ lẫn ⑤,
+   * không chỉ riêng khối mới thêm ở ⑤.
+   */
+  const duocSuaHopDong = giaiDoanDaToiLuot("dat_hang", giaiDoan)
+    ? quyen.phanBoCongViec
+    : duocSuaTepBuoc;
+
+  /**
    * ★ AI ĐƯỢC DUYỆT HOÀN THÀNH ĐƠN Ở BƯỚC ⑥ — Ban lãnh đạo 22/08/2026: *"Bước này sẽ để nhân viên
    * phụ trách [của] đề nghị này duyệt"*.
    *
@@ -1600,9 +1618,11 @@ export default function TrangChiTietDeNghi({
                  * viết lại điều kiện ở đây.
                  *
                  * 📌 TỪ 01/09/2026: Ô Y HỆT (cùng `tepHopDong`) CŨNG hiện ở bước ⑤ (khối `dat_hang`
-                 * bên dưới) để cập nhật bản đã ký đóng mộc ngay khi NCC gửi về — quyền sửa ở ⑤ hẹp
-                 * hơn ở đây (chỉ `phanBoCongViec`, không có `lapPO`). Đây KHÔNG PHẢI một tệp khác;
-                 * sửa ở đâu cũng ghi vào đúng một chỗ.
+                 * bên dưới) để cập nhật bản đã ký đóng mộc ngay khi NCC gửi về. Đây KHÔNG PHẢI một
+                 * tệp khác; sửa ở đâu cũng ghi vào đúng một chỗ — nên dùng CHUNG `duocSuaHopDong`
+                 * ở CẢ HAI khối (không phải `duocSuaTepBuoc` cố định ở đây), nếu không thì "siết
+                 * quyền ở ⑤" chỉ là ảo: ai bị chặn ở ⑤ vẫn mở khối này (luôn hiện, không ẩn theo
+                 * bước hiện tại) để sửa đúng tệp đó. Xem `duocSuaHopDong` để biết luật đầy đủ.
                  */
                 khuDinhKem: (
                   <div className="flex flex-col gap-(--hp-md-card-gap)">
@@ -1615,7 +1635,7 @@ export default function TrangChiTietDeNghi({
                       tieuDe={TEN_HIEN_HOP_DONG}
                       moTa="Bản hợp đồng mua bán / thoả thuận đã ký với nhà cung cấp. PHẢI có bản này (hoặc ghi lý do chưa có ở ô dưới) thì mới lập được đơn mua hàng."
                       batBuoc
-                      duocSua={duocSuaTepBuoc}
+                      duocSua={duocSuaHopDong}
                       khoa={hoSoDaDong}
                       tepDaCo={tepHopDong(dn)}
                     />
@@ -1645,7 +1665,7 @@ export default function TrangChiTietDeNghi({
                           id="ly-do-thieu-hop-dong"
                           className="min-w-48 flex-1"
                           defaultValue={lyDoThieuHopDong(dn)}
-                          disabled={!duocSuaTepBuoc || hoSoDaDong}
+                          disabled={!duocSuaHopDong || hoSoDaDong}
                           placeholder="Ví dụ: dùng mẫu PO-02, chính tờ đơn là thoả thuận mua bán."
                           /* 🔴 GHI KHI RỜI Ô (`onBlur`), không ghi theo từng ký tự: mỗi lần ghi là
                              một dòng nhật ký và một lần đẩy lên kho chung của cả phòng. */
@@ -1732,10 +1752,16 @@ export default function TrangChiTietDeNghi({
                  *
                  * 🔴 NỚI LẠI đúng 1 phần quyết định 26/08/2026 ("sửa ở đúng một chỗ là bước ④",
                  * xem khối `lap_don_mua_hang` ở trên) — Sếp xác nhận VẪN đúng 1 tệp (không tách
-                 * chứng từ mới), chỉ khác: quyền sửa ở ⑤ SIẾT LẠI CHẶT HƠN bước ④ — chỉ Trưởng bộ
-                 * phận/quản trị (`quyen.phanBoCongViec`), không mở cho nhân viên thu mua cấp ≥2
-                 * (`quyen.lapPO`) như ở ④ — bản đã ký đóng mộc là chứng từ chính thức, siết người
-                 * được thay lại ở giai đoạn này.
+                 * chứng từ mới), chỉ khác: quyền sửa TỪ ⑤ trở đi SIẾT LẠI CHẶT HƠN — chỉ Trưởng
+                 * bộ phận/quản trị, không còn mở cho nhân viên thu mua cấp ≥2 (`lapPO`) như lúc
+                 * còn ở ④ — bản đã ký đóng mộc là chứng từ chính thức, siết người được thay lại từ
+                 * giai đoạn này.
+                 *
+                 * 🔴 DÙNG `duocSuaHopDong`, KHÔNG dùng thẳng `quyen.phanBoCongViec` — biến này áp
+                 * CHUNG cho cả khối ④ lẫn ⑤ (xem chú thích đầy đủ ở nơi khai báo). Viết cứng
+                 * `quyen.phanBoCongViec` riêng ở đây mà khối ④ vẫn dùng `duocSuaTepBuoc` (rộng
+                 * hơn) là "siết quyền ở ⑤" chỉ có tác dụng ẢO — người bị chặn ở đây vẫn mở khối ④
+                 * (luôn hiện, không ẩn theo bước hiện tại) để sửa đúng tệp đó.
                  *
                  * 📌 Vẫn gọi `OChungTuBatBuoc` với ĐÚNG `maGiaiDoan`/`nhanO` như bước ④
                  * (`BUOC_DINH_KEM_HOP_DONG`/`NHAN_TEP_HOP_DONG`) — ghi vào CÙNG một chỗ trong
@@ -1751,7 +1777,7 @@ export default function TrangChiTietDeNghi({
                       tieuDe={TEN_HIEN_HOP_DONG}
                       moTa="Bản đã ký, đóng mộc từ nhà cung cấp gửi về khi đặt hàng — cùng tệp với bước ④, sửa ở đây bước ④ cũng thấy ngay. Chỉ Trưởng bộ phận/quản trị sửa được ở bước này."
                       batBuoc
-                      duocSua={quyen.phanBoCongViec}
+                      duocSua={duocSuaHopDong}
                       khoa={hoSoDaDong}
                       tepDaCo={tepHopDong(dn)}
                     />
