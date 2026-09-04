@@ -1847,7 +1847,14 @@ export function FormLapDonMuaHang({
     ngayGiao !== "" &&
     !khoangGiaoNguoc &&
     ngayDonHang !== "" &&
-    (!laDonDocLap || maDuAnDon !== "");
+    (!laDonDocLap || maDuAnDon !== "") &&
+    /* ★ 04/09/2026 (góp ý CodeRabbit lúc review PR "bắt buộc ghi lý do"): trước
+       đây nút "Lưu" chỉ kiểm lý do BÊN TRONG hộp xác nhận (luu()) — người lập
+       mở được hộp "Lưu đơn mua hàng này?" dù chưa ghi lý do, tưởng sắp cất
+       xong rồi mới bị báo lỗi. Đưa điều kiện lên đây để nút "Lưu" khoá ngay từ
+       đầu, cùng cách các trường bắt buộc khác (tenNCC, ngayGiao, maDuAnDon) ở
+       trên đã làm — không mở hộp xác nhận rồi mới báo. */
+    (!canLapDocLap || lyDoTaoDocLap.trim() !== "");
 
   /**
    * Lý do CHƯA CẤT được đơn — `null` là cất được.
