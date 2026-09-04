@@ -340,6 +340,14 @@ export function FormLapDonMuaHang({
    * có quyền hay không — xem chú thích đầy đủ ở `PropFormLapDonMuaHang.duongDanHongPrId`.
    */
   const coQuyenTaoDocLapThat = quyen.taoPoDoiLap && !duongDanHongPrId;
+  /**
+   * ★ RÚT GỌN 04/09/2026 — `laDonDocLap && coQuyenTaoDocLapThat` lặp lại y hệt
+   * ở 4 chỗ (banner cảnh báo "chờ đề nghị", ô lý do, validate Lưu, dữ liệu
+   * gửi đi) mà không có biến gộp sẵn — phát hiện lúc review PR "bắt buộc ghi
+   * lý do". Dùng đúng 1 biến này ở cả 4 chỗ để tránh lệch pha UI/validate/dữ
+   * liệu nếu điều kiện đổi sau này.
+   */
+  const canLapDocLap = laDonDocLap && coQuyenTaoDocLapThat;
 
   // ---------------------------------------------------------------------------
   // ① KHỐI THÔNG TIN CHUNG — đúng thứ tự ô của màn MISA
@@ -449,8 +457,9 @@ export function FormLapDonMuaHang({
   /**
    * Lý do bất khả kháng/khẩn cấp khi lập PO độc lập (chưa có đề nghị) —
    * thêm 04/09/2026, siết thêm điều kiện `quyen.taoPoDoiLap`. Chỉ có ý
-   * nghĩa khi `laDonDocLap && coQuyenTaoDocLapThat`; chốt bắt buộc thật ở
-   * `themDonHang()` (3-du-lieu/kho-du-lieu.tsx), ô này chỉ là UI.
+   * nghĩa khi `canLapDocLap` (= `laDonDocLap && coQuyenTaoDocLapThat`); chốt
+   * bắt buộc thật ở `themDonHang()` (3-du-lieu/kho-du-lieu.tsx), ô này chỉ
+   * là UI. PHẢI dọn về "" trong `donForm()` — xem chú thích ở đó.
    */
   const [lyDoTaoDocLap, setLyDoTaoDocLap] = useState("");
   const [diaDiemGiao, setDiaDiemGiao] = useState("");
@@ -1805,6 +1814,13 @@ export function FormLapDonMuaHang({
     setDieuKhoanKhac("");
     setTepDinhKem([]);
     setNguonTuBaoGia(null);
+    /* ★ PHẢI DỌN — khác `tenCongTrinh`/`maHopDong` ở trên (cố ý giữ vì nhiều PO
+       chung công trình). Lý do lập PO độc lập là của RIÊNG từng đơn — giữ lại
+       chữ cũ thì validate `!lyDoTaoDocLap.trim()` vẫn qua (chuỗi không rỗng)
+       dù lý do đó không hề liên quan tới PO tiếp theo, ở đúng bố cục nhúng
+       (component không unmount giữa 2 lần lập đơn) mà comment ở đây đã cảnh
+       báo — phát hiện lúc review PR "bắt buộc ghi lý do" (04/09/2026). */
+    setLyDoTaoDocLap("");
   }
 
   /** Dòng hàng thật (bỏ dòng ghi chú) — dùng để biết đơn đã có gì chưa. */
@@ -2001,7 +2017,7 @@ export function FormLapDonMuaHang({
     // ★ SIẾT 04/09/2026: PO độc lập bắt buộc có lý do — kiểm phía client cho
     // trải nghiệm tốt (báo ngay, không cần round-trip), chốt thật vẫn ở
     // themDonHang() nên không tin riêng bước này.
-    if (laDonDocLap && coQuyenTaoDocLapThat && !lyDoTaoDocLap.trim()) {
+    if (canLapDocLap && !lyDoTaoDocLap.trim()) {
       toast.error("Chưa ghi lý do lập PO độc lập", {
         description: "Lập đơn khi chưa có đề nghị phải ghi rõ lý do bất khả kháng/khẩn cấp.",
       });
@@ -2023,7 +2039,7 @@ export function FormLapDonMuaHang({
       /* Chỉ có ý nghĩa với PO độc lập — đơn có prId luôn undefined, xem
          DonDatHang.lyDoTaoDocLap. */
       lyDoTaoDocLap:
-        laDonDocLap && coQuyenTaoDocLapThat ? lyDoTaoDocLap.trim() || undefined : undefined,
+        canLapDocLap ? lyDoTaoDocLap.trim() || undefined : undefined,
       /* Chép mã App Request sang đơn để tờ in dùng — xem chú thích của trường trên `DonDatHang`.
          Đơn không qua App Request thì `undefined`, tờ in tự lùi về `prCode`. */
       maDeXuatAppRequest: dn?.maDeXuatAppRequest,
@@ -2284,7 +2300,7 @@ export function FormLapDonMuaHang({
       {/* ===== DẢI THÔNG BÁO: ĐÃ ĐỦ QUYỀN, CẤT ĐƯỢC NHƯNG SẼ "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026.
           Đối xứng với dải trên: người CÓ quyền cũng cần biết trước khi gõ, chỉ khác nội dung —
           không phải "không lưu được", mà là "lưu được nhưng còn thiếu 1 bước". */}
-      {laDonDocLap && coQuyenTaoDocLapThat && (
+      {canLapDocLap && (
         <div className="flex items-start gap-2 rounded-lg border border-primary/40 bg-primary-bg p-(--hp-md-row-pad) text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 text-text-secondary">
@@ -2304,7 +2320,7 @@ export function FormLapDonMuaHang({
       {/* ===== Ô LÝ DO — bắt buộc khi lập PO độc lập, siết thêm 04/09/2026 =====
           Dùng đúng component Textarea có sẵn (nen-tang-ui/textarea.tsx), không tự
           vẽ lại CSS — xem chú thích ở ô "Điều khoản khác" phía dưới về bài học này. */}
-      {laDonDocLap && coQuyenTaoDocLapThat && (
+      {canLapDocLap && (
         <div className="muc-ngang">
           <Label htmlFor="ly-do-doc-lap">
             Lý do lập PO độc lập (bất khả kháng/khẩn cấp) <span className="text-danger">*</span>

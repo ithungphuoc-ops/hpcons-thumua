@@ -1548,6 +1548,45 @@ kiem(
 );
 
 kiem(
+  "Khong co quyen taoPoDoiLap thi KHONG lap duoc PO doc lap (co ly do cung khong duoc)",
+  "04/09/2026 — tach tu themDonHang() sau review PR 'bat buoc ghi ly do'",
+  () => {
+    const r = G.vuongMacLapDocLap(false, "Ly do that su hop le");
+    return {
+      duoc: typeof r === "string" && /[Tt]rưởng bộ phận/.test(r),
+      thucTe: r === null ? "null (LOT — lap duoc PO doc lap du khong co quyen!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "tra cau chan co nhac Truong bo phan",
+    };
+  },
+);
+
+kiem(
+  "CO quyen nhung THIEU ly do thi VAN khong lap duoc PO doc lap",
+  "04/09/2026 — Ban lãnh đạo chon siet them dieu kien thay vi tat han duong nay",
+  () => {
+    const r = G.vuongMacLapDocLap(true, "");
+    return {
+      duoc: typeof r === "string" && /[Ll]ý do/.test(r),
+      thucTe: r === null ? "null (LOT — lap duoc PO doc lap du chua ghi ly do!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "tra cau chan co nhac Ly do",
+    };
+  },
+);
+
+kiem(
+  "CO quyen VA CO ly do thi lap duoc PO doc lap",
+  "04/09/2026",
+  () => {
+    const r = G.vuongMacLapDocLap(true, "NCC yeu cau dat coc giu hang gap");
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null (di duoc — dung)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "null — co du quyen va ly do thi lap duoc",
+    };
+  },
+);
+
+kiem(
   "Dieu kien HOP DONG phai gan vao buoc ④ Lap don mua hang, KHONG phai buoc ⑤",
   "Ban lãnh đạo · 26/08/2026 (*\"kéo bước đính kèm hợp đồng về bước này\"*)",
   () => {
