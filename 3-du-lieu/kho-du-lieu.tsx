@@ -2852,6 +2852,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             loi: "Chỉ Trưởng bộ phận trở lên mới lập được đơn khi chưa có đề nghị. Muốn lập đơn qua đường thường thì mở phiếu đề nghị trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.",
           };
         }
+        /**
+         * ★★★ SIẾT THÊM 04/09/2026 — bắt buộc ghi lý do bất khả kháng/khẩn
+         * cấp khi lập PO độc lập, thay vì tắt hẳn đường này. Chốt Ở ĐÂY
+         * (tầng ghi), không chỉ bắt UI required — cùng nguyên tắc "chặn ở
+         * cửa ghi, không chỉ khoá nút" đã ghi ở chú thích trên.
+         */
+        if (!po.lyDoTaoDocLap?.trim()) {
+          return {
+            loi: "Lập PO độc lập (chưa có đề nghị) phải ghi rõ lý do bất khả kháng/khẩn cấp.",
+          };
+        }
       } else {
         /* ★ Truyền cả ĐỀ NGHỊ để chốt kiểm luôn điều kiện HỢP ĐỒNG (Ban lãnh đạo 26/08/2026:
            *"Phải có hợp đồng hoặc thoả thuận mua bán thì mới tiến hành lập PO được"*).
@@ -3000,7 +3011,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         void ghiNhatKyHeThong(
           nguoiDung,
           "lap_po_cho_de_nghi",
-          `Lập đơn mua hàng ${code} khi CHƯA có đề nghị (${po.tenCongTrinh || po.maDuAn} — ${po.supplierTen}), chờ gắn đề nghị sau.`,
+          `Lập đơn mua hàng ${code} khi CHƯA có đề nghị (${po.tenCongTrinh || po.maDuAn} — ${po.supplierTen}), chờ gắn đề nghị sau. Lý do: "${po.lyDoTaoDocLap}".`,
         ).catch((e) => console.error("[nhat ky he thong] ghi hỏng:", e));
       }
       return { id };

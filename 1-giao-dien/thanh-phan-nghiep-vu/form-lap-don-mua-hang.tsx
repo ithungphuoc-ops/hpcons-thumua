@@ -446,6 +446,13 @@ export function FormLapDonMuaHang({
    * đổi tên là gãy typecheck ở chỗ mình không được phép sửa.
    */
   const [maHopDong, setMaHopDong] = useState("");
+  /**
+   * Lý do bất khả kháng/khẩn cấp khi lập PO độc lập (chưa có đề nghị) —
+   * thêm 04/09/2026, siết thêm điều kiện `quyen.taoPoDoiLap`. Chỉ có ý
+   * nghĩa khi `laDonDocLap && coQuyenTaoDocLapThat`; chốt bắt buộc thật ở
+   * `themDonHang()` (3-du-lieu/kho-du-lieu.tsx), ô này chỉ là UI.
+   */
+  const [lyDoTaoDocLap, setLyDoTaoDocLap] = useState("");
   const [diaDiemGiao, setDiaDiemGiao] = useState("");
   const [nguoiNhanHang, setNguoiNhanHang] = useState("");
   /** So dien thoai nguoi nhan hang — ô riêng trên biểu mẫu (21/08/2026). */
@@ -1991,6 +1998,16 @@ export function FormLapDonMuaHang({
       return;
     }
 
+    // ★ SIẾT 04/09/2026: PO độc lập bắt buộc có lý do — kiểm phía client cho
+    // trải nghiệm tốt (báo ngay, không cần round-trip), chốt thật vẫn ở
+    // themDonHang() nên không tin riêng bước này.
+    if (laDonDocLap && coQuyenTaoDocLapThat && !lyDoTaoDocLap.trim()) {
+      toast.error("Chưa ghi lý do lập PO độc lập", {
+        description: "Lập đơn khi chưa có đề nghị phải ghi rõ lý do bất khả kháng/khẩn cấp.",
+      });
+      return;
+    }
+
     const ketQua = themDonHang({
       // Một chỗ duy nhất, hai chế độ — xem `maDuAnDon`.
       maDuAn: maDuAnDon,
@@ -2003,6 +2020,10 @@ export function FormLapDonMuaHang({
          một liên kết `/de-nghi/` chết. */
       prId: dn?.id,
       prCode: dn?.code,
+      /* Chỉ có ý nghĩa với PO độc lập — đơn có prId luôn undefined, xem
+         DonDatHang.lyDoTaoDocLap. */
+      lyDoTaoDocLap:
+        laDonDocLap && coQuyenTaoDocLapThat ? lyDoTaoDocLap.trim() || undefined : undefined,
       /* Chép mã App Request sang đơn để tờ in dùng — xem chú thích của trường trên `DonDatHang`.
          Đơn không qua App Request thì `undefined`, tờ in tự lùi về `prCode`. */
       maDeXuatAppRequest: dn?.maDeXuatAppRequest,
@@ -2277,6 +2298,24 @@ export function FormLapDonMuaHang({
             </Link>
             . Bổ sung đề nghị sau bằng nút &quot;+ Gắn đề nghị&quot; ở trang chi tiết đơn.
           </span>
+        </div>
+      )}
+
+      {/* ===== Ô LÝ DO — bắt buộc khi lập PO độc lập, siết thêm 04/09/2026 =====
+          Dùng đúng component Textarea có sẵn (nen-tang-ui/textarea.tsx), không tự
+          vẽ lại CSS — xem chú thích ở ô "Điều khoản khác" phía dưới về bài học này. */}
+      {laDonDocLap && coQuyenTaoDocLapThat && (
+        <div className="muc-ngang">
+          <Label htmlFor="ly-do-doc-lap">
+            Lý do lập PO độc lập (bất khả kháng/khẩn cấp) <span className="text-danger">*</span>
+          </Label>
+          <Textarea
+            id="ly-do-doc-lap"
+            rows={2}
+            value={lyDoTaoDocLap}
+            onChange={(e) => setLyDoTaoDocLap(e.target.value)}
+            placeholder="Vd: nhà cung cấp yêu cầu đặt cọc giữ hàng trước khi kịp làm đề nghị..."
+          />
         </div>
       )}
 
