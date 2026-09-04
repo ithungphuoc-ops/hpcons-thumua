@@ -702,6 +702,19 @@ export interface DonDatHang {
   prId?: string;
   prCode?: string;
   /**
+   * ★ LÝ DO bất khả kháng/khẩn cấp khi lập PO ĐỘC LẬP (không gắn `prId`) —
+   * thêm 04/09/2026, siết thêm điều kiện `quyen.taoPoDoiLap` theo chỉ đạo
+   * Ban lãnh đạo: không tắt hẳn đường lập đơn độc lập (vẫn cần cho tình
+   * huống thật gấp), nhưng bắt buộc ghi rõ lý do để truy vết — cùng tinh
+   * thần với `lyDoThieuChungTu`/`lyDoHuyHoacDongDo` đã có.
+   *
+   * BẮT BUỘC (không optional thật sự dù kiểu để `?`) khi `!prId` — chốt tại
+   * tầng ghi ở `themDonHang()` (3-du-lieu/kho-du-lieu.tsx), không chỉ ở
+   * form. Luôn `undefined` với PO có `prId` (đi qua đường thường, không
+   * cần lý do).
+   */
+  lyDoTaoDocLap?: string;
+  /**
    * ★ Ô "Mã RQ - Tên Công trình" của màn MISA. `prCode` đã giữ mã RQ, còn TÊN công trình
    * trước 17/08/2026 KHÔNG có chỗ nào trên đơn — trang in `/in/don-hang/[id]` in dòng
    * "Mã đề xuất và tên công trình" mà chỉ ra được mã, phần tên bỏ trống.

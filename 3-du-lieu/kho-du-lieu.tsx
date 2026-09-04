@@ -20,6 +20,8 @@ import {
   vuongMacLapDonHang,
   /* Chốt "công việc bắt buộc của bước trước còn treo" — dùng ở 4 cửa ghi, xem `themDonHang`. */
   vuongMacViecBatBuocCacBuocTruoc,
+  /* Chốt "lập PO độc lập" (quyền + bắt buộc lý do) — hàm thuần, gọi được từ kiem-luat-dung-chung.mjs. */
+  vuongMacLapDocLap,
   /* Chốt "được RỜI bước này chưa" — soát cả việc bắt buộc CỦA bước đang đứng. Dùng ở những cửa
      ghi làm hồ sơ rời bước, để đường bấm nút chặn y như đường kéo thả (Ban lãnh đạo 24/08/2026). */
   vuongMacRoiBuoc,
@@ -2846,12 +2848,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * ============================================================
        */
       if (!po.prId) {
-        const quyen = tinhQuyen(nguoiDung);
-        if (!quyen.taoPoDoiLap) {
-          return {
-            loi: "Chỉ Trưởng bộ phận trở lên mới lập được đơn khi chưa có đề nghị. Muốn lập đơn qua đường thường thì mở phiếu đề nghị trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.",
-          };
-        }
+        /**
+         * ★★★ SIẾT THÊM 04/09/2026 — bắt buộc ghi lý do bất khả kháng/khẩn
+         * cấp khi lập PO độc lập, thay vì tắt hẳn đường này. Chốt Ở ĐÂY
+         * (tầng ghi), không chỉ bắt UI required — cùng nguyên tắc "chặn ở
+         * cửa ghi, không chỉ khoá nút" đã ghi ở chú thích trên. Luật tách
+         * thành hàm thuần `vuongMacLapDocLap` (2-quy-trinh/giai-doan-mua-hang.ts)
+         * để kiem-luat-dung-chung.mjs gọi thẳng được, đúng khuôn với
+         * `vuongMacLapDonHang` ở nhánh `else` ngay dưới.
+         */
+        const chanDocLap = vuongMacLapDocLap(tinhQuyen(nguoiDung).taoPoDoiLap, po.lyDoTaoDocLap);
+        if (chanDocLap) return { loi: chanDocLap };
       } else {
         /* ★ Truyền cả ĐỀ NGHỊ để chốt kiểm luôn điều kiện HỢP ĐỒNG (Ban lãnh đạo 26/08/2026:
            *"Phải có hợp đồng hoặc thoả thuận mua bán thì mới tiến hành lập PO được"*).
@@ -3000,7 +3007,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         void ghiNhatKyHeThong(
           nguoiDung,
           "lap_po_cho_de_nghi",
-          `Lập đơn mua hàng ${code} khi CHƯA có đề nghị (${po.tenCongTrinh || po.maDuAn} — ${po.supplierTen}), chờ gắn đề nghị sau.`,
+          `Lập đơn mua hàng ${code} khi CHƯA có đề nghị (${po.tenCongTrinh || po.maDuAn} — ${po.supplierTen}), chờ gắn đề nghị sau. Lý do: "${po.lyDoTaoDocLap}".`,
         ).catch((e) => console.error("[nhat ky he thong] ghi hỏng:", e));
       }
       return { id };
@@ -3068,6 +3075,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         prCode: dnGoc.code,
         maDeXuatAppRequest: dnGoc.maDeXuatAppRequest,
         trangThai: "da_chot",
+        /* ★ XOÁ — giữ đúng invariant đã ghi ở kieu-du-lieu.ts ("luôn undefined
+           với PO có prId"), phát hiện lệch lúc review PR "bắt buộc ghi lý do"
+           (04/09/2026): PO đã gắn đề nghị đi qua đường thường rồi, không còn
+           là "độc lập" nữa. Lý do gốc KHÔNG mất — đã ghi vĩnh viễn vào Nhật ký
+           hệ thống lúc tạo (`lap_po_cho_de_nghi`), đây chỉ là dọn field sống
+           trên chính bản ghi PO cho khớp trạng thái hiện tại. */
+        lyDoTaoDocLap: undefined,
       };
       setDonHang((truoc) => truoc.map((p) => (p.id === poId ? poMoi : p)));
 

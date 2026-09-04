@@ -1575,6 +1575,37 @@ export function vuongMacLapDonHang(
 }
 
 /**
+ * ★ LUẬT CHẶN LẬP PO ĐỘC LẬP (chưa có đề nghị) — tách hàm thuần 04/09/2026, sau khi review PR
+ * "bắt buộc ghi lý do" chỉ ra 2 điều kiện này bị viết `if` rời rạc THẲNG trong hook
+ * `themDonHang` (3-du-lieu/kho-du-lieu.tsx), khác với mọi luật "chốt thật" ngang hàng của cùng
+ * hàm đó (`vuongMacLapDonHang`, `vuongMacViecBatBuocCacBuocTruoc`) — cả hai đều là hàm thuần ở
+ * đây, gọi được thẳng từ `kiem-luat-dung-chung.mjs`.
+ *
+ * 🔴 VÌ SAO PHẢI TÁCH: bộ kiểm luật của repo (`kiem-luat-dung-chung.mjs`) CHỈ gọi được hàm
+ * thuần đứng độc lập — không mount được hook React. Luật nằm thẳng trong hook thì không có bài
+ * test nào bắt được nếu sau này ai đó refactor `themDonHang` (hàm ~260 dòng, rất có khả năng bị
+ * tách nhỏ) và vô tình làm rơi mất khối `if` — đúng kịch bản sự cố thật đã xảy ra 24/08/2026
+ * (điều kiện bị xoá, chú thích còn nguyên, không ai phát hiện) mà chính file kiểm luật đó sinh
+ * ra để chặn.
+ *
+ * Hai điều kiện, cả hai đều bắt buộc khi PO không gắn đề nghị (`!prId`):
+ *   ① Chỉ Trưởng bộ phận trở lên (`quyen.taoPoDoiLap`) mới lập được.
+ *   ② Phải ghi rõ lý do bất khả kháng/khẩn cấp (`lyDoTaoDocLap`).
+ */
+export function vuongMacLapDocLap(
+  coQuyenTaoDocLap: boolean,
+  lyDoTaoDocLap: string | undefined,
+): string | null {
+  if (!coQuyenTaoDocLap) {
+    return "Chỉ Trưởng bộ phận trở lên mới lập được đơn khi chưa có đề nghị. Muốn lập đơn qua đường thường thì mở phiếu đề nghị trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.";
+  }
+  if (!lyDoTaoDocLap?.trim()) {
+    return "Lập PO độc lập (chưa có đề nghị) phải ghi rõ lý do bất khả kháng/khẩn cấp.";
+  }
+  return null;
+}
+
+/**
  * ★ DÒNG NÀO CỦA ĐỀ NGHỊ MÀ NGƯỜI NÀY LẬP ĐƯỢC ĐƠN — hàm thuần, MỘT CHỖ DUY NHẤT.
  *
  * Ba điều kiện, cả ba đều bắt buộc:
