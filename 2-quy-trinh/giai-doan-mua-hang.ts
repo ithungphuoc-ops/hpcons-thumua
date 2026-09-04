@@ -23,6 +23,7 @@ import type {
   TienDoDongDeNghi,
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
+import type { Quyen } from "@/4-phan-quyen/quyen";
 import { soSanhDeNghiUuTien, soSanhDonHangUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
   caiDatCuaBuoc,
@@ -768,6 +769,28 @@ export function giaiDoanDaToiLuot(
   const iHienTai = THU_TU_GIAI_DOAN.indexOf(giaiDoanHienTai);
   if (i === -1 || iHienTai === -1) return true;
   return i <= iHienTai;
+}
+
+/**
+ * ★ AI ĐƯỢC SỬA/XÓA TỆP "HỢP ĐỒNG/ĐƠN MUA HÀNG" — Sếp 01/09/2026, MỘT LUẬT DÙNG CHUNG cho MỌI
+ * nơi hiện ô này (`de-nghi-chi-tiet.tsx` bước ④+⑤, `hop-chuyen-giai-doan.tsx` hộp "Gỡ vướng" trên
+ * Kanban khi kéo thẻ gặp `thieu_hop_dong`).
+ *
+ * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý, không để mỗi nơi tự tính lại `giaiDoanDaToiLuot("dat_hang", ...)` — hai
+ * nơi tự tính là hai nơi có thể lệch nhau (một nơi sửa quyền, quên sửa nơi kia), đúng loại lỗi
+ * "siết quyền chỉ có tác dụng ảo" mà luật này sinh ra để vá.
+ *
+ * · Còn ở bước ④ (chưa tới ⑤): `phanBoCongViec || lapPO` — nhân viên thu mua cấp ≥2 đính được
+ *   bản hợp đồng/thoả thuận đầu tiên, như trước giờ.
+ * · Đã QUA bước ④ (đang ở ⑤ trở đi): CHỈ `phanBoCongViec` (Trưởng bộ phận/quản trị) — bản ký,
+ *   đóng mộc là chứng từ chính thức, siết người được thay lại kể từ giai đoạn này.
+ */
+export function duocSuaHopDongTheoGiaiDoan(
+  quyen: Pick<Quyen, "phanBoCongViec" | "lapPO">,
+  giaiDoanHienTai: GiaiDoanMuaHang,
+): boolean {
+  if (giaiDoanDaToiLuot("dat_hang", giaiDoanHienTai)) return quyen.phanBoCongViec;
+  return quyen.phanBoCongViec || quyen.lapPO;
 }
 
 /**
