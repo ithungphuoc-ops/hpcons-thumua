@@ -33,6 +33,10 @@ function xayDungPayloadPO(po: DonDatHang, maDeXuat: string) {
     nccMST: po.maSoThueNCC,
     ngayLap: po.ngayLapPO,
     ngayGiao: po.ngayGiaoDuKien,
+    // 🔴 (04/09/2026): Sếp phát hiện QLK CTR chỉ nhận đúng "từ ngày" (ngayGiaoDuKien), thiếu hẳn
+    // "đến ngày" — bên Thu Mua ghi rõ 2 mốc "từ ngày – đến ngày" nhưng trước giờ chỉ gửi 1. Cần
+    // cho "Hàng cần nhập" bên QLK CTR hiện đủ khoảng thật, không phải 1 mốc đơn.
+    ngayGiaoDenNgay: po.ngayGiaoDenNgay,
     canCuHopDong: po.maHopDongCDT,
     diaDiemGiao: po.diaDiemGiaoHang,
     dieuKhoanKhac: po.dieuKhoanKhac,
@@ -117,6 +121,10 @@ function xayDungPayloadPODocLap(po: DonDatHang) {
     nccMST: po.maSoThueNCC,
     ngayLap: po.ngayLapPO,
     ngayGiao: po.ngayGiaoDuKien,
+    // 🔴 (04/09/2026): Sếp phát hiện QLK CTR chỉ nhận đúng "từ ngày" (ngayGiaoDuKien), thiếu hẳn
+    // "đến ngày" — bên Thu Mua ghi rõ 2 mốc "từ ngày – đến ngày" nhưng trước giờ chỉ gửi 1. Cần
+    // cho "Hàng cần nhập" bên QLK CTR hiện đủ khoảng thật, không phải 1 mốc đơn.
+    ngayGiaoDenNgay: po.ngayGiaoDenNgay,
     canCuHopDong: po.maHopDongCDT,
     diaDiemGiao: po.diaDiemGiaoHang,
     dieuKhoanKhac: po.dieuKhoanKhac,
