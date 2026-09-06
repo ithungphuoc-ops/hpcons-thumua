@@ -407,7 +407,8 @@ interface GiaTriDuLieu {
   /** Đính kèm / thay phiếu giao nhận cho một phiếu nhận hàng đã ghi. */
   dinhKemPhieuGiao: (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => void;
   /**
-   * ★★ Sửa điều khoản công nợ của một đơn đã lập (Ban lãnh đạo 28/08/2026).
+   * ★★ Sửa điều khoản công nợ của một đơn đã lập (Ban lãnh đạo 28/08/2026; 06/09/2026 đổi ô ngày
+   * bắt đầu thay cho ô ngày tới hạn — ngày tới hạn nay cố định tự tính).
    *
    * `null` trong `thayDoi` = XÓA về tự tính · bỏ trống trường = KHÔNG động tới trường đó.
    *
@@ -417,7 +418,7 @@ interface GiaTriDuLieu {
    */
   datDieuKhoanCongNo: (
     poId: string,
-    thayDoi: { soNgayDuocNo?: number | null; ngayToiHanThanhToan?: NgayISO | null },
+    thayDoi: { soNgayDuocNo?: number | null; ngayBatDauTinhNoTay?: NgayISO | null },
     nguoiThucHien: string,
   ) => string | null;
   /**
@@ -1731,7 +1732,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       poId: string,
       thayDoi: {
         soNgayDuocNo?: number | null;
-        ngayToiHanThanhToan?: NgayISO | null;
+        ngayBatDauTinhNoTay?: NgayISO | null;
       },
       nguoiThucHien: string,
     ): string | null => {
@@ -1756,12 +1757,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           );
         }
       }
-      if (thayDoi.ngayToiHanThanhToan !== undefined) {
-        const cu = giaCu.ngayToiHanThanhToan;
-        const moi = thayDoi.ngayToiHanThanhToan?.trim() || null;
+      if (thayDoi.ngayBatDauTinhNoTay !== undefined) {
+        const cu = giaCu.ngayBatDauTinhNoTay;
+        const moi = thayDoi.ngayBatDauTinhNoTay?.trim() || null;
         if ((cu ?? null) !== moi) {
           moc.push(
-            `ngày tới hạn: ${cu ?? "để app tự tính"} → ${moi ?? "để app tự tính"}`,
+            `ngày bắt đầu tính: ${cu ?? "theo ngày nhận hàng lần cuối"} → ${
+              moi ?? "theo ngày nhận hàng lần cuối"
+            }`,
           );
         }
       }
@@ -1776,8 +1779,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           if (thayDoi.soNgayDuocNo !== undefined) {
             sau.soNgayDuocNo = thayDoi.soNgayDuocNo ?? undefined;
           }
-          if (thayDoi.ngayToiHanThanhToan !== undefined) {
-            sau.ngayToiHanThanhToan = thayDoi.ngayToiHanThanhToan?.trim() || undefined;
+          if (thayDoi.ngayBatDauTinhNoTay !== undefined) {
+            sau.ngayBatDauTinhNoTay = thayDoi.ngayBatDauTinhNoTay?.trim() || undefined;
           }
           sau.lichSuDieuKhoanCongNo = [
             ...(g.lichSuDieuKhoanCongNo ?? []),

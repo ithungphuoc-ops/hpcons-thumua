@@ -43,7 +43,7 @@ import { boDau } from "@/6-tien-ich/bo-dau";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import {
   NutLichSuCongNo,
-  ONgayToiHan,
+  ONgayBatDau,
   OSoNgayDuocNo,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-dieu-khoan-cong-no";
 import type { CongNo } from "@/3-du-lieu/kieu-du-lieu";
@@ -227,7 +227,7 @@ export default function TrangCongNo() {
    */
   function luuDieuKhoan(
     poId: string,
-    thayDoi: { soNgayDuocNo?: number | null; ngayToiHanThanhToan?: string | null },
+    thayDoi: { soNgayDuocNo?: number | null; ngayBatDauTinhNoTay?: string | null },
   ) {
     const loi = datDieuKhoanCongNo(poId, thayDoi, nguoiDung.tenHienThi);
     if (loi) toast.error("Chưa lưu được điều khoản công nợ", { description: loi });
@@ -414,26 +414,29 @@ export default function TrangCongNo() {
                           onLuu={(soNgay) => luuDieuKhoan(r.poId, { soNgayDuocNo: soNgay })}
                         />
                       </TableCell>
-                      <TableCell className="text-center tabular-nums">
-                        {r.ngayBatDau ? (
-                          formatDate(r.ngayBatDau)
-                        ) : (
-                          <span className="text-text-desc">—</span>
-                        )}
-                      </TableCell>
-                      {/* ★★ NHẬP TAY ĐÈ LÊN TỰ TÍNH (Ban lãnh đạo 28/08/2026). Ô hiện rõ con số
-                          đang đến từ đâu — xem `ONgayToiHan`. */}
-                      <TableCell className="w-40 text-center font-medium tabular-nums text-text-primary">
-                        <ONgayToiHan
-                          giaTri={r.ngayToiHan}
-                          nhapTay={r.toiHanNhapTay}
-                          /* Mốc để lịch cộng hộ "+N ngày" — đúng mốc app đang dùng để tự tính,
-                             nên nút lối tắt và con số tự tính không bao giờ lệch nhau. */
-                          ngayBatDau={r.ngayBatDau}
-                          soNgayDuocNo={r.soNgayDuocNo}
+                      {/* ★★ NGÀY BẮT ĐẦU: NHẬP TAY ĐÈ LÊN NGÀY NHẬN HÀNG LẦN CUỐI (Ban lãnh đạo
+                          06/09/2026: *"ngày này được phép điều chỉnh"*). Ô hiện rõ ngày đến từ
+                          đâu — xem `ONgayBatDau`. */}
+                      <TableCell className="w-40 text-center tabular-nums">
+                        <ONgayBatDau
+                          giaTri={r.ngayBatDau}
+                          nhapTay={r.batDauNhapTay}
                           suaDuoc={suaDuocDieuKhoan}
-                          onLuu={(ngay) => luuDieuKhoan(r.poId, { ngayToiHanThanhToan: ngay })}
+                          onLuu={(ngay) => luuDieuKhoan(r.poId, { ngayBatDauTinhNoTay: ngay })}
                         />
+                      </TableCell>
+                      {/* ★★ NGÀY TỚI HẠN: CỐ ĐỊNH, LUÔN TỰ TÍNH = ngày bắt đầu + số ngày được nợ
+                          (Ban lãnh đạo 06/09/2026: *"cố định ngày này và tự tính"*). Hiện TĨNH,
+                          không cho sửa — sửa được là mở đường cho hạn lệch với điều khoản. */}
+                      <TableCell className="w-40 text-center font-medium tabular-nums text-text-primary">
+                        {r.ngayToiHan ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span>{formatDate(r.ngayToiHan)}</span>
+                            <span className="text-xs text-text-desc">Tự tính</span>
+                          </div>
+                        ) : (
+                          <span className="font-normal text-text-desc">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-center">
                         <StatusBadge label={r.canhBao.nhan} tone={r.canhBao.tong} />

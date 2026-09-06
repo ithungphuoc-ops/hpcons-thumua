@@ -845,47 +845,53 @@ function boCongNoThu() {
 }
 
 kiem(
-  "Ngày tới hạn NHẬP TAY đè lên ngày app tự tính",
-  "Ban lãnh đạo · 28/08/2026 (*'ngày tới hạn cũng là trường nhập thủ công'*)",
+  "Ngày BẮT ĐẦU nhập tay đè lên ngày nhận hàng, ngày tới hạn tự tính THEO ngày bắt đầu",
+  "Ban lãnh đạo · 06/09/2026 (*'ngày này được phép điều chỉnh'* + *'cố định ngày tới hạn'*)",
   () => {
-    /* 🔴 Thứ tự này không được đảo. Người gõ tay là người vừa chốt với nhà cung cấp; phép cộng
-       chỉ là ước lượng khi chưa ai chốt. Để tự tính đè lên tay là mỗi lần thêm một phiếu nhập
-       kho, ngày hạn TỰ NHẢY và xóa mất con số đã thỏa thuận. */
+    /* 🔴 ĐẢO so với 28/08: nay NGÀY BẮT ĐẦU là ô nhập tay, ngày tới hạn cố định tự tính từ nó.
+       p1: nhận 2 đợt 01/06 rồi 01/07 → ngày nhận cuối = 2026-07-01, soNgayDuocNo = 30.
+       Gõ tay ngày bắt đầu = 2026-06-15 (khác ngày nhận cuối) → ngày tới hạn PHẢI theo ngày tay:
+       2026-06-15 + 30 = 2026-07-15, chứ không phải theo ngày nhận cuối (2026-07-31). */
     const TN = nap(join(thuMuc, "tuoi-no.cjs"));
     const b = boCongNoThu();
-    // p1 tự tính ra 2026-07-31 (xem bài kiểm ngay dưới). Gõ tay một ngày KHÁC hẳn.
     const gia = b.giaDon.map((g) =>
-      g.poId === "p1" ? { ...g, ngayToiHanThanhToan: "2026-09-15" } : g,
+      g.poId === "p1" ? { ...g, ngayBatDauTinhNoTay: "2026-06-15" } : g,
     );
     const d = TN.congNoTheoDonHang(b.donHang, gia, b.phieuNhan, b.moc).find(
       (x) => x.maDonHang === "DMH260001",
     );
     return {
-      duoc: d?.ngayToiHan === "2026-09-15" && d?.toiHanNhapTay === true,
-      thucTe: `ngayToiHan = ${d?.ngayToiHan} · toiHanNhapTay = ${d?.toiHanNhapTay}`,
-      mongDoi: "2026-09-15 (ngày gõ tay) và toiHanNhapTay = true",
+      duoc:
+        d?.ngayBatDau === "2026-06-15" &&
+        d?.batDauNhapTay === true &&
+        d?.ngayToiHan === "2026-07-15",
+      thucTe: `ngayBatDau = ${d?.ngayBatDau} · batDauNhapTay = ${d?.batDauNhapTay} · ngayToiHan = ${d?.ngayToiHan}`,
+      mongDoi: "bắt đầu 2026-06-15 (gõ tay), tới hạn 2026-07-15 (tự tính theo ngày bắt đầu)",
     };
   },
 );
 
 kiem(
-  "CHIỀU NGƯỢC: xóa ngày gõ tay thì QUAY VỀ tự tính, không mất hạn",
-  "Ban lãnh đạo · 28/08/2026 (chống kẹt)",
+  "CHIỀU NGƯỢC: xóa ngày bắt đầu gõ tay thì QUAY VỀ ngày nhận hàng lần cuối",
+  "Ban lãnh đạo · 06/09/2026 (chống kẹt)",
   () => {
-    /* 🔴 Quan trọng ngang bài trên. Một trường nhập tay mà không xóa được để về tự tính thì
-       người lỡ gõ nhầm một ngày sẽ mắc kẹt với nó vĩnh viễn.
-       ⚠️ Kiểm cả chuỗi RỖNG: ô `<input type="date">` bị xóa trắng trả về `""`, mà `"" ?? x` cho
-       ra `""` chứ không rơi về `x` — để lọt là ngày hạn thành rỗng và cột cảnh báo hiện NaN. */
+    /* 🔴 Quan trọng ngang bài trên. Một trường nhập tay mà không xóa được để về tự suy thì người
+       lỡ gõ nhầm sẽ mắc kẹt vĩnh viễn.
+       ⚠️ Kiểm cả chuỗi RỖNG: ô ngày bị xóa trắng trả về `""`, mà `"" ?? x` cho ra `""` chứ không
+       rơi về `x` — để lọt là ngày bắt đầu thành rỗng, kéo theo ngày tới hạn rỗng và cảnh báo NaN. */
     const TN = nap(join(thuMuc, "tuoi-no.cjs"));
     const b = boCongNoThu();
-    const gia = b.giaDon.map((g) => (g.poId === "p1" ? { ...g, ngayToiHanThanhToan: "" } : g));
+    const gia = b.giaDon.map((g) => (g.poId === "p1" ? { ...g, ngayBatDauTinhNoTay: "" } : g));
     const d = TN.congNoTheoDonHang(b.donHang, gia, b.phieuNhan, b.moc).find(
       (x) => x.maDonHang === "DMH260001",
     );
     return {
-      duoc: d?.ngayToiHan === "2026-07-31" && d?.toiHanNhapTay === false,
-      thucTe: `ngayToiHan = ${d?.ngayToiHan} · toiHanNhapTay = ${d?.toiHanNhapTay}`,
-      mongDoi: "2026-07-31 (tự tính lại) và toiHanNhapTay = false",
+      duoc:
+        d?.ngayBatDau === "2026-07-01" &&
+        d?.batDauNhapTay === false &&
+        d?.ngayToiHan === "2026-07-31",
+      thucTe: `ngayBatDau = ${d?.ngayBatDau} · batDauNhapTay = ${d?.batDauNhapTay} · ngayToiHan = ${d?.ngayToiHan}`,
+      mongDoi: "bắt đầu 2026-07-01 (ngày nhận cuối), tới hạn 2026-07-31 (tự tính lại)",
     };
   },
 );

@@ -176,23 +176,26 @@ export interface CongNoTheoDon {
   tongCongNo: number;
   /** Cột ⑤ — số ngày được nợ; `undefined` = đơn không ghi. */
   soNgayDuocNo?: number;
-  /** Cột ⑥ — `undefined` = chưa lần giao nào được nhập kho. */
+  /**
+   * Cột ⑥ — ngày bắt đầu tính nợ.
+   *
+   * Lấy theo thứ tự: NGÀY NHẬP TAY trước (`GiaDonDatHang.ngayBatDauTinhNoTay`), không có thì suy
+   * ra *ngày nhận hàng lần cuối*. `undefined` = chưa gõ tay và chưa lần giao nào được nhập kho.
+   */
   ngayBatDau?: NgayISO;
   /**
-   * Cột ⑦ — ngày phải trả tiền.
-   *
-   * Lấy theo thứ tự: NGÀY NHẬP TAY trước (`GiaDonDatHang.ngayToiHanThanhToan`), không có thì
-   * suy ra *ngày nhận hàng lần cuối + số ngày được nợ*. `undefined` = không có cả hai.
-   */
-  ngayToiHan?: NgayISO;
-  /**
-   * ★★ Ngày tới hạn này do người dùng GÕ TAY hay do app tự suy ra (Ban lãnh đạo 28/08/2026).
+   * ★★ Ngày bắt đầu này do người dùng GÕ TAY hay do app tự suy ra (Ban lãnh đạo 06/09/2026).
    *
    * 🔴 GIAO DIỆN PHẢI PHÂN BIỆT ĐƯỢC HAI THỨ. Cùng hiện một ngày mà không nói cái nào là tay,
-   * cái nào là tính, thì người dùng không biết đơn nào đã có người chốt hạn thật với nhà cung
-   * cấp — và cũng không biết đơn nào sẽ TỰ ĐỔI ngày khi có thêm một lần giao hàng nữa.
+   * cái nào là tính, thì người dùng không biết đơn nào đã chốt mốc tính nợ thật — và cũng không
+   * biết đơn nào sẽ TỰ ĐỔI ngày (kéo theo ngày tới hạn đổi) khi có thêm một lần giao hàng nữa.
    */
-  toiHanNhapTay: boolean;
+  batDauNhapTay: boolean;
+  /**
+   * Cột ⑦ — ngày phải trả tiền. CỐ ĐỊNH tự tính = ngày bắt đầu + số ngày được nợ (Ban lãnh đạo
+   * 06/09/2026: *"cố định ngày này và tự tính"*). `undefined` khi thiếu một trong hai vế.
+   */
+  ngayToiHan?: NgayISO;
   /** Cột ⑧ — nhãn + tông màu, dùng thẳng cho `StatusBadge`. */
   canhBao: MoTaTrangThai;
   /** Âm = đã quá hạn từng này ngày. `undefined` khi chưa tính được hạn. */
@@ -263,30 +266,35 @@ export function congNoTheoDonHang(
 
     const gia = giaDonHang.find((g) => g.poId === po.id);
     const tien = tinhTienChiTietPO(po, gia);
-    const ngayBatDau = ngayBatDauTinhNo(phieuCuaPO);
     const soNgayDuocNo = gia?.soNgayDuocNo;
     /**
-     * ★★ NGÀY TỚI HẠN: NHẬP TAY THẮNG TỰ TÍNH (Ban lãnh đạo 28/08/2026: *"ngày tới hạn cũng là
-     * trường nhập thủ công"*).
+     * ★★ ĐẢO VAI HAI CỘT NGÀY (Ban lãnh đạo 06/09/2026):
+     *   · "Ngày bắt đầu tính" → CHO NHẬP TAY, đè lên ngày nhận hàng lần cuối app tự suy ra.
+     *   · "Ngày tới hạn"      → CỐ ĐỊNH, LUÔN tự tính = ngày bắt đầu + số ngày được nợ.
      *
-     * 🔴 THỨ TỰ NÀY LÀ CHỦ Ý, KHÔNG ĐƯỢC ĐẢO. Người gõ tay là người vừa nói chuyện với nhà cung
-     * cấp; phép cộng chỉ là ước lượng khi chưa ai chốt. Để tự tính đè lên tay là mỗi lần có thêm
-     * một phiếu nhập kho, `ngayBatDauTinhNo` đổi sang ngày giao mới nhất và ngày hạn TỰ NHẢY —
-     * xoá mất con số đã thỏa thuận mà không một dòng nào báo.
+     * 📌 ĐỔI so với chỉ đạo 28/08/2026 (khi đó ngày tới hạn mới là ô nhập tay). Lý do đổi hợp
+     * nghiệp vụ hơn: mốc bắt đầu tính nợ có thể lệch với ngày nhập kho (VD tính từ ngày xuất hóa
+     * đơn), nên nó là thứ cần sửa; còn ngày tới hạn chỉ là mốc bắt đầu cộng số ngày được nợ —
+     * để người dùng gõ tay nó là mở đường cho hạn không khớp với điều khoản đã ghi.
      *
-     * 🔴 GIỮ NGUYÊN PHÉP TỰ TÍNH LÀM NỀN. Bỏ nó đi thì mọi đơn cũ mất sạch ngày tới hạn cho tới
-     * khi có người gõ tay từng đơn, và trong lúc đó cột cảnh báo quá hạn im lặng tắt.
+     * 🔴 NGÀY BẮT ĐẦU: NHẬP TAY THẮNG TỰ TÍNH. `ngayBatDauTinhNo` (ngày nhận hàng lần cuối) chỉ
+     * là NỀN — có người gõ tay thì lấy tay. Không thì mỗi lần thêm một phiếu nhập kho, ngày bắt
+     * đầu tự nhảy sang ngày giao mới nhất kéo theo ngày tới hạn nhảy; gõ tay để chốt cứng.
      *
-     * ⚠️ Chuỗi rỗng cũng phải coi như KHÔNG CÓ: ô `<input type="date">` bị xóa trắng trả về `""`,
-     * mà `"" ?? x` cho ra `""` chứ không rơi về `x` — để lọt là ngày hạn thành chuỗi rỗng và
-     * `new Date("")` cho `Invalid Date`, cột cảnh báo hiện `NaN`.
+     * ⚠️ Chuỗi rỗng phải coi như KHÔNG CÓ: ô ngày bị xóa trắng trả về `""`, mà `"" ?? x` cho ra
+     * `""` chứ không rơi về `x`. Để lọt là ngày bắt đầu thành rỗng → `new Date("")` = Invalid
+     * Date → cột cảnh báo hiện `NaN`.
      */
-    const toiHanGoTay = gia?.ngayToiHanThanhToan?.trim() || undefined;
-    const toiHanTuTinh =
+    const batDauGoTay = gia?.ngayBatDauTinhNoTay?.trim() || undefined;
+    const batDauTuNhan = ngayBatDauTinhNo(phieuCuaPO);
+    const ngayBatDau = batDauGoTay ?? batDauTuNhan;
+    /* Ngày tới hạn CỐ ĐỊNH tự tính từ ngày bắt đầu (dù ngày bắt đầu là tay hay tự suy ra).
+       Thiếu một trong hai vế (chưa có ngày bắt đầu / chưa ghi số ngày được nợ) thì để trống,
+       KHÔNG bịa ngày. */
+    const ngayToiHan =
       ngayBatDau !== undefined && soNgayDuocNo !== undefined
         ? congNgay(ngayBatDau, soNgayDuocNo)
         : undefined;
-    const ngayToiHan = toiHanGoTay ?? toiHanTuTinh;
     const { canhBao, soNgayConLai } = canhBaoToiHan(ngayToiHan, moc);
 
     ra.push({
@@ -301,8 +309,8 @@ export function congNoTheoDonHang(
       tongCongNo: tien.tongThanhToan,
       soNgayDuocNo,
       ngayBatDau,
+      batDauNhapTay: batDauGoTay !== undefined,
       ngayToiHan,
-      toiHanNhapTay: toiHanGoTay !== undefined,
       canhBao,
       soNgayConLai,
     });

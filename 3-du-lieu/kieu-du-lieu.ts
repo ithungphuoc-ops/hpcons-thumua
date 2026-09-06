@@ -988,16 +988,26 @@ export interface GiaDonDatHang {
    */
   soNgayDuocNo?: number;
   /**
-   * ★★ NGÀY TỚI HẠN THANH TOÁN — NHẬP TAY, ĐÈ LÊN GIÁ TRỊ TỰ TÍNH (Ban lãnh đạo 28/08/2026:
-   * *"ngày tới hạn cũng là trường nhập thủ công"*).
+   * ★★ NGÀY BẮT ĐẦU TÍNH NỢ — NHẬP TAY, ĐÈ LÊN NGÀY NHẬN HÀNG LẦN CUỐI (Ban lãnh đạo 06/09/2026:
+   * *"ngày này được phép điều chỉnh"*).
    *
-   * 🔴 KHÔNG BỎ PHÉP TỰ TÍNH. Trống ở đây thì `congNoTheoDonHang` vẫn suy ra từ *ngày nhận hàng
-   * lần cuối + `soNgayDuocNo`* như trước. Bỏ tự tính đi là mọi đơn cũ mất sạch ngày tới hạn cho
-   * tới khi có người gõ tay từng đơn — và trong lúc đó cảnh báo quá hạn im lặng tắt.
+   * 🔴 KHÔNG BỎ PHÉP TỰ TÍNH. Trống ở đây thì `congNoTheoDonHang` vẫn lấy *ngày nhận hàng lần
+   * cuối* làm mốc như trước. Bỏ tự tính đi là mọi đơn cũ mất mốc tính nợ cho tới khi có người gõ
+   * tay từng đơn — và trong lúc đó cả ngày tới hạn (tự tính từ mốc này) lẫn cảnh báo quá hạn đều
+   * im lặng tắt.
    *
-   * 📌 Đặt CÙNG CHỖ với `soNgayDuocNo`, không đưa sang `DonDatHang`: hai trường này là một cặp
-   * điều kiện thanh toán. Tách ra hai chứng từ là mở đường cho một bên đổi mà bên kia không biết,
-   * rồi hai con số cùng nói về một ngày lại lệch nhau.
+   * 📌 Đặt CÙNG CHỖ với `soNgayDuocNo`, không đưa sang `DonDatHang`: chúng là một cụm điều kiện
+   * thanh toán. Tách ra hai chứng từ là mở đường cho một bên đổi mà bên kia không biết.
+   */
+  ngayBatDauTinhNoTay?: NgayISO;
+  /**
+   * ⛔ KHÔNG CÒN DÙNG từ 06/09/2026 — trước đó là ô nhập tay của NGÀY TỚI HẠN (chỉ đạo 28/08).
+   * Ban lãnh đạo 06/09 đổi hướng: *"cố định ngày này và tự tính"* — ngày tới hạn nay LUÔN suy ra
+   * từ ngày bắt đầu + số ngày được nợ, không cho gõ tay nữa.
+   *
+   * 🔴 GIỮ TRƯỜNG, KHÔNG XÓA: dữ liệu chạy thử của cả phòng có thể đã ghi trường này ở một số đơn.
+   * Xóa khỏi kiểu là TypeScript chặn đọc lại để dọn/di trú. `congNoTheoDonHang` CỐ Ý không đọc nó
+   * nữa, nên giá trị cũ (nếu có) tự động vô hiệu — đúng ý "cố định tự tính".
    */
   ngayToiHanThanhToan?: NgayISO;
   /**
