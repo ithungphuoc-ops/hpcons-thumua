@@ -75,8 +75,9 @@ import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhQuyen } from "@/4-phan-quyen/quyen";
 import { ghiNhatKyHeThong } from "@/3-du-lieu/nhat-ky-he-thong";
-/* Luật "vật tư kiểm soát định mức" — một chỗ duy nhất, xem effect báo Ban QLDA. */
-import { dongCanKiemSoatDinhMuc } from "@/2-quy-trinh/kiem-soat-dinh-muc";
+/* `dongCanKiemSoatDinhMuc` thôi được nhập ở đây từ 06/09/2026 — effect tự báo QLDA (chỗ dùng
+   duy nhất) đã bỏ theo chỉ đạo Sếp. Hàm vẫn còn trong `2-quy-trinh/kiem-soat-dinh-muc.ts` cho
+   nơi khác (VD dòng cảnh báo định mức trên màn); đừng xoá khỏi tệp gốc. */
 import { TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/gioi-han-dinh-kem";
 /**
  * 🔴 IMPORT ĐƯỢC LÀ NHỜ VỪA CẮT VÒNG TRÒN (24/08/2026).
@@ -2125,35 +2126,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             nguoiThemTen: dauVao.nguoiDeNghiTen,
             thoiDiemThem: dauVao.ngayDeNghi,
           })),
-        /**
-         * ★ BÁO CHO BAN QLDA khi phiếu có vật tư kiểm soát định mức — Ban lãnh đạo
-         * 15/08/2026: *"gặp các vật tư này sẽ tự động hiện dòng thông báo định mức và báo
-         * cho bộ phận QLDA"*.
-         *
-         * Cách báo: thêm người QLDA vào danh sách THEO DÕI. App không có kênh gửi ra ngoài
-         * (bản xuất tĩnh, không máy chủ), nhưng người theo dõi thì nhận thông báo mỗi lần
-         * hồ sơ chuyển bước và mở xem được tiến trình — đó là cách báo THẬT trong phạm vi
-         * app làm được, thay vì hiện một dòng chữ "đã báo QLDA" mà chẳng gửi đi đâu.
-         *
-         * ⚠️ Chỉ thêm khi THẬT SỰ có dòng được đánh dấu; phiếu không có vật tư định mức mà
-         * cũng kéo QLDA vào thì họ ngập trong hồ sơ không liên quan rồi bỏ qua hết.
-         */
-        ...(dauVao.items.some((d) => d.vatTuKiemSoatDinhMuc)
-          ? danhBaThat
-              .filter((n) => n.department === "quan_ly_du_an")
-              .filter(
-                (n) =>
-                  n.uid !== dauVao.nguoiDeNghiUid &&
-                  !(dauVao.nguoiTheoDoi ?? []).some((x) => x.uid === n.uid),
-              )
-              .map((n) => ({
-                uid: n.uid,
-                ten: n.displayName,
-                chucDanh: n.title,
-                nguoiThemTen: "Hệ thống",
-                thoiDiemThem: dauVao.ngayDeNghi,
-              }))
-          : []),
+        /* ❌ ĐÃ BỎ tự kéo Ban QLDA vào người theo dõi — Ban lãnh đạo 06/09/2026: *"bỏ phần báo
+           QLDA đi, sau này QLDA sẽ kiểm soát bằng cách được thêm vào người theo dõi từ request
+           hoặc mục thêm vào từ app thu mua"*. Người theo dõi giờ CHỈ gồm người đề nghị + những
+           người được truyền/thêm có chủ đích, không phải app tự bịa từ danh mục định mức. */
       ],
       lichSu: [
         { thoiDiem: dauVao.ngayDeNghi, nguoiThucHien: dauVao.nguoiDeNghiTen, hanhDong: "Tạo đề nghị" },
@@ -2163,21 +2139,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           hanhDong: "Chuyển sang Phòng Thu mua",
           ghiChu: "Việc duyệt đề nghị nằm ở app của bộ phận đề xuất — phiếu vào đây là đã duyệt",
         },
-        // Ghi vết việc app tự kéo QLDA vào — sau này đọc nhật ký biết ngay vì sao họ có tên
-        // trong phiếu, thay vì tưởng ai đó thêm nhầm.
-        ...(dauVao.items.some((d) => d.vatTuKiemSoatDinhMuc)
-          ? [
-              {
-                thoiDiem: thoiDiemHienTai(),
-                nguoiThucHien: "Hệ thống",
-                hanhDong: "Báo Ban QLDA — phiếu có vật tư kiểm soát định mức",
-                ghiChu: dauVao.items
-                  .filter((d) => d.vatTuKiemSoatDinhMuc)
-                  .map((d) => d.tenVatLieu)
-                  .join(", "),
-              },
-            ]
-          : []),
+        /* ❌ Đã bỏ dòng nhật ký "Báo Ban QLDA" cùng việc bỏ tự kéo QLDA (06/09/2026 — xem chú
+           thích ở khối `nguoiTheoDoi` phía trên). */
       ],
     };
 
@@ -2212,10 +2175,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     );
 
     return id;
-    /* 🔴 `danhBaThat` PHẢI có trong danh sách phụ thuộc — hàm này đọc danh bạ để kéo người QLDA
-       vào danh sách theo dõi. Danh bạ thật về CHẬM HƠN lần vẽ đầu; thiếu nó thì `useCallback` giữ
-       bản đóng gói cũ với danh bạ RỖNG, và đề nghị tạo ra sẽ không báo được cho ai. */
-  }, [danhBaThat]);
+    /* Không còn phụ thuộc `danhBaThat`: từ 06/09/2026 hàm này thôi tự kéo QLDA vào người theo dõi
+       (Sếp chốt bỏ báo QLDA), nên không đọc danh bạ nữa. */
+  }, []);
 
   const phanBoDong = useCallback(
     (
@@ -5559,87 +5521,56 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   }, [deNghi, themNguoiTheoDoi]);
 
   /**
-   * ★★ BÁO CHO BAN QLDA KHI PHIẾU CÓ VẬT TƯ KIỂM SOÁT ĐỊNH MỨC — khôi phục luật Ban lãnh đạo đã
-   * chốt 15/08/2026: *"gặp các vật tư này sẽ tự động hiện dòng thông báo định mức và báo cho bộ
-   * phận QLDA"*.
+   * ❌ ĐÃ BỎ EFFECT TỰ BÁO QLDA — Ban lãnh đạo 06/09/2026: *"bỏ phần báo QLDA đi, sau này QLDA sẽ
+   * kiểm soát bằng cách được thêm vào người theo dõi từ request hoặc mục thêm vào từ app thu mua"*.
    *
-   * 🔴 VÌ SAO PHẢI KHÔI PHỤC (23/08/2026): luật này trước nay **chỉ nằm trong hàm tạo đề nghị thử
-   * nghiệm** (`themDeNghiGiaLap`). Phiếu thật vào app qua cửa tiếp nhận App Request nên **chưa bao
-   * giờ** đi qua nó — nghĩa là từ 15/08 tới nay chưa một phiếu thật nào báo cho QLDA. Sếp yêu cầu
-   * xử lý các việc còn treo, và đây là một trong số đó.
+   * Trước đó (15/08→23/08) app TỰ kéo Ban QLDA vào danh sách theo dõi khi phiếu có vật tư kiểm
+   * soát định mức. Nay bỏ hẳn: QLDA vào theo dõi bằng HAI đường do con người / App Request quyết,
+   * không phải app tự bịa:
+   *   · App Request truyền kèm danh sách theo dõi (việc của App Request + phiên tích hợp), HOẶC
+   *   · Người dùng tự thêm qua nút "Sửa người theo dõi" ở màn chi tiết đề nghị.
    *
-   * 🔴 CÁCH BÁO: thêm người QLDA vào danh sách THEO DÕI. App không có kênh gửi ra ngoài, nhưng
-   * người theo dõi nhận thông báo mỗi lần hồ sơ chuyển bước và mở xem được tiến trình — đó là cách
-   * báo THẬT trong phạm vi app làm được, thay vì hiện một dòng chữ "đã báo QLDA" mà chẳng gửi đi
-   * đâu.
-   *
-   * 🔴 SUY TỪ TÊN VẬT LIỆU, KHÔNG DỰA VÀO CỜ `vatTuKiemSoatDinhMuc`. Cờ đó chỉ được tích ở màn lập
-   * phiếu thủ công — màn đã xóa — nên phiếu thật luôn để trống. `dongCanKiemSoatDinhMuc` dò theo
-   * danh mục trong Cài đặt quy trình, tức sửa danh mục là luật đổi theo, không phải sửa mã.
-   *
-   * ⚠️ CHỐT MỘT-LẦN-MỘT-PHIẾU (`daBaoQLDA`) — cùng lý do với effect người theo dõi ngay trên: hàm
-   * này GHI dữ liệu rồi đọc lại chính dữ liệu đó, mà cả phòng ghi vào một document Firestore. Thiếu
-   * chốt ngoài dữ liệu là hai máy đá qua đá lại vô hạn, thẻ nháy liên tục và tốn quota.
-   *
-   * ⚠️ TÔN TRỌNG VIỆC ĐÃ BỎ TAY: ai đã chủ động bỏ người QLDA khỏi danh sách thì không kéo vào lại.
+   * 🔴 GIỮ effect tự DỌN ngay dưới: nó gỡ những cái tên QLDA MẪU mà effect cũ đã ghi cứng vào đề
+   * nghị (Vũ Văn G, Lý Thị P) — bỏ effect thêm chỉ ngăn phát sinh mới, không xoá được cái đã ghi.
    */
-  const daBaoQLDA = useRef<Set<string>>(new Set());
+
+  /**
+   * ★★ TỰ DỌN NGƯỜI THEO DÕI LÀ TÊN MẪU DO "HỆ THỐNG" TỪNG KÉO VÀO — Ban lãnh đạo 06/09/2026:
+   * *"sao vẫn chưa sửa lỗi giao diện này"* (người theo dõi vẫn hiện Vũ Văn G, Lý Thị P).
+   *
+   * 🔴 CẦN VÌ dữ liệu cũ đã GHI CỨNG: effect báo QLDA cũ (đã bỏ) đã thêm tên QLDA mẫu vào
+   * `nguoiTheoDoi` của các đề nghị tạo trước hôm nay. Deploy không đụng được dữ liệu cũ nên phải
+   * gỡ bằng effect này.
+   *
+   * 🔴 LOẠI TRỪ NGƯỜI ĐỀ NGHỊ — điểm sống còn: effect thêm người-đề-nghị ngay phía trên cũng dùng
+   * `nguoiThemTen: "Hệ thống"`. Nếu không loại trừ `dn.nguoiDeNghiUid` thì ở chế độ chưa có danh bạ
+   * thật (danhBaThat rỗng), effect này gỡ luôn CHÍNH người đề nghị khỏi hồ sơ của họ — mất người
+   * theo dõi gốc. Chỉ gỡ người "Hệ thống" thêm, KHÁC người đề nghị, và KHÔNG có trong danh bạ thật.
+   *
+   * ⚠️ CHỐT MỘT-LẦN-MỘT-PHIẾU (`daDonMauQLDA`) — effect GHI dữ liệu rồi đọc lại qua `deNghi`; thiếu
+   * chốt là hai máy đá qua đá lại vô hạn.
+   *
+   * 📌 Người dùng tự thêm QLDA (nút "Sửa người theo dõi") có `nguoiThemTen` là TÊN NGƯỜI thêm, nên
+   * KHÔNG bị effect này đụng — đúng đường Sếp muốn: QLDA vào theo dõi do con người quyết.
+   */
+  const daDonMauQLDA = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    /* Danh mục rỗng thì không có gì để dò — thoát sớm, đỡ chạy vòng lặp vô ích mỗi lần vẽ. */
-    const nhomDinhMuc = cauHinh.vatTuDinhMuc ?? [];
-    if (nhomDinhMuc.length === 0) return;
-
-    /* 🔴 DÙNG `danhBaThat`, KHÔNG dùng `danhBa` — đây là gốc lỗi Sếp báo 06/09/2026. `danhBa`
-       (useDanhBa) fallback về danh bạ MẪU khi chưa đọc được từ App Tổng, nên câu "rỗng thì thoát"
-       ngay dưới KHÔNG BAO GIỜ đúng và app kéo Vũ Văn G/Lý Thị P (QLDA mẫu) vào cả đề nghị thật.
-       `danhBaThat` thật sự rỗng khi chưa có danh bạ thật, nên chốt này mới có tác dụng: thà chưa
-       báo QLDA còn hơn thêm một cái tên không tồn tại vào hồ sơ rồi tưởng đã báo. */
-    const nguoiQLDA = danhBaThat.filter((n) => n.department === "quan_ly_du_an");
-    if (nguoiQLDA.length === 0) return;
-
     for (const dn of deNghi) {
-      if (daBaoQLDA.current.has(dn.id)) continue;
-      /* Hồ sơ đã lưu trữ thì không thêm ai nữa, nếu không mỗi lần mở app lại ghi một dòng nhật ký
-         vào hồ sơ đã dọn khỏi bảng. */
+      if (daDonMauQLDA.current.has(dn.id)) continue;
       if (dn.luuTru) continue;
-
-      const dongDinhMuc = dongCanKiemSoatDinhMuc(dn.items, nhomDinhMuc);
-      if (dongDinhMuc.length === 0) continue;
-
-      const dsTheoDoi = dn.nguoiTheoDoi ?? [];
-      const canThem = nguoiQLDA.filter((n) => {
-        if (dsTheoDoi.some((x) => x.uid === n.uid)) return false;
-        /* Người đề nghị có thể chính là người QLDA — họ đã ở trong danh sách, không thêm lần hai. */
-        if (n.uid === dn.nguoiDeNghiUid) return false;
-        const daBoTay = dn.lichSu.some(
-          (m) => m.hanhDong === `Bỏ ${n.displayName} khỏi danh sách theo dõi`,
-        );
-        return !daBoTay;
-      });
-
-      daBaoQLDA.current.add(dn.id);
-      if (canThem.length === 0) continue;
-
-      for (const n of canThem) {
-        themNguoiTheoDoi(dn.id, { uid: n.uid, ten: n.displayName, chucDanh: n.title }, "Hệ thống");
-      }
-      /* Một dòng nhật ký nói RÕ VÌ SAO họ được thêm — đọc hồ sơ về sau mới hiểu, chứ chỉ thấy
-         "Thêm X vào danh sách theo dõi" thì không ai biết là do luật định mức.
-         🔴 Ghi TÊN VẬT LIỆU, không ghi tên nhà cung cấp — khối Lịch sử hiện cho cả vai trò không
-         được xem NCC (quy ước dự án mục 7). */
-      ghiLichSuDeNghi(
-        dn.id,
-        "Hệ thống",
-        `Báo Ban QLDA vì phiếu có vật tư kiểm soát định mức: ${dongDinhMuc
-          .map((x) => `${x.dong.tenVatLieu} (${x.khop.tenNhom})`)
-          .join(", ")}`,
+      const ds = dn.nguoiTheoDoi ?? [];
+      const canGo = ds.filter(
+        (n) =>
+          n.nguoiThemTen === "Hệ thống" &&
+          n.uid !== dn.nguoiDeNghiUid &&
+          !danhBaThat.some((t) => t.uid === n.uid),
       );
+      daDonMauQLDA.current.add(dn.id);
+      if (canGo.length === 0) continue;
+      for (const n of canGo) boNguoiTheoDoi(dn.id, n.uid, "Hệ thống");
     }
-    /* 🔴 `danhBaThat` PHẢI có trong danh sách phụ thuộc: danh bạ thật đọc từ App Tổng về CHẬM HƠN
-       lần vẽ đầu (lúc đó còn rỗng). Thiếu nó thì `useEffect` giữ bản rỗng và **không bao giờ chạy
-       lại** khi danh bạ về — tức không hồ sơ nào được báo cho QLDA, mà không có gì báo lỗi. */
-  }, [deNghi, cauHinh.vatTuDinhMuc, themNguoiTheoDoi, ghiLichSuDeNghi, danhBaThat]);
+  }, [deNghi, danhBaThat, boNguoiTheoDoi]);
 
   /**
    * ★★ VAN AN TOÀN "PO CHỜ ĐỀ NGHỊ TREO QUÁ 7 NGÀY" — thêm 29/08/2026 (Sếp chốt qua demo
