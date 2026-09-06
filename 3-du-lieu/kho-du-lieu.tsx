@@ -936,7 +936,27 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * Cùng lý do an toàn thứ tự provider như `danhBa` ngay trên: gọi hợp lệ vì `DuLieuProvider`
    * nằm trong `CurrentUserProvider`.
    */
-  const { nguoiDung } = useNguoiDung();
+  const { nguoiDung, cheDoThu, danhSachTaiKhoan } = useNguoiDung();
+
+  /**
+   * ★★ DANH BẠ THẬT — RỖNG KHI CHƯA ĐỌC ĐƯỢC TỪ APP TỔNG (sửa 06/09/2026).
+   *
+   * 🔴 GỐC LỖI Sếp báo *"người theo dõi vẫn hiện tên bản chạy thử"*: việc app tự kéo Ban QLDA vào
+   * danh sách theo dõi (dưới đây) dùng `danhBa = useDanhBa()`, mà `useDanhBa` **fallback về danh bạ
+   * MẪU** (Vũ Văn G, Lý Thị P) khi chưa đọc được danh bạ thật. Các chú thích ở hai chỗ kéo QLDA
+   * đều ĐÃ HỨA *"danh bạ rỗng thì thoát, không rơi về mẫu"* — nhưng lời hứa đó vô hiệu vì `danhBa`
+   * không bao giờ rỗng (luôn có mẫu). `danhBaThat` làm đúng lời hứa: THẬT SỰ rỗng khi chưa có danh
+   * bạ thật, nên app không kéo tên mẫu vào ai.
+   *
+   * 📌 Chỉ đạo Sếp 06/09/2026: *"người theo dõi lấy từ request qua"* — app Thu mua không tự bịa
+   * người theo dõi. Khi App Tổng cấp danh bạ thật thì QLDA THẬT mới được kéo vào (giữ tính năng
+   * báo QLDA 15/08/2026); còn ô CHỌN TAY người theo dõi vẫn dùng `danhBa` (mẫu chấp nhận được để
+   * người dùng tự chọn).
+   */
+  const danhBaThat = useMemo(
+    () => (!cheDoThu && danhSachTaiKhoan.length > 0 ? danhBa : []),
+    [danhBa, cheDoThu, danhSachTaiKhoan],
+  );
 
   const [deNghi, setDeNghi] = useState<DeNghiMuaHang[]>(DE_NGHI_MAU);
   const [donHang, setDonHang] = useState<DonDatHang[]>(DON_HANG_MAU);
@@ -2119,7 +2139,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          * cũng kéo QLDA vào thì họ ngập trong hồ sơ không liên quan rồi bỏ qua hết.
          */
         ...(dauVao.items.some((d) => d.vatTuKiemSoatDinhMuc)
-          ? danhBa
+          ? danhBaThat
               .filter((n) => n.department === "quan_ly_du_an")
               .filter(
                 (n) =>
@@ -2192,10 +2212,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     );
 
     return id;
-    /* 🔴 `danhBa` PHẢI có trong danh sách phụ thuộc — hàm này đọc danh bạ để kéo người QLDA vào
-       danh sách theo dõi. Danh bạ thật về CHẬM HƠN lần vẽ đầu; thiếu nó thì `useCallback` giữ bản
-       đóng gói cũ với danh bạ RỖNG, và đề nghị tạo ra sẽ không báo được cho ai. */
-  }, [danhBa]);
+    /* 🔴 `danhBaThat` PHẢI có trong danh sách phụ thuộc — hàm này đọc danh bạ để kéo người QLDA
+       vào danh sách theo dõi. Danh bạ thật về CHẬM HƠN lần vẽ đầu; thiếu nó thì `useCallback` giữ
+       bản đóng gói cũ với danh bạ RỖNG, và đề nghị tạo ra sẽ không báo được cho ai. */
+  }, [danhBaThat]);
 
   const phanBoDong = useCallback(
     (
@@ -5570,10 +5590,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     const nhomDinhMuc = cauHinh.vatTuDinhMuc ?? [];
     if (nhomDinhMuc.length === 0) return;
 
-    /* Danh bạ THẬT — xem chú thích ở `const danhBa`. Danh bạ rỗng (chưa đọc được từ App Tổng)
-       thì THOÁT, không rơi về danh bạ mẫu: thà chưa báo QLDA còn hơn thêm một cái tên không
-       tồn tại vào hồ sơ rồi tưởng đã báo. */
-    const nguoiQLDA = danhBa.filter((n) => n.department === "quan_ly_du_an");
+    /* 🔴 DÙNG `danhBaThat`, KHÔNG dùng `danhBa` — đây là gốc lỗi Sếp báo 06/09/2026. `danhBa`
+       (useDanhBa) fallback về danh bạ MẪU khi chưa đọc được từ App Tổng, nên câu "rỗng thì thoát"
+       ngay dưới KHÔNG BAO GIỜ đúng và app kéo Vũ Văn G/Lý Thị P (QLDA mẫu) vào cả đề nghị thật.
+       `danhBaThat` thật sự rỗng khi chưa có danh bạ thật, nên chốt này mới có tác dụng: thà chưa
+       báo QLDA còn hơn thêm một cái tên không tồn tại vào hồ sơ rồi tưởng đã báo. */
+    const nguoiQLDA = danhBaThat.filter((n) => n.department === "quan_ly_du_an");
     if (nguoiQLDA.length === 0) return;
 
     for (const dn of deNghi) {
@@ -5614,10 +5636,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           .join(", ")}`,
       );
     }
-    /* 🔴 `danhBa` PHẢI có trong danh sách phụ thuộc: danh bạ thật đọc từ App Tổng về CHẬM HƠN lần
-       vẽ đầu (lúc đó còn rỗng). Thiếu nó thì `useEffect` giữ bản rỗng và **không bao giờ chạy lại**
-       khi danh bạ về — tức không hồ sơ nào được báo cho QLDA, mà không có gì báo lỗi. */
-  }, [deNghi, cauHinh.vatTuDinhMuc, themNguoiTheoDoi, ghiLichSuDeNghi, danhBa]);
+    /* 🔴 `danhBaThat` PHẢI có trong danh sách phụ thuộc: danh bạ thật đọc từ App Tổng về CHẬM HƠN
+       lần vẽ đầu (lúc đó còn rỗng). Thiếu nó thì `useEffect` giữ bản rỗng và **không bao giờ chạy
+       lại** khi danh bạ về — tức không hồ sơ nào được báo cho QLDA, mà không có gì báo lỗi. */
+  }, [deNghi, cauHinh.vatTuDinhMuc, themNguoiTheoDoi, ghiLichSuDeNghi, danhBaThat]);
 
   /**
    * ★★ VAN AN TOÀN "PO CHỜ ĐỀ NGHỊ TREO QUÁ 7 NGÀY" — thêm 29/08/2026 (Sếp chốt qua demo

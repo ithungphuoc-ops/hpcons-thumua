@@ -855,10 +855,16 @@ export default function TrangChiTietDeNghi({
                     </div>
 
                     {baoGiaLienQuan.length === 0 && (
+                      /* 🔴 CÂU NÀY PHẢI KHỚP CÁCH APP THẬT SỰ LẬP BẢNG (sửa 06/09/2026). Câu cũ nhắc
+                         *"lập từ menu ⋯"* và *"kéo thẻ sang cột"* — cả hai KHÔNG CÒN: menu đó bỏ từ
+                         06/08, kéo thả tắt hết từ 27/08. Người dùng đọc xong đi tìm hai thao tác
+                         không tồn tại. Thực tế `trinhXetDuyetBaoGiaChoDeNghi` TỰ LẬP hồ sơ ngay khi
+                         bấm trình (xem chú thích *"chưa có hồ sơ thì tự lập rồi trình luôn"* trong
+                         kho-du-lieu.tsx) — nên hướng dẫn đúng là đính đủ báo giá rồi bấm trình. */
                       <p className="text-sm text-text-secondary">
-                        Chưa lập bảng báo giá nào. Bảng được lập từ menu <strong>⋯</strong> trên
-                        thẻ của phiếu ở màn <strong>Quy trình mua hàng</strong>, hoặc tự sinh khi
-                        kéo thẻ sang cột <strong>Yêu cầu NCC báo giá</strong>.
+                        Chưa lập bảng báo giá nào. Bảng (hồ sơ xét duyệt) tự lập khi bạn đính đủ bản
+                        báo giá ở khu <strong>bên dưới</strong> rồi bấm{" "}
+                        <strong>Trình xét duyệt báo giá</strong>.
                       </p>
                     )}
                     {/* 🔴 CHỈ VẼ THẺ KHI CÓ BẢNG — Ban lãnh đạo khoanh đỏ 19/08/2026.
