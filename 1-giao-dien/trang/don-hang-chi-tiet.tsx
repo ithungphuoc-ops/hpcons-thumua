@@ -185,7 +185,16 @@ export default function TrangChiTietDonHang() {
           <ThongTin nhan="Ngày lập PO" giaTri={new Date(po.ngayLapPO).toLocaleDateString("vi-VN")} />
           <ThongTin
             nhan="Ngày giao dự kiến"
-            giaTri={new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
+            /* ⚠️ `po.ngayGiaoDenNgay` là trường THÊM SAU (27/08/2026), đơn cũ không có — kiểm
+               rỗng trước khi đưa vào `new Date()`. Cùng cách nối "ngày — ngày" đã dùng ở tờ in
+               PO (`to-don-mua-hang-a4.tsx`), màn này trước đó bị bỏ sót nên chỉ hiện 1 ngày dù
+               người lập đã chọn cả khoảng. */
+            giaTri={[
+              new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN"),
+              po.ngayGiaoDenNgay ? new Date(po.ngayGiaoDenNgay).toLocaleDateString("vi-VN") : undefined,
+            ]
+              .filter(Boolean)
+              .join(" — ")}
           />
           {quyen.xemNhaCungCap && <ThongTin nhan="Nhà cung cấp" giaTri={po.supplierTen} />}
           {po.dieuKienGiaoHang && <ThongTin nhan="Điều kiện giao hàng" giaTri={po.dieuKienGiaoHang} />}
