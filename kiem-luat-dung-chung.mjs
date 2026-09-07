@@ -1212,7 +1212,7 @@ kiem(
     const BG = nap(join(thuMuc, "bao-gia.cjs"));
     const r = BG.vuongMacChiDinhNCCLucGiaoViec(1, "");
     return {
-      duoc: typeof r === "string" && r.includes("lý do"),
+      duoc: typeof r === "string" && r.includes("báo giá"),
       thucTe: r === null ? "null (LỌT)" : `"${String(r).slice(0, 80)}"`,
       mongDoi: "câu chặn nói rõ vì sao phải ghi lý do",
     };
