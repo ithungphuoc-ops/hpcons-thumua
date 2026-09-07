@@ -1200,6 +1200,72 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
+// CHỈ ĐỊNH THẲNG 1 NHÀ CUNG CẤP LÚC GIAO VIỆC — BẮT BUỘC GHI LÝ DO — 07/09/2026
+// Ban lãnh đạo: nếu trưởng bộ phận CHỦ ĐỘNG đặt "Số báo giá yêu cầu" = 1 ngay lúc giao việc thì
+// phải ghi lý do — khác hẳn việc nhân viên xin bỏ qua 1 ô báo giá còn thiếu (luật riêng ở trên).
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "SL Báo giá = 1, KHÔNG ghi chú → phải chặn",
+  "Ban lãnh đạo · 07/09/2026",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const r = BG.vuongMacChiDinhNCCLucGiaoViec(1, "");
+    return {
+      duoc: typeof r === "string" && r.includes("báo giá"),
+      thucTe: r === null ? "null (LỌT)" : `"${String(r).slice(0, 80)}"`,
+      mongDoi: "câu chặn nói rõ vì sao phải ghi lý do",
+    };
+  },
+);
+
+kiem(
+  "SL Báo giá = 1, CÓ ghi chú → không chặn",
+  "Ban lãnh đạo · 07/09/2026",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const r = BG.vuongMacChiDinhNCCLucGiaoViec(1, "Nhà cung cấp độc quyền cho vật tư này.");
+    return { duoc: r === null, thucTe: r === null ? "null" : `"${String(r).slice(0, 70)}"`, mongDoi: "null" };
+  },
+);
+
+kiem(
+  "SL Báo giá = 2 hoặc để trống → KHÔNG đòi ghi chú (chỉ luật riêng của SL = 1)",
+  "Ban lãnh đạo · 07/09/2026",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const r2 = BG.vuongMacChiDinhNCCLucGiaoViec(2, "");
+    const rTrong = BG.vuongMacChiDinhNCCLucGiaoViec(undefined, "");
+    return {
+      duoc: r2 === null && rTrong === null,
+      thucTe: `SL=2 → ${r2 === null ? "null" : `"${r2}"`}; để trống → ${rTrong === null ? "null" : `"${rTrong}"`}`,
+      mongDoi: "cả hai đều null",
+    };
+  },
+);
+
+kiem(
+  "HƯỚNG DẪN chọn số báo giá theo giá trị đơn hàng — đủ 4 dòng, nêu đúng 2 ngưỡng tiền",
+  "Ban lãnh đạo · 07/09/2026 (vòng sau)",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dong = BG.HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI;
+    const gop = Array.isArray(dong) ? dong.join(" ") : "";
+    const duoc =
+      Array.isArray(dong) &&
+      dong.length === 4 &&
+      dong.every((d) => typeof d === "string" && d.trim() !== "") &&
+      gop.includes("10") &&
+      gop.includes("100 triệu");
+    return {
+      duoc,
+      thucTe: Array.isArray(dong) ? `${dong.length} dòng: ${JSON.stringify(dong)}` : String(dong),
+      mongDoi: "mảng 4 chuỗi không rỗng, nêu đủ ngưỡng 10tr và 100tr — hiện THƯỜNG TRỰC, không phụ thuộc SL chọn mấy báo giá",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // HAI LỖI VÁ NGÀY 25/08/2026 — Ban lãnh đạo: "sao ko còn kéo qua bước được"
 // ════════════════════════════════════════════════════════════════════
 

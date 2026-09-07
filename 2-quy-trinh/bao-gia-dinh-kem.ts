@@ -126,6 +126,60 @@ export function tepBaoGiaDaCo(deNghi: DeNghiMuaHang): MoTaTep[] {
 }
 
 /**
+ * ★ HƯỚNG DẪN CHỌN SỐ BÁO GIÁ THEO GIÁ TRỊ ĐƠN HÀNG — LUÔN HIỂN THỊ, không phân biệt 1/2/3/nhiều
+ * báo giá — Sếp chốt 07/09/2026.
+ *
+ * 🔴 CHỈ LÀ CHỮ GỢI Ý, KHÔNG TỰ KIỂM ĐƯỢC: app không nhập giá trị đơn hàng ở bước giao việc (xem
+ * chú thích 20/08/2026 ở `2-quy-trinh/cau-hinh-quy-trinh.ts`), nên không có cách nào tự so khớp
+ * ngưỡng tiền với đề nghị thật. Hiện thường trực để trưởng bộ phận tự đọc và tự áp dụng, không
+ * phải điều kiện chặn được kiểm bằng mã.
+ *
+ * 📌 TÁCH THÀNH MẢNG 4 DÒNG (không phải 1 câu dài) để nơi gọi tự chọn cách trình bày (xuống dòng
+ * từng ý) — xem `bang-phan-bo.tsx` dùng làm `canhBao` cho `HopXacNhan`.
+ */
+export const HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI: readonly string[] = [
+  "10–100 triệu đồng → tối thiểu 2 báo giá;",
+  "từ 100 triệu đồng trở lên → tối thiểu 3 báo giá.",
+  "Từ 2 báo giá trở lên phải có bảng so sánh trước khi trình xét duyệt.",
+  "Không được chia nhỏ đơn hàng để né quy định lấy báo giá.",
+];
+
+/**
+ * ★ TRƯỞNG BỘ PHẬN CHỈ ĐỊNH THẲNG 1 NHÀ CUNG CẤP LÚC GIAO VIỆC — BẮT BUỘC GHI LÝ DO.
+ *
+ * Ban lãnh đạo 07/09/2026: nếu trưởng bộ phận CHỦ ĐỘNG đặt "Số báo giá yêu cầu" = 1 ngay lúc
+ * giao việc (tức chỉ định thẳng 1 nhà cung cấp, bỏ qua cạnh tranh giá), thì phải ghi rõ lý do
+ * ở ô "Lý do chọn 1 báo giá" — cùng tinh thần với luật "PO độc lập" (`vuongMacLapDocLap` ở
+ * `2-quy-trinh/giai-doan-mua-hang.ts`): quyết định bỏ qua bước cạnh tranh giá bình thường thì
+ * phải giải trình lại.
+ *
+ * ⚠️ KHÁC HẲN `khoaLyDoBoQuaBaoGia` bên dưới — đó là NHÂN VIÊN xin miễn 1 ô báo giá còn thiếu
+ * SAU KHI đã cố tìm (quy trình đòi 2-3 bản nhưng chỉ ra được 1). Ở đây là TRƯỞNG BỘ PHẬN tự đặt
+ * luật = 1 NGAY TỪ ĐẦU, trước khi ai đi tìm báo giá nào — hai quyết định khác hẳn nhau, của hai
+ * người khác nhau, tại hai thời điểm khác nhau, nên cần hai luật riêng, không gộp chung.
+ *
+ * 🔴 CHỈ CHẶN KHI `soBaoGia === 1` — không áp cho 2 trở lên (vẫn là yêu cầu cạnh tranh giá bình
+ * thường). Từ 07/09/2026, ô chọn không còn lựa chọn "để trống" nữa (trưởng bộ phận luôn phải
+ * tự chọn rõ 1 con số), nên hàm này không còn cần xét nhánh "để trống" như bản trước.
+ *
+ * Trả về câu giải thích khi thiếu lý do (dùng làm `khoaDongY` cho `HopXacNhan`), `null` khi đủ
+ * điều kiện giao việc.
+ *
+ * 🔴 CÂU NGẮN, KHÔNG NHẮC LẠI NGƯỠNG GIÁ TRỊ — Sếp chốt 07/09/2026 (vòng sau): ngưỡng giá trị đã
+ * dời hẳn sang `HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI` ở trên, hiện THƯỜNG TRỰC trong `canhBao` bất kể
+ * chọn mấy báo giá — câu chặn ở đây chỉ còn việc CHỈ RA Ô CẦN ĐIỀN, tránh lặp lại y nguyên đoạn
+ * `canhBao` ngay phía trên nó.
+ */
+export function vuongMacChiDinhNCCLucGiaoViec(
+  soBaoGia: number | undefined,
+  ghiChu: string | undefined,
+): string | null {
+  if (soBaoGia !== 1) return null;
+  if ((ghiChu ?? "").trim() !== "") return null;
+  return "Ghi rõ lý do chọn 1 báo giá ở ô trên trước khi giao việc.";
+}
+
+/**
  * ★★ BỎ QUA MỘT Ô BÁO GIÁ CÒN THIẾU — Ban lãnh đạo 31/08/2026: *"nếu chỉ kiếm được 1 nhà cung
  * cấp thì cho nhân viên quyền bỏ qua báo giá thứ 2 và có ghi chú bắt buộc để note lại"*.
  *

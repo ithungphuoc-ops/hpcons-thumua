@@ -31,7 +31,11 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
-import { TOI_DA_O_BAO_GIA } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import {
+  TOI_DA_O_BAO_GIA,
+  HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI,
+  vuongMacChiDinhNCCLucGiaoViec,
+} from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
@@ -142,7 +146,7 @@ export function BangPhanBo({
    */
   hoSoDaDong?: boolean;
 }) {
-  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi, cauHinh } =
+  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi } =
     useDuLieu();
   /**
    * Dòng vật tư MỚI đang gõ ở cuối bảng — `null` là chưa bấm nút thêm.
@@ -198,9 +202,25 @@ export function BangPhanBo({
   const [giaoViec, setGiaoViec] = useState<{ uid: string; ten: string; dong: number[] } | null>(
     null,
   );
-  /** Giữ dạng chuỗi để ô nhập xóa trống được — số 0 và "chưa nhập" là hai chuyện khác nhau. */
-  const [soBaoGia, setSoBaoGia] = useState("");
+  /**
+   * Giữ dạng chuỗi (khớp `<select>`). Mặc định "2" — Sếp chốt 07/09/2026: bỏ hẳn lựa chọn
+   * "Không yêu cầu riêng", trưởng bộ phận LUÔN phải tự chọn rõ ràng 1 con số mỗi lần giao việc
+   * (đọc đúng ngưỡng giá trị đơn hàng ở dòng gợi ý dưới ô chọn mà tự quyết định), không còn
+   * cách bỏ trống rồi rơi về `cauHinh.soBaoGiaToiThieu` như trước.
+   */
+  const [soBaoGia, setSoBaoGia] = useState("2");
   const [ghiChu, setGhiChu] = useState("");
+  /**
+   * ★ Ô GHI CHÚ THÊM riêng cho ca "1 báo giá" — Sếp chốt 07/09/2026 (vòng sau): khi chọn 1 báo
+   * giá, ô `ghiChu` ở trên đổi hẳn công dụng thành "Lý do chọn 1 báo giá" (bắt buộc, xem
+   * `vuongMacChiDinhNCCLucGiaoViec`), nên cần MỘT ô khác cho lời dặn thường (tuỳ chọn) — vẫn
+   * muốn giữ được cả hai việc cùng lúc: giải trình lý do VÀ dặn dò người nhận việc.
+   *
+   * 🔴 CHỈ HIỆN VÀ CHỈ DÙNG KHI `soBaoGiaSo === 1` — các trường hợp khác vẫn dùng đúng `ghiChu`
+   * làm ô ghi chú duy nhất như trước, không đổi gì. Lúc gửi đi (`xacNhanGiaoViec`), nội dung ô
+   * này được NỐI THÊM vào `ghiChu` (không phải trường mới trong dữ liệu) — xem chú thích ở đó.
+   */
+  const [ghiChuThem, setGhiChuThem] = useState("");
 
   /**
    * ★ CHUYỂN VIỆC — Ban lãnh đạo 12/08/2026: *"thêm tính năng chuyển công việc cho nhân
@@ -370,15 +390,28 @@ export function BangPhanBo({
    */
   function moGiaoViec(uid: string, ten: string, dong: number[]) {
     if (dong.length === 0) return;
-    setSoBaoGia("");
+    setSoBaoGia("2"); // Mặc định mức chung của công ty — xem chú thích ở chỗ khai `soBaoGia`.
     setGhiChu("");
+    setGhiChuThem("");
     setGiaoViec({ uid, ten, dong });
     setMoHop(true);
   }
 
+  /**
+   * Số báo giá đã gõ, quy về `number | undefined` — DÙNG CHUNG cho cả lúc ghi thật
+   * (`xacNhanGiaoViec`) lẫn lúc khóa nút sớm (`khoaDongY` của `HopXacNhan` bên dưới), để hai chỗ
+   * không đọc lệch nhau (ví dụ 1 nơi coi "0" là có, nơi kia coi là không).
+   *
+   * Chỉ tính là số nêu ra khi là số dương thật — ô để trống nghĩa là "không nêu yêu cầu riêng",
+   * không phải "yêu cầu 0 báo giá".
+   */
+  const soBaoGiaSo = (() => {
+    const so = Number.parseInt(soBaoGia, 10);
+    return Number.isFinite(so) && so > 0 ? so : undefined;
+  })();
+
   function xacNhanGiaoViec() {
     if (!giaoViec) return;
-    const so = Number.parseInt(soBaoGia, 10);
     /**
      * 🔴 ĐỌC KẾT QUẢ RỒI MỚI BÁO — sửa 24/08/2026.
      *
@@ -387,16 +420,22 @@ export function BangPhanBo({
      * đang khóa nút theo. Trước đây hàm không kiểm gì, nên gán người cho dòng cuối là hồ sơ nhảy
      * sang bước ② với việc ấy vẫn treo; kéo thẻ thì bị chặn, bấm nút thì đi.
      */
+    /**
+     * ★ GHÉP "LÝ DO" + "GHI CHÚ THÊM" thành một `ghiChu` DUY NHẤT khi gửi đi — dữ liệu
+     * (`YeuCauPhanBo.ghiChu`) chỉ có một trường, không mở thêm trường mới cho ô phụ. Chỉ ca
+     * "1 báo giá" mới có ô phụ (xem chỗ khai `ghiChuThem`), nên các trường hợp khác `ghiChuCuoi`
+     * luôn bằng đúng `ghiChu` như trước, không đổi gì.
+     */
+    const ghiChuCuoi =
+      soBaoGiaSo === 1 && ghiChuThem.trim() !== "" ? `${ghiChu}\n${ghiChuThem.trim()}` : ghiChu;
     const loi = phanBoDong(
       deNghi.id,
       giaoViec.dong,
       giaoViec.uid,
       nguoiDung.tenHienThi,
       {
-        // Chỉ gửi khi là số dương thật — ô để trống nghĩa là "không nêu yêu cầu riêng",
-        // không phải "yêu cầu 0 báo giá".
-        soBaoGia: Number.isFinite(so) && so > 0 ? so : undefined,
-        ghiChu,
+        soBaoGia: soBaoGiaSo,
+        ghiChu: ghiChuCuoi,
       },
       // Truyền thẳng tên đang hiện trên nút: tài khoản thật không có trong danh bạ viết
       // cứng, để kho dữ liệu tự tra là màn hình hiện mã thô thay vì tên người.
@@ -877,6 +916,20 @@ export function BangPhanBo({
           `Giao ${giaoViec.dong.length} công việc (dòng ${giaoViec.dong.join(", ")}) của đề nghị ${deNghi.code} cho ${giaoViec.ten}.`
         }
         nhanDongY="Giao việc"
+        /**
+         * ★ HƯỚNG DẪN THEO GIÁ TRỊ ĐƠN HÀNG — LUÔN HIỆN, không phân biệt chọn mấy báo giá — Sếp
+         * chốt 07/09/2026 (vòng sau). Dùng `canhBao` (không dùng `khoaDongY`) vì `canhBao` không
+         * phụ thuộc điều kiện khoá — đúng ý "chỉ là chữ gợi ý, không phải điều kiện chặn" (xem
+         * `HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI`).
+         */
+        canhBao={
+          <span className="flex flex-col gap-0.5">
+            {HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI.map((dong) => (
+              <span key={dong}>{dong}</span>
+            ))}
+          </span>
+        }
+        khoaDongY={vuongMacChiDinhNCCLucGiaoViec(soBaoGiaSo, ghiChu) ?? undefined}
         onDong={() => setMoHop(false)}
         onDongY={xacNhanGiaoViec}
       >
@@ -896,7 +949,10 @@ export function BangPhanBo({
               onChange={(e) => setSoBaoGia(e.target.value)}
               className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
             >
-              <option value="">Không yêu cầu riêng</option>
+              {/* ★ BỎ HẲN "Không yêu cầu riêng" — Sếp chốt 07/09/2026: mỗi lần giao việc trưởng bộ
+                  phận PHẢI tự chọn rõ 1 con số (đọc đúng ngưỡng giá trị đơn hàng ở gợi ý dưới mà
+                  tự áp dụng), không còn đường bỏ trống để khỏi nêu yêu cầu. Mặc định "2" ở state
+                  (xem chỗ khai `soBaoGia`) khớp mức chung thấp nhất của công ty. */}
               {Array.from({ length: TOI_DA_O_BAO_GIA }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={String(n)}>
                   {/* ★ MỨC TRẦN GHI LÀ "NHIỀU" — Ban lãnh đạo 21/08/2026: *"sửa thành chữ nhiều"*
@@ -909,27 +965,52 @@ export function BangPhanBo({
                 </option>
               ))}
             </select>
-            {/* Nêu luật thật của công ty để trưởng bộ phận đặt con số có căn cứ, thay vì
-                đoán. Con số tối thiểu lấy từ `cauHinh`, KHÔNG viết số cứng ở đây — nó là tham số
-                sửa được ở trang Cài đặt quy trình, trước 14/08/2026 chỗ này còn viết cứng "02". */}
-            <p className="text-xs text-text-desc">
-              Quy trình yêu cầu tối thiểu{" "}
-              <strong>{String(cauHinh.soBaoGiaToiThieu).padStart(2, "0")} báo giá</strong>. Để
-              trống thì app không chặn theo số bản — nhân viên vẫn phải đính kèm{" "}
-              <strong>bảng so sánh</strong> trước khi trình xét duyệt.
-            </p>
+            {/* ★ NGƯỠNG THEO GIÁ TRỊ ĐƠN HÀNG — Sếp chốt 07/09/2026, dời tiếp qua ô cảnh báo vàng
+                (`khoaDongY` của `HopXacNhan`) khi vướng ca "1 báo giá chưa ghi lý do" — xem
+                `vuongMacChiDinhNCCLucGiaoViec` (`2-quy-trinh/bao-gia-dinh-kem.ts`). KHÔNG còn hiện
+                cố định ở đây nữa để khỏi trùng lặp 2 nơi cùng 1 câu. */}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ghi-chu-giao-viec">Ghi chú cho người nhận việc</Label>
+            <Label htmlFor="ghi-chu-giao-viec" className="gap-1">
+              {/* ★ ĐỔI HẲN NHÃN cho ca "1 báo giá" — Sếp chốt 07/09/2026: gọi đúng tên việc đang
+                  làm (giải trình lý do chỉ định) thay vì nhãn chung "Ghi chú" dễ hiểu lầm là lời
+                  dặn tuỳ chọn. Các trường hợp khác (2 trở lên) vẫn giữ nhãn cũ — ô đó đúng là lời
+                  dặn tuỳ chọn, không đổi ý nghĩa. */}
+              {soBaoGiaSo === 1 ? "Lý do chọn 1 báo giá" : "Ghi chú cho người nhận việc"}
+              {soBaoGiaSo === 1 && (
+                <>
+                  <span aria-hidden className="text-danger">
+                    *
+                  </span>
+                  <span className="sr-only">(bắt buộc)</span>
+                </>
+              )}
+            </Label>
             <Textarea
               id="ghi-chu-giao-viec"
               rows={3}
-              
+              placeholder={soBaoGiaSo === 1 ? "Giá trị < 10 triệu, NCC chỉ định, NCC độc quyền..." : undefined}
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
             />
           </div>
+
+          {/* ★ Ô GHI CHÚ THÊM (tuỳ chọn) — CHỈ hiện cho ca "1 báo giá", vì ô ở trên đã đổi hẳn
+              công dụng thành "Lý do chọn 1 báo giá" (bắt buộc). Xem chú thích ở chỗ khai
+              `ghiChuThem`. Các trường hợp khác (2/3/nhiều) không cần ô này — ô "Ghi chú cho
+              người nhận việc" ở trên đã đủ, thêm ô nữa là thừa. */}
+          {soBaoGiaSo === 1 && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ghi-chu-them">Ghi chú cho người nhận việc</Label>
+              <Textarea
+                id="ghi-chu-them"
+                rows={3}
+                value={ghiChuThem}
+                onChange={(e) => setGhiChuThem(e.target.value)}
+              />
+            </div>
+          )}
         </div>
       </HopXacNhan>
 
