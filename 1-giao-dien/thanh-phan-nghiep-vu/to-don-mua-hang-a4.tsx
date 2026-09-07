@@ -298,11 +298,15 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
             * sẽ ra một dòng "Theo hợp đồng:" cụt, mất luôn chỗ chừa để viết tay.
             *
             * 📌 Để trống LÀ HỢP LỆ: dải chấm lửng chính là chỗ điền tay khi ký ngoài hiện trường.
+            *
+            * 🔴 ĐỌC `ghiChuHopDongNCC`, KHÔNG PHẢI `maHopDongCDT` — tách riêng 07/09/2026.
+            * `maHopDongCDT` giờ là mã hợp đồng CĐT dùng đối chiếu App Request/QLK CTR, không còn
+            * in lên tờ đơn.
             */}
           {mau === "theo_hop_dong" && (
             <Dong
               nhan="Theo hợp đồng"
-              giaTri={po.maHopDongCDT?.trim() || "……………………………………………………………"}
+              giaTri={po.ghiChuHopDongNCC?.trim() || "……………………………………………………………"}
               dam
             />
           )}

@@ -110,9 +110,11 @@ export function dongTuDoDuVaoDon(
 export interface DauVaoDonHangMau {
   maDuAn: string;
   tenCongTrinh?: string;
-  /** Ghi chú hợp đồng, in nguyên văn lên tờ đơn mẫu PO-01 (Ban lãnh đạo 27/08/2026). Không còn
-      ô ngày đi kèm — ngày ký nếu cần thì nằm ngay trong chuỗi này. */
+  /** Mã hợp đồng CĐT — khoá đối chiếu phụ với App Request/QLK CTR, KHÔNG in lên tờ đơn. */
   maHopDongCDT?: string;
+  /** Ghi chú hợp đồng với NCC, in nguyên văn lên tờ đơn mẫu PO-01 (tách khỏi `maHopDongCDT`
+      07/09/2026). */
+  ghiChuHopDongNCC?: string;
   /** Nhà cung cấp — lấy theo những ô người lập gõ, KHÔNG bắt phải có trong danh mục. */
   supplierTen: string;
   maSoThueNCC?: string;
@@ -235,6 +237,7 @@ export function dungDonHangMau(dv: DauVaoDonHangMau): DonHangBanMau {
     code: SO_DON_BAN_MAU,
     maDuAn: dv.maDuAn,
     maHopDongCDT: dv.maHopDongCDT?.trim() || undefined,
+    ghiChuHopDongNCC: dv.ghiChuHopDongNCC?.trim() || undefined,
     /* 🔴 Bản mẫu KHÔNG gắn đề nghị: để `undefined` cả `prId` lẫn `prCode`, không nhét chuỗi
        rỗng. Chuỗi rỗng vẫn "có giá trị" nên mọi chỗ kiểm `po.prId ?` sẽ tưởng là có đề nghị. */
     prId: undefined,

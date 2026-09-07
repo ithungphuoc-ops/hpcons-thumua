@@ -651,20 +651,29 @@ export interface DonDatHang {
   code: string;
   maDuAn: string;
   /**
-   * ★ GHI CHÚ HỢP ĐỒNG — chữ in nguyên văn sau *"Theo hợp đồng:"* trên tờ đơn mẫu PO-01.
+   * ★ MÃ HỢP ĐỒNG VỚI CHỦ ĐẦU TƯ — khoá đối chiếu phụ với App Request/QLK CTR, KHÔNG in lên tờ
+   * đơn (từ 07/09/2026, Ban lãnh đạo yêu cầu tách khỏi ghi chú NCC — xem `ghiChuHopDongNCC`).
    *
-   * 🔴 Ban lãnh đạo 27/08/2026: *"Dòng theo hợp đồng sẽ nhập thủ công, e để sẵn ô để ghi chú"*.
-   * Trước đó đây là SỐ hợp đồng thuần và tờ in tự ghép thêm *"· Ký ngày …"*. Nay là chuỗi tự do:
-   * người lập gõ cả số lẫn ngày ký (hoặc bất cứ gì cần dẫn), app chép lại y nguyên.
+   * 🔴 ĐỀ NGHỊ CÔNG TRÌNH: tự điền + KHOÁ (readOnly) đúng `DeNghiMuaHang.maHopDongCDT`, y hệt
+   * cách `maDeXuatAppRequest` đã khoá — sửa sai thì sửa ở chính đề nghị. ĐỀ NGHỊ PHÒNG BAN hoặc
+   * đơn độc lập: không có gì để khoá theo, vẫn gõ tay tự do.
    *
-   * ⚠️ ĐỪNG ĐỔI TÊN TRƯỜNG dù tên không còn khớp nghĩa: `5-ket-noi/gui-po-qlk-ctr.ts` đọc nó để
-   * dựng payload gửi sang QLK CTR, mà tệp đó thuộc vùng cấm sửa của phiên tích hợp (CLAUDE.md
-   * §6.6) — đổi tên là gãy typecheck ở chỗ mình không được phép sửa.
+   * ⚠️ ĐỪNG ĐỔI TÊN TRƯỜNG: `5-ket-noi/gui-po-qlk-ctr.ts` đọc nó để dựng payload gửi sang QLK
+   * CTR, mà tệp đó thuộc vùng cấm sửa của phiên tích hợp (CLAUDE.md §6.6) — đổi tên là gãy
+   * typecheck ở chỗ mình không được phép sửa.
    *
-   * ⚠️ CÙNG TÊN nhưng KHÁC THỰC THỂ với `DuAn.maHopDongCDT` và `DeNghiMuaHang.maHopDongCDT` —
-   * hai chỗ đó vẫn là MÃ hợp đồng thuần, đừng dọn nhầm.
+   * ⚠️ CÙNG TÊN, NAY LẠI CÙNG THỰC THỂ với `DeNghiMuaHang.maHopDongCDT` (mã hợp đồng thuần) —
+   * KHÁC giai đoạn 27/08–06/09/2026 khi trường này từng là chuỗi tự do gộp cả ngày ký, đã bỏ.
    */
   maHopDongCDT?: string;
+  /**
+   * ★ GHI CHÚ HỢP ĐỒNG VỚI NHÀ CUNG CẤP — chữ in nguyên văn sau *"Theo hợp đồng:"* trên tờ đơn
+   * mẫu PO-01. Thêm 07/09/2026, tách khỏi `maHopDongCDT` (xem chú thích trường đó).
+   *
+   * Luôn gõ tay tự do, KHÔNG tự điền/khoá theo đề nghị dù công trình hay phòng ban — nội dung
+   * (hợp đồng/báo giá với NCC) khác nhau giữa từng PO, kể cả 2 PO cùng một công trình.
+   */
+  ghiChuHopDongNCC?: string;
   /**
    * ⚠️ TRƯỜNG CŨ — KHÔNG CÒN NHẬP MỚI TỪ 27/08/2026, nhưng ĐỪNG XÓA.
    *

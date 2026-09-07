@@ -62,7 +62,6 @@ import {
   CAM_KET_THOA_THUAN_CHUAN,
   conDieuKhoanRiengThoaThuan,
   dieuKhoanGiaoHangChuanTheoMau,
-  ghiChuHopDongTuMa,
 } from "@/3-du-lieu/dieu-khoan-chuan-don-mua-hang";
 import type {
   DeNghiMuaHang,
@@ -443,11 +442,18 @@ export function FormLapDonMuaHang({
   const [tenNhanVienMua, setTenNhanVienMua] = useState(nguoiDung.tenHienThi);
 
   /**
-   * Ghi chú hợp đồng — chữ in nguyên văn sau *"Theo hợp đồng:"* trên tờ đơn mẫu PO-01.
+   * ★ GHI CHÚ HỢP ĐỒNG VỚI NHÀ CUNG CẤP — chữ in nguyên văn sau *"Theo hợp đồng:"* trên tờ đơn
+   * mẫu PO-01. Tách khỏi `maHopDong` ngày 07/09/2026 (Ban lãnh đạo yêu cầu 2 việc khác nhau — xem
+   * chú thích `maHopDong` ngay dưới). Luôn gõ tay tự do, không tự điền/khoá theo đề nghị.
+   */
+  const [ghiChuHopDongNCC, setGhiChuHopDongNCC] = useState("");
+  /**
+   * Mã hợp đồng với CHỦ ĐẦU TƯ (`DonDatHang.maHopDongCDT`) — khoá đối chiếu phụ với App
+   * Request/QLK CTR, KHÔNG in lên tờ đơn nữa từ 07/09/2026 (trước đó dùng chung với ô "Theo hợp
+   * đồng" phía trên, đã tách ra vì hai việc khác hẳn nhau: NCC theo từng PO, CĐT theo đề nghị).
    *
-   * 🔴 Ban lãnh đạo 27/08/2026: *"Dòng theo hợp đồng sẽ nhập thủ công, e để sẵn ô để ghi chú"*.
-   * Trước đó có thêm state `ngayHopDong` (ô chọn ngày) và tờ in tự ghép *"<số> · Ký ngày <ngày>"*.
-   * Nay bỏ ô ngày: ngày ký nếu cần thì gõ thẳng vào ô này.
+   * 🔴 Đề nghị CÔNG TRÌNH: tự điền + KHOÁ (readOnly) — xem `khoaTheoDeNghi`. Đề nghị PHÒNG BAN
+   * hoặc đơn độc lập: không có gì để khoá theo, vẫn gõ tay tự do như trước.
    *
    * ⚠️ Tên biến giữ nguyên `maHopDong` → trường `maHopDongCDT`, ĐỪNG ĐỔI TÊN. Trường đó được đọc
    * ở `5-ket-noi/gui-po-qlk-ctr.ts` — tệp thuộc vùng cấm sửa của phiên tích hợp (CLAUDE.md §6.6),
@@ -541,6 +547,17 @@ export function FormLapDonMuaHang({
    * trị — lệch nhau là màn hình hứa một mã, đơn cất ra mang mã khác.
    */
   const maDuAnDon = dn ? dn.maDuAn : maDuAnNhap.trim();
+
+  /**
+   * ★ KHOÁ "Tên công trình" + "Số hợp đồng CĐT" THEO ĐỀ NGHỊ — Ban lãnh đạo 07/09/2026, ví dụ
+   * thật: đề nghị "30/2025/HĐXD/UNICE-HPCS - UNICE QUẢNG NGÃI" → khoá đúng 2 giá trị đã tách sẵn
+   * ở đề nghị (`dn.maHopDongCDT` / `dn.tenCongTrinh`), y hệt cách "Mã đề nghị" đã khoá.
+   *
+   * 🔴 CHỈ ĐÚNG ĐỀ NGHỊ CÔNG TRÌNH (`dn.tenCongTrinh` có giá trị). Đề nghị PHÒNG BAN không gắn
+   * công trình nào — `tenCongTrinh`/`maHopDongCDT` rỗng ngay từ App Request gửi sang, không có
+   * gì để khoá theo; khoá cả trường hợp đó là ép 2 ô về rỗng và không ai gõ được gì nữa.
+   */
+  const khoaTheoDeNghi = Boolean(dn && dn.tenCongTrinh);
 
   /**
    * Dự án đã có trong hệ thống — nguồn của ô chọn ở chế độ độc lập.
@@ -727,7 +744,7 @@ export function FormLapDonMuaHang({
     // Độc lập thì không có gì để điền sẵn — người lập tự chọn dự án ở ô bên dưới.
     if (!dn) return;
     setTenCongTrinh(dn.tenCongTrinh);
-    setMaHopDong(ghiChuHopDongTuMa(dn.maHopDongCDT));
+    setMaHopDong(dn.maHopDongCDT ?? "");
     daDienTuDeNghi.current = true;
   }, [dn]);
 
@@ -1618,6 +1635,7 @@ export function FormLapDonMuaHang({
       maDuAn: maDuAnDon,
       tenCongTrinh,
       maHopDongCDT: maHopDong,
+      ghiChuHopDongNCC,
       /* Bản xem trước phải in đúng mã như đơn thật — xem chú thích trong `dungDonHangMau`. */
       maDeXuatAppRequest: dn?.maDeXuatAppRequest,
       supplierTen: tenNCC,
@@ -1807,8 +1825,11 @@ export function FormLapDonMuaHang({
        "Số đơn hàng" tiếp tục hiện đúng dãy mã. */
     if (dn) {
       setTenCongTrinh(dn.tenCongTrinh);
-      setMaHopDong(ghiChuHopDongTuMa(dn.maHopDongCDT));
+      setMaHopDong(dn.maHopDongCDT ?? "");
     }
+    /* Ghi chú NCC là của RIÊNG từng PO (hợp đồng/báo giá khác nhau dù cùng công trình) — luôn
+       dọn, khác `tenCongTrinh`/`maHopDong` ở trên. */
+    setGhiChuHopDongNCC("");
     setDiaDiemGiao("");
     setNguoiNhanHang("");
     setDieuKhoanKhac("");
@@ -2034,10 +2055,13 @@ export function FormLapDonMuaHang({
     const ketQua = themDonHang({
       // Một chỗ duy nhất, hai chế độ — xem `maDuAnDon`.
       maDuAn: maDuAnDon,
-      /* Ghi chú hợp đồng, in nguyên văn lên tờ đơn (Ban lãnh đạo 27/08/2026). `.trim() || undefined`
-         phải giữ: ô ghi chú rất dễ còn lại khoảng trắng, mà tờ in phân biệt "rỗng" để chừa chỗ
-         viết tay. Không còn `ngayHopDongCDT` — ngày ký nằm ngay trong chuỗi này. */
+      /* Mã hợp đồng CĐT — khoá đối chiếu phụ, không in lên đơn nữa (07/09/2026). Xem chú thích
+         ô "Số hợp đồng CĐT". */
       maHopDongCDT: maHopDong.trim() || undefined,
+      /* Ghi chú hợp đồng với NCC, in nguyên văn lên tờ đơn — tách khỏi `maHopDongCDT` ở trên
+         07/09/2026. `.trim() || undefined` phải giữ: ô ghi chú rất dễ còn lại khoảng trắng, mà
+         tờ in phân biệt "rỗng" để chừa chỗ viết tay. */
+      ghiChuHopDongNCC: ghiChuHopDongNCC.trim() || undefined,
       /* 🔴 Đơn độc lập KHÔNG gắn đề nghị: để `undefined` cả hai, không nhét chuỗi rỗng. Chuỗi
          rỗng vẫn "có giá trị" nên mọi chỗ kiểm `po.prId ?` sẽ tưởng là có đề nghị, rồi vẽ ra
          một liên kết `/de-nghi/` chết. */
@@ -2844,25 +2868,23 @@ export function FormLapDonMuaHang({
               hai mẫu: người nhập chọn mẫu sau khi đã gõ, ẩn đi là mất dữ liệu vừa gõ mà không có
               câu nào báo.
 
-              🔴 Ô GHI CHÚ TỰ DO, KHÔNG PHẢI Ô "SỐ HỢP ĐỒNG" — Ban lãnh đạo 27/08/2026: *"Dòng
-              theo hợp đồng sẽ nhập thủ công, e để sẵn ô để ghi chú"*. Trước đây đây là HAI ô (số
-              hợp đồng + ô chọn ngày) rồi app tự ghép thành *"<số> · Ký ngày <ngày>"*. Nay gõ gì
-              in nấy, nên bỏ ô chọn ngày: giữ lại một ô mà tờ in không dùng tới chính là kiểu
-              giao diện hứa một việc app không làm.
+              🔴 Ô GHI CHÚ TỰ DO VỀ HỢP ĐỒNG/NCC, KHÔNG PHẢI MÃ HỢP ĐỒNG CĐT — tách hẳn thành
+              trường riêng `ghiChuHopDongNCC` ngày 07/09/2026 (trước đó dùng chung với ô "Số hợp
+              đồng CĐT" ở khối cuối, gây nhầm khi ô kia cần khoá theo đề nghị — xem chú thích ô
+              đó). Ô này KHÔNG tự điền/khoá theo đề nghị, luôn gõ tay tự do.
 
-              ⚠️ GIỮ MỘT DÒNG, ĐỪNG ĐỔI SANG Textarea. Giá trị này còn đi ra ô Excel gộp và đi
-              sang app QLK CTR; ký tự xuống dòng ở hai chỗ đó hiển thị không lường trước được. */}
+              ⚠️ GIỮ MỘT DÒNG, ĐỪNG ĐỔI SANG Textarea — ký tự xuống dòng hiển thị trên tờ in
+              không lường trước được. */}
           <div className="muc-ngang">
-            <Label htmlFor="hop-dong">Theo hợp đồng — ghi chú in lên tờ đơn</Label>
+            <Label htmlFor="hop-dong">Theo hợp đồng</Label>
             <Input
               id="hop-dong"
-              value={maHopDong}
-              onChange={(e) => setMaHopDong(e.target.value)}
+              value={ghiChuHopDongNCC}
+              onChange={(e) => setGhiChuHopDongNCC(e.target.value)}
               placeholder="VD: HĐ số 089/2026/HĐKT-HPC ký ngày 01/08/2026"
             />
             <p className="text-[13px] text-text-secondary">
-              Gõ nguyên văn phần muốn in sau chữ <strong>&quot;Theo hợp đồng:&quot;</strong>. Để
-              trống thì tờ in chừa sẵn chỗ chấm để viết tay.
+              Ghi số hợp đồng NCC và ngày ký kết.
             </p>
           </div>
         </CardContent>
@@ -3098,42 +3120,35 @@ export function FormLapDonMuaHang({
 
             <div className="muc-ngang">
               <Label htmlFor="ma-rq">Tên công trình</Label>
-              {/* Sửa được — đơn là chứng từ gửi ra ngoài, tên in trên đó phải đứng yên kể cả khi
-                  đề nghị bị đổi tên sau. */}
+              {/* ★ KHOÁ THEO ĐỀ NGHỊ CÔNG TRÌNH — Ban lãnh đạo 07/09/2026: tự điền VÀ khoá cứng
+                  (readOnly), y hệt "Mã đề nghị" ngay trên — trước đây cố ý cho sửa tay phòng khi
+                  đề nghị ghi sai/thiếu; nay đổi lại theo đúng yêu cầu: sai thì sửa ở chính đề
+                  nghị, không sửa ngay tại đây nữa. Đề nghị PHÒNG BAN/đơn độc lập không có gì để
+                  khoá theo (`khoaTheoDeNghi` false) — vẫn gõ tay tự do như trước. */}
               <Input
                 id="ma-rq"
                 value={tenCongTrinh}
                 onChange={(e) => setTenCongTrinh(e.target.value)}
+                readOnly={khoaTheoDeNghi}
+                disabled={khoaTheoDeNghi}
                 placeholder="Tên công trình"
               />
-              <span className="text-xs text-text-desc">
-                {dn
-                  ? "Lấy tự động từ phiếu đề nghị, sửa được nếu phiếu ghi thiếu."
-                  : /* "khối cuối" chứ không phải "khối trên" — ô Dự án đã dời xuống khối ⑤ ngày
-                       27/08/2026. Chỉ sai chỗ là người lập đi tìm ở khối không có nó. */
-                    "In ra bản đơn A4 và file Excel gửi nhà cung cấp. Chọn dự án ở khối cuối form thì ô này tự điền."}
-              </span>
             </div>
           </div>
 
           {/**
-            * ★ Ô "THEO HỢP ĐỒNG" — hợp đồng với CHỦ ĐẦU TƯ (`maHopDongCDT`). Căn cứ để công trình
-            * quyết toán, nên in lên đơn gửi nhà cung cấp. SỬA ĐƯỢC: đề nghị điền sẵn, nhưng đơn là
-            * chứng từ gửi ra ngoài — người lập phải sửa được nếu đề nghị ghi thiếu/sai.
+            * ★ Ô "SỐ HỢP ĐỒNG CĐT" — mã hợp đồng với CHỦ ĐẦU TƯ (`maHopDongCDT`). Từ 07/09/2026
+            * KHÔNG còn in lên tờ đơn — dùng để đối chiếu phụ với App Request/QLK CTR (chính field
+            * `DeNghiMuaHang.maHopDongCDT`/`DeNghi.maHopDongCDT` bên hai app đó). Ghi chú tự do in
+            * lên tờ đơn cho NCC nay là ô "Theo hợp đồng" riêng ở khối đầu tờ — xem chú thích ở đó.
             *
-            * 📌 Cùng một state `maHopDong` với ô "Theo hợp đồng" ở khối đầu tờ — một giá trị, một
-            * nguồn. Sửa ở ô nào thì ô kia đổi theo, không có chuyện hai ô lệch nhau.
-            *
-            * 🔴 SỬA Ô TRÊN THÌ PHẢI SỬA Ô NÀY THEO. Từ 27/08/2026 đây là GHI CHÚ TỰ DO in nguyên
-            * văn lên tờ đơn, không còn là ô "mã hợp đồng" thuần. Để nhãn cũ ở đây là một ô bảo
-            * "nhập mã", ô kia bảo "gõ cả câu" — cùng đổ vào một chỗ.
+            * 🔴 KHOÁ (readOnly) khi đề nghị CÔNG TRÌNH (`khoaTheoDeNghi`) — tự điền đúng
+            * `dn.maHopDongCDT`, y hệt "Mã đề nghị". Đề nghị PHÒNG BAN/đơn độc lập: không có mã
+            * nào từ đề nghị để khoá theo, vẫn gõ tay tự do.
             *
             * 📌 ĐÃ BỎ Ô "MÃ REQUEST" đứng cạnh (27/08/2026): nó và ô "Mã đề nghị" ở hàng trên là
             * CÙNG MỘT THỨ — Ban lãnh đạo chỉ thẳng vào nó và nói *"Này chính là mã đề nghị"*. Nay
             * gộp về ô "Mã đề nghị". Đừng dựng lại ô này.
-            *
-            * 📌 Chiếm CẢ HÀNG: ô ghi chú hợp đồng hay dài (số hợp đồng + ngày ký + phụ lục), mà
-            * hàng này không còn ô nào đứng cạnh nữa.
             */}
           <div className="muc-ngang">
             <Label htmlFor="ma-hop-dong-duoi">Số hợp đồng CĐT</Label>
@@ -3141,11 +3156,13 @@ export function FormLapDonMuaHang({
               id="ma-hop-dong-duoi"
               value={maHopDong}
               onChange={(e) => setMaHopDong(e.target.value)}
-              placeholder="VD: HĐ số 089/2026/HĐKT-HPC ký ngày 01/08/2026"
+              readOnly={khoaTheoDeNghi}
+              disabled={khoaTheoDeNghi}
+              placeholder="VD: 30/2025/HĐXD/UNICE-HPCS"
             />
             <span className="text-xs text-text-desc">
-              Hợp đồng với chủ đầu tư — in nguyên văn lên tờ đơn. Đề nghị điền sẵn mã, gõ thêm
-              ngày ký hoặc sửa lại tuỳ đơn.
+              Mã hợp đồng CĐT, dùng để liên kết với các app khác, <strong className="text-danger">BẮT BUỘC</strong>,
+              không hiện lên trên đơn.
             </span>
           </div>
 
@@ -3663,7 +3680,7 @@ export function FormLapDonMuaHang({
                   // Điền hộ tên công trình và hợp đồng — hai ô đó nằm ở KHỐI ĐẦU TỜ, gõ lại là
                   // mời sai sót vào chứng từ gửi nhà cung cấp.
                   if (d.tenCongTrinh) setTenCongTrinh(d.tenCongTrinh);
-                  if (d.maHopDongCDT) setMaHopDong(ghiChuHopDongTuMa(d.maHopDongCDT));
+                  if (d.maHopDongCDT) setMaHopDong(d.maHopDongCDT);
                 }}
                 className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
               >
