@@ -31,7 +31,7 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
-import { TOI_DA_O_BAO_GIA } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import { TOI_DA_O_BAO_GIA, vuongMacChiDinhNCCLucGiaoViec } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
@@ -376,9 +376,21 @@ export function BangPhanBo({
     setMoHop(true);
   }
 
+  /**
+   * Số báo giá đã gõ, quy về `number | undefined` — DÙNG CHUNG cho cả lúc ghi thật
+   * (`xacNhanGiaoViec`) lẫn lúc khóa nút sớm (`khoaDongY` của `HopXacNhan` bên dưới), để hai chỗ
+   * không đọc lệch nhau (ví dụ 1 nơi coi "0" là có, nơi kia coi là không).
+   *
+   * Chỉ tính là số nêu ra khi là số dương thật — ô để trống nghĩa là "không nêu yêu cầu riêng",
+   * không phải "yêu cầu 0 báo giá".
+   */
+  const soBaoGiaSo = (() => {
+    const so = Number.parseInt(soBaoGia, 10);
+    return Number.isFinite(so) && so > 0 ? so : undefined;
+  })();
+
   function xacNhanGiaoViec() {
     if (!giaoViec) return;
-    const so = Number.parseInt(soBaoGia, 10);
     /**
      * 🔴 ĐỌC KẾT QUẢ RỒI MỚI BÁO — sửa 24/08/2026.
      *
@@ -393,9 +405,7 @@ export function BangPhanBo({
       giaoViec.uid,
       nguoiDung.tenHienThi,
       {
-        // Chỉ gửi khi là số dương thật — ô để trống nghĩa là "không nêu yêu cầu riêng",
-        // không phải "yêu cầu 0 báo giá".
-        soBaoGia: Number.isFinite(so) && so > 0 ? so : undefined,
+        soBaoGia: soBaoGiaSo,
         ghiChu,
       },
       // Truyền thẳng tên đang hiện trên nút: tài khoản thật không có trong danh bạ viết
@@ -877,6 +887,7 @@ export function BangPhanBo({
           `Giao ${giaoViec.dong.length} công việc (dòng ${giaoViec.dong.join(", ")}) của đề nghị ${deNghi.code} cho ${giaoViec.ten}.`
         }
         nhanDongY="Giao việc"
+        khoaDongY={vuongMacChiDinhNCCLucGiaoViec(soBaoGiaSo, ghiChu) ?? undefined}
         onDong={() => setMoHop(false)}
         onDongY={xacNhanGiaoViec}
       >
@@ -921,11 +932,27 @@ export function BangPhanBo({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ghi-chu-giao-viec">Ghi chú cho người nhận việc</Label>
+            <Label htmlFor="ghi-chu-giao-viec" className="gap-1">
+              Ghi chú cho người nhận việc
+              {/* Chỉ đánh dấu * khi đúng ca "1 báo giá" — xem `vuongMacChiDinhNCCLucGiaoViec`.
+                  Các trường hợp khác (để trống, 2 trở lên) ô này vẫn là lời dặn tùy chọn. */}
+              {soBaoGiaSo === 1 && (
+                <>
+                  <span aria-hidden className="text-danger">
+                    *
+                  </span>
+                  <span className="sr-only">(bắt buộc)</span>
+                </>
+              )}
+            </Label>
             <Textarea
               id="ghi-chu-giao-viec"
               rows={3}
-              
+              placeholder={
+                soBaoGiaSo === 1
+                  ? "Bắt buộc: vì sao chỉ định thẳng 1 nhà cung cấp, bỏ qua cạnh tranh giá?"
+                  : undefined
+              }
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
             />

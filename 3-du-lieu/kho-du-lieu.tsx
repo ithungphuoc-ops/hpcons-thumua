@@ -87,7 +87,7 @@ import { TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/gioi-han-dinh-kem";
  * tầng ghi**, dù chú thích đầu `bao-gia-dinh-kem.ts` khẳng định là có. Hằng số nay ở
  * `3-du-lieu/gioi-han-dinh-kem.ts` (tệp không import gì), nên vòng tròn không còn.
  */
-import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import { vuongMacChiDinhNCCLucGiaoViec, vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import {
   DE_NGHI_MAU,
   DON_HANG_MAU,
@@ -2188,6 +2188,20 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       yeuCau?: YeuCauPhanBo,
       tenNguoiPhuTrach?: string,
     ): string | null => {
+      /**
+       * ★ CHỈ ĐỊNH THẲNG 1 NHÀ CUNG CẤP (SL Báo giá = 1) — BẮT BUỘC GHI LÝ DO — thêm 07/09/2026.
+       *
+       * Chặn ngay đầu hàm, TRƯỚC mọi phép kiểm khác: đây là điều kiện của chính lần giao việc
+       * này (đọc thẳng từ `yeuCau`, không cần tra hồ sơ), nên không có lý do gì để trì hoãn.
+       * Xem đầy đủ lý lẽ ở `vuongMacChiDinhNCCLucGiaoViec` (`2-quy-trinh/bao-gia-dinh-kem.ts`) —
+       * hàm thuần dùng CHUNG cho cả đây (chốt thật) lẫn hộp xác nhận giao việc ở
+       * `bang-phan-bo.tsx` (khóa nút sớm, đúng nếp `dongPOBiKhoaNoiDung`).
+       */
+      {
+        const vuongMac = vuongMacChiDinhNCCLucGiaoViec(yeuCau?.soBaoGia, yeuCau?.ghiChu);
+        if (vuongMac) return vuongMac;
+      }
+
       /**
        * 🔴🔴 CHỐT: PHÂN BỔ NỐT DÒNG CUỐI LÀ HỒ SƠ RỜI BƯỚC ① — sửa 24/08/2026.
        *

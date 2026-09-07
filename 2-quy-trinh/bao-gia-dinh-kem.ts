@@ -126,6 +126,36 @@ export function tepBaoGiaDaCo(deNghi: DeNghiMuaHang): MoTaTep[] {
 }
 
 /**
+ * ★ TRƯỞNG BỘ PHẬN CHỈ ĐỊNH THẲNG 1 NHÀ CUNG CẤP LÚC GIAO VIỆC — BẮT BUỘC GHI LÝ DO.
+ *
+ * Ban lãnh đạo 07/09/2026: nếu trưởng bộ phận CHỦ ĐỘNG đặt "Số báo giá yêu cầu" = 1 ngay lúc
+ * giao việc (tức chỉ định thẳng 1 nhà cung cấp, bỏ qua cạnh tranh giá), thì phải ghi rõ lý do
+ * ở ô ghi chú giao việc — cùng tinh thần với luật "PO độc lập" (`vuongMacLapDocLap` ở
+ * `2-quy-trinh/giai-doan-mua-hang.ts`): quyết định bỏ qua bước cạnh tranh giá bình thường thì
+ * phải giải trình lại.
+ *
+ * ⚠️ KHÁC HẲN `khoaLyDoBoQuaBaoGia` bên dưới — đó là NHÂN VIÊN xin miễn 1 ô báo giá còn thiếu
+ * SAU KHI đã cố tìm (quy trình đòi 2-3 bản nhưng chỉ ra được 1). Ở đây là TRƯỞNG BỘ PHẬN tự đặt
+ * luật = 1 NGAY TỪ ĐẦU, trước khi ai đi tìm báo giá nào — hai quyết định khác hẳn nhau, của hai
+ * người khác nhau, tại hai thời điểm khác nhau, nên cần hai luật riêng, không gộp chung.
+ *
+ * 🔴 CHỈ CHẶN KHI `soBaoGia === 1` — không áp cho "để trống" (không nêu yêu cầu riêng, rơi về
+ * ngưỡng chung `cauHinh.soBaoGiaToiThieu`, không phải quyết định chỉ định của người giao việc
+ * lần này) và không áp cho 2 trở lên (vẫn là yêu cầu cạnh tranh giá bình thường).
+ *
+ * Trả về câu giải thích khi thiếu lý do (dùng làm `khoaDongY` cho `HopXacNhan`), `null` khi đủ
+ * điều kiện giao việc.
+ */
+export function vuongMacChiDinhNCCLucGiaoViec(
+  soBaoGia: number | undefined,
+  ghiChu: string | undefined,
+): string | null {
+  if (soBaoGia !== 1) return null;
+  if ((ghiChu ?? "").trim() !== "") return null;
+  return "Chỉ yêu cầu 1 báo giá tức là chỉ định thẳng 1 nhà cung cấp, bỏ qua cạnh tranh giá — bắt buộc ghi rõ lý do (ví dụ: nhà cung cấp độc quyền, đã có hợp đồng khung...) ở ô ghi chú trước khi giao việc.";
+}
+
+/**
  * ★★ BỎ QUA MỘT Ô BÁO GIÁ CÒN THIẾU — Ban lãnh đạo 31/08/2026: *"nếu chỉ kiếm được 1 nhà cung
  * cấp thì cho nhân viên quyền bỏ qua báo giá thứ 2 và có ghi chú bắt buộc để note lại"*.
  *
