@@ -146,10 +146,11 @@ export function tepBaoGiaDaCo(deNghi: DeNghiMuaHang): MoTaTep[] {
  * Trả về câu giải thích khi thiếu lý do (dùng làm `khoaDongY` cho `HopXacNhan`), `null` khi đủ
  * điều kiện giao việc.
  *
- * 🔴 NỘI DUNG CÂU GIẢI THÍCH — Sếp chốt 07/09/2026: nêu thẳng ngưỡng giá trị đơn hàng thật của
- * công ty (thay vì chỉ nói chung chung "phải ghi lý do"), để trưởng bộ phận đọc ngay tại chỗ bị
- * khoá là biết vì sao 1 báo giá có thể không hợp lệ với đơn giá trị cao. Câu này ĐÃ CÓ ở dòng gợi
- * ý dưới ô chọn trước đây — dời hẳn về đây, không hiện 2 nơi trùng nhau nữa.
+ * 🔴 NỘI DUNG CÂU GIẢI THÍCH — sửa lại 07/09/2026: bản trước chép nguyên câu hướng dẫn ngưỡng
+ * giá trị đơn hàng vào đây, làm câu đó CHỈ hiện lúc chọn "1 báo giá" — Sếp phản hồi ngay là
+ * chọn 2/3 cũng cần thấy hướng dẫn đó. Đã đưa hướng dẫn ngưỡng trở lại dòng gợi ý CỐ ĐỊNH dưới
+ * ô chọn (hiện mọi lựa chọn, xem `bang-phan-bo.tsx`) — câu ở đây giờ chỉ còn nói NGẮN GỌN lý do
+ * bị khoá, không lặp lại y hệt câu hướng dẫn đã hiện sẵn ngay phía trên nó.
  */
 export function vuongMacChiDinhNCCLucGiaoViec(
   soBaoGia: number | undefined,
@@ -157,7 +158,7 @@ export function vuongMacChiDinhNCCLucGiaoViec(
 ): string | null {
   if (soBaoGia !== 1) return null;
   if ((ghiChu ?? "").trim() !== "") return null;
-  return "10–100 triệu đồng → tối thiểu 2 báo giá; từ 100 triệu đồng trở lên → tối thiểu 3 báo giá. Từ 2 báo giá trở lên phải có bảng so sánh trước khi trình xét duyệt. Không được chia nhỏ đơn hàng để né quy định lấy báo giá.";
+  return "Chỉ định thẳng 1 nhà cung cấp — bắt buộc ghi rõ lý do ở ô trên trước khi giao việc.";
 }
 
 /**

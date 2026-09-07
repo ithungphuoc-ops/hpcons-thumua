@@ -928,10 +928,24 @@ export function BangPhanBo({
                 </option>
               ))}
             </select>
-            {/* ★ NGƯỠNG THEO GIÁ TRỊ ĐƠN HÀNG — Sếp chốt 07/09/2026, dời tiếp qua ô cảnh báo vàng
-                (`khoaDongY` của `HopXacNhan`) khi vướng ca "1 báo giá chưa ghi lý do" — xem
-                `vuongMacChiDinhNCCLucGiaoViec` (`2-quy-trinh/bao-gia-dinh-kem.ts`). KHÔNG còn hiện
-                cố định ở đây nữa để khỏi trùng lặp 2 nơi cùng 1 câu. */}
+            {/* ★ NGƯỠNG THEO GIÁ TRỊ ĐƠN HÀNG — Sếp chốt 07/09/2026, sửa lại 07/09/2026 (bản dời
+                hẳn qua ô vàng trước đó làm mất gợi ý khi chọn 2/3/nhiều — Sếp phản hồi ngay "sao
+                2 báo giá hay 3 báo giá không có dòng note đó").
+                🔴 PHẢI HIỆN CỐ ĐỊNH, MỌI LỰA CHỌN — không chỉ lúc "1 báo giá": trưởng bộ phận cần
+                đọc ngưỡng này để CHỌN đúng số ngay từ đầu (kể cả phân vân 2 hay 3), không phải chỉ
+                đọc SAU KHI đã trót chọn 1. Ô cảnh báo vàng (`khoaDongY`) vẫn còn riêng cho đúng ca
+                "1 báo giá chưa ghi lý do" — nhưng dùng câu NGẮN khác, tránh lặp y hệt câu này.
+                🔴 CHỈ LÀ CHỮ GỢI Ý, APP KHÔNG TỰ TÍNH ĐƯỢC: từ 20/08/2026 app không còn ô nhập
+                giá trị đơn hàng nào (xem `2-quy-trinh/cau-hinh-quy-trinh.ts` — nguongHaiBaoGia/
+                nguongHopDong cũng chỉ là mốc tham chiếu cùng lý do). Trưởng bộ phận tự đọc dòng
+                này rồi tự chọn đúng số ở ô trên. */}
+            <p className="text-xs text-text-desc">
+              Hướng dẫn chọn theo giá trị đơn hàng (app không tự kiểm được, tự áp dụng):
+              10–100 triệu đồng → tối thiểu <strong>2 báo giá</strong>; từ 100 triệu đồng trở lên
+              → tối thiểu <strong>3 báo giá</strong>. Từ 2 báo giá trở lên phải có{" "}
+              <strong>bảng so sánh</strong> trước khi trình xét duyệt. Không được chia nhỏ đơn
+              hàng để né quy định lấy báo giá.
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
