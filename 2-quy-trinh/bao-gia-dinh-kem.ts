@@ -126,11 +126,30 @@ export function tepBaoGiaDaCo(deNghi: DeNghiMuaHang): MoTaTep[] {
 }
 
 /**
+ * ★ HƯỚNG DẪN CHỌN SỐ BÁO GIÁ THEO GIÁ TRỊ ĐƠN HÀNG — LUÔN HIỂN THỊ, không phân biệt 1/2/3/nhiều
+ * báo giá — Sếp chốt 07/09/2026.
+ *
+ * 🔴 CHỈ LÀ CHỮ GỢI Ý, KHÔNG TỰ KIỂM ĐƯỢC: app không nhập giá trị đơn hàng ở bước giao việc (xem
+ * chú thích 20/08/2026 ở `2-quy-trinh/cau-hinh-quy-trinh.ts`), nên không có cách nào tự so khớp
+ * ngưỡng tiền với đề nghị thật. Hiện thường trực để trưởng bộ phận tự đọc và tự áp dụng, không
+ * phải điều kiện chặn được kiểm bằng mã.
+ *
+ * 📌 TÁCH THÀNH MẢNG 4 DÒNG (không phải 1 câu dài) để nơi gọi tự chọn cách trình bày (xuống dòng
+ * từng ý) — xem `bang-phan-bo.tsx` dùng làm `canhBao` cho `HopXacNhan`.
+ */
+export const HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI: readonly string[] = [
+  "10–100 triệu đồng → tối thiểu 2 báo giá;",
+  "từ 100 triệu đồng trở lên → tối thiểu 3 báo giá.",
+  "Từ 2 báo giá trở lên phải có bảng so sánh trước khi trình xét duyệt.",
+  "Không được chia nhỏ đơn hàng để né quy định lấy báo giá.",
+];
+
+/**
  * ★ TRƯỞNG BỘ PHẬN CHỈ ĐỊNH THẲNG 1 NHÀ CUNG CẤP LÚC GIAO VIỆC — BẮT BUỘC GHI LÝ DO.
  *
  * Ban lãnh đạo 07/09/2026: nếu trưởng bộ phận CHỦ ĐỘNG đặt "Số báo giá yêu cầu" = 1 ngay lúc
  * giao việc (tức chỉ định thẳng 1 nhà cung cấp, bỏ qua cạnh tranh giá), thì phải ghi rõ lý do
- * ở ô ghi chú giao việc — cùng tinh thần với luật "PO độc lập" (`vuongMacLapDocLap` ở
+ * ở ô "Lý do chọn 1 báo giá" — cùng tinh thần với luật "PO độc lập" (`vuongMacLapDocLap` ở
  * `2-quy-trinh/giai-doan-mua-hang.ts`): quyết định bỏ qua bước cạnh tranh giá bình thường thì
  * phải giải trình lại.
  *
@@ -146,10 +165,10 @@ export function tepBaoGiaDaCo(deNghi: DeNghiMuaHang): MoTaTep[] {
  * Trả về câu giải thích khi thiếu lý do (dùng làm `khoaDongY` cho `HopXacNhan`), `null` khi đủ
  * điều kiện giao việc.
  *
- * 🔴 NỘI DUNG CÂU GIẢI THÍCH — Sếp chốt 07/09/2026: nêu thẳng ngưỡng giá trị đơn hàng thật của
- * công ty (thay vì chỉ nói chung chung "phải ghi lý do"), để trưởng bộ phận đọc ngay tại chỗ bị
- * khoá là biết vì sao 1 báo giá có thể không hợp lệ với đơn giá trị cao. Câu này ĐÃ CÓ ở dòng gợi
- * ý dưới ô chọn trước đây — dời hẳn về đây, không hiện 2 nơi trùng nhau nữa.
+ * 🔴 CÂU NGẮN, KHÔNG NHẮC LẠI NGƯỠNG GIÁ TRỊ — Sếp chốt 07/09/2026 (vòng sau): ngưỡng giá trị đã
+ * dời hẳn sang `HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI` ở trên, hiện THƯỜNG TRỰC trong `canhBao` bất kể
+ * chọn mấy báo giá — câu chặn ở đây chỉ còn việc CHỈ RA Ô CẦN ĐIỀN, tránh lặp lại y nguyên đoạn
+ * `canhBao` ngay phía trên nó.
  */
 export function vuongMacChiDinhNCCLucGiaoViec(
   soBaoGia: number | undefined,
@@ -157,7 +176,7 @@ export function vuongMacChiDinhNCCLucGiaoViec(
 ): string | null {
   if (soBaoGia !== 1) return null;
   if ((ghiChu ?? "").trim() !== "") return null;
-  return "10–100 triệu đồng → tối thiểu 2 báo giá; từ 100 triệu đồng trở lên → tối thiểu 3 báo giá. Từ 2 báo giá trở lên phải có bảng so sánh trước khi trình xét duyệt. Không được chia nhỏ đơn hàng để né quy định lấy báo giá.";
+  return "Ghi rõ lý do chọn 1 báo giá ở ô trên trước khi giao việc.";
 }
 
 /**

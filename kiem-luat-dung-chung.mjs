@@ -1244,6 +1244,27 @@ kiem(
   },
 );
 
+kiem(
+  "HƯỚNG DẪN chọn số báo giá theo giá trị đơn hàng — đủ 4 dòng, nêu đúng 2 ngưỡng tiền",
+  "Ban lãnh đạo · 07/09/2026 (vòng sau)",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dong = BG.HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI;
+    const gop = Array.isArray(dong) ? dong.join(" ") : "";
+    const duoc =
+      Array.isArray(dong) &&
+      dong.length === 4 &&
+      dong.every((d) => typeof d === "string" && d.trim() !== "") &&
+      gop.includes("10") &&
+      gop.includes("100 triệu");
+    return {
+      duoc,
+      thucTe: Array.isArray(dong) ? `${dong.length} dòng: ${JSON.stringify(dong)}` : String(dong),
+      mongDoi: "mảng 4 chuỗi không rỗng, nêu đủ ngưỡng 10tr và 100tr — hiện THƯỜNG TRỰC, không phụ thuộc SL chọn mấy báo giá",
+    };
+  },
+);
+
 // ════════════════════════════════════════════════════════════════════
 // HAI LỖI VÁ NGÀY 25/08/2026 — Ban lãnh đạo: "sao ko còn kéo qua bước được"
 // ════════════════════════════════════════════════════════════════════

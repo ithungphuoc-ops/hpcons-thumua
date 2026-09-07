@@ -31,7 +31,11 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/table";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
-import { TOI_DA_O_BAO_GIA, vuongMacChiDinhNCCLucGiaoViec } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import {
+  TOI_DA_O_BAO_GIA,
+  HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI,
+  vuongMacChiDinhNCCLucGiaoViec,
+} from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
@@ -206,6 +210,17 @@ export function BangPhanBo({
    */
   const [soBaoGia, setSoBaoGia] = useState("2");
   const [ghiChu, setGhiChu] = useState("");
+  /**
+   * ★ Ô GHI CHÚ THÊM riêng cho ca "1 báo giá" — Sếp chốt 07/09/2026 (vòng sau): khi chọn 1 báo
+   * giá, ô `ghiChu` ở trên đổi hẳn công dụng thành "Lý do chọn 1 báo giá" (bắt buộc, xem
+   * `vuongMacChiDinhNCCLucGiaoViec`), nên cần MỘT ô khác cho lời dặn thường (tuỳ chọn) — vẫn
+   * muốn giữ được cả hai việc cùng lúc: giải trình lý do VÀ dặn dò người nhận việc.
+   *
+   * 🔴 CHỈ HIỆN VÀ CHỈ DÙNG KHI `soBaoGiaSo === 1` — các trường hợp khác vẫn dùng đúng `ghiChu`
+   * làm ô ghi chú duy nhất như trước, không đổi gì. Lúc gửi đi (`xacNhanGiaoViec`), nội dung ô
+   * này được NỐI THÊM vào `ghiChu` (không phải trường mới trong dữ liệu) — xem chú thích ở đó.
+   */
+  const [ghiChuThem, setGhiChuThem] = useState("");
 
   /**
    * ★ CHUYỂN VIỆC — Ban lãnh đạo 12/08/2026: *"thêm tính năng chuyển công việc cho nhân
@@ -377,6 +392,7 @@ export function BangPhanBo({
     if (dong.length === 0) return;
     setSoBaoGia("2"); // Mặc định mức chung của công ty — xem chú thích ở chỗ khai `soBaoGia`.
     setGhiChu("");
+    setGhiChuThem("");
     setGiaoViec({ uid, ten, dong });
     setMoHop(true);
   }
@@ -404,6 +420,14 @@ export function BangPhanBo({
      * đang khóa nút theo. Trước đây hàm không kiểm gì, nên gán người cho dòng cuối là hồ sơ nhảy
      * sang bước ② với việc ấy vẫn treo; kéo thẻ thì bị chặn, bấm nút thì đi.
      */
+    /**
+     * ★ GHÉP "LÝ DO" + "GHI CHÚ THÊM" thành một `ghiChu` DUY NHẤT khi gửi đi — dữ liệu
+     * (`YeuCauPhanBo.ghiChu`) chỉ có một trường, không mở thêm trường mới cho ô phụ. Chỉ ca
+     * "1 báo giá" mới có ô phụ (xem chỗ khai `ghiChuThem`), nên các trường hợp khác `ghiChuCuoi`
+     * luôn bằng đúng `ghiChu` như trước, không đổi gì.
+     */
+    const ghiChuCuoi =
+      soBaoGiaSo === 1 && ghiChuThem.trim() !== "" ? `${ghiChu}\n${ghiChuThem.trim()}` : ghiChu;
     const loi = phanBoDong(
       deNghi.id,
       giaoViec.dong,
@@ -411,7 +435,7 @@ export function BangPhanBo({
       nguoiDung.tenHienThi,
       {
         soBaoGia: soBaoGiaSo,
-        ghiChu,
+        ghiChu: ghiChuCuoi,
       },
       // Truyền thẳng tên đang hiện trên nút: tài khoản thật không có trong danh bạ viết
       // cứng, để kho dữ liệu tự tra là màn hình hiện mã thô thay vì tên người.
@@ -892,6 +916,19 @@ export function BangPhanBo({
           `Giao ${giaoViec.dong.length} công việc (dòng ${giaoViec.dong.join(", ")}) của đề nghị ${deNghi.code} cho ${giaoViec.ten}.`
         }
         nhanDongY="Giao việc"
+        /**
+         * ★ HƯỚNG DẪN THEO GIÁ TRỊ ĐƠN HÀNG — LUÔN HIỆN, không phân biệt chọn mấy báo giá — Sếp
+         * chốt 07/09/2026 (vòng sau). Dùng `canhBao` (không dùng `khoaDongY`) vì `canhBao` không
+         * phụ thuộc điều kiện khoá — đúng ý "chỉ là chữ gợi ý, không phải điều kiện chặn" (xem
+         * `HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI`).
+         */
+        canhBao={
+          <span className="flex flex-col gap-0.5">
+            {HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI.map((dong) => (
+              <span key={dong}>{dong}</span>
+            ))}
+          </span>
+        }
         khoaDongY={vuongMacChiDinhNCCLucGiaoViec(soBaoGiaSo, ghiChu) ?? undefined}
         onDong={() => setMoHop(false)}
         onDongY={xacNhanGiaoViec}
@@ -958,6 +995,22 @@ export function BangPhanBo({
               onChange={(e) => setGhiChu(e.target.value)}
             />
           </div>
+
+          {/* ★ Ô GHI CHÚ THÊM (tuỳ chọn) — CHỈ hiện cho ca "1 báo giá", vì ô ở trên đã đổi hẳn
+              công dụng thành "Lý do chọn 1 báo giá" (bắt buộc). Xem chú thích ở chỗ khai
+              `ghiChuThem`. Các trường hợp khác (2/3/nhiều) không cần ô này — ô "Ghi chú cho
+              người nhận việc" ở trên đã đủ, thêm ô nữa là thừa. */}
+          {soBaoGiaSo === 1 && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ghi-chu-them">Ghi chú cho người nhận việc</Label>
+              <Textarea
+                id="ghi-chu-them"
+                rows={3}
+                value={ghiChuThem}
+                onChange={(e) => setGhiChuThem(e.target.value)}
+              />
+            </div>
+          )}
         </div>
       </HopXacNhan>
 
