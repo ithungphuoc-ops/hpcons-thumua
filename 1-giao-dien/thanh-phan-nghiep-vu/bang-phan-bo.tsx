@@ -142,7 +142,7 @@ export function BangPhanBo({
    */
   hoSoDaDong?: boolean;
 }) {
-  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi, cauHinh } =
+  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi } =
     useDuLieu();
   /**
    * Dòng vật tư MỚI đang gõ ở cuối bảng — `null` là chưa bấm nút thêm.
@@ -198,8 +198,13 @@ export function BangPhanBo({
   const [giaoViec, setGiaoViec] = useState<{ uid: string; ten: string; dong: number[] } | null>(
     null,
   );
-  /** Giữ dạng chuỗi để ô nhập xóa trống được — số 0 và "chưa nhập" là hai chuyện khác nhau. */
-  const [soBaoGia, setSoBaoGia] = useState("");
+  /**
+   * Giữ dạng chuỗi (khớp `<select>`). Mặc định "2" — Sếp chốt 07/09/2026: bỏ hẳn lựa chọn
+   * "Không yêu cầu riêng", trưởng bộ phận LUÔN phải tự chọn rõ ràng 1 con số mỗi lần giao việc
+   * (đọc đúng ngưỡng giá trị đơn hàng ở dòng gợi ý dưới ô chọn mà tự quyết định), không còn
+   * cách bỏ trống rồi rơi về `cauHinh.soBaoGiaToiThieu` như trước.
+   */
+  const [soBaoGia, setSoBaoGia] = useState("2");
   const [ghiChu, setGhiChu] = useState("");
 
   /**
@@ -370,7 +375,7 @@ export function BangPhanBo({
    */
   function moGiaoViec(uid: string, ten: string, dong: number[]) {
     if (dong.length === 0) return;
-    setSoBaoGia("");
+    setSoBaoGia("2"); // Mặc định mức chung của công ty — xem chú thích ở chỗ khai `soBaoGia`.
     setGhiChu("");
     setGiaoViec({ uid, ten, dong });
     setMoHop(true);
@@ -907,7 +912,10 @@ export function BangPhanBo({
               onChange={(e) => setSoBaoGia(e.target.value)}
               className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
             >
-              <option value="">Không yêu cầu riêng</option>
+              {/* ★ BỎ HẲN "Không yêu cầu riêng" — Sếp chốt 07/09/2026: mỗi lần giao việc trưởng bộ
+                  phận PHẢI tự chọn rõ 1 con số (đọc đúng ngưỡng giá trị đơn hàng ở gợi ý dưới mà
+                  tự áp dụng), không còn đường bỏ trống để khỏi nêu yêu cầu. Mặc định "2" ở state
+                  (xem chỗ khai `soBaoGia`) khớp mức chung thấp nhất của công ty. */}
               {Array.from({ length: TOI_DA_O_BAO_GIA }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={String(n)}>
                   {/* ★ MỨC TRẦN GHI LÀ "NHIỀU" — Ban lãnh đạo 21/08/2026: *"sửa thành chữ nhiều"*
@@ -920,22 +928,28 @@ export function BangPhanBo({
                 </option>
               ))}
             </select>
-            {/* Nêu luật thật của công ty để trưởng bộ phận đặt con số có căn cứ, thay vì
-                đoán. Con số tối thiểu lấy từ `cauHinh`, KHÔNG viết số cứng ở đây — nó là tham số
-                sửa được ở trang Cài đặt quy trình, trước 14/08/2026 chỗ này còn viết cứng "02". */}
+            {/* ★ NGƯỠNG THEO GIÁ TRỊ ĐƠN HÀNG — Sếp chốt 07/09/2026.
+                🔴 CHỈ LÀ CHỮ GỢI Ý, APP KHÔNG TỰ TÍNH ĐƯỢC: từ 20/08/2026 app không còn ô nhập
+                giá trị đơn hàng nào (xem `2-quy-trinh/cau-hinh-quy-trinh.ts` — nguongHaiBaoGia/
+                nguongHopDong cũng chỉ là mốc tham chiếu cùng lý do). Trưởng bộ phận tự đọc dòng
+                này rồi tự chọn đúng số ở ô trên — KHÔNG viết số cứng thay cho việc app tự chặn
+                theo giá trị, vì app không biết giá trị hồ sơ để mà chặn. */}
             <p className="text-xs text-text-desc">
-              Quy trình yêu cầu tối thiểu{" "}
-              <strong>{String(cauHinh.soBaoGiaToiThieu).padStart(2, "0")} báo giá</strong>. Để
-              trống thì app không chặn theo số bản — nhân viên vẫn phải đính kèm{" "}
-              <strong>bảng so sánh</strong> trước khi trình xét duyệt.
+              Hướng dẫn chọn theo giá trị đơn hàng (app không tự kiểm được, tự áp dụng):
+              10–100 triệu đồng → tối thiểu <strong>2 báo giá</strong>; từ 100 triệu đồng trở lên
+              → tối thiểu <strong>3 báo giá</strong>. Từ 2 báo giá trở lên phải có{" "}
+              <strong>bảng so sánh</strong> trước khi trình xét duyệt. Không được chia nhỏ đơn
+              hàng để né quy định lấy báo giá.
             </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="ghi-chu-giao-viec" className="gap-1">
-              Ghi chú cho người nhận việc
-              {/* Chỉ đánh dấu * khi đúng ca "1 báo giá" — xem `vuongMacChiDinhNCCLucGiaoViec`.
-                  Các trường hợp khác (để trống, 2 trở lên) ô này vẫn là lời dặn tùy chọn. */}
+              {/* ★ ĐỔI HẲN NHÃN cho ca "1 báo giá" — Sếp chốt 07/09/2026: gọi đúng tên việc đang
+                  làm (giải trình lý do chỉ định) thay vì nhãn chung "Ghi chú" dễ hiểu lầm là lời
+                  dặn tuỳ chọn. Các trường hợp khác (2 trở lên) vẫn giữ nhãn cũ — ô đó đúng là lời
+                  dặn tuỳ chọn, không đổi ý nghĩa. */}
+              {soBaoGiaSo === 1 ? "Lý do chọn 1 báo giá" : "Ghi chú cho người nhận việc"}
               {soBaoGiaSo === 1 && (
                 <>
                   <span aria-hidden className="text-danger">
@@ -948,11 +962,7 @@ export function BangPhanBo({
             <Textarea
               id="ghi-chu-giao-viec"
               rows={3}
-              placeholder={
-                soBaoGiaSo === 1
-                  ? "Bắt buộc: vì sao chỉ định thẳng 1 nhà cung cấp, bỏ qua cạnh tranh giá?"
-                  : undefined
-              }
+              placeholder={soBaoGiaSo === 1 ? "Giá trị < 10 triệu, NCC chỉ định, NCC độc quyền..." : undefined}
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
             />
