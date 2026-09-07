@@ -139,12 +139,17 @@ export function tepBaoGiaDaCo(deNghi: DeNghiMuaHang): MoTaTep[] {
  * luật = 1 NGAY TỪ ĐẦU, trước khi ai đi tìm báo giá nào — hai quyết định khác hẳn nhau, của hai
  * người khác nhau, tại hai thời điểm khác nhau, nên cần hai luật riêng, không gộp chung.
  *
- * 🔴 CHỈ CHẶN KHI `soBaoGia === 1` — không áp cho "để trống" (không nêu yêu cầu riêng, rơi về
- * ngưỡng chung `cauHinh.soBaoGiaToiThieu`, không phải quyết định chỉ định của người giao việc
- * lần này) và không áp cho 2 trở lên (vẫn là yêu cầu cạnh tranh giá bình thường).
+ * 🔴 CHỈ CHẶN KHI `soBaoGia === 1` — không áp cho 2 trở lên (vẫn là yêu cầu cạnh tranh giá bình
+ * thường). Từ 07/09/2026, ô chọn không còn lựa chọn "để trống" nữa (trưởng bộ phận luôn phải
+ * tự chọn rõ 1 con số), nên hàm này không còn cần xét nhánh "để trống" như bản trước.
  *
  * Trả về câu giải thích khi thiếu lý do (dùng làm `khoaDongY` cho `HopXacNhan`), `null` khi đủ
  * điều kiện giao việc.
+ *
+ * 🔴 NỘI DUNG CÂU GIẢI THÍCH — Sếp chốt 07/09/2026: nêu thẳng ngưỡng giá trị đơn hàng thật của
+ * công ty (thay vì chỉ nói chung chung "phải ghi lý do"), để trưởng bộ phận đọc ngay tại chỗ bị
+ * khoá là biết vì sao 1 báo giá có thể không hợp lệ với đơn giá trị cao. Câu này ĐÃ CÓ ở dòng gợi
+ * ý dưới ô chọn trước đây — dời hẳn về đây, không hiện 2 nơi trùng nhau nữa.
  */
 export function vuongMacChiDinhNCCLucGiaoViec(
   soBaoGia: number | undefined,
@@ -152,7 +157,7 @@ export function vuongMacChiDinhNCCLucGiaoViec(
 ): string | null {
   if (soBaoGia !== 1) return null;
   if ((ghiChu ?? "").trim() !== "") return null;
-  return "Chỉ yêu cầu 1 báo giá tức là chỉ định thẳng 1 nhà cung cấp, bỏ qua cạnh tranh giá — bắt buộc ghi rõ lý do (ví dụ: nhà cung cấp độc quyền, đã có hợp đồng khung...) ở ô ghi chú trước khi giao việc.";
+  return "10–100 triệu đồng → tối thiểu 2 báo giá; từ 100 triệu đồng trở lên → tối thiểu 3 báo giá. Từ 2 báo giá trở lên phải có bảng so sánh trước khi trình xét duyệt. Không được chia nhỏ đơn hàng để né quy định lấy báo giá.";
 }
 
 /**
