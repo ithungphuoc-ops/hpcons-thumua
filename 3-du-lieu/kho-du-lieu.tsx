@@ -472,6 +472,21 @@ interface GiaTriDuLieu {
     tep?: MoTaTep[],
     /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
   ) => string | null;
+  /** Đa NCC theo dòng (08/09/2026) — nhân viên đề xuất NCC riêng cho 1 dòng vật tư. */
+  luuDeXuatChoDongBaoGia: (
+    prId: string,
+    sttDongDeNghi: number,
+    deXuat: { nccTen: string; lyDo: string },
+    nguoiThucHien: string,
+  ) => string | null;
+  /** Đa NCC theo dòng (08/09/2026) — Trưởng bộ phận duyệt/không duyệt đề xuất của riêng 1 dòng. */
+  duyetDongBaoGia: (
+    bgId: string,
+    sttDongDeNghi: number,
+    quyetDinh: "da_duyet" | "khong_duyet",
+    nguoiThucHien: string,
+    lyDo?: string,
+  ) => string | null;
   /**
    * TÁCH BÁO GIÁ: lưu phân bổ khối lượng từng dòng cho nhiều nhà cung cấp.
    * Khóa của `phanBoTheoDong` là `DongBaoGia.id`.
@@ -3576,7 +3591,79 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [ghiLichSuDeNghi],
   );
 
-  /* 📌 KHÔNG có hàm "không duyệt" riêng — việc đó đi qua `luiVeBuoc(prId, "yeu_cau_bao_gia", …,
+  /**
+   * ★★ DUYỆT/KHÔNG DUYỆT ĐỀ XUẤT NCC CỦA RIÊNG 1 DÒNG VẬT TƯ — song song `chonNCCChoBaoGia`
+   * (cấp cả bảng). Khác `chonNCCChoBaoGia` một điểm quan trọng: **"không duyệt" ở đây KHÔNG lùi
+   * cả đề nghị về bước ②** (khác cách "không duyệt" cấp bảng đi qua `luiVeBuoc` — xem chú thích
+   * ngay trên `luuDeXuatNCCChoDeNghi`). Đề nghị nhiều NCC thì 4 dòng kia có thể đã duyệt xong và
+   * đang chờ lập PO — lùi cả đề nghị là huỷ luôn việc đã xong của những dòng đó. Nhân viên chỉ
+   * cần đề xuất lại đúng dòng bị từ chối.
+   */
+  const duyetDongBaoGia = useCallback(
+    (
+      bgId: string,
+      sttDongDeNghi: number,
+      quyetDinh: "da_duyet" | "khong_duyet",
+      nguoiThucHien: string,
+      lyDo?: string,
+    ): string | null => {
+      const bgHienTai = baoGiaRef.current.find((b) => b.id === bgId);
+      if (!bgHienTai) return "Không tìm thấy bảng báo giá.";
+      const dnGoc = deNghiRef.current.find((x) => x.id === bgHienTai.prId);
+      if (dnGoc) {
+        const chanViec = vuongMacRoiBuoc(
+          dnGoc,
+          xacDinhGiaiDoan(dnGoc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
+          cauHinhRef.current,
+        );
+        if (chanViec) return chanViec;
+      }
+      const dong = bgHienTai.items.find((d) => d.sttDongDeNghi === sttDongDeNghi);
+      if (!dong) return "Không tìm thấy dòng vật tư trong bảng báo giá.";
+      if (!dong.nccDeXuatDongTen?.trim()) {
+        return "Dòng này chưa có đề xuất nhà cung cấp — nhân viên phải đề xuất trước khi duyệt.";
+      }
+
+      const ngay = homNay();
+      setBaoGia((truoc) =>
+        truoc.map((b) => {
+          if (b.id !== bgId) return b;
+          const itemsMoi = b.items.map((d) =>
+            d.sttDongDeNghi === sttDongDeNghi
+              ? {
+                  ...d,
+                  trangThaiQuyetDinhDong: quyetDinh,
+                  lyDoQuyetDinhDong: lyDo?.trim() || undefined,
+                  nguoiQuyetDinhDongTen: nguoiThucHien,
+                  thoiDiemQuyetDinhDong: thoiDiemHienTai(),
+                }
+              : d,
+          );
+          /* Cả bảng coi như "đã chọn NCC" khi KHÔNG còn dòng nào treo — có dòng bị "không duyệt"
+             vẫn tính là đã quyết định (chỉ là quyết định từ chối), không phải còn treo. */
+          const conDongCho = itemsMoi.some((d) => d.trangThaiQuyetDinhDong === "cho_duyet");
+          return {
+            ...b,
+            items: itemsMoi,
+            trangThai: conDongCho ? b.trangThai : "da_chon_ncc",
+            ngayCapNhat: ngay,
+          };
+        }),
+      );
+      // Không ghi tên NCC vào nhật ký — cùng quy ước với `chonNCCChoBaoGia`.
+      ghiLichSuDeNghi(
+        bgHienTai.prId,
+        nguoiThucHien,
+        quyetDinh === "da_duyet"
+          ? `Duyệt đề xuất NCC cho 1 dòng vật tư của bảng báo giá ${bgHienTai.code}`
+          : `Không duyệt đề xuất NCC cho 1 dòng vật tư của bảng báo giá ${bgHienTai.code}`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi],
+  );
+
+  /* 📌 KHÔNG có hàm "không duyệt" riêng (CẤP BẢNG) — việc đó đi qua `luiVeBuoc(prId, "yeu_cau_bao_gia", …,
      { lyDo })`. Bản đầu tôi viết một hàm `khongDuyetBaoGia` riêng, nhưng `luiVeBuoc` đã làm
      đúng y nghiệp vụ đó (hạ `da_so_sanh` → `dang_thu_thap`, giữ nguyên giá đã nhập); hai hàm
      cùng hạ một trạng thái là sớm muộn lệch nhau, và lệch kiểu đó không có lỗi nào báo. */
@@ -4747,6 +4834,114 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * file này (`suaMatHangDeNghi`, `suaBinhLuan`).
    */
   /**
+   * ★★ ĐỀ XUẤT NCC RIÊNG CHO 1 DÒNG VẬT TƯ — Ban lãnh đạo 08/09/2026: *"1 đề nghị nhiều dòng vật
+   * tư, mỗi dòng 1 NCC khác nhau thì phải duyệt được từng dòng riêng"*.
+   *
+   * Song song `luuDeXuatNCCChoDeNghi` ngay dưới (cấp cả bảng, dùng khi đề nghị chỉ có 1 NCC) —
+   * hàm này ghi vào đúng 1 phần tử của `BaoGia.items` thay vì cấp bảng. Giữ nguyên khuôn "chưa có
+   * hồ sơ thì tự lập rồi ghi luôn" của hàm kia, kể cả cách sinh `id`/`code`, để hai đường không
+   * lệch nhau.
+   *
+   * Khoá theo `sttDongDeNghi` (khoá truy vết của dòng đề nghị), không theo `DongBaoGia.id` nội
+   * bộ — nơi gọi (giao diện) chỉ cần biết số thứ tự dòng, không cần biết id nội bộ của bảng báo
+   * giá vốn có thể chưa tồn tại lúc gọi lần đầu.
+   *
+   * ⚠️ ĐẶT SAU `loiKhiHoSoDaDong` (khai báo ngay trên) — hàm này gọi tới nó.
+   */
+  const luuDeXuatChoDongBaoGia = useCallback(
+    (
+      prId: string,
+      sttDongDeNghi: number,
+      deXuat: { nccTen: string; lyDo: string },
+      nguoiThucHien: string,
+    ): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+
+      const loi = loiKhiHoSoDaDong(dn, "ghi đề xuất chọn nhà cung cấp");
+      if (loi) return loi;
+
+      // Cùng chốt "cửa thứ hai vào bước ②" như `luuDeXuatNCCChoDeNghi` — xem chú thích ở đó.
+      const chanViec = vuongMacRoiBuoc(dn, "tiep_nhan", cauHinhRef.current);
+      if (chanViec) return chanViec;
+
+      const ngay = homNay();
+      const phanDeXuatDong = {
+        nccDeXuatDongTen: deXuat.nccTen.trim() || undefined,
+        lyDoDeXuatDong: deXuat.lyDo.trim() || undefined,
+        nguoiDeXuatDongTen: nguoiThucHien,
+        thoiDiemDeXuatDong: thoiDiemHienTai(),
+        trangThaiQuyetDinhDong: "cho_duyet" as const,
+      };
+
+      const dangCo = baoGiaRef.current.find(
+        (b) => b.prId === prId && b.trangThai === "dang_thu_thap",
+      );
+
+      if (dangCo) {
+        if (!dangCo.items.some((d) => d.sttDongDeNghi === sttDongDeNghi)) {
+          return "Không tìm thấy dòng vật tư này trong bảng báo giá.";
+        }
+        setBaoGia((truoc) =>
+          truoc.map((b) =>
+            b.id === dangCo.id
+              ? {
+                  ...b,
+                  items: b.items.map((d) =>
+                    d.sttDongDeNghi === sttDongDeNghi ? { ...d, ...phanDeXuatDong } : d,
+                  ),
+                  ngayCapNhat: ngay,
+                }
+              : b,
+          ),
+        );
+        ghiLichSuDeNghi(
+          prId,
+          nguoiThucHien,
+          `Ghi đề xuất chọn nhà cung cấp cho 1 dòng vật tư của ${dangCo.code}`,
+        );
+        return null;
+      }
+
+      /* Chưa có hồ sơ xét duyệt → lập ngay, kèm luôn đề xuất cho đúng dòng vừa gọi — cùng khuôn
+         với nhánh tương ứng của `luuDeXuatNCCChoDeNghi`. */
+      const id = sinhIdHoSo("rfq");
+      const soHienCo = baoGiaRef.current.filter((b) =>
+        b.code.startsWith(`${dn.maDuAn}-BG-`),
+      ).length;
+
+      const moi: BaoGia = {
+        id,
+        code: `${dn.maDuAn}-BG-${String(soHienCo + 1).padStart(3, "0")}`,
+        prId,
+        prCode: dn.code,
+        tieuDe: `Báo giá ${dn.tieuDe}`,
+        trangThai: "dang_thu_thap",
+        items: dn.items.map((d) => ({
+          id: `bg-${id}-${d.stt}`,
+          sttDongDeNghi: d.stt,
+          tenVatLieu: d.tenVatLieu,
+          donViTinh: d.donViTinh,
+          khoiLuong: d.khoiLuongDeNghi,
+          baoGiaNCC: [],
+          ...(d.stt === sttDongDeNghi ? phanDeXuatDong : {}),
+        })),
+        hanNop: dn.ngayCanHang,
+        ngayTao: ngay,
+        ngayCapNhat: ngay,
+      };
+      setBaoGia((truoc) => [...truoc, moi]);
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHien,
+        `Lập hồ sơ xét duyệt báo giá ${moi.code} và ghi đề xuất cho 1 dòng vật tư`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+  );
+
+  /**
    * ★ GHI ĐỀ XUẤT CHỌN NHÀ CUNG CẤP THEO **ĐỀ NGHỊ** — tự lập hồ sơ xét duyệt nếu chưa có.
    *
    * 🔴 VÌ SAO PHẢI CÓ HÀM NÀY — bế tắc thật, Ban lãnh đạo báo 20/08/2026:
@@ -5743,6 +5938,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       taoBaoGiaGiaLap,
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
+      luuDeXuatChoDongBaoGia,
+      duyetDongBaoGia,
       luuPhanBoBaoGia,
       nhapGiaNCC,
       dinhKemBaoGia,
@@ -5813,6 +6010,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       taoBaoGiaGiaLap,
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
+      luuDeXuatChoDongBaoGia,
+      duyetDongBaoGia,
       luuPhanBoBaoGia,
       nhapGiaNCC,
       dinhKemBaoGia,
