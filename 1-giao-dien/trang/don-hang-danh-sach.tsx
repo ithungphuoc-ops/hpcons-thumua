@@ -54,21 +54,17 @@ export default function TrangDanhSachDonHang() {
         /* 🔴 Chỉ đường TỪNG BƯỚC, không chỉ nói "lập đơn từ màn chi tiết đề nghị".
             Ban lãnh đạo tưởng nút Xuất Excel bị thiếu (11/08/2026), thật ra là chưa có đơn nào
             nên trang chi tiết không mở được. Màn trống là chỗ duy nhất để nói cho người dùng
-            biết họ đang thiếu bước nào. */
+            biết họ đang thiếu bước nào.
+            🔴 TẠM NGƯNG 08/09/2026: bỏ nhánh "mục menu Lập đơn mua hàng (PO)" — mục đó đã ẩn
+            khỏi menu (xem `2-quy-trinh/dieu-huong.ts`), PO độc lập không tạo được nữa. Chỉ còn
+            đúng MỘT đường: qua đề nghị. Xem lịch sử git nếu sau này mở lại PO độc lập. */
         <EmptyState
           icon={ShoppingCart}
           title="Chưa có đơn đặt hàng nào"
-          /* 🔴 PHẢI NÊU CẢ HAI ĐƯỜNG (sửa 18/08/2026). Câu cũ chỉ nói *"Đơn đặt hàng sinh ra
-             từ đề nghị"* và chỉ một đường đi qua Quy trình mua hàng — từ 18/08/2026 Ban lãnh
-             đạo đã mở thêm mục menu "Lập đơn mua hàng (PO)" lập được đơn KHÔNG gắn đề nghị.
-             Để nguyên câu cũ là màn hình trống chỉ sai đường: người dùng đi phân bổ, hỏi giá,
-             chờ duyệt báo giá... trong khi việc họ cần chỉ là bấm một mục menu. */
           description={
-            "Chưa có đơn nào. Hai đường lập đơn: (1) mục menu “Lập đơn mua hàng (PO)” — đơn lập riêng, " +
-            "không gắn phiếu đề nghị, hiện ngay các ô nhập liệu; (2) đơn GẮN với một phiếu đề nghị: " +
-            "mở Quy trình mua hàng → bấm vào một đề nghị → phân bổ người phụ trách cho mọi dòng vật tư " +
-            "→ nhập giá nhà cung cấp → trưởng bộ phận chốt nhà cung cấp → Lập đơn đặt hàng. " +
-            "Có đơn rồi mới in và xuất Excel được."
+            "Chưa có đơn nào. Lập đơn từ một phiếu đề nghị: mở Quy trình mua hàng → bấm vào một " +
+            "đề nghị → phân bổ người phụ trách cho mọi dòng vật tư → nhập giá nhà cung cấp → " +
+            "trưởng bộ phận chốt nhà cung cấp → Lập đơn đặt hàng. Có đơn rồi mới in và xuất Excel được."
           }
         />
       ) : (

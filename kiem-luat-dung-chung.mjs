@@ -1620,40 +1620,27 @@ kiem(
 );
 
 kiem(
-  "Khong co quyen taoPoDoiLap thi KHONG lap duoc PO doc lap (co ly do cung khong duoc)",
-  "04/09/2026 — tach tu themDonHang() sau review PR 'bat buoc ghi ly do'",
+  "TAM NGUNG 08/09/2026: du KHONG co quyen taoPoDoiLap van bi chan (nhu truoc)",
+  "08/09/2026 — Ban lãnh đạo: bat buoc phai co de nghi moi tao duoc PO",
   () => {
     const r = G.vuongMacLapDocLap(false, "Ly do that su hop le");
     return {
-      duoc: typeof r === "string" && /[Tt]rưởng bộ phận/.test(r),
-      thucTe: r === null ? "null (LOT — lap duoc PO doc lap du khong co quyen!)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "tra cau chan co nhac Truong bo phan",
+      duoc: typeof r === "string" && r.length > 0,
+      thucTe: r === null ? "null (LOT — lap duoc PO doc lap du dang tam ngung!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "tra cau chan (bat ky noi dung gi, chi can khong phai null)",
     };
   },
 );
 
 kiem(
-  "CO quyen nhung THIEU ly do thi VAN khong lap duoc PO doc lap",
-  "04/09/2026 — Ban lãnh đạo chon siet them dieu kien thay vi tat han duong nay",
-  () => {
-    const r = G.vuongMacLapDocLap(true, "");
-    return {
-      duoc: typeof r === "string" && /[Ll]ý do/.test(r),
-      thucTe: r === null ? "null (LOT — lap duoc PO doc lap du chua ghi ly do!)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "tra cau chan co nhac Ly do",
-    };
-  },
-);
-
-kiem(
-  "CO quyen VA CO ly do thi lap duoc PO doc lap",
-  "04/09/2026",
+  "TAM NGUNG 08/09/2026: DU CO quyen taoPoDoiLap VA CO ly do hop le, VAN bi chan tuyet doi",
+  "08/09/2026 — day la phep kiem QUAN TRONG NHAT: bao ve khong cho ai vo tinh mo lai duong nay",
   () => {
     const r = G.vuongMacLapDocLap(true, "NCC yeu cau dat coc giu hang gap");
     return {
-      duoc: r === null,
-      thucTe: r === null ? "null (di duoc — dung)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "null — co du quyen va ly do thi lap duoc",
+      duoc: typeof r === "string" && r.length > 0,
+      thucTe: r === null ? "null (LOT NGHIEM TRONG — PO doc lap lai lap duoc du dang tam ngung!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "tra cau chan — KHONG duoc la null dù du quyen + du ly do",
     };
   },
 );

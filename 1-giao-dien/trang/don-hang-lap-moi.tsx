@@ -2,12 +2,12 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, Construction, X } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
+import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { Skeleton } from "@/1-giao-dien/nen-tang-ui/skeleton";
 import { FormLapDonMuaHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
-import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 
 /**
  * M4 — LẬP ĐƠN MUA HÀNG, bản MỘT TRANG RIÊNG (`/don-hang/tao-moi`).
@@ -93,7 +93,6 @@ function NoiDungLapDonHang() {
   const rfqId = searchParams.get("rfqId");
   const nccIdTuBaoGia = searchParams.get("nccId");
   const { deNghi } = useDuLieu();
-  const { quyen } = useNguoiDung();
 
   /**
    * Đề nghị nguồn — CHỈ lấy từ địa chỉ. `null` khi vào từ menu (không có `prId`), HOẶC có
@@ -158,8 +157,8 @@ function NoiDungLapDonHang() {
         description={
           dn
             ? `Từ ${dn.code} · ${dn.tieuDe}`
-            : quyen.taoPoDoiLap
-              ? 'Lập đơn mua hàng khi chưa có đề nghị — vào trạng thái "Chờ đề nghị", bổ sung đề nghị sau.'
+            : prIdTuDiaChi === null
+              ? "Tạm ngưng lập PO độc lập — mọi PO phải tạo từ một đề nghị cụ thể."
               : "Tạo MẪU đơn mua hàng để in hoặc xuất Excel. Đơn ở đây không lưu vào hệ thống."
         }
         /* ★ NÚT X ĐÓNG ở góc phải thanh tiêu đề — MISA mở màn này thành một CỬA SỔ nên có nút X
@@ -182,40 +181,63 @@ function NoiDungLapDonHang() {
         }
       />
 
-      {maKhongTimThay !== null && (
-        <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-bg px-4 py-3">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
-          <p className="min-w-0 text-sm text-warning-soft">
-            Không tìm thấy đề nghị{" "}
-            <span className="font-semibold break-all">{maKhongTimThay}</span>. Đường dẫn có thể
-            đã cũ, hoặc hồ sơ đã bị xóa. Form dưới đây đang ở chế độ{" "}
-            <strong>chỉ tạo mẫu, không lưu vào hệ thống</strong> — muốn lập đơn thật cho đúng
-            phiếu thì mở phiếu đó trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.
-          </p>
-        </div>
-      )}
+      {prIdTuDiaChi === null ? (
+        /**
+         * 🔴🔴 TẠM NGƯNG PO ĐỘC LẬP — Ban lãnh đạo 08/09/2026: *"bắt buộc phải có đề nghị mới
+         * tạo được PO, không cho tạo PO độc lập nữa"*. CHỈ chặn đúng đường "vào từ menu, không
+         * có `prId` nào cả" — KHÔNG đụng nhánh `maKhongTimThay` (địa chỉ CÓ `prId` nhưng không
+         * tra ra đề nghị): nhánh đó vốn đã luôn ở chế độ chỉ-tạo-mẫu (không cất được PO thật
+         * vào hệ thống, xem `duongDanHongPrId`), nên không cần chặn thêm.
+         *
+         * 🔴 CHỈ ẨN GIAO DIỆN, KHÔNG XOÁ CODE FORM ĐỘC LẬP — mở lại được bằng cách bỏ điều
+         * kiện này. Chặn THẬT (phòng ai đó lách được UI) nằm ở `themDonHang()`
+         * (`3-du-lieu/kho-du-lieu.tsx`) — xem chú thích ở đó, đã bỏ hẳn đường
+         * `quyen.taoPoDoiLap` + ghi lý do đang cho phép trước đây.
+         */
+        <EmptyState
+          icon={Construction}
+          title="Tạm ngưng lập PO độc lập"
+          description='Mọi PO phải tạo từ một đề nghị cụ thể. Vào đề nghị cần mua hàng và bấm "Lập đơn đặt hàng" ở đó.'
+          action={{ label: "Xem danh sách đề nghị", onClick: () => router.push("/de-nghi") }}
+        />
+      ) : (
+        <>
+          {maKhongTimThay !== null && (
+            <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-bg px-4 py-3">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
+              <p className="min-w-0 text-sm text-warning-soft">
+                Không tìm thấy đề nghị{" "}
+                <span className="font-semibold break-all">{maKhongTimThay}</span>. Đường dẫn có
+                thể đã cũ, hoặc hồ sơ đã bị xóa. Form dưới đây đang ở chế độ{" "}
+                <strong>chỉ tạo mẫu, không lưu vào hệ thống</strong> — muốn lập đơn thật cho đúng
+                phiếu thì mở phiếu đó trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.
+              </p>
+            </div>
+          )}
 
-      <FormLapDonMuaHang
-        /* `null` = chế độ độc lập. Truyền tường minh cho người đọc thấy ngay là có chủ đích. */
-        deNghi={dn}
-        /* ★ Liên kết cũ/hỏng (CodeRabbit review 29/08/2026) — khoá form về mẫu-thôi dù có
-           `quyen.taoPoDoiLap`, tránh cất nhầm một PO độc lập thật khi người dùng chỉ đang tìm
-           đúng phiếu đề nghị đã mất/xóa. Xem chú thích đầy đủ ở `maKhongTimThay` phía trên. */
-        duongDanHongPrId={maKhongTimThay !== null}
-        /* 🔴 CHỈ ĐIỀN SẴN TỪ BẢNG BÁO GIÁ KHI TRA RA ĐỀ NGHỊ THẬT.
-           `prId` + `rfqId` + `nccId` là MỘT GÓI do màn Báo giá gửi sang. `prId` hỏng mà `rfqId`
-           còn thì phần điền sẵn sẽ đem phân bổ của một hồ sơ khác áp vào đơn đang lập — khớp
-           theo TÊN vật liệu (đường lùi trong form) hoàn toàn có thể trúng một dòng trùng tên.
-           Form cũng tự bỏ qua khối điền sẵn khi không có đề nghị, đây là lớp thứ hai. */
-        rfqId={dn !== null ? rfqId : null}
-        nccIdTuBaoGia={dn !== null ? nccIdTuBaoGia : null}
-        /* Ở trang riêng thì cất xong ĐI TIẾP đúng như cũ: "Cất và In" mở bản in A4, "Cất"
-           thường mở trang chi tiết đơn vừa lập. Trang in tự chặn quyền `xemGia` bên trong. */
-        onDaLuu={(poId, rangIn) =>
-          router.push(rangIn ? `/in/don-hang/${poId}` : `/don-hang/${poId}`)
-        }
-        onHuy={() => router.back()}
-      />
+          <FormLapDonMuaHang
+            /* `null` = chế độ độc lập. Truyền tường minh cho người đọc thấy ngay là có chủ đích. */
+            deNghi={dn}
+            /* ★ Liên kết cũ/hỏng (CodeRabbit review 29/08/2026) — khoá form về mẫu-thôi dù có
+               `quyen.taoPoDoiLap`, tránh cất nhầm một PO độc lập thật khi người dùng chỉ đang tìm
+               đúng phiếu đề nghị đã mất/xóa. Xem chú thích đầy đủ ở `maKhongTimThay` phía trên. */
+            duongDanHongPrId={maKhongTimThay !== null}
+            /* 🔴 CHỈ ĐIỀN SẴN TỪ BẢNG BÁO GIÁ KHI TRA RA ĐỀ NGHỊ THẬT.
+               `prId` + `rfqId` + `nccId` là MỘT GÓI do màn Báo giá gửi sang. `prId` hỏng mà `rfqId`
+               còn thì phần điền sẵn sẽ đem phân bổ của một hồ sơ khác áp vào đơn đang lập — khớp
+               theo TÊN vật liệu (đường lùi trong form) hoàn toàn có thể trúng một dòng trùng tên.
+               Form cũng tự bỏ qua khối điền sẵn khi không có đề nghị, đây là lớp thứ hai. */
+            rfqId={dn !== null ? rfqId : null}
+            nccIdTuBaoGia={dn !== null ? nccIdTuBaoGia : null}
+            /* Ở trang riêng thì cất xong ĐI TIẾP đúng như cũ: "Cất và In" mở bản in A4, "Cất"
+               thường mở trang chi tiết đơn vừa lập. Trang in tự chặn quyền `xemGia` bên trong. */
+            onDaLuu={(poId, rangIn) =>
+              router.push(rangIn ? `/in/don-hang/${poId}` : `/don-hang/${poId}`)
+            }
+            onHuy={() => router.back()}
+          />
+        </>
+      )}
     </div>
   );
 }

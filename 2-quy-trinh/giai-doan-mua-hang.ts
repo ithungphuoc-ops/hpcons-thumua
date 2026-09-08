@@ -1588,21 +1588,17 @@ export function vuongMacLapDonHang(
  * (điều kiện bị xoá, chú thích còn nguyên, không ai phát hiện) mà chính file kiểm luật đó sinh
  * ra để chặn.
  *
- * Hai điều kiện, cả hai đều bắt buộc khi PO không gắn đề nghị (`!prId`):
- *   ① Chỉ Trưởng bộ phận trở lên (`quyen.taoPoDoiLap`) mới lập được.
- *   ② Phải ghi rõ lý do bất khả kháng/khẩn cấp (`lyDoTaoDocLap`).
+ * 🔴🔴 TẠM NGƯNG HẲN 08/09/2026 — Ban lãnh đạo: *"bắt buộc phải có đề nghị mới tạo được PO,
+ * không cho tạo PO độc lập nữa"*. TỪ CHỐI TUYỆT ĐỐI bất kể quyền/lý do — 2 tham số dưới đây
+ * TẠM THỜI không còn xét (giữ nguyên chữ ký hàm để chỗ gọi và `kiem-luat-dung-chung.mjs` không
+ * phải sửa). Muốn mở lại đúng luật cũ (① đủ `taoPoDoiLap` ② có `lyDoTaoDocLap`) thì khôi phục
+ * lại thân hàm ở dưới — xem lịch sử git ngay trước commit tạm ngưng này.
  */
 export function vuongMacLapDocLap(
-  coQuyenTaoDocLap: boolean,
-  lyDoTaoDocLap: string | undefined,
+  _coQuyenTaoDocLap: boolean,
+  _lyDoTaoDocLap: string | undefined,
 ): string | null {
-  if (!coQuyenTaoDocLap) {
-    return "Chỉ Trưởng bộ phận trở lên mới lập được đơn khi chưa có đề nghị. Muốn lập đơn qua đường thường thì mở phiếu đề nghị trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.";
-  }
-  if (!lyDoTaoDocLap?.trim()) {
-    return "Lập PO độc lập (chưa có đề nghị) phải ghi rõ lý do bất khả kháng/khẩn cấp.";
-  }
-  return null;
+  return "Tạm ngưng lập PO độc lập — mọi PO phải tạo từ một đề nghị cụ thể. Mở phiếu đề nghị trong Quy trình mua hàng rồi bấm “Lập đơn đặt hàng”.";
 }
 
 /**

@@ -224,7 +224,13 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/don-hang/tao-moi",
     nhom: "quy_trinh",
     icon: ShoppingCart,
-    duocThay: (q) => q.lapPO,
+    /**
+     * 🔴 TẠM NGƯNG 08/09/2026 — Ban lãnh đạo chốt bỏ hẳn PO độc lập (không gắn đề nghị), ẩn mục
+     * này khỏi menu cho MỌI vai trò kể cả có `q.lapPO`. Cố ý ghi đè bằng `() => false` thay vì
+     * xoá cả khối — chỉ cần đổi lại `(q) => q.lapPO` là mở lại đúng như cũ, không mất gì.
+     * Chặn thật (không chỉ ẩn menu) nằm ở `themDonHang()` — xem `3-du-lieu/kho-du-lieu.tsx`.
+     */
+    duocThay: () => false,
   },
   {
     /**
