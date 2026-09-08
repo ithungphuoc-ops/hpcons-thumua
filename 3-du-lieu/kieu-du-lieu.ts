@@ -1263,37 +1263,6 @@ export interface DongBaoGia {
    * đơn thì viết lại hàm kiểm tổng khối lượng trước, đừng ghi trường này mà không kiểm.
    */
   phanBo?: PhanBoNCC[];
-
-  /**
-   * ★★ ĐỀ XUẤT + DUYỆT RIÊNG CHO DÒNG NÀY — Ban lãnh đạo 08/09/2026: *"1 đề nghị nhiều dòng vật
-   * tư, mỗi dòng 1 NCC khác nhau thì phải duyệt được từng dòng riêng"*, thay vì gộp cả bảng vào
-   * đúng 1 lần duyệt như `BaoGia.deXuatNCCTen`/`nccDaChonTen` (cấp bảng, dùng khi cả đề nghị chỉ
-   * có 1 NCC).
-   *
-   * 🔴 SONG SONG, KHÔNG THAY THẾ CẶP TRƯỜNG CẤP BẢNG — đề nghị chỉ 1 NCC vẫn đi nguyên luồng cũ
-   * (`KhoiDeXuatBaoGia` + `chonNCCChoBaoGia`), không đổi gì. Trường ở đây CHỈ có giá trị khi
-   * nhân viên thật sự gõ đề xuất riêng cho đúng dòng này — rỗng nghĩa là dòng đi theo luồng gộp.
-   *
-   * 📌 Y HỆT Ý NGHĨA CẶP TRƯỜNG CẤP BẢNG, chỉ khác phạm vi (1 dòng thay vì cả bảng):
-   * `nccDeXuatDongTen`/`lyDoDeXuatDong` là ĐỀ XUẤT của nhân viên (bước ②); `trangThaiQuyetDinhDong`
-   * trở xuống là QUYẾT ĐỊNH của Trưởng bộ phận (bước ③). Giữ riêng hai vai để đọc lại hồ sơ vẫn
-   * thấy nhân viên đề xuất gì và Trưởng bộ phận có làm khác không.
-   */
-  nccDeXuatDongTen?: string;
-  lyDoDeXuatDong?: string;
-  nguoiDeXuatDongTen?: string;
-  thoiDiemDeXuatDong?: string;
-  /**
-   * `undefined`/thiếu = dòng chưa có đề xuất riêng, đi theo luồng gộp cấp bảng.
-   * `"cho_duyet"` = đã đề xuất, đang chờ Trưởng bộ phận.
-   * `"da_duyet"` = Trưởng bộ phận đã chọn NCC này cho dòng này — dòng đủ điều kiện "Chờ lập PO".
-   * `"khong_duyet"` = Trưởng bộ phận từ chối riêng dòng này — KHÔNG lùi cả đề nghị về bước ②
-   * (khác `BaoGia.lanTraLai` ở cấp bảng), nhân viên chỉ cần đề xuất lại đúng dòng này.
-   */
-  trangThaiQuyetDinhDong?: "cho_duyet" | "da_duyet" | "khong_duyet";
-  lyDoQuyetDinhDong?: string;
-  nguoiQuyetDinhDongTen?: string;
-  thoiDiemQuyetDinhDong?: string;
 }
 
 /** Một phần khối lượng của dòng báo giá giao cho một nhà cung cấp. */
