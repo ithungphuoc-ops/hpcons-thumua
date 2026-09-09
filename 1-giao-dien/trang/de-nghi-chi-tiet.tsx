@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -47,6 +47,7 @@ import {
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
+import { KhoiDaNccTheoDong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-da-ncc-theo-dong";
 import { Badge } from "@/1-giao-dien/nen-tang-ui/badge";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 /* Khối ĐỀ XUẤT + TRÌNH XÉT DUYỆT của bước ② — KHÔNG có phần nhập số liệu giá (chỉ đạo Ban lãnh
@@ -170,12 +171,15 @@ export default function TrangChiTietDeNghi({
        đừng gọi lại, xem `BAN-DO-MA-NGUON.md` mục mã chết. */
     trinhXetDuyetBaoGiaChoDeNghi,
     chonNCCChoBaoGia,
+    dinhKemBaoGiaTheoDong,
+    duyetDongBaoGia,
     xacNhanKho,
     xacNhanTruongBP,
     luiVeBuoc,
     ghiLyDoThieuChungTu,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  const router = useRouter();
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
   const [loiNhan, setLoiNhan] = useState("");
   /** Bảng báo giá đang chờ xác nhận trình xét duyệt — `null` là chưa hỏi ai. */
@@ -2198,6 +2202,26 @@ export default function TrangChiTietDeNghi({
                */
             ].filter((g) => giaiDoanDaToiLuot(g.ma, giaiDoan))}
           />
+
+          {/* ★★ ĐA NHÀ CUNG CẤP THEO TỪNG DÒNG (08/09/2026) — xem chú thích đầu
+              `khoi-da-ncc-theo-dong.tsx`. CỐ Ý đứng RIÊNG, ngoài khối giai đoạn ở trên: khối này
+              không gắn với một bước cụ thể nào (quyết định độc lập theo từng dòng vật tư). */}
+          {duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
+            <KhoiDaNccTheoDong
+              tienDoDong={tienDoDong}
+              baoGia={baoGiaLienQuan}
+              quyen={quyen}
+              nguoiDung={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+              hoSoDaDong={hoSoDaDong}
+              onDinhKem={(sttDongDeNghi, viTri, tep) =>
+                dinhKemBaoGiaTheoDong(dn.id, sttDongDeNghi, viTri, tep, nguoiDung.tenHienThi)
+              }
+              onDuyet={(bgId, sttDongDeNghi, quyetDinh, viTri, thongTin) =>
+                duyetDongBaoGia(bgId, sttDongDeNghi, quyetDinh, viTri, nguoiDung.tenHienThi, thongTin)
+              }
+              onLapPO={() => router.push(`/don-hang/tao-moi?prId=${dn.id}`)}
+            />
+          )}
 
           {/* 📌 15/08/2026 — Ban lãnh đạo:
                 · *"bố cục lại sang tab phải"* → khối **Người theo dõi** đã dời sang cột phải

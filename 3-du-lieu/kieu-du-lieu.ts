@@ -1263,6 +1263,36 @@ export interface DongBaoGia {
    * đơn thì viết lại hàm kiểm tổng khối lượng trước, đừng ghi trường này mà không kiểm.
    */
   phanBo?: PhanBoNCC[];
+
+  /**
+   * ★★ ĐÍNH KÈM + DUYỆT RIÊNG THEO TỪNG DÒNG VẬT TƯ — Ban lãnh đạo 08/09/2026, ví dụ thật:
+   * đề nghị nhiều dòng vật tư, mỗi dòng mua từ NCC khác nhau, mỗi dòng tự có các bản báo giá
+   * riêng (số lượng theo `DongDeNghi.soBaoGiaYeuCau`) và Trưởng bộ phận duyệt TỪNG DÒNG độc
+   * lập — duyệt xong dòng nào là dòng đó tự nhảy sang "Chờ lập PO" ngay, không cần chờ dòng
+   * khác. Khác hẳn `KhuBaoGiaTheoSoLuong`/`chonNCCChoBaoGia` hiện có: cơ chế đó vẽ N ô PHẲNG
+   * cho CẢ BẢNG và duyệt là chốt NGUYÊN BẢN — đúng cho ca chỉ 1 NCC cho cả đề nghị, không đổi
+   * gì ở đó. Đây là đường THỨ HAI, dùng khi đề nghị thật sự có nhiều NCC khác nhau theo dòng.
+   *
+   * Vị trí trong mảng = chỉ số bản báo giá (0-based); phần tử rỗng (`undefined`) = ô đó chưa
+   * đính kèm. Số ô hiển thị lấy từ `DongDeNghi.soBaoGiaYeuCau` (mặc định 2 khi trống).
+   */
+  tepBaoGiaTheoDong?: (MoTaTep | undefined)[];
+  /**
+   * `undefined`/thiếu = chưa có quyết định nào cho dòng này.
+   * `"da_duyet"` = Trưởng bộ phận đã chọn 1 trong các bản ở `tepBaoGiaTheoDong` — dòng đủ
+   * điều kiện "Chờ lập PO".
+   * `"khong_duyet"` = Trưởng bộ phận từ chối hết các bản hiện có cho dòng này — KHÔNG lùi cả
+   * đề nghị về bước trước (khác `BaoGia.lanTraLai` cấp bảng), nhân viên chỉ cần đính kèm bản
+   * khác cho đúng dòng này.
+   */
+  trangThaiQuyetDinhDong?: "da_duyet" | "khong_duyet";
+  /** Vị trí (0-based, trong `tepBaoGiaTheoDong`) của bản báo giá được duyệt. */
+  viTriDuyetDong?: number;
+  /** Tên nhà cung cấp — Trưởng bộ phận gõ ngay lúc duyệt, giống hộp thoại duyệt hiện có. */
+  nccDuyetDongTen?: string;
+  lyDoQuyetDinhDong?: string;
+  nguoiQuyetDinhDongTen?: string;
+  thoiDiemQuyetDinhDong?: string;
 }
 
 /** Một phần khối lượng của dòng báo giá giao cho một nhà cung cấp. */
