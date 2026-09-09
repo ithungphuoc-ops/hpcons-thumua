@@ -472,23 +472,6 @@ interface GiaTriDuLieu {
     tep?: MoTaTep[],
     /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
   ) => string | null;
-  /** Đa NCC theo dòng (08/09/2026) — nhân viên đính kèm 1 bản báo giá cho 1 dòng vật tư. */
-  dinhKemBaoGiaTheoDong: (
-    prId: string,
-    sttDongDeNghi: number,
-    viTri: number,
-    tep: MoTaTep,
-    nguoiThucHien: string,
-  ) => string | null;
-  /** Đa NCC theo dòng (08/09/2026) — Trưởng bộ phận duyệt/không duyệt 1 bản của riêng 1 dòng. */
-  duyetDongBaoGia: (
-    bgId: string,
-    sttDongDeNghi: number,
-    quyetDinh: "da_duyet" | "khong_duyet",
-    viTri: number,
-    nguoiThucHien: string,
-    thongTin: { nccTen: string; lyDo?: string },
-  ) => string | null;
   /**
    * TÁCH BÁO GIÁ: lưu phân bổ khối lượng từng dòng cho nhiều nhà cung cấp.
    * Khóa của `phanBoTheoDong` là `DongBaoGia.id`.
@@ -3593,80 +3576,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [ghiLichSuDeNghi],
   );
 
-  /**
-   * ★★ DUYỆT/KHÔNG DUYỆT ĐỀ XUẤT NCC CỦA RIÊNG 1 DÒNG VẬT TƯ — song song `chonNCCChoBaoGia`
-   * (cấp cả bảng, không đổi gì ở đó). Khác biệt quan trọng: NCC + lý do được ghi NGAY TRONG
-   * LÚC DUYỆT (giống hộp thoại duyệt cấp bảng đang có), không có bước "nhân viên đề xuất
-   * trước" nào — nhân viên chỉ đính kèm tệp qua `dinhKemBaoGiaTheoDong` ngay dưới.
-   *
-   * "Không duyệt" ở đây KHÔNG lùi cả đề nghị về bước trước (khác cách "không duyệt" cấp bảng
-   * đi qua `luiVeBuoc`) — đề nghị nhiều NCC thì các dòng khác có thể đã duyệt xong và đang chờ
-   * lập PO, lùi cả đề nghị là huỷ luôn việc đã xong của những dòng đó. Nhân viên chỉ cần đính
-   * kèm bản khác cho đúng dòng bị từ chối.
-   */
-  const duyetDongBaoGia = useCallback(
-    (
-      bgId: string,
-      sttDongDeNghi: number,
-      quyetDinh: "da_duyet" | "khong_duyet",
-      viTri: number,
-      nguoiThucHien: string,
-      thongTin: { nccTen: string; lyDo?: string },
-    ): string | null => {
-      const bgHienTai = baoGiaRef.current.find((b) => b.id === bgId);
-      if (!bgHienTai) return "Không tìm thấy bảng báo giá.";
-      const dnGoc = deNghiRef.current.find((x) => x.id === bgHienTai.prId);
-      if (dnGoc) {
-        const chanViec = vuongMacRoiBuoc(
-          dnGoc,
-          xacDinhGiaiDoan(dnGoc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
-          cauHinhRef.current,
-        );
-        if (chanViec) return chanViec;
-      }
-      const dong = bgHienTai.items.find((d) => d.sttDongDeNghi === sttDongDeNghi);
-      if (!dong) return "Không tìm thấy dòng vật tư trong bảng báo giá.";
-      if (quyetDinh === "da_duyet" && !dong.tepBaoGiaTheoDong?.[viTri]) {
-        return "Ô báo giá này chưa có tệp đính kèm.";
-      }
-      if (quyetDinh === "da_duyet" && !thongTin.nccTen.trim()) {
-        return "Ghi tên nhà cung cấp trước khi duyệt.";
-      }
-
-      const ngay = homNay();
-      setBaoGia((truoc) =>
-        truoc.map((b) => {
-          if (b.id !== bgId) return b;
-          const itemsMoi = b.items.map((d) =>
-            d.sttDongDeNghi === sttDongDeNghi
-              ? {
-                  ...d,
-                  trangThaiQuyetDinhDong: quyetDinh,
-                  viTriDuyetDong: quyetDinh === "da_duyet" ? viTri : undefined,
-                  nccDuyetDongTen: quyetDinh === "da_duyet" ? thongTin.nccTen.trim() : undefined,
-                  lyDoQuyetDinhDong: thongTin.lyDo?.trim() || undefined,
-                  nguoiQuyetDinhDongTen: nguoiThucHien,
-                  thoiDiemQuyetDinhDong: thoiDiemHienTai(),
-                }
-              : d,
-          );
-          return { ...b, items: itemsMoi, ngayCapNhat: ngay };
-        }),
-      );
-      // Không ghi tên NCC vào nhật ký — cùng quy ước với `chonNCCChoBaoGia`.
-      ghiLichSuDeNghi(
-        bgHienTai.prId,
-        nguoiThucHien,
-        quyetDinh === "da_duyet"
-          ? `Duyệt 1 bản báo giá riêng cho 1 dòng vật tư của bảng báo giá ${bgHienTai.code}`
-          : `Không duyệt bản báo giá của 1 dòng vật tư của bảng báo giá ${bgHienTai.code}`,
-      );
-      return null;
-    },
-    [ghiLichSuDeNghi],
-  );
-
-  /* 📌 KHÔNG có hàm "không duyệt" riêng CẤP BẢNG — việc đó đi qua `luiVeBuoc(prId, "yeu_cau_bao_gia", …,
+  /* 📌 KHÔNG có hàm "không duyệt" riêng — việc đó đi qua `luiVeBuoc(prId, "yeu_cau_bao_gia", …,
      { lyDo })`. Bản đầu tôi viết một hàm `khongDuyetBaoGia` riêng, nhưng `luiVeBuoc` đã làm
      đúng y nghiệp vụ đó (hạ `da_so_sanh` → `dang_thu_thap`, giữ nguyên giá đã nhập); hai hàm
      cùng hạ một trạng thái là sớm muộn lệch nhau, và lệch kiểu đó không có lỗi nào báo. */
@@ -4837,108 +4747,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * file này (`suaMatHangDeNghi`, `suaBinhLuan`).
    */
   /**
-   * ★★ ĐÍNH KÈM 1 BẢN BÁO GIÁ CHO RIÊNG 1 DÒNG VẬT TƯ — Ban lãnh đạo 08/09/2026. Nhân viên chỉ
-   * tải tệp lên, KHÔNG gõ tên NCC ở đây (tên NCC ghi lúc Trưởng bộ phận duyệt — xem
-   * `duyetDongBaoGia`, cùng nguyên tắc `chonNCCChoBaoGia` cấp bảng đang có).
-   *
-   * Tự lập hồ sơ xét duyệt nếu chưa có — CÙNG KHUÔN với `luuDeXuatNCCChoDeNghi` ngay dưới
-   * (kể cả cách sinh `id`/`code`), để hai đường không lệch nhau. `viTri` là chỉ số 0-based
-   * của ô báo giá trong dòng (0..`soBaoGiaYeuCau`-1).
-   */
-  const dinhKemBaoGiaTheoDong = useCallback(
-    (
-      prId: string,
-      sttDongDeNghi: number,
-      viTri: number,
-      tep: MoTaTep,
-      nguoiThucHien: string,
-    ): string | null => {
-      const dn = deNghiRef.current.find((d) => d.id === prId);
-      if (!dn) return "Không tìm thấy đề nghị.";
-
-      const loi = loiKhiHoSoDaDong(dn, "đính kèm báo giá");
-      if (loi) return loi;
-
-      // Cùng chốt "cửa thứ hai vào bước ②" như `luuDeXuatNCCChoDeNghi` — xem chú thích ở đó.
-      const chanViec = vuongMacRoiBuoc(dn, "tiep_nhan", cauHinhRef.current);
-      if (chanViec) return chanViec;
-
-      const ngay = homNay();
-      const dangCo = baoGiaRef.current.find(
-        (b) => b.prId === prId && b.trangThai === "dang_thu_thap",
-      );
-
-      if (dangCo) {
-        if (!dangCo.items.some((d) => d.sttDongDeNghi === sttDongDeNghi)) {
-          return "Không tìm thấy dòng vật tư này trong bảng báo giá.";
-        }
-        setBaoGia((truoc) =>
-          truoc.map((b) =>
-            b.id === dangCo.id
-              ? {
-                  ...b,
-                  items: b.items.map((d) => {
-                    if (d.sttDongDeNghi !== sttDongDeNghi) return d;
-                    const dsTep = [...(d.tepBaoGiaTheoDong ?? [])];
-                    dsTep[viTri] = tep;
-                    return { ...d, tepBaoGiaTheoDong: dsTep };
-                  }),
-                  ngayCapNhat: ngay,
-                }
-              : b,
-          ),
-        );
-        ghiLichSuDeNghi(
-          prId,
-          nguoiThucHien,
-          `Đính kèm 1 bản báo giá cho 1 dòng vật tư của ${dangCo.code}`,
-        );
-        return null;
-      }
-
-      /* Chưa có hồ sơ xét duyệt → lập ngay, kèm luôn tệp cho đúng dòng vừa gọi — cùng khuôn
-         với nhánh tương ứng của `luuDeXuatNCCChoDeNghi`. */
-      const id = sinhIdHoSo("rfq");
-      const soHienCo = baoGiaRef.current.filter((b) =>
-        b.code.startsWith(`${dn.maDuAn}-BG-`),
-      ).length;
-
-      const moi: BaoGia = {
-        id,
-        code: `${dn.maDuAn}-BG-${String(soHienCo + 1).padStart(3, "0")}`,
-        prId,
-        prCode: dn.code,
-        tieuDe: `Báo giá ${dn.tieuDe}`,
-        trangThai: "dang_thu_thap",
-        items: dn.items.map((d) => {
-          const dsTep: (MoTaTep | undefined)[] = [];
-          if (d.stt === sttDongDeNghi) dsTep[viTri] = tep;
-          return {
-            id: `bg-${id}-${d.stt}`,
-            sttDongDeNghi: d.stt,
-            tenVatLieu: d.tenVatLieu,
-            donViTinh: d.donViTinh,
-            khoiLuong: d.khoiLuongDeNghi,
-            baoGiaNCC: [],
-            ...(dsTep.length > 0 ? { tepBaoGiaTheoDong: dsTep } : {}),
-          };
-        }),
-        hanNop: dn.ngayCanHang,
-        ngayTao: ngay,
-        ngayCapNhat: ngay,
-      };
-      setBaoGia((truoc) => [...truoc, moi]);
-      ghiLichSuDeNghi(
-        prId,
-        nguoiThucHien,
-        `Lập hồ sơ xét duyệt báo giá ${moi.code} và đính kèm bản báo giá cho 1 dòng vật tư`,
-      );
-      return null;
-    },
-    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
-  );
-
-  /**
    * ★ GHI ĐỀ XUẤT CHỌN NHÀ CUNG CẤP THEO **ĐỀ NGHỊ** — tự lập hồ sơ xét duyệt nếu chưa có.
    *
    * 🔴 VÌ SAO PHẢI CÓ HÀM NÀY — bế tắc thật, Ban lãnh đạo báo 20/08/2026:
@@ -5935,8 +5743,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       taoBaoGiaGiaLap,
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
-      dinhKemBaoGiaTheoDong,
-      duyetDongBaoGia,
       luuPhanBoBaoGia,
       nhapGiaNCC,
       dinhKemBaoGia,
@@ -6007,8 +5813,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       taoBaoGiaGiaLap,
       doiTrangThaiBaoGiaTheoDeNghi,
       chonNCCChoBaoGia,
-      dinhKemBaoGiaTheoDong,
-      duyetDongBaoGia,
       luuPhanBoBaoGia,
       nhapGiaNCC,
       dinhKemBaoGia,
