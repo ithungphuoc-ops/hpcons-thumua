@@ -33,6 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const giaTheoPoId = new Map(giaDonHang.map((g) => [g.poId, g]));
 
     const donHangHoanThanh = donHang.filter((p) => p.trangThai === "hoan_thanh");
+    const donHangHuy = donHang.filter((p) => p.trangThai === "huy");
     const donHangDangXuLy = donHang.filter((p) => p.trangThai !== "hoan_thanh" && p.trangThai !== "huy");
     const donHangChoDeNghi = donHang.filter((p) => p.trangThai === "cho_de_nghi");
 
@@ -41,10 +42,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       try {
         giaTriDangXuLy += tinhTienChiTietPO(p, giaTheoPoId.get(p.id)).tongThanhToan;
       } catch {
-        // Đơn thiếu dữ liệu giá/dòng hàng hợp lệ — bỏ qua đơn đó khỏi tổng, không sập cả API.
+        // tinhTienChiTietPO() tự phòng thủ (đơn giá thiếu coi như 0₫, không throw) nên nhánh
+        // này gần như không kích hoạt trong vận hành bình thường — chỉ chặn lỗi bất ngờ thật
+        // sự, không để 1 đơn hỏng làm sập cả API.
       }
     }
 
+    const deNghiHoanThanhHoacDong = deNghi.filter(
+      (d) => d.trangThai === "hoan_thanh" || d.trangThai === "dong_do",
+    );
     const deNghiDangXuLy = deNghi.filter(
       (d) => d.trangThai !== "hoan_thanh" && d.trangThai !== "dong_do",
     );
@@ -54,10 +60,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       don_hang_tong: donHang.length,
       don_hang_dang_xu_ly: donHangDangXuLy.length,
       don_hang_hoan_thanh: donHangHoanThanh.length,
+      don_hang_huy: donHangHuy.length,
       don_hang_cho_de_nghi: donHangChoDeNghi.length,
       gia_tri_don_hang_dang_xu_ly: Math.round(giaTriDangXuLy),
       de_nghi_tong: deNghi.length,
       de_nghi_dang_xu_ly: deNghiDangXuLy.length,
+      de_nghi_hoan_thanh_hoac_dong: deNghiHoanThanhHoacDong.length,
       nha_cung_cap_tong: (data.nhaCungCapThem ?? []).length,
       cho_de_nghi_list: donHangChoDeNghi.slice(0, 8).map((p) => ({
         code: p.code,
