@@ -455,7 +455,16 @@ export default function TrangDanhSachDeNghi() {
            * (`dieuKienConVuong`), nên tới được dòng này nghĩa là đã đủ.
            */
           if (hanhDong.chotLuon) {
-            doiTrangThaiBaoGiaTheoDeNghi(prId, "dang_thu_thap", "da_so_sanh", nguoiDung.tenHienThi);
+            const loiChot = doiTrangThaiBaoGiaTheoDeNghi(
+              prId,
+              "dang_thu_thap",
+              "da_so_sanh",
+              nguoiDung.tenHienThi,
+            );
+            if (loiChot) {
+              toast.error("Chưa chốt được", { description: loiChot });
+              break;
+            }
             toast.success("Đã chốt đủ báo giá", {
               description: `${the.deNghi.code} chuyển sang "Xét duyệt báo giá".`,
             });
@@ -471,12 +480,22 @@ export default function TrangDanhSachDeNghi() {
         }
         break;
       }
-      case "chot_so_sanh":
-        doiTrangThaiBaoGiaTheoDeNghi(prId, "dang_thu_thap", "da_so_sanh", nguoiDung.tenHienThi);
+      case "chot_so_sanh": {
+        const loiChotSS = doiTrangThaiBaoGiaTheoDeNghi(
+          prId,
+          "dang_thu_thap",
+          "da_so_sanh",
+          nguoiDung.tenHienThi,
+        );
+        if (loiChotSS) {
+          toast.error("Chưa chốt được", { description: loiChotSS });
+          break;
+        }
         toast.success("Đã chốt đủ báo giá", {
           description: `${the.deNghi.code} chuyển sang "Xét duyệt báo giá".`,
         });
         break;
+      }
       case "dong_do":
         // Hộp xác nhận đã hỏi rồi (nút tông nguy hiểm) nên ở đây làm luôn,
         // không hỏi lại lần hai trên thông báo như trước.
@@ -493,6 +512,13 @@ export default function TrangDanhSachDeNghi() {
       case "lui_buoc": {
         // Hủy chứng từ tương ứng để thẻ thật sự về bước trước — xem `luiVeBuoc`.
         const gop = luiVeBuoc(prId, hanhDong.ve, nguoiDung.tenHienThi);
+        /* Nhánh `{ loi }` chỉ phát sinh khi TRẢ LẠI báo giá (có `traLai`); đường kéo thả này không
+           truyền `traLai` nên thực tế không vào đây — nhưng vẫn kiểm cho TypeScript narrow đúng và
+           để nếu sau này có ai gọi kèm `traLai` thì không lọt "báo thành công giả". */
+        if (gop && "loi" in gop) {
+          toast.error("Chưa lùi được", { description: gop.loi });
+          break;
+        }
         /* 🔴 NÓI ĐÚNG CHUYỆN VỪA XẢY RA (22/08/2026). Lùi về bước ① có thể GỘP các bản tách trở
            lại phiếu gốc, và khi đó chính thẻ vừa kéo có thể không còn. Báo *"{mã} về Tiếp nhận"*
            cho một mã vừa bị gộp mất là nói sai với người dùng — họ đi tìm thẻ đó không thấy. */

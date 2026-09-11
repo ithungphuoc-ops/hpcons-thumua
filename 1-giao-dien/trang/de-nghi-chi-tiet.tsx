@@ -2654,8 +2654,17 @@ export default function TrangChiTietDeNghi({
               description: `${dn.code} chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`,
             });
           } else {
-            /* Trả lại = lùi bước, dùng lại `luiVeBuoc` kèm lý do (ghi vào `lanTraLai`). */
-            luiVeBuoc(dn.id, "yeu_cau_bao_gia", nguoiDung.tenHienThi, { lyDo: lyDoDuyet });
+            /* Trả lại = lùi bước, dùng lại `luiVeBuoc` kèm lý do (ghi vào `lanTraLai`).
+               🔴 ĐỌC KẾT QUẢ RỒI MỚI BÁO — sửa 11/09/2026 (cùng lý do nhánh "Đồng ý" ở trên).
+               `luiVeBuoc` trả `{ loi }` khi chưa có bảng nào đã trình để trả lại; báo xanh vô điều
+               kiện là "báo thành công giả" kèm một dòng nhật ký sai. */
+            const kqTra = luiVeBuoc(dn.id, "yeu_cau_bao_gia", nguoiDung.tenHienThi, {
+              lyDo: lyDoDuyet,
+            });
+            if (kqTra && "loi" in kqTra) {
+              toast.error("Chưa trả lại được", { description: kqTra.loi });
+              return;
+            }
             toast.success("Đã trả lại bước Yêu cầu NCC báo giá", {
               description: "Nhân viên phụ trách sẽ đọc được lý do.",
             });

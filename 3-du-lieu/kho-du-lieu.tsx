@@ -364,7 +364,12 @@ interface GiaTriDuLieu {
     ve: GiaiDoanMuaHang,
     nguoiThucHien: string,
     traLai?: { lyDo: string },
-  ) => { soPhieuDaGop: number; maGoc: string } | null;
+    /**
+     * @returns `{ loi }` khi KHÔNG lùi được gì (VD trả lại báo giá mà chưa có bảng nào đã trình) —
+     * nơi gọi phải kiểm để không báo thành công giả và không có dòng nhật ký sai. `{ soPhieuDaGop }`
+     * khi lùi về ① có gộp bản tách. `null` khi lùi bình thường, không gộp gì.
+     */
+  ) => { soPhieuDaGop: number; maGoc: string } | { loi: string } | null;
   /**
    * Chuyển việc sang người khác khi người được giao không thực hiện được
    * (Ban lãnh đạo 12/08/2026). Giữ nguyên yêu cầu số báo giá và ghi chú giao việc.
@@ -405,8 +410,11 @@ interface GiaTriDuLieu {
     trangThai: PhieuNhanHang["trangThai"],
     nguoiThucHien?: string,
   ) => void;
-  /** Đính kèm / thay phiếu giao nhận cho một phiếu nhận hàng đã ghi. */
-  dinhKemPhieuGiao: (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => void;
+  /**
+   * Đính kèm / thay phiếu giao nhận cho một phiếu nhận hàng đã ghi.
+   * @returns Câu lý do bị chặn (đơn đã hoàn thành), `null` là đã đính xong.
+   */
+  dinhKemPhieuGiao: (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => string | null;
   /**
    * ★★ Sửa điều khoản công nợ của một đơn đã lập (Ban lãnh đạo 28/08/2026; 06/09/2026 đổi ô ngày
    * bắt đầu thay cho ô ngày tới hạn — ngày tới hạn nay cố định tự tính).
@@ -450,12 +458,13 @@ interface GiaTriDuLieu {
   /** Kéo thả ① Tiếp nhận → ② Yêu cầu báo giá: tạo bảng báo giá đang thu thập cho đề nghị. */
   taoBaoGiaGiaLap: (prId: string, nguoiThucHien: string) => string | null;
   /** Kéo thả ② → ③: chuyển mọi bảng báo giá của đề nghị từ trạng thái `tu` sang `sang`. */
+  /** @returns Câu lý do bị chặn, `null` là đã đổi xong. Xem chú thích ở định nghĩa. */
   doiTrangThaiBaoGiaTheoDeNghi: (
     prId: string,
     tu: TrangThaiBaoGia,
     sang: TrangThaiBaoGia,
     nguoiThucHien: string,
-  ) => void;
+  ) => string | null;
   /** Bước ③ → ④: chốt nhà cung cấp cho một bảng báo giá đã so sánh. */
   /**
    * Chốt nhà cung cấp cho bảng báo giá.
@@ -2379,10 +2388,29 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       nguoiThucHien: string,
       /** Có = trưởng bộ phận KHÔNG DUYỆT bảng báo giá, kèm lý do bắt buộc. */
       traLai?: { lyDo: string },
-    ): { soPhieuDaGop: number; maGoc: string } | null => {
+    ): { soPhieuDaGop: number; maGoc: string } | { loi: string } | null => {
       const ngay = thoiDiemHienTai();
       /** Kết quả gộp bản tách — nơi gọi cần để nói đúng trong thông báo. */
       let ketQuaGop: { soPhieuDaGop: number; maGoc: string } | null = null;
+
+      /**
+       * 🔴 CHẶN "BÁO THÀNH CÔNG GIẢ" KHI TRẢ LẠI BÁO GIÁ — sửa 11/09/2026 (ca sót từ đợt vá
+       * 24/08: nhánh "Đồng ý" đã kiểm kết quả, nhánh "Không đồng ý/Trả lại" thì bỏ sót).
+       *
+       * Trưởng bộ phận bấm "Không duyệt" khi CHƯA có bảng báo giá nào được trình (không bảng nào
+       * ở `da_so_sanh`): `setBaoGia` bên dưới không đổi bảng nào, nhưng `ghiLichSuDeNghi` vẫn chạy
+       * → hồ sơ có một dòng nhật ký *"Không duyệt bảng báo giá"* cho một việc CHƯA TỪNG XẢY RA, mà
+       * người dùng vẫn thấy toast xanh "Đã trả lại". Trả `{ loi }` để nơi gọi báo đúng và KHÔNG
+       * ghi nhật ký (return trước khi tới `ghiLichSuDeNghi`).
+       */
+      if (traLai && ve === "yeu_cau_bao_gia") {
+        const coBangDeTra = baoGiaRef.current.some(
+          (b) => b.prId === prId && b.trangThai === "da_so_sanh",
+        );
+        if (!coBangDeTra) {
+          return { loi: "Chưa có bảng báo giá nào đã trình để trả lại." };
+        }
+      }
 
       if (ve === "tiep_nhan") {
         /**
@@ -3252,7 +3280,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * KẸT VĨNH VIỄN, không bao giờ bấm hoàn thành được.
    */
   const dinhKemPhieuGiao = useCallback(
-    (phieuId: string, tep: MoTaTep, nguoiThucHien: string) => {
+    (phieuId: string, tep: MoTaTep, nguoiThucHien: string): string | null => {
       /**
        * 🔴🔴 CHẶN Ở TẦNG GHI KHI ĐƠN ĐÃ HOÀN THÀNH (23/08/2026).
        *
@@ -3265,14 +3293,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * bộ phận đã xác nhận là **đổi chứng từ đã ký** — hai lớp xác nhận thành xác nhận cho một nội
        * dung khác nội dung hiện tại.
        *
-       * ⚠️ Hàm này không trả lỗi cho nơi gọi (chữ ký `void`), nên chặn bằng cách KHÔNG GHI và trả
-       * về — cùng cách `themPhieuNhan` đang làm. Đổi chữ ký thì phải sửa cả luồng, để lần khác.
+       * ✅ TRẢ LỖI CHO NƠI GỌI — sửa 11/09/2026 (trước đây chữ ký `void`, chặn bằng `return;` trơn
+       * nên `ODinhKemTep` vẫn hiện toast xanh "Đã đính kèm" trong khi CHẲNG GÌ ĐƯỢC GHI — đúng
+       * "báo thành công giả" mà 24/08 vá thiếu). Nay trả câu lý do, `ODinhKemTep` tự hiện toast đỏ.
        */
       {
         const phieuHienTai = phieuNhanRef.current.find((p) => p.id === phieuId);
         const poHienTai =
           phieuHienTai && donHangRef.current.find((x) => x.id === phieuHienTai.poId);
-        if (poHienTai?.trangThai === "hoan_thanh") return;
+        if (poHienTai?.trangThai === "hoan_thanh") {
+          return "Đơn đã hoàn thành — không thay được phiếu giao nhận. Muốn thay thì trả đơn về bước trước.";
+        }
       }
 
       setPhieuNhan((truoc) =>
@@ -3289,6 +3320,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           `Đính kèm phiếu giao nhận cho ${phieu.code}: ${tep.tenTep}`,
         );
       }
+      return null;
     },
     [ghiNhatKyDonHang],
   );
@@ -3468,8 +3500,18 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   const doiTrangThaiBaoGiaTheoDeNghi = useCallback(
-    (prId: string, tu: TrangThaiBaoGia, sang: TrangThaiBaoGia, nguoiThucHien: string) => {
+    (prId: string, tu: TrangThaiBaoGia, sang: TrangThaiBaoGia, nguoiThucHien: string): string | null => {
       const ngay = homNay();
+      /**
+       * 🔴 CHẶN "BÁO THÀNH CÔNG GIẢ" — sửa 11/09/2026 (ca sót từ đợt vá 24/08). Không có bảng nào
+       * ở trạng thái `tu` thì `setBaoGia` không đổi gì, nhưng `ghiLichSuDeNghi` bên dưới vẫn ghi
+       * "Chốt đủ báo giá" cho một việc chưa xảy ra, và nơi gọi vẫn hiện toast xanh. Kiểm trước rồi
+       * trả lỗi để nơi gọi báo đúng và KHÔNG có dòng nhật ký sai.
+       */
+      const coBangKhop = baoGiaRef.current.some((b) => b.prId === prId && b.trangThai === tu);
+      if (!coBangKhop) {
+        return "Chưa có bảng báo giá nào ở trạng thái chờ để chuyển.";
+      }
       setBaoGia((truoc) =>
         truoc.map((b) => {
           if (b.prId !== prId || b.trangThai !== tu) return b;
@@ -3497,6 +3539,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (sang === "da_so_sanh") {
         ghiLichSuDeNghi(prId, nguoiThucHien, "Chốt đủ báo giá, chuyển sang so sánh và trình duyệt");
       }
+      return null;
     },
     [ghiLichSuDeNghi],
   );
