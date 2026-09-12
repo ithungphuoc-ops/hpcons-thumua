@@ -47,6 +47,9 @@ import {
   sttDongDuocXem,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+/* Chốt "chưa checkin tồn kho thì chưa được giao việc" — Ban lãnh đạo 12/09/2026. Cùng luật với
+   tầng ghi `phanBoDong`; ở đây chỉ để khóa nút sớm và nhắc lý do. */
+import { vuongMacGiaoViec } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { nhanAnToan, NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -146,7 +149,7 @@ export function BangPhanBo({
    */
   hoSoDaDong?: boolean;
 }) {
-  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi } =
+  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi, cauHinh } =
     useDuLieu();
   /**
    * Dòng vật tư MỚI đang gõ ở cuối bảng — `null` là chưa bấm nút thêm.
@@ -382,6 +385,13 @@ export function BangPhanBo({
   }
 
   /**
+   * ★ Chưa checkin tồn kho (việc bắt buộc bước ①) thì chưa cho giao việc — Ban lãnh đạo
+   * 12/09/2026. Chỉ xét khi đang ở bước phân bổ; `null` là giao việc được. Luật thuần dùng
+   * chung với tầng ghi `phanBoDong`, xem `vuongMacGiaoViec`.
+   */
+  const chanGiaoViec = dangOBuocPhanBo ? vuongMacGiaoViec(deNghi, cauHinh) : null;
+
+  /**
    * Mở hộp xác nhận giao việc — KHÔNG phân bổ ngay khi bấm.
    *
    * 🔴 Ban lãnh đạo 12/08/2026: *"khi bấm phân bổ công việc cho nhân viên, phải hiện cửa sổ
@@ -390,6 +400,12 @@ export function BangPhanBo({
    */
   function moGiaoViec(uid: string, ten: string, dong: number[]) {
     if (dong.length === 0) return;
+    /* 🔴 Chưa checkin tồn kho thì chưa cho giao việc (Ban lãnh đạo 12/09/2026). Chốt thật ở
+       `phanBoDong`; đây chỉ chặn sớm để khỏi mở hộp rồi mới báo lỗi. */
+    if (chanGiaoViec) {
+      toast.error("Chưa giao việc được", { description: chanGiaoViec });
+      return;
+    }
     setSoBaoGia("2"); // Mặc định mức chung của công ty — xem chú thích ở chỗ khai `soBaoGia`.
     setGhiChu("");
     setGhiChuThem("");
@@ -528,12 +544,25 @@ export function BangPhanBo({
           </p>
         )}
 
+        {/* 🔴 Nhắc lý do chưa giao việc được — chưa checkin tồn kho (Ban lãnh đạo 12/09/2026).
+            Hiện ngay ở bước phân bổ để người dùng biết vì sao nút bị khóa, khỏi bấm rồi mới gặp lỗi. */}
+        {hienCongCuPhanBo && chanGiaoViec && (
+          <p className="rounded-lg border border-warning/40 bg-warning-bg p-3 text-sm text-warning-soft">
+            {chanGiaoViec}
+          </p>
+        )}
+
         {/* Thanh hành động khi đã chọn dòng — chỉ ở bước phân bổ, xem `hienCongCuPhanBo`. */}
         {hienCongCuPhanBo && chon.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary-bg p-3">
             <span className="text-sm font-medium text-primary">Đã chọn {chon.length} dòng — phân cho:</span>
             {nhanVienThuMua.map((nv) => (
-              <Button key={nv.uid} size="sm" onClick={() => moGiaoViec(nv.uid, nv.ten, chon)}>
+              <Button
+                key={nv.uid}
+                size="sm"
+                disabled={!!chanGiaoViec}
+                onClick={() => moGiaoViec(nv.uid, nv.ten, chon)}
+              >
                 <UserPlus className="size-4" aria-hidden />
                 {nv.ngan} · {nv.ten}
               </Button>
@@ -892,6 +921,7 @@ export function BangPhanBo({
                         size="sm"
                         variant="outline"
                         className="min-h-11"
+                        disabled={!!chanGiaoViec}
                         onClick={() => moGiaoViec(nv.uid, nv.ten, [d.stt])}
                       >
                         {nv.ngan}

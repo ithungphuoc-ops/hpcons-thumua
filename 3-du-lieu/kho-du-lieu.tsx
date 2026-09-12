@@ -25,6 +25,8 @@ import {
   /* Chốt "được RỜI bước này chưa" — soát cả việc bắt buộc CỦA bước đang đứng. Dùng ở những cửa
      ghi làm hồ sơ rời bước, để đường bấm nút chặn y như đường kéo thả (Ban lãnh đạo 24/08/2026). */
   vuongMacRoiBuoc,
+  /* Chốt "chưa checkin tồn kho thì chưa được giao việc" — Ban lãnh đạo 12/09/2026. */
+  vuongMacGiaoViec,
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
   NHAN_TRUONG_BO_PHAN,
@@ -405,6 +407,12 @@ interface GiaTriDuLieu {
   xacNhanTuDongGanDeNghi: (poId: string) => string | null;
   /** Gỡ liên kết tự động khớp (trường hợp xác nhận thấy KHÔNG đúng) — PO quay về "chờ đề nghị". */
   huyKhopTuDongDeNghi: (poId: string) => string | null;
+  /**
+   * ★ Chốt lại một đơn đang ở trạng thái nháp (`"nhap"`) — đơn từng "đã chốt" bị lùi về bước
+   * "Lập đơn mua hàng" để sửa. Chuyển `"nhap"` → `"da_chot"`, thẻ tự sang bước sau.
+   * `null` là chốt xong, chuỗi là lý do bị chặn (chạy LẠI `vuongMacLapDonHang`).
+   */
+  chotDonNhap: (poId: string) => string | null;
   doiTrangThaiPhieu: (
     phieuId: string,
     trangThai: PhieuNhanHang["trangThai"],
@@ -2212,21 +2220,29 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
 
       /**
-       * 🔴🔴 CHỐT: PHÂN BỔ NỐT DÒNG CUỐI LÀ HỒ SƠ RỜI BƯỚC ① — sửa 24/08/2026.
+       * 🔴🔴 CHỐT: CHƯA CHECKIN TỒN KHO THÌ CHƯA ĐƯỢC GIAO VIỆC — Ban lãnh đạo 12/09/2026:
+       * *"phải checkin hàng tồn kho trước thì mới được chọn giao việc"*.
        *
-       * Đo được lỗ hổng: hàm này trước đây **không có một phép kiểm nào**. Gán người cho dòng
-       * cuối làm `daPhanBoDu` thành `true`, và `xacDinhGiaiDoan` tự trả `"yeu_cau_bao_gia"` —
-       * hồ sơ nhảy sang bước ② trong khi việc bắt buộc *"Checkin hàng tồn kho"* của bước ① vẫn
-       * treo, không một dòng cảnh báo. Cùng hồ sơ đó, kéo thẻ ①→② thì hộp **khóa nút** buộc tích
-       * việc ấy mới đi được.
+       * ⚠️ ĐẢO LẠI THIẾT KẾ CŨ. Trước 12/09/2026 chỗ này CỐ Ý cho giao việc TRƯỚC rồi checkin
+       * SAU (để chính người được giao đi kiểm tồn kho), và chỉ chặn khi phân bổ nốt dòng cuối
+       * (hồ sơ rời bước ①). Nay Ban lãnh đạo chốt ngược: kiểm tồn kho là việc phải làm ĐẦU
+       * TIÊN — chặn MỌI lần giao việc, ngay từ dòng đầu, chừng nào việc bắt buộc của bước ① còn
+       * treo. Luật thuần ở `vuongMacGiaoViec` (2-quy-trinh/giai-doan-mua-hang.ts) để
+       * `kiem-luat-dung-chung.mjs` gọi thẳng được, và `bang-phan-bo.tsx` khóa nút sớm cùng luật.
+       */
+      {
+        const dnCheckin = deNghiRef.current.find((x) => x.id === prId);
+        if (dnCheckin) {
+          const chanGiaoViec = vuongMacGiaoViec(dnCheckin, cauHinhRef.current);
+          if (chanGiaoViec) return chanGiaoViec;
+        }
+      }
+
+      /**
+       * 🔴 CHỐT: PHÂN BỔ NỐT DÒNG CUỐI LÀ HỒ SƠ RỜI BƯỚC ① — sửa 24/08/2026.
        *
-       * Chỉ đạo Ban lãnh đạo 16/08/2026 (*"chưa tích xác nhận thì chưa cho chuyển"*) vì vậy chỉ
-       * có hiệu lực trên đường kéo thả — đúng cái lệch Ban lãnh đạo báo.
-       *
-       * 🔴 CHỈ CHẶN KHI PHÉP GÁN NÀY LÀM HỒ SƠ RỜI BƯỚC ①. Chặn mọi lần phân bổ là sai: phân bổ
-       * dòng thứ nhất trong năm dòng thì hồ sơ vẫn ở bước ①, mà việc *"Checkin hàng tồn kho"* có
-       * thể phải làm SAU khi phân bổ (chính người được phân bổ đi kiểm tồn kho). Chặn sớm là kẹt
-       * ngay từ dòng đầu, không ai làm được gì.
+       * Giữ nguyên cả khi đã có chốt checkin ở trên: `vuongMacRoiBuoc` còn soát các điều kiện
+       * RỜI bước ① khác (việc bắt buộc của bước trước còn treo…), không chỉ mỗi checkin tồn kho.
        */
       {
         const dnGoc = deNghiRef.current.find((x) => x.id === prId);
@@ -3140,6 +3156,52 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         );
         if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);
       });
+
+      return null;
+    },
+    [ghiLichSuDeNghi, nguoiDung],
+  );
+
+  /**
+   * ★ CHỐT LẠI ĐƠN NHÁP — thêm 12/09/2026. Vá "ngõ cụt bước ④": đơn đã chốt bị lùi về bước
+   * "Lập đơn mua hàng" (`luiVeBuoc` case `"lap_don_mua_hang"` → trạng thái `"nhap"`) trước đây
+   * KHÔNG có đường chốt lại — `giai-doan-mua-hang.ts` (`hanhDongTienMotBuoc`) hứa "Chốt đơn hàng
+   * nháp — chốt xong thẻ tự chuyển bước", nhưng `don-hang-chi-tiet.tsx` không có nút nào và
+   * `suaDonHang` không đổi trạng thái → đơn kẹt vĩnh viễn. Đúng lỗi §3.5 ("đừng để giao diện hứa
+   * một việc app không làm"). Nay hứa đó thành thật.
+   *
+   * 🔴 CHẠY LẠI `vuongMacLapDonHang` — y hệt `ganDeNghiVaoPO`. Đơn `"nhap"` LUÔN có `prId` (chỉ
+   * đơn `"da_chot"` mới lùi được thành `"nhap"`, mà `"da_chot"` chỉ tồn tại khi có `prId`). Dữ
+   * liệu báo giá/hợp đồng có thể đã đổi trong lúc đơn nằm nháp, nên phải đối chiếu lại chứ không
+   * cho lật thẳng — không đi vòng kiểm soát chi tiêu.
+   */
+  const chotDonNhap = useCallback(
+    (poId: string): string | null => {
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po) return "Không tìm thấy đơn hàng này.";
+      if (po.trangThai !== "nhap") {
+        return "Đơn này không ở trạng thái nháp nên không cần chốt lại.";
+      }
+      if (!po.prId) {
+        // Bất biến: đơn "nhap" luôn có prId. Nếu gặp đơn nháp không prId là dữ liệu hỏng.
+        return "Đơn nháp này không gắn đề nghị nào — dữ liệu bất thường, không chốt tự động được.";
+      }
+      const dnGoc = deNghiRef.current.find((d) => d.id === po.prId);
+      if (!dnGoc) return "Không tìm thấy đề nghị gốc của đơn hàng này.";
+
+      /* Chạy LẠI đúng luật chặn của PO thường (Ban lãnh đạo 15/08 + 26/08/2026) — dữ liệu báo
+         giá/hợp đồng có thể đã đổi trong lúc đơn nằm nháp. */
+      const chan = vuongMacLapDonHang(
+        baoGiaRef.current.filter((b) => b.prId === dnGoc.id),
+        dnGoc,
+      );
+      if (chan) return chan;
+
+      setDonHang((truoc) =>
+        truoc.map((p) => (p.id === poId ? { ...p, trangThai: "da_chot" } : p)),
+      );
+
+      ghiLichSuDeNghi(dnGoc.id, nguoiDung.tenHienThi, `Chốt lại đơn hàng ${po.code} từ nháp`);
 
       return null;
     },
@@ -5777,6 +5839,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ganDeNghiVaoPO,
       xacNhanTuDongGanDeNghi,
       huyKhopTuDongDeNghi,
+      chotDonNhap,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
@@ -5847,6 +5910,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ganDeNghiVaoPO,
       xacNhanTuDongGanDeNghi,
       huyKhopTuDongDeNghi,
+      chotDonNhap,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,

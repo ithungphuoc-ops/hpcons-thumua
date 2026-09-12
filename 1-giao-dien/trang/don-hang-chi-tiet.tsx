@@ -32,7 +32,7 @@ import { HopSuaDonHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-don-ha
 
 export default function TrangChiTietDonHang() {
   const params = useParams<{ id: string }>();
-  const { donHang, phieuNhan, giaDonHang, xacNhanKho, xacNhanTruongBP } = useDuLieu();
+  const { donHang, phieuNhan, giaDonHang, xacNhanKho, xacNhanTruongBP, chotDonNhap } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   const po = donHang.find((x) => x.id === params.id);
@@ -138,6 +138,28 @@ export default function TrangChiTietDonHang() {
               <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/in/don-hang/${po.id}`} target="_blank" />}>
                 <Printer className="size-4" aria-hidden />
                 In đơn mua hàng
+              </Button>
+            )}
+            {/* ★ CHỐT LẠI ĐƠN NHÁP (12/09/2026) — vá "ngõ cụt bước ④": đơn đã chốt bị lùi về bước
+                "Lập đơn mua hàng" (trạng thái "nhap") trước đây không có đường chốt lại, dù
+                `hanhDongTienMotBuoc` hứa "Chốt đơn hàng nháp". Luật chặn thật (`vuongMacLapDonHang`)
+                nằm ở cửa ghi `chotDonNhap` (kho-du-lieu.tsx), nút này chỉ gọi tới. */}
+            {po.trangThai === "nhap" && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  const loi = chotDonNhap(po.id);
+                  if (loi) {
+                    toast.error("Chưa chốt được đơn", { description: loi });
+                    return;
+                  }
+                  toast.success("Đã chốt đơn hàng", {
+                    description: `${po.code} chuyển sang bước tiếp theo.`,
+                  });
+                }}
+              >
+                <BadgeCheck className="size-4" aria-hidden />
+                Chốt đơn hàng
               </Button>
             )}
             {po.trangThai === "cho_de_nghi" ? (

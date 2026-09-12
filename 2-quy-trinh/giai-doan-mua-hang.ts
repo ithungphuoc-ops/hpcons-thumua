@@ -1296,6 +1296,35 @@ export function vuongMacRoiBuoc(
 }
 
 /**
+ * ★★ CHẶN GIAO VIỆC KHI VIỆC BẮT BUỘC CỦA BƯỚC ① CHƯA XONG — Ban lãnh đạo 12/09/2026:
+ * *"phải checkin hàng tồn kho trước thì mới được chọn giao việc"*.
+ *
+ * 🔴 ĐẢO LẠI LUẬT CŨ, CÓ CHỦ Ý. Trước đây app CỐ Ý cho giao việc TRƯỚC rồi checkin SAU (để chính
+ * người được giao đi kiểm tồn kho), và chỉ chặn khi hồ sơ RỜI bước ① (`vuongMacRoiBuoc` gọi lúc
+ * phân bổ nốt dòng cuối — xem `phanBoDong` trong `3-du-lieu/kho-du-lieu.tsx`). Nay Ban lãnh đạo
+ * chốt ngược: **kiểm tồn kho là việc phải làm ĐẦU TIÊN**, chưa xong thì không được giao việc cho
+ * ai. Lý do nghiệp vụ: đừng phân người đi mua khi hàng có thể đang nằm sẵn trong kho — chống mua
+ * trùng ngay từ đầu, không đợi tới lúc rời bước.
+ *
+ * 🔴 CHẶN Ở CỬA GHI `phanBoDong`, không chỉ khóa nút — cùng nguyên tắc mọi luật chặn khác của app.
+ *   Bảng phân bổ (`bang-phan-bo.tsx`) gọi hàm này để khóa nút "Giao việc" sớm kèm lý do.
+ *
+ * 📌 Chỉ xét việc bắt buộc của CHÍNH bước ① (`tiep_nhan`) — dùng `congViecChuaXongCuaBuoc`, nên
+ * cờ `batBuocXongCongViec` tắt hay không có việc nào thì hàm tự trả `null` (không chặn).
+ *
+ * @returns Câu lý do bị chặn, `null` là giao việc được.
+ */
+export function vuongMacGiaoViec(
+  deNghi: DeNghiMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+): string | null {
+  const treo = congViecChuaXongCuaBuoc(deNghi, "tiep_nhan", cauHinh);
+  if (treo.length === 0) return null;
+  const ds = treo.map((cv) => `“${cv.ten}”`).join(", ");
+  return `Phải hoàn thành ${treo.length} công việc bắt buộc của bước “${NHAN_GIAI_DOAN["tiep_nhan"].nhan}” trước khi giao việc: ${ds}. Tích hoàn thành ở khối bước đó trong trang chi tiết đề nghị rồi giao việc.`;
+}
+
+/**
  * ★★★ MỘT ĐIỀU KIỆN CÒN VƯỚNG — có mã để giao diện biết bày ô gì cho người dùng gỡ tại chỗ.
  *
  * 🔴 Ban lãnh đạo 25/08/2026: *"Kéo qua bước phải hiển thị các trường nhập nhanh các điều kiện
