@@ -2503,8 +2503,11 @@ export function FormLapDonMuaHang({
           của nó trên giấy.
 
           🔴 NHỮNG Ô KHÔNG THUỘC ĐẦU TỜ ĐÃ DỜI ĐI, KHÔNG BỊ BỎ — đừng thêm lại vào đây:
-            · Ngày giao hàng · Điều khoản thanh toán · Số ngày được nợ → khối ④, vì trên tờ chúng
-              nằm ở phần giao nhận (ô B26 · B29/B30), không nằm ở đầu tờ.
+            · Ngày giao hàng · Điều khoản thanh toán → khối ④, vì trên tờ chúng nằm ở phần giao
+              nhận (ô B26 · B29/B30), không nằm ở đầu tờ.
+              ⚠️ Ô "Số ngày được nợ" từng đứng cùng hai ô này, nhưng ĐÃ BỎ KHỎI FORM 13/09/2026
+              (Ban lãnh đạo). Trường dữ liệu vẫn còn và vẫn in ra tờ — sửa ở màn Công nợ. Xem chú
+              thích tại chỗ ô đó từng nằm, trong khối ④.
             · Nhân viên mua hàng · Tham chiếu → khối ⑤: hai ô này KHÔNG có trên tờ đơn gửi nhà
               cung cấp, để lẫn ở đầu tờ là người nhập tưởng chúng sẽ được in.
 
@@ -2926,27 +2929,47 @@ export function FormLapDonMuaHang({
                trong trang chi tiết đề nghị thì phím tắt sẽ cướp phím của ô bình luận và bảng
                phân bổ. Ô tìm vẫn bấm được bằng chuột ở cả hai chỗ. */
             batPhimTat={!nhung}
+            /* ★ Ô "Thuế suất GTGT chung (%)" — DỜI LÊN HÀNG CÔNG CỤ CỦA BẢNG, cạnh ô Chiết khấu
+               (Ban lãnh đạo 13/09/2026: mũi tên từ khối dưới bảng lên đây, *"Đưa lên đây"*).
+
+               📌 Trước đó nó là một khối riêng NẰM DƯỚI bảng, có đường kẻ ngăn. Ở đó người nhập
+               phải cuộn qua hết bảng hàng mới thấy, trong khi nó là điều kiện áp cho CẢ ĐƠN chứ
+               không phải kết quả của bảng.
+
+               ⚠️ Điều kiện `quyen.xemGia` GIỮ NGUYÊN ở đây, không dời vào bảng: thuế suất là
+               thông tin giá. Bảng cũng tự gác `xemGia` cho ô chiết khấu, nhưng gác ở cả hai nơi
+               thì bỏ một nơi vẫn còn nơi kia. */
+            oThueSuatChung={
+              quyen.xemGia ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label htmlFor="vat-chung" className="text-sm font-normal text-text-secondary">
+                    Thuế suất GTGT chung (%)
+                  </Label>
+                  <Input
+                    id="vat-chung"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={thueSuat}
+                    onChange={(e) => setThueSuat(e.target.value)}
+                    className="w-24"
+                    title="Áp cho mọi dòng bỏ trống cột % Thuế GTGT. Đơn trộn nhiều mức thì ghi riêng ở từng dòng."
+                  />
+                </div>
+              ) : undefined
+            }
           />
 
+          {/* 📌 CÂU GIẢI THÍCH THUẾ SUẤT Ở LẠI DƯỚI BẢNG, KHÔNG ĐI THEO Ô.
+              Ô đã lên hàng công cụ — nơi đó chật, nhét cả câu hai dòng vào là vỡ hàng trên màn
+              hẹp. Câu vẫn phải còn ở đâu đó: không có nó thì người nhập không biết ô này chỉ áp
+              cho dòng BỎ TRỐNG cột thuế, và tưởng nó đè lên mọi dòng.
+              📌 Bản thân ô cũng mang câu này ở thuộc tính `title` (hiện khi rê chuột). */}
           {quyen.xemGia && (
-            <div className="flex flex-wrap items-end gap-3 border-t border-divider pt-(--hp-md-card-gap)">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="vat-chung">Thuế suất GTGT chung (%)</Label>
-                <Input
-                  id="vat-chung"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={thueSuat}
-                  onChange={(e) => setThueSuat(e.target.value)}
-                  className="w-32"
-                />
-              </div>
-              <p className="pb-2 text-xs text-text-desc">
-                Áp cho mọi dòng bỏ trống cột <strong>% Thuế GTGT</strong>. Đơn trộn nhiều mức
-                thì ghi riêng ở từng dòng.
-              </p>
-            </div>
+            <p className="text-xs text-text-desc">
+              <strong>Thuế suất GTGT chung</strong> áp cho mọi dòng bỏ trống cột{" "}
+              <strong>% Thuế GTGT</strong>. Đơn trộn nhiều mức thì ghi riêng ở từng dòng.
+            </p>
           )}
 
           {/* 📌 DÒNG "F3 - Tìm nhanh, F9 - Thêm nhanh" của MISA — 18/08/2026 ĐÃ ĐỦ CẢ HAI.
@@ -3041,8 +3064,8 @@ export function FormLapDonMuaHang({
           đó đúng cho màn siêu rộng, nhưng thẻ ở đây chỉ rộng ~1140px mà ô dừng ở 576px, nên **gần
           nửa thẻ bỏ trống** — nhìn ra là lỗi bố cục chứ không ra chủ ý. Nay ô trải theo bề rộng thẻ.
 
-          📌 Ô nào cần hẹp thì tự khai bề rộng RIÊNG tại chỗ (`w-32` của "Số ngày được nợ", `w-48`
-          của ô ngày) — cách đó nói rõ ý đồ ngay tại ô, không phụ thuộc một lớp cha ở xa. Đừng đặt
+          📌 Ô nào cần hẹp thì tự khai bề rộng RIÊNG tại chỗ (`w-48` của ô ngày) — cách đó nói rõ ý
+          đồ ngay tại ô, không phụ thuộc một lớp cha ở xa. Đừng đặt
           lại chặn cấp khối: nó âm thầm bóp mọi ô con, kể cả ô thêm sau này.
           ========================================================================= */}
       <Card>
@@ -3547,18 +3570,22 @@ export function FormLapDonMuaHang({
             />
           </div>
 
-          <div className="muc-ngang">
-            <Label htmlFor="so-ngay-no">Số ngày được nợ</Label>
-            <Input
-              id="so-ngay-no"
-              type="number"
-              min={0}
-              value={soNgayDuocNo}
-              onChange={(e) => setSoNgayDuocNo(e.target.value)}
-              className="w-32"
-              placeholder="30"
-            />
-          </div>
+          {/* 🔴 ĐÃ BỎ Ô NHẬP "Số ngày được nợ" — Ban lãnh đạo 13/09/2026: *"bỏ mục này cho a"*.
+
+              📌 BỎ Ô NHẬP, KHÔNG BỎ TRƯỜNG DỮ LIỆU. Biến `soNgayDuocNo` và toàn bộ đường lưu giữ
+              nguyên, cố ý — ba lý do, mỗi lý do là một đường dữ liệu thật:
+                · Tự điền từ báo giá đã chọn (`gia?.soNgayDuocNo`) — xóa state là mất đường này
+                · Tự điền từ mẫu đơn đã lưu (`c.soNgayDuocNo`)
+                · Vẫn ghi vào `giaDonHang` khi lưu, và vẫn in ra tờ Excel (`ghi-don-hang-excel.ts`)
+
+              🔴 ĐÃ SOÁT LỐI VÀO KHÁC THEO CLAUDE.md §3.4b TRƯỚC KHI BỎ — và có: màn **Công nợ**
+              (`trang/cong-no.tsx`) có ô `OSoNgayDuocNo` sửa được ngay trên bảng, thêm theo chỉ đạo
+              Ban lãnh đạo 28/08/2026. Nên người dùng vẫn đặt/sửa được số ngày nợ.
+
+              ⚠️ VÌ SAO KHÔNG ĐƯỢC XÓA HẲN TRƯỜNG NÀY: `2-quy-trinh/tuoi-no.ts` lấy nó để tính HẠN
+              NỢ (`congNgay(ngayBatDau, soNgayDuocNo)`) — mất trường là cả màn Công nợ không còn
+              phân được nợ trong hạn hay quá hạn. Muốn bỏ thật thì phải quyết cả cách tính tuổi nợ
+              trước, không phải xóa một ô nhập. */}
 
           <div className="muc-ngang">
             <Label htmlFor="dk-khac">Điều khoản khác</Label>

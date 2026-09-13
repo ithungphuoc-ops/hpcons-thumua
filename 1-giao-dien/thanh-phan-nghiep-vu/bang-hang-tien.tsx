@@ -143,6 +143,7 @@ export function BangHangTien({
   onDoiKieuChietKhau,
   onDoiTyLeChietKhau,
   onDoiChietKhau,
+  oThueSuatChung,
   /** Còn mặt hàng nào của đề nghị chưa đưa vào bảng không — khóa nút "Thêm dòng" khi hết. */
   conMatHangDeThem,
   /**
@@ -214,6 +215,20 @@ export function BangHangTien({
   onDoiKieuChietKhau: (k: KieuChietKhau) => void;
   onDoiTyLeChietKhau: (v: string) => void;
   onDoiChietKhau: (v: string) => void;
+  /**
+   * ★ Ô "Thuế suất GTGT chung (%)" — ĐẶT CẠNH Ô CHIẾT KHẤU, trên hàng công cụ của bảng.
+   *
+   * 🔴 Ban lãnh đạo 13/09/2026 vẽ mũi tên từ khối thuế suất (đang nằm DƯỚI bảng) lên đúng chỗ
+   * trống bên phải ô Chiết khấu: *"Đưa lên đây"*.
+   *
+   * 📌 Nhận `ReactNode` chứ không nhận `giaTri`/`onDoi`: bảng này KHÔNG biết gì về thuế và không
+   * nên biết — nó chỉ cho mượn chỗ. Đặt logic thuế vào đây là bảng phải gánh một việc của form
+   * lập đơn, mà bảng còn dùng ở chỗ khác (xem `nhung`).
+   *
+   * 📌 Hợp chỗ vì cùng loại với ô Chiết khấu: cả hai là ĐIỀU KIỆN THƯƠNG MẠI áp cho cả đơn, và
+   * cả hai đều chỉ hiện với người xem được giá.
+   */
+  oThueSuatChung?: React.ReactNode;
   conMatHangDeThem: boolean;
   lyDoHetMatHang?: string;
   tieuDeTrongKhoiGiaiDoan?: boolean;
@@ -477,6 +492,13 @@ export function BangHangTien({
             )}
           </div>
         )}
+
+        {/* ===== Ô THUẾ SUẤT GTGT CHUNG — DỜI LÊN ĐÂY 13/09/2026 =====
+            🔴 Ban lãnh đạo vẽ mũi tên từ khối thuế suất dưới bảng lên chỗ này: *"Đưa lên đây"*.
+            📌 Đứng ngay sau ô Chiết khấu vì cùng loại — cả hai là điều kiện thương mại áp cho cả
+            đơn, và cả hai chỉ hiện với người xem được giá. Nội dung do form lập đơn truyền vào
+            (xem prop `oThueSuatChung`); bảng chỉ cho mượn chỗ, không biết gì về thuế. */}
+        {oThueSuatChung}
         </div>
       </div>
 
