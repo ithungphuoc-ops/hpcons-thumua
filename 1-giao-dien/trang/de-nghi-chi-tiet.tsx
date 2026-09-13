@@ -717,14 +717,33 @@ export default function TrangChiTietDeNghi({
             <DanhSachTruong
               truong={[
                 // `daiCaHang` cho hai trường chữ dài — để trong một ô hẹp thì bị cắt mất.
-                { nhan: "Tiêu đề", giaTri: dn.tieuDe, daiCaHang: true },
+                /* ★★★ THỨ TỰ 13 TRƯỜNG — Ban lãnh đạo 13/09/2026 (*"bố cục mục này lại cho a"*),
+                   đánh số tay trên ảnh chụp màn hình. ĐỪNG SẮP LẠI khi không có chỉ đạo mới:
+                   số ô sinh theo CHỈ SỐ MẢNG, nên đảo thứ tự là đổi luôn con số mà cả phòng đang
+                   dùng để chỉ nhau qua điện thoại (*"ô số 4 điền gì"*).
+
+                   🔴 HAI TRƯỜNG ĐÃ BỎ trong lần sắp này, Sếp được hỏi trước và đã chọn bỏ:
+                     · "Mã dự án" — ⚠️ ĐÂY TỪNG LÀ CHỖ DUY NHẤT hiển thị mã dự án của một đề nghị
+                       (thẻ trên bảng không có, cột phải không có). Hệ quả đã báo Sếp: khi app chặn
+                       *"đề nghị X thuộc dự án A, khác mã dự án B trên đơn hàng"* lúc gắn đơn, người
+                       dùng KHÔNG còn chỗ nào mở ra xem mã dự án của đề nghị để hiểu vì sao bị chặn.
+                       Dữ liệu `dn.maDuAn` KHÔNG mất — mọi luật vẫn đọc nó, chỉ là thôi hiển thị.
+                     · "Mức độ ưu tiên" — vẫn còn thấy được qua badge "Gấp" trên thẻ ở bảng quy trình.
+
+                   📌 Sáng 13/09/2026 Sếp từng bảo GIỮ "Mã dự án"; chiều cùng ngày bố cục mới bỏ nó
+                   và Sếp xác nhận bỏ. Ghi cả hai lần ở đây để phiên sau không tưởng ai lỡ tay xóa. */
+                { nhan: "Tên đề xuất", giaTri: dn.tieuDe, daiCaHang: true },
                 { nhan: "Tên công trình", giaTri: dn.tenCongTrinh, daiCaHang: true },
+                { nhan: "Số hợp đồng CĐT", giaTri: dn.maHopDongCDT },
+                { nhan: "Người đề nghị", giaTri: dn.nguoiDeNghiTen },
+                { nhan: "Phòng ban đề nghị", giaTri: nhanPhongBan(dn.phongBanNguon) },
+                // Nhóm đề xuất — trường của thẻ Base (14/08/2026). Phiếu cũ không có thì đọc
+                // là "Khác", KHÔNG đoán ngược từ nội dung vật tư.
+                { nhan: "Nhóm đề xuất", giaTri: NHAN_NHOM_DE_XUAT[dn.nhomDeXuat ?? "khac"] },
                 /**
                  * ★ MÃ ĐỀ XUẤT APP REQUEST — Ban lãnh đạo 21/08/2026: *"để sau này có thể từ mã
-                 * request để lọc lại dữ liệu"*.
-                 *
-                 * Đây là khóa nối hai app: phiếu sinh tự động từ App Request mang mã bên đó (vd
-                 * `000000032`).
+                 * request để lọc lại dữ liệu"*. Khóa nối hai app: phiếu sinh tự động từ App Request
+                 * mang mã bên đó (vd `000000032`).
                  *
                  * ⚠️ CHÚ THÍCH CŨ Ở ĐÂY GHI SAI, đã sửa 13/09/2026: nó ghi *"`DanhSachTruong` tự
                  * bỏ trường `undefined`, nên không hiện nhãn trống"*. KHÔNG ĐÚNG — component vẽ
@@ -732,8 +751,8 @@ export default function TrangChiTietDeNghi({
                  * Để nguyên câu sai thì người sau đọc nhầm rồi đi "dọn" mảng trường, mà dọn là
                  * LỆCH SỐ Ô của mọi trường phía sau.
                  */
-                { nhan: "Mã đề xuất (App Request)", giaTri: dn.maDeXuatAppRequest },
-                { nhan: "Mã dự án", giaTri: dn.maDuAn },
+                { nhan: "Mã đề xuất", giaTri: dn.maDeXuatAppRequest },
+                { nhan: "Số mặt hàng", giaTri: `${dn.items.length} dòng vật tư` },
                 /**
                  * ★★ Ô 05 — ĐƯỜNG DẪN ĐỀ NGHỊ — Ban lãnh đạo 12–13/09/2026: *"Điều chỉnh lại tên
                  * trường — Đường dẫn đề nghị: đính kèm link của mã đề nghị vào đây"*, và *"chuyển
@@ -793,16 +812,6 @@ export default function TrangChiTietDeNghi({
                     </a>
                   ),
                 },
-                { nhan: "Số hợp đồng CĐT", giaTri: dn.maHopDongCDT },
-                { nhan: "Phòng ban đề nghị", giaTri: nhanPhongBan(dn.phongBanNguon) },
-                // Nhóm đề xuất — trường của thẻ Base (14/08/2026). Phiếu cũ không có thì đọc
-                // là "Khác", KHÔNG đoán ngược từ nội dung vật tư.
-                { nhan: "Nhóm đề xuất", giaTri: NHAN_NHOM_DE_XUAT[dn.nhomDeXuat ?? "khac"] },
-                { nhan: "Người đề nghị", giaTri: dn.nguoiDeNghiTen },
-                {
-                  nhan: "Mức độ ưu tiên",
-                  giaTri: dn.mucDoUuTien === "gap" ? "Gấp" : "Bình thường",
-                },
                 { nhan: "Ngày đề nghị", giaTri: formatMocThoiGian(dn.ngayDeNghi) },
                 {
                   nhan: "Ngày duyệt",
@@ -811,7 +820,21 @@ export default function TrangChiTietDeNghi({
                   giaTri: dn.ngayDuyet ? formatMocThoiGian(dn.ngayDuyet) : "—",
                 },
                 { nhan: "Ngày cần hàng", giaTri: formatMocThoiGian(dn.ngayCanHang) },
-                { nhan: "Số mặt hàng", giaTri: `${dn.items.length} dòng vật tư` },
+                {
+                  /**
+                   * ★ Ô 13 — TÀI LIỆU ĐÍNH KÈM, thêm 13/09/2026 theo bố cục Ban lãnh đạo vẽ.
+                   *
+                   * 📌 Hiện SỐ ĐẾM, không liệt kê tên tệp: đây là khối TRA CỨU NHANH, còn chỗ mở
+                   * và tải tệp là khu đính kèm của từng bước ở dưới. Nhồi danh sách tệp vào một ô
+                   * của lưới 3 cột thì vỡ hàng, và trùng việc với khu đính kèm.
+                   *
+                   * ⚠️ Không có tệp thì để `undefined` cho `DanhSachTruong` tự hiện dấu "—", đừng
+                   * ghi "0 tệp": ô trống và ô có số 0 đọc ra hai nghĩa khác nhau, mà ở đây chúng
+                   * cùng nghĩa là "chưa đính gì".
+                   */
+                  nhan: "Tài liệu đính kèm",
+                  giaTri: dn.taiLieu && dn.taiLieu.length > 0 ? `${dn.taiLieu.length} tệp` : undefined,
+                },
               ]}
             />
 
@@ -1553,7 +1576,43 @@ export default function TrangChiTietDeNghi({
                               * phiếu này. Cho chọn ngoài danh sách đó là duyệt cho một bên không
                               * có bản báo giá nào trong hồ sơ.
                               */}
-                            {quyen.xacNhanTruongBP && !daDuyet && !hoSoDaDong && (() => {
+                            {/* 🔴🔴 CHỈ CÒN HIỆN KHI NÚT TẮT KHÔNG DÙNG ĐƯỢC — Ban lãnh đạo
+                                13/09/2026: *"Đã duyệt ở mục này"* (chỉ vào nút "Duyệt bản này" ở
+                                bước ②) và *"Mục này bỏ"* (chỉ vào cặp nút Duyệt / Không duyệt ở đây).
+
+                                📌 Ý Sếp ĐÚNG cho ca thường: hai nút gọi CÙNG một `setHoiDuyet`, mở
+                                CÙNG một hộp thoại, và hộp đó gọi `chonNCCChoBaoGia` tại đúng MỘT
+                                dòng (xem `onDongY` của hộp duyệt) — không rẽ nhánh theo đường vào.
+                                Nên khi có đúng 1 hồ sơ chờ duyệt, cặp nút này là thừa thật.
+                                Nút tắt còn MẠNH HƠN: nó truyền `nhanO` nên căn cứ duyệt ghi kèm
+                                `[Báo giá NCC n]` — thứ tạo ra đường link "Bản báo giá được chọn".
+
+                                🔴 NHƯNG KHÔNG BỎ HẲN, vì nút tắt TỰ KHÓA khi có từ 2 hồ sơ chờ
+                                duyệt trở lên (điều kiện `.length === 1` ở bước ②). Lý do khóa đã
+                                ghi ở đó: ô "Báo giá NCC n" gắn với ĐỀ NGHỊ chứ không gắn với từng
+                                bảng, nên có 2 bảng thì không biết ô thuộc bảng nào — bấm nút tắt sẽ
+                                ghi quyết định vào NHẦM hồ sơ mà không có gì báo.
+                                Bỏ hẳn cặp nút này là ca ≥2 bảng MẤT HẲN đường duyệt, hồ sơ kẹt
+                                vĩnh viễn ở bước ③ — đúng lỗi mồ côi CLAUDE.md §3.4b cấm.
+
+                                👉 Nên: đúng 1 hồ sơ → ẩn cặp nút (dùng nút tắt).
+                                   Từ 2 hồ sơ → hiện lại, vì lúc đó nút tắt không hiện.
+
+                                ⚠️ CHỈ BỎ CẶP NÚT, TUYỆT ĐỐI KHÔNG XÓA CẢ KHỐI. Khối "Xét duyệt
+                                phương án giá" còn là nơi hiển thị DUY NHẤT của: badge trạng thái ·
+                                tên NCC được duyệt · "Giải trình của Trưởng bộ phận" (chốt
+                                19/08/2026) · toàn bộ lịch sử "Trưởng bộ phận đã trả lại"
+                                (`lanTraLai`). Màn `bao-gia-chi-tiet.tsx` từng hiện chúng ĐÃ BỊ XÓA,
+                                nên mất ở đây là mất khỏi app.
+
+                                📌 "Không duyệt" KHÔNG mồ côi: hộp thoại chung có ô sổ xuống "Quyết
+                                định của trưởng bộ phận" với hai lựa chọn Đồng ý / Không đồng ý — bấm
+                                "Duyệt bản này" rồi đổi sang "Không đồng ý" là trả lại được. */}
+                            {quyen.xacNhanTruongBP &&
+                              !daDuyet &&
+                              !hoSoDaDong &&
+                              baoGiaLienQuan.filter((b) => b.trangThai === "da_so_sanh").length !==
+                                1 && (() => {
                               /**
                                * ★ TRƯỞNG BỘ PHẬN GÕ TÊN NHÀ CUNG CẤP KHI DUYỆT — Ban lãnh đạo
                                * 20/08/2026, sau khi bỏ ô ghi tên ở bước ②
