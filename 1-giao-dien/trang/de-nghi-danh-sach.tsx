@@ -4,13 +4,9 @@ import Link from "next/link";
 import NextDynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, FileText, LayoutGrid, List, MoreHorizontal, X } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuTrigger,
-} from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
+import { AlertTriangle, FileText, LayoutGrid, List, X } from "lucide-react";
+/* 📌 KHÔNG còn import `DropdownMenu*` và `MoreHorizontal` ở đây (13/09/2026): menu ⋯ của pop-up
+   nay dùng chung `MenuThaoTacThe` với thẻ Kanban, component đó tự lo cả khung lẫn icon. */
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
@@ -21,6 +17,8 @@ import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import {
   BangQuyTrinhMuaHang,
+  /* Menu ⋯ dùng chung cho thẻ Kanban và thanh tiêu đề pop-up (13/09/2026) — xem JSDoc ở đó. */
+  MenuThaoTacThe,
   type ThaoTacThe,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang";
 import {
@@ -61,7 +59,9 @@ import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Loader2 } from "lucide-react";
-import { MucMenuXemDayDu } from "@/1-giao-dien/thanh-phan-dung-chung/muc-menu-xem-day-du";
+/* 📌 KHÔNG còn gọi thẳng `MucMenuXemDayDu` ở đây (13/09/2026) — hai mục đó nay nằm bên trong
+   `MenuThaoTacThe`, cùng 10 mục còn lại. Component kia VẪN ĐANG DÙNG, đừng xóa: `MenuThaoTacThe`
+   gọi nó (`bang-quy-trinh-mua-hang.tsx`). */
 /**
  * ★★ NHÚNG NGUYÊN TRANG CHI TIẾT VÀO DIALOG — cho mục menu ⋯ "Xem trong pop-up" (28/08/2026,
  * "cách 3" trong 3 cách xem Sếp chốt). Trang chỉ nhận thêm `id` khi dùng kiểu này — route thật
@@ -266,6 +266,22 @@ export default function TrangDanhSachDeNghi() {
   const moiThe = useMemo(
     () => [...cot.flatMap((c) => c.the)].sort((a, b) => soSanhTheTrenBang(a, b, nguoiDung.uid)),
     [cot, nguoiDung.uid],
+  );
+
+  /**
+   * ★ THẺ CỦA ĐỀ NGHỊ ĐANG MỞ POP-UP — để menu ⋯ trên thanh tiêu đề pop-up có đủ thao tác như
+   * menu ⋯ trên thẻ Kanban (Ban lãnh đạo 13/09/2026).
+   *
+   * 📌 LẤY TỪ `moiThe`, KHÔNG tự dựng lại thẻ từ `deNghi`. `TheDeNghiTrenBang` không chỉ có đề
+   * nghị — nó còn mang giai đoạn đã suy ra, việc còn nợ, hạn xử lý… do `dungBangQuyTrinh` tính
+   * MỘT LẦN. Tự dựng ở đây là nguồn thứ hai, và menu sẽ nói khác bảng về cùng một hồ sơ.
+   *
+   * ⚠️ `undefined` khi hồ sơ không còn trên bảng (vừa bị lọc/lưu trữ) — chỗ dùng phải chịu được,
+   * xem chú thích tại chỗ vẽ menu.
+   */
+  const theDangMoPopup = useMemo(
+    () => (xemPopupId ? moiThe.find((t) => t.deNghi.id === xemPopupId) : undefined),
+    [moiThe, xemPopupId],
   );
 
   const [locDS, setLocDS] = useState<LocDanhSach>("tat_ca");
@@ -756,29 +772,34 @@ export default function TrangDanhSachDeNghi() {
                     * nhịp — gọi tắt state trước là thao tác thừa, có thể gây nháy giao diện
                     * (đóng Dialog rồi mới điều hướng) thay vì chuyển thẳng.
                     */}
-                  {xemPopupId && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-                            aria-label="Thêm lựa chọn xem"
-                          />
-                        }
-                      >
-                        <MoreHorizontal className="size-4" aria-hidden />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuGroup>
-                          {/* Dùng chung `MucMenuXemDayDu` với menu ⋯ trên thẻ Kanban
-                              (`bang-quy-trinh-mua-hang.tsx`) — tách ra 28/08/2026, xem chú
-                              thích ở file đó. */}
-                          <MucMenuXemDayDu duongDan={`/de-nghi/${xemPopupId}`} />
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  {/**
+                   * ★★ MENU ⋯ CỦA POP-UP NAY GIỐNG HỆT MENU ⋯ TRÊN THẺ KANBAN — 13/09/2026.
+                   *
+                   * 🔴 Ban lãnh đạo chỉ vào đúng nút này: *"Nút 3 chấm này e kéo đủ chức năng
+                   * giống nút 3 chấm ở ngoài kanba vào cho a"*. Trước đó nó chỉ có 2 mục
+                   * (Xem toàn màn hình · Xem trong tab mới) trong khi menu trên thẻ có 12 mục —
+                   * mở pop-up ra là mất sạch thao tác, phải đóng lại rồi tìm đúng thẻ trên bảng.
+                   *
+                   * 📌 DÙNG CHUNG `MenuThaoTacThe`, KHÔNG CHÉP 12 MỤC SANG ĐÂY. Chính chỗ này
+                   * từng chép tay 2 mục rồi phải tách ra `MucMenuXemDayDu` (28/08/2026) — chép
+                   * 12 mục là 12 đường để hai nơi lệch nhau dần.
+                   *
+                   * 🔴 TRUYỀN ĐÚNG BỘ THAM SỐ CỦA BẢNG, không tự chế bộ khác: `onTha` phải bọc
+                   * `laXemNhanh = true` y như chỗ gọi `<BangQuyTrinhMuaHang>` bên trên (viết
+                   * `onTha={xuLyTha}` trần là rơi mất tham số thứ 3 — bước bị chặn thì chỉ bắn
+                   * toast, hộp giải thích lý do KHÔNG mở, đúng lúc người dùng cần nhất).
+                   * `thaoTac` cũng gác `quyen.lapPO` y hệt — người chỉ xem không thấy mục ghi.
+                   *
+                   * ⚠️ Không tìm ra thẻ trong `cot` thì KHÔNG vẽ menu. Thẻ chỉ thiếu khi đề nghị
+                   * vừa bị lọc mất khỏi bảng; vẽ ra một menu không có dữ liệu là mở đường cho lỗi
+                   * khó hiểu, thà không hiện. */}
+                  {theDangMoPopup && (
+                    <MenuThaoTacThe
+                      the={theDangMoPopup}
+                      kieuNut="popup"
+                      onTha={quyen.lapPO ? (prId, dich) => xuLyTha(prId, dich, true) : undefined}
+                      thaoTac={quyen.lapPO ? thaoTacThe : undefined}
+                    />
                   )}
                   <DialogClose
                     render={

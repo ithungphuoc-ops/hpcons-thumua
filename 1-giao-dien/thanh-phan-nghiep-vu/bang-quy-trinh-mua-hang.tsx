@@ -1071,14 +1071,34 @@ function TheDonHangDocLap({ the }: { the: TheDonHangDocLapTrenBang }) {
  *   · **Lịch sử webhook** → app không tích hợp webhook. Thay bằng "Xem nhật ký", mở đúng khối
  *     Lịch sử của hồ sơ (ai · làm gì · lúc nào) — thứ người dùng thật sự cần khi bấm mục đó.
  */
-function MenuThaoTacThe({
+/**
+ * ★★ MENU ⋯ THAO TÁC VỚI MỘT ĐỀ NGHỊ — DÙNG CHUNG CHO HAI CHỖ (mở export 13/09/2026).
+ *
+ * 🔴 Ban lãnh đạo 13/09/2026, chỉ vào nút ⋯ trên thanh tiêu đề pop-up "Chi tiết đề nghị":
+ * *"Nút 3 chấm này e kéo đủ chức năng giống nút 3 chấm ở ngoài kanba vào cho a"*.
+ * Trước đó menu trong pop-up chỉ có 2 mục (Xem toàn màn hình · Xem trong tab mới), trong khi
+ * menu trên thẻ Kanban có 12 mục.
+ *
+ * 📌 DÙNG CHUNG MỘT COMPONENT, KHÔNG CHÉP TAY 12 MỤC SANG CHỖ THỨ HAI. Chính tệp này đã có
+ * bài học đó: cặp "Xem toàn màn hình"/"Xem trong tab mới" từng bị chép ở 2 nơi rồi phải tách
+ * ra `MucMenuXemDayDu` (28/08/2026). Chép 12 mục là 12 đường để hai nơi lệch nhau dần.
+ *
+ * 📌 `kieuNut` CHỈ đổi VẺ NGOÀI của nút bấm, không đổi một mục menu nào:
+ *   · `"the"`   — nút xám nhỏ trên thẻ Kanban (nền sáng)
+ *   · `"popup"` — nút trắng trên thanh tiêu đề pop-up (nền xanh chủ đạo)
+ * Vỏ bọc chặn click/kéo cũng chỉ cần ở thẻ Kanban (thẻ là `<Link>` và kéo-thả được); trong
+ * pop-up không có gì để chặn nên bỏ đi cho khỏi thừa một lớp DOM.
+ */
+export function MenuThaoTacThe({
   the,
   onTha,
   thaoTac,
+  kieuNut = "the",
 }: {
   the: TheDeNghiTrenBang;
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
+  kieuNut?: "the" | "popup";
 }) {
   const router = useRouter();
   const { deNghi, giaiDoan } = the;
@@ -1103,28 +1123,19 @@ function MenuThaoTacThe({
     }
   }
 
-  return (
-    /* 🔴 Chặn cả click lẫn kéo NGAY Ở VỎ BỌC: thẻ cha là <Link> và kéo-thả được. Thiếu
-       preventDefault/stopPropagation thì bấm ⋯ là mở luôn trang chi tiết; thiếu draggable=false
-       thì đè chuột lên nút rồi rê là kéo cả thẻ đi. */
-    <span
-      draggable={false}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onDragStart={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-    >
+  /* ★ Thân menu dựng một lần, hai kiểu nút dùng chung — xem JSDoc `kieuNut` ở đầu component. */
+  const than = (
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <button
               type="button"
               aria-label={`Thao tác với ${deNghi.code}`}
-              className="flex size-7 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-text-primary"
+              className={
+                kieuNut === "popup"
+                  ? "flex size-8 items-center justify-center rounded-md text-primary-foreground transition-colors hover:bg-primary-foreground/20"
+                  : "flex size-7 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-text-primary"
+              }
             />
           }
         >
@@ -1299,6 +1310,27 @@ function MenuThaoTacThe({
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+  );
+
+  /* Trong pop-up thì không có gì để chặn — thanh tiêu đề không phải `<Link>`, không kéo-thả. */
+  if (kieuNut === "popup") return than;
+
+  /* 🔴 Chặn cả click lẫn kéo NGAY Ở VỎ BỌC: thẻ cha là <Link> và kéo-thả được. Thiếu
+     preventDefault/stopPropagation thì bấm ⋯ là mở luôn trang chi tiết; thiếu draggable=false
+     thì đè chuột lên nút rồi rê là kéo cả thẻ đi. */
+  return (
+    <span
+      draggable={false}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDragStart={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      {than}
     </span>
   );
 }
