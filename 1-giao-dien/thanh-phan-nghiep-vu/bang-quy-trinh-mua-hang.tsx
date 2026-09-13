@@ -851,9 +851,15 @@ function TheDeNghi({
         {/* Chỉ nói tới tài liệu khi CÓ tài liệu. Mẫu Base luôn hiện "Link phiếu đề..." vì bên đó
             phiếu nào cũng đính kèm; app này cho phép lập phiếu không kèm tệp, hiện nhãn trơ
             là hứa một thứ không có. */}
-        {deNghi.taiLieu && deNghi.taiLieu.length > 0 && (
+        {/* ★ ĐẾM CẢ HAI NGUỒN — sửa 13/09/2026. Trước đó chỉ đếm `taiLieu` (tệp nộp trong app),
+            nên hồ sơ đến từ App Request ẩn hẳn dòng này trong khi mở chi tiết ra lại thấy "5 tệp".
+            Cùng một hồ sơ, hai màn hình nói hai điều khác nhau — người dùng tin màn nào?
+            📌 Phải khớp với cách ô 13 ở trang chi tiết đếm (`soTepDinhKem`). Đổi một bên mà quên
+            bên kia là con số lại lệch. */}
+        {(deNghi.taiLieu?.length ?? 0) + (deNghi.taiLieuAppRequest?.length ?? 0) > 0 && (
           <span>
-            <span className="text-text-secondary">Tài liệu:</span> {deNghi.taiLieu.length} tệp
+            <span className="text-text-secondary">Tài liệu:</span>{" "}
+            {(deNghi.taiLieu?.length ?? 0) + (deNghi.taiLieuAppRequest?.length ?? 0)} tệp
           </span>
         )}
         {/* ★ LINK PHIẾU ĐỀ NGHỊ — thành phần cuối của dòng meta trong Base (*"Link phiếu đề …"*).

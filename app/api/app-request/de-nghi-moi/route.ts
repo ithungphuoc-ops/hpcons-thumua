@@ -92,14 +92,31 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
          * cửa cập nhật — người dùng đã sửa tay tên công trình / số hợp đồng thì phải giữ nguyên.
          */
         const idHoSo = payload.requestId?.trim();
-        if (idHoSo && !trungRoi.idHoSoAppRequest) {
-          const deNghiDaVa = deNghiHienCo.map((d) =>
-            d.maDeXuatAppRequest === payload.requestCode && !d.idHoSoAppRequest
-              ? { ...d, idHoSoAppRequest: idHoSo }
-              : d,
-          );
+        /* ★ VÁ CẢ DANH MỤC TỆP, không riêng id — thêm 13/09/2026 (chiều). Bản đầu chỉ vá
+           `idHoSoAppRequest`, nên hồ sơ về trước hôm nay dù App Request bắn lại bao nhiêu lần
+           thì ô 13 vẫn hiện "—". Cùng một lý do, cùng một chỗ, nên vá luôn cả hai. */
+        const tepMoi = duongDanTepAppRequest(payload.taiLieuDinhKem);
+        const thieuId = Boolean(idHoSo) && !trungRoi.idHoSoAppRequest;
+        const thieuTep = Boolean(tepMoi?.length) && !trungRoi.taiLieuAppRequest?.length;
+
+        if (thieuId || thieuTep) {
+          const deNghiDaVa = deNghiHienCo.map((d) => {
+            if (d.maDeXuatAppRequest !== payload.requestCode) return d;
+            const d2 = { ...d };
+            /* CHỈ ĐIỀN KHI ĐANG TRỐNG, KHÔNG BAO GIỜ ĐÈ — người dùng có thể đã sửa tay. */
+            if (idHoSo && !d2.idHoSoAppRequest) d2.idHoSoAppRequest = idHoSo;
+            if (tepMoi?.length && !d2.taiLieuAppRequest?.length) d2.taiLieuAppRequest = tepMoi;
+            return d2;
+          });
           tx.set(docRef, bo0Undefined({ deNghi: deNghiDaVa }), { merge: true });
-          return { moi: false as const, deNghi: { ...trungRoi, idHoSoAppRequest: idHoSo } };
+          return {
+            moi: false as const,
+            deNghi: {
+              ...trungRoi,
+              ...(thieuId ? { idHoSoAppRequest: idHoSo } : {}),
+              ...(thieuTep ? { taiLieuAppRequest: tepMoi } : {}),
+            },
+          };
         }
         return { moi: false as const, deNghi: trungRoi };
       }
@@ -183,9 +200,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
          * 📌 `undefined` khi App Request không gửi gì — `bo0Undefined` sẽ bỏ hẳn khóa, không để
          * lại mảng rỗng khiến giao diện vẽ ra một khối "Tài liệu đính kèm (0)".
          */
-        taiLieuAppRequest: payload.taiLieuDinhKem?.length
-          ? payload.taiLieuDinhKem.map((t) => ({ ten: t.ten, duongDan: t.url }))
-          : undefined,
+        taiLieuAppRequest: duongDanTepAppRequest(payload.taiLieuDinhKem),
       };
 
       /**
@@ -315,6 +330,44 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
 }
 
 /** Cộng thêm N ngày vào một mốc ISO "YYYY-MM-DD", trả về cùng dạng. */
+/**
+ * ★★ ĐỔI LIÊN KẾT TỆP APP REQUEST GỬI SANG → ĐƯỜNG DẪN BỀN.
+ *
+ * 🔴 SỬA MỘT LỖI ĐO ĐƯỢC 13/09/2026, ngay trong ngày vừa thêm tính năng. Bản đầu lưu thẳng
+ * `t.url` vào `duongDan`. Đọc lại dữ liệu thật của đề nghị `000000086` thì thấy giá trị đã lưu là:
+ *     https://hpcons-request.<tài khoản>.r2.cloudflarestorage.com/requests/74532009-…/tên.pdf
+ *       ?X-Amz-Algorithm=…&X-Amz-Expires=300&X-Amz-Signature=…
+ * — tức một LIÊN KẾT KÝ SẴN SỐNG 5 PHÚT, đã chết ngay lúc người dùng mở hồ sơ ra xem. Cất một
+ * liên kết chết vào cơ sở dữ liệu thì vô dụng, mà tên trường lại hứa là "đường dẫn" nên người
+ * đọc sau tưởng dùng được.
+ *
+ * 👉 Cắt bỏ phần ký, chỉ giữ ĐƯỜNG DẪN trong kho: `requests/74532009-…/tên.pdf`.
+ * Khuôn này khớp đúng trường `attachments[].path` mà App Request lưu trong Firestore của họ (đã
+ * đối chiếu cùng ngày), nên về sau muốn ký lại để tải, hoặc muốn đối chiếu xem đúng tệp nào, thì
+ * đều dùng được.
+ *
+ * ⚠️ Giữ NGUYÊN chuỗi gốc khi không phân tích được thành địa chỉ web — thà lưu một giá trị lạ để
+ * người sau còn nhìn thấy mà lần, hơn là bỏ trắng rồi không ai biết đã từng có gì.
+ */
+function duongDanTepAppRequest(
+  ds: { ten: string; url: string }[] | undefined,
+): { ten: string; duongDan?: string }[] | undefined {
+  if (!ds?.length) return undefined;
+  return ds.map((t) => {
+    const tho = (t.url ?? "").trim();
+    if (tho === "") return { ten: t.ten };
+    try {
+      /* `pathname` đã bỏ chuỗi truy vấn (phần `?X-Amz-…`); bỏ nốt dấu `/` đầu cho khớp khuôn
+         `attachments[].path` của App Request. `decodeURIComponent` để tên tệp tiếng Việt đọc
+         được, không phải dãy `%C3%A0`. */
+      const duong = new URL(tho).pathname.replace(/^\/+/, "");
+      return { ten: t.ten, duongDan: decodeURIComponent(duong) || tho };
+    } catch {
+      return { ten: t.ten, duongDan: tho };
+    }
+  });
+}
+
 function congThemNgay(iso: string, soNgay: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + soNgay);
