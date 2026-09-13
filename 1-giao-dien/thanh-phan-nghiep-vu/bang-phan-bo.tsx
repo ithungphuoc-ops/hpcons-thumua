@@ -7,7 +7,8 @@ import {
   ArrowLeftRight,
   MoreHorizontal,
   Plus,
-  Trash2,
+  /* 📌 KHÔNG còn `Trash2` (13/09/2026): nút xoá dòng đã bỏ theo chỉ đạo Sếp — xem khối chú
+     thích tại chỗ ô thao tác cũ trong bảng. */
   UserPlus,
   X,
 } from "lucide-react";
@@ -585,11 +586,9 @@ export function BangPhanBo({
                     với chính cái nút nằm dưới. `sr-only` cho trình đọc màn hình biết cột này là gì.
                     ⚠️ KHÔNG dùng lớp `sr-only` bên trong khung cuộn ngang mà thiếu tổ tiên định
                     vị — ở đây `<th>` là ô bảng nên có ngữ cảnh riêng, không thoát ra ngoài. */}
-                {quyen.phanBoCongViec && (
-                  <TableHead className="w-11">
-                    <span className="sr-only">Thao tác</span>
-                  </TableHead>
-                )}
+                {/* 🔴 ĐÃ BỎ CỘT THAO TÁC (nút xoá dòng) — Ban lãnh đạo 13/09/2026: *"Bỏ mục xoá
+                    này"*. Bỏ cả ô tiêu đề lẫn ô dữ liệu để bảng không thừa một cột rỗng.
+                    Xem khối chú thích ở chỗ ô dữ liệu bên dưới để biết hệ quả. */}
                 <TableHead className="w-12 text-right">Dòng</TableHead>
                 <TableHead>Vật liệu</TableHead>
                 {/* 🔴 GỘP ĐVT VÀO CỘT KHỐI LƯỢNG — Ban lãnh đạo 12/08/2026 yêu cầu tối ưu.
@@ -618,29 +617,28 @@ export function BangPhanBo({
                         />
                       </TableCell>
                     )}
-                    {/* ★ Ô THAO TÁC — nằm BÊN TRÁI theo chỉ đạo 20/08/2026.
-                        🔴 Ô VẪN VẼ RA dù dòng không xoá được (`xoaDuoc` sai): bỏ hẳn ô là bảng
-                        thiếu một `<td>` ở hàng đó, các ô sau bị đẩy lệch so với tiêu đề — lỗi
-                        bảng kinh điển, và chỉ lộ ra ở đúng những hàng đã lên đơn.
-                        📌 Vẫn hỏi lại một câu trước khi xoá: mất một dòng vật tư khỏi chứng từ
-                        không lùi lại được. */}
-                    {quyen.phanBoCongViec && (
-                      <TableCell className="w-11">
-                        {xoaDuoc(d.stt) && (
-                          <button
-                            type="button"
-                            onClick={() => setHoiXoa({ stt: d.stt, ten: d.tenVatLieu })}
-                            aria-label={`Xóa ${d.tenVatLieu} khỏi đề nghị`}
-                            title="Xóa dòng này khỏi đề nghị"
-                            /* 44×44 theo Design System V1.1 — đây là nút XOÁ, bấm trượt trên máy
-                               tính bảng là mất một dòng vật tư. */
-                            className="flex size-11 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-danger"
-                          >
-                            <Trash2 className="size-4 shrink-0" aria-hidden />
-                          </button>
-                        )}
-                      </TableCell>
-                    )}
+                    {/**
+                     * 🔴🔴 ĐÃ BỎ HẲN NÚT XOÁ DÒNG — Ban lãnh đạo 13/09/2026: *"Bỏ mục xoá này"*.
+                     *
+                     * ⚠️ ĐÂY LÀ ĐỔI LUẬT NGHIỆP VỤ, KHÔNG PHẢI DỌN GIAO DIỆN. Em đã báo Sếp
+                     * trước khi làm và Sếp chốt "bỏ hẳn, không cho xoá dòng nữa". Ghi lại đủ hệ
+                     * quả để phiên sau không tưởng đây là sơ suất:
+                     *
+                     * Nút này là LỐI VÀO DUY NHẤT để xoá một dòng vật tư — `xoaMatHang` chỉ tồn
+                     * tại trong tệp này, đã grep toàn app. Cộng thêm việc menu ⋯ (chứa "Chỉnh sửa
+                     * trường dữ liệu", chỗ DUY NHẤT sửa nội dung một dòng đã nhập) cũng vừa bị ẩn
+                     * ngày 13/09, thì từ nay một dòng vật tư nhập sai:
+                     *     · KHÔNG sửa được  (menu ⋯ đang ẩn)
+                     *     · KHÔNG xoá được  (nút này đã bỏ)
+                     * → chỉ chữa được bằng cách sửa thẳng cơ sở dữ liệu.
+                     *
+                     * 📌 MÃ XOÁ VẪN CÒN, KHÔNG XOÁ: `xoaMatHang` và hộp xác nhận `hoiXoa` giữ
+                     * nguyên phía dưới. Bật lại chỉ là thêm lại một nút gọi `setHoiXoa`, không
+                     * phải dựng lại luật (luật `xoaDuoc` — cấm xoá dòng đã lên đơn — vẫn nguyên).
+                     *
+                     * ⚠️ ĐÃ BỎ CẢ Ô TIÊU ĐỀ Ở `<TableHeader>`. Bỏ một bên là bảng lệch cột —
+                     * lỗi bảng kinh điển, và chỉ lộ ra ở đúng vài hàng.
+                     */}
                     <TableCell className="text-right text-text-desc">{d.stt}</TableCell>
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
@@ -1105,7 +1103,28 @@ export function BangPhanBo({
         nhanDongY="Xóa"
         nguyHiem
         onDong={() => setHoiXoa(null)}
-        onDongY={() => hoiXoa && xoaMatHang(hoiXoa.stt)}
+        /**
+         * ★ CHỐT PHÒNG THỦ — thêm 13/09/2026 cùng lúc bỏ nút xoá.
+         *
+         * Nút gọi hộp này đã bỏ, nên bình thường hộp không mở. Nhưng `xoaDuoc` (luật: KHÔNG
+         * cho xoá dòng đã lên đơn hàng) vì thế cũng mất chỗ dùng. Thay vì để luật đó thành mã
+         * chết rồi ai đó dọn đi, đưa nó vào ĐÂY làm chốt cuối:
+         * ai bật lại nút xoá sau này mà quên kiểm `xoaDuoc` thì vẫn không xoá nhầm được dòng
+         * đã lên đơn.
+         *
+         * 📌 Đây là chốt THỨ HAI, không phải chốt duy nhất — luật đầy đủ vẫn ở
+         * `suaMatHangDeNghi` (tầng ghi dữ liệu).
+         */
+        onDongY={() => {
+          if (!hoiXoa) return;
+          if (!xoaDuoc(hoiXoa.stt)) {
+            toast.error("Không xóa được dòng này", {
+              description: "Dòng đã nằm trong một đơn hàng — hủy đơn trước rồi mới xóa được.",
+            });
+            return;
+          }
+          xoaMatHang(hoiXoa.stt);
+        }}
       />
     </Card>
   );

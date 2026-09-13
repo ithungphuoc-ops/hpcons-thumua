@@ -1625,30 +1625,43 @@ export default function TrangChiTietDeNghi({
 
                             {daDuyet ? (
                               <>
+                                {/* ❌ ĐÃ BỎ KHỐI "Giải trình của Trưởng bộ phận" — Ban lãnh đạo
+                                    13/09/2026 khoanh đúng ô chữ này trong khối "Xét duyệt phương
+                                    án giá" và yêu cầu bỏ. Cùng lần đó bỏ luôn câu thay thế
+                                    *"Bảng này được duyệt trước khi app bắt ghi giải trình…"* —
+                                    giữ lại là vẫn còn một dòng nói về giải trình, đúng thứ Sếp
+                                    muốn dọn khỏi màn hình.
+
+                                    🔴 CHỈ BỎ PHẦN HIỂN THỊ. DỮ LIỆU GIỮ NGUYÊN, KHÔNG ĐƯỢC DỌN.
+                                    Trường `bg.lyDoChonNCC` vẫn được ghi khi duyệt
+                                    (`chonNCCChoBaoGia` trong `3-du-lieu/kho-du-lieu.tsx`) và vẫn
+                                    được đọc ở HAI chỗ để tra ra BẢN BÁO GIÁ NÀO ĐÃ ĐƯỢC DUYỆT:
+                                      · `tepBaoGiaDaDuyet(dn, bg.lyDoChonNCC)` ở ngay phía trên
+                                        (đầu vào bước ③ — dòng "Bản báo giá được chọn"). Hàm này
+                                        đọc dấu `[Báo giá NCC n]` mà hộp duyệt ghép vào đầu căn
+                                        cứ duyệt, chứ không đọc nghĩa của câu chữ;
+                                      · `2-quy-trinh/bo-ho-so-thanh-toan.ts` khi gom bộ hồ sơ
+                                        thanh toán.
+                                    Vì vậy tuyệt đối không đụng vào `2-quy-trinh/bao-gia-dinh-kem.ts`
+                                    (`tepBaoGiaDaDuyet`): dọn "cho sạch" ở đó là app mất đường tra
+                                    bản báo giá được duyệt, mà không có lỗi nào báo.
+
+                                    ⚠️ CÁI GIÁ CỦA VIỆC BỎ — đã grep toàn dự án ngày 13/09/2026:
+                                    ĐÂY LÀ CHỖ DUY NHẤT app hiện nội dung căn cứ / giải trình cho
+                                    người đọc. Nhật ký hồ sơ cố ý không chép lại (`ghiLichSuDeNghi`
+                                    chỉ ghi *"Chốt nhà cung cấp cho bảng báo giá …"* để không rò
+                                    tên NCC sang vai trò không được xem). Nên từ nay chữ trưởng bộ
+                                    phận gõ ở ô "Căn cứ duyệt" trong hộp xác nhận VẪN ĐƯỢC LƯU
+                                    nhưng KHÔNG CÒN CHỖ NÀO ĐỌC LẠI trên giao diện. Đã báo lại để
+                                    Sếp quyết: hoặc bỏ luôn ô nhập đó, hoặc mở lại một chỗ đọc.
+                                    Giữ ô nhập mà không có chỗ đọc chính là kiểu "giao diện hứa
+                                    một việc app không làm" mà CLAUDE.md §3.5 cấm. */}
                                 {quyen.xemNhaCungCap && bg.nccDaChonTen && (
                                   <p className="text-sm text-text-secondary">
                                     Nhà cung cấp được duyệt:{" "}
                                     <strong className="text-text-primary">
                                       {bg.nccDaChonTen}
                                     </strong>
-                                  </p>
-                                )}
-                                {/* Giải trình với Ban lãnh đạo — hiện thẳng tại hồ sơ. */}
-                                {bg.lyDoChonNCC ? (
-                                  <div className="rounded-lg border border-border bg-muted p-(--hp-md-row-pad)">
-                                    <p className="text-xs font-semibold text-text-desc uppercase">
-                                      Giải trình của Trưởng bộ phận
-                                    </p>
-                                    <p className="mt-1 text-sm text-text-primary">
-                                      {bg.lyDoChonNCC}
-                                    </p>
-                                  </div>
-                                ) : (
-                                  /* Hồ sơ duyệt trước khi có luật bắt ghi giải trình thì trống —
-                                     nói thật là trống, đừng để người đọc tưởng chưa tải xong. */
-                                  <p className="text-xs text-text-desc">
-                                    Bảng này được duyệt trước khi app bắt ghi giải trình, nên
-                                    không có nội dung giải trình.
                                   </p>
                                 )}
                               </>
@@ -1714,10 +1727,16 @@ export default function TrangChiTietDeNghi({
 
                                 ⚠️ CHỈ BỎ CẶP NÚT, TUYỆT ĐỐI KHÔNG XÓA CẢ KHỐI. Khối "Xét duyệt
                                 phương án giá" còn là nơi hiển thị DUY NHẤT của: badge trạng thái ·
-                                tên NCC được duyệt · "Giải trình của Trưởng bộ phận" (chốt
-                                19/08/2026) · toàn bộ lịch sử "Trưởng bộ phận đã trả lại"
+                                tên NCC được duyệt · toàn bộ lịch sử "Trưởng bộ phận đã trả lại"
                                 (`lanTraLai`). Màn `bao-gia-chi-tiet.tsx` từng hiện chúng ĐÃ BỊ XÓA,
                                 nên mất ở đây là mất khỏi app.
+
+                                📌 SỬA DANH SÁCH TRÊN NGÀY 13/09/2026: trước đây dòng này còn kể cả
+                                *"Giải trình của Trưởng bộ phận" (chốt 19/08/2026)*. Ban lãnh đạo đã
+                                cho bỏ phần hiển thị đó (xem chú thích tại chỗ bỏ, phía trên trong
+                                cùng khối này). Phải sửa danh sách cho khớp thực tế, nếu không phiên
+                                sau đọc thấy "hiển thị duy nhất" rồi đi khôi phục lại đúng cái Sếp
+                                vừa yêu cầu bỏ.
 
                                 📌 "Không duyệt" KHÔNG mồ côi: hộp thoại chung có ô sổ xuống "Quyết
                                 định của trưởng bộ phận" với hai lựa chọn Đồng ý / Không đồng ý — bấm
@@ -3089,26 +3108,37 @@ export default function TrangChiTietDeNghi({
       <HopXacNhan
         mo={hoiDuyet !== null}
         tieuDe={hoiDuyet?.loai === "duyet" ? "Duyệt phương án giá?" : "Không duyệt bảng báo giá?"}
+        /**
+         * ★ RÚT GỌN CÒN MỘT CÂU XÁC NHẬN — Ban lãnh đạo 13/09/2026 khoanh cả hộp này và ghi
+         * *"bỏ các ghi chú"*. Đã bỏ: vế "Phiếu chuyển sang bước …" ở chiều duyệt, vế "Tệp đính
+         * kèm và đề xuất vẫn giữ nguyên" ở chiều trả lại, và toàn bộ `canhBao` (khung vàng).
+         *
+         * 🔴 GIỮ LẠI ĐÚNG MỘT THỨ TRONG CÂU NÀY: **tên ô báo giá đang duyệt** (`hoiDuyet.nhanO`).
+         * Đây không phải câu diễn giải mà là thứ duy nhất cho biết ĐANG DUYỆT BẢN NÀO — hộp mở
+         * từ nút tắt "Duyệt bản này" ở bước ②, và hồ sơ có nhiều bản đính kèm thì bỏ dòng này đi
+         * là người duyệt bấm Duyệt mà không biết mình vừa chốt bản nào. Cùng chuỗi `nhanO` đó
+         * được ghép vào căn cứ duyệt ở `onDongY` để sau này tra ngược ra tệp được chọn.
+         *
+         * 📌 Bỏ vế "Phiếu chuyển sang bước …" KHÔNG làm mất thông tin: toast sau khi duyệt vẫn
+         * báo đúng bước kế tiếp, và cột bước trên trang tự đổi ngay.
+         *
+         * ⚠️ Vế `— chọn ${nccDuyet}` cũng đi theo. Ô nhập tên nhà cung cấp đã bị bỏ từ
+         * 23/08/2026 nên `nccDuyet` gần như luôn rỗng; biến vẫn được dùng ở `onDongY` bên dưới
+         * (hồ sơ cũ còn tên thì điền hộ), đừng tưởng nó thành thừa rồi xóa.
+         */
         moTa={
           hoiDuyet?.loai === "duyet"
-            ? /* ★ DỌN TÀN DƯ CỦA Ô TÊN NCC ĐÃ GỠ — sửa 13/09/2026 (em tự phát hiện khi rà, Sếp
-                 không khoanh; đã báo Sếp trước khi sửa).
-                 Bản cũ viết `nccDuyet.trim() || "…"`, mà ô nhập tên nhà cung cấp đã bị bỏ từ
-                 23/08/2026 nên `nccDuyet` RỖNG với MỌI lần duyệt — hộp luôn in ra
-                 *"Duyệt Báo giá NCC 1 — chọn …."*, bốn dấu chấm đứng trơ không ai hiểu là gì.
-                 👉 Có tên thì nói tên, không có thì bỏ hẳn vế "chọn …" thay vì in dấu lấp chỗ. */
-              `${hoiDuyet.nhanO ? `Duyệt ${hoiDuyet.nhanO}` : "Duyệt phương án giá"}${
-                nccDuyet.trim() ? ` — chọn ${nccDuyet.trim()}` : ""
-              }. Phiếu chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`
+            ? hoiDuyet.nhanO
+              ? `Duyệt ${hoiDuyet.nhanO} của đề nghị ${dn.code}.`
+              : `Duyệt phương án giá của đề nghị ${dn.code}.`
             : hoiDuyet
-              ? `Bảng báo giá sẽ quay về bước “${NHAN_GIAI_DOAN.yeu_cau_bao_gia.nhan}” để nhân viên bổ sung rồi trình lại. Tệp đính kèm và đề xuất vẫn giữ nguyên.`
+              ? `Trả bảng báo giá của đề nghị ${dn.code} về bước “${NHAN_GIAI_DOAN.yeu_cau_bao_gia.nhan}”.`
               : undefined
         }
-        canhBao={
-          hoiDuyet?.loai === "duyet"
-            ? "Ghi được căn cứ thì tốt — về sau đọc hồ sơ biết vì sao chọn bên này. Để trống vẫn duyệt được."
-            : "Lý do sẽ hiện cho nhân viên phụ trách đọc, và lưu lại trong hồ sơ bảng báo giá."
-        }
+        /* 🔴 KHÔNG TRUYỀN `canhBao` NỮA = KHÔNG CÒN KHUNG VÀNG (Ban lãnh đạo 13/09/2026).
+           Chốt chặn KHÔNG mất theo: chiều "Không đồng ý" vẫn bắt buộc ghi lý do qua `khoaDongY`
+           bên dưới, và câu khóa đó vẫn hiện ra nói rõ còn thiếu gì. Ở đây chỉ bỏ lời nhắc nhở,
+           không bỏ luật. */
         nhanDongY={hoiDuyet?.loai === "duyet" ? "Duyệt" : "Không duyệt, trả lại"}
         nguyHiem={hoiDuyet?.loai === "khong_duyet"}
         /**
@@ -3282,16 +3312,20 @@ export default function TrangChiTietDeNghi({
               ? "Căn cứ duyệt (không bắt buộc)"
               : "Vì sao không đồng ý *"}
           </Label>
+          {/* ★ ĐÃ BỎ CHỮ GỢI Ý TRONG Ô (placeholder) — Ban lãnh đạo 13/09/2026 *"bỏ các ghi
+              chú"*. Hai câu cũ là ví dụ dài (*"Ví dụ: đồng ý với đề xuất — giá thấp hơn 4,2%…"*),
+              thuộc diện câu diễn giải Sếp muốn dọn.
+
+              🔴 Ô NHẬP THÌ GIỮ NGUYÊN, chỉ bỏ chữ gợi ý bên trong. Nhãn ô vẫn nói đủ phải ghi gì
+              và có bắt buộc hay không, nên bỏ placeholder không làm ai mất phương hướng.
+
+              ⚠️ Chiều "Không đồng ý" vẫn BẮT BUỘC có lý do — luật nằm ở `khoaDongY` phía trên,
+              không nằm ở chữ gợi ý này. */}
           <Textarea
             id="ly-do-duyet-bao-gia"
             rows={3}
             value={lyDoDuyet}
             onChange={(e) => setLyDoDuyet(e.target.value)}
-            placeholder={
-              hoiDuyet?.loai === "duyet"
-                ? "Ví dụ: đồng ý với đề xuất — giá thấp hơn 4,2%, giao đúng tiến độ đợt 1."
-                : "Ví dụ: thiếu báo giá bên thứ ba; đơn giá thép cao hơn mặt bằng, hỏi lại nhà cung cấp."
-            }
           />
         </div>
       </HopXacNhan>

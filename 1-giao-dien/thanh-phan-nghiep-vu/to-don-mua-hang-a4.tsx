@@ -690,8 +690,35 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           <p className="font-semibold">Bên mua hàng</p>
           {/* Ô B29/G29 của biểu mẫu: NGHIÊNG, màu đen, cùng cỡ 12pt với dòng trên. */}
           <p className="text-[11px] italic">(Ký, họ tên)</p>
+          {/**
+            * ★★ ĐÃ BỎ DÒNG IN SẴN TÊN NGƯỜI PHỤ TRÁCH ở ngay dưới khoảng trống ký tay
+            * (Ban lãnh đạo 13/09/2026: *"Bỏ tên người lập khỏi bản in PO"*).
+            *
+            * Trước đây chỗ này in `po.nguoiPhuTrachTen` bằng máy. Nay tờ đơn gửi nhà cung cấp
+            * chỉ còn ô trống dưới chữ *"(Ký, họ tên)"* để người ký tự ghi tay — giống hệt cột
+            * "Xác nhận của nhà cung cấp" bên trái.
+            *
+            * 🔴 CHỈ BỎ DÒNG IN, KHÔNG BỎ TRƯỜNG DỮ LIỆU. `nguoiPhuTrachTen` vẫn còn nguyên
+            * trong `DonDatHang` và vẫn đang được 19 file khác dùng (màn chi tiết đơn, bảng phân
+            * bổ, việc của tôi, xuất Excel…). Ai thấy chỗ này trống rồi đi xoá trường đó là làm
+            * hỏng phân công công việc của cả phòng.
+            *
+            * ⚠️ CÁI GIÁ CỦA VIỆC BỎ: tờ giấy không còn cho biết ai bên mua chịu trách nhiệm đơn
+            * này khi chữ ký tay khó đọc. Chấp nhận được vì tờ đơn VẪN CÒN một người bên mua có
+            * tên và số điện thoại ở khối điều khoản phía trên — dòng "Người nhận hàng" /
+            * "Số điện thoại" (xem quanh dòng 524). Nhà cung cấp vẫn có đầu mối để liên hệ.
+            *
+            * 📌 VỀ BỐ CỤC — ĐÃ CÂN NHẮC, CỐ Ý KHÔNG CHÈN Ô GIỮ CHIỀU CAO:
+            *   · Hai cột nằm trong `grid grid-cols-2`, mà cột trái ("Xác nhận của nhà cung cấp")
+            *     xưa nay vẫn chỉ có: tiêu đề → "(Ký, họ tên)" → `h-20`. Bỏ dòng tên đi thì hai
+            *     cột thành GIỐNG HỆT NHAU, chữ ký hai bên ngang hàng — cân hơn lúc trước chứ
+            *     không bị sụp hay lệch.
+            *   · Khoảng trống để ký (`h-20`, ≈21mm) GIỮ NGUYÊN, không đụng tới.
+            *   · Cả khối chữ ký chỉ ngắn đi đúng một dòng chữ (~4mm) ở CUỐI tờ. Tờ ngắn lại thì
+            *     không bao giờ đẩy nội dung tràn sang trang 2 — nên đây là chiều thay đổi an toàn.
+            *     Chèn thêm ô trống cho "đủ chiều cao cũ" chỉ là khoảng trắng vô nghĩa cuối trang.
+            */}
           <div className="h-20" />
-          <p className="font-medium">{po.nguoiPhuTrachTen}</p>
         </div>
       </section>
     </article>

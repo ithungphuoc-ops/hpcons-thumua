@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Minus, Plus } from "lucide-react";
+import { Lock, Minus, Plus } from "lucide-react";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 
 /**
  * Ô "SL BÁO GIÁ" trong phần ĐẦU VÀO của bước ②.
@@ -25,7 +26,45 @@ import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
  *    XÓA SẠCH số riêng của từng dòng mà trưởng bộ phận vừa giao — mà không có gì báo, và
  *    không hoàn lại được. Nay chỉ cho bấm khi mọi dòng đang CÙNG một số; các dòng khác nhau
  *    thì ô này chỉ đọc và chỉ đường sang bảng Phân bổ — nơi con số thuộc về.
+ *
+ * ---
+ * # 🔴 NHÂN VIÊN CHỈ ĐƯỢC TĂNG, KHÔNG ĐƯỢC HẠ (13/09/2026)
+ *
+ * Ban lãnh đạo 13/09/2026, chữ viết tay trên ảnh: *"ở tài khoản nhân viên — 1. Chỉ được tăng số
+ * lượng báo giá, ko được bấm giảm số lượng"*.
+ *
+ * **VÌ SAO.** Con số này không phải tùy chọn của người đang thao tác — nó là **yêu cầu trưởng bộ
+ * phận giao cho nhân viên** lúc phân bổ ở bước ① (*"đi lấy đủ 3 báo giá rồi hãy trình"*). Cho
+ * nhân viên tự hạ xuống là để người thi hành tự nới cái luật đang chấm chính mình: hồ sơ trở nên
+ * "đủ điều kiện trình xét duyệt" trong khi thực tế chỉ có một nhà cung cấp chào giá, và nhật ký
+ * chỉ ghi *"đã đổi thành 1 báo giá"* chứ không hề nói rằng một chốt kiểm soát vừa bị gỡ. Người
+ * duyệt sau đó không có cách nào nhìn ra.
+ *
+ * ⚠️ **KHÓA ĐÚNG MỘT CHIỀU — chiều TĂNG phải để nguyên.** Số ô đính kèm báo giá chạy theo chính
+ * con số này (`khu-bao-gia-theo-so-luong.tsx`), nên khóa cả hai chiều là nhân viên **không mở
+ * thêm được ô** khi có nhiều nhà cung cấp cùng chào giá — chặn đúng việc cần làm. Lấy được nhiều
+ * báo giá hơn yêu cầu là việc tốt, không có gì phải chặn.
+ *
+ * 📌 **CÁI GIÁ, chấp nhận có chủ đích:** nhân viên bấm nhầm lên 9 thì **tự sửa lại không được**,
+ * phải nhờ trưởng bộ phận (hoặc quản trị) hạ giúp. Đây đúng là điều chỉ đạo yêu cầu, không phải
+ * sơ suất — đừng "chữa" bằng cách mở lại nút trừ khi số vừa tăng trong phiên này.
+ *
+ * ⚠️ `chiTangDuoc` **không bắt buộc, và khi không truyền thì ô này TỰ TRA QUYỀN** từ
+ * `useNguoiDung()`. Cố ý như vậy: nếu để mặc định là "cho hạ như cũ" thì chốt chặn chỉ có hiệu
+ * lực sau khi có người nhớ truyền prop ở nơi gọi (`de-nghi-chi-tiet.tsx`) — tức chỉ đạo trên
+ * **chưa được thi hành mà không có một dấu hiệu nào báo**, đúng kiểu hỏng im lặng mà dự án này
+ * đã dính nhiều lần. Nơi gọi vẫn truyền prop tường minh được, và prop sẽ được ưu tiên.
  */
+
+/**
+ * Lý do khóa nút trừ — dùng cho cả `title` (rê chuột) lẫn `aria-label` (trình đọc màn hình).
+ *
+ * 🔴 PHẢI NÓI RA AI MỞ ĐƯỢC, không chỉ nói "không được phép". Nhân viên gặp nút xám mà không
+ * biết đi hỏi ai thì sẽ đi hỏi vòng quanh, hoặc tệ hơn là tưởng app lỗi.
+ */
+const LY_DO_KHOA_HA =
+  "Chỉ trưởng bộ phận (hoặc quản trị) mới hạ được số báo giá — Ban lãnh đạo 13/09/2026. " +
+  "Tài khoản nhân viên chỉ được tăng.";
 
 /** Chặn trên cho số báo giá. Không phải luật công ty, chỉ là ngưỡng bắt lỗi gõ nhầm. */
 const SO_BAO_GIA_TOI_DA = 20;
@@ -65,13 +104,34 @@ export function tongHopSoBaoGia(deNghi: DeNghiMuaHang):
 export function OSuaSoBaoGia({
   deNghi,
   duocSua,
+  chiTangDuoc,
   onLuu,
 }: {
   deNghi: DeNghiMuaHang;
   /** Đủ quyền và hồ sơ chưa đóng. Không đủ thì chỉ hiện con số. */
   duocSua: boolean;
+  /**
+   * Chỉ cho TĂNG — khóa nút "−". **Bỏ trống thì tự tra quyền `phanBoCongViec`** (xem khối chú
+   * thích *"nhân viên chỉ được tăng"* ở đầu file, và lý do vì sao mặc định không phải là "cho hạ").
+   */
+  chiTangDuoc?: boolean;
   onLuu: (so: number) => void;
 }) {
+  /**
+   * 🔴 TRA QUYỀN NGAY TẠI ĐÂY khi nơi gọi không nói gì.
+   *
+   * `phanBoCongViec` = trưởng bộ phận thu mua cấp ≥3 và quản trị — đúng những người ĐẶT ra con số
+   * này lúc phân bổ công việc, nên cũng là những người được hạ nó xuống. Nhân viên thu mua chỉ có
+   * `lapPO`, không có cờ này.
+   *
+   * ⚠️ `useNguoiDung()` NÉM LỖI nếu nằm ngoài `<CurrentUserProvider>`. Ô này chỉ được dựng trong
+   * `de-nghi-chi-tiet.tsx` — trang đó tự nó đã gọi `useNguoiDung()` nên provider chắc chắn có.
+   * Nếu sau này đem ô này ra dùng ở chỗ khác (trang in A4 chẳng hạn) thì phải truyền `chiTangDuoc`
+   * tường minh, đừng để nó tự tra.
+   */
+  const { quyen } = useNguoiDung();
+  const chiTang = chiTangDuoc ?? !quyen.phanBoCongViec;
+
   const tongHop = tongHopSoBaoGia(deNghi);
   /** Số đang áp cho cả phiếu — chỉ có khi mọi dòng cùng một số. */
   const soChung = tongHop.loai === "chung" ? tongHop.so : undefined;
@@ -162,7 +222,13 @@ export function OSuaSoBaoGia({
     );
   }
 
-  const giamDuoc = so !== undefined && so > 1;
+  /**
+   * Khóa vì QUYỀN — khác hẳn "đang ở mức 1 nên không trừ được nữa". Hai lý do khác nhau thì phải
+   * nói ra hai câu khác nhau: bị chặn vì mức sàn thì lát nữa tăng lên là trừ lại được, còn bị
+   * chặn vì quyền thì bấm bao nhiêu lần cũng vậy, người dùng cần biết ngay để đi nhờ đúng người.
+   */
+  const khoaHaVaiTro = chiTang;
+  const giamDuoc = !khoaHaVaiTro && so !== undefined && so > 1;
   const tangDuoc = (so ?? 0) < SO_BAO_GIA_TOI_DA;
 
   /**
@@ -178,15 +244,41 @@ export function OSuaSoBaoGia({
    */
   return (
     <span className="-my-1.5 flex w-fit items-center gap-0.5">
+      {/* 🔴 NÚT TRỪ — khóa cứng với tài khoản nhân viên (chỉ đạo 13/09/2026, xem đầu file).
+          ĐỔI HẲN BIỂU TƯỢNG SANG Ổ KHÓA, không chỉ làm mờ nút trừ: Design System V1.1 đòi trạng
+          thái phải đọc ra được bằng cả hình lẫn chữ, chứ không chỉ bằng độ mờ — mà nút này vốn
+          ĐÃ có một trạng thái mờ khác (đang ở mức 1). Hai thứ mờ giống hệt nhau thì người dùng
+          không phân biệt được "hết trừ được" với "không có quyền trừ", và sẽ ngồi đợi số tăng
+          lên để trừ lại — việc không bao giờ xảy ra.
+          📌 Lý do đầy đủ nằm ở `title` + `aria-label`, KHÔNG in thành câu trên màn: ô này nằm
+          trong lưới trường "ĐẦU VÀO" một dòng, và Ban lãnh đạo 18/08/2026 đã yêu cầu bỏ chú
+          thích in kèm ở đúng chỗ này (*"bỏ ghi chú kiểu này đi"*). Câu giải thích đầy đủ có mặt
+          ở hộp "Chỉnh sửa các trường dữ liệu tùy chỉnh", nơi có chỗ cho chữ. */}
       <button
         type="button"
         onClick={() => setSo((v) => (v !== undefined && v > 1 ? v - 1 : v))}
         disabled={!giamDuoc}
-        className="flex size-11 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label="Bớt một báo giá"
-        title={giamDuoc ? "Bớt một báo giá" : "Ít nhất phải lấy 1 báo giá"}
+        className={
+          khoaHaVaiTro
+            ? /* Khóa vì quyền: KHÔNG dùng `opacity-40` — ổ khóa mờ tịt thì nhìn không ra là ổ
+                 khóa, mất luôn thứ duy nhất phân biệt nó với nút trừ đang hết lượt. */
+              "flex size-11 cursor-not-allowed items-center justify-center rounded-md text-text-desc"
+            : "flex size-11 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        }
+        aria-label={khoaHaVaiTro ? LY_DO_KHOA_HA : "Bớt một báo giá"}
+        title={
+          khoaHaVaiTro
+            ? LY_DO_KHOA_HA
+            : giamDuoc
+              ? "Bớt một báo giá"
+              : "Ít nhất phải lấy 1 báo giá"
+        }
       >
-        <Minus className="size-3.5" aria-hidden />
+        {khoaHaVaiTro ? (
+          <Lock className="size-3.5" aria-hidden />
+        ) : (
+          <Minus className="size-3.5" aria-hidden />
+        )}
       </button>
 
       {/* `tabular-nums` + bề rộng cố định: con số không nhảy ngang khi đổi từ 9 sang 10.

@@ -433,13 +433,38 @@ export function FormLapDonMuaHang({
   /** `""` chưa chọn · `"__moi__"` gõ tay · còn lại là mã dự án đã có. */
   const [duAnChon, setDuAnChon] = useState("");
   /**
-   * ★ TÊN NHÂN VIÊN MUA HÀNG in trên tờ đơn — mở cho sửa 26/08/2026 (Ban lãnh đạo).
+   * ❌ ĐÃ BỎ STATE `tenNhanVienMua` — Ban lãnh đạo 13/09/2026 yêu cầu bỏ ô nhập "Nhân viên mua
+   * hàng" khỏi form lập đơn (chỉ đạo đọc từ ảnh chụp màn hình, khoanh đúng ô này).
    *
-   * 🔴 Khởi tạo bằng người đang lập, nhưng KHÔNG khóa: người lập đơn trong app không nhất thiết
-   * là người đứng tên mua hàng trên chứng từ. Ghi vào `DonDatHang.nguoiPhuTrachTen`; mã
-   * `nguoiPhuTrachUid` vẫn là người đang lập — xem chú thích tại ô nhập.
+   * VÌ SAO BỎ ĐƯỢC STATE: nó chỉ phục vụ MỘT ô nhập duy nhất. Bỏ ô đi thì không còn chỗ nào ghi
+   * vào nó, giữ lại là một biến chết mà `strict` cũng không báo.
+   *
+   * 🔴 TRƯỜNG DỮ LIỆU `DonDatHang.nguoiPhuTrachTen` VẪN GIỮ NGUYÊN, ĐỪNG DỌN THEO. Đã grep:
+   * trường đó đang được ĐỌC ở hơn 10 chỗ khác — thẻ Kanban (`bang-quy-trinh-mua-hang.tsx`),
+   * trang chi tiết đơn, danh sách đơn hàng, bảng phân bổ, bảng năng lực nhân viên, việc-của-tôi,
+   * theo-dõi, `2-quy-trinh/giai-doan-mua-hang.ts`… Bỏ trường là gãy hết chỗ đó.
+   *
+   * 👉 TỪ NAY TÊN LUÔN LÀ NGƯỜI ĐANG LẬP ĐƠN (`nguoiDung.tenHienThi`), gán thẳng ở hai chỗ dựng
+   * đơn (`dungDonMau()` và `luu()`). Không còn đường nào nhập tên khác.
+   *
+   * ⚠️ CÁI GIÁ PHẢI BIẾT: trước đây ô này mở cho sửa (Ban lãnh đạo 26/08/2026) đúng vì *"người
+   * lập đơn trong app không nhất thiết là người đứng tên mua hàng trên chứng từ"* — trưởng bộ
+   * phận lập thay thì tờ đơn ghi tên trưởng bộ phận. Bỏ ô là mất khả năng chữa việc đó ngay tại
+   * form; muốn đổi người phụ trách thật thì vào bảng Phân bổ công việc.
+   *
+   * 📌 Rủi ro này NHẸ HƠN nghe ban đầu: tờ in A4 KHÔNG còn in `nguoiPhuTrachTen` bằng máy nữa
+   * (xem `to-don-mua-hang-a4.tsx`, chỗ đó nay chừa cho ký tay), nên giá trị này chỉ còn dùng
+   * trong các màn nội bộ của app — mà các màn đó thì lấy đúng người đang thao tác mới là đúng.
+   *
+   * 🔴 SỬA MỘT CHÚ THÍCH SAI NGÀY (13/09/2026, một lượt soát chéo độc lập bắt được). Bản đầu
+   * của chú thích này ghi *"từ 07/09/2026 tờ in A4 không còn in nữa"* — SAI, và cái sai đó
+   * nguy vì nó chính là CĂN CỨ BIỆN MINH cho việc bỏ ô. `git log` trên `to-don-mua-hang-a4.tsx`
+   * không có commit nào ngày 07/09. Sự thật: dòng in đó vừa được bỏ trong CHÍNH đợt sửa
+   * 13/09/2026 này, tức hai việc phụ thuộc nhau chứ không phải một việc đã xong từ tuần trước.
+   * 👉 Nếu sau này hoàn tác việc bỏ dòng in ở tờ A4 thì căn cứ ở đây sụp theo — phải xem lại
+   * cả hai cùng lúc, đừng đọc riêng một chỗ. (CLAUDE.md §6.4: chẩn đoán sai ghi vào tài liệu
+   * thì thành sự thật giả.)
    */
-  const [tenNhanVienMua, setTenNhanVienMua] = useState(nguoiDung.tenHienThi);
 
   /**
    * ★ GHI CHÚ HỢP ĐỒNG VỚI NHÀ CUNG CẤP — chữ in nguyên văn sau *"Theo hợp đồng:"* trên tờ đơn
@@ -699,12 +724,15 @@ export function FormLapDonMuaHang({
   /** Nhà cung cấp đang hỏi xác nhận xóa khỏi danh mục — `null` là không hỏi gì. */
   const [hoiXoaNCC, setHoiXoaNCC] = useState<NhaCungCap | null>(null);
 
-  /* ★ Danh mục thủ kho công trình (22/08/2026) — hai hộp thoại và ba ô nhập của hộp thêm. */
+  /* ★ Danh mục thủ kho công trình (22/08/2026) — hai hộp thoại và HAI ô nhập của hộp thêm.
+     ❌ Ô thứ ba ("Công trình phụ trách") đã bỏ ngày 13/09/2026 theo yêu cầu Ban lãnh đạo, nên
+        state `tkCongTrinh` cũng bỏ theo: nó chỉ phục vụ đúng ô đó, giữ lại là một biến chết.
+     🔴 TRƯỜNG `ThuKhoCongTrinh.congTrinh` TRONG KIỂU DỮ LIỆU VẪN GIỮ — xem chú thích dài tại hộp
+        "Lưu thủ kho vào danh mục?" phía dưới để biết vì sao KHÔNG được dọn theo. */
   const [moThemThuKho, setMoThemThuKho] = useState(false);
   const [moXoaThuKho, setMoXoaThuKho] = useState(false);
   const [tkTen, setTkTen] = useState("");
   const [tkSdt, setTkSdt] = useState("");
-  const [tkCongTrinh, setTkCongTrinh] = useState("");
   /* 🔴 KHÔNG CÒN `maNCC` — mã do `themNhaCungCap` tự cấp theo `NC0000` (Ban lãnh đạo
      25/08/2026). Giữ lại một ô rỗng ở đây là mời người sau nối nó vào ô nhập rồi tưởng app
      dùng giá trị đó. */
@@ -1642,9 +1670,11 @@ export function FormLapDonMuaHang({
       maSoThueNCC: mstNCC,
       diaChiNCC,
       thamChieu,
-      /* Tên NGƯỜI ĐỨNG TÊN trên tờ, sửa được (Ban lãnh đạo 26/08/2026). Rỗng thì lấy người đang
-         lập — tờ in không được để trống dòng này. */
-      nguoiPhuTrachTen: tenNhanVienMua.trim() || nguoiDung.tenHienThi,
+      /* 🔴 LUÔN LÀ NGƯỜI ĐANG LẬP ĐƠN — Ban lãnh đạo 13/09/2026 yêu cầu bỏ ô nhập "Nhân viên mua
+         hàng", nên không còn giá trị nào khác để lấy. Trước đây là
+         `tenNhanVienMua.trim() || nguoiDung.tenHienThi`; nay bỏ vế đầu, vế dự phòng thành vế
+         duy nhất. Không được để trống: bản xem trước phải in cùng một tên với đơn thật. */
+      nguoiPhuTrachTen: nguoiDung.tenHienThi,
       ngayLapPO: ngayDonHang,
       ngayGiaoDuKien: ngayGiao,
       /* Chuoi rong -> undefined: don giao gon mot ngay khong co ngay ket thuc. */
@@ -2081,9 +2111,14 @@ export function FormLapDonMuaHang({
       diaChiNCC: diaChiNCC.trim() || undefined,
       thamChieu: thamChieu.trim() || undefined,
       nguoiPhuTrachUid: nguoiDung.uid,
-      /* Tên NGƯỜI ĐỨNG TÊN trên tờ, sửa được (Ban lãnh đạo 26/08/2026). Rỗng thì lấy người đang
-         lập — tờ in không được để trống dòng này. */
-      nguoiPhuTrachTen: tenNhanVienMua.trim() || nguoiDung.tenHienThi,
+      /* 🔴 TÊN VÀ MÃ NAY LUÔN LÀ CÙNG MỘT NGƯỜI — Ban lãnh đạo 13/09/2026 yêu cầu bỏ ô nhập
+         "Nhân viên mua hàng". Trước đây tên ghi rời được với mã (`tenNhanVienMua.trim() || …`)
+         để tờ in ghi đúng người đứng tên khi trưởng bộ phận lập thay; bỏ ô thì không còn nguồn
+         nào khác, nên lấy thẳng người đang lập.
+         📌 ĐÂY LÀ THAY ĐỔI TỐT CHO CÁC MÀN NỘI BỘ: mọi chỗ đọc `nguoiPhuTrachTen` (thẻ Kanban,
+         bảng phân bổ, việc-của-tôi, bảng năng lực nhân viên…) từ nay chắc chắn khớp với
+         `nguoiPhuTrachUid`, không còn cảnh tên một đằng mã một nẻo. */
+      nguoiPhuTrachTen: nguoiDung.tenHienThi,
       ngayLapPO: ngayDonHang,
       ngayGiaoDuKien: ngayGiao,
       /* Chuoi rong -> undefined: don giao gon mot ngay khong co ngay ket thuc. */
@@ -2296,6 +2331,30 @@ export function FormLapDonMuaHang({
               : "flex min-w-0 flex-col gap-(--hp-md-section)"
         }
       >
+      {/**
+        * ★ DÒNG CHÚ GIẢI DẤU SAO — Ban lãnh đạo 13/09/2026, cùng đợt rà lại dấu * của các trường
+        * bắt buộc.
+        *
+        * VÌ SAO CẦN: dấu * là quy ước của người làm biểu mẫu, không phải ai cũng đọc ra. Không có
+        * một dòng nói nó nghĩa là gì thì người lập chỉ đoán — mà đoán sai kiểu nào cũng hại: bỏ
+        * qua ô bắt buộc (bấm Lưu không được, không hiểu vì sao), hoặc tưởng mọi ô đều phải điền.
+        *
+        * 🔴 ĐẶT Ở ĐẦU FORM, TRƯỚC MỌI DẤU * — chú giải mà đứng sau thứ nó giải thích thì người đọc
+        * đã đoán xong rồi mới gặp. Đây là con đầu tiên của khung chứa toàn bộ phần nhập liệu, nên
+        * nó luôn đứng trên tất cả các khối ô, kể cả các dải cảnh báo có điều kiện ngay dưới.
+        *
+        * 🔴 MÀU LẤY TỪ TOKEN, KHÔNG HARDCODE MÃ MÀU (CLAUDE.md §3.2). `text-danger` là token có
+        * thật trong `app/globals.css` (`--color-danger: var(--hp-danger)`), và `/70` là cách dự án
+        * đã chốt để có bậc nhạt hơn mà không đẻ thêm mã màu mới. Nhạt hơn dấu * thật một chút là cố
+        * ý: đây là chữ giải thích, không phải cảnh báo — nó không được tranh nhìn với nội dung.
+        *
+        * ⚠️ KHÔNG ĐẶT LỚP `.text-danger` TRƠN Ở ĐÂY NHƯ Ở CÁC NHÃN. Trong `globals.css` có luật
+        * `.muc-ngang > label > .text-danger { order: 1 }` để đẩy dấu * ra sau dấu hai chấm — luật đó
+        * chỉ nhắm con trực tiếp của `<label>` nên dòng này (một `<p>` đứng ngoài) không dính, nhưng
+        * đừng bê dòng này vào trong một `.muc-ngang` rồi ngạc nhiên vì chữ nhảy chỗ.
+        */}
+      <p className="text-xs italic text-danger/70">(* trường bắt buộc nhập liệu)</p>
+
       {/* ===== DẢI THÔNG BÁO: ĐÂY CHỈ LÀ BẢN MẪU, KHÔNG LƯU VÀO HỆ THỐNG =====
           🔴 PHẢI NÓI RA NGAY Ở ĐẦU, đúng chỉ đạo 18/08/2026 *"chỉ cần tạo mẫu PO thôi, chưa
           cần lưu"*. Không nói thì người lập gõ xong cả đơn, bấm In, rồi tưởng đơn đã vào hệ
@@ -2443,7 +2502,15 @@ export function FormLapDonMuaHang({
                   * mô tả bên dưới ô chọn nói rõ điều đó ngay lúc chọn.
                   */}
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="mau-po">Mẫu in đơn mua hàng *</Label>
+                  {/* ❌ ĐÃ BỎ DẤU * — Ban lãnh đạo 13/09/2026 yêu cầu rà lại dấu * cho đúng các
+                      trường bắt buộc.
+                      🔴 Ô NÀY KHÔNG BẮT BUỘC NHẬP, và không thể thiếu được: `mauPO` khởi tạo sẵn
+                      `"thoa_thuan"` và đây là `<select>` không có lựa chọn rỗng, nên nó LUÔN có giá
+                      trị. Biến `hopLe` (nguồn sự thật duy nhất quyết định nút "Lưu" có mở hay
+                      không) cũng không kiểm ô này một lần nào.
+                      👉 Để dấu * ở đây là nói với người lập rằng họ phải điền một thứ mà họ không
+                      thể không điền — và tệ hơn, làm dấu * ở các ô khác mất nghĩa. */}
+                  <Label htmlFor="mau-po">Mẫu in đơn mua hàng</Label>
                   <select
                     id="mau-po"
                     value={mauPO}
@@ -2562,7 +2629,12 @@ export function FormLapDonMuaHang({
                   nút sổ danh mục · ô tên) — nhét vào nửa lưới thì ô tên bị đẩy xuống dòng thứ hai
                   và nhãn không còn thẳng hàng với nó. Đã đo: lệch 52px trước khi cho span. */}
               <div className="muc-ngang sm:col-span-2">
-                <Label htmlFor="ten-ncc">Tên nhà cung cấp</Label>
+                {/* ★ THÊM DẤU * (Ban lãnh đạo 13/09/2026). Ô này BẮT BUỘC THẬT: `hopLe` đòi
+                    `tenNCC.trim() !== ""`, thiếu là nút "Lưu" khoá. Trước đây không có dấu *,
+                    người lập chỉ biết khi bấm không được. */}
+                <Label htmlFor="ten-ncc">
+                  Tên nhà cung cấp <span className="text-danger">*</span>
+                </Label>
                 {/* ===== Ô TRA MÃ + NÚT SỔ XUỐNG =====
                     ✅ NÚT SỔ XUỐNG LÀM VIỆC THẬT: nó mở đúng danh mục nhà cung cấp của app
                     (`nhaCungCap` trong `useDuLieu()`), chọn một dòng là điền cả cụm ô.
@@ -2735,7 +2807,12 @@ export function FormLapDonMuaHang({
             {/* ===== PHẢI — CHỨNG TỪ (ô J6 · J7 · J8 của biểu mẫu) ===== */}
             <div className="flex flex-col gap-(--hp-md-card-gap)">
               <div className="muc-ngang">
-                <Label htmlFor="ngay-don-hang">Ngày đơn hàng</Label>
+                {/* ★ THÊM DẤU * (Ban lãnh đạo 13/09/2026). `hopLe` đòi `ngayDonHang !== ""`.
+                    ⚠️ Ô này còn quyết định NĂM của số đơn hàng (`DMH2026-…`), nên để trống không
+                    chỉ là thiếu một dòng trên tờ in — app không cấp được số. */}
+                <Label htmlFor="ngay-don-hang">
+                  Ngày đơn hàng <span className="text-danger">*</span>
+                </Label>
                 <Input
                   id="ngay-don-hang"
                   type="date"
@@ -2846,9 +2923,14 @@ export function FormLapDonMuaHang({
                       `htmlFor="tinh-trang"` trỏ vào `<div id="tinh-trang">`: một liên kết chết.
                       Chữ trạng thái đã nằm ngay trong badge (V1.1 — trạng thái luôn có cả màu
                       lẫn chữ) nên không mất thông tin nào. */}
-                  <Label>
-                    Tình trạng <span className="text-danger">*</span>
-                  </Label>
+                  {/* ❌ ĐÃ BỎ DẤU * — cùng đợt rà dấu * ngày 13/09/2026 (Ban lãnh đạo).
+                      🔴 ĐÂY LÀ CHỖ HIỂN THỊ CHỈ ĐỌC, KHÔNG PHẢI Ô NHẬP: bên dưới là một badge do
+                      app tự tính, người lập không gõ được gì vào. Dấu * trên một thứ không nhập
+                      được là vô nghĩa — và `hopLe` cũng không kiểm nó.
+                      📌 Ảnh chụp Sếp gửi chỉ thấy đúng một dấu * ("Mẫu in đơn mua hàng") vì ô này
+                      chỉ hiện khi `!laDonDocLap || coQuyenTaoDocLapThat`, lúc chụp đang ẩn. Rà lại
+                      bằng grep toàn tệp mới thấy — nên bỏ luôn cho dấu * còn nói đúng một nghĩa. */}
+                  <Label>Tình trạng</Label>
                   {/* 🔴 CHỈ ĐỌC. MISA cho chọn tình trạng tự do; app này có quy trình trạng thái
                       riêng đã chốt. Bày một ô chọn rồi bỏ qua giá trị người dùng chọn cũng là
                       kiểu "giao diện hứa một việc app không làm". Trạng thái đổi ở màn chi tiết
@@ -3196,6 +3278,18 @@ export function FormLapDonMuaHang({
               disabled={khoaTheoDeNghi}
               placeholder="VD: 30/2025/HĐXD/UNICE-HPCS"
             />
+            {/* 🔴 CHỖ NÀY ĐANG NÓI MỘT ĐẰNG CHẶN MỘT NẺO — GHI RA ĐỂ ĐỪNG AI "SỬA CHO GỌN".
+                Câu dưới ghi đậm màu đỏ chữ "BẮT BUỘC", nhưng biến `hopLe` (nguồn sự thật duy nhất
+                quyết định nút "Lưu" có mở hay không) KHÔNG kiểm `maHopDong` một lần nào — bỏ trống ô
+                này vẫn lưu đơn được bình thường.
+                ❌ CỐ Ý KHÔNG TỰ CHỮA trong đợt rà dấu * ngày 13/09/2026, và không chữa theo chiều
+                nào cũng đều có giá:
+                  · Thêm `maHopDong` vào `hopLe` → KHOÁ CỨNG nút Lưu với đơn cũ và đơn của PHÒNG BAN
+                    (đề nghị phòng ban không có hợp đồng CĐT nào để điền) — cả phòng không lập được đơn.
+                  · Bỏ chữ "BẮT BUỘC" → mất một yêu cầu nghiệp vụ có thể đang có thật, mà chưa ai xác
+                    nhận là bỏ được.
+                👉 Đã báo cáo để Sếp quyết. Trước khi động vào ô này, hỏi Sếp xem "bắt buộc" ở đây là
+                bắt buộc với MỌI đơn hay chỉ với đơn của công trình. */}
             <span className="text-xs text-text-desc">
               Mã hợp đồng CĐT, dùng để liên kết với các app khác, <strong className="text-danger">BẮT BUỘC</strong>,
               không hiện lên trên đơn.
@@ -3368,7 +3462,13 @@ export function FormLapDonMuaHang({
                       /* Điền sẵn tên và số đang gõ: người lập thường gõ xong mới nghĩ tới việc lưu. */
                       setTkTen(nguoiNhanHang.trim());
                       setTkSdt(sdtNguoiNhan.trim());
-                      setTkCongTrinh(tenCongTrinh.trim() || diaDiemGiao.trim());
+                      /* ❌ BỎ dòng `setTkCongTrinh(tenCongTrinh.trim() || diaDiemGiao.trim())` —
+                         ô "Công trình phụ trách" đã bỏ 13/09/2026 (Ban lãnh đạo), không còn chỗ nhận.
+                         ⚠️ CÁI GIÁ THẬT SỰ NẰM Ở ĐÂY, ĐÁNG BÁO CÁO HƠN CẢ VIỆC BỎ Ô: công trình phần
+                         lớn KHÔNG do người dùng gõ, mà app TỰ ĐIỀN từ đơn đang lập (tên công trình,
+                         hoặc địa điểm giao). Tức trước đây thủ kho lưu vào danh mục gần như luôn có
+                         sẵn chữ phân biệt mà người lập không phải làm gì. Từ nay thủ kho mới luôn
+                         trống chỗ đó — xem hai hệ quả ghi ở hộp "Lưu thủ kho vào danh mục?". */
                       setMoThemThuKho(true);
                     }}
                     className="mt-1 flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed border-border px-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary-bg"
@@ -3407,7 +3507,17 @@ export function FormLapDonMuaHang({
             * đúng một ngày như trước. Bắt điền cả hai là ép người lập bịa một ngày kết thúc.
             */}
           <div className="muc-ngang">
-            <Label htmlFor="ngay-giao">Thời gian nhận hàng</Label>
+            {/* ★ THÊM DẤU * (Ban lãnh đạo 13/09/2026). `hopLe` đòi `ngayGiao !== ""`.
+                ⚠️ DẤU * NÀY CHỈ THUỘC VỀ Ô "TỪ NGÀY" — ô "đến ngày" và ô ghi chú vẫn tuỳ chọn, và
+                `hopLe` đúng là chỉ kiểm ô đầu. Mục này có ba ô dùng chung một nhãn nên dấu * dễ bị
+                đọc thành "phải điền cả ba"; câu chú thích ngay dưới đã nói rõ *"Giao gọn trong một
+                ngày thì chỉ điền ô đầu"* nên không thêm chữ nữa cho khỏi rườm.
+                📌 Dấu * KHÔNG nói gì về luật "ngày kết thúc không được trước ngày bắt đầu" — luật
+                đó cũng nằm trong `hopLe` (`!khoangGiaoNguoc`) nhưng đã có dòng cảnh báo riêng màu
+                cam ngay dưới, không phải việc của dấu *. */}
+            <Label htmlFor="ngay-giao">
+              Thời gian nhận hàng <span className="text-danger">*</span>
+            </Label>
             <div className="flex flex-wrap items-center gap-2">
               <Input
                 id="ngay-giao"
@@ -3758,38 +3868,42 @@ export function FormLapDonMuaHang({
             </div>
           )}
 
-          <div className="muc-ngang">
-            <Label htmlFor="nv-mua-hang">Nhân viên mua hàng</Label>
-            {/**
-              * ★★ ĐÃ MỞ KHÓA CHO SỬA — Ban lãnh đạo 26/08/2026: *"Chỗ tên nhân viên mua hàng hãy
-              * mở khoá cho chỉnh sửa nhé"*.
-              *
-              * 🔴 CHÚ THÍCH CŨ Ở ĐÂY LO ĐÚNG NHƯNG KẾT LUẬN SAI. Nó ghi *"cho gõ tự do thì tên và
-              * mã lệch nhau, và mọi màn việc-của-tôi / lịch / phân bổ đều tra theo mã"*. Đọc lại
-              * kiểu dữ liệu thì `DonDatHang` có **HAI trường tách riêng**:
-              *   · `nguoiPhuTrachUid` — MÃ người, thứ mọi màn kia tra theo
-              *   · `nguoiPhuTrachTen` — TÊN in trên tờ đơn gửi nhà cung cấp
-              * Ô này chỉ ghi vào trường TÊN. Mã vẫn là người đang lập đơn, nên không màn nào bị
-              * ảnh hưởng — cái lo của chú thích cũ không xảy ra được.
-              *
-              * 📌 VÌ SAO CẦN SỬA ĐƯỢC: người lập đơn trong app không nhất thiết là người đứng tên
-              * mua hàng trên chứng từ (trưởng bộ phận lập thay, hoặc đơn do người khác phụ trách).
-              * Khóa cứng là tờ in ghi sai người, mà không có cách nào chữa.
-              *
-              * ⚠️ ĐÂY KHÔNG PHẢI CHỖ ĐỔI NGƯỜI PHỤ TRÁCH TRONG APP. Đổi tên ở đây chỉ đổi chữ in
-              * trên tờ; muốn đổi người phụ trách thật thì vào bảng Phân bổ công việc.
-              */}
-            <Input
-              id="nv-mua-hang"
-              value={tenNhanVienMua}
-              onChange={(e) => setTenNhanVienMua(e.target.value)}
-              placeholder={nguoiDung.tenHienThi}
-            />
-            <span className="text-xs text-text-desc">
-              Tên in trên tờ đơn. Sửa được khi người đứng tên mua hàng không phải người đang lập
-              đơn — không đổi người phụ trách trong app.
-            </span>
-          </div>
+          {/**
+            * ❌ ĐÃ BỎ Ô "NHÂN VIÊN MUA HÀNG" — Ban lãnh đạo 13/09/2026, khoanh đúng ô này trên ảnh
+            * chụp màn hình form lập đơn.
+            *
+            * Ô này từng là ô nhập tự do (mở khoá 26/08/2026) để tờ đơn ghi đúng người ĐỨNG TÊN mua
+            * hàng khi người đó khác người bấm lập đơn — trưởng bộ phận lập thay chẳng hạn.
+            *
+            * 🔴 ĐÃ KIỂM TRƯỚC KHI BỎ (bắt buộc theo CLAUDE.md §3.4b — không bỏ lối vào duy nhất
+            * của một chức năng mà không báo). Kết quả grep toàn mã nguồn:
+            *   · `nguoiPhuTrachTen` được ĐỌC ở hơn 10 chỗ, nhưng chỉ được GHI ở đúng hai chỗ —
+            *     `dungDonMau()` và `luu()` trong chính tệp này. Cả hai nay gán thẳng
+            *     `nguoiDung.tenHienThi`, nên KHÔNG có màn nào mất dữ liệu hay gãy kiểu.
+            *   · Đây ĐÚNG LÀ lối vào duy nhất để ghi một cái tên KHÁC người đang lập. Bỏ ô là mất
+            *     hẳn khả năng đó — đã ghi vào báo cáo cho Sếp biết, không tự ý coi là không đáng kể.
+            *
+            * 📌 VÌ SAO CÁI MẤT ĐÓ NHỎ: tờ in A4 KHÔNG còn in `nguoiPhuTrachTen` bằng máy nữa
+            * (`to-don-mua-hang-a4.tsx` — dòng đó nay chừa cho ký tay). Tức câu chú thích cũ dưới
+            * ô — *"Tên in trên tờ đơn"* — thành sai, và giữ ô lại là giữ một ô hứa in ra một chỗ
+            * mà tờ in không còn đọc tới, đúng kiểu "giao diện hứa một việc app không làm" mà quy
+            * ước dự án cấm (CLAUDE.md §3.5).
+            *
+            * 🔴 ĐÍNH CHÍNH NGÀY (13/09/2026): bản đầu chú thích này ghi *"từ 07/09/2026"* — SAI.
+            * `git log` trên tờ A4 không có commit nào ngày đó; dòng in vừa được bỏ trong CHÍNH
+            * đợt 13/09 này. Hai việc PHỤ THUỘC NHAU, không phải một việc đã xong từ trước —
+            * hoàn tác bên kia là căn cứ bên này sụp.
+            *
+            * ⚠️ CÒN MỘT CHỖ CHƯA ĐỒNG BỘ, đã báo Sếp: bản XUẤT EXCEL của cùng tờ PO
+            * (`2-quy-trinh/xuat-don-hang-excel.ts`) VẪN in tên người phụ trách. Nên hiện hai bản
+            * của cùng một đơn gửi nhà cung cấp khác nhau. Chờ Sếp quyết bỏ luôn ở Excel hay giữ.
+            *
+            * ⚠️ ĐÂY CHƯA BAO GIỜ LÀ CHỖ ĐỔI NGƯỜI PHỤ TRÁCH TRONG APP, và nay càng không. Muốn đổi
+            * người phụ trách thật thì vào bảng **Phân bổ công việc** — đường đó không bị đụng tới.
+            *
+            * ⚠️ ĐỪNG DỰNG LẠI Ô NÀY rồi để nó ghi vào `nguoiPhuTrachUid`: mã người phải là người
+            * thật đang đăng nhập, gõ tay vào là mọi màn tra theo mã đọc ra một người không có.
+            */}
 
           {/**
             * ★ "Tham chiếu" DỜI VỀ ĐÂY, thay chỗ ô "Diễn giải" đã bỏ — Ban lãnh đạo
@@ -4069,6 +4183,29 @@ export function FormLapDonMuaHang({
         *
         * 📌 Chỉ TÊN là bắt buộc. Số điện thoại là lý do chính phải lưu danh mục, nhưng không bắt
         * buộc — có người lập biết tên trước, xin số sau; chặn lại là họ không lưu được gì.
+        *
+        * ❌ ĐÃ BỎ Ô "CÔNG TRÌNH PHỤ TRÁCH" — Ban lãnh đạo 13/09/2026, khoanh đúng ô thứ ba của hộp
+        * này. Hộp nay còn hai ô: Tên thủ kho (bắt buộc) và Số điện thoại.
+        *
+        * 🔴 KHÔNG DỌN TRƯỜNG `ThuKhoCongTrinh.congTrinh` khỏi `3-du-lieu/kieu-du-lieu.ts`. Hai lý do:
+        *   ① Thủ kho đã lưu TRƯỚC 13/09/2026 còn giá trị trong đó — xoá trường là mất dữ liệu thật
+        *      của cả phòng đang chạy thử.
+        *   ② `kieu-du-lieu.ts` nằm trong VÙNG CẤM SỬA của phiên tích hợp App Tổng (CLAUDE.md §6.6).
+        *
+        * ⚠️ HAI HỆ QUẢ ĐÃ BIẾT, CHƯA ĐƯỢC SỬA VÌ NẰM NGOÀI PHẠM VI ĐƯỢC GIAO — đã báo Sếp quyết:
+        *
+        *   ① DANH SÁCH CHỌN THỦ KHO NAY "NỬA CÓ NỬA KHÔNG". Chỗ chọn thủ kho (ô "Người nhận hàng")
+        *      và danh sách xoá thủ kho VẪN hiện `congTrinh` để phân biệt khi trùng tên. Thủ kho CŨ
+        *      còn chữ đó, thủ kho thêm TỪ NAY thì không — cùng một danh sách mà hai kiểu. Cố ý
+        *      KHÔNG tự bỏ chỗ hiển thị: bỏ là xoá luôn thông tin thủ kho cũ đang có, mà chỉ đạo chỉ
+        *      nói bỏ Ô NHẬP.
+        *
+        *   ② CÂU BÁO LỖI TRÙNG TÊN NAY CHỈ MỘT VIỆC KHÔNG LÀM ĐƯỢC NỮA. `themThuKho` trong
+        *      `3-du-lieu/kho-du-lieu.tsx` (khoảng dòng 1380) từ chối tên trùng bằng câu: *"Đã có thủ
+        *      kho tên … — chọn lại người đó, hoặc ghi thêm công trình để phân biệt"*. Bỏ ô nhập rồi
+        *      thì người dùng KHÔNG còn chỗ nào "ghi thêm công trình" — câu đó chỉ vào một ô không
+        *      tồn tại, đúng kiểu "giao diện hứa một việc app không làm" (CLAUDE.md §3.5). Không tự
+        *      sửa vì `kho-du-lieu.tsx` không thuộc tệp được giao phiên này.
         */}
       <HopXacNhan
         mo={moThemThuKho}
@@ -4078,10 +4215,11 @@ export function FormLapDonMuaHang({
         khoaDongY={tkTen.trim() === "" ? "Phải có tên thủ kho." : undefined}
         onDong={() => setMoThemThuKho(false)}
         onDongY={() => {
+          /* `congTrinh` KHÔNG còn được truyền — ô nhập đã bỏ 13/09/2026 (xem chú thích trên).
+             Tham số đó vẫn là tuỳ chọn trong `themThuKho`, bỏ đi không gãy kiểu. */
           const loi = themThuKho({
             ten: tkTen,
             soDienThoai: tkSdt,
-            congTrinh: tkCongTrinh,
           });
           if (loi) {
             toast.error("Không lưu được vào danh mục", { description: loi });
@@ -4094,7 +4232,6 @@ export function FormLapDonMuaHang({
           setMoThemThuKho(false);
           setTkTen("");
           setTkSdt("");
-          setTkCongTrinh("");
         }}
       >
         <div className="flex flex-col gap-(--hp-md-row-gap)">
@@ -4119,15 +4256,8 @@ export function FormLapDonMuaHang({
               />
             </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="tk-moi-ct">Công trình phụ trách</Label>
-            <Input
-              id="tk-moi-ct"
-              value={tkCongTrinh}
-              onChange={(e) => setTkCongTrinh(e.target.value)}
-              placeholder="Để phân biệt khi có nhiều thủ kho"
-            />
-          </div>
+          {/* ❌ Ô "Công trình phụ trách" đứng ở đây đã bỏ 13/09/2026 (Ban lãnh đạo) — lý do đầy đủ
+              và hai hệ quả còn treo nằm ở khối chú thích ngay trên `<HopXacNhan>` này. */}
         </div>
       </HopXacNhan>
 
@@ -4336,11 +4466,29 @@ export function FormLapDonMuaHang({
          * không hiện trên bảng Quy trình mua hàng (bảng đó liệt kê theo đề nghị, đơn này chưa có
          * đề nghị nào), nhưng VẪN hiện ở "Danh sách đơn hàng" và tính vào Công nợ nhà cung cấp
          * bình thường — và phải bổ sung đề nghị (nút "+ Gắn đề nghị") thì mới hết cảnh báo màu.
+         *
+         * ★★ RÚT NGẮN CÂU THƯỜNG — Ban lãnh đạo 13/09/2026, khoanh đúng dải cảnh báo này trên ảnh
+         * chụp màn hình: câu cũ dài ba vế, đọc trong lúc sắp bấm nút thì không ai đọc hết.
+         *
+         * GIỮ LẠI ĐÚNG HAI Ý, BỎ PHẦN DIỄN GIẢI GIỮA:
+         *   ✅ giữ vế đầu — *"số vật tư trong đơn này được tính là đã đặt hàng"* (việc sắp xảy ra)
+         *   ✅ giữ vế cuối — *"muốn sửa thì phải huỷ đơn rồi lập lại"* (KHÔNG HOÀN TÁC ĐƯỢC)
+         *   ❌ bỏ vế giữa — *"phần còn lại của phiếu đề nghị giảm đi tương ứng, và không lập đơn
+         *      khác cho phần đó nữa"*: đó là diễn giải HỆ QUẢ BÊN TRONG app, người lập không cần
+         *      biết ngay lúc bấm, và họ thấy ngay con số còn lại đổi ở trang đề nghị.
+         *
+         * 🔴 KHÔNG ĐƯỢC BỎ CẢ KHỐI CẢNH BÁO NÀY. Nó đang báo một việc KHÔNG HOÀN TÁC được — lưu
+         * xong muốn sửa là phải huỷ đơn rồi lập lại từ đầu. Bỏ hẳn là để người lập bấm một nút
+         * không quay lại được mà không được báo trước. Chỉ làm NGẮN, không làm mất ý.
+         *
+         * 📌 CÂU CHO ĐƠN ĐỘC LẬP GIỮ NGUYÊN, cố ý: chỉ đạo 13/09 trích đúng câu thường (*"Lưu xong,
+         * số vật tư…"*), không nhắc tới câu độc lập. Câu độc lập cũng dài, nhưng nó nói về trạng
+         * thái bất thường "Chờ đề nghị" — cắt bớt mà không có chỉ đạo là tự quyết thay Sếp.
          */
         canhBao={
           laDonDocLap
             ? "Đơn vào trạng thái \"Chờ đề nghị\" — chưa gắn phiếu đề nghị nào nên không hiện trên bảng Quy trình mua hàng, nhưng vẫn hiện ở Danh sách đơn hàng và tính vào Công nợ nhà cung cấp bình thường. Bổ sung đề nghị sau bằng nút “+ Gắn đề nghị” ở trang chi tiết đơn."
-            : "Lưu xong, số vật tư trong đơn này được tính là đã đặt hàng — phần còn lại của phiếu đề nghị giảm đi tương ứng, và không lập đơn khác cho phần đó nữa. Muốn sửa thì phải huỷ đơn rồi lập lại."
+            : "Lưu xong, số vật tư trong đơn này được tính là đã đặt hàng. Muốn sửa thì phải huỷ đơn rồi lập lại."
         }
         nhanDongY={hoiCat === "cat-in" ? "Lưu và In" : "Lưu"}
         onDong={() => setHoiCat(null)}

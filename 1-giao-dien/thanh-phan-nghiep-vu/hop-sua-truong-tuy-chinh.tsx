@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, LogIn, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Lock, LogIn, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -55,6 +55,11 @@ import {
  *   · `datSoBaoGiaChoPhieu`— SL Báo giá
  *   · `themTepGiaiDoan` + `datGhiChuTepGiaiDoan` — ba ô báo giá và ô "báo giá khác"
  * Viết một đường ghi riêng cho hộp này là bỏ qua hết những luật đó mà không có gì báo.
+ *
+ * 🔴 **`datSoBaoGiaChoPhieu` NAY CÓ CHỐT QUYỀN**: tài khoản nhân viên chỉ được TĂNG SL Báo giá,
+ * không được hạ (Ban lãnh đạo 13/09/2026). Hộp này là **lối vào thứ hai** tới con số đó — lối thứ
+ * nhất là cặp nút ± ở trang chi tiết (`o-sua-so-bao-gia.tsx`). Sửa luật ở một nơi mà quên nơi kia
+ * là chốt chặn thành vô nghĩa. Chi tiết ở khối *"SL BÁO GIÁ: AI ĐƯỢC HẠ"* trong thân component.
  *
  * ## ⚠️ MỘT CHỖ CỐ Ý KHÔNG GIỐNG BASE: đổi ngày phải ghi lý do
  * Base cho sửa "Ngày đề nghị cấp" thẳng, không hỏi gì. App thì **bắt ghi lý do** — đây là luật
@@ -135,6 +140,22 @@ const MA_NHIEU = "nhieu";
 /** Số ghi vào hồ sơ khi chọn "Nhiều" — xem lý do ở khối chú thích ngay trên. */
 const SO_BAO_GIA_NHIEU = 4;
 
+/**
+ * Bốn mục chọn được của ô "SL Báo giá", theo đúng thứ tự hiện ra.
+ *
+ * 📌 Gom thành MỘT danh sách vì nay có ba chỗ cùng phải duyệt qua nó: vẽ ô chọn, khóa mục mà tài
+ * khoản nhân viên không được chọn, và hỏi "có mục nào đang bị khóa không" để quyết định có in câu
+ * giải thích hay không. Ba chỗ chép tay ba lần thì thêm/bớt một mục là sót, mà sót kiểu đó không
+ * có lỗi nào báo — chỉ là một mức nào đó lặng lẽ không bị khóa.
+ * ⚠️ Mục "— chưa đặt —" (`""`) CỐ Ý không nằm trong danh sách: nó không ghi gì vào hồ sơ.
+ */
+const MUC_SO_BAO_GIA = ["1", "2", "3", MA_NHIEU];
+
+/** Nhãn hiện ra của mỗi mục. */
+function nhanMucSoBaoGia(muc: string): string {
+  return muc === MA_NHIEU ? "Nhiều" : muc;
+}
+
 /** Dòng bảng "Chi tiết" ở dạng chuỗi thô đang gõ — đổi sang số lúc lưu. */
 interface DongGo {
   stt: number;
@@ -164,7 +185,7 @@ export function HopSuaTruongTuyChinh({
     themTepGiaiDoan,
     datTepVaoOGiaiDoan,
   } = useDuLieu();
-  const { nguoiDung } = useNguoiDung();
+  const { nguoiDung, quyen } = useNguoiDung();
 
   const [tieuDe, setTieuDe] = useState("");
   const [phongBan, setPhongBan] = useState("");
@@ -260,6 +281,91 @@ export function HopSuaTruongTuyChinh({
   const soTepTrongOCoTen = tepTheoO.filter(Boolean).length;
   const hanMucOKhac = Math.max(tepKhac.length, TOI_DA_TEP_MOI_BUOC - soTepTrongOCoTen);
 
+  /* ---------- SL BÁO GIÁ: AI ĐƯỢC HẠ (Ban lãnh đạo 13/09/2026) ---------- */
+
+  /**
+   * 🔴 Ban lãnh đạo 13/09/2026, chữ viết tay trên ảnh: *"ở tài khoản nhân viên — 1. Chỉ được tăng
+   * số lượng báo giá, ko được bấm giảm số lượng"*.
+   *
+   * 🔴 CHỈ ĐẠO NÓI VỀ CẶP NÚT ± Ở TRANG CHI TIẾT, NHƯNG HỘP NÀY LÀ LỐI VÀO THỨ HAI tới đúng con
+   * số đó — cùng gọi `datSoBaoGiaChoPhieu`, cùng ghi đè mọi dòng của phiếu. Bịt cặp nút mà bỏ
+   * quên chỗ này thì luật chỉ có trên giấy: nhân viên vẫn hạ được y như cũ, chỉ là đi vòng qua
+   * menu ⋯ → *"Chỉnh sửa các trường dữ liệu tùy chỉnh"*. Sửa quyền thì phải sửa ĐỦ MỌI LỐI VÀO,
+   * nếu không thì công sức bỏ ra chỉ đổi lấy cảm giác đã chặn.
+   *
+   * **VÌ SAO chặn.** Con số này là yêu cầu **trưởng bộ phận giao cho nhân viên** lúc phân bổ ở
+   * bước ① (*"lấy đủ 3 báo giá rồi hãy trình"*). Người thi hành tự hạ nó xuống là tự nới cái luật
+   * đang chấm chính mình: hồ sơ thành "đủ điều kiện trình xét duyệt" trong khi chỉ có một nhà
+   * cung cấp chào giá, và nhật ký chỉ ghi *"đã đổi thành 1 báo giá"* chứ không nói rằng một chốt
+   * kiểm soát vừa bị gỡ.
+   *
+   * ⚠️ **CHỈ KHÓA CHIỀU HẠ.** Số ô đính kèm báo giá chạy theo chính con số này (xem ba chốt an
+   * toàn ở đầu file), nên khóa cả chiều tăng là nhân viên không mở thêm được ô khi có nhiều nhà
+   * cung cấp cùng chào giá — chặn đúng việc cần làm.
+   *
+   * 📌 `phanBoCongViec` = trưởng bộ phận thu mua cấp ≥3 và quản trị, đúng những người đặt ra con
+   * số này. Nhân viên thu mua chỉ có `lapPO`.
+   */
+  const chiTangDuoc = !quyen.phanBoCongViec;
+
+  /**
+   * SÀN KHÔNG ĐƯỢC HẠ = số báo giá **cao nhất** đang có trên các dòng. `0` = chưa dòng nào được
+   * giao kèm số, lúc đó không có gì để hạ nên không khóa gì.
+   *
+   * 🔴 LẤY MAX, KHÔNG LẤY SỐ CỦA DÒNG ĐẦU. Mỗi dòng có thể mang một số riêng (trưởng bộ phận giao
+   * dòng 1 lấy 2 báo giá, dòng 3 lấy 7). Ô chọn này ghi MỘT số cho MỌI dòng, nên chỉ cần ghi thấp
+   * hơn số lớn nhất là đã có ít nhất một dòng bị hạ — dù đem so với dòng đầu thì trông như đang
+   * tăng. Lấy max là cách duy nhất bảo đảm *"không dòng nào bị hạ"*.
+   */
+  const sanKhongDuocHa = deNghi.items.reduce(
+    (max, d) => (typeof d.soBaoGiaYeuCau === "number" ? Math.max(max, d.soBaoGiaYeuCau) : max),
+    0,
+  );
+
+  /** Số báo giá của dòng đầu — mốc mà việc lưu so vào để quyết định có ghi hay không. */
+  const soCuCuaPhieu = dong[0]?.goc?.soBaoGiaYeuCau;
+
+  /**
+   * Bấm "Cập nhật" với mục `muc` thì **ghi con số nào** vào hồ sơ? Trả `0` = không ghi gì.
+   *
+   * 🔴 MỘT HÀM DUY NHẤT cho cả ba việc: khóa mục trong ô chọn · chặn lúc lưu · thật sự ghi. Viết
+   * tay ba lần là sớm muộn lệch nhau, mà lệch kiểu này KHÔNG CÓ LỖI NÀO BÁO — hoặc ô chọn cho bấm
+   * còn hàm lưu từ chối (người dùng tưởng app hỏng), hoặc ô chọn khóa mà hàm lưu vẫn ghi, tức
+   * chốt chặn chỉ là lớp sơn.
+   *
+   * 🔴 CHỐT CHỐNG GHI ĐÈ SỐ CŨ (giữ nguyên từ bản trước, đừng bỏ). Hồ sơ lập trước đây có thể đang
+   * giữ 7 hay 8 báo giá — những số không còn trong danh sách nên ô chọn hiện "Nhiều". Người dùng
+   * KHÔNG đổi mục thì không được ghi gì: thiếu chốt này, chỉ cần mở hộp ra bấm Cập nhật là 7 âm
+   * thầm tụt xuống 4, mà nhật ký sẽ ghi như thể trưởng bộ phận vừa hạ yêu cầu.
+   */
+  function soBaoGiaSeGhi(muc: string): number {
+    if (muc === "") return 0;
+    const laNhieu = muc === MA_NHIEU;
+    const so = laNhieu ? SO_BAO_GIA_NHIEU : Number(muc);
+    const giuNguyenNhieu =
+      laNhieu && typeof soCuCuaPhieu === "number" && soCuCuaPhieu >= SO_BAO_GIA_NHIEU;
+    if (!(so > 0) || so === soCuCuaPhieu || giuNguyenNhieu) return 0;
+    return so;
+  }
+
+  /**
+   * Chọn mục này thì có dòng nào bị TỤT số báo giá không?
+   * Mục rốt cuộc không ghi gì (trả `0`) thì không hạ ai — kể cả mục "Nhiều" trên hồ sơ đang giữ 7.
+   */
+  function haSoBaoGiaNeuChon(muc: string): boolean {
+    const so = soBaoGiaSeGhi(muc);
+    return so > 0 && so < sanKhongDuocHa;
+  }
+
+  /** Lần lưu này đang định hạ số báo giá bằng một tài khoản không được hạ. */
+  const chanHaSoBaoGia = chiTangDuoc && haSoBaoGiaNeuChon(soBaoGia);
+  /**
+   * Có mục nào thật sự bị khóa không — để quyết định có in câu giải thích hay không.
+   * 📌 Không in sẵn khi chẳng có gì bị khóa: một dòng cảnh báo luôn hiện là dòng người dùng ngừng
+   * đọc, và lúc nó có ý nghĩa thật thì không ai nhìn nữa.
+   */
+  const coMucBiKhoa = chiTangDuoc && MUC_SO_BAO_GIA.some(haSoBaoGiaNeuChon);
+
   const ngayGioMoi = ngay === "" ? "" : gio === "" ? ngay : `${ngay}T${gio}`;
   const doiNgayGio = ngayGioMoi !== "" && ngayGioMoi !== deNghi.ngayCanHang;
 
@@ -291,6 +397,26 @@ export function HopSuaTruongTuyChinh({
   }
 
   function capNhat() {
+    /* 🔴 CHỐT QUYỀN ĐỨNG TRƯỚC MỌI LỆNH GHI — Ban lãnh đạo 13/09/2026, xem khối chú thích
+       "SL BÁO GIÁ: AI ĐƯỢC HẠ" phía trên.
+
+       📌 VÌ SAO ĐẶT Ở ĐẦU HÀM chứ không đặt cạnh chỗ ghi SL Báo giá ở cuối: cuối hàm thì tiêu đề,
+       ngày-giờ và bảng "Chi tiết" ĐÃ ghi vào hồ sơ xong rồi mới bị chặn — người dùng nhận thông
+       báo lỗi mà không biết một nửa thay đổi đã lưu, một nửa thì chưa, và hộp vẫn mở nên rất dễ
+       bấm lại lần nữa, ghi chồng thêm một loạt dòng nhật ký.
+
+       ⚠️ ĐÂY MỚI LÀ CHỐT THẬT. Việc khóa mục trong ô chọn bên dưới chỉ để người dùng khỏi bấm
+       nhầm — trạng thái ô chọn có thể đã cũ (người khác vừa đổi phiếu trong kho dữ liệu chung),
+       nên vẫn phải hỏi lại ngay lúc lưu. */
+    if (chanHaSoBaoGia) {
+      toast.error("Không hạ được số lượng báo giá", {
+        description:
+          `Hồ sơ đang yêu cầu ${sanKhongDuocHa} báo giá. Tài khoản của bạn chỉ được tăng — muốn ` +
+          "hạ xuống thì nhờ trưởng bộ phận (Ban lãnh đạo 13/09/2026).",
+      });
+      return;
+    }
+
     /* 🔴 GỌI TỪNG HÀM RIÊNG, mỗi hàm chỉ khi trường của nó THẬT SỰ đổi. Gọi hết mọi lần bấm là
        nhật ký hồ sơ đầy dòng "đã sửa" mà chẳng sửa gì — mỗi hàm đều tự ghi một dòng. */
     const doiThongTin =
@@ -336,17 +462,11 @@ export function HopSuaTruongTuyChinh({
     }
 
     /* ---------- SL BÁO GIÁ ----------
-       🔴 CHỐT CHỐNG GHI ĐÈ SỐ CŨ. Hồ sơ lập trước đây có thể đang giữ 7 hay 8 báo giá — những số
-       không còn trong danh sách, nên ô chọn hiện "Nhiều". Nếu người dùng KHÔNG đổi mục thì không
-       được ghi gì: thiếu chốt này, chỉ cần mở hộp ra bấm Cập nhật là 7 âm thầm tụt xuống 4, mà
-       nhật ký sẽ ghi như thể trưởng bộ phận vừa hạ yêu cầu. */
-    const soCu = dong[0]?.goc?.soBaoGiaYeuCau;
-    const dangLaNhieu = soBaoGia === MA_NHIEU;
-    const soMoi = dangLaNhieu ? SO_BAO_GIA_NHIEU : Number(soBaoGia);
-    const giuNguyenNhieu = dangLaNhieu && typeof soCu === "number" && soCu >= SO_BAO_GIA_NHIEU;
-    if (soBaoGia !== "" && soMoi > 0 && soMoi !== soCu && !giuNguyenNhieu) {
-      datSoBaoGiaChoPhieu(deNghi.id, soMoi, nguoiDung.tenHienThi);
-    }
+       Quyết định ghi gì nằm trong `soBaoGiaSeGhi` (xem chú thích của hàm đó, kèm chốt chống ghi
+       đè số cũ). Ở đây chỉ thi hành — cố ý dùng CHUNG một hàm với chỗ khóa mục trong ô chọn, để
+       cái được hiện ra và cái thật sự được ghi không thể lệch nhau. */
+    const soGhi = soBaoGiaSeGhi(soBaoGia);
+    if (soGhi > 0) datSoBaoGiaChoPhieu(deNghi.id, soGhi, nguoiDung.tenHienThi);
 
     toast.success("Đã cập nhật các trường dữ liệu");
     onDong();
@@ -592,11 +712,39 @@ export function HopSuaTruongTuyChinh({
                   "1" trong khi thực tế chưa ai đặt — âm thầm sai. */}
               <OChon id="tc-sl-bao-gia" value={soBaoGia} onChange={setSoBaoGia}>
                 <option value="">— chưa đặt —</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value={MA_NHIEU}>Nhiều</option>
+                {/* 🔴 KHÓA TỪNG MỤC, KHÔNG KHÓA CẢ Ô CHỌN — Ban lãnh đạo 13/09/2026 chỉ cấm HẠ.
+                    Khóa cả ô là nhân viên không tăng được nữa, mà tăng chính là việc họ cần làm
+                    khi có thêm nhà cung cấp chào giá (số ô đính kèm chạy theo con số này).
+                    📌 Mục đang được chọn KHÔNG BAO GIỜ bị khóa: chọn lại chính nó thì
+                    `soBaoGiaSeGhi` trả 0 (không ghi gì) nên không hạ ai — nhờ vậy ô chọn không
+                    rơi vào cảnh giá trị hiện tại lại là một mục đã khóa. */}
+                {MUC_SO_BAO_GIA.map((muc) => (
+                  <option
+                    key={muc}
+                    value={muc}
+                    disabled={chiTangDuoc && haSoBaoGiaNeuChon(muc)}
+                  >
+                    {nhanMucSoBaoGia(muc)}
+                  </option>
+                ))}
               </OChon>
+
+              {/* ★ NÓI RÕ VÌ SAO KHÓA — Design System V1.1: trạng thái phải đọc ra được bằng cả
+                  hình lẫn chữ, không chỉ bằng màu xám của mục bị khóa. Ổ khóa + câu giải thích +
+                  chỉ đúng người mở được, cùng kiểu với dải thông báo khóa ở
+                  `khu-bao-gia-theo-so-luong.tsx` — cùng một loại trạng thái thì nhìn phải giống
+                  nhau, để người dùng học một lần. */}
+              {coMucBiKhoa && (
+                <span className="flex items-start gap-1.5 text-xs text-text-desc">
+                  <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  <span>
+                    Tài khoản của bạn <strong>chỉ được tăng</strong> số báo giá — hồ sơ đang yêu
+                    cầu <strong>{sanKhongDuocHa}</strong> nên các mức thấp hơn đã khóa. Cần hạ
+                    xuống thì nhờ trưởng bộ phận (hoặc quản trị).
+                  </span>
+                </span>
+              )}
+
               <span className="text-xs text-text-desc">
                 Đặt ở đây là áp cho <strong>mọi dòng</strong> của phiếu. Muốn mỗi dòng một số khác
                 nhau thì đặt lúc giao việc ở bảng Phân bổ.

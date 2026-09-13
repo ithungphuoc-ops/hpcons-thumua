@@ -190,6 +190,39 @@ export function HopChuyenGiaiDoan({
   const hanDich = cauHinh.hanGioTheoBuoc?.[denBuoc] ?? 0;
   /** Bước ② mới hỏi số báo giá — các bước khác không có trường này (đúng như Base). */
   const hoiSoBaoGia = denBuoc === "yeu_cau_bao_gia";
+
+  /**
+   * ★★ NHÂN VIÊN CHỈ ĐƯỢC TĂNG SỐ BÁO GIÁ, KHÔNG ĐƯỢC HẠ — Ban lãnh đạo 13/09/2026
+   * (*"ở tài khoản nhân viên — chỉ được tăng số lượng báo giá, ko được bấm giảm số lượng"*).
+   *
+   * 🔴 ĐÂY LÀ LỐI VÀO THỨ BA, tìm ra bằng một lượt soát chéo độc lập ngày 13/09/2026 SAU KHI
+   * đã bịt hai lối kia. Chỉ đạo của Sếp lúc đó mới thi hành được một nửa: cặp nút ± ở trang
+   * chi tiết đã siết (`o-sua-so-bao-gia.tsx`), hộp "Chỉnh sửa trường dữ liệu" cũng đã siết,
+   * nhưng **ô chọn ngay trong hộp chuyển bước này thì không gác một dòng quyền nào** — nhân
+   * viên vẫn hạ số y như cũ, chỉ là đi vòng qua đường chuyển bước.
+   * 👉 Bài học: bịt một chỗ rồi tưởng xong là cách chốt chặn thành hình thức.
+   *
+   * 📌 TỰ TRA QUYỀN, không nhận prop — cùng nếp với `o-sua-so-bao-gia.tsx`, để nơi gọi không
+   * phải nhớ truyền (quên truyền là chốt tự tắt mà không ai biết).
+   * `quyen.phanBoCongViec` = trưởng bộ phận, được hạ. Nhân viên chỉ có `quyen.lapPO`.
+   *
+   * ⚠️ KHÔNG khoá luôn chiều TĂNG: khu đính kèm vẽ số ô báo giá theo con số này, khoá cứng là
+   * nhân viên không mở thêm ô được khi có nhiều NCC cùng chào giá.
+   */
+  const { quyen: quyenHienTai } = useNguoiDung();
+  const chiTangSoBaoGia = !quyenHienTai.phanBoCongViec;
+  /**
+   * Mức đang có của phiếu — `0` nghĩa là chưa đặt, lúc đó chọn mức nào cũng được.
+   *
+   * 🔴 `soBaoGiaYeuCau` nằm trên TỪNG DÒNG (`DongDeNghi`), KHÔNG phải trên cả phiếu — ô trong
+   * hộp này đặt một lượt cho mọi dòng (`datSoBaoGiaChoPhieu`). Nên lấy MỨC CAO NHẤT đang có:
+   * chỉ cần một dòng đang đòi 3 báo giá thì chọn 2 cho cả phiếu là HẠ mức của dòng đó xuống —
+   * đúng thứ chỉ đạo cấm. Lấy min hay lấy của dòng đầu đều lọt.
+   */
+  const soBaoGiaDangCo = Math.max(
+    0,
+    ...(deNghi?.items ?? []).map((d) => d.soBaoGiaYeuCau ?? 0),
+  );
   /** Việc trong danh sách mà người dùng CHƯA tích — tính theo dữ liệu thật, cập nhật ngay. */
   const conViecChuaTich = congViecChuaXong.filter((cv) => !daXong.includes(cv.ma)).length;
   /**
@@ -319,12 +352,26 @@ export function HopChuyenGiaiDoan({
                   className="min-h-11 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
                 >
                   <option value="">— Lựa chọn —</option>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>
-                      {String(n).padStart(2, "0")} báo giá
-                    </option>
-                  ))}
+                  {/* ★ Nhân viên chỉ thấy các mức TỪ mức đang có trở lên — xem `chiTangSoBaoGia`.
+                      📌 LỌC DANH SÁCH chứ không chỉ khoá nút: mức không được chọn thì đừng bày ra
+                      rồi báo lỗi sau khi người ta đã bấm. */}
+                  {[1, 2, 3, 4, 5]
+                    .filter((n) => !chiTangSoBaoGia || n >= soBaoGiaDangCo)
+                    .map((n) => (
+                      <option key={n} value={n}>
+                        {String(n).padStart(2, "0")} báo giá
+                      </option>
+                    ))}
                 </select>
+                {/* Design System V1.1: trạng thái phải có CẢ MÀU LẪN CHỮ — danh sách ngắn đi mà
+                    không nói lý do thì người dùng tưởng app hỏng. Chỉ hiện khi thật sự có mức
+                    bị ẩn, để không làm ồn khi phiếu chưa đặt số nào. */}
+                {chiTangSoBaoGia && soBaoGiaDangCo > 1 && (
+                  <p className="text-xs text-text-desc">
+                    Phiếu đang yêu cầu {String(soBaoGiaDangCo).padStart(2, "0")} báo giá. Bạn tăng
+                    thêm được, nhưng hạ xuống thì cần Trưởng bộ phận.
+                  </p>
+                )}
                 {/* GIỮ luật công ty (đây là quy định thật, sinh từ cấu hình nên không nói dối
                     khi ngưỡng đổi), BỎ vế chỉ đường "muốn khác nhau từng dòng thì sửa ở bảng
                     Phân bổ công việc" — Ban lãnh đạo 16/08/2026. */}
