@@ -112,6 +112,27 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
           },
         ],
         maDeXuatAppRequest: payload.requestCode,
+        /**
+         * ★★ LƯU ID KỸ THUẬT ĐỂ DỰNG ĐƯỢC ĐƯỜNG DẪN MỞ HỒ SƠ BÊN APP REQUEST — thêm 13/09/2026.
+         *
+         * 🔴🔴 TỆP NÀY THUỘC VÙNG CẤM SỬA CỦA PHIÊN TÍCH HỢP APP TỔNG (CLAUDE.md §6.6, chỉ đạo
+         * Sếp 20/08/2026). Dòng này được thêm bởi PHIÊN NGHIỆP VỤ THU MUA, và **có phép riêng
+         * của Sếp ngày 13/09/2026** — Sếp được hỏi trước, chọn "cho phép em sửa lần này".
+         * Ghi lại ở đây để phiên tích hợp đọc ra là CÓ PHÉP, không phải bị đè code.
+         *
+         * 🔴 THUẦN THÊM, KHÔNG ĐỔI HÀNH VI CŨ: chỉ chép thêm một trường vốn đã có sẵn trong
+         * payload (`requestId`) mà trước nay bị vứt đi. Không đụng bất kỳ nhánh logic, phép
+         * kiểm trùng, hay đường tự động khớp PO nào.
+         *
+         * 🔴 VÌ SAO CẦN: Ban lãnh đạo yêu cầu ô "Đường dẫn đề nghị" phải mở được hồ sơ bên App
+         * Request. Đã đo 13/09/2026: App Request CHỈ mở bằng id kỹ thuật
+         * (`/request/list?scope=all&id=<requestId>`); thử `?code=`, `?id=<mã 6 số>`, `?q=` đều
+         * KHÔNG mở đúng hồ sơ. Không lưu trường này thì không có cách nào dựng link.
+         *
+         * ⚠️ Đề nghị đã tạo TRƯỚC hôm nay không có trường này — chỗ hiển thị phải chịu được
+         * việc thiếu (xem `idHoSoAppRequest` trong `3-du-lieu/kieu-du-lieu.ts`).
+         */
+        idHoSoAppRequest: payload.requestId,
       };
 
       /**

@@ -51,6 +51,8 @@ import {
   type MocGiaiDoan,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+/* Dựng đường dẫn mở hồ sơ bên App Request — Ban lãnh đạo 13/09/2026, xem ô "Đường dẫn đề nghị". */
+import { duongDanHoSoAppRequest } from "@/6-tien-ich/dia-chi-app-de-nghi";
 /* Menu ⋯ gom 4 việc của khối "Thông tin đề nghị" — Ban lãnh đạo 13/09/2026, xem chỗ dùng. */
 import {
   DropdownMenu,
@@ -602,11 +604,21 @@ export default function TrangChiTietDeNghi({
               trường nào cũng có số thứ tự để trao đổi qua điện thoại chỉ nhau được ngay
               (*"ô số 4 điền gì"*).
 
-              📌 GẬP SẴN từ 15/08/2026 (Ban lãnh đạo: *"hãy luôn group này lại"*). Phần lớn
-              thông tin ở đây đã có ở tiêu đề trang và khối "Thông tin nhiệm vụ" bên phải;
-              mở sẵn thì đẩy phần việc thật (phân bổ, báo giá, đơn hàng) xuống dưới màn hình.
-              Cần tra chi tiết thì bấm một cái là mở. */}
-          <KhoiGap tieuDe="Thông tin đề nghị">
+              🔴 MỞ SẴN từ 13/09/2026 — Ban lãnh đạo: *"mục này luôn bung ra, không group lại"*.
+
+              ⚠️ ĐÂY LÀ ĐẢO NGƯỢC MỘT CHỈ ĐẠO CŨ CỦA CHÍNH BAN LÃNH ĐẠO, ghi lại để phiên sau
+              đừng tưởng ai lỡ tay rồi "sửa về như cũ": ngày 15/08/2026 chính Ban lãnh đạo yêu cầu
+              *"hãy luôn group này lại"*, lý do lúc đó là phần lớn thông tin ở đây đã có ở tiêu đề
+              trang và khối "Thông tin nhiệm vụ" bên phải, mở sẵn thì đẩy phần việc thật (phân bổ,
+              báo giá, đơn hàng) xuống dưới màn hình.
+
+              📌 Vì sao đổi ý là hợp lý: từ 15/08 tới nay khối này đã khác hẳn — nay có thêm ô 05
+              "Đường dẫn đề nghị" và menu ⋯ gom 4 việc (sao chép mã · sửa trường dữ liệu · trường
+              tự thêm · lưu trữ). Gập sẵn thì bốn việc đó nằm sau một cú bấm mà không có dấu hiệu
+              nào cho biết chúng tồn tại.
+
+              👉 Vẫn GẬP ĐƯỢC bằng tay — chỉ đổi trạng thái MẶC ĐỊNH lúc vào trang, không khoá. */}
+          <KhoiGap tieuDe="Thông tin đề nghị" moSan>
             {/* ★★ BỐN LỐI VÀO DỜI TỪ MENU ⋯ CỦA THẺ SANG ĐÂY — Ban lãnh đạo 12/09/2026 yêu cầu bỏ
                 chúng khỏi menu, và nói rõ: *"chỉ bỏ ở mục hiển thị thôi, còn chức năng thì vẫn
                 phải giữ lại"*. Nên đây KHÔNG phải nút mới, mà là chỗ ở mới của đúng bốn chức năng
@@ -752,9 +764,27 @@ export default function TrangChiTietDeNghi({
                  */
                 {
                   nhan: "Đường dẫn đề nghị",
+                  /**
+                   * ★★ TRỎ SANG APP ĐỀ XUẤT — Ban lãnh đạo 13/09/2026: *"phải link api tới app
+                   * đề xuất chứ"*. Trước đó ô này trỏ nội bộ `/de-nghi/<id>`.
+                   *
+                   * 🔴 HAI NHÁNH, CỐ Ý KHÁC ĐÍCH:
+                   *   · Hồ sơ ĐẾN TỪ App Request (có `idHoSoAppRequest`) → mở đúng hồ sơ bên App
+                   *     Request. Đó mới là "nhà" của tờ đề nghị; app Thu mua chỉ là nơi xử lý.
+                   *   · Hồ sơ LẬP TAY trong app (không có id đó) → giữ liên kết nội bộ. Bên App
+                   *     Request KHÔNG có hồ sơ nào để mở, trỏ sang là ra trang trống.
+                   *   Cả hai đều đúng nghĩa "đường dẫn tới đề nghị" nên dùng chung một nhãn.
+                   *
+                   * ⚠️ HỒ SƠ CŨ (về trước 13/09/2026) cũng rơi vào nhánh hai, vì lúc đó app chưa
+                   * lưu `idHoSoAppRequest`. Không phải lỗi — chỉ là dữ liệu cũ thiếu trường.
+                   *
+                   * 🔴 `target="_blank"` giữ nguyên cho CẢ HAI nhánh, xem chú thích ở trên: nhánh
+                   * nội bộ mà điều hướng cùng tab thì ở trang đầy đủ là no-op (bấm không đi đâu),
+                   * còn trong pop-up thì tháo mất cả bảng quy trình.
+                   */
                   giaTri: (
                     <a
-                      href={`/de-nghi/${dn.id}`}
+                      href={duongDanHoSoAppRequest(dn.idHoSoAppRequest) ?? `/de-nghi/${dn.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"

@@ -296,6 +296,28 @@ export interface DeNghiMuaHang {
    */
   maDeXuatAppRequest?: string;
   /**
+   * ★★ ID KỸ THUẬT của hồ sơ bên App Request — thêm 13/09/2026 theo chỉ đạo Ban lãnh đạo
+   * (*"phải link api tới app đề xuất chứ"*).
+   *
+   * 🔴 KHÁC HẲN `maDeXuatAppRequest` ở ngay trên, đừng dùng lẫn:
+   *   · `maDeXuatAppRequest` = mã 6 số người đọc được (vd `000000058`) — dùng để HIỂN THỊ và
+   *     đối chiếu giữa các app.
+   *   · trường này = id tài liệu Firestore bên App Request (vd `fSH4lYLX63FaV4B1pcY1`) —
+   *     KHÔNG hiển thị cho người dùng, chỉ dùng để dựng đường dẫn mở đúng hồ sơ bên đó.
+   *
+   * 🔴 VÌ SAO BẮT BUỘC PHẢI CÓ: App Request CHỈ mở hồ sơ bằng id kỹ thuật. Đã đo thật
+   * 13/09/2026 — thử cả ba cách `?code=000000058`, `?id=000000058`, `?q=000000058` thì
+   * KHÔNG cách nào mở đúng hồ sơ. Nên không có trường này là không dựng được link, chấm hết.
+   *
+   * ⚠️ App Request VẪN LUÔN gửi giá trị này sang (trường `requestId` trong payload), chỉ là
+   * trước 13/09/2026 app Thu mua nhận rồi VỨT ĐI. Nay lưu lại.
+   *
+   * ⚠️ HỒ SƠ CŨ KHÔNG CÓ trường này — chúng về trước ngày lưu. Chỗ dựng link PHẢI chịu được
+   * việc thiếu, đừng ép kiểu rồi ghép chuỗi bừa ra một địa chỉ chết.
+   * Trống cũng đúng với đề nghị LẬP TAY trong app: chúng không có hồ sơ nào bên App Request.
+   */
+  idHoSoAppRequest?: string;
+  /**
    * ★ LÝ DO HỒ SƠ THẤT BẠI — ghi khi đóng dở đề nghị (`trangThai === "dong_do"`).
    *
    * 🔴 Ban lãnh đạo 24/08/2026: *"Ở bước thất bại chỉ cần ghi lý do thất bại. Không cần ghi các

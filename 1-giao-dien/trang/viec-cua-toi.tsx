@@ -17,6 +17,7 @@ import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-han
 import { laViecCuaToi, soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
+import { DIA_CHI_APP_DE_NGHI } from "@/6-tien-ich/dia-chi-app-de-nghi";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -36,15 +37,9 @@ import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
  * xem việc đang tới tay mình. Hai màn khác nhau về đối tượng, đừng gộp.
  */
 
-/**
- * ★ ĐỊA CHỈ APP ĐỀ NGHỊ — nơi duy nhất lập phiếu đề nghị mua hàng (23/08/2026).
- *
- * 📌 Đổi được bằng biến môi trường `NEXT_PUBLIC_APP_DE_NGHI_URL`, cùng nếp với
- * `NEXT_PUBLIC_APP_TONG_URL` ở thanh bên. Mặc định là địa chỉ Ban lãnh đạo cho, để thiếu biến
- * cũng không ra một cái nút bấm chẳng đi đâu.
- */
-const DIA_CHI_APP_DE_NGHI =
-  process.env.NEXT_PUBLIC_APP_DE_NGHI_URL ?? "https://request.hpcore.vn/request";
+/* 📌 `DIA_CHI_APP_DE_NGHI` ĐÃ DỜI sang `6-tien-ich/dia-chi-app-de-nghi.ts` ngày 13/09/2026 —
+   từ hôm đó có chỗ THỨ HAI cần dùng (ô "Đường dẫn đề nghị" ở trang chi tiết đề nghị), mà để
+   hai bản là đổi một chỗ quên chỗ kia. Import ở đầu tệp. */
 
 /** Các tab lọc, dịch từ dải tab trong ảnh mẫu sang đúng nghiệp vụ thu mua. */
 type MaLoc =
