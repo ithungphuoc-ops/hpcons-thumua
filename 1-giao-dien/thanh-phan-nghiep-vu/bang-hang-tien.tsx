@@ -37,6 +37,14 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  *   # · Mã hàng · Tên hàng · Thông số kỹ thuật · ĐVT · Số lượng · Đơn giá · Thành tiền ·
  *   % Thuế GTGT · Tiền thuế GTGT · Trường mở rộng 1 · [Mục đích sử dụng] · (nút xóa dòng)
  *
+ * 📌 CỘT ĐANG HIỆN THẬT (cập nhật 13/09/2026) — dòng trên là thứ tự GỐC của MISA, giữ lại để biết
+ * chèn cột mới vào đâu, nhưng bảng nay đã rút bớt theo biểu mẫu công ty:
+ *   # · Tên hàng · Quy cách/chủng loại · ĐVT · Số lượng · [Đơn giá · Thành tiền · % Thuế GTGT] ·
+ *   Mục đích sử dụng · (nút [+] và nút xóa)
+ *   — ba cột trong ngoặc vuông chỉ hiện với người có `xemGia`.
+ *   — "Mã hàng", "Trường mở rộng 1", "Tiền thuế GTGT" đã bỏ khỏi MÀN NHẬP nhưng TRƯỜNG DỮ LIỆU
+ *     vẫn còn; lý do từng cái ghi ngay tại dòng tiêu đề tương ứng.
+ *
  * ⚠️ "Mục đích sử dụng" KHÔNG có trên màn MISA — đây là cột THÊM của công ty, đặt sau cùng để
  * không phá thứ tự MISA. Không được bỏ: biểu mẫu giấy đang lưu hành
  * `1. INPUT/Bieu mau/1. DON HANG HPCONS.xlsx` có cột này và trang in `/in/don-hang/[id]` đang
@@ -227,6 +235,10 @@ export function BangHangTien({
    *
    * 📌 Hợp chỗ vì cùng loại với ô Chiết khấu: cả hai là ĐIỀU KIỆN THƯƠNG MẠI áp cho cả đơn, và
    * cả hai đều chỉ hiện với người xem được giá.
+   *
+   * 🔴 Ô NÀY CHỈ ÁP CHO DÒNG BỎ TRỐNG CỘT "% Thuế GTGT" (cột đó mở lại 13/09/2026 — xem chú thích
+   * ở dòng tiêu đề bảng). Nó KHÔNG đè lên dòng đã ghi mức riêng. Ai sửa cho nó đè lên tất cả là
+   * xoá lặng lẽ thoả thuận thuế riêng của từng dòng mà người lập vừa gõ.
    */
   oThueSuatChung?: React.ReactNode;
   conMatHangDeThem: boolean;
@@ -244,14 +256,15 @@ export function BangHangTien({
    * ghi chú gộp thừa hoặc thiếu một ô — bảng lệch mà **không có lỗi nào báo**.
    *
    * Lịch sử: 7 → 6 (bỏ "Trường mở rộng 1") → 5 và 4 → 2 phần giá (23/08/2026, bỏ "Mã hàng" và
-   * hai cột thuế theo dòng để khớp 100% biểu mẫu công ty).
+   * hai cột thuế theo dòng để khớp 100% biểu mẫu công ty) → 2 thành 3 phần giá (13/09/2026, mở
+   * lại MỘT cột "% Thuế GTGT" theo yêu cầu Ban lãnh đạo — xem chú thích ở dòng tiêu đề).
    *
    * Đếm hiện tại — phần GIỮA (từ cột sau "#" tới "Mục đích sử dụng"):
    *   Tên hàng · Quy cách/chủng loại · ĐVT · Số lượng · Mục đích sử dụng = 5
-   *   + khi xem được giá: Đơn giá · Thành tiền = 2
+   *   + khi xem được giá: Đơn giá · Thành tiền · % Thuế GTGT = 3
    * Cả bảng = phần giữa + cột "#" + cột nút xóa.
    */
-  const soCotGiua = 5 + (xemGia ? 2 : 0);
+  const soCotGiua = 5 + (xemGia ? 3 : 0);
   /** Tổng số cột thật của bảng — dùng cho `colSpan` của các dòng chiếm cả bề ngang. */
   const soCotCaBang = soCotGiua + 2;
 
@@ -551,20 +564,39 @@ export function BangHangTien({
                   <TableHead className="text-right">Đơn giá</TableHead>
                   <TableHead className="text-right">Thành tiền</TableHead>
                   {/**
-                    * ❌ ĐÃ BỎ HAI CỘT "% Thuế GTGT" và "Tiền thuế GTGT" THEO DÒNG (23/08/2026 —
-                    * Ban lãnh đạo: *"giống 100% file PO mẫu"*).
+                    * ★★ CỘT "% Thuế GTGT" THEO TỪNG DÒNG — MỞ LẠI 13/09/2026 ★★
                     *
-                    * Biểu mẫu công ty chỉ có MỘT thuế suất cho cả đơn (ô B21 *"Thuế suất thuế
-                    * GTGT: …,…%"*) và MỘT dòng tiền thuế ở khối tổng (ô E21) — không có thuế theo
-                    * từng dòng hàng. Hai cột kia là của MISA.
+                    * 🔴 VIỆC NÀY ĐI NGƯỢC CHÍNH CHỈ ĐẠO 23/08/2026 CỦA BAN LÃNH ĐẠO, và đó là
+                    * CỐ Ý — đã hỏi lại và Sếp XÁC NHẬN đổi ý ngày 13/09/2026. **Phiên sau đọc tới
+                    * đây ĐỪNG "sửa về như cũ"**, vì lý lẽ cũ vẫn còn nguyên giá trị và rất dễ
+                    * thuyết phục:
                     *
-                    * ⚠️ HỆ QUẢ PHẢI BIẾT: đơn TRỘN nhiều mức thuế (8% và 10% trong cùng một đơn)
-                    * nay **không nhập được từ màn hình** — thuế lấy theo ô "Thuế suất GTGT chung"
-                    * ngay dưới bảng. Phép tính theo dòng thì vẫn còn nguyên trong
-                    * `2-quy-trinh/tinh-toan.ts` và bộ đọc Excel vẫn nhận `thueSuat` của từng dòng,
-                    * nên đơn nhập từ file có trộn thuế vẫn tính đúng. Cần nhập tay trộn thuế trở
-                    * lại thì mở lại hai cột này, đừng viết phép tính mới.
+                    *   · 23/08/2026 Ban lãnh đạo yêu cầu *"tạo các trường nhập liệu giống 100%
+                    *     file PO mẫu"*. Biểu mẫu giấy `PO - DEMO 130826.xlsx` chỉ có MỘT ô thuế
+                    *     suất cho cả đơn (ô B21) và MỘT dòng tiền thuế ở khối tổng (ô E21) — không
+                    *     có thuế theo từng dòng hàng. Vì vậy hai cột "% Thuế GTGT" và "Tiền thuế
+                    *     GTGT" (vốn là của MISA) đã bị bỏ hôm đó.
+                    *   · 13/09/2026 Sếp duyệt MỞ LẠI, vì đơn trộn 8% và 10% trong cùng một đơn là
+                    *     có thật, mà bỏ cột thì **không nhập tay được** — chỉ đơn đổ từ file Excel
+                    *     mới trộn thuế được. Người lập gặp đơn trộn thuế thì bế tắc ngay trên màn
+                    *     hình, không có đường nào khác.
+                    *
+                    * 📌 CHỈ MỞ LẠI **MỘT** CỘT (ô nhập), KHÔNG mở lại cột "Tiền thuế GTGT". Cột
+                    * tiền thuế theo dòng là con số TÍNH RA, không phải ô nhập; đưa lên bảng là
+                    * bảng rộng thêm một cột nữa mà không cho người lập làm được gì. Tổng tiền thuế
+                    * vẫn nằm ở khối tiền dưới bảng, đúng như biểu mẫu (ô E21).
+                    *
+                    * 📌 KHÔNG VIẾT PHÉP TÍNH MỚI Ở ĐÂY. Cột này chỉ ghi vào `d.thueSuat` của dòng;
+                    * `2-quy-trinh/tinh-toan.ts` → `tinhTienChiTiet` vốn đã nhận thuế suất theo
+                    * từng dòng từ trước (chưa bao giờ bị gỡ), và tờ in `to-don-mua-hang-a4.tsx`
+                    * cùng bộ xuất Excel đã biết tự thêm 2 cột khi đơn trộn mức.
+                    *
+                    * ⚠️ TỜ IN VÀ FILE EXCEL GIỮ NGUYÊN LUẬT CŨ, KHÔNG SỬA THEO: đơn MỘT mức thuế
+                    * (gần như mọi đơn) vẫn in đúng 9 cột của biểu mẫu, chỉ đơn TRỘN mức mới mọc
+                    * thêm 2 cột. Đây là bảng NHẬP LIỆU nên phải luôn có ô để nhập, còn tờ giấy gửi
+                    * nhà cung cấp thì không được tự ý thừa cột so với biểu mẫu đang lưu hành.
                     */}
+                  <TableHead className="text-right">% Thuế GTGT</TableHead>
                 </>
               )}
               {/* ❌ ĐÃ BỎ CỘT "Trường mở rộng 1" khỏi bảng nhập (23/08/2026).
@@ -856,8 +888,38 @@ export function BangHangTien({
                       <TableCell className="pt-3 text-right font-medium text-text-primary tabular-nums">
                         {(t?.thanhTien ?? 0).toLocaleString("vi-VN")}
                       </TableCell>
-                      {/* ❌ Hai ô "% Thuế GTGT" và "Tiền thuế GTGT" theo dòng đã bỏ khỏi bảng nhập
-                          — xem chú thích ở dòng tiêu đề. */}
+
+                      {/* ★ Ô "% Thuế GTGT" RIÊNG CỦA DÒNG — mở lại 13/09/2026 (xem chú thích dài ở
+                          dòng tiêu đề để biết vì sao việc này đi ngược chỉ đạo 23/08 mà vẫn đúng).
+
+                          🔴 Ô TRỐNG ≠ SỐ 0. Trống nghĩa là *"dòng này không có thỏa thuận thuế
+                          riêng"* → lấy theo ô "Thuế suất GTGT chung" trên hàng công cụ, và sau này
+                          đổi mức chung là dòng đổi theo. Gõ số 0 nghĩa là *"hàng này KHÔNG chịu
+                          thuế"* — hai việc khác hẳn nhau trên chứng từ thuế. Chỗ đọc ô này
+                          (`form-lap-don-mua-hang.tsx`) đã giữ đúng phân biệt đó bằng
+                          `d.thueSuat.trim() === "" ? undefined : …`, đừng ép về 0 ở bất kỳ đâu.
+
+                          📌 GỢI Ý MỜ TRONG Ô LÀ MỨC ĐANG THỰC SỰ ÁP CHO DÒNG (`t.thueSuatGTGT`,
+                          do `tinhTienChiTiet` suy ra từ mức chung). Nó là con số THẬT chứ không
+                          phải số mẫu, nên không rơi vào cái bẫy của ô Đơn giá (ở đó placeholder
+                          "0" từng bị đọc nhầm thành "đã điền giá 0 đồng" — 21/08/2026). Người lập
+                          nhìn ô trống vẫn biết ngay dòng đang chịu mấy phần trăm.
+
+                          ⚠️ `khong-nut-tang-giam`: ô căn phải mà còn cặp mũi tên tăng/giảm của
+                          Chrome thì mũi tên đè lên chữ số — cùng lý do đã áp cho ô Đơn giá. */}
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={d.thueSuat}
+                          onChange={(e) => onDoiDong(d.id, { thueSuat: e.target.value })}
+                          placeholder={t ? String(t.thueSuatGTGT) : undefined}
+                          className="w-24 text-right khong-nut-tang-giam"
+                          title="Để trống = theo Thuế suất GTGT chung của đơn. Chỉ điền khi dòng này có mức thuế khác (đơn trộn 8% và 10%)."
+                          aria-label={`Phần trăm thuế GTGT dòng ${viTri + 1} — để trống là theo thuế suất chung của đơn`}
+                        />
+                      </TableCell>
                     </>
                   )}
 
@@ -925,8 +987,13 @@ export function BangHangTien({
                     <TableCell className="text-right font-bold tabular-nums text-text-primary">
                       {tien.congTienHang.toLocaleString("vi-VN")}
                     </TableCell>
-                    {/* ❌ Đã bỏ 2 ô tổng của hai cột thuế theo dòng — hai cột đó không còn.
-                        Tổng tiền thuế nay chỉ nằm ở khối tiền dưới bảng, đúng như biểu mẫu (ô E21). */}
+                    {/* 🔴 Ô TRỐNG CHO CỘT "% Thuế GTGT" — BẮT BUỘC PHẢI CÓ, dù không cộng gì.
+                        Cộng các phần trăm lại là một con số vô nghĩa (8% + 10% = 18% không nói lên
+                        điều gì), nhưng thiếu ô này thì cả dòng TỔNG CỘNG **lệch sang trái một cột**
+                        mà không có lỗi nào báo — y hệt cái bẫy đã ghi ở `soCotGiua`.
+                        📌 Tổng tiền thuế vẫn chỉ nằm ở khối tiền dưới bảng, đúng như biểu mẫu (ô
+                        E21) — không mở lại cột "Tiền thuế GTGT" theo dòng. */}
+                    <TableCell />
                   </>
                 )}
                 {/* Còn [Mục đích sử dụng] + [nút xóa]. */}

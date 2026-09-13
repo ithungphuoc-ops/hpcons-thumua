@@ -163,13 +163,38 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
          `gia` (state riêng, xem NHÓM 2) không tự dọn theo. Gửi cả giá của dòng đã xóa lên là để
          lại một dòng giá "mồ côi", trỏ về `sttDong` không còn tồn tại trong PO nữa. */
       const sttConLai = new Set(itemsConLai.map((d) => d.sttDong));
+      /**
+       * 🔴🔴 PHẢI MANG THEO `thueSuatGTGT` CŨ — vá 13/09/2026, một lượt soát chéo độc lập bắt được.
+       *
+       * Bản cũ dựng lại `lines` CHỈ với `sttDong` + `donGia`, mà `suaDonHang`
+       * (`3-du-lieu/kho-du-lieu.tsx`) thay **toàn bộ** mảng `lines` bằng mảng này. Hậu quả: mở hộp
+       * "Sửa đơn hàng" rồi bấm Lưu — DÙ CHỈ ĐỔI NGÀY GIAO — là xoá sạch thuế suất riêng của từng
+       * dòng, tất cả rơi về mức thuế chung. Cái hỏng là TIỀN THUẾ trên chứng từ gửi nhà cung cấp,
+       * và không một dòng lỗi nào báo.
+       *
+       * ⚠️ VÌ SAO TRƯỚC ĐÂY KHÔNG AI THẤY: đến 13/09/2026 thuế theo dòng chỉ vào được bằng đường
+       * nhập từ file Excel nên hầu như không có đơn nào dùng. Cùng ngày, ô nhập "% Thuế GTGT" theo
+       * dòng được mở lại trong bảng Hàng tiền (Ban lãnh đạo duyệt) — từ đó đây thành đường đi
+       * thường xuyên, và lỗi ngủ yên thành lỗi gặp hằng ngày.
+       *
+       * 📌 Hộp này KHÔNG có ô sửa thuế, nên đúng việc của nó là GIỮ NGUYÊN giá trị cũ, không phải
+       * đặt lại. Ai sau này thêm ô sửa thuế vào hộp thì thay `?? cu` bằng giá trị người dùng nhập.
+       */
       thayDoi.gia = {
         lines: Object.entries(gia)
           .filter(([sttDong]) => sttConLai.has(Number(sttDong)))
-          .map(([sttDong, donGia]) => ({
-            sttDong: Number(sttDong),
-            donGia: Number(donGia) || 0,
-          })),
+          .map(([sttDong, donGia]) => {
+            const stt = Number(sttDong);
+            const cu = giaHienTai?.lines.find((l) => l.sttDong === stt);
+            return {
+              sttDong: stt,
+              donGia: Number(donGia) || 0,
+              /* `undefined` = dòng này vốn không có thuế riêng, dùng mức chung của đơn. Giữ
+                 nguyên `undefined` chứ đừng đặt 0 — 0% là một mức thuế THẬT (hàng không chịu
+                 thuế), khác hẳn "chưa đặt". */
+              thueSuatGTGT: cu?.thueSuatGTGT,
+            };
+          }),
       };
     }
 

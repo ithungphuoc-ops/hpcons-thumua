@@ -476,10 +476,23 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     oPhu.font = { size: 10 };
     oPhu.alignment = { horizontal: "center" };
   }
-  // Chừa bốn dòng cho chỗ ký tay rồi ghi tên người phụ trách bên mua.
-  const oTen = dat(dongKy + 5, 7, po.nguoiPhuTrachTen, 8);
-  oTen.font = { size: 11, bold: true };
-  oTen.alignment = { horizontal: "center" };
+  /**
+   * 🔴 ĐÃ BỎ DÒNG GHI TÊN NGƯỜI PHỤ TRÁCH BÊN MUA — Ban lãnh đạo 13/09/2026.
+   *
+   * Sếp yêu cầu *"bỏ tên người lập khỏi bản in PO"*. Tờ in A4 (`to-don-mua-hang-a4.tsx`) đã bỏ
+   * trong cùng ngày, nhưng bản XUẤT EXCEL của CÙNG một tờ PO thì vẫn in — một lượt soát chéo
+   * bắt được, và hậu quả là hai bản của cùng một đơn gửi nhà cung cấp ghi khác nhau. Hỏi lại,
+   * Sếp chốt: **bỏ tên ở cả hai bản**.
+   *
+   * 👉 Chỗ ký nay chỉ còn ô "(Ký, họ tên)" để ký tay, không có tên đánh máy bên dưới.
+   *
+   * 📌 TRƯỜNG DỮ LIỆU `po.nguoiPhuTrachTen` GIỮ NGUYÊN — nó được đọc ở hơn 10 màn nội bộ (thẻ
+   * Kanban, chi tiết đơn, danh sách đơn, bảng phân bổ, bảng năng lực nhân viên, việc-của-tôi,
+   * theo-dõi). Đây chỉ là bỏ một dòng IN, không đụng dữ liệu.
+   *
+   * ⚠️ NẾU SAU NÀY BẬT LẠI Ở MỘT BẢN thì phải bật ở CẢ HAI. Hai bản lệch nhau là đúng lỗi vừa
+   * phải đi sửa hôm nay.
+   */
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], {

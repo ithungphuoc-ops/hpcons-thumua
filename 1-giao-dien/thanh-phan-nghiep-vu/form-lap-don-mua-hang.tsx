@@ -727,6 +727,8 @@ export function FormLapDonMuaHang({
   /* ★ Danh mục thủ kho công trình (22/08/2026) — hai hộp thoại và HAI ô nhập của hộp thêm.
      ❌ Ô thứ ba ("Công trình phụ trách") đã bỏ ngày 13/09/2026 theo yêu cầu Ban lãnh đạo, nên
         state `tkCongTrinh` cũng bỏ theo: nó chỉ phục vụ đúng ô đó, giữ lại là một biến chết.
+     ❌ 13/09/2026 bỏ tiếp CHỖ HIỂN THỊ `congTrinh` ở popover chọn thủ kho và ở danh sách xoá thủ
+        kho — trước đó hai chỗ này vẫn vẽ ra nên danh sách "nửa có nửa không".
      🔴 TRƯỜNG `ThuKhoCongTrinh.congTrinh` TRONG KIỂU DỮ LIỆU VẪN GIỮ — xem chú thích dài tại hộp
         "Lưu thủ kho vào danh mục?" phía dưới để biết vì sao KHÔNG được dọn theo. */
   const [moThemThuKho, setMoThemThuKho] = useState(false);
@@ -3055,28 +3057,39 @@ export function FormLapDonMuaHang({
             }
           />
 
-          {/* 📌 CÂU GIẢI THÍCH THUẾ SUẤT Ở LẠI DƯỚI BẢNG, KHÔNG ĐI THEO Ô.
-              Ô đã lên hàng công cụ — nơi đó chật, nhét cả câu hai dòng vào là vỡ hàng trên màn
-              hẹp. Câu vẫn phải còn ở đâu đó: không có nó thì người nhập không biết ô này chỉ áp
-              cho dòng BỎ TRỐNG cột thuế, và tưởng nó đè lên mọi dòng.
-              📌 Bản thân ô cũng mang câu này ở thuộc tính `title` (hiện khi rê chuột). */}
+          {/* ★ KHỐI CHÚ THÍCH DƯỚI BẢNG — RÚT TỪ HAI ĐOẠN XUỐNG MỘT DÒNG (13/09/2026).
+              Ban lãnh đạo yêu cầu bỏ khối chú thích dưới bảng Hàng tiền cho gọn.
+
+              🔴 KHÔNG XOÁ HẲN CÂU GIẢI THÍCH THUẾ, CỐ Ý — và đây là chỗ dễ làm hỏng nhất:
+              cùng ngày 13/09 cột "% Thuế GTGT" theo dòng đã được MỞ LẠI trên bảng. Bỏ câu này đi
+              thì màn hình có hai ô thuế (ô chung trên hàng công cụ + ô riêng từng dòng) mà không
+              một chữ nào nói chúng quan hệ với nhau ra sao. Người nhập sẽ đoán rằng ô chung đè lên
+              tất cả, rồi hoặc gõ lại mức chung vào từng dòng cho "chắc", hoặc tưởng mức riêng đã
+              gõ bị bỏ qua. Sai một trong hai kiểu đó là **sai số tiền thuế trên chứng từ gửi nhà
+              cung cấp**, không phải sai trình bày.
+
+              📌 Nên câu được VIẾT LẠI CHO NGẮN và nói đúng bố cục mới (một dòng, nêu đúng quan hệ
+              "bỏ trống thì theo mức chung"), thay vì giữ nguyên hai câu dài như trước.
+              📌 Người rê chuột vào ô còn đọc được bản đầy đủ ở thuộc tính `title` — cả ô chung lẫn
+              ô của từng dòng đều có. */}
           {quyen.xemGia && (
             <p className="text-xs text-text-desc">
-              <strong>Thuế suất GTGT chung</strong> áp cho mọi dòng bỏ trống cột{" "}
-              <strong>% Thuế GTGT</strong>. Đơn trộn nhiều mức thì ghi riêng ở từng dòng.
+              Dòng nào bỏ trống cột <strong>% Thuế GTGT</strong> thì theo{" "}
+              <strong>Thuế suất GTGT chung</strong>.
             </p>
           )}
 
-          {/* 📌 DÒNG "F3 - Tìm nhanh, F9 - Thêm nhanh" của MISA — 18/08/2026 ĐÃ ĐỦ CẢ HAI.
-              🔴 F3 trước đây bị bỏ vì màn không có ô tìm nào để mở; nay bảng Hàng tiền đã có ô
-              tìm thật nên F3 làm việc thật (xem `BangHangTien`).
-              🔴 CHỈ RAO KHI CÓ THẬT: nhúng trong trang thì app KHÔNG bắt hai phím này (sẽ cướp
-              phím của ô bình luận, bảng phân bổ…), nên dòng chữ cũng không được hiện. */}
-          {!nhung && (
-            <p className="text-xs text-text-desc">
-              F3 — tìm nhanh trong bảng · F9 — thêm nhanh một mặt hàng vào bảng.
-            </p>
-          )}
+          {/* ❌ ĐÃ BỎ DÒNG CHỮ "F3 — tìm nhanh · F9 — thêm nhanh" (Ban lãnh đạo 13/09/2026).
+              🔴 CHỈ BỎ DÒNG CHỮ — HAI PHÍM TẮT VẪN CHẠY THẬT, không đụng tới: F9 bắt ngay trong
+              file này (xem `useEffect` nghe phím F9), F3 bắt trong `BangHangTien` (`batPhimTat`).
+              ✅ ĐÃ KIỂM TRƯỚC KHI BỎ (quy tắc dự án: bỏ một lối vào thì phải soát còn lối nào
+              khác không) — dòng chữ này KHÔNG phải chỗ duy nhất cho người dùng biết có phím tắt,
+              còn hai chỗ nữa, và cả hai đều hiện đúng trong cùng trường hợp `!nhung`:
+                · Nút biểu tượng bàn phím ở thanh tiêu đề (`NutPhimTat`) — mở ra bảng liệt kê đầy
+                  đủ cả F3 lẫn F9 kèm mô tả việc chúng làm.
+                · Ô tìm nhanh ngay trên bảng có sẵn chữ gợi ý *"Tìm nhanh trong bảng (F3)"*.
+              ⚠️ Nếu về sau bỏ nốt `NutPhimTat` thì phải dựng lại một chỗ khác cho người dùng biết,
+              đừng để phím tắt chạy mà không ai biết là có. */}
         </CardContent>
       </Card>
 
@@ -3415,10 +3428,11 @@ export function FormLapDonMuaHang({
                             className="flex min-h-11 min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-primary-bg"
                           >
                             <span className="text-sm font-medium text-text-primary">{n.ten}</span>
-                            {(n.congTrinh || n.soDienThoai) && (
-                              <span className="text-xs text-text-desc">
-                                {[n.congTrinh, n.soDienThoai].filter(Boolean).join(" · ")}
-                              </span>
+                            {/* ❌ KHÔNG CÒN HIỆN "công trình phụ trách" Ở ĐÂY — bỏ 13/09/2026 theo
+                                yêu cầu Ban lãnh đạo. Lý do đầy đủ ghi một lần ở khối chú thích
+                                trên hộp "Lưu thủ kho vào danh mục?" phía dưới file này. */}
+                            {n.soDienThoai && (
+                              <span className="text-xs text-text-desc">{n.soDienThoai}</span>
                             )}
                           </button>
                           <button
@@ -4192,20 +4206,30 @@ export function FormLapDonMuaHang({
         *      của cả phòng đang chạy thử.
         *   ② `kieu-du-lieu.ts` nằm trong VÙNG CẤM SỬA của phiên tích hợp App Tổng (CLAUDE.md §6.6).
         *
-        * ⚠️ HAI HỆ QUẢ ĐÃ BIẾT, CHƯA ĐƯỢC SỬA VÌ NẰM NGOÀI PHẠM VI ĐƯỢC GIAO — đã báo Sếp quyết:
+        * ✅ HỆ QUẢ ① ĐÃ XỬ XONG 13/09/2026 — BỎ LUÔN HAI CHỖ HIỂN THỊ `congTrinh`.
         *
-        *   ① DANH SÁCH CHỌN THỦ KHO NAY "NỬA CÓ NỬA KHÔNG". Chỗ chọn thủ kho (ô "Người nhận hàng")
-        *      và danh sách xoá thủ kho VẪN hiện `congTrinh` để phân biệt khi trùng tên. Thủ kho CŨ
-        *      còn chữ đó, thủ kho thêm TỪ NAY thì không — cùng một danh sách mà hai kiểu. Cố ý
-        *      KHÔNG tự bỏ chỗ hiển thị: bỏ là xoá luôn thông tin thủ kho cũ đang có, mà chỉ đạo chỉ
-        *      nói bỏ Ô NHẬP.
+        *   Sau khi bỏ ô nhập, danh sách thủ kho thành "NỬA CÓ NỬA KHÔNG": thủ kho lưu TRƯỚC
+        *   13/09 còn chữ công trình, thủ kho thêm TỪ NAY thì không — cùng một danh sách mà hai
+        *   kiểu, người dùng không hiểu vì sao. Sếp chốt ngày 13/09/2026: **bỏ luôn chỗ vẽ ra màn
+        *   hình cho đồng nhất.** Đã bỏ ở đúng hai chỗ:
+        *     · popover chọn thủ kho của ô "Người nhận hàng" (nay chỉ còn tên · số điện thoại)
+        *     · danh sách trong hộp "Xóa thủ kho khỏi danh mục"
         *
-        *   ② CÂU BÁO LỖI TRÙNG TÊN NAY CHỈ MỘT VIỆC KHÔNG LÀM ĐƯỢC NỮA. `themThuKho` trong
-        *      `3-du-lieu/kho-du-lieu.tsx` (khoảng dòng 1380) từ chối tên trùng bằng câu: *"Đã có thủ
-        *      kho tên … — chọn lại người đó, hoặc ghi thêm công trình để phân biệt"*. Bỏ ô nhập rồi
-        *      thì người dùng KHÔNG còn chỗ nào "ghi thêm công trình" — câu đó chỉ vào một ô không
-        *      tồn tại, đúng kiểu "giao diện hứa một việc app không làm" (CLAUDE.md §3.5). Không tự
-        *      sửa vì `kho-du-lieu.tsx` không thuộc tệp được giao phiên này.
+        *   💰 CÁI GIÁ PHẢI CHẤP NHẬN, nói thẳng để phiên sau không tưởng là lỗi: thủ kho cũ nào
+        *   đã có công trình thì **giá trị đó nay không hiện ở đâu nữa**. Hai người trùng tên mà
+        *   khác công trình thì trên danh sách trông y hệt nhau, chỉ phân biệt được bằng số điện
+        *   thoại. Dữ liệu KHÔNG mất (vẫn nằm trong `ThuKhoCongTrinh.congTrinh`), chỉ là không vẽ
+        *   ra; cần hiện lại thì thêm chỗ hiển thị, đừng đi tìm dữ liệu đã xoá.
+        *
+        * ⚠️ HỆ QUẢ ② VẪN CÒN TREO — NẰM NGOÀI TỆP ĐƯỢC GIAO, ĐÃ BÁO SẾP QUYẾT:
+        *
+        *   `themThuKho` trong `3-du-lieu/kho-du-lieu.tsx` (khoảng dòng 1380) từ chối tên trùng
+        *   bằng câu: *"Đã có thủ kho tên … — chọn lại người đó, hoặc ghi thêm công trình để phân
+        *   biệt"*. Bỏ ô nhập rồi thì người dùng KHÔNG còn chỗ nào "ghi thêm công trình" — câu đó
+        *   chỉ vào một ô không tồn tại, đúng kiểu "giao diện hứa một việc app không làm"
+        *   (CLAUDE.md §3.5). Từ 13/09 câu này còn sai nặng hơn trước, vì chữ công trình cũng
+        *   không còn hiện để mà "phân biệt". KHÔNG tự sửa: `kho-du-lieu.tsx` không thuộc tệp
+        *   được giao phiên này, và agent khác đang sửa tệp khác cùng lúc.
         */}
       <HopXacNhan
         mo={moThemThuKho}
@@ -4276,9 +4300,11 @@ export function FormLapDonMuaHang({
               key={n.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
             >
+              {/* ❌ KHÔNG CÒN HIỆN "công trình phụ trách" — bỏ 13/09/2026 (xem khối chú thích trên
+                  hộp "Lưu thủ kho vào danh mục?"). Nay chỉ còn TÊN và SỐ ĐIỆN THOẠI, đúng hai thứ
+                  mà hộp thêm thủ kho còn nhập được. */}
               <span className="min-w-0 text-sm text-text-primary">
                 {n.ten}
-                {n.congTrinh && <span className="text-text-desc"> · {n.congTrinh}</span>}
                 {n.soDienThoai && <span className="text-text-desc"> · {n.soDienThoai}</span>}
               </span>
               <Button
