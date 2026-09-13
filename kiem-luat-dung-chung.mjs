@@ -106,9 +106,23 @@ try {
   process.exit(1);
 }
 
+const tepRa6 = join(thuMuc, "tich-hop-app-request.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/tich-hop-app-request.ts" --bundle --platform=node --format=cjs --outfile="${tepRa6}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/tich-hop-app-request.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
+const AR = nap(tepRa6);
 
 /* ---------- Bộ khung chấm ---------- */
 let dat = 0;
@@ -1687,6 +1701,123 @@ kiem(
       duoc: r?.loai === "khong_the" && /tạm tắt/i.test(cau) && /hủy/i.test(cau),
       thucTe: `${r?.loai ?? "?"}: "${cau.slice(0, 80)}"`,
       mongDoi: 'khong_the, cau co "tam tat" VA chi duong "huy chung tu"',
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// TÁCH "Mã hợp đồng CĐT | Tên công trình" TỪ CHUỖI APP REQUEST GỬI
+//
+// 🔴 SỰ CỐ THẬT 13/09/2026: App Request gửi đề nghị `000000078` với chuỗi
+//    "26002/HDXD | Nhà xưởng Howell" (THANH ĐỨNG). Hàm chỉ biết " - " nên không tách được,
+//    dồn cả chuỗi vào "Tên công trình" và để "Số hợp đồng CĐT" trống. Ban lãnh đạo phát hiện
+//    trên giao diện: *"chỗ này sao lại bị gộp tên hđ với tên công trình vậy"*.
+//
+// ⚠️ BÀI KIỂM CÓ CẢ HAI CHIỀU. Chỉ kiểm "tách được dấu |" là chưa đủ: ai nới thành tách theo
+//    dấu `-` TRẦN thì bài đó vẫn xanh, mà mã hợp đồng thật (`UNICE-HPCS`) bị cắt đôi im lặng.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "TACH chuoi cong trinh theo dau THANH DUNG |",
+  "Ban lanh dao 13/09/2026 (*\"sao lai bi gop ten hd voi ten cong trinh\"*) — ho so 000000078",
+  () => {
+    const r = AR.tachCongTrinhTuChuoi("26002/HDXD | Nhà xưởng Howell");
+    return {
+      duoc: r?.maHopDongCDT === "26002/HDXD" && r?.tenCongTrinh === "Nhà xưởng Howell",
+      thucTe: `ma="${r?.maHopDongCDT}" ten="${r?.tenCongTrinh}"`,
+      mongDoi: 'ma="26002/HDXD" ten="Nhà xưởng Howell"',
+    };
+  },
+);
+
+kiem(
+  "VAN TACH duoc dau \" - \" nhu cu (khong pha luat goc)",
+  "phien tich hop — quy uoc goc \"Ma hop dong - Ten cong trinh\"",
+  () => {
+    const r = AR.tachCongTrinhTuChuoi("06/2026/HĐXD-HPCS - NHÀ MÁY SHUN HING");
+    return {
+      duoc: r?.maHopDongCDT === "06/2026/HĐXD-HPCS" && r?.tenCongTrinh === "NHÀ MÁY SHUN HING",
+      thucTe: `ma="${r?.maHopDongCDT}" ten="${r?.tenCongTrinh}"`,
+      mongDoi: 'ma="06/2026/HĐXD-HPCS" ten="NHÀ MÁY SHUN HING"',
+    };
+  },
+);
+
+kiem(
+  "KHONG duoc tach theo dau '-' TRAN — ma hop dong that co gach ngang ben trong",
+  "phien tich hop — chu thich goc: \"KHONG tach theo dau `-` tran, vi ma hop dong that co the chua dau gach ngang rieng (vd UNICE-HPCS)\"",
+  () => {
+    /* 🔴 CHIEU NGUOC LAI. Neu ai noi thanh tach dau `-` tran thi chuoi duoi day se bi cat thanh
+       ma="30/2025/HĐXD/UNICE" — sai ma hop dong, va sai IM LANG. */
+    const r = AR.tachCongTrinhTuChuoi("30/2025/HĐXD/UNICE-HPCS - UNICE QUẢNG NGÃI");
+    return {
+      duoc: r?.maHopDongCDT === "30/2025/HĐXD/UNICE-HPCS" && r?.tenCongTrinh === "UNICE QUẢNG NGÃI",
+      thucTe: `ma="${r?.maHopDongCDT}" ten="${r?.tenCongTrinh}"`,
+      mongDoi: 'ma="30/2025/HĐXD/UNICE-HPCS" (NGUYEN ven, khong bi cat o dau - tran)',
+    };
+  },
+);
+
+kiem(
+  "LAY dau xuat hien SOM NHAT, vi ma hop dong luon dung truoc",
+  "Ban lanh dao 13/09/2026 — he qua cua viec nhan nhieu dau phan cach",
+  () => {
+    const r = AR.tachCongTrinhTuChuoi("26002/HDXD | Nhà xưởng - Howell");
+    return {
+      duoc: r?.maHopDongCDT === "26002/HDXD" && r?.tenCongTrinh === "Nhà xưởng - Howell",
+      thucTe: `ma="${r?.maHopDongCDT}" ten="${r?.tenCongTrinh}"`,
+      mongDoi: 'tach o | (vi tri 11), KHONG tach o " - " phia sau',
+    };
+  },
+);
+
+kiem(
+  "KHONG duoc tach theo GACH DAI – — (do la dau ngat cau trong ten cong trinh)",
+  "Ban lanh dao 13/09/2026 — ca that bat duoc khi quet du lieu: \"Nhà xưởng ABC — Giai đoạn 2\"",
+  () => {
+    /* 🔴 CHIEU NGUOC LAI, va day la LOI DA SUYT LEN BAN THAT. Ban dau co them –/— vao danh sach
+       dau phan cach voi ly do "Word tu doi - thanh chung". Quet du lieu that bat duoc ngay mot
+       ho so ten "Nhà xưởng ABC — Giai đoạn 2" — gach dai o day la NGAT CAU, nhan no la cat thanh
+       ma="Nhà xưởng ABC" + ten="Giai đoạn 2", sai hoan toan va sai IM LANG.
+       ⚠️ Chua tung thay App Request gui gach dai lam dau ngan. Dung them lai khi chua co ca that. */
+    const em = AR.tachCongTrinhTuChuoi("Nhà xưởng ABC — Giai đoạn 2");
+    const en = AR.tachCongTrinhTuChuoi("Nhà xưởng ABC – Giai đoạn 2");
+    return {
+      duoc:
+        em?.maHopDongCDT === undefined &&
+        em?.tenCongTrinh === "Nhà xưởng ABC — Giai đoạn 2" &&
+        en?.maHopDongCDT === undefined &&
+        en?.tenCongTrinh === "Nhà xưởng ABC – Giai đoạn 2",
+      thucTe: `em-dash: ma="${em?.maHopDongCDT}" ten="${em?.tenCongTrinh}" | en-dash: ma="${en?.maHopDongCDT}" ten="${en?.tenCongTrinh}"`,
+      mongDoi: "ca hai: ma=undefined, ten GIU NGUYEN ca chuoi",
+    };
+  },
+);
+
+kiem(
+  "CHUOI RONG van tra null — de xuat cua phong ban, KHONG phai loi",
+  "Sep 19/08/2026 (*\"nhan ca de xuat rieng cua mot phong ban, khong gan cong trinh nao\"*)",
+  () => {
+    const a = AR.tachCongTrinhTuChuoi("");
+    const b = AR.tachCongTrinhTuChuoi(undefined);
+    const c = AR.tachCongTrinhTuChuoi("   ");
+    return {
+      duoc: a === null && b === null && c === null,
+      thucTe: `""->${JSON.stringify(a)} undefined->${JSON.stringify(b)} "   "->${JSON.stringify(c)}`,
+      mongDoi: "ca ba deu null",
+    };
+  },
+);
+
+kiem(
+  "KHONG tach duoc thi DON CA CHUOI vao ten cong trinh, khong doan bua ra ma",
+  "phien tich hop — hanh vi goc, giu nguyen sau ban va 13/09/2026",
+  () => {
+    const r = AR.tachCongTrinhTuChuoi("Nhà xưởng Howell");
+    return {
+      duoc: r?.maHopDongCDT === undefined && r?.tenCongTrinh === "Nhà xưởng Howell",
+      thucTe: `ma="${r?.maHopDongCDT}" ten="${r?.tenCongTrinh}"`,
+      mongDoi: 'ma=undefined ten="Nhà xưởng Howell"',
     };
   },
 );
