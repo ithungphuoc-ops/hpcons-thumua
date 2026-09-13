@@ -67,6 +67,40 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
 
       const trungRoi = deNghiHienCo.find((d) => d.maDeXuatAppRequest === payload.requestCode);
       if (trungRoi) {
+        /**
+         * ★★ VÁ THIẾU `idHoSoAppRequest` CHO HỒ SƠ CŨ — thêm 13/09/2026, có phép riêng của Sếp
+         * (tệp này thuộc vùng cấm phiên tích hợp, CLAUDE.md §6.6).
+         *
+         * 🔴 VÌ SAO CẦN: app chỉ bắt đầu LƯU `requestId` từ bản deploy trưa 13/09/2026. Mọi đề
+         * nghị nhận trước đó (đo được: 28/29 hồ sơ, từ 29/08 tới 13/09) không có trường này, nên
+         * ô 09 "Đường dẫn đề nghị" của chúng rơi về liên kết nội bộ thay vì mở hồ sơ bên App
+         * Request. Mà nhánh trùng này TRƯỚC ĐÂY `return` ngay, không ghi gì — tức App Request có
+         * gửi lại bao nhiêu lần thì hồ sơ cũ cũng KHÔNG BAO GIỜ được bổ sung.
+         *
+         * 👉 Nay chỉ cần App Request bắn lại một lần là hồ sơ tự có link. Không cần ai vào sửa
+         * tay, không cần đọc chéo cơ sở dữ liệu của đội khác.
+         *
+         * 📌 CHỈ ĐIỀN KHI ĐANG TRỐNG, KHÔNG BAO GIỜ ĐÈ. Đã có id rồi mà App Request gửi id khác
+         * thì giữ cái cũ — id là danh tính hồ sơ bên họ, đè bừa là trỏ sang nhầm hồ sơ, loại lỗi
+         * không ai phát hiện cho tới lúc đối chiếu chứng từ.
+         *
+         * 📌 VÁ CẢ BẢN SAO: lọc theo `maDeXuatAppRequest` chứ không chỉ đúng `trungRoi`, vì phiếu
+         * nhân bản (`(copy 1)`, `(copy 2)`…) mang CÙNG mã đề xuất và cùng trỏ về một hồ sơ gốc
+         * bên App Request. Bỏ sót là mỗi lần tách phiếu lại đẻ thêm một hồ sơ không có link.
+         *
+         * ⚠️ KHÔNG đụng bất kỳ trường nào khác của hồ sơ cũ. Đây là cửa tiếp nhận, không phải
+         * cửa cập nhật — người dùng đã sửa tay tên công trình / số hợp đồng thì phải giữ nguyên.
+         */
+        const idHoSo = payload.requestId?.trim();
+        if (idHoSo && !trungRoi.idHoSoAppRequest) {
+          const deNghiDaVa = deNghiHienCo.map((d) =>
+            d.maDeXuatAppRequest === payload.requestCode && !d.idHoSoAppRequest
+              ? { ...d, idHoSoAppRequest: idHoSo }
+              : d,
+          );
+          tx.set(docRef, bo0Undefined({ deNghi: deNghiDaVa }), { merge: true });
+          return { moi: false as const, deNghi: { ...trungRoi, idHoSoAppRequest: idHoSo } };
+        }
         return { moi: false as const, deNghi: trungRoi };
       }
 
