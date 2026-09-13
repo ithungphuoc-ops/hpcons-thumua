@@ -150,6 +150,29 @@ import {
   NHAN_TRANG_THAI_PO,
 } from "@/2-quy-trinh/trang-thai";
 
+/**
+ * ★★ CÔNG TẮC HIỆN/ẨN MENU ⋯ CỦA KHỐI "THÔNG TIN ĐỀ NGHỊ".
+ *
+ * 🔴 Ban lãnh đạo 13/09/2026, khoanh đỏ đúng nút ⋯ ở góc phải khối: *"ẩn luôn này đi, nhưng vẫn
+ * giữ code. a sẽ sửa sau"*. Nên đây là ẨN HIỂN THỊ, KHÔNG phải xóa chức năng — toàn bộ mã của
+ * bốn việc bên dưới giữ nguyên từng dòng, đổi cờ này thành `true` là hiện lại y như cũ.
+ *
+ * 🔴🔴 BIẾT RÕ CÁI GIÁ CỦA VIỆC ẨN, ĐỪNG ĐỂ PHIÊN SAU TƯỞNG LÀ VÔ HẠI. Đây là LỐI VÀO CUỐI CÙNG
+ * của bốn chức năng (menu ⋯ trên thẻ đã bỏ ngày 12/09/2026, hàng 4 nút đã gom vào đây 13/09).
+ * Ẩn đi thì trong lúc này KHÔNG CÒN CÁCH NÀO trong app để:
+ *   · Sao chép mã hồ sơ bằng một cú bấm
+ *   · **Chỉnh sửa trường dữ liệu** — chỗ DUY NHẤT sửa được nội dung một dòng mặt hàng đã nhập
+ *     (bảng Phân bổ chỉ thêm/xóa), và dòng đã lên đơn thì xóa bị chặn → gõ nhầm là kẹt
+ *   · Sửa cặp tên–giá trị ở "Trường tự thêm"
+ *   · Lưu trữ / bỏ lưu trữ hồ sơ
+ * Sếp đã được báo trước điều này khi gom vào menu hôm nay và vẫn chọn ẩn, kèm câu *"a sẽ sửa
+ * sau"* — tức đây là trạng thái TẠM, chờ Sếp chốt chỗ ở mới cho bốn việc.
+ *
+ * 📌 Cố ý khai kiểu `boolean` chứ không để TypeScript thu về kiểu chữ `false`: để `{cờ && (...)}`
+ * không bị coi là điều kiện hằng, và để đổi `true` sau này không sinh lỗi kiểu nào.
+ */
+const HIEN_MENU_THONG_TIN_DE_NGHI: boolean = false;
+
 export default function TrangChiTietDeNghi({
   id: idTruyenVao,
   onDongPopup,
@@ -643,7 +666,14 @@ export default function TrangChiTietDeNghi({
                 chúng sau khi bỏ khỏi menu ⋯ của thẻ hôm 12/09. Nặng nhất là "Chỉnh sửa trường dữ
                 liệu": chỗ DUY NHẤT sửa được nội dung một dòng mặt hàng đã nhập (bảng Phân bổ chỉ
                 thêm/xóa), mà dòng đã lên đơn thì xóa bị chặn → gõ nhầm là kẹt vĩnh viễn.
-                Sếp đã cân nhắc và chọn phương án gom. */}
+                Sếp đã cân nhắc và chọn phương án gom.
+
+                🔴 CẬP NHẬT CÙNG NGÀY 13/09/2026: Sếp yêu cầu ẩn luôn cả nút ⋯ này — *"ẩn luôn
+                này đi, nhưng vẫn giữ code. a sẽ sửa sau"*. Nên toàn bộ khối dưới đây được gói
+                trong cờ `HIEN_MENU_THONG_TIN_DE_NGHI` (khai ở đầu tệp, đang là `false`), KHÔNG
+                xóa một dòng nào. Đọc chú thích của cờ đó để biết bốn chức năng nào đang tạm
+                không có lối vào. */}
+            {HIEN_MENU_THONG_TIN_DE_NGHI && (
             <div className="mb-(--hp-md-row-gap) flex justify-end">
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -714,6 +744,7 @@ export default function TrangChiTietDeNghi({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+            )}
             <DanhSachTruong
               truong={[
                 // `daiCaHang` cho hai trường chữ dài — để trong một ô hẹp thì bị cắt mất.
@@ -732,8 +763,20 @@ export default function TrangChiTietDeNghi({
 
                    📌 Sáng 13/09/2026 Sếp từng bảo GIỮ "Mã dự án"; chiều cùng ngày bố cục mới bỏ nó
                    và Sếp xác nhận bỏ. Ghi cả hai lần ở đây để phiên sau không tưởng ai lỡ tay xóa. */
-                { nhan: "Tên đề xuất", giaTri: dn.tieuDe, daiCaHang: true },
-                { nhan: "Tên công trình", giaTri: dn.tenCongTrinh, daiCaHang: true },
+                /* 🔴 KHÔNG ĐẶT `daiCaHang` CHO HAI Ô NÀY — Ban lãnh đạo 13/09/2026:
+                   *"mục 1.2.3 cùng dòng mà"*.
+
+                   `daiCaHang` cho ô chiếm TRỌN CẢ HÀNG (`lg:col-span-3`), nên "Tên đề xuất" và
+                   "Tên công trình" mỗi cái nuốt một hàng và đẩy ô 03 xuống dòng dưới — đúng cái
+                   Ban lãnh đạo vừa báo sai. Bỏ cờ đi thì lưới 3 cột xếp 01·02·03 cùng một hàng,
+                   khớp đúng ảnh Ban lãnh đạo đánh số.
+
+                   ⚠️ Đánh đổi đã biết: hai trường này là chữ DÀI (tiêu đề đề xuất thường kèm số
+                   hợp đồng + tên công trình). Trong ô hẹp chúng sẽ XUỐNG NHIỀU DÒNG chứ không bị
+                   cắt — `DanhSachTruong` đã có `break-words` ở ô giá trị, nên không mất chữ. Đó là
+                   lý do giữ được bố cục 3 cột mà vẫn đọc đủ. */
+                { nhan: "Tên đề xuất", giaTri: dn.tieuDe },
+                { nhan: "Tên công trình", giaTri: dn.tenCongTrinh },
                 { nhan: "Số hợp đồng CĐT", giaTri: dn.maHopDongCDT },
                 { nhan: "Người đề nghị", giaTri: dn.nguoiDeNghiTen },
                 { nhan: "Phòng ban đề nghị", giaTri: nhanPhongBan(dn.phongBanNguon) },
