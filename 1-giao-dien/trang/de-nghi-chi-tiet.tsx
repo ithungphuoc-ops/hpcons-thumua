@@ -12,6 +12,7 @@ import {
   Check,
   Copy,
   ListPlus,
+  MoreHorizontal,
   SlidersHorizontal,
   ClipboardCheck,
   Send,
@@ -50,6 +51,15 @@ import {
   type MocGiaiDoan,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+/* Menu ⋯ gom 4 việc của khối "Thông tin đề nghị" — Ban lãnh đạo 13/09/2026, xem chỗ dùng. */
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 /* Hai hộp sửa trường — dời từ `de-nghi-danh-sach.tsx` sang 12/09/2026, xem chỗ dựng ở cuối file. */
 import { HopSuaTruongBoSung } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-de-nghi";
 import { HopSuaTruongTuyChinh } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-truong-tuy-chinh";
@@ -110,7 +120,12 @@ import {
   BUOC_DINH_KEM_HOP_DONG,
   coHopDong,
   KHOA_LY_DO_THIEU_HOP_DONG,
+  /* Hai lý do chọn sẵn thay ô gõ tự do — Ban lãnh đạo 13/09/2026. */
+  LY_DO_THIEU_HOP_DONG_CHON,
   lyDoThieuHopDong,
+  /* Chốt "có tệp HỢP ĐỒNG **hoặc** có lý do" — dùng để khóa nút Lập đơn đặt hàng (13/09/2026).
+     🔴 KHÔNG thay bằng `coHopDong`: hàm đó chỉ hỏi có tệp, dùng nhầm là khóa cứng đơn mẫu PO-02. */
+  vuongMacRoiBuocLapDon,
   NHAN_TEP_HOA_DON_VAT,
   NHAN_TEP_HOP_DONG,
   NHAN_TEP_PHIEU_CHI,
@@ -610,57 +625,82 @@ export default function TrangChiTietDeNghi({
                 📌 Gác `quyen.lapPO` cho ba nút ghi — đúng mức quyền menu ⋯ đang gác (`thaoTac`
                 chỉ được truyền khi `quyen.lapPO`). Nút "Sao chép mã" KHÔNG gác: đọc mã là việc
                 ai xem được hồ sơ cũng làm được, và trước đây mục đó cũng nằm ngoài khối `thaoTac`. */}
-            <div className="mb-(--hp-md-row-gap) flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(dn.code);
-                    toast.success("Đã sao chép mã đề nghị", { description: dn.code });
-                  } catch {
-                    /* Trình duyệt chặn clipboard (HTTP thường / thiếu quyền) — nói thật và in
-                       nguyên mã ra để người dùng chép tay, không nuốt lỗi im lặng. */
-                    toast.error("Trình duyệt không cho sao chép", {
-                      description: `Tự chép tay: ${dn.code}`,
-                    });
+            {/* 🔴 GOM VÀO MENU ⋯ — Ban lãnh đạo 13/09/2026: *"ẩn luôn mục này đi"*, chỉ vào hàng
+                4 nút từng nằm ở đây.
+                📌 GOM chứ KHÔNG BỎ. Ẩn hẳn là cả 4 chức năng chết — đây là lối vào cuối cùng của
+                chúng sau khi bỏ khỏi menu ⋯ của thẻ hôm 12/09. Nặng nhất là "Chỉnh sửa trường dữ
+                liệu": chỗ DUY NHẤT sửa được nội dung một dòng mặt hàng đã nhập (bảng Phân bổ chỉ
+                thêm/xóa), mà dòng đã lên đơn thì xóa bị chặn → gõ nhầm là kẹt vĩnh viễn.
+                Sếp đã cân nhắc và chọn phương án gom. */}
+            <div className="mb-(--hp-md-row-gap) flex justify-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label={`Thao tác với thông tin đề nghị ${dn.code}`}
+                      className="flex size-8 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-text-primary"
+                    />
                   }
-                }}
-              >
-                <Copy className="size-4" aria-hidden />
-                Sao chép mã
-              </Button>
-              {quyen.lapPO && (
-                <>
-                  <Button variant="outline" size="sm" onClick={() => setHopSuaTruong("tuy_chinh")}>
-                    <SlidersHorizontal className="size-4" aria-hidden />
-                    Chỉnh sửa trường dữ liệu
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setHopSuaTruong("bo_sung")}>
-                    <ListPlus className="size-4" aria-hidden />
-                    Trường tự thêm
-                  </Button>
-                  {/* 🔴 CÓ CẢ HAI CHIỀU, khác hẳn menu ⋯ cũ. Menu đó chỉ mọc trên thẻ của bảng, mà
-                      bảng đã lọc bỏ hồ sơ `luuTru` — nên nhãn luôn là "Lưu trữ" và lưu trữ thành
-                      CỬA MỘT CHIỀU. Trang này vào được kể cả khi hồ sơ đã ẩn khỏi bảng, nên đây là
-                      chỗ đầu tiên bỏ lưu trữ được. */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      doiLuuTru(dn.id, !dn.luuTru, nguoiDung.tenHienThi);
-                      toast.success(dn.luuTru ? "Đã bỏ lưu trữ" : "Đã lưu trữ", {
-                        description: dn.luuTru
-                          ? "Hồ sơ quay lại đúng cột trên bảng quy trình."
-                          : "Hồ sơ ẩn khỏi bảng quy trình nhưng giữ nguyên trạng thái. Bỏ lưu trữ ngay tại đây.",
-                      });
-                    }}
-                  >
-                    <Archive className="size-4" aria-hidden />
-                    {dn.luuTru ? "Bỏ lưu trữ" : "Lưu trữ"}
-                  </Button>
-                </>
-              )}
+                >
+                  <MoreHorizontal className="size-4" aria-hidden />
+                </DropdownMenuTrigger>
+                {/* ⚠️ base-nova bắt buộc Item nằm trong Group — thiếu là crash cả trang. */}
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(dn.code);
+                          toast.success("Đã sao chép mã đề nghị", { description: dn.code });
+                        } catch {
+                          /* Trình duyệt chặn clipboard (HTTP thường / thiếu quyền) — nói thật và in
+                             nguyên mã ra để người dùng chép tay, không nuốt lỗi im lặng. */
+                          toast.error("Trình duyệt không cho sao chép", {
+                            description: `Tự chép tay: ${dn.code}`,
+                          });
+                        }
+                      }}
+                    >
+                      <Copy className="size-4 shrink-0" aria-hidden />
+                      Sao chép mã
+                    </DropdownMenuItem>
+                    {/* Gác `quyen.lapPO` cho ba mục GHI — đúng mức quyền menu ⋯ của thẻ đang gác.
+                        "Sao chép mã" không gác: đọc mã là việc ai xem được hồ sơ cũng làm được. */}
+                    {quyen.lapPO && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setHopSuaTruong("tuy_chinh")}>
+                          <SlidersHorizontal className="size-4 shrink-0" aria-hidden />
+                          Chỉnh sửa trường dữ liệu
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setHopSuaTruong("bo_sung")}>
+                          <ListPlus className="size-4 shrink-0" aria-hidden />
+                          Trường tự thêm
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {/* 🔴 CÓ CẢ HAI CHIỀU, khác hẳn menu ⋯ của thẻ. Menu đó chỉ mọc trên thẻ của
+                            bảng, mà bảng đã lọc bỏ hồ sơ `luuTru` — nên nhãn luôn là "Lưu trữ" và
+                            lưu trữ thành CỬA MỘT CHIỀU. Trang này vào được kể cả khi hồ sơ đã ẩn
+                            khỏi bảng, nên đây là chỗ đầu tiên bỏ lưu trữ được. */}
+                        <DropdownMenuItem
+                          onClick={() => {
+                            doiLuuTru(dn.id, !dn.luuTru, nguoiDung.tenHienThi);
+                            toast.success(dn.luuTru ? "Đã bỏ lưu trữ" : "Đã lưu trữ", {
+                              description: dn.luuTru
+                                ? "Hồ sơ quay lại đúng cột trên bảng quy trình."
+                                : "Hồ sơ ẩn khỏi bảng quy trình nhưng giữ nguyên trạng thái. Bỏ lưu trữ ngay tại đây.",
+                            });
+                          }}
+                        >
+                          <Archive className="size-4 shrink-0" aria-hidden />
+                          {dn.luuTru ? "Bỏ lưu trữ" : "Lưu trữ"}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <DanhSachTruong
               truong={[
@@ -1732,17 +1772,60 @@ export default function TrangChiTietDeNghi({
                       * chưa có tệp lẫn lý do, và thẻ vẫn bị tô đỏ "thiếu HĐ" ở bước ⑤. Nợ chứng từ
                       * đi theo chứng từ, chỉ dời chỗ chứ không biến mất.
                       */}
-                    {quyen.lapPO && !hoSoDaDong && (
-                      <Button
-                        variant="outline"
-                        className="w-fit"
-                        nativeButton={false}
-                        render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
-                      >
-                        <ShoppingCart className="size-4" aria-hidden />
-                        {poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn"}
-                      </Button>
-                    )}
+                    {/* ★★ KHÓA LẠI NÚT KHI CHƯA CÓ HỢP ĐỒNG LẪN LÝ DO — Ban lãnh đạo 13/09/2026:
+                        *"mục này phải đính kèm HĐ hoặc ghi thì mới mở nút lập đơn đặt hàng"*.
+
+                        ⚠️ ĐÂY LÀ KHÔI PHỤC MỘT LUẬT ĐÃ TỪNG BỊ GỠ, đọc kỹ trước khi đụng vào:
+                        chỉ đạo 23/08/2026 đặt đúng luật này, rồi nó bị gỡ vì một vòng tròn có thật —
+                        *"hợp đồng mua bán thường ghi số đơn hàng, mà số đơn chỉ sinh ra khi cất đơn,
+                        nên đòi hợp đồng TRƯỚC khi cho lập đơn là bắt người dùng làm việc bất khả thi"*.
+
+                        🔴 VÒNG TRÒN ĐÓ NAY ĐÃ THÁO ĐƯỢC, và chính Ban lãnh đạo tháo trong cùng ngày:
+                        ô lý do vừa đổi thành HAI NÚT BẤM MỘT CÁI ("Bổ sung sau" / "Không có HĐ").
+                        Trước đây lối thoát là gõ một câu tự nghĩ — đủ phiền để người ta coi như bị
+                        chặn cứng. Nay bấm một cái là đi tiếp, nên khóa nút không còn là bẫy.
+                        👉 NẾU SAU NÀY AI BỎ HAI NÚT ĐÓ thì PHẢI bỏ luôn khóa này, nếu không vòng
+                        tròn quay lại y nguyên.
+
+                        🔴 KHÓA KÈM LÝ DO, KHÔNG ẨN NÚT. Chỉ đạo 23/08 ghi "ẩn đi", nhưng ẩn thì người
+                        dùng không biết app có làm được việc đó hay không, và đi tìm vòng quanh. Hiện
+                        nút ở trạng thái khóa kèm câu nói rõ thiếu gì là họ gỡ được ngay tại chỗ —
+                        cùng nếp với mọi chốt khác trong app.
+
+                        📌 DÙNG `vuongMacRoiBuocLapDon`, TUYỆT ĐỐI KHÔNG dùng `coHopDong`: hàm kia
+                        chấp nhận **tệp HOẶC lý do** (đúng ý Sếp "đính kèm HĐ hoặc ghi"), còn
+                        `coHopDong` chỉ hỏi có tệp — dùng nhầm là khóa cứng mọi đơn mẫu PO-02. Đây
+                        đúng bài học đã ghi ở `xacDinhGiaiDoan` và `vuongMacLapDonHang`. */}
+                    {quyen.lapPO &&
+                      !hoSoDaDong &&
+                      (() => {
+                        const vuong = vuongMacRoiBuocLapDon(dn);
+                        const nhan = poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn";
+                        if (vuong) {
+                          return (
+                            <div className="flex w-fit flex-col gap-1">
+                              <Button variant="outline" className="w-fit" disabled title={vuong}>
+                                <ShoppingCart className="size-4" aria-hidden />
+                                {nhan}
+                              </Button>
+                              {/* V1.1 buộc trạng thái phải có cả màu lẫn CHỮ — nút mờ không thôi thì
+                                  người dùng không biết thiếu gì mà gỡ. */}
+                              <span className="text-xs text-warning-soft">{vuong}</span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <Button
+                            variant="outline"
+                            className="w-fit"
+                            nativeButton={false}
+                            render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
+                          >
+                            <ShoppingCart className="size-4" aria-hidden />
+                            {nhan}
+                          </Button>
+                        );
+                      })()}
                   </section>
                 ),
                 /* 📌 KHÔNG CẦN `giuNoiDungKhiGap` NỮA (18/08/2026): cờ đó sinh ra để form nhập
@@ -1804,30 +1887,59 @@ export default function TrangChiTietDeNghi({
                         }`}
                       >
                         <Label
-                          htmlFor="ly-do-thieu-hop-dong"
                           className="shrink-0"
-                          title={`Chưa có ${TEN_HIEN_HOP_DONG} thì ghi rõ vì sao`}
+                          title={`Chưa có ${TEN_HIEN_HOP_DONG} thì chọn một lý do`}
                         >
                           Lý do chưa có <span className="text-danger">*</span>
                         </Label>
-                        <Input
-                          id="ly-do-thieu-hop-dong"
-                          className="min-w-48 flex-1"
-                          defaultValue={lyDoThieuHopDong(dn)}
-                          disabled={!duocSuaHopDong || hoSoDaDong}
-                          placeholder="Ví dụ: dùng mẫu PO-02, chính tờ đơn là thoả thuận mua bán."
-                          /* 🔴 GHI KHI RỜI Ô (`onBlur`), không ghi theo từng ký tự: mỗi lần ghi là
-                             một dòng nhật ký và một lần đẩy lên kho chung của cả phòng. */
-                          onBlur={(e) => {
-                            const loi = ghiLyDoThieuChungTu(
-                              dn.id,
-                              KHOA_LY_DO_THIEU_HOP_DONG,
-                              e.target.value,
-                              nguoiDung.tenHienThi,
-                            );
-                            if (loi) toast.error("Chưa ghi được lý do", { description: loi });
-                          }}
-                        />
+                        {/* ★★ HAI NÚT CHỌN SẴN thay ô gõ tự do — Ban lãnh đạo 13/09/2026:
+                            *"Thay vì tự nhập lý do, hãy tạo cho a 2 nút này"*.
+
+                            🔴 BẤM LẠI NÚT ĐANG CHỌN = BỎ CHỌN (ghi chuỗi rỗng). Không có đường bỏ
+                            chọn thì người bấm nhầm bị kẹt: hồ sơ mang vĩnh viễn một lý do sai mà
+                            không xoá được, vì ô gõ tự do — chỗ duy nhất xoá được trước đây — vừa bị
+                            thay bằng hai nút này.
+
+                            🔴 GHI THẲNG khi bấm (khác ô cũ ghi lúc `onBlur`): một cú bấm là một ý
+                            định rõ ràng, không có trạng thái "đang gõ dở" để chờ.
+
+                            📌 Danh sách hai chữ nằm ở `LY_DO_THIEU_HOP_DONG_CHON`
+                            (2-quy-trinh/chung-tu-cuoi-quy-trinh.ts) — chữ nghiệp vụ để một chỗ, xem
+                            chú thích ở đó về việc hồ sơ cũ gõ tay vẫn chạy bình thường. */}
+                        {LY_DO_THIEU_HOP_DONG_CHON.map((lyDo) => {
+                          const dangChon = lyDoThieuHopDong(dn) === lyDo;
+                          return (
+                            <Button
+                              key={lyDo}
+                              size="sm"
+                              variant={dangChon ? "default" : "outline"}
+                              disabled={!duocSuaHopDong || hoSoDaDong}
+                              onClick={() => {
+                                const loi = ghiLyDoThieuChungTu(
+                                  dn.id,
+                                  KHOA_LY_DO_THIEU_HOP_DONG,
+                                  dangChon ? "" : lyDo,
+                                  nguoiDung.tenHienThi,
+                                );
+                                if (loi) {
+                                  toast.error("Chưa ghi được lý do", { description: loi });
+                                  return;
+                                }
+                                toast.success(dangChon ? "Đã bỏ chọn lý do" : `Đã ghi: ${lyDo}`);
+                              }}
+                            >
+                              {lyDo}
+                            </Button>
+                          );
+                        })}
+                        {/* Hồ sơ CŨ gõ lý do tự do thì vẫn phải đọc được — nếu không người dùng
+                            tưởng lý do mình ghi đã mất. Chỉ hiện khi chuỗi đang lưu KHÁC cả hai nút. */}
+                        {lyDoThieuHopDong(dn) !== "" &&
+                          !LY_DO_THIEU_HOP_DONG_CHON.includes(lyDoThieuHopDong(dn)) && (
+                            <span className="text-sm text-text-secondary italic">
+                              Lý do đã ghi trước đây: {lyDoThieuHopDong(dn)}
+                            </span>
+                          )}
                       </div>
                     )}
 

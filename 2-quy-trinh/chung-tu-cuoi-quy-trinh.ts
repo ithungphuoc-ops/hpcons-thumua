@@ -137,6 +137,26 @@ export const TEN_HIEN_HOP_DONG = "Hợp đồng/Đơn mua hàng";
 export const KHOA_LY_DO_THIEU_HOP_DONG = "lap_don_mua_hang|hop_dong";
 
 /**
+ * ★★ HAI LÝ DO CHỌN SẴN cho việc chưa có hợp đồng — Ban lãnh đạo 13/09/2026: *"Thay vì tự nhập
+ * lý do, hãy tạo cho a 2 nút này"*, kèm ảnh ghi rõ hai chữ **"Bổ sung sau"** và **"Không có HĐ"**.
+ *
+ * 🔴 VÌ SAO ĐỔI TỪ Ô GÕ TỰ DO SANG HAI NÚT: ô gõ tự do bắt người dùng nghĩ ra câu chữ cho một
+ * việc chỉ có đúng hai tình huống thật — hoặc hợp đồng sẽ có nhưng chưa kịp, hoặc đơn này dùng
+ * mẫu PO-02 (chính tờ đơn là thoả thuận) nên không bao giờ có hợp đồng riêng. Gõ tự do còn làm
+ * mỗi người ghi một kiểu, sau này không thống kê được có bao nhiêu hồ sơ đang nợ hợp đồng thật.
+ *
+ * 🔴 LƯU ĐÚNG CHUỖI NHÃN, không lưu mã. Trường `lyDoThieuChungTu` là chữ NGƯỜI ĐỌC (hiện trên
+ * hồ sơ và đi vào nhật ký), và mọi phép kiểm hiện có chỉ hỏi *"chuỗi này có rỗng không"* — xem
+ * `lyDoThieuHopDong` / `thieuHopDongDaGhiLyDo`. Lưu mã thì nhật ký hiện `bo_sung_sau`, người đọc
+ * không hiểu.
+ *
+ * 📌 TƯƠNG THÍCH NGƯỢC: hồ sơ cũ đã gõ lý do tự do vẫn chạy nguyên — chúng chỉ là một chuỗi khác
+ * hai chuỗi này, và không phép kiểm nào đòi phải khớp danh sách. Đừng thêm phép kiểm "phải là một
+ * trong hai" vào `vuongMacRoiBuocLapDon`: làm vậy là mọi hồ sơ cũ đột ngột bị chặn lại.
+ */
+export const LY_DO_THIEU_HOP_DONG_CHON: readonly string[] = ["Bổ sung sau", "Không có HĐ"];
+
+/**
  * Mã công việc "đã xong bước UNC" trong `congViecDaXong`.
  *
  * 🔴 UNC cần một CÁI TÍCH RIÊNG, không suy ra từ việc có tệp hay không: phần lớn đơn **không có**
