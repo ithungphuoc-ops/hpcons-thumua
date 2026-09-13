@@ -4,27 +4,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type DragEvent } from "react";
 import { toast } from "sonner";
+/* 📌 Bảy icon (Archive · Copy · ListPlus · SlidersHorizontal · Printer · Split · UsersRound) đã
+   bỏ khỏi danh sách này ngày 12/09/2026 cùng lúc bỏ 7 mục menu tương ứng — xem các khối chú
+   thích 🔴 "ĐÃ DỜI/ĐÃ BỎ" bên dưới. Chức năng KHÔNG mất, chỉ đổi chỗ mở. */
 import {
   AlertTriangle,
-  Archive,
   ArrowLeft,
   ArrowRight,
   CalendarClock,
-  Copy,
   CopyPlus,
   Eye,
   Forward,
   History,
   Link2 as LinkIcon,
-  ListPlus,
-  SlidersHorizontal,
   MoreHorizontal,
   Pencil,
-  Printer,
-  Split,
   Trash2,
   UserRound,
-  UsersRound,
   XCircle,
 } from "lucide-react";
 import {
@@ -155,14 +151,25 @@ export interface BangQuyTrinhMuaHangProps {
  * mọi việc ghi đều do trang quyết định. Giữ đúng ranh giới này thì bảng còn dùng lại được ở
  * màn khác mà không kéo theo kho dữ liệu.
  */
+/**
+ * 🔴 NĂM THAO TÁC ĐÃ BỎ KHỎI ĐÂY NGÀY 12/09/2026 — `onSuaTruongBoSung`, `onSuaTruongTuyChinh`,
+ * `onDoiLuuTru`, `onLapBaoGia`, `duocLapBaoGia`.
+ *
+ * Ban lãnh đạo yêu cầu bỏ các mục tương ứng khỏi menu ⋯ của thẻ, kèm chỉ đạo *"chỉ bỏ ở mục hiển
+ * thị thôi, còn chức năng thì vẫn phải giữ lại"*. Nên đây là bỏ LỐI VÀO ở bảng, KHÔNG bỏ chức năng:
+ *   · sửa trường tùy chỉnh · trường tự thêm · lưu trữ → nút ở khối "Thông tin đề nghị",
+ *     `trang/de-nghi-chi-tiet.tsx`
+ *   · lập bảng báo giá → mục "Chuyển sang giai đoạn kế tiếp" (ngay trong menu này) và nút
+ *     "Trình xét duyệt báo giá" ở trang chi tiết (tự lập bảng nếu chưa có, từ 20/08/2026)
+ *
+ * ⚠️ Chú thích cũ của `onLapBaoGia` từng ghi đây là *"ĐƯỜNG VÀO DUY NHẤT BẤM ĐƯỢC TRÊN ĐIỆN
+ * THOẠI"* — câu đó viết 17/08/2026 và ĐÃ LỖI THỜI (nút "Trình xét duyệt báo giá" ra đời 20/08).
+ * Ghi lại ở đây để phiên sau không đọc bản cũ trong git rồi tưởng đã xóa nhầm.
+ */
 export interface ThaoTacThe {
   onSuaThongTin: (prId: string) => void;
   onSuaThoiHan: (prId: string) => void;
-  onSuaTruongBoSung: (prId: string) => void;
-  /** Mở hộp "Chỉnh sửa các trường dữ liệu tùy chỉnh" (bám ảnh Base, 18/08/2026). */
-  onSuaTruongTuyChinh: (prId: string) => void;
   onNhanBan: (prId: string) => void;
-  onDoiLuuTru: (prId: string, luuTru: boolean) => void;
   onXoa: (prId: string) => void;
   /**
    * Phiếu NÀY có được người đang đăng nhập nhân bản không.
@@ -172,17 +179,6 @@ export interface ThaoTacThe {
    * Luật thật ở `4-phan-quyen/quyen-theo-ho-so.ts` → `duocNhanBanDeNghi`.
    */
   duocNhanBan: (deNghi: DeNghiMuaHang) => boolean;
-  /**
-   * Lập bảng báo giá cho phiếu này.
-   *
-   * 🔴 ĐƯỜNG VÀO DUY NHẤT BẤM ĐƯỢC TRÊN ĐIỆN THOẠI — Ban lãnh đạo 17/08/2026 bảo bỏ nút
-   * "Lập bảng báo giá" khỏi trang chi tiết. Đường còn lại là kéo thẻ từ cột ① sang ②, mà
-   * điện thoại không kéo được; trước 10/08/2026 app đã tắc đúng kiểu này. Bỏ mục này khỏi
-   * menu là module Báo giá thành mồ côi — xem CLAUDE.md mục 3.4b.
-   */
-  onLapBaoGia: (prId: string) => void;
-  /** Phiếu NÀY có lập được bảng báo giá không (đúng bước, chưa có bảng, đủ quyền). */
-  duocLapBaoGia: (deNghi: DeNghiMuaHang) => boolean;
 }
 
 export function BangQuyTrinhMuaHang({
@@ -808,30 +804,55 @@ function TheDeNghi({
           ⚠️ KHÔNG dùng nhãn `sr-only` ở đây. `sr-only` là position:absolute, nó thoát khỏi
           vùng cắt của khung cuộn ngang và kéo giãn cả trang — trên điện thoại làm toàn bộ
           màn hình trôi ngang. */}
-      <p className="text-xs leading-snug text-text-desc">
-        {/* 📌 ĐÃ BỎ "Mã hồ sơ" khỏi dòng này (21/08/2026) — Ban lãnh đạo khoanh đỏ đúng dòng này
-            và ghi *"bố cục hiển thị giống vậy"*, mà Base chỉ có: Bộ phận · Nhóm đề xuất · Ngày
-            đề nghị cấp · Chi tiết · Link phiếu đề nghị.
+      {/* 🔴 MỖI TRƯỜNG MỘT DÒNG, KHÔNG GỘP NỐI BẰNG DẤU · — Ban lãnh đạo 12/09/2026:
+          *"Xuống dòng các trường chứ không gộp theo dòng"*, khoanh đỏ đúng khối này.
+
+          ⚠️ Trước đó (21/08/2026) khối này cố ý viết liền một mạch nối bằng " · " cho giống bố
+          cục Base. Nay Ban lãnh đạo đổi ý: gộp một mạch thì trên thẻ hẹp chữ tự ngắt dòng tùy ý,
+          nhãn và giá trị rơi sang hai dòng khác nhau nên đọc ra nghĩa sai. Xếp dọc thì mỗi dòng
+          luôn đủ cặp "nhãn: giá trị".
+
+          📌 Nhãn "Nhóm:" (không phải "Nhóm đề xuất:") — chép đúng chữ Ban lãnh đạo ghi trong ảnh. */}
+      <div className="flex flex-col gap-0.5 text-xs leading-snug text-text-desc">
+        {/* 📌 ĐÃ BỎ "Mã hồ sơ" khỏi khối này (21/08/2026) — Ban lãnh đạo khoanh đỏ và ghi
+            *"bố cục hiển thị giống vậy"*, mà mẫu chỉ có: Bộ phận · Nhóm · Ngày đề nghị cấp ·
+            Chi tiết · Link phiếu đề nghị.
             ⚠️ Mã hồ sơ của app KHÔNG mất: vẫn ở menu ⋯ (*"Sao chép mã đề nghị"*), ở trang chi
             tiết, và tìm kiếm vẫn ra. Chỉ bỏ khỏi thẻ cho gọn đúng mẫu. */}
-        <span className="text-text-secondary">Bộ phận:</span>{" "}
-        {nhanPhongBan(deNghi.phongBanNguon)}
-        {" · "}
-        <span className="text-text-secondary">Nhóm đề xuất:</span>{" "}
-        {NHAN_NHOM_DE_XUAT[deNghi.nhomDeXuat ?? "khac"]}
-        {" · "}
-        <span className="text-text-secondary">Ngày đề nghị cấp:</span>{" "}
-        {formatDate(deNghi.ngayCanHang)}
-        {" · "}
-        <span className="text-text-secondary">Chi tiết:</span> {deNghi.items.length} mặt hàng
-        {/* Chỉ nói tới tài liệu khi CÓ tài liệu. Base luôn hiện "Link phiếu đề..." vì bên đó
+        <span>
+          <span className="text-text-secondary">Bộ phận:</span>{" "}
+          {nhanPhongBan(deNghi.phongBanNguon)}
+        </span>
+        <span>
+          <span className="text-text-secondary">Nhóm:</span>{" "}
+          {NHAN_NHOM_DE_XUAT[deNghi.nhomDeXuat ?? "khac"]}
+        </span>
+        <span>
+          <span className="text-text-secondary">Ngày đề nghị cấp:</span>{" "}
+          {formatDate(deNghi.ngayCanHang)}
+        </span>
+        <span>
+          <span className="text-text-secondary">Chi tiết:</span> {deNghi.items.length} mặt hàng
+        </span>
+        {/* ★ DÒNG NHẬN DIỆN BẢN NHÂN BẢN — Ban lãnh đạo 12/09/2026: *"Thêm 1 dòng thông tin đối
+            với các quy trình được nhân bản — Quy trình: Nhân bản đề nghị"*.
+
+            🔴 Xét `deNghiGocId`, KHÔNG xét tên có chữ "(copy)". Tên là chữ người dùng sửa được;
+            quan hệ cha–con nằm ở `deNghiGocId` + `maDeNghiGoc` — xem `2-quy-trinh/nhan-ban-de-nghi.ts`.
+            📌 VÌ SAO CẦN: hai bản nhân bản cùng một gốc có mã và tên gần như y hệt nhau, nhìn thẻ
+            trên bảng không phân biệt được bản nào là gốc, bản nào là bản tách. */}
+        {deNghi.deNghiGocId && (
+          <span>
+            <span className="text-text-secondary">Quy trình:</span> Nhân bản đề nghị
+          </span>
+        )}
+        {/* Chỉ nói tới tài liệu khi CÓ tài liệu. Mẫu Base luôn hiện "Link phiếu đề..." vì bên đó
             phiếu nào cũng đính kèm; app này cho phép lập phiếu không kèm tệp, hiện nhãn trơ
             là hứa một thứ không có. */}
         {deNghi.taiLieu && deNghi.taiLieu.length > 0 && (
-          <>
-            {" · "}
+          <span>
             <span className="text-text-secondary">Tài liệu:</span> {deNghi.taiLieu.length} tệp
-          </>
+          </span>
         )}
         {/* ★ LINK PHIẾU ĐỀ NGHỊ — thành phần cuối của dòng meta trong Base (*"Link phiếu đề …"*).
             🔴 BẤM ĐƯỢC, không chỉ là chữ: Base cắt cụt thành "Link phiếu đề…" nên bên đó phải mở
@@ -840,21 +861,20 @@ function TheDeNghi({
             ⚠️ `stopPropagation` là bắt buộc: cả thẻ là một <Link> và kéo-thả được, thiếu nó thì
             bấm vào đây là mở trang chi tiết thay vì mở phiếu gốc. */}
         {deNghi.linkPhieuDeNghi && (
-          <>
-            {" · "}
-            <a
-              href={deNghi.linkPhieuDeNghi}
-              target="_blank"
-              rel="noopener noreferrer"
-              draggable={false}
-              onClick={(e) => e.stopPropagation()}
-              className="font-medium text-primary underline decoration-dotted hover:decoration-solid"
-            >
-              Link phiếu đề nghị
-            </a>
-          </>
+          <a
+            href={deNghi.linkPhieuDeNghi}
+            target="_blank"
+            rel="noopener noreferrer"
+            draggable={false}
+            onClick={(e) => e.stopPropagation()}
+            /* `w-fit` để vùng bấm bó đúng bề ngang chữ — khối cha nay là flex-col nên thẻ <a>
+               giãn hết chiều ngang, bấm vào chỗ trống bên phải cũng mở link. */
+            className="w-fit font-medium text-primary underline decoration-dotted hover:decoration-solid"
+          >
+            Link phiếu đề nghị
+          </a>
         )}
-      </p>
+      </div>
 
       {/* Thông tin phụ chỉ hiện khi CÓ — thêm hàng trống vào mọi thẻ thì bảng dài ra mà
           không nói thêm được gì. */}
@@ -1075,25 +1095,6 @@ function MenuThaoTacThe({
     }
   }
 
-  /**
-   * ★ SAO CHÉP RIÊNG MÃ ĐỀ NGHỊ — Ban lãnh đạo 20/08/2026: *"sau này các app khác sẽ link từ mã
-   * đề nghị"*.
-   *
-   * 🔴 KHÁC "sao chép đường dẫn": đường dẫn là địa chỉ web của app Thu mua, dùng để mở trang.
-   * Còn app Kho và app QLDA nối hồ sơ với nhau bằng **mã hồ sơ** (theo Thông báo 09/2026), nên
-   * người dùng cần chép được đúng cái mã đó để dán sang app khác — không phải cả một URL.
-   */
-  async function saoChepMa() {
-    try {
-      await navigator.clipboard.writeText(deNghi.code);
-      toast.success("Đã sao chép mã đề nghị", { description: deNghi.code });
-    } catch {
-      toast.error("Trình duyệt không cho sao chép", {
-        description: `Tự chép tay: ${deNghi.code}`,
-      });
-    }
-  }
-
   return (
     /* 🔴 Chặn cả click lẫn kéo NGAY Ở VỎ BỌC: thẻ cha là <Link> và kéo-thả được. Thiếu
        preventDefault/stopPropagation thì bấm ⋯ là mở luôn trang chi tiết; thiếu draggable=false
@@ -1135,11 +1136,11 @@ function MenuThaoTacThe({
               * review bắt đúng: chép tay cùng 2 mục ở 2 nơi là mở đường lệch nhau dần).
               */}
             <MucMenuXemDayDu duongDan={duongDan} />
-            {/* Mã đứng TRƯỚC đường dẫn: dán mã sang app khác là việc dùng nhiều hơn. */}
-            <DropdownMenuItem onClick={saoChepMa}>
-              <Copy className="size-4 shrink-0" aria-hidden />
-              Sao chép mã đề nghị
-            </DropdownMenuItem>
+            {/* 🔴 ĐÃ DỜI "Sao chép mã đề nghị" SANG TRANG CHI TIẾT — Ban lãnh đạo 12/09/2026 yêu
+                cầu bỏ mục này khỏi menu ⋯. KHÔNG xóa chức năng: nút copy nay nằm cạnh trường
+                "Mã đề nghị" ở khối Thông tin đề nghị (`trang/de-nghi-chi-tiet.tsx`) — đó mới là
+                chỗ người ta đang đọc cái mã. Bỏ hẳn thì app mất lối chép mã duy nhất, nhất là
+                trên điện thoại (bôi đen + Ctrl+C là thao tác bàn phím). */}
             <DropdownMenuItem onClick={saoChepDuongDan}>
               <LinkIcon className="size-4 shrink-0" aria-hidden />
               Sao chép đường dẫn
@@ -1159,14 +1160,18 @@ function MenuThaoTacThe({
                     Nhân bản
                   </DropdownMenuItem>
                 )}
-                {/* 🔴 Xem chú thích `onLapBaoGia` ở `ThaoTacThe`: đây là đường vào module Báo
-                    giá bấm được trên điện thoại, sau khi nút ở trang chi tiết bị bỏ. */}
-                {thaoTac.duocLapBaoGia(deNghi) && (
-                  <DropdownMenuItem onClick={() => thaoTac.onLapBaoGia(deNghi.id)}>
-                    <Split className="size-4 shrink-0" aria-hidden />
-                    Lập bảng báo giá
-                  </DropdownMenuItem>
-                )}
+                {/* 🔴 ĐÃ BỎ "Lập bảng báo giá" — Ban lãnh đạo 12/09/2026.
+                    📌 Bỏ là ĐÚNG, và mục này vốn ĐANG HỎNG: với thẻ đang đứng ở cột ② thì đích
+                    truyền vào trùng cột hiện tại, `quyetDinhKeoTha` trả `null` và `xuLyTha` thoát
+                    im lặng — bấm không có gì xảy ra.
+                    ⚠️ Chú thích cũ ở đây (17/08/2026) ghi đây là "đường vào module Báo giá bấm
+                    được trên điện thoại" — câu đó ĐÃ LỖI THỜI, đừng tin và đừng thêm mục này lại.
+                    Hai lối vào còn sống, đã đo: mục "Chuyển sang giai đoạn kế tiếp" ngay dưới
+                    (cùng menu, cùng quyền `lapPO`), và nút "Trình xét duyệt báo giá" ở trang chi
+                    tiết — từ 20/08/2026 nút đó TỰ LẬP bảng nếu chưa có. Module Báo giá KHÔNG mồ côi.
+                    🔴 TUYỆT ĐỐI KHÔNG đụng `quyetDinhKeoTha` / `hanhDongTienMotBuoc` / case
+                    "tao_bao_gia": mục "Chuyển sang giai đoạn kế tiếp" vẫn dùng nguyên bộ đó, và có
+                    2 bài kiểm luật canh chúng. */}
               </>
             )}
 
@@ -1184,28 +1189,24 @@ function MenuThaoTacThe({
                   <CalendarClock className="size-4 shrink-0" aria-hidden />
                   Chỉnh sửa thời hạn
                 </DropdownMenuItem>
-                {/* ★ HAI MỤC KHÁC NHAU, ĐỪNG GỘP — Ban lãnh đạo 18/08/2026 gửi ảnh hộp của Base
-                    và yêu cầu *"cấu hình giống 100%"*.
-                    · "Chỉnh sửa các trường dữ liệu tùy chỉnh" = bày ĐÚNG các trường của quy
-                      trình, xếp theo từng bước (bám ảnh Base).
-                    · "Trường tự thêm" = bảng cặp tên/giá trị người dùng tự đặt, cho thông tin
-                      quy trình chưa có ô nào.
-                    🔴 Mục cũ đã đổi nhãn từ "Chỉnh sửa dữ liệu tùy chỉnh" thành "Trường tự thêm":
-                    để nguyên hai nhãn gần y nhau thì không ai đoán được bấm cái nào ra cái gì. */}
-                <DropdownMenuItem onClick={() => thaoTac.onSuaTruongTuyChinh(deNghi.id)}>
-                  <SlidersHorizontal className="size-4 shrink-0" aria-hidden />
-                  Chỉnh sửa các trường dữ liệu tùy chỉnh
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => thaoTac.onSuaTruongBoSung(deNghi.id)}>
-                  <ListPlus className="size-4 shrink-0" aria-hidden />
-                  Trường tự thêm
-                </DropdownMenuItem>
+                {/* 🔴 ĐÃ DỜI "Chỉnh sửa các trường dữ liệu tùy chỉnh" VÀ "Trường tự thêm" SANG
+                    TRANG CHI TIẾT — Ban lãnh đạo 12/09/2026.
+                    Hai hộp thoại KHÔNG bị xóa, nay mở bằng nút "Chỉnh sửa" ở khối "Thông tin đề
+                    nghị" (`trang/de-nghi-chi-tiet.tsx`) — sửa thông tin ngay chỗ đang đọc thông
+                    tin, hợp lý hơn là chôn trong menu của thẻ.
+                    ⚠️ VÌ SAO KHÔNG ĐƯỢC BỎ HẲN: hộp "trường tùy chỉnh" là chỗ DUY NHẤT sửa được
+                    nội dung một dòng mặt hàng đã nhập (bảng Phân bổ chỉ THÊM và XÓA, không sửa),
+                    và cũng là chỗ duy nhất sửa Bộ phận / Nhóm đề xuất / Link phiếu. Dòng đã lên
+                    đơn hàng thì xóa bị chặn — bỏ hộp là hồ sơ gõ nhầm kẹt vĩnh viễn.
+                    📌 Chỉ đạo 18/08/2026 "HAI MỤC KHÁC NHAU, ĐỪNG GỘP" vẫn được tôn trọng: vẫn là
+                    hai hộp riêng, chỉ đổi chỗ mở. */}
               </>
             )}
-            <DropdownMenuItem onClick={() => router.push(duongDan)}>
-              <UsersRound className="size-4 shrink-0" aria-hidden />
-              Thêm nhiều người theo dõi
-            </DropdownMenuItem>
+            {/* 🔴 ĐÃ BỎ "Thêm nhiều người theo dõi" — Ban lãnh đạo 12/09/2026. Mục này chưa bao
+                giờ là lối vào riêng: nó chỉ là nhãn chữ thứ 5 dán lên cùng một lệnh mở trang chi
+                tiết. Bấm thẳng vào thẻ còn nhanh hơn (1 bấm ra pop-up có sẵn khối Người theo dõi).
+                📌 Bỏ còn chữa một lỗi lệch quyền có sẵn: mục này nằm NGOÀI mọi khối `thaoTac &&`
+                nên vai trò chỉ-xem cũng thấy, bấm vào rồi không có nút thêm — đúng lỗi §3.5. */}
 
             {onTha && !daKetThuc && (
               <>
@@ -1227,11 +1228,12 @@ function MenuThaoTacThe({
 
             <DropdownMenuSeparator />
 
-            {/* In: app in ĐƠN HÀNG, không in đề nghị — xem chú thích đầu component. */}
-            <DropdownMenuItem onClick={() => router.push(duongDan)}>
-              <Printer className="size-4 shrink-0" aria-hidden />
-              In đơn hàng của đề nghị
-            </DropdownMenuItem>
+            {/* 🔴 ĐÃ BỎ "In đơn hàng của đề nghị" — Ban lãnh đạo 12/09/2026.
+                📌 Mục này KHÔNG in gì cả: nó chỉ `router.push` sang trang chi tiết đề nghị, mà
+                trang đó cũng không có nút in nào. Nút in thật nằm ở trang chi tiết ĐƠN HÀNG
+                (`trang/don-hang-chi-tiet.tsx`), vào được từ nhiều lối khác.
+                ⚠️ Chú thích cũ ở đây ghi "mở trang chi tiết để in đơn hàng đã tách" — mô tả một
+                việc mục này không làm. Đừng thêm lại. */}
             <DropdownMenuItem onClick={() => router.push(duongDan)}>
               <Forward className="size-4 shrink-0" aria-hidden />
               Chuyển tiếp
@@ -1244,12 +1246,15 @@ function MenuThaoTacThe({
 
             <DropdownMenuSeparator />
 
-            {thaoTac && (
-              <DropdownMenuItem onClick={() => thaoTac.onDoiLuuTru(deNghi.id, !deNghi.luuTru)}>
-                <Archive className="size-4 shrink-0" aria-hidden />
-                {deNghi.luuTru ? "Bỏ lưu trữ" : "Lưu trữ"}
-              </DropdownMenuItem>
-            )}
+            {/* 🔴 ĐÃ DỜI "Lưu trữ / Bỏ lưu trữ" SANG TRANG CHI TIẾT — Ban lãnh đạo 12/09/2026.
+                🔴 DỜI CHỨ KHÔNG BỎ, VÀ ĐÂY LÀ CHỖ NGUY NHẤT TRONG CẢ MENU: hộp xác nhận "Xóa"
+                ngay dưới đang khuyên người dùng *"muốn dọn bảng cho gọn thì dùng Lưu trữ"*. Bỏ
+                hẳn Lưu trữ là vừa trỏ tới một chức năng không còn, vừa đẩy người muốn dọn bảng
+                sang nút Xóa — mà Xóa là mất hẳn, không khôi phục được.
+                📌 Dời sang trang chi tiết còn VÁ được một lỗi có sẵn: menu này chỉ mọc trên thẻ
+                của bảng, mà bảng đã lọc bỏ hồ sơ `luuTru` — nên nhãn luôn là "Lưu trữ", không bao
+                giờ hiện "Bỏ lưu trữ", tức lưu trữ là CỬA MỘT CHIỀU. Trang chi tiết thì vào được
+                kể cả khi hồ sơ đã ẩn khỏi bảng, nên bỏ lưu trữ được. */}
             {onTha && !daKetThuc && (
               <DropdownMenuItem
                 onClick={() => onTha(deNghi.id, "that_bai")}

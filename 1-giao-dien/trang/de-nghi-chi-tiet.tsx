@@ -6,9 +6,13 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Archive,
   ArrowLeft,
   BadgeCheck,
   Check,
+  Copy,
+  ListPlus,
+  SlidersHorizontal,
   ClipboardCheck,
   Send,
   ClipboardList,
@@ -46,6 +50,9 @@ import {
   type MocGiaiDoan,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+/* Hai hộp sửa trường — dời từ `de-nghi-danh-sach.tsx` sang 12/09/2026, xem chỗ dựng ở cuối file. */
+import { HopSuaTruongBoSung } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-de-nghi";
+import { HopSuaTruongTuyChinh } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-truong-tuy-chinh";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Badge } from "@/1-giao-dien/nen-tang-ui/badge";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
@@ -93,6 +100,8 @@ import {
   giaiDoanDaToiLuot,
   conNoCuaBuoc,
   congViecConTreoCacBuocTruoc,
+  /* Chưa checkin tồn kho thì chưa xổ được khối bước ① — Ban lãnh đạo 12/09/2026. */
+  vuongMacXoKhoiTiepNhan,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, xem chú thích đầu file đó.
@@ -174,8 +183,21 @@ export default function TrangChiTietDeNghi({
     xacNhanTruongBP,
     luiVeBuoc,
     ghiLyDoThieuChungTu,
+    /* ★ Ba hàm dưới đây phục vụ các LỐI VÀO VỪA DỜI TỪ MENU ⋯ SANG ĐÂY (Ban lãnh đạo 12/09/2026:
+       *"chỉ bỏ ở mục hiển thị thôi, còn chức năng thì vẫn phải giữ lại"*). Xem khối nút ở đầu
+       "Thông tin đề nghị" bên dưới. */
+    doiLuuTru,
+    suaTruongBoSung,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  /**
+   * ★ HỘP SỬA TRƯỜNG ĐANG MỞ — dời từ menu ⋯ của thẻ sang đây (Ban lãnh đạo 12/09/2026).
+   *
+   * `null` = không mở hộp nào. Hai hộp CỐ Ý GIỮ RIÊNG, không gộp: chỉ đạo 18/08/2026
+   * (*"cấu hình giống 100%"* theo ảnh Base) vẫn còn hiệu lực — "trường dữ liệu tùy chỉnh" bày
+   * đúng các trường của quy trình, còn "trường tự thêm" là bảng cặp tên/giá trị người dùng tự đặt.
+   */
+  const [hopSuaTruong, setHopSuaTruong] = useState<"tuy_chinh" | "bo_sung" | null>(null);
   const [moChuyenTiep, setMoChuyenTiep] = useState(false);
   const [loiNhan, setLoiNhan] = useState("");
   /** Bảng báo giá đang chờ xác nhận trình xét duyệt — `null` là chưa hỏi ai. */
@@ -570,6 +592,76 @@ export default function TrangChiTietDeNghi({
               mở sẵn thì đẩy phần việc thật (phân bổ, báo giá, đơn hàng) xuống dưới màn hình.
               Cần tra chi tiết thì bấm một cái là mở. */}
           <KhoiGap tieuDe="Thông tin đề nghị">
+            {/* ★★ BỐN LỐI VÀO DỜI TỪ MENU ⋯ CỦA THẺ SANG ĐÂY — Ban lãnh đạo 12/09/2026 yêu cầu bỏ
+                chúng khỏi menu, và nói rõ: *"chỉ bỏ ở mục hiển thị thôi, còn chức năng thì vẫn
+                phải giữ lại"*. Nên đây KHÔNG phải nút mới, mà là chỗ ở mới của đúng bốn chức năng
+                cũ. Đặt tại khối "Thông tin đề nghị" vì cả bốn đều thao tác trên chính thông tin
+                người dùng đang đọc ở ngay dưới.
+
+                🔴 MỖI NÚT LÀ LỐI VÀO DUY NHẤT CÒN LẠI của chức năng đó trong toàn app (đã đo
+                bằng grep trước khi dời). Bỏ nút nào ở đây là chức năng đó CHẾT — xem CLAUDE.md
+                §3.4b. Cụ thể:
+                  · Sao chép mã   → chỗ duy nhất gọi `navigator.clipboard` cho mã hồ sơ
+                  · Trường dữ liệu → chỗ duy nhất SỬA được nội dung một dòng mặt hàng đã nhập
+                                     (bảng Phân bổ chỉ thêm/xóa), và sửa Bộ phận / Nhóm / Link phiếu
+                  · Trường tự thêm → chỗ duy nhất sửa cặp tên–giá trị tự đặt
+                  · Lưu trữ        → lối thoát thay cho nút Xóa; hộp Xóa còn đang khuyên dùng nó
+
+                📌 Gác `quyen.lapPO` cho ba nút ghi — đúng mức quyền menu ⋯ đang gác (`thaoTac`
+                chỉ được truyền khi `quyen.lapPO`). Nút "Sao chép mã" KHÔNG gác: đọc mã là việc
+                ai xem được hồ sơ cũng làm được, và trước đây mục đó cũng nằm ngoài khối `thaoTac`. */}
+            <div className="mb-(--hp-md-row-gap) flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(dn.code);
+                    toast.success("Đã sao chép mã đề nghị", { description: dn.code });
+                  } catch {
+                    /* Trình duyệt chặn clipboard (HTTP thường / thiếu quyền) — nói thật và in
+                       nguyên mã ra để người dùng chép tay, không nuốt lỗi im lặng. */
+                    toast.error("Trình duyệt không cho sao chép", {
+                      description: `Tự chép tay: ${dn.code}`,
+                    });
+                  }
+                }}
+              >
+                <Copy className="size-4" aria-hidden />
+                Sao chép mã
+              </Button>
+              {quyen.lapPO && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setHopSuaTruong("tuy_chinh")}>
+                    <SlidersHorizontal className="size-4" aria-hidden />
+                    Chỉnh sửa trường dữ liệu
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setHopSuaTruong("bo_sung")}>
+                    <ListPlus className="size-4" aria-hidden />
+                    Trường tự thêm
+                  </Button>
+                  {/* 🔴 CÓ CẢ HAI CHIỀU, khác hẳn menu ⋯ cũ. Menu đó chỉ mọc trên thẻ của bảng, mà
+                      bảng đã lọc bỏ hồ sơ `luuTru` — nên nhãn luôn là "Lưu trữ" và lưu trữ thành
+                      CỬA MỘT CHIỀU. Trang này vào được kể cả khi hồ sơ đã ẩn khỏi bảng, nên đây là
+                      chỗ đầu tiên bỏ lưu trữ được. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      doiLuuTru(dn.id, !dn.luuTru, nguoiDung.tenHienThi);
+                      toast.success(dn.luuTru ? "Đã bỏ lưu trữ" : "Đã lưu trữ", {
+                        description: dn.luuTru
+                          ? "Hồ sơ quay lại đúng cột trên bảng quy trình."
+                          : "Hồ sơ ẩn khỏi bảng quy trình nhưng giữ nguyên trạng thái. Bỏ lưu trữ ngay tại đây.",
+                      });
+                    }}
+                  >
+                    <Archive className="size-4" aria-hidden />
+                    {dn.luuTru ? "Bỏ lưu trữ" : "Lưu trữ"}
+                  </Button>
+                </>
+              )}
+            </div>
             <DanhSachTruong
               truong={[
                 // `daiCaHang` cho hai trường chữ dài — để trong một ô hẹp thì bị cắt mất.
@@ -697,6 +789,9 @@ export default function TrangChiTietDeNghi({
                 nhan: NHAN_GIAI_DOAN.tiep_nhan.nhan,
                 dangODay: giaiDoan === "tiep_nhan",
                 conThieu: conThieuCuaBuoc("tiep_nhan"),
+                /* ★ KHÓA XỔ KHI CHƯA CHECKIN TỒN KHO — Ban lãnh đạo 12/09/2026. Ô tích để gỡ khóa
+                   nằm ở khối "Danh sách công việc" bên dưới (Card riêng), nên không kẹt. */
+                khoaMoRong: vuongMacXoKhoiTiepNhan(dn, cauHinh) ?? undefined,
                 truong: [
                   { nhan: "Bộ phận", giaTri: nhanPhongBan(dn.phongBanNguon) },
                   {
@@ -825,11 +920,16 @@ export default function TrangChiTietDeNghi({
                    "Lập bảng báo giá" và ghi *"bỏ nút này"*. Bỏ nút xong thì khối chỉ còn trơ
                    một dòng tiêu đề "BẢNG BÁO GIÁ (0)" không dẫn đi đâu, nên ẩn luôn cả khối.
 
-                   🔴 MODULE BÁO GIÁ KHÔNG BỊ MỒ CÔI: việc "Lập bảng báo giá" đã chuyển vào
-                   menu ⋯ trên thẻ ở bảng quy trình (`bang-quy-trinh-mua-hang.tsx`). Bắt buộc
-                   phải có một lối vào bấm được TRÊN ĐIỆN THOẠI — đường còn lại là kéo thẻ từ
-                   cột ① sang ②, mà điện thoại không kéo được. Trước 10/08/2026 app đã tắc
-                   đúng kiểu này. Xem CLAUDE.md mục 3.4b. */
+                   🔴 MODULE BÁO GIÁ KHÔNG BỊ MỒ CÔI — nhưng CÂU NÀY ĐÃ PHẢI VIẾT LẠI 12/09/2026.
+                   Bản cũ ghi lối vào là mục "Lập bảng báo giá" trong menu ⋯ trên thẻ. Mục đó đã bỏ
+                   (Ban lãnh đạo 12/09/2026), và nó vốn ĐANG HỎNG: với thẻ đứng ở cột ② thì đích
+                   truyền vào trùng cột hiện tại nên `xuLyTha` thoát im lặng.
+                   HAI lối vào còn sống, đã đo:
+                     · mục "Chuyển sang giai đoạn kế tiếp" trong chính menu ⋯ (cùng quyền `lapPO`)
+                     · nút "Trình xét duyệt báo giá" ở ngay bước ② bên dưới — từ 20/08/2026 nút đó
+                       TỰ LẬP bảng nếu hồ sơ chưa có bảng nào (xem `trinhXetDuyetBaoGiaChoDeNghi`)
+                   Cả hai đều bấm được trên điện thoại, nên yêu cầu "phải có lối vào bấm được trên
+                   điện thoại" vẫn đạt. Xem CLAUDE.md mục 3.4b. */
                 /**
                  * 🔴 HIỆN CẢ KHI CHƯA CÓ BẢNG NÀO — Ban lãnh đạo 19/08/2026: *"2 mục này sao
                  * chưa có kết quả"* (ảnh khoanh bước ② và ③ không có cụm KẾT QUẢ).
@@ -2758,6 +2858,30 @@ export default function TrangChiTietDeNghi({
           />
         </div>
       </HopXacNhan>
+
+      {/* ===== HAI HỘP SỬA TRƯỜNG — DỜI TỪ `trang/de-nghi-danh-sach.tsx` SANG ĐÂY 12/09/2026 =====
+          Ban lãnh đạo bỏ hai mục tương ứng khỏi menu ⋯ của thẻ, kèm chỉ đạo *"chỉ bỏ ở mục hiển
+          thị thôi, còn chức năng thì vẫn phải giữ lại"*. Hai hộp là component dùng chung, không
+          bị sửa gì — chỉ đổi nơi dựng và nơi mở.
+
+          📌 Trang này còn được nhúng NGUYÊN VẸN vào pop-up xem nhanh trên bảng quy trình
+          (`de-nghi-danh-sach.tsx`), nên dời về đây là hai hộp vào được từ cả hai chỗ. */}
+      <HopSuaTruongTuyChinh
+        mo={hopSuaTruong === "tuy_chinh"}
+        deNghi={dn}
+        onDong={() => setHopSuaTruong(null)}
+      />
+      {/* 📌 Hộp này cần `onLuu` vì nó trả về cả mảng trường; hộp trên thì gọi thẳng từng hàm ghi
+          của kho dữ liệu (mỗi trường một hàm, mỗi hàm giữ luật riêng). */}
+      <HopSuaTruongBoSung
+        mo={hopSuaTruong === "bo_sung"}
+        deNghi={dn}
+        onDong={() => setHopSuaTruong(null)}
+        onLuu={(truong) => {
+          suaTruongBoSung(dn.id, truong, nguoiDung.tenHienThi);
+          toast.success("Đã lưu trường tự thêm", { description: dn.code });
+        }}
+      />
     </>
   );
 }

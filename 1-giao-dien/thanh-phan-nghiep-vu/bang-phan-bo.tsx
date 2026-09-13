@@ -33,7 +33,6 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import {
   TOI_DA_O_BAO_GIA,
-  HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI,
   vuongMacChiDinhNCCLucGiaoViec,
 } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
@@ -946,19 +945,13 @@ export function BangPhanBo({
           `Giao ${giaoViec.dong.length} công việc (dòng ${giaoViec.dong.join(", ")}) của đề nghị ${deNghi.code} cho ${giaoViec.ten}.`
         }
         nhanDongY="Giao việc"
-        /**
-         * ★ HƯỚNG DẪN THEO GIÁ TRỊ ĐƠN HÀNG — LUÔN HIỆN, không phân biệt chọn mấy báo giá — Sếp
-         * chốt 07/09/2026 (vòng sau). Dùng `canhBao` (không dùng `khoaDongY`) vì `canhBao` không
-         * phụ thuộc điều kiện khoá — đúng ý "chỉ là chữ gợi ý, không phải điều kiện chặn" (xem
-         * `HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI`).
-         */
-        canhBao={
-          <span className="flex flex-col gap-0.5">
-            {HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI.map((dong) => (
-              <span key={dong}>{dong}</span>
-            ))}
-          </span>
-        }
+        /* 🔴 ĐÃ BỎ GHI CHÚ HƯỚNG DẪN SỐ BÁO GIÁ — Ban lãnh đạo 12/09/2026: "bỏ ghi chú này".
+           Trước đó (07/09/2026) hộp này hiện thường trực 4 dòng ngưỡng báo giá qua prop `canhBao`.
+           Nay bỏ hẳn khỏi hộp giao việc.
+           ⚠️ KHÔNG đụng `khoaDongY` ngay dưới — đó là luật CHẶN THẬT (chỉ định thẳng 1 NCC thì
+           bắt buộc ghi lý do, Ban lãnh đạo 07/09/2026), khác hẳn dòng chữ gợi ý vừa bỏ.
+           📌 Văn bản quy định vẫn giữ ở `HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI`
+           (2-quy-trinh/bao-gia-dinh-kem.ts) — xem chú thích ở đó. */
         khoaDongY={vuongMacChiDinhNCCLucGiaoViec(soBaoGiaSo, ghiChu) ?? undefined}
         onDong={() => setMoHop(false)}
         onDongY={xacNhanGiaoViec}

@@ -1325,6 +1325,32 @@ export function vuongMacGiaoViec(
 }
 
 /**
+ * ★★ CHẶN XỔ KHỐI "TIẾP NHẬN VÀ KIỂM TRA" KHI CHƯA CHECKIN — Ban lãnh đạo 12/09/2026:
+ * *"phải bấm checkin xong thì mới được xổ thông tin tiếp nhận xuống"*.
+ *
+ * 🔴 SIẾT THÊM MỘT NẤC so với `vuongMacGiaoViec` (cùng ngày, sớm hơn vài giờ): lần đó mới chặn ở
+ * hành động GIAO VIỆC, nay chặn ngay ở chỗ MỞ khối — chưa kiểm tồn kho thì chưa được xem/động
+ * vào thông tin tiếp nhận. Cùng một điều kiện, hai lớp: lớp này chặn ở giao diện, lớp kia chặn ở
+ * cửa ghi. Bỏ lớp này KHÔNG làm thủng luật (cửa ghi vẫn chặn), nhưng bỏ `vuongMacGiaoViec` thì
+ * thủng thật.
+ *
+ * ⚠️ CHỈ DÙNG CHO KHỐI BƯỚC ①, và chỉ vì ô tích *"Checkin hàng tồn kho"* nằm ở khối "Danh sách
+ * công việc" — một Card RIÊNG bên ngoài khối bị khóa. Khóa một khối mà điều kiện gỡ nằm BÊN
+ * TRONG chính nó là kẹt vĩnh viễn; xem cảnh báo ở `khoaMoRong`.
+ *
+ * @returns Câu lý do bị khóa, `null` là xổ được.
+ */
+export function vuongMacXoKhoiTiepNhan(
+  deNghi: DeNghiMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+): string | null {
+  const treo = congViecChuaXongCuaBuoc(deNghi, "tiep_nhan", cauHinh);
+  if (treo.length === 0) return null;
+  const ds = treo.map((cv) => `“${cv.ten}”`).join(", ");
+  return `Chưa xổ được thông tin tiếp nhận: còn ${treo.length} công việc bắt buộc chưa hoàn thành — ${ds}. Tích hoàn thành ở khối “Danh sách công việc” bên dưới rồi quay lại.`;
+}
+
+/**
  * ★★★ MỘT ĐIỀU KIỆN CÒN VƯỚNG — có mã để giao diện biết bày ô gì cho người dùng gỡ tại chỗ.
  *
  * 🔴 Ban lãnh đạo 25/08/2026: *"Kéo qua bước phải hiển thị các trường nhập nhanh các điều kiện

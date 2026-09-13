@@ -126,16 +126,20 @@ export function tepBaoGiaDaCo(deNghi: DeNghiMuaHang): MoTaTep[] {
 }
 
 /**
- * ★ HƯỚNG DẪN CHỌN SỐ BÁO GIÁ THEO GIÁ TRỊ ĐƠN HÀNG — LUÔN HIỂN THỊ, không phân biệt 1/2/3/nhiều
- * báo giá — Sếp chốt 07/09/2026.
+ * ★ HƯỚNG DẪN CHỌN SỐ BÁO GIÁ THEO GIÁ TRỊ ĐƠN HÀNG — văn bản quy định của công ty.
+ *
+ * 🔴🔴 HIỆN KHÔNG CÒN HIỂN THỊ Ở ĐÂU — Ban lãnh đạo 12/09/2026: *"bỏ ghi chú này"*, chỉ vào đúng
+ * khối chữ vàng trong hộp "Giao việc cho nhân viên?" (`bang-phan-bo.tsx`). Trước đó Sếp chốt
+ * 07/09/2026 cho hiện thường trực ở đó; nay đã gỡ.
+ *
+ * 📌 CỐ Ý GIỮ LẠI HẰNG SỐ, không xóa: đây là bản ghi DUY NHẤT trong mã nguồn của câu quy định
+ * ngưỡng báo giá (10–100tr → 2 báo giá; ≥100tr → 3 báo giá; không chia nhỏ đơn để né). Xóa đi là
+ * mất văn bản, và lần sau ai cần lại phải đi hỏi vòng quanh. Ngưỡng tiền chạy được bằng mã thì
+ * nằm ở `cauHinh.nguongHaiBaoGia` / `soBaoGiaToiThieu` (`2-quy-trinh/cau-hinh-quy-trinh.ts`).
  *
  * 🔴 CHỈ LÀ CHỮ GỢI Ý, KHÔNG TỰ KIỂM ĐƯỢC: app không nhập giá trị đơn hàng ở bước giao việc (xem
  * chú thích 20/08/2026 ở `2-quy-trinh/cau-hinh-quy-trinh.ts`), nên không có cách nào tự so khớp
- * ngưỡng tiền với đề nghị thật. Hiện thường trực để trưởng bộ phận tự đọc và tự áp dụng, không
- * phải điều kiện chặn được kiểm bằng mã.
- *
- * 📌 TÁCH THÀNH MẢNG 4 DÒNG (không phải 1 câu dài) để nơi gọi tự chọn cách trình bày (xuống dòng
- * từng ý) — xem `bang-phan-bo.tsx` dùng làm `canhBao` cho `HopXacNhan`.
+ * ngưỡng tiền với đề nghị thật. Đừng biến nó thành điều kiện chặn.
  */
 export const HUONG_DAN_SO_BAO_GIA_THEO_GIA_TRI: readonly string[] = [
   "10–100 triệu đồng → tối thiểu 2 báo giá;",

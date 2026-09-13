@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ChevronRight, LogIn, LogOut, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ChevronRight, Lock, LogIn, LogOut, type LucideIcon } from "lucide-react";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { coTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
@@ -96,6 +96,22 @@ export interface GiaiDoanDauVao {
    * trang nhẹ.
    */
   giuNoiDungKhiGap?: boolean;
+  /**
+   * ★ KHÓA KHÔNG CHO XỔ KHỐI — Ban lãnh đạo 12/09/2026: *"phải bấm checkin xong thì mới được
+   * xổ thông tin tiếp nhận xuống"*.
+   *
+   * Chuỗi = LÝ DO bị khóa, hiện thẳng dưới dòng tiêu đề. `undefined` = mở bình thường.
+   *
+   * 🔴 ĐIỀU KIỆN GỠ KHÓA PHẢI NẰM NGOÀI KHỐI NÀY, nếu không là kẹt vĩnh viễn: người dùng không
+   * mở được khối thì cũng không bấm được thứ bên trong nó để tự gỡ. Ca đang dùng đạt điều kiện
+   * đó — ô tích *"Checkin hàng tồn kho"* nằm ở khối "Danh sách công việc", một Card RIÊNG bên
+   * dưới (xem chú thích *"CỐ Ý ĐỨNG RIÊNG"* trong `trang/de-nghi-chi-tiet.tsx`).
+   * ⚠️ Trước khi dùng cờ này cho bước khác, phải kiểm lại đúng điều đó.
+   *
+   * 📌 Khóa luôn ép khối về trạng thái GẬP, kể cả khi người dùng đã mở nó từ trước rồi mới làm
+   * mất điều kiện — trạng thái mở không được phép "lách" qua khóa.
+   */
+  khoaMoRong?: string;
 }
 
 /**
@@ -175,7 +191,10 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
   return (
     <div className="flex flex-col gap-(--hp-md-row-gap)">
       {giaiDoan.map((g) => {
-        const dangMo = mo.includes(g.ma);
+        /* ★ Khóa xổ khối (12/09/2026) — xem `khoaMoRong`. Khóa THẮNG trạng thái mở: ép gập kể cả
+           khi người dùng đã mở từ trước rồi mới làm mất điều kiện. */
+        const biKhoa = Boolean(g.khoaMoRong);
+        const dangMo = mo.includes(g.ma) && !biKhoa;
         // Tính số thứ tự trước khi vẽ, kể cả khi khối đang gập — số phải giữ nguyên dù
         // người dùng gập mở khối nào.
         const truongCoSo = g.truong.map((t) => ({ ...t, so: ++so }));
@@ -230,12 +249,21 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
           >
             <button
               type="button"
-              onClick={() =>
-                setMo((cu) => (cu.includes(g.ma) ? cu.filter((x) => x !== g.ma) : [...cu, g.ma]))
-              }
+              /* Bị khóa thì KHÔNG cho mở. Không dùng `disabled` để vẫn đọc được `aria-disabled`
+                 và giữ nút trong thứ tự Tab — người dùng bấm vào phải thấy lý do ngay dưới,
+                 chứ không phải bấm mãi mà không hiểu sao không mở. */
+              onClick={() => {
+                if (biKhoa) return;
+                setMo((cu) => (cu.includes(g.ma) ? cu.filter((x) => x !== g.ma) : [...cu, g.ma]));
+              }}
               aria-expanded={dangMo}
+              aria-disabled={biKhoa}
               className={`flex min-h-11 w-full items-center gap-2 px-(--hp-md-card-pad) py-3 text-left transition-colors ${
-                g.conThieu ? "bg-danger-bg hover:bg-danger/10" : "bg-primary-bg hover:bg-primary/10"
+                biKhoa
+                  ? "cursor-not-allowed bg-muted"
+                  : g.conThieu
+                    ? "bg-danger-bg hover:bg-danger/10"
+                    : "bg-primary-bg hover:bg-primary/10"
               }`}
             >
               <ChevronRight
@@ -276,12 +304,30 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
               {/* Nền `bg-card` chứ không `bg-muted`: dòng tiêu đề giờ là nền xanh nhạt, mà
                   `--color-muted` trong `app/globals.css` đúng bằng `--hp-surface` nên ô nhãn
                   sẽ lẫn vào nền xanh thay vì nổi lên như khi nền còn trắng. */}
-              {nhanGap && (
-                <span className="ml-auto shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[11px] font-medium text-text-secondary tabular-nums">
-                  {nhanGap}
+              {/* Bị khóa thì thay nhãn "THU GỌN · n" bằng ổ khóa — nhãn kia mời người ta bấm mở,
+                  mà bấm thì không mở được. */}
+              {biKhoa ? (
+                <span className="ml-auto flex shrink-0 items-center gap-1 rounded-md bg-card px-1.5 py-0.5 text-[11px] font-semibold text-text-secondary">
+                  <Lock className="size-3" aria-hidden />
+                  Đang khóa
                 </span>
+              ) : (
+                nhanGap && (
+                  <span className="ml-auto shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[11px] font-medium text-text-secondary tabular-nums">
+                    {nhanGap}
+                  </span>
+                )
               )}
             </button>
+
+            {/* ★ LÝ DO BỊ KHÓA (12/09/2026) — hiện THƯỜNG TRỰC, không đợi bấm mới biết.
+                V1.1 buộc trạng thái phải có cả màu lẫn chữ; ổ khóa trên tiêu đề là màu, đây là chữ. */}
+            {g.khoaMoRong && (
+              <p className="flex items-start gap-2 border-t border-border bg-warning-bg px-(--hp-md-card-pad) py-2.5 text-sm text-warning-soft">
+                <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>{g.khoaMoRong}</span>
+              </p>
+            )}
 
             {/* 🔴 HAI CÁCH GẬP, tùy khối có form nhập liệu hay không — xem `giuNoiDungKhiGap`.
                 · Khối thường: gập là THÁO khỏi cây React (nhẹ trang, không có gì để mất).

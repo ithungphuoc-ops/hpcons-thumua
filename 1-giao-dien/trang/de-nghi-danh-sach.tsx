@@ -26,9 +26,9 @@ import {
 import {
   HopSuaThongTinChung,
   HopSuaThoiHan,
-  HopSuaTruongBoSung,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-de-nghi";
-import { HopSuaTruongTuyChinh } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-truong-tuy-chinh";
+/* 📌 `HopSuaTruongBoSung` và `HopSuaTruongTuyChinh` KHÔNG còn dựng ở file này — đã dời sang
+   `trang/de-nghi-chi-tiet.tsx` ngày 12/09/2026 cùng hai mục menu. Hai hộp vẫn sống, đừng dọn. */
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { HopNhanBanDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-nhan-ban-de-nghi";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
@@ -51,7 +51,6 @@ import {
   dungXacNhanKeoTha,
   quyetDinhKeoTha,
   soSanhTheTrenBang,
-  xacDinhGiaiDoan,
   type TheDeNghiTrenBang,
   type GiaiDoanMuaHang,
   type HanhDongKeoTha,
@@ -122,8 +121,8 @@ export default function TrangDanhSachDeNghi() {
     dongDoDeNghi,
     suaThongTinChung,
     suaThoiHan,
-    doiLuuTru,
-    suaTruongBoSung,
+    /* 📌 `doiLuuTru` và `suaTruongBoSung` không lấy ở đây nữa — hai lối vào đã dời sang
+       `trang/de-nghi-chi-tiet.tsx` ngày 12/09/2026. Hai hàm vẫn sống trong kho dữ liệu. */
     nhanBanDeNghi,
     xoaDeNghi,
     luiVeBuoc,
@@ -168,40 +167,21 @@ export default function TrangDanhSachDeNghi() {
   const thaoTacThe: ThaoTacThe = {
     onSuaThongTin: (prId) => setDangSua({ loai: "thong_tin", prId }),
     onSuaThoiHan: (prId) => setDangSua({ loai: "thoi_han", prId }),
-    onSuaTruongBoSung: (prId) => setDangSua({ loai: "truong_bo_sung", prId }),
-    onSuaTruongTuyChinh: (prId) => setDangSua({ loai: "truong_tuy_chinh", prId }),
+    /* 🔴 `onSuaTruongBoSung` / `onSuaTruongTuyChinh` / `onDoiLuuTru` ĐÃ BỎ khỏi đây 12/09/2026 —
+       ba mục menu tương ứng đã dời sang trang chi tiết đề nghị. Chức năng còn nguyên, xem khối
+       nút ở đầu "Thông tin đề nghị" trong `trang/de-nghi-chi-tiet.tsx`. */
     // Mở hộp chọn mặt hàng trước, không nhân bản ngay — xem `hop-nhan-ban-de-nghi.tsx`.
     onNhanBan: (prId) => setHoiNhanBan(prId),
-    onDoiLuuTru: (prId, luuTru) => {
-      doiLuuTru(prId, luuTru, nguoiDung.tenHienThi);
-      toast.success(luuTru ? "Đã lưu trữ" : "Đã bỏ lưu trữ", {
-        description: luuTru
-          ? "Hồ sơ ẩn khỏi bảng nhưng vẫn nguyên trạng thái. Xem lại ở tab Danh sách."
-          : "Hồ sơ quay lại đúng cột trên bảng.",
-      });
-    },
     onXoa: (prId) => setHoiXoa(prId),
     // Nhân viên chỉ tách được phiếu mình phụ trách (Ban lãnh đạo 15/08/2026); trưởng bộ phận
     // và quản trị tách được mọi phiếu. Luật ở `4-phan-quyen/quyen-theo-ho-so.ts`.
     duocNhanBan: (dn) => duocNhanBanDeNghi(dn, nguoiDung.uid, quyen),
-    /* 🔴 ĐƯỜNG VÀO MODULE BÁO GIÁ, thay cho nút đã bỏ ở trang chi tiết (Ban lãnh đạo
-       17/08/2026: *"bỏ nút này"*). Xem chú thích `onLapBaoGia` ở `ThaoTacThe`.
-
-       🔴 GỌI LẠI `xuLyTha` chứ KHÔNG gọi thẳng `taoBaoGiaGiaLap`. Lập bảng báo giá là việc
-       CHUYỂN PHIẾU sang bước ②, nên phải đi qua đúng chốt của việc chuyển bước: kiểm bước
-       đang đứng đã xong chưa (vd việc bắt buộc "Checkin hàng tồn kho"), rồi mở hộp xác nhận
-       (nguyên tắc Ban lãnh đạo 10/08/2026).
-
-       Bản đầu của mục menu này gọi thẳng hàm tạo, tức BỎ QUA cả hai chốt — nhân viên bấm menu
-       là nhảy bước không ai kiểm. Đi qua `xuLyTha` thì luật nằm một chỗ duy nhất
-       (`quyetDinhKeoTha`), menu và kéo thả không bao giờ nói khác nhau. */
-    onLapBaoGia: (prId) => xuLyTha(prId, "yeu_cau_bao_gia"),
-    /* Đủ quyền lập PO · phiếu chưa có bảng báo giá nào · hồ sơ chưa đóng.
-       Đã có bảng thì thêm nhà cung cấp là việc làm BÊN TRONG bảng đó, không lập bảng thứ hai. */
-    duocLapBaoGia: (dn) =>
-      quyen.lapPO &&
-      !giaiDoanDaKetThuc(xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan)) &&
-      !baoGia.some((bg) => bg.prId === dn.id),
+    /* 🔴 `onLapBaoGia` / `duocLapBaoGia` ĐÃ BỎ 12/09/2026 cùng mục menu "Lập bảng báo giá".
+       Chức năng lập bảng KHÔNG mất — còn hai lối vào, và cả hai vẫn đi qua đúng chốt chuyển bước:
+         · mục "Chuyển sang giai đoạn kế tiếp" trong chính menu ⋯ (gọi `onTha` → `xuLyTha`)
+         · nút "Trình xét duyệt báo giá" ở trang chi tiết — từ 20/08/2026 tự lập bảng nếu chưa có
+       📌 Mục vừa bỏ vốn ĐANG HỎNG với thẻ đứng ở cột ②: đích truyền vào trùng cột hiện tại nên
+       `quyetDinhKeoTha` trả `null` và `xuLyTha` thoát im lặng — bấm không có gì xảy ra. */
   };
 
   /**
@@ -852,25 +832,13 @@ export default function TrangDanhSachDeNghi() {
                   });
                 }}
               />
-              <HopSuaTruongBoSung
-                mo={dangSua?.loai === "truong_bo_sung"}
-                deNghi={dnDangSua}
-                onDong={() => setDangSua(null)}
-                onLuu={(truong) => {
-                  suaTruongBoSung(dnDangSua.id, truong, nguoiDung.tenHienThi);
-                  toast.success("Đã lưu trường tự thêm", { description: dnDangSua.code });
-                }}
-              />
-              {/* ✏️ HỘP BÁM THEO BASE — Ban lãnh đạo 18/08/2026 gửi ảnh và yêu cầu *"cấu hình
-                  giống 100%"*. Khác hộp ngay trên: hộp trên cho gõ TỰ ĐẶT TÊN trường, hộp này bày
-                  đúng các trường của quy trình theo từng bước.
-                  📌 Không truyền `onLuu`: hộp này gọi thẳng các hàm ghi đã có của kho dữ liệu (mỗi
-                  trường một hàm, mỗi hàm giữ luật riêng) — xem chú thích đầu file của nó. */}
-              <HopSuaTruongTuyChinh
-                mo={dangSua?.loai === "truong_tuy_chinh"}
-                deNghi={dnDangSua}
-                onDong={() => setDangSua(null)}
-              />
+              {/* 🔴 HAI HỘP "Trường tự thêm" VÀ "Chỉnh sửa các trường dữ liệu tùy chỉnh" ĐÃ DỜI
+                  SANG `trang/de-nghi-chi-tiet.tsx` — Ban lãnh đạo 12/09/2026 bỏ hai mục tương ứng
+                  khỏi menu ⋯ của thẻ, kèm chỉ đạo *"chỉ bỏ ở mục hiển thị thôi, còn chức năng thì
+                  vẫn phải giữ lại"*.
+                  📌 Dựng ở đây nữa là dựng hai lần cùng một hộp: trang chi tiết được nhúng nguyên
+                  vẹn vào pop-up xem nhanh ngay trong file này, nên hộp ở đó đã phủ cả hai đường.
+                  ⚠️ Hai hộp KHÔNG bị xóa khỏi dự án — đừng tưởng mã chết rồi đi dọn. */}
             </>
           )}
 
