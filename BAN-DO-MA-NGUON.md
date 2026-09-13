@@ -229,6 +229,19 @@ không còn chỗ nào có `bgId` trong tay.
 Cùng loại: `2-quy-trinh/nguong-gia-tri.ts` chỉ còn `chuTien` được dùng (bởi `hop-chuyen-giai-doan.tsx`),
 các export khác đã chết.
 
+**Hộp thoại "Chuyển tiếp" (phát hiện 13/09/2026)** — `trang/de-nghi-chi-tiet.tsx`, cùng hàm
+`chuyenTiepChoNhanVien` trong `3-du-lieu/kho-du-lieu.tsx`. Grep toàn dự án **không có một chỗ nào gọi
+`setMoChuyenTiep(true)`**, nên không nút nào mở được hộp này — chức năng đã chết sẵn, không phải do
+lần bỏ mục menu hôm 13/09.
+
+📌 Mục "Chuyển tiếp" trong menu ⋯ của thẻ (đã bỏ 13/09/2026 theo chỉ đạo *"nút chuyển tiếp này ko có
+giá trị, e bỏ luôn đi"*) **không hề mở hộp đó** — nó chỉ `router.push` sang trang chi tiết, y hệt hai
+mục cạnh nó. Nên bỏ mục menu không làm mất gì.
+
+⚠️ Trước khi xóa hộp thoại + hàm, kiểm lại `cau-hinh-quy-trinh.ts`: ô cấu hình *"cho phép chuyển
+việc"* đang để `true` **chỉ vì** tin rằng nút Chuyển tiếp còn chạy (xem chú thích ở đó). Xóa mã mà
+quên ô cấu hình là để lại một công tắc không điều khiển gì.
+
 ### 🔴 KHÔNG CÒN CẤP DUYỆT THEO GIÁ TRỊ (20/08/2026)
 
 Ban lãnh đạo: *"không cần tổng giám đốc duyệt, trưởng phòng sẽ quyết định"*.

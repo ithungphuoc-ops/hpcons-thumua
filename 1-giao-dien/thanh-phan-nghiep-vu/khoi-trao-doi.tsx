@@ -48,6 +48,20 @@ import type { BinhLuan, DeNghiMuaHang, LanSuaBinhLuan } from "@/3-du-lieu/kieu-d
  * ⚠️ Lịch sử được dời NGUYÊN VẸN từ `cot-thong-tin-de-nghi.tsx` sang đây — không để hai chỗ
  * cùng hiện một danh sách, sửa một chỗ là lệch ngay.
  */
+/**
+ * ★★ NEO ĐỂ LIÊN KẾT TRỎ THẲNG VÀO TAB "Lịch sử hoạt động".
+ *
+ * 🔴 Ban lãnh đạo 13/09/2026, chỉ vào mục "Xem nhật ký hồ sơ" trong menu ⋯ của thẻ:
+ * *"trỏ link về đúng mục lịch sử của quy trình"*. Trước đó mục đó chỉ `router.push` sang trang
+ * chi tiết và dừng ở ĐẦU TRANG, tab đang mở là "Bình luận" — người dùng phải tự cuộn xuống rồi
+ * tự bấm sang tab kia, tức cái nhãn "Xem nhật ký hồ sơ" hứa một việc nó không làm.
+ *
+ * 📌 XUẤT RA để nơi tạo liên kết dùng chung một chuỗi với nơi nhận. Hai chỗ tự gõ `"nhat-ky"`
+ * là đổi một chỗ quên chỗ kia, và liên kết hỏng IM LẶNG — vẫn mở đúng trang, chỉ là không nhảy
+ * tới đâu cả, nên không ai phát hiện.
+ */
+export const NEO_NHAT_KY = "nhat-ky";
+
 export function KhoiTraoDoi({
   deNghi,
   nguoiDung,
@@ -64,6 +78,31 @@ export function KhoiTraoDoi({
 }) {
   const [the, setThe] = useState<"binh_luan" | "lich_su">("binh_luan");
   const binhLuan = useMemo(() => deNghi.binhLuan ?? [], [deNghi.binhLuan]);
+  const khungRef = useRef<HTMLElement | null>(null);
+
+  /**
+   * ★ VÀO BẰNG LIÊN KẾT `#nhat-ky` thì MỞ SẴN tab "Lịch sử hoạt động" và cuộn tới đây.
+   * (Ban lãnh đạo 13/09/2026 — xem `NEO_NHAT_KY` ở trên.)
+   *
+   * ⚠️ PHẢI TỰ CUỘN, không trông vào việc trình duyệt tự nhảy tới `#id`. Trình duyệt nhảy ngay
+   * lúc tải xong HTML, mà khối này chỉ xuất hiện SAU khi dữ liệu đề nghị nạp xong — lúc trình
+   * duyệt tìm thì phần tử chưa tồn tại, nên nó đứng nguyên ở đầu trang.
+   *
+   * ⚠️ Cuộn trong `requestAnimationFrame` để tab kịp vẽ trước: đổi `the` rồi cuộn ngay thì đo
+   * vị trí trên bố cục CŨ, ra sai chỗ.
+   *
+   * 📌 Chỉ chạy MỘT LẦN lúc vào trang (mảng phụ thuộc rỗng). Cố ý: sau đó người dùng bấm tab
+   * nào là quyền của họ, đừng kéo họ về "Lịch sử" mỗi lần dữ liệu đổi.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== `#${NEO_NHAT_KY}`) return;
+    setThe("lich_su");
+    const khung = window.requestAnimationFrame(() => {
+      khungRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(khung);
+  }, []);
 
   /**
    * Mốc "bây giờ" để tính thời gian tương đối ("3 giờ trước").
@@ -91,7 +130,7 @@ export function KhoiTraoDoi({
   }, [binhLuan]);
 
   return (
-    <section className="rounded-xl border border-border bg-card">
+    <section ref={khungRef} id={NEO_NHAT_KY} className="rounded-xl border border-border bg-card">
       {/* Hai thẻ chuyển qua lại — con số cho biết có gì bên trong mà không phải bấm vào. */}
       <div role="tablist" aria-label="Trao đổi và lịch sử" className="flex border-b border-divider">
         <TheChuyen

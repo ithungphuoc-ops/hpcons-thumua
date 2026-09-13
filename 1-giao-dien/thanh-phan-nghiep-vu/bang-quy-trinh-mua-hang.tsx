@@ -14,7 +14,6 @@ import {
   CalendarClock,
   CopyPlus,
   Eye,
-  Forward,
   History,
   Link2 as LinkIcon,
   MoreHorizontal,
@@ -40,6 +39,9 @@ import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_NHOM_DE_XUAT, type DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 import { laDongHang } from "@/2-quy-trinh/tinh-toan";
 import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
+/* Neo để mục "Xem nhật ký hồ sơ" trỏ thẳng vào tab Lịch sử — một chuỗi duy nhất, xem chú thích
+   của `NEO_NHAT_KY` ở tệp đó. */
+import { NEO_NHAT_KY } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi";
 import {
   GIAI_DOAN_MUA_HANG,
   type CotBangQuyTrinh,
@@ -1234,12 +1236,27 @@ function MenuThaoTacThe({
                 (`trang/don-hang-chi-tiet.tsx`), vào được từ nhiều lối khác.
                 ⚠️ Chú thích cũ ở đây ghi "mở trang chi tiết để in đơn hàng đã tách" — mô tả một
                 việc mục này không làm. Đừng thêm lại. */}
-            <DropdownMenuItem onClick={() => router.push(duongDan)}>
-              <Forward className="size-4 shrink-0" aria-hidden />
-              Chuyển tiếp
-            </DropdownMenuItem>
-            {/* Thay cho "Lịch sử webhook" của Base — app không có webhook. */}
-            <DropdownMenuItem onClick={() => router.push(duongDan)}>
+            {/* 🔴 ĐÃ BỎ "Chuyển tiếp" — Ban lãnh đạo 13/09/2026: *"nút chuyển tiếp này ko có giá
+                trị, e bỏ luôn đi"*.
+
+                📌 ĐÃ SOÁT THEO CLAUDE.md §3.4b (kiểm lối vào khác trước khi bỏ) — và kết quả cho
+                thấy Sếp nói đúng theo nghĩa đen: mục này `onClick={() => router.push(duongDan)}`,
+                tức chỉ MỞ TRANG CHI TIẾT, y hệt "Giao lại cho người khác" và "Xem nhật ký hồ sơ"
+                ngay cạnh. Nó KHÔNG chuyển tiếp gì cả. Bỏ đi không mất chức năng nào.
+
+                ⚠️ GHI LẠI MỘT VIỆC PHÁT HIỆN KHI SOÁT, ĐỂ PHIÊN SAU KHÔNG TƯỞNG LÀ DO LẦN BỎ NÀY:
+                hộp thoại "Chuyển tiếp" trong `trang/de-nghi-chi-tiet.tsx` (cùng hàm
+                `chuyenTiepChoNhanVien`) ĐÃ MỒ CÔI TỪ TRƯỚC — grep toàn dự án không có một chỗ nào
+                gọi `setMoChuyenTiep(true)`, nên không nút nào mở được nó. Tức chức năng Chuyển
+                tiếp đã chết sẵn, mục menu này chỉ còn là cái vỏ. CHƯA đụng tới hộp thoại đó trong
+                lần này — để riêng, tránh gộp việc không liên quan; xem mục mã chết ở
+                `BAN-DO-MA-NGUON.md`. */}
+            {/* Thay cho "Lịch sử webhook" của Base — app không có webhook.
+                ★ 13/09/2026: trỏ thẳng vào tab "Lịch sử hoạt động" bằng neo `#nhat-ky`, theo chỉ
+                đạo *"trỏ link về đúng mục lịch sử của quy trình"*. Trước đó mục này dừng ở ĐẦU
+                trang chi tiết với tab "Bình luận" đang mở — nhãn hứa một việc nó không làm.
+                Bên nhận neo: `thanh-phan-nghiep-vu/khoi-trao-doi.tsx` → `NEO_NHAT_KY`. */}
+            <DropdownMenuItem onClick={() => router.push(`${duongDan}#${NEO_NHAT_KY}`)}>
               <History className="size-4 shrink-0" aria-hidden />
               Xem nhật ký hồ sơ
             </DropdownMenuItem>
