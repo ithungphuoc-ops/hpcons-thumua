@@ -667,20 +667,62 @@ export default function TrangChiTietDeNghi({
                 // `daiCaHang` cho hai trường chữ dài — để trong một ô hẹp thì bị cắt mất.
                 { nhan: "Tiêu đề", giaTri: dn.tieuDe, daiCaHang: true },
                 { nhan: "Tên công trình", giaTri: dn.tenCongTrinh, daiCaHang: true },
-                { nhan: "Mã đề nghị", giaTri: dn.code },
                 /**
                  * ★ MÃ ĐỀ XUẤT APP REQUEST — Ban lãnh đạo 21/08/2026: *"để sau này có thể từ mã
                  * request để lọc lại dữ liệu"*.
                  *
                  * Đây là khóa nối hai app: phiếu sinh tự động từ App Request mang mã bên đó (vd
-                 * `000000032`). Đặt ngay dưới "Mã đề nghị" để hai mã của cùng một hồ sơ đứng
-                 * cạnh nhau — đối chiếu là đọc một chỗ.
+                 * `000000032`).
                  *
-                 * 📌 Phiếu lập tay trong app không có mã này. `DanhSachTruong` tự bỏ trường
-                 * `undefined`, nên không hiện nhãn trống.
+                 * ⚠️ CHÚ THÍCH CŨ Ở ĐÂY GHI SAI, đã sửa 13/09/2026: nó ghi *"`DanhSachTruong` tự
+                 * bỏ trường `undefined`, nên không hiện nhãn trống"*. KHÔNG ĐÚNG — component vẽ
+                 * MỌI trường và hiện dấu "—" khi thiếu giá trị (xem `danh-sach-truong.tsx`).
+                 * Để nguyên câu sai thì người sau đọc nhầm rồi đi "dọn" mảng trường, mà dọn là
+                 * LỆCH SỐ Ô của mọi trường phía sau.
                  */
                 { nhan: "Mã đề xuất (App Request)", giaTri: dn.maDeXuatAppRequest },
                 { nhan: "Mã dự án", giaTri: dn.maDuAn },
+                /**
+                 * ★★ Ô 05 — ĐƯỜNG DẪN ĐỀ NGHỊ — Ban lãnh đạo 12–13/09/2026: *"Điều chỉnh lại tên
+                 * trường — Đường dẫn đề nghị: đính kèm link của mã đề nghị vào đây"*, và *"chuyển
+                 * vị trí mục 3 sang mục số 5"*.
+                 *
+                 * Trước đây đây là ô 03 *"Mã đề nghị"* hiện `dn.code` dưới dạng CHỮ TRƠN. Nay dời
+                 * xuống vị trí 05 và biến thành liên kết bấm được, nhãn là chính mã hồ sơ.
+                 *
+                 * 🔴 BẮT BUỘC `target="_blank"` — KHÔNG được dùng `<Link>` điều hướng cùng tab.
+                 * Đã đo trước khi làm, có HAI lý do, bỏ cái nào cũng sinh lỗi thật:
+                 *   ① Ở TRANG ĐẦY ĐỦ, địa chỉ này TRÙNG đúng URL đang đứng → Next.js coi là no-op,
+                 *      bấm vào KHÔNG có gì xảy ra. Không lỗi lint, không lỗi build, chỉ là một nút
+                 *      chết — đúng thứ CLAUDE.md §3.5 cấm. Dự án đã dính lỗi này một lần với nút
+                 *      "Quay lại danh sách đề nghị" (xem chú thích `onDongPopup` ở đầu file).
+                 *   ② Trong POP-UP xem nhanh (trang này được nhúng nguyên vẹn vào `de-nghi-danh-sach.tsx`,
+                 *      cố ý KHÔNG đổi URL), điều hướng cùng tab sẽ THÁO cả bảng quy trình — mất bộ
+                 *      lọc và vị trí cuộn, đúng thứ pop-up sinh ra để giữ.
+                 * Mở tab mới gỡ được cả hai: trang đầy đủ vẫn mở ra hồ sơ thật, pop-up thì bảng phía
+                 * sau còn nguyên.
+                 *
+                 * 📌 KHÁC "Link phiếu đề nghị" (`dn.linkPhieuDeNghi`) ở khối bước ① — cái đó là địa
+                 * chỉ NGOÀI app do người dùng tự dán. Ô này là đường dẫn NỘI BỘ tới chính hồ sơ, để
+                 * dán sang app Kho / QLDA (Ban lãnh đạo 20/08/2026: *"các app khác sẽ link từ mã đề nghị"*).
+                 *
+                 * ⚠️ `giaTri` là `ReactNode` nên truyền JSX vào chạy được, NHƯNG nhánh hiện dấu "—"
+                 * khi thiếu dữ liệu sẽ không còn áp cho ô này — JSX không bao giờ bằng `undefined`.
+                 * `dn.code` luôn có nên không cần chặn thêm.
+                 */
+                {
+                  nhan: "Đường dẫn đề nghị",
+                  giaTri: (
+                    <a
+                      href={`/de-nghi/${dn.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+                    >
+                      {dn.code}
+                    </a>
+                  ),
+                },
                 { nhan: "Số hợp đồng CĐT", giaTri: dn.maHopDongCDT },
                 { nhan: "Phòng ban đề nghị", giaTri: nhanPhongBan(dn.phongBanNguon) },
                 // Nhóm đề xuất — trường của thẻ Base (14/08/2026). Phiếu cũ không có thì đọc

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Check, Lock, Plus, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -43,19 +43,28 @@ export function HopSuaThongTinChung({
   ) => void;
 }) {
   const [tieuDe, setTieuDe] = useState(deNghi.tieuDe);
-  const [tenCongTrinh, setTenCongTrinh] = useState(deNghi.tenCongTrinh);
-  const [maHopDongCDT, setMaHopDongCDT] = useState(deNghi.maHopDongCDT ?? "");
   const [gap, setGap] = useState(deNghi.mucDoUuTien === "gap");
 
+  /**
+   * 🔴 KHÔNG CÒN STATE cho "Tên công trình" và "Số hợp đồng CĐT" — Ban lãnh đạo 13/09/2026:
+   * *"khoá mục này, không cho sửa"* (khoanh đỏ đúng hai ô đó).
+   *
+   * 🔴 BỎ HẲN STATE CHỨ KHÔNG CHỈ LÀM MỜ Ô. Để state lại rồi chỉ thêm `disabled` là vẫn còn một
+   * đường ghi: ai đó sau này gỡ `disabled` (hoặc sửa DOM) là giá trị mới đi thẳng vào `onLuu`.
+   * Không có state thì hộp này KHÔNG THỂ sinh ra giá trị khác — lúc lưu đọc thẳng từ `deNghi`.
+   *
+   * 📌 Vì sao hai trường này phải khóa: chúng do Phòng Thi công lập trên HPcore, cùng nhóm với
+   * mã đề nghị / mã dự án / người đề nghị / danh sách vật tư — thu mua không được sửa. Trước đây
+   * dòng chú thích cuối hộp đã nói vậy nhưng hai ô này vẫn gõ được, tức hộp nói một đằng làm một
+   * nẻo (§3.5).
+   */
   useEffect(() => {
     if (!mo) return;
     setTieuDe(deNghi.tieuDe);
-    setTenCongTrinh(deNghi.tenCongTrinh);
-    setMaHopDongCDT(deNghi.maHopDongCDT ?? "");
     setGap(deNghi.mucDoUuTien === "gap");
   }, [mo, deNghi]);
 
-  const hopLe = tieuDe.trim() !== "" && tenCongTrinh.trim() !== "";
+  const hopLe = tieuDe.trim() !== "";
 
   return (
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
@@ -77,21 +86,38 @@ export function HopSuaThongTinChung({
               placeholder="Vật tư thi công phần thân đợt 4"
             />
           </div>
+          {/* 🔒 HAI Ô KHÓA — Ban lãnh đạo 13/09/2026. Bày ra ở dạng CHỈ ĐỌC chứ không ẩn đi:
+              người sửa vẫn cần đọc được công trình và số hợp đồng để biết mình đang sửa hồ sơ nào.
+              Ẩn hẳn thì họ phải đóng hộp đi tra chỗ khác.
+              📌 `readOnly` + `disabled` + `tabIndex={-1}`: bỏ ô khỏi thứ tự Tab để người dùng bàn
+              phím không dừng ở một ô không gõ được. Ổ khóa và chữ "Không sửa được" là phần CHỮ —
+              V1.1 buộc trạng thái phải có cả màu lẫn chữ, không được chỉ dựa vào màu xám. */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="sua-cong-trinh">Tên công trình</Label>
+            <Label htmlFor="sua-cong-trinh" className="flex items-center gap-1.5">
+              <Lock className="size-3.5 shrink-0 text-text-desc" aria-hidden />
+              Tên công trình
+              <span className="text-xs font-normal text-text-desc">· Không sửa được</span>
+            </Label>
             <Input
               id="sua-cong-trinh"
-              value={tenCongTrinh}
-              onChange={(e) => setTenCongTrinh(e.target.value)}
+              value={deNghi.tenCongTrinh}
+              readOnly
+              disabled
+              tabIndex={-1}
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="sua-hd-cdt">Số hợp đồng CĐT</Label>
+            <Label htmlFor="sua-hd-cdt" className="flex items-center gap-1.5">
+              <Lock className="size-3.5 shrink-0 text-text-desc" aria-hidden />
+              Số hợp đồng CĐT
+              <span className="text-xs font-normal text-text-desc">· Không sửa được</span>
+            </Label>
             <Input
               id="sua-hd-cdt"
-              value={maHopDongCDT}
-              onChange={(e) => setMaHopDongCDT(e.target.value)}
-              placeholder="260001-HPCS-HDXD-001"
+              value={deNghi.maHopDongCDT ?? "—"}
+              readOnly
+              disabled
+              tabIndex={-1}
             />
           </div>
 
@@ -118,8 +144,9 @@ export function HopSuaThongTinChung({
 
           {/* ⚠️ Nói rõ cái gì KHÔNG sửa được ở đây, để người dùng khỏi đi tìm. */}
           <p className="text-xs text-text-desc">
-            Mã đề nghị, mã dự án, người đề nghị và danh sách vật tư do Phòng Thi công lập trên
-            HPcore — thu mua không sửa. Ngày cần hàng sửa ở mục <strong>Chỉnh sửa thời hạn</strong>.
+            Mã đề nghị, mã dự án, <strong>tên công trình</strong>, <strong>số hợp đồng CĐT</strong>,
+            người đề nghị và danh sách vật tư do Phòng Thi công lập trên HPcore — thu mua không sửa.
+            Ngày cần hàng sửa ở mục <strong>Chỉnh sửa thời hạn</strong>.
           </p>
         </div>
 
@@ -132,8 +159,12 @@ export function HopSuaThongTinChung({
             onClick={() => {
               onLuu({
                 tieuDe: tieuDe.trim(),
-                tenCongTrinh: tenCongTrinh.trim(),
-                maHopDongCDT: maHopDongCDT.trim() || undefined,
+                /* 🔒 Hai trường khóa: gửi lại ĐÚNG giá trị đang có trong hồ sơ, không phải giá trị
+                   người dùng gõ (họ không gõ được). Giữ trong payload thay vì bỏ khỏi kiểu, để
+                   `suaThongTinChung` và dòng nhật ký của nó không phải đổi chữ ký — và nếu sau này
+                   Ban lãnh đạo cho sửa lại thì chỉ việc trả state về, không phải lần ngược cả chuỗi. */
+                tenCongTrinh: deNghi.tenCongTrinh,
+                maHopDongCDT: deNghi.maHopDongCDT,
                 mucDoUuTien: gap ? "gap" : "binh_thuong",
               });
               onDong();

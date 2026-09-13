@@ -82,9 +82,24 @@ export function HopXemTep({
 
   return (
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
-      {/* `max-w-4xl` + `max-h-[90vh]`: pop-up CĂN GIỮA màn hình (mặc định của Dialog) và
-          rộng gần hết màn để đọc được chữ trên phiếu chụp bằng điện thoại. */}
-      <DialogContent className="sm:max-w-4xl">
+      {/* Pop-up CĂN GIỮA màn hình (mặc định của Dialog) và rộng gần hết màn để đọc được chữ trên
+          phiếu chụp bằng điện thoại.
+
+          🐛 SỬA LỖI THẬT 13/09/2026 — CHÚ THÍCH CŨ NÓI DỐI. Nó ghi *"`max-w-4xl` + `max-h-[90vh]`"*
+          nhưng className thực tế CHỈ có `sm:max-w-4xl` — `max-h-[90vh]` **chưa bao giờ được viết**.
+          Hậu quả: lớp gốc (`nen-tang-ui/dialog.tsx`) căn giữa bằng `top-1/2` + `-translate-y-1/2`
+          và KHÔNG khai `max-h` lẫn `overflow`, nên khi khung ảnh `max-h-[70vh]` cộng thêm tiêu đề +
+          hàng nút + `p-4` + `gap-4` thì tổng vượt quá chiều cao màn hình — phần trên và phần dưới
+          TRÀN RA NGOÀI MÀN, không cuộn tới được. Cửa sổ càng thấp càng nặng.
+
+          🔴 `grid-rows-[auto_minmax(0,1fr)_auto]` là mấu chốt, đừng bỏ: lớp gốc là `grid` (KHÔNG
+          phải flex), và hộp có đúng 3 phần con — tiêu đề · khung xem · hàng nút. `minmax(0,1fr)`
+          cho hàng giữa co lại được tới 0 nên nó nhận phần cao còn thừa và tự cuộn bên trong, thay
+          vì tự đặt `70vh` rồi đẩy hai hàng kia ra khỏi màn.
+
+          ⚠️ `max-w` PHẢI giữ tiền tố `sm:` (lớp gốc đã có `sm:max-w-sm`, viết trơn là bị đè im
+          lặng — luật CLAUDE.md §5). Còn `max-h` viết trơn ĐƯỢC vì lớp gốc không khai `max-h` nào. */}
+      <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="min-w-0 truncate">{tep.tenTep}</DialogTitle>
           <DialogDescription>
@@ -92,7 +107,16 @@ export function HopXemTep({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex max-h-[70vh] min-h-64 items-center justify-center overflow-auto rounded-lg border border-border bg-muted">
+        {/* 🐛 SỬA 13/09/2026: bỏ `max-h-[70vh] min-h-64`, thay bằng `min-h-0`.
+            · `max-h-[70vh]` là chiều cao TỰ ĐẶT, không biết gì về tiêu đề và hàng nút phía trên
+              dưới — chính nó làm tổng vượt màn hình. Nay hàng giữa ăn theo chiều cao hộp
+              (`minmax(0,1fr)` ở `DialogContent`), nên bỏ đi là đủ.
+            · `min-h-0` BẮT BUỘC: mặc định ô lưới có `min-height:auto`, tức KHÔNG co nhỏ hơn nội
+              dung — ảnh cao 3000px sẽ đẩy hộp phình ra thay vì cuộn bên trong. Đây đúng mắt xích
+              mà CLAUDE.md §7 nhắc ("thân cột cần `min-h-0` để cuộn được bên trong cột").
+            · Bỏ `min-h-64`: nó xung khắc với `min-h-0`. Khung rỗng vẫn đủ cao nhờ `p-8` của các
+              nhánh thông báo bên trong. */}
+        <div className="flex min-h-0 items-center justify-center overflow-auto rounded-lg border border-border bg-muted">
           {!xemDuoc ? (
             /* Nói THẲNG loại tệp này không xem được trong trình duyệt, kèm đường tải về —
                thay vì để khung trống rồi người dùng tưởng app hỏng. */
@@ -117,14 +141,23 @@ export function HopXemTep({
               <p className="max-w-sm text-sm text-text-secondary">{loi}</p>
             </div>
           ) : diaChi && laAnh ? (
+            /* 🐛 SỬA 13/09/2026: `max-h-[70vh]` → `max-h-full`. Ảnh nay bị bó trong khung chứ
+               không tự đo theo màn hình — khung đã bó theo hộp rồi.
+               📌 Vẫn KHÔNG khai `width`/`height` cố định vì ảnh phiếu mỗi cái một cỡ; `object-contain`
+               giữ đúng tỉ lệ. Chuyện "ảnh tải xong mới bung làm hộp nhảy cỡ" nay hết, vì chiều cao
+               hộp do `max-h-[90vh]` quyết định chứ không do ảnh.
+               ⚠️ Dòng `eslint-disable-next-line` phải nằm SÁT thẻ `<img>` — chèn chú thích vào giữa
+               là nó mất tác dụng và lint kêu lại. */
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={diaChi}
               alt={tep.tenTep}
-              className="max-h-[70vh] w-auto max-w-full object-contain"
+              className="max-h-full w-auto max-w-full object-contain"
             />
           ) : diaChi ? (
-            <iframe src={diaChi} title={tep.tenTep} className="h-[70vh] w-full" />
+            /* 🐛 SỬA 13/09/2026: `h-[70vh]` → `h-full`, cùng lý do với ảnh — PDF lấp đầy khung
+               chứ không tự đặt chiều cao theo màn hình. */
+            <iframe src={diaChi} title={tep.tenTep} className="h-full w-full" />
           ) : null}
         </div>
 

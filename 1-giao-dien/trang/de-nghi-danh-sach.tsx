@@ -139,7 +139,11 @@ export default function TrangDanhSachDeNghi() {
    * liệu tùy chỉnh) thay vì ba cờ riêng: gộp lại thì không có cách nào mở trùng hai hộp.
    */
   const [dangSua, setDangSua] = useState<{
-    loai: "thong_tin" | "thoi_han" | "truong_bo_sung" | "truong_tuy_chinh";
+    /* 📌 Còn HAI loại. Hai nhánh `truong_bo_sung` và `truong_tuy_chinh` đã bỏ khỏi đây
+       13/09/2026 cùng hai mục menu — hai hộp đó nay mở từ `trang/de-nghi-chi-tiet.tsx`.
+       Để lại nhánh không ai set là mã chết, và tệ hơn: người sau đọc kiểu này rồi đi tìm
+       hộp tương ứng trong file này mà không có. */
+    loai: "thong_tin" | "thoi_han";
     prId: string;
   } | null>(null);
   /** Đề nghị đang chờ xác nhận xóa — xóa là việc không lùi lại được nên phải hỏi. */
