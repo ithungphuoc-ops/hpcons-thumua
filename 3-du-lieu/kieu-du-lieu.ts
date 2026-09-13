@@ -125,6 +125,30 @@ export interface DongDeNghi {
   ghiChuPhanBo?: string;
 }
 
+/**
+ * ★ MỘT TỆP NGƯỜI ĐỀ NGHỊ ĐÍNH KÈM BÊN APP REQUEST — xem `DeNghiMuaHang.taiLieuAppRequest`.
+ *
+ * 🔴 KHÔNG PHẢI `MoTaTep`, đừng đổi qua lại. `MoTaTep` mô tả tệp NẰM TRONG kho tệp của app Thu
+ * mua (mở được ngay); còn đây là tệp nằm bên kho của App Request, app Thu mua chỉ biết tên và
+ * đường dẫn, KHÔNG có nội dung và KHÔNG mở trực tiếp được.
+ *
+ * 📌 Ba trường bám đúng khuôn App Request đang lưu (`{name, path, size}`, đo 13/09/2026).
+ * `kichThuoc` để tùy chọn vì không có gì bảo đảm họ luôn gửi — thiếu thì chỉ không hiện dung
+ * lượng, không được vì thế mà bỏ luôn tên tệp.
+ */
+export interface TepDinhKemAppRequest {
+  /** Tên tệp người dùng thấy, vd `mau-chi_tiet.xlsx`. */
+  ten: string;
+  /**
+   * Đường dẫn trong kho R2 của App Request, vd
+   * `requests/39372169-…/1789184467491-mau-chi_tiet.xlsx`.
+   * ⚠️ KHÔNG phải địa chỉ mở được — cần chữ ký mới tải. Đừng dựng thẻ `<a href>` từ nó.
+   */
+  duongDan?: string;
+  /** Byte. Thiếu thì không hiện dung lượng. */
+  kichThuoc?: number;
+}
+
 export interface DeNghiMuaHang {
   id: string;
   /** vd 260001-HPCS-PR-001 (mã loại PR đang chờ phê duyệt danh mục). */
@@ -317,6 +341,32 @@ export interface DeNghiMuaHang {
    * Trống cũng đúng với đề nghị LẬP TAY trong app: chúng không có hồ sơ nào bên App Request.
    */
   idHoSoAppRequest?: string;
+  /**
+   * ★★ TỆP NGƯỜI ĐỀ NGHỊ ĐÍNH KÈM BÊN APP REQUEST — chỉ là DANH MỤC, không phải bản sao.
+   *
+   * 🔴 Ban lãnh đạo 13/09/2026: ô 13 "Tài liệu đính kèm" của mọi hồ sơ đến từ App Request luôn
+   * hiện `—`, dù người đề nghị có đính kèm thật. Nguyên nhân đo được: cửa API nhận
+   * `payload.taiLieuDinhKem` rồi VỨT ĐI (grep `taiLieuDinhKem` trong route = 0 dòng).
+   *
+   * 🔴 VÌ SAO PHẢI LÀ TRƯỜNG RIÊNG, KHÔNG NHÉT VÀO `taiLieu`:
+   * `MoTaTep.id` là KHÓA TRA NỘI DUNG trong kho tệp của app (`3-du-lieu/kho-tep.ts`). Tệp bên
+   * App Request KHÔNG có trong kho đó. Nhét vào `taiLieu` là mọi chỗ đang mở tệp
+   * (`LienKetTep`) sẽ tra một khóa không tồn tại → bấm ra tệp rỗng, và người dùng tưởng hệ
+   * thống làm mất chứng từ. Đúng loại lỗi CLAUDE.md §3.5 cấm: *"đừng để giao diện hứa một
+   * việc app không làm"*.
+   *
+   * ⚠️ `duongDan` LÀ ĐƯỜNG DẪN TRONG KHO R2 CỦA APP REQUEST, KHÔNG PHẢI ĐỊA CHỈ MỞ ĐƯỢC.
+   * Đã đo 13/09/2026: App Request lưu `{name, path, size}`, vd
+   *     path = "requests/39372169-…/1789184467491-mau-chi_tiet.xlsx"
+   * Muốn tải phải có CHỮ KÝ (link App Request gửi kèm lúc tạo có `X-Amz-Expires=300`, sống 5
+   * phút). App Thu mua KHÔNG có khóa R2 nên KHÔNG tự ký được.
+   * 👉 Vì vậy chỗ hiển thị chỉ được nêu TÊN tệp và dẫn người dùng sang hồ sơ bên App Request
+   * để tải. TUYỆT ĐỐI đừng ghép `duongDan` thành một thẻ `<a>` — ra liên kết chết.
+   *
+   * 📌 Giữ `duongDan` dù chưa mở được: đó là dấu vết để đối chiếu đúng tệp nào, và là thứ
+   * cần sẵn nếu sau này app tải tệp về kho riêng (phương án đã bàn với Sếp cùng ngày).
+   */
+  taiLieuAppRequest?: TepDinhKemAppRequest[];
   /**
    * ★ LÝ DO HỒ SƠ THẤT BẠI — ghi khi đóng dở đề nghị (`trangThai === "dong_do"`).
    *

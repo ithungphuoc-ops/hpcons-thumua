@@ -167,6 +167,25 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
          * việc thiếu (xem `idHoSoAppRequest` trong `3-du-lieu/kieu-du-lieu.ts`).
          */
         idHoSoAppRequest: payload.requestId,
+        /**
+         * ★★ GIỮ LẠI DANH MỤC TỆP NGƯỜI ĐỀ NGHỊ ĐÍNH KÈM — thêm 13/09/2026, có phép riêng của Sếp
+         * (tệp vùng cấm, CLAUDE.md §6.6).
+         *
+         * 🔴 Trước đó `payload.taiLieuDinhKem` bị NHẬN RỒI VỨT (grep trong tệp này = 0 dòng), nên
+         * ô 13 "Tài liệu đính kèm" của MỌI hồ sơ từ App Request luôn hiện `—` dù người đề nghị có
+         * nộp kèm thật. Ban lãnh đạo phát hiện trên màn hình.
+         *
+         * 📌 CHỈ LƯU DANH MỤC, KHÔNG TẢI NỘI DUNG. `url` App Request gửi là link ký sẵn có
+         * `X-Amz-Expires=300` — sống 5 phút, lưu lại là link chết. Nên ở đây chỉ giữ TÊN (và
+         * đường dẫn để đối chiếu), còn muốn xem tệp thì bấm sang hồ sơ bên App Request. Việc tải
+         * hẳn tệp về kho riêng là bước sau, Sếp đã biết và chọn làm sau.
+         *
+         * 📌 `undefined` khi App Request không gửi gì — `bo0Undefined` sẽ bỏ hẳn khóa, không để
+         * lại mảng rỗng khiến giao diện vẽ ra một khối "Tài liệu đính kèm (0)".
+         */
+        taiLieuAppRequest: payload.taiLieuDinhKem?.length
+          ? payload.taiLieuDinhKem.map((t) => ({ ten: t.ten, duongDan: t.url }))
+          : undefined,
       };
 
       /**

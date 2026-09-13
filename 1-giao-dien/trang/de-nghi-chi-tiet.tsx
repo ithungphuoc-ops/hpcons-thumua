@@ -13,6 +13,7 @@ import {
   Copy,
   ListPlus,
   MoreHorizontal,
+  Paperclip,
   SlidersHorizontal,
   ClipboardCheck,
   Send,
@@ -289,6 +290,16 @@ export default function TrangChiTietDeNghi({
   const [hoiHoanThanh, setHoiHoanThanh] = useState(false);
 
   const dn = deNghi.find((x) => x.id === params.id);
+  /**
+   * ★ TỔNG SỐ TỆP ĐÍNH KÈM CỦA HỒ SƠ — gộp HAI NGUỒN, thêm 13/09/2026.
+   *
+   * 🔴 Hai nguồn cố ý giữ riêng ở tầng dữ liệu (xem `taiLieuAppRequest` trong `kieu-du-lieu.ts`):
+   * `taiLieu` là tệp nộp TRONG app, mở xem được ngay; `taiLieuAppRequest` là tệp người đề nghị
+   * đính kèm BÊN App Request, app này chỉ biết tên. Nhưng với người đọc ô 13 thì cả hai đều là
+   * "tài liệu đính kèm của hồ sơ", nên con số phải cộng cả hai — trước đó chỉ đếm nguồn đầu nên
+   * mọi hồ sơ từ App Request đều hiện "—" dù có tệp thật.
+   */
+  const soTepDinhKem = (dn?.taiLieu?.length ?? 0) + (dn?.taiLieuAppRequest?.length ?? 0);
   const poLienQuan = useMemo(
     () => donHang.filter((po) => po.prId === params.id),
     [donHang, params.id],
@@ -876,7 +887,10 @@ export default function TrangChiTietDeNghi({
                    * cùng nghĩa là "chưa đính gì".
                    */
                   nhan: "Tài liệu đính kèm",
-                  giaTri: dn.taiLieu && dn.taiLieu.length > 0 ? `${dn.taiLieu.length} tệp` : undefined,
+                  /* ★ ĐẾM CẢ HAI NGUỒN (13/09/2026): tệp nộp trong app (`taiLieu`) và tệp người
+                     đề nghị đính kèm bên App Request (`taiLieuAppRequest`). Trước đó chỉ đếm
+                     nguồn đầu, nên hồ sơ đến từ App Request luôn hiện "—" dù có tệp thật. */
+                  giaTri: soTepDinhKem > 0 ? `${soTepDinhKem} tệp` : undefined,
                 },
               ]}
             />
@@ -933,6 +947,63 @@ export default function TrangChiTietDeNghi({
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* ★★ TỆP NGƯỜI ĐỀ NGHỊ ĐÍNH KÈM BÊN APP REQUEST — Ban lãnh đạo 13/09/2026.
+                Trước đó app nhận rồi vứt, nên ô 13 luôn hiện "—" dù người đề nghị có nộp thật.
+
+                🔴 KHỐI RIÊNG, KHÔNG TRỘN vào khối trên — hai loại tệp KHÁC NHAU về chỗ ở:
+                khối trên mở xem được ngay trong app; khối này thì app KHÔNG có nội dung tệp,
+                phải sang App Request mới tải được.
+
+                🔴 KHÔNG DỰNG THẺ `<a href>` TỪ `duongDan`. Đó là đường dẫn trong kho R2 của App
+                Request, cần chữ ký mới tải (link họ gửi kèm có `X-Amz-Expires=300`, sống 5 phút),
+                mà app Thu mua không có khóa R2. Ghép ra `<a>` là một liên kết bấm vào báo lỗi —
+                đúng thứ CLAUDE.md §3.5 cấm: *"đừng để giao diện hứa một việc app không làm"*.
+                👉 Nên nói THẲNG là tệp nằm bên App Request, và đưa đúng một lối đi có thật. */}
+            {dn.taiLieuAppRequest && dn.taiLieuAppRequest.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) text-sm">
+                <p className="font-semibold text-text-primary">
+                  Tài liệu người đề nghị đính kèm ({dn.taiLieuAppRequest.length})
+                </p>
+                <ul className="flex flex-col gap-1">
+                  {dn.taiLieuAppRequest.map((t, i) => (
+                    <li
+                      key={`${t.duongDan ?? t.ten}-${i}`}
+                      className="flex min-w-0 items-center gap-2 text-sm"
+                    >
+                      <Paperclip className="size-4 shrink-0 text-text-desc" aria-hidden />
+                      <span className="min-w-0 truncate text-text-primary">{t.ten}</span>
+                      {t.kichThuoc !== undefined && (
+                        <span className="shrink-0 text-xs text-text-desc">
+                          {Math.max(1, Math.round(t.kichThuoc / 1024))} KB
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {/* Một lối đi CÓ THẬT, không phải lời hứa: mở đúng hồ sơ bên App Request. Hồ sơ
+                    thiếu `idHoSoAppRequest` (lập tay trong app) thì không vẽ nút, chỉ nói lý do. */}
+                {duongDanHoSoAppRequest(dn.idHoSoAppRequest) ? (
+                  <p className="text-xs text-text-desc">
+                    Nội dung tệp nằm ở App Request —{" "}
+                    <a
+                      href={duongDanHoSoAppRequest(dn.idHoSoAppRequest) ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+                    >
+                      mở hồ sơ bên đó để tải
+                    </a>
+                    .
+                  </p>
+                ) : (
+                  <p className="text-xs text-text-desc">
+                    Nội dung tệp nằm ở App Request. Hồ sơ này chưa có đường dẫn sang đó nên phải
+                    tự tra theo mã đề xuất {dn.maDeXuatAppRequest ?? "—"}.
+                  </p>
+                )}
               </div>
             )}
           </KhoiGap>
