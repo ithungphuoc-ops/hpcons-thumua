@@ -2878,6 +2878,15 @@ export function FormLapDonMuaHang({
 
               ⚠️ GIỮ MỘT DÒNG, ĐỪNG ĐỔI SANG Textarea — ký tự xuống dòng hiển thị trên tờ in
               không lường trước được. */}
+          {/* ★ KHOÁ KHI CHỌN MẪU PO-02 (thoả thuận) — Ban lãnh đạo 13/09/2026.
+              Mẫu PO-02 thì CHÍNH TỜ ĐƠN là bản thoả thuận mua bán, không dẫn chiếu hợp đồng
+              riêng nào — để ô này mở là mời người nhập gõ một thông tin sẽ không được in ra.
+
+              🔴 KHOÁ, ĐỪNG ẨN. Chú thích ngay trên đã ghi lý do cố ý không ẩn: người nhập
+              thường chọn mẫu SAU khi đã gõ, ẩn đi là mất chữ vừa gõ mà không câu nào báo.
+              Khoá thì chữ vẫn còn nguyên, đổi lại mẫu PO-01 là dùng tiếp được.
+              📌 Cũng KHÔNG xoá giá trị đã lưu — tờ in mẫu PO-02 vốn không in dòng này, giữ
+              nguyên là an toàn nhất. */}
           <div className="muc-ngang">
             <Label htmlFor="hop-dong">Theo hợp đồng</Label>
             <Input
@@ -2885,9 +2894,13 @@ export function FormLapDonMuaHang({
               value={ghiChuHopDongNCC}
               onChange={(e) => setGhiChuHopDongNCC(e.target.value)}
               placeholder="VD: HĐ số 089/2026/HĐKT-HPC ký ngày 01/08/2026"
+              readOnly={mauPO === "thoa_thuan"}
+              disabled={mauPO === "thoa_thuan"}
             />
             <p className="text-[13px] text-text-secondary">
-              Ghi số hợp đồng NCC và ngày ký kết.
+              {mauPO === "thoa_thuan"
+                ? "Mẫu PO-02 — chính tờ đơn này là bản thoả thuận mua bán, không dẫn hợp đồng riêng. Đổi sang mẫu PO-01 nếu cần ghi số hợp đồng NCC."
+                : "Ghi số hợp đồng NCC và ngày ký kết."}
             </p>
           </div>
         </CardContent>

@@ -2002,8 +2002,38 @@ export default function TrangChiTietDeNghi({
                     {quyen.lapPO &&
                       !hoSoDaDong &&
                       (() => {
+                        /**
+                         * ★★★ MỘT ĐỀ NGHỊ CHỈ MỘT ĐƠN — Ban lãnh đạo 13/09/2026.
+                         *
+                         * Sếp khoanh đỏ nút "Tách thêm đơn" và yêu cầu bỏ. Em đã báo trước đây là
+                         * LỐI VÀO DUY NHẤT còn lại để lập đơn thứ hai (mục menu "Lập đơn mua hàng
+                         * (PO)" đã tắt từ 08/09/2026), và Sếp chốt: **bỏ hẳn, một đề nghị chỉ một
+                         * đơn**. Đây là ĐỔI LUẬT NGHIỆP VỤ, không phải dọn giao diện.
+                         *
+                         * 🔴 HỆ QUẢ ĐÃ BÁO SẾP, ghi lại để phiên sau không tưởng là lỗi: đề nghị
+                         * đã có đơn thì phần khối lượng CÒN LẠI không mua tiếp được bằng đường
+                         * thường — phải huỷ đơn cũ rồi lập lại cho đủ.
+                         *
+                         * 📌 KHÔNG XOÁ MÃ, chỉ chặn ở đây. `/don-hang/tao-moi?prId=…` vẫn sống và
+                         * vẫn còn hai đường vào khác (nút "Lập đơn" theo từng NCC ở trang báo giá
+                         * chi tiết — đường DUY NHẤT truyền `rfqId`+`nccId`; và `quyetDinhKeoTha`
+                         * khi kéo thẻ ④→⑤). Muốn bật lại chỉ cần bỏ khối `if` này.
+                         *
+                         * 🔴 NÓI RÕ LÝ DO, KHÔNG ĐỂ NÚT BIẾN MẤT IM LẶNG. Nút tự dưng không còn
+                         * thì người dùng đi tìm vòng quanh rồi tưởng app hỏng — cùng nếp với mọi
+                         * chốt khác trong app (xem chú thích "KHÓA KÈM LÝ DO" ngay trên).
+                         */
+                        if (poLienQuan.length > 0) {
+                          return (
+                            <p className="text-xs text-text-desc">
+                              Đề nghị này đã có đơn mua hàng. Mỗi đề nghị chỉ lập một đơn — cần đổi
+                              nội dung thì sửa hoặc huỷ đơn hiện có ở danh sách trên.
+                            </p>
+                          );
+                        }
+
                         const vuong = vuongMacRoiBuocLapDon(dn);
-                        const nhan = poLienQuan.length === 0 ? "Lập đơn đặt hàng" : "Tách thêm đơn";
+                        const nhan = "Lập đơn đặt hàng";
                         if (vuong) {
                           return (
                             <div className="flex w-fit flex-col gap-1">
@@ -2728,11 +2758,48 @@ export default function TrangChiTietDeNghi({
                         className="mt-0.5 size-4 shrink-0 accent-primary"
                         checked={Boolean(xong)}
                         disabled={!quyen.phanBoCongViec}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           /* `buoc` lấy từ CHÍNH NHÓM đang vẽ, không lấy `giaiDoan` — việc của
                              bước trước phải ghi vào đúng bước của nó. */
-                          setHoiTichViec({ cv, tich: e.target.checked, buoc: nhom.buoc })
-                        }
+                          const buoc = nhom.buoc;
+
+                          /**
+                           * ★★ TÍCH THÌ GHI NGAY, BỎ TÍCH THÌ VẪN HỎI — Ban lãnh đạo 13/09/2026:
+                           * *"Khi bấm tick check tồn kho thì ko cần hiện bảng thông báo này nữa"*,
+                           * và khi được hỏi phạm vi thì Sếp chốt bỏ ở chiều TÍCH, giữ ở chiều BỎ
+                           * TÍCH, áp cho mọi công việc bắt buộc.
+                           *
+                           * 🔴 VÌ SAO HAI CHIỀU KHÁC NHAU: tích là việc thuận (xác nhận đã làm
+                           * xong), bấm nhầm thì bỏ tích lại được. Còn BỎ TÍCH là CHẶN hồ sơ đi
+                           * tiếp — kể cả khi hồ sơ đã ở bước xa hơn — nên một cú bấm nhầm có thể
+                           * khoá cả quy trình mà không ai kịp can. Việc nguy hiểm hơn thì vẫn hỏi.
+                           *
+                           * 🔴 VẪN PHẢI ĐỌC KẾT QUẢ TRẢ VỀ. Tầng ghi có thể TỪ CHỐI (việc "đã xử
+                           * lý ủy nhiệm chi" đòi có Hóa đơn VAT trước — luật 22/08/2026). Bỏ hộp
+                           * hỏi mà quên chuyển phần kiểm lỗi sang đây là app báo thành công giả,
+                           * đúng lỗi CLAUDE.md §3.5 cấm và đã dính thật ngày 22/08.
+                           *
+                           * 📌 Việc ghi nhật ký hồ sơ kèm tên người tích GIỮ NGUYÊN — Sếp chỉ bỏ
+                           * bảng hỏi lại, không bỏ dấu vết ai đã tích.
+                           */
+                          if (!e.target.checked) {
+                            setHoiTichViec({ cv, tich: false, buoc });
+                            return;
+                          }
+
+                          const loi = danhDauCongViecGiaiDoan(
+                            dn.id,
+                            cv,
+                            buoc,
+                            true,
+                            nguoiDung.tenHienThi,
+                          );
+                          if (loi !== null) {
+                            toast.error("Chưa tích được việc này", { description: loi });
+                            return;
+                          }
+                          toast.success(`Đã xác nhận xong: ${cv.ten}`);
+                        }}
                       />
                       <span className="flex min-w-0 flex-col gap-0.5">
                         <span className="text-sm font-medium text-text-primary">
@@ -2908,6 +2975,11 @@ export default function TrangChiTietDeNghi({
           việc". Cờ mở tách khỏi nội dung (`mo` riêng, `hoiTichViec` riêng) đúng cách
           `HopXacNhan` yêu cầu: xóa nội dung cùng lúc với đóng sẽ tháo cây con giữa lúc hiệu
           ứng đóng đang chạy và để lại lớp mờ kẹt trên màn hình. */}
+      {/* ★ TỪ 13/09/2026 HỘP NÀY CHỈ CÒN CHẠY Ở CHIỀU **BỎ TÍCH**. Chiều tích ghi thẳng, không
+          hỏi (Ban lãnh đạo chốt phạm vi — xem chú thích tại ô tick ở trên).
+          📌 CỐ Ý GIỮ NGUYÊN cả hai nhánh `tich` / không `tich` trong hộp: bật lại chiều tích chỉ
+          là đổi một dòng ở ô tick, không phải dựng lại hộp. Các nhánh `hoiTichViec.tich === true`
+          bên dưới hiện không chạy — đừng đọc nhầm là mã hỏng rồi dọn đi. */}
       <HopXacNhan
         mo={hoiTichViec !== null}
         /* ⚠️ Viết `!hoiTichViec.tich` chứ KHÔNG viết `hoiTichViec?.tich === false`: dạng so
@@ -3019,7 +3091,15 @@ export default function TrangChiTietDeNghi({
         tieuDe={hoiDuyet?.loai === "duyet" ? "Duyệt phương án giá?" : "Không duyệt bảng báo giá?"}
         moTa={
           hoiDuyet?.loai === "duyet"
-            ? `${hoiDuyet.nhanO ? `Duyệt ${hoiDuyet.nhanO} — ` : "Duyệt "}chọn ${nccDuyet.trim() || "…"}. Phiếu chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`
+            ? /* ★ DỌN TÀN DƯ CỦA Ô TÊN NCC ĐÃ GỠ — sửa 13/09/2026 (em tự phát hiện khi rà, Sếp
+                 không khoanh; đã báo Sếp trước khi sửa).
+                 Bản cũ viết `nccDuyet.trim() || "…"`, mà ô nhập tên nhà cung cấp đã bị bỏ từ
+                 23/08/2026 nên `nccDuyet` RỖNG với MỌI lần duyệt — hộp luôn in ra
+                 *"Duyệt Báo giá NCC 1 — chọn …."*, bốn dấu chấm đứng trơ không ai hiểu là gì.
+                 👉 Có tên thì nói tên, không có thì bỏ hẳn vế "chọn …" thay vì in dấu lấp chỗ. */
+              `${hoiDuyet.nhanO ? `Duyệt ${hoiDuyet.nhanO}` : "Duyệt phương án giá"}${
+                nccDuyet.trim() ? ` — chọn ${nccDuyet.trim()}` : ""
+              }. Phiếu chuyển sang bước “${NHAN_GIAI_DOAN.lap_don_mua_hang.nhan}”.`
             : hoiDuyet
               ? `Bảng báo giá sẽ quay về bước “${NHAN_GIAI_DOAN.yeu_cau_bao_gia.nhan}” để nhân viên bổ sung rồi trình lại. Tệp đính kèm và đề xuất vẫn giữ nguyên.`
               : undefined

@@ -552,7 +552,13 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
           giaTri={[
             [
               new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN"),
-              po.ngayGiaoDenNgay
+              /* ★ GIAO TRONG NGÀY THÌ CHỈ IN MỘT NGÀY — Ban lãnh đạo 13/09/2026.
+                 Trước đó hai ô ngày trùng nhau vẫn in ra "13/09/2026 — 13/09/2026", đọc như
+                 một khoảng thời gian trong khi thực tế là giao gọn trong ngày.
+                 📌 So bằng chuỗi ISO gốc, KHÔNG so chuỗi đã định dạng: hai giá trị có thể khác
+                 nhau ở phần giờ mà `toLocaleDateString` cắt mất, so sau khi cắt là gộp nhầm hai
+                 mốc khác nhau thành một. */
+              po.ngayGiaoDenNgay && po.ngayGiaoDenNgay !== po.ngayGiaoDuKien
                 ? new Date(po.ngayGiaoDenNgay).toLocaleDateString("vi-VN")
                 : undefined,
             ]

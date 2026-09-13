@@ -632,7 +632,13 @@ export function KhuBaoGiaTheoSoLuong({
         moTa="Ghi rõ vì sao chưa tìm được nhà cung cấp cho ô này — bắt buộc phải có lý do mới bỏ
           qua được. Tìm được nhà cung cấp sau thì vẫn đính kèm bình thường."
         khoaDongY={lyDoNhap.trim() === "" ? "Nhập lý do trước khi bỏ qua." : undefined}
-        nhanDongY="Bỏ qua ô này"
+        /* ★ Nhãn đổi theo chỉ đạo Ban lãnh đạo 13/09/2026 ("Cập nhật").
+           📌 Em có nêu lại với Sếp rằng nút này thực chất là *bỏ qua một ô báo giá bắt buộc kèm
+           ghi lý do vào hồ sơ*, nên chữ "Cập nhật" không nói ra việc đó — Sếp vẫn chốt "Cập
+           nhật", nên làm đúng vậy. Ghi lại đây để phiên sau đừng tự đổi về vì tưởng đặt nhầm.
+           📌 Câu mô tả và ô "Lý do" phía dưới GIỮ NGUYÊN — chúng mới là chỗ nói rõ việc đang làm,
+           và ô lý do vẫn bắt buộc (`khoaDongY` ngay trên). */
+        nhanDongY="Cập nhật"
         onDong={() => setHoiBoQuaO(null)}
         onDongY={() => xacNhanBoQua()}
       >
