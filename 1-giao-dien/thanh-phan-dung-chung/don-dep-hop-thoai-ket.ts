@@ -121,12 +121,10 @@ const DAU_INERT = "data-base-ui-inert";
 /** Cờ `preventScrollInsetScrollbars` đặt lên <html>. Xem `useScrollLock.js` dòng 166. */
 const DAU_KHOA_CUON = "data-base-ui-scroll-locked";
 
-/**
- * Thuộc tính của CỔNG PORTAL base-ui, sinh bởi `createAttribute('portal')` trong
- * `floating-ui-react/utils/createAttribute.js` (trả về `data-base-ui-${name}`).
- * Còn phần tử này trong DOM = còn popup đang mở hoặc đang chạy hiệu ứng đóng.
- */
-const DAU_PORTAL = "data-base-ui-portal";
+/* 📌 BỎ hằng `DAU_PORTAL` ("data-base-ui-portal") ngày 14/09/2026: nó từng là tín hiệu "còn hộp
+   mở", nhưng đã đo được là các hộp GIỮ-MOUNT để lại node portal đó vĩnh viễn sau khi đóng, nên nó
+   KHÔNG phân biệt được mở/đóng. Nay `conHopThoaiDangMo` dùng `[data-open]`/`[data-closed]` thay —
+   xem chú thích ở hàm đó. */
 
 /**
  * Chờ trước khi quét.
@@ -148,11 +146,33 @@ let soLanHoan = 0;
  *
  * Trả `true` nghĩa là "còn bận, đừng đụng vào" — và khi không chắc thì LUÔN trả `true`,
  * vì bỏ sót một lần lau dọn chỉ là phiền, còn dọn nhầm lúc là hỏng hộp thoại thật.
+ *
+ * 🔴🔴 SỬA 14/09/2026 — CHÍNH CHỖ NÀY LÀ LÝ DO LỚP CANH KHÔNG CỨU ĐƯỢC (Sếp báo kẹt lần 5).
+ *
+ * Bản cũ coi MỌI `[data-base-ui-portal]` và MỌI `[role=dialog]` là "còn hộp mở". SAI, và cái sai
+ * đó do CHÍNH những bản vá trước tạo ra: từ 13-14/09 nhiều hộp đã đổi sang kiểu **giữ mount**
+ * (`<HopXemTep mo={…}/>` thay vì `{x && <HopXemTep/>}`) để tránh bị tháo giữa lúc đang đóng.
+ * Hệ quả: sau khi đóng, node `[role=dialog]` + `[data-base-ui-portal]` **NẰM LẠI DOM vĩnh viễn**
+ * (đã đo: chúng mang `data-closed`, `display` vẫn còn). Thế là trên mọi trang có một hộp
+ * giữ-mount, hàm này LUÔN trả `true` → lớp canh luôn tưởng còn hộp mở → **không bao giờ dọn**
+ * dấu vết kẹt của một hộp KHÁC. Hai bản vá tự đánh nhau.
+ *
+ * ✅ Phân biệt bằng dấu trạng thái CHUẨN của base-ui (đã đo trực tiếp trên app 14/09/2026):
+ *     · ĐANG MỞ:  phần tử mang `[data-open]`, KHÔNG có `[data-closed]`
+ *     · ĐÃ ĐÓNG:   phần tử mang `[data-closed]`, KHÔNG có `[data-open]`
+ * Node giữ-mount đã đóng chỉ có `data-closed` nên nay KHÔNG còn bị tính là "đang mở".
+ *
+ * 📌 `[data-open]` bao mọi loại floating của base-ui (Dialog · Popover · Menu · Select · Tooltip)
+ * — không cần liệt kê từng `role`. Câu `[role=dialog]:not([data-closed])` chỉ là lưới dự phòng
+ * cho khung hình đầu tiên khi base-ui chưa kịp gắn `data-open`.
  */
 export function conHopThoaiDangMo(): boolean {
   if (typeof document === "undefined") return true;
-  if (document.querySelector(`[${DAU_PORTAL}]`)) return true;
-  if (document.querySelector('[role="dialog"],[role="alertdialog"]')) return true;
+  // Có floating nào ĐANG MỞ (data-open, chưa vào trạng thái đóng) → còn bận.
+  if (document.querySelector("[data-open]:not([data-closed])")) return true;
+  // Lưới dự phòng: hộp thoại vừa mở mà base-ui chưa kịp gắn data-open — nhưng LOẠI node đã đóng.
+  if (document.querySelector('[role="dialog"]:not([data-closed]),[role="alertdialog"]:not([data-closed])'))
+    return true;
   return false;
 }
 
