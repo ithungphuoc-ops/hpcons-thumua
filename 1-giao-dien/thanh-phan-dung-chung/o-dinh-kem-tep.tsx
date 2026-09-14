@@ -111,6 +111,18 @@ export function ODinhKemTep({
    */
   const [moXem, setMoXem] = useState(false);
 
+  /**
+   * ★ TÊN TỆP ĐANG HỎI XOÁ — giữ riêng, KHÔNG đọc thẳng `tep.tenTep` trong hộp xác nhận.
+   *
+   * 🔴 Từ 14/09/2026 hộp xác nhận nằm NGOÀI nhánh `{tep ? … : …}` (xem chú thích tại chỗ vẽ nó).
+   * Nhờ vậy nó không bị tháo giữa lúc đóng nữa — nhưng đổi lại, lúc hiệu ứng đóng đang chạy thì
+   * `tep` đã là `undefined`, và `tep.tenTep` sẽ **làm vỡ cả trang**.
+   *
+   * 📌 Chỉ cập nhật lúc MỞ hộp, không cập nhật lúc đóng: giữ nguyên tên cho tới khi hộp biến mất
+   * hẳn, nếu không người dùng thấy chữ nhảy sang rỗng ngay trước mắt.
+   */
+  const [tenDangHoiXoa, setTenDangHoiXoa] = useState("");
+
   /** Tải chứng từ về máy — xem `taiTep`, khác "xem" ở chỗ ép trình duyệt lưu file xuống. */
   async function tai() {
     if (!tep) return;
@@ -216,7 +228,12 @@ export function ODinhKemTep({
             {onXoa && (
               <button
                 type="button"
-                onClick={() => setHoiXoa(true)}
+                onClick={() => {
+                  /* Chụp lại tên NGAY LÚC MỞ — xem `tenDangHoiXoa`. Hộp xác nhận nằm ngoài nhánh
+                     `{tep ? …}` nên khi `tep` mất nó vẫn đang chạy hiệu ứng đóng. */
+                  setTenDangHoiXoa(tep.tenTep);
+                  setHoiXoa(true);
+                }}
                 title="Bỏ tệp khỏi hồ sơ"
                 className="inline-flex size-11 items-center justify-center rounded-lg border border-border bg-card text-text-secondary transition-colors hover:border-danger hover:text-danger md:size-9"
               >
@@ -226,30 +243,6 @@ export function ODinhKemTep({
             )}
           </span>
 
-          {/* Pop-up xem chứng từ — căn giữa màn hình (Ban lãnh đạo 13/08/2026). */}
-          <HopXemTep tep={tep} mo={moXem} onDong={() => setMoXem(false)} />
-
-          {/* ⚠️ Nói rõ tệp KHÔNG mất khỏi kho — `goTepGiaiDoan` chỉ gỡ khỏi hồ sơ. Người dùng
-              cần biết mức độ nghiêm trọng thật của việc mình đang làm, không phóng đại cũng
-              không giảm nhẹ. */}
-          <HopXacNhan
-            mo={hoiXoa}
-            tieuDe="Bỏ tệp này khỏi hồ sơ?"
-            moTa={
-              <>
-                Tệp <strong>{rutGonTenTep(tep.tenTep)}</strong> sẽ không còn nằm trong bước này.
-                Nội dung tệp vẫn giữ trong kho nên tìm lại được, nhưng hồ sơ thì mất chứng từ
-                cho tới khi đính kèm lại.
-              </>
-            }
-            nhanDongY="Bỏ tệp"
-            nguyHiem
-            onDong={() => setHoiXoa(false)}
-            onDongY={() => {
-              setHoiXoa(false);
-              onXoa?.();
-            }}
-          />
         </div>
       ) : (
         <label
@@ -280,6 +273,53 @@ export function ODinhKemTep({
           {dangCat ? "Đang lưu tệp…" : nhanThem}
         </label>
       )}
+
+      {/**
+        * ★★ HAI HỘP THOẠI NẰM NGOÀI NHÁNH `{tep ? … : …}` — CHUYỂN RA NGÀY 14/09/2026.
+        *
+        * 🔴 ĐÂY LÀ GỐC CỦA SỰ CỐ SẾP BÁO 13 VÀ 14/09/2026 (*"khi đính kèm file mới thì bị hỏng
+        * giao diện"* — cả app bấm không ăn, không cuộn được, phải F5).
+        *
+        * Trước đây cả hai hộp nằm BÊN TRONG nhánh `tep ? (…)`. Ca hỏng:
+        *   ① người dùng bấm "Bỏ tệp" → `HopXacNhan` mở
+        *   ② bấm Đồng ý → `setHoiXoa(false)` **và** `onXoa()` chạy cùng một nhịp
+        *   ③ `onXoa()` làm `tep` mất → React đổi sang nhánh `: (<label>)` → **cả hai hộp bị
+        *      THÁO khỏi cây ngay trong lần commit mà `HopXacNhan` vừa nhận `mo=false`**
+        * base-ui dọn scroll-lock và `data-base-ui-inert` HOÀN TOÀN bằng hàm cleanup của
+        * `useEffect`; bị tháo giữa chừng là nó không kịp dọn, và `overflow:hidden` +
+        * `data-base-ui-inert` kẹt lại trên DOM **vĩnh viễn tới khi F5** (lần mở hộp sau, base-ui
+        * thấy trang đã khoá sẵn nên chỉ gắn MutationObserver, không gỡ cái khoá không phải của
+        * nó). Phân tích đầy đủ ở `thanh-phan-dung-chung/don-dep-hop-thoai-ket.ts`.
+        *
+        * ✅ Nay hai hộp luôn nằm trong cây, chỉ có `mo` đổi — `tep` mất cũng không tháo được chúng.
+        *
+        * 🔴 `tenDangHoiXoa` PHẢI GIỮ TÊN TỆP RIÊNG: lúc hiệu ứng đóng đang chạy thì `tep` đã là
+        * `undefined`, đọc thẳng `tep.tenTep` là **vỡ trang** (đọc thuộc tính của undefined). Đây
+        * đúng là cái bẫy mà việc chuyển ra ngoài sinh ra — đừng bỏ biến này đi.
+        */}
+      <HopXemTep tep={tep ?? null} mo={moXem} onDong={() => setMoXem(false)} />
+
+      {/* ⚠️ Nói rõ tệp KHÔNG mất khỏi kho — `goTepGiaiDoan` chỉ gỡ khỏi hồ sơ. Người dùng
+          cần biết mức độ nghiêm trọng thật của việc mình đang làm, không phóng đại cũng
+          không giảm nhẹ. */}
+      <HopXacNhan
+        mo={hoiXoa}
+        tieuDe="Bỏ tệp này khỏi hồ sơ?"
+        moTa={
+          <>
+            Tệp <strong>{rutGonTenTep(tenDangHoiXoa)}</strong> sẽ không còn nằm trong bước này.
+            Nội dung tệp vẫn giữ trong kho nên tìm lại được, nhưng hồ sơ thì mất chứng từ cho tới
+            khi đính kèm lại.
+          </>
+        }
+        nhanDongY="Bỏ tệp"
+        nguyHiem
+        onDong={() => setHoiXoa(false)}
+        onDongY={() => {
+          setHoiXoa(false);
+          onXoa?.();
+        }}
+      />
 
       {/* ⚠️ HAI CÂU KHÁC NHAU CHO HAI TRẠNG THÁI, cố ý không dùng chung một câu dài.
           Bản cũ luôn in cả đoạn hướng dẫn + cảnh báo, nên màn có 2–3 lần giao là đoạn đó

@@ -651,7 +651,13 @@ function MotBinhLuan({
         )}
       </div>
 
-      {xemTep && <HopXemTep tep={xemTep} mo onDong={() => setXemTep(null)} />}
+      {/* 🔴 GIỮ HỘP TRONG CÂY, CHỈ ĐỔI `mo`. Cách cũ `{xemTep && <HopXemTep … mo … />}` tháo cả
+          `<Dialog>` khỏi cây React ngay trong lần commit mà `open` vẫn còn `true` → base-ui không
+          chạy được hàm dọn, để kẹt `overflow:hidden` trên `<body>` và `data-base-ui-inert` trên
+          app: cả app bấm không ăn, phải F5. Sự cố Sếp báo 13 và 14/09/2026.
+          📌 `tep={xemTep}` kể cả khi về `null` là đúng — `HopXemTep` tự giữ tệp cuối cho hiệu ứng
+          đóng chạy hết. Phân tích đầy đủ ở `thanh-phan-dung-chung/don-dep-hop-thoai-ket.ts`. */}
+      <HopXemTep tep={xemTep} mo={xemTep !== null} onDong={() => setXemTep(null)} />
 
       <HopBanTruoc
         mo={moBanTruoc}

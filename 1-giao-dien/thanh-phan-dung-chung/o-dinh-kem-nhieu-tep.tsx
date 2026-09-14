@@ -121,7 +121,32 @@ export function ODinhKemNhieuTep({
         </span>
       </div>
 
-      {xemTep && <HopXemTep tep={xemTep} mo onDong={() => setXemTep(null)} />}
+      {/**
+        * 🔴 GIỮ HỘP TRONG CÂY, CHỈ ĐỔI `mo` — ĐỪNG viết lại thành
+        *    `{xemTep && <HopXemTep tep={xemTep} mo … />}`.
+        *
+        * Đó chính là dòng đã gây sự cố Sếp báo 13 và 14/09/2026: *"khi đính kèm file mới thì bị
+        * hỏng giao diện"* — cả app kẹt, bấm không ăn, trang không cuộn được, phải F5.
+        *
+        * Cách viết cũ sai ở HAI điểm cộng lại:
+        *   · `mo` viết trơn = luôn `true`, nên prop `open` KHÔNG BAO GIỜ về `false`;
+        *   · `{xemTep && …}` làm cả `<Dialog>` biến mất khỏi cây React NGAY trong cùng một lần
+        *     commit với `setXemTep(null)`.
+        * base-ui dọn scroll-lock và `data-base-ui-inert` HOÀN TOÀN bằng hàm cleanup của
+        * `useEffect`. Bị tháo giữa chừng là nó không đi qua vòng đời đóng, và ba thứ kẹt lại trên
+        * DOM: `overflow:hidden` trên `<body>` + `data-base-ui-inert`/`aria-hidden` trên app.
+        *
+        * ⚠️ VÀ NÓ KẸT VĨNH VIỄN: lần sau mở hộp thoại mới, base-ui thấy trang ĐÃ bị khoá cuộn sẵn
+        * nên chỉ gắn một MutationObserver rồi thôi — nó không gỡ cái khoá không phải của nó.
+        * Rò rỉ MỘT lần là hỏng tới khi F5. Phân tích đầy đủ ở
+        * `thanh-phan-dung-chung/don-dep-hop-thoai-ket.ts`.
+        *
+        * 📌 Truyền thẳng `tep={xemTep}` (kể cả khi nó về `null`) là ĐÚNG: từ 13/09/2026
+        * `HopXemTep` tự giữ tệp cuối cùng bên trong để hiệu ứng đóng chạy hết mà nội dung không
+        * chớp sang rỗng. Prop của nó khai `tep: MoTaTep | null` chính vì việc này — đừng thêm
+        * biến "tệp gần nhất" ở đây, sẽ thành hai chỗ cùng giữ một thứ.
+        */}
+      <HopXemTep tep={xemTep} mo={xemTep !== null} onDong={() => setXemTep(null)} />
     </div>
   );
 }
