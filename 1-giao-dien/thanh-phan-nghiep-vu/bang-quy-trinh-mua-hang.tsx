@@ -867,13 +867,34 @@ function TheDeNghi({
         */}
       <div className="flex items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-sm font-semibold leading-tight text-text-primary">
+          {/* `break-words` cho chuỗi dài không dấu cách (tên tự gõ, mã dán vào) xuống dòng thay
+              vì tràn ngang — xem chú thích ở `tenDeXuatThem` bên dưới. */}
+          <span className="text-sm font-semibold leading-tight break-words text-text-primary">
             {/* Mã đứng đầu tô màu chủ đạo để mắt bắt được ngay trong một cột dài các thẻ. */}
             <span className="text-primary select-all">
               {deNghi.maDeXuatAppRequest || deNghi.code}
             </span>
             {deNghi.maHopDongCDT ? ` - ${deNghi.maHopDongCDT}` : ""}
             {deNghi.tenCongTrinh ? ` - ${deNghi.tenCongTrinh.toUpperCase()}` : ""}
+            {/**
+              * ★★ TÊN TỰ ĐẶT NỐI THẲNG VÀO DÒNG NÀY — Sếp 14/09/2026, nguyên văn: *"Thay vì e
+              * viết tên đối với các quy trình đã sửa tên / Thì e ghi tiếp vào đây cho a là được"*
+              * (ảnh khoanh dòng tiêu đề và dòng *"Tên đề xuất: ĐÁ 0x4"* của thẻ `000000079`).
+              *
+              * 📌 ĐÂY LÀ ĐỔI Ý so với hôm 13/09: hôm đó phần này để thành MỘT DÒNG RIÊNG có nhãn
+              * *"Tên đề xuất:"* ở khối trường bên dưới, với lý do *"nhét thêm tên tự do vào dòng
+              * đầu là phá khuôn Base"*. Sếp xem rồi và chọn nối vào đây. Giữ lại ghi chú này để
+              * phiên sau đừng "sửa về cho đúng khuôn Base" — khuôn đó Sếp đã chủ động bỏ.
+              *
+              * 🔴 `whitespace-normal` + `break-words` ở thẻ cha là BẮT BUỘC, không phải trang trí:
+              * thẻ kanban chỉ rộng ~240px, tên người dùng tự gõ có thể rất dài. Thiếu nó thì một
+              * chuỗi dài không dấu cách sẽ tràn ngang và kéo giãn cả cột.
+              *
+              * ⚠️ `phanThemCuaTieuDe` đã TRỪ những mảnh vừa in ở ngay trên (mã đề xuất, mã hồ sơ,
+              * số hợp đồng, tên công trình) nên không bao giờ lặp chữ. Đừng đổi thành
+              * `deNghi.tieuDe` cho gọn — làm vậy là dòng này in lại y hệt phần đầu.
+              */}
+            {tenDeXuatThem ? ` - ${tenDeXuatThem}` : ""}
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-1">
@@ -925,39 +946,16 @@ function TheDeNghi({
             Chi tiết · Link phiếu đề nghị.
             ⚠️ Mã hồ sơ của app KHÔNG mất: vẫn ở menu ⋯ (*"Sao chép mã đề nghị"*), ở trang chi
             tiết, và tìm kiếm vẫn ra. Chỉ bỏ khỏi thẻ cho gọn đúng mẫu. */}
-        {/* ★ TÊN ĐỀ XUẤT — Ban lãnh đạo 13/09/2026: *"Hiển thị thêm các chữ phía sau, vì sẽ có
-            trường hợp đổi tên đề xuất cho dễ nhớ nên cần hiển thị thêm các nội dung hiển thị đó"*.
+        {/* ❌ ĐÃ BỎ DÒNG RIÊNG *"Tên đề xuất: …"* — Sếp 14/09/2026: *"Thay vì e viết tên đối với
+            các quy trình đã sửa tên / Thì e ghi tiếp vào đây cho a là được"*, chỉ vào dòng tiêu đề
+            trên cùng. Nội dung đó nay NỐI THẲNG vào dòng đầu (xem `tenDeXuatThem` ở đó).
 
-            🔴 CHỈ HIỆN PHẦN KHÔNG TRÙNG DÒNG ĐẦU — `phanThemCuaTieuDe` đã trừ mã đề xuất, mã hồ
-            sơ, số hợp đồng và tên công trình. Tiêu đề tự sinh (Phòng Thi công) trừ xong hết chữ
-            nên dòng này ẩn luôn; tên đã đổi tay thì phần gõ thêm hiện ra. Lý do đầy đủ ở JSDoc
-            của hàm — đọc trước khi đổi, kẻo lại in lặp y hệt dòng đầu.
+            🔴 PHẢI BỎ DÒNG NÀY, KHÔNG ĐƯỢC GIỮ CẢ HAI: `phanThemCuaTieuDe` trả về cùng một chuỗi
+            cho cả hai chỗ, nên để nguyên là tên tự đặt hiện HAI LẦN trên cùng một thẻ hẹp 240px.
 
-            📌 ĐẶT Ở KHỐI TRƯỜNG, KHÔNG NỐI VÀO DÒNG ĐẦU. Dòng đầu bám đúng mẫu Base Sếp gửi
-            21/08/2026 (*mã - hợp đồng - CÔNG TRÌNH*, một dòng); nhét thêm tên tự do vào đó là phá
-            khuôn Base và câu sẽ tự ngắt dòng tuỳ ý trên thẻ hẹp. Ở đây thì có NHÃN đứng trước,
-            đúng nguyên tắc đã ghi cho khối này: *"Vật tư" đứng trơ thì không ai biết đó là nhóm
-            đề xuất hay tên hàng* — tên đề xuất tự do cũng vậy, thiếu nhãn dễ bị đọc nhầm là tên
-            vật tư. Nhãn dùng đúng chữ **"Tên đề xuất"** như ô 13 trang chi tiết, để hai màn hình
-            gọi cùng một thứ bằng cùng một tên.
-
-            ⚠️ `line-clamp-2` + `title`: thẻ kanban chỉ rộng ~240px, tên tự gõ có thể rất dài, để
-            chảy tự do là vỡ bố cục cột. Cắt có dấu hiệu (`…` do line-clamp tự thêm) và rê chuột
-            đọc được ĐỦ tiêu đề gốc.
-            🔴 KHÔNG mâu thuẫn với cảnh báo *"line-clamp-2 là sai"* ở khối `dsConNo` cuối thẻ: ở
-            đó cắt là GIẤU MẤT một mục chứng từ còn thiếu (người đọc tưởng chỉ thiếu một thứ) —
-            hỏng nghiệp vụ. Ở đây cắt chỉ làm một cái tên gợi nhớ ngắn lại, và `title` vẫn trả đủ
-            chữ, nên không có thông tin nào biến mất không dấu vết.
-            📌 `break-words` đi kèm: `line-clamp` đặt `overflow:hidden` nên một chuỗi dài KHÔNG có
-            dấu cách (người dùng dán nguyên một mã) sẽ bị cắt cụt giữa chữ thay vì xuống dòng. Nó
-            không làm trôi ngang trang (overflow đã ẩn), chỉ là xấu và khó đọc.
-            📌 `title` để NGUYÊN tiêu đề gốc, KHÔNG phải phần đã trừ: rê chuột là để đọc đủ, giấu
-            bớt ở cả tooltip thì không còn chỗ nào xem được trọn vẹn ngoài việc mở phiếu ra. */}
-        {tenDeXuatThem !== "" && (
-          <span className="line-clamp-2 break-words" title={`Tên đề xuất: ${deNghi.tieuDe}`}>
-            <span className="text-text-secondary">Tên đề xuất:</span> {tenDeXuatThem}
-          </span>
-        )}
+            📌 Lý do cũ của việc tách dòng (giữ đúng khuôn Base *mã - hợp đồng - CÔNG TRÌNH*, và có
+            nhãn đứng trước để không đọc nhầm thành tên vật tư) vẫn được ghi lại ở chỗ nối trên
+            dòng đầu — Sếp đã xem và chọn nối. Đừng "sửa về cho đúng khuôn Base". */}
         <span>
           <span className="text-text-secondary">Bộ phận:</span>{" "}
           {nhanPhongBan(deNghi.phongBanNguon)}
