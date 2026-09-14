@@ -317,7 +317,27 @@ export function useDonDepHopThoaiKet(dangMo: boolean): void {
  * 📌 Gọi MỘT LẦN ở khung app (`khung-tong.tsx`). Gọi nhiều lần cũng chỉ tạo một observer.
  */
 let theoDoi: MutationObserver | null = null;
+let theoDoiSau: MutationObserver | null = null;
 let dangDon = false;
+
+/**
+ * Callback dùng CHUNG cho cả hai observer: có dấu vết kẹt VÀ không còn hộp nào mở thật → hẹn quét.
+ * Hai câu hỏi rẻ (vài `querySelector`), hỏi ngay để không hẹn giờ vô ích.
+ */
+function kiemVaHen(): void {
+  if (dangDon) return;
+  if (!conDauVetRoRi()) return;
+  if (conHopThoaiDangMo()) return;
+  if (hen !== null) clearTimeout(hen);
+  soLanHoan = 0;
+  hen = setTimeout(() => {
+    hen = null;
+    /* Kiểm LẠI ngay trước khi dọn: 350ms qua, hộp có thể vừa mở lại. */
+    if (conHopThoaiDangMo()) return;
+    if (!conDauVetRoRi()) return;
+    donCoChanVong();
+  }, CHO_TRUOC_KHI_QUET);
+}
 
 /** Bọc `goDauVetRoRi` để chính thao tác dọn không làm observer bắn lại. */
 function donCoChanVong(): void {
@@ -343,26 +363,10 @@ export function batCanhDonDepToanCuc(): () => void {
   if (typeof document === "undefined") return () => {};
   if (theoDoi !== null) return () => {};
 
-  theoDoi = new MutationObserver(() => {
-    if (dangDon) return;
-    /* Có dấu vết VÀ không còn hộp thoại nào mở → hẹn quét. Hai câu hỏi này rẻ (vài
-       `querySelector`), nên hỏi ngay tại đây để không hẹn giờ vô ích. */
-    if (!conDauVetRoRi()) return;
-    if (conHopThoaiDangMo()) return;
-    if (hen !== null) clearTimeout(hen);
-    soLanHoan = 0;
-    hen = setTimeout(() => {
-      hen = null;
-      if (conHopThoaiDangMo()) return;
-      if (!conDauVetRoRi()) return;
-      donCoChanVong();
-    }, CHO_TRUOC_KHI_QUET);
-  });
+  theoDoi = new MutationObserver(kiemVaHen);
 
-  /* `attributes` trên <html> và <body> bắt khoá cuộn; `childList` trên <body> bắt lúc portal của
-     base-ui được thêm/bớt — đó chính là lúc `markOthers` đặt/gỡ `data-base-ui-inert`.
-     ⚠️ KHÔNG dùng `subtree: true`: app có hàng nghìn nút, quan sát cả cây là mỗi lần gõ phím cũng
-     bắn callback. Dấu vết cần bắt chỉ nằm ở <html> và con TRỰC TIẾP của <body>. */
+  /* OBSERVER 1 — thuộc tính của <html>/<body> và con thêm/bớt của <body>.
+     `style` trên <body> bắt khoá cuộn (overflow); `childList` bắt lúc portal base-ui thêm/bớt. */
   theoDoi.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class", DAU_KHOA_CUON] });
   theoDoi.observe(document.body, {
     attributes: true,
@@ -370,9 +374,26 @@ export function batCanhDonDepToanCuc(): () => void {
     childList: true,
   });
 
+  /* OBSERVER 2 — mắt xích THIẾU khiến lớp canh không cứu được Sếp (đo 14/09/2026).
+     🔴 `data-base-ui-inert` gắn lên CÁC CON của <body>, và dấu "hộp vừa đóng" (`data-closed`) đổi
+     trên node dialog nằm SÂU trong cây — cả hai KHÔNG phải thuộc tính của chính <body> nên
+     Observer 1 (không subtree) bỏ lỡ. Nếu base-ui đặt inert ở một nhịp khác với overflow, hoặc
+     một hộp GIỮ-MOUNT đóng chỉ đổi `data-closed`, thì KHÔNG có tín hiệu nào đánh thức lớp canh.
+     ✅ Observer này quan sát cả cây body NHƯNG chỉ lọc đúng ba thuộc tính hiếm-đổi
+     (`data-base-ui-inert`, `data-closed`, `data-open`), nên không ồn như `subtree` mọi style/class.
+     `data-closed` xuất hiện = một floating vừa chuyển sang đóng → đúng lúc phải kiểm dọn. */
+  theoDoiSau = new MutationObserver(kiemVaHen);
+  theoDoiSau.observe(document.body, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: [DAU_INERT, "data-closed", "data-open"],
+  });
+
   return () => {
     theoDoi?.disconnect();
     theoDoi = null;
+    theoDoiSau?.disconnect();
+    theoDoiSau = null;
     if (hen !== null) {
       clearTimeout(hen);
       hen = null;
