@@ -167,6 +167,23 @@ export interface CauHinhQuyTrinh {
    * trên trang Cài đặt quy trình, không phải nhờ đội triển khai.
    */
   vatTuDinhMuc: NhomVatTuDinhMuc[];
+  /**
+   * ★★ NỘI DUNG HƯỚNG DẪN TỪNG BƯỚC DO CẤP QUẢN LÝ TỰ SỬA — Sếp 14/09/2026: *"Ở thông tin hướng
+   * dẫn này, hãy tạo thành trường để cấp quản lý có thể chỉnh sửa nội dung"*.
+   *
+   * Khóa là mã giai đoạn (`tiep_nhan`, `yeu_cau_bao_gia`…), giá trị là VĂN BẢN THUẦN nhiều dòng.
+   * Quy ước hiển thị (xem `huongDanHienThi` ở `huong-dan-giai-doan.ts`): dòng trống tách đoạn,
+   * dòng mở đầu bằng "- " thành gạch đầu dòng.
+   *
+   * 🔴 `undefined`/thiếu khóa = DÙNG BẢN GỐC trong `HUONG_DAN_GIAI_DOAN` — đó là văn bản nghiệp vụ
+   * chép từ bảng Base. KHÔNG chép bản gốc vào đây làm mặc định: chép là hai chỗ cùng giữ một nội
+   * dung rồi lệch nhau, và mất luôn đường "khôi phục bản gốc" (chỉ cần xóa khóa là về gốc).
+   *
+   * ⚠️ MÂU THUẪN CÓ CHỦ Ý VỚI CẢNH BÁO CŨ: `huong-dan-giai-doan.ts` ghi *"đừng sửa, phải khớp
+   * Base"*. Nay Sếp cho cấp quản lý sửa — đó là quyết định của Sếp. Thiết kế giữ được cả hai: bản
+   * gốc Base vẫn là mặc định và khôi phục được; bản sửa chỉ đè khi công ty chủ động đổi.
+   */
+  huongDanTuyChinh?: Record<string, string>;
 }
 
 /**
@@ -413,6 +430,21 @@ export function soSanhCauHinh(cu: CauHinhQuyTrinh, moi: CauHinhQuyTrinh): string
       }
     }
   }
+
+  /* Hướng dẫn từng bước — ghi vết khi cấp quản lý sửa/khôi phục nội dung (Sếp 14/09/2026). */
+  const buocHuongDan = new Set([
+    ...Object.keys(cu.huongDanTuyChinh ?? {}),
+    ...Object.keys(moi.huongDanTuyChinh ?? {}),
+  ]);
+  for (const b of buocHuongDan) {
+    const a = cu.huongDanTuyChinh?.[b];
+    const c = moi.huongDanTuyChinh?.[b];
+    if ((a ?? "") === (c ?? "")) continue;
+    if (c === undefined) ra.push(`Bước "${b}": khôi phục hướng dẫn về bản gốc`);
+    else if (a === undefined) ra.push(`Bước "${b}": sửa nội dung hướng dẫn (trước đó dùng bản gốc)`);
+    else ra.push(`Bước "${b}": sửa lại nội dung hướng dẫn`);
+  }
+
   return ra;
 }
 
@@ -427,7 +459,7 @@ export interface MoTaThamSo {
    */
   khoa: Exclude<
     keyof CauHinhQuyTrinh,
-    "hanGioTheoBuoc" | "congViecTheoBuoc" | "caiDatTungBuoc" | "vatTuDinhMuc"
+    "hanGioTheoBuoc" | "congViecTheoBuoc" | "caiDatTungBuoc" | "vatTuDinhMuc" | "huongDanTuyChinh"
   >;
   nhan: string;
   moTa: string;

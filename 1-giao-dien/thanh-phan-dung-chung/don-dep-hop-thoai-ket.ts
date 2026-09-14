@@ -163,25 +163,61 @@ let soLanHoan = 0;
  * Node giữ-mount đã đóng chỉ có `data-closed` nên nay KHÔNG còn bị tính là "đang mở".
  *
  * 📌 `[data-open]` bao mọi loại floating của base-ui (Dialog · Popover · Menu · Select · Tooltip)
- * — không cần liệt kê từng `role`. Câu `[role=dialog]:not([data-closed])` chỉ là lưới dự phòng
- * cho khung hình đầu tiên khi base-ui chưa kịp gắn `data-open`.
+ * — không cần liệt kê từng `role`.
+ *
+ * 🔴🔴 SỬA TIẾP 14/09/2026 — GỠ LƯỚI DỰ PHÒNG `[role=dialog]:not([data-closed])` (Sếp báo kẹt lần 6+).
+ *
+ * Bản trước còn một câu dự phòng coi mọi `[role=dialog]` CHƯA đóng là "đang mở", ý là bắt hộp thoại
+ * ở khung hình đầu tiên khi base-ui chưa kịp gắn `data-open`. NHƯNG một **node mồ côi** (bị tháo
+ * khỏi React giữa lúc open → mất cả `data-open` LẪN `data-closed`, xem `NODE_MO_COI`) nhìn TRONG MỘT
+ * ẢNH CHỤP **giống hệt** hộp thoại khung-hình-đầu-tiên: đều là `role=dialog`, không `data-open`,
+ * không `data-closed`. Câu dự phòng đó vì thế coi chính node mồ côi là "còn hộp mở" → `conHopThoaiDangMo`
+ * luôn `true` → mọi chốt bảo vệ chặn cứng, lớp canh KHÔNG BAO GIỜ xoá được node mồ côi. Đây là lý do
+ * thật vì sao màn trắng vẫn kẹt dù đã thêm bước xoá node mồ côi.
+ *
+ * ✅ Bỏ câu dự phòng an toàn vì mọi đường dọn đều CHỜ 350ms rồi mới chạy, và còn kiểm lại lần nữa
+ * ngay trước khi dọn. Một hộp thoại mở thật đã có `data-open` từ khung hình đầu (hiệu ứng mở
+ * `duration-100`), nên sau 350ms chắc chắn khớp `[data-open]`. Node mồ côi thì KHÔNG bao giờ có
+ * `data-open` → phân biệt được bằng chính thời gian, thứ mà một ảnh chụp không thấy.
  */
 export function conHopThoaiDangMo(): boolean {
   if (typeof document === "undefined") return true;
   // Có floating nào ĐANG MỞ (data-open, chưa vào trạng thái đóng) → còn bận.
   if (document.querySelector("[data-open]:not([data-closed])")) return true;
-  // Lưới dự phòng: hộp thoại vừa mở mà base-ui chưa kịp gắn data-open — nhưng LOẠI node đã đóng.
-  if (document.querySelector('[role="dialog"]:not([data-closed]),[role="alertdialog"]:not([data-closed])'))
-    return true;
   return false;
 }
 
-/** Điều kiện bảo vệ ③ — có đúng dấu vết base-ui để lại hay không. */
+/**
+ * ★★ NODE HỘP THOẠI MỒ CÔI — thủ phạm "màn trắng" thật, tìm ra 14/09/2026 bằng đo trên production.
+ *
+ * Một `<div role="dialog">` bị THÁO khỏi cây React GIỮA LÚC open=true thì mất cả `data-open` LẪN
+ * `data-closed` (base-ui không còn quản nó), nhưng node DOM vẫn nằm trong portal với CSS
+ * `position:fixed; z-index:50; nền trắng` → **che kín màn hình**. Nó KHÔNG mang `data-base-ui-inert`
+ * và KHÔNG khoá cuộn, nên mọi bản vá trước (chỉ dọn overflow/inert) không đụng tới — app đo ra
+ * `overflow:visible, inert:0, open:0` mà màn vẫn trắng.
+ *
+ * 🔴 Dấu hiệu mồ côi: `[role=dialog]`/`[role=alertdialog]` KHÔNG có `data-open` VÀ KHÔNG có
+ * `data-closed`. Node đang mở có `data-open`; node đóng giữ-mount có `data-closed`. Không cả hai =
+ * đã bị tháo, không ai quản.
+ */
+const NODE_MO_COI = '[role="dialog"]:not([data-open]):not([data-closed]),[role="alertdialog"]:not([data-open]):not([data-closed])';
+
+/** Node mồ côi có ĐANG HIỂN THỊ (che màn) không — node ẩn thì vô hại, không cần đụng. */
+function conNodeMoCoiCheMan(): boolean {
+  for (const el of Array.from(document.querySelectorAll(NODE_MO_COI))) {
+    if ((el as HTMLElement).getBoundingClientRect().width > 100) return true;
+  }
+  return false;
+}
+
+/** Điều kiện bảo vệ ③ — có đúng dấu vết base-ui để lại hay không (khoá nền HOẶC node mồ côi che màn). */
 function conDauVetRoRi(): boolean {
   if (document.documentElement.hasAttribute(DAU_KHOA_CUON)) return true;
   for (const el of Array.from(document.body.children)) {
     if (el.hasAttribute(DAU_INERT)) return true;
   }
+  // Màn trắng do node dialog mồ côi cũng là "dấu vết kẹt" cần dọn — thêm 14/09/2026.
+  if (conNodeMoCoiCheMan()) return true;
   return false;
 }
 
@@ -226,6 +262,19 @@ function goDauVetRoRi(): void {
     body.style.overflowY = "";
     body.style.overflowX = "";
     body.style.scrollBehavior = "";
+  }
+
+  // ④ ★ XOÁ NODE HỘP THOẠI MỒ CÔI — thủ phạm "màn trắng" thật (xem chú thích NODE_MO_COI).
+  //    An toàn vì lớp canh chỉ chạy SAU khi chờ CHO_TRUOC_KHI_QUET (350ms) — quá first-frame rất
+  //    lâu. Một hộp thoại mở hợp lệ đã có `data-open` trước mốc đó, nên không bao giờ khớp bộ chọn
+  //    này. Chỉ node đã bị THÁO khỏi React (mất cả data-open lẫn data-closed) mà DOM còn sót lại
+  //    mới lọt vào — gỡ hẳn khỏi cây. Gỡ cả bọc portal rỗng của nó cho sạch.
+  for (const el of Array.from(document.querySelectorAll(NODE_MO_COI))) {
+    const node = el as HTMLElement;
+    if (node.getBoundingClientRect().width <= 100) continue; // node ẩn: để yên
+    // Nếu nằm trong một bọc portal của base-ui thì gỡ luôn cả bọc (nó cũng thành rác).
+    const boc = node.closest("[data-base-ui-portal]") as HTMLElement | null;
+    (boc ?? node).remove();
   }
 }
 
