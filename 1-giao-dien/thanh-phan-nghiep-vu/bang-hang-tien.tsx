@@ -390,16 +390,36 @@ export function BangHangTien({
 
           {/* Cụm THÊM / XOÁ DÒNG — có vách tách khỏi cụm Excel. */}
           <div className="flex flex-wrap items-center gap-2 border-border pl-0 sm:border-l sm:pl-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-11"
-              onClick={onThemDong}
-              disabled={!conMatHangDeThem}
-            >
-              <Plus className="size-4" aria-hidden />
-              Thêm dòng
-            </Button>
+            {/**
+              * ★★ ẨN KHI KHÔNG CÒN GÌ ĐỂ THÊM — Sếp 14/09/2026 (*"ẩn khi đơn có đề nghị"*).
+              *
+              * Sếp chỉ vào nút này trên màn lập đơn của một đề nghị và bảo bỏ. Ở đúng ca đó nó
+              * **đang bị khoá** (`disabled`) vì mọi mặt hàng lập được đơn của đề nghị đã vào bảng
+              * hết — một nút không bấm được là rác chiếm chỗ trên thanh công cụ.
+              *
+              * 🔴 ẨN THEO "CÒN GÌ ĐỂ THÊM KHÔNG", KHÔNG ẨN THEO "ĐƠN CÓ ĐỀ NGHỊ KHÔNG" — ẩn theo
+              * loại đơn thì đúng chữ nhưng CHẶN MẤT MỘT ĐƯỜNG THẬT:
+              *   · Đơn CÓ đề nghị + đã đưa hết mặt hàng → nút vô dụng → ẨN ✅ (đúng ca Sếp thấy)
+              *   · Đơn CÓ đề nghị + CÒN mặt hàng chưa vào bảng → **vẫn phải HIỆN**. Đây là ca
+              *     *"Tách thêm đơn"*: bảng của đơn thứ hai mở ra TRỐNG và mặt hàng KHÔNG tự vào
+              *     (Ban lãnh đạo 21/08/2026: *"chức năng tách thêm đơn chưa tự động link thông
+              *     tin từ các bước trước nó"* — xem khối chú thích ở phần bảng trống bên dưới).
+              *     Ẩn ở đây là người lập chỉ còn đường nhập Excel, tức chặn hẳn việc tách đơn.
+              *   · Đơn KHÔNG gắn đề nghị (`nhapTuDo`) → luôn HIỆN, vì nút chèn **dòng trắng gõ
+              *     tay** (luật 18/08/2026) và đó là đường DUY NHẤT lập đơn độc lập ngoài Excel.
+              *
+              * 📌 Kết quả trên màn hình giống hệt ý Sếp: đúng cái nút xám Sếp khoanh thì biến mất,
+              * còn nút bấm được thì ở lại. Khác biệt chỉ lộ ra ở ca tách đơn — nơi bỏ nút là hỏng.
+              *
+              * ⚠️ ĐỪNG "dọn cho gọn" thành bỏ luôn `onThemDong`: chỗ gọi vẫn cần nó, và chính nó
+              * quyết định chèn dòng gì (xem chú thích của `nhapTuDo`).
+              */}
+            {(nhapTuDo || conMatHangDeThem) && (
+              <Button type="button" variant="outline" className="min-h-11" onClick={onThemDong}>
+                <Plus className="size-4" aria-hidden />
+                Thêm dòng
+              </Button>
+            )}
             <Button type="button" variant="outline" className="min-h-11" onClick={onThemGhiChu}>
               <StickyNote className="size-4" aria-hidden />
               Thêm ghi chú
@@ -515,10 +535,15 @@ export function BangHangTien({
         </div>
       </div>
 
-      {/* 📌 CÂU NÀY ĐI THEO NÚT, KHÔNG Ở LẠI DƯỚI BẢNG. Nó giải thích vì sao [Thêm dòng] đang bị
-          khóa — để dưới bảng thì lời giải thích cách cái nút bị khóa cả màn hình cuộn.
+      {/* 📌 CÂU NÀY ĐI THEO NÚT, KHÔNG Ở LẠI DƯỚI BẢNG — để dưới bảng thì lời giải thích cách chỗ
+          nó nói tới cả màn hình cuộn.
           ⚠️ Chỉ đúng khi đơn CÓ đề nghị: đơn độc lập thêm bao nhiêu dòng cũng được nên không bao
-          giờ "hết mặt hàng". */}
+          giờ "hết mặt hàng".
+
+          ★★ SỬA 14/09/2026: câu này TRƯỚC ĐÂY giải thích *vì sao [Thêm dòng] đang bị khoá*. Nay
+          nút đó ĐÃ ẨN HẲN trong đúng ca này (Sếp bảo bỏ), nên câu đổi vai: nó không còn giải
+          thích một nút xám nữa mà là **lời xác nhận đã đủ hàng** — đọc xong là biết bảng không
+          thiếu gì, không phải đi tìm nút nào cả. Chữ giữ nguyên vì vẫn đúng nghĩa đó. */}
       {!nhapTuDo && !conMatHangDeThem && dong.length > 0 && (
         <p className="-mt-1 text-xs text-text-desc">
           Đã đưa hết mặt hàng lập được đơn của đề nghị này vào bảng.
