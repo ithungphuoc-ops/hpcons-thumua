@@ -113,8 +113,10 @@ import {
   giaiDoanDaToiLuot,
   conNoCuaBuoc,
   congViecConTreoCacBuocTruoc,
-  /* Chưa checkin tồn kho thì chưa xổ được khối bước ① — Ban lãnh đạo 12/09/2026. */
-  vuongMacXoKhoiTiepNhan,
+  /* 📌 BỎ `vuongMacXoKhoiTiepNhan` ngày 14/09/2026 — Sếp chỉ ra vòng luẩn quẩn: khoá khối bước ①
+     là khoá luôn bảng vật tư nằm trong đó, mà phải xem bảng đó mới biết cần kiểm vật tư gì để
+     checkin kho. Lý do đầy đủ ghi tại chỗ cũ trong khối bước ①. Hàm vẫn còn trong
+     `2-quy-trinh/giai-doan-mua-hang.ts` — đừng xoá, xem ghi chú ở đó. */
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, xem chú thích đầu file đó.
@@ -1056,19 +1058,55 @@ export default function TrangChiTietDeNghi({
                 nhan: NHAN_GIAI_DOAN.tiep_nhan.nhan,
                 dangODay: giaiDoan === "tiep_nhan",
                 conThieu: conThieuCuaBuoc("tiep_nhan"),
-                /* ★ KHÓA XỔ KHI CHƯA CHECKIN TỒN KHO — Ban lãnh đạo 12/09/2026. Ô tích để gỡ khóa
-                   nằm ở khối "Danh sách công việc" bên dưới (Card riêng), nên không kẹt. */
-                khoaMoRong: vuongMacXoKhoiTiepNhan(dn, cauHinh) ?? undefined,
+                /**
+                 * ❌❌ ĐÃ BỎ KHOÁ XỔ KHỐI — Sếp 14/09/2026, nguyên văn: *"bước này đang bị lỗi
+                 * logic, nếu như ko xem được các mặt hàng được đề xuất thì đâu biết cần vật tư gì
+                 * để check kho, e kiểm tra lại"*.
+                 *
+                 * Dòng cũ: `khoaMoRong: vuongMacXoKhoiTiepNhan(dn, cauHinh) ?? undefined`
+                 * (Ban lãnh đạo 12/09/2026 — khoá xổ tới khi tích xong "Checkin hàng tồn kho").
+                 *
+                 * 🔴 SẾP CHỈ ĐÚNG MỘT VÒNG LUẨN QUẨN: bảng vật tư (`BangPhanBo`) nằm BÊN TRONG
+                 * chính khối này. Khoá khối lại nghĩa là:
+                 *     muốn checkin kho → phải biết cần kiểm vật tư gì → phải xem bảng vật tư
+                 *     → nhưng bảng đó nằm trong khối đang bị khoá → chỉ mở khi đã checkin xong.
+                 * Không có đường ra. Người dùng buộc phải tích bừa cho khối mở, tức cái chốt tự
+                 * biến thành thứ dạy người ta khai gian.
+                 *
+                 * 🔴 APP CÒN TỰ MÂU THUẪN: câu chặn chuyển bước ở `giai-doan-mua-hang.ts` bảo
+                 * *"Mở khối bước đó ở trang chi tiết đề nghị, tích hoàn thành rồi làm tiếp"* —
+                 * trong khi chính khối đó bị khoá không cho mở.
+                 *
+                 * ✅ BỎ KHOÁ NÀY KHÔNG MẤT LUẬT NÀO. Việc "Checkin hàng tồn kho" vẫn được SÁU chốt
+                 * khác giữ, đều trong `2-quy-trinh/giai-doan-mua-hang.ts` và đều gọi
+                 * `congViecChuaXongCuaBuoc`: chặn chuyển bước · chặn rời bước · chặn giao việc
+                 * (phân bổ) · và các nhánh kéo thả. Chốt đứng ở CỬA RA là đúng chỗ; đứng ở CỬA VÀO
+                 * thì chặn luôn cả việc đọc dữ liệu cần để làm.
+                 *
+                 * 📌 Hàm `vuongMacXoKhoiTiepNhan` GIỮ NGUYÊN trong `2-quy-trinh/`, nay không ai
+                 * gọi. Đừng xoá: nó là bản ghi của chỉ đạo 12/09, và ngày nào bố cục đổi (bảng vật
+                 * tư ra ngoài khối) thì khoá xổ lại dùng được mà không vướng vòng luẩn quẩn trên.
+                 */
                 truong: [
-                  { nhan: "Bộ phận", giaTri: nhanPhongBan(dn.phongBanNguon) },
-                  {
-                    nhan: "Nhóm đề xuất",
-                    giaTri: NHAN_NHOM_DE_XUAT[dn.nhomDeXuat ?? "khac"],
-                  },
-                  { nhan: "Ngày đề nghị cấp", giaTri: formatMocThoiGian(dn.ngayCanHang) },
-                  { nhan: "Chi tiết", giaTri: `${dn.items.length} mặt hàng` },
+                  /* ❌ ĐÃ BỎ 4 TRƯỜNG — Sếp 14/09/2026: *"Bỏ thông tin này, không cần hiển thị"*
+                     (ảnh khoanh đúng khối ĐẦU VÀO của bước ①):
+                       · Bộ phận           → trùng ô 05 khối "Thông tin đề nghị" phía trên
+                       · Nhóm đề xuất      → trùng ô 06
+                       · Ngày đề nghị cấp  → trùng ô 12 "Ngày cần hàng"
+                       · Chi tiết (N mặt hàng) → chỉ là con số, mà bảng vật tư đầy đủ nằm ngay
+                         dưới trong khối KẾT QUẢ
+                     🔴 ĐÃ KIỂM §3.4b trước khi bỏ: cả bốn đều còn đọc được ở chỗ khác trên CÙNG
+                     trang này, nên không mục nào thành mồ côi. */
                   /* ★ LINK PHIẾU ĐỀ NGHỊ — thêm 18/08/2026 cùng hộp "Chỉnh sửa các trường dữ
                      liệu tùy chỉnh".
+
+                     🔴 GIỮ LẠI DÙ SẾP BẢO BỎ CẢ KHỐI — đã kiểm §3.4b: trên TRANG CHI TIẾT thì đây
+                     là chỗ DUY NHẤT đọc được `linkPhieuDeNghi`. Ngoài đây nó chỉ còn ở thẻ kanban
+                     và trong hộp sửa. Bỏ nốt là người dùng nhập một địa chỉ rồi không bao giờ đọc
+                     lại được ở trang chi tiết.
+                     📌 Trường này CÓ ĐIỀU KIỆN — hồ sơ nào không nhập thì không hiện, nên khối vẫn
+                     trống đúng như ảnh Sếp gửi. Sếp thấy thừa thì nhắn, em bỏ nốt.
+
                      🔴 PHẢI HIỆN Ở ĐÂY, không chỉ có ô để nhập: trường mà nhập được nhưng không
                      chỗ nào đọc lại là người dùng gõ vào rồi tưởng mất, hoặc gõ mỗi lần một chỗ.
                      📌 Chỉ dựng thành liên kết bấm được khi chuỗi là địa chỉ web — người dùng có
@@ -1095,9 +1133,10 @@ export default function TrangChiTietDeNghi({
                         },
                       ]
                     : []),
-                  ...(dn.taiLieu && dn.taiLieu.length > 0
-                    ? [{ nhan: "Tài liệu đính kèm", tep: dn.taiLieu }]
-                    : []),
+                  /* ❌ ĐÃ BỎ "Tài liệu đính kèm" khỏi khối này — Sếp 14/09/2026.
+                     ✅ An toàn: cùng trang đã có khối riêng *"Tài liệu người đề nghị đính kèm (N)"*
+                     bày đủ từng tệp và mở xem được, cộng ô 13 khối "Thông tin đề nghị" hiện số
+                     đếm. Ở đây chỉ là bản thứ ba của cùng một thứ. */
                 ],
                 /* M3 — PHÂN BỔ, thuộc bước ① (chỉ đạo 16/08/2026, xem chú thích đầu khối).
                    Giao ai làm dòng vật tư nào là việc đầu tiên Thu mua phải làm sau khi nhận
@@ -1133,14 +1172,22 @@ export default function TrangChiTietDeNghi({
                    kèm cho hợp đồng, đơn có chữ ký, hóa đơn NCC") chính là cùng một nhu cầu;
                    làm lẻ từng chỗ là sau này app có 5 cơ chế đính kèm khác nhau, mỗi chỗ một
                    kiểu. Bước ① nhận biên bản họp, phiếu kiểm tồn kho… */
-                khuDinhKem: (
-                  <KhuDinhKemGiaiDoan
-                    deNghi={dn}
-                    maGiaiDoan="tiep_nhan"
-                    duocSua={duocSuaTepBuoc}
-                    khoa={hoSoDaDong}
-                  />
-                ),
+                /**
+                 * ❌❌ ĐÃ BỎ Ô "Đính kèm chứng từ khác" CỦA RIÊNG BƯỚC ① — Sếp 14/09/2026:
+                 * *"Bỏ thông tin này, không cần hiển thị"* (ảnh khoanh đúng nút đó).
+                 *
+                 * ⚠️ CÁI GIÁ, ĐÃ BÁO SẾP: bước ① nay KHÔNG CÒN chỗ đính kèm riêng. Chú thích cũ
+                 * ghi bước này dùng để nhận *"biên bản họp, phiếu kiểm tồn kho…"* — những tệp đó
+                 * từ nay không có chỗ nộp ở bước ①.
+                 *
+                 * ✅ KHÔNG MẤT TỆP CŨ: hồ sơ nào đã đính kèm ở bước ① thì tệp vẫn nằm nguyên trong
+                 * `tepGiaiDoan["tiep_nhan"]`, và `bo-ho-so-thanh-toan.ts` vẫn đọc được. Chỉ là màn
+                 * hình không bày ra nữa.
+                 * 👉 Sếp cần lại thì nhắn một câu — dựng lại `<KhuDinhKemGiaiDoan maGiaiDoan=
+                 * "tiep_nhan" …>` đúng chỗ này là xong, không phải viết lại gì.
+                 *
+                 * 📌 Năm bước còn lại GIỮ NGUYÊN ô đính kèm của chúng — chỉ bỏ ở bước ①.
+                 */
               },
               {
                 ma: "yeu_cau_bao_gia",

@@ -1367,6 +1367,30 @@ export function vuongMacGiaoViec(
  * công việc" — một Card RIÊNG bên ngoài khối bị khóa. Khóa một khối mà điều kiện gỡ nằm BÊN
  * TRONG chính nó là kẹt vĩnh viễn; xem cảnh báo ở `khoaMoRong`.
  *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════
+ * 🔴🔴 TỪ 14/09/2026 HÀM NÀY KHÔNG CÒN AI GỌI — ĐỌC HẾT TRƯỚC KHI NỐI LẠI HOẶC XOÁ
+ * ═══════════════════════════════════════════════════════════════════════════════════════════
+ * Sếp, nguyên văn: *"bước này đang bị lỗi logic, nếu như ko xem được các mặt hàng được đề xuất
+ * thì đâu biết cần vật tư gì để check kho, e kiểm tra lại"*.
+ *
+ * Cảnh báo ngay phía trên đã đúng một nửa: nó lo *"điều kiện gỡ nằm bên trong khối bị khóa"*, và
+ * kết luận là an toàn vì ô tích nằm ở Card riêng. Nhưng nó BỎ SÓT vế thứ hai — thứ bị khóa cùng
+ * không chỉ là ô tích, mà là **bảng vật tư** (`BangPhanBo`, nằm trong `noiDungNghiepVu` của khối
+ * bước ①). Thành ra:
+ *     muốn checkin kho → phải biết cần kiểm vật tư gì → phải xem bảng vật tư
+ *     → bảng đó nằm trong khối đang bị khóa → khối chỉ mở khi đã checkin xong.
+ * Không có đường ra. Người dùng buộc phải tích bừa cho khối mở — cái chốt tự biến thành thứ dạy
+ * người ta khai gian.
+ *
+ * 📌 Luật KHÔNG mất khi bỏ lớp này — đúng như chính đoạn trên đã ghi (*"Bỏ lớp này KHÔNG làm
+ * thủng luật"*). Việc "Checkin hàng tồn kho" vẫn được SÁU chốt khác giữ, tất cả đều gọi
+ * `congViecChuaXongCuaBuoc`: chặn chuyển bước · chặn rời bước · `vuongMacGiaoViec` · các nhánh
+ * kéo thả.
+ *
+ * 👉 MUỐN NỐI LẠI thì phải dời bảng vật tư RA NGOÀI khối trước, không thì dựng lại đúng vòng
+ * luẩn quẩn trên. Giữ hàm vì nó là bản ghi chỉ đạo 12/09/2026 và dùng lại được ngay khi bố cục
+ * đổi — đừng xoá.
+ *
  * @returns Câu lý do bị khóa, `null` là xổ được.
  */
 export function vuongMacXoKhoiTiepNhan(
