@@ -11,6 +11,7 @@ import "server-only";
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { unstable_cache, revalidateTag } from "next/cache";
 import type { VaiTroToanCucAppTong } from "@/4-phan-quyen/quyen";
 
 // ============================================================
@@ -92,6 +93,24 @@ export async function verifyHpcore(cookie: string | undefined): Promise<HpcoreId
 
 const VAI_TRO_HOP_LE: readonly VaiTroToanCucAppTong[] = ["owner", "admin", "manager", "employee"];
 
+// ⚠️ QUY ƯỚC HẠN MỨC FIRESTORE — ghi lại sau sự cố RESOURCE_EXHAUSTED thật ở app Kho công trình
+// (QLK CTR) ngày 13/09/2026 (gói Spark, trần 50.000 lượt đọc/ngày, 1 trang quét toàn bộ lịch sử
+// không giới hạn/không cache làm sập cả app). Rà soát 14/09/2026 phát hiện 2 hàm dưới đây
+// (`fetchVaiTroToanCuc`, `fetchDanhBaCongTy`) đọc trực tiếp Firestore mỗi lần gọi, không cache:
+// - `fetchVaiTroToanCuc(uid)` chạy mỗi lần xác minh phiên SSO (mỗi F5/mở app) — cache 30s AN
+//   TOÀN không cần `revalidateTag` vì `users` do App Tổng SỞ HỮU VÀ GHI, app này chỉ đọc.
+// - `fetchDanhBaCongTy()` quét TOÀN BỘ 3 collection (`users`, `departments`, `nguoi-dung`) mỗi
+//   lần mở màn "Phân quyền người dùng" — cache 60s. KHÁC với hàm trên: collection `nguoi-dung`
+//   trong hàm này DO CHÍNH APP NÀY GHI (`ghiHoSoNguoiDungMayChu`, đường ghi duy nhất tại
+//   `app/api/phan-quyen/route.ts`), nên PHẢI nối `revalidateTag(TAG_DANH_BA, ...)` ngay sau khi
+//   ghi — thiếu bước này sẽ tái diễn đúng lỗi đã gặp ở ITAsset (tạo/sửa quyền xong, danh sách
+//   "đã có hồ sơ Thu mua" vẫn hiện sai tới 60 giây).
+//
+// Nếu sau này thêm hàm đọc mới cho dữ liệu do App Tổng ghi (KHÔNG phải app này ghi): cache +
+// KHÔNG cần revalidateTag. Nếu dữ liệu do CHÍNH APP NÀY ghi: cache + BẮT BUỘC revalidateTag tại
+// mọi nơi ghi liên quan, không được bỏ sót bất kỳ đường ghi nào.
+const TAG_DANH_BA_CONG_TY = "thumua-danh-ba-cong-ty";
+
 /**
  * Vai trò TOÀN CỤC của App Tổng (`users/{uid}.role`) — KHÔNG PHẢI vai trò riêng của app
  * Thu mua. Dùng Admin SDK nên đi vòng qua Security Rules — an toàn vì chỉ máy chủ gọi được.
@@ -99,17 +118,21 @@ const VAI_TRO_HOP_LE: readonly VaiTroToanCucAppTong[] = ["owner", "admin", "mana
  * Trả `null` nếu không đọc được hoặc giá trị lạ — nơi gọi phải coi như "không phải owner",
  * không được ngầm định bất kỳ quyền nào khi không chắc chắn.
  */
-export async function fetchVaiTroToanCuc(uid: string): Promise<VaiTroToanCucAppTong | null> {
-  try {
-    const snap = await getHpcoreDb().collection("users").doc(uid).get();
-    const role = snap.data()?.role;
-    return typeof role === "string" && (VAI_TRO_HOP_LE as readonly string[]).includes(role)
-      ? (role as VaiTroToanCucAppTong)
-      : null;
-  } catch {
-    return null;
-  }
-}
+export const fetchVaiTroToanCuc = unstable_cache(
+  async (uid: string): Promise<VaiTroToanCucAppTong | null> => {
+    try {
+      const snap = await getHpcoreDb().collection("users").doc(uid).get();
+      const role = snap.data()?.role;
+      return typeof role === "string" && (VAI_TRO_HOP_LE as readonly string[]).includes(role)
+        ? (role as VaiTroToanCucAppTong)
+        : null;
+    } catch {
+      return null;
+    }
+  },
+  ["thumua-vai-tro-toan-cuc"],
+  { revalidate: 30 },
+);
 
 /** Custom Token cho CHÍNH project `hpcons-portal` — client tự `signInWithCustomToken`. */
 export async function mintCustomToken(uid: string): Promise<string> {
@@ -159,34 +182,38 @@ export interface ThanhVienDanhBa {
  * thường THIẾU `title`/`departmentId` (không cần khai vì không đi qua luồng phân quyền theo
  * app con) nên dòng của họ hiện trống trơn, dễ bị tưởng nhầm là lỗi đồng bộ dữ liệu.
  */
-export async function fetchDanhBaCongTy(): Promise<ThanhVienDanhBa[]> {
-  const db = getHpcoreDb();
-  const [usersSnap, deptSnap, nguoiDungSnap] = await Promise.all([
-    db.collection("users").where("isActive", "==", true).get(),
-    db.collection("departments").get(),
-    db.collection("nguoi-dung").get(),
-  ]);
+export const fetchDanhBaCongTy = unstable_cache(
+  async (): Promise<ThanhVienDanhBa[]> => {
+    const db = getHpcoreDb();
+    const [usersSnap, deptSnap, nguoiDungSnap] = await Promise.all([
+      db.collection("users").where("isActive", "==", true).get(),
+      db.collection("departments").get(),
+      db.collection("nguoi-dung").get(),
+    ]);
 
-  const tenPhongBan = new Map<string, string>();
-  deptSnap.forEach((d) => tenPhongBan.set(d.id, (d.data().name as string) ?? ""));
+    const tenPhongBan = new Map<string, string>();
+    deptSnap.forEach((d) => tenPhongBan.set(d.id, (d.data().name as string) ?? ""));
 
-  const daCoHoSo = new Set(nguoiDungSnap.docs.map((d) => d.id));
+    const daCoHoSo = new Set(nguoiDungSnap.docs.map((d) => d.id));
 
-  return usersSnap.docs
-    .filter((d) => d.data().role !== "owner")
-    .map((d) => {
-      const data = d.data();
-      const departmentId = data.departmentId as string | null | undefined;
-      return {
-        uid: d.id,
-        hoTen: (data.fullName as string)?.trim() || (data.email as string)?.split("@")[0] || d.id,
-        email: (data.email as string) ?? "",
-        phongBan: departmentId ? (tenPhongBan.get(departmentId) ?? "") : "",
-        chucDanh: (data.title as string) ?? "",
-        daCoHoSoThuMua: daCoHoSo.has(d.id),
-      };
-    });
-}
+    return usersSnap.docs
+      .filter((d) => d.data().role !== "owner")
+      .map((d) => {
+        const data = d.data();
+        const departmentId = data.departmentId as string | null | undefined;
+        return {
+          uid: d.id,
+          hoTen: (data.fullName as string)?.trim() || (data.email as string)?.split("@")[0] || d.id,
+          email: (data.email as string) ?? "",
+          phongBan: departmentId ? (tenPhongBan.get(departmentId) ?? "") : "",
+          chucDanh: (data.title as string) ?? "",
+          daCoHoSoThuMua: daCoHoSo.has(d.id),
+        };
+      });
+  },
+  ["thumua-danh-ba-cong-ty"],
+  { revalidate: 60, tags: [TAG_DANH_BA_CONG_TY] },
+);
 
 /** Đọc hồ sơ `nguoi-dung/{uid}` bằng Admin SDK (đi vòng qua Security Rules) — dùng ở API route
  *  để biết CHÍNH XÁC cấp quyền của người đang gọi, không tin dữ liệu do trình duyệt tự khai. */
@@ -202,4 +229,9 @@ export async function docHoSoNguoiDungMayChu(uid: string): Promise<Record<string
  */
 export async function ghiHoSoNguoiDungMayChu(uid: string, data: Record<string, unknown>): Promise<void> {
   await getHpcoreDb().collection("nguoi-dung").doc(uid).set(data, { merge: true });
+  // BẮT BUỘC — đây là đường ghi duy nhất tới `nguoi-dung`, mà `fetchDanhBaCongTy()` ở trên đọc
+  // (cờ `daCoHoSoThuMua`) đang cache 60s. Thiếu dòng này thì màn "Phân quyền người dùng" sẽ hiện
+  // sai cờ "đã có hồ sơ" tới 60 giây sau khi vừa cấp/sửa quyền — xem chú thích QUY ƯỚC HẠN MỨC
+  // FIRESTORE ở đầu file.
+  revalidateTag(TAG_DANH_BA_CONG_TY);
 }
