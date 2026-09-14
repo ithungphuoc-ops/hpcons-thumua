@@ -446,56 +446,47 @@ export interface MoTaThamSo {
  */
 export const THAM_SO_QUY_TRINH: MoTaThamSo[] = [
   {
-    khoa: "nguongKyDuyetDon",
-    nhan: "Ngưỡng trình ký duyệt đơn",
-    moTa: "Đơn TRÊN mức này phải trình Trưởng phòng Thu mua Cung ứng ký duyệt, rồi gửi nhà cung cấp ký xác nhận.",
-    kieu: "tien",
-    toiThieu: 100_000,
-    toiDa: 1_000_000_000,
-  },
-  {
-    khoa: "nguongHaiBaoGia",
-    nhan: "Ngưỡng bắt buộc nhiều báo giá",
-    /* 🔴 BỎ CÂU "Tổng Giám đốc là người duyệt" — Ban lãnh đạo 20/08/2026: *"không cần tổng giám
-       đốc duyệt, trưởng phòng sẽ quyết định"*. Cấp duyệt không còn phụ thuộc giá trị đơn. */
-    moTa: "Đơn TỪ mức này phải có đủ số báo giá tối thiểu. Người duyệt luôn là trưởng bộ phận Thu mua, không phân cấp theo giá trị.",
-    kieu: "tien",
-    toiThieu: 100_000,
-    toiDa: 1_000_000_000,
-  },
-  {
-    khoa: "nguongHopDong",
-    nhan: "Ngưỡng bắt buộc có hợp đồng",
-    moTa: "Đơn TỪ mức này phải có hợp đồng do Tổng Giám đốc ký; nhà cung cấp mới phải vào danh sách NCC.",
-    kieu: "tien",
-    toiThieu: 100_000,
-    toiDa: 5_000_000_000,
-  },
-  {
     khoa: "soBaoGiaToiThieu",
     nhan: "Số báo giá tối thiểu",
-    moTa: "Số nhà cung cấp phải có báo giá khi đơn vượt ngưỡng trên. Quy trình công ty ghi 02.",
+    /* 🔴 BỎ CỤM "khi đơn vượt ngưỡng trên" — từ 14/09/2026 không còn ô ngưỡng nào ở trên nữa, và
+       cổng chặn thật (`soBaoGiaCanCo`) chưa bao giờ xét tiền: nó lấy MAX giữa số này và ô
+       "SL Báo giá" trưởng bộ phận đặt tay lúc giao việc. Câu cũ mô tả một luật app không chạy. */
+    moTa: "Số nhà cung cấp phải có báo giá cho mỗi đề nghị. Quy trình công ty ghi 02. Trưởng bộ phận đặt riêng cho từng dòng ở ô “SL Báo giá” thì số đó thắng số này.",
     kieu: "so",
     toiThieu: 1,
     toiDa: 10,
   },
-  {
-    khoa: "soNgayDeNghiToiThieu",
-    nhan: "Số ngày đề nghị trước ngày cần hàng",
-    moTa: "Đề nghị phải lập trước ngày cần hàng ít nhất bao nhiêu ngày, để thu mua kịp hỏi giá và đặt hàng.",
-    kieu: "so",
-    toiThieu: 0,
-    toiDa: 60,
-  },
-  {
-    khoa: "soTaiLieuToiDa",
-    nhan: "Số tài liệu đính kèm tối đa",
-    moTa: "Số tệp đính kèm được cho một đề nghị (catalogue, bản vẽ, chứng chỉ).",
-    kieu: "so",
-    toiThieu: 1,
-    toiDa: 30,
-  },
 ];
+
+/**
+ * ★★★ ĐÃ BỎ 5 Ô KHỎI TRANG CÀI ĐẶT — Sếp 14/09/2026, nguyên văn quyết định: **"Bỏ luôn"**.
+ *
+ * Sếp phát hiện ô "Ngưỡng bắt buộc nhiều báo giá" sửa xong không có tác dụng gì
+ * (*"mục này điều chỉnh không có tác dụng gì hết, kiểm tra lại code xem"*). Truy vết bằng 12 lượt
+ * rà độc lập cho thấy **5 trong 6 ô là mã chết**, không riêng ô Sếp chỉ:
+ *
+ * | Ô đã bỏ                              | Vì sao chết |
+ * |--------------------------------------|-------------|
+ * | `nguongKyDuyetDon` · `nguongHaiBaoGia` · `nguongHopDong` | Luật áp ngưỡng nằm ở `soatNguongBaoGia` (`2-quy-trinh/nguong-gia-tri.ts`) — **KHÔNG tệp nào import hàm đó**. Và kể cả gọi thì `giaTriUocTinh` cộng tiền từ `items[].baoGiaNCC[].donGia`, mà từ 20/08/2026 app **không nhập đơn giá NCC nữa** nên giá trị hồ sơ **luôn = 0** → mọi phép so với ngưỡng luôn sai. |
+ * | `soNgayDeNghiToiThieu`                | Không nơi nào đọc để chặn lập đề nghị trễ. |
+ * | `soTaiLieuToiDa`                      | Không nơi nào đọc để chặn số tệp đính kèm. |
+ *
+ * ⚠️ TRƯỚC KHI BỎ, TRANG NÀY ĐÃ CÓ MỘT KHỐI CẢNH BÁO VÀNG nói đúng chuyện đó
+ * (`1-giao-dien/trang/cai-dat-quy-trinh.tsx`). Sếp vẫn tưởng ô có tác dụng. **Bài học: một ô nhập
+ * trắng sáng thắng mọi dòng chữ xám giải thích bên cạnh nó.** Chức năng không chạy thì phải bỏ ô
+ * đi, đừng dán nhãn giải thích rồi để đó (CLAUDE.md §3.5).
+ *
+ * 📌 GIỮ NGUYÊN 5 TRƯỜNG TRONG `CauHinhQuyTrinh` và `CAU_HINH_MAC_DINH` — CỐ Ý, đừng "dọn nốt":
+ *   · Dữ liệu cũ trên Firestore và trong `lichSuCauHinh` vẫn mang 5 khoá đó. Bỏ khỏi kiểu là mọi
+ *     bản ghi lịch sử cấu hình cũ đọc ra `undefined` và khối so sánh thay đổi hiện sai.
+ *   · Chúng là **con số quy định của công ty** (5tr / 10tr / 20tr theo quy trình TM-QT Mua hàng).
+ *     Xoá khỏi mã là mất luôn chỗ tra cứu duy nhất còn lại trong app.
+ *   · Ngày nào app nhập lại được đơn giá NCC thì chỉ cần thêm mục vào bảng trên là ô sống lại.
+ *
+ * 🔴 `soBaoGiaToiThieu` LÀ Ô DUY NHẤT CÒN TÁC DỤNG THẬT — nó được `soBaoGiaCanCo`
+ * (`2-quy-trinh/bao-gia-dinh-kem.ts:119`) đọc và `vuongMacTrinhXetDuyet` dùng để chặn trình xét
+ * duyệt. Có bài kiểm máy khoá lại (`kiem-luat-dung-chung.mjs`). **Đừng bỏ nốt ô này.**
+ */
 
 /**
  * Kiểm cấu hình trước khi lưu — trả về danh sách lỗi, mảng rỗng là hợp lệ.
@@ -556,16 +547,16 @@ export function loiCauHinh(ch: CauHinhQuyTrinh): string[] {
     }
   }
 
-  if (ch.nguongKyDuyetDon > ch.nguongHaiBaoGia) {
-    loi.push(
-      "Ngưỡng trình ký duyệt phải ≤ ngưỡng bắt buộc nhiều báo giá — nếu không sẽ có đơn cần nhiều báo giá mà không cần ký duyệt.",
-    );
-  }
-  if (ch.nguongHaiBaoGia > ch.nguongHopDong) {
-    loi.push(
-      "Ngưỡng nhiều báo giá phải ≤ ngưỡng bắt buộc hợp đồng — nếu không sẽ có đơn phải ký hợp đồng mà không cần báo giá nào.",
-    );
-  }
+  /* ★★ ĐÃ BỎ HAI PHÉP KIỂM THỨ TỰ BA NGƯỠNG — Sếp 14/09/2026 bỏ cả ba ô ngưỡng tiền khỏi trang
+     cài đặt (xem khối ★★★ dưới `THAM_SO_QUY_TRINH`).
+
+     🔴 PHẢI BỎ, KHÔNG PHẢI "dọn cho gọn": ba ngưỡng không còn ô nhập nên **không ai đổi được
+     chúng nữa**, giá trị vĩnh viễn là mặc định 5tr ≤ 10tr ≤ 20tr — hai phép kiểm này không bao
+     giờ đỏ được. Giữ lại là giữ hai dòng luôn đúng, người sau đọc tưởng ngưỡng vẫn đang sống.
+
+     ⚠️ Nếu ngày nào ba ô đó quay lại (app nhập lại được đơn giá NCC) thì **phải khôi phục hai phép
+     kiểm này cùng lúc** — thiếu nó thì gõ ngưỡng hợp đồng thấp hơn ngưỡng báo giá là sinh ra vùng
+     vô nghĩa: đơn phải ký hợp đồng mà không cần báo giá nào. */
 
   return loi;
 }

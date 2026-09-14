@@ -521,7 +521,12 @@ export function KhuBaoGiaTheoSoLuong({
                     setHoiBoQuaO(i);
                     setLyDoNhap("");
                   }}
-                  className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-full border border-warning/40 bg-warning-bg px-3 text-xs font-semibold text-warning-soft transition-colors hover:bg-warning/20"
+                  /* 🔴 `rounded-lg` (8px) — KHÔNG dùng `rounded-full`. Sếp 14/09/2026: *"Sửa lại
+                     bodel hình chữ nhật… nếu có boder hình oval kiểu này thì chuyển về hình chữ
+                     nhật bo góc hết"*. 8px là bán kính nút chuẩn của Design System V1.1
+                     (`--radius: 0.5rem` trong `app/globals.css`, cũng là bán kính `Button` dùng).
+                     Nút viền bo tròn hoàn toàn nằm cạnh các nút bo góc trông như của app khác. */
+                  className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-warning/40 bg-warning-bg px-3 text-xs font-semibold text-warning-soft transition-colors hover:bg-warning/20"
                 >
                   <X className="size-3.5 shrink-0" aria-hidden />
                   Không tìm được nhà cung cấp cho ô này — bỏ qua, ghi lý do
@@ -618,8 +623,11 @@ export function KhuBaoGiaTheoSoLuong({
                   setLyDoNhap("");
                 }}
                 /* Cùng kiểu nút với “bỏ qua, ghi lý do” của các ô báo giá phía trên — cùng một
-                   việc thì phải nhìn giống nhau, người dùng không phải học hai lần. */
-                className="inline-flex min-h-9 w-fit shrink-0 items-center gap-1.5 rounded-full border border-warning/40 bg-warning-bg px-3 text-xs font-semibold text-warning-soft transition-colors hover:bg-warning/20"
+                   việc thì phải nhìn giống nhau, người dùng không phải học hai lần.
+                   🔴 `rounded-lg` (8px, bán kính nút chuẩn V1.1) — Sếp 14/09/2026 chỉ đúng nút này
+                   trong ảnh: *"chuyển về hình chữ nhật bo góc hết"*. Đổi ở đây thì đổi luôn nút
+                   trên cho khớp, đừng để hai nút cùng việc mà khác hình. */
+                className="inline-flex min-h-9 w-fit shrink-0 items-center gap-1.5 rounded-lg border border-warning/40 bg-warning-bg px-3 text-xs font-semibold text-warning-soft transition-colors hover:bg-warning/20"
               >
                 <X className="size-3.5 shrink-0" aria-hidden />
                 Không cần đính kèm

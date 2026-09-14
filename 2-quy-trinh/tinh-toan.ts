@@ -495,6 +495,26 @@ export interface KetQuaTienDonHang extends TienDonHang {
    * (thuế suất 8%)" trong khi đơn có cả 10% là ghi sai chứng từ thuế. Dùng `moTaThueSuat`.
    */
   nhieuMucThue: boolean;
+  /**
+   * ★★ TIỀN THUẾ TÁCH THEO TỪNG MỨC — Sếp 14/09/2026: *"Tách các dòng theo mức thuế của từng
+   * mặt hàng"* (ảnh chỉ vào dòng tổng ghi *"Tiền thuế GTGT (nhiều mức) 84.400 đ"*).
+   *
+   * 🔴 KHÔNG PHẢI SỐ TÍNH THÊM — đây chính là các con số vòng lặp gom nhóm bên dưới ĐÃ tính rồi
+   * nhưng trước đây cộng dồn xong là vứt đi. Bày ra chỉ là **kể lại phép cộng**, nên không thể
+   * lệch với `tienThueGTGT`: tổng `tienThue` của mảng này LUÔN bằng đúng `tienThueGTGT`.
+   *
+   * 🔴 VÌ SAO CẦN: một dòng "84.400 đ (nhiều mức)" thì kế toán không đối chiếu được với hóa đơn
+   * NCC — hóa đơn tách từng mức. Người lập đơn cũng không tự kiểm được số nào sai khi lệch.
+   *
+   * ⚠️ Mỗi mức làm tròn ĐÚNG MỘT LẦN theo cơ sở tính thuế của cả nhóm (xem quyết định số 2 ở chú
+   * thích hàm). Vì vậy ĐỪNG tự cộng `tienThueGTGT` của từng dòng để ra số của một mức — cộng số
+   * đã làm tròn theo dòng có thể lệch vài đồng so với con số đúng ở đây.
+   *
+   * 📌 Sắp theo mức TĂNG DẦN để tờ chứng từ và màn hình luôn cùng thứ tự, không phụ thuộc dòng
+   * nào nhập trước. Đơn một mức thì mảng có đúng 1 phần tử (không phải mảng rỗng) — nơi vẽ tự
+   * quyết bày hay không, đừng bắt nó đoán.
+   */
+  theoMucThue: { mucThue: number; coSo: number; tienThue: number }[];
 }
 
 /**
@@ -560,11 +580,15 @@ export function tinhTienChiTiet(
   /** Mức thuế của nhóm có cơ sở tính thuế lớn nhất — chỉ dùng khi cả đơn một mức. */
   let mucLonNhat = 0;
   let coSoLonNhat = -1;
+  /* Ghi lại số của TỪNG MỨC ngay tại chỗ tính — Sếp 14/09/2026, xem `theoMucThue`. Trước đây
+     `thueCuaNhom` cộng vào tổng rồi mất, nên màn hình chỉ nói được "nhiều mức". */
+  const theoMucThue: { mucThue: number; coSo: number; tienThue: number }[] = [];
 
   for (const [mucThue, chiSo] of nhom) {
     const coSo = chiSo.reduce((s, i) => s + thanhTienSauCK[i], 0);
     const thueCuaNhom = tienThueDong(coSo, mucThue);
     tienThueGTGT += thueCuaNhom;
+    theoMucThue.push({ mucThue, coSo, tienThue: thueCuaNhom });
 
     const phanBo = chiaTheoTyLe(
       chiSo.map((i) => thanhTienSauCK[i]),
@@ -598,6 +622,9 @@ export function tinhTienChiTiet(
     tienThueGTGT,
     tongThanhToan: congTienHangSauCK + tienThueGTGT,
     nhieuMucThue: nhom.size > 1,
+    /* Sắp theo mức TĂNG DẦN — `Map` giữ thứ tự dòng nhập, mà thứ tự đó đổi theo cách người dùng
+       gõ. Không sắp thì cùng một đơn mở hai lần có thể bày 8% trước hoặc 10% trước. */
+    theoMucThue: theoMucThue.sort((a, b) => a.mucThue - b.mucThue),
   };
 }
 

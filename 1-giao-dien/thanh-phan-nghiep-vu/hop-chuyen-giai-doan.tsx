@@ -28,7 +28,10 @@ import {
   type DieuKienConVuong,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { chuTien } from "@/2-quy-trinh/nguong-gia-tri";
+/* 📌 BỎ `import { chuTien }` ngày 14/09/2026: câu duy nhất còn in ngưỡng tiền ra màn hình đã bị
+   gỡ cùng lúc Sếp bỏ ba ô ngưỡng khỏi trang Cài đặt (*"Bỏ luôn"*). Sau lần này
+   `2-quy-trinh/nguong-gia-tri.ts` KHÔNG còn tệp nào import — xem ghi chú ở đầu tệp đó trước khi
+   định xoá nó. */
 import {
   BUOC_DINH_KEM_HOP_DONG,
   BUOC_DINH_KEM_HO_SO_THANH_TOAN,
@@ -374,13 +377,23 @@ export function HopChuyenGiaiDoan({
                 )}
                 {/* GIỮ luật công ty (đây là quy định thật, sinh từ cấu hình nên không nói dối
                     khi ngưỡng đổi), BỎ vế chỉ đường "muốn khác nhau từng dòng thì sửa ở bảng
-                    Phân bổ công việc" — Ban lãnh đạo 16/08/2026. */}
+                    Phân bổ công việc" — Ban lãnh đạo 16/08/2026.
+
+                    ★★ BỎ NỐT VẾ "với đơn từ … đồng trở lên" — Sếp 14/09/2026 bỏ ô ngưỡng tiền khỏi
+                    trang Cài đặt vì nó là mã chết (xem khối ★★★ ở `2-quy-trinh/cau-hinh-quy-trinh.ts`).
+
+                    🔴 VẾ ĐÓ LÀ CÂU NÓI DỐI DUY NHẤT CÒN LẠI VỀ NGƯỠNG TIỀN, và nó nguy vì nghe rất
+                    thật: người dùng đọc xong tin rằng đơn dưới 10 triệu thì app không đòi báo giá.
+                    Thực tế `soBaoGiaCanCo` **chưa bao giờ xét tiền** — nó lấy MAX giữa
+                    `soBaoGiaToiThieu` và ô "SL Báo giá" đặt tay, nên đơn 1 đồng vẫn bị đòi đủ số.
+                    Nói đúng việc app làm thì người dùng mới đoán đúng app sẽ chặn khi nào. */}
                 <p className="text-xs text-text-desc">
                   Quy trình yêu cầu tối thiểu{" "}
                   <strong>
                     {String(cauHinh.soBaoGiaToiThieu).padStart(2, "0")} báo giá
                   </strong>{" "}
-                  với đơn từ {chuTien(cauHinh.nguongHaiBaoGia)} đồng trở lên.
+                  cho mọi đề nghị. Trưởng bộ phận đặt riêng cho từng dòng ở ô “SL Báo giá” thì số đó
+                  thắng số này.
                 </p>
               </div>
             )}

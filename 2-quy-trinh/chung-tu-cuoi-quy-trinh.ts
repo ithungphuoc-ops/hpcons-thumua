@@ -443,6 +443,34 @@ export function vuongMacHoanThanhQuyTrinh(
     return `Còn ${chuaVeDu} mặt hàng chưa nhận đủ hàng. Ghi nốt phiếu nhận hàng trước khi hoàn thành.`;
   }
 
+  /**
+   * ★★ BẮT BUỘC CÓ TỆP HỢP ĐỒNG MỚI ĐÓNG ĐƯỢC HỒ SƠ — Sếp 14/09/2026, nguyên văn: *"2 loại này
+   * đều phải đính kèm hợp đồng… E chỉ cần tạo nút đính kèm HĐ bắt buộc là được"*.
+   *
+   * 🔴 DÙNG `coHopDong` (CHỈ HỎI CÓ TỆP), TUYỆT ĐỐI KHÔNG DÙNG `vuongMacRoiBuocLapDon` — hàm kia
+   * chấp nhận **tệp HOẶC lời khai**, dùng nhầm ở đây là hồ sơ bấm "Không có HĐ" đóng được mà
+   * không có tờ hợp đồng nào, tức luật này thành vô hiệu ngay ngày đầu.
+   *
+   * 📌 HAI CHỐT NÀY KHÁC NHAU LÀ CỐ Ý, ĐỪNG "DỌN CHO THỐNG NHẤT":
+   *   · Bước ④ (`vuongMacRoiBuocLapDon`) — *tệp HOẶC lý do*. Nới ở đây là đúng: lúc lập đơn thì
+   *     hợp đồng thường CHƯA ký xong, chặn cứng là cả phòng đứng lại. Sếp 13/09/2026 còn thêm
+   *     hai nút lý do ở chính chốt này.
+   *   · Bước ⑧ (dòng dưới) — *BẮT BUỘC CÓ TỆP*. Đây là lúc đóng hồ sơ đẩy sang Kế toán, không
+   *     còn "sẽ bổ sung sau" nữa. Lời khai không thay được chứng từ.
+   * Cùng một câu hỏi "có hợp đồng chưa" nhưng hỏi ở hai thời điểm khác nhau nên đòi khác nhau —
+   * y hệt cặp `vuongMacDuyetHoanThanhDeNghi` (⑦ không đòi hóa đơn · ⑧ đòi) ngay trên.
+   *
+   * ⚠️ HỆ QUẢ PHẢI BIẾT, ĐÃ BÁO SẾP: hồ sơ đã bấm **"Không có HĐ"** vẫn KHÔNG hoàn thành được
+   * cho tới khi đính tệp thật. Dấu đỏ giữa chừng thì tắt (luật 13/09), nhưng cửa cuối vẫn đóng.
+   * Đó đúng chữ Sếp *"2 loại này đều phải đính kèm hợp đồng"* — kể cả đơn mẫu PO-02.
+   *
+   * 📌 XÉT TRƯỚC hóa đơn VAT: hợp đồng thuộc bước ④/⑤, hóa đơn thuộc ⑦. Nhắc theo đúng thứ tự
+   * thời gian thì người dùng đi ngược dòng hồ sơ một lượt, không nhảy qua nhảy lại.
+   */
+  if (!coHopDong(deNghi)) {
+    return `Chưa đính kèm ${TEN_HIEN_HOP_DONG} — bắt buộc phải có bản đã ký mới đóng được hồ sơ. Đính kèm ngay ở ô “${TEN_HIEN_HOP_DONG}” trong khối này.`;
+  }
+
   /* Hai điều kiện chứng từ — dùng lại đúng hai hàm ở trên, không viết lại điều kiện. */
   const thieuVAT = vuongMacDuyetHoanThanhDeNghi(deNghi);
   if (thieuVAT !== null) return thieuVAT;

@@ -1744,14 +1744,28 @@ export default function TrangChiTietDeNghi({
                                 sau đọc thấy "hiển thị duy nhất" rồi đi khôi phục lại đúng cái Sếp
                                 vừa yêu cầu bỏ.
 
-                                📌 "Không duyệt" KHÔNG mồ côi: hộp thoại chung có ô sổ xuống "Quyết
-                                định của trưởng bộ phận" với hai lựa chọn Đồng ý / Không đồng ý — bấm
-                                "Duyệt bản này" rồi đổi sang "Không đồng ý" là trả lại được. */}
+                                🔴🔴 SỬA 14/09/2026 — CÂU DƯỚI ĐÂY TỪNG ĐÚNG, NAY KHÔNG CÒN ĐÚNG:
+                                *"Không duyệt KHÔNG mồ côi: hộp thoại chung có ô sổ xuống Quyết định
+                                của trưởng bộ phận…"*. Sếp đã cho **bỏ ô sổ xuống đó** (*"Bỏ nội
+                                dung này, không cần thiết"*). Nếu vẫn ẩn cặp nút khi có đúng 1 bảng
+                                thì hồ sơ đó KHÔNG CÒN ĐƯỜNG NÀO để trả lại — mà đây là đường lùi
+                                DUY NHẤT còn sống của cả quy trình (mọi bước khác bị chặn cứng từ
+                                26/08/2026).
+
+                                ✅ CÁCH XỬ: **luôn hiện nút "Không duyệt"**; còn nút "Duyệt" thì vẫn
+                                ẩn khi có đúng 1 bảng, vì lúc đó nút tắt "Duyệt bản này" trên ô báo
+                                giá đã làm việc đó — giữ nguyên chủ ý ban đầu là không bày hai nút
+                                Duyệt cạnh nhau.
+                                👉 Đây và việc bỏ ô sổ xuống là MỘT VIỆC. Hoàn tác một nửa là mất
+                                đường lùi. */}
                             {quyen.xacNhanTruongBP &&
                               !daDuyet &&
-                              !hoSoDaDong &&
-                              baoGiaLienQuan.filter((b) => b.trangThai === "da_so_sanh").length !==
-                                1 && (() => {
+                              !hoSoDaDong && (() => {
+                              /* Đúng 1 bảng đã trình → nút tắt "Duyệt bản này" đang hiện trên ô báo
+                                 giá, nên ở đây CHỈ bày nút "Không duyệt". */
+                              const anNutDuyet =
+                                baoGiaLienQuan.filter((b) => b.trangThai === "da_so_sanh")
+                                  .length === 1;
                               /**
                                * ★ TRƯỞNG BỘ PHẬN GÕ TÊN NHÀ CUNG CẤP KHI DUYỆT — Ban lãnh đạo
                                * 20/08/2026, sau khi bỏ ô ghi tên ở bước ②
@@ -1778,16 +1792,23 @@ export default function TrangChiTietDeNghi({
                               const goiY = danhSachNCCDaBaoGia(dn)[0]?.tenNCC ?? "";
                               return (
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => {
-                                      if (nccDuyet === "" && goiY !== "") setNccDuyet(goiY);
-                                      setHoiDuyet({ bgId: bg.id, loai: "duyet" });
-                                    }}
-                                  >
-                                    <Check className="size-4" aria-hidden />
-                                    Duyệt
-                                  </Button>
+                                  {/* Ẩn khi đã có nút tắt "Duyệt bản này" trên ô báo giá — không
+                                      bày hai nút Duyệt cạnh nhau (chủ ý từ 13/09/2026). */}
+                                  {!anNutDuyet && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        if (nccDuyet === "" && goiY !== "") setNccDuyet(goiY);
+                                        setHoiDuyet({ bgId: bg.id, loai: "duyet" });
+                                      }}
+                                    >
+                                      <Check className="size-4" aria-hidden />
+                                      Duyệt
+                                    </Button>
+                                  )}
+                                  {/* 🔴 LUÔN HIỆN — đây là đường trả lại DUY NHẤT sau khi bỏ ô sổ
+                                      xuống trong hộp duyệt (Sếp 14/09/2026). Đừng gắn điều kiện
+                                      nào lên nút này. */}
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -2597,6 +2618,45 @@ export default function TrangChiTietDeNghi({
                       </div>
                     )}
 
+                    {/**
+                      * ★★ Ô ĐÍNH KÈM HỢP ĐỒNG NGAY TẠI TRẠM CUỐI — Sếp 14/09/2026: *"2 loại này đều
+                      * phải đính kèm hợp đồng… E chỉ cần tạo nút đính kèm HĐ bắt buộc là được"*.
+                      *
+                      * 🔴 VÌ SAO PHẢI CÓ Ô Ở ĐÂY, KHÔNG CHỈ THÊM ĐIỀU KIỆN CHẶN: từ 14/09 thiếu tệp
+                      * hợp đồng là nút "Hoàn thành quy trình" khoá (`vuongMacHoanThanhQuyTrinh`). Mà
+                      * ô hợp đồng vốn chỉ nằm ở khối bước ④ và ⑤ — người đứng ở bước ⑦ đọc câu
+                      * "chưa đính kèm Hợp đồng" rồi phải tự mò ngược hai khối mới thấy chỗ đính.
+                      * Câu chặn đã hứa *"đính kèm ngay ở ô Hợp đồng trong khối này"*, nên ô phải có
+                      * thật — không thì lại đúng lỗi giao diện hứa việc app không làm (§3.5).
+                      *
+                      * 🔴 GHI VÀO ĐÚNG MỘT CHỖ với hai ô kia: cùng `BUOC_DINH_KEM_HOP_DONG` +
+                      * `NHAN_TEP_HOP_DONG`. Đính ở đây thì bước ④/⑤ thấy ngay và ngược lại — đây là
+                      * ô THỨ BA cùng nhìn vào một tệp, KHÔNG phải một tệp mới.
+                      *
+                      * 🔴 `tepDaCo` phải là `tepHopDongSuaDuoc` (chỉ khóa canonical), KHÔNG phải
+                      * `tepHopDong` (gộp cả khóa cũ `dat_hang`) — cùng lý do đã ghi ở ô bước ⑤: hộp
+                      * xoá tệp theo `maGiaiDoan` cố định, bày tệp mồ côi khóa cũ ra đây thì bấm xoá
+                      * sẽ tìm nhầm khóa và báo sai "tệp không còn trong hồ sơ".
+                      *
+                      * ⚠️ QUYỀN — CHỖ NÀY CÓ THỂ THÀNH NGÕ CỤT NẾU AI ĐÓ TÁCH HAI CỜ QUYỀN RA:
+                      * khối này chỉ hiện cho `quyen.xacNhanTruongBP`, còn ô sửa được hay không thì
+                      * do `duocSuaHopDong` (= `phanBoCongViec` từ bước ⑤ trở đi). Nay hai cờ có
+                      * CÙNG điều kiện (`laQuanTri || (laTruongBP && capTM >= 3)`, xem
+                      * `4-phan-quyen/quyen.ts:212` và `:224`) nên ai thấy nút cũng đính được.
+                      * 👉 Ngày nào tách hai cờ đó ra thì phải quay lại đây: sẽ có người nhìn thấy
+                      * nút khoá, thấy ô hợp đồng, mà không đính được — và không có gì báo.
+                      */}
+                    <OChungTuBatBuoc
+                      deNghi={dn}
+                      maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
+                      nhanO={NHAN_TEP_HOP_DONG}
+                      tieuDe={TEN_HIEN_HOP_DONG}
+                      moTa="Bản hợp đồng / thoả thuận đã ký với nhà cung cấp. BẮT BUỘC phải có mới đóng được hồ sơ — kể cả đơn dùng mẫu PO-02 (Sếp 14/09/2026). Đính ở đây thì bước ④ và ⑤ cũng thấy ngay, cùng một tệp."
+                      batBuoc
+                      duocSua={duocSuaHopDong}
+                      khoa={hoSoDaDong}
+                      tepDaCo={tepHopDongSuaDuoc(dn)}
+                    />
                     <OChungTuBatBuoc
                       deNghi={dn}
                       maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
@@ -3278,22 +3338,29 @@ export default function TrangChiTietDeNghi({
             📌 Lý do CHỈ CÒN BẮT BUỘC Ở CHIỀU KHÔNG ĐỒNG Ý (Ban lãnh đạo 23/08/2026 bỏ bắt buộc ở
             chiều đồng ý). Dấu `*` trên nhãn ô cũng phải đổi theo — để `*` mà nút vẫn bấm được là
             nhãn nói dối, người dùng gõ cho có rồi thành nhật ký rác. */}
-        <div className="mb-3 flex flex-col gap-1.5">
-          <Label htmlFor="quyet-dinh-duyet">Quyết định của trưởng bộ phận *</Label>
-          <select
-            id="quyet-dinh-duyet"
-            value={hoiDuyet?.loai ?? "duyet"}
-            onChange={(e) =>
-              setHoiDuyet((c) =>
-                c ? { ...c, loai: e.target.value as "duyet" | "khong_duyet" } : c,
-              )
-            }
-            className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
-          >
-            <option value="duyet">Đồng ý — duyệt bản báo giá này</option>
-            <option value="khong_duyet">Không đồng ý — trả lại để làm lại</option>
-          </select>
-        </div>
+        {/**
+          * ❌❌ ĐÃ BỎ Ô SỔ XUỐNG "Quyết định của trưởng bộ phận" — Sếp 14/09/2026, nguyên văn:
+          * *"Bỏ nội dung này, không cần thiết"* (ảnh chụp đúng ô này).
+          *
+          * Sếp đúng: hộp chỉ mở được từ MỘT trong hai nút đã nói rõ ý định — "Duyệt" / "Duyệt bản
+          * này" (`loai: "duyet"`) hoặc "Không duyệt" (`loai: "khong_duyet"`). Hỏi lại đúng câu vừa
+          * bấm là bắt người dùng trả lời hai lần cho một quyết định.
+          *
+          * 🔴🔴 NHƯNG BỎ Ô NÀY SUÝT LÀM MẤT ĐƯỜNG TRẢ LẠI — ĐỌC KỸ TRƯỚC KHI ĐỘNG VÀO TIẾP.
+          * Cặp nút "Duyệt / Không duyệt" ở khối bước ③ **bị ẩn khi hồ sơ có ĐÚNG MỘT bảng báo giá
+          * đã trình** (điều kiện `.length !== 1`, xem chú thích tại đó). Trong đúng ca đó, ô sổ
+          * xuống này từng là **đường DUY NHẤT** để chọn "Không đồng ý — trả lại để làm lại" — và
+          * chú thích cũ ở khối bước ③ nói thẳng điều đó: *"Không duyệt KHÔNG mồ côi: hộp thoại
+          * chung có ô sổ xuống…"*.
+          * 👉 Vì vậy cùng lúc bỏ ô này, nút **"Không duyệt" đã được cho hiện lại cả khi chỉ có một
+          * bảng** (xem chỗ sửa điều kiện ở khối bước ③). Hai thay đổi đó là MỘT VIỆC, đừng tách:
+          * hoàn tác một nửa là app mất đường lùi ③ → ② — đường lùi DUY NHẤT còn sống của cả quy
+          * trình (mọi bước khác đang bị chặn cứng từ 26/08/2026).
+          *
+          * 📌 `hoiDuyet.loai` VẪN GIỮ NGUYÊN và vẫn là thứ quyết định mọi thứ trong hộp (tiêu đề,
+          * nhãn ô lý do, chữ và màu nút, có bắt buộc ghi lý do hay không). Chỉ bỏ CÁI Ô CHO ĐỔI —
+          * muốn đổi ý thì đóng hộp rồi bấm nút kia, một thao tác, rõ ràng hơn hẳn.
+          */}
 
         {/**
           * ❌ ĐÃ BỎ Ô "Duyệt cho nhà cung cấp nào?" (Ban lãnh đạo 23/08/2026: *"Sao lại có thêm

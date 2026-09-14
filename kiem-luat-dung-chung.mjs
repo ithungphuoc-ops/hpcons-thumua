@@ -1983,6 +1983,187 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// HỢP ĐỒNG BẮT BUỘC MỚI ĐÓNG ĐƯỢC HỒ SƠ — Sếp 14/09/2026
+//
+// Nguyên văn: *"2 loại này đều phải đính kèm hợp đồng… E chỉ cần tạo nút đính kèm HĐ bắt buộc
+// là được"* (sau khi bỏ hướng tách thành hai ô Hợp đồng / Đơn mua hàng).
+//
+// 🔴 CHỖ DỄ HỎNG NHẤT: `vuongMacHoanThanhQuyTrinh` phải hỏi `coHopDong` (CHỈ tệp), KHÔNG được
+//    "dọn cho thống nhất" thành `vuongMacRoiBuocLapDon` (tệp HOẶC lý do). Đổi sang hàm kia thì
+//    hồ sơ bấm "Không có HĐ" đóng được mà không có tờ hợp đồng nào — luật này mất sạch, và mất
+//    IM LẶNG vì cả hai hàm đều trả `string | null` nên không lỗi kiểu nào báo.
+//
+// ⚠️ Hai chốt CỐ Ý khác nhau, bài kiểm giữ cả hai:
+//    · bước ④ `vuongMacRoiBuocLapDon`     → tệp HOẶC lý do (nới, để lập được đơn khi HĐ chưa ký)
+//    · bước ⑧ `vuongMacHoanThanhQuyTrinh` → BẮT BUỘC có tệp (đóng hồ sơ đẩy sang Kế toán)
+// ════════════════════════════════════════════════════════════════════
+
+/** Hồ sơ đã xong hết mọi điều kiện KHÁC của bước ⑧, chỉ còn chuyện hợp đồng. */
+const hoSoSanSangDong = (lyDo, coTepHopDong) => ({
+  id: "x",
+  items: [{ stt: 1 }],
+  tepGiaiDoan: {
+    ...(coTepHopDong
+      ? { lap_don_mua_hang: [{ id: "hd1", ten: "hop-dong.pdf", ghiChu: "Hợp đồng" }] }
+      : {}),
+    ho_so_thanh_toan: [{ id: "v1", ten: "vat.pdf", ghiChu: "Hóa đơn VAT" }],
+  },
+  lyDoThieuChungTu: lyDo === undefined ? {} : { [KHOA_HD]: lyDo },
+  /* ⚠️ Tên trường là `maCongViec` và mã đúng là hằng `VIEC_UNC_XONG` = "unc_xong" — đoán sai tên
+     thì `daTichXongUNC` trả false và bài kiểm đỏ vì lý do chẳng liên quan gì tới hợp đồng. */
+  congViecDaXong: [{ maCongViec: "unc_xong", thoiDiem: "2026-09-14T01:00:00.000Z" }],
+});
+/** Tiến độ "mọi mặt hàng đã lên đơn và đã về đủ" — để không vướng hai chốt khối lượng. */
+const tienDoXong = [{ khoiLuongChuaLenPO: 0, khoiLuongConLai: 0 }];
+
+kiem(
+  "THIEU tep hop dong -> CHAN hoan thanh quy trinh",
+  'Sep · 14/09/2026 (*"2 loai nay deu phai dinh kem hop dong"*)',
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.vuongMacHoanThanhQuyTrinh(hoSoSanSangDong(undefined, false), tienDoXong);
+    return {
+      duoc: typeof r === "string" && /h[ợo]p đ[ồo]ng/i.test(r),
+      thucTe: r === null ? "null (LOT — luat 14/09 da mat!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "cau chan nhac Hop dong",
+    };
+  },
+);
+
+kiem(
+  'Khai "Khong co HD" van KHONG dong duoc ho so (loi khai khong thay duoc chung tu)',
+  'Sep · 14/09/2026 — *"2 loai nay DEU phai dinh kem hop dong"*, ke ca don mau PO-02',
+  () => {
+    /* 🔴 BAI KIEM QUAN TRONG NHAT CUA LUAT NAY. Neu ai doi `coHopDong` thanh
+       `vuongMacRoiBuocLapDon` cho "thong nhat voi buoc ④" thi bai TREN van xanh (ho so do khong
+       ghi ly do gi), chi bai nay bat duoc. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.vuongMacHoanThanhQuyTrinh(
+      hoSoSanSangDong(CT.LY_DO_KHONG_CO_HOP_DONG, false),
+      tienDoXong,
+    );
+    return {
+      duoc: typeof r === "string" && /h[ợo]p đ[ồo]ng/i.test(r),
+      thucTe: r === null ? "null (LOT — loi khai da thay duoc chung tu!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "van chan, vi loi khai khong thay duoc tep",
+    };
+  },
+);
+
+kiem(
+  "CO tep hop dong -> khong con vuong chuyen hop dong nua",
+  "Sep · 14/09/2026 — chieu nguoc lai, chong chan qua tay",
+  () => {
+    /* Chieu nguoc: chan chat qua thi ho so du chung tu van khong dong duoc = ket vinh vien. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.vuongMacHoanThanhQuyTrinh(hoSoSanSangDong(undefined, true), tienDoXong);
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null (dong duoc ho so)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "null",
+    };
+  },
+);
+
+kiem(
+  "BUOC ④ VAN NOI RONG nhu cu — khai ly do la lap duoc don",
+  "Sep · 13/09/2026 — hai chot co y khac nhau, dung go nham chot nay",
+  () => {
+    /* 🔴 CHONG "DON CHO THONG NHAT" THEO CHIEU NGUOC LAI: ai siet buoc ④ thanh bat buoc co tep
+       (cho giong buoc ⑧) thi ca phong khong lap duoc don khi hop dong chua ky xong. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.vuongMacRoiBuocLapDon(hoSoThieuHD(CT.LY_DO_BO_SUNG_SAU));
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null (lap don duoc)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "null — buoc ④ chap nhan tep HOAC ly do",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// TÁCH TIỀN THUẾ THEO TỪNG MỨC — Sếp 14/09/2026
+//
+// Nguyên văn: *"Tách các dòng theo mức thuế của từng mặt hàng"*, chỉ vào dòng tổng cũ ghi
+// *"Tiền thuế GTGT (nhiều mức) 84.400 đ"* — kế toán không đối chiếu được với hóa đơn NCC.
+//
+// 🔴 LUẬT SỐNG CÒN: tổng của `theoMucThue` PHẢI bằng đúng `tienThueGTGT`. Lệch một đồng là màn
+//    hình bày ba dòng cộng không ra dòng tổng — người dùng mất tin vào toàn bộ khối tiền.
+//
+// ⚠️ CÁI BẪY ĐÃ TRÁNH, BÀI KIỂM NÀY GIỮ LẠI: mỗi mức thuế chỉ được làm tròn ĐÚNG MỘT LẦN, theo cơ
+//    sở tính thuế của CẢ NHÓM. Ai "dọn cho gọn" bằng cách cộng `dong[].tienThueGTGT` (số đã làm
+//    tròn theo từng dòng) để ra số của một mức thì lệch vài đồng — và lệch IM LẶNG.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "Don TRON hai muc thue -> tach du hai dong, KHONG con mot cuc 'nhieu muc'",
+  'Sep · 14/09/2026 (*"Tach cac dong theo muc thue cua tung mat hang"*)',
+  () => {
+    /* Dựng đúng ca trong ảnh Sếp gửi: 3 dòng, mức 10% · 8% · 10%. */
+    const r = M.tinhTienChiTiet(
+      [
+        { sttDong: 1, soLuong: 32, donGia: 10_000, thueSuatGTGT: 10 },
+        { sttDong: 2, soLuong: 23, donGia: 25_000, thueSuatGTGT: 8 },
+        { sttDong: 3, soLuong: 2, donGia: 32_000, thueSuatGTGT: 10 },
+      ],
+      { thueSuatGTGT: 8 },
+    );
+    const ds = r?.theoMucThue ?? [];
+    const muc = ds.map((m) => m.mucThue);
+    return {
+      duoc: ds.length === 2 && muc[0] === 8 && muc[1] === 10 && r.nhieuMucThue === true,
+      thucTe: `${ds.length} mức: ${JSON.stringify(ds)}`,
+      mongDoi: "2 mức, sắp TĂNG DẦN [8, 10], và nhieuMucThue = true",
+    };
+  },
+);
+
+kiem(
+  "TONG cac muc PHAI bang dung tienThueGTGT (chong lech im lang)",
+  "Sep · 14/09/2026 — chot chong hai cho cung tinh mot con so",
+  () => {
+    /* 🔴 Dùng số LẺ để phép làm tròn có cơ hội lệch. Số tròn thì bài kiểm xanh giả. */
+    const r = M.tinhTienChiTiet(
+      [
+        { sttDong: 1, soLuong: 7, donGia: 13_333, thueSuatGTGT: 10 },
+        { sttDong: 2, soLuong: 3, donGia: 9_777, thueSuatGTGT: 8 },
+        { sttDong: 3, soLuong: 11, donGia: 4_321, thueSuatGTGT: 5 },
+        { sttDong: 4, soLuong: 2, donGia: 55_555, thueSuatGTGT: 10 },
+      ],
+      { thueSuatGTGT: 10, chietKhauPhanTram: 3 },
+    );
+    const tong = (r?.theoMucThue ?? []).reduce((s, m) => s + m.tienThue, 0);
+    return {
+      duoc: tong === r?.tienThueGTGT,
+      thucTe: `cộng các mức = ${tong} · tienThueGTGT = ${r?.tienThueGTGT}`,
+      mongDoi: "hai số BẰNG NHAU tuyệt đối",
+    };
+  },
+);
+
+kiem(
+  "Don MOT muc -> van tra dung MOT phan tu, khong phai mang rong",
+  "Sep · 14/09/2026 — noi ve tu quyet bay hay khong, dung bat no doan",
+  () => {
+    /* Chiều ngược: trả mảng rỗng cho đơn một mức thì nơi vẽ rơi vào nhánh "nhiều mức" sai, hoặc
+       không in dòng thuế nào — chứng từ thiếu hẳn tiền thuế. */
+    const r = M.tinhTienChiTiet(
+      [
+        { sttDong: 1, soLuong: 5, donGia: 20_000 },
+        { sttDong: 2, soLuong: 3, donGia: 10_000 },
+      ],
+      { thueSuatGTGT: 8 },
+    );
+    const ds = r?.theoMucThue ?? [];
+    return {
+      duoc: ds.length === 1 && ds[0]?.mucThue === 8 && r.nhieuMucThue === false,
+      thucTe: `${ds.length} phần tử: ${JSON.stringify(ds)} · nhieuMucThue=${r?.nhieuMucThue}`,
+      mongDoi: "đúng 1 phần tử mức 8%, nhieuMucThue = false",
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 

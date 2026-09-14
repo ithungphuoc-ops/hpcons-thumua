@@ -3136,10 +3136,41 @@ export function FormLapDonMuaHang({
                 nhan="Cộng tiền hàng (sau trừ chiết khấu)"
                 giaTri={tien.congTienHang}
               />
-              <DongTongHop
-                nhan={`Tiền thuế GTGT (${moTaThueSuat(tien)})`}
-                giaTri={tien.tienThueGTGT}
-              />
+              {/**
+                * ★★ TÁCH TIỀN THUẾ THEO TỪNG MỨC — Sếp 14/09/2026: *"Tách các dòng theo mức thuế
+                * của từng mặt hàng"*, chỉ vào dòng cũ ghi *"Tiền thuế GTGT (nhiều mức) 84.400 đ"*.
+                *
+                * 🔴 VÌ SAO CẦN: một cục "nhiều mức" thì kế toán không đối chiếu được với hóa đơn
+                * nhà cung cấp — hóa đơn GTGT tách từng mức. Người lập đơn cũng không tự soi ra số
+                * nào sai khi tổng lệch.
+                *
+                * 📌 KHÔNG TỰ CỘNG Ở ĐÂY. Con số lấy thẳng `tien.theoMucThue` do
+                * `2-quy-trinh/tinh-toan.ts` trả về — nơi DUY NHẤT tính tiền. Cộng lại ở giao diện
+                * là hai chỗ cùng tính một con số, và sẽ lệch vài đồng vì mỗi mức chỉ được làm
+                * tròn đúng một lần theo cơ sở tính thuế của cả nhóm.
+                *
+                * ⚠️ Đơn MỘT mức thì vẫn in đúng một dòng như trước (mảng có 1 phần tử), nhãn ghi
+                * thẳng "8%" thay vì "(nhiều mức)" — không bày thêm dòng thừa cho đơn thường.
+                */}
+              {tien.theoMucThue.length > 1 ? (
+                <>
+                  {tien.theoMucThue.map((m) => (
+                    <DongTongHop
+                      key={m.mucThue}
+                      nhan={`Tiền thuế GTGT ${m.mucThue}%`}
+                      giaTri={m.tienThue}
+                    />
+                  ))}
+                  {/* Dòng cộng lại — để người đọc bắc cầu sang "Tổng tiền thanh toán" mà không
+                      phải tự cộng nhẩm hai ba mức. */}
+                  <DongTongHop nhan="Cộng tiền thuế GTGT" giaTri={tien.tienThueGTGT} />
+                </>
+              ) : (
+                <DongTongHop
+                  nhan={`Tiền thuế GTGT (${moTaThueSuat(tien)})`}
+                  giaTri={tien.tienThueGTGT}
+                />
+              )}
               <DongTongHop nhan="Tổng tiền thanh toán" giaTri={tien.tongThanhToan} tong />
             </dl>
             <p className="text-right text-xs italic text-text-desc">

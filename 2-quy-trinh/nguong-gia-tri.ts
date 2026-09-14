@@ -1,4 +1,27 @@
 // ============================================================
+// 🔴🔴 TỆP NÀY KHÔNG CÒN TỆP NÀO GỌI TỚI — TỪ 14/09/2026. ĐỌC HẾT KHỐI NÀY TRƯỚC KHI ĐỘNG VÀO.
+//
+// Ngày 14/09/2026 Sếp bỏ ba ô ngưỡng tiền khỏi trang Cài đặt quy trình (*"Bỏ luôn"*), sau khi
+// phát hiện *"mục này điều chỉnh không có tác dụng gì hết"*. Truy vết bằng 12 lượt rà độc lập:
+//   · `soatNguongBaoGia` / `capDuyetTheoGiaTri` / `giaTriUocTinh` / `NGUONG` — CHƯA BAO GIỜ có
+//     tệp nào import. Khối giao diện từng bày kết quả (`khoi-nguong-gia-tri.tsx`) đã bị xoá
+//     ngày 20/08/2026 và đã là mã chết từ 16/08.
+//   · `chuTien` là hàm cuối cùng còn sống, dùng bởi `hop-chuyen-giai-doan.tsx`. Câu in ngưỡng
+//     ra màn hình đã gỡ ngày 14/09 nên import đó cũng không còn.
+//
+// 🔴 VÌ SAO KHÔNG XOÁ TỆP — ĐỪNG "DỌN NỐT CHO SẠCH":
+//   ① Ba con số 5 / 10 / 20 triệu là **QUY ĐỊNH THẬT CỦA CÔNG TY** (quy trình TM-QT Mua hàng,
+//      Ban lãnh đạo cung cấp ảnh Base 11/08/2026). Bản gốc văn bản quy trình KHÔNG còn trong dự
+//      án (Sếp cố ý xoá 24/08, xem CLAUDE.md §3.1). Xoá tệp này là mất chỗ tra cứu cuối cùng.
+//   ② Luật ở đây ĐÚNG, chỉ là app chưa có dữ liệu để áp: từ 20/08/2026 app không nhập đơn giá
+//      NCC nữa nên `giaTriUocTinh` luôn trả 0. Ngày nào app nhập lại được giá thì đây là chỗ
+//      bật lại, không phải viết lại từ đầu.
+//
+// ⚠️ ĐỪNG NỐI LẠI khi chưa có dữ liệu giá. Nối vào lúc `giaTriUocTinh` còn trả 0 thì mọi phép so
+// đều sai theo hướng "không bao giờ đủ ngưỡng" — tức luật im lặng mất hiệu lực mà giao diện vẫn
+// nói là đang chạy. Đúng cái bẫy CLAUDE.md §3.5 cấm.
+// ============================================================
+//
 // NGƯỠNG GIÁ TRỊ ĐƠN HÀNG — luật thật của quy trình TM-QT Mua hàng (HP CONS)
 //
 // 🔴 NGUỒN: hướng dẫn từng giai đoạn trên bảng Base.vn của công ty, Ban lãnh đạo cung cấp
