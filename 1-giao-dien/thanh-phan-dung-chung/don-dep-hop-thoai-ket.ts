@@ -266,3 +266,96 @@ export function useDonDepHopThoaiKet(dangMo: boolean): void {
 
   useEffect(() => henDonDepHopThoai, []);
 }
+
+/**
+ * ============================================================================
+ * ★★★ LỚP CANH TOÀN CỤC — thêm 14/09/2026, sau khi Sếp báo **lần thứ tư** là vẫn kẹt
+ * ============================================================================
+ *
+ * 🔴 VÌ SAO BA LỚP TRƯỚC KHÔNG CỨU ĐƯỢC. Cả `useDonDepHopThoaiKet` lẫn `henDonDepHopThoai` đều
+ * chỉ chạy khi **một component có gắn hook bị tháo hoặc đổi trạng thái**. Tính tới nay hook đó
+ * mới nằm ở `HopXemTep` và `HopXacNhan`. Nhưng cơ chế khoá nền của base-ui
+ * (`useScrollLock` + `markOthers`) KHÔNG PHẢI của riêng Dialog — `Popover`, `DropdownMenu`,
+ * `Select`, `Menu`, `Tooltip` đều đi qua cùng đường đó. Một trong số chúng rò rỉ thì:
+ *   · không có hook nào được gắn → không ai hẹn quét
+ *   · dấu vết nằm lại vĩnh viễn, và vì Next.js App Router điều hướng phía client nên DOM KHÔNG
+ *     bị dựng lại — dấu vết còn **đi theo sang trang khác**, khiến người dùng tưởng lỗi xảy ra ở
+ *     màn hình họ đang đứng chứ không phải nơi thật sự gây ra.
+ *
+ * ✅ LỚP NÀY KHÔNG ĐOÁN NGUỒN NỮA. Nó theo dõi thẳng **dấu vết trên DOM**: hễ `<html>`/`<body>`
+ * đổi thuộc tính, hoặc con trực tiếp của `<body>` bị thêm/bớt, là hẹn một lượt quét. Quét vẫn đi
+ * qua đủ bốn chốt bảo vệ cũ, nên không dọn nhầm lúc còn hộp thoại mở thật.
+ *
+ * 🔴 VÌ SAO MutationObserver CHỨ KHÔNG PHẢI `setInterval`: khoá nền được đặt bằng cách GHI THUỘC
+ * TÍNH (`style` trên body, `data-base-ui-inert` trên các con). Quan sát đúng thứ đó thì bắt được
+ * mọi nguồn mà không tốn một nhịp CPU nào lúc trang đứng yên. `setInterval` chạy mãi cả khi không
+ * có gì xảy ra, và vẫn có thể trượt đúng lúc cần.
+ *
+ * ⚠️ CHỐNG TỰ KÍCH HOẠT VÔ TẬN: chính việc dọn cũng ghi thuộc tính, nên sẽ làm observer bắn tiếp.
+ * `dangDon` chặn đúng chuyện đó — trong lúc dọn thì mọi tín hiệu bị bỏ qua.
+ *
+ * 📌 Gọi MỘT LẦN ở khung app (`khung-tong.tsx`). Gọi nhiều lần cũng chỉ tạo một observer.
+ */
+let theoDoi: MutationObserver | null = null;
+let dangDon = false;
+
+/** Bọc `goDauVetRoRi` để chính thao tác dọn không làm observer bắn lại. */
+function donCoChanVong(): void {
+  dangDon = true;
+  try {
+    goDauVetRoRi();
+  } finally {
+    /* Trả cờ ở nhịp sau: MutationObserver gom tín hiệu rồi mới gọi callback, nên trả ngay trong
+       `finally` là vẫn dính chính những thay đổi mình vừa ghi. */
+    setTimeout(() => {
+      dangDon = false;
+    }, 0);
+  }
+}
+
+/**
+ * Bật lớp canh. Trả về hàm tắt — dùng làm cleanup của `useEffect` ở khung app.
+ *
+ * 🔴 KHÔNG dọn ngay lúc bật: trang vừa tải thì chưa thể có rò rỉ, mà chạy sớm lại có nguy cơ đụng
+ * vào hộp thoại đang mở sẵn do khôi phục trạng thái.
+ */
+export function batCanhDonDepToanCuc(): () => void {
+  if (typeof document === "undefined") return () => {};
+  if (theoDoi !== null) return () => {};
+
+  theoDoi = new MutationObserver(() => {
+    if (dangDon) return;
+    /* Có dấu vết VÀ không còn hộp thoại nào mở → hẹn quét. Hai câu hỏi này rẻ (vài
+       `querySelector`), nên hỏi ngay tại đây để không hẹn giờ vô ích. */
+    if (!conDauVetRoRi()) return;
+    if (conHopThoaiDangMo()) return;
+    if (hen !== null) clearTimeout(hen);
+    soLanHoan = 0;
+    hen = setTimeout(() => {
+      hen = null;
+      if (conHopThoaiDangMo()) return;
+      if (!conDauVetRoRi()) return;
+      donCoChanVong();
+    }, CHO_TRUOC_KHI_QUET);
+  });
+
+  /* `attributes` trên <html> và <body> bắt khoá cuộn; `childList` trên <body> bắt lúc portal của
+     base-ui được thêm/bớt — đó chính là lúc `markOthers` đặt/gỡ `data-base-ui-inert`.
+     ⚠️ KHÔNG dùng `subtree: true`: app có hàng nghìn nút, quan sát cả cây là mỗi lần gõ phím cũng
+     bắn callback. Dấu vết cần bắt chỉ nằm ở <html> và con TRỰC TIẾP của <body>. */
+  theoDoi.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class", DAU_KHOA_CUON] });
+  theoDoi.observe(document.body, {
+    attributes: true,
+    attributeFilter: ["style", "class"],
+    childList: true,
+  });
+
+  return () => {
+    theoDoi?.disconnect();
+    theoDoi = null;
+    if (hen !== null) {
+      clearTimeout(hen);
+      hen = null;
+    }
+  };
+}

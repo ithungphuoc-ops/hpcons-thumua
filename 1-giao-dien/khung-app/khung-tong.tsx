@@ -1,4 +1,7 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, type ReactNode } from "react";
+import { batCanhDonDepToanCuc } from "@/1-giao-dien/thanh-phan-dung-chung/don-dep-hop-thoai-ket";
 import { AppSidebar } from "@/1-giao-dien/khung-app/thanh-ben";
 import { AppHeader } from "@/1-giao-dien/khung-app/thanh-tren";
 import { BottomNav } from "@/1-giao-dien/khung-app/thanh-duoi-mobile";
@@ -17,6 +20,29 @@ import { BaoViecMoi } from "@/1-giao-dien/khung-app/bao-viec-moi";
  * xuống 10–12px theo yêu cầu "thu gọn" và mất luôn tham chiếu về quy chuẩn.
  */
 export function AppShell({ children }: { children: ReactNode }) {
+  /**
+   * ★★★ LỚP CANH DỌN DẤU VẾT HỘP THOẠI — bật MỘT LẦN cho cả app, thêm 14/09/2026.
+   *
+   * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý, KHÔNG PHẢI CHO TIỆN. Sếp báo lỗi "cả app kẹt, phải F5" tới **lần thứ
+   * tư**. Ba lượt sửa trước đều gắn lưới vào TỪNG hộp thoại, nên chỉ cứu được đúng những hộp đã
+   * gắn. Nhưng cơ chế khoá nền của base-ui (`useScrollLock` + `markOthers`) dùng chung cho cả
+   * `Popover`, `DropdownMenu`, `Select`, `Menu`, `Tooltip` — rò rỉ từ một trong số đó thì không
+   * hộp thoại nào bị tháo, không lưới nào chạy.
+   *
+   * ⚠️ VÀ DẤU VẾT ĐI THEO SANG TRANG KHÁC: Next.js App Router điều hướng phía client nên DOM
+   * không bị dựng lại. Người dùng thấy kẹt ở màn hình A trong khi thủ phạm ở màn hình B — đó là
+   * lý do truy mãi không ra bằng cách đọc code từng màn.
+   *
+   * 📌 Lớp này theo dõi thẳng DẤU VẾT trên DOM chứ không đoán nguồn, và vẫn đi qua đủ bốn chốt
+   * bảo vệ nên không dọn nhầm lúc còn hộp thoại mở thật. Chi tiết ở
+   * `thanh-phan-dung-chung/don-dep-hop-thoai-ket.ts`.
+   *
+   * 🔴 ĐÂY LÀ LỚP PHÒNG THỦ, KHÔNG PHẢI GỐC RỄ. Giữ nó không có nghĩa là thôi tìm gốc — còn chỗ
+   * nào tháo hộp thoại giữa lúc đang đóng thì vẫn phải sửa. Lớp này chỉ bảo đảm người dùng không
+   * bao giờ phải F5 nữa trong lúc chờ.
+   */
+  useEffect(batCanhDonDepToanCuc, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* 🔔 Nghe thông báo việc mới rồi bật hộp nổi. Không vẽ gì ra màn hình.
