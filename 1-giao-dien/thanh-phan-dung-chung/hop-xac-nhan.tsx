@@ -11,6 +11,17 @@ import {
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+/**
+ * ★★ LƯỚI AN TOÀN — gắn vào ĐÂY để phủ cả 20 nơi gọi `HopXacNhan`, thêm 14/09/2026.
+ *
+ * 🔴 TRƯỚC ĐÓ LƯỚI NÀY CHỈ PHỦ ĐÚNG **MỘT** HỘP (`hop-xem-tep.tsx`) trên tổng ~50 hộp thoại của
+ * app. Đó là lý do bản vá 13/09 "đo sạch" mà Sếp vẫn gặp lỗi: hộp rò rỉ là một `HopXacNhan` ở
+ * màn hình khác, và không có gì hẹn quét nên dấu vết nằm lại tới khi F5.
+ *
+ * 📌 Quét là thao tác rẻ và có 4 chốt bảo vệ (xem tệp đó) — hẹn dư vài lượt không hại gì, còn bỏ
+ * sót một lượt là cả app đơ.
+ */
+import { useDonDepHopThoaiKet } from "@/1-giao-dien/thanh-phan-dung-chung/don-dep-hop-thoai-ket";
 
 /**
  * HỘP XÁC NHẬN DÙNG CHUNG cho mọi việc bấm là xong, không lùi lại được.
@@ -72,6 +83,9 @@ export function HopXacNhan({
   onDong: () => void;
   onDongY: () => void;
 }) {
+  /* Lưới an toàn cho MỌI nơi gọi hộp này — xem chú thích ở dòng `import` phía trên. */
+  useDonDepHopThoaiKet(mo);
+
   return (
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
       <DialogContent className="sm:max-w-md">
@@ -99,9 +113,34 @@ export function HopXacNhan({
           <Button
             variant={nguyHiem ? "destructive" : "default"}
             disabled={khoaDongY !== undefined}
+            /**
+              * ★★ ĐÓNG TRƯỚC, LÀM VIỆC SAU — sửa 14/09/2026 sau khi Sếp báo lần thứ hai:
+              * *"khi đính kèm file mới thì bị hỏng giao diện"* (cả app kẹt, phải F5).
+              *
+              * 🔴 TRƯỚC ĐÂY VIẾT `onDongY(); onDong();` LIỀN NHAU. Hai lời gọi nằm trong CÙNG một
+              * trình xử lý sự kiện nên React gộp thành **MỘT commit**: `mo` về `false` đúng lúc
+              * `onDongY` đổi dữ liệu. Nơi gọi nào mà việc đổi dữ liệu đó làm cây cha bị tháo —
+              * xoá một phần tử khỏi mảng `.map()`, lật một nhánh `{x ? … : …}`, làm một điều kiện
+              * `&&` thành `false` — là `<Dialog>` biến mất **giữa lúc đang chạy vòng đời đóng**.
+              * base-ui gỡ khoá cuộn và `data-base-ui-inert` HOÀN TOÀN bằng hàm cleanup của
+              * `useEffect`; bị tháo giữa chừng là nó không chạy được, và hai thứ đó kẹt lại trên
+              * DOM **vĩnh viễn tới khi F5**.
+              *
+              * 🔴 LỖI NẰM Ở COMPONENT DÙNG CHUNG NÊN PHỦ CẢ **20 NƠI GỌI**. Đó là lý do vá từng
+              * nơi gọi mãi không hết: 13/09 vá hộp "Xem tệp", 14/09 vá thêm 4 chỗ, Sếp vẫn gặp.
+              * Một nơi đã phải tự vá riêng bằng đúng cú hoãn này (`o-chung-tu-bat-buoc.tsx`) —
+              * nay đưa vào đây thì mọi nơi gọi đều được, kể cả nơi viết sau này.
+              *
+              * 📌 `setTimeout(…, 0)` là ĐỦ và cố ý không lớn hơn: nó đẩy `onDongY` sang nhịp sự
+              * kiện kế tiếp, nên commit đóng hộp được chạy trọn vẹn trước. Để 150ms cho "chắc" thì
+              * người dùng bấm Đồng ý xong thấy khựng — đổi một lỗi lấy một lỗi khác.
+              *
+              * ⚠️ ĐỪNG đảo lại thành `onDongY()` trước cho "tự nhiên". Thứ tự này là toàn bộ nội
+              * dung của bản sửa.
+              */
             onClick={() => {
-              onDongY();
               onDong();
+              setTimeout(() => onDongY(), 0);
             }}
           >
             <Check className="size-4" aria-hidden />

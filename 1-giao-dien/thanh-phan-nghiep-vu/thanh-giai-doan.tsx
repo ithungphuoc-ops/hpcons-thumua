@@ -33,6 +33,17 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
    * (chỉ đạo Ban lãnh đạo 11/08/2026 về nút xem hướng dẫn).
    */
   const [dangXem, setDangXem] = useState<GiaiDoanMuaHang | null>(null);
+  /**
+   * ★ BƯỚC ĐANG XEM GẦN NHẤT — giữ riêng để hộp hướng dẫn luôn có nội dung.
+   *
+   * 🔴 Hộp phải NẰM LẠI trong cây React trong lúc chạy hiệu ứng đóng (xem chú thích ở chỗ dựng
+   * nó), mà `HopHuongDanGiaiDoan` KHÔNG nhận `giaiDoan = null`. Lúc đóng thì `dangXem` đã là
+   * `null`, nên cần một giá trị cuối để hộp còn thứ mà vẽ — nếu không thì hoặc vỡ kiểu, hoặc
+   * người dùng thấy nội dung chớp sang rỗng ngay trước khi hộp biến mất.
+   *
+   * 📌 Chỉ cập nhật khi MỞ, không xoá khi đóng — đó chính là điều làm nó giữ được nội dung.
+   */
+  const [buocGanNhat, setBuocGanNhat] = useState<GiaiDoanMuaHang | null>(null);
 
   if (daDong) {
     return (
@@ -99,7 +110,11 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
                 {coHuongDan && (
                   <button
                     type="button"
-                    onClick={() => setDangXem(g.ma)}
+                    onClick={() => {
+                      /* Nhớ bước này lại — hộp cần nội dung cả lúc đang đóng. */
+                      setBuocGanNhat(g.ma);
+                      setDangXem(g.ma);
+                    }}
                     aria-label={`Xem hướng dẫn bước ${g.nhan}`}
                     className="absolute inset-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-inset focus-visible:outline-none"
                   />
@@ -125,13 +140,18 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
       </div>
 
       {/* Hộp hướng dẫn của ô bước vừa bấm (khác với nút chữ — nút đó tự quản hộp của nó). */}
-      {dangXem && (
-        <HopHuongDanGiaiDoan
-          giaiDoan={dangXem}
-          mo={dangXem !== null}
-          onDong={() => setDangXem(null)}
-        />
-      )}
+      {/* 🔴 KHÔNG BỌC BẰNG `{dangXem && …}` — bấm đóng chạy `setDangXem(null)`, điều kiện thành
+          `false` và `<Dialog>` bị tháo khỏi cây NGAY trong lần commit mà `open` vừa chuyển sang
+          `false`. base-ui gỡ khoá cuộn + `data-base-ui-inert` bằng hàm cleanup của `useEffect`;
+          bị tháo giữa chừng là nó không chạy được, hai thứ đó kẹt lại và cả app bấm không ăn tới
+          khi F5. Sự cố Sếp báo 13 và 14/09/2026.
+          📌 Giữ hộp trong cây, chỉ đổi `mo`. `giaiDoan` nhận `dangXem` kể cả khi về `null` —
+          xem cách hộp đó xử lý, cùng khuôn với `HopXemTep`. */}
+      <HopHuongDanGiaiDoan
+        giaiDoan={dangXem ?? buocGanNhat ?? chuoi[0].ma}
+        mo={dangXem !== null}
+        onDong={() => setDangXem(null)}
+      />
     </div>
   );
 }

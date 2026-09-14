@@ -85,6 +85,24 @@ export default function TrangPhanQuyen() {
   /** Vai trò vừa chọn nhưng CHƯA lưu, tra theo mã Firebase. */
   const [vaiTroNhap, setVaiTroNhap] = useState<Record<string, string>>({});
   const [hoiDoi, setHoiDoi] = useState<{ hs: HoSoKemMa; vt: VaiTroChuan } | null>(null);
+  /**
+   * ★ BẢN SAO CUỐI của hai hộp xác nhận — giữ để hộp còn nội dung trong lúc chạy hiệu ứng đóng.
+   *
+   * 🔴 Hai hộp dưới đây TRƯỚC ĐÂY bọc bằng `{hoiDoi && …}` / `{hoiThemMoi && …}`. Bấm Đồng ý hay
+   * Hủy đều chạy `setHoiDoi(null)`, làm điều kiện thành `false` và `<Dialog>` bị tháo khỏi cây
+   * NGAY trong lần commit mà `open` vừa chuyển sang `false`. base-ui gỡ khoá cuộn và
+   * `data-base-ui-inert` bằng hàm cleanup của `useEffect`; bị tháo giữa chừng là nó không chạy
+   * được, hai thứ đó kẹt lại trên DOM và **cả app bấm không ăn tới khi F5**. Sự cố Sếp báo 13 và
+   * 14/09/2026.
+   *
+   * 📌 Chỉ cập nhật khi MỞ, không xoá khi đóng — đó chính là điều làm hộp giữ được nội dung thay
+   * vì chớp sang rỗng trước khi biến mất.
+   */
+  const [hoiDoiCuoi, setHoiDoiCuoi] = useState<{ hs: HoSoKemMa; vt: VaiTroChuan } | null>(null);
+  const [hoiThemMoiCuoi, setHoiThemMoiCuoi] = useState<{
+    tv: ThanhVienDanhBa;
+    vt: VaiTroChuan;
+  } | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
 
   // ---------- Khối "Thêm người dùng mới" — danh bạ công ty ----------
@@ -404,7 +422,12 @@ export default function TrangPhanQuyen() {
                           <Button
                             size="sm"
                             disabled={!vtChon || dangLuu}
-                            onClick={() => vtChon && setHoiThemMoi({ tv, vt: vtChon })}
+                            onClick={() => {
+                              if (!vtChon) return;
+                              /* Nhớ lại — hộp cần nội dung cả lúc đang đóng. */
+                              setHoiThemMoiCuoi({ tv, vt: vtChon });
+                              setHoiThemMoi({ tv, vt: vtChon });
+                            }}
                           >
                             Cấp quyền
                           </Button>
@@ -537,7 +560,12 @@ export default function TrangPhanQuyen() {
                           <Button
                             size="sm"
                             disabled={!daDoi || dangLuu}
-                            onClick={() => vtChon && setHoiDoi({ hs, vt: vtChon })}
+                            onClick={() => {
+                              if (!vtChon) return;
+                              /* Nhớ lại — hộp cần nội dung cả lúc đang đóng. */
+                              setHoiDoiCuoi({ hs, vt: vtChon });
+                              setHoiDoi({ hs, vt: vtChon });
+                            }}
                           >
                             Đổi
                           </Button>
@@ -609,23 +637,24 @@ export default function TrangPhanQuyen() {
 
       {/* 🔴 HỎI TRƯỚC KHI ĐỔI. Đổi vai trò ảnh hưởng ngay tới việc người ta làm được gì — hạ nhầm
           là họ mất quyền giữa lúc đang làm việc, và không tự lấy lại được. */}
-      {hoiDoi && (
+      {/* 🔴 KHÔNG bọc bằng `{hoiDoi && …}` — xem chú thích ở `hoiDoiCuoi`. */}
+      {hoiDoiCuoi && (
         <HopXacNhan
-          mo
+          mo={hoiDoi !== null}
           tieuDe="Đổi vai trò?"
           moTa={
-            `Đổi ${hoiDoi.hs.hoSo.tenHienThi} sang vai trò “${hoiDoi.vt.ten}”. ` +
-            `${hoiDoi.vt.moTa} Người này sẽ thấy thay đổi ở lần tải trang kế tiếp.`
+            `Đổi ${hoiDoiCuoi.hs.hoSo.tenHienThi} sang vai trò “${hoiDoiCuoi.vt.ten}”. ` +
+            `${hoiDoiCuoi.vt.moTa} Người này sẽ thấy thay đổi ở lần tải trang kế tiếp.`
           }
           canhBao={
-            hoiDoi.vt.capTM < hoiDoi.hs.hoSo.capTM
+            hoiDoiCuoi.vt.capTM < hoiDoiCuoi.hs.hoSo.capTM
               ? "Đây là HẠ quyền — người này sẽ mất một số việc đang làm được."
               : undefined
           }
           nhanDongY="Đổi vai trò"
-          nguyHiem={hoiDoi.vt.capTM < hoiDoi.hs.hoSo.capTM}
+          nguyHiem={hoiDoiCuoi.vt.capTM < hoiDoiCuoi.hs.hoSo.capTM}
           onDongY={() => {
-            const { hs, vt } = hoiDoi;
+            const { hs, vt } = hoiDoiCuoi;
             setHoiDoi(null);
             /* Hỏi luật LẦN NỮA ngay trước khi ghi: giữa lúc hộp xác nhận đang mở, danh sách có
                thể đã được đọc lại và cấp của người kia đã khác. */
@@ -651,17 +680,18 @@ export default function TrangPhanQuyen() {
 
       {/* Hỏi trước khi CẤP QUYỀN MỚI — người này trước đó chưa vào được app, cấp nhầm vai trò
           rộng là lộ dữ liệu ngay từ lần đăng nhập đầu tiên. */}
-      {hoiThemMoi && (
+      {/* 🔴 KHÔNG bọc bằng `{hoiThemMoi && …}` — xem chú thích ở `hoiDoiCuoi`. */}
+      {hoiThemMoiCuoi && (
         <HopXacNhan
-          mo
+          mo={hoiThemMoi !== null}
           tieuDe="Cấp quyền cho người này?"
           moTa={
-            `Cấp cho ${hoiThemMoi.tv.hoTen} (${hoiThemMoi.tv.email}) vai trò “${hoiThemMoi.vt.ten}”. ` +
-            `${hoiThemMoi.vt.moTa} Người này đăng nhập lần tới bằng đúng tài khoản HPcore của họ là vào được ngay.`
+            `Cấp cho ${hoiThemMoiCuoi.tv.hoTen} (${hoiThemMoiCuoi.tv.email}) vai trò “${hoiThemMoiCuoi.vt.ten}”. ` +
+            `${hoiThemMoiCuoi.vt.moTa} Người này đăng nhập lần tới bằng đúng tài khoản HPcore của họ là vào được ngay.`
           }
           nhanDongY="Cấp quyền"
           onDongY={() => {
-            const { tv, vt } = hoiThemMoi;
+            const { tv, vt } = hoiThemMoiCuoi;
             setHoiThemMoi(null);
             const xet = duocDatCap(nguoiDung, vt.capTM);
             if (!xet.duoc) {

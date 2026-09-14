@@ -855,6 +855,22 @@ export default function TrangChiTietDeNghi({
                    * nội bộ mà điều hướng cùng tab thì ở trang đầy đủ là no-op (bấm không đi đâu),
                    * còn trong pop-up thì tháo mất cả bảng quy trình.
                    */
+                  /**
+                   * ★★ CHỮ HIỆN PHẢI NÓI ĐÚNG NƠI LIÊN KẾT DẪN TỚI — Sếp 14/09/2026:
+                   * *"Sao đề nghị này a bấm zô mà đường link ko xem được thông tin trong đề nghị"*.
+                   *
+                   * 🔴 TRƯỚC ĐÂY IN `dn.code` CHO CẢ HAI NHÁNH, và đó là chỗ gây hiểu nhầm: ô ghi
+                   * `260001-HPCS-HDXD-001-PR-004` — **mã nội bộ của app Thu mua** — trong khi
+                   * `href` lại trỏ sang App Request. Người đọc thấy mã nội bộ thì đinh ninh liên
+                   * kết dẫn tới chính trang này, bấm vào thấy màn hình lạ nên tưởng liên kết hỏng.
+                   *
+                   * ✅ Nay chữ đi theo đích: sang App Request thì in **mã đề xuất bên đó**
+                   * (`maDeXuatAppRequest`, vd `000000087`) — đúng con số người dùng tra được trên
+                   * App Request. Liên kết nội bộ thì vẫn in mã nội bộ như cũ.
+                   *
+                   * 📌 `maDeXuatAppRequest` có thể trống ở vài hồ sơ cũ → lùi về `dn.code`, đừng để
+                   * ra một liên kết không có chữ nào.
+                   */
                   giaTri: (
                     <a
                       href={duongDanHoSoAppRequest(dn.idHoSoAppRequest) ?? `/de-nghi/${dn.id}`}
@@ -862,7 +878,9 @@ export default function TrangChiTietDeNghi({
                       rel="noopener noreferrer"
                       className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
                     >
-                      {dn.code}
+                      {duongDanHoSoAppRequest(dn.idHoSoAppRequest)
+                        ? (dn.maDeXuatAppRequest?.trim() || dn.code)
+                        : dn.code}
                     </a>
                   ),
                 },
