@@ -228,6 +228,29 @@ export function tepSoSanh(deNghi: DeNghiMuaHang): MoTaTep | undefined {
 }
 
 /**
+ * ★★ KHÓA GHI LÝ DO "KHÔNG CẦN BẢNG SO SÁNH" — Sếp 13/09/2026 nguyên văn: *"Vẫn giữ nút đính kèm
+ * bảng so sánh báo giá và thêm 1 nút không cần đính kèm báo giá bên cạnh"*.
+ *
+ * 🔴 HẰNG SỐ NÀY TỪNG NẰM TRONG TỆP GIAO DIỆN `khu-bao-gia-theo-so-luong.tsx` — chuyển về đây
+ * 14/09/2026 cho đúng CLAUDE.md §3.4b (không để luật nghiệp vụ trong file giao diện). Lý do cụ
+ * thể, không phải nguyên tắc suông: khi khóa còn nằm bên giao diện thì `vuongMacTrinhXetDuyet`
+ * **không đọc được nó**, nên bấm nút chỉ tắt cảnh báo tại ô mà cổng chuyển bước vẫn khóa — nút
+ * hứa một việc app không làm (§3.5). Nay cổng đọc chính khóa này nên hai bên không thể lệch nữa.
+ *
+ * ⚠️ Hậu tố `bang_so_sanh` cố ý KHÁC dạng `bao_gia_{n}` mà `khoaLyDoBoQuaBaoGia` sinh ra. Trùng
+ * khóa là lý do của bảng so sánh bị đọc nhầm thành lý do bỏ qua một ô báo giá, và ô báo giá đó
+ * lặng lẽ thôi đòi tệp.
+ *
+ * 📌 Dùng lại nguyên `lyDoThieuChungTu` — không mở trường dữ liệu mới, hồ sơ cũ vẫn đọc đúng.
+ */
+export const KHOA_BO_QUA_SO_SANH = `${BUOC_DINH_KEM_BAO_GIA}|bang_so_sanh`;
+
+/** Lý do đã ghi cho việc không đính kèm bảng so sánh. Chuỗi rỗng = chưa xin bỏ qua. */
+export function lyDoBoQuaSoSanh(deNghi: DeNghiMuaHang): string {
+  return (deNghi.lyDoThieuChungTu?.[KHOA_BO_QUA_SO_SANH] ?? "").trim();
+}
+
+/**
  * ★ SỐ Ô BÁO GIÁ ĐANG CÓ TỆP THẬT — đếm TOÀN BỘ ô (kể cả ô thêm ngoài số bắt buộc qua nút
  * "+ Thêm báo giá NCC khác"), KHÔNG chặn `<= can`.
  *
@@ -395,8 +418,22 @@ export function vuongMacTrinhXetDuyet(
    * báo giá NCC khác") vẫn là một bản báo giá thật — có 1 ô bắt buộc + 1 ô thêm thì vẫn là 2 bản
    * thật, vẫn có gì để so sánh, bảng so sánh vẫn phải bắt buộc. Dùng `oDaCoTep.size` (đã bị chặn
    * `<= can`) ở đây sẽ đếm thiếu, cho qua khi lẽ ra còn phải đòi bảng so sánh.
+   *
+   * ★★ CÓ LÝ DO THÌ COI LÀ ĐÃ XỬ LÝ — Sếp 13/09/2026: *"Vẫn giữ nút đính kèm bảng so sánh báo giá
+   * và thêm 1 nút không cần đính kèm báo giá bên cạnh"*. Nới đúng theo khuôn đã dùng cho từng ô
+   * báo giá ở vòng lặp trên (`lyDoBoQuaBaoGia`): **có tệp HOẶC có lý do**, không phải bỏ luật.
+   *
+   * 🔴 TRƯỚC 14/09/2026 CỔNG NÀY KHÔNG ĐỌC KHÓA ĐÓ: nút "Không cần đính kèm" chỉ tắt cảnh báo tại
+   * ô, còn nút "Trình xét duyệt báo giá" vẫn khóa và không nói vì sao — đúng kiểu giao diện hứa
+   * một việc app không làm (§3.5). Đừng gỡ điều kiện này ra "cho chặt": gỡ là nút kia thành nút
+   * giả trở lại.
+   *
+   * ⚠️ CÁI GIÁ: ghi lý do là hồ sơ **trình xét duyệt được với 2+ báo giá mà không có bảng so
+   * sánh**. Chấp nhận được vì lý do có lưu vào hồ sơ và hiện tại ô, truy lại được ai khai gì —
+   * khác hẳn việc lặng lẽ bỏ điều kiện. `bo-ho-so-thanh-toan.ts` vẫn đếm mục này là thiếu khi lập
+   * bộ hồ sơ giao Kế toán: đó là bảng kiểm "có tờ nào trong tay", câu hỏi khác, đừng gộp.
    */
-  if (soBanBaoGiaThat(deNghi) >= 2 && !tepSoSanh(deNghi)) {
+  if (soBanBaoGiaThat(deNghi) >= 2 && !tepSoSanh(deNghi) && lyDoBoQuaSoSanh(deNghi) === "") {
     return `Chưa đính kèm “${NHAN_O_SO_SANH}”. Bảng này bắt buộc phải có trước khi trình — lập ngoài (Excel/PDF) rồi đính vào ô cuối ở bước “Yêu cầu NCC báo giá”.`;
   }
 

@@ -30,6 +30,10 @@ import {
   tepUNC,
   TEN_HIEN_HOP_DONG,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
+/* 📌 DÙNG LẠI hàm dựng đường dẫn App Request thay vì tự `trim()` lại ở đây: chỉ cần biết hồ sơ
+   này có tra được bản gốc bên đó hay không. Hai chỗ cùng tự đoán một câu hỏi là hai câu trả lời
+   — và chỗ này sẽ lặng lẽ lệch với ô "Đường dẫn đề nghị" ở trang chi tiết. */
+import { duongDanHoSoAppRequest } from "@/6-tien-ich/dia-chi-app-de-nghi";
 
 /** Mã máy đọc được của từng mục — dùng làm khóa khi đẩy sang app Kế toán. */
 export type MaMucHoSo =
@@ -49,8 +53,14 @@ export interface MucHoSoThanhToan {
   /**
    * Mục này bắt buộc phải có mới đủ hồ sơ hay không.
    *
-   * 📌 Theo đúng chữ Ban lãnh đạo: mục 6 và 7 ghi *"(nếu có)"* nên KHÔNG bắt buộc. Bốn mục đầu
-   * và phiếu giao hàng là bắt buộc — đó là chứng từ chứng minh việc mua đã diễn ra thật.
+   * 📌 Theo đúng chữ Ban lãnh đạo: mục 6 và 7 ghi *"(nếu có)"* nên KHÔNG bắt buộc.
+   *
+   * 📌 Mục 1 (Phiếu đề nghị) THÔI bắt buộc từ 13/09/2026 — Ban lãnh đạo: *"Ko cần đề xuất, vì đã
+   * có link tới đề xuất rồi, nên mục này ko cần báo đỏ"*. Lý do đầy đủ ở khối ★★ mục ① trong
+   * `dungBoHoSoThanhToan` — đọc trước khi định bật lại.
+   *
+   * 👉 Còn BẮT BUỘC bốn mục: 2 (báo giá NCC), 3 (đơn mua hàng), 4 (hợp đồng), 5 (phiếu giao
+   * hàng) — đó là chứng từ chứng minh việc mua đã diễn ra thật.
    */
   batBuoc: boolean;
   /** Tệp của mục này — MẢNG RỖNG nghĩa là chưa có. */
@@ -121,6 +131,57 @@ export function dungBoHoSoThanhToan(
   const phieuDeNghi = deNghi.taiLieu ?? [];
 
   /**
+   * ★★ MỤC ① THÔI LÀ MỤC BẮT BUỘC — Ban lãnh đạo 13/09/2026, nguyên văn: *"Ko cần đề xuất, vì đã
+   * có link tới đề xuất rồi, nên mục này ko cần báo đỏ"*.
+   *
+   * 🔴 VÌ SAO ĐÚNG, KHÔNG PHẢI NỚI LUẬT CHO DỄ SỐNG: App Request là **nơi duy nhất lập phiếu đề
+   * nghị** (chốt 23/08/2026, xem `6-tien-ich/dia-chi-app-de-nghi.ts`). Tệp người đề nghị đính
+   * nằm trong kho R2 của App Request, app Thu mua KHÔNG có khóa để tải về nên chỉ giữ được DANH
+   * MỤC TÊN (`taiLieuAppRequest`, xem `kieu-du-lieu.ts`). Còn `deNghi.taiLieu` — đúng thứ mục này
+   * đếm — chỉ được ghi bởi `themDeNghiGiaLap`, tức **chỉ có ở dữ liệu chạy thử**.
+   * 👉 Với mọi hồ sơ THẬT, mục ① là điều kiện KHÔNG BAO GIỜ đạt được: nó báo thiếu vĩnh viễn, và
+   * một chốt lúc nào cũng đỏ thì người dùng bỏ qua cả khối — chốt mất tin cậy còn tệ hơn không
+   * có chốt.
+   *
+   * 🔴 GIỮ MỤC, CHỈ BỎ TÍNH BẮT BUỘC — KHÔNG xoá khỏi danh sách. Mã `phieu_de_nghi` là khóa khi
+   * đẩy sang app Kế toán; xoá mục là bộ hồ sơ hụt một khóa mà không có gì báo (xem cảnh báo ở
+   * đầu tệp). Hồ sơ nào có `taiLieu` thật thì vẫn bày tệp và vẫn được tính "đã có" như trước.
+   *
+   * ⚠️ CÁI GIÁ PHẢI TRẢ: từ nay không còn gì nhắc khi một hồ sơ thiếu phiếu đề nghị. Chấp nhận
+   * được vì app KHÔNG có chỗ nào nộp phiếu đề nghị — nhắc cũng không ai sửa được. Đổi lại phải
+   * NÓI THẬT bản gốc nằm ở đâu (câu dưới), chứ không im lặng để người đọc tưởng app làm mất hồ
+   * sơ (CLAUDE.md §3.5).
+   *
+   * ⚠️ NẾU sau này app mở chỗ nộp phiếu đề nghị TRONG app thì xem lại mục này — lúc đó lý do
+   * "không bao giờ đạt được" hết hiệu lực, nhưng chỉ đạo của Sếp thì vẫn còn, nên phải hỏi lại.
+   */
+  const coDuongDanAppRequest = duongDanHoSoAppRequest(deNghi.idHoSoAppRequest) !== null;
+  const soTepBenAppRequest = deNghi.taiLieuAppRequest?.length ?? 0;
+  /* 🔴 NHẬN RA "ĐẾN TỪ APP REQUEST" BẰNG CẢ BA DẤU VẾT, không chỉ một: hồ sơ về trước 13/09/2026
+     thiếu `idHoSoAppRequest`, và vẫn còn khả năng một hồ sơ chỉ còn lại danh mục tệp. Nhận nhầm
+     hồ sơ bên đó thành "lập tay trong app" là in ra một câu chỉ SAI CHỖ tìm bản gốc — tệ hơn
+     không nói gì, vì người đọc sẽ tin. */
+  const denTuAppRequest =
+    coDuongDanAppRequest || Boolean(deNghi.maDeXuatAppRequest) || soTepBenAppRequest > 0;
+  const cauBanGocPhieuDeNghi = [
+    coDuongDanAppRequest
+      ? 'Bản gốc nằm bên App Request — mở bằng ô "Đường dẫn đề nghị" ở khối Thông tin đề nghị.'
+      : denTuAppRequest
+        ? `Bản gốc nằm bên App Request${
+            deNghi.maDeXuatAppRequest ? `, tra theo mã đề xuất ${deNghi.maDeXuatAppRequest}` : ""
+          } — hồ sơ này không kèm đường dẫn trực tiếp (app chỉ bắt đầu lưu từ 13/09/2026).`
+        : "Đề nghị này không đến từ App Request, và app cũng chưa nhận tệp hồ sơ đầu vào nào.",
+    /* Nói luôn số tệp bên kia: người đọc biết có chứng từ để đi lấy, chứ không phải "trống rỗng".
+       KHÔNG bày tên/đường dẫn từng tệp ở đây — `duongDan` là khóa R2 cần chữ ký, ghép thành liên
+       kết là ra một nút bấm báo lỗi (xem `taiLieuAppRequest` trong `kieu-du-lieu.ts`). */
+    soTepBenAppRequest > 0
+      ? `Người đề nghị đính ${soTepBenAppRequest} tệp bên đó — app chỉ giữ danh mục tên, tải bản gốc bên App Request.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  /**
    * ② BÁO GIÁ NCC — HAI NHÓM: bản ĐƯỢC CHỌN, và bảng so sánh.
    *
    * ★★ Ban lãnh đạo 26/08/2026: *"Chỗ báo giá chỉ links file báo giá được chọn. Và bảng so sánh
@@ -188,12 +249,27 @@ export function dungBoHoSoThanhToan(
       stt: 1,
       ma: "phieu_de_nghi",
       ten: "Phiếu đề nghị",
-      batBuoc: true,
+      /* 🔴 KHÔNG bắt buộc từ 13/09/2026 (Sếp) — lý do đầy đủ ở khối ★★ mục ① phía trên. */
+      batBuoc: false,
       tep: phieuDeNghi,
-      ghiChu: thieu(
-        phieuDeNghi.length > 0,
-        "Chưa có tệp hồ sơ đầu vào — bộ phận đề xuất gửi kèm khi tạo đề nghị.",
-      ),
+      /**
+       * 📌 VÌ SAO CÂU CHỈ ĐƯỜNG ĐI TRONG `nhom` CHỨ KHÔNG PHẢI `ghiChu`: nơi vẽ đang tô `ghiChu`
+       * của mục bằng màu cảnh báo (`text-warning-soft`), còn câu của một nhóm rỗng thì tô màu
+       * chữ phụ trung tính. Sếp bảo mục này *"ko cần báo đỏ"*, nên câu này phải trông như lời chỉ
+       * đường, không như lời cảnh báo.
+       *
+       * ✅ KHÔNG PHẠM quy ước ở khai báo `nhom` ("có `nhom` thì `tep` để RỖNG"): `nhom` ở đây CHỈ
+       * xuất hiện đúng lúc `tep` rỗng, nên không có tệp nào bị hiện hai lần.
+       *
+       * ⚠️ Nhóm rỗng nên `mucDaCo` vẫn trả `false` → vẫn hiện dấu "chưa có". Đó là CỐ Ý và là chỗ
+       * nói thật: app thật sự không giữ tệp nào cho mục này. Đừng nhét một `MoTaTep` giả vào cho
+       * "xanh" — `MoTaTep.id` là khóa tra nội dung trong `3-du-lieu/kho-tep.ts`, khóa giả thì bấm
+       * ra tệp rỗng và người dùng tưởng hệ thống làm mất chứng từ.
+       */
+      nhom:
+        phieuDeNghi.length > 0
+          ? undefined
+          : [{ ten: "Bản gốc phiếu đề nghị", tep: [], ghiChu: cauBanGocPhieuDeNghi }],
     },
     {
       stt: 2,
@@ -266,10 +342,15 @@ export function dungBoHoSoThanhToan(
 }
 
 /**
- * ★ Câu tóm tắt cho nhãn khối — "đủ 5/5 mục bắt buộc" hoặc "còn thiếu …".
+ * ★ Câu tóm tắt cho nhãn khối — "đủ 4/4 mục bắt buộc" hoặc "còn thiếu …".
  *
  * 📌 Chỉ đếm mục BẮT BUỘC. Đếm cả mục "(nếu có)" thì hồ sơ nào cũng hiện thiếu, và người dùng
  * sẽ bỏ qua lời nhắc — chốt mất tin cậy còn tệ hơn không có chốt.
+ *
+ * ⚠️ `tong` KHÔNG PHẢI SỐ CỐ ĐỊNH — nó đếm `batBuoc` tại lúc chạy. Từ 13/09/2026 là **4** (trước
+ * đó 5, vì mục ① Phiếu đề nghị thôi bắt buộc theo chỉ đạo của Sếp). Nơi vẽ phải in `tong`, tuyệt
+ * đối đừng viết cứng con số vào câu chữ — viết cứng là một ngày nào đó màn hình nói "5" trong
+ * khi hàm này đếm "4", và không có gì báo.
  */
 export function tomTatBoHoSo(muc: MucHoSoThanhToan[]): {
   daCo: number;

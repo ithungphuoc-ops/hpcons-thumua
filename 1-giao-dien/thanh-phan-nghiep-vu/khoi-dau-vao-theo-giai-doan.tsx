@@ -112,6 +112,36 @@ export interface GiaiDoanDauVao {
    * mất điều kiện — trạng thái mở không được phép "lách" qua khóa.
    */
   khoaMoRong?: string;
+  /**
+   * ★ GỘP "ĐẦU VÀO" VÀO "KẾT QUẢ" — CHỈ DÀNH CHO BƯỚC NÀO ĐẦU VÀO CŨNG CHÍNH LÀ KẾT QUẢ.
+   *
+   * 🔴 Ban lãnh đạo 13/09/2026, đứng ở bước ③ *Xét duyệt báo giá*: *"Đổi chữ luôn, vì đầu vào
+   * và kết quả của bước này là 1 nên hãy để chữ 'Kết quả'"*.
+   *
+   * VÌ SAO KHÔNG ĐỔI THẲNG CHỮ "ĐẦU VÀO": hai nhãn này dựng MỘT LẦN ở đây và cả 9 bước dùng
+   * chung (xem chú thích *"SỬA MỘT LẦN ÁP CHO MỌI BƯỚC"* ở khối KẾT QUẢ). Đổi thẳng là đổi
+   * HẾT mọi bước, xóa mất chính sự phân biệt đầu vào / kết quả mà Ban lãnh đạo yêu cầu dựng
+   * lên ngày 19/08/2026 (*"Thêm nút 'Kết quả' để phân biệt rõ đâu là đầu vào đâu là đầu ra"*).
+   *
+   * 🔴 VÌ SAO PHẢI GỘP CHỨ KHÔNG CHỈ ĐỔI TÊN: bước ③ có ĐỦ CẢ HAI phần — danh sách trường
+   * (bản báo giá được chọn, bảng so sánh) và phần nghiệp vụ (khối xét duyệt). Chỉ đổi chữ là
+   * màn hình có HAI khối cùng tên "KẾT QUẢ" chồng nhau, rối hơn trước khi sửa. Bật cờ này thì
+   * danh sách trường chuyển vào NẰM TRONG khối KẾT QUẢ, ngay trên phần nghiệp vụ — một khối,
+   * một nhãn, đúng câu *"đầu vào và kết quả của bước này là 1"*.
+   *
+   * ⚠️ CÁI GIÁ: với bước bật cờ, danh sách trường tụt xuống DƯỚI khu đính kèm tệp (vì khối
+   * KẾT QUẢ vốn đứng sau khu đính kèm từ 22/08/2026). Chấp nhận được, và vẫn đúng mạch đọc
+   * *chứng từ đính kèm → kết quả*; số thứ tự 01→N không đổi vì nó tính theo thứ tự mảng
+   * `truong`, không tính theo chỗ vẽ ra.
+   *
+   * ⚠️ CHỈ BẬT KHI BƯỚC ĐÓ THẬT SỰ CHỈ CÓ MỘT THỨ. Bật cho bước mà đầu vào khác hẳn kết quả
+   * (bước ④ chẳng hạn: đầu vào là căn cứ chọn NCC, kết quả là đơn đặt hàng) thì hai thứ khác
+   * nghĩa bị gom chung một nhãn — người đọc hồ sơ mất đúng thông tin mà nhãn sinh ra để nói.
+   *
+   * 📌 Bỏ trống = tự nhận theo mã giai đoạn (xem `MA_BUOC_GOP_DAU_VAO_VAO_KET_QUA`).
+   * Truyền `false` để ép tắt, truyền `true` để ép bật cho bước khác.
+   */
+  gopDauVaoVaoKetQua?: boolean;
 }
 
 /**
@@ -162,6 +192,24 @@ export function NhanPhanTrongGiaiDoan({
   return the === "h2" ? <h2 className={lop}>{noiDung}</h2> : <p className={lop}>{noiDung}</p>;
 }
 
+/**
+ * ★ BƯỚC ĐƯỢC GỘP SẴN — xem `gopDauVaoVaoKetQua`. Đây là mã giai đoạn ③ *Xét duyệt báo giá*,
+ * khai trong `2-quy-trinh/giai-doan-mua-hang.ts`.
+ *
+ * 🔴 VÌ SAO NHẬN THEO MÃ GIAI ĐOẠN CHỨ KHÔNG BẮT NƠI GỌI TRUYỀN CỜ: luật *"bước ③ chỉ có một
+ * khối KẾT QUẢ"* là chỉ đạo về NGHIỆP VỤ của bước đó, đúng cho mọi chỗ dựng khối giai đoạn.
+ * Để nơi gọi tự truyền thì chỗ nào quên truyền là bước ③ lại mọc ra hai khối cùng tên, mà
+ * không có gì báo — đúng kiểu hỏng im lặng đã phải sửa nhiều lần trong dự án này.
+ *
+ * ⚠️ CÁI GIÁ: một component thuần hiển thị mà biết tên một bước nghiệp vụ — có coupling.
+ * Chấp nhận đánh đổi này vì nó đổi lại việc luật không thể bị quên; và `gopDauVaoVaoKetQua`
+ * vẫn là cửa để nơi gọi ép bật/ép tắt khi cần.
+ *
+ * 📌 Thêm bước thứ hai thì đổi hằng số này thành `Set` chứ đừng viết `||` nối chuỗi — nối
+ * chuỗi tới cái thứ ba là không ai đọc ra điều kiện nữa.
+ */
+const MA_BUOC_GOP_DAU_VAO_VAO_KET_QUA = "xet_duyet_bao_gia";
+
 export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[] }) {
   /**
    * Giai đoạn nào đang mở. **Mặc định GẬP HẾT** — mỗi lần vào trang, hoặc F5, đều về gập.
@@ -199,6 +247,11 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
         // người dùng gập mở khối nào.
         const truongCoSo = g.truong.map((t) => ({ ...t, so: ++so }));
 
+        /* ★ BƯỚC GỘP ĐẦU VÀO VÀO KẾT QUẢ (13/09/2026) — xem `gopDauVaoVaoKetQua`.
+           Dùng `??` chứ không `||`: nơi gọi truyền `false` là ép TẮT, còn `||` sẽ nuốt mất
+           `false` rồi vẫn bật theo mã giai đoạn. */
+        const gopVaoKetQua = g.gopDauVaoVaoKetQua ?? g.ma === MA_BUOC_GOP_DAU_VAO_VAO_KET_QUA;
+
         /**
          * Giai đoạn KHÔNG có trường nhập nào nhưng CÓ phần làm việc (bước ① chỉ có bảng
          * Phân bổ chẳng hạn) hoặc CÓ khu đính kèm thì bỏ luôn con số trên nhãn gập.
@@ -221,6 +274,62 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
         const nhanKhiMo = anSoTruong ? "" : `${g.truong.length} trường`;
         const nhanKhiGap = anSoTruong ? "THU GỌN" : `THU GỌN · ${g.truong.length}`;
         const nhanGap = dangMo ? nhanKhiMo : nhanKhiGap;
+
+        /**
+         * ★ DANH SÁCH TRƯỜNG TÁCH RA BIẾN (13/09/2026) — vì từ nay nó được vẽ ở MỘT TRONG HAI
+         * chỗ: khối "ĐẦU VÀO" như cũ, hoặc nằm trong khối "KẾT QUẢ" với bước được gộp.
+         *
+         * 🔴 CỐ Ý CHỈ VIẾT MỘT LẦN, không chép ra hai nhánh. Chép ra thì lần sau ai sửa cách
+         * hiện tệp ở một nhánh là hai bước cùng một app bày dữ liệu theo hai kiểu, mà lệch
+         * kiểu này không ai soi ra khi đọc code — đúng bài học đã ghi ở `NhanPhanTrongGiaiDoan`.
+         *
+         * 📌 Trả `null` khi không có trường nào, để nơi dùng tự chọn câu trống cho hợp văn cảnh
+         * ("chưa có dữ liệu nhập vào" ở khối ĐẦU VÀO, "chưa có kết quả" ở khối KẾT QUẢ).
+         */
+        const danhSachTruong =
+          truongCoSo.length === 0 ? null : (
+            <dl className="flex flex-col gap-(--hp-md-row-gap)">
+              {truongCoSo.map((t) => (
+                <div key={t.nhan} className="flex gap-3">
+                  {/* Số thứ tự cột trái, đúng kiểu Base — `tabular-nums` để 01 và 12
+                      thẳng hàng nhau. */}
+                  <dt className="w-6 shrink-0 pt-0.5 text-xs text-text-disabled tabular-nums">
+                    {String(t.so).padStart(2, "0")}
+                  </dt>
+                  <dd className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="text-xs text-text-desc">{t.nhan}</span>
+
+                    {t.giaTri !== undefined && (
+                      <span className="text-sm font-medium text-text-primary">
+                        {t.giaTri || "—"}
+                      </span>
+                    )}
+
+                    {t.noiDung}
+
+                    {(t.tep ?? []).length > 0 && (
+                      <ul className="flex flex-wrap gap-1.5">
+                        {(t.tep ?? []).map((tp) => (
+                          <li key={tp.id}>
+                            <button
+                              type="button"
+                              onClick={() => setXemTep(tp)}
+                              className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs text-text-secondary transition-colors hover:border-primary hover:text-primary"
+                            >
+                              <span className="truncate" title={tp.tenTep}>
+                                {rutGonTenTep(tp.tenTep, 34)}
+                              </span>
+                              <span className="shrink-0 text-text-desc">{coTep(tp.kichThuoc)}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          );
 
         return (
           /* 🔴 KHỐI BƯỚC CÓ VIỀN MÀU NHẬN DIỆN — Ban lãnh đạo 17/08/2026: *"các mục chính này
@@ -339,70 +448,47 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
               {/* `text-sm` khai rõ ở đây để chữ nào quên khai cỡ cũng ra 14px như phần còn
                   lại của trang, chứ không rơi về 16px mặc định của trình duyệt rồi to hơn
                   cả nội dung xung quanh. */}
-              <div className="border-t border-divider p-(--hp-md-card-pad) text-sm">
-                {/* ★ DẢI ĐỎ NÓI RÕ CÒN THIẾU GÌ — đặt ở ĐẦU thân khối, trên cả "ĐẦU VÀO"
-                    (23/08/2026). Người mở khối ra là để xử lý chỗ thiếu, nên câu đó phải là thứ
-                    đọc được đầu tiên, không phải nằm lẫn giữa các trường dữ liệu.
-                    📌 Câu chữ do `vuongMacSangBuocSau` sinh ra — CÙNG một câu với hộp kéo thả và
-                    nút chuyển bước, nên ba chỗ không bao giờ nói khác nhau. */}
-                {g.conThieu && (
-                  <p className="mb-3 flex items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-xs font-medium text-danger">
-                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-                    {g.conThieu}
-                  </p>
-                )}
-                <NhanPhanTrongGiaiDoan icon={LogIn} className="mb-2">
-                  ĐẦU VÀO
-                </NhanPhanTrongGiaiDoan>
+              {/* ★ BƯỚC ĐƯỢC GỘP THÌ KHỐI NÀY CHỈ CÒN DẢI ĐỎ (13/09/2026) — danh sách trường
+                  chuyển xuống nằm trong khối KẾT QUẢ, xem `gopDauVaoVaoKetQua`.
+                  🔴 DẢI ĐỎ "CÒN THIẾU" PHẢI Ở LẠI ĐÂY, nên điều kiện vẽ tách riêng chứ không
+                  gộp chung với `!gopVaoKetQua`. Đẩy dải đỏ xuống trong khối KẾT QUẢ là mất đúng
+                  cái nếp "câu vướng mắc là thứ đọc được đầu tiên khi mở khối" (23/08/2026).
+                  📌 Không còn gì để vẽ thì KHÔNG vẽ cả thẻ: một khung có viền trên cùng khoảng
+                  đệm mà rỗng ruột còn khó hiểu hơn là không có gì (cùng lý do `empty:hidden` ở
+                  khu đính kèm bên dưới). */}
+              {(g.conThieu || !gopVaoKetQua) && (
+                <div className="border-t border-divider p-(--hp-md-card-pad) text-sm">
+                  {/* ★ DẢI ĐỎ NÓI RÕ CÒN THIẾU GÌ — đặt ở ĐẦU thân khối, trên cả "ĐẦU VÀO"
+                      (23/08/2026). Người mở khối ra là để xử lý chỗ thiếu, nên câu đó phải là thứ
+                      đọc được đầu tiên, không phải nằm lẫn giữa các trường dữ liệu.
+                      📌 Câu chữ do `vuongMacSangBuocSau` sinh ra — CÙNG một câu với hộp kéo thả và
+                      nút chuyển bước, nên ba chỗ không bao giờ nói khác nhau. */}
+                  {g.conThieu && (
+                    <p
+                      className={`flex items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-xs font-medium text-danger ${
+                        gopVaoKetQua ? "" : "mb-3"
+                      }`}
+                    >
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                      {g.conThieu}
+                    </p>
+                  )}
 
-                {g.truong.length === 0 ? (
-                  <p className="text-sm text-text-desc">Giai đoạn này chưa có dữ liệu nhập vào.</p>
-                ) : (
-                  <dl className="flex flex-col gap-(--hp-md-row-gap)">
-                    {truongCoSo.map((t) => (
-                      <div key={t.nhan} className="flex gap-3">
-                        {/* Số thứ tự cột trái, đúng kiểu Base — `tabular-nums` để 01 và 12
-                            thẳng hàng nhau. */}
-                        <dt className="w-6 shrink-0 pt-0.5 text-xs text-text-disabled tabular-nums">
-                          {String(t.so).padStart(2, "0")}
-                        </dt>
-                        <dd className="flex min-w-0 flex-1 flex-col gap-1">
-                          <span className="text-xs text-text-desc">{t.nhan}</span>
+                  {!gopVaoKetQua && (
+                    <>
+                      <NhanPhanTrongGiaiDoan icon={LogIn} className="mb-2">
+                        ĐẦU VÀO
+                      </NhanPhanTrongGiaiDoan>
 
-                          {t.giaTri !== undefined && (
-                            <span className="text-sm font-medium text-text-primary">
-                              {t.giaTri || "—"}
-                            </span>
-                          )}
-
-                          {t.noiDung}
-
-                          {(t.tep ?? []).length > 0 && (
-                            <ul className="flex flex-wrap gap-1.5">
-                              {(t.tep ?? []).map((tp) => (
-                                <li key={tp.id}>
-                                  <button
-                                    type="button"
-                                    onClick={() => setXemTep(tp)}
-                                    className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-xs text-text-secondary transition-colors hover:border-primary hover:text-primary"
-                                  >
-                                    <span className="truncate" title={tp.tenTep}>
-                                      {rutGonTenTep(tp.tenTep, 34)}
-                                    </span>
-                                    <span className="shrink-0 text-text-desc">
-                                      {coTep(tp.kichThuoc)}
-                                    </span>
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-              </div>
+                      {danhSachTruong ?? (
+                        <p className="text-sm text-text-desc">
+                          Giai đoạn này chưa có dữ liệu nhập vào.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* ★ TỆP ĐÍNH KÈM CỦA BƯỚC — Ban lãnh đạo 17/08/2026: *"mục đính kèm file"*.
 
@@ -438,7 +524,12 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                   phải phân bổ người phụ trách. Gộp vào nhánh đó là khối làm việc biến mất
                   đúng lúc cần nó nhất.
                   Đường kẻ ngang tách bạch "cái đã nhập vào" với "cái phải làm". */}
-              {g.noiDungNghiepVu && (
+              {/* ★ BƯỚC ĐƯỢC GỘP THÌ LUÔN VẼ KHỐI NÀY (13/09/2026), kể cả khi không có phần
+                  nghiệp vụ — vì danh sách trường nay nằm TRONG đây. Giữ nguyên điều kiện cũ là
+                  người không có quyền xem báo giá (`noiDungNghiepVu` ra `false`) sẽ mất trắng cả
+                  danh sách trường vốn vẫn hiện cho họ trước hôm nay: một thay đổi chữ nghĩa mà
+                  âm thầm giấu mất dữ liệu. */}
+              {(g.noiDungNghiepVu || gopVaoKetQua) && (
                 /* Cũng khai `text-sm` như phần ĐẦU VÀO — hai phần nằm trong cùng một khối
                    thì nền cỡ chữ phải giống nhau, không để một bên 14px một bên 16px. */
                 <div className="border-t border-divider p-(--hp-md-card-pad) text-sm">
@@ -462,6 +553,11 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                    * 📌 Đặt trong `noiDungNghiepVu` nên **tự áp cho mọi bước** có phần kết quả,
                    * không phải đi sửa từng khối ở `de-nghi-chi-tiet.tsx`. Bước nào chưa có kết
                    * quả thì cả cụm không vẽ ra — không để lại một khung xanh rỗng.
+                   *
+                   * ⚠️ MỘT NGOẠI LỆ TỪ 13/09/2026: bước bật `gopDauVaoVaoKetQua` thì cụm này VẪN
+                   * vẽ dù `noiDungNghiepVu` trống, vì danh sách trường đã dời vào trong đây —
+                   * không vẽ là giấu mất dữ liệu. Khung vẫn không bao giờ rỗng: trống cả hai thì
+                   * có câu *"Bước này chưa có kết quả nào."* thế chỗ.
                    */}
                   {/* 🔴 NỀN XANH NHẠT HƠN — Ban lãnh đạo 21/08/2026: *"giảm màu xanh nhạt hơn,
                       sửa cho các bước khác luôn"*.
@@ -476,7 +572,26 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                     <NhanPhanTrongGiaiDoan icon={LogOut} className="mb-2 text-success-soft">
                       KẾT QUẢ
                     </NhanPhanTrongGiaiDoan>
-                    {g.noiDungNghiepVu}
+                    {/* ★ BƯỚC GỘP (13/09/2026) — danh sách trường đứng TRONG khối KẾT QUẢ, ngay
+                        trên phần nghiệp vụ, dưới đúng MỘT nhãn "KẾT QUẢ".
+                        🔴 Ban lãnh đạo 13/09/2026 về bước ③: *"Đổi chữ luôn, vì đầu vào và kết quả
+                        của bước này là 1 nên hãy để chữ 'Kết quả'"* — xem `gopDauVaoVaoKetQua`.
+                        📌 Bọc bằng `flex flex-col gap-…` chứ không nhét khoảng cách bằng `mb-…`
+                        vào từng phần: phần nào vắng thì không để lại khoảng trống thừa. */}
+                    {gopVaoKetQua ? (
+                      <div className="flex flex-col gap-(--hp-md-row-gap)">
+                        {danhSachTruong}
+                        {g.noiDungNghiepVu}
+                        {/* Trống cả hai thì nói thẳng, đừng để một khung xanh rỗng không ai hiểu
+                            là lỗi hay là chưa tới lượt. Câu này KHÔNG dùng chữ "nhập vào" như
+                            khối ĐẦU VÀO: ở bước gộp, thứ đang thiếu là KẾT QUẢ. */}
+                        {!danhSachTruong && !g.noiDungNghiepVu && (
+                          <p className="text-sm text-text-desc">Bước này chưa có kết quả nào.</p>
+                        )}
+                      </div>
+                    ) : (
+                      g.noiDungNghiepVu
+                    )}
                   </div>
                 </div>
               )}

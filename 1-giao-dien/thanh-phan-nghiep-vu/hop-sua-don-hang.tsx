@@ -31,6 +31,38 @@ import type { DongPO, DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
  * 🔴 KHÓA TỪNG DÒNG THEO PHIẾU NHẬN — component TỰ tính lại đúng luật `suaDonHang` đã kiểm ở
  * tầng ghi (dòng có phiếu nhận "da_nhap_kho" thì khóa nội dung/số lượng) để BÀY ĐÚNG trạng thái
  * khóa, không hứa sửa được rồi bị cửa ghi từ chối im lặng.
+ *
+ * ---
+ *
+ * ⚠️⚠️ 13/09/2026 — VIỆC "MỞ LẠI ĐÚNG FORM LẬP ĐƠN ĐẦY ĐỦ" ĐÃ DỪNG GIỮA CHỪNG CÓ CHỦ Ý.
+ *
+ * Sếp chốt 13/09/2026: nút "Sửa đơn hàng" phải mở lại **đúng form lập đơn đầy đủ**, giữ nguyên dữ
+ * liệu đã nhập — *"làm đầy đủ, không làm bản rút gọn"*. Việc đó **CHƯA LÀM** trong đợt này, và đây
+ * là lý do đo được chứ không phải ngại khó:
+ *
+ * 🔴 `suaDonHang` chỉ nhận đúng kiểu `ThayDoiDonHang` (`3-du-lieu/kho-du-lieu.tsx` ~dòng 241).
+ * Bày form đầy đủ ra mà tầng ghi không nhận thì **7 nhóm ô dưới đây bấm Lưu xong sẽ im lặng mất
+ * thay đổi** — đúng điều CLAUDE.md §3.5 cấm (*"đừng để giao diện hứa một việc app không làm"*):
+ *
+ *   ❌ `mauPO` (mẫu in PO)                    ❌ `ghiChuHopDongNCC` ("Theo hợp đồng")
+ *   ❌ chiết khấu (`kieuChietKhau`/`chietKhau`/`tyLeChietKhau`)   ❌ thuế suất chung (`thueSuatGTGT`)
+ *   ❌ `dieuKhoanGiaoHang` · `camKetThoaThuan`  ❌ `loaiTien` · `ngayLapPO`
+ *   ❌ `tenCongTrinh` · `maHopDongCDT` · `dieuKhoanThanhToan` · `soNgayDuocNo`
+ *
+ * Bốn nhóm cuối nằm ở CHỨNG TỪ GIÁ (`GiaDonDatHang`) — tách document cố ý theo nguyên tắc dữ liệu
+ * số 3 của dự án, nên không thể nhét vào `DonDatHang` cho tiện.
+ *
+ * 📌 Mở được đường đó phải sửa `3-du-lieu/kho-du-lieu.tsx` — **ngoài phạm vi tệp được giao phiên
+ * này, và có agent khác đang sửa tệp khác cùng lúc**. Bản mô tả cách làm đầy đủ (tệp · hàm · tham
+ * số · thứ tự bước) đã báo Sếp quyết, không tự làm liều.
+ *
+ * ✅ PHẦN ĐÃ LÀM ĐƯỢC NGAY, VÌ KHÔNG CẦN SỬA TẦNG GHI: ô **"Ngày giao đến ngày"**
+ * (`ngayGiaoDenNgay`) — `ThayDoiDonHang` đã khai sẵn trường này từ trước nhưng **chưa nơi gọi nào
+ * truyền**, tức một khả năng dựng xong rồi bỏ quên. Xem state `ngayGiaoDen` ở NHÓM 2.
+ *
+ * 🔴 ĐỪNG CHÉP TỆP NÀY RA BẢN THỨ HAI khi làm tiếp. Cách an toàn đã chốt là thêm **CHẾ ĐỘ SỬA cho
+ * chính `form-lap-don-mua-hang.tsx`** (prop `poDangSua?`), giữ nguyên đường lập đơn mới — hai bản
+ * form chép tay sẽ lệch nhau sau vài lần sửa, đúng lỗi dự án đã dính.
  */
 export function HopSuaDonHang({ po }: { po: DonDatHang }) {
   const { phieuNhan, giaDonHang, suaDonHang } = useDuLieu();
@@ -69,6 +101,25 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
   // ------------------------------------------------------------
   const [supplierTen, setSupplierTen] = useState(po.supplierTen);
   const [ngayGiaoDuKien, setNgayGiaoDuKien] = useState(po.ngayGiaoDuKien);
+  /**
+   * ★ NGÀY GIAO **ĐẾN NGÀY** — thêm 13/09/2026. Sếp liệt ô này trong danh sách những thứ hộp rút
+   * gọn còn thiếu so với form lập đơn đầy đủ.
+   *
+   * ✅ VÌ SAO LÀM ĐƯỢC NGAY MÀ KHÔNG ĐỤNG TẦNG GHI: `ThayDoiDonHang.ngayGiaoDenNgay` ĐÃ CÓ SẴN
+   * trong `3-du-lieu/kho-du-lieu.tsx` (khoảng dòng 255) và `suaDonHang` đã xử lý đủ (dòng ~1890
+   * tính `doiNgayGiao`, dòng ~2014 ghi vào đơn). Chỉ là **CHƯA CÓ NƠI GỌI NÀO TRUYỀN NÓ** — một
+   * khả năng đã dựng xong nhưng nằm chết. Ô này nối vào đúng đường có sẵn, không thêm trường mới.
+   *
+   * 🔴 QUY ƯỚC `""` KHÁC `undefined` — đọc kỹ trước khi đổi: `""` nghĩa là **XOÁ ngày kết thúc**
+   * (đơn quay về giao gọn một ngày), `undefined` nghĩa là **không đụng tới trường này**. State ở
+   * đây luôn là chuỗi nên luôn gửi `""` hoặc một ngày thật — không bao giờ gửi `undefined`, vì
+   * người dùng xoá trắng ô là họ CỐ Ý bỏ khoảng ngày, phải ghi nhận đúng ý đó.
+   *
+   * 💰 CÁI GIÁ / RỦI RO: ô này khiến `doiNgayGiao` bật lên trong nhiều trường hợp hơn trước →
+   * BẮT LÝ DO nhiều hơn, kể cả với quản lý. Đó là ĐÚNG luật đã có (`suaDonHang`: *"Đổi ngày giao
+   * phải ghi lý do, dù là ai sửa"*) — đổi cam kết giao hàng với NCC không phải việc nội bộ.
+   */
+  const [ngayGiaoDen, setNgayGiaoDen] = useState(po.ngayGiaoDenNgay ?? "");
   const [items, setItems] = useState<DongPO[]>(po.items);
   const [gia, setGia] = useState<Record<number, string>>(() => {
     const m: Record<number, string> = {};
@@ -76,9 +127,28 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
     return m;
   });
 
-  const doiNgayGiao = ngayGiaoDuKien !== po.ngayGiaoDuKien;
+  /* 🔴 PHẢI TÍNH GIỐNG HỆT `suaDonHang` (kho-du-lieu.tsx ~dòng 1888), kể cả phép `|| undefined`.
+     Lệch một ly là hộp thoại bảo "không cần lý do" rồi tầng ghi từ chối — người dùng gõ xong cả
+     hộp mới bị chặn, đúng kiểu lỗi mà chú thích `hopLe` trong form lập đơn đã dặn tránh.
+     📌 `("" || undefined) !== undefined` là `false` — nên đơn vốn không có ngày kết thúc mà ô vẫn
+     để trống thì KHÔNG bị coi là "đã đổi ngày giao". Không bắt lý do oan. */
+  const doiNgayGiao =
+    ngayGiaoDuKien !== po.ngayGiaoDuKien ||
+    (ngayGiaoDen || undefined) !== po.ngayGiaoDenNgay;
   const doiNCC = supplierTen.trim() !== po.supplierTen && supplierTen.trim() !== "";
   const batBuocLyDo = !laQuanLy || doiNgayGiao || doiNCC;
+
+  /**
+   * 🔴 KHOẢNG NGÀY NGƯỢC THÌ CHẶN LƯU — cùng luật với `khoangGiaoNguoc` ở form lập đơn
+   * (`form-lap-don-mua-hang.tsx`, khoảng dòng 1895) và cùng lý do đã ghi ở đó: thuộc tính `min`
+   * của ô ngày chỉ là GỢI Ý của trình duyệt, dán ngày vào ô hoặc gõ tay vẫn lọt qua.
+   *
+   * ⚠️ CÁI GIÁ PHẢI NÓI THẲNG: `suaDonHang` ở tầng ghi **KHÔNG kiểm việc này** (đã đọc, không có
+   * dòng nào so hai ngày). Nên đây là chốt DUY NHẤT, và nó chỉ là chốt giao diện — đúng bằng mức
+   * bảo vệ mà đường lập đơn mới đang có, không hơn. Ai đưa luật này xuống tầng ghi thì xoá được
+   * đoạn ở đây; chừng nào chưa, đừng bỏ nó đi.
+   */
+  const khoangGiaoNguoc = ngayGiaoDen !== "" && ngayGiaoDen < ngayGiaoDuKien;
 
   const [lyDo, setLyDo] = useState("");
 
@@ -96,6 +166,10 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
     setThamChieu(po.thamChieu ?? "");
     setSupplierTen(po.supplierTen);
     setNgayGiaoDuKien(po.ngayGiaoDuKien);
+    /* Dọn về đúng giá trị đang có của đơn — hộp này KHÔNG unmount giữa hai lần mở (nút nằm sẵn
+       trên trang chi tiết), nên không đặt lại là lần mở sau còn giữ ngày người dùng vừa gõ rồi
+       bấm Hủy. Đúng bài học `setLyDoTaoDocLap("")` ở `donForm()` của form lập đơn. */
+    setNgayGiaoDen(po.ngayGiaoDenNgay ?? "");
     setItems(po.items);
     const m: Record<number, string> = {};
     for (const l of giaHienTai?.lines ?? []) m[l.sttDong] = String(l.donGia);
@@ -125,6 +199,14 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
   }
 
   function sua() {
+    /* Chặn TRƯỚC khi hỏi lý do: khoảng ngày ngược là lỗi dữ liệu, ghi lý do hay không cũng không
+       làm nó đúng lên được. Xem chú thích `khoangGiaoNguoc` phía trên. */
+    if (khoangGiaoNguoc) {
+      toast.error("Khoảng ngày giao bị ngược", {
+        description: "Ngày giao đến phải bằng hoặc sau ngày giao dự kiến.",
+      });
+      return;
+    }
     if (batBuocLyDo && lyDo.trim() === "") {
       toast.error("Chưa ghi lý do", {
         description: doiNgayGiao
@@ -150,6 +232,11 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
       dieuKhoanKhac,
       thamChieu,
       ngayGiaoDuKien,
+      /* LUÔN gửi (chuỗi, có thể rỗng) chứ không `|| undefined`: `""` mang nghĩa "xoá ngày kết
+         thúc", còn `undefined` mang nghĩa "không đụng tới". Dùng `|| undefined` ở đây là người
+         dùng xoá trắng ô mà ngày cũ vẫn nằm nguyên trong đơn — xoá không có tác dụng, không một
+         dòng báo nào. Xem chú thích state `ngayGiaoDen` ở NHÓM 2. */
+      ngayGiaoDenNgay: ngayGiaoDen,
       items: itemsConLai,
     };
     if (doiNCC) {
@@ -336,7 +423,35 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
                     onChange={(e) => setNgayGiaoDuKien(e.target.value)}
                   />
                 </div>
+                {/* ★ Ô "đến ngày" — thêm 13/09/2026 theo danh sách Sếp nêu. Xem chú thích state
+                    `ngayGiaoDen` để biết vì sao ô này nối được vào tầng ghi mà không sửa gì ở đó. */}
                 <div className="flex flex-col gap-1">
+                  <Label htmlFor="sua-po-ngay-giao-den">
+                    Ngày giao đến ngày
+                    <span className="ml-1.5 text-text-desc">(không bắt buộc)</span>
+                  </Label>
+                  <Input
+                    id="sua-po-ngay-giao-den"
+                    type="date"
+                    value={ngayGiaoDen}
+                    /* `min` chỉ là gợi ý trình duyệt — chốt thật là `khoangGiaoNguoc` ở hàm `sua()`. */
+                    min={ngayGiaoDuKien || undefined}
+                    aria-invalid={khoangGiaoNguoc || undefined}
+                    onChange={(e) => setNgayGiaoDen(e.target.value)}
+                  />
+                  {/* 🔴 Báo lỗi bằng CẢ MÀU LẪN CHỮ (Design System V1.1 mục 3.2) — người không phân
+                      biệt được màu vẫn đọc được lý do. */}
+                  {khoangGiaoNguoc ? (
+                    <p className="text-xs font-semibold text-danger">
+                      Ngày giao đến đang SỚM HƠN ngày giao dự kiến — sửa lại mới lưu được.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-text-desc">
+                      Để trống nếu đơn giao gọn trong một ngày.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1 sm:col-span-2">
                   <Label htmlFor="sua-po-nha-cung-cap">
                     Nhà cung cấp
                     {doiNCC && (

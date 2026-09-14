@@ -448,7 +448,22 @@ export function KhuDinhKemGiaiDoan({
         </p>
       )}
 
-      {xemTep && <HopXemTep tep={xemTep} mo onDong={() => setXemTep(null)} />}
+      {/* 🐛 SỬA LỖI THẬT 13/09/2026 — "hộp thoại đóng không sạch, cả app đơ phải F5".
+          Trước đây viết: `{xemTep && <HopXemTep tep={xemTep} mo onDong={...} />}`.
+
+          🔴 ĐỪNG BỌC LẠI THÀNH `{xemTep && ...}` VÀ ĐỪNG VIẾT `mo` TRƠN. Hai cái đó cộng lại
+          là: prop `open` không bao giờ nhận giá trị `false` (vì `mo` luôn `true`), mà bấm đóng
+          thì `setXemTep(null)` lại tháo luôn `<Dialog>` khỏi cây React ngay trong CÙNG một lần
+          commit. base-ui dọn dẹp HOÀN TOÀN bằng hàm cleanup của `useEffect` — bị tháo giữa
+          chừng là nó không chạy được, và để kẹt lại trên DOM:
+            · `overflow: hidden` trên `<body>`            → trang không cuộn được
+            · `data-base-ui-inert` + `aria-hidden="true"` → CẢ APP bấm không ăn
+          Đúng ba thứ Sếp chụp được trong F12 ngày 13/09/2026. F5 xóa sạch DOM nên "tự khỏi".
+
+          ✅ Cách đúng: GIỮ MOUNT, chỉ đổi `open`. Hộp đóng KHÔNG dựng phần tử DOM nào
+          (`DialogPortal` trả `null` khi chưa `mounted`) nên không tốn gì.
+          📌 Mẫu đối chiếu viết đúng sẵn có: `thanh-phan-dung-chung/lien-ket-tep.tsx`. */}
+      <HopXemTep tep={xemTep} mo={xemTep !== null} onDong={() => setXemTep(null)} />
 
       {/* 🔴 HỎI TRƯỚC KHI GỠ — gỡ chứng từ khỏi hồ sơ là mất bằng chứng, đúng diện phải hỏi
           theo nguyên tắc Ban lãnh đạo 10/08/2026 ở `HopXacNhan`. */}
@@ -477,7 +492,31 @@ export function KhuDinhKemGiaiDoan({
         onDongY={() => {
           if (!hoiGo) return;
           const loi = goTepGiaiDoan(deNghi.id, maGiaiDoan, hoiGo.id, nguoiDung.tenHienThi);
-          if (loi) toast.error("Chưa gỡ được tệp", { description: loi });
+          if (loi) {
+            toast.error("Chưa gỡ được tệp", { description: loi });
+            return;
+          }
+          /* 🐛 SỬA LỖI THẬT 13/09/2026 — CÙNG HỌ VỚI LỖI "đóng không sạch" ở trên, nhưng ở
+             cấp component cha nên khó thấy hơn nhiều.
+
+             Gỡ tệp CUỐI CÙNG làm `daCo.length` về 0. Nếu lúc đó `moVungTha` vẫn `false` thì
+             gặp đúng câu trả về sớm phía trên:
+
+                 if (daCo.length === 0 && !moVungTha) return <button ... />;
+
+             → TOÀN BỘ cây con bị thay bằng một cái nút, kể cả `<HopXacNhan>` vừa mới nhận
+             `mo=false` và đang chạy hiệu ứng đóng. Tháo giữa chừng như vậy là base-ui không
+             chạy được hàm dọn, để kẹt `overflow:hidden` trên `<body>` cùng
+             `data-base-ui-inert` / `aria-hidden` trên khối nội dung chính — cả app bấm không
+             ăn, phải F5 (xem bằng chứng F12 trong `don-dep-hop-thoai-ket.ts`).
+
+             ✅ Mở sẵn vùng thả tệp là khu này VẪN ĐỨNG NGUYÊN sau khi gỡ, nên hộp thoại được
+             đóng trọn vẹn rồi mới thôi.
+
+             📌 Đây cũng là cách dùng đúng hơn: vừa gỡ tệp cuối xong thì phần lớn trường hợp là
+             định đính tệp khác vào, để sẵn vùng thả là đỡ một cú bấm. Rời trang rồi vào lại
+             thì `moVungTha` về `false` và khu tự thu lại một dòng như chỉ đạo 23/08/2026. */
+          setMoVungTha(true);
         }}
       />
 

@@ -1822,6 +1822,167 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// HAI LỜI KHAI KHÁC NHAU KHI CHƯA CÓ HỢP ĐỒNG — Sếp 13/09/2026
+//
+// Nguyên văn: *"Khi chọn vào nút 'Không có HĐ' thì mới ko báo đỏ, còn nếu chọn nút 'Bổ sung sau'
+// thì báo đỏ để nhắc việc"*.
+//
+// 🔴 VÌ SAO PHẢI CÓ BÀI KIỂM: trước 13/09 hai nút này giống hệt nhau — hễ ghi lý do là hết đỏ.
+//    Nay chúng khác nhau, mà cái khác đó CHỈ NẰM TRONG MỘT PHÉP SO CHUỖI. Ai "dọn code cho gọn"
+//    bằng cách gộp lại hai nhánh thì app quay về hành vi cũ và KHÔNG CÓ GÌ BÁO.
+//
+// ⚠️ BÀI KIỂM ĐỦ CẢ HAI CHIỀU, và chiều "Bổ sung sau vẫn đỏ" mới là chiều dễ mất:
+//    ai nới thành `lyDoThieuHopDong(dn) !== "" → hết đỏ` thì chiều kia vẫn xanh.
+// ════════════════════════════════════════════════════════════════════
+
+const KHOA_HD = "lap_don_mua_hang|hop_dong";
+/** Đề nghị KHÔNG có tệp hợp đồng, lý do ghi đúng chuỗi truyền vào. */
+const hoSoThieuHD = (lyDo) => ({
+  id: "x",
+  items: [{ stt: 1 }],
+  tepGiaiDoan: {},
+  lyDoThieuChungTu: lyDo === undefined ? {} : { [KHOA_HD]: lyDo },
+});
+
+kiem(
+  'Khai "Khong co HD" -> THOI to do',
+  'Sep · 13/09/2026 (*"Khi chon vao nut \'Khong co HD\' thi moi ko bao do"*)',
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.thieuHopDongDaGhiLyDo(hoSoThieuHD(CT.LY_DO_KHONG_CO_HOP_DONG));
+    return {
+      duoc: r === false,
+      thucTe: `thieuHopDongDaGhiLyDo = ${r}`,
+      mongDoi: "false (don mau PO-02 khong bao gio co HD rieng de bo sung)",
+    };
+  },
+);
+
+kiem(
+  'Khai "Bo sung sau" -> VAN to do (chieu nguoc lai, de mat nhat)',
+  'Sep · 13/09/2026 (*"con neu chon nut \'Bo sung sau\' thi bao do de nhac viec"*)',
+  () => {
+    /* 🔴 CHIEU NGUOC. Neu ai gop hai nhanh thanh "co ly do la het do" thi bai tren VAN XANH,
+       chi bai nay bat duoc. Mat dong nay la mat luon dau nhac con no chung tu. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.thieuHopDongDaGhiLyDo(hoSoThieuHD(CT.LY_DO_BO_SUNG_SAU));
+    return {
+      duoc: r === true,
+      thucTe: `thieuHopDongDaGhiLyDo = ${r}`,
+      mongDoi: "true (con no hop dong, phai con dau do nhac viec)",
+    };
+  },
+);
+
+kiem(
+  "Ly do GO TAY cua ho so CU -> van to do, khong duoc noi qua tay",
+  "Sep · 13/09/2026 — chi DUNG MOT chuoi duoc mien",
+  () => {
+    /* Ho so truoc 13/09 co the ghi ly do bat ky. Chung KHONG duoc tu nhien het do — nguoi dung
+       khong he khai "khong bao gio co hop dong", ho chi ghi mot ghi chu. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.thieuHopDongDaGhiLyDo(hoSoThieuHD("NCC hen tuan sau gui ban da ky"));
+    return {
+      duoc: r === true,
+      thucTe: `thieuHopDongDaGhiLyDo = ${r}`,
+      mongDoi: "true",
+    };
+  },
+);
+
+kiem(
+  'The kanban va hop ly do phai NOI CUNG MOT CAU ve "Khong co HD"',
+  "Sep · 13/09/2026 — mot luat, hai noi hoi (chung-tu-cuoi-quy-trinh + giai-doan-mua-hang)",
+  () => {
+    /* 🔴 DAY LA BAI KIEM CHONG APP TU MAU THUAN. Dau do cua HOP ly do lay tu
+       `thieuHopDongDaGhiLyDo`, con dau do cua THE kanban lay tu `mucConNoCuaBuoc`. Sua mot noi
+       thoi thi hop het do ma the van keu "thieu HD" — nguoi dung khong hieu tin cai nao. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const cauHinh = { soBaoGiaToiThieu: 2, hanGioTheoBuoc: {}, congViecTheoBuoc: {}, caiDatTungBuoc: {} };
+    /* ⚠️ Tên trường là `ngan`/`day` (xem interface MucConNo) — KHÔNG phải `nhan`/`chiTiet`.
+       Đọc sai tên thì mọi mục thành chuỗi rỗng và bài kiểm "xanh giả" ở chiều thứ nhất. */
+    const gomNhan = (dn) =>
+      (G.mucConNoCuaBuoc(dn, "dat_hang", cauHinh, [], []) ?? [])
+        .map((m) => `${m?.ngan ?? ""} / ${m?.day ?? ""}`)
+        .join(" | ");
+
+    const khongCoHD = gomNhan(hoSoThieuHD(CT.LY_DO_KHONG_CO_HOP_DONG));
+    const boSungSau = gomNhan(hoSoThieuHD(CT.LY_DO_BO_SUNG_SAU));
+    const coKeuThieuHD = (s) => /h[ợo]p đ[ồo]ng|HĐ/i.test(s);
+
+    return {
+      duoc: !coKeuThieuHD(khongCoHD) && coKeuThieuHD(boSungSau),
+      thucTe: `"Khong co HD" -> [${khongCoHD || "(rong)"}] ; "Bo sung sau" -> [${boSungSau || "(rong)"}]`,
+      mongDoi: '"Khong co HD" KHONG con muc hop dong; "Bo sung sau" VAN con',
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// "KHÔNG CẦN ĐÍNH KÈM BẢNG SO SÁNH" PHẢI MỞ ĐƯỢC CỔNG CHUYỂN BƯỚC — Sếp 13/09/2026
+//
+// Nguyên văn: *"Vẫn giữ nút đính kèm bảng so sánh báo giá và thêm 1 nút không cần đính kèm báo
+// giá bên cạnh"*.
+//
+// 🔴 CÁI BẪY ĐÃ DÍNH THẬT: bản làm ngày 13/09 đặt khóa `KHOA_BO_QUA_SO_SANH` trong TỆP GIAO DIỆN,
+//    nên `vuongMacTrinhXetDuyet` không đọc được — bấm nút chỉ tắt cảnh báo tại ô, còn nút "Trình
+//    xét duyệt báo giá" vẫn khóa. Nút hứa một việc app không làm (CLAUDE.md §3.5). Nối lại
+//    14/09/2026 bằng cách dời khóa sang `2-quy-trinh/bao-gia-dinh-kem.ts`.
+//
+// ⚠️ HAI CHIỀU: chưa ghi lý do thì VẪN phải chặn — nếu không, luật "bảng so sánh bắt buộc"
+//    (Ban lãnh đạo 20/08/2026) mất sạch mà bài kiểm vẫn xanh.
+// ════════════════════════════════════════════════════════════════════
+
+/** Hồ sơ có ĐÚNG 2 bản báo giá thật, KHÔNG có tệp bảng so sánh. */
+const hoSoHaiBaoGiaKhongBangSoSanh = (lyDoBoQua) => ({
+  id: "x",
+  items: [{ stt: 1 }],
+  tepGiaiDoan: {
+    yeu_cau_bao_gia: [
+      { id: "t1", ten: "bg1.pdf", ghiChu: "Báo giá NCC 1 — Công ty A" },
+      { id: "t2", ten: "bg2.pdf", ghiChu: "Báo giá NCC 2 — Công ty B" },
+    ],
+  },
+  lyDoThieuChungTu: lyDoBoQua === undefined ? {} : { "yeu_cau_bao_gia|bang_so_sanh": lyDoBoQua },
+});
+
+kiem(
+  "2 bao gia that, THIEU bang so sanh, CHUA ghi ly do -> van CHAN",
+  "Ban lanh dao · 20/08/2026 (*\"muc nay bat buoc phai co\"*) — chieu nguoc lai cua luat 13/09",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const r = BG.vuongMacTrinhXetDuyet(hoSoHaiBaoGiaKhongBangSoSanh(undefined), {
+      soBaoGiaToiThieu: 2,
+    });
+    return {
+      duoc: typeof r === "string" && r.includes(BG.NHAN_O_SO_SANH),
+      thucTe: r === null ? "null (LOT — luat 20/08 da mat!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: `cau chan nhac "${BG.NHAN_O_SO_SANH}"`,
+    };
+  },
+);
+
+kiem(
+  "2 bao gia that, THIEU bang so sanh, DA ghi ly do -> KHONG chan nua",
+  'Sep · 13/09/2026 (*"them 1 nut khong can dinh kem bao gia ben canh"*), noi vao cong 14/09/2026',
+  () => {
+    /* 🔴 TRUOC 14/09 BAI NAY DO: khoa nam trong tep giao dien nen cong khong doc duoc.
+       Neu bai nay do tro lai, kiem xem ai da go dieu kien `lyDoBoQuaSoSanh(deNghi) === ""`
+       khoi `vuongMacTrinhXetDuyet` — go la nut kia thanh nut gia. */
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const r = BG.vuongMacTrinhXetDuyet(
+      hoSoHaiBaoGiaKhongBangSoSanh("Chỉ có 2 NCC, đã so trực tiếp trong cuộc họp."),
+      { soBaoGiaToiThieu: 2 },
+    );
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null (dung — cho di tiep)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "null",
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 

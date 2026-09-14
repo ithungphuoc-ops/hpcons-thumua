@@ -98,7 +98,39 @@ export function OChungTuBatBuoc({
           onXoa={
             duocSua && !khoa
               ? () => {
-                  goTepGiaiDoan(deNghi.id, maGiaiDoan, t.id, nguoiDung.tenHienThi);
+                  /* 🐛 SỬA LỖI THẬT 13/09/2026 — "hộp thoại đóng không sạch, cả app đơ phải F5".
+                     🔴 HOÃN MỘT NHỊP LÀ CỐ Ý, ĐỪNG GỌI THẲNG `goTepGiaiDoan(...)` Ở ĐÂY.
+
+                     `onXoa` được `ODinhKemTep` gọi từ trong `onDongY` của `HopXacNhan`, ngay
+                     cạnh `setHoiXoa(false)`. Gọi thẳng thì React gộp cả hai vào MỘT nhịp:
+                     hộp xác nhận vừa nhận `mo=false`, thì cùng lúc `tepDaCo` mất một phần tử
+                     → `<ODinhKemTep key={t.id}>` bị tháo → `<HopXacNhan>` bên trong nó biến
+                     mất GIỮA LÚC đang đóng.
+
+                     base-ui dọn dẹp HOÀN TOÀN bằng hàm cleanup của `useEffect`
+                     (`markOthers.js` gỡ `data-base-ui-inert` + `aria-hidden`,
+                     `useScrollLock.js` gỡ `overflow:hidden`). Bị tháo giữa chừng là ba thứ đó
+                     KẸT LẠI trên DOM — đúng những gì Sếp chụp được trong F12 ngày 13/09/2026:
+
+                         <body ... style="overflow: hidden;">
+                           <div class="min-h-screen bg-background"
+                                aria-hidden="true" data-base-ui-inert>...</div>
+
+                     Hậu quả người dùng thấy: mảng trắng che cả sidebar, bấm không ăn, trang
+                     không cuộn được, phải F5 (F5 dựng lại DOM nên "tự khỏi").
+
+                     ✅ `setTimeout(..., 0)` cho React commit xong lần đổi `mo=false` trước —
+                     lúc đó base-ui đã đi vào vòng đời đóng bình thường (nhả khóa cuộn, gỡ dấu
+                     inert), nên nhịp sau tháo cây con là vô hại.
+
+                     ⚠️ Không sửa được tận gốc ở đây vì gốc nằm trong
+                     `thanh-phan-dung-chung/o-dinh-kem-tep.tsx` (hai `<Dialog>` nằm BÊN TRONG
+                     nhánh `{tep ? ... : ...}`) — tệp đó phiên này KHÔNG được sửa. Khi nào
+                     được phép thì nhấc hai hộp thoại đó ra NGOÀI nhánh ternary, rồi mới bỏ
+                     được cú hoãn này. */
+                  setTimeout(() => {
+                    goTepGiaiDoan(deNghi.id, maGiaiDoan, t.id, nguoiDung.tenHienThi);
+                  }, 0);
                 }
               : undefined
           }

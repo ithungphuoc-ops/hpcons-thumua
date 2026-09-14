@@ -619,6 +619,106 @@ function CotQuyTrinh({
   );
 }
 
+/**
+ * ★★ PHẦN TÊN ĐỀ XUẤT CÒN LẠI SAU KHI TRỪ NHỮNG MẢNH DÒNG ĐẦU THẺ ĐÃ IN — thêm 13/09/2026.
+ *
+ * 🔴 YÊU CẦU — Ban lãnh đạo 13/09/2026, nguyên văn: *"Hiển thị thêm các chữ phía sau, vì sẽ có
+ * trường hợp đổi tên đề xuất cho dễ nhớ nên cần hiển thị thêm các nội dung hiển thị đó"*.
+ * Chữ **"thêm"**: giữ nguyên phần thẻ đang có, chỉ bổ sung tên đề xuất vào.
+ *
+ * ⚠️ VÌ SAO KHÔNG IN THẲNG `deNghi.tieuDe`. Với Phòng Thi công, tiêu đề do app **tự sinh** theo
+ * công thức ở `2-quy-trinh/dat-ten-de-nghi.ts` → `dungTenDeNghi()`, và công thức đó ghép đúng ba
+ * mảnh mà dòng đầu thẻ đang in:
+ *
+ *     mã đề nghị  -  mã hợp đồng CĐT,  TÊN CÔNG TRÌNH
+ *
+ * Nên phiếu mẫu hiện có tiêu đề `260001-HPCS-PR-001 - 260001-HPCS-HDXD-001, CÔNG TRÌNH CHIEN YI`
+ * — in thẳng là thẻ đọc ra **hai lần cùng một chuỗi**, tốn thêm hai dòng trên một thẻ chỉ rộng
+ * ~240px mà không nói thêm được chữ nào.
+ *
+ * 👉 CÁCH CHỌN: trừ khỏi tiêu đề đúng những mảnh dòng đầu ĐÃ in, còn lại chữ gì thì in chữ đó.
+ *   · Tiêu đề tự sinh, chưa ai đổi → trừ xong không còn gì → **ẩn hẳn dòng**, không in nhãn trơ.
+ *   · Tiêu đề đã đổi tay (đúng ca Sếp nói: *"đổi tên đề xuất cho dễ nhớ"*) → phần người dùng gõ
+ *     thêm luôn còn lại → in ra.
+ * Đây là cách thoả được CẢ HAI vế "hiện thêm" và "không lặp chữ", thay vì phải chọn một.
+ *
+ * 🔴 TRỪ CẢ `code` (mã hồ sơ của app) dù dòng đầu có thể đang in `maDeXuatAppRequest` thay cho nó:
+ * mã hồ sơ đã được Ban lãnh đạo cho gỡ khỏi thẻ ngày 21/08/2026 (xem chú thích khối trường cơ
+ * bản bên dưới). Để nó lọt lại qua đường tiêu đề là lén đưa về bằng cửa sau.
+ *
+ * ⚠️ CÁI GIÁ / CHỖ CHƯA CHẮC — ghi ra để người sau cân lại chứ không giấu:
+ *   · Chỉ trừ **lần xuất hiện đầu** của mỗi mảnh. Tên tự gõ mà cố ý nhắc tên công trình lần hai
+ *     thì lần hai vẫn hiện — chấp nhận, vì đó là chữ người dùng chủ động viết.
+ *   · **Bỏ qua mảnh ngắn dưới 3 ký tự.** Mảnh quá ngắn (vd mã đề xuất `12`) dễ khớp nhầm vào giữa
+ *     một từ và xén mất chữ của người dùng. Thà lặp một mã ngắn còn hơn cắt sai tên.
+ *   · Cắt một mảnh ở giữa câu có thể để lại chữ nối cụt (`"Vật tư đợt 4 cho"`). Hiếm, và vẫn đọc
+ *     ra nghĩa, nên không cố đoán thêm — đoán sai còn tệ hơn.
+ *
+ * 📌 HÀM THUẦN, chỉ đọc tham số → muốn đổi luật thì sửa đúng một chỗ, và thử được không cần dựng
+ * giao diện. Đây là việc **định dạng chữ để hiển thị**, không phải luật nghiệp vụ, nên để cạnh
+ * thẻ. Nếu sau này màn hình khác cũng cần thì **dời sang `2-quy-trinh/`**, đừng chép lần hai —
+ * hai chỗ cùng cắt một chuỗi rồi lệch nhau là đúng cái bẫy CLAUDE.md mục 3.4b nói.
+ */
+function phanThemCuaTieuDe(deNghi: DeNghiMuaHang): string {
+  let con = (deNghi.tieuDe ?? "").trim();
+  if (!con) return "";
+
+  /**
+   * ⚠️ BẢN NHÂN BẢN CẦN THÊM MỘT MẢNH NỮA. Mã bản tách là `…PR-001 (copy)` (xem
+   * `2-quy-trinh/nhan-ban-de-nghi.ts` → `maBanSaoTiepTheo`), nhưng tiêu đề của nó là tiêu đề CHA
+   * cộng đuôi — tức bên trong tiêu đề chỉ có `…PR-001` trơn, KHÔNG kèm `(copy)`. So cả mã có đuôi
+   * thì không khớp một ký tự nào, và mã hồ sơ cha lọt nguyên lên thẻ — đúng thứ Ban lãnh đạo đã
+   * cho gỡ ngày 21/08/2026. Nên trừ thêm mã đã bỏ đuôi.
+   */
+  const maBanSao = (deNghi.code ?? "").trim();
+  const maGoc = maBanSao.replace(/\s*\(copy(?: \d+)?\)$/i, "").trim();
+
+  /* Sắp mảnh DÀI trước. `260001-HPCS-HDXD-001` phải được trừ trọn vẹn trước khi tới lượt mảnh
+     ngắn hơn; trừ ngược thứ tự thì mảnh ngắn cắt vào giữa mảnh dài và để lại rác kiểu `-001`. */
+  const daInODongDau = [
+    deNghi.maDeXuatAppRequest,
+    maBanSao,
+    maGoc,
+    deNghi.maHopDongCDT,
+    deNghi.tenCongTrinh,
+  ]
+    .map((x) => (x ?? "").trim())
+    .filter((x) => x.length >= 3)
+    .sort((a, b) => b.length - a.length);
+
+  for (const manh of daInODongDau) {
+    /* So KHÔNG phân biệt hoa thường: dòng đầu thẻ in tên công trình IN HOA (`toUpperCase()`),
+       còn tiêu đề giữ nguyên chữ người lập gõ — so thẳng thì không bao giờ khớp, và dòng lặp
+       vẫn hiện y như chưa làm gì. */
+    const viTri = con.toLowerCase().indexOf(manh.toLowerCase());
+    if (viTri >= 0) con = con.slice(0, viTri) + con.slice(viTri + manh.length);
+  }
+
+  /**
+   * ⚠️ ĐUÔI `(copy)` / `(copy 1)` CŨNG LÀ CHỮ LẶP. Mã trên dòng đầu thẻ đã mang sẵn `(copy)`, và
+   * khối trường ngay dưới còn một dòng *"Quy trình: Nhân bản đề nghị"* — nói lần thứ ba ở đây là
+   * chiếm một dòng của thẻ hẹp để nhắc lại điều thẻ đã nói hai lần.
+   * 📌 Phải bắt bằng regex chứ không cắt theo mã: mã ghi `(copy)` nhưng tiêu đề ghi `(copy 1)`
+   * (`tenBanSaoTheoMa` đổi số 1 cho đủ cặp), so thẳng hai chuỗi đó là trượt.
+   */
+  con = con.replace(/\s*\(copy(?: \d+)?\)\s*$/i, "");
+
+  /* Dọn dấu nối trơ do vừa cắt bỏ: gộp chuỗi dấu dính nhau (`" - , "`) thành một, rồi cắt dấu ở
+     hai đầu. 🔴 KHÔNG thay mọi dấu trong câu — tên tự gõ có quyền chứa dấu gạch ("đợt 4 - lần 2"),
+     quét sạch là làm hỏng chữ của người dùng. Dấu `-` đặt CUỐI lớp ký tự để không thành dải. */
+  con = con
+    .replace(/\s+/g, " ")
+    .replace(/(\s*[,;:|·–—-]\s*){2,}/g, " - ")
+    .replace(/^[\s,;:|·–—-]+/, "")
+    .replace(/[\s,;:|·–—-]+$/, "")
+    .trim();
+
+  /* Còn lại toàn dấu câu thì coi như không còn gì. Đòi ít nhất 2 ký tự có nghĩa: một ký tự lẻ sót
+     lại là rác, in ra chỉ làm người đọc tưởng dữ liệu hỏng. */
+  const kyTuCoNghia = con.replace(/[\s.,;:|·–—-]/g, "");
+  return kyTuCoNghia.length >= 2 ? con : "";
+}
+
 function TheDeNghi({
   the,
   tongGiaiDoan,
@@ -653,6 +753,10 @@ function TheDeNghi({
    * tên thì thẻ của người khác sẽ đeo nhãn "Việc của bạn" mà không có cách nào phát hiện.
    */
   const laViecCuaToi = the.uidPhuTrach.includes(nguoiDung.uid);
+
+  /* Tên đề xuất, đã trừ những mảnh dòng đầu thẻ in rồi — rỗng nghĩa là tiêu đề không nói thêm
+     được gì so với dòng đầu, lúc đó ẩn hẳn dòng. Xem `phanThemCuaTieuDe` phía trên. */
+  const tenDeXuatThem = phanThemCuaTieuDe(deNghi);
 
   // Nền thẻ: đỏ nhạt khi quá hạn, xanh nhạt khi đã kết thúc tốt — giống cách đọc
   // bảng Base hiện tại. Luôn có chữ đi kèm nên không vi phạm luật "không chỉ dùng màu".
@@ -821,6 +925,39 @@ function TheDeNghi({
             Chi tiết · Link phiếu đề nghị.
             ⚠️ Mã hồ sơ của app KHÔNG mất: vẫn ở menu ⋯ (*"Sao chép mã đề nghị"*), ở trang chi
             tiết, và tìm kiếm vẫn ra. Chỉ bỏ khỏi thẻ cho gọn đúng mẫu. */}
+        {/* ★ TÊN ĐỀ XUẤT — Ban lãnh đạo 13/09/2026: *"Hiển thị thêm các chữ phía sau, vì sẽ có
+            trường hợp đổi tên đề xuất cho dễ nhớ nên cần hiển thị thêm các nội dung hiển thị đó"*.
+
+            🔴 CHỈ HIỆN PHẦN KHÔNG TRÙNG DÒNG ĐẦU — `phanThemCuaTieuDe` đã trừ mã đề xuất, mã hồ
+            sơ, số hợp đồng và tên công trình. Tiêu đề tự sinh (Phòng Thi công) trừ xong hết chữ
+            nên dòng này ẩn luôn; tên đã đổi tay thì phần gõ thêm hiện ra. Lý do đầy đủ ở JSDoc
+            của hàm — đọc trước khi đổi, kẻo lại in lặp y hệt dòng đầu.
+
+            📌 ĐẶT Ở KHỐI TRƯỜNG, KHÔNG NỐI VÀO DÒNG ĐẦU. Dòng đầu bám đúng mẫu Base Sếp gửi
+            21/08/2026 (*mã - hợp đồng - CÔNG TRÌNH*, một dòng); nhét thêm tên tự do vào đó là phá
+            khuôn Base và câu sẽ tự ngắt dòng tuỳ ý trên thẻ hẹp. Ở đây thì có NHÃN đứng trước,
+            đúng nguyên tắc đã ghi cho khối này: *"Vật tư" đứng trơ thì không ai biết đó là nhóm
+            đề xuất hay tên hàng* — tên đề xuất tự do cũng vậy, thiếu nhãn dễ bị đọc nhầm là tên
+            vật tư. Nhãn dùng đúng chữ **"Tên đề xuất"** như ô 13 trang chi tiết, để hai màn hình
+            gọi cùng một thứ bằng cùng một tên.
+
+            ⚠️ `line-clamp-2` + `title`: thẻ kanban chỉ rộng ~240px, tên tự gõ có thể rất dài, để
+            chảy tự do là vỡ bố cục cột. Cắt có dấu hiệu (`…` do line-clamp tự thêm) và rê chuột
+            đọc được ĐỦ tiêu đề gốc.
+            🔴 KHÔNG mâu thuẫn với cảnh báo *"line-clamp-2 là sai"* ở khối `dsConNo` cuối thẻ: ở
+            đó cắt là GIẤU MẤT một mục chứng từ còn thiếu (người đọc tưởng chỉ thiếu một thứ) —
+            hỏng nghiệp vụ. Ở đây cắt chỉ làm một cái tên gợi nhớ ngắn lại, và `title` vẫn trả đủ
+            chữ, nên không có thông tin nào biến mất không dấu vết.
+            📌 `break-words` đi kèm: `line-clamp` đặt `overflow:hidden` nên một chuỗi dài KHÔNG có
+            dấu cách (người dùng dán nguyên một mã) sẽ bị cắt cụt giữa chữ thay vì xuống dòng. Nó
+            không làm trôi ngang trang (overflow đã ẩn), chỉ là xấu và khó đọc.
+            📌 `title` để NGUYÊN tiêu đề gốc, KHÔNG phải phần đã trừ: rê chuột là để đọc đủ, giấu
+            bớt ở cả tooltip thì không còn chỗ nào xem được trọn vẹn ngoài việc mở phiếu ra. */}
+        {tenDeXuatThem !== "" && (
+          <span className="line-clamp-2 break-words" title={`Tên đề xuất: ${deNghi.tieuDe}`}>
+            <span className="text-text-secondary">Tên đề xuất:</span> {tenDeXuatThem}
+          </span>
+        )}
         <span>
           <span className="text-text-secondary">Bộ phận:</span>{" "}
           {nhanPhongBan(deNghi.phongBanNguon)}

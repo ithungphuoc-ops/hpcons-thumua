@@ -44,6 +44,14 @@ import {
    * 23/08/2026: thẻ kẹt lại cột ④ dù nút chuyển bước đã mở, không lỗi nào báo.
    */
   coHopDong,
+  /**
+   * ★ Lời khai "Không có HĐ" — Sếp 13/09/2026: chọn chữ đó thì **thôi báo đỏ**.
+   *
+   * 🔴 DÙNG HÀM NÀY, ĐỪNG SO CHUỖI TAY. Luật ở `chung-tu-cuoi-quy-trinh.ts` — cùng một câu hỏi
+   * đang được hỏi ở hai nơi (hộp "Lý do chưa có" và thẻ kanban); gõ cứng chuỗi ở đây là app tự
+   * mâu thuẫn ngay lần đổi chữ trên nút.
+   */
+  daKhaiKhongCoHopDong,
   lyDoThieuHopDong,
   NHAN_TEP_HOA_DON_VAT,
   TEN_HIEN_HOP_DONG,
@@ -858,6 +866,11 @@ export function congViecChuaXongCuaBuoc(
  * ý của Ban lãnh đạo cùng ngày: ghi lý do thì **cho đi tiếp** nhưng *"phải tô màu đỏ lại. Để biết
  * là còn thiếu hồ sơ để bổ sung sau"*. Dùng hàm kia thì ghi lý do là hết đỏ — mất đúng cái dấu
  * nhắc mà Ban lãnh đạo cần.
+ *
+ * ⚠️ NỚI ĐÚNG MỘT TRƯỜNG HỢP TỪ 13/09/2026: lời khai **"Không có HĐ"** thì thôi đỏ (Sếp:
+ * *"Khi chọn vào nút 'Không có HĐ' thì mới ko báo đỏ, còn nếu chọn nút 'Bổ sung sau' thì báo đỏ
+ * để nhắc việc"*). Đây KHÔNG phải quay về `vuongMacRoiBuocLapDon` — "Bổ sung sau" và mọi lý do gõ
+ * tay cũ vẫn đỏ nguyên. Luật ở `mucConNoCuaBuoc`, nhánh `giaiDoan === "dat_hang"`.
  */
 export function conNoCuaBuoc(
   deNghi: DeNghiMuaHang,
@@ -1119,8 +1132,24 @@ export function mucConNoCuaBuoc(
 
   /* 🔴 GẮN VÀO BƯỚC ⑤, KHÔNG CÒN Ở ④ — Ban lãnh đạo 24/08/2026 chuyển hợp đồng sang bước
      "Tiến hành đặt hàng". Để nguyên ở ④ là tô đỏ một khối không còn chứa ô đính kèm đó, người
-     dùng mở khối ④ đi tìm ô hợp đồng và không thấy. */
-  if (giaiDoan === "dat_hang" && !coHopDong(deNghi)) {
+     dùng mở khối ④ đi tìm ô hợp đồng và không thấy.
+
+     ★★ THÊM ĐIỀU KIỆN `!daKhaiKhongCoHopDong` — Sếp 13/09/2026 nguyên văn: *"Khi chọn vào nút
+     'Không có HĐ' thì mới ko báo đỏ, còn nếu chọn nút 'Bổ sung sau' thì báo đỏ để nhắc việc"*.
+
+     🔴 ĐÂY LÀ MỘT TRONG HAI NƠI PHẢI SỬA CÙNG LÚC (nơi kia là `thieuHopDongDaGhiLyDo` ở
+     `chung-tu-cuoi-quy-trinh.ts` — nguồn màu của hộp "Lý do chưa có"). Dòng này là nguồn của
+     **viền đỏ khối bước ⑤, nhãn "Còn thiếu", và chữ "thiếu HĐ" trên thẻ kanban**. Sửa một nơi
+     thôi là hộp hết đỏ mà thẻ vẫn kêu thiếu HĐ — app tự mâu thuẫn, không lỗi nào báo.
+
+     ⚠️ CÁI GIÁ ĐÃ BÁO SẾP VÀ SẾP CHỐT: hồ sơ chọn "Không có HĐ" **biến mất khỏi mọi danh sách
+     còn nợ chứng từ** — cả `conNoCuaBuoc` (viền đỏ từng khối) lẫn `conNoCaHoSo` (thẻ kanban) đều
+     đọc qua hàm này. Bấm nhầm thì không còn dấu nhắc nào; chữa bằng cách bấm lại nút đó để bỏ
+     chọn ở trang chi tiết.
+
+     📌 "Bổ sung sau" và mọi lý do gõ tay của hồ sơ CŨ vẫn tô đỏ y như trước — chỉ đúng một chuỗi
+     được miễn. */
+  if (giaiDoan === "dat_hang" && !coHopDong(deNghi) && !daKhaiKhongCoHopDong(deNghi)) {
     const lyDo = lyDoThieuHopDong(deNghi);
     thieu.push({
       /* 📌 CÙNG MỘT NHÃN NGẮN dù đã ghi lý do hay chưa — thiếu tệp là thiếu tệp. Lý do đã ghi

@@ -103,15 +103,32 @@ export const NHAN_TEP_UNC = "Ủy nhiệm chi";
 export const NHAN_TEP_PHIEU_CHI = "Phiếu chi";
 
 /**
- * ★ TÊN HIỂN THỊ của ô hợp đồng — Ban lãnh đạo 23/08/2026: *"Sửa tên: Hợp đồng/Đơn mua hàng"*.
+ * ★ TÊN HIỂN THỊ của ô hợp đồng.
  *
  * 🔴 ĐÂY LÀ HAI THỨ KHÁC NHAU, ĐỪNG GỘP:
  *   · `NHAN_TEP_HOP_DONG` = **khóa lưu** trong `ghiChu` của tệp. Đổi nó là mọi hợp đồng đã đính
  *     kèm trước hôm nay **không được nhận ra nữa** — đơn đang ở bước sau bị đẩy về "chưa có hợp
  *     đồng", và người dùng không hiểu vì sao tệp còn đó mà app báo thiếu.
  *   · `TEN_HIEN_HOP_DONG` = chữ in trên màn hình. Đổi tự do.
+ *
+ * ★★ ĐỔI 13/09/2026 — Sếp nguyên văn: *"Đổi tên, Vì mục hợp đồng và đơn mua hàng là 2 tài liệu
+ * khác nhau"*. Trước đó là `"Hợp đồng/Đơn mua hàng"` (Ban lãnh đạo 23/08/2026).
+ *
+ * 🔴 CHỈ ĐỔI CHỮ HIỂN THỊ, KHÔNG ĐỔI `NHAN_TEP_HOP_DONG` — đó là khóa lưu, đổi nó là mọi hợp
+ * đồng đã đính kèm trước hôm nay không được nhận ra nữa và hồ sơ đang chạy bị đẩy về "chưa có
+ * hợp đồng" (xem đúng cảnh báo ở ngay trên).
+ *
+ * ⚠️ CÁI GIÁ CỦA VIỆC CHỈ ĐỔI TÊN — ĐANG CHỜ SẾP QUYẾT, ĐỪNG TƯỞNG ĐÃ XONG:
+ * App hiện dùng **MỘT ô, MỘT tệp** cho cả hai bước ④ *Lập đơn mua hàng* và ⑤ *Tiến hành đặt
+ * hàng* (Sếp chốt 01/09/2026: *"cùng tệp với bước ④, sửa ở đây bước ④ cũng thấy ngay"*). Ô ở
+ * bước ⑤ là nơi đính **bản đơn mua hàng / hợp đồng đã ký đóng mộc NCC gửi về**. Sau lần đổi tên
+ * này, ô đó mang tên "Hợp đồng" — **sai tên với thứ thật sự được đính vào đấy** khi đơn dùng mẫu
+ * PO-02 (chính tờ đơn là thoả thuận, không có hợp đồng riêng).
+ * 👉 Tách thật thành HAI chứng từ là việc lớn (thêm khóa tệp mới, sửa 4 hàm, xử lý dữ liệu cũ) —
+ * đã mô tả cách tách trong báo cáo phiên, **chưa làm**. Ai đọc tới đây mà thấy vẫn còn một ô thì
+ * nghĩa là Sếp chưa duyệt việc tách, không phải quên.
  */
-export const TEN_HIEN_HOP_DONG = "Hợp đồng/Đơn mua hàng";
+export const TEN_HIEN_HOP_DONG = "Hợp đồng";
 
 /**
  * ★ KHÓA GHI LÝ DO CHƯA CÓ CHỨNG TỪ — Ban lãnh đạo 23/08/2026: *"Thêm hàm bắt buộc có file đính
@@ -154,7 +171,64 @@ export const KHOA_LY_DO_THIEU_HOP_DONG = "lap_don_mua_hang|hop_dong";
  * hai chuỗi này, và không phép kiểm nào đòi phải khớp danh sách. Đừng thêm phép kiểm "phải là một
  * trong hai" vào `vuongMacRoiBuocLapDon`: làm vậy là mọi hồ sơ cũ đột ngột bị chặn lại.
  */
-export const LY_DO_THIEU_HOP_DONG_CHON: readonly string[] = ["Bổ sung sau", "Không có HĐ"];
+/**
+ * ★★ "BỔ SUNG SAU" — hợp đồng SẼ CÓ nhưng chưa kịp ký/chưa nhận được bản gốc.
+ *
+ * 🔴 Chọn chữ này thì hồ sơ **VẪN BỊ TÔ ĐỎ** — Sếp 13/09/2026: *"nếu chọn nút 'Bổ sung sau' thì
+ * báo đỏ để nhắc việc"*. Đỏ ở đây không phải lỗi, là **lời nhắc còn nợ chứng từ**.
+ */
+export const LY_DO_BO_SUNG_SAU = "Bổ sung sau";
+
+/**
+ * ★★ "KHÔNG CÓ HĐ" — đơn này **KHÔNG BAO GIỜ** có hợp đồng riêng (điển hình là mẫu PO-02: chính
+ * tờ đơn mua hàng đã là thoả thuận giữa hai bên).
+ *
+ * 🔴 Chọn chữ này thì hồ sơ **HẾT TÔ ĐỎ** — Sếp 13/09/2026: *"Khi chọn vào nút 'Không có HĐ' thì
+ * mới ko báo đỏ"*. Đây là một **lời khai dứt điểm**, không phải việc còn treo: đỏ mãi một thứ
+ * không bao giờ tới là dạy người dùng bỏ qua màu đỏ, đúng cái bẫy đã ghi ở `conNoCuaBuoc`
+ * (*"đỏ ba trong bốn khối thì người dùng thôi để ý, đúng lúc cần để ý nhất"*).
+ *
+ * ⚠️ CÁI GIÁ — ĐÃ BÁO SẾP VÀ SẾP CHỐT CHỊU: hồ sơ chọn chữ này **BIẾN MẤT khỏi mọi danh sách
+ * "còn nợ chứng từ"** do hai hàm `thieuHopDongDaGhiLyDo` và `mucConNoCuaBuoc` sinh ra. Ai bấm
+ * nhầm nút này thì hồ sơ thiếu hợp đồng thật cũng lặng lẽ sạch dấu đỏ, không còn chỗ nào nhắc.
+ * Lối thoát duy nhất là **bấm lại chính nút đó để bỏ chọn** — vì vậy cơ chế bỏ chọn ở
+ * `de-nghi-chi-tiet.tsx` là bắt buộc phải còn, đừng gỡ.
+ *
+ * 📌 Chỗ KHÔNG bị ảnh hưởng (cố ý): `bo-ho-so-thanh-toan.ts` mục 4 vẫn đếm là thiếu, vì đó là
+ * **bảng kiểm bộ hồ sơ giao Kế toán** — nó liệt kê tờ nào có/không có trong tay, không phải bảng
+ * nhắc việc. Hai câu hỏi khác nhau, đừng gộp.
+ */
+export const LY_DO_KHONG_CO_HOP_DONG = "Không có HĐ";
+
+/**
+ * ⚠️ THỨ TỰ TRONG MẢNG = THỨ TỰ HAI NÚT TRÊN MÀN HÌNH (`de-nghi-chi-tiet.tsx` map qua mảng này),
+ * và đúng thứ tự trong ảnh Sếp gửi 13/09/2026. Đảo là đổi giao diện.
+ */
+export const LY_DO_THIEU_HOP_DONG_CHON: readonly string[] = [
+  LY_DO_BO_SUNG_SAU,
+  LY_DO_KHONG_CO_HOP_DONG,
+];
+
+/**
+ * ★★ HỒ SƠ ĐÃ KHAI "KHÔNG CÓ HĐ" — Sếp 13/09/2026: *"Khi chọn vào nút 'Không có HĐ' thì mới ko
+ * báo đỏ, còn nếu chọn nút 'Bổ sung sau' thì báo đỏ để nhắc việc"*.
+ *
+ * 🔴 MỘT CHỖ DUY NHẤT trả lời câu *"lời khai này có tắt dấu đỏ không"*. HAI nơi đang hỏi:
+ *   ① `thieuHopDongDaGhiLyDo` (ngay dưới) → viền/nền đỏ hộp "Lý do chưa có" ở trang chi tiết
+ *   ② `mucConNoCuaBuoc` trong `giai-doan-mua-hang.ts` → viền đỏ khối bước, nhãn "Còn thiếu", và
+ *      chữ "thiếu HĐ" trên thẻ kanban
+ * Chép điều kiện ra hai chỗ là app **tự mâu thuẫn**: hộp hết đỏ mà thẻ vẫn kêu thiếu HĐ, hoặc
+ * ngược lại — đúng kiểu lỗi mà cả tệp này sinh ra để tránh (xem khối chú thích đầu tệp).
+ *
+ * 🔴 SO VỚI HẰNG SỐ `LY_DO_KHONG_CO_HOP_DONG`, TUYỆT ĐỐI KHÔNG GÕ CỨNG CHUỖI "Không có HĐ" ở nơi
+ * khác: đổi chữ trên nút mà quên một chỗ gõ cứng là dấu đỏ im lặng sai, không lỗi nào báo.
+ *
+ * 📌 KHÔNG hỏi `coHopDong` ở đây — hàm này chỉ đọc **lời khai**. Cả hai nơi gọi đều đã nằm trong
+ * nhánh `!coHopDong(...)`, nên có tệp rồi thì không ai hỏi tới câu này.
+ */
+export function daKhaiKhongCoHopDong(deNghi: DeNghiMuaHang): boolean {
+  return lyDoThieuHopDong(deNghi) === LY_DO_KHONG_CO_HOP_DONG;
+}
 
 /**
  * Mã công việc "đã xong bước UNC" trong `congViecDaXong`.
@@ -253,14 +327,32 @@ export function lyDoThieuHopDong(deNghi: DeNghiMuaHang): string {
 /**
  * ★ CÒN NỢ HỢP ĐỒNG NHƯNG ĐÃ GHI LÝ DO — giao diện dùng cờ này để TÔ ĐỎ (23/08/2026).
  *
- * 📌 Khác hẳn `coHopDong`: hồ sơ này **đi tiếp được**, nhưng vẫn thiếu chứng từ. Ba trạng thái,
- * đừng gộp thành hai:
- *   ① có tệp                → đủ hồ sơ, không tô gì
- *   ② không tệp + có lý do  → đi được, TÔ ĐỎ, phải bổ sung sau   ← cờ này
- *   ③ không tệp + không lý do → chặn chuyển bước
+ * 📌 Khác hẳn `coHopDong`: hồ sơ này **đi tiếp được**, nhưng vẫn thiếu chứng từ. Nay có BỐN
+ * trạng thái, đừng gộp lại:
+ *   ① có tệp                          → đủ hồ sơ, không tô gì
+ *   ② không tệp + "Bổ sung sau"        → đi được, TÔ ĐỎ, phải bổ sung sau   ← cờ này
+ *   ③ không tệp + "Không có HĐ"        → đi được, KHÔNG tô đỏ (13/09/2026)  ← thêm mới
+ *   ④ không tệp + không lý do          → chặn chuyển bước
+ *
+ * ★★ TRẠNG THÁI ③ THÊM 13/09/2026 — Sếp nguyên văn: *"Khi chọn vào nút 'Không có HĐ' thì mới ko
+ * báo đỏ, còn nếu chọn nút 'Bổ sung sau' thì báo đỏ để nhắc việc"*.
+ *
+ * 🔴 VÌ SAO ĐÚNG VỀ NGHIỆP VỤ: đỏ = *"còn nợ, nhớ bổ sung"*. Đơn mẫu PO-02 không bao giờ có hợp
+ * đồng riêng để bổ sung, nên tô đỏ nó là nhắc một việc không tồn tại — và nhắc sai hoài thì người
+ * dùng thôi nhìn màu đỏ, kể cả lúc nó đúng.
+ *
+ * ⚠️ CÁI GIÁ — SẾP ĐÃ BIẾT VÀ CHỐT: hồ sơ chọn "Không có HĐ" **biến mất khỏi mọi danh sách còn
+ * nợ chứng từ** (cả hộp lý do lẫn thẻ kanban). Bấm nhầm nút thì không còn chỗ nào nhắc nữa; chữa
+ * bằng cách bấm lại chính nút đó để bỏ chọn. Xem đầy đủ ở `LY_DO_KHONG_CO_HOP_DONG`.
+ *
+ * 🔴 PHẢI SỬA KÈM `mucConNoCuaBuoc` (`giai-doan-mua-hang.ts`, nhánh `giaiDoan === "dat_hang"`) —
+ * đó là nguồn của viền đỏ khối bước và chữ "thiếu HĐ" trên thẻ. Sửa một nơi là app tự mâu thuẫn.
  */
 export function thieuHopDongDaGhiLyDo(deNghi: DeNghiMuaHang): boolean {
-  return !coHopDong(deNghi) && lyDoThieuHopDong(deNghi) !== "";
+  if (coHopDong(deNghi)) return false;
+  /* Khai "Không có HĐ" là chốt dứt điểm, không phải việc còn treo → thôi đỏ. */
+  if (daKhaiKhongCoHopDong(deNghi)) return false;
+  return lyDoThieuHopDong(deNghi) !== "";
 }
 
 /**

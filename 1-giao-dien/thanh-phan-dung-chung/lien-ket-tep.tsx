@@ -80,6 +80,19 @@ export function LienKetTep({
         )}
       </button>
 
+      {/* 🔴 ĐÂY LÀ MẪU VIẾT ĐÚNG, GIỮ NGUYÊN LÀM CHỖ ĐỐI CHIẾU — đừng "gọn hóa" thành
+          `{moXem && <HopXemTep ... mo ... />}`.
+
+          Bọc bằng `&&` cộng với `mo` viết trơn là tháo `<Dialog>` khỏi cây React ngay trong
+          lần commit mà prop `open` vẫn còn `true`. base-ui dọn dẹp HOÀN TOÀN bằng hàm cleanup
+          của `useEffect`, nên bị tháo giữa chừng là nó để kẹt lại trên DOM:
+            · `overflow: hidden` trên `<body>`            → trang không cuộn được
+            · `data-base-ui-inert` + `aria-hidden="true"` → CẢ APP bấm không ăn
+          Sự cố thật 13/09/2026 — bằng chứng F12 và phân tích đầy đủ ở
+          `thanh-phan-dung-chung/don-dep-hop-thoai-ket.ts`.
+
+          Ở đây `tep` luôn có (prop bắt buộc) nên `mo={moXem}` là đủ: hộp luôn nằm trong cây,
+          chỉ có `open` đổi giá trị. Hộp đóng KHÔNG dựng phần tử DOM nào nên không tốn gì. */}
       <HopXemTep tep={tep} mo={moXem} onDong={() => setMoXem(false)} />
     </span>
   );

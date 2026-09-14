@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { useDonDepHopThoaiKet } from "@/1-giao-dien/thanh-phan-dung-chung/don-dep-hop-thoai-ket";
 import { coTep, layTep, taiTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
 
 /**
@@ -27,13 +28,29 @@ import { coTep, layTep, taiTep, type MoTaTep } from "@/3-du-lieu/kho-tep";
  *
  * 📌 Thu hồi địa chỉ tạm khi đóng hộp. Không thu hồi thì mỗi lần xem giữ thêm một bản tệp
  * trong bộ nhớ trình duyệt cho tới lúc đóng tab — xem 20 ảnh phiếu giao nhận là hơn 50MB.
+ *
+ * ---
+ * 🔴 CÁCH GỌI ĐÚNG — sai là cả app đơ phải F5 (sự cố 13/09/2026, xem chú thích trong thân hàm):
+ *
+ *     ✅ <HopXemTep tep={xemTep} mo={xemTep !== null} onDong={() => setXemTep(null)} />
+ *     ❌ {xemTep && <HopXemTep tep={xemTep} mo onDong={() => setXemTep(null)} />}
+ *
+ * Cách ❌ sai ở HAI điểm cộng lại: `mo` viết trơn nên prop `open` KHÔNG BAO GIỜ về `false`, và
+ * `{xemTep && ...}` làm cả `<Dialog>` biến mất khỏi cây React ngay trong cùng một lần commit —
+ * base-ui không kịp chạy hàm dọn, để kẹt `overflow:hidden` trên `<body>` cùng
+ * `data-base-ui-inert` / `aria-hidden` trên khối nội dung chính.
  */
 export function HopXemTep({
   tep,
   mo,
   onDong,
 }: {
-  /** `null` khi chưa chọn tệp nào — hộp vẫn dựng để hiệu ứng đóng chạy hết. */
+  /**
+   * `null` khi chưa chọn tệp nào — hộp VẪN DỰNG để hiệu ứng đóng chạy hết.
+   *
+   * 🔴 Lời hứa này TRƯỚC ĐÂY BỊ CHÍNH COMPONENT PHÁ: thân hàm có `if (!tep) return null`, làm
+   * đúng cái việc dòng này nói là không làm. Đã bỏ ngày 13/09/2026 — đừng thêm lại.
+   */
   tep: MoTaTep | null;
   mo: boolean;
   onDong: () => void;
@@ -42,18 +59,78 @@ export function HopXemTep({
   const [dangTai, setDangTai] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
 
-  const kieu = tep?.kieuMime ?? "";
+  /**
+   * 🐛 SỬA LỖI THẬT 13/09/2026 — "HỘP THOẠI ĐÓNG KHÔNG SẠCH, CẢ APP ĐƠ PHẢI F5".
+   *
+   * TRIỆU CHỨNG Sếp báo: sau khi đính kèm file ở khu báo giá / ô chứng từ, một mảng trắng che
+   * kín cả sidebar, bấm chỗ nào cũng không ăn, trang không cuộn được; F5 mới về bình thường.
+   *
+   * BẰNG CHỨNG F12 Sếp chụp (chép nguyên văn — đây là thứ DUY NHẤT chứng minh nguyên nhân,
+   * phân tích đầy đủ nằm ở `don-dep-hop-thoai-ket.ts`):
+   *
+   *     <body class="min-h-full bg-background text-foreground" style="overflow: hidden;">
+   *       <div hidden aria-hidden="true" data-base-ui-inert></div>
+   *       <script>...</script>
+   *       <div class="min-h-screen bg-background" aria-hidden="true" data-base-ui-inert>...</div>
+   *       <section aria-label="Notifications alt+T" ... data-base-ui-inert></section>
+   *     </body>
+   *
+   * Ba thứ kẹt lại đều do base-ui đặt và đều CHỈ được gỡ trong hàm dọn của `useEffect`
+   * (`markOthers.js` gỡ `data-base-ui-inert` + `aria-hidden`, `useScrollLock.js` gỡ
+   * `overflow:hidden`). Cây React chứa `<Dialog>` bị THÁO trong lúc `open` còn `true` thì
+   * base-ui không đi qua vòng đời đóng, và ba thứ đó nằm lại trên DOM.
+   *
+   * 🔴 DÒNG `if (!tep) return null` CŨ CHÍNH LÀ MỘT CÁI THÁO NHƯ VẬY, và nó còn MÂU THUẪN
+   * thẳng với chú thích prop `tep` ngay phía trên (*"hộp vẫn dựng để hiệu ứng đóng chạy hết"*).
+   * Nay giữ lại mô tả tệp gần nhất để `<Dialog>` LUÔN nằm trong cây, chỉ có `open` đổi giá trị.
+   *
+   * 📌 KHÔNG TỐN GÌ khi hộp đang đóng: `DialogPortal.js` (dòng 32-35) trả `null` khi chưa
+   * `mounted` → không dựng một phần tử DOM nào. Chỗ này chỉ giữ thêm một object mô tả tệp
+   * (vài trăm byte — TÊN và CỠ, không phải nội dung tệp).
+   *
+   * ⚠️ ĐỪNG đưa `if (!tep) return null` trở lại, và đừng để nơi gọi viết
+   * `{xemTep && <HopXemTep mo .../>}` — cả hai đều tháo `<Dialog>` giữa chừng y như cũ.
+   */
+  const [tepGanNhat, setTepGanNhat] = useState<MoTaTep | null>(tep);
+  useEffect(() => {
+    if (tep) setTepGanNhat(tep);
+  }, [tep]);
+  /* Lúc đang đóng, `tep` có thể đã về `null` nhưng hiệu ứng đóng còn chạy → vẫn cần nội dung cũ. */
+  const tepHienThi = tep ?? tepGanNhat;
+
+  /** Chỉ mở thật khi có nội dung để bày — chưa từng chọn tệp nào thì hộp đứng im, không dựng DOM. */
+  const moThat = mo && tepHienThi !== null;
+
+  /**
+   * LƯỚI AN TOÀN — xem `don-dep-hop-thoai-ket.ts`.
+   *
+   * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý, không phải tiện tay. `HopXemTep` được dùng ở SÁU chỗ; phiên này chỉ
+   * được sửa hai chỗ (`lien-ket-tep.tsx` vốn đã đúng, `khu-dinh-kem-giai-doan.tsx` vừa sửa).
+   * BA chỗ còn lại vẫn đang viết sai kiểu `{xemTep && <HopXemTep mo .../>}` và nằm trong tệp
+   * agent khác đang giữ:
+   *     · `thanh-phan-dung-chung/o-dinh-kem-nhieu-tep.tsx`
+   *     · `thanh-phan-nghiep-vu/khoi-trao-doi.tsx`
+   *     · `thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan.tsx`
+   * Gắn lưới vào chính component dùng chung là cách duy nhất phủ được cả ba chỗ đó mà không
+   * đụng vào tệp của họ.
+   *
+   * ⚠️ Đây là chữa TRIỆU CHỨNG. Sửa xong hết chỗ gọi thì vẫn nên GIỮ, vì ca `HopXacNhan` bị
+   * tháo cùng nhịp trong `o-dinh-kem-tep.tsx` cũng nhờ lưới này mới được dọn.
+   */
+  useDonDepHopThoaiKet(moThat);
+
+  const kieu = tepHienThi?.kieuMime ?? "";
   const laAnh = kieu.startsWith("image/");
   const laPdf = kieu === "application/pdf";
   const xemDuoc = laAnh || laPdf;
 
   useEffect(() => {
-    if (!mo || !tep || !xemDuoc) return;
+    if (!moThat || !tepHienThi || !xemDuoc) return;
     let huy = false;
     let dc: string | null = null;
     setDangTai(true);
     setLoi(null);
-    void layTep(tep.id)
+    void layTep(tepHienThi.id)
       .then((blob) => {
         if (huy) return;
         if (!blob) {
@@ -76,12 +153,14 @@ export function HopXemTep({
       if (dc) URL.revokeObjectURL(dc);
       setDiaChi(null);
     };
-  }, [mo, tep?.id, xemDuoc]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [moThat, tepHienThi?.id, xemDuoc]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!tep) return null;
+  /* 🔴 KHÔNG có `if (!tep) return null` ở đây nữa — xem khối chú thích ở đầu component.
+     Trả `null` là tháo `<Dialog>` khỏi cây React giữa lúc `open` còn `true`, và đó chính là
+     cách `overflow:hidden` + `data-base-ui-inert` + `aria-hidden` kẹt lại trên DOM. */
 
   return (
-    <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
+    <Dialog open={moThat} onOpenChange={(v: boolean) => !v && onDong()}>
       {/* Pop-up CĂN GIỮA màn hình (mặc định của Dialog) và rộng gần hết màn để đọc được chữ trên
           phiếu chụp bằng điện thoại.
 
@@ -101,9 +180,12 @@ export function HopXemTep({
           lặng — luật CLAUDE.md §5). Còn `max-h` viết trơn ĐƯỢC vì lớp gốc không khai `max-h` nào. */}
       <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-4xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="min-w-0 truncate">{tep.tenTep}</DialogTitle>
+          {/* `tepHienThi` chỉ `null` ở lần dựng đầu khi chưa ai chọn tệp — lúc đó `moThat`
+              cũng là `false` nên hộp không hiện. Vẫn viết an toàn để TypeScript không phải
+              đoán, và để hộp không bao giờ đổ chữ "undefined" ra màn hình. */}
+          <DialogTitle className="min-w-0 truncate">{tepHienThi?.tenTep ?? ""}</DialogTitle>
           <DialogDescription>
-            {coTep(tep.kichThuoc)} · {tep.nguoiTaiTen}
+            {tepHienThi ? `${coTep(tepHienThi.kichThuoc)} · ${tepHienThi.nguoiTaiTen}` : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -151,13 +233,13 @@ export function HopXemTep({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={diaChi}
-              alt={tep.tenTep}
+              alt={tepHienThi?.tenTep ?? ""}
               className="max-h-full w-auto max-w-full object-contain"
             />
           ) : diaChi ? (
             /* 🐛 SỬA 13/09/2026: `h-[70vh]` → `h-full`, cùng lý do với ảnh — PDF lấp đầy khung
                chứ không tự đặt chiều cao theo màn hình. */
-            <iframe src={diaChi} title={tep.tenTep} className="h-full w-full" />
+            <iframe src={diaChi} title={tepHienThi?.tenTep ?? ""} className="h-full w-full" />
           ) : null}
         </div>
 
@@ -175,15 +257,16 @@ export function HopXemTep({
             </Button>
           )}
           <Button
-            onClick={() =>
-              void taiTep(tep).then((duoc) => {
+            onClick={() => {
+              if (!tepHienThi) return;
+              void taiTep(tepHienThi).then((duoc) => {
                 if (!duoc) {
                   toast.error("Không tải được tệp", {
                     description: "Không lấy được nội dung từ máy chủ. Kiểm tra mạng rồi thử lại.",
                   });
                 }
-              })
-            }
+              });
+            }}
           >
             <Download className="size-4" aria-hidden />
             Tải về máy

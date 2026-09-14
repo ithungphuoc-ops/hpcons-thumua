@@ -12,8 +12,10 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   BUOC_DINH_KEM_BAO_GIA,
   chiSoOBaoGia,
+  KHOA_BO_QUA_SO_SANH,
   khoaLyDoBoQuaBaoGia,
   lyDoBoQuaBaoGia,
+  lyDoBoQuaSoSanh,
   nhanOBaoGia,
   NHAN_O_SO_SANH,
   soBaoGiaCanCo,
@@ -26,6 +28,26 @@ import {
   vuongMacTrinhXetDuyet,
 } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
+
+/*
+ * 📌 KHÓA `KHOA_BO_QUA_SO_SANH` và hàm đọc `lyDoBoQuaSoSanh` **đã dời sang
+ * `2-quy-trinh/bao-gia-dinh-kem.ts`** ngày 14/09/2026 và nay được `import` ở đầu tệp — đúng
+ * CLAUDE.md §3.4b (không để luật nghiệp vụ trong file giao diện).
+ *
+ * 🔴 VÌ SAO PHẢI DỜI, KHÔNG PHẢI CHO ĐẸP THƯ MỤC: khi khóa còn nằm ở đây thì
+ * `vuongMacTrinhXetDuyet` không đọc được nó, nên bấm “Không cần đính kèm” chỉ tắt cảnh báo tại ô
+ * mà cổng chuyển bước vẫn khóa — nút hứa một việc app không làm (§3.5). Nay cổng đọc chính khóa
+ * đó nên hai bên không thể lệch nữa; lịch sử đầy đủ ghi tại chỗ khai báo mới.
+ */
+
+/**
+ * Giá trị đánh dấu hộp “ghi lý do” đang hỏi cho ô **Bảng so sánh**, thay vì cho ô báo giá số mấy.
+ *
+ * 📌 Cố ý nhét vào chung state `hoiBoQuaO` (`number | typeof O_SO_SANH | null`) chứ không mở một
+ * state + một `HopXacNhan` thứ hai: hai hộp thoại song song thì hai ô “Lý do” trùng `id`, và mỗi
+ * lần đổi chữ trong hộp phải nhớ sửa cả hai chỗ — rồi sẽ lệch.
+ */
+const O_SO_SANH = "bang-so-sanh";
 
 /**
  * ★ KHU ĐÍNH KÈM BÁO GIÁ — **số ô bằng đúng SL Báo giá đã yêu cầu**.
@@ -151,6 +173,32 @@ export function KhuBaoGiaTheoSoLuong({
      lặp lại điều kiện `can === 0` — khi trưởng bộ phận chủ ý đặt "Không yêu cầu riêng" +
      `soBaoGiaToiThieu` = 0, thẻ vẫn hiện dấu * đỏ dù cổng ghi thật không hề chặn. */
   const soSanhBatBuoc = soSanhBaoGiaBatBuoc(deNghi, cauHinh);
+  /**
+   * ★ LÝ DO ĐÃ GHI CHO “KHÔNG CẦN ĐÍNH KÈM BẢNG SO SÁNH” — chuỗi rỗng nghĩa là chưa ai bấm.
+   *
+   * ✅ Từ 14/09/2026 gọi thẳng `lyDoBoQuaSoSanh` bên `2-quy-trinh/bao-gia-dinh-kem.ts` — **cùng
+   * đúng một hàm mà `vuongMacTrinhXetDuyet` dùng**. Trước đó chỗ này tự đọc `lyDoThieuChungTu`
+   * rồi `.trim()` lấy, tức hai nơi cùng trả lời một câu hỏi; chỉ cần một bên đổi cách `.trim()`
+   * hay đổi khóa là ô báo hết thiếu trong khi cổng vẫn chặn.
+   */
+  const lyDoSoSanhDaGhi = lyDoBoQuaSoSanh(deNghi);
+  /**
+   * ★ Ô SO SÁNH CÒN “BÁO THIẾU” KHÔNG — Sếp 13/09/2026: bấm “Không cần đính kèm” thì ô phải
+   * **thôi báo thiếu**.
+   *
+   * 🔴 CHỈ TẮT PHẦN NHẮC Ở Ô NÀY, KHÔNG ĐỘNG VÀO DÒNG CẢNH BÁO ĐẦU KHỐI (`vuongMac`). Dòng đó in
+   * nguyên văn câu của `vuongMacTrinhXetDuyet` — tức điều kiện chuyển bước THẬT. Tự tắt nó ở đây
+   * là giao diện nói “xong rồi” trong khi cổng ghi vẫn chặn, đúng thứ CLAUDE.md §3.5 cấm.
+   */
+  const soSanhConNhac = soSanhBatBuoc && lyDoSoSanhDaGhi === "";
+  /**
+   * Cổng chuyển bước CÓ CÒN đòi bảng so sánh không, dù đã ghi lý do.
+   *
+   * 📌 Hỏi bằng chính câu `vuongMacTrinhXetDuyet` trả về thay vì chép lại điều kiện: hôm nào luật
+   * bên `2-quy-trinh/bao-gia-dinh-kem.ts` được sửa để chấp nhận lý do, câu đó không còn nhắc tên ô
+   * nữa → dòng cảnh báo dưới đây **tự tắt**, không cần ai nhớ quay lại xóa.
+   */
+  const luatChuaBietBoQua = lyDoSoSanhDaGhi !== "" && (vuongMac ?? "").includes(NHAN_O_SO_SANH);
   /* Chốt ②: tệp không nhãn, hoặc nhãn vượt số ô, vẫn phải hiện ở đâu đó.
      ⚠️ TRỪ tệp của ô "Bảng so sánh báo giá" — nó đã có ô riêng bên dưới; không trừ thì nó hiện
      hai lần, và người dùng tưởng hồ sơ có hai tệp. */
@@ -162,9 +210,12 @@ export function KhuBaoGiaTheoSoLuong({
 
   /**
    * ★ HỘP GHI LÝ DO BỎ QUA MỘT Ô — xem `khoaLyDoBoQuaBaoGia`. `null` = hộp đóng, số là chỉ số ô
-   * (đếm từ 0) đang hỏi.
+   * báo giá (đếm từ 0) đang hỏi.
+   *
+   * ★ THÊM 13/09/2026: nhận thêm `O_SO_SANH` cho ô “Bảng so sánh báo giá” — Sếp: *"thêm 1 nút
+   * không cần đính kèm báo giá bên cạnh"*. Dùng CHUNG một hộp, xem chú thích ở `O_SO_SANH`.
    */
-  const [hoiBoQuaO, setHoiBoQuaO] = useState<number | null>(null);
+  const [hoiBoQuaO, setHoiBoQuaO] = useState<number | typeof O_SO_SANH | null>(null);
   const [lyDoNhap, setLyDoNhap] = useState("");
   /**
    * Chỉ số các ô còn TRỐNG (đếm từ 0, khớp `nhanOBaoGia`) — để gán tệp sẵn có vào đúng ô.
@@ -254,31 +305,48 @@ export function KhuBaoGiaTheoSoLuong({
     toast.success("Đã bỏ tệp khỏi bước này");
   }
 
+  /**
+   * Khóa lưu và nhãn hiển thị của một ô có thể bỏ qua.
+   *
+   * 📌 Gom vào một chỗ để hai hàm ghi/hủy bên dưới không tự rẽ nhánh riêng — hai chỗ rẽ nhánh là
+   * hai chỗ có thể lệch nhau, mà lệch ở đây nghĩa là ghi lý do vào một khóa rồi đi xóa một khóa
+   * khác, người dùng bấm “Bỏ chọn” mà lý do vẫn còn nguyên trong hồ sơ.
+   */
+  function khoaVaNhanCuaO(o: number | typeof O_SO_SANH): { khoa: string; nhan: string } {
+    return o === O_SO_SANH
+      ? { khoa: KHOA_BO_QUA_SO_SANH, nhan: NHAN_O_SO_SANH }
+      : { khoa: khoaLyDoBoQuaBaoGia(o), nhan: nhanOBaoGia(o) };
+  }
+
   /** Ghi lý do bỏ qua ô đang hỏi (`hoiBoQuaO`) — dùng LẠI đúng cơ chế `lyDoThieuChungTu`. */
   function xacNhanBoQua() {
     if (hoiBoQuaO === null) return;
-    const loi = ghiLyDoThieuChungTu(
-      deNghi.id,
-      khoaLyDoBoQuaBaoGia(hoiBoQuaO),
-      lyDoNhap,
-      nguoiDung.tenHienThi,
-    );
+    const { khoa: khoaLuu, nhan } = khoaVaNhanCuaO(hoiBoQuaO);
+    const loi = ghiLyDoThieuChungTu(deNghi.id, khoaLuu, lyDoNhap, nguoiDung.tenHienThi);
     if (loi) {
       toast.error("Không ghi được lý do", { description: loi });
       return;
     }
-    toast.success(`Đã bỏ qua "${nhanOBaoGia(hoiBoQuaO)}"`);
+    toast.success(
+      hoiBoQuaO === O_SO_SANH ? `Đã ghi: không cần “${nhan}”` : `Đã bỏ qua "${nhan}"`,
+    );
     setHoiBoQuaO(null);
   }
 
-  /** Tìm được nhà cung cấp sau khi đã bỏ qua — xóa lý do để ô trở lại trạng thái "còn thiếu". */
-  function huyBoQua(i: number) {
-    const loi = ghiLyDoThieuChungTu(deNghi.id, khoaLyDoBoQuaBaoGia(i), "", nguoiDung.tenHienThi);
+  /**
+   * Đổi ý sau khi đã bỏ qua — xóa lý do để ô trở lại trạng thái "còn thiếu".
+   *
+   * ★ Ô Bảng so sánh cũng đi đúng đường này (Sếp 13/09/2026 đòi *bỏ chọn được*): xóa lý do là ô
+   * đòi tệp lại như chưa có gì xảy ra, đính kèm bình thường.
+   */
+  function huyBoQua(o: number | typeof O_SO_SANH) {
+    const { khoa: khoaLuu, nhan } = khoaVaNhanCuaO(o);
+    const loi = ghiLyDoThieuChungTu(deNghi.id, khoaLuu, "", nguoiDung.tenHienThi);
     if (loi) {
       toast.error("Không hủy được", { description: loi });
       return;
     }
-    toast.success(`Đã hủy bỏ qua "${nhanOBaoGia(i)}"`);
+    toast.success(o === O_SO_SANH ? `Đã bỏ chọn “không cần ${nhan}”` : `Đã hủy bỏ qua "${nhan}"`);
   }
 
   return (
@@ -493,7 +561,9 @@ export function KhuBaoGiaTheoSoLuong({
                 buộc phải có"*; nới lại 31/08/2026: 1 bản thật thì không có gì để so sánh. Luật
                 thật nằm ở `vuongMacTrinhXetDuyet`/`soSanhBaoGiaBatBuoc`, dấu * ở đây chỉ hiện đúng
                 theo luật đó cho người dùng thấy — KHÔNG tự đặt điều kiện riêng. */}
-            {soSanhBatBuoc && (
+            {/* Đã ghi “không cần đính kèm” thì THÔI đánh dấu * — Sếp 13/09/2026 đòi ô phải thôi
+                báo thiếu. Xem `soSanhConNhac`. */}
+            {soSanhConNhac && (
               <>
                 <span aria-hidden className="text-danger">
                   *
@@ -505,21 +575,98 @@ export function KhuBaoGiaTheoSoLuong({
               <span className="font-normal normal-case text-success-soft">· đã có tệp</span>
             )}
           </p>
-          <ODinhKemTep
-            tep={tepBangSoSanh}
-            nhanThem="Chọn tệp bảng so sánh"
-            nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-            batBuoc={soSanhBatBuoc && !tepBangSoSanh}
-            khoa={!duocSua || khoa}
-            anHuongDan
-            onXong={(t) => ganVaoO(t, NHAN_O_SO_SANH)}
-            onXoa={
-              tepBangSoSanh && duocSua && !khoa && !chanXoaTep
-                ? () => boTep(tepBangSoSanh.id)
-                : undefined
-            }
-          />
-          {!tepBangSoSanh && (
+
+          {/* ★ HAI NÚT ĐỨNG CẠNH NHAU — Sếp 13/09/2026 (nguyên văn): *"Vẫn giữ nút đính kèm bảng
+              so sánh báo giá và thêm 1 nút không cần đính kèm báo giá bên cạnh"*.
+
+              🔴 NÚT ĐÍNH KÈM GIỮ NGUYÊN, KHÔNG ĐỘNG GÌ — Sếp nói *"vẫn giữ"*. Nút mới chỉ đứng
+              thêm bên cạnh, không thay và không che nút cũ.
+
+              📌 Vì sao KHÔNG dùng prop `nhanPhu` của `ODinhKemTep` cho nút mới: `nhanPhu` chỉ được
+              vẽ ở nhánh ĐÃ CÓ TỆP (xem `o-dinh-kem-tep.tsx`), mà đây đúng là lúc CHƯA có tệp —
+              truyền vào đó là nút không bao giờ hiện. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Có tệp rồi thì thanh tệp trải hết chiều rộng như trước (`flex-1`); chưa có tệp thì
+                co đúng bề rộng nút để nút “Không cần đính kèm” đứng SÁT bên phải nó, chứ không bị
+                đẩy ra tận mép phải khối. */}
+            <div className={tepBangSoSanh ? "min-w-0 flex-1" : "min-w-0"}>
+              <ODinhKemTep
+                tep={tepBangSoSanh}
+                nhanThem="Chọn tệp bảng so sánh"
+                nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+                batBuoc={soSanhConNhac && !tepBangSoSanh}
+                khoa={!duocSua || khoa}
+                anHuongDan
+                onXong={(t) => ganVaoO(t, NHAN_O_SO_SANH)}
+                onXoa={
+                  tepBangSoSanh && duocSua && !khoa && !chanXoaTep
+                    ? () => boTep(tepBangSoSanh.id)
+                    : undefined
+                }
+              />
+            </div>
+
+            {/* Chỉ hiện khi ô này ĐANG bị đòi và còn trống: bảng so sánh vốn không bắt buộc (hồ sơ
+                chỉ có 1 bản báo giá thật) thì chẳng có gì để “không cần”, bày nút ra là mời người
+                dùng ghi một lý do vô nghĩa vào hồ sơ. Đã ghi lý do rồi thì nút nhường chỗ cho khối
+                lý do bên dưới. */}
+            {soSanhBatBuoc && !tepBangSoSanh && duocSua && !khoa && lyDoSoSanhDaGhi === "" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setHoiBoQuaO(O_SO_SANH);
+                  setLyDoNhap("");
+                }}
+                /* Cùng kiểu nút với “bỏ qua, ghi lý do” của các ô báo giá phía trên — cùng một
+                   việc thì phải nhìn giống nhau, người dùng không phải học hai lần. */
+                className="inline-flex min-h-9 w-fit shrink-0 items-center gap-1.5 rounded-full border border-warning/40 bg-warning-bg px-3 text-xs font-semibold text-warning-soft transition-colors hover:bg-warning/20"
+              >
+                <X className="size-3.5 shrink-0" aria-hidden />
+                Không cần đính kèm
+              </button>
+            )}
+          </div>
+
+          {/* ★ LÝ DO ĐÃ GHI — luôn hiện, kể cả khi sau đó có người đính tệp vào ô: lý do đã vào hồ
+              sơ thì phải đọc được, và phải có đường rút lại. Sếp 13/09/2026: *vẫn phải thấy được
+              lý do đã ghi, và phải bỏ chọn được*. */}
+          {lyDoSoSanhDaGhi !== "" && (
+            <div className="flex items-start justify-between gap-2 rounded-lg border border-warning/40 bg-warning-bg/60 p-2.5 text-xs">
+              <span className="min-w-0 text-text-secondary">
+                <span className="font-semibold text-warning-soft">🚫 Không cần đính kèm</span>
+                {" — "}
+                lý do: {lyDoSoSanhDaGhi}
+              </span>
+              {duocSua && !khoa && (
+                <button
+                  type="button"
+                  onClick={() => huyBoQua(O_SO_SANH)}
+                  className="inline-flex shrink-0 items-center gap-1 text-text-desc hover:text-danger"
+                  title="Đổi ý — bỏ chọn để đính kèm bảng so sánh như bình thường"
+                >
+                  <Undo2 className="size-3.5" aria-hidden />
+                  Bỏ chọn
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 🔴 NÓI THẲNG PHẦN APP CHƯA LÀM ĐƯỢC — CLAUDE.md §3.5.
+              Lý do đã ghi vào hồ sơ thật, nhưng cổng `vuongMacTrinhXetDuyet` hiện vẫn đòi tệp bảng
+              so sánh (xem chú thích `KHOA_BO_QUA_SO_SANH`). Im lặng ở đây thì người dùng bấm
+              “Không cần đính kèm”, thấy ô hết báo thiếu, rồi bấm “Trình xét duyệt” mãi không được
+              mà không hiểu vì sao.
+              📌 Dòng này TỰ TẮT khi luật bên `2-quy-trinh/bao-gia-dinh-kem.ts` được sửa để chấp
+              nhận lý do — xem `luatChuaBietBoQua`. */}
+          {luatChuaBietBoQua && (
+            <p className="text-xs text-warning-soft">
+              ⚠️ Lý do đã lưu vào hồ sơ, nhưng điều kiện trình xét duyệt hiện <strong>vẫn</strong>{" "}
+              đòi tệp bảng so sánh (xem dòng cảnh báo ở đầu khối) — nút “Trình xét duyệt báo giá”
+              còn khóa. Báo quản trị cập nhật quy trình, hoặc đính kèm bảng so sánh để đi tiếp.
+            </p>
+          )}
+
+          {!tepBangSoSanh && lyDoSoSanhDaGhi === "" && (
             <p className="text-xs text-text-desc">
               Bảng so sánh giá lập ngoài (Excel/PDF) rồi đính vào đây — app không tự lập bảng so
               sánh nữa.
@@ -625,12 +772,22 @@ export function KhuBaoGiaTheoSoLuong({
         }}
       />
 
-      {/* Hỏi lý do trước khi bỏ qua một ô báo giá còn thiếu — xem `khoaLyDoBoQuaBaoGia`. */}
+      {/* Hỏi lý do trước khi bỏ qua một ô báo giá còn thiếu — xem `khoaLyDoBoQuaBaoGia`.
+          ★ Từ 13/09/2026 hộp này dùng CHUNG cho cả ô “Bảng so sánh báo giá” (Sếp: *"thêm 1 nút
+          không cần đính kèm báo giá bên cạnh"*) — chỉ đổi tiêu đề, câu mô tả và ví dụ trong ô nhập,
+          còn cơ chế ghi thì y nguyên. Xem `O_SO_SANH`. */}
       <HopXacNhan
         mo={hoiBoQuaO !== null}
-        tieuDe={`Bỏ qua "${hoiBoQuaO !== null ? nhanOBaoGia(hoiBoQuaO) : ""}"?`}
-        moTa="Ghi rõ vì sao chưa tìm được nhà cung cấp cho ô này — bắt buộc phải có lý do mới bỏ
-          qua được. Tìm được nhà cung cấp sau thì vẫn đính kèm bình thường."
+        tieuDe={
+          hoiBoQuaO === O_SO_SANH
+            ? `Không cần đính kèm “${NHAN_O_SO_SANH}”?`
+            : `Bỏ qua "${typeof hoiBoQuaO === "number" ? nhanOBaoGia(hoiBoQuaO) : ""}"?`
+        }
+        moTa={
+          hoiBoQuaO === O_SO_SANH
+            ? "Ghi rõ vì sao hồ sơ này không cần bảng so sánh báo giá — bắt buộc phải có lý do. Đổi ý thì bấm “Bỏ chọn” ở ô đó rồi đính kèm lại bình thường."
+            : "Ghi rõ vì sao chưa tìm được nhà cung cấp cho ô này — bắt buộc phải có lý do mới bỏ qua được. Tìm được nhà cung cấp sau thì vẫn đính kèm bình thường."
+        }
         khoaDongY={lyDoNhap.trim() === "" ? "Nhập lý do trước khi bỏ qua." : undefined}
         /* ★ Nhãn đổi theo chỉ đạo Ban lãnh đạo 13/09/2026 ("Cập nhật").
            📌 Em có nêu lại với Sếp rằng nút này thực chất là *bỏ qua một ô báo giá bắt buộc kèm
@@ -648,7 +805,13 @@ export function KhuBaoGiaTheoSoLuong({
             id="ly-do-bo-qua-bao-gia"
             value={lyDoNhap}
             onChange={(e) => setLyDoNhap(e.target.value)}
-            placeholder="VD: Mặt hàng đặc thù, chỉ một nhà cung cấp trong khu vực có hàng…"
+            /* Ví dụ đổi theo loại ô đang hỏi — gợi ý sai ngữ cảnh thì người dùng chép đại vào,
+               rồi hồ sơ có một dòng lý do không liên quan đến việc thật sự đang bỏ qua. */
+            placeholder={
+              hoiBoQuaO === O_SO_SANH
+                ? "VD: Giá và điều kiện đã so sánh trong biên bản họp, không lập bảng riêng…"
+                : "VD: Mặt hàng đặc thù, chỉ một nhà cung cấp trong khu vực có hàng…"
+            }
           />
         </div>
       </HopXacNhan>
