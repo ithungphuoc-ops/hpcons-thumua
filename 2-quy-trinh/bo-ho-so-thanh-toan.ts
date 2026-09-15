@@ -77,6 +77,37 @@ export type MaMucHoSo =
   | "unc"
   | "phieu_chi";
 
+/**
+ * ★★ BỐN MỤC CÓ Ô NỘP TỆP NẰM NGAY TRONG BƯỚC ⑧ — Sếp 15/09/2026: *"Bố cục lại bước 8, đang bị
+ * trùng lặp bộ hồ sơ đầy đủ của thanh toán"*.
+ *
+ * 🔴 ĐÂY LÀ DỮ KIỆN BỐ CỤC, KHÔNG PHẢI LUẬT NGHIỆP VỤ. Nó KHÔNG đổi mục nào bắt buộc, KHÔNG đổi
+ * điều kiện đóng hồ sơ (`vuongMacDuyetHoanThanhDeNghi`, `vuongMacHoanThanhQuyTrinh` giữ nguyên
+ * tuyệt đối) và KHÔNG bỏ mục nào khỏi `dungBoHoSoThanhToan` — hàm đó vẫn trả **đủ 8 mục** vì đó
+ * là hợp đồng dữ liệu với app Kế toán (xem cảnh báo đầu tệp).
+ *
+ * 🔴 DÙNG ĐỂ LÀM GÌ: bốn chứng từ này có ô nộp tệp đặt ngay trong khối bước ⑧, phía TRÊN khối
+ * "Bộ hồ sơ thanh toán". Khối bộ hồ sơ liệt kê lại chúng là cùng một tệp hiện hai lần trên cùng
+ * một màn hình — đúng chỗ trùng Sếp chỉ ra. Nơi vẽ lọc bốn mã này ra khỏi phần HIỂN THỊ, còn dữ
+ * liệu thì không đụng tới.
+ *
+ * 🔴 VÌ SAO KHÔNG BỎ Ô NỘP MÀ LẠI BỎ PHẦN LIỆT KÊ: khối bộ hồ sơ **chỉ đọc** (dùng `LienKetTep`,
+ * không có đường ghi nào). Bỏ ô nộp là mất hẳn đường đính kèm — riêng **Phiếu chi** thì ô ở bước
+ * ⑧ là chỗ DUY NHẤT trong cả app, bỏ đi là chức năng mồ côi (CLAUDE.md §3.4b).
+ *
+ * ⚠️ KHAI KIỂU `MaMucHoSo` LÀ CỐ Ý: đổi/xoá một khoá ở trên thì dòng này **không biên dịch được**.
+ * Viết `string[]` là danh sách lặng lẽ lạc hậu, rồi một chứng từ lại hiện hai lần mà không ai báo.
+ *
+ * ⚠️ THÊM Ô NỘP MỚI Ở BƯỚC ⑧ thì thêm mã vào đây; ngược lại, dời một ô nộp sang bước khác thì bỏ
+ * mã đó ra — nếu không khối bộ hồ sơ giấu mất một chứng từ mà không còn ô nào bày nó.
+ */
+export const MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN: readonly MaMucHoSo[] = [
+  "hop_dong",
+  "hoa_don_vat",
+  "unc",
+  "phieu_chi",
+];
+
 export interface MucHoSoThanhToan {
   /**
    * Số thứ tự đúng như Sếp liệt kê ngày 15/09/2026 — chạy **1..8**.

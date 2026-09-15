@@ -3109,16 +3109,34 @@ export default function TrangChiTietDeNghi({
                 nhan: NHAN_GIAI_DOAN.ho_so_thanh_toan.nhan,
                 dangODay: giaiDoan === "ho_so_thanh_toan",
                 conThieu: conThieuCuaBuoc("ho_so_thanh_toan"),
-                truong: [
-                  ...tepHoaDonVAT(dn).map((t) => ({
-                    nhan: t.ghiChu?.trim() || "Hóa đơn VAT",
-                    giaTri: t.tenTep,
-                  })),
-                  ...tepUNC(dn).map((t) => ({
-                    nhan: t.ghiChu?.trim() || "Ủy nhiệm chi",
-                    giaTri: t.tenTep,
-                  })),
-                ],
+                /**
+                 * ❌ ĐÃ BỎ DANH SÁCH TRƯỜNG ĐẦU VÀO — Sếp 15/09/2026: *"Bố cục lại bước 8, đang bị
+                 * trùng lặp bộ hồ sơ đầy đủ của thanh toán"*.
+                 *
+                 * Trước đây chỗ này liệt kê tệp **Hóa đơn VAT** rồi **Ủy nhiệm chi**, làm hai
+                 * chứng từ đó hiện BA lần trên cùng một màn: ở đây · ở ô nộp tệp bên dưới · trong
+                 * khối "Bộ hồ sơ thanh toán".
+                 *
+                 * 🔴 ĐÃ ĐO TRƯỚC KHI BỎ — bỏ được vì nó là TẬP CON THẬT SỰ của ô nộp tệp, không
+                 * mất thông tin nào:
+                 *   · ở đây: nhãn + tên tệp, in bằng `giaTri` nên là **CHỮ TRƠN, bấm không được**;
+                 *   · ô nộp (`OChungTuBatBuoc` → `ODinhKemTep`): tên tệp + **kích thước + người
+                 *     tải + thời điểm**, bấm XEM được, TẢI được, thay / gỡ / thêm bản được.
+                 * 👉 Giữ lại chính là cái bẫy `lien-ket-tep.tsx` đã ghi: in tên tệp dạng chữ
+                 *    thường khiến người dùng tưởng app chưa lưu nội dung.
+                 *
+                 * 🔴 CÒN MỘT LÝ DO NGHĨA: bước ⑧ là nơi hai chứng từ đó được NỘP VÀO, nên chúng là
+                 * KẾT QUẢ của bước, không phải ĐẦU VÀO. Xếp vào khối "ĐẦU VÀO" là nói sai vai trò.
+                 *
+                 * 📌 Mảng rỗng là trạng thái ĐÃ CÓ SẴN trong app, không phải ca lạ: bước ⑥ cũng ra
+                 * rỗng khi chưa phiếu giao nào có tệp. Khối sẽ ghi *"Giai đoạn này chưa có dữ liệu
+                 * nhập vào"* và nhãn gập bỏ con số (`anSoTruong` trong
+                 * `khoi-dau-vao-theo-giai-doan.tsx`) — đúng như các bước khác.
+                 *
+                 * 📌 KHÔNG ảnh hưởng số thứ tự 01→N của cả trang: các trường đánh số liên tục theo
+                 * thứ tự mảng, mà bước ⑧ là khối CUỐI CÙNG — không còn bước nào sau để bị dồn số.
+                 */
+                truong: [],
                 khuDinhKem: (
                   <div className="flex flex-col gap-(--hp-md-card-gap)">
                     {/**
@@ -3215,11 +3233,20 @@ export default function TrangChiTietDeNghi({
                       khoa={hoSoDaDong}
                       tepDaCo={tepPhieuChi(dn)}
                     />
-                    {/* ★★ TRƯỜNG "KẾT QUẢ" — BỘ HỒ SƠ THANH TOÁN BẢY MỤC (Ban lãnh đạo 26/08/2026:
-                        *"Tạo thêm 1 trường Kết quả. Sẽ được link kết quả từ các bước trên"*).
-                        📌 Đặt SAU các ô đính kèm của bước này: người dùng đính hóa đơn / UNC /
-                        phiếu chi xong thì cuộn xuống thấy ngay bộ hồ sơ vừa đủ lên mấy mục.
-                        🔴 Chỉ BÀY, không cho đính lại — xem chú thích đầu
+                    {/* ★★ TRƯỜNG "KẾT QUẢ" — CHỨNG TỪ GOM TỪ CÁC BƯỚC TRƯỚC (Ban lãnh đạo
+                        26/08/2026: *"Tạo thêm 1 trường Kết quả. Sẽ được link kết quả từ các bước
+                        trên"*).
+
+                        ★★ Sếp 15/09/2026 (*"đang bị trùng lặp bộ hồ sơ đầy đủ của thanh toán"*):
+                        khối này THÔI liệt kê bốn chứng từ có ô nộp ngay phía trên (hợp đồng · hóa
+                        đơn VAT · ủy nhiệm chi · phiếu chi), chỉ còn gom thứ đến từ bước khác.
+
+                        🔴 BỐN Ô NỘP TỆP Ở TRÊN PHẢI Ở LẠI — khối này CHỈ ĐỌC, không có đường đính
+                        kèm nào. Bỏ ô nộp để giữ phần liệt kê là mất hẳn đường nộp tệp; riêng
+                        *Phiếu chi* thì ô ở bước ⑧ là chỗ duy nhất trong cả app (§3.4b).
+
+                        📌 Vẫn đặt SAU các ô đính kèm: đính xong thì cuộn xuống thấy ngay hồ sơ
+                        gom được những gì. Lý do và phép đo đầy đủ ở khối chú thích đầu
                         `thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan.tsx`. */}
                     <div className="border-t border-divider pt-3">
                       <KhoiBoHoSoThanhToan

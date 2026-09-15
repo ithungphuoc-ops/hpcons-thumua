@@ -1,7 +1,28 @@
 "use client";
 
 // ============================================================
-// KHỐI "KẾT QUẢ" CỦA BƯỚC ⑧ — BỘ HỒ SƠ THANH TOÁN ĐẦY ĐỦ, TÁM MỤC
+// KHỐI "KẾT QUẢ" CỦA BƯỚC ⑧ — CHỨNG TỪ CỦA BỘ HỒ SƠ THANH TOÁN GOM TỪ CÁC BƯỚC TRƯỚC
+//
+// ★★ Sếp 15/09/2026 (chiều): *"Bố cục lại bước 8, đang bị trùng lặp bộ hồ sơ đầy đủ của thanh
+//    toán"*.
+//
+// 🔴 CHỖ TRÙNG ĐÃ ĐO ĐƯỢC, CHÉP LẠI ĐÂY ĐỂ KHÔNG AI DỰNG LẠI: trên cùng một màn hình bước ⑧,
+//    **Hóa đơn VAT** và **Ủy nhiệm chi** hiện BA lần (danh sách trường ĐẦU VÀO · ô nộp tệp ·
+//    khối này), **Hợp đồng** và **Phiếu chi** hiện HAI lần (ô nộp tệp · khối này).
+//
+// 🔴 ĐÃ BỎ PHẦN LIỆT KÊ, KHÔNG BỎ Ô NỘP — và đây là chỗ dễ làm ngược nhất. Khối này **chỉ đọc**
+//    (`LienKetTep`, không có đường ghi nào), còn ô nộp mới là chỗ làm việc thật: nộp · thay · gỡ ·
+//    thêm bản. Riêng **Phiếu chi** thì ô ở bước ⑧ là chỗ DUY NHẤT trong cả app. Bỏ ô nộp để giữ
+//    phần liệt kê là chức năng mồ côi (CLAUDE.md §3.4b).
+//
+// 🔴 KHỐI NÀY NAY CHỈ GOM CHỨNG TỪ **ĐẾN TỪ BƯỚC KHÁC** — đó là giá trị riêng của nó: người làm
+//    hồ sơ thanh toán không phải mở lại từng bước để gom. Bốn mã bị lọc ra khai ở
+//    `MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN` (`2-quy-trinh/bo-ho-so-thanh-toan.ts`), có kiểu chặt
+//    nên đổi khoá là không biên dịch được.
+//
+// ⚠️ DỮ LIỆU KHÔNG ĐỔI MỘT DÒNG: `dungBoHoSoThanhToan` vẫn trả **đủ 8 mục**, nên bộ đẩy sang app
+//    Kế toán vẫn nguyên vẹn. Đây thuần là việc BỐ CỤC. Đừng "dọn cho gọn" bằng cách xoá mục ở
+//    tầng dữ liệu — xoá là bên nhận hụt một khoá mà không có gì báo.
 //
 // ★★ Ban lãnh đạo 26/08/2026: *"Tạo thêm 1 trường 'Kết quả'. Sẽ được link kết quả từ các bước
 //    trên"*, kèm mục đích *"để sau này có thể lấy dữ liệu này đẩy qua app kế toán"*.
@@ -31,6 +52,7 @@ import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import {
   dungBoHoSoThanhToan,
+  MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN,
   mucDaCo,
   tomTatBoHoSo,
 } from "@/2-quy-trinh/bo-ho-so-thanh-toan";
@@ -51,15 +73,45 @@ export function KhoiBoHoSoThanhToan({
   baoGiaCuaDeNghi: BaoGia[];
   xemGia: boolean;
 }) {
+  /* ĐỦ TÁM MỤC — giữ nguyên để bộ đẩy sang app Kế toán không hụt khoá nào. */
   const muc = dungBoHoSoThanhToan(deNghi, poCuaDeNghi, phieuCuaDeNghi, baoGiaCuaDeNghi);
-  const tomTat = tomTatBoHoSo(muc);
+
+  /**
+   * ★★ TÁCH LÀM HAI: mục ĐẾN TỪ BƯỚC KHÁC (bày ở đây) và mục CÓ Ô NỘP NGAY TRÊN (không bày lại).
+   *
+   * 🔴 LỌC Ở TẦNG VẼ, KHÔNG LỌC Ở TẦNG DỮ LIỆU — `muc` bên trên vẫn đủ 8. Xem lý do đầy đủ ở khối
+   * chú thích đầu tệp và ở `MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN`.
+   */
+  const mucBay = muc.filter((m) => !MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN.includes(m.ma));
+  const mucCoONopONgayTren = muc.filter((m) =>
+    MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN.includes(m.ma),
+  );
+
+  /**
+   * 🔴 HUY HIỆU ĐẾM ĐÚNG THỨ ĐANG BÀY (`mucBay`), KHÔNG ĐẾM CẢ TÁM MỤC.
+   *
+   * Đếm cả bộ rồi chỉ bày một phần là huy hiệu ghi *"còn thiếu 1/4"* trong khi bên dưới có bốn
+   * dòng khác hẳn — người đọc không có cách nào đối chiếu, tệ hơn cả việc trùng lặp ban đầu.
+   *
+   * ⚠️ HỆ QUẢ PHẢI BIẾT: **Hợp đồng** là mục BẮT BUỘC nhưng nay không nằm trong con số này nữa
+   * (tổng tụt 4 → 3). KHÔNG mất chốt nào — việc thiếu hợp đồng vẫn được báo đủ ba chỗ, và cả ba
+   * đều nói to hơn một dòng trong danh sách:
+   *   · ô "Hợp đồng" ngay phía trên mang nhãn đỏ *"Bắt buộc"* và ô trống cũng gắn cờ bắt buộc;
+   *   · nút *"Hoàn thành quy trình"* bị KHÓA kèm lý do (`vuongMacHoanThanhQuyTrinh` — 14/09/2026);
+   *   · viền khối bước chuyển đỏ kèm chữ *"Còn thiếu"* (`conThieu`).
+   * 👉 Luật nghiệp vụ KHÔNG đổi một dòng nào; chỉ chỗ đếm để hiển thị là đổi.
+   */
+  const tomTat = tomTatBoHoSo(mucBay);
 
   /**
    * ★ THU GỌN ĐƯỢC — Ban lãnh đạo 27/08/2026: *"Mục này thêm nút group lại cho a"*.
    *
    * 🔴 MẶC ĐỊNH MỞ KHI CÒN THIẾU, THU LẠI KHI ĐÃ ĐỦ. Đây là điểm chính, không phải chi tiết
-   * trang trí: khối này dài tám mục, và người dùng chỉ cần đọc nó khi CÒN THIẾU chứng từ. Hồ sơ
-   * đã đủ thì tám dòng dấu tích chỉ đẩy nút "Hoàn thành quy trình" xuống khỏi tầm mắt.
+   * trang trí: người dùng chỉ cần đọc khối này khi CÒN THIẾU chứng từ. Hồ sơ đã đủ thì một dãy
+   * dấu tích chỉ đẩy nút "Hoàn thành quy trình" xuống khỏi tầm mắt.
+   *
+   * 📌 Đọc `tomTat` của `mucBay` — tức mở ra khi thiếu thứ khối này BÀY được. Thiếu hợp đồng /
+   * hóa đơn VAT thì ô nộp ngay trên đã tự báo, mở thêm khối này cũng không giúp gì.
    *
    * ⚠️ ĐỪNG mặc định thu gọn cả khi còn thiếu: người lập mở trang ra phải thấy ngay mình thiếu
    * gì, chứ không phải bấm thêm một cái mới biết.
@@ -70,9 +122,14 @@ export function KhoiBoHoSoThanhToan({
     <section className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <FileText className="size-4 shrink-0 text-text-desc" aria-hidden />
-        <span className="text-sm font-semibold text-text-primary">
-          Bộ hồ sơ thanh toán đầy đủ
-        </span>
+        {/* 🔴 THÔI GỌI LÀ "ĐẦY ĐỦ" — Sếp 15/09/2026 chốt: *"bỏ chữ đầy đủ"*, giữ nguyên tên
+            "Bộ hồ sơ thanh toán".
+            Lý do bỏ đúng chữ đó: khối này nay chỉ bày 4 mục đến từ bước khác, 4 mục còn lại nộp
+            ngay ở các ô phía trên. Giữ chữ "đầy đủ" là nhãn hứa một thứ nội dung bên dưới không
+            làm (CLAUDE.md §3.5).
+            📌 Bản dựng trước tôi đặt là "Chứng từ gom từ các bước trước" — Sếp không chọn tên đó.
+            Đừng đổi lại: tên khối là chữ người dùng quen mắt, và Sếp đã chốt. */}
+        <span className="text-sm font-semibold text-text-primary">Bộ hồ sơ thanh toán</span>
         {/* Trạng thái có CẢ màu lẫn chữ (Design System V1.1) — không chỉ dựa vào màu. */}
         <StatusBadge
           label={
@@ -95,17 +152,42 @@ export function KhoiBoHoSoThanhToan({
           ) : (
             <ChevronDown className="size-4" aria-hidden />
           )}
-          {/* 🔴 `muc.length` (TỔNG số mục) chứ KHÔNG phải `tomTat.tong` (số mục BẮT BUỘC = 4).
-              Trước 15/09/2026 chỗ này in `tomTat.tong` nên nút ghi "Xem 4 mục" trong khi bấm ra
-              bảy dòng. Cả hai đều là số động, nhưng chúng trả lời hai câu hỏi khác nhau. */}
-          {moRong ? "Thu gọn" : `Xem ${muc.length} mục`}
+          {/* 🔴 `mucBay.length` — số dòng THẬT SỰ bấm ra, không phải `muc.length` (8, gồm cả mục
+              đã lọc) và cũng không phải `tomTat.tong` (chỉ mục bắt buộc). Trước 15/09/2026 chỗ này
+              in `tomTat.tong` nên nút ghi "Xem 4 mục" trong khi bấm ra bảy dòng — con số trên nút
+              phải khớp đúng thứ người dùng thấy sau khi bấm. */}
+          {moRong ? "Thu gọn" : `Xem ${mucBay.length} mục`}
         </button>
       </div>
       {moRong && (
-        <p className="text-xs text-text-desc">
-          Gom từ các bước trên, không đính kèm lại ở đây. Đây là bộ chứng từ sẽ chuyển sang app
-          Kế toán.
-        </p>
+        <>
+          <p className="text-xs text-text-desc">
+            Gom từ các bước trên, không đính kèm lại ở đây. Sửa thì về đúng bước của chứng từ.
+          </p>
+          {/**
+            * ★★ NÓI RÕ BỐN MỤC KIA ĐI ĐÂU — Sếp 15/09/2026, khi bỏ phần liệt kê trùng.
+            *
+            * 🔴 BẮT BUỘC PHẢI CÓ CÂU NÀY, KHÔNG PHẢI CHO ĐẸP. Khối giữ nguyên số mục gốc (1 · 2 ·
+            * 4 · 5) nên trên màn hình có chỗ hụt số 3 · 6 · 7 · 8. Không giải thích thì người đọc
+            * tưởng app làm mất mục — đúng loại hiểu nhầm §3.5 cấm. Câu này biến chỗ hụt số thành
+            * thông tin: mục nào, ở đâu.
+            *
+            * 🔴 GIỮ SỐ GỐC chứ không đánh lại 1..4: số mục là cách Sếp gọi tên từng chứng từ
+            * (danh sách 9 mục ngày 15/09/2026) và là thứ tự dùng khi đối chiếu với app Kế toán.
+            * Đánh lại số là hai bên nói "mục 3" mà chỉ hai chứng từ khác nhau.
+            *
+            * 📌 Tên và số lấy thẳng từ dữ liệu, không gõ tay — thêm/bớt ô nộp ở bước ⑧ thì câu này
+            * tự đúng theo.
+            */}
+          {mucCoONopONgayTren.length > 0 && (
+            <p className="text-xs text-text-desc">
+              {mucCoONopONgayTren.length} mục còn lại của bộ hồ sơ nộp ở các ô đính kèm ngay phía
+              trên, không liệt kê lại ở đây:{" "}
+              {mucCoONopONgayTren.map((m) => `${m.stt}. ${m.ten}`).join(" · ")}. Bộ chuyển sang app
+              Kế toán vẫn đủ {muc.length} mục.
+            </p>
+          )}
+        </>
       )}
 
       {/* 🔴 KHI THU GỌN VẪN PHẢI NÓI THIẾU GÌ. Thu gọn để đỡ dài, không phải để giấu việc còn
@@ -115,7 +197,7 @@ export function KhoiBoHoSoThanhToan({
       )}
 
       <ol className={`flex flex-col gap-2 ${moRong ? "" : "hidden"}`}>
-        {muc.map((m) => {
+        {mucBay.map((m) => {
           const co = mucDaCo(m);
           return (
             <li
