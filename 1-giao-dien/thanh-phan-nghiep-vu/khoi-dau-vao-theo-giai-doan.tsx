@@ -532,7 +532,12 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
               {(g.noiDungNghiepVu || gopVaoKetQua) && (
                 /* Cũng khai `text-sm` như phần ĐẦU VÀO — hai phần nằm trong cùng một khối
                    thì nền cỡ chữ phải giống nhau, không để một bên 14px một bên 16px. */
-                <div className="border-t border-divider p-(--hp-md-card-pad) text-sm">
+                /* ★★★ TỰ ẨN KHI RUỘT KHÔNG VẼ RA GÌ (15/09/2026) — xem `.an-khi-ruot-rong` trong
+                   `app/globals.css`, ở đó có đủ lý do và cả hai ca hiếm bị ẩn nhầm.
+                   🔴 ĐẶT TRÊN THẺ NGOÀI CÙNG, không đặt trên khung xanh bên trong: thẻ này mang cả
+                   đường kẻ `border-t` lẫn khoảng đệm, ẩn mỗi khung xanh là vẫn để lại một vệt kẻ
+                   ngang với một khoảng trống — đúng cái Sếp bảo "Bỏ luôn". */
+                <div className="an-khi-ruot-rong border-t border-divider p-(--hp-md-card-pad) text-sm">
                   {/**
                    * ★ NHÃN "KẾT QUẢ" — Ban lãnh đạo 19/08/2026: *"Thêm nút 'Kết quả' để phân biệt
                    * rõ đâu là đầu vào đâu là đầu ra. Thêm cho tất cả các bước luôn, và có border
@@ -578,20 +583,28 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                         của bước này là 1 nên hãy để chữ 'Kết quả'"* — xem `gopDauVaoVaoKetQua`.
                         📌 Bọc bằng `flex flex-col gap-…` chứ không nhét khoảng cách bằng `mb-…`
                         vào từng phần: phần nào vắng thì không để lại khoảng trống thừa. */}
-                    {gopVaoKetQua ? (
-                      <div className="flex flex-col gap-(--hp-md-row-gap)">
-                        {danhSachTruong}
-                        {g.noiDungNghiepVu}
-                        {/* Trống cả hai thì nói thẳng, đừng để một khung xanh rỗng không ai hiểu
-                            là lỗi hay là chưa tới lượt. Câu này KHÔNG dùng chữ "nhập vào" như
-                            khối ĐẦU VÀO: ở bước gộp, thứ đang thiếu là KẾT QUẢ. */}
-                        {!danhSachTruong && !g.noiDungNghiepVu && (
-                          <p className="text-sm text-text-desc">Bước này chưa có kết quả nào.</p>
-                        )}
-                      </div>
-                    ) : (
-                      g.noiDungNghiepVu
-                    )}
+                    {/* ★★★ VÙNG RUỘT ĐƯỢC ĐÁNH DẤU (15/09/2026) — `.an-khi-ruot-rong` ở thẻ ngoài
+                        cùng soi đúng vào đây để biết bước này có kết quả gì không. Nhãn "KẾT QUẢ"
+                        phải nằm NGOÀI dấu này, nếu không chính nó lại làm vùng ruột thành "có nội
+                        dung" và luật ẩn không bao giờ chạy. */}
+                    <div data-ruot-khoi>
+                      {gopVaoKetQua ? (
+                        <div className="flex flex-col gap-(--hp-md-row-gap)">
+                          {danhSachTruong}
+                          {g.noiDungNghiepVu}
+                          {/* Trống cả hai thì nói thẳng, đừng để một khung xanh rỗng không ai hiểu
+                              là lỗi hay là chưa tới lượt. Câu này KHÔNG dùng chữ "nhập vào" như
+                              khối ĐẦU VÀO: ở bước gộp, thứ đang thiếu là KẾT QUẢ.
+                              📌 Câu này cũng chính là thứ giữ cho bước GỘP (bước ③) không bị luật
+                              ẩn mới nuốt mất: nó là nội dung thật, nên vùng ruột không rỗng. */}
+                          {!danhSachTruong && !g.noiDungNghiepVu && (
+                            <p className="text-sm text-text-desc">Bước này chưa có kết quả nào.</p>
+                          )}
+                        </div>
+                      ) : (
+                        g.noiDungNghiepVu
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

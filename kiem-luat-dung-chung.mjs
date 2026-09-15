@@ -190,6 +190,22 @@ try {
   process.exit(1);
 }
 
+/* ★★ CẤU HÌNH QUY TRÌNH — cần để canh `MA_CONG_VIEC_DA_BO` (Sếp 15/09/2026). Bản cấu hình người
+   dùng đã lưu trên kho chung ĐÈ nguyên khối lên mặc định, nên việc "đã bỏ ở mặc định" một mình
+   không chứng minh được gì; phải gọi thật `gopCauHinhVoiMacDinh`. */
+const tepRa11 = join(thuMuc, "cau-hinh.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/cau-hinh-quy-trinh.ts" --bundle --platform=node --format=cjs --outfile="${tepRa11}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/cau-hinh-quy-trinh.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
@@ -198,6 +214,7 @@ const KD = nap(tepRa7);
 const HS = nap(tepRa8);
 const NB = nap(tepRa9);
 const TT = nap(tepRa10);
+const CQ = nap(tepRa11);
 
 /* ---------- Bộ khung chấm ---------- */
 let dat = 0;
@@ -2490,8 +2507,10 @@ const hoSoSanSangDong = (lyDo, coTepHopDong) => ({
     ho_so_thanh_toan: [{ id: "v1", ten: "vat.pdf", ghiChu: "Hóa đơn VAT" }],
   },
   lyDoThieuChungTu: lyDo === undefined ? {} : { [KHOA_HD]: lyDo },
-  /* ⚠️ Tên trường là `maCongViec` và mã đúng là hằng `VIEC_UNC_XONG` = "unc_xong" — đoán sai tên
-     thì `daTichXongUNC` trả false và bài kiểm đỏ vì lý do chẳng liên quan gì tới hợp đồng. */
+  /* ⚠️ DÒNG NÀY NAY LÀ DỮ LIỆU THỪA, CỐ Ý GIỮ. Trước 15/09/2026 nó là thứ bắt buộc để hồ sơ vượt
+     qua chốt `daTichXongUNC`; Sếp đã bỏ cái tích đó (xem khối bài kiểm "BỎ Ô TÍCH ỦY NHIỆM CHI").
+     Giữ lại để chứng minh thêm một điều: hồ sơ CŨ còn mang dấu tích cũ vẫn chạy bình thường —
+     luật mới không được vấp vào dữ liệu lịch sử. */
   congViecDaXong: [{ maCongViec: "unc_xong", thoiDiem: "2026-09-14T01:00:00.000Z" }],
 });
 /** Tiến độ "mọi mặt hàng đã lên đơn và đã về đủ" — để không vướng hai chốt khối lượng. */
@@ -2558,6 +2577,116 @@ kiem(
       duoc: r === null,
       thucTe: r === null ? "null (lap don duoc)" : `"${String(r).slice(0, 90)}"`,
       mongDoi: "null — buoc ④ chap nhan tep HOAC ly do",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// BỎ Ô TÍCH "ĐÃ XỬ LÝ ỦY NHIỆM CHI" Ở BƯỚC ⑧ — LUẬT ĐÃ ĐỔI, GHI ĐỦ HAI MỐC
+//
+// · LUẬT CŨ — Ban lãnh đạo 23/08/2026: bước ⑧ "Hồ sơ thanh toán" có MỘT việc BẮT BUỘC
+//   `{ ma: "unc_xong", ten: "Đã xử lý ủy nhiệm chi (hoặc đơn này không cần)" }`, và
+//   `vuongMacHoanThanhQuyTrinh` chặn đóng hồ sơ khi chưa tích. Ban lãnh đạo 22/08/2026 còn thêm
+//   chốt "chưa có Hóa đơn VAT thì chưa tích được" (`vuongMacTichXongUNC`).
+//
+// · LUẬT MỚI THAY THẾ — Sếp 15/09/2026, khoanh đỏ đúng khối đó trên bản chạy thật:
+//   ***"bỏ mục này, ko cần thiết"***, và sau khi được báo đây là VIỆC BẮT BUỘC chứ không phải ghi
+//   chú, nên bỏ nó là đổi luật: ***"bỏ và thiết lập lại luật mới"***.
+//
+// 👉 ĐỌC KỸ TRƯỚC KHI SỬA: luật cũ KHÔNG bị ai lỡ tay xóa — nó được thay bằng chỉ đạo mới. Nhưng
+//    Sếp chỉ bỏ CÁI TÍCH, không bỏ chứng từ: bước ⑧ vẫn đòi đủ **Hợp đồng** và **Hóa đơn VAT**.
+//    Ba bài kiểm dưới đây canh đúng ranh giới đó — hai chiều, không chỉ một.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "LUAT MOI: KHONG tich UNC van DONG DUOC ho so (du hop dong + hoa don VAT)",
+  'Sep · 15/09/2026 — *"bo muc nay, ko can thiet"* → *"bo va thiet lap lai luat moi"*',
+  () => {
+    /* 🔴 BAI KIEM CHINH CUA LUAT MOI. Neu ai khoi phuc phep kiem `daTichXongUNC` (vi doc chu thich
+       cu 23/08/2026 roi tuong luat van con song) thi ho so du chung tu VAN bi chan — ma khong con
+       o tich nao trong app de go, tuc ket VINH VIEN. Bai nay do se bat duoc ngay. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const hoSo = {
+      id: "x",
+      items: [{ stt: 1 }],
+      tepGiaiDoan: {
+        lap_don_mua_hang: [{ id: "hd1", ten: "hop-dong.pdf", ghiChu: "Hợp đồng" }],
+        ho_so_thanh_toan: [{ id: "v1", ten: "vat.pdf", ghiChu: "Hóa đơn VAT" }],
+      },
+      lyDoThieuChungTu: {},
+      /* 🔴 CO Y DE RONG — do dung thu Sep vua bo: khong tich gi ca. */
+      congViecDaXong: [],
+    };
+    const r = CT.vuongMacHoanThanhQuyTrinh(hoSo, tienDoXong);
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null (dong duoc — dung luat moi)" : `"${String(r).slice(0, 110)}"`,
+      mongDoi: "null — buoc ⑧ khong con doi tich uy nhiem chi",
+    };
+  },
+);
+
+kiem(
+  "CHIEU NGUOC: thieu HOA DON VAT thi VAN PHAI CHAN dong ho so",
+  "Ban lanh dao · 22/08/2026 — chot nay KHONG duoc noi theo khi bo o tich 15/09/2026",
+  () => {
+    /* 🔴 DAY LA BAI KIEM QUAN TRONG NHAT CUA DOT SUA 15/09. Bo `unc_xong` ma lo tay go luon phep
+       kiem hoa don (hai dong nam sat nhau trong `vuongMacHoanThanhQuyTrinh`) thi ho so dong duoc
+       MA KHONG CO MOT CHUNG TU THANH TOAN NAO — Ke toan khong hach toan duoc. Bai TREN van xanh
+       trong ca do, chi bai nay bat duoc. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const hoSoThieuVAT = {
+      id: "x",
+      items: [{ stt: 1 }],
+      tepGiaiDoan: {
+        lap_don_mua_hang: [{ id: "hd1", ten: "hop-dong.pdf", ghiChu: "Hợp đồng" }],
+      },
+      lyDoThieuChungTu: {},
+      congViecDaXong: [],
+    };
+    const r = CT.vuongMacHoanThanhQuyTrinh(hoSoThieuVAT, tienDoXong);
+    return {
+      duoc: typeof r === "string" && /h[oóơ]a ?đ[oơ]n|VAT/i.test(r),
+      thucTe: r === null ? "null (LOT — chot hoa don VAT da mat!)" : `"${String(r).slice(0, 110)}"`,
+      mongDoi: "cau chan nhac Hoa don VAT",
+    };
+  },
+);
+
+kiem(
+  "CAU HINH DA LUU tren kho chung phai bi LOC BO viec unc_xong",
+  'Sep · 15/09/2026 — bo o mac dinh la CHUA DU, ban da luu de nguyen khoi',
+  () => {
+    /* 🔴 DO THAT 15/09/2026, KHONG PHAI DE PHONG SUONG: document `chay-thu/du-lieu-chung` tren
+       project `hpcons-portal` DANG giu `cauHinh.congViecTheoBuoc.ho_so_thanh_toan = [unc_xong]`.
+       `gopCauHinhVoiMacDinh` gop NONG mot tang nen ban da luu DE nguyen khoi len mac dinh — xoa o
+       `CAU_HINH_MAC_DINH` thoi thi o tich VAN HIEN va ho so VAN bi doi tich mot viec khong con
+       luat nao do. Chot that nam o `MA_CONG_VIEC_DA_BO`, va day la bai kiem canh no.
+       ⚠️ Bai nay goi THAT `gopCauHinhVoiMacDinh`, khong grep chu — chu thich khong chay duoc. */
+    const banDaLuu = {
+      soBaoGiaToiThieu: 2,
+      hanGioTheoBuoc: {},
+      caiDatTungBuoc: {},
+      congViecTheoBuoc: {
+        tiep_nhan: [{ ma: "checkin_ton_kho", ten: "Checkin hàng tồn kho", batBuoc: true }],
+        ho_so_thanh_toan: [
+          { ma: "unc_xong", ten: "Đã xử lý ủy nhiệm chi (hoặc đơn này không cần)", batBuoc: true },
+        ],
+      },
+    };
+    const ra = CQ.gopCauHinhVoiMacDinh(banDaLuu);
+    const conUNC = Object.values(ra.congViecTheoBuoc ?? {}).some((ds) =>
+      (ds ?? []).some((cv) => cv.ma === "unc_xong"),
+    );
+    /* CHIEU NGUOC NGAY TRONG BAI: loc qua tay (xoa sach ca bang) thi viec checkin ton kho cung
+       bien mat — chot chong MUA TRUNG hang kho dang co se mat im lang. */
+    const conCheckin = (ra.congViecTheoBuoc?.tiep_nhan ?? []).some(
+      (cv) => cv.ma === "checkin_ton_kho",
+    );
+    return {
+      duoc: !conUNC && conCheckin,
+      thucTe: `con unc_xong = ${conUNC} · con checkin_ton_kho = ${conCheckin}`,
+      mongDoi: "unc_xong bi loc bo, checkin_ton_kho giu nguyen",
     };
   },
 );
@@ -3629,8 +3758,10 @@ kiem(
   "PHONG BAN thieu hop dong -> VAN CHAN hop dong (luat Sep 14/09 con nguyen)",
   'Sếp · 14/09/2026 — *"2 loại này ĐỀU phải đính kèm hợp đồng"*, phòng ban không được miễn',
   () => {
-    /* Nhánh phòng ban chỉ đổi CHỖ điều kiện khối lượng. Bốn điều kiện còn lại (chưa lên đơn · hợp
-       đồng · hóa đơn VAT · tích UNC) áp y hệt cho cả hai loại hồ sơ. */
+    /* Nhánh phòng ban chỉ đổi CHỖ điều kiện khối lượng. Ba điều kiện còn lại (chưa lên đơn · hợp
+       đồng · hóa đơn VAT) áp y hệt cho cả hai loại hồ sơ.
+       📌 Trước 15/09/2026 còn điều kiện thứ tư "tích UNC" — Sếp đã bỏ (*"bỏ và thiết lập lại luật
+       mới"*), xem khối bài kiểm "BỎ Ô TÍCH ỦY NHIỆM CHI" phía trên. */
     const CT = nap(join(thuMuc, "chung-tu.cjs"));
     const r = CT.vuongMacHoanThanhQuyTrinh(
       hoSoDongPB({ tenCongTrinh: "", nhanPhieuGiao: "Phiếu giao hàng", coTepHopDong: false }),

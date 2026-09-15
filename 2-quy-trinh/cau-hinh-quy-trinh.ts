@@ -265,27 +265,26 @@ export const CAU_HINH_MAC_DINH: CauHinhQuyTrinh = {
       },
     ],
     /**
-     * ★ Bước "Hồ sơ thanh toán" — gộp từ hai bước cũ (Ban lãnh đạo 23/08/2026: *"Gộp 2 mục này
-     * lại thành 1 'Hồ sơ thanh toán'"*).
+     * ★★★ BƯỚC "HỒ SƠ THANH TOÁN" NAY KHÔNG CÓ CÔNG VIỆC BẮT BUỘC NÀO — CỐ Ý ĐỂ TRỐNG.
      *
-     * 🔴 PHẢI CÓ MỘT CÁI TÍCH cho ủy nhiệm chi, và nó phải BẮT BUỘC — nhưng cái tích nói *"đã xử
-     * lý xong, kể cả khi đơn này không cần UNC"*. Vì phần lớn đơn trả tiền ngay, không có ủy
-     * nhiệm chi nào; nếu điều kiện xong là "phải có tệp UNC" thì những đơn đó kẹt vĩnh viễn.
+     * 🔴 LUẬT CŨ (Ban lãnh đạo 23/08/2026): bước này có đúng một việc bắt buộc
+     * `{ ma: "unc_xong", ten: "Đã xử lý ủy nhiệm chi (hoặc đơn này không cần)" }`, và
+     * `vuongMacHoanThanhQuyTrinh` chặn đóng hồ sơ khi chưa tích.
      *
-     * ⚠️ Hóa đơn VAT KHÔNG có cái tích riêng: điều kiện xong của nó là **có tệp**, và luật đó chỉ
-     * được nằm ở một chỗ (`coHoaDonVAT`). Thêm một cái tích song song là hai nguồn sự thật — tích
-     * rồi mà chưa có tệp thì app báo xong trong khi hồ sơ vẫn thiếu chứng từ.
+     * 🔴 LUẬT MỚI THAY THẾ (Sếp 15/09/2026): Sếp khoanh đỏ đúng khối đó trên bản chạy thật và ghi
+     * ***"bỏ mục này, ko cần thiết"***. Khi được báo rằng đây là VIỆC BẮT BUỘC chứ không phải ghi
+     * chú, và bỏ nó là đổi luật, Sếp chốt tiếp: ***"bỏ và thiết lập lại luật mới"***.
      *
-     * Cửa chặn thật nằm ở `vuongMacTichXongUNC`: chưa có hóa đơn VAT thì không tích được.
+     * 👉 ĐIỀU KIỆN ĐÓNG HỒ SƠ CÒN LẠI Ở BƯỚC ⑧ — không một cái nào được nới theo:
+     *   · **Có Hợp đồng** (`coHopDong`, Sếp 14/09/2026)
+     *   · **Có Hóa đơn VAT** (`coHoaDonVAT` → `vuongMacDuyetHoanThanhDeNghi`, Ban lãnh đạo 22/08/2026)
+     * Ủy nhiệm chi và Phiếu chi **vẫn còn ô đính kèm** ở trang chi tiết, vẫn là *"Nếu có"* —
+     * chỉ bỏ CÁI TÍCH XÁC NHẬN, không bỏ chỗ nộp tệp.
+     *
+     * ⚠️ ĐỂ TRỐNG KHÓA `ho_so_thanh_toan` LÀ ĐỦ Ở ĐÂY, NHƯNG CHƯA ĐỦ CHO MÁY ĐANG CHẠY — cấu hình
+     * người dùng đã lưu ĐÈ nguyên khối lên mặc định này. Chốt dọn nằm ở `MA_CONG_VIEC_DA_BO` +
+     * `gopCauHinhVoiMacDinh` bên dưới; đọc khối chú thích ở đó trước khi sửa.
      */
-    ho_so_thanh_toan: [
-      {
-        ma: "unc_xong",
-        ten: "Đã xử lý ủy nhiệm chi (hoặc đơn này không cần)",
-        moTa: "Chỉ tích được sau khi có Hóa đơn VAT — ủy nhiệm chi là lệnh trả tiền",
-        batBuoc: true,
-      },
-    ],
   },
   /**
    * Cài đặt từng bước — LẤY ĐÚNG ẢNH 8 GIAI ĐOẠN Ban lãnh đạo gửi 14–15/08/2026.
@@ -331,7 +330,56 @@ export const CAU_HINH_MAC_DINH: CauHinhQuyTrinh = {
  */
 export function gopCauHinhVoiMacDinh(daLuu: Partial<CauHinhQuyTrinh> | undefined | null): CauHinhQuyTrinh {
   if (!daLuu) return CAU_HINH_MAC_DINH;
-  return { ...CAU_HINH_MAC_DINH, ...daLuu };
+  const gop = { ...CAU_HINH_MAC_DINH, ...daLuu };
+  return { ...gop, congViecTheoBuoc: boViecDaKhaiTu(gop.congViecTheoBuoc) };
+}
+
+/**
+ * ★★★ MÃ CÔNG VIỆC ĐÃ BỊ BỎ HẲN KHỎI QUY TRÌNH — "bia mộ", không phải danh sách cấu hình.
+ *
+ * 🔴 VÌ SAO PHẢI CÓ DANH SÁCH NÀY, ĐO ĐƯỢC 15/09/2026 chứ không phải đề phòng suông:
+ * `gopCauHinhVoiMacDinh` gộp NÔNG một tầng, mà `congViecTheoBuoc` là **một trường nguyên khối**.
+ * Trang "Cài đặt quy trình" lưu nguyên cả cấu hình mỗi lần bấm Lưu (kể cả khi người dùng chỉ sửa
+ * một ô khác), nên bản đã lưu luôn mang theo danh sách công việc.
+ *
+ * Đo thật trên kho chung `chay-thu/du-lieu-chung` (project `hpcons-portal`, cập nhật
+ * 15/09/2026): `cauHinh.congViecTheoBuoc.ho_so_thanh_toan` **ĐANG CÓ** `unc_xong`.
+ * ⇒ Xóa ở `CAU_HINH_MAC_DINH` thôi thì **KHÔNG có tác dụng gì cả**: bản đã lưu đè lên, ô tích vẫn
+ * hiện và hồ sơ vẫn bị đòi tích một việc mà luật đã bỏ — tức kẹt vĩnh viễn.
+ *
+ * 🔴 LỌC Ở TẦNG ĐỌC, KHÔNG GHI ĐÈ DỮ LIỆU CHUNG. Dữ liệu trên Firestore là của cả phòng; sửa nó
+ * là việc phải xin phép, còn lọc lúc đọc thì mọi máy sạch ngay mà không ai mất gì. Bản lưu cũ vẫn
+ * nguyên vẹn để tra cứu, và lần sau ai bấm Lưu ở trang cài đặt thì bản sạch tự được ghi đè.
+ *
+ * ⚠️ CHỈ THÊM VÀO ĐÂY KHI BAN LÃNH ĐẠO / SẾP CHỐT BỎ HẲN MỘT VIỆC, kèm ngày và nguyên văn. Đây là
+ * cách DUY NHẤT để một việc biến mất khỏi mọi máy; nhét bừa một mã vào là âm thầm gỡ chốt chặn
+ * của bước đó trên toàn app, không một dòng nào báo.
+ *
+ * ⚠️ KHÔNG đụng tới `deNghi.congViecDaXong`: hồ sơ cũ vẫn giữ dấu vết ai đã tích việc này, lúc
+ * nào. Đó là lịch sử có thật, xóa đi là mất dấu vết — chỉ thôi HỎI, không thôi GHI NHỚ.
+ */
+export const MA_CONG_VIEC_DA_BO: readonly string[] = [
+  /* "Đã xử lý ủy nhiệm chi (hoặc đơn này không cần)" ở bước ⑧ Hồ sơ thanh toán.
+     · Luật cũ: Ban lãnh đạo 23/08/2026 — việc BẮT BUỘC, chưa tích thì không đóng được hồ sơ.
+     · Luật mới: Sếp 15/09/2026 — *"bỏ mục này, ko cần thiết"*, rồi *"bỏ và thiết lập lại luật mới"*.
+     Bước ⑧ nay chỉ còn đòi Hợp đồng + Hóa đơn VAT. */
+  "unc_xong",
+];
+
+/** Bỏ mọi việc đã khai tử khỏi bảng công việc, và bỏ luôn khóa bước nếu bước đó trống trơn. */
+function boViecDaKhaiTu(
+  bang: Record<string, CongViecGiaiDoan[]> | undefined,
+): Record<string, CongViecGiaiDoan[]> {
+  if (!bang) return {};
+  const ra: Record<string, CongViecGiaiDoan[]> = {};
+  for (const [buoc, ds] of Object.entries(bang)) {
+    const con = (ds ?? []).filter((cv) => !MA_CONG_VIEC_DA_BO.includes(cv.ma));
+    /* Bước còn 0 việc thì BỎ HẲN khóa, đừng để mảng rỗng: trang cài đặt đếm `congViec.length` để
+       ghi số trên nhãn gập, và `soSanhCauHinh` duyệt theo khóa — để lại khóa rỗng là một bước cứ
+       hiện ra "0 việc" mãi mà không ai hiểu vì sao nó còn ở đó. */
+    if (con.length > 0) ra[buoc] = con;
+  }
+  return ra;
 }
 
 /**

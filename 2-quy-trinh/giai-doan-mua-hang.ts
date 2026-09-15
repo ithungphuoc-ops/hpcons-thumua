@@ -67,7 +67,6 @@ import {
   NHAN_TEP_HOA_DON_VAT,
   TEN_HIEN_HOP_DONG,
   vuongMacRoiBuocLapDon,
-  vuongMacTichXongUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 import { daysUntil } from "@/6-tien-ich/dinh-dang";
@@ -1882,6 +1881,19 @@ export function dsDieuKienConVuong(
       break;
     }
 
+    /**
+     * ★★★ BƯỚC ⑧ NAY CHỈ CÒN MỘT ĐIỀU KIỆN: CÓ HÓA ĐƠN VAT.
+     *
+     * ⚠️ Nhánh `else` ở đây từng đẩy thêm mục `chua_tich_unc` (gọi `vuongMacTichXongUNC`) —
+     * **đã bỏ theo chỉ đạo Sếp 15/09/2026**: *"bỏ mục này, ko cần thiết"*, rồi *"bỏ và thiết lập
+     * lại luật mới"*. Cái tích *"Đã xử lý ủy nhiệm chi"* không còn tồn tại nên không còn gì để
+     * nhắc; giữ lại là app đòi một việc **không có ô nào để làm** — đúng ngõ cụt mà cả tệp này
+     * sinh ra để tránh.
+     *
+     * 🔴 DÒNG HÓA ĐƠN VAT THÌ GIỮ NGUYÊN. Đây là thứ duy nhất còn chặn ở bước này (cùng Hợp đồng,
+     * canh ở `vuongMacHoanThanhQuyTrinh`). Bỏ nốt là hồ sơ đóng được mà không một chứng từ thanh
+     * toán nào.
+     */
     case "ho_so_thanh_toan":
       if (!coHoaDonVAT(deNghi)) {
         ra.push({
@@ -1889,9 +1901,6 @@ export function dsDieuKienConVuong(
           cau: "Chưa đính kèm Hóa đơn VAT ở khối kết quả của bước này.",
           goDuocTaiCho: true,
         });
-      } else {
-        const vuongUNC = vuongMacTichXongUNC(deNghi);
-        if (vuongUNC) ra.push({ ma: "chua_tich_unc", cau: vuongUNC, goDuocTaiCho: true });
       }
       break;
 

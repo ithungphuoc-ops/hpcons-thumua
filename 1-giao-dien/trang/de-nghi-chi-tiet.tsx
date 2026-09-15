@@ -158,7 +158,6 @@ import {
   tepUNC,
   thieuHopDongDaGhiLyDo,
   vuongMacHoanThanhQuyTrinh,
-  vuongMacTichXongUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
 /* Khối "Kết quả" của bước ⑦ — bộ hồ sơ thanh toán 7 mục (Ban lãnh đạo 26/08/2026). */
@@ -3088,16 +3087,22 @@ export default function TrangChiTietDeNghi({
                * rồi 23/08/2026 chốt: *"Gộp 2 mục này lại thành 1 'Hồ sơ thanh toán'"*. Luật giữ
                * nguyên, chỉ gộp chỗ hiển thị — hai chứng từ này thuộc cùng một việc.
                *
-               * 📌 Cái tích của ủy nhiệm chi KHÔNG vẽ TAY ở đây — nó là công việc bắt buộc của bước
-               * (`unc_xong` trong `cau-hinh-quy-trinh.ts`). Vẽ thêm một cái tích thứ hai ở đây là
-               * hai nguồn sự thật cho cùng một việc.
+               * ★★★ BƯỚC NÀY KHÔNG CÒN CÔNG VIỆC BẮT BUỘC NÀO — Sếp 15/09/2026.
                *
-               * ★★ SỬA CHÚ THÍCH 15/09/2026 — câu cũ ghi cái tích đó *"hiện ở khối 'Danh sách công
-               * việc' dùng chung phía dưới trang"*. KHÔNG CÒN ĐÚNG: Sếp 15/09/2026 chốt *"mục này
-               * đưa vào trong bước hồ sơ thanh toán"*, nên khối riêng ấy đã bị bỏ và cụm việc nay
-               * được `themDanhSachCongViec` gắn thẳng vào `noiDungNghiepVu` của CHÍNH khối này.
-               * 👉 Vẫn đúng tinh thần "một nguồn sự thật": cụm việc dựng một lần ở
-               * `cumCongViecCuaKhoi`, khối này không tự vẽ thêm ô tích nào.
+               * Trước đó bước ⑧ có một ô tích bắt buộc *"Đã xử lý ủy nhiệm chi (hoặc đơn này không
+               * cần)"* (`unc_xong`, Ban lãnh đạo 23/08/2026). Sếp khoanh đỏ đúng khối
+               * `KẾT QUẢ → DANH SÁCH CÔNG VIỆC` ở đây và ghi ***"bỏ mục này, ko cần thiết"***, rồi
+               * sau khi được báo đó là việc bắt buộc: ***"bỏ và thiết lập lại luật mới"***.
+               *
+               * 👉 HỆ QUẢ TRÊN MÀN HÌNH: `themDanhSachCongViec` trả `null` cho khối này (không còn
+               * việc nào), nên `noiDungNghiepVu` để trống và **cả khối KẾT QUẢ tự không vẽ ra** —
+               * đúng luật "rỗng thì không vẽ cả nhãn" ở `khoi-dau-vao-theo-giai-doan.tsx`.
+               * ⚠️ Trừ khi bước TRƯỚC còn việc treo: khi ấy cụm việc vẫn hiện ở đây làm dòng chỉ
+               * đường, và đó là hành vi đúng — đừng chặn nó.
+               *
+               * 🔴 ĐIỀU KIỆN ĐÓNG HỒ SƠ KHÔNG ĐỔI: vẫn phải có **Hợp đồng** và **Hóa đơn VAT**
+               * (`vuongMacHoanThanhQuyTrinh`). Hai ô đính kèm đó ngay bên dưới, và hai ô Ủy nhiệm
+               * chi / Phiếu chi vẫn còn nguyên ở dạng *"Nếu có"*.
                */
               {
                 ma: "ho_so_thanh_toan",
@@ -3189,7 +3194,10 @@ export default function TrangChiTietDeNghi({
                       maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
                       nhanO={NHAN_TEP_UNC}
                       tieuDe="Ủy nhiệm chi"
-                      moTa="Đơn nào cần chuyển khoản qua ngân hàng thì đính kèm ủy nhiệm chi. Đơn trả tiền ngay thì để trống — chỉ cần tích xong việc của bước này."
+                      /* 🔴 CÂU CŨ GHI *"chỉ cần tích xong việc của bước này"* — đã sửa 15/09/2026 vì
+                         cái tích đó không còn tồn tại (Sếp bỏ). Để nguyên là chỉ người dùng đi làm
+                         một việc không có chỗ nào làm được — đúng lỗi CLAUDE.md §3.5. */
+                      moTa="Đơn nào cần chuyển khoản qua ngân hàng thì đính kèm ủy nhiệm chi. Đơn trả tiền ngay thì để trống — ô này không bắt buộc."
                       duocSua={duocSuaTepBuoc}
                       khoa={hoSoDaDong}
                       tepDaCo={tepUNC(dn)}
@@ -3223,12 +3231,12 @@ export default function TrangChiTietDeNghi({
                       />
                     </div>
 
-                    {/* Nói rõ vì sao cái tích đang khóa, thay vì để người dùng bấm mãi không được. */}
-                    {vuongMacTichXongUNC(dn) !== null && (
-                      <p className="rounded-lg bg-warning/10 p-3 text-xs text-text-secondary">
-                        ⚠️ {vuongMacTichXongUNC(dn)}
-                      </p>
-                    )}
+                    {/* ★★★ ĐÃ BỎ Ô CẢNH BÁO "chưa có Hóa đơn VAT nên chưa tích được UNC" — Sếp
+                        15/09/2026 bỏ hẳn cái tích mà nó giải thích (*"bỏ mục này, ko cần thiết"*
+                        → *"bỏ và thiết lập lại luật mới"*). Giữ lại là một dòng cảnh báo nói về
+                        một ô tích không còn trên màn hình.
+                        📌 Việc thiếu Hóa đơn VAT vẫn được báo đủ chỗ: viền đỏ khối bước, nút
+                        "Hoàn thành quy trình" khóa kèm lý do ngay dưới đây. */}
 
                     {/**
                       * ★ NÚT "HOÀN THÀNH QUY TRÌNH" — Ban lãnh đạo 22/08/2026: *"Thêm nút bấm hoàn

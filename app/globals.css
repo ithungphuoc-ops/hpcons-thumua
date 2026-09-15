@@ -393,6 +393,52 @@
 }
 
 /* ============================================================
+ * KHỐI TỰ ẨN KHI RUỘT KHÔNG VẼ RA GÌ — dùng cho khối "KẾT QUẢ" của từng bước
+ * (`1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan.tsx`).
+ *
+ * 🔴 Sếp 15/09/2026, ảnh khoanh đỏ khối KẾT QUẢ của bước ② *Yêu cầu NCC báo giá* — bên trong
+ * trống trơn, chỉ còn trơ cái nhãn: ***"Bỏ luôn"***. Đây đúng thứ Ban lãnh đạo đã than một lần
+ * ngày 17/08/2026 (*"chỉ còn trơ một dòng tiêu đề không dẫn đi đâu"*).
+ *
+ * 🔴 VÌ SAO PHẢI LÀ CSS, KHÔNG PHẢI `dieuKien && …` TRONG REACT: nơi gọi truyền một PHẦN TỬ
+ * React, mà một phần tử **luôn "có thật"** kể cả khi nó vẽ ra `null`. Bước ② là ca đúng như vậy:
+ * `noiDungNghiepVu` là `<section>` luôn được dựng, ruột bên trong mới là biểu thức có điều kiện —
+ * nên JavaScript ở khối cha không có cách nào biết trước nó sẽ trống. Cùng lý do đã ghi cho
+ * `empty:hidden` ở khu đính kèm trong chính tệp đó.
+ *
+ * 📌 LUẬT: ẩn khi vùng ruột **không có phần tử con nào còn nội dung**. `:empty` của CSS đúng
+ * nghĩa "không có con và không có chữ", mà React không sinh nút DOM nào cho `null`/`false` — nên
+ * `<section>` rỗng vẫn khớp `:empty` và cả khối bị ẩn.
+ *
+ * ⚠️ CHIỀU AN TOÀN ĐÃ CHỌN CÓ CHỦ Ý: mặc định **HIỆN**, chỉ ẩn khi khớp. Trình duyệt nào không
+ * hiểu `:has()` thì quy tắc này rơi hẳn và màn hình về đúng như trước — thừa một cái nhãn, chứ
+ * không giấu mất nội dung. Viết ngược lại (mặc định `display:none`, hiện khi khớp) là mất trắng
+ * khối KẾT QUẢ của mọi bước trên trình duyệt cũ.
+ *
+ * 🔴🔴 KHÔNG ĐƯỢC VIẾT `:has(… :not(:has(…)))` — ĐÃ ĐO, SELECTOR ĐÓ CHẾT IM LẶNG.
+ * Bản đầu ngày 15/09/2026 viết `.an-khi-ruot-rong:has([data-ruot-khoi]:not(:has(:not(:empty))))`.
+ * Nó **dựng ra được, có mặt đủ trong tệp CSS của bản dev, không một lỗi lint hay build nào** —
+ * nhưng đo trên Chrome thì cả 7 ca thử đều trả `display: block`, tức quy tắc chưa bao giờ khớp.
+ * Lý do: đặc tả CSS cấm lồng `:has()` bên trong `:has()`, và `:not()` ở giữa không gỡ được lệnh
+ * cấm đó — cả bộ chọn thành vô hiệu.
+ * 👉 Bản đang dùng chỉ có **một** `:has()`, nằm trong `:not()` ở tầng ngoài cùng. Hợp lệ.
+ *
+ * ⚠️ CA HIẾM SẼ BỊ ẨN NHẦM (ruột bị coi là rỗng): ruột chỉ là **chữ trần** không bọc thẻ nào,
+ * hoặc ruột chỉ có đúng **một thẻ rỗng mà vẫn nhìn thấy** (`<hr>`, `<img>`, `<input>`).
+ *
+ * ⚠️ CA HIẾM BỊ HIỆN NHẦM (vẫn trơ cái nhãn): ruột là **thẻ rỗng bọc trong thẻ rỗng**
+ * (`<section><div></div></section>`) — thẻ ngoài có con nên không còn `:empty`, quy tắc coi như
+ * có nội dung. CSS không hỏi được "có chữ nào không" nên đây là giới hạn thật, không vá được ở
+ * tầng này.
+ * 👉 Hôm nay không bước nào rơi vào hai ca trên: cả 7 khối đều trả JSX bọc `<section>`/`<div>` và
+ * ruột rỗng thì rỗng hẳn (React không sinh nút DOM cho `null`/`false`). Nếu sau này gặp, sửa ở
+ * chỗ dựng nội dung — trả thẳng `null` thay vì thẻ rỗng — ĐỪNG nới quy tắc này.
+ * ============================================================ */
+.an-khi-ruot-rong:not(:has([data-ruot-khoi] *:not(:empty))) {
+  display: none;
+}
+
+/* ============================================================
  * CHỮ GỢI Ý TRONG Ô NHẬP (placeholder) — IN NGHIÊNG + MỜ
  *
  * Chỉ đạo Ban lãnh đạo 08/08/2026: chữ ví dụ kiểu "truongbp" phải nhìn ra ngay

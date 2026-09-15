@@ -40,12 +40,8 @@ import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
 import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
-// Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
-import {
-  VIEC_UNC_XONG,
-  vuongMacHoanThanhQuyTrinh,
-  vuongMacTichXongUNC,
-} from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
+// Chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
+import { vuongMacHoanThanhQuyTrinh } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import {
   CAU_HINH_MAC_DINH,
   gopCauHinhVoiMacDinh,
@@ -5832,23 +5828,22 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       nguoiTen: string,
     ): string | null => {
       /**
-       * 🔴 CHẶN TÍCH "ĐÃ XỬ LÝ UNC" KHI CHƯA CÓ HÓA ĐƠN VAT (Ban lãnh đạo 22/08/2026:
-       * *"bắt buộc phải hoàn thành bước 1 thì mới được tích hoàn thành"*).
+       * ★★★ ĐÃ BỎ CHỐT CHẶN TÍCH "ĐÃ XỬ LÝ UNC" — Sếp 15/09/2026.
        *
-       * Chặn ở TẦNG GHI chứ không chỉ ở nút: nút có thể bị đi vòng (kéo thả, màn danh sách cũng
-       * có cái tích này — `de-nghi-danh-sach.tsx:595`). Luật nằm ở
-       * `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, đây chỉ hỏi lại.
+       * · **Luật cũ** (Ban lãnh đạo 22–23/08/2026): bước ⑧ có việc bắt buộc `unc_xong`, và tầng
+       *   ghi này từ chối tích nó khi chưa có Hóa đơn VAT (*"bắt buộc phải hoàn thành bước 1 thì
+       *   mới được tích hoàn thành"*).
+       * · **Luật mới thay thế** (Sếp 15/09/2026): *"bỏ mục này, ko cần thiết"*, rồi *"bỏ và thiết
+       *   lập lại luật mới"*. Không còn cái tích thì không còn gì để chặn ở đây.
        *
-       * ⚠️ Chỉ chặn lúc TÍCH XONG (`xong === true`). Bỏ tích thì luôn cho — không được khóa
-       * người dùng lại với một cái tích họ vừa đặt sai.
+       * 🔴 HÀM NÀY VẪN TRẢ `string | null` VÀ NƠI GỌI VẪN PHẢI ĐỌC KẾT QUẢ. Đừng "dọn cho gọn"
+       * thành `void`: đây là cửa duy nhất để một việc bắt buộc nào đó sau này từ chối được cú
+       * tích, và bỏ kiểu trả về là lần sau phải sửa lại cả chuỗi nơi gọi — trong khi nơi gọi hiện
+       * báo lỗi bằng toast (xem `de-nghi-chi-tiet.tsx`), bỏ đi là app báo thành công giả (§3.5).
+       *
+       * ⚠️ Chốt bảo vệ hồ sơ thì KHÔNG đụng: Hợp đồng và Hóa đơn VAT vẫn chặn đóng hồ sơ ở
+       * `vuongMacHoanThanhQuyTrinh`.
        */
-      if (xong && congViec.ma === VIEC_UNC_XONG) {
-        const dn = deNghiRef.current.find((x) => x.id === prId);
-        if (dn) {
-          const vuong = vuongMacTichXongUNC(dn);
-          if (vuong !== null) return vuong;
-        }
-      }
 
       setDeNghi((truoc) =>
         truoc.map((dn) => {

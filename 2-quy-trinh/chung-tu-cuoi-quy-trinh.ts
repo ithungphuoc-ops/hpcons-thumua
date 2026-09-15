@@ -322,13 +322,34 @@ export function daKhaiKhongCoHopDong(deNghi: DeNghiMuaHang): boolean {
 }
 
 /**
- * Mã công việc "đã xong bước UNC" trong `congViecDaXong`.
+ * ★★★ ĐÃ BỎ HẲN CÁI TÍCH "ĐÃ XỬ LÝ ỦY NHIỆM CHI" — Sếp 15/09/2026.
  *
- * 🔴 UNC cần một CÁI TÍCH RIÊNG, không suy ra từ việc có tệp hay không: phần lớn đơn **không có**
- * ủy nhiệm chi, và những đơn đó vẫn phải đi tiếp được. Nếu lấy "có tệp UNC" làm điều kiện xong
- * thì mọi đơn trả tiền ngay sẽ kẹt vĩnh viễn ở bước này, không đường ra.
+ * Ở đây từng có hằng `VIEC_UNC_XONG = "unc_xong"` cùng hai hàm `daTichXongUNC` và
+ * `vuongMacTichXongUNC`. Cả ba đã bị xóa, không phải lỡ tay:
+ *
+ * · **Luật cũ** — Ban lãnh đạo 23/08/2026: bước ⑧ có một việc BẮT BUỘC *"Đã xử lý ủy nhiệm chi
+ *   (hoặc đơn này không cần)"*; chưa tích thì `vuongMacHoanThanhQuyTrinh` chặn đóng hồ sơ. Và
+ *   Ban lãnh đạo 22/08/2026 thêm chốt *"bắt buộc phải hoàn thành bước 1 thì mới được tích hoàn
+ *   thành"* — tức chưa có Hóa đơn VAT thì chưa tích được (đó là việc của `vuongMacTichXongUNC`).
+ * · **Luật mới thay thế** — Sếp 15/09/2026, khoanh đỏ đúng khối đó trên bản chạy thật:
+ *   ***"bỏ mục này, ko cần thiết"***, và sau khi được báo đây là việc bắt buộc chứ không phải
+ *   ghi chú: ***"bỏ và thiết lập lại luật mới"***.
+ *
+ * 🔴 KHÔNG CÒN CÁI TÍCH THÌ KHÔNG CÒN GÌ ĐỂ CHẶN — nên xóa hẳn ba thứ đó thay vì để lại hàm không
+ * ai gọi. Hàm mồ côi trong tệp này nguy hơn bình thường: người sau đọc thấy `vuongMacTichXongUNC`
+ * sẽ tưởng luật còn sống và đi gọi lại, làm sống lại một chốt Sếp đã bỏ.
+ *
+ * ⚠️ HAI CHỐT KHÔNG ĐƯỢC NỚI THEO, đây là chỗ dễ sai nhất khi dọn: bước ⑧ **vẫn đòi đủ Hợp đồng
+ * (`coHopDong`) và Hóa đơn VAT (`coHoaDonVAT` → `vuongMacDuyetHoanThanhDeNghi`)**. Sếp chỉ bỏ cái
+ * tích, không bỏ chứng từ. Có bài kiểm máy khóa cả hai chiều trong `kiem-luat-dung-chung.mjs`.
+ *
+ * 📌 Ô đính kèm Ủy nhiệm chi và Phiếu chi ở trang chi tiết **VẪN CÒN**, vẫn là *"Nếu có"* —
+ * xem `tepUNC` / `tepPhieuChi` ngay dưới. Bỏ cái tích không phải bỏ chỗ nộp tệp.
+ *
+ * 📌 Mã `"unc_xong"` nay chỉ còn sống ở một chỗ duy nhất: `MA_CONG_VIEC_DA_BO` trong
+ * `2-quy-trinh/cau-hinh-quy-trinh.ts` — danh sách "bia mộ" dùng để lọc cấu hình cũ đã lưu trên
+ * kho chung (bản lưu đó ĐANG mang `unc_xong`, đo được 15/09/2026).
  */
-export const VIEC_UNC_XONG = "unc_xong";
 
 /** Tệp của một bước, lọc theo nhãn ghi chú. */
 function tepTheoNhan(deNghi: DeNghiMuaHang, buoc: string, nhan: string): MoTaTep[] {
@@ -441,11 +462,6 @@ export function coHoaDonVAT(deNghi: DeNghiMuaHang): boolean {
   return tepHoaDonVAT(deNghi).length > 0;
 }
 
-/** Bước UNC đã được tích xong chưa. */
-export function daTichXongUNC(deNghi: DeNghiMuaHang): boolean {
-  return (deNghi.congViecDaXong ?? []).some((v) => v.maCongViec === VIEC_UNC_XONG);
-}
-
 /** Lý do người dùng đã ghi cho việc chưa đính kèm hợp đồng. Chuỗi rỗng = chưa ghi. */
 export function lyDoThieuHopDong(deNghi: DeNghiMuaHang): string {
   return (deNghi.lyDoThieuChungTu?.[KHOA_LY_DO_THIEU_HOP_DONG] ?? "").trim();
@@ -500,16 +516,8 @@ export function vuongMacRoiBuocLapDon(deNghi: DeNghiMuaHang): string | null {
   return `Chưa đính kèm ${TEN_HIEN_HOP_DONG}, và cũng chưa ghi lý do chưa có. Làm một trong hai việc đó ở khối kết quả của bước Lập đơn mua hàng.`;
 }
 
-/**
- * ② Vướng mắc khi tích xong bước UNC — `null` là tích được.
- *
- * ⚠️ Chỉ chặn ĐÚNG MỘT điều kiện: phải có hóa đơn VAT trước. Không đòi phải có tệp UNC, vì bước
- * này tùy chọn (xem `VIEC_UNC_XONG`).
- */
-export function vuongMacTichXongUNC(deNghi: DeNghiMuaHang): string | null {
-  if (coHoaDonVAT(deNghi)) return null;
-  return "Chưa có Hóa đơn VAT. Ủy nhiệm chi là lệnh trả tiền — phải có hóa đơn trước mới ký lệnh trả.";
-}
+/* ② ĐÃ XÓA `vuongMacTichXongUNC` — Sếp 15/09/2026 bỏ cái tích mà nó canh. Lý do đầy đủ ở khối
+   chú thích ★★★ phía trên (chỗ `VIEC_UNC_XONG` cũ). */
 
 /**
  * ③ Vướng mắc khi đóng HỒ SƠ ĐỀ NGHỊ (bước ⑧ "Hoàn thành quy trình") — `null` là duyệt được.
@@ -569,21 +577,26 @@ export function hoSoDaChotXong(deNghi: DeNghiMuaHang): boolean {
  * là nhánh `if (deNghi.trangThai === "hoan_thanh")` trong `xacDinhGiaiDoan` chưa bao giờ chạy —
  * mã có mà không đường tới. Nay trưởng bộ phận có một nút đóng hồ sơ tường minh.
  *
- * 🔴 KIỂM ĐỦ SÁU ĐIỀU KIỆN, THEO ĐÚNG THỨ TỰ NÀY. Mỗi câu trả về nói đúng việc còn thiếu; gộp
+ * 🔴 KIỂM ĐỦ NĂM ĐIỀU KIỆN, THEO ĐÚNG THỨ TỰ NÀY. Mỗi câu trả về nói đúng việc còn thiếu; gộp
  * lại thành một câu chung ("chưa đủ điều kiện") là người dùng không biết phải làm gì tiếp.
  *
- * ★★ ĐIỀU KIỆN THỨ SÁU THÊM 15/09/2026 và được đặt **LÊN ĐẦU**: còn bản con (nhân bản / tách theo
- * phân công) chưa xong thì chưa đóng được phiếu gốc — Sếp: ***"e làm đúng ý rồi"***. Lý do đầy đủ
- * ở ngay chỗ kiểm; nó phải đứng trước vì năm chốt kia chỉ nhìn phần việc còn lại của RIÊNG phiếu
- * này, mà phần đã nhân bản đi thì theo chốt của Sếp là "không cần mua" nên không chốt nào thấy.
+ * ★★ ĐIỀU KIỆN ĐỨNG ĐẦU THÊM 15/09/2026: còn bản con (nhân bản / tách theo phân công) chưa xong
+ * thì chưa đóng được phiếu gốc — Sếp: ***"e làm đúng ý rồi"***. Lý do đầy đủ ở ngay chỗ kiểm; nó
+ * phải đứng trước vì bốn chốt kia chỉ nhìn phần việc còn lại của RIÊNG phiếu này, mà phần đã nhân
+ * bản đi thì theo chốt của Sếp là "không cần mua" nên không chốt nào thấy.
+ *
+ * ★★★ TRƯỚC 15/09/2026 CÓ SÁU ĐIỀU KIỆN — chốt thứ sáu là *"đã tích xong việc Đã xử lý ủy nhiệm
+ * chi"* (Ban lãnh đạo 23/08/2026). Sếp 15/09/2026 bỏ hẳn cái tích đó (*"bỏ mục này, ko cần
+ * thiết"* → *"bỏ và thiết lập lại luật mới"*), nên chốt ấy cũng đi theo. **Không phải ai đó lỡ
+ * tay xóa** — xem khối ★★★ ở đầu tệp và `MA_CONG_VIEC_DA_BO` trong `cau-hinh-quy-trinh.ts`.
  *
  * ⚠️ Nhận `tienDo` từ nơi gọi chứ không tự tính: luật đối chiếu khối lượng chỉ được có MỘT chỗ
  * (`tinh-toan.ts` → `tinhTienDoDeNghi`). Hai chỗ cùng cộng là sớm muộn lệch nhau.
  *
  * ★★ TỪ 15/09/2026 ĐIỀU KIỆN THỨ HAI RẼ LÀM HAI NHÁNH (Sếp 14/09/2026): hồ sơ CÔNG TRÌNH giữ
  * nguyên phép đòi nhận đủ khối lượng; hồ sơ PHÒNG BAN đổi sang đòi tệp phiếu giao hàng do nhân
- * viên mua hàng đính. Bốn điều kiện còn lại (chưa lên đơn · hợp đồng · hóa đơn VAT · tích UNC)
- * **áp y hệt cho cả hai loại**, không nhánh nào được nới. Xem khối chú thích tại chỗ rẽ.
+ * viên mua hàng đính. Ba điều kiện còn lại (chưa lên đơn · hợp đồng · hóa đơn VAT) **áp y hệt cho
+ * cả hai loại**, không nhánh nào được nới. Xem khối chú thích tại chỗ rẽ.
  */
 export function vuongMacHoanThanhQuyTrinh(
   deNghi: DeNghiMuaHang,
@@ -742,13 +755,19 @@ export function vuongMacHoanThanhQuyTrinh(
     return `Chưa đính kèm ${TEN_HIEN_HOP_DONG} — bắt buộc phải có bản đã ký mới đóng được hồ sơ. Đính kèm ngay ở ô “${TEN_HIEN_HOP_DONG}” trong khối này.`;
   }
 
-  /* Hai điều kiện chứng từ — dùng lại đúng hai hàm ở trên, không viết lại điều kiện. */
+  /**
+   * ★ ĐIỀU KIỆN CHỨNG TỪ CUỐI CÙNG — dùng lại đúng hàm ở trên, không viết lại điều kiện.
+   *
+   * 🔴 ĐÂY LÀ CHỐT PHẢI GIỮ BẰNG MỌI GIÁ. Không có Hóa đơn VAT thì Kế toán không hạch toán và
+   * không thanh toán được — đóng hồ sơ lúc đó là đẩy sang Kế toán một bộ hồ sơ vô dụng.
+   *
+   * ⚠️ NGAY DƯỚI ĐÂY TỪNG CÓ PHÉP KIỂM THỨ SÁU `daTichXongUNC` (Ban lãnh đạo 23/08/2026) — **đã
+   * xóa theo chỉ đạo Sếp 15/09/2026** (*"bỏ mục này, ko cần thiết"* → *"bỏ và thiết lập lại luật
+   * mới"*). Xóa cái tích KHÔNG được kéo theo hai dòng Hợp đồng / Hóa đơn VAT phía trên: Sếp bỏ
+   * một cái tích xác nhận, không bỏ chứng từ. Có bài kiểm máy canh cả hai chiều.
+   */
   const thieuVAT = vuongMacDuyetHoanThanhDeNghi(deNghi);
   if (thieuVAT !== null) return thieuVAT;
-
-  if (!daTichXongUNC(deNghi)) {
-    return 'Chưa tích xong việc "Đã xử lý ủy nhiệm chi" ở bước UNC. Đơn không cần ủy nhiệm chi thì vẫn phải tích để xác nhận đã xem.';
-  }
 
   return null;
 }
