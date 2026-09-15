@@ -28,6 +28,7 @@ import {
   laHoSoPhongBan,
   LY_DO_NHANH_PHONG_BAN,
 } from "@/2-quy-trinh/ho-so-phong-ban";
+import { cacBanTachCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -134,11 +135,32 @@ export const NHAN_TEP_PHIEU_CHI = "Phiếu chi";
  * đính tệp ở khu đó rồi ghi chú đúng chữ "Phiếu giao hàng" là qua được, không phải chờ ai dựng
  * thêm giao diện. Không có chuyện app đòi một thứ mà màn hình chưa cho làm (CLAUDE.md §3.5).
  *
- * ⚠️ VIỆC CÒN THIẾU, GHI RA ĐỂ KHÔNG QUÊN: đường đính "đúng chuẩn" là một ô có tên
- * (`<OChungTuBatBuoc maGiaiDoan={BUOC_DINH_KEM_PHIEU_GIAO_HANG} nhanO={NHAN_TEP_PHIEU_GIAO_HANG}>`)
- * dựng trong khối bước ⑥ và chỉ hiện khi `laHoSoPhongBan(dn)`. Phiên này **không được sửa**
- * `de-nghi-chi-tiet.tsx` (có phiên khác đang giữ), nên ô đó chưa có. Bắt người dùng tự gõ ghi chú
- * cho khớp từng chữ là khó dùng, KHÔNG phải là cái đích — ai làm tiếp thì dựng ô đó.
+ * ════════════════════════════════════════════════════════════════════════════════════
+ * 🔴🔴 ĐÃ BỎ Ô RIÊNG Ở BƯỚC ⑥ — Sếp 15/09/2026 (CHIỀU). ĐỌC TRƯỚC KHI ĐỊNH DỰNG LẠI NÓ.
+ *
+ * Khối chú thích này **trước đây ghi ngược lại**: nó dặn người sau hãy dựng một ô có tên
+ * (`<OChungTuBatBuoc maGiaiDoan={BUOC_DINH_KEM_PHIEU_GIAO_HANG} …>`) trong khối bước ⑥. Ô đó
+ * **đã được dựng thật** sáng 15/09/2026, rồi **Sếp cho bỏ ngay chiều cùng ngày**: ảnh chụp bản chạy
+ * thật (hồ sơ `DMH260009`) khoanh đỏ đúng ô ấy kèm chữ ***"trường này đang bị dư => bỏ"***.
+ *
+ * 🔴 VÌ SAO SẾP ĐÚNG: giữa hai thời điểm đó, hộp **"Ghi nhận giao hàng"**
+ * (`hop-ghi-nhan-giao-hang.tsx` → `themPhieuNhanPhongBan`) ra đời và **đã bắt buộc** đính kèm phiếu
+ * giao hàng cho TỪNG lần giao (`vuongMacGhiNhanGiaoHangPhongBan` điều kiện ④). Tờ phiếu vào hồ sơ
+ * qua đường đó rồi, nên ô này bắt nộp **lần thứ hai cùng một tờ** — và tệ hơn: ô gom mọi lần giao
+ * vào một danh sách chung, không nói được tờ nào thuộc lần giao nào, trong khi
+ * `PhieuNhanHang.tepPhieuGiao` gắn đúng từng lần (đúng tinh thần luật 11/08/2026).
+ *
+ * ✅ BA HẰNG SỐ / HÀM DƯỚI ĐÂY **KHÔNG BỊ XOÁ** vì vẫn có nơi gọi thật, không phải để "cho chắc":
+ *   · `coPhieuGiaoHangPhongBan` → `vuongMacHoanThanhQuyTrinh` (ngay trong tệp này, nhánh phòng ban)
+ *   · `coPhieuGiaoHangPhongBan` → `xacDinhGiaiDoan` (`giai-doan-mua-hang.ts`, biến `phongBanDaGiao`)
+ *   · `tepPhieuGiaoHangPhongBan` → hàm trên
+ * Chúng nay đóng vai **đường đọc dữ liệu cũ**: hồ sơ đã đính tệp qua ô kia (hoặc qua khu đính kèm
+ * chung, tự gõ ghi chú) vẫn được nhận ra y như trước. Xoá đi là những hồ sơ đó mất bằng chứng và
+ * kẹt lại — đúng loại lỗi cả tệp này sinh ra để tránh.
+ *
+ * 🔴 NẾU AI ĐỊNH DỰNG LẠI Ô: phải trả lời được *"tờ phiếu này khác tờ trong `tepPhieuGiao` của phiếu
+ * nhận hàng ở chỗ nào"*. Không trả lời được thì đó là ô dư, và Sếp đã bỏ nó một lần rồi.
+ * ════════════════════════════════════════════════════════════════════════════════════
  *
  * ⚠️ TUYỆT ĐỐI KHÔNG đem nhãn này áp cho hồ sơ công trình. Khối chú thích ở bước ⑥ trong
  * `de-nghi-chi-tiet.tsx` đã ghi rõ: tệp đính kèm của bước **không thay được** tệp phiếu giao nhận
@@ -517,6 +539,29 @@ export function vuongMacDuyetHoanThanhDeNghi(deNghi: DeNghiMuaHang): string | nu
 }
 
 /**
+ * ★★ HỒ SƠ ĐÃ CHỐT XONG CHƯA — dùng để hỏi *"bản con còn dở không"* (Sếp 15/09/2026).
+ *
+ * 🔴 HAI trạng thái tính là XONG, không phải một:
+ *   · `hoan_thanh` — mua xong, đóng hồ sơ.
+ *   · `dong_do`    — **kết luận nghiệp vụ: không mua nữa**, đã ghi lý do thất bại (xem
+ *     `dongDoDeNghi` trong `kho-du-lieu.tsx`). Việc trên bản con đó đã hết, không ai làm tiếp.
+ *
+ * 🔴 BỎ SÓT `dong_do` LÀ ĐẺ RA MỘT NGÕ CỤT MỚI: bản con bị đóng dở thì **vĩnh viễn** không bao giờ
+ * sang `hoan_thanh` được nữa (đường duy nhất tới đó là `hoanThanhQuyTrinh`, mà hàm đó từ chối ngay
+ * hồ sơ `dong_do`). Chỉ nhận mỗi `hoan_thanh` là phiếu gốc kẹt mãi mãi vì một bản con đã có kết
+ * luận rõ ràng — đúng loại lỗi "chốt kiểm soát hoá ngõ cụt" mà nhánh phòng ban vừa phải gỡ ở ngay
+ * hàm dưới.
+ *
+ * ⚠️ `luuTru` KHÔNG tính là xong, cố ý. Lưu trữ chỉ là **dọn bảng cho đỡ rối**, trạng thái hồ sơ
+ * giữ nguyên (xem `DeNghiMuaHang.luuTru`). Cho nó qua là mở một cửa né chốt bằng đúng một cú bấm:
+ * lưu trữ bản con rồi đóng phiếu gốc. Cái giá đã biết: bản con đang ẩn khỏi bảng vẫn chặn phiếu
+ * gốc — nên câu chặn ở dưới **đọc tên mã ra**, để người dùng tìm được nó mà bỏ lưu trữ.
+ */
+export function hoSoDaChotXong(deNghi: DeNghiMuaHang): boolean {
+  return deNghi.trangThai === "hoan_thanh" || deNghi.trangThai === "dong_do";
+}
+
+/**
  * ★ ĐỦ ĐIỀU KIỆN BẤM "HOÀN THÀNH QUY TRÌNH" CHƯA — `null` là bấm được (22/08/2026).
  *
  * 🔴 VÌ SAO CẦN NÚT NÀY: trước đây **không có hàm nào** đặt `deNghi.trangThai = "hoan_thanh"`.
@@ -524,8 +569,13 @@ export function vuongMacDuyetHoanThanhDeNghi(deNghi: DeNghiMuaHang): string | nu
  * là nhánh `if (deNghi.trangThai === "hoan_thanh")` trong `xacDinhGiaiDoan` chưa bao giờ chạy —
  * mã có mà không đường tới. Nay trưởng bộ phận có một nút đóng hồ sơ tường minh.
  *
- * 🔴 KIỂM ĐỦ NĂM ĐIỀU KIỆN, THEO ĐÚNG THỨ TỰ NÀY. Mỗi câu trả về nói đúng việc còn thiếu; gộp
+ * 🔴 KIỂM ĐỦ SÁU ĐIỀU KIỆN, THEO ĐÚNG THỨ TỰ NÀY. Mỗi câu trả về nói đúng việc còn thiếu; gộp
  * lại thành một câu chung ("chưa đủ điều kiện") là người dùng không biết phải làm gì tiếp.
+ *
+ * ★★ ĐIỀU KIỆN THỨ SÁU THÊM 15/09/2026 và được đặt **LÊN ĐẦU**: còn bản con (nhân bản / tách theo
+ * phân công) chưa xong thì chưa đóng được phiếu gốc — Sếp: ***"e làm đúng ý rồi"***. Lý do đầy đủ
+ * ở ngay chỗ kiểm; nó phải đứng trước vì năm chốt kia chỉ nhìn phần việc còn lại của RIÊNG phiếu
+ * này, mà phần đã nhân bản đi thì theo chốt của Sếp là "không cần mua" nên không chốt nào thấy.
  *
  * ⚠️ Nhận `tienDo` từ nơi gọi chứ không tự tính: luật đối chiếu khối lượng chỉ được có MỘT chỗ
  * (`tinh-toan.ts` → `tinhTienDoDeNghi`). Hai chỗ cùng cộng là sớm muộn lệch nhau.
@@ -538,7 +588,56 @@ export function vuongMacDuyetHoanThanhDeNghi(deNghi: DeNghiMuaHang): string | nu
 export function vuongMacHoanThanhQuyTrinh(
   deNghi: DeNghiMuaHang,
   tienDo: { khoiLuongChuaLenPO: number; khoiLuongConLai: number }[],
+  /**
+   * ★★ TOÀN BỘ đề nghị đang có — **THÊM 15/09/2026, THAM SỐ TÙY CHỌN, ĐỨNG CUỐI**.
+   *
+   * 🔴 VÌ SAO TÙY CHỌN VÀ VÌ SAO PHẢI ĐỨNG CUỐI: hàm này có nhiều nơi gọi (nút trên
+   * `de-nghi-chi-tiet.tsx`, tầng ghi trong `kho-du-lieu.tsx`, và `kiem-luat-dung-chung.mjs` gọi
+   * THẬT). Chen tham số vào giữa hoặc bắt buộc là mọi nơi gọi cũ gãy cùng lúc.
+   *
+   * 🔴 THIẾU THAM SỐ THÌ **KHÔNG CHẶN**, tuyệt đối không chặn mù. Nơi gọi chưa cập nhật mà đã chặn
+   * là kẹt hàng loạt hồ sơ chẳng liên quan gì tới nhân bản — đổi một lỗ hổng lấy một sự cố nặng
+   * hơn nhiều. Chốt thật nằm ở tầng ghi (`hoanThanhQuyTrinh` trong `kho-du-lieu.tsx`), nơi có sẵn
+   * `deNghiRef.current`; nút bấm chỉ là lớp nhắc.
+   */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): string | null {
+  /**
+   * ★★ ① CÒN BẢN CON CHƯA XONG THÌ KHÔNG ĐÓNG ĐƯỢC PHIẾU GỐC — Sếp chốt 15/09/2026.
+   *
+   * Sếp yêu cầu làm mờ các dòng đã nhân bản đi *"để ko bị quên"*, và chốt tiếp rằng phiếu gốc
+   * **không cần mua** phần đã nhân bản. Khi được báo hệ quả — *"nhân bản hết mọi dòng thì phiếu gốc
+   * thành 'không còn gì phải mua' và đóng lại được ngay trong khi chưa mua gì cả"* — và được đề
+   * nghị chặn đóng phiếu gốc khi còn bản copy chưa xong, Sếp trả lời: ***"e làm đúng ý rồi"***.
+   *
+   * 🔴 VÌ SAO PHẢI ĐỨNG **TRƯỚC MỌI PHÉP KIỂM KHÁC**: bốn chốt dưới đây đều hỏi về khối lượng và
+   * chứng từ **của riêng phiếu này**. Phiếu gốc đã nhân bản hết dòng đi thì theo đúng chữ Sếp
+   * (*"không cần mua"*) nó không còn vướng gì cả — mọi chốt dưới đều xanh, và hồ sơ đóng lại trong
+   * khi việc mua thật sự nằm nguyên ở các bản con chưa ai làm xong. Đặt xuống dưới là câu chặn
+   * đầu tiên người dùng đọc được lại nói về hoá đơn hay khối lượng, chẳng dính gì tới việc đang kẹt.
+   *
+   * 📌 ÁP CHO CẢ HAI ĐƯỜNG SINH BẢN CON, cố ý: `cacBanTachCua` lọc theo `deNghiGocId` nên gom cả
+   * bản do người dùng **nhân bản tay** (`nhanBanDeNghi`) lẫn bản do app **tự tách theo phân công**
+   * (`tachTheoPhanBo`). Hai đường khác nhau ở chỗ có cắt dòng khỏi phiếu gốc hay không, nhưng câu
+   * hỏi nghiệp vụ thì y hệt: *đề xuất lớn đã xong hết các phần chưa*. Lọc riêng một đường là đường
+   * kia thành lối né.
+   *
+   * 📌 LIỆT KÊ ĐỦ MỌI MÃ, không rút gọn thành con số — cùng lý do đã ghi ở `ghiChuDaNhanBan`
+   * (`nhan-ban-de-nghi.ts`): cả tính năng này sinh ra *"để không bị quên"*, giấu bớt một bản là đi
+   * ngược đúng mục đích đó. Sếp đã được hỏi và chọn cách liệt kê đủ.
+   *
+   * ⚠️ KHÔNG chặn theo chiều ngược lại (bản con không bị phiếu gốc chặn). Bản con là phần việc độc
+   * lập của một người, đóng xong lúc nào là quyền của họ; bắt chờ phiếu gốc là dựng vòng tròn.
+   */
+  if (tatCaDeNghi) {
+    const conDangDo = cacBanTachCua(deNghi.id, tatCaDeNghi).filter((c) => !hoSoDaChotXong(c));
+    if (conDangDo.length > 0) {
+      return `Phiếu này đã tách ra ${conDangDo.length} hồ sơ con còn dở: ${conDangDo
+        .map((c) => c.code)
+        .join(", ")}. Xong hết các hồ sơ đó rồi mới đóng được phiếu gốc — phần vật tư đã nhân bản đi vẫn đang được mua ở đấy.`;
+    }
+  }
+
   if (tienDo.length === 0) {
     return "Phiếu đề nghị này chưa có mặt hàng nào để hoàn thành.";
   }
@@ -603,11 +702,15 @@ export function vuongMacHoanThanhQuyTrinh(
        Sếp đã nói riêng một câu để chặn đúng cách hiểu đó (15/09/2026: *"nhân viên thu mua tự hoàn
        thành, NHƯNG phải đính kèm phiếu giao hàng"*).
 
-       📌 KHÔNG KẸT ĐƯỢC: khu đính kèm bước ⑥ đã có sẵn trên trang chi tiết và mở cho
-       `quyen.phanBoCongViec || quyen.lapPO` (`duocSuaTepBuoc`), nên nhân viên mua hàng đính được
-       ngay hôm nay. Xem `BUOC_DINH_KEM_PHIEU_GIAO_HANG` để biết vì sao chọn đúng khóa đó. */
+       📌 KHÔNG KẸT ĐƯỢC — và từ chiều 15/09/2026 ĐƯỜNG CHÍNH ĐÃ ĐỔI, câu chặn phải chỉ đúng chỗ:
+       Sếp cho bỏ ô riêng "Phiếu giao hàng" ở bước ⑥ (*"trường này đang bị dư => bỏ"*) vì hộp
+       **"Ghi nhận giao hàng"** đã bắt buộc đính kèm phiếu cho từng lần giao. Nên câu dưới đây mời
+       người dùng đi đường đó TRƯỚC; khu đính kèm chung của bước ⑥ vẫn còn và vẫn được hàm này nhận
+       ra (ghi chú tệp bắt đầu bằng "Phiếu giao hàng"), giữ làm đường bổ sung cho hồ sơ cũ.
+       🔴 Chỉ về một ô KHÔNG CÒN TRÊN MÀN HÌNH là đúng lỗi CLAUDE.md §3.5 — app bảo làm một việc mà
+       không có chỗ nào làm được. Đổi giao diện thì phải đổi câu chặn theo. */
     if (!coPhieuGiaoHangPhongBan(deNghi)) {
-      return `Chưa đính kèm ${NHAN_TEP_PHIEU_GIAO_HANG} — bắt buộc phải có mới đóng được hồ sơ. ${LY_DO_NHANH_PHONG_BAN} Đính kèm ở khối bước “Tiến hành nhận hàng”, ghi chú tệp là “${NHAN_TEP_PHIEU_GIAO_HANG}”.`;
+      return `Chưa có ${NHAN_TEP_PHIEU_GIAO_HANG} nào trong hồ sơ — bắt buộc phải có mới đóng được. ${LY_DO_NHANH_PHONG_BAN} Bấm “Ghi nhận giao hàng” ở bảng tiến độ đơn (bước “Tiến hành nhận hàng”) và đính kèm phiếu giao hàng của lần giao đó.`;
     }
   }
 

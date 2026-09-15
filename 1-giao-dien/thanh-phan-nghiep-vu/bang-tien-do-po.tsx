@@ -97,8 +97,11 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
     [po.prId, deNghi],
   );
   const giaiDoanDeNghi = useMemo(
-    () => (deNghiCuaPO ? xacDinhGiaiDoan(deNghiCuaPO, donHang, baoGia, phieuNhan) : null),
-    [deNghiCuaPO, donHang, baoGia, phieuNhan],
+    /* 🔴 Truyền `deNghi` (tham số cuối) — Sếp 15/09/2026: dòng đã nhân bản đi không còn tính là
+       "chưa phân bổ". Thiếu tham số thì khối này hiện giai đoạn KHÁC với bảng quy trình cho cùng
+       một hồ sơ, mà đây lại là chỗ quyết định khoá/mở ô đính kèm phiếu giao nhận. */
+    () => (deNghiCuaPO ? xacDinhGiaiDoan(deNghiCuaPO, donHang, baoGia, phieuNhan, deNghi) : null),
+    [deNghiCuaPO, donHang, baoGia, phieuNhan, deNghi],
   );
 
   /**

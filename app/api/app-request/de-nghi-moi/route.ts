@@ -11,6 +11,7 @@ import { maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import {
   chuanHoaLoaiHoSo,
   layLoaiTuHoSoAppRequest,
+  layNguoiTheoDoiTuAppRequest,
   quyDoiPhongBan,
   tachCongTrinhTuChuoi,
   xacDinhMaDuAnTamThoi,
@@ -93,8 +94,60 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
      * giá trị này không dùng tới. Chấp nhận — một document mỗi lần gọi, và đổi lại là không phải
      * gọi mạng bên trong transaction (xem lý do ngay trên).
      */
+    /**
+     * ★★ NGƯỜI THEO DÕI — CÙNG BA BƯỚC, CÙNG MỘT LƯỢT ĐỌC. Thêm 15/09/2026 (chiều), **có phép
+     * riêng của Sếp** (tệp vùng cấm §6.6). Nguyên văn chỉ đạo Sếp 14/09/2026, nhắc lại 15/09:
+     * *"e chỉ cần lấy **danh sách người theo dõi** đính kèm từ request về thôi, **tương tự mục
+     * đính kèm file** e làm đó"*.
+     *
+     *   ① Payload CÓ `nguoiTheoDoi` → dùng luôn, không gọi ra ngoài.
+     *      (Hôm nay App Request CHƯA gửi; để sẵn cho ngày họ cập nhật — xem mục (h) trong báo cáo.)
+     *   ② Không có → lấy `followers` từ chính document vừa đọc ở trên.
+     *   ③ Vẫn không ra → để trống. KHÔNG bịa người theo dõi.
+     *
+     * 🔴 CHỈ ĐỌC APP REQUEST KHI THẬT SỰ CẦN. Điều kiện dưới đây là "thiếu **một trong hai**
+     * thứ thì mới đọc" — payload gửi đủ cả loại lẫn người theo dõi thì bỏ hẳn lượt đọc chéo.
+     * Viết `loaiTuPayload ?? await doc(...)` như bản trưa nay là SAI cho việc mới: payload có
+     * loại nhưng thiếu người theo dõi sẽ không đọc, và người theo dõi mất im lặng.
+     */
+    const loaiTuPayload = chuanHoaLoaiHoSo(payload.loaiDeNghi);
+    const theoDoiTuPayload =
+      Array.isArray(payload.nguoiTheoDoi) && payload.nguoiTheoDoi.length > 0
+        ? payload.nguoiTheoDoi
+        : undefined;
+
+    const hoSoAppRequest =
+      loaiTuPayload && theoDoiTuPayload ? null : await docHoSoAppRequest(payload.requestId);
+
     const loaiHoSo: LoaiHoSoDeNghi | undefined =
-      chuanHoaLoaiHoSo(payload.loaiDeNghi) ?? (await docLoaiTuHoSoAppRequest(payload.requestId));
+      loaiTuPayload ?? layLoaiTuHoSoAppRequest(hoSoAppRequest);
+
+    const theoDoiTho: unknown = theoDoiTuPayload ?? hoSoAppRequest?.followers;
+
+    /**
+     * 🔴 `nguoiThemTen` LÀ `"Hệ thống (App Request)"`, **KHÔNG ĐƯỢC** là đúng chữ `"Hệ thống"`.
+     * `kho-du-lieu.tsx` có một effect tự dọn (06/09/2026) gỡ mọi người theo dõi mang đúng chữ
+     * `"Hệ thống"` mà không nằm trong danh bạ thật — ghi nhầm chuỗi đó là danh sách vừa kéo về
+     * **bị xoá im lặng** ngay khi có người mở trang. Xem chú thích hàm
+     * `layNguoiTheoDoiTuAppRequest`.
+     *
+     * 📌 `thoiDiemThem` lấy NGÀY DUYỆT của đề nghị chứ không lấy giờ máy chủ: đây là mốc người
+     * đó thật sự được đưa vào theo dõi bên App Request, còn giờ máy chủ chỉ là lúc gói tin bay
+     * sang. Retry mạng vài ngày sau vẫn phải ra cùng một ngày.
+     *
+     * 📌 GỌI HÀM THUẦN HAI LƯỢT: lượt đầu để BIẾT CÓ NHỮNG UID NÀO (chưa có chức danh), rồi mới
+     * tra chức danh theo đúng danh sách uid đó, rồi dựng lại lần hai. Rẻ (thuần, không mạng) và
+     * tránh phải viết thêm một hàm ghép riêng — một luật một chỗ.
+     */
+    const boiCanhTheoDoi = {
+      nguoiThemTen: "Hệ thống (App Request)",
+      thoiDiemThem: payload.ngayDuyet || payload.ngayGui || new Date().toISOString().slice(0, 10),
+    };
+    const theoDoiChuaChucDanh = layNguoiTheoDoiTuAppRequest(theoDoiTho, boiCanhTheoDoi);
+    const chucDanhTheoUid = await docChucDanhAppTong(theoDoiChuaChucDanh.map((n) => n.uid));
+    const nguoiTheoDoiTuAppRequest = chucDanhTheoUid
+      ? layNguoiTheoDoiTuAppRequest(theoDoiTho, { ...boiCanhTheoDoi, chucDanhTheoUid })
+      : theoDoiChuaChucDanh;
 
     // Transaction: đọc + kiểm trùng + ghi trong một bước — chặn trường hợp App Request gọi
     // lại 2 lần gần nhau (retry do mạng lỗi) tạo ra 2 đề nghị trùng mã đề xuất.
@@ -136,14 +189,36 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
         const tepMoi = duongDanTepAppRequest(payload.taiLieuDinhKem);
         const thieuId = Boolean(idHoSo) && !trungRoi.idHoSoAppRequest;
         const thieuTep = Boolean(tepMoi?.length) && !trungRoi.taiLieuAppRequest?.length;
+        /**
+         * ★ VÁ LUÔN NGƯỜI THEO DÕI cho hồ sơ cũ — thêm 15/09/2026 (chiều), cùng lý do, cùng chỗ
+         * với hai nhánh vá phía trên (có phép riêng của Sếp, tệp vùng cấm §6.6).
+         *
+         * 🔴 CHỈ ĐIỀN KHI ĐANG TRỐNG, KHÔNG BAO GIỜ ĐÈ, KHÔNG GỘP THÊM. Đây không phải sự dè dặt
+         * thừa: người dùng bên Thu mua **bỏ bớt người theo dõi được** (nút "Sửa người theo dõi").
+         * Nếu ở đây gộp thêm những ai còn thiếu, thì mỗi lần App Request bắn lại sẽ kéo người vừa
+         * bị bỏ quay về — người dùng bỏ xong thấy tên hiện lại, tưởng app hỏng, và không có cách
+         * nào bỏ được vĩnh viễn.
+         *
+         * ⚠️ HỆ QUẢ ĐÃ BIẾT, KHÔNG PHẢI BỎ SÓT: hầu hết hồ sơ cũ **sẽ không được vá**. Effect
+         * "tự đưa người đề nghị vào danh sách theo dõi" (`kho-du-lieu.tsx`, 23/08/2026) đã thêm
+         * sẵn 1 người vào gần như mọi hồ sơ cũ (đo 15/09/2026: 16 đề nghị / 16 người theo dõi),
+         * nên `nguoiTheoDoi` của chúng KHÔNG còn trống và nhánh này không nổ. Nhánh vá này chỉ
+         * cứu được hồ sơ thật sự chưa có ai theo dõi. Muốn kéo cho toàn bộ hồ sơ cũ thì phải chạy
+         * một lượt vá dữ liệu riêng, **có Sếp duyệt** — không được làm lén ở cửa tiếp nhận.
+         */
+        const thieuTheoDoi =
+          nguoiTheoDoiTuAppRequest.length > 0 && !trungRoi.nguoiTheoDoi?.length;
 
-        if (thieuId || thieuTep) {
+        if (thieuId || thieuTep || thieuTheoDoi) {
           const deNghiDaVa = deNghiHienCo.map((d) => {
             if (d.maDeXuatAppRequest !== payload.requestCode) return d;
             const d2 = { ...d };
             /* CHỈ ĐIỀN KHI ĐANG TRỐNG, KHÔNG BAO GIỜ ĐÈ — người dùng có thể đã sửa tay. */
             if (idHoSo && !d2.idHoSoAppRequest) d2.idHoSoAppRequest = idHoSo;
             if (tepMoi?.length && !d2.taiLieuAppRequest?.length) d2.taiLieuAppRequest = tepMoi;
+            if (nguoiTheoDoiTuAppRequest.length > 0 && !d2.nguoiTheoDoi?.length) {
+              d2.nguoiTheoDoi = nguoiTheoDoiTuAppRequest;
+            }
             return d2;
           });
           tx.set(docRef, bo0Undefined({ deNghi: deNghiDaVa }), { merge: true });
@@ -153,6 +228,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
               ...trungRoi,
               ...(thieuId ? { idHoSoAppRequest: idHoSo } : {}),
               ...(thieuTep ? { taiLieuAppRequest: tepMoi } : {}),
+              ...(thieuTheoDoi ? { nguoiTheoDoi: nguoiTheoDoiTuAppRequest } : {}),
             },
           };
         }
@@ -258,6 +334,30 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
          * lại mảng rỗng khiến giao diện vẽ ra một khối "Tài liệu đính kèm (0)".
          */
         taiLieuAppRequest: duongDanTepAppRequest(payload.taiLieuDinhKem),
+        /**
+         * ★★ NGƯỜI THEO DÕI KÉO TỪ APP REQUEST — thêm 15/09/2026, **có phép riêng của Sếp**
+         * (*"A đã báo rồi, e sửa đi"* — tệp vùng cấm phiên tích hợp, CLAUDE.md §6.6).
+         *
+         * 🔴 VÌ SAO CẦN — Sếp nhắc HAI LẦN (14/09 và 15/09/2026): *"kéo danh sách người theo dõi
+         * từ request về vẫn chưa xong, việc đó tương tự kéo file đính kèm e đã làm được rồi mà"*.
+         * Trước đó `followers` bên App Request bị **nhận rồi vứt** (grep trong tệp này = 0 dòng),
+         * nên mọi hồ sơ về từ App Request đều có ô "Người theo dõi" trống, và ba thứ gắn với nó
+         * cùng mất: thông báo chuyển bước, tab "Tôi theo dõi", quyền xem bảng báo giá của riêng
+         * phiếu đó (`4-phan-quyen/quyen-theo-ho-so.ts`).
+         *
+         * 🔴 THUẦN THÊM: chỉ chép thêm một trường. Không đụng nhánh logic nào đang chạy — kiểm
+         * trùng, tách công trình, tự động khớp PO đều nguyên vẹn.
+         *
+         * 📌 `undefined` KHI KHÔNG CÓ AI — cố ý, để `bo0Undefined` bỏ hẳn khoá thay vì để lại mảng
+         * rỗng. Và để effect "tự đưa người đề nghị vào danh sách theo dõi" (`kho-du-lieu.tsx`,
+         * 23/08/2026) vẫn chạy đúng như trước với hồ sơ không có ai theo dõi.
+         *
+         * 📌 KHÔNG LOẠI NGƯỜI ĐỀ NGHỊ RA KHỎI DANH SÁCH: nếu họ cũng nằm trong `followers` thì cứ
+         * để, effect kia tự bỏ qua (nó kiểm `some(n => n.uid === nguoiDeNghiUid)` trước khi thêm)
+         * nên không sinh dòng trùng.
+         */
+        nguoiTheoDoi:
+          nguoiTheoDoiTuAppRequest.length > 0 ? nguoiTheoDoiTuAppRequest : undefined,
       };
 
       /**
@@ -475,14 +575,22 @@ function getAppRequestDb(): Firestore {
 }
 
 /**
- * Đọc `requests/{idHoSo}` bên App Request rồi rút ra loại đề nghị.
+ * Đọc NGUYÊN document `requests/{idHoSo}` bên App Request.
  *
- * `undefined` cho MỌI ca không chắc — thiếu id, thiếu biến môi trường, hồ sơ không còn, quá
- * hạn, mạng lỗi, hoặc hồ sơ không có ô "Lựa chọn đề nghị". KHÔNG BAO GIỜ ném lỗi ra ngoài.
+ * 🔴 TRẢ VỀ CẢ DOCUMENT, KHÔNG TRẢ VỀ MỘT GIÁ TRỊ — đổi lại 15/09/2026 (chiều) khi thêm việc
+ * kéo NGƯỜI THEO DÕI. Bản trưa nay là `docLoaiTuHoSoAppRequest(id)`, chỉ rút ra loại đề nghị.
+ * Nay CÙNG MỘT document phải cho ra HAI thứ (`fieldsSnapshot`/`values` → loại; `followers` →
+ * người theo dõi), nên nếu giữ nguyên hàm cũ rồi thêm hàm thứ hai bên cạnh thì mỗi lần nhận
+ * một đề nghị phải đọc **hai lượt cùng một document** — tốn gấp đôi quota, gấp đôi độ trễ, và
+ * hai lượt đọc có thể ra hai phiên bản khác nhau nếu App Request vừa sửa hồ sơ ở giữa.
+ * Đọc MỘT lượt rồi đưa cho hai hàm thuần rút là đúng một document, một thời điểm.
+ *
+ * `null` cho MỌI ca không chắc — thiếu id, thiếu biến môi trường, hồ sơ không còn, quá hạn,
+ * mạng lỗi. KHÔNG BAO GIỜ ném lỗi ra ngoài: cửa tiếp nhận phải sống kể cả khi App Request chết.
  */
-async function docLoaiTuHoSoAppRequest(idHoSo: string | undefined): Promise<LoaiHoSoDeNghi | undefined> {
+async function docHoSoAppRequest(idHoSo: string | undefined): Promise<Record<string, unknown> | null> {
   const id = idHoSo?.trim();
-  if (!id) return undefined;
+  if (!id) return null;
 
   let henGio: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -497,12 +605,77 @@ async function docLoaiTuHoSoAppRequest(idHoSo: string | undefined): Promise<Loai
         );
       }),
     ]);
-    return snap.exists ? layLoaiTuHoSoAppRequest(snap.data()) : undefined;
+    return snap.exists ? ((snap.data() ?? null) as Record<string, unknown> | null) : null;
   } catch (error) {
     /* ⚠️ NUỐT LỖI CÓ CHỦ Ý — xem khối chú thích phía trên. Vẫn ghi lại để còn lần ra được khi
-       nhánh phòng ban im lặng không bật: dòng log này là manh mối duy nhất. */
+       nhánh phòng ban im lặng không bật, hoặc khi ô người theo dõi trống trơn: dòng log này là
+       manh mối duy nhất. */
     console.warn(
-      `Không đọc được loại đề nghị từ App Request (hồ sơ ${id}) — dùng phép suy dự phòng:`,
+      `Không đọc được hồ sơ App Request (${id}) — bỏ qua loại đề nghị và người theo dõi:`,
+      error instanceof Error ? error.message : error,
+    );
+    return null;
+  } finally {
+    if (henGio) clearTimeout(henGio);
+  }
+}
+
+/**
+ * ★★ TRA CHỨC DANH NGƯỜI THEO DÕI TỪ APP TỔNG (`users/{uid}.title` trên `hpcons-portal`).
+ *
+ * Thêm 15/09/2026 cùng việc kéo người theo dõi, **có phép riêng của Sếp** (tệp vùng cấm §6.6).
+ *
+ * 🔴 VÌ SAO PHẢI TRA SANG ĐÂY: mảng `followers` của App Request chỉ có `id`/`name`/`username`/
+ * `avatarInitial` — **KHÔNG có chức danh**, mà khối "Người theo dõi" ở trang chi tiết đề nghị lại
+ * hiện chức danh. Bỏ trống hết thì dòng hiển thị mất một nửa thông tin; mà bịa ra thì vi phạm
+ * đúng luật dự án. Tra được nguồn thật thì tra.
+ *
+ * 🔴 TRA ĐƯỢC LÀ NHỜ `followers[].id` CHÍNH LÀ `users/{uid}` CỦA APP TỔNG — đo 15/09/2026: khớp
+ * **26/26** follower duy nhất. Không phải khớp theo TÊN: khớp tên đã đo chỉ đúng 24/26, và **2 ca
+ * trùng tên nhiều người** — đoán theo tên là gán nhầm chức danh của người khác, loại lỗi không ai
+ * phát hiện. Nên chỉ tra theo uid, tra không ra thì để trống.
+ *
+ * 📌 DÙNG `getAll` — MỘT LƯỢT MẠNG cho cả danh sách, không phải `.get()` từng người một. Một đề
+ * nghị thường có 2–5 người theo dõi; gọi lẻ là 5 vòng mạng nối tiếp nhau, đủ để chạm hạn chờ.
+ *
+ * 📌 DÙNG LẠI `getHpcoreDb()` của phiên tích hợp — cùng project `hpcons-portal`, không mở thêm
+ * kết nối nào. Khác hẳn `getAppRequestDb()` (project `hpcons-request`, khoá riêng).
+ *
+ * ⚠️ TRẦN 30 NGƯỜI. Danh sách dài bất thường (App Request đổi lược đồ, hoặc dữ liệu rác) thì cắt
+ * bớt chứ không kéo một lượt đọc khổng lồ vào giữa đường nhận đề nghị. Người quá số đó vẫn được
+ * lưu, chỉ là chức danh trống.
+ *
+ * ⚠️ `undefined` CHO MỌI CA KHÔNG CHẮC, KHÔNG NÉM LỖI. Mất chức danh là mất một dòng chữ; làm hỏng
+ * cửa tiếp nhận là mất cả đề nghị.
+ */
+const TRAN_TRA_CHUC_DANH = 30;
+
+async function docChucDanhAppTong(uids: string[]): Promise<Record<string, string> | undefined> {
+  if (uids.length === 0) return undefined;
+
+  let henGio: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const db = getHpcoreDb();
+    const refs = uids.slice(0, TRAN_TRA_CHUC_DANH).map((u) => db.collection("users").doc(u));
+    const snaps = await Promise.race([
+      db.getAll(...refs),
+      new Promise<never>((_, tuChoi) => {
+        henGio = setTimeout(
+          () => tuChoi(new Error(`Quá ${HAN_DOC_APP_REQUEST_MS}ms khi tra chức danh App Tổng.`)),
+          HAN_DOC_APP_REQUEST_MS,
+        );
+      }),
+    ]);
+
+    const bang: Record<string, string> = {};
+    for (const s of snaps) {
+      const title = s.data()?.title;
+      if (typeof title === "string" && title.trim()) bang[s.id] = title.trim();
+    }
+    return Object.keys(bang).length > 0 ? bang : undefined;
+  } catch (error) {
+    console.warn(
+      "Không tra được chức danh người theo dõi từ App Tổng — để trống chức danh:",
       error instanceof Error ? error.message : error,
     );
     return undefined;

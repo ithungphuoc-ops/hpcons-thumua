@@ -84,10 +84,21 @@ export function HopNhanBanDeNghi({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nhân bản đề nghị {deNghi.code}</DialogTitle>
+          {/**
+           * 🔴 CÂU NÀY TỪNG NÓI SAI, ĐÃ SỬA 15/09/2026. Bản cũ ghi *"Bạn sẽ là người phụ trách
+           * TOÀN BỘ mặt hàng của bản sao"*, trong khi `nhanBanDeNghi` (kho dữ liệu) **chỉ gán
+           * người cho dòng gốc ĐÃ CÓ NGƯỜI** — chốt của Ban lãnh đạo 16/08/2026 (*"nhân bản ở
+           * bước nào thì sẽ trả nhân bản ở đúng bước đó"*): dòng gốc chưa ai nhận thì bản copy
+           * cũng để trống, nếu không bản copy tự nhảy sang bước ② trong khi phiếu gốc còn đứng
+           * ở bước ①.
+           *
+           * ⚠️ Hộp nói quá phạm vi thật thì người dùng tưởng nhân bản là đã có người làm hết,
+           * rồi dòng chưa ai nhận nằm treo — đúng kiểu giao diện hứa một việc app không làm.
+           */}
           <DialogDescription>
             Bản sao giữ nguyên dự án, công trình, ngày cần hàng, người theo dõi và tài liệu
-            đính kèm. <strong>Bạn sẽ là người phụ trách</strong> toàn bộ mặt hàng của bản sao —
-            nói trước để không ai bấm xong mới biết mình vừa nhận thêm việc.
+            đính kèm. <strong>Bạn nhận phần việc của những dòng đã có người phụ trách</strong>;
+            dòng nào ở phiếu gốc chưa giao cho ai thì sang bản sao vẫn để trống, chờ phân bổ.
           </DialogDescription>
         </DialogHeader>
 
@@ -182,11 +193,24 @@ export function HopNhanBanDeNghi({
               chọn ít nhất một dòng.
             </p>
           )}
+          {/**
+           * 🔴 LỜI DẶN CŨ ĐÃ BỎ — 15/09/2026. Bản cũ dặn: *"Muốn tách hẳn thì sau khi nhân bản,
+           * vào phiếu gốc bỏ những dòng đã chuyển sang bản mới"*. **Nay không làm theo được**:
+           * nút xoá dòng vật tư đã bị bỏ hẳn ngày 13/09/2026 theo chỉ đạo Sếp (*"Bỏ mục xoá
+           * này"* — xem khối chú thích trong `bang-phan-bo.tsx`), nên người đọc câu đó sẽ đi tìm
+           * một nút không còn tồn tại.
+           *
+           * ✅ Thay bằng đúng cách app đang làm từ 15/09/2026 — Sếp chốt: *"ở đề xuất chính sẽ
+           * làm mờ các mặt hàng đã nhân bản đi"* và *"Không cần mua (nhưng hãy làm mờ đi để vẫn
+           * xem được nhưng khi in ra sẽ ko thấy)"*. Tức là không phải dọn tay gì nữa.
+           */}
           {soChon > 0 && soChon < tatCa.length && (
             <p className="text-xs text-text-desc">
-              Phiếu gốc <strong>{deNghi.code}</strong> vẫn giữ đủ {tatCa.length} mặt hàng. Muốn
-              tách hẳn thì sau khi nhân bản, vào phiếu gốc bỏ những dòng đã chuyển sang bản
-              mới.
+              Phiếu gốc <strong>{deNghi.code}</strong> vẫn giữ đủ {tatCa.length} mặt hàng để tra
+              lại, nhưng {soChon} dòng vừa chọn sẽ được{" "}
+              <strong>làm mờ và ghi rõ đã nhân bản sang đâu</strong> — phiếu gốc không phải mua
+              phần đó nữa, và khi in phiếu gốc ra giấy thì các dòng này không hiện. Không cần
+              xóa tay dòng nào.
             </p>
           )}
         </div>

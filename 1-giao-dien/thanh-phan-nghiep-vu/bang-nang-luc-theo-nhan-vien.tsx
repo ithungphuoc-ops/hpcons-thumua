@@ -59,7 +59,13 @@ export function BangNangLucTheoNhanVien({
     >();
 
     for (const dn of nhom) {
-      const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan);
+      /* 🔴 Truyền `nhom` làm danh sách đề nghị — Sếp 15/09/2026: dòng đã nhân bản đi không tính
+         là "chưa phân bổ".
+         ✅ `nhom` ĐỦ ở đây dù là danh sách đã lọc: nó gồm phiếu gốc + MỌI bản tách của chính nó,
+         mà `dongDaNhanBanSang` chỉ tra các bản con của đúng phiếu gốc đang xét. Không cần cả kho.
+         ⚠️ Nếu sau này `nhom` đổi nghĩa (gom theo tiêu chí khác, hoặc bỏ bớt bản con) thì phải
+         nhận thêm danh sách đầy đủ qua prop — đừng để nó lặng lẽ thiếu bản con. */
+      const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, nhom);
       const xong = giaiDoanDaKetThuc(giaiDoan);
       const han = hanXuLyDeNghi(dn, giaiDoan);
 

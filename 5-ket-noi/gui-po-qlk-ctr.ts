@@ -26,6 +26,8 @@ export type KetQuaGuiQlkCtr =
 // Sếp 20/08/2026). Ngày 15/09/2026 Sếp đã báo phiên tích hợp và cho phép sửa ĐÚNG HAI VIỆC:
 //   ① giữ lại nội dung lỗi khi gửi hỏng (`catNganLoiQlkCtr` dưới đây)
 //   ② siết chốt "chỉ gửi hồ sơ CÔNG TRÌNH" (xem `guiPOSangQlkCtr` / `canDongBoLaiPO`)
+//   ③ (chiều cùng ngày) vá NỐT chỗ hở của nhánh PO ĐỘC LẬP — chốt ② lúc đầu chỉ đặt ở nhánh PO
+//      CÓ đề nghị, nhánh độc lập vẫn gửi PO phòng ban sang QLK CTR. Xem `laPODocLapCuaPhongBan`
 // Không dọn dẹp, không đổi tên, không xoá gì khác của các anh — ghi ra đây để người đọc sau biết
 // đây là sửa có phép chứ không phải ai đó tự tiện.
 // ============================================================
@@ -214,12 +216,57 @@ function xayDungPayloadPODocLap(po: DonDatHang) {
 }
 
 /**
+ * ★★ CHỐT PHÒNG BAN CHO PO ĐỘC LẬP — THÊM 15/09/2026, SỬA CÓ PHÉP CỦA SẾP (xem khối đầu tệp).
+ *
+ * 🔴 VÌ SAO PHẢI THÊM: sáng 15/09/2026 chốt "chỉ gửi hồ sơ CÔNG TRÌNH" mới chỉ được đặt ở
+ * `guiPOSangQlkCtr`/`canDongBoLaiPO` (nhánh PO CÓ đề nghị). Nhánh PO ĐỘC LẬP vẫn hở nguyên: nó
+ * không nhận `deNghi`, chỉ đọc `po.maDuAn`/`po.tenCongTrinh`, nên PO độc lập của phòng ban vẫn
+ * gửi thẳng sang QLK CTR. Hở một nửa còn tệ hơn hở cả hai: người đọc thấy chốt ở nhánh trên sẽ
+ * tưởng cả app đã được canh.
+ *
+ * 🔴 CÁCH NHẬN DIỆN — VÀ VÌ SAO CHỌN NHƯ VẬY:
+ *   · CÓ đề nghị (nơi gọi tra ra được) → hỏi thẳng `laHoSoPhongBan(deNghi)`, y hệt nhánh trên.
+ *     Tham số để tuỳ chọn vì hôm nay MỌI nơi gọi đều là PO chưa có đề nghị (`!po.prId`), nhưng
+ *     để sẵn thì ngày nào có đề nghị trong tay là dùng được nguồn tốt hơn, không phải sửa lại
+ *     chữ ký ở tệp thuộc vùng cấm §6.6.
+ *   · KHÔNG có đề nghị → đưa CHÍNH `po.maHopDongCDT` vào `laHoSoPhongBan`. Vẫn là **một luật một
+ *     chỗ** — không tự viết phép so sánh riêng ở đây. Ở PO không có trường `loaiHoSo` nên tầng ①
+ *     của hàm đó tự nhiên không chạy, chỉ còn tầng ② ("không có hợp đồng chủ đầu tư = phòng ban").
+ *
+ * ⚠️ ĐÃ CÂN NHẮC VÀ LOẠI HAI PHƯƠNG ÁN KHÁC:
+ *   · `po.tenCongTrinh` rỗng — đúng cái bẫy `ho-so-phong-ban.ts` đã phải sửa ngày 15/09: App
+ *     Request nhét TIÊU ĐỀ ĐỀ NGHỊ vào ô tên công trình nên trường này gần như không bao giờ rỗng.
+ *   · `po.maDuAn` bắt đầu `"PB-"` — đo thật cho **0/16**, và bám vào định dạng chuỗi của đội khác
+ *     là tự buộc mình vào thứ họ đổi lúc nào cũng được.
+ *
+ * ⚠️ NHẬN DIỆN NHẦM CÓ THẬT, GHI RA ĐÂY ĐỂ KHÔNG AI TƯỞNG LÀ CHẮC CHẮN: ô "Số hợp đồng CĐT" trên
+ * `form-lap-don-mua-hang.tsx` **cố ý KHÔNG bắt buộc** (chú thích tại đó nói rõ: bắt buộc là khoá
+ * cứng nút Lưu với đơn phòng ban). Nên một PO độc lập của công trình THẬT mà người lập bỏ trống ô
+ * đó sẽ bị chấm nhầm là phòng ban và **lặng lẽ không gửi sang QLK CTR**. Đây là đánh đổi có chủ ý:
+ * gửi nhầm hồ sơ phòng ban sang QLK CTR thì hàng treo ở một kho vô chủ bên app của đội khác, còn
+ * không gửi thì thủ kho không thấy đơn — cái sau người dùng phát hiện ngay, cái trước thì không.
+ * Muốn chắc chắn thì phải có trường phân loại thật trên PO, không phải suy từ mã hợp đồng.
+ */
+function laPODocLapCuaPhongBan(po: DonDatHang, deNghi?: DeNghiMuaHang): boolean {
+  if (deNghi) return laHoSoPhongBan(deNghi);
+  return laHoSoPhongBan({ maHopDongCDT: po.maHopDongCDT });
+}
+
+/**
  * Gửi 1 PO ĐỘC LẬP sang QLK CTR — gọi ngay lúc lập (`po.prId` chưa có, `trangThai: "cho_de_nghi"`).
  * Khác `guiPOSangQlkCtr`: không cần đề nghị gốc, chỉ cần `po.maDuAn` (luôn bắt buộc khi tạo PO,
  * kể cả PO độc lập — xem `themDonHang`). Idempotent như hàm kia — gọi lại bao nhiêu lần cũng an
  * toàn (QLK CTR tự cập nhật theo `poIdThuMua`).
+ *
+ * 🔴 CHỐT PHÒNG BAN (15/09/2026, Sếp cho phép) — trả `{ apDung: false }` NGAY, giống hệt cách
+ * `guiPOSangQlkCtr` xử hồ sơ phòng ban. Xem `laPODocLapCuaPhongBan` ngay trên để biết vì sao.
  */
-export async function guiPOSangQlkCtrDocLap(po: DonDatHang): Promise<KetQuaGuiQlkCtr> {
+export async function guiPOSangQlkCtrDocLap(
+  po: DonDatHang,
+  deNghi?: DeNghiMuaHang,
+): Promise<KetQuaGuiQlkCtr> {
+  if (laPODocLapCuaPhongBan(po, deNghi)) return { apDung: false };
+
   const payload = xayDungPayloadPODocLap(po);
   try {
     const res = await fetch("/api/qlk-ctr/gui-po-doc-lap", {
@@ -241,7 +288,17 @@ export async function guiPOSangQlkCtrDocLap(po: DonDatHang): Promise<KetQuaGuiQl
   }
 }
 
-/** Như `canDongBoLaiPO` nhưng cho PO độc lập — dùng khi `!po.prId`. */
-export function canDongBoLaiPODocLap(po: DonDatHang): boolean {
+/**
+ * Như `canDongBoLaiPO` nhưng cho PO độc lập — dùng khi `!po.prId`.
+ *
+ * 🔴 CHỐT PHÒNG BAN PHẢI GIỐNG HỆT `guiPOSangQlkCtrDocLap` (thêm 15/09/2026, Sếp cho phép). Đây
+ * là CẶP HÀM thứ hai, đúng lý do đã ghi ở cặp `guiPOSangQlkCtr`/`canDongBoLaiPO`: `kho-du-lieu.tsx`
+ * hỏi hàm này trước rồi mới gọi hàm kia. Để lệch nhau thì mỗi lần dữ liệu đổi, vòng đồng bộ lại
+ * chấm PO phòng ban là "cần gửi lại", gọi sang `guiPOSangQlkCtrDocLap` để nhận đúng
+ * `{ apDung: false }` — việc thừa lặp vĩnh viễn, và người đọc sau thấy hai chốt khác nhau sẽ
+ * tưởng sự khác nhau đó có chủ ý.
+ */
+export function canDongBoLaiPODocLap(po: DonDatHang, deNghi?: DeNghiMuaHang): boolean {
+  if (laPODocLapCuaPhongBan(po, deNghi)) return false;
   return JSON.stringify(xayDungPayloadPODocLap(po)) !== po.qlkCtrSyncedSnapshot;
 }

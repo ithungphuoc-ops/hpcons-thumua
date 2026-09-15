@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronUp, GitBranch } from "lucide-react";
 import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
@@ -59,6 +59,20 @@ export function KhoiDeXuatCon({
    */
   const [mo, doiMo] = useState(false);
 
+  /**
+   * ★ TRA TÊN VẬT LIỆU THEO `stt` CỦA PHIẾU GỐC — để khối này nói được **dòng nào** đã tách đi,
+   * chứ không chỉ "N mặt hàng" (Sếp 15/09/2026: *"phải có điều kiện hoặc ghi chú nào đó để biết
+   * rằng đề nghị đó đã được nhân bản để ko bị quên"*).
+   *
+   * 📌 Đọc từ `deNghi.items` (phiếu gốc đang mở) chứ không từ `con.items`: tên ở hai bên giống
+   * nhau, nhưng `stt` thì KHÁC — bản con đánh số lại từ 1, còn con số người dùng đang nhìn thấy
+   * trên bảng phân bổ là số của phiếu gốc. Nói số của bản con ở đây là chỉ sai dòng.
+   */
+  const tenDongGoc = useMemo(
+    () => new Map(deNghi.items.map((d) => [d.stt, d.tenVatLieu])),
+    [deNghi.items],
+  );
+
   return (
     <div className="mt-2 rounded-lg border border-primary/30 bg-primary-bg text-sm">
       {/* Dùng `<button>` thật chứ không phải `<div onClick>` — bàn phím phải Tab tới và
@@ -91,31 +105,62 @@ export function KhoiDeXuatCon({
       {mo && (
         <div className="flex flex-col gap-1.5 border-t border-primary/20 p-(--hp-md-row-pad) pt-2">
           <ul className="flex flex-col gap-1">
-            {deNghiCon.map((con) => (
-              <li key={con.id} className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm">
-                <Link
-                  href={`/de-nghi/${con.id}`}
-                  className="font-medium text-primary hover:underline"
-                >
-                  {con.code}
-                </Link>
-                <span className="truncate text-xs text-text-desc">
-                  {con.items.length} mặt hàng
-                  {/* Người phụ trách của phiếu con — biết ai đang làm phần nào mà không
-                      phải mở từng phiếu ra xem. */}
-                  {(() => {
-                    const ds = [
-                      ...new Set(
-                        con.items
-                          .map((x) => x.nguoiPhuTrachTen)
-                          .filter((x): x is string => Boolean(x)),
-                      ),
-                    ];
-                    return ds.length > 0 ? ` · ${ds.join(", ")}` : " · chưa giao ai";
-                  })()}
-                </span>
-              </li>
-            ))}
+            {deNghiCon.map((con) => {
+              /**
+               * ★ DÒNG NÀO CỦA PHIẾU GỐC ĐÃ SANG BẢN NÀY — Sếp 15/09/2026.
+               *
+               * ⚠️ CHỈ CÓ VỚI BẢN NHÂN BẢN TAY. `sttDongGoc` do `nhanBanDeNghi` ghi; phiếu con
+               * sinh ra bằng TÁCH TỰ ĐỘNG theo phân công (`tachTheoPhanBo`) **cố ý không ghi**
+               * trường này — ở đó dòng bị cắt hẳn khỏi phiếu gốc và phiếu gốc đánh số lại, nên
+               * số cũ trỏ nhầm dòng (lý do đầy đủ ở `kho-du-lieu.tsx`, chỗ dựng `items` của
+               * `tachTheoPhanBo`). Bản con cũ hơn 15/09/2026 cũng không có.
+               *
+               * 👉 Không có thì KHÔNG HIỆN GÌ THÊM — thà thiếu một dòng chú thích còn hơn chỉ
+               * sai dòng vật tư.
+               */
+              const sttGoc = [
+                ...new Set(
+                  con.items
+                    .map((x) => x.sttDongGoc)
+                    .filter((x): x is number => typeof x === "number"),
+                ),
+              ].sort((a, b) => a - b);
+              return (
+                <li key={con.id} className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm">
+                  <Link
+                    href={`/de-nghi/${con.id}`}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {con.code}
+                  </Link>
+                  <span className="truncate text-xs text-text-desc">
+                    {con.items.length} mặt hàng
+                    {/* Người phụ trách của phiếu con — biết ai đang làm phần nào mà không
+                        phải mở từng phiếu ra xem. */}
+                    {(() => {
+                      const ds = [
+                        ...new Set(
+                          con.items
+                            .map((x) => x.nguoiPhuTrachTen)
+                            .filter((x): x is string => Boolean(x)),
+                        ),
+                      ];
+                      return ds.length > 0 ? ` · ${ds.join(", ")}` : " · chưa giao ai";
+                    })()}
+                  </span>
+                  {/* `basis-full` — xuống hàng riêng: danh sách tên vật tư dài, để chung hàng với
+                      mã phiếu là bị cắt mất đúng phần cần đọc. */}
+                  {sttGoc.length > 0 && (
+                    <span className="basis-full text-xs text-text-secondary">
+                      Đã nhận dòng{" "}
+                      {sttGoc.map((s) => `${s}. ${tenDongGoc.get(s) ?? "(dòng đã bỏ)"}`).join(" · ")}{" "}
+                      của phiếu gốc — các dòng này ở phiếu gốc đang được làm mờ, không phải mua
+                      nữa.
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
           <p className="text-xs text-text-desc">
             Khối lượng của các phiếu con <strong>không cộng vào</strong> phiếu này — mỗi phiếu

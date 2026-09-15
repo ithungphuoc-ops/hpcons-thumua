@@ -10,7 +10,7 @@
 // ============================================================
 
 import { maPhongBanTuTen, type MaPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
-import type { LoaiHoSoDeNghi } from "@/3-du-lieu/kieu-du-lieu";
+import type { LoaiHoSoDeNghi, NgayISO, NguoiTheoDoi } from "@/3-du-lieu/kieu-du-lieu";
 import { boDau } from "@/6-tien-ich/bo-dau";
 
 export interface CongTrinhTuChuoi {
@@ -171,6 +171,103 @@ export function layLoaiTuHoSoAppRequest(
     return typeof v === "string" ? chuanHoaLoaiHoSo(v) : undefined;
   }
   return undefined;
+}
+
+/**
+ * Bối cảnh cần để dựng một dòng `NguoiTheoDoi` đầy đủ — App Request KHÔNG có ba thứ này,
+ * nơi gọi phải cung cấp.
+ */
+export interface BoiCanhNguoiTheoDoiAppRequest {
+  /** Ai đưa người này vào danh sách. Xem cảnh báo "KHÔNG ĐƯỢC ghi đúng chữ 'Hệ thống'" bên dưới. */
+  nguoiThemTen: string;
+  /** Mốc "YYYY-MM-DD" — nên là `ngayDuyet` của đề nghị, không phải giờ chạy máy chủ. */
+  thoiDiemThem: NgayISO;
+  /** Chức danh tra được từ `users/{uid}.title` bên App Tổng. Thiếu thì để trống, KHÔNG bịa. */
+  chucDanhTheoUid?: Record<string, string>;
+}
+
+/**
+ * ★★ ĐỔI MẢNG `followers` CỦA APP REQUEST → `NguoiTheoDoi[]` CỦA APP THU MUA.
+ *
+ * 🔴🔴 TỆP NÀY THUỘC VÙNG CẤM SỬA CỦA PHIÊN TÍCH HỢP APP TỔNG (CLAUDE.md §6.6, chỉ đạo Sếp
+ * 20/08/2026). Hàm này do PHIÊN NGHIỆP VỤ THU MUA thêm, **có phép riêng của Sếp ngày 15/09/2026**
+ * (*"A đã báo rồi, e sửa đi"*). THUẦN THÊM MỘT HÀM MỚI: `tachCongTrinhTuChuoi`,
+ * `xacDinhMaDuAnTamThoi`, `quyDoiPhongBan`, `chuanHoaLoaiHoSo`, `layLoaiTuHoSoAppRequest` còn
+ * nguyên từng ký tự.
+ *
+ * 🔴 ĐẶT Ở ĐÂY CHỨ KHÔNG VIẾT THẲNG TRONG ROUTE — đúng lời hứa ở đầu tệp (*"Hàm ở đây đều là HÀM
+ * THUẦN … để route handler gọi vào"*). Nhờ vậy `kiem-luat-dung-chung.mjs` **gọi thật** được hàm
+ * này; logic nằm trong route thì chỉ `grep` được, mà `grep` không bắt được việc xoá logic
+ * (CLAUDE.md §6.6, ca đo được 24/08/2026).
+ *
+ * VÌ SAO CẦN — chỉ đạo Sếp 14/09/2026, nhắc lại 15/09/2026: *"e chỉ cần lấy **danh sách người
+ * theo dõi** đính kèm từ request về thôi, **tương tự mục đính kèm file** e làm đó"*.
+ *
+ * ✅ HÌNH DẠNG ĐÃ ĐO THẬT 15/09/2026 (`hpcons-request`/`requests`, 80 phiếu, 260 phần tử):
+ *     followers: { id: string; name: string; username: string; avatarInitial: string }[]
+ * `id` = `users/{uid}` App Tổng (khớp 26/26 — xem `NguoiTheoDoiTuAppRequest`).
+ *
+ * 🔴 NHẬN `unknown` CHỨ KHÔNG NHẬN KIỂU CHẶT, CỐ Ý. Dữ liệu vào từ HAI nguồn đều **không kiểm
+ * soát được lúc chạy**: body JSON của App Request (được ép kiểu, không được xác thực) và document
+ * Firestore của đội khác (họ đổi lược đồ lúc nào cũng được). Khai kiểu chặt ở đây là tự lừa mình
+ * rằng dữ liệu đã sạch, rồi vỡ ở chỗ khác. Nên hàm tự soi từng phần tử.
+ *
+ * 🔴 BỎ QUA PHẦN TỬ KHÔNG CÓ `id` — uid là thứ DUY NHẤT có tác dụng thật (quyền xem báo giá theo
+ * hồ sơ, tab "Tôi theo dõi", thông báo chuyển bước). Giữ một dòng chỉ có tên mà không có uid là
+ * bày ra một cái tên trang trí, hứa một việc app không làm.
+ *
+ * 🔴 BỎ TRÙNG THEO `uid`, GIỮ PHẦN TỬ ĐẦU. App Request cho thêm cùng một người hai lần là danh
+ * sách bên này có hai dòng y hệt, và `boNguoiTheoDoi` (lọc theo uid) gỡ một phát hết cả hai —
+ * người dùng thấy bỏ một người mà mất hai dòng, tưởng app hỏng.
+ *
+ * 🔴🔴 `nguoiThemTen` TUYỆT ĐỐI KHÔNG ĐƯỢC LÀ ĐÚNG CHUỖI `"Hệ thống"`. Trong `kho-du-lieu.tsx` có
+ * một effect tự DỌN (thêm 06/09/2026) gỡ mọi người theo dõi thoả cả ba: `nguoiThemTen === "Hệ
+ * thống"`, không phải người đề nghị, và không có trong danh bạ thật. Ghi đúng chữ đó là người
+ * theo dõi vừa kéo về **bị xoá ngay khi ai đó mở trang**, và xoá IM LẶNG — nặng nhất là lúc danh
+ * bạ chưa tải xong (`danhBaThat` rỗng) thì xoá sạch không chừa ai. Dùng `"Hệ thống (App Request)"`
+ * — cùng cách đặt tên với dòng nhật ký `nguoiThucHien` mà route đang ghi, và KHÁC chuỗi kia nên
+ * effect dọn không đụng tới.
+ *
+ * ⚠️ `ten` LÙI DẦN `name` → `username` → CHUỖI RỖNG, KHÔNG BAO GIỜ LẤY UID LÀM TÊN. Lấy uid làm
+ * tên là bày một dãy UUID ra màn hình như thể đó là tên người. `username` vẫn là dữ liệu thật của
+ * App Request nên dùng được, còn hết thì để trống — đúng luật dự án: thiếu thì nói là thiếu.
+ *
+ * ⚠️ KHÔNG NÉM LỖI TRONG MỌI CA. Cửa tiếp nhận đề nghị là đường sống của cả quy trình; dữ liệu lạ
+ * chỉ được làm mất người theo dõi, KHÔNG được làm mất cả đề nghị. Rác vào → mảng rỗng ra.
+ */
+export function layNguoiTheoDoiTuAppRequest(
+  nguon: unknown,
+  boiCanh: BoiCanhNguoiTheoDoiAppRequest,
+): NguoiTheoDoi[] {
+  if (!Array.isArray(nguon)) return [];
+
+  const ra: NguoiTheoDoi[] = [];
+  const daCo = new Set<string>();
+
+  for (const phanTu of nguon) {
+    if (phanTu === null || typeof phanTu !== "object" || Array.isArray(phanTu)) continue;
+    const o = phanTu as { id?: unknown; name?: unknown; username?: unknown };
+
+    const uid = typeof o.id === "string" ? o.id.trim() : "";
+    if (!uid || daCo.has(uid)) continue;
+    daCo.add(uid);
+
+    const ten =
+      (typeof o.name === "string" ? o.name.trim() : "") ||
+      (typeof o.username === "string" ? o.username.trim() : "");
+
+    const chucDanh = boiCanh.chucDanhTheoUid?.[uid]?.trim() ?? "";
+
+    ra.push({
+      uid,
+      ten,
+      chucDanh,
+      nguoiThemTen: boiCanh.nguoiThemTen,
+      thoiDiemThem: boiCanh.thoiDiemThem,
+    });
+  }
+
+  return ra;
 }
 
 /**

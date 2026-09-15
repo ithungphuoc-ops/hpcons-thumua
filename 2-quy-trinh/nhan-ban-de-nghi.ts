@@ -13,7 +13,7 @@
 // cha–con đều gọi qua đây — đừng tự tính lại ở file giao diện.
 // ============================================================
 
-import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import type { CongViecDaXong, DeNghiMuaHang, NgayISO } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
  * Phiếu GỐC ĐẦU TIÊN của một đề nghị.
@@ -30,6 +30,79 @@ export function phieuGocCua(dn: DeNghiMuaHang, tatCa: DeNghiMuaHang[]): DeNghiMu
 /** Các bản đã tách ra từ một phiếu gốc. Lọc theo id, KHÔNG theo tên. */
 export function cacBanTachCua(gocId: string, tatCa: DeNghiMuaHang[]): DeNghiMuaHang[] {
   return tatCa.filter((d) => d.deNghiGocId === gocId);
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════
+// ★★ DÒNG NÀO CỦA PHIẾU GỐC ĐÃ ĐƯỢC NHÂN BẢN ĐI — Sếp 15/09/2026
+//
+// Nguyên văn: *"khi bấm nhân bản và chọn các mặt hàng để nhân bản xong thì ở đề xuất chính sẽ làm
+// mờ các mặt hàng đã nhân bản đi. Và phải có điều kiện hoặc ghi chú nào đó để biết rằng đề nghị đó
+// đã được nhân bản để ko bị quên"*.
+//
+// Sếp chốt tiếp 15/09 khi được hỏi lại:
+//   ① Phiếu gốc **KHÔNG CẦN MUA** phần đã nhân bản — *"Không cần mua (nhưng hãy làm mờ đi để vẫn
+//      xem được nhưng khi in ra sẽ ko thấy)"*
+//   ② Dòng đó **KHÔNG tính là "chưa phân bổ"** — *"vì người nhân bản sẽ là người thực hiện"*
+//   ③ Màn của người đề nghị **KHÔNG làm mờ theo** — *"ko cần làm mờ theo"*
+//   ④ Ghi **ĐỦ MỌI mã phiếu đích** (cách B), không chỉ mã đầu tiên
+//
+// 🔴 VÌ SAO KHÔNG LƯU CỜ LÊN DÒNG CỦA PHIẾU GỐC MÀ SUY RA Ở ĐÂY:
+// Lưu cờ thì phải dọn nó ở **bốn** chỗ (nhân bản · tách tự động · gộp khi lùi bước · xoá phiếu
+// con), bỏ sót một chỗ là dòng mờ vĩnh viễn hoặc mờ oan — và app hiện **không chặn** xoá phiếu gốc
+// còn con. Suy ra từ chính các bản con thì xoá con là dấu vết tự mất theo, không bao giờ lệch.
+// ════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Tra cứu: `stt` dòng ở phiếu gốc → danh sách **mã phiếu** đã nhận dòng đó.
+ *
+ * Trả về `Map` rỗng khi phiếu chưa bị nhân bản lần nào (trường hợp thường gặp nhất) — nơi gọi chỉ
+ * cần hỏi `.size === 0` là biết không phải vẽ gì thêm.
+ *
+ * 🔴 CHỈ TÍNH BẢN CON CÒN SỐNG. Tham số `tatCa` là danh sách đề nghị hiện có; bản con đã bị xoá
+ * hoặc đã bị gộp lại khi lùi bước thì không còn trong đó, nên dấu mờ tự biến mất — đúng ý.
+ *
+ * ⚠️ `sttDongGoc` chỉ có trên hồ sơ nhân bản **từ 15/09/2026 trở đi**. Bản con cũ hơn không có
+ * trường này nên dòng của chúng không được tính — chấp nhận có chủ ý: thà không làm mờ còn hơn làm
+ * mờ nhầm một dòng vẫn phải mua.
+ */
+export function dongDaNhanBanSang(
+  goc: Pick<DeNghiMuaHang, "id">,
+  tatCa: DeNghiMuaHang[],
+): Map<number, string[]> {
+  const ra = new Map<number, string[]>();
+  for (const con of cacBanTachCua(goc.id, tatCa)) {
+    for (const d of con.items ?? []) {
+      if (typeof d.sttDongGoc !== "number") continue;
+      const ds = ra.get(d.sttDongGoc) ?? [];
+      /* Một bản con có thể chứa nhiều dòng cùng trỏ về một dòng gốc (nếu sau này cho tách theo
+         khối lượng). Chỉ ghi mã phiếu MỘT LẦN để câu chữ không lặp. */
+      if (!ds.includes(con.code)) ds.push(con.code);
+      ra.set(d.sttDongGoc, ds);
+    }
+  }
+  return ra;
+}
+
+/**
+ * Câu ghi chú hiện cạnh dòng đã nhân bản — **cách B Sếp chọn: liệt kê ĐỦ mọi mã phiếu**.
+ *
+ * 🔴 KHÔNG RÚT GỌN THÀNH "đã nhân bản sang 2 bản". Mục đích của cả tính năng này là *"để không bị
+ * quên"*; giấu bớt một bản đi là đi ngược đúng mục đích đó. Sếp đã được hỏi và chọn cách liệt kê
+ * đủ, chấp nhận dòng dài.
+ */
+export function ghiChuDaNhanBan(maPhieu: string[]): string {
+  return `Đã nhân bản sang ${maPhieu.join(", ")}`;
+}
+
+/**
+ * Dòng này có còn phải mua ở phiếu gốc nữa không.
+ *
+ * 🔴 DÙNG HÀM NÀY Ở MỌI NƠI, ĐỪNG SO `sttDongGoc` TAY. Sếp chốt *"không cần mua"*, nên câu trả lời
+ * ở đây quyết định cả việc hiển thị (làm mờ) lẫn việc tính toán (bỏ khỏi phép đếm chưa phân bổ /
+ * chưa lên đơn). Hai bên hỏi hai kiểu là giao diện nói một đằng, luật chạy một nẻo.
+ */
+export function dongDaChuyenDiHet(stt: number, daNhanBan: Map<number, string[]>): boolean {
+  return (daNhanBan.get(stt)?.length ?? 0) > 0;
 }
 
 /**
@@ -84,6 +157,200 @@ export function maBanSaoTiepTheo(dn: DeNghiMuaHang, tatCa: DeNghiMuaHang[]): str
     ma = `${goc.code} (copy ${lan})`;
   }
   return ma;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════
+// ★★ LÀM SẠCH BẢN NHÂN BẢN — Sếp 15/09/2026
+//
+// Nguyên văn: *"gọi thêm agent xử lý việc làm sạch thông tin khi nhân bản quy trình đối với
+// các quy trình đã có sẵn file đính kèm hoặc ghi chú, a cần làm sạch tất cả khi trả về bước 2"*.
+//
+// Bản nhân bản luôn bắt đầu lại ở bước ② (Yêu cầu NCC báo giá). Phiếu gốc có thể đã đi tới bước
+// ⑦ — lúc đó nó mang theo tệp đính kèm của từng bước, bình luận, lý do thiếu chứng từ, lý do
+// thất bại. Trước 15/09/2026 chỗ dựng bản sao viết `{ ...goc }` nên **chép sạch những thứ đó**:
+// bản copy vừa sinh ra đã có sẵn "Hợp đồng đã ký", "Hóa đơn VAT" của phiếu khác — hồ sơ nói dối
+// đúng kiểu CLAUDE.md §3.5 cấm.
+//
+// 🔴 CHỈ BỎ THAM CHIẾU, TUYỆT ĐỐI KHÔNG XOÁ NỘI DUNG TỆP. Mô tả tệp (`MoTaTep`) nằm trong dữ
+// liệu nghiệp vụ, còn NỘI DUNG nằm ở `3-du-lieu/kho-tep.ts` tra theo `id`. Bản copy và phiếu gốc
+// mang CÙNG một `id` tệp, nên gọi `xoaTep` ở đây là **phiếu gốc mất chứng từ**. Bỏ tham chiếu
+// không sinh tệp mồ côi: phiếu gốc vẫn trỏ tới đúng những tệp đó.
+//
+// 👉 HÀM THUẦN, đặt ở đây chứ không ở hook React, để `kiem-luat-dung-chung.mjs` gọi thật được.
+// Luật nằm trong hook thì không bài kiểm nào bắt được lúc ai đó vô tình làm rơi một dòng.
+// ════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Những bước mà VIỆC ĐÃ TÍCH vẫn còn hiệu lực với bản nhân bản.
+ *
+ * 🔴 KHÔNG XOÁ SẠCH `congViecDaXong` — làm vậy là dựng lại đúng lỗi đã sửa ngày 27/08/2026 ở
+ * `tachTheoPhanBo`: bản copy được gán người phụ trách nên đủ điều kiện rời bước ①, mà việc bắt
+ * buộc của bước ① (*"Checkin hàng tồn kho"*) lại về trạng thái *chưa tích* — thẻ đứng ở bước ②
+ * kèm dòng "còn 1 việc chưa xong" mà **không ai tích được**, vì việc đó đã làm xong từ phiếu gốc.
+ *
+ * 🔴 NHƯNG CŨNG KHÔNG KẾ THỪA HẾT: việc đã tích ở bước ③ trở đi là TIẾN TRÌNH CỦA PHIẾU GỐC (vd
+ * *"Đã xử lý ủy nhiệm chi"* ở bước Hồ sơ thanh toán). Chép sang là bản copy khoe đã làm xong việc
+ * nó chưa từng làm.
+ *
+ * ⚠️ VIẾT THẲNG MÃ BƯỚC, KHÔNG IMPORT `GIAI_DOAN_MUA_HANG`. `giai-doan-mua-hang.ts` đang import
+ * ngược tệp này (`dongDaNhanBanSang`, `dongDaChuyenDiHet`) — import qua lại là **vòng import**.
+ * Khóa của `CongViecDaXong.giaiDoan` để kiểu `string` chính vì lý do tầng, xem `kieu-du-lieu.ts`.
+ */
+export const BUOC_GIU_VIEC_DA_TICH_KHI_NHAN_BAN: readonly string[] = [
+  "tiep_nhan",
+  "yeu_cau_bao_gia",
+];
+
+/** Việc đã tích của phiếu gốc còn giữ được cho bản copy. Trả `undefined` khi không còn gì. */
+export function viecDaTichGiuLaiKhiNhanBan(
+  da: CongViecDaXong[] | undefined,
+): CongViecDaXong[] | undefined {
+  const giu = (da ?? []).filter((v) => BUOC_GIU_VIEC_DA_TICH_KHI_NHAN_BAN.includes(v.giaiDoan));
+  return giu.length > 0 ? giu : undefined;
+}
+
+/** Tham số dựng một bản nhân bản. Mọi giá trị "của môi trường" (id, ngày giờ) truyền từ ngoài
+ *  vào để hàm này thuần — chạy lại bao nhiêu lần cũng ra cùng kết quả, và thử được bằng Node. */
+export interface ThamSoDungBanNhanBan {
+  /** Phiếu đang bấm nhân bản — có thể chính nó đã là một bản copy. */
+  goc: DeNghiMuaHang;
+  /** PHIẾU GỐC ĐẦU TIÊN của cả nhóm (`phieuGocCua`). Tên và quan hệ cha–con bám theo nó. */
+  phieuGocDau: DeNghiMuaHang;
+  idMoi: string;
+  /** Mã bản sao, tính bằng `maBanSaoTiepTheo`. */
+  maMoi: string;
+  /** Người bấm nhân bản — họ nhận luôn phần việc này (Ban lãnh đạo 15/08/2026). */
+  nguoi: { uid: string; ten: string };
+  /** `stt` các dòng giữ lại; bỏ trống = giữ hết. */
+  sttGiuLai?: number[];
+  /** Ngày (không giờ) cho `ngayDeNghi` / `ngayDuyet`. */
+  ngay: NgayISO;
+  /** Mốc đầy đủ giờ phút cho nhật ký và `thoiDiemPhanBo`. */
+  thoiDiem: NgayISO;
+}
+
+/**
+ * Dựng bản nhân bản ĐÃ LÀM SẠCH. Trả `null` khi không giữ dòng nào — phiếu không có vật tư là
+ * hồ sơ chết, không đi tiếp được bước nào.
+ *
+ * ⚠️ PHÂN BIỆT "thông tin" và "tiến trình":
+ *   · Thông tin (công trình, phòng ban, loại hồ sơ, mặt hàng, ngày cần hàng, mức ưu tiên, người
+ *     theo dõi, **tài liệu đầu vào lúc lập phiếu**) → CHÉP HẾT.
+ *   · Tiến trình (tệp từng bước, bình luận, lý do thiếu chứng từ, lý do thất bại, cờ lưu trữ,
+ *     nhật ký) → BỎ. Bản mới bắt đầu vòng mua hàng của riêng nó.
+ *   · Người phụ trách → GÁN CHO NGƯỜI BẤM NHÂN BẢN (Ban lãnh đạo 15/08/2026).
+ *
+ * 📌 `taiLieu` và `taiLieuAppRequest` **CỐ Ý GIỮ**: đó là hồ sơ ĐẦU VÀO người đề nghị nộp kèm lúc
+ * lập phiếu (catalogue, bản vẽ, mẫu chi tiết) — thứ nhân viên cần cầm theo để đi hỏi giá ở bước ②,
+ * không phải chứng từ phát sinh trong lúc chạy quy trình. Xoá nốt hai thứ này là bản copy thành
+ * hồ sơ trơ, không đi hỏi giá được. Nếu Sếp muốn xoá cả chúng thì sửa ở ĐÂY, một chỗ.
+ */
+export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
+  const { goc, phieuGocDau, nguoi } = t;
+
+  const giu = t.sttGiuLai && t.sttGiuLai.length > 0 ? new Set(t.sttGiuLai) : null;
+  const dongGiuLai = giu ? goc.items.filter((d) => giu.has(d.stt)) : goc.items;
+  if (dongGiuLai.length === 0) return null;
+
+  /* Phiếu đang nhân bản có phải đã là một bản copy không — quyết định cách ghi `sttDongGoc`.
+     Hỏi `goc.deNghiGocId` chứ không so `goc.id !== phieuGocDau.id`: hai cách cho cùng kết quả khi
+     dữ liệu lành, nhưng bản con mồ côi (phiếu gốc đã bị xoá) thì `phieuGocCua` trả về CHÍNH NÓ, và
+     lúc đó phép so kia kết luận nhầm rằng đây là phiếu gốc thật. */
+  const nguonLaBanSao = Boolean(goc.deNghiGocId);
+
+  return {
+    ...goc,
+    id: t.idMoi,
+    code: t.maMoi,
+    /* ★ TIÊU ĐỀ CÓ THÊM "(copy N)" — Ban lãnh đạo 22/08/2026: *"Tên của quy trình giống nhau và
+       thêm chữ copy phía sau"*. Việc "tổng hợp lại các bản tách" KHÔNG dựa vào tên mà dựa vào
+       `deNghiGocId` + `maDeNghiGoc` ngay dưới. */
+    tieuDe: tenBanSaoTheoMa(phieuGocDau.tieuDe, t.maMoi),
+    // ★ Quan hệ cha–con để TỔNG HỢP LẠI được các bản tách (xem `deNghiGocId`).
+    deNghiGocId: phieuGocDau.id,
+    maDeNghiGoc: phieuGocDau.code,
+    ngayDeNghi: t.ngay,
+    ngayDuyet: t.ngay,
+    trangThai: "da_duyet",
+    luuTru: undefined,
+
+    // ── LÀM SẠCH TIẾN TRÌNH CỦA PHIẾU GỐC (Sếp 15/09/2026) ───────────────────────────────
+    /* Tệp đính kèm của TỪNG BƯỚC: bảng báo giá NCC gửi, hợp đồng đã ký, hóa đơn VAT… Chúng là
+       chứng từ của phiếu gốc, bản copy chưa có cái nào. 🔴 Chỉ bỏ tham chiếu — nội dung trong
+       `3-du-lieu/kho-tep.ts` giữ nguyên cho phiếu gốc dùng. */
+    tepGiaiDoan: undefined,
+    /* Lý do "chưa có chứng từ bắt buộc" — nó MỞ ĐƯỜNG ĐI TIẾP (Ban lãnh đạo 23/08/2026). Chép
+       sang là bản copy được đi tiếp bằng một lời giải thích viết cho hồ sơ khác. */
+    lyDoThieuChungTu: undefined,
+    /* Bình luận thuộc về phiếu gốc. Chép sang mọi bản copy là mỗi người đọc lại một bản y hệt,
+       trả lời vào bản nào cũng không ai thấy (cùng lý do đã ghi ở `tachTheoPhanBo`). */
+    binhLuan: undefined,
+    /* Lý do hồ sơ thất bại — bản copy đang ở `da_duyet`, mang theo lý do đóng dở của phiếu khác
+       là hồ sơ tự mâu thuẫn. */
+    lyDoThatBai: undefined,
+    /* Việc đã tích: giữ bước ①②, bỏ từ ③ trở đi — xem `viecDaTichGiuLaiKhiNhanBan`. */
+    congViecDaXong: viecDaTichGiuLaiKhiNhanBan(goc.congViecDaXong),
+
+    /**
+     * ⚠️ ĐÁNH SỐ LẠI TỪ 1. `stt` là KHÓA ĐỐI CHIẾU khối lượng — dòng đơn hàng và dòng nhận hàng
+     * đều trỏ về nó. Giữ số cũ (ví dụ chỉ còn dòng 3, 7) thì phiếu mới có dòng số 3 và 7 mà không
+     * có 1, 2 — người đọc tưởng mất dòng, và mọi chỗ đếm "dòng thứ mấy" đều lệch.
+     *
+     * ★★ `sttDongGoc` — DẤU VẾT NGƯỢC VỀ DÒNG Ở PHIẾU GỐC (Sếp 15/09/2026), để phiếu gốc làm mờ
+     * dòng đã nhân bản đi. Nguồn ĐÃ LÀ BẢN COPY thì **kế thừa** `d.sttDongGoc` (dòng đó đã trỏ sẵn
+     * về gốc đầu tiên), chỉ phiếu gốc thật mới lấy `d.stt` — vì `stt` của bản copy đã đánh số lại
+     * từ 1, viết thẳng `d.stt` là làm mờ NHẦM một dòng vẫn phải mua. Lý do đầy đủ ở
+     * `dongDaNhanBanSang` phía trên.
+     *
+     * 🔴 CHỈ GÁN NGƯỜI CHO DÒNG GỐC ĐÃ CÓ NGƯỜI — Ban lãnh đạo 16/08/2026: *"nhân bản ở bước nào
+     * thì sẽ trả nhân bản ở đúng bước đó"*. Gán cho MỌI dòng (kể cả dòng gốc chưa ai nhận) là bản
+     * sao đi trước bản gốc một bước, không ai hiểu vì sao.
+     */
+    items: dongGiuLai.map((d, i) => {
+      const daCoNguoi = Boolean(d.nguoiPhuTrachUid);
+      return {
+        ...d,
+        stt: i + 1,
+        sttDongGoc: nguonLaBanSao ? d.sttDongGoc : d.stt,
+        ...(daCoNguoi
+          ? {
+              nguoiPhuTrachUid: nguoi.uid,
+              nguoiPhuTrachTen: nguoi.ten,
+              // Người tách tự nhận việc, nên người phân bổ cũng chính là họ.
+              nguoiPhanBoTen: nguoi.ten,
+              thoiDiemPhanBo: t.thoiDiem,
+            }
+          : {
+              // Dòng gốc chưa ai nhận thì bản copy cũng để trống — trưởng bộ phận phân bổ như
+              // với mọi dòng mới.
+              nguoiPhuTrachUid: undefined,
+              nguoiPhuTrachTen: undefined,
+              nguoiPhanBoTen: undefined,
+              thoiDiemPhanBo: undefined,
+            }),
+      };
+    }),
+    lichSu: [
+      {
+        thoiDiem: t.thoiDiem,
+        nguoiThucHien: nguoi.ten,
+        hanhDong: `Nhân bản từ ${goc.code}`,
+        ghiChu:
+          (giu
+            ? `Giữ ${dongGiuLai.length}/${goc.items.length} mặt hàng của phiếu gốc`
+            : `Giữ nguyên toàn bộ ${goc.items.length} mặt hàng`) +
+          // Nói đúng số dòng thật sự được giao — dòng gốc chưa ai nhận thì bản copy cũng để
+          // trống, nên câu cũ ("nhận phụ trách toàn bộ") có thể sai.
+          (dongGiuLai.some((d) => d.nguoiPhuTrachUid)
+            ? `. Người tách nhận ${
+                dongGiuLai.filter((d) => d.nguoiPhuTrachUid).length
+              } công việc đã được giao ở phiếu gốc.`
+            : ". Các công việc chưa phân bổ, giữ nguyên như phiếu gốc.") +
+          // Nói thẳng đã bỏ gì, để người đọc hồ sơ không đi tìm chứng từ tưởng bị mất.
+          " Bản sao bắt đầu lại từ bước ② nên KHÔNG mang theo tệp đính kèm của từng bước, bình luận và lý do thiếu chứng từ của phiếu gốc.",
+      },
+    ],
+  };
 }
 
 // ============================================================

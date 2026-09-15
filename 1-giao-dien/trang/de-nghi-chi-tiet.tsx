@@ -29,6 +29,8 @@ import {
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_NHOM_DE_XUAT } from "@/3-du-lieu/kieu-du-lieu";
+import type { BaoGia } from "@/3-du-lieu/kieu-du-lieu";
+import type { Quyen } from "@/4-phan-quyen/quyen";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -97,7 +99,11 @@ import {
   duocXemBaoGiaCuaDeNghi,
   duocXacNhanNhanDuHangCuaHoSo,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
-import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
+/* 📌 KHÔNG còn `LY_DO_NHANH_PHONG_BAN` ở tệp này từ 15/09/2026 — câu giải thích đó là `moTa` của ô
+   "Phiếu giao hàng" ở bước ⑥, mà ô đó đã bỏ theo chỉ đạo Sếp (*"trường này đang bị dư => bỏ"*).
+   Hằng số vẫn sống trong `ho-so-phong-ban.ts` và vẫn được `vuongMacHoanThanhQuyTrinh` dùng để giải
+   thích lúc chặn — đừng xoá nó ở đó. */
+import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 // Quyền theo TỪNG hồ sơ: ai đang phụ trách dòng nào của đề nghị này.
 import { laViecCuaToi } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
@@ -141,9 +147,10 @@ import {
   NHAN_TEP_PHIEU_CHI,
   NHAN_TEP_UNC,
   tepPhieuChi,
-  BUOC_DINH_KEM_PHIEU_GIAO_HANG,
-  NHAN_TEP_PHIEU_GIAO_HANG,
-  tepPhieuGiaoHangPhongBan,
+  /* 📌 ĐÃ BỎ `BUOC_DINH_KEM_PHIEU_GIAO_HANG`, `NHAN_TEP_PHIEU_GIAO_HANG`,
+     `tepPhieuGiaoHangPhongBan` khỏi tệp này ngày 15/09/2026 — chúng chỉ phục vụ ô "Phiếu giao hàng"
+     ở bước ⑥, mà Sếp đã cho bỏ ô đó (*"trường này đang bị dư => bỏ"*). Ba thứ đó **vẫn còn** trong
+     `chung-tu-cuoi-quy-trinh.ts` vì tầng luật còn dùng — xem chú thích tại chỗ khai báo. */
   TEN_HIEN_HOP_DONG,
   TEN_HIEN_HOP_DONG_BUOC_DAT_HANG,
   tepHoaDonVAT,
@@ -183,6 +190,31 @@ import {
  * không bị coi là điều kiện hằng, và để đổi `true` sau này không sinh lỗi kiểu nào.
  */
 const HIEN_MENU_THONG_TIN_DE_NGHI: boolean = false;
+
+/**
+ * ★★ THẺ CỦA MỘT BẢNG BÁO GIÁ TRONG KHỐI "XÉT DUYỆT PHƯƠNG ÁN GIÁ" CÒN GÌ ĐỂ HIỆN KHÔNG?
+ *
+ * Sếp 15/09/2026, khoanh đỏ đúng thẻ *"…-BG-002 · Đã duyệt"*: *"bỏ ghi chú này, không cần thiết"*.
+ *
+ * 📌 KHI ĐÃ DUYỆT, THẺ TỰ RỖNG NGHĨA: cặp nút Duyệt/Không duyệt gác `!daDuyet`, khối "Nhân viên đề
+ * xuất" cũng gác `!daDuyet`. Còn lại đúng mã bảng + huy hiệu "Đã duyệt" — mà khối KẾT QUẢ phía trên
+ * đã ghi *"Bản báo giá được chọn — Báo giá NCC n"* kèm chính tệp đó.
+ *
+ * 🔴 VÌ SAO KHÔNG ẨN BẰNG `daDuyet` TRƠN. Hai thứ vẫn có thể còn nội dung sau khi duyệt, và cả hai
+ * KHÔNG hiện ở bất kỳ đâu khác trong app:
+ *   · `lanTraLai` — lịch sử Trưởng bộ phận trả lại. Màn `bao-gia-chi-tiet.tsx` từng hiện nó đã bị
+ *     xóa, nên mất ở đây là mất khỏi app. Phiếu đi vài vòng rồi mới được duyệt là ca có thật, và
+ *     đó đúng là lúc lịch sử đáng đọc nhất.
+ *   · `nccDaChonTen` — tên nhà cung cấp được duyệt, chỉ cho vai trò được xem NCC.
+ *
+ * ⚠️ ĐẶT NGOÀI COMPONENT ĐỂ HAI NƠI HỎI CÙNG MỘT CÂU: thẻ tự ẩn, và `<section>` bao ngoài cũng
+ * phải biết để không trơ lại mỗi cái tiêu đề. Hai nơi tự kiểm là hai nơi sớm muộn nói khác nhau.
+ */
+function conHienTheXetDuyet(bg: BaoGia, quyen: Pick<Quyen, "xemNhaCungCap">): boolean {
+  if (bg.trangThai !== "da_chon_ncc") return true; // chưa duyệt — còn nút, còn huy hiệu chờ
+  if ((bg.lanTraLai ?? []).length > 0) return true;
+  return Boolean(quyen.xemNhaCungCap && bg.nccDaChonTen);
+}
 
 export default function TrangChiTietDeNghi({
   id: idTruyenVao,
@@ -370,7 +402,17 @@ export default function TrangChiTietDeNghi({
   // Giai đoạn KHÔNG lưu thành trường — suy ra từ chứng từ thật, đúng nguyên tắc ở
   // `2-quy-trinh/giai-doan-mua-hang.ts`. Tính một lần rồi truyền xuống, tránh mỗi
   // component tự tính lại rồi lệch nhau.
-  const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan);
+  /* ★★ THAM SỐ THỨ 5 `deNghi` — BẮT BUỘC PHẢI CÓ (Sếp 15/09/2026): dòng đã nhân bản sang phiếu
+     khác thì phiếu gốc *"không cần mua"* và **không tính là chưa phân bổ**.
+
+     🔴 THIẾU NÓ LÀ HAI MÀN HÌNH NÓI HAI GIAI ĐOẠN KHÁC NHAU CHO CÙNG MỘT HỒ SƠ. Bảng quy trình đã
+     truyền danh sách này (`dungBangQuyTrinh` → `xacDinhGiaiDoan`), nên thẻ nằm ở cột ② còn trang
+     chi tiết lại vẽ hồ sơ đang ở bước ① — không lỗi nào báo, chỉ là người dùng thấy hai câu
+     trả lời. Đây cũng là nguồn của `giaiDoan` dùng cho cả trang, nên sai ở đây là sai dây chuyền.
+
+     🔴 `deNghi` lấy thẳng từ `useDuLieu()` — danh sách ĐẦY ĐỦ, chưa lọc lưu trữ. Không dùng
+     `cacBanTach` ở ngay dưới: đó là bản đã lọc, luật sẽ không thấy hết các bản con. */
+  const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, deNghi);
   const conLai = soNgayConLai(dn.ngayCanHang);
 
   /* 📌 KHÔNG còn tính `chanLapDon` ở trang này (17/08/2026). Lý do "chưa cất được đơn" giờ do
@@ -449,9 +491,20 @@ export default function TrangChiTietDeNghi({
     if (viTri < 0 || viTriHienTai < 0 || viTri > viTriHienTai) return undefined;
     /* Dấu đỏ "thiếu báo giá" ở bước ② — cùng luật với nút "Trình xét duyệt báo giá" ngay trong
        khối đó, nên viền đỏ và nút không bao giờ nói khác nhau (Ban lãnh đạo 24/08/2026). */
+    /* ★★ Tham số cuối `deNghi` — trừ dòng đã nhân bản đi (Sếp 15/09/2026). Thiếu nó thì khối bước
+       ① ở trang này còn VIỀN ĐỎ *"chưa phân bổ"* cho đúng những dòng đã chuyển sang phiếu khác,
+       trong khi thẻ trên bảng quy trình đã hết đỏ (`dungBangQuyTrinh` truyền đủ). Hai chỗ cùng
+       trả lời *"bước này còn thiếu gì"* mà nói khác nhau là kiểu lệch đã phải sửa nhiều lần. */
     return (
-      conNoCuaBuoc(hoSo, ma, cauHinh, donHang, phieuNhan, vuongMacTrinhXetDuyet(hoSo, cauHinh)) ??
-      undefined
+      conNoCuaBuoc(
+        hoSo,
+        ma,
+        cauHinh,
+        donHang,
+        phieuNhan,
+        vuongMacTrinhXetDuyet(hoSo, cauHinh),
+        deNghi,
+      ) ?? undefined
     );
   }
 
@@ -1896,7 +1949,15 @@ export default function TrangChiTietDeNghi({
                  * NCC (Phòng Thi công). Cùng lý do đã ghi ở khối Lịch sử: đừng để tên nhà cung
                  * cấp rò ra qua một khối phụ.
                  */
-                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
+                noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) &&
+                  /* 🔴 KHÔNG ĐỂ LẠI CÁI TIÊU ĐỀ TRƠ. Mọi bảng đều đã duyệt xong và không còn gì để
+                     hiện thì giữ `<section>` lại là màn hình còn đúng dòng chữ "XÉT DUYỆT PHƯƠNG ÁN
+                     GIÁ" rồi hết — trông như app vừa mất nội dung, tức chỉ đổi cái Sếp bảo bỏ sang
+                     một hình khó chịu hơn.
+                     📌 VẪN HIỆN KHI CHƯA CÓ BẢNG NÀO: câu bên trong lúc đó nói rõ bước này chưa tới
+                     lượt và bảng được lập ở bước ② — đó là thông tin, không phải khung rỗng. */
+                  (baoGiaLienQuan.length === 0 ||
+                    baoGiaLienQuan.some((bg) => conHienTheXetDuyet(bg, quyen))) && (
                   <section className="flex flex-col gap-(--hp-md-row-gap)">
                     <NhanPhanTrongGiaiDoan the="h2" icon={ClipboardCheck}>
                       Xét duyệt phương án giá
@@ -1914,6 +1975,9 @@ export default function TrangChiTietDeNghi({
 
                     {baoGiaLienQuan.map((bg) => {
                       const daDuyet = bg.trangThai === "da_chon_ncc";
+                      /* ★★ Duyệt xong thì thẻ này rỗng nghĩa — Sếp 15/09/2026: *"bỏ ghi chú này,
+                         không cần thiết"*. Lý do đầy đủ ở `conHienTheXetDuyet`, đầu tệp này. */
+                      if (!conHienTheXetDuyet(bg, quyen)) return null;
                       return (
                         <Card key={bg.id}>
                           <CardContent className="flex flex-col gap-2">
@@ -2721,6 +2785,25 @@ export default function TrangChiTietDeNghi({
                       po.trangThai !== "nhap",
                   );
                   if (poChoXacNhan.length === 0) return undefined;
+                  /**
+                   * ★★ HỒ SƠ PHÒNG BAN — Sếp 15/09/2026, nguyên văn: *"Đề nghị phòng ban thì ko
+                   * cần nút này"* (ảnh chụp production: hồ sơ DMH260007 đã "Đã nhận hàng", tiến độ
+                   * 5/5 "Đã nhận đủ", đã có phiếu giao nhận — mà vẫn còn badge "Chờ kho xác nhận"
+                   * và nút xanh "Kho xác nhận nhận đủ hàng").
+                   *
+                   * 🔴 ẨN NÚT MÀ KHÔNG LÀM HỒ SƠ KẸT — đọc kỹ chỗ này trước khi nghĩ tới việc bỏ:
+                   * nút không bị *giấu đi*, nó THỪA THẬT. Tầng ghi ở `3-du-lieu/kho-du-lieu.tsx`
+                   * (`tuChotXacNhanKhoPhongBan`) tự ghi `po.xacNhanKho` ngay trong lần "Ghi nhận
+                   * giao hàng" làm đơn đủ khối lượng, mang tên và ngày của chính người vừa ghi
+                   * nhận. Hai điều kiện mà nút này đang gác — `daGiaoDu` và `vuongMacTep === null`
+                   * — được giữ nguyên ở tầng ghi, tức là CHUYỂN NGƯỜI BẤM chứ không hạ hàng rào.
+                   *
+                   * ⚠️ VÌ VẬY, KHI HỒ SƠ PHÒNG BAN VẪN CHƯA CÓ `po.xacNhanKho` thì chắc chắn còn
+                   * vướng một điều kiện — và người dùng PHẢI đọc được câu vướng đó tại chỗ, chứ
+                   * không phải nhìn một khoảng trắng rồi ngồi chờ ai đó bấm hộ. Khối cảnh báo bên
+                   * dưới lo đúng việc này.
+                   */
+                  const hoSoPhongBan = laHoSoPhongBan(dn);
                   return (
                     <div className="flex flex-col gap-(--hp-md-row-gap)">
                       {poChoXacNhan.map((po) => {
@@ -2735,25 +2818,55 @@ export default function TrangChiTietDeNghi({
                           >
                             <p className="flex flex-wrap items-center gap-2 text-sm">
                               <span className="font-semibold text-text-primary">{po.code}</span>
+                              {/* ★★ CHỮ PHẢI NÓI ĐÚNG VIỆC ĐANG CHỜ — Sếp 15/09/2026.
+                                  Hồ sơ phòng ban KHÔNG có kho công trình nào, nên chữ "kho" trong
+                                  nhãn là sai sự thật: người đọc đi tìm thủ kho để hỏi, trong khi
+                                  chẳng có thủ kho nào trong quy trình này. Đổi sang chữ nói thẳng
+                                  cái sự việc — hàng đã nhận đủ hay chưa.
+                                  📌 Giữ nguyên `tone` success/warning: Design System V1.1 bắt buộc
+                                  trạng thái có CẢ màu lẫn chữ, không được chỉ đổi chữ. */}
                               <StatusBadge
-                                label={daKhoXacNhan ? "Kho đã xác nhận" : "Chờ kho xác nhận"}
+                                label={
+                                  hoSoPhongBan
+                                    ? daKhoXacNhan
+                                      ? "Đã nhận đủ hàng"
+                                      : "Chờ nhận đủ hàng"
+                                    : daKhoXacNhan
+                                      ? "Kho đã xác nhận"
+                                      : "Chờ kho xác nhận"
+                                }
                                 tone={daKhoXacNhan ? "success" : "warning"}
                               />
                             </p>
 
-                            {/* Kho xác nhận trước — nút chỉ hiện cho người có quyền kho.
-                                ★★ 15/09/2026 — Sếp: *"E mở cho nhánh phòng ban"* và *"nhân viên thu
-                                mua tự hoàn thành, nhưng phải đính kèm phiếu giao hàng"*.
-                                🔴 Hồ sơ PHÒNG BAN không có kho công trình nào xác nhận hộ, nên trước
-                                hôm nay nút này KHÔNG BAO GIỜ hiện với họ → hồ sơ kẹt vĩnh viễn ở bước ⑥.
-                                Nay hỏi `duocXacNhanNhanDuHangCuaHoSo` thay cho cờ toàn cục: hồ sơ công
-                                trình giữ nguyên (chỉ thủ kho), hồ sơ phòng ban thì nhân viên thu mua
-                                bấm được.
-                                📌 KHÔNG nới điều kiện chứng từ: `vuongMacTep` bên dưới vẫn khoá nút khi
-                                thiếu phiếu giao hàng — đúng chỉ đạo của Sếp, đổi người ghi nhận chứ
-                                không bỏ bằng chứng. */}
+                            {/* Kho xác nhận trước — nút chỉ hiện cho người có quyền kho, và CHỈ CHO
+                                HỒ SƠ CÔNG TRÌNH.
+
+                                ★★ 15/09/2026 (sáng) — Sếp: *"E mở cho nhánh phòng ban"* và *"nhân
+                                viên thu mua tự hoàn thành, nhưng phải đính kèm phiếu giao hàng"*.
+                                Lúc đó cách mở là cho nhân viên thu mua bấm chính cái nút này, nên
+                                điều kiện đổi từ cờ toàn cục sang `duocXacNhanNhanDuHangCuaHoSo`.
+
+                                ★★ 15/09/2026 (chiều) — Sếp xem bản production và chốt lại:
+                                *"Đề nghị phòng ban thì ko cần nút này"*. Hồ sơ DMH260007 đã "Đã nhận
+                                hàng", tiến độ 5/5, đã có phiếu giao nhận đính kèm — mà vẫn còn một nút
+                                xanh đòi bấm thêm. Đó là bắt người dùng xác nhận lại việc họ vừa làm.
+
+                                🔴 NÊN THÊM `!hoSoPhongBan`. VÀ ĐÂY KHÔNG PHẢI ẨN GIAO DIỆN CHO GỌN —
+                                nút THỪA THẬT: `tuChotXacNhanKhoPhongBan` trong
+                                `3-du-lieu/kho-du-lieu.tsx` đã tự ghi `po.xacNhanKho` ngay trong lần
+                                "Ghi nhận giao hàng" làm đơn đủ khối lượng, mang tên và ngày của chính
+                                người vừa ghi nhận. Hồ sơ đi tiếp được mà không cần ai bấm.
+                                ⚠️ Nếu về sau tầng tự chốt đó bị gỡ thì PHẢI bỏ luôn `!hoSoPhongBan`
+                                ở đây, nếu không hồ sơ phòng ban kẹt vĩnh viễn ở bước ⑥ — đúng sự cố mà
+                                nhánh phòng ban sinh ra để chữa.
+
+                                📌 KHÔNG nới điều kiện chứng từ ở bất kỳ nhánh nào: `vuongMacTep` vẫn
+                                khoá nút với hồ sơ công trình, và vẫn chặn tầng tự chốt với hồ sơ phòng
+                                ban — đổi người ghi nhận chứ không bỏ bằng chứng. */}
                             {!daKhoXacNhan &&
                               daGiaoDu &&
+                              !hoSoPhongBan &&
                               duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung, quyen) && (
                               <div className="flex flex-wrap items-center gap-2">
                                 <Button
@@ -2786,6 +2899,47 @@ export default function TrangChiTietDeNghi({
                                   <span className="text-xs text-warning-soft">{vuongMacTep}</span>
                                 )}
                               </div>
+                            )}
+
+                            {/**
+                              * ★★ HỒ SƠ PHÒNG BAN: ĐÃ ẨN NÚT THÌ PHẢI NÓI VÌ SAO CHƯA XONG —
+                              * Sếp 15/09/2026.
+                              *
+                              * 🔴 ĐÂY LÀ PHẦN QUAN TRỌNG NHẤT CỦA LẦN SỬA NÀY, đừng dọn đi cho gọn.
+                              * Với hồ sơ phòng ban, `po.xacNhanKho` do tầng ghi tự chốt
+                              * (`tuChotXacNhanKhoPhongBan`). Chưa chốt được thì chỉ có hai lý do, và
+                              * cả hai đều là việc người dùng tự làm được:
+                              *   ① còn lần giao chưa đính kèm phiếu giao hàng → `vuongMacTep` nói rõ
+                              *      thiếu phiếu nào;
+                              *   ② hàng chưa về đủ khối lượng → còn phải ghi nhận giao hàng tiếp.
+                              * Không in ra thì người dùng nhìn thấy MỘT KHOẢNG TRẮNG: không nút, không
+                              * lý do, tưởng app hỏng hoặc tưởng mình thiếu quyền rồi đi hỏi vòng
+                              * quanh. Đúng cái bẫy CLAUDE.md §3.5 đã ghi — chức năng chưa xong thì
+                              * khoá lại và NÓI RÕ LÝ DO, không để trống.
+                              *
+                              * 📌 Cỡ chữ `text-xs` (12px) là mức sàn Design System V1.1 cho phép, và
+                              * đi kèm icon + màu `warning-soft` nên trạng thái có cả màu lẫn chữ.
+                              */}
+                            {hoSoPhongBan && !daKhoXacNhan && (
+                              <p className="flex items-start gap-1.5 text-xs text-warning-soft">
+                                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                                <span>
+                                  {vuongMacTep !== null ? (
+                                    <>
+                                      {vuongMacTep} Vào bảng “Phiếu nhận hàng” phía trên, bổ sung phiếu
+                                      giao hàng cho lần giao còn thiếu — xong là đơn tự chuyển sang
+                                      “Đã nhận đủ hàng”, không phải bấm thêm nút nào.
+                                    </>
+                                  ) : (
+                                    <>
+                                      Hàng chưa về đủ khối lượng. Ghi nhận tiếp các lần giao ở bảng
+                                      “Phiếu nhận hàng” phía trên (mỗi lần giao kèm một phiếu giao
+                                      hàng) — lần giao làm đơn đủ khối lượng sẽ tự chốt “Đã nhận đủ
+                                      hàng”.
+                                    </>
+                                  )}
+                                </span>
+                              </p>
                             )}
 
                             {daKhoXacNhan && daGiaoDu && !po.xacNhanTruongBP && duocDuyetHoanThanhDon && (
@@ -2883,45 +3037,47 @@ export default function TrangChiTietDeNghi({
                    được xác nhận hoàn thành" (`vuongMacXacNhanKho`) kiểm TỪNG phiếu nhận hàng
                    qua `tepPhieuGiao`, gắn tệp ở đây không gỡ được vướng mắc đó — và không được
                    để nó gỡ, nếu không luật thành vô nghĩa. */
+                /**
+                  * ❌ ĐÃ BỎ Ô "Phiếu giao hàng · Bắt buộc" CỦA NHÁNH PHÒNG BAN — Sếp 15/09/2026,
+                  * ảnh chụp bản chạy thật (hồ sơ `DMH260009`, hồ sơ phòng ban), khoanh đỏ đúng ô
+                  * này và ghi: ***"trường này đang bị dư => bỏ"***.
+                  *
+                  * 🔴 SẾP ĐÚNG, VÀ ĐÂY LÀ LÝ DO ĐO ĐƯỢC CHỨ KHÔNG PHẢI SUY ĐOÁN: ô này sinh ra
+                  * sáng 15/09/2026, khi nhánh phòng ban **chưa có** đường ghi phiếu nhận hàng nào —
+                  * lúc đó nó là chỗ duy nhất để tờ phiếu giao hàng vào được hồ sơ. Chiều cùng ngày
+                  * hộp **"Ghi nhận giao hàng"**
+                  * (`1-giao-dien/thanh-phan-nghiep-vu/hop-ghi-nhan-giao-hang.tsx`) ra đời và đã
+                  * **bắt buộc** đính kèm phiếu giao hàng cho TỪNG lần giao
+                  * (`vuongMacGhiNhanGiaoHangPhongBan` điều kiện ④, `3-du-lieu/kho-du-lieu.tsx`).
+                  * Từ giây phút đó ô này bắt người dùng nộp **lần thứ hai cùng một tờ phiếu** — đúng
+                  * chữ "dư" của Sếp. Ảnh Sếp gửi cho thấy rõ: khối ĐẦU VÀO đã hiện *"Phiếu giao
+                  * nhận lần 1 · <tệp>.jpg"* và bảng phiếu nhận đã hiện *"Có phiếu giao nhận"*.
+                  *
+                  * ✅ ĐƯỜNG CÒN LẠI ĐỂ TỆP PHIẾU GIAO HÀNG VÀO APP — bỏ ô KHÔNG làm mất bằng chứng:
+                  *   ① **Hộp "Ghi nhận giao hàng"** ở bảng tiến độ PO (bước ⑥) — đường CHÍNH. Tệp
+                  *      gắn vào `PhieuNhanHang.tepPhieuGiao` của đúng lần giao đó, và luật
+                  *      11/08/2026 (`tinh-toan.ts` → `vuongMacXacNhanKho`) canh từng phiếu một.
+                  *      Đây là chỗ đúng hơn hẳn ô cũ: ô cũ gom mọi lần giao vào một danh sách
+                  *      chung, không nói được tờ nào của lần giao nào.
+                  *   ② **Ô đính kèm bổ sung** trên từng phiếu đã ghi (`dinhKemPhieuGiao`) — dành cho
+                  *      phiếu cũ còn thiếu tệp.
+                  *   ③ **Khu đính kèm chung của bước ⑥** ngay dưới đây — vẫn ghi được ghi chú
+                  *      "Phiếu giao hàng", nên hồ sơ lỡ đi đường cũ vẫn được `coPhieuGiaoHangPhongBan`
+                  *      nhận ra. Không hồ sơ nào đang chạy bị kẹt vì lần bỏ ô này.
+                  *
+                  * 📌 KHÔNG XOÁ `BUOC_DINH_KEM_PHIEU_GIAO_HANG` / `NHAN_TEP_PHIEU_GIAO_HANG` /
+                  * `tepPhieuGiaoHangPhongBan` / `coPhieuGiaoHangPhongBan` trong
+                  * `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`: `vuongMacHoanThanhQuyTrinh` và
+                  * `xacDinhGiaiDoan` vẫn gọi, và chúng còn là đường đọc dữ liệu cũ (đường ③). Xem
+                  * khối chú thích tại chỗ khai báo.
+                  */
                 khuDinhKem: (
-                  <div className="flex flex-col gap-(--hp-md-card-gap)">
-                    {/**
-                     * ★★ Ô "PHIẾU GIAO HÀNG" CỦA NHÁNH HỒ SƠ PHÒNG BAN — Sếp 15/09/2026:
-                     * *"nhân viên thu mua tự hoàn thành, nhưng phải đính kèm phiếu giao hàng"*.
-                     *
-                     * 🔴 PHẢI CÓ Ô CÓ TÊN, KHÔNG BẮT NGƯỜI DÙNG GÕ TAY GHI CHÚ. Luật ở hai cửa
-                     * (`xacDinhGiaiDoan` để qua bước ⑦, và `vuongMacHoanThanhQuyTrinh` để đóng hồ
-                     * sơ) đều nhận diện tệp **theo nhãn "Phiếu giao hàng"**. Không có ô riêng thì
-                     * người dùng phải đính vào khu chung rồi tự gõ đúng chữ đó — gõ sai một chữ là
-                     * hồ sơ kẹt mà không hiểu vì sao. `OChungTuBatBuoc` tự gắn nhãn, nên không còn
-                     * chỗ cho lỗi đánh máy.
-                     *
-                     * 🔴 CHỈ HIỆN VỚI HỒ SƠ PHÒNG BAN. Hồ sơ công trình lấy bằng chứng giao nhận
-                     * từ phiếu nhận của app kho (từng phiếu một, `vuongMacXacNhanKho`); bày thêm ô
-                     * này ở đó là mời người ta đính một tờ rồi tưởng đã đủ chứng từ cho mọi lần giao.
-                     */}
-                    {laHoSoPhongBan(dn) && (
-                      <OChungTuBatBuoc
-                        deNghi={dn}
-                        maGiaiDoan={BUOC_DINH_KEM_PHIEU_GIAO_HANG}
-                        nhanO={NHAN_TEP_PHIEU_GIAO_HANG}
-                        tieuDe={NHAN_TEP_PHIEU_GIAO_HANG}
-                        moTa={LY_DO_NHANH_PHONG_BAN}
-                        batBuoc
-                        duocSua={duocSuaTepBuoc}
-                        khoa={hoSoDaDong}
-                        /* Cùng một hàm mà hai cửa luật dùng để nhận diện tệp — để ô hiển thị và
-                           luật không bao giờ đếm khác nhau. */
-                        tepDaCo={tepPhieuGiaoHangPhongBan(dn)}
-                      />
-                    )}
-                    <KhuDinhKemGiaiDoan
-                      deNghi={dn}
-                      maGiaiDoan="nhan_hang"
-                      duocSua={duocSuaTepBuoc}
-                      khoa={hoSoDaDong}
-                    />
-                  </div>
+                  <KhuDinhKemGiaiDoan
+                    deNghi={dn}
+                    maGiaiDoan="nhan_hang"
+                    duocSua={duocSuaTepBuoc}
+                    khoa={hoSoDaDong}
+                  />
                 ),
               },
 
@@ -3088,9 +3244,16 @@ export default function TrangChiTietDeNghi({
                       */}
                     {quyen.xacNhanTruongBP && !hoSoDaDong && (
                       <div className="flex flex-col gap-2 border-t border-divider pt-3">
-                        {vuongMacHoanThanhQuyTrinh(dn, tienDoDong) !== null ? (
+                        {/* 🔴 PHẢI TRUYỀN `deNghi` (tham số thứ 3) — Sếp 15/09/2026 chốt: phiếu gốc
+                            KHÔNG đóng được khi còn bản nhân bản chưa xong. Thiếu tham số thì hàm cư
+                            xử y như trước (cố ý, để nơi gọi cũ không vỡ), nghĩa là nút vẫn SÁNG và
+                            người dùng chỉ biết bị chặn sau khi đã bấm.
+                            📌 Không lọt được — tầng ghi hỏi lại đúng hàm này với đủ tham số. Nhưng
+                            khoá nút kèm lý do ngay tại chỗ mới là cách nói thật với người dùng. */}
+                        {vuongMacHoanThanhQuyTrinh(dn, tienDoDong, deNghi) !== null ? (
                           <p className="text-xs text-warning-soft">
-                            Chưa hoàn thành được: {vuongMacHoanThanhQuyTrinh(dn, tienDoDong)}
+                            Chưa hoàn thành được:{" "}
+                            {vuongMacHoanThanhQuyTrinh(dn, tienDoDong, deNghi)}
                           </p>
                         ) : (
                           <p className="text-xs text-text-desc">
@@ -3101,7 +3264,7 @@ export default function TrangChiTietDeNghi({
                         <Button
                           size="sm"
                           className="w-fit"
-                          disabled={vuongMacHoanThanhQuyTrinh(dn, tienDoDong) !== null}
+                          disabled={vuongMacHoanThanhQuyTrinh(dn, tienDoDong, deNghi) !== null}
                           onClick={() => setHoiHoanThanh(true)}
                         >
                           <BadgeCheck className="size-4" aria-hidden />

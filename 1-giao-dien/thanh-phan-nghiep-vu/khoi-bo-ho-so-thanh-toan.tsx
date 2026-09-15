@@ -1,16 +1,22 @@
 "use client";
 
 // ============================================================
-// KHỐI "KẾT QUẢ" CỦA BƯỚC ⑦ — BỘ HỒ SƠ THANH TOÁN ĐẦY ĐỦ, BẢY MỤC
+// KHỐI "KẾT QUẢ" CỦA BƯỚC ⑧ — BỘ HỒ SƠ THANH TOÁN ĐẦY ĐỦ, TÁM MỤC
 //
 // ★★ Ban lãnh đạo 26/08/2026: *"Tạo thêm 1 trường 'Kết quả'. Sẽ được link kết quả từ các bước
 //    trên"*, kèm mục đích *"để sau này có thể lấy dữ liệu này đẩy qua app kế toán"*.
+//
+// ★★ Sếp 15/09/2026: *"Bố cục và kiểm tra nếu chưa có thì thêm các trường thông tin sau"* — đã sắp
+//    lại thứ tự (Hợp đồng trước Đơn mua hàng), tách Hoá đơn VAT / Uỷ nhiệm chi thành hai mục, nhóm
+//    Phiếu giao hàng theo từng lần giao, và biến mục 1 thành liên kết bấm được sang App Request.
+//    🔴 Mục 9 *Đính kèm khác* CHƯA dựng — bước ⑧ không có ô đính tệp tự do; lý do đầy đủ ở khối
+//    chú thích đầu `2-quy-trinh/bo-ho-so-thanh-toan.ts`. Đừng thêm ô đính kèm ở đây để "cho đủ".
 //
 // 🔴 CHỈ BÀY, KHÔNG CHO ĐÍNH KÈM Ở ĐÂY. Mỗi mục trỏ tới chứng từ đã đính ở bước của nó. Cho đính
 //    lại tại đây là cùng một chứng từ có hai bản trong hồ sơ, và khi hai bản khác nhau thì không
 //    ai biết bản nào đúng.
 //
-// 🔴 DANH SÁCH BẢY MỤC VÀ ĐIỀU KIỆN ĐỦ/THIẾU NẰM Ở `2-quy-trinh/bo-ho-so-thanh-toan.ts`, không
+// 🔴 DANH SÁCH MỤC VÀ ĐIỀU KIỆN ĐỦ/THIẾU NẰM Ở `2-quy-trinh/bo-ho-so-thanh-toan.ts`, không
 //    viết lại ở đây. Cửa API đẩy sang app Kế toán sau này gọi CÙNG hàm đó, nên màn hình và dữ
 //    liệu đẩy đi không thể lệch nhau.
 // ============================================================
@@ -52,8 +58,8 @@ export function KhoiBoHoSoThanhToan({
    * ★ THU GỌN ĐƯỢC — Ban lãnh đạo 27/08/2026: *"Mục này thêm nút group lại cho a"*.
    *
    * 🔴 MẶC ĐỊNH MỞ KHI CÒN THIẾU, THU LẠI KHI ĐÃ ĐỦ. Đây là điểm chính, không phải chi tiết
-   * trang trí: khối này dài 7 mục, và người dùng chỉ cần đọc nó khi CÒN THIẾU chứng từ. Hồ sơ
-   * đã đủ thì bảy dòng dấu tích chỉ đẩy nút "Hoàn thành quy trình" xuống khỏi tầm mắt.
+   * trang trí: khối này dài tám mục, và người dùng chỉ cần đọc nó khi CÒN THIẾU chứng từ. Hồ sơ
+   * đã đủ thì tám dòng dấu tích chỉ đẩy nút "Hoàn thành quy trình" xuống khỏi tầm mắt.
    *
    * ⚠️ ĐỪNG mặc định thu gọn cả khi còn thiếu: người lập mở trang ra phải thấy ngay mình thiếu
    * gì, chứ không phải bấm thêm một cái mới biết.
@@ -89,7 +95,10 @@ export function KhoiBoHoSoThanhToan({
           ) : (
             <ChevronDown className="size-4" aria-hidden />
           )}
-          {moRong ? "Thu gọn" : `Xem ${tomTat.tong} mục`}
+          {/* 🔴 `muc.length` (TỔNG số mục) chứ KHÔNG phải `tomTat.tong` (số mục BẮT BUỘC = 4).
+              Trước 15/09/2026 chỗ này in `tomTat.tong` nên nút ghi "Xem 4 mục" trong khi bấm ra
+              bảy dòng. Cả hai đều là số động, nhưng chúng trả lời hai câu hỏi khác nhau. */}
+          {moRong ? "Thu gọn" : `Xem ${muc.length} mục`}
         </button>
       </div>
       {moRong && (
@@ -138,6 +147,31 @@ export function KhoiBoHoSoThanhToan({
                 )}
               </div>
 
+              {/**
+                * ★★ LIÊN KẾT SANG APP KHÁC — mục 1 "Phiếu đề nghị", Sếp 15/09/2026.
+                *
+                * 🔴 DÙNG `<a>` THƯỜNG, KHÔNG `next/link`: đây là địa chỉ đầy đủ sang App Request,
+                * không phải một tuyến trong app này. `rel="noopener noreferrer"` vì mở tab mới.
+                *
+                * 🔴 VẼ TRƯỚC câu ghi chú bên dưới — câu đó nói *"bấm liên kết trên"*, đảo chỗ là
+                * câu chỉ sai hướng.
+                *
+                * 📌 Tầng dữ liệu đã bỏ trống trường này khi không tra ra đúng hồ sơ, nên ở đây
+                * không thể vẽ ra một nút chết. Đừng thêm nhánh dự phòng tự ghép địa chỉ.
+                */}
+              {(m.lienKetNgoai ?? []).map((l) => (
+                <a
+                  key={l.url}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline md:min-h-9"
+                >
+                  <ExternalLink className="size-4 shrink-0" aria-hidden />
+                  {l.nhan}
+                </a>
+              ))}
+
               {/* Tệp của mục — chỉ XEM và TẢI, không gỡ được từ đây (sửa ở bước của nó). */}
               {m.tep.map((t) => (
                 <LienKetTep key={t.id} tep={t} />
@@ -145,7 +179,9 @@ export function KhoiBoHoSoThanhToan({
 
               {/**
                 * ★★ NHÓM BÊN TRONG MỤC — Ban lãnh đạo 26/08/2026: *"Tạo group lại nhé"*.
-                * Mục 2 (bản được chọn / bảng so sánh) và mục 6 (hóa đơn / ủy nhiệm chi) dùng nhóm.
+                * Mục 2 (bản được chọn / bảng so sánh) và — từ 15/09/2026 — mục 5 (Phiếu giao hàng,
+                * mỗi lần giao một nhóm) dùng nhóm. Mục Hoá đơn / UNC nay đã tách hẳn thành hai mục
+                * riêng nên không còn dùng nhóm.
                 *
                 * 📌 Nhóm RỖNG vẫn hiện tên kèm câu "chưa có" — người đọc phải thấy là *đã kiểm và
                 * chưa có*, khác hẳn với *không biết có hay không*. Ẩn nhóm rỗng đi là bộ hồ sơ

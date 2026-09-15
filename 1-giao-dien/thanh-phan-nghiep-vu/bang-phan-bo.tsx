@@ -50,6 +50,13 @@ import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 /* Chốt "chưa checkin tồn kho thì chưa được giao việc" — Ban lãnh đạo 12/09/2026. Cùng luật với
    tầng ghi `phanBoDong`; ở đây chỉ để khóa nút sớm và nhắc lý do. */
 import { vuongMacGiaoViec } from "@/2-quy-trinh/giai-doan-mua-hang";
+/* ★ DÒNG NÀO ĐÃ ĐƯỢC NHÂN BẢN ĐI — Sếp 15/09/2026. Luật thuần ở `2-quy-trinh/nhan-ban-de-nghi.ts`,
+   MỘT CHỖ DUY NHẤT: đừng so `sttDongGoc` tay trong file giao diện này. */
+import {
+  dongDaChuyenDiHet,
+  dongDaNhanBanSang,
+  ghiChuDaNhanBan,
+} from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { nhanAnToan, NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -149,8 +156,18 @@ export function BangPhanBo({
    */
   hoSoDaDong?: boolean;
 }) {
-  const { donHang, phieuNhan, phanBoDong, boPhanBoDong, chuyenViecDong, suaMatHangDeNghi, cauHinh } =
-    useDuLieu();
+  const {
+    /* ⚠️ Đổi tên ngay lúc lấy ra: tham số của component cũng tên `deNghi` (MỘT phiếu), còn đây là
+       CẢ KHO đề nghị. Để trùng tên là che mất tham số — lỗi im lặng, bảng đọc nhầm phiếu. */
+    deNghi: dsDeNghi,
+    donHang,
+    phieuNhan,
+    phanBoDong,
+    boPhanBoDong,
+    chuyenViecDong,
+    suaMatHangDeNghi,
+    cauHinh,
+  } = useDuLieu();
   /**
    * Dòng vật tư MỚI đang gõ ở cuối bảng — `null` là chưa bấm nút thêm.
    *
@@ -280,6 +297,24 @@ export function BangPhanBo({
   }, [deNghi, donHang, phieuNhan, nguoiDung.uid, quyen]);
 
   const biLoc = coLocTheoPhanViec(deNghi, nguoiDung.uid, quyen);
+
+  /**
+   * ★★ DÒNG NÀO CỦA PHIẾU NÀY ĐÃ ĐƯỢC NHÂN BẢN SANG PHIẾU KHÁC — Sếp 15/09/2026.
+   *
+   * Nguyên văn: *"khi bấm nhân bản và chọn các mặt hàng để nhân bản xong thì ở đề xuất chính sẽ
+   * làm mờ các mặt hàng đã nhân bản đi. Và phải có điều kiện hoặc ghi chú nào đó để biết rằng đề
+   * nghị đó đã được nhân bản để ko bị quên"*.
+   *
+   * Hỏi lại và Sếp chốt: phiếu gốc **không cần mua** phần đã nhân bản — *"Không cần mua (nhưng hãy
+   * làm mờ đi để vẫn xem được nhưng khi in ra sẽ ko thấy)"*.
+   *
+   * 📌 SUY RA TỪ CÁC BẢN CON, không đọc cờ lưu trên dòng — bản con bị xoá thì dấu mờ tự mất theo,
+   * không bao giờ còn "dấu mờ ma". Lý do đầy đủ ở `2-quy-trinh/nhan-ban-de-nghi.ts`.
+   *
+   * ⚠️ Phụ thuộc CẢ KHO `dsDeNghi`: người khác trong phòng nhân bản phiếu này thì bảng phải mờ
+   * theo ngay, không chờ mở lại trang.
+   */
+  const daNhanBan = useMemo(() => dongDaNhanBanSang(deNghi, dsDeNghi), [deNghi, dsDeNghi]);
 
   const soChuaPhanBo = tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo").length;
   const soDaPhanChuaLenPO = tienDo.filter((d) => d.trangThaiDong === "da_phan_bo").length;
@@ -606,8 +641,32 @@ export function BangPhanBo({
               {tienDo.map((d) => {
                 const tt = nhanAnToan(NHAN_TRANG_THAI_DONG, d.trangThaiDong);
                 const daPhan = Boolean(d.nguoiPhuTrachUid);
+                /* ★ Dòng đã nhân bản đi — Sếp 15/09/2026. Mã các phiếu đã nhận dòng này dùng cho
+                   câu ghi chú ngay dưới tên vật liệu. */
+                const maDaNhanBan = daNhanBan.get(d.stt) ?? [];
+                const daChuyenDi = dongDaChuyenDiHet(d.stt, daNhanBan);
                 return (
-                  <TableRow key={d.stt} className={d.trangThaiDong === "chua_phan_bo" ? "bg-danger-bg/40" : undefined}>
+                  <TableRow
+                    key={d.stt}
+                    /**
+                     * 🔴 `print:hidden` — Sếp 15/09/2026: *"làm mờ đi để vẫn xem được nhưng khi in
+                     * ra sẽ ko thấy"*. App KHÔNG có màn in riêng cho đề nghị, người dùng in bằng
+                     * trình duyệt ngay từ màn này, nên phải ẩn ở mức CSS in chứ không có chỗ nào
+                     * khác lọc hộ.
+                     *
+                     * ⚠️ Nền đỏ "chưa phân bổ" GIỮ NGUYÊN kể cả khi dòng đã nhân bản đi: con số
+                     * "N công việc chưa phân bổ" ở đầu bảng vẫn đang đếm cả dòng này (phép đếm
+                     * nằm ở `tinh-toan.ts`, ngoài phạm vi sửa hôm nay). Tô một đằng đếm một nẻo
+                     * mới là thứ gây nhầm — chữ ghi chú dưới tên vật liệu đã nói rõ dòng này đi
+                     * đâu rồi.
+                     */
+                    className={[
+                      d.trangThaiDong === "chua_phan_bo" ? "bg-danger-bg/40" : "",
+                      daChuyenDi ? "print:hidden" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
                     {hienCongCuPhanBo && (
                       <TableCell>
                         <Checkbox
@@ -648,10 +707,40 @@ export function BangPhanBo({
                             nằm bên trái** (*"a đã nói e đưa về phía trái rồi mà"*).
                             Giữ nguyên nguyên tắc gom một cột: mắt chạy dọc một đường thẳng để
                             tìm nút, thay vì mỗi hàng lại tìm ở giữa chữ. */}
+                        {/**
+                         * 🔴 CHỈ LÀM MỜ PHẦN TÊN VẬT LIỆU, KHÔNG mờ cả `<TableRow>`.
+                         *
+                         * Mờ nguyên hàng là mờ luôn viền và nền sọc — bảng trông như bị hỏng, và
+                         * ghi chú giải thích (thứ QUAN TRỌNG NHẤT của dòng này) cũng mờ theo, tức
+                         * là giấu đúng cái cần đọc.
+                         *
+                         * ⚠️ Độ mờ chỉ là dấu hiệu PHỤ. Trong app này `opacity` đã mang sẵn ba
+                         * nghĩa khác (không được chọn · không đủ điều kiện · đã xong), nên nghĩa
+                         * thứ tư mà không kèm chữ là chắc chắn gây nhầm. Design System V1.1:
+                         * *"trạng thái phải có cả màu và chữ"* → câu ghi chú ngay dưới mới là
+                         * thứ nói nghĩa, làm mờ chỉ để mắt lướt qua nhanh.
+                         */}
                         <span className="flex items-baseline gap-1.5">
-                          <span className="min-w-0">{d.tenVatLieu}</span>
+                          <span className={`min-w-0 ${daChuyenDi ? "opacity-55" : ""}`}>
+                            {d.tenVatLieu}
+                          </span>
                         </span>
-                        {d.quyCach && <span className="text-xs text-text-desc">{d.quyCach}</span>}
+                        {d.quyCach && (
+                          <span className={`text-xs text-text-desc ${daChuyenDi ? "opacity-55" : ""}`}>
+                            {d.quyCach}
+                          </span>
+                        )}
+                        {/* ★ GHI CHÚ "ĐÃ NHÂN BẢN SANG…" — Sếp 15/09/2026: *"phải có điều kiện hoặc
+                            ghi chú nào đó để biết rằng đề nghị đó đã được nhân bản để ko bị quên"*.
+                            Sếp chọn cách LIỆT KÊ ĐỦ mọi mã phiếu đích (không rút gọn thành "2 bản")
+                            — câu chữ dựng ở `ghiChuDaNhanBan`, đừng ghép chuỗi tại đây.
+                            📌 Khuôn badge bám đúng badge "Vật tư kiểm soát định mức" ngay dưới:
+                            11px là bậc nhỏ nhất còn được dùng cho nhãn trong dự án. */}
+                        {daChuyenDi && (
+                          <span className="mt-0.5 w-fit rounded bg-primary-bg px-1.5 py-0.5 text-[11px] font-semibold text-primary-soft">
+                            {ghiChuDaNhanBan(maDaNhanBan)} · phiếu này không cần mua
+                          </span>
+                        )}
                         {/* Mục đích sử dụng do người đề nghị ghi trên phiếu — hiện ngay
                             dưới tên vật liệu để người lập đơn biết mua cho hạng mục nào,
                             khỏi phải mở lại phiếu gốc. */}
@@ -855,16 +944,41 @@ export function BangPhanBo({
         <div className="flex flex-col gap-(--hp-md-row-gap) md:hidden">
           {tienDo.map((d) => {
             const tt = nhanAnToan(NHAN_TRANG_THAI_DONG, d.trangThaiDong);
+            /* ★ Cùng luật với bảng Desktop ở trên — Sếp 15/09/2026. 🔴 PHẢI SỬA CẢ HAI BẢN: sửa
+               một bên là máy tính và điện thoại nói hai chuyện khác nhau về cùng một dòng. */
+            const maDaNhanBan = daNhanBan.get(d.stt) ?? [];
+            const daChuyenDi = dongDaChuyenDiHet(d.stt, daNhanBan);
             return (
-              <div key={d.stt} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
+              <div
+                key={d.stt}
+                /* `print:hidden` — giống hàng bảng Desktop: Sếp chốt *"khi in ra sẽ ko thấy"*. */
+                className={`flex flex-col gap-2 rounded-xl border border-border bg-card p-4 ${
+                  daChuyenDi ? "print:hidden" : ""
+                }`}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex min-w-0 flex-col">
-                    <span className="text-sm font-semibold text-text-primary">
+                    <span
+                      className={`text-sm font-semibold text-text-primary ${
+                        daChuyenDi ? "opacity-55" : ""
+                      }`}
+                    >
                       {d.stt}. {d.tenVatLieu}
                     </span>
-                    {d.quyCach && <span className="text-xs text-text-desc">{d.quyCach}</span>}
+                    {d.quyCach && (
+                      <span className={`text-xs text-text-desc ${daChuyenDi ? "opacity-55" : ""}`}>
+                        {d.quyCach}
+                      </span>
+                    )}
                     {d.mucDichSuDung && (
                       <span className="text-xs text-text-desc">Dùng cho: {d.mucDichSuDung}</span>
+                    )}
+                    {/* Ghi chú GIỮ SÁNG NGUYÊN — đây là thứ phải đọc được, xem chú thích dài ở
+                        bảng Desktop. */}
+                    {daChuyenDi && (
+                      <span className="mt-1 w-fit rounded bg-primary-bg px-1.5 py-0.5 text-[11px] font-semibold text-primary-soft">
+                        {ghiChuDaNhanBan(maDaNhanBan)} · phiếu này không cần mua
+                      </span>
                     )}
                   </div>
                   <StatusBadge label={tt.nhan} tone={tt.tong} />

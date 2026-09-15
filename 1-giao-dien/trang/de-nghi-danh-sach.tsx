@@ -400,6 +400,21 @@ export default function TrangDanhSachDeNghi() {
        * ngày nào một trong hai bị nới thì bảng lùi bước vẫn đúng mà không phải sửa dòng này.
        */
       { phanBoCongViec: quyen.phanBoCongViec, xacNhanTruongBP: quyen.xacNhanTruongBP },
+      /**
+       * ★★ TOÀN BỘ ĐỀ NGHỊ — để luật trừ đi những dòng đã nhân bản sang phiếu khác (Sếp
+       * 15/09/2026: ***"Không tính là chưa phân bổ, vì người nhân bản sẽ là người thực hiện"***).
+       *
+       * 🔴 KHÔNG TRUYỀN THÌ LUẬT MỚI KHÔNG CÓ HIỆU LỰC TRÊN ĐƯỜNG KÉO THẢ. Tham số khai `?` ở
+       * tầng luật nên thiếu nó TypeScript không báo gì, mà hậu quả thì thấy ngay: phiếu gốc đã
+       * nhân bản đi hết các dòng chưa ai phụ trách vẫn bị chặn ở bước ① với câu *"còn N dòng chưa
+       * phân bổ"* — đúng những dòng Sếp nói là không cần mua nữa.
+       *
+       * 🔴 TRUYỀN `deNghi` NGUYÊN BẢN TỪ `useDuLieu()`, TUYỆT ĐỐI KHÔNG TRUYỀN BẢN ĐÃ LỌC. Ở tệp
+       * này có sẵn `cot` / `moiThe` — chúng đã bỏ hồ sơ `luuTru` (xem `dungBangQuyTrinh`) và còn
+       * qua bộ lọc của người dùng. Bản con bị lưu trữ hoặc bị lọc khỏi bảng mà đem ra đếm thì app
+       * không thấy nó nữa, dòng gốc lại đòi phân bổ trở lại — sai âm thầm, không lỗi nào báo.
+       */
+      deNghi,
     );
     if (!hanhDong) {
       // Xem nhanh mà luật không dựng nổi hành động nào (bước cuối chuỗi) → mở trang đầy đủ.
@@ -1033,17 +1048,55 @@ export default function TrangDanhSachDeNghi() {
                 (dn) => duocNhanBanDeNghi(dn, nguoiDung.uid, quyen),
               );
               if (!id) {
-                // Nói thật khi không tạo được, đừng im lặng để người dùng tưởng đã xong.
+                /**
+                 * 🔴 CÂU BÁO LỖI CŨ ĐÃ SAI, SỬA 15/09/2026. Bản cũ ghi *"Đã hết mã dự phòng cho
+                 * bản chạy thử (tối đa 12 đề nghị)"* — giới hạn 12 mã **đã bỏ từ 22/08/2026**
+                 * (id hồ sơ nay sinh động, xem `6-tien-ich/sinh-id-ho-so.ts`), và chính
+                 * `nhanBanDeNghi` cũng không còn nhánh nào từ chối vì hết mã.
+                 *
+                 * ⚠️ Báo sai nguyên nhân còn tệ hơn báo chung chung: người dùng đọc xong đi tìm
+                 * cách "xin thêm mã" trong khi lý do thật thường là **bị chặn quyền**.
+                 *
+                 * `nhanBanDeNghi` trả chuỗi rỗng ở đúng ba ca: không tìm thấy phiếu · `duocPhep`
+                 * từ chối · không giữ lại dòng nào. Ca thứ hai hỏi lại được ngay tại đây bằng
+                 * chính hàm quyền đã truyền vào, nên nói được đúng lý do thay vì đoán.
+                 */
+                const khongCoQuyen = Boolean(
+                  goc && !duocNhanBanDeNghi(goc, nguoiDung.uid, quyen),
+                );
                 toast.error("Không nhân bản được", {
-                  description: "Đã hết mã dự phòng cho bản chạy thử (tối đa 12 đề nghị).",
+                  description: khongCoQuyen
+                    ? "Bạn chỉ nhân bản được đề nghị mình đang phụ trách. Nhờ trưởng bộ phận nhân bản, hoặc giao phần việc này cho bạn trước."
+                    : "Hồ sơ vừa thay đổi ở máy khác, hoặc không còn mặt hàng nào được giữ lại. Mở lại phiếu rồi thử lại.",
                 });
                 return;
               }
               const tach = goc && sttGiuLai.length < goc.items.length;
+              /**
+               * 🔴 CÂU NÀY TỪNG NÓI NGƯỢC VỚI CODE, SỬA 15/09/2026. Bản cũ báo *"chưa phân bổ cho
+               * ai — giao việc trước khi đi tiếp"*, trong khi `nhanBanDeNghi` **CÓ gán người bấm
+               * làm người phụ trách** (Ban lãnh đạo 15/08/2026: *"nhân viên nào nhân bản thì sẽ do
+               * người đó thực hiện"*) — nhưng chỉ cho những dòng ở phiếu gốc **đã có người**
+               * (chốt 16/08/2026). Đếm ngay tại đây để nói đúng cả hai vế thay vì nói chung.
+               */
+              const soDaCoNguoi = goc
+                ? goc.items.filter(
+                    (d) => sttGiuLai.includes(d.stt) && Boolean(d.nguoiPhuTrachUid),
+                  ).length
+                : 0;
+              const soChuaAi = sttGiuLai.length - soDaCoNguoi;
               toast.success("Đã nhân bản", {
-                description: tach
-                  ? `Bản mới giữ ${sttGiuLai.length}/${goc.items.length} mặt hàng, chưa phân bổ cho ai — giao việc trước khi đi tiếp.`
-                  : "Bản sao chưa phân bổ cho ai — phân bổ lại trước khi đi tiếp.",
+                description: [
+                  tach
+                    ? `Bản mới giữ ${sttGiuLai.length}/${goc.items.length} mặt hàng.`
+                    : "Bản sao giữ đủ mặt hàng của phiếu gốc.",
+                  soDaCoNguoi > 0 ? `Bạn phụ trách ${soDaCoNguoi} dòng.` : "",
+                  soChuaAi > 0
+                    ? `Còn ${soChuaAi} dòng chưa giao ai — cần phân bổ trước khi đi tiếp.`
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" "),
                 action: { label: "Mở bản copy", onClick: () => router.push(`/de-nghi/${id}`) },
               });
             }}
@@ -1213,6 +1266,12 @@ export default function TrangDanhSachDeNghi() {
               baoGia.filter((b) => b.prId === xacNhan.prId && b.trangThai !== "huy"),
               { ...cauHinh, congViecTheoBuoc: {} },
               vuongMacTrinhXetDuyet(dn, cauHinh),
+              /* ★★ Toàn bộ đề nghị — trừ dòng đã nhân bản đi khỏi điều kiện "chưa phân bổ" (Sếp
+                 15/09/2026). PHẢI khớp với `quyetDinhKeoTha` ở `xuLyTha`: hộp này liệt kê điều
+                 kiện, còn hàm kia quyết cho đi hay không. Truyền cho một bên mà quên bên kia là
+                 hộp kêu thiếu điều kiện trong khi nút vẫn mở (hoặc ngược lại) — người dùng không
+                 biết tin cái nào. Dùng `deNghi` gốc, không dùng bản đã lọc lưu trữ. */
+              deNghi,
             );
           })()}
           /* Đọc từ dữ liệu THẬT nên tích xong là ô đổi màu và nút mở khóa ngay, không phải

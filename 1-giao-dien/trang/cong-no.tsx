@@ -355,25 +355,74 @@ export default function TrangCongNo() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          {/**
+            * 🔴 VÌ SAO PHẢI `table-fixed` + BỀ RỘNG THEO PHẦN TRĂM (Ban lãnh đạo 15/09/2026:
+            * *"bố cục lại giao diện này cho cân đối"*, khoanh đỏ một VÙNG TRỐNG lớn nằm giữa
+            * cột "Tên NCC" và cột "Tổng công nợ").
+            *
+            * 📌 VÙNG TRỐNG ĐÓ KHÔNG PHẢI MỘT CỘT. Bảng khai đúng 9 `TableHead` và mỗi dòng đúng
+            * 9 `TableCell`, `colSpan={9}` cũng khớp — không có cột ma, không lệch colSpan.
+            *
+            * Nguyên nhân thật là CÁCH CHIA BỀ RỘNG của bảng `auto layout`:
+            * `TableCell` trong `nen-tang-ui/table.tsx` có `whitespace-nowrap`, nên tên nhà cung
+            * cấp dài ("CÔNG TY CỔ PHẦN THƯƠNG MẠI VÀ XÂY DỰNG NAM HƯNG") KHÔNG xuống dòng được
+            * → cột đó có bề rộng nội tại lớn nhất bảng. Trình duyệt chia phần dư của `w-full`
+            * theo tỷ lệ bề rộng nội tại, nên cột NCC nuốt gần hết chỗ thừa; chữ căn trái nên
+            * chỗ thừa hiện ra thành một dải trắng bên PHẢI tên NCC — đúng chỗ Sếp khoanh.
+            *
+            * ✅ `table-fixed` + 9 bề rộng phần trăm (tổng đúng 100) làm chỗ thừa được chia ĐỀU
+            * theo tỷ lệ cho cả 9 cột thay vì dồn vào một cột. `min-w-[78rem]` giữ sàn bề rộng để
+            * ô ngày và nhãn cảnh báo không bị bóp; hẹp hơn thì bảng cuộn ngang trong khung riêng.
+            *
+            * ⚠️ `table-fixed` CHỈ ĐỌC BỀ RỘNG Ở HÀNG ĐẦU TIÊN — tức các `TableHead` dưới đây.
+            * Đặt `w-…` ở `TableCell` của thân bảng là vô nghĩa (đã gỡ các `w-28` / `w-40` / `w-16`
+            * cũ để không ai tưởng chúng còn tác dụng).
+            *
+            * ⚠️ `table-fixed` cũng khiến chữ `nowrap` quá dài TRÀN sang ô bên cạnh thay vì nong
+            * cột ra. Vì vậy hai cột chữ tự do (Tên đơn hàng · Tên NCC) bắt buộc phải `truncate`
+            * kèm `title` để vẫn đọc được đầy đủ khi rê chuột.
+            *
+            * 📌 `thanh-keo-ngang-ro`: thanh cuộn ngang luôn hiện (Ban lãnh đạo 22/08/2026).
+            * `Table` tự bọc sẵn một khung `overflow-x-auto` bên trong, nên phải tắt khung đó
+            * (`overflow-visible`) thì div này mới là khung cuộn thật và mới ăn lớp thanh cuộn.
+            */}
+          <div className="thanh-keo-ngang-ro overflow-x-auto [&>[data-slot=table-container]]:overflow-visible">
+            <Table className="min-w-[78rem] table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-14 text-center">STT</TableHead>
-                  <TableHead>Tên đơn hàng (PO)</TableHead>
-                  <TableHead>Tên NCC</TableHead>
-                  <TableHead className="text-right">Tổng công nợ</TableHead>
-                  <TableHead className="text-center">Thời gian C.Nợ</TableHead>
-                  <TableHead className="text-center">Ngày bắt đầu tính</TableHead>
-                  <TableHead className="text-center">Ngày tới hạn</TableHead>
-                  <TableHead className="text-center">Cảnh báo tới hạn</TableHead>
-                  <TableHead className="text-center">Lịch sử</TableHead>
+                  <TableHead className="w-[4%] px-1 text-center">STT</TableHead>
+                  <TableHead className="w-[15%]">Tên đơn hàng (PO)</TableHead>
+                  <TableHead className="w-[18%]">Tên NCC</TableHead>
+                  {/* Cột tiền rộng hơn một nhịp: số tiền đơn hàng có thể lên hàng tỷ
+                      ("1.234.567.890 đ" ≈ 115px), hụt chỗ là số bị cắt hoặc tràn cột. */}
+                  <TableHead className="w-[12%] text-right">Tổng công nợ</TableHead>
+                  {/* ⚠️ Bốn tiêu đề giữa dài hơn bề rộng cột đã khai. Lớp gốc của `TableHead` là
+                      `whitespace-nowrap`, mà `table-fixed` KHÔNG nong cột ra cho vừa chữ nữa —
+                      nên phải cho tiêu đề xuống dòng, bằng không nó tràn đè sang cột bên cạnh. */}
+                  <TableHead className="w-[10%] text-center leading-tight whitespace-normal">
+                    Thời gian C.Nợ
+                  </TableHead>
+                  <TableHead className="w-[13%] text-center leading-tight whitespace-normal">
+                    Ngày bắt đầu tính
+                  </TableHead>
+                  <TableHead className="w-[11%] text-center leading-tight whitespace-normal">
+                    Ngày tới hạn
+                  </TableHead>
+                  <TableHead className="w-[12%] text-center leading-tight whitespace-normal">
+                    Cảnh báo tới hạn
+                  </TableHead>
+                  <TableHead className="w-[5%] px-1 text-center">Lịch sử</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {theoDon.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center text-sm text-text-desc">
+                    {/* `whitespace-normal`: bảng đã `table-fixed`, câu giải thích dài mà giữ
+                        `nowrap` (lớp gốc của TableCell) thì nó tràn ra ngoài khung cuộn. */}
+                    <TableCell
+                      colSpan={9}
+                      className="py-6 text-center text-sm whitespace-normal text-text-desc"
+                    >
                       {/* 🔴 NÓI ĐÚNG LÝ DO BẢNG RỖNG. Đang lọc mà vẫn in "chưa phát sinh công nợ"
                           là app nói sai: người dùng tưởng mất dữ liệu trong khi chỉ là ô tìm kiếm
                           còn chữ. */}
@@ -385,29 +434,44 @@ export default function TrangCongNo() {
                 ) : (
                   theoDon.map((r, i) => (
                     <TableRow key={r.poId}>
-                      <TableCell className="text-center tabular-nums text-text-desc">
+                      <TableCell className="px-1 text-center tabular-nums text-text-desc">
                         {i + 1}
                       </TableCell>
                       <TableCell>
                         {/* Mã đơn bấm được sang chính đơn đó — dùng lại lối đi đã có ở bảng hóa
-                            đơn bên dưới, đừng bày một mã chết rồi bắt người dùng tự đi tìm. */}
+                            đơn bên dưới, đừng bày một mã chết rồi bắt người dùng tự đi tìm.
+                            🔴 `block truncate` + `title`: bảng đã `table-fixed` nên chữ dài không
+                            nong cột ra nữa mà TRÀN sang ô bên cạnh nếu không cắt. */}
                         <Link
                           href={`/don-hang/${r.poId}`}
-                          className="font-medium text-primary hover:underline"
+                          className="block truncate font-medium text-primary hover:underline"
+                          title={r.maDonHang}
                         >
                           {r.maDonHang}
                         </Link>
                         {r.tenCongTrinh && (
-                          <span className="block text-xs text-text-desc">{r.tenCongTrinh}</span>
+                          <span
+                            className="block truncate text-xs text-text-desc"
+                            title={r.tenCongTrinh}
+                          >
+                            {r.tenCongTrinh}
+                          </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-text-primary">{r.tenNCC}</TableCell>
-                      <TableCell className="text-right font-bold text-text-primary">
+                      <TableCell className="text-text-primary">
+                        <span className="block truncate" title={r.tenNCC}>
+                          {r.tenNCC}
+                        </span>
+                      </TableCell>
+                      {/* 🔴 CỘT TIỀN: căn PHẢI + `tabular-nums`. Không có `tabular-nums` thì chữ
+                          số rộng hẹp khác nhau, hàng nghìn của dòng trên lệch hàng nghìn của dòng
+                          dưới và người đọc so nhầm bậc số tiền. */}
+                      <TableCell className="text-right font-bold tabular-nums text-text-primary">
                         {formatCurrencyVnd(r.tongCongNo)}
                       </TableCell>
                       {/* ★★ SỬA ĐƯỢC TẠI CHỖ (Ban lãnh đạo 28/08/2026). Ô trống vẫn nói rõ là
                           trống — số 0 nghĩa "phải trả ngay", khác hẳn "chưa ai điền". */}
-                      <TableCell className="w-28 text-center tabular-nums">
+                      <TableCell className="text-center tabular-nums">
                         <OSoNgayDuocNo
                           giaTri={r.soNgayDuocNo}
                           suaDuoc={suaDuocDieuKhoan}
@@ -417,7 +481,7 @@ export default function TrangCongNo() {
                       {/* ★★ NGÀY BẮT ĐẦU: NHẬP TAY ĐÈ LÊN NGÀY NHẬN HÀNG LẦN CUỐI (Ban lãnh đạo
                           06/09/2026: *"ngày này được phép điều chỉnh"*). Ô hiện rõ ngày đến từ
                           đâu — xem `ONgayBatDau`. */}
-                      <TableCell className="w-40 text-center tabular-nums">
+                      <TableCell className="text-center tabular-nums">
                         <ONgayBatDau
                           giaTri={r.ngayBatDau}
                           nhapTay={r.batDauNhapTay}
@@ -428,17 +492,33 @@ export default function TrangCongNo() {
                       {/* ★★ NGÀY TỚI HẠN: CỐ ĐỊNH, LUÔN TỰ TÍNH = ngày bắt đầu + số ngày được nợ
                           (Ban lãnh đạo 06/09/2026: *"cố định ngày này và tự tính"*). Hiện TĨNH,
                           không cho sửa — sửa được là mở đường cho hạn lệch với điều khoản. */}
-                      <TableCell className="w-40 text-center font-medium tabular-nums text-text-primary">
+                      <TableCell className="text-center font-medium tabular-nums text-text-primary">
                         {r.ngayToiHan ? (
                           <div className="flex flex-col items-center gap-0.5">
                             <span>{formatDate(r.ngayToiHan)}</span>
                             <span className="text-xs text-text-desc">Tự tính</span>
                           </div>
                         ) : (
-                          <span className="font-normal text-text-desc">—</span>
+                          /* 🔴 Ô TRỐNG PHẢI NÓI VÌ SAO NÓ TRỐNG (CLAUDE.md 3.5 — không để giao
+                             diện bày một dấu "—" trơ rồi bắt người dùng đoán). Hạn = ngày bắt đầu
+                             + số ngày được nợ, thiếu vế nào thì nói thẳng vế đó, để người dùng
+                             biết phải điền vào ô nào ngay bên trái.
+                             📌 Chỉ ĐỌC hai trường đã có sẵn trên dòng để diễn giải — luật tính
+                             hạn vẫn nằm nguyên ở `2-quy-trinh/tuoi-no.ts`, đây không tính gì. */
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="font-normal text-text-desc">—</span>
+                            <span className="text-xs leading-tight whitespace-normal text-text-desc">
+                              {r.ngayBatDau === undefined
+                                ? "Thiếu ngày bắt đầu"
+                                : "Thiếu số ngày nợ"}
+                            </span>
+                          </div>
                         )}
                       </TableCell>
-                      <TableCell className="text-center">
+                      {/* Nhãn cảnh báo có thể dài ("Quá hạn 123 ngày"); bảng đã `table-fixed` nên
+                          cho nhãn xuống dòng trong ô thay vì tràn sang cột Lịch sử. Trạng thái
+                          vẫn đủ CẢ MÀU VÀ CHỮ theo Design System V1.1. */}
+                      <TableCell className="text-center whitespace-normal">
                         <StatusBadge label={r.canhBao.nhan} tone={r.canhBao.tong} />
                       </TableCell>
                       {/* ★★ Cột ⑨ — nhật ký sửa điều khoản (Ban lãnh đạo 28/08/2026: *"có ghi
@@ -447,7 +527,7 @@ export default function TrangCongNo() {
                           trang đã chặn sẵn bằng `quyen.xemCongNo` ngay đầu hàm, nên tới đây thì
                           người đọc vốn đã được phép thấy giá. Che thêm một lớp nữa chỉ làm kế
                           toán không tra được ai đổi điều khoản. */}
-                      <TableCell className="w-16 text-center">
+                      <TableCell className="px-1 text-center">
                         <NutLichSuCongNo
                           maDonHang={r.maDonHang}
                           lichSu={giaDonHang.find((g) => g.poId === r.poId)?.lichSuDieuKhoanCongNo}

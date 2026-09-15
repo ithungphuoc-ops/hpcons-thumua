@@ -33,6 +33,16 @@ import {
 // Luật đối chiếu khối lượng đã lên đơn — dùng lại, không tự cộng ở đây.
 // (`tinh-toan.ts` chỉ import kiểu dữ liệu nên không tạo vòng import.)
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+/**
+ * ★★ LUẬT "DÒNG ĐÃ NHÂN BẢN ĐI THÌ PHIẾU GỐC KHÔNG CÒN PHẢI LÀM" — Sếp 15/09/2026.
+ *
+ * 🔴 GỌI HAI HÀM NÀY, TUYỆT ĐỐI KHÔNG SO `sttDongGoc` TAY Ở ĐÂY. Chính `nhan-ban-de-nghi.ts` đã
+ * ghi: giao diện (làm mờ dòng) và luật (bỏ khỏi phép đếm) phải hỏi **cùng một hàm**, nếu không
+ * thì màn hình nói một đằng, chốt chặn chạy một nẻo.
+ *
+ * 📌 `nhan-ban-de-nghi.ts` chỉ import KIỂU dữ liệu nên không tạo vòng import với tệp này.
+ */
+import { dongDaChuyenDiHet, dongDaNhanBanSang } from "@/2-quy-trinh/nhan-ban-de-nghi";
 // Luật ba chứng từ cuối quy trình (hợp đồng · hóa đơn VAT · UNC) — một chỗ duy nhất.
 import {
   coHoaDonVAT,
@@ -167,6 +177,39 @@ export const NHAN_GIAI_DOAN: Record<GiaiDoanMuaHang, MoTaGiaiDoan> = Object.from
 // ------------------------------------------------------------
 
 /**
+ * ★★★ NHỮNG DÒNG PHIẾU NÀY CÒN PHẢI LÀM — đã trừ dòng đã nhân bản sang phiếu khác.
+ *
+ * 🔴 CHỈ ĐẠO SẾP 15/09/2026. Được hỏi *"Dòng đã nhân bản có còn bị tính là 'chưa phân bổ' để chặn
+ * thẻ ở bước ① không?"*, Sếp trả lời nguyên văn:
+ *     ***"Không tính là chưa phân bổ, vì người nhân bản sẽ là người thực hiện"***
+ * Và về việc phiếu gốc còn phải mua phần đó nữa không: ***"Không cần mua"***.
+ *
+ * 👉 Nghĩa là dòng đã chuyển đi thì **không đòi người phụ trách nữa**, và cũng không được đếm vào
+ * mẫu số của câu *"chưa phân bổ X/N"* — để nguyên mẫu số thì app báo *"chưa phân bổ 0/5"*, một câu
+ * vô nghĩa mà người đọc không biết phải làm gì.
+ *
+ * ⚠️ THIẾU `tatCaDeNghi` THÌ TRẢ NGUYÊN `items` — CƯ XỬ Y NHƯ TRƯỚC 15/09/2026, KHÔNG TRỪ MÙ.
+ * Tham số đó tuỳ chọn vì hàm luật này được gọi từ **rất nhiều** nơi (kể cả bài kiểm và các màn chỉ
+ * bày), mà không có danh sách đề nghị thì không thể biết dòng nào đã đi đâu. Trừ bừa khi thiếu dữ
+ * liệu là làm thẻ nhảy bước sai ở đúng những nơi chưa kịp cập nhật — im lặng, không lỗi nào báo.
+ *
+ * 📌 KHÔNG ĐỤNG `tinh-toan.ts`. Hàm này chỉ phục vụ **điều kiện chuyển bước và câu vướng mắc**;
+ * phép tính khối lượng (`tinhTienDoDeNghi` → `khoiLuongChuaLenPO`) có 13 nơi đọc, trừ ở đó là
+ * `vuongMacHoanThanhQuyTrinh` thấy *"còn 0 mặt hàng chưa lên đơn"* và **đóng được hồ sơ chưa mua
+ * gì cả**. Chốt "còn bản con chưa xong thì chưa đóng" nằm ở `chung-tu-cuoi-quy-trinh.ts`.
+ */
+function dongConPhaiLam(
+  deNghi: DeNghiMuaHang,
+  tatCaDeNghi?: DeNghiMuaHang[],
+): DeNghiMuaHang["items"] {
+  if (!tatCaDeNghi || tatCaDeNghi.length === 0) return deNghi.items;
+  const daNhanBan = dongDaNhanBanSang(deNghi, tatCaDeNghi);
+  /* Phiếu chưa bị nhân bản lần nào (ca thường gặp nhất) → trả thẳng mảng gốc, không tạo mảng mới. */
+  if (daNhanBan.size === 0) return deNghi.items;
+  return deNghi.items.filter((d) => !dongDaChuyenDiHet(d.stt, daNhanBan));
+}
+
+/**
  * Đề nghị đang ở cột nào. Xét từ giai đoạn XA NHẤT trở về, vì một đề nghị
  * có thể vừa còn báo giá dở vừa đã có đơn hàng đang giao — khi đó nó thuộc
  * về giai đoạn đi xa nhất, đúng như cách bảng Base đang chạy.
@@ -176,6 +219,18 @@ export function xacDinhGiaiDoan(
   tatCaPO: DonDatHang[],
   tatCaBaoGia: BaoGia[],
   tatCaPhieu: PhieuNhanHang[],
+  /**
+   * ★ Toàn bộ đề nghị của app — CHỈ để biết dòng nào của phiếu này đã được nhân bản đi nơi khác
+   * (Sếp 15/09/2026, xem `dongConPhaiLam`).
+   *
+   * 🔴 THÊM Ở CUỐI VÀ ĐỂ TUỲ CHỌN, KHÔNG ĐỔI THỨ TỰ THAM SỐ: hàm này có hơn mười nơi gọi (kho dữ
+   * liệu, bốn màn hình, bài kiểm `kiem-luat-dung-chung.mjs`), và một phần trong số đó đang do
+   * phiên khác sửa cùng lúc ngày 15/09/2026 — `CLAUDE.md` §6.6.
+   *
+   * ⚠️ BỎ TRỐNG = CƯ XỬ Y NHƯ HÔM NAY (không trừ dòng nào). Chỉ ảnh hưởng đúng nhánh ② *phân bổ
+   * xong thì sang bước ②*; mọi nhánh khác suy từ chứng từ nên không đọc tới tham số này.
+   */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): GiaiDoanMuaHang {
   if (deNghi.trangThai === "dong_do") return "that_bai";
 
@@ -340,8 +395,25 @@ export function xacDinhGiaiDoan(
    * 📌 Vẫn đúng nguyên tắc "suy ra từ chứng từ có thật": người phụ trách được ghi vào dòng
    * đề nghị khi trưởng bộ phận bấm giao việc, không phải một trường trạng thái gõ tay.
    */
+  /**
+   * ★★ TRỪ DÒNG ĐÃ NHÂN BẢN ĐI — Sếp 15/09/2026: ***"Không tính là chưa phân bổ, vì người nhân
+   * bản sẽ là người thực hiện"***.
+   *
+   * Dòng đã chuyển sang phiếu con thì người nhận phiếu con chính là người phụ trách — đòi phiếu
+   * gốc gán thêm một người nữa cho đúng dòng đó là đòi hai người cùng mua một thứ, và thẻ kẹt mãi
+   * ở cột ① vì không ai biết phải gán cho ai.
+   *
+   * ⚠️ `conLai.length > 0` GIỮ NGUYÊN Ý NGHĨA CŨ Ở MỘT CHỖ, ĐỔI Ở MỘT CHỖ:
+   *   · phiếu **rỗng thật** (chưa nhập dòng nào) vẫn đứng lại bước ① như trước — chưa có gì để
+   *     giao thì chưa hết việc của cột ①;
+   *   · phiếu đã nhân bản **hết mọi dòng** đi thì `conLai` rỗng ⇒ thẻ ĐI TIẾP. Đó là hệ quả trực
+   *     tiếp của câu *"Không cần mua"* — phiếu gốc không còn gì để mua thì giữ nó ở cột phân bổ là
+   *     báo một việc không tồn tại. 📌 Phiếu gốc lúc đó chỉ là vỏ; việc "chưa đóng được khi bản
+   *     con chưa xong" do `chung-tu-cuoi-quy-trinh.ts` giữ, không phải chỗ này.
+   */
+  const conLai = dongConPhaiLam(deNghi, tatCaDeNghi);
   const daPhanBoDu =
-    deNghi.items.length > 0 && deNghi.items.every((d) => Boolean(d.nguoiPhuTrachUid));
+    deNghi.items.length > 0 && conLai.every((d) => Boolean(d.nguoiPhuTrachUid));
   if (daPhanBoDu) return "yeu_cau_bao_gia";
 
   // ① Chưa phát sinh chứng từ nào, và còn dòng chưa có người phụ trách.
@@ -531,6 +603,18 @@ export interface TheDeNghiTrenBang {
    * bớt mới vừa — và cắt là giấu đúng mục thiếu thứ hai đi. Rỗng khi không nợ gì.
    */
   dsConNo?: string[];
+  /**
+   * ★ CHỮ THẬT SỰ IN RA TRÊN MẶT THẺ — `dsConNo` đã lọc bỏ mục không đáng nhắc trên thẻ.
+   *
+   * 🔴 SẾP 15/09/2026: ***"Không cần ghi chú mục thiếu hoá đơn/UNC — Chỉ cần báo Hợp đồng và Đơn
+   * mua hàng"***. Nên mảng này **ngắn hơn `dsConNo`**, đó là chủ ý chứ không phải lỗi.
+   *
+   * 🔴 THẺ KANBAN VẼ TRƯỜNG NÀY, `dsConNo` DÙNG ĐỂ ĐẾM. Đừng "dọn cho gọn" bằng cách bỏ một
+   * trong hai: `dsConNo` còn nuôi con số *"N còn thiếu"* ở chế độ xem Danh sách, mà con số đó
+   * phải khớp với viền đỏ (`conNo`) — cả hai đều còn tính hoá đơn, vì hoá đơn vẫn chặn đóng hồ sơ.
+   * Xem bảng ba cột ở chú thích `dsConNoBayTrenThe`.
+   */
+  dsConNoBayTrenThe?: string[];
   /* 📌 ĐÃ BỎ trường `vuongMac` (Ban lãnh đạo 16/08/2026 yêu cầu bỏ dòng cảnh báo trên thẻ).
      Không giữ lại trường không ai đọc: mỗi lần dựng bảng nó vẫn chạy `vuongMacSangBuocSau`
      cho từng hồ sơ, tốn công tính một chuỗi rồi vứt đi. Lý do chặn vẫn được tính ĐÚNG LÚC cần
@@ -610,7 +694,10 @@ export function dungBangQuyTrinh(
   const the: TheDeNghiTrenBang[] = tatCaDeNghi
     .filter((dn) => !dn.luuTru)
     .map((deNghi) => {
-    const giaiDoan = xacDinhGiaiDoan(deNghi, tatCaPO, tatCaBaoGia, tatCaPhieu);
+    /* 📌 TRUYỀN `tatCaDeNghi` (danh sách ĐẦY ĐỦ, chưa lọc `luuTru`) — hàm cần nó để biết dòng nào
+       của phiếu này đã nhân bản sang phiếu khác (Sếp 15/09/2026, xem `dongConPhaiLam`). Truyền bản
+       đã lọc lưu trữ là bản con bị lưu trữ sẽ "biến mất", dòng gốc lại đòi phân bổ trở lại. */
+    const giaiDoan = xacDinhGiaiDoan(deNghi, tatCaPO, tatCaBaoGia, tatCaPhieu, tatCaDeNghi);
     return {
       deNghi,
       giaiDoan,
@@ -629,7 +716,13 @@ export function dungBangQuyTrinh(
             .filter((x): x is string => Boolean(x)),
         ),
       ],
-      soDongChuaPhanBo: deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length,
+      /* 🔴 TRỪ DÒNG ĐÃ NHÂN BẢN ĐI (Sếp 15/09/2026). Con số này nuôi câu cảnh báo *"Còn N công
+         việc chưa phân bổ cho nhân viên nào"* trong hộp xác nhận kéo thả (`dungXacNhanKeoTha`).
+         Không trừ thì hộp kêu *"còn 5 việc chưa phân bổ"* cho đúng tấm thẻ mà app vừa cho đi tiếp
+         vì đã phân bổ đủ — hai chỗ cùng trả lời một câu hỏi mà nói ngược nhau. */
+      soDongChuaPhanBo: dongConPhaiLam(deNghi, tatCaDeNghi).filter(
+        (d) => !d.nguoiPhuTrachUid,
+      ).length,
       /* Dấu đỏ trên thẻ — xem chú thích ở khai báo `conNo`. `?? undefined` vì hàm trả `null`
          khi không nợ gì, còn trường này khai kiểu `string | undefined`.
 
@@ -644,7 +737,10 @@ export function dungBangQuyTrinh(
           tatCaPO,
           tatCaPhieu,
           tinhVuongMacBaoGia?.(deNghi) ?? null,
+          tatCaDeNghi,
         ) ?? undefined,
+      /* Mảng ĐẦY ĐỦ — nuôi con số "N còn thiếu" ở chế độ xem Danh sách. Cố ý KHÔNG lọc, để con
+         số đó luôn khớp với viền đỏ `conNo` ngay trên. */
       dsConNo: dsConNoToanHoSo(
         deNghi,
         giaiDoan,
@@ -652,6 +748,18 @@ export function dungBangQuyTrinh(
         tatCaPO,
         tatCaPhieu,
         tinhVuongMacBaoGia?.(deNghi) ?? null,
+        tatCaDeNghi,
+      ),
+      /* Mảng ĐÃ LỌC — chữ in ra mặt thẻ kanban (Sếp 15/09/2026: bỏ ghi chú thiếu hoá đơn/UNC).
+         Hai mảng là cố ý, xem chú thích ở khai báo `dsConNoBayTrenThe`. */
+      dsConNoBayTrenThe: dsConNoBayTrenThe(
+        deNghi,
+        giaiDoan,
+        cauHinh,
+        tatCaPO,
+        tatCaPhieu,
+        tinhVuongMacBaoGia?.(deNghi) ?? null,
+        tatCaDeNghi,
       ),
       maPOLienQuan: tatCaPO
         .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
@@ -921,8 +1029,18 @@ export function conNoCuaBuoc(
   tatCaPhieu: PhieuNhanHang[],
   /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
   vuongMacBaoGia?: string | null,
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — dòng đã nhân bản đi (Sếp 15/09/2026). */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): string | null {
-  const ds = dsConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu, vuongMacBaoGia);
+  const ds = dsConNoCuaBuoc(
+    deNghi,
+    giaiDoan,
+    cauHinh,
+    tatCaPO,
+    tatCaPhieu,
+    vuongMacBaoGia,
+    tatCaDeNghi,
+  );
   return thanhCauConNo(ds);
 }
 
@@ -964,6 +1082,8 @@ export function mucConNoToanHoSo(
   tatCaPhieu: PhieuNhanHang[],
   /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
   vuongMacBaoGia?: string | null,
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — dòng đã nhân bản đi (Sếp 15/09/2026). */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): MucConNo[] {
   /**
    * 🔴 HỒ SƠ THẤT BẠI THÌ KHÔNG NHẮC NỢ CHỨNG TỪ — Ban lãnh đạo 24/08/2026: *"Ở bước thất bại
@@ -992,11 +1112,19 @@ export function mucConNoToanHoSo(
       tatCaPO,
       tatCaPhieu,
       vuongMacBaoGia,
+      tatCaDeNghi,
     )) {
       ra.push(
         cuaBuocNay
           ? muc
           : {
+              /* 🔴 `...muc` ĐỨNG TRƯỚC LÀ BẮT BUỘC, không phải cho gọn: nhánh này dựng một đối
+                 tượng MỚI để gắn tiền tố số bước, nên mọi trường khác của `MucConNo` sẽ rơi mất
+                 nếu không sao chép lại. Cụ thể `nhacTrenThe: false` của mục hoá đơn (Sếp
+                 15/09/2026): hồ sơ đã sang bước ⑧ thì nợ hoá đơn của bước ⑦ đi qua đúng nhánh
+                 này — mất cờ là dòng *"⑦ thiếu hoá đơn"* hiện lại trên thẻ, đúng cái Sếp yêu cầu
+                 bỏ, mà không một lỗi nào báo. */
+              ...muc,
               ngan: `${kyHieuNganCuaBuoc(buoc)} ${muc.ngan}`.trim(),
               day: `bước “${NHAN_GIAI_DOAN[buoc].nhan}” ${muc.day}`,
             },
@@ -1006,7 +1134,65 @@ export function mucConNoToanHoSo(
   return ra;
 }
 
-/** Bản NGẮN, bày trên thẻ kanban — mỗi mục một dòng. */
+/**
+ * ★★ DANH SÁCH CHỮ THẬT SỰ IN RA TRÊN MẶT THẺ KANBAN — đã lọc bỏ mục không đáng nhắc trên thẻ.
+ *
+ * 🔴 SẾP 15/09/2026, nguyên văn: ***"Không cần ghi chú mục thiếu hoá đơn/UNC — Chỉ cần báo Hợp
+ * đồng và Đơn mua hàng"***.
+ *
+ * 🔴🔴 VÌ SAO PHẢI TÁCH THÀNH MỘT HÀM RIÊNG, KHÔNG LỌC THẲNG TRONG `dsConNoToanHoSo` —
+ * ĐO ĐƯỢC TRƯỚC KHI SỬA, không phải thận trọng suông. Trước khi tách, **ba** thứ cùng đi qua
+ * `mucConNoToanHoSo`, và Sếp chỉ yêu cầu bỏ đúng thứ nhất:
+ *
+ * | Thứ bày ra | Lấy từ | Sau 15/09/2026 |
+ * |---|---|---|
+ * | Dòng chữ đỏ in trên mặt thẻ | hàm NÀY | **bỏ mục hoá đơn** |
+ * | Viền đỏ của thẻ + chữ rê chuột (`the.conNo`) | `conNoToanHoSo` | **giữ nguyên, còn hoá đơn** |
+ * | Con số *"N còn thiếu"* ở chế độ xem Danh sách (`OConThieu`) | `dsConNoToanHoSo` | **giữ nguyên** |
+ *
+ * Lọc thẳng trong `dsConNoToanHoSo` là kéo theo cả dòng thứ ba: hồ sơ chỉ thiếu mỗi hoá đơn sẽ
+ * hiện **"—"** ở cột Công việc — tức app báo *sạch* cho một hồ sơ đang bị `vuongMacDuyetHoanThanhDeNghi`
+ * chặn không cho đóng. Đó đúng là kiểu "im lặng về thứ đang chặn người dùng" mà dự án này cấm.
+ *
+ * 📌 LỌC Ở TẦNG QUY TRÌNH, KHÔNG LỌC Ở GIAO DIỆN — cùng nguyên tắc đã ghi ở
+ * `bang-quy-trinh-mua-hang.tsx` cho cột Thất bại: lọc ở giao diện thì bảng, danh sách và trang
+ * chi tiết mỗi chỗ phải tự nhớ lọc, sớm muộn một chỗ quên.
+ *
+ * 🔴 KHÔNG DÙNG HÀM NÀY CHO VIỀN ĐỎ hay cho phép đếm "còn thiếu mấy mục". Nó cố ý trả về **ít
+ * hơn sự thật** — chỉ đúng cho việc in chữ ra mặt thẻ.
+ */
+export function dsConNoBayTrenThe(
+  deNghi: DeNghiMuaHang,
+  giaiDoanHienTai: GiaiDoanMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+  tatCaPO: DonDatHang[],
+  tatCaPhieu: PhieuNhanHang[],
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
+  vuongMacBaoGia?: string | null,
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — dòng đã nhân bản đi (Sếp 15/09/2026). */
+  tatCaDeNghi?: DeNghiMuaHang[],
+): string[] {
+  return mucConNoToanHoSo(
+    deNghi,
+    giaiDoanHienTai,
+    cauHinh,
+    tatCaPO,
+    tatCaPhieu,
+    vuongMacBaoGia,
+    tatCaDeNghi,
+  )
+    /* `!== false` chứ không phải `=== true`: cờ bỏ trống nghĩa là VẪN IN RA. Viết `=== true` là
+       mọi mục cũ (không khai cờ) biến mất sạch khỏi thẻ. */
+    .filter((m) => m.nhacTrenThe !== false)
+    .map((m) => m.ngan);
+}
+
+/**
+ * Bản NGẮN của MỌI mục còn nợ — **chưa lọc**, dùng để ĐẾM.
+ *
+ * ⚠️ ĐỪNG DÙNG HÀM NÀY ĐỂ IN CHỮ LÊN THẺ KANBAN NỮA (từ 15/09/2026) — chữ trên thẻ lấy từ
+ * `dsConNoBayTrenThe`, xem bảng ba cột ở chú thích hàm đó.
+ */
 export function dsConNoToanHoSo(
   deNghi: DeNghiMuaHang,
   giaiDoanHienTai: GiaiDoanMuaHang,
@@ -1015,10 +1201,18 @@ export function dsConNoToanHoSo(
   tatCaPhieu: PhieuNhanHang[],
   /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
   vuongMacBaoGia?: string | null,
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — dòng đã nhân bản đi (Sếp 15/09/2026). */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): string[] {
-  return mucConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu, vuongMacBaoGia).map(
-    (m) => m.ngan,
-  );
+  return mucConNoToanHoSo(
+    deNghi,
+    giaiDoanHienTai,
+    cauHinh,
+    tatCaPO,
+    tatCaPhieu,
+    vuongMacBaoGia,
+    tatCaDeNghi,
+  ).map((m) => m.ngan);
 }
 
 /**
@@ -1035,11 +1229,19 @@ export function conNoToanHoSo(
   tatCaPhieu: PhieuNhanHang[],
   /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
   vuongMacBaoGia?: string | null,
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — dòng đã nhân bản đi (Sếp 15/09/2026). */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): string | null {
   return thanhCauConNo(
-    mucConNoToanHoSo(deNghi, giaiDoanHienTai, cauHinh, tatCaPO, tatCaPhieu, vuongMacBaoGia).map(
-      (m) => m.day,
-    ),
+    mucConNoToanHoSo(
+      deNghi,
+      giaiDoanHienTai,
+      cauHinh,
+      tatCaPO,
+      tatCaPhieu,
+      vuongMacBaoGia,
+      tatCaDeNghi,
+    ).map((m) => m.day),
   );
 }
 
@@ -1062,10 +1264,18 @@ export function dsConNoCuaBuoc(
   tatCaPhieu: PhieuNhanHang[],
   /** Chuyển tiếp xuống `mucConNoCuaBuoc` — xem chú thích cùng tham số ở đó. */
   vuongMacBaoGia?: string | null,
+  /** Chuyển tiếp xuống `mucConNoCuaBuoc` — dòng đã nhân bản đi (Sếp 15/09/2026). */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): string[] {
-  return mucConNoCuaBuoc(deNghi, giaiDoan, cauHinh, tatCaPO, tatCaPhieu, vuongMacBaoGia).map(
-    (m) => m.day,
-  );
+  return mucConNoCuaBuoc(
+    deNghi,
+    giaiDoan,
+    cauHinh,
+    tatCaPO,
+    tatCaPhieu,
+    vuongMacBaoGia,
+    tatCaDeNghi,
+  ).map((m) => m.day);
 }
 
 /**
@@ -1089,6 +1299,25 @@ export interface MucConNo {
   ngan: string;
   /** Bản ĐẦY ĐỦ, dùng cho chữ rê chuột và trang chi tiết. */
   day: string;
+  /**
+   * ★★ CÓ IN THÀNH MỘT DÒNG CHỮ TRÊN THẺ KANBAN KHÔNG — mặc định `true` (in ra).
+   *
+   * 🔴 SẾP 15/09/2026, nguyên văn: ***"Không cần ghi chú mục thiếu hoá đơn/UNC — Chỉ cần báo Hợp
+   * đồng và Đơn mua hàng"*** (ảnh khoanh đỏ dòng *"Thiếu hoá đơn"* trên thẻ 000000089 ở cột Hồ sơ
+   * thanh toán).
+   *
+   * 🔴🔴 ĐÂY LÀ CỜ HIỂN THỊ, KHÔNG PHẢI CỜ NGHIỆP VỤ — ĐỌC KỸ TRƯỚC KHI ĐỤNG:
+   * Mục mang `nhacTrenThe: false` **vẫn là nợ chứng từ thật**, vẫn đi đủ vào:
+   *   · `conNoCuaBuoc` / `dsConNoCuaBuoc` → **viền đỏ + nhãn "Còn thiếu"** ở trang chi tiết đề nghị
+   *   · `conNoToanHoSo` → **viền đỏ của thẻ** (`the.conNo`) và **chữ hiện khi rê chuột**
+   * Chỉ đúng một thứ bị bỏ: **dòng chữ in ra trên mặt thẻ** (`dsConNoBayTrenThe`).
+   *
+   * ⚠️ VÌ SAO KHÔNG BỎ LUÔN CẢ VIỀN ĐỎ: hoá đơn VAT **vẫn chặn** đóng hồ sơ
+   * (`vuongMacDuyetHoanThanhDeNghi` ở `chung-tu-cuoi-quy-trinh.ts`). Bỏ hết dấu là app im lặng về
+   * đúng thứ đang chặn người dùng — họ bấm "Hoàn thành" rồi bị từ chối mà không biết vì sao. Sếp
+   * nói *"không cần ghi chú"*, tức bỏ CÂU CHỮ, không phải bỏ cảnh báo.
+   */
+  nhacTrenThe?: boolean;
 }
 
 /** Số bước khoanh tròn (①②③…) — tiền tố cực ngắn để thẻ biết nợ nằm ở bước nào. */
@@ -1121,6 +1350,11 @@ export function mucConNoCuaBuoc(
    * `kho-du-lieu` vào những tệp không cần nó.
    */
   vuongMacBaoGia?: string | null,
+  /**
+   * ★ Toàn bộ đề nghị — chỉ để trừ dòng đã nhân bản đi khỏi câu *"chưa phân bổ X/N"* ở bước ①
+   * (Sếp 15/09/2026). Bỏ trống = đếm y như trước. Xem `dongConPhaiLam`.
+   */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): MucConNo[] {
   const thieu: MucConNo[] = [];
 
@@ -1138,11 +1372,21 @@ export function mucConNoCuaBuoc(
 
   /* Dòng chưa ai nhận là "công việc chưa hoàn thành" đúng nghĩa nhất của bước ①. */
   if (giaiDoan === "tiep_nhan") {
-    const chuaPhanBo = deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length;
+    /**
+     * 🔴 TRỪ CẢ TỬ SỐ LẪN MẪU SỐ — Sếp 15/09/2026: ***"Không tính là chưa phân bổ, vì người nhân
+     * bản sẽ là người thực hiện"***.
+     *
+     * Trừ mỗi tử số là app báo *"chưa phân bổ 0/5"* — câu vô nghĩa: con số 0 nói không còn việc,
+     * con số 5 nói còn năm việc, người đọc không biết tin cái nào và cũng không biết phải làm gì.
+     * Mẫu số phải là **số dòng phiếu này còn phải làm**, đúng thứ người dùng nhìn thấy trên bảng
+     * vật tư (dòng đã nhân bản được làm mờ).
+     */
+    const conLai = dongConPhaiLam(deNghi, tatCaDeNghi);
+    const chuaPhanBo = conLai.filter((d) => !d.nguoiPhuTrachUid).length;
     if (chuaPhanBo > 0) {
       thieu.push({
-        ngan: `chưa phân bổ ${chuaPhanBo}/${deNghi.items.length}`,
-        day: `còn ${chuaPhanBo}/${deNghi.items.length} công việc chưa phân bổ người phụ trách`,
+        ngan: `chưa phân bổ ${chuaPhanBo}/${conLai.length}`,
+        day: `còn ${chuaPhanBo}/${conLai.length} công việc chưa phân bổ người phụ trách`,
       });
     }
   }
@@ -1226,10 +1470,32 @@ export function mucConNoCuaBuoc(
     }
   }
 
+  /**
+   * ★ THIẾU HOÁ ĐƠN VAT — **KHÔNG IN RA MẶT THẺ** từ 15/09/2026, nhưng vẫn là nợ chứng từ.
+   *
+   * 🔴 SẾP 15/09/2026, nguyên văn: ***"Không cần ghi chú mục thiếu hoá đơn/UNC — Chỉ cần báo Hợp
+   * đồng và Đơn mua hàng"*** (ảnh chụp bảng quy trình trên bản chạy thật, thẻ 000000089 ở cột Hồ
+   * sơ thanh toán đang hiện hai dòng đỏ *"⑤ thiếu HĐ"* và *"Thiếu hoá đơn"*, Sếp khoanh dòng sau).
+   *
+   * 🔴🔴 LUẬT BẮT BUỘC CÓ HOÁ ĐƠN VẪN CÒN NGUYÊN — ĐỪNG ĐỌC NHẦM DÒNG NÀY THÀNH "HOÁ ĐƠN THÀNH
+   * KHÔNG BẮT BUỘC". Hồ sơ không có Hóa đơn VAT thì **vẫn không duyệt hoàn thành được**:
+   * `vuongMacDuyetHoanThanhDeNghi` ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts` (chỗ DUY NHẤT giữ
+   * luật đó) không đổi một dòng nào. Cái bị bỏ chỉ là **một dòng chữ trên mặt thẻ kanban**.
+   *
+   * 🔴 VÀ MỤC NÀY VẪN PHẢI ĐƯỢC ĐẨY VÀO MẢNG, KHÔNG ĐƯỢC `return` SỚM HAY XOÁ NHÁNH. Nó còn nuôi
+   * ba chỗ cảnh báo khác, xoá đi là mất sạch:
+   *   · dải đỏ *"Chưa đính kèm Hóa đơn VAT"* trong khối bước ⑧ ở trang chi tiết đề nghị
+   *     (`de-nghi-chi-tiet.tsx` → `conThieuCuaBuoc` → `conNoCuaBuoc`) — chỗ DUY NHẤT người dùng
+   *     đọc được mình còn thiếu gì trước khi bấm Hoàn thành rồi bị chặn
+   *   · viền đỏ của chính tấm thẻ (`the.conNo` ← `conNoToanHoSo`)
+   *   · chữ hiện khi rê chuột lên thẻ
+   * Bài kiểm hai chiều trong `kiem-luat-dung-chung.mjs` canh đúng chuyện này — xoá nhánh là ĐỎ.
+   */
   if (giaiDoan === "ho_so_thanh_toan" && !coHoaDonVAT(deNghi)) {
     thieu.push({
       ngan: `thiếu hoá đơn`,
       day: `chưa đính kèm ${NHAN_TEP_HOA_DON_VAT}`,
+      nhacTrenThe: false,
     });
   }
 
@@ -1502,6 +1768,15 @@ export function dsDieuKienConVuong(
   baoGiaCuaDeNghi: BaoGia[],
   cauHinh: CauHinhQuyTrinh,
   vuongMacBaoGia: string | null,
+  /**
+   * ★ Toàn bộ đề nghị — chỉ để trừ dòng đã nhân bản đi khỏi điều kiện `chua_phan_bo` (Sếp
+   * 15/09/2026). Bỏ trống = chặn y như trước. Xem `dongConPhaiLam`.
+   *
+   * 🔴 THÊM Ở CUỐI, SAU CẢ THAM SỐ BẮT BUỘC: `vuongMacSangBuocSau` và `quyetDinhKeoTha` gọi vào
+   * đây bằng vị trí, và bài kiểm `kiem-luat-dung-chung.mjs` cũng vậy — đổi thứ tự là làm đỏ những
+   * nơi không liên quan gì tới việc hôm nay.
+   */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): DieuKienConVuong[] {
   const ra: DieuKienConVuong[] = [];
   const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
@@ -1519,11 +1794,24 @@ export function dsDieuKienConVuong(
 
   switch (giaiDoan) {
     case "tiep_nhan": {
-      const chuaPhanBo = deNghi.items.filter((d) => !d.nguoiPhuTrachUid).length;
+      /**
+       * 🔴 TRỪ CẢ TỬ SỐ LẪN MẪU SỐ — Sếp 15/09/2026: ***"Không tính là chưa phân bổ, vì người
+       * nhân bản sẽ là người thực hiện"***.
+       *
+       * ĐÂY LÀ CHỐT CHẶN THẬT, không chỉ là câu chữ: `vuongMacSangBuocSau` lấy mục đầu của danh
+       * sách này, nên còn mục `chua_phan_bo` là thẻ **không rời được bước ①**. Không trừ ở đây thì
+       * phiếu đã nhân bản hết việc đi vẫn bị giữ lại, mà không ai gán người cho nó được nữa — kẹt
+       * vĩnh viễn, đúng loại bí đã phải sửa nhiều lần trong tệp này.
+       *
+       * 📌 CÙNG MỘT PHÉP TRỪ với `mucConNoCuaBuoc` (dấu đỏ trên thẻ) — hai chỗ cùng trả lời *"còn
+       * mấy dòng chưa phân bổ"*, gọi chung `dongConPhaiLam` nên không thể nói khác nhau.
+       */
+      const conLai = dongConPhaiLam(deNghi, tatCaDeNghi);
+      const chuaPhanBo = conLai.filter((d) => !d.nguoiPhuTrachUid).length;
       if (chuaPhanBo > 0) {
         ra.push({
           ma: "chua_phan_bo",
-          cau: `Còn ${chuaPhanBo} trong ${deNghi.items.length} công việc chưa phân bổ người phụ trách.`,
+          cau: `Còn ${chuaPhanBo} trong ${conLai.length} công việc chưa phân bổ người phụ trách.`,
           /* Phân bổ cần chọn người cho từng dòng — bảng phân bổ có bộ lọc, chọn nhiều dòng, ô
              yêu cầu số báo giá. Nhồi cả bảng đó vào hộp thì hộp thành một màn hình thứ hai. */
           goDuocTaiCho: false,
@@ -1633,6 +1921,8 @@ export function vuongMacSangBuocSau(
    * không import thẳng (vòng tròn import qua `kho-du-lieu`).
    */
   vuongMacBaoGia: string | null,
+  /** Chuyển tiếp xuống `dsDieuKienConVuong` — dòng đã nhân bản đi (Sếp 15/09/2026). */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): string | null {
   /**
    * 🔴 GỌI VÀO BẢN DANH SÁCH, KHÔNG CHÉP LẠI ĐIỀU KIỆN — sửa 25/08/2026.
@@ -1644,7 +1934,14 @@ export function vuongMacSangBuocSau(
    * 📌 Lấy mục đầu chứ không nối hết: nơi gọi hàm này là các CHỐT CHẶN, chúng cần một câu ngắn
    * nói việc phải làm trước nhất. Muốn thấy đủ điều kiện thì gọi thẳng `dsDieuKienConVuong`.
    */
-  const ds = dsDieuKienConVuong(deNghi, giaiDoan, baoGiaCuaDeNghi, cauHinh, vuongMacBaoGia);
+  const ds = dsDieuKienConVuong(
+    deNghi,
+    giaiDoan,
+    baoGiaCuaDeNghi,
+    cauHinh,
+    vuongMacBaoGia,
+    tatCaDeNghi,
+  );
   return ds.length === 0 ? null : ds[0].cau;
 }
 
@@ -2153,6 +2450,19 @@ export function quyetDinhKeoTha(
    * không thể coi cổng giao diện đó là chốt quyền.
    */
   quyenNguoiThaoTac?: QuyenLuiBuoc,
+  /**
+   * ★★ Toàn bộ đề nghị — chỉ để trừ dòng đã nhân bản đi khỏi điều kiện *"chưa phân bổ"* khi kéo
+   * thẻ rời bước ① (Sếp 15/09/2026: ***"Không tính là chưa phân bổ, vì người nhân bản sẽ là người
+   * thực hiện"***).
+   *
+   * 🔴 CÙNG LÝ DO `?` NHƯ `quyenNguoiThaoTac` NGAY TRÊN: tệp giao diện gọi hàm này
+   * (`1-giao-dien/trang/de-nghi-danh-sach.tsx`) đang do PHIÊN KHÁC sửa cùng lúc ngày 15/09/2026 —
+   * khai bắt buộc là làm đỏ tệp họ đang mở, đúng thứ `CLAUDE.md` §6.6 cấm.
+   *
+   * ⚠️ VẮNG MẶT = CHẶN Y NHƯ HÔM NAY, không nới gì. Nới mù khi thiếu dữ liệu là cho thẻ nhảy bước
+   * ở những nơi gọi chưa cập nhật, im lặng và không lỗi nào báo.
+   */
+  tatCaDeNghi?: DeNghiMuaHang[],
 ): HanhDongKeoTha | null {
   const tu = the.giaiDoan;
   if (tu === dich) return null;
@@ -2271,6 +2581,7 @@ export function quyetDinhKeoTha(
       baoGiaCuaDeNghi,
       cauHinh,
       vuongMacBaoGia,
+      tatCaDeNghi,
     );
     if (dsHoanThanh.length > 0) {
       if (dsHoanThanh.every((d) => d.goDuocTaiCho)) {
@@ -2366,6 +2677,7 @@ export function quyetDinhKeoTha(
     baoGiaCuaDeNghi,
     { ...cauHinh, congViecTheoBuoc: {} },
     vuongMacBaoGia,
+    tatCaDeNghi,
   );
 
   const hanhDong = hanhDongTienMotBuoc(tu, the, poCuaDeNghi, baoGiaCuaDeNghi);
@@ -2403,6 +2715,7 @@ export function quyetDinhKeoTha(
     baoGiaCuaDeNghi,
     { ...cauHinh, congViecTheoBuoc: {} },
     vuongMacBaoGia,
+    tatCaDeNghi,
   ).filter((d) => {
     /**
      * 🔴 BỎ MỤC MÀ CHÍNH CÁI NÚT SẼ LÀM — sửa 25/08/2026 sau khi Ban lãnh đạo báo hộp trống.

@@ -292,24 +292,49 @@ export function HopChuyenGiaiDoan({
         <div className="flex flex-col gap-3">
           {/* ===== ② ĐẦU VÀO CHO GIAI ĐOẠN ===== */}
           <div className="flex flex-col gap-2 border-t border-divider pt-3">
-            <p className="text-center text-xs font-semibold tracking-wide text-text-desc uppercase">
-              Đầu vào cho giai đoạn{" "}
-              <span className="rounded bg-muted px-1.5 py-0.5 normal-case text-text-primary">
-                {nhanDich}
-              </span>
-            </p>
+            {/**
+             * ★★ ĐÓNG DỞ THÌ KHÔNG CÓ "ĐẦU VÀO" — Sếp 15/09/2026, khoanh đỏ đúng khối này trong
+             * hộp chuyển sang cột Thất bại: *"Bỏ ghi chú này, ở bước đánh dấu thất bại"*.
+             *
+             * 📌 SẾP ĐÚNG VÀ ĐO ĐƯỢC VÌ SAO: hai ô khóa này đọc cấu hình của **bước đích**, mà bước
+             * đích ở đây là `that_bai` — một bước không ai làm việc tiếp. Nên chúng luôn in ra đúng
+             * hai câu rỗng nghĩa: *"Giữ nguyên người nhận việc ở giai đoạn trước"* (không còn việc
+             * để giao) và *"Không đặt thời hạn"* (không còn gì để kịp hạn). Người đang đóng dở hồ sơ
+             * đọc hai dòng đó chỉ tốn thêm một nhịp để hiểu ra là chúng không nói gì.
+             *
+             * 🔴 CHỈ ẨN Ở NHÁNH ĐÓNG DỞ. Với mọi bước đích khác, hai ô này là thứ DUY NHẤT cho người
+             * bấm biết trước *việc sẽ rơi vào tay ai* và *bước sau có bao nhiêu giờ* — bỏ chung là
+             * lấy mất thông tin thật của tám bước để dọn một ca không dùng tới.
+             *
+             * ⚠️ GIỮ NGUYÊN `<div>` BAO NGOÀI kèm `border-t`: nó còn ôm ô nhập "Lý do thất bại" ở
+             * dưới, và đường kẻ trên là thứ tách khối này khỏi phần mô tả. Ẩn cả div là hai phần
+             * dính liền nhau.
+             */}
+            {!laDongDo && (
+              <>
+                <p className="text-center text-xs font-semibold tracking-wide text-text-desc uppercase">
+                  Đầu vào cho giai đoạn{" "}
+                  <span className="rounded bg-muted px-1.5 py-0.5 normal-case text-text-primary">
+                    {nhanDich}
+                  </span>
+                </p>
 
-            {/* Hai ô KHÓA nằm cạnh nhau — chúng chỉ để đọc, ngắn, không đáng chiếm hai hàng. */}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {/* Ô KHÓA 1 — cách giao việc của bước đích. */}
-              <OKhoa nhan="Giao lại cho" giaTri={NHAN_CACH_GIAO_VIEC[caiDatDich.cachGiaoViec]} />
+                {/* Hai ô KHÓA nằm cạnh nhau — chúng chỉ để đọc, ngắn, không đáng chiếm hai hàng. */}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {/* Ô KHÓA 1 — cách giao việc của bước đích. */}
+                  <OKhoa
+                    nhan="Giao lại cho"
+                    giaTri={NHAN_CACH_GIAO_VIEC[caiDatDich.cachGiaoViec]}
+                  />
 
-              {/* Ô KHÓA 2 — thời hạn chuẩn của bước đích (Base ghi "DURATION"). */}
-              <OKhoa
-                nhan="Thời hạn của bước"
-                giaTri={hanDich > 0 ? `${hanDich} giờ` : "Không đặt thời hạn"}
-              />
-            </div>
+                  {/* Ô KHÓA 2 — thời hạn chuẩn của bước đích (Base ghi "DURATION"). */}
+                  <OKhoa
+                    nhan="Thời hạn của bước"
+                    giaTri={hanDich > 0 ? `${hanDich} giờ` : "Không đặt thời hạn"}
+                  />
+                </div>
+              </>
+            )}
 
             {/* Hai ô NHẬP cũng xếp cạnh nhau khi có cả hai. `items-start` để ô ngắn không bị
                 kéo cao bằng ô dài. */}

@@ -98,7 +98,11 @@ export default function TrangViecCuaToi() {
     return nguon.map((dn) => {
       const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
       const tomTat = tomTatTienDoDeNghi(tienDo);
-      const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan);
+      /* 🔴 Truyền `deNghi` — Sếp 15/09/2026: dòng đã nhân bản đi không tính là "chưa phân bổ".
+         ⚠️ Vòng lặp chạy trên `nguon` (đã lọc theo người dùng) nhưng phải truyền `deNghi` GỐC:
+         truyền danh sách đã lọc thì app không thấy bản nhân bản của người khác ⇒ dòng không được
+         trừ ⇒ màn này báo việc còn treo trong khi bảng quy trình đã cho hồ sơ đi tiếp. */
+      const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, deNghi);
       const conLai = soNgayConLai(dn.ngayCanHang);
       const xong = giaiDoan === "hoan_thanh";
       return {

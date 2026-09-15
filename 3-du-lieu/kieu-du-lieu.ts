@@ -123,6 +123,25 @@ export interface DongDeNghi {
   soBaoGiaYeuCau?: number;
   /** Lời dặn kèm theo khi giao việc — hiện cho người được phân bổ đọc. */
   ghiChuPhanBo?: string;
+
+  /**
+   * ★★ SỐ THỨ TỰ CỦA DÒNG NÀY Ở PHIẾU GỐC — chỉ có trên dòng của BẢN NHÂN BẢN.
+   *
+   * Sếp 15/09/2026: *"khi bấm nhân bản và chọn các mặt hàng để nhân bản xong thì ở đề xuất chính
+   * sẽ làm mờ các mặt hàng đã nhân bản đi"*.
+   *
+   * 🔴 VÌ SAO PHẢI THÊM TRƯỜNG, KHÔNG SUY RA ĐƯỢC: khi nhân bản, `stt` của bản sao bị **đánh số
+   * lại từ 1**, nên dòng `stt=7` của phiếu gốc thành `stt=2` ở bản sao — mọi mối liên hệ dòng↔dòng
+   * bị xoá sạch. Suy ngược bằng cách so tên vật liệu KHÔNG dùng được: một phiếu có thể có hai dòng
+   * trùng hệt nhau (đó là chuyện hợp lệ), và người dùng còn sửa được nội dung dòng sau khi tách.
+   *
+   * 📌 GHI Ở BẢN SAO, KHÔNG GHI Ở PHIẾU GỐC. Phiếu gốc giữ nguyên không bị chạm; muốn biết dòng
+   * nào đã nhân bản thì quét các bản con — xem `dongDaNhanBanSang` ở `2-quy-trinh/nhan-ban-de-nghi.ts`.
+   * Làm vậy thì xoá một bản con là dấu vết tự mất theo, không để lại "dấu mờ ma" trên phiếu gốc.
+   *
+   * ⚠️ TRỐNG với mọi dòng lập tay và mọi hồ sơ có trước 15/09/2026. Chỗ đọc phải chịu được trống.
+   */
+  sttDongGoc?: number;
 }
 
 /**

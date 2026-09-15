@@ -111,8 +111,13 @@ export default function TrangTheoDoi() {
         dn,
         tienDo,
         tomTat: tomTatTienDoDeNghi(tienDo),
-        // Giai đoạn SUY RA từ chứng từ thật, không thêm trường mới — xem `xacDinhGiaiDoan`.
-        giaiDoan: xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan),
+        /* Giai đoạn SUY RA từ chứng từ thật, không thêm trường mới — xem `xacDinhGiaiDoan`.
+           🔴 PHẢI TRUYỀN `deNghi` (tham số cuối) — Sếp 15/09/2026: dòng đã nhân bản đi thì
+           "không tính là chưa phân bổ". Thiếu tham số thì hàm cư xử như cũ, nghĩa là màn này
+           hiện **giai đoạn khác** với bảng quy trình cho cùng một hồ sơ.
+           ⚠️ Dùng `deNghi` GỐC từ kho, KHÔNG dùng `nguon` — `nguon` đã lọc theo người dùng nên
+           có thể thiếu bản nhân bản, và thiếu là dòng không được trừ, sai âm thầm. */
+        giaiDoan: xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, deNghi),
       };
     });
   }, [deNghi, donHang, baoGia, phieuNhan, nguoiDung.uid, quyen.xemMoiHoSo]);

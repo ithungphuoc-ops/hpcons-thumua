@@ -13,7 +13,9 @@ import {
   FileSpreadsheet,
   FileText,
   FileWarning,
+  Info,
   Keyboard,
+  Lock,
   Printer,
   RotateCcw,
   Save,
@@ -55,7 +57,11 @@ import {
   type DuLieuXemTruocExcel,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-xem-truoc-nhap-excel";
 import { NhanPhanTrongGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
-import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import {
+  useDuLieu,
+  MA_KHONG_CO_THAY_DOI,
+  type ThayDoiDonHang,
+} from "@/3-du-lieu/kho-du-lieu";
 import type { MoTaTep } from "@/3-du-lieu/kho-tep";
 import { NHAN_MAU_PO } from "@/3-du-lieu/kieu-du-lieu";
 import {
@@ -65,6 +71,8 @@ import {
 } from "@/3-du-lieu/dieu-khoan-chuan-don-mua-hang";
 import type {
   DeNghiMuaHang,
+  DonDatHang,
+  DongGiaPO,
   DongPO,
   KieuChietKhau,
   MauDonMuaHang,
@@ -74,13 +82,15 @@ import type {
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
+  dongPOBiKhoaNoiDung,
+  laDongHang,
   moTaThueSuat,
   tinhTienChiTiet,
   tinhTienDoDeNghi,
   type DongDeTinhTien,
 } from "@/2-quy-trinh/tinh-toan";
 import { dongLapDuocDonHang, vuongMacLapDonHang } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docDonHangTuExcel, docNgayVN, khopVoiDeNghi } from "@/2-quy-trinh/doc-don-hang-excel";
 import { taoFileNhapDonHang, tenFileNhapDonHang } from "@/2-quy-trinh/ghi-don-hang-excel";
 import {
@@ -234,6 +244,12 @@ import { boDau } from "@/6-tien-ich/bo-dau";
  * mua hàng" (bảng đó liệt kê theo đề nghị, PO này chưa có đề nghị nào để liệt) cho tới khi gắn
  * xong — vẫn hiện bình thường ở "Danh sách đơn hàng".
  */
+/**
+ * Bảng "phần còn được đặt" RỖNG — hằng ở cấp module, không dựng `{}` mới mỗi lần vẽ (một object
+ * mới mỗi render là một prop mới với React). Chỉ dùng ở chế độ sửa, xem chỗ truyền `conLai`.
+ */
+const KHONG_CO_CON_LAI: Record<number, ConLaiDeNghi> = {};
+
 export interface PropFormLapDonMuaHang {
   /**
    * Phiếu đề nghị nguồn — **TRUYỀN VÀO**, form KHÔNG tự đọc `useSearchParams`.
@@ -281,6 +297,35 @@ export interface PropFormLapDonMuaHang {
   onDaLuu?: (poId: string, rangIn: boolean) => void;
   /** Nút [Hủy]. Không truyền thì KHÔNG vẽ nút — nhúng trong trang thì "hủy" đi đâu là vô nghĩa. */
   onHuy?: () => void;
+  /**
+   * ★★★ ĐƠN ĐANG ĐƯỢC SỬA — bật CHẾ ĐỘ THỨ BA của form (15/09/2026, chỉ đạo Sếp lần thứ hai).
+   *
+   * Sếp mở hộp *"Sửa đơn hàng DMH260008"* trên bản thật, khoanh đỏ cả hộp và ghi nguyên văn:
+   *   *"mục sửa đơn sao còn giao diện này — A đã nói e cho sửa tại giao diện lập PO rồi mà"*
+   *
+   * Đây là **lần thứ hai** của cùng một chỉ đạo. Lần đầu 13/09/2026 (*"làm đầy đủ, không làm bản
+   * rút gọn"*) đã DỪNG GIỮA CHỪNG và báo cáo — lý do ghi ở `hop-sua-don-hang.tsx`: tầng ghi
+   * `suaDonHang` chỉ nhận đúng kiểu `ThayDoiDonHang`, nên bày form đầy đủ ra mà không khoá thì
+   * một loạt ô bấm Lưu xong sẽ **im lặng mất thay đổi** (CLAUDE.md §3.5).
+   *
+   * ✅ CÁCH LÀM LẦN NÀY — GIỮ NGUYÊN TẦNG GHI, KHOÁ NHỮNG Ô NÓ KHÔNG NHẬN:
+   *   · Ô nào `ThayDoiDonHang` nhận → sửa được thật.
+   *   · Ô nào nó KHÔNG nhận → hiện đủ (để tờ đơn vẫn đọc được) nhưng **khoá + nói rõ lý do**.
+   *     Khoá lại KHÔNG mất gì so với hôm qua: hộp thoại cũ cũng chưa bao giờ sửa được chúng.
+   *   · Chiết khấu / thuế suất chung nằm bên trong `BangHangTien` (tệp không thuộc lượt sửa này)
+   *     nên không khoá được bằng `disabled` — thay vào đó bộ xử lý đổi giá trị **không ghi state,
+   *     chỉ hiện một câu giải thích**. Không im lặng, không hứa suông.
+   *
+   * 🔴 MỘT FORM, MỘT CHỖ — tuyệt đối không chép ruột form ra bản thứ hai cho việc sửa. Chính
+   * `hop-sua-don-hang.tsx` đã dặn: *"ĐỪNG CHÉP TỆP NÀY RA BẢN THỨ HAI khi làm tiếp. Cách an toàn
+   * đã chốt là thêm CHẾ ĐỘ SỬA cho chính `form-lap-don-mua-hang.tsx`"*.
+   *
+   * 🔴 MỌI NHÁNH MỚI ĐỀU GÁC BẰNG `laSuaDon` (suy từ prop này). Hai chế độ cũ — có đề nghị và
+   * độc lập — **không đổi một dòng nào**: prop này mặc định `null` nên mọi nơi gọi cũ chạy y hệt.
+   */
+  poDangSua?: DonDatHang | null;
+  /** Đã lưu xong bản sửa — nơi gọi tự quyết định đi đâu (thường là quay về trang chi tiết đơn). */
+  onDaSua?: (poId: string) => void;
 }
 
 /* ★ `dongTuDoDuVaoDon` — luật "dòng gõ tự do đã đủ để vào đơn chưa" — ĐÃ CHUYỂN sang
@@ -302,6 +347,8 @@ export function FormLapDonMuaHang({
   nhung = false,
   onDaLuu,
   onHuy,
+  poDangSua = null,
+  onDaSua,
 }: PropFormLapDonMuaHang) {
   const {
     deNghi: dsDeNghi,
@@ -314,6 +361,9 @@ export function FormLapDonMuaHang({
     phieuNhan,
     nhaCungCap,
     themDonHang,
+    /* ★ Cửa ghi DUY NHẤT của chế độ sửa (15/09/2026). KHÔNG đổi một dòng nào của hàm đó — lượt
+       này chỉ đổi CHỖ NHẬP LIỆU, mọi luật sửa đơn vẫn nằm nguyên trong `suaDonHang`. */
+    suaDonHang,
     themNhaCungCap,
     xoaNhaCungCap,
     /* ★ Danh mục thủ kho công trình (22/08/2026) — người ở công trường phần lớn chưa có tài
@@ -334,11 +384,36 @@ export function FormLapDonMuaHang({
    */
   const laDonDocLap = dn === null;
   /**
+   * ★★★ CỜ CHIA CHẾ ĐỘ SỬA — 15/09/2026. Mọi nhánh mới của lượt này đều gác bằng cờ này, nên hai
+   * chế độ cũ (có đề nghị · độc lập) không đổi hành vi một ly.
+   *
+   * 🔴 SUY TỪ `poDangSua`, không nhận thêm một prop `cheDo` riêng — cùng lý do đã ghi ở
+   * `laDonDocLap`: hai nguồn sự thật cho một việc thì sớm muộn có chỗ truyền lệch nhau.
+   */
+  const laSuaDon = poDangSua !== null;
+  /**
    * ★ QUYỀN LẬP PO ĐỘC LẬP THẬT SỰ ĐƯỢC DÙNG Ở ĐÂY — thêm 29/08/2026 cùng `duongDanHongPrId`.
    * KHÁC `quyen.taoPoDoiLap` trần: liên kết cũ/hỏng (`duongDanHongPrId`) khoá về mẫu-thôi bất kể
    * có quyền hay không — xem chú thích đầy đủ ở `PropFormLapDonMuaHang.duongDanHongPrId`.
+   *
+   * 🔴 `&& !laSuaDon` (15/09/2026): chế độ SỬA gọi form với `deNghi={null}` (xem chú thích ở
+   * `poDangSua`), nên `laDonDocLap` là `true`. Không tắt cờ này thì người có `quyen.taoPoDoiLap`
+   * mở màn sửa ra sẽ thấy nguyên bộ giao diện *"lập PO độc lập"*: dải cảnh báo "đơn sẽ vào trạng
+   * thái Chờ đề nghị", ô "Lý do lập PO độc lập" bắt buộc, và nút [Lưu] gọi `themDonHang` — tức
+   * **cất ra một đơn thứ hai** thay vì sửa đơn đang mở. Tắt ở ĐÚNG MỘT chỗ này là tắt cả bốn.
    */
-  const coQuyenTaoDocLapThat = quyen.taoPoDoiLap && !duongDanHongPrId;
+  const coQuyenTaoDocLapThat = quyen.taoPoDoiLap && !duongDanHongPrId && !laSuaDon;
+
+  /**
+   * ★ AI ĐƯỢC SỬA MỘT ĐƠN ĐÃ LẬP — luật GIỮ NGUYÊN của hộp "Sửa đơn hàng" cũ, chép sang đây
+   * nguyên văn để không mất khi hộp đó thành nút điều hướng.
+   *
+   * 🔴 Đây CHỈ là lớp gác giao diện. Chốt thật nằm trong `suaDonHang` (`3-du-lieu/kho-du-lieu.tsx`)
+   * và nó kiểm lại đúng hai điều kiện này — bỏ đoạn ở đây cũng không sửa lậu được, nhưng bày ra
+   * một form mà cửa ghi sẽ từ chối thì người dùng gõ xong cả đơn mới biết.
+   */
+  const laNguoiPhuTrachDon = poDangSua?.nguoiPhuTrachUid === nguoiDung.uid;
+  const duocSuaDon = quyen.suaPODaChot || laNguoiPhuTrachDon;
   /**
    * ★ RÚT GỌN 04/09/2026 — `laDonDocLap && coQuyenTaoDocLapThat` lặp lại y hệt
    * ở 4 chỗ (banner cảnh báo "chờ đề nghị", ô lý do, validate Lưu, dữ liệu
@@ -347,6 +422,17 @@ export function FormLapDonMuaHang({
    * liệu nếu điều kiện đổi sau này.
    */
   const canLapDocLap = laDonDocLap && coQuyenTaoDocLapThat;
+  /**
+   * ★ CHẾ ĐỘ "CHỈ TẠO MẪU PO, KHÔNG LƯU" — gom lại thành MỘT biến, 15/09/2026.
+   *
+   * 🔴 VÌ SAO PHẢI GOM: điều kiện `laDonDocLap && !coQuyenTaoDocLapThat` lặp ở 5 chỗ (dải cảnh
+   * báo "không lưu vào hệ thống", ô Số đơn hàng, câu dưới ô đó, thanh nút cuối). Chế độ SỬA cũng
+   * chạy với `laDonDocLap === true` (form nhận `deNghi={null}`), nên NẾU KHÔNG loại `laSuaDon` ra
+   * thì màn sửa đơn sẽ hiện nguyên bộ giao diện *"đây chỉ là bản mẫu, không lưu vào hệ thống"* và
+   * thanh nút [In mẫu PO] [Xuất Excel] — sai hoàn toàn, và không có nút lưu nào.
+   * Sửa ở 5 chỗ rời nhau thì chắc chắn sót một; gom về một biến là sót không được.
+   */
+  const laCheDoMau = laDonDocLap && !coQuyenTaoDocLapThat && !laSuaDon;
 
   // ---------------------------------------------------------------------------
   // ① KHỐI THÔNG TIN CHUNG — đúng thứ tự ô của màn MISA
@@ -388,6 +474,26 @@ export function FormLapDonMuaHang({
   const [ghiChuThoiGianGiao, setGhiChuThoiGianGiao] = useState("");
   // Dòng cuối khối
   const [thamChieu, setThamChieu] = useState("");
+  /**
+   * ★★ BA Ô CHỈ CÓ Ở CHẾ ĐỘ SỬA — thêm 15/09/2026, và có lý do bắt buộc phải có.
+   *
+   * 🔴 VÌ SAO KHÔNG ĐƯỢC BỎ QUA: hộp *"Sửa đơn hàng"* cũ cho sửa **bốn** trường mà form lập đơn
+   * không có ô nào — `nguoiLienHeNCC`, `dieuKienGiaoHang`, `ghiChu` (ghi chú nội bộ) và
+   * `thamChieu`. Thay hộp bằng form mà không dựng lại bốn ô này là **xoá lối vào duy nhất** để
+   * sửa chúng (CLAUDE.md §3.4b: trước khi bỏ một mục phải kiểm màn đó còn đường vào nào khác).
+   * `ThayDoiDonHang` nhận đủ cả bốn, nên đây là ô sửa được THẬT, không phải ô trang trí.
+   *
+   * 📌 CHỈ HIỆN KHI SỬA, cố ý. Ba ô đầu từng bị Ban lãnh đạo yêu cầu bỏ khỏi form LẬP ĐƠN
+   * (24/08/2026 *"Bỏ thông tin này"* cho Người liên hệ; 27/08/2026 *"Bỏ mục này đi"* cho Tham
+   * chiếu) vì chúng không có trên biểu mẫu giấy. Chỉ đạo đó nói về tờ đơn lúc LẬP — dựng lại
+   * chúng ở đường lập mới là đi ngược chỉ đạo, nên nhánh vẽ gác bằng `laSuaDon`.
+   *
+   * ⚠️ `thamChieu` dùng lại state có sẵn ngay trên (bộ đọc/ghi Excel vẫn đang dùng nó) — không
+   * đẻ thêm state thứ hai cho cùng một trường.
+   */
+  const [nguoiLienHeNCC, setNguoiLienHeNCC] = useState("");
+  const [dieuKienGiaoHang, setDieuKienGiaoHang] = useState("");
+  const [ghiChuNoiBo, setGhiChuNoiBo] = useState("");
   /** `supplierId` chỉ có khi tra ra trong danh mục — không tra ra vẫn lập được đơn. */
   const [supplierId, setSupplierId] = useState<string>("");
 
@@ -554,6 +660,41 @@ export function FormLapDonMuaHang({
    * `null` = chưa hỏi ai · `"cat"` = cất rồi mở đơn · `"cat-in"` = cất rồi mở trang in.
    */
   const [hoiCat, setHoiCat] = useState<null | "cat" | "cat-in">(null);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ★★★ CHẾ ĐỘ SỬA ĐƠN — state riêng, 15/09/2026 (xem prop `poDangSua`)
+  // ═══════════════════════════════════════════════════════════════════════════
+  /**
+   * Lý do sửa. Luật bắt buộc GIỮ NGUYÊN của `suaDonHang`: người không phải Trưởng bộ phận/quản
+   * trị thì MỌI thay đổi phải ghi lý do; đổi ngày giao hoặc đổi nhà cung cấp thì **ai cũng phải
+   * ghi**, kể cả quản lý.
+   */
+  const [lyDoSua, setLyDoSua] = useState("");
+  /** Hộp hỏi lại trước khi ghi đè một đơn đã lập — cùng nếp thận trọng với `hoiCat`. */
+  const [hoiLuuSua, setHoiLuuSua] = useState(false);
+  /**
+   * 🔴🔴 SỐ THỨ TỰ DÒNG GỐC CỦA PO, TRA THEO KHOÁ DÒNG TRÊN BẢNG — thứ dễ làm hỏng nhất của cả
+   * chế độ sửa, nên đọc kỹ trước khi đụng vào.
+   *
+   * `DongPO.sttDong` là **địa chỉ** mà phiếu nhận hàng trỏ về (`DongNhanHang.sttDongPO`). Hàm
+   * `luu()` của đường LẬP MỚI đánh lại số theo thứ tự trong bảng (`items.length + 1`) — làm vậy
+   * lúc SỬA là **mọi phiếu nhận đã ghi bỗng nói về một mặt hàng khác**: xoá một dòng giữa bảng là
+   * các dòng dưới nó tụt số, phiếu nhận cũ trỏ sang hàng bên cạnh. Không một dòng lỗi nào báo.
+   *
+   * ✅ Vì vậy chế độ sửa GIỮ NGUYÊN `sttDong` cũ của từng dòng, tra qua bảng này; dòng thêm mới
+   * lấy số kế tiếp (`max + 1`), không bao giờ dùng lại số của dòng vừa xoá.
+   *
+   * 📌 Để ở `useRef` chứ không phải state: nó chỉ là bảng tra, đổi nó không cần vẽ lại màn hình.
+   * Và KHÔNG nhét vào `DongNhapDonHang` — kiểu đó nằm ở `bang-hang-tien.tsx`, tệp dùng chung.
+   */
+  const sttGocTheoId = useRef(new Map<string, number>());
+  /**
+   * Số thứ tự dòng CAO NHẤT đơn này từng cấp. CHỈ TĂNG, không bao giờ cấp lại số của dòng đã xoá
+   * — xem chú thích ở `xoaDong`. Đặt lúc nạp đơn vào form.
+   */
+  const sttCaoNhatCuaPO = useRef(0);
+  /** Đã nạp dữ liệu của đơn vào form chưa — chỉ chạy một lần, như các khối điền sẵn khác. */
+  const daNapTuPO = useRef(false);
 
   /** Đã điền sẵn từ bảng báo giá nào — hiện dải thông báo để người lập biết vì sao có số. */
   const [nguonTuBaoGia, setNguonTuBaoGia] = useState<{
@@ -764,6 +905,120 @@ export function FormLapDonMuaHang({
     }),
     [khoaDongMoi],
   );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ★★★ CHẾ ĐỘ SỬA — NẠP ĐƠN ĐANG SỬA VÀO FORM (15/09/2026)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Chứng từ giá của đơn đang sửa. `undefined` khi đơn chưa có giá, hoặc vai trò không xem giá. */
+  const giaPODangSua = useMemo(
+    () => (poDangSua ? giaDonHang.find((g) => g.poId === poDangSua.id) : undefined),
+    [poDangSua, giaDonHang],
+  );
+
+  /**
+   * ★ DÒNG ĐANG CÓ PHIẾU NHẬN THAM CHIẾU — khoá nội dung/số lượng.
+   *
+   * 🔴 LUẬT DÙNG CHUNG với tầng ghi: cùng gọi `dongPOBiKhoaNoiDung` (`2-quy-trinh/tinh-toan.ts`)
+   * mà `suaDonHang` gọi, không chép tay điều kiện. Phiếu nhận trỏ về VỊ TRÍ dòng chứ không trỏ
+   * theo nội dung, nên đổi tên hàng/ĐVT/số lượng của dòng đã nhận là phiếu cũ bỗng nói về một
+   * thứ khác — không truy vết lại được.
+   *
+   * ⚠️ CHỖ CHẶN NẰM Ở `doiDong`/`xoaDong` BÊN DƯỚI, KHÔNG PHẢI Ở Ô NHẬP. `BangHangTien` hiện
+   * chưa có tham số khoá từng dòng, và tệp đó không thuộc lượt sửa này — nên ô vẫn gõ được nhưng
+   * giá trị KHÔNG vào state, kèm một câu nói rõ vì sao. Luật được giữ đủ (không có thay đổi lậu
+   * nào lọt tới tầng ghi) và người dùng biết ngay, chứ không phải bấm Lưu rồi mới bị từ chối.
+   */
+  const dongDaNhanCuaPO = useMemo(() => {
+    if (!poDangSua) return new Set<number>();
+    return dongPOBiKhoaNoiDung(phieuNhan.filter((p) => p.poId === poDangSua.id));
+  }, [poDangSua, phieuNhan]);
+
+  useEffect(() => {
+    if (daNapTuPO.current) return;
+    if (!poDangSua) return;
+    const po = poDangSua;
+
+    /* ----- Bảng Hàng tiền -----
+       🔴 GIỮ NGUYÊN `sttDong` cũ qua `sttGocTheoId` — xem chú thích dài ở ref đó. */
+    const banDoGia = new Map<number, DongGiaPO>();
+    for (const l of giaPODangSua?.lines ?? []) banDoGia.set(l.sttDong, l);
+
+    const bang: DongNhapDonHang[] = po.items.map((d) => {
+      const khoa = khoaDongMoi();
+      sttGocTheoId.current.set(khoa, d.sttDong);
+      const g = banDoGia.get(d.sttDong);
+      return {
+        id: khoa,
+        laGhiChu: d.laDongGhiChu === true,
+        /* Dòng ghi chú mang `0`, dòng hàng của đơn độc lập mang `undefined` — giữ NGUYÊN quy ước
+           của `DongPO.sttDongDeNghi` để lúc lưu lại còn trả đúng về chỗ cũ. */
+        sttDeNghi: d.laDongGhiChu === true ? 0 : d.sttDongDeNghi,
+        maHang: d.maHang ?? "",
+        tenHang: d.tenVatLieu,
+        thongSo: d.thongSoKyThuat ?? "",
+        dvt: d.donViTinh,
+        soLuong: d.laDongGhiChu === true ? "" : String(d.khoiLuongDat),
+        /* Không có quyền xem giá thì KHÔNG nạp giá vào form — và cũng không lưu giá đi
+           (xem `luuSua`). Nạp rỗng rồi lưu là xoá sạch đơn giá của cả đơn. */
+        donGia: quyen.xemGia && g ? String(g.donGia) : "",
+        thueSuat: quyen.xemGia && g?.thueSuatGTGT !== undefined ? String(g.thueSuatGTGT) : "",
+        truongMoRong1: d.truongMoRong1 ?? "",
+        mucDich: d.mucDichSuDung ?? "",
+      };
+    });
+    setDongBang(bang);
+    sttCaoNhatCuaPO.current = Math.max(0, ...po.items.map((d) => d.sttDong));
+
+    /* ----- Nhóm ô SỬA ĐƯỢC (đúng những trường `ThayDoiDonHang` nhận) ----- */
+    setTenNCC(po.supplierTen);
+    setSupplierId(po.supplierId);
+    setDiaChiNCC(po.diaChiNCC ?? "");
+    setMstNCC(po.maSoThueNCC ?? "");
+    setNguoiNhanHang(po.nguoiNhanHangTen ?? "");
+    setSdtNguoiNhan(po.nguoiNhanHangSdt ?? "");
+    setDiaDiemGiao(po.diaDiemGiaoHang ?? "");
+    setNgayGiao(po.ngayGiaoDuKien);
+    setNgayGiaoDen(po.ngayGiaoDenNgay ?? "");
+    setGhiChuThoiGianGiao(po.ghiChuThoiGianGiao ?? "");
+    setDieuKhoanKhac(po.dieuKhoanKhac ?? "");
+    setNguoiLienHeNCC(po.nguoiLienHeNCC ?? "");
+    setDieuKienGiaoHang(po.dieuKienGiaoHang ?? "");
+    setGhiChuNoiBo(po.ghiChu ?? "");
+    setThamChieu(po.thamChieu ?? "");
+
+    /* ----- Nhóm ô CHỈ ĐỌC ở chế độ sửa -----
+       Vẫn phải nạp: tờ đơn trên màn hình phải hiện đúng đơn đang sửa, và khối tiền phải tính ra
+       đúng con số của đơn đó. Khoá nằm ở chỗ vẽ ô, không phải ở đây. */
+    setMaNCC("");
+    setNgayDonHang(po.ngayLapPO);
+    setTenCongTrinh(po.tenCongTrinh ?? "");
+    setMaHopDong(po.maHopDongCDT ?? "");
+    setGhiChuHopDongNCC(po.ghiChuHopDongNCC ?? "");
+    setMaDuAnNhap(po.maDuAn);
+    if (po.mauPO) setMauPO(po.mauPO);
+    if (po.dieuKhoanGiaoHang !== undefined) setDieuKhoanGiaoHang(po.dieuKhoanGiaoHang);
+    if (po.camKetThoaThuan !== undefined) setCamKetThoaThuan(po.camKetThoaThuan);
+    if (quyen.xemGia && giaPODangSua) {
+      setLoaiTien(giaPODangSua.loaiTien || "VND");
+      setKieuChietKhau(giaPODangSua.kieuChietKhau ?? "khong");
+      setChietKhau(giaPODangSua.chietKhau !== undefined ? String(giaPODangSua.chietKhau) : "");
+      setTyLeChietKhau(
+        giaPODangSua.tyLeChietKhau !== undefined ? String(giaPODangSua.tyLeChietKhau) : "",
+      );
+      /* `undefined` = đơn không chịu thuế. Để `""` chứ đừng rơi về mặc định "8" — bày 8% cho một
+         đơn không thuế là con số tiền trên màn hình khác hẳn con số trên chứng từ đã lưu. */
+      setThueSuat(
+        giaPODangSua.thueSuatGTGT !== undefined ? String(giaPODangSua.thueSuatGTGT) : "",
+      );
+      setDieuKhoanThanhToan(giaPODangSua.dieuKhoanThanhToan ?? "");
+      setSoNgayDuocNo(
+        giaPODangSua.soNgayDuocNo !== undefined ? String(giaPODangSua.soNgayDuocNo) : "",
+      );
+    }
+
+    daNapTuPO.current = true;
+  }, [poDangSua, giaPODangSua, quyen.xemGia, khoaDongMoi]);
 
   /* ===== ĐIỀN SẴN CÁC Ô LẤY ĐƯỢC TỪ PHIẾU ĐỀ NGHỊ =====
      Chạy một lần khi mở màn. Mã RQ, tên công trình, hợp đồng đều đã có trên phiếu — bắt gõ
@@ -1053,12 +1308,80 @@ export function FormLapDonMuaHang({
   }, [donTruocCuaDeNghi, dn, quyen.xemGia, giaDonHang]);
 
   // --- Các thao tác trên bảng ---
-  const doiDong = useCallback((id: string, phan: Partial<DongNhapDonHang>) => {
-    setDongBang((t) => t.map((d) => (d.id === id ? { ...d, ...phan } : d)));
-  }, []);
-  const xoaDong = useCallback((id: string) => {
-    setDongBang((t) => t.filter((d) => d.id !== id));
-  }, []);
+  /**
+   * ★ CHẾ ĐỘ SỬA: DÒNG ĐÃ CÓ PHIẾU NHẬN THÌ KHOÁ TÊN HÀNG · ĐVT · SỐ LƯỢNG (15/09/2026).
+   *
+   * 🔴 CÙNG LUẬT với tầng ghi `suaDonHang` (nó cũng gọi `dongPOBiKhoaNoiDung` rồi từ chối) — đây
+   * chỉ là chỗ nói sớm cho người dùng, không phải luật thứ hai. Ba trường bị khoá đúng bằng ba
+   * trường tầng ghi so sánh, không nhiều hơn: mã hàng, thông số, mục đích, đơn giá vẫn sửa được
+   * vì phiếu nhận không dựa vào chúng.
+   *
+   * ⚠️ TRẢ `true` = CHẶN. Đặt tên theo câu hỏi để chỗ gọi đọc ra ngay ý nghĩa.
+   */
+  const chanSuaDongDaNhan = useCallback(
+    (id: string, phan: Partial<DongNhapDonHang>): boolean => {
+      if (!laSuaDon) return false;
+      const stt = sttGocTheoId.current.get(id);
+      if (stt === undefined || !dongDaNhanCuaPO.has(stt)) return false;
+      const dungToi =
+        phan.tenHang !== undefined || phan.dvt !== undefined || phan.soLuong !== undefined;
+      if (!dungToi) return false;
+      toast.info("Dòng này đã có phiếu nhận hàng", {
+        description:
+          "Không sửa được tên hàng, đơn vị tính và số lượng của dòng đã nhận — phiếu nhận cũ trỏ về đúng dòng này. Cần đặt thêm thì thêm một dòng mới.",
+      });
+      return true;
+    },
+    [laSuaDon, dongDaNhanCuaPO],
+  );
+
+  /**
+   * ★ BỘ XỬ LÝ "Ô NÀY KHOÁ Ở CHẾ ĐỘ SỬA" — dùng cho những ô nằm bên trong `BangHangTien`, nơi
+   * không đặt được `disabled` từ ngoài (tệp đó không thuộc lượt sửa 15/09/2026).
+   *
+   * 🔴 KHÔNG GHI STATE là phần quan trọng nhất: ô là controlled nên giá trị bật lại ngay, người
+   * dùng thấy tức thì rằng thao tác không có tác dụng — kèm một câu nói vì sao. Im lặng nuốt
+   * thao tác mới là thứ bị cấm, không phải việc khoá.
+   */
+  const khiSuaThiBaoKhoa = useCallback(
+    (tenO: string) => () => {
+      toast.info(`${tenO} chỉ đặt được lúc lập đơn`, {
+        description:
+          "Cửa ghi sửa đơn hàng chưa nhận trường này nên app khoá lại thay vì nhận rồi bỏ đi. Cần đổi thì huỷ đơn và lập lại.",
+      });
+    },
+    [],
+  );
+
+  const doiDong = useCallback(
+    (id: string, phan: Partial<DongNhapDonHang>) => {
+      if (chanSuaDongDaNhan(id, phan)) return;
+      setDongBang((t) => t.map((d) => (d.id === id ? { ...d, ...phan } : d)));
+    },
+    [chanSuaDongDaNhan],
+  );
+  const xoaDong = useCallback(
+    (id: string) => {
+      /* Xoá cả dòng cũng là đổi nội dung/số lượng của nó (về "không còn") — tầng ghi từ chối
+         y hệt, nên chặn ngay tại đây thay vì để người dùng bấm Lưu rồi mới biết. */
+      if (laSuaDon) {
+        const stt = sttGocTheoId.current.get(id);
+        if (stt !== undefined && dongDaNhanCuaPO.has(stt)) {
+          toast.info("Dòng này đã có phiếu nhận hàng", {
+            description: "Đã nhận hàng rồi thì không xoá dòng khỏi đơn được nữa.",
+          });
+          return;
+        }
+      }
+      setDongBang((t) => t.filter((d) => d.id !== id));
+      /* 🔴 CỐ Ý KHÔNG XOÁ KHỎI `sttGocTheoId`. Số thứ tự dòng của một PO **không bao giờ được
+         dùng lại**: phiếu nhận ở trạng thái khác `da_nhap_kho`/`cho_kiem_tra` (vd `tu_choi_nhan`)
+         vẫn trỏ về số cũ mà không nằm trong `dongDaNhanCuaPO`, nên xoá dòng đó là hợp lệ — nhưng
+         cấp lại chính số ấy cho một mặt hàng khác thì phiếu từ chối cũ bỗng nói về hàng khác.
+         Số kế tiếp lấy từ `sttCaoNhatCuaPO`, chỉ tăng, xem ref đó. */
+    },
+    [laSuaDon, dongDaNhanCuaPO],
+  );
   /**
    * ★ CHÈN MỘT DÒNG HÀNG TRẮNG — chỉ ở chế độ độc lập (18/08/2026).
    *
@@ -1095,9 +1418,28 @@ export function FormLapDonMuaHang({
    * Độc lập    → chèn một dòng trắng để gõ tay.
    */
   const themDong = useCallback(() => {
+    /**
+     * ★ CHẾ ĐỘ SỬA: ĐƠN LẬP TỪ ĐỀ NGHỊ KHÔNG THÊM DÒNG MỚI — luật siết 15/09/2026 sáng, giữ
+     * nguyên khi dời từ hộp thoại sang form.
+     *
+     * 🔴 VÌ SAO: thêm mặt hàng + số lượng + đơn giá tuỳ ý vào một PO **đã chốt** là đi vòng qua
+     * bước ③ Xét duyệt báo giá và qua khối lượng đã duyệt của đề nghị — một đường lách quanh cả
+     * quy trình duyệt, ngay trong màn "sửa đơn".
+     *
+     * ⚠️ NÚT ĐÃ ĐƯỢC KHOÁ SẴN (`conMatHangDeThem={false}` truyền cho `BangHangTien`, kèm câu nói
+     * rõ lý do). Dòng này là lớp thứ hai cho phím tắt F9 và cho mọi đường gọi khác — khoá nút chỉ
+     * che một đường trong ba.
+     */
+    if (laSuaDon && poDangSua?.prId) {
+      toast.info("Không thêm dòng mới ở đây", {
+        description:
+          "Đơn này lập từ đề nghị nên mặt hàng phải bám khối lượng đã được duyệt. Cần đặt thêm thì lập đề nghị mới, hoặc lập một đơn hàng khác.",
+      });
+      return;
+    }
     if (laDonDocLap) themDongTrong();
     else setMoChonMatHang(true);
-  }, [laDonDocLap, themDongTrong]);
+  }, [laDonDocLap, laSuaDon, poDangSua, themDongTrong]);
 
   /** Một dòng trắng — dùng chung cho [Thêm dòng], dấu [+] và [Thêm ghi chú]. */
   const dongTrong = useCallback(
@@ -1133,6 +1475,15 @@ export function FormLapDonMuaHang({
    */
   const chenDongDuoi = useCallback(
     (idTren: string) => {
+      /* ★ Cùng luật với [Thêm dòng] ở chế độ sửa (15/09/2026): dấu [+] cũng chèn một dòng hàng
+         gõ tay, nên với đơn lập từ đề nghị nó cũng là đường lách quanh khối lượng đã duyệt. */
+      if (laSuaDon && poDangSua?.prId) {
+        toast.info("Không thêm dòng mới ở đây", {
+          description:
+            "Đơn này lập từ đề nghị nên mặt hàng phải bám khối lượng đã được duyệt. Vẫn chèn được dòng GHI CHÚ.",
+        });
+        return;
+      }
       setDongBang((t) => {
         const i = t.findIndex((d) => d.id === idTren);
         /* Không tìm thấy (dòng vừa bị xóa ở tab khác) thì thêm vào cuối — thà thêm sai chỗ còn
@@ -1141,7 +1492,7 @@ export function FormLapDonMuaHang({
         return [...t.slice(0, i + 1), dongTrong(false), ...t.slice(i + 1)];
       });
     },
-    [dongTrong],
+    [dongTrong, laSuaDon, poDangSua],
   );
 
   /**
@@ -1201,7 +1552,26 @@ export function FormLapDonMuaHang({
    * Nhúng thì trả `null` (khối bước đã có tiêu đề và danh sách đơn của nó, chèn thêm một
    * `EmptyState` chiếm cả khối là vô ích); trang riêng thì nói rõ thiếu quyền gì.
    */
-  if (!quyen.lapPO) {
+  /**
+   * ★ CHẾ ĐỘ SỬA GÁC BẰNG LUẬT RIÊNG (15/09/2026), không dùng `quyen.lapPO`.
+   *
+   * 🔴 Đây là luật của hộp "Sửa đơn hàng" cũ, chép nguyên sang: Trưởng bộ phận/quản trị
+   * (`quyen.suaPODaChot`) **hoặc** người phụ trách chính đơn đó. Dùng `lapPO` thay vào là đổi
+   * luật của Sếp một cách âm thầm — `lapPO` mở cho cả người không liên quan gì tới đơn này.
+   *
+   * 📌 Hai điều kiện còn lại (đơn đã hoàn thành / đã huỷ) do trang gọi lo, vì ở đó mới nói được
+   * câu đúng ngữ cảnh; tầng ghi vẫn kiểm lại lần nữa.
+   */
+  if (laSuaDon && !duocSuaDon) {
+    return (
+      <EmptyState
+        icon={FileWarning}
+        title="Không có quyền sửa đơn hàng này"
+        description="Chỉ Trưởng bộ phận trở lên, hoặc người phụ trách chính đơn này, mới sửa được."
+      />
+    );
+  }
+  if (!laSuaDon && !quyen.lapPO) {
     if (nhung) return null;
     return (
       <EmptyState
@@ -2171,10 +2541,207 @@ export function FormLapDonMuaHang({
     onDaLuu?.(ketQua.id, rangIn);
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ★★★ LƯU BẢN SỬA — 15/09/2026. Đường ghi HOÀN TOÀN RIÊNG với `luu()` ở trên.
+  //
+  // 🔴 KHÔNG ĐỤNG MỘT DÒNG NÀO CỦA `luu()`. Hai việc khác hẳn nhau (cấp số đơn mới vs ghi đè một
+  // đơn đã có), hai cửa ghi khác nhau (`themDonHang` vs `suaDonHang`), hai bộ luật khác nhau.
+  // Nhồi chung vào một hàm là mỗi lần sửa một bên lại phải soát lại bên kia.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Có đang đổi ngày giao / đổi nhà cung cấp không — hai ca **luôn** phải ghi lý do, kể cả người
+   * có `quyen.suaPODaChot`.
+   *
+   * 🔴 PHẢI TÍNH GIỐNG HỆT `suaDonHang` (`3-du-lieu/kho-du-lieu.tsx`), kể cả phép `|| undefined`.
+   * Lệch một ly là form bảo "không cần lý do" rồi cửa ghi từ chối — người dùng gõ xong cả đơn mới
+   * bị chặn, đúng kiểu lỗi mà chú thích `hopLe` đã dặn tránh.
+   * 📌 `("" || undefined) !== undefined` là `false`, nên đơn vốn không có ngày kết thúc mà ô vẫn
+   * để trống thì KHÔNG bị coi là đã đổi ngày giao. Không bắt lý do oan.
+   */
+  const doiNgayGiaoSua =
+    laSuaDon &&
+    !!poDangSua &&
+    (ngayGiao !== poDangSua.ngayGiaoDuKien ||
+      (ngayGiaoDen || undefined) !== poDangSua.ngayGiaoDenNgay);
+  const doiNCCSua =
+    laSuaDon && !!poDangSua && tenNCC.trim() !== "" && tenNCC.trim() !== poDangSua.supplierTen;
+  const batBuocLyDoSua = laSuaDon && (!quyen.suaPODaChot || doiNgayGiaoSua || doiNCCSua);
+
+  /**
+   * Dựng mảng `items` mới của đơn từ bảng đang nhập.
+   *
+   * 🔴 GIỮ NGUYÊN `sttDong` cũ cho dòng đã có, cấp số MỚI (chỉ tăng) cho dòng thêm vào — xem
+   * `sttGocTheoId` và `sttCaoNhatCuaPO`. Đây là điểm khác cốt tử so với `luu()`, nơi đánh số lại
+   * từ đầu theo thứ tự bảng.
+   */
+  function dungItemsBanSua(): { items: DongPO[]; lines: DongGiaPO[] } {
+    const items: DongPO[] = [];
+    const lines: DongGiaPO[] = [];
+    for (const d of dongBang) {
+      const sttCu = sttGocTheoId.current.get(d.id);
+      const stt = sttCu ?? ++sttCaoNhatCuaPO.current;
+      if (sttCu === undefined) sttGocTheoId.current.set(d.id, stt);
+
+      if (d.laGhiChu) {
+        // Dòng ghi chú trống thì bỏ — một dòng trắng giữa đơn gửi nhà cung cấp là lỗi trình bày.
+        if (d.tenHang.trim() === "") continue;
+        items.push({
+          sttDong: stt,
+          sttDongDeNghi: 0,
+          tenVatLieu: d.tenHang.trim(),
+          donViTinh: "",
+          khoiLuongDat: 0,
+          laDongGhiChu: true,
+        });
+        continue;
+      }
+
+      // Cùng một luật với `hopLe` và với khối tính tiền — xem `dongTuDoDuVaoDon`.
+      if (!dongTuDoDuVaoDon(d)) continue;
+      items.push({
+        sttDong: stt,
+        /* Dòng cũ giữ nguyên liên kết về đề nghị; dòng mới thêm tay không nối về đâu (`undefined`)
+           — đúng quy ước `DongPO.sttDongDeNghi`, và chính là thứ `vuongMacSuaDongPOTheoDeNghi`
+           ở tầng ghi dựa vào để đối chiếu khối lượng đã duyệt. */
+        sttDongDeNghi: d.sttDeNghi,
+        maHang: d.maHang.trim() || undefined,
+        tenVatLieu: d.tenHang.trim(),
+        thongSoKyThuat: d.thongSo.trim() || undefined,
+        donViTinh: d.dvt.trim(),
+        khoiLuongDat: Number(d.soLuong) || 0,
+        mucDichSuDung: d.mucDich.trim() || undefined,
+        truongMoRong1: d.truongMoRong1.trim() || undefined,
+      });
+      lines.push({
+        sttDong: stt,
+        donGia: Number(d.donGia) || 0,
+        /* `undefined` = dòng không có thuế riêng, dùng mức chung của đơn. Giữ `undefined` chứ
+           đừng đặt 0 — 0% là một mức thuế THẬT (hàng không chịu thuế), khác hẳn "chưa đặt".
+           📌 Đây chính là chỗ vá 13/09/2026 được giữ: form có ô "% Thuế GTGT" theo từng dòng và
+           ô đó đã được nạp sẵn từ chứng từ giá, nên lưu lại là giữ nguyên mức cũ. */
+        thueSuatGTGT: d.thueSuat.trim() === "" ? undefined : Number(d.thueSuat) || 0,
+      });
+    }
+    return { items, lines };
+  }
+
+  function luuSua() {
+    if (!poDangSua) return;
+
+    /* Chặn TRƯỚC khi hỏi lý do: khoảng ngày ngược là lỗi dữ liệu, ghi lý do hay không cũng không
+       làm nó đúng lên được. Cùng luật `khoangGiaoNguoc` của đường lập mới. */
+    if (khoangGiaoNguoc) {
+      toast.error("Khoảng ngày giao bị ngược", {
+        description: "Ngày giao đến phải bằng hoặc sau ngày giao dự kiến.",
+      });
+      return;
+    }
+    if (batBuocLyDoSua && lyDoSua.trim() === "") {
+      toast.error("Chưa ghi lý do", {
+        description: doiNgayGiaoSua
+          ? "Đổi ngày giao phải ghi lý do, dù là ai sửa."
+          : doiNCCSua
+            ? "Đổi nhà cung cấp phải ghi lý do, dù là ai sửa."
+            : "Bạn không phải Trưởng bộ phận/quản trị — sửa đơn hàng phải ghi lý do.",
+      });
+      return;
+    }
+
+    /**
+     * 🔴 KHÔNG ĐƯỢC ÂM THẦM VỨT DÒNG CHƯA ĐỦ — CLAUDE.md §3.5, chốt riêng của chế độ SỬA.
+     *
+     * `dungItemsBanSua` bỏ qua dòng thiếu tên hàng / ĐVT / số lượng (cùng luật `dongTuDoDuVaoDon`
+     * với đường lập mới). Ở đường LẬP MỚI điều đó vô hại — dòng chưa đủ là dòng người dùng vừa
+     * thêm rồi bỏ dở. Ở đường SỬA thì khác hẳn: dòng chưa đủ có thể là **một mặt hàng đang nằm
+     * trong đơn thật** mà người dùng vừa xoá trắng ô số lượng. Lưu đi là mặt hàng đó **biến mất
+     * khỏi đơn mà không một dòng báo nào** — và đơn đã gửi nhà cung cấp.
+     *
+     * ✅ Chặn và gọi đúng tên dòng. Muốn bỏ hẳn một mặt hàng thì bấm nút xoá dòng, ở đó có luật
+     * riêng (dòng đã có phiếu nhận thì không xoá được).
+     */
+    const dongChuaDu = dongBang.filter((d) => !d.laGhiChu && !dongTuDoDuVaoDon(d));
+    if (dongChuaDu.length > 0) {
+      toast.error(`Còn ${dongChuaDu.length} dòng chưa đủ thông tin`, {
+        description: `Mỗi dòng hàng cần đủ Tên hàng, ĐVT và Số lượng lớn hơn 0. Kiểm lại: ${dongChuaDu
+          .map((d, i) => d.tenHang.trim() || `dòng thứ ${i + 1} chưa đặt tên`)
+          .join(", ")}. Muốn bỏ hẳn một mặt hàng thì dùng nút xoá dòng.`,
+      });
+      return;
+    }
+
+    const { items, lines } = dungItemsBanSua();
+    if (!items.some(laDongHang)) {
+      toast.error("Đơn phải còn ít nhất một dòng mặt hàng", {
+        description: "Mỗi dòng hàng cần đủ Tên hàng, ĐVT và Số lượng lớn hơn 0.",
+      });
+      return;
+    }
+
+    const thayDoi: ThayDoiDonHang = {
+      /* 🔴 CHỈ GỬI ĐÚNG NHỮNG TRƯỜNG `ThayDoiDonHang` NHẬN. Trường không có ở đây (mẫu in, loại
+         tiền, ngày lập, chiết khấu, thuế chung, tên công trình, hợp đồng, điều khoản thanh
+         toán/giao hàng, cam kết) là những ô đã KHOÁ trên form — xem dải giải thích đầu form. */
+      nguoiLienHeNCC,
+      diaChiNCC,
+      maSoThueNCC: mstNCC,
+      nguoiNhanHangTen: nguoiNhanHang,
+      nguoiNhanHangSdt: sdtNguoiNhan,
+      diaDiemGiaoHang: diaDiemGiao,
+      dieuKienGiaoHang,
+      ghiChuThoiGianGiao,
+      ghiChu: ghiChuNoiBo,
+      dieuKhoanKhac,
+      thamChieu,
+      ngayGiaoDuKien: ngayGiao,
+      /* LUÔN gửi (chuỗi, có thể rỗng): `""` nghĩa là XOÁ ngày kết thúc, `undefined` nghĩa là
+         "không đụng tới". Người dùng xoá trắng ô là họ CỐ Ý bỏ khoảng ngày. */
+      ngayGiaoDenNgay: ngayGiaoDen,
+      items,
+    };
+    if (doiNCCSua) {
+      thayDoi.supplierTen = tenNCC.trim();
+      /* ⚠️ Đổi tên tự do KHÔNG đổi `supplierId` — giữ nguyên id cũ để không phá khoá gộp công nợ
+         theo nhà cung cấp bằng một id rác tự sinh. Đổi hẳn sang một NCC khác trong danh mục là
+         việc lớn hơn, để riêng cho một tính năng khác (luật này chép nguyên từ hộp thoại cũ). */
+    }
+    /* 🔒 KHÔNG GỬI GIÁ KHI KHÔNG ĐƯỢC XEM GIÁ. Vai trò đó không thấy cột đơn giá nên `donGia`
+       trong bảng luôn rỗng — gửi lên là ghi đè toàn bộ đơn giá của đơn về 0.
+       📌 Tầng ghi cũng tự chặn khi đơn đã `xacNhanTruongBP` ("không sửa giá được nữa"), nên ở đây
+       không kiểm lại — một luật, một chỗ. */
+    if (quyen.xemGia) thayDoi.gia = { lines };
+
+    const loi = suaDonHang(poDangSua.id, thayDoi, lyDoSua);
+    /* 🔴 CA "KHÔNG CÓ GÌ ĐỔI" ĐI RIÊNG, TRƯỚC CẢ NHÁNH LỖI. Đây KHÔNG phải lỗi (không có gì sai
+       để sửa) và cũng KHÔNG phải thành công (không lần ghi nào xảy ra) — báo bằng tông trung
+       tính và nói đúng sự thật. Hằng `MA_KHONG_CO_THAY_DOI` IMPORT từ tầng ghi, không chép tay
+       chuỗi — xem chú thích ở nơi khai báo. */
+    if (loi === MA_KHONG_CO_THAY_DOI) {
+      toast.info("Không có gì thay đổi", {
+        description: "Nội dung đơn hàng giữ nguyên như cũ nên app không ghi lại gì.",
+      });
+      return;
+    }
+    if (loi) {
+      toast.error("Chưa sửa được", { description: loi });
+      return;
+    }
+    toast.success("Đã lưu thay đổi", { description: poDangSua.code });
+    onDaSua?.(poDangSua.id);
+  }
+
   /* ★ CẬP NHẬT 29/08/2026: độc lập + `quyen.taoPoDoiLap` giờ CŨNG cất được đơn (xem khối nút
      cuối form), và `themDonHang` tạo PO đó ở `"cho_de_nghi"` chứ không phải `"da_chot"` — badge
      "Tình trạng" phải nói đúng cái sẽ xảy ra khi bấm Lưu, không phải luôn hiện "Đã chốt". */
-  const nhanTrangThai = laDonDocLap ? NHAN_TRANG_THAI_PO.cho_de_nghi : NHAN_TRANG_THAI_PO.da_chot;
+  /* ★ CHẾ ĐỘ SỬA: hiện TRẠNG THÁI THẬT của đơn đang sửa (15/09/2026). Hai nhãn dưới nói về việc
+     "đơn sắp được cất ra sẽ ở trạng thái nào" — với một đơn đã tồn tại thì câu đó vô nghĩa, và
+     hiện "Đã chốt" cho một đơn đang ở "Đang giao hàng" là nói sai về chính chứng từ đang mở.
+     📌 `nhanAnToan` để trạng thái lạ (dữ liệu cũ) không làm vỡ màn hình. */
+  const nhanTrangThai = laSuaDon
+    ? nhanAnToan(NHAN_TRANG_THAI_PO, poDangSua!.trangThai)
+    : laDonDocLap
+      ? NHAN_TRANG_THAI_PO.cho_de_nghi
+      : NHAN_TRANG_THAI_PO.da_chot;
 
   /* Hai nút NHẬP EXCEL — nửa sau của yêu cầu 17/08/2026, dựng một lần dùng cho cả hai bố cục.
      Đặt ở dòng đầu của form để thấy ngay: người lập thường có sẵn file của nhà cung cấp, gõ
@@ -2279,7 +2846,7 @@ export function FormLapDonMuaHang({
                   chỉ 11px, nên một tiêu đề con 18px là to hơn tiêu đề cha: đúng lỗi thứ bậc chữ
                   Ban lãnh đạo khoanh đỏ 16/08/2026. */}
               <NhanPhanTrongGiaiDoan the="h2" icon={ShoppingCart}>
-                Nhập đơn đặt hàng mới
+                {laSuaDon ? `Sửa đơn mua hàng ${poDangSua!.code}` : "Nhập đơn đặt hàng mới"}
               </NhanPhanTrongGiaiDoan>
               {/* Nói rõ vì sao người khác không thấy phần này — chỉ đạo 17/08/2026 *"chỉ ai được
                   cấp quyền thì mới xem được phần nhập liệu đó"*. Không có câu này thì người
@@ -2298,10 +2865,22 @@ export function FormLapDonMuaHang({
              cụm nút đứng ngay dưới nó — cụm nút nay không còn ở đó nữa. Để nguyên là câu dẫn trỏ
              vào chỗ trống, đúng kiểu "giao diện nói một đằng làm một nẻo" mà quy ước dự án cấm. */
           <p className="text-sm text-text-desc">
-            Nhập tay từng dòng, hoặc lấy sẵn từ file Excel — hai nút{" "}
-            <strong className="font-medium text-text-secondary">Tải file mẫu</strong> và{" "}
-            <strong className="font-medium text-text-secondary">Nhập từ Excel</strong> nằm ngay
-            dưới bảng Hàng tiền.
+            {laSuaDon ? (
+              <>
+                Đang sửa đơn{" "}
+                <strong className="font-medium text-text-secondary">{poDangSua!.code}</strong> —
+                đây chính là giao diện lập đơn mua hàng, đã điền sẵn nội dung đơn. Sửa xong bấm{" "}
+                <strong className="font-medium text-text-secondary">Lưu thay đổi</strong> ở cuối
+                trang.
+              </>
+            ) : (
+              <>
+                Nhập tay từng dòng, hoặc lấy sẵn từ file Excel — hai nút{" "}
+                <strong className="font-medium text-text-secondary">Tải file mẫu</strong> và{" "}
+                <strong className="font-medium text-text-secondary">Nhập từ Excel</strong> nằm
+                ngay dưới bảng Hàng tiền.
+              </>
+            )}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
@@ -2357,6 +2936,112 @@ export function FormLapDonMuaHang({
         */}
       <p className="text-xs italic text-danger/70">(* trường bắt buộc nhập liệu)</p>
 
+      {/* ═══════════════════════════════════════════════════════════════════════
+          ★★★ BA DẢI THÔNG BÁO CỦA CHẾ ĐỘ SỬA — 15/09/2026
+          ═══════════════════════════════════════════════════════════════════════ */}
+
+      {/**
+        * ★ "ĐÃ GỬI SANG KHO CÔNG TRÌNH" — chép nguyên từ hộp "Sửa đơn hàng" cũ (15/09/2026 sáng),
+        * KHÔNG được bỏ khi dời sang form.
+        *
+        * 🔴 VÌ SAO PHẢI BÁO: `qlkCtrSyncStatus === "synced"` nghĩa là **một bản PO đã nằm bên app
+        * QLK CTR rồi**. Người sửa ở đây không nhìn thấy điều đó nên rất dễ tưởng mình đang sửa một
+        * chứng từ còn nằm trong nội bộ Thu mua — trong khi thủ kho ngoài công trình có thể vẫn
+        * đang cầm số lượng và ngày giao CŨ mà nhận hàng.
+        *
+        * ⚠️ CÂU CHỮ CỐ Ý KHÔNG HỨA "GỬI LẠI NGAY": cơ chế gửi lại (`canDongBoLaiPO`) CÓ bắt được
+        * thay đổi, nhưng CHƯA AI ĐO THẬT là nó chạy ngay trong phiên của người vừa bấm Lưu hay
+        * không — mới là suy luận từ mã nguồn. Không bịa ra một mốc thời gian.
+        */}
+      {laSuaDon && poDangSua!.qlkCtrSyncStatus === "synced" && (
+        <div className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">Đơn này đã gửi sang Kho công trình.</strong> Bản
+            sửa sẽ được đồng bộ lại sang đó; trong lúc chờ, thủ kho có thể vẫn đang thấy số lượng
+            và ngày giao cũ. Nếu bên kho chưa thấy bản mới, báo bộ phận kho đối chiếu trước khi
+            giao nhận.
+          </span>
+        </div>
+      )}
+
+      {/**
+        * ★ DÒNG ĐÃ CÓ PHIẾU NHẬN — nói TRƯỚC, đừng để người dùng gõ rồi mới thấy ô không nhận chữ.
+        *
+        * 🔴 Đây là mặt hiển thị của luật `dongPOBiKhoaNoiDung` (xem `dongDaNhanCuaPO` và
+        * `chanSuaDongDaNhan`). Hộp thoại cũ vẽ được ổ khoá ngay trên từng dòng; bảng "Hàng tiền"
+        * hiện chưa có tham số khoá từng dòng và tệp đó không thuộc lượt sửa này, nên chỗ báo là
+        * dải này + câu giải thích lúc gõ. Luật KHÔNG mất: thay đổi không vào state, và tầng ghi
+        * vẫn từ chối lần cuối.
+        */}
+      {laSuaDon && dongDaNhanCuaPO.size > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-(--hp-md-row-pad) text-sm">
+          <Lock className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">
+              {dongDaNhanCuaPO.size} dòng đã có phiếu nhận hàng
+            </strong>{" "}
+            nên không sửa được <strong>tên hàng · đơn vị tính · số lượng</strong> của những dòng
+            đó, và cũng không xoá được. Phiếu nhận cũ trỏ về đúng vị trí dòng — đổi nội dung là
+            phiếu đó nói về một mặt hàng khác. Mã hàng, thông số, mục đích và đơn giá vẫn sửa được.
+          </span>
+        </div>
+      )}
+
+      {/**
+        * ★ ĐƠN LẬP TỪ ĐỀ NGHỊ: KHÔNG THÊM DÒNG MỚI — nói ra chỗ này, đừng để nút biến mất không
+        * lời giải thích (bài học 15/08/2026: *"sao nút này không dùng được"*).
+        *
+        * 🔴 KHÔNG nhét câu này vào `lyDoHetMatHang` của `BangHangTien`: tham số đó CHỈ hiện khi
+        * bảng RỖNG (`dong.length === 0`), mà bảng ở chế độ sửa luôn có sẵn dòng của đơn — câu sẽ
+        * không bao giờ hiện. Đã đo thật trước khi chuyển lên đây.
+        */}
+      {laSuaDon && poDangSua!.prId && (
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-(--hp-md-row-pad) text-sm">
+          <Info className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">Không thêm dòng mặt hàng mới ở đây.</strong> Đơn
+            này lập từ đề nghị {poDangSua!.prCode ?? ""} nên mặt hàng phải bám khối lượng đã được
+            duyệt — thêm tay ở đây là đi vòng qua bước Xét duyệt báo giá. Cần đặt thêm thì lập đề
+            nghị mới, hoặc lập một đơn hàng khác. Vẫn thêm được dòng <strong>ghi chú</strong>, và
+            vẫn sửa được số lượng của dòng sẵn có trong phạm vi khối lượng đã duyệt.
+          </span>
+        </div>
+      )}
+
+      {/**
+        * ★★ NÓI THẲNG NHỮNG Ô KHÔNG SỬA ĐƯỢC Ở ĐÂY — CLAUDE.md §3.5.
+        *
+        * 🔴 VÌ SAO KHOÁ CHỨ KHÔNG ẨN: tờ đơn phải đọc được nguyên vẹn thì người sửa mới biết mình
+        * đang sửa cái gì. Ẩn đi là một tờ đơn thủng lỗ chỗ. Nhưng bày ra mà cho gõ thì bấm Lưu
+        * xong **thay đổi biến mất không một dòng báo** — đúng thứ quy ước dự án cấm.
+        *
+        * 🔴 KHOÁ LẠI KHÔNG MẤT GÌ SO VỚI HÔM QUA: hộp "Sửa đơn hàng" cũ cũng chưa bao giờ sửa
+        * được những ô này — nó thậm chí không hiện chúng ra.
+        *
+        * 📌 LÝ DO KỸ THUẬT, ghi ra để người sau mở khoá đúng chỗ: cửa ghi `suaDonHang` chỉ nhận
+        * đúng kiểu `ThayDoiDonHang` (`3-du-lieu/kho-du-lieu.tsx`). Muốn mở ô nào thì THÊM TRƯỜNG
+        * ĐÓ VÀO KIỂU và xử lý trong `suaDonHang` trước, rồi mới bỏ `disabled` ở đây — làm ngược
+        * lại là dựng ra đúng cái bẫy trên. Riêng bốn trường cuối nằm ở CHỨNG TỪ GIÁ
+        * (`GiaDonDatHang`, document riêng theo nguyên tắc dữ liệu số 3) nên còn phải mở thêm
+        * đường ghi cho document đó.
+        */}
+      {laSuaDon && (
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-(--hp-md-row-pad) text-sm">
+          <Info className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">
+              Những ô có ổ khoá chỉ đặt được lúc lập đơn.
+            </strong>{" "}
+            Mẫu in · ngày đơn hàng · số đơn hàng · loại tiền · theo hợp đồng · mã dự án · tên công
+            trình · số hợp đồng CĐT · phương thức giao hàng · điều khoản thanh toán · cam kết cuối
+            tờ · chiết khấu · thuế suất chung — app hiện đủ để bạn đọc lại tờ đơn, nhưng chưa có
+            đường ghi cho chúng nên khoá lại thay vì nhận rồi bỏ đi. Cần đổi những thứ đó thì huỷ
+            đơn và lập lại.
+          </span>
+        </div>
+      )}
+
       {/* ===== DẢI THÔNG BÁO: ĐÂY CHỈ LÀ BẢN MẪU, KHÔNG LƯU VÀO HỆ THỐNG =====
           🔴 PHẢI NÓI RA NGAY Ở ĐẦU, đúng chỉ đạo 18/08/2026 *"chỉ cần tạo mẫu PO thôi, chưa
           cần lưu"*. Không nói thì người lập gõ xong cả đơn, bấm In, rồi tưởng đơn đã vào hệ
@@ -2371,7 +3056,10 @@ export function FormLapDonMuaHang({
           nghị" — nói "không lưu vào hệ thống" với họ là ĐÚNG KIỂU LỖI mà dải này sinh ra để
           chống (giao diện nói một đằng, hàm làm một nẻo) — chỉ khác chiều, quên cập nhật khi
           mở lại đường cất đơn. Phát hiện bằng Playwright thật trước khi merge, không phải đoán. */}
-      {laDonDocLap && !coQuyenTaoDocLapThat && (
+      {/* 🔴 `laCheDoMau` chứ KHÔNG phải `laDonDocLap && !coQuyenTaoDocLapThat` (15/09/2026) — chế
+          độ SỬA cũng chạy với `laDonDocLap === true`, mà nói "không lưu vào hệ thống" với màn sửa
+          đơn thì sai hẳn. Xem chú thích ở `laCheDoMau`. */}
+      {laCheDoMau && (
         <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning-bg p-(--hp-md-row-pad) text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
           <span className="min-w-0 text-text-secondary">
@@ -2512,12 +3200,18 @@ export function FormLapDonMuaHang({
                       không) cũng không kiểm ô này một lần nào.
                       👉 Để dấu * ở đây là nói với người lập rằng họ phải điền một thứ mà họ không
                       thể không điền — và tệ hơn, làm dấu * ở các ô khác mất nghĩa. */}
-                  <Label htmlFor="mau-po">Mẫu in đơn mua hàng</Label>
+                  <Label htmlFor="mau-po" className="flex items-center gap-1.5">
+                    Mẫu in đơn mua hàng
+                    {laSuaDon && <Lock className="size-3" aria-hidden />}
+                  </Label>
+                  {/* 🔒 KHOÁ Ở CHẾ ĐỘ SỬA — `ThayDoiDonHang` không nhận `mauPO`, xem dải giải
+                      thích "Những ô có ổ khoá…" ở đầu form. */}
                   <select
                     id="mau-po"
                     value={mauPO}
+                    disabled={laSuaDon}
                     onChange={(e) => setMauPO(e.target.value as MauDonMuaHang)}
-                    className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
+                    className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {(Object.keys(NHAN_MAU_PO) as MauDonMuaHang[]).map((m) => (
                       <option key={m} value={m}>
@@ -2767,13 +3461,30 @@ export function FormLapDonMuaHang({
                 </div>
                 {/* Cho biết có tra ra trong danh mục hay không — hữu ích để quản trị bổ sung
                     sau, nhưng KHÔNG chặn lập đơn. */}
-                {tenNCC.trim() !== "" && (
-                  <span className="text-xs text-text-desc">
-                    {supplierId
-                      ? `Đã liên kết với “${nhaCungCap.find((n) => n.id === supplierId)?.ten}” trong danh mục.`
-                      : "Chưa có trong danh mục — vẫn lập được đơn, thông tin lấy theo những ô trên."}
-                  </span>
-                )}
+                {/**
+                  * 🔴 TRA RA TÊN THẬT RỒI MỚI NÓI "ĐÃ LIÊN KẾT" — sửa 15/09/2026.
+                  *
+                  * Bản cũ chỉ hỏi `supplierId` có giá trị hay không, rồi nội suy thẳng
+                  * `nhaCungCap.find(...)?.ten` vào câu — không tra ra là màn hình ghi nguyên chữ
+                  * **“undefined”**. Trước đây không ai gặp vì `supplierId` chỉ được đặt khi CHỌN
+                  * từ danh mục nên luôn tra ra. Chế độ SỬA (15/09/2026) nạp `po.supplierId` của
+                  * một đơn đã lập, mà `luu()` tự sinh id từ mã số thuế/tên khi nhà cung cấp không
+                  * có trong danh mục (`ncc-mst-…` / `ncc-ten-…`) — những id đó KHÔNG bao giờ tra
+                  * ra, nên lỗi hiện ngay lần mở đầu tiên. Đã đo thật trên trình duyệt.
+                  */}
+                {tenNCC.trim() !== "" &&
+                  (() => {
+                    const trongDanhMuc = supplierId
+                      ? nhaCungCap.find((n) => n.id === supplierId)
+                      : undefined;
+                    return (
+                      <span className="text-xs text-text-desc">
+                        {trongDanhMuc
+                          ? `Đã liên kết với “${trongDanhMuc.ten}” trong danh mục.`
+                          : "Chưa có trong danh mục — vẫn lập được đơn, thông tin lấy theo những ô trên."}
+                      </span>
+                    );
+                  })()}
               </div>
 
               <div className="muc-ngang">
@@ -2812,13 +3523,19 @@ export function FormLapDonMuaHang({
                 {/* ★ THÊM DẤU * (Ban lãnh đạo 13/09/2026). `hopLe` đòi `ngayDonHang !== ""`.
                     ⚠️ Ô này còn quyết định NĂM của số đơn hàng (`DMH2026-…`), nên để trống không
                     chỉ là thiếu một dòng trên tờ in — app không cấp được số. */}
-                <Label htmlFor="ngay-don-hang">
-                  Ngày đơn hàng <span className="text-danger">*</span>
+                <Label htmlFor="ngay-don-hang" className="flex items-center gap-1.5">
+                  Ngày đơn hàng {!laSuaDon && <span className="text-danger">*</span>}
+                  {laSuaDon && <Lock className="size-3" aria-hidden />}
                 </Label>
+                {/* 🔒 KHOÁ Ở CHẾ ĐỘ SỬA — `ThayDoiDonHang` không nhận `ngayLapPO`. Ô này còn
+                    quyết định NĂM của số đơn hàng, mà số đó đã cấp rồi: đổi ngày lập của một đơn
+                    đã có số là làm lệch chính mã hồ sơ. */}
                 <Input
                   id="ngay-don-hang"
                   type="date"
                   value={ngayDonHang}
+                  readOnly={laSuaDon}
+                  disabled={laSuaDon}
                   onChange={(e) => setNgayDonHang(e.target.value)}
                   className="w-48"
                 />
@@ -2866,18 +3583,24 @@ export function FormLapDonMuaHang({
                   * "(bản mẫu — chưa cấp số)", và nếu không nói rõ *"số chỉ cấp khi lập đơn thật"*
                   * thì người lập tưởng app hỏng chỗ cấp số.
                   */}
+                {/* ★ CHẾ ĐỘ SỬA: hiện SỐ THẬT của đơn đang sửa, không hiện khuôn (15/09/2026).
+                    Đơn đã được cấp số rồi — bày khuôn `DMH2026…` cho một đơn có số hẳn hoi là nói
+                    sai về chính chứng từ đang mở. Ô vẫn khoá: mã PO thuộc Nhóm 3, không sửa được
+                    qua đường này (`ThayDoiDonHang` cố ý không khai). */}
                 <Input
                   id="so-don-hang"
                   value={
-                    laDonDocLap && !coQuyenTaoDocLapThat
-                      ? SO_DON_BAN_MAU
-                      : `${TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`
+                    laSuaDon
+                      ? poDangSua!.code
+                      : laCheDoMau
+                        ? SO_DON_BAN_MAU
+                        : `${TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`
                   }
                   readOnly
                   disabled
-                  className={laDonDocLap && !coQuyenTaoDocLapThat ? "w-72" : "w-56"}
+                  className={laCheDoMau ? "w-72" : "w-56"}
                 />
-                {laDonDocLap && !coQuyenTaoDocLapThat && (
+                {laCheDoMau && (
                   <span className="text-xs text-text-desc">
                     Bản mẫu không được cấp số. Số đơn hàng chỉ cấp khi lập đơn thật từ phiếu đề
                     nghị.
@@ -2898,10 +3621,17 @@ export function FormLapDonMuaHang({
                 * ty cấp. Gõ tự do thì cần đồng nào cũng ghi được.
                 */}
               <div className="muc-ngang">
-                <Label htmlFor="loai-tien">Loại tiền</Label>
+                <Label htmlFor="loai-tien" className="flex items-center gap-1.5">
+                  Loại tiền
+                  {laSuaDon && <Lock className="size-3" aria-hidden />}
+                </Label>
+                {/* 🔒 KHOÁ Ở CHẾ ĐỘ SỬA — `loaiTien` nằm ở CHỨNG TỪ GIÁ (`GiaDonDatHang`), mà
+                    `ThayDoiDonHang.gia` chỉ nhận `lines`. */}
                 <Input
                   id="loai-tien"
                   value={loaiTien}
+                  readOnly={laSuaDon}
+                  disabled={laSuaDon}
                   onChange={(e) => setLoaiTien(e.target.value)}
                   placeholder="VND"
                   className="w-40"
@@ -2916,7 +3646,9 @@ export function FormLapDonMuaHang({
                   ✅ CẬP NHẬT 29/08/2026: độc lập + `quyen.taoPoDoiLap` GIỜ CẤT ĐƯỢC (vào
                   `"cho_de_nghi"`) nên ô này phải hiện — ẩn đi là đúng lỗi ngược lại, hứa app
                   "không lưu gì" trong khi bấm Lưu là lưu thật. */}
-              {(!laDonDocLap || coQuyenTaoDocLapThat) && (
+              {/* `!laCheDoMau` = đúng điều kiện cũ (`!laDonDocLap || coQuyenTaoDocLapThat`), viết
+                  lại bằng biến gom để chế độ SỬA cũng hiện được ô này — xem `laCheDoMau`. */}
+              {!laCheDoMau && (
                 <div className="muc-ngang">
                   {/* ⚠️ KHÔNG có `htmlFor` ở đây, và đó là cố ý. Chỗ hiện tình trạng là một
                       `<div>` chứa badge, không phải ô nhập — `<label for="…">` trỏ vào một
@@ -2938,8 +3670,10 @@ export function FormLapDonMuaHang({
                       kiểu "giao diện hứa một việc app không làm". Trạng thái đổi ở màn chi tiết
                       đơn. Độc lập dùng badge tím riêng (`BadgeChoDeNghi`) — StatusBadge không có
                       tông màu riêng cho trạng thái cục bộ này, xem `trang-thai.ts`. */}
+                  {/* ★ CHẾ ĐỘ SỬA: đọc trạng thái THẬT của đơn (`nhanTrangThai` đã lo), badge tím
+                      "Chờ đề nghị" chỉ dùng khi đơn đang ĐÚNG ở trạng thái đó — 15/09/2026. */}
                   <div className="flex min-h-11 items-center">
-                    {laDonDocLap ? (
+                    {(laSuaDon ? poDangSua!.trangThai === "cho_de_nghi" : laDonDocLap) ? (
                       <BadgeChoDeNghi />
                     ) : (
                       <StatusBadge label={nhanTrangThai.nhan} tone={nhanTrangThai.tong} />
@@ -2972,19 +3706,26 @@ export function FormLapDonMuaHang({
               📌 Cũng KHÔNG xoá giá trị đã lưu — tờ in mẫu PO-02 vốn không in dòng này, giữ
               nguyên là an toàn nhất. */}
           <div className="muc-ngang">
-            <Label htmlFor="hop-dong">Theo hợp đồng</Label>
+            <Label htmlFor="hop-dong" className="flex items-center gap-1.5">
+              Theo hợp đồng
+              {laSuaDon && <Lock className="size-3" aria-hidden />}
+            </Label>
+            {/* 🔒 THÊM `laSuaDon` vào điều kiện khoá — `ThayDoiDonHang` không nhận
+                `ghiChuHopDongNCC`. Luật khoá theo mẫu PO-02 giữ nguyên, chỉ thêm một vế. */}
             <Input
               id="hop-dong"
               value={ghiChuHopDongNCC}
               onChange={(e) => setGhiChuHopDongNCC(e.target.value)}
               placeholder="VD: HĐ số 089/2026/HĐKT-HPC ký ngày 01/08/2026"
-              readOnly={mauPO === "thoa_thuan"}
-              disabled={mauPO === "thoa_thuan"}
+              readOnly={laSuaDon || mauPO === "thoa_thuan"}
+              disabled={laSuaDon || mauPO === "thoa_thuan"}
             />
             <p className="text-[13px] text-text-secondary">
-              {mauPO === "thoa_thuan"
-                ? "Mẫu PO-02 — chính tờ đơn này là bản thoả thuận mua bán, không dẫn hợp đồng riêng. Đổi sang mẫu PO-01 nếu cần ghi số hợp đồng NCC."
-                : "Ghi số hợp đồng NCC và ngày ký kết."}
+              {laSuaDon
+                ? "Chỉ đặt được lúc lập đơn — xem dải giải thích ở đầu trang."
+                : mauPO === "thoa_thuan"
+                  ? "Mẫu PO-02 — chính tờ đơn này là bản thoả thuận mua bán, không dẫn hợp đồng riêng. Đổi sang mẫu PO-01 nếu cần ghi số hợp đồng NCC."
+                  : "Ghi số hợp đồng NCC và ngày ký kết."}
             </p>
           </div>
         </CardContent>
@@ -2999,7 +3740,19 @@ export function FormLapDonMuaHang({
             dong={dongBang}
             tien={tien}
             xemGia={quyen.xemGia}
-            conLai={conLaiTheoDong}
+            /**
+             * ★ CHẾ ĐỘ SỬA: KHÔNG bày "phần còn được đặt" — 15/09/2026.
+             *
+             * 🔴 VÌ SAO: `conLaiTheoDong` suy từ `khoiLuongChuaLenPO`, mà khối lượng của CHÍNH đơn
+             * đang sửa đã bị tính là "đã lên PO" rồi. Bày thẳng con số đó ra là mọi dòng sẵn có
+             * đều bị tô cảnh báo "vượt phần còn lại" dù người dùng chưa đụng gì — một cảnh báo
+             * sai thì lần sau không ai đọc cảnh báo nữa.
+             *
+             * 📌 KHÔNG mất chốt nào: `suaDonHang` vẫn chạy `vuongMacSuaDongPOTheoDeNghi` (Sếp
+             * 15/09/2026) và trả về câu chặn nói rõ dòng nào vượt bao nhiêu. Thà im ở màn hình
+             * rồi chặn đúng lúc ghi, còn hơn nói một con số sai.
+             */
+            conLai={laSuaDon ? KHONG_CO_CON_LAI : conLaiTheoDong}
             kieuChietKhau={kieuChietKhau}
             tyLeChietKhau={tyLeChietKhau}
             chietKhau={chietKhau}
@@ -3012,13 +3765,49 @@ export function FormLapDonMuaHang({
                chỗ dựng `nutNhapExcel` và ở `BangHangTien`. */
             nutNhapExcel={nutNhapExcel}
             onXoaHetDong={() => setHoiXoaHetDong(true)}
-            onDoiKieuChietKhau={setKieuChietKhau}
-            onDoiTyLeChietKhau={setTyLeChietKhau}
-            onDoiChietKhau={setChietKhau}
-            /* Độc lập thì luôn thêm được dòng mới — không có danh sách mặt hàng nào để cạn. */
-            conMatHangDeThem={laDonDocLap || matHangConThem.length > 0}
+            /**
+              * 🔴🔴 CHIẾT KHẤU Ở CHẾ ĐỘ SỬA: KHÔNG GHI STATE, NÓI THẲNG LÝ DO — 15/09/2026.
+              *
+              * Ba ô chiết khấu nằm BÊN TRONG `BangHangTien`, mà tệp đó không thuộc lượt sửa này
+              * nên không thêm được tham số khoá. Nếu cứ để `setKieuChietKhau` chạy thì người dùng
+              * đổi chiết khấu → **khối tiền trên màn hình đổi theo** → bấm Lưu → con số quay về
+              * như cũ, không một dòng báo. Đó đúng là kiểu "giao diện hứa một việc app không làm"
+              * mà CLAUDE.md §3.5 cấm, và còn tệ hơn vì nó nói dối bằng CON SỐ TIỀN.
+              *
+              * ✅ Cách ở đây: không nhận giá trị mới (ô là controlled nên bật lại ngay), và hiện
+              * một câu giải thích. Người dùng biết ngay trong một nhịp, không phải đoán.
+              *
+              * 📌 KHI TẦNG GHI MỞ ĐƯỜNG (thêm `chietKhau`/`kieuChietKhau`/`tyLeChietKhau` vào
+              * `ThayDoiDonHang` và xử lý trong `suaDonHang`): bỏ `khiSuaThiBaoKhoa` đi, trả về
+              * `setKieuChietKhau` như cũ, và bỏ tên chúng khỏi dải "Những ô có ổ khoá…".
+              */
+            onDoiKieuChietKhau={laSuaDon ? khiSuaThiBaoKhoa("Chiết khấu") : setKieuChietKhau}
+            onDoiTyLeChietKhau={laSuaDon ? khiSuaThiBaoKhoa("Chiết khấu") : setTyLeChietKhau}
+            onDoiChietKhau={laSuaDon ? khiSuaThiBaoKhoa("Chiết khấu") : setChietKhau}
+            /**
+             * ★ CHẾ ĐỘ SỬA: đơn lập từ đề nghị thì KHOÁ nút [Thêm dòng] (luật 15/09/2026 sáng,
+             * giữ nguyên khi dời từ hộp thoại sang form) — kèm câu nói rõ vì sao, chứ không để
+             * một nút xám không giải thích.
+             * 📌 Độc lập thì luôn thêm được dòng mới — không có danh sách mặt hàng nào để cạn.
+             */
+            conMatHangDeThem={
+              laSuaDon ? !poDangSua!.prId : laDonDocLap || matHangConThem.length > 0
+            }
             lyDoHetMatHang={lyDoHetMatHang}
-            nhapTuDo={laDonDocLap}
+            /**
+             * ★ CHẾ ĐỘ SỬA: `nhapTuDo` PHẢI theo "đơn này có đề nghị hay không", không theo
+             * `laDonDocLap` — 15/09/2026, đo được trên trình duyệt.
+             *
+             * 🔴 VÌ SAO: bảng vẽ nút [Thêm dòng] khi `nhapTuDo || conMatHangDeThem`. Chế độ sửa
+             * chạy với `laDonDocLap === true` (form nhận `deNghi={null}`), nên để nguyên
+             * `nhapTuDo={laDonDocLap}` thì nút VẪN HIỆN dù đã truyền `conMatHangDeThem={false}`
+             * — tức luật "đơn lập từ đề nghị không thêm dòng mới" chỉ còn chặn ở lớp toast.
+             * Đã đo: nút `disabled === false` trước khi sửa dòng này.
+             *
+             * 📌 Đơn đang sửa mà KHÔNG có đề nghị thì vẫn `true` — gõ tay tự do như cũ, đúng
+             * bằng những gì hộp thoại cũ cho phép.
+             */
+            nhapTuDo={laSuaDon ? !poDangSua!.prId : laDonDocLap}
             /* Khi nhúng thì tiêu đề "Hàng tiền" phải nhỏ hơn tiêu đề khối bước — lý do như
                khối "Tổng tiền thanh toán" ở trên. */
             tieuDeTrongKhoiGiaiDoan={nhung}
@@ -3039,15 +3828,24 @@ export function FormLapDonMuaHang({
             oThueSuatChung={
               quyen.xemGia ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <Label htmlFor="vat-chung" className="text-sm font-normal text-text-secondary">
+                  <Label
+                    htmlFor="vat-chung"
+                    className="flex items-center gap-1.5 text-sm font-normal text-text-secondary"
+                  >
                     Thuế suất GTGT chung (%)
+                    {laSuaDon && <Lock className="size-3" aria-hidden />}
                   </Label>
+                  {/* 🔒 KHOÁ Ở CHẾ ĐỘ SỬA — `thueSuatGTGT` chung nằm ở `GiaDonDatHang`, mà
+                      `ThayDoiDonHang.gia` chỉ nhận `lines`. Thuế suất RIÊNG từng dòng thì vẫn sửa
+                      được bình thường ở cột "% Thuế GTGT" của bảng. */}
                   <Input
                     id="vat-chung"
                     type="number"
                     min={0}
                     max={100}
                     value={thueSuat}
+                    readOnly={laSuaDon}
+                    disabled={laSuaDon}
                     onChange={(e) => setThueSuat(e.target.value)}
                     className="w-24"
                     title="Áp cho mọi dòng bỏ trống cột % Thuế GTGT. Đơn trộn nhiều mức thì ghi riêng ở từng dòng."
@@ -3281,18 +4079,22 @@ export function FormLapDonMuaHang({
             </div>
 
             <div className="muc-ngang">
-              <Label htmlFor="ma-rq">Tên công trình</Label>
+              <Label htmlFor="ma-rq" className="flex items-center gap-1.5">
+                Tên công trình
+                {laSuaDon && <Lock className="size-3" aria-hidden />}
+              </Label>
               {/* ★ KHOÁ THEO ĐỀ NGHỊ CÔNG TRÌNH — Ban lãnh đạo 07/09/2026: tự điền VÀ khoá cứng
                   (readOnly), y hệt "Mã đề nghị" ngay trên — trước đây cố ý cho sửa tay phòng khi
                   đề nghị ghi sai/thiếu; nay đổi lại theo đúng yêu cầu: sai thì sửa ở chính đề
                   nghị, không sửa ngay tại đây nữa. Đề nghị PHÒNG BAN/đơn độc lập không có gì để
                   khoá theo (`khoaTheoDeNghi` false) — vẫn gõ tay tự do như trước. */}
+              {/* 🔒 THÊM `laSuaDon` — `ThayDoiDonHang` không nhận `tenCongTrinh`. */}
               <Input
                 id="ma-rq"
                 value={tenCongTrinh}
                 onChange={(e) => setTenCongTrinh(e.target.value)}
-                readOnly={khoaTheoDeNghi}
-                disabled={khoaTheoDeNghi}
+                readOnly={laSuaDon || khoaTheoDeNghi}
+                disabled={laSuaDon || khoaTheoDeNghi}
                 placeholder="Tên công trình"
               />
             </div>
@@ -3313,13 +4115,17 @@ export function FormLapDonMuaHang({
             * gộp về ô "Mã đề nghị". Đừng dựng lại ô này.
             */}
           <div className="muc-ngang">
-            <Label htmlFor="ma-hop-dong-duoi">Số hợp đồng CĐT</Label>
+            <Label htmlFor="ma-hop-dong-duoi" className="flex items-center gap-1.5">
+              Số hợp đồng CĐT
+              {laSuaDon && <Lock className="size-3" aria-hidden />}
+            </Label>
+            {/* 🔒 THÊM `laSuaDon` — `ThayDoiDonHang` không nhận `maHopDongCDT`. */}
             <Input
               id="ma-hop-dong-duoi"
               value={maHopDong}
               onChange={(e) => setMaHopDong(e.target.value)}
-              readOnly={khoaTheoDeNghi}
-              disabled={khoaTheoDeNghi}
+              readOnly={laSuaDon || khoaTheoDeNghi}
+              disabled={laSuaDon || khoaTheoDeNghi}
               placeholder="VD: 30/2025/HĐXD/UNICE-HPCS"
             />
             {/* 🔴 CHỖ NÀY ĐANG NÓI MỘT ĐẰNG CHẶN MỘT NẺO — GHI RA ĐỂ ĐỪNG AI "SỬA CHO GỌN".
@@ -3696,11 +4502,14 @@ export function FormLapDonMuaHang({
             * 📌 Dùng CHUNG một hàm với tờ in (`dieuKhoanGiaoHangChuanTheoMau`) chính là điều mà
             * chú thích của hàm đó đã dặn. Ai thêm mẫu PO thứ ba thì chỉ sửa trong hàm ấy.
             */}
+          {/* 🔒 `khoa={laSuaDon}` — `ThayDoiDonHang` không nhận `dieuKhoanGiaoHang`. Component đã
+              có sẵn tham số `khoa`, dùng đúng nó chứ không bọc thêm lớp vô hiệu hoá ở ngoài. */}
           <KhoiDieuKhoanTachDong
             id="dk-giao-hang"
             nhan="Phương thức giao hàng"
             giaTri={dieuKhoanGiaoHang}
             banChuan={dieuKhoanGiaoHangChuanTheoMau(mauPO)}
+            khoa={laSuaDon}
             onDoi={setDieuKhoanGiaoHang}
             /* 📌 Câu này phải nói ĐỦ BA thao tác, và nói rõ [+] khác Enter — hai việc dễ lẫn nhất
                ở khối này (Ban lãnh đạo 27/08/2026: *"Thêm chức năng được thêm dòng và dùng icon
@@ -3729,10 +4538,17 @@ export function FormLapDonMuaHang({
           )}
 
           <div className="muc-ngang">
-            <Label htmlFor="dk-tt">Điều khoản thanh toán</Label>
+            <Label htmlFor="dk-tt" className="flex items-center gap-1.5">
+              Điều khoản thanh toán
+              {laSuaDon && <Lock className="size-3" aria-hidden />}
+            </Label>
+            {/* 🔒 KHOÁ Ở CHẾ ĐỘ SỬA — trường này nằm ở CHỨNG TỪ GIÁ (`GiaDonDatHang`), mà
+                `ThayDoiDonHang.gia` chỉ nhận `lines`. Sửa được ở màn Công nợ. */}
             <Input
               id="dk-tt"
               value={dieuKhoanThanhToan}
+              readOnly={laSuaDon}
+              disabled={laSuaDon}
               onChange={(e) => setDieuKhoanThanhToan(e.target.value)}
               placeholder="Thanh toán 100% trong 30 ngày sau khi nhận đủ hàng"
             />
@@ -3781,8 +4597,13 @@ export function FormLapDonMuaHang({
           {mauPO === "thoa_thuan" && (
             <div className="muc-ngang">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label htmlFor="cam-ket">Hai câu cam kết cuối tờ (mẫu Thỏa thuận)</Label>
-                {camKetThoaThuan !== null && (
+                <Label htmlFor="cam-ket" className="flex items-center gap-1.5">
+                  Hai câu cam kết cuối tờ (mẫu Thỏa thuận)
+                  {laSuaDon && <Lock className="size-3" aria-hidden />}
+                </Label>
+                {/* 🔒 Nút "Khôi phục bản chuẩn" cũng ẩn khi khoá — một nút đổi được giá trị mà ô
+                    bên dưới không sửa được là hai hành vi mâu thuẫn trong cùng một khối. */}
+                {!laSuaDon && camKetThoaThuan !== null && (
                   <Button
                     type="button"
                     variant="outline"
@@ -3795,10 +4616,13 @@ export function FormLapDonMuaHang({
                   </Button>
                 )}
               </div>
+              {/* 🔒 KHOÁ Ở CHẾ ĐỘ SỬA — `ThayDoiDonHang` không nhận `camKetThoaThuan`. */}
               <Textarea
                 id="cam-ket"
                 rows={4}
                 value={camKetThoaThuan ?? CAM_KET_THOA_THUAN_CHUAN}
+                readOnly={laSuaDon}
+                disabled={laSuaDon}
                 onChange={(e) => setCamKetThoaThuan(e.target.value)}
                 className="min-h-24 font-mono text-xs"
               />
@@ -3849,7 +4673,30 @@ export function FormLapDonMuaHang({
             * phần bên phải bị `overflow-x-hidden` của `khung-tong.tsx` CẮT MẤT — không trôi ngang
             * nên đo `scrollWidth` cũng không thấy, chỉ thấy khi mở bằng điện thoại.
             */}
-          {laDonDocLap && (
+          {/**
+            * ★ CHẾ ĐỘ SỬA: MÃ DỰ ÁN LÀ NHÓM 3 — CHỈ ĐỌC (15/09/2026).
+            *
+            * 🔴 `ThayDoiDonHang` **cố ý không khai** `maDuAn` (cũng như mã PO, trạng thái, liên
+            * kết đề nghị) — TypeScript tự chặn, không cần một dòng kiểm tra runtime nào. Mã dự án
+            * còn là phần đầu của chính số đơn hàng đã cấp; đổi nó là mã hồ sơ nói một đằng, số đơn
+            * nói một nẻo.
+            *
+            * 📌 Hiện ô chỉ đọc chứ không ẩn: người sửa cần biết đơn này thuộc dự án nào.
+            */}
+          {laSuaDon && (
+            <div className="muc-ngang">
+              <Label htmlFor="du-an-dang-sua" className="flex items-center gap-1.5">
+                Dự án / Công trình
+                <Lock className="size-3" aria-hidden />
+              </Label>
+              <Input id="du-an-dang-sua" value={poDangSua!.maDuAn} readOnly disabled />
+              <span className="text-xs text-text-desc">
+                Mã dự án gốc của đơn — không đổi được sau khi đơn đã được cấp số.
+              </span>
+            </div>
+          )}
+
+          {!laSuaDon && laDonDocLap && (
             <div className="muc-ngang">
               <Label htmlFor="du-an-don">
                 Dự án / Công trình <span className="text-danger">*</span>
@@ -4016,6 +4863,61 @@ export function FormLapDonMuaHang({
             * Firestore còn dữ liệu. Bỏ state là phải sửa cả tầng ghi cho một việc không cần thiết.
             */}
 
+          {/**
+            * ★★★ BỐN Ô CHỈ CÓ Ở CHẾ ĐỘ SỬA — 15/09/2026. Xem chú thích dài ở chỗ khai state
+            * `nguoiLienHeNCC` / `dieuKienGiaoHang` / `ghiChuNoiBo`.
+            *
+            * 🔴 KHÔNG PHẢI "THÊM CHO ĐỦ": đây là bốn trường mà hộp *"Sửa đơn hàng"* cũ CHO SỬA
+            * còn form lập đơn không có ô nào. Thay hộp bằng form mà bỏ chúng đi là **xoá lối vào
+            * duy nhất** để sửa bốn trường đó — đúng lỗi CLAUDE.md §3.4b dặn kiểm trước khi bỏ.
+            * `ThayDoiDonHang` nhận đủ cả bốn nên đây là ô ghi được THẬT.
+            *
+            * 📌 Đặt ở khối ⑤ vì cả bốn đều KHÔNG in trên tờ đơn gửi nhà cung cấp (trừ "Điều kiện
+            * giao hàng" đi vào file Excel) — đúng nghĩa khối này.
+            */}
+          {laSuaDon && (
+            <div className="flex flex-col gap-(--hp-md-card-gap) border-t border-divider pt-(--hp-md-card-gap)">
+              <p className="text-xs font-semibold uppercase text-text-desc">
+                Thông tin hành chính — chỉ sửa được ở màn này
+              </p>
+              <div className="muc-ngang">
+                <Label htmlFor="sua-nguoi-lien-he-ncc">Người liên hệ NCC</Label>
+                <Input
+                  id="sua-nguoi-lien-he-ncc"
+                  value={nguoiLienHeNCC}
+                  onChange={(e) => setNguoiLienHeNCC(e.target.value)}
+                  placeholder="Tên · số điện thoại bên nhà cung cấp"
+                />
+              </div>
+              <div className="muc-ngang">
+                <Label htmlFor="sua-dieu-kien-giao">Điều kiện giao hàng</Label>
+                <Input
+                  id="sua-dieu-kien-giao"
+                  value={dieuKienGiaoHang}
+                  onChange={(e) => setDieuKienGiaoHang(e.target.value)}
+                  placeholder="VD: giao tại chân công trình, bên bán chịu bốc xếp"
+                />
+              </div>
+              <div className="muc-ngang">
+                <Label htmlFor="sua-ghi-chu-noi-bo">Ghi chú nội bộ</Label>
+                <Input
+                  id="sua-ghi-chu-noi-bo"
+                  value={ghiChuNoiBo}
+                  onChange={(e) => setGhiChuNoiBo(e.target.value)}
+                  placeholder="Ghi chú cho người trong phòng — không in trên tờ đơn"
+                />
+              </div>
+              <div className="muc-ngang">
+                <Label htmlFor="sua-tham-chieu">Tham chiếu</Label>
+                <Input
+                  id="sua-tham-chieu"
+                  value={thamChieu}
+                  onChange={(e) => setThamChieu(e.target.value)}
+                  placeholder="Số chứng từ tham chiếu"
+                />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -4053,6 +4955,42 @@ export function FormLapDonMuaHang({
             Sang bảng quy trình để lập bảng báo giá
           </Button>
         </div>
+      )}
+
+      {/**
+        * ★★★ Ô LÝ DO SỬA — 15/09/2026, chép nguyên luật của hộp "Sửa đơn hàng" cũ.
+        *
+        * 🔴 BA CA BẮT BUỘC, không được nới một ca nào (luật `suaDonHang`, Sếp 31/08/2026):
+        *   · người sửa KHÔNG phải Trưởng bộ phận/quản trị → mọi thay đổi phải ghi lý do;
+        *   · đổi NGÀY GIAO → phải ghi, **kể cả quản lý** (đổi cam kết giao hàng với nhà cung cấp
+        *     không phải việc nội bộ);
+        *   · đổi NHÀ CUNG CẤP → phải ghi, kể cả quản lý (công nợ gộp theo NCC).
+        *
+        * 📌 Chỉ hiện khi thật sự bắt buộc — bày một ô "lý do (không bắt buộc)" thường trực là mời
+        * người dùng bỏ qua, rồi tới lúc bắt buộc thật họ cũng bỏ qua nốt.
+        */}
+      {batBuocLyDoSua && (
+        <Card className="border border-warning/40 bg-warning-bg/60">
+          <CardContent className="flex flex-col gap-2">
+            <Label htmlFor="ly-do-sua-don">
+              Lý do sửa đơn <span className="text-danger">*</span>
+            </Label>
+            <Textarea
+              id="ly-do-sua-don"
+              rows={2}
+              value={lyDoSua}
+              onChange={(e) => setLyDoSua(e.target.value)}
+              placeholder="VD: NCC báo giá lại do biến động giá thép tuần này…"
+            />
+            <p className="text-xs text-text-secondary">
+              {doiNgayGiaoSua
+                ? "Đang đổi NGÀY GIAO — thay đổi này phải ghi lý do, dù là ai sửa."
+                : doiNCCSua
+                  ? "Đang đổi NHÀ CUNG CẤP — thay đổi này phải ghi lý do, dù là ai sửa."
+                  : "Bạn là người phụ trách đơn này — mọi thay đổi phải ghi lý do để truy vết."}
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* =========================================================================
@@ -4102,8 +5040,10 @@ export function FormLapDonMuaHang({
               >
                 {/* Nói ĐỦ những gì còn thiếu, kể cả cái chỉ chế độ mẫu mới đòi — nút mờ không
                     giải thích là kiểu bí việc khó chịu nhất (bài học 15/08/2026). */}
-                Cần {laDonDocLap ? "mã dự án, " : ""}tên nhà cung cấp, ngày đơn hàng, ngày giao
-                hàng và ít nhất một dòng hàng
+                {/* Chế độ SỬA: mã dự án và ngày đơn hàng đã có sẵn và đang khoá — kể tên chúng
+                    trong câu "còn thiếu gì" là chỉ người dùng đi tìm một ô họ không sửa được. */}
+                Cần {!laSuaDon && laDonDocLap ? "mã dự án, " : ""}tên nhà cung cấp,{" "}
+                {laSuaDon ? "" : "ngày đơn hàng, "}ngày giao hàng và ít nhất một dòng hàng
                 {laDonDocLap ? " có đủ tên hàng, ĐVT và số lượng" : ""}.
               </span>
             )}
@@ -4123,7 +5063,14 @@ export function FormLapDonMuaHang({
                 · CHẾ ĐỘ CÓ ĐỀ NGHỊ → [Lưu] [Lưu và In] y như cũ, không đổi một ly. Đó là đường
                   nghiệp vụ chính của app (kể cả chức năng tách PO theo phân bổ báo giá).
                 =============================================================== */}
-            {laDonDocLap && !coQuyenTaoDocLapThat ? (
+            {/* ★★★ NHÁNH THỨ TƯ — CHẾ ĐỘ SỬA (15/09/2026). Đứng TRƯỚC mọi nhánh cũ: nó là chế độ
+                riêng, không phải một biến thể của "độc lập". Ba nhánh cũ bên dưới không đổi. */}
+            {laSuaDon ? (
+              <Button disabled={!hopLe} onClick={() => setHoiLuuSua(true)}>
+                <Save className="size-4" aria-hidden />
+                Lưu thay đổi
+              </Button>
+            ) : laCheDoMau ? (
               <>
                 <Button
                   disabled={!hopLe || !quyen.xemGia || dangXuatMau}
@@ -4550,6 +5497,34 @@ export function FormLapDonMuaHang({
         nhanDongY={hoiCat === "cat-in" ? "Lưu và In" : "Lưu"}
         onDong={() => setHoiCat(null)}
         onDongY={() => luu(hoiCat === "cat-in")}
+      />
+
+      {/**
+        * ★★★ HỎI LẠI TRƯỚC KHI GHI ĐÈ MỘT ĐƠN ĐÃ LẬP — 15/09/2026.
+        *
+        * 🔴 Sửa một PO đã chốt là việc RA NGOÀI PHÒNG y như lúc cất: đơn có thể đã gửi nhà cung
+        * cấp và đã đồng bộ sang app Kho công trình. Cùng nếp thận trọng với hộp "Lưu đơn mua hàng
+        * này?" ở trên — bấm nhầm không có nút hoàn lại.
+        *
+        * 🔴 KHÔNG BỌC BẰNG `{x && <HopXacNhan/>}` — dùng `mo={...}` giữ mount, đúng luật của dự
+        * án: bọc bằng điều kiện để lại một node "mồ côi" che kín màn hình (lỗi kẹt giao diện mất
+        * 6 lượt sửa mới truy ra, 14/09/2026).
+        */}
+      <HopXacNhan
+        mo={hoiLuuSua}
+        tieuDe="Lưu thay đổi cho đơn mua hàng này?"
+        moTa={
+          poDangSua
+            ? `Ghi đè nội dung đơn ${poDangSua.code} bằng những gì đang hiện trên màn hình.`
+            : ""
+        }
+        canhBao="Nhật ký đơn hàng ghi lại từng thứ đã đổi, kèm người sửa và lý do. Không có nút hoàn lại — muốn quay về bản cũ thì phải sửa ngược lại bằng tay."
+        nhanDongY="Lưu thay đổi"
+        onDong={() => setHoiLuuSua(false)}
+        onDongY={() => {
+          setHoiLuuSua(false);
+          luuSua();
+        }}
       />
     </section>
   );

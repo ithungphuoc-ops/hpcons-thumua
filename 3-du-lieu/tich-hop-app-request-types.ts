@@ -28,6 +28,45 @@ export type TaiLieuTuAppRequest = {
 };
 
 /**
+ * ★★ MỘT NGƯỜI THEO DÕI của đề xuất bên App Request — thêm 15/09/2026.
+ *
+ * 🔴🔴 TỆP NÀY THUỘC VÙNG CẤM SỬA CỦA PHIÊN TÍCH HỢP APP TỔNG (CLAUDE.md §6.6, chỉ đạo Sếp
+ * 20/08/2026). Khối này do PHIÊN NGHIỆP VỤ THU MUA thêm, **có phép riêng của Sếp ngày
+ * 15/09/2026** (*"A đã báo rồi, e sửa đi"*). THUẦN THÊM: không đổi, không xoá trường nào.
+ *
+ * 📌 TÊN KHOÁ ĐỂ NGUYÊN TIẾNG ANH (`id` / `name` / `username` / `avatarInitial`) LÀ CỐ Ý —
+ * khác hẳn phần còn lại của tệp này vốn đặt tên tiếng Việt. Lý do: đây ĐÚNG HÌNH DẠNG mảng
+ * `followers` mà App Request đã lưu sẵn trong `requests/{id}`, nên họ chỉ cần chuyển tiếp
+ * nguyên mảng đó, **không phải viết một dòng quy đổi nào**. Bắt họ đổi tên khoá là thêm một
+ * chỗ có thể làm sai mà chẳng được gì.
+ *
+ * ✅ ĐÃ ĐO TRÊN DỮ LIỆU THẬT 15/09/2026 (`hpcons-request`, collection `requests`, 80 phiếu):
+ * `followers` có ở **80/80** phiếu (25 phiếu để mảng rỗng), tổng **260 phần tử**, và **260/260
+ * phần tử là object có đúng 4 khoá trên, cả 4 đều kiểu `string`** — không gặp phần tử nào là
+ * chuỗi uid trần, không gặp `null`, không gặp khoá thiếu.
+ *
+ * 🔴 `id` CHÍNH LÀ `users/{uid}` CỦA APP TỔNG — đây là phát hiện then chốt, đã đo: **26/26**
+ * follower duy nhất đều có document `users/{id}` tương ứng trên `hpcons-portal`. Và bên Thu mua
+ * `nguoiDung.uid` = `uidNghiepVu`, mà đo `nguoi-dung` trên `hpcons-portal` thấy
+ * `uidNghiepVu === docId` ở **13/13** hồ sơ. Ba mắt xích đó khớp nhau, nên uid kéo từ đây dùng
+ * được NGAY cho `laNguoiTheoDoi` (quyền xem báo giá) và tab "Tôi theo dõi" — không cần bảng
+ * quy đổi nào. Nếu về sau App Request đổi sang id nội bộ riêng của họ thì mắt xích này ĐỨT
+ * **im lặng** (người theo dõi vẫn hiện tên nhưng không còn quyền gì) — đo lại bằng script
+ * `do-followers-2.mjs` trước khi kết luận app hỏng.
+ *
+ * ⚠️ App Request KHÔNG có chức danh trong `followers`. Thu mua tự tra `users/{id}.title` bên
+ * App Tổng, tra không ra thì để trống — **tuyệt đối không bịa chức danh**.
+ */
+export type NguoiTheoDoiTuAppRequest = {
+  /** = `users/{uid}` của App Tổng. Thiếu/rỗng thì phần tử bị BỎ QUA (không có uid = không dùng được). */
+  id: string;
+  /** Tên hiển thị. Thiếu thì Thu mua lùi về `username`, vẫn thiếu thì để trống. */
+  name?: string;
+  username?: string;
+  avatarInitial?: string;
+};
+
+/**
  * ★★ GIÁ TRỊ Ô "LỰA CHỌN ĐỀ NGHỊ" trên biểu mẫu App Request — thêm 15/09/2026.
  *
  * 🔴🔴 TỆP NÀY THUỘC VÙNG CẤM SỬA CỦA PHIÊN TÍCH HỢP APP TỔNG (CLAUDE.md §6.6, chỉ đạo Sếp
@@ -100,6 +139,26 @@ export type DeNghiMoiTuAppRequest = {
   phongBan: string;
   vatTu: VatTuTuAppRequest[];
   taiLieuDinhKem?: TaiLieuTuAppRequest[];
+  /**
+   * ★★ DANH SÁCH NGƯỜI THEO DÕI của đề xuất — thêm 15/09/2026, có phép riêng của Sếp
+   * (xem `NguoiTheoDoiTuAppRequest` ở trên).
+   *
+   * 🔴 VÌ SAO XIN THÊM TRƯỜNG NÀY: chỉ đạo Sếp 14/09/2026 — *"Đã có API của request trong thư
+   * mục rồi, e chỉ cần lấy **danh sách người theo dõi** đính kèm từ request về thôi, **tương tự
+   * mục đính kèm file** e làm đó"*, nhắc lại 15/09/2026. Người theo dõi bên Thu mua quyết định
+   * ai nhận thông báo chuyển bước, ai thấy phiếu ở tab "Tôi theo dõi", và ai được xem bảng báo
+   * giá của riêng phiếu đó (`4-phan-quyen/quyen-theo-ho-so.ts`). Không kéo sang thì người đã
+   * được chỉ định theo dõi bên App Request **mất sạch ba thứ đó** mà không ai biết.
+   *
+   * ⚠️ TUỲ CHỌN — GỬI ĐƯỢC THÌ TỐT, KHÔNG GỬI VẪN CHẠY. Hôm nay App Request CHƯA gửi trường
+   * này, nên Thu mua **tự đọc `requests/{requestId}.followers`** sang (xem `docHoSoAppRequest`
+   * trong `app/api/app-request/de-nghi-moi/route.ts`). Ngày nào App Request gửi kèm thì Thu mua
+   * dùng luôn và **bỏ hẳn được lượt đọc chéo** — rẻ hơn, nhanh hơn, và không phụ thuộc vào việc
+   * Thu mua có khoá đọc kho của App Request hay không.
+   *
+   * 📌 GỬI NGUYÊN MẢNG `followers` là đủ, không cần lọc hay đổi tên khoá gì.
+   */
+  nguoiTheoDoi?: NguoiTheoDoiTuAppRequest[];
 };
 
 export type KetQuaNhanDeNghiTuAppRequest =

@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { AlertTriangle, Construction, X } from "lucide-react";
+import { AlertTriangle, Construction, FileWarning, Lock, X } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { Skeleton } from "@/1-giao-dien/nen-tang-ui/skeleton";
@@ -57,6 +57,20 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
  * ⚠️ HỆ QUẢ Ở TRANG NÀY: prop `onDaLuu` bên dưới **chỉ chạy ở đường có `prId`**. Đừng bỏ nó
  * đi vì "thấy không dùng" — đường có đề nghị vẫn cần điều hướng sang đơn vừa cất.
  *
+ * ---
+ *
+ * ★★★ TỪ 15/09/2026 TRANG NÀY CÒN LÀ MÀN **SỬA ĐƠN ĐÃ LẬP** — địa chỉ `?suaPoId=<id đơn>`.
+ *
+ * Sếp (lần thứ hai): *"mục sửa đơn sao còn giao diện này — A đã nói e cho sửa tại giao diện lập
+ * PO rồi mà"*. Nút "Sửa đơn hàng" ở trang chi tiết đơn nay dẫn sang đây thay vì mở hộp thoại
+ * rút gọn. Xem chú thích tại `suaPoId` bên dưới và prop `poDangSua` của `FormLapDonMuaHang`.
+ *
+ * 🔴 `?suaPoId=` ĐỨNG RIÊNG và được xét TRƯỚC mọi nhánh lập mới — kể cả chốt "tạm ngưng PO độc
+ * lập" (08/09/2026). Chốt đó nói về việc TẠO một đơn không có đề nghị; sửa một đơn đã tồn tại là
+ * việc khác hẳn, chặn nhầm là khoá luôn đường sửa đơn của cả phòng.
+ *
+ * ---
+ *
  * ✅ CẬP NHẬT 29/08/2026: câu trên KHÔNG còn đúng tuyệt đối — độc lập + `quyen.taoPoDoiLap`
  * (Trưởng bộ phận trở lên) GIỜ CŨNG gọi `luu()` và cũng nhận `onDaLuu` (hàm `luu()` vốn đã gọi
  * `onDaLuu?.(...)` bất kể có `prId` hay không). Đúng hành vi mong muốn: điều hướng sang trang
@@ -83,6 +97,22 @@ function NoiDungLapDonHang() {
   const searchParams = useSearchParams();
   const prIdTuDiaChi = searchParams.get("prId");
   /**
+   * ★★★ SỬA MỘT ĐƠN ĐÃ LẬP — tham số `?suaPoId=` (15/09/2026).
+   *
+   * Sếp khoanh đỏ hộp thoại *"Sửa đơn hàng DMH260008"* và ghi nguyên văn:
+   *   *"mục sửa đơn sao còn giao diện này — A đã nói e cho sửa tại giao diện lập PO rồi mà"*
+   * (lần thứ hai của cùng một chỉ đạo; lần đầu 13/09/2026: *"làm đầy đủ, không làm bản rút gọn"*).
+   *
+   * 🔴 DÙNG LẠI ĐÚNG TRANG NÀY, KHÔNG DỰNG TRANG THỨ HAI. "Giao diện lập PO" mà Sếp nói chính là
+   * màn này; mở một trang riêng rồi gọi cùng component là thêm một cái vỏ phải bảo trì song song,
+   * và sớm muộn hai vỏ lệch nhau (lỗi dự án đã dính với `thumua-next`).
+   *
+   * 📌 THAM SỐ ĐỨNG RIÊNG, KHÔNG DÙNG CHUNG `prId`: hai việc khác hẳn nhau. Có `suaPoId` thì mọi
+   * nhánh lập mới bên dưới đều không chạy — kể cả chốt "tạm ngưng PO độc lập" (chốt đó nói về
+   * việc TẠO đơn, không liên quan tới sửa một đơn đã có).
+   */
+  const suaPoId = searchParams.get("suaPoId");
+  /**
    * TÁCH PO: hai tham số này đến từ màn Báo giá, khi người dùng đã chia khối lượng một mặt
    * hàng cho nhiều nhà cung cấp rồi bấm "Lập đơn" cho một nhà cung cấp cụ thể.
    *
@@ -92,7 +122,16 @@ function NoiDungLapDonHang() {
    */
   const rfqId = searchParams.get("rfqId");
   const nccIdTuBaoGia = searchParams.get("nccId");
-  const { deNghi } = useDuLieu();
+  const { deNghi, donHang } = useDuLieu();
+
+  /**
+   * Đơn đang được sửa — `undefined` khi KHÔNG ở chế độ sửa, hoặc có id mà tra không ra.
+   *
+   * 📌 Phân biệt hai ca đó bằng `suaPoId !== null`, cố ý KHÔNG dùng `null` làm giá trị thứ ba:
+   * kiểu `DonDatHang | null | undefined` làm TypeScript không thu hẹp được qua nhánh ba tầng bên
+   * dưới, phải rải `!` khắp nơi — mà `!` là đúng thứ che mất lỗi thật khi code đổi sau này.
+   */
+  const poDangSua = suaPoId === null ? undefined : donHang.find((p) => p.id === suaPoId);
 
   /**
    * Đề nghị nguồn — CHỈ lấy từ địa chỉ. `null` khi vào từ menu (không có `prId`), HOẶC có
@@ -133,19 +172,38 @@ function NoiDungLapDonHang() {
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-(--hp-md-section)">
       <PageHeader
         crumbs={
-          dn
+          suaPoId !== null && poDangSua
             ? [
                 { label: "Thu mua", href: "/tong-quan" },
-                { label: "Quy trình mua hàng", href: "/de-nghi" },
-                { label: dn.code, href: `/de-nghi/${dn.id}` },
-                { label: "Lập đơn mua hàng" },
+                { label: "Đơn đặt hàng", href: "/don-hang" },
+                { label: poDangSua.code, href: `/don-hang/${poDangSua.id}` },
+                { label: "Sửa đơn" },
               ]
-            : [
-                { label: "Thu mua", href: "/tong-quan" },
-                { label: "Lập đơn mua hàng (PO)" },
-              ]
+            : dn
+              ? [
+                  { label: "Thu mua", href: "/tong-quan" },
+                  { label: "Quy trình mua hàng", href: "/de-nghi" },
+                  { label: dn.code, href: `/de-nghi/${dn.id}` },
+                  { label: "Lập đơn mua hàng" },
+                ]
+              : [
+                  { label: "Thu mua", href: "/tong-quan" },
+                  { label: "Lập đơn mua hàng (PO)" },
+                ]
         }
-        title={dn ? "Lập đơn mua hàng" : "Lập đơn mua hàng (PO)"}
+        /* 🔴 Xét `suaPoId !== null` chứ không chỉ `poDangSua`: id sai/đơn đã xoá thì `poDangSua`
+           là `undefined`, mà rơi xuống nhánh lập mới là tiêu đề ghi "Lập đơn mua hàng (PO)" kèm
+           câu "Tạm ngưng lập PO độc lập" — trong khi thân trang đang báo "Không tìm thấy đơn hàng
+           cần sửa". Hai chỗ nói hai chuyện khác nhau trên cùng một màn. */
+        title={
+          suaPoId !== null
+            ? poDangSua
+              ? `Sửa đơn mua hàng ${poDangSua.code}`
+              : "Sửa đơn mua hàng"
+            : dn
+              ? "Lập đơn mua hàng"
+              : "Lập đơn mua hàng (PO)"
+        }
         /* 🔴 CÂU MÔ TẢ PHẢI NÓI THẬT VIỆC APP LÀM. Chế độ không gắn đề nghị (18/08/2026, Ban
            lãnh đạo: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*) chỉ IN và XUẤT mẫu — nói "nhập
            đơn đặt hàng gửi nhà cung cấp" như trước là để người lập tưởng đơn đã vào hệ thống.
@@ -155,11 +213,15 @@ function NoiDungLapDonHang() {
            `quyen.taoPoDoiLap` — người có quyền (Trưởng bộ phận trở lên) đã cất được đơn thật
            ở trạng thái "Chờ đề nghị", xem `themDonHang`/`form-lap-don-mua-hang.tsx`. */
         description={
-          dn
-            ? `Từ ${dn.code} · ${dn.tieuDe}`
-            : prIdTuDiaChi === null
-              ? "Tạm ngưng lập PO độc lập — mọi PO phải tạo từ một đề nghị cụ thể."
-              : "Tạo MẪU đơn mua hàng để in hoặc xuất Excel. Đơn ở đây không lưu vào hệ thống."
+          suaPoId !== null
+            ? poDangSua
+              ? "Chính giao diện lập đơn mua hàng, đã điền sẵn nội dung đơn. Ô nào có ổ khoá là ô chỉ đặt được lúc lập đơn."
+              : "Không tra ra đơn cần sửa."
+            : dn
+              ? `Từ ${dn.code} · ${dn.tieuDe}`
+              : prIdTuDiaChi === null
+                ? "Tạm ngưng lập PO độc lập — mọi PO phải tạo từ một đề nghị cụ thể."
+                : "Tạo MẪU đơn mua hàng để in hoặc xuất Excel. Đơn ở đây không lưu vào hệ thống."
         }
         /* ★ NÚT X ĐÓNG ở góc phải thanh tiêu đề — MISA mở màn này thành một CỬA SỔ nên có nút X
            (Ban lãnh đạo 18/08/2026: *"giao diện phần PO e chỉnh lại giống 100% như vậy"*).
@@ -181,7 +243,50 @@ function NoiDungLapDonHang() {
         }
       />
 
-      {prIdTuDiaChi === null ? (
+      {/* ═══════════════════════════════════════════════════════════════════════
+          ★★★ CHẾ ĐỘ SỬA ĐƠN — nhánh ĐẦU TIÊN, đứng trên mọi nhánh lập mới (15/09/2026)
+          ═══════════════════════════════════════════════════════════════════════ */}
+      {suaPoId !== null ? (
+        poDangSua === undefined ? (
+          /* 🔴 NÓI RÕ MÃ NÀO KHÔNG TÌM THẤY, đừng lặng lẽ rơi về màn lập đơn mới — người dùng sẽ
+             gõ cả một đơn rồi mới hiểu mình đang ở nhầm màn. */
+          <EmptyState
+            icon={FileWarning}
+            title="Không tìm thấy đơn hàng cần sửa"
+            description={`Không có đơn nào mang mã nội bộ "${suaPoId}". Đường dẫn có thể đã cũ, hoặc đơn đã bị xóa.`}
+            action={{ label: "Xem danh sách đơn hàng", onClick: () => router.push("/don-hang") }}
+          />
+        ) : poDangSua.trangThai === "hoan_thanh" || poDangSua.trangThai === "huy" ? (
+          /* 🔴 LUẬT GIỮ NGUYÊN của `suaDonHang`: đơn đã hoàn thành hoặc đã huỷ thì không sửa lại
+             được nữa. Chặn ngay ở đây để không bày ra một form mà cửa ghi chắc chắn từ chối —
+             tầng ghi vẫn kiểm lại lần cuối. */
+          <EmptyState
+            icon={Lock}
+            title="Đơn này không sửa lại được nữa"
+            description={
+              poDangSua.trangThai === "huy"
+                ? `Đơn ${poDangSua.code} đã bị huỷ.`
+                : `Đơn ${poDangSua.code} đã được duyệt hoàn thành — hồ sơ đã chuyển Kế toán.`
+            }
+            action={{
+              label: "Mở trang chi tiết đơn",
+              onClick: () => router.push(`/don-hang/${poDangSua.id}`),
+            }}
+          />
+        ) : (
+          <FormLapDonMuaHang
+            /* 🔴 `deNghi={null}` là CỐ Ý, kể cả khi đơn có `prId`. Chế độ sửa lấy mặt hàng từ
+               CHÍNH ĐƠN, không nạp lại từ đề nghị — truyền `deNghi` vào là các khối "điền sẵn từ
+               đề nghị / từ bảng báo giá / từ đơn trước" sẽ ghi đè lên nội dung đơn đang sửa.
+               Chốt khối lượng theo đề nghị vẫn chạy đủ, nhưng ở TẦNG GHI (`suaDonHang` →
+               `vuongMacSuaDongPOTheoDeNghi`), nơi nó thuộc về. */
+            deNghi={null}
+            poDangSua={poDangSua}
+            onDaSua={(poId) => router.push(`/don-hang/${poId}`)}
+            onHuy={() => router.push(`/don-hang/${poDangSua.id}`)}
+          />
+        )
+      ) : prIdTuDiaChi === null ? (
         /**
          * 🔴🔴 TẠM NGƯNG PO ĐỘC LẬP — Ban lãnh đạo 08/09/2026: *"bắt buộc phải có đề nghị mới
          * tạo được PO, không cho tạo PO độc lập nữa"*. CHỈ chặn đúng đường "vào từ menu, không

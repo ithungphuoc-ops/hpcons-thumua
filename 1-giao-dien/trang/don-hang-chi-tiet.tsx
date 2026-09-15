@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXacNhanNhanDuHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 import {
   poDaGiaoDu,
   tinhTienDonHang,
@@ -51,6 +52,20 @@ export default function TrangChiTietDonHang() {
    * **không nới quyền**, đúng luật "thiếu thông tin thì cho quyền thấp nhất".
    */
   const deNghiNguon = po?.prId ? deNghi.find((d) => d.id === po.prId) : undefined;
+
+  /**
+   * ★★ ĐƠN NÀY THUỘC HỒ SƠ PHÒNG BAN? — Sếp 15/09/2026 (chiều), nguyên văn: *"Đề nghị phòng ban
+   * thì ko cần nút này"*, chỉ vào nút "Kho xác nhận nhận đủ hàng".
+   *
+   * 🔴 HAI MÀN PHẢI NÓI GIỐNG NHAU. Nút xác nhận nhận đủ hàng có ở CẢ trang chi tiết đề nghị
+   * (`trang/de-nghi-chi-tiet.tsx`, khối "KẾT QUẢ" của bước ⑥) lẫn trang này. Sửa một bên thôi thì
+   * người dùng vẫn gặp đúng cái nút thừa đó ở đường vào còn lại, và tệ hơn: hai màn hiển thị hai
+   * trạng thái khác nhau cho cùng một đơn.
+   *
+   * 📌 `deNghiNguon` có thể `undefined` (đơn chưa gắn đề nghị) — `laHoSoPhongBan(undefined)` trả
+   * `false`, tức là giữ nguyên hành vi cũ. Đúng luật "thiếu thông tin thì không nới".
+   */
+  const hoSoPhongBan = laHoSoPhongBan(deNghiNguon);
 
   const phieuCuaPO = useMemo(
     () => (po ? phieuNhan.filter((p) => p.poId === po.id) : []),
@@ -432,14 +447,22 @@ export default function TrangChiTietDonHang() {
                 xong={vuongMacTep === null}
                 moTa={vuongMacTep ?? `Đủ ${phieuCuaPO.length} phiếu giao nhận`}
               />
+              {/* ★★ NHÃN NÓI ĐÚNG SỰ THẬT — Sếp 15/09/2026.
+                  Hồ sơ phòng ban KHÔNG có kho công trình, nên dòng "Thủ kho công trình xác nhận"
+                  bắt người đọc đi tìm một vai trò không tồn tại trong quy trình của họ. Với hồ sơ
+                  phòng ban, điều kiện này do chính lần ghi nhận giao hàng chốt
+                  (`tuChotXacNhanKhoPhongBan` ở `3-du-lieu/kho-du-lieu.tsx`), nên nhãn phải nói về
+                  SỰ VIỆC (đã nhận đủ hàng) chứ không nói về người. */}
               <DieuKien
                 so={3}
-                nhan="Thủ kho công trình xác nhận"
+                nhan={hoSoPhongBan ? "Đã nhận đủ hàng" : "Thủ kho công trình xác nhận"}
                 xong={Boolean(po.xacNhanKho)}
                 moTa={
                   po.xacNhanKho
                     ? `${po.xacNhanKho.ten} · ${new Date(po.xacNhanKho.thoiDiem).toLocaleDateString("vi-VN")}`
-                    : "Chưa xác nhận"
+                    : hoSoPhongBan
+                      ? "Chưa nhận đủ — ghi nhận giao hàng kèm phiếu giao hàng ở bảng tiến độ phía trên"
+                      : "Chưa xác nhận"
                 }
               />
               {/**
@@ -467,13 +490,24 @@ export default function TrangChiTietDonHang() {
             </ol>
 
             <div className="flex flex-wrap items-center gap-2 border-t border-divider pt-4">
-              {/* ★★ Hỏi THEO HỒ SƠ, không theo cờ toàn cục — Sếp 15/09/2026 mở nhánh phòng ban.
-                  Hồ sơ công trình: y như cũ, chỉ thủ kho. Hồ sơ phòng ban: nhân viên thu mua bấm
-                  được, vì không có kho công trình nào xác nhận hộ họ.
-                  📌 Điều kiện chứng từ KHÔNG đổi — `vuongMacTep` bên dưới vẫn khoá nút khi còn lần
-                  giao nào thiếu phiếu giao hàng. */}
+              {/* ★★ Hỏi THEO HỒ SƠ, không theo cờ toàn cục — Sếp 15/09/2026 (sáng) mở nhánh phòng
+                  ban. Hồ sơ công trình: y như cũ, chỉ thủ kho.
+
+                  ★★ 15/09/2026 (chiều) — Sếp xem production và chốt lại: *"Đề nghị phòng ban thì ko
+                  cần nút này"*. Nên thêm `!hoSoPhongBan`.
+                  🔴 KHÔNG PHẢI GIẤU NÚT ĐI: với hồ sơ phòng ban, `po.xacNhanKho` được tầng ghi TỰ
+                  CHỐT (`tuChotXacNhanKhoPhongBan` ở `3-du-lieu/kho-du-lieu.tsx`) ngay trong lần "Ghi
+                  nhận giao hàng" làm đơn đủ khối lượng, mang tên và ngày của người vừa ghi nhận —
+                  nên nút này thừa thật. Tầng tự chốt giữ nguyên cả hai hàng rào `daGiaoDu` và
+                  `vuongMacTep === null`, tức chuyển người bấm chứ không hạ điều kiện.
+                  ⚠️ Gỡ tầng tự chốt đó thì PHẢI bỏ luôn `!hoSoPhongBan` ở đây, không thì hồ sơ phòng
+                  ban kẹt vĩnh viễn ở bước ⑥.
+
+                  📌 Điều kiện chứng từ KHÔNG đổi — `vuongMacTep` bên dưới vẫn khoá nút của hồ sơ
+                  công trình khi còn lần giao nào thiếu phiếu giao hàng. */}
               {duocXacNhanNhanDuHangCuaHoSo(deNghiNguon, nguoiDung, quyen) &&
                 daGiaoDu &&
+                !hoSoPhongBan &&
                 !po.xacNhanKho && (
                 <>
                   {/* Nút KHÓA khi còn phiếu thiếu tệp — không giấu nút, vì giấu đi thì thủ
@@ -490,6 +524,40 @@ export default function TrangChiTietDonHang() {
                   )}
                 </>
               )}
+              {/**
+                * ★★ HỒ SƠ PHÒNG BAN: ẨN NÚT THÌ PHẢI NÓI VÌ SAO CHƯA XONG — Sếp 15/09/2026.
+                *
+                * 🔴 ĐỪNG DỌN KHỐI NÀY. Đơn phòng ban đã giao đủ mà vẫn chưa có `po.xacNhanKho` thì
+                * tầng tự chốt đang bị một điều kiện chặn — và người dùng phải đọc được nó TẠI CHỖ.
+                * Không in ra thì chỗ này là một khoảng trắng: không nút, không lý do, người dùng
+                * tưởng app hỏng hoặc tưởng mình thiếu quyền (CLAUDE.md §3.5 — chức năng chưa xong
+                * thì khoá lại và nói rõ lý do, không được để trống).
+                *
+                * 📌 Ca `!daGiaoDu` đã có dòng "Chưa đủ điều kiện…" ngay bên dưới lo rồi, nên khối
+                * này chỉ nhận ca đã giao đủ — để không nói hai câu chồng nhau cho cùng một việc.
+                */}
+              {hoSoPhongBan && daGiaoDu && !po.xacNhanKho && (
+                <p className="flex items-start gap-1.5 text-sm text-warning-soft">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                  <span>
+                    {vuongMacTep !== null ? (
+                      <>
+                        {vuongMacTep} Bổ sung phiếu giao hàng cho lần giao còn thiếu ở bảng “Phiếu
+                        nhận hàng” phía trên — xong là đơn tự chuyển sang “Đã nhận đủ hàng”, không
+                        phải bấm thêm nút nào.
+                      </>
+                    ) : (
+                      <>
+                        Đơn đã giao đủ và không thiếu phiếu giao hàng nào, nhưng chưa được chốt “Đã
+                        nhận đủ hàng”. Thường gặp ở đơn ghi nhận TRƯỚC ngày 15/09/2026 — hãy mở
+                        lại một phiếu ở bảng “Phiếu nhận hàng” phía trên và đính kèm lại phiếu giao
+                        hàng để hệ thống chốt, hoặc báo quản trị nếu vẫn không chuyển.
+                      </>
+                    )}
+                  </span>
+                </p>
+              )}
+
               {duocDuyetHoanThanhDon && daGiaoDu && po.xacNhanKho && !po.xacNhanTruongBP && (
                 <div className="flex flex-col gap-1">
                   <Button onClick={bamXacNhanTruongBP}>

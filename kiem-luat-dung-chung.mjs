@@ -159,12 +159,45 @@ try {
   process.exit(1);
 }
 
+/* ★★ LÀM SẠCH BẢN NHÂN BẢN — Sếp 15/09/2026: *"a cần làm sạch tất cả khi trả về bước 2"*.
+   Luật dựng bản sao đã dời từ hook React sang hàm thuần `dungBanNhanBan` đúng để chỗ này gọi
+   thật được — nằm trong hook thì không bài kiểm nào bắt được khi ai đó làm rơi một dòng. */
+const tepRa9 = join(thuMuc, "nhan-ban-de-nghi.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/nhan-ban-de-nghi.ts" --bundle --platform=node --format=cjs --outfile="${tepRa9}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/nhan-ban-de-nghi.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
+/* ★★ TÊN HIỂN THỊ TRÊN THẺ KANBAN — Sếp 15/09/2026: *"khi nhân bản thì tên tiêu đề này cũng phải
+   hiển thị luôn chư (copy..)"*. Luật ghép tên đã dời ra khỏi tệp giao diện để canh được. */
+const tepRa10 = join(thuMuc, "ten-the-de-nghi.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/ten-the-de-nghi.ts" --bundle --platform=node --format=cjs --outfile="${tepRa10}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/ten-the-de-nghi.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
 const AR = nap(tepRa6);
 const KD = nap(tepRa7);
 const HS = nap(tepRa8);
+const NB = nap(tepRa9);
+const TT = nap(tepRa10);
 
 /* ---------- Bộ khung chấm ---------- */
 let dat = 0;
@@ -416,6 +449,86 @@ kiem(
             ? `dài nhất ${Math.max(...ds.map((m) => m.length))} ký tự: ${JSON.stringify(ds)}`
             : `${qua.length} mục quá dài: ${JSON.stringify(qua)}`,
       mongDoi: "mỗi nhãn trên thẻ ≤ 34 ký tự",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 15/09/2026
+// Nguyên văn: "Không cần ghi chú mục thiếu hoá đơn/UNC — Chỉ cần báo
+// Hợp đồng và Đơn mua hàng"
+// (ảnh chụp bảng quy trình trên bản chạy thật: thẻ 000000089 ở cột
+//  "Hồ sơ thanh toán" hiện hai dòng đỏ "⑤ thiếu HĐ" và "Thiếu hoá
+//  đơn"; Sếp khoanh đỏ dòng sau.)
+//
+// 🔴🔴 CHỈ BỎ DÒNG CHỮ TRÊN MẶT THẺ. LUẬT BẮT BUỘC CÓ HOÁ ĐƠN VẪN CÒN:
+// `vuongMacDuyetHoanThanhDeNghi` (chung-tu-cuoi-quy-trinh.ts) vẫn chặn
+// đóng hồ sơ khi thiếu Hóa đơn VAT. Vì vậy phải kiểm CẢ HAI CHIỀU —
+// chiều nghịch mới là chiều quan trọng.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "CHIỀU THUẬN: thẻ kanban KHÔNG còn in dòng chữ “thiếu hoá đơn”",
+  "Sếp · 15/09/2026 · “Không cần ghi chú mục thiếu hoá đơn/UNC — Chỉ cần báo Hợp đồng và Đơn mua hàng”",
+  () => {
+    /* Hồ sơ ở bước ⑦, chưa đính hoá đơn và cũng chưa có tệp Hợp đồng ở bước ⑤. */
+    const bay = G.dsConNoBayTrenThe(
+      deNghiThu(),
+      "ho_so_thanh_toan",
+      G.CAU_HINH_MAC_DINH ?? {},
+      [],
+      [],
+    );
+    const conHoaDon = bay.filter((m) => /ho[áa] đơn/i.test(m));
+    /* 🔴 CHỐT CHỐNG "XANH RỖNG": hàm trả về mảng rỗng thì phép trên cũng xanh, mà lúc đó
+       thẻ mất luôn dòng "⑤ thiếu HĐ" — chính thứ Sếp yêu cầu GIỮ. Nên đòi thêm dòng đó. */
+    const conHopDong = bay.some((m) => m.includes("HĐ"));
+    return {
+      duoc: conHoaDon.length === 0 && conHopDong,
+      thucTe: JSON.stringify(bay),
+      mongDoi:
+        'không còn mục nào nhắc hoá đơn, nhưng VẪN còn mục "⑤ thiếu HĐ" (Hợp đồng — Sếp yêu cầu giữ)',
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGHỊCH: nợ Hoá đơn VAT vẫn còn nguyên ở dải đỏ trang chi tiết, viền đỏ thẻ và số “N còn thiếu”",
+  "Sếp · 15/09/2026 (bỏ GHI CHÚ, KHÔNG bỏ cảnh báo — hoá đơn vẫn chặn đóng hồ sơ)",
+  () => {
+    /* 🔴 BÀI NÀY CANH ĐÚNG MỘT KIỂU HỎNG: ai đó "dọn cho gọn" bằng cách XOÁ HẲN nhánh
+       `giaiDoan === "ho_so_thanh_toan"` trong `mucConNoCuaBuoc` thay vì chỉ đặt cờ
+       `nhacTrenThe: false`. Khi đó chiều thuận ở trên vẫn XANH, nhưng:
+         · khối bước ⑧ ở trang chi tiết hết viền đỏ → người dùng không còn chỗ nào biết mình
+           thiếu hoá đơn, mà `vuongMacDuyetHoanThanhDeNghi` thì vẫn chặn họ bấm Hoàn thành
+         · thẻ hết viền đỏ, cột "Công việc" ở chế độ xem Danh sách hiện "—" (sạch)
+       ⇒ người dùng bị chặn mà không biết vì sao. Ba phép dưới đây phải xanh cả ba. */
+    const CH = G.CAU_HINH_MAC_DINH ?? {};
+    const co = (x) => typeof x === "string" && /H[oó]a đơn VAT/i.test(x);
+
+    /* ① Dải đỏ + nhãn "Còn thiếu" của khối bước ⑧ ở trang chi tiết (`conThieuCuaBuoc`). */
+    const dsBuoc = G.dsConNoCuaBuoc(deNghiThu(), "ho_so_thanh_toan", CH, [], []);
+    const cauBuoc = G.conNoCuaBuoc(deNghiThu(), "ho_so_thanh_toan", CH, [], []);
+    /* ② Viền đỏ của thẻ + chữ hiện khi rê chuột (`the.conNo`). */
+    const cauThe = G.conNoToanHoSo(deNghiThu(), "ho_so_thanh_toan", CH, [], []);
+    /* ③ Con số "N còn thiếu" ở chế độ xem Danh sách (`the.dsConNo`, cố ý KHÔNG lọc). */
+    const dsDem = G.dsConNoToanHoSo(deNghiThu(), "ho_so_thanh_toan", CH, [], []);
+
+    const thieuO = [];
+    if (!dsBuoc.some(co)) thieuO.push("dsConNoCuaBuoc (dải đỏ khối bước ⑧)");
+    if (!co(cauBuoc)) thieuO.push("conNoCuaBuoc (câu dưới nhãn “Còn thiếu”)");
+    if (!co(cauThe)) thieuO.push("conNoToanHoSo (viền đỏ thẻ + chữ rê chuột)");
+    if (!dsDem.some((m) => /ho[áa] đơn/i.test(m)))
+      thieuO.push("dsConNoToanHoSo (số “N còn thiếu” ở xem Danh sách)");
+
+    return {
+      duoc: thieuO.length === 0,
+      thucTe:
+        thieuO.length === 0
+          ? "cả 4 chỗ vẫn nhắc Hóa đơn VAT"
+          : `MẤT cảnh báo hoá đơn ở: ${thieuO.join(" · ")}`,
+      mongDoi:
+        "nợ Hóa đơn VAT vẫn hiện ở trang chi tiết, ở viền đỏ/chữ rê chuột của thẻ và ở số “N còn thiếu” — chỉ dòng chữ trên mặt thẻ mới được bỏ",
     };
   },
 );
@@ -3139,6 +3252,139 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
+// ★★★ HỒ SƠ PHÒNG BAN TỰ CHỐT "ĐÃ NHẬN ĐỦ HÀNG" — Sếp 15/09/2026
+//
+// Nguyên văn (xem ảnh production bước ⑥): *"Đề nghị phòng ban thì ko cần nút này"* — nút **Kho
+// xác nhận nhận đủ hàng** ở khối KẾT QUẢ.
+//
+// 🔴 VÌ SAO KHÔNG CHỈ ẨN NÚT: `xacNhanTruongBP` chặn cứng khi `po.xacNhanKho` rỗng. Hồ sơ phòng
+// ban KHÔNG có thủ kho công trình nào bấm hộ, nên ẩn nút mà không thay gì thì hồ sơ đứng mãi ở
+// bước ⑥ — đúng cái lỗi vừa vá sáng nay, chỉ đổi chiều. Thứ thay thế là hành động đã có thật:
+// chính lần **Ghi nhận giao hàng** (đã bắt buộc kèm phiếu giao hàng) ghi luôn `po.xacNhanKho`
+// mang tên người vừa bấm.
+//
+// 🔴 BỐN ĐIỀU KIỆN, MỖI CÁI MỘT BÀI KIỂM RIÊNG — không cái nào là thủ tục:
+//    ② hồ sơ phải là PHÒNG BAN — nới sang công trình là app TỰ KÝ NHẬN HÀNG thay thủ kho, mất
+//      hẳn người đối chứng. Đây là chốt nặng nhất của cả đường này.
+//    · `daGiaoDu` — xác nhận sớm là căn cứ trả tiền cho hàng chưa nhận.
+//    · `vuongMacTep === null` — luật Ban lãnh đạo 11/08/2026 *"mỗi lần giao phải có tệp phiếu
+//      giao nhận"* vẫn chạy nguyên trên TOÀN BỘ phiếu của đơn, kể cả phiếu cũ.
+//    · `daCoXacNhanKho` — đã có người xác nhận thì không ghi đè tên họ.
+// ════════════════════════════════════════════════════════════════════
+
+/* ⚠️ KHAI `maHopDongCDT` TƯỜNG MINH — ĐỪNG BỎ, VÀ ĐỪNG PHÂN LOẠI THEO `tenCongTrinh`.
+   `laHoSoPhongBan` nhận diện theo `maHopDongCDT` rỗng hay không. `tenCongTrinh` vô dụng để phân
+   loại vì App Request nhét TIÊU ĐỀ đề nghị vào ô đó — đo trên kho thật 15/09/2026: bản đầu dùng
+   `tenCongTrinh` rỗng cho ra 0/16 hồ sơ phòng ban, nhánh không bao giờ bật.
+   Nên fixture phòng ban dưới đây CỐ Ý mang chuỗi rác thật đo được: ai quay lại dùng
+   `tenCongTrinh` thì bài kiểm đỏ ngay. */
+const dnPBChot = {
+  id: "dn-pb-chot",
+  maHopDongCDT: "",
+  tenCongTrinh: "Đề nghị 2. Phòng Pháp lý (HP Cons)",
+  items: [{ stt: 1, nguoiPhuTrachUid: "u-tm-02" }],
+};
+const dnCTChot = {
+  id: "dn-ct-chot",
+  maHopDongCDT: "HD-2026-01",
+  tenCongTrinh: "Nhà máy A",
+  items: [{ stt: 1, nguoiPhuTrachUid: "u-tm-02" }],
+};
+/** Câu vướng mẫu của `vuongMacXacNhanKho` — chỉ cần KHÁC `null` là đủ để luật 11/08 phải chặn. */
+const vuongTepMau = "Phiếu giao lần 1 chưa có tệp phiếu giao nhận đính kèm.";
+
+kiem(
+  "CHIỀU NGƯỢC: hồ sơ PHÒNG BAN + giao đủ + không vướng tệp + chưa ai xác nhận → TỰ CHỐT",
+  'Sếp · 15/09/2026 — *"Đề nghị phòng ban thì ko cần nút này"*',
+  () => {
+    /* 🔴 BÀI CHỐNG "CHẶN VÔ ĐIỀU KIỆN". Nếu bài này đỏ thì hàm đã thành `return false` vô nghĩa,
+       và hồ sơ phòng ban lại kẹt vĩnh viễn ở bước ⑥ — đúng thứ Sếp vừa yêu cầu gỡ. */
+    const r = KD.tuChotXacNhanKhoPhongBan(dnPBChot, true, null, false);
+    return {
+      duoc: r === true,
+      thucTe: String(r),
+      mongDoi: "true — không tự chốt thì hồ sơ phòng ban kẹt vĩnh viễn ở bước ⑥",
+    };
+  },
+);
+
+kiem(
+  "Hồ sơ CÔNG TRÌNH → KHÔNG tự chốt, dù đủ mọi điều kiện còn lại",
+  "Sếp · 15/09/2026 — nhánh này CHỈ cho phòng ban; công trình có thủ kho thật để đối chứng",
+  () => {
+    /* 🔴🔴 CHỐT NẶNG NHẤT CỦA CẢ ĐƯỜNG NÀY. Trả `true` ở đây nghĩa là app TỰ KÝ NHẬN HÀNG thay
+       thủ kho công trình: `po.xacNhanKho` có tên người, đơn sang `cho_xac_nhan_hoan_thanh`, rồi
+       hoàn thành — mà không một thủ kho nào nhìn thấy lô hàng. Mất hẳn người đối chứng, đúng thứ
+       app bỏ đường ghi tay ngày 30/08/2026 để chặn. */
+    const r = KD.tuChotXacNhanKhoPhongBan(dnCTChot, true, null, false);
+    return {
+      duoc: r === false,
+      thucTe: r === true ? "true (LỌT — app tự ký nhận hàng thay thủ kho công trình!)" : String(r),
+      mongDoi: "false",
+    };
+  },
+);
+
+kiem(
+  "CHƯA giao đủ → KHÔNG tự chốt",
+  "Sếp · 15/09/2026 — giữ nguyên điều kiện mà cái nút vừa bị ẩn đang gác",
+  () => {
+    /* Xác nhận "đã nhận đủ hàng" khi hàng chưa về đủ là dựng sẵn căn cứ trả tiền cho hàng chưa
+       nhận. Chuyển NGƯỜI BẤM, không hạ hàng rào. */
+    const r = KD.tuChotXacNhanKhoPhongBan(dnPBChot, false, null, false);
+    return {
+      duoc: r === false,
+      thucTe: r === true ? "true (LỌT — chốt 'đã nhận đủ' khi hàng chưa về đủ!)" : String(r),
+      mongDoi: "false",
+    };
+  },
+);
+
+kiem(
+  "Còn phiếu THIẾU tệp phiếu giao nhận → KHÔNG tự chốt",
+  "Ban lãnh đạo · 11/08/2026 — *'mỗi lần giao phải có tệp phiếu giao nhận'*, Sếp giữ nguyên 15/09/2026",
+  () => {
+    /* 🔴 Luật 11/08 chạy trên TOÀN BỘ phiếu của đơn, kể cả phiếu cũ ghi trước hôm nay. Bỏ điều
+       kiện này là đơn tự chốt "đã nhận đủ" trong khi hồ sơ còn thiếu chứng từ giao nhận — đúng
+       thứ chỉ đạo 11/08 sinh ra để chặn, chỉ là lách qua cửa khác. */
+    const r = KD.tuChotXacNhanKhoPhongBan(dnPBChot, true, vuongTepMau, false);
+    return {
+      duoc: r === false,
+      thucTe: r === true ? "true (LỌT — tự chốt khi hồ sơ còn thiếu phiếu giao nhận!)" : String(r),
+      mongDoi: "false",
+    };
+  },
+);
+
+kiem(
+  "ĐÃ có `po.xacNhanKho` → KHÔNG ghi đè tên người đã xác nhận",
+  "Sếp · 15/09/2026 — dấu vết người xác nhận là chứng từ, không được viết chồng",
+  () => {
+    const r = KD.tuChotXacNhanKhoPhongBan(dnPBChot, true, null, true);
+    return {
+      duoc: r === false,
+      thucTe: r === true ? "true (LỌT — ghi đè tên người đã xác nhận nhận hàng!)" : String(r),
+      mongDoi: "false",
+    };
+  },
+);
+
+kiem(
+  "PO chưa gắn đề nghị (`undefined`) → KHÔNG tự chốt",
+  "CLAUDE.md §3.6c — thiếu thông tin thì cho quyền THẤP NHẤT, không đoán",
+  () => {
+    /* Không biết hồ sơ nào thì không biết hồ sơ đó có kho công trình hay không. Đoán "chắc là
+       phòng ban" chính là cách chốt ② bị nới im lặng. */
+    const r = KD.tuChotXacNhanKhoPhongBan(undefined, true, null, false);
+    return {
+      duoc: r === false,
+      thucTe: r === true ? "true (LỌT — PO 'chờ đề nghị' cũng tự chốt đã nhận đủ hàng)" : String(r),
+      mongDoi: "false",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // ★ NHẬT KÝ SỬA ĐƠN PHẢI NÓI ĐƯỢC CÁI GÌ ĐÃ ĐỔI — Sếp 15/09/2026
 //
 // Câu cũ là đúng bốn chữ *"sửa bảng mặt hàng"* — không dòng nào, không từ bao nhiêu sang bao
@@ -3527,6 +3773,239 @@ kiem(
       duoc: sai.length === 0,
       thucTe: sai.length === 0 ? "undefined het, khong nem loi" : `doan bua ${sai.length} ca`,
       mongDoi: "undefined het",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 15/09/2026: LÀM SẠCH BẢN NHÂN BẢN
+//
+// Nguyên văn: *"gọi thêm agent xử lý việc làm sạch thông tin khi nhân
+// bản quy trình đối với các quy trình đã có sẵn file đính kèm hoặc ghi
+// chú, a cần làm sạch tất cả khi trả về bước 2"*.
+//
+// 🔴 CHIỀU NGHỊCH QUAN TRỌNG HƠN CHIỀU THUẬN. "Làm sạch" quá tay là bản
+// copy mất `deNghiGocId` (phiếu gốc đóng được trong khi bản con còn dở),
+// mất `sttDongGoc` (phiếu gốc hết làm mờ dòng đã nhân bản ⇒ mua hai lần),
+// hoặc mất `loaiHoSo` (hồ sơ đi nhầm nhánh phòng ban / công trình).
+// ════════════════════════════════════════════════════════════════════
+
+/** Phiếu gốc "đã đi xa": đủ tệp ở nhiều bước, bình luận, lý do thiếu chứng từ, việc đã tích. */
+function phieuGocDaDiXa() {
+  const tep = (id) => ({
+    id,
+    tenTep: `${id}.pdf`,
+    kieuMime: "application/pdf",
+    kichThuoc: 1,
+    nguoiTaiUid: "u1",
+    nguoiTaiTen: "Nguyễn Văn A",
+    thoiDiem: "2026-09-01T08:00:00.000Z",
+  });
+  return {
+    id: "pr-goc",
+    code: "260001-HPCS-PR-001",
+    maDuAn: "260001-HPCS",
+    maHopDongCDT: "2026/HDXD",
+    tenCongTrinh: "DỰ ÁN TEST",
+    tieuDe: "DỰ ÁN TEST",
+    phongBanNguon: "thi_cong",
+    nguoiDeNghiUid: "u9",
+    nguoiDeNghiTen: "Nguyễn Văn B",
+    ngayDeNghi: "2026-08-01",
+    ngayDuyet: "2026-08-02",
+    ngayCanHang: "2026-10-01",
+    mucDoUuTien: "binh_thuong",
+    trangThai: "dang_thuc_hien",
+    loaiHoSo: "phong_ban",
+    maDeXuatAppRequest: "000000086",
+    idHoSoAppRequest: "fSH4lYLX63FaV4B1pcY1",
+    luuTru: true,
+    items: [
+      { stt: 1, tenVatLieu: "Thép D10", donViTinh: "kg", khoiLuongDeNghi: 10, nguoiPhuTrachUid: "u1", nguoiPhuTrachTen: "Nguyễn Văn A" },
+      { stt: 2, tenVatLieu: "Xi măng", donViTinh: "bao", khoiLuongDeNghi: 20, nguoiPhuTrachUid: "u1", nguoiPhuTrachTen: "Nguyễn Văn A" },
+      { stt: 3, tenVatLieu: "Cát", donViTinh: "m3", khoiLuongDeNghi: 5 },
+    ],
+    lichSu: [{ thoiDiem: "2026-08-02T01:00:00.000Z", nguoiThucHien: "Nguyễn Văn B", hanhDong: "Tạo đề nghị" }],
+    nguoiTheoDoi: [{ uid: "u9", ten: "Nguyễn Văn B", chucDanh: "NV", nguoiThemTen: "app", thoiDiemThem: "2026-08-02T01:00:00.000Z" }],
+    taiLieu: [tep("dau-vao-1")],
+    taiLieuAppRequest: [{ ten: "mau-chi-tiet.xlsx", duongDan: "requests/x/mau-chi-tiet.xlsx" }],
+    tepGiaiDoan: {
+      yeu_cau_bao_gia: [tep("bao-gia-ncc")],
+      dat_hang: [tep("hop-dong-da-ky")],
+      ho_so_thanh_toan: [tep("hoa-don-vat")],
+    },
+    lyDoThieuChungTu: { thieu_hop_dong: "NCC hẹn gửi bản ký tuần sau" },
+    binhLuan: [{ id: "bl1", nguoiVietUid: "u1", nguoiVietTen: "Nguyễn Văn A", thoiDiem: "2026-09-01T08:00:00.000Z", noiDung: "Đã gọi NCC" }],
+    congViecDaXong: [
+      { maCongViec: "checkin_ton_kho", giaiDoan: "tiep_nhan", nguoiXongTen: "Nguyễn Văn A", thoiDiem: "2026-08-03T01:00:00.000Z" },
+      { maCongViec: "unc_xong", giaiDoan: "ho_so_thanh_toan", nguoiXongTen: "Nguyễn Văn A", thoiDiem: "2026-09-10T01:00:00.000Z" },
+    ],
+    lyDoThatBai: "NCC bỏ cuộc",
+  };
+}
+
+const nhanBanThu = (goc, sttGiuLai, phieuGocDau) =>
+  NB.dungBanNhanBan({
+    goc,
+    phieuGocDau: phieuGocDau ?? goc,
+    idMoi: "pr-copy",
+    maMoi: `${(phieuGocDau ?? goc).code} (copy)`,
+    nguoi: { uid: "u2", ten: "Trần Thị C" },
+    sttGiuLai,
+    ngay: "2026-09-15",
+    thoiDiem: "2026-09-15T03:00:00.000Z",
+  });
+
+kiem(
+  "NHAN BAN — ban copy KHONG mang theo tep tung buoc, binh luan, ly do thieu chung tu, ly do that bai",
+  'Sếp · 15/09/2026 — "a cần làm sạch tất cả khi trả về bước 2"',
+  () => {
+    const ban = nhanBanThu(phieuGocDaDiXa());
+    const con = [
+      ban.tepGiaiDoan ? "tepGiaiDoan" : "",
+      ban.binhLuan ? "binhLuan" : "",
+      ban.lyDoThieuChungTu ? "lyDoThieuChungTu" : "",
+      ban.lyDoThatBai ? "lyDoThatBai" : "",
+      ban.luuTru ? "luuTru" : "",
+      (ban.congViecDaXong ?? []).some((v) => v.giaiDoan === "ho_so_thanh_toan")
+        ? "congViecDaXong(buoc sau)"
+        : "",
+      (ban.lichSu ?? []).length !== 1 ? `lichSu=${(ban.lichSu ?? []).length} dong` : "",
+    ].filter(Boolean);
+    return {
+      duoc: con.length === 0,
+      thucTe: con.length === 0 ? "ban copy sach" : `con mang theo: ${con.join(", ")}`,
+      mongDoi: "ban copy sach, chi con 1 dong nhat ky 'Nhan ban tu ...'",
+    };
+  },
+);
+
+kiem(
+  "NHAN BAN — CHIEU NGHICH: lam sach qua tay lam mat khoa noi ban con voi phieu goc",
+  "Sếp · 15/09/2026 — mất `deNghiGocId` là phiếu gốc đóng được trong khi bản con còn dở; mất `sttDongGoc` là phiếu gốc hết làm mờ dòng đã nhân bản ⇒ mua hai lần",
+  () => {
+    const goc = phieuGocDaDiXa();
+    const ban = nhanBanThu(goc, [2, 3]);
+    const thieu = [
+      ban.deNghiGocId === "pr-goc" ? "" : "deNghiGocId",
+      ban.maDeNghiGoc === goc.code ? "" : "maDeNghiGoc",
+      ban.loaiHoSo === "phong_ban" ? "" : "loaiHoSo",
+      ban.items.length === 2 ? "" : "so dong giu lai",
+      ban.items[0]?.sttDongGoc === 2 && ban.items[1]?.sttDongGoc === 3 ? "" : "sttDongGoc",
+      ban.items[0]?.stt === 1 && ban.items[1]?.stt === 2 ? "" : "danh so lai tu 1",
+      ban.tenCongTrinh === goc.tenCongTrinh ? "" : "tenCongTrinh",
+      ban.maDuAn === goc.maDuAn ? "" : "maDuAn",
+      (ban.taiLieu ?? []).length === 1 ? "" : "taiLieu (ho so dau vao)",
+      (ban.nguoiTheoDoi ?? []).length === 1 ? "" : "nguoiTheoDoi",
+      (ban.congViecDaXong ?? []).some((v) => v.maCongViec === "checkin_ton_kho")
+        ? ""
+        : "congViecDaXong(buoc ①)",
+    ].filter(Boolean);
+    return {
+      duoc: thieu.length === 0,
+      thucTe: thieu.length === 0 ? "giu du khoa noi va thong tin nhan dang" : `da xoa mat: ${thieu.join(", ")}`,
+      mongDoi: "giu deNghiGocId · sttDongGoc tung dong · loaiHoSo · danh sach mat hang",
+    };
+  },
+);
+
+kiem(
+  "NHAN BAN — phieu GOC khong bi dung toi mot chu nao",
+  "Sếp · 15/09/2026 — chỉ bỏ THAM CHIẾU ở bản copy; nội dung tệp ở `3-du-lieu/kho-tep.ts` dùng chung `id`, xoá là phiếu gốc mất chứng từ",
+  () => {
+    const goc = phieuGocDaDiXa();
+    const truoc = JSON.stringify(goc);
+    nhanBanThu(goc, [1]);
+    return {
+      duoc: JSON.stringify(goc) === truoc,
+      thucTe: JSON.stringify(goc) === truoc ? "phieu goc nguyen ven" : "phieu goc da bi sua",
+      mongDoi: "phieu goc nguyen ven",
+    };
+  },
+);
+
+kiem(
+  "NHAN BAN TU MOT BAN COPY — `sttDongGoc` ke thua, KHONG lay `stt` cua ban copy",
+  "Sếp · 15/09/2026 — ghi `d.stt` là làm mờ NHẦM một dòng của phiếu gốc vẫn phải mua",
+  () => {
+    const goc = phieuGocDaDiXa();
+    const copy1 = nhanBanThu(goc, [2, 3]); // stt 1,2 ↔ sttDongGoc 2,3
+    const copy2 = NB.dungBanNhanBan({
+      goc: copy1,
+      phieuGocDau: goc,
+      idMoi: "pr-copy-2",
+      maMoi: `${goc.code} (copy 2)`,
+      nguoi: { uid: "u2", ten: "Trần Thị C" },
+      sttGiuLai: [2],
+      ngay: "2026-09-15",
+      thoiDiem: "2026-09-15T04:00:00.000Z",
+    });
+    const ra = copy2.items[0]?.sttDongGoc;
+    return {
+      duoc: ra === 3 && copy2.deNghiGocId === "pr-goc",
+      thucTe: `sttDongGoc=${ra} · deNghiGocId=${copy2.deNghiGocId}`,
+      mongDoi: "sttDongGoc=3 (dong o phieu goc dau tien) · deNghiGocId=pr-goc (cha–con MOT cap)",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 15/09/2026: HẬU TỐ "(copy N)" PHẢI HIỆN NGAY TRÊN THẺ
+//
+// Nguyên văn: *"khi nhân bản thì tên tiêu đề này cũng phải hiển thị luôn
+// chư (copy..) hiện tại phải bấm vào chỉnh sửa thông tin thì nó mới hiện"*.
+//
+// Ảnh chụp bảng kanban bản chạy thật có HAI thẻ tiêu đề giống hệt nhau
+// (`000000086 - 2026/HDXD - DỰ ÁN TEST`), một trong hai là bản nhân bản.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "TEN THE — ban copy phai KHAC ban goc va mang hau to (copy N)",
+  'Sếp · 15/09/2026 — "khi nhân bản thì tên tiêu đề này cũng phải hiển thị luôn chư (copy..)"',
+  () => {
+    const goc = phieuGocDaDiXa();
+    const ban = nhanBanThu(goc);
+    const tGoc = TT.tenTheDeNghi(goc);
+    const tBan = TT.tenTheDeNghi(ban);
+    return {
+      duoc: tGoc !== tBan && /\(copy/i.test(tBan),
+      thucTe: `goc="${tGoc}" · copy="${tBan}"`,
+      mongDoi: "hai ten KHAC nhau, ten ban copy chua '(copy'",
+    };
+  },
+);
+
+kiem(
+  "TEN THE — CHIEU NGHICH: phieu GOC khong bi gan them hau to nao",
+  "Sếp · 15/09/2026 — dán '(copy)' cho mọi thẻ là phiếu gốc cũng trông như bản sao, mất luôn ý nghĩa dấu hiệu",
+  () => {
+    const goc = phieuGocDaDiXa();
+    const ten = TT.tenTheDeNghi(goc);
+    /* Và không lặp chữ: tên công trình chỉ được in MỘT lần dù `tieuDe` cũng chứa nó
+       (luật 13/09/2026 của Ban lãnh đạo). */
+    const soLanTenCongTrinh = ten.toUpperCase().split("DỰ ÁN TEST").length - 1;
+    return {
+      duoc: !/\(copy/i.test(ten) && soLanTenCongTrinh === 1,
+      thucTe: `"${ten}" · ten cong trinh xuat hien ${soLanTenCongTrinh} lan`,
+      mongDoi: "khong co '(copy)', ten cong trinh xuat hien dung 1 lan",
+    };
+  },
+);
+
+kiem(
+  "TEN THE — phieu LAP TAY: ma dau the da mang '(copy)' thi KHONG in hau to lan hai",
+  "Ban lãnh đạo · 13/09/2026 — thẻ rộng ~240px, nhắc lại một chuỗi là chiếm chỗ mà không nói thêm gì",
+  () => {
+    /* Phiếu lập tay không có `maDeXuatAppRequest` → dòng đầu thẻ in `code`, mà mã bản sao đã
+       mang sẵn `(copy)`. Đây chính là ca mà luật cắt đuôi cũ được viết cho. */
+    const goc = { ...phieuGocDaDiXa(), maDeXuatAppRequest: undefined, tieuDe: "Vật tư đợt 4" };
+    const ban = nhanBanThu(goc);
+    const ten = TT.tenTheDeNghi(ban);
+    const soLan = ten.toLowerCase().split("(copy").length - 1;
+    return {
+      duoc: soLan === 1,
+      thucTe: `"${ten}" — '(copy' xuat hien ${soLan} lan`,
+      mongDoi: "'(copy' xuat hien dung 1 lan (o ma dau the)",
     };
   },
 );
