@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
-import { AlertTriangle, BadgeCheck, FileWarning, Lock, Printer } from "lucide-react";
+import { AlertTriangle, BadgeCheck, FileWarning, Info, Lock, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -23,6 +23,7 @@ import {
   vuongMacXacNhanKho,
 } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
+import { LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { formatDateTime } from "@/6-tien-ich/dinh-dang";
 import { NutXuatDonHangExcel } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-don-hang";
@@ -238,6 +239,41 @@ export default function TrangChiTietDonHang() {
               App tự gửi lại mỗi lần mở hoặc tải lại trang — không cần bấm gì thêm. Nếu dòng này
               còn đây sau vài lần tải lại, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và
               nguyên văn lý do ở trên.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          ★★ ĐƠN CỦA HỒ SƠ PHÒNG BAN — KHÔNG CÓ VIỆC GÌ Ở APP KHO (15/09/2026)
+          =====================================================================
+          Sếp nguyên văn: *"nếu làm đề nghị là chọn theo phòng ban thì k có chạy về app kho vì
+          phòng ban không có kho riêng… thu mua tự đánh vào phiếu tiến độ giao hàng và tự cập
+          nhật phiếu giao hàng là done"*.
+
+          🔴 VÌ SAO PHẢI NÓI RA CHỨ KHÔNG IM LẶNG: khối cảnh báo vàng ngay phía trên dạy người
+          dùng rằng "không thấy đơn bên app Kho là có chuyện". Với hồ sơ phòng ban thì KHÔNG hề
+          có chuyện gì — nhưng nếu màn này không nói gì cả, người dùng tự suy theo nếp cũ rồi đi
+          hỏi. Nói rõ ngay tại chỗ là cách rẻ nhất chặn hiểu nhầm đó (cùng lý lẽ với
+          `LY_DO_NHANH_PHONG_BAN`).
+
+          🔴 MÀU TRUNG TÍNH, KHÔNG PHẢI VÀNG/ĐỎ: đây là thông tin, không phải cảnh báo. Dùng màu
+          cảnh báo cho một việc bình thường là làm hỏng ý nghĩa của màu cảnh báo ở mọi chỗ khác.
+
+          📌 Không có nút gửi lại, và cố ý không có: gửi sang app Kho là việc KHÔNG áp dụng cho
+          hồ sơ này, không phải việc đang chờ làm. */}
+      {po.qlkCtrSyncStatus === "khong_ap_dung" && (
+        <div className="flex items-start gap-3 rounded-xl border border-border bg-muted p-(--hp-md-row-pad)">
+          <Info className="mt-0.5 size-5 shrink-0 text-text-desc" aria-hidden />
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-text-primary">
+              Đơn này không gửi sang app Kho công trình
+            </span>
+            <p className="text-sm text-text-secondary">{LY_DO_NHANH_PHONG_BAN}</p>
+            <p className="text-sm text-text-secondary">
+              Hàng về tới đâu, Thu mua tự ghi vào bảng tiến độ giao hàng bên dưới và đính kèm
+              phiếu giao hàng của từng lần giao. Ghi đủ là đơn <strong>{po.code}</strong> xong,
+              không phải chờ kho xác nhận.
             </p>
           </div>
         </div>
