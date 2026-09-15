@@ -1453,6 +1453,42 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * Cách chặn: ghi nhớ chuỗi JSON vừa nhận/vừa gửi; lần ghi nào có nội dung y hệt thì bỏ qua.
    */
   const anhChupCuoi = useRef<string>("");
+
+  /**
+   * ★★ CHỐT CHẶN VÒNG LẶP VÔ TẬN "Việc 2" — Sếp báo 15/09/2026 kèm 2 ảnh F12.
+   *
+   * 🐛 TRIỆU CHỨNG: Console 2000+ lỗi và vẫn tăng, 8907 dòng log bị ẩn, POST
+   *    `/api/qlk-ctr/gui-po` trả 502 liên tục cho 3 mã 000000085 / 000000088 /
+   *    000000089, và Firestore kêu `resource-exhausted: Write stream exhausted
+   *    maximum allowed queued writes`. Màn hình trắng một nửa là HẬU QUẢ: vẽ
+   *    lại liên tục làm hộp thoại đang mở bị tháo giữa chừng, base-ui không kịp
+   *    dọn nên kẹt `overflow:hidden` + `data-base-ui-inert` (đúng dấu vết đã ghi
+   *    ở `thanh-phan-dung-chung/don-dep-hop-thoai-ket.ts`).
+   *
+   * 🔬 VÒNG LẶP TỰ NUÔI CHÍNH NÓ, 6 nhịp:
+   *    ① `apDung()` thấy PO `qlkCtrSyncStatus === "failed"` → điều kiện lọc cũ
+   *       cho qua VÔ ĐIỀU KIỆN (`!== "failed"` là false nên không `continue`).
+   *    ② gọi `/api/qlk-ctr/gui-po` → QLK CTR không có mã đề xuất đó → hỏng.
+   *    ③ ghi `setDonHang` kèm `qlkCtrSyncAt: new Date()` → LẦN NÀO CŨNG LÀ DỮ
+   *       LIỆU MỚI.
+   *    ④ dữ liệu đổi → effect đẩy lên kho chung (Firestore).
+   *    ⑤ kho chung phát lại. `anhChupCuoi` chỉ chặn được ĐÚNG bản vừa gửi —
+   *       có 3 PO hỏng ghi xen kẽ nên bản của PO này luôn khác bản vừa ghi dấu
+   *       của PO kia, lọt qua.
+   *    ⑥ `apDung()` chạy lại → về ①.
+   *
+   * ✅ Ref này cắt ở nhịp ①: mỗi PO chỉ được TỰ động thử lại ĐÚNG MỘT LẦN cho
+   *    mỗi lần mở trang. Giữ nguyên tinh thần "retry-on-view" (mở lại trang là
+   *    thử lại) nhưng không thể quay vòng trong cùng một phiên nữa.
+   *
+   * 🔴 PHẢI LÀ `useRef`, KHÔNG phải state: đây là bộ nhớ phụ, đổi nó KHÔNG được
+   *    phép làm vẽ lại — vẽ lại chính là thứ đang gây sự cố.
+   *
+   * 📌 KHÔNG xoá khoá khi PO gửi THÀNH CÔNG cũng không sao: gửi xong thì
+   *    `qlkCtrSyncStatus` thành "synced" và `canDongBoLaiPO` so dấu vân tay,
+   *    nhánh này không còn được chạm tới nữa.
+   */
+  const daTuThuDongBoLai = useRef<Set<string>>(new Set());
   const ketNoiChung = useRef<KetNoiKhoChung | null>(null);
 
   /**
@@ -1568,6 +1604,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (po.prId) {
         const deNghiGoc = d.deNghi.find((dn) => dn.id === po.prId);
         if (po.qlkCtrSyncStatus !== "failed" && !canDongBoLaiPO(po, deNghiGoc)) continue;
+        // 🔴 Mỗi PO chỉ tự thử lại ĐÚNG MỘT LẦN mỗi lần mở trang — xem
+        // `daTuThuDongBoLai`. Thiếu dòng này là vòng lặp vô tận (sự cố 15/09/2026).
+        if (daTuThuDongBoLai.current.has(po.id)) continue;
+        daTuThuDongBoLai.current.add(po.id);
         void guiPOSangQlkCtr(po, deNghiGoc).then((ketQua) => {
           if (!ketQua.apDung) return;
           setDonHang((truoc) =>
@@ -1582,18 +1622,32 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                       qlkCtrSyncError: undefined,
                       qlkCtrSyncAt: new Date().toISOString(),
                     }
-                  : {
-                      ...p,
-                      qlkCtrSyncStatus: "failed",
-                      qlkCtrSyncError: ketQua.loi,
-                      qlkCtrSyncAt: new Date().toISOString(),
-                    },
+                  : // 🔴 HỎNG Y HỆT LẦN TRƯỚC THÌ KHÔNG GHI LẠI (15/09/2026).
+                    // `qlkCtrSyncAt` lấy giờ hiện tại nên lần nào cũng là dữ liệu
+                    // MỚI — ghi xong là đẩy lên Firestore, Firestore phát về, vòng
+                    // đồng bộ chạy lại. Chính việc ghi nhật ký lỗi tạo ra lỗi tiếp
+                    // theo. Giữ nguyên bản ghi cũ khi cả trạng thái lẫn câu lỗi
+                    // không đổi thì chuỗi JSON không đổi, `anhChupCuoi` chặn được
+                    // và không có cú ghi nào lên kho chung.
+                    // CHỈ áp dụng cho VÒNG TỰ ĐỘNG. Hai chỗ gửi do người dùng thao
+                    // tác (lập đơn / sửa đơn) vẫn ghi mốc thời gian như cũ.
+                    p.qlkCtrSyncStatus === "failed" && p.qlkCtrSyncError === ketQua.loi
+                    ? p
+                    : {
+                        ...p,
+                        qlkCtrSyncStatus: "failed",
+                        qlkCtrSyncError: ketQua.loi,
+                        qlkCtrSyncAt: new Date().toISOString(),
+                      },
             ),
           );
           if (!ketQua.thanhCong) console.error("[Việc 2] Tự đồng bộ lại PO sang QLK CTR lỗi:", ketQua.loi);
         });
       } else if (po.trangThai === "cho_de_nghi") {
         if (po.qlkCtrSyncStatus !== "failed" && !canDongBoLaiPODocLap(po)) continue;
+        // Cùng chốt chặn với nhánh trên — xem `daTuThuDongBoLai`.
+        if (daTuThuDongBoLai.current.has(po.id)) continue;
+        daTuThuDongBoLai.current.add(po.id);
         void guiPOSangQlkCtrDocLap(po).then((ketQua) => {
           if (!ketQua.apDung) return;
           setDonHang((truoc) =>
@@ -1608,12 +1662,23 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                       qlkCtrSyncError: undefined,
                       qlkCtrSyncAt: new Date().toISOString(),
                     }
-                  : {
-                      ...p,
-                      qlkCtrSyncStatus: "failed",
-                      qlkCtrSyncError: ketQua.loi,
-                      qlkCtrSyncAt: new Date().toISOString(),
-                    },
+                  : // 🔴 HỎNG Y HỆT LẦN TRƯỚC THÌ KHÔNG GHI LẠI (15/09/2026).
+                    // `qlkCtrSyncAt` lấy giờ hiện tại nên lần nào cũng là dữ liệu
+                    // MỚI — ghi xong là đẩy lên Firestore, Firestore phát về, vòng
+                    // đồng bộ chạy lại. Chính việc ghi nhật ký lỗi tạo ra lỗi tiếp
+                    // theo. Giữ nguyên bản ghi cũ khi cả trạng thái lẫn câu lỗi
+                    // không đổi thì chuỗi JSON không đổi, `anhChupCuoi` chặn được
+                    // và không có cú ghi nào lên kho chung.
+                    // CHỈ áp dụng cho VÒNG TỰ ĐỘNG. Hai chỗ gửi do người dùng thao
+                    // tác (lập đơn / sửa đơn) vẫn ghi mốc thời gian như cũ.
+                    p.qlkCtrSyncStatus === "failed" && p.qlkCtrSyncError === ketQua.loi
+                    ? p
+                    : {
+                        ...p,
+                        qlkCtrSyncStatus: "failed",
+                        qlkCtrSyncError: ketQua.loi,
+                        qlkCtrSyncAt: new Date().toISOString(),
+                      },
             ),
           );
           if (!ketQua.thanhCong) console.error("[Việc 2] Tự đồng bộ lại PO độc lập sang QLK CTR lỗi:", ketQua.loi);
