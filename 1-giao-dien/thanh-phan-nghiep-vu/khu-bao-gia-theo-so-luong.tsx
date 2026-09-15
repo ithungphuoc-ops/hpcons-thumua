@@ -675,9 +675,12 @@ export function KhuBaoGiaTheoSoLuong({
           )}
 
           {!tepBangSoSanh && lyDoSoSanhDaGhi === "" && (
+            /* ❌ ĐÃ BỎ vế *"— app không tự lập bảng so sánh nữa"* (Sếp 15/09/2026).
+               Đó là câu kể lại một THAY ĐỔI CŨ của app (bỏ bảng so sánh nhập tay, 20/08/2026),
+               chỉ có nghĩa với người từng dùng bản trước. Người dùng mới đọc vào chỉ thấy app
+               kể chuyện mình, không giúp họ biết phải làm gì. Vế đầu đã nói đủ việc cần làm. */
             <p className="text-xs text-text-desc">
-              Bảng so sánh giá lập ngoài (Excel/PDF) rồi đính vào đây — app không tự lập bảng so
-              sánh nữa.
+              Bảng so sánh giá lập ngoài (Excel/PDF) rồi đính vào đây.
             </p>
           )}
         </div>
