@@ -136,6 +136,7 @@ import {
   NHAN_TEP_UNC,
   tepPhieuChi,
   TEN_HIEN_HOP_DONG,
+  TEN_HIEN_HOP_DONG_BUOC_DAT_HANG,
   tepHoaDonVAT,
   tepHopDongSuaDuoc,
   tepUNC,
@@ -2316,7 +2317,9 @@ export default function TrangChiTietDeNghi({
                       maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
                       nhanO={NHAN_TEP_HOP_DONG}
                       /* ★ Tên hiển thị đổi theo chỉ đạo 23/08/2026; NHÃN LƯU (`nhanO`) giữ nguyên
-                         "Hợp đồng" để hợp đồng đã đính kèm trước đó vẫn được nhận ra. */
+                         "Hợp đồng" để hợp đồng đã đính kèm trước đó vẫn được nhận ra.
+                         📌 BƯỚC ④ GIỮ TÊN "Hợp đồng" — Sếp 15/09/2026 chỉnh lại: tên "Đơn mua hàng"
+                         đặt ở **bước ⑤ Tiến hành đặt hàng**, không phải ở đây. */
                       tieuDe={TEN_HIEN_HOP_DONG}
                       moTa="Bản hợp đồng mua bán / thoả thuận đã ký với nhà cung cấp. PHẢI có bản này (hoặc ghi lý do chưa có ở ô dưới) thì mới lập được đơn mua hàng."
                       batBuoc
@@ -2493,8 +2496,14 @@ export default function TrangChiTietDeNghi({
                       deNghi={dn}
                       maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
                       nhanO={NHAN_TEP_HOP_DONG}
-                      tieuDe={TEN_HIEN_HOP_DONG}
-                      moTa="Bản đã ký, đóng mộc từ nhà cung cấp gửi về khi đặt hàng — cùng tệp với bước ④, sửa ở đây bước ④ cũng thấy ngay. Chỉ Trưởng bộ phận/quản trị sửa được ở bước này."
+                      /* ★★ 15/09/2026 — Sếp: *"mục đổi tên e chỉnh lại là 'Đơn mua hàng' ở bước
+                         tiến hành đặt hàng nha, không phải ở bước lập đơn mua hàng"*.
+                         ✅ Đúng bản chất: ô này là nơi đính **bản đơn mua hàng đã ký đóng mộc NCC
+                         gửi về**, gọi là "Hợp đồng" là sai tên với thứ thật sự đính vào — nhất là
+                         đơn mẫu PO-02 (chính tờ đơn là thoả thuận, không có hợp đồng riêng).
+                         🔴 VẪN LÀ CÙNG MỘT TỆP với bước ④, chỉ khác chữ hiển thị. */
+                      tieuDe={TEN_HIEN_HOP_DONG_BUOC_DAT_HANG}
+                      moTa="Bản đơn mua hàng đã ký, đóng mộc từ nhà cung cấp gửi về khi đặt hàng — cùng tệp với bước ④, sửa ở đây bước ④ cũng thấy ngay. Chỉ Trưởng bộ phận/quản trị sửa được ở bước này."
                       batBuoc
                       duocSua={duocSuaHopDong}
                       khoa={hoSoDaDong}

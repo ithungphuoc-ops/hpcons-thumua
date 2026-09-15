@@ -131,6 +131,29 @@ export const NHAN_TEP_PHIEU_CHI = "Phiếu chi";
 export const TEN_HIEN_HOP_DONG = "Hợp đồng";
 
 /**
+ * ★★ TÊN HIỂN THỊ RIÊNG CHO Ô Ở BƯỚC ⑤ *Tiến hành đặt hàng* — Sếp 15/09/2026.
+ *
+ * Sếp khoanh đỏ ô tệp và ghi *"sửa tên trường này là Đơn mua hàng"*, rồi chỉnh lại cho chính xác:
+ * *"mục đổi tên e chỉnh lại là 'Đơn mua hàng' ở bước tiến hành đặt hàng nha, không phải ở bước
+ * lập đơn mua hàng"*. Nên bước ④ giữ nguyên "Hợp đồng", chỉ bước ⑤ đổi.
+ *
+ * ✅ ĐỔI Ở BƯỚC ⑤ MỚI LÀ ĐÚNG BẢN CHẤT, và khối cảnh báo ngay trên đã chỉ ra điều đó từ
+ * 13/09/2026 mà chưa sửa được: ô ở bước ⑤ là nơi đính **bản đơn mua hàng đã ký đóng mộc do NCC
+ * gửi về khi đặt hàng**. Gọi nó là "Hợp đồng" là sai tên với thứ thật sự được đính vào đấy,
+ * nhất là đơn dùng mẫu PO-02 (chính tờ đơn là thoả thuận, không có hợp đồng riêng).
+ *
+ * 🔴 VẪN LÀ MỘT Ô, MỘT TỆP — chỉ khác chữ in ra. Cả ba chỗ (bước ④, ⑤, ⑧) đều dùng
+ * `maGiaiDoan = BUOC_DINH_KEM_HOP_DONG` và `nhanO = NHAN_TEP_HOP_DONG`. Đính ở bước ⑤ thì bước ④
+ * và ⑧ thấy ngay, và ngược lại. Đừng đọc hai cái tên rồi tưởng là hai chứng từ riêng.
+ *
+ * ⚠️ CÁI GIÁ, NÓI TRƯỚC ĐỂ KHÔNG AI TƯỞNG LÀ LỖI: cùng một tệp nay mang **hai tên** tùy bước đang
+ * đứng — đính ở ô "Hợp đồng" bước ④ rồi sang bước ⑤ thấy nó nằm trong ô "Đơn mua hàng".
+ * 👉 Muốn hết hẳn chuyện này thì phải TÁCH THẬT thành hai chứng từ (thêm khóa tệp mới, sửa 4 hàm,
+ * xử lý dữ liệu cũ) — xem khối cảnh báo ngay trên, việc đó **chưa được duyệt**.
+ */
+export const TEN_HIEN_HOP_DONG_BUOC_DAT_HANG = "Đơn mua hàng";
+
+/**
  * ★ KHÓA GHI LÝ DO CHƯA CÓ CHỨNG TỪ — Ban lãnh đạo 23/08/2026: *"Thêm hàm bắt buộc có file đính
  * kèm hoặc ghi chú lý do không đính kèm file thì mới cho chuyển bước và phải tô màu đỏ lại. Để
  * biết là còn thiếu hồ sơ để bổ sung sau"*.
