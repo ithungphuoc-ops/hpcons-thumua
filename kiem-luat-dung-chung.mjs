@@ -4909,6 +4909,116 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
+// PHÂN LOẠI LỖI QLK CTR: VĨNH VIỄN vs TẠM THỜI — Sếp 15/09/2026 (đêm), vá P0 chặn vòng lặp
+//
+// Gốc sự cố: PO của đề nghị 000000085 (chưa từng sang Kho vì Kho hết hạn mức lúc App Request
+// gọi) bị gửi lại vô hạn. Lỗi "không có đề nghị" là VĨNH VIỄN — thử lại không đổi được gì,
+// nhưng mỗi lần thử là một lần ghi kho chung → dội về mọi máy.
+// Luật: 4xx (trừ 408/429) → vĩnh viễn → `can_xu_ly_tay`, KHÔNG tự thử lại.
+//       5xx / timeout / không rõ → tạm thời → `failed`, vẫn tự thử theo bậc chờ.
+//       QLK CTR tự khai `loaiLoi` thì tin lời khai đó.
+// ════════════════════════════════════════════════════════════════════
+const CHU_PHAN_LOAI = "Sếp 15/09/2026 (đêm) — vá P0 chặn vòng lặp Thu mua ↔ QLK CTR";
+
+kiem(
+  "phanLoaiLoiQlkCtr: 404/400/422 (đề nghị không có, sai dữ liệu) là VĨNH VIỄN",
+  CHU_PHAN_LOAI,
+  () => {
+    const mau = [404, 400, 422, 401, 403].map((s) => NH.phanLoaiLoiQlkCtr(s));
+    return {
+      duoc: mau.every((x) => x === "vinh_vien"),
+      thucTe: mau.join(" · "),
+      mongDoi: "tất cả là vinh_vien",
+    };
+  },
+);
+
+kiem(
+  "phanLoaiLoiQlkCtr: 500/502/503/504 (Kho sập, hết hạn mức) là TẠM THỜI — PO phải tự hồi phục được",
+  CHU_PHAN_LOAI,
+  () => {
+    const mau = [500, 502, 503, 504].map((s) => NH.phanLoaiLoiQlkCtr(s));
+    return {
+      duoc: mau.every((x) => x === "tam_thoi"),
+      thucTe: mau.join(" · "),
+      mongDoi: "tất cả là tam_thoi",
+    };
+  },
+);
+
+kiem(
+  "phanLoaiLoiQlkCtr: KHÔNG BIẾT (timeout/mạng, không có mã) và 408/429 → TẠM THỜI (chiều an toàn)",
+  CHU_PHAN_LOAI,
+  () => {
+    const mau = [NH.phanLoaiLoiQlkCtr(undefined), NH.phanLoaiLoiQlkCtr(408), NH.phanLoaiLoiQlkCtr(429), NH.phanLoaiLoiQlkCtr(NaN)];
+    return {
+      duoc: mau.every((x) => x === "tam_thoi"),
+      thucTe: mau.join(" · "),
+      mongDoi: "tất cả là tam_thoi",
+    };
+  },
+);
+
+kiem(
+  "phanLoaiLoiQlkCtr: lời khai `loaiLoi` của QLK CTR THẮNG mã HTTP (cả hai chiều)",
+  CHU_PHAN_LOAI,
+  () => {
+    const a = NH.phanLoaiLoiQlkCtr(502, "vinh_vien"); // proxy trả 502 nhưng Kho nói vĩnh viễn
+    const b = NH.phanLoaiLoiQlkCtr(400, "tam_thoi"); // 400 nhưng Kho nói tạm thời
+    const c = NH.phanLoaiLoiQlkCtr(400, "linh_tinh"); // lời khai lạ → bỏ qua, suy từ mã
+    return {
+      duoc: a === "vinh_vien" && b === "tam_thoi" && c === "vinh_vien",
+      thucTe: `${a} · ${b} · ${c}`,
+      mongDoi: "vinh_vien · tam_thoi · vinh_vien",
+    };
+  },
+);
+
+kiem(
+  "trangThaiSauLoiQlkCtr: vĩnh viễn → can_xu_ly_tay; tạm thời → failed",
+  CHU_PHAN_LOAI,
+  () => {
+    const a = NH.trangThaiSauLoiQlkCtr("vinh_vien");
+    const b = NH.trangThaiSauLoiQlkCtr("tam_thoi");
+    return { duoc: a === "can_xu_ly_tay" && b === "failed", thucTe: `${a} · ${b}`, mongDoi: "can_xu_ly_tay · failed" };
+  },
+);
+
+kiem(
+  "coTuThuLaiQlkCtr: CHỈ `failed` vào hàng tự thử lại — `can_xu_ly_tay` đứng ngoài (điểm cắt vòng lặp)",
+  CHU_PHAN_LOAI,
+  () => {
+    const mau = {
+      failed: NH.coTuThuLaiQlkCtr("failed"),
+      can_xu_ly_tay: NH.coTuThuLaiQlkCtr("can_xu_ly_tay"),
+      synced: NH.coTuThuLaiQlkCtr("synced"),
+      khong_ap_dung: NH.coTuThuLaiQlkCtr("khong_ap_dung"),
+      rong: NH.coTuThuLaiQlkCtr(undefined),
+    };
+    return {
+      duoc: mau.failed === true && !mau.can_xu_ly_tay && !mau.synced && !mau.khong_ap_dung && !mau.rong,
+      thucTe: JSON.stringify(mau),
+      mongDoi: "chỉ failed = true",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGHỊCH: một PO can_xu_ly_tay dù đã QUÁ MỌI BẬC CHỜ vẫn không được tự thử lại",
+  CHU_PHAN_LOAI,
+  () => {
+    const bayGio = 10_000_000_000;
+    const quaHan = NH.duocThuLaiQlkCtr({ soLanDaThu: 1, lanCuoi: bayGio - 24 * 3_600_000 }, bayGio);
+    const vanChan = !NH.coTuThuLaiQlkCtr("can_xu_ly_tay");
+    return {
+      duoc: quaHan === true && vanChan === true,
+      thucTe: `bậc chờ cho phép=${quaHan}, trạng thái chặn=${vanChan}`,
+      mongDoi: "bậc chờ cho phép nhưng trạng thái vẫn chặn — hai chốt độc lập",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // MỞ KHOÁ TRƯỜNG Ở MÀN SỬA ĐƠN — Sếp 15/09/2026
 //
 // Nguyên văn chỉ đạo:

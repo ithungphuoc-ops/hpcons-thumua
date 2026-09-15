@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { chuyenTiepSangQlkCtr } from "../_trung-chuyen";
 
 // Route máy chủ cho PO ĐỘC LẬP (30/08/2026) — bản sao `../gui-po/route.ts`, chỉ khác URL forward
 // (khớp theo công trình bên QLK CTR, không cần đề nghị gốc). Xem `5-ket-noi/gui-po-qlk-ctr.ts`
@@ -7,7 +8,9 @@ import { NextRequest, NextResponse } from "next/server";
 //
 //   POST /api/qlk-ctr/gui-po-doc-lap
 //
-// Không throw ra ngoài — mọi lỗi (thiếu cấu hình, mạng, HTTP lỗi) trả về { ok:false, error }.
+// Không throw ra ngoài — mọi lỗi (thiếu cấu hình, mạng, HTTP lỗi) trả về { ok:false, error, loaiLoi }.
+// 15/09/2026: giữ nguyên mã 4xx của Kho (lỗi vĩnh viễn), chỉ 5xx/timeout mới thành 502 — xem
+// `_trung-chuyen.ts`.
 export async function POST(req: NextRequest) {
   let payload: unknown;
   try {
@@ -15,31 +18,5 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: "Body gửi lên không phải JSON hợp lệ." }, { status: 400 });
   }
-
-  const url = process.env.QLKCTR_API_URL;
-  if (!url) {
-    return NextResponse.json({ ok: false, error: "Chưa cấu hình QLKCTR_API_URL." }, { status: 500 });
-  }
-
-  try {
-    const res = await fetch(`${url.replace(/\/$/, "")}/api/app-mua-hang/po-doc-lap`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(process.env.QLKCTR_API_KEY ? { "x-api-key": process.env.QLKCTR_API_KEY } : {}),
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(8000),
-    });
-    const data = (await res.json()) as { ok?: boolean; error?: string };
-    if (!res.ok || !data.ok) {
-      return NextResponse.json({ ok: false, error: data.error ?? `HTTP ${res.status}` }, { status: 502 });
-    }
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Lỗi không xác định." },
-      { status: 502 },
-    );
-  }
+  return chuyenTiepSangQlkCtr("/api/app-mua-hang/po-doc-lap", payload);
 }

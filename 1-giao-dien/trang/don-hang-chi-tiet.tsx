@@ -297,14 +297,16 @@ export default function TrangChiTietDonHang() {
           `3-du-lieu/kho-du-lieu.tsx`) · *"báo bộ phận phụ trách tích hợp"* (không có gì để báo).
           Để lại là đúng lỗi §3.5 CLAUDE.md, chỉ ở chiều thứ ba: giao diện BÁO ĐỘNG về một việc
           app cố ý không làm. */}
-      {po.qlkCtrSyncStatus === "failed" && !poThuocHoSoPhongBan && (
+      {(po.qlkCtrSyncStatus === "failed" || po.qlkCtrSyncStatus === "can_xu_ly_tay") && !poThuocHoSoPhongBan && (
         <div className="flex items-start gap-3 rounded-xl border border-warning bg-warning-bg p-(--hp-md-row-pad)">
           <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning-soft" aria-hidden />
           <div className="flex flex-col gap-1.5">
             {/* Trạng thái có CẢ MÀU LẪN CHỮ (Design System V1.1) — người không phân biệt được
                 màu vẫn đọc ra đây là cảnh báo. */}
             <span className="text-sm font-semibold text-warning-soft">
-              Chưa gửi được đơn này sang app Kho công trình
+              {po.qlkCtrSyncStatus === "can_xu_ly_tay"
+                ? "App Kho công trình từ chối đơn này — cần người xử lý"
+                : "Chưa gửi được đơn này sang app Kho công trình"}
             </span>
             <p className="text-sm text-text-secondary">
               Thủ kho công trình chưa nhìn thấy đơn <strong>{po.code}</strong> bên app Kho, nên
@@ -327,9 +329,16 @@ export default function TrangChiTietDonHang() {
               {po.qlkCtrSyncAt
                 ? `Thử gửi lần gần nhất: ${formatDateTime(po.qlkCtrSyncAt)}`
                 : "Chưa ghi nhận thời điểm thử gửi gần nhất."}{" "}
-              App tự gửi lại mỗi lần mở hoặc tải lại trang — không cần bấm gì thêm. Nếu dòng này
-              còn đây sau vài lần tải lại, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và
-              nguyên văn lý do ở trên.
+              {po.qlkCtrSyncStatus === "can_xu_ly_tay"
+                ? <>App <strong>không tự gửi lại</strong> đơn này — gửi lại y nguyên sẽ bị từ chối
+                    y hệt. Thường gặp: đề nghị gốc chưa sang được app Kho (kiểm tra bên App Request),
+                    hoặc tên/ĐVT vật tư không khớp đề nghị. Sửa đơn (đổi nội dung) thì app sẽ gửi
+                    lại; nếu không rõ nguyên nhân, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và
+                    nguyên văn lý do ở trên.</>
+                : <>App tự gửi lại theo nhịp thưa dần (1 phút → 5 phút → 30 phút → 2 giờ) mỗi lần mở
+                    hoặc tải lại trang — không cần bấm gì thêm. Nếu dòng này còn đây sau vài lần tải
+                    lại, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và nguyên văn lý do ở
+                    trên.</>}
             </p>
           </div>
         </div>

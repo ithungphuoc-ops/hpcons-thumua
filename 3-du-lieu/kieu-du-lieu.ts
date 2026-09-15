@@ -1065,7 +1065,15 @@ export interface DonDatHang {
    * *điều này có tính lại được từ dữ liệu sẵn có không?* Nếu có thì đừng ghi — mỗi trường ghi thừa
    * trong kho chung là một mặt trận để các máy đè nhau.
    */
-  qlkCtrSyncStatus?: "synced" | "failed" | "khong_ap_dung";
+  /**
+   * ★★ "can_xu_ly_tay" — THÊM 15/09/2026 (đêm), vá P0 chặn vòng lặp. QLK CTR đã trả lời một lỗi
+   * VĨNH VIỄN (4xx: không có đề nghị, sai dữ liệu, không khớp vật tư…) — gửi lại y nguyên sẽ
+   * không bao giờ khác. Vòng tự đồng bộ KHÔNG đem trạng thái này ra thử lại (xem
+   * `coTuThuLaiQlkCtr` ở `2-quy-trinh/nhip-dong-bo-qlk-ctr.ts`); chỉ khi người dùng SỬA đơn (nội
+   * dung đổi) mới gửi lại. Khác `"failed"` (lỗi tạm thời: Kho sập, hết hạn mức, mạng) — cái đó
+   * vẫn tự thử theo bậc chờ.
+   */
+  qlkCtrSyncStatus?: "synced" | "failed" | "can_xu_ly_tay" | "khong_ap_dung";
   /**
    * ★ (24/08/2026): dấu vân tay (JSON.stringify) của đúng phần dữ liệu đã gửi sang QLK CTR ở lần
    * "synced" gần nhất — dùng để phát hiện Thu mua SỬA LẠI PO sau khi đã đồng bộ (đổi NCC/số

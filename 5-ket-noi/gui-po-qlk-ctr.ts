@@ -14,11 +14,25 @@
 import type { DeNghiMuaHang, DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import { laDongHang } from "@/2-quy-trinh/tinh-toan";
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
+import { phanLoaiLoiQlkCtr, type LoaiLoiQlkCtr } from "@/2-quy-trinh/nhip-dong-bo-qlk-ctr";
 
 export type KetQuaGuiQlkCtr =
   | { apDung: false }
   | { apDung: true; thanhCong: true; snapshot: string }
-  | { apDung: true; thanhCong: false; loi: string };
+  /** `loaiLoi` (15/09/2026 đêm): vĩnh viễn → nơi ghi đặt `can_xu_ly_tay`, vòng tự đồng bộ không
+   *  thử lại; tạm thời → `failed`, thử lại theo bậc chờ. Xem `phanLoaiLoiQlkCtr`. */
+  | { apDung: true; thanhCong: false; loi: string; loaiLoi: LoaiLoiQlkCtr };
+
+/** Body route trung chuyển trả về (đã chuẩn hoá ở `app/api/qlk-ctr/gui-po*`). */
+type PhanHoiTrungChuyen = { ok?: boolean; error?: string; loaiLoi?: string };
+
+async function docPhanHoi(res: Response): Promise<PhanHoiTrungChuyen> {
+  try {
+    return (await res.json()) as PhanHoiTrungChuyen;
+  } catch {
+    return {};
+  }
+}
 
 // ============================================================
 // ★★ SỬA CÓ PHÉP CỦA SẾP — 15/09/2026
@@ -150,9 +164,14 @@ export async function guiPOSangQlkCtr(po: DonDatHang, deNghi: DeNghiMuaHang | un
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = (await res.json()) as { ok?: boolean; error?: string };
+    const data = await docPhanHoi(res);
     if (!res.ok || !data.ok) {
-      return { apDung: true, thanhCong: false, loi: catNganLoiQlkCtr(data.error ?? `HTTP ${res.status}`) };
+      return {
+        apDung: true,
+        thanhCong: false,
+        loi: catNganLoiQlkCtr(data.error ?? `HTTP ${res.status}`),
+        loaiLoi: phanLoaiLoiQlkCtr(res.status, data.loaiLoi),
+      };
     }
     return { apDung: true, thanhCong: true, snapshot: JSON.stringify(payload) };
   } catch (e) {
@@ -160,6 +179,7 @@ export async function guiPOSangQlkCtr(po: DonDatHang, deNghi: DeNghiMuaHang | un
       apDung: true,
       thanhCong: false,
       loi: catNganLoiQlkCtr(e instanceof Error ? e.message : "Lỗi không xác định."),
+      loaiLoi: "tam_thoi",
     };
   }
 }
@@ -290,9 +310,14 @@ export async function guiPOSangQlkCtrDocLap(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = (await res.json()) as { ok?: boolean; error?: string };
+    const data = await docPhanHoi(res);
     if (!res.ok || !data.ok) {
-      return { apDung: true, thanhCong: false, loi: catNganLoiQlkCtr(data.error ?? `HTTP ${res.status}`) };
+      return {
+        apDung: true,
+        thanhCong: false,
+        loi: catNganLoiQlkCtr(data.error ?? `HTTP ${res.status}`),
+        loaiLoi: phanLoaiLoiQlkCtr(res.status, data.loaiLoi),
+      };
     }
     return { apDung: true, thanhCong: true, snapshot: JSON.stringify(payload) };
   } catch (e) {
@@ -300,6 +325,7 @@ export async function guiPOSangQlkCtrDocLap(
       apDung: true,
       thanhCong: false,
       loi: catNganLoiQlkCtr(e instanceof Error ? e.message : "Lỗi không xác định."),
+      loaiLoi: "tam_thoi",
     };
   }
 }

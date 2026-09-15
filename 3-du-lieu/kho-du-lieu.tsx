@@ -126,9 +126,11 @@ import { noiKhoChung, type KetNoiKhoChung } from "@/3-du-lieu/kho-chung-firestor
    được"*. `kiem-luat-dung-chung.mjs` gọi thật cả bốn hàm này. */
 import {
   NHIP_GOM_GHI_MS,
+  coTuThuLaiQlkCtr,
   duocThuLaiQlkCtr,
   mocSauLanThuHong,
   tinhDoTreGhi,
+  trangThaiSauLoiQlkCtr,
 } from "@/2-quy-trinh/nhip-dong-bo-qlk-ctr";
 /* ★★ GIỮ BẢN GHI VỪA TẠO CHO TỚI KHI THẤY NÓ TRÊN MÁY CHỦ — sự cố mất đơn 15/09/2026 (Sếp báo
    19:33). Toàn bộ phần QUYẾT ĐỊNH nằm ở `2-quy-trinh/giu-ban-ghi-moi.ts` để `kiem-luat-dung-chung`
@@ -2333,7 +2335,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          * chữa sự cố. Xem chú thích đầu `3-du-lieu/moc-thu-lai-qlk-ctr.ts`.
          */
         const noiDungDaDoi = canDongBoLaiPO(po, deNghiGoc);
-        const thuLaiSauLoi = po.qlkCtrSyncStatus === "failed";
+        /* 🔴 CHỐT ⑤ (15/09/2026 đêm): CHỈ `failed` (lỗi tạm thời) mới vào hàng thử lại.
+           `can_xu_ly_tay` (Kho trả lỗi vĩnh viễn: không có đề nghị, sai dữ liệu…) đứng ngoài —
+           gửi lại y nguyên không bao giờ khác, chỉ sửa đơn (nội dung đổi) mới gửi lại. Đây là
+           điểm cắt đúng vòng lặp 000000085. Luật ở `coTuThuLaiQlkCtr`, bài kiểm gọi thật. */
+        const thuLaiSauLoi = coTuThuLaiQlkCtr(po.qlkCtrSyncStatus);
         if (!thuLaiSauLoi && !noiDungDaDoi) continue;
         if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)) {
           continue;
@@ -2351,6 +2357,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           }
           /* Gửi được rồi thì xoá mốc: giữ lại là lần hỏng thật sau này đứng sẵn ở bậc 2 giờ. */
           if (ketQua.thanhCong) xoaMocThuLai(po.id);
+          const trangThaiLoi = ketQua.thanhCong ? undefined : trangThaiSauLoiQlkCtr(ketQua.loaiLoi);
           /**
            * 🔴 CHỐT ②: THẤT BẠI LẶP LẠI Y HỆT THÌ KHÔNG GHI GÌ CẢ.
            *
@@ -2367,7 +2374,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           const hienTai = donHangRef.current.find((p) => p.id === po.id);
           if (
             !ketQua.thanhCong &&
-            hienTai?.qlkCtrSyncStatus === "failed" &&
+            hienTai !== undefined &&
+            hienTai.qlkCtrSyncStatus === trangThaiLoi &&
             hienTai.qlkCtrSyncError === ketQua.loi
           ) {
             console.warn(
@@ -2392,7 +2400,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                     }
                   : {
                       ...p,
-                      qlkCtrSyncStatus: "failed",
+                      qlkCtrSyncStatus: trangThaiLoi,
                       qlkCtrSyncError: ketQua.loi,
                       qlkCtrSyncAt: new Date().toISOString(),
                     },
@@ -2405,7 +2413,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
            độc lập vẫn dội sang QLK CTR mỗi lần tải lại trang; mà chính PO độc lập là loại dễ kẹt
            `failed` vĩnh viễn nhất (xem chú thích "PO ĐỘC LẬP ĐI RIÊNG NHÁNH" phía trên). */
         const noiDungDaDoi = canDongBoLaiPODocLap(po);
-        const thuLaiSauLoi = po.qlkCtrSyncStatus === "failed";
+        /* 🔴 CHỐT ⑤ — y hệt nhánh PO có đề nghị ở trên (xem chú thích tại đó). */
+        const thuLaiSauLoi = coTuThuLaiQlkCtr(po.qlkCtrSyncStatus);
         if (!thuLaiSauLoi && !noiDungDaDoi) continue;
         if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)) {
           continue;
@@ -2418,13 +2427,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             return;
           }
           if (ketQua.thanhCong) xoaMocThuLai(po.id);
+          const trangThaiLoi = ketQua.thanhCong ? undefined : trangThaiSauLoiQlkCtr(ketQua.loaiLoi);
           /* 🔴 CHỐT ② — y hệt nhánh PO có đề nghị ở trên. Hai nhánh phải giống nhau: vá một
              nhánh là nhánh kia vẫn dội ghi lên kho chung, mà PO độc lập cũng gặp đúng ca
              QLK CTR trả lỗi vĩnh viễn. */
           const hienTai = donHangRef.current.find((p) => p.id === po.id);
           if (
             !ketQua.thanhCong &&
-            hienTai?.qlkCtrSyncStatus === "failed" &&
+            hienTai !== undefined &&
+            hienTai.qlkCtrSyncStatus === trangThaiLoi &&
             hienTai.qlkCtrSyncError === ketQua.loi
           ) {
             console.warn(
@@ -2449,7 +2460,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                     }
                   : {
                       ...p,
-                      qlkCtrSyncStatus: "failed",
+                      qlkCtrSyncStatus: trangThaiLoi,
                       qlkCtrSyncError: ketQua.loi,
                       qlkCtrSyncAt: new Date().toISOString(),
                     },
@@ -4734,7 +4745,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                     }
                   : {
                       ...p,
-                      qlkCtrSyncStatus: "failed",
+                      qlkCtrSyncStatus: trangThaiSauLoiQlkCtr(ketQua.loaiLoi),
                       qlkCtrSyncError: ketQua.loi,
                       qlkCtrSyncAt: new Date().toISOString(),
                     },
@@ -4759,7 +4770,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                     }
                   : {
                       ...p,
-                      qlkCtrSyncStatus: "failed",
+                      qlkCtrSyncStatus: trangThaiSauLoiQlkCtr(ketQua.loaiLoi),
                       qlkCtrSyncError: ketQua.loi,
                       qlkCtrSyncAt: new Date().toISOString(),
                     },
@@ -4909,7 +4920,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                   }
                 : {
                     ...p,
-                    qlkCtrSyncStatus: "failed",
+                    qlkCtrSyncStatus: trangThaiSauLoiQlkCtr(ketQua.loaiLoi),
                     qlkCtrSyncError: ketQua.loi,
                     qlkCtrSyncAt: new Date().toISOString(),
                   },
@@ -5042,7 +5053,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                   }
                 : {
                     ...p,
-                    qlkCtrSyncStatus: "failed",
+                    qlkCtrSyncStatus: trangThaiSauLoiQlkCtr(ketQua.loaiLoi),
                     qlkCtrSyncError: ketQua.loi,
                     qlkCtrSyncAt: new Date().toISOString(),
                   },

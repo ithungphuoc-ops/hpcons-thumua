@@ -146,3 +146,52 @@ export function mocSauLanThuHong(
 ): MocThuLaiQlkCtr {
   return { soLanDaThu: (moc?.soLanDaThu ?? 0) + 1, lanCuoi: bayGio };
 }
+
+// ============================================================
+// ★★ PHÂN LOẠI LỖI TỪ QLK CTR — VĨNH VIỄN hay TẠM THỜI (Sếp 15/09/2026, đêm — vá P0 chặn vòng lặp)
+//
+// 🔴 VÌ SAO CẦN: sự cố 13–15/09 có MỘT PO của đề nghị 000000085 — đề nghị đó chưa từng sang được
+// QLK CTR (App Request gọi Kho đúng lúc Kho hết hạn mức Firestore, không thử lại). Kho trả "không
+// tìm thấy đề nghị" — lỗi này gửi lại một triệu lần cũng không đổi, nhưng app vẫn xếp nó cùng hàng
+// với lỗi mạng và thử lại mãi. Mỗi lần thử là một lần ghi lên kho chung → dội về mọi máy.
+//
+// Từ nay chỉ lỗi TẠM THỜI (Kho sập, hết hạn mức, mạng, timeout — 5xx/408/429/không tới được) mới
+// vào hàng tự thử lại. Lỗi VĨNH VIỄN (4xx: đề nghị không có, sai dữ liệu, không khớp vật tư…) ghi
+// MỘT LẦN thành `can_xu_ly_tay` rồi đứng yên — sửa lại đơn (đổi nội dung) là cách duy nhất để gửi
+// lại, và đó là hành động có người chịu trách nhiệm.
+// ============================================================
+
+export type LoaiLoiQlkCtr = "vinh_vien" | "tam_thoi";
+
+/**
+ * Phân loại một lần gửi hỏng. Ưu tiên lời khai của chính QLK CTR (`loaiLoi` trong body trả về,
+ * có từ bản vá cùng đêm); không có thì suy từ mã HTTP.
+ *
+ * 🔴 KHÔNG BIẾT THÌ COI LÀ TẠM THỜI. Xếp nhầm lỗi tạm thời thành vĩnh viễn là PO kẹt không tự hồi
+ * phục; xếp nhầm chiều ngược lại chỉ tốn vài lượt thử theo bậc chờ. Chiều an toàn là tạm thời.
+ */
+export function phanLoaiLoiQlkCtr(
+  httpStatus: number | undefined,
+  loaiLoiTuMayChu?: string,
+): LoaiLoiQlkCtr {
+  if (loaiLoiTuMayChu === "vinh_vien" || loaiLoiTuMayChu === "tam_thoi") return loaiLoiTuMayChu;
+  if (httpStatus === undefined || !Number.isFinite(httpStatus)) return "tam_thoi";
+  if (httpStatus === 408 || httpStatus === 429) return "tam_thoi";
+  if (httpStatus >= 400 && httpStatus < 500) return "vinh_vien";
+  return "tam_thoi";
+}
+
+/** Trạng thái ghi vào PO sau một lần gửi hỏng. */
+export function trangThaiSauLoiQlkCtr(loai: LoaiLoiQlkCtr): "failed" | "can_xu_ly_tay" {
+  return loai === "vinh_vien" ? "can_xu_ly_tay" : "failed";
+}
+
+/**
+ * PO mang trạng thái này có được vòng tự đồng bộ đem ra thử lại không.
+ *
+ * 🔴 CHỈ `"failed"`. `"can_xu_ly_tay"` đứng ngoài hàng thử lại — đó chính là điểm cắt vòng lặp.
+ * `"synced"`/rỗng thì không có gì để thử; nội dung đổi đi đường `canDongBoLaiPO`, không qua đây.
+ */
+export function coTuThuLaiQlkCtr(trangThai: string | undefined): boolean {
+  return trangThai === "failed";
+}
