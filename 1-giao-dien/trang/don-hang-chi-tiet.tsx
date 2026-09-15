@@ -341,16 +341,26 @@ export default function TrangChiTietDonHang() {
           📌 KHỐI NÀY LÀ CODE CỦA PHIÊN TÍCH HỢP APP TỔNG (commit `0019977`), lấy nguyên văn về khi
           hợp nhất 15/09/2026 — xin đừng sửa lời mà không hỏi họ.
 
-          🔴 QUAN HỆ VỚI KHỐI CẢNH BÁO VÀNG NGAY PHÍA TRÊN — hai khối này KHÔNG chồng nhau, và cũng
-          không thừa cái nào. Đọc kỹ trước khi gộp lại:
-            · Khối vàng chạy khi `qlkCtrSyncStatus === "failed"` **và** đơn KHÔNG thuộc hồ sơ phòng
-              ban (`!poThuocHoSoPhongBan`). Cái gác đó là của phiên nghiệp vụ, thêm cùng ngày, và
-              vẫn cần: PO phòng ban ĐỘC LẬP (không có `prId`) không đi qua vòng dọn dấu ở
-              `3-du-lieu/kho-du-lieu.tsx`, nên có thể còn mang `"failed"` rất lâu. Bỏ gác đó là dải
-              vàng hiện lại đúng chỗ Sếp đã bảo bỏ.
-            · Khối này chạy khi trạng thái đã được vòng dọn ghi lại thành `"khong_ap_dung"`.
-          Hai điều kiện loại trừ nhau, nên không bao giờ hiện cùng lúc. */}
-      {po.qlkCtrSyncStatus === "khong_ap_dung" && (
+          ⚠️⚠️ ĐIỀU KIỆN ĐÃ ĐỔI CHIỀU 15/09/2026 — TỪ TRẠNG THÁI ĐÃ GHI SANG SUY TỪ HỒ SƠ.
+
+          Bản đầu chạy khi `qlkCtrSyncStatus === "khong_ap_dung"`, tức phải chờ vòng đồng bộ GHI
+          giá trị đó vào dữ liệu trước. Chính việc ghi ấy đẻ ra một vòng lặp mới giữa máy chạy bản
+          cũ và máy chạy bản mới (đo thật lúc 13:30, xem `3-du-lieu/kho-du-lieu.tsx`), nên phần ghi
+          đã bị bỏ hẳn — và điều kiện ở đây phải đổi theo, nếu không khối này không bao giờ hiện
+          nữa trên các đơn về sau.
+
+          ✅ NAY SUY THẲNG TỪ HỒ SƠ (`poThuocHoSoPhongBan`). Đúng bản chất: "đơn này không gửi sang
+          app Kho" là hệ quả của việc hồ sơ không có công trình — một sự thật đọc ra được bất cứ
+          lúc nào, không phải một sự kiện cần ghi lại.
+
+          🔴 QUAN HỆ VỚI KHỐI CẢNH BÁO NGAY PHÍA TRÊN — hai khối loại trừ nhau, không bao giờ hiện
+          cùng lúc, vì cả hai cùng gác bằng `poThuocHoSoPhongBan` (một cái `!`, một cái không).
+          Khối trên dành cho lỗi THẬT của hồ sơ công trình; khối này nói một việc bình thường.
+
+          📌 Không cần biết `qlkCtrSyncStatus` đang mang giá trị gì. Dữ liệu cũ có đơn mang
+          `"khong_ap_dung"` (do bản trưa 15/09 kịp ghi), có đơn còn `"failed"` sai — cả hai đều
+          hiện đúng khối này, vì điều kiện không đọc tới trường đó nữa. */}
+      {poThuocHoSoPhongBan && (
         <div className="flex items-start gap-3 rounded-xl border border-border bg-muted p-(--hp-md-row-pad)">
           <Info className="mt-0.5 size-5 shrink-0 text-text-desc" aria-hidden />
           <div className="flex flex-col gap-1.5">

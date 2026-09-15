@@ -2250,14 +2250,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * `failed` lên kho chung. Chốt mới chặn được lần gửi SAU, nhưng KHÔNG tự xoá dấu cũ — đo
      * 15/09/2026: DMH260007 và DMH260009 vẫn mang dấu hỏng.
      *
-     * 🔴 GOM RỒI GHI MỘT LƯỢT, KHÔNG `setDonHang` NGAY TRONG VÒNG FOR: mỗi cú ghi là một lần đẩy
-     * lên kho chung. Vòng này vừa phải chữa đúng một sự cố ghi-đẻ-ra-ghi (xem hai chốt ở trên),
-     * đừng mở lại cửa đó.
-     *
-     * 📌 TỰ DỪNG SAU ĐÚNG MỘT LƯỢT: ghi xong thì trạng thái là "khong_ap_dung", lần chạy sau
-     * điều kiện `=== "failed"` không còn đúng nên mảng này rỗng. Không có vòng lặp.
+     * ⚠️⚠️ CÁCH CHỮA BAN ĐẦU (ghi đè `"khong_ap_dung"` lên dấu sai) ĐÃ BỊ BỎ chiều 15/09/2026 —
+     * đo được nó gây một vòng lặp MỚI giữa máy chạy bản cũ và máy chạy bản mới. Nay app **không
+     * ghi gì cả**: dấu `"failed"` sai cứ nằm nguyên trong dữ liệu, còn giao diện tự suy theo hồ
+     * sơ nên người dùng không thấy nó. Chú thích đầy đủ ở cuối vòng lặp này.
      */
-    const poPhongBanConDauThatBai: string[] = [];
 
     for (const po of d.donHang) {
       /**
@@ -2286,8 +2283,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * ═══════════════════════════════════════════════════════════════════════════════════════
        * Phiên tích hợp App Tổng (commit `0019977`) viết nhánh chặn của họ NẰM TRONG `if (po.prId)`
        * và nhận dạng bằng `laHoSoPhongBan(deNghiGoc)`. Phiên nghiệp vụ viết nhánh này. Hai bên
-       * cùng ý, khác chữ — giữ **chỗ đặt và phép nhận dạng của phiên nghiệp vụ**, và **giữ nguyên
-       * việc gom dọn dấu sai của phiên tích hợp** (dòng `poPhongBanConDauThatBai` ngay dưới).
+       * cùng ý, khác chữ — giữ **chỗ đặt và phép nhận dạng của phiên nghiệp vụ**.
+       *
+       * ⚠️ Phần "gom dọn dấu sai" của phiên tích hợp (ghi đè `"khong_ap_dung"`) từng đứng ngay
+       * dưới đây, NAY ĐÃ BỎ: đo chiều 15/09/2026 thấy nó gây vòng lặp giữa máy bản cũ và máy bản
+       * mới. Xem khối chú thích dài ở cuối vòng lặp này.
        *
        * 🔴 VÌ SAO GIỮ PHÉP NHẬN DẠNG NÀY CHỨ KHÔNG PHẢI `laHoSoPhongBan(deNghiGoc)`: nó bao thêm
        * **PO ĐỘC LẬP** (không có `prId`, đi nhánh `else if (po.trangThai === "cho_de_nghi")` phía
@@ -2304,7 +2304,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * tập là làm hỏng nghĩa của nó.
        */
       if (laPOCuaHoSoPhongBan(po, po.prId ? d.deNghi.find((dn) => dn.id === po.prId) : undefined)) {
-        if (po.qlkCtrSyncStatus === "failed") poPhongBanConDauThatBai.push(po.id);
+        /* 🔴 KHÔNG GHI GÌ Ở ĐÂY, chỉ bỏ qua. Bản trước gom PO mang dấu `"failed"` để ghi đè
+           thành `"khong_ap_dung"` — chính việc ghi đó gây vòng lặp giữa hai máy, xem khối chú
+           thích dài cuối vòng lặp này. Dấu `"failed"` cũ cứ để nguyên trong dữ liệu; giao diện
+           tự suy theo hồ sơ nên người dùng không hề thấy nó. */
         continue;
       }
 
@@ -2457,27 +2460,37 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    /* ★ DỌN DẤU SAI — xem `poPhongBanConDauThatBai` phía trên.
-       📌 CODE CỦA PHIÊN TÍCH HỢP APP TỔNG (commit `0019977`), lấy nguyên văn về khi hợp nhất
-       15/09/2026.
-       🔴 XOÁ LUÔN `qlkCtrSyncError`: câu lỗi cũ ("HTTP 502", "không tìm thấy đề nghị"…) nói về
-       một lần gửi ĐÁNG LẼ KHÔNG ĐƯỢC XẢY RA. Giữ lại là giữ một lời khai sai trong hồ sơ.
-       📌 Một lượt ghi duy nhất cho cả mảng, và chạy ĐÚNG MỘT LẦN (lần sau không còn PO nào mang
-       `"failed"` để gom) — không phá chốt gom ghi ở đầu tệp. */
-    if (poPhongBanConDauThatBai.length > 0) {
-      setDonHang((truoc) =>
-        truoc.map((p) =>
-          poPhongBanConDauThatBai.includes(p.id)
-            ? {
-                ...p,
-                qlkCtrSyncStatus: "khong_ap_dung",
-                qlkCtrSyncError: undefined,
-                qlkCtrSyncAt: new Date().toISOString(),
-              }
-            : p,
-        ),
-      );
-    }
+    /* ════════════════════════════════════════════════════════════════════════════════════════
+       ★★ ĐÃ BỎ HẲN KHỐI "DỌN DẤU SAI" Ở ĐÂY — 15/09/2026, SAU KHI ĐO THẤY NÓ GÂY VÒNG LẶP MỚI.
+       ════════════════════════════════════════════════════════════════════════════════════════
+       Khối cũ (commit `0019977`, do chính tôi viết) ghi `qlkCtrSyncStatus: "khong_ap_dung"` đè
+       lên dấu `"failed"` sai của PO phòng ban. Lý lẽ khi đó: "tự dừng sau một lượt, vì lần sau
+       không còn `failed` để gom". Lý lẽ đó ĐÚNG TRÊN MỘT MÁY, và SAI khi cả phòng cùng mở app.
+
+       🔬 ĐO THẬT trên kho chung lúc 13:30 ngày 15/09/2026, không ai thao tác:
+           13:30:23  DMH260007 = khong_ap_dung
+           13:30:35  DMH260007 = khong_ap_dung
+           13:30:47  DMH260007 = failed          ← quay ngược, kèm mốc CŨ 13:30:23
+           13:30:54  DMH260007 = khong_ap_dung
+       updateTime đổi 5 lần trong 90 giây.
+
+       🔴 CƠ CHẾ: một máy chạy BẢN CŨ giữ ảnh chụp cũ trong bộ nhớ. Kho chung là MỘT tài liệu duy
+       nhất, nên máy đó chỉ cần ghi bất cứ thứ gì (kể cả việc không liên quan PO) là đẩy nguyên cả
+       mảng `donHang` của nó lên — kéo `"failed"` sống lại. Máy bản mới thấy `"failed"` trên hồ sơ
+       phòng ban, lại ghi `"khong_ap_dung"`. Hai bên đá qua đá lại, không bên nào sai một mình.
+
+       ✅ CÁCH ĐÚNG, ĐANG DÙNG: **KHÔNG GHI GÌ CẢ.** "Phòng ban thì không gửi sang app Kho" là
+       thứ **suy ra được** từ chính hồ sơ (`laHoSoPhongBan`) bất cứ lúc nào cần — nên giao diện
+       tự suy lúc VẼ (`trang/don-hang-chi-tiet.tsx`), không cần một trường nào trong dữ liệu.
+       Không ghi thì không có gì để hai máy tranh nhau.
+
+       🔴 BÀI HỌC, ĐỪNG LẶP LẠI: trong một kho chung dùng CHUNG MỘT TÀI LIỆU, đừng bao giờ ghi một
+       giá trị mà bạn có thể TÍNH RA. Mỗi trường ghi thừa là một mặt trận để các máy đè nhau. Đây
+       là lần thứ hai trong cùng một ngày cùng một tệp phải học lại điều này — lần trước là
+       `qlkCtrSyncAt` ghi ở nhánh thất bại.
+
+       📌 Phần CHẶN GỬI phía trên VẪN GIỮ: nó chỉ `continue`, không ghi gì, và nó ngăn PO phòng
+       ban đứng trong hàng thử lại. Chặn là đúng; ghi mới là sai. */
 
     /**
      * 🔴 HẠ CỜ KHI **TẤT CẢ** LƯỢT GỬI ĐÃ XONG — `allSettled`, không phải `all`.

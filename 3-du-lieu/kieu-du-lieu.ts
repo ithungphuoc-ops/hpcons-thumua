@@ -1046,6 +1046,24 @@ export interface DonDatHang {
    *
    * 📌 KHÔNG BAO GIỜ tự thử lại trạng thái này. Nó chỉ đổi khi chính hồ sơ đổi loại (phòng ban →
    * công trình), lúc đó `laHoSoPhongBan` trả `false` và luồng bình thường tiếp quản.
+   *
+   * ════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠️⚠️ "khong_ap_dung" NAY LÀ DI SẢN — APP KHÔNG CÒN GHI GIÁ TRỊ NÀY (chiều 15/09/2026).
+   * ════════════════════════════════════════════════════════════════════════════════════════
+   * Giữ trong kiểu vì **dữ liệu đang chạy đã mang nó**: bản trưa 15/09 kịp ghi cho DMH260007 và
+   * DMH260009 trước khi bị gỡ. Bỏ khỏi kiểu là TypeScript báo lỗi ở mọi chỗ đọc dữ liệu thật.
+   *
+   * 🔴 VÌ SAO GỠ ĐƯỜNG GHI: kho chung là MỘT tài liệu duy nhất cho cả phòng. Ghi giá trị này đè
+   * lên dấu `"failed"` sai làm máy chạy bản cũ (còn giữ ảnh chụp cũ) đẩy `"failed"` sống lại, rồi
+   * máy bản mới lại ghi đè — vòng lặp đá qua đá lại, đo được 5 lần ghi trong 90 giây mà không ai
+   * thao tác. Chi tiết ở `3-du-lieu/kho-du-lieu.tsx`, cuối vòng đồng bộ.
+   *
+   * ✅ "Đơn này không gửi sang app Kho" nay được **SUY RA** từ hồ sơ (`laPOCuaHoSoPhongBan`) ngay
+   * lúc vẽ giao diện, không cần trường nào trong dữ liệu.
+   *
+   * 🔴 ĐỪNG THÊM LẠI ĐƯỜNG GHI. Nếu thấy cần "đánh dấu" một điều suy ra được, hãy dừng lại và hỏi:
+   * *điều này có tính lại được từ dữ liệu sẵn có không?* Nếu có thì đừng ghi — mỗi trường ghi thừa
+   * trong kho chung là một mặt trận để các máy đè nhau.
    */
   qlkCtrSyncStatus?: "synced" | "failed" | "khong_ap_dung";
   /**
