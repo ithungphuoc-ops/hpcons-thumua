@@ -121,7 +121,38 @@ import {
   type DuLieuLuu,
 } from "@/3-du-lieu/luu-tren-may";
 import { noiKhoChung, type KetNoiKhoChung } from "@/3-du-lieu/kho-chung-firestore";
-import { guiPOSangQlkCtr, canDongBoLaiPO, guiPOSangQlkCtrDocLap, canDongBoLaiPODocLap } from "@/5-ket-noi/gui-po-qlk-ctr";
+/* ★★ NHỊP GHI & NHỊP THỬ LẠI (Sếp 15/09/2026, theo phân tích của đội QLK CTR cùng ngày) — hàm
+   THUẦN đặt ở `2-quy-trinh/` đúng chỉ đạo *"luật nằm trong hook thì không bài kiểm nào bắt
+   được"*. `kiem-luat-dung-chung.mjs` gọi thật cả bốn hàm này. */
+import {
+  NHIP_GOM_GHI_MS,
+  duocThuLaiQlkCtr,
+  mocSauLanThuHong,
+  tinhDoTreGhi,
+} from "@/2-quy-trinh/nhip-dong-bo-qlk-ctr";
+/* ★★ GIỮ BẢN GHI VỪA TẠO CHO TỚI KHI THẤY NÓ TRÊN MÁY CHỦ — sự cố mất đơn 15/09/2026 (Sếp báo
+   19:33). Toàn bộ phần QUYẾT ĐỊNH nằm ở `2-quy-trinh/giu-ban-ghi-moi.ts` để `kiem-luat-dung-chung`
+   gọi thật được; hook này chỉ còn việc cất sổ và nối dây. */
+import {
+  ghepBanChuaLenMayChu,
+  idVuaTaoTaiMay,
+  soSauAnhChup,
+  conDuocGhiLai,
+  khoangChoGhiLai,
+  type VetBanGhiMoi,
+} from "@/2-quy-trinh/giu-ban-ghi-moi";
+import {
+  docBangMocThuLai,
+  ghiMocThuLai,
+  xoaMocThuLai,
+} from "@/3-du-lieu/moc-thu-lai-qlk-ctr";
+import {
+  guiPOSangQlkCtr,
+  canDongBoLaiPO,
+  guiPOSangQlkCtrDocLap,
+  canDongBoLaiPODocLap,
+  laPOCuaHoSoPhongBan,
+} from "@/5-ket-noi/gui-po-qlk-ctr";
 import type {
   DeNghiMuaHang,
   DongDeNghi,
@@ -150,10 +181,15 @@ import type {
   PhongBanNguon,
   NhomDeXuat,
   TienDoDongDeNghi,
+  /* ★ Mở khoá trường ở chế độ sửa đơn — Sếp 15/09/2026, xem `ThayDoiDonHang`. */
+  MauDonMuaHang,
+  KieuChietKhau,
 } from "@/3-du-lieu/kieu-du-lieu";
 // Nhãn tiếng Việt để ghi nhật ký đọc được: nhật ký ghi mã thô (`thi_cong`, `mm_ccdc`) thì
 // người tra hồ sơ sau này không biết đó là gì.
-import { NHAN_NHOM_DE_XUAT } from "@/3-du-lieu/kieu-du-lieu";
+/* `NHAN_MAU_PO` cùng lý do: nhật ký ghi `thoa_thuan → theo_hop_dong` thì người tra hồ sơ không
+   biết đó là mẫu gì. */
+import { NHAN_NHOM_DE_XUAT, NHAN_MAU_PO } from "@/3-du-lieu/kieu-du-lieu";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 
 /**
@@ -248,6 +284,34 @@ const homNay = () => new Date().toISOString().slice(0, 10);
  */
 
 /**
+ * ★★★ ĐIỀU KIỆN THƯƠNG MẠI CỦA ĐƠN — nhánh RIÊNG của `ThayDoiDonHang`, Sếp 15/09/2026.
+ *
+ * 🔴 VÌ SAO KHÔNG NHÉT VÀO `ThayDoiDonHang.gia`: `suaDonHang` chặn **mọi** `thayDoi.gia` khi đơn
+ * đã `xacNhanTruongBP` (*"Trưởng bộ phận đã xác nhận hoàn thành đơn này — không sửa giá được
+ * nữa"*). Chốt đó nói về **đơn giá từng dòng** — con số công nợ đã tính theo. Gộp bốn trường dưới
+ * đây vào cùng nhánh là đơn đã xác nhận thì **đổi một chữ trong ô Loại tiền cũng không nổi**, tức
+ * nới một luật cũ ra thành khoá cứng một việc khác. Tách nhánh thì chốt `gia.lines` giữ nguyên
+ * 100%, còn bốn trường này đi luật riêng của chúng.
+ *
+ * ⚠️ BỐN TRƯỜNG NÀY NẰM Ở CHỨNG TỪ GIÁ (`GiaDonDatHang`, document `tm_donhang_gia` riêng theo
+ * nguyên tắc dữ liệu số 3), KHÔNG nằm trên `DonDatHang`. Nhật ký của chúng vì vậy đi vào
+ * `GiaDonDatHang.lichSuDieuKhoanCongNo` — xem `mocSuaDieuKienThuongMai`.
+ *
+ * 📌 Đúng bộ trường mà `themDonHang` nhận lúc LẬP đơn (`phanTien`), trừ `soNgayDuocNo` — ô đó đã
+ * bị Ban lãnh đạo bỏ khỏi form ngày 13/09/2026 và có cửa sửa riêng ở màn Công nợ
+ * (`datDieuKhoanCongNo`). Thêm nó vào đây là hai cửa cùng ghi một trường.
+ */
+export interface DieuKienThuongMaiPO {
+  loaiTien?: string;
+  dieuKhoanThanhToan?: string;
+  /** `undefined` = đơn không chịu thuế. KHÁC hẳn `0` (0% là một mức thuế thật). */
+  thueSuatGTGT?: number;
+  kieuChietKhau?: KieuChietKhau;
+  chietKhau?: number;
+  tyLeChietKhau?: number;
+}
+
+/**
  * ★ CÁC TRƯỜNG SỬA ĐƯỢC KHI SỬA MỘT ĐƠN HÀNG ĐÃ LẬP — xem `suaDonHang` (`GiaTriDuLieu`).
  *
  * 🔴 CHỈ NHÓM 1 (thông tin hành chính) VÀ NHÓM 2 (ngày giao, mặt hàng, đơn giá, nhà cung cấp) —
@@ -255,6 +319,22 @@ const homNay = () => new Date().toISOString().slice(0, 10);
  * ẩn ô nhập trên giao diện: `suaDonHang` chỉ nhận đúng kiểu này, nên gọi hàm với một trong các
  * trường Nhóm 3 là **lỗi biên dịch**, không phải lỗi runtime người dùng có thể vô tình đi vòng
  * qua.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * ★★★ MỞ RỘNG 15/09/2026 — CHỈ ĐẠO SẾP, NGUYÊN VĂN:
+ *     *"phần sửa PO, phải cấp quyền cho sửa toàn bộ giống như khi lập đơn mua hàng mới"*
+ *
+ * Trước hôm đó, màn sửa đơn (`/don-hang/tao-moi?suaPoId=`) khoá **13 trường** — và cả 13 khoá vì
+ * ĐÚNG MỘT lý do kỹ thuật: kiểu này không khai chúng, nên mở ô nhập ra là bấm Lưu xong thay đổi
+ * biến mất không một dòng báo (CLAUDE.md §3.5). Nay đã mở 10; ba trường còn khoá là
+ * `code` · `maDuAn` · `ngayLapPO`, và chúng khoá vì **lý do nghiệp vụ thật**, không phải vì kiểu:
+ *   · `code` — mọi thứ trỏ về nó (`PhieuNhanHang.poCode`, `GiaDonDatHang.poCode`, bản PO đã nằm
+ *     bên QLK CTR). Đổi là trỏ hụt hàng loạt, không màn nào báo.
+ *   · `maDuAn` — là PHẦN ĐẦU của chính số đơn đã cấp, và là khoá của `GiaDonDatHang.maDuAn`.
+ *   · `ngayLapPO` — quyết định NĂM của số đơn đã cấp (`DMH2026-0008`). Đổi là mã chứng từ nói một
+ *     đằng, số đơn nói một nẻo.
+ * 🔴 BA TRƯỜNG ĐÓ GIỮ NGUYÊN "CỐ Ý KHÔNG KHAI". Có bài kiểm giữ chúng ở `kiem-luat-dung-chung.mjs`.
+ * ═══════════════════════════════════════════════════════════════════════════════════════
  */
 export interface ThayDoiDonHang {
   nguoiLienHeNCC?: string;
@@ -278,6 +358,40 @@ export interface ThayDoiDonHang {
   items?: DongPO[];
   /** Có mặt (kể cả mảng rỗng) = có sửa giá. Khóa nếu đơn đã `xacNhanTruongBP`. */
   gia?: { lines: DongGiaPO[] };
+
+  /* ───────── MỞ 15/09/2026 · Nhóm A — nằm trên chính `DonDatHang`, không dính chứng từ giá ───── */
+  /** Mẫu in (PO-01 theo hợp đồng / PO-02 thoả thuận) — đổi mẫu là đổi căn cứ pháp lý của tờ in. */
+  mauPO?: MauDonMuaHang;
+  /** Ô "Theo hợp đồng" ở đầu tờ — ghi chú tự do, KHÁC `maHopDongCDT`. */
+  ghiChuHopDongNCC?: string;
+  tenCongTrinh?: string;
+  maHopDongCDT?: string;
+  /**
+   * Khối "Phương thức giao hàng" in trên tờ đơn.
+   *
+   * ⚠️ KHÁC HẲN `dieuKienGiaoHang` ở trên (ô một dòng). Hai trường thật sự khác nhau trên
+   * `DonDatHang`; gộp nhầm là mất một trong hai mà không ai thấy.
+   *
+   * 🔴 BA TRẠNG THÁI, xem `dieuKhoanGiaoHangChuanTheoMau`: `null` = QUAY VỀ BẢN CHUẨN của mẫu
+   * đang chọn · `""` = người lập CỐ Ý bỏ hẳn khối điều khoản · `undefined` = không đụng tới.
+   * Quy về hai trạng thái là tờ in hoặc mất khối điều khoản, hoặc in lại bản chuẩn đã bị bỏ.
+   */
+  dieuKhoanGiaoHang?: string | null;
+  /**
+   * Hai câu cam kết cuối tờ (chỉ in ở mẫu PO-02).
+   * 🔴 `null` = QUAY VỀ BẢN CHUẨN (xoá bản riêng của đơn), `undefined` = không đụng tới. Đây đúng
+   * quy ước của chính state trong form (`camKetThoaThuan: string | null`) và của nút "Khôi phục
+   * bản chuẩn" — dùng `""` thay cho `null` là lưu một bản riêng RỖNG, tờ in mất hai câu cam kết.
+   */
+  camKetThoaThuan?: string | null;
+
+  /* ───────── MỞ 15/09/2026 · Nhóm B — nhánh RIÊNG cho chứng từ giá ───────── */
+  /**
+   * 🔴 ĐỨNG RIÊNG, KHÔNG nằm trong `gia`. Xem lý do đầy đủ ở `DieuKienThuongMaiPO`.
+   * Đổi chiết khấu hoặc thuế suất chung thì **bắt buộc ghi lý do** (Sếp 15/09/2026) — luật ở
+   * `mocSuaDieuKienThuongMai().doiTien`.
+   */
+  dieuKienThuongMai?: DieuKienThuongMaiPO;
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════
@@ -702,6 +816,94 @@ export function mocSuaDonGia(
     chung: [...chung.slice(0, TOI_DA_MOC_CHI_TIET), `và ${du} dòng đơn giá khác`],
     rieng,
   };
+}
+
+/** Một dòng chữ đọc được cho bộ ba ô chiết khấu — `undefined` của dữ liệu cũ coi như "không". */
+function taChietKhau(dk: DieuKienThuongMaiPO): string {
+  const kieu = dk.kieuChietKhau ?? "khong";
+  if (kieu === "ty_le") return `${dk.tyLeChietKhau ?? 0}%`;
+  if (kieu === "so_tien") return formatNumber(dk.chietKhau ?? 0);
+  return "không chiết khấu";
+}
+
+/**
+ * ★★★ NHẬT KÝ SỬA ĐIỀU KIỆN THƯƠNG MẠI CỦA ĐƠN — Sếp 15/09/2026, kèm chốt BẮT BUỘC GHI LÝ DO.
+ *
+ * Chỉ đạo nguyên văn của Sếp khi duyệt việc mở khoá bốn ô này:
+ *   *"Có, bắt ghi lý do"* — cho **chiết khấu** và **thuế suất**, vì hai thứ đó **đổi SỐ TIỀN của
+ *   đơn**, kéo theo công nợ phải trả nhà cung cấp. Không có lý do thì sau này Kế toán hỏi *"sao
+ *   đơn này lệch tiền"* chỉ còn thấy số cũ và số mới, không biết vì sao.
+ *
+ * 🔴 HAI SỔ, ĐÚNG KHUÔN `mocSuaDonGia` NGAY TRÊN — đây là chỗ dễ làm lộ điều kiện thương mại nhất:
+ *   · `chung` — vào nhật ký ĐỀ NGHỊ (mọi vai trò đọc được, kể cả thủ kho và Phòng Thi công):
+ *     **chỉ nói ĐÃ SỬA CÁI GÌ, tuyệt đối không con số**. Đủ để người soát hồ sơ biết mà đi hỏi
+ *     đúng chỗ.
+ *   · `rieng` — vào `GiaDonDatHang.lichSuDieuKhoanCongNo`, tức sổ của **chính chứng từ giá**: đủ
+ *     giá trị cũ → mới. Ai đọc được sổ đó thì vốn đã đọc được giá.
+ * ⚠️ ĐỪNG GỘP HAI SỔ. Gộp về `chung` là đưa điều khoản thanh toán và mức chiết khấu ra trước mặt
+ * vai trò mà nguyên tắc dữ liệu số 3 dựng hẳn một document riêng để giấu. Gộp về `rieng` là người
+ * không xem giá **không hề biết** điều kiện thương mại của đơn vừa bị sửa.
+ *
+ * 🔴 GỌI VỚI BỘ ĐẦY ĐỦ, KHÔNG GỌI VỚI BẢN VÁ LẺ. Cả `cu` lẫn `moi` phải mang **đủ bốn nhóm ô** —
+ * `undefined` ở đây nghĩa là *"trường này KHÔNG có giá trị"* (đơn không chịu thuế, chưa đặt loại
+ * tiền…), KHÔNG phải *"đừng đụng tới"*. Nếu nhận bản vá lẻ thì `thueSuatGTGT: undefined` vừa có
+ * nghĩa "không thuế" vừa có nghĩa "không sửa" — hai nghĩa ngược nhau trên cùng một giá trị, và
+ * hậu quả là **xoá mất mức thuế của đơn mà không ai thấy**. Nơi gọi (`luuSua` trong form) luôn có
+ * đủ bốn ô trên màn hình nên gửi đủ là tự nhiên.
+ *
+ * @returns `doiTien` — TRUE khi chiết khấu hoặc thuế suất chung đổi, tức phải bắt ghi lý do.
+ *          Loại tiền và điều khoản thanh toán KHÔNG bật cờ này: chúng không đổi con số phải trả.
+ */
+export function mocSuaDieuKienThuongMai(
+  cu: DieuKienThuongMaiPO,
+  moi: DieuKienThuongMaiPO,
+): { chung: string[]; rieng: string[]; doiTien: boolean } {
+  const chung: string[] = [];
+  const rieng: string[] = [];
+  let doiTien = false;
+
+  /* 🔴 ĐỂ TRỐNG = "VND", CHUẨN HOÁ CẢ HAI VẾ. `themDonHang` ghi `loaiTien.trim() || "VND"` lúc
+     lập đơn, còn đơn cũ (trước 23/08/2026, khi app ghi cứng VND) không có trường này — nên chứng
+     từ nói "VND" mà dữ liệu là `undefined`. So thô là **mở màn sửa rồi bấm Lưu mà không đổi gì
+     cũng bị ghi "loại tiền: trống → VND"**, và ca "không có gì thay đổi" không bao giờ xảy ra
+     được nữa. */
+  const chuanTien = (v: string | undefined) => (v ?? "").trim() || "VND";
+  const tienCu = chuanTien(cu.loaiTien);
+  const tienMoi = chuanTien(moi.loaiTien);
+  if (tienCu !== tienMoi) {
+    chung.push("đổi loại tiền của đơn");
+    rieng.push(`loại tiền: ${tienCu} → ${tienMoi}`);
+  }
+
+  const dkCu = (cu.dieuKhoanThanhToan ?? "").trim();
+  const dkMoi = (moi.dieuKhoanThanhToan ?? "").trim();
+  if (dkCu !== dkMoi) {
+    chung.push("sửa điều khoản thanh toán");
+    rieng.push(`điều khoản thanh toán: ${dkCu || "trống"} → ${dkMoi || "trống"}`);
+  }
+
+  /* 🔴 `undefined` KHÁC `0`. 0% là "hàng không chịu thuế GTGT" — một mức thuế THẬT phải in lên
+     chứng từ; `undefined` là "đơn này chưa đặt mức nào". So bằng `??` về một con số là hai ca đó
+     hoà làm một và nhật ký im lặng bỏ qua đúng lần sửa quan trọng. */
+  if (cu.thueSuatGTGT !== moi.thueSuatGTGT) {
+    doiTien = true;
+    chung.push("sửa thuế suất GTGT chung");
+    rieng.push(
+      `thuế suất GTGT chung: ${cu.thueSuatGTGT === undefined ? "không đặt" : `${cu.thueSuatGTGT}%`} → ${
+        moi.thueSuatGTGT === undefined ? "không đặt" : `${moi.thueSuatGTGT}%`
+      }`,
+    );
+  }
+
+  const ckCu = taChietKhau(cu);
+  const ckMoi = taChietKhau(moi);
+  if (ckCu !== ckMoi) {
+    doiTien = true;
+    chung.push("sửa chiết khấu của đơn");
+    rieng.push(`chiết khấu: ${ckCu} → ${ckMoi}`);
+  }
+
+  return { chung, rieng, doiTien };
 }
 
 interface GiaTriDuLieu {
@@ -1266,9 +1468,57 @@ interface GiaTriDuLieu {
    *  · `rieng`    — không nối được, dữ liệu chỉ nằm trên máy này
    */
   trangThaiKhoChung: "dang-noi" | "chung" | "rieng";
+
+  /**
+   * ★★ ID CÁC BẢN GHI MÁY NÀY VỪA TẠO MÀ **CHƯA THẤY TRÊN KHO CHUNG** — sự cố 15/09/2026.
+   *
+   * Dùng để màn hình nói đúng sự thật thay vì nói bừa. Trang chi tiết đơn hàng trước đây không
+   * tìm thấy id là báo *"Đơn hàng này không tồn tại hoặc bạn không có quyền xem"* — trong khi sự
+   * thật có thể là **đang đồng bộ**. Đúng thứ CLAUDE.md §3.5 cấm: giao diện nói một việc khác với
+   * việc app đang làm.
+   *
+   * 📌 Gộp chung id của cả `deNghi` · `donHang` · `giaDonHang` (khoá là `poId`) · `baoGia` ·
+   * `phieuNhan` — màn hình chỉ cần hỏi *"id này đã lên kho chung chưa"*, không cần biết nó thuộc
+   * bảng nào. Luật ghép lại nằm ở `2-quy-trinh/giu-ban-ghi-moi.ts`.
+   */
+  banGhiChuaLenKhoChung: ReadonlySet<string>;
 }
 
 const Context = createContext<GiaTriDuLieu | null>(null);
+
+// ════════════════════════════════════════════════════════════════════
+// KHOÁ THEO DÕI BẢN GHI VỪA TẠO — phần nối dây của `2-quy-trinh/giu-ban-ghi-moi.ts`
+//
+// 🔴 PHẢI GẮN TIỀN TỐ BẢNG. `giaDonHang` khoá theo `poId`, tức **trùng đúng id của `donHang`**.
+// Trộn hai bảng vào một sổ thì "đã thấy đơn trên máy chủ" bị hiểu nhầm thành "đã thấy bảng giá
+// của đơn đó", và ngược lại — hai bản ghi khác nhau chia nhau một số phận. Tiền tố cắt hẳn ca đó.
+//
+// ⚠️ Cố ý KHÔNG theo dõi `thongBao`: nó là chuông báo chứ không phải chứng từ, sinh/xoá liên tục
+// và bị cắt còn 30 dòng — giữ lại một dòng chuông mà máy khác vừa dọn chỉ tạo nhiễu.
+// ════════════════════════════════════════════════════════════════════
+
+const khoaDeNghi = (x: { id: string }) => `pr:${x.id}`;
+const khoaDonHang = (x: { id: string }) => `po:${x.id}`;
+const khoaGiaDonHang = (x: { poId: string }) => `gia:${x.poId}`;
+const khoaBaoGia = (x: { id: string }) => `bg:${x.id}`;
+const khoaPhieuNhan = (x: { id: string }) => `pn:${x.id}`;
+
+/** Toàn bộ khoá theo dõi được của một bộ dữ liệu (cả 5 bảng chứng từ). */
+function khoaTheoDoi(d: DuLieuLuu): string[] {
+  return [
+    ...d.deNghi.map(khoaDeNghi),
+    ...d.donHang.map(khoaDonHang),
+    ...d.giaDonHang.map(khoaGiaDonHang),
+    ...d.baoGia.map(khoaBaoGia),
+    ...d.phieuNhan.map(khoaPhieuNhan),
+  ];
+}
+
+/** Bỏ tiền tố bảng, trả lại id thật để màn hình tra được (`po:abc` → `abc`). */
+function boTienTo(khoa: string): string {
+  const i = khoa.indexOf(":");
+  return i < 0 ? khoa : khoa.slice(i + 1);
+}
 
 // ------------------------------------------------------------
 // LUẬT BÌNH LUẬN (Ban lãnh đạo 16/08/2026: chỉ sửa, không xóa, có lưu vết)
@@ -1586,19 +1836,294 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    *   `anhChupCuoi`, gỡ bừa là xoá dấu của lần ghi đang hợp lệ, và ảnh chụp echo của lần đó lại bị
    *   coi là dữ liệu người khác.
    */
-  const dayLenMayChu = useCallback((d: DuLieuLuu, chuoiDaDanhDau?: string) => {
-    if (!ketNoiChung.current) {
-      hangCho.current = d;
-      return;
+  /* ────────────────────────────────────────────────────────────────
+     ① THỬ LẠI KHI GHI HỎNG — sự cố mất đơn 15/09/2026 (Sếp báo 19:33).
+
+     🔴 LỖ RẺ NHẤT MÀ HẠI NHẤT. Trước lượt sửa này, `.catch` chỉ `console.error` + gỡ dấu + đổi
+     badge rồi **thôi**: mạng chập đúng một nhịp là việc người dùng vừa làm **không bao giờ lên
+     tới kho chung**, và không có một dòng nào báo. Đo được trên kho thật: đơn Sếp lập lúc 19:33
+     không có trên máy chủ, và 3 đơn khác (DMH260001, 260003, 260004) đã mất y hệt từ trước.
+
+     🔴 KHÔNG ĐỤNG BA CHỐT AN TOÀN §3.6b. Phần thêm vào đây chỉ chạy ở nhánh **thất bại**:
+     `daNgheMayChu` vẫn chặn nguyên ở effect ghi (và còn được kiểm lại một lần nữa trước khi thử
+     lại), `null` vẫn khác bộ rỗng ở callback `onSnapshot`, `hangCho` vẫn nằm nguyên ở đầu
+     `dayLenMayChu`.
+     ──────────────────────────────────────────────────────────────── */
+
+  /** Số lần ghi kho chung hỏng LIÊN TIẾP. Về `0` ngay khi có một lần ghi thành công. */
+  const soLanGhiHong = useRef(0);
+  /** Lịch hẹn ghi lại. 🔴 Chỉ MỘT lịch tại một thời điểm — hẹn mới thay hẹn cũ, không chồng. */
+  const henGhiLai = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * 📌 Vì sao phải đi vòng qua ref: `dayLenMayChu` và hàm hẹn-ghi-lại gọi lẫn nhau, mà
+   * `dayLenMayChu` **bắt buộc** giữ deps rỗng — nó nằm trong deps của effect nối Firestore
+   * (`[apDung, dayLenMayChu]`); đổi tham chiếu là app ngắt rồi nối lại kho chung mỗi lần render.
+   */
+  const dayLenMayChuRef = useRef<((d: DuLieuLuu, chuoi?: string) => void) | null>(null);
+
+  const donLichGhiLai = useCallback(() => {
+    if (henGhiLai.current) {
+      clearTimeout(henGhiLai.current);
+      henGhiLai.current = null;
     }
-    void ketNoiChung.current.day(d).catch((e) => {
-      console.error("[kho chung] ghi hỏng:", e);
-      if (chuoiDaDanhDau !== undefined && anhChupCuoi.current === chuoiDaDanhDau) {
-        anhChupCuoi.current = "";
+  }, []);
+
+  /**
+   * Hẹn đẩy lại **bản mới nhất** (`duLieuHienTai.current`) sau một khoảng tăng dần.
+   *
+   * ⚠️ Cố ý đẩy lại bản MỚI NHẤT chứ không phải đúng bản đã hỏng: kho chung là một tài liệu duy
+   * nhất, bản mới nhất đã bao gồm cả thay đổi hỏng lẫn mọi thay đổi sau đó. Đẩy lại bản cũ là tự
+   * tay xoá những gì người dùng làm trong lúc chờ.
+   */
+  const henDayLai = useCallback(() => {
+    if (!conDuocGhiLai(soLanGhiHong.current)) return; // hết lượt — dữ liệu vẫn an toàn ở máy
+    const cho = khoangChoGhiLai(soLanGhiHong.current);
+    donLichGhiLai(); // chỉ một lịch tại một thời điểm
+    henGhiLai.current = setTimeout(() => {
+      henGhiLai.current = null;
+      if (!daNgheMayChu.current) return; // chốt §3.6b ① vẫn có hiệu lực ở đường thử lại
+      const d = duLieuHienTai.current;
+      if (!d) return;
+      /* Đánh dấu trước khi đẩy, đúng lý do ở effect ghi: nếu lượt này thành công thì ảnh chụp
+         echo dội về là của chính mình, không được để `apDung` đè lại state. So khớp bằng chuỗi
+         nguyên văn nên đánh dấu ở đây không thể nuốt nhầm thay đổi của người khác. */
+      const chuoi = JSON.stringify(d);
+      anhChupCuoi.current = chuoi;
+      dayLenMayChuRef.current?.(d, chuoi);
+    }, cho);
+  }, [donLichGhiLai]);
+
+  const dayLenMayChu = useCallback(
+    (d: DuLieuLuu, chuoiDaDanhDau?: string) => {
+      if (!ketNoiChung.current) {
+        hangCho.current = d;
+        return;
       }
-      setTrangThaiKhoChung("rieng");
+      void ketNoiChung.current
+        .day(d)
+        .then(() => {
+          // ✅ Ghi được → dọn lịch hẹn, đặt lại đếm, và nói thật là đang dùng chung trở lại.
+          soLanGhiHong.current = 0;
+          donLichGhiLai();
+          setTrangThaiKhoChung("chung");
+        })
+        .catch((e) => {
+          console.error("[kho chung] ghi hỏng:", e);
+          if (chuoiDaDanhDau !== undefined && anhChupCuoi.current === chuoiDaDanhDau) {
+            anhChupCuoi.current = "";
+          }
+          setTrangThaiKhoChung("rieng");
+          soLanGhiHong.current += 1;
+          henDayLai();
+        });
+    },
+    [donLichGhiLai, henDayLai],
+  );
+  dayLenMayChuRef.current = dayLenMayChu;
+
+  // ════════════════════════════════════════════════════════════════════
+  // ① GOM CÁC LẦN GHI LÊN KHO CHUNG — Sếp 15/09/2026, theo phân tích của đội QLK CTR cùng ngày
+  //
+  // 🔴 VẤN ĐỀ CÓ THẬT, DO BÊN THỨ BA CHỈ RA: *"Bất kỳ thay đổi bất kỳ thứ gì (dù không liên quan
+  // PO) đều ghi đè lại NGUYÊN cả tài liệu, khiến mọi máy đang mở App Thu Mua đồng loạt nhận được
+  // thay đổi và tự động quét lại toàn bộ đơn hàng đang 'lỗi' để gửi lại sang QLK CTR — không giới
+  // hạn, không có độ trễ."*
+  //
+  // Trước lượt sửa này: mỗi lần đổi BẤT KỲ state nào là một lần `JSON.stringify` cả kho + một lần
+  // `setDoc` **toàn bộ tài liệu**. Gõ một ô, tick một việc, kéo một thẻ — mỗi thao tác một lượt.
+  //
+  // 🔴 KHÔNG ĐỤNG BA CHỐT AN TOÀN §3.6b. Lượt sửa này chỉ đổi **thời điểm** gọi `dayLenMayChu`,
+  // không đổi một điều kiện nào: `daNgheMayChu` vẫn chặn ở effect ghi, `null` vẫn khác bộ rỗng ở
+  // callback `onSnapshot`, và `hangCho` vẫn nằm nguyên trong `dayLenMayChu`.
+  //
+  // 🔴 KHÔNG ĐƯỢC LÀM MẤT LẦN GHI CUỐI — mất việc người dùng vừa làm còn tệ hơn lỗi đang sửa.
+  // Ba đường đẩy nốt: unmount, `visibilitychange → hidden`, `pagehide`. Xem effect bên dưới.
+  // ════════════════════════════════════════════════════════════════════
+
+  /** Thời điểm lần ghi kho chung gần nhất (`Date.now()`); `0` = chưa ghi lần nào. */
+  const mocGhiGanNhat = useRef(0);
+  /** Bản mới nhất đang chờ tới nhịp. Luôn chỉ giữ MỘT bản — bản sau đè bản trước. */
+  const choGhi = useRef<{ d: DuLieuLuu; chuoi: string } | null>(null);
+  const henGhi = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Đẩy NGAY bản đang chờ (nếu có) và dọn lịch hẹn.
+   *
+   * ⚠️ Gọi được nhiều lần liên tiếp mà không hại: không có gì chờ thì hàm thoát ngay.
+   */
+  const dayNgayBanDangCho = useCallback(() => {
+    if (henGhi.current) {
+      clearTimeout(henGhi.current);
+      henGhi.current = null;
+    }
+    const cho = choGhi.current;
+    choGhi.current = null;
+    if (!cho) return;
+    mocGhiGanNhat.current = Date.now();
+    dayLenMayChu(cho.d, cho.chuoi);
+  }, [dayLenMayChu]);
+
+  /**
+   * Hủy bản đang chờ mà KHÔNG đẩy.
+   *
+   * 📌 Chỉ dùng một chỗ: nút "Xóa dữ liệu chạy thử". Ở đó một lần ghi còn treo sẽ dựng lại đúng
+   * bộ dữ liệu vừa xóa, ngay sau khi xóa xong — nút bấm mà không xóa được gì.
+   */
+  const huyBanDangCho = useCallback(() => {
+    if (henGhi.current) {
+      clearTimeout(henGhi.current);
+      henGhi.current = null;
+    }
+    choGhi.current = null;
+  }, []);
+
+  /**
+   * ★ XẾP LỊCH GHI THEO NHỊP — **trần tốc độ**, không phải hoãn cứng.
+   *
+   * · Đã im hơn một nhịp (`tinhDoTreGhi` trả 0) → ghi NGAY. Thao tác lẻ vẫn tức thì, người dùng
+   *   không cảm thấy app chậm đi.
+   * · Đang trong nhịp → giữ lại bản mới nhất, hẹn ghi vào lúc hết nhịp. Cả tràng thao tác gộp
+   *   thành **một** lần ghi.
+   *
+   * 🔴 BẢN SAU LUÔN ĐÈ BẢN TRƯỚC TRONG HÀNG CHỜ, và lịch hẹn KHÔNG bị đặt lại. Nếu mỗi thay đổi
+   * đều dời lịch hẹn ra xa thì người gõ liên tục sẽ không có lần ghi nào cho tới khi họ dừng tay —
+   * đó là cách debounce cổ điển làm mất việc khi tab bị đóng giữa chừng.
+   */
+  const xepLichGhi = useCallback(
+    (d: DuLieuLuu, chuoi: string) => {
+      choGhi.current = { d, chuoi };
+      const tre = tinhDoTreGhi(mocGhiGanNhat.current, Date.now(), NHIP_GOM_GHI_MS);
+      if (tre <= 0) {
+        dayNgayBanDangCho();
+        return;
+      }
+      if (henGhi.current) return; // Đã có hẹn — chỉ cần thay nội dung, không dời giờ.
+      henGhi.current = setTimeout(() => {
+        henGhi.current = null;
+        dayNgayBanDangCho();
+      }, tre);
+    },
+    [dayNgayBanDangCho],
+  );
+
+  /**
+   * 🔴🔴 ĐẨY NỐT LẦN GHI CUỐI KHI TRANG SẮP ĐÓNG. Đây là phần bắt buộc của việc gom ghi — bỏ nó
+   * thì gom ghi trở thành cơ chế **làm mất việc người dùng vừa làm**.
+   *
+   * · `visibilitychange → hidden` là điểm đáng tin nhất trên cả di động lẫn máy bàn: nó bắn khi
+   *   chuyển tab, khóa máy, và trước khi trang bị thu hồi. Trang thường vẫn còn sống ở đó nên
+   *   request đi được.
+   * · `pagehide` bắt nốt ca đóng tab / điều hướng đi nơi khác.
+   *
+   * ⚠️ NÓI THẲNG CHỖ CHƯA CHẮC: đây là **nỗ lực tốt nhất**, không phải bảo đảm. `setDoc` là bất
+   * đồng bộ; trình duyệt giết tiến trình ngay lập tức (tắt máy, kill tab) thì request vẫn có thể
+   * không đi. Lưới an toàn là bản dự phòng trên máy (`ghiDuLieu`) — nó KHÔNG gom nhịp, ghi mọi
+   * thay đổi ngay lập tức, nên việc người dùng làm không biến mất khỏi máy họ.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const khiAn = () => {
+      if (document.visibilityState === "hidden") dayNgayBanDangCho();
+    };
+    const khiRoiTrang = () => dayNgayBanDangCho();
+    document.addEventListener("visibilitychange", khiAn);
+    window.addEventListener("pagehide", khiRoiTrang);
+    return () => {
+      document.removeEventListener("visibilitychange", khiAn);
+      window.removeEventListener("pagehide", khiRoiTrang);
+      // Unmount cũng phải đẩy nốt — chuyển trang trong app không bắn `pagehide`.
+      dayNgayBanDangCho();
+    };
+  }, [dayNgayBanDangCho]);
+
+  /**
+   * ★★ ② CHỈ MỘT LƯỢT TỰ GỬI QLK CTR TẠI MỘT THỜI ĐIỂM — đúng chữ đội QLK CTR đề nghị
+   * 15/09/2026: *"chỉ cho phép 1 lượt gửi lại tại 1 thời điểm (không gửi chồng lên chính nó khi
+   * lượt trước chưa xong)"*.
+   *
+   * 🔴 VÌ SAO CHỐT ① (mỗi PO một lần mỗi phiên) CHƯA ĐỦ: `apDung` chạy lại mỗi lần kho chung bắn
+   * dữ liệu về. Trong lúc lượt gửi trước còn đang bay (QLK CTR chậm, hoặc đang timeout), một ảnh
+   * chụp mới về là vòng quét khởi động lại và bắn thêm một loạt nữa. Chốt ① chặn theo **PO**,
+   * chốt này chặn theo **lượt** — hai thứ khác nhau.
+   *
+   * ⚠️ Cờ này bao quanh vòng quét TỰ ĐỘNG trong `apDung`. Nó KHÔNG đụng các lệnh gửi do người
+   * dùng chủ động (`suaDonHang`, `chotDonNhap`, lúc lập đơn) — những lệnh đó nằm ngoài vòng này
+   * và bị giới hạn tự nhiên bởi tốc độ bấm của con người.
+   */
+  const dangGuiQlkCtr = useRef(false);
+
+  // ════════════════════════════════════════════════════════════════════
+  // ★★ ② GIỮ BẢN VỪA TẠO TẠI MÁY CHO TỚI KHI THẤY NÓ TRÊN MÁY CHỦ — sự cố mất đơn 15/09/2026.
+  //
+  // Đây là thứ DUY NHẤT bịt được CẢ HAI kịch bản mất đơn: ghi hỏng (phần ① lo phần thử lại, nhưng
+  // thử lại có thể vẫn hỏng) **và** bị ảnh chụp của máy khác đè (phần ① không đụng tới được).
+  //
+  // 🔴 CÁCH PHÂN BIỆT "BẢN MỚI CHƯA LÊN SERVER" VỚI "BẢN NGƯỜI KHÁC CỐ Ý XOÁ" — cửa MỘT CHIỀU,
+  // giải thích đầy đủ ở đầu `2-quy-trinh/giu-ban-ghi-moi.ts`. Tóm tắt: chỉ giữ id **máy này tự tạo
+  // trong phiên này** và **chưa từng có trong bất kỳ ảnh chụp nào từ máy chủ**. Ai muốn xoá một
+  // bản ghi thì phải thấy nó, mà thấy được nghĩa là nó đã từng trên máy chủ ⇒ máy này đã gỡ nó
+  // khỏi sổ từ trước ⇒ lần xoá đó đi qua trót lọt.
+  //
+  // 🔴 VÀ CÒN MỘT LỚP NỮA, ĐỘC LẬP: `ghepBanChuaLenMayChu` chỉ đắp lại bản ghi **còn trong state
+  // máy này**. Người ngồi máy này xoá bản ghi của mình thì nó biến mất khỏi state, nên không có gì
+  // để đắp — không cần chờ sổ kịp cập nhật.
+  // ════════════════════════════════════════════════════════════════════
+
+  /**
+   * Sổ tích luỹ: mọi khoá TỪNG xuất hiện trong ảnh chụp từ máy chủ, trong phiên này.
+   *
+   * ⚠️ Chỉ lớn lên, không bao giờ nhỏ đi — cố ý: đây chính là cửa một chiều. Chỉ chứa chuỗi id nên
+   * không đáng ngại về bộ nhớ (kho chạy thử đang ~vài trăm chứng từ).
+   */
+  const daThayTrenMayChu = useRef<Set<string>>(new Set());
+  /** Sổ theo dõi: khoá → vết. Chỉ chứa bản ghi máy này vừa tạo mà chưa thấy trên máy chủ. */
+  const soGiuBanMoi = useRef<Map<string, VetBanGhiMoi>>(new Map());
+  /** Ảnh khoá của kỳ trước, để biết id nào vừa mọc ra. `null` = chưa có mốc nào (lần chạy đầu). */
+  const khoaKyTruoc = useRef<Set<string> | null>(null);
+  /** Bản cho giao diện đọc — xem `GiaTriDuLieu.banGhiChuaLenKhoChung`. */
+  const [banGhiChuaLenKhoChung, setBanGhiChuaLenKhoChung] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
+
+  /** Đồng bộ sổ (ref) sang state cho giao diện — chỉ đổi state khi bộ id thật sự khác. */
+  const dongBoSoChoGiaoDien = useCallback(() => {
+    const moi = new Set<string>();
+    for (const k of soGiuBanMoi.current.keys()) moi.add(boTienTo(k));
+    setBanGhiChuaLenKhoChung((cu) => {
+      if (cu.size === moi.size) {
+        let giong = true;
+        for (const id of moi) {
+          if (!cu.has(id)) {
+            giong = false;
+            break;
+          }
+        }
+        if (giong) return cu; // 📌 giữ nguyên tham chiếu — tránh render thừa mỗi ảnh chụp
+      }
+      return moi;
     });
   }, []);
+
+  /**
+   * Ghi nhận một ảnh chụp TỪ MÁY CHỦ vào hai cuốn sổ.
+   *
+   * 🔴 PHẢI GỌI CẢ KHI ẢNH CHỤP LÀ ECHO CỦA CHÍNH MÌNH (`chuoi === anhChupCuoi`). Echo chính là
+   * **bằng chứng lần ghi đã lên tới nơi** — bỏ qua nó thì bản ghi nằm trong sổ mãi không được gỡ.
+   *
+   * ⚠️ KHÔNG gọi cho bộ dữ liệu đọc từ localStorage lúc khởi động: đó không phải lời của máy chủ.
+   */
+  const ghiNhanAnhChupMayChu = useCallback(
+    (tuMayChu: DuLieuLuu) => {
+      const khoaAnhChup = new Set(khoaTheoDoi(tuMayChu));
+      for (const k of khoaAnhChup) daThayTrenMayChu.current.add(k);
+      const conTaiMay = duLieuHienTai.current
+        ? new Set(khoaTheoDoi(duLieuHienTai.current))
+        : khoaAnhChup;
+      soGiuBanMoi.current = soSauAnhChup(soGiuBanMoi.current, khoaAnhChup, conTaiMay);
+      dongBoSoChoGiaoDien();
+    },
+    [dongBoSoChoGiaoDien],
+  );
 
   const apDung = useCallback((d: DuLieuLuu) => {
     /**
@@ -1614,11 +2139,30 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * việc nhận — không tự sinh thêm bản của mình.
      */
     dangNhanTuNoiKhac.current = true;
-    setDeNghi(d.deNghi);
-    setDonHang(d.donHang);
-    setGiaDonHang(d.giaDonHang);
-    setPhieuNhan(d.phieuNhan);
-    setBaoGia(d.baoGia);
+
+    /**
+     * ★★ ② KHÔNG THAY TRỌN MẢNG NỮA — sự cố mất đơn 15/09/2026.
+     *
+     * 🔴 ĐÂY LÀ CHỖ ĐƠN CỦA SẾP BIẾN MẤT. Trước lượt sửa này, năm dòng dưới là
+     * `setDonHang(d.donHang)` — setter **không-hàm**, tức **thay trọn mảng** bằng ảnh chụp của máy
+     * chủ. Bản ghi vừa lập mà chưa kịp lên tới máy chủ thì bị chính ảnh chụp đó xoá sạch khỏi màn
+     * hình, không một dòng báo. Đo được: đơn 19:33 ngày 15/09 mất, và 3 đơn khác (DMH260001,
+     * 260003, 260004) đã mất y hệt từ trước — app không có chức năng xoá đơn nào cả.
+     *
+     * 🔴 SỔ PHẢI ĐỌC RA MỘT HẰNG TRƯỚC KHI GỌI SETTER. React gọi hàm cập nhật **lười** — có thể
+     * sau khi `ghiNhanAnhChupMayChu` đã thay `soGiuBanMoi.current` bằng cuốn sổ mới. Đọc thẳng
+     * `.current` trong thân hàm cập nhật là lấy nhầm sổ đã gỡ mất id vừa tạo, và bản ghi lại biến
+     * mất đúng như cũ. `soSauAnhChup` trả về Map MỚI nên cuốn đọc ra ở đây không bị sửa sau lưng.
+     *
+     * ⚠️ Máy chủ CÓ bản ghi thì bản của máy chủ **thắng** — chỗ này không phải trộn từng trường,
+     * chỉ là không để bản ghi chưa lên tới nơi bị xoá mất. Xem `ghepBanChuaLenMayChu`.
+     */
+    const soDangGiu = soGiuBanMoi.current;
+    setDeNghi((truoc) => ghepBanChuaLenMayChu(d.deNghi, truoc, soDangGiu, khoaDeNghi));
+    setDonHang((truoc) => ghepBanChuaLenMayChu(d.donHang, truoc, soDangGiu, khoaDonHang));
+    setGiaDonHang((truoc) => ghepBanChuaLenMayChu(d.giaDonHang, truoc, soDangGiu, khoaGiaDonHang));
+    setPhieuNhan((truoc) => ghepBanChuaLenMayChu(d.phieuNhan, truoc, soDangGiu, khoaPhieuNhan));
+    setBaoGia((truoc) => ghepBanChuaLenMayChu(d.baoGia, truoc, soDangGiu, khoaBaoGia));
     setThongBao(d.thongBao);
     /* 🔴 THIẾU KHÓA ≠ "danh mục rỗng" — cùng loại bẫy với `cauHinh` ngay dưới. Bản lưu cũ không
        có `nhaCungCapThem`; ghi `[]` vào lúc đó là xóa mất nhà cung cấp người khác vừa thêm khi
@@ -1680,7 +2224,26 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      *    lời được câu hỏi thật sự cần: *"lỗi này vừa xảy ra, hay là xác chết từ tuần trước?"*.
      */
     /**
+     * 🔴🔴 CHỐT ③ — MỘT LƯỢT GỬI TẠI MỘT THỜI ĐIỂM. Sếp 15/09/2026, theo đúng chữ đội QLK CTR
+     * đề nghị: *"chỉ cho phép 1 lượt gửi lại tại 1 thời điểm (không gửi chồng lên chính nó khi
+     * lượt trước chưa xong)"*.
+     *
+     * Đặt ở ĐÂY, sau các `setState` phía trên: dữ liệu từ kho chung vẫn phải được áp vào màn hình
+     * bình thường, thứ bị bỏ qua chỉ là **vòng quét gửi lại**. Đảo hai việc này là người dùng
+     * không thấy việc của đồng nghiệp trong lúc một lượt gửi còn đang bay.
+     */
+    if (dangGuiQlkCtr.current) return;
+
+    /* Đọc mốc thử lại MỘT lần cho cả vòng — đọc trong vòng lặp là chạm localStorage n lần. */
+    const bangMocThuLai = docBangMocThuLai();
+    const bayGioMs = Date.now();
+    /* Các lượt gửi đã khởi động trong vòng này; xong hết mới hạ cờ `dangGuiQlkCtr`. */
+    const dangBay: Promise<unknown>[] = [];
+
+    /**
      * ★★ ĐƠN CỦA HỒ SƠ PHÒNG BAN ĐANG MANG DẤU "THẤT BẠI" SAI — gom lại để dọn một lượt.
+     *
+     * 📌 CODE CỦA PHIÊN TÍCH HỢP APP TỔNG (commit `0019977`), lấy về khi hợp nhất 15/09/2026.
      *
      * 🔴 VÌ SAO CÓ DẤU SAI: chốt "không gửi hồ sơ phòng ban" chỉ mới vào code trưa 15/09/2026
      * (`5-ket-noi/gui-po-qlk-ctr.ts`). Những đơn lập TRƯỚC đó đã kịp gửi, đã hỏng, và đã bị ghi
@@ -1697,31 +2260,94 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     const poPhongBanConDauThatBai: string[] = [];
 
     for (const po of d.donHang) {
+      /**
+       * 🔴🔴 CHỐT ⓿ — HỒ SƠ PHÒNG BAN KHÔNG BAO GIỜ VÀO VÒNG NÀY. Sếp 15/09/2026, nguyên văn:
+       * *"Đề xuất từ phòng ban thì ko cần gửi sang app kho, nên e bỏ phần ghi chú này và điều
+       * chỉnh lại phần code của phòng ban"*.
+       *
+       * 🔴 ĐẶT TRƯỚC HAI CHỐT CHỐNG VÒNG LẶP, KHÔNG THAY THẾ CHÚNG. Hai chốt đó (① mỗi PO một lần
+       * mỗi phiên, ② lỗi lặp lại y hệt thì không ghi) là bản vá sự cố sáng 15/09/2026 — Firestore
+       * chặn với *"Write stream exhausted maximum allowed queued writes"*, 1565 lỗi trong console.
+       * Chốt ⓿ này RÚT NHIÊN LIỆU ra khỏi đúng vòng lặp đó: PO của hồ sơ phòng ban đang mang
+       * `qlkCtrSyncStatus: "failed"` (ghi từ trước lúc có chốt phòng ban) vẫn lọt qua điều kiện
+       * `po.qlkCtrSyncStatus !== "failed"` ở hai nhánh dưới, tức mỗi phiên vẫn bị lôi ra thử lại.
+       *
+       * 📌 HÔM NAY chưa gây hại thật: `guiPOSangQlkCtr` đã trả `{ apDung: false }` và cả 6 chỗ ghi
+       * trong tệp này đều `if (!ketQua.apDung) return`, nên không có lần ghi nào. Nhưng để PO
+       * phòng ban đứng trong hàng thử lại là để sẵn nhiên liệu cho lần sau — chỉ cần một nơi gọi
+       * mới quên kiểm `apDung` là vòng lặp sống dậy. Chặn ngay từ đầu vòng thì không phụ thuộc
+       * việc 6 chỗ kia có nhớ kiểm hay không.
+       *
+       * 🔴 DÙNG `laPOCuaHoSoPhongBan` — ĐÚNG hàm mà nơi gửi dùng (`5-ket-noi/gui-po-qlk-ctr.ts`),
+       * không chép lại phép so sánh, không đổi sang so `maDuAn.startsWith("PB-")` (đo thật: 0/16).
+       *
+       * ═══════════════════════════════════════════════════════════════════════════════════════
+       * 📌 GHI CHÚ HỢP NHẤT 15/09/2026 — HAI PHIÊN CÙNG VIẾT MỘT NHÁNH CHẶN Ở ĐÂY, ĐÃ GỘP LÀM MỘT
+       * ═══════════════════════════════════════════════════════════════════════════════════════
+       * Phiên tích hợp App Tổng (commit `0019977`) viết nhánh chặn của họ NẰM TRONG `if (po.prId)`
+       * và nhận dạng bằng `laHoSoPhongBan(deNghiGoc)`. Phiên nghiệp vụ viết nhánh này. Hai bên
+       * cùng ý, khác chữ — giữ **chỗ đặt và phép nhận dạng của phiên nghiệp vụ**, và **giữ nguyên
+       * việc gom dọn dấu sai của phiên tích hợp** (dòng `poPhongBanConDauThatBai` ngay dưới).
+       *
+       * 🔴 VÌ SAO GIỮ PHÉP NHẬN DẠNG NÀY CHỨ KHÔNG PHẢI `laHoSoPhongBan(deNghiGoc)`: nó bao thêm
+       * **PO ĐỘC LẬP** (không có `prId`, đi nhánh `else if (po.trangThai === "cho_de_nghi")` phía
+       * dưới) — loại đó không có đề nghị nào để tra nên `laHoSoPhongBan` không đọc được, và nó
+       * chính là loại dễ kẹt `failed` vĩnh viễn nhất. Bản của phiên tích hợp không chạm tới nhánh
+       * đó. Đây là điều kiện **thêm vào**, không bỏ bớt gì của họ.
+       *
+       * ⚠️ KÈM THEO: vì chặn ở đây bao cả PO độc lập, việc dọn dấu sai bên dưới cũng dọn luôn cho
+       * PO độc lập của phòng ban — rộng hơn bản gốc của phiên tích hợp đúng một loại đơn. Vẫn tự
+       * dừng sau một lượt y như họ thiết kế (ghi xong thì không còn `"failed"` để gom nữa).
+       *
+       * ⚠️ KHÔNG đánh dấu vào `daThuDongBoQlkCtrPhienNay` — nguyên văn ghi chú của phiên tích hợp:
+       * đây không phải một lần "đã thử", mà là kết luận "không áp dụng". Trộn hai thứ vào cùng một
+       * tập là làm hỏng nghĩa của nó.
+       */
+      if (laPOCuaHoSoPhongBan(po, po.prId ? d.deNghi.find((dn) => dn.id === po.prId) : undefined)) {
+        if (po.qlkCtrSyncStatus === "failed") poPhongBanConDauThatBai.push(po.id);
+        continue;
+      }
+
       /* 🔴 CHỐT ①: mỗi PO chỉ thử lại MỘT lần mỗi phiên. Xem `daThuDongBoQlkCtrPhienNay`. */
       if (daThuDongBoQlkCtrPhienNay.current.has(po.id)) continue;
 
       if (po.prId) {
         const deNghiGoc = d.deNghi.find((dn) => dn.id === po.prId);
-
-        /* ★★ HỒ SƠ PHÒNG BAN KHÔNG CÓ VIỆC GÌ Ở APP KHO — chặn NGAY, trước mọi phép thử.
-           Sếp 15/09/2026: *"Ap kho chỉ phù hợp với đề nghị mà chọn công trình có mã số hợp đồng,
-           tên công trình"*.
-
-           🔴 CHẶN Ở ĐÂY CHỨ KHÔNG PHÓ MẶC `guiPOSangQlkCtr`: hàm đó đã tự trả `{apDung:false}`
-           cho hồ sơ phòng ban, nhưng để chạy tới đó là đã tốn một vòng promise cho mỗi PO, mỗi
-           lần dữ liệu về. Chặn sớm còn nói thẳng ý định ra cho người đọc code sau.
-
-           ⚠️ KHÔNG đánh dấu vào `daThuDongBoQlkCtrPhienNay`: đây không phải một lần "đã thử", mà
-           là kết luận "không áp dụng". Trộn hai thứ vào cùng một tập là làm hỏng nghĩa của nó. */
-        if (laHoSoPhongBan(deNghiGoc)) {
-          if (po.qlkCtrSyncStatus === "failed") poPhongBanConDauThatBai.push(po.id);
+        /**
+         * 🔴🔴 CHỐT ④ — ĐỘ TRỄ TĂNG DẦN GIỮA CÁC LẦN TỰ THỬ LẠI (1 phút → 5 phút → 30 phút →
+         * 2 giờ, có trần). Sếp 15/09/2026, theo phân tích của đội QLK CTR: *"thêm giới hạn/độ trễ
+         * giữa các lần tự động gửi lại"*.
+         *
+         * 🔴 PHÂN BIỆT HAI LÝ DO GỬI — đây là chỗ dễ làm hỏng nhất, đọc kỹ trước khi gộp lại:
+         *   · **Nội dung PO vừa đổi** (`canDongBoLaiPO`) → GỬI NGAY, không qua độ trễ. Người dùng
+         *     vừa sửa đơn thì đơn phải sang được app Kho; bắt họ chờ 2 giờ vì một lỗi mạng hôm
+         *     qua là biến cơ chế chống dội thành cơ chế chặn nghiệp vụ.
+         *   · **Thử lại sau lỗi, nội dung y nguyên** → mới phải qua độ trễ. Đây đúng là thứ đã
+         *     dội vào QLK CTR sáng nay.
+         *
+         * 📌 Mốc thời gian cất ở `localStorage` của TỪNG MÁY, cố ý không cất lên kho chung — cất
+         * lên kho chung là lại sinh thêm một lượt ghi, tức dùng đúng cơ chế đang gây sự cố để
+         * chữa sự cố. Xem chú thích đầu `3-du-lieu/moc-thu-lai-qlk-ctr.ts`.
+         */
+        const noiDungDaDoi = canDongBoLaiPO(po, deNghiGoc);
+        const thuLaiSauLoi = po.qlkCtrSyncStatus === "failed";
+        if (!thuLaiSauLoi && !noiDungDaDoi) continue;
+        if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)) {
           continue;
         }
-
-        if (po.qlkCtrSyncStatus !== "failed" && !canDongBoLaiPO(po, deNghiGoc)) continue;
         daThuDongBoQlkCtrPhienNay.current.add(po.id);
-        void guiPOSangQlkCtr(po, deNghiGoc).then((ketQua) => {
-          if (!ketQua.apDung) return;
+        /* Ghi mốc TRƯỚC khi gửi, không phải sau: trang có thể đóng giữa chừng, và một lượt thử
+           không được ghi nhận là một lượt thử miễn phí cho lần mở app sau. */
+        ghiMocThuLai(po.id, mocSauLanThuHong(bangMocThuLai[po.id], bayGioMs));
+        dangBay.push(guiPOSangQlkCtr(po, deNghiGoc).then((ketQua) => {
+          /* Không áp dụng = KHÔNG có lượt gửi nào đi cả (hàm gửi tự bail) → không tính là một
+             lần thử hỏng, trả mốc về như cũ. Tính vào là phạt oan một PO chưa hề được gửi. */
+          if (!ketQua.apDung) {
+            xoaMocThuLai(po.id);
+            return;
+          }
+          /* Gửi được rồi thì xoá mốc: giữ lại là lần hỏng thật sau này đứng sẵn ở bậc 2 giờ. */
+          if (ketQua.thanhCong) xoaMocThuLai(po.id);
           /**
            * 🔴 CHỐT ②: THẤT BẠI LẶP LẠI Y HỆT THÌ KHÔNG GHI GÌ CẢ.
            *
@@ -1770,12 +2396,25 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             ),
           );
           if (!ketQua.thanhCong) console.error("[Việc 2] Tự đồng bộ lại PO sang QLK CTR lỗi:", ketQua.loi);
-        });
+        }));
       } else if (po.trangThai === "cho_de_nghi") {
-        if (po.qlkCtrSyncStatus !== "failed" && !canDongBoLaiPODocLap(po)) continue;
+        /* 🔴 CHỐT ④ — y hệt nhánh PO có đề nghị ở trên, và phải giống nhau. Vá một nhánh thì PO
+           độc lập vẫn dội sang QLK CTR mỗi lần tải lại trang; mà chính PO độc lập là loại dễ kẹt
+           `failed` vĩnh viễn nhất (xem chú thích "PO ĐỘC LẬP ĐI RIÊNG NHÁNH" phía trên). */
+        const noiDungDaDoi = canDongBoLaiPODocLap(po);
+        const thuLaiSauLoi = po.qlkCtrSyncStatus === "failed";
+        if (!thuLaiSauLoi && !noiDungDaDoi) continue;
+        if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)) {
+          continue;
+        }
         daThuDongBoQlkCtrPhienNay.current.add(po.id);
-        void guiPOSangQlkCtrDocLap(po).then((ketQua) => {
-          if (!ketQua.apDung) return;
+        ghiMocThuLai(po.id, mocSauLanThuHong(bangMocThuLai[po.id], bayGioMs));
+        dangBay.push(guiPOSangQlkCtrDocLap(po).then((ketQua) => {
+          if (!ketQua.apDung) {
+            xoaMocThuLai(po.id);
+            return;
+          }
+          if (ketQua.thanhCong) xoaMocThuLai(po.id);
           /* 🔴 CHỐT ② — y hệt nhánh PO có đề nghị ở trên. Hai nhánh phải giống nhau: vá một
              nhánh là nhánh kia vẫn dội ghi lên kho chung, mà PO độc lập cũng gặp đúng ca
              QLK CTR trả lỗi vĩnh viễn. */
@@ -1814,13 +2453,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             ),
           );
           if (!ketQua.thanhCong) console.error("[Việc 2] Tự đồng bộ lại PO độc lập sang QLK CTR lỗi:", ketQua.loi);
-        });
+        }));
       }
     }
 
     /* ★ DỌN DẤU SAI — xem `poPhongBanConDauThatBai` phía trên.
+       📌 CODE CỦA PHIÊN TÍCH HỢP APP TỔNG (commit `0019977`), lấy nguyên văn về khi hợp nhất
+       15/09/2026.
        🔴 XOÁ LUÔN `qlkCtrSyncError`: câu lỗi cũ ("HTTP 502", "không tìm thấy đề nghị"…) nói về
-       một lần gửi ĐÁNG LẼ KHÔNG ĐƯỢC XẢY RA. Giữ lại là giữ một lời khai sai trong hồ sơ. */
+       một lần gửi ĐÁNG LẼ KHÔNG ĐƯỢC XẢY RA. Giữ lại là giữ một lời khai sai trong hồ sơ.
+       📌 Một lượt ghi duy nhất cho cả mảng, và chạy ĐÚNG MỘT LẦN (lần sau không còn PO nào mang
+       `"failed"` để gom) — không phá chốt gom ghi ở đầu tệp. */
     if (poPhongBanConDauThatBai.length > 0) {
       setDonHang((truoc) =>
         truoc.map((p) =>
@@ -1834,6 +2477,22 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             : p,
         ),
       );
+    }
+
+    /**
+     * 🔴 HẠ CỜ KHI **TẤT CẢ** LƯỢT GỬI ĐÃ XONG — `allSettled`, không phải `all`.
+     *
+     * `all` dừng ngay ở lời hứa đầu tiên bị từ chối, và cờ sẽ hạ trong khi các lượt khác còn
+     * đang bay — tức chốt ② hở đúng lúc QLK CTR đang lỗi, là lúc nó cần nhất.
+     *
+     * 📌 Không khởi động lượt nào thì không bật cờ: bật rồi phải chờ một vòng microtask mới hạ,
+     * vô ích và dễ hiểu nhầm là đang có việc chạy.
+     */
+    if (dangBay.length > 0) {
+      dangGuiQlkCtr.current = true;
+      void Promise.allSettled(dangBay).then(() => {
+        dangGuiQlkCtr.current = false;
+      });
     }
   }, []);
 
@@ -1869,6 +2528,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         }
 
         const chuoi = JSON.stringify(tuMayChu);
+
+        /**
+         * ★★ ② GHI NHẬN SỔ TRƯỚC CỬA "CHÍNH MÌNH VỪA GỬI LÊN" — KHÔNG ĐƯỢC ĐẶT SAU DÒNG `return`.
+         *
+         * 🔴 Ảnh chụp echo của chính mình là **bằng chứng lần ghi đã lên tới máy chủ** — đúng thứ
+         * cuốn sổ đang chờ để gỡ id ra. Đặt sau `return` thì mọi bản ghi do máy này tạo sẽ nằm
+         * trong sổ cho tới khi tình cờ có người khác ghi một cái gì đó, và người dùng đọc mãi dòng
+         * *"đang đồng bộ"* cho một việc đã xong từ lâu.
+         */
+        ghiNhanAnhChupMayChu(tuMayChu);
+
         if (chuoi === anhChupCuoi.current) return; // Chính mình vừa gửi lên — bỏ qua.
         anhChupCuoi.current = chuoi;
         apDung(tuMayChu);
@@ -1901,8 +2571,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       conSong = false;
       ketNoiChung.current?.dong();
       ketNoiChung.current = null;
+      // ★ ① Dọn lịch hẹn ghi lại khi rời trang — để lại là một `setTimeout` bắn vào kết nối đã
+      //   đóng, và ở chế độ Strict Mode (mount hai lần) thì hai lịch chồng nhau.
+      donLichGhiLai();
     };
-  }, [apDung, dayLenMayChu]);
+  }, [apDung, dayLenMayChu, ghiNhanAnhChupMayChu, donLichGhiLai]);
 
   // ⚠️ Chờ nạp xong mới cho ghi. Bỏ điều kiện này là lần chạy đầu ghi đè bản lưu bằng
   // dữ liệu rỗng — tức xóa sạch việc người dùng đã nhập hôm trước.
@@ -1922,11 +2595,47 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     };
     duLieuHienTai.current = d;
 
+    /**
+     * ★★ ② ĐÁNH DẤU BẢN GHI MÁY NÀY VỪA TẠO — sự cố mất đơn 15/09/2026.
+     *
+     * 🔴 VÌ SAO ĐẶT Ở ĐÂY CHỨ KHÔNG ĐẶT Ở TỪNG CHỖ LẬP CHỨNG TỪ: trong tệp này có hàng chục chỗ
+     * thêm bản ghi mới (`themDonHang`, `taoBaoGia…`, `themPhieuNhan…`, nhân bản đề nghị, nhận đề
+     * nghị từ App Request…). Rải lệnh đánh dấu ra từng chỗ thì chỉ cần một chỗ mới sinh ra sau này
+     * quên gọi là bản ghi đó **mất âm thầm**, đúng kiểu lỗi đang chữa. Ở đây thì mọi đường tạo mới
+     * đều đi qua, không sót đường nào.
+     *
+     * 🔴 BA ĐIỀU KIỆN CÙNG LÚC mới coi là "máy này vừa tạo", xem `idVuaTaoTaiMay`:
+     *   ① có ở kỳ này, ② KHÔNG có ở kỳ trước của chính máy này, ③ máy chủ CHƯA TỪNG gửi khoá đó về.
+     * Thiếu ③ là mọi bản ghi máy khác tạo (về qua ảnh chụp) cũng bị nhận vơ, và từ đó máy này hồi
+     * sinh mọi thứ người khác xoá.
+     *
+     * 🔴 LẦN CHẠY ĐẦU CHỈ LẬP MỐC, KHÔNG ĐÁNH DẤU GÌ. Bộ dữ liệu lúc đó đọc từ localStorage /
+     * dữ liệu mẫu — không phải người dùng vừa tạo ra trong phiên này. Đánh dấu nó là dựng lại cả
+     * bản lưu cũ đè lên kho chung, kể cả những thứ người khác đã cố ý xoá từ lâu.
+     */
+    const khoaKyNay = khoaTheoDoi(d);
+    if (khoaKyTruoc.current === null) {
+      khoaKyTruoc.current = new Set(khoaKyNay);
+    } else {
+      const vuaTao = idVuaTaoTaiMay(khoaKyTruoc.current, khoaKyNay, daThayTrenMayChu.current);
+      khoaKyTruoc.current = new Set(khoaKyNay);
+      if (vuaTao.length > 0) {
+        const so = new Map(soGiuBanMoi.current);
+        for (const k of vuaTao) so.set(k, { soAnhChupVang: 0 });
+        soGiuBanMoi.current = so;
+        dongBoSoChoGiaoDien();
+      }
+    }
+
     const chuoi = JSON.stringify(d);
     if (chuoi === anhChupCuoi.current) return; // Không có gì đổi so với bản đã đồng bộ.
 
     // Bản dự phòng trên máy luôn ghi, kể cả khi chưa nối được máy chủ — mất mạng vẫn
     // không mất việc đang làm.
+    //
+    // 🔴 CHỖ NÀY **KHÔNG GOM NHỊP**, cố ý. Ghi localStorage là đồng bộ, rẻ, không đi qua mạng và
+    // không dội sang máy ai — gom nó lại chẳng tiết kiệm được gì mà lại mở ra một cửa mất việc
+    // khi trang bị đóng đột ngột. Đây chính là lưới an toàn cho phần gom nhịp bên dưới.
     ghiDuLieu(d);
 
     // 🔴 Chưa nghe máy chủ nói gì thì KHÔNG đẩy, và cũng KHÔNG ghi dấu `anhChupCuoi`:
@@ -1938,8 +2647,20 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        thì app tưởng đã đồng bộ, và ảnh chụp cũ dội về sẽ xoá mất thay đổi vừa làm (đúng lỗi
        "bấm tick 3 lần mới nhận" Sếp báo 15/09/2026). */
     anhChupCuoi.current = chuoi;
-    dayLenMayChu(d, chuoi);
-  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, nhaCungCapThem, thuKhoThem, dayLenMayChu]);
+    /**
+     * ★ QUA NHỊP GOM (Sếp 15/09/2026) — trước đây gọi thẳng `dayLenMayChu(d, chuoi)`.
+     *
+     * 🔴 VÌ SAO VẪN ĐÁNH DẤU `anhChupCuoi` NGAY Ở ĐÂY, DÙ LẦN GHI CÓ THỂ ĐI TRỄ TỚI MỘT NHỊP:
+     * dấu này trả lời câu *"ảnh chụp sắp dội về có phải do chính mình sinh ra không"*. Bản đang
+     * chờ trong hàng **luôn là bản mới nhất** và chuỗi của nó chính là `chuoi` này, nên đánh dấu
+     * ngay là đúng sự thật. Đánh dấu muộn (lúc thật sự ghi) thì trong cả nhịp chờ, app coi mọi
+     * ảnh chụp là "của người khác" và `apDung` sẽ đè mất thao tác vừa làm — đúng lỗi "bấm tick
+     * 3 lần mới nhận" Sếp báo sáng nay.
+     *
+     * 🔴 VÀ LẦN GHI HỎNG VẪN GỠ ĐƯỢC DẤU: `chuoi` đi kèm bản chờ, `dayLenMayChu` nhận lại đúng nó.
+     */
+    xepLichGhi(d, chuoi);
+  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, nhaCungCapThem, thuKhoThem, xepLichGhi, dongBoSoChoGiaoDien]);
 
   /**
    * ★ THÊM NHÀ CUNG CẤP VÀO DANH MỤC — Ban lãnh đạo 20/08/2026: *"tạo danh mục NCC do bộ phận thu
@@ -2119,6 +2840,28 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * không đợi nó xong trước. Lỗi ghi log (mất mạng) chỉ in console, không chặn điều hướng.
      */
     anhChupCuoi.current = JSON.stringify(rong);
+    /**
+     * 🔴 HỦY BẢN ĐANG CHỜ TRONG NHỊP GOM GHI — thêm 15/09/2026 cùng lượt làm nhịp gom.
+     *
+     * Không hủy thì kịch bản này xảy ra thật: người dùng vừa thao tác (một bản đang nằm chờ tới
+     * nhịp) rồi bấm "Xóa dữ liệu chạy thử". Hàm này ghi bộ rỗng lên kho chung, xong bản chờ kia
+     * mới tới giờ và **dựng lại nguyên bộ dữ liệu vừa xóa** — nút bấm xong mà không xóa được gì,
+     * và không có một dòng nào báo.
+     */
+    huyBanDangCho();
+    /**
+     * 🔴🔴 DỌN NỐT HAI CƠ CHẾ THÊM NGÀY 15/09/2026 (tối) — KHÔNG DỌN LÀ NÚT NÀY LẠI KHÔNG XÓA
+     * ĐƯỢC GÌ, đúng cái bẫy `huyBanDangCho` ở trên sinh ra để chặn, chỉ khác đường đi:
+     *   · **Lịch hẹn ghi lại** (phần ①) đang treo sẽ đẩy `duLieuHienTai.current` — tức bộ dữ liệu
+     *     ĐẦY ĐỦ — lên đè bộ rỗng vừa ghi.
+     *   · **Sổ giữ bản ghi mới** (phần ②) sẽ đắp lại đúng những bản ghi vừa xóa, ngay khi ảnh chụp
+     *     rỗng dội về: với sổ đó chúng là "bản máy này tạo mà máy chủ không có".
+     */
+    donLichGhiLai();
+    soLanGhiHong.current = 0;
+    soGiuBanMoi.current = new Map();
+    khoaKyTruoc.current = null;
+    dongBoSoChoGiaoDien();
     let xoaThanhCong = false;
     try {
       // `?.` ở bản trước coi "chưa nối được kho chung" là THÀNH CÔNG (optional chaining
@@ -2145,7 +2888,16 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     // Tải lại cả trang thay vì chỉ đặt state rỗng: dứt điểm mọi thứ đang giữ trong bộ
     // nhớ (form đang mở, bộ lọc, thông báo) — sạch đúng như mở app lần đầu.
     if (typeof window !== "undefined") window.location.href = "/de-nghi";
-  }, [nguoiDung, deNghi.length, donHang.length, baoGia.length, phieuNhan.length]);
+  }, [
+    nguoiDung,
+    deNghi.length,
+    donHang.length,
+    baoGia.length,
+    phieuNhan.length,
+    huyBanDangCho,
+    donLichGhiLai,
+    dongBoSoChoGiaoDien,
+  ]);
 
   // Đọc danh sách hiện có khi sinh mã mới, không cần đưa state vào deps.
   const donHangRef = useRef(donHang);
@@ -2559,10 +3311,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * *"1-6 bước đầu sửa được PO, quyền theo ai giao việc/ai đang làm, nhân viên sửa phải ghi lý
    * do bắt buộc"*.
    *
-   * 🔴 CHỈ 3 NHÓM TRƯỜNG ĐƯỢC NHẬN — xem kiểu `ThayDoiDonHang`. Nhóm 3 (mã PO, trạng thái, liên
-   * kết đề nghị, mã dự án…) CỐ Ý KHÔNG có mặt trong kiểu tham số: TypeScript tự chặn việc gọi
-   * hàm này với những trường đó, không cần một dòng kiểm tra runtime nào — khóa CHẶT hơn hẳn
-   * việc chỉ ẩn ô nhập trên giao diện.
+   * 🔴 CHỈ NHỮNG TRƯỜNG KHAI TRONG `ThayDoiDonHang` ĐƯỢC NHẬN. Nhóm 3 (mã PO `code`, mã dự án
+   * `maDuAn`, ngày lập `ngayLapPO`, trạng thái, liên kết đề nghị) CỐ Ý KHÔNG có mặt trong kiểu
+   * tham số: TypeScript tự chặn việc gọi hàm này với những trường đó, không cần một dòng kiểm tra
+   * runtime nào — khóa CHẶT hơn hẳn việc chỉ ẩn ô nhập trên giao diện.
+   *
+   * ★ MỞ RỘNG 15/09/2026 (Sếp: *"phần sửa PO, phải cấp quyền cho sửa toàn bộ giống như khi lập
+   * đơn mua hàng mới"*): thêm 6 trường hành chính trên `DonDatHang` (`mauPO`, `ghiChuHopDongNCC`,
+   * `tenCongTrinh`, `maHopDongCDT`, `dieuKhoanGiaoHang`, `camKetThoaThuan`) và một nhánh RIÊNG
+   * `dieuKienThuongMai` cho 4 trường của chứng từ giá. Xem `ThayDoiDonHang` và
+   * `DieuKienThuongMaiPO` để hiểu vì sao nhánh đó phải đứng riêng chứ không nhét vào `gia`.
+   *
+   * 🔴 ĐỔI CHIẾT KHẤU HOẶC THUẾ SUẤT CHUNG THÌ BẮT LÝ DO, kể cả người có `suaPODaChot` (Sếp
+   * 15/09/2026: *"Có, bắt ghi lý do"*) — hai thứ đó đổi số tiền phải trả nhà cung cấp.
    *
    * 🔴 QUYỀN: dùng LẠI `quyen.suaPODaChot` (Trưởng bộ phận cấp 3+ / quản trị — "người giao việc
    * xuống"), không sinh cờ quyền mới. Người phụ trách trực tiếp đơn (`po.nguoiPhuTrachUid`) cũng
@@ -2611,10 +3372,43 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const doiNCC =
         (thayDoi.supplierId !== undefined && thayDoi.supplierId !== po.supplierId) ||
         (thayDoi.supplierTen !== undefined && thayDoi.supplierTen !== po.supplierTen);
-      const batBuocLyDo = !laQuanLy || doiNgayGiao || doiNCC;
+      /**
+       * ★★★ ĐIỀU KIỆN THƯƠNG MẠI — dựng mốc SỚM vì cờ `doiTien` quyết định có bắt lý do hay không
+       * (Sếp 15/09/2026: *"Có, bắt ghi lý do"* cho chiết khấu và thuế suất).
+       *
+       * 🔴 CHỈ CHIẾT KHẤU VÀ THUẾ SUẤT BẮT LÝ DO, không phải cả bốn trường. Hai thứ đó đổi **số
+       * tiền phải trả nhà cung cấp**; loại tiền và điều khoản thanh toán thì không. Bắt lý do cho
+       * cả bốn là biến một chốt có nghĩa thành thủ tục — rồi người ta gõ "sửa" cho xong, và lần
+       * sửa tiền thật cũng chỉ còn chữ "sửa".
+       *
+       * 📌 Luật ở `mocSuaDieuKienThuongMai` (hàm thuần, đầu tệp) nên `kiem-luat-dung-chung.mjs`
+       * gọi thẳng được — cùng lý do đã ghi cho `vuongMacSuaDongPOTheoDeNghi`.
+       */
+      const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
+      const mocTM =
+        thayDoi.dieuKienThuongMai === undefined
+          ? { chung: [], rieng: [], doiTien: false }
+          : mocSuaDieuKienThuongMai(
+              {
+                loaiTien: giaCu?.loaiTien,
+                dieuKhoanThanhToan: giaCu?.dieuKhoanThanhToan,
+                thueSuatGTGT: giaCu?.thueSuatGTGT,
+                kieuChietKhau: giaCu?.kieuChietKhau,
+                chietKhau: giaCu?.chietKhau,
+                tyLeChietKhau: giaCu?.tyLeChietKhau,
+              },
+              thayDoi.dieuKienThuongMai,
+            );
+
+      const batBuocLyDo = !laQuanLy || doiNgayGiao || doiNCC || mocTM.doiTien;
       if (batBuocLyDo && lyDo.trim() === "") {
         if (doiNgayGiao) return "Đổi ngày giao phải ghi lý do, dù là ai sửa.";
         if (doiNCC) return "Đổi nhà cung cấp phải ghi lý do, dù là ai sửa.";
+        /* 🔴 NÓI ĐÚNG THỨ VỪA ĐỔI, đừng gộp thành một câu chung: người sửa cần biết chính cái ô
+           nào đang đòi lý do, nếu không họ đi tìm khắp form. */
+        if (mocTM.doiTien) {
+          return "Đổi chiết khấu hoặc thuế suất chung là đổi số tiền của đơn — phải ghi lý do, dù là ai sửa.";
+        }
         return "Bạn không phải Trưởng bộ phận/quản trị — sửa đơn hàng phải ghi lý do.";
       }
 
@@ -2708,6 +3502,52 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       soSanh("Ghi chú", po.ghiChu, thayDoi.ghiChu);
       soSanh("Điều khoản khác", po.dieuKhoanKhac, thayDoi.dieuKhoanKhac);
       soSanh("Tham chiếu", po.thamChieu, thayDoi.thamChieu);
+      /* ───────── MỞ 15/09/2026 · Nhóm A — xem chú thích ở `ThayDoiDonHang` ─────────
+         🔴 MỞ MỘT Ô THÌ PHẢI THÊM MỘT DÒNG Ở ĐÂY. Danh sách `moc` vừa là nhật ký vừa là phép so
+         "có gì đổi không" (`moc.length === 0` → `MA_KHONG_CO_THAY_DOI`). Quên một dòng là ô đó
+         **im lặng không được lưu** trong khi toast vẫn xanh — đúng bẫy ngủ đã ghi ở
+         `MA_KHONG_CO_THAY_DOI`. */
+      soSanh("Theo hợp đồng", po.ghiChuHopDongNCC, thayDoi.ghiChuHopDongNCC);
+      soSanh("Tên công trình", po.tenCongTrinh, thayDoi.tenCongTrinh);
+      soSanh("Số hợp đồng CĐT", po.maHopDongCDT, thayDoi.maHopDongCDT);
+      /**
+       * 🔴 HAI Ô "BẢN CHUẨN / BẢN RIÊNG" ĐI RIÊNG, KHÔNG DÙNG `soSanh` — ba trạng thái chứ không
+       * phải hai (xem `ThayDoiDonHang.dieuKhoanGiaoHang`). `soSanh` sẽ ghi *"trống → <cả đoạn văn
+       * 9 dòng>"*, làm người đọc nhật ký tưởng trước đó tờ đơn không có khối điều khoản nào —
+       * trong khi nó vẫn in đủ bằng bản chuẩn. Và câu đó còn dài tới mức nuốt cả dòng nhật ký.
+       */
+      const soSanhBanRieng = (
+        nhan: string,
+        cu: string | null | undefined,
+        moi: string | null | undefined,
+      ) => {
+        if (moi === undefined) return;
+        const a = cu ?? null;
+        if ((a ?? "") === (moi ?? "")) return;
+        moc.push(
+          a !== null && moi !== null
+            ? `${nhan}: sửa lại nội dung bản riêng của đơn`
+            : moi === null
+              ? `${nhan}: bản riêng của đơn → bản chuẩn`
+              : `${nhan}: bản chuẩn → bản riêng của đơn`,
+        );
+      };
+      soSanhBanRieng(
+        "Phương thức giao hàng",
+        po.dieuKhoanGiaoHang,
+        thayDoi.dieuKhoanGiaoHang,
+      );
+      /* 🔴 Ghi NHÃN TIẾNG VIỆT chứ không ghi mã thô: nhật ký "thoa_thuan → theo_hop_dong" thì
+         người tra hồ sơ năm sau không biết đó là mẫu gì. Đơn cũ chưa có `mauPO` thì mặc định là
+         *Thoả thuận mua bán* — đúng giá trị khởi tạo của form. */
+      const mauCu = po.mauPO ?? "thoa_thuan";
+      if (thayDoi.mauPO !== undefined && thayDoi.mauPO !== mauCu) {
+        moc.push(`Mẫu in đơn: ${NHAN_MAU_PO[mauCu].nhan} → ${NHAN_MAU_PO[thayDoi.mauPO].nhan}`);
+      }
+      soSanhBanRieng("Cam kết cuối tờ", po.camKetThoaThuan, thayDoi.camKetThoaThuan);
+      /* Điều kiện thương mại: chỉ phần `chung` (KHÔNG con số) vào nhật ký đề nghị. Con số đi vào
+         sổ của chứng từ giá bên dưới — xem `mocSuaDieuKienThuongMai`. */
+      moc.push(...mocTM.chung);
       /**
        * 🔴 GHI CẢ HAI ĐẦU CỦA KHOẢNG GIAO HÀNG — sửa 15/09/2026.
        *
@@ -2754,7 +3594,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         moc.push(...mocSuaBangMatHang(po.items, thayDoi.items));
       }
 
-      const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
+      /* 📌 `giaCu` đã đọc ở đầu hàm (khối "ĐIỀU KIỆN THƯƠNG MẠI") vì cờ `doiTien` cần nó để quyết
+         có bắt lý do hay không. Đọc lại lần thứ hai ở đây là hai biến cùng trỏ một thứ, rồi ai đó
+         sửa một chỗ quên chỗ kia. */
       /**
        * 🔴 ĐƠN GIÁ ĐI HAI SỔ, CON SỐ CHỈ VÀO SỔ CỦA CHỨNG TỪ GIÁ — xem `mocSuaDonGia`.
        * `moc` ở đây chảy vào `ghiNhatKyDonHang`, mà hàm đó đẩy sang nhật ký ĐỀ NGHỊ khi đơn có
@@ -2799,9 +3641,64 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           if (thayDoi.supplierId !== undefined) sau.supplierId = thayDoi.supplierId;
           if (thayDoi.supplierTen !== undefined) sau.supplierTen = thayDoi.supplierTen;
           if (thayDoi.items !== undefined) sau.items = thayDoi.items;
+          /* ── MỞ 15/09/2026 · Nhóm A ── */
+          if (thayDoi.mauPO !== undefined) sau.mauPO = thayDoi.mauPO;
+          if (thayDoi.ghiChuHopDongNCC !== undefined) sau.ghiChuHopDongNCC = thayDoi.ghiChuHopDongNCC || undefined;
+          if (thayDoi.tenCongTrinh !== undefined) sau.tenCongTrinh = thayDoi.tenCongTrinh || undefined;
+          if (thayDoi.maHopDongCDT !== undefined) sau.maHopDongCDT = thayDoi.maHopDongCDT || undefined;
+          /* 🔴 HAI Ô NÀY DÙNG `?? undefined`, TUYỆT ĐỐI KHÔNG `|| undefined` như các ô trên.
+             Chúng có BA trạng thái: `null` = về bản chuẩn → ghi `undefined`; `""` = người lập cố ý
+             bỏ hẳn khối → phải ghi `""` và giữ nguyên. `|| undefined` gộp `""` vào `null`, tức
+             **không bao giờ bỏ được khối điều khoản** — tờ in lại mọc lại bản chuẩn. */
+          if (thayDoi.dieuKhoanGiaoHang !== undefined) {
+            sau.dieuKhoanGiaoHang = thayDoi.dieuKhoanGiaoHang ?? undefined;
+          }
+          if (thayDoi.camKetThoaThuan !== undefined) {
+            sau.camKetThoaThuan = thayDoi.camKetThoaThuan ?? undefined;
+          }
           return sau;
         }),
       );
+      /**
+       * ★★★ ĐIỀU KIỆN THƯƠNG MẠI — NHÁNH GHI RIÊNG, ĐỨNG NGOÀI `thayDoi.gia` (Sếp 15/09/2026).
+       *
+       * 🔴 CỐ Ý KHÔNG GỘP VỚI KHỐI `if (thayDoi.gia)` NGAY DƯỚI. Khối đó bị chốt
+       * `po.xacNhanTruongBP` chặn từ đầu hàm (*"không sửa giá được nữa"*) — chốt ấy nói về ĐƠN GIÁ
+       * TỪNG DÒNG, con số mà công nợ đã tính theo. Gộp vào là đơn đã xác nhận thì đổi một chữ ở ô
+       * Loại tiền cũng không nổi: nới một luật cũ thành khoá cứng một việc khác.
+       *
+       * 🔴 CON SỐ CHỈ VÀO SỔ CỦA CHỨNG TỪ GIÁ (`lichSuDieuKhoanCongNo`), KHÔNG vào nhật ký đề nghị
+       * — phần `chung` (không con số) đã được đẩy vào `moc` ở trên. Cùng luật với `mocSuaDonGia`
+       * và `datDieuKhoanCongNo`; xem `mocSuaDieuKienThuongMai`.
+       */
+      if (thayDoi.dieuKienThuongMai && mocTM.rieng.length > 0) {
+        const tm = thayDoi.dieuKienThuongMai;
+        const mocTMRieng: MocLichSu[] = mocTM.rieng.map((cau) => ({
+          thoiDiem: thoiDiemHienTai(),
+          nguoiThucHien: nguoiDung.tenHienThi,
+          hanhDong: `Sửa đơn hàng ${po.code} — ${cau}`,
+        }));
+        setGiaDonHang((truoc) =>
+          truoc.map((g) =>
+            g.poId === poId
+              ? {
+                  ...g,
+                  /* 🔴 GÁN THẲNG, KHÔNG `?? g.x`. Nhánh này nhận BỘ ĐẦY ĐỦ (xem
+                     `mocSuaDieuKienThuongMai`): `undefined` ở đây nghĩa là *người dùng đã xoá
+                     trắng ô*, không phải "không đụng tới". Viết `tm.thueSuatGTGT ?? g.thueSuatGTGT`
+                     là **không bao giờ xoá được** mức thuế của một đơn đã đặt nhầm. */
+                  loaiTien: tm.loaiTien,
+                  dieuKhoanThanhToan: tm.dieuKhoanThanhToan,
+                  thueSuatGTGT: tm.thueSuatGTGT,
+                  kieuChietKhau: tm.kieuChietKhau,
+                  chietKhau: tm.chietKhau,
+                  tyLeChietKhau: tm.tyLeChietKhau,
+                  lichSuDieuKhoanCongNo: [...(g.lichSuDieuKhoanCongNo ?? []), ...mocTMRieng],
+                }
+              : g,
+          ),
+        );
+      }
       if (thayDoi.gia) {
         /* 🔴 GHI CON SỐ CŨ → MỚI VÀO SỔ CỦA CHÍNH CHỨNG TỪ GIÁ, không vào nhật ký đề nghị.
            `lichSuDieuKhoanCongNo` là sổ lịch sử của `GiaDonDatHang` — cùng document với đơn giá,
@@ -7016,6 +7913,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauDaDocThongBao,
       xoaDuLieuChayThu,
       trangThaiKhoChung,
+      banGhiChuaLenKhoChung,
     }),
     [
       nhaCungCapThem,
@@ -7088,6 +7986,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       danhDauDaDocThongBao,
       xoaDuLieuChayThu,
       trangThaiKhoChung,
+      banGhiChuaLenKhoChung,
     ],
   );
 

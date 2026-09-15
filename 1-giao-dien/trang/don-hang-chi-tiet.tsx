@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
-import { AlertTriangle, BadgeCheck, FileWarning, Info, Lock, Printer } from "lucide-react";
+import { AlertTriangle, BadgeCheck, FileWarning, Info, Loader2, Lock, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -17,6 +17,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocXacNhanNhanDuHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
+import { laPOCuaHoSoPhongBan } from "@/5-ket-noi/gui-po-qlk-ctr";
 import {
   poDaGiaoDu,
   tinhTienDonHang,
@@ -34,8 +35,16 @@ import { HopSuaDonHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-don-ha
 
 export default function TrangChiTietDonHang() {
   const params = useParams<{ id: string }>();
-  const { donHang, phieuNhan, giaDonHang, deNghi, xacNhanKho, xacNhanTruongBP, chotDonNhap } =
-    useDuLieu();
+  const {
+    donHang,
+    phieuNhan,
+    giaDonHang,
+    deNghi,
+    xacNhanKho,
+    xacNhanTruongBP,
+    chotDonNhap,
+    banGhiChuaLenKhoChung,
+  } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   const po = donHang.find((x) => x.id === params.id);
@@ -77,8 +86,34 @@ export default function TrangChiTietDonHang() {
   /** Còn phiếu nào chưa đính kèm phiếu giao nhận không — luật ở `2-quy-trinh/tinh-toan.ts`. */
   const vuongMacTep = vuongMacXacNhanKho(phieuCuaPO);
 
+  /**
+   * ★★ ③ THÔI NÓI DỐI KHI KHÔNG TÌM THẤY ĐƠN — sự cố mất đơn 15/09/2026 (Sếp báo 19:33).
+   *
+   * 🔴 ĐÂY LÀ DÒNG CHỮ SẾP ĐỌC ĐƯỢC TỐI 15/09. Sếp lập đơn, app sinh id
+   * `po-b1e884d9-0c60-490a-a8da-c4f84da64d8e`, điều hướng sang đây → *"Đơn hàng này không tồn tại
+   * hoặc bạn không có quyền xem"*. **Cả hai vế đều sai**: đơn vừa được lập xong, và quyền thì
+   * không liên quan gì (bản chạy thử chưa lọc đơn theo người xem ở màn này). Sự thật lúc đó là
+   * *đơn chưa lên tới kho chung, và ảnh chụp từ máy khác vừa xoá nó khỏi màn hình*.
+   *
+   * Nói sai kiểu này tốn hơn là im lặng: người dùng tin đơn **không tồn tại** nên đi lập lại từ
+   * đầu, trong khi cái cần làm là chờ thêm vài giây hoặc báo IT. Đúng thứ CLAUDE.md §3.5 cấm —
+   * *"đừng để giao diện hứa một việc app không làm"*, ở đây là chiều ngược lại: đừng để giao diện
+   * kết luận một việc app không hề biết.
+   *
+   * 📌 `banGhiChuaLenKhoChung` do `3-du-lieu/kho-du-lieu.tsx` phát ra, luật ở
+   * `2-quy-trinh/giu-ban-ghi-moi.ts`. Id còn trong đó = máy này vừa tạo bản ghi và **chưa thấy nó
+   * trên kho chung** ⇒ đang đồng bộ, KHÔNG phải không tồn tại.
+   */
+  const dangDongBo = banGhiChuaLenKhoChung.has(params.id);
+
   if (!po) {
-    return (
+    return dangDongBo ? (
+      <EmptyState
+        icon={Loader2}
+        title="Đang lưu đơn đặt hàng lên kho chung…"
+        description="Đơn này vừa được lập trên máy bạn và chưa lên tới kho dữ liệu chung của cả phòng. App đang tự thử lại — giữ nguyên trang này thêm một lát. Nếu quá lâu, báo IT trước khi lập lại đơn: lập lại có thể sinh hai đơn trùng."
+      />
+    ) : (
       <EmptyState
         icon={FileWarning}
         title="Không tìm thấy đơn đặt hàng"
@@ -88,6 +123,24 @@ export default function TrangChiTietDonHang() {
   }
 
   const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
+
+  /**
+   * ★★ ĐƠN NÀY CÓ THUỘC HỒ SƠ PHÒNG BAN KHÔNG — xét Ở TẦNG PO (15/09/2026, tối, Sếp).
+   *
+   * 🔴 KHÁC `hoSoPhongBan` Ở TRÊN, VÀ KHÁC CÓ CHỦ Ý — đừng gộp hai biến này lại:
+   *   · `hoSoPhongBan` (dòng ~68) chỉ hỏi ĐỀ NGHỊ NGUỒN. Đơn chưa gắn đề nghị → `false`. Đúng cho
+   *     việc nó đang làm: nới quyền bấm "Kho xác nhận nhận đủ hàng", mà nới quyền thì thiếu thông
+   *     tin phải cho mức thấp nhất (CLAUDE.md §3.6c).
+   *   · Biến này hỏi ĐƠN. Đơn độc lập (`!po.prId`) không có đề nghị nào để tra, nên phải suy từ
+   *     `po.maHopDongCDT` y hệt nơi gửi — nếu không, đơn độc lập của phòng ban vẫn bày dải cảnh
+   *     báo sai. Ở đây KHÔNG nới quyền gì cả, chỉ quyết định có bày một dòng cảnh báo hay không.
+   *
+   * 🔴 GỌI ĐÚNG HÀM CỦA NƠI GỬI (`laPOCuaHoSoPhongBan`, `5-ket-noi/gui-po-qlk-ctr.ts`) — một phép
+   * nhận diện duy nhất. Chép lại phép so sánh ở đây là mở đường cho màn hình và đường gửi nói hai
+   * điều khác nhau về cùng một đơn, đúng cái sai Sếp vừa báo.
+   */
+  const poThuocHoSoPhongBan = laPOCuaHoSoPhongBan(po, deNghiNguon);
+
   const daGiaoDu = poDaGiaoDu(tienDo);
   const tien = tinhTienDonHang(po, gia);
 
@@ -219,8 +272,32 @@ export default function TrangChiTietDonHang() {
           và người bấm sẽ tưởng phải bấm thì mới gửi, trong khi app vẫn đang tự thử.
 
           ⚠️ Đặt NGAY DƯỚI tiêu đề, trên mọi khối nội dung: đây là thứ phải đọc trước khi tin
-          vào bảng tiến độ nhận hàng bên dưới. */}
-      {po.qlkCtrSyncStatus === "failed" && (
+          vào bảng tiến độ nhận hàng bên dưới.
+
+          🔴🔴 KHÔNG BAO GIỜ HIỆN VỚI HỒ SƠ PHÒNG BAN — Sếp 15/09/2026, nguyên văn: *"Đề xuất từ
+          phòng ban thì ko cần gửi sang app kho, nên e bỏ phần ghi chú này và điều chỉnh lại phần
+          code của phòng ban"*. Sếp gửi ảnh đơn DMH260007 (đề nghị *"2. Phòng Pháp lý (HP Cons)"*)
+          đang bày nguyên dải vàng này.
+
+          🔴 GÁC THEO LOẠI HỒ SƠ, KHÔNG GÁC THEO TRƯỜNG TRẠNG THÁI — cố ý, và đây là điểm dễ làm
+          sai nhất ở chỗ này. `qlkCtrSyncStatus: "failed"` của các PO phòng ban đã bị GHI VÀO DỮ
+          LIỆU CHUNG từ trước lúc có chốt phòng ban (15/09/2026); trường đó **vẫn còn nguyên giá
+          trị `"failed"`** trên kho chung và app không tự dọn (dọn dữ liệu chung của cả phòng phải
+          xin phép Sếp). Nếu gác bằng cách đợi trường đó sạch thì dải cảnh báo còn hiện mãi.
+
+          🔴 VÀ KHÔNG THAY BẰNG MỘT CÂU KHÁC. Đã cân nhắc hiện một dòng trung tính kiểu "hồ sơ
+          phòng ban nên không gửi sang app Kho" — bỏ, vì Sếp nói thẳng *"bỏ phần ghi chú này"*, và
+          vì với hồ sơ phòng ban thì việc KHÔNG gửi là đường đi bình thường, không có gì phải báo.
+          Nhánh phòng ban đã tự giải thích ở đúng chỗ cần (nút xác nhận nhận hàng, xem
+          `LY_DO_NHANH_PHONG_BAN`), nói lại ở đây chỉ thêm nhiễu.
+
+          ⚠️ CÂU CHỮ BÊN TRONG SAI HẲN VỚI PHÒNG BAN, nên không có cách nào "sửa lời cho nhẹ đi":
+          *"Chưa gửi được"* (app không hề gửi, và không nên gửi) · *"App tự gửi lại mỗi lần mở hoặc
+          tải lại trang"* (từ 15/09 vòng tự đồng bộ bỏ qua hẳn PO phòng ban — xem chốt ⓿ trong
+          `3-du-lieu/kho-du-lieu.tsx`) · *"báo bộ phận phụ trách tích hợp"* (không có gì để báo).
+          Để lại là đúng lỗi §3.5 CLAUDE.md, chỉ ở chiều thứ ba: giao diện BÁO ĐỘNG về một việc
+          app cố ý không làm. */}
+      {po.qlkCtrSyncStatus === "failed" && !poThuocHoSoPhongBan && (
         <div className="flex items-start gap-3 rounded-xl border border-warning bg-warning-bg p-(--hp-md-row-pad)">
           <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning-soft" aria-hidden />
           <div className="flex flex-col gap-1.5">
@@ -261,21 +338,18 @@ export default function TrangChiTietDonHang() {
       {/* =====================================================================
           ★★ ĐƠN CỦA HỒ SƠ PHÒNG BAN — KHÔNG CÓ VIỆC GÌ Ở APP KHO (15/09/2026)
           =====================================================================
-          Sếp nguyên văn: *"nếu làm đề nghị là chọn theo phòng ban thì k có chạy về app kho vì
-          phòng ban không có kho riêng… thu mua tự đánh vào phiếu tiến độ giao hàng và tự cập
-          nhật phiếu giao hàng là done"*.
+          📌 KHỐI NÀY LÀ CODE CỦA PHIÊN TÍCH HỢP APP TỔNG (commit `0019977`), lấy nguyên văn về khi
+          hợp nhất 15/09/2026 — xin đừng sửa lời mà không hỏi họ.
 
-          🔴 VÌ SAO PHẢI NÓI RA CHỨ KHÔNG IM LẶNG: khối cảnh báo ngay phía trên dạy người dùng
-          rằng "không thấy đơn bên app Kho là có chuyện". Với hồ sơ phòng ban thì KHÔNG hề có
-          chuyện gì — nhưng nếu màn này không nói gì cả, người dùng tự suy theo nếp cũ rồi đi
-          hỏi. Nói rõ ngay tại chỗ là cách rẻ nhất chặn hiểu nhầm đó (cùng lý lẽ với
-          `LY_DO_NHANH_PHONG_BAN`).
-
-          🔴 MÀU TRUNG TÍNH, KHÔNG PHẢI VÀNG/ĐỎ: đây là thông tin, không phải cảnh báo. Dùng màu
-          cảnh báo cho một việc bình thường là làm hỏng ý nghĩa của màu cảnh báo ở mọi chỗ khác.
-
-          📌 Không có nút gửi lại, và cố ý không có: gửi sang app Kho là việc KHÔNG áp dụng cho
-          hồ sơ này, không phải việc đang chờ làm. */}
+          🔴 QUAN HỆ VỚI KHỐI CẢNH BÁO VÀNG NGAY PHÍA TRÊN — hai khối này KHÔNG chồng nhau, và cũng
+          không thừa cái nào. Đọc kỹ trước khi gộp lại:
+            · Khối vàng chạy khi `qlkCtrSyncStatus === "failed"` **và** đơn KHÔNG thuộc hồ sơ phòng
+              ban (`!poThuocHoSoPhongBan`). Cái gác đó là của phiên nghiệp vụ, thêm cùng ngày, và
+              vẫn cần: PO phòng ban ĐỘC LẬP (không có `prId`) không đi qua vòng dọn dấu ở
+              `3-du-lieu/kho-du-lieu.tsx`, nên có thể còn mang `"failed"` rất lâu. Bỏ gác đó là dải
+              vàng hiện lại đúng chỗ Sếp đã bảo bỏ.
+            · Khối này chạy khi trạng thái đã được vòng dọn ghi lại thành `"khong_ap_dung"`.
+          Hai điều kiện loại trừ nhau, nên không bao giờ hiện cùng lúc. */}
       {po.qlkCtrSyncStatus === "khong_ap_dung" && (
         <div className="flex items-start gap-3 rounded-xl border border-border bg-muted p-(--hp-md-row-pad)">
           <Info className="mt-0.5 size-5 shrink-0 text-text-desc" aria-hidden />

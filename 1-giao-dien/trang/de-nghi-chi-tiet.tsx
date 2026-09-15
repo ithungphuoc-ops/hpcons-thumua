@@ -3165,115 +3165,124 @@ export default function TrangChiTietDeNghi({
                         26/08/2026: *"Tạo thêm 1 trường Kết quả. Sẽ được link kết quả từ các bước
                         trên"*).
 
-                        ★★ Sếp 15/09/2026 (*"đang bị trùng lặp bộ hồ sơ đầy đủ của thanh toán"*):
-                        khối này THÔI liệt kê bốn chứng từ có ô nộp ở cụm bên dưới (hợp đồng · hóa
-                        đơn VAT · ủy nhiệm chi · phiếu chi), chỉ còn gom thứ đến từ bước khác.
+                        ★★★ Sếp 15/09/2026 (LƯỢT THỨ TƯ TRONG NGÀY): ***"Bố cục lại này theo đúng
+                        thứ tự a đã cung cấp, sao e làm nó lộn xộn vậy"***.
 
-                        🔴 ĐÃ ĐƯA LÊN TRƯỚC BỐN Ô NỘP TỆP — Sếp 15/09/2026: *"Đưa dữ liệu này lên,
-                        bỏ nút thu gọn đi. Bố cục lại"*.
-                        LÝ DO NGHIỆP VỤ (đọc trước, làm sau): người làm hồ sơ thanh toán cần XEM
-                        chứng từ đã gom được từ các bước trước rồi mới biết còn phải nộp thêm gì.
-                        Để khối này ở cuối là bắt họ cuộn qua hết phần việc mới thấy phần tham
-                        chiếu — tức tra cứu xong thì đã làm xong rồi.
-                        👉 Đổi lại thứ tự hai cụm thì PHẢI sửa cả câu *"nộp ở các ô đính kèm ngay
-                        phía dưới"* trong `khoi-bo-ho-so-thanh-toan.tsx`, nếu không câu đó chỉ sai
-                        hướng và người dùng cuộn ngược tìm mãi không thấy.
+                        🔴 CHỖ ĐÃ LÀM SAI — ĐỌC ĐỂ KHÔNG DỰNG LẠI: Sếp đưa MỘT danh sách liền mạch.
+                        Bản trước bẻ làm hai cụm — khối bộ hồ sơ bày 1 · 2 · 4 · 5, rồi BỐN ô nộp
+                        tệp (Hợp đồng · Hóa đơn VAT · Ủy nhiệm chi · Phiếu chi) đứng RỜI ngay dưới
+                        đây, không mang số nào. Trên màn hình số nhảy cóc rồi cụt.
 
-                        🔴 BỐN Ô NỘP TỆP BÊN DƯỚI PHẢI Ở LẠI — khối này CHỈ ĐỌC, không có đường
-                        đính kèm nào. Bỏ ô nộp để giữ phần liệt kê là mất hẳn đường nộp tệp; riêng
-                        *Phiếu chi* thì ô ở bước ⑧ là chỗ duy nhất trong cả app (§3.4b).
+                        ✅ NAY BỐN Ô NỘP ĐÓ ĐI VÀO ĐÚNG DÒNG SỐ CỦA CHÚNG, truyền xuống qua
+                        `oNopTheoMuc`. Chúng **KHÔNG BỊ BỎ**, chỉ đổi chỗ đứng — mọi prop (quyền,
+                        khóa, tệp đã có, nhãn Bắt buộc/Nếu có) giữ nguyên từng chữ.
+                        🔴 Riêng *Phiếu chi* thì đây là chỗ nộp DUY NHẤT trong cả app (§3.4b) — bỏ
+                        nó khỏi bảng này là chức năng mồ côi.
 
-                        📌 ĐƯỜNG KẺ NGĂN CÁCH nay là `border-b` + `pb-3` (trước là `border-t` +
-                        `pt-3`): vẫn một vạch giữa hai cụm, chỉ đổi bên cho đúng vị trí mới. Đừng
-                        để lại một `border-t` mồ côi ở chỗ cũ.
+                        📌 Kiểu của `oNopTheoMuc` là `Record` ĐẦY ĐỦ, nên thiếu một ô là không biên
+                        dịch được. Đừng hạ xuống `Partial` cho "dễ sửa".
 
-                        Lý do và phép đo đầy đủ ở khối chú thích đầu
-                        `thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan.tsx`. */}
-                    <div className="border-b border-divider pb-3">
-                      <KhoiBoHoSoThanhToan
-                        deNghi={dn}
-                        poCuaDeNghi={poLienQuan}
-                        phieuCuaDeNghi={phieuLienQuan}
-                        baoGiaCuaDeNghi={baoGiaLienQuan}
-                        xemGia={quyen.xemGia}
-                      />
-                    </div>
+                        📌 ĐÃ BỎ `<div className="border-b border-divider pb-3">` bọc ngoài: vạch
+                        ấy sinh ra để ngăn hai cụm, mà nay chỉ còn MỘT cụm. Đừng để lại vạch mồ côi.
 
-                    {/**
-                      * ★★ Ô ĐÍNH KÈM HỢP ĐỒNG NGAY TẠI TRẠM CUỐI — Sếp 14/09/2026: *"2 loại này đều
-                      * phải đính kèm hợp đồng… E chỉ cần tạo nút đính kèm HĐ bắt buộc là được"*.
-                      *
-                      * 🔴 VÌ SAO PHẢI CÓ Ô Ở ĐÂY, KHÔNG CHỈ THÊM ĐIỀU KIỆN CHẶN: từ 14/09 thiếu tệp
-                      * hợp đồng là nút "Hoàn thành quy trình" khoá (`vuongMacHoanThanhQuyTrinh`). Mà
-                      * ô hợp đồng vốn chỉ nằm ở khối bước ④ và ⑤ — người đứng ở bước ⑦ đọc câu
-                      * "chưa đính kèm Hợp đồng" rồi phải tự mò ngược hai khối mới thấy chỗ đính.
-                      * Câu chặn đã hứa *"đính kèm ngay ở ô Hợp đồng trong khối này"*, nên ô phải có
-                      * thật — không thì lại đúng lỗi giao diện hứa việc app không làm (§3.5).
-                      *
-                      * 🔴 GHI VÀO ĐÚNG MỘT CHỖ với hai ô kia: cùng `BUOC_DINH_KEM_HOP_DONG` +
-                      * `NHAN_TEP_HOP_DONG`. Đính ở đây thì bước ④/⑤ thấy ngay và ngược lại — đây là
-                      * ô THỨ BA cùng nhìn vào một tệp, KHÔNG phải một tệp mới.
-                      *
-                      * 🔴 `tepDaCo` phải là `tepHopDongSuaDuoc` (chỉ khóa canonical), KHÔNG phải
-                      * `tepHopDong` (gộp cả khóa cũ `dat_hang`) — cùng lý do đã ghi ở ô bước ⑤: hộp
-                      * xoá tệp theo `maGiaiDoan` cố định, bày tệp mồ côi khóa cũ ra đây thì bấm xoá
-                      * sẽ tìm nhầm khóa và báo sai "tệp không còn trong hồ sơ".
-                      *
-                      * ⚠️ QUYỀN — CHỖ NÀY CÓ THỂ THÀNH NGÕ CỤT NẾU AI ĐÓ TÁCH HAI CỜ QUYỀN RA:
-                      * khối này chỉ hiện cho `quyen.xacNhanTruongBP`, còn ô sửa được hay không thì
-                      * do `duocSuaHopDong` (= `phanBoCongViec` từ bước ⑤ trở đi). Nay hai cờ có
-                      * CÙNG điều kiện (`laQuanTri || (laTruongBP && capTM >= 3)`, xem
-                      * `4-phan-quyen/quyen.ts:212` và `:224`) nên ai thấy nút cũng đính được.
-                      * 👉 Ngày nào tách hai cờ đó ra thì phải quay lại đây: sẽ có người nhìn thấy
-                      * nút khoá, thấy ô hợp đồng, mà không đính được — và không có gì báo.
-                      */}
-                    <OChungTuBatBuoc
+                        📌 Khối vẫn đứng TRƯỚC nút "Hoàn thành quy trình" ở cuối — thứ tự
+                        đọc → làm → đóng hồ sơ giữ nguyên như chỉ đạo 15/09/2026 buổi trước. */}
+                    <KhoiBoHoSoThanhToan
                       deNghi={dn}
-                      maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
-                      nhanO={NHAN_TEP_HOP_DONG}
-                      tieuDe={TEN_HIEN_HOP_DONG}
-                      moTa="Bản hợp đồng / thoả thuận đã ký với nhà cung cấp. BẮT BUỘC phải có mới đóng được hồ sơ — kể cả đơn dùng mẫu PO-02 (Sếp 14/09/2026). Đính ở đây thì bước ④ và ⑤ cũng thấy ngay, cùng một tệp."
-                      batBuoc
-                      duocSua={duocSuaHopDong}
-                      khoa={hoSoDaDong}
-                      tepDaCo={tepHopDongSuaDuoc(dn)}
-                    />
-                    <OChungTuBatBuoc
-                      deNghi={dn}
-                      maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
-                      nhanO={NHAN_TEP_HOA_DON_VAT}
-                      tieuDe="Hóa đơn VAT"
-                      moTa="Hóa đơn GTGT nhà cung cấp xuất cho đơn hàng này. Bắt buộc phải có mới duyệt hoàn thành được. Đơn tách cho nhiều nhà cung cấp thì thêm từng bản."
-                      batBuoc
-                      duocSua={duocSuaTepBuoc}
-                      khoa={hoSoDaDong}
-                      tepDaCo={tepHoaDonVAT(dn)}
-                    />
-                    <OChungTuBatBuoc
-                      deNghi={dn}
-                      maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
-                      nhanO={NHAN_TEP_UNC}
-                      tieuDe="Ủy nhiệm chi"
-                      /* 🔴 CÂU CŨ GHI *"chỉ cần tích xong việc của bước này"* — đã sửa 15/09/2026 vì
-                         cái tích đó không còn tồn tại (Sếp bỏ). Để nguyên là chỉ người dùng đi làm
-                         một việc không có chỗ nào làm được — đúng lỗi CLAUDE.md §3.5. */
-                      moTa="Đơn nào cần chuyển khoản qua ngân hàng thì đính kèm ủy nhiệm chi. Đơn trả tiền ngay thì để trống — ô này không bắt buộc."
-                      duocSua={duocSuaTepBuoc}
-                      khoa={hoSoDaDong}
-                      tepDaCo={tepUNC(dn)}
-                    />
-                    {/* ★★ PHIẾU CHI — mục 7 của bộ hồ sơ thanh toán (Ban lãnh đạo 26/08/2026).
-                        📌 TÙY CHỌN đúng chữ Sếp *"(Nếu có)"*: đơn trả qua ngân hàng thì chứng từ
-                        là ủy nhiệm chi ở trên, phiếu chi là của khoản trả bằng tiền mặt. */}
-                    <OChungTuBatBuoc
-                      deNghi={dn}
-                      maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
-                      nhanO={NHAN_TEP_PHIEU_CHI}
-                      tieuDe="Phiếu chi"
-                      moTa="Phiếu chi của khoản trả bằng tiền mặt. Đơn chuyển khoản thì để trống — chứng từ là ủy nhiệm chi ở trên."
-                      duocSua={duocSuaTepBuoc}
-                      khoa={hoSoDaDong}
-                      tepDaCo={tepPhieuChi(dn)}
+                      poCuaDeNghi={poLienQuan}
+                      phieuCuaDeNghi={phieuLienQuan}
+                      baoGiaCuaDeNghi={baoGiaLienQuan}
+                      xemGia={quyen.xemGia}
+                      oNopTheoMuc={{
+                        /**
+                         * ★★ Ô ĐÍNH KÈM HỢP ĐỒNG NGAY TẠI TRẠM CUỐI — Sếp 14/09/2026: *"2 loại này
+                         * đều phải đính kèm hợp đồng… E chỉ cần tạo nút đính kèm HĐ bắt buộc là
+                         * được"*.
+                         *
+                         * 🔴 VÌ SAO PHẢI CÓ Ô Ở ĐÂY, KHÔNG CHỈ THÊM ĐIỀU KIỆN CHẶN: từ 14/09 thiếu
+                         * tệp hợp đồng là nút "Hoàn thành quy trình" khoá
+                         * (`vuongMacHoanThanhQuyTrinh`). Mà ô hợp đồng vốn chỉ nằm ở khối bước ④ và
+                         * ⑤ — người đứng ở bước ⑦ đọc câu "chưa đính kèm Hợp đồng" rồi phải tự mò
+                         * ngược hai khối mới thấy chỗ đính. Câu chặn đã hứa *"đính kèm ngay ở ô Hợp
+                         * đồng trong khối này"*, nên ô phải có thật — không thì lại đúng lỗi giao
+                         * diện hứa việc app không làm (§3.5).
+                         *
+                         * 🔴 GHI VÀO ĐÚNG MỘT CHỖ với hai ô kia: cùng `BUOC_DINH_KEM_HOP_DONG` +
+                         * `NHAN_TEP_HOP_DONG`. Đính ở đây thì bước ④/⑤ thấy ngay và ngược lại — đây
+                         * là ô THỨ BA cùng nhìn vào một tệp, KHÔNG phải một tệp mới.
+                         *
+                         * 🔴 `tepDaCo` phải là `tepHopDongSuaDuoc` (chỉ khóa canonical), KHÔNG phải
+                         * `tepHopDong` (gộp cả khóa cũ `dat_hang`) — cùng lý do đã ghi ở ô bước ⑤:
+                         * hộp xoá tệp theo `maGiaiDoan` cố định, bày tệp mồ côi khóa cũ ra đây thì
+                         * bấm xoá sẽ tìm nhầm khóa và báo sai "tệp không còn trong hồ sơ".
+                         *
+                         * ⚠️ QUYỀN — CHỖ NÀY CÓ THỂ THÀNH NGÕ CỤT NẾU AI ĐÓ TÁCH HAI CỜ QUYỀN RA:
+                         * khối này chỉ hiện cho `quyen.xacNhanTruongBP`, còn ô sửa được hay không
+                         * thì do `duocSuaHopDong` (= `phanBoCongViec` từ bước ⑤ trở đi). Nay hai cờ
+                         * có CÙNG điều kiện (`laQuanTri || (laTruongBP && capTM >= 3)`, xem
+                         * `4-phan-quyen/quyen.ts:212` và `:224`) nên ai thấy nút cũng đính được.
+                         * 👉 Ngày nào tách hai cờ đó ra thì phải quay lại đây: sẽ có người nhìn
+                         * thấy nút khoá, thấy ô hợp đồng, mà không đính được — và không có gì báo.
+                         */
+                        hop_dong: (
+                          <OChungTuBatBuoc
+                            deNghi={dn}
+                            maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
+                            nhanO={NHAN_TEP_HOP_DONG}
+                            tieuDe={TEN_HIEN_HOP_DONG}
+                            moTa="Bản hợp đồng / thoả thuận đã ký với nhà cung cấp. BẮT BUỘC phải có mới đóng được hồ sơ — kể cả đơn dùng mẫu PO-02 (Sếp 14/09/2026). Đính ở đây thì bước ④ và ⑤ cũng thấy ngay, cùng một tệp."
+                            batBuoc
+                            duocSua={duocSuaHopDong}
+                            khoa={hoSoDaDong}
+                            tepDaCo={tepHopDongSuaDuoc(dn)}
+                          />
+                        ),
+                        hoa_don_vat: (
+                          <OChungTuBatBuoc
+                            deNghi={dn}
+                            maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
+                            nhanO={NHAN_TEP_HOA_DON_VAT}
+                            tieuDe="Hóa đơn VAT"
+                            moTa="Hóa đơn GTGT nhà cung cấp xuất cho đơn hàng này. Bắt buộc phải có mới duyệt hoàn thành được. Đơn tách cho nhiều nhà cung cấp thì thêm từng bản."
+                            batBuoc
+                            duocSua={duocSuaTepBuoc}
+                            khoa={hoSoDaDong}
+                            tepDaCo={tepHoaDonVAT(dn)}
+                          />
+                        ),
+                        unc: (
+                          <OChungTuBatBuoc
+                            deNghi={dn}
+                            maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
+                            nhanO={NHAN_TEP_UNC}
+                            tieuDe="Ủy nhiệm chi"
+                            /* 🔴 CÂU CŨ GHI *"chỉ cần tích xong việc của bước này"* — đã sửa
+                               15/09/2026 vì cái tích đó không còn tồn tại (Sếp bỏ). Để nguyên là
+                               chỉ người dùng đi làm một việc không có chỗ nào làm được — đúng lỗi
+                               CLAUDE.md §3.5. */
+                            moTa="Đơn nào cần chuyển khoản qua ngân hàng thì đính kèm ủy nhiệm chi. Đơn trả tiền ngay thì để trống — ô này không bắt buộc."
+                            duocSua={duocSuaTepBuoc}
+                            khoa={hoSoDaDong}
+                            tepDaCo={tepUNC(dn)}
+                          />
+                        ),
+                        /* ★★ PHIẾU CHI — mục 8 của bộ hồ sơ thanh toán (Ban lãnh đạo 26/08/2026,
+                           số thứ tự đổi thành 8 theo danh sách Sếp 15/09/2026).
+                           📌 TÙY CHỌN đúng chữ Sếp *"(Nếu có)"*: đơn trả qua ngân hàng thì chứng
+                           từ là ủy nhiệm chi ở trên, phiếu chi là của khoản trả bằng tiền mặt. */
+                        phieu_chi: (
+                          <OChungTuBatBuoc
+                            deNghi={dn}
+                            maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
+                            nhanO={NHAN_TEP_PHIEU_CHI}
+                            tieuDe="Phiếu chi"
+                            moTa="Phiếu chi của khoản trả bằng tiền mặt. Đơn chuyển khoản thì để trống — chứng từ là ủy nhiệm chi ở trên."
+                            duocSua={duocSuaTepBuoc}
+                            khoa={hoSoDaDong}
+                            tepDaCo={tepPhieuChi(dn)}
+                          />
+                        ),
+                      }}
                     />
                     {/* ★★★ ĐÃ BỎ Ô CẢNH BÁO "chưa có Hóa đơn VAT nên chưa tích được UNC" — Sếp
                         15/09/2026 bỏ hẳn cái tích mà nó giải thích (*"bỏ mục này, ko cần thiết"*

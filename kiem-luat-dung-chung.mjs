@@ -206,6 +206,74 @@ try {
   process.exit(1);
 }
 
+/* ★★ GỬI PO SANG QLK CTR — cần để canh luật Sếp 15/09/2026 *"Đề xuất từ phòng ban thì ko cần gửi
+   sang app kho"*. Bốn hàm ở đây quyết định hồ sơ nào được gửi sang app Kho công trình; nới nhầm
+   sang hồ sơ CÔNG TRÌNH thì thủ kho không bao giờ thấy đơn và KHÔNG CÓ GÌ BÁO. */
+const tepRa12 = join(thuMuc, "gui-po-qlk-ctr.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "5-ket-noi/gui-po-qlk-ctr.ts" --bundle --platform=node --format=cjs --outfile="${tepRa12}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 5-ket-noi/gui-po-qlk-ctr.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
+/* ★★ BỘ HỒ SƠ THANH TOÁN — cần để canh luật Sếp 15/09/2026 về mục 4 *"file PO ký đính kèm"*.
+   `dungBoHoSoThanhToan` là hàm mà **cửa API đẩy sang app Kế toán sau này sẽ gọi**, nên nó vừa là
+   luật hiển thị vừa là hợp đồng dữ liệu — hụt một mục là bên nhận mất một chứng từ mà không có gì
+   báo. Phải gọi thật, `grep` không bắt được. */
+const tepRa13 = join(thuMuc, "bo-ho-so.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/bo-ho-so-thanh-toan.ts" --bundle --platform=node --format=cjs --outfile="${tepRa13}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/bo-ho-so-thanh-toan.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
+/* ★★ NHỊP GHI KHO CHUNG & NHỊP THỬ LẠI QLK CTR — Sếp 15/09/2026, theo phân tích của đội QLK CTR
+   cùng ngày. Đây là tệp sinh ra ĐÚNG để bài kiểm gọi thật được: chỉ đạo là *"luật nằm trong hook
+   thì không bài kiểm nào bắt được"*. Cả cơ chế chống dội vào QLK CTR nằm ở bốn hàm trong đó. */
+const tepRa14 = join(thuMuc, "nhip-dong-bo.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/nhip-dong-bo-qlk-ctr.ts" --bundle --platform=node --format=cjs --outfile="${tepRa14}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/nhip-dong-bo-qlk-ctr.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
+/* ★★ GIỮ BẢN GHI VỪA TẠO CHO TỚI KHI THẤY NÓ TRÊN MÁY CHỦ — sự cố MẤT DỮ LIỆU THẬT 15/09/2026,
+   Sếp báo lúc 19:33. Đo trên kho chung `hpcons-portal`: đơn vừa lập KHÔNG có trên máy chủ, và 3 đơn
+   khác (DMH260001, DMH260003, DMH260004) đã mất y hệt từ trước — app không có chức năng xoá đơn.
+   🔴 Bài kiểm ở đây canh CẢ HAI CHIỀU. Chiều nghịch quan trọng hơn chiều thuận: nếu hàm ghép bị
+   sửa thành "luôn ghép" thì mọi bản ghi người khác XOÁ sẽ sống lại vĩnh viễn — bản vá biến thành
+   một lỗi nặng hơn lỗi nó đang chữa. */
+const tepRa15 = join(thuMuc, "giu-ban-ghi-moi.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/giu-ban-ghi-moi.ts" --bundle --platform=node --format=cjs --outfile="${tepRa15}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/giu-ban-ghi-moi.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
@@ -215,6 +283,9 @@ const HS = nap(tepRa8);
 const NB = nap(tepRa9);
 const TT = nap(tepRa10);
 const CQ = nap(tepRa11);
+const QLK = nap(tepRa12);
+const NH = nap(tepRa14);
+const GB = nap(tepRa15);
 
 /* ---------- Bộ khung chấm ---------- */
 let dat = 0;
@@ -4286,6 +4357,1027 @@ kiem(
       duoc: tiepNhan?.hanGio === "48 giờ" && hoanThanh?.hanGio === "2 giờ",
       thucTe: `tiep_nhan="${tiepNhan?.hanGio}" · hoan_thanh="${hoanThanh?.hanGio}"`,
       mongDoi: '"48 giờ" và "2 giờ" — theo cấu hình vừa sửa, KHÔNG phải 4 giờ / không đặt hạn',
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 15/09/2026, nguyên văn:
+//   *"Đề xuất từ phòng ban thì ko cần gửi sang app kho, nên e bỏ phần ghi chú này và điều chỉnh
+//    lại phần code của phòng ban"*
+// (nhắn kèm ảnh chụp đơn DMH260007 của đề nghị "2. Phòng Pháp lý (HP Cons)" trên bản chạy thật,
+//  đang bày dải cảnh báo vàng "Chưa gửi được đơn này sang app Kho công trình")
+//
+// 🔴 VÌ SAO LUẬT NÀY ĐÁNG MỘT BÀI KIỂM RIÊNG, KHÔNG PHẢI CHUYỆN DỌN GIAO DIỆN:
+// Sáng cùng ngày bản chạy thật dính vòng lặp ghi vô hạn (app thấy PO `failed` → gửi lại QLK CTR →
+// lỗi → ghi lên kho chung → snapshot dội về → lặp), tới mức Firestore chặn với *"Write stream
+// exhausted maximum allowed queued writes"*, 1565 lỗi trong console. PO của hồ sơ phòng ban nằm
+// đúng trong nhóm `failed` đó — tức là nhiên liệu của vòng lặp. Chốt này rút nhiên liệu ra.
+//
+// ⚠️ CHIỀU NGHỊCH QUAN TRỌNG HƠN CHIỀU THUẬN: ai nới nhầm chốt sang hồ sơ CÔNG TRÌNH thì thủ kho
+//    không bao giờ thấy đơn bên app Kho, và KHÔNG CÓ GÌ BÁO — giống hệt cách sự cố 23/08 lọt qua
+//    mọi lớp kiểm. Nên mỗi chiều thuận ở dưới đều có một chiều nghịch đi kèm.
+// ════════════════════════════════════════════════════════════════════
+
+/* Đề nghị tối giản — chỉ những trường `laHoSoPhongBan` và `xayDungPayloadPO` thật sự đọc. */
+const dnQlk = (them) => ({
+  id: "pr-1",
+  code: "260001-HPCS-HDXD-001-PR-001",
+  maDeXuatAppRequest: "000000085",
+  ...them,
+});
+
+/* PO tối giản. `maHopDongCDT` để RỖNG ở mặc định vì nhánh PO ĐỘC LẬP đọc đúng trường này. */
+const poQlk = (them) => ({
+  id: "po-1",
+  code: "DMH260007",
+  maDuAn: "260001-HPCS",
+  tenCongTrinh: "Đề nghị 2. Phòng Pháp lý (HP Cons)",
+  maHopDongCDT: "",
+  supplierTen: "Công ty TNHH VLXD A",
+  ngayLapPO: "2026-09-01",
+  items: [{ stt: 1, sttDongDeNghi: 1, tenVatLieu: "Thép D10", donViTinh: "kg", khoiLuongDat: 10 }],
+  ...them,
+});
+
+/**
+ * 🔴 THAY `fetch` BẰNG BẢN GIẢ CÓ ĐẾM — cố ý, và đây là chỗ bài kiểm này mạnh hơn `grep`.
+ *
+ * Không phải để tránh gọi mạng (bài kiểm không được gọi ra ngoài), mà để trả lời được câu hỏi
+ * THẬT: *"app có THỰC SỰ gửi đi hay không"*. Chỉ đọc giá trị trả về thì một hàm bị sửa thành
+ * `return { apDung: false }` vô điều kiện vẫn làm mọi bài kiểm chiều thuận xanh — trong khi luật
+ * 20/08/2026 của phiên tích hợp (gửi PO công trình sang QLK CTR) đã chết sạch.
+ */
+const fetchThat = globalThis.fetch;
+const daGoi = [];
+globalThis.fetch = async (url, opt) => {
+  daGoi.push({ url: String(url), body: opt?.body });
+  return { ok: true, status: 200, json: async () => ({ ok: true }) };
+};
+
+/* Gọi trước, chờ xong, rồi mới chấm — `kiem` là hàm đồng bộ. */
+const soGoiTruocPB = daGoi.length;
+const kqPBCoDeNghi = await QLK.guiPOSangQlkCtr(poQlk(), dnQlk({ maHopDongCDT: "" }));
+const soGoiSauPB = daGoi.length;
+
+const soGoiTruocCT = daGoi.length;
+const kqCTCoDeNghi = await QLK.guiPOSangQlkCtr(
+  poQlk({ maHopDongCDT: "260001-HPCS-HDXD-001" }),
+  dnQlk({ maHopDongCDT: "260001-HPCS-HDXD-001" }),
+);
+const soGoiSauCT = daGoi.length;
+
+/* Chiều nghịch thứ hai: `loaiHoSo` khai rõ "cong_trinh" thì PHẢI gửi, kể cả khi thiếu hợp đồng
+   CĐT — tầng ① của `laHoSoPhongBan` thắng phép suy ở tầng ②. */
+const soGoiTruocCT2 = daGoi.length;
+const kqCTKhaiRo = await QLK.guiPOSangQlkCtr(poQlk(), dnQlk({ maHopDongCDT: "", loaiHoSo: "cong_trinh" }));
+const soGoiSauCT2 = daGoi.length;
+
+const soGoiTruocDLPB = daGoi.length;
+const kqDocLapPB = await QLK.guiPOSangQlkCtrDocLap(poQlk({ maHopDongCDT: "" }));
+const soGoiSauDLPB = daGoi.length;
+
+const soGoiTruocDLCT = daGoi.length;
+const kqDocLapCT = await QLK.guiPOSangQlkCtrDocLap(poQlk({ maHopDongCDT: "260001-HPCS-HDXD-001" }));
+const soGoiSauDLCT = daGoi.length;
+
+globalThis.fetch = fetchThat;
+
+const CHU_SEP_PB = 'Sếp · 15/09/2026 · "Đề xuất từ phòng ban thì ko cần gửi sang app kho"';
+const CHU_TICH_HOP = "phiên tích hợp · 20/08/2026 (Việc 2) — chiều nghịch, đừng nới nhầm";
+
+kiem(
+  "PHONG BAN (co de nghi) -> guiPOSangQlkCtr tra KHONG AP DUNG, khong phai THAT BAI",
+  CHU_SEP_PB,
+  () => ({
+    duoc: kqPBCoDeNghi?.apDung === false,
+    thucTe: JSON.stringify(kqPBCoDeNghi),
+    mongDoi:
+      '{ apDung: false } — "không áp dụng" là đúng nghiệp vụ; "thất bại" là có lỗi cần xử, ' +
+      "hai thứ khác hẳn nhau và chỉ cái sau mới bày cảnh báo vàng ra màn hình",
+  }),
+);
+
+kiem(
+  "PHONG BAN -> KHONG he goi API QLK CTR (dem so lan fetch)",
+  CHU_SEP_PB,
+  () => ({
+    duoc: soGoiSauPB === soGoiTruocPB,
+    thucTe: `${soGoiSauPB - soGoiTruocPB} lần gọi fetch`,
+    mongDoi: "0 lần — bỏ qua NGAY, không gọi gì cả (hồ sơ phòng ban không gắn công trình nào)",
+  }),
+);
+
+kiem(
+  "PHONG BAN -> canDongBoLaiPO tra false (khong bi cham 'can gui lai' vinh vien)",
+  CHU_SEP_PB,
+  () => {
+    const r = QLK.canDongBoLaiPO(poQlk(), dnQlk({ maHopDongCDT: "" }));
+    return {
+      duoc: r === false,
+      thucTe: String(r),
+      mongDoi: "false — cặp hàm này phải khớp `guiPOSangQlkCtr`, lệch nhau là vòng thử lại vô ích",
+    };
+  },
+);
+
+kiem(
+  "CONG TRINH -> VAN GUI binh thuong (CHIEU NGHICH — noi nham la thu kho khong bao gio thay don)",
+  CHU_TICH_HOP,
+  () => ({
+    duoc: kqCTCoDeNghi?.apDung === true && soGoiSauCT - soGoiTruocCT === 1,
+    thucTe: `${JSON.stringify(kqCTCoDeNghi)} · ${soGoiSauCT - soGoiTruocCT} lần gọi fetch`,
+    mongDoi: "apDung: true VÀ đúng 1 lần gọi /api/qlk-ctr/gui-po",
+  }),
+);
+
+kiem(
+  'CONG TRINH khai ro loaiHoSo="cong_trinh" nhung THIEU hop dong CDT -> VAN GUI',
+  CHU_TICH_HOP,
+  () => ({
+    duoc: kqCTKhaiRo?.apDung === true && soGoiSauCT2 - soGoiTruocCT2 === 1,
+    thucTe: `${JSON.stringify(kqCTKhaiRo)} · ${soGoiSauCT2 - soGoiTruocCT2} lần gọi fetch`,
+    mongDoi:
+      "apDung: true — người đề nghị tự khai là công trình thì tin lời khai, đừng để phép suy " +
+      '"thiếu hợp đồng = phòng ban" cắt mất đường gửi',
+  }),
+);
+
+kiem(
+  "PO DOC LAP cua PHONG BAN (khong hop dong CDT) -> KHONG GUI",
+  CHU_SEP_PB,
+  () => ({
+    duoc: kqDocLapPB?.apDung === false && soGoiSauDLPB === soGoiTruocDLPB,
+    thucTe: `${JSON.stringify(kqDocLapPB)} · ${soGoiSauDLPB - soGoiTruocDLPB} lần gọi fetch`,
+    mongDoi: "{ apDung: false } và 0 lần gọi — nhánh PO độc lập từng hở, vá 15/09/2026",
+  }),
+);
+
+kiem(
+  "PO DOC LAP cua CONG TRINH -> VAN GUI (CHIEU NGHICH cho nhanh doc lap)",
+  CHU_TICH_HOP,
+  () => ({
+    duoc: kqDocLapCT?.apDung === true && soGoiSauDLCT - soGoiTruocDLCT === 1,
+    thucTe: `${JSON.stringify(kqDocLapCT)} · ${soGoiSauDLCT - soGoiTruocDLCT} lần gọi fetch`,
+    mongDoi:
+      "apDung: true VÀ đúng 1 lần gọi /api/qlk-ctr/gui-po-doc-lap — luật 30/08/2026: hàng có thể " +
+      "về công trình trước khi đề nghị kịp về, thủ kho phải có chỗ ghi nhập kho",
+  }),
+);
+
+kiem(
+  "laPOCuaHoSoPhongBan con duoc EXPORT (giao dien va vong dong bo dang goi nho no)",
+  CHU_SEP_PB,
+  () => {
+    const co = typeof QLK.laPOCuaHoSoPhongBan === "function";
+    const pb = co ? QLK.laPOCuaHoSoPhongBan(poQlk(), dnQlk({ maHopDongCDT: "" })) : null;
+    const ct = co
+      ? QLK.laPOCuaHoSoPhongBan(poQlk(), dnQlk({ maHopDongCDT: "260001-HPCS-HDXD-001" }))
+      : null;
+    return {
+      duoc: co && pb === true && ct === false,
+      thucTe: co ? `phòng ban=${pb} · công trình=${ct}` : "KHÔNG CÒN EXPORT",
+      mongDoi:
+        "export được, phòng ban=true, công trình=false — bỏ export thì `don-hang-chi-tiet.tsx` và " +
+        "`kho-du-lieu.tsx` mất phép nhận diện chung, rồi mỗi nơi lại tự đoán một kiểu",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// BỘ HỒ SƠ THANH TOÁN — MỤC 4 LÀ **TỆP ĐƠN MUA HÀNG ĐÃ KÝ**, KHÔNG PHẢI TỜ IN
+// Luật của: Sếp · 15/09/2026
+// Nguyên văn (khoanh đỏ đúng mục 4 của khối "Bộ hồ sơ thanh toán" ở bước ⑧):
+//   ***"Đây ko phải là link PO in. mà là file PO ký đính kèm đã đính kèm ở bước 4,
+//      chỉ cần link xuống thôi"***
+//
+// 🔴 VÌ SAO PHẢI CÓ BÀI KIỂM MÁY: `grep "tepHopDong"` trong `bo-ho-so-thanh-toan.ts` XANH cả khi
+//    mục 4 bị trả về tờ in như cũ — chuỗi đó vẫn còn ở mục 3. Chỉ phép gọi thật mới phân biệt được.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_PO_KY =
+  'Sếp · 15/09/2026 — *"Đây ko phải là link PO in. mà là file PO ký đính kèm đã đính kèm ở bước 4, chỉ cần link xuống thôi"*';
+
+/** Tệp đơn mua hàng NCC ký — cất ở ô dùng chung của bước ④/⑤ (`lap_don_mua_hang` + nhãn "Hợp đồng"). */
+const tepPOKy = { id: "poky1", ten: "DMH260007-da-ky.pdf", ghiChu: "Hợp đồng" };
+
+const dnBoHoSo = (tepBuoc4 = []) => ({
+  id: "dn-bo-ho-so",
+  tepGiaiDoan: tepBuoc4.length > 0 ? { lap_don_mua_hang: tepBuoc4 } : {},
+});
+const poBoHoSo = [{ id: "po1", code: "DMH260007" }];
+/** Gọi hàm thật rồi lấy đúng mục 4. */
+const muc4 = (deNghi, po = poBoHoSo) => {
+  const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+  return BH.dungBoHoSoThanhToan(deNghi, po, [], []).find((m) => m.ma === "don_mua_hang");
+};
+
+kiem(
+  "Muc 4 CO tep PO da ky -> bay DUNG TEP do (khong phai to in)",
+  CHU_SEP_PO_KY,
+  () => {
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const m = muc4(dnBoHoSo([tepPOKy]));
+    const dung = m?.tep?.length === 1 && m.tep[0].id === "poky1" && BH.mucDaCo(m) === true;
+    return {
+      duoc: dung,
+      thucTe: `tep=${JSON.stringify(m?.tep?.map((t) => t.id) ?? null)} · mucDaCo=${m ? BH.mucDaCo(m) : "KHONG CO MUC 4"}`,
+      mongDoi:
+        'muc 4 tra ve dung tep "DMH260007-da-ky.pdf" (doc qua tepHopDong: khoa lap_don_mua_hang + nhan "Hợp đồng") va tinh la DA CO',
+    };
+  },
+);
+
+kiem(
+  "Muc 4 CHUA co tep du DA LAP PO -> bao THIEU va chi dung cho dinh",
+  CHU_SEP_PO_KY,
+  () => {
+    /* 🔴 CHIỀU QUAN TRỌNG NHẤT. Trước 15/09/2026 mục 4 xanh ngay khi có đơn trong app (đếm
+       `chungTuTrongApp`). Ai khôi phục cách đếm đó thì bài "có tệp" phía trên vẫn xanh, chỉ bài
+       này bắt được — và hậu quả là bộ giao Kế toán báo đủ trong khi chưa có tờ chứng từ nào. */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const m = muc4(dnBoHoSo([]));
+    const chuaCo = m ? BH.mucDaCo(m) === false : false;
+    const chiDuongDu =
+      typeof m?.ghiChu === "string" &&
+      /DMH260007/.test(m.ghiChu) &&
+      /đặt hàng|Lập đơn mua hàng/i.test(m.ghiChu);
+    return {
+      duoc: chuaCo && chiDuongDu,
+      thucTe: `mucDaCo=${m ? BH.mucDaCo(m) : "KHONG CO MUC 4"} · ghiChu="${String(m?.ghiChu ?? "(trống)").slice(0, 110)}"`,
+      mongDoi:
+        "mucDaCo=false VA cau nhac vua noi da lap don nao vua chi dung o dinh kem — de trong la " +
+        "nguoi dung khong biet phai lam gi (CLAUDE.md §3.5)",
+    };
+  },
+);
+
+kiem(
+  "Muc 4 KHONG con lien ket to in `/in/don-hang/{id}` o bat ky dau",
+  CHU_SEP_PO_KY,
+  () => {
+    /* 🔴 CHIỀU NGHỊCH VỀ QUYỀN XEM GIÁ — đọc kỹ trước khi sửa bài này.
+       Liên kết tờ in cũ được gác bằng prop `xemGia` vì tờ in CÓ ĐƠN GIÁ. Gác đó nay không còn
+       chỗ nào để gác, vì liên kết đã bỏ. Ai dựng lại liên kết in trong dữ liệu mục 4 mà quên gác
+       thì vai trò không được xem giá mở được tờ in — lỗi nặng hơn hẳn việc trỏ sai tệp.
+       👉 Bài này đỏ nghĩa là: hoặc bỏ liên kết đi, hoặc gác lại `xemGia` ở nơi vẽ. Đừng sửa bài
+          kiểm cho vừa mã nguồn. */
+    const m = muc4(dnBoHoSo([tepPOKy]));
+    const chuoi = JSON.stringify(m ?? {});
+    const sach = !/\/in\/don-hang/.test(chuoi) && !("chungTuTrongApp" in (m ?? {}));
+    return {
+      duoc: sach,
+      thucTe: sach ? "sach (khong co duong dan in, khong co chungTuTrongApp)" : chuoi.slice(0, 160),
+      mongDoi:
+        "muc 4 khong chua `/in/don-hang/...` va khong con truong `chungTuTrongApp` — to in con hai " +
+        "duong vao khac (nut In don mua hang o don-hang-chi-tiet, nut Cat va In o don-hang-lap-moi) " +
+        "nen bo o day khong lam no mo coi",
+    };
+  },
+);
+
+kiem(
+  "Tep o buoc ④ mang NHAN KHAC -> KHONG tinh la don mua hang da ky",
+  CHU_SEP_PO_KY,
+  () => {
+    /* Chống nới thành "có tệp nào ở bước ④ cũng được": khu đính kèm bước ④ còn chứa biên bản,
+       CO/CQ… Nới ra là bộ hồ sơ báo đủ trong khi chưa có tờ đơn ký nào. */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const m = muc4(dnBoHoSo([{ id: "bb1", ten: "bien-ban.pdf", ghiChu: "Biên bản làm việc" }]));
+    return {
+      duoc: m ? BH.mucDaCo(m) === false : false,
+      thucTe: `mucDaCo=${m ? BH.mucDaCo(m) : "KHONG CO MUC 4"} · tep=${JSON.stringify(m?.tep?.map((t) => t.id) ?? null)}`,
+      mongDoi: "false — chi tep mang dung nhan luu NHAN_TEP_HOP_DONG moi la don mua hang da ky",
+    };
+  },
+);
+
+kiem(
+  "dungBoHoSoThanhToan VAN tra DU 8 MUC, dung 8 khoa (hop dong du lieu voi app Ke toan)",
+  "Ban lãnh đạo 26/08/2026 + Sếp 15/09/2026 — bộ chuyển sang app Kế toán không được hụt khoá nào",
+  () => {
+    /* 🔴 CHIỀU NGHỊCH CỦA CẢ LƯỢT SỬA HÔM NAY. Việc bỏ liên kết in và bỏ hai dòng ghi chú là việc
+       HIỂN THỊ; ai nhân đà "dọn cho gọn" ở tầng dữ liệu thì bên nhận mất một khoá mà KHÔNG CÓ GÌ
+       BÁO — đúng loại lỗi cả tệp `bo-ho-so-thanh-toan.ts` sinh ra để tránh. */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const ds = BH.dungBoHoSoThanhToan(dnBoHoSo([tepPOKy]), poBoHoSo, [], []);
+    const khoa = ds.map((m) => m.ma);
+    const mongDoi = [
+      "phieu_de_nghi",
+      "bao_gia_ncc",
+      "hop_dong",
+      "don_mua_hang",
+      "phieu_giao_hang",
+      "hoa_don_vat",
+      "unc",
+      "phieu_chi",
+    ];
+    const stt = ds.map((m) => m.stt).join(",");
+    return {
+      duoc: khoa.length === 8 && khoa.every((k, i) => k === mongDoi[i]) && stt === "1,2,3,4,5,6,7,8",
+      thucTe: `${khoa.length} mục: ${khoa.join(" · ")} (stt ${stt})`,
+      mongDoi: `8 mục đúng thứ tự: ${mongDoi.join(" · ")} (stt 1..8)`,
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// CHỐNG DỘI SANG QLK CTR & GOM LẦN GHI KHO CHUNG
+// Chỉ đạo Sếp 15/09/2026 + phân tích của đội QLK CTR cùng ngày.
+//
+// Nguyên văn phần đề nghị của QLK CTR: *"Cách sửa (bên App Thu Mua): thêm giới hạn/độ trễ giữa
+// các lần tự động gửi lại, và/hoặc chỉ cho phép 1 lượt gửi lại tại 1 thời điểm (không gửi chồng
+// lên chính nó khi lượt trước chưa xong)."* Ba đơn kẹt lúc đó: DMH260005, DMH260007, DMH260009.
+//
+// 🔴 CHIỀU NGHỊCH LÀ PHẦN QUAN TRỌNG NHẤT Ở ĐÂY. Ai sửa mấy hàm này thành "luôn luôn chặn" thì
+// bài kiểm chiều thuận vẫn xanh hết, mà PO lỗi tạm thời (mạng chập chờn) sẽ **không bao giờ tự
+// hồi phục** — trong khi toàn bộ cơ chế thử lại sinh ra là để lo đúng ca đó. Mỗi luật dưới đây
+// đều có bài kiểm cả hai chiều.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_NHIP = "Sếp 15/09/2026 + đội QLK CTR cùng ngày";
+const PHUT = 60_000;
+const GIO = 3_600_000;
+
+kiem(
+  "khoangChoThuLai(0) = 0 — CHƯA thử lần nào thì gửi NGAY, không bắt chờ",
+  CHU_NHIP,
+  () => {
+    const r = NH.khoangChoThuLai(0);
+    return {
+      duoc: r === 0,
+      thucTe: `${r}ms`,
+      mongDoi: "0ms (lần gửi đầu tiên không được bị độ trễ chặn)",
+    };
+  },
+);
+
+kiem(
+  "khoangChoThuLai(1) = 1 phút — hỏng một lần rồi thì lần sau phải chờ",
+  CHU_NHIP,
+  () => {
+    const r = NH.khoangChoThuLai(1);
+    return { duoc: r === PHUT, thucTe: `${r}ms`, mongDoi: `${PHUT}ms (1 phút)` };
+  },
+);
+
+kiem(
+  "Khoảng chờ TĂNG DẦN nghiêm ngặt qua các bậc (1 → 2 → 3 → 4)",
+  CHU_NHIP,
+  () => {
+    const ds = [1, 2, 3, 4].map((n) => NH.khoangChoThuLai(n));
+    const tang = ds.every((v, i) => i === 0 || v > ds[i - 1]);
+    return {
+      duoc: tang && ds[0] === PHUT,
+      thucTe: ds.map((v) => `${Math.round(v / 1000)}s`).join(" → "),
+      mongDoi: "mỗi bậc phải LỚN HƠN bậc trước (1 phút → 5 phút → 30 phút → 2 giờ)",
+    };
+  },
+);
+
+kiem(
+  "Khoảng chờ CÓ TRẦN — hỏng 99 lần cũng không chờ quá 2 giờ",
+  CHU_NHIP,
+  () => {
+    const r = NH.khoangChoThuLai(99);
+    return {
+      duoc: r === NH.khoangChoThuLai(4) && r <= 2 * GIO,
+      thucTe: `${r}ms`,
+      mongDoi: `bằng bậc cuối (${2 * GIO}ms = 2 giờ), không tăng vô hạn`,
+    };
+  },
+);
+
+kiem(
+  "duocThuLaiQlkCtr(chưa có mốc) = TRUE — PO mới lỗi lần đầu phải được thử ngay",
+  CHU_NHIP,
+  () => {
+    const r = NH.duocThuLaiQlkCtr(undefined, 1_000_000);
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true" };
+  },
+);
+
+kiem(
+  "Vừa thử xong (chưa hết 1 phút) → CHẶN, không cho dội tiếp",
+  CHU_NHIP,
+  () => {
+    const bayGio = 1_000_000;
+    const r = NH.duocThuLaiQlkCtr({ soLanDaThu: 1, lanCuoi: bayGio - 5_000 }, bayGio);
+    return {
+      duoc: r === false,
+      thucTe: String(r),
+      mongDoi: "false (mới 5 giây, bậc 1 đòi 1 phút) — đây là chốt ngăn dội vào QLK CTR",
+    };
+  },
+);
+
+kiem(
+  "Đã QUÁ hạn chờ → CHO thử lại (cơ chế tự hồi phục còn sống)",
+  CHU_NHIP,
+  () => {
+    const bayGio = 1_000_000;
+    const r = NH.duocThuLaiQlkCtr({ soLanDaThu: 1, lanCuoi: bayGio - 2 * PHUT }, bayGio);
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true (đã 2 phút > 1 phút)" };
+  },
+);
+
+kiem(
+  "🔴 CHIỀU NGHỊCH: duocThuLaiQlkCtr KHÔNG ĐƯỢC 'luôn luôn chặn' — kể cả bậc cao nhất",
+  CHU_NHIP,
+  () => {
+    /* 🔴 BÀI KIỂM QUAN TRỌNG NHẤT CỦA CẢ KHỐI NÀY. Sửa hàm thành `return false` vô điều kiện
+       thì mọi bài kiểm chiều thuận ở trên vẫn xanh (chúng chỉ đòi "có chặn"), mà PO lỗi tạm thời
+       vì mạng chập chờn sẽ kẹt VĨNH VIỄN — thủ kho không bao giờ thấy đơn, và KHÔNG CÓ GÌ BÁO.
+       Đây đúng là ca mà toàn bộ cơ chế thử lại sinh ra để lo. */
+    const bayGio = 100 * GIO;
+    const caPhaiChoThu = [
+      NH.duocThuLaiQlkCtr(undefined, bayGio), // chưa từng thử
+      NH.duocThuLaiQlkCtr({ soLanDaThu: 1, lanCuoi: bayGio - GIO }, bayGio), // quá hạn xa
+      NH.duocThuLaiQlkCtr({ soLanDaThu: 99, lanCuoi: bayGio - 24 * GIO }, bayGio), // bậc trần, 1 ngày
+    ];
+    return {
+      duoc: caPhaiChoThu.every((x) => x === true),
+      thucTe: caPhaiChoThu.join(" · "),
+      mongDoi:
+        "cả ba đều true — hàm chặn vô điều kiện là giết luôn khả năng tự hồi phục của PO lỗi tạm thời",
+    };
+  },
+);
+
+kiem(
+  "Đồng hồ máy bị chỉnh LÙI → vẫn cho thử, không kẹt vĩnh viễn",
+  CHU_NHIP,
+  () => {
+    /* Mốc nằm ở tương lai (người dùng chỉnh giờ máy, hoặc múi giờ đổi). Trừ ra được số âm; xử
+       sai chỗ này là PO kẹt cho tới khi đồng hồ đuổi kịp — có thể hàng tháng. */
+    const bayGio = 1_000_000;
+    const r = NH.duocThuLaiQlkCtr({ soLanDaThu: 3, lanCuoi: bayGio + 10 * GIO }, bayGio);
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true (thà thử sớm còn hơn kẹt)" };
+  },
+);
+
+kiem(
+  "mocSauLanThuHong TĂNG số lần thử và ghi lại mốc thời gian",
+  CHU_NHIP,
+  () => {
+    const a = NH.mocSauLanThuHong(undefined, 500);
+    const b = NH.mocSauLanThuHong(a, 900);
+    return {
+      duoc: a.soLanDaThu === 1 && a.lanCuoi === 500 && b.soLanDaThu === 2 && b.lanCuoi === 900,
+      thucTe: `${a.soLanDaThu}@${a.lanCuoi} → ${b.soLanDaThu}@${b.lanCuoi}`,
+      mongDoi: "1@500 → 2@900 (không tăng đếm thì mọi PO đứng mãi ở bậc 1 phút)",
+    };
+  },
+);
+
+kiem(
+  "Nhịp gom ghi kho chung nằm trong 600–1000ms",
+  CHU_NHIP,
+  () => {
+    /* Dưới 600ms thì không gom được gì (Firestore khuyến cáo ~1 lần ghi/giây cho MỘT tài liệu,
+       mà cả app dùng đúng một tài liệu). Trên 1000ms thì cửa sổ mất việc — ảnh chụp của người
+       khác dội về đè state trong lúc bản của mình còn nằm chờ — rộng quá một giây. */
+    const v = NH.NHIP_GOM_GHI_MS;
+    return {
+      duoc: typeof v === "number" && v >= 600 && v <= 1000,
+      thucTe: `${v}ms`,
+      mongDoi: "600–1000ms (dự án đang chọn 800ms)",
+    };
+  },
+);
+
+kiem(
+  "tinhDoTreGhi: CHƯA ghi lần nào → ghi NGAY (0ms)",
+  CHU_NHIP,
+  () => {
+    const r = NH.tinhDoTreGhi(0, 1_000_000);
+    return { duoc: r === 0, thucTe: `${r}ms`, mongDoi: "0ms" };
+  },
+);
+
+kiem(
+  "tinhDoTreGhi: đang trong nhịp → hẹn phần còn thiếu, không ghi thêm lượt",
+  CHU_NHIP,
+  () => {
+    const bayGio = 1_000_000;
+    const r = NH.tinhDoTreGhi(bayGio - 200, bayGio, 800);
+    return {
+      duoc: r === 600,
+      thucTe: `${r}ms`,
+      mongDoi: "600ms (đã trôi 200/800) — đây là chốt gom cả tràng thao tác thành MỘT lần ghi",
+    };
+  },
+);
+
+kiem(
+  "🔴 CHIỀU NGHỊCH: tinhDoTreGhi KHÔNG ĐƯỢC thành 'hoãn cứng' — thao tác lẻ vẫn tức thì",
+  CHU_NHIP,
+  () => {
+    /* 🔴 Nếu ai đó đổi thành `return nhip` vô điều kiện thì mọi thao tác đều trễ 800ms mà chẳng
+       giảm được lượt ghi nào ở ca thường gặp nhất (người dùng bấm một cái rồi ngồi đọc). Người
+       dùng sẽ báo đúng thứ Sếp đã báo sáng 15/09: *"giống kiểu bị delay"*. */
+    const bayGio = 1_000_000;
+    const caPhaiGhiNgay = [
+      NH.tinhDoTreGhi(0, bayGio), // chưa ghi lần nào
+      NH.tinhDoTreGhi(bayGio - 5_000, bayGio), // đã im 5 giây
+      NH.tinhDoTreGhi(bayGio + 10_000, bayGio), // đồng hồ lùi
+    ];
+    return {
+      duoc: caPhaiGhiNgay.every((x) => x === 0),
+      thucTe: caPhaiGhiNgay.map((x) => `${x}ms`).join(" · "),
+      mongDoi: "cả ba đều 0ms — nhịp gom là TRẦN TỐC ĐỘ, không phải độ trễ cố định",
+    };
+  },
+);
+
+kiem(
+  "tinhDoTreGhi không bao giờ trả số ÂM (âm là hẹn giờ chạy ngược)",
+  CHU_NHIP,
+  () => {
+    const mau = [
+      NH.tinhDoTreGhi(0, 0),
+      NH.tinhDoTreGhi(1_000_000, 1_000_000),
+      NH.tinhDoTreGhi(1_000_000, 1_000_799, 800),
+      NH.tinhDoTreGhi(1_000_000, 9_999_999),
+    ];
+    return {
+      duoc: mau.every((x) => typeof x === "number" && x >= 0 && x <= NH.NHIP_GOM_GHI_MS),
+      thucTe: mau.map((x) => `${x}ms`).join(" · "),
+      mongDoi: `mọi giá trị trong khoảng 0…${NH.NHIP_GOM_GHI_MS}ms`,
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// MỞ KHOÁ TRƯỜNG Ở MÀN SỬA ĐƠN — Sếp 15/09/2026
+//
+// Nguyên văn chỉ đạo:
+//   *"phần sửa PO, phải cấp quyền cho sửa toàn bộ giống như khi lập đơn mua hàng mới"*
+// và khi được hỏi có bắt ghi lý do khi sửa chiết khấu / thuế suất không:
+//   *"Có, bắt ghi lý do"* — vì hai thứ đó đổi SỐ TIỀN của đơn, kéo theo công nợ phải trả NCC;
+//   không có lý do thì sau này Kế toán hỏi *"sao đơn này lệch tiền"* chỉ còn thấy số cũ và số mới.
+//
+// 🔴 HAI CHIỀU, VÀ CHIỀU NGHỊCH QUAN TRỌNG HƠN:
+//    · chiều thuận — 10 trường đã mở thì cửa ghi phải NHẬN và phải ghi nhật ký được
+//    · chiều nghịch — ba trường Nhóm C (`code` · `maDuAn` · `ngayLapPO`) VẪN phải khoá, chốt
+//      `hoan_thanh`/`huy` VẪN phải chặn, và con số tiền VẪN không được lọt vào nhật ký đề nghị
+// ════════════════════════════════════════════════════════════════════
+
+/** Bộ điều kiện thương mại tối giản — đúng sáu trường `DieuKienThuongMaiPO` khai. */
+const dkTM = (them) => ({
+  loaiTien: "VND",
+  dieuKhoanThanhToan: "Thanh toán 100% trong 30 ngày",
+  thueSuatGTGT: 8,
+  kieuChietKhau: "khong",
+  ...them,
+});
+
+kiem(
+  "Đổi CHIẾT KHẤU → bắt buộc ghi lý do (`doiTien` bật)",
+  "Sếp · 15/09/2026 — *\"Có, bắt ghi lý do\"*: chiết khấu đổi số tiền phải trả nhà cung cấp",
+  () => {
+    const r = KD.mocSuaDieuKienThuongMai(
+      dkTM(),
+      dkTM({ kieuChietKhau: "ty_le", tyLeChietKhau: 5 }),
+    );
+    return {
+      duoc: r.doiTien === true && r.chung.length === 1 && r.rieng.length === 1,
+      thucTe: `doiTien=${r.doiTien} · chung=[${r.chung.join(" · ")}] · riêng=[${r.rieng.join(" · ")}]`,
+      mongDoi: "doiTien=true, có đúng một mốc ở mỗi sổ",
+    };
+  },
+);
+
+kiem(
+  "Đổi THUẾ SUẤT CHUNG → bắt buộc ghi lý do (`doiTien` bật)",
+  "Sếp · 15/09/2026 — *\"Có, bắt ghi lý do\"*: thuế suất đổi số tiền của đơn",
+  () => {
+    const r = KD.mocSuaDieuKienThuongMai(dkTM(), dkTM({ thueSuatGTGT: 10 }));
+    return {
+      duoc: r.doiTien === true,
+      thucTe: `doiTien=${r.doiTien} · riêng=[${r.rieng.join(" · ")}]`,
+      mongDoi: "doiTien=true",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: đổi LOẠI TIỀN hoặc ĐIỀU KHOẢN THANH TOÁN thì KHÔNG bắt lý do",
+  "Sếp · 15/09/2026 — chỉ hai thứ đổi số tiền mới bắt lý do",
+  () => {
+    /* 🔴 BÀI NÀY GIỮ CHO CHỐT CÒN NGHĨA. Bắt lý do cho cả bốn trường là biến một chốt có nghĩa
+       thành thủ tục: người ta gõ "sửa" cho xong, rồi lần sửa TIỀN thật cũng chỉ còn chữ "sửa". */
+    const a = KD.mocSuaDieuKienThuongMai(dkTM(), dkTM({ loaiTien: "USD" }));
+    const b = KD.mocSuaDieuKienThuongMai(dkTM(), dkTM({ dieuKhoanThanhToan: "Trả ngay" }));
+    return {
+      duoc:
+        a.doiTien === false &&
+        b.doiTien === false &&
+        a.chung.length === 1 &&
+        b.chung.length === 1,
+      thucTe: `loạiTiền: doiTien=${a.doiTien}, mốc=${a.chung.length} · điềuKhoản: doiTien=${b.doiTien}, mốc=${b.chung.length}`,
+      mongDoi: "cả hai doiTien=false nhưng vẫn ghi được một mốc nhật ký",
+    };
+  },
+);
+
+kiem(
+  "CON SỐ TIỀN KHÔNG ĐƯỢC LỌT VÀO NHẬT KÝ ĐỀ NGHỊ (sổ `chung`)",
+  "Sếp · 15/09/2026 · nguyên tắc dữ liệu số 3 — khối Lịch sử của đề nghị hiện cho MỌI vai trò",
+  () => {
+    /* 🔴 BÀI QUAN TRỌNG NHẤT CỦA LUẬT NÀY. `chung` chảy vào `ghiNhatKyDonHang` → `DeNghiMuaHang
+       .lichSu`, nơi thủ kho và Phòng Thi công đọc được — chính những vai trò mà `tm_donhang_gia`
+       dựng ra để giấu giá. Một dòng "chiết khấu: 0 → 5%" ở đó là phá lớp bảo mật bằng chữ. */
+    const r = KD.mocSuaDieuKienThuongMai(
+      dkTM({ kieuChietKhau: "so_tien", chietKhau: 1000000 }),
+      dkTM({ thueSuatGTGT: 10, kieuChietKhau: "ty_le", tyLeChietKhau: 5 }),
+    );
+    const chung = r.chung.join(" · ");
+    const rieng = r.rieng.join(" · ");
+    const loSo = /\d/.test(chung);
+    return {
+      duoc: !loSo && /5%/.test(rieng) && /10%/.test(rieng),
+      thucTe: loSo ? `LỘ SỐ ở sổ chung: [${chung}]` : `chung=[${chung}] · riêng=[${rieng}]`,
+      mongDoi: "sổ chung KHÔNG có chữ số nào · sổ chứng từ giá có đủ cũ → mới",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: có đổi thì sổ CHUNG vẫn phải nói ra là đã đổi",
+  "Sếp · 15/09/2026 — giấu con số, không giấu sự việc",
+  () => {
+    /* Gộp hết về sổ riêng cho "an toàn" thì người không xem được giá **không hề biết** điều kiện
+       thương mại của đơn vừa bị sửa — mất luôn khả năng đặt câu hỏi. */
+    const r = KD.mocSuaDieuKienThuongMai(dkTM(), dkTM({ thueSuatGTGT: 10 }));
+    return {
+      duoc: r.chung.length === 1 && /thu[ếe]/i.test(r.chung[0]),
+      thucTe: `[${r.chung.join(" · ")}]`,
+      mongDoi: "một mốc nói rõ đã sửa thuế suất chung",
+    };
+  },
+);
+
+kiem(
+  "Bấm Lưu mà KHÔNG đổi gì → không sinh mốc nào, không bắt lý do",
+  "Sếp · 15/09/2026 — thay đổi giả là thứ làm ca 'không có gì đổi' chết vĩnh viễn",
+  () => {
+    const r = KD.mocSuaDieuKienThuongMai(dkTM(), dkTM());
+    return {
+      duoc: r.chung.length === 0 && r.rieng.length === 0 && r.doiTien === false,
+      thucTe: `chung=${r.chung.length} · riêng=${r.rieng.length} · doiTien=${r.doiTien}`,
+      mongDoi: "0 · 0 · false",
+    };
+  },
+);
+
+kiem(
+  "Đơn CŨ không có `loaiTien` vs ô ghi 'VND' → KHÔNG coi là thay đổi",
+  "Sếp · 15/09/2026 — chống thay đổi giả ở đơn lập trước 23/08/2026",
+  () => {
+    /* 🔴 Trước 23/08/2026 app ghi cứng "VND" lúc in mà KHÔNG lưu trường này, nên đơn cũ có
+       `loaiTien === undefined` trong khi chứng từ ghi VND. Không chuẩn hoá thì mở màn sửa rồi bấm
+       Lưu mà không đụng gì cũng ghi "loại tiền: trống → VND", và ca `MA_KHONG_CO_THAY_DOI` không
+       bao giờ xảy ra được nữa. */
+    const r = KD.mocSuaDieuKienThuongMai(
+      { ...dkTM(), loaiTien: undefined },
+      dkTM({ loaiTien: "VND" }),
+    );
+    return {
+      duoc: r.chung.length === 0,
+      thucTe: `[${r.chung.join(" · ")}]`,
+      mongDoi: "không mốc nào",
+    };
+  },
+);
+
+kiem(
+  "Thuế suất `0` KHÁC `không đặt` — xoá mức thuế phải ghi được vào nhật ký",
+  "Sếp · 15/09/2026 — 0% là một mức thuế THẬT (hàng không chịu thuế GTGT)",
+  () => {
+    /* 🔴 Khuôn `Number(x) || undefined` của đường LẬP đơn biến 0 thành "không đặt". Ở đường SỬA,
+       gộp hai ca đó là **xoá mất mức thuế của một đơn đang chạy mà nhật ký im lặng**. */
+    const a = KD.mocSuaDieuKienThuongMai(dkTM({ thueSuatGTGT: 0 }), dkTM({ thueSuatGTGT: undefined }));
+    const b = KD.mocSuaDieuKienThuongMai(dkTM({ thueSuatGTGT: undefined }), dkTM({ thueSuatGTGT: 0 }));
+    return {
+      duoc: a.chung.length === 1 && b.chung.length === 1 && a.doiTien && b.doiTien,
+      thucTe: `0→không đặt: ${a.chung.length} mốc (doiTien=${a.doiTien}) · không đặt→0: ${b.chung.length} mốc (doiTien=${b.doiTien})`,
+      mongDoi: "cả hai chiều đều sinh đúng 1 mốc và bật doiTien",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: `ThayDoiDonHang` VẪN KHÔNG được khai `code` · `maDuAn` · `ngayLapPO`",
+  "Sếp · 15/09/2026 — mở TRƯỜNG, không mở ba thứ định danh chứng từ",
+  () => {
+    /* 🔴 ĐÂY LÀ BÀI GIỮ NHÓM C. Mở khoá 10 trường ngày 15/09 rất dễ kéo theo *"mở nốt cho đủ"* —
+       nhưng ba trường này khoá vì LÝ DO NGHIỆP VỤ, không phải vì kiểu dữ liệu:
+         · `code`      — phiếu nhận hàng (`poCode`), chứng từ giá (`poCode`) và bản PO đã nằm bên
+                         QLK CTR đều trỏ về nó. Đổi là trỏ hụt hàng loạt, không màn nào báo.
+         · `maDuAn`    — là PHẦN ĐẦU của chính số đơn đã cấp, và là khoá của `GiaDonDatHang.maDuAn`.
+         · `ngayLapPO` — quyết định NĂM của số đơn đã cấp (`DMH2026-0008`).
+       Kiểu TypeScript là chốt DUY NHẤT của chúng (không có `if` runtime nào), nên phải đọc mã
+       nguồn — `esbuild` xoá sạch kiểu nên không gọi hàm mà kiểm được.
+       ⚠️ Chỉ soi đúng thân `interface ThayDoiDonHang`, không soi cả tệp: chữ `code` có ở hàng trăm
+       chỗ khác. */
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const than = nguon.split("export interface ThayDoiDonHang {")[1]?.split("\n}")[0] ?? "";
+    const cam = ["code", "maDuAn", "ngayLapPO", "prId", "trangThai"];
+    const loSot = cam.filter((t) => new RegExp(`^\\s*${t}\\??:`, "m").test(than));
+    return {
+      duoc: than !== "" && loSot.length === 0,
+      thucTe:
+        than === ""
+          ? "KHÔNG tìm thấy `interface ThayDoiDonHang` — bài kiểm mất chỗ bám, sửa bài kiểm"
+          : loSot.length === 0
+            ? "không trường cấm nào được khai"
+            : `ĐÃ KHAI: ${loSot.join(" · ")}`,
+      mongDoi: "không trường nào trong: " + cam.join(" · "),
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: `suaDonHang` VẪN chặn đơn `hoan_thanh` / `huy`",
+  "Sếp · 31/08/2026, giữ nguyên 15/09/2026 — mở quyền sửa NỘI DUNG, không mở đơn đã chốt sổ",
+  () => {
+    /* 🔴 Chốt này nằm thẳng trong `useCallback` nên không gọi thật được (bộ kiểm không mount hook
+       React). Đọc mã nguồn là cách duy nhất còn lại — yếu hơn gọi hàm, nhưng vẫn bắt được ca
+       "refactor rồi vô tình làm rơi cả khối `if`", đúng ca đã xảy ra ngày 24/08/2026. */
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const than = nguon.split("const suaDonHang = useCallback(")[1]?.slice(0, 2000) ?? "";
+    const coChan =
+      /po\.trangThai === "hoan_thanh"/.test(than) && /po\.trangThai === "huy"/.test(than);
+    return {
+      duoc: coChan,
+      thucTe: than === "" ? "KHÔNG tìm thấy `suaDonHang`" : coChan ? "còn đủ hai vế" : "ĐÃ MẤT",
+      mongDoi: "`suaDonHang` mở đầu bằng chốt trạng thái hoan_thanh/huy",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: chốt `xacNhanTruongBP` VẪN chỉ chặn `gia.lines`, không chặn nhánh thương mại",
+  "Sếp · 15/09/2026 — tách nhánh để nới một luật cũ không thành khoá cứng một việc khác",
+  () => {
+    /* 🔴 HAI LỖI NGƯỢC NHAU, BÀI NÀY GIỮ CẢ HAI:
+         · nhét `dieuKienThuongMai` vào `thayDoi.gia` → đơn đã xác nhận không đổi nổi ô Loại tiền
+         · bỏ luôn chốt cho `gia.lines`  → sửa được đơn giá của đơn Trưởng BP đã ký xác nhận
+       Nên bài kiểm đòi ĐÚNG một khối `if (thayDoi.gia && po.xacNhanTruongBP)` và đòi nhánh
+       thương mại ghi bằng một khối `if` RIÊNG. */
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const conChotGia = /if \(thayDoi\.gia && po\.xacNhanTruongBP\)/.test(nguon);
+    const nhanhRieng = /if \(thayDoi\.dieuKienThuongMai && mocTM\.rieng\.length > 0\)/.test(nguon);
+    const nhetVaoGia = /gia\s*=\s*\{[^}]*dieuKienThuongMai/.test(nguon);
+    return {
+      duoc: conChotGia && nhanhRieng && !nhetVaoGia,
+      thucTe: `chốt gia.lines=${conChotGia} · nhánh riêng=${nhanhRieng} · nhét vào gia=${nhetVaoGia}`,
+      mongDoi: "chốt gia.lines còn · nhánh thương mại đứng riêng · không nhét vào `gia`",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: `doiTien` phải nằm trong `batBuocLyDo` của `suaDonHang`",
+  "Sếp · 15/09/2026 — form báo trước, nhưng chốt THẬT phải ở tầng ghi",
+  () => {
+    /* 🔴 Bỏ vế này đi thì form vẫn hiện ô đỏ "phải ghi lý do" (nó có phép so riêng), nhưng ai gọi
+       thẳng cửa ghi — hoặc chỉ cần form lệch một lần — là sửa được tiền mà không lý do. Chốt ở
+       giao diện không phải là chặn. */
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const dong = nguon.match(/const batBuocLyDo = .*/)?.[0] ?? "";
+    return {
+      duoc: /mocTM\.doiTien/.test(dong),
+      thucTe: dong === "" ? "KHÔNG tìm thấy `batBuocLyDo`" : dong.trim(),
+      mongDoi: "`batBuocLyDo` có vế `mocTM.doiTien`",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// GIỮ BẢN GHI VỪA TẠO CHO TỚI KHI THẤY NÓ TRÊN MÁY CHỦ
+// Sự cố MẤT DỮ LIỆU THẬT — 15/09/2026, Sếp báo lúc 19:33.
+//
+// Sếp lập một đơn mua hàng, app sinh id `po-b1e884d9-0c60-490a-a8da-c4f84da64d8e`, điều hướng
+// sang trang chi tiết → *"Không tìm thấy đơn đặt hàng"*.
+//
+// ĐO TRÊN KHO CHUNG THẬT (`hpcons-portal`, `chay-thu/du-lieu-chung`):
+//   · Đơn đó KHÔNG tồn tại. Tài liệu 162.928 byte — không chạm trần 1 MiB, loại trừ ca tràn.
+//   · 7 đơn còn lại: DMH260002, 05, 06, 07, 08, 09, 10 — **thiếu 260001, 260003, 260004**.
+//     App KHÔNG có chức năng xoá từng đơn ⇒ ít nhất 3 đơn khác đã mất y hệt từ trước.
+//
+// 🔴🔴 CHIỀU NGHỊCH QUAN TRỌNG HƠN CHIỀU THUẬN Ở ĐÂY. Sửa `ghepBanChuaLenMayChu` thành "luôn
+// ghép hai danh sách" thì mọi bản ghi người khác XOÁ sẽ sống lại vĩnh viễn, xoá bao nhiêu lần
+// cũng vô ích — bản vá biến thành một lỗi NẶNG HƠN lỗi nó đang chữa. Bốn bài dưới canh đúng chỗ đó.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_GIU = "Sếp · 15/09/2026 19:33 · sự cố mất đơn (thiếu DMH260001/260003/260004)";
+
+/** Đơn hàng tối giản — chỉ trường mà luật ghép thật sự đọc. */
+const don = (id) => ({ id, code: `DMH-${id}` });
+/** Sổ theo dõi từ danh sách id. */
+const so = (...ids) => new Map(ids.map((id) => [id, { soAnhChupVang: 0 }]));
+
+kiem(
+  "THUẬN: ảnh chụp thiếu đơn vừa tạo → hàm báo PHẢI GHÉP LẠI",
+  CHU_GIU,
+  () => {
+    const dangGiu = so("po:moi");
+    const anhChup = new Set(["po:cu1", "po:cu2"]);
+    const r = GB.idCanGhepLai(dangGiu, anhChup);
+    return {
+      duoc: r.length === 1 && r[0] === "po:moi",
+      thucTe: JSON.stringify(r),
+      mongDoi: '["po:moi"] — đây đúng là ca đơn 19:33 của Sếp biến mất khỏi màn hình',
+    };
+  },
+);
+
+kiem(
+  "THUẬN: ghép lại thật sự giữ được đơn vừa tạo mà ảnh chụp không có",
+  CHU_GIU,
+  () => {
+    const tuMayChu = [don("cu1"), don("cu2")];
+    const taiMay = [don("cu1"), don("cu2"), don("moi")];
+    const r = GB.ghepBanChuaLenMayChu(tuMayChu, taiMay, so("po:moi"), (x) => `po:${x.id}`);
+    return {
+      duoc: r.length === 3 && r.some((x) => x.id === "moi"),
+      thucTe: r.map((x) => x.id).join(","),
+      mongDoi: "cu1,cu2,moi — bản chưa lên máy chủ được đắp lại, không bị ảnh chụp xoá",
+    };
+  },
+);
+
+kiem(
+  "🔴 NGHỊCH (QUAN TRỌNG NHẤT): id ĐÃ THẤY trên máy chủ rồi → KHÔNG ghép lại nữa",
+  CHU_GIU,
+  () => {
+    /* 🔴 Đây là cửa MỘT CHIỀU, và là thứ duy nhất phân biệt "bản mới chưa lên server" với
+       "bản người khác cố ý xoá". Hỏng nó thì: máy A xoá một đơn → máy B dựng nó sống lại
+       → xoá bao nhiêu lần cũng vô ích, và KHÔNG CÓ GÌ BÁO. */
+    // ① Ảnh chụp có `po:x` → sổ phải gỡ `po:x` ra.
+    const sauKhiThay = GB.soSauAnhChup(
+      so("po:x"),
+      new Set(["po:x"]),
+      new Set(["po:x"]),
+    );
+    // ② Sau đó có người xoá `po:x` ⇒ ảnh chụp mới KHÔNG còn `po:x`.
+    const conGiu = GB.idCanGhepLai(sauKhiThay, new Set([]));
+    /* ⚠️ Sổ truyền vào phải CÓ nội dung (`po:chuaLen` — một bản ghi khác đang chờ thật), nếu
+       không thì `ghepBanChuaLenMayChu` thoát sớm ở nhánh "sổ rỗng" và bài kiểm này không hề chạm
+       tới chốt `dangGiu.has(id)` — tức canh nhầm chỗ. Đã đo bằng đột biến: bỏ chốt đó mà bài kiểm
+       vẫn xanh nếu sổ rỗng. Kết quả đúng: giữ `chuaLen`, để `x` (người khác xoá) mất. */
+    const soThat = new Map(sauKhiThay);
+    soThat.set("po:chuaLen", { soAnhChupVang: 0 });
+    const sauKhiXoa = GB.ghepBanChuaLenMayChu(
+      [don("y")],
+      [don("x"), don("y"), don("chuaLen")],
+      soThat,
+      (v) => `po:${v.id}`,
+    );
+    return {
+      duoc:
+        sauKhiThay.size === 0 &&
+        conGiu.length === 0 &&
+        sauKhiXoa.length === 2 &&
+        sauKhiXoa.every((v) => v.id !== "x"),
+      thucTe: `sổ=${sauKhiThay.size} · cầnGhép=${JSON.stringify(conGiu)} · còn lại=${sauKhiXoa
+        .map((v) => v.id)
+        .join(",")}`,
+      mongDoi:
+        "sổ=0 · cầnGhép=[] · còn lại=y,chuaLen (KHÔNG có x) — thấy trên máy chủ MỘT LẦN là thôi theo dõi VĨNH VIỄN, để lần xoá của người khác đi qua",
+    };
+  },
+);
+
+kiem(
+  "🔴 NGHỊCH: ghepBanChuaLenMayChu KHÔNG ĐƯỢC thành 'luôn luôn ghép'",
+  CHU_GIU,
+  () => {
+    /* 🔴 Ai sửa hàm này thành gộp hai danh sách vô điều kiện thì MỌI bản xoá của MỌI người đều
+       bị hồi sinh. Sổ rỗng = không giữ gì = phải trả về đúng danh sách của máy chủ. */
+    const tuMayChu = [don("a")];
+    const taiMay = [don("a"), don("b"), don("c")];
+    const soRong = GB.ghepBanChuaLenMayChu(tuMayChu, taiMay, new Map(), (x) => `po:${x.id}`);
+    /* Và cả ca sổ CÓ nội dung nhưng không khớp id nào đang bị thiếu. */
+    const soLech = GB.ghepBanChuaLenMayChu(tuMayChu, taiMay, so("po:z"), (x) => `po:${x.id}`);
+    return {
+      duoc:
+        soRong.length === 1 &&
+        soRong[0].id === "a" &&
+        soLech.length === 1 &&
+        soLech[0].id === "a",
+      thucTe: `sổ rỗng → ${soRong.map((v) => v.id).join(",")} · sổ lệch → ${soLech
+        .map((v) => v.id)
+        .join(",")}`,
+      mongDoi: "cả hai đều chỉ còn 'a' — không theo dõi thì KHÔNG đắp lại, dù bản ghi còn ở máy",
+    };
+  },
+);
+
+kiem(
+  "🔴 NGHỊCH: bản ghi do MÁY KHÁC tạo (về qua ảnh chụp) KHÔNG được nhận vơ là của mình",
+  CHU_GIU,
+  () => {
+    /* 🔴 Bỏ vế `daThayTrenMayChu` trong `idVuaTaoTaiMay` là máy này coi mọi thứ người khác tạo
+       cũng là "mới mọc ra ở máy mình", rồi từ đó hồi sinh mọi thứ họ xoá. */
+    const cuaNguoiKhac = GB.idVuaTaoTaiMay(
+      new Set(["po:a"]), // kỳ trước
+      ["po:a", "po:b"], // kỳ này — `po:b` vừa xuất hiện
+      new Set(["po:b"]), // …nhưng máy chủ ĐÃ từng gửi `po:b` về
+    );
+    const cuaMinh = GB.idVuaTaoTaiMay(new Set(["po:a"]), ["po:a", "po:c"], new Set(["po:b"]));
+    return {
+      duoc: cuaNguoiKhac.length === 0 && cuaMinh.length === 1 && cuaMinh[0] === "po:c",
+      thucTe: `từ máy chủ → ${JSON.stringify(cuaNguoiKhac)} · tự tạo → ${JSON.stringify(cuaMinh)}`,
+      mongDoi: '[] và ["po:c"]',
+    };
+  },
+);
+
+kiem(
+  "Chính máy này xoá bản ghi chưa kịp lên máy chủ → gỡ khỏi sổ, KHÔNG dựng lại",
+  CHU_GIU,
+  () => {
+    /* Người ngồi máy này tự xoá đề nghị mình vừa tạo. Giữ tiếp là chống lại ý muốn của họ. */
+    const sau = GB.soSauAnhChup(so("pr:moi"), new Set([]), new Set([]));
+    return {
+      duoc: sau.size === 0,
+      thucTe: `sổ còn ${sau.size} mục`,
+      mongDoi: "0 — không còn trong state máy này thì thôi theo dõi",
+    };
+  },
+);
+
+kiem(
+  "Vắng mặt nhiều ảnh chụp → đếm tăng và quaHanDongBo báo động (để app nói THẬT)",
+  CHU_GIU,
+  () => {
+    let s = so("po:moi");
+    for (let i = 0; i < GB.SO_ANH_CHUP_TRUOC_KHI_BAO; i += 1) {
+      s = GB.soSauAnhChup(s, new Set([]), new Set(["po:moi"]));
+    }
+    const vet = s.get("po:moi");
+    return {
+      duoc:
+        s.size === 1 &&
+        vet.soAnhChupVang === GB.SO_ANH_CHUP_TRUOC_KHI_BAO &&
+        GB.quaHanDongBo(vet) === true &&
+        GB.quaHanDongBo({ soAnhChupVang: 0 }) === false,
+      thucTe: `vắng ${vet?.soAnhChupVang} ảnh chụp · quáHạn=${GB.quaHanDongBo(vet)}`,
+      mongDoi: `vắng ${GB.SO_ANH_CHUP_TRUOC_KHI_BAO} · quáHạn=true, và bản ghi VẪN được giữ (thôi giữ = mất dữ liệu lần hai)`,
+    };
+  },
+);
+
+kiem(
+  "🔴 NGHỊCH: quá hạn KHÔNG được làm bản ghi biến mất — vẫn phải ghép lại",
+  CHU_GIU,
+  () => {
+    /* 🔴 Cân nhắc kỹ rồi mới chọn: "quá N ảnh chụp thì thôi giữ" chính là MẤT DỮ LIỆU LẦN THỨ
+       HAI, mà bản ghi đó là bản DUY NHẤT còn tồn tại (máy chủ không có). Thứ ngăn hồi sinh vĩnh
+       viễn là cửa một chiều ở `soSauAnhChup`, không phải cái trần này. Trần chỉ đổi LỜI APP NÓI. */
+    const quaHan = new Map([["po:moi", { soAnhChupVang: 999 }]]);
+    const r = GB.ghepBanChuaLenMayChu([], [don("moi")], quaHan, (x) => `po:${x.id}`);
+    return {
+      duoc: r.length === 1 && r[0].id === "moi",
+      thucTe: r.map((v) => v.id).join(",") || "(rỗng)",
+      mongDoi: "moi — quá hạn thì BÁO người dùng, không phải vứt việc họ đã làm",
+    };
+  },
+);
+
+kiem(
+  "① Thử lại khi ghi hỏng: hỏng lần đầu phải có khoảng chờ, và tăng dần có trần",
+  CHU_GIU,
+  () => {
+    const bac = [0, 1, 2, 3, 4, 9].map((n) => GB.khoangChoGhiLai(n));
+    const tran = GB.BAC_CHO_GHI_LAI_MS[GB.BAC_CHO_GHI_LAI_MS.length - 1];
+    return {
+      duoc:
+        bac[0] === 0 &&
+        bac[1] === 3_000 &&
+        bac[2] === 10_000 &&
+        bac[3] === 30_000 &&
+        bac[4] === tran &&
+        bac[5] === tran,
+      thucTe: bac.map((x) => `${x}ms`).join(" · "),
+      mongDoi: `0 · 3000 · 10000 · 30000 · ${tran} · ${tran} — trước 15/09/2026 ghi hỏng là MẤT LUÔN, không thử lại lần nào`,
+    };
+  },
+);
+
+kiem(
+  "🔴 NGHỊCH: conDuocGhiLai KHÔNG ĐƯỢC trả false vô điều kiện",
+  CHU_GIU,
+  () => {
+    /* Chặn tuyệt đối = quay về đúng lỗi 15/09/2026: ghi hỏng một lần là mất luôn việc vừa làm. */
+    const r = [GB.conDuocGhiLai(0), GB.conDuocGhiLai(1), GB.conDuocGhiLai(GB.SO_LAN_GHI_LAI_TOI_DA)];
+    return {
+      duoc: r[0] === true && r[1] === true && r[2] === false && GB.SO_LAN_GHI_LAI_TOI_DA >= 3,
+      thucTe: `0→${r[0]} · 1→${r[1]} · ${GB.SO_LAN_GHI_LAI_TOI_DA}→${r[2]}`,
+      mongDoi: "true · true · false (có trần, nhưng KHÔNG chặn ngay từ lần đầu)",
     };
   },
 );

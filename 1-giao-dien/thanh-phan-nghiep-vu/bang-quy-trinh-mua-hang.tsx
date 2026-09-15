@@ -12,6 +12,9 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarClock,
+  /* Đồng hồ TRÒN — dùng cho thời hạn tính bằng giờ ở đầu cột (Sếp 15/09/2026). Khác
+     `CalendarClock` (tờ lịch) ngay trên, vốn dành cho mốc NGÀY. */
+  Clock,
   CopyPlus,
   Eye,
   History,
@@ -550,7 +553,19 @@ function CotQuyTrinh({
               style={{ width: `${tyLeDaGiao}%` }}
             />
           </div>
-          <p className="text-xs text-text-desc">
+          {/**
+            * ★★ THỜI HẠN CĂN VỀ GÓC PHẢI — Sếp 15/09/2026: *"căn về góc phải, và thể hiện icon hình
+            * đồng hồ tròn"*.
+            *
+            * 📌 VÌ SAO ĐỔI TỪ "NỐI VÀO CUỐI DÒNG" SANG HAI CỤM TRÁI–PHẢI: nối vào cuối thì thời hạn
+            * đứng ở chỗ khác nhau trên từng cột (tuỳ chữ thống kê dài hay ngắn), mắt phải đi tìm.
+            * Ghim về mép phải thì cả 9 cột thẳng một hàng dọc, liếc một cái là so được.
+            *
+            * ⚠️ `flex-wrap` + `gap-x-2` là cố ý: cột hẹp hoặc màn điện thoại thì hai cụm tự xuống
+            * dòng thay vì đè lên nhau. `justify-between` chỉ đẩy ra hai mép khi còn chỗ.
+            */}
+          <p className="flex flex-wrap items-center justify-between gap-x-2 text-xs text-text-desc">
+            <span>
             {the.length === 0
               ? "0 đề nghị"
               : `${soDaGiao}/${the.length} đã giao${soQuaHan > 0 ? ` · ${soQuaHan} quá hạn` : ""}`}
@@ -584,15 +599,12 @@ function CotQuyTrinh({
               * khung cuộn ngang, `sr-only` là `position:absolute` nên nó thoát khung và kéo giãn cả
               * trang trên điện thoại (CLAUDE.md §5, đã dính thật). Lời giải thích đặt ở `title`.
               */}
-            <span className="whitespace-nowrap" title="Thời hạn chuẩn của bước theo quy trình">
-              {" · "}
-              <CalendarClock aria-hidden="true" className="inline size-3 -translate-y-px" />{" "}
-              {hanGio}
-            </span>
             {/* ★ ĐẾM RIÊNG PO ĐỘC LẬP — thêm sau review PR (CodeRabbit): KHÔNG gộp vào phân số
                 "X/Y đã giao" phía trên (đó là mẫu số của HỒ SƠ ĐỀ NGHỊ, PO độc lập chưa có hồ sơ
                 nào). Tách hẳn một cụm riêng, tự nói rõ mẫu số của chính nó — người đọc không thể
-                hiểu lầm thành một phần của con số đề nghị ở trên. */}
+                hiểu lầm thành một phần của con số đề nghị ở trên.
+                📌 Nằm TRONG cụm trái cùng dòng thống kê: nó cũng là con số đếm hồ sơ, không phải
+                thời hạn. Đẩy nó sang phải là hai loại thông tin khác nhau đứng chung một mép. */}
             {theDocLap.length > 0 && (
               <span className="block">
                 {theDocLap.length} PO chờ đề nghị
@@ -601,6 +613,16 @@ function CotQuyTrinh({
                 )}
               </span>
             )}
+            </span>
+            {/* 🔴 ICON ĐỒNG HỒ TRÒN (`Clock`), KHÔNG PHẢI `CalendarClock` — Sếp 15/09/2026 chỉ đích
+                danh: *"thể hiện icon hình đồng hồ tròn"*. `CalendarClock` là hình TỜ LỊCH có đồng hồ
+                nhỏ, đọc ra thành "ngày tháng" chứ không phải "số giờ" — mà đây là thời hạn tính bằng
+                GIỜ. Đừng đổi lại cho "đồng bộ với chỗ khác".
+                📌 Dòng ~1375 vẫn dùng `CalendarClock` đúng chỗ của nó (mốc ngày), nên giữ cả hai
+                icon trong tệp là cố ý, không phải sót. */}
+            <span className="whitespace-nowrap" title="Thời hạn chuẩn của bước theo quy trình">
+              <Clock aria-hidden="true" className="inline size-3 -translate-y-px" /> {hanGio}
+            </span>
           </p>
         </div>
       </header>

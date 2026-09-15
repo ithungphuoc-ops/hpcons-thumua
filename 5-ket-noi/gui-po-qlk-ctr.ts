@@ -27,9 +27,17 @@ export type KetQuaGuiQlkCtr =
 //   ① giữ lại nội dung lỗi khi gửi hỏng (`catNganLoiQlkCtr` dưới đây)
 //   ② siết chốt "chỉ gửi hồ sơ CÔNG TRÌNH" (xem `guiPOSangQlkCtr` / `canDongBoLaiPO`)
 //   ③ (chiều cùng ngày) vá NỐT chỗ hở của nhánh PO ĐỘC LẬP — chốt ② lúc đầu chỉ đặt ở nhánh PO
-//      CÓ đề nghị, nhánh độc lập vẫn gửi PO phòng ban sang QLK CTR. Xem `laPODocLapCuaPhongBan`
-// Không dọn dẹp, không đổi tên, không xoá gì khác của các anh — ghi ra đây để người đọc sau biết
-// đây là sửa có phép chứ không phải ai đó tự tiện.
+//      CÓ đề nghị, nhánh độc lập vẫn gửi PO phòng ban sang QLK CTR. Xem `laPOCuaHoSoPhongBan`
+//   ④ (15/09/2026, tối — Sếp: *"Đề xuất từ phòng ban thì ko cần gửi sang app kho, nên e bỏ phần
+//      ghi chú này và điều chỉnh lại phần code của phòng ban"*) MỞ `export` cho phép nhận diện
+//      phòng ban ở tầng PO, và đổi tên `laPODocLapCuaPhongBan` → `laPOCuaHoSoPhongBan`.
+//      🔴 VÌ SAO ĐỔI TÊN: giao diện (`trang/don-hang-chi-tiet.tsx`) và vòng tự đồng bộ
+//      (`3-du-lieu/kho-du-lieu.tsx`) nay phải hỏi CÙNG MỘT phép nhận diện với nơi gửi — nếu không,
+//      màn hình lại nói một đằng còn đường gửi làm một nẻo, đúng cái sai đang chữa. Hàm này từ nay
+//      dùng cho CẢ HAI loại PO (có đề nghị và độc lập) nên chữ "DocLap" trong tên cũ thành sai.
+//      Đây là hàm do chính đợt sửa 15/09 thêm vào, KHÔNG phải hàm của phiên tích hợp.
+// Không dọn dẹp, không xoá gì khác của các anh — ghi ra đây để người đọc sau biết đây là sửa có
+// phép chứ không phải ai đó tự tiện.
 // ============================================================
 
 /**
@@ -216,7 +224,15 @@ function xayDungPayloadPODocLap(po: DonDatHang) {
 }
 
 /**
- * ★★ CHỐT PHÒNG BAN CHO PO ĐỘC LẬP — THÊM 15/09/2026, SỬA CÓ PHÉP CỦA SẾP (xem khối đầu tệp).
+ * ★★ PO NÀY THUỘC HỒ SƠ PHÒNG BAN? — THÊM 15/09/2026, SỬA CÓ PHÉP CỦA SẾP (xem khối đầu tệp).
+ *
+ * 🔴 `export` TỪ 15/09/2026 (tối) — ĐÂY LÀ PHÉP NHẬN DIỆN DUY NHẤT Ở TẦNG PO, cho cả ba nơi:
+ *   · nơi GỬI (hai cặp hàm trong chính tệp này),
+ *   · vòng TỰ ĐỒNG BỘ (`3-du-lieu/kho-du-lieu.tsx` → `apDung`),
+ *   · GIAO DIỆN (`1-giao-dien/trang/don-hang-chi-tiet.tsx` → dải cảnh báo "chưa gửi được").
+ * Ba nơi đó mà mỗi nơi tự đoán một kiểu thì lại sinh đúng cái sai Sếp vừa báo: đường gửi bỏ qua
+ * hồ sơ phòng ban, còn màn hình vẫn la lên là "chưa gửi được".
+ * ⚠️ Vẫn KHÔNG tự viết phép so sánh ở đây — mọi nhánh cuối cùng đều hỏi `laHoSoPhongBan`.
  *
  * 🔴 VÌ SAO PHẢI THÊM: sáng 15/09/2026 chốt "chỉ gửi hồ sơ CÔNG TRÌNH" mới chỉ được đặt ở
  * `guiPOSangQlkCtr`/`canDongBoLaiPO` (nhánh PO CÓ đề nghị). Nhánh PO ĐỘC LẬP vẫn hở nguyên: nó
@@ -247,7 +263,7 @@ function xayDungPayloadPODocLap(po: DonDatHang) {
  * không gửi thì thủ kho không thấy đơn — cái sau người dùng phát hiện ngay, cái trước thì không.
  * Muốn chắc chắn thì phải có trường phân loại thật trên PO, không phải suy từ mã hợp đồng.
  */
-function laPODocLapCuaPhongBan(po: DonDatHang, deNghi?: DeNghiMuaHang): boolean {
+export function laPOCuaHoSoPhongBan(po: DonDatHang, deNghi?: DeNghiMuaHang): boolean {
   if (deNghi) return laHoSoPhongBan(deNghi);
   return laHoSoPhongBan({ maHopDongCDT: po.maHopDongCDT });
 }
@@ -259,13 +275,13 @@ function laPODocLapCuaPhongBan(po: DonDatHang, deNghi?: DeNghiMuaHang): boolean 
  * toàn (QLK CTR tự cập nhật theo `poIdThuMua`).
  *
  * 🔴 CHỐT PHÒNG BAN (15/09/2026, Sếp cho phép) — trả `{ apDung: false }` NGAY, giống hệt cách
- * `guiPOSangQlkCtr` xử hồ sơ phòng ban. Xem `laPODocLapCuaPhongBan` ngay trên để biết vì sao.
+ * `guiPOSangQlkCtr` xử hồ sơ phòng ban. Xem `laPOCuaHoSoPhongBan` ngay trên để biết vì sao.
  */
 export async function guiPOSangQlkCtrDocLap(
   po: DonDatHang,
   deNghi?: DeNghiMuaHang,
 ): Promise<KetQuaGuiQlkCtr> {
-  if (laPODocLapCuaPhongBan(po, deNghi)) return { apDung: false };
+  if (laPOCuaHoSoPhongBan(po, deNghi)) return { apDung: false };
 
   const payload = xayDungPayloadPODocLap(po);
   try {
@@ -299,6 +315,6 @@ export async function guiPOSangQlkCtrDocLap(
  * tưởng sự khác nhau đó có chủ ý.
  */
 export function canDongBoLaiPODocLap(po: DonDatHang, deNghi?: DeNghiMuaHang): boolean {
-  if (laPODocLapCuaPhongBan(po, deNghi)) return false;
+  if (laPOCuaHoSoPhongBan(po, deNghi)) return false;
   return JSON.stringify(xayDungPayloadPODocLap(po)) !== po.qlkCtrSyncedSnapshot;
 }
