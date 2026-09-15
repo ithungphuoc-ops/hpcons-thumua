@@ -213,6 +213,57 @@ export function caiDatCuaBuoc(ch: CauHinhQuyTrinh, buoc: string): CaiDatGiaiDoan
 }
 
 /**
+ * ★★ CÂU DÙNG CHO BƯỚC KHÔNG ĐẶT HẠN — MỘT CHUỖI DUY NHẤT CHO CẢ APP.
+ *
+ * 🔴 Trước 15/09/2026 app có HAI câu khác nhau cho cùng một việc: hộp chuyển giai đoạn ghi
+ * *"Không đặt thời hạn"*, cột thông tin đề nghị ghi *"Không đặt hạn"*. Cùng một hồ sơ, hai màn
+ * hình, hai câu — người dùng không biết có phải hai thứ khác nhau không. Lấy câu của hộp chuyển
+ * giai đoạn làm chuẩn vì đó là chỗ nói rõ nhất ("thời hạn", không rút gọn).
+ */
+export const NHAN_BUOC_KHONG_HAN = "Không đặt thời hạn";
+
+/**
+ * Bước này CÓ đặt hạn hay không.
+ *
+ * 🔴 `0` = KHÔNG đặt hạn, không phải "hạn 0 giờ" — xem chú thích của `hanGioTheoBuoc`. Khuyết
+ * khóa (`undefined`) cũng vậy: ba bước cuối (`ho_so_thanh_toan`, `hoan_thanh`, `that_bai`) chưa
+ * bao giờ được khai trong `CAU_HINH_MAC_DINH`.
+ *
+ * ⚠️ Chặn luôn `NaN` và số âm: cấu hình đi qua Firestore và qua ô nhập của trang Cài đặt, một
+ * giá trị hỏng lọt tới đây sẽ in ra *"NaN giờ"* mà không lỗi nào báo.
+ */
+export function coHanGioBuoc(han: number | undefined | null): boolean {
+  return typeof han === "number" && Number.isFinite(han) && han > 0;
+}
+
+/**
+ * ★★ MỘT HÀM DUY NHẤT ĐỊNH DẠNG THỜI HẠN CHUẨN CỦA BƯỚC — Sếp 15/09/2026, khi chỉ vào hàng tiêu
+ * đề bảng quy trình: *"trường thời gian ở các bước này sao chưa có"*.
+ *
+ * 🔴 VÌ SAO LÀ HÀM CHUNG chứ không để mỗi màn tự viết `${n} giờ`: trước ngày này đã có BA chỗ tự
+ * định dạng (đầu cột chưa có, cột thông tin đề nghị ×3, hộp chuyển giai đoạn ×1) và chúng đã kịp
+ * lệch nhau ở câu "không đặt hạn". Thêm đầu cột kanban là chỗ thứ tư — nếu lại chép chuỗi thì
+ * sớm muộn một màn ghi *"8 giờ"* còn màn kia ghi *"1 ngày"* cho cùng một con số.
+ *
+ * 📌 Trả về chuỗi ĐỌC ĐƯỢC MỘT MÌNH, không phải mảnh ghép: nơi gọi nào cần dạng phụ (" · 4 giờ")
+ * thì tự bọc dấu phân cách, còn chữ và số thì lấy ở đây.
+ */
+export function nhanHanGioBuoc(han: number | undefined | null): string {
+  return coHanGioBuoc(han) ? `${han} giờ` : NHAN_BUOC_KHONG_HAN;
+}
+
+/**
+ * Đọc hạn của một bước từ cấu hình ĐANG HIỆU LỰC rồi định dạng luôn.
+ *
+ * 🔴 DÙNG HÀM NÀY, đừng đọc `CAU_HINH_MAC_DINH.hanGioTheoBuoc` — cấp quản lý sửa được hạn từng
+ * bước ở trang Cài đặt quy trình, đọc bản mặc định là màn hình hiện số sai ngay khi họ vừa sửa
+ * xong, mà không một lỗi nào báo.
+ */
+export function nhanHanGioCuaBuoc(ch: CauHinhQuyTrinh, buoc: string): string {
+  return nhanHanGioBuoc(ch.hanGioTheoBuoc?.[buoc]);
+}
+
+/**
  * Giá trị mặc định = ĐÚNG luật đang chạy trước ngày 13/08/2026.
  *
  * 🔴 Đây cũng là giá trị dùng khi chưa ai vào trang cài đặt lần nào. Đổi mặc định ở đây là

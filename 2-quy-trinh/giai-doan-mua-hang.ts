@@ -27,6 +27,8 @@ import type { Quyen } from "@/4-phan-quyen/quyen";
 import { soSanhDeNghiUuTien, soSanhDonHangUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
   caiDatCuaBuoc,
+  /* Định dạng thời hạn chuẩn của bước — MỘT hàm cho cả app, xem chú thích tại chỗ khai báo. */
+  nhanHanGioCuaBuoc,
   type CauHinhQuyTrinh,
   type CongViecGiaiDoan,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
@@ -648,6 +650,19 @@ export interface CotBangQuyTrinh {
   /** Rỗng ở mọi cột trừ "Lập đơn mua hàng" — xem chú thích ở `TheDonHangDocLapTrenBang`. */
   theDocLap: TheDonHangDocLapTrenBang[];
   soQuaHan: number;
+  /**
+   * ★★ THỜI HẠN CHUẨN CỦA BƯỚC, ĐÃ THÀNH CHỮ ("4 giờ" / "Không đặt thời hạn") — Sếp 15/09/2026:
+   * *"trường thời gian ở các bước này sao chưa có"* (ảnh khoanh đỏ cả hàng tiêu đề các cột).
+   *
+   * 🔴 TÍNH Ở ĐÂY, KHÔNG ĐỂ BẢNG TỰ TRA. `bang-quy-trinh-mua-hang.tsx` là component hiển thị
+   * thuần: nó không gọi `useDuLieu()` nên không biết cấu hình ĐANG HIỆU LỰC. Cho nó tự đọc
+   * `CAU_HINH_MAC_DINH` là đầu cột hiện số cũ ngay khi cấp quản lý sửa hạn ở trang Cài đặt quy
+   * trình — sai mà không một lỗi nào báo.
+   *
+   * 📌 Đi kèm cột thay vì thêm một prop mới: nơi gọi nào quên truyền prop là mất chữ im lặng,
+   * còn trường bắt buộc trong `CotBangQuyTrinh` thì TypeScript bắt ngay tại mọi chỗ dựng cột.
+   */
+  hanGio: string;
 }
 
 /** Dựng đủ 8 cột theo đúng thứ tự, kể cả cột rỗng — cột rỗng cũng là thông tin. */
@@ -800,6 +815,9 @@ export function dungBangQuyTrinh(
        * đếm khác nhau (hồ sơ đề nghị vs PO chưa gắn đề nghị).
        */
       soQuaHan: cuaCot.filter((t) => t.han.quaHan).length,
+      /* Thời hạn chuẩn của bước — đọc từ `cauHinh` được truyền vào (bản ĐANG HIỆU LỰC), định dạng
+         bằng đúng hàm mà hộp chuyển giai đoạn và cột thông tin đề nghị đang dùng. */
+      hanGio: nhanHanGioCuaBuoc(cauHinh, giaiDoan.ma),
     };
   });
 }

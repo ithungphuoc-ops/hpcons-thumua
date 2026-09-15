@@ -7,6 +7,15 @@ import {
   NHAN_GIAI_DOAN,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
+/**
+ * ★ ĐỊNH DẠNG THỜI HẠN CHUẨN CỦA BƯỚC — MỘT hàm cho cả app (15/09/2026).
+ *
+ * 🔴 Trước đây khối này tự viết `${n} giờ` / "Không đặt hạn" còn hộp chuyển giai đoạn tự viết
+ * `${n} giờ` / "Không đặt thời hạn" — hai chỗ nói về cùng một con số bằng hai câu khác nhau.
+ * Nay cả hai gọi chung `nhanHanGioBuoc`, nên câu "Không đặt hạn" ở đây đổi thành "Không đặt thời
+ * hạn". Đổi chữ là CÓ CHỦ Ý, không phải sơ suất.
+ */
+import { coHanGioBuoc, nhanHanGioBuoc } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { formatDate, formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -95,7 +104,7 @@ export function CotThongTinDeNghi({
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/25 pt-2 text-sm">
             <span className="text-white/80">Thời hạn chuẩn của bước</span>
             <span className="font-semibold tabular-nums">
-              {hanGioTheoBuoc[giaiDoan] ? `${hanGioTheoBuoc[giaiDoan]} giờ` : "Không đặt hạn"}
+              {nhanHanGioBuoc(hanGioTheoBuoc[giaiDoan])}
             </span>
           </div>
         )}
@@ -104,7 +113,12 @@ export function CotThongTinDeNghi({
         {buocKeTiep && (
           <p className="mt-1.5 text-sm text-white/90">
             » Bước kế tiếp: <strong className="font-semibold">{buocKeTiep.nhan}</strong>
-            {hanGioTheoBuoc[buocKeTiep.ma] ? ` (${hanGioTheoBuoc[buocKeTiep.ma]} giờ)` : ""}
+            {/* Bước kế tiếp không đặt hạn thì KHÔNG in gì trong ngoặc — dòng này là lời nhắc
+                chuẩn bị, thêm "(Không đặt thời hạn)" chỉ làm dài chứ không thêm thông tin. Phần
+                CÓ hạn thì lấy chữ từ hàm chung, không tự ghép `${n} giờ` lần nữa. */}
+            {coHanGioBuoc(hanGioTheoBuoc[buocKeTiep.ma])
+              ? ` (${nhanHanGioBuoc(hanGioTheoBuoc[buocKeTiep.ma])})`
+              : ""}
           </p>
         )}
 
@@ -289,7 +303,9 @@ export function CotThongTinDeNghi({
                         : "Đã xong"}
                     {/* Hạn chuẩn của bước — Base ghi "DURATION: 4.00h" ở mỗi dòng giai đoạn.
                         Bỏ qua bước Hoàn thành / Thất bại: chúng là điểm dừng, không có hạn. */}
-                    {hanGioTheoBuoc[g.ma] ? ` · ${hanGioTheoBuoc[g.ma]} giờ` : ""}
+                    {coHanGioBuoc(hanGioTheoBuoc[g.ma])
+                      ? ` · ${nhanHanGioBuoc(hanGioTheoBuoc[g.ma])}`
+                      : ""}
                   </span>
                 </div>
               </li>

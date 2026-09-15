@@ -19,6 +19,8 @@ import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import {
   NHAN_CACH_GIAO_VIEC,
   caiDatCuaBuoc,
+  /* Định dạng thời hạn chuẩn của bước — MỘT hàm cho cả app, xem chú thích tại chỗ khai báo. */
+  nhanHanGioBuoc,
   type CauHinhQuyTrinh,
   type CongViecGiaiDoan,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
@@ -328,10 +330,10 @@ export function HopChuyenGiaiDoan({
                   />
 
                   {/* Ô KHÓA 2 — thời hạn chuẩn của bước đích (Base ghi "DURATION"). */}
-                  <OKhoa
-                    nhan="Thời hạn của bước"
-                    giaTri={hanDich > 0 ? `${hanDich} giờ` : "Không đặt thời hạn"}
-                  />
+                  {/* Chữ lấy từ hàm chung `nhanHanGioBuoc` (15/09/2026) — cùng hàm mà đầu cột
+                      bảng quy trình và cột thông tin đề nghị đang dùng. Câu cho bước không đặt
+                      hạn ("Không đặt thời hạn") vốn của chính ô này, nay thành chuẩn chung. */}
+                  <OKhoa nhan="Thời hạn của bước" giaTri={nhanHanGioBuoc(hanDich)} />
                 </div>
               </>
             )}

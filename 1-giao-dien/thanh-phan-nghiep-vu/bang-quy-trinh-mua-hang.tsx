@@ -366,7 +366,9 @@ function CotQuyTrinh({
   thaoTac?: ThaoTacThe;
   onXemNhanh?: (prId: string) => void;
 }) {
-  const { giaiDoan, the, theDocLap, soQuaHan } = cot;
+  /* `hanGio` = thời hạn chuẩn của bước, ĐÃ thành chữ sẵn ở `dungBangQuyTrinh` (15/09/2026) —
+     bảng chỉ bày, không tự tra cấu hình. Xem chú thích ở chỗ hiển thị, cuối dòng thống kê. */
+  const { giaiDoan, the, theDocLap, soQuaHan, hanGio } = cot;
 
   /**
    * ★ SỐ HỒ SƠ ĐÃ CÓ NGƯỜI PHỤ TRÁCH — nguồn của thanh tiến độ đầu cột (23/08/2026).
@@ -509,6 +511,12 @@ function CotQuyTrinh({
             * nên không có gì để điền vào chỗ `⏱ 4.00h`. Bịa ra một con số giờ để trông giống ảnh
             * là dựng số liệu không có nguồn — thứ nặng hơn hẳn việc thiếu một cụm chữ.
             *
+            * ✅ CÂU TRÊN ĐÃ HẾT ĐÚNG TỪ 15/09/2026 — giữ lại để hiểu vì sao trước đây thiếu. App
+            * nay CÓ hạn từng bước thật (`cauHinh.hanGioTheoBuoc`, Ban lãnh đạo chốt 13/08/2026),
+            * nên chỗ `⏱ 4.00h` của Base đã điền được bằng số có nguồn — xem cụm ⏱ ở cuối dòng
+            * thống kê bên dưới. Đúng chỗ Sếp khoanh đỏ ngày 15/09/2026: *"trường thời gian ở các
+            * bước này sao chưa có"*.
+            *
             * 👉 Thanh chạy theo **số hồ sơ đã có người phụ trách / tổng số hồ sơ trong cột** —
             * đúng câu hỏi người quản lý nhìn đầu cột để trả lời: *"việc ở bước này đã giao hết
             * chưa"*. Cùng nghĩa với `10/10 NV` của Base (nhiệm vụ đã nhận / tổng).
@@ -552,6 +560,35 @@ function CotQuyTrinh({
             {soConThieu > 0 && (
               <span className="font-semibold text-danger"> · {soConThieu} còn thiếu</span>
             )}
+            {/**
+              * ★★ THỜI HẠN CHUẨN CỦA BƯỚC — Sếp 15/09/2026, ảnh khoanh đỏ cả hàng tiêu đề các cột:
+              * *"trường thời gian ở các bước này sao chưa có"*. Hỏi lại và Sếp chốt: muốn thấy hạn
+              * CHUẨN của bước (quy trình cho bước này bao nhiêu giờ), không phải "hồ sơ đã nằm ở
+              * đây bao lâu".
+              *
+              * 🔴 NỐI VÀO CUỐI DÒNG THỐNG KÊ, KHÔNG THÊM MỘT DÒNG RIÊNG. Đầu cột là thứ luôn hiện
+              * trên cả 9 cột; mỗi dòng thêm vào là mất đúng một dòng chỗ của thẻ bên dưới. Nối vào
+              * đây thì cột nào chữ ngắn (phần lớn) không cao thêm một pixel nào, chỉ cột đang có
+              * nhiều số mới xuống dòng — và cũng đúng cách Base xếp (`… · ⏱ 4.00h`).
+              *
+              * 🔴 CHỮ LẤY TỪ `cot.hanGio`, KHÔNG TỰ ĐỊNH DẠNG Ở ĐÂY. `dungBangQuyTrinh` đã đọc cấu
+              * hình ĐANG HIỆU LỰC và gọi `nhanHanGioBuoc` — cùng hàm mà hộp chuyển giai đoạn và cột
+              * thông tin đề nghị dùng. Viết `${n} giờ` lần nữa ở đây là dựng nguồn sự thật thứ hai,
+              * rồi có ngày màn này ghi "8 giờ" còn màn kia ghi "1 ngày" cho cùng con số.
+              *
+              * 📌 Bước không khai hạn hoặc khai 0 (`nhan_hang`, `ho_so_thanh_toan`, `hoan_thanh`,
+              * `that_bai`) ra thẳng chữ "Không đặt thời hạn" — KHÔNG in "0 giờ", vì 0 ở cấu hình
+              * nghĩa là *không đặt hạn*, in "0 giờ" là đọc ngược lại thành "hết hạn ngay lập tức".
+              *
+              * ⚠️ KHÔNG dùng `sr-only` để chú thích thêm cho trình đọc màn hình: bảng này nằm trong
+              * khung cuộn ngang, `sr-only` là `position:absolute` nên nó thoát khung và kéo giãn cả
+              * trang trên điện thoại (CLAUDE.md §5, đã dính thật). Lời giải thích đặt ở `title`.
+              */}
+            <span className="whitespace-nowrap" title="Thời hạn chuẩn của bước theo quy trình">
+              {" · "}
+              <CalendarClock aria-hidden="true" className="inline size-3 -translate-y-px" />{" "}
+              {hanGio}
+            </span>
             {/* ★ ĐẾM RIÊNG PO ĐỘC LẬP — thêm sau review PR (CodeRabbit): KHÔNG gộp vào phân số
                 "X/Y đã giao" phía trên (đó là mẫu số của HỒ SƠ ĐỀ NGHỊ, PO độc lập chưa có hồ sơ
                 nào). Tách hẳn một cụm riêng, tự nói rõ mẫu số của chính nó — người đọc không thể

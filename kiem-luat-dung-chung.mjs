@@ -4141,6 +4141,155 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 15/09/2026
+// Ảnh chụp bảng quy trình kanban, khoanh đỏ cả hàng tiêu đề các cột:
+//     *"trường thời gian ở các bước này sao chưa có"*
+// Hỏi lại và Sếp chốt: muốn hiện THỜI HẠN CHUẨN CỦA BƯỚC ở đầu mỗi cột
+// (quy trình cho bước này bao nhiêu giờ), KHÔNG phải "hồ sơ đã nằm ở
+// bước này bao lâu".
+//
+// Luật ở `2-quy-trinh/cau-hinh-quy-trinh.ts` → `nhanHanGioBuoc` /
+// `nhanHanGioCuaBuoc`; đầu cột lấy chữ qua `CotBangQuyTrinh.hanGio` do
+// `dungBangQuyTrinh` sinh (`2-quy-trinh/giai-doan-mua-hang.ts`).
+//
+// 🔴 VÌ SAO PHẢI CÓ BÀI KIỂM: `hanGioTheoBuoc` khai `nhan_hang: 0`, còn
+//    `ho_so_thanh_toan` / `hoan_thanh` / `that_bai` KHÔNG khai khóa nào.
+//    Ai "dọn cho gọn" thành `${han} giờ` trơn thì bốn cột cuối in ra
+//    "0 giờ" và "undefined giờ" — mà `0` trong cấu hình nghĩa là KHÔNG
+//    ĐẶT HẠN, in "0 giờ" là đọc ngược lại thành "hết hạn ngay lập tức".
+//
+// 🔴 KIỂM CẢ HAI CHIỀU. Ai sửa hàm thành `return "Không đặt thời hạn"`
+//    vô điều kiện thì ba bài đầu vẫn xanh, mà con số thật đã biến mất
+//    khỏi cả ba màn hình đang dùng chung hàm này.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "HAN BUOC — buoc CO han (tiep_nhan = 4) phai ra chuoi mang dung con so do",
+  'Sếp · 15/09/2026 — "trường thời gian ở các bước này sao chưa có"',
+  () => {
+    const r = CQ.nhanHanGioCuaBuoc(CQ.CAU_HINH_MAC_DINH, "tiep_nhan");
+    return {
+      duoc: r === "4 giờ",
+      thucTe: `"${r}"`,
+      mongDoi: '"4 giờ" — đúng số trong `hanGioTheoBuoc.tiep_nhan`',
+    };
+  },
+);
+
+kiem(
+  "HAN BUOC — buoc khai 0 (nhan_hang) → 'Khong dat thoi han', TUYET DOI khong phai '0 gio'",
+  "Sếp · 15/09/2026 · quy ước 0 = không đặt hạn có từ Ban lãnh đạo 13/08/2026",
+  () => {
+    const r = CQ.nhanHanGioCuaBuoc(CQ.CAU_HINH_MAC_DINH, "nhan_hang");
+    return {
+      duoc: r === "Không đặt thời hạn",
+      thucTe: `"${r}"`,
+      mongDoi: '"Không đặt thời hạn" (0 = KHÔNG đặt hạn, không phải hạn bằng 0 giờ)',
+    };
+  },
+);
+
+kiem(
+  "HAN BUOC — buoc KHONG KHAI khoa (hoan_thanh) → cau khong dat han, khong ra 'undefined'",
+  "Sếp · 15/09/2026 — ba bước cuối chưa bao giờ được khai trong CAU_HINH_MAC_DINH",
+  () => {
+    const ds = ["ho_so_thanh_toan", "hoan_thanh", "that_bai"].map((b) => [
+      b,
+      CQ.nhanHanGioCuaBuoc(CQ.CAU_HINH_MAC_DINH, b),
+    ]);
+    const xau = ds.filter(([, v]) => v !== "Không đặt thời hạn");
+    return {
+      duoc: xau.length === 0,
+      thucTe: JSON.stringify(ds),
+      mongDoi: 'cả ba ra "Không đặt thời hạn" — không "undefined giờ", không "NaN giờ"',
+    };
+  },
+);
+
+kiem(
+  "HAN BUOC — CHIEU NGHICH: ham KHONG duoc tra cung mot cau cho moi ca",
+  "Sếp · 15/09/2026 — chốt chống ai đó `return` cứng làm mất sạch con số thật",
+  () => {
+    /* 🔴 Bài kiểm này tồn tại vì ba bài trên một mình KHÔNG đủ: hàm trả cứng
+       "Không đặt thời hạn" thì hai bài "không đặt hạn" xanh, và chỉ một bài có số đứng
+       chặn — mà bài đó dễ bị sửa theo. Ở đây đòi hàm phân biệt được bốn giá trị khác nhau. */
+    const co4 = CQ.nhanHanGioBuoc(4);
+    const co12 = CQ.nhanHanGioBuoc(12);
+    const khong0 = CQ.nhanHanGioBuoc(0);
+    const khongKhai = CQ.nhanHanGioBuoc(undefined);
+    return {
+      duoc:
+        co4 === "4 giờ" &&
+        co12 === "12 giờ" &&
+        co4 !== co12 &&
+        khong0 === khongKhai &&
+        khong0 !== co4,
+      thucTe: `4→"${co4}" · 12→"${co12}" · 0→"${khong0}" · undefined→"${khongKhai}"`,
+      mongDoi: '4 và 12 ra hai chuỗi KHÁC nhau có số; 0 và undefined cùng ra câu "không đặt"',
+    };
+  },
+);
+
+kiem(
+  "HAN BUOC — CHIEU NGHICH: gia tri hong (NaN, am) khong duoc in ra man hinh",
+  "Sếp · 15/09/2026 — cấu hình đi qua Firestore và qua ô nhập trang Cài đặt",
+  () => {
+    const ds = [NaN, -3, null].map((v) => CQ.nhanHanGioBuoc(v));
+    const xau = ds.filter((v) => v !== "Không đặt thời hạn");
+    return {
+      duoc: xau.length === 0,
+      thucTe: JSON.stringify(ds),
+      mongDoi: 'cả ba ra "Không đặt thời hạn" — không "NaN giờ", không "-3 giờ"',
+    };
+  },
+);
+
+kiem(
+  "DAU COT KANBAN — moi cot PHAI mang san chu thoi han (truong `hanGio`)",
+  'Sếp · 15/09/2026 — "trường thời gian ở các bước này sao chưa có" (ảnh khoanh hàng tiêu đề)',
+  () => {
+    /* 🔴 Đây mới là bài kiểm ĐÚNG CHỖ SẾP CHỈ: ba bài trên chỉ chứng minh hàm định dạng chạy
+       đúng, không chứng minh đầu cột có chữ. Ai bỏ `hanGio` khỏi `dungBangQuyTrinh` thì hàm
+       vẫn xanh còn hàng tiêu đề lại trắng trơn như trước. */
+    const cot = G.dungBangQuyTrinh([], [], [], [], CQ.CAU_HINH_MAC_DINH);
+    const thieu = cot.filter((c) => typeof c.hanGio !== "string" || c.hanGio.trim() === "");
+    const tiepNhan = cot.find((c) => c.giaiDoan?.ma === "tiep_nhan");
+    const nhanHang = cot.find((c) => c.giaiDoan?.ma === "nhan_hang");
+    return {
+      duoc:
+        cot.length > 0 &&
+        thieu.length === 0 &&
+        tiepNhan?.hanGio === "4 giờ" &&
+        nhanHang?.hanGio === "Không đặt thời hạn",
+      thucTe: `${cot.length} cột · thiếu ${thieu.length} · tiep_nhan="${tiepNhan?.hanGio}" · nhan_hang="${nhanHang?.hanGio}"`,
+      mongDoi: 'mọi cột có chữ; tiep_nhan = "4 giờ"; nhan_hang = "Không đặt thời hạn"',
+    };
+  },
+);
+
+kiem(
+  "DAU COT KANBAN — chu lay tu CAU HINH DANG HIEU LUC, khong phai ban mac dinh",
+  "Sếp · 15/09/2026 — cấp quản lý sửa được hạn ở trang Cài đặt quy trình",
+  () => {
+    /* 🔴 CHIỀU NGHỊCH của bài trên: ai đọc thẳng `CAU_HINH_MAC_DINH` trong `dungBangQuyTrinh`
+       (hoặc trong file giao diện) thì bài trên vẫn xanh, mà đầu cột hiện số CŨ ngay sau khi
+       cấp quản lý vừa sửa hạn — sai mà không một lỗi nào báo. */
+    const suaTay = {
+      ...CQ.CAU_HINH_MAC_DINH,
+      hanGioTheoBuoc: { ...CQ.CAU_HINH_MAC_DINH.hanGioTheoBuoc, tiep_nhan: 48, hoan_thanh: 2 },
+    };
+    const cot = G.dungBangQuyTrinh([], [], [], [], suaTay);
+    const tiepNhan = cot.find((c) => c.giaiDoan?.ma === "tiep_nhan");
+    const hoanThanh = cot.find((c) => c.giaiDoan?.ma === "hoan_thanh");
+    return {
+      duoc: tiepNhan?.hanGio === "48 giờ" && hoanThanh?.hanGio === "2 giờ",
+      thucTe: `tiep_nhan="${tiepNhan?.hanGio}" · hoan_thanh="${hoanThanh?.hanGio}"`,
+      mongDoi: '"48 giờ" và "2 giờ" — theo cấu hình vừa sửa, KHÔNG phải 4 giờ / không đặt hạn',
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 
