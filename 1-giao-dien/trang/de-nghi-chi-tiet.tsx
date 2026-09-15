@@ -11,6 +11,7 @@ import {
   BadgeCheck,
   Check,
   Copy,
+  ListChecks,
   ListPlus,
   MoreHorizontal,
   Paperclip,
@@ -43,6 +44,7 @@ import { KhoiTraoDoi } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi";
 import {
   KhoiDauVaoTheoGiaiDoan,
   NhanPhanTrongGiaiDoan,
+  type GiaiDoanDauVao,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 import { KhuDinhKemGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-dinh-kem-giai-doan";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
@@ -277,7 +279,8 @@ export default function TrangChiTietDeNghi({
   const [lyDoDuyet, setLyDoDuyet] = useState("");
   /**
    * Việc bắt buộc đang chờ xác nhận tích / bỏ tích — `null` là chưa hỏi ai.
-   * Xem lý do ở chỗ dùng, trong khối "Danh sách công việc".
+   * Xem lý do ở chỗ dùng: cụm "Danh sách công việc", nay dựng ở `cumCongViecCuaKhoi` và nằm
+   * TRONG khối của chính bước đó (Sếp 15/09/2026), không còn là một Card riêng đầu trang.
    */
   const [hoiTichViec, setHoiTichViec] = useState<{
     cv: CongViecGiaiDoan;
@@ -450,6 +453,274 @@ export default function TrangChiTietDeNghi({
       conNoCuaBuoc(hoSo, ma, cauHinh, donHang, phieuNhan, vuongMacTrinhXetDuyet(hoSo, cauHinh)) ??
       undefined
     );
+  }
+
+  /**
+   * ★★★ CỤM "DANH SÁCH CÔNG VIỆC" CỦA MỘT BƯỚC — dựng MỘT LẦN, dùng cho cả bảy khối bước.
+   *
+   * 🔴 SẾP 15/09/2026, nguyên văn: *"mục này đưa vào trong bước hồ sơ thanh toán"* (ảnh khoanh
+   * đỏ khối "Danh sách công việc" đang đứng riêng ngay trên cụm khối giai đoạn, hồ sơ ở bước ⑦).
+   *
+   * 🔴 ĐÂY LÀ ĐẢO CHỈ ĐẠO 14/09/2026 BẰNG CHỈ ĐẠO MỚI 15/09/2026 CỦA SẾP — không phải ai đó tự
+   * tiện đổi. Chỉ đạo 14/09 (*"Di chuyển lên trên"*) yêu cầu dời khối này LÊN TRÊN cụm khối giai
+   * đoạn nhưng vẫn để nó ĐỨNG RIÊNG; chỉ đạo 15/09 yêu cầu ĐƯA HẲN VÀO TRONG khối của chính bước
+   * đó. Ý nghĩa tổng quát Sếp nêu: việc bắt buộc của một bước phải nằm bên trong khối của bước
+   * ấy, mở khối nào là thấy việc của khối đó — không còn một mục rời ở đầu trang.
+   *
+   * ✅ LÝ DO CỦA 14/09 VẪN ĐƯỢC THOẢ (đã kiểm chứng trong mã nguồn, không tin theo lời):
+   * việc bắt buộc của bước ① là *"Checkin hàng tồn kho"*, phải làm trước tiên; để nó ở cuối
+   * trang thì phải cuộn đi tìm. Nay ô tích nằm NGAY TRONG khối bước ① — cùng chỗ với bảng vật
+   * tư cần kiểm, tức còn gần hơn cả bản 14/09.
+   *
+   * ⚠️ NHƯNG MỘT GIẢ ĐỊNH TRONG YÊU CẦU LÀ SAI, PHẢI GHI RA ĐÂY: khối bước đang đứng **KHÔNG**
+   * tự xổ sẵn. `KhoiDauVaoTheoGiaiDoan` khai `dangODay` trong kiểu dữ liệu nhưng **không dùng
+   * tới nó một lần nào**; trạng thái mở khởi tạo là `useState<string[]>([])`, tức GẬP HẾT sau
+   * mỗi lần vào trang và mỗi lần F5 — đó là chỉ đạo Ban lãnh đạo 18/08/2026 (*"F5 là tự group
+   * lại"*), nhắc hai lần, nên không được lách. Hệ quả: sau thay đổi này người dùng phải bấm mở
+   * khối bước mới thấy ô tích.
+   * 👉 Bù lại bằng hai thứ đã có sẵn, KHÔNG phải tự nghĩ ra: khối bước còn việc chưa tích thì
+   * `conThieuCuaBuoc` trả câu vướng mắc → khối tô VIỀN ĐỎ + nhãn *"Còn thiếu"* ngay lúc đang
+   * gập, và `mucConNoCuaBuoc` liệt kê đúng tên từng việc vào câu đó. Người dùng thấy đỏ ở đâu
+   * thì mở đúng khối đó.
+   *
+   * @param nhom       Các nhóm việc thuộc về khối này (thường đúng 1, xem `nhomCongViec`).
+   * @param maKhoi     Mã bước của khối đang vẽ — dùng để biết có phải in lại tên bước không.
+   * @param laKhoiDangDung Khối này có phải bước hồ sơ đang đứng không — chỉ khối đó mới treo
+   *   dòng chỉ đường tới bước trước còn nợ việc.
+   */
+  function cumCongViecCuaKhoi(
+    nhom: typeof nhomCongViec,
+    maKhoi: string,
+    laKhoiDangDung: boolean,
+  ): React.ReactNode {
+    /**
+     * 🔴 VIỆC CÒN TREO CỦA BƯỚC TRƯỚC — CHỈ ĐƯỜNG, TUYỆT ĐỐI KHÔNG NHÂN BẢN Ô TÍCH.
+     *
+     * Ô tích thật của nhóm `laBuocTruoc` nằm trong khối của CHÍNH bước đó (khối đang viền đỏ).
+     * Đã cân nhắc vẽ thêm một ô tích thứ hai ngay tại bước đang đứng cho tiện, và LOẠI: hai ô
+     * tích cho cùng một việc là hai chỗ cùng nói một chuyện, đúng cái nếp dự án này cấm — người
+     * dùng tích ở một chỗ rồi nhìn sang chỗ kia sẽ ngờ mình bấm nhầm.
+     *
+     * 📌 Câu chữ ở đây bám sát câu chặn chuyển bước trong `giai-doan-mua-hang.ts` (*"Mở khối
+     * bước đó ở trang chi tiết đề nghị, tích hoàn thành rồi làm tiếp"*). Từ hôm nay câu đó mới
+     * ĐÚNG THEO NGHĨA ĐEN: trước đây nó chỉ người dùng tới "khối bước", mà ô tích lại nằm trong
+     * một Card riêng ở đầu trang — app chỉ đường tới một chỗ không có thật.
+     */
+    const treoBuocTruoc = laKhoiDangDung ? nhomCongViec.filter((n) => n.laBuocTruoc) : [];
+    if (nhom.length === 0 && treoBuocTruoc.length === 0) return null;
+
+    return (
+      <section className="flex flex-col gap-(--hp-md-row-gap)">
+        {/* 🔴 GIỮ NGUYÊN CHỮ "Danh sách công việc" — chữ bám đúng bảng Base mà cả phòng đã quen
+            (Ban lãnh đạo 16/08/2026). Chỉ đổi KIỂU CHỮ sang `NhanPhanTrongGiaiDoan`, vì nay nó
+            là một tiêu đề con NẰM TRONG khối bước: giữ `text-h3` 18px ở đây là lặp lại đúng lỗi
+            Ban lãnh đạo khoanh đỏ 16/08/2026 (*"chiều cao chữ đang ko đồng đều"* — tiêu đề con
+            to hơn tiêu đề khối cha 7px, ngược thứ bậc). */}
+        <NhanPhanTrongGiaiDoan the="h2" icon={ListChecks}>
+          Danh sách công việc
+        </NhanPhanTrongGiaiDoan>
+
+        {nhom.map((n) => (
+          <div key={n.buoc} className="flex flex-col gap-2">
+            {/* Hàng tiêu đề nhóm chỉ vẽ khi có gì để nói — xem hai điều kiện ngay dưới. */}
+            {(n.buoc !== maKhoi || n.laBuocTruoc) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {/* 📌 TÊN BƯỚC CHỈ IN KHI NHÓM KHÔNG THUỘC KHỐI ĐANG VẼ. Nhóm nằm đúng khối của
+                    nó thì dòng tiêu đề khối ở ngay trên đã ghi tên bước rồi — in lại là ba lần
+                    cùng một cái tên cho đúng một ô tích. Nhóm "lạc" (bước không có khối riêng
+                    trên trang này) thì vẫn phải in, nếu không người đọc không biết việc của bước
+                    nào. */}
+                {n.buoc !== maKhoi && (
+                  <p className="text-xs font-semibold tracking-wide text-text-desc uppercase">
+                    {n.nhanBuoc}
+                  </p>
+                )}
+                {/* 🔴 NÓI RÕ ĐÂY LÀ VIỆC CÒN NỢ TỪ BƯỚC TRƯỚC. Không có nhãn này thì người dùng
+                    tưởng bước đang đứng đòi thêm việc, rồi đi tìm xem mình bỏ sót gì. */}
+                {n.laBuocTruoc && (
+                  <span className="rounded-md bg-danger/10 px-1.5 py-0.5 text-xs font-medium text-danger">
+                    Bước trước còn treo — phải xong mới đi tiếp
+                  </span>
+                )}
+              </div>
+            )}
+            <ul className="flex flex-col gap-2">
+              {n.viec.map((cv) => {
+                /* Dùng `hoSo` chứ không `dn`: TypeScript KHÔNG giữ phép thu hẹp kiểu của
+                   `if (!dn) return` vào trong thân một hàm khai báo — cùng lý do đã ghi ở
+                   chỗ khai báo `hoSo`. */
+                const xong = (hoSo.congViecDaXong ?? []).find((x) => x.maCongViec === cv.ma);
+                return (
+                  <li
+                    key={cv.ma}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
+                  >
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
+                      {/* Vùng chạm ≥44px theo Design System V1.1 — ô tích nhỏ nhưng cả nhãn
+                          bấm được nên vùng thật rộng hơn nhiều. */}
+                      {/* 🔴 HỎI XÁC NHẬN TRƯỚC KHI TÍCH — Ban lãnh đạo 17/08/2026: *"mục này
+                          khi bấm xác nhận phải hiện thông báo xác nhận có tick hay ko"*, đúng
+                          nguyên tắc chung đã chốt 10/08/2026 cho mọi việc bấm-là-xong.
+
+                          VÌ SAO CẦN THẬT: ô tích này quyết định bước có được đi tiếp hay không
+                          (`vuongMacSangBuocSau` chặn khi việc bắt buộc chưa xong). Nhật ký hồ sơ
+                          260001-HPCS-PR-001 ghi SÁU lần "Hoàn thành" / "Bỏ tích" trong đúng một
+                          phút 19:29 — bấm nhầm quá dễ, và mỗi lần đều để lại một dòng nhật ký
+                          nên khối Lịch sử bị loãng đúng chỗ dùng để truy trách nhiệm.
+
+                          📌 `onChange` KHÔNG ghi dữ liệu nữa, chỉ mở hộp. Trạng thái ô tích vẫn
+                          lấy từ dữ liệu thật (`checked={Boolean(xong)}`) nên khi hộp bị hủy, ô
+                          tự về đúng trạng thái cũ — không cần tự đặt lại bằng tay. */}
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 size-4 shrink-0 accent-primary"
+                        checked={Boolean(xong)}
+                        disabled={!quyen.phanBoCongViec}
+                        onChange={(e) => {
+                          /* `buoc` lấy từ CHÍNH NHÓM đang vẽ, không lấy `giaiDoan` — việc của
+                             bước trước phải ghi vào đúng bước của nó. */
+                          const buoc = n.buoc;
+
+                          /**
+                           * ★★ TÍCH THÌ GHI NGAY, BỎ TÍCH THÌ VẪN HỎI — Ban lãnh đạo 13/09/2026:
+                           * *"Khi bấm tick check tồn kho thì ko cần hiện bảng thông báo này nữa"*,
+                           * và khi được hỏi phạm vi thì Sếp chốt bỏ ở chiều TÍCH, giữ ở chiều BỎ
+                           * TÍCH, áp cho mọi công việc bắt buộc.
+                           *
+                           * 🔴 VÌ SAO HAI CHIỀU KHÁC NHAU: tích là việc thuận (xác nhận đã làm
+                           * xong), bấm nhầm thì bỏ tích lại được. Còn BỎ TÍCH là CHẶN hồ sơ đi
+                           * tiếp — kể cả khi hồ sơ đã ở bước xa hơn — nên một cú bấm nhầm có thể
+                           * khoá cả quy trình mà không ai kịp can. Việc nguy hiểm hơn thì vẫn hỏi.
+                           *
+                           * 🔴 VẪN PHẢI ĐỌC KẾT QUẢ TRẢ VỀ. Tầng ghi có thể TỪ CHỐI (việc "đã xử
+                           * lý ủy nhiệm chi" đòi có Hóa đơn VAT trước — luật 22/08/2026). Bỏ hộp
+                           * hỏi mà quên chuyển phần kiểm lỗi sang đây là app báo thành công giả,
+                           * đúng lỗi CLAUDE.md §3.5 cấm và đã dính thật ngày 22/08.
+                           *
+                           * 📌 Việc ghi nhật ký hồ sơ kèm tên người tích GIỮ NGUYÊN — Sếp chỉ bỏ
+                           * bảng hỏi lại, không bỏ dấu vết ai đã tích.
+                           */
+                          if (!e.target.checked) {
+                            setHoiTichViec({ cv, tich: false, buoc });
+                            return;
+                          }
+
+                          const loi = danhDauCongViecGiaiDoan(
+                            hoSo.id,
+                            cv,
+                            buoc,
+                            true,
+                            nguoiDung.tenHienThi,
+                          );
+                          if (loi !== null) {
+                            toast.error("Chưa tích được việc này", { description: loi });
+                            return;
+                          }
+                          toast.success(`Đã xác nhận xong: ${cv.ten}`);
+                        }}
+                      />
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-sm font-medium text-text-primary">
+                          {cv.ten}
+                          {cv.batBuoc && <span className="text-danger"> *</span>}
+                        </span>
+                        {cv.moTa && <span className="text-xs text-text-desc">{cv.moTa}</span>}
+                        {/* Ai tích, lúc nào — cùng thông tin đã vào nhật ký đề nghị. */}
+                        {xong && (
+                          <span className="text-xs text-success-soft">
+                            {xong.nguoiXongTen} · {formatMocThoiGian(xong.thoiDiem)}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                    <StatusBadge
+                      label={xong ? "Đã xong" : "Chưa xong"}
+                      tone={xong ? "success" : "neutral"}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+
+        {/* Nói rõ ai được tích, thay vì để ô mờ không lời giải thích. */}
+        {!quyen.phanBoCongViec && nhom.length > 0 && (
+          <p className="text-xs text-text-desc">
+            Chỉ Trưởng bộ phận Thu mua tích được các việc này.
+          </p>
+        )}
+
+        {/* ★ DÒNG CHỈ ĐƯỜNG TỚI BƯỚC TRƯỚC CÒN NỢ VIỆC — xem chú thích `treoBuocTruoc` ở trên.
+            Chỉ vẽ ở khối của bước hồ sơ ĐANG ĐỨNG: đó là khối người dùng mở ra để làm việc, nên
+            phải là chỗ nói cho họ biết vì sao hồ sơ chưa đi tiếp được. */}
+        {treoBuocTruoc.length > 0 && (
+          <p className="flex items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-xs font-medium text-danger">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>
+              Bước trước còn công việc bắt buộc chưa xong nên hồ sơ chưa đi tiếp được:{" "}
+              {treoBuocTruoc.map((n) => n.nhanBuoc).join(" · ")}. Mở đúng khối bước đó ngay trên
+              trang này (khối đang viền đỏ) rồi tích hoàn thành.
+            </span>
+          </p>
+        )}
+      </section>
+    );
+  }
+
+  /**
+   * ★★★ GẮN CỤM "DANH SÁCH CÔNG VIỆC" VÀO ĐÚNG KHỐI BƯỚC — Sếp 15/09/2026, xem chú thích dài ở
+   * `cumCongViecCuaKhoi`.
+   *
+   * 🔴 VÌ SAO XỬ LÝ Ở ĐÂY CHỨ KHÔNG SỬA `noiDungNghiepVu` CỦA TỪNG KHỐI: bảy khối khai
+   * `noiDungNghiepVu` theo ba dạng khác nhau (JSX trần, `dieuKien && (…)`, và IIFE có `return`
+   * sớm). Sửa tay vào trong từng cái là bảy chỗ có thể sai, mà hai khối ② ③ còn nguy hơn — biểu
+   * thức của chúng ra `false` với người không được xem giá, nhét cụm việc vào trong là danh sách
+   * công việc **biến mất im lặng** đúng với những người vẫn phải tích việc. Bọc từ ngoài thì
+   * không đụng một dòng nào của bảy biểu thức đó.
+   *
+   * 🔴 TRẢ `null` KHI KHÔNG CÓ VIỆC, KHÔNG TRẢ FRAGMENT RỖNG. `KhoiDauVaoTheoGiaiDoan` dùng chính
+   * độ "thật/giả" của `noiDungNghiepVu` để quyết định có vẽ khối KẾT QUẢ hay không; một fragment
+   * rỗng là truthy nên sẽ mọc ra khung xanh "KẾT QUẢ" trống trơn ở mọi bước.
+   *
+   * 📌 CỤM VIỆC ĐẶT TRƯỚC PHẦN NGHIỆP VỤ — giữ đúng tinh thần chỉ đạo 14/09/2026: việc bắt buộc
+   * của bước là thứ phải làm trước tiên, không được nằm dưới cùng phải cuộn đi tìm.
+   *
+   * ⚠️ PHẢI GỌI SAU `.filter(giaiDoanDaToiLuot…)`, không gọi trước: khối chưa tới lượt bị lọc bỏ,
+   * mà nhóm "lạc" lại được gửi về khối CUỐI CÙNG của danh sách — tính trên mảng chưa lọc thì khối
+   * cuối đó có thể chính là khối vừa bị bỏ đi, và việc rơi vào hư không.
+   */
+  function themDanhSachCongViec(dsKhoi: GiaiDoanDauVao[]): GiaiDoanDauVao[] {
+    const maCoKhoi = new Set(dsKhoi.map((k) => k.ma));
+    /* Khối đại diện cho bước hồ sơ đang đứng. `hoan_thanh` và `that_bai` KHÔNG có khối riêng
+       trên trang này (mảng chỉ dựng 7 bước làm việc), nên khi hồ sơ ở hai trạng thái đó thì lấy
+       khối cuối cùng làm chỗ đứng — thà bày ở chỗ gần nhất còn hơn mất hẳn dòng chỉ đường. */
+    const maKhoiDangDung = maCoKhoi.has(giaiDoan)
+      ? giaiDoan
+      : (dsKhoi[dsKhoi.length - 1]?.ma ?? "");
+
+    return dsKhoi.map((k, i) => {
+      /* Nhóm "lạc" = việc của một bước KHÔNG có khối riêng trên trang (hồ sơ cũ, hoặc cấu hình
+         khai việc cho bước `hoan_thanh`). Gom hết về khối cuối thay vì để rơi mất — cùng nguyên
+         tắc "thà bày thừa còn hơn giấu mất dữ liệu" đã ghi ở `giaiDoanDaToiLuot`. */
+      const laKhoiCuoi = i === dsKhoi.length - 1;
+      const nhom = nhomCongViec.filter(
+        (n) => n.buoc === k.ma || (laKhoiCuoi && !maCoKhoi.has(n.buoc)),
+      );
+      const cum = cumCongViecCuaKhoi(nhom, k.ma, k.ma === maKhoiDangDung);
+      if (cum === null) return k;
+      return {
+        ...k,
+        noiDungNghiepVu: k.noiDungNghiepVu ? (
+          <div className="flex flex-col gap-(--hp-md-row-gap)">
+            {cum}
+            {k.noiDungNghiepVu}
+          </div>
+        ) : (
+          cum
+        ),
+      };
+    });
   }
 
   /**
@@ -1034,154 +1305,6 @@ export default function TrangChiTietDeNghi({
             )}
           </KhoiGap>
 
-          {/* ★ CÔNG VIỆC BẮT BUỘC CỦA BƯỚC ĐANG ĐỨNG — mục "Danh sách công việc" của bảng
-              Base (Ban lãnh đạo gửi ảnh cài đặt giai đoạn 14/08/2026).
-
-              📌 Chỉ hiện khi bước hiện tại CÓ khai công việc. Năm bước còn lại trong ảnh ghi
-              "Không có công việc", hiện khối rỗng chỉ làm trang dài ra.
-
-              📌 CỐ Ý ĐỨNG RIÊNG, không nhét vào khối giai đoạn: Base cũng để nó thành mục ngang
-              hàng. Nó nói về BƯỚC ĐANG ĐỨNG (một bước duy nhất), còn khối giai đoạn liệt kê cả
-              sáu bước — nhét vào trong sẽ phải nhân bản cho từng bước hoặc chôn nó vào một bước,
-              cả hai đều sai ý nghĩa.
-
-              ★★ ĐÃ DỜI LÊN **TRÊN** KHỐI GIAI ĐOẠN — Sếp 14/09/2026 (*"Di chuyển lên trên"*, mũi
-              tên từ khối này lên vị trí ngay trước khối "TIẾP NHẬN VÀ KIỂM TRA").
-              🔴 Đây không phải đổi cho đẹp mà là sửa nốt cái lỗi logic Sếp chỉ ra cùng ngày: việc
-              bắt buộc của bước ① là *"Checkin hàng tồn kho"*, tức thứ phải làm TRƯỚC TIÊN khi nhận
-              phiếu. Để nó nằm dưới khối giai đoạn thì người dùng mở trang ra thấy ngay khối bước ①
-              đang báo "Còn thiếu", mà chỗ gỡ lại nằm ở cuối trang phải cuộn đi tìm.
-              ⚠️ Chỉ ĐỔI CHỖ, không đổi một dòng hành vi nào: điều kiện hiện/ẩn (`nhomCongViec.length
-              > 0`), cách nhóm theo bước, ô tích và mọi lý do khoá giữ y nguyên. */}
-      {nhomCongViec.length > 0 && (
-        <Card>
-          <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
-            {/* Tên khối và cách xếp bám đúng Base (ảnh Ban lãnh đạo gửi 16/08/2026): tiêu đề
-                "Danh sách công việc", ngay dưới là TÊN GIAI ĐOẠN, rồi tới các việc.
-                Người của phòng đã quen bảng Base nên đọc không phải dịch lại trong đầu. */}
-            <h2 className="text-h3 text-text-primary">Danh sách công việc</h2>
-
-            {nhomCongViec.map((nhom) => (
-              <div key={nhom.buoc} className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-semibold tracking-wide text-text-desc uppercase">
-                    {nhom.nhanBuoc}
-                  </p>
-                  {/* 🔴 NÓI RÕ ĐÂY LÀ VIỆC CÒN NỢ TỪ BƯỚC TRƯỚC. Không có nhãn này thì người dùng
-                      tưởng bước đang đứng đòi thêm việc, rồi đi tìm xem mình bỏ sót gì. */}
-                  {nhom.laBuocTruoc && (
-                    <span className="rounded-md bg-danger/10 px-1.5 py-0.5 text-xs font-medium text-danger">
-                      Bước trước còn treo — phải xong mới đi tiếp
-                    </span>
-                  )}
-                </div>
-                <ul className="flex flex-col gap-2">
-                  {nhom.viec.map((cv) => {
-                const xong = (dn.congViecDaXong ?? []).find((x) => x.maCongViec === cv.ma);
-                return (
-                  <li
-                    key={cv.ma}
-                    className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
-                  >
-                    <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
-                      {/* Vùng chạm ≥44px theo Design System V1.1 — ô tích nhỏ nhưng cả nhãn
-                          bấm được nên vùng thật rộng hơn nhiều. */}
-                      {/* 🔴 HỎI XÁC NHẬN TRƯỚC KHI TÍCH — Ban lãnh đạo 17/08/2026: *"mục này
-                          khi bấm xác nhận phải hiện thông báo xác nhận có tick hay ko"*, đúng
-                          nguyên tắc chung đã chốt 10/08/2026 cho mọi việc bấm-là-xong.
-
-                          VÌ SAO CẦN THẬT: ô tích này quyết định bước có được đi tiếp hay không
-                          (`vuongMacSangBuocSau` chặn khi việc bắt buộc chưa xong). Nhật ký hồ sơ
-                          260001-HPCS-PR-001 ghi SÁU lần "Hoàn thành" / "Bỏ tích" trong đúng một
-                          phút 19:29 — bấm nhầm quá dễ, và mỗi lần đều để lại một dòng nhật ký
-                          nên khối Lịch sử bị loãng đúng chỗ dùng để truy trách nhiệm.
-
-                          📌 `onChange` KHÔNG ghi dữ liệu nữa, chỉ mở hộp. Trạng thái ô tích vẫn
-                          lấy từ dữ liệu thật (`checked={Boolean(xong)}`) nên khi hộp bị hủy, ô
-                          tự về đúng trạng thái cũ — không cần tự đặt lại bằng tay. */}
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 size-4 shrink-0 accent-primary"
-                        checked={Boolean(xong)}
-                        disabled={!quyen.phanBoCongViec}
-                        onChange={(e) => {
-                          /* `buoc` lấy từ CHÍNH NHÓM đang vẽ, không lấy `giaiDoan` — việc của
-                             bước trước phải ghi vào đúng bước của nó. */
-                          const buoc = nhom.buoc;
-
-                          /**
-                           * ★★ TÍCH THÌ GHI NGAY, BỎ TÍCH THÌ VẪN HỎI — Ban lãnh đạo 13/09/2026:
-                           * *"Khi bấm tick check tồn kho thì ko cần hiện bảng thông báo này nữa"*,
-                           * và khi được hỏi phạm vi thì Sếp chốt bỏ ở chiều TÍCH, giữ ở chiều BỎ
-                           * TÍCH, áp cho mọi công việc bắt buộc.
-                           *
-                           * 🔴 VÌ SAO HAI CHIỀU KHÁC NHAU: tích là việc thuận (xác nhận đã làm
-                           * xong), bấm nhầm thì bỏ tích lại được. Còn BỎ TÍCH là CHẶN hồ sơ đi
-                           * tiếp — kể cả khi hồ sơ đã ở bước xa hơn — nên một cú bấm nhầm có thể
-                           * khoá cả quy trình mà không ai kịp can. Việc nguy hiểm hơn thì vẫn hỏi.
-                           *
-                           * 🔴 VẪN PHẢI ĐỌC KẾT QUẢ TRẢ VỀ. Tầng ghi có thể TỪ CHỐI (việc "đã xử
-                           * lý ủy nhiệm chi" đòi có Hóa đơn VAT trước — luật 22/08/2026). Bỏ hộp
-                           * hỏi mà quên chuyển phần kiểm lỗi sang đây là app báo thành công giả,
-                           * đúng lỗi CLAUDE.md §3.5 cấm và đã dính thật ngày 22/08.
-                           *
-                           * 📌 Việc ghi nhật ký hồ sơ kèm tên người tích GIỮ NGUYÊN — Sếp chỉ bỏ
-                           * bảng hỏi lại, không bỏ dấu vết ai đã tích.
-                           */
-                          if (!e.target.checked) {
-                            setHoiTichViec({ cv, tich: false, buoc });
-                            return;
-                          }
-
-                          const loi = danhDauCongViecGiaiDoan(
-                            dn.id,
-                            cv,
-                            buoc,
-                            true,
-                            nguoiDung.tenHienThi,
-                          );
-                          if (loi !== null) {
-                            toast.error("Chưa tích được việc này", { description: loi });
-                            return;
-                          }
-                          toast.success(`Đã xác nhận xong: ${cv.ten}`);
-                        }}
-                      />
-                      <span className="flex min-w-0 flex-col gap-0.5">
-                        <span className="text-sm font-medium text-text-primary">
-                          {cv.ten}
-                          {cv.batBuoc && <span className="text-danger"> *</span>}
-                        </span>
-                        {cv.moTa && <span className="text-xs text-text-desc">{cv.moTa}</span>}
-                        {/* Ai tích, lúc nào — cùng thông tin đã vào nhật ký đề nghị. */}
-                        {xong && (
-                          <span className="text-xs text-success-soft">
-                            {xong.nguoiXongTen} · {formatMocThoiGian(xong.thoiDiem)}
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                    <StatusBadge
-                      label={xong ? "Đã xong" : "Chưa xong"}
-                      tone={xong ? "success" : "neutral"}
-                    />
-                  </li>
-                );
-                  })}
-                </ul>
-              </div>
-            ))}
-
-            {/* Nói rõ ai được tích, thay vì để ô mờ không lời giải thích. */}
-            {!quyen.phanBoCongViec && (
-              <p className="text-xs text-text-desc">
-                Chỉ Trưởng bộ phận Thu mua tích được các việc này.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
           {/* ★ ĐẦU VÀO THEO GIAI ĐOẠN — Ban lãnh đạo 16/08/2026: *"đây là quy trình thu mua
               khi mở trên 1 trang, e bố cục giống 100% như vậy"*.
 
@@ -1203,12 +1326,25 @@ export default function TrangChiTietDeNghi({
               ⚠️ Chỉ ĐỔI CHỖ, không đổi hành vi: mọi điều kiện hiện/ẩn, mọi prop, mọi lý do
               khóa nút của ba khối giữ y nguyên như khi chúng còn nằm rời ở cuối trang.
 
-              📌 "Danh sách công việc" CỐ Ý đứng riêng, không nhét vào đây — Base cũng để nó thành
-              mục ngang hàng với khối giai đoạn. Từ 14/09/2026 nó nằm NGAY TRÊN khối này (Sếp:
-              *"Di chuyển lên trên"*), vì việc bắt buộc của bước ① phải làm trước tiên — xem lý do
-              đầy đủ ở chính khối đó. */}
+              ★★★ "DANH SÁCH CÔNG VIỆC" NAY CŨNG NẰM TRONG ĐÂY — Sếp 15/09/2026, nguyên văn:
+              *"mục này đưa vào trong bước hồ sơ thanh toán"* (ảnh khoanh đỏ khối "Danh sách công
+              việc" đang đứng riêng ngay trên cụm khối này, hồ sơ ở bước ⑦).
+
+              🔴 ĐÂY LÀ ĐẢO CHỈ ĐẠO 14/09/2026 BẰNG CHỈ ĐẠO MỚI 15/09/2026, KHÔNG PHẢI AI ĐÓ TỰ
+              TIỆN SỬA. Chỗ này trước đây ghi: *"Danh sách công việc CỐ Ý đứng riêng, không nhét
+              vào đây — Base cũng để nó thành mục ngang hàng với khối giai đoạn. Từ 14/09/2026 nó
+              nằm NGAY TRÊN khối này (Sếp: 'Di chuyển lên trên')"*. Câu đó nay HẾT HIỆU LỰC: chỉ
+              đạo 14/09 giữ nó ĐỨNG RIÊNG (chỉ đổi vị trí trên/dưới), chỉ đạo 15/09 đưa hẳn VÀO
+              TRONG khối của chính bước sinh ra việc đó.
+
+              Lý do Sếp nêu, áp cho mọi bước chứ không riêng bước ⑦: mở khối bước nào thì thấy
+              việc bắt buộc của bước ấy ngay tại đó, không còn một mục rời ở đầu trang.
+
+              📌 Cách gắn: hàm `themDanhSachCongViec` bọc từ NGOÀI mảng này, không sửa vào trong
+              `noiDungNghiepVu` của từng khối — xem chú thích đầy đủ ở khai báo hàm đó và ở
+              `cumCongViecCuaKhoi` (kèm phần đã đo được: khối bước **không** tự xổ sẵn). */}
           <KhoiDauVaoTheoGiaiDoan
-            giaiDoan={[
+            giaiDoan={themDanhSachCongViec([
               {
                 ma: "tiep_nhan",
                 nhan: NHAN_GIAI_DOAN.tiep_nhan.nhan,
@@ -2796,10 +2932,16 @@ export default function TrangChiTietDeNghi({
                * rồi 23/08/2026 chốt: *"Gộp 2 mục này lại thành 1 'Hồ sơ thanh toán'"*. Luật giữ
                * nguyên, chỉ gộp chỗ hiển thị — hai chứng từ này thuộc cùng một việc.
                *
-               * 📌 Cái tích của ủy nhiệm chi KHÔNG vẽ ở đây — nó là công việc bắt buộc của bước
-               * (`unc_xong` trong `cau-hinh-quy-trinh.ts`), nên hiện ở khối "Danh sách công việc"
-               * dùng chung phía dưới trang. Vẽ thêm một cái tích thứ hai ở đây là hai nguồn sự thật
-               * cho cùng một việc.
+               * 📌 Cái tích của ủy nhiệm chi KHÔNG vẽ TAY ở đây — nó là công việc bắt buộc của bước
+               * (`unc_xong` trong `cau-hinh-quy-trinh.ts`). Vẽ thêm một cái tích thứ hai ở đây là
+               * hai nguồn sự thật cho cùng một việc.
+               *
+               * ★★ SỬA CHÚ THÍCH 15/09/2026 — câu cũ ghi cái tích đó *"hiện ở khối 'Danh sách công
+               * việc' dùng chung phía dưới trang"*. KHÔNG CÒN ĐÚNG: Sếp 15/09/2026 chốt *"mục này
+               * đưa vào trong bước hồ sơ thanh toán"*, nên khối riêng ấy đã bị bỏ và cụm việc nay
+               * được `themDanhSachCongViec` gắn thẳng vào `noiDungNghiepVu` của CHÍNH khối này.
+               * 👉 Vẫn đúng tinh thần "một nguồn sự thật": cụm việc dựng một lần ở
+               * `cumCongViecCuaKhoi`, khối này không tự vẽ thêm ô tích nào.
                */
               {
                 ma: "ho_so_thanh_toan",
@@ -2819,42 +2961,22 @@ export default function TrangChiTietDeNghi({
                 khuDinhKem: (
                   <div className="flex flex-col gap-(--hp-md-card-gap)">
                     {/**
-                      * ★★ NÚT "HOÀN THÀNH QUY TRÌNH" ĐỨNG ĐẦU KHỐI — Ban lãnh đạo 27/08/2026:
-                      * *"nút hoàn thành quy trình đưa ra vị trí dễ nhìn"*.
+                      * ❌ ĐÃ BỎ BẢN THỨ HAI CỦA NÚT "HOÀN THÀNH QUY TRÌNH" — Sếp 15/09/2026:
+                      * *"Bỏ nút này vì ở dưới đã có rồi"* (ảnh khoanh đỏ cả hai nút trên một màn).
                       *
-                      * 🔴 TRƯỚC ĐÂY NÓ Ở CUỐI, sau khối "Bộ hồ sơ thanh toán đầy đủ" dài 7 mục —
-                      * mở bước ⑦ ra phải cuộn qua hết bảy dòng chứng từ mới thấy cái nút đóng hồ
-                      * sơ. Mà đó chính là việc duy nhất cần làm ở bước này.
+                      * 🔴 ĐÂY LÀ LỖI LẶP THẬT, KHÔNG PHẢI HAI CHỨC NĂNG KHÁC NHAU: bản bị bỏ và bản
+                      * còn lại ở cuối khối giống nhau từng chi tiết — cùng điều kiện hiện
+                      * (`quyen.xacNhanTruongBP && !hoSoDaDong`), cùng điều kiện khoá
+                      * (`vuongMacHoanThanhQuyTrinh`), cùng `onClick={() => setHoiHoanThanh(true)}`,
+                      * cùng câu lý do. Người dùng thấy hai nút giống hệt nhau trong một khối sẽ
+                      * ngờ mình bấm nhầm cái nào.
                       *
-                      * 📌 Câu lý do đi kèm ngay dưới nút, không phải ở chỗ khác: bấm không được
-                      * thì người dùng phải đọc được VÌ SAO ở đúng chỗ vừa bấm.
-                      *
-                      * 🔴 Chỉ vai trò xác nhận hoàn thành mới thấy nút. Điều kiện thật do
-                      * `vuongMacHoanThanhQuyTrinh` giữ (tầng ghi cũng hỏi lại hàm đó) — ở đây chỉ
-                      * hiện lý do cho người dùng đọc trước khi bấm.
+                      * ⚠️ ĐẢO MỘT PHẦN chỉ đạo 27/08/2026 (*"nút hoàn thành quy trình đưa ra vị trí
+                      * dễ nhìn"*) — lúc đó nút được THÊM lên đầu khối, nhưng bản ở cuối **không
+                      * được bỏ đi**, nên thành hai. Nay giữ bản CUỐI theo đúng chỉ đạo mới của Sếp:
+                      * nó đứng ngay sau khối "Bộ hồ sơ thanh toán đầy đủ", tức người dùng đọc xong
+                      * danh sách chứng từ rồi mới bấm đóng hồ sơ — đúng thứ tự làm việc.
                       */}
-                    {quyen.xacNhanTruongBP && !hoSoDaDong && (
-                      <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary-bg p-(--hp-md-row-pad)">
-                        <Button
-                          className="w-fit"
-                          disabled={vuongMacHoanThanhQuyTrinh(dn, tienDoDong) !== null}
-                          onClick={() => setHoiHoanThanh(true)}
-                        >
-                          <BadgeCheck className="size-4" aria-hidden />
-                          Hoàn thành quy trình
-                        </Button>
-                        {vuongMacHoanThanhQuyTrinh(dn, tienDoDong) !== null ? (
-                          <p className="text-xs text-warning-soft">
-                            Chưa hoàn thành được: {vuongMacHoanThanhQuyTrinh(dn, tienDoDong)}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-text-secondary">
-                            Mọi mặt hàng đã nhận đủ, chứng từ đã đủ. Bấm để đóng hồ sơ và chuyển
-                            sang bước “{NHAN_GIAI_DOAN.hoan_thanh.nhan}”.
-                          </p>
-                        )}
-                      </div>
-                    )}
 
                     {/**
                       * ★★ Ô ĐÍNH KÈM HỢP ĐỒNG NGAY TẠI TRẠM CUỐI — Sếp 14/09/2026: *"2 loại này đều
@@ -3006,7 +3128,7 @@ export default function TrangChiTietDeNghi({
                * ⚠️ Nếu Ban lãnh đạo muốn ĐÚNG MỘT bước duy nhất thì đổi `giaiDoanDaToiLuot(...)`
                * thành `g.ma === giaiDoan` — một dòng, và luật thứ tự vẫn nằm ở `2-quy-trinh/`.
                */
-            ].filter((g) => giaiDoanDaToiLuot(g.ma, giaiDoan))}
+            ].filter((g) => giaiDoanDaToiLuot(g.ma, giaiDoan)))}
           />
 
           {/* 📌 15/08/2026 — Ban lãnh đạo:

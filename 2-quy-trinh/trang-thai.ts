@@ -84,6 +84,29 @@ export const NHAN_TRANG_THAI_PHIEU: Record<TrangThaiPhieuNhan, MoTaTrangThai> = 
   tu_choi_nhan: { nhan: "Từ chối nhận", tong: "danger" },
 };
 
+/**
+ * ★★ NHÃN TRẠNG THÁI PHIẾU NHẬN CHO **HỒ SƠ PHÒNG BAN** — Sếp 15/09/2026.
+ *
+ * Sếp khoanh đỏ huy hiệu *"Đã nhập kho"* trên một phiếu của phòng ban và ghi *"đã nhận hàng"*.
+ *
+ * 🔴 VÌ SAO PHẢI TÁCH BẢNG NHÃN: **hồ sơ phòng ban không có kho nào cả.** Hàng do nhân viên thu
+ * mua nhận thẳng rồi tự ghi nhận (nhánh riêng Sếp mở 15/09/2026) — không qua kho công trình,
+ * không có thủ kho nhập kho. In chữ "Đã nhập kho" ở đó là nói một việc **không hề xảy ra**, và
+ * người đọc hồ sơ sau này sẽ đi tìm phiếu nhập kho không tồn tại.
+ *
+ * 🔴 CHỈ ĐỔI CHỮ HIỂN THỊ, KHÔNG ĐỔI MÃ TRẠNG THÁI. `da_nhap_kho` vẫn là `da_nhap_kho` trong dữ
+ * liệu và trong mọi phép tính (`tinhTienDoPO`, `vuongMacThayTepPhieuGiao`, luật "chỉ phiếu
+ * `da_nhap_kho` mới tính vào khối lượng đã nhận" — CLAUDE.md §3.5). Đổi mã là hỏng toàn bộ.
+ *
+ * 📌 HỒ SƠ CÔNG TRÌNH GIỮ NGUYÊN "Đã nhập kho" — ở đó thủ kho nhập kho thật, chữ đó đúng.
+ * Dùng `laHoSoPhongBan(deNghi)` để chọn bảng nào, đừng đoán theo trạng thái đơn.
+ */
+export const NHAN_TRANG_THAI_PHIEU_PHONG_BAN: Record<TrangThaiPhieuNhan, MoTaTrangThai> = {
+  cho_kiem_tra: { nhan: "Chờ kiểm tra — chưa tính", tong: "warning" },
+  da_nhap_kho: { nhan: "Đã nhận hàng", tong: "success" },
+  tu_choi_nhan: { nhan: "Từ chối nhận", tong: "danger" },
+};
+
 /** Nhãn trạng thái dòng đề nghị dành cho Phòng thi công — bỏ chi tiết nội bộ. */
 export const NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI: Record<TrangThaiDongDeNghi, MoTaTrangThai> = {
   chua_phan_bo: { nhan: "Chưa lên đơn hàng", tong: "neutral" },

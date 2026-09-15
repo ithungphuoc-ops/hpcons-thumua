@@ -26,7 +26,11 @@ import {
   duocGhiNhanGiaoHangCuaHoSo,
   ghiNhanGiaoHangNhoNhanhPhongBan,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
-import { nhanAnToan, NHAN_TRANG_THAI_PHIEU } from "@/2-quy-trinh/trang-thai";
+import {
+  nhanAnToan,
+  NHAN_TRANG_THAI_PHIEU,
+  NHAN_TRANG_THAI_PHIEU_PHONG_BAN,
+} from "@/2-quy-trinh/trang-thai";
 import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -278,7 +282,14 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
           ) : (
             <ul className="flex flex-col gap-2">
               {phieuCuaPO.map((p) => {
-                const tt = nhanAnToan(NHAN_TRANG_THAI_PHIEU, p.trangThai);
+                /* ★ Hồ sơ PHÒNG BAN không có kho nào cả — hàng do nhân viên thu mua nhận thẳng
+                   rồi tự ghi nhận. In "Đã nhập kho" ở đó là nói một việc không hề xảy ra
+                   (Sếp khoanh đỏ 15/09/2026, ghi *"đã nhận hàng"*). Chỉ đổi CHỮ, mã trạng thái
+                   `da_nhap_kho` giữ nguyên vì mọi phép tính khối lượng đang dựa vào nó. */
+                const tt = nhanAnToan(
+                  laHoSoPhongBan(deNghiCuaPO) ? NHAN_TRANG_THAI_PHIEU_PHONG_BAN : NHAN_TRANG_THAI_PHIEU,
+                  p.trangThai,
+                );
                 /* Còn thay được tệp phiếu giao nhận của lần giao này không — MỘT LUẬT DUY NHẤT ở
                    `2-quy-trinh/tinh-toan.ts`, tầng ghi `dinhKemPhieuGiao` gọi đúng hàm này. Đừng
                    so `po.trangThai` hay tên bước tại chỗ: lệch một điều kiện là nút mở mà tầng ghi

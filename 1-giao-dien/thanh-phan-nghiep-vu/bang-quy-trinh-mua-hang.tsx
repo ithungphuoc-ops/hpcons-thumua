@@ -38,6 +38,7 @@ import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_NHOM_DE_XUAT, type DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 import { laDongHang } from "@/2-quy-trinh/tinh-toan";
+import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 /* Neo để mục "Xem nhật ký hồ sơ" trỏ thẳng vào tab Lịch sử — một chuỗi duy nhất, xem chú thích
    của `NEO_NHAT_KY` ở tệp đó. */
@@ -965,6 +966,27 @@ function TheDeNghi({
             📌 Lý do cũ của việc tách dòng (giữ đúng khuôn Base *mã - hợp đồng - CÔNG TRÌNH*, và có
             nhãn đứng trước để không đọc nhầm thành tên vật tư) vẫn được ghi lại ở chỗ nối trên
             dòng đầu — Sếp đã xem và chọn nối. Đừng "sửa về cho đúng khuôn Base". */}
+        {/**
+         * ★★ LOẠI ĐỀ NGHỊ — Sếp 15/09/2026: *"Hãy thêm 1 trường: Loại đề nghị; mục đích để biết
+         * loại đề nghị là gì phòng ban hay công trình"*.
+         *
+         * 🔴 VÌ SAO CẦN: từ 15/09/2026 hai loại hồ sơ **đi hai nhánh khác nhau** ở bước ⑥ —
+         * hồ sơ công trình chờ thủ kho xác nhận bên app QLK CTR, hồ sơ phòng ban thì nhân viên
+         * thu mua tự ghi nhận giao hàng kèm phiếu giao. Nhìn thẻ mà không biết hồ sơ thuộc loại
+         * nào thì không đoán được ai đang phải làm gì, và vì sao hai thẻ cạnh nhau lại có nút
+         * khác nhau.
+         *
+         * 📌 ĐẶT LÊN ĐẦU KHỐI, trước "Bộ phận": đây là thứ phân loại cả hồ sơ, đọc nó trước rồi
+         * mới tới chi tiết. Và nó trả lời đúng câu người xem hỏi đầu tiên khi mở bảng.
+         *
+         * 🔴 KHÔNG tự so `maHopDongCDT` hay `tenCongTrinh` tại chỗ — dùng `laHoSoPhongBan`, một
+         * luật một chỗ. Hàm đó đã đổi cách nhận diện một lần rồi (14→15/09), chép tay ra đây là
+         * lần sau thẻ nói một đằng, luật chạy một nẻo.
+         */}
+        <span>
+          <span className="text-text-secondary">Loại đề nghị:</span>{" "}
+          {laHoSoPhongBan(deNghi) ? "Đề nghị phòng ban" : "Đề nghị công trình"}
+        </span>
         <span>
           <span className="text-text-secondary">Bộ phận:</span>{" "}
           {nhanPhongBan(deNghi.phongBanNguon)}

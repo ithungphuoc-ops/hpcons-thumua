@@ -3,6 +3,7 @@
 import { Check } from "lucide-react";
 import {
   GIAI_DOAN_MUA_HANG,
+  giaiDoanDaKetThuc,
   NHAN_GIAI_DOAN,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -271,7 +272,21 @@ export function CotThongTinDeNghi({
                       màu số tròn, không phân biệt bằng cỡ chữ. Câu mô tả dài đã dời lên khối
                       "Giai đoạn hiện tại" ở đầu cột. */}
                   <span className="text-xs leading-tight text-text-desc">
-                    {chuaToi ? "Chờ đến lượt" : hienTai ? "Đang làm bước này" : "Đã xong"}
+                    {/* ★★ HAI BƯỚC CUỐI LÀ ĐIỂM DỪNG, KHÔNG PHẢI VIỆC ĐANG LÀM — Sếp 15/09/2026:
+                        *"Hoàn thành rồi sao còn ghi chú là đang làm"* (ảnh khoanh đỏ dòng "Hoàn
+                        thành · Đang làm bước này").
+                        🔴 "Hoàn thành" và "Thất bại" không có việc gì để làm — tới đó là hồ sơ đã
+                        đóng. In "Đang làm bước này" ở đó là app tự mâu thuẫn với chính huy hiệu
+                        xanh ngay bên cạnh, và người đọc tưởng còn phải làm gì nữa.
+                        📌 Dùng `giaiDoanDaKetThuc` — đúng hàm mà dòng hạn giờ ngay dưới đã dùng để
+                        bỏ qua hai bước này (chúng là điểm dừng, không có hạn). Một luật một chỗ. */}
+                    {chuaToi
+                      ? "Chờ đến lượt"
+                      : hienTai
+                        ? giaiDoanDaKetThuc(g.ma)
+                          ? "Hồ sơ đã đóng ở bước này"
+                          : "Đang làm bước này"
+                        : "Đã xong"}
                     {/* Hạn chuẩn của bước — Base ghi "DURATION: 4.00h" ở mỗi dòng giai đoạn.
                         Bỏ qua bước Hoàn thành / Thất bại: chúng là điểm dừng, không có hạn. */}
                     {hanGioTheoBuoc[g.ma] ? ` · ${hanGioTheoBuoc[g.ma]} giờ` : ""}
