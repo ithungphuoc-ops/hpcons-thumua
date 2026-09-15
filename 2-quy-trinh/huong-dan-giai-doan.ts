@@ -38,6 +38,14 @@ export interface HuongDanGiaiDoan {
    * chữ trong app ra để tranh luận nghiệp vụ, trong khi đó chỉ là mô tả kỹ thuật.
    */
   khongCoTrenBase?: boolean;
+  /**
+   * ★ NỘI DUNG ĐANG HIỆN LÀ BẢN CÔNG TY TỰ SỬA, không phải bản gốc trong mã nguồn.
+   *
+   * 🔴 Bắt buộc hiện ra cho người đọc biết. Người dùng đối chiếu hộp này với quy trình giấy;
+   * lệch nhau mà không nói rõ "bản này đã được chỉnh" thì họ tưởng app hiển thị sai, hoặc tệ
+   * hơn là tưởng quy trình giấy đã đổi. Cờ do `huongDanHienThi` đặt, không tự khai trong dữ liệu.
+   */
+  daTuyChinh?: boolean;
 }
 
 export interface DoanHuongDan {
@@ -260,3 +268,126 @@ export const HUONG_DAN_GIAI_DOAN: Partial<Record<GiaiDoanMuaHang, HuongDanGiaiDo
     ],
   },
 };
+
+// ============================================================
+// ★★ CẤP QUẢN LÝ TỰ SỬA NỘI DUNG HƯỚNG DẪN — Sếp 14/09/2026
+//
+// *"Ở thông tin hướng dẫn này, hãy tạo thành trường để cấp quản lý có thể chỉnh sửa nội dung"*.
+//
+// ⚠️ MÂU THUẪN CÓ CHỦ Ý với cảnh báo ở đầu file (*"đừng tự sửa, phải khớp quy trình giấy"*).
+// Cảnh báo đó nói với NGƯỜI LẬP TRÌNH — cấm sửa lén trong mã nguồn. Nay công ty được quyền
+// sửa qua giao diện, có ghi vết ai sửa lúc nào (`soSanhCauHinh`), và **luôn khôi phục được bản
+// gốc** vì bản gốc vẫn nằm nguyên trong `HUONG_DAN_GIAI_DOAN`. Hai việc khác hẳn nhau.
+//
+// 🔴 BẢN SỬA LƯU DẠNG VĂN BẢN THUẦN, KHÔNG LƯU CẤU TRÚC. Người sửa là cán bộ nghiệp vụ, không
+// phải lập trình viên — bắt họ nhập JSON là chức năng có cũng như không. Ba quy ước dưới đây
+// đủ diễn đạt mọi kiểu đoạn đang dùng, và đều là thứ người ta viết tự nhiên.
+// ============================================================
+
+/** Đầu dòng đánh dấu câu "Lưu ý" — khối viền màu, tách khỏi thân bài. */
+const DAU_LUU_Y = "Lưu ý:";
+/** Dòng riêng đánh dấu khối quy định bắt buộc — nền xám, có nhãn in hoa phía trên. */
+const DAU_NHAN_MANH = "Quy định bắt buộc:";
+
+/** Ba quy ước soạn thảo, hiện ngay trong hộp sửa để người dùng khỏi phải đoán. */
+export const QUY_UOC_SOAN_HUONG_DAN = [
+  "Để trống một dòng để tách đoạn.",
+  'Bắt đầu dòng bằng "- " để thành gạch đầu dòng.',
+  `Đoạn bắt đầu bằng "${DAU_LUU_Y}" hiện thành khối Lưu ý; dòng riêng "${DAU_NHAN_MANH}" làm cả đoạn sau nó thành khối quy định bắt buộc.`,
+] as const;
+
+function laDongGach(dong: string): boolean {
+  return /^[-*•]\s+/.test(dong);
+}
+
+function boDauGach(dong: string): string {
+  return dong.replace(/^[-*•]\s+/, "").trim();
+}
+
+/**
+ * Đổi nội dung có cấu trúc thành VĂN BẢN THUẦN để đổ vào ô soạn thảo.
+ *
+ * 📌 Dùng để mồi ô sửa bằng chính bản gốc — người quản lý sửa vài chữ trên nền có sẵn, chứ
+ * không phải gõ lại từ đầu (gõ lại từ đầu là chắc chắn rơi mất ý).
+ */
+export function huongDanThanhVanBan(noiDung: DoanHuongDan[]): string {
+  const khoi: string[] = [];
+  for (const d of noiDung) {
+    if (d.luuY) {
+      khoi.push(`${DAU_LUU_Y} ${d.luuY}`);
+      continue;
+    }
+    const dong: string[] = [];
+    if (d.nhanManh) dong.push(DAU_NHAN_MANH);
+    if (d.van) dong.push(d.van);
+    for (const g of d.gach ?? []) dong.push(`- ${g}`);
+    if (dong.length > 0) khoi.push(dong.join("\n"));
+  }
+  return khoi.join("\n\n");
+}
+
+/**
+ * Đổi văn bản thuần người dùng gõ thành nội dung có cấu trúc để hiển thị.
+ *
+ * 🔴 KHÔNG BAO GIỜ NÉM LỖI. Đây là chỗ nhận chữ người dùng gõ tự do; ném lỗi ở đây là cả hộp
+ * hướng dẫn trắng màn. Gõ sai quy ước thì cùng lắm ra một đoạn văn thường — vẫn đọc được.
+ */
+export function vanBanThanhHuongDan(van: string): DoanHuongDan[] {
+  const ra: DoanHuongDan[] = [];
+  for (const khoi of van.split(/\r?\n[ \t]*\r?\n/)) {
+    const dong = khoi
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0);
+    if (dong.length === 0) continue;
+
+    if (dong[0].toLowerCase().startsWith(DAU_LUU_Y.toLowerCase())) {
+      const luuY = [dong[0].slice(DAU_LUU_Y.length), ...dong.slice(1)].join(" ").trim();
+      if (luuY) ra.push({ luuY });
+      continue;
+    }
+
+    let nhanManh = false;
+    let conLai = dong;
+    if (dong[0].toLowerCase() === DAU_NHAN_MANH.toLowerCase()) {
+      nhanManh = true;
+      conLai = dong.slice(1);
+    }
+
+    const gach = conLai.filter(laDongGach).map(boDauGach).filter((x) => x.length > 0);
+    const vanDoan = conLai.filter((x) => !laDongGach(x)).join(" ").trim();
+    if (!vanDoan && gach.length === 0) continue;
+
+    ra.push({
+      ...(vanDoan ? { van: vanDoan } : {}),
+      ...(gach.length > 0 ? { gach } : {}),
+      ...(nhanManh ? { nhanManh: true } : {}),
+    });
+  }
+  return ra;
+}
+
+/**
+ * Hướng dẫn CUỐI CÙNG để hiển thị cho một bước — bản công ty sửa nếu có, không thì bản gốc.
+ *
+ * 🔴 CHỈ SỬA ĐƯỢC BƯỚC ĐÃ CÓ BẢN GỐC. Bước không có hướng dẫn trên bảng Base thì vẫn không có
+ * — không mở đường "bịa quy trình công ty cho đủ bộ" qua ngả cấu hình.
+ *
+ * 🔴 BẢN SỬA RỖNG (hoặc gõ toàn khoảng trắng) TỰ VỀ BẢN GỐC, không để hộp trắng. Người dùng
+ * xoá sạch ô rồi bấm Lưu là ý muốn "bỏ bản sửa", không phải "hướng dẫn bước này là không có gì".
+ */
+export function huongDanHienThi(
+  giaiDoan: GiaiDoanMuaHang,
+  huongDanTuyChinh?: Record<string, string>,
+): HuongDanGiaiDoan | undefined {
+  const goc = HUONG_DAN_GIAI_DOAN[giaiDoan];
+  if (!goc) return undefined;
+
+  const van = huongDanTuyChinh?.[giaiDoan]?.trim();
+  if (!van) return goc;
+
+  const noiDung = vanBanThanhHuongDan(van);
+  if (noiDung.length === 0) return goc;
+
+  return { ...goc, noiDung, daTuyChinh: true };
+}

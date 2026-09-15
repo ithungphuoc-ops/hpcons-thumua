@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Lock } from "lucide-react";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import {
   Table,
@@ -18,7 +18,8 @@ import { LienKetAnhQlkCtr } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-a
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { tinhTienDoPO } from "@/2-quy-trinh/tinh-toan";
+import { tinhTienDoPO, vuongMacThayTepPhieuGiao } from "@/2-quy-trinh/tinh-toan";
+import { xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { nhanAnToan, NHAN_TRANG_THAI_PHIEU } from "@/2-quy-trinh/trang-thai";
 import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -41,13 +42,29 @@ import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
  * được (đúng lý do đã ghi trong chính nhánh đó).
  */
 export function BangTienDoPO({ po }: { po: DonDatHang }) {
-  const { phieuNhan, dinhKemPhieuGiao } = useDuLieu();
+  const { deNghi, donHang, baoGia, phieuNhan, dinhKemPhieuGiao } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   const phieuCuaPO = useMemo(
     () => phieuNhan.filter((p) => p.poId === po.id).sort((a, b) => a.lanGiaoThu - b.lanGiaoThu),
     [phieuNhan, po.id],
   );
+
+  /**
+   * ★ BƯỚC HIỆN TẠI CỦA ĐỀ NGHỊ CHỨA ĐƠN NÀY — chỉ để trả lời câu *"còn thay được tệp phiếu
+   * giao nhận không"* (`vuongMacThayTepPhieuGiao`, Sếp 15/09/2026).
+   *
+   * 📌 `null` khi đơn KHÔNG gắn đề nghị (PO "chờ đề nghị", `prId` bỏ trống): không có bước nào
+   * để xét, và luật tự hiểu như vậy — đừng bịa một bước ra cho đủ tham số.
+   *
+   * ⚠️ Giai đoạn SUY RA từ chứng từ chứ không phải trường lưu sẵn (xem `xacDinhGiaiDoan`), nên
+   * phải tính lại mỗi khi đơn/báo giá/phiếu đổi — đó là lý do cả ba mảng nằm trong danh sách
+   * phụ thuộc.
+   */
+  const giaiDoanDeNghi = useMemo(() => {
+    const dn = po.prId ? deNghi.find((d) => d.id === po.prId) : undefined;
+    return dn ? xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan) : null;
+  }, [po.prId, deNghi, donHang, baoGia, phieuNhan]);
   const tienDo = useMemo(() => tinhTienDoPO(po, phieuCuaPO), [po, phieuCuaPO]);
 
   /** Các lần giao ĐÃ NHẬP KHO — thành cột động trong bảng. */
@@ -171,6 +188,11 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
             <ul className="flex flex-col gap-2">
               {phieuCuaPO.map((p) => {
                 const tt = nhanAnToan(NHAN_TRANG_THAI_PHIEU, p.trangThai);
+                /* Còn thay được tệp phiếu giao nhận của lần giao này không — MỘT LUẬT DUY NHẤT ở
+                   `2-quy-trinh/tinh-toan.ts`, tầng ghi `dinhKemPhieuGiao` gọi đúng hàm này. Đừng
+                   so `po.trangThai` hay tên bước tại chỗ: lệch một điều kiện là nút mở mà tầng ghi
+                   từ chối (hoặc ngược lại), không một dòng nào báo. */
+                const khoaThayTep = vuongMacThayTepPhieuGiao(p, po, giaiDoanDeNghi);
                 return (
                   /* Bố cục HAI TẦNG: tầng trên là thông tin lần giao, tầng dưới là phiếu
                      đính kèm. Bản cũ nhét tất cả vào một hàng `flex-wrap` nên trạng thái,
@@ -200,21 +222,33 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                         Phiếu bị từ chối nhận thì không đòi — hàng trả về thì lấy đâu ra
                         phiếu giao nhận đã ký. */}
                     {/**
-                      * ★★ ĐƠN ĐÃ HOÀN THÀNH THÌ KHÔNG ĐỔI TỆP PHIẾU GIAO NHẬN NỮA (23/08/2026).
+                      * ★★ CHỨNG TỪ ĐÃ CHỐT THÌ KHÔNG ĐỔI TỆP PHIẾU GIAO NHẬN NỮA
+                      * (23/08/2026: đơn đã hoàn thành · **15/09/2026: hồ sơ đã sang bước "Hồ sơ
+                      * thanh toán"**, tức đã nghiệm thu).
                       *
                       * 🔴 VÌ SAO PHẢI KHÓA: luật "mỗi lần giao phải có phiếu giao nhận đính kèm mới
                       * được xác nhận hoàn thành" (Ban lãnh đạo 11/08/2026) kiểm TỪNG phiếu qua
-                      * `tepPhieuGiao`. Đơn đã qua đủ hai lớp xác nhận (thủ kho + trưởng bộ phận) mà
-                      * tệp vẫn thay được thì **chứng từ làm căn cứ xác nhận bị đổi sau khi đã ký** —
-                      * hai lớp xác nhận kia thành xác nhận cho một nội dung khác nội dung hiện tại.
-                      * Đây là lỗ hổng chứng từ, không phải chuyện tiện dụng.
+                      * `tepPhieuGiao`. Chứng từ đã dùng làm căn cứ nghiệm thu mà vẫn thay được thì
+                      * **căn cứ bị đổi sau khi đã ký** — các xác nhận kia thành xác nhận cho một nội
+                      * dung khác nội dung hiện tại. Đây là lỗ hổng chứng từ, không phải chuyện tiện
+                      * dụng.
                       *
-                      * 📌 VẪN XEM VÀ TẢI VỀ ĐƯỢC — nhánh dưới lo việc đó. Khóa nghĩa là không THAY,
-                      * không GỠ; chứ giấu tệp đi thì hồ sơ mất bằng chứng.
+                      * 🔴 ĐIỀU KIỆN KHÓA KHÔNG VIẾT Ở ĐÂY — gọi `vuongMacThayTepPhieuGiao`. Trước
+                      * 15/09/2026 chỗ này so thẳng `po.trangThai !== "hoan_thanh"` còn tầng ghi so
+                      * một bản chép riêng; thêm mốc khóa thứ hai vào hai bản chép là cách chắc chắn
+                      * để chúng lệch nhau.
                       *
-                      * ⚠️ CHỈ KHÓA KHI `hoan_thanh`. Đơn đang giao vẫn phải cho bổ sung: phiếu ghi
-                      * trước 11/08/2026 không có tệp, chặn mà không cho bổ sung thì các đơn đó KẸT
-                      * VĨNH VIỄN, không bao giờ bấm hoàn thành được (chú thích cũ ngay dưới).
+                      * 🔴 KHÓA THÌ PHẢI NÓI RA LÝ DO, KHÔNG ẨN IM LẶNG. Bản trước ẩn thẳng ô đính
+                      * kèm khi đơn hoàn thành: người dùng chỉ thấy nút biến mất, không biết vì hết
+                      * quyền, vì app lỗi, hay vì hồ sơ đã chốt. Nay luôn in câu lý do bên dưới.
+                      *
+                      * 📌 VẪN XEM VÀ TẢI VỀ ĐƯỢC — nhánh dưới lo việc đó. Khóa nghĩa là không THAY;
+                      * chứ giấu tệp đi thì hồ sơ mất bằng chứng.
+                      *
+                      * ⚠️ KHÔNG BAO GIỜ KHÓA ĐƯỜNG BỔ SUNG TỆP CÒN THIẾU: phiếu ghi trước
+                      * 11/08/2026 không có tệp, chặn mà không cho bổ sung thì các đơn đó KẸT VĨNH
+                      * VIỄN, không bao giờ bấm hoàn thành được. Luật đã lo phần này (phiếu chưa có
+                      * tệp thì luôn trả `null`) — đừng thêm điều kiện chặn ở đây.
                       */}
                     {p.trangThai !== "tu_choi_nhan" &&
                       (p.anhQlkCtr ? (
@@ -225,7 +259,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                           <span className="shrink-0">Ảnh phiếu giao (từ QLK CTR):</span>
                           <LienKetAnhQlkCtr anh={p.anhQlkCtr} />
                         </span>
-                      ) : quyen.ghiPhieuNhanHang && po.trangThai !== "hoan_thanh" ? (
+                      ) : quyen.ghiPhieuNhanHang && !khoaThayTep ? (
                         <ODinhKemTep
                           tep={p.tepPhieuGiao}
                           nhanThem="Đính kèm phiếu giao nhận (bắt buộc)"
@@ -233,21 +267,37 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                           nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
                           onXong={(tep) => dinhKemPhieuGiao(p.id, tep, nguoiDung.tenHienThi)}
                         />
-                      ) : p.tepPhieuGiao ? (
-                        // 🔴 13/08/2026: bấm được để XEM và TẢI VỀ (Ban lãnh đạo yêu cầu).
-                        // Trước đó chỉ in ra chữ — người dùng thấy tên tệp mà không mở được,
-                        // tưởng app chưa lưu nội dung. Luật ở `LienKetTep`, một chỗ duy nhất.
-                        // `min-w-0` + `truncate`: tên tệp ảnh chụp điện thoại dài cả trăm ký
-                        // tự, để nguyên là kéo giãn cả thẻ.
-                        <span className="flex min-w-0 items-center gap-1.5 text-xs text-success-soft">
-                          <span className="shrink-0">Có phiếu giao nhận:</span>
-                          <LienKetTep tep={p.tepPhieuGiao} rutGon={rutGonTenTep} />
-                        </span>
                       ) : (
-                        <span className="flex items-center gap-1.5 text-xs text-warning-soft">
-                          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-                          Chưa có phiếu giao nhận đính kèm
-                        </span>
+                        <div className="flex min-w-0 flex-col gap-1">
+                          {p.tepPhieuGiao ? (
+                            // 🔴 13/08/2026: bấm được để XEM và TẢI VỀ (Ban lãnh đạo yêu cầu).
+                            // Trước đó chỉ in ra chữ — người dùng thấy tên tệp mà không mở được,
+                            // tưởng app chưa lưu nội dung. Luật ở `LienKetTep`, một chỗ duy nhất.
+                            // `min-w-0` + `truncate`: tên tệp ảnh chụp điện thoại dài cả trăm ký
+                            // tự, để nguyên là kéo giãn cả thẻ.
+                            <span className="flex min-w-0 items-center gap-1.5 text-xs text-success-soft">
+                              <span className="shrink-0">Có phiếu giao nhận:</span>
+                              <LienKetTep tep={p.tepPhieuGiao} rutGon={rutGonTenTep} />
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-xs text-warning-soft">
+                              <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+                              Chưa có phiếu giao nhận đính kèm
+                            </span>
+                          )}
+                          {/* 🔴 CÂU LÝ DO — chỉ hiện khi THẬT SỰ bị khóa, không hiện khi chỉ là
+                              thiếu quyền (`ghiPhieuNhanHang`). Người xem không có quyền ghi thì
+                              chưa bao giờ thấy nút này, in thêm câu "hồ sơ đã chốt" cho họ là nói
+                              về một việc họ không định làm.
+                              ⚠️ Trạng thái phải có CẢ MÀU LẪN CHỮ (Design System V1.1) — icon ổ
+                              khóa đi kèm chữ, không dùng riêng màu để báo. */}
+                          {khoaThayTep && (
+                            <span className="flex items-start gap-1.5 text-xs text-text-desc">
+                              <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                              <span>{khoaThayTep}</span>
+                            </span>
+                          )}
+                        </div>
                       ))}
 
                     {p.ghiChuTinhTrangHang && (

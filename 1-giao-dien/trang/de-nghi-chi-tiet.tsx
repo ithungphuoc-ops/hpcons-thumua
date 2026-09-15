@@ -18,7 +18,6 @@ import {
   ClipboardCheck,
   Send,
   ClipboardList,
-  FileText,
   FileWarning,
   GitBranch,
   Forward,
@@ -149,7 +148,6 @@ import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-b
 import { KhoiBoHoSoThanhToan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan";
 import {
   nhanAnToan,
-  NHAN_TRANG_THAI_BAO_GIA,
   NHAN_TRANG_THAI_PO,
 } from "@/2-quy-trinh/trang-thai";
 
@@ -1411,76 +1409,29 @@ export default function TrangChiTietDeNghi({
                  */
                 noiDungNghiepVu: duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen) && (
                   <section className="flex flex-col gap-(--hp-md-row-gap)">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      {/* Cùng kiểu chữ với "ĐẦU VÀO" — xem `NhanPhanTrongGiaiDoan`. */}
-                      <NhanPhanTrongGiaiDoan the="h2" icon={FileText}>
-                        Bảng báo giá ({baoGiaLienQuan.length})
-                      </NhanPhanTrongGiaiDoan>
-                    </div>
-
-                    {baoGiaLienQuan.length === 0 && (
-                      /* 🔴 CÂU NÀY PHẢI KHỚP CÁCH APP THẬT SỰ LẬP BẢNG (sửa 06/09/2026). Câu cũ nhắc
-                         *"lập từ menu ⋯"* và *"kéo thẻ sang cột"* — cả hai KHÔNG CÒN: menu đó bỏ từ
-                         06/08, kéo thả tắt hết từ 27/08. Người dùng đọc xong đi tìm hai thao tác
-                         không tồn tại. Thực tế `trinhXetDuyetBaoGiaChoDeNghi` TỰ LẬP hồ sơ ngay khi
-                         bấm trình (xem chú thích *"chưa có hồ sơ thì tự lập rồi trình luôn"* trong
-                         kho-du-lieu.tsx) — nên hướng dẫn đúng là đính đủ báo giá rồi bấm trình. */
-                      <p className="text-sm text-text-secondary">
-                        Chưa lập bảng báo giá nào. Bảng (hồ sơ xét duyệt) tự lập khi bạn đính đủ bản
-                        báo giá ở khu <strong>bên dưới</strong> rồi bấm{" "}
-                        <strong>Trình xét duyệt báo giá</strong>.
-                      </p>
-                    )}
-                    {/* 🔴 CHỈ VẼ THẺ KHI CÓ BẢNG — Ban lãnh đạo khoanh đỏ 19/08/2026.
-                        Bản trước tôi thêm nhánh "chưa lập bảng nào" nhưng để `<Card>` render vô
-                        điều kiện, nên danh sách rỗng vẫn đẻ ra một **dải trắng trống trơn** ngay
-                        dưới câu chữ — nhìn như chỗ bấm được mà bấm không có gì. */}
-                    {baoGiaLienQuan.length > 0 && (
-                    <Card>
-                      <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
-                        {baoGiaLienQuan.map((bg) => {
-                          const ttBG = nhanAnToan(NHAN_TRANG_THAI_BAO_GIA, bg.trangThai);
-                          return (
-                            /* 🔴 KHÔNG CÒN LÀ LIÊN KẾT — Ban lãnh đạo 20/08/2026 chốt **bỏ hẳn
-                               màn Báo giá** cùng với bảng so sánh giá nhập tay. Giữ nguyên thẻ
-                               thông tin (mã bảng, số vật tư, hạn nộp, trạng thái) vì đó vẫn là
-                               dữ liệu người dùng cần thấy, nhưng bỏ `href` — để lại liên kết trỏ
-                               vào trang đã xóa là dẫn người dùng tới màn 404. */
-                            <div
-                              key={bg.id}
-                              className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface p-(--hp-md-row-pad)"
-                            >
-                              <span className="text-sm font-semibold text-text-primary">
-                                {bg.code}
-                              </span>
-                              {/* ❌ ĐÃ BỎ `bg.tieuDe` (23/08/2026 — Ban lãnh đạo: *"Mục này chỉ
-                                  cần đính kèm links được chọn, không cần hiển thị tên HĐ"*).
-
-                                  Tiêu đề bảng báo giá được sinh theo mẫu "Báo giá <tên đề nghị>",
-                                  mà tên đề nghị lại mang **nguyên số hợp đồng** — nên dòng này in
-                                  tên hợp đồng HAI LẦN, một lần trong mã bảng và một lần nữa ngay
-                                  cạnh. Mã bảng thì giữ: đó là đường tra hồ sơ, bỏ đi là không
-                                  còn gì nối dòng này với chứng từ nào. */}
-                              <span className="text-xs text-text-desc">
-                                {bg.items.length} vật tư · hạn nộp{" "}
-                                {new Date(bg.hanNop).toLocaleDateString("vi-VN")}
-                              </span>
-                              {bg.nccDaChonTen && (
-                                <span className="text-xs text-text-desc">
-                                  Đã chọn: {bg.nccDaChonTen}
-                                </span>
-                              )}
-                              <StatusBadge
-                                label={ttBG.nhan}
-                                tone={ttBG.tong}
-                                className="ml-auto"
-                              />
-                            </div>
-                          );
-                        })}
-                      </CardContent>
-                    </Card>
-                    )}
+                    {/**
+                     * ❌ ĐÃ BỎ TOÀN BỘ PHẦN HIỂN THỊ "BẢNG BÁO GIÁ (n)" Ở KHỐI KẾT QUẢ BƯỚC ②
+                     *    — Sếp 15/09/2026, hai ảnh chú thích: *"bỏ thông tin này, nó đang bị trùng
+                     *    lặp và ko có giá trị"* (thẻ mã bảng) và *"bỏ dòng ghi chú này"* (câu hướng
+                     *    dẫn khi chưa có bảng nào).
+                     *
+                     * 🔴 TRÙNG LẶP Ở ĐÂU: cùng một mã bảng báo giá được in ở HAI khối trên cùng một
+                     *    màn — ở đây (KẾT QUẢ bước ②) và ở "XÉT DUYỆT PHƯƠNG ÁN GIÁ" của bước ③.
+                     *    Bước ③ mới là chỗ người dùng thao tác thật (duyệt / không duyệt), nên bản
+                     *    ở đây chỉ là bản chép lại, đọc xong không làm được gì.
+                     *
+                     * 📌 BỎ CẢ TIÊU ĐỀ, không chỉ bỏ ruột. Để lại một dòng "Bảng báo giá (0)" trống
+                     *    trơn là tái lập đúng cái Ban lãnh đạo đã than ngày 17/08/2026 (*"chỉ còn
+                     *    trơ một dòng tiêu đề không dẫn đi đâu"*).
+                     *
+                     * ✅ KHÔNG LÀM MODULE BÁO GIÁ THÀNH MỒ CÔI — chú thích cũ ở đầu khối cảnh báo
+                     *    điều đó, nhưng cảnh báo ấy nay đã hết hiệu lực: màn Báo giá `/bao-gia/[id]`
+                     *    **đã bị bỏ hẳn** (Ban lãnh đạo 20/08/2026) và thẻ này từ đó cũng không còn
+                     *    là liên kết. Bỏ đi không cắt đường vào của ai.
+                     *
+                     * 🔴 PHẦN ĐỀ XUẤT + NÚT "TRÌNH XÉT DUYỆT BÁO GIÁ" NGAY DƯỚI THÌ GIỮ NGUYÊN —
+                     *    đó mới là chỗ làm việc của bước ②, bỏ nhầm là hồ sơ không đi tiếp được.
+                     */}
 
                     {/**
                      * ★ ĐỀ XUẤT CHỌN BÁO GIÁ + TRÌNH XÉT DUYỆT — NGAY TRONG KHỐI BƯỚC ②.
@@ -1887,10 +1838,18 @@ export default function TrangChiTietDeNghi({
                                 )}
                               </>
                             ) : (
+                              /* ❌ ĐÃ BỎ câu *"Bảng đã so sánh xong, đang chờ Trưởng bộ phận Thu mua
+                                 duyệt phương án và ghi giải trình."* — Sếp 15/09/2026: *"Bỏ dòng ghi
+                                 chú này"*.
+
+                                 🔴 VÌ SAO BỎ ĐƯỢC MÀ KHÔNG MẤT THÔNG TIN: câu đó chỉ đọc lại thứ
+                                 người dùng đã thấy — huy hiệu trạng thái **"Chờ Trưởng bộ phận
+                                 duyệt"** nằm ngay cùng dòng với mã bảng, ngay phía trên.
+
+                                 ✅ GIỮ LẠI câu sau, vì nó nói một điều KHÔNG hiện ở đâu khác: chưa
+                                 duyệt thì bước ④ bị chặn. Đó là hệ quả, không phải trạng thái. */
                               <p className="text-sm text-text-secondary">
-                                Bảng đã so sánh xong, đang chờ Trưởng bộ phận Thu mua duyệt phương
-                                án và ghi giải trình. <strong>Chưa duyệt thì chưa lập được đơn
-                                mua hàng.</strong>
+                                <strong>Chưa duyệt thì chưa lập được đơn mua hàng.</strong>
                               </p>
                             )}
 

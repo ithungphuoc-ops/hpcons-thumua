@@ -144,6 +144,106 @@ export function vuongMacXacNhanKho(phieuCuaPO: PhieuNhanHang[]): string | null {
 }
 
 /**
+ * ★★ CÒN ĐƯỢC THAY / GỠ TỆP PHIẾU GIAO NHẬN CỦA MỘT LẦN GIAO KHÔNG — trả lý do bị khóa,
+ * `null` là còn được.
+ *
+ * 🔴 CHỈ ĐẠO SẾP 15/09/2026: hồ sơ đã qua nghiệm thu (hàng về đủ, thẻ sang bước *"Hồ sơ thanh
+ * toán"*) thì **không được thay tệp phiếu giao nhận nữa** — đó chính là chứng từ đã dùng làm
+ * căn cứ nghiệm thu. Thay được sau khi đã chốt nghĩa là **đổi chứng từ sau khi đã ký**, và
+ * không một dòng nào trên màn hình cho biết điều đó vừa xảy ra.
+ *
+ * 🔴 ĐẶT Ở ĐÂY LÀ CỐ Ý — MỘT LUẬT, MỌI ĐƯỜNG DÙNG CHUNG, đúng nếp `vuongMacXacNhanKho` ngay
+ * trên. Nút đính kèm ở `bang-tien-do-po.tsx` và tầng ghi `dinhKemPhieuGiao`
+ * (`3-du-lieu/kho-du-lieu.tsx`) đều gọi vào đây. Mỗi chỗ tự kiểm là bịt được nút này hở đường
+ * kia — chuyện đã xảy ra thật với luật "bước trước phải xong mới đi tiếp".
+ *
+ * 🔴🔴 KHÔNG ĐƯỢC LÀM CHẾT ĐƯỜNG BỔ SUNG PHIẾU CŨ CÒN THIẾU TỆP. Đây là ràng buộc nặng nhất của
+ * hàm này, ghi lại vì rất dễ "siết cho chắc" rồi hỏng:
+ *   · Luật 11/08/2026 (`vuongMacXacNhanKho`) đòi MỌI lần giao phải có tệp mới xác nhận hoàn
+ *     thành được. Phiếu ghi trước ngày đó không có tệp.
+ *   · Thẻ vào bước "Hồ sơ thanh toán" chỉ cần **hàng đã về đủ** — KHÔNG cần đơn đã hoàn thành
+ *     (xem nhánh ⑦ trong `xacDinhGiaiDoan`).
+ *   → Nếu khóa cả việc BỔ SUNG khi thẻ đã sang bước đó thì phiếu thiếu tệp không bao giờ bổ
+ *     sung được, mà thiếu tệp thì đơn không bao giờ hoàn thành được: **kẹt vĩnh viễn**.
+ * 👉 Vì vậy: chưa có tệp → LUÔN trả `null` (cho bổ sung). Chỉ khóa việc THAY tệp ĐÃ CÓ.
+ *
+ * ⚠️ CHỈ KHÓA PHIẾU ĐÃ `da_nhap_kho`. Phiếu `cho_kiem_tra` là hàng về mà chưa ai duyệt nhập
+ * kho — chứng từ của nó chưa được lấy làm căn cứ nghiệm thu (xem `phieuDuocTinh`), nên gắn
+ * nhầm tệp thì vẫn phải sửa được. `tu_choi_nhan` càng không khóa: hàng trả về thì tệp đính kèm
+ * không còn là chứng từ của hồ sơ. Đây cũng chính là đường gỡ khóa hợp lệ duy nhất: muốn thay
+ * tệp thì phải đưa phiếu về `cho_kiem_tra`, tức có người chịu trách nhiệm mở lại lần nhận đó.
+ *
+ * ⚠️ VIỆC CÒN THIẾU, GHI RA ĐỂ KHÔNG QUÊN: đường gỡ khóa đó mới có ở TẦNG DỮ LIỆU
+ * (`doiTrangThaiPhieu` trong `3-du-lieu/kho-du-lieu.tsx`) — tới 15/09/2026 **chưa màn hình nào
+ * gọi tới nó**. Nên trên thực tế khóa ở đây là khóa cứng cho tới khi có nút đó. Câu lý do trả về
+ * đã nói đúng như vậy ("báo quản trị"), KHÔNG chỉ người dùng bấm một nút không tồn tại.
+ *
+ * 📌 KHÓA ≠ GIẤU. Vẫn xem và tải tệp về bình thường — giấu tệp đi thì hồ sơ mất bằng chứng,
+ * đúng thứ luật này sinh ra để giữ.
+ *
+ * @param giaiDoanDeNghi Bước hiện tại của ĐỀ NGHỊ chứa đơn này (`xacDinhGiaiDoan`), `null` khi
+ *   đơn chưa gắn đề nghị nào (PO "chờ đề nghị"). 🔴 KHÔNG CÓ GIÁ TRỊ MẶC ĐỊNH — cùng lý do với
+ *   `phieuCuaPO` của `poDuDieuKienHoanThanh`: quên truyền mà im lặng bỏ qua luật thì đúng bằng
+ *   không có luật, còn bắt buộc truyền thì quên là lỗi biên dịch ngay.
+ */
+export function vuongMacThayTepPhieuGiao(
+  phieu: Pick<PhieuNhanHang, "trangThai" | "tepPhieuGiao" | "lanGiaoThu">,
+  po: Pick<DonDatHang, "trangThai">,
+  giaiDoanDeNghi: GiaiDoanChotChungTu | null,
+): string | null {
+  /* ① ĐƠN ĐÃ HOÀN THÀNH — luật 23/08/2026, GIỮ NGUYÊN KHÔNG THÊM ĐIỀU KIỆN.
+     Nhánh này vốn khóa vô điều kiện (kể cả phiếu chưa có tệp, kể cả phiếu `cho_kiem_tra`) và
+     giao diện cũng đang ẩn ô đính kèm theo đúng nó. Đính thêm điều kiện vào đây là NỚI một luật
+     đang chạy — không phải việc của chỉ đạo 15/09. Đơn hoàn thành thì không còn phiếu nào cần
+     bổ sung nữa (`vuongMacXacNhanKho` đã chặn ở cổng xác nhận), nên không sinh ca kẹt. */
+  if (po.trangThai === "hoan_thanh") {
+    return "Đơn đã hoàn thành — không thay được phiếu giao nhận. Muốn thay thì trả đơn về bước trước.";
+  }
+
+  // ② Chưa có tệp → LUÔN cho bổ sung. Xem khối 🔴🔴 ở chú thích hàm: bỏ dòng này là kẹt vĩnh viễn.
+  if (!phieu.tepPhieuGiao) return null;
+
+  // ③ Phiếu chưa được duyệt nhập kho thì chứng từ chưa là căn cứ nghiệm thu — còn sửa được.
+  if (phieu.trangThai !== "da_nhap_kho") return null;
+
+  // ④ Hồ sơ đã sang bước "Hồ sơ thanh toán" trở đi = đã nghiệm thu xong lần giao này.
+  if (giaiDoanDeNghi !== null && GIAI_DOAN_DA_CHOT_CHUNG_TU.includes(giaiDoanDeNghi)) {
+    /* ⚠️ CÂU NÀY KHÔNG ĐƯỢC CHỈ NGƯỜI DÙNG BẤM MỘT NÚT KHÔNG TỒN TẠI. Về kỹ thuật, đưa phiếu về
+       `cho_kiem_tra` là mở khóa được (nhánh ③ ngay trên), nhưng tới 15/09/2026 `doiTrangThaiPhieu`
+       mới chỉ có ở tầng dữ liệu, CHƯA có nút nào trên màn hình gọi tới. Hứa một thao tác app chưa
+       làm được là đúng lỗi đã ghi ở CLAUDE.md §3.5 (chỗ tải báo giá giả ngày 11/08/2026). */
+    return `Hồ sơ đã sang bước "Hồ sơ thanh toán" nên không thay được phiếu giao nhận của lần giao ${phieu.lanGiaoThu} — đây là chứng từ đã dùng để nghiệm thu. Gắn nhầm tệp thì báo quản trị mở lại lần nhận hàng đó, app không cho tự thay.`;
+  }
+
+  return null;
+}
+
+/**
+ * Các bước mà chứng từ giao nhận đã được lấy làm căn cứ — dùng cho `vuongMacThayTepPhieuGiao`.
+ *
+ * 🔴 VIẾT THẲNG RA ĐÂY THAY VÌ SO THEO THỨ TỰ CỘT. Thứ tự cột nằm trong mảng
+ * `GIAI_DOAN_MUA_HANG` của `giai-doan-mua-hang.ts` — mà tệp đó **import giá trị** từ tệp này
+ * (`tinhTienDoDeNghi`). Lấy mảng đó về là tạo vòng import thật ở thời điểm chạy. Nêu đích danh
+ * hai bước thì không có vòng nào, và cũng nói rõ hơn bất kỳ phép so `chiSo >= 6` nào.
+ *
+ * ⚠️ `that_bai` KHÔNG nằm trong danh sách: đề nghị đóng dở là hồ sơ dừng giữa chừng, không phải
+ * hồ sơ đã nghiệm thu — khóa nó chỉ làm kẹt việc dọn chứng từ mà không bảo vệ được gì.
+ *
+ * ⚠️ THÊM BƯỚC MỚI SAU "Hồ sơ thanh toán" thì phải thêm vào đây. Quên là luật lặng lẽ hết hiệu
+ * lực ở bước mới — không lỗi biên dịch, không lỗi chạy, chỉ là tệp lại thay được.
+ */
+const GIAI_DOAN_DA_CHOT_CHUNG_TU: GiaiDoanChotChungTu[] = ["ho_so_thanh_toan", "hoan_thanh"];
+
+/**
+ * Kiểu bước quy trình mà hàm trên nhận.
+ *
+ * 📌 `import type` (chỉ kiểu, bị xóa sạch lúc biên dịch) nên KHÔNG sinh vòng import lúc chạy,
+ * dù `giai-doan-mua-hang.ts` có import giá trị từ tệp này. Nhận nguyên kiểu union của bên kia
+ * thay vì tự chép lại chuỗi, để đổi tên bước bên đó là lỗi biên dịch ở đây chứ không im lặng.
+ */
+type GiaiDoanChotChungTu = import("@/2-quy-trinh/giai-doan-mua-hang").GiaiDoanMuaHang;
+
+/**
  * ★ CÁC `sttDong` (của `DongPO`) ĐANG BỊ KHÓA SỬA NỘI DUNG/SỐ LƯỢNG — vì đang có phiếu nhận
  * hàng SỐNG tham chiếu tới, dùng cho `suaDonHang` (`3-du-lieu/kho-du-lieu.tsx`) và hộp thoại
  * "Sửa đơn hàng" (`hop-sua-don-hang.tsx`).

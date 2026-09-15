@@ -66,6 +66,9 @@ import {
   soNgayDaTroiQua,
   tinhTienDoDeNghi,
   tinhTienDoPO,
+  /* Chốt "hồ sơ đã nghiệm thu thì không thay tệp phiếu giao nhận" (Sếp 15/09/2026) — một luật,
+     dùng chung với nút đính kèm ở `bang-tien-do-po.tsx`. Xem `dinhKemPhieuGiao`. */
+  vuongMacThayTepPhieuGiao,
   /* Chốt "mỗi lần giao phải có tệp phiếu giao nhận" (Ban lãnh đạo 11/08/2026) — kiểm lại ở tầng
      ghi vì khóa nút không phải là chặn. Xem `xacNhanKho`. */
   vuongMacXacNhanKho,
@@ -3358,13 +3361,41 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * ✅ TRẢ LỖI CHO NƠI GỌI — sửa 11/09/2026 (trước đây chữ ký `void`, chặn bằng `return;` trơn
        * nên `ODinhKemTep` vẫn hiện toast xanh "Đã đính kèm" trong khi CHẲNG GÌ ĐƯỢC GHI — đúng
        * "báo thành công giả" mà 24/08 vá thiếu). Nay trả câu lý do, `ODinhKemTep` tự hiện toast đỏ.
+       *
+       * 🔴🔴 TỪ 15/09/2026 CÂU TRẢ LỜI CHUYỂN HẲN SANG `vuongMacThayTepPhieuGiao`
+       * (`2-quy-trinh/tinh-toan.ts`) — KHÔNG so `trangThai === "hoan_thanh"` tại chỗ nữa.
+       *
+       * Lý do đổi: chỉ đạo Sếp 15/09/2026 thêm một mốc khóa thứ hai (hồ sơ đã sang bước *"Hồ sơ
+       * thanh toán"* = đã nghiệm thu), mà mốc đó cũng phải áp cho nút bên `bang-tien-do-po.tsx`.
+       * Hai nơi tự kiểm là hai nơi sớm muộn nói khác nhau — đúng cái bẫy `coHopDong` /
+       * `vuongMacRoiBuocLapDon` ngày 23/08. Nay một luật, hai nơi gọi.
+       *
+       * 📌 Giai đoạn SUY RA từ chứng từ chứ không phải trường lưu sẵn, nên phải tính tại đây bằng
+       * dữ liệu MỚI NHẤT trong ref — đọc biến render sẽ lấy bản cũ một nhịp.
        */
       {
         const phieuHienTai = phieuNhanRef.current.find((p) => p.id === phieuId);
         const poHienTai =
           phieuHienTai && donHangRef.current.find((x) => x.id === phieuHienTai.poId);
-        if (poHienTai?.trangThai === "hoan_thanh") {
-          return "Đơn đã hoàn thành — không thay được phiếu giao nhận. Muốn thay thì trả đơn về bước trước.";
+        if (phieuHienTai && poHienTai) {
+          /* PO chưa gắn đề nghị nào (PO "chờ đề nghị") → không có bước nào để xét, truyền `null`.
+             Nhánh "đơn đã hoàn thành" bên trong luật vẫn khóa bình thường. */
+          const dnCuaPO = poHienTai.prId
+            ? deNghiRef.current.find((d) => d.id === poHienTai.prId)
+            : undefined;
+          const chan = vuongMacThayTepPhieuGiao(
+            phieuHienTai,
+            poHienTai,
+            dnCuaPO
+              ? xacDinhGiaiDoan(
+                  dnCuaPO,
+                  donHangRef.current,
+                  baoGiaRef.current,
+                  phieuNhanRef.current,
+                )
+              : null,
+          );
+          if (chan) return chan;
         }
       }
 

@@ -2164,6 +2164,148 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 15/09/2026
+// Hồ sơ đã qua nghiệm thu (thẻ sang bước "Hồ sơ thanh toán") thì KHÔNG
+// được thay tệp phiếu giao nhận nữa — đó là chứng từ đã dùng để nghiệm
+// thu. Luật ở `2-quy-trinh/tinh-toan.ts` → `vuongMacThayTepPhieuGiao`.
+//
+// 🔴 PHẢI KIỂM CẢ HAI CHIỀU. Chỉ kiểm "khóa đúng lúc cần khóa" là chưa
+//    đủ: ai sửa hàm thành `return "..."` vô điều kiện thì bài đó vẫn
+//    xanh, mà đường BỔ SUNG phiếu cũ còn thiếu tệp đã chết — và luật
+//    11/08/2026 nói rõ mất đường đó là đơn KẸT VĨNH VIỄN.
+// ════════════════════════════════════════════════════════════════════
+
+/** Tệp giả lập — luật chỉ hỏi "có hay không", không đọc nội dung. */
+const tepGiao = { id: "f-giao", tenTep: "phieu-giao.pdf" };
+/** Đơn còn đang chạy (chưa hoàn thành) — để tách bạch với nhánh khóa của luật 23/08. */
+const poDangChay = { trangThai: "dang_giao" };
+
+kiem(
+  "Hồ sơ đã sang bước Hồ sơ thanh toán + phiếu đã nhập kho + ĐÃ CÓ tệp → KHÓA thay tệp",
+  "Sếp · 15/09/2026 — chứng từ đã dùng để nghiệm thu thì không đổi được nữa",
+  () => {
+    const r = M.vuongMacThayTepPhieuGiao(
+      phieu({ trangThai: "da_nhap_kho", tepPhieuGiao: tepGiao }),
+      poDangChay,
+      "ho_so_thanh_toan",
+    );
+    return {
+      duoc: typeof r === "string" && r !== "",
+      thucTe: r === null ? "null (VẪN CHO THAY)" : `"${r}"`,
+      mongDoi: "một câu lý do — khóa thay tệp",
+    };
+  },
+);
+
+kiem(
+  "Bước Hoàn thành cũng khóa — không chỉ riêng Hồ sơ thanh toán",
+  "Sếp · 15/09/2026 — 'sang bước Hồ sơ thanh toán TRỞ ĐI'",
+  () => {
+    const r = M.vuongMacThayTepPhieuGiao(
+      phieu({ trangThai: "da_nhap_kho", tepPhieuGiao: tepGiao }),
+      poDangChay,
+      "hoan_thanh",
+    );
+    return {
+      duoc: typeof r === "string" && r !== "",
+      thucTe: r === null ? "null (VẪN CHO THAY)" : `"${r}"`,
+      mongDoi: "một câu lý do — bước sau nghiệm thu cũng phải khóa",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: phiếu cũ CHƯA CÓ tệp, dù hồ sơ đã sang Hồ sơ thanh toán → VẪN cho bổ sung",
+  "Ban lãnh đạo · 11/08/2026 (đường bổ sung) + Sếp · 15/09/2026",
+  () => {
+    /* 🔴 BÀI KIỂM QUAN TRỌNG NHẤT CỦA CỤM NÀY. Bước "Hồ sơ thanh toán" chỉ cần HÀNG VỀ ĐỦ, không
+       cần đơn đã hoàn thành. Khóa cả việc bổ sung ở bước này = phiếu thiếu tệp không bao giờ bổ
+       sung được, mà thiếu tệp thì `vuongMacXacNhanKho` chặn xác nhận hoàn thành → KẸT VĨNH VIỄN. */
+    const r = M.vuongMacThayTepPhieuGiao(
+      phieu({ trangThai: "da_nhap_kho", tepPhieuGiao: undefined }),
+      poDangChay,
+      "ho_so_thanh_toan",
+    );
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null" : `"${r}" (ĐÃ CHẶN — đơn sẽ kẹt vĩnh viễn)`,
+      mongDoi: "null — chưa có tệp thì LUÔN cho bổ sung",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: hàng đang về (bước Tiến hành nhận hàng) → chưa tới lúc khóa, vẫn thay được",
+  "Sếp · 15/09/2026 — chặn quá tay cũng là lỗi",
+  () => {
+    const r = M.vuongMacThayTepPhieuGiao(
+      phieu({ trangThai: "da_nhap_kho", tepPhieuGiao: tepGiao }),
+      poDangChay,
+      "nhan_hang",
+    );
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null" : `"${r}"`,
+      mongDoi: "null — chứng từ chưa được lấy làm căn cứ nghiệm thu, gắn nhầm phải sửa được",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: phiếu còn Chờ kiểm tra → vẫn thay được, đây là đường gỡ khóa hợp lệ",
+  "Sếp · 15/09/2026 — chỉ phiếu ĐÃ NHẬP KHO mới là căn cứ nghiệm thu",
+  () => {
+    const r = M.vuongMacThayTepPhieuGiao(
+      phieu({ trangThai: "cho_kiem_tra", tepPhieuGiao: tepGiao }),
+      poDangChay,
+      "ho_so_thanh_toan",
+    );
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null" : `"${r}" (không còn đường sửa tệp gắn nhầm)`,
+      mongDoi: "null — chỉ phiếu `da_nhap_kho` mới bị khóa",
+    };
+  },
+);
+
+kiem(
+  "Đơn đã hoàn thành → vẫn khóa, kể cả khi đơn không gắn đề nghị nào",
+  "phiên nghiệp vụ · 23/08/2026 — luật cũ KHÔNG được nới khi thêm luật 15/09",
+  () => {
+    /* Chiều bảo vệ luật cũ: nhánh `po.trangThai === "hoan_thanh"` phải khóa VÔ ĐIỀU KIỆN, kể cả
+       PO "chờ đề nghị" (`giaiDoanDeNghi = null`) và kể cả phiếu chưa có tệp. Ai đem điều kiện
+       "phải có tệp" của luật 15/09 gắn vào nhánh này là NỚI một luật đang chạy. */
+    const r = M.vuongMacThayTepPhieuGiao(
+      phieu({ trangThai: "da_nhap_kho", tepPhieuGiao: tepGiao }),
+      { trangThai: "hoan_thanh" },
+      null,
+    );
+    return {
+      duoc: typeof r === "string" && r !== "",
+      thucTe: r === null ? "null (LUẬT 23/08 ĐÃ MẤT)" : `"${r}"`,
+      mongDoi: "một câu lý do — đơn hoàn thành thì không thay tệp",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: PO chưa gắn đề nghị, đơn đang chạy → không khóa bừa",
+  "Sếp · 15/09/2026 — không có bước nào để xét thì đừng bịa ra một bước",
+  () => {
+    const r = M.vuongMacThayTepPhieuGiao(
+      phieu({ trangThai: "da_nhap_kho", tepPhieuGiao: tepGiao }),
+      poDangChay,
+      null,
+    );
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null" : `"${r}"`,
+      mongDoi: "null — PO 'chờ đề nghị' không có bước quy trình để khóa theo",
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 

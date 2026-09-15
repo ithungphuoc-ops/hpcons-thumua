@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, Clock, Info } from "lucide-react";
+import { toast } from "sonner";
+import { BookOpen, Clock, Info, PencilLine, RotateCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
+import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import {
   GIAI_DOAN_MUA_HANG,
   NHAN_GIAI_DOAN,
@@ -16,8 +19,13 @@ import {
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   HUONG_DAN_GIAI_DOAN,
+  QUY_UOC_SOAN_HUONG_DAN,
+  huongDanHienThi,
+  huongDanThanhVanBan,
   type DoanHuongDan,
 } from "@/2-quy-trinh/huong-dan-giai-doan";
+import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 
 /**
  * HƯỚNG DẪN SỬ DỤNG TỪNG BƯỚC — mở từ nút ⓘ ở đầu mỗi cột bảng quy trình và ở thanh
@@ -101,73 +109,184 @@ export function HopHuongDanGiaiDoan({
   mo: boolean;
   onDong: () => void;
 }) {
-  const huongDan = HUONG_DAN_GIAI_DOAN[giaiDoan];
-  if (!huongDan) return null;
+  const { cauHinh, luuCauHinhQuyTrinh } = useDuLieu();
+  const { nguoiDung, quyen } = useNguoiDung();
+
+  /** `null` = đang xem. Chuỗi = đang sửa, giữ chữ người dùng gõ. */
+  const [nhap, setNhap] = useState<string | null>(null);
+
+  const goc = HUONG_DAN_GIAI_DOAN[giaiDoan];
+  const huongDan = huongDanHienThi(giaiDoan, cauHinh.huongDanTuyChinh);
+
+  /**
+   * ★ Ai được sửa: dùng chung khuôn quyền với `suaPODaChot` (Quản trị, hoặc Trưởng bộ phận từ
+   * cấp 3). Nội dung hướng dẫn là văn bản nghiệp vụ dùng chung cho cả phòng — một người sửa là
+   * đổi chữ trên màn hình mọi người, nên đặt cùng mức nhạy cảm với việc sửa PO đã chốt.
+   */
+  const duocSua = quyen.suaPODaChot && goc !== undefined;
+  const dangSua = nhap !== null;
+
+  function moSua() {
+    if (!goc) return;
+    /* Mồi bằng ĐÚNG nội dung đang hiện (bản sửa nếu có, không thì bản gốc) — người quản lý sửa
+       vài chữ trên nền có sẵn, không phải gõ lại từ đầu. */
+    setNhap(cauHinh.huongDanTuyChinh?.[giaiDoan] ?? huongDanThanhVanBan(goc.noiDung));
+  }
+
+  function ghi(vanMoi: string | undefined, loiNhan: string) {
+    const banDo = { ...(cauHinh.huongDanTuyChinh ?? {}) };
+    if (vanMoi === undefined) delete banDo[giaiDoan];
+    else banDo[giaiDoan] = vanMoi;
+
+    /* Không còn khóa nào thì BỎ HẲN trường, đừng để lại object rỗng — `soSanhCauHinh` và phép
+       so cấu hình đều dựa trên "có khóa hay không". */
+    const coKhoa = Object.keys(banDo).length > 0;
+    const loi = luuCauHinhQuyTrinh(
+      { ...cauHinh, ...(coKhoa ? { huongDanTuyChinh: banDo } : { huongDanTuyChinh: undefined }) },
+      nguoiDung.tenHienThi,
+    );
+    if (loi.length > 0) {
+      toast.error("Chưa lưu được", { description: loi[0] });
+      return;
+    }
+    setNhap(null);
+    toast.success(loiNhan, { description: "Nội dung mới áp dụng cho cả phòng ngay lập tức." });
+  }
 
   // Số bước tính trên chuỗi 7 bước — "Thất bại" là nhánh dừng, không nằm trong chuỗi
   // (cùng cách đếm với `thanh-giai-doan.tsx`, đừng để hai chỗ ra hai con số khác nhau).
   const chuoi = GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "that_bai");
   const viTri = chuoi.findIndex((g) => g.ma === giaiDoan);
 
+  /* 🔴 KHÔNG `return null` TRƯỚC `<Dialog>`. Tháo hộp thoại giữa lúc đang mở để lại node "mồ
+     côi" che kín màn hình — đúng lỗi kẹt giao diện đã mất 6 lượt sửa mới truy ra (14/09/2026,
+     xem `thanh-phan-dung-chung/don-dep-hop-thoai-ket.ts`). Giữ hộp luôn được dựng, chỉ đổi RUỘT. */
   return (
-    <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
+    <Dialog open={mo && huongDan !== undefined} onOpenChange={(v: boolean) => !v && onDong()}>
       {/* Hướng dẫn dài hơn màn hình — cuộn BÊN TRONG hộp để nền trang đứng yên.
           ⚠️ PHẢI GHI `sm:max-w-2xl`, không phải `max-w-2xl`. `DialogContent` gốc đã có sẵn
           `sm:max-w-sm`; tailwind-merge chỉ bỏ được lớp CÙNG biến thể, nên `max-w-2xl` không
           hạ được `sm:max-w-sm` và hộp vẫn hẹp 384px trên màn to. */}
       <DialogContent className="max-h-[85vh] sm:max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="pr-8 leading-snug">
-            {viTri >= 0 ? `Bước ${viTri + 1}. ` : ""}
-            {huongDan.tenDayDu}
-          </DialogTitle>
-          <DialogDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span>
-              {huongDan.khongCoTrenBase
-                ? "Cách app xác định bước này"
-                : "Hướng dẫn hoàn thành các nhiệm vụ trong giai đoạn"}
-            </span>
-            {huongDan.gioChuan !== undefined && (
-              <span className="inline-flex items-center gap-1 text-text-secondary">
-                <Clock className="size-3.5 shrink-0" aria-hidden />
-                Thời lượng chuẩn {huongDan.gioChuan} giờ làm việc
-              </span>
+        {huongDan && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="pr-8 leading-snug">
+                {viTri >= 0 ? `Bước ${viTri + 1}. ` : ""}
+                {huongDan.tenDayDu}
+              </DialogTitle>
+              <DialogDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span>
+                  {huongDan.khongCoTrenBase
+                    ? "Cách app xác định bước này"
+                    : "Hướng dẫn hoàn thành các nhiệm vụ trong giai đoạn"}
+                </span>
+                {huongDan.gioChuan !== undefined && (
+                  <span className="inline-flex items-center gap-1 text-text-secondary">
+                    <Clock className="size-3.5 shrink-0" aria-hidden />
+                    Thời lượng chuẩn {huongDan.gioChuan} giờ làm việc
+                  </span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* 🔴 NÓI NGUỒN TRƯỚC KHI NÓI NỘI DUNG. Hai cột kết thúc không có hướng dẫn trên bảng
+                quy trình của công ty; chữ bên dưới là mô tả kỹ thuật. Không phân biệt rõ thì người
+                dùng sẽ trích chữ trong app ra tranh luận nghiệp vụ. */}
+            {huongDan.khongCoTrenBase && (
+              <p className="flex items-start gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad) text-sm text-text-secondary">
+                <Info className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
+                <span>
+                  Bước này <strong>không có hướng dẫn trong quy trình giấy</strong> của công ty. Phần
+                  dưới đây là <strong>cách app xác định</strong>, viết ra để mọi người biết vì sao
+                  hồ sơ nằm ở đây — không phải văn bản nghiệp vụ.
+                </span>
+              </p>
             )}
-          </DialogDescription>
-        </DialogHeader>
 
-        {/* 🔴 NÓI NGUỒN TRƯỚC KHI NÓI NỘI DUNG. Hai cột kết thúc không có hướng dẫn trên bảng
-            quy trình của công ty; chữ bên dưới là mô tả kỹ thuật. Không phân biệt rõ thì người
-            dùng sẽ trích chữ trong app ra tranh luận nghiệp vụ. */}
-        {huongDan.khongCoTrenBase && (
-          <p className="flex items-start gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad) text-sm text-text-secondary">
-            <Info className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
-            <span>
-              Bước này <strong>không có hướng dẫn trong quy trình giấy</strong> của công ty. Phần
-              dưới đây là <strong>cách app xác định</strong>, viết ra để mọi người biết vì sao
-              hồ sơ nằm ở đây — không phải văn bản nghiệp vụ.
-            </span>
-          </p>
+            {/* ★ BẢN ĐÃ CHỈNH — phải nói rõ, vì người dùng đối chiếu hộp này với quy trình giấy.
+                Lệch nhau mà không báo thì họ tưởng app hiển thị sai (xem `daTuyChinh`). */}
+            {huongDan.daTuyChinh && !dangSua && (
+              <p className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm text-text-secondary">
+                <PencilLine className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
+                <span>
+                  Nội dung dưới đây đã được <strong>công ty chỉnh sửa</strong>, không còn giống
+                  nguyên văn quy trình gốc. Xem ai sửa lúc nào ở trang <em>Cài đặt quy trình</em>.
+                </span>
+              </p>
+            )}
+
+            {dangSua ? (
+              <div className="flex flex-col gap-3">
+                <Textarea
+                  value={nhap}
+                  onChange={(e) => setNhap(e.target.value)}
+                  rows={16}
+                  className="font-mono text-xs leading-relaxed"
+                  aria-label="Nội dung hướng dẫn"
+                />
+                {/* Quy ước soạn thảo hiện ngay tại chỗ gõ — người sửa là cán bộ nghiệp vụ,
+                    bắt họ nhớ cú pháp mà không nhắc là chắc chắn gõ sai. */}
+                <ul className="ml-5 list-disc space-y-1 text-xs text-text-desc">
+                  {QUY_UOC_SOAN_HUONG_DAN.map((q, i) => (
+                    <li key={i}>{q}</li>
+                  ))}
+                </ul>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" onClick={() => ghi(nhap, "Đã lưu nội dung hướng dẫn")}>
+                    Lưu nội dung
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setNhap(null)}>
+                    Hủy
+                  </Button>
+                  {huongDan.daTuyChinh && (
+                    /* 🔴 Khôi phục = XÓA KHÓA, không phải chép bản gốc vào ô. Chép vào là từ đó
+                       hai chỗ cùng giữ một nội dung rồi lệch nhau khi công ty đổi quy trình. */
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto text-text-desc"
+                      onClick={() => ghi(undefined, "Đã khôi phục hướng dẫn về bản gốc")}
+                    >
+                      <RotateCcw className="size-4 shrink-0" aria-hidden />
+                      Khôi phục bản gốc
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 text-sm leading-relaxed text-text-primary">
+                {huongDan.noiDung.map((doan, i) => (
+                  <DoanNoiDung key={i} doan={doan} laMoTaCuaApp={huongDan.khongCoTrenBase} />
+                ))}
+
+                {/* 📌 ĐÃ BỎ hai khối ghi chú (Ban lãnh đạo 15/08/2026: *"bỏ hết các ghi chú kiểu
+                    này đi"*):
+                      · "Phần app chưa làm thay được — vẫn phải làm tay"
+                      · Dòng "Nội dung chép nguyên văn từ quy trình TM-QT Mua hàng (HP CONS)…"
+
+                    Cả hai là ghi chú của ĐỘI TRIỂN KHAI nói với nhau, không phải việc người dùng
+                    cần đọc mỗi lần mở hướng dẫn. Hộp này để tra "bước này phải làm gì", thêm hai
+                    khối kia vào là đẩy phần việc thật xuống dưới màn hình.
+
+                    🔴 Nội dung "app chưa làm được" KHÔNG mất — chuyển thành chú thích trong
+                    `2-quy-trinh/huong-dan-giai-doan.ts` để người bảo trì vẫn biết app còn thiếu gì
+                    so với quy trình giấy. */}
+
+                {/* ★ NÚT SỬA — Sếp 14/09/2026. Chỉ hiện với người có quyền; người khác không thấy
+                    nút, không phải thấy nút rồi bấm vào mới bị từ chối. */}
+                {duocSua && (
+                  <div className="mt-1 border-t border-border pt-3">
+                    <Button size="sm" variant="ghost" className="text-text-secondary" onClick={moSua}>
+                      <PencilLine className="size-4 shrink-0" aria-hidden />
+                      Sửa nội dung hướng dẫn
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
-
-        <div className="flex flex-col gap-3 text-sm leading-relaxed text-text-primary">
-          {huongDan.noiDung.map((doan, i) => (
-            <DoanNoiDung key={i} doan={doan} laMoTaCuaApp={huongDan.khongCoTrenBase} />
-          ))}
-
-          {/* 📌 ĐÃ BỎ hai khối ghi chú (Ban lãnh đạo 15/08/2026: *"bỏ hết các ghi chú kiểu
-              này đi"*):
-                · "Phần app chưa làm thay được — vẫn phải làm tay"
-                · Dòng "Nội dung chép nguyên văn từ quy trình TM-QT Mua hàng (HP CONS)…"
-
-              Cả hai là ghi chú của ĐỘI TRIỂN KHAI nói với nhau, không phải việc người dùng
-              cần đọc mỗi lần mở hướng dẫn. Hộp này để tra "bước này phải làm gì", thêm hai
-              khối kia vào là đẩy phần việc thật xuống dưới màn hình.
-
-              🔴 Nội dung "app chưa làm được" KHÔNG mất — chuyển thành chú thích trong
-              `2-quy-trinh/huong-dan-giai-doan.ts` để người bảo trì vẫn biết app còn thiếu gì
-              so với quy trình giấy. */}
-        </div>
       </DialogContent>
     </Dialog>
   );
