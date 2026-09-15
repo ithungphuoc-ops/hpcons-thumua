@@ -3153,9 +3153,51 @@ export default function TrangChiTietDeNghi({
                       * ⚠️ ĐẢO MỘT PHẦN chỉ đạo 27/08/2026 (*"nút hoàn thành quy trình đưa ra vị trí
                       * dễ nhìn"*) — lúc đó nút được THÊM lên đầu khối, nhưng bản ở cuối **không
                       * được bỏ đi**, nên thành hai. Nay giữ bản CUỐI theo đúng chỉ đạo mới của Sếp:
-                      * nó đứng ngay sau khối "Bộ hồ sơ thanh toán đầy đủ", tức người dùng đọc xong
-                      * danh sách chứng từ rồi mới bấm đóng hồ sơ — đúng thứ tự làm việc.
+                      * người dùng đọc xong bộ chứng từ đã gom, nộp nốt các tệp còn thiếu, rồi mới
+                      * bấm đóng hồ sơ — đúng thứ tự làm việc.
+                      *
+                      * 📌 Cập nhật 15/09/2026: khối "Bộ hồ sơ thanh toán" đã dời LÊN ĐẦU bước ⑧,
+                      * nên nút này không còn đứng ngay sau nó nữa — giữa hai thứ là bốn ô nộp tệp.
+                      * Thứ tự đọc–làm–đóng vẫn đúng, chỉ câu mô tả vị trí là phải sửa theo.
                       */}
+
+                    {/* ★★ TRƯỜNG "KẾT QUẢ" — CHỨNG TỪ GOM TỪ CÁC BƯỚC TRƯỚC (Ban lãnh đạo
+                        26/08/2026: *"Tạo thêm 1 trường Kết quả. Sẽ được link kết quả từ các bước
+                        trên"*).
+
+                        ★★ Sếp 15/09/2026 (*"đang bị trùng lặp bộ hồ sơ đầy đủ của thanh toán"*):
+                        khối này THÔI liệt kê bốn chứng từ có ô nộp ở cụm bên dưới (hợp đồng · hóa
+                        đơn VAT · ủy nhiệm chi · phiếu chi), chỉ còn gom thứ đến từ bước khác.
+
+                        🔴 ĐÃ ĐƯA LÊN TRƯỚC BỐN Ô NỘP TỆP — Sếp 15/09/2026: *"Đưa dữ liệu này lên,
+                        bỏ nút thu gọn đi. Bố cục lại"*.
+                        LÝ DO NGHIỆP VỤ (đọc trước, làm sau): người làm hồ sơ thanh toán cần XEM
+                        chứng từ đã gom được từ các bước trước rồi mới biết còn phải nộp thêm gì.
+                        Để khối này ở cuối là bắt họ cuộn qua hết phần việc mới thấy phần tham
+                        chiếu — tức tra cứu xong thì đã làm xong rồi.
+                        👉 Đổi lại thứ tự hai cụm thì PHẢI sửa cả câu *"nộp ở các ô đính kèm ngay
+                        phía dưới"* trong `khoi-bo-ho-so-thanh-toan.tsx`, nếu không câu đó chỉ sai
+                        hướng và người dùng cuộn ngược tìm mãi không thấy.
+
+                        🔴 BỐN Ô NỘP TỆP BÊN DƯỚI PHẢI Ở LẠI — khối này CHỈ ĐỌC, không có đường
+                        đính kèm nào. Bỏ ô nộp để giữ phần liệt kê là mất hẳn đường nộp tệp; riêng
+                        *Phiếu chi* thì ô ở bước ⑧ là chỗ duy nhất trong cả app (§3.4b).
+
+                        📌 ĐƯỜNG KẺ NGĂN CÁCH nay là `border-b` + `pb-3` (trước là `border-t` +
+                        `pt-3`): vẫn một vạch giữa hai cụm, chỉ đổi bên cho đúng vị trí mới. Đừng
+                        để lại một `border-t` mồ côi ở chỗ cũ.
+
+                        Lý do và phép đo đầy đủ ở khối chú thích đầu
+                        `thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan.tsx`. */}
+                    <div className="border-b border-divider pb-3">
+                      <KhoiBoHoSoThanhToan
+                        deNghi={dn}
+                        poCuaDeNghi={poLienQuan}
+                        phieuCuaDeNghi={phieuLienQuan}
+                        baoGiaCuaDeNghi={baoGiaLienQuan}
+                        xemGia={quyen.xemGia}
+                      />
+                    </div>
 
                     {/**
                       * ★★ Ô ĐÍNH KÈM HỢP ĐỒNG NGAY TẠI TRẠM CUỐI — Sếp 14/09/2026: *"2 loại này đều
@@ -3233,31 +3275,6 @@ export default function TrangChiTietDeNghi({
                       khoa={hoSoDaDong}
                       tepDaCo={tepPhieuChi(dn)}
                     />
-                    {/* ★★ TRƯỜNG "KẾT QUẢ" — CHỨNG TỪ GOM TỪ CÁC BƯỚC TRƯỚC (Ban lãnh đạo
-                        26/08/2026: *"Tạo thêm 1 trường Kết quả. Sẽ được link kết quả từ các bước
-                        trên"*).
-
-                        ★★ Sếp 15/09/2026 (*"đang bị trùng lặp bộ hồ sơ đầy đủ của thanh toán"*):
-                        khối này THÔI liệt kê bốn chứng từ có ô nộp ngay phía trên (hợp đồng · hóa
-                        đơn VAT · ủy nhiệm chi · phiếu chi), chỉ còn gom thứ đến từ bước khác.
-
-                        🔴 BỐN Ô NỘP TỆP Ở TRÊN PHẢI Ở LẠI — khối này CHỈ ĐỌC, không có đường đính
-                        kèm nào. Bỏ ô nộp để giữ phần liệt kê là mất hẳn đường nộp tệp; riêng
-                        *Phiếu chi* thì ô ở bước ⑧ là chỗ duy nhất trong cả app (§3.4b).
-
-                        📌 Vẫn đặt SAU các ô đính kèm: đính xong thì cuộn xuống thấy ngay hồ sơ
-                        gom được những gì. Lý do và phép đo đầy đủ ở khối chú thích đầu
-                        `thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan.tsx`. */}
-                    <div className="border-t border-divider pt-3">
-                      <KhoiBoHoSoThanhToan
-                        deNghi={dn}
-                        poCuaDeNghi={poLienQuan}
-                        phieuCuaDeNghi={phieuLienQuan}
-                        baoGiaCuaDeNghi={baoGiaLienQuan}
-                        xemGia={quyen.xemGia}
-                      />
-                    </div>
-
                     {/* ★★★ ĐÃ BỎ Ô CẢNH BÁO "chưa có Hóa đơn VAT nên chưa tích được UNC" — Sếp
                         15/09/2026 bỏ hẳn cái tích mà nó giải thích (*"bỏ mục này, ko cần thiết"*
                         → *"bỏ và thiết lập lại luật mới"*). Giữ lại là một dòng cảnh báo nói về

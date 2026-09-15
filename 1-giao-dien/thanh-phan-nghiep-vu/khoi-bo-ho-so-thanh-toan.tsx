@@ -42,9 +42,8 @@
 //    liệu đẩy đi không thể lệch nhau.
 // ============================================================
 
-import { Check, ChevronDown, ChevronUp, ExternalLink, FileText, Minus } from "lucide-react";
+import { Check, ExternalLink, FileText, Minus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 /* 🔴 DÙNG `LienKetTep`, KHÔNG dùng `ODinhKemTep`: ô đính kèm cần `onXong` / `nguoi` để GHI, mà
    khối này chỉ XEM. Truyền prop giả cho một ô đính kèm rồi khóa lại là mời người sau mở khóa —
    `LienKetTep` không có đường ghi nào nên không thể lỡ tay. */
@@ -77,13 +76,18 @@ export function KhoiBoHoSoThanhToan({
   const muc = dungBoHoSoThanhToan(deNghi, poCuaDeNghi, phieuCuaDeNghi, baoGiaCuaDeNghi);
 
   /**
-   * ★★ TÁCH LÀM HAI: mục ĐẾN TỪ BƯỚC KHÁC (bày ở đây) và mục CÓ Ô NỘP NGAY TRÊN (không bày lại).
+   * ★★ TÁCH LÀM HAI: mục ĐẾN TỪ BƯỚC KHÁC (bày ở đây) và mục CÓ Ô NỘP NGAY TẠI BƯỚC ⑧ (không bày
+   * lại).
    *
-   * 🔴 LỌC Ở TẦNG VẼ, KHÔNG LỌC Ở TẦNG DỮ LIỆU — `muc` bên trên vẫn đủ 8. Xem lý do đầy đủ ở khối
-   * chú thích đầu tệp và ở `MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN`.
+   * 🔴 LỌC Ở TẦNG VẼ, KHÔNG LỌC Ở TẦNG DỮ LIỆU — `muc` khai ở trên vẫn đủ 8. Xem lý do đầy đủ ở
+   * khối chú thích đầu tệp và ở `MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN`.
+   *
+   * 📌 TÊN BIẾN KHÔNG CHỈ HƯỚNG — trước 15/09/2026 tên là `mucCoONopONgayTren`, rồi khối này được
+   * dời lên trên các ô nộp nên cái tên hoá ra chỉ ngược. Tên theo BƯỚC thì đổi bố cục bao nhiêu
+   * lần cũng không sai.
    */
   const mucBay = muc.filter((m) => !MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN.includes(m.ma));
-  const mucCoONopONgayTren = muc.filter((m) =>
+  const mucCoONopTaiBuocNay = muc.filter((m) =>
     MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN.includes(m.ma),
   );
 
@@ -96,7 +100,8 @@ export function KhoiBoHoSoThanhToan({
    * ⚠️ HỆ QUẢ PHẢI BIẾT: **Hợp đồng** là mục BẮT BUỘC nhưng nay không nằm trong con số này nữa
    * (tổng tụt 4 → 3). KHÔNG mất chốt nào — việc thiếu hợp đồng vẫn được báo đủ ba chỗ, và cả ba
    * đều nói to hơn một dòng trong danh sách:
-   *   · ô "Hợp đồng" ngay phía trên mang nhãn đỏ *"Bắt buộc"* và ô trống cũng gắn cờ bắt buộc;
+   *   · ô "Hợp đồng" của bước ⑧ (ngay dưới khối này) mang nhãn đỏ *"Bắt buộc"*, ô trống cũng
+   *     gắn cờ bắt buộc;
    *   · nút *"Hoàn thành quy trình"* bị KHÓA kèm lý do (`vuongMacHoanThanhQuyTrinh` — 14/09/2026);
    *   · viền khối bước chuyển đỏ kèm chữ *"Còn thiếu"* (`conThieu`).
    * 👉 Luật nghiệp vụ KHÔNG đổi một dòng nào; chỉ chỗ đếm để hiển thị là đổi.
@@ -104,19 +109,22 @@ export function KhoiBoHoSoThanhToan({
   const tomTat = tomTatBoHoSo(mucBay);
 
   /**
-   * ★ THU GỌN ĐƯỢC — Ban lãnh đạo 27/08/2026: *"Mục này thêm nút group lại cho a"*.
+   * ❌ ĐÃ BỎ NÚT "THU GỌN" VÀ STATE `moRong` — Sếp 15/09/2026: *"Đưa dữ liệu này lên, bỏ nút thu
+   * gọn đi. Bố cục lại"*. Khối nay LUÔN MỞ.
    *
-   * 🔴 MẶC ĐỊNH MỞ KHI CÒN THIẾU, THU LẠI KHI ĐÃ ĐỦ. Đây là điểm chính, không phải chi tiết
-   * trang trí: người dùng chỉ cần đọc khối này khi CÒN THIẾU chứng từ. Hồ sơ đã đủ thì một dãy
-   * dấu tích chỉ đẩy nút "Hoàn thành quy trình" xuống khỏi tầm mắt.
+   * 🔴 CHÉP LẠI LÝ DO CŨ ĐỂ KHÔNG MẤT DẤU VẾT CHỈ ĐẠO: nút thu gọn có từ 27/08/2026 (*"Mục này
+   * thêm nút group lại cho a"*), và nó mặc định MỞ khi còn thiếu vì *"người lập mở trang ra phải
+   * thấy ngay mình thiếu gì, chứ không phải bấm thêm một cái mới biết"*.
+   * 👉 Yêu cầu đó nay được thoả mãn MẠNH HƠN: luôn mở thì không còn trạng thái nào che danh sách
+   *    thiếu, kể cả khi người dùng tự bấm thu lại. Nên đây không phải là đảo chỉ đạo cũ — chỉ là
+   *    bỏ cái cơ chế từng có khả năng giấu nó.
    *
-   * 📌 Đọc `tomTat` của `mucBay` — tức mở ra khi thiếu thứ khối này BÀY được. Thiếu hợp đồng /
-   * hóa đơn VAT thì ô nộp ngay trên đã tự báo, mở thêm khối này cũng không giúp gì.
+   * ⚠️ ĐỪNG DỰNG LẠI NÚT NÀY. Lo ngại duy nhất của việc luôn mở là danh sách đẩy nút "Hoàn thành
+   * quy trình" xuống thấp — nay đã hết, vì khối này đứng TRƯỚC các ô nộp tệp (Sếp 15/09/2026),
+   * còn nút "Hoàn thành quy trình" vẫn ở cuối khối bước ⑧.
    *
-   * ⚠️ ĐỪNG mặc định thu gọn cả khi còn thiếu: người lập mở trang ra phải thấy ngay mình thiếu
-   * gì, chứ không phải bấm thêm một cái mới biết.
+   * 📌 Huy hiệu "Đủ n/n mục bắt buộc" GIỮ — nó là THÔNG TIN, không phải nút.
    */
-  const [moRong, setMoRong] = useState(tomTat.thieu.length > 0);
 
   return (
     <section className="flex flex-col gap-2">
@@ -125,7 +133,7 @@ export function KhoiBoHoSoThanhToan({
         {/* 🔴 THÔI GỌI LÀ "ĐẦY ĐỦ" — Sếp 15/09/2026 chốt: *"bỏ chữ đầy đủ"*, giữ nguyên tên
             "Bộ hồ sơ thanh toán".
             Lý do bỏ đúng chữ đó: khối này nay chỉ bày 4 mục đến từ bước khác, 4 mục còn lại nộp
-            ngay ở các ô phía trên. Giữ chữ "đầy đủ" là nhãn hứa một thứ nội dung bên dưới không
+            ngay ở các ô của bước ⑧. Giữ chữ "đầy đủ" là nhãn hứa một thứ nội dung bên dưới không
             làm (CLAUDE.md §3.5).
             📌 Bản dựng trước tôi đặt là "Chứng từ gom từ các bước trước" — Sếp không chọn tên đó.
             Đừng đổi lại: tên khối là chữ người dùng quen mắt, và Sếp đã chốt. */}
@@ -139,64 +147,43 @@ export function KhoiBoHoSoThanhToan({
           }
           tone={tomTat.thieu.length === 0 ? "success" : "warning"}
         />
-        {/* 📌 Nút đẩy sang phải bằng `ml-auto` — cùng hàng với tiêu đề, không chiếm thêm dòng.
-            Vùng chạm 44px theo V1.1; `md:min-h-9` cho gọn lại trên máy tính. */}
-        <button
-          type="button"
-          onClick={() => setMoRong((v) => !v)}
-          aria-expanded={moRong}
-          className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-medium text-primary transition-colors hover:bg-primary-bg md:min-h-9"
-        >
-          {moRong ? (
-            <ChevronUp className="size-4" aria-hidden />
-          ) : (
-            <ChevronDown className="size-4" aria-hidden />
-          )}
-          {/* 🔴 `mucBay.length` — số dòng THẬT SỰ bấm ra, không phải `muc.length` (8, gồm cả mục
-              đã lọc) và cũng không phải `tomTat.tong` (chỉ mục bắt buộc). Trước 15/09/2026 chỗ này
-              in `tomTat.tong` nên nút ghi "Xem 4 mục" trong khi bấm ra bảy dòng — con số trên nút
-              phải khớp đúng thứ người dùng thấy sau khi bấm. */}
-          {moRong ? "Thu gọn" : `Xem ${mucBay.length} mục`}
-        </button>
       </div>
-      {moRong && (
-        <>
-          <p className="text-xs text-text-desc">
-            Gom từ các bước trên, không đính kèm lại ở đây. Sửa thì về đúng bước của chứng từ.
-          </p>
-          {/**
-            * ★★ NÓI RÕ BỐN MỤC KIA ĐI ĐÂU — Sếp 15/09/2026, khi bỏ phần liệt kê trùng.
-            *
-            * 🔴 BẮT BUỘC PHẢI CÓ CÂU NÀY, KHÔNG PHẢI CHO ĐẸP. Khối giữ nguyên số mục gốc (1 · 2 ·
-            * 4 · 5) nên trên màn hình có chỗ hụt số 3 · 6 · 7 · 8. Không giải thích thì người đọc
-            * tưởng app làm mất mục — đúng loại hiểu nhầm §3.5 cấm. Câu này biến chỗ hụt số thành
-            * thông tin: mục nào, ở đâu.
-            *
-            * 🔴 GIỮ SỐ GỐC chứ không đánh lại 1..4: số mục là cách Sếp gọi tên từng chứng từ
-            * (danh sách 9 mục ngày 15/09/2026) và là thứ tự dùng khi đối chiếu với app Kế toán.
-            * Đánh lại số là hai bên nói "mục 3" mà chỉ hai chứng từ khác nhau.
-            *
-            * 📌 Tên và số lấy thẳng từ dữ liệu, không gõ tay — thêm/bớt ô nộp ở bước ⑧ thì câu này
-            * tự đúng theo.
-            */}
-          {mucCoONopONgayTren.length > 0 && (
-            <p className="text-xs text-text-desc">
-              {mucCoONopONgayTren.length} mục còn lại của bộ hồ sơ nộp ở các ô đính kèm ngay phía
-              trên, không liệt kê lại ở đây:{" "}
-              {mucCoONopONgayTren.map((m) => `${m.stt}. ${m.ten}`).join(" · ")}. Bộ chuyển sang app
-              Kế toán vẫn đủ {muc.length} mục.
-            </p>
-          )}
-        </>
+      {/* 📌 "các bước TRƯỚC" chứ không phải "các bước trên": từ 15/09/2026 khối này đứng ở ĐẦU
+          bước ⑧ nên chữ "trên" dễ bị đọc thành vị trí trên màn hình. Ở đây muốn nói thứ tự quy
+          trình — các bước ①→⑦ đã đi qua. */}
+      <p className="text-xs text-text-desc">
+        Gom từ các bước trước, không đính kèm lại ở đây. Sửa thì về đúng bước của chứng từ.
+      </p>
+      {/**
+        * ★★ NÓI RÕ BỐN MỤC KIA ĐI ĐÂU — Sếp 15/09/2026, khi bỏ phần liệt kê trùng.
+        *
+        * 🔴 BẮT BUỘC PHẢI CÓ CÂU NÀY, KHÔNG PHẢI CHO ĐẸP. Khối giữ nguyên số mục gốc (1 · 2 ·
+        * 4 · 5) nên trên màn hình có chỗ hụt số 3 · 6 · 7 · 8. Không giải thích thì người đọc
+        * tưởng app làm mất mục — đúng loại hiểu nhầm §3.5 cấm. Câu này biến chỗ hụt số thành
+        * thông tin: mục nào, ở đâu.
+        *
+        * 🔴 CHỮ CHỈ HƯỚNG PHẢI KHỚP BỐ CỤC — Sếp 15/09/2026 dời khối này LÊN TRƯỚC các ô nộp tệp,
+        * nên câu cũ *"nộp ở các ô đính kèm ngay phía TRÊN"* đã thành SAI HƯỚNG và được sửa thành
+        * *"ngay phía DƯỚI"*. 👉 Ngày nào đổi lại thứ tự hai cụm thì phải sửa chữ này cùng lúc:
+        * câu chỉ sai hướng khiến người dùng cuộn ngược tìm mãi không thấy, mà không có lỗi nào báo.
+        *
+        * 🔴 GIỮ SỐ GỐC chứ không đánh lại 1..4: số mục là cách Sếp gọi tên từng chứng từ
+        * (danh sách 9 mục ngày 15/09/2026) và là thứ tự dùng khi đối chiếu với app Kế toán.
+        * Đánh lại số là hai bên nói "mục 3" mà chỉ hai chứng từ khác nhau.
+        *
+        * 📌 Tên và số lấy thẳng từ dữ liệu, không gõ tay — thêm/bớt ô nộp ở bước ⑧ thì câu này
+        * tự đúng theo.
+        */}
+      {mucCoONopTaiBuocNay.length > 0 && (
+        <p className="text-xs text-text-desc">
+          {mucCoONopTaiBuocNay.length} mục còn lại của bộ hồ sơ nộp ở các ô đính kèm ngay phía dưới,
+          không liệt kê lại ở đây:{" "}
+          {mucCoONopTaiBuocNay.map((m) => `${m.stt}. ${m.ten}`).join(" · ")}. Bộ chuyển sang app Kế
+          toán vẫn đủ {muc.length} mục.
+        </p>
       )}
 
-      {/* 🔴 KHI THU GỌN VẪN PHẢI NÓI THIẾU GÌ. Thu gọn để đỡ dài, không phải để giấu việc còn
-          nợ chứng từ — nêu tên mục thiếu ngay trên một dòng. */}
-      {!moRong && tomTat.thieu.length > 0 && (
-        <p className="text-xs text-warning-soft">Còn thiếu: {tomTat.thieu.join(" · ")}.</p>
-      )}
-
-      <ol className={`flex flex-col gap-2 ${moRong ? "" : "hidden"}`}>
+      <ol className="flex flex-col gap-2">
         {mucBay.map((m) => {
           const co = mucDaCo(m);
           return (
@@ -210,7 +197,10 @@ export function KhoiBoHoSoThanhToan({
                     : "border-border bg-muted"
               }`}
             >
-              <div className="flex flex-wrap items-center gap-2">
+              {/* 📌 HÀNG NHÃN — `min-h-6` để mục CÓ tệp và mục KHÔNG tệp có hàng đầu cao bằng
+                  nhau (Sếp 15/09/2026 *"bố cục lại"*). Không đặt chiều cao thì hàng có huy hiệu
+                  "Nếu có" cao hơn hàng trơn, cả cột nhìn răng cưa. */}
+              <div className="flex min-h-6 flex-wrap items-center gap-2">
                 <span className="min-w-5 text-xs tabular-nums text-text-desc">{m.stt}.</span>
                 {co ? (
                   <Check className="size-4 shrink-0 text-success" aria-hidden />
@@ -230,89 +220,106 @@ export function KhoiBoHoSoThanhToan({
               </div>
 
               {/**
-                * ★★ LIÊN KẾT SANG APP KHÁC — mục 1 "Phiếu đề nghị", Sếp 15/09/2026.
+                * ★ RUỘT CỦA MỤC GOM VÀO MỘT CỘT THỤT LỀ — Sếp 15/09/2026 *"bố cục lại"*.
                 *
-                * 🔴 DÙNG `<a>` THƯỜNG, KHÔNG `next/link`: đây là địa chỉ đầy đủ sang App Request,
-                * không phải một tuyến trong app này. `rel="noopener noreferrer"` vì mở tab mới.
+                * 📌 Trước đây liên kết và tệp bám sát mép trái, còn nhóm thì thụt `pl-6`: ba mức
+                * lề khác nhau trong cùng một mục, mắt không lần được cái nào thuộc cái nào. Nay
+                * mọi thứ của mục nằm chung một cột thụt `pl-7` — thẳng hàng với biểu tượng ✓/–
+                * của hàng nhãn, nên vẫn đọc ra là "thuộc mục này".
                 *
-                * 🔴 VẼ TRƯỚC câu ghi chú bên dưới — câu đó nói *"bấm liên kết trên"*, đảo chỗ là
-                * câu chỉ sai hướng.
-                *
-                * 📌 Tầng dữ liệu đã bỏ trống trường này khi không tra ra đúng hồ sơ, nên ở đây
-                * không thể vẽ ra một nút chết. Đừng thêm nhánh dự phòng tự ghép địa chỉ.
+                * ⚠️ `pl-7` (28px) chứ không thụt tới chữ nhãn (52px): màn 375px còn lại ~280px cho
+                * tên tệp, thụt sâu hơn là tên tệp xuống dòng liên tục.
                 */}
-              {(m.lienKetNgoai ?? []).map((l) => (
-                <a
-                  key={l.url}
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline md:min-h-9"
-                >
-                  <ExternalLink className="size-4 shrink-0" aria-hidden />
-                  {l.nhan}
-                </a>
-              ))}
-
-              {/* Tệp của mục — chỉ XEM và TẢI, không gỡ được từ đây (sửa ở bước của nó). */}
-              {m.tep.map((t) => (
-                <LienKetTep key={t.id} tep={t} />
-              ))}
-
-              {/**
-                * ★★ NHÓM BÊN TRONG MỤC — Ban lãnh đạo 26/08/2026: *"Tạo group lại nhé"*.
-                * Mục 2 (bản được chọn / bảng so sánh) và — từ 15/09/2026 — mục 5 (Phiếu giao hàng,
-                * mỗi lần giao một nhóm) dùng nhóm. Mục Hoá đơn / UNC nay đã tách hẳn thành hai mục
-                * riêng nên không còn dùng nhóm.
-                *
-                * 📌 Nhóm RỖNG vẫn hiện tên kèm câu "chưa có" — người đọc phải thấy là *đã kiểm và
-                * chưa có*, khác hẳn với *không biết có hay không*. Ẩn nhóm rỗng đi là bộ hồ sơ
-                * trông đủ trong khi thiếu.
-                */}
-              {(m.nhom ?? []).map((n) => (
-                <div key={n.ten} className="flex flex-col gap-1 pl-6">
-                  <span className="text-xs font-medium text-text-secondary">{n.ten}</span>
-                  {n.tep.map((t) => (
-                    <LienKetTep key={t.id} tep={t} />
-                  ))}
-                  {n.tep.length === 0 && (
-                    <span className="text-xs text-text-desc">{n.ghiChu ?? "Chưa có."}</span>
-                  )}
-                  {n.tep.length > 0 && n.ghiChu && (
-                    <span className="text-xs text-warning-soft">{n.ghiChu}</span>
-                  )}
-                </div>
-              ))}
-
-              {/**
-                * Chứng từ app tự sinh (đơn mua hàng) — mở tờ in A4.
-                *
-                * 🔴 GÁC QUYỀN XEM GIÁ: tờ PO in có đơn giá. Vai trò không được xem giá thì chỉ
-                * thấy MÃ ĐƠN, không có đường mở tờ in — trang in cũng tự chặn bên trong, đây là
-                * lớp thứ hai để không bày một liên kết bấm vào rồi bị từ chối.
-                */}
-              {(m.chungTuTrongApp ?? []).map((c) =>
-                xemGia ? (
-                  <Link
-                    key={c.ma}
-                    href={c.duongDanIn}
+              <div className="flex flex-col gap-1 pl-7">
+                {/**
+                  * ★★ LIÊN KẾT SANG APP KHÁC — mục 1 "Phiếu đề nghị", Sếp 15/09/2026.
+                  *
+                  * 🔴 DÙNG `<a>` THƯỜNG, KHÔNG `next/link`: đây là địa chỉ đầy đủ sang App Request,
+                  * không phải một tuyến trong app này. `rel="noopener noreferrer"` vì mở tab mới.
+                  *
+                  * 🔴 VẼ TRƯỚC câu ghi chú bên dưới — câu đó nói *"bấm liên kết trên"*, đảo chỗ là
+                  * câu chỉ sai hướng. (Câu đó nói về liên kết TRONG CÙNG MỤC này, không dính gì tới
+                  * việc cả khối đã được dời lên đầu bước ⑧ ngày 15/09/2026 — vẫn đúng.)
+                  *
+                  * 📌 Tầng dữ liệu đã bỏ trống trường này khi không tra ra đúng hồ sơ, nên ở đây
+                  * không thể vẽ ra một nút chết. Đừng thêm nhánh dự phòng tự ghép địa chỉ.
+                  */}
+                {(m.lienKetNgoai ?? []).map((l) => (
+                  <a
+                    key={l.url}
+                    href={l.url}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline md:min-h-9"
                   >
                     <ExternalLink className="size-4 shrink-0" aria-hidden />
-                    {c.ma}
-                  </Link>
-                ) : (
-                  <span key={c.ma} className="text-sm text-text-secondary">
-                    {c.ma}{" "}
-                    <span className="text-xs text-text-desc">
-                      (không có quyền xem giá nên không mở được tờ in)
-                    </span>
-                  </span>
-                ),
-              )}
+                    {l.nhan}
+                  </a>
+                ))}
 
-              {m.ghiChu && <span className="text-xs text-warning-soft">{m.ghiChu}</span>}
+                {/* Tệp của mục — chỉ XEM và TẢI, không gỡ được từ đây (sửa ở bước của nó). */}
+                {m.tep.map((t) => (
+                  <LienKetTep key={t.id} tep={t} />
+                ))}
+
+                {/**
+                  * ★★ NHÓM BÊN TRONG MỤC — Ban lãnh đạo 26/08/2026: *"Tạo group lại nhé"*.
+                  * Mục 2 (bản được chọn / bảng so sánh) và — từ 15/09/2026 — mục 5 (Phiếu giao
+                  * hàng, mỗi lần giao một nhóm) dùng nhóm. Mục Hoá đơn / UNC nay đã tách hẳn thành
+                  * hai mục riêng nên không còn dùng nhóm.
+                  *
+                  * 📌 Nhóm RỖNG vẫn hiện tên kèm câu "chưa có" — người đọc phải thấy là *đã kiểm
+                  * và chưa có*, khác hẳn với *không biết có hay không*. Ẩn nhóm rỗng đi là bộ hồ sơ
+                  * trông đủ trong khi thiếu.
+                  *
+                  * 📌 `pl-3` (trước 15/09/2026 là `pl-6`): cả ruột mục nay đã thụt `pl-7` ở khung
+                  * cha, nên nhóm chỉ cần thụt thêm một bậc nhỏ để thấy là cấp con.
+                  */}
+                {(m.nhom ?? []).map((n) => (
+                  <div key={n.ten} className="flex flex-col gap-1 pl-3">
+                    <span className="text-xs font-medium text-text-secondary">{n.ten}</span>
+                    {n.tep.map((t) => (
+                      <LienKetTep key={t.id} tep={t} />
+                    ))}
+                    {n.tep.length === 0 && (
+                      <span className="text-xs text-text-desc">{n.ghiChu ?? "Chưa có."}</span>
+                    )}
+                    {n.tep.length > 0 && n.ghiChu && (
+                      <span className="text-xs text-warning-soft">{n.ghiChu}</span>
+                    )}
+                  </div>
+                ))}
+
+                {/**
+                  * Chứng từ app tự sinh (đơn mua hàng) — mở tờ in A4.
+                  *
+                  * 🔴 GÁC QUYỀN XEM GIÁ: tờ PO in có đơn giá. Vai trò không được xem giá thì chỉ
+                  * thấy MÃ ĐƠN, không có đường mở tờ in — trang in cũng tự chặn bên trong, đây là
+                  * lớp thứ hai để không bày một liên kết bấm vào rồi bị từ chối.
+                  */}
+                {(m.chungTuTrongApp ?? []).map((c) =>
+                  xemGia ? (
+                    <Link
+                      key={c.ma}
+                      href={c.duongDanIn}
+                      target="_blank"
+                      className="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline md:min-h-9"
+                    >
+                      <ExternalLink className="size-4 shrink-0" aria-hidden />
+                      {c.ma}
+                    </Link>
+                  ) : (
+                    <span key={c.ma} className="text-sm text-text-secondary">
+                      {c.ma}{" "}
+                      <span className="text-xs text-text-desc">
+                        (không có quyền xem giá nên không mở được tờ in)
+                      </span>
+                    </span>
+                  ),
+                )}
+
+                {m.ghiChu && <span className="text-xs text-warning-soft">{m.ghiChu}</span>}
+              </div>
             </li>
           );
         })}
