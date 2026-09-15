@@ -5537,6 +5537,36 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           // không ai thấy.
           binhLuan: undefined,
           /**
+           * 🔴🔴 LÀM SẠCH TỆP VÀ GHI CHÚ CỦA BƯỚC SAU — Sếp 15/09/2026, BÁO LẦN HAI.
+           *
+           * Nguyên văn lần một: *"làm sạch thông tin khi nhân bản quy trình đối với các quy trình
+           * đã có sẵn file đính kèm hoặc ghi chú, a cần làm sạch tất cả khi trả về bước 2"*.
+           * Lần hai, sau khi đã sửa và báo xong: *"a nhân bản mới cũng vẫn còn file và nội dung
+           * đính kèm"*.
+           *
+           * 🔴 VÌ SAO LẦN MỘT SỬA HỤT — GHI LẠI ĐỂ KHÔNG LẶP: app có **HAI** đường sinh phiếu con,
+           * và lần đó chỉ sửa một.
+           *   · `nhanBanDeNghi` — người dùng bấm nút "Nhân bản" (đã làm sạch qua `dungBanNhanBan`).
+           *   · `tachTheoPhanBo` — CHÍNH ĐÂY: app tự tách khi phân công dòng cho nhiều người.
+           * Dòng `...goc` ở trên chép **mọi** trường, nên phiếu tách mang theo nguyên tệp báo giá,
+           * hợp đồng, lý do thiếu chứng từ của phiếu gốc. Đo được trên kho chung 15/09/2026: 4 bản
+           * `...PR-005 (copy N)` còn tệp ở CẢ HAI bước `yeu_cau_bao_gia` và `lap_don_mua_hang`.
+           *
+           * 👉 BÀI HỌC: sửa một luật nghiệp vụ thì phải hỏi *"còn đường nào khác tới cùng kết quả
+           * không"* rồi mới báo xong. Đếm nơi gọi, đừng đếm nơi mình vừa sửa.
+           *
+           * 📌 CHỈ BỎ THAM CHIẾU, KHÔNG XOÁ NỘI DUNG TỆP. Nội dung nằm ở `3-du-lieu/kho-tep.ts` tra
+           * theo `id`, và phiếu gốc vẫn trỏ tới đúng những `id` đó — xoá nội dung là **phiếu gốc
+           * mất chứng từ**.
+           *
+           * ⚠️ `taiLieu` / `taiLieuAppRequest` CỐ Ý GIỮ (giống `dungBanNhanBan`): đó là hồ sơ đầu
+           * vào người đề nghị nộp lúc lập phiếu — catalogue, bản vẽ — thứ người nhận việc cần cầm
+           * theo để đi hỏi giá. Bỏ luôn là phiếu con thành hồ sơ trơ, không biết phải mua cái gì.
+           */
+          tepGiaiDoan: undefined,
+          lyDoThieuChungTu: undefined,
+          lyDoThatBai: undefined,
+          /**
            * 🔴 KẾ THỪA VIỆC ĐÃ TÍCH CỦA PHIẾU GỐC — sửa 27/08/2026, trước đó chỗ này ghi
            * `undefined` (xóa sạch).
            *
