@@ -1,15 +1,26 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
+/* ★ Thêm 15/09/2026 (có phép Sếp): mở thêm MỘT kết nối Admin SDK sang project `hpcons-request`
+   để tự đọc loại đề nghị — xem `docLoaiTuHoSoAppRequest` cuối tệp. Phần `FieldValue` và
+   `getHpcoreDb` của phiên tích hợp giữ nguyên, không đụng. */
+import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
+import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getHpcoreDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
 import { maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import {
+  chuanHoaLoaiHoSo,
+  layLoaiTuHoSoAppRequest,
   quyDoiPhongBan,
   tachCongTrinhTuChuoi,
   xacDinhMaDuAnTamThoi,
 } from "@/2-quy-trinh/tich-hop-app-request";
-import type { DeNghiMuaHang, DongDeNghi, DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
+import type {
+  DeNghiMuaHang,
+  DongDeNghi,
+  DonDatHang,
+  LoaiHoSoDeNghi,
+} from "@/3-du-lieu/kieu-du-lieu";
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import type { DeNghiMoiTuAppRequest, KetQuaNhanDeNghiTuAppRequest } from "@/3-du-lieu/tich-hop-app-request-types";
 import { boDau } from "@/6-tien-ich/bo-dau";
@@ -57,6 +68,33 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
   try {
     const db = getHpcoreDb();
     const docRef = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
+
+    /**
+     * ★★ XÁC ĐỊNH LOẠI HỒ SƠ (công trình / phòng ban) — BA BƯỚC, ĐÚNG THỨ TỰ NÀY.
+     * Thêm 15/09/2026, **có phép riêng của Sếp** (tệp vùng cấm §6.6). Chỉ đạo Sếp:
+     * *"API của app request e đã có rồi, e chỉ cần link thêm trường phòng ban đó là xong mà,
+     * giải quyết theo phương án tối ưu nhất đi chứ"*.
+     *
+     *   ① Payload CÓ `loaiDeNghi` → dùng luôn. RẺ NHẤT: không gọi ra ngoài, không tốn lượt đọc.
+     *      (Hôm nay App Request CHƯA gửi trường này; để sẵn cho ngày họ cập nhật.)
+     *   ② Không có, nhưng CÓ `requestId` → **tự đọc sang App Request**. Đây là đường đang chạy
+     *      thật: `idHoSoAppRequest` có ở 16/16 đề nghị, và đọc ra loại 16/16, lệch 0 so với phép
+     *      suy `maHopDongCDT` rỗng (đo 15/09/2026).
+     *   ③ Vẫn không ra → **để trống**. `laHoSoPhongBan` (`2-quy-trinh/ho-so-phong-ban.ts`) tự rơi
+     *      về tầng dự phòng `maHopDongCDT` rỗng. KHÔNG đoán bừa, và tuyệt đối không mặc định
+     *      "công trình".
+     *
+     * 🔴 ĐỌC TRƯỚC KHI VÀO TRANSACTION, KHÔNG ĐỌC BÊN TRONG. Transaction của Firestore có thể
+     * **chạy lại nhiều lượt** khi có tranh chấp ghi; nhét một lời gọi mạng vào trong là mỗi lượt
+     * lại gọi lại, kéo dài thời gian giữ transaction và nhân lượt đọc lên. Ở ngoài thì đúng một
+     * lần, và kết quả chỉ là một giá trị thuần đem vào dùng.
+     *
+     * ⚠️ TỐN THÊM 1 LƯỢT ĐỌC KHI APP REQUEST GỬI TRÙNG (retry mạng): lúc đó hồ sơ đã có sẵn nên
+     * giá trị này không dùng tới. Chấp nhận — một document mỗi lần gọi, và đổi lại là không phải
+     * gọi mạng bên trong transaction (xem lý do ngay trên).
+     */
+    const loaiHoSo: LoaiHoSoDeNghi | undefined =
+      chuanHoaLoaiHoSo(payload.loaiDeNghi) ?? (await docLoaiTuHoSoAppRequest(payload.requestId));
 
     // Transaction: đọc + kiểm trùng + ghi trong một bước — chặn trường hợp App Request gọi
     // lại 2 lần gần nhau (retry do mạng lỗi) tạo ra 2 đề nghị trùng mã đề xuất.
@@ -163,6 +201,25 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
           },
         ],
         maDeXuatAppRequest: payload.requestCode,
+        /**
+         * ★★ LOẠI HỒ SƠ — CÔNG TRÌNH hay PHÒNG BAN, lấy từ ô "Lựa chọn đề nghị" của App Request.
+         * Thêm 15/09/2026, **có phép riêng của Sếp** (*"A đã báo rồi, e sửa đi"* — tệp này thuộc
+         * vùng cấm phiên tích hợp, CLAUDE.md §6.6; ghi lại để họ đọc ra là CÓ PHÉP).
+         *
+         * 🔴 THUẦN THÊM: chỉ chép thêm một trường mới (xem khối "BA BƯỚC" phía trên để biết giá
+         * trị `loaiHoSo` từ đâu ra), không đụng nhánh logic nào đang chạy — kiểm trùng, tách công
+         * trình, tự động khớp PO đều nguyên vẹn.
+         *
+         * 🔴 VÌ SAO CẦN: hồ sơ phòng ban phải đi nhánh riêng (Sếp duyệt 15/09/2026) vì không có
+         * kho công trình nào gửi phiếu nhận sang. Hai phép suy gián tiếp đã đo là SAI trên dữ
+         * liệu thật (`tenCongTrinh` rỗng → 0/16, `maDuAn` bắt đầu `"PB-"` → 0/16) vì App Request
+         * đang nhét TIÊU ĐỀ ĐỀ NGHỊ vào cả hai ô đó.
+         *
+         * ⚠️ `undefined` KHI CẢ BA BƯỚC ĐỀU KHÔNG RA — cố ý, không đoán bừa. `bo0Undefined` bỏ
+         * hẳn khoá, và `laHoSoPhongBan` rơi về tầng dự phòng (`maHopDongCDT` rỗng) đúng như hồ sơ
+         * cũ vẫn chạy từ trước tới nay.
+         */
+        loaiHoSo,
         /**
          * ★★ LƯU ID KỸ THUẬT ĐỂ DỰNG ĐƯỢC ĐƯỜNG DẪN MỞ HỒ SƠ BÊN APP REQUEST — thêm 13/09/2026.
          *
@@ -366,6 +423,92 @@ function duongDanTepAppRequest(
       return { ten: t.ten, duongDan: tho };
     }
   });
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════
+// ★★ ĐỌC LOẠI ĐỀ NGHỊ THẲNG TỪ APP REQUEST — thêm 15/09/2026, CÓ PHÉP RIÊNG CỦA SẾP
+// (tệp này thuộc vùng cấm sửa của phiên tích hợp, CLAUDE.md §6.6 — ghi lại để họ đọc ra là
+// CÓ PHÉP, không phải bị đè code; và THUẦN THÊM, không xoá dòng nào của họ).
+//
+// 🔴 VÌ SAO PHẢI TỰ ĐỌC: App Request hiện CHƯA gửi trường loại đề nghị trong payload, mà việc
+// tách nhánh hồ sơ phòng ban thì Sếp đã duyệt và cần chạy ngay. `requestId` (= id kỹ thuật hồ
+// sơ bên họ) thì payload LUÔN có, nên nối sang đọc được ngay hôm nay, không phải chờ ai.
+//
+// 🔴 PROJECT KHÁC — `hpcons-request`, KHÔNG PHẢI `hpcons-portal`. Vì vậy PHẢI có service
+// account riêng và một Admin SDK app riêng (đặt tên `app-request` để không đụng app `hpcore`
+// của `5-ket-noi/hpcore-may-chu.ts`). Làm ĐÚNG CÙNG KHUÔN tệp đó: khoá nằm trong BIẾN MÔI
+// TRƯỜNG dạng JSON một dòng, KHÔNG BAO GIỜ nhúng vào mã nguồn, và app khởi tạo đúng một lần.
+//
+// ⚠️ THIẾU BIẾN MÔI TRƯỜNG THÌ KHÔNG ĐƯỢC LÀM HỎNG CỬA TIẾP NHẬN. Đây là đường sống của cả
+// quy trình: đề nghị phải vào được app kể cả khi chưa ai cấu hình biến này, kể cả khi App
+// Request chậm hay chết. Nên mọi lỗi ở đây đều bị NUỐT có chủ ý — chỉ ghi `console.warn` rồi
+// trả `undefined`, và app rơi về tầng dự phòng `maHopDongCDT` rỗng (đã đo: đúng 16/16).
+// ════════════════════════════════════════════════════════════════════════════════════════
+
+/** Tên Admin SDK app — KHÁC `"hpcore"` để hai kết nối hai project không đè nhau. */
+const TEN_APP_ADMIN_APP_REQUEST = "app-request";
+
+/**
+ * Hạn chờ đọc App Request. Ngắn có chủ ý: giá trị đọc được chỉ để chọn nhánh nghiệp vụ, còn
+ * việc BẮT BUỘC phải xong là nhận đề nghị vào app. Quá hạn thì bỏ qua, không phải lỗi.
+ */
+const HAN_DOC_APP_REQUEST_MS = 2500;
+
+let dbAppRequestCache: Firestore | null = null;
+
+function getAppRequestDb(): Firestore {
+  if (dbAppRequestCache) return dbAppRequestCache;
+  const raw = process.env.APP_REQUEST_FIREBASE_SERVICE_ACCOUNT;
+  if (!raw?.trim()) {
+    throw new Error(
+      "Thiếu APP_REQUEST_FIREBASE_SERVICE_ACCOUNT (JSON service account project hpcons-request).",
+    );
+  }
+  const daCo = getApps().find((a) => a.name === TEN_APP_ADMIN_APP_REQUEST);
+  const app: App =
+    daCo ??
+    initializeApp(
+      { credential: cert(JSON.parse(raw) as Parameters<typeof cert>[0]) },
+      TEN_APP_ADMIN_APP_REQUEST,
+    );
+  return (dbAppRequestCache = getFirestore(app));
+}
+
+/**
+ * Đọc `requests/{idHoSo}` bên App Request rồi rút ra loại đề nghị.
+ *
+ * `undefined` cho MỌI ca không chắc — thiếu id, thiếu biến môi trường, hồ sơ không còn, quá
+ * hạn, mạng lỗi, hoặc hồ sơ không có ô "Lựa chọn đề nghị". KHÔNG BAO GIỜ ném lỗi ra ngoài.
+ */
+async function docLoaiTuHoSoAppRequest(idHoSo: string | undefined): Promise<LoaiHoSoDeNghi | undefined> {
+  const id = idHoSo?.trim();
+  if (!id) return undefined;
+
+  let henGio: ReturnType<typeof setTimeout> | undefined;
+  try {
+    /* Admin SDK không có tham số timeout, nên chặn bằng `Promise.race`. `finally` dọn hẹn giờ —
+       bỏ quên là tiến trình bị giữ sống thêm vài giây một cách vô ích. */
+    const snap = await Promise.race([
+      getAppRequestDb().collection("requests").doc(id).get(),
+      new Promise<never>((_, tuChoi) => {
+        henGio = setTimeout(
+          () => tuChoi(new Error(`Quá ${HAN_DOC_APP_REQUEST_MS}ms khi đọc App Request.`)),
+          HAN_DOC_APP_REQUEST_MS,
+        );
+      }),
+    ]);
+    return snap.exists ? layLoaiTuHoSoAppRequest(snap.data()) : undefined;
+  } catch (error) {
+    /* ⚠️ NUỐT LỖI CÓ CHỦ Ý — xem khối chú thích phía trên. Vẫn ghi lại để còn lần ra được khi
+       nhánh phòng ban im lặng không bật: dòng log này là manh mối duy nhất. */
+    console.warn(
+      `Không đọc được loại đề nghị từ App Request (hồ sơ ${id}) — dùng phép suy dự phòng:`,
+      error instanceof Error ? error.message : error,
+    );
+    return undefined;
+  } finally {
+    if (henGio) clearTimeout(henGio);
+  }
 }
 
 function congThemNgay(iso: string, soNgay: number): string {

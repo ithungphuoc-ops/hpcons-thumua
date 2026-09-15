@@ -185,6 +185,64 @@ export default function TrangChiTietDonHang() {
         }
       />
 
+      {/* =====================================================================
+          ★★ CHƯA GỬI ĐƯỢC SANG KHO CÔNG TRÌNH — thêm 15/09/2026
+          =====================================================================
+          🔴 VÌ SAO PHẢI BÀY RA: trước hôm nay, một đơn `qlkCtrSyncStatus === "failed"` KHÔNG
+          hiện gì cả trên màn này. Hậu quả thật: thủ kho mở app Kho công trình không thấy đơn,
+          không ghi nhập kho được, mà bên Thu mua nhìn màn hình thì mọi thứ "bình thường" — đúng
+          lỗi §3.5 CLAUDE.md *"đừng để giao diện hứa một việc app không làm"*, chỉ ở chiều ngược
+          lại: giao diện IM LẶNG về một việc app đã làm hỏng.
+
+          📌 Lý do lỗi (`qlkCtrSyncError`) và mốc thử gần nhất (`qlkCtrSyncAt`) do
+          `3-du-lieu/kho-du-lieu.tsx` ghi lại — Sếp 15/09/2026: *"cần giải quyết dứt điểm chứ
+          không phải mỗi lần lỗi là mỗi lần sửa"*.
+
+          🔴 CỐ Ý KHÔNG CÓ NÚT "GỬI LẠI". Cơ chế gửi lại đã có sẵn và tự chạy: mỗi lần dữ liệu
+          từ kho chung về (mở app · tải lại trang · sửa đơn), vòng retry trong `kho-du-lieu.tsx`
+          tự gọi lại `guiPOSangQlkCtr`. Thêm nút là hai đường cùng làm một việc, rồi lệch nhau —
+          và người bấm sẽ tưởng phải bấm thì mới gửi, trong khi app vẫn đang tự thử.
+
+          ⚠️ Đặt NGAY DƯỚI tiêu đề, trên mọi khối nội dung: đây là thứ phải đọc trước khi tin
+          vào bảng tiến độ nhận hàng bên dưới. */}
+      {po.qlkCtrSyncStatus === "failed" && (
+        <div className="flex items-start gap-3 rounded-xl border border-warning bg-warning-bg p-(--hp-md-row-pad)">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning-soft" aria-hidden />
+          <div className="flex flex-col gap-1.5">
+            {/* Trạng thái có CẢ MÀU LẪN CHỮ (Design System V1.1) — người không phân biệt được
+                màu vẫn đọc ra đây là cảnh báo. */}
+            <span className="text-sm font-semibold text-warning-soft">
+              Chưa gửi được đơn này sang app Kho công trình
+            </span>
+            <p className="text-sm text-text-secondary">
+              Thủ kho công trình chưa nhìn thấy đơn <strong>{po.code}</strong> bên app Kho, nên
+              chưa ghi nhận nhập kho theo đơn này được. Phần tiến độ nhận hàng bên dưới có thể
+              chưa phản ánh đúng hàng đã về.
+            </p>
+            {/* ⚠️ KHÔNG ĐỂ TRỐNG khi đơn hỏng từ trước lúc có trường `qlkCtrSyncError`
+                (15/09/2026) — để trống thì trông như chính khối cảnh báo này bị lỗi. Nói thẳng
+                là app hồi đó chưa ghi được lý do. */}
+            <p className="text-sm text-text-secondary">
+              <span className="text-text-desc">Lý do: </span>
+              {po.qlkCtrSyncError ?? (
+                <em>
+                  chưa ghi được lý do — lần lỗi này xảy ra trước ngày 15/09/2026, khi app còn
+                  chưa lưu nội dung lỗi. Các lần thử sau sẽ có lý do cụ thể.
+                </em>
+              )}
+            </p>
+            <p className="text-xs text-text-desc">
+              {po.qlkCtrSyncAt
+                ? `Thử gửi lần gần nhất: ${formatDateTime(po.qlkCtrSyncAt)}`
+                : "Chưa ghi nhận thời điểm thử gửi gần nhất."}{" "}
+              App tự gửi lại mỗi lần mở hoặc tải lại trang — không cần bấm gì thêm. Nếu dòng này
+              còn đây sau vài lần tải lại, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và
+              nguyên văn lý do ở trên.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Thông tin PO */}
       <Card>
         <CardContent className="grid grid-cols-2 gap-(--hp-md-card-gap) md:grid-cols-4">

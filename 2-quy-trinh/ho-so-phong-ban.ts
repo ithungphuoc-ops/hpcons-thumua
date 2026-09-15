@@ -20,28 +20,77 @@
 // (ví dụ App Request bổ sung trường `loaiHoSo` thật) chỉ phải sửa đúng một hàm.
 // ============================================================
 
+import type { LoaiHoSoDeNghi } from "@/3-du-lieu/kieu-du-lieu";
+
 /**
  * Hồ sơ này là của PHÒNG BAN (không gắn công trình) hay không.
  *
- * 🔴 NHẬN DIỆN BẰNG `tenCongTrinh` RỖNG, KHÔNG BẰNG `maDuAn` BẮT ĐẦU "PB-".
+ * ════════════════════════════════════════════════════════════════════════════════════
+ * ★★ HAI TẦNG — thêm 15/09/2026 (chiều), Sếp duyệt. Đọc kỹ thứ tự, đừng đảo:
  *
- * Cả hai đều do cùng một chỗ sinh ra (`tich-hop-app-request.ts` → `xacDinhMaDuAnTamThoi`: không
- * có `congTrinhChuoi` thì `maDuAn = "PB-<mã phòng ban>"` và `tenCongTrinh = ""`), nhưng:
- *   · `tenCongTrinh` là trường **nghiệp vụ**, mọi hồ sơ đều có, và app đang dùng chính nó để ẩn
- *     nhãn công trình trên giao diện — tức đã là dấu hiệu "có/không công trình" trên thực tế.
- *   · `maDuAn` là mã **tạm thời** do bên tích hợp đặt, nằm trong vùng cấm sửa (CLAUDE.md §6.6).
- *     Bám vào định dạng chuỗi của người khác là tự buộc mình vào thứ họ có quyền đổi bất cứ lúc
- *     nào mà không phải báo ai.
+ *   ① `loaiHoSo` CÓ GIÁ TRỊ → **TIN NÓ, HẾT**. Đây là ô "Lựa chọn đề nghị" trên biểu mẫu App
+ *      Request, do chính người đề nghị khai — nguồn chính thức, thắng mọi phép suy đoán. Đã đo
+ *      trên kho `hpcons-request` (collection `requests`, 60 phiếu): **32 "Đề nghị công trình" ·
+ *      7 "Đề nghị phòng ban"**. Cửa tiếp nhận chuẩn hoá giá trị này bằng `chuanHoaLoaiHoSo`
+ *      (`2-quy-trinh/tich-hop-app-request.ts`) rồi mới lưu.
  *
- * ⚠️ HỒ SƠ LẬP TAY TRONG APP (không qua App Request) mà để trống tên công trình cũng lọt vào
- * đây. Chấp nhận có chủ ý: xét về nghiệp vụ thì một hồ sơ không gắn công trình nào **đúng là**
- * không có kho công trình để nhận hàng — cùng một hoàn cảnh, nên cùng một đường đi.
+ *   ② `loaiHoSo` TRỐNG → rơi về phép suy cũ: **`maHopDongCDT` rỗng**.
+ *
+ * 🔴 VÌ SAO BẮT BUỘC PHẢI CÒN TẦNG ②, ĐỪNG BAO GIỜ BỎ: **hồ sơ cũ KHÔNG BAO GIỜ có `loaiHoSo`**.
+ * App chỉ bắt đầu lưu trường đó từ 15/09/2026, và chỉ lưu được khi App Request đã cập nhật phần
+ * gửi sang (tính tới hôm nay họ CHƯA gửi). Mọi đề nghị đang nằm trên kho chung, cộng mọi đề nghị
+ * lập tay trong app, đều trống trường này. Bỏ tầng ② là 3 hồ sơ phòng ban thật (`000000089`,
+ * `000000090`, `000000091`) lập tức kẹt lại ở bước ⑥ đúng như sự cố đang chữa.
+ *
+ * ⚠️ TRỐNG = CHƯA BIẾT, KHÔNG PHẢI "công trình". Đó là lý do tầng ② vẫn phải suy, chứ không
+ * `return false` cho xong.
+ * ════════════════════════════════════════════════════════════════════════════════════
+ *
+ * 🔴🔴 TẦNG ② NHẬN DIỆN BẰNG `maHopDongCDT` RỖNG — **ĐÃ SỬA 15/09/2026 SAU KHI ĐO DỮ LIỆU THẬT**.
+ *
+ * ⚠️ BẢN ĐẦU DÙNG `tenCongTrinh` RỖNG VÀ NÓ SAI HOÀN TOÀN. Sếp báo *"a thấy nhánh phòng ban chưa
+ * chạy"*; đo trên kho đang chạy (`hpcons-portal`, 16 đề nghị) thì hàm này nhận ra **0/16** hồ sơ
+ * là phòng ban. Nguyên nhân: **App Request nhét TIÊU ĐỀ ĐỀ NGHỊ vào ô tên công trình** khi hồ sơ
+ * không có công trình. Ví dụ đo được:
+ *   · `000000089` (Phòng Pháp Lý) → `tenCongTrinh = "Đề nghị 2. Phòng Pháp lý (HP Cons)"`
+ *   · `000000091` (Phòng Kỹ thuật) → `tenCongTrinh = "Phòng Kỹ thuật Thi công (HP Cons)"`
+ * Nên `tenCongTrinh` **không bao giờ rỗng**, và nhánh phòng ban không bao giờ bật.
+ *
+ * ✅ `maHopDongCDT` mới là trường phân biệt được, đo ra **3/16** — đúng ba hồ sơ phòng ban thật
+ * (`000000089`, `000000090`, `000000091`), khớp với điều Sếp chỉ ra. Hợp lý về nghiệp vụ: chỉ hồ
+ * sơ gắn công trình mới có hợp đồng chủ đầu tư; đề nghị nội bộ của phòng ban thì không có.
+ *
+ * 🔴 ĐỪNG QUAY LẠI DÙNG `tenCongTrinh`. Nó đang chứa rác do App Request gửi sang — lỗi ở phía họ
+ * (đã ghi trong SESSION-LOG: *"`tenCongTrinh` của đề nghị đang chứa mã hợp đồng"*), và nay đo
+ * được là còn tệ hơn: chứa cả tiêu đề đề nghị. Sửa chỗ đó thuộc vùng cấm §6.6.
+ *
+ * 🔴 CŨNG ĐỪNG DÙNG `maDuAn` BẮT ĐẦU "PB-": đo ra **0/16**. Chú thích ở `tich-hop-app-request.ts`
+ * nói `xacDinhMaDuAnTamThoi` sinh tiền tố đó, nhưng dữ liệu thật cho thấy `maDuAn` đang mang
+ * nguyên tiêu đề đề nghị. Bám vào định dạng chuỗi của đội khác là tự buộc mình vào thứ họ đổi
+ * lúc nào cũng được.
+ *
+ * ⚠️ HỒ SƠ LẬP TAY TRONG APP mà không khai hợp đồng chủ đầu tư cũng lọt vào đây. Chấp nhận có
+ * chủ ý: xét nghiệp vụ thì hồ sơ không gắn công trình **đúng là** không có kho công trình để
+ * nhận hàng — cùng hoàn cảnh thì cùng đường đi.
  */
 export function laHoSoPhongBan(
-  deNghi: { tenCongTrinh?: string | null } | null | undefined,
+  /* 📌 CHỮ KÝ GIỮ NGUYÊN HÌNH DẠNG CŨ, chỉ THÊM một trường tuỳ chọn — hơn 10 chỗ đang gọi hàm
+     này (`quyen-theo-ho-so.ts`, `kho-du-lieu.tsx`, `giai-doan-mua-hang.ts`,
+     `chung-tu-cuoi-quy-trinh.ts`, `gui-po-qlk-ctr.ts`, `de-nghi-chi-tiet.tsx`…) và không chỗ nào
+     phải sửa. Nhận `null` bên cạnh `undefined` cho hợp dữ liệu đọc từ Firestore. */
+  deNghi: { maHopDongCDT?: string | null; loaiHoSo?: LoaiHoSoDeNghi | null } | null | undefined,
 ): boolean {
   if (!deNghi) return false;
-  return !(deNghi.tenCongTrinh ?? "").trim();
+
+  /* ① NGUỒN CHÍNH THỨC — người đề nghị tự khai trên App Request. Tin tuyệt đối, kể cả khi mâu
+     thuẫn với `maHopDongCDT`: hồ sơ phòng ban vẫn có thể được gắn một mã hợp đồng nào đó, và hồ
+     sơ công trình vẫn có thể chưa kịp điền hợp đồng. Người khai biết rõ hơn phép suy. */
+  if (deNghi.loaiHoSo === "phong_ban") return true;
+  if (deNghi.loaiHoSo === "cong_trinh") return false;
+
+  /* ② DỰ PHÒNG cho hồ sơ KHÔNG có trường trên — xem khối chú thích phía trên để biết vì sao tầng
+     này không được phép bỏ. */
+  return !(deNghi.maHopDongCDT ?? "").trim();
 }
 
 /**

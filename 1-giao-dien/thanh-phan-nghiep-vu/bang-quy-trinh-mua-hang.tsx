@@ -44,6 +44,15 @@ import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huon
 import { NEO_NHAT_KY } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi";
 import {
   GIAI_DOAN_MUA_HANG,
+  /**
+   * ★★ CỔNG QUYỀN CỦA MỤC "Chuyển về giai đoạn trước" — thêm 15/09/2026 theo bảng Sếp duyệt.
+   *
+   * 🔴 GỌI ĐÚNG HÀM LUẬT, KHÔNG TỰ VIẾT LẠI ĐIỀU KIỆN. Bảng "ai được lùi cặp nào" nằm ở
+   * `2-quy-trinh/giai-doan-mua-hang.ts` (`vaiTroDuocLui` + `vuongMacQuyenLui`), MỘT CHỖ DUY NHẤT.
+   * Chép điều kiện xuống đây là dựng nguồn thứ hai, và đúng loại lệch đã phải sửa nhiều lần
+   * trong dự án này (xem `CLAUDE.md` §6.6).
+   */
+  vuongMacQuyenLui,
   type CotBangQuyTrinh,
   type GiaiDoanMuaHang,
   type TheDeNghiTrenBang,
@@ -1198,6 +1207,11 @@ function TheDonHangDocLap({ the }: { the: TheDonHangDocLapTrenBang }) {
  * giai đoạn trước" vẫn hiện nhưng bấm sẽ nhận đúng lời giải thích của luật (*"muốn lùi phải
  * hủy chứng từ"*) — để người dùng học quy tắc, thay vì giấu mục đi khiến họ tưởng thiếu chức năng.
  *
+ * ★ CẬP NHẬT 15/09/2026: mục "Chuyển về giai đoạn trước" nay còn bị KHOÁ SẴN (vẫn hiện, vẫn nói
+ * lý do) khi người đang xem không có quyền lùi cặp bước đó — xem `chanLuiBuoc` trong
+ * `MenuThaoTacThe`. Cặp mà KHÔNG AI lùi được thì mục vẫn mở như cũ, vì lời giải thích riêng của
+ * cặp đó chỉ đọc được sau một cú bấm.
+ *
  * ⚠️ HAI MỤC CỦA BASE KHÔNG LÀM ĐƯỢC Y NGUYÊN, đã thay bằng thứ tương đương — đừng "sửa lại
  * cho giống" mà không đọc lý do:
  *   · **In** → app in ĐƠN HÀNG (`/in/don-hang/[id]`), không in đề nghị: đề nghị là chứng từ
@@ -1245,6 +1259,31 @@ export function MenuThaoTacThe({
   const daKetThuc = giaiDoan === "hoan_thanh" || giaiDoan === "that_bai";
   const buocKe = !daKetThuc && viTri >= 0 && viTri < chuoi.length - 1 ? chuoi[viTri + 1] : undefined;
   const buocTruoc = !daKetThuc && viTri > 0 ? chuoi[viTri - 1] : undefined;
+
+  /**
+   * ★★ MỤC "Chuyển về giai đoạn trước" CÓ MỞ CHO NGƯỜI ĐANG XEM KHÔNG — thêm 15/09/2026.
+   *
+   * 🔴 VÌ SAO PHẢI SIẾT: cả khối `onTha &&` bên dưới mở theo `quyen.lapPO` (xem nơi gọi ở
+   * `trang/de-nghi-danh-sach.tsx`), mà `lapPO` RỘNG HƠN bảng lùi bước Sếp duyệt — nhân viên thu
+   * mua cũng có `lapPO`. Tầng luật đã chặn đúng (`quyetDinhLui` → `vuongMacQuyenLui`), nhưng nếu
+   * giao diện không nói trước thì người dùng bấm vào rồi mới bị từ chối — mỗi lần bấm là một lần
+   * học lại cùng một điều.
+   *
+   * 🔴 TỰ TRA QUYỀN, KHÔNG NHẬN PROP — cùng nếp với `o-sua-so-bao-gia.tsx` và hộp chuyển bước:
+   * nơi gọi quên truyền là chốt tự tắt mà không một dòng nào báo.
+   *
+   * 📌 `null` ở ba bước cuối (⑥ ⑦ ⑧) là CỐ Ý, không phải sơ hở: `vuongMacQuyenLui` chỉ trả lời
+   * câu hỏi về QUYỀN. Cặp vốn không ai lùi được có câu giải thích riêng của nó
+   * (`lyDoKhongLuiDuoc`), và câu đó chỉ đọc được khi người dùng bấm vào — nên ở đó mục vẫn mở để
+   * họ nhận được đúng lời giải thích, thay vì một mục xám không nói gì.
+   */
+  const { quyen: quyenNguoiXem } = useNguoiDung();
+  const chanLuiBuoc = buocTruoc
+    ? vuongMacQuyenLui(giaiDoan, {
+        phanBoCongViec: quyenNguoiXem.phanBoCongViec,
+        xacNhanTruongBP: quyenNguoiXem.xacNhanTruongBP,
+      })
+    : null;
 
   async function saoChepDuongDan() {
     try {
@@ -1371,10 +1410,29 @@ export function MenuThaoTacThe({
                     Chuyển sang giai đoạn kế tiếp
                   </DropdownMenuItem>
                 )}
+                {/* ★★ HIỆN MÀ KHOÁ, KHÔNG ẨN IM LẶNG — xem `chanLuiBuoc` ở đầu component.
+                    Ẩn hẳn thì người dùng mất một mục menu mà không hiểu vì sao, và sẽ đi hỏi
+                    quản trị "app mất chức năng lùi bước rồi à". Khoá kèm lý do thì họ biết ngay
+                    phải nhờ ai.
+                    🔴 CÂU ĐẦY ĐỦ CỦA TẦNG LUẬT ĐỂ Ở `title`, KHÔNG VIẾT LẠI LẦN HAI. Dòng chữ
+                    nhỏ bên dưới nhãn chỉ là NHÃN NGẮN cho vừa bề ngang menu (câu luật dài ~250
+                    ký tự, in thẳng ra là menu giãn hết màn hình) — nó không phải một bản diễn
+                    giải khác của luật, nên không có chỗ để hai bên nói lệch nhau. */}
                 {buocTruoc && (
-                  <DropdownMenuItem onClick={() => onTha(deNghi.id, buocTruoc)}>
+                  <DropdownMenuItem
+                    disabled={Boolean(chanLuiBuoc)}
+                    title={chanLuiBuoc ?? undefined}
+                    onClick={() => onTha(deNghi.id, buocTruoc)}
+                  >
                     <ArrowLeft className="size-4 shrink-0" aria-hidden />
-                    Chuyển về giai đoạn trước
+                    <span className="flex min-w-0 flex-col">
+                      <span>Chuyển về giai đoạn trước</span>
+                      {/* V1.1: trạng thái phải có CẢ MÀU LẪN CHỮ — mục mờ mà không nói gì thì
+                          người dùng tưởng app hỏng. */}
+                      {chanLuiBuoc && (
+                        <span className="text-xs text-text-desc">Cần quyền Trưởng bộ phận</span>
+                      )}
+                    </span>
                   </DropdownMenuItem>
                 )}
               </>

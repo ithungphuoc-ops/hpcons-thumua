@@ -27,6 +27,32 @@ export type TaiLieuTuAppRequest = {
   url: string;
 };
 
+/**
+ * ★★ GIÁ TRỊ Ô "LỰA CHỌN ĐỀ NGHỊ" trên biểu mẫu App Request — thêm 15/09/2026.
+ *
+ * 🔴🔴 TỆP NÀY THUỘC VÙNG CẤM SỬA CỦA PHIÊN TÍCH HỢP APP TỔNG (CLAUDE.md §6.6, chỉ đạo Sếp
+ * 20/08/2026). Khối này do PHIÊN NGHIỆP VỤ THU MUA thêm, **có phép riêng của Sếp ngày
+ * 15/09/2026** (*"A đã báo rồi, e sửa đi"* — Sếp đã báo phiên tích hợp trước). Ghi lại để phiên
+ * tích hợp đọc ra là CÓ PHÉP, không phải bị đè code. THUẦN THÊM: không đổi, không xoá trường nào.
+ *
+ * 📌 Union hẹp thay vì `string` là CỐ Ý — đây là ô chọn (select), không phải ô gõ tự do. Liệt kê
+ * hết những cách viết đã ĐO ĐƯỢC trên kho `hpcons-request` (collection `requests`, 60 phiếu):
+ *   · `"Đề nghị công trình"` và `"Đề nghị Công trình"` — **hai cách viết hoa cùng tồn tại**
+ *   · `"Đề nghị phòng ban"`
+ * cộng hai mã rút gọn để App Request gửi thẳng mã máy nếu họ muốn (`"cong_trinh"`/`"phong_ban"`).
+ *
+ * ⚠️ UNION CHỈ CHẶT LÚC BIÊN DỊCH, KHÔNG CHẶT LÚC CHẠY — body JSON được ép kiểu, App Request đổi
+ * nhãn lúc nào cũng được. Nên cửa tiếp nhận PHẢI chuẩn hoá lại bằng `chuanHoaLoaiHoSo`
+ * (`2-quy-trinh/tich-hop-app-request.ts`): bỏ dấu cách thừa, bỏ dấu tiếng Việt, không phân biệt
+ * hoa thường. Không nhận ra thì **để trống**, tuyệt đối không đoán bừa.
+ */
+export type LoaiDeNghiTuAppRequest =
+  | "Đề nghị công trình"
+  | "Đề nghị Công trình"
+  | "Đề nghị phòng ban"
+  | "cong_trinh"
+  | "phong_ban";
+
 export type DeNghiMoiTuAppRequest = {
   /** Mã đề xuất 6 số App Request tự sinh (vd "01234") — KHÓA LIÊN KẾT chính, không đổi được. */
   requestCode: string;
@@ -55,6 +81,21 @@ export type DeNghiMoiTuAppRequest = {
    * phải nhận, khác App Kho).
    */
   congTrinhChuoi?: string;
+  /**
+   * ★★ Giá trị ô **"Lựa chọn đề nghị"** — đề nghị này của CÔNG TRÌNH hay của PHÒNG BAN.
+   * Thêm 15/09/2026, có phép riêng của Sếp (xem `LoaiDeNghiTuAppRequest` ở trên).
+   *
+   * 🔴 VÌ SAO XIN THÊM TRƯỜNG NÀY: App Thu mua phải cho hồ sơ phòng ban đi **nhánh riêng** (Sếp
+   * duyệt 15/09/2026) — không có kho công trình nào gửi phiếu nhận sang, nên nhân viên mua hàng
+   * tự bấm hoàn thành kèm phiếu giao hàng. Hai phép suy gián tiếp đều SAI trên dữ liệu thật:
+   * `tenCongTrinh` rỗng → 0/16, `maDuAn` bắt đầu `"PB-"` → 0/16 (App Request đang nhét tiêu đề đề
+   * nghị vào cả hai ô đó). Ô "Lựa chọn đề nghị" là nguồn chính thức duy nhất đúng.
+   *
+   * ⚠️ TUỲ CHỌN, và Thu mua KHÔNG đoán khi thiếu: payload không có trường này (App Request chưa
+   * cập nhật, hoặc phiếu đời cũ) thì hồ sơ để trống loại và app rơi về phép suy dự phòng cũ.
+   * Gửi được thì gửi NGUYÊN VĂN giá trị người dùng chọn, không cần tự quy đổi.
+   */
+  loaiDeNghi?: LoaiDeNghiTuAppRequest;
   /** Giá trị field "Chọn bộ phận" (department_select, tự động theo Nhóm thành viên) — Sếp xác nhận đây là nguồn đúng. */
   phongBan: string;
   vatTu: VatTuTuAppRequest[];

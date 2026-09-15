@@ -749,8 +749,22 @@ export type HanhDongKeoTha =
    * `ve` là giai đoạn đích, `viec` là câu tả việc app sẽ làm để lùi — hộp xác nhận in ra
    * câu này. Giai đoạn suy ra từ chứng từ nên lùi KHÔNG phải đổi nhãn: phải hủy đúng chứng
    * từ của bước đang đứng, và người dùng cần đọc trước mình sắp hủy cái gì.
+   *
+   * ★★ `batBuocLyDo` — BẢNG SẾP DUYỆT 15/09/2026 đòi lý do cho **cả bốn** cặp lùi.
+   *
+   * 🔴 ĐỂ Ở TẦNG LUẬT, KHÔNG để giao diện tự nhớ. Cột "Đòi lý do?" của bảng là một chỉ đạo, mà
+   * chỉ đạo chỉ sống được nếu có hàm gọi thật được và có bài kiểm canh (xem `CLAUDE.md` §6.6:
+   * `grep` dấu mốc KHÔNG bắt được việc xoá luật, chỉ `kiem-luat` gọi thật mới bắt).
+   *
+   * ⚠️ GIAO DIỆN PHẢI ĐỌC CỜ NÀY: cờ `true` thì khóa nút cho tới khi người dùng gõ lý do, rồi
+   * truyền lý do đó xuống `luiVeBuoc`. Bỏ qua cờ là app vẫn lùi được mà hồ sơ không có vết —
+   * đúng loại "giao diện hứa một đằng, dữ liệu một nẻo" mà §3.5 cấm.
+   *
+   * 📌 Vì sao đòi lý do: cả bốn cặp đều XOÁ dữ liệu có thật (phân bổ, bảng báo giá, quyết định
+   * chọn NCC kèm tệp dẫn chứng) hoặc đảo trạng thái đơn đã chốt. Người đọc hồ sơ về sau chỉ còn
+   * dòng nhật ký để hiểu vì sao — không có lý do thì dòng đó vô nghĩa.
    */
-  | { loai: "lui_buoc"; ve: GiaiDoanMuaHang; viec: string }
+  | { loai: "lui_buoc"; ve: GiaiDoanMuaHang; viec: string; batBuocLyDo: boolean }
   /**
    * ★★ CÒN VƯỚNG NHƯNG GỠ ĐƯỢC NGAY TRONG HỘP — Ban lãnh đạo 25/08/2026: *"Kéo qua bước phải
    * hiển thị các trường nhập nhanh các điều kiện chuyển bước"*.
@@ -1785,115 +1799,321 @@ export function dongLapDuocDonHang(
  */
 
 /**
+ * ★★★ AI ĐƯỢC LÙI TỪNG CẶP BƯỚC — bảng Sếp duyệt **15/09/2026**.
+ *
+ * Sếp 14/09/2026: *"quy trình này chỉ được 1 bước tiến còn nếu muốn quay lại sửa thì gần như là
+ * ko được, e thiết kế xem quy trình quay lại bước trước để sửa thật logic và khoa học cho a"*.
+ * Bản thiết kế trả lời câu đó được duyệt ngày 15/09/2026, và đây là bảng đã duyệt:
+ *
+ * | Cặp   | Lùi? | Ai được lùi        |
+ * |-------|------|--------------------|
+ * | ② → ① | ✅   | `phanBoCongViec`   |
+ * | ③ → ② | ✅   | `xacNhanTruongBP`  |
+ * | ④ → ③ | ✅   | `xacNhanTruongBP`  |
+ * | ⑤ → ④ | ✅   | `phanBoCongViec`   |
+ * | ⑥ → ⑤ | ❌   | —                  |
+ * | ⑦ → ⑥ | ❌   | —                  |
+ * | ⑧ → ⑦ | ❌   | —                  |
+ *
+ * 🔴 TRẢ VỀ TÊN KHOÁ QUYỀN, KHÔNG NHẬN ĐỐI TƯỢNG `Quyen`. `2-quy-trinh/` là quy tắc nghiệp vụ
+ * thuần, **không được** phụ thuộc `4-phan-quyen/` (cùng lý do đã ghi ở `dongLapDuocDonHang`).
+ *
+ * ⚠️ Ngày 15/09/2026 hai khoá này tính RA CÙNG MỘT TẬP NGƯỜI (`4-phan-quyen/quyen.ts` ~212 và
+ * ~224 đều là `laQuanTri || (laTruongBP && capTM >= 3)`). Vẫn khai tách vì chúng mang HAI Ý
+ * NGHĨA khác nhau, và ngày nào đó một trong hai bị nới thì bảng trên vẫn đúng.
+ */
+export type VaiTroLuiBuoc = "phanBoCongViec" | "xacNhanTruongBP";
+
+/**
+ * Quyền của người đang bấm lùi — chỉ đúng hai cờ mà bảng trên cần.
+ * Nơi gọi (tầng giao diện) truyền `quyen.phanBoCongViec` / `quyen.xacNhanTruongBP` vào.
+ */
+export interface QuyenLuiBuoc {
+  phanBoCongViec: boolean;
+  xacNhanTruongBP: boolean;
+}
+
+export function vaiTroDuocLui(tu: GiaiDoanMuaHang): VaiTroLuiBuoc | null {
+  switch (tu) {
+    case "yeu_cau_bao_gia":
+      return "phanBoCongViec"; // ② → ①
+    case "xet_duyet_bao_gia":
+      return "xacNhanTruongBP"; // ③ → ②  (đường "Không duyệt" đang chạy, giữ nguyên chủ)
+    case "lap_don_mua_hang":
+      return "xacNhanTruongBP"; // ④ → ③
+    case "dat_hang":
+      return "phanBoCongViec"; // ⑤ → ④
+    default:
+      return null; // ⑥ ⑦ ⑧ — không lùi được bằng cơ chế này
+  }
+}
+
+const NHAN_VAI_TRO_LUI: Record<VaiTroLuiBuoc, string> = {
+  phanBoCongViec: "người có quyền “Phân bổ công việc” (Trưởng bộ phận cấp 3 trở lên, hoặc Quản trị hệ thống)",
+  xacNhanTruongBP: "người có quyền “Xác nhận hoàn thành đơn” (Trưởng bộ phận cấp 3 trở lên, hoặc Quản trị hệ thống)",
+};
+
+/**
+ * ★ CÂU CHẶN VỀ QUYỀN — `null` là đủ quyền.
+ *
+ * 🔴 KHÔNG BIẾT QUYỀN THÌ CHẶN, KHÔNG PHẢI CHO QUA. Đúng nguyên tắc `CLAUDE.md` §3.6c: *"thiếu
+ * thông tin thì cho quyền THẤP NHẤT"*. Lùi bước XOÁ dữ liệu thật (phân bổ, bảng báo giá, quyết
+ * định chọn NCC kèm tệp dẫn chứng), nên hở ở đây là mất dữ liệu im lặng — còn chặn nhầm thì
+ * người dùng nhìn thấy ngay và sửa được bằng một dòng ở nơi gọi.
+ *
+ * ⚠️ Nơi gọi hiện tại (`1-giao-dien/trang/de-nghi-danh-sach.tsx` → `xuLyTha`) chỉ mở menu lùi
+ * cho `quyen.lapPO` — RỘNG HƠN bảng trên (nhân viên thu mua cũng có `lapPO`). Vì vậy chốt quyền
+ * phải nằm ở đây chứ không phó mặc cho giao diện.
+ */
+export function vuongMacQuyenLui(
+  tu: GiaiDoanMuaHang,
+  quyen?: QuyenLuiBuoc,
+): string | null {
+  const vaiTro = vaiTroDuocLui(tu);
+  /* Cặp vốn không lùi được thì đã có câu giải thích riêng (`lyDoKhongLuiDuoc`) — nói chồng thêm
+     một câu về quyền chỉ làm người dùng tưởng cứ xin quyền là lùi được. */
+  if (!vaiTro) return null;
+  if (!quyen) {
+    return "Chưa xác định được quyền của người đang thao tác nên đường lùi tạm khoá — theo nguyên tắc “thiếu thông tin thì lấy quyền thấp nhất”. Nếu bạn là trưởng bộ phận mà vẫn thấy câu này thì báo quản trị hệ thống: màn hình gọi luật lùi chưa truyền quyền vào.";
+  }
+  if (!quyen[vaiTro]) {
+    return `Chỉ ${NHAN_VAI_TRO_LUI[vaiTro]} mới lùi được bước này (Sếp chốt 15/09/2026). Lùi bước xoá dữ liệu đã nhập nên không mở cho vai trò nhập liệu — nhờ trưởng bộ phận thao tác giúp.`;
+  }
+  return null;
+}
+
+/**
+ * ★ VÌ SAO BA CẶP CUỐI KHÔNG LÙI ĐƯỢC — phải nói đúng lý do, và KHÔNG chỉ sang thao tác không có.
+ *
+ * 🔴 MỌI THAO TÁC NHẮC TRONG BA CÂU DƯỚI ĐỀU ĐÃ ĐO LÀ CÓ THẬT (15/09/2026):
+ *   · "Sửa đơn hàng" — `1-giao-dien/thanh-phan-nghiep-vu/hop-sua-don-hang.tsx:336`
+ *   · "Đánh dấu thất bại" — `1-giao-dien/thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang.tsx:1433`
+ *   · Khối "Hồ sơ thanh toán" ở trang chi tiết đề nghị — chính là nơi `hanhDongTienMotBuoc`
+ *     case `"ho_so_thanh_toan"` (dưới file này) đã chỉ người dùng tới.
+ *
+ * ⚠️ ĐÃ BỎ CÂU CŨ *"Nhờ thủ kho hủy phiếu trước"* (đứng từ 13/08/2026). Nó hứa rằng hủy phiếu
+ * xong là lùi được — SAI hai lần: (a) bảng duyệt 15/09/2026 cấm hẳn cặp ⑥ → ⑤, hủy phiếu cũng
+ * không mở ra được; (b) app này KHÔNG có bất kỳ chỗ nào xoá/hủy `PhieuNhanHang` (đã grep
+ * `xoaPhieuNhan` · `huyPhieuNhan` · "Hủy phiếu" — không có kết quả nào), và phiếu nay do app
+ * Kho công trình gửi sang nên còn không nằm trong tay app này.
+ */
+function lyDoKhongLuiDuoc(tu: GiaiDoanMuaHang): string {
+  switch (tu) {
+    case "nhan_hang":
+      return "Bước “Tiến hành nhận hàng” KHÔNG lùi được (Sếp chốt 15/09/2026). Phiếu nhận hàng là chứng từ của Kho — theo nguyên tắc dữ liệu của dự án, Kho là nguồn duy nhất của số lượng thực nhận, và app Thu mua không có chỗ nào xoá được phiếu nhận. Đặt sai số lượng hay sai ngày giao thì sửa trên chính đơn: nút “Sửa đơn hàng” ở trang chi tiết đơn mua hàng. Muốn bỏ hẳn hồ sơ thì dùng “Đánh dấu thất bại” trong menu ⋯ của thẻ.";
+    case "ho_so_thanh_toan":
+      return "Bước “Hồ sơ thanh toán” KHÔNG lùi được (Sếp chốt 15/09/2026). Hồ sơ vào bước này vì hàng đã về đủ theo số liệu của Kho; lùi về “Tiến hành nhận hàng” chỉ có nghĩa nếu bịa cho hàng thành chưa về đủ, tức sửa ngược số liệu của Kho. Chứng từ đính nhầm thì thay ngay trong khối “Hồ sơ thanh toán” ở trang chi tiết đề nghị, không cần lùi bước.";
+    case "hoan_thanh":
+      return "Hồ sơ đã hoàn thành thì không lùi bước được. Mở lại một hồ sơ đã đóng là việc riêng (“Mở lại hồ sơ”) và app CHƯA làm chức năng đó — đừng đi tìm nút, hãy báo quản trị hệ thống.";
+    case "that_bai":
+      return "Hồ sơ đã đánh dấu thất bại thì không lùi bước được.";
+    default:
+      /* Bước ① không có bước nào phía trước — `quyetDinhKeoTha` đã chặn từ phép kiểm liền kề,
+         nhánh này chỉ để hàm luôn trả về một câu có nghĩa khi được gọi thẳng từ bài kiểm. */
+      return "Bước này không có bước nào phía trước để lùi về.";
+  }
+}
+
+/**
  * ★ KÉO LÙI MỘT BƯỚC — quyết định app phải hủy chứng từ nào.
  *
- * 🔴🔴 HÀM NÀY HIỆN KHÔNG AI GỌI, VÀ ĐÓ LÀ CỐ Ý — ĐỪNG XÓA.
+ * ✅ **ĐÃ BẬT LẠI 15/09/2026** theo bảng Sếp duyệt (xem `vaiTroDuocLui` ngay trên). Từ
+ * 26/08/2026 tới 15/09/2026 hàm này không ai gọi: Ban lãnh đạo *"e tạm đóng gói chức năng kéo
+ * lùi bước trong bảng kanban, tính năng này sẽ xử lý sau"* — chữ **"tạm"** đã đến lúc, và vì
+ * hồi đó chốt chặn đặt ở `quyetDinhKeoTha` (một khối `if`) chứ không xoá hàm này nên toàn bộ
+ * luật hủy chứng từ theo từng bước còn nguyên, bật lại không phải viết lại gì.
  *
- * ⚠️ Khối chú thích ngay phía trên nói *"hàm không ai gọi thì xóa"* — câu đó nói về
- * `dongThuocVeNguoi`, **KHÔNG áp cho hàm này**. Đây là ngoại lệ có lý do:
- *
- * Ban lãnh đạo 26/08/2026: *"e tạm đóng gói chức năng kéo lùi bước trong bảng kanban, tính năng
- * này sẽ xử lý sau"* — chữ **"tạm"** và **"xử lý sau"**, tức sẽ bật lại. Nên chốt chặn đặt ở
- * `quyetDinhKeoTha` (một khối `if`, xóa đi là bật lại), còn toàn bộ luật hủy chứng từ theo từng
- * bước thì giữ nguyên tại đây. Luật đó là chỉ đạo 13/08/2026 và có những ca đã xử riêng: bảng
- * báo giá đã có giá thì chặn lùi · đơn nháp phải hủy trước · phiếu nhận của Kho thì Thu mua
- * không được xóa. Xóa hàm là lúc bật lại phải viết lại từ đầu và **mất sạch các ca đó**.
- *
- * 🔴 Ban lãnh đạo 13/08/2026: *"chỉ cho tiến hoặc lùi trong phạm vi 1 bước"*.
+ * 🔴 Ban lãnh đạo 13/08/2026: *"chỉ cho tiến hoặc lùi trong phạm vi 1 bước"* — vẫn nguyên hiệu
+ * lực, `quyetDinhKeoTha` giữ phép kiểm liền kề.
  *
  * ⚠️ LÙI KHÔNG PHẢI ĐỔI NHÃN. Giai đoạn được SUY RA từ chứng từ có thật, nên muốn thẻ về
  * cột trước thì phải hủy đúng chứng từ đang giữ nó ở cột này. Nếu chỉ đổi nhãn thì lần vẽ
  * lại bảng tiếp theo thẻ tự nhảy về chỗ cũ — người dùng tưởng app hỏng.
  *
- * 🔒 CHẶN LÙI TỪ "NHẬN HÀNG": phiếu nhận là chứng từ của KHO, và theo nguyên tắc dữ liệu số
- * 2 thì Kho là nguồn duy nhất của số lượng thực nhận — Thu mua không được xóa phiếu của họ.
+ * 🔴🔴 CÂU `viec` PHẢI NÓI TRƯỚC SẼ MẤT GÌ, và đó không phải văn vẻ: giao diện in **thẳng** câu
+ * này vào hộp xác nhận (`dungXacNhanKeoTha` case `"lui_buoc"` → `seLam`). Viết thiếu ở đây là
+ * người dùng bấm một nút xoá dữ liệu mà không biết mình đang xoá gì; còn để giao diện viết lại
+ * lần hai là hai chỗ cùng tả một việc rồi sớm muộn lệch nhau.
+ *
+ * 📌 Bốn câu `viec` dưới đây đối chiếu TỪNG DÒNG với thân `luiVeBuoc`
+ * (`3-du-lieu/kho-du-lieu.tsx` ~2928-3150) ngày 15/09/2026, không chép từ chú thích.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- xem khối chú thích ngay trên
 function quyetDinhLui(
   tu: GiaiDoanMuaHang,
   ve: GiaiDoanMuaHang,
   poCuaDeNghi: DonDatHang[],
   baoGiaCuaDeNghi: BaoGia[],
+  /** Quyền người bấm — vắng mặt là CHẶN, xem `vuongMacQuyenLui`. */
+  quyen?: QuyenLuiBuoc,
 ): HanhDongKeoTha {
+  /* ① Cặp bước này có nằm trong bảng duyệt không. Đứng TRƯỚC phép kiểm quyền: ca "không bao giờ
+     lùi được" phải nói đúng lý do của nó, chứ không đổ cho thiếu quyền. */
+  if (!vaiTroDuocLui(tu)) {
+    return { loai: "khong_the", lyDo: lyDoKhongLuiDuoc(tu) };
+  }
+
+  /* ② Ai được lùi. */
+  const chanQuyen = vuongMacQuyenLui(tu, quyen);
+  if (chanQuyen) return { loai: "khong_the", lyDo: chanQuyen };
+
+  /* ③ Điều kiện dữ liệu của từng cặp.
+     📌 Lọc `huy` ngay tại đây chứ không tin nơi gọi đã lọc: hàm thuần này còn được bài kiểm và
+     (về sau) màn khác gọi thẳng. */
+  const po = poCuaDeNghi.filter((p) => p.trangThai !== "huy");
+  const bg = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
+
   switch (tu) {
     case "yeu_cau_bao_gia": {
-      // Về ①: bỏ hết phân bổ, và hủy bảng báo giá nếu đã lập.
-      const bg = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
+      /**
+       * ② → ①. Hai điều kiện, cả hai đều của bảng duyệt 15/09/2026.
+       *
+       * 🔴 THÊM ĐIỀU KIỆN "CHƯA CÓ PO NÀO" (15/09/2026). Trước đây chỉ chặn theo giá NCC. Hồ sơ
+       * ở bước ② mà đã có đơn hàng là chuyện bất thường nhưng KHÔNG phải không xảy ra được (đơn
+       * lập ở module độc lập rồi gắn đề nghị vào), và lúc đó lùi về ① sẽ gộp/xoá bản tách đang
+       * có đơn trỏ vào — đơn thành mồ côi. `luiVeBuoc` có kiểm lại lần nữa (`coChungTu`) nhưng
+       * nó chỉ BỎ QUA việc gộp, vẫn xoá sạch phân bổ; chặn từ đây mới là câu trả lời đúng.
+       */
+      if (po.length > 0) {
+        return {
+          loai: "khong_the",
+          lyDo: "Đề nghị này đã phát sinh đơn mua hàng nên không lùi về bước “Tiếp nhận và kiểm tra” được — lùi sẽ xoá phân bổ và có thể gộp mất phiếu mà đơn đang trỏ vào, làm đơn mồ côi. App CHƯA có chức năng hủy hoặc xóa đơn mua hàng, nên đừng đi tìm nút “Hủy đơn”; báo quản trị hệ thống nếu hồ sơ này thật sự cần làm lại từ đầu.",
+        };
+      }
       const coGia = bg.some((b) => b.items.some((d) => d.baoGiaNCC.length > 0));
       if (coGia) {
         return {
           loai: "khong_the",
-          lyDo: "Bảng báo giá đã có giá của nhà cung cấp — lùi về bước ① sẽ mất số liệu đó. Hủy bảng báo giá ở trang chi tiết nếu thật sự muốn làm lại.",
+          lyDo: "Bảng báo giá đã có giá của nhà cung cấp — lùi về bước “Tiếp nhận và kiểm tra” sẽ hủy bảng đó và mất sạch số liệu đã nhập. Nếu chỉ cần sửa lại báo giá thì làm ngay trên bảng ở trang chi tiết đề nghị, không phải lùi bước.",
         };
       }
       return {
         loai: "lui_buoc",
         ve,
+        batBuocLyDo: true,
         viec:
           bg.length > 0
-            ? "Hủy bảng báo giá trống và bỏ toàn bộ phân bổ người phụ trách."
-            : "Bỏ toàn bộ phân bổ người phụ trách — đề nghị về lại bước tiếp nhận.",
+            ? "Sẽ HỦY bảng báo giá đang có (bảng trống, chưa nhà cung cấp nào báo giá) và xoá toàn bộ phân bổ người phụ trách — 6 trường mỗi dòng: người phụ trách, người phân bổ, thời điểm phân bổ, số báo giá yêu cầu và ghi chú giao việc. Nếu đề nghị này đã bị tách phiếu theo phân công, các bản tách sẽ được GỘP trở lại phiếu gốc rồi XOÁ, và số thứ tự dòng đánh lại từ 1 — số thứ tự cũ KHÔNG khôi phục được."
+            : "Sẽ xoá toàn bộ phân bổ người phụ trách — 6 trường mỗi dòng: người phụ trách, người phân bổ, thời điểm phân bổ, số báo giá yêu cầu và ghi chú giao việc. Nếu đề nghị này đã bị tách phiếu theo phân công, các bản tách sẽ được GỘP trở lại phiếu gốc rồi XOÁ, và số thứ tự dòng đánh lại từ 1 — số thứ tự cũ KHÔNG khôi phục được.",
       };
     }
 
     case "xet_duyet_bao_gia":
-      // Về ②: mở lại bảng báo giá cho nhân viên thu thập tiếp. KHÔNG mất giá đã nhập.
+      /**
+       * ③ → ②. Cặp DUY NHẤT đang chạy thật từ trước (nút "Không duyệt" ở khối bước ③ của
+       * `1-giao-dien/trang/de-nghi-chi-tiet.tsx`, cổng quyền `quyen.xacNhanTruongBP` ~1984).
+       * Bảng duyệt 15/09/2026 ghi "GIỮ NGUYÊN" nên phần dữ liệu ở đây không đổi một chữ.
+       *
+       * 🔴 ĐIỀU KIỆN "có ≥1 bảng ở `da_so_sanh`": không có bảng nào đã trình thì lùi là một thao
+       * tác rỗng — `luiVeBuoc` không đổi bảng nào nhưng vẫn ghi nhật ký, tức hồ sơ có dòng
+       * *"Không duyệt bảng báo giá"* cho một việc chưa từng xảy ra. `luiVeBuoc` đã vá ca này
+       * 11/09/2026 (trả `{ loi }`) nhưng CHỈ khi có `traLai`; đường kéo thả không truyền `traLai`
+       * nên phải chặn từ đây, nếu không lọt đúng "báo thành công giả" đã phải sửa.
+       */
+      if (!bg.some((b) => b.trangThai === "da_so_sanh")) {
+        return {
+          loai: "khong_the",
+          lyDo: "Chưa có bảng báo giá nào được trình xét duyệt nên không có gì để trả lại. Nếu bảng còn đang thu thập giá thì nó vốn đã thuộc bước “Yêu cầu NCC báo giá” rồi — không cần lùi.",
+        };
+      }
+      // KHÔNG mất giá đã nhập — đối chiếu `luiVeBuoc` nhánh `ve === "yeu_cau_bao_gia"`.
       return {
         loai: "lui_buoc",
         ve,
-        viec: "Mở lại bảng báo giá để thu thập tiếp. Giá đã nhập vẫn giữ nguyên.",
+        batBuocLyDo: true,
+        viec: "KHÔNG mất dữ liệu nào: bảng báo giá đã trình được mở lại cho nhân viên thu thập tiếp, giá của mọi nhà cung cấp giữ nguyên. Lý do bạn ghi được nối thêm một lượt vào lịch sử trả lại của bảng để lần sau nhân viên không lặp lại đúng cái sai cũ.",
       };
 
     case "lap_don_mua_hang": {
       /**
-       * Về ③: bỏ nhà cung cấp đã chốt. Còn đơn nháp thì chặn — nhưng PHẢI NÓI ĐÚNG VÌ SAO.
+       * ④ → ③: bỏ nhà cung cấp đã chốt.
        *
-       * 🔴 CÂU CHẶN CŨ HỨA MỘT THAO TÁC KHÔNG TỒN TẠI — sửa 15/09/2026, đúng lỗi §3.5 của
-       * `CLAUDE.md` (*"đừng để giao diện hứa một việc app không làm"*). Nguyên văn câu cũ:
+       * 🔴 BẢNG DUYỆT 15/09/2026 SIẾT THÀNH "KHÔNG CÒN PO NÀO", kể cả `nhap` và `cho_de_nghi` —
+       * rộng hơn luật cũ (chỉ chặn khi có PO `nhap`). Lý do: bỏ nhà cung cấp đã chốt trong khi
+       * vẫn còn một đơn đứng tên chính nhà cung cấp đó là để lại một đơn không còn căn cứ nào.
+       *
+       * 🔴 CÂU CHẶN CŨ HỨA MỘT THAO TÁC KHÔNG TỒN TẠI — đã sửa 15/09/2026 (sáng), đúng lỗi §3.5
+       * của `CLAUDE.md` (*"đừng để giao diện hứa một việc app không làm"*). Nguyên văn câu cũ:
        * *"Hủy đơn nháp trước rồi mới lùi được về bước xét duyệt báo giá"* — người dùng đi tìm
        * nút "Hủy đơn" khắp trang chi tiết đơn hàng và KHÔNG BAO GIỜ có.
        *
-       * 📌 Đo được 15/09/2026: `TrangThaiPO` (`3-du-lieu/kieu-du-lieu.ts`) CÓ giá trị `"huy"`,
-       * nhưng KHÔNG một dòng mã nào trong app ghi `trangThai: "huy"` cho đơn hàng — chỗ duy
-       * nhất ghi giá trị đó là `kho-du-lieu.tsx` ~2554 và nó ghi cho BẢNG BÁO GIÁ. Cũng không
-       * có chỗ nào xoá một `DonDatHang` khỏi mảng. Tức app KHÔNG có chức năng hủy/xóa đơn.
+       * 📌 Đo được 15/09/2026: `TrangThaiPO` (`3-du-lieu/kieu-du-lieu.ts` ~556) CÓ giá trị
+       * `"huy"`, nhưng KHÔNG một dòng mã nào trong app ghi `trangThai: "huy"` cho đơn hàng —
+       * chỗ duy nhất ghi giá trị đó là `kho-du-lieu.tsx` ~2554 và nó ghi cho BẢNG BÁO GIÁ. Cũng
+       * không có chỗ nào xoá một `DonDatHang` khỏi mảng. Tức app KHÔNG có chức năng hủy/xóa đơn.
        *
        * ✅ Thao tác duy nhất CÓ THẬT với một đơn nháp là nút **"Chốt đơn hàng"**
-       * (`1-giao-dien/trang/don-hang-chi-tiet.tsx` ~144-159, hiện khi `po.trangThai === "nhap"`,
+       * (`1-giao-dien/trang/don-hang-chi-tiet.tsx` ~163-166, hiện khi `po.trangThai === "nhap"`,
        * gọi `chotDonNhap`) — nhưng nó đưa đơn ĐI TIẾP, không gỡ được đơn ra để lùi.
        */
-      if (poCuaDeNghi.some((po) => po.trangThai === "nhap")) {
+      if (po.length > 0) {
         return {
           loai: "khong_the",
-          lyDo: "Đề nghị này đang có đơn mua hàng ở trạng thái nháp. App CHƯA có chức năng hủy hoặc xóa đơn mua hàng, nên hiện không có cách nào gỡ đơn nháp ra để lùi bước — đừng đi tìm nút “Hủy đơn”, hãy báo quản trị hệ thống. Đơn nháp chỉ có một đường đi tiếp: nút “Chốt đơn hàng” ở trang chi tiết đơn.",
+          lyDo: "Đề nghị này đã có đơn mua hàng nên không lùi về bước “Xét duyệt báo giá” được: bỏ nhà cung cấp đã chốt sẽ để lại một đơn không còn căn cứ nào. App CHƯA có chức năng hủy hoặc xóa đơn mua hàng, nên hiện không có cách nào gỡ đơn ra để lùi bước — đừng đi tìm nút “Hủy đơn”, hãy báo quản trị hệ thống. Đơn nháp chỉ có một đường đi tiếp: nút “Chốt đơn hàng” ở trang chi tiết đơn.",
         };
       }
       return {
         loai: "lui_buoc",
         ve,
-        viec: "Bỏ nhà cung cấp đã chốt — bảng báo giá về trạng thái chờ duyệt.",
+        batBuocLyDo: true,
+        viec: "Sẽ xoá đủ 6 trường của quyết định chọn nhà cung cấp: nhà cung cấp đã chốt, lý do chốt, TỆP DẪN CHỨNG đính kèm, tên người chốt và thời điểm chốt — tệp dẫn chứng KHÔNG khôi phục được, phải đính lại từ đầu. Bảng báo giá về lại trạng thái chờ duyệt, giá đã nhập vẫn giữ nguyên.",
       };
     }
 
-    case "dat_hang":
-      // Về ④: đưa đơn đã chốt về nháp để sửa lại.
+    case "dat_hang": {
+      /**
+       * ⑤ → ④: đưa đơn đã chốt về nháp để sửa lại. SIẾT theo bảng duyệt 15/09/2026.
+       *
+       * 📌 Hai điều kiện đầu của bảng (*"chưa có phiếu nhận nào"*, *"PO chưa `dang_giao`"*) phần
+       * lớn đã được BẢO ĐẢM bởi chính việc thẻ còn đứng ở bước ⑤: `xacDinhGiaiDoan` đẩy hồ sơ
+       * sang ⑥ ngay khi có **một** phiếu nhận bất kỳ, hoặc khi có đơn `dang_giao` /
+       * `cho_xac_nhan_hoan_thanh`. Vẫn kiểm lại điều kiện trạng thái đơn ở đây vì hàm thuần này
+       * gọi thẳng được từ bài kiểm và (về sau) từ màn khác — chốt chỉ có giá trị khi không phụ
+       * thuộc vào việc nơi gọi đã lọc hộ.
+       *
+       * ⚠️ KHÔNG kiểm được "có phiếu nhận nào chưa" tại đây vì hàm không nhận `PhieuNhanHang[]`.
+       * Đó là chủ ý: thêm tham số là đổi chữ ký `quyetDinhKeoTha`, mà nơi gọi đang do phiên khác
+       * sửa cùng lúc. Ca lọt duy nhất về lý thuyết: hồ sơ có phiếu `cho_kiem_tra` — nhưng
+       * `xacDinhGiaiDoan` ~271 đếm MỌI phiếu, không lọc trạng thái, nên ca đó cũng đã ở bước ⑥.
+       *
+       * 🔴🔴 ĐÃ ĐỒNG BỘ SANG QLK CTR THÌ CHẶN — điều kiện ③ của bảng, và là điều kiện nặng nhất.
+       * `qlkCtrSyncStatus === "synced"` nghĩa là **một bản đơn đã nằm bên app Kho công trình**.
+       * Đưa đơn về nháp ở đây không gỡ được bản bên kia, và app CHƯA có chức năng thu hồi đơn đã
+       * đồng bộ — thủ kho ngoài công trình vẫn cầm bản cũ mà nhận hàng.
+       */
+      const daDongBoQlkCtr = po.filter((p) => p.qlkCtrSyncStatus === "synced");
+      if (daDongBoQlkCtr.length > 0) {
+        return {
+          loai: "khong_the",
+          lyDo: `Đơn ${daDongBoQlkCtr.map((p) => p.code).join(", ")} đã được gửi sang app Kho công trình (QLK CTR). Đưa đơn về nháp ở đây KHÔNG gỡ được bản đơn đang nằm bên đó, và app chưa có chức năng thu hồi đơn đã đồng bộ — hai bên sẽ lệch nhau trong khi thủ kho vẫn nhận hàng theo bản cũ. Cần sửa nội dung đơn thì dùng nút “Sửa đơn hàng” ở trang chi tiết đơn, bản sửa sẽ được đồng bộ lại sang kho.`,
+        };
+      }
+      const dangGiao = po.filter(
+        (p) => p.trangThai === "dang_giao" || p.trangThai === "cho_xac_nhan_hoan_thanh",
+      );
+      if (dangGiao.length > 0) {
+        return {
+          loai: "khong_the",
+          lyDo: `Đơn ${dangGiao.map((p) => p.code).join(", ")} đã chuyển sang trạng thái đang giao — hàng đang trên đường về thì không đưa đơn về nháp được. Cần sửa nội dung đơn thì dùng nút “Sửa đơn hàng” ở trang chi tiết đơn.`,
+        };
+      }
+      if (!po.some((p) => p.trangThai === "da_chot")) {
+        return {
+          loai: "khong_the",
+          lyDo: "Không có đơn nào ở trạng thái đã chốt để đưa về nháp — không có gì để lùi. Nếu đơn đã ở dạng nháp thì hồ sơ vốn đã thuộc bước “Lập đơn mua hàng”.",
+        };
+      }
       return {
         loai: "lui_buoc",
         ve,
-        viec: "Đưa các đơn đã chốt về trạng thái nháp để sửa lại. Đơn chưa gửi nhà cung cấp thì làm được; đã gửi rồi thì phải thông báo cho họ.",
+        batBuocLyDo: true,
+        viec: "Đưa các đơn đã chốt về trạng thái nháp để sửa lại. KHÔNG mất dữ liệu nào trên đơn — mọi dòng hàng, đơn giá và tệp đính kèm giữ nguyên, sửa xong bấm “Chốt đơn hàng” ở trang chi tiết đơn là đi tiếp. Nếu đơn đã gửi cho nhà cung cấp thì phải tự báo lại cho họ: app KHÔNG gửi thông báo nào.",
       };
-
-    case "nhan_hang":
-      return {
-        loai: "khong_the",
-        lyDo: "Đã có phiếu nhận hàng của Kho. Phiếu nhận là chứng từ của Kho — Thu mua không xóa được. Nhờ thủ kho hủy phiếu trước.",
-      };
+    }
 
     default:
-      return {
-        loai: "khong_the",
-        lyDo: "Bước này không lùi được.",
-      };
+      /* Không tới được: `vaiTroDuocLui` đã lọc hết ở đầu hàm. Giữ để `switch` luôn trả về một
+         giá trị và để TypeScript không phải suy ra `undefined`. */
+      return { loai: "khong_the", lyDo: lyDoKhongLuiDuoc(tu) };
   }
 }
 
@@ -1917,6 +2137,22 @@ export function quyetDinhKeoTha(
    * cái chốt vừa phải đi sửa. Thà TypeScript báo đỏ ngay.
    */
   vuongMacBaoGia: string | null,
+  /**
+   * ★★ QUYỀN CỦA NGƯỜI ĐANG THAO TÁC — CHỈ dùng cho đường LÙI (bảng Sếp duyệt 15/09/2026).
+   *
+   * 🔴 VÌ SAO CÓ `?` (khác mọi tham số bắt buộc ở trên): tệp này và tệp giao diện gọi nó
+   * (`1-giao-dien/trang/de-nghi-danh-sach.tsx`) đang được HAI PHIÊN sửa song song ngày
+   * 15/09/2026. Khai bắt buộc là chỗ gọi đỏ ngay và phiên kia phải sửa tệp đang mở — đúng thứ
+   * `CLAUDE.md` §6.6 cấm.
+   *
+   * 🔴🔴 NHƯNG VẮNG MẶT KHÔNG PHẢI "CHO QUA": `quyetDinhLui` trả `khong_the` khi thiếu tham số
+   * này (xem `vuongMacQuyenLui`). Đường TIẾN không đọc tới nó nên mọi chỗ gọi cũ chạy y nguyên.
+   *
+   * ⚠️ GIAO DIỆN PHẢI TRUYỀN `{ phanBoCongViec, xacNhanTruongBP }` thì đường lùi mới sống. Menu
+   * "Chuyển về giai đoạn trước" hiện đang mở theo `quyen.lapPO` — RỘNG HƠN bảng duyệt, nên
+   * không thể coi cổng giao diện đó là chốt quyền.
+   */
+  quyenNguoiThaoTac?: QuyenLuiBuoc,
 ): HanhDongKeoTha | null {
   const tu = the.giaiDoan;
   if (tu === dich) return null;
@@ -1946,46 +2182,35 @@ export function quyetDinhKeoTha(
   if (buocDich < buocTu - 1 || buocDich > buocTu + 1) {
     return {
       loai: "khong_the",
-      /* Câu này không nhắc "lùi một bước" nữa — kéo lùi đang tạm tắt, xem khối ngay dưới. */
-      lyDo: "Chỉ kéo được sang bước LIỀN KỀ phía sau, không nhảy cóc.",
+      /* 📌 Câu này lại nhắc cả hai chiều từ 15/09/2026, khi Sếp duyệt bảng lùi bước. Từ
+         26/08 tới 15/09 nó cố ý chỉ nói "phía sau" vì kéo lùi đang tạm tắt. */
+      lyDo: "Chỉ kéo được sang bước LIỀN KỀ — một bước tiến hoặc một bước lùi, không nhảy cóc.",
     };
   }
 
   /**
-   * ★★ KÉO LÙI ĐANG TẠM TẮT — Ban lãnh đạo 26/08/2026: *"e tạm đóng gói chức năng kéo lùi bước
-   * trong bảng kanban, tính năng này sẽ xử lý sau"*.
+   * ★★★ KÉO LÙI — ĐÃ BẬT LẠI 15/09/2026 THEO BẢNG SẾP DUYỆT.
    *
-   * 🔴 CHẶN Ở ĐÂY, KHÔNG XOÁ `quyetDinhLui`. Hàm đó giữ nguyên toàn bộ luật hủy chứng từ tương
-   * ứng từng bước (chỉ đạo 13/08/2026) — xoá đi thì lúc bật lại phải viết lại từ đầu, và viết
-   * lại thì mất những ca đã xử: bảng báo giá đã có giá thì chặn lùi, đơn nháp phải hủy trước,
-   * phiếu nhận của Kho thì Thu mua không được xoá.
+   * Sếp 14/09/2026: *"quy trình này chỉ được 1 bước tiến còn nếu muốn quay lại sửa thì gần như
+   * là ko được, e thiết kế xem quy trình quay lại bước trước để sửa thật logic và khoa học cho
+   * a"*. Thiết kế trình ngày 15/09/2026 và Sếp duyệt — bảng đầy đủ ở `vaiTroDuocLui`.
    *
-   * ✅ CÁCH BẬT LẠI: xoá đúng khối `if` này. Một dòng, không cần dựng lại gì.
+   * 📌 LỊCH SỬ ĐỂ HIỂU VÌ SAO CHỖ NÀY TỪNG LÀ MỘT KHỐI `if` CHẶN CỨNG: Ban lãnh đạo 26/08/2026
+   * *"e tạm đóng gói chức năng kéo lùi bước trong bảng kanban, tính năng này sẽ xử lý sau"*.
+   * Lúc đó chốt chặn đặt ở ĐÂY chứ không xoá `quyetDinhLui`, đúng để hôm nay bật lại chỉ mất
+   * một lời gọi thay vì phải dựng lại toàn bộ luật hủy chứng từ của chỉ đạo 13/08/2026.
    *
-   * 🔴🔴 CÂU CHẶN CŨ HỨA HAI THAO TÁC KHÔNG TỒN TẠI — sửa 15/09/2026 (§3.5 `CLAUDE.md`).
-   * Nguyên văn câu cũ: *"hủy chứng từ đang giữ nó ở bước đó (đơn nháp, bảng báo giá…) — thẻ sẽ
-   * tự về bước trước"*. Câu đó đúng về NGUYÊN LÝ (giai đoạn suy ra từ chứng từ) nhưng SAI về
-   * thực tế app, và người dùng đi tìm nút "Hủy" khắp nơi không bao giờ thấy:
-   *   · **Hủy đơn mua hàng: KHÔNG CÓ.** Không dòng nào ghi `trangThai: "huy"` cho `DonDatHang`,
-   *     cũng không chỗ nào xoá đơn khỏi mảng — xem chú thích dài ở `quyetDinhLui` case
-   *     `"lap_don_mua_hang"` phía trên.
-   *   · **Hủy bảng báo giá: KHÔNG CÓ NÚT.** Chỗ duy nhất ghi `trangThai: "huy"` cho `BaoGia` là
-   *     `3-du-lieu/kho-du-lieu.tsx` ~2554, nằm TRONG `luiVeBuoc` nhánh `ve === "tiep_nhan"` — mà
-   *     nhánh đó chỉ vào được từ kéo thả, tức đang chết vì chính khối `if` này.
+   * 🔴 TOÀN BỘ LUẬT LÙI NẰM TRONG `quyetDinhLui`, MỘT CHỖ DUY NHẤT — cặp nào lùi được, ai được
+   * lùi, điều kiện dữ liệu, và câu tả app sắp xoá gì. Đừng thêm một điều kiện lùi nào ở đây:
+   * hai nơi cùng trả lời *"có lùi được không"* là sớm muộn nói khác nhau, đúng loại lệch đã phải
+   * sửa nhiều lần trong chính hàm này.
    *
-   * ✅ ĐƯỜNG LÙI DUY NHẤT CÒN SỐNG (đo 15/09/2026): nút **"Không duyệt"** ở khối bước ③ của
-   * `1-giao-dien/trang/de-nghi-chi-tiet.tsx` (~1988, cổng quyền `quyen.xacNhanTruongBP` ~1936)
-   * → hộp thoại ~3221 → `luiVeBuoc(dn.id, "yeu_cau_bao_gia", …, { lyDo })` ~3359. Nó trả hồ sơ
-   * ③ → ②. Mọi cặp bước khác hiện KHÔNG có đường lùi nào.
-   *
-   * ⚠️ Câu dưới PHẢI nói đúng chừng đó. Thêm một thao tác "nghe hợp lý" mà app không làm được
-   * là đẩy người dùng đi tìm nút không tồn tại — đúng lỗi vừa phải sửa.
+   * 🔴 ĐỨNG **TRƯỚC** `vuongMacViecBatBuocCacBuocTruoc` và `vuongMacSangBuocSau` bên dưới, và đó
+   * là cố ý (chú thích ở khối đó cũng ghi *"CHỈ CHẶN KHI TIẾN"*): lùi là để SỬA SAI, chặn lùi vì
+   * giấy tờ của bước trước còn treo là khoá luôn đường sửa.
    */
   if (buocDich === buocTu - 1) {
-    return {
-      loai: "khong_the",
-      lyDo: "Chức năng kéo lùi bước đang tạm tắt, và app CHƯA có chức năng hủy đơn mua hàng hay hủy bảng báo giá — đừng đi tìm nút “Hủy”. Đường lùi duy nhất đang chạy được: nút “Không duyệt” ở bước ③ Xét duyệt báo giá (trưởng bộ phận bấm, phải ghi lý do), trả hồ sơ về bước ② để làm lại báo giá. Đi nhầm ở bước khác thì báo quản trị hệ thống; muốn bỏ hẳn hồ sơ thì dùng “Đánh dấu thất bại” trong menu ⋯ của thẻ.",
-    };
+    return quyetDinhLui(tu, dich, poCuaDeNghi, baoGiaCuaDeNghi, quyenNguoiThaoTac);
   }
 
   /**

@@ -149,6 +149,28 @@ export interface TepDinhKemAppRequest {
   kichThuoc?: number;
 }
 
+/**
+ * ★★ LOẠI HỒ SƠ — đề nghị của CÔNG TRÌNH hay của PHÒNG BAN.
+ *
+ * 🔴🔴 THÊM 15/09/2026, **CÓ PHÉP RIÊNG CỦA SẾP** (*"A đã báo rồi, e sửa đi"* — Sếp đã báo
+ * phiên tích hợp trước). Tệp này có phần của phiên tích hợp App Tổng nằm lẫn (CLAUDE.md §6.6),
+ * nên ghi lại đây để người đọc sau biết đây KHÔNG phải ai đó tự tiện sửa vùng cấm.
+ *
+ * 🔴 VÌ SAO PHẢI CÓ TRƯỜNG RIÊNG, KHÔNG SUY GIÁN TIẾP NỮA — đo trên kho đang chạy
+ * (`hpcons-portal`, 16 đề nghị), cả hai phép suy đều ra **0/16**:
+ *   · `tenCongTrinh` rỗng → 0/16. App Request nhét TIÊU ĐỀ ĐỀ NGHỊ vào ô tên công trình
+ *     (`000000089` — Phòng Pháp Lý — có `tenCongTrinh = "Đề nghị 2. Phòng Pháp lý (HP Cons)"`).
+ *   · `maDuAn` bắt đầu `"PB-"` → 0/16. `maDuAn` cũng đang mang nguyên tiêu đề đề nghị.
+ * Nguồn CHÍNH THỨC là ô **"Lựa chọn đề nghị"** trên biểu mẫu App Request, đúng hai giá trị
+ * *"Đề nghị công trình"* / *"Đề nghị phòng ban"* (đo trên kho `hpcons-request`, collection
+ * `requests`, 60 phiếu: **32 công trình · 7 phòng ban**).
+ *
+ * ⚠️ TRỐNG LÀ CHUYỆN BÌNH THƯỜNG, KHÔNG PHẢI LỖI: mọi hồ sơ nhận trước 15/09/2026 và mọi hồ sơ
+ * lập tay trong app đều không có trường này. Chỗ đọc phải chịu được thiếu — xem tầng dự phòng
+ * trong `2-quy-trinh/ho-so-phong-ban.ts` → `laHoSoPhongBan`.
+ */
+export type LoaiHoSoDeNghi = "cong_trinh" | "phong_ban";
+
 export interface DeNghiMuaHang {
   id: string;
   /** vd 260001-HPCS-PR-001 (mã loại PR đang chờ phê duyệt danh mục). */
@@ -367,6 +389,19 @@ export interface DeNghiMuaHang {
    * cần sẵn nếu sau này app tải tệp về kho riêng (phương án đã bàn với Sếp cùng ngày).
    */
   taiLieuAppRequest?: TepDinhKemAppRequest[];
+  /**
+   * ★★ LOẠI HỒ SƠ do NGƯỜI ĐỀ NGHỊ TỰ KHAI bên App Request (ô "Lựa chọn đề nghị") — thêm
+   * 15/09/2026, có phép riêng của Sếp. Xem `LoaiHoSoDeNghi` ở đầu tệp để biết vì sao phải có.
+   *
+   * 🔴 ĐÂY LÀ NGUỒN CHÍNH THỨC, THẮNG MỌI PHÉP SUY ĐOÁN. `laHoSoPhongBan`
+   * (`2-quy-trinh/ho-so-phong-ban.ts`) đọc trường này TRƯỚC, chỉ khi trống mới rơi về phép suy
+   * từ `maHopDongCDT`.
+   *
+   * ⚠️ TRỐNG = KHÔNG BIẾT, KHÔNG PHẢI "công trình". Hồ sơ cũ (trước 15/09/2026) và hồ sơ lập tay
+   * đều trống. Đừng viết `loaiHoSo !== "phong_ban"` rồi coi là hồ sơ công trình — làm vậy là biến
+   * "chưa biết" thành một khẳng định, và mọi hồ sơ cũ bị xếp sai nhánh.
+   */
+  loaiHoSo?: LoaiHoSoDeNghi;
   /**
    * ★ LÝ DO HỒ SƠ THẤT BẠI — ghi khi đóng dở đề nghị (`trangThai === "dong_do"`).
    *
@@ -983,6 +1018,33 @@ export interface DonDatHang {
    * gửi lại lần nữa ở `apDung()`, cùng cơ chế "retry-on-view" đã có cho trạng thái "failed".
    */
   qlkCtrSyncedSnapshot?: string;
+  /**
+   * ★★ (15/09/2026 — Sếp cho phép sửa vùng của phiên tích hợp, xem CLAUDE.md §6.6): NỘI DUNG
+   * LỖI của lần gửi sang QLK CTR gần nhất, chỉ có mặt khi `qlkCtrSyncStatus === "failed"`.
+   *
+   * 🔴 VÌ SAO PHẢI CÓ: trước nay thất bại chỉ để lại đúng chữ `"failed"` — lý do thật (HTTP 502,
+   * "Thiếu dữ liệu bắt buộc", mất mạng...) chỉ được `console.error` ra lúc chạy rồi biến mất
+   * cùng tab trình duyệt. Hệ quả đo được: mỗi lần một hồ sơ không sang được là phải dựng lại
+   * hiện trường từ đầu, và người đứng ở giao diện KHÔNG có cách nào biết vì sao. Sếp 15/09/2026:
+   * *"cần giải quyết dứt điểm chứ không phải mỗi lần lỗi là mỗi lần sửa"*.
+   *
+   * ⚠️ ĐÃ CẮT NGẮN SẴN Ở NGUỒN (`5-ket-noi/gui-po-qlk-ctr.ts` → `catNganLoiQlkCtr`, trần
+   * `DO_DAI_TOI_DA_LOI_QLK_CTR` = 500 ký tự). Bắt buộc phải cắt vì cả phòng dùng CHUNG MỘT
+   * document Firestore (`chay-thu/du-lieu-chung`, xem CLAUDE.md §3.6b): một trang HTML lỗi do
+   * proxy trả về có thể vài chục KB, nhân với số PO hỏng là đủ làm phình document dùng chung của
+   * mọi người. Nơi ghi đừng tự nối chuỗi dài thêm vào trường này.
+   */
+  qlkCtrSyncError?: string;
+  /**
+   * ★★ (15/09/2026, cùng đợt với `qlkCtrSyncError`): thời điểm THỬ GỬI lần gần nhất, dạng ISO
+   * (`new Date().toISOString()`).
+   *
+   * 🔴 GHI CHO CẢ THÀNH CÔNG LẪN THẤT BẠI — không phải chỉ khi lỗi. Có mốc thời gian mới trả lời
+   * được câu hỏi thật sự hữu ích: *"cái lỗi này là chuyện vừa xảy ra hay là xác chết từ tuần
+   * trước mà đơn đã tự đồng bộ lại xong rồi?"*. Chỉ có `qlkCtrSyncError` mà không có mốc thời
+   * gian thì đúng một tuần sau không ai dám tin nó còn đúng.
+   */
+  qlkCtrSyncAt?: string;
 }
 
 // ------------------------------------------------------------

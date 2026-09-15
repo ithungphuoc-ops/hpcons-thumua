@@ -58,6 +58,9 @@ import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import { HopChuyenGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-chuyen-giai-doan";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+/* Nhãn cho ô "Lý do lùi bước" trong hộp lùi bước (15/09/2026) — dùng chung component nhãn của
+   nền tảng UI để cỡ chữ và khoảng cách khớp mọi hộp khác. */
+import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { Loader2 } from "lucide-react";
 /* 📌 KHÔNG còn gọi thẳng `MucMenuXemDayDu` ở đây (13/09/2026) — hai mục đó nay nằm bên trong
    `MenuThaoTacThe`, cùng 10 mục còn lại. Component kia VẪN ĐANG DÙNG, đừng xóa: `MenuThaoTacThe`
@@ -208,6 +211,29 @@ export default function TrangDanhSachDeNghi() {
   } | null>(null);
   const [moHopXacNhan, setMoHopXacNhan] = useState(false);
 
+  /**
+   * ★★★ VIỆC LÙI BƯỚC ĐANG CHỜ XÁC NHẬN — tách khỏi `xacNhan` ở trên (15/09/2026).
+   *
+   * 🔴 CỜ MỞ TÁCH KHỎI NỘI DUNG, y như `xacNhan`: xoá nội dung cùng nhịp với đóng hộp là tháo
+   * cây con giữa lúc hiệu ứng đóng đang chạy, để lại lớp phủ kẹt kín màn hình. Lỗi này đã tốn
+   * 6 lượt sửa mới truy ra (14/09/2026) — nên hộp bên dưới dựng bằng `mo={moHopLui}`, TUYỆT ĐỐI
+   * KHÔNG bọc `{luiBuoc && <Hop …/>}`.
+   *
+   * 📌 `hanhDong` thu hẹp sẵn về nhánh `lui_buoc` để đọc thẳng `ve`, `viec`, `batBuocLyDo` mà
+   * không phải kiểm kiểu lại ở mỗi chỗ dùng.
+   */
+  const [luiBuoc, setLuiBuoc] = useState<{
+    prId: string;
+    /** Mã hồ sơ — hộp in ra để người bấm biết chắc mình đang lùi đúng phiếu. */
+    maDeNghi: string;
+    tuBuoc: GiaiDoanMuaHang;
+    hanhDong: Extract<HanhDongKeoTha, { loai: "lui_buoc" }>;
+    noiDung: XacNhanKeoTha;
+  } | null>(null);
+  const [moHopLui, setMoHopLui] = useState(false);
+  /** Lý do lùi bước người dùng đang gõ — bắt buộc khi tầng luật bật `batBuocLyDo`. */
+  const [lyDoLui, setLyDoLui] = useState("");
+
   /* 📌 12/08/2026 (chiều): BỎ bộ lọc "đã duyệt". Ban lãnh đạo chốt lại: việc duyệt đề
      nghị diễn ra ở APP KHÁC của bộ phận đề xuất — phiếu vào tới app này nghĩa là ĐÃ duyệt,
      nên bảng quy trình hiện thẳng, không giữ luật duyệt nào ở đây nữa. */
@@ -357,6 +383,23 @@ export default function TrangDanhSachDeNghi() {
       baoGiaCuaDeNghi,
       cauHinh,
       vuongMacTrinhXetDuyet(the.deNghi, cauHinh),
+      /**
+       * ★★ QUYỀN CỦA NGƯỜI ĐANG BẤM — BẮT BUỘC TRUYỀN, nếu không ĐƯỜNG LÙI KHOÁ TOÀN BỘ.
+       *
+       * 🔴 Tham số này khai `?` ở tầng luật (vì hai phiên sửa song song ngày 15/09/2026), nhưng
+       * VẮNG MẶT KHÔNG PHẢI "CHO QUA": `vuongMacQuyenLui` trả câu *"Chưa xác định được quyền…"*
+       * và chặn mọi cặp lùi — đúng nguyên tắc `CLAUDE.md` §3.6c *"thiếu thông tin thì cho quyền
+       * THẤP NHẤT"*, vì lùi bước XOÁ dữ liệu thật.
+       *
+       * 🔴 TRUYỀN ĐÚNG HAI CỜ, KHÔNG TRUYỀN CẢ `quyen`: `QuyenLuiBuoc` cố ý chỉ có hai trường mà
+       * bảng Sếp duyệt cần. Ném nguyên bộ quyền vào là mở đường cho tầng luật đọc thêm cờ khác,
+       * và bảng duyệt mất tính kiểm chứng được.
+       *
+       * ⚠️ `phanBoCongViec` và `xacNhanTruongBP` ngày 15/09/2026 tính ra CÙNG MỘT TẬP NGƯỜI
+       * (`4-phan-quyen/quyen.ts`), nhưng vẫn truyền tách vì chúng mang hai ý nghĩa khác nhau —
+       * ngày nào một trong hai bị nới thì bảng lùi bước vẫn đúng mà không phải sửa dòng này.
+       */
+      { phanBoCongViec: quyen.phanBoCongViec, xacNhanTruongBP: quyen.xacNhanTruongBP },
     );
     if (!hanhDong) {
       // Xem nhanh mà luật không dựng nổi hành động nào (bước cuối chuỗi) → mở trang đầy đủ.
@@ -381,6 +424,44 @@ export default function TrangDanhSachDeNghi() {
         toast.error("Không chuyển được", { description: hanhDong.lyDo });
         return;
       }
+    }
+
+    /**
+     * ★★★ LÙI BƯỚC ĐI HỘP RIÊNG — thêm 15/09/2026 cùng lúc bật lại đường lùi.
+     *
+     * 🔴 VÌ SAO KHÔNG DÙNG `HopChuyenGiaiDoan` NHƯ CÁC CA KHÁC — ba lý do đo được, không phải
+     * cho gọn:
+     *   ① Hộp đó khoá nút khi bước ĐANG ĐỨNG còn việc bắt buộc chưa tích
+     *      (`conViecChuaTich > 0`). Áp cho lùi là **khoá luôn đường sửa sai**: hồ sơ chuyển nhầm
+     *      bước thì việc của bước mới đương nhiên chưa ai làm. Tầng luật đã nói rõ chủ ý ngược
+     *      lại — nhánh lùi đứng TRƯỚC mọi phép kiểm việc bắt buộc trong `quyetDinhKeoTha`.
+     *   ② Tiêu đề và toàn bộ nhãn của hộp đó nói *"Chuyển nhiệm vụ sang giai đoạn TIẾP THEO"*,
+     *      *"Đầu vào cho giai đoạn …"*, *"Công việc đang chờ ở giai đoạn trước"* — sai hẳn ngữ
+     *      cảnh khi đang lùi, và §3.5 cấm để giao diện nói một đằng làm một nẻo.
+     *   ③ Ô chữ của hộp đó là ghi chú **không bắt buộc**; cờ `batBuocLyDo` của tầng luật đòi
+     *      khoá nút cho tới khi có lý do.
+     *
+     * 📌 Dùng `HopXacNhan` dùng chung (đã có sẵn `khoaDongY` = khoá nút KÈM LÝ DO, và `children`
+     * để nhét ô nhập) chứ không dựng hộp thoại mới — không thêm một hộp nữa vào app.
+     */
+    if (hanhDong.loai === "lui_buoc") {
+      setLuiBuoc({
+        prId,
+        maDeNghi: the.deNghi.code,
+        tuBuoc: the.giaiDoan,
+        hanhDong,
+        noiDung: dungXacNhanKeoTha(
+          the,
+          dich,
+          hanhDong,
+          poCuaDeNghi,
+          phieuNhan.filter((p) => poCuaDeNghi.some((po) => po.id === p.poId)),
+        ),
+      });
+      /* Mỗi lần mở là ô trắng — giữ chữ cũ thì lần sau vô tình gửi lý do của hồ sơ khác. */
+      setLyDoLui("");
+      setMoHopLui(true);
+      return;
     }
 
     setXacNhan({
@@ -433,7 +514,19 @@ export default function TrangDanhSachDeNghi() {
    * thất bại** (bắt buộc, xem `HopChuyenGiaiDoan`) — phải chuyển tiếp xuống tầng ghi, nếu không
    * hồ sơ vào cột Thất bại mà không ai biết vì sao.
    */
-  function thucThiKeoTha(prId: string, hanhDong: HanhDongKeoTha, ghiChu = "") {
+  function thucThiKeoTha(
+    prId: string,
+    hanhDong: HanhDongKeoTha,
+    ghiChu = "",
+    /**
+     * ★★ LÝ DO LÙI BƯỚC — chỉ có khi hành động là `lui_buoc`, do hộp riêng bên dưới truyền vào.
+     *
+     * 🔴 THAM SỐ RIÊNG, KHÔNG DÙNG LẠI `ghiChu`. `ghiChu` là ô "Những việc đã hoàn thành?" của
+     * hộp chuyển bước và được ghi nhật ký với tiền tố *"Chuyển bước: …"* — nói sai hẳn bản chất
+     * khi đang lùi. Hai ô hỏi hai câu khác nhau thì phải là hai đường.
+     */
+    lyDoLuiBuoc = "",
+  ) {
     const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
     if (!the) return;
 
@@ -510,11 +603,40 @@ export default function TrangDanhSachDeNghi() {
         router.push(hanhDong.duongDan);
         break;
       case "lui_buoc": {
+        const lyDo = lyDoLuiBuoc.trim();
+        /**
+         * ★★ CẤT LÝ DO Ở ĐÂU — HAI ĐƯỜNG KHÁC NHAU, ĐỌC KỸ TRƯỚC KHI "GỘP CHO GỌN".
+         *
+         * 🔴 CHỈ NHÁNH ③→② (`ve === "yeu_cau_bao_gia"`) MỚI ĐƯỢC TRUYỀN `traLai`. Đã đối chiếu
+         * thân `luiVeBuoc` (`3-du-lieu/kho-du-lieu.tsx` ~2928-3160) ngày 15/09/2026:
+         *   · `traLai` chỉ được CẤT ở đúng nhánh đó, vào `BaoGia.lanTraLai` — đúng chỗ, vì lý do
+         *     bác bảng báo giá là thứ nhân viên phải đọc khi mở bảng ra làm lại.
+         *   · Ba nhánh còn lại (`tiep_nhan`, `xet_duyet_bao_gia`, `lap_don_mua_hang`) KHÔNG đọc
+         *     `traLai` một chữ nào → lý do bị vứt đi im lặng;
+         *   · và tệ hơn: dòng nhật ký cuối hàm rẽ theo `traLai`, nên truyền bừa là hồ sơ ghi
+         *     *"Không duyệt bảng báo giá"* cho một lượt lùi chẳng liên quan gì tới báo giá.
+         *
+         * 📌 Ba nhánh kia: ghi lý do vào NHẬT KÝ HỒ SƠ ngay tại đây. Kho dữ liệu chưa có trường
+         * nào để cất, mà cờ `batBuocLyDo` của tầng luật đòi hồ sơ phải có vết — không ghi là bỏ
+         * qua chỉ đạo, ghi vào nhật ký là chỗ đúng nhất còn lại.
+         *
+         * ⚠️ GHI TRƯỚC KHI LÙI, cố ý: nhánh lùi về ① có thể GỘP các bản tách rồi XOÁ phiếu đang
+         * kéo, và sau đó không còn hồ sơ nào để ghi vào. Ghi trước thì ca thường gặp (không gộp)
+         * chắc chắn có vết; ca gộp mất phiếu thì vẫn mất — đúng giới hạn `luiVeBuoc` đã tự ghi
+         * chú, không sửa được từ tệp này.
+         *
+         * ⚠️ Lý do hiện trong Lịch sử hồ sơ — nơi cả vai trò KHÔNG được xem nhà cung cấp cũng
+         * đọc được (§7). Ô nhập bên dưới nói rõ điều đó cho người gõ biết mà tránh nêu tên NCC.
+         */
+        const traLai = hanhDong.ve === "yeu_cau_bao_gia" && lyDo ? { lyDo } : undefined;
+        if (lyDo && !traLai) {
+          ghiLichSuDeNghi(prId, nguoiDung.tenHienThi, `Lý do lùi bước: ${lyDo}`);
+        }
         // Hủy chứng từ tương ứng để thẻ thật sự về bước trước — xem `luiVeBuoc`.
-        const gop = luiVeBuoc(prId, hanhDong.ve, nguoiDung.tenHienThi);
-        /* Nhánh `{ loi }` chỉ phát sinh khi TRẢ LẠI báo giá (có `traLai`); đường kéo thả này không
-           truyền `traLai` nên thực tế không vào đây — nhưng vẫn kiểm cho TypeScript narrow đúng và
-           để nếu sau này có ai gọi kèm `traLai` thì không lọt "báo thành công giả". */
+        const gop = luiVeBuoc(prId, hanhDong.ve, nguoiDung.tenHienThi, traLai);
+        /* Nhánh `{ loi }` phát sinh khi TRẢ LẠI báo giá mà chưa bảng nào được trình.
+           ★ 15/09/2026: đường này NAY CÓ truyền `traLai` (nhánh ③→②, xem khối trên) nên nhánh lỗi
+           đã tới được thật — không còn là phép kiểm phòng xa. Bỏ nó đi là "báo thành công giả". */
         if (gop && "loi" in gop) {
           toast.error("Chưa lùi được", { description: gop.loi });
           break;
@@ -1134,6 +1256,102 @@ export default function TrangDanhSachDeNghi() {
           }}
         />
       )}
+
+      {/* ★★★ HỘP LÙI MỘT BƯỚC — Sếp duyệt bảng lùi bước 15/09/2026.
+          Vì sao lùi không dùng chung hộp chuyển bước: xem khối chú thích ở `xuLyTha`.
+
+          🔴 KHÔNG BỌC `{luiBuoc && <HopXacNhan …/>}`. Tháo hộp thoại giữa lúc nó đang chạy vòng
+          đời đóng để lại lớp phủ kẹt kín màn hình — lỗi mất 6 lượt sửa mới truy ra (14/09/2026).
+          Cờ `mo` đóng hộp, nội dung giữ nguyên tới lần mở sau. */}
+      <HopXacNhan
+        mo={moHopLui}
+        tieuDe="Lùi về bước trước"
+        moTa={
+          luiBuoc ? (
+            <>
+              Đưa <strong className="text-text-primary">{luiBuoc.maDeNghi}</strong> từ{" "}
+              <strong className="text-text-primary">
+                {NHAN_GIAI_DOAN[luiBuoc.tuBuoc]?.nhan ?? luiBuoc.tuBuoc}
+              </strong>{" "}
+              về{" "}
+              <strong className="text-text-primary">
+                {NHAN_GIAI_DOAN[luiBuoc.hanhDong.ve]?.nhan ?? luiBuoc.hanhDong.ve}
+              </strong>
+              .
+            </>
+          ) : undefined
+        }
+        /* Lùi là HỦY CHỨNG TỪ chứ không đổi nhãn — nút đỏ để người bấm dừng lại đọc một giây. */
+        nguyHiem
+        nhanDongY={luiBuoc?.noiDung.nhanNut ?? "Lùi một bước"}
+        canhBao={
+          luiBuoc && luiBuoc.noiDung.canhBao.length > 0 ? (
+            <ul className="flex list-disc flex-col gap-1 pl-4">
+              {luiBuoc.noiDung.canhBao.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          ) : undefined
+        }
+        /**
+         * ★★ KHOÁ NÚT TỚI KHI GÕ LÝ DO — cờ `batBuocLyDo` của tầng luật (bảng Sếp duyệt
+         * 15/09/2026 đòi lý do cho CẢ BỐN cặp lùi).
+         *
+         * 🔴 ĐỌC CỜ, KHÔNG VIẾT CỨNG `true`. Cờ nằm ở `quyetDinhLui` để còn nới được cho một cặp
+         * nào đó về sau mà không phải đi sửa giao diện — viết cứng ở đây là dựng nguồn thứ hai.
+         *
+         * 📌 `khoaDongY` nhận CÂU GIẢI THÍCH chứ không nhận `boolean` (xem `HopXacNhan`): nút mờ
+         * mà không nói vì sao là kiểu bí việc khó chịu nhất.
+         */
+        khoaDongY={
+          luiBuoc?.hanhDong.batBuocLyDo && lyDoLui.trim() === ""
+            ? "Phải ghi lý do thì nút mới mở — lùi bước xoá dữ liệu đã nhập, người đọc hồ sơ về sau chỉ còn dòng này để hiểu vì sao."
+            : undefined
+        }
+        onDong={() => setMoHopLui(false)}
+        onDongY={() => {
+          /* `luiBuoc` không thể `null` khi hộp đang mở, nhưng kiểm cho TypeScript và để nếu có
+             ai mở hộp bằng đường khác thì không nổ. */
+          if (!luiBuoc) return;
+          thucThiKeoTha(luiBuoc.prId, luiBuoc.hanhDong, "", lyDoLui);
+        }}
+      >
+        <div className="flex flex-col gap-3">
+          {/* ★★★ NÓI TRƯỚC SẼ MẤT GÌ — IN THẲNG CÂU CỦA TẦNG LUẬT (`quyetDinhLui` → `viec`,
+              đi qua `dungXacNhanKeoTha` → `seLam`).
+
+              🔴 TUYỆT ĐỐI KHÔNG VIẾT LẠI CÂU NÀY Ở ĐÂY. Bốn câu đó được đối chiếu TỪNG DÒNG với
+              thân `luiVeBuoc`; diễn giải lại lần hai ở giao diện là mở đúng cái bẫy ngày
+              23/08/2026 — hai chỗ cùng tả một việc rồi sớm muộn nói khác nhau, mà người dùng thì
+              tin chỗ mình đang nhìn. */}
+          {luiBuoc && (
+            <p className="rounded-lg border border-danger/40 bg-danger-bg p-3 text-sm text-text-secondary">
+              {luiBuoc.noiDung.seLam}
+            </p>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ly-do-lui-buoc">
+              Lý do lùi bước
+              {/* Dấu sao đỏ theo đúng nếp ô "Lý do thất bại" — bắt buộc thì phải thấy. */}
+              {luiBuoc?.hanhDong.batBuocLyDo && <span className="text-danger"> *</span>}
+            </Label>
+            <textarea
+              id="ly-do-lui-buoc"
+              rows={3}
+              value={lyDoLui}
+              onChange={(e) => setLyDoLui(e.target.value)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary transition-colors focus:border-primary focus:outline-none"
+            />
+            {/* ⚠️ NÓI TRƯỚC LÝ DO SẼ HIỆN Ở ĐÂU, để người gõ tự tránh nêu tên nhà cung cấp —
+                khối Lịch sử hiện cho cả vai trò không được xem NCC (`CLAUDE.md` §7). */}
+            <span className="text-xs text-text-desc">
+              Lý do lưu vào hồ sơ và mọi người xem hồ sơ này đều đọc được — đừng ghi tên nhà cung
+              cấp vào đây.
+            </span>
+          </div>
+        </div>
+      </HopXacNhan>
     </>
   );
 }

@@ -1547,6 +1547,22 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * của 1 PO độc lập thất bại (mạng lỗi, QLK CTR down...), nó kẹt "failed" VĨNH VIỄN, không tự
      * hồi phục như mọi luồng khác trong app này. Tách nhánh riêng dùng đúng cặp hàm PO độc lập
      * (`guiPOSangQlkCtrDocLap`/`canDongBoLaiPODocLap`) để retry hoạt động đúng cho cả 2 loại PO.
+     *
+     * ★★ GHI LẠI LÝ DO LỖI (15/09/2026) — Sếp: *"cần giải quyết dứt điểm chứ không phải mỗi lần
+     * lỗi là mỗi lần sửa"*. Trước đây `ketQua.loi` chỉ được `console.error` rồi vứt, nên một PO
+     * đứng `failed` là không còn manh mối nào (đề nghị `000000085` kẹt đúng kiểu đó, không ai
+     * biết vì sao). Nay lưu thẳng vào bản ghi PO. **Cả 6 chỗ ghi `qlkCtrSyncStatus` trong tệp
+     * này đều theo đúng 3 luật dưới** — sửa một chỗ thì sửa cả 6, lệch nhau là mỗi đường một
+     * kiểu dữ liệu:
+     *
+     * 1. 🔴 `ketQua.loi` dùng THẲNG, **không cắt lại**. Nguồn (`5-ket-noi/gui-po-qlk-ctr.ts`) đã
+     *    cắt sẵn ≤500 ký tự; cắt lần hai chỉ làm hỏng chuỗi mà không thêm an toàn nào.
+     * 2. 🔴 Nhánh THÀNH CÔNG phải ghi `qlkCtrSyncError: undefined` — **cố ý**, không thừa.
+     *    `bo0Undefined` (JSON round-trip trước khi đẩy lên kho chung) bỏ hẳn khóa `undefined`,
+     *    tức XÓA lỗi cũ. Thiếu dòng này thì lỗi từ tuần trước nằm lại vĩnh viễn trên một đơn đã
+     *    đồng bộ xong, và người đọc màn chi tiết tưởng đơn vẫn đang hỏng.
+     * 3. 🔴 `qlkCtrSyncAt` ghi cho **CẢ HAI** nhánh, không chỉ khi lỗi. Có mốc thời gian mới trả
+     *    lời được câu hỏi thật sự cần: *"lỗi này vừa xảy ra, hay là xác chết từ tuần trước?"*.
      */
     for (const po of d.donHang) {
       if (po.prId) {
@@ -1559,8 +1575,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               p.id !== po.id
                 ? p
                 : ketQua.thanhCong
-                  ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
-                  : { ...p, qlkCtrSyncStatus: "failed" },
+                  ? {
+                      ...p,
+                      qlkCtrSyncStatus: "synced",
+                      qlkCtrSyncedSnapshot: ketQua.snapshot,
+                      qlkCtrSyncError: undefined,
+                      qlkCtrSyncAt: new Date().toISOString(),
+                    }
+                  : {
+                      ...p,
+                      qlkCtrSyncStatus: "failed",
+                      qlkCtrSyncError: ketQua.loi,
+                      qlkCtrSyncAt: new Date().toISOString(),
+                    },
             ),
           );
           if (!ketQua.thanhCong) console.error("[Việc 2] Tự đồng bộ lại PO sang QLK CTR lỗi:", ketQua.loi);
@@ -1574,8 +1601,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               p.id !== po.id
                 ? p
                 : ketQua.thanhCong
-                  ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
-                  : { ...p, qlkCtrSyncStatus: "failed" },
+                  ? {
+                      ...p,
+                      qlkCtrSyncStatus: "synced",
+                      qlkCtrSyncedSnapshot: ketQua.snapshot,
+                      qlkCtrSyncError: undefined,
+                      qlkCtrSyncAt: new Date().toISOString(),
+                    }
+                  : {
+                      ...p,
+                      qlkCtrSyncStatus: "failed",
+                      qlkCtrSyncError: ketQua.loi,
+                      qlkCtrSyncAt: new Date().toISOString(),
+                    },
             ),
           );
           if (!ketQua.thanhCong) console.error("[Việc 2] Tự đồng bộ lại PO độc lập sang QLK CTR lỗi:", ketQua.loi);
@@ -3525,8 +3563,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               p.id !== id
                 ? p
                 : ketQua.thanhCong
-                  ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
-                  : { ...p, qlkCtrSyncStatus: "failed" },
+                  ? {
+                      ...p,
+                      qlkCtrSyncStatus: "synced",
+                      qlkCtrSyncedSnapshot: ketQua.snapshot,
+                      qlkCtrSyncError: undefined,
+                      qlkCtrSyncAt: new Date().toISOString(),
+                    }
+                  : {
+                      ...p,
+                      qlkCtrSyncStatus: "failed",
+                      qlkCtrSyncError: ketQua.loi,
+                      qlkCtrSyncAt: new Date().toISOString(),
+                    },
             ),
           );
           if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);
@@ -3539,8 +3588,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               p.id !== id
                 ? p
                 : ketQua.thanhCong
-                  ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
-                  : { ...p, qlkCtrSyncStatus: "failed" },
+                  ? {
+                      ...p,
+                      qlkCtrSyncStatus: "synced",
+                      qlkCtrSyncedSnapshot: ketQua.snapshot,
+                      qlkCtrSyncError: undefined,
+                      qlkCtrSyncAt: new Date().toISOString(),
+                    }
+                  : {
+                      ...p,
+                      qlkCtrSyncStatus: "failed",
+                      qlkCtrSyncError: ketQua.loi,
+                      qlkCtrSyncAt: new Date().toISOString(),
+                    },
             ),
           );
           if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO độc lập sang QLK CTR lỗi:", ketQua.loi);
@@ -3678,8 +3738,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             p.id !== poId
               ? p
               : ketQua.thanhCong
-                ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
-                : { ...p, qlkCtrSyncStatus: "failed" },
+                ? {
+                    ...p,
+                    qlkCtrSyncStatus: "synced",
+                    qlkCtrSyncedSnapshot: ketQua.snapshot,
+                    qlkCtrSyncError: undefined,
+                    qlkCtrSyncAt: new Date().toISOString(),
+                  }
+                : {
+                    ...p,
+                    qlkCtrSyncStatus: "failed",
+                    qlkCtrSyncError: ketQua.loi,
+                    qlkCtrSyncAt: new Date().toISOString(),
+                  },
           ),
         );
         if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);
@@ -3800,8 +3871,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             p.id !== poId
               ? p
               : ketQua.thanhCong
-                ? { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncedSnapshot: ketQua.snapshot }
-                : { ...p, qlkCtrSyncStatus: "failed" },
+                ? {
+                    ...p,
+                    qlkCtrSyncStatus: "synced",
+                    qlkCtrSyncedSnapshot: ketQua.snapshot,
+                    qlkCtrSyncError: undefined,
+                    qlkCtrSyncAt: new Date().toISOString(),
+                  }
+                : {
+                    ...p,
+                    qlkCtrSyncStatus: "failed",
+                    qlkCtrSyncError: ketQua.loi,
+                    qlkCtrSyncAt: new Date().toISOString(),
+                  },
           ),
         );
         if (!ketQua.thanhCong) console.error("[Việc 2] Gửi PO sang QLK CTR lỗi:", ketQua.loi);

@@ -143,11 +143,28 @@ try {
   process.exit(1);
 }
 
+/* ★★ NHÁNH HỒ SƠ PHÒNG BAN — Sếp 15/09/2026. Chỗ nhận diện hồ sơ phòng ban, và là chỗ đã sai
+   một lần hôm nay: bản đầu nhận diện bằng `tenCongTrinh` rỗng, đo trên kho thật ra **0/16**, nên
+   nhánh không bao giờ bật (Sếp báo *"a thấy nhánh phòng ban chưa chạy"*). Phải có bài kiểm canh. */
+const tepRa8 = join(thuMuc, "ho-so-phong-ban.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/ho-so-phong-ban.ts" --bundle --platform=node --format=cjs --outfile="${tepRa8}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/ho-so-phong-ban.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
 const AR = nap(tepRa6);
 const KD = nap(tepRa7);
+const HS = nap(tepRa8);
 
 /* ---------- Bộ khung chấm ---------- */
 let dat = 0;
@@ -1704,28 +1721,353 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// QUAY LAI BUOC TRUOC DE SUA — BANG SEP DUYET 15/09/2026
+//
+// Sep 14/09/2026: *"quy trinh nay chi duoc 1 buoc tien con neu muon quay lai sua thi gan nhu
+// la ko duoc, e thiet ke xem quy trinh quay lai buoc truoc de sua that logic va khoa hoc cho a"*.
+// Ban thiet ke duoc Sep DUYET ngay 15/09/2026.
+//
+// 🔴 BAI KIEM CU O DAY DA BI THAY THE, VA PHAI NOI RO DE KHONG AI TUONG LA "SUA BAI KIEM CHO
+//    VUA MA NGUON". Bai cu ten *"KEO LUI dang TAM TAT — phai chan, va noi duong go khac"*, ghi
+//    lai chi dao Ban lanh dao 26/08/2026 (*"e TAM dong goi chuc nang keo lui buoc trong bang
+//    kanban, tinh nang nay se xu ly sau"*). Chu **"tam"** va **"xu ly sau"** trong chinh cau do
+//    da noi truoc se bat lai; hom nay Sep duyet bang lui buoc nen chi dao 26/08 HET HIEU LUC.
+//    Day la DOI YEU CAU (co nguoi quyet, co ngay), khong phai noi luat cho vua ma nguon.
+//
+// ⚠️ MOI CAP DEU CO HAI CHIEU: mot bai "cho lui khi du dieu kien" + it nhat mot bai "CHAN khi
+//    thieu". Thieu chieu nao thi mot dot bien tam thuong (`return khong_the` vo dieu kien, hoac
+//    `return lui_buoc` vo dieu kien) van di lot qua het bo kiem.
+// ════════════════════════════════════════════════════════════════════
+
+/** Quyen cua truong bo phan cap 3 tro len / quan tri — du ca hai co ma bang duyet doi. */
+const quyenTruongBP = { phanBoCongViec: true, xacNhanTruongBP: true };
+/** Nhan vien thu mua: lap duoc PO nhung KHONG duoc lui buoc. */
+const quyenNhanVien = { phanBoCongViec: false, xacNhanTruongBP: false };
+
+const theDangO = (giaiDoan) => ({ deNghi: deNghiThu(), giaiDoan });
+
+/** Goi `quyetDinhKeoTha` cho mot cu keo LUI mot buoc. */
+const keoLui = (tu, ve, po = [], bg = [], quyen = quyenTruongBP) =>
+  G.quyetDinhKeoTha(theDangO(tu), ve, po, bg, G.CAU_HINH_MAC_DINH ?? {}, null, quyen);
+
+const poThu = (them) => ({ id: "po-1", code: "PO-001", prId: "pr-thu", trangThai: "da_chot", items: [], ...them });
+const bgThu = (them) => ({ id: "bg-1", prId: "pr-thu", trangThai: "dang_thu_thap", items: [{ baoGiaNCC: [] }], ...them });
+
+// ---------- ② → ① Tiep nhan (chu: phanBoCongViec) ----------
+
 kiem(
-  "KEO LUI dang TAM TAT — phai chan, va noi duong go khac",
-  "Ban lanh dao 26/08/2026 (*\"tam dong goi chuc nang keo lui buoc\"*)",
+  "② → ① CHO LUI khi chua co PO va bang bao gia chua co gia NCC nao",
+  "Sep · 15/09/2026 — thay the chi dao 26/08/2026 (*\"TAM dong goi chuc nang keo lui buoc\"*)",
   () => {
-    /* 🔴 Chan o `quyetDinhKeoTha`, KHONG xoa `quyetDinhLui` — ham do giu toan bo luat huy chung
-       tu tuong ung tung buoc (chi dao 13/08/2026). Bat lai chi can xoa mot khoi `if`.
-       ⚠️ Cau chan phai NOI DUONG GO KHAC (huy chung tu dang giu the o buoc do), neu khong nguoi
-       dung tuong ho so di nham buoc la ket vinh vien. */
-    const the = { deNghi: deNghiThu(), giaiDoan: "xet_duyet_bao_gia" };
-    const r = G.quyetDinhKeoTha(
-      the,
-      "yeu_cau_bao_gia",   // lui MOT buoc
+    const r = keoLui("yeu_cau_bao_gia", "tiep_nhan", [], [bgThu()]);
+    const viec = String(r?.viec ?? "");
+    return {
+      duoc: r?.loai === "lui_buoc" && r.ve === "tiep_nhan" && r.batBuocLyDo === true && viec.length > 40,
+      thucTe: `${r?.loai ?? "?"} ve=${r?.ve ?? "-"} batBuocLyDo=${String(r?.batBuocLyDo)} viec="${viec.slice(0, 60)}"`,
+      mongDoi: 'lui_buoc ve "tiep_nhan", batBuocLyDo=true, co cau ta viec se lam',
+    };
+  },
+);
+
+kiem(
+  "② → ① cau `viec` PHAI noi truoc se mat gi (xoa phan bo · huy bang bao gia · danh so lai)",
+  "Sep · 15/09/2026 — giao dien in THANG cau nay vao hop xac nhan, khong viet lai lan hai",
+  () => {
+    /* 🔴 Khong phai van ve. Nguoi dung bam mot nut XOA DU LIEU; cau nay la thu duy nhat noi cho
+       ho biet minh dang xoa gi. Doi chieu than `luiVeBuoc` (3-du-lieu/kho-du-lieu.tsx ~2960-3082):
+       gop ban tach roi XOA, danh lai `stt` tu 1, xoa 6 truong phan bo, huy bang bao gia. */
+    const r = keoLui("yeu_cau_bao_gia", "tiep_nhan", [], [bgThu()]);
+    const v = String(r?.viec ?? "");
+    const du = /phân bổ/i.test(v) && /hủy/i.test(v) && /báo giá/i.test(v) && /(thứ tự|từ 1)/i.test(v);
+    return {
+      duoc: du,
+      thucTe: `"${v.slice(0, 120)}"`,
+      mongDoi: 'cau nhac du: phan bo · huy bang bao gia · danh so thu tu lai',
+    };
+  },
+);
+
+kiem(
+  "② → ① CHAN khi bang bao gia DA CO gia cua nha cung cap",
+  "Sep · 15/09/2026 (giu nguyen luat 13/08/2026) — lui la mat sach so lieu da nhap",
+  () => {
+    const bg = bgThu({ items: [{ baoGiaNCC: [{ nccId: "ncc-1", donGia: 1000 }] }] });
+    const r = keoLui("yeu_cau_bao_gia", "tiep_nhan", [], [bg]);
+    return {
+      duoc: r?.loai === "khong_the" && /giá của nhà cung cấp/i.test(String(r.lyDo)),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 80)}"`,
+      mongDoi: "khong_the, cau noi ro bang da co gia NCC",
+    };
+  },
+);
+
+kiem(
+  "② → ① CHAN khi de nghi da phat sinh don mua hang",
+  "Sep · 15/09/2026 — dieu kien MOI cua bang duyet (*\"Chua co PO nao\"*)",
+  () => {
+    /* Lui ve ① co the GOP roi XOA ban tach — phieu bi xoa ma don con tro vao la don mo coi. */
+    const r = keoLui("yeu_cau_bao_gia", "tiep_nhan", [poThu({ trangThai: "nhap" })], [bgThu()]);
+    return {
+      duoc: r?.loai === "khong_the" && /đơn mua hàng/i.test(String(r.lyDo)),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 80)}"`,
+      mongDoi: "khong_the, cau noi ro da co don mua hang",
+    };
+  },
+);
+
+kiem(
+  "② → ① CHAN nhan vien thu mua (chi `phanBoCongViec` moi lui duoc)",
+  "Sep · 15/09/2026 — cot \"Ai duoc lui\" cua bang duyet",
+  () => {
+    const r = keoLui("yeu_cau_bao_gia", "tiep_nhan", [], [bgThu()], quyenNhanVien);
+    return {
+      duoc: r?.loai === "khong_the" && /Phân bổ công việc/i.test(String(r.lyDo)),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 80)}"`,
+      mongDoi: 'khong_the, cau goi dung ten quyen "Phan bo cong viec"',
+    };
+  },
+);
+
+// ---------- ③ → ② Yeu cau bao gia (chu: xacNhanTruongBP) ----------
+
+kiem(
+  "③ → ② CHO LUI khi co bang da trinh xet duyet — va KHONG mat gia da nhap",
+  "Sep · 15/09/2026 (giu nguyen duong \"Khong duyet\" dang chay)",
+  () => {
+    const r = keoLui("xet_duyet_bao_gia", "yeu_cau_bao_gia", [], [bgThu({ trangThai: "da_so_sanh" })]);
+    const v = String(r?.viec ?? "");
+    return {
+      duoc: r?.loai === "lui_buoc" && r.ve === "yeu_cau_bao_gia" && r.batBuocLyDo === true && /giữ nguyên/i.test(v),
+      thucTe: `${r?.loai ?? "?"} ve=${r?.ve ?? "-"} viec="${v.slice(0, 70)}"`,
+      mongDoi: 'lui_buoc ve "yeu_cau_bao_gia", cau noi ro gia giu nguyen',
+    };
+  },
+);
+
+kiem(
+  "③ → ② CHAN khi CHUA co bang nao duoc trinh (chong \"bao thanh cong gia\")",
+  "Sep · 15/09/2026 — cung lo hong `luiVeBuoc` da va 11/09/2026 cho nhanh co `traLai`",
+  () => {
+    /* Duong keo tha KHONG truyen `traLai` nen chot 11/09 trong `luiVeBuoc` khong bat duoc ca nay:
+       khong bang nao doi, nhung nhat ky van ghi mot dong cho viec chua tung xay ra. */
+    const r = keoLui("xet_duyet_bao_gia", "yeu_cau_bao_gia", [], [bgThu({ trangThai: "dang_thu_thap" })]);
+    return {
+      duoc: r?.loai === "khong_the" && /trình xét duyệt/i.test(String(r.lyDo)),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 80)}"`,
+      mongDoi: "khong_the, cau noi ro chua co bang nao duoc trinh",
+    };
+  },
+);
+
+kiem(
+  "③ → ② CHAN nguoi khong co quyen `xacNhanTruongBP`",
+  "Sep · 15/09/2026 — cot \"Ai duoc lui\" cua bang duyet",
+  () => {
+    const r = keoLui(
+      "xet_duyet_bao_gia",
+      "yeu_cau_bao_gia",
       [],
+      [bgThu({ trangThai: "da_so_sanh" })],
+      quyenNhanVien,
+    );
+    return {
+      duoc: r?.loai === "khong_the" && /Xác nhận hoàn thành đơn/i.test(String(r.lyDo)),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 80)}"`,
+      mongDoi: 'khong_the, cau goi dung ten quyen "Xac nhan hoan thanh don"',
+    };
+  },
+);
+
+// ---------- ④ → ③ Xet duyet bao gia (chu: xacNhanTruongBP) ----------
+
+kiem(
+  "④ → ③ CHO LUI khi KHONG con don nao — va bao truoc se mat TEP DAN CHUNG",
+  "Sep · 15/09/2026",
+  () => {
+    /* `luiVeBuoc` nhanh `ve === "xet_duyet_bao_gia"` xoa du 6 truong, trong do co `tepChonNCC`
+       — tep dan chung KHONG khoi phuc duoc. Cau `viec` phai noi truoc dung chuyen do. */
+    const r = keoLui("lap_don_mua_hang", "xet_duyet_bao_gia", [], [bgThu({ trangThai: "da_chon_ncc" })]);
+    const v = String(r?.viec ?? "");
+    return {
+      duoc: r?.loai === "lui_buoc" && r.ve === "xet_duyet_bao_gia" && r.batBuocLyDo === true && /dẫn chứng/i.test(v),
+      thucTe: `${r?.loai ?? "?"} ve=${r?.ve ?? "-"} viec="${v.slice(0, 80)}"`,
+      mongDoi: 'lui_buoc, cau nhac tep dan chung khong khoi phuc duoc',
+    };
+  },
+);
+
+kiem(
+  "④ → ③ CHAN khi con don NHAP — va cau chan KHONG duoc hua nut \"Huy don\"",
+  "Sep · 15/09/2026 + §3.5 CLAUDE.md (*\"dung de giao dien hua mot viec app khong lam\"*)",
+  () => {
+    /* 🔴 Do 15/09/2026: app KHONG co cho nao ghi `trangThai: "huy"` cho DonDatHang, cung khong
+       cho nao xoa don khoi mang. Cau chan cu (*"Huy don nhap truoc roi moi lui duoc"*) day nguoi
+       dung di tim mot nut khong bao gio ton tai. */
+    const r = keoLui("lap_don_mua_hang", "xet_duyet_bao_gia", [poThu({ trangThai: "nhap" })], []);
+    const cau = String(r?.lyDo ?? "");
+    return {
+      duoc: r?.loai === "khong_the" && /CHƯA có chức năng hủy/i.test(cau) && /Chốt đơn hàng/i.test(cau),
+      thucTe: `${r?.loai ?? "?"}: "${cau.slice(0, 100)}"`,
+      mongDoi: 'khong_the, cau noi THAT la app chua co chuc nang huy don + chi duong "Chot don hang"',
+    };
+  },
+);
+
+kiem(
+  "④ → ③ CHAN ca khi don DA CHOT, khong chi don nhap",
+  "Sep · 15/09/2026 — bang duyet siet thanh *\"Khong con PO nao gan de nghi\"*",
+  () => {
+    /* 🔴 CHIEU MO RONG. Luat cu chi chan `nhap`; ai khoi phuc lai dung luat cu thi bai nay do,
+       vi don `da_chot` van dung ten nha cung cap sap bi xoa. */
+    const r = keoLui("lap_don_mua_hang", "xet_duyet_bao_gia", [poThu({ trangThai: "da_chot" })], []);
+    return {
+      duoc: r?.loai === "khong_the",
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 80)}"`,
+      mongDoi: "khong_the (con BAT KY don nao cung chan, khong rieng don nhap)",
+    };
+  },
+);
+
+// ---------- ⑤ → ④ Lap don mua hang (chu: phanBoCongViec) ----------
+
+kiem(
+  "⑤ → ④ CHO LUI khi don da chot va CHUA dong bo QLK CTR",
+  "Sep · 15/09/2026",
+  () => {
+    const r = keoLui("dat_hang", "lap_don_mua_hang", [poThu({ trangThai: "da_chot" })], []);
+    const v = String(r?.viec ?? "");
+    return {
+      duoc: r?.loai === "lui_buoc" && r.ve === "lap_don_mua_hang" && r.batBuocLyDo === true && /nháp/i.test(v),
+      thucTe: `${r?.loai ?? "?"} ve=${r?.ve ?? "-"} viec="${v.slice(0, 70)}"`,
+      mongDoi: 'lui_buoc ve "lap_don_mua_hang", cau noi ro dua don ve nhap',
+    };
+  },
+);
+
+kiem(
+  "⑤ → ④ CHAN khi don DA DONG BO sang QLK CTR (`qlkCtrSyncStatus === \"synced\"`)",
+  "Sep · 15/09/2026 — dieu kien nang nhat cua cap nay",
+  () => {
+    /* 🔴 Mot ban don DA NAM BEN app Kho cong trinh. Dua don ve nhap o day khong go duoc ban do,
+       va app chua co chuc nang thu hoi don da dong bo — thu kho van nhan hang theo ban cu. */
+    const r = keoLui(
+      "dat_hang",
+      "lap_don_mua_hang",
+      [poThu({ trangThai: "da_chot", qlkCtrSyncStatus: "synced" })],
       [],
-      G.CAU_HINH_MAC_DINH ?? {},
-      null,
     );
     const cau = String(r?.lyDo ?? "");
     return {
-      duoc: r?.loai === "khong_the" && /tạm tắt/i.test(cau) && /hủy/i.test(cau),
-      thucTe: `${r?.loai ?? "?"}: "${cau.slice(0, 80)}"`,
-      mongDoi: 'khong_the, cau co "tam tat" VA chi duong "huy chung tu"',
+      duoc: r?.loai === "khong_the" && /Kho công trình/i.test(cau) && /Sửa đơn hàng/i.test(cau),
+      thucTe: `${r?.loai ?? "?"}: "${cau.slice(0, 100)}"`,
+      mongDoi: 'khong_the, cau nhac QLK CTR va chi duong nut "Sua don hang"',
+    };
+  },
+);
+
+kiem(
+  "⑤ → ④ CHAN khi don da chuyen sang DANG GIAO",
+  "Sep · 15/09/2026 — dieu kien ② cua bang duyet",
+  () => {
+    const r = keoLui("dat_hang", "lap_don_mua_hang", [poThu({ trangThai: "dang_giao" })], []);
+    return {
+      duoc: r?.loai === "khong_the" && /đang giao/i.test(String(r.lyDo)),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 80)}"`,
+      mongDoi: "khong_the, cau noi ro don dang giao",
+    };
+  },
+);
+
+kiem(
+  "⑤ → ④ CHAN nguoi khong co quyen `phanBoCongViec`",
+  "Sep · 15/09/2026 — cot \"Ai duoc lui\" cua bang duyet",
+  () => {
+    const r = keoLui(
+      "dat_hang",
+      "lap_don_mua_hang",
+      [poThu({ trangThai: "da_chot" })],
+      [],
+      quyenNhanVien,
+    );
+    return {
+      duoc: r?.loai === "khong_the" && /Phân bổ công việc/i.test(String(r.lyDo)),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 80)}"`,
+      mongDoi: 'khong_the, cau goi dung ten quyen "Phan bo cong viec"',
+    };
+  },
+);
+
+// ---------- Ba cap CUOI: khong lui duoc, va phai noi dung ly do ----------
+
+kiem(
+  "⑥ → ⑤ KHONG lui duoc — va cau chan KHONG duoc hua \"nho thu kho huy phieu\"",
+  "Sep · 15/09/2026 — nguyen tac du lieu #2: Kho la nguon duy nhat cua so luong thuc nhan",
+  () => {
+    /* 🔴 CAU CU (13/08/2026) ghi *"Nho thu kho huy phieu truoc"* — hua rang huy phieu xong la lui
+       duoc. Sai hai lan: bang duyet 15/09 cam han cap nay, VA app khong co cho nao xoa
+       PhieuNhanHang (da grep `xoaPhieuNhan` · `huyPhieuNhan` · "Huy phieu": khong co ket qua). */
+    const r = keoLui("nhan_hang", "dat_hang", [poThu({ trangThai: "dang_giao" })], []);
+    const cau = String(r?.lyDo ?? "");
+    return {
+      duoc:
+        r?.loai === "khong_the" &&
+        /KHÔNG lùi được/i.test(cau) &&
+        !/hủy phiếu/i.test(cau) &&
+        /Sửa đơn hàng|Đánh dấu thất bại/i.test(cau),
+      thucTe: `${r?.loai ?? "?"}: "${cau.slice(0, 110)}"`,
+      mongDoi: 'khong_the, KHONG co chu "huy phieu", co chi duong thao tac CO THAT',
+    };
+  },
+);
+
+kiem(
+  "⑦ → ⑥ KHONG lui duoc — lui la sua nguoc so lieu cua Kho",
+  "Sep · 15/09/2026",
+  () => {
+    const r = keoLui("ho_so_thanh_toan", "nhan_hang", [poThu({ trangThai: "hoan_thanh" })], []);
+    const cau = String(r?.lyDo ?? "");
+    return {
+      duoc: r?.loai === "khong_the" && /KHÔNG lùi được/i.test(cau),
+      thucTe: `${r?.loai ?? "?"}: "${cau.slice(0, 100)}"`,
+      mongDoi: "khong_the kem ly do that (khong phai cau chung chung)",
+    };
+  },
+);
+
+kiem(
+  "KHONG truyen quyen → CHAN (thieu thong tin thi lay quyen THAP NHAT)",
+  "Sep · 15/09/2026 + CLAUDE.md §3.6c",
+  () => {
+    /* 🔴 CHIEU AN TOAN. Tham so quyen de `?` chi vi tang giao dien dang do phien khac sua cung
+       luc — nhung vang mat KHONG duoc hieu la "cho qua". Lui buoc XOA du lieu that. */
+    const r = G.quyetDinhKeoTha(
+      theDangO("dat_hang"),
+      "lap_don_mua_hang",
+      [poThu({ trangThai: "da_chot" })],
+      [],
+      G.CAU_HINH_MAC_DINH ?? {},
+      null,
+      // KHONG truyen quyen
+    );
+    return {
+      duoc: r?.loai === "khong_the" && /quyền thấp nhất/i.test(String(r.lyDo)),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 90)}"`,
+      mongDoi: 'khong_the, cau nhac nguyen tac "quyen thap nhat"',
+    };
+  },
+);
+
+kiem(
+  "LUI HAI BUOC van bi chan — bang duyet chi mo LIEN KE",
+  "Ban lanh dao 13/08/2026 (*\"chi cho tien hoac lui trong pham vi 1 buoc\"*) — con nguyen hieu luc",
+  () => {
+    /* ⚠️ Bat lai keo lui KHONG duoc lam ro chot nhay coc. Ca nay di tu ⑤ ve ③. */
+    const r = keoLui("dat_hang", "xet_duyet_bao_gia", [], []);
+    return {
+      duoc: r?.loai === "khong_the" && /nhảy cóc/i.test(String(r.lyDo)),
+      thucTe: `${r?.loai ?? "?"}: "${String(r?.lyDo ?? r?.viec ?? "").slice(0, 80)}"`,
+      mongDoi: 'khong_the, cau nhac "khong nhay coc"',
     };
   },
 );
@@ -2692,9 +3034,14 @@ const nvThuMua = { uid: "u-tm-02", chucNang: "nhan_vien_thu_mua", capTM: 2 };
 /** Quyền của một nhân viên thu mua: KHÔNG có cờ thủ kho `ghiPhieuNhanHang`. */
 const quyenNVThuMua = { ghiPhieuNhanHang: false };
 const dnPhongBan = { id: "dn-pb", tenCongTrinh: "", items: [{ stt: 1, nguoiPhuTrachUid: "u-tm-02" }] };
+/* ⚠️ KHAI CẢ `maHopDongCDT` LẪN `tenCongTrinh` — ĐỪNG BỎ BỚT. `laHoSoPhongBan` đổi cách nhận diện
+   ngày 15/09/2026 (từ `tenCongTrinh` rỗng sang `maHopDongCDT` rỗng) vì đo được App Request nhét
+   tiêu đề đề nghị vào ô tên công trình. Khai đủ cả hai thì bài kiểm đo đúng CHỐT của chính nó,
+   không vỡ theo mỗi lần bên kia đổi phép nhận diện. */
 const dnCongTrinh = {
   id: "dn-ct",
   tenCongTrinh: "Nhà máy A",
+  maHopDongCDT: "HD-2026-01",
   items: [{ stt: 1, nguoiPhuTrachUid: "u-tm-02" }],
 };
 const tepGiaoHang = { id: "t1", tenTep: "phieu-giao-01.pdf", kichThuoc: 1024, loai: "application/pdf" };
@@ -2904,6 +3251,11 @@ kiem(
 const hoSoDongPB = ({ tenCongTrinh, nhanPhieuGiao, coTepHopDong = true }) => ({
   id: "x",
   tenCongTrinh,
+  /* 🔴 `maHopDongCDT` MỚI LÀ THỨ `laHoSoPhongBan` ĐỌC (đổi 15/09/2026 — App Request nhét tiêu đề
+     đề nghị vào ô tên công trình nên ô đó không bao giờ rỗng, đo ra 0/16 hồ sơ là phòng ban).
+     Ở đây suy từ `tenCongTrinh` để mọi lời gọi sẵn có không phải sửa: có tên công trình thì coi
+     như hồ sơ công trình và gắn luôn mã hợp đồng; để rỗng thì là hồ sơ phòng ban. */
+  ...((tenCongTrinh ?? "").trim() ? { maHopDongCDT: "HD-2026-01" } : {}),
   items: [{ stt: 1 }],
   tepGiaiDoan: {
     ...(coTepHopDong
@@ -3042,6 +3394,139 @@ kiem(
       duoc: typeof r === "string" && /h[ợo]p đ[ồo]ng/i.test(r),
       thucTe: r === null ? "null (LOT — phong ban da duoc mien hop dong!)" : `"${String(r).slice(0, 90)}"`,
       mongDoi: "cau chan nhac Hop dong",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// NHẬN DIỆN HỒ SƠ PHÒNG BAN — Sếp · 15/09/2026
+//
+// 🔴 ĐÂY LÀ CHỖ ĐÃ SAI MỘT LẦN, NÊN MỚI PHẢI CÓ BÀI KIỂM. Bản đầu nhận diện bằng `tenCongTrinh`
+// rỗng; đo trên kho đang chạy (`hpcons-portal`, 16 đề nghị) ra **0/16** — vì App Request nhét
+// TIÊU ĐỀ ĐỀ NGHỊ vào ô tên công trình (`000000089` → "Đề nghị 2. Phòng Pháp lý (HP Cons)").
+// Nhánh phòng ban làm xong mà công tắc không bật được, Sếp phải tự phát hiện trên bản thật.
+//
+// ✅ Nay hai tầng: ① ô "Lựa chọn đề nghị" của App Request (nguồn chính thức) → ② `maHopDongCDT`
+// rỗng (dự phòng cho hồ sơ cũ — đã đối chiếu 16/16 với nguồn chính thức, lệch 0).
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "CO loai=phong_ban -> LA HO SO PHONG BAN (du CO maHopDongCDT)",
+  'Sếp · 15/09/2026 — ô "Lựa chọn đề nghị" là nguồn chính thức, thắng phép suy đoán',
+  () => {
+    const r = HS.laHoSoPhongBan({ loaiHoSo: "phong_ban", maHopDongCDT: "HD-2026-01" });
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true" };
+  },
+);
+
+kiem(
+  "CO loai=cong_trinh -> KHONG phai phong ban (du maHopDongCDT RONG)",
+  "Sếp · 15/09/2026 — nguồn chính thức thắng phép suy đoán, cả chiều ngược lại",
+  () => {
+    const r = HS.laHoSoPhongBan({ loaiHoSo: "cong_trinh", maHopDongCDT: "" });
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false" };
+  },
+);
+
+kiem(
+  "KHONG co loai + maHopDongCDT RONG -> VAN nhan la phong ban (tang du phong)",
+  "Sếp · 15/09/2026 — hồ sơ cũ KHÔNG BAO GIỜ có trường mới; bỏ tầng này là 000000089/090/091 kẹt lại",
+  () => {
+    /* 🔴 Cố ý khai `tenCongTrinh` CÓ GIÁ TRỊ và là rác thật đo được từ kho: nếu ai quay lại nhận
+       diện bằng `tenCongTrinh` rỗng thì bài này đỏ ngay, đúng lỗi đã xảy ra hôm nay. */
+    const r = HS.laHoSoPhongBan({
+      maHopDongCDT: "",
+      tenCongTrinh: "Đề nghị 2. Phòng Pháp lý (HP Cons)",
+    });
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true" };
+  },
+);
+
+kiem(
+  "KHONG co loai + CO maHopDongCDT -> ho so cong trinh (khong ro sang)",
+  "Sếp · 15/09/2026 — nhánh phòng ban không được rò sang hồ sơ công trình",
+  () => {
+    const r = HS.laHoSoPhongBan({ maHopDongCDT: "HD-2026-01", tenCongTrinh: "Nha xuong Howell" });
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false" };
+  },
+);
+
+kiem(
+  "CHUAN HOA nhan App Request — 2 cach viet hoa, khoang trang thua, thieu dau",
+  'Sếp · 15/09/2026 — đo được cả "Đề nghị công trình" lẫn "Đề nghị Công trình" trong dữ liệu thật',
+  () => {
+    const ca = [
+      ["Đề nghị công trình", "cong_trinh"],
+      ["Đề nghị Công trình", "cong_trinh"],
+      ["  Đề nghị   phòng ban  ", "phong_ban"],
+      ["DE NGHI PHONG BAN", "phong_ban"],
+      ["cong_trinh", "cong_trinh"],
+      ["phong_ban", "phong_ban"],
+    ];
+    const sai = ca.filter(([vao, ra]) => AR.chuanHoaLoaiHoSo(vao) !== ra);
+    return {
+      duoc: sai.length === 0,
+      thucTe: sai.length === 0 ? "nhan dung ca 6 cach viet" : `sai: ${JSON.stringify(sai)}`,
+      mongDoi: "nhan dung ca 6 cach viet",
+    };
+  },
+);
+
+kiem(
+  "CHUAN HOA khong doan bua — rong / nhan la / nhan chua CA HAI -> undefined",
+  "Sếp · 15/09/2026 — thiếu thông tin thì để trống, không suy diễn (rơi về tầng dự phòng)",
+  () => {
+    const v = ["", undefined, null, "Đề nghị mua sắm", "Đề nghị công trình và phòng ban"];
+    const sai = v.filter((x) => AR.chuanHoaLoaiHoSo(x) !== undefined);
+    return {
+      duoc: sai.length === 0,
+      thucTe: sai.length === 0 ? "undefined het" : `doan bua o: ${JSON.stringify(sai)}`,
+      mongDoi: "undefined het",
+    };
+  },
+);
+
+kiem(
+  "DOC LOAI TU APP REQUEST — tra theo `options`, KHONG tra theo ma truong",
+  "Sếp · 15/09/2026 — mã trường là UUID đổi theo đời biểu mẫu (đo được 3 mã khác nhau)",
+  () => {
+    const O = (id) => ({ id, options: ["Đề nghị công trình", "Đề nghị phòng ban"] });
+    const ca = [
+      [
+        {
+          fieldsSnapshot: [{ id: "khac", options: ["Vật tư"] }, O("e08076bf")],
+          values: { e08076bf: "Đề nghị phòng ban" },
+        },
+        "phong_ban",
+      ],
+      [{ fieldsSnapshot: [O("12cb9ca6")], values: { "12cb9ca6": "Đề nghị Công trình" } }, "cong_trinh"],
+      [{ fieldsSnapshot: [O("79590aee")], values: { "79590aee": "  Đề nghị   công trình " } }, "cong_trinh"],
+    ];
+    const sai = ca.filter(([doc, ra]) => AR.layLoaiTuHoSoAppRequest(doc) !== ra);
+    return {
+      duoc: sai.length === 0,
+      thucTe: sai.length === 0 ? "doc dung ca 3 doi bieu mau" : `sai ${sai.length}/3`,
+      mongDoi: "doc dung ca 3 doi bieu mau",
+    };
+  },
+);
+
+kiem(
+  "DOC LOAI TU APP REQUEST — khong chac thi tra undefined, KHONG nem loi",
+  "Sếp · 15/09/2026 — cửa tiếp nhận đề nghị là đường sống, không được vỡ vì dữ liệu lạ",
+  () => {
+    const v = [
+      { fieldsSnapshot: [{ id: "x", options: ["Đề nghị công trình", "Đề nghị phòng ban"] }], values: {} },
+      { fieldsSnapshot: [{ id: "khac", options: ["Vật tư", "Dịch vụ"] }], values: { khac: "Vật tư" } },
+      {},
+      undefined,
+      { fieldsSnapshot: "rac", values: 5 },
+    ];
+    const sai = v.filter((x) => AR.layLoaiTuHoSoAppRequest(x) !== undefined);
+    return {
+      duoc: sai.length === 0,
+      thucTe: sai.length === 0 ? "undefined het, khong nem loi" : `doan bua ${sai.length} ca`,
+      mongDoi: "undefined het",
     };
   },
 );

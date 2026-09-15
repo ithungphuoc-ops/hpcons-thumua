@@ -16,11 +16,12 @@ import { ODinhKemTep, rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { LienKetAnhQlkCtr } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-anh-qlk-ctr";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
+import { HopGhiNhanGiaoHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-ghi-nhan-giao-hang";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoPO, vuongMacThayTepPhieuGiao } from "@/2-quy-trinh/tinh-toan";
 import { xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
+import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
 import {
   duocGhiNhanGiaoHangCuaHoSo,
   ghiNhanGiaoHangNhoNhanhPhongBan,
@@ -45,6 +46,21 @@ import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
  * Vẫn giữ `ODinhKemTep` ở lịch sử phiếu (nhánh `else if` bên dưới) để bổ sung file cho phiếu THỦ
  * CÔNG CŨ đã lỡ tạo trước ngày này — không có tệp thì đơn đó kẹt vĩnh viễn không bấm hoàn thành
  * được (đúng lý do đã ghi trong chính nhánh đó).
+ *
+ * ★★★ 15/09/2026 — MỞ LẠI ĐƯỜNG GHI NHẬN GIAO HÀNG, **CHỈ CHO HỒ SƠ PHÒNG BAN** (nút "Ghi nhận
+ * giao hàng", xem `hop-ghi-nhan-giao-hang.tsx`).
+ *
+ * 🔴 KHÔNG PHẢI HỦY LUẬT 30/08/2026 Ở TRÊN. Hồ sơ CÔNG TRÌNH vẫn y nguyên: phiếu chỉ vào app qua
+ * cửa API do QLK CTR gọi sang, nút này không hiện, và nếu có đường nào gọi lọt thì tầng ghi vẫn
+ * chặn (`vuongMacGhiNhanGiaoHangPhongBan` điều kiện ②, `3-du-lieu/kho-du-lieu.tsx`).
+ *
+ * Mở đúng một lỗ hổng mà chính luật 30/08 tạo ra: hồ sơ PHÒNG BAN **không có kho công trình nào**
+ * để gửi phiếu sang, nên `khoiLuongConLai` không bao giờ về 0 và thẻ kẹt vĩnh viễn ở bước ⑥. Sếp
+ * mở bản thật ngày 15/09/2026, phiếu `000000089`: *"phiếu 89 này là phiếu của phòng ban, nhưng
+ * nhân viên vẫn chưa thể bấm xác nhận nhận hàng"*.
+ *
+ * 🔴 ĐỔI NGƯỜI GHI NHẬN, KHÔNG BỎ BẰNG CHỨNG — Sếp 15/09/2026: *"nhân viên thu mua tự hoàn thành,
+ * **nhưng phải đính kèm phiếu giao hàng**"*. Nút Lưu trong hộp khóa tới khi có tệp.
  */
 export function BangTienDoPO({ po }: { po: DonDatHang }) {
   const { deNghi, donHang, baoGia, phieuNhan, dinhKemPhieuGiao } = useDuLieu();
@@ -95,6 +111,23 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
   const duocDinhKemPhieuGiao = duocGhiNhanGiaoHangCuaHoSo(deNghiCuaPO, nguoiDung, quyen);
   /** Mở được là NHỜ nhánh phòng ban → bắt buộc in lý do ra, không nới im lặng. */
   const moNhoNhanhPhongBan = ghiNhanGiaoHangNhoNhanhPhongBan(deNghiCuaPO, nguoiDung, quyen);
+
+  /**
+   * ★★★ CÓ ĐƯỢC **TẠO MỚI** PHIẾU NHẬN HÀNG BẰNG TAY Ở ĐÂY KHÔNG (nút "Ghi nhận giao hàng",
+   * 15/09/2026). Khác `duocDinhKemPhieuGiao` ngay trên: cái đó là *bổ sung tệp cho phiếu ĐÃ CÓ*,
+   * cái này là *đẻ ra một phiếu mới*.
+   *
+   * 🔴 SOI ĐÚNG HAI ĐIỀU KIỆN ② VÀ ③ CỦA TẦNG GHI (`vuongMacGhiNhanGiaoHangPhongBan`):
+   *   ② `laHoSoPhongBan` — hồ sơ công trình KHÔNG bao giờ hiện nút này, phiếu của họ do thủ kho
+   *      ghi bên QLK CTR. Thiếu vế này là nút mở cho cả thủ kho trên mọi hồ sơ, tức mở lại đúng
+   *      đường ghi tay toàn cục đã bỏ ngày 30/08/2026.
+   *   ③ `duocGhiNhanGiaoHangCuaHoSo` — chính là biến `duocDinhKemPhieuGiao` đã tính ở trên.
+   *
+   * ⚠️ ĐỪNG TỰ CHẾ ĐIỀU KIỆN KHÁC cho nhanh. Nút mở rộng hơn tầng ghi thì người dùng nhập xong
+   * cả phiếu mới nhận câu từ chối; nút hẹp hơn thì hồ sơ kẹt mà không ai hiểu vì sao — cả hai
+   * kiểu lệch đều KHÔNG có dòng cảnh báo nào.
+   */
+  const duocGhiNhanGiaoHangTay = laHoSoPhongBan(deNghiCuaPO) && duocDinhKemPhieuGiao;
 
   const tienDo = useMemo(() => tinhTienDoPO(po, phieuCuaPO), [po, phieuCuaPO]);
 
@@ -210,11 +243,38 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
 
         {/* Lịch sử phiếu nhận hàng */}
         <div className="flex flex-col gap-2 border-t border-divider pt-4">
-          <h3 className="text-sm font-semibold text-text-primary">
-            Phiếu nhận hàng ({phieuCuaPO.length} lần giao)
-          </h3>
+          {/* Tiêu đề và nút ghi nhận trên CÙNG MỘT HÀNG, nút neo phải. `flex-wrap` để màn hẹp
+              thì nút xuống dòng chứ không ép tiêu đề vỡ chữ. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-text-primary">
+              Phiếu nhận hàng ({phieuCuaPO.length} lần giao)
+            </h3>
+            {/**
+              * 🔴 DỰNG VÔ ĐIỀU KIỆN, KHÔNG BỌC `{duocGhiNhanGiaoHangTay && <Hop… />}`.
+              *
+              * Quyền truyền vào trong `duocGhiNhan` để component tự ẩn **cái nút**, còn
+              * `<Dialog>` thì luôn nằm trong cây. Bọc ngoài là có ngày hộp thoại bị THÁO giữa lúc
+              * đang mở (dữ liệu kho chung đổi, hồ sơ đổi) — base-ui không kịp chạy hàm dọn, khoá
+              * cuộn và `data-base-ui-inert` kẹt lại trên DOM: cả app bấm không ăn, phải F5. Đúng
+              * sự cố Sếp báo 13–14/09/2026, mất 6 lượt sửa mới truy ra nguyên nhân.
+              */}
+            <HopGhiNhanGiaoHang
+              po={po}
+              tienDo={tienDo}
+              phieuCuaPO={phieuCuaPO}
+              duocGhiNhan={duocGhiNhanGiaoHangTay}
+              moNhoNhanhPhongBan={moNhoNhanhPhongBan}
+            />
+          </div>
           {phieuCuaPO.length === 0 ? (
-            <p className="text-sm text-text-desc">Chưa có lần giao nào.</p>
+            /* ⚠️ Câu trống phải NÓI ĐƯỜNG ĐI, không chỉ báo "chưa có". Chính màn hình này (phiếu
+               `000000089`, 15/09/2026) in mỗi chữ *"Chưa có lần giao nào."* trong khi người dùng
+               không hề có nút nào để tạo — họ chỉ còn cách ngồi chờ một thứ không bao giờ tới. */
+            <p className="text-sm text-text-desc">
+              {duocGhiNhanGiaoHangTay
+                ? "Chưa có lần giao nào. Hàng về tới đâu thì bấm “Ghi nhận giao hàng” ghi lại tới đó, kèm phiếu giao hàng của nhà cung cấp."
+                : "Chưa có lần giao nào."}
+            </p>
           ) : (
             <ul className="flex flex-col gap-2">
               {phieuCuaPO.map((p) => {
