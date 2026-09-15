@@ -1551,15 +1551,58 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const daThuDongBoQlkCtrPhienNay = useRef<Set<string>>(new Set());
 
-  const dayLenMayChu = useCallback((d: DuLieuLuu) => {
+  /* 📌 KHAI TRƯỚC `dayLenMayChu` — nó cần `setTrangThaiKhoChung` để báo khi GHI hỏng. */
+  const [trangThaiKhoChung, setTrangThaiKhoChung] =
+    useState<GiaTriDuLieu["trangThaiKhoChung"]>("dang-noi");
+
+  /**
+   * 🔴🔴 GHI HỎNG THÌ PHẢI GỠ DẤU "ĐÃ ĐỒNG BỘ" — Sếp báo 15/09/2026: *"bấm tick chọn 3 lần mới
+   * nhận"*, và khi được hỏi thêm: *"ở tất cả các bước đều bị, giống kiểu bị delay"*.
+   *
+   * TRIỆU CHỨNG ĐÓ SINH RA THẾ NÀO — đo được trên chính mã này:
+   *   ① Người dùng tick → `setDeNghi` → effect ghi đánh dấu `anhChupCuoi.current = chuoi`
+   *      **TRƯỚC**, rồi mới gọi đẩy lên (bất đồng bộ).
+   *   ② Lần đẩy đó hỏng (Firestore đang backoff / hàng đợi tràn — đúng sự cố QLK CTR hôm nay).
+   *      Lỗi bị nuốt vào `console.error`, **không ai biết**.
+   *   ③ App vẫn tin là đã đồng bộ. Ảnh chụp kế tiếp từ máy chủ là bản **chưa có** cái tick, khác
+   *      `anhChupCuoi` → lọt qua cửa *"chính mình vừa gửi lên"* → `apDung` ghi đè toàn bộ state.
+   *   ④ Ô tick tự bỏ chọn. Người dùng bấm lại, tới lần thứ 2–3 mới có một lần ghi lọt kịp.
+   * Khớp cả hai vế Sếp mô tả: **mọi bước** đều dính (ba nhóm ô tick đều ghi lên kho chung), và
+   * cảm giác là **độ trễ** chứ không phải nút hỏng.
+   *
+   * 🔴 VÌ SAO GỠ DẤU LÀ ĐỦ VÀ ĐÚNG: `anhChupCuoi` trả lời câu *"bản này có phải do chính mình vừa
+   * gửi không"*. Ghi hỏng nghĩa là **KHÔNG hề gửi được**, nên giữ dấu đó là một lời nói dối với
+   * chính mình — và chính lời nói dối ấy mở cửa cho ảnh chụp cũ ghi đè. Đặt về rỗng là app trở lại
+   * đúng sự thật: *"chưa gửi được gì cả"*.
+   *
+   * 🔴 VÀ PHẢI NÓI RA. `trangThaiKhoChung` trước nay chỉ đổi sang `"rieng"` khi **nghe** hỏng, chưa
+   * bao giờ khi **ghi** hỏng — nên suốt lúc máy chủ từ chối ghi, chỉ báo trên màn hình vẫn xanh
+   * *"đang dùng chung"* trong khi việc của người dùng **không lên được**. Đó đúng kiểu "giao diện
+   * hứa một việc app không làm" mà CLAUDE.md §3.5 cấm.
+   * 📌 Không sợ kẹt ở `"rieng"`: mỗi lần nghe được máy chủ, callback `onSnapshot` đặt lại `"chung"`.
+   *
+   * ⚠️ KHÔNG ĐỤNG BA CHỐT AN TOÀN §3.6b (`daNgheMayChu`, `null` khác bộ rỗng, `hangCho`) — sửa này
+   * chỉ thêm việc phải làm khi lần ghi **thất bại**, không đổi một điều kiện nào của đường ghi
+   * thành công.
+   *
+   * @param chuoiDaDanhDau Chuỗi vừa được ghi vào `anhChupCuoi` cho lần đẩy này. Có thì khi hỏng sẽ
+   *   gỡ dấu — nhưng **chỉ gỡ đúng dấu của mình**: nếu trong lúc chờ mạng đã có lần ghi khác đè lên
+   *   `anhChupCuoi`, gỡ bừa là xoá dấu của lần ghi đang hợp lệ, và ảnh chụp echo của lần đó lại bị
+   *   coi là dữ liệu người khác.
+   */
+  const dayLenMayChu = useCallback((d: DuLieuLuu, chuoiDaDanhDau?: string) => {
     if (!ketNoiChung.current) {
       hangCho.current = d;
       return;
     }
-    void ketNoiChung.current.day(d).catch((e) => console.error("[kho chung] ghi hỏng:", e));
+    void ketNoiChung.current.day(d).catch((e) => {
+      console.error("[kho chung] ghi hỏng:", e);
+      if (chuoiDaDanhDau !== undefined && anhChupCuoi.current === chuoiDaDanhDau) {
+        anhChupCuoi.current = "";
+      }
+      setTrangThaiKhoChung("rieng");
+    });
   }, []);
-  const [trangThaiKhoChung, setTrangThaiKhoChung] =
-    useState<GiaTriDuLieu["trangThaiKhoChung"]>("dang-noi");
 
   const apDung = useCallback((d: DuLieuLuu) => {
     /**
@@ -1769,8 +1812,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         if (tuMayChu === null) {
           const d = duLieuHienTai.current;
           if (d) {
-            anhChupCuoi.current = JSON.stringify(d);
-            dayLenMayChu(d);
+            /* Cùng lý do với chỗ gọi trong effect ghi: ghi hỏng thì phải gỡ dấu, không thì lần
+               nghe sau ghi đè mất dữ liệu máy này vừa dựng lên. */
+            const chuoiDay = JSON.stringify(d);
+            anhChupCuoi.current = chuoiDay;
+            dayLenMayChu(d, chuoiDay);
           }
           return;
         }
@@ -1841,8 +1887,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     // biến mất khỏi kho chung mà không ai hay.
     if (!daNgheMayChu.current) return;
 
+    /* 🔴 Truyền `chuoi` sang để lần ghi hỏng gỡ được dấu này — xem `dayLenMayChu`. Không truyền
+       thì app tưởng đã đồng bộ, và ảnh chụp cũ dội về sẽ xoá mất thay đổi vừa làm (đúng lỗi
+       "bấm tick 3 lần mới nhận" Sếp báo 15/09/2026). */
     anhChupCuoi.current = chuoi;
-    dayLenMayChu(d);
+    dayLenMayChu(d, chuoi);
   }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, nhaCungCapThem, thuKhoThem, dayLenMayChu]);
 
   /**
