@@ -17,7 +17,8 @@
 // ============================================================
 
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
-import type { Quyen } from "@/4-phan-quyen/quyen";
+import type { NguoiDung, Quyen } from "@/4-phan-quyen/quyen";
+import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 
 /** Người này có được chia việc trong đề nghị (phụ trách ít nhất một dòng vật tư) không. */
 export function duocChiaViec(deNghi: DeNghiMuaHang, uid: string): boolean {
@@ -145,6 +146,132 @@ export function coLocTheoPhanViec(
   return sttDongDuocXem(deNghi, uid, quyen).length < deNghi.items.length;
 }
 
+
+// ============================================================
+// ★★ NHÁNH HỒ SƠ PHÒNG BAN — AI ĐƯỢC GHI NHẬN VIỆC GIAO HÀNG
+//
+// 🔴 CHỈ ĐẠO SẾP 14/09/2026, nguyên văn: *"Các đề xuất từ phòng ban thì sẽ đi nhánh riêng, không
+// cần lấy dữ liệu từ app kho công trình mà nhân viên mua hàng sẽ là người bấm hoàn thành và đính
+// kèm phiếu giao hàng."*
+//
+// VÌ SAO KHÔNG SỬA `quyen.ts`: `ghiPhieuNhanHang` / `xacNhanKho` ở đó là cờ TOÀN CỤC, tính một lần
+// từ (vai trò, cấp quyền, chức năng) — nó **không biết đang đứng ở hồ sơ nào**. Nới ở đó là nới cho
+// MỌI hồ sơ, kể cả hồ sơ công trình, tức xoá mất chốt "chỉ thủ kho xác nhận hàng về" của cả app.
+// Câu hỏi ở đây hẹp hơn một bậc — *"người này có được ghi nhận giao hàng CỦA HỒ SƠ NÀY không"* —
+// nên nó thuộc về tệp này, đúng khuôn `duocXemBaoGiaCuaDeNghi` ở trên.
+// ============================================================
+
+/**
+ * Cấp tối thiểu để được ghi nhận giao hàng theo nhánh phòng ban.
+ *
+ * Cấp 1 là "Xem" theo chuẩn App Tổng (1 thấp nhất → 4 cao nhất, xem `quyen.ts`) — người chỉ được
+ * xem thì không ghi chứng từ. Từ cấp 2 "Nhập liệu" trở lên mới là người làm dữ liệu.
+ *
+ * ⚠️ ĐỪNG ĐỌC NGƯỢC THANG NÀY. Bản `thumua-next` cũ ghi nhãn ngược (*"Level 1 = Trưởng phòng toàn
+ * quyền"*); lấy nhầm nhãn đó là điều kiện `>= 2` biến thành "chặn đúng người cần mở".
+ */
+const CAP_TOI_THIEU_GHI_NHAN_GIAO_HANG = 2;
+
+/**
+ * Người này có phải là người THU MUA đủ tư cách ghi nhận giao hàng cho hồ sơ phòng ban không.
+ *
+ * Hai đường, cả hai đều nằm TRONG phòng thu mua:
+ *   1. Nhân viên / trưởng bộ phận thu mua từ cấp 2 (Nhập liệu) trở lên — đúng đối tượng Sếp chỉ
+ *      định ("nhân viên mua hàng sẽ là người bấm hoàn thành").
+ *   2. Người được chia việc trong chính hồ sơ đó (phụ trách ít nhất một dòng vật tư).
+ *
+ * ⚠️ ĐƯỜNG 2 VẪN ĐÒI CẤP >= 2, KHÔNG mở trơn theo "có tên trong phân bổ". Phân bổ hiện chỉ chọn
+ * được nhân viên thu mua có tài khoản (`nhanVienThuMuaCoTaiKhoan`) nên trên thực tế hai đường
+ * trùng nhau — nhưng nếu sau này quản trị gán tay một dòng cho người ngoài phòng thu mua (QLDA,
+ * Phòng Thi công, cấp 1 chỉ được xem) thì đường 2 sẽ lặng lẽ cấp cho họ quyền ghi chứng từ nhận
+ * hàng. Giữ sàn cấp 2 ở đây thì cái đó không xảy ra được, đúng luật dự án *"thiếu thông tin thì
+ * cho quyền THẤP NHẤT"*.
+ */
+function laNguoiThuMuaGhiNhanDuoc(
+  deNghi: DeNghiMuaHang,
+  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+): boolean {
+  if (nguoiDung.capTM < CAP_TOI_THIEU_GHI_NHAN_GIAO_HANG) return false;
+  const laNguoiThuMua =
+    nguoiDung.chucNang === "nhan_vien_thu_mua" ||
+    nguoiDung.chucNang === "truong_bo_phan_thu_mua";
+  return laNguoiThuMua || duocChiaViec(deNghi, nguoiDung.uid);
+}
+
+/**
+ * ★★ CÓ ĐƯỢC ĐÍNH KÈM / GHI NHẬN PHIẾU GIAO HÀNG CỦA HỒ SƠ NÀY KHÔNG.
+ *
+ * Hai đường:
+ *   1. `quyen.ghiPhieuNhanHang` — đường sẵn có, KHÔNG ĐỤNG TỚI (thủ kho công trình cấp kho >= 2,
+ *      quản trị). Mọi hồ sơ, như từ trước tới nay.
+ *   2. ★ MỚI: hồ sơ PHÒNG BAN + người thu mua đủ tư cách (xem `laNguoiThuMuaGhiNhanDuoc`).
+ *
+ * 🔴 KHOÁ CHẶT THEO `laHoSoPhongBan`, KHÔNG NỚI SANG HỒ SƠ CÔNG TRÌNH. Hồ sơ công trình có kho
+ * công trình thật, và chốt "người xác nhận hàng về phải là người nhận hàng" là chốt kiểm soát
+ * nặng nhất của app: người đi mua tự ký nhận hàng của chính mình thì không còn ai đối chứng. Nhánh
+ * này mở được CHỈ VÌ hồ sơ phòng ban **không có kho nào để đối chứng** — bỏ điều kiện đó là mất
+ * chốt của cả app, không phải nới một chút.
+ *
+ * ⚠️ `deNghi` là `null`/`undefined` (đơn hàng chưa gắn đề nghị — PO "chờ đề nghị") thì
+ * `laHoSoPhongBan` trả `false` → KHÔNG nới. Cố ý: không biết hồ sơ nào thì không biết có kho hay
+ * không, mà thiếu thông tin thì cho quyền thấp nhất.
+ */
+export function duocGhiNhanGiaoHangCuaHoSo(
+  deNghi: DeNghiMuaHang | null | undefined,
+  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+  quyen: Quyen,
+): boolean {
+  if (quyen.ghiPhieuNhanHang) return true;
+  if (!deNghi || !laHoSoPhongBan(deNghi)) return false;
+  return laNguoiThuMuaGhiNhanDuoc(deNghi, nguoiDung);
+}
+
+/**
+ * ★★ CÓ ĐƯỢC XÁC NHẬN ĐÃ NHẬN ĐỦ HÀNG CỦA HỒ SƠ NÀY KHÔNG (điều kiện ② hoàn thành PO).
+ *
+ * Cùng khuôn `duocGhiNhanGiaoHangCuaHoSo` ngay trên, chỉ khác cờ nền là `quyen.xacNhanKho`.
+ *
+ * 🔴 TÁCH LÀM HAI HÀM DÙ THÂN GIỐNG NHAU. Hai cờ nền là hai quyền riêng trong `quyen.ts`
+ * (`ghiPhieuNhanHang` và `xacNhanKho`) và Ban lãnh đạo có thể tách chúng bất cứ lúc nào — gộp làm
+ * một hàm là tự buộc hai việc khác nhau vào cùng một câu trả lời, rồi lần sau nới một cái là nới
+ * luôn cái kia mà không ai thấy.
+ *
+ * ⚠️ ĐÂY CHỈ LÀ QUYỀN, KHÔNG PHẢI ĐIỀU KIỆN NGHIỆP VỤ. Hàng đã về đủ chưa, mọi lần giao đã có
+ * phiếu giao nhận chưa — đó là việc của `poDaGiaoDu` và `vuongMacXacNhanKho`
+ * (`2-quy-trinh/tinh-toan.ts`). Nhánh phòng ban KHÔNG được bỏ qua hai luật đó: nhân viên mua hàng
+ * vẫn phải đính kèm phiếu giao hàng cho từng lần giao rồi mới bấm hoàn thành được, đúng chỉ đạo
+ * 11/08/2026 và đúng câu của Sếp 14/09/2026 (*"bấm hoàn thành **và** đính kèm phiếu giao hàng"*).
+ */
+export function duocXacNhanNhanDuHangCuaHoSo(
+  deNghi: DeNghiMuaHang | null | undefined,
+  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+  quyen: Quyen,
+): boolean {
+  if (quyen.xacNhanKho) return true;
+  if (!deNghi || !laHoSoPhongBan(deNghi)) return false;
+  return laNguoiThuMuaGhiNhanDuoc(deNghi, nguoiDung);
+}
+
+/**
+ * ★ VIỆC NÀY ĐANG MỞ **NHỜ** NHÁNH PHÒNG BAN (chứ không phải nhờ quyền sẵn có) — để giao diện
+ * biết lúc nào phải in câu `LY_DO_NHANH_PHONG_BAN`.
+ *
+ * 🔴 KHÔNG NỚI IM LẶNG. Người dùng thấy hồ sơ phòng ban làm được việc mà hồ sơ công trình không
+ * làm được sẽ tưởng app lỗi, hoặc tưởng luật đã đổi cho tất cả rồi đi đòi làm y vậy trên hồ sơ
+ * công trình. Nói rõ ngay tại chỗ là cách rẻ nhất chặn hiểu nhầm đó.
+ *
+ * 📌 ĐẶT Ở ĐÂY CHỨ KHÔNG ĐỂ GIAO DIỆN TỰ SO `duocGhiNhan... && !quyen.ghiPhieuNhanHang`. Phép so
+ * đó đúng hôm nay, nhưng thêm một đường mở thứ ba vào `duocGhiNhanGiaoHangCuaHoSo` là nó âm thầm
+ * in nhầm lý do. Một luật, một chỗ.
+ */
+export function ghiNhanGiaoHangNhoNhanhPhongBan(
+  deNghi: DeNghiMuaHang | null | undefined,
+  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+  quyen: Quyen,
+): boolean {
+  if (quyen.ghiPhieuNhanHang) return false; // đã có quyền sẵn, không phải nhờ nhánh này
+  return duocGhiNhanGiaoHangCuaHoSo(deNghi, nguoiDung, quyen);
+}
 
 /** Lý do bị chặn, để nói cho người dùng biết phải làm gì. Trả `null` khi được xem. */
 export function lyDoKhongXemBaoGia(

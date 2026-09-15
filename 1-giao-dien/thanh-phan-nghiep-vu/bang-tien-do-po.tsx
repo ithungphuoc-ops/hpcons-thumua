@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { AlertTriangle, Lock } from "lucide-react";
+import { AlertTriangle, Info, Lock } from "lucide-react";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import {
   Table,
@@ -20,6 +20,11 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoPO, vuongMacThayTepPhieuGiao } from "@/2-quy-trinh/tinh-toan";
 import { xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
+import {
+  duocGhiNhanGiaoHangCuaHoSo,
+  ghiNhanGiaoHangNhoNhanhPhongBan,
+} from "@/4-phan-quyen/quyen-theo-ho-so";
 import { nhanAnToan, NHAN_TRANG_THAI_PHIEU } from "@/2-quy-trinh/trang-thai";
 import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -61,10 +66,36 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
    * phải tính lại mỗi khi đơn/báo giá/phiếu đổi — đó là lý do cả ba mảng nằm trong danh sách
    * phụ thuộc.
    */
-  const giaiDoanDeNghi = useMemo(() => {
-    const dn = po.prId ? deNghi.find((d) => d.id === po.prId) : undefined;
-    return dn ? xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan) : null;
-  }, [po.prId, deNghi, donHang, baoGia, phieuNhan]);
+  /**
+   * ★ ĐỀ NGHỊ CHỨA ĐƠN NÀY — `null` khi đơn chưa gắn đề nghị nào (PO "chờ đề nghị", `prId` bỏ
+   * trống). Tách riêng vì nay có HAI câu hỏi cần tới nó: bước hiện tại (`giaiDoanDeNghi`, bên
+   * dưới) và *"đây có phải hồ sơ phòng ban không"* (nhánh phòng ban, Sếp 14/09/2026). Hai chỗ
+   * cùng tự `find` là hai chỗ sớm muộn tra ra hai hồ sơ khác nhau.
+   */
+  const deNghiCuaPO = useMemo(
+    () => (po.prId ? (deNghi.find((d) => d.id === po.prId) ?? null) : null),
+    [po.prId, deNghi],
+  );
+  const giaiDoanDeNghi = useMemo(
+    () => (deNghiCuaPO ? xacDinhGiaiDoan(deNghiCuaPO, donHang, baoGia, phieuNhan) : null),
+    [deNghiCuaPO, donHang, baoGia, phieuNhan],
+  );
+
+  /**
+   * ★★ AI ĐƯỢC ĐÍNH KÈM PHIẾU GIAO NHẬN Ở ĐÂY — KHÔNG CÒN HỎI THẲNG `quyen.ghiPhieuNhanHang`.
+   *
+   * 🔴 CHỈ ĐẠO SẾP 14/09/2026: hồ sơ của PHÒNG BAN đi nhánh riêng, *"nhân viên mua hàng sẽ là
+   * người bấm hoàn thành và đính kèm phiếu giao hàng"*. Cờ `quyen.ghiPhieuNhanHang` chỉ mở cho
+   * thủ kho và quản trị, mà hồ sơ phòng ban KHÔNG có kho công trình nào gửi phiếu sang — giữ
+   * nguyên là các hồ sơ đó kẹt vĩnh viễn, không ai đính kèm được phiếu để bấm hoàn thành.
+   *
+   * 🔴 LUẬT NẰM Ở `4-phan-quyen/quyen-theo-ho-so.ts`, KHÔNG so `tenCongTrinh` tại chỗ. Cùng lý do
+   * với `vuongMacThayTepPhieuGiao` ngay dưới: một luật, mọi nơi gọi chung.
+   */
+  const duocDinhKemPhieuGiao = duocGhiNhanGiaoHangCuaHoSo(deNghiCuaPO, nguoiDung, quyen);
+  /** Mở được là NHỜ nhánh phòng ban → bắt buộc in lý do ra, không nới im lặng. */
+  const moNhoNhanhPhongBan = ghiNhanGiaoHangNhoNhanhPhongBan(deNghiCuaPO, nguoiDung, quyen);
+
   const tienDo = useMemo(() => tinhTienDoPO(po, phieuCuaPO), [po, phieuCuaPO]);
 
   /** Các lần giao ĐÃ NHẬP KHO — thành cột động trong bảng. */
@@ -259,14 +290,45 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                           <span className="shrink-0">Ảnh phiếu giao (từ QLK CTR):</span>
                           <LienKetAnhQlkCtr anh={p.anhQlkCtr} />
                         </span>
-                      ) : quyen.ghiPhieuNhanHang && !khoaThayTep ? (
-                        <ODinhKemTep
-                          tep={p.tepPhieuGiao}
-                          nhanThem="Đính kèm phiếu giao nhận (bắt buộc)"
-                          batBuoc={!p.tepPhieuGiao}
-                          nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
-                          onXong={(tep) => dinhKemPhieuGiao(p.id, tep, nguoiDung.tenHienThi)}
-                        />
+                      ) : duocDinhKemPhieuGiao && !khoaThayTep ? (
+                        /**
+                         * ★★ NHÁNH ĐÍNH KÈM — nay mở theo HỒ SƠ, không theo cờ toàn cục.
+                         *
+                         * 🔴 SẾP 14/09 + 15/09/2026: hồ sơ phòng ban đi nhánh riêng, *"nhân viên
+                         * thu mua tự hoàn thành, **nhưng phải đính kèm phiếu giao hàng**"*. Nới
+                         * quyền ở đây là để họ ĐÍNH ĐƯỢC phiếu, KHÔNG PHẢI để bỏ qua chứng từ:
+                         * `batBuoc` và chữ "(bắt buộc)" giữ nguyên cho cả hai loại hồ sơ, và luật
+                         * `vuongMacXacNhanKho` vẫn chặn bấm hoàn thành khi còn lần giao thiếu tệp.
+                         */
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                          <ODinhKemTep
+                            tep={p.tepPhieuGiao}
+                            nhanThem="Đính kèm phiếu giao nhận (bắt buộc)"
+                            batBuoc={!p.tepPhieuGiao}
+                            nguoi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+                            onXong={(tep) => dinhKemPhieuGiao(p.id, tep, nguoiDung.tenHienThi)}
+                          />
+                          {/* 🔴 NỚI QUYỀN THÌ PHẢI NÓI RA NGAY TẠI CHỖ. Nhân viên thu mua bình
+                              thường không được đính kèm phiếu nhận hàng; thấy mình đính được mà
+                              không hiểu vì sao thì sẽ tưởng luật đã đổi cho MỌI hồ sơ, rồi đi đòi
+                              làm y vậy trên hồ sơ công trình — nơi chốt "chỉ thủ kho xác nhận" là
+                              chốt kiểm soát nặng nhất của app.
+                              📌 Câu chữ lấy từ `LY_DO_NHANH_PHONG_BAN` (một chỗ duy nhất), và nó
+                              nói đúng tinh thần chỉ đạo: ĐỔI NGƯỜI GHI NHẬN, KHÔNG BỎ yêu cầu có
+                              phiếu giao hàng. Câu nhấn phía sau viết thêm ở đây cho hết ý.
+                              ⚠️ Có CẢ MÀU LẪN CHỮ + icon (Design System V1.1) — không báo bằng
+                              riêng màu. Token `border-warning` / `bg-warning-bg` / `text-warning-soft`
+                              đều có thật trong `app/globals.css`. */}
+                          {moNhoNhanhPhongBan && (
+                            <p className="flex items-start gap-1.5 rounded-md border border-warning bg-warning-bg px-2 py-1.5 text-xs text-warning-soft">
+                              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                              <span>
+                                {LY_DO_NHANH_PHONG_BAN} Phiếu giao hàng vẫn là bắt buộc — thiếu
+                                tệp của bất kỳ lần giao nào thì đơn không bấm hoàn thành được.
+                              </span>
+                            </p>
+                          )}
+                        </div>
                       ) : (
                         <div className="flex min-w-0 flex-col gap-1">
                           {p.tepPhieuGiao ? (
@@ -286,7 +348,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                             </span>
                           )}
                           {/* 🔴 CÂU LÝ DO — chỉ hiện khi THẬT SỰ bị khóa, không hiện khi chỉ là
-                              thiếu quyền (`ghiPhieuNhanHang`). Người xem không có quyền ghi thì
+                              thiếu quyền (`duocDinhKemPhieuGiao` sai). Người xem không có quyền ghi thì
                               chưa bao giờ thấy nút này, in thêm câu "hồ sơ đã chốt" cho họ là nói
                               về một việc họ không định làm.
                               ⚠️ Trạng thái phải có CẢ MÀU LẪN CHỮ (Design System V1.1) — icon ổ

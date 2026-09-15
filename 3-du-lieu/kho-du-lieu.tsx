@@ -32,7 +32,9 @@ import {
   NHAN_TRUONG_BO_PHAN,
   NHAN_BAN_LANH_DAO,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
+/* `formatNumber` — dựng mốc nhật ký "số lượng 12 → 15" cho người đọc, không để số thô kiểu
+   `12.000000000000002` lọt vào sổ lịch sử (xem `mocSuaBangMatHang`). */
+import { formatNumber, thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
@@ -66,6 +68,12 @@ import {
   soNgayDaTroiQua,
   tinhTienDoDeNghi,
   tinhTienDoPO,
+  /* Ba luật của cửa ghi phiếu nhận hàng (Ban lãnh đạo 15/08/2026) — dùng LẠI nguyên vẹn cho
+     nhánh phòng ban mở lại 15/09/2026, xem `themPhieuNhanPhongBan`. Nhánh mới KHÔNG được có bản
+     luật riêng: hai bản luật cho cùng một việc là kiểu chắc chắn lệch nhau. */
+  vuongMacGhiThemPhieuNhan,
+  vuongMacKhoiLuongNhan,
+  vuongMacSoPhieuNCC,
   /* Chốt "hồ sơ đã nghiệm thu thì không thay tệp phiếu giao nhận" (Sếp 15/09/2026) — một luật,
      dùng chung với nút đính kèm ở `bang-tien-do-po.tsx`. Xem `dinhKemPhieuGiao`. */
   vuongMacThayTepPhieuGiao,
@@ -78,7 +86,15 @@ import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
    Ban lãnh đạo 26/08/2026. Xem chú thích ở `const danhBa` trong `DuLieuProvider`. */
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { tinhQuyen } from "@/4-phan-quyen/quyen";
+import { tinhQuyen, type NguoiDung, type Quyen } from "@/4-phan-quyen/quyen";
+/* "Người này có phụ trách ít nhất một dòng của đề nghị không" — DÙNG LẠI hàm chung, không
+   viết lại điều kiện. Màn chi tiết đề nghị đang hỏi đúng câu này (qua `laViecCuaToi`) để
+   quyết định ai THẤY nút duyệt hoàn thành đơn; cửa ghi phải hỏi y hệt, nếu không thì nút
+   sáng mà bấm vào bị chặn — hoặc ngược lại. Xem `vuongMacQuyenXacNhanHoanThanhDon`. */
+import { duocChiaViec, duocGhiNhanGiaoHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
+/* Hồ sơ PHÒNG BAN (không gắn công trình) — dấu hiệu duy nhất quyết định nhánh ghi phiếu nhận
+   thủ công mở hay đóng. Xem `themPhieuNhanPhongBan`. */
+import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 import { ghiNhatKyHeThong } from "@/3-du-lieu/nhat-ky-he-thong";
 /* `dongCanKiemSoatDinhMuc` thôi được nhập ở đây từ 06/09/2026 — effect tự báo QLDA (chỗ dùng
    duy nhất) đã bỏ theo chỉ đạo Sếp. Hàm vẫn còn trong `2-quy-trinh/kiem-soat-dinh-muc.ts` cho
@@ -133,8 +149,10 @@ import type {
   ThongTinThuongMaiNCC,
   LanSuaBinhLuan,
   MoTaTep,
+  MocLichSu,
   PhongBanNguon,
   NhomDeXuat,
+  TienDoDongDeNghi,
 } from "@/3-du-lieu/kieu-du-lieu";
 // Nhãn tiếng Việt để ghi nhật ký đọc được: nhật ký ghi mã thô (`thi_cong`, `mm_ccdc`) thì
 // người tra hồ sơ sau này không biết đó là gì.
@@ -263,6 +281,390 @@ export interface ThayDoiDonHang {
   items?: DongPO[];
   /** Có mặt (kể cả mảng rỗng) = có sửa giá. Khóa nếu đơn đã `xacNhanTruongBP`. */
   gia?: { lines: DongGiaPO[] };
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ LUẬT THUẦN CỦA TẦNG GHI ĐƠN HÀNG — Sếp 15/09/2026
+//
+// 🔴 VÌ SAO LÀ HÀM THUẦN, ĐỨNG NGOÀI HOOK: bộ kiểm luật của repo (`kiem-luat-dung-chung.mjs`)
+// KHÔNG mount được hook React, nên luật nằm thẳng trong `useCallback` thì **không có bài kiểm
+// nào bắt được** khi ai đó refactor rồi vô tình làm rơi mất một khối `if`. Đúng kịch bản sự cố
+// 24/08/2026 (điều kiện bị xoá, chú thích còn nguyên, `grep` vẫn xanh). Đây cũng chính là lý do
+// `vuongMacLapDocLap` đã được tách ra khỏi `themDonHang` ngày 04/09/2026 — xem chú thích ở
+// `2-quy-trinh/giai-doan-mua-hang.ts`.
+//
+// ⚠️ ĐÚNG RA NHỮNG HÀM NÀY THUỘC VỀ `2-quy-trinh/` (quy tắc 3.4b: luật nghiệp vụ không để trong
+// tầng dữ liệu). Chúng nằm tạm ở đây vì lượt sửa 15/09/2026 chỉ được đụng vào đúng tệp này —
+// nhiều phiên đang sửa song song, đụng tệp của phiên khác là đè mất việc của họ. **Ai dời được
+// thì dời sang `2-quy-trinh/`**, nhớ đổi luôn đường `import` trong `kiem-luat-dung-chung.mjs`.
+// ════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * ★ MÃ TRẢ VỀ "KHÔNG CÓ GÌ THAY ĐỔI" của `suaDonHang` — Sếp 15/09/2026.
+ *
+ * 🔴 VÌ SAO PHẢI CÓ MÃ RIÊNG: trước hôm nay `suaDonHang` trả `null` cho **hai ca khác hẳn nhau**
+ * — "đã ghi xong" và "không có gì đổi nên thoát sớm, KHÔNG gọi `setDonHang` lần nào". Giao diện
+ * chỉ đọc được `null` nên báo toast xanh *"Đã lưu thay đổi"* cho một lần ghi **chưa từng xảy
+ * ra**. Người dùng đóng hộp thoại và tin là đã lưu.
+ *
+ * 🔴 ĐÂY LÀ BẪY NGỦ, KHÔNG PHẢI PHIỀN PHỨC NHỎ. Hộp sửa đơn gửi lại NGUYÊN state mỗi lần lưu,
+ * còn danh sách mốc nhật ký (`moc`) mới là thứ quyết định "có gì đổi". Ai thêm một ô nhập mới
+ * vào hộp mà **quên thêm dòng so sánh tương ứng** thì ô đó im lặng không được lưu, trong khi
+ * toast vẫn xanh — không lỗi lint, không lỗi biên dịch, không ai biết cho tới khi đối chiếu
+ * chứng từ. Phân biệt hai ca ở tầng ghi là cách duy nhất làm cái im lặng đó phát ra tiếng.
+ *
+ * ⚠️ LÀ CHUỖI, CỐ Ý — KHÔNG đổi sang union/symbol/object. Giao diện `hop-sua-don-hang.tsx` đã
+ * viết theo dạng chuỗi (`if (loi === MA_KHONG_CO_THAY_DOI) toast.info(...)`), và chuỗi giữ được
+ * hành vi cũ ở mọi nơi gọi chưa cập nhật: cùng lắm là hiện một câu, chứ không báo xanh sai.
+ *
+ * ⚠️ IMPORT HẰNG NÀY, ĐỪNG CHÉP TAY chuỗi `"KHONG_CO_THAY_DOI"` sang nơi gọi — hai bản chép tay
+ * là kiểu lệch không có gì báo khi một bên đổi.
+ */
+export const MA_KHONG_CO_THAY_DOI = "KHONG_CO_THAY_DOI";
+
+/**
+ * Sai số cho phép khi so khối lượng (đơn vị của chính mặt hàng).
+ *
+ * 🔴 KHÔNG SO `>` TRẦN TRỤI với số thực. `0.1 + 0.2 = 0.30000000000000004` trong JavaScript, nên
+ * đặt đúng bằng phần còn lại vẫn có thể "vượt" và bị chặn — người dùng nhìn hai con số y hệt nhau
+ * trên màn hình mà app nói vượt, không cách nào hiểu nổi. Ngưỡng này nhỏ hơn mọi sai lệch nghiệp
+ * vụ thật (không ai đặt hàng lẻ tới 1 phần triệu đơn vị) nên không nới lỏng luật.
+ */
+const NGUONG_LECH_KHOI_LUONG = 1e-6;
+
+/** Dòng PO tối giản — chỉ những trường luật thật sự đọc, để bài kiểm dựng dữ liệu gọn. */
+type DongPOCanKiem = Pick<
+  DongPO,
+  "sttDong" | "sttDongDeNghi" | "tenVatLieu" | "donViTinh" | "khoiLuongDat" | "laDongGhiChu"
+>;
+
+/** Dòng tiến độ đề nghị tối giản — phần `suaDonHang` cần để biết còn được đặt bao nhiêu. */
+type TienDoCanKiem = Pick<
+  TienDoDongDeNghi,
+  "stt" | "tenVatLieu" | "donViTinh" | "khoiLuongChuaLenPO"
+>;
+
+/** Cộng `khoiLuongDat` theo từng dòng của ĐỀ NGHỊ — một dòng đề nghị có thể bị cắt làm nhiều dòng PO. */
+function congKhoiLuongTheoDongDeNghi(items: readonly DongPOCanKiem[]): Map<number, number> {
+  const bang = new Map<number, number>();
+  for (const d of items) {
+    if (!d.sttDongDeNghi) continue;
+    bang.set(d.sttDongDeNghi, (bang.get(d.sttDongDeNghi) ?? 0) + (d.khoiLuongDat || 0));
+  }
+  return bang;
+}
+
+/**
+ * ★★★ SỬA BẢNG MẶT HÀNG CỦA PO CÓ ĐỀ NGHỊ THÌ PHẢI ĐỐI CHIẾU KHỐI LƯỢNG ĐÃ DUYỆT — Sếp 15/09/2026.
+ *
+ * 🔴🔴 ĐÂY LÀ LỖ HỔNG KIỂM SOÁT CHI TIÊU, KHÔNG PHẢI LỖI HIỂN THỊ. Trước hôm nay `suaDonHang` cho
+ * thêm mặt hàng + số lượng + đơn giá **tùy ý** vào một PO đã chốt: nó không gọi `vuongMacLapDonHang`
+ * (chốt duyệt giá, Ban lãnh đạo 15/08/2026) và không đối chiếu khối lượng đã duyệt của đề nghị.
+ * Tức nút "Sửa đơn hàng" là một **đường vòng quanh đúng cái chốt** mà cả quy trình 8 bước dựng ra.
+ *
+ * 🔴 HẬU QUẢ ĐO ĐƯỢC, NẶNG HƠN VẺ NGOÀI. Dòng thêm tay mang `sttDongDeNghi: undefined`, mà
+ * `tinhTienDoDeNghi` (2-quy-trinh/tinh-toan.ts) gom khối lượng **theo `sttDongDeNghi`** — nên:
+ *   · tiền của đơn tăng ngay (`tinhTienChiTietPO` cộng mọi dòng, không hỏi đề nghị)
+ *   · `khoiLuongDaLenPO` KHÔNG tăng → `khoiLuongChuaLenPO` KHÔNG giảm
+ *   · đề nghị gốc vẫn báo khối lượng đó *"chưa lên PO"*, người khác lập tiếp một PO nữa cho cùng
+ *     phần việc → **đặt trùng, không màn hình nào báo**.
+ *
+ * 🔴 NGÂN SÁCH TÍNH THEO TỪNG DÒNG ĐỀ NGHỊ, CỘNG NGƯỢC LẠI PHẦN CỦA CHÍNH ĐƠN NÀY.
+ * `khoiLuongChuaLenPO` do `tinhTienDoDeNghi` trả về **đã trừ** phần đơn này đang giữ (nó duyệt mọi
+ * PO chưa hủy của đề nghị, kể cả PO đang sửa). Không cộng lại là mở hộp sửa rồi bấm lưu mà không
+ * đổi gì cũng bị chặn — luật đúng biến thành luật chặn cứng.
+ *
+ * 🔴 GOM THEO `sttDongDeNghi` CHỨ KHÔNG XÉT LẺ TỪNG DÒNG PO: một dòng đề nghị được phép cắt thành
+ * nhiều dòng PO (giao nhiều đợt, nhiều quy cách). Xét lẻ thì hai dòng mỗi dòng "vừa đủ phần còn
+ * lại" đều lọt, cộng lại thành gấp đôi phần đã duyệt — đúng lỗ hổng đang vá, chỉ đổi hình dạng.
+ *
+ * ⚠️ DÒNG CŨ KHÔNG TRỎ VỀ ĐỀ NGHỊ THÌ GIỮ, CHỈ CẤM TĂNG. Dữ liệu chạy thử của cả phòng có sẵn
+ * những PO mang dòng `sttDongDeNghi` trống (đơn lập tay thời kỳ đầu, đơn nhập từ Excel). Chặn tiệt
+ * là **khóa cứng các đơn đó**: mở hộp sửa để đổi một số điện thoại cũng không lưu nổi. Nên: dòng cũ
+ * đi tiếp được, nhưng **không được tăng khối lượng** — tăng một dòng không ai đối chiếu được chính
+ * là kiểu tiêu tiền mà luật này sinh ra để chặn, chỉ khác là nó núp trong một dòng có sẵn.
+ *
+ * @param itemsCu  `po.items` đang lưu — cũng chính là bảng mà `tienDoDeNghi` vừa tính trên đó.
+ * @param itemsMoi `thayDoi.items` nơi gọi gửi lên.
+ * @param tienDoDeNghi Kết quả `tinhTienDoDeNghi(deNghiGoc, mọi PO, mọi phiếu)`.
+ * @returns Câu lý do bị chặn, `null` là hợp lệ.
+ */
+export function vuongMacSuaDongPOTheoDeNghi(
+  itemsCu: readonly DongPOCanKiem[],
+  itemsMoi: readonly DongPOCanKiem[],
+  tienDoDeNghi: readonly TienDoCanKiem[],
+): string | null {
+  const hangCu = itemsCu.filter((d) => laDongHang(d));
+  const hangMoi = itemsMoi.filter((d) => laDongHang(d));
+
+  /* ① Dòng KHÔNG trỏ về đề nghị — chỉ chấp nhận dòng đã có sẵn, và không cho tăng khối lượng. */
+  const khoiLuongCuMoCoi = new Map<number, number>();
+  for (const d of hangCu) {
+    if (!d.sttDongDeNghi) khoiLuongCuMoCoi.set(d.sttDong, d.khoiLuongDat || 0);
+  }
+  for (const d of hangMoi) {
+    if (d.sttDongDeNghi) continue;
+    const ten = d.tenVatLieu?.trim() || "(chưa đặt tên)";
+    const klCu = khoiLuongCuMoCoi.get(d.sttDong);
+    if (klCu === undefined) {
+      return `Dòng "${ten}" không gắn với mặt hàng nào của đề nghị gốc nên không đối chiếu được với khối lượng đã duyệt. Đơn hàng lập từ đề nghị chỉ được đặt những mặt hàng đã qua bước duyệt báo giá — cần mua thêm thứ khác thì lập đề nghị mới, đừng thêm tay vào đơn đã chốt.`;
+    }
+    if ((d.khoiLuongDat || 0) > klCu + NGUONG_LECH_KHOI_LUONG) {
+      return `Dòng "${ten}" không gắn với mặt hàng nào của đề nghị gốc nên không có phần khối lượng đã duyệt để đối chiếu — chỉ được giữ nguyên (${formatNumber(klCu)}) hoặc giảm, không tăng lên ${formatNumber(d.khoiLuongDat || 0)}.`;
+    }
+  }
+
+  /* ② Dòng có trỏ về đề nghị — tổng đặt của đơn này không được vượt phần còn được phép đặt. */
+  const datCu = congKhoiLuongTheoDongDeNghi(hangCu);
+  const datMoi = congKhoiLuongTheoDongDeNghi(hangMoi);
+  for (const [stt, klMoi] of datMoi) {
+    const dongDN = tienDoDeNghi.find((t) => t.stt === stt);
+    if (!dongDN) {
+      return `Đơn hàng đang có dòng trỏ về mặt hàng số ${stt} của đề nghị, nhưng đề nghị gốc không còn dòng nào mang số đó. Không đối chiếu được khối lượng đã duyệt — kiểm lại đề nghị trước khi sửa đơn.`;
+    }
+    const conDuocDat = (dongDN.khoiLuongChuaLenPO || 0) + (datCu.get(stt) ?? 0);
+    if (klMoi > conDuocDat + NGUONG_LECH_KHOI_LUONG) {
+      return `Mặt hàng "${dongDN.tenVatLieu}" chỉ còn ${formatNumber(conDuocDat)} ${dongDN.donViTinh} được phép đặt trên đơn này (phần đã duyệt, trừ đi phần các đơn khác đã đặt). Đơn đang ghi ${formatNumber(klMoi)} ${dongDN.donViTinh}. Muốn đặt thêm thì phải có đề nghị được duyệt cho phần chênh đó.`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * ★★ KHÓA QUYỀN Ở TẦNG GHI CHO BỐN CỬA CÒN THIẾU — Sếp 15/09/2026.
+ *
+ * 🔴 KHÓA NÚT KHÔNG PHẢI LÀ CHẶN. Dự án đã viết ra nguyên tắc này ở `themPhieuNhan`,
+ * `dinhKemPhieuGiao`, `xacNhanKho` — nhưng bốn cửa dưới đây chỉ kiểm ĐIỀU KIỆN NGHIỆP VỤ, không
+ * hỏi một câu nào về **người đang bấm là ai**. Cả phòng dùng chung một tài liệu Firestore và
+ * trang có thể đang mở sẵn từ trước khi quyền bị đổi, nên "giao diện đã ẩn nút" không kết luận
+ * được gì về thứ thực sự được ghi.
+ *
+ * 📌 MỖI HÀM DÙNG ĐÚNG CỜ QUYỀN MÀ NÚT ĐANG DÙNG, để câu chặn và chữ trên nút không bao giờ nói
+ * khác nhau — cùng nếp đã ghi ở `xacNhanKho`.
+ *
+ * ⚠️ TRẢ CÂU LÝ DO, KHÔNG NÉM LỖI VÀ KHÔNG TRẢ `null` IM LẶNG. Mọi cửa ghi trong tệp này đều
+ * theo giao kèo `string | null`; ném lỗi là màn hình trắng, còn `null` im lặng là người dùng bấm
+ * mà không có gì xảy ra và không ai biết vì sao.
+ */
+export function vuongMacQuyenChotDonNhap(quyen: Pick<Quyen, "lapPO">): string | null {
+  /* `lapPO` chứ không phải `suaPODaChot`: chốt lại đơn nháp chính là **lập đơn** (đơn từ `"nhap"`
+     sang `"da_chot"`, thẻ nhảy sang bước ⑤ Tiến hành đặt hàng, công nợ bắt đầu tính). Nhân viên
+     thu mua cấp 2 vẫn lập đơn được nên vẫn chốt lại được — siết lên cấp 3 là chặn đúng người đang
+     làm việc đó hằng ngày. */
+  if (quyen.lapPO) return null;
+  return "Bạn không có quyền lập đơn mua hàng nên không chốt lại được đơn nháp này. Nhờ người phụ trách đơn hoặc Trưởng bộ phận chốt.";
+}
+
+export function vuongMacQuyenXacNhanKho(quyen: Pick<Quyen, "xacNhanKho">): string | null {
+  /* Đúng cờ mà nút đang dùng (`quyen.xacNhanKho` ở `don-hang-chi-tiet.tsx` và
+     `de-nghi-chi-tiet.tsx`) — thủ kho công trình cấp 2 trở lên, hoặc quản trị. */
+  if (quyen.xacNhanKho) return null;
+  return "Chỉ thủ kho công trình (hoặc quản trị) mới xác nhận được đã nhận đủ hàng.";
+}
+
+/**
+ * Ai được duyệt hoàn thành một đơn.
+ *
+ * 🔴 BA ĐƯỜNG, PHẢI GIỮ ĐỦ CẢ BA — cắt bớt là chặn đúng người Ban lãnh đạo đã mở đường cho:
+ *   ① `quyen.xacNhanTruongBP` — Trưởng bộ phận cấp 3+ / quản trị.
+ *   ② Người phụ trách chính ĐƠN NÀY (Ban lãnh đạo 24/08/2026, màn `don-hang-chi-tiet.tsx`).
+ *   ③ Người phụ trách ít nhất một dòng của ĐỀ NGHỊ gốc (Ban lãnh đạo 22/08/2026, màn
+ *      `de-nghi-chi-tiet.tsx` — ở đó nút hiện theo `laViecCuaToi`).
+ *
+ * ⚠️ HAI MÀN HÌNH MỞ NÚT THEO HAI CÁCH KHÁC NHAU, nên tầng ghi phải nhận **hợp** của cả hai. Chỉ
+ * lấy ② thì nhân viên đang giữ dòng của đề nghị bấm ở màn đề nghị sẽ bị chặn dù nút sáng; chỉ lấy
+ * ③ thì đơn không gắn đề nghị không ai duyệt nổi.
+ */
+export function vuongMacQuyenXacNhanHoanThanhDon(
+  quyen: Pick<Quyen, "xacNhanTruongBP">,
+  uidNguoiBam: string,
+  po: Pick<DonDatHang, "nguoiPhuTrachUid">,
+  deNghiGoc: DeNghiMuaHang | undefined,
+): string | null {
+  if (quyen.xacNhanTruongBP) return null;
+  // Vai trò KHÔNG_QUYỀN mang uid rỗng — đừng để nó khớp với một PO cũng thiếu người phụ trách.
+  if (uidNguoiBam && po.nguoiPhuTrachUid === uidNguoiBam) return null;
+  if (uidNguoiBam && deNghiGoc && duocChiaViec(deNghiGoc, uidNguoiBam)) return null;
+  return "Chỉ Trưởng bộ phận, người phụ trách đơn này, hoặc người đang phụ trách một phần việc của đề nghị gốc mới duyệt hoàn thành đơn được.";
+}
+
+export function vuongMacQuyenSuaDieuKhoanCongNo(quyen: Pick<Quyen, "lapPO">): string | null {
+  /* 🔴 `lapPO`, KHÔNG phải `xemCongNo` — đúng cờ màn Công nợ đang dùng (`suaDuocDieuKhoan`).
+     Xem và sửa là hai việc khác nhau: Kế toán cần ĐỌC công nợ, nhưng điều kiện thanh toán là thứ
+     Thu mua đàm phán với nhà cung cấp. Cho cả hai bên cùng sửa là hai phòng đổi qua đổi lại một
+     con số mà không ai chịu trách nhiệm. */
+  if (quyen.lapPO) return null;
+  return "Bạn không có quyền sửa điều khoản công nợ của đơn hàng. Điều kiện thanh toán do Thu mua đàm phán và ghi lại.";
+}
+
+/**
+ * ★★★ BA ĐIỀU KIỆN MỞ CỬA GHI NHẬN GIAO HÀNG BẰNG TAY — Sếp 15/09/2026.
+ *
+ * Nguyên văn: *"E mở cho nhánh phòng ban"* · *"Đúng, nhân viên thu mua tự hoàn thành, **nhưng
+ * phải đính kèm phiếu giao hàng**"*.
+ *
+ * 🔴🔴 ĐIỀU KIỆN ② (hồ sơ phải là PHÒNG BAN) LÀ CHỐT NẶNG NHẤT, ĐỪNG NỚI. Người đi mua tự ký
+ * nhận hàng của chính mình thì không còn ai đối chứng — đó là lý do app bỏ đường ghi tay ngày
+ * 30/08/2026. Nhánh này mở được **chỉ vì** hồ sơ phòng ban không có kho công trình nào để đối
+ * chứng: chính hoàn cảnh đó vừa gây kẹt vĩnh viễn, vừa là điều làm chốt cũ mất ý nghĩa. Bỏ điều
+ * kiện ② là mất chốt của cả app, không phải "nới thêm một chút".
+ *
+ * 🔴 ĐIỀU KIỆN ④ (bắt buộc có tệp phiếu giao hàng) LÀ CÂU THỨ HAI CỦA SẾP, không phải thủ tục
+ * hành chính: khi không có thủ kho đứng giữa thì tờ phiếu giao là **bằng chứng duy nhất còn lại**
+ * rằng hàng đã thật sự về.
+ *
+ * ⚠️ ④ KHÔNG THAY THẾ `vuongMacXacNhanKho` (Ban lãnh đạo 11/08/2026). Luật đó vẫn phải chạy
+ * nguyên ở cổng xác nhận — nó còn lo phiếu ghi trước 11/08 và phiếu do QLK CTR gửi sang. Hàm này
+ * chỉ chặn phiếu MỚI tạo bằng đường thủ công.
+ *
+ * ⚠️ Không có đề nghị (`undefined`, PO "chờ đề nghị") thì `laHoSoPhongBan` trả `false` → ĐÓNG.
+ * Cố ý: không biết hồ sơ nào thì không biết có kho hay không, mà thiếu thông tin thì cho quyền
+ * thấp nhất (CLAUDE.md §3.6c).
+ *
+ * @returns Câu lý do bị chặn, `null` là được phép ghi.
+ */
+export function vuongMacGhiNhanGiaoHangPhongBan(
+  deNghiGoc: DeNghiMuaHang | undefined,
+  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+  quyen: Quyen,
+  tepPhieuGiao: MoTaTep | undefined,
+): string | null {
+  if (!deNghiGoc || !laHoSoPhongBan(deNghiGoc)) {
+    return "Đơn này thuộc hồ sơ công trình — phiếu nhận hàng do thủ kho ghi bên app QLK CTR rồi tự đồng bộ sang, Thu mua không ghi tay.";
+  }
+  if (!duocGhiNhanGiaoHangCuaHoSo(deNghiGoc, nguoiDung, quyen)) {
+    return "Bạn không được ghi nhận giao hàng cho hồ sơ này.";
+  }
+  if (!tepPhieuGiao) {
+    return "Phải đính kèm phiếu giao hàng của lần giao này mới ghi nhận được — chỉ đạo Ban lãnh đạo 11/08/2026, Sếp nhắc lại 15/09/2026 cho nhánh phòng ban.";
+  }
+  return null;
+}
+
+/** Tối đa số mốc chi tiết ghi cho một lần sửa bảng mặt hàng — xem `mocSuaBangMatHang`. */
+const TOI_DA_MOC_CHI_TIET = 6;
+
+/** Mô tả ngắn một dòng PO để đưa vào nhật ký. KHÔNG kèm đơn giá — xem `mocSuaDonGia`. */
+function taDongPO(d: DongPOCanKiem): string {
+  const ten = d.tenVatLieu?.trim() || "(chưa đặt tên)";
+  if (!laDongHang(d)) return `ghi chú "${ten}"`;
+  return `"${ten}" ${formatNumber(d.khoiLuongDat || 0)} ${d.donViTinh}`.trim();
+}
+
+/**
+ * ★★ NHẬT KÝ SỬA BẢNG MẶT HÀNG — DỰNG THEO TỪNG DÒNG THẬT (Sếp 15/09/2026).
+ *
+ * 🔴 VÌ SAO PHẢI ĐỔI: câu cũ là đúng bốn chữ **"sửa bảng mặt hàng"** — không nói dòng nào, không
+ * nói từ bao nhiêu sang bao nhiêu. Người đọc lại hồ sơ ba tháng sau thấy dòng đó thì vẫn phải đi
+ * hỏi từng người, tức nhật ký **không làm được đúng việc nó sinh ra để làm**: truy vết. Dữ liệu
+ * để viết cho tử tế đã nằm sẵn ngay tại chỗ (`po.items` và `thayDoi.items`), chỉ là không ai dùng.
+ *
+ * 🔴 SO THEO `sttDong`, KHÔNG SO THEO VỊ TRÍ TRONG MẢNG. `sttDong` là danh tính của dòng — phiếu
+ * nhận hàng trỏ về nó (`DongNhanHang.sttDongPO`). So theo chỉ số mảng thì xóa dòng 2 sẽ làm mọi
+ * dòng sau tụt một bậc và nhật ký báo "đổi mặt hàng" cho hàng loạt dòng không ai đụng tới.
+ *
+ * ⚠️ CÓ TRẦN SỐ MỐC. Nhập lại cả bảng 40 dòng từ Excel mà ghi đủ 40 mốc thì một dòng nhật ký dài
+ * vài nghìn ký tự, đọc không nổi và còn phình tài liệu Firestore dùng chung của cả phòng. Quá
+ * trần thì gộp phần dư thành một câu đếm — vẫn nói đúng quy mô thay đổi, không nói dối.
+ */
+export function mocSuaBangMatHang(
+  itemsCu: readonly DongPOCanKiem[],
+  itemsMoi: readonly DongPOCanKiem[],
+): string[] {
+  const cu = new Map(itemsCu.map((d) => [d.sttDong, d]));
+  const moi = new Map(itemsMoi.map((d) => [d.sttDong, d]));
+  const moc: string[] = [];
+
+  for (const [stt, dMoi] of moi) {
+    const dCu = cu.get(stt);
+    if (!dCu) {
+      moc.push(`thêm dòng ${stt}: ${taDongPO(dMoi)}`);
+      continue;
+    }
+    // Dòng ghi chú không có số lượng/đơn vị — nói "đổi mặt hàng" cho nó là sai bản chất.
+    if (!laDongHang(dCu) && !laDongHang(dMoi)) {
+      if ((dCu.tenVatLieu ?? "") !== (dMoi.tenVatLieu ?? "")) {
+        moc.push(`dòng ${stt} sửa ghi chú: "${dCu.tenVatLieu}" → "${dMoi.tenVatLieu}"`);
+      }
+      continue;
+    }
+    if ((dCu.tenVatLieu ?? "") !== (dMoi.tenVatLieu ?? "")) {
+      moc.push(`dòng ${stt} đổi mặt hàng: "${dCu.tenVatLieu}" → "${dMoi.tenVatLieu}"`);
+    }
+    if ((dCu.donViTinh ?? "") !== (dMoi.donViTinh ?? "")) {
+      moc.push(`dòng ${stt} đổi đơn vị tính: ${dCu.donViTinh || "trống"} → ${dMoi.donViTinh || "trống"}`);
+    }
+    if ((dCu.khoiLuongDat || 0) !== (dMoi.khoiLuongDat || 0)) {
+      moc.push(
+        `dòng ${stt} "${dMoi.tenVatLieu}" đổi số lượng: ${formatNumber(dCu.khoiLuongDat || 0)} → ${formatNumber(dMoi.khoiLuongDat || 0)} ${dMoi.donViTinh}`.trim(),
+      );
+    }
+  }
+  for (const [stt, dCu] of cu) {
+    if (!moi.has(stt)) moc.push(`xóa dòng ${stt}: ${taDongPO(dCu)}`);
+  }
+
+  if (moc.length <= TOI_DA_MOC_CHI_TIET) return moc;
+  const du = moc.length - TOI_DA_MOC_CHI_TIET;
+  return [...moc.slice(0, TOI_DA_MOC_CHI_TIET), `và ${du} thay đổi khác trên bảng mặt hàng`];
+}
+
+/**
+ * ★★ NHẬT KÝ SỬA ĐƠN GIÁ — TÁCH LÀM HAI SỔ, ĐÂY LÀ CHỖ DỄ LÀM LỘ GIÁ NHẤT (Sếp 15/09/2026).
+ *
+ * 🔴 CON SỐ ĐƠN GIÁ **KHÔNG ĐƯỢC** VÀO NHẬT KÝ ĐỀ NGHỊ. `ghiNhatKyDonHang` định tuyến sang
+ * `DeNghiMuaHang.lichSu` khi đơn có `prId`, mà khối "Lịch sử hoạt động" của đề nghị
+ * (`khoi-trao-doi.tsx` → `KhoiLichSu`) hiện **cho mọi vai trò**, kể cả thủ kho và Phòng Thi công
+ * — những người mà nguyên tắc dữ liệu số 3 dựng hẳn một chứng từ giá riêng (`tm_donhang_gia`) để
+ * giấu giá khỏi họ. Ghi "1.200.000 → 1.250.000" vào đó là phá lớp bảo mật ấy bằng một dòng chữ.
+ * Đúng lý do `datDieuKhoanCongNo` cố ý KHÔNG gọi `ghiNhatKyDonHang` — xem `lichSuDieuKhoanCongNo`
+ * trong `kieu-du-lieu.ts`.
+ *
+ * ✅ NÊN TÁCH HAI SỔ, KHÔNG PHẢI BỎ THÔNG TIN:
+ *   · `chung` — vào nhật ký đề nghị: **dòng nào, tăng hay giảm**, KHÔNG con số. Đủ để người không
+ *     được xem giá biết là đơn giá vừa bị sửa và đi hỏi đúng chỗ.
+ *   · `rieng` — vào `GiaDonDatHang.lichSuDieuKhoanCongNo`, tức sổ của **chính chứng từ giá**: đủ
+ *     con số cũ → mới. Sổ đó chỉ tải được bởi vai trò đọc được `tm_donhang_gia`.
+ *
+ * ⚠️ ĐỪNG "DỌN CHO GỌN" BẰNG CÁCH NHẬP HAI SỔ LÀM MỘT. Gộp về `chung` là mất số; gộp về `rieng`
+ * là người không xem giá **không hề biết** đơn giá đã bị sửa.
+ */
+export function mocSuaDonGia(
+  giaCu: readonly { sttDong: number; donGia: number }[],
+  giaMoi: readonly { sttDong: number; donGia: number }[],
+  tenTheoSttDong: (sttDong: number) => string,
+): { chung: string[]; rieng: string[] } {
+  const bangCu = new Map(giaCu.map((l) => [l.sttDong, l.donGia]));
+  const bangMoi = new Map(giaMoi.map((l) => [l.sttDong, l.donGia]));
+  const chung: string[] = [];
+  const rieng: string[] = [];
+
+  for (const [stt, moi] of bangMoi) {
+    const cu = bangCu.get(stt);
+    const ten = tenTheoSttDong(stt);
+    if (cu === undefined) {
+      chung.push(`đơn giá dòng ${stt} "${ten}": đặt lần đầu`);
+      rieng.push(`đơn giá dòng ${stt} "${ten}": chưa có → ${formatNumber(moi)}`);
+      continue;
+    }
+    if (cu === moi) continue;
+    chung.push(`đơn giá dòng ${stt} "${ten}": ${moi > cu ? "tăng" : "giảm"}`);
+    rieng.push(`đơn giá dòng ${stt} "${ten}": ${formatNumber(cu)} → ${formatNumber(moi)}`);
+  }
+  for (const [stt, cu] of bangCu) {
+    if (bangMoi.has(stt)) continue;
+    const ten = tenTheoSttDong(stt);
+    chung.push(`bỏ đơn giá dòng ${stt} "${ten}"`);
+    rieng.push(`bỏ đơn giá dòng ${stt} "${ten}" (đang là ${formatNumber(cu)})`);
+  }
+
+  if (chung.length <= TOI_DA_MOC_CHI_TIET) return { chung, rieng };
+  const du = chung.length - TOI_DA_MOC_CHI_TIET;
+  return {
+    chung: [...chung.slice(0, TOI_DA_MOC_CHI_TIET), `và ${du} dòng đơn giá khác`],
+    rieng,
+  };
 }
 
 interface GiaTriDuLieu {
@@ -416,6 +818,21 @@ interface GiaTriDuLieu {
    * `null` là chốt xong, chuỗi là lý do bị chặn (chạy LẠI `vuongMacLapDonHang`).
    */
   chotDonNhap: (poId: string) => string | null;
+  /**
+   * ★★★ Ghi nhận giao hàng bằng tay — **CHỈ hồ sơ phòng ban** (Sếp 15/09/2026:
+   * *"E mở cho nhánh phòng ban"* · *"nhân viên thu mua tự hoàn thành, nhưng phải đính kèm phiếu
+   * giao hàng"*). Xem chú thích đầy đủ ở nơi định nghĩa.
+   *
+   * 🔴 KHÔNG phải mở lại đường thủ công toàn cục của `themPhieuNhan` cũ (bỏ 30/08/2026). Hồ sơ
+   * công trình vẫn nhận phiếu qua app QLK CTR như cũ — gọi hàm này cho hồ sơ công trình sẽ bị
+   * từ chối.
+   *
+   * @returns `null` là đã ghi xong; chuỗi là lý do bị chặn. Nơi gọi **chỉ được** xoá form khi
+   *   nhận `null` — trả `void` là "báo thành công giả" (CLAUDE.md §3.5, bài học 24/08/2026).
+   */
+  themPhieuNhanPhongBan: (
+    phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">,
+  ) => string | null;
   doiTrangThaiPhieu: (
     phieuId: string,
     trangThai: PhieuNhanHang["trangThai"],
@@ -448,7 +865,12 @@ interface GiaTriDuLieu {
    * @param lyDo Bắt buộc khi: người sửa KHÔNG có `quyen.suaPODaChot`, HOẶC có đổi ngày giao,
    *   HOẶC có đổi nhà cung cấp (`supplierId` HOẶC `supplierTen` — hộp thoại hôm nay chỉ đổi tên
    *   tự do, không đổi `supplierId`) — không bắt buộc ở các trường hợp khác.
-   * @returns Câu lý do bị chặn, `null` là đã ghi xong (hoặc không có gì đổi).
+   * @returns BA giá trị, phân biệt từ 15/09/2026 (xem `MA_KHONG_CO_THAY_DOI`):
+   *   · `null` — **đã ghi xong** thật sự.
+   *   · `MA_KHONG_CO_THAY_DOI` — hợp lệ nhưng **không có gì khác so với bản đang lưu**, hàm thoát
+   *     sớm và KHÔNG gọi `setDonHang` lần nào. Nơi gọi phải báo khác với ca trên, đừng toast xanh
+   *     "đã lưu" cho một lần ghi chưa xảy ra.
+   *   · chuỗi khác — câu lý do bị chặn.
    */
   suaDonHang: (poId: string, thayDoi: ThayDoiDonHang, lyDo: string) => string | null;
   /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
@@ -1767,6 +2189,16 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    *
    * ⚠️ `null` = XÓA VỀ TỰ TÍNH, khác hẳn `undefined` = KHÔNG ĐỘNG TỚI. Gộp hai thứ này thì
    * người dùng không còn đường quay lại chế độ tự tính sau khi lỡ gõ tay một ngày.
+   *
+   * 🔴🔴 KHÓA QUYỀN Ở ĐÂY TỪ 15/09/2026 (Sếp) — trước đó hàm này **không hỏi người bấm là ai**.
+   * Màn Công nợ có gác (`suaDuocDieuKhoan = quyen.lapPO`), nhưng gác ở màn hình không phải là
+   * chặn: đây là trường của **chứng từ giá**, thứ mà nguyên tắc dữ liệu số 3 tách hẳn document để
+   * bảo vệ. Ai gọi được `useDuLieu()` là ghi được — kể cả vai trò không hề được xem giá.
+   *
+   * 🔴 TÊN NGƯỜI GHI VÀO SỔ LẤY TỪ PHIÊN ĐĂNG NHẬP, KHÔNG TIN THAM SỐ. Trước đây `nguoiThucHien`
+   * là một chuỗi do giao diện truyền vào — tức **giao diện quyết định lịch sử ghi tên ai**. Một
+   * cuốn sổ mà người ghi tự khai tên mình thì không dùng để đối chiếu trách nhiệm được nữa.
+   * Tham số vẫn giữ trong chữ ký để nơi gọi (`cong-no.tsx`) không phải sửa, nhưng CỐ Ý KHÔNG dùng.
    */
   const datDieuKhoanCongNo = useCallback(
     (
@@ -1775,8 +2207,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         soNgayDuocNo?: number | null;
         ngayBatDauTinhNoTay?: NgayISO | null;
       },
-      nguoiThucHien: string,
+      /** ⚠️ KHÔNG CÒN ĐƯỢC DÙNG — tên ghi vào sổ lấy từ `nguoiDung` của phiên đăng nhập. */
+      _nguoiThucHien: string,
     ): string | null => {
+      const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const nguoiThucHien = nguoiDung.tenHienThi;
+
       const po = donHangRef.current.find((p) => p.id === poId);
       if (!po) return "Không tìm thấy đơn hàng này.";
       const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
@@ -1840,7 +2277,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          `lichSuDieuKhoanCongNo` trong `kieu-du-lieu.ts`. */
       return null;
     },
-    [],
+    [nguoiDung],
   );
 
   /**
@@ -1934,6 +2371,31 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      /**
+       * 🔴🔴 CHỐT KIỂM SOÁT CHI TIÊU — Sếp 15/09/2026. Luật đầy đủ và lý do ở
+       * `vuongMacSuaDongPOTheoDeNghi` (hàm thuần, đầu tệp này), đây chỉ là chỗ hỏi lại.
+       *
+       * 🔴 CHỈ ÁP CHO ĐƠN CÓ `prId`. Đơn độc lập cũ (`"cho_de_nghi"`, đơn thời kỳ trước) không có
+       * đề nghị nào để đối chiếu — áp luật vào đó là **khóa cứng dữ liệu đang chạy**, không phải
+       * siết kiểm soát. Chúng đi qua chốt riêng của mình khi được gắn đề nghị (`ganDeNghiVaoPO`).
+       *
+       * ⚠️ `tinhTienDoDeNghi` phải nhận ĐÚNG `donHangRef.current` hiện tại (gồm cả đơn đang sửa),
+       * vì `vuongMacSuaDongPOTheoDeNghi` cộng ngược lại phần của đơn này từ `po.items`. Truyền vào
+       * một danh sách đã lọc bỏ đơn này là ngân sách bị cộng hai lần.
+       */
+      if (thayDoi.items && po.prId) {
+        const dnGoc = deNghiRef.current.find((d) => d.id === po.prId);
+        if (!dnGoc) {
+          return "Không tìm thấy đề nghị gốc của đơn hàng này nên không đối chiếu được khối lượng đã duyệt. Kiểm lại liên kết đề nghị trước khi sửa bảng mặt hàng.";
+        }
+        const chanKhoiLuong = vuongMacSuaDongPOTheoDeNghi(
+          po.items,
+          thayDoi.items,
+          tinhTienDoDeNghi(dnGoc, donHangRef.current, phieuNhanRef.current),
+        );
+        if (chanKhoiLuong) return chanKhoiLuong;
+      }
+
       if (thayDoi.gia && po.xacNhanTruongBP) {
         return "Trưởng bộ phận đã xác nhận hoàn thành đơn này — không sửa giá được nữa.";
       }
@@ -1972,31 +2434,76 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       soSanh("Ghi chú", po.ghiChu, thayDoi.ghiChu);
       soSanh("Điều khoản khác", po.dieuKhoanKhac, thayDoi.dieuKhoanKhac);
       soSanh("Tham chiếu", po.thamChieu, thayDoi.thamChieu);
-      if (doiNgayGiao) moc.push(`Ngày giao: ${po.ngayGiaoDuKien} → ${thayDoi.ngayGiaoDuKien ?? po.ngayGiaoDuKien}`);
-      if (doiNCC) moc.push(`Nhà cung cấp: ${po.supplierTen} → ${thayDoi.supplierTen ?? ""}`);
+      /**
+       * 🔴 GHI CẢ HAI ĐẦU CỦA KHOẢNG GIAO HÀNG — sửa 15/09/2026.
+       *
+       * Câu cũ chỉ ghi `po.ngayGiaoDuKien` (ngày BẮT ĐẦU) ở cả hai vế. Sửa riêng ô *"Ngày giao đến
+       * ngày"* thì nhật ký in ra hai ngày y hệt nhau — trông như app ghi nhầm, và thứ thật sự vừa
+       * đổi thì **không có ở đâu cả**. Cam kết giao hàng với nhà cung cấp là thứ bắt buộc ghi lý
+       * do khi sửa (xem `batBuocLyDo`); ghi lý do mà không ghi nổi cái gì đã đổi thì vô nghĩa.
+       */
+      if (doiNgayGiao) {
+        const tuMoi = thayDoi.ngayGiaoDuKien ?? po.ngayGiaoDuKien;
+        // `""` = xóa về không có ngày kết thúc; `undefined` = không đụng tới. Xem `ThayDoiDonHang`.
+        const denMoi =
+          thayDoi.ngayGiaoDenNgay === undefined
+            ? po.ngayGiaoDenNgay
+            : thayDoi.ngayGiaoDenNgay || undefined;
+        if (po.ngayGiaoDuKien !== tuMoi) {
+          moc.push(`Ngày giao từ ngày: ${po.ngayGiaoDuKien} → ${tuMoi}`);
+        }
+        if ((po.ngayGiaoDenNgay ?? "") !== (denMoi ?? "")) {
+          moc.push(
+            `Ngày giao đến ngày: ${po.ngayGiaoDenNgay ?? "không đặt"} → ${denMoi ?? "không đặt"}`,
+          );
+        }
+      }
+      /* 🔴 KHÔNG GHI TÊN NHÀ CUNG CẤP VÀO NHẬT KÝ — luật dự án từ phiên 04, sửa 15/09/2026.
+         `ghiNhatKyDonHang` định tuyến sang `DeNghiMuaHang.lichSu`, mà khối Lịch sử trên trang chi
+         tiết hiện cho MỌI vai trò — kể cả thủ kho và các phòng ban không được xem nhà cung cấp.
+         Ghi thẳng tên NCC vào đây là lộ đúng thứ `quyen.xemNhaCungCap` đang giấu, qua một cửa
+         không ai ngờ tới.
+         ✅ Vẫn ghi được vết là ĐÃ ĐỔI NCC — đó mới là thứ người soát hồ sơ cần biết; muốn biết đổi
+         từ ai sang ai thì tra bản thân đơn hàng, nơi có gác quyền đàng hoàng. */
+      if (doiNCC) moc.push("Đổi nhà cung cấp của đơn");
       /* Hộp "Sửa đơn hàng" gửi lại NGUYÊN state (kể cả phần không đổi) mỗi lần lưu — nên ở đây
          PHẢI so nội dung thật với `po.items`/giá hiện tại, không chỉ xét "có gửi lên hay không",
          nếu không nhật ký sẽ báo sai "sửa bảng mặt hàng/đơn giá" ở MỌI lần sửa, kể cả khi chỉ đổi
-         một dòng Nhóm 1 — phá đúng mục đích truy vết ban đầu của tính năng này. */
-      const khoaDong = (d: { sttDong: number; tenVatLieu: string; donViTinh: string; khoiLuongDat: number }) =>
-        `${d.sttDong}|${d.tenVatLieu}|${d.donViTinh}|${d.khoiLuongDat}`;
-      const doiItems =
-        thayDoi.items !== undefined &&
-        (thayDoi.items.length !== po.items.length ||
-          [...po.items].sort((a, b) => a.sttDong - b.sttDong).map(khoaDong).join(";") !==
-            [...thayDoi.items].sort((a, b) => a.sttDong - b.sttDong).map(khoaDong).join(";"));
-      if (doiItems) moc.push("sửa bảng mặt hàng");
+         một dòng Nhóm 1 — phá đúng mục đích truy vết ban đầu của tính năng này.
+
+         🔴 TỪ 15/09/2026 KHÔNG CÒN GHI BỐN CHỮ "sửa bảng mặt hàng" NỮA (Sếp). Câu đó nói được
+         đúng một việc: "có ai đó đã đụng vào bảng" — không dòng nào, không từ bao nhiêu sang bao
+         nhiêu. Nay dựng mốc theo TỪNG DÒNG THẬT; luật ở `mocSuaBangMatHang` (hàm thuần, đầu tệp
+         này) nên bài kiểm gọi thẳng được, và phép so "có gì đổi không" cũng chính là danh sách mốc
+         — một chỗ duy nhất, không còn hai phép so rời nhau rồi lệch. */
+      if (thayDoi.items !== undefined) {
+        moc.push(...mocSuaBangMatHang(po.items, thayDoi.items));
+      }
 
       const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
-      const khoaGia = (l: { sttDong: number; donGia: number }) => `${l.sttDong}|${l.donGia}`;
-      const doiGia =
-        thayDoi.gia !== undefined &&
-        ((giaCu?.lines.length ?? 0) !== thayDoi.gia.lines.length ||
-          [...(giaCu?.lines ?? [])].sort((a, b) => a.sttDong - b.sttDong).map(khoaGia).join(";") !==
-            [...thayDoi.gia.lines].sort((a, b) => a.sttDong - b.sttDong).map(khoaGia).join(";"));
-      if (doiGia) moc.push("sửa đơn giá");
+      /**
+       * 🔴 ĐƠN GIÁ ĐI HAI SỔ, CON SỐ CHỈ VÀO SỔ CỦA CHỨNG TỪ GIÁ — xem `mocSuaDonGia`.
+       * `moc` ở đây chảy vào `ghiNhatKyDonHang`, mà hàm đó đẩy sang nhật ký ĐỀ NGHỊ khi đơn có
+       * `prId` — nơi mọi vai trò đọc được, kể cả người không được xem giá.
+       */
+      const mocGia =
+        thayDoi.gia === undefined
+          ? { chung: [], rieng: [] }
+          : mocSuaDonGia(giaCu?.lines ?? [], thayDoi.gia.lines, (stt) => {
+              const dong = (thayDoi.items ?? po.items).find((d) => d.sttDong === stt);
+              return dong?.tenVatLieu?.trim() || `dòng ${stt}`;
+            });
+      moc.push(...mocGia.chung);
 
-      if (moc.length === 0) return null;
+      /**
+       * 🔴 KHÔNG CÒN TRẢ `null` CHO CA "KHÔNG CÓ GÌ ĐỔI" — Sếp 15/09/2026.
+       *
+       * Nhánh này thoát TRƯỚC mọi `setDonHang`, tức **không có lần ghi nào xảy ra**. Trả `null`
+       * giống hệt ca ghi thành công là bắt giao diện đoán, và nó đoán sai: hộp sửa đơn báo toast
+       * xanh *"Đã lưu thay đổi"* rồi tự đóng. Xem `MA_KHONG_CO_THAY_DOI` (đầu tệp) để hiểu vì sao
+       * đây là bẫy ngủ chứ không phải phiền phức nhỏ.
+       */
+      if (moc.length === 0) return MA_KHONG_CO_THAY_DOI;
 
       setDonHang((truoc) =>
         truoc.map((p) => {
@@ -2022,8 +2529,26 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         }),
       );
       if (thayDoi.gia) {
+        /* 🔴 GHI CON SỐ CŨ → MỚI VÀO SỔ CỦA CHÍNH CHỨNG TỪ GIÁ, không vào nhật ký đề nghị.
+           `lichSuDieuKhoanCongNo` là sổ lịch sử của `GiaDonDatHang` — cùng document với đơn giá,
+           nên ai đọc được sổ này thì vốn đã đọc được giá. Đây đúng là cách `datDieuKhoanCongNo`
+           đã chọn ngày 28/08/2026, và lý do giống hệt: đưa con số thương mại vào nhật ký đề nghị
+           là phá lớp bảo mật mà nguyên tắc dữ liệu số 3 dựng cả một document riêng để giữ. */
+        const mocRieng: MocLichSu[] = mocGia.rieng.map((cau) => ({
+          thoiDiem: thoiDiemHienTai(),
+          nguoiThucHien: nguoiDung.tenHienThi,
+          hanhDong: `Sửa đơn hàng ${po.code} — ${cau}`,
+        }));
         setGiaDonHang((truoc) =>
-          truoc.map((g) => (g.poId === poId ? { ...g, lines: thayDoi.gia!.lines } : g)),
+          truoc.map((g) =>
+            g.poId === poId
+              ? {
+                  ...g,
+                  lines: thayDoi.gia!.lines,
+                  lichSuDieuKhoanCongNo: [...(g.lichSuDieuKhoanCongNo ?? []), ...mocRieng],
+                }
+              : g,
+          ),
         );
       }
 
@@ -3180,6 +3705,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const chotDonNhap = useCallback(
     (poId: string): string | null => {
+      /* 🔴 KHÓA QUYỀN — Sếp 15/09/2026. Nút "Chốt đơn hàng" ở `don-hang-chi-tiet.tsx` hiện ra chỉ
+         theo trạng thái đơn, KHÔNG hỏi quyền, nên trước hôm nay bất kỳ ai mở được trang chi tiết
+         cũng chốt được một đơn nháp thành đơn thật — thẻ nhảy sang bước ⑤ và công nợ bắt đầu tính.
+         Luật ở `vuongMacQuyenChotDonNhap` (hàm thuần, đầu tệp này). */
+      const chanQuyen = vuongMacQuyenChotDonNhap(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+
       const po = donHangRef.current.find((p) => p.id === poId);
       if (!po) return "Không tìm thấy đơn hàng này.";
       if (po.trangThai !== "nhap") {
@@ -3317,6 +3849,115 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [nguoiDung],
   );
 
+  /**
+   * ★★★ GHI NHẬN GIAO HÀNG BẰNG TAY — CHỈ CHO HỒ SƠ PHÒNG BAN (Sếp 15/09/2026).
+   *
+   * Nguyên văn hai câu duyệt của Sếp: *"E mở cho nhánh phòng ban"* và *"Đúng, nhân viên thu mua
+   * tự hoàn thành, **nhưng phải đính kèm phiếu giao hàng**"*.
+   *
+   * 🔴 VẤN ĐỀ ĐANG VÁ: hồ sơ phòng ban **kẹt vĩnh viễn**. Từ 30/08/2026 đường ghi phiếu nhận thủ
+   * công đã bị bỏ, phiếu chỉ vào app qua cửa API do app kho công trình (QLK CTR) gọi sang — mà
+   * phòng ban thì **không có kho công trình nào** để gửi. Không có phiếu nhận thì không bao giờ
+   * `poDaGiaoDu`, không xác nhận kho được, không hoàn thành được, hồ sơ nằm lại mãi ở bước ⑥.
+   *
+   * 🔴 TÊN HÀM CỐ Ý KHÁC `themPhieuNhan` CŨ. Đây KHÔNG phải mở lại đường thủ công toàn cục — cùng
+   * một tên là người sau đọc lướt sẽ tưởng luật 30/08 đã bị huỷ, rồi nối nó vào màn hình của hồ sơ
+   * công trình.
+   *
+   * 🔴🔴 ĐIỀU KIỆN ② (hồ sơ phải là phòng ban) LÀ CHỐT KIỂM SOÁT NẶNG NHẤT CỦA CẢ ĐƯỜNG NÀY.
+   * Người đi mua tự ký nhận hàng của chính mình thì không còn ai đối chứng. Nhánh này mở được
+   * **chỉ vì** hồ sơ phòng ban không có kho nào để đối chứng — bỏ điều kiện đó đi là mất chốt của
+   * cả app, không phải "nới thêm một chút". Xem `duocGhiNhanGiaoHangCuaHoSo`.
+   *
+   * 🔴 ĐIỀU KIỆN ④ (bắt buộc có tệp phiếu giao hàng) LÀ CÂU THỨ HAI CỦA SẾP, không phải thủ tục.
+   * Đây là bằng chứng giao nhận duy nhất còn lại khi không có thủ kho đứng giữa.
+   *
+   * ⚠️ ④ KHÔNG THAY THẾ `vuongMacXacNhanKho`. Luật 11/08/2026 vẫn phải chạy nguyên ở cổng xác
+   * nhận — nó còn lo phiếu cũ ghi trước 11/08 và phiếu do QLK CTR gửi sang. ④ chỉ chặn phiếu MỚI
+   * tạo bằng đường thủ công này.
+   *
+   * ⚠️ ĐỌC TỪ `*Ref.current`, KHÔNG ĐỌC BIẾN RENDER. Biến render lệch một nhịp so với dữ liệu vừa
+   * ghi (kho chung nhiều máy cùng sửa), và lệch một nhịp ở đây nghĩa là `lanGiaoThu` trùng số →
+   * id trùng → phiếu vừa ghi bị đè mất.
+   *
+   * @returns `null` là đã ghi xong. Chuỗi là lý do bị chặn — nơi gọi **chỉ được** xoá form / đóng
+   *   khối khi nhận `null`. Bài học 24/08/2026 ghi ở chính hàm cũ: trả `void` thì giao diện đóng
+   *   form coi như đã lưu trong khi không phiếu nào được ghi (CLAUDE.md §3.5).
+   */
+  const themPhieuNhanPhongBan = useCallback(
+    (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">): string | null => {
+      const cuaPO = phieuNhanRef.current.filter((p) => p.poId === phieu.poId);
+      const po = donHangRef.current.find((p) => p.id === phieu.poId);
+      if (!po) return "Không tìm thấy đơn hàng này.";
+      const dn = po.prId ? deNghiRef.current.find((d) => d.id === po.prId) : undefined;
+
+      /* ②③④ Hồ sơ phải là phòng ban · người này được ghi nhận · có tệp phiếu giao hàng.
+         Cả ba nằm trong MỘT hàm thuần (`vuongMacGhiNhanGiaoHangPhongBan`, đầu tệp này) để
+         `kiem-luat-dung-chung.mjs` gọi thật được — luật nằm trong hook thì không bài kiểm nào bắt
+         được khi ai đó vô tình làm rơi mất một khối `if`. */
+      const chanMoCua = vuongMacGhiNhanGiaoHangPhongBan(
+        dn,
+        nguoiDung,
+        tinhQuyen(nguoiDung),
+        phieu.tepPhieuGiao,
+      );
+      if (chanMoCua) return chanMoCua;
+      /* TypeScript không suy ra được rằng hàm trên đã loại ca `dn` rỗng (nó trả chuỗi lý do chứ
+         không phải type guard). Nhánh này KHÔNG bao giờ chạy — giữ lại để dùng `dn` ở dưới mà
+         không phải viết `dn!`, vì dấu `!` chính là chỗ lỗi runtime lẻn vào nếu luật trên đổi. */
+      if (!dn) return "Đơn này chưa gắn đề nghị nào nên chưa ghi nhận giao hàng bằng tay được.";
+
+      /* ⑤⑥⑦ Ba luật sẵn có của cửa ghi phiếu nhận — trả ĐÚNG câu của luật nào đang vướng, không
+         gộp thành một câu chung: người ghi cần biết mình sai số lượng, sai số phiếu, hay đơn đã
+         nhận đủ rồi. */
+      const tienDo = tinhTienDoPO(po, cuaPO);
+      const vuongMac =
+        vuongMacGhiThemPhieuNhan(tienDo) ||
+        vuongMacKhoiLuongNhan(tienDo, phieu.lines) ||
+        vuongMacSoPhieuNCC(phieu.soPhieuGiaoNCC ?? "", cuaPO);
+      if (vuongMac) return vuongMac;
+
+      /* ⑧ Công việc bắt buộc của các bước TRƯỚC còn treo.
+         📌 CỐ Ý dùng `vuongMacViecBatBuocCacBuocTruoc`, KHÔNG đổi sang `vuongMacRoiBuoc`: ghi phiếu
+         nhận là việc CỦA bước ⑥, soát cả việc của bước ⑥ thì không ghi được phiếu nào — đúng cái
+         bẫy mà chú thích của `vuongMacRoiBuoc` cảnh báo. */
+      const chanViec = vuongMacViecBatBuocCacBuocTruoc(
+        dn,
+        xacDinhGiaiDoan(dn, donHangRef.current, baoGiaRef.current, phieuNhanRef.current),
+        cauHinhRef.current,
+      );
+      if (chanViec) return chanViec;
+
+      const lanGiaoThu = cuaPO.length + 1;
+      /* ⚠️ Mã `DO` nằm trong nhóm `PR`/`DO`/`GRN` ĐANG CHỜ đơn vị quản lý hệ thống duyệt (Thông
+         báo 09/2026, CLAUDE.md §3.1) — giữ nguyên định dạng cũ, tuyệt đối không tự đặt mã khác. */
+      const id = `grn-${phieu.poId}-${lanGiaoThu}`;
+      const code = `${phieu.poCode}-DO${String(lanGiaoThu).padStart(2, "0")}`;
+      setPhieuNhan((truoc) => [...truoc, { ...phieu, id, code, lanGiaoThu }]);
+      // PO chuyển sang "đang giao" ngay khi có phiếu nhận đầu tiên.
+      setDonHang((truoc) =>
+        truoc.map((p) =>
+          p.id === phieu.poId && p.trangThai === "da_chot" ? { ...p, trangThai: "dang_giao" } : p,
+        ),
+      );
+
+      /* 🔴 GHI RÕ ĐÂY LÀ ĐƯỜNG PHÒNG BAN, và ghi TÊN TỆP phiếu giao — người đọc lại hồ sơ phải
+         phân biệt được phiếu do thủ kho ghi với phiếu Thu mua tự ghi nhận, vì hai loại có mức đối
+         chứng khác hẳn nhau.
+         🔴 KHÔNG ghi tên nhà cung cấp: khối "Lịch sử" của đề nghị hiện cho cả vai trò không được
+         xem NCC (quy ước phiên 04). Tên tệp thì được. */
+      ghiNhatKyDonHang(
+        po,
+        phieu.nguoiNhanTen,
+        `Thu mua ghi nhận giao hàng lần ${lanGiaoThu} (hồ sơ phòng ban) — ${phieu.poCode}, kèm ${phieu.tepPhieuGiao?.tenTep ?? "phiếu giao hàng"}`,
+      );
+
+      /* `null` = đã ghi xong. Nơi gọi CHỈ được xoá form / đóng khối khi nhận `null`. */
+      return null;
+    },
+    [ghiNhatKyDonHang, nguoiDung],
+  );
+
   const doiTrangThaiPhieu = useCallback(
     (phieuId: string, trangThai: PhieuNhanHang["trangThai"], nguoiThucHien?: string) => {
       setPhieuNhan((truoc) => truoc.map((p) => (p.id === phieuId ? { ...p, trangThai } : p)));
@@ -3435,7 +4076,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        *
        * 📌 Dùng đúng hai hàm mà nút đang dùng (`poDaGiaoDu` + `vuongMacXacNhanKho`) nên câu chặn
        * và chữ trên nút không bao giờ nói khác nhau.
+       *
+       * 🔴 THÊM 15/09/2026 (Sếp): KIỂM CẢ **NGƯỜI BẤM LÀ AI**. Ba điều kiện nghiệp vụ ở trên trả
+       * lời câu *"đơn đã đủ điều kiện chưa"*, không trả lời câu *"người này có được xác nhận
+       * không"* — nên trước hôm nay bất kỳ vai trò nào cũng ghi được chữ ký thủ kho lên đơn, và
+       * chữ ký đó là điều kiện ② để duyệt hoàn thành. Luật ở `vuongMacQuyenXacNhanKho`.
        */
+      const chanQuyen = vuongMacQuyenXacNhanKho(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+
       const po = donHangRef.current.find((p) => p.id === poId);
       if (po) {
         const phieuCuaPO = phieuNhanRef.current.filter((p) => p.poId === poId);
@@ -3455,7 +4104,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (poSau) ghiNhatKyDonHang(poSau, nguoi.ten, `Thủ kho xác nhận đã nhận đủ — ${poSau.code}`);
       return null;
     },
-    [ghiNhatKyDonHang],
+    [ghiNhatKyDonHang, nguoiDung],
   );
 
   const xacNhanTruongBP = useCallback(
@@ -3472,6 +4121,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * nghị) — nên bỏ qua luật này, thay vì khóa vĩnh viễn một đơn không có đường thỏa điều kiện.
        */
       const po = donHangRef.current.find((p) => p.id === poId);
+
+      /**
+       * 🔴 KHÓA QUYỀN — Sếp 15/09/2026. Đây là thao tác **đóng đơn và chuyển hồ sơ sang Kế toán**,
+       * nhưng trước hôm nay tầng ghi không hỏi một câu nào về người bấm. Luật (ba đường được
+       * duyệt, và vì sao phải giữ đủ cả ba) ở `vuongMacQuyenXacNhanHoanThanhDon`.
+       *
+       * ⚠️ XÉT THEO `nguoiDung` CỦA PHIÊN ĐĂNG NHẬP, không theo `nguoi.uid` do nơi gọi truyền vào
+       * — tham số đó là thứ giao diện tự khai, dùng nó để gác quyền thì ai cũng tự khai được.
+       */
+      if (po) {
+        const chanQuyen = vuongMacQuyenXacNhanHoanThanhDon(
+          tinhQuyen(nguoiDung),
+          nguoiDung.uid,
+          po,
+          po.prId ? deNghiRef.current.find((d) => d.id === po.prId) : undefined,
+        );
+        if (chanQuyen) return chanQuyen;
+      }
 
       /**
        * 🔴 KIỂM ĐỦ BA THỨ, KHÔNG CHỈ HÓA ĐƠN — thêm 24/08/2026.
@@ -3525,7 +4192,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
       return null;
     },
-    [ghiNhatKyDonHang],
+    [ghiNhatKyDonHang, nguoiDung],
   );
 
   const taoBaoGiaGiaLap = useCallback(
@@ -5871,6 +6538,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       xacNhanTuDongGanDeNghi,
       huyKhopTuDongDeNghi,
       chotDonNhap,
+      themPhieuNhanPhongBan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
@@ -5942,6 +6610,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       xacNhanTuDongGanDeNghi,
       huyKhopTuDongDeNghi,
       chotDonNhap,
+      themPhieuNhanPhongBan,
       doiTrangThaiPhieu,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,

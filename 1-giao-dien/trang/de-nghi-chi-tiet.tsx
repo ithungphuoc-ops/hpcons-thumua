@@ -91,7 +91,11 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { duocXemBaoGiaCuaDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
+import {
+  duocXemBaoGiaCuaDeNghi,
+  duocXacNhanNhanDuHangCuaHoSo,
+} from "@/4-phan-quyen/quyen-theo-ho-so";
+import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
 // Quyền theo TỪNG hồ sơ: ai đang phụ trách dòng nào của đề nghị này.
 import { laViecCuaToi } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
@@ -135,6 +139,9 @@ import {
   NHAN_TEP_PHIEU_CHI,
   NHAN_TEP_UNC,
   tepPhieuChi,
+  BUOC_DINH_KEM_PHIEU_GIAO_HANG,
+  NHAN_TEP_PHIEU_GIAO_HANG,
+  tepPhieuGiaoHangPhongBan,
   TEN_HIEN_HOP_DONG,
   TEN_HIEN_HOP_DONG_BUOC_DAT_HANG,
   tepHoaDonVAT,
@@ -2598,8 +2605,20 @@ export default function TrangChiTietDeNghi({
                               />
                             </p>
 
-                            {/* Kho xác nhận trước — nút chỉ hiện cho người có quyền kho. */}
-                            {!daKhoXacNhan && daGiaoDu && quyen.xacNhanKho && (
+                            {/* Kho xác nhận trước — nút chỉ hiện cho người có quyền kho.
+                                ★★ 15/09/2026 — Sếp: *"E mở cho nhánh phòng ban"* và *"nhân viên thu
+                                mua tự hoàn thành, nhưng phải đính kèm phiếu giao hàng"*.
+                                🔴 Hồ sơ PHÒNG BAN không có kho công trình nào xác nhận hộ, nên trước
+                                hôm nay nút này KHÔNG BAO GIỜ hiện với họ → hồ sơ kẹt vĩnh viễn ở bước ⑥.
+                                Nay hỏi `duocXacNhanNhanDuHangCuaHoSo` thay cho cờ toàn cục: hồ sơ công
+                                trình giữ nguyên (chỉ thủ kho), hồ sơ phòng ban thì nhân viên thu mua
+                                bấm được.
+                                📌 KHÔNG nới điều kiện chứng từ: `vuongMacTep` bên dưới vẫn khoá nút khi
+                                thiếu phiếu giao hàng — đúng chỉ đạo của Sếp, đổi người ghi nhận chứ
+                                không bỏ bằng chứng. */}
+                            {!daKhoXacNhan &&
+                              daGiaoDu &&
+                              duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung, quyen) && (
                               <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                   size="sm"
@@ -2701,7 +2720,11 @@ export default function TrangChiTietDeNghi({
 
                             {/* Không có quyền thì nói rõ đang chờ ai, đừng để khối trống. */}
                             {daGiaoDu &&
-                              ((!daKhoXacNhan && !quyen.xacNhanKho) ||
+                              ((!daKhoXacNhan &&
+                                /* Phải hỏi CÙNG một hàm với nút ở trên. Dùng cờ toàn cục ở đây là
+                                   người thu mua của hồ sơ phòng ban vừa thấy nút bấm được, vừa đọc
+                                   câu "đang chờ thủ kho xác nhận" — hai thứ trái nhau trên một màn. */
+                                !duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung, quyen)) ||
                                 (daKhoXacNhan &&
                                   !po.xacNhanTruongBP &&
                                   !duocDuyetHoanThanhDon)) && (
@@ -2725,12 +2748,44 @@ export default function TrangChiTietDeNghi({
                    qua `tepPhieuGiao`, gắn tệp ở đây không gỡ được vướng mắc đó — và không được
                    để nó gỡ, nếu không luật thành vô nghĩa. */
                 khuDinhKem: (
-                  <KhuDinhKemGiaiDoan
-                    deNghi={dn}
-                    maGiaiDoan="nhan_hang"
-                    duocSua={duocSuaTepBuoc}
-                    khoa={hoSoDaDong}
-                  />
+                  <div className="flex flex-col gap-(--hp-md-card-gap)">
+                    {/**
+                     * ★★ Ô "PHIẾU GIAO HÀNG" CỦA NHÁNH HỒ SƠ PHÒNG BAN — Sếp 15/09/2026:
+                     * *"nhân viên thu mua tự hoàn thành, nhưng phải đính kèm phiếu giao hàng"*.
+                     *
+                     * 🔴 PHẢI CÓ Ô CÓ TÊN, KHÔNG BẮT NGƯỜI DÙNG GÕ TAY GHI CHÚ. Luật ở hai cửa
+                     * (`xacDinhGiaiDoan` để qua bước ⑦, và `vuongMacHoanThanhQuyTrinh` để đóng hồ
+                     * sơ) đều nhận diện tệp **theo nhãn "Phiếu giao hàng"**. Không có ô riêng thì
+                     * người dùng phải đính vào khu chung rồi tự gõ đúng chữ đó — gõ sai một chữ là
+                     * hồ sơ kẹt mà không hiểu vì sao. `OChungTuBatBuoc` tự gắn nhãn, nên không còn
+                     * chỗ cho lỗi đánh máy.
+                     *
+                     * 🔴 CHỈ HIỆN VỚI HỒ SƠ PHÒNG BAN. Hồ sơ công trình lấy bằng chứng giao nhận
+                     * từ phiếu nhận của app kho (từng phiếu một, `vuongMacXacNhanKho`); bày thêm ô
+                     * này ở đó là mời người ta đính một tờ rồi tưởng đã đủ chứng từ cho mọi lần giao.
+                     */}
+                    {laHoSoPhongBan(dn) && (
+                      <OChungTuBatBuoc
+                        deNghi={dn}
+                        maGiaiDoan={BUOC_DINH_KEM_PHIEU_GIAO_HANG}
+                        nhanO={NHAN_TEP_PHIEU_GIAO_HANG}
+                        tieuDe={NHAN_TEP_PHIEU_GIAO_HANG}
+                        moTa={LY_DO_NHANH_PHONG_BAN}
+                        batBuoc
+                        duocSua={duocSuaTepBuoc}
+                        khoa={hoSoDaDong}
+                        /* Cùng một hàm mà hai cửa luật dùng để nhận diện tệp — để ô hiển thị và
+                           luật không bao giờ đếm khác nhau. */
+                        tepDaCo={tepPhieuGiaoHangPhongBan(dn)}
+                      />
+                    )}
+                    <KhuDinhKemGiaiDoan
+                      deNghi={dn}
+                      maGiaiDoan="nhan_hang"
+                      duocSua={duocSuaTepBuoc}
+                      khoa={hoSoDaDong}
+                    />
+                  </div>
                 ),
               },
 

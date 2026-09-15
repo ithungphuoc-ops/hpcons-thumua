@@ -24,6 +24,10 @@
 //     tiền, ký lệnh trả trước khi có hóa đơn là chi tiền không có chứng từ đối chiếu.
 // ============================================================
 
+import {
+  laHoSoPhongBan,
+  LY_DO_NHANH_PHONG_BAN,
+} from "@/2-quy-trinh/ho-so-phong-ban";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -101,6 +105,48 @@ export const NHAN_TEP_UNC = "Ủy nhiệm chi";
  * buộc người dùng đính bừa hoặc ghi lý do bừa, rồi cả hai thứ mất nghĩa.
  */
 export const NHAN_TEP_PHIEU_CHI = "Phiếu chi";
+
+/**
+ * ★★ PHIẾU GIAO HÀNG DO NHÂN VIÊN MUA HÀNG TỰ ĐÍNH — **CHỈ DÙNG CHO HỒ SƠ PHÒNG BAN**.
+ *
+ * ★ Chỉ đạo Sếp 14/09/2026, nguyên văn: *"Các đề xuất từ phòng ban thì sẽ đi nhánh riêng, không
+ * cần lấy dữ liệu từ app kho công trình mà nhân viên mua hàng sẽ là người bấm hoàn thành và đính
+ * kèm phiếu giao hàng."*
+ *
+ * 🔴 ĐỌC CHO ĐÚNG CHỮ SẾP: câu đó **ĐỔI NGUỒN bằng chứng, KHÔNG BỎ bằng chứng**. Hồ sơ phòng ban
+ * vẫn phải có tờ phiếu giao hàng nằm trong hồ sơ; khác duy nhất là người đính là **nhân viên mua
+ * hàng** chứ không phải thủ kho / app QLK CTR. Ai đọc thành "phòng ban thì thôi không cần gì" là
+ * đã nới trắng một chốt kiểm soát chứng từ — xem `vuongMacHoanThanhQuyTrinh` bên dưới.
+ *
+ * 🔴 VÌ SAO KHÔNG MƯỢN `PhieuNhanHang.tepPhieuGiao` NHƯ HỒ SƠ CÔNG TRÌNH: bằng chứng giao nhận của
+ * hồ sơ công trình nằm trên TỪNG phiếu nhận hàng (`3-du-lieu/kieu-du-lieu.ts` → `PhieuNhanHang`),
+ * và luật 11/08/2026 (`tinh-toan.ts` → `vuongMacXacNhanKho`) kiểm từng phiếu một. Nhưng phiếu nhận
+ * hàng **chỉ do app QLK CTR gửi sang** — từ 30/08/2026 app đã bỏ hẳn đường ghi phiếu nhận thủ
+ * công. Hồ sơ phòng ban không có kho công trình nào gửi phiếu, nên KHÔNG có bản ghi `PhieuNhanHang`
+ * nào để móc tệp vào. Đòi bằng chứng ở chỗ không bao giờ có bản ghi = đúng cái kẹt vĩnh viễn đang
+ * phải gỡ, chỉ đổi chỗ kẹt.
+ * 👉 Nên chỗ chứa bằng chứng của nhánh phòng ban là **tệp đính kèm của bước ⑥**, đúng cơ chế mà ba
+ * chứng từ cuối quy trình (Hợp đồng · Hóa đơn VAT · UNC) trong chính tệp này đang dùng.
+ *
+ * 📌 KHÓA LƯU LÀ `"nhan_hang"` — cùng khóa với khu đính kèm bước ⑥ *Tiến hành nhận hàng* đã có sẵn
+ * trên trang chi tiết (`de-nghi-chi-tiet.tsx`, `<KhuDinhKemGiaiDoan maGiaiDoan="nhan_hang">`). Cố ý
+ * dùng lại khóa cũ chứ không đẻ khóa mới: nhờ vậy **hôm nay đã có đường đính thật** — nhân viên
+ * đính tệp ở khu đó rồi ghi chú đúng chữ "Phiếu giao hàng" là qua được, không phải chờ ai dựng
+ * thêm giao diện. Không có chuyện app đòi một thứ mà màn hình chưa cho làm (CLAUDE.md §3.5).
+ *
+ * ⚠️ VIỆC CÒN THIẾU, GHI RA ĐỂ KHÔNG QUÊN: đường đính "đúng chuẩn" là một ô có tên
+ * (`<OChungTuBatBuoc maGiaiDoan={BUOC_DINH_KEM_PHIEU_GIAO_HANG} nhanO={NHAN_TEP_PHIEU_GIAO_HANG}>`)
+ * dựng trong khối bước ⑥ và chỉ hiện khi `laHoSoPhongBan(dn)`. Phiên này **không được sửa**
+ * `de-nghi-chi-tiet.tsx` (có phiên khác đang giữ), nên ô đó chưa có. Bắt người dùng tự gõ ghi chú
+ * cho khớp từng chữ là khó dùng, KHÔNG phải là cái đích — ai làm tiếp thì dựng ô đó.
+ *
+ * ⚠️ TUYỆT ĐỐI KHÔNG đem nhãn này áp cho hồ sơ công trình. Khối chú thích ở bước ⑥ trong
+ * `de-nghi-chi-tiet.tsx` đã ghi rõ: tệp đính kèm của bước **không thay được** tệp phiếu giao nhận
+ * của từng lần giao, và **không được để nó gỡ** luật `vuongMacXacNhanKho` — nếu không luật
+ * 11/08/2026 thành vô nghĩa với toàn bộ hồ sơ công trình.
+ */
+export const BUOC_DINH_KEM_PHIEU_GIAO_HANG = "nhan_hang";
+export const NHAN_TEP_PHIEU_GIAO_HANG = "Phiếu giao hàng";
 
 /**
  * ★ TÊN HIỂN THỊ của ô hợp đồng.
@@ -330,6 +376,42 @@ export function tepPhieuChi(deNghi: DeNghiMuaHang): MoTaTep[] {
   return tepTheoNhan(deNghi, BUOC_DINH_KEM_HO_SO_THANH_TOAN, NHAN_TEP_PHIEU_CHI);
 }
 
+/**
+ * ★★ CÁC TỆP PHIẾU GIAO HÀNG của nhánh hồ sơ phòng ban — Sếp 14/09/2026.
+ *
+ * 🔴 SO NHÃN THEO **TIỀN TỐ**, KHÔNG SO BẰNG NHAU — đây là chỗ khác `tepTheoNhan` và khác có chủ ý.
+ * `OChungTuBatBuoc` đặt tên bản thứ hai trở đi là `"<nhãn> (2)"`, `"<nhãn> (3)"`… (xem hàm `luu`
+ * trong `o-chung-tu-bat-buoc.tsx`). Mà **mỗi lần giao là một tờ phiếu riêng** — đúng tinh thần luật
+ * 11/08/2026 — nên hồ sơ phòng ban có nhiều bản là chuyện thường. So bằng nhau thì bản `(2)` không
+ * được đếm; gỡ mất bản đầu là hồ sơ còn đủ phiếu mà app vẫn báo thiếu.
+ *
+ * ⚠️ CÁI GIÁ CỦA TIỀN TỐ, NÓI TRƯỚC: ghi chú tự gõ kiểu *"Phiếu giao hàng bên A hẹn gửi sau"* cũng
+ * lọt. Chấp nhận, vì ở đây người gõ chính là người chịu trách nhiệm đính (nhân viên mua hàng), và
+ * cái giá ngược lại nặng hơn nhiều — so bằng nhau là hồ sơ có đủ phiếu vẫn kẹt, tức đẻ lại đúng ca
+ * kẹt mà nhánh này sinh ra để gỡ. 📌 Ba ô chứng từ kia vẫn so BẰNG NHAU (`tepTheoNhan`) vì chúng
+ * đều chỉ cần MỘT bản, không có chuyện đánh số.
+ *
+ * 📌 Chỉ đọc MỘT khóa `nhan_hang`, không gộp khóa cũ nào: ô này mới có từ 15/09/2026 nên không có
+ * dữ liệu cũ nằm ở khóa khác (khác hẳn `tepHopDong` / `tepHoaDonVAT` — hai hàm đó gộp khóa cũ vì
+ * bước từng bị dời thật).
+ */
+export function tepPhieuGiaoHangPhongBan(deNghi: DeNghiMuaHang): MoTaTep[] {
+  const ds = deNghi.tepGiaiDoan?.[BUOC_DINH_KEM_PHIEU_GIAO_HANG] ?? [];
+  return ds.filter((t) => (t.ghiChu ?? "").trim().startsWith(NHAN_TEP_PHIEU_GIAO_HANG));
+}
+
+/**
+ * Hồ sơ đã có ít nhất một tờ phiếu giao hàng do nhân viên mua hàng đính chưa.
+ *
+ * 🔴 HÀM NÀY KHÔNG TỰ HỎI `laHoSoPhongBan`. Nó chỉ trả lời đúng một câu *"có tệp hay không"*; việc
+ * quyết định **ai bị hỏi câu này** nằm ở `vuongMacHoanThanhQuyTrinh`. Nhét phép nhận diện vào đây
+ * là có hai chỗ cùng quyết định phạm vi, rồi sớm muộn lệch nhau — đúng kiểu lỗi mà cả tệp này sinh
+ * ra để tránh (xem khối chú thích đầu tệp).
+ */
+export function coPhieuGiaoHangPhongBan(deNghi: DeNghiMuaHang): boolean {
+  return tepPhieuGiaoHangPhongBan(deNghi).length > 0;
+}
+
 export function coHopDong(deNghi: DeNghiMuaHang): boolean {
   return tepHopDong(deNghi).length > 0;
 }
@@ -447,6 +529,11 @@ export function vuongMacDuyetHoanThanhDeNghi(deNghi: DeNghiMuaHang): string | nu
  *
  * ⚠️ Nhận `tienDo` từ nơi gọi chứ không tự tính: luật đối chiếu khối lượng chỉ được có MỘT chỗ
  * (`tinh-toan.ts` → `tinhTienDoDeNghi`). Hai chỗ cùng cộng là sớm muộn lệch nhau.
+ *
+ * ★★ TỪ 15/09/2026 ĐIỀU KIỆN THỨ HAI RẼ LÀM HAI NHÁNH (Sếp 14/09/2026): hồ sơ CÔNG TRÌNH giữ
+ * nguyên phép đòi nhận đủ khối lượng; hồ sơ PHÒNG BAN đổi sang đòi tệp phiếu giao hàng do nhân
+ * viên mua hàng đính. Bốn điều kiện còn lại (chưa lên đơn · hợp đồng · hóa đơn VAT · tích UNC)
+ * **áp y hệt cho cả hai loại**, không nhánh nào được nới. Xem khối chú thích tại chỗ rẽ.
  */
 export function vuongMacHoanThanhQuyTrinh(
   deNghi: DeNghiMuaHang,
@@ -461,9 +548,67 @@ export function vuongMacHoanThanhQuyTrinh(
     return `Còn ${chuaLenDon} mặt hàng chưa lên đơn hàng. Đóng hồ sơ lúc này là bỏ rơi phần vật tư chưa ai mua.`;
   }
 
+  /**
+   * ★★ NHÁNH RIÊNG CHO HỒ SƠ PHÒNG BAN — Sếp 14/09/2026, nguyên văn: *"Các đề xuất từ phòng ban
+   * thì sẽ đi nhánh riêng, không cần lấy dữ liệu từ app kho công trình mà nhân viên mua hàng sẽ
+   * là người bấm hoàn thành và đính kèm phiếu giao hàng."*
+   *
+   * 🔴 VÌ SAO PHẢI NỚI — ĐO ĐƯỢC 15/09/2026, KHÔNG PHẢI SUY ĐOÁN: `khoiLuongConLai` chỉ tụt về 0
+   * khi có phiếu nhận hàng `da_nhap_kho` (xem `tinh-toan.ts` → `tinhTienDoDongPO`), mà từ
+   * 30/08/2026 nguồn phiếu duy nhất còn lại là cửa API của app QLK CTR. Hồ sơ phòng ban không gắn
+   * công trình nào nên **không kho nào gửi phiếu sang** ⇒ điều kiện dưới đây không bao giờ thỏa ⇒
+   * thẻ **kẹt vĩnh viễn**, không ai bấm hoàn thành được. Đó không phải chốt kiểm soát, đó là ngõ
+   * cụt.
+   *
+   * 🔴🔴 NHƯNG KHÔNG NỚI TRẮNG — ĐỔI NGUỒN BẰNG CHỨNG, KHÔNG BỎ BẰNG CHỨNG. Chữ Sếp nói rõ nhân
+   * viên mua hàng *"đính kèm phiếu giao hàng"*. Nên hồ sơ phòng ban **vẫn phải có tờ phiếu giao
+   * hàng trong hồ sơ** mới đóng được, chỉ khác người đính. Bỏ luôn cả hai điều kiện là hồ sơ phòng
+   * ban đóng được mà **không một mẩu bằng chứng nào chứng minh hàng đã về** — trong khi hồ sơ công
+   * trình phải có phiếu cho TỪNG lần giao (luật Ban lãnh đạo 11/08/2026). Hai chuẩn lệch nhau tới
+   * mức đó thì phòng ban thành đường vòng để né chứng từ, và ai cũng sẽ đi đường đó.
+   *
+   * 🔴 KHÓA CHẶT BẰNG `laHoSoPhongBan`, MỘT PHÉP NHẬN DIỆN DUY NHẤT (`2-quy-trinh/ho-so-phong-ban.ts`).
+   * Rò sang hồ sơ công trình là mất chốt đối chiếu khối lượng của TOÀN BỘ app — hồ sơ công trình
+   * phải giữ nguyên **mọi** điều kiện cũ, không một dòng nào được nới. Đừng chép lại phép nhận diện
+   * ở đây, và đừng đổi nó thành `maDuAn.startsWith("PB-")`: lý do đã ghi đủ trong tệp kia.
+   *
+   * 📌 CÂU HỎI CỦA CHỐT NÀY KHÔNG ĐỔI: *"đã có bằng chứng hàng về đủ chưa"*. Chỉ **NGUỒN** bằng
+   * chứng được phép khác nhau, và chỉ khác cho đúng hồ sơ phòng ban:
+   *   · Công trình → giữ y nguyên câu cũ: mọi mặt hàng `khoiLuongConLai = 0`, tức phiếu nhận hàng
+   *     do QLK CTR gửi sang đã phủ hết khối lượng. **Không một ly nào được nới.**
+   *   · Phòng ban  → nguồn đó không tồn tại, nên chấp nhận **tệp phiếu giao hàng nhân viên mua
+   *     hàng tự đính** thay vào chỗ đó.
+   *
+   * 🔴 VÌ SAO PHÉP THAY THẾ NẰM **BÊN TRONG** NHÁNH `chuaVeDu > 0` chứ không đứng riêng ngoài:
+   * `chuaVeDu === 0` nghĩa là **đã có phiếu nhận `da_nhap_kho` phủ hết khối lượng** — bằng chứng
+   * giao nhận đã có sẵn theo đường thường, và đường đó còn bị luật 11/08/2026 canh từng phiếu
+   * (`tinh-toan.ts` → `vuongMacXacNhanKho`). Đòi thêm một tờ nữa lúc đó là bắt đính kèm hai lần cho
+   * cùng một lần giao — đúng cái mà chú thích của `vuongMacXacNhanKho` đã cấm khi nhận ảnh QLK CTR.
+   * 👉 Trên thực tế hồ sơ phòng ban **luôn** rơi vào `chuaVeDu > 0` (không kho nào gửi phiếu), nên
+   * tờ phiếu giao hàng là BẮT BUỘC ở mọi hồ sơ phòng ban thật. Nhánh `chuaVeDu === 0` chỉ là lối
+   * thoát cho hồ sơ đã có bằng chứng bằng đường khác, không phải cửa né chứng từ.
+   *
+   * ⚠️ VIẾT BA TẦNG `if` LỒNG NHAU LÀ CỐ Ý, đừng "dọn cho gọn" thành một biểu thức
+   * `(A && !B) || (B && C)`. Mỗi tầng trả lời đúng một câu và câu chặn nói đúng việc còn thiếu;
+   * gộp lại thì lần sau ai sửa cũng phải giải mã, mà sửa nhầm một dấu là im lặng nới cho **cả hai**
+   * loại hồ sơ — không lỗi kiểu nào báo vì cả hai nhánh đều trả `string | null`.
+   */
   const chuaVeDu = tienDo.filter((d) => d.khoiLuongConLai > 0).length;
   if (chuaVeDu > 0) {
-    return `Còn ${chuaVeDu} mặt hàng chưa nhận đủ hàng. Ghi nốt phiếu nhận hàng trước khi hoàn thành.`;
+    if (!laHoSoPhongBan(deNghi)) {
+      return `Còn ${chuaVeDu} mặt hàng chưa nhận đủ hàng. Ghi nốt phiếu nhận hàng trước khi hoàn thành.`;
+    }
+    /* 🔴 ĐÂY LÀ CHỖ GIỮ CHỮ CỦA SẾP. Hồ sơ phòng ban thôi bị đòi khối lượng, NHƯNG phải nộp tờ
+       phiếu giao hàng vào đúng chỗ đó. Gỡ dòng này đi là "phòng ban thì bấm hoàn thành được luôn" —
+       Sếp đã nói riêng một câu để chặn đúng cách hiểu đó (15/09/2026: *"nhân viên thu mua tự hoàn
+       thành, NHƯNG phải đính kèm phiếu giao hàng"*).
+
+       📌 KHÔNG KẸT ĐƯỢC: khu đính kèm bước ⑥ đã có sẵn trên trang chi tiết và mở cho
+       `quyen.phanBoCongViec || quyen.lapPO` (`duocSuaTepBuoc`), nên nhân viên mua hàng đính được
+       ngay hôm nay. Xem `BUOC_DINH_KEM_PHIEU_GIAO_HANG` để biết vì sao chọn đúng khóa đó. */
+    if (!coPhieuGiaoHangPhongBan(deNghi)) {
+      return `Chưa đính kèm ${NHAN_TEP_PHIEU_GIAO_HANG} — bắt buộc phải có mới đóng được hồ sơ. ${LY_DO_NHANH_PHONG_BAN} Đính kèm ở khối bước “Tiến hành nhận hàng”, ghi chú tệp là “${NHAN_TEP_PHIEU_GIAO_HANG}”.`;
+    }
   }
 
   /**

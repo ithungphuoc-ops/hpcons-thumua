@@ -52,12 +52,14 @@ import {
    * mâu thuẫn ngay lần đổi chữ trên nút.
    */
   daKhaiKhongCoHopDong,
+  coPhieuGiaoHangPhongBan,
   lyDoThieuHopDong,
   NHAN_TEP_HOA_DON_VAT,
   TEN_HIEN_HOP_DONG,
   vuongMacRoiBuocLapDon,
   vuongMacTichXongUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
+import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 import { daysUntil } from "@/6-tien-ich/dinh-dang";
 
 export type GiaiDoanMuaHang =
@@ -235,7 +237,32 @@ export function xacDinhGiaiDoan(
     const daVeDu =
       tienDoDong.length > 0 &&
       tienDoDong.every((d) => d.khoiLuongChuaLenPO <= 0 && d.khoiLuongConLai <= 0);
-    if (daVeDu) {
+
+    /**
+     * ★★ NHÁNH HỒ SƠ PHÒNG BAN — Sếp 14/09/2026, chốt lại 15/09/2026.
+     *
+     * Sếp: *"Các đề xuất từ phòng ban thì sẽ đi nhánh riêng, không cần lấy dữ liệu từ app kho
+     * công trình mà nhân viên mua hàng sẽ là người bấm hoàn thành và đính kèm phiếu giao hàng"*,
+     * và ngày 15/09: *"E mở cho nhánh phòng ban"* · *"nhân viên thu mua tự hoàn thành, nhưng
+     * phải đính kèm phiếu giao hàng"*.
+     *
+     * 🔴 ĐÂY LÀ CỬA TRƯỚC, VÀ KHÔNG GỠ NÓ THÌ MỌI VÁ KHÁC VÔ NGHĨA. `khoiLuongConLai` chỉ về 0
+     * khi có phiếu nhận, mà phiếu nhận nay **chỉ** do app kho công trình (QLK CTR) gửi sang.
+     * Hồ sơ phòng ban không có kho công trình nào gửi ⇒ `daVeDu` không bao giờ đúng ⇒ thẻ đứng
+     * mãi ở cột ⑥, **không bao giờ tới được nút "Hoàn thành quy trình"** ở cửa cuối. Vá cửa cuối
+     * (`vuongMacHoanThanhQuyTrinh`) mà quên cửa này là hồ sơ vẫn kẹt y như trước.
+     *
+     * 🔴 ĐỔI NGUỒN BẰNG CHỨNG, KHÔNG BỎ BẰNG CHỨNG. Phải có tệp mang nhãn "Phiếu giao hàng" ở
+     * bước ⑥ thì mới qua — cùng một điều kiện mà `vuongMacHoanThanhQuyTrinh` đòi ở cửa cuối, nên
+     * hai cửa không bao giờ nói ngược nhau.
+     *
+     * 🔴 CHỈ HỒ SƠ PHÒNG BAN. Rò sang hồ sơ công trình là mất chốt đối chiếu khối lượng của cả
+     * app: ai cũng có thể đính một tấm ảnh vào bước ⑥ rồi đẩy thẻ sang bước thanh toán trong khi
+     * hàng chưa về. `laHoSoPhongBan` khoá đúng chuyện đó.
+     */
+    const phongBanDaGiao = laHoSoPhongBan(deNghi) && coPhieuGiaoHangPhongBan(deNghi);
+
+    if (daVeDu || phongBanDaGiao) {
       return "ho_so_thanh_toan";
     }
   }
@@ -1818,11 +1845,27 @@ function quyetDinhLui(
       };
 
     case "lap_don_mua_hang": {
-      // Về ③: bỏ nhà cung cấp đã chốt. Còn đơn nháp thì phải hủy đơn trước.
+      /**
+       * Về ③: bỏ nhà cung cấp đã chốt. Còn đơn nháp thì chặn — nhưng PHẢI NÓI ĐÚNG VÌ SAO.
+       *
+       * 🔴 CÂU CHẶN CŨ HỨA MỘT THAO TÁC KHÔNG TỒN TẠI — sửa 15/09/2026, đúng lỗi §3.5 của
+       * `CLAUDE.md` (*"đừng để giao diện hứa một việc app không làm"*). Nguyên văn câu cũ:
+       * *"Hủy đơn nháp trước rồi mới lùi được về bước xét duyệt báo giá"* — người dùng đi tìm
+       * nút "Hủy đơn" khắp trang chi tiết đơn hàng và KHÔNG BAO GIỜ có.
+       *
+       * 📌 Đo được 15/09/2026: `TrangThaiPO` (`3-du-lieu/kieu-du-lieu.ts`) CÓ giá trị `"huy"`,
+       * nhưng KHÔNG một dòng mã nào trong app ghi `trangThai: "huy"` cho đơn hàng — chỗ duy
+       * nhất ghi giá trị đó là `kho-du-lieu.tsx` ~2554 và nó ghi cho BẢNG BÁO GIÁ. Cũng không
+       * có chỗ nào xoá một `DonDatHang` khỏi mảng. Tức app KHÔNG có chức năng hủy/xóa đơn.
+       *
+       * ✅ Thao tác duy nhất CÓ THẬT với một đơn nháp là nút **"Chốt đơn hàng"**
+       * (`1-giao-dien/trang/don-hang-chi-tiet.tsx` ~144-159, hiện khi `po.trangThai === "nhap"`,
+       * gọi `chotDonNhap`) — nhưng nó đưa đơn ĐI TIẾP, không gỡ được đơn ra để lùi.
+       */
       if (poCuaDeNghi.some((po) => po.trangThai === "nhap")) {
         return {
           loai: "khong_the",
-          lyDo: "Đã có đơn đặt hàng nháp cho đề nghị này. Hủy đơn nháp trước rồi mới lùi được về bước xét duyệt báo giá.",
+          lyDo: "Đề nghị này đang có đơn mua hàng ở trạng thái nháp. App CHƯA có chức năng hủy hoặc xóa đơn mua hàng, nên hiện không có cách nào gỡ đơn nháp ra để lùi bước — đừng đi tìm nút “Hủy đơn”, hãy báo quản trị hệ thống. Đơn nháp chỉ có một đường đi tiếp: nút “Chốt đơn hàng” ở trang chi tiết đơn.",
         };
       }
       return {
@@ -1919,14 +1962,29 @@ export function quyetDinhKeoTha(
    *
    * ✅ CÁCH BẬT LẠI: xoá đúng khối `if` này. Một dòng, không cần dựng lại gì.
    *
-   * ⚠️ TẮT KÉO LÙI KHÔNG PHẢI LÀ KHÔNG LÙI ĐƯỢC. Hồ sơ đi nhầm bước vẫn sửa được bằng cách hủy
-   * chứng từ đang giữ nó ở bước đó (hủy đơn nháp, hủy bảng báo giá…) — giai đoạn suy ra từ chứng
-   * từ nên thẻ tự về. Câu dưới nói đúng đường đó, đừng để người dùng tưởng hồ sơ kẹt vĩnh viễn.
+   * 🔴🔴 CÂU CHẶN CŨ HỨA HAI THAO TÁC KHÔNG TỒN TẠI — sửa 15/09/2026 (§3.5 `CLAUDE.md`).
+   * Nguyên văn câu cũ: *"hủy chứng từ đang giữ nó ở bước đó (đơn nháp, bảng báo giá…) — thẻ sẽ
+   * tự về bước trước"*. Câu đó đúng về NGUYÊN LÝ (giai đoạn suy ra từ chứng từ) nhưng SAI về
+   * thực tế app, và người dùng đi tìm nút "Hủy" khắp nơi không bao giờ thấy:
+   *   · **Hủy đơn mua hàng: KHÔNG CÓ.** Không dòng nào ghi `trangThai: "huy"` cho `DonDatHang`,
+   *     cũng không chỗ nào xoá đơn khỏi mảng — xem chú thích dài ở `quyetDinhLui` case
+   *     `"lap_don_mua_hang"` phía trên.
+   *   · **Hủy bảng báo giá: KHÔNG CÓ NÚT.** Chỗ duy nhất ghi `trangThai: "huy"` cho `BaoGia` là
+   *     `3-du-lieu/kho-du-lieu.tsx` ~2554, nằm TRONG `luiVeBuoc` nhánh `ve === "tiep_nhan"` — mà
+   *     nhánh đó chỉ vào được từ kéo thả, tức đang chết vì chính khối `if` này.
+   *
+   * ✅ ĐƯỜNG LÙI DUY NHẤT CÒN SỐNG (đo 15/09/2026): nút **"Không duyệt"** ở khối bước ③ của
+   * `1-giao-dien/trang/de-nghi-chi-tiet.tsx` (~1988, cổng quyền `quyen.xacNhanTruongBP` ~1936)
+   * → hộp thoại ~3221 → `luiVeBuoc(dn.id, "yeu_cau_bao_gia", …, { lyDo })` ~3359. Nó trả hồ sơ
+   * ③ → ②. Mọi cặp bước khác hiện KHÔNG có đường lùi nào.
+   *
+   * ⚠️ Câu dưới PHẢI nói đúng chừng đó. Thêm một thao tác "nghe hợp lý" mà app không làm được
+   * là đẩy người dùng đi tìm nút không tồn tại — đúng lỗi vừa phải sửa.
    */
   if (buocDich === buocTu - 1) {
     return {
       loai: "khong_the",
-      lyDo: "Chức năng kéo lùi bước đang tạm tắt. Hồ sơ đi nhầm bước thì hủy chứng từ đang giữ nó ở bước đó (đơn nháp, bảng báo giá…) — thẻ sẽ tự về bước trước.",
+      lyDo: "Chức năng kéo lùi bước đang tạm tắt, và app CHƯA có chức năng hủy đơn mua hàng hay hủy bảng báo giá — đừng đi tìm nút “Hủy”. Đường lùi duy nhất đang chạy được: nút “Không duyệt” ở bước ③ Xét duyệt báo giá (trưởng bộ phận bấm, phải ghi lý do), trả hồ sơ về bước ② để làm lại báo giá. Đi nhầm ở bước khác thì báo quản trị hệ thống; muốn bỏ hẳn hồ sơ thì dùng “Đánh dấu thất bại” trong menu ⋯ của thẻ.",
     };
   }
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Lock, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, Info, Lock, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +64,27 @@ import type { DongPO, DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
  * chính `form-lap-don-mua-hang.tsx`** (prop `poDangSua?`), giữ nguyên đường lập đơn mới — hai bản
  * form chép tay sẽ lệch nhau sau vài lần sửa, đúng lỗi dự án đã dính.
  */
+
+/**
+ * ★★★ MÃ RIÊNG CHO CA "KHÔNG CÓ GÌ THAY ĐỔI NÊN KHÔNG GHI" — thêm 15/09/2026.
+ *
+ * 🔴 VÌ SAO CẦN: `suaDonHang` (`3-du-lieu/kho-du-lieu.tsx`) hiện trả `null` cho **HAI nghĩa khác
+ * hẳn nhau** — (a) "đã ghi xong" và (b) "so ra không có gì đổi nên KHÔNG ghi gì cả"
+ * (chỗ `if (moc.length === 0) return null;`, ~dòng 1999). Giao diện đọc `null` rồi báo xanh
+ * *"Đã lưu thay đổi"* cho cả hai — tức app **nói dối** ở ca (b): người dùng tin là đã lưu, trong
+ * khi không một dòng nào được ghi và nhật ký cũng không có dấu vết. Đúng thứ CLAUDE.md §3.5 cấm
+ * (*"đừng để giao diện hứa một việc app không làm"*).
+ *
+ * 🔴🔴 GIÁ TRỊ NÀY PHẢI KHỚP VỚI THỨ TẦNG GHI TRẢ VỀ — xem `suaDonHang` trong
+ * `3-du-lieu/kho-du-lieu.tsx`. Hiện tầng ghi **CHƯA** phân biệt hai ca (một phiên khác đang vá),
+ * nên chừng nào nó còn trả `null` thì nhánh dưới không bao giờ chạy và hành vi y như cũ —
+ * KHÔNG hỏng gì, chỉ là chưa có tác dụng.
+ *
+ * 📌 KHI TẦNG GHI ĐÃ CÓ HẰNG/KIỂU CỦA NÓ: **xoá hằng cục bộ này và `import` hằng của tầng ghi**.
+ * Đây cố ý là MỘT chỗ duy nhất phải sửa — đừng rải chuỗi này ra nhiều nơi trong tệp.
+ */
+const MA_KHONG_CO_THAY_DOI = "KHONG_CO_THAY_DOI";
+
 export function HopSuaDonHang({ po }: { po: DonDatHang }) {
   const { phieuNhan, giaDonHang, suaDonHang } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
@@ -286,6 +307,17 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
     }
 
     const loi = suaDonHang(po.id, thayDoi, lyDo);
+    /* 🔴 CA "KHÔNG CÓ GÌ ĐỔI" ĐI RIÊNG, TRƯỚC CẢ NHÁNH LỖI — xem chú thích `MA_KHONG_CO_THAY_DOI`
+       ở đầu tệp. Đây KHÔNG phải lỗi (không có gì sai để sửa), cũng KHÔNG phải thành công (không
+       có lần ghi nào xảy ra) — nên báo bằng tông trung tính và nói đúng sự thật. Vẫn đóng hộp vì
+       người dùng đã bấm Lưu xong và không còn việc gì để làm tiếp trong hộp. */
+    if (loi === MA_KHONG_CO_THAY_DOI) {
+      toast.info("Không có gì thay đổi", {
+        description: "Nội dung đơn hàng giữ nguyên như cũ nên app không ghi lại gì.",
+      });
+      setMo(false);
+      return;
+    }
     if (loi) {
       toast.error("Chưa sửa được", { description: loi });
       return;
@@ -316,6 +348,39 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
           </DialogHeader>
 
           <div className="flex max-h-[65vh] flex-col gap-5 overflow-y-auto pr-1">
+            {/**
+             * ★ CẢNH BÁO "ĐƠN ĐÃ GỬI SANG KHO CÔNG TRÌNH" — thêm 15/09/2026.
+             *
+             * 🔴 VÌ SAO PHẢI BÁO: `qlkCtrSyncStatus === "synced"` nghĩa là **một bản PO đã nằm bên
+             * app QLK CTR rồi**. Người sửa ở đây không nhìn thấy điều đó, nên rất dễ tưởng mình
+             * đang sửa một chứng từ còn nằm trong nội bộ Thu mua — trong khi thủ kho ngoài công
+             * trình có thể vẫn đang cầm số lượng và ngày giao CŨ mà nhận hàng.
+             *
+             * ⚠️ CÂU CHỮ CỐ Ý KHÔNG HỨA "GỬI LẠI NGAY". Đã đọc `canDongBoLaiPO`
+             * (`5-ket-noi/gui-po-qlk-ctr.ts`) — cơ chế gửi lại CÓ bắt được thay đổi (nó so ảnh
+             * chụp `qlkCtrSyncedSnapshot` với đơn hiện tại). Nhưng nơi gọi nằm trong vòng đồng bộ
+             * của `kho-du-lieu.tsx` (~dòng 1130), và **CHƯA AI ĐO THẬT** là nó có chạy ngay trong
+             * phiên của chính người vừa bấm Lưu hay không — mới là suy luận từ mã nguồn. Nên ở
+             * đây chỉ nói "sẽ được đồng bộ lại" và chỉ đường xử lý khi bên kho chưa thấy; tuyệt
+             * đối không bịa ra một mốc thời gian.
+             *
+             * 📌 Trạng thái có CẢ MÀU LẪN CHỮ (Design System V1.1 §3.2) — bỏ màu đi vẫn đọc hiểu.
+             */}
+            {po.qlkCtrSyncStatus === "synced" && (
+              <div className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg p-3 text-warning-soft">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs font-semibold">Đơn này đã gửi sang Kho công trình</p>
+                  <p className="text-xs">
+                    Bản đơn hàng hiện có bên app Kho công trình (QLK CTR). Bản sửa sẽ được đồng bộ
+                    lại sang đó; trong lúc chờ, thủ kho có thể vẫn đang thấy số lượng và ngày giao
+                    cũ. Nếu bên kho chưa thấy bản mới, báo bộ phận kho đối chiếu trước khi giao
+                    nhận.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* NHÓM 1 */}
             <div className="flex flex-col gap-2">
               <p className="text-xs font-semibold text-success-soft uppercase">
@@ -571,10 +636,40 @@ export function HopSuaDonHang({ po }: { po: DonDatHang }) {
                     </div>
                   );
                 })}
-                <Button size="sm" variant="outline" className="w-fit" onClick={themDongMoi}>
-                  <Plus className="size-4" aria-hidden />
-                  Thêm dòng mới
-                </Button>
+                {/**
+                 * ★ "THÊM DÒNG MỚI" CHỈ CÒN CHO ĐƠN ĐỘC LẬP — siết 15/09/2026.
+                 *
+                 * 🔴 VÌ SAO: trước đây nút này hiện VÔ ĐIỀU KIỆN. Với đơn lập từ một đề nghị
+                 * (`po.prId` có giá trị), nó cho thêm mặt hàng + số lượng + đơn giá tuỳ ý vào một
+                 * PO **đã chốt** — không đi qua bước ③ Xét duyệt báo giá, không đối chiếu khối
+                 * lượng đã được duyệt của đề nghị. Tức là một đường vòng lặng lẽ quanh cả quy
+                 * trình duyệt, ngay trong hộp "sửa vài thông tin hành chính".
+                 *
+                 * ⚠️ ẨN NÚT CHỈ LÀ LỚP MẶT, KHÔNG PHẢI CHỐT. Chốt thật phải nằm ở tầng ghi
+                 * (`suaDonHang` trong `3-du-lieu/kho-du-lieu.tsx`) và đang do một phiên khác vá —
+                 * CỐ Ý không chép luật đó sang tệp giao diện này, vì hai chỗ cùng viết một luật
+                 * thì vài lần sửa nữa sẽ lệch nhau (lỗi dự án đã dính).
+                 *
+                 * 📌 Đơn KHÔNG có `prId` (đơn độc lập cũ) giữ nguyên nút — chúng không có đề nghị
+                 * nào để đối chiếu, nên thêm dòng ở đây vẫn là đường hợp lệ duy nhất.
+                 */}
+                {po.prId ? (
+                  /* Nói rõ VÌ SAO không có nút, và chỉ đường làm đúng — chứ không im lặng bỏ nút
+                     đi để người dùng tưởng giao diện hỏng. */
+                  <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-2.5 text-text-desc">
+                    <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    <p className="text-xs">
+                      Đơn này lập từ đề nghị <span className="font-semibold">{po.prCode ?? ""}</span>{" "}
+                      nên mặt hàng phải bám theo khối lượng đã được duyệt — không thêm dòng mới ở
+                      đây. Cần đặt thêm hàng thì lập đề nghị mới, hoặc lập một đơn hàng khác.
+                    </p>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" className="w-fit" onClick={themDongMoi}>
+                    <Plus className="size-4" aria-hidden />
+                    Thêm dòng mới
+                  </Button>
+                )}
                 {po.xacNhanTruongBP && quyen.xemGia && (
                   <p className="text-xs text-text-desc">
                     Đã xác nhận hoàn thành — khóa sửa đơn giá.

@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duocXacNhanNhanDuHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
 import {
   poDaGiaoDu,
   tinhTienDonHang,
@@ -32,11 +33,24 @@ import { HopSuaDonHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-don-ha
 
 export default function TrangChiTietDonHang() {
   const params = useParams<{ id: string }>();
-  const { donHang, phieuNhan, giaDonHang, xacNhanKho, xacNhanTruongBP, chotDonNhap } = useDuLieu();
+  const { donHang, phieuNhan, giaDonHang, deNghi, xacNhanKho, xacNhanTruongBP, chotDonNhap } =
+    useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   const po = donHang.find((x) => x.id === params.id);
   const gia = giaDonHang.find((g) => g.poId === params.id);
+
+  /**
+   * ★ Đề nghị nguồn của đơn — cần để biết đây là hồ sơ CÔNG TRÌNH hay PHÒNG BAN.
+   *
+   * Sếp 15/09/2026: *"E mở cho nhánh phòng ban"*, *"nhân viên thu mua tự hoàn thành, nhưng phải
+   * đính kèm phiếu giao hàng"*. Hồ sơ phòng ban không có kho công trình xác nhận hộ, nên quyền
+   * bấm "Kho xác nhận nhận đủ hàng" phải hỏi THEO HỒ SƠ chứ không theo cờ toàn cục.
+   *
+   * 📌 `undefined` khi đơn chưa gắn đề nghị — `duocXacNhanNhanDuHangCuaHoSo` nhận `undefined` và
+   * **không nới quyền**, đúng luật "thiếu thông tin thì cho quyền thấp nhất".
+   */
+  const deNghiNguon = po?.prId ? deNghi.find((d) => d.id === po.prId) : undefined;
 
   const phieuCuaPO = useMemo(
     () => (po ? phieuNhan.filter((p) => p.poId === po.id) : []),
@@ -395,7 +409,14 @@ export default function TrangChiTietDonHang() {
             </ol>
 
             <div className="flex flex-wrap items-center gap-2 border-t border-divider pt-4">
-              {quyen.xacNhanKho && daGiaoDu && !po.xacNhanKho && (
+              {/* ★★ Hỏi THEO HỒ SƠ, không theo cờ toàn cục — Sếp 15/09/2026 mở nhánh phòng ban.
+                  Hồ sơ công trình: y như cũ, chỉ thủ kho. Hồ sơ phòng ban: nhân viên thu mua bấm
+                  được, vì không có kho công trình nào xác nhận hộ họ.
+                  📌 Điều kiện chứng từ KHÔNG đổi — `vuongMacTep` bên dưới vẫn khoá nút khi còn lần
+                  giao nào thiếu phiếu giao hàng. */}
+              {duocXacNhanNhanDuHangCuaHoSo(deNghiNguon, nguoiDung, quyen) &&
+                daGiaoDu &&
+                !po.xacNhanKho && (
                 <>
                   {/* Nút KHÓA khi còn phiếu thiếu tệp — không giấu nút, vì giấu đi thì thủ
                       kho tưởng mình không có quyền. Khóa kèm lý do ngay bên cạnh. */}
