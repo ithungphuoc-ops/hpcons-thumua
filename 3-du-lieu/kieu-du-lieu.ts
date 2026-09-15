@@ -1029,7 +1029,25 @@ export interface DonDatHang {
    * "failed" là dấu hiệu để tự thử lại lần sau có người mở lại đúng đơn này — cùng mẫu
    * `thuMuaSyncStatus` bên App Request đã làm cho Việc 1. Xem `5-ket-noi/gui-po-qlk-ctr.ts`.
    */
-  qlkCtrSyncStatus?: "synced" | "failed";
+  /**
+   * ★★ "khong_ap_dung" — THÊM 15/09/2026 theo đúng chỉ đạo Sếp: *"nếu làm đề nghị là chọn theo
+   * phòng ban thì không có chạy về app kho vì phòng ban không có kho riêng"*.
+   *
+   * 🔴 VÌ SAO PHẢI CÓ GIÁ TRỊ THỨ BA, KHÔNG DÙNG LẠI "failed": đơn của hồ sơ phòng ban **không
+   * hề hỏng** — nó không có việc gì để làm bên app Kho cả. Đo trên kho đang chạy 15/09/2026:
+   * DMH260007 và DMH260009 (đều thuộc đề nghị `000000089`, hồ sơ phòng ban) đang mang dấu
+   * "failed". Người mở màn chi tiết thấy khối cảnh báo "Chưa gửi được đơn này sang app Kho công
+   * trình" thì tưởng app hỏng và đi báo lỗi, trong khi app đang chạy ĐÚNG luật. Một dấu sai đọc
+   * được là một lần người ta mất công đi tìm thứ không tồn tại.
+   *
+   * 🔴 CŨNG KHÔNG ĐƯỢC ĐỂ TRỐNG (`undefined`): trống nghĩa là **chưa từng thử**, và vòng tự động
+   * ở `kho-du-lieu.tsx` sẽ coi đó là việc chưa làm rồi đụng lại mãi. "khong_ap_dung" là câu trả
+   * lời dứt khoát *"đã xét rồi, và kết luận là không phải việc của app Kho"*.
+   *
+   * 📌 KHÔNG BAO GIỜ tự thử lại trạng thái này. Nó chỉ đổi khi chính hồ sơ đổi loại (phòng ban →
+   * công trình), lúc đó `laHoSoPhongBan` trả `false` và luồng bình thường tiếp quản.
+   */
+  qlkCtrSyncStatus?: "synced" | "failed" | "khong_ap_dung";
   /**
    * ★ (24/08/2026): dấu vân tay (JSON.stringify) của đúng phần dữ liệu đã gửi sang QLK CTR ở lần
    * "synced" gần nhất — dùng để phát hiện Thu mua SỬA LẠI PO sau khi đã đồng bộ (đổi NCC/số
