@@ -53,9 +53,15 @@ function CommandDialog({
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
+      {/* 🔴 `overflow-clip`, KHÔNG PHẢI `overflow-hidden` — cùng một bẫy đã làm trắng nửa màn
+          hình ở pop-up "Chi tiết đề nghị" (15/09/2026, xem chú thích dài tại
+          `trang/de-nghi-danh-sach.tsx`): `hidden` vẫn là vùng cuộn hợp lệ, nên chỉ cần một ô
+          nhập nằm sâu bên trong nhận focus là trình duyệt cuộn cả khối chứa đi, kéo tiêu đề ra
+          khỏi màn hình và người dùng không cuộn ngược lại được. `clip` cắt y hệt nhưng không
+          tạo vùng cuộn. Danh sách kết quả bên trong vẫn tự cuộn bằng `overflow-y-auto` riêng. */}
       <DialogContent
         className={cn(
-          "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
+          "top-1/3 translate-y-0 overflow-clip rounded-xl! p-0",
           className
         )}
         showCloseButton={showCloseButton}

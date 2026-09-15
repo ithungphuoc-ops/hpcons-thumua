@@ -882,7 +882,46 @@ export default function TrangDanhSachDeNghi() {
                 cao cho nhau. */}
             <DialogContent
               showCloseButton={false}
-              className="sm:max-w-[94vw] max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0"
+              /**
+               * ★★ `overflow-clip` CHỨ KHÔNG PHẢI `overflow-hidden` — VÁ LỖI TRẮNG NỬA MÀN HÌNH
+               * Sếp quay video 15/09/2026 ("lỗi thu mua bước 2").
+               *
+               * 🐛 TRIỆU CHỨNG: ở bước 2, cuộn xuống bấm "Chọn tệp bảng so sánh" là thanh xanh
+               *    biến mất và hộp thoại trắng trơn từ giữa màn hình xuống. Kéo chuột không về
+               *    được, phải F5.
+               *
+               * 🔬 CƠ CHẾ (đo thật trên production):
+               *    ① Nút "Chọn tệp" là `<label>` bọc `<input type="file" class="sr-only">` — ô
+               *       ẩn 1px, nằm sâu dưới đáy nội dung.
+               *    ② Bấm vào là ô ẩn nhận focus, trình duyệt tự cuộn nó vào tầm nhìn.
+               *    ③ `overflow: hidden` **vẫn là một vùng cuộn hợp lệ** — nó chỉ giấu thanh cuộn
+               *       và chặn chuột, KHÔNG chặn trình duyệt cuộn bằng lệnh. Nên chính khối này
+               *       bị cuộn đi 1227px.
+               *    ④ Thanh xanh + vùng nội dung trôi hẳn lên trên khỏi màn hình; chỗ còn lại là
+               *       nền trắng rỗng của khối này.
+               *    ⑤ Và vì `hidden` chặn chuột, người dùng KHÔNG cuộn ngược lại được → phải F5.
+               *
+               *    Số đo lúc bấm (máy thật, hồ sơ 000000088):
+               *      | | trước | sau |
+               *      | khối này cuộn đi | 0px | 1227px |
+               *      | đỉnh thanh xanh  | y=65 | y=−1162 |
+               *
+               * ✅ `overflow: clip` cắt phần thừa Y HỆT `hidden`, nhưng KHÔNG tạo vùng cuộn —
+               *    trình duyệt không có gì để cuộn, nên thanh xanh không thể trôi đi đâu. Đã thử
+               *    A/B trên chính production: có `clip` thì khối cuộn 0px, thanh xanh đứng nguyên
+               *    y=65.
+               *
+               * 🔴 ĐỪNG ĐỔI NGƯỢC VỀ `overflow-hidden` cho "an toàn hơn". Ở đây `hidden` mới là
+               *    cái nguy hiểm, vì nó âm thầm biến khối chứa thành vùng cuộn.
+               *
+               * 📌 KHÔNG ảnh hưởng vùng cuộn nội dung bên dưới: đó là div riêng
+               *    `min-h-0 flex-1 overflow-y-auto`, vẫn cuộn bình thường bằng chuột như cũ.
+               *
+               * ⚠️ Lỗi này dính MỌI nút đính kèm nằm sâu trong pop-up (dùng chung `ODinhKemTep`),
+               *    không riêng ô bảng so sánh — nút càng ở dưới thì cú nhảy càng lớn. Mấy nút
+               *    "Chọn tệp báo giá" phía trên ít lộ vì chúng gần đầu nội dung.
+               */
+              className="sm:max-w-[94vw] max-h-[90vh] flex flex-col gap-0 overflow-clip p-0"
             >
               {/**
                 * ★★ ĐƠN GIẢN LẠI THANH TIÊU ĐỀ — 28/08/2026, video thứ hai Sếp quay: thanh của

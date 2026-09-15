@@ -1679,12 +1679,45 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * 3. 🔴 `qlkCtrSyncAt` ghi cho **CẢ HAI** nhánh, không chỉ khi lỗi. Có mốc thời gian mới trả
      *    lời được câu hỏi thật sự cần: *"lỗi này vừa xảy ra, hay là xác chết từ tuần trước?"*.
      */
+    /**
+     * ★★ ĐƠN CỦA HỒ SƠ PHÒNG BAN ĐANG MANG DẤU "THẤT BẠI" SAI — gom lại để dọn một lượt.
+     *
+     * 🔴 VÌ SAO CÓ DẤU SAI: chốt "không gửi hồ sơ phòng ban" chỉ mới vào code trưa 15/09/2026
+     * (`5-ket-noi/gui-po-qlk-ctr.ts`). Những đơn lập TRƯỚC đó đã kịp gửi, đã hỏng, và đã bị ghi
+     * `failed` lên kho chung. Chốt mới chặn được lần gửi SAU, nhưng KHÔNG tự xoá dấu cũ — đo
+     * 15/09/2026: DMH260007 và DMH260009 vẫn mang dấu hỏng.
+     *
+     * 🔴 GOM RỒI GHI MỘT LƯỢT, KHÔNG `setDonHang` NGAY TRONG VÒNG FOR: mỗi cú ghi là một lần đẩy
+     * lên kho chung. Vòng này vừa phải chữa đúng một sự cố ghi-đẻ-ra-ghi (xem hai chốt ở trên),
+     * đừng mở lại cửa đó.
+     *
+     * 📌 TỰ DỪNG SAU ĐÚNG MỘT LƯỢT: ghi xong thì trạng thái là "khong_ap_dung", lần chạy sau
+     * điều kiện `=== "failed"` không còn đúng nên mảng này rỗng. Không có vòng lặp.
+     */
+    const poPhongBanConDauThatBai: string[] = [];
+
     for (const po of d.donHang) {
       /* 🔴 CHỐT ①: mỗi PO chỉ thử lại MỘT lần mỗi phiên. Xem `daThuDongBoQlkCtrPhienNay`. */
       if (daThuDongBoQlkCtrPhienNay.current.has(po.id)) continue;
 
       if (po.prId) {
         const deNghiGoc = d.deNghi.find((dn) => dn.id === po.prId);
+
+        /* ★★ HỒ SƠ PHÒNG BAN KHÔNG CÓ VIỆC GÌ Ở APP KHO — chặn NGAY, trước mọi phép thử.
+           Sếp 15/09/2026: *"Ap kho chỉ phù hợp với đề nghị mà chọn công trình có mã số hợp đồng,
+           tên công trình"*.
+
+           🔴 CHẶN Ở ĐÂY CHỨ KHÔNG PHÓ MẶC `guiPOSangQlkCtr`: hàm đó đã tự trả `{apDung:false}`
+           cho hồ sơ phòng ban, nhưng để chạy tới đó là đã tốn một vòng promise cho mỗi PO, mỗi
+           lần dữ liệu về. Chặn sớm còn nói thẳng ý định ra cho người đọc code sau.
+
+           ⚠️ KHÔNG đánh dấu vào `daThuDongBoQlkCtrPhienNay`: đây không phải một lần "đã thử", mà
+           là kết luận "không áp dụng". Trộn hai thứ vào cùng một tập là làm hỏng nghĩa của nó. */
+        if (laHoSoPhongBan(deNghiGoc)) {
+          if (po.qlkCtrSyncStatus === "failed") poPhongBanConDauThatBai.push(po.id);
+          continue;
+        }
+
         if (po.qlkCtrSyncStatus !== "failed" && !canDongBoLaiPO(po, deNghiGoc)) continue;
         daThuDongBoQlkCtrPhienNay.current.add(po.id);
         void guiPOSangQlkCtr(po, deNghiGoc).then((ketQua) => {
@@ -1783,6 +1816,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           if (!ketQua.thanhCong) console.error("[Việc 2] Tự đồng bộ lại PO độc lập sang QLK CTR lỗi:", ketQua.loi);
         });
       }
+    }
+
+    /* ★ DỌN DẤU SAI — xem `poPhongBanConDauThatBai` phía trên.
+       🔴 XOÁ LUÔN `qlkCtrSyncError`: câu lỗi cũ ("HTTP 502", "không tìm thấy đề nghị"…) nói về
+       một lần gửi ĐÁNG LẼ KHÔNG ĐƯỢC XẢY RA. Giữ lại là giữ một lời khai sai trong hồ sơ. */
+    if (poPhongBanConDauThatBai.length > 0) {
+      setDonHang((truoc) =>
+        truoc.map((p) =>
+          poPhongBanConDauThatBai.includes(p.id)
+            ? {
+                ...p,
+                qlkCtrSyncStatus: "khong_ap_dung",
+                qlkCtrSyncError: undefined,
+                qlkCtrSyncAt: new Date().toISOString(),
+              }
+            : p,
+        ),
+      );
     }
   }, []);
 
