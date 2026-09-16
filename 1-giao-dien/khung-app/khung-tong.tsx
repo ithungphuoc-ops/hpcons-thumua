@@ -6,6 +6,7 @@ import { AppSidebar } from "@/1-giao-dien/khung-app/thanh-ben";
 import { AppHeader } from "@/1-giao-dien/khung-app/thanh-tren";
 import { BottomNav } from "@/1-giao-dien/khung-app/thanh-duoi-mobile";
 import { BaoViecMoi } from "@/1-giao-dien/khung-app/bao-viec-moi";
+import { ChiBaoBanMoi } from "@/1-giao-dien/khung-app/chi-bao-ban-moi";
 
 /**
  * Khung bố cục Hybrid (V1.1 Phần C): Sidebar 260px cố định bên trái (Desktop),
@@ -52,6 +53,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       <AppSidebar />
       <div className="flex min-h-screen flex-col xl:ml-(--hp-sidebar-width)">
         <AppHeader />
+        {/* ★ DẢI BÁO "ĐÃ CÓ BẢN MỚI" — thêm 16/09/2026, vá lỗ đã gây sự cố thật.
+            🔴 ĐẶT NGAY DƯỚI THANH TRÊN, TRÊN MỌI NỘI DUNG: deploy không đẩy mã mới sang tab đang
+            mở, nên máy chạy bản cũ vẫn ghi đè được lên dữ liệu của bản mới. Ngày 15/09 phải tắt
+            hết máy cả phòng thì vòng lặp mới dừng, dù đã vá và deploy xong từ lâu.
+            📌 Tự ẩn khi không có bản mới nên bình thường không chiếm một pixel nào.
+            📌 Đặt ở khung tổng để mọi trang đều được báo — cùng lý do với `BaoViecMoi`. */}
+        <ChiBaoBanMoi />
         {/* `flex flex-col` + con `flex-1`: cho phép màn hình nào cần (vd bảng quy trình)
             tự sổ xuống kín chiều cao còn lại bằng flex-1 — trang khác không đổi gì. */}
         <main className="flex flex-1 flex-col overflow-x-hidden p-(--hp-md-pad) pb-[calc(var(--hp-bottom-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-(--hp-md-pad)">

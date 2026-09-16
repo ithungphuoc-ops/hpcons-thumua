@@ -6789,6 +6789,110 @@ kiem(
   },
 );
 
+/* ★★ DẢI BÁO "ĐÃ CÓ BẢN MỚI" — thêm 16/09/2026.
+   🔴 Vá một lỗ đã gây sự cố THẬT: deploy không đẩy mã mới sang tab đang mở, nên máy chạy bản cũ
+   ghi đè được lên dữ liệu của bản mới. Ngày 15/09 phải tắt hết máy cả phòng thì vòng lặp mới
+   dừng, dù đã vá và deploy xong từ lâu. Hôm sau đo được ba đơn DMH260011/12/13 mang dấu hỏng
+   KHÔNG kèm mốc thời gian — dấu vân tay của bản app trước 14/09.
+   🔴 Bài kiểm canh CẢ HAI CHIỀU. Chiều nghịch quan trọng hơn: nếu `coBanMoi` bị sửa thành "thiếu
+   thông tin cũng coi là có bản mới" thì mọi máy sẽ bị bày cảnh báo giả ngay lần hỏi đầu tiên,
+   và người dùng học được thói quen lờ dải báo đi — lúc có bản mới thật thì không ai buồn bấm. */
+const tepRaBanMoi = join(thuMuc, "nhip-kiem-ban-moi.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/nhip-kiem-ban-moi.ts" --bundle --platform=node --format=cjs --outfile="${tepRaBanMoi}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/nhip-kiem-ban-moi.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+/* `nap` = createRequire, khai ở dòng ~294 — tệp này là ES module nên `require` trần không chạy. */
+const BM = nap(tepRaBanMoi);
+
+kiem(
+  "Bản máy chủ KHÁC bản đang chạy → báo có bản mới",
+  "Sếp 16/09/2026 · vá lỗ máy chạy bản cũ ghi đè dữ liệu bản mới",
+  () => {
+    const r = BM.coBanMoi("dep_abc123", "dep_xyz789");
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true" };
+  },
+);
+
+kiem(
+  "Bản máy chủ GIỐNG bản đang chạy → KHÔNG báo",
+  "Sếp 16/09/2026",
+  () => {
+    const r = BM.coBanMoi("dep_abc123", "dep_abc123");
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false" };
+  },
+);
+
+kiem(
+  "CHƯA hỏi được lần đầu (mốc rỗng) → KHÔNG báo, đừng bày cảnh báo giả",
+  "CLAUDE.md §3.6c — thiếu thông tin thì cho mức thấp nhất",
+  () => {
+    const r = BM.coBanMoi("", "dep_xyz789");
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false (chưa có mốc để so)" };
+  },
+);
+
+kiem(
+  "Lần hỏi HỎNG (máy chủ trả rỗng) → KHÔNG báo",
+  "CLAUDE.md §3.6c",
+  () => {
+    const r = BM.coBanMoi("dep_abc123", "");
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false (lần hỏi hỏng ≠ có bản mới)" };
+  },
+);
+
+kiem(
+  "Vừa phát hiện → CHƯA đổi sang giọng gấp",
+  "Sếp 16/09/2026 · nhã nhặn một lần trước khi nói thật",
+  () => {
+    const moc = 1_000_000;
+    const r = BM.daDenLucNhacGap(moc, moc + 60_000);
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false (mới 1 phút)" };
+  },
+);
+
+kiem(
+  "Quá 30 phút chưa tải lại → ĐỔI sang giọng gấp",
+  "Sếp 16/09/2026 · dải nhã nhặn bị lờ đi thì bằng không làm gì",
+  () => {
+    const moc = 1_000_000;
+    const r = BM.daDenLucNhacGap(moc, moc + BM.HAN_NHAC_GAP_MS);
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true" };
+  },
+);
+
+kiem(
+  "Chưa từng phát hiện (mốc 0) → KHÔNG bao giờ gấp",
+  "chiều nghịch — mốc rỗng không được tính thành 'đã quá hạn từ lâu'",
+  () => {
+    const r = BM.daDenLucNhacGap(0, Date.now());
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false" };
+  },
+);
+
+kiem(
+  "Câu nhắc mức GẤP phải nói ra HẬU QUẢ, không chỉ mời tải lại",
+  "Sếp 16/09/2026 · tới lúc đó lời mời đã thất bại một lần",
+  () => {
+    const thuong = BM.cauNhacBanMoi(false);
+    const gap = BM.cauNhacBanMoi(true);
+    const coHauQua = /ghi sai|dữ liệu chung/i.test(gap.chiDan);
+    const khacNhau = thuong.chiDan !== gap.chiDan && thuong.tieuDe !== gap.tieuDe;
+    return {
+      duoc: coHauQua && khacNhau,
+      thucTe: `gấp="${gap.chiDan.slice(0, 50)}…" · khác câu thường: ${khacNhau}`,
+      mongDoi: "câu gấp nói hậu quả và khác hẳn câu thường",
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 
