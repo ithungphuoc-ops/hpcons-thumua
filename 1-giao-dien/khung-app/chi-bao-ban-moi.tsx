@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import {
   CHU_KY_HOI_BAN_MOI_MS,
+  HAN_NHAC_GAP_MS,
   cauNhacBanMoi,
   coBanMoi,
   daDenLucNhacGap,
@@ -111,6 +112,31 @@ export function ChiBaoBanMoi() {
       document.removeEventListener("visibilitychange", khiHien);
     };
   }, [hoi]);
+
+  /**
+   * ★★ HẸN GIỜ ĐỔI SANG GIỌNG GẤP — TÁCH KHỎI LẦN GỌI MÁY CHỦ (CodeRabbit bắt, PR #22).
+   *
+   * 🔴 LỖI CỦA BẢN ĐẦU: `setGap` chỉ chạy BÊN TRONG `hoi()`, sau khi lấy dữ liệu thành công. Mạng
+   * hỏng sau lúc đã phát hiện bản mới thì mọi lần hỏi sau đều `return` sớm, và dải báo **mãi ở
+   * mức nhã nhặn** dù đã quá 30 phút — đúng lúc cần nói thật thì lại im.
+   *
+   * ✅ Hẹn giờ này chạy độc lập, không cần mạng. Việc đổi giọng là chuyện của ĐỒNG HỒ, không phải
+   * chuyện của máy chủ.
+   *
+   * 📌 GIỮ NGUYÊN phép kiểm `daDenLucNhacGap` trong `hoi()` — hai lớp lo hai ca khác nhau, không
+   * thừa: hẹn giờ lo ca MẠNG HỎNG; phép kiểm trong `hoi()` lo ca TRÌNH DUYỆT GIÃN BỘ HẸN GIỜ khi
+   * tab bị ẩn lâu (Chrome giãn timer của tab nền tới hàng phút). Bỏ lớp nào cũng hở một ca.
+   *
+   * 🔴 Tính phần thời gian CÒN LẠI chứ không hẹn cứng 30 phút: nếu tab vừa hiện lại sau khi ẩn
+   * lâu, `coMoi` mới bật nhưng `lucPhatHien` đã cũ — hẹn cứng là bắt người dùng chờ thêm 30 phút
+   * nữa từ đầu. `Math.max(0, …)` cho trường hợp đã quá hạn từ lâu: đổi giọng ngay.
+   */
+  useEffect(() => {
+    if (!coMoi || gap) return;
+    const conLai = Math.max(0, HAN_NHAC_GAP_MS - (Date.now() - lucPhatHien.current));
+    const id = setTimeout(() => setGap(true), conLai);
+    return () => clearTimeout(id);
+  }, [coMoi, gap]);
 
   if (!coMoi) return null;
 
