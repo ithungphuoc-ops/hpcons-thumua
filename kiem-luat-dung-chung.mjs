@@ -7576,6 +7576,165 @@ kiem(
   },
 );
 
+/* ★★ SO BẢN CŨ VỚI BẢN MỚI ĐỂ BIẾT PHẢI GHI GÌ — nền của việc TÁCH KHO CHUNG (Sếp duyệt 16/09).
+   🔴 Đây là phần dễ sai nhất của cả việc tách, vì nó sinh ra LỆNH XOÁ. Ở mô hình cũ, ghi đè bằng
+   mảng rỗng chỉ làm hỏng một document và còn cứu được bằng bản sao. Ở mô hình mới nó thành lệnh
+   xoá hàng loạt tài liệu — nhanh và dứt khoát hơn nhiều.
+   🔴 Bài kiểm canh CẢ HAI CHIỀU. Chiều nghịch quan trọng hơn: nếu `dangNgo` bị sửa thành "luôn
+   false" thì lưới chắn biến mất mà mọi thứ vẫn chạy êm — cho tới ngày state về rỗng vì một lý do
+   nào đó và app xoá sạch kho của cả phòng. */
+const tepRaSoSanh = join(thuMuc, "so-sanh-kho-tach.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/so-sanh-kho-tach.ts" --bundle --platform=node --format=cjs --outfile="${tepRaSoSanh}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/so-sanh-kho-tach.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+const SS = nap(tepRaSoSanh);
+const khoaId = (x) => x.id;
+
+kiem(
+  "Bản ghi KHÔNG đổi → không ghi lại",
+  "Sếp 16/09/2026 · toàn bộ mục đích của việc tách",
+  () => {
+    const cu = [{ id: "a", ten: "X" }];
+    const r = SS.tinhViecGhi(cu, [{ id: "a", ten: "X" }], khoaId);
+    return {
+      duoc: r.datLai.length === 0 && r.xoa.length === 0,
+      thucTe: `datLai=${r.datLai.length} xoa=${r.xoa.length}`,
+      mongDoi: "datLai=0 xoa=0",
+    };
+  },
+);
+
+kiem(
+  "Chỉ ĐỔI THỨ TỰ KHOÁ, nội dung y hệt → vẫn coi là không đổi",
+  "bài học 16/09/2026 · tôi đã kết luận nhầm vì so bằng JSON.stringify trần",
+  () => {
+    const r = SS.tinhViecGhi([{ id: "a", x: 1, y: 2 }], [{ id: "a", y: 2, x: 1 }], khoaId);
+    return {
+      duoc: r.datLai.length === 0,
+      thucTe: `datLai=${r.datLai.length}`,
+      mongDoi: "0 — thứ tự khoá không phải thay đổi nội dung",
+    };
+  },
+);
+
+kiem(
+  "Bản ghi VỪA SỬA → ghi lại đúng một bản",
+  "Sếp 16/09/2026",
+  () => {
+    const r = SS.tinhViecGhi([{ id: "a", ten: "X" }], [{ id: "a", ten: "Y" }], khoaId);
+    return {
+      duoc: r.datLai.length === 1 && r.datLai[0].khoa === "a",
+      thucTe: JSON.stringify(r.datLai.map((v) => v.khoa)),
+      mongDoi: '["a"]',
+    };
+  },
+);
+
+kiem(
+  "Bản ghi MỚI → ghi thêm, KHÔNG đụng bản cũ",
+  "Sếp 16/09/2026 · hai người lập hai đơn không được đè nhau",
+  () => {
+    const r = SS.tinhViecGhi([{ id: "a", ten: "X" }], [{ id: "a", ten: "X" }, { id: "b", ten: "Z" }], khoaId);
+    return {
+      duoc: r.datLai.length === 1 && r.datLai[0].khoa === "b" && r.xoa.length === 0,
+      thucTe: `datLai=${JSON.stringify(r.datLai.map((v) => v.khoa))} xoa=${JSON.stringify(r.xoa)}`,
+      mongDoi: 'datLai=["b"] xoa=[]',
+    };
+  },
+);
+
+kiem(
+  "Bản ghi BIẾN MẤT → sinh lệnh xoá đúng khoá đó",
+  "Sếp 16/09/2026 · xoá đề nghị, huỷ đơn là thao tác thật",
+  () => {
+    const r = SS.tinhViecGhi([{ id: "a" }, { id: "b" }], [{ id: "a" }], khoaId);
+    return {
+      duoc: r.xoa.length === 1 && r.xoa[0] === "b" && !r.dangNgo,
+      thucTe: `xoa=${JSON.stringify(r.xoa)} dangNgo=${r.dangNgo}`,
+      mongDoi: 'xoa=["b"] dangNgo=false',
+    };
+  },
+);
+
+kiem(
+  "🔴 XOÁ SẠCH kho đang có nhiều bản ghi → BÁO ĐỘNG, nơi gọi phải dừng",
+  "lưới chắn cuối trước khi xoá nhầm dữ liệu cả phòng",
+  () => {
+    const cu = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }, { id: "e" }, { id: "f" }];
+    const r = SS.tinhViecGhi(cu, [], khoaId);
+    return {
+      duoc: r.dangNgo === true && r.xoa.length === 6,
+      thucTe: `dangNgo=${r.dangNgo} xoa=${r.xoa.length}`,
+      mongDoi: "dangNgo=true (state rỗng KHÔNG được coi là lệnh xoá sạch)",
+    };
+  },
+);
+
+kiem(
+  "Kho NHỎ, xoá 1/2 → KHÔNG báo động (thao tác bình thường)",
+  "chiều nghịch — chặn cả kho nhỏ là app mất tính năng xoá",
+  () => {
+    const r = SS.tinhViecGhi([{ id: "a" }, { id: "b" }], [{ id: "a" }], khoaId);
+    return {
+      duoc: r.dangNgo === false,
+      thucTe: `dangNgo=${r.dangNgo}`,
+      mongDoi: "false — kho dưới ngưỡng thì không xét phần trăm",
+    };
+  },
+);
+
+kiem(
+  "Kho LỚN, xoá đúng một bản → KHÔNG báo động",
+  "chiều nghịch — lưới chắn không được chặn thao tác thật",
+  () => {
+    const cu = Array.from({ length: 20 }, (_, i) => ({ id: `x${i}` }));
+    const r = SS.tinhViecGhi(cu, cu.slice(1), khoaId);
+    return {
+      duoc: r.dangNgo === false && r.xoa.length === 1,
+      thucTe: `dangNgo=${r.dangNgo} xoa=${r.xoa.length}`,
+      mongDoi: "dangNgo=false xoa=1",
+    };
+  },
+);
+
+kiem(
+  "Bảng giá dùng `poId` làm khoá, không phải `id`",
+  "GiaDonDatHang không có trường id — đo trên kieu-du-lieu.ts 16/09/2026",
+  () => {
+    const r = SS.tinhViecGhi(
+      [{ poId: "po1", tien: 100 }],
+      [{ poId: "po1", tien: 200 }],
+      (x) => x.poId,
+    );
+    return {
+      duoc: r.datLai.length === 1 && r.datLai[0].khoa === "po1",
+      thucTe: JSON.stringify(r.datLai.map((v) => v.khoa)),
+      mongDoi: '["po1"]',
+    };
+  },
+);
+
+kiem(
+  "Bản ghi THIẾU KHOÁ → bỏ qua, KHÔNG ném lỗi",
+  "một bản ghi hỏng không được chặn đồng bộ của tất cả bản ghi còn lại",
+  () => {
+    const r = SS.tinhViecGhi([], [{ id: "" }, { id: "a" }], khoaId);
+    return {
+      duoc: r.datLai.length === 1 && r.datLai[0].khoa === "a",
+      thucTe: `datLai=${JSON.stringify(r.datLai.map((v) => v.khoa))}`,
+      mongDoi: 'datLai=["a"] — bỏ bản thiếu khoá, giữ bản hợp lệ',
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 
