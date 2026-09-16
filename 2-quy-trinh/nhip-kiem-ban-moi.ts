@@ -33,6 +33,47 @@
 export const CHU_KY_HOI_BAN_MOI_MS = 180_000;
 
 /**
+ * ★★ ĐẾM NGƯỢC BAO LÂU RỒI TỰ TẢI LẠI — 30 giây. Sếp chốt 16/09/2026.
+ *
+ * ════════════════════════════════════════════════════════════════════════════════════════
+ * 🔴 ĐÂY LÀ MỘT QUYẾT ĐỊNH ĐÃ ĐỔI, ĐỪNG SỬA NGƯỢC MÀ KHÔNG HỎI.
+ * ════════════════════════════════════════════════════════════════════════════════════════
+ * Bản đầu (sáng 16/09) CỐ Ý không tự tải lại, vì `form-lap-don-mua-hang.tsx` là biểu mẫu dài
+ * hàng chục trường và nội dung đang gõ không được cất tạm ở đâu — tải lại giữa chừng là xoá
+ * sạch việc người ta vừa làm.
+ *
+ * Chiều 16/09 Sếp cân lại và chọn mạnh tay hơn, nguyên văn:
+ *   *"Cứ vầy đi tại chạy test không sao, chạy thật thì sẽ deploy vào khung giờ ít người vào app"*
+ *
+ * ⇒ Đánh đổi được chấp nhận CÓ ĐIỀU KIỆN: bản vá quan trọng phải tới tay mọi máy nhanh hơn là
+ *   giữ một biểu mẫu đang gõ dở. Điều kiện đi kèm là **deploy vào giờ vắng** khi chạy thật.
+ *
+ * 🔴 VÌ SAO 30 GIÂY CHỨ KHÔNG PHẢI 0: người dùng phải KỊP THẤY chuyện gì sắp xảy ra. Trang tự
+ * nhảy không báo trước thì họ tưởng app hỏng, và mất niềm tin vào app còn lâu hơn mất một biểu
+ * mẫu. Dải báo hiện số giây đếm ngược để ai đang gõ dở kịp chép nội dung ra chỗ khác.
+ *
+ * ⚠️ Nếu sau này biểu mẫu tự lưu nháp được thì con số này hạ xuống bao nhiêu cũng an toàn. Chừng
+ * nào chưa có, đừng hạ thêm.
+ */
+export const CHO_TRUOC_KHI_TAI_LAI_MS = 30_000;
+
+/**
+ * Còn bao nhiêu GIÂY nữa thì tải lại — để hiện lên dải báo.
+ *
+ * 🔴 Tính từ mốc PHÁT HIỆN, không phải từ mốc deploy: người mới mở app sau khi deploy hai tiếng
+ * thì với họ tin này vẫn mới tinh, không có lý gì đếm ngược đã hết từ đời nào.
+ *
+ * 📌 Không bao giờ trả số âm — `Math.max(0, …)`. Số âm hiện lên dải báo là lỗi người dùng thấy
+ * ngay, và nó chỉ nói lên một điều: bộ hẹn giờ đã lỡ nhịp.
+ */
+export function giayConLai(lucPhatHien: number, bayGio: number): number {
+  if (!Number.isFinite(lucPhatHien) || !Number.isFinite(bayGio) || lucPhatHien <= 0) {
+    return Math.ceil(CHO_TRUOC_KHI_TAI_LAI_MS / 1000);
+  }
+  return Math.max(0, Math.ceil((lucPhatHien + CHO_TRUOC_KHI_TAI_LAI_MS - bayGio) / 1000));
+}
+
+/**
  * ★ BAO LÂU THÌ DẢI BÁO CHUYỂN SANG GIỌNG GẤP — 30 phút.
  *
  * 🔴 VÌ SAO CẦN HAI MỨC: một dải báo màu vàng nhã nhặn rất dễ bị lờ đi, mà lờ đi thì đúng bằng
@@ -94,10 +135,27 @@ export function cauNhacBanMoi(gap: boolean): { tieuDe: string; chiDan: string } 
         tieuDe: "Bản đang dùng đã cũ",
         chiDan:
           "Máy này vẫn chạy bản cũ nên có thể ghi sai dữ liệu chung của cả phòng. " +
-          "Tải lại trang giúp — việc đang làm không mất, chỉ mất nội dung đang gõ dở.",
+          "Tải lại trang giúp — việc đã lưu không mất, chỉ mất nội dung đang gõ dở.",
       }
     : {
         tieuDe: "Đã có bản mới",
         chiDan: "Tải lại trang để dùng bản mới nhất.",
       };
+}
+
+/**
+ * Câu hiện trên dải báo khi đang ĐẾM NGƯỢC tới lúc tự tải lại.
+ *
+ * 🔴 PHẢI NÓI THẲNG LÀ TRANG SẼ TỰ TẢI LẠI, và nói NGAY Ở ĐẦU CÂU. Người dùng chỉ liếc dải báo
+ * một lần; giấu chuyện đó xuống cuối câu là họ không kịp đọc, rồi trang tự nhảy — đúng thứ làm
+ * người ta mất niềm tin vào app.
+ *
+ * 📌 Nhắc luôn "nội dung đang gõ sẽ mất" để ai đang điền biểu mẫu kịp chép ra chỗ khác. Thà nói
+ * thật mà phiền còn hơn im lặng rồi xoá việc của họ.
+ */
+export function cauDemNguocTaiLai(giay: number): string {
+  return (
+    `Trang sẽ tự tải lại sau ${Math.max(0, giay)} giây để dùng bản mới. ` +
+    "Nội dung đang gõ dở sẽ mất — chép ra chỗ khác nếu cần."
+  );
 }
