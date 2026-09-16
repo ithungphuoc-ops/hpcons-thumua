@@ -564,7 +564,25 @@ function CotQuyTrinh({
             * ⚠️ `flex-wrap` + `gap-x-2` là cố ý: cột hẹp hoặc màn điện thoại thì hai cụm tự xuống
             * dòng thay vì đè lên nhau. `justify-between` chỉ đẩy ra hai mép khi còn chỗ.
             */}
-          <p className="flex flex-wrap items-center justify-between gap-x-2 text-xs text-text-desc">
+          {/**
+            * 🔴 `min-h-8` LÀ CHỐT ĐỒNG BỘ CHIỀU CAO — Sếp 16/09/2026: *"điều chỉnh lại header này
+            * cho đồng bộ"*, chỉ vào cột "Hồ sơ thanh toán" cao hơn 8 cột còn lại.
+            *
+            * Nguyên nhân: dòng này là `flex-wrap`, cột nào chữ dài (có thêm cụm *"N còn thiếu"*)
+            * thì cụm thời hạn rơi xuống dòng hai ⇒ riêng cột đó cao thêm một dòng, cả hàng tiêu đề
+            * so le.
+            *
+            * 📌 HAI LỚP, CỐ Ý LÀM CẢ HAI:
+            *   ① Rút câu "Không đặt thời hạn" → "Không đặt hạn" (`nhanHanGioBuocNgan`) để phần lớn
+            *      cột **không còn phải** xuống dòng.
+            *   ② `min-h-8` (32px = đúng hai dòng `text-xs`) ghim sàn chiều cao cho MỌI cột. Đây mới
+            *      là thứ bảo đảm thẳng hàng: chữ vẫn có thể dài ra khi cột hẹp, khi cấp quản lý đổi
+            *      hạn thành số nhiều chữ số, hoặc trên màn hình nhỏ — lúc đó ① không cứu được nữa.
+            *
+            * ⚠️ ĐỪNG ĐỔI SANG `h-8` CỨNG: chữ dài hơn hai dòng sẽ bị cắt mất, mà đó là số liệu
+            * người quản lý đọc để biết bước nào đang nợ việc.
+            */}
+          <p className="flex min-h-8 flex-wrap items-center justify-between gap-x-2 text-xs text-text-desc">
             <span>
             {the.length === 0
               ? "0 đề nghị"

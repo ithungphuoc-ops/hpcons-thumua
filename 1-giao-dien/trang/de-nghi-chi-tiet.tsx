@@ -3223,6 +3223,34 @@ export default function TrangChiTietDeNghi({
                          * `4-phan-quyen/quyen.ts:212` và `:224`) nên ai thấy nút cũng đính được.
                          * 👉 Ngày nào tách hai cờ đó ra thì phải quay lại đây: sẽ có người nhìn
                          * thấy nút khoá, thấy ô hợp đồng, mà không đính được — và không có gì báo.
+                         *
+                         * ❌❌ ĐÃ BỎ PROP `moTa` CỦA Ô NÀY — Sếp 16/09/2026, khoanh đỏ đúng dòng chữ
+                         * nhỏ dưới nhãn mục 3 trong khối "Bộ hồ sơ thanh toán" và ghi ***"Bỏ những
+                         * ghi chú này đi"***. ĐỌC HẾT TRƯỚC KHI ĐỊNH VIẾT LẠI MỘT CÂU TƯƠNG TỰ.
+                         *
+                         * Câu bị bỏ, chép nguyên văn để nhận ra mà đừng dựng lại: *"Bản hợp đồng /
+                         * thoả thuận đã ký với nhà cung cấp. BẮT BUỘC phải có mới đóng được hồ sơ —
+                         * kể cả đơn dùng mẫu PO-02 (Sếp 14/09/2026). Đính ở đây thì bước ④ và ⑤
+                         * cũng thấy ngay, cùng một tệp."*
+                         *
+                         * 🔴 KIẾN THỨC TRONG CÂU ĐÓ VẪN ĐÚNG — GIỮ NGUYÊN Ở ĐÂY, vì cả hai ý đều là
+                         * sự thật kỹ thuật, mất đi là phiên sau hiểu nhầm rồi dựng lại sai:
+                         *   · **CÙNG MỘT TỆP VỚI BƯỚC ④ VÀ ⑤** — đúng cái đã nói ở đoạn "GHI VÀO
+                         *     ĐÚNG MỘT CHỖ" phía trên: ô này là ô THỨ BA cùng nhìn vào một tệp, ghi
+                         *     vào cùng `BUOC_DINH_KEM_HOP_DONG` + `NHAN_TEP_HOP_DONG`. Đính ở đây
+                         *     thì bước ④/⑤ thấy ngay và ngược lại, KHÔNG phải một tệp mới.
+                         *   · **BẮT BUỘC MỚI ĐÓNG ĐƯỢC HỒ SƠ, KỂ CẢ ĐƠN MẪU PO-02** (Sếp
+                         *     14/09/2026: *"2 loại này đều phải đính kèm hợp đồng"*). Luật đó nằm ở
+                         *     `vuongMacHoanThanhQuyTrinh` chứ KHÔNG ở câu chữ — bỏ câu chữ không
+                         *     nới luật một chút nào, và `kiem-luat-dung-chung.mjs` vẫn canh nó.
+                         *
+                         * 📌 NGƯỜI DÙNG KHÔNG MẤT CHỈ BÁO: prop `batBuoc` vẫn in nhãn đỏ *"Bắt
+                         * buộc"* (Sếp cho GIỮ, Design System V1.1 đòi trạng thái có cả màu lẫn
+                         * chữ), và khi thiếu tệp thì câu chặn của nút "Hoàn thành quy trình" vẫn
+                         * nói rõ phải đính kèm Hợp đồng.
+                         *
+                         * ⚠️ CHỈ BỎ `moTa` CỦA Ô HỢP ĐỒNG. Ba ô `hoa_don_vat` · `unc` ·
+                         * `phieu_chi` bên dưới GIỮ NGUYÊN `moTa` — Sếp không khoanh chúng.
                          */
                         hop_dong: (
                           <OChungTuBatBuoc
@@ -3230,7 +3258,6 @@ export default function TrangChiTietDeNghi({
                             maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
                             nhanO={NHAN_TEP_HOP_DONG}
                             tieuDe={TEN_HIEN_HOP_DONG}
-                            moTa="Bản hợp đồng / thoả thuận đã ký với nhà cung cấp. BẮT BUỘC phải có mới đóng được hồ sơ — kể cả đơn dùng mẫu PO-02 (Sếp 14/09/2026). Đính ở đây thì bước ④ và ⑤ cũng thấy ngay, cùng một tệp."
                             batBuoc
                             duocSua={duocSuaHopDong}
                             khoa={hoSoDaDong}

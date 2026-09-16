@@ -325,33 +325,39 @@ export function dungBoHoSoThanhToan(
    * `maDeXuatAppRequest` — ba điều cấm đã ghi đủ tại `lienKetNgoai` phía trên.
    */
   const duongDanAppRequest = duongDanHoSoAppRequest(deNghi.idHoSoAppRequest);
-  const coDuongDanAppRequest = duongDanAppRequest !== null;
-  const soTepBenAppRequest = deNghi.taiLieuAppRequest?.length ?? 0;
-  /* 🔴 NHẬN RA "ĐẾN TỪ APP REQUEST" BẰNG CẢ BA DẤU VẾT, không chỉ một: hồ sơ về trước 13/09/2026
-     thiếu `idHoSoAppRequest`, và vẫn còn khả năng một hồ sơ chỉ còn lại danh mục tệp. Nhận nhầm
-     hồ sơ bên đó thành "lập tay trong app" là in ra một câu chỉ SAI CHỖ tìm bản gốc — tệ hơn
-     không nói gì, vì người đọc sẽ tin. */
-  const denTuAppRequest =
-    coDuongDanAppRequest || Boolean(deNghi.maDeXuatAppRequest) || soTepBenAppRequest > 0;
-  const cauBanGocPhieuDeNghi = [
-    coDuongDanAppRequest
-      ? /* Có liên kết ngay trên rồi thì đừng chỉ người ta đi tìm ô khác nữa. Câu này giải thích
-           luôn vì sao mục vẫn mang dấu "chưa có" dù bấm được — app không giữ bản sao tệp. */
-        "App không giữ bản sao tệp — bấm liên kết trên để mở bản gốc bên App Request."
-      : denTuAppRequest
-        ? `Bản gốc nằm bên App Request${
-            deNghi.maDeXuatAppRequest ? `, tra theo mã đề xuất ${deNghi.maDeXuatAppRequest}` : ""
-          } — hồ sơ này không kèm đường dẫn trực tiếp (app chỉ bắt đầu lưu từ 13/09/2026).`
-        : "Đề nghị này không đến từ App Request, và app cũng chưa nhận tệp hồ sơ đầu vào nào.",
-    /* Nói luôn số tệp bên kia: người đọc biết có chứng từ để đi lấy, chứ không phải "trống rỗng".
-       KHÔNG bày tên/đường dẫn từng tệp ở đây — `duongDan` là khóa R2 cần chữ ký, ghép thành liên
-       kết là ra một nút bấm báo lỗi (xem `taiLieuAppRequest` trong `kieu-du-lieu.ts`). */
-    soTepBenAppRequest > 0
-      ? `Người đề nghị đính ${soTepBenAppRequest} tệp bên đó — app chỉ giữ danh mục tên, tải bản gốc bên App Request.`
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+
+  /**
+   * ❌❌ ĐÃ BỎ NHÓM CHỈ ĐƯỜNG CỦA MỤC ① — Sếp 16/09/2026, khoanh đỏ đúng hai dòng chữ nhỏ dưới
+   * liên kết của mục 1 và ghi ***"Bỏ những ghi chú này đi"***. ĐỌC HẾT KHỐI NÀY TRƯỚC KHI ĐỊNH
+   * VIẾT LẠI MỘT CÂU TƯƠNG TỰ.
+   *
+   * Hai dòng bị bỏ, chép nguyên văn để nhận ra mà đừng dựng lại:
+   *   ① tên nhóm  — *"Bản gốc phiếu đề nghị"*
+   *   ② câu ghi chú — *"App không giữ bản sao tệp — bấm liên kết trên để mở bản gốc bên App
+   *      Request."*
+   * Mục ① nay chỉ còn hàng nhãn và (nếu tra ra) liên kết `lienKetNgoai`; `nhom` bỏ hẳn.
+   *
+   * 🔴 KIẾN THỨC TRONG ĐÓ VẪN ĐÚNG VÀ VẪN LÀ THỨ NGƯỜI SỬA MÃ CẦN BIẾT — giữ nguyên ở đây:
+   *   · **App Thu mua KHÔNG giữ bản sao tệp phiếu đề nghị.** Tệp người đề nghị đính nằm trong kho
+   *     R2 của App Request; app này không có khóa để tải về nên chỉ giữ được DANH MỤC TÊN
+   *     (`deNghi.taiLieuAppRequest`). Vì vậy mục ① mang dấu "chưa có" ngay cả khi liên kết bấm
+   *     được — đó là sự thật, không phải lỗi hiển thị (xem `mucDaCo`, nó cố ý không đếm
+   *     `lienKetNgoai`).
+   *   · `deNghi.taiLieu` — đúng thứ mục này đếm — chỉ được ghi bởi `themDeNghiGiaLap`, tức **chỉ
+   *     có ở dữ liệu chạy thử**. Đó cũng là lý do mục ① thôi bắt buộc từ 13/09/2026.
+   *   · Hồ sơ THIẾU `idHoSoAppRequest` (về trước 13/09/2026, hoặc lập tay trong app) thì
+   *     `duongDanHoSoAppRequest` trả `null` → mục ① không có liên kết nào. TUYỆT ĐỐI đừng ghép địa
+   *     chỉ từ `maDeXuatAppRequest` để "cho có nút": đo 13/09/2026, cách đó ra một địa chỉ mở được
+   *     nhưng SAI hồ sơ.
+   *
+   * 📌 BA BIẾN ĐÃ BỎ THEO (chỉ phục vụ hai dòng chữ trên, không luật nào dùng):
+   * `coDuongDanAppRequest`, `soTepBenAppRequest`, `denTuAppRequest` — biến cuối nhận ra "hồ sơ đến
+   * từ App Request" bằng cả ba dấu vết (`idHoSoAppRequest` · `maDeXuatAppRequest` ·
+   * `taiLieuAppRequest`), cần lại thì dựng lại đủ cả ba, đừng chỉ xét một.
+   *
+   * ⚠️ `deNghi.taiLieuAppRequest[].duongDan` là khóa R2 cần chữ ký, KHÔNG phải địa chỉ mở được —
+   * ghép thành liên kết là ra một nút bấm báo lỗi (xem `kieu-du-lieu.ts`).
+   */
 
   /**
    * ② BÁO GIÁ NCC — HAI NHÓM: bản ĐƯỢC CHỌN, và bảng so sánh.
@@ -500,23 +506,15 @@ export function dungBoHoSoThanhToan(
         ? [{ nhan: "Mở phiếu đề nghị bên App Request", url: duongDanAppRequest }]
         : undefined,
       /**
-       * 📌 VÌ SAO CÂU CHỈ ĐƯỜNG ĐI TRONG `nhom` CHỨ KHÔNG PHẢI `ghiChu`: nơi vẽ đang tô `ghiChu`
-       * của mục bằng màu cảnh báo (`text-warning-soft`), còn câu của một nhóm rỗng thì tô màu
-       * chữ phụ trung tính. Sếp bảo mục này *"ko cần báo đỏ"*, nên câu này phải trông như lời chỉ
-       * đường, không như lời cảnh báo.
+       * ❌ KHÔNG CÒN `nhom` — Sếp 16/09/2026 cho bỏ hai dòng chữ nhỏ của mục này; lý do đầy đủ và
+       * nguyên văn hai dòng nằm ở khối ❌❌ ngay trên `duongDanAppRequest`.
        *
-       * ✅ KHÔNG PHẠM quy ước ở khai báo `nhom` ("có `nhom` thì `tep` để RỖNG"): `nhom` ở đây CHỈ
-       * xuất hiện đúng lúc `tep` rỗng, nên không có tệp nào bị hiện hai lần.
-       *
-       * ⚠️ Nhóm rỗng nên `mucDaCo` vẫn trả `false` → vẫn hiện dấu "chưa có". Đó là CỐ Ý và là chỗ
-       * nói thật: app thật sự không giữ tệp nào cho mục này. Đừng nhét một `MoTaTep` giả vào cho
-       * "xanh" — `MoTaTep.id` là khóa tra nội dung trong `3-du-lieu/kho-tep.ts`, khóa giả thì bấm
-       * ra tệp rỗng và người dùng tưởng hệ thống làm mất chứng từ.
+       * ⚠️ MỤC NÀY VẪN HIỆN DẤU "CHƯA CÓ" với mọi hồ sơ thật (app không giữ bản sao tệp), và nay
+       * KHÔNG còn câu nào giải thích vì sao. Đó là cái giá của chỉ đạo, không phải sót — đừng
+       * "chữa" bằng cách nhét một `MoTaTep` giả vào `tep` cho "xanh": `MoTaTep.id` là khóa tra nội
+       * dung trong `3-du-lieu/kho-tep.ts`, khóa giả thì bấm ra tệp rỗng và người dùng tưởng hệ
+       * thống làm mất chứng từ.
        */
-      nhom:
-        phieuDeNghi.length > 0
-          ? undefined
-          : [{ ten: "Bản gốc phiếu đề nghị", tep: [], ghiChu: cauBanGocPhieuDeNghi }],
     },
     {
       stt: 2,

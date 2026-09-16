@@ -48,10 +48,12 @@ import {
   NHAN_GIAI_DOAN,
   dungXacNhanKeoTha,
   quyetDinhKeoTha,
+  quyetDinhMoHopChuyenBuoc,
   soSanhTheTrenBang,
   type TheDeNghiTrenBang,
   type GiaiDoanMuaHang,
   type HanhDongKeoTha,
+  type NguonMoHopChuyenBuoc,
   type XacNhanKeoTha,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { CongViecGiaiDoan } from "@/2-quy-trinh/cau-hinh-quy-trinh";
@@ -349,13 +351,16 @@ export default function TrangDanhSachDeNghi() {
     prId: string,
     dich: GiaiDoanMuaHang,
     /**
-     * ★★ GỌI TỪ CÚ BẤM THẺ (xem nhanh), không phải từ kéo thả — Ban lãnh đạo 27/08/2026.
+     * ★★ ĐƯỜNG VÀO NÀO ĐANG GỌI — quyết định ca `khong_the` mở hộp hay chỉ bắn toast.
      *
-     * 🔴 Khác nhau đúng MỘT chỗ: ca `khong_the`. Kéo thả thì người dùng CHỦ Ý chuyển bước nên
-     * toast đỏ *"Không chuyển được"* là câu trả lời đúng. Còn bấm thẻ thì họ chỉ muốn XEM —
-     * bắn toast đỏ vào mặt là app tự tố cáo một việc người dùng chưa hề làm.
+     * 🔴 KHÔNG TỰ QUYẾT Ở ĐÂY, hỏi `quyetDinhMoHopChuyenBuoc` (tầng quy trình) — luật này là chỉ
+     * đạo của Sếp 16/09/2026 và có bài kiểm canh trong `kiem-luat-dung-chung.mjs`. Xem §3.4b:
+     * quyết định nghiệp vụ không để trong file giao diện.
+     *
+     * 📌 Trước 16/09/2026 tham số này là cờ `laXemNhanh` (boolean). Đổi sang tên nguồn vì nay có
+     * BA đường vào chứ không phải hai, và "không phải xem nhanh" không còn đồng nghĩa "kéo thả".
      */
-    laXemNhanh = false,
+    nguon: NguonMoHopChuyenBuoc = "keo_tha",
   ) {
     const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
     if (!the) return;
@@ -417,28 +422,29 @@ export default function TrangDanhSachDeNghi() {
       deNghi,
     );
     if (!hanhDong) {
-      // Xem nhanh mà luật không dựng nổi hành động nào (bước cuối chuỗi) → mở trang đầy đủ.
-      if (laXemNhanh) router.push(`/de-nghi/${prId}`);
+      // Không phải kéo thả mà luật không dựng nổi hành động nào (bước cuối chuỗi) → mở trang đầy đủ.
+      if (nguon !== "keo_tha") router.push(`/de-nghi/${prId}`);
       return;
     }
 
     /**
-     * Bước không hợp lệ.
+     * ★★★ BƯỚC KHÔNG ĐI ĐƯỢC → KHÔNG BÀY HỘP, chỉ báo một câu — **Sếp 16/09/2026**, nguyên văn
+     * ***"Nếu ko lùi được thì bỏ luôn cưa sổ này để tránh gây hiểu nhầm"***.
      *
-     * · KÉO THẢ → chặn ngay bằng toast, không mở hộp: hỏi rồi vẫn không cho làm thì vô nghĩa.
-     * · XEM NHANH → VẪN MỞ HỘP, nhưng khóa nút và in lý do (`chanCung`). Người dùng bấm thẻ là
-     *   để XEM bước hiện tại đang vướng gì; bắn toast đỏ rồi không hiện gì là câu trả lời cho
-     *   một câu hỏi họ không hỏi.
+     * 🔴 QUYẾT ĐỊNH NẰM Ở TẦNG LUẬT (`quyetDinhMoHopChuyenBuoc`), không viết `if` tay ở đây —
+     * xem chú thích của hàm đó để biết vì sao mốc 27/08/2026 (cố ý mở hộp) đã hết hiệu lực, và
+     * vì sao ca `can_go_vuong` thì tuyệt đối vẫn phải mở hộp.
      *
-     * 🔴 BẮT BUỘC TRUYỀN `chanCung` XUỐNG HỘP. `dungXacNhanKeoTha` trả nhãn nút mặc định
-     * *"Xác nhận"* cho ca này (nhánh `default`), nên mở hộp mà không khóa là app cho bấm đúng
-     * việc luật vừa từ chối.
+     * 🔴 IN NGUYÊN CÂU CỦA TẦNG LUẬT, không viết lại lần hai. Câu này dài và nói đủ hai việc:
+     * vì sao không lùi được, và phải làm gì thay thế. Nên toast để `duration` dài — mặc định của
+     * sonner là 4s, đọc không kịp (tiền lệ: `trang/phan-quyen.tsx` dùng 12000).
      */
-    if (hanhDong.loai === "khong_the") {
-      if (!laXemNhanh) {
-        toast.error("Không chuyển được", { description: hanhDong.lyDo });
-        return;
+    const cachBao = quyetDinhMoHopChuyenBuoc(hanhDong, nguon);
+    if (!cachBao.moHop) {
+      if (cachBao.baoLyDo) {
+        toast.error("Không chuyển được", { description: cachBao.baoLyDo, duration: 15000 });
       }
+      return;
     }
 
     /**
@@ -793,20 +799,21 @@ export default function TrangDanhSachDeNghi() {
              * `HopChuyenGiaiDoan` có ô đính kèm và nút chuyển bước, người chỉ xem mà thấy 2 mục
              * "Chuyển sang giai đoạn kế tiếp"/"Chuyển về giai đoạn trước" thì bấm vào không ăn.
              *
-             * 🔴 PHẢI GỌI VỚI `laXemNhanh = true` — vá lỗi thật bắt được lúc review (agent review
-             * độc lập bắt được, kiểm lại đúng). Hàm `xemNhanhThe` đã bỏ LUÔN gọi
-             * `xuLyTha(prId, buocKe, true)`; viết `onTha={xuLyTha}` trần ở đây bỏ mất tham số thứ
-             * 3, `laXemNhanh` lặng lẽ rơi về mặc định `false` — bước bị chặn cứng (`khong_the`)
-             * thì chỉ bắn toast đỏ rồi thôi, `HopChuyenGiaiDoan` (hộp giải thích lý do vướng)
-             * KHÔNG mở — đúng lúc người dùng cần xem lý do nhất. Bọc lại đây để giữ nguyên hành
-             * vi "xem nhanh" cũ khi hộp mở qua menu ⋯ (không phải kéo thả thật).
+             * 🔴 PHẢI GỌI VỚI NGUỒN `"menu_the"`, không để rơi về mặc định. Viết `onTha={xuLyTha}`
+             * trần ở đây là bỏ mất tham số thứ 3 và nguồn lặng lẽ thành `"keo_tha"` — sai chỗ này
+             * không có gì báo, chỉ là hành vi lệch với đường menu ⋯ thật.
+             *
+             * 📌 ĐỔI 16/09/2026: trước đây chỗ này truyền `true` (`laXemNhanh`) để ca `khong_the`
+             * vẫn mở hộp kèm `chanCung`. Sếp 16/09/2026: ***"Nếu ko lùi được thì bỏ luôn cưa sổ
+             * này để tránh gây hiểu nhầm"*** → nay nguồn `"menu_the"` cho ra toast, không mở hộp.
+             * Xem `quyetDinhMoHopChuyenBuoc` trong `2-quy-trinh/giai-doan-mua-hang.ts`.
              *
              * ⚠️ NẾU SAU NÀY BẬT LẠI KÉO THẢ (`keoThaDuoc={true}`, xem chú thích phía trên): `onTha`
-             * lúc đó CÒN được gọi từ chính việc kéo thả, mà kéo thả cần `laXemNhanh=false` (chặn
-             * bằng toast, không mở hộp — xem chú thích ở `xuLyTha`). Khi đó phải TÁCH hai đường gọi
-             * ra 2 hàm khác nhau, không dùng chung dòng này nữa.
+             * lúc đó CÒN được gọi từ chính việc kéo thả, mà kéo thả phải là nguồn `"keo_tha"`. Khi
+             * đó phải TÁCH hai đường gọi ra 2 hàm khác nhau, không dùng chung dòng này nữa.
+             * (Hai nguồn hiện cho cùng kết quả ở mọi ca, nhưng chúng là hai việc khác nhau.)
              */
-            onTha={quyen.lapPO ? (prId, dich) => xuLyTha(prId, dich, true) : undefined}
+            onTha={quyen.lapPO ? (prId, dich) => xuLyTha(prId, dich, "menu_the") : undefined}
             // Menu ⋯ chỉ mở cho vai trò làm nghiệp vụ; người chỉ xem không thấy thao tác ghi.
             thaoTac={quyen.lapPO ? thaoTacThe : undefined}
             /**
@@ -961,9 +968,9 @@ export default function TrangDanhSachDeNghi() {
                    * 12 mục là 12 đường để hai nơi lệch nhau dần.
                    *
                    * 🔴 TRUYỀN ĐÚNG BỘ THAM SỐ CỦA BẢNG, không tự chế bộ khác: `onTha` phải bọc
-                   * `laXemNhanh = true` y như chỗ gọi `<BangQuyTrinhMuaHang>` bên trên (viết
-                   * `onTha={xuLyTha}` trần là rơi mất tham số thứ 3 — bước bị chặn thì chỉ bắn
-                   * toast, hộp giải thích lý do KHÔNG mở, đúng lúc người dùng cần nhất).
+                   * nguồn `"menu_the"` y như chỗ gọi `<BangQuyTrinhMuaHang>` bên trên (viết
+                   * `onTha={xuLyTha}` trần là rơi mất tham số thứ 3, nguồn lặng lẽ thành
+                   * `"keo_tha"` — hai đường vào cùng một hộp mà hành vi lệch nhau).
                    * `thaoTac` cũng gác `quyen.lapPO` y hệt — người chỉ xem không thấy mục ghi.
                    *
                    * ⚠️ Không tìm ra thẻ trong `cot` thì KHÔNG vẽ menu. Thẻ chỉ thiếu khi đề nghị
@@ -973,7 +980,7 @@ export default function TrangDanhSachDeNghi() {
                     <MenuThaoTacThe
                       the={theDangMoPopup}
                       kieuNut="popup"
-                      onTha={quyen.lapPO ? (prId, dich) => xuLyTha(prId, dich, true) : undefined}
+                      onTha={quyen.lapPO ? (prId, dich) => xuLyTha(prId, dich, "menu_the") : undefined}
                       thaoTac={quyen.lapPO ? thaoTacThe : undefined}
                     />
                   )}
@@ -1279,7 +1286,11 @@ export default function TrangDanhSachDeNghi() {
           congViecChuaXong={xacNhan.congViecChuaXong}
           /* Đường ra trang đầy đủ — bắt buộc từ 27/08/2026 vì cú bấm thẻ nay dừng ở hộp này. */
           duongDanChiTiet={`/de-nghi/${xacNhan.prId}`}
-          /* Lý do bước này không đi được → hộp in lý do và KHÓA nút. Xem `chanCung` ở hộp. */
+          /* Lý do bước này không đi được → hộp in lý do và KHÓA nút. Xem `chanCung` ở hộp.
+             📌 TỪ 16/09/2026 ĐÂY LÀ LƯỚI AN TOÀN, không còn là đường chính: ca `khong_the` nay
+             không mở hộp nữa mà bắn toast (Sếp 16/09/2026, xem `quyetDinhMoHopChuyenBuoc`). GIỮ
+             LẠI vì nguồn `"xem_nhanh"` vẫn mở hộp cho ca này, và vì bỏ đi là ngày nào có ai mở
+             hộp bằng đường mới thì nút "Xác nhận" bấm được đúng việc luật vừa từ chối. */
           chanCung={
             xacNhan.hanhDong.loai === "khong_the" ? xacNhan.hanhDong.lyDo : undefined
           }

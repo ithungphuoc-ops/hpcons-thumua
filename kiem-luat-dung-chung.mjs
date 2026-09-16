@@ -4317,12 +4317,25 @@ kiem(
 );
 
 kiem(
-  "DAU COT KANBAN — moi cot PHAI mang san chu thoi han (truong `hanGio`)",
-  'Sếp · 15/09/2026 — "trường thời gian ở các bước này sao chưa có" (ảnh khoanh hàng tiêu đề)',
+  "DAU COT KANBAN — moi cot PHAI mang san chu thoi han (truong `hanGio`), BAN NGAN",
+  'Sếp · 15/09/2026 "trường thời gian ở các bước này sao chưa có" → 16/09/2026 "điều chỉnh lại header này cho đồng bộ"',
   () => {
     /* 🔴 Đây mới là bài kiểm ĐÚNG CHỖ SẾP CHỈ: ba bài trên chỉ chứng minh hàm định dạng chạy
        đúng, không chứng minh đầu cột có chữ. Ai bỏ `hanGio` khỏi `dungBangQuyTrinh` thì hàm
-       vẫn xanh còn hàng tiêu đề lại trắng trơn như trước. */
+       vẫn xanh còn hàng tiêu đề lại trắng trơn như trước.
+
+       ★★ ĐỔI KỲ VỌNG 16/09/2026 — GHI ĐỦ HAI MỐC ĐỂ KHÔNG AI TƯỞNG LUẬT BỊ LỠ TAY SỬA:
+       · 15/09/2026 Sếp yêu cầu đầu cột phải có thời hạn → bài này ra đời, kỳ vọng câu DÀI
+         ("Không đặt thời hạn") vì lúc đó cả app dùng chung một câu.
+       · 16/09/2026 Sếp xem bảng thật và yêu cầu *"điều chỉnh lại header này cho đồng bộ"*: câu dài
+         làm cột nào có thêm cụm "N còn thiếu" bị xuống dòng hai, riêng cột đó cao hơn 8 cột kia.
+         Nay đầu cột dùng `nhanHanGioCuaBuocNgan` → "Không đặt hạn".
+
+       🔴 ĐỔI ĐÚNG MỘT CHỖ, KHÔNG NỚI: câu DÀI vẫn là chuẩn của hộp chuyển giai đoạn và cột thông
+       tin đề nghị — ba bài kiểm phía trên vẫn canh `NHAN_BUOC_KHONG_HAN` nguyên vẹn. Nếu ai sửa
+       `nhanHanGioBuoc` (bản dài) cho ngắn lại thì ba bài đó đỏ ngay.
+       📌 Ca CÓ hạn vẫn phải ra y hệt bản dài ("4 giờ") — giữ nguyên trong kỳ vọng dưới đây, vì đó
+       là chốt ngăn ai đó viết một hàm định dạng thứ hai rồi hai màn hình nói khác nhau. */
     const cot = G.dungBangQuyTrinh([], [], [], [], CQ.CAU_HINH_MAC_DINH);
     const thieu = cot.filter((c) => typeof c.hanGio !== "string" || c.hanGio.trim() === "");
     const tiepNhan = cot.find((c) => c.giaiDoan?.ma === "tiep_nhan");
@@ -4332,9 +4345,39 @@ kiem(
         cot.length > 0 &&
         thieu.length === 0 &&
         tiepNhan?.hanGio === "4 giờ" &&
-        nhanHang?.hanGio === "Không đặt thời hạn",
+        nhanHang?.hanGio === CQ.NHAN_BUOC_KHONG_HAN_NGAN,
       thucTe: `${cot.length} cột · thiếu ${thieu.length} · tiep_nhan="${tiepNhan?.hanGio}" · nhan_hang="${nhanHang?.hanGio}"`,
-      mongDoi: 'mọi cột có chữ; tiep_nhan = "4 giờ"; nhan_hang = "Không đặt thời hạn"',
+      mongDoi: `mọi cột có chữ; tiep_nhan = "4 giờ"; nhan_hang = "${CQ.NHAN_BUOC_KHONG_HAN_NGAN}" (bản NGẮN, Sếp 16/09/2026)`,
+    };
+  },
+);
+
+kiem(
+  "HAI BAN DAI/NGAN LA HAI CAU KHAC NHAU — va ban dai KHONG duoc rut gon theo",
+  'Sếp · 16/09/2026 — "điều chỉnh lại header này cho đồng bộ" (chỉ đổi ở ĐẦU CỘT)',
+  () => {
+    /* 🔴 CHIỀU NGƯỢC LẠI, và đây mới là bài quan trọng: rất dễ có người thấy hai hằng gần giống
+       nhau rồi "dọn cho gọn" bằng cách xoá một cái. Xoá bản NGẮN → header so le trở lại. Xoá bản
+       DÀI (hoặc rút nó lại cho bằng bản ngắn) → hộp chuyển giai đoạn và cột thông tin đề nghị mất
+       chữ "thời hạn", tức làm nghèo hai màn hình rộng rãi để chữa một màn hình chật.
+       📌 Và ca CÓ hạn thì HAI bản phải trả y hệt — khác nhau đúng một câu, ở đúng một ca. */
+    const dai = CQ.NHAN_BUOC_KHONG_HAN;
+    const ngan = CQ.NHAN_BUOC_KHONG_HAN_NGAN;
+    const coHanDai = CQ.nhanHanGioBuoc(4);
+    const coHanNgan = CQ.nhanHanGioBuocNgan(4);
+    return {
+      duoc:
+        typeof dai === "string" &&
+        typeof ngan === "string" &&
+        dai !== ngan &&
+        ngan.length < dai.length &&
+        CQ.nhanHanGioBuoc(0) === dai &&
+        CQ.nhanHanGioBuocNgan(0) === ngan &&
+        coHanDai === "4 giờ" &&
+        coHanNgan === "4 giờ",
+      thucTe: `dài="${dai}" · ngắn="${ngan}" · có hạn: dài="${coHanDai}" ngắn="${coHanNgan}"`,
+      mongDoi:
+        'hai câu KHÁC nhau cho ca không đặt hạn (ngắn phải ngắn hơn), nhưng ca có hạn thì GIỐNG HỆT ("4 giờ")',
     };
   },
 );
@@ -5488,6 +5531,160 @@ kiem(
       duoc: r[0] === true && r[1] === true && r[2] === false && GB.SO_LAN_GHI_LAI_TOI_DA >= 3,
       thucTe: `0→${r[0]} · 1→${r[1]} · ${GB.SO_LAN_GHI_LAI_TOI_DA}→${r[2]}`,
       mongDoi: "true · true · false (có trần, nhưng KHÔNG chặn ngay từ lần đầu)",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 16/09/2026
+// Nguyên văn: "Nếu ko lùi được thì bỏ luôn cưa sổ này để tránh gây
+// hiểu nhầm" (kèm ảnh hộp "Chuyển nhiệm vụ sang giai đoạn tiếp theo"
+// mở đầy đủ ô nhập + nút "Xác nhận", rồi mới in chữ đỏ nói không lùi
+// được).
+//
+// 📌 MỐC CŨ 27/08/2026 — trước đây CỐ Ý mở hộp cho cả ca "khong_the",
+//    vì hồi đó cú bấm thẻ dừng ở hộp nên hộp là đường duy nhất vào
+//    trang chi tiết bằng chuột (bỏ hộp = trang chi tiết mồ côi, §3.4b).
+//    Tiền đề đó đã hết hiệu lực từ 28/08/2026: bấm thẻ nay mở POP-UP
+//    trang chi tiết (onXemPopupThe), không còn đi qua hộp này.
+//    Luật đổi có chủ đích, không phải quên.
+//
+// ⚠️ CHIỀU NGƯỢC LẠI MỚI LÀ CHIỀU QUAN TRỌNG (mấy bài cuối khối): ai
+//    sửa hàm thành "không bao giờ mở hộp" là xoá luôn chỗ gỡ vướng
+//    tại chỗ (can_go_vuong, Ban lãnh đạo 25/08/2026).
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "Kéo thả vào ca bị chặn cứng → KHÔNG mở hộp, và có câu lý do để báo toast",
+  "Sếp · 16/09/2026",
+  () => {
+    const r = G.quyetDinhMoHopChuyenBuoc({ loai: "khong_the", lyDo: "Lý do thử" }, "keo_tha");
+    return {
+      duoc: r.moHop === false && r.baoLyDo === "Lý do thử",
+      thucTe: JSON.stringify(r),
+      mongDoi: '{ moHop: false, baoLyDo: "Lý do thử" }',
+    };
+  },
+);
+
+kiem(
+  "Menu ⋯ 'Chuyển về giai đoạn trước' vào ca bị chặn cứng → KHÔNG mở hộp",
+  "Sếp · 16/09/2026",
+  () => {
+    /* Đây mới là đường vào THẬT trong ảnh Sếp chụp: kéo thả đang tắt
+       (keoThaDuoc={false} từ 27/08/2026), hộp chỉ còn mở từ menu ⋯. */
+    const r = G.quyetDinhMoHopChuyenBuoc({ loai: "khong_the", lyDo: "Lý do thử" }, "menu_the");
+    return {
+      duoc: r.moHop === false && r.baoLyDo === "Lý do thử",
+      thucTe: JSON.stringify(r),
+      mongDoi: '{ moHop: false, baoLyDo: "Lý do thử" } — bày form rồi nói không làm được là §3.5',
+    };
+  },
+);
+
+kiem(
+  "Đúng ca trong ảnh Sếp: ⑧ Hồ sơ thanh toán → ⑦ Nhận hàng, hộp KHÔNG được mở",
+  "Sếp · 16/09/2026 (luật chặn: Sếp · 15/09/2026)",
+  () => {
+    /* Đi qua luật thật quyetDinhKeoTha chứ không tự dựng "khong_the":
+       bài kiểm này bắt được cả ca ai đó đổi ⑧→⑦ thành đi được. */
+    const the = { deNghi: deNghiThu(), giaiDoan: "ho_so_thanh_toan" };
+    const hanhDong = G.quyetDinhKeoTha(
+      the,
+      "nhan_hang",
+      [],
+      [],
+      G.CAU_HINH_MAC_DINH ?? {},
+      null,
+      { phanBoCongViec: true, xacNhanTruongBP: true },
+    );
+    const r = G.quyetDinhMoHopChuyenBuoc(hanhDong, "menu_the");
+    const lyDo = String(r.baoLyDo ?? "");
+    return {
+      duoc:
+        hanhDong?.loai === "khong_the" &&
+        r.moHop === false &&
+        lyDo.includes("KHÔNG lùi được") &&
+        lyDo.includes("Hồ sơ thanh toán"),
+      thucTe: (hanhDong?.loai ?? "?") + " · moHop=" + r.moHop + ' · "' + lyDo.slice(0, 90) + '"',
+      mongDoi:
+        "khong_the + moHop=false + câu lý do nguyên văn của tầng luật (nói rõ thay chứng từ ở trang chi tiết)",
+    };
+  },
+);
+
+kiem(
+  "NGƯỢC LẠI: ca còn vướng nhưng gỡ được trong hộp (can_go_vuong) → VẪN PHẢI MỞ HỘP",
+  "Ban lãnh đạo · 25/08/2026 (giữ nguyên qua thay đổi 16/09/2026)",
+  () => {
+    /* Hộp ở ca này là CHỖ LÀM VIỆC — người dùng đính tệp / tích việc ngay
+       tại đó. Bỏ hộp là đuổi họ sang màn khác rồi bắt quay về làm lại. */
+    const hd = {
+      loai: "can_go_vuong",
+      dieuKien: [{ ma: "thieu_hoa_don_vat", cau: "Thiếu hóa đơn VAT", goDuocTaiCho: true }],
+      hanhDongSau: { loai: "chot_so_sanh" },
+    };
+    const ra = ["keo_tha", "menu_the", "xem_nhanh"].map(
+      (n) => G.quyetDinhMoHopChuyenBuoc(hd, n).moHop,
+    );
+    return {
+      duoc: ra.every((x) => x === true),
+      thucTe: JSON.stringify(ra),
+      mongDoi: "[true, true, true] — mọi đường vào đều mở hộp gỡ vướng",
+    };
+  },
+);
+
+kiem(
+  "NGƯỢC LẠI: ca đi được bình thường → VẪN PHẢI MỞ HỘP xác nhận",
+  "Ban lãnh đạo · 08/08/2026 (hỏi lại trước khi làm việc thật)",
+  () => {
+    /* Nếu ai sửa hàm thành "không bao giờ mở hộp" thì app làm nghiệp vụ
+       thật mà không hỏi ai — đúng thứ chỉ đạo 08/08/2026 cấm. */
+    const ra = [
+      G.quyetDinhMoHopChuyenBuoc({ loai: "tao_bao_gia", chotLuon: false }, "keo_tha").moHop,
+      G.quyetDinhMoHopChuyenBuoc({ loai: "chot_so_sanh" }, "menu_the").moHop,
+      G.quyetDinhMoHopChuyenBuoc(
+        { loai: "mo_trang", duongDan: "/x", thongBao: "y" },
+        "menu_the",
+      ).moHop,
+    ];
+    return {
+      duoc: ra.every((x) => x === true),
+      thucTe: JSON.stringify(ra),
+      mongDoi: "[true, true, true]",
+    };
+  },
+);
+
+kiem(
+  "NGƯỢC LẠI: đường 'xem nhanh' vào ca bị chặn vẫn mở hộp (luật 27/08/2026 còn nguyên)",
+  "Ban lãnh đạo · 27/08/2026",
+  () => {
+    /* Hiện chưa nơi nào gọi nguồn này, nhưng luật phải còn sống: ngày nào
+       cú bấm thẻ được trỏ lại vào hộp thì không phải dựng lại từ trí nhớ.
+       Ở đường XEM, người dùng không chủ ý chuyển bước — bắn toast đỏ vào
+       mặt họ là app tố cáo một việc họ chưa hề làm. */
+    const r = G.quyetDinhMoHopChuyenBuoc({ loai: "khong_the", lyDo: "Lý do thử" }, "xem_nhanh");
+    return {
+      duoc: r.moHop === true && r.baoLyDo === null,
+      thucTe: JSON.stringify(r),
+      mongDoi: "{ moHop: true, baoLyDo: null } — hộp mở, tự khóa nút bằng prop chanCung",
+    };
+  },
+);
+
+kiem(
+  "Luật không dựng nổi hành động nào (null) → không mở hộp và KHÔNG bắn toast",
+  "Sếp · 16/09/2026",
+  () => {
+    /* Bước cuối chuỗi. Nơi gọi tự đưa sang trang đầy đủ — không có gì để
+       báo, bắn toast đỏ ở đây là báo lỗi cho một việc không phải lỗi. */
+    const r = G.quyetDinhMoHopChuyenBuoc(null, "menu_the");
+    return {
+      duoc: r.moHop === false && r.baoLyDo === null,
+      thucTe: JSON.stringify(r),
+      mongDoi: "{ moHop: false, baoLyDo: null }",
     };
   },
 );

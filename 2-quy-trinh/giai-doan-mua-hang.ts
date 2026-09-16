@@ -29,6 +29,8 @@ import {
   caiDatCuaBuoc,
   /* Định dạng thời hạn chuẩn của bước — MỘT hàm cho cả app, xem chú thích tại chỗ khai báo. */
   nhanHanGioCuaBuoc,
+  /* Bản ngắn cho đầu cột — xem chú thích tại chỗ khai báo (Sếp 16/09/2026). */
+  nhanHanGioCuaBuocNgan,
   type CauHinhQuyTrinh,
   type CongViecGiaiDoan,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
@@ -817,7 +819,11 @@ export function dungBangQuyTrinh(
       soQuaHan: cuaCot.filter((t) => t.han.quaHan).length,
       /* Thời hạn chuẩn của bước — đọc từ `cauHinh` được truyền vào (bản ĐANG HIỆU LỰC), định dạng
          bằng đúng hàm mà hộp chuyển giai đoạn và cột thông tin đề nghị đang dùng. */
-      hanGio: nhanHanGioCuaBuoc(cauHinh, giaiDoan.ma),
+      /* 🔴 BẢN NGẮN — Sếp 16/09/2026: *"điều chỉnh lại header này cho đồng bộ"*. Câu dài
+         ("Không đặt thời hạn") làm dòng thống kê của cột có thêm cụm "N còn thiếu" bị xuống dòng,
+         khiến riêng cột đó cao hơn 8 cột kia. Lý do đầy đủ ở `nhanHanGioBuocNgan`.
+         📌 Ca CÓ hạn trả y hệt bản dài ("4 giờ") — chỉ khác đúng một câu. */
+      hanGio: nhanHanGioCuaBuocNgan(cauHinh, giaiDoan.ma),
     };
   });
 }
@@ -917,6 +923,64 @@ export type HanhDongKeoTha =
       hanhDongSau: HanhDongKeoTha;
     }
   | { loai: "khong_the"; lyDo: string };
+
+/**
+ * ★★ AI ĐANG YÊU CẦU CHUYỂN BƯỚC — quyết định app mở hộp hay chỉ báo một câu.
+ *
+ * Ba đường vào cùng một luật `quyetDinhKeoTha`, nhưng hậu quả của ca "không đi được" khác nhau
+ * nên phải phân biệt được ở tầng luật, không để tầng giao diện tự nhớ:
+ *
+ *   · `keo_tha`   — người dùng kéo thẻ thả sang cột khác (hiện đang TẮT, xem `keoThaDuoc={false}`
+ *                   trong `trang/de-nghi-danh-sach.tsx`; giữ nhánh này để bật lại không phải viết
+ *                   lại luật).
+ *   · `menu_the`  — menu ⋯ trên thẻ, mục *"Chuyển sang giai đoạn kế tiếp"* / *"Chuyển về giai
+ *                   đoạn trước"*. Đây là đường vào THẬT của hộp từ 28/08/2026.
+ *   · `xem_nhanh` — cú bấm thẳng vào thẻ theo chỉ đạo 27/08/2026 (xem thêm bên dưới).
+ */
+export type NguonMoHopChuyenBuoc = "keo_tha" | "menu_the" | "xem_nhanh";
+
+/**
+ * ★★★ CÓ MỞ HỘP `HopChuyenGiaiDoan` KHÔNG, hay chỉ bắn một câu báo?
+ *
+ * 🔴 **CHỈ ĐẠO SẾP 16/09/2026**, nguyên văn: ***"Nếu ko lùi được thì bỏ luôn cưa sổ này để tránh
+ * gây hiểu nhầm"*** — kèm ảnh chụp hộp *"Chuyển nhiệm vụ sang giai đoạn tiếp theo"* mở ra đầy đủ
+ * ô "Những việc đã hoàn thành?" và nút "Xác nhận", rồi bên dưới mới in một khối chữ đỏ dài nói
+ * *"Bước Hồ sơ thanh toán KHÔNG lùi được"*. Bày ra một cái form hoàn chỉnh rồi mới nói không làm
+ * được chính là thứ §3.5 cấm: giao diện hứa một việc app không làm.
+ *
+ * 📌 **MỐC CŨ 27/08/2026 — VÌ SAO TRƯỚC ĐÂY CỐ Ý MỞ HỘP CHO CA `khong_the`.** Hồi đó cú bấm thẻ
+ * DỪNG Ở HỘP (hộp là đường duy nhất vào trang chi tiết bằng chuột), nên chặn hộp ở ca `khong_the`
+ * là làm trang chi tiết mồ côi — đúng lỗi §3.4b. Luật đổi được vì tiền đề đã hết hiệu lực:
+ * **28/08/2026** Sếp chốt lần 3 rằng bấm thẻ mở POP-UP trang chi tiết (`onXemPopupThe`), không
+ * còn đi qua hộp này nữa. Nên bỏ hộp ở ca `khong_the` hôm nay KHÔNG cắt đường vào nào cả.
+ *
+ * 🔴 NHÁNH `xem_nhanh` GIỮ NGUYÊN HÀNH VI 27/08 — hiện không nơi nào gọi, nhưng còn đây để ngày
+ * nào cú bấm thẻ được trỏ lại vào hộp thì luật 27/08 vẫn còn, không phải dựng lại từ trí nhớ.
+ *
+ * 🔴 CHỈ CA `khong_the` BỊ CHẶN. Ca `can_go_vuong` (Ban lãnh đạo 25/08/2026) **bắt buộc vẫn mở
+ * hộp**: hộp đó là CHỖ LÀM VIỆC — người dùng đính tệp / tích việc ngay tại đó để gỡ vướng. Ai
+ * sửa hàm này thành "không bao giờ mở hộp" là xoá luôn chỗ gỡ vướng đó.
+ *
+ * @returns `moHop` — có mở `HopChuyenGiaiDoan` không.
+ *          `baoLyDo` — câu phải hiện bằng toast (chỉ khác `null` khi không mở hộp vì bị chặn).
+ */
+export function quyetDinhMoHopChuyenBuoc(
+  hanhDong: HanhDongKeoTha | null,
+  nguon: NguonMoHopChuyenBuoc,
+): { moHop: boolean; baoLyDo: string | null } {
+  /* Luật không dựng nổi hành động nào (bước cuối chuỗi) — nơi gọi tự xử, không có gì để báo. */
+  if (!hanhDong) return { moHop: false, baoLyDo: null };
+
+  if (hanhDong.loai === "khong_the") {
+    /* Đường 27/08/2026: người dùng chỉ muốn XEM bước đang vướng gì → vẫn mở hộp, hộp tự khoá nút
+       bằng prop `chanCung`. */
+    if (nguon === "xem_nhanh") return { moHop: true, baoLyDo: null };
+    /* Sếp 16/09/2026: chủ ý chuyển bước mà luật đã nói không → báo thẳng câu lý do, KHÔNG bày form. */
+    return { moHop: false, baoLyDo: hanhDong.lyDo };
+  }
+
+  return { moHop: true, baoLyDo: null };
+}
 
 const THU_TU_GIAI_DOAN: GiaiDoanMuaHang[] = GIAI_DOAN_MUA_HANG.map((g) => g.ma);
 

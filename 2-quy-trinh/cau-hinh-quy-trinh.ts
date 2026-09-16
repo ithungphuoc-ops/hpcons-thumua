@@ -253,6 +253,31 @@ export function nhanHanGioBuoc(han: number | undefined | null): string {
 }
 
 /**
+ * ★★ BẢN NGẮN CỦA CÂU "KHÔNG ĐẶT HẠN" — CHỈ DÙNG Ở ĐẦU CỘT BẢNG QUY TRÌNH.
+ *
+ * Sếp 16/09/2026, chỉ vào cột *"Hồ sơ thanh toán"* trên bảng: *"điều chỉnh lại header này cho
+ * đồng bộ"*.
+ *
+ * 🔴 VẤN ĐỀ ĐO ĐƯỢC: đầu cột in một dòng `"X/Y đã giao · N còn thiếu · 🕐 <hạn>"`. Cột nào có
+ * thêm cụm *"N còn thiếu"* thì dòng dài ra, và câu *"Không đặt thời hạn"* (17 ký tự) bị đẩy
+ * xuống **dòng thứ hai** ⇒ riêng cột đó cao hơn hẳn 8 cột còn lại. Trên ảnh Sếp gửi, đúng một
+ * mình cột "Hồ sơ thanh toán" bị vậy vì nó vừa có "1 còn thiếu" vừa không đặt hạn.
+ *
+ * 📌 VÌ SAO KHÔNG SỬA THẲNG `NHAN_BUOC_KHONG_HAN` CHO NGẮN LẠI: câu dài đang dùng ở hộp chuyển
+ * giai đoạn và cột thông tin đề nghị — hai chỗ đó **rộng rãi** và cần nói rõ ("thời hạn", không
+ * rút gọn). Rút chung là làm nghèo hai màn hình kia để chữa một màn hình này.
+ *
+ * ⚠️ VẪN LÀ MỘT NGUỒN SỰ THẬT: bản ngắn tính TỪ cùng `coHanGioBuoc`, và ca CÓ hạn thì trả **y
+ * hệt** bản dài (`"4 giờ"`). Chỉ khác đúng một câu, ở đúng một chỗ. Đừng chép chuỗi này đi nơi
+ * khác — cần dùng ở màn mới thì gọi hàm.
+ */
+export const NHAN_BUOC_KHONG_HAN_NGAN = "Không đặt hạn";
+
+export function nhanHanGioBuocNgan(han: number | undefined | null): string {
+  return coHanGioBuoc(han) ? `${han} giờ` : NHAN_BUOC_KHONG_HAN_NGAN;
+}
+
+/**
  * Đọc hạn của một bước từ cấu hình ĐANG HIỆU LỰC rồi định dạng luôn.
  *
  * 🔴 DÙNG HÀM NÀY, đừng đọc `CAU_HINH_MAC_DINH.hanGioTheoBuoc` — cấp quản lý sửa được hạn từng
@@ -261,6 +286,18 @@ export function nhanHanGioBuoc(han: number | undefined | null): string {
  */
 export function nhanHanGioCuaBuoc(ch: CauHinhQuyTrinh, buoc: string): string {
   return nhanHanGioBuoc(ch.hanGioTheoBuoc?.[buoc]);
+}
+
+/**
+ * Như `nhanHanGioCuaBuoc` nhưng dùng câu NGẮN cho ca không đặt hạn — chỉ dành cho đầu cột bảng
+ * quy trình. Lý do đầy đủ ở `nhanHanGioBuocNgan` (Sếp 16/09/2026: *"điều chỉnh lại header này cho
+ * đồng bộ"*).
+ *
+ * ⚠️ ĐỌC CÙNG MỘT NGUỒN `ch.hanGioTheoBuoc` như bản dài — cấp quản lý sửa hạn ở trang Cài đặt thì
+ * cả hai màn đổi theo cùng lúc, không thể lệch số.
+ */
+export function nhanHanGioCuaBuocNgan(ch: CauHinhQuyTrinh, buoc: string): string {
+  return nhanHanGioBuocNgan(ch.hanGioTheoBuoc?.[buoc]);
 }
 
 /**

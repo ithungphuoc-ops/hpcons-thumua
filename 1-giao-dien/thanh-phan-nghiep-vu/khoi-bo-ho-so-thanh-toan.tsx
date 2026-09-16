@@ -75,13 +75,14 @@ import { Check, ExternalLink, FileText, Minus } from "lucide-react";
    khối này chỉ XEM. Truyền prop giả cho một ô đính kèm rồi khóa lại là mời người sau mở khóa —
    `LienKetTep` không có đường ghi nào nên không thể lỡ tay. */
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
-import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
+/* 📌 ĐÃ BỎ `import { StatusBadge }` và `import { tomTatBoHoSo }` ngày 16/09/2026 — cả hai chỉ phục
+   vụ huy hiệu đếm mà Sếp cho bỏ (xem khối ❌❌ ngay trên thẻ `<section>`). `tomTatBoHoSo` VẪN CÒN
+   NGUYÊN ở `2-quy-trinh/bo-ho-so-thanh-toan.ts` và vẫn là hàm luật — chỉ khối này thôi gọi tới. */
 import {
   dungBoHoSoThanhToan,
   laMaCoONop,
   type MaMucCoONop,
   mucDaCo,
-  tomTatBoHoSo,
 } from "@/2-quy-trinh/bo-ho-so-thanh-toan";
 import type { BaoGia, DeNghiMuaHang, DonDatHang, PhieuNhanHang } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -144,16 +145,9 @@ export function KhoiBoHoSoThanhToan({
    * còn 3 · 6 · 7 · 8 nằm rời bên dưới **không mang số**. Nay bày đủ 8 mục theo một dãy liền
    * mạch, và ô nộp đi vào đúng dòng của nó — xem `oNopTheoMuc`.
    *
-   * 🔴 HUY HIỆU ĐẾM TRÊN ĐÚNG DANH SÁCH ĐANG BÀY (`muc`, cả 8 mục) — nay con số khớp đúng những
-   * dòng người dùng nhìn thấy, không cần đối chiếu gì thêm.
-   *
-   * 📌 `tong` quay về **4** (mục 2 báo giá · 3 hợp đồng · 4 đơn mua hàng · 5 phiếu giao hàng).
-   * Bản lọc trước đó đếm 3 vì Hợp đồng bị lọc mất. **Không luật nghiệp vụ nào đổi** — `batBuoc`
-   * của từng mục giữ nguyên, `tomTatBoHoSo` giữ nguyên; chỉ danh sách đưa vào đếm là đổi.
-   *
-   * ⚠️ TUYỆT ĐỐI ĐỪNG VIẾT CỨNG SỐ 4 VÀO CÂU CHỮ — `tong` đếm tại lúc chạy (xem `tomTatBoHoSo`).
+   * 📌 HUY HIỆU ĐẾM ĐÃ BỎ KHỎI MÀN HÌNH 16/09/2026 — xem khối ❌❌ ngay trên thẻ `<section>`.
+   * Phép đếm ở tầng luật (`tomTatBoHoSo`) thì GIỮ NGUYÊN, chỉ khối này thôi gọi tới.
    */
-  const tomTat = tomTatBoHoSo(muc);
 
   /**
    * ❌ ĐÃ BỎ NÚT "THU GỌN" VÀ STATE `moRong` — Sếp 15/09/2026: *"Đưa dữ liệu này lên, bỏ nút thu
@@ -170,9 +164,35 @@ export function KhoiBoHoSoThanhToan({
    * quy trình" xuống thấp — nay đã hết, vì khối này đứng TRƯỚC các ô nộp tệp (Sếp 15/09/2026),
    * còn nút "Hoàn thành quy trình" vẫn ở cuối khối bước ⑧.
    *
-   * 📌 Huy hiệu "Đủ n/n mục bắt buộc" GIỮ — nó là THÔNG TIN, không phải nút.
+   * ⚠️ DÒNG NÀY TỪNG GHI *"Huy hiệu 'Đủ n/n mục bắt buộc' GIỮ — nó là THÔNG TIN, không phải nút"*.
+   * Ngày 16/09/2026 Sếp cho bỏ luôn huy hiệu đó; chép lại đây để thấy nó bị bỏ vì một chỉ đạo
+   * MỚI, không phải vì ai quên. Lý do đầy đủ ở khối ❌❌ ngay trên thẻ `<section>`.
    */
 
+  /**
+   * ❌❌ ĐÃ BỎ HUY HIỆU ĐẾM CẠNH TIÊU ĐỀ — Sếp 16/09/2026, khoanh đỏ đúng huy hiệu đó trong ảnh
+   * chụp khối "Bộ hồ sơ thanh toán" và ghi ***"Bỏ những ghi chú này đi"***. ĐỌC HẾT KHỐI NÀY
+   * TRƯỚC KHI ĐỊNH DỰNG LẠI MỘT HUY HIỆU TƯƠNG TỰ.
+   *
+   * Thứ bị bỏ, chép nguyên văn để nhận ra mà đừng dựng lại: một `StatusBadge` ghi
+   *   · `Đủ {tong}/{tong} mục bắt buộc`  (tone `success`, khi không thiếu mục nào)
+   *   · `Còn thiếu {n}/{tong} mục`      (tone `warning`)
+   * dựng từ `const tomTat = tomTatBoHoSo(muc)`.
+   *
+   * 🔴 CHỈ BỎ PHẦN HIỂN THỊ — PHÉP ĐẾM Ở TẦNG LUẬT GIỮ NGUYÊN TUYỆT ĐỐI. `tomTatBoHoSo` và
+   * `mucDaCo` trong `2-quy-trinh/bo-ho-so-thanh-toan.ts` **không đổi một dòng**: chúng là dữ liệu
+   * cho bộ đẩy sang app Kế toán sau này, và có bài kiểm trong `kiem-luat-dung-chung.mjs` canh.
+   * Ai "dọn cho gọn" bằng cách xoá hai hàm đó là bên nhận hụt phép đếm mà không có gì báo.
+   *
+   * 📌 KIẾN THỨC CỦA HUY HIỆU VẪN ĐÚNG, GIỮ LẠI Ở ĐÂY: `tong` KHÔNG phải số cố định — nó đếm
+   * `batBuoc` tại lúc chạy (từ 13/09/2026 là **4**: mục 2 báo giá · 3 hợp đồng · 4 đơn mua hàng ·
+   * 5 phiếu giao hàng). Ai dựng lại huy hiệu thì phải in `tong`, tuyệt đối đừng viết cứng số 4.
+   *
+   * ✅ BỎ HUY HIỆU KHÔNG LÀM MẤT CHỈ BÁO THIẾU/ĐỦ TRÊN MÀN HÌNH: từng dòng vẫn mang dấu ✓ / – ,
+   * vẫn đổi nền (`border-warning/40 bg-warning-bg` khi mục bắt buộc còn thiếu) và vẫn in câu
+   * `ghiChu` nói rõ thiếu gì. Tức là trạng thái vẫn có CẢ màu lẫn chữ đúng Design System V1.1 —
+   * huy hiệu chỉ là bản tóm tắt lặp lại của những dấu ấy.
+   */
   return (
     <section className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -185,15 +205,6 @@ export function KhoiBoHoSoThanhToan({
             📌 Bản dựng trước tôi đặt là "Chứng từ gom từ các bước trước" — Sếp không chọn tên đó.
             Đừng đổi lại: tên khối là chữ người dùng quen mắt, và Sếp đã chốt. */}
         <span className="text-sm font-semibold text-text-primary">Bộ hồ sơ thanh toán</span>
-        {/* Trạng thái có CẢ màu lẫn chữ (Design System V1.1) — không chỉ dựa vào màu. */}
-        <StatusBadge
-          label={
-            tomTat.thieu.length === 0
-              ? `Đủ ${tomTat.tong}/${tomTat.tong} mục bắt buộc`
-              : `Còn thiếu ${tomTat.thieu.length}/${tomTat.tong} mục`
-          }
-          tone={tomTat.thieu.length === 0 ? "success" : "warning"}
-        />
       </div>
       {/**
         * ❌❌ ĐÃ BỎ HAI DÒNG GHI CHÚ DƯỚI TIÊU ĐỀ — Sếp 15/09/2026, khoanh đỏ đúng hai dòng đó và
