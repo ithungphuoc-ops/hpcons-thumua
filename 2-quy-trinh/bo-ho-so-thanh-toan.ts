@@ -172,13 +172,26 @@ export const MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN = [
    * kèm ngay ở ô Hợp đồng trong khối này"*. Ai thêm lại ô ở đây thì phải sửa ngược câu đó, và
    * ngược lại: hai thứ phải luôn chỉ về cùng một chỗ.
    */
-  /* ★★ THÊM 16/09/2026 — Sếp: *"Tách làm 2 mục riêng"*, kèm yêu cầu có ô nộp riêng cho Đơn mua
-     hàng *"ở bước ⑤ và ở bước ⑧ (dòng số 4)"*. Trước hôm nay mục 4 CHỈ ĐỌC (nó bày lại đúng tệp
-     của mục 3), nên không có ô nộp nào.
-     🔴 ĐỪNG ĐỌC VIỆC NÀY THÀNH "ĐỔI CHỖ Ô HỢP ĐỒNG SANG MỤC 4": đây là ô của một **chứng từ khác**,
-     ghi vào **ngăn khác**. Hợp đồng bỏ ô ở bước ⑧ vì đã có ô ở bước ④; Đơn mua hàng có ô ở đây vì
-     Sếp yêu cầu đúng dòng số 4. */
-  "don_mua_hang",
+  /**
+   * ❌❌ MỤC 4 *Đơn mua hàng* CŨNG ĐÃ **BỎ Ô NỘP Ở BƯỚC ⑧** — Sếp 16/09/2026 (lần thứ hai trong
+   * ngày), khoanh đỏ đúng nút vàng *"⚠ Đơn mua hàng"* ở dòng số 4 và ghi ***"Mục này cũng là link
+   * từ bước lập đơn mua hàng xuống, chứ ko phải đính kèm ở đây · Làm tương tự như phần hợp đồng"***.
+   *
+   * ⚠️ SÁNG CÙNG NGÀY Ô NÀY VỪA ĐƯỢC THÊM VÀO ĐÂY, và chú thích lúc đó viết *"đừng đọc việc này
+   * thành đổi chỗ ô hợp đồng sang mục 4"*. Không phải nó sai — lúc ấy Sếp thật sự yêu cầu ô riêng
+   * ở dòng số 4. Nay Sếp xem giao diện thật rồi đổi ý: cả hai mục 3 và 4 đều **chỉ đọc**, mọi
+   * đường nộp nằm ở bước sinh ra chứng từ. Ghi lại cả hai mốc để người sau không tưởng có ai làm
+   * ẩu, và để biết luật hiện hành là mốc nào.
+   *
+   * ✅ ĐÃ ĐO TRƯỚC KHI BỎ — KHÔNG LÀM MỒ CÔI CHỨC NĂNG (CLAUDE.md §3.4b): ô đính kèm Đơn mua hàng
+   * NCC ký **vẫn còn ở bước ⑤ Tiến hành đặt hàng** (`de-nghi-chi-tiet.tsx`, `OChungTuBatBuoc` với
+   * `BUOC_DINH_KEM_DON_MUA_HANG` + `NHAN_TEP_DON_MUA_HANG`), kèm nút *"Bổ sung sau"*. Bỏ ô ở đây
+   * là bỏ đường thứ hai tới cùng một tệp, không bỏ chức năng nào.
+   *
+   * 📌 Nay mục 4 chỉ đọc y như mục 3: bày tệp, chưa có thì nói rõ *"Bổ sung sau"* → đỏ. Riêng mục
+   * 4 **không có** lời khai "Không có…" — *"PO là chắc chắn có, chỉ là bổ sung sau thôi"* (Sếp
+   * 16/09/2026), nên nó không bao giờ chuyển sang trạng thái trung tính như mục 3.
+   */
   "hoa_don_vat",
   "unc",
   "phieu_chi",
@@ -480,7 +493,7 @@ export function loiKhaiThieuChungTu(
        Hợp đồng có chốt ở `vuongMacHoanThanhQuyTrinh`; Đơn mua hàng chưa bao giờ có chốt nào, nên
        in câu đó cho nó là hứa một luật không tồn tại (CLAUDE.md §3.5). */
     const veDongHoSo = ct.moCuaDongHoSo
-      ? " Lời khai này là điều kiện đủ để đóng hồ sơ (Sếp 16/09/2026)."
+      ? " Lời khai này là điều kiện đủ để đóng hồ sơ."
       : "";
     return {
       loai: "ket_luan",
@@ -632,7 +645,7 @@ export function dungBoHoSoThanhToan(
           tep: moiBaoGia,
           ghiChu:
             moiBaoGia.length > 1
-              ? "Chưa đọc được bản nào đã được chọn (hồ sơ duyệt trước 20/08/2026 không ghi lại) — đang bày tất cả, cần soát tay trước khi chuyển Kế toán."
+              ? "Chưa đọc được bản nào đã được chọn (hồ sơ duyệt từ trước không ghi lại) — đang bày tất cả, cần soát tay trước khi chuyển Kế toán."
               : undefined,
         },
     {
@@ -672,7 +685,7 @@ export function dungBoHoSoThanhToan(
         : p.anhQlkCtr
           ? `Kho công trình (QLK CTR) gửi kèm ảnh phiếu "${p.anhQlkCtr.ten}" — ảnh nằm bên QLK CTR, xem ở bước Nhận hàng. App Thu mua không giữ bản sao.`
           : p.trangThai === "tu_choi_nhan"
-            ? "Lần giao bị từ chối nhận — luật 11/08/2026 không đòi phiếu giao nhận cho lần này."
+            ? "Lần giao bị từ chối nhận — không đòi phiếu giao nhận cho lần này."
             : "Chưa đính phiếu giao nhận cho lần giao này.",
     }));
 
@@ -862,7 +875,7 @@ export function dungBoHoSoThanhToan(
        *    **cả mục có ô nộp lẫn mục chỉ đọc**. Đẩy nó về một nhánh là ca thứ ba trở lại câm.
        */
       ghiChu: muc4DungTepChung
-        ? `Đang dùng chung tệp với mục 3 (${TEN_HIEN_HOP_DONG}) — tệp này được đính ở ô chung TRƯỚC khi app tách hai chứng từ (16/09/2026), nên hiện ở cả hai mục. Có bản ${TEN_HIEN_DON_MUA_HANG} riêng thì đính vào ô "${TEN_HIEN_DON_MUA_HANG}" ở bước Tiến hành đặt hàng, mục này sẽ chỉ hiện bản riêng đó.`
+        ? `Đang dùng chung tệp với mục 3 (${TEN_HIEN_HOP_DONG}) — tệp này được đính ở ô chung TRƯỚC khi app tách hai chứng từ, nên hiện ở cả hai mục. Có bản ${TEN_HIEN_DON_MUA_HANG} riêng thì đính vào ô "${TEN_HIEN_DON_MUA_HANG}" ở bước Tiến hành đặt hàng, mục này sẽ chỉ hiện bản riêng đó.`
         : thieu(
             tepDonMuaHangCuaMuc4.length > 0,
             poCuaDeNghi.length === 0

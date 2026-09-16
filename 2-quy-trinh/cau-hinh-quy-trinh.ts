@@ -737,7 +737,7 @@ export const DIEU_KIEN_KHONG_SUA: { nhan: string; giaTri: string; lyDo: string }
   {
     nhan: "Mỗi lần giao phải có phiếu giao nhận đính kèm",
     giaTri: "Bắt buộc",
-    lyDo: "Chỉ đạo Ban lãnh đạo 11/08/2026. Tắt được là hồ sơ thiếu chứng từ mà không ai biết — đúng thứ luật này sinh ra để chặn.",
+    lyDo: "Tắt được là hồ sơ thiếu chứng từ mà không ai biết — đúng thứ luật này sinh ra để chặn.",
   },
   {
     nhan: "Ba lớp xác nhận để hoàn thành đơn hàng",
@@ -755,7 +755,7 @@ export const DIEU_KIEN_KHONG_SUA: { nhan: string; giaTri: string; lyDo: string }
   {
     nhan: "Phạm vi kéo thả trên bảng quy trình",
     giaTri: "Một bước (tiến hoặc lùi)",
-    lyDo: "Chỉ đạo Ban lãnh đạo 13/08/2026. Đây là cách chống lỡ tay, không phải tham số nghiệp vụ.",
+    lyDo: "Đây là cách chống lỡ tay, không phải tham số nghiệp vụ.",
   },
   {
     nhan: "Cỡ tệp đính kèm tối đa",

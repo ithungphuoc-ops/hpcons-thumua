@@ -2733,57 +2733,33 @@ export default function TrangChiTietDeNghi({
                 /**
                  * Bước ⑤ nhận đơn đã gửi đi có xác nhận của nhà cung cấp, chứng từ tạm ứng.
                  *
-                 * 🔴 Ô HỢP ĐỒNG — CÙNG MỘT TỆP VỚI BƯỚC ④, GIỜ SỬA ĐƯỢC Ở CẢ HAI NƠI (Sếp
-                 * 01/09/2026, phản hồi qua ảnh chụp bước ⑤): bản nhà cung cấp KÝ VÀ ĐÓNG MỘC
-                 * thường chỉ gửi về sau khi đơn đã đặt (tức đang ở bước ⑤), nên cần sửa/thay được
-                 * ngay tại đây — không bắt quay lại bước ④ mới cập nhật được bản ký chính thức.
+                 * ❌❌ Ô **HỢP ĐỒNG** ĐÃ BỎ KHỎI BƯỚC ⑤ — Sếp 16/09/2026, khoanh đỏ trọn cụm (nhãn
+                 * *Hợp đồng · Bắt buộc* + dòng mô tả + nút vàng + dòng "Nhận PDF, ảnh…") và ghi
+                 * ***"ko cần hiển thị thông tin này"***. Hỏi lại phạm vi trước khi làm vì đây là
+                 * đảo một chỉ đạo có ngày tháng; Sếp chốt ***"Bỏ cả ô"***.
                  *
-                 * 🔴 NỚI LẠI đúng 1 phần quyết định 26/08/2026 ("sửa ở đúng một chỗ là bước ④",
-                 * xem khối `lap_don_mua_hang` ở trên) — Sếp xác nhận VẪN đúng 1 tệp (không tách
-                 * chứng từ mới), chỉ khác: quyền sửa TỪ ⑤ trở đi SIẾT LẠI CHẶT HƠN — chỉ Trưởng
-                 * bộ phận/quản trị, không còn mở cho nhân viên thu mua cấp ≥2 (`lapPO`) như lúc
-                 * còn ở ④ — bản đã ký đóng mộc là chứng từ chính thức, siết người được thay lại từ
-                 * giai đoạn này.
+                 * 📌 CHỈ ĐẠO BỊ THAY THẾ, GHI LẠI ĐỂ KHÔNG AI TƯỞNG LÀ XOÁ NHẦM: ngày 01/09/2026
+                 * Sếp cho mở ô này ở bước ⑤ với lý do *bản nhà cung cấp ký và đóng mộc thường chỉ
+                 * gửi về sau khi đã đặt hàng*, nên cần thay được ngay tại đây thay vì quay lại
+                 * bước ④. Lý do đó nay **không còn đứng**: từ 16/09 Đơn mua hàng NCC ký đã tách
+                 * thành chứng từ riêng và **có ô riêng ngay bên dưới** — tức đúng thứ mà chỉ đạo
+                 * 01/09 cần, nay có chỗ đúng nghĩa của nó. Ô hợp đồng ở đây chỉ còn là bản sao
+                 * thứ ba trỏ vào cùng một tệp.
                  *
-                 * 🔴 DÙNG `duocSuaHopDong`, KHÔNG dùng thẳng `quyen.phanBoCongViec` — biến này áp
-                 * CHUNG cho cả khối ④ lẫn ⑤ (xem chú thích đầy đủ ở nơi khai báo). Viết cứng
-                 * `quyen.phanBoCongViec` riêng ở đây mà khối ④ vẫn dùng `duocSuaTepBuoc` (rộng
-                 * hơn) là "siết quyền ở ⑤" chỉ có tác dụng ẢO — người bị chặn ở đây vẫn mở khối ④
-                 * (luôn hiện, không ẩn theo bước hiện tại) để sửa đúng tệp đó.
+                 * ✅ ĐÃ ĐO TRƯỚC KHI BỎ — KHÔNG MỒ CÔI CHỨC NĂNG (CLAUDE.md §3.4b): Hợp đồng vẫn
+                 * đính và sửa được ở **bước ④** (`OChungTuBatBuoc` cùng `BUOC_DINH_KEM_HOP_DONG`
+                 * + `NHAN_TEP_HOP_DONG`, kèm hai nút lý do) và ở **hộp chuyển giai đoạn**
+                 * (`hop-chuyen-giai-doan.tsx`). Bỏ ở đây là bỏ đường thứ ba.
                  *
-                 * 📌 Vẫn gọi `OChungTuBatBuoc` với ĐÚNG `maGiaiDoan`/`nhanO` như bước ④
-                 * (`BUOC_DINH_KEM_HOP_DONG`/`NHAN_TEP_HOP_DONG`) — ghi vào CÙNG một chỗ trong
-                 * `tepGiaiDoan.lap_don_mua_hang`, không phải một khóa mới. Sửa ở đây, bước ④ thấy
-                 * ngay, và ngược lại — đúng ý "một dữ liệu, nhiều chỗ sửa" Sếp vừa chốt.
+                 * ⚠️ CÁI GIÁ, NÓI THẲNG: Trưởng bộ phận nhận bản hợp đồng ký muộn nay phải mở
+                 * ngược lên khối bước ④ để thay. Khối ④ **luôn hiện** trên cùng trang này (không
+                 * ẩn theo bước đang đứng) nên không ai bị kẹt, chỉ là thêm một lượt cuộn.
                  *
-                 * 🔴 `tepDaCo` PHẢI LÀ `tepHopDongSuaDuoc`, KHÔNG PHẢI `tepHopDong` — hộp này xóa
-                 * tệp bằng `maGiaiDoan` cố định (`BUOC_DINH_KEM_HOP_DONG`), nên chỉ được bày đúng
-                 * tệp nằm ở khóa đó. Đưa `tepHopDong` (gộp cả khóa cũ `dat_hang`) vào đây thì bấm
-                 * xóa một tệp mồ côi cũ sẽ tìm nhầm khóa và báo sai "tệp không còn trong hồ sơ".
+                 * 📌 Phép siết quyền `duocSuaHopDong` GIỮ NGUYÊN, không dọn theo — nó vẫn đang áp
+                 * cho ô Đơn mua hàng ngay dưới, và cho chính khối ④ (xem nơi khai báo).
                  */
                 khuDinhKem: (
                   <div className="flex flex-col gap-(--hp-md-card-gap)">
-                    <OChungTuBatBuoc
-                      deNghi={dn}
-                      maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
-                      nhanO={NHAN_TEP_HOP_DONG}
-                      /* ★★★ TÊN TRẢ VỀ "Hợp đồng" TỪ 16/09/2026 — KHÔNG PHẢI ĐẢO CHỈ ĐẠO 15/09.
-                         Hôm 15/09 Sếp bảo *"mục đổi tên e chỉnh lại là 'Đơn mua hàng' ở bước tiến
-                         hành đặt hàng nha"*, và lúc ấy cách duy nhất làm được là **dán tên khác
-                         lên chính tệp hợp đồng** (`TEN_HIEN_HOP_DONG_BUOC_DAT_HANG`).
-                         ✅ Nay Sếp cho TÁCH THẬT (*"Tách làm 2 mục riêng"*), nên bước ⑤ có **ô Đơn
-                         mua hàng thật** ngay bên dưới. Ô này trở về đúng tên của tệp nó giữ.
-                         🔴 ĐỂ NGUYÊN TÊN CŨ LÀ HAI Ô CÙNG MANG CHỮ "Đơn mua hàng" trên một khối mà
-                         ghi vào hai ngăn khác nhau — người dùng đính nhầm ô, chứng từ rơi vào mục
-                         sai, không một dòng nào báo. */
-                      tieuDe={TEN_HIEN_HOP_DONG}
-                      moTa="Bản hợp đồng / thoả thuận đã ký với nhà cung cấp — cùng tệp với bước ④, sửa ở đây bước ④ cũng thấy ngay. Chỉ Trưởng bộ phận/quản trị sửa được ở bước này."
-                      batBuoc
-                      duocSua={duocSuaHopDong}
-                      khoa={hoSoDaDong}
-                      tepDaCo={tepHopDongSuaDuoc(dn)}
-                    />
-
                     {/**
                       * ★★★ Ô **ĐƠN MUA HÀNG NCC KÝ** — Sếp 16/09/2026: ***"Tách làm 2 mục riêng"***,
                       * và ô riêng của nó đặt ở **bước ⑤ Tiến hành đặt hàng**.
@@ -3419,36 +3395,27 @@ export default function TrangChiTietDeNghi({
                          * cả app, bỏ là chức năng mồ côi.
                          */
                         /**
-                         * ★★★ Ô **ĐƠN MUA HÀNG NCC KÝ** NGAY TẠI DÒNG SỐ 4 — Sếp 16/09/2026:
-                         * ***"Tách làm 2 mục riêng"***, ô nộp riêng đặt *"ở bước ⑤ và ở bước ⑧
-                         * (dòng số 4)"*.
+                         * ❌❌ Ô **ĐƠN MUA HÀNG** Ở DÒNG SỐ 4 CŨNG ĐÃ BỎ — Sếp 16/09/2026 (lần thứ
+                         * hai trong ngày), khoanh đỏ đúng nút vàng *"⚠ Đơn mua hàng"* và ghi
+                         * ***"Mục này cũng là link từ bước lập đơn mua hàng xuống, chứ ko phải đính
+                         * kèm ở đây · Làm tương tự như phần hợp đồng"***.
                          *
-                         * 🔴 NGĂN RIÊNG `BUOC_DINH_KEM_DON_MUA_HANG` — KHÔNG phải ngăn hợp đồng.
-                         * Đính ở đây thì ô Đơn mua hàng ở bước ⑤ thấy ngay, và ngược lại; tệp hợp
-                         * đồng KHÔNG bị đụng tới.
+                         * ⚠️ Ô NÀY VỪA ĐƯỢC THÊM SÁNG CÙNG NGÀY theo yêu cầu *"ô nộp riêng ở bước ⑤
+                         * và ở bước ⑧ (dòng số 4)"*. Không phải ai làm ẩu — Sếp xem giao diện thật
+                         * rồi đổi ý. Ghi lại cả hai mốc để người sau biết luật hiện hành là mốc nào.
                          *
-                         * 🔴 `tepDaCo` LÀ `tepDonMuaHangNCCKy` (ngăn riêng), **KHÔNG** phải
-                         * `tepDonMuaHangCuaMuc4` (đường lùi về tệp dùng chung cũ trong
-                         * `bo-ho-so-thanh-toan.ts`). Hộp này xoá tệp bằng `maGiaiDoan` cố định, nên
-                         * bày tệp của ngăn CHUNG ra đây thì bấm xoá sẽ tìm nhầm ngăn và báo sai
-                         * *"Tệp này không còn trong hồ sơ"* — đúng bài học đã ghi ở
-                         * `tepHopDongSuaDuoc`.
-                         * 👉 Hệ quả nhìn thấy được: hồ sơ cũ mượn tệp chung sẽ hiện dấu ✓ ở dòng 4
-                         *    (tầng dữ liệu) trong khi ô nộp này TRỐNG. Đó là **đúng**: chưa có bản
-                         *    riêng nào để sửa, và câu `ghiChu` của mục 4 đã nói rõ vì sao.
+                         * ✅ ĐÃ ĐO TRƯỚC KHI BỎ — KHÔNG MỒ CÔI: ô đính kèm Đơn mua hàng NCC ký vẫn
+                         * còn ở **bước ⑤ Tiến hành đặt hàng** (cùng ngăn `BUOC_DINH_KEM_DON_MUA_HANG`,
+                         * kèm nút *"Bổ sung sau"*). Bỏ ở đây là bỏ đường thứ hai tới cùng một tệp.
+                         *
+                         * 📌 Nay dòng 4 chỉ đọc y hệt dòng 3: bày tệp, chưa có thì báo đỏ *"Bổ sung
+                         * sau"*. Khác dòng 3 đúng một điểm — mục 4 **không có** lời khai "Không
+                         * có…", vì *"PO là chắc chắn có, chỉ là bổ sung sau thôi"* (Sếp 16/09/2026).
+                         *
+                         * ⚠️ Ba ô `hoa_don_vat` · `unc` · `phieu_chi` bên dưới GIỮ NGUYÊN — Sếp
+                         * không khoanh chúng, và **Phiếu chi** thì đây là chỗ nộp DUY NHẤT trong cả
+                         * app, bỏ là chức năng mồ côi.
                          */
-                        don_mua_hang: (
-                          <OChungTuBatBuoc
-                            deNghi={dn}
-                            maGiaiDoan={BUOC_DINH_KEM_DON_MUA_HANG}
-                            nhanO={NHAN_TEP_DON_MUA_HANG}
-                            tieuDe={TEN_HIEN_DON_MUA_HANG}
-                            batBuoc
-                            duocSua={duocSuaHopDong}
-                            khoa={hoSoDaDong}
-                            tepDaCo={tepDonMuaHangNCCKy(dn)}
-                          />
-                        ),
                         hoa_don_vat: (
                           <OChungTuBatBuoc
                             deNghi={dn}

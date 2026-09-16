@@ -412,7 +412,7 @@ export function HopSuaTruongTuyChinh({
       toast.error("Không hạ được số lượng báo giá", {
         description:
           `Hồ sơ đang yêu cầu ${sanKhongDuocHa} báo giá. Tài khoản của bạn chỉ được tăng — muốn ` +
-          "hạ xuống thì nhờ trưởng bộ phận (Ban lãnh đạo 13/09/2026).",
+          "hạ xuống thì nhờ trưởng bộ phận.",
       });
       return;
     }

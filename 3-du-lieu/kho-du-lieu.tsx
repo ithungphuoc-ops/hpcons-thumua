@@ -865,7 +865,7 @@ export function vuongMacGhiNhanGiaoHangPhongBan(
     return "Bạn không được ghi nhận giao hàng cho hồ sơ này.";
   }
   if (!tepPhieuGiao) {
-    return "Phải đính kèm phiếu giao hàng của lần giao này mới ghi nhận được — chỉ đạo Ban lãnh đạo 11/08/2026, Sếp nhắc lại 15/09/2026 cho nhánh phòng ban.";
+    return "Phải đính kèm phiếu giao hàng của lần giao này mới ghi nhận được.";
   }
   return null;
 }

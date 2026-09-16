@@ -63,7 +63,7 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
  * biết đi hỏi ai thì sẽ đi hỏi vòng quanh, hoặc tệ hơn là tưởng app lỗi.
  */
 const LY_DO_KHOA_HA =
-  "Chỉ trưởng bộ phận (hoặc quản trị) mới hạ được số báo giá — Ban lãnh đạo 13/09/2026. " +
+  "Chỉ trưởng bộ phận (hoặc quản trị) mới hạ được số báo giá. " +
   "Tài khoản nhân viên chỉ được tăng.";
 
 /** Chặn trên cho số báo giá. Không phải luật công ty, chỉ là ngưỡng bắt lỗi gõ nhầm. */

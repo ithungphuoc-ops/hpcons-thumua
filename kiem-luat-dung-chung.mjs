@@ -2047,6 +2047,44 @@ kiem(
 );
 
 kiem(
+  "CAU HIEN THI TUYET DOI KHONG duoc nhac \"Sep\" / \"Ban lanh dao\" / ngay chi dao",
+  'Sếp · 16/09/2026 — *"day la app cho bo phan thu mua, sao lai de cac ghi chu lien quan toi sep ??"*',
+  () => {
+    /* 🔴 SEP CHUP DUNG POP-UP TREN BANG QUY TRINH: cau tu choi lui buoc in ra chu *"(Sep chot
+       15/09/2026)"* ngay giua man hinh nguoi dung. Xuat xu cua luat la viec cua CHU THICH va
+       nhat ky — nguoi thu mua can biet PHAI LAM GI, khong can biet ai duyet luat ngay nao.
+
+       ⚠️ BAI KIEM NAY CHI CANH MAY HAM TRA CAU CHAN cua `giai-doan-mua-hang.ts`. No KHONG quet
+       duoc toan bo app (hang tram chuoi nam rai trong JSX) — dung tuong xanh o day la sach het.
+       Quet day du lam bang tay 16/09/2026 (bo chu thich roi doc tung chuoi literal): sua 12 cho.
+       Hai chuoi CO Y GIU: `NHAN_BAN_LANH_DAO` va cau quy trinh cua Ban Tong Giam doc — do la
+       CHUC DANH that trong van ban cong ty, khong phai ghi chu noi bo. */
+    /* 📌 GỌI QUA ĐƯỜNG THẬT (`quyetDinhKeoTha`), KHÔNG export thêm `lyDoKhongLuiDuoc` chỉ để
+       chiều bài kiểm — mở rộng bề mặt công khai của một tệp luật cho việc kiểm là đổi mã nguồn
+       theo bài kiểm, đúng chiều ngược với thứ bộ kiểm này sinh ra để chặn. */
+    const XAU = /(Sếp|Ban lãnh đạo|BLĐ|\d{1,2}\/\d{1,2}\/20\d{2})/;
+    const cau = [
+      keoLui("nhan_hang", "dat_hang")?.lyDo,
+      keoLui("ho_so_thanh_toan", "nhan_hang")?.lyDo,
+      keoLui("hoan_thanh", "ho_so_thanh_toan")?.lyDo,
+      keoLui("that_bai", "nhan_hang")?.lyDo,
+      /* Ca THIẾU QUYỀN — câu này cũng từng mang chữ "(Sếp chốt 15/09/2026)". */
+      keoLui("xet_duyet_bao_gia", "yeu_cau_bao_gia", [], [bgThu({ trangThai: "da_so_sanh" })], quyenNhanVien)
+        ?.lyDo,
+    ].filter(Boolean);
+    const ban = cau.filter((c) => XAU.test(String(c)));
+    return {
+      duoc: cau.length >= 5 && ban.length === 0,
+      thucTe:
+        ban.length === 0
+          ? `${cau.length} cau — khong cau nao nhac nguoi duyet hay ngay chi dao`
+          : ban.map((c) => `"${String(c).slice(0, 90)}"`).join(" | "),
+      mongDoi: "moi cau chan deu KHONG chua \"Sep\" / \"Ban lanh dao\" / ngay dd/mm/yyyy",
+    };
+  },
+);
+
+kiem(
   "③ → ② cau `viec` PHAI noi truoc la SE XOA SACH tep cua buoc bao gia",
   "Sep · 16/09/2026 — *\"Sao bam lui ve ma van con cac file dinh kem, cac file nay phai duoc xoa sach\"*",
   () => {
@@ -5361,7 +5399,16 @@ kiem(
     return {
       duoc:
         BH.kieuONop("dinh_kem_khac") === "khu_tu_do" &&
-        BH.kieuONop("don_mua_hang") === "o_co_ten" &&
+        /* 🔴🔴 `don_mua_hang` DOI TU `o_co_ten` SANG `khong` — VA DAY LA DOI YEU CAU, KHONG PHAI
+           SUA BAI KIEM CHO VUA MA NGUON. Hai moc, ca hai deu cua Sep, cach nhau vai gio:
+             · SANG 16/09/2026 — *"Tach lam 2 muc rieng"*, kem yeu cau o nop rieng cho Don mua
+               hang *"o buoc ⑤ va o buoc ⑧ (dong so 4)"*  => luc do dung la `o_co_ten`.
+             · CHIEU 16/09/2026 — Sep xem giao dien that, khoanh do dung nut vang o dong 4:
+               *"Muc nay cung la link tu buoc lap don mua hang xuong, chu ko phai dinh kem o day ·
+               Lam tuong tu nhu phan hop dong"*  => nay la `khong`.
+           👉 O nop KHONG mat: no van o buoc ⑤ (`BUOC_DINH_KEM_DON_MUA_HANG`). Bo o o buoc ⑧ la bo
+           duong THU HAI toi cung mot tep, dung nhu da lam voi Hop dong. */
+        BH.kieuONop("don_mua_hang") === "khong" &&
         /* 🔴 HOP DONG THOI CO O NOP O BUOC ⑧ — Sep 16/09/2026: *"Bo nut dinh kem nay, hop dong se
            duoc link tu buoc 3 xuong"*. */
         BH.kieuONop("hop_dong") === "khong" &&
@@ -5370,7 +5417,7 @@ kiem(
         .map((m) => `${m}=${BH.kieuONop(m)}`)
         .join(" · "),
       mongDoi:
-        "dinh_kem_khac=khu_tu_do · don_mua_hang=o_co_ten · hop_dong=khong (Sep 16/09 bo o nop) · phieu_giao_hang=khong",
+        "dinh_kem_khac=khu_tu_do · don_mua_hang=khong (Sep 16/09 CHIEU bo o nop) · hop_dong=khong (Sep 16/09 bo o nop) · phieu_giao_hang=khong",
     };
   },
 );

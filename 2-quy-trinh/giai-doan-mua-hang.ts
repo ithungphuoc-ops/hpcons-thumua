@@ -2265,7 +2265,12 @@ export function vuongMacQuyenLui(
     return "Chưa xác định được quyền của người đang thao tác nên đường lùi tạm khoá — theo nguyên tắc “thiếu thông tin thì lấy quyền thấp nhất”. Nếu bạn là trưởng bộ phận mà vẫn thấy câu này thì báo quản trị hệ thống: màn hình gọi luật lùi chưa truyền quyền vào.";
   }
   if (!quyen[vaiTro]) {
-    return `Chỉ ${NHAN_VAI_TRO_LUI[vaiTro]} mới lùi được bước này (Sếp chốt 15/09/2026). Lùi bước xoá dữ liệu đã nhập nên không mở cho vai trò nhập liệu — nhờ trưởng bộ phận thao tác giúp.`;
+    /* 🔴 KHÔNG GHI "(Sếp chốt <ngày>)" VÀO CÂU NÀY — Sếp 16/09/2026, ảnh chụp đúng pop-up trên
+       bảng quy trình: *"đọc lại toàn bộ code phần hiển thị, bỏ các cụm giống vậy đi. Đây là app
+       cho bộ phận thu mua, sao lại để các ghi chú liên quan tới sếp ??"*.
+       👉 Xuất xứ của luật là việc của CHÚ THÍCH và nhật ký, không phải của câu người dùng đọc.
+       Người thu mua cần biết **phải làm gì**, không cần biết ai duyệt luật ngày nào. */
+    return `Chỉ ${NHAN_VAI_TRO_LUI[vaiTro]} mới lùi được bước này. Lùi bước xoá dữ liệu đã nhập nên không mở cho vai trò nhập liệu — nhờ trưởng bộ phận thao tác giúp.`;
   }
   return null;
 }
@@ -2288,9 +2293,9 @@ export function vuongMacQuyenLui(
 function lyDoKhongLuiDuoc(tu: GiaiDoanMuaHang): string {
   switch (tu) {
     case "nhan_hang":
-      return "Bước “Tiến hành nhận hàng” KHÔNG lùi được (Sếp chốt 15/09/2026). Phiếu nhận hàng là chứng từ của Kho — theo nguyên tắc dữ liệu của dự án, Kho là nguồn duy nhất của số lượng thực nhận, và app Thu mua không có chỗ nào xoá được phiếu nhận. Đặt sai số lượng hay sai ngày giao thì sửa trên chính đơn: nút “Sửa đơn hàng” ở trang chi tiết đơn mua hàng. Muốn bỏ hẳn hồ sơ thì dùng “Đánh dấu thất bại” trong menu ⋯ của thẻ.";
+      return "Bước “Tiến hành nhận hàng” KHÔNG lùi được. Phiếu nhận hàng là chứng từ của Kho — theo nguyên tắc dữ liệu của dự án, Kho là nguồn duy nhất của số lượng thực nhận, và app Thu mua không có chỗ nào xoá được phiếu nhận. Đặt sai số lượng hay sai ngày giao thì sửa trên chính đơn: nút “Sửa đơn hàng” ở trang chi tiết đơn mua hàng. Muốn bỏ hẳn hồ sơ thì dùng “Đánh dấu thất bại” trong menu ⋯ của thẻ.";
     case "ho_so_thanh_toan":
-      return "Bước “Hồ sơ thanh toán” KHÔNG lùi được (Sếp chốt 15/09/2026). Hồ sơ vào bước này vì hàng đã về đủ theo số liệu của Kho; lùi về “Tiến hành nhận hàng” chỉ có nghĩa nếu bịa cho hàng thành chưa về đủ, tức sửa ngược số liệu của Kho. Chứng từ đính nhầm thì thay ngay trong khối “Hồ sơ thanh toán” ở trang chi tiết đề nghị, không cần lùi bước.";
+      return "Bước “Hồ sơ thanh toán” KHÔNG lùi được. Hồ sơ vào bước này vì hàng đã về đủ theo số liệu của Kho; lùi về “Tiến hành nhận hàng” chỉ có nghĩa nếu bịa cho hàng thành chưa về đủ, tức sửa ngược số liệu của Kho. Chứng từ đính nhầm thì thay ngay trong khối “Hồ sơ thanh toán” ở trang chi tiết đề nghị, không cần lùi bước.";
     case "hoan_thanh":
       return "Hồ sơ đã hoàn thành thì không lùi bước được. Mở lại một hồ sơ đã đóng là việc riêng (“Mở lại hồ sơ”) và app CHƯA làm chức năng đó — đừng đi tìm nút, hãy báo quản trị hệ thống.";
     case "that_bai":
