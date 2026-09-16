@@ -69,6 +69,45 @@ export const BUOC_DINH_KEM_HOP_DONG = "lap_don_mua_hang";
 const BUOC_CU_HOP_DONG = "dat_hang";
 
 /**
+ * ★★★ NGĂN RIÊNG CỦA **ĐƠN MUA HÀNG NCC KÝ** — Sếp 16/09/2026, nguyên văn: ***"Tách làm 2 mục
+ * riêng"*** (Hợp đồng và Đơn mua hàng).
+ *
+ * 🔴🔴 ĐÂY LÀ NGĂN MỚI TINH, KHÔNG PHẢI ĐỔI TÊN NGĂN CŨ. `BUOC_DINH_KEM_HOP_DONG`
+ * (`"lap_don_mua_hang"`) **không được đụng một chữ** — đó là chỗ đang chứa TOÀN BỘ tệp đã đính từ
+ * trước tới nay. Đổi nó là mọi hồ sơ cũ mất sạch chứng từ, im lặng, không lỗi nào báo.
+ *
+ * 🔴 VÌ SAO KHÔNG PHẢI MÃ GIAI ĐOẠN: `DeNghiMuaHang.tepGiaiDoan` khai kiểu
+ * `Record<string, MoTaTep[]>` (xem `3-du-lieu/kieu-du-lieu.ts`) — khóa là **chuỗi tự do**, không
+ * có danh sách trắng nào ở tầng ghi (`themTepGiaiDoan` / `datTepVaoOGiaiDoan` / `goTepGiaiDoan`
+ * đều nhận `maGiaiDoan: string`). Đã đo 16/09/2026 trước khi đặt khóa này. Cố ý đặt tên KHÁC mọi
+ * mã giai đoạn để đọc ra ngay đây là ngăn của một CHỨNG TỪ, không phải của một bước.
+ *
+ * ⚠️ KHÔNG CÓ KHÓA CŨ NÀO ĐỂ GỘP — ngăn này sinh ra hôm nay, mọi tệp trước đó nằm ở ngăn chung
+ * (`BUOC_DINH_KEM_HOP_DONG`). Cách app xử tệp chung cũ nằm ở `bo-ho-so-thanh-toan.ts` mục 4
+ * (`tepDonMuaHangCuaMuc4`), KHÔNG xử ở đây — hàm này chỉ trả lời *"ngăn riêng có gì"*.
+ */
+export const BUOC_DINH_KEM_DON_MUA_HANG = "don_mua_hang_ncc_ky";
+
+/**
+ * ★★ NGĂN RIÊNG CỦA MỤC 9 *Đính kèm khác* — Sếp 16/09/2026: ***"Cần thiết mở thêm để đính kèm tài
+ * liệu khác"***.
+ *
+ * 🔴🔴 TUYỆT ĐỐI KHÔNG DÙNG LẠI `BUOC_DINH_KEM_HO_SO_THANH_TOAN` CHO VIỆC NÀY. Đã đo 15/09/2026 và
+ * đo lại 16/09/2026 — ba hệ quả, cái nào cũng thật:
+ *   ① Ngăn đó đang chứa **Hoá đơn VAT · UNC · Phiếu chi**, nên khu đính kèm tự do sẽ bày lại cả ba
+ *      ở mục 9 — đúng chỗ trùng lặp Sếp vừa bắt bỏ 15/09/2026.
+ *   ② Nút *"Gỡ"* của khu tự do xoá được **Hoá đơn VAT thật**, và mất hoá đơn là
+ *      `vuongMacDuyetHoanThanhDeNghi` chặn đóng hồ sơ vĩnh viễn.
+ *   ③ Hạn mức `TOI_DA_TEP_MOI_BUOC` = 5 tính CHUNG cả ngăn, nên mục 9 chỉ còn 1–2 chỗ rồi báo
+ *      *"Đã đủ 5 tệp cho bước này"*.
+ * 👉 Ngăn riêng gỡ sạch cả ba, và mục 9 có trọn 5 chỗ của riêng nó.
+ *
+ * 📌 KHÔNG LỌC THEO NHÃN — khác hẳn ba chứng từ có tên ở trên. Mục 9 là *"Nếu có"*, tài liệu gì
+ * cũng nhận (CO/CQ, biên bản nghiệm thu, thư xác nhận…), nên không có nhãn nào để so.
+ */
+export const BUOC_DINH_KEM_KHAC = "dinh_kem_khac";
+
+/**
  * ★ Bước giữ CẢ hóa đơn VAT VÀ ủy nhiệm chi — Ban lãnh đạo 23/08/2026: *"Gộp 2 mục này lại thành
  * 1 'Hồ sơ thanh toán'"*.
  */
@@ -94,6 +133,17 @@ const BUOC_CU_UNC = "unc";
  * đánh dấu tệp của mình bằng **ghi chú tệp**, đúng cách `bao-gia-dinh-kem.ts` đang làm.
  */
 export const NHAN_TEP_HOP_DONG = "Hợp đồng";
+/**
+ * ★★ NHÃN LƯU CỦA TỆP **ĐƠN MUA HÀNG NCC KÝ** — Sếp 16/09/2026 (*"Tách làm 2 mục riêng"*).
+ *
+ * 🔴 CHỮ NÀY GIỐNG `NHAN_TEP_HOP_DONG` Ở CHỖ NÓ LÀ **KHÓA LƯU**, đừng đổi khi chỉ muốn đổi chữ in
+ * ra màn hình — dùng `TEN_HIEN_DON_MUA_HANG` cho việc đó.
+ *
+ * 📌 KHÔNG VA CHẠM với nhãn "Hợp đồng" dù hai ô trông giống nhau: nhãn chỉ có nghĩa **bên trong
+ * một ngăn**, mà hai ô nằm ở hai ngăn khác nhau (`BUOC_DINH_KEM_DON_MUA_HANG` vs
+ * `BUOC_DINH_KEM_HOP_DONG`). Đó chính là điều làm phép tách này an toàn.
+ */
+export const NHAN_TEP_DON_MUA_HANG = "Đơn mua hàng";
 export const NHAN_TEP_HOA_DON_VAT = "Hóa đơn VAT";
 export const NHAN_TEP_UNC = "Ủy nhiệm chi";
 /**
@@ -186,40 +236,46 @@ export const NHAN_TEP_PHIEU_GIAO_HANG = "Phiếu giao hàng";
  * đồng đã đính kèm trước hôm nay không được nhận ra nữa và hồ sơ đang chạy bị đẩy về "chưa có
  * hợp đồng" (xem đúng cảnh báo ở ngay trên).
  *
- * ⚠️ CÁI GIÁ CỦA VIỆC CHỈ ĐỔI TÊN — ĐANG CHỜ SẾP QUYẾT, ĐỪNG TƯỞNG ĐÃ XONG:
- * App hiện dùng **MỘT ô, MỘT tệp** cho cả hai bước ④ *Lập đơn mua hàng* và ⑤ *Tiến hành đặt
- * hàng* (Sếp chốt 01/09/2026: *"cùng tệp với bước ④, sửa ở đây bước ④ cũng thấy ngay"*). Ô ở
- * bước ⑤ là nơi đính **bản đơn mua hàng / hợp đồng đã ký đóng mộc NCC gửi về**. Sau lần đổi tên
- * này, ô đó mang tên "Hợp đồng" — **sai tên với thứ thật sự được đính vào đấy** khi đơn dùng mẫu
- * PO-02 (chính tờ đơn là thoả thuận, không có hợp đồng riêng).
- * 👉 Tách thật thành HAI chứng từ là việc lớn (thêm khóa tệp mới, sửa 4 hàm, xử lý dữ liệu cũ) —
- * đã mô tả cách tách trong báo cáo phiên, **chưa làm**. Ai đọc tới đây mà thấy vẫn còn một ô thì
- * nghĩa là Sếp chưa duyệt việc tách, không phải quên.
+ * ✅ ĐÃ TÁCH THẬT 16/09/2026 — khối cảnh báo ở đây trước đây ghi *"việc tách… chưa làm, chưa được
+ * Sếp duyệt"*. Sếp duyệt và ra lệnh ngày 16/09/2026: ***"Tách làm 2 mục riêng"***. Từ nay
+ * **"Hợp đồng" và "Đơn mua hàng" là HAI chứng từ, HAI ngăn, HAI ô nộp, HAI lý do thiếu riêng**:
+ *   · Hợp đồng      → `BUOC_DINH_KEM_HOP_DONG` (ngăn CŨ, giữ nguyên) + `NHAN_TEP_HOP_DONG`
+ *   · Đơn mua hàng  → `BUOC_DINH_KEM_DON_MUA_HANG` (ngăn MỚI) + `NHAN_TEP_DON_MUA_HANG`
+ * 👉 Cách app xử **tệp đã đính ở ngăn chung TRƯỚC khi tách** nằm ở `bo-ho-so-thanh-toan.ts` →
+ *    `tepDonMuaHangCuaMuc4`. Đọc khối đó trước khi đụng vào bất cứ đường đọc nào dưới đây.
  */
 export const TEN_HIEN_HOP_DONG = "Hợp đồng";
 
 /**
- * ★★ TÊN HIỂN THỊ RIÊNG CHO Ô Ở BƯỚC ⑤ *Tiến hành đặt hàng* — Sếp 15/09/2026.
+ * ★★ CHỮ IN RA MÀN HÌNH của ô **Đơn mua hàng NCC ký** — Sếp 16/09/2026 (*"Tách làm 2 mục riêng"*).
  *
- * Sếp khoanh đỏ ô tệp và ghi *"sửa tên trường này là Đơn mua hàng"*, rồi chỉnh lại cho chính xác:
- * *"mục đổi tên e chỉnh lại là 'Đơn mua hàng' ở bước tiến hành đặt hàng nha, không phải ở bước
- * lập đơn mua hàng"*. Nên bước ④ giữ nguyên "Hợp đồng", chỉ bước ⑤ đổi.
- *
- * ✅ ĐỔI Ở BƯỚC ⑤ MỚI LÀ ĐÚNG BẢN CHẤT, và khối cảnh báo ngay trên đã chỉ ra điều đó từ
- * 13/09/2026 mà chưa sửa được: ô ở bước ⑤ là nơi đính **bản đơn mua hàng đã ký đóng mộc do NCC
- * gửi về khi đặt hàng**. Gọi nó là "Hợp đồng" là sai tên với thứ thật sự được đính vào đấy,
- * nhất là đơn dùng mẫu PO-02 (chính tờ đơn là thoả thuận, không có hợp đồng riêng).
- *
- * 🔴 VẪN LÀ MỘT Ô, MỘT TỆP — chỉ khác chữ in ra. Cả ba chỗ (bước ④, ⑤, ⑧) đều dùng
- * `maGiaiDoan = BUOC_DINH_KEM_HOP_DONG` và `nhanO = NHAN_TEP_HOP_DONG`. Đính ở bước ⑤ thì bước ④
- * và ⑧ thấy ngay, và ngược lại. Đừng đọc hai cái tên rồi tưởng là hai chứng từ riêng.
- *
- * ⚠️ CÁI GIÁ, NÓI TRƯỚC ĐỂ KHÔNG AI TƯỞNG LÀ LỖI: cùng một tệp nay mang **hai tên** tùy bước đang
- * đứng — đính ở ô "Hợp đồng" bước ④ rồi sang bước ⑤ thấy nó nằm trong ô "Đơn mua hàng".
- * 👉 Muốn hết hẳn chuyện này thì phải TÁCH THẬT thành hai chứng từ (thêm khóa tệp mới, sửa 4 hàm,
- * xử lý dữ liệu cũ) — xem khối cảnh báo ngay trên, việc đó **chưa được duyệt**.
+ * 📌 Tách khỏi `NHAN_TEP_DON_MUA_HANG` (khóa lưu) đúng cùng lý do đã ghi cho cặp
+ * `NHAN_TEP_HOP_DONG` / `TEN_HIEN_HOP_DONG`: chữ hiển thị đổi tự do, khóa lưu thì không.
  */
-export const TEN_HIEN_HOP_DONG_BUOC_DAT_HANG = "Đơn mua hàng";
+export const TEN_HIEN_DON_MUA_HANG = "Đơn mua hàng";
+
+/**
+ * ❌❌ ĐÃ XOÁ `TEN_HIEN_HOP_DONG_BUOC_DAT_HANG` — 16/09/2026, KHI TÁCH THẬT HAI CHỨNG TỪ.
+ * ĐỌC HẾT KHỐI NÀY TRƯỚC KHI ĐỊNH DỰNG LẠI MỘT MẸO TƯƠNG TỰ.
+ *
+ * Thứ bị xoá: `export const TEN_HIEN_HOP_DONG_BUOC_DAT_HANG = "Đơn mua hàng"` — một **mẹo đổi tên
+ * hiển thị theo bước**, thêm 15/09/2026 khi Sếp ghi *"mục đổi tên e chỉnh lại là 'Đơn mua hàng' ở
+ * bước tiến hành đặt hàng nha"*. Nó làm **một ô, một tệp** mang **hai tên** tuỳ bước người dùng
+ * đang đứng: "Hợp đồng" ở bước ④, "Đơn mua hàng" ở bước ⑤.
+ *
+ * 🔴 VÌ SAO PHẢI XOÁ CHỨ KHÔNG ĐỂ LẠI CHO CHẮC: sau khi tách, bước ⑤ có **ô Đơn mua hàng THẬT**
+ * (ngăn `BUOC_DINH_KEM_DON_MUA_HANG`) đứng ngay cạnh ô Hợp đồng. Giữ mẹo cũ thì trên cùng một
+ * khối có HAI ô cùng mang chữ "Đơn mua hàng" mà ghi vào HAI ngăn khác nhau — người dùng đính vào
+ * ô sai, chứng từ rơi vào mục sai, và **không một dòng nào báo**. Đó là hiểu nhầm nguy hơn hẳn
+ * cái bất tiện mà mẹo này từng gỡ.
+ *
+ * ✅ CHỈ ĐẠO 15/09/2026 KHÔNG BỊ ĐẢO, NÓ ĐƯỢC THOẢ MÃN ĐÚNG HƠN: Sếp muốn thấy chữ "Đơn mua hàng"
+ * ở bước ⑤ vì đó là nơi đính **bản đơn NCC ký đóng mộc gửi về**. Nay ở bước ⑤ vẫn có đúng chữ ấy —
+ * khác ở chỗ nó là một chứng từ riêng thật, không phải cái nhãn dán lên tệp hợp đồng.
+ *
+ * 📌 Chữ hiển thị mới: `TEN_HIEN_DON_MUA_HANG` (ngay trên). Ô ở bước ④ và bước ⑤ nay đều gọi tệp
+ * hợp đồng là `TEN_HIEN_HOP_DONG` — một tệp, một tên, ở mọi bước.
+ */
 
 /**
  * ★ KHÓA GHI LÝ DO CHƯA CÓ CHỨNG TỪ — Ban lãnh đạo 23/08/2026: *"Thêm hàm bắt buộc có file đính
@@ -285,9 +341,14 @@ export const LY_DO_BO_SUNG_SAU = "Bổ sung sau";
  * Lối thoát duy nhất là **bấm lại chính nút đó để bỏ chọn** — vì vậy cơ chế bỏ chọn ở
  * `de-nghi-chi-tiet.tsx` là bắt buộc phải còn, đừng gỡ.
  *
- * 📌 Chỗ KHÔNG bị ảnh hưởng (cố ý): `bo-ho-so-thanh-toan.ts` mục 4 vẫn đếm là thiếu, vì đó là
- * **bảng kiểm bộ hồ sơ giao Kế toán** — nó liệt kê tờ nào có/không có trong tay, không phải bảng
- * nhắc việc. Hai câu hỏi khác nhau, đừng gộp.
+ * 📌 Chỗ KHÔNG bị ảnh hưởng (cố ý): `bo-ho-so-thanh-toan.ts` — mục 3 vẫn **đếm là thiếu** trong
+ * `mucDaCo` / `tomTatBoHoSo`, vì đó là **bảng kiểm bộ hồ sơ giao Kế toán**: nó liệt kê tờ nào có /
+ * không có trong tay, không phải bảng nhắc việc. Hai câu hỏi khác nhau, đừng gộp.
+ *
+ * ⚠️ TỪ 16/09/2026 CHUYỆN NÀY NHÌN CÓ VẺ MÂU THUẪN — nói trước để không ai "chữa": hồ sơ khai
+ * *"Không có Hợp đồng"* thì **đóng được** (Sếp 16/09) nhưng mục 3 vẫn mang dấu *"–"*. Đúng cả hai:
+ * cửa đã mở vì có lời khai, còn trong tay thì thật sự không có tờ nào. Dòng ghi chú `ket_luan`
+ * dưới mục 3 là chỗ nói ra sự thật đó, kèm tên người khai.
  */
 export const LY_DO_KHONG_CO_HOP_DONG = "Không có HĐ";
 
@@ -330,13 +391,149 @@ export const LY_DO_THIEU_HOP_DONG_CHON: readonly string[] = [
 ];
 
 /**
+ * ★★★ KHÓA GHI LÝ DO CHƯA CÓ **ĐƠN MUA HÀNG NCC KÝ** — Sếp 16/09/2026: ***"Tách làm 2 mục
+ * riêng"*** + ***"Làm tương tự như vậy cho bước 4"*** (tức mục 4 của bộ hồ sơ).
+ *
+ * 🔴 KHÓA RIÊNG, KHÔNG DÙNG CHUNG `KHOA_LY_DO_THIEU_HOP_DONG`. Trước 16/09/2026 hai mục dùng chung
+ * một trường lý do nên trên màn hình chúng hiện **giống hệt nhau** — khai "Không có Hợp đồng" là
+ * mục Đơn mua hàng cũng tự nhận câu đó. Nay mỗi mục khai độc lập.
+ *
+ * ⚠️ KHÔNG CÓ DỮ LIỆU CŨ Ở KHÓA NÀY, và đó là điều TỐT: hồ sơ cũ chỉ khai lý do cho hợp đồng, nên
+ * sau khi tách mục 4 của chúng ở trạng thái `chua_khai` — đúng sự thật, không phải suy diễn hộ
+ * người dùng rằng họ cũng muốn khai như vậy cho đơn mua hàng.
+ */
+export const KHOA_LY_DO_THIEU_DON_MUA_HANG = "dat_hang|don_mua_hang";
+
+/**
+ * ★★★ ĐƠN MUA HÀNG **CHỈ CÓ MỘT LỰA CHỌN: "Bổ sung sau"** — Sếp 16/09/2026, nguyên văn: ***"PO là
+ * chắc chắn có, chỉ là bổ sung sau thôi. Kiểm tra lại và điều chỉnh"***.
+ *
+ * 🔴🔴 ĐÂY LÀ KHÁC BIỆT BẢN CHẤT GIỮA HAI CHỨNG TỪ, VÀ LÀ LÝ DO SẾP BẢO TÁCH CHÚNG RA:
+ *   · **Hợp đồng** — có thể **thật sự không có** (đơn nhỏ, mua lẻ, mẫu PO-02 mà chính tờ đơn là
+ *     thoả thuận). Nên *"Không có Hợp đồng"* là một **kết luận hợp lệ**, và từ 16/09/2026 nó đủ
+ *     điều kiện đóng hồ sơ.
+ *   · **Đơn mua hàng (PO)** — **LUÔN LUÔN PHẢI CÓ**, vì chính app sinh ra nó. Không bao giờ tồn tại
+ *     ca *"đơn này không có PO"*; chỉ có ca **chưa đính bản NCC ký đóng mộc**, tức *"Bổ sung sau"*.
+ *
+ * 🔴 VÌ VẬY **KHÔNG CÓ HẰNG `LY_DO_KHONG_CO_DON_MUA_HANG`** — và đừng thêm vào. Bản dựng đầu ngày
+ * 16/09/2026 có hằng đó (chép cho "đối xứng" với hợp đồng) và Sếp bắt đúng lỗi này: màn hình hiện
+ * câu *"đơn này không có hợp đồng riêng, không phải thiếu sót"* ngay dưới mục **Đơn mua hàng** —
+ * sai hoàn toàn với PO.
+ *
+ * ⚠️ HỆ QUẢ PHẢI GIỮ: mục 4 chưa có tệp thì **luôn báo đỏ**, không có trạng thái trung tính nào.
+ * Mở một lời khai dứt điểm cho nó là mở đường đóng hồ sơ mà **không có chứng từ gốc của cả đơn
+ * hàng** — xem `moCuaDongHoSo` và bài kiểm chiều nghịch trong `kiem-luat-dung-chung.mjs`.
+ */
+export const LY_DO_THIEU_DON_MUA_HANG_CHON: readonly string[] = [LY_DO_BO_SUNG_SAU];
+
+/**
+ * ★★★ MỘT MÔ TẢ DUY NHẤT CHO MỘT CHỨNG TỪ CÓ CƠ CHẾ KHAI LÝ DO — Sếp 16/09/2026.
+ *
+ * 🔴 VÌ SAO GOM THÀNH BẢNG THAY VÌ CHÉP ĐÔI MỌI HẰNG SỐ: sau khi tách, **bốn thứ** phải đi cùng
+ * nhau cho mỗi chứng từ (khóa lưu lý do · tên chứng từ · chuỗi "không có" · chữ hiện ra). Để rời
+ * bốn hằng rồi tra tay ở từng nơi vẽ là sớm muộn có chỗ tra khóa của hợp đồng mà in tên đơn mua
+ * hàng — và không lỗi kiểu nào báo vì cả bốn đều là `string`.
+ *
+ * 📌 `bo-ho-so-thanh-toan.ts` → `KHOA_LY_DO_THIEU_THEO_MUC` tra thẳng vào bảng này theo **mã mục**,
+ * nên thêm một chứng từ có lý do riêng thì khai ở đây một lần là đủ.
+ */
+export interface ChungTuCoLyDoThieu {
+  /** Khóa lưu trong `DeNghiMuaHang.lyDoThieuChungTu`. */
+  khoa: string;
+  /** Tên chứng từ, dùng cho câu chữ và cho việc tra người khai trong nhật ký. */
+  tenChungTu: string;
+  /**
+   * Chuỗi LƯU của lời khai dứt điểm "không có chứng từ này".
+   *
+   * 🔴 `null` NGHĨA LÀ **CHỨNG TỪ NÀY KHÔNG BAO GIỜ VẮNG MẶT HỢP LỆ** — không có lời khai dứt điểm
+   * nào cả, chỉ có "đã có" hoặc "còn nợ". Đúng ca của **Đơn mua hàng**: Sếp 16/09/2026 — ***"PO là
+   * chắc chắn có, chỉ là bổ sung sau thôi"***.
+   *
+   * ⚠️ `null` là một khẳng định nghiệp vụ, không phải "chưa khai xong". Đổi nó thành một chuỗi là
+   * mở ra ca *"đơn này không có PO"* — chuyện không tồn tại — rồi mở luôn đường đóng hồ sơ mà thiếu
+   * chứng từ gốc của cả đơn hàng.
+   */
+  lyDoKhongCo: string | null;
+  /** Chữ HIỆN RA cho lời khai đó (có thể khác chuỗi lưu — xem cặp hợp đồng). `null` khi không có. */
+  tenHienKhongCo: string | null;
+  /** Hai lựa chọn hiện thành nút, đúng thứ tự trên màn hình. */
+  cacLyDoChon: readonly string[];
+  /**
+   * ★★★ LỜI KHAI "không có <chứng từ này>" CÓ MỞ CỬA ĐÓNG HỒ SƠ KHÔNG.
+   *
+   * 🔴 CHỈ **HỢP ĐỒNG** = `true`, và chỉ vì Sếp nói đúng câu đó ngày 16/09/2026 (***"Đúng, là điều
+   * kiện để đóng hồ sơ"***). Chốt thật nằm ở `vuongMacHoanThanhQuyTrinh`.
+   *
+   * 🔴 **ĐƠN MUA HÀNG = `false`, CÓ LÝ DO, ĐỪNG "SỬA CHO ĐỐI XỨNG"**: `vuongMacHoanThanhQuyTrinh`
+   * **chưa bao giờ** đòi tệp đơn mua hàng NCC ký — không có chốt nào để mở. Bật cờ này lên `true`
+   * mà không có chốt tương ứng là câu chữ **hứa một luật không tồn tại** (CLAUDE.md §3.5); còn
+   * thêm chốt đó thì là **đặt ra một luật Sếp chưa duyệt**, và nó sẽ chặn hàng loạt hồ sơ đang
+   * chạy. Muốn đổi thì hỏi Sếp trước.
+   *
+   * 📌 Cờ này CHỈ điều khiển CÂU CHỮ ở `bo-ho-so-thanh-toan.ts` → `loiKhaiThieuChungTu`. Nó không
+   * tự chặn hay tự mở gì cả — để một chỗ duy nhất giữ luật, đúng nếp của cả tệp này.
+   */
+  moCuaDongHoSo: boolean;
+}
+
+export const CHUNG_TU_HOP_DONG: ChungTuCoLyDoThieu = {
+  khoa: KHOA_LY_DO_THIEU_HOP_DONG,
+  tenChungTu: TEN_HIEN_HOP_DONG,
+  lyDoKhongCo: LY_DO_KHONG_CO_HOP_DONG,
+  tenHienKhongCo: TEN_HIEN_LY_DO_KHONG_CO_HOP_DONG,
+  cacLyDoChon: LY_DO_THIEU_HOP_DONG_CHON,
+  moCuaDongHoSo: true,
+};
+
+export const CHUNG_TU_DON_MUA_HANG: ChungTuCoLyDoThieu = {
+  khoa: KHOA_LY_DO_THIEU_DON_MUA_HANG,
+  tenChungTu: TEN_HIEN_DON_MUA_HANG,
+  /* 🔴🔴 `null` × 2 — Sếp 16/09/2026: ***"PO là chắc chắn có, chỉ là bổ sung sau thôi"***. Không có
+     lời khai "không có PO", nên mục Đơn mua hàng chưa có tệp thì LUÔN báo đỏ. Đọc khối chú thích ở
+     `LY_DO_THIEU_DON_MUA_HANG_CHON` trước khi định điền chuỗi vào đây. */
+  lyDoKhongCo: null,
+  tenHienKhongCo: null,
+  cacLyDoChon: LY_DO_THIEU_DON_MUA_HANG_CHON,
+  /* 🔴 `false` CÓ CHỦ Ý — đọc khối chú thích ở `moCuaDongHoSo` trước khi đổi. */
+  moCuaDongHoSo: false,
+};
+
+/** Lý do đã ghi cho MỘT chứng từ bất kỳ. Chuỗi rỗng = chưa khai. */
+export function lyDoThieuChungTuCua(deNghi: DeNghiMuaHang, ct: ChungTuCoLyDoThieu): string {
+  return (deNghi.lyDoThieuChungTu?.[ct.khoa] ?? "").trim();
+}
+
+/**
+ * ★★★ ĐÃ KHAI DỨT ĐIỂM "KHÔNG CÓ <chứng từ này>" CHƯA.
+ *
+ * 🔴🔴 HÀM NÀY NAY LÀ MỘT **ĐIỀU KIỆN ĐÓNG HỒ SƠ**, không còn chỉ là chuyện tô màu — xem
+ * `vuongMacHoanThanhQuyTrinh`. Vì vậy nó phải **so BẰNG NHAU với đúng chuỗi đã khai**, tuyệt đối
+ * không nới thành "có ghi lý do gì đó": nới ra là ai bỏ trống, ai bấm *"Bổ sung sau"*, ai gõ một
+ * câu tự do cũng đóng được hồ sơ — tức **bỏ chốt**, không phải nới chốt.
+ */
+export function daKhaiKhongCoChungTu(deNghi: DeNghiMuaHang, ct: ChungTuCoLyDoThieu): boolean {
+  /* 🔴 CHỨNG TỪ KHÔNG CÓ LỜI KHAI DỨT ĐIỂM (Đơn mua hàng) thì câu trả lời LUÔN là "chưa khai".
+     Bỏ dòng này đi thì `lyDoThieuChungTuCua` trả "" và `ct.lyDoKhongCo` là `null` — hai thứ khác
+     nhau nên vẫn `false`, nhưng đó là **đúng do may**, không do luật. Viết ra tường minh để ai đổi
+     kiểu dữ liệu sau này không vô tình mở cửa. */
+  if (ct.lyDoKhongCo === null) return false;
+  return lyDoThieuChungTuCua(deNghi, ct) === ct.lyDoKhongCo;
+}
+
+/**
  * ★★ HỒ SƠ ĐÃ KHAI "KHÔNG CÓ HĐ" — Sếp 13/09/2026: *"Khi chọn vào nút 'Không có HĐ' thì mới ko
  * báo đỏ, còn nếu chọn nút 'Bổ sung sau' thì báo đỏ để nhắc việc"*.
  *
- * 🔴 MỘT CHỖ DUY NHẤT trả lời câu *"lời khai này có tắt dấu đỏ không"*. HAI nơi đang hỏi:
+ * 🔴🔴 TỪ 16/09/2026 HÀM NÀY KHÔNG CÒN CHỈ LÀ CHUYỆN MÀU SẮC — nó là **điều kiện đóng hồ sơ**
+ * (Sếp: ***"Đúng, là điều kiện để đóng hồ sơ"***). Sửa nó là sửa luật, không phải sửa giao diện.
+ *
+ * 🔴 MỘT CHỖ DUY NHẤT trả lời câu *"người dùng đã khai dứt điểm là không có hợp đồng chưa"*. BA
+ * nơi đang hỏi:
  *   ① `thieuHopDongDaGhiLyDo` (ngay dưới) → viền/nền đỏ hộp "Lý do chưa có" ở trang chi tiết
  *   ② `mucConNoCuaBuoc` trong `giai-doan-mua-hang.ts` → viền đỏ khối bước, nhãn "Còn thiếu", và
  *      chữ "thiếu HĐ" trên thẻ kanban
+ *   ③ `vuongMacHoanThanhQuyTrinh` (cuối tệp này) → **mở/khoá nút "Hoàn thành quy trình"** ← thêm
+ *      16/09/2026, và đây là nơi nặng nhất
  * Chép điều kiện ra hai chỗ là app **tự mâu thuẫn**: hộp hết đỏ mà thẻ vẫn kêu thiếu HĐ, hoặc
  * ngược lại — đúng kiểu lỗi mà cả tệp này sinh ra để tránh (xem khối chú thích đầu tệp).
  *
@@ -347,8 +544,15 @@ export const LY_DO_THIEU_HOP_DONG_CHON: readonly string[] = [
  * nhánh `!coHopDong(...)`, nên có tệp rồi thì không ai hỏi tới câu này.
  */
 export function daKhaiKhongCoHopDong(deNghi: DeNghiMuaHang): boolean {
-  return lyDoThieuHopDong(deNghi) === LY_DO_KHONG_CO_HOP_DONG;
+  return daKhaiKhongCoChungTu(deNghi, CHUNG_TU_HOP_DONG);
 }
+
+/**
+ * ❌ CỐ Ý **KHÔNG CÓ** `daKhaiKhongCoDonMuaHang` — Sếp 16/09/2026: ***"PO là chắc chắn có, chỉ là
+ * bổ sung sau thôi"***. Không tồn tại ca "đơn này không có PO", nên không có câu hỏi ấy để trả lời.
+ * Bản dựng đầu ngày có hàm đó (chép cho đối xứng) và đã bị bỏ — xem
+ * `LY_DO_THIEU_DON_MUA_HANG_CHON`.
+ */
 
 /**
  * ★★★ ĐÃ BỎ HẲN CÁI TÍCH "ĐÃ XỬ LÝ ỦY NHIỆM CHI" — Sếp 15/09/2026.
@@ -415,6 +619,45 @@ export function tepHopDong(deNghi: DeNghiMuaHang): MoTaTep[] {
  */
 export function tepHopDongSuaDuoc(deNghi: DeNghiMuaHang): MoTaTep[] {
   return tepTheoNhan(deNghi, BUOC_DINH_KEM_HOP_DONG, NHAN_TEP_HOP_DONG);
+}
+
+/**
+ * ★★★ TỆP **ĐƠN MUA HÀNG NCC KÝ** NẰM Ở NGĂN RIÊNG — Sếp 16/09/2026 (*"Tách làm 2 mục riêng"*).
+ *
+ * 🔴 CHỈ ĐỌC NGĂN MỚI, KHÔNG GỘP NGĂN CHUNG CŨ — khác hẳn `tepHopDong` (hàm đó gộp hai khóa vì
+ * bước từng bị dời thật). Gộp ở đây là **mọi hồ sơ có hợp đồng tự nhiên cũng "có đơn mua hàng"**,
+ * tức phép tách vừa làm thành vô nghĩa ngay tại hàm đọc.
+ *
+ * 📌 Việc *"tệp chung cũ vẫn phải hiện ở mục 4"* là luật của **BỘ HỒ SƠ**, không phải của hàm đọc
+ * này — nó nằm ở `bo-ho-so-thanh-toan.ts` → `tepDonMuaHangCuaMuc4`, một chỗ duy nhất, có bài kiểm
+ * máy canh cả hai chiều. Đừng kéo nó xuống đây.
+ *
+ * 📌 Ngăn riêng nên cũng là ngăn **sửa được**: `OChungTuBatBuoc` xoá tệp bằng `maGiaiDoan` cố định,
+ * mà ở đây chỉ có đúng một khóa — không có cảnh "bày tệp khóa cũ rồi xoá báo sai" như `tepHopDong`
+ * / `tepHopDongSuaDuoc` phải tách đôi.
+ */
+export function tepDonMuaHangNCCKy(deNghi: DeNghiMuaHang): MoTaTep[] {
+  return tepTheoNhan(deNghi, BUOC_DINH_KEM_DON_MUA_HANG, NHAN_TEP_DON_MUA_HANG);
+}
+
+export function coDonMuaHangNCCKy(deNghi: DeNghiMuaHang): boolean {
+  return tepDonMuaHangNCCKy(deNghi).length > 0;
+}
+
+/**
+ * ★★ TỆP CỦA MỤC 9 *Đính kèm khác* — Sếp 16/09/2026: ***"Cần thiết mở thêm để đính kèm tài liệu
+ * khác"***.
+ *
+ * 🔴 KHÔNG LỌC NHÃN — lấy TẤT CẢ tệp trong ngăn riêng. Mục 9 là chỗ để tài liệu không thuộc tám
+ * mục kia (CO/CQ, biên bản nghiệm thu, thư xác nhận…), nên đòi nhãn là đòi người dùng gõ đúng một
+ * chữ họ không biết trước, rồi tệp họ đính lặng lẽ không hiện ra ở đâu cả.
+ *
+ * ⚠️ AN TOÀN VÌ NGĂN RIÊNG: không một chứng từ bắt buộc nào nằm trong `BUOC_DINH_KEM_KHAC`, nên
+ * lấy hết cũng không thể lôi nhầm Hoá đơn VAT / UNC / Phiếu chi vào đây — xem khối cảnh báo ở chỗ
+ * khai hằng số đó.
+ */
+export function tepDinhKemKhac(deNghi: DeNghiMuaHang): MoTaTep[] {
+  return deNghi.tepGiaiDoan?.[BUOC_DINH_KEM_KHAC] ?? [];
 }
 
 /**
@@ -494,6 +737,70 @@ export function coHoaDonVAT(deNghi: DeNghiMuaHang): boolean {
 /** Lý do người dùng đã ghi cho việc chưa đính kèm hợp đồng. Chuỗi rỗng = chưa ghi. */
 export function lyDoThieuHopDong(deNghi: DeNghiMuaHang): string {
   return (deNghi.lyDoThieuChungTu?.[KHOA_LY_DO_THIEU_HOP_DONG] ?? "").trim();
+}
+
+/**
+ * Lý do đã ghi cho việc chưa có **bản đơn mua hàng NCC ký**. Chuỗi rỗng = chưa ghi.
+ *
+ * 📌 Chỉ có thể là `LY_DO_BO_SUNG_SAU` (hoặc rỗng) — xem `LY_DO_THIEU_DON_MUA_HANG_CHON`.
+ */
+export function lyDoThieuDonMuaHang(deNghi: DeNghiMuaHang): string {
+  return lyDoThieuChungTuCua(deNghi, CHUNG_TU_DON_MUA_HANG);
+}
+
+/**
+ * ★★★ CÂU GHI VÀO NHẬT KÝ khi người dùng khai lý do chưa có một chứng từ — **MỘT NGUỒN CHỮ DUY
+ * NHẤT cho cả bên GHI lẫn bên ĐỌC** (Sếp 16/09/2026).
+ *
+ * 🔴 VÌ SAO PHẢI LÀ HÀM CHỨ KHÔNG PHẢI CHUỖI GÕ TAY Ở HAI NƠI: `kho-du-lieu.tsx` ghi câu này vào
+ * `lichSu`, còn `nguoiKhaiKhongCoChungTu` (ngay dưới) **đọc ngược lại** để tra ra ai đã khai. Hai
+ * chỗ gõ tay hai câu là chỗ đọc không bao giờ khớp chỗ ghi, và nó hỏng **im lặng** — màn hình chỉ
+ * mất chữ "(do … khai)", không lỗi nào báo.
+ *
+ * 🔴 CÓ TÊN CHỨNG TỪ TRONG CÂU LÀ BẮT BUỘC TỪ 16/09/2026. Trước hôm nay app dùng CHUNG một trường
+ * lý do cho Hợp đồng và Đơn mua hàng nên câu nhật ký không cần phân biệt. Nay hai mục khai độc lập
+ * mà câu nhật ký lại giống hệt nhau thì không cách nào biết dòng đó nói về chứng từ nào.
+ */
+export function cauNhatKyGhiLyDoThieu(tenChungTu: string, lyDo: string): string {
+  return lyDo === ""
+    ? `Xóa lý do chưa có chứng từ bắt buộc (${tenChungTu})`
+    : `Ghi lý do chưa có chứng từ bắt buộc (${tenChungTu}): ${lyDo}`;
+}
+
+/**
+ * ★★★ AI ĐÃ KHAI "KHÔNG CÓ <chứng từ>" — `null` nghĩa là **không tra được**, không phải "không ai".
+ *
+ * ★ Sếp 16/09/2026, nguyên văn: ***"Đúng, là điều kiện để đóng hồ sơ, nhưng phải có ghi chú và
+ * được link xuống mục 8"***. Lời khai nay **mở cửa đóng hồ sơ**, nên bộ hồ sơ giao Kế toán phải nói
+ * rõ đây là *khai báo của người dùng*, và nếu tra được thì **ai** đã khai.
+ *
+ * 🔴 TRẢ `null` THAY VÌ ĐOÁN BỪA — đây là chỗ dễ làm sai nhất. Hai ca trả `null`, cả hai đều thật:
+ *   · **Hồ sơ khai TRƯỚC 16/09/2026** — nhật ký hồi đó ghi câu KHÔNG có tên chứng từ
+ *     (*"Ghi lý do chưa có chứng từ bắt buộc: Không có HĐ"*), mà hồi đó Hợp đồng và Đơn mua hàng
+ *     **dùng chung một trường lý do**, nên gán câu ấy cho một trong hai mục là **đoán**. Ghi sai
+ *     tên người vào bộ hồ sơ giao Kế toán nặng hơn hẳn việc không ghi tên ai.
+ *   · Nhật ký đã bị cắt bớt, hoặc hồ sơ nhân bản (`nhanBanDeNghi` không chép nhật ký của bản gốc).
+ *
+ * 📌 LẤY MỐC MỚI NHẤT (duyệt ngược): người dùng có thể bấm đi bấm lại — bỏ chọn rồi chọn lại. Người
+ * chịu trách nhiệm là người khai **lần cuối**, không phải lần đầu.
+ */
+export function nguoiKhaiKhongCoChungTu(
+  deNghi: DeNghiMuaHang,
+  ct: ChungTuCoLyDoThieu,
+): string | null {
+  /* Chứng từ không có lời khai dứt điểm thì không có gì để tra người khai. */
+  if (ct.lyDoKhongCo === null) return null;
+  const cau = cauNhatKyGhiLyDoThieu(ct.tenChungTu, ct.lyDoKhongCo);
+  /* ⚠️ `?? []` LÀ CỐ Ý dù kiểu khai `lichSu` là bắt buộc: hàm này chạy cả trên **dữ liệu đã lưu
+     trên kho chung** (hồ sơ cũ có thể thiếu trường) và trong `kiem-luat-dung-chung.mjs` (dữ liệu
+     dựng tay). Ném lỗi ở tầng hàm thuần là cả khối bộ hồ sơ trắng màn, chỉ vì một cái tên không
+     tra ra. */
+  const ds = deNghi.lichSu ?? [];
+  for (let i = ds.length - 1; i >= 0; i -= 1) {
+    const moc = ds[i];
+    if (moc.hanhDong === cau) return moc.nguoiThucHien.trim() || null;
+  }
+  return null;
 }
 
 /**
@@ -790,31 +1097,70 @@ export function vuongMacHoanThanhQuyTrinh(
   }
 
   /**
-   * ★★ BẮT BUỘC CÓ TỆP HỢP ĐỒNG MỚI ĐÓNG ĐƯỢC HỒ SƠ — Sếp 14/09/2026, nguyên văn: *"2 loại này
-   * đều phải đính kèm hợp đồng… E chỉ cần tạo nút đính kèm HĐ bắt buộc là được"*.
+   * ★★ ĐIỀU KIỆN HỢP ĐỒNG ĐỂ ĐÓNG HỒ SƠ — **có TỆP, HOẶC đã khai dứt điểm "Không có Hợp đồng"**
+   * (Sếp 16/09/2026; trước đó 14/09/2026 chỉ chấp nhận tệp — hai mốc chép nguyên văn ở khối ★★★
+   * ngay dưới).
    *
-   * 🔴 DÙNG `coHopDong` (CHỈ HỎI CÓ TỆP), TUYỆT ĐỐI KHÔNG DÙNG `vuongMacRoiBuocLapDon` — hàm kia
-   * chấp nhận **tệp HOẶC lời khai**, dùng nhầm ở đây là hồ sơ bấm "Không có HĐ" đóng được mà
-   * không có tờ hợp đồng nào, tức luật này thành vô hiệu ngay ngày đầu.
+   * 🔴 TUYỆT ĐỐI KHÔNG "DỌN CHO GỌN" THÀNH `vuongMacRoiBuocLapDon` — cái bẫy này vẫn còn nguyên
+   * sau khi luật đổi, chỉ đổi lý do. Hàm kia nhận **tệp HOẶC BẤT KỲ lý do nào**, tức nuốt luôn
+   * *"Bổ sung sau"* và lý do gõ tay. Dùng nhầm ở đây là hồ sơ **còn nợ chứng từ** cũng đóng được —
+   * đúng cái Sếp KHÔNG cho phép, vì Sếp chỉ mở cửa cho lời khai *đã kết luận là không có*.
    *
-   * 📌 HAI CHỐT NÀY KHÁC NHAU LÀ CỐ Ý, ĐỪNG "DỌN CHO THỐNG NHẤT":
-   *   · Bước ④ (`vuongMacRoiBuocLapDon`) — *tệp HOẶC lý do*. Nới ở đây là đúng: lúc lập đơn thì
-   *     hợp đồng thường CHƯA ký xong, chặn cứng là cả phòng đứng lại. Sếp 13/09/2026 còn thêm
-   *     hai nút lý do ở chính chốt này.
-   *   · Bước ⑧ (dòng dưới) — *BẮT BUỘC CÓ TỆP*. Đây là lúc đóng hồ sơ đẩy sang Kế toán, không
-   *     còn "sẽ bổ sung sau" nữa. Lời khai không thay được chứng từ.
+   * 📌 HAI CHỐT VẪN KHÁC NHAU LÀ CỐ Ý, ĐỪNG "DỌN CHO THỐNG NHẤT":
+   *   · Bước ④ (`vuongMacRoiBuocLapDon`) — *tệp HOẶC lý do BẤT KỲ*. Nới ở đây là đúng: lúc lập đơn
+   *     thì hợp đồng thường CHƯA ký xong, chặn cứng là cả phòng đứng lại.
+   *   · Bước ⑧ (dòng dưới) — *tệp HOẶC ĐÚNG MỘT lời khai dứt điểm*. "Bổ sung sau" đi qua được bước
+   *     ④ nhưng **không** đi qua được cửa này: đóng hồ sơ là lúc giao bộ chứng từ cho Kế toán,
+   *     không còn chỗ cho một món nợ đang treo.
    * Cùng một câu hỏi "có hợp đồng chưa" nhưng hỏi ở hai thời điểm khác nhau nên đòi khác nhau —
    * y hệt cặp `vuongMacDuyetHoanThanhDeNghi` (⑦ không đòi hóa đơn · ⑧ đòi) ngay trên.
    *
-   * ⚠️ HỆ QUẢ PHẢI BIẾT, ĐÃ BÁO SẾP: hồ sơ đã bấm **"Không có HĐ"** vẫn KHÔNG hoàn thành được
-   * cho tới khi đính tệp thật. Dấu đỏ giữa chừng thì tắt (luật 13/09), nhưng cửa cuối vẫn đóng.
-   * Đó đúng chữ Sếp *"2 loại này đều phải đính kèm hợp đồng"* — kể cả đơn mẫu PO-02.
+   * ════════════════════════════════════════════════════════════════════════════════════
+   * ★★★ LUẬT NÀY ĐÃ ĐỔI 16/09/2026 — GHI ĐỦ HAI MỐC, NGUYÊN VĂN CẢ HAI CÂU.
+   *
+   * · **LUẬT CŨ — Sếp 14/09/2026**: ***"2 loại này đều phải đính kèm hợp đồng… E chỉ cần tạo nút
+   *   đính kèm HĐ bắt buộc là được"***. Khi đó `coHopDong` (CHỈ đếm tệp) là điều kiện duy nhất, và
+   *   hồ sơ bấm *"Không có HĐ"* **không đóng được** cho tới khi đính tệp thật.
+   *
+   * · **LUẬT MỚI THAY THẾ — Sếp 16/09/2026**, trả lời đúng câu hỏi *"khai không có hợp đồng thì có
+   *   được coi là đủ điều kiện đóng hồ sơ không"*: ***"Đúng, là điều kiện để đóng hồ sơ, nhưng
+   *   phải có ghi chú và được link xuống mục 8"***.
+   *
+   * 👉 LUẬT CŨ **KHÔNG BỊ AI LỠ TAY XOÁ** — nó được thay bằng chỉ đạo mới. Bài kiểm máy của luật
+   *    14/09 trong `kiem-luat-dung-chung.mjs` đã được **viết lại chứ không xoá**, và ghi đủ hai
+   *    mốc này để phiên sau đọc là biết mình đang định sửa chỉ đạo của ai.
+   *
+   * 🔴🔴 CHỈ **LỜI KHAI DỨT ĐIỂM** MỚI ĐƯỢC TÍNH — đây là ranh giới sống còn của cả lượt sửa này.
+   * Ba ca dưới đây vẫn **CHẶN**, và phải luôn chặn:
+   *   · **bỏ trống** (chưa khai gì)          → chặn
+   *   · **"Bổ sung sau"**                     → chặn (chính nghĩa của nó là *còn nợ chứng từ*)
+   *   · **lý do gõ tay** (hồ sơ trước 13/09)  → chặn
+   * Nới bất kỳ ca nào trong ba ca đó là **bỏ chốt, không phải nới chốt**: ai quên đính kèm cũng
+   * đóng được hồ sơ, và Kế toán nhận một bộ thiếu chứng từ mà không có gì báo.
+   * 👉 Vì vậy phải dùng `daKhaiKhongCoHopDong` (so BẰNG NHAU với đúng chuỗi đã khai), TUYỆT ĐỐI
+   *    không dùng `vuongMacRoiBuocLapDon` hay `lyDoThieuHopDong(...) !== ""` — hai thứ đó nhận
+   *    **mọi** lý do, tức nuốt trọn cả ba ca trên.
+   *
+   * 📌 "PHẢI CÓ GHI CHÚ VÀ ĐƯỢC LINK XUỐNG MỤC 8" — vế thứ hai của chỉ đạo nằm ở
+   * `bo-ho-so-thanh-toan.ts` → `loiKhaiThieuChungTu` (dòng `ket_luan`), nơi bộ hồ sơ nói rõ hồ sơ
+   * này **không có hợp đồng theo khai báo của người dùng** và ai đã khai. Hai vế là MỘT chỉ đạo:
+   * mở cửa mà không ghi lại lời khai là đóng hồ sơ thiếu chứng từ không dấu vết.
+   * ════════════════════════════════════════════════════════════════════════════════════
    *
    * 📌 XÉT TRƯỚC hóa đơn VAT: hợp đồng thuộc bước ④/⑤, hóa đơn thuộc ⑦. Nhắc theo đúng thứ tự
    * thời gian thì người dùng đi ngược dòng hồ sơ một lượt, không nhảy qua nhảy lại.
+   *
+   * ⚠️ KHÔNG NỚI GÌ KHÁC THEO: Hoá đơn VAT vẫn bắt buộc (dòng ngay dưới), khối lượng vẫn phải về
+   * đủ (hai chốt phía trên), mọi lần giao vẫn phải có phiếu giao nhận (`vuongMacXacNhanKho`,
+   * `tinh-toan.ts`). Sếp mở đúng MỘT cửa, không mở cả hàng rào.
    */
-  if (!coHopDong(deNghi)) {
-    return `Chưa đính kèm ${TEN_HIEN_HOP_DONG} — bắt buộc phải có bản đã ký mới đóng được hồ sơ. Đính kèm ngay ở ô “${TEN_HIEN_HOP_DONG}” trong khối này.`;
+  if (!coHopDong(deNghi) && !daKhaiKhongCoHopDong(deNghi)) {
+    /* 🔴 CÂU NÀY PHẢI CHỈ ĐÚNG CHỖ CÒN LÀM ĐƯỢC VIỆC (CLAUDE.md §3.5). Tới 15/09/2026 nó ghi
+       *"Đính kèm ngay ở ô Hợp đồng trong khối này"* — đúng lúc đó, vì bước ⑧ có ô nộp hợp đồng.
+       Sếp 16/09/2026 cho bỏ ô ấy (***"Bỏ nút đính kèm này, hợp đồng sẽ được link từ bước 3
+       xuống"***), nên câu phải đổi theo, nếu không nó đuổi người dùng đi tìm một cái nút không
+       còn trên màn hình. Ô nộp thật (và hai nút chọn lý do) nằm ở bước **Lập đơn mua hàng**. */
+    return `Chưa đính kèm ${TEN_HIEN_HOP_DONG} — bắt buộc phải có bản đã ký mới đóng được hồ sơ. Đính kèm ở ô “${TEN_HIEN_HOP_DONG}” của bước Lập đơn mua hàng, hoặc khai “${TEN_HIEN_LY_DO_KHONG_CO_HOP_DONG}” ngay tại đó nếu đơn này không có hợp đồng riêng.`;
   }
 
   /**

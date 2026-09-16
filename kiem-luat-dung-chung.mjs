@@ -2047,6 +2047,44 @@ kiem(
 );
 
 kiem(
+  "③ → ② cau `viec` PHAI noi truoc la SE XOA SACH tep cua buoc bao gia",
+  "Sep · 16/09/2026 — *\"Sao bam lui ve ma van con cac file dinh kem, cac file nay phai duoc xoa sach\"*",
+  () => {
+    /* 🔴 VI SAO CAN BAI NAY: hom 16/09 nhanh `luiVeBuoc` (`ve === "yeu_cau_bao_gia"`) doi tu
+       KHONG XOA GI thanh XOA SACH `tepGiaiDoan["yeu_cau_bao_gia"]`. Cau `viec` nay la thu DUY
+       NHAT noi cho nguoi bam biet ho sap xoa chung tu — giao dien in THANG no vao hop xac nhan.
+       Doi tang ghi ma quen cau nay thi ban va tu de ra mot loi NANG HON loi no chua: nguoi dung
+       dong y dua tren mot cau hua sai. */
+    const r = keoLui("xet_duyet_bao_gia", "yeu_cau_bao_gia", [], [bgThu({ trangThai: "da_so_sanh" })]);
+    const v = String(r?.viec ?? "");
+    return {
+      duoc: /xo[áa]/i.test(v) && /t[ệe]p/i.test(v),
+      thucTe: `"${v.slice(0, 140)}"`,
+      mongDoi: "cau viec nhac ro se XOA TEP dinh kem cua buoc bao gia",
+    };
+  },
+);
+
+kiem(
+  "③ → ② cau `viec` TUYET DOI KHONG duoc hua \"KHONG mat du lieu nao\" (chieu nghich)",
+  "Sep · 16/09/2026 — thay the cau cu cua ban 15/09/2026",
+  () => {
+    /* ⚠️ DAY LA CHIEU NGHICH cua bai ngay tren, va no bat mot ca that: cau `viec` ban 15/09 mo
+       dau bang dung chu *"KHONG mat du lieu nao"*. Chi kiem "co chu XOA" thi mot cau vua hua
+       khong mat gi vua noi se xoa tep van di lot — mau thuan ngay trong mot cau, nguoi doc tin
+       ve dau cung duoc. Ai hoan tac tang ghi ve nep cu thi PHAI sua ca cau nay, va bai kiem se
+       chi thang vao day. */
+    const r = keoLui("xet_duyet_bao_gia", "yeu_cau_bao_gia", [], [bgThu({ trangThai: "da_so_sanh" })]);
+    const v = String(r?.viec ?? "");
+    return {
+      duoc: !/KH[ÔO]NG m[ấa]t d[ữu] li[ệe]u n[àa]o/i.test(v),
+      thucTe: `"${v.slice(0, 140)}"`,
+      mongDoi: "cau viec KHONG con ve hua \"KHONG mat du lieu nao\"",
+    };
+  },
+);
+
+kiem(
   "③ → ② CHAN khi CHUA co bang nao duoc trinh (chong \"bao thanh cong gia\")",
   "Sep · 15/09/2026 — cung lo hong `luiVeBuoc` da va 11/09/2026 cho nhanh co `traLai`",
   () => {
@@ -2601,22 +2639,161 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// 🔴🔴 LUẬT ĐÃ ĐỔI 16/09/2026 — BÀI KIỂM NÀY ĐƯỢC **VIẾT LẠI**, KHÔNG BỊ XOÁ. GHI ĐỦ HAI MỐC.
+//
+// · LUẬT CŨ — Sếp 14/09/2026, nguyên văn:
+//     ***"2 loại này đều phải đính kèm hợp đồng… E chỉ cần tạo nút đính kèm HĐ bắt buộc là được"***
+//   Khi đó bài kiểm này tên là *'Khai "Khong co HD" van KHONG dong duoc ho so'* và đòi
+//   `vuongMacHoanThanhQuyTrinh` trả về CÂU CHẶN cho hồ sơ đã khai "Không có HĐ" mà chưa có tệp.
+//
+// · LUẬT MỚI THAY THẾ — Sếp 16/09/2026, nguyên văn (trả lời câu hỏi "khai không có hợp đồng thì có
+//   được coi là đủ điều kiện đóng hồ sơ không"):
+//     ***"Đúng, là điều kiện để đóng hồ sơ, nhưng phải có ghi chú và được link xuống mục 8"***
+//
+// 👉 LUẬT CŨ KHÔNG BỊ AI LỠ TAY XOÁ — nó được thay bằng chỉ đạo mới. Ai đọc tới đây mà thấy hồ sơ
+//    khai "Không có HĐ" đóng được thì đó là ĐÚNG, không phải lỗ hổng.
+// ⚠️ NHƯNG RANH GIỚI PHẢI GIỮ BẰNG MỌI GIÁ: chỉ **lời khai dứt điểm** mới mở cửa. Ba bài kiểm
+//    chiều nghịch ngay dưới canh đúng chỗ đó.
+// ════════════════════════════════════════════════════════════════════
+
 kiem(
-  'Khai "Khong co HD" van KHONG dong duoc ho so (loi khai khong thay duoc chung tu)',
-  'Sep · 14/09/2026 — *"2 loai nay DEU phai dinh kem hop dong"*, ke ca don mau PO-02',
+  'LUAT MOI: khai "Khong co HD" -> DONG DUOC ho so (loi khai la dieu kien du)',
+  'Sep · 16/09/2026 — *"Dung, la dieu kien de dong ho so, nhung phai co ghi chu va duoc link xuong muc 8"* (thay luat 14/09/2026)',
   () => {
-    /* 🔴 BAI KIEM QUAN TRONG NHAT CUA LUAT NAY. Neu ai doi `coHopDong` thanh
-       `vuongMacRoiBuocLapDon` cho "thong nhat voi buoc ④" thi bai TREN van xanh (ho so do khong
-       ghi ly do gi), chi bai nay bat duoc. */
     const CT = nap(join(thuMuc, "chung-tu.cjs"));
     const r = CT.vuongMacHoanThanhQuyTrinh(
       hoSoSanSangDong(CT.LY_DO_KHONG_CO_HOP_DONG, false),
       tienDoXong,
     );
     return {
+      duoc: r === null,
+      thucTe: r === null ? "null (dong duoc — dung luat moi 16/09)" : `"${String(r).slice(0, 110)}"`,
+      mongDoi:
+        "null — don mau PO-02 khong co hop dong rieng, khai dut diem la du dieu kien (Sep 16/09/2026)",
+    };
+  },
+);
+
+kiem(
+  '🔴 CHIEU NGHICH SO 1: "Bo sung sau" VAN KHONG dong duoc ho so',
+  'Sep · 16/09/2026 — chi LOI KHAI DUT DIEM moi mo cua, "Bo sung sau" nghia la CON NO chung tu',
+  () => {
+    /* 🔴🔴 BAI KIEM QUAN TRONG NHAT CUA CA LUOT SUA 16/09/2026.
+       Neu ai noi `daKhaiKhongCoHopDong` thanh `lyDoThieuHopDong(dn) !== ""` (hoac dung
+       `vuongMacRoiBuocLapDon` cho "gon") thi bai TREN van xanh, chi bai nay bat duoc — va hau qua
+       la AI QUEN DINH KEM CUNG DONG DUOC HO SO, tuc BO CHOT chu khong phai noi chot. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.vuongMacHoanThanhQuyTrinh(
+      hoSoSanSangDong(CT.LY_DO_BO_SUNG_SAU, false),
+      tienDoXong,
+    );
+    return {
       duoc: typeof r === "string" && /h[ợo]p đ[ồo]ng/i.test(r),
-      thucTe: r === null ? "null (LOT — loi khai da thay duoc chung tu!)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "van chan, vi loi khai khong thay duoc tep",
+      thucTe: r === null ? "null (LOT — 'Bo sung sau' da mo cua dong ho so!)" : `"${String(r).slice(0, 110)}"`,
+      mongDoi: "van chan — 'Bo sung sau' la mot mon no dang treo, khong phai ket luan",
+    };
+  },
+);
+
+kiem(
+  "🔴 CHIEU NGHICH SO 2: LY DO GO TAY (ho so cu truoc 13/09) VAN KHONG dong duoc",
+  'Sep · 16/09/2026 — chuoi la khong phai loi khai dut diem',
+  () => {
+    /* Ho so truoc 13/09/2026 go ly do tu do. Neu phep so duoc noi thanh "co ghi gi do la duoc"
+       thi toan bo lop ho so cu do dong duoc ma khong ai doc lai chung. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.vuongMacHoanThanhQuyTrinh(
+      hoSoSanSangDong("NCC hen gui ban ky tuan sau", false),
+      tienDoXong,
+    );
+    return {
+      duoc: typeof r === "string" && /h[ợo]p đ[ồo]ng/i.test(r),
+      thucTe: r === null ? "null (LOT — ly do go tay da mo cua!)" : `"${String(r).slice(0, 110)}"`,
+      mongDoi: "van chan — chi dung chuoi LY_DO_KHONG_CO_HOP_DONG moi la loi khai dut diem",
+    };
+  },
+);
+
+kiem(
+  "🔴 CHIEU NGHICH SO 3: khai o MUC 4 (Don mua hang) KHONG mo duoc cua dong ho so",
+  'Sep · 16/09/2026 — *"PO la chac chan co, chi la bo sung sau thoi. Kiem tra lai va dieu chinh"*',
+  () => {
+    /* 🔴 CA NAY DA TUNG TON TAI THAT trong ban dung dau ngay 16/09/2026: muc 3 va muc 4 dung CHUNG
+       mot truong ly do, nen khai "Khong co HD" lam muc Don mua hang cung nhan cau do. Sep bat dung
+       loi nay. Sau khi tach, khoa cua muc 4 la `KHOA_LY_DO_THIEU_DON_MUA_HANG` — ghi vao do thi
+       chot hop dong KHONG duoc dong y, vi PO va hop dong la hai chung tu khac ban chat. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const hoSo = hoSoSanSangDong(undefined, false);
+    hoSo.lyDoThieuChungTu = {
+      [CT.KHOA_LY_DO_THIEU_DON_MUA_HANG]: CT.LY_DO_KHONG_CO_HOP_DONG,
+    };
+    const r = CT.vuongMacHoanThanhQuyTrinh(hoSo, tienDoXong);
+    return {
+      duoc: typeof r === "string" && /h[ợo]p đ[ồo]ng/i.test(r),
+      thucTe: r === null ? "null (LOT — khai o muc 4 da mo cua dong ho so!)" : `"${String(r).slice(0, 110)}"`,
+      mongDoi:
+        "van chan — khoa cua muc 4 khong duoc dong y thay cho hop dong; PO la chung tu goc cua ca don hang",
+    };
+  },
+);
+
+kiem(
+  "🔴 CHIEU NGHICH SO 4: khoi luong CHUA VE DU thi khai 'Khong co HD' cung KHONG dong duoc",
+  "Sep · 16/09/2026 — Sep mo dung MOT cua, khong mo ca hang rao",
+  () => {
+    /* Chot khoi luong nam TRUOC chot hop dong trong `vuongMacHoanThanhQuyTrinh`. Bai nay chung
+       minh loi khai khong keo theo viec noi cac chot khac. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.vuongMacHoanThanhQuyTrinh(hoSoSanSangDong(CT.LY_DO_KHONG_CO_HOP_DONG, false), [
+      { khoiLuongChuaLenPO: 0, khoiLuongConLai: 5 },
+    ]);
+    return {
+      duoc: typeof r === "string" && /nh[ậa]n đ[ủu]|nh[ậa]n h[àa]ng/i.test(r),
+      thucTe: r === null ? "null (LOT — chot khoi luong da mat!)" : `"${String(r).slice(0, 110)}"`,
+      mongDoi: "van chan vi con mat hang chua nhan du hang",
+    };
+  },
+);
+
+kiem(
+  "🔴 CHIEU NGHICH SO 5: khai 'Khong co HD' ma THIEU HOA DON VAT thi VAN chan",
+  "Ban lanh dao · 22/08/2026 — chot hoa don VAT khong duoc noi theo luat moi 16/09/2026",
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const hoSo = {
+      id: "x",
+      items: [{ stt: 1 }],
+      tepGiaiDoan: {},
+      lyDoThieuChungTu: { [KHOA_HD]: CT.LY_DO_KHONG_CO_HOP_DONG },
+      congViecDaXong: [],
+      lichSu: [],
+    };
+    const r = CT.vuongMacHoanThanhQuyTrinh(hoSo, tienDoXong);
+    return {
+      duoc: typeof r === "string" && /h[oóơ]a ?đ[oơ]n|VAT/i.test(r),
+      thucTe: r === null ? "null (LOT — chot hoa don VAT da mat!)" : `"${String(r).slice(0, 110)}"`,
+      mongDoi: "cau chan nhac Hoa don VAT",
+    };
+  },
+);
+
+kiem(
+  "CAU CHAN hop dong phai CHI DUNG CHO CON LAM DUOC VIEC (khong con o nop o buoc ⑧)",
+  'Sep · 16/09/2026 — *"Bo nut dinh kem nay, hop dong se duoc link tu buoc 3 xuong"*',
+  () => {
+    /* 🔴 CLAUDE.md §3.5 — giao dien khong duoc hua mot viec app khong lam. O nop hop dong o buoc ⑧
+       da bi bo, nen cau chan KHONG duoc con noi "dinh kem ngay o o Hop dong trong khoi nay":
+       nguoi dung se di tim mot cai nut khong con tren man hinh. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const r = CT.vuongMacHoanThanhQuyTrinh(hoSoSanSangDong(undefined, false), tienDoXong);
+    const chuoi = String(r ?? "");
+    const chiDungCho = /L[ậa]p đ[ơo]n mua h[àa]ng/i.test(chuoi) && !/trong kh[ốo]i n[àa]y/i.test(chuoi);
+    return {
+      duoc: chiDungCho,
+      thucTe: `"${chuoi.slice(0, 150)}"`,
+      mongDoi:
+        'cau chan chi ve buoc "Lap don mua hang" (noi con o nop that), KHONG con chu "trong khoi nay"',
     };
   },
 );
@@ -4844,13 +5021,26 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// 🔴 HỢP ĐỒNG DỮ LIỆU VỚI APP KẾ TOÁN ĐÃ ĐỔI **8 → 9 KHOÁ** NGÀY 16/09/2026.
+//
+// · Bài kiểm này tới 15/09/2026 mang tên *"dungBoHoSoThanhToan VAN tra DU 8 MUC, dung 8 khoa"* và
+//   đòi đúng 8 khoá, `stt` 1..8. Mục 9 *Đính kèm khác* khi ấy CỐ Ý chưa dựng, vì bước ⑧ không có ô
+//   đính tệp tự do nào (dựng ra là một dòng vĩnh viễn trống — CLAUDE.md §3.5).
+// · Sếp 16/09/2026: ***"Cần thiết mở thêm để đính kèm tài liệu khác"*** → mục 9 được dựng, có ngăn
+//   riêng `dinh_kem_khac` và khu đính kèm tự do thật.
+//
+// 👉 Đây là **THÊM một khoá**, không phải đổi khoá: 8 khoá cũ giữ nguyên từng chữ và đúng thứ tự,
+//    nên bên nhận cũ vẫn đọc được. Bài kiểm vì vậy kiểm CẢ HAI: đủ 9 khoá, VÀ 8 khoá đầu y nguyên.
+// ════════════════════════════════════════════════════════════════════
+
 kiem(
-  "dungBoHoSoThanhToan VAN tra DU 8 MUC, dung 8 khoa (hop dong du lieu voi app Ke toan)",
-  "Ban lãnh đạo 26/08/2026 + Sếp 15/09/2026 — bộ chuyển sang app Kế toán không được hụt khoá nào",
+  "dungBoHoSoThanhToan tra DU 9 MUC, dung 9 khoa (hop dong du lieu voi app Ke toan)",
+  "Ban lãnh đạo 26/08/2026 + Sếp 15/09/2026 + Sếp 16/09/2026 (*\"Can thiet mo them de dinh kem tai lieu khac\"* — doi 8 → 9 khoa)",
   () => {
-    /* 🔴 CHIỀU NGHỊCH CỦA CẢ LƯỢT SỬA HÔM NAY. Việc bỏ liên kết in và bỏ hai dòng ghi chú là việc
-       HIỂN THỊ; ai nhân đà "dọn cho gọn" ở tầng dữ liệu thì bên nhận mất một khoá mà KHÔNG CÓ GÌ
-       BÁO — đúng loại lỗi cả tệp `bo-ho-so-thanh-toan.ts` sinh ra để tránh. */
+    /* 🔴 CHIỀU NGHỊCH CỦA CẢ LƯỢT SỬA: việc bỏ ô nộp hợp đồng ở bước ⑧ và việc tách hai chứng từ là
+       việc HIỂN THỊ / NGĂN LƯU; ai nhân đà "dọn cho gọn" ở tầng dữ liệu thì bên nhận mất một khoá
+       mà KHÔNG CÓ GÌ BÁO — đúng loại lỗi cả tệp `bo-ho-so-thanh-toan.ts` sinh ra để tránh. */
     const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
     const ds = BH.dungBoHoSoThanhToan(dnBoHoSo([tepPOKy]), poBoHoSo, [], []);
     const khoa = ds.map((m) => m.ma);
@@ -4863,12 +5053,349 @@ kiem(
       "hoa_don_vat",
       "unc",
       "phieu_chi",
+      "dinh_kem_khac",
     ];
     const stt = ds.map((m) => m.stt).join(",");
     return {
-      duoc: khoa.length === 8 && khoa.every((k, i) => k === mongDoi[i]) && stt === "1,2,3,4,5,6,7,8",
+      duoc:
+        khoa.length === 9 && khoa.every((k, i) => k === mongDoi[i]) && stt === "1,2,3,4,5,6,7,8,9",
       thucTe: `${khoa.length} mục: ${khoa.join(" · ")} (stt ${stt})`,
-      mongDoi: `8 mục đúng thứ tự: ${mongDoi.join(" · ")} (stt 1..8)`,
+      mongDoi: `9 mục đúng thứ tự: ${mongDoi.join(" · ")} (stt 1..9)`,
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// TÁCH "HỢP ĐỒNG" VÀ "ĐƠN MUA HÀNG" THÀNH HAI CHỨNG TỪ RIÊNG
+// Luật của: Sếp · 16/09/2026 — nguyên văn ***"Tách làm 2 mục riêng"***.
+//
+// 🔴 CÁI BẪY LỚN NHẤT LÀ **DỮ LIỆU CŨ**, và đó là thứ khối bài kiểm này canh. Tới hết 15/09/2026
+//    app dùng MỘT ô, MỘT tệp cho cả hai chứng từ (ngăn `lap_don_mua_hang`, nhãn "Hợp đồng"). Gán
+//    tệp cũ đó cho một mục thì mục kia đột nhiên báo thiếu trên TOÀN BỘ hồ sơ đang chạy — hàng loạt
+//    dấu đỏ mọc lên mà không ai làm gì sai.
+//
+// ✅ LUẬT SẾP CHỐT: tệp ở **ngăn chung cũ** hiện ở CẢ HAI mục, kèm ghi chú nói rõ; hồ sơ mới nộp
+//    riêng vào ngăn của nó, và **tệp riêng thắng**. Phân biệt bằng **KHOÁ NGĂN**, không bằng ngày.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_TACH = 'Sếp · 16/09/2026 — *"Tách làm 2 mục riêng"*';
+/** Tệp Ở NGĂN CHUNG CŨ — đúng thứ mọi hồ sơ trước 16/09/2026 đang có. */
+const tepChungCu = { id: "chung1", ten: "HD-DMH260007.pdf", ghiChu: "Hợp đồng" };
+/** Tệp ở NGĂN RIÊNG MỚI của đơn mua hàng. */
+const tepPORieng = { id: "poRieng1", ten: "DMH260007-NCC-ky.pdf", ghiChu: "Đơn mua hàng" };
+
+const dsBoHoSo = (tepGiaiDoan) => {
+  const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+  return BH.dungBoHoSoThanhToan(
+    { id: "dn-tach", tepGiaiDoan, lichSu: [] },
+    poBoHoSo,
+    [],
+    [],
+  );
+};
+const mucTheoMa = (tepGiaiDoan, ma) => dsBoHoSo(tepGiaiDoan).find((m) => m.ma === ma);
+
+kiem(
+  "HO SO CU (chi co tep o NGAN CHUNG) -> CA HAI muc deu thay tep do",
+  CHU_SEP_TACH,
+  () => {
+    /* 🔴 BAI KIEM CHINH CUA VIEC XU DU LIEU CU. Ai gan tep chung cho mot muc thoi thi bai nay bat
+       duoc ngay: muc con lai se rong va bao thieu tren toan bo ho so dang chay. */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const tg = { lap_don_mua_hang: [tepChungCu] };
+    const m3 = mucTheoMa(tg, "hop_dong");
+    const m4 = mucTheoMa(tg, "don_mua_hang");
+    const caHai =
+      m3?.tep?.some((t) => t.id === "chung1") === true &&
+      m4?.tep?.some((t) => t.id === "chung1") === true &&
+      BH.mucDaCo(m3) === true &&
+      BH.mucDaCo(m4) === true;
+    /* Muc 4 phai NOI RA la dang muon tep chung — im lang la nguoi doi chieu tuong co hai to khac
+       nhau trong ho so. */
+    const coGhiChu = typeof m4?.ghiChu === "string" && /d[ùu]ng chung/i.test(m4.ghiChu);
+    return {
+      duoc: caHai && coGhiChu,
+      thucTe: `muc3=${JSON.stringify(m3?.tep?.map((t) => t.id) ?? null)} · muc4=${JSON.stringify(m4?.tep?.map((t) => t.id) ?? null)} · ghiChu4="${String(m4?.ghiChu ?? "(trong)").slice(0, 80)}"`,
+      mongDoi:
+        'ca hai muc cung thay "chung1" va cung tinh la DA CO, muc 4 kem ghi chu noi ro do la tep dung chung tu truoc khi tach',
+    };
+  },
+);
+
+kiem(
+  "HO SO MOI (co tep RIENG o ngan moi) -> TEP RIENG THANG, muc 4 thoi hien tep chung",
+  CHU_SEP_TACH,
+  () => {
+    /* 🔴 CHIEU NGHICH. Khong co luat "tep rieng thang" thi ho so da nop dung ban don NCC ky van keo
+       theo to hop dong vao muc 4 — hai to khac nhau cho mot muc, khong ai biet to nao dung. */
+    const tg = {
+      lap_don_mua_hang: [tepChungCu],
+      don_mua_hang_ncc_ky: [tepPORieng],
+    };
+    const m3 = mucTheoMa(tg, "hop_dong");
+    const m4 = mucTheoMa(tg, "don_mua_hang");
+    const id4 = (m4?.tep ?? []).map((t) => t.id);
+    return {
+      duoc:
+        id4.length === 1 &&
+        id4[0] === "poRieng1" &&
+        (m3?.tep ?? []).some((t) => t.id === "chung1") === true &&
+        /* Khong con ghi chu "dung chung" khi da co ban rieng. */
+        !/d[ùu]ng chung/i.test(String(m4?.ghiChu ?? "")),
+      thucTe: `muc4=${JSON.stringify(id4)} · muc3=${JSON.stringify((m3?.tep ?? []).map((t) => t.id))} · ghiChu4="${String(m4?.ghiChu ?? "(trong)").slice(0, 70)}"`,
+      mongDoi:
+        'muc 4 CHI hien "poRieng1" (tep rieng thang), muc 3 van giu "chung1", va khong con ghi chu "dung chung"',
+    };
+  },
+);
+
+kiem(
+  "HAI NGAN DOC LAP: tep rieng cua muc 4 KHONG lot sang muc 3",
+  CHU_SEP_TACH,
+  () => {
+    /* Chieu nghich cua phep tach: neu `tepHopDong` bi noi de "doc ca ngan moi cho chac" thi ho so
+       chi co ban don NCC ky bong nhien duoc coi la CO HOP DONG — va cua dong ho so mo ra ma khong
+       co to hop dong nao. */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const tg = { don_mua_hang_ncc_ky: [tepPORieng] };
+    const m3 = mucTheoMa(tg, "hop_dong");
+    const m4 = mucTheoMa(tg, "don_mua_hang");
+    return {
+      duoc: BH.mucDaCo(m3) === false && BH.mucDaCo(m4) === true,
+      thucTe: `muc3.daCo=${m3 ? BH.mucDaCo(m3) : "?"} · muc4.daCo=${m4 ? BH.mucDaCo(m4) : "?"}`,
+      mongDoi: "muc3=false, muc4=true — hai ngan hoan toan doc lap",
+    };
+  },
+);
+
+kiem(
+  "coHopDong KHONG duoc dem tep o ngan rieng cua don mua hang",
+  CHU_SEP_TACH,
+  () => {
+    /* 🔴 Cung mot noi dung nhu bai tren nhung do o TANG LUAT — day moi la cho mo cua dong ho so. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const dn = { id: "x", tepGiaiDoan: { don_mua_hang_ncc_ky: [tepPORieng] }, lichSu: [] };
+    return {
+      duoc: CT.coHopDong(dn) === false && CT.coDonMuaHangNCCKy(dn) === true,
+      thucTe: `coHopDong=${CT.coHopDong(dn)} · coDonMuaHangNCCKy=${CT.coDonMuaHangNCCKy(dn)}`,
+      mongDoi: "coHopDong=false, coDonMuaHangNCCKy=true",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LỜI KHAI "CHƯA CÓ CHỨNG TỪ" SAU KHI TÁCH — MỖI MỤC MỘT KHOÁ, VÀ PO KHÔNG CÓ LỜI KHAI DỨT ĐIỂM
+// Luật của: Sếp · 16/09/2026 — ***"PO là chắc chắn có, chỉ là bổ sung sau thôi. Kiểm tra lại và
+// điều chỉnh"*** (sửa lỗi: mục Đơn mua hàng đang hiện câu "đơn này không có hợp đồng riêng").
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_PO_LUON_CO =
+  'Sếp · 16/09/2026 — *"PO là chắc chắn có, chỉ là bổ sung sau thôi. Kiểm tra lại và điều chỉnh"*';
+
+const khaiCua = (khoa, lyDo, tepGiaiDoan = {}) => {
+  const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+  const dn = { id: "dn-khai", tepGiaiDoan, lyDoThieuChungTu: { [khoa]: lyDo }, lichSu: [] };
+  const ds = BH.dungBoHoSoThanhToan(dn, poBoHoSo, [], []);
+  return { BH, dn, ds };
+};
+
+kiem(
+  "MUC 3 khai 'Khong co HD' -> ket_luan, KHONG bao do, va NOI RO la khai bao cua nguoi dung",
+  'Sếp · 16/09/2026 — *"phai co ghi chu va duoc link xuong muc 8"*',
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const { BH, dn, ds } = khaiCua(KHOA_HD, CT.LY_DO_KHONG_CO_HOP_DONG);
+    const m3 = ds.find((m) => m.ma === "hop_dong");
+    const k = BH.loiKhaiThieuChungTu(dn, m3);
+    return {
+      duoc:
+        k.loai === "ket_luan" &&
+        k.baoDo === false &&
+        /khai b[áa]o c[ủu]a ng[ưu][ờo]i d[ùu]ng/i.test(k.chu) &&
+        /đi[ềe]u ki[ệe]n đ[ủu]/i.test(k.chu),
+      thucTe: `loai=${k.loai} · baoDo=${k.baoDo} · chu="${k.chu.slice(0, 130)}"`,
+      mongDoi:
+        'ket_luan, khong do, cau noi ro "theo khai bao cua nguoi dung" VA "dieu kien du de dong ho so"',
+    };
+  },
+);
+
+kiem(
+  "MUC 3 ghi chu NEU RA TEN NGUOI KHAI khi nhat ky tra duoc",
+  'Sếp · 16/09/2026 — *"phai co ghi chu"*, va ghi chu phai noi duoc AI da khai',
+  () => {
+    /* 🔴 Cau nhat ky dung boi CHINH ham thuan `cauNhatKyGhiLyDoThieu` — cung ham ma
+       `kho-du-lieu.tsx` dung de GHI. Hai ben go tay hai cau la cho doc khong bao gio khop cho ghi,
+       va no hong IM LANG (chi mat chu "(do ... khai)"). */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const dn = {
+      id: "dn-ai-khai",
+      tepGiaiDoan: {},
+      lyDoThieuChungTu: { [KHOA_HD]: CT.LY_DO_KHONG_CO_HOP_DONG },
+      lichSu: [
+        {
+          thoiDiem: "2026-09-16T01:00:00.000Z",
+          nguoiThucHien: "Nguyễn Văn A",
+          hanhDong: CT.cauNhatKyGhiLyDoThieu(
+            CT.TEN_HIEN_HOP_DONG,
+            CT.LY_DO_KHONG_CO_HOP_DONG,
+          ),
+        },
+      ],
+    };
+    const m3 = BH.dungBoHoSoThanhToan(dn, poBoHoSo, [], []).find((m) => m.ma === "hop_dong");
+    const k = BH.loiKhaiThieuChungTu(dn, m3);
+    return {
+      duoc: /Nguy[ễe]n V[ăa]n A/.test(k.chu),
+      thucTe: `"${k.chu.slice(0, 150)}"`,
+      mongDoi: 'cau ghi chu co ten "Nguyễn Văn A"',
+    };
+  },
+);
+
+kiem(
+  "🔴 MUC 4 KHONG BAO GIO co trang thai trung tinh — chua co tep thi LUON BAO DO",
+  CHU_SEP_PO_LUON_CO,
+  () => {
+    /* 🔴🔴 BAI KIEM SUA MOT LOI THAT SEP BAT DUOC. Truoc khi tach, muc 4 dung CHUNG truong ly do
+       voi muc 3, nen ho so khai "Khong co HD" lam muc DON MUA HANG hien cau "don nay khong co hop
+       dong rieng, khong phai thieu sot" — vua sai chung tu, vua tat mat dau do cua mot to CHAC CHAN
+       phai co. Ai them lai mot loi khai dut diem cho muc 4 thi bai nay do ngay. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    /* Thu ca hai chuoi: "Bo sung sau" (dung) va "Khong co HD" (chuoi la doi voi muc 4). */
+    const ket = [CT.LY_DO_BO_SUNG_SAU, CT.LY_DO_KHONG_CO_HOP_DONG].map((lyDo) => {
+      const { dn, ds } = khaiCua(CT.KHOA_LY_DO_THIEU_DON_MUA_HANG, lyDo);
+      const m4 = ds.find((m) => m.ma === "don_mua_hang");
+      return BH.loiKhaiThieuChungTu(dn, m4);
+    });
+    return {
+      duoc: ket.every((k) => k.loai === "con_no" && k.baoDo === true),
+      thucTe: ket.map((k) => `${k.loai}/baoDo=${k.baoDo}`).join(" · "),
+      mongDoi:
+        "ca hai deu con_no + baoDo=true — PO luon phai co, chi co the 'bo sung sau', khong co ca 'khong co PO'",
+    };
+  },
+);
+
+kiem(
+  "HAI MUC KHAI DOC LAP: khai o muc 3 KHONG lam muc 4 doi trang thai",
+  CHU_SEP_TACH,
+  () => {
+    /* Truoc 16/09/2026 hai muc dung chung mot truong nen hien GIONG HET nhau. Bai nay canh dung
+       cho do: ai gan lai `KHOA_LY_DO_THIEU_THEO_MUC` ve mot khoa chung la do. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const { dn, ds } = khaiCua(KHOA_HD, CT.LY_DO_KHONG_CO_HOP_DONG);
+    const k3 = BH.loiKhaiThieuChungTu(dn, ds.find((m) => m.ma === "hop_dong"));
+    const k4 = BH.loiKhaiThieuChungTu(dn, ds.find((m) => m.ma === "don_mua_hang"));
+    return {
+      duoc: k3.loai === "ket_luan" && k4.loai === "chua_khai",
+      thucTe: `muc3=${k3.loai} · muc4=${k4.loai}`,
+      mongDoi: "muc3=ket_luan, muc4=chua_khai — hai khoa hoan toan doc lap",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// MỤC 9 "ĐÍNH KÈM KHÁC" — Sếp · 16/09/2026: ***"Cần thiết mở thêm để đính kèm tài liệu khác"***
+//
+// 🔴 ĐIỀU KIỆN SỐNG CÒN: **NGĂN RIÊNG**. Dùng lại ngăn `ho_so_thanh_toan` thì nút "Gỡ" của khu tự
+//    do xoá được **Hoá đơn VAT thật** → hồ sơ không đóng được nữa.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_MUC9 = 'Sếp · 16/09/2026 — *"Cần thiết mở thêm để đính kèm tài liệu khác"*';
+
+kiem(
+  "Muc 9 doc NGAN RIENG `dinh_kem_khac`, KHONG dung ngan `ho_so_thanh_toan`",
+  CHU_SEP_MUC9,
+  () => {
+    /* 🔴 BAI KIEM QUAN TRONG NHAT CUA MUC 9. Neu ai tro muc 9 vao ngan `ho_so_thanh_toan` thi
+       Hoa don VAT / UNC / Phieu chi se hien LAI trong muc 9 — va nut "Go" cua khu tu do xoa duoc
+       chinh Hoa don VAT that. */
+    const tg = {
+      ho_so_thanh_toan: [
+        { id: "v1", ten: "vat.pdf", ghiChu: "Hóa đơn VAT" },
+        { id: "u1", ten: "unc.pdf", ghiChu: "Ủy nhiệm chi" },
+      ],
+      dinh_kem_khac: [{ id: "co1", ten: "CO-CQ.pdf" }],
+    };
+    const m9 = mucTheoMa(tg, "dinh_kem_khac");
+    const id9 = (m9?.tep ?? []).map((t) => t.id);
+    return {
+      duoc: id9.length === 1 && id9[0] === "co1",
+      thucTe: `muc9=${JSON.stringify(id9)}`,
+      mongDoi: 'CHI "co1" — tuyet doi khong duoc thay "v1" (Hoa don VAT) hay "u1" (UNC)',
+    };
+  },
+);
+
+kiem(
+  "Muc 9 KHONG duoc tinh vao phep dem bat buoc (tong van la 4)",
+  CHU_SEP_MUC9,
+  () => {
+    /* 🔴 CHIEU NGHICH. Bat `batBuoc: true` cho muc 9 thi MOI ho so trong app deu bao con thieu mot
+       muc — chot luc nao cung do thi nguoi dung bo qua ca khoi. */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const ds = dsBoHoSo({});
+    const m9 = ds.find((m) => m.ma === "dinh_kem_khac");
+    const tt = BH.tomTatBoHoSo(ds);
+    const batBuoc = ds.filter((m) => m.batBuoc).map((m) => m.ma);
+    return {
+      duoc: m9?.batBuoc === false && tt.tong === 4,
+      thucTe: `muc9.batBuoc=${m9?.batBuoc} · tong=${tt.tong} · cac muc bat buoc: ${batBuoc.join(", ")}`,
+      mongDoi:
+        "muc9.batBuoc=false va tong=4 (bao gia NCC · hop dong · don mua hang · phieu giao hang)",
+    };
+  },
+);
+
+kiem(
+  "Muc 9 dung O NOP KIEU KHU TU DO, khong phai o chung tu co ten",
+  CHU_SEP_MUC9,
+  () => {
+    /* Quyet dinh bo cuc nam o ham thuan `kieuONop` chu khong phai `if` trong JSX — nho vay bai kiem
+       nay goi THAT duoc (CLAUDE.md §6.6: grep dau moc khong bat duoc viec xoa code). */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    return {
+      duoc:
+        BH.kieuONop("dinh_kem_khac") === "khu_tu_do" &&
+        BH.kieuONop("don_mua_hang") === "o_co_ten" &&
+        /* 🔴 HOP DONG THOI CO O NOP O BUOC ⑧ — Sep 16/09/2026: *"Bo nut dinh kem nay, hop dong se
+           duoc link tu buoc 3 xuong"*. */
+        BH.kieuONop("hop_dong") === "khong" &&
+        BH.kieuONop("phieu_giao_hang") === "khong",
+      thucTe: ["dinh_kem_khac", "don_mua_hang", "hop_dong", "phieu_giao_hang"]
+        .map((m) => `${m}=${BH.kieuONop(m)}`)
+        .join(" · "),
+      mongDoi:
+        "dinh_kem_khac=khu_tu_do · don_mua_hang=o_co_ten · hop_dong=khong (Sep 16/09 bo o nop) · phieu_giao_hang=khong",
+    };
+  },
+);
+
+kiem(
+  "MUC 1 KHONG mang nhan 'Neu co', nhung `batBuoc` VAN la false va KHONG bi dem",
+  'Sếp · 16/09/2026 — khoanh do dung nhan xam canh muc 1 va ghi *"Bo ghi chu nay"*',
+  () => {
+    /* 🔴🔴 CHIEU NGHICH QUAN TRONG NHAT CUA VIEC NAY. Cach "don cho gon" sai la sua `batBuoc` cua
+       muc 1 de nhan bien mat — lam vay la muc 1 thanh BAT BUOC, `tong` nhay 4 → 5, va MOI ho so
+       that deu bao con thieu mot muc (app khong giu ban sao tep phieu de nghi nen dieu kien do
+       khong bao gio dat duoc). */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const ds = dsBoHoSo({});
+    const m1 = ds.find((m) => m.ma === "phieu_de_nghi");
+    const tt = BH.tomTatBoHoSo(ds);
+    /* Muc 7 · 8 · 9 GIU NGUYEN nhan — Sep khong khoanh chung, va o do nhan dung nghia. */
+    const conGiu = ["unc", "phieu_chi", "dinh_kem_khac"].every((ma) =>
+      BH.hienNhanNeuCo(ds.find((m) => m.ma === ma)),
+    );
+    return {
+      duoc: BH.hienNhanNeuCo(m1) === false && m1?.batBuoc === false && tt.tong === 4 && conGiu,
+      thucTe: `muc1: hienNhan=${BH.hienNhanNeuCo(m1)} batBuoc=${m1?.batBuoc} · tong=${tt.tong} · muc 7/8/9 con nhan=${conGiu}`,
+      mongDoi:
+        "muc1 khong ve nhan nhung batBuoc=false va tong=4; muc 7 · 8 · 9 VAN co nhan (Sep khong khoanh chung)",
     };
   },
 );

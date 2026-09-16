@@ -79,6 +79,7 @@ import { KhuBaoGiaTheoSoLuong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-bao
 import {
   danhSachNCCDaBaoGia,
   NHAN_O_SO_SANH,
+  tepBaoGiaDaCo,
   tepBaoGiaDaDuyet,
   tepSoSanh,
   vuongMacTrinhXetDuyet,
@@ -156,7 +157,18 @@ import {
      ở bước ⑥, mà Sếp đã cho bỏ ô đó (*"trường này đang bị dư => bỏ"*). Ba thứ đó **vẫn còn** trong
      `chung-tu-cuoi-quy-trinh.ts` vì tầng luật còn dùng — xem chú thích tại chỗ khai báo. */
   TEN_HIEN_HOP_DONG,
-  TEN_HIEN_HOP_DONG_BUOC_DAT_HANG,
+  /* ★★ TÁCH HAI CHỨNG TỪ — Sếp 16/09/2026 (*"Tách làm 2 mục riêng"*). Đơn mua hàng NCC ký nay có
+     NGĂN RIÊNG, NHÃN RIÊNG, LÝ DO THIẾU RIÊNG. 🔴 `TEN_HIEN_HOP_DONG_BUOC_DAT_HANG` (mẹo đổi tên
+     hiển thị theo bước) đã bị XOÁ trong cùng lượt — xem bia mộ tại chỗ khai cũ. */
+  BUOC_DINH_KEM_DON_MUA_HANG,
+  BUOC_DINH_KEM_KHAC,
+  cauNhacConNoChungTu,
+  KHOA_LY_DO_THIEU_DON_MUA_HANG,
+  LY_DO_THIEU_DON_MUA_HANG_CHON,
+  lyDoThieuDonMuaHang,
+  NHAN_TEP_DON_MUA_HANG,
+  tepDonMuaHangNCCKy,
+  TEN_HIEN_DON_MUA_HANG,
   tepHoaDonVAT,
   tepHopDongSuaDuoc,
   tepUNC,
@@ -2582,11 +2594,17 @@ export default function TrangChiTietDeNghi({
                               variant={dangChon ? "default" : "outline"}
                               disabled={!duocSuaHopDong || hoSoDaDong}
                               onClick={() => {
+                                /* 🔴 THAM SỐ THỨ NĂM (tên chứng từ) THÊM 16/09/2026 — nó làm dòng
+                                   nhật ký nói rõ lời khai này thuộc chứng từ nào, và đó là thứ duy
+                                   nhất giúp mục 3 ở bước ⑧ tra ra **ai đã khai "Không có Hợp
+                                   đồng"** (Sếp: *"phải có ghi chú và được link xuống mục 8"*). Bỏ
+                                   nó đi thì câu ghi chú mất tên người, không lỗi nào báo. */
                                 const loi = ghiLyDoThieuChungTu(
                                   dn.id,
                                   KHOA_LY_DO_THIEU_HOP_DONG,
                                   dangChon ? "" : lyDo,
                                   nguoiDung.tenHienThi,
+                                  TEN_HIEN_HOP_DONG,
                                 );
                                 if (loi) {
                                   toast.error("Chưa ghi được lý do", { description: loi });
@@ -2749,19 +2767,140 @@ export default function TrangChiTietDeNghi({
                       deNghi={dn}
                       maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
                       nhanO={NHAN_TEP_HOP_DONG}
-                      /* ★★ 15/09/2026 — Sếp: *"mục đổi tên e chỉnh lại là 'Đơn mua hàng' ở bước
-                         tiến hành đặt hàng nha, không phải ở bước lập đơn mua hàng"*.
-                         ✅ Đúng bản chất: ô này là nơi đính **bản đơn mua hàng đã ký đóng mộc NCC
-                         gửi về**, gọi là "Hợp đồng" là sai tên với thứ thật sự đính vào — nhất là
-                         đơn mẫu PO-02 (chính tờ đơn là thoả thuận, không có hợp đồng riêng).
-                         🔴 VẪN LÀ CÙNG MỘT TỆP với bước ④, chỉ khác chữ hiển thị. */
-                      tieuDe={TEN_HIEN_HOP_DONG_BUOC_DAT_HANG}
-                      moTa="Bản đơn mua hàng đã ký, đóng mộc từ nhà cung cấp gửi về khi đặt hàng — cùng tệp với bước ④, sửa ở đây bước ④ cũng thấy ngay. Chỉ Trưởng bộ phận/quản trị sửa được ở bước này."
+                      /* ★★★ TÊN TRẢ VỀ "Hợp đồng" TỪ 16/09/2026 — KHÔNG PHẢI ĐẢO CHỈ ĐẠO 15/09.
+                         Hôm 15/09 Sếp bảo *"mục đổi tên e chỉnh lại là 'Đơn mua hàng' ở bước tiến
+                         hành đặt hàng nha"*, và lúc ấy cách duy nhất làm được là **dán tên khác
+                         lên chính tệp hợp đồng** (`TEN_HIEN_HOP_DONG_BUOC_DAT_HANG`).
+                         ✅ Nay Sếp cho TÁCH THẬT (*"Tách làm 2 mục riêng"*), nên bước ⑤ có **ô Đơn
+                         mua hàng thật** ngay bên dưới. Ô này trở về đúng tên của tệp nó giữ.
+                         🔴 ĐỂ NGUYÊN TÊN CŨ LÀ HAI Ô CÙNG MANG CHỮ "Đơn mua hàng" trên một khối mà
+                         ghi vào hai ngăn khác nhau — người dùng đính nhầm ô, chứng từ rơi vào mục
+                         sai, không một dòng nào báo. */
+                      tieuDe={TEN_HIEN_HOP_DONG}
+                      moTa="Bản hợp đồng / thoả thuận đã ký với nhà cung cấp — cùng tệp với bước ④, sửa ở đây bước ④ cũng thấy ngay. Chỉ Trưởng bộ phận/quản trị sửa được ở bước này."
                       batBuoc
                       duocSua={duocSuaHopDong}
                       khoa={hoSoDaDong}
                       tepDaCo={tepHopDongSuaDuoc(dn)}
                     />
+
+                    {/**
+                      * ★★★ Ô **ĐƠN MUA HÀNG NCC KÝ** — Sếp 16/09/2026: ***"Tách làm 2 mục riêng"***,
+                      * và ô riêng của nó đặt ở **bước ⑤ Tiến hành đặt hàng**.
+                      *
+                      * ✅ ĐÚNG BƯỚC: bản đơn NCC **ký và đóng mộc** chỉ gửi về SAU khi đã đặt hàng —
+                      * đó chính là lý do 01/09/2026 Sếp yêu cầu mở đường sửa tệp tại bước này.
+                      *
+                      * 🔴 NGĂN KHÁC HẲN Ô TRÊN: `BUOC_DINH_KEM_DON_MUA_HANG` + `NHAN_TEP_DON_MUA_HANG`.
+                      * Đính vào đây KHÔNG đụng tới tệp hợp đồng, và ngược lại. Đừng "dọn cho gọn"
+                      * bằng cách cho hai ô cùng `maGiaiDoan` — làm vậy là quay về đúng cảnh một ô
+                      * hai tên mà cả lượt sửa này sinh ra để gỡ.
+                      *
+                      * 🔴 `duocSua={duocSuaHopDong}` — CÙNG cờ quyền với ô hợp đồng ở trên, cố ý:
+                      * cả hai đều là **chứng từ chính thức có chữ ký**, và từ bước ⑤ trở đi quyền
+                      * sửa đã siết còn Trưởng bộ phận / quản trị (xem `duocSuaHopDong`). Cho ô này
+                      * dùng `duocSuaTepBuoc` (rộng hơn) là siết quyền bên kia thành vô nghĩa.
+                      */}
+                    <OChungTuBatBuoc
+                      deNghi={dn}
+                      maGiaiDoan={BUOC_DINH_KEM_DON_MUA_HANG}
+                      nhanO={NHAN_TEP_DON_MUA_HANG}
+                      tieuDe={TEN_HIEN_DON_MUA_HANG}
+                      moTa="Bản đơn mua hàng đã ký, đóng mộc từ nhà cung cấp gửi về khi đặt hàng. Đây là chứng từ riêng, KHÁC tệp hợp đồng ở ô trên."
+                      batBuoc
+                      duocSua={duocSuaHopDong}
+                      khoa={hoSoDaDong}
+                      tepDaCo={tepDonMuaHangNCCKy(dn)}
+                    />
+
+                    {/**
+                      * ★★★ LÝ DO CHƯA CÓ BẢN ĐƠN NCC KÝ — **CHỈ MỘT NÚT: "Bổ sung sau"**.
+                      *
+                      * ★ Sếp 16/09/2026, nguyên văn: ***"PO là chắc chắn có, chỉ là bổ sung sau
+                      * thôi. Kiểm tra lại và điều chỉnh"***.
+                      *
+                      * 🔴 KHÁC HẲN Ô HỢP ĐỒNG Ở BƯỚC ④ (có HAI nút). Hợp đồng có thể **thật sự
+                      * không có** — đơn nhỏ, mua lẻ, mẫu PO-02 mà chính tờ đơn là thoả thuận. Còn
+                      * **PO thì app tự sinh ra, luôn luôn có**; chỉ có thể chưa nhận được bản ký.
+                      * Thêm nút *"Không có Đơn mua hàng"* vào đây là mở đường khai một chuyện không
+                      * tồn tại, rồi tắt luôn dấu đỏ của tờ chứng từ gốc của cả đơn hàng.
+                      *
+                      * 🔴 DANH SÁCH NÚT LẤY TỪ `LY_DO_THIEU_DON_MUA_HANG_CHON`, KHÔNG gõ cứng ở
+                      * đây — chữ nghiệp vụ để một chỗ (`chung-tu-cuoi-quy-trinh.ts`).
+                      *
+                      * 📌 GHI VÀO KHOÁ RIÊNG `KHOA_LY_DO_THIEU_DON_MUA_HANG`. Dùng nhầm khoá của
+                      * hợp đồng là hai mục lại hiện giống hệt nhau — đúng lỗi Sếp vừa bắt.
+                      *
+                      * 🔴 CHỈ LÀ LỜI NHẮC, KHÔNG PHẢI CHỐT CHẶN: không hàm luật nào đọc khoá này,
+                      * nên chọn hay không chọn cũng KHÔNG đổi điều kiện chuyển bước hay đóng hồ sơ.
+                      * Ai muốn biến nó thành chốt thì phải hỏi Sếp — thêm một điều kiện đóng hồ sơ
+                      * là chặn hàng loạt hồ sơ đang chạy.
+                      */}
+                    {tepDonMuaHangNCCKy(dn).length === 0 && (
+                      <div
+                        className={`flex flex-col gap-1.5 rounded-lg border p-(--hp-md-row-pad) ${
+                          lyDoThieuDonMuaHang(dn) !== ""
+                            ? "border-danger bg-danger-bg"
+                            : "border-border bg-muted"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Label
+                            className="shrink-0"
+                            title={`Chưa có ${TEN_HIEN_DON_MUA_HANG} thì chọn lý do`}
+                          >
+                            Lý do chưa có <span className="text-danger">*</span>
+                          </Label>
+                          {LY_DO_THIEU_DON_MUA_HANG_CHON.map((lyDo) => {
+                            const dangChon = lyDoThieuDonMuaHang(dn) === lyDo;
+                            return (
+                              <Button
+                                key={lyDo}
+                                size="sm"
+                                variant={dangChon ? "default" : "outline"}
+                                disabled={!duocSuaHopDong || hoSoDaDong}
+                                onClick={() => {
+                                  /* 🔴 BẤM LẠI NÚT ĐANG CHỌN = BỎ CHỌN — cùng cơ chế với hai nút ở
+                                     bước ④. Không có đường bỏ chọn thì người bấm nhầm kẹt vĩnh viễn
+                                     với một lý do sai trong hồ sơ. */
+                                  const loi = ghiLyDoThieuChungTu(
+                                    dn.id,
+                                    KHOA_LY_DO_THIEU_DON_MUA_HANG,
+                                    dangChon ? "" : lyDo,
+                                    nguoiDung.tenHienThi,
+                                    TEN_HIEN_DON_MUA_HANG,
+                                  );
+                                  if (loi) {
+                                    toast.error("Chưa ghi được lý do", { description: loi });
+                                    return;
+                                  }
+                                  toast.success(
+                                    dangChon ? "Đã bỏ chọn lý do" : `Đã ghi: ${lyDo}`,
+                                  );
+                                }}
+                              >
+                                {lyDo}
+                              </Button>
+                            );
+                          })}
+                        </div>
+
+                        {/* 🔴 TRẠNG THÁI CÓ CẢ MÀU LẪN CHỮ (Design System V1.1 §3.2). Câu lấy từ
+                            hàm thuần `cauNhacConNoChungTu` — cùng câu mục 4 ở bước ⑧ đang in, nên
+                            hai màn hình không thể nói khác nhau. */}
+                        {lyDoThieuDonMuaHang(dn) !== "" && (
+                          <div className="flex items-start gap-1.5">
+                            <AlertTriangle
+                              className="mt-0.5 size-3.5 shrink-0 text-danger"
+                              aria-hidden
+                            />
+                            <span className="text-xs font-medium text-danger">
+                              {cauNhacConNoChungTu(lyDoThieuDonMuaHang(dn))}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* 🔴 Tệp mồ côi từ 3 ngày 24→26/08/2026 khi ô hợp đồng từng nằm hẳn ở bước ⑤
                         (khóa lưu khác, xem chú thích gốc ở `chung-tu-cuoi-quy-trinh.ts`) — vẫn chỉ
@@ -3242,73 +3381,72 @@ export default function TrangChiTietDeNghi({
                       xemGia={quyen.xemGia}
                       oNopTheoMuc={{
                         /**
-                         * ★★ Ô ĐÍNH KÈM HỢP ĐỒNG NGAY TẠI TRẠM CUỐI — Sếp 14/09/2026: *"2 loại này
-                         * đều phải đính kèm hợp đồng… E chỉ cần tạo nút đính kèm HĐ bắt buộc là
-                         * được"*.
+                         * ❌❌ ĐÃ BỎ Ô ĐÍNH KÈM **HỢP ĐỒNG** Ở BƯỚC ⑧ — Sếp 16/09/2026, khoanh đỏ
+                         * đúng nút vàng *"⚠ Hợp đồng"* trong dòng số 3 của khối "Bộ hồ sơ thanh
+                         * toán" và ghi ***"Bỏ nút đính kèm này, hợp đồng sẽ được link từ bước 3
+                         * xuống"***. ĐỌC HẾT KHỐI NÀY TRƯỚC KHI ĐỊNH DỰNG LẠI Ô ĐÓ.
                          *
-                         * 🔴 VÌ SAO PHẢI CÓ Ô Ở ĐÂY, KHÔNG CHỈ THÊM ĐIỀU KIỆN CHẶN: từ 14/09 thiếu
-                         * tệp hợp đồng là nút "Hoàn thành quy trình" khoá
-                         * (`vuongMacHoanThanhQuyTrinh`). Mà ô hợp đồng vốn chỉ nằm ở khối bước ④ và
-                         * ⑤ — người đứng ở bước ⑦ đọc câu "chưa đính kèm Hợp đồng" rồi phải tự mò
-                         * ngược hai khối mới thấy chỗ đính. Câu chặn đã hứa *"đính kèm ngay ở ô Hợp
-                         * đồng trong khối này"*, nên ô phải có thật — không thì lại đúng lỗi giao
-                         * diện hứa việc app không làm (§3.5).
+                         * Thứ bị bỏ: một `<OChungTuBatBuoc maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
+                         * nhanO={NHAN_TEP_HOP_DONG} tieuDe={TEN_HIEN_HOP_DONG} batBuoc … />` —
+                         * thêm 14/09/2026 để người đứng ở trạm cuối khỏi phải mò ngược hai khối
+                         * mới thấy chỗ đính.
                          *
-                         * 🔴 GHI VÀO ĐÚNG MỘT CHỖ với hai ô kia: cùng `BUOC_DINH_KEM_HOP_DONG` +
-                         * `NHAN_TEP_HOP_DONG`. Đính ở đây thì bước ④/⑤ thấy ngay và ngược lại — đây
-                         * là ô THỨ BA cùng nhìn vào một tệp, KHÔNG phải một tệp mới.
+                         * ✅ ĐÃ ĐO TRƯỚC KHI BỎ — KHÔNG LÀM MỒ CÔI CHỨC NĂNG (CLAUDE.md §3.4b):
+                         * ô hợp đồng **vẫn còn ở bước ④ Lập đơn mua hàng** (cùng ngăn, cùng nhãn,
+                         * kèm hai nút chọn lý do), và **còn một ô nữa ở bước ⑤**. Bỏ ô ở đây là bỏ
+                         * đường THỨ BA tới cùng một tệp, không bỏ chức năng nào.
                          *
-                         * 🔴 `tepDaCo` phải là `tepHopDongSuaDuoc` (chỉ khóa canonical), KHÔNG phải
-                         * `tepHopDong` (gộp cả khóa cũ `dat_hang`) — cùng lý do đã ghi ở ô bước ⑤:
-                         * hộp xoá tệp theo `maGiaiDoan` cố định, bày tệp mồ côi khóa cũ ra đây thì
-                         * bấm xoá sẽ tìm nhầm khóa và báo sai "tệp không còn trong hồ sơ".
+                         * 🔴 ĐÃ SỬA KÈM CÂU CHẶN CỦA NÚT "Hoàn thành quy trình" trong cùng lượt.
+                         * Nó từng ghi *"Đính kèm ngay ở ô Hợp đồng trong khối này"* — để nguyên là
+                         * đuổi người dùng đi tìm một cái nút không còn trên màn hình (CLAUDE.md
+                         * §3.5). Nay câu đó chỉ về bước Lập đơn mua hàng. **Hai thứ phải luôn chỉ
+                         * cùng một chỗ**: ai dựng lại ô ở đây thì phải sửa ngược câu chặn.
                          *
-                         * ⚠️ QUYỀN — CHỖ NÀY CÓ THỂ THÀNH NGÕ CỤT NẾU AI ĐÓ TÁCH HAI CỜ QUYỀN RA:
-                         * khối này chỉ hiện cho `quyen.xacNhanTruongBP`, còn ô sửa được hay không
-                         * thì do `duocSuaHopDong` (= `phanBoCongViec` từ bước ⑤ trở đi). Nay hai cờ
-                         * có CÙNG điều kiện (`laQuanTri || (laTruongBP && capTM >= 3)`, xem
-                         * `4-phan-quyen/quyen.ts:212` và `:224`) nên ai thấy nút cũng đính được.
-                         * 👉 Ngày nào tách hai cờ đó ra thì phải quay lại đây: sẽ có người nhìn
-                         * thấy nút khoá, thấy ô hợp đồng, mà không đính được — và không có gì báo.
+                         * 📌 KIẾN THỨC CỦA KHỐI CŨ VẪN ĐÚNG, GIỮ LẠI ĐỂ KHÔNG AI HIỂU NHẦM:
+                         *   · Ba ô hợp đồng (bước ④, ⑤, và ô vừa bỏ ở ⑧) **cùng nhìn vào MỘT tệp**,
+                         *     ghi vào cùng `BUOC_DINH_KEM_HOP_DONG` + `NHAN_TEP_HOP_DONG`.
+                         *   · **Hợp đồng vẫn là điều kiện đóng hồ sơ**, nhưng từ 16/09/2026 lời khai
+                         *     *"Không có Hợp đồng"* cũng đủ (Sếp: *"Đúng, là điều kiện để đóng hồ
+                         *     sơ"*). Luật ở `vuongMacHoanThanhQuyTrinh`, không ở câu chữ nào tại
+                         *     đây — bỏ ô này KHÔNG nới luật một chút nào, và `kiem-luat-dung-chung
+                         *     .mjs` vẫn canh cả hai chiều.
+                         *   · Mục 3 ở bước ⑧ nay **chỉ đọc**: bày tệp, và khi chưa có thì vẫn nói
+                         *     rõ trạng thái (*"Bổ sung sau"* → đỏ · *"Không có Hợp đồng"* → trung
+                         *     tính, kèm tên người khai). Mất cái nút, không mất thông tin nào.
                          *
-                         * ❌❌ ĐÃ BỎ PROP `moTa` CỦA Ô NÀY — Sếp 16/09/2026, khoanh đỏ đúng dòng chữ
-                         * nhỏ dưới nhãn mục 3 trong khối "Bộ hồ sơ thanh toán" và ghi ***"Bỏ những
-                         * ghi chú này đi"***. ĐỌC HẾT TRƯỚC KHI ĐỊNH VIẾT LẠI MỘT CÂU TƯƠNG TỰ.
-                         *
-                         * Câu bị bỏ, chép nguyên văn để nhận ra mà đừng dựng lại: *"Bản hợp đồng /
-                         * thoả thuận đã ký với nhà cung cấp. BẮT BUỘC phải có mới đóng được hồ sơ —
-                         * kể cả đơn dùng mẫu PO-02 (Sếp 14/09/2026). Đính ở đây thì bước ④ và ⑤
-                         * cũng thấy ngay, cùng một tệp."*
-                         *
-                         * 🔴 KIẾN THỨC TRONG CÂU ĐÓ VẪN ĐÚNG — GIỮ NGUYÊN Ở ĐÂY, vì cả hai ý đều là
-                         * sự thật kỹ thuật, mất đi là phiên sau hiểu nhầm rồi dựng lại sai:
-                         *   · **CÙNG MỘT TỆP VỚI BƯỚC ④ VÀ ⑤** — đúng cái đã nói ở đoạn "GHI VÀO
-                         *     ĐÚNG MỘT CHỖ" phía trên: ô này là ô THỨ BA cùng nhìn vào một tệp, ghi
-                         *     vào cùng `BUOC_DINH_KEM_HOP_DONG` + `NHAN_TEP_HOP_DONG`. Đính ở đây
-                         *     thì bước ④/⑤ thấy ngay và ngược lại, KHÔNG phải một tệp mới.
-                         *   · **BẮT BUỘC MỚI ĐÓNG ĐƯỢC HỒ SƠ, KỂ CẢ ĐƠN MẪU PO-02** (Sếp
-                         *     14/09/2026: *"2 loại này đều phải đính kèm hợp đồng"*). Luật đó nằm ở
-                         *     `vuongMacHoanThanhQuyTrinh` chứ KHÔNG ở câu chữ — bỏ câu chữ không
-                         *     nới luật một chút nào, và `kiem-luat-dung-chung.mjs` vẫn canh nó.
-                         *
-                         * 📌 NGƯỜI DÙNG KHÔNG MẤT CHỈ BÁO: prop `batBuoc` vẫn in nhãn đỏ *"Bắt
-                         * buộc"* (Sếp cho GIỮ, Design System V1.1 đòi trạng thái có cả màu lẫn
-                         * chữ), và khi thiếu tệp thì câu chặn của nút "Hoàn thành quy trình" vẫn
-                         * nói rõ phải đính kèm Hợp đồng.
-                         *
-                         * ⚠️ CHỈ BỎ `moTa` CỦA Ô HỢP ĐỒNG. Ba ô `hoa_don_vat` · `unc` ·
-                         * `phieu_chi` bên dưới GIỮ NGUYÊN `moTa` — Sếp không khoanh chúng.
+                         * ⚠️ Ba ô `hoa_don_vat` · `unc` · `phieu_chi` bên dưới GIỮ NGUYÊN — Sếp
+                         * không khoanh chúng. Riêng **Phiếu chi** thì đây là chỗ nộp DUY NHẤT trong
+                         * cả app, bỏ là chức năng mồ côi.
                          */
-                        hop_dong: (
+                        /**
+                         * ★★★ Ô **ĐƠN MUA HÀNG NCC KÝ** NGAY TẠI DÒNG SỐ 4 — Sếp 16/09/2026:
+                         * ***"Tách làm 2 mục riêng"***, ô nộp riêng đặt *"ở bước ⑤ và ở bước ⑧
+                         * (dòng số 4)"*.
+                         *
+                         * 🔴 NGĂN RIÊNG `BUOC_DINH_KEM_DON_MUA_HANG` — KHÔNG phải ngăn hợp đồng.
+                         * Đính ở đây thì ô Đơn mua hàng ở bước ⑤ thấy ngay, và ngược lại; tệp hợp
+                         * đồng KHÔNG bị đụng tới.
+                         *
+                         * 🔴 `tepDaCo` LÀ `tepDonMuaHangNCCKy` (ngăn riêng), **KHÔNG** phải
+                         * `tepDonMuaHangCuaMuc4` (đường lùi về tệp dùng chung cũ trong
+                         * `bo-ho-so-thanh-toan.ts`). Hộp này xoá tệp bằng `maGiaiDoan` cố định, nên
+                         * bày tệp của ngăn CHUNG ra đây thì bấm xoá sẽ tìm nhầm ngăn và báo sai
+                         * *"Tệp này không còn trong hồ sơ"* — đúng bài học đã ghi ở
+                         * `tepHopDongSuaDuoc`.
+                         * 👉 Hệ quả nhìn thấy được: hồ sơ cũ mượn tệp chung sẽ hiện dấu ✓ ở dòng 4
+                         *    (tầng dữ liệu) trong khi ô nộp này TRỐNG. Đó là **đúng**: chưa có bản
+                         *    riêng nào để sửa, và câu `ghiChu` của mục 4 đã nói rõ vì sao.
+                         */
+                        don_mua_hang: (
                           <OChungTuBatBuoc
                             deNghi={dn}
-                            maGiaiDoan={BUOC_DINH_KEM_HOP_DONG}
-                            nhanO={NHAN_TEP_HOP_DONG}
-                            tieuDe={TEN_HIEN_HOP_DONG}
+                            maGiaiDoan={BUOC_DINH_KEM_DON_MUA_HANG}
+                            nhanO={NHAN_TEP_DON_MUA_HANG}
+                            tieuDe={TEN_HIEN_DON_MUA_HANG}
                             batBuoc
                             duocSua={duocSuaHopDong}
                             khoa={hoSoDaDong}
-                            tepDaCo={tepHopDongSuaDuoc(dn)}
+                            tepDaCo={tepDonMuaHangNCCKy(dn)}
                           />
                         ),
                         hoa_don_vat: (
@@ -3354,6 +3492,35 @@ export default function TrangChiTietDeNghi({
                             duocSua={duocSuaTepBuoc}
                             khoa={hoSoDaDong}
                             tepDaCo={tepPhieuChi(dn)}
+                          />
+                        ),
+                        /**
+                         * ★★★ MỤC ⑨ *ĐÍNH KÈM KHÁC* — Sếp 16/09/2026: ***"Cần thiết mở thêm để đính
+                         * kèm tài liệu khác"***.
+                         *
+                         * 🔴🔴 `maGiaiDoan={BUOC_DINH_KEM_KHAC}` — **NGĂN RIÊNG, TUYỆT ĐỐI KHÔNG
+                         * PHẢI `BUOC_DINH_KEM_HO_SO_THANH_TOAN`.** Đã đo 15/09 và 16/09/2026, ba hệ
+                         * quả nếu dùng chung ngăn với ba ô trên:
+                         *   ① Hoá đơn VAT · UNC · Phiếu chi hiện LẠI lần nữa trong mục 9;
+                         *   ② nút *"Gỡ"* của khu tự do **xoá được Hoá đơn VAT thật** → hồ sơ không
+                         *      đóng được nữa (`vuongMacDuyetHoanThanhDeNghi`);
+                         *   ③ hạn mức 5 tệp tính CHUNG cả ngăn, mục 9 còn 1–2 chỗ rồi báo đầy.
+                         *
+                         * 🔴 DÙNG `KhuDinhKemGiaiDoan` CHỨ KHÔNG PHẢI `OChungTuBatBuoc`: ô có tên
+                         * đòi một **nhãn cố định** cho tệp, mà mục 9 nhận tài liệu gì cũng được nên
+                         * không có nhãn nào để đòi. Khối bộ hồ sơ tự in hàng nhãn *"9. Đính kèm
+                         * khác"* cho nó — xem `kieuONop` ở `2-quy-trinh/bo-ho-so-thanh-toan.ts`.
+                         *
+                         * 📌 `duocSuaTepBuoc` (không phải `duocSuaHopDong`): đây là tài liệu phụ
+                         * *"Nếu có"*, không phải chứng từ có chữ ký, nên không siết quyền như hợp
+                         * đồng / đơn mua hàng.
+                         */
+                        dinh_kem_khac: (
+                          <KhuDinhKemGiaiDoan
+                            deNghi={dn}
+                            maGiaiDoan={BUOC_DINH_KEM_KHAC}
+                            duocSua={duocSuaTepBuoc}
+                            khoa={hoSoDaDong}
                           />
                         ),
                       }}
@@ -3950,6 +4117,28 @@ export default function TrangChiTietDeNghi({
           */}
         {hoiDuyet?.loai === "khong_duyet" && (
           <div className="flex flex-col gap-1.5">
+            {/* ★★ NÓI TRƯỚC LÀ SẼ XOÁ TỆP — Sếp 16/09/2026: *"Sao bấm lùi về mà vẫn còn các file
+                đính kèm, các file này phải được xoá sạch"*, chốt *"Xóa hết tệp của bước báo giá"*.
+                Từ đó `luiVeBuoc` xoá sạch tệp bước ② mỗi lượt trả lại.
+
+                🔴 ĐƯỜNG NÀY KHÔNG ĐI QUA HỘP KÉO THẢ nên KHÔNG hiện câu `viec` của
+                `quyetDinhLui` — chỗ duy nhất mô tả việc sắp làm. Không thêm dòng này thì trưởng
+                bộ phận bấm một nút xoá chứng từ mà không hề biết, đúng cái §3.5 cấm. Câu chữ bám
+                sát câu `viec` bên `2-quy-trinh/giai-doan-mua-hang.ts` case `xet_duyet_bao_gia` —
+                sửa một bên thì sửa cả hai.
+
+                📌 Chỉ hiện khi THẬT SỰ CÓ TỆP: hồ sơ chưa đính gì mà vẫn doạ "sẽ xoá" là làm
+                người duyệt ngại bấm cho một việc không xảy ra. */}
+            {tepBaoGiaDaCo(dn).length > 0 && (
+              <p className="flex items-start gap-1.5 rounded-lg bg-warning/10 p-2 text-xs text-text-secondary">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
+                <span>
+                  Trả lại sẽ <strong>xoá sạch {tepBaoGiaDaCo(dn).length} tệp</strong> đang đính kèm
+                  ở bước “Yêu cầu NCC báo giá” (bản báo giá nhà cung cấp và bảng so sánh) — nhân
+                  viên phải đính kèm lại bản mới. Giá đã nhập trong bảng thì giữ nguyên.
+                </span>
+              </p>
+            )}
             <Label htmlFor="ly-do-duyet-bao-gia">Vì sao không đồng ý *</Label>
             {/* ★ ĐÃ BỎ CHỮ GỢI Ý TRONG Ô (placeholder) — Ban lãnh đạo 13/09/2026 *"bỏ các ghi
                 chú"*. Câu cũ là ví dụ dài, thuộc diện câu diễn giải Sếp muốn dọn.

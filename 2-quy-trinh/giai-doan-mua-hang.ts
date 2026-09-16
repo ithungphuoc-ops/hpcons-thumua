@@ -2403,12 +2403,24 @@ function quyetDinhLui(
           lyDo: "Chưa có bảng báo giá nào được trình xét duyệt nên không có gì để trả lại. Nếu bảng còn đang thu thập giá thì nó vốn đã thuộc bước “Yêu cầu NCC báo giá” rồi — không cần lùi.",
         };
       }
-      // KHÔNG mất giá đã nhập — đối chiếu `luiVeBuoc` nhánh `ve === "yeu_cau_bao_gia"`.
+      /**
+       * 🔴🔴 CÂU `viec` ĐÃ ĐỔI 16/09/2026 VÌ NHÁNH GHI ĐÃ ĐỔI — Sếp: *"Sao bấm lùi về mà vẫn còn
+       * các file đính kèm, các file này phải được xoá sạch"*, và chốt phạm vi *"Xóa hết tệp của
+       * bước báo giá"*. `luiVeBuoc` nhánh `ve === "yeu_cau_bao_gia"` nay xoá sạch
+       * `tepGiaiDoan["yeu_cau_bao_gia"]`.
+       *
+       * ⚠️ CÂU CŨ GHI "KHÔNG mất dữ liệu nào" — để nguyên là hộp xác nhận hứa một đằng, tầng ghi
+       * làm một nẻo, đúng thứ §3.5 cấm, và tệ hơn ở đây vì người dùng bấm đồng ý dựa trên chính
+       * câu đó. Sửa tầng ghi mà quên sửa câu này thì bản vá tự đẻ ra một lỗi nặng hơn lỗi nó chữa.
+       *
+       * 📌 Vẫn phải nói rõ thứ KHÔNG mất (giá đã nhập) — nếu không, trưởng bộ phận ngại bấm "Không
+       * duyệt" vì tưởng nhân viên phải gõ lại giá của mọi nhà cung cấp từ đầu.
+       */
       return {
         loai: "lui_buoc",
         ve,
         batBuocLyDo: true,
-        viec: "KHÔNG mất dữ liệu nào: bảng báo giá đã trình được mở lại cho nhân viên thu thập tiếp, giá của mọi nhà cung cấp giữ nguyên. Lý do bạn ghi được nối thêm một lượt vào lịch sử trả lại của bảng để lần sau nhân viên không lặp lại đúng cái sai cũ.",
+        viec: "Sẽ XOÁ SẠCH tệp đính kèm của bước “Yêu cầu NCC báo giá” — các bản báo giá nhà cung cấp và bảng so sánh của vòng vừa bị bác; nhân viên phải đính kèm lại bản mới. GIỮ NGUYÊN giá của mọi nhà cung cấp đã nhập trong bảng, không phải gõ lại. Bảng được mở lại cho nhân viên thu thập tiếp, và lý do bạn ghi được nối thêm một lượt vào lịch sử trả lại của bảng để lần sau nhân viên không lặp lại đúng cái sai cũ.",
       };
 
     case "lap_don_mua_hang": {

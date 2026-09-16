@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
-import { AlertTriangle, BadgeCheck, FileWarning, Info, Loader2, Lock, Printer } from "lucide-react";
+import {
+  AlertTriangle,
+  BadgeCheck,
+  CornerUpLeft,
+  FileWarning,
+  Info,
+  Loader2,
+  Lock,
+  Printer,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -32,6 +41,7 @@ import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-
 import { HopGanDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-gan-de-nghi";
 import { HopXacNhanTuDongGan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-xac-nhan-tu-dong-gan";
 import { HopSuaDonHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-sua-don-hang";
+import { neoBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 
 export default function TrangChiTietDonHang() {
   const params = useParams<{ id: string }>();
@@ -212,6 +222,27 @@ export default function TrangChiTietDonHang() {
                 nên không có bản "ẩn giá" của đơn mua hàng — cùng nguyên tắc với trang in. */}
             {/* Nút xuất Excel dùng chung với màn danh sách — xem `nut-xuat-don-hang.tsx`.
                 Component tự lo quyền `xemGia` và luật chặn nên ở đây không kiểm lại. */}
+            {/* ★★ VỀ ĐÚNG BƯỚC LẬP ĐƠN MUA HÀNG — Sếp 16/09/2026: *"Thêm nút bấm về đúng bước
+                lập Po này"*.
+
+                🔴 KHÁC HẲN LINK "Đề nghị nguồn" TRONG LƯỚI THÔNG TIN BÊN DƯỚI, đừng coi là trùng:
+                link đó về ĐẦU trang đề nghị, người dùng vẫn phải dò xuống giữa một trang dài rồi
+                tự mở đúng khối (mọi khối mặc định gập). Nút này nhảy thẳng tới bước ④ và khối tự
+                bung — xem `neoBuoc` ở `khoi-dau-vao-theo-giai-doan.tsx`.
+
+                📌 Chỉ hiện khi đơn CÓ đề nghị nguồn. Đơn lập riêng không có bước ④ nào để về; vẽ
+                một nút bấm vào không tới đâu còn tệ hơn không có nút. */}
+            {po.prId && (
+              <Button
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={<Link href={`/de-nghi/${po.prId}#${neoBuoc("lap_don_mua_hang")}`} />}
+              >
+                <CornerUpLeft className="size-4" aria-hidden />
+                Về bước lập đơn
+              </Button>
+            )}
             <NutXuatDonHangExcel poId={po.id} />
             {/* Ẩn hẳn khi không đủ quyền hoặc đơn đã hoàn thành/hủy — component tự kiểm cả hai,
                 xem `hop-sua-don-hang.tsx`. */}
@@ -395,7 +426,26 @@ export default function TrangChiTietDonHang() {
       {/* Thông tin PO */}
       <Card>
         <CardContent className="grid grid-cols-2 gap-(--hp-md-card-gap) md:grid-cols-4">
-          <ThongTin nhan="Mã dự án" giaTri={po.maDuAn} />
+          {/* ★★ HỒ SƠ PHÒNG BAN THÌ HAI Ô CÔNG TRÌNH ĐỂ TRỐNG — Sếp 16/09/2026, khoanh đỏ đúng
+              ô "Mã dự án" và ô "Tên công trình" trên đơn DMH260014: *"Đơn đề nghị của phòng ban
+              thì các mục này sẽ để trống"*.
+
+              🔴 HAI Ô NÀY ĐANG BÀY RÁC, KHÔNG PHẢI BÀY THIẾU. Đo được và đã ghi trong
+              `2-quy-trinh/ho-so-phong-ban.ts`: App Request **nhét tiêu đề đề nghị vào cả
+              `maDuAn` lẫn `tenCongTrinh`** khi hồ sơ không gắn công trình — nên đơn của Phòng Kỹ
+              thuật hiện "Phòng Kỹ thuật Thi công (HP Cons)" ở ô *Mã dự án*, một chỗ mà người đọc
+              chờ thấy mã dự án `YYUNNN-HPCS`. Đó là giao diện nói sai, đúng thứ §3.5 cấm.
+
+              📌 CHỈ SỬA CHỖ VẼ, KHÔNG ĐỤNG DỮ LIỆU LƯU. `maDuAn`/`tenCongTrinh` do cửa tiếp nhận
+              của phiên tích hợp ghi (vùng cấm §6.6), và còn dùng làm khoá đối chiếu ở nơi khác —
+              xoá giá trị đi là sửa việc của họ mà không báo.
+
+              📌 Ô *Mã dự án* giữ chỗ với dấu "—" chứ không biến mất: lưới 4 cột khuyết một ô thì
+              người đọc không biết là cố ý hay lỗi tải. Câu giải thích đã nằm sẵn ở dải "Đơn này
+              không gửi sang app Kho công trình" ngay phía trên. Ô *Tên công trình* thì ẩn hẳn,
+              vì nó vốn đã là ô có điều kiện (đơn không có tên công trình xưa nay vẫn không hiện)
+              — bày thêm một dấu "—" ở đó là đặt ra một lệ thứ hai cho cùng một ô. */}
+          <ThongTin nhan="Mã dự án" giaTri={poThuocHoSoPhongBan ? "—" : po.maDuAn} />
           {/* 🔴 CHỈ VẼ LIÊN KẾT KHI CÓ ĐỀ NGHỊ THẬT. Để `href={/de-nghi/${undefined}}` là một
               LIÊN KẾT CHẾT: bấm vào rơi về danh sách đề nghị, người dùng tưởng hồ sơ bị mất.
               Không có đề nghị thì vẫn phải bày một ô nói rõ "không gắn đề nghị" — bỏ hẳn ô đi
@@ -423,7 +473,10 @@ export default function TrangChiTietDonHang() {
           ) : (
             <ThongTin nhan="Đề nghị nguồn" giaTri="Không gắn đề nghị" />
           )}
-          {po.tenCongTrinh && <ThongTin nhan="Tên công trình" giaTri={po.tenCongTrinh} />}
+          {/* Ẩn với hồ sơ phòng ban — xem khối chú thích ở ô "Mã dự án" phía trên. */}
+          {po.tenCongTrinh && !poThuocHoSoPhongBan && (
+            <ThongTin nhan="Tên công trình" giaTri={po.tenCongTrinh} />
+          )}
           {quyen.xemNguoiPhuTrach && <ThongTin nhan="Người phụ trách" giaTri={po.nguoiPhuTrachTen} />}
           <ThongTin nhan="Ngày lập PO" giaTri={new Date(po.ngayLapPO).toLocaleDateString("vi-VN")} />
           <ThongTin

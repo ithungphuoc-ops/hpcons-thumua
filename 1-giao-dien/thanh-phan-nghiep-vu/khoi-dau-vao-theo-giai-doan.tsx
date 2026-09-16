@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, ChevronRight, Lock, LogIn, LogOut, type LucideIcon } from "lucide-react";
 import { HopXemTep } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xem-tep";
 import { rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
@@ -210,6 +210,24 @@ export function NhanPhanTrongGiaiDoan({
  */
 const MA_BUOC_GOP_DAU_VAO_VAO_KET_QUA = "xet_duyet_bao_gia";
 
+/**
+ * ★★ NEO TỚI ĐÚNG MỘT BƯỚC — Sếp 16/09/2026: *"Thêm nút bấm về đúng bước lập PO này"*, đứng ở
+ * trang chi tiết đơn hàng.
+ *
+ * 🔴 TRƯỚC ĐÂY KHÔNG NEO TỚI BƯỚC NÀO ĐƯỢC. `<section>` của mỗi giai đoạn không có `id`, nên từ
+ * đơn hàng chỉ quay về được ĐẦU trang đề nghị — người dùng vẫn phải tự dò xuống giữa một trang
+ * dài rồi tự mở đúng khối. Neo duy nhất app có tới nay là `NEO_NHAT_KY` bên `khoi-trao-doi.tsx`.
+ *
+ * 📌 SINH BẰNG HÀM, KHÔNG GÕ CHUỖI Ở NƠI GỌI. Nơi đặt neo và nơi trỏ tới neo là hai tệp khác
+ * nhau; gõ tay hai chuỗi là chúng lệch nhau lúc nào không ai biết, và hỏng im lặng — bấm nút thì
+ * trang đứng yên, không một lỗi nào.
+ *
+ * ⚠️ Tiền tố `buoc-` để không đụng `NEO_NHAT_KY` hay bất kỳ id nào khác trên trang.
+ */
+export function neoBuoc(maGiaiDoan: string): string {
+  return `buoc-${maGiaiDoan}`;
+}
+
 export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[] }) {
   /**
    * Giai đoạn nào đang mở. **Mặc định GẬP HẾT** — mỗi lần vào trang, hoặc F5, đều về gập.
@@ -232,6 +250,34 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
   const [mo, setMo] = useState<string[]>([]);
 
   const [xemTep, setXemTep] = useState<MoTaTep | null>(null);
+
+  /**
+   * ★★ TỚI BẰNG NEO THÌ TỰ MỞ ĐÚNG KHỐI ĐÓ — Sếp 16/09/2026 (*"Thêm nút bấm về đúng bước lập PO
+   * này"*).
+   *
+   * 🔴 KHÔNG ĐỔI MẶC ĐỊNH GẬP HẾT. Ban lãnh đạo nhắc HAI LẦN (18/08/2026, xem `mo` ở trên) rằng
+   * F5 phải gập lại; mở thêm một khối vì có neo thì không phạm vào đó — vào trang không neo vẫn
+   * gập sạch, và F5 khi neo còn trên URL thì mở lại đúng một khối người dùng vừa chủ động tìm.
+   *
+   * 🔴 PHẢI TỰ MỞ CHỨ KHÔNG CHỈ CUỘN: khối gập thì nhảy tới nơi người dùng vẫn chỉ thấy một
+   * thanh tiêu đề đóng, tưởng nút bấm hỏng. Neo mà không mở là nửa vời hơn không có neo.
+   *
+   * 📌 CUỘN BẰNG TAY SAU KHI MỞ. Trình duyệt tự cuộn tới `id` ngay lúc tải, lúc đó khối còn gập
+   * nên vị trí tính ra sai; `requestAnimationFrame` đợi React vẽ xong nội dung vừa bung mới cuộn.
+   *
+   * ⚠️ `hashchange` để bấm lại đúng nút đó lần thứ hai vẫn chạy — trình duyệt không tải lại
+   * trang khi hash không đổi, nhưng `router.push` cùng hash thì cũng không bắn sự kiện; đó là
+   * giới hạn đã biết, không chữa ở đây.
+   */
+  useEffect(() => {
+    const ma = giaiDoan.map((g) => g.ma).find((m) => `#${neoBuoc(m)}` === window.location.hash);
+    if (!ma) return;
+    setMo((cu) => (cu.includes(ma) ? cu : [...cu, ma]));
+    const khung = requestAnimationFrame(() => {
+      document.getElementById(neoBuoc(ma))?.scrollIntoView({ block: "start" });
+    });
+    return () => cancelAnimationFrame(khung);
+  }, [giaiDoan]);
 
   // Đánh số liên tục qua MỌI giai đoạn, không đánh lại từ 01 ở mỗi khối.
   let so = 0;
@@ -352,7 +398,10 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
              thái phải có cả màu lẫn chữ, người không phân biệt được màu vẫn phải đọc ra. */
           <section
             key={g.ma}
-            className={`overflow-hidden rounded-xl border bg-surface ${
+            id={neoBuoc(g.ma)}
+            /* Chừa chỗ cho thanh trên cố định 60px khi trình duyệt cuộn tới neo — không có nó thì
+               tiêu đề khối chui lên dưới thanh và người dùng tưởng nhảy sai chỗ. */
+            className={`scroll-mt-20 overflow-hidden rounded-xl border bg-surface ${
               g.conThieu ? "border-danger" : "border-primary/30"
             }`}
           >

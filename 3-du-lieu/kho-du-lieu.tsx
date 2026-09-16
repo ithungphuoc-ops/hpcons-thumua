@@ -41,7 +41,12 @@ import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh
 import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
 import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
 // Chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
-import { vuongMacHoanThanhQuyTrinh } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
+import {
+  /* Câu nhật ký của lời khai "chưa có chứng từ" — MỘT nguồn chữ cho cả bên ghi (ở đây) lẫn bên đọc
+     (`nguoiKhaiKhongCoChungTu`). Sếp 16/09/2026. */
+  cauNhatKyGhiLyDoThieu,
+  vuongMacHoanThanhQuyTrinh,
+} from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import {
   CAU_HINH_MAC_DINH,
   gopCauHinhVoiMacDinh,
@@ -108,7 +113,11 @@ import { TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/gioi-han-dinh-kem";
  * tầng ghi**, dù chú thích đầu `bao-gia-dinh-kem.ts` khẳng định là có. Hằng số nay ở
  * `3-du-lieu/gioi-han-dinh-kem.ts` (tệp không import gì), nên vòng tròn không còn.
  */
-import { vuongMacChiDinhNCCLucGiaoViec, vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import {
+  BUOC_DINH_KEM_BAO_GIA,
+  vuongMacChiDinhNCCLucGiaoViec,
+  vuongMacTrinhXetDuyet,
+} from "@/2-quy-trinh/bao-gia-dinh-kem";
 import {
   DE_NGHI_MAU,
   DON_HANG_MAU,
@@ -1574,6 +1583,23 @@ interface GiaTriDuLieu {
     khoa: string,
     lyDo: string,
     nguoiThucHienTen: string,
+    /**
+     * ★★ TÊN CHỨNG TỪ — **THÊM 16/09/2026, TÙY CHỌN, ĐỨNG CUỐI** (Sếp: *"Tách làm 2 mục riêng"*).
+     *
+     * 🔴 VÌ SAO CẦN: từ hôm nay Hợp đồng và Đơn mua hàng khai lý do ở HAI khoá khác nhau, nhưng
+     * dòng nhật ký thì giống hệt nhau nếu không nói ra chứng từ nào. Mà dòng nhật ký chính là chỗ
+     * `nguoiKhaiKhongCoChungTu` đọc ngược để trả lời *"ai đã khai"* — câu Sếp đòi phải có ở mục 3
+     * của bộ hồ sơ.
+     *
+     * 🔴 TÙY CHỌN VÀ ĐỨNG CUỐI, cùng lý do đã ghi cho `tatCaDeNghi` ở `vuongMacHoanThanhQuyTrinh`:
+     * chen vào giữa hoặc bắt buộc là mọi nơi gọi cũ gãy cùng lúc. Thiếu nó thì nhật ký ghi câu
+     * kiểu CŨ — vẫn đọc được, chỉ là không tra ra tên người khai.
+     *
+     * ⚠️ TRUYỀN ĐÚNG **CHỮ HIỂN THỊ CỦA CHỨNG TỪ** (`TEN_HIEN_HOP_DONG` / `TEN_HIEN_DON_MUA_HANG`),
+     * không phải khoá lưu: câu nhật ký là chữ cho người đọc, và bên đọc dựng lại câu bằng đúng
+     * `ChungTuCoLyDoThieu.tenChungTu`. Truyền chữ khác là hai bên không khớp, **hỏng im lặng**.
+     */
+    tenChungTu?: string,
   ) => string | null;
   /**
    * Gỡ một tệp khỏi một bước. Trả lý do bị chặn, `null` là đã gỡ.
@@ -4587,6 +4613,68 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           ),
         );
       } else if (ve === "yeu_cau_bao_gia") {
+        /**
+         * ★★ XÓA SẠCH TỆP CỦA BƯỚC BÁO GIÁ — Sếp 16/09/2026, nguyên văn: *"Sao bấm lùi về mà vẫn
+         * còn các file đính kèm, các file này phải được xoá sạch"*, kèm ảnh bước ② sau khi bị
+         * trả lại vẫn còn đủ **Báo giá NCC 1**, **Báo giá NCC 2** và **Bảng so sánh báo giá**.
+         * Sếp chốt phạm vi: *"Xóa hết tệp của bước báo giá"* (hỏi lại trước khi làm, vì đây là
+         * xóa thứ người dùng đã nộp, không hoàn tác được).
+         *
+         * 🔴 TRƯỚC ĐÂY NHÁNH NÀY KHÔNG XÓA GÌ, và đó mới là chỗ sai thật sự — không phải thiếu
+         * một câu lệnh, mà là hồ sơ nói dối: bảng về `dang_thu_thap` (nghĩa là *đang đi xin báo
+         * giá*) trong khi ba chứng từ của vòng vừa bị bác vẫn nằm nguyên. Nhân viên mở ra thấy
+         * ô nào cũng đủ tệp, `vuongMacTrinhXetDuyet` không vướng gì, nên **trình lại được ngay
+         * mà không sửa một thứ gì** — đúng cái vòng mà lượt "Không duyệt" sinh ra để chặn.
+         *
+         * 🔴 CHỈ BỎ THAM CHIẾU, KHÔNG GỌI `xoaTep` — theo đúng lệ của `goTepGiaiDoan` (xem chú
+         * thích tại đó): nội dung tệp ở lại kho tệp. Lùi bước là việc bấm nhầm được, mà chứng từ
+         * xóa hẳn thì mất hẳn; giữ nội dung lại thì IT còn đường tìm về. Với người dùng thì hồ
+         * sơ đã sạch đúng như Sếp yêu cầu — họ không thấy tệp ở bất kỳ màn nào nữa.
+         *
+         * 📌 CHỈ BƯỚC ②, không đụng tệp của bước khác: hàm này lùi về đúng một bước, còn chứng
+         * từ của các bước sau đã bị các nhánh tương ứng xử lý (hoặc chưa hề phát sinh).
+         *
+         * 📌 GIỮ NGUYÊN `lyDoThieuChungTu` — Sếp nói "tệp", và câu *"không cần đính kèm bảng so
+         * sánh"* là một kết luận nghiệp vụ của người dùng, không phải chứng từ của vòng bị bác.
+         * Xóa thêm thứ không ai yêu cầu là tự mở rộng phạm vi một việc không hoàn tác được.
+         *
+         * ⚠️ GIÁ ĐÃ NHẬP THÌ VẪN GIỮ — xem khối ngay dưới. Hai thứ khác nhau: tệp là chứng từ của
+         * vòng vừa bị bác, còn giá là công sức gõ lại của mọi nhà cung cấp.
+         */
+        const tepBuocBaoGia = (() => {
+          const dn = deNghiRef.current.find((d) => d.id === prId);
+          return dn?.tepGiaiDoan?.[BUOC_DINH_KEM_BAO_GIA] ?? [];
+        })();
+        if (tepBuocBaoGia.length > 0) {
+          setDeNghi((truoc) =>
+            truoc.map((d) => {
+              if (d.id !== prId) return d;
+              const con = { ...(d.tepGiaiDoan ?? {}) };
+              delete con[BUOC_DINH_KEM_BAO_GIA];
+              return {
+                ...d,
+                tepGiaiDoan: Object.keys(con).length > 0 ? con : undefined,
+                lichSu: [
+                  ...d.lichSu,
+                  {
+                    thoiDiem: ngay,
+                    nguoiThucHien,
+                    hanhDong: `Xóa ${tepBuocBaoGia.length} tệp đính kèm của bước yêu cầu báo giá`,
+                    /* Ghi TÊN từng tệp: sau này ai hỏi "bản báo giá của NCC kia đâu rồi" thì hồ
+                       sơ trả lời được, thay vì chỉ có một con số.
+                       📌 Ưu tiên `ghiChu` (nhãn người đọc được: "Báo giá NCC 1", "Bảng so sánh
+                       báo giá") rồi mới tới `tenTep` — tệp tải từ Zalo mang tên máy sinh, ghi ra
+                       cũng không ai tra được là bản nào. */
+                    ghiChu: tepBuocBaoGia
+                      .map((t) => (t.ghiChu ?? "").trim() || t.tenTep)
+                      .join(", "),
+                  },
+                ],
+              };
+            }),
+          );
+        }
+
         /* Mở lại bảng để thu thập tiếp — GIỮ NGUYÊN giá đã nhập.
            🔴 KHÔNG HỦY BẢNG: lý do bị trả thường chỉ là thiếu một báo giá hoặc đề xuất chưa đủ
            thuyết phục. Hủy là nhân viên phải gõ lại giá của mọi nhà cung cấp từ đầu.
@@ -7570,7 +7658,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * đẩy lên Firestore phình thêm một khóa vô nghĩa cho mỗi hồ sơ.
    */
   const ghiLyDoThieuChungTu = useCallback(
-    (prId: string, khoa: string, lyDo: string, nguoiThucHienTen: string): string | null => {
+    (
+      prId: string,
+      khoa: string,
+      lyDo: string,
+      nguoiThucHienTen: string,
+      tenChungTu?: string,
+    ): string | null => {
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
       const loi = loiKhiHoSoDaDong(dn, "ghi lý do chưa có chứng từ");
@@ -7593,12 +7687,20 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         }),
       );
 
+      /* 🔴 CÂU NHẬT KÝ DỰNG BẰNG HÀM THUẦN `cauNhatKyGhiLyDoThieu`, KHÔNG gõ tay ở đây — đó là
+         cùng một hàm mà `nguoiKhaiKhongCoChungTu` dùng để ĐỌC NGƯỢC ra ai đã khai (Sếp 16/09/2026:
+         bộ hồ sơ phải nói rõ ai khai "Không có Hợp đồng"). Gõ tay hai câu là chỗ đọc không bao giờ
+         khớp chỗ ghi, và nó hỏng im lặng.
+         📌 Không truyền `tenChungTu` thì giữ nguyên câu kiểu CŨ — hồ sơ trước 16/09/2026 vẫn đọc
+         được như thường, chỉ là không tra ra tên người khai (xem `nguoiKhaiKhongCoChungTu`). */
       ghiLichSuDeNghi(
         prId,
         nguoiThucHienTen,
-        noiDung === ""
-          ? "Xóa lý do chưa có chứng từ bắt buộc"
-          : `Ghi lý do chưa có chứng từ bắt buộc: ${noiDung}`,
+        tenChungTu === undefined
+          ? noiDung === ""
+            ? "Xóa lý do chưa có chứng từ bắt buộc"
+            : `Ghi lý do chưa có chứng từ bắt buộc: ${noiDung}`
+          : cauNhatKyGhiLyDoThieu(tenChungTu, noiDung),
       );
       return null;
     },

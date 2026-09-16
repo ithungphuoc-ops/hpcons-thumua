@@ -38,7 +38,27 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <DuLieuProvider>
                   <TooltipProvider>
                     {children}
-                    <Toaster />
+                    {/**
+                      * ★★ THÔNG BÁO ĐƯA LÊN GIỮA MÀN HÌNH — Sếp 16/09/2026, kèm ảnh một toast báo
+                      * *"Không chuyển được"* nằm lọt thỏm ở góc dưới phải: *"những thông báo kiểu
+                      * này hãy đưa lên giữa màn hình để người dùng ko bị nhìn sót"*.
+                      *
+                      * 🔴 VÌ SAO GÓC DƯỚI PHẢI KHÔNG ĂN: bảng quy trình là một dải cột cuộn ngang
+                      * kín màn hình, mắt người dùng đang ở giữa bảng — góc dưới phải nằm ngoài
+                      * vùng nhìn, lại hay bị nút "Góp ý" che. Câu bị bỏ lỡ ở đây không phải câu
+                      * trang trí: nó là **lý do app từ chối một thao tác** và **chỉ đường phải làm
+                      * gì thay thế**. Bỏ lỡ nó thì người dùng tưởng app hỏng.
+                      *
+                      * 📌 `top-center` chứ không phải `bottom-center`: thông báo trồi từ mép trên
+                      * xuống, nằm trong vùng mắt đang đọc, và **không che** cụm nút thao tác ở đáy
+                      * màn hình (Lưu / Xác nhận / Hoàn thành) — che nút là đổi một lỗi lấy một lỗi
+                      * khó chịu hơn.
+                      *
+                      * ⚠️ ĐẶT MỘT CHỖ CHO CẢ APP, đừng truyền `position` lẻ ở từng lời gọi `toast`.
+                      * App có hàng trăm lời gọi; mỗi chỗ một vị trí là người dùng không bao giờ
+                      * biết phải nhìn đâu, và người viết mới cũng không biết theo lệ nào.
+                      */}
+                    <Toaster position="top-center" />
                   </TooltipProvider>
                 </DuLieuProvider>
               </CurrentUserProvider>

@@ -664,11 +664,17 @@ function OGoDieuKien({
               disabled={!duocSuaHopDong}
               placeholder="Ví dụ: hai bên đã thống nhất qua email, bản ký sẽ có trong tuần này."
               onBlur={(e) => {
+                /* 📌 Truyền tên chứng từ (tham số 5, thêm 16/09/2026) để dòng nhật ký nói rõ lời
+                   khai thuộc chứng từ nào — cùng lý do đã ghi ở `de-nghi-chi-tiet.tsx`. Ô này là ô
+                   GÕ TỰ DO nên chuỗi ghi ra gần như không bao giờ khớp lời khai dứt điểm, nhưng
+                   vẫn phải nhất quán: bỏ tham số ở riêng đây là nhật ký có hai kiểu câu cho cùng
+                   một việc. */
                 const loi = ghiLyDoThieuChungTu(
                   deNghi.id,
                   KHOA_LY_DO_THIEU_HOP_DONG,
                   e.target.value,
                   nguoiDung.tenHienThi,
+                  TEN_HIEN_HOP_DONG,
                 );
                 if (loi) toast.error("Chưa ghi được lý do", { description: loi });
               }}

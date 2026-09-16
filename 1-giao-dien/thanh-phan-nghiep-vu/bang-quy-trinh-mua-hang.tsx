@@ -21,7 +21,9 @@ import {
   Link2 as LinkIcon,
   MoreHorizontal,
   Pencil,
-  Trash2,
+  /* 📌 ĐÃ BỎ `Trash2` ngày 16/09/2026 — nó chỉ phục vụ mục "Xóa" mà Sếp cho gỡ khỏi menu thẻ
+     (*"Bỏ chức năng xoá này đi. Để sẽ làm người dùng bấm nhầm"*). Đọc khối ❌❌ ở cuối menu trước
+     khi thêm lại. */
   UserRound,
   XCircle,
 } from "lucide-react";
@@ -1524,15 +1526,31 @@ export function MenuThaoTacThe({
                 Đánh dấu thất bại
               </DropdownMenuItem>
             )}
-            {thaoTac && (
-              <DropdownMenuItem
-                onClick={() => thaoTac.onXoa(deNghi.id)}
-                className="text-danger-soft"
-              >
-                <Trash2 className="size-4 shrink-0" aria-hidden />
-                Xóa
-              </DropdownMenuItem>
-            )}
+            {/**
+              * ❌❌ ĐÃ BỎ MỤC "XÓA" KHỎI MENU THẺ — Sếp 16/09/2026, khoanh đỏ đúng dòng này:
+              * ***"Bỏ chức năng xoá này đi. Để sẽ làm người dùng bấm nhầm"***.
+              *
+              * 🔴 SẾP ĐÚNG, VÀ LÝ DO NẰM NGAY TRONG BỐ CỤC MENU: "Xóa" đứng **sát ngay dưới**
+              * "Đánh dấu thất bại", cùng màu đỏ, cùng cỡ chữ, cách nhau vài pixel. Hai việc trông
+              * giống hệt nhau nhưng hậu quả khác một trời:
+              *   · *Đánh dấu thất bại* → hồ sơ sang cột Thất bại, **vẫn còn, vẫn đọc lại được**.
+              *   · *Xóa* → **mất hẳn, không khôi phục được**.
+              * Bấm trượt một dòng là mất một hồ sơ. Menu này lại mọc trên **mọi thẻ** của bảng,
+              * tức người dùng đi qua nó hàng chục lần mỗi ngày.
+              *
+              * 📌 KHÔNG MỒ CÔI — đã đo trước khi bỏ: `xoaDeNghi` vẫn còn đường gọi ở
+              * `1-giao-dien/trang/de-nghi-danh-sach.tsx` (hộp xác nhận `hoiXoa`), và luật chặn xoá
+              * khi hồ sơ đã phát sinh báo giá / đơn hàng vẫn nguyên ở tầng ghi. Bỏ ở menu thẻ chỉ
+              * gỡ **cái bẫy bấm nhầm**, không gỡ chức năng.
+              *
+              * ⚠️ ĐỪNG DỰNG LẠI Ở ĐÂY. Muốn dọn bảng cho gọn thì dùng **Lưu trữ** (đã dời sang
+              * trang chi tiết 12/09/2026) — hồ sơ ẩn khỏi bảng nhưng còn nguyên, và bỏ lưu trữ
+              * được. Đó mới là việc người dùng thật sự cần khi họ với tay tới nút Xóa.
+              *
+              * 📌 `thaoTac.onXoa` giữ nguyên trong kiểu prop: nơi gọi vẫn truyền xuống, và đây là
+              * chỗ duy nhất trong tệp này dùng tới. Bỏ khỏi kiểu là sửa lan sang tệp khác cho một
+              * việc thuần giao diện — không đáng.
+              */}
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>

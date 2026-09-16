@@ -18,9 +18,10 @@
 //    VAT · Uỷ nhiệm chi · Phiếu chi) xếp rời bên dưới **không mang số nào**. Trên màn hình số
 //    nhảy cóc 1 · 2 · 4 · 5 rồi hết. Nhìn vào thấy lộn xộn là đúng.
 //
-// ✅ NAY: **KHÔNG LỌC MỤC NÀO NỮA.** Cả 8 mục bày thành một dãy 1→8 liền mạch, mỗi chứng từ xuất
-//    hiện **đúng một lần ở đúng vị trí số của nó**. Mục nào nộp tệp tại bước ⑧ (3 · 6 · 7 · 8,
-//    khai ở `MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN`) thì **ô nộp nằm NGAY TRONG dòng ấy** — nơi gọi
+// ✅ NAY: **KHÔNG LỌC MỤC NÀO NỮA.** Cả 9 mục bày thành một dãy 1→9 liền mạch (8 mục tới
+//    15/09/2026, thêm mục 9 ngày 16/09/2026), mỗi chứng từ xuất
+//    hiện **đúng một lần ở đúng vị trí số của nó**. Mục nào nộp tệp tại bước ⑧ (nay là 4 · 6 · 7 ·
+//    8 · 9 — mục 3 đã bỏ ô nộp ngày 16/09/2026; khai ở `MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN`) thì **ô nộp nằm NGAY TRONG dòng ấy** — nơi gọi
 //    truyền xuống qua `oNopTheoMuc`, đủ cả xem · tải · nộp · thay · gỡ · thêm bản và nhãn đỏ
 //    "Bắt buộc" / "Nếu có".
 //
@@ -28,16 +29,25 @@
 //    tự vẽ là **chỉ đọc** (`LienKetTep`, không có đường ghi nào); ô nộp mới là chỗ làm việc thật.
 //    Riêng **Phiếu chi** thì ô ở bước ⑧ là chỗ DUY NHẤT trong cả app (CLAUDE.md §3.4b).
 //
-// 🔴 MỤC 9 *Đính kèm khác* VẪN CHƯA DỰNG — đã ĐO 15/09/2026 và kết luận **không dùng được**
-//    `KhuDinhKemGiaiDoan maGiaiDoan="ho_so_thanh_toan"`, vì khoá `"ho_so_thanh_toan"` CHÍNH LÀ
-//    `BUOC_DINH_KEM_HO_SO_THANH_TOAN` — cùng ngăn đang chứa Hoá đơn VAT · UNC · Phiếu chi. Đặt khu
-//    đính kèm tự do lên khoá đó thì: ① ba chứng từ ấy hiện LẠI lần nữa trong mục 9 (đúng chỗ trùng
-//    vừa bị bắt bỏ); ② nút "Gỡ" của khu đó xoá được Hoá đơn VAT thật, làm
+// ✅ MỤC 9 *Đính kèm khác* ĐÃ DỰNG 16/09/2026 — Sếp: ***"Cần thiết mở thêm để đính kèm tài liệu
+//    khác"***. Khối này trước đây ghi *"VẪN CHƯA DỰNG… CHƯA ĐƯỢC SẾP DUYỆT"*; nay đã được duyệt.
+// 🔴 ĐIỀU KIỆN SỐNG CÒN GIỮ NGUYÊN — mục 9 phải có **NGĂN RIÊNG** (`BUOC_DINH_KEM_KHAC`), TUYỆT
+//    ĐỐI KHÔNG dùng `maGiaiDoan="ho_so_thanh_toan"`. Ba hệ quả đã đo 15/09/2026, chép lại vì chúng
+//    vẫn đúng: ① Hoá đơn VAT · UNC · Phiếu chi hiện LẠI lần nữa trong mục 9 (đúng chỗ trùng vừa bị
+//    bắt bỏ); ② nút "Gỡ" của khu đó **xoá được Hoá đơn VAT thật**, làm
 //    `vuongMacDuyetHoanThanhDeNghi` chặn đóng hồ sơ; ③ hạn mức `TOI_DA_TEP_MOI_BUOC` = 5 tính CHUNG
 //    cho cả ngăn, nên mục 9 chỉ còn 1–2 chỗ rồi báo "Đã đủ 5 tệp cho bước này".
-//    👉 Muốn có mục 9 thì phải có **khoá ngăn riêng** — việc đó CHƯA ĐƯỢC SẾP DUYỆT. Đừng tự chế.
 //
-// ⚠️ DỮ LIỆU KHÔNG ĐỔI MỘT DÒNG: `dungBoHoSoThanhToan` vẫn trả **đủ 8 mục**, nên bộ đẩy sang app
+// ★★★ BA CHỈ ĐẠO SẾP 16/09/2026 CHẠM VÀO KHỐI NÀY, ngoài mục 9 ở trên:
+//    ① ***"Tách làm 2 mục riêng"*** — mục 3 (Hợp đồng) và mục 4 (Đơn mua hàng) thôi dùng chung một
+//       tệp. Tệp đính ở ngăn chung TRƯỚC khi tách hiện ở CẢ HAI mục; luật ở
+//       `bo-ho-so-thanh-toan.ts` → `tepDonMuaHangCuaMuc4`.
+//    ② ***"Bỏ nút đính kèm này, hợp đồng sẽ được link từ bước 3 xuống"*** — mục 3 THÔI có ô nộp,
+//       chỉ còn bày tệp. Ô nộp thật nằm ở bước ④ *Lập đơn mua hàng* (và bước ⑤).
+//    ③ ***"Bỏ ghi chú này"*** (khoanh nhãn xám "Nếu có" cạnh mục 1) — xem `hienNhanNeuCo`.
+//
+// ⚠️ TẦNG DỮ LIỆU: `dungBoHoSoThanhToan` trả **đủ 9 mục** (8 khoá cũ y nguyên + `dinh_kem_khac`
+//    thêm 16/09/2026), nên bộ đẩy sang app
 //    Kế toán vẫn nguyên vẹn. Đây thuần là việc BỐ CỤC. Đừng "dọn cho gọn" bằng cách xoá mục ở
 //    tầng dữ liệu — xoá là bên nhận hụt một khoá mà không có gì báo.
 //
@@ -47,8 +57,8 @@
 // ★★ Sếp 15/09/2026: *"Bố cục và kiểm tra nếu chưa có thì thêm các trường thông tin sau"* — đã sắp
 //    lại thứ tự (Hợp đồng trước Đơn mua hàng), tách Hoá đơn VAT / Uỷ nhiệm chi thành hai mục, nhóm
 //    Phiếu giao hàng theo từng lần giao, và biến mục 1 thành liên kết bấm được sang App Request.
-//    🔴 Mục 9 *Đính kèm khác* CHƯA dựng — bước ⑧ không có ô đính tệp tự do; lý do đầy đủ ở khối
-//    chú thích đầu `2-quy-trinh/bo-ho-so-thanh-toan.ts`. Đừng thêm ô đính kèm ở đây để "cho đủ".
+//    ✅ Mục 9 *Đính kèm khác* nay ĐÃ dựng (16/09/2026) — dòng này trước đây ghi "CHƯA dựng"; xem
+//    khối ✅ ở trên và `2-quy-trinh/bo-ho-so-thanh-toan.ts`.
 //
 // ★★ Sếp 15/09/2026 (lượt thứ ba trong ngày) — HAI VIỆC, cả hai đều ở khối này:
 //    ① ***"Bỏ ghi chú này"*** → bỏ hai dòng chữ dưới tiêu đề. Nguyên văn hai dòng và lý do vì sao
@@ -80,6 +90,8 @@ import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
    NGUYÊN ở `2-quy-trinh/bo-ho-so-thanh-toan.ts` và vẫn là hàm luật — chỉ khối này thôi gọi tới. */
 import {
   dungBoHoSoThanhToan,
+  hienNhanNeuCo,
+  kieuONop,
   laMaCoONop,
   loiKhaiThieuChungTu,
   type MaMucCoONop,
@@ -101,7 +113,7 @@ export function KhoiBoHoSoThanhToan({
   baoGiaCuaDeNghi: BaoGia[];
   /**
    * ★★ Ô NỘP TỆP CỦA TỪNG MỤC — Sếp 15/09/2026 (*"Bố cục lại này theo đúng thứ tự a đã cung
-   * cấp"*). Khối này bày cả 8 mục thành một dãy liền mạch; mục nào nộp tệp ngay tại bước ⑧ thì
+   * cấp"*). Khối này bày cả 9 mục thành một dãy liền mạch; mục nào nộp tệp ngay tại bước ⑧ thì
    * nơi gọi truyền `<OChungTuBatBuoc>` của mục đó xuống đây, và nó được vẽ **ngay trong dòng**.
    *
    * 🔴 VÌ SAO NHẬN SẴN PHẦN TỬ CHỨ KHÔNG TỰ DỰNG `OChungTuBatBuoc` Ở ĐÂY: ô nộp cần `duocSua`,
@@ -134,7 +146,7 @@ export function KhoiBoHoSoThanhToan({
    */
   xemGia: boolean;
 }) {
-  /* ĐỦ TÁM MỤC — giữ nguyên để bộ đẩy sang app Kế toán không hụt khoá nào. */
+  /* ĐỦ CHÍN MỤC (từ 16/09/2026) — giữ nguyên để bộ đẩy sang app Kế toán không hụt khoá nào. */
   const muc = dungBoHoSoThanhToan(deNghi, poCuaDeNghi, phieuCuaDeNghi, baoGiaCuaDeNghi);
 
   /**
@@ -143,7 +155,7 @@ export function KhoiBoHoSoThanhToan({
    *
    * Ở đây từng có `muc.filter((m) => !MA_MUC_NOP_TAI_BUOC_HO_SO_THANH_TOAN.includes(m.ma))` để
    * giấu bốn mục có ô nộp riêng bên dưới. Hậu quả trên màn hình: số nhảy cóc **1 · 2 · 4 · 5**,
-   * còn 3 · 6 · 7 · 8 nằm rời bên dưới **không mang số**. Nay bày đủ 8 mục theo một dãy liền
+   * còn 3 · 6 · 7 · 8 nằm rời bên dưới **không mang số**. Nay bày đủ 9 mục theo một dãy liền
    * mạch, và ô nộp đi vào đúng dòng của nó — xem `oNopTheoMuc`.
    *
    * 📌 HUY HIỆU ĐẾM ĐÃ BỎ KHỎI MÀN HÌNH 16/09/2026 — xem khối ❌❌ ngay trên thẻ `<section>`.
@@ -200,9 +212,9 @@ export function KhoiBoHoSoThanhToan({
         <FileText className="size-4 shrink-0 text-text-desc" aria-hidden />
         {/* 🔴 THÔI GỌI LÀ "ĐẦY ĐỦ" — Sếp 15/09/2026 chốt: *"bỏ chữ đầy đủ"*, giữ nguyên tên
             "Bộ hồ sơ thanh toán".
-            📌 Lý do bỏ chữ đó lúc ấy là khối chỉ bày 4/8 mục. Nay khối bày **đủ 8 mục**, nên chữ
-            "đầy đủ" về lý là đúng lại — **VẪN KHÔNG THÊM VÀO**: Sếp đã chốt tên khối, và mục 9
-            *Đính kèm khác* thì chưa dựng nên vẫn chưa thật sự "đầy đủ".
+            📌 Lý do bỏ chữ đó lúc ấy là khối chỉ bày 4/8 mục. Nay khối bày **đủ 9 mục**, kể cả
+            mục 9 *Đính kèm khác* (16/09/2026) — **VẪN KHÔNG THÊM CHỮ "đầy đủ" VÀO**: Sếp đã chốt
+            tên khối, và tên khối là chữ người dùng quen mắt.
             📌 Bản dựng trước tôi đặt là "Chứng từ gom từ các bước trước" — Sếp không chọn tên đó.
             Đừng đổi lại: tên khối là chữ người dùng quen mắt, và Sếp đã chốt. */}
         <span className="text-sm font-semibold text-text-primary">Bộ hồ sơ thanh toán</span>
@@ -216,18 +228,19 @@ export function KhoiBoHoSoThanhToan({
         *      từ."*
         *   ② *"{n} mục còn lại của bộ hồ sơ nộp ở các ô đính kèm ngay phía dưới, không liệt kê lại
         *      ở đây: 3. Hợp đồng · 6. Hoá đơn VAT · 7. Ủy nhiệm chi · 8. Phiếu chi. Bộ chuyển sang
-        *      app Kế toán vẫn đủ 8 mục."*
+        *      app Kế toán vẫn đủ 8 mục."* (con số đó nay là **9** — xem khối đầu tệp)
         *
         * 🔴 CHỈ BỎ PHẦN HIỂN THỊ — KIẾN THỨC THÌ GIỮ NGUYÊN Ở ĐÂY, vì nó vẫn đúng và vẫn là thứ
         * người sửa mã cần biết:
         *   · Phần khối này **tự vẽ** là chỉ đọc, không có đường ghi nào. Đường ghi duy nhất là các
         *     ô nộp do nơi gọi truyền xuống (`oNopTheoMuc`); sửa chứng từ của mục KHÔNG có ô nộp
         *     thì phải về đúng bước của nó.
-        *   · `dungBoHoSoThanhToan` **vẫn trả đủ 8 mục**, nên bộ đẩy sang app Kế toán không hụt gì.
+        *   · `dungBoHoSoThanhToan` **trả đủ 9 mục** (từ 16/09/2026), nên bộ đẩy sang app Kế toán
+        *     không hụt gì.
         *
         * ✅ CÁI GIÁ CŨ ĐÃ HẾT (15/09/2026, lượt thứ tư): trước đó số thứ tự nhảy cóc **1 · 2 · 4 ·
         * 5** mà không còn chỗ nào giải thích — Sếp bắt đúng chỗ đó (*"sao e làm nó lộn xộn vậy"*).
-        * Nay danh sách chạy liền 1→8 nên **không còn gì phải giải thích**, và đó chính là lý do
+        * Nay danh sách chạy liền 1→9 nên **không còn gì phải giải thích**, và đó chính là lý do
         * KHÔNG được viết lại hai dòng ghi chú trên: thêm chữ vào lúc này là vừa trái chỉ đạo *"Bỏ
         * ghi chú này"*, vừa giải thích một chuyện không còn tồn tại.
         *
@@ -249,6 +262,16 @@ export function KhoiBoHoSoThanhToan({
            * mất đường nộp tệp mà không lỗi nào báo.
            */
           const oNop = laMaCoONop(m.ma) ? oNopTheoMuc[m.ma] : null;
+          /**
+           * ★★ HAI KIỂU Ô NỘP — Sếp 16/09/2026 (mục 9 *Đính kèm khác*). Quyết định nằm ở hàm thuần
+           * `kieuONop` (`2-quy-trinh/bo-ho-so-thanh-toan.ts`), KHÔNG viết `if` ở đây — nhờ vậy
+           * `kiem-luat-dung-chung.mjs` gọi thật được (CLAUDE.md §6.6).
+           *
+           * 🔴 VÌ SAO PHẢI PHÂN BIỆT: `OChungTuBatBuoc` **tự in tên chứng từ**, còn
+           * `KhuDinhKemGiaiDoan` thì không in gì. Vẽ mục 9 bằng nhánh gọn (dành cho ô có tên) là
+           * dòng đó hiện ra một cục không tên, không số — người đọc không biết đó là mục mấy.
+           */
+          const kieu = kieuONop(m.ma);
           /**
            * ★★★ LỜI KHAI "CHƯA CÓ CHỨNG TỪ" LINK TỪ BƯỚC ④ XUỐNG ĐÂY — Sếp 16/09/2026:
            * ***"Ở bước 3, đang có nút chọn 'Bổ sung sau' và 'Không có HĐ' a muốn link cái này
@@ -287,7 +310,7 @@ export function KhoiBoHoSoThanhToan({
                         : "border-border bg-muted"
               }`}
             >
-              {oNop ? (
+              {kieu === "o_co_ten" && oNop ? (
                 /**
                  * ★ DÒNG CÓ Ô NỘP — số thứ tự và dấu ✓/– ở cột trái, ô nộp chiếm phần còn lại.
                  *
@@ -334,8 +357,23 @@ export function KhoiBoHoSoThanhToan({
                   <Minus className="size-4 shrink-0 text-text-desc" aria-hidden />
                 )}
                 <span className="text-sm font-medium text-text-primary">{m.ten}</span>
-                {/* Nói rõ mục nào "nếu có" — để người dùng không đi tìm chứng từ không tồn tại. */}
-                {!m.batBuoc && (
+                {/**
+                  * Nói rõ mục nào "nếu có" — để người dùng không đi tìm chứng từ không tồn tại.
+                  *
+                  * ❌ TRỪ MỤC 1 *Phiếu đề nghị* — Sếp 16/09/2026 khoanh đỏ đúng nhãn xám đó và ghi
+                  * ***"Bỏ ghi chú này"***. Mục 1 không phải thứ người dùng nộp (app không giữ bản
+                  * sao, bản gốc nằm bên App Request), nên "có hay không có" là câu hỏi vô nghĩa ở
+                  * đấy.
+                  *
+                  * 🔴 ĐIỀU KIỆN ĐỌC TỪ HÀM THUẦN `hienNhanNeuCo`, KHÔNG viết `m.ma !== ...` ở đây,
+                  * và **TUYỆT ĐỐI KHÔNG** chữa bằng cách sửa `m.batBuoc` — sửa `batBuoc` là đổi dữ
+                  * liệu thật, mục 1 thành bắt buộc và mọi hồ sơ đều báo thiếu. Lý do đầy đủ + bài
+                  * kiểm máy: xem `hienNhanNeuCo`.
+                  *
+                  * 📌 Mục 7 · 8 · 9 GIỮ NGUYÊN nhãn này — Sếp không khoanh chúng, và ở đó nhãn đúng
+                  * nghĩa (đơn trả tiền mặt có phiếu chi, trả chuyển khoản thì không).
+                  */}
+                {hienNhanNeuCo(m) && (
                   <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-text-secondary">
                     Nếu có
                   </span>
@@ -432,14 +470,46 @@ export function KhoiBoHoSoThanhToan({
                   * Đó là lý do prop `xemGia` vẫn nhận ở đầu tệp dù hiện không đọc tới.
                   */}
 
-                {m.ghiChu && <span className="text-xs text-warning-soft">{m.ghiChu}</span>}
+                {/**
+                  * ★★★ KHU ĐÍNH KÈM TỰ DO CỦA MỤC 9 — Sếp 16/09/2026: ***"Cần thiết mở thêm để
+                  * đính kèm tài liệu khác"***.
+                  *
+                  * 🔴 ĐẶT TRONG RUỘT MỤC, SAU danh sách tệp: dòng vẫn có hàng nhãn *"9. Đính kèm
+                  * khác"* và dấu ✓/– như mọi mục khác, rồi mới tới chỗ nộp. Đưa lên nhánh gọn (dành
+                  * cho `OChungTuBatBuoc`) là mục 9 mất tên và mất số.
+                  *
+                  * 🔴 KHU NÀY GHI VÀO **NGĂN RIÊNG** `BUOC_DINH_KEM_KHAC` — nơi gọi truyền xuống,
+                  * xem `de-nghi-chi-tiet.tsx`. TUYỆT ĐỐI không để nó trỏ vào ngăn
+                  * `ho_so_thanh_toan`: nút "Gỡ" của khu tự do sẽ xoá được **Hoá đơn VAT thật**, và
+                  * mất hoá đơn là hồ sơ không đóng được nữa. Ba hệ quả đã đo, chép đủ ở chỗ khai
+                  * hằng số trong `chung-tu-cuoi-quy-trinh.ts`.
+                  */}
+                {kieu === "khu_tu_do" && oNop}
               </div>
                 </>
               )}
 
               {/**
+                * ★★★ CÂU `ghiChu` CỦA MỤC — DỜI LÊN CẤP `<li>` NGÀY 16/09/2026. ĐỌC TRƯỚC KHI ĐẨY
+                * NÓ TRỞ LẠI VÀO RUỘT MỤC.
+                *
+                * 🔴 TRƯỚC HÔM NAY NÓ NẰM TRONG NHÁNH CHỈ-ĐỌC, và điều đó **im lặng nuốt mất câu
+                * ghi chú của mọi mục có ô nộp**. Chưa lộ ra chỉ vì tới 15/09/2026 không mục nào vừa
+                * có ô nộp vừa có `ghiChu`. Nay mục 4 có cả hai: nó vừa mang ô nộp *Đơn mua hàng*,
+                * vừa phải nói câu *"đang dùng chung tệp với mục 3 — tệp này đính trước khi tách"*.
+                * Để nguyên chỗ cũ là người đối chiếu thấy mục 3 và mục 4 cùng một tờ mà **không có
+                * một chữ nào giải thích**, rồi tưởng hồ sơ có hai chứng từ khác nhau.
+                *
+                * 📌 KHÔNG SINH RA DÒNG THỪA: `ghiChu` chỉ được đặt khi có chuyện phải nói (mục
+                * thiếu chứng từ, hoặc mục 4 đang mượn tệp chung) — xem `dungBoHoSoThanhToan`.
+                */}
+              {m.ghiChu && (
+                <span className="pl-7 text-xs text-warning-soft">{m.ghiChu}</span>
+              )}
+
+              {/**
                 * ★★★ DÒNG LỜI KHAI — Sếp 16/09/2026. Vẽ Ở CẤP `<li>`, NGOÀI cả hai nhánh, cố ý:
-                * mục 3 có ô nộp (đi nhánh trên) còn mục 4 chỉ đọc (nhánh dưới). Nhét vào một
+                * mục 4 có ô nộp (đi nhánh trên) còn mục 3 chỉ đọc (nhánh dưới). Nhét vào một
                 * nhánh là đúng một trong hai mục im lặng mất lời khai — mà Sếp yêu cầu **cả hai**.
                 *
                 * 🔴 TRẠNG THÁI CÓ CẢ MÀU LẪN CHỮ (Design System V1.1 §3.2): nền dòng đổi màu, và
