@@ -57,6 +57,17 @@
 export interface VetBanGhiMoi {
   /** Đã nhận bao nhiêu ảnh chụp từ máy chủ mà vẫn KHÔNG thấy id này. */
   soAnhChupVang: number;
+  /**
+   * Mốc thời gian (ms kiểu `Date.now()`) máy này ghi bản ghi vào sổ.
+   *
+   * 🔴 CHỈ DÙNG CHO SỔ CẤT TRÊN MÁY (xem `docSoDaLuuTuChuoi`). Trong một phiên đang chạy thì
+   * trường này KHÔNG quyết định gì cả — bản ghi vẫn được giữ mãi đúng như `quaHanDongBo` mô tả.
+   *
+   * ⚠️ Để TUỲ CHỌN là cố ý: sổ đời cũ (cất trước 15/09/2026) không có trường này, và bài kiểm
+   * dựng vết bằng tay cũng không cần khai. Thiếu mốc thì `docSoDaLuuTuChuoi` **bỏ** mục đó —
+   * không bịa ra một mốc mới, vì bịa mốc là gia hạn vô thời hạn cho một mục không rõ tuổi.
+   */
+  tao?: number;
 }
 
 /**
@@ -204,9 +215,124 @@ export function soSauAnhChup(
   for (const [id, vet] of dangGiu) {
     if (idTrongAnhChup.has(id)) continue; // ✅ đã lên máy chủ — thôi theo dõi, VĨNH VIỄN
     if (!idConTaiMay.has(id)) continue; // ✅ chính máy này đã bỏ nó đi
-    ra.set(id, { soAnhChupVang: vet.soAnhChupVang + 1 });
+    /* 🔴 `...vet` để GIỮ `tao`. Viết `{ soAnhChupVang: … }` trơn là mỗi ảnh chụp lại xoá mốc
+       tạo, và sổ cất trên máy mất tuổi → `docSoDaLuuTuChuoi` bỏ nó ngay lần tải trang sau. */
+    ra.set(id, { ...vet, soAnhChupVang: vet.soAnhChupVang + 1 });
   }
   return ra;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ★★ ⑤ SỔ PHẢI SỐNG QUA MỘT LẦN TẢI LẠI TRANG — sự cố mất đơn LẦN THỨ HAI, 15/09/2026 ~20:35.
+//
+// Bản vá lúc 19:33 đã lên production và đã được xác minh trong bundle, NHƯNG Sếp lập đơn
+// `po-7a4d4418-bb18-486b-b0bc-b40aa990a20d` lúc ~20:35 và **vẫn mất**. Đo lại kho chung
+// (`hpcons-portal`, `chay-thu/du-lieu-chung`, `updateTime` 13:35:54Z = 20:35 giờ VN, tức kho VẪN
+// đang nhận ghi bình thường): đơn đó KHÔNG tồn tại, vẫn đúng 7 đơn như trước.
+//
+// 🔴 VÌ SAO BẢN VÁ 19:33 CHƯA ĐỦ: cả cuốn sổ nằm trong `useRef` của `DuLieuProvider`. Ref sống
+// đúng bằng tuổi của **một document trình duyệt**. Mất sổ là mất luôn lớp bảo vệ, mà bản ghi thì
+// vẫn còn trong `localStorage` — nên ảnh chụp kế tiếp `apDung` xoá nó, RỒI GHI ĐÈ `localStorage`
+// bằng bộ đã thiếu. Bản cuối cùng còn tồn tại trên đời bị chính máy của người dùng xoá.
+//
+// Ba đường làm mất sổ, đều có thật trong app này:
+//   ① Bấm F5 / trình duyệt tự tải lại.
+//   ② Trang in mở bằng TAB MỚI — `don-hang-chi-tiet.tsx` dùng `<Link target="_blank">`. Tab mới
+//      là một document mới toanh: sổ rỗng, nhưng nó vẫn đọc `localStorage` và vẫn ghi lên kho
+//      chung. Tức là tab in **xoá đơn hộ** cho tab đang lập.
+//   ③ Next.js rơi về điều hướng cứng (hard navigation) khi bản deploy đổi giữa chừng — tối
+//      15/09 deploy liên tục nên ca này hoàn toàn có thật.
+//
+// 👉 Cất sổ xuống `localStorage`. Phần QUYẾT ĐỊNH (đọc/ghi/lọc hạn) nằm ở đây cho gọi thật được;
+// phần chạm `localStorage` nằm ở `3-du-lieu/so-giu-ban-ghi-moi.ts`.
+// ════════════════════════════════════════════════════════════════════
+
+/**
+ * ★ HẠN DÙNG CỦA MỘT MỤC TRONG SỔ CẤT TRÊN MÁY — **24 giờ**.
+ *
+ * 🔴 VÌ SAO SỔ CẤT XUỐNG MÁY BẮT BUỘC PHẢI CÓ HẠN, TRONG KHI SỔ TRONG PHIÊN THÌ KHÔNG.
+ *
+ * Cửa một chiều (`soSauAnhChup`) chỉ chặt khi cuốn sổ chết cùng phiên: bản ghi chưa từng lên máy
+ * chủ thì **không một ai khác từng thấy nó**, nên không thể có chuyện "người khác cố ý xoá".
+ * Sổ sống qua nhiều ngày thì lập luận đó **thủng**, vì mở ra ca này:
+ *
+ *   · Máy A tạo X hôm qua, X chưa kịp lên kho chung.
+ *   · Hôm nay người B thấy X (qua đường khác — báo cáo, hoặc X có lên rồi lại bị một lần ghi đè
+ *     xoá mất) và chủ động xoá X.
+ *   · A mở lại app, sổ vẫn nhớ X ⇒ A dựng X sống lại, và cứ thế mãi mãi.
+ *
+ * Hạn dùng là thứ đóng ca đó lại: quá hạn thì máy A thôi giữ, ý muốn của B đi qua được.
+ *
+ * ── VÌ SAO CHỌN ĐÚNG 24 GIỜ ──────────────────────────────────────────────────────────────────
+ *   · **Phải qua được một đêm.** Đơn của Sếp lập lúc 20:35; sáng hôm sau mở máy lúc 7–8 giờ là
+ *     ~11 giờ. Chọn 4 hay 8 tiếng là **mất đúng cái ca đang chữa** — sổ hết hạn trước khi người
+ *     dùng kịp mở lại app để đơn được đẩy lên.
+ *   · **Không nên dài hơn một ngày làm việc.** Bản ghi nằm 24 giờ mà chưa lên được kho chung thì
+ *     đường ghi hỏng thật, không phải chậm — và người dùng đã được báo từ lâu (`quaHanDongBo`
+ *     bật sau 10 ảnh chụp vắng mặt). Giữ thêm nhiều ngày chỉ làm rộng cửa hồi sinh ở trên mà
+ *     không cứu thêm được gì.
+ *   · **Con số dễ giải thích cho người dùng và cho người đọc mã sau này** — "mở lại app trong
+ *     ngày hôm sau là đơn tự lên". Nửa ngày hay 36 tiếng đều khó nói thành câu.
+ *
+ * ⚠️ HẠN NÀY CHỈ ÁP LÚC ĐỌC SỔ TỪ MÁY. App đang mở liên tục ba ngày thì bản ghi vẫn được giữ
+ * nguyên — đó là hành vi cũ, đã có bài kiểm canh (*"quá hạn vẫn GIỮ, chỉ đổi lời app nói"*), và
+ * cố ý không đụng tới: trong một phiên thì lập luận cửa một chiều vẫn còn chặt.
+ */
+export const HAN_GIU_BAN_GHI_MS = 24 * 60 * 60 * 1000;
+
+/** Một mục trong sổ còn trong hạn giữ không? `tao` thiếu hoặc không hợp lệ ⇒ **không**. */
+export function conTrongHanGiu(vet: VetBanGhiMoi | undefined, bayGio: number): boolean {
+  if (!vet) return false;
+  const tao = vet.tao;
+  if (typeof tao !== "number" || !Number.isFinite(tao)) return false;
+  /* Mốc ở tương lai (đồng hồ máy bị chỉnh lùi rồi chỉnh tới) vẫn tính là còn hạn — chiều an toàn
+     đúng: thà giữ thừa một bản ghi của chính mình còn hơn vứt nó đi. */
+  if (tao > bayGio) return true;
+  return bayGio - tao < HAN_GIU_BAN_GHI_MS;
+}
+
+/**
+ * ★ ĐỌC SỔ TỪ CHUỖI ĐÃ CẤT — hàm THUẦN, `kiem-luat-dung-chung.mjs` gọi thật được.
+ *
+ * Bỏ qua, KHÔNG ném lỗi, với mọi thứ không đọc được: `null`, chuỗi rỗng, JSON hỏng, không phải
+ * object, mục thiếu trường, và **mục quá hạn**.
+ *
+ * 🔴 HỎNG THÌ PHẢI TRẢ SỔ RỖNG, KHÔNG ĐƯỢC NÉM. Sổ rỗng = quay về đúng hành vi trước bản vá
+ * (không giữ gì) — mất một lớp bảo vệ, nhưng app vẫn chạy. Ném lỗi ở đây là làm chết
+ * `DuLieuProvider`, tức chết cả app, vì một thứ chỉ là lưới an toàn.
+ *
+ * @param tho    Chuỗi JSON đọc từ `localStorage`, hoặc `null` khi chưa có gì.
+ * @param bayGio `Date.now()` do nơi gọi truyền vào — để tệp này không đụng đồng hồ (xem đầu tệp).
+ */
+export function docSoDaLuuTuChuoi(
+  tho: string | null | undefined,
+  bayGio: number,
+): Map<string, VetBanGhiMoi> {
+  const ra = new Map<string, VetBanGhiMoi>();
+  if (typeof tho !== "string" || tho.trim() === "") return ra;
+  let x: unknown;
+  try {
+    x = JSON.parse(tho);
+  } catch {
+    return ra;
+  }
+  if (!x || typeof x !== "object" || Array.isArray(x)) return ra;
+  for (const [khoa, m] of Object.entries(x as Record<string, unknown>)) {
+    if (!khoa || !m || typeof m !== "object" || Array.isArray(m)) continue;
+    const { soAnhChupVang, tao } = m as Partial<VetBanGhiMoi>;
+    if (typeof soAnhChupVang !== "number" || !Number.isFinite(soAnhChupVang)) continue;
+    const vet: VetBanGhiMoi = { soAnhChupVang, tao };
+    if (!conTrongHanGiu(vet, bayGio)) continue; // 🔴 quá hạn / không rõ tuổi ⇒ BỎ, chống hồi sinh
+    ra.set(khoa, vet);
+  }
+  return ra;
+}
+
+/** ★ Dựng chuỗi để cất sổ xuống máy. Hàm thuần, đối xứng với `docSoDaLuuTuChuoi`. */
+export function ghiSoRaChuoi(so: ReadonlyMap<string, VetBanGhiMoi>): string {
+  const obj: Record<string, VetBanGhiMoi> = {};
+  for (const [khoa, vet] of so) obj[khoa] = vet;
+  return JSON.stringify(obj);
 }
 
 // ════════════════════════════════════════════════════════════════════

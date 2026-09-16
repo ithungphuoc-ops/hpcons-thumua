@@ -64,6 +64,11 @@ import {
      có bắt ghi lý do không" để hiện ô đỏ; tự viết một phép so thứ hai ở đây là sớm muộn lệch với
      `suaDonHang`, và người dùng gõ xong cả đơn mới bị cửa ghi từ chối. */
   mocSuaDieuKienThuongMai,
+  /* ★ Ba thứ của chỉ đạo 16/09/2026 (*"cho phép tăng giảm mặt hàng, số lượng, đơn giá, thuế"*) —
+     cùng một lý do như trên: luật một bản, form chỉ hiện lại. */
+  khoiLuongDaNhanTheoDongPO,
+  soatBangMatHangKhiSua,
+  taCacDongVuot,
   type DieuKienThuongMaiPO,
   type ThayDoiDonHang,
 } from "@/3-du-lieu/kho-du-lieu";
@@ -939,6 +944,34 @@ export function FormLapDonMuaHang({
     return dongPOBiKhoaNoiDung(phieuNhan.filter((p) => p.poId === poDangSua.id));
   }, [poDangSua, phieuNhan]);
 
+  /**
+   * ★★★ KHỐI LƯỢNG ĐÃ NHẬN CỦA TỪNG DÒNG — sàn cứng khi hạ số lượng (Sếp 16/09/2026).
+   *
+   * 🔴 GỌI ĐÚNG HÀM CỦA TẦNG GHI (`khoiLuongDaNhanTheoDongPO`), không cộng tay bản thứ hai: form
+   * và tầng ghi phải nói cùng một con số, lệch một ly là form bảo lưu được rồi cửa ghi từ chối.
+   */
+  const daNhanTheoDongPO = useMemo(() => {
+    if (!poDangSua) return new Map<number, number>();
+    return khoiLuongDaNhanTheoDongPO(phieuNhan.filter((p) => p.poId === poDangSua.id));
+  }, [poDangSua, phieuNhan]);
+
+  /**
+   * ★★★ TIẾN ĐỘ CỦA ĐỀ NGHỊ GỐC — chỉ dựng ở CHẾ ĐỘ SỬA (16/09/2026).
+   *
+   * 🔴 VÌ SAO PHẢI TỰ TRA LẤY: chế độ sửa gọi form với `deNghi={null}` (xem chú thích ở
+   * `poDangSua`), nên `tienDo` phía trên luôn rỗng. Không có nó thì form **không biết khối lượng
+   * đã duyệt là bao nhiêu**, và cảnh báo vượt duyệt (chốt A) chỉ còn hiện lúc bấm Lưu — người
+   * dùng gõ xong cả đơn mới biết mình đang vượt. Nói sớm là đúng nếp §3.5 của dự án.
+   *
+   * ⚠️ DÙNG `donHang` HIỆN TẠI, GỒM CẢ ĐƠN ĐANG SỬA — `soatBangMatHangKhiSua` cộng ngược lại phần
+   * của chính đơn này, nên lọc bỏ nó ra là ngân sách bị trừ hai lần rồi báo vượt oan.
+   */
+  const tienDoDeNghiCuaPOSua = useMemo(() => {
+    if (!poDangSua?.prId) return [];
+    const dnGoc = dsDeNghi.find((d) => d.id === poDangSua.prId);
+    return dnGoc ? tinhTienDoDeNghi(dnGoc, donHang, phieuNhan) : [];
+  }, [poDangSua, dsDeNghi, donHang, phieuNhan]);
+
   useEffect(() => {
     if (daNapTuPO.current) return;
     if (!poDangSua) return;
@@ -1328,12 +1361,19 @@ export function FormLapDonMuaHang({
       if (!laSuaDon) return false;
       const stt = sttGocTheoId.current.get(id);
       if (stt === undefined || !dongDaNhanCuaPO.has(stt)) return false;
-      const dungToi =
-        phan.tenHang !== undefined || phan.dvt !== undefined || phan.soLuong !== undefined;
+      /* ★★★ SỐ LƯỢNG ĐÃ RỜI KHỎI DANH SÁCH KHOÁ — Sếp 16/09/2026: *"cho phép tăng giảm … số
+         lượng"*. Nay số lượng của dòng đã nhận SỬA ĐƯỢC, chỉ có một cái sàn: không hạ xuống dưới
+         khối lượng đã nhận (luật ở `soatBangMatHangKhiSua`, tầng ghi — và `luuSua()` nói trước
+         bằng đúng con số đó). Sàn ấy phải kiểm lúc LƯU chứ không kiểm lúc gõ: chặn từng phím thì
+         người dùng không xoá trắng ô để gõ lại số khác được.
+         🔴 TÊN HÀNG và ĐVT VẪN KHOÁ — chỉ đạo 16/09 nói về "tăng giảm mặt hàng/số lượng", không
+         nói về việc đổi một dòng đã nhận thành mặt hàng khác. Phiếu nhận cũ trỏ theo VỊ TRÍ dòng,
+         đổi tên là phiếu đó bỗng nói về một thứ khác và không truy vết lại được. */
+      const dungToi = phan.tenHang !== undefined || phan.dvt !== undefined;
       if (!dungToi) return false;
       toast.info("Dòng này đã có phiếu nhận hàng", {
         description:
-          "Không sửa được tên hàng, đơn vị tính và số lượng của dòng đã nhận — phiếu nhận cũ trỏ về đúng dòng này. Cần đặt thêm thì thêm một dòng mới.",
+          "Không đổi được tên hàng và đơn vị tính của dòng đã nhận — phiếu nhận cũ trỏ về đúng dòng này. Số lượng và đơn giá thì vẫn sửa được; cần đặt một mặt hàng khác thì thêm dòng mới.",
       });
       return true;
     },
@@ -1362,7 +1402,11 @@ export function FormLapDonMuaHang({
         const stt = sttGocTheoId.current.get(id);
         if (stt !== undefined && dongDaNhanCuaPO.has(stt)) {
           toast.info("Dòng này đã có phiếu nhận hàng", {
-            description: "Đã nhận hàng rồi thì không xoá dòng khỏi đơn được nữa.",
+            /* 🔴 CHỐT NGHIỆP VỤ, KHÔNG PHẢI CHỐT DUYỆT — chỉ đạo 16/09/2026 mở cho thêm/bớt mặt
+               hàng nhưng KHÔNG đụng tới cái này: xoá một dòng đã có phiếu nhận là để lại phiếu
+               nhận trỏ về một dòng không còn tồn tại, mà phiếu đó là căn cứ thanh toán. */
+            description:
+              "Đã nhận hàng rồi thì không xoá dòng khỏi đơn được nữa — phiếu nhận là căn cứ thanh toán. Số lượng vẫn hạ được, nhưng thấp nhất là bằng phần đã nhận.",
           });
           return;
         }
@@ -1413,27 +1457,22 @@ export function FormLapDonMuaHang({
    */
   const themDong = useCallback(() => {
     /**
-     * ★ CHẾ ĐỘ SỬA: ĐƠN LẬP TỪ ĐỀ NGHỊ KHÔNG THÊM DÒNG MỚI — luật siết 15/09/2026 sáng, giữ
-     * nguyên khi dời từ hộp thoại sang form.
+     * ★★★ MỞ 16/09/2026 — Sếp: *"khi sửa đơn thì cho phép tăng giảm mặt hàng, số lượng, đơn giá,
+     * thuế. Hãy sửa và mở thêm tính năng"*.
      *
-     * 🔴 VÌ SAO: thêm mặt hàng + số lượng + đơn giá tuỳ ý vào một PO **đã chốt** là đi vòng qua
-     * bước ③ Xét duyệt báo giá và qua khối lượng đã duyệt của đề nghị — một đường lách quanh cả
-     * quy trình duyệt, ngay trong màn "sửa đơn".
+     * ❌ CHỖ NÀY TRƯỚC ĐÂY CHẶN CỨNG (luật 15/09/2026 sáng: *"đơn lập từ đề nghị không thêm dòng
+     * mới"*). Chặn đó đã được Sếp gỡ có chủ đích, đổi lấy hai chốt khác:
+     *   · (A) đặt vượt khối lượng đã duyệt → cảnh báo kèm con số + bắt ghi lý do (vẫn lưu được)
+     *   · (B) dòng thêm mới → đóng cờ `themNgoaiDeNghi`, hiện nhãn cho Kế toán và người duyệt
+     * Cả hai chốt nằm ở `soatBangMatHangKhiSua` (`3-du-lieu/kho-du-lieu.tsx`) — tầng ghi, nên
+     * không có đường nào lách qua. Dựng lại chặn cứng ở đây là đi ngược chỉ đạo 16/09/2026.
      *
-     * ⚠️ NÚT ĐÃ ĐƯỢC KHOÁ SẴN (`conMatHangDeThem={false}` truyền cho `BangHangTien`, kèm câu nói
-     * rõ lý do). Dòng này là lớp thứ hai cho phím tắt F9 và cho mọi đường gọi khác — khoá nút chỉ
-     * che một đường trong ba.
+     * 📌 Ở chế độ sửa, form nhận `deNghi={null}` nên `laDonDocLap === true` → chèn một dòng trắng
+     * gõ tay. Đúng thứ cần: mặt hàng thêm ngoài đề nghị thì không trỏ về dòng đề nghị nào.
      */
-    if (laSuaDon && poDangSua?.prId) {
-      toast.info("Không thêm dòng mới ở đây", {
-        description:
-          "Đơn này lập từ đề nghị nên mặt hàng phải bám khối lượng đã được duyệt. Cần đặt thêm thì lập đề nghị mới, hoặc lập một đơn hàng khác.",
-      });
-      return;
-    }
     if (laDonDocLap) themDongTrong();
     else setMoChonMatHang(true);
-  }, [laDonDocLap, laSuaDon, poDangSua, themDongTrong]);
+  }, [laDonDocLap, themDongTrong]);
 
   /** Một dòng trắng — dùng chung cho [Thêm dòng], dấu [+] và [Thêm ghi chú]. */
   const dongTrong = useCallback(
@@ -1469,15 +1508,9 @@ export function FormLapDonMuaHang({
    */
   const chenDongDuoi = useCallback(
     (idTren: string) => {
-      /* ★ Cùng luật với [Thêm dòng] ở chế độ sửa (15/09/2026): dấu [+] cũng chèn một dòng hàng
-         gõ tay, nên với đơn lập từ đề nghị nó cũng là đường lách quanh khối lượng đã duyệt. */
-      if (laSuaDon && poDangSua?.prId) {
-        toast.info("Không thêm dòng mới ở đây", {
-          description:
-            "Đơn này lập từ đề nghị nên mặt hàng phải bám khối lượng đã được duyệt. Vẫn chèn được dòng GHI CHÚ.",
-        });
-        return;
-      }
+      /* ★ MỞ 16/09/2026 cùng lượt với [Thêm dòng] — xem chú thích ở `themDong`. Dấu [+] chèn một
+         dòng hàng gõ tay; ở đơn lập từ đề nghị nó thành "hàng thêm ngoài đề nghị" và được tầng
+         ghi đóng cờ + hiện nhãn, chứ không còn bị chặn. */
       setDongBang((t) => {
         const i = t.findIndex((d) => d.id === idTren);
         /* Không tìm thấy (dòng vừa bị xóa ở tab khác) thì thêm vào cuối — thà thêm sai chỗ còn
@@ -1486,7 +1519,7 @@ export function FormLapDonMuaHang({
         return [...t.slice(0, i + 1), dongTrong(false), ...t.slice(i + 1)];
       });
     },
-    [dongTrong, laSuaDon, poDangSua],
+    [dongTrong],
   );
 
   /**
@@ -2617,8 +2650,47 @@ export function FormLapDonMuaHang({
       dieuKienThuongMaiDangNhap,
     ).doiTien;
 
+  /**
+   * ★★★ SOÁT SỐNG BẢNG MẶT HÀNG — chốt (A) và (B) của Sếp 16/09/2026, nói TRƯỚC khi bấm Lưu.
+   *
+   * 🔴 GỌI ĐÚNG HÀM LUẬT CỦA TẦNG GHI, không so lại bản thứ hai ở đây. `suaDonHang` cũng gọi
+   * chính nó với chính những tham số này, nên hai bên không thể nói lệch nhau — đúng nếp đã ghi
+   * ở `doiTienSua` ngay trên.
+   *
+   * 🔴 KHÔNG DÙNG `dungItemsBanSua()`: hàm đó **CẤP SỐ THỨ TỰ MỚI** và ghi vào `sttGocTheoId`
+   * (một ref) — gọi trong lúc render là mỗi lần vẽ lại lại tiêu mất vài số thứ tự, và dòng mới
+   * nhận số khác nhau giữa lần vẽ và lần lưu. Ở đây dựng bản XEM TRƯỚC với số âm cho dòng mới:
+   * số âm không bao giờ trùng `sttDong` thật (luôn ≥ 1) nên phép soát vẫn nhận ra "dòng mới".
+   *
+   * ⚠️ CỐ Ý KHÔNG BỌC `useMemo` — cùng lý do đã ghi ở `dieuKienThuongMaiDangNhap`: khối này nằm
+   * sau các `return` sớm của form, mà React Hook không được gọi sau một nhánh thoát.
+   */
+  const soatBangSua = laSuaDon && poDangSua
+    ? soatBangMatHangKhiSua(
+        poDangSua.items,
+        dongBang
+          .filter((d) => d.laGhiChu || dongTuDoDuVaoDon(d))
+          .map((d, i) => ({
+            sttDong: sttGocTheoId.current.get(d.id) ?? -(i + 1),
+            sttDongDeNghi: d.laGhiChu ? 0 : d.sttDeNghi,
+            tenVatLieu: d.tenHang.trim(),
+            donViTinh: d.dvt.trim(),
+            khoiLuongDat: Number(d.soLuong) || 0,
+            laDongGhiChu: d.laGhiChu,
+          })),
+        tienDoDeNghiCuaPOSua,
+        daNhanTheoDongPO,
+        !!poDangSua.prId,
+      )
+    : null;
+
   const batBuocLyDoSua =
-    laSuaDon && (!quyen.suaPODaChot || doiNgayGiaoSua || doiNCCSua || doiTienSua);
+    laSuaDon &&
+    (!quyen.suaPODaChot ||
+      doiNgayGiaoSua ||
+      doiNCCSua ||
+      doiTienSua ||
+      soatBangSua?.batLyDo === true);
 
   /**
    * Dựng mảng `items` mới của đơn từ bảng đang nhập.
@@ -2693,7 +2765,9 @@ export function FormLapDonMuaHang({
       toast.error("Chưa ghi lý do", {
         /* 🔴 THỨ TỰ PHẢI GIỐNG HỆT `suaDonHang` — hai nơi nói hai lý do khác nhau cho cùng một lần
            bấm là người dùng không biết tin câu nào. */
-        description: doiNgayGiaoSua
+        description: soatBangSua?.batLyDo
+          ? `Đang đặt vượt khối lượng đã được duyệt — ${taCacDongVuot(soatBangSua.vuot)}. Vẫn lưu được, nhưng phải ghi rõ lý do vượt để người duyệt và Kế toán đối chiếu sau này.`
+          : doiNgayGiaoSua
           ? "Đổi ngày giao phải ghi lý do, dù là ai sửa."
           : doiNCCSua
             ? "Đổi nhà cung cấp phải ghi lý do, dù là ai sửa."
@@ -3057,30 +3131,110 @@ export function FormLapDonMuaHang({
             <strong className="text-text-primary">
               {dongDaNhanCuaPO.size} dòng đã có phiếu nhận hàng
             </strong>{" "}
-            nên không sửa được <strong>tên hàng · đơn vị tính · số lượng</strong> của những dòng
-            đó, và cũng không xoá được. Phiếu nhận cũ trỏ về đúng vị trí dòng — đổi nội dung là
-            phiếu đó nói về một mặt hàng khác. Mã hàng, thông số, mục đích và đơn giá vẫn sửa được.
+            nên không đổi được <strong>tên hàng · đơn vị tính</strong> của những dòng đó, và cũng
+            không xoá được — phiếu nhận cũ trỏ về đúng vị trí dòng, đổi nội dung là phiếu đó nói
+            về một mặt hàng khác. <strong>Số lượng thì sửa được</strong>, chỉ không hạ xuống dưới
+            khối lượng đã nhận (hạ thấp hơn là đơn thành &quot;nhận nhiều hơn đặt&quot;, mà số đã
+            nhận là căn cứ thanh toán). Mã hàng, thông số, mục đích, đơn giá và thuế vẫn sửa được.
           </span>
         </div>
       )}
 
       {/**
-        * ★ ĐƠN LẬP TỪ ĐỀ NGHỊ: KHÔNG THÊM DÒNG MỚI — nói ra chỗ này, đừng để nút biến mất không
-        * lời giải thích (bài học 15/08/2026: *"sao nút này không dùng được"*).
+        * ★★★ VIẾT LẠI HOÀN TOÀN 16/09/2026 — dải này TRƯỚC ĐÓ NÓI SAI SO VỚI APP.
         *
-        * 🔴 KHÔNG nhét câu này vào `lyDoHetMatHang` của `BangHangTien`: tham số đó CHỈ hiện khi
-        * bảng RỖNG (`dong.length === 0`), mà bảng ở chế độ sửa luôn có sẵn dòng của đơn — câu sẽ
-        * không bao giờ hiện. Đã đo thật trước khi chuyển lên đây.
+        * 🔴 NGUYÊN VĂN CÂU CŨ: *"Không thêm dòng mặt hàng mới ở đây… thêm tay ở đây là đi vòng qua
+        * bước Xét duyệt báo giá"*. Câu đó đúng với luật 15/09/2026, nhưng Sếp đã gỡ chặn ngày
+        * 16/09 (*"khi sửa đơn thì cho phép tăng giảm mặt hàng, số lượng, đơn giá, thuế"*). Để
+        * nguyên là màn hình nói một đằng app làm một nẻo — đúng thứ CLAUDE.md §3.5 cấm, và lần
+        * này còn tệ hơn: nó **cấm người dùng làm một việc họ đang được phép làm**.
+        *
+        * 🔴 NÓI ĐỦ CẢ HAI VẾ: cái được mở, VÀ cái vẫn bị gác. Chỉ nói "mở hết" là người sửa gặp
+        * câu chặn "không xoá được dòng đã nhận hàng" mà không hiểu vì sao.
         */}
       {laSuaDon && poDangSua!.prId && (
         <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-(--hp-md-row-pad) text-sm">
           <Info className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
           <span className="min-w-0 text-text-secondary">
-            <strong className="text-text-primary">Không thêm dòng mặt hàng mới ở đây.</strong> Đơn
-            này lập từ đề nghị {poDangSua!.prCode ?? ""} nên mặt hàng phải bám khối lượng đã được
-            duyệt — thêm tay ở đây là đi vòng qua bước Xét duyệt báo giá. Cần đặt thêm thì lập đề
-            nghị mới, hoặc lập một đơn hàng khác. Vẫn thêm được dòng <strong>ghi chú</strong>, và
-            vẫn sửa được số lượng của dòng sẵn có trong phạm vi khối lượng đã duyệt.
+            <strong className="text-text-primary">
+              Thêm · bớt mặt hàng, sửa số lượng, đơn giá và thuế đều được.
+            </strong>{" "}
+            Đơn này lập từ đề nghị {poDangSua!.prCode ?? ""}. Mặt hàng thêm mới sẽ mang nhãn{" "}
+            <strong>&quot;hàng thêm ngoài đề nghị&quot;</strong> để Kế toán và người duyệt biết
+            phần nào đã qua bước Xét duyệt báo giá, phần nào thêm sau. Đặt quá khối lượng đã duyệt
+            thì vẫn lưu được nhưng phải <strong>ghi rõ lý do</strong>, và con số vượt được ghi vào
+            lịch sử hồ sơ. Vẫn còn một việc bị gác:{" "}
+            <strong>dòng đã có phiếu nhận hàng thì không xoá</strong> và không hạ số lượng xuống
+            dưới phần đã nhận — đó là chốt nghiệp vụ, không phải chốt duyệt.
+          </span>
+        </div>
+      )}
+
+      {/**
+        * ★★★ CẢNH BÁO VƯỢT KHỐI LƯỢNG ĐÃ DUYỆT — chốt (A) của Sếp 16/09/2026, nói SỐNG trong lúc gõ.
+        *
+        * 🔴 KHÔNG PHẢI CHẶN, MÀ LÀ NÓI RÕ RỒI ĐÒI LÝ DO. Sếp: *"cảnh báo nhưng vẫn cho lưu … bắt
+        * ghi lý do mới lưu được"*. Nên tông là `warning` (vàng), không phải `danger` (đỏ) — đỏ là
+        * ngôn ngữ của "không làm được", dùng sai tông là người dùng tưởng mình đang bị chặn.
+        *
+        * 🔴 CON SỐ DỰNG BỞI CHÍNH HÀM LUẬT (`taCacDongVuot`), không ghép chuỗi tại chỗ: câu này và
+        * câu của tầng ghi phải trùng khít từng chữ, nếu không người dùng thấy hai con số khác nhau
+        * cho cùng một lần bấm.
+        *
+        * 📌 §3.2 — trạng thái có CẢ MÀU LẪN CHỮ (biểu tượng + chữ "Đang đặt vượt…"), chữ `text-sm`
+        * (14px ≥ 12px), token `warning`/`warning-bg`/`warning-soft` đều có thật trong `globals.css`.
+        */}
+      {laSuaDon && soatBangSua && soatBangSua.vuot.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">
+              Đang đặt vượt khối lượng đã được duyệt.
+            </strong>{" "}
+            {taCacDongVuot(soatBangSua.vuot)}. Vẫn lưu được — nhưng phải ghi rõ{" "}
+            <strong>lý do sửa đơn</strong> ở ô cuối trang, và con số vượt sẽ được ghi vào lịch sử
+            hồ sơ để người duyệt và Kế toán đối chiếu.
+          </span>
+        </div>
+      )}
+
+      {/**
+        * ★★ NHÃN "HÀNG THÊM NGOÀI ĐỀ NGHỊ" — chốt (B) của Sếp 16/09/2026, mặt hiển thị trên form.
+        *
+        * 🔴 ĐẾM TRÊN BẢNG ĐANG GÕ, không đợi lưu xong: người thêm dòng phải thấy ngay rằng dòng
+        * ấy sẽ được đánh dấu. Biết trước thì họ còn cân nhắc; biết sau thì nhãn thành một sự đã
+        * rồi mà họ không hiểu từ đâu ra.
+        *
+        * 📌 Nhãn THẬT (đóng vào dữ liệu, hiện ở bảng tiến độ đơn cho Kế toán và người duyệt) do
+        * TẦNG GHI đặt — xem `DongPO.themNgoaiDeNghi`. Dải này chỉ là lời báo trước.
+        */}
+      {laSuaDon && soatBangSua && soatBangSua.sttThemNgoaiDeNghi.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-(--hp-md-row-pad) text-sm">
+          <Info className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">
+              {soatBangSua.sttThemNgoaiDeNghi.length} dòng sẽ được đánh dấu &quot;hàng thêm ngoài
+              đề nghị&quot;
+            </strong>{" "}
+            khi lưu — vì chúng không bám vào mặt hàng nào của đề nghị gốc. Nhãn đi theo dòng suốt
+            đời chứng từ và hiện ở bảng tiến độ đơn hàng, để người duyệt và Kế toán phân biệt được
+            phần đã qua duyệt với phần thêm sau. Đây không phải lỗi, chỉ là dấu vết.
+          </span>
+        </div>
+      )}
+
+      {/**
+        * ★★ VƯỚNG CHỐT NGHIỆP VỤ (hàng đã nhận) — đỏ, vì cái này THẬT SỰ không lưu được.
+        *
+        * 🔴 KHÁC HẲN dải vàng phía trên: dải vàng là "được làm, nhưng phải giải trình", dải này là
+        * "bấm Lưu sẽ bị từ chối". Hai việc khác nhau thì phải hai tông khác nhau, đúng §3.2.
+        * Câu chữ lấy nguyên từ tầng ghi nên không thể nói khác với lúc bị từ chối.
+        */}
+      {laSuaDon && soatBangSua?.chan && (
+        <div className="flex items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">Chưa lưu được:</strong> {soatBangSua.chan}
           </span>
         </div>
       )}
@@ -3827,9 +3981,16 @@ export function FormLapDonMuaHang({
              * đều bị tô cảnh báo "vượt phần còn lại" dù người dùng chưa đụng gì — một cảnh báo
              * sai thì lần sau không ai đọc cảnh báo nữa.
              *
-             * 📌 KHÔNG mất chốt nào: `suaDonHang` vẫn chạy `vuongMacSuaDongPOTheoDeNghi` (Sếp
-             * 15/09/2026) và trả về câu chặn nói rõ dòng nào vượt bao nhiêu. Thà im ở màn hình
-             * rồi chặn đúng lúc ghi, còn hơn nói một con số sai.
+             * 🔴🔴 VÀ TỪ 16/09/2026 CÒN MỘT LÝ DO NẶNG HƠN, ĐỪNG MỞ RA: `BangHangTien` dùng
+             * `conLai` để **CẮT số lượng về phần còn lại** (`Math.min(nhap, con)` trong khối tính
+             * tiền, kèm câu *"Vượt phần còn lại — sẽ cắt về X"*). Đó đúng là hành vi của đường LẬP
+             * MỚI. Ở đường SỬA, Sếp vừa chốt ngược lại: vượt thì **cảnh báo và vẫn cho lưu**. Truyền
+             * `conLai` thật vào đây là app lặng lẽ cắt số người dùng vừa gõ — vừa đi ngược chỉ đạo,
+             * vừa là kiểu nói dối bằng con số tiền mà §3.5 cấm.
+             *
+             * 📌 KHÔNG mất gì: khối lượng đã duyệt nay được nói ra bằng DẢI CẢNH BÁO riêng ở đầu
+             * form (`soatBangSua.vuot`, dựng câu bằng `taCacDongVuot` — cùng hàm tầng ghi dùng),
+             * đủ ba con số "đã duyệt · đang đặt · vượt" cho từng dòng.
              */
             conLai={laSuaDon ? KHONG_CO_CON_LAI : conLaiTheoDong}
             kieuChietKhau={kieuChietKhau}
@@ -3867,9 +4028,9 @@ export function FormLapDonMuaHang({
              * một nút xám không giải thích.
              * 📌 Độc lập thì luôn thêm được dòng mới — không có danh sách mặt hàng nào để cạn.
              */
-            conMatHangDeThem={
-              laSuaDon ? !poDangSua!.prId : laDonDocLap || matHangConThem.length > 0
-            }
+            /* ★★★ MỞ 16/09/2026: chế độ sửa LUÔN thêm được dòng, kể cả đơn lập từ đề nghị (Sếp:
+               *"cho phép tăng giảm mặt hàng"*). Chốt thay thế nằm ở tầng ghi — xem `themDong`. */
+            conMatHangDeThem={laSuaDon ? true : laDonDocLap || matHangConThem.length > 0}
             lyDoHetMatHang={lyDoHetMatHang}
             /**
              * ★ CHẾ ĐỘ SỬA: `nhapTuDo` PHẢI theo "đơn này có đề nghị hay không", không theo
@@ -3881,10 +4042,12 @@ export function FormLapDonMuaHang({
              * — tức luật "đơn lập từ đề nghị không thêm dòng mới" chỉ còn chặn ở lớp toast.
              * Đã đo: nút `disabled === false` trước khi sửa dòng này.
              *
-             * 📌 Đơn đang sửa mà KHÔNG có đề nghị thì vẫn `true` — gõ tay tự do như cũ, đúng
-             * bằng những gì hộp thoại cũ cho phép.
+             * ✅ 16/09/2026: nay LUÔN `true` ở chế độ sửa. Luật "đơn lập từ đề nghị không thêm
+             * dòng mới" đã được Sếp gỡ có chủ đích, thay bằng cảnh báo vượt duyệt + nhãn "hàng
+             * thêm ngoài đề nghị" ở tầng ghi. Phép đo trên vẫn đúng và vẫn cần nhớ: nút [Thêm
+             * dòng] hiện khi `nhapTuDo || conMatHangDeThem`, nên muốn khoá lại thì phải tắt CẢ HAI.
              */
-            nhapTuDo={laSuaDon ? !poDangSua!.prId : laDonDocLap}
+            nhapTuDo={laSuaDon ? true : laDonDocLap}
             /* Khi nhúng thì tiêu đề "Hàng tiền" phải nhỏ hơn tiêu đề khối bước — lý do như
                khối "Tổng tiền thanh toán" ở trên. */
             tieuDeTrongKhoiGiaiDoan={nhung}

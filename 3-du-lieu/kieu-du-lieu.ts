@@ -699,6 +699,27 @@ export interface DongPO {
    * `phanTramPO` (% tiến độ sai) và nằm chờ nhận hàng vĩnh viễn ở bảng tiến độ.
    */
   laDongGhiChu?: boolean;
+  /**
+   * ★★★ HÀNG THÊM NGOÀI ĐỀ NGHỊ — chốt (B) của Sếp ngày 16/09/2026.
+   *
+   * Nguyên văn chỉ đạo hôm đó: *"khi sửa đơn thì cho phép tăng giảm mặt hàng, số lượng, đơn giá,
+   * thuế"*, kèm hai chốt đi liền. Chốt (B): *dòng mặt hàng thêm mới phải được ĐÁNH DẤU là "hàng
+   * thêm ngoài đề nghị"* để **Kế toán và người duyệt biết phần nào đã qua duyệt, phần nào thêm
+   * sau** — không cản trở việc thêm, chỉ làm nó nhìn thấy được.
+   *
+   * 🔴 CỜ NÀY DO **TẦNG GHI** ĐẶT (`suaDonHang` trong `3-du-lieu/kho-du-lieu.tsx`), không phải do
+   * giao diện gửi lên. Giao diện chỉ hiện lại nhãn. Để UI tự đặt là mỗi màn hình thêm dòng lại
+   * phải nhớ đặt cờ, quên một chỗ thì dòng đó **im lặng trông như hàng đã duyệt** — đúng thứ chốt
+   * (B) sinh ra để chặn.
+   *
+   * 🔴 KHÔNG BAO GIỜ TỰ TẮT CỜ. Một khi dòng đã được thêm ngoài đề nghị thì dấu vết đó theo dòng
+   * suốt đời chứng từ, kể cả khi sau này ai đó sửa lại tên hàng hay số lượng của nó.
+   *
+   * ⚠️ `undefined` = dòng bình thường (bám khối lượng đã duyệt, hoặc đơn không gắn đề nghị nào).
+   * KHÔNG suy cờ này ra từ `sttDongDeNghi === undefined`: đơn độc lập có **mọi** dòng như vậy mà
+   * chẳng dòng nào là "thêm ngoài đề nghị" — chúng chỉ chưa trỏ về đề nghị nào.
+   */
+  themNgoaiDeNghi?: boolean;
 }
 
 export interface XacNhan {

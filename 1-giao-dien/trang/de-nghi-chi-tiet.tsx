@@ -134,11 +134,15 @@ import {
 import {
   BUOC_DINH_KEM_HO_SO_THANH_TOAN,
   BUOC_DINH_KEM_HOP_DONG,
+  /* Câu nhắc "còn nợ chứng từ" — dùng CHUNG với mục 3/4 ở bước ⑧ (Sếp 16/09/2026). */
+  cauNhacConNoHopDong,
   coHopDong,
   KHOA_LY_DO_THIEU_HOP_DONG,
   /* Hai lý do chọn sẵn thay ô gõ tự do — Ban lãnh đạo 13/09/2026. */
   LY_DO_THIEU_HOP_DONG_CHON,
   lyDoThieuHopDong,
+  /* Chữ hiện ra màn hình cho lựa chọn lý do — KHÁC giá trị lưu, xem chú thích tại chỗ khai. */
+  tenHienLyDoThieuHopDong,
   /* Chốt "có tệp HỢP ĐỒNG **hoặc** có lý do" — dùng để khóa nút Lập đơn đặt hàng (13/09/2026).
      🔴 KHÔNG thay bằng `coHopDong`: hàm đó chỉ hỏi có tệp, dùng nhầm là khóa cứng đơn mẫu PO-02. */
   vuongMacRoiBuocLapDon,
@@ -2542,12 +2546,13 @@ export default function TrangChiTietDeNghi({
                         người dùng ghi một lý do sai vào hồ sơ. */}
                     {!coHopDong(dn) && (
                       <div
-                        className={`flex flex-wrap items-center gap-2 rounded-lg border p-(--hp-md-row-pad) ${
+                        className={`flex flex-col gap-1.5 rounded-lg border p-(--hp-md-row-pad) ${
                           thieuHopDongDaGhiLyDo(dn)
                             ? "border-danger bg-danger-bg"
                             : "border-border bg-muted"
                         }`}
                       >
+                        <div className="flex flex-wrap items-center gap-2">
                         <Label
                           className="shrink-0"
                           title={`Chưa có ${TEN_HIEN_HOP_DONG} thì chọn một lý do`}
@@ -2587,10 +2592,19 @@ export default function TrangChiTietDeNghi({
                                   toast.error("Chưa ghi được lý do", { description: loi });
                                   return;
                                 }
-                                toast.success(dangChon ? "Đã bỏ chọn lý do" : `Đã ghi: ${lyDo}`);
+                                toast.success(
+                                  dangChon
+                                    ? "Đã bỏ chọn lý do"
+                                    : `Đã ghi: ${tenHienLyDoThieuHopDong(lyDo)}`,
+                                );
                               }}
                             >
-                              {lyDo}
+                              {/* 🔴 VẼ bằng `tenHienLyDoThieuHopDong`, SO SÁNH vẫn bằng `lyDo` gốc —
+                                  Sếp 16/09/2026: *"Sửa ghi chú 'Không có HĐ' thành 'Không có Hợp
+                                  đồng'"*. Giá trị LƯU giữ nguyên chuỗi cũ, nếu không thì mọi hồ sơ
+                                  đã chọn từ 13/09 tới nay đọc ra không khớp và app coi như họ chưa
+                                  khai gì — hỏng im lặng. Lý do đầy đủ ở chỗ khai hằng số. */}
+                              {tenHienLyDoThieuHopDong(lyDo)}
                             </Button>
                           );
                         })}
@@ -2602,6 +2616,39 @@ export default function TrangChiTietDeNghi({
                               Lý do đã ghi trước đây: {lyDoThieuHopDong(dn)}
                             </span>
                           )}
+                        </div>
+
+                        {/**
+                          * ★★★ CÂU NHẮC KÈM DẤU ĐỎ — Sếp 16/09/2026: *"Ở bước Lập đơn mua hàng,
+                          * thêm nút chọn 'Bổ sung sau' và phải báo đỏ để nhắc"*.
+                          *
+                          * 📌 ĐO TRƯỚC KHI LÀM (16/09/2026): nút *"Bổ sung sau"* và nền đỏ **đã
+                          * có sẵn** ở đúng khối này từ 13/09/2026 — không dựng cơ chế thứ hai,
+                          * vẫn đúng `KHOA_LY_DO_THIEU_HOP_DONG` và vẫn đúng cờ
+                          * `thieuHopDongDaGhiLyDo`. Thứ THIẾU là **chữ**: trước hôm nay trạng
+                          * thái này chỉ được nói bằng màu nền, trái Design System V1.1 §3.2
+                          * (*"trạng thái luôn có cả màu và chữ"*) — người không phân biệt được
+                          * màu thì không biết hồ sơ đang còn nợ chứng từ.
+                          *
+                          * 🔴 CHỮ LẤY TỪ HÀM THUẦN `cauNhacConNoHopDong`, dùng chung với mục 3/4
+                          * ở bước ⑧ — hai màn hình không thể nói khác nhau về cùng một trạng
+                          * thái.
+                          *
+                          * 🔴 CHỈ LÀ LỜI NHẮC, KHÔNG PHẢI CHỐT CHẶN. Không đụng
+                          * `vuongMacRoiBuocLapDon` / `vuongMacLapDonHang`: chọn "Bổ sung sau" vẫn
+                          * lập được đơn y như trước.
+                          */}
+                        {cauNhacConNoHopDong(dn) !== null && (
+                          <div className="flex items-start gap-1.5">
+                            <AlertTriangle
+                              className="mt-0.5 size-3.5 shrink-0 text-danger"
+                              aria-hidden
+                            />
+                            <span className="text-xs font-medium text-danger">
+                              {cauNhacConNoHopDong(dn)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
 

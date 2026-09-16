@@ -68,7 +68,7 @@
 // ============================================================
 
 import type { ReactNode } from "react";
-import { Check, ExternalLink, FileText, Minus } from "lucide-react";
+import { AlertTriangle, Check, ExternalLink, FileText, Info, Minus } from "lucide-react";
 /* 📌 ĐÃ BỎ `import Link from "next/link"` ngày 15/09/2026 — nó chỉ phục vụ liên kết tờ PO in mà
    Sếp cho bỏ khỏi mục 4. Cần lại thì thêm lại, nhưng đọc khối ❌ ở nhánh vẽ mục 4 trước. */
 /* 🔴 DÙNG `LienKetTep`, KHÔNG dùng `ODinhKemTep`: ô đính kèm cần `onXong` / `nguoi` để GHI, mà
@@ -81,6 +81,7 @@ import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import {
   dungBoHoSoThanhToan,
   laMaCoONop,
+  loiKhaiThieuChungTu,
   type MaMucCoONop,
   mucDaCo,
 } from "@/2-quy-trinh/bo-ho-so-thanh-toan";
@@ -248,15 +249,42 @@ export function KhoiBoHoSoThanhToan({
            * mất đường nộp tệp mà không lỗi nào báo.
            */
           const oNop = laMaCoONop(m.ma) ? oNopTheoMuc[m.ma] : null;
+          /**
+           * ★★★ LỜI KHAI "CHƯA CÓ CHỨNG TỪ" LINK TỪ BƯỚC ④ XUỐNG ĐÂY — Sếp 16/09/2026:
+           * ***"Ở bước 3, đang có nút chọn 'Bổ sung sau' và 'Không có HĐ' a muốn link cái này
+           * xuống mục 8 luôn… Làm tương tự như vậy cho bước 4"***.
+           *
+           * 🔴 QUYẾT ĐỊNH NẰM Ở HÀM THUẦN `loiKhaiThieuChungTu` (`2-quy-trinh/bo-ho-so-thanh-toan
+           * .ts`), KHÔNG viết `if` ở đây — nhờ vậy `kiem-luat-dung-chung.mjs` gọi thật được và chỉ
+           * đạo này không thể bị xoá lặng lẽ (CLAUDE.md §6.6: `grep` dấu mốc không bắt được).
+           *
+           * ⚠️ HÔM NAY MỤC 3 VÀ MỤC 4 HIỆN GIỐNG HỆT NHAU — không phải lỗi vẽ. App đang dùng MỘT
+           * ô, MỘT tệp và MỘT trường lý do cho cả hai chứng từ; bảng `KHOA_LY_DO_THIEU_THEO_MUC`
+           * đã dựng sẵn theo mã mục nên ngày tách thật thì hai dòng tự chạy độc lập.
+           */
+          const khai = loiKhaiThieuChungTu(deNghi, m);
           return (
             <li
               key={m.ma}
               className={`flex flex-col gap-1.5 rounded-lg border p-(--hp-md-row-pad) ${
                 co
                   ? "border-border bg-card"
-                  : m.batBuoc
-                    ? "border-warning/40 bg-warning-bg"
-                    : "border-border bg-muted"
+                  : khai.baoDo
+                    ? /* "Bổ sung sau" → ĐỎ, đúng chữ Sếp *"phải báo đỏ để nhắc đính kèm file"*.
+                         Cùng cặp token với hộp "Lý do chưa có" ở bước ④ để hai màn hình nhìn
+                         giống nhau về cùng một trạng thái. */
+                      "border-danger bg-danger-bg"
+                    : khai.loai === "ket_luan"
+                      ? /* 🔴 "Không có HĐ" là KẾT LUẬN HỢP LỆ của người dùng, không phải thiếu
+                           sót → hạ về nền trung tính, KHÔNG đỏ và cũng không vàng. Tô cảnh báo ở
+                           đây là app cãi lại quyết định vừa được ghi (Sếp 13/09/2026: *"Khi chọn
+                           vào nút 'Không có HĐ' thì mới ko báo đỏ"*).
+                           ⚠️ Chỉ đổi MÀU DÒNG. Mục vẫn `batBuoc`, `mucDaCo` vẫn false và
+                           `tomTatBoHoSo` vẫn đếm là thiếu — luật đóng hồ sơ không đổi một dòng. */
+                        "border-border bg-muted"
+                      : m.batBuoc
+                        ? "border-warning/40 bg-warning-bg"
+                        : "border-border bg-muted"
               }`}
             >
               {oNop ? (
@@ -407,6 +435,31 @@ export function KhoiBoHoSoThanhToan({
                 {m.ghiChu && <span className="text-xs text-warning-soft">{m.ghiChu}</span>}
               </div>
                 </>
+              )}
+
+              {/**
+                * ★★★ DÒNG LỜI KHAI — Sếp 16/09/2026. Vẽ Ở CẤP `<li>`, NGOÀI cả hai nhánh, cố ý:
+                * mục 3 có ô nộp (đi nhánh trên) còn mục 4 chỉ đọc (nhánh dưới). Nhét vào một
+                * nhánh là đúng một trong hai mục im lặng mất lời khai — mà Sếp yêu cầu **cả hai**.
+                *
+                * 🔴 TRẠNG THÁI CÓ CẢ MÀU LẪN CHỮ (Design System V1.1 §3.2): nền dòng đổi màu, và
+                * ở đây luôn có icon + câu chữ nói rõ lý do. Đừng rút gọn thành mỗi màu nền.
+                *
+                * 📌 `text-xs` = 12px, đúng mức sàn cho phép; `pl-7` thẳng cột với ruột mục.
+                */}
+              {khai.chu !== "" && (
+                <div className="flex items-start gap-1.5 pl-7">
+                  {khai.baoDo ? (
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-danger" aria-hidden />
+                  ) : (
+                    <Info className="mt-0.5 size-3.5 shrink-0 text-text-desc" aria-hidden />
+                  )}
+                  <span
+                    className={`text-xs ${khai.baoDo ? "font-medium text-danger" : "text-text-secondary"}`}
+                  >
+                    {khai.chu}
+                  </span>
+                </div>
               )}
             </li>
           );

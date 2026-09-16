@@ -56,6 +56,9 @@
 import type { BaoGia, DeNghiMuaHang, DonDatHang, MoTaTep, PhieuNhanHang } from "@/3-du-lieu/kieu-du-lieu";
 import { tepBaoGiaDaCo, tepBaoGiaDaDuyet, tepSoSanh } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import {
+  cauNhacConNoChungTu,
+  KHOA_LY_DO_THIEU_HOP_DONG,
+  LY_DO_KHONG_CO_HOP_DONG,
   tepHoaDonVAT,
   tepHopDong,
   tepPhieuChi,
@@ -254,6 +257,86 @@ export interface MucHoSoThanhToan {
  */
 export function mucDaCo(m: MucHoSoThanhToan): boolean {
   return m.tep.length > 0 || (m.nhom ?? []).some((n) => n.tep.length > 0);
+}
+
+/**
+ * ★★★ LỜI KHAI "CHƯA CÓ CHỨNG TỪ" ĐƯỢC LINK XUỐNG BƯỚC ⑧ — Sếp 16/09/2026, nguyên văn:
+ * ***"Ở bước 3, đang có nút chọn 'Bổ sung sau' và 'Không có HĐ' a muốn link cái này xuống mục 8
+ * luôn. Nếu chọn 'Bổ sung sau' thì xuống mục 8 phải báo đỏ để nhắc đính kèm file, nếu mục 3 chọn
+ * 'Không có HĐ' thì link ghi chú xuống là ko có hợp đồng. Làm tương tự như vậy cho bước 4"***.
+ *
+ * 📌 ĐỌC ĐÚNG SỐ MỤC: "bước 3" / "bước 4" trong câu Sếp là **mục 3 (Hợp đồng)** và **mục 4 (Đơn
+ * mua hàng)** của bộ hồ sơ thanh toán ở bước ⑧, không phải bước ③/④ của quy trình 8 bước. Hai nút
+ * Sếp nhắc là hộp *"Lý do chưa có"* ở khối bước ④ *Lập đơn mua hàng* (`de-nghi-chi-tiet.tsx`), ghi
+ * vào `lyDoThieuChungTu[KHOA_LY_DO_THIEU_HOP_DONG]`.
+ *
+ * 🔴 TRA KHOÁ LÝ DO **THEO MÃ MỤC**, KHÔNG GÕ CỨNG MỘT KHOÁ — đây là chỗ dễ làm ẩu nhất. Hôm nay
+ * mục 3 và mục 4 cùng trỏ về `KHOA_LY_DO_THIEU_HOP_DONG` vì app đang dùng **MỘT ô, MỘT tệp** cho
+ * cả hai chứng từ (xem `tepHopDongDaKy` bên dưới và `TEN_HIEN_HOP_DONG_BUOC_DAT_HANG` ở
+ * `chung-tu-cuoi-quy-trinh.ts`), nên **hai dòng sẽ hiện giống hệt nhau — đó là sự thật, không
+ * phải lỗi vẽ**. Ngày nào tách thật hai chứng từ thì chỉ cần đổi một dòng trong bảng dưới đây là
+ * hai mục chạy độc lập, không phải viết lại chỗ nào khác.
+ *
+ * 🔴 KHÔNG ĐỤNG MỘT DÒNG NÀO CỦA LUẬT NGHIỆP VỤ. Hàm này **chỉ trả lời "hiện gì trên màn hình"**:
+ * `coHopDong`, `mucDaCo`, `tomTatBoHoSo`, `vuongMacDuyetHoanThanhDeNghi`,
+ * `vuongMacHoanThanhQuyTrinh` giữ nguyên tuyệt đối. Nói riêng: bấm *"Không có HĐ"* vẫn **KHÔNG**
+ * đóng được hồ sơ — `vuongMacHoanThanhQuyTrinh` đòi có TỆP thật (Sếp 14/09/2026: *"2 loại này
+ * đều phải đính kèm hợp đồng"*). Đó là lý do dòng `ket_luan` dưới đây chỉ ghi chú trung tính chứ
+ * không dám nói "đã xong".
+ *
+ * 🔴 `da_co` PHẢI XÉT TRƯỚC LỜI KHAI. Ca rất hay gặp: người dùng bấm *"Bổ sung sau"* rồi mấy hôm
+ * sau đính tệp thật — trường lý do vẫn còn nguyên chuỗi cũ (app không tự xoá). Hỏi lời khai trước
+ * là dòng đã đủ chứng từ vẫn bị tô đỏ vĩnh viễn, đúng kiểu chốt mất tin cậy.
+ *
+ * 📌 Chuỗi lạ (hồ sơ cũ gõ lý do tự do, trước 13/09/2026) rơi vào `con_no` → vẫn báo đỏ. Đúng: đó
+ * là hồ sơ còn nợ chứng từ, chỉ khác cách ghi. Chỉ đúng chuỗi `LY_DO_KHONG_CO_HOP_DONG` mới là
+ * lời khai dứt điểm.
+ */
+export const KHOA_LY_DO_THIEU_THEO_MUC: Partial<Record<MaMucHoSo, string>> = {
+  hop_dong: KHOA_LY_DO_THIEU_HOP_DONG,
+  /* CÙNG KHOÁ với mục 3 — app chưa tách hai chứng từ. Xem khối chú thích ngay trên. */
+  don_mua_hang: KHOA_LY_DO_THIEU_HOP_DONG,
+};
+
+export interface LoiKhaiThieuChungTu {
+  /**
+   * · `khong_hoi`  — mục này không có cơ chế khai lý do (5 mục còn lại). Không vẽ gì.
+   * · `da_co`      — đã có chứng từ. Không vẽ gì, **kể cả khi trường lý do còn chuỗi cũ**.
+   * · `chua_khai`  — chưa có chứng từ, chưa chọn lý do nào. Giữ nguyên cách hiện có.
+   * · `con_no`     — đã chọn "Bổ sung sau" (hoặc lý do tự do cũ) → **BÁO ĐỎ**.
+   * · `ket_luan`   — đã chọn "Không có HĐ" → ghi chú **trung tính**, không đỏ.
+   */
+  loai: "khong_hoi" | "da_co" | "chua_khai" | "con_no" | "ket_luan";
+  /** Câu hiện trên màn hình. Rỗng với `khong_hoi` · `da_co` · `chua_khai`. */
+  chu: string;
+  /** Dòng này có tô đỏ không. Chỉ `con_no` mới đỏ. */
+  baoDo: boolean;
+}
+
+export function loiKhaiThieuChungTu(
+  deNghi: DeNghiMuaHang,
+  m: MucHoSoThanhToan,
+): LoiKhaiThieuChungTu {
+  const khoa = KHOA_LY_DO_THIEU_THEO_MUC[m.ma];
+  if (khoa === undefined) return { loai: "khong_hoi", chu: "", baoDo: false };
+  /* 🔴 XÉT TRƯỚC LỜI KHAI — xem khối chú thích ở `KHOA_LY_DO_THIEU_THEO_MUC`. */
+  if (mucDaCo(m)) return { loai: "da_co", chu: "", baoDo: false };
+
+  const lyDo = (deNghi.lyDoThieuChungTu?.[khoa] ?? "").trim();
+  if (lyDo === "") return { loai: "chua_khai", chu: "", baoDo: false };
+
+  /* 📌 DÙNG LẠI ĐÚNG CHỮ ĐANG LƯU, không đặt câu mới: nhãn "Lý do chưa có" và chuỗi lý do đều lấy
+     nguyên từ hộp chọn ở bước ④, nên hai màn hình không thể nói khác nhau về cùng một trạng thái. */
+  if (lyDo === LY_DO_KHONG_CO_HOP_DONG) {
+    return {
+      loai: "ket_luan",
+      chu: `Lý do chưa có: “${LY_DO_KHONG_CO_HOP_DONG}” — đơn này không có hợp đồng riêng, không phải thiếu sót.`,
+      baoDo: false,
+    };
+  }
+  /* 🔴 CÂU CHỮ LẤY TỪ `cauNhacConNoChungTu`, KHÔNG gõ lại ở đây — bước ④ và bước ⑧ phải nói y hệt
+     một câu về cùng một trạng thái (xem chú thích tại hàm đó). */
+  return { loai: "con_no", chu: cauNhacConNoChungTu(lyDo), baoDo: true };
 }
 
 /**

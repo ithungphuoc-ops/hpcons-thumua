@@ -292,6 +292,35 @@ export const LY_DO_BO_SUNG_SAU = "Bổ sung sau";
 export const LY_DO_KHONG_CO_HOP_DONG = "Không có HĐ";
 
 /**
+ * ★★ CHỮ HIỆN RA MÀN HÌNH CHO LỰA CHỌN TRÊN — Sếp 16/09/2026: *"Sửa ghi chú 'Không có HĐ' thành
+ * 'Không có Hợp đồng'"*.
+ *
+ * 🔴🔴 VÌ SAO PHẢI TÁCH LÀM HAI HẰNG THAY VÌ SỬA THẲNG CHỮ Ở TRÊN — ĐÂY LÀ CHỖ SUÝT HỎNG DỮ LIỆU:
+ * `LY_DO_KHONG_CO_HOP_DONG` **vừa là nhãn vừa là GIÁ TRỊ LƯU**. Chú thích ở ngay trên ghi rõ *"LƯU
+ * ĐÚNG CHUỖI NHÃN, không lưu mã"*, và `daKhaiKhongCoHopDong` so sánh **thẳng chuỗi đó** với thứ đã
+ * nằm trong `deNghi.lyDoThieuChungTu`. Sửa chữ ở đó là:
+ *   · mọi hồ sơ đã chọn "Không có HĐ" từ 13/09/2026 tới nay **đọc ra không khớp nữa**,
+ *   · app coi như họ **chưa khai gì cả**, và
+ *   · không một lỗi nào báo — hỏng im lặng, đúng loại nguy nhất.
+ *
+ * ✅ Nên: **giá trị lưu giữ nguyên `"Không có HĐ"`**, chỉ đổi thứ VẼ RA. Hồ sơ cũ không mất trạng
+ * thái, hồ sơ mới ghi cùng một giá trị với hồ sơ cũ — không sinh hai thế hệ dữ liệu.
+ *
+ * ⚠️ AI SAU NÀY MUỐN "DỌN CHO GỌN" BẰNG CÁCH GỘP LẠI MỘT HẰNG: đọc lại đoạn trên. Muốn giá trị lưu
+ * thành mã sạch (vd `"khong_co_hop_dong"`) thì phải có bước chuyển dữ liệu cũ — đó là việc đụng kho
+ * chung của cả phòng, phải xin Sếp duyệt riêng.
+ *
+ * 📌 Chỉ dùng hằng này ở chỗ HIỂN THỊ (nút chọn, câu ghi chú bước ⑧). Mọi phép SO SÁNH vẫn dùng
+ * `LY_DO_KHONG_CO_HOP_DONG`.
+ */
+export const TEN_HIEN_LY_DO_KHONG_CO_HOP_DONG = "Không có Hợp đồng";
+
+/** Chữ hiện ra màn hình cho một lựa chọn lý do — dùng ở MỌI nơi vẽ, để hai màn hình không nói khác nhau. */
+export function tenHienLyDoThieuHopDong(lyDo: string): string {
+  return lyDo === LY_DO_KHONG_CO_HOP_DONG ? TEN_HIEN_LY_DO_KHONG_CO_HOP_DONG : lyDo;
+}
+
+/**
  * ⚠️ THỨ TỰ TRONG MẢNG = THỨ TỰ HAI NÚT TRÊN MÀN HÌNH (`de-nghi-chi-tiet.tsx` map qua mảng này),
  * và đúng thứ tự trong ảnh Sếp gửi 13/09/2026. Đảo là đổi giao diện.
  */
@@ -496,6 +525,39 @@ export function thieuHopDongDaGhiLyDo(deNghi: DeNghiMuaHang): boolean {
   /* Khai "Không có HĐ" là chốt dứt điểm, không phải việc còn treo → thôi đỏ. */
   if (daKhaiKhongCoHopDong(deNghi)) return false;
   return lyDoThieuHopDong(deNghi) !== "";
+}
+
+/**
+ * ★★★ CÂU NHẮC "CÒN NỢ CHỨNG TỪ" — MỘT NGUỒN CHỮ DUY NHẤT CHO MỌI MÀN HÌNH.
+ *
+ * ★ Sếp 16/09/2026, hai chỉ đạo cùng ngày và cùng một trạng thái:
+ *   ① *"Nếu chọn 'Bổ sung sau' thì xuống mục 8 phải báo đỏ để nhắc đính kèm file"*
+ *   ② *"Ở bước Lập đơn mua hàng, thêm nút chọn 'Bổ sung sau' và phải báo đỏ để nhắc"*
+ *
+ * 🔴 VÌ SAO PHẢI LÀ MỘT HÀM CHỨ KHÔNG PHẢI HAI CÂU GÕ TAY: cùng một trạng thái nay hiện ở **hai
+ * màn hình** (hộp "Lý do chưa có" ở bước ④, và mục 3/4 của bộ hồ sơ ở bước ⑧). Gõ hai câu là sớm
+ * muộn hai nơi nói khác nhau về cùng một việc — đúng tiền lệ đã phải sửa ở `NHAN_BUOC_KHONG_HAN`.
+ *
+ * 🔴 IN RA **ĐÚNG CHUỖI ĐANG LƯU** (`lyDo`), không viết cứng "Bổ sung sau": hồ sơ cũ gõ lý do tự
+ * do (trước 13/09/2026) cũng đi qua đây, và người đọc phải thấy đúng chữ mình đã ghi.
+ */
+export function cauNhacConNoChungTu(lyDo: string): string {
+  return `Lý do chưa có: “${lyDo}” — còn nợ chứng từ, phải đính kèm tệp vào hồ sơ.`;
+}
+
+/**
+ * ★ Câu nhắc cho ô Hợp đồng ở bước ④ — `null` nghĩa là không có gì phải nhắc.
+ *
+ * 🔴 ĐÂY LÀ LỜI NHẮC, KHÔNG PHẢI CHỐT CHẶN (Sếp 16/09/2026: *"báo đỏ để nhắc"*). Nó KHÔNG được
+ * gọi ở `vuongMacRoiBuocLapDon` / `vuongMacLapDonHang` và không đổi điều kiện lập đơn một dòng
+ * nào: chọn "Bổ sung sau" vẫn lập được đơn y như trước, chỉ thêm dấu đỏ và câu chữ.
+ *
+ * 📌 Dùng lại nguyên `thieuHopDongDaGhiLyDo` — cùng cờ đang tô nền đỏ cho hộp đó. Nhờ vậy màu và
+ * chữ **không thể lệch nhau**: hết đỏ thì câu cũng biến mất, và ngược lại.
+ */
+export function cauNhacConNoHopDong(deNghi: DeNghiMuaHang): string | null {
+  if (!thieuHopDongDaGhiLyDo(deNghi)) return null;
+  return cauNhacConNoChungTu(lyDoThieuHopDong(deNghi));
 }
 
 /**

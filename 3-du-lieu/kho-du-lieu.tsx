@@ -59,7 +59,10 @@ import {
   tinhPhuongAnTach,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import {
-  dongPOBiKhoaNoiDung,
+  /* ❌ `dongPOBiKhoaNoiDung` KHÔNG còn được `suaDonHang` gọi từ 16/09/2026: luật "dòng đã nhận
+     hàng" nay cần CON SỐ đã nhận (để biết sàn hạ số lượng), không chỉ cần biết dòng nào có phiếu.
+     Xem `khoiLuongDaNhanTheoDongPO` ở dưới — nó dùng ĐÚNG tập trạng thái của hàm đó.
+     📌 Hàm gốc vẫn sống và vẫn đúng: `form-lap-don-mua-hang.tsx` và `bang-phan-bo.tsx` còn dùng. */
   laDongHang,
   poDaGiaoDu,
   soNgayDaTroiQua,
@@ -143,6 +146,10 @@ import {
   khoangChoGhiLai,
   type VetBanGhiMoi,
 } from "@/2-quy-trinh/giu-ban-ghi-moi";
+/* ★★ ⑤ SỔ SỐNG QUA TẢI LẠI TRANG — sự cố mất đơn LẦN THỨ HAI cùng ngày (~20:35, đơn
+   `po-7a4d4418-bb18-486b-b0bc-b40aa990a20d`). Sổ nằm trong `useRef` thì chết theo mỗi document
+   trình duyệt; xem khối ⑤ ở `2-quy-trinh/giu-ban-ghi-moi.ts`. */
+import { docSoGiuBanGhiMoi, ghiSoGiuBanGhiMoi } from "@/3-du-lieu/so-giu-ban-ghi-moi";
 import {
   docBangMocThuLai,
   ghiMocThuLai,
@@ -468,7 +475,247 @@ function congKhoiLuongTheoDongDeNghi(items: readonly DongPOCanKiem[]): Map<numbe
 }
 
 /**
- * ★★★ SỬA BẢNG MẶT HÀNG CỦA PO CÓ ĐỀ NGHỊ THÌ PHẢI ĐỐI CHIẾU KHỐI LƯỢNG ĐÃ DUYỆT — Sếp 15/09/2026.
+ * ★★★ KHỐI LƯỢNG ĐÃ NHẬN CỦA TỪNG DÒNG PO — sàn cứng mà số lượng đặt không được tụt xuống dưới.
+ *
+ * 🔴 SINH RA CHO CHỐT NGHIỆP VỤ CỦA SẾP 16/09/2026: mở cho sửa số lượng, **nhưng không được hạ
+ * xuống dưới khối lượng đã nhận**. Hạ xuống dưới là app tự sinh ra cảnh *"nhận nhiều hơn đặt"* —
+ * mà chính con số đã nhận là căn cứ thanh toán cho nhà cung cấp. Không có màn hình nào báo, chỉ
+ * có Kế toán phát hiện khi đối chiếu, thường là sau khi đã trả tiền.
+ *
+ * 🔴 ĐẾM CẢ `cho_kiem_tra`, KHÔNG CHỈ `da_nhap_kho` — cố ý khác nguyên tắc dữ liệu số 4 của dự án
+ * (chỉ `da_nhap_kho` mới tính vào TIẾN ĐỘ). Hai câu hỏi khác nhau: tiến độ hỏi *"đã về kho bao
+ * nhiêu"*, còn ở đây hỏi *"nhà cung cấp đã giao tới bao nhiêu"*. Hàng đang chờ kiểm tra là hàng đã
+ * giao tới thật, có phiếu trỏ về dòng này; hạ số đặt xuống dưới nó vẫn ra đúng cảnh nhận > đặt.
+ * Đây cũng đúng tập trạng thái mà `dongPOBiKhoaNoiDung` đang dùng — một luật, một tập.
+ *
+ * ⚠️ `khoiLuongThucNhan` thiếu (dữ liệu cũ) tính là 0, KHÔNG để `undefined` lọt vào phép cộng —
+ * một lần `NaN` là sàn biến mất im lặng và mọi phép so đều cho `false`.
+ */
+export function khoiLuongDaNhanTheoDongPO(
+  phieuCuaPO: readonly Pick<PhieuNhanHang, "trangThai" | "lines">[],
+): Map<number, number> {
+  const bang = new Map<number, number>();
+  for (const p of phieuCuaPO) {
+    if (p.trangThai !== "da_nhap_kho" && p.trangThai !== "cho_kiem_tra") continue;
+    for (const l of p.lines) {
+      bang.set(l.sttDongPO, (bang.get(l.sttDongPO) ?? 0) + (l.khoiLuongThucNhan || 0));
+    }
+  }
+  return bang;
+}
+
+/** Một dòng đang đặt vượt phần đã được duyệt — đủ số để câu cảnh báo nói ra con số thật. */
+export interface DongVuotDuyet {
+  /** Tên mặt hàng, để người đọc nhận ra ngay dòng nào. */
+  ten: string;
+  donViTinh: string;
+  /** Phần được phép đặt trên đơn này (đã duyệt, trừ đi phần các đơn khác đã giữ). */
+  daDuyet: number;
+  /** Phần đơn này đang ghi. */
+  dangDat: number;
+  /** `dangDat - daDuyet`, luôn > 0. */
+  vuot: number;
+}
+
+/** Kết quả soát bảng mặt hàng khi sửa đơn — xem `soatBangMatHangKhiSua`. */
+export interface KetQuaSoatBangMatHang {
+  /** Câu chặn CỨNG (`null` là không bị chặn). Chỉ còn chốt nghiệp vụ về hàng ĐÃ NHẬN. */
+  chan: string | null;
+  /** Các dòng đang đặt vượt phần đã duyệt — rỗng là không vượt. */
+  vuot: DongVuotDuyet[];
+  /** `true` = phải cảnh báo và BẮT GHI LÝ DO mới cho lưu (chốt A của Sếp 16/09/2026). */
+  batLyDo: boolean;
+  /** `sttDong` của những dòng vừa được thêm ngoài đề nghị — để đóng cờ `themNgoaiDeNghi`. */
+  sttThemNgoaiDeNghi: number[];
+}
+
+/**
+ * ★★★ SOÁT BẢNG MẶT HÀNG KHI SỬA ĐƠN — Sếp 16/09/2026 ĐỔI LUẬT CÓ CHỦ ĐÍCH.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════
+ * 🔴🔴 ĐỌC KỸ ĐOẠN NÀY TRƯỚC KHI SỬA — LUẬT Ở ĐÂY VỪA ĐỔI CHIỀU, KHÔNG PHẢI BỊ AI NỚI LỎNG.
+ *
+ * **Mốc cũ — Sếp 15/09/2026:** hàm tiền nhiệm `vuongMacSuaDongPOTheoDeNghi` **CHẶN CỨNG** ba
+ * việc: thêm dòng không gắn đề nghị, đặt vượt khối lượng đã duyệt, và thổi số lượng một dòng mồ
+ * côi. Lý do hồi đó vẫn đúng tới hôm nay: nút "Sửa đơn hàng" là một đường vòng quanh bước ③ Xét
+ * duyệt báo giá, và dòng thêm tay mang `sttDongDeNghi: undefined` nên `tinhTienDoDeNghi` không
+ * đếm — đề nghị gốc vẫn báo khối lượng đó *"chưa lên PO"*, người khác lập tiếp một PO nữa cho
+ * cùng phần việc (**đặt trùng, không màn hình nào báo**).
+ *
+ * **Mốc mới — Sếp 16/09/2026,** nguyên văn: *"khi sửa đơn thì cho phép tăng giảm mặt hàng, số
+ * lượng, đơn giá, thuế. Hãy sửa và mở thêm tính năng"*, kèm hai chốt ra cùng ngày:
+ *   · **(A)** Vượt khối lượng đã duyệt → **CẢNH BÁO NHƯNG VẪN CHO LƯU**. App phải nói rõ *đang
+ *     vượt bao nhiêu so với đã duyệt* và **bắt ghi lý do** mới lưu được. **Không chặn.**
+ *   · **(B)** Dòng thêm mới → **PHẢI ĐÁNH DẤU** là *"hàng thêm ngoài đề nghị"* để Kế toán và
+ *     người duyệt biết phần nào đã qua duyệt, phần nào thêm sau. **Không cản trở việc thêm.**
+ *
+ * 👉 Nên hàm này KHÔNG còn trả một câu chặn cho ba việc trên. Nó trả **ba thứ tách bạch**: câu
+ * chặn (chỉ còn chốt nghiệp vụ), danh sách vượt kèm con số, và danh sách dòng phải đóng cờ.
+ * **Đổi ngược lại thành chặn cứng là đi ngược chỉ đạo 16/09/2026** — nếu cần đổi thì phải có chỉ
+ * đạo mới và phải sửa cả bài kiểm, đừng sửa lặng lẽ.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * 🔴 CHỐT NGHIỆP VỤ CÒN LẠI KHÔNG ĐƯỢC NỚI — nó KHÔNG phải chốt duyệt, nên chỉ đạo 16/09 không
+ * đụng tới. Dòng **đã có phiếu nhận hàng**:
+ *   ① không được XOÁ khỏi đơn — phiếu nhận cũ trỏ về một dòng không còn tồn tại;
+ *   ② số lượng không được hạ **xuống dưới khối lượng đã nhận** — sinh ra cảnh "nhận nhiều hơn
+ *      đặt", mà con số đã nhận là căn cứ thanh toán;
+ *   ③ không được đổi TÊN HÀNG và ĐƠN VỊ TÍNH — phiếu cũ bỗng nói về một mặt hàng khác.
+ * Tăng số lượng của dòng đã nhận thì ĐƯỢC (đó chính là "tăng giảm số lượng" Sếp vừa mở).
+ *
+ * 🔴 GOM THEO `sttDongDeNghi` CHỨ KHÔNG XÉT LẺ TỪNG DÒNG PO — giữ nguyên từ bản 15/09: một dòng
+ * đề nghị được phép cắt thành nhiều dòng PO (giao nhiều đợt). Xét lẻ thì hai dòng mỗi dòng "vừa
+ * đủ phần còn lại" đều không vượt, cộng lại thành gấp đôi phần đã duyệt mà không ai được cảnh báo.
+ *
+ * 🔴 NGÂN SÁCH CỘNG NGƯỢC LẠI PHẦN CỦA CHÍNH ĐƠN NÀY. `khoiLuongChuaLenPO` do `tinhTienDoDeNghi`
+ * trả về **đã trừ** phần đơn này đang giữ (nó duyệt mọi PO chưa hủy của đề nghị, kể cả PO đang
+ * sửa). Không cộng lại là mở hộp sửa rồi bấm lưu mà không đổi gì cũng bị đòi lý do — cảnh báo
+ * đúng biến thành cảnh báo rác, và người dùng học cách gõ bừa cho xong.
+ *
+ * @param itemsCu  `po.items` đang lưu — cũng chính là bảng mà `tienDoDeNghi` vừa tính trên đó.
+ * @param itemsMoi `thayDoi.items` nơi gọi gửi lên.
+ * @param tienDoDeNghi Kết quả `tinhTienDoDeNghi(deNghiGoc, mọi PO, mọi phiếu)`. Mảng rỗng = đơn
+ *        không gắn đề nghị nào → không có gì để đối chiếu, chỉ còn chốt hàng đã nhận.
+ * @param daNhanTheoDong Kết quả `khoiLuongDaNhanTheoDongPO(phiếu của đơn này)`.
+ * @param coDeNghi Đơn có `prId` hay không — quyết định có đóng cờ `themNgoaiDeNghi` hay không.
+ */
+export function soatBangMatHangKhiSua(
+  itemsCu: readonly DongPOCanKiem[],
+  itemsMoi: readonly DongPOCanKiem[],
+  tienDoDeNghi: readonly TienDoCanKiem[],
+  daNhanTheoDong: ReadonlyMap<number, number>,
+  coDeNghi: boolean,
+): KetQuaSoatBangMatHang {
+  const hangCu = itemsCu.filter((d) => laDongHang(d));
+  const hangMoi = itemsMoi.filter((d) => laDongHang(d));
+  const moiTheoStt = new Map(itemsMoi.map((d) => [d.sttDong, d]));
+
+  /* ─── ① CHỐT NGHIỆP VỤ: DÒNG ĐÃ CÓ PHIẾU NHẬN (KHÔNG PHẢI CHỐT DUYỆT, KHÔNG ĐƯỢC NỚI) ─── */
+  for (const dongCu of itemsCu) {
+    const daNhan = daNhanTheoDong.get(dongCu.sttDong) ?? 0;
+    if (daNhan <= 0) continue;
+    const ten = dongCu.tenVatLieu?.trim() || "(chưa đặt tên)";
+    const dongMoi = moiTheoStt.get(dongCu.sttDong);
+    if (!dongMoi) {
+      return {
+        chan: `Dòng "${ten}" đã nhận ${formatNumber(daNhan)} ${dongCu.donViTinh} nên không xoá khỏi đơn được. Phiếu nhận hàng đã ghi trỏ về đúng dòng này và là căn cứ thanh toán — xoá đi là hồ sơ có phiếu nhận cho một dòng không còn tồn tại. Cần bỏ hẳn thì huỷ phiếu nhận trước.`,
+        vuot: [],
+        batLyDo: false,
+        sttThemNgoaiDeNghi: [],
+      };
+    }
+    if ((dongMoi.tenVatLieu ?? "") !== (dongCu.tenVatLieu ?? "")) {
+      return {
+        chan: `Dòng "${ten}" đã có phiếu nhận hàng nên không đổi được tên mặt hàng — phiếu nhận cũ sẽ nói về một thứ khác. Số lượng và đơn giá thì vẫn sửa được.`,
+        vuot: [],
+        batLyDo: false,
+        sttThemNgoaiDeNghi: [],
+      };
+    }
+    if ((dongMoi.donViTinh ?? "") !== (dongCu.donViTinh ?? "")) {
+      return {
+        chan: `Dòng "${ten}" đã có phiếu nhận hàng nên không đổi được đơn vị tính — số đã nhận (${formatNumber(daNhan)} ${dongCu.donViTinh}) sẽ không còn cùng thước đo với số đặt.`,
+        vuot: [],
+        batLyDo: false,
+        sttThemNgoaiDeNghi: [],
+      };
+    }
+    if ((dongMoi.khoiLuongDat || 0) < daNhan - NGUONG_LECH_KHOI_LUONG) {
+      return {
+        chan: `Dòng "${ten}" đã nhận ${formatNumber(daNhan)} ${dongCu.donViTinh} nên số lượng đặt không hạ xuống ${formatNumber(dongMoi.khoiLuongDat || 0)} được — đơn sẽ thành "nhận nhiều hơn đặt", mà số đã nhận chính là căn cứ thanh toán. Hạ thấp nhất được tới ${formatNumber(daNhan)}.`,
+        vuot: [],
+        batLyDo: false,
+        sttThemNgoaiDeNghi: [],
+      };
+    }
+  }
+
+  /* ─── ② DÒNG THÊM NGOÀI ĐỀ NGHỊ — chốt (B): đánh dấu, KHÔNG chặn ─── */
+  const sttCu = new Set(itemsCu.map((d) => d.sttDong));
+  const sttThemNgoaiDeNghi = coDeNghi
+    ? hangMoi.filter((d) => !sttCu.has(d.sttDong) && !d.sttDongDeNghi).map((d) => d.sttDong)
+    : [];
+
+  /* ─── ③ VƯỢT KHỐI LƯỢNG ĐÃ DUYỆT — chốt (A): cảnh báo kèm con số + bắt lý do, KHÔNG chặn ─── */
+  const vuot: DongVuotDuyet[] = [];
+
+  /* Dòng CŨ không trỏ về đề nghị nào: không có phần duyệt nào để đối chiếu, nên mốc so là chính
+     khối lượng cũ của nó. Tăng lên là tiêu thêm phần không ai duyệt → phải nói ra.
+     📌 Dòng MỚI không trỏ về đề nghị đã nằm ở ② rồi — không đếm hai lần. */
+  const khoiLuongCuMoCoi = new Map<number, number>();
+  for (const d of hangCu) {
+    if (!d.sttDongDeNghi) khoiLuongCuMoCoi.set(d.sttDong, d.khoiLuongDat || 0);
+  }
+  for (const d of hangMoi) {
+    if (d.sttDongDeNghi) continue;
+    const klCu = khoiLuongCuMoCoi.get(d.sttDong);
+    if (klCu === undefined) continue; // dòng mới — đã tính ở ②
+    const klMoi = d.khoiLuongDat || 0;
+    if (klMoi > klCu + NGUONG_LECH_KHOI_LUONG) {
+      vuot.push({
+        ten: d.tenVatLieu?.trim() || "(chưa đặt tên)",
+        donViTinh: d.donViTinh ?? "",
+        daDuyet: klCu,
+        dangDat: klMoi,
+        vuot: klMoi - klCu,
+      });
+    }
+  }
+
+  const datCu = congKhoiLuongTheoDongDeNghi(hangCu);
+  const datMoi = congKhoiLuongTheoDongDeNghi(hangMoi);
+  for (const [stt, klMoi] of datMoi) {
+    const dongDN = tienDoDeNghi.find((t) => t.stt === stt);
+    /* Đề nghị gốc không còn dòng mang số đó: không dựng được con số "đã duyệt" nên KHÔNG bịa ra
+       một mốc. Vẫn phải nói cho người sửa biết, nên xếp vào diện bắt ghi lý do với `daDuyet = 0`
+       — đúng sự thật: phần được duyệt đối chiếu được là 0. */
+    const conDuocDat = dongDN ? (dongDN.khoiLuongChuaLenPO || 0) + (datCu.get(stt) ?? 0) : 0;
+    if (klMoi > conDuocDat + NGUONG_LECH_KHOI_LUONG) {
+      const mau = hangMoi.find((d) => d.sttDongDeNghi === stt);
+      vuot.push({
+        ten: dongDN?.tenVatLieu ?? mau?.tenVatLieu ?? `mặt hàng số ${stt} của đề nghị`,
+        donViTinh: dongDN?.donViTinh ?? mau?.donViTinh ?? "",
+        daDuyet: conDuocDat,
+        dangDat: klMoi,
+        vuot: klMoi - conDuocDat,
+      });
+    }
+  }
+
+  /* 🔴 CHỈ `vuot` MỚI BẮT LÝ DO, KHÔNG PHẢI CẢ `sttThemNgoaiDeNghi`. Chốt (B) nói rõ *"không cản
+     trở việc thêm"* — dòng thêm mới đã có nhãn đi theo nó suốt đời chứng từ, đòi thêm một ô lý do
+     nữa là dựng lại đúng cái rào Sếp vừa gỡ, chỉ đổi hình dạng. */
+  return { chan: null, vuot, batLyDo: vuot.length > 0, sttThemNgoaiDeNghi };
+}
+
+/**
+ * ★★ CÂU CHỮ CỦA CẢNH BÁO VƯỢT DUYỆT — MỘT BẢN DUY NHẤT (Sếp 16/09/2026, chốt A).
+ *
+ * 🔴 DÙNG CHUNG cho cả câu chặn của tầng ghi lẫn dải cảnh báo trên form. Viết hai bản là hai nơi
+ * nói hai con số khác nhau cho cùng một lần bấm — người dùng không biết tin câu nào, đúng lỗi mà
+ * chú thích `batBuocLyDoSua` bên form đã dặn tránh.
+ *
+ * 🔴 PHẢI NÓI ĐỦ BA SỐ: đã duyệt · đang đặt · vượt. Thiếu "đã duyệt" thì người sửa không biết mốc
+ * nào để giải trình; thiếu "vượt" thì họ phải tự trừ nhẩm. Chốt (A) nói rõ *"nói rõ đang vượt bao
+ * nhiêu so với đã duyệt"*.
+ *
+ * ⚠️ KHÔNG chứa đơn giá hay thành tiền — câu này chảy vào nhật ký ĐỀ NGHỊ, nơi mọi vai trò đọc
+ * được (xem `mocSuaDonGia`). Khối lượng thì không phải điều kiện thương mại.
+ */
+export function taCacDongVuot(vuot: readonly DongVuotDuyet[]): string {
+  return vuot
+    .map(
+      (v) =>
+        `"${v.ten}" đã duyệt ${formatNumber(v.daDuyet)} ${v.donViTinh}, đang đặt ${formatNumber(v.dangDat)} ${v.donViTinh} (vượt ${formatNumber(v.vuot)} ${v.donViTinh})`.trim(),
+    )
+    .join(" · ");
+}
+
+/**
+ * ❌ ĐÃ THAY BẰNG `soatBangMatHangKhiSua` NGAY TRÊN — Sếp 16/09/2026. Giữ khối chú thích này để
+ * người sau biết luật cũ là gì và vì sao nó đổi; đừng dựng lại hàm chặn cứng.
+ *
+ * ★★★ (LUẬT CŨ 15/09/2026) SỬA BẢNG MẶT HÀNG CỦA PO CÓ ĐỀ NGHỊ THÌ PHẢI ĐỐI CHIẾU KHỐI LƯỢNG ĐÃ DUYỆT.
  *
  * 🔴🔴 ĐÂY LÀ LỖ HỔNG KIỂM SOÁT CHI TIÊU, KHÔNG PHẢI LỖI HIỂN THỊ. Trước hôm nay `suaDonHang` cho
  * thêm mặt hàng + số lượng + đơn giá **tùy ý** vào một PO đã chốt: nó không gọi `vuongMacLapDonHang`
@@ -497,52 +744,11 @@ function congKhoiLuongTheoDongDeNghi(items: readonly DongPOCanKiem[]): Map<numbe
  * đi tiếp được, nhưng **không được tăng khối lượng** — tăng một dòng không ai đối chiếu được chính
  * là kiểu tiêu tiền mà luật này sinh ra để chặn, chỉ khác là nó núp trong một dòng có sẵn.
  *
- * @param itemsCu  `po.items` đang lưu — cũng chính là bảng mà `tienDoDeNghi` vừa tính trên đó.
- * @param itemsMoi `thayDoi.items` nơi gọi gửi lên.
- * @param tienDoDeNghi Kết quả `tinhTienDoDeNghi(deNghiGoc, mọi PO, mọi phiếu)`.
- * @returns Câu lý do bị chặn, `null` là hợp lệ.
+ * Luật cũ chặn cứng ba việc, nay cả ba đã thành **cảnh báo + bắt lý do** hoặc **đánh dấu**:
+ *   · thêm dòng không gắn đề nghị  → nay đóng cờ `themNgoaiDeNghi` (chốt B)
+ *   · đặt vượt khối lượng đã duyệt → nay vào `vuot[]`, bắt ghi lý do (chốt A)
+ *   · thổi số lượng một dòng mồ côi → nay cũng vào `vuot[]`, bắt ghi lý do
  */
-export function vuongMacSuaDongPOTheoDeNghi(
-  itemsCu: readonly DongPOCanKiem[],
-  itemsMoi: readonly DongPOCanKiem[],
-  tienDoDeNghi: readonly TienDoCanKiem[],
-): string | null {
-  const hangCu = itemsCu.filter((d) => laDongHang(d));
-  const hangMoi = itemsMoi.filter((d) => laDongHang(d));
-
-  /* ① Dòng KHÔNG trỏ về đề nghị — chỉ chấp nhận dòng đã có sẵn, và không cho tăng khối lượng. */
-  const khoiLuongCuMoCoi = new Map<number, number>();
-  for (const d of hangCu) {
-    if (!d.sttDongDeNghi) khoiLuongCuMoCoi.set(d.sttDong, d.khoiLuongDat || 0);
-  }
-  for (const d of hangMoi) {
-    if (d.sttDongDeNghi) continue;
-    const ten = d.tenVatLieu?.trim() || "(chưa đặt tên)";
-    const klCu = khoiLuongCuMoCoi.get(d.sttDong);
-    if (klCu === undefined) {
-      return `Dòng "${ten}" không gắn với mặt hàng nào của đề nghị gốc nên không đối chiếu được với khối lượng đã duyệt. Đơn hàng lập từ đề nghị chỉ được đặt những mặt hàng đã qua bước duyệt báo giá — cần mua thêm thứ khác thì lập đề nghị mới, đừng thêm tay vào đơn đã chốt.`;
-    }
-    if ((d.khoiLuongDat || 0) > klCu + NGUONG_LECH_KHOI_LUONG) {
-      return `Dòng "${ten}" không gắn với mặt hàng nào của đề nghị gốc nên không có phần khối lượng đã duyệt để đối chiếu — chỉ được giữ nguyên (${formatNumber(klCu)}) hoặc giảm, không tăng lên ${formatNumber(d.khoiLuongDat || 0)}.`;
-    }
-  }
-
-  /* ② Dòng có trỏ về đề nghị — tổng đặt của đơn này không được vượt phần còn được phép đặt. */
-  const datCu = congKhoiLuongTheoDongDeNghi(hangCu);
-  const datMoi = congKhoiLuongTheoDongDeNghi(hangMoi);
-  for (const [stt, klMoi] of datMoi) {
-    const dongDN = tienDoDeNghi.find((t) => t.stt === stt);
-    if (!dongDN) {
-      return `Đơn hàng đang có dòng trỏ về mặt hàng số ${stt} của đề nghị, nhưng đề nghị gốc không còn dòng nào mang số đó. Không đối chiếu được khối lượng đã duyệt — kiểm lại đề nghị trước khi sửa đơn.`;
-    }
-    const conDuocDat = (dongDN.khoiLuongChuaLenPO || 0) + (datCu.get(stt) ?? 0);
-    if (klMoi > conDuocDat + NGUONG_LECH_KHOI_LUONG) {
-      return `Mặt hàng "${dongDN.tenVatLieu}" chỉ còn ${formatNumber(conDuocDat)} ${dongDN.donViTinh} được phép đặt trên đơn này (phần đã duyệt, trừ đi phần các đơn khác đã đặt). Đơn đang ghi ${formatNumber(klMoi)} ${dongDN.donViTinh}. Muốn đặt thêm thì phải có đề nghị được duyệt cho phần chênh đó.`;
-    }
-  }
-
-  return null;
-}
 
 /**
  * ★★ KHÓA QUYỀN Ở TẦNG GHI CHO BỐN CỬA CÒN THIẾU — Sếp 15/09/2026.
@@ -2078,7 +2284,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * không đáng ngại về bộ nhớ (kho chạy thử đang ~vài trăm chứng từ).
    */
   const daThayTrenMayChu = useRef<Set<string>>(new Set());
-  /** Sổ theo dõi: khoá → vết. Chỉ chứa bản ghi máy này vừa tạo mà chưa thấy trên máy chủ. */
+  /**
+   * Sổ theo dõi: khoá → vết. Chỉ chứa bản ghi máy này vừa tạo mà chưa thấy trên máy chủ.
+   *
+   * ★★ ⑤ KHỞI TẠO RỖNG Ở ĐÂY, NẠP TỪ MÁY TRONG EFFECT NỐI KHO CHUNG — cùng lý do với
+   * `daNapTuMay`: lần render đầu chạy phía máy chủ, không có `localStorage`; đọc lúc khởi tạo
+   * là bản dựng sẵn và bản trên máy khác nhau → React dựng lại cả cây, chớp giao diện.
+   *
+   * 📌 Nạp xong TRƯỚC khi ảnh chụp đầu tiên từ kho chung về, nên không có khe hở nào.
+   */
   const soGiuBanMoi = useRef<Map<string, VetBanGhiMoi>>(new Map());
   /** Ảnh khoá của kỳ trước, để biết id nào vừa mọc ra. `null` = chưa có mốc nào (lần chạy đầu). */
   const khoaKyTruoc = useRef<Set<string> | null>(null);
@@ -2087,8 +2301,25 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     () => new Set<string>(),
   );
 
-  /** Đồng bộ sổ (ref) sang state cho giao diện — chỉ đổi state khi bộ id thật sự khác. */
+  /**
+   * Đồng bộ sổ (ref) sang state cho giao diện — chỉ đổi state khi bộ id thật sự khác.
+   *
+   * ★★ ⑤ VÀ CẤT SỔ XUỐNG MÁY (15/09/2026, sau lần mất đơn thứ hai lúc ~20:35).
+   *
+   * 🔴 VÌ SAO CẤT Ở ĐÂY CHỨ KHÔNG RẢI RA TỪNG CHỖ SỬA SỔ: cùng đúng một lý lẽ với
+   * `idVuaTaoTaiMay` ở effect bên dưới — hàm này là **chỗ duy nhất** cả hai nơi sửa
+   * `soGiuBanMoi.current` đều đi qua (`ghiNhanAnhChupMayChu` và effect đánh dấu bản vừa tạo).
+   * Rải lệnh cất ra từng chỗ thì chỉ cần một chỗ mới sinh ra sau này quên gọi là sổ trên máy
+   * lệch với sổ trong bộ nhớ, và lệch kiểu đó **không có một dòng nào báo**.
+   *
+   * 🔴 PHẢI CẤT CẢ KHI SỔ RỖNG ĐI. Sổ rỗng đi nghĩa là bản ghi đã lên tới máy chủ — cửa một
+   * chiều vừa đóng. Không cất lúc đó thì bản cũ dưới đĩa còn giữ id ấy, và lần tải trang sau
+   * máy này lại hồi sinh một bản ghi mà người khác có quyền xoá.
+   *
+   * 📌 `ghiSoGiuBanGhiMoi` tự bọc `try/catch` và tự bỏ qua khi chạy phía máy chủ.
+   */
   const dongBoSoChoGiaoDien = useCallback(() => {
+    ghiSoGiuBanGhiMoi(soGiuBanMoi.current);
     const moi = new Set<string>();
     for (const k of soGiuBanMoi.current.keys()) moi.add(boTienTo(k));
     setBanGhiChuaLenKhoChung((cu) => {
@@ -2521,6 +2752,29 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    /**
+     * ★★ ⑤ NẠP SỔ "BẢN GHI CHƯA LÊN KHO CHUNG" TỪ MÁY — **PHẢI ĐỨNG TRƯỚC MỌI THỨ KHÁC**.
+     *
+     * 🔴 THỨ TỰ LÀ TẤT CẢ Ở ĐÂY. Sổ phải có mặt TRƯỚC khi ảnh chụp đầu tiên của kho chung về,
+     * vì `apDung` đọc `soGiuBanMoi.current` để quyết định đắp lại bản ghi nào. Nạp muộn hơn một
+     * nhịp là ảnh chụp đầu tiên xoá sạch đơn vừa lập — đúng lỗi đang chữa, chỉ dời đi vài mili
+     * giây.
+     *
+     * 🔴 ĐÂY LÀ THỨ CỨU ĐƠN `po-7a4d4418-…` CỦA SẾP (~20:35 ngày 15/09/2026): đơn đó vẫn nằm
+     * trong `localStorage` sau khi tab/trang dựng lại, nhưng sổ trong `useRef` đã bốc hơi nên
+     * không còn gì bảo nó là "của máy này, chưa lên tới nơi" — và ảnh chụp kế tiếp xoá nó, rồi
+     * ghi đè luôn `localStorage` bằng bộ đã thiếu.
+     *
+     * 📌 `docSoGiuBanGhiMoi` đã lọc bỏ mục quá 24 giờ (`HAN_GIU_BAN_GHI_MS`) — chống ca "máy A
+     * dựng sống lại bản ghi người B đã xoá từ hôm trước". Lý do chọn 24 giờ ghi đầy đủ ở
+     * `2-quy-trinh/giu-ban-ghi-moi.ts`.
+     *
+     * 📌 Gọi `dongBoSoChoGiaoDien()` ngay sau: vừa đẩy sổ vừa nạp ra cho giao diện (huy hiệu
+     * "đang đồng bộ" hiện đúng ngay từ giây đầu), vừa cất lại bản ĐÃ LỌC HẠN xuống máy.
+     */
+    soGiuBanMoi.current = docSoGiuBanGhiMoi();
+    if (soGiuBanMoi.current.size > 0) dongBoSoChoGiaoDien();
+
     // ① Đọc bản trên máy trước — có ngay, không phải chờ mạng.
     const d = docDuLieuDaLuu();
     if (d) {
@@ -2599,7 +2853,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       //   đóng, và ở chế độ Strict Mode (mount hai lần) thì hai lịch chồng nhau.
       donLichGhiLai();
     };
-  }, [apDung, dayLenMayChu, ghiNhanAnhChupMayChu, donLichGhiLai]);
+  }, [apDung, dayLenMayChu, ghiNhanAnhChupMayChu, donLichGhiLai, dongBoSoChoGiaoDien]);
 
   // ⚠️ Chờ nạp xong mới cho ghi. Bỏ điều kiện này là lần chạy đầu ghi đè bản lưu bằng
   // dữ liệu rỗng — tức xóa sạch việc người dùng đã nhập hôm trước.
@@ -2645,7 +2899,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       khoaKyTruoc.current = new Set(khoaKyNay);
       if (vuaTao.length > 0) {
         const so = new Map(soGiuBanMoi.current);
-        for (const k of vuaTao) so.set(k, { soAnhChupVang: 0 });
+        /* ★★ ⑤ `tao` LÀ TUỔI CỦA MỤC, chỉ có nghĩa cho cuốn sổ cất xuống máy: quá 24 giờ thì
+           lần tải trang sau bỏ mục đó đi, chống ca "máy A dựng sống lại bản ghi người B đã xoá
+           hôm trước". Trong phiên đang chạy thì trường này KHÔNG quyết định gì — bản ghi vẫn
+           giữ mãi, đúng như `quaHanDongBo` đã ghi. Xem `HAN_GIU_BAN_GHI_MS`. */
+        const bayGio = Date.now();
+        for (const k of vuaTao) so.set(k, { soAnhChupVang: 0, tao: bayGio });
         soGiuBanMoi.current = so;
         dongBoSoChoGiaoDien();
       }
@@ -3424,8 +3683,59 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               thayDoi.dieuKienThuongMai,
             );
 
-      const batBuocLyDo = !laQuanLy || doiNgayGiao || doiNCC || mocTM.doiTien;
+      /* 🔴 PHẢI CÒN ÍT NHẤT 1 DÒNG HÀNG THẬT — nút "Xóa dòng" ở hộp thoại xóa được TỪNG dòng một,
+         không có gì chặn xóa hết. Một PO 0 mặt hàng là vô nghĩa về nghiệp vụ (0 ₫, không còn gì
+         để giao/nhận) nhưng vẫn hợp lệ về mặt kiểu dữ liệu (`items: []`) nếu không kiểm ở đây.
+         📌 ĐỨNG TRƯỚC phép soát bảng mặt hàng (16/09/2026): một bảng rỗng thì mọi con số "vượt"
+         tính ra đều vô nghĩa, và câu chặn đúng phải là câu này chứ không phải câu về khối lượng. */
+      if (thayDoi.items && !thayDoi.items.some((d) => laDongHang(d))) {
+        return "Đơn hàng phải còn ít nhất 1 dòng mặt hàng — không xóa hết được.";
+      }
+
+      /**
+       * ★★★ SOÁT BẢNG MẶT HÀNG — Sếp 16/09/2026: *"khi sửa đơn thì cho phép tăng giảm mặt hàng,
+       * số lượng, đơn giá, thuế"*, kèm chốt (A) cảnh báo + bắt lý do khi vượt duyệt và chốt (B)
+       * đánh dấu dòng thêm mới. Luật đầy đủ và lịch sử đổi luật ở `soatBangMatHangKhiSua` (hàm
+       * thuần, đầu tệp này) — đây chỉ là chỗ hỏi lại.
+       *
+       * 🔴 DỰNG SỚM, TRƯỚC `batBuocLyDo`: cờ `batLyDo` của phép soát là một trong các ca bắt buộc
+       * ghi lý do. Dựng sau thì ca vượt duyệt lọt qua mà không ai phải giải trình — đúng nửa chốt
+       * (A) bị mất.
+       *
+       * ⚠️ `tinhTienDoDeNghi` phải nhận ĐÚNG `donHangRef.current` hiện tại (gồm cả đơn đang sửa),
+       * vì phép soát cộng ngược lại phần của đơn này từ `po.items`. Truyền vào một danh sách đã
+       * lọc bỏ đơn này là ngân sách bị trừ hai lần rồi cảnh báo vượt oan.
+       *
+       * ⚠️ ĐƠN KHÔNG CÓ `prId` VẪN PHẢI SOÁT. Chốt "dòng đã nhận hàng" là chốt NGHIỆP VỤ, không
+       * phải chốt duyệt — đơn độc lập cũng có phiếu nhận hàng. Bản 15/09 gác cả khối bằng
+       * `po.prId` nên đơn độc lập đi thẳng qua; nay tách: đề nghị chỉ quyết định phần đối chiếu
+       * khối lượng đã duyệt (mảng rỗng = không có gì để đối chiếu).
+       */
+      const dnGoc = po.prId ? deNghiRef.current.find((d) => d.id === po.prId) : undefined;
+      if (thayDoi.items && po.prId && !dnGoc) {
+        return "Không tìm thấy đề nghị gốc của đơn hàng này nên không đối chiếu được khối lượng đã duyệt. Kiểm lại liên kết đề nghị trước khi sửa bảng mặt hàng.";
+      }
+      const soatBang = thayDoi.items
+        ? soatBangMatHangKhiSua(
+            po.items,
+            thayDoi.items,
+            dnGoc ? tinhTienDoDeNghi(dnGoc, donHangRef.current, phieuNhanRef.current) : [],
+            khoiLuongDaNhanTheoDongPO(phieuNhanRef.current.filter((p) => p.poId === poId)),
+            !!po.prId,
+          )
+        : { chan: null, vuot: [], batLyDo: false, sttThemNgoaiDeNghi: [] };
+      if (soatBang.chan) return soatBang.chan;
+
+      /* ⚠️ GIỮ NGUYÊN MỘT DÒNG — bài kiểm "`doiTien` phải nằm trong `batBuocLyDo`" (Sếp
+         15/09/2026) tìm bằng biểu thức chính quy quét HẾT MỘT DÒNG từ chữ `const batBuocLyDo =`,
+         nên ngắt dòng ở đây là nó báo đỏ giả. */
+      const batBuocLyDo = !laQuanLy || doiNgayGiao || doiNCC || mocTM.doiTien || soatBang.batLyDo;
       if (batBuocLyDo && lyDo.trim() === "") {
+        /* 🔴 CA VƯỢT DUYỆT NÓI RA CON SỐ, đứng TRƯỚC mọi câu khác: đây là ca duy nhất mà người
+           sửa cần biết *bao nhiêu* mới viết nổi lý do cho tử tế (chốt A, Sếp 16/09/2026). */
+        if (soatBang.batLyDo) {
+          return `Đang đặt vượt khối lượng đã được duyệt — ${taCacDongVuot(soatBang.vuot)}. Vẫn lưu được, nhưng phải ghi rõ lý do vượt để người duyệt và Kế toán đối chiếu sau này.`;
+        }
         if (doiNgayGiao) return "Đổi ngày giao phải ghi lý do, dù là ai sửa.";
         if (doiNCC) return "Đổi nhà cung cấp phải ghi lý do, dù là ai sửa.";
         /* 🔴 NÓI ĐÚNG THỨ VỪA ĐỔI, đừng gộp thành một câu chung: người sửa cần biết chính cái ô
@@ -3434,58 +3744,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           return "Đổi chiết khấu hoặc thuế suất chung là đổi số tiền của đơn — phải ghi lý do, dù là ai sửa.";
         }
         return "Bạn không phải Trưởng bộ phận/quản trị — sửa đơn hàng phải ghi lý do.";
-      }
-
-      /* 🔴 PHẢI CÒN ÍT NHẤT 1 DÒNG HÀNG THẬT — nút "Xóa dòng" ở hộp thoại xóa được TỪNG dòng một,
-         không có gì chặn xóa hết. Một PO 0 mặt hàng là vô nghĩa về nghiệp vụ (0 ₫, không còn gì
-         để giao/nhận) nhưng vẫn hợp lệ về mặt kiểu dữ liệu (`items: []`) nếu không kiểm ở đây. */
-      if (thayDoi.items && !thayDoi.items.some((d) => laDongHang(d))) {
-        return "Đơn hàng phải còn ít nhất 1 dòng mặt hàng — không xóa hết được.";
-      }
-
-      /* Dòng đang có phiếu nhận tham chiếu tới thì khóa nội dung/số lượng — luật DÙNG CHUNG với
-         hộp thoại, xem chú thích đầy đủ ở `dongPOBiKhoaNoiDung` (2-quy-trinh/tinh-toan.ts). */
-      if (thayDoi.items) {
-        const dongDaNhan = dongPOBiKhoaNoiDung(
-          phieuNhanRef.current.filter((p) => p.poId === poId),
-        );
-        for (const dongCu of po.items) {
-          if (!dongDaNhan.has(dongCu.sttDong)) continue;
-          const dongMoi = thayDoi.items.find((d) => d.sttDong === dongCu.sttDong);
-          if (
-            !dongMoi ||
-            dongMoi.tenVatLieu !== dongCu.tenVatLieu ||
-            dongMoi.donViTinh !== dongCu.donViTinh ||
-            dongMoi.khoiLuongDat !== dongCu.khoiLuongDat
-          ) {
-            return `Dòng "${dongCu.tenVatLieu}" đã có phiếu nhận hàng — không sửa mặt hàng/số lượng dòng này được nữa. Thêm dòng mới nếu cần đặt thêm.`;
-          }
-        }
-      }
-
-      /**
-       * 🔴🔴 CHỐT KIỂM SOÁT CHI TIÊU — Sếp 15/09/2026. Luật đầy đủ và lý do ở
-       * `vuongMacSuaDongPOTheoDeNghi` (hàm thuần, đầu tệp này), đây chỉ là chỗ hỏi lại.
-       *
-       * 🔴 CHỈ ÁP CHO ĐƠN CÓ `prId`. Đơn độc lập cũ (`"cho_de_nghi"`, đơn thời kỳ trước) không có
-       * đề nghị nào để đối chiếu — áp luật vào đó là **khóa cứng dữ liệu đang chạy**, không phải
-       * siết kiểm soát. Chúng đi qua chốt riêng của mình khi được gắn đề nghị (`ganDeNghiVaoPO`).
-       *
-       * ⚠️ `tinhTienDoDeNghi` phải nhận ĐÚNG `donHangRef.current` hiện tại (gồm cả đơn đang sửa),
-       * vì `vuongMacSuaDongPOTheoDeNghi` cộng ngược lại phần của đơn này từ `po.items`. Truyền vào
-       * một danh sách đã lọc bỏ đơn này là ngân sách bị cộng hai lần.
-       */
-      if (thayDoi.items && po.prId) {
-        const dnGoc = deNghiRef.current.find((d) => d.id === po.prId);
-        if (!dnGoc) {
-          return "Không tìm thấy đề nghị gốc của đơn hàng này nên không đối chiếu được khối lượng đã duyệt. Kiểm lại liên kết đề nghị trước khi sửa bảng mặt hàng.";
-        }
-        const chanKhoiLuong = vuongMacSuaDongPOTheoDeNghi(
-          po.items,
-          thayDoi.items,
-          tinhTienDoDeNghi(dnGoc, donHangRef.current, phieuNhanRef.current),
-        );
-        if (chanKhoiLuong) return chanKhoiLuong;
       }
 
       if (thayDoi.gia && po.xacNhanTruongBP) {
@@ -3617,6 +3875,33 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (thayDoi.items !== undefined) {
         moc.push(...mocSuaBangMatHang(po.items, thayDoi.items));
       }
+      /**
+       * ★★★ HAI MỐC MỚI CỦA CHỈ ĐẠO 16/09/2026 — đây là phần "lưu lại" của chốt (A) và (B).
+       *
+       * 🔴 CẢNH BÁO HIỆN RỒI MẤT THÌ KHÔNG PHẢI KIỂM SOÁT. Chốt (A) mở cho đặt vượt khối lượng đã
+       * duyệt, đổi lại là **phải giải trình được về sau**: con số vượt và lý do phải nằm trong hồ
+       * sơ, không phải trong một cái toast biến mất sau 4 giây. Lý do đi riêng một dòng ngay dưới
+       * (`Lý do sửa: …`, khối cuối hàm) — hai dòng cạnh nhau là đọc ra ngay "vượt bao nhiêu" và
+       * "vì sao".
+       *
+       * 🔴 GHI CẢ KHI NGƯỜI SỬA LÀ TRƯỞNG BỘ PHẬN. `batBuocLyDo` có thể đúng vì nhiều ca khác
+       * nhau, nhưng mốc vượt duyệt thì chỉ phụ thuộc `soatBang.vuot` — gắn nó vào `batBuocLyDo`
+       * là quản lý sửa thì con số vượt biến mất khỏi hồ sơ.
+       *
+       * ⚠️ CHỈ KHỐI LƯỢNG, KHÔNG TIỀN — câu này chảy sang nhật ký ĐỀ NGHỊ (mọi vai trò đọc được).
+       */
+      if (soatBang.vuot.length > 0) {
+        moc.push(`⚠ Đặt vượt khối lượng đã duyệt: ${taCacDongVuot(soatBang.vuot)}`);
+      }
+      if (soatBang.sttThemNgoaiDeNghi.length > 0) {
+        const ten = soatBang.sttThemNgoaiDeNghi
+          .map((stt) => {
+            const d = thayDoi.items?.find((x) => x.sttDong === stt);
+            return `dòng ${stt} "${d?.tenVatLieu?.trim() || "(chưa đặt tên)"}"`;
+          })
+          .join(", ");
+        moc.push(`⚠ Thêm hàng ngoài đề nghị: ${ten}`);
+      }
 
       /* 📌 `giaCu` đã đọc ở đầu hàm (khối "ĐIỀU KIỆN THƯƠNG MẠI") vì cờ `doiTien` cần nó để quyết
          có bắt lý do hay không. Đọc lại lần thứ hai ở đây là hai biến cùng trỏ một thứ, rồi ai đó
@@ -3664,7 +3949,29 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           if (thayDoi.ngayGiaoDenNgay !== undefined) sau.ngayGiaoDenNgay = thayDoi.ngayGiaoDenNgay || undefined;
           if (thayDoi.supplierId !== undefined) sau.supplierId = thayDoi.supplierId;
           if (thayDoi.supplierTen !== undefined) sau.supplierTen = thayDoi.supplierTen;
-          if (thayDoi.items !== undefined) sau.items = thayDoi.items;
+          /**
+           * ★★★ ĐÓNG CỜ "HÀNG THÊM NGOÀI ĐỀ NGHỊ" — chốt (B) của Sếp 16/09/2026.
+           *
+           * 🔴 ĐÓNG Ở TẦNG GHI, KHÔNG NHẬN TỪ GIAO DIỆN. Nơi gọi chỉ gửi bảng mặt hàng; cờ do
+           * phép soát quyết định (`soatBangMatHangKhiSua`). Nếu để UI gửi lên thì mỗi màn hình
+           * thêm dòng lại phải nhớ đóng cờ, quên một chỗ là dòng đó **trông y hệt hàng đã duyệt**
+           * trước mặt Kế toán — đúng thứ chốt (B) sinh ra để chặn.
+           *
+           * 🔴🔴 GIỮ CỜ CŨ BẰNG CÁCH ĐỌC LẠI `po.items`, KHÔNG ĐỌC `thayDoi.items`. Form dựng lại
+           * bảng mặt hàng từ các ô trên màn hình (`dungItemsBanSua`) nên **không mang cờ này lên**
+           * — tin vào `d.themNgoaiDeNghi` của dữ liệu gửi lên là nhãn **tự bay mất ngay ở lần lưu
+           * thứ hai**, mà lần đó `sttDong` đã nằm trong `po.items` nên phép soát cũng không còn
+           * coi nó là dòng mới nữa. Dấu vết mất sạch, không một dòng báo.
+           */
+          if (thayDoi.items !== undefined) {
+            const coCo = new Set([
+              ...soatBang.sttThemNgoaiDeNghi,
+              ...po.items.filter((d) => d.themNgoaiDeNghi).map((d) => d.sttDong),
+            ]);
+            sau.items = thayDoi.items.map((d) =>
+              coCo.has(d.sttDong) ? { ...d, themNgoaiDeNghi: true } : d,
+            );
+          }
           /* ── MỞ 15/09/2026 · Nhóm A ── */
           if (thayDoi.mauPO !== undefined) sau.mauPO = thayDoi.mauPO;
           if (thayDoi.ghiChuHopDongNCC !== undefined) sau.ghiChuHopDongNCC = thayDoi.ghiChuHopDongNCC || undefined;

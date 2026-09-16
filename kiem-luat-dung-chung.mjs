@@ -2987,19 +2987,37 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
-// ★★★ SỬA ĐƠN HÀNG KHÔNG ĐƯỢC ĐI VÒNG QUA KIỂM SOÁT CHI TIÊU — Sếp 15/09/2026
+// ★★★ SỬA ĐƠN HÀNG: MỞ TĂNG GIẢM MẶT HÀNG · SỐ LƯỢNG · ĐƠN GIÁ · THUẾ — Sếp 16/09/2026
 //
-// Rà soát 15/09/2026 tìm ra: `suaDonHang` cho thêm mặt hàng + số lượng + đơn giá TÙY Ý vào một PO
-// ĐÃ CHỐT — không gọi `vuongMacLapDonHang`, không đối chiếu khối lượng đã duyệt của đề nghị.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LUẬT Ở ĐÂY VỪA ĐỔI CHIỀU CÓ CHỦ ĐÍCH. ĐỌC HẾT KHỐI NÀY TRƯỚC KHI SỬA BẤT CỨ BÀI NÀO.
 //
-// 🔴 HẬU QUẢ KÉP, và vế thứ hai mới là vế nguy: dòng thêm tay mang `sttDongDeNghi: undefined`, mà
-//    `tinhTienDoDeNghi` gom khối lượng THEO `sttDongDeNghi`. Nên tiền của đơn tăng ngay, còn đề
-//    nghị gốc **vẫn báo khối lượng đó "chưa lên PO"** → người khác lập tiếp một PO nữa cho cùng
-//    phần việc. Đặt trùng, không màn hình nào báo.
+// **MỐC CŨ — Sếp 15/09/2026:** hàm `vuongMacSuaDongPOTheoDeNghi` CHẶN CỨNG ba việc khi sửa một
+// PO lập từ đề nghị: thêm dòng không gắn đề nghị · đặt vượt khối lượng đã duyệt · thổi số lượng
+// một dòng mồ côi. Tám bài kiểm của mốc đó từng đứng ở đúng chỗ này và đều đòi "một câu lý do".
+//
+// **MỐC MỚI — Sếp 16/09/2026,** nguyên văn chỉ đạo (ảnh màn *"Sửa đơn mua hàng DMH260002"*):
+//     *"khi sửa đơn thì cho phép tăng giảm mặt hàng, số lượng, đơn giá, thuế. Hãy sửa và mở
+//      thêm tính năng"*
+// kèm hai chốt Sếp chốt cùng ngày:
+//   · **(A)** Vượt khối lượng đã duyệt → **CẢNH BÁO NHƯNG VẪN CHO LƯU**. App phải nói rõ *đang
+//     vượt bao nhiêu so với đã duyệt* và **bắt ghi lý do** mới lưu được. **Không chặn.**
+//   · **(B)** Dòng mặt hàng thêm mới → **PHẢI ĐÁNH DẤU** là *"hàng thêm ngoài đề nghị"*, hiện
+//     nhãn trên màn hình để Kế toán và người duyệt biết phần nào đã qua duyệt. **Không cản trở.**
+//
+// 👉 Nên hàm nay là `soatBangMatHangKhiSua`, trả `{ chan, vuot, batLyDo, sttThemNgoaiDeNghi }`.
+//    Ai đổi ngược lại thành chặn cứng là **đi ngược chỉ đạo 16/09/2026** — cần đổi thì phải có
+//    chỉ đạo mới, và phải sửa cả khối này, đừng sửa lặng lẽ một bên.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// 🔴 CHỐT KHÔNG ĐƯỢC NỚI, VÀ ĐÓ LÀ PHẦN NẶNG NHẤT CỦA BỘ NÀY: dòng **đã có phiếu nhận hàng** thì
+//    ① không xoá được, ② số lượng không hạ xuống dưới khối lượng đã nhận. Đây là chốt NGHIỆP VỤ,
+//    không phải chốt duyệt — chỉ đạo 16/09 không đụng tới nó. Ai nới là app sinh ra cảnh **"nhận
+//    nhiều hơn đặt"**, mà con số đã nhận chính là căn cứ thanh toán cho nhà cung cấp.
 //
 // ⚠️ BỘ NÀY PHẢI "KHÔNG RỖNG NGHĨA" THEO CẢ HAI CHIỀU:
-//    · `return null` vô điều kiện  → các bài "phải chặn" đỏ
-//    · chặn vô điều kiện           → các bài "không được chặn" đỏ (đơn đang chạy sẽ kẹt cứng)
+//    · `chan` luôn `null` + `batLyDo` luôn `false` → các bài "phải cảnh báo/phải chặn" đỏ
+//    · chặn hoặc đòi lý do vô điều kiện          → các bài "KHÔNG được chặn" đỏ (đơn đang chạy kẹt)
 // ════════════════════════════════════════════════════════════════════
 
 /** Đề nghị duyệt 100 kg thép cho dòng số 1; `conLai` = phần CHƯA lên PO nào. */
@@ -3014,149 +3032,280 @@ const dongTheoDN = (sttDong, khoiLuongDat) => ({
   donViTinh: "kg",
   khoiLuongDat,
 });
-/** Dòng PO KHÔNG trỏ về đề nghị nào — kiểu dòng mà lỗ hổng này cho phép thêm tùy ý. */
+/** Dòng PO KHÔNG trỏ về đề nghị nào — kiểu dòng mà chốt (B) sinh ra để đánh dấu. */
 const dongMoCoi = (sttDong, khoiLuongDat, ten = "Máy phát điện") => ({
   sttDong,
   tenVatLieu: ten,
   donViTinh: "cái",
   khoiLuongDat,
 });
+/** Chưa nhận gì — tuyệt đại đa số bài dùng cái này. */
+const CHUA_NHAN = new Map();
+/** Đã nhận `kl` trên dòng PO số `stt`. */
+const daNhan = (stt, kl) => new Map([[stt, kl]]);
+/** Gọi tắt cho gọn: mặc định đơn CÓ đề nghị. */
+const soat = (cu, moi, tienDo, nhan = CHUA_NHAN, coDeNghi = true) =>
+  KD.soatBangMatHangKhiSua(cu, moi, tienDo, nhan, coDeNghi);
 
 kiem(
-  "THÊM dòng mới không gắn đề nghị vào PO đã chốt → CHẶN",
-  "Sếp · 15/09/2026 — lỗ hổng kiểm soát chi tiêu ở tầng ghi `suaDonHang`",
+  "(A) TĂNG số lượng vượt phần đã duyệt → CẢNH BÁO + BẮT LÝ DO, KHÔNG chặn",
+  "Sếp · 16/09/2026 — *\"cảnh báo nhưng vẫn cho lưu … bắt ghi lý do\"*",
   () => {
-    /* 🔴 BÀI QUAN TRỌNG NHẤT CỦA LUẬT NÀY. Đây đúng thao tác đã đo được là đi vòng qua chốt duyệt
-       giá: bấm "Sửa đơn hàng" → "Thêm dòng" → gõ mặt hàng và giá → lưu. */
-    const r = KD.vuongMacSuaDongPOTheoDeNghi(
-      [dongTheoDN(1, 100)],
-      [dongTheoDN(1, 100), dongMoCoi(2, 1)],
-      tienDoDN(0),
-    );
+    /* 🔴 BÀI XƯƠNG SỐNG CỦA CHỐT (A). Đề nghị đã lên PO hết 100 (`conLai = 0`), đơn này đang giữ
+       đúng 100 → phần được phép đặt là 100. Sửa lên 150 là vượt 50.
+       Hai thứ cùng phải đúng: KHÔNG chặn (`chan === null`) VÀ có đòi lý do (`batLyDo`). Thiếu vế
+       đầu là đi ngược chỉ đạo 16/09; thiếu vế sau là mở toang kiểm soát chi tiêu của 15/09. */
+    const r = soat([dongTheoDN(1, 100)], [dongTheoDN(1, 150)], tienDoDN(0));
     return {
-      duoc: typeof r === "string" && r !== "",
-      thucTe: r === null ? "null (LỌT — thêm được mặt hàng chưa ai duyệt vào đơn đã chốt!)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "một câu lý do",
+      duoc: r.chan === null && r.batLyDo === true && r.vuot.length === 1 && r.vuot[0].vuot === 50,
+      thucTe: JSON.stringify({ chan: r.chan, batLyDo: r.batLyDo, vuot: r.vuot }),
+      mongDoi: "chan: null · batLyDo: true · vuot: [{ daDuyet: 100, dangDat: 150, vuot: 50 }]",
     };
   },
 );
 
 kiem(
-  "TĂNG số lượng vượt phần đã duyệt → CHẶN",
-  "Sếp · 15/09/2026 — đặt quá khối lượng đề nghị cũng là tiêu tiền chưa ai duyệt",
+  "(A) Câu cảnh báo phải NÓI ĐỦ BA SỐ: đã duyệt · đang đặt · vượt",
+  "Sếp · 16/09/2026 — *\"nói rõ đang vượt bao nhiêu so với đã duyệt\"*",
   () => {
-    /* Đề nghị đã lên PO hết 100 (`conLai = 0`), đơn này đang giữ đúng 100 → ngân sách là 100.
-       Sửa lên 150 là mua thêm 50 kg không có đề nghị nào đứng sau. */
-    const r = KD.vuongMacSuaDongPOTheoDeNghi([dongTheoDN(1, 100)], [dongTheoDN(1, 150)], tienDoDN(0));
+    /* 🔴 CHỐT (A) KHÔNG PHẢI LÀ MỘT CỜ BOOLEAN. Nửa sau của chỉ đạo là app phải NÓI RA con số —
+       cảnh báo "bạn đang vượt" mà không kèm số thì người sửa không viết nổi lý do cho tử tế, và
+       người duyệt đọc lại hồ sơ cũng không biết vượt bao nhiêu. Dựng câu bằng `taCacDongVuot`
+       (một bản duy nhất, tầng ghi và form dùng chung) nên bài này canh luôn cả việc đó. */
+    const r = soat([dongTheoDN(1, 100)], [dongTheoDN(1, 150)], tienDoDN(0));
+    const cau = KD.taCacDongVuot(r.vuot);
+    const duSo = cau.includes("100") && cau.includes("150") && cau.includes("50");
     return {
-      duoc: typeof r === "string" && r !== "",
-      thucTe: r === null ? "null (LỌT — đặt vượt phần đã duyệt)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "một câu lý do",
+      duoc: duSo && cau.includes("Thép D10"),
+      thucTe: `"${cau}"`,
+      mongDoi: "một câu có đủ tên mặt hàng, 100 (đã duyệt), 150 (đang đặt), 50 (vượt)",
     };
   },
 );
 
 kiem(
-  "CẮT một dòng đề nghị thành HAI dòng PO, tổng vượt → vẫn CHẶN",
-  "Sếp · 15/09/2026 — chống lách bằng cách chia nhỏ dòng",
+  "(A) CẮT một dòng đề nghị thành HAI dòng PO, tổng vượt → vẫn CẢNH BÁO",
+  "Sếp · 16/09/2026 (giữ nguyên quyết định thiết kế của 15/09/2026)",
   () => {
-    /* 🔴 BÀI NÀY GIỮ MỘT QUYẾT ĐỊNH THIẾT KẾ, đừng "dọn cho gọn" thành xét lẻ từng dòng: một dòng
-       đề nghị ĐƯỢC PHÉP cắt thành nhiều dòng PO (giao nhiều đợt). Xét lẻ thì hai dòng mỗi dòng
-       "vừa đủ phần còn lại" đều lọt, cộng lại thành gấp đôi phần đã duyệt. */
-    const r = KD.vuongMacSuaDongPOTheoDeNghi(
-      [dongTheoDN(1, 100)],
-      [dongTheoDN(1, 100), dongTheoDN(2, 20)],
-      tienDoDN(0),
-    );
+    /* 🔴 ĐỪNG "DỌN CHO GỌN" THÀNH XÉT LẺ TỪNG DÒNG: một dòng đề nghị ĐƯỢC PHÉP cắt thành nhiều
+       dòng PO (giao nhiều đợt). Xét lẻ thì hai dòng mỗi dòng "vừa đủ phần còn lại" đều không
+       vượt, cộng lại thành gấp đôi phần đã duyệt mà không ai được cảnh báo. */
+    const r = soat([dongTheoDN(1, 100)], [dongTheoDN(1, 100), dongTheoDN(2, 20)], tienDoDN(0));
     return {
-      duoc: typeof r === "string" && r !== "",
-      thucTe: r === null ? "null (LỌT — chia nhỏ dòng là lách được)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "một câu lý do",
+      duoc: r.batLyDo === true && r.vuot.length === 1 && r.vuot[0].vuot === 20,
+      thucTe: JSON.stringify({ batLyDo: r.batLyDo, vuot: r.vuot }),
+      mongDoi: "batLyDo: true · vượt 20 (gom theo sttDongDeNghi, không xét lẻ từng dòng PO)",
     };
   },
 );
 
 kiem(
-  "TĂNG khối lượng một dòng CŨ không gắn đề nghị → CHẶN",
-  "Sếp · 15/09/2026 — dòng mồ côi được giữ, nhưng không được phình ra",
+  "(A) TĂNG khối lượng một dòng CŨ không gắn đề nghị → CẢNH BÁO + BẮT LÝ DO",
+  "Sếp · 16/09/2026 — dòng mồ côi không có mốc duyệt nào, phình ra là phải giải trình",
   () => {
-    const r = KD.vuongMacSuaDongPOTheoDeNghi(
+    const r = soat(
       [dongTheoDN(1, 100), dongMoCoi(2, 1)],
       [dongTheoDN(1, 100), dongMoCoi(2, 5)],
       tienDoDN(0),
     );
     return {
-      duoc: typeof r === "string" && r !== "",
-      thucTe: r === null ? "null (LỌT — lách bằng cách thổi số lượng một dòng có sẵn)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "một câu lý do",
+      duoc: r.chan === null && r.batLyDo === true && r.vuot.some((v) => v.vuot === 4),
+      thucTe: JSON.stringify({ chan: r.chan, vuot: r.vuot }),
+      mongDoi: "chan: null · một dòng vượt 4 (từ 1 lên 5)",
     };
   },
 );
 
 kiem(
-  "CHIỀU NGƯỢC: bảng mặt hàng không đổi → KHÔNG được chặn",
-  "Sếp · 15/09/2026 — chặn quá tay là mọi đơn đang chạy hết sửa được",
+  "(B) THÊM dòng mới không gắn đề nghị → ĐÁNH DẤU `themNgoaiDeNghi`, KHÔNG chặn",
+  "Sếp · 16/09/2026 — *\"phải đánh dấu là hàng thêm ngoài đề nghị … không cản trở việc thêm\"*",
   () => {
-    /* 🔴 BÀI CHỐNG "CHẶN VÔ ĐIỀU KIỆN". `khoiLuongChuaLenPO` do `tinhTienDoDeNghi` trả về ĐÃ TRỪ
-       phần đơn này đang giữ — quên cộng ngược lại là mở hộp sửa rồi bấm lưu mà không đổi gì cũng
-       bị chặn, tức luật đúng biến thành luật khoá cứng. */
-    const r = KD.vuongMacSuaDongPOTheoDeNghi([dongTheoDN(1, 100)], [dongTheoDN(1, 100)], tienDoDN(0));
+    /* 🔴 BÀI XƯƠNG SỐNG CỦA CHỐT (B), và là chỗ luật đổi chiều rõ nhất: đúng thao tác này ngày
+       15/09 bị CHẶN, nay phải ĐI QUA ĐƯỢC nhưng mang dấu vết. Mất nhãn là Kế toán và người duyệt
+       nhìn dòng thêm tay y hệt hàng đã qua bước Xét duyệt báo giá. */
+    const r = soat([dongTheoDN(1, 100)], [dongTheoDN(1, 100), dongMoCoi(2, 1)], tienDoDN(0));
     return {
-      duoc: r === null,
-      thucTe: r === null ? "null (sửa được)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "null",
+      duoc:
+        r.chan === null &&
+        r.sttThemNgoaiDeNghi.length === 1 &&
+        r.sttThemNgoaiDeNghi[0] === 2,
+      thucTe: JSON.stringify({ chan: r.chan, sttThemNgoaiDeNghi: r.sttThemNgoaiDeNghi }),
+      mongDoi: "chan: null · sttThemNgoaiDeNghi: [2]",
     };
   },
 );
 
 kiem(
-  "CHIỀU NGƯỢC: tăng số lượng TRONG phần đề nghị còn lại → KHÔNG được chặn",
-  "Sếp · 15/09/2026 — còn khối lượng đã duyệt thì phải đặt thêm được",
+  "(B) CHIỀU NGƯỢC: đơn KHÔNG gắn đề nghị → KHÔNG đóng cờ cho dòng nào",
+  "Sếp · 16/09/2026 — nhãn phải có nghĩa, đóng bừa là nó thành vô nghĩa",
   () => {
-    // Đề nghị còn 20 kg chưa lên PO, đơn đang giữ 100 → được phép nâng tới 120.
-    const r = KD.vuongMacSuaDongPOTheoDeNghi([dongTheoDN(1, 100)], [dongTheoDN(1, 120)], tienDoDN(20));
-    return {
-      duoc: r === null,
-      thucTe: r === null ? "null (đặt thêm được)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "null",
-    };
-  },
-);
-
-kiem(
-  "CHIỀU NGƯỢC: dòng CŨ không gắn đề nghị, giữ nguyên → KHÔNG được chặn",
-  "Sếp · 15/09/2026 — dữ liệu chạy thử có sẵn dòng như vậy, chặn tiệt là khoá cứng đơn cũ",
-  () => {
-    /* Đơn lập tay thời kỳ đầu / nhập từ Excel có dòng thiếu `sttDongDeNghi`. Chặn tiệt thì mở hộp
-       sửa để đổi một số điện thoại cũng không lưu nổi. */
-    const r = KD.vuongMacSuaDongPOTheoDeNghi(
-      [dongTheoDN(1, 100), dongMoCoi(2, 1)],
-      [dongTheoDN(1, 100), dongMoCoi(2, 1)],
-      tienDoDN(0),
+    /* 🔴 ĐƠN ĐỘC LẬP CÓ **MỌI** DÒNG KHÔNG TRỎ VỀ ĐỀ NGHỊ (đúng thiết kế, xem `DongPO`). Đóng cờ
+       cho chúng là mỗi dòng của mọi đơn độc lập đều đeo nhãn "hàng thêm ngoài đề nghị" — nhãn
+       hiện ở khắp nơi thì không ai đọc nó nữa, và chốt (B) chết theo. */
+    const r = soat(
+      [dongMoCoi(1, 10)],
+      [dongMoCoi(1, 10), dongMoCoi(2, 3, "Bốc xếp")],
+      [],
+      CHUA_NHAN,
+      false,
     );
     return {
-      duoc: r === null,
-      thucTe: r === null ? "null (đơn cũ vẫn sửa được)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "null",
+      duoc: r.sttThemNgoaiDeNghi.length === 0,
+      thucTe: JSON.stringify(r.sttThemNgoaiDeNghi),
+      mongDoi: "[] — đơn không gắn đề nghị thì không có khái niệm 'ngoài đề nghị'",
     };
   },
 );
 
 kiem(
-  "CHIỀU NGƯỢC: đặt ĐÚNG BẰNG phần còn lại (số lẻ) → KHÔNG được chặn",
-  "Sếp · 15/09/2026 — chống chặn oan vì sai số dấu phẩy động",
+  "🔴 DÒNG ĐÃ CÓ PHIẾU NHẬN HÀNG → KHÔNG XOÁ ĐƯỢC",
+  "Sếp · 16/09/2026 — chốt NGHIỆP VỤ giữ nguyên khi mở tăng giảm mặt hàng",
+  () => {
+    /* 🔴🔴 BÀI QUAN TRỌNG NHẤT CỦA CẢ KHỐI. Chỉ đạo 16/09 mở cho BỚT mặt hàng — rất dễ hiểu
+       nhầm thành "bớt được mọi dòng". Xoá một dòng đã nhận hàng là để lại phiếu nhận trỏ về một
+       dòng không còn tồn tại, mà phiếu đó là căn cứ thanh toán cho nhà cung cấp.
+       Ai nới cái này là app cho "nhận nhiều hơn đặt" — không màn hình nào báo, chỉ Kế toán phát
+       hiện lúc đối chiếu, thường là sau khi đã trả tiền. */
+    const r = soat([dongTheoDN(1, 100)], [], tienDoDN(0), daNhan(1, 40));
+    return {
+      duoc: typeof r.chan === "string" && r.chan !== "",
+      thucTe: r.chan === null ? "chan: null (LỌT — xoá được dòng đã nhận hàng!)" : `"${r.chan.slice(0, 90)}"`,
+      mongDoi: "một câu chặn",
+    };
+  },
+);
+
+kiem(
+  "🔴 HẠ số lượng XUỐNG DƯỚI khối lượng ĐÃ NHẬN → CHẶN",
+  "Sếp · 16/09/2026 — nửa còn lại của cùng một chốt nghiệp vụ",
+  () => {
+    /* 🔴 CHIỀU LÁCH TINH VI HƠN BÀI TRÊN: không xoá dòng, chỉ hạ số đặt xuống dưới số đã nhận —
+       ra đúng cùng một cảnh "nhận nhiều hơn đặt", mà lại trông như một lần sửa số lượng bình
+       thường. Đã nhận 40, hạ số đặt về 30 là đơn tự mâu thuẫn với chính phiếu nhận của nó. */
+    const r = soat([dongTheoDN(1, 100)], [dongTheoDN(1, 30)], tienDoDN(0), daNhan(1, 40));
+    return {
+      duoc: typeof r.chan === "string" && r.chan !== "",
+      thucTe: r.chan === null ? "chan: null (LỌT — đơn thành 'nhận nhiều hơn đặt')" : `"${r.chan.slice(0, 90)}"`,
+      mongDoi: "một câu chặn",
+    };
+  },
+);
+
+kiem(
+  "🔴 ĐỔI TÊN MẶT HÀNG của dòng đã có phiếu nhận → CHẶN",
+  "Sếp · 16/09/2026 — phiếu nhận trỏ theo VỊ TRÍ dòng, không theo nội dung",
+  () => {
+    const r = soat(
+      [dongTheoDN(1, 100)],
+      [{ ...dongTheoDN(1, 100), tenVatLieu: "Thép D12" }],
+      tienDoDN(0),
+      daNhan(1, 40),
+    );
+    return {
+      duoc: typeof r.chan === "string" && r.chan !== "",
+      thucTe: r.chan === null ? "chan: null (LỌT — phiếu nhận cũ bỗng nói về mặt hàng khác)" : `"${r.chan.slice(0, 90)}"`,
+      mongDoi: "một câu chặn",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: HẠ số lượng ĐÚNG BẰNG khối lượng đã nhận → KHÔNG được chặn",
+  "Sếp · 16/09/2026 — chặn quá tay là đơn giao thiếu không chốt lại được",
+  () => {
+    /* Nhà cung cấp giao 40 rồi báo không giao nốt phần còn lại. Hạ số đặt về đúng 40 là cách
+       DUY NHẤT để đóng đơn cho khớp thực tế. Chặn ở đây là đơn treo vĩnh viễn. */
+    const r = soat([dongTheoDN(1, 100)], [dongTheoDN(1, 40)], tienDoDN(0), daNhan(1, 40));
+    return {
+      duoc: r.chan === null,
+      thucTe: r.chan === null ? "chan: null (hạ về đúng phần đã nhận được)" : `"${r.chan.slice(0, 90)}"`,
+      mongDoi: "chan: null",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: TĂNG số lượng của dòng đã có phiếu nhận → KHÔNG được chặn",
+  "Sếp · 16/09/2026 — *\"cho phép tăng giảm … số lượng\"*, luật cũ 15/09 khoá cứng cả tăng",
+  () => {
+    /* 🔴 ĐÂY LÀ ĐIỀU LUẬT 15/09 CẤM VÀ SẾP VỪA MỞ. Bản cũ so `khoiLuongDat !== dongCu.khoiLuongDat`
+       nên tăng cũng chặn — mà tăng số đặt trên một dòng đang giao dở là việc rất thường (chủ đầu
+       tư thêm khối lượng). Vượt duyệt thì đã có chốt (A) đòi lý do lo phần kiểm soát. */
+    const r = soat([dongTheoDN(1, 100)], [dongTheoDN(1, 120)], tienDoDN(20), daNhan(1, 40));
+    return {
+      duoc: r.chan === null && r.batLyDo === false,
+      thucTe: JSON.stringify({ chan: r.chan, batLyDo: r.batLyDo }),
+      mongDoi: "chan: null · batLyDo: false (còn 20 kg đã duyệt nên không vượt)",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: bảng mặt hàng KHÔNG đổi → không chặn, không đòi lý do",
+  "Sếp · 16/09/2026 — cảnh báo rác là người dùng gõ lý do bừa cho xong",
+  () => {
+    /* 🔴 BÀI CHỐNG "ĐÒI LÝ DO VÔ ĐIỀU KIỆN". `khoiLuongChuaLenPO` do `tinhTienDoDeNghi` trả về ĐÃ
+       TRỪ phần đơn này đang giữ — quên cộng ngược lại là mở màn sửa rồi bấm Lưu mà không đổi gì
+       cũng bị đòi lý do vượt duyệt. Cảnh báo sai một lần thì lần sau không ai đọc nó nữa. */
+    const r = soat([dongTheoDN(1, 100)], [dongTheoDN(1, 100)], tienDoDN(0));
+    return {
+      duoc: r.chan === null && r.batLyDo === false && r.sttThemNgoaiDeNghi.length === 0,
+      thucTe: JSON.stringify(r),
+      mongDoi: "chan: null · batLyDo: false · sttThemNgoaiDeNghi: []",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: tăng số lượng TRONG phần đề nghị còn lại → không đòi lý do",
+  "Sếp · 16/09/2026 — còn khối lượng đã duyệt thì đặt thêm là chuyện bình thường",
+  () => {
+    // Đề nghị còn 20 kg chưa lên PO, đơn đang giữ 100 → nâng tới 120 vẫn nằm trong phần đã duyệt.
+    const r = soat([dongTheoDN(1, 100)], [dongTheoDN(1, 120)], tienDoDN(20));
+    return {
+      duoc: r.batLyDo === false && r.vuot.length === 0,
+      thucTe: JSON.stringify({ batLyDo: r.batLyDo, vuot: r.vuot }),
+      mongDoi: "batLyDo: false · vuot: []",
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC: đặt ĐÚNG BẰNG phần còn lại (số lẻ) → không đòi lý do",
+  "Sếp · 16/09/2026 (giữ nguyên chốt sai số dấu phẩy động của 15/09/2026)",
   () => {
     /* `0.1 + 0.2 = 0.30000000000000004` trong JavaScript. Ai bỏ `NGUONG_LECH_KHOI_LUONG` thì bài
-       này đỏ, và ngoài đời người dùng nhìn hai con số y hệt nhau mà app nói "vượt". */
-    const r = KD.vuongMacSuaDongPOTheoDeNghi(
-      [dongTheoDN(1, 0.1)],
-      [dongTheoDN(1, 0.1 + 0.2)],
-      tienDoDN(0.2),
+       này đỏ, và ngoài đời người dùng nhìn hai con số y hệt nhau mà app đòi giải trình "vượt". */
+    const r = soat([dongTheoDN(1, 0.1)], [dongTheoDN(1, 0.1 + 0.2)], tienDoDN(0.2));
+    return {
+      duoc: r.batLyDo === false,
+      thucTe: JSON.stringify({ batLyDo: r.batLyDo, vuot: r.vuot }),
+      mongDoi: "batLyDo: false — không đòi lý do oan vì sai số dấu phẩy động",
+    };
+  },
+);
+
+kiem(
+  "BA Ô `code` · `maDuAn` · `ngayLapPO` VẪN KHÔNG SỬA ĐƯỢC",
+  "Sếp · 15/09/2026 — chốt này KHÔNG bị chỉ đạo 16/09/2026 mở ra",
+  () => {
+    /* 🔴 VÌ SAO VẪN KHOÁ: số đơn hàng đã được cấp và mọi chứng từ khác trỏ về nó (phiếu nhận,
+       công nợ, bản đã gửi Kho công trình); mã dự án là phần đầu của chính số đó; ngày đơn hàng
+       quyết định năm của số đó. Chỉ đạo 16/09 nói về MẶT HÀNG · SỐ LƯỢNG · ĐƠN GIÁ · THUẾ, không
+       nói về ba ô này — mở kèm là tự ý nới một chốt Sếp vừa chốt hôm trước.
+       ⚠️ GIỚI HẠN CỦA BÀI NÀY, NÓI THẲNG: chốt thật là TypeScript (ba trường không có trong kiểu
+       `ThayDoiDonHang` nên không biên dịch nổi). Ở đây chỉ đọc lại khai báo kiểu đó — yếu hơn
+       một phép gọi hàm, nhưng vẫn bắt được đúng cái việc "ai đó khai thêm trường vào kiểu". */
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const i = nguon.indexOf("export interface ThayDoiDonHang {");
+    const khoi = i === -1 ? "" : nguon.slice(i, nguon.indexOf("\n}", i));
+    const lot = ["code", "maDuAn", "ngayLapPO"].filter((t) =>
+      new RegExp(`^\\s*${t}\\??:`, "m").test(khoi),
     );
     return {
-      duoc: r === null,
-      thucTe: r === null ? "null (không chặn oan)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "null",
+      duoc: i !== -1 && lot.length === 0,
+      thucTe: i === -1 ? "không tìm thấy khai báo ThayDoiDonHang" : `trường lọt vào: ${lot.join(", ") || "(không có)"}`,
+      mongDoi: "ThayDoiDonHang KHÔNG khai code / maDuAn / ngayLapPO",
     };
   },
 );
@@ -5531,6 +5680,157 @@ kiem(
       duoc: r[0] === true && r[1] === true && r[2] === false && GB.SO_LAN_GHI_LAI_TOI_DA >= 3,
       thucTe: `0→${r[0]} · 1→${r[1]} · ${GB.SO_LAN_GHI_LAI_TOI_DA}→${r[2]}`,
       mongDoi: "true · true · false (có trần, nhưng KHÔNG chặn ngay từ lần đầu)",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// ⑤ SỔ PHẢI SỐNG QUA MỘT LẦN TẢI LẠI TRANG — MẤT ĐƠN LẦN THỨ HAI, 15/09/2026 ~20:35
+//
+// Bản vá lúc 19:33 đã lên production (xác minh được `banGhiChuaLenKhoChung`/`quaHanDongBo` trong
+// bundle `5396-b4014730eb9fda8a.js`), NHƯNG Sếp lập đơn `po-7a4d4418-bb18-486b-b0bc-b40aa990a20d`
+// lúc ~20:35 và **vẫn mất**. Đo lại kho chung (`hpcons-portal`, `chay-thu/du-lieu-chung`,
+// `updateTime` 13:35:54Z = 20:35 giờ VN ⇒ kho VẪN đang nhận ghi bình thường): đơn đó KHÔNG tồn
+// tại, vẫn đúng 7 đơn như trước (DMH260002 · 260005 failed · 260006 · 260007 · 260008 · 260009 ·
+// 260010).
+//
+// 🔴 VÌ SAO: cả cuốn sổ nằm trong `useRef` của `DuLieuProvider` ⇒ chết theo mỗi document trình
+// duyệt (F5, trang in mở ở TAB MỚI bằng `<Link target="_blank">`, hoặc một lần điều hướng cứng
+// của Next.js khi bản deploy đổi giữa chừng). Mất sổ mà bản ghi vẫn nằm trong localStorage ⇒ ảnh
+// chụp kế tiếp xoá nó RỒI GHI ĐÈ localStorage bằng bộ đã thiếu — bản cuối cùng còn tồn tại trên
+// đời bị chính máy của người dùng xoá.
+//
+// 🔴🔴 CHIỀU NGHỊCH QUAN TRỌNG HƠN: sổ sống bền thì lập luận "chưa ai thấy nên không ai xoá"
+// THỦNG theo thời gian. Hai bài nghịch dưới canh đúng hai cửa chặn: **đã thấy trên máy chủ ⇒
+// không bao giờ giữ lại**, và **quá 24 giờ ⇒ bỏ**. Mất một trong hai là app hồi sinh dữ liệu
+// người khác đã xoá, vĩnh viễn, và không có một dòng nào báo.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SO_BEN = "Sếp · 15/09/2026 ~20:35 · mất đơn LẦN HAI (po-7a4d4418-bb18-486b-b0bc-b40aa990a20d)";
+
+/** Dựng chuỗi sổ y như `ghiSoRaChuoi` sẽ cất xuống localStorage. */
+const soChuoi = (muc) => JSON.stringify(muc);
+
+kiem(
+  "THUẬN: sổ nạp lại sau khi TẢI LẠI TRANG vẫn giữ được id chưa lên máy chủ",
+  CHU_SO_BEN,
+  () => {
+    const bayGio = 1_757_000_000_000;
+    /* Đúng ca của Sếp: đơn lập lúc 20:35, tab in dựng lại 30 giây sau. */
+    const tho = soChuoi({ "po:7a4d4418": { soAnhChupVang: 0, tao: bayGio - 30_000 } });
+    const so = GB.docSoDaLuuTuChuoi(tho, bayGio);
+    /* Rồi ảnh chụp từ máy chủ về mà KHÔNG có đơn đó — phải đắp lại được. */
+    const r = GB.ghepBanChuaLenMayChu([], [don("7a4d4418")], so, (x) => `po:${x.id}`);
+    return {
+      duoc: so.size === 1 && so.has("po:7a4d4418") && r.length === 1 && r[0].id === "7a4d4418",
+      thucTe: `sổ ${so.size} mục · ghép lại ${r.map((v) => v.id).join(",") || "(rỗng)"}`,
+      mongDoi:
+        "sổ 1 mục · ghép lại 7a4d4418 — trước bản vá này, tải lại trang là sổ bốc hơi và đơn bị ảnh chụp xoá",
+    };
+  },
+);
+
+kiem(
+  "🔴 NGHỊCH: mục QUÁ HẠN trong sổ cất trên máy phải BỊ BỎ (chống hồi sinh vĩnh viễn)",
+  CHU_SO_BEN,
+  () => {
+    const bayGio = 1_757_000_000_000;
+    const han = GB.HAN_GIU_BAN_GHI_MS;
+    const tho = soChuoi({
+      "po:conHan": { soAnhChupVang: 3, tao: bayGio - (han - 60_000) }, // sát hạn, còn giữ
+      "po:quaHan": { soAnhChupVang: 3, tao: bayGio - (han + 60_000) }, // quá hạn, phải bỏ
+      "po:khongRoTuoi": { soAnhChupVang: 3 }, // sổ đời cũ, không có mốc ⇒ phải bỏ
+    });
+    const so = GB.docSoDaLuuTuChuoi(tho, bayGio);
+    /* Và bản ghi quá hạn phải để cho ảnh chụp xoá — đúng ý người đã xoá nó. */
+    const r = GB.ghepBanChuaLenMayChu([], [don("quaHan"), don("conHan")], so, (x) => `po:${x.id}`);
+    return {
+      duoc:
+        so.size === 1 &&
+        so.has("po:conHan") &&
+        !so.has("po:quaHan") &&
+        !so.has("po:khongRoTuoi") &&
+        han === 24 * 60 * 60 * 1000 &&
+        r.length === 1 &&
+        r[0].id === "conHan",
+      thucTe: `giữ [${[...so.keys()].join(",")}] · hạn ${han}ms · ghép lại [${r.map((v) => v.id).join(",")}]`,
+      mongDoi:
+        "chỉ giữ po:conHan · hạn 86400000ms (24 giờ, qua được một đêm nhưng không quá một ngày làm việc) · chỉ ghép lại conHan",
+    };
+  },
+);
+
+kiem(
+  "🔴 NGHỊCH: id ĐÃ THẤY trên máy chủ thì KHÔNG BAO GIỜ được giữ lại, dù sổ sống qua tải lại trang",
+  CHU_SO_BEN,
+  () => {
+    const bayGio = 1_757_000_000_000;
+    const so = GB.docSoDaLuuTuChuoi(
+      soChuoi({ "po:daLen": { soAnhChupVang: 1, tao: bayGio - 60_000 } }),
+      bayGio,
+    );
+    /* ① Ảnh chụp CÓ id đó ⇒ cửa một chiều đóng lại, gỡ khỏi sổ vĩnh viễn. */
+    const sauKhiThay = GB.soSauAnhChup(so, new Set(["po:daLen"]), new Set(["po:daLen"]));
+    /* ② Cất sổ đó xuống máy rồi nạp lại (đúng như một lần F5) — vẫn phải rỗng. */
+    const napLai = GB.docSoDaLuuTuChuoi(GB.ghiSoRaChuoi(sauKhiThay), bayGio);
+    /* ③ Nay người khác xoá bản ghi đó: ảnh chụp mới không có nó ⇒ PHẢI để nó mất. */
+    const r = GB.ghepBanChuaLenMayChu([], [don("daLen")], napLai, (x) => `po:${x.id}`);
+    return {
+      duoc: sauKhiThay.size === 0 && napLai.size === 0 && r.length === 0,
+      thucTe: `sau ảnh chụp ${sauKhiThay.size} mục · nạp lại ${napLai.size} mục · ghép lại ${r.length} bản ghi`,
+      mongDoi:
+        "0 · 0 · 0 — thấy trên máy chủ một lần là thôi theo dõi VĨNH VIỄN, kể cả sau khi tải lại trang. Mất chốt này là mọi lần xoá của mọi người đều bị hồi sinh",
+    };
+  },
+);
+
+kiem(
+  "🔴 NGHỊCH: sổ cất trên máy HỎNG thì phải rơi về SỔ RỖNG, tuyệt đối không ném lỗi",
+  CHU_SO_BEN,
+  () => {
+    /* Sổ hỏng là chuyện thường: localStorage bị cắt ngang, người dùng sửa tay, đổi phiên bản dữ
+       liệu. Ném ở đây là làm chết `DuLieuProvider`, tức chết cả app, vì một thứ chỉ là lưới an
+       toàn. Rơi về sổ rỗng = mất lớp giữ bản ghi mới, nhưng app vẫn chạy. */
+    const bayGio = 1_757_000_000_000;
+    const cac = [
+      null,
+      undefined,
+      "",
+      "   ",
+      "{khong-phai-json",
+      "[1,2,3]",
+      '"chuoi tron"',
+      soChuoi({ "po:x": null }),
+      soChuoi({ "po:x": { soAnhChupVang: "ba", tao: bayGio } }),
+    ].map((t) => GB.docSoDaLuuTuChuoi(t, bayGio));
+    return {
+      duoc: cac.every((m) => m instanceof Map && m.size === 0),
+      thucTe: cac.map((m) => (m instanceof Map ? m.size : "KHÔNG PHẢI Map")).join(" · "),
+      mongDoi: "0 · 0 · 0 · 0 · 0 · 0 · 0 · 0 · 0 — mọi đầu vào hỏng đều ra Map rỗng, không ném",
+    };
+  },
+);
+
+kiem(
+  "THUẬN: mốc `tao` phải SỐNG QUA từng ảnh chụp, không bị soSauAnhChup xoá",
+  CHU_SO_BEN,
+  () => {
+    /* 🔴 `soSauAnhChup` viết `{ soAnhChupVang: … }` trơn thì mỗi ảnh chụp lại xoá mốc tạo ⇒ lần
+       tải trang sau `docSoDaLuuTuChuoi` thấy mục "không rõ tuổi" và BỎ nó. Tức bản vá ⑤ tự huỷ
+       sau đúng một ảnh chụp, mà không có gì báo. */
+    const bayGio = 1_757_000_000_000;
+    let s = new Map([["po:moi", { soAnhChupVang: 0, tao: bayGio - 5_000 }]]);
+    for (let i = 0; i < 5; i += 1) {
+      s = GB.soSauAnhChup(s, new Set([]), new Set(["po:moi"]));
+    }
+    const napLai = GB.docSoDaLuuTuChuoi(GB.ghiSoRaChuoi(s), bayGio);
+    return {
+      duoc:
+        s.get("po:moi")?.tao === bayGio - 5_000 &&
+        s.get("po:moi")?.soAnhChupVang === 5 &&
+        napLai.size === 1,
+      thucTe: `tao=${s.get("po:moi")?.tao} · vắng=${s.get("po:moi")?.soAnhChupVang} · nạp lại ${napLai.size} mục`,
+      mongDoi: `tao=${bayGio - 5_000} · vắng=5 · nạp lại 1 mục`,
     };
   },
 );

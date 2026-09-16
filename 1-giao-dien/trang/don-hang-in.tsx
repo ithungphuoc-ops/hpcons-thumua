@@ -123,7 +123,7 @@ function ThanhCongCuInDonHang() {
 
 export default function TrangInDonHang() {
   const params = useParams<{ id: string }>();
-  const { donHang, giaDonHang, nhaCungCap } = useDuLieu();
+  const { donHang, giaDonHang, nhaCungCap, banGhiChuaLenKhoChung } = useDuLieu();
   const { nguoiDung, quyen, daDangNhap } = useNguoiDung();
 
   const po = donHang.find((x) => x.id === params.id);
@@ -144,10 +144,35 @@ export default function TrangInDonHang() {
   }
 
   if (!po) {
+    /**
+     * ★★ PHÂN BIỆT "ĐANG ĐỒNG BỘ" VỚI "KHÔNG TỒN TẠI" — 15/09/2026, sau lần mất đơn thứ hai.
+     *
+     * 🔴 CÂU CŨ Ở ĐÂY SAI HAI LẦN, VÀ ĐÓ CHÍNH LÀ CÂU SẾP ĐỌC ĐƯỢC LÚC ~20:35 KHI BẤM
+     * *"Cất và In"* đơn `po-7a4d4418-bb18-486b-b0bc-b40aa990a20d`:
+     *
+     *   · *"không tồn tại"* — app **không biết** điều đó. Sự thật lúc ấy là đơn vừa lập trên máy
+     *     này và chưa lên tới kho chung. Người dùng tin câu đó thì đi lập lại đơn, và nếu bản cũ
+     *     sau đó lên được thì phòng có **hai đơn trùng**.
+     *   · *"chưa được sinh sẵn trang in"* — **đã hết đúng từ 20/08/2026**, khi `next.config.ts`
+     *     bỏ `output: "export"`. Từ đó trang in không còn bị `generateStaticParams` giới hạn:
+     *     `dynamicParams` mặc định là `true` nên **mọi mã đơn đều dựng được**. Câu này là tàn dư
+     *     của thời hosting tĩnh, và nó đẩy người đọc đi tìm lỗi ở đúng chỗ không có lỗi.
+     *
+     * 📌 Giữ đúng cách nói của `trang/don-hang-chi-tiet.tsx` — hai màn hình phải kể cùng một câu
+     * chuyện về cùng một đơn, không thì người dùng tin màn nào nói sau.
+     */
+    if (banGhiChuaLenKhoChung.has(params.id)) {
+      return (
+        <ThongBaoTrangIn
+          tieuDe="Đang lưu đơn đặt hàng lên kho chung…"
+          moTa="Đơn này vừa được lập trên máy bạn và chưa lên tới kho dữ liệu chung của cả phòng. App đang tự thử lại — giữ nguyên trang này thêm một lát rồi tải lại. Nếu quá lâu, báo IT trước khi lập lại đơn: lập lại có thể sinh hai đơn trùng."
+        />
+      );
+    }
     return (
       <ThongBaoTrangIn
         tieuDe="Không tìm thấy đơn đặt hàng"
-        moTa="Đơn hàng này không tồn tại hoặc chưa được sinh sẵn trang in."
+        moTa="Đơn hàng này không tồn tại hoặc bạn không có quyền xem."
       />
     );
   }

@@ -34,6 +34,31 @@ import {
 import type { DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
+ * ★★★ NHÃN "HÀNG THÊM NGOÀI ĐỀ NGHỊ" — chốt (B) của Sếp ngày 16/09/2026.
+ *
+ * Nguyên văn chỉ đạo hôm đó: mở cho *"tăng giảm mặt hàng, số lượng, đơn giá, thuế"* khi sửa đơn,
+ * đổi lại **dòng thêm mới phải được đánh dấu** để *"Kế toán và người duyệt biết phần nào đã qua
+ * duyệt, phần nào thêm sau"*. Bảng này là màn hình hai nhóm người đó đọc, nên nhãn phải ở đây —
+ * để nó nằm mỗi trong màn sửa đơn thì đúng người cần biết lại không bao giờ thấy.
+ *
+ * 🔴 CÓ CẢ MÀU LẪN CHỮ (Design System V1.1 §3.2): người không phân biệt được màu vẫn đọc ra. Tông
+ * `warning` là cố ý — không phải lỗi (`danger`), chỉ là *"phần này chưa qua bước duyệt báo giá"*.
+ * Cỡ chữ `text-xs` = 12px, đúng sàn cho phép; token `warning`/`warning-bg`/`warning-soft` đều có
+ * thật trong `app/globals.css`.
+ *
+ * ⚠️ CỜ DO TẦNG GHI ĐẶT (`suaDonHang` → `soatBangMatHangKhiSua`), thành phần này chỉ hiện lại.
+ */
+function NhanThemNgoaiDeNghi({ hien }: { hien: boolean }) {
+  if (!hien) return null;
+  return (
+    <span className="ml-2 inline-flex items-center gap-1 rounded-md border border-warning bg-warning-bg px-1.5 py-0.5 align-middle text-xs font-medium text-warning-soft">
+      <AlertTriangle className="size-3 shrink-0" aria-hidden />
+      Hàng thêm ngoài đề nghị
+    </span>
+  );
+}
+
+/**
  * M5 — Bảng tiến độ nhận hàng của một PO, có CỘT ĐỘNG theo từng lần giao.
  *
  * Đây là thứ bản thumua-next cũ KHÔNG có: bản cũ chỉ cộng dồn `receivedQuantity`
@@ -170,7 +195,10 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
               {tienDo.map((d) => (
                 <TableRow key={d.sttDong}>
                   <TableCell className="text-right text-text-desc">{d.sttDong}</TableCell>
-                  <TableCell className="font-medium">{d.tenVatLieu}</TableCell>
+                  <TableCell className="font-medium">
+                    {d.tenVatLieu}
+                    <NhanThemNgoaiDeNghi hien={d.themNgoaiDeNghi === true} />
+                  </TableCell>
                   <TableCell>{d.donViTinh}</TableCell>
                   <TableCell className="text-right font-semibold">
                     {d.khoiLuongDat.toLocaleString("vi-VN")}
@@ -212,6 +240,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
             <div key={d.sttDong} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
               <span className="text-sm font-semibold text-text-primary">
                 {d.sttDong}. {d.tenVatLieu}
+                <NhanThemNgoaiDeNghi hien={d.themNgoaiDeNghi === true} />
               </span>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-text-desc">Đặt</span>
