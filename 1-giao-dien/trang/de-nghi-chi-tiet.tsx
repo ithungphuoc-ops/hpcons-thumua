@@ -2695,41 +2695,26 @@ export default function TrangChiTietDeNghi({
                   giaTri: po.code,
                 })),
                 /**
-                 * ★ GHI NHẬN HÀNG NGAY TẠI BƯỚC ⑤ — Ban lãnh đạo 21/08/2026: *"sao bước này đang
-                 * bị treo"*.
+                 * ❌❌ BẢNG "TIẾN ĐỘ NHẬN HÀNG" ĐÃ DỜI SANG BƯỚC ⑥ — Sếp 16/09/2026, khoanh đỏ khối
+                 * KẾT QUẢ của bước ⑤: ***"Và mục này hiển thị ở bước tiếp chứ ko phải ở bước này"***.
                  *
-                 * 🔴 VÌ SAO TREO: điều kiện để hồ sơ rời bước ⑤ là đơn có **phiếu nhận hàng**
-                 * (hoặc đơn chuyển sang `dang_giao`, mà chính việc ghi phiếu đầu tiên mới đổi nó).
-                 * Việc ghi phiếu chỉ có ở **màn Đơn hàng chi tiết**, nên người đứng ở trang đề
-                 * nghị — nơi họ theo dõi cả quy trình — không thấy nút nào, và hồ sơ đứng mãi ở
-                 * bước ⑤. Đúng cùng loại bế tắc với bước ⑥ hôm 20/08.
+                 * 🔴 ĐÚNG VỀ NGHIỆP VỤ: bảng đó nói chuyện **nhận hàng**, mà bước ⑤ là *đặt hàng*.
+                 * Hồ sơ chưa giao lần nào vẫn phải bày một bảng toàn số 0 kèm dòng đỏ *"Còn 1/1
+                 * dòng chưa nhận đủ hàng"* ngay giữa bước đặt hàng — một việc người thu mua không
+                 * làm gì được ở bước này.
                  *
-                 * 📌 NHÚNG LẠI `BangTienDoPO` chứ KHÔNG viết bảng thứ hai: nó đang giữ luật ghi
-                 * phiếu (đối chiếu khối lượng, chặn ghi vượt, **bắt buộc tệp phiếu giao nhận** theo
-                 * chỉ đạo 11/08/2026). Dựng bảng riêng ở đây là có hai chỗ cùng ghi phiếu nhận
-                 * hàng theo hai bộ luật, sớm muộn lệch nhau.
+                 * 📌 LÝ DO CŨ ĐÃ HẾT HIỆU LỰC, ghi lại để không ai tưởng là xoá nhầm: bảng được
+                 * đưa vào đây ngày 21/08/2026 vì *"bước này đang bị treo"* — hồi đó điều kiện rời
+                 * bước ⑤ là **có phiếu nhận hàng**, mà nút ghi phiếu chỉ có ở màn Đơn hàng, nên
+                 * người đứng ở trang đề nghị không thấy đường nào và hồ sơ đứng mãi. Từ 16/09/2026
+                 * bước ⑤ khép bằng chính việc của người thu mua (đính bản PO ký hoặc bấm "Bổ sung
+                 * sau" — xem `vuongMacRoiBuocDatHang`), nên bế tắc đó không còn, và bảng không cần
+                 * nằm ở đây nữa.
                  *
-                 * ⚠️ Chỉ hiện đơn ĐÃ CHỐT trở đi — đơn còn nháp thì chưa gửi nhà cung cấp, chưa
-                 * thể có hàng về.
+                 * ✅ KHÔNG MỒ CÔI: bảng nhúng nguyên vẹn vào `noiDungNghiepVu` của bước ⑥, kèm cả
+                 * nút "Ghi nhận giao hàng" của nó. Đã đo trước khi dời.
                  */
-                noiDungNghiepVu: (() => {
-                  const poDaChot = poLienQuan.filter(
-                    (po) => po.trangThai !== "nhap" && po.trangThai !== "huy",
-                  );
-                  if (poDaChot.length === 0) return undefined;
-                  return (
-                    <div className="flex flex-col gap-(--hp-md-card-gap)">
-                      {poDaChot.map((po) => (
-                        <div key={po.id} className="flex flex-col gap-2">
-                          <p className="text-xs font-semibold text-text-desc uppercase">
-                            {po.code}
-                          </p>
-                          <BangTienDoPO po={po} />
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })(),
+                noiDungNghiepVu: undefined,
                 /**
                  * Bước ⑤ nhận đơn đã gửi đi có xác nhận của nhà cung cấp, chứng từ tạm ứng.
                  *
@@ -2955,7 +2940,43 @@ export default function TrangChiTietDeNghi({
                       po.trangThai !== "huy" &&
                       po.trangThai !== "nhap",
                   );
-                  if (poChoXacNhan.length === 0) return undefined;
+
+                  /**
+                   * ★★ BẢNG "TIẾN ĐỘ NHẬN HÀNG" NAY NẰM Ở ĐÂY — Sếp 16/09/2026: *"mục này hiển thị
+                   * ở bước tiếp chứ ko phải ở bước này"* (dời từ khối KẾT QUẢ của bước ⑤ sang).
+                   *
+                   * 📌 NHÚNG LẠI `BangTienDoPO`, KHÔNG viết bảng thứ hai — nó đang giữ luật ghi
+                   * phiếu (đối chiếu khối lượng, chặn ghi vượt, **bắt buộc tệp phiếu giao nhận**).
+                   * Dựng bảng riêng là có hai chỗ cùng ghi phiếu theo hai bộ luật, sớm muộn lệch.
+                   *
+                   * 🔴 DANH SÁCH RIÊNG `poDaChot`, KHÔNG dùng lại `poChoXacNhan`: đơn đã hoàn thành
+                   * vẫn phải xem lại được tiến độ và chứng từ giao nhận của nó. `poChoXacNhan` cố
+                   * ý loại `hoan_thanh` vì phần **nút xác nhận** bên dưới không còn việc gì với
+                   * đơn đã xong — hai câu hỏi khác nhau, đừng gộp.
+                   *
+                   * ⚠️ Chỉ đơn ĐÃ CHỐT trở đi — đơn còn nháp thì chưa gửi nhà cung cấp, chưa thể
+                   * có hàng về.
+                   */
+                  const poDaChot = poLienQuan.filter(
+                    (po) => po.trangThai !== "nhap" && po.trangThai !== "huy",
+                  );
+                  const bangTienDo =
+                    poDaChot.length === 0 ? null : (
+                      <div className="flex flex-col gap-(--hp-md-card-gap)">
+                        {poDaChot.map((po) => (
+                          <div key={po.id} className="flex flex-col gap-2">
+                            <p className="text-xs font-semibold text-text-desc uppercase">
+                              {po.code}
+                            </p>
+                            <BangTienDoPO po={po} />
+                          </div>
+                        ))}
+                      </div>
+                    );
+
+                  /* Không có đơn nào chờ xác nhận thì vẫn phải bày bảng tiến độ (đơn đã hoàn thành
+                     chẳng hạn) — trả `undefined` ở đây là giấu mất chứng từ giao nhận của hồ sơ. */
+                  if (poChoXacNhan.length === 0) return bangTienDo ?? undefined;
                   /**
                    * ★★ HỒ SƠ PHÒNG BAN — Sếp 15/09/2026, nguyên văn: *"Đề nghị phòng ban thì ko
                    * cần nút này"* (ảnh chụp production: hồ sơ DMH260007 đã "Đã nhận hàng", tiến độ
@@ -2977,6 +2998,9 @@ export default function TrangChiTietDeNghi({
                   const hoSoPhongBan = laHoSoPhongBan(dn);
                   return (
                     <div className="flex flex-col gap-(--hp-md-row-gap)">
+                      {/* Bảng tiến độ đứng TRƯỚC cụm nút xác nhận: phải nhìn số lượng đã nhận rồi
+                          mới quyết định bấm "đã nhận đủ hàng", không phải ngược lại. */}
+                      {bangTienDo}
                       {poChoXacNhan.map((po) => {
                         const phieuCuaPO = phieuNhan.filter((p) => p.poId === po.id);
                         const vuongMacTep = vuongMacXacNhanKho(phieuCuaPO);

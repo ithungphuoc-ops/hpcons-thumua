@@ -488,20 +488,27 @@ export function loiKhaiThieuChungTu(
      * Rút gọn thành *"không có hợp đồng"* trơn là bên nhận không biết đó là kết luận của ai.
      */
     const nguoiKhai = nguoiKhaiKhongCoChungTu(deNghi, ct);
-    const boSungTen = nguoiKhai === null ? "" : ` (do ${nguoiKhai} khai)`;
+    const boSungTen = nguoiKhai === null ? "" : ` (do ${nguoiKhai} ghi chú)`;
     /* 🔴 CHỈ NÓI "ĐIỀU KIỆN ĐỦ ĐỂ ĐÓNG HỒ SƠ" KHI ĐÚNG LÀ VẬY — cờ `moCuaDongHoSo`. Hôm nay chỉ
        Hợp đồng có chốt ở `vuongMacHoanThanhQuyTrinh`; Đơn mua hàng chưa bao giờ có chốt nào, nên
        in câu đó cho nó là hứa một luật không tồn tại (CLAUDE.md §3.5). */
     const veDongHoSo = ct.moCuaDongHoSo
-      ? " Lời khai này là điều kiện đủ để đóng hồ sơ."
+      ? " Ghi chú này là điều kiện đủ để đóng hồ sơ."
       : "";
     return {
       loai: "ket_luan",
       chu:
         /* `?? ct.lyDoKhongCo` — chữ hiển thị có thể khác chuỗi lưu (cặp hợp đồng), nhưng nếu ai
            quên khai `tenHienKhongCo` thì in chuỗi lưu còn hơn in "null" ra màn hình. */
-        `Đã khai “${ct.tenHienKhongCo ?? ct.lyDoKhongCo}”${boSungTen} — hồ sơ này KHÔNG CÓ ${ct.tenChungTu} ` +
-        `theo khai báo của người dùng, không phải thiếu sót.${veDongHoSo}`,
+        /* 🔴 DÙNG CHỮ "GHI CHÚ", KHÔNG DÙNG "KHAI" — Sếp 16/09/2026, khoanh đỏ đúng dòng này:
+           *"Sửa lại mục này, thay từ 'khai' bằng từ 'ghi chú'"*. Chữ "khai"/"khai báo" nghe như
+           thủ tục hành chính và như thể người dùng đang phải chịu trách nhiệm pháp lý; đây chỉ là
+           một ghi chú nghiệp vụ trong hồ sơ.
+           📌 CHỈ ĐỔI CHỮ VẼ. Tên hàm `nguoiKhaiKhongCoChungTu`, khoá lưu và mọi phép so sánh giữ
+           nguyên — đổi chúng là đụng dữ liệu đã lưu, đúng cái suýt hỏng hôm 16/09 với chuỗi
+           "Không có HĐ". */
+        `Đã ghi chú “${ct.tenHienKhongCo ?? ct.lyDoKhongCo}”${boSungTen} — hồ sơ này KHÔNG CÓ ${ct.tenChungTu} ` +
+        `theo ghi chú của người dùng, không phải thiếu sót.${veDongHoSo}`,
       baoDo: false,
     };
   }

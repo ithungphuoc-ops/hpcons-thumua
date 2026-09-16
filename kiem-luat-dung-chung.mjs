@@ -2064,6 +2064,126 @@ kiem(
   },
 );
 
+/* ════════════════════════════════════════════════════════════════════
+   ★★ CHUYEN BUOC ⑤ → ⑥ — Sếp 16/09/2026, nguyen van tren anh chup buoc ⑤:
+   *"Dieu kien de chuyen buoc 5 sang 6: Phai dinh kem file PO ky dong moc hoac phai bam tich chon
+   'Bo sung sau'"*, kem mot cau truoc do: *"khi chon nay roi thi chuyen buoc nay sang buoc tiep theo"*.
+
+   🔴 VI SAO DOI: truoc do buoc ⑥ CHI mo khi **da co phieu nhan hang** — mot viec cua KHO. Nguoi thu
+   mua dat hang xong, dinh ban PO nha cung cap ky, phan viec cua ho da het, ma the van nam o ⑤ doi
+   dong do *"Con 1/1 dong chua nhan du hang"*. Tuc phai CHO NGUOI KHAC lam thi buoc cua minh moi xong.
+   ════════════════════════════════════════════════════════════════════ */
+
+/** Đề nghị + PO đã chốt, chưa giao lần nào — đúng ca Sếp chụp (DMH260002). */
+const boBuoc5 = (tepGiaiDoan = {}, lyDoThieuChungTu = undefined) => ({
+  dn: {
+    id: "d5",
+    code: "PR-5",
+    trangThai: "dang_xu_ly",
+    maHopDongCDT: "HD-01",
+    items: [{ stt: 1, tenVatLieu: "Da", donViTinh: "m3", khoiLuong: 400 }],
+    tepGiaiDoan,
+    ...(lyDoThieuChungTu ? { lyDoThieuChungTu } : {}),
+  },
+  po: {
+    id: "po5",
+    prId: "d5",
+    code: "DMH260002",
+    trangThai: "da_chot",
+    maDuAn: "X",
+    ngayGiaoDuKien: "2026-09-20",
+    items: [{ sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Da", donViTinh: "m3", khoiLuongDat: 400 }],
+  },
+});
+
+kiem(
+  "⑤ → ⑥ CHUA co ban PO ky lan chua bam 'Bo sung sau' -> the NAM LAI buoc ⑤ (chieu nghich)",
+  'Sếp · 16/09/2026 — *"Phai dinh kem file PO ky dong moc hoac phai bam tich chon \'Bo sung sau\'"*',
+  () => {
+    /* 🔴 CHIEU NGHICH, VA NO QUAN TRONG HON CHIEU THUAN: ai sua `vuongMacRoiBuocDatHang` thanh
+       `return null` vo dieu kien thi bai "cho di tiep" ben duoi VAN XANH, chi bai nay bat duoc —
+       va luc do buoc ⑤ khong con doi chung tu gi, the tu chay sang ⑥ tren moi ho so. */
+    const b = boBuoc5();
+    const gd = G.xacDinhGiaiDoan(b.dn, [b.po], [], []);
+    return {
+      duoc: gd === "dat_hang",
+      thucTe: `xacDinhGiaiDoan = "${gd}"`,
+      mongDoi: '"dat_hang" — chua lam gi o buoc ⑤ thi khong duoc sang ⑥',
+    };
+  },
+);
+
+kiem(
+  "⑤ → ⑥ DA DINH ban PO ky -> the sang buoc ⑥ du CHUA co phieu nhan nao",
+  'Sếp · 16/09/2026 — *"khi chon nay roi thi chuyen buoc nay sang buoc tiep theo"*',
+  () => {
+    const b = boBuoc5({
+      don_mua_hang_ncc_ky: [{ id: "t1", ten: "PO-ky.pdf", ghiChu: "Đơn mua hàng" }],
+    });
+    const gd = G.xacDinhGiaiDoan(b.dn, [b.po], [], []);
+    return {
+      duoc: gd === "nhan_hang",
+      thucTe: `xacDinhGiaiDoan = "${gd}"`,
+      mongDoi: '"nhan_hang" — KHONG con doi phieu nhan cua Kho moi roi duoc buoc ⑤',
+    };
+  },
+);
+
+kiem(
+  "⑤ → ⑥ BAM 'Bo sung sau' cung du de sang buoc ⑥",
+  'Sếp · 16/09/2026 — *"hoac phai bam tich chon \'Bo sung sau\'"*',
+  () => {
+    /* ⚠️ "Bo sung sau" KHONG xoa mon no: muc 4 cua bo ho so thanh toan VAN bao do cho toi khi co
+       tep that (`CHUNG_TU_DON_MUA_HANG.lyDoKhongCo = null`). No chuyen theo chung tu, khong bien mat. */
+    const b = boBuoc5({}, { "dat_hang|don_mua_hang": "Bổ sung sau" });
+    const gd = G.xacDinhGiaiDoan(b.dn, [b.po], [], []);
+    return {
+      duoc: gd === "nhan_hang",
+      thucTe: `xacDinhGiaiDoan = "${gd}"`,
+      mongDoi: '"nhan_hang"',
+    };
+  },
+);
+
+kiem(
+  "⑤ → ⑥ PO con NHAP thi khong sang ⑥ du da bam 'Bo sung sau' (chieu nghich)",
+  "Sếp · 16/09/2026 — dat hang xong moi sang cho nhan hang",
+  () => {
+    /* Don con nhap = chua gui nha cung cap, chua the goi la da dat hang. Thieu chot nay thi mot ho
+       so chi moi soan don nhap da nhay sang buoc cho nhan hang. */
+    const b = boBuoc5({}, { "dat_hang|don_mua_hang": "Bổ sung sau" });
+    const gd = G.xacDinhGiaiDoan(b.dn, [{ ...b.po, trangThai: "nhap" }], [], []);
+    return {
+      duoc: gd !== "nhan_hang",
+      thucTe: `xacDinhGiaiDoan = "${gd}"`,
+      mongDoi: 'KHAC "nhan_hang"',
+    };
+  },
+);
+
+kiem(
+  "Buoc ⑤ phai co trong DANH SACH DIEU KIEN — neu khong, hop xac nhan va the noi nguoc nhau",
+  "Sếp · 16/09/2026",
+  () => {
+    /* 🔴 BAI NAY CANH MOT KIEU HONG IM LANG DA SAP THAT NGAY 23/08/2026 (voi hop dong): luat noi o
+       mot ham, con `dsDieuKienConVuong` giu dieu kien cu => hop xac nhan bao "khong con dieu kien
+       nao" trong khi the van nam lai cot cu, va KHONG MOT DONG LOI NAO BAO. */
+    const b = boBuoc5();
+    const ds = G.dsDieuKienConVuong(b.dn, "dat_hang", [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    const co = ds.some((x) => x.ma === "thieu_don_mua_hang");
+    /* Da bam "Bo sung sau" thi dieu kien phai BIEN MAT — khong thi nguoi dung lam xong roi ma hop
+       xac nhan van chan. */
+    const b2 = boBuoc5({}, { "dat_hang|don_mua_hang": "Bổ sung sau" });
+    const ds2 = G.dsDieuKienConVuong(b2.dn, "dat_hang", [], G.CAU_HINH_MAC_DINH ?? {}, null);
+    const het = !ds2.some((x) => x.ma === "thieu_don_mua_hang");
+    return {
+      duoc: co && het,
+      thucTe: `chua lam gi: ${co ? "CO dieu kien" : "THIEU dieu kien"} · da bam Bo sung sau: ${het ? "da het" : "VAN CON"}`,
+      mongDoi: "chua lam gi -> co dieu kien `thieu_don_mua_hang`; bam 'Bo sung sau' -> het",
+    };
+  },
+);
+
 kiem(
   "Nut XOA TOAN BO DU LIEU chi mo cho QUAN TRI — moi vai tro khac deu KHONG co",
   'Sếp · 16/09/2026 — *"chuc nang nay chi hien o tai khoan cap quan tri"*',
@@ -5344,7 +5464,7 @@ const khaiCua = (khoa, lyDo, tepGiaiDoan = {}) => {
 };
 
 kiem(
-  "MUC 3 khai 'Khong co HD' -> ket_luan, KHONG bao do, va NOI RO la khai bao cua nguoi dung",
+  "MUC 3 ghi chu 'Khong co HD' -> ket_luan, KHONG bao do, va NOI RO la GHI CHU cua nguoi dung",
   'Sếp · 16/09/2026 — *"phai co ghi chu va duoc link xuong muc 8"*',
   () => {
     const CT = nap(join(thuMuc, "chung-tu.cjs"));
@@ -5355,11 +5475,11 @@ kiem(
       duoc:
         k.loai === "ket_luan" &&
         k.baoDo === false &&
-        /khai b[áa]o c[ủu]a ng[ưu][ờo]i d[ùu]ng/i.test(k.chu) &&
+        /ghi ch[úu] c[ủu]a ng[ưu][ờo]i d[ùu]ng/i.test(k.chu) &&
         /đi[ềe]u ki[ệe]n đ[ủu]/i.test(k.chu),
       thucTe: `loai=${k.loai} · baoDo=${k.baoDo} · chu="${k.chu.slice(0, 130)}"`,
       mongDoi:
-        'ket_luan, khong do, cau noi ro "theo khai bao cua nguoi dung" VA "dieu kien du de dong ho so"',
+        'ket_luan, khong do, cau noi ro "theo ghi chu cua nguoi dung" VA "dieu kien du de dong ho so"',
     };
   },
 );

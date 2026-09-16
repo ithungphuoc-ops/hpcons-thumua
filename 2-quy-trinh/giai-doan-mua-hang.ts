@@ -70,6 +70,7 @@ import {
   lyDoThieuHopDong,
   NHAN_TEP_HOA_DON_VAT,
   TEN_HIEN_HOP_DONG,
+  vuongMacRoiBuocDatHang,
   vuongMacRoiBuocLapDon,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
@@ -325,12 +326,35 @@ export function xacDinhGiaiDoan(
     }
   }
 
-  // ⑥ Tiến hành nhận hàng — đã có hàng về, hoặc đơn đã chuyển sang trạng thái đang giao.
+  /**
+   * ⑥ Tiến hành nhận hàng — đã có hàng về, đơn đang giao, **hoặc bước ⑤ đã làm xong**.
+   *
+   * ★★ VẾ THỨ BA THÊM 16/09/2026 — Sếp, nguyên văn trên ảnh chụp bước ⑤: ***"Điều kiện để chuyển
+   * bước 5 sang 6: Phải đính kèm file PO ký đóng mộc hoặc phải bấm tích chọn 'Bổ sung sau'"***.
+   *
+   * 🔴 VÌ SAO: hai vế cũ đều nói về **việc của Kho** (phiếu nhận, đơn đang giao). Nên người thu
+   * mua làm xong phần mình vẫn phải **chờ người khác thao tác** thì bước của mình mới được coi là
+   * xong — thẻ nằm lại ⑤ đội dòng đỏ *"Còn 1/1 dòng chưa nhận đủ hàng"*, việc họ không làm gì
+   * được. Vế mới đóng bước ⑤ bằng đúng việc của người thu mua.
+   *
+   * 🔴 GỌI `vuongMacRoiBuocDatHang`, TUYỆT ĐỐI KHÔNG tự so `tepDonMuaHangNCCKy` tại đây. Đây đúng
+   * cái bẫy đã sập ngày 23/08/2026 với hợp đồng: luật nới ở một hàm, còn dòng suy giai đoạn vẫn
+   * giữ điều kiện cũ ⇒ hộp xác nhận cho đi, nút mở, mà **thẻ vẫn nằm lại cột cũ**, không một dòng
+   * lỗi nào báo (xem chú thích nhánh ⑤ ngay dưới).
+   *
+   * 📌 `poDaChot` chứ không phải mọi PO: đơn còn `nhap` thì việc của bước ④ chưa xong, chưa nói
+   * tới đặt hàng. Đơn `huy` đương nhiên không tính.
+   *
+   * ⚠️ KHÔNG ĐỤNG ĐIỀU KIỆN VÀO BƯỚC ⑦ (nhánh phía trên): vẫn là **hàng về đủ**. Bước ⑥ mở sớm
+   * hơn không kéo theo ⑦ mở sớm hơn — hai luật độc lập.
+   */
   const daCoPhieuNhan = tatCaPhieu.some((p) => poCuaDeNghi.some((po) => po.id === p.poId));
   const dangGiao = poCuaDeNghi.some(
     (po) => po.trangThai === "dang_giao" || po.trangThai === "cho_xac_nhan_hoan_thanh",
   );
-  if (daCoPhieuNhan || dangGiao) return "nhan_hang";
+  const poDaChot = poCuaDeNghi.some((po) => po.trangThai !== "nhap" && po.trangThai !== "huy");
+  const datHangXong = poDaChot && vuongMacRoiBuocDatHang(deNghi) === null;
+  if (daCoPhieuNhan || dangGiao || datHangXong) return "nhan_hang";
 
   /**
    * ⑤ Tiến hành đặt hàng — đơn đã chốt, chưa có hàng nào về.
@@ -1815,6 +1839,8 @@ export interface DieuKienConVuong {
     | "thieu_ban_bao_gia"
     | "chua_duyet_bao_gia"
     | "thieu_hop_dong"
+    /* ★ Bước ⑤ — Sếp 16/09/2026: đính bản PO nhà cung cấp ký, hoặc bấm "Bổ sung sau". */
+    | "thieu_don_mua_hang"
     | "thieu_hoa_don_vat"
     | "chua_tich_unc";
   /** Câu nói cho người dùng — giữ nguyên chữ của các hàm luật đang dùng. */
@@ -1960,6 +1986,25 @@ export function dsDieuKienConVuong(
     case "lap_don_mua_hang": {
       const vuong = vuongMacRoiBuocLapDon(deNghi);
       if (vuong) ra.push({ ma: "thieu_hop_dong", cau: vuong, goDuocTaiCho: true });
+      break;
+    }
+
+    /**
+     * ★★ BƯỚC ⑤ — THÊM 16/09/2026, Sếp: ***"Điều kiện để chuyển bước 5 sang 6: Phải đính kèm file
+     * PO ký đóng mộc hoặc phải bấm tích chọn 'Bổ sung sau'"***.
+     *
+     * 🔴 PHẢI CÓ NHÁNH NÀY, KHÔNG PHẢI THÊM CHO ĐỦ. `xacDinhGiaiDoan` nay dùng cùng hàm
+     * `vuongMacRoiBuocDatHang` để quyết định thẻ có sang ⑥ hay không. Nếu danh sách điều kiện ở
+     * đây **không** có nhánh tương ứng thì hộp xác nhận chuyển bước sẽ báo *"không còn điều kiện
+     * nào"* trong khi thẻ vẫn nằm lại ⑤ — đúng cái lệch đã sập ngày 23/08/2026 với hợp đồng, và
+     * lần đó không một dòng lỗi nào báo.
+     *
+     * 📌 `goDuocTaiCho: true` — cả hai đường gỡ (đính tệp / bấm "Bổ sung sau") đều nằm ngay trong
+     * khối bước ⑤, người dùng không phải đi đâu khác.
+     */
+    case "dat_hang": {
+      const vuongDat = vuongMacRoiBuocDatHang(deNghi);
+      if (vuongDat) ra.push({ ma: "thieu_don_mua_hang", cau: vuongDat, goDuocTaiCho: true });
       break;
     }
 

@@ -885,6 +885,36 @@ export function vuongMacRoiBuocLapDon(deNghi: DeNghiMuaHang): string | null {
   return `Chưa đính kèm ${TEN_HIEN_HOP_DONG}, và cũng chưa ghi lý do chưa có. Làm một trong hai việc đó ở khối kết quả của bước Lập đơn mua hàng.`;
 }
 
+/**
+ * ★★ ĐÃ RỜI ĐƯỢC BƯỚC ⑤ "Tiến hành đặt hàng" CHƯA — `null` là rời được.
+ *
+ * Sếp 16/09/2026, nguyên văn trên ảnh chụp bước ⑤: ***"Điều kiện để chuyển bước 5 sang 6: Phải
+ * đính kèm file PO ký đóng mộc hoặc phải bấm tích chọn 'Bổ sung sau'"***, kèm một câu trước đó:
+ * *"khi chọn này rồi thì chuyển bước này sang bước tiếp theo"*.
+ *
+ * 🔴 VÌ SAO CẦN: trước hôm nay bước ⑥ chỉ mở khi **đã có phiếu nhận hàng** (`xacDinhGiaiDoan`).
+ * Nên người thu mua đặt hàng xong, đính bản đơn nhà cung cấp ký — phần việc của họ đã hết — mà
+ * thẻ vẫn nằm ở ⑤ đội dòng đỏ *"Còn 1/1 dòng chưa nhận đủ hàng"*, một việc họ không làm gì được.
+ * Thẻ chỉ rời ⑤ khi Kho gửi phiếu, tức **chờ người khác làm mới xong bước của mình**.
+ *
+ * 📌 CÙNG KHUÔN với `vuongMacRoiBuocLapDon` ngay trên (tệp HOẶC lý do), cố ý: hai bước liền nhau
+ * mà đòi kiểu khác nhau thì người dùng không đoán được app muốn gì.
+ *
+ * 🔴 MỘT CHỖ DUY NHẤT trả lời câu *"đã rời được bước ⑤ chưa"*. `xacDinhGiaiDoan` gọi vào đây, chứ
+ * không tự so `tepDonMuaHangNCCKy` tại chỗ — đúng bài học đã ghi ở `vuongMacRoiBuocLapDon`: hai
+ * nơi cùng trả lời một câu hỏi thì sớm muộn nói khác nhau, và lúc đó **thẻ đứng im mà không một
+ * dòng lỗi nào báo**.
+ *
+ * ⚠️ "Bổ sung sau" KHÔNG xoá món nợ. Nó chỉ cho thẻ đi tiếp; mục 4 của bộ hồ sơ thanh toán vẫn
+ * **báo đỏ** cho tới khi có tệp thật (`CHUNG_TU_DON_MUA_HANG.lyDoKhongCo = null` — Sếp:
+ * *"PO là chắc chắn có, chỉ là bổ sung sau thôi"*). Nợ chuyển theo chứng từ, không biến mất.
+ */
+export function vuongMacRoiBuocDatHang(deNghi: DeNghiMuaHang): string | null {
+  if (tepDonMuaHangNCCKy(deNghi).length > 0) return null;
+  if (lyDoThieuChungTuCua(deNghi, CHUNG_TU_DON_MUA_HANG).trim() !== "") return null;
+  return `Chưa đính kèm ${TEN_HIEN_DON_MUA_HANG} (bản nhà cung cấp ký, đóng mộc), và cũng chưa bấm "Bổ sung sau". Làm một trong hai việc đó ở khối Tiến hành đặt hàng.`;
+}
+
 /* ② ĐÃ XÓA `vuongMacTichXongUNC` — Sếp 15/09/2026 bỏ cái tích mà nó canh. Lý do đầy đủ ở khối
    chú thích ★★★ phía trên (chỗ `VIEC_UNC_XONG` cũ). */
 

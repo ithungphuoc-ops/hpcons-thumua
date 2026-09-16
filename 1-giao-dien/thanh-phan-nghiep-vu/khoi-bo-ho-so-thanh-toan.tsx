@@ -421,10 +421,26 @@ export function KhoiBoHoSoThanhToan({
                   </a>
                 ))}
 
-                {/* Tệp của mục — chỉ XEM và TẢI, không gỡ được từ đây (sửa ở bước của nó). */}
-                {m.tep.map((t) => (
-                  <LienKetTep key={t.id} tep={t} />
-                ))}
+                {/**
+                  * Tệp của mục — chỉ XEM và TẢI, không gỡ được từ đây (sửa ở bước của nó).
+                  *
+                  * 🔴 BỎ QUA MỤC CÓ **KHU ĐÍNH KÈM TỰ DO** (mục 9) — Sếp 16/09/2026, khoanh đỏ hai
+                  * khối cùng bày một tệp trong mục 9: *"Chọn 1 trong 2 cách hiển thị thôi"*.
+                  *
+                  * Mục 9 nhận ô nộp kiểu `khu_tu_do`, mà khu đó **tự bày danh sách tệp của chính
+                  * nó** (kèm cỡ tệp, người tải, ngày giờ, nút xem). Vẽ thêm `LienKetTep` ở đây là
+                  * cùng một tệp hiện hai lần, và người đọc bộ hồ sơ tưởng có hai bản.
+                  *
+                  * 📌 GIỮ NGUYÊN cho `o_co_ten` và `khong`: ô kiểu `o_co_ten` (Hoá đơn VAT · UNC ·
+                  * Phiếu chi) bày tệp trong chính ô, còn mục chỉ đọc (2 · 3 · 4 · 5) không có ô nào
+                  * — cả hai đều không trùng. Chỉ `khu_tu_do` mới sinh ra cảnh bày đôi.
+                  *
+                  * ⚠️ Hỏi qua hàm thuần `kieuONop`, đừng viết `m.ma === "dinh_kem_khac"` tại chỗ:
+                  * mai mốt có mục thứ hai dùng khu tự do thì nó lặp lại đúng lỗi này mà không ai
+                  * nhớ quay về đây.
+                  */}
+                {kieu !== "khu_tu_do" &&
+                  m.tep.map((t) => <LienKetTep key={t.id} tep={t} />)}
 
                 {/**
                   * ★★ NHÓM BÊN TRONG MỤC — Ban lãnh đạo 26/08/2026: *"Tạo group lại nhé"*.
