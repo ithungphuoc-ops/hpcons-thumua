@@ -5,9 +5,11 @@ import { RefreshCw, TriangleAlert } from "lucide-react";
 import {
   CHU_KY_HOI_BAN_MOI_MS,
   HAN_NHAC_GAP_MS,
+  cauDemNguocTaiLai,
   cauNhacBanMoi,
   coBanMoi,
   daDenLucNhacGap,
+  giayConLai,
 } from "@/2-quy-trinh/nhip-kiem-ban-moi";
 
 /**
@@ -28,27 +30,27 @@ import {
  *   bởi một tab ai đó quên đóng.
  *
  * ════════════════════════════════════════════════════════════════════════════════════════
- * 🔴🔴 VÌ SAO KHÔNG TỰ TẢI LẠI HỘ NGƯỜI DÙNG — ĐỌC KỸ TRƯỚC KHI ĐỊNH "CẢI TIẾN"
+ * 🔴🔴 CÓ TỰ TẢI LẠI — SẾP CHỐT 16/09/2026. ĐÂY LÀ QUYẾT ĐỊNH ĐÃ ĐỔI MỘT LẦN.
  * ════════════════════════════════════════════════════════════════════════════════════════
- * Bản thiết kế đầu có ý tự gọi `location.reload()` khi tab bị ẩn hoặc khi người dùng rảnh vài
- * phút. **Đã bỏ, cố ý.**
+ * Bản đầu (sáng 16/09) CỐ Ý không tự tải lại. Lý lẽ khi đó vẫn đúng và vẫn cần biết:
+ * `form-lap-don-mua-hang.tsx` là biểu mẫu dài hàng chục trường, người ta điền cả chục phút mới
+ * xong, và nội dung đang gõ KHÔNG được cất tạm ở đâu cả — tải lại giữa chừng là xoá sạch việc họ
+ * vừa làm.
  *
- * App này có `form-lap-don-mua-hang.tsx` — biểu mẫu dài hàng chục trường, người ta điền cả chục
- * phút mới xong, và nội dung đang gõ KHÔNG được cất tạm ở đâu cả. Tự tải lại giữa chừng là **xoá
- * sạch việc họ vừa làm**, mà lại còn không hiểu vì sao trang tự nhảy.
+ * Chiều 16/09 Sếp cân lại và chọn mạnh tay hơn, nguyên văn:
+ *   *"Cứ vầy đi tại chạy test không sao, chạy thật thì sẽ deploy vào khung giờ ít người vào app"*
  *
- * "Tab đang ẩn" cũng không cứu được: người ta mở tab khác tra giá nhà cung cấp rồi quay lại điền
- * tiếp — đó là thao tác BÌNH THƯỜNG của nghề này, không phải dấu hiệu bỏ máy.
+ * ⇒ Đánh đổi được chấp nhận CÓ ĐIỀU KIỆN: bản vá quan trọng phải tới tay mọi máy nhanh hơn là
+ *   giữ một biểu mẫu đang gõ dở. **Điều kiện đi kèm là deploy vào giờ vắng khi chạy thật** —
+ *   ai đổi chỗ này sau đừng quên vế đó, nó là một nửa của quyết định.
  *
- * ⇒ Cái giá của việc báo mà người ta lờ đi: một máy chạy bản cũ thêm một lúc.
- *   Cái giá của việc tự tải lại nhầm lúc: một người mất nguyên một đơn hàng đang lập.
- *   Không cân xứng. Nên chỉ báo.
+ * 📌 BA THỨ GIỮ LẠI ĐỂ KHÔNG THÀNH THÔ BẠO:
+ *   ① Đếm ngược 30 giây, hiện SỐ GIÂY trên dải — ai đang gõ dở kịp chép nội dung ra chỗ khác.
+ *   ② Nói THẲNG ở đầu câu là trang sẽ tự tải lại, không giấu xuống cuối.
+ *   ③ Có nút "Tải lại ngay" cho ai không muốn chờ hết 30 giây.
  *
- * 📌 BÙ LẠI BẰNG CÁCH ĐỔI GIỌNG: sau 30 phút mà vẫn chưa tải lại thì dải đổi sang màu cảnh báo và
- * nói thẳng hậu quả (xem `cauNhacBanMoi`). Nhã nhặn một lần, rồi nói thật.
- *
- * ⚠️ Nếu sau này muốn tự tải lại, ĐIỀU KIỆN TỐI THIỂU là app phải cất tạm được nội dung biểu mẫu
- * đang gõ dở. Chưa có thứ đó thì đừng bật.
+ * ⚠️ Nếu sau này biểu mẫu tự lưu nháp được thì hạ 30 giây xuống bao nhiêu cũng an toàn. Chừng
+ * nào chưa có, ĐỪNG HẠ THÊM.
  *
  * ════════════════════════════════════════════════════════════════════════════════════════
  * 📌 LUẬT NẰM Ở `2-quy-trinh/nhip-kiem-ban-moi.ts`, KHÔNG NẰM TRONG COMPONENT NÀY
@@ -59,6 +61,8 @@ import {
 export function ChiBaoBanMoi() {
   const [coMoi, setCoMoi] = useState(false);
   const [gap, setGap] = useState(false);
+  /** Số giây còn lại trước khi tự tải lại. `null` = chưa đếm. */
+  const [giay, setGiay] = useState<number | null>(null);
 
   /**
    * Mã bản đọc được ở LẦN HỎI ĐẦU TIÊN — đây là mốc để so, không phải hằng số lúc dựng.
@@ -138,6 +142,32 @@ export function ChiBaoBanMoi() {
     return () => clearTimeout(id);
   }, [coMoi, gap]);
 
+  /**
+   * ★★ ĐẾM NGƯỢC RỒI TỰ TẢI LẠI — Sếp chốt 16/09/2026, xem khối chú thích đầu tệp.
+   *
+   * 🔴 ĐẾM MỖI GIÂY CHỨ KHÔNG PHẢI HẸN MỘT LẦN 30 GIÂY. Người dùng phải THẤY con số lùi dần thì
+   * mới tin là trang sắp tải lại thật và kịp chép nội dung ra. Hẹn một lần rồi im lặng thì họ
+   * không biết gì cho tới lúc trang nhảy — đúng thứ làm người ta tưởng app hỏng.
+   *
+   * 🔴 TÍNH LẠI TỪ ĐỒNG HỒ MỖI NHỊP (`giayConLai`), KHÔNG TỰ TRỪ MỘT. Trình duyệt giãn bộ đếm
+   * của tab nền tới hàng chục giây; tự trừ một thì con số lệch hẳn khỏi thời gian thật, và trang
+   * tải lại lúc dải báo vẫn đang ghi "còn 18 giây".
+   *
+   * 📌 Dọn bộ đếm khi component bị tháo — tải lại trang mà bộ đếm còn chạy là gọi `reload()` hai
+   * lần chồng nhau.
+   */
+  useEffect(() => {
+    if (!coMoi) return;
+    const nhip = () => {
+      const conLai = giayConLai(lucPhatHien.current, Date.now());
+      setGiay(conLai);
+      if (conLai <= 0) window.location.reload();
+    };
+    nhip();
+    const id = setInterval(nhip, 1000);
+    return () => clearInterval(id);
+  }, [coMoi]);
+
   if (!coMoi) return null;
 
   const { tieuDe, chiDan } = cauNhacBanMoi(gap);
@@ -160,7 +190,8 @@ export function ChiBaoBanMoi() {
         <RefreshCw className="size-4 shrink-0" aria-hidden />
       )}
       <span className="min-w-0">
-        <strong className="font-semibold">{tieuDe}.</strong> {chiDan}
+        <strong className="font-semibold">{tieuDe}.</strong>{" "}
+        {giay === null ? chiDan : cauDemNguocTaiLai(giay)}
       </span>
       <button
         type="button"
@@ -170,7 +201,7 @@ export function ChiBaoBanMoi() {
         }`}
       >
         <RefreshCw className="size-3.5 shrink-0" aria-hidden />
-        Tải lại
+        Tải lại ngay
       </button>
     </div>
   );

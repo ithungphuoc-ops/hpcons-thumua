@@ -6954,6 +6954,61 @@ kiem(
 );
 
 kiem(
+  "Vừa phát hiện → đếm ngược đủ 30 giây",
+  "Sếp chốt 16/09/2026 chiều: tự tải lại sau 30 giây",
+  () => {
+    const moc = 1_000_000;
+    const r = BM.giayConLai(moc, moc);
+    return { duoc: r === 30, thucTe: String(r), mongDoi: "30" };
+  },
+);
+
+kiem(
+  "Đã trôi 10 giây → còn 20",
+  "Sếp 16/09/2026",
+  () => {
+    const moc = 1_000_000;
+    const r = BM.giayConLai(moc, moc + 10_000);
+    return { duoc: r === 20, thucTe: String(r), mongDoi: "20" };
+  },
+);
+
+kiem(
+  "🔴 Quá hạn (tab ngủ lâu) → trả 0, KHÔNG BAO GIỜ âm",
+  "số âm hiện lên dải báo là lỗi người dùng thấy ngay",
+  () => {
+    const moc = 1_000_000;
+    const r = BM.giayConLai(moc, moc + 300_000);
+    return { duoc: r === 0, thucTe: String(r), mongDoi: "0" };
+  },
+);
+
+kiem(
+  "Chưa có mốc phát hiện → trả đủ 30, không phải 0",
+  "chiều nghịch — trả 0 là tải lại NGAY khi vừa mở app, không kịp báo ai",
+  () => {
+    const r = BM.giayConLai(0, Date.now());
+    return { duoc: r === 30, thucTe: String(r), mongDoi: "30" };
+  },
+);
+
+kiem(
+  "Câu đếm ngược phải nói THẲNG là trang sẽ tự tải lại, ngay đầu câu",
+  "Sếp 16/09/2026 · người dùng chỉ liếc dải báo một lần",
+  () => {
+    const c = BM.cauDemNguocTaiLai(17);
+    const noiThang = /^Trang sẽ tự tải lại/.test(c);
+    const coSoGiay = c.includes("17");
+    const canhBaoMat = /gõ dở sẽ mất|đang gõ dở/.test(c);
+    return {
+      duoc: noiThang && coSoGiay && canhBaoMat,
+      thucTe: c,
+      mongDoi: "mở đầu bằng 'Trang sẽ tự tải lại', có số giây, có cảnh báo mất nội dung đang gõ",
+    };
+  },
+);
+
+kiem(
   "Câu nhắc mức GẤP phải nói ra HẬU QUẢ, không chỉ mời tải lại",
   "Sếp 16/09/2026 · tới lúc đó lời mời đã thất bại một lần",
   () => {
