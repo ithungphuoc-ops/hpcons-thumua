@@ -14,6 +14,7 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   NHAN_GIAI_DOAN,
@@ -37,7 +38,7 @@ const gioPhut = (iso: string) =>
  */
 export function NutThongBao() {
   const router = useRouter();
-  const { thongBao: tatCaThongBao, danhDauDaDocThongBao } = useDuLieu();
+  const { thongBao: tatCaThongBao, danhDauDaDocThongBao, deNghi } = useDuLieu();
   const { quyen, nguoiDung } = useNguoiDung();
 
   /**
@@ -126,8 +127,35 @@ export function NutThongBao() {
                 className="items-start"
               >
                 <div className="flex w-full flex-col gap-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-primary">{tb.prCode}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    {/**
+                      * ★★ TRA LẠI TÊN LÚC VẼ, KHÔNG IN CHUỖI ĐÃ CHÉP SẴN — Sếp 16/09/2026:
+                      * ***"Sao tên thông báo ko cập nhật theo tên mới"***, kèm ảnh thẻ đã đổi tên
+                      * mà chuông vẫn hiện mã cũ kèm đuôi "(copy 2)".
+                      *
+                      * 🔴 GỐC LỖI: `ThongBao.prCode` là **ảnh chụp lúc sinh tin** — đổi tên hồ sơ
+                      * sau đó thì chuỗi đó đứng yên mãi. Thẻ kanban thì ngược lại, nó gọi
+                      * `tenTheDeNghi(dn)` **mỗi lần vẽ** nên luôn đúng. Hai nguồn sự thật cho cùng
+                      * một cái tên, và chuông là chỗ sót lại của lượt sửa 15/09/2026.
+                      *
+                      * 🔴 `?? tb.prCode` LÀ BẮT BUỘC: hồ sơ có thể không còn trong danh sách —
+                      * bản tách bị **gộp mất** khi lùi về bước ① (`luiVeBuoc`) thì thông báo của
+                      * nó KHÔNG được dọn theo. Bỏ vế này là tin hiện trống trơn.
+                      *
+                      * ⚠️ `laCanhBaoTreo` PHẢI GIỮ `prCode`: tin đó mang id/mã **của PO**, không
+                      * phải của đề nghị — tra vào danh sách đề nghị luôn ra rỗng.
+                      *
+                      * 📌 `line-clamp-2` vì tên thẻ đầy đủ ghép *mã · số hợp đồng · TÊN CÔNG TRÌNH
+                      * · phần tự đặt*, có thể 60–80 ký tự trong một menu rộng 384px. Không chặn
+                      * thì mỗi tin chiếm 3–4 dòng và chuông 8 tin thành một cột dài.
+                      */}
+                    <span className="line-clamp-2 text-sm font-semibold text-primary">
+                      {(() => {
+                        if (tb.laCanhBaoTreo) return tb.prCode;
+                        const hoSo = deNghi.find((d) => d.id === tb.prId);
+                        return hoSo ? tenTheDeNghi(hoSo) : tb.prCode;
+                      })()}
+                    </span>
                     <span className="shrink-0 text-[11px] text-text-desc">{gioPhut(tb.thoiDiem)}</span>
                   </div>
                   <span className="text-xs text-text-primary">

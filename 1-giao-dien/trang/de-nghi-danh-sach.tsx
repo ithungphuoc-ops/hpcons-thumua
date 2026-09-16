@@ -1348,7 +1348,8 @@ export default function TrangDanhSachDeNghi() {
             // Số báo giá đặt TRƯỚC khi chuyển bước: bước ② bắt đầu bằng việc đi hỏi giá, nên
             // yêu cầu phải nằm sẵn trong phiếu lúc nhân viên mở ra.
             if (soBaoGia) {
-              datSoBaoGiaChoPhieu(xacNhan.prId, soBaoGia, nguoiDung.tenHienThi);
+              /* ★ Cờ quyền — xem `soBaoGiaTPGiao` (Sếp 16/09/2026). */
+              datSoBaoGiaChoPhieu(xacNhan.prId, soBaoGia, nguoiDung.tenHienThi, quyen.phanBoCongViec);
             }
             /* 🔴 KHI ĐÓNG DỞ, `ghiChu` LÀ LÝ DO THẤT BẠI — không ghi thành dòng "Chuyển bước"
                nữa. Hộp đã đổi nhãn ô thành "Lý do thất bại" và bắt buộc nhập (Ban lãnh đạo

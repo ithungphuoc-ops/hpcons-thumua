@@ -121,6 +121,28 @@ export interface DongDeNghi {
    * việc soát ngưỡng.
    */
   soBaoGiaYeuCau?: number;
+  /**
+   * ★★ MỨC BÁO GIÁ **TRƯỞNG BỘ PHẬN ĐÃ GIAO** — sàn của nút giảm. Sếp 16/09/2026, nguyên văn:
+   * ***"Phải có thêm nút giảm và chỉ được giảm về mức được giao. Ví dụ: TP giao 2 báo giá nhưng
+   * tới nhân viên bấm lên 3 thì phải có thêm nút giảm về 2"***.
+   *
+   * 🔴 VÌ SAO PHẢI CÓ TRƯỜNG RIÊNG, KHÔNG SUY RA ĐƯỢC TỪ `soBaoGiaYeuCau`: hai con số này từng
+   * là một. Nhân viên bấm `+` là ghi đè thẳng lên `soBaoGiaYeuCau`, nên **con số TP giao biến
+   * mất vĩnh viễn** ngay ở cú bấm đầu tiên — không còn gì làm sàn. Đó là lý do trước 16/09 app
+   * chỉ cho tăng: mở nút giảm mà không có mốc thì nhân viên hạ được xuống dưới mức TP yêu cầu.
+   *
+   * 🔴 CHỈ NGƯỜI CÓ QUYỀN PHÂN BỔ MỚI ĐƯỢC ĐẶT TRƯỜNG NÀY. Nhân viên bấm `+` thì `soBaoGiaYeuCau`
+   * tăng còn mốc này **đứng yên** — nếu không, nhân viên tự nâng sàn của chính mình và nút giảm
+   * thành vô nghĩa. Xem `datSoBaoGiaChoPhieu` (tham số `nguoiDatCoQuyenPhanBo`).
+   *
+   * 📌 TP GIAO LẠI THÌ MỐC ĐI THEO LẦN MỚI NHẤT (Sếp chốt 16/09/2026: giao 2 → nhân viên tăng 5
+   * → TP đổi ý giao 3 thì sàn là **3**). Nên đây là *"mức TP hiện hành"*, KHÔNG phải *"mức ban
+   * đầu"* — đừng đổi tên thành `…BanDau` rồi làm ngược.
+   *
+   * ⚠️ `undefined` ở mọi dòng có TRƯỚC 16/09/2026, và ở dòng chưa ai giao số. Khi đó nút giảm
+   * rơi về hành vi cũ (chỉ tăng) — không đoán bừa một cái sàn.
+   */
+  soBaoGiaTPGiao?: number;
   /** Lời dặn kèm theo khi giao việc — hiện cho người được phân bổ đọc. */
   ghiChuPhanBo?: string;
 

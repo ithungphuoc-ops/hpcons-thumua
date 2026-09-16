@@ -263,6 +263,30 @@ export function lyDoBoQuaSoSanh(deNghi: DeNghiMuaHang): string {
  * phạm vi `can` ô bắt buộc, dùng cho vòng lặp "ô bắt buộc nào còn thiếu tệp hoặc lý do", một câu
  * hỏi khác hẳn câu hỏi ở đây ("tổng cộng có mấy bản thật để mà so sánh").
  */
+/**
+ * ★★ SÀN CỦA NÚT GIẢM "SL Báo giá" — mức Trưởng bộ phận đã giao, `undefined` khi chưa ai giao.
+ *
+ * Sếp 16/09/2026: ***"Phải có thêm nút giảm và chỉ được giảm về mức được giao"***.
+ *
+ * 🔴 LẤY SỐ LỚN NHẤT trong các dòng, không lấy nhỏ nhất và không lấy trung bình. Một phiếu có
+ * thể được giao làm nhiều đợt, mỗi đợt một số (`phanBoDong` ghi theo từng dòng). Hạ xuống dưới
+ * số lớn nhất là có ít nhất một dòng bị lấy thiếu báo giá so với điều Trưởng bộ phận yêu cầu —
+ * đúng thứ chốt này sinh ra để chặn.
+ *
+ * 🔴 `undefined` KHÔNG PHẢI 0, và đừng quy về 0 cho gọn. Không có mốc nghĩa là **chưa biết**
+ * Trưởng bộ phận muốn gì (dòng lập trước 16/09/2026, hoặc chưa ai phân bổ). Lúc đó nơi gọi phải
+ * giữ hành vi cũ — khoá nút giảm — chứ không được đoán một cái sàn rồi cho hạ tự do.
+ *
+ * 📌 Bỏ qua dòng không có mốc thay vì trả `undefined` cho cả phiếu: phiếu giao làm hai đợt, đợt
+ * cũ chưa có trường này thì vẫn phải có sàn theo đợt mới.
+ */
+export function sanSoBaoGiaTPGiao(deNghi: DeNghiMuaHang): number | undefined {
+  const moc = deNghi.items
+    .map((d) => d.soBaoGiaTPGiao)
+    .filter((n): n is number => typeof n === "number" && n >= 1);
+  return moc.length === 0 ? undefined : Math.max(...moc);
+}
+
 export function soBanBaoGiaThat(deNghi: DeNghiMuaHang): number {
   return new Set(
     tepBaoGiaDaCo(deNghi)

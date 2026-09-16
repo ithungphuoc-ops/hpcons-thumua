@@ -1446,6 +1446,82 @@ kiem(
   },
 );
 
+/* ════════════════════════════════════════════════════════════════════
+   ★★ SAN CUA NUT GIAM "SL Bao gia" — Sếp 16/09/2026
+   *"Phai co them nut giam va chi duoc giam ve muc duoc giao. Vi du: TP giao 2 bao gia nhung toi
+   nhan vien bam len 3 thi phai co them nut giam ve 2"*, chot them: *"neu co lo bam tang len thi
+   cung duoc bam giam ve lai muc duoc giao"*.
+
+   🔴 KHONG DAO CHI DAO 13/09/2026 (*"nhan vien chi duoc tang, ko duoc bam giam"*). Cai 13/09 chan
+   la **nhan vien tu noi luat dang cham chinh minh** — ha xuong DUOI muc TP yeu cau. Dieu do van
+   nguyen. Thu duoc mo chi la go cu bam nham cua chinh ho.
+   ════════════════════════════════════════════════════════════════════ */
+
+kiem(
+  "SAN = muc TP giao, KHONG phai so dang luu (nhan vien bam tang khong nang san)",
+  'Sếp · 16/09/2026 — *"chi duoc giam ve muc duoc giao"*',
+  () => {
+    /* 🔴 DAY LA DIEM CHINH CUA CA VIEC. Truoc 16/09 san lay `max(soBaoGiaYeuCau dang luu)`, nen
+       nhan vien bam + len 5 thi san cung thanh 5 — cu bam nham TU KHOA LAI CHINH NO. Nay san doc
+       `soBaoGiaTPGiao`, mot con so chi TP dat duoc. */
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dn = {
+      id: "x",
+      items: [
+        { stt: 1, soBaoGiaYeuCau: 5, soBaoGiaTPGiao: 2 },
+        { stt: 2, soBaoGiaYeuCau: 5, soBaoGiaTPGiao: 2 },
+      ],
+      tepGiaiDoan: {},
+    };
+    const san = BG.sanSoBaoGiaTPGiao(dn);
+    return {
+      duoc: san === 2,
+      thucTe: `san = ${san} (so dang luu la 5)`,
+      mongDoi: "2 — san theo muc TP giao, khong theo so nhan vien vua bam len",
+    };
+  },
+);
+
+kiem(
+  "Ho so KHONG co moc -> tra `undefined`, KHONG tra 0 (chieu nghich)",
+  'Sếp · 16/09/2026 — ho so lap truoc 16/09 giu nguyen hanh vi cu',
+  () => {
+    /* 🔴🔴 CHIEU NGHICH QUAN TRONG NHAT. Ai "don cho gon" bang cach tra 0 khi khong co moc thi
+       bai tren VAN XANH, nhung moi ho so cu lap truoc 16/09/2026 bong nhien cho ha tu do ve 1 —
+       dung cai cua ma chi dao 13/09 dong lai. `undefined` la "CHUA BIET", khong phai "khong co". */
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dn = { id: "x", items: [{ stt: 1, soBaoGiaYeuCau: 5 }], tepGiaiDoan: {} };
+    const san = BG.sanSoBaoGiaTPGiao(dn);
+    return {
+      duoc: san === undefined,
+      thucTe: `san = ${String(san)}`,
+      mongDoi: "undefined (noi goi se khoa han nut giam, nhu truoc 16/09)",
+    };
+  },
+);
+
+kiem(
+  "Phieu giao nhieu dot -> lay MOC LON NHAT, khong lay dot dau",
+  "Sếp · 16/09/2026",
+  () => {
+    /* Mot phieu co the duoc giao lam nhieu dot, moi dot mot so. Ha xuong duoi so lon nhat la co it
+       nhat mot dong bi lay thieu bao gia so voi dieu TP yeu cau.
+       📌 Dong khong co moc (dot cu, truoc 16/09) bi BO QUA chu khong lam ca phieu mat san. */
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dn = {
+      id: "x",
+      items: [
+        { stt: 1, soBaoGiaTPGiao: 2 },
+        { stt: 2, soBaoGiaTPGiao: 4 },
+        { stt: 3 },
+      ],
+      tepGiaiDoan: {},
+    };
+    const san = BG.sanSoBaoGiaTPGiao(dn);
+    return { duoc: san === 4, thucTe: `san = ${san}`, mongDoi: "4 (moc lon nhat)" };
+  },
+);
+
 kiem(
   "Hồ sơ 0 tệp báo giá → PHẢI chặn trình xét duyệt (trước đây lọt)",
   "Ban lãnh đạo · 20/08/2026",

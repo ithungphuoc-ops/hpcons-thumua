@@ -121,6 +121,7 @@ import {
   giaiDoanDaKetThuc,
   NHAN_GIAI_DOAN,
   xacDinhGiaiDoan,
+  duocDinhDonMuaHangNCCKy,
   duocSuaHopDongTheoGiaiDoan,
   giaiDoanDaToiLuot,
   conNoCuaBuoc,
@@ -880,6 +881,9 @@ export default function TrangChiTietDeNghi({
    * chỗ kia — xem chú thích đầy đủ ở nơi khai báo hàm.
    */
   const duocSuaHopDong = duocSuaHopDongTheoGiaiDoan(quyen, giaiDoan);
+  /* ★ Bản PO nhà cung cấp ký có cờ RIÊNG — Sếp 16/09/2026: "Nhân viên là người đính kèm file PO
+     ký". Xem `duocDinhDonMuaHangNCCKy` để biết vì sao không dùng chung cờ với Hợp đồng. */
+  const duocDinhPOKy = duocDinhDonMuaHangNCCKy(quyen);
 
   /**
    * ★ AI ĐƯỢC DUYỆT HOÀN THÀNH ĐƠN Ở BƯỚC ⑥ — Ban lãnh đạo 22/08/2026: *"Bước này sẽ để nhân viên
@@ -1573,7 +1577,9 @@ export default function TrangChiTietDeNghi({
                         deNghi={dn}
                         duocSua={duocSuaTepBuoc && !hoSoDaDong}
                         onLuu={(so) => {
-                          datSoBaoGiaChoPhieu(dn.id, so, nguoiDung.tenHienThi);
+                          /* ★ Cờ quyền: chỉ Trưởng bộ phận mới dời mốc sàn của nút giảm —
+                             Sếp 16/09/2026. Xem `soBaoGiaTPGiao`. */
+                          datSoBaoGiaChoPhieu(dn.id, so, nguoiDung.tenHienThi, quyen.phanBoCongViec);
                           toast.success(`Đã đổi thành ${so} báo giá cho mọi mặt hàng`);
                         }}
                       />
@@ -2757,10 +2763,21 @@ export default function TrangChiTietDeNghi({
                       * bằng cách cho hai ô cùng `maGiaiDoan` — làm vậy là quay về đúng cảnh một ô
                       * hai tên mà cả lượt sửa này sinh ra để gỡ.
                       *
-                      * 🔴 `duocSua={duocSuaHopDong}` — CÙNG cờ quyền với ô hợp đồng ở trên, cố ý:
-                      * cả hai đều là **chứng từ chính thức có chữ ký**, và từ bước ⑤ trở đi quyền
-                      * sửa đã siết còn Trưởng bộ phận / quản trị (xem `duocSuaHopDong`). Cho ô này
-                      * dùng `duocSuaTepBuoc` (rộng hơn) là siết quyền bên kia thành vô nghĩa.
+                      * 🔴🔴 `duocSua={duocDinhPOKy}` — **CỜ RIÊNG, KHÔNG dùng chung với ô hợp đồng**.
+                      * Sếp 16/09/2026: ***"Nhân viên là người đính kèm file PO ký"***.
+                      *
+                      * ⚠️ CHÚ THÍCH CŨ TẠI ĐÂY NÓI NGƯỢC — chép lại để không ai khôi phục: nó viết
+                      * *"CÙNG cờ quyền với ô hợp đồng ở trên, cố ý… cho ô này dùng cờ rộng hơn là
+                      * siết quyền bên kia thành vô nghĩa"*. Câu đó **sai về căn cứ**: chỉ đạo
+                      * 01/09/2026 siết quyền cho **tệp hợp đồng**, chưa bao giờ nói về bản PO nhà
+                      * cung cấp ký — ô này mới tách ra sáng 16/09, và nó chỉ **chép cờ cho tiện**.
+                      *
+                      * 🔴 Cờ chép đó còn đá ngược chính lý do 01/09: hôm đó Sếp mở ô ở bước ⑤ vì
+                      * *bản NCC ký thường gửi về sau khi đã đặt hàng* — để người đang làm ở bước ⑤
+                      * đính vào. Nhưng `phanBoCongViec` chỉ Trưởng bộ phận cấp ≥3 mới có, nên chính
+                      * nhân viên cầm bản ký trong tay lại không đính được.
+                      *
+                      * 📌 Ô Hợp đồng ngay trên GIỮ NGUYÊN `duocSuaHopDong` — siết 01/09 còn hiệu lực.
                       */}
                     <OChungTuBatBuoc
                       deNghi={dn}
@@ -2779,9 +2796,56 @@ export default function TrangChiTietDeNghi({
                          GIỮ NGUYÊN — chúng chỉ việc phải làm, không kể cơ chế. */
                       moTa="Bản đơn mua hàng đã ký, đóng mộc từ nhà cung cấp gửi về khi đặt hàng."
                       batBuoc
-                      duocSua={duocSuaHopDong}
+                      duocSua={duocDinhPOKy}
                       khoa={hoSoDaDong}
                       tepDaCo={tepDonMuaHangNCCKy(dn)}
+                      /**
+                        * ★★ NÚT "Bổ sung sau" ĐỨNG NGAY ĐÂY — Sếp 16/09/2026: ***"Đưa nút này lên"***.
+                        * Trước đó nó nằm trong một khối riêng bên dưới, sau cả dòng *"Nhận PDF, ảnh,
+                        * Word, Excel…"* — xa hẳn thứ nó nói về.
+                        *
+                        * 🔴 ĐIỀU KIỆN HIỆN NẰM Ở ĐÂY, KHÔNG nhét vào `OChungTuBatBuoc`: ô chứng từ
+                        * dùng chung cho 8 chỗ và không biết gì về "lý do chưa có". Chưa có tệp thì
+                        * mới hỏi lý do — đã đính rồi mà còn bày nút là mời người dùng khai "chưa có"
+                        * cho một tệp đang nằm đó.
+                        */
+                      nutPhu={
+                        tepDonMuaHangNCCKy(dn).length === 0
+                          ? LY_DO_THIEU_DON_MUA_HANG_CHON.map((lyDo) => {
+                              const dangChon = lyDoThieuDonMuaHang(dn) === lyDo;
+                              return (
+                                <Button
+                                  key={lyDo}
+                                  size="sm"
+                                  variant={dangChon ? "default" : "outline"}
+                                  /* Cùng cờ với ô nộp: ai đính được bản PO ký thì cũng khai được lý
+                                     do chưa có. Lệch hai cờ là nhân viên đính được tệp nhưng không
+                                     bấm được "Bổ sung sau" — một ngõ cụt vô nghĩa. */
+                                  disabled={!duocDinhPOKy || hoSoDaDong}
+                                  onClick={() => {
+                                    /* 🔴 BẤM LẠI NÚT ĐANG CHỌN = BỎ CHỌN — cùng cơ chế với hai nút ở
+                                       bước ④. Không có đường bỏ chọn thì người bấm nhầm kẹt vĩnh
+                                       viễn với một lý do sai trong hồ sơ. */
+                                    const loi = ghiLyDoThieuChungTu(
+                                      dn.id,
+                                      KHOA_LY_DO_THIEU_DON_MUA_HANG,
+                                      dangChon ? "" : lyDo,
+                                      nguoiDung.tenHienThi,
+                                      TEN_HIEN_DON_MUA_HANG,
+                                    );
+                                    if (loi) {
+                                      toast.error("Chưa ghi được lý do", { description: loi });
+                                      return;
+                                    }
+                                    toast.success(dangChon ? "Đã bỏ chọn lý do" : `Đã ghi: ${lyDo}`);
+                                  }}
+                                >
+                                  {lyDo}
+                                </Button>
+                              );
+                            })
+                          : undefined
+                      }
                     />
 
                     {/**
@@ -2807,69 +2871,28 @@ export default function TrangChiTietDeNghi({
                       * Ai muốn biến nó thành chốt thì phải hỏi Sếp — thêm một điều kiện đóng hồ sơ
                       * là chặn hàng loạt hồ sơ đang chạy.
                       */}
-                    {tepDonMuaHangNCCKy(dn).length === 0 && (
-                      <div
-                        className={`flex flex-col gap-1.5 rounded-lg border p-(--hp-md-row-pad) ${
-                          lyDoThieuDonMuaHang(dn) !== ""
-                            ? "border-danger bg-danger-bg"
-                            : "border-border bg-muted"
-                        }`}
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Label
-                            className="shrink-0"
-                            title={`Chưa có ${TEN_HIEN_DON_MUA_HANG} thì chọn lý do`}
-                          >
-                            Lý do chưa có <span className="text-danger">*</span>
-                          </Label>
-                          {LY_DO_THIEU_DON_MUA_HANG_CHON.map((lyDo) => {
-                            const dangChon = lyDoThieuDonMuaHang(dn) === lyDo;
-                            return (
-                              <Button
-                                key={lyDo}
-                                size="sm"
-                                variant={dangChon ? "default" : "outline"}
-                                disabled={!duocSuaHopDong || hoSoDaDong}
-                                onClick={() => {
-                                  /* 🔴 BẤM LẠI NÚT ĐANG CHỌN = BỎ CHỌN — cùng cơ chế với hai nút ở
-                                     bước ④. Không có đường bỏ chọn thì người bấm nhầm kẹt vĩnh viễn
-                                     với một lý do sai trong hồ sơ. */
-                                  const loi = ghiLyDoThieuChungTu(
-                                    dn.id,
-                                    KHOA_LY_DO_THIEU_DON_MUA_HANG,
-                                    dangChon ? "" : lyDo,
-                                    nguoiDung.tenHienThi,
-                                    TEN_HIEN_DON_MUA_HANG,
-                                  );
-                                  if (loi) {
-                                    toast.error("Chưa ghi được lý do", { description: loi });
-                                    return;
-                                  }
-                                  toast.success(
-                                    dangChon ? "Đã bỏ chọn lý do" : `Đã ghi: ${lyDo}`,
-                                  );
-                                }}
-                              >
-                                {lyDo}
-                              </Button>
-                            );
-                          })}
-                        </div>
-
-                        {/* 🔴 TRẠNG THÁI CÓ CẢ MÀU LẪN CHỮ (Design System V1.1 §3.2). Câu lấy từ
-                            hàm thuần `cauNhacConNoChungTu` — cùng câu mục 4 ở bước ⑧ đang in, nên
-                            hai màn hình không thể nói khác nhau. */}
-                        {lyDoThieuDonMuaHang(dn) !== "" && (
-                          <div className="flex items-start gap-1.5">
-                            <AlertTriangle
-                              className="mt-0.5 size-3.5 shrink-0 text-danger"
-                              aria-hidden
-                            />
-                            <span className="text-xs font-medium text-danger">
-                              {cauNhacConNoChungTu(lyDoThieuDonMuaHang(dn))}
-                            </span>
-                          </div>
-                        )}
+                    {/**
+                      * ❌❌ HÀNG NÚT ĐÃ DỜI LÊN NGANG TIÊU ĐỀ Ô — Sếp 16/09/2026, vẽ mũi tên từ nút
+                      * *"Bổ sung sau"* lên cạnh nút đính kèm: ***"Đưa nút này lên"***.
+                      *
+                      * 🔴 VÌ SAO NÓ TỪNG NẰM DƯỚI: khối này là một `<div>` riêng đặt SAU
+                      * `<OChungTuBatBuoc>`, mà bên trong ô đó còn một dòng chữ *"Nhận PDF, ảnh,
+                      * Word, Excel…"* — nên nút bị đẩy xuống tận đáy, xa hẳn thứ nó nói về.
+                      * Nay nút đi qua prop `nutPhu` của ô chứng từ (xem `o-chung-tu-bat-buoc.tsx`).
+                      *
+                      * 📌 KHỐI NÀY VẪN CÒN, nhưng chỉ còn **dòng nhắc nợ** khi đã chọn lý do —
+                      * câu đó dài, đặt ngang tiêu đề là vỡ hàng. Chưa chọn gì thì không vẽ gì.
+                      */}
+                    {/* 🔴 TRẠNG THÁI CÓ CẢ MÀU LẪN CHỮ (Design System V1.1 §3.2). Câu lấy từ hàm
+                        thuần `cauNhacConNoChungTu` — cùng câu mục 4 ở bước ⑧ đang in, nên hai màn
+                        hình không thể nói khác nhau. Câu này dài nên vẫn ở dưới, không lên ngang
+                        tiêu đề cùng nút. */}
+                    {tepDonMuaHangNCCKy(dn).length === 0 && lyDoThieuDonMuaHang(dn) !== "" && (
+                      <div className="flex items-start gap-1.5 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad)">
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-danger" aria-hidden />
+                        <span className="text-xs font-medium text-danger">
+                          {cauNhacConNoChungTu(lyDoThieuDonMuaHang(dn))}
+                        </span>
                       </div>
                     )}
 

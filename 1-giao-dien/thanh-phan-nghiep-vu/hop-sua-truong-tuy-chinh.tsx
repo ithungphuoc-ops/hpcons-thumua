@@ -23,6 +23,7 @@ import { useDuLieu, TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { DANH_MUC_PHONG_BAN } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_GIAI_DOAN } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { sanSoBaoGiaTPGiao } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import {
   NHAN_NHOM_DE_XUAT,
   type DeNghiMuaHang,
@@ -317,10 +318,26 @@ export function HopSuaTruongTuyChinh({
    * hơn số lớn nhất là đã có ít nhất một dòng bị hạ — dù đem so với dòng đầu thì trông như đang
    * tăng. Lấy max là cách duy nhất bảo đảm *"không dòng nào bị hạ"*.
    */
-  const sanKhongDuocHa = deNghi.items.reduce(
+  /**
+   * ★★ SÀN ĐỔI TỪ 16/09/2026 — Sếp: ***"chỉ được giảm về mức được giao"***.
+   *
+   * 🔴 TRƯỚC ĐÂY SÀN LÀ *"số lớn nhất ĐANG LƯU"*, và đó chính là chỗ hỏng: nhân viên bấm `+` lên 5
+   * thì sàn cũng thành 5, nên cú bấm nhầm **tự khoá lại chính nó**. Nay sàn là **mức Trưởng bộ
+   * phận đã giao** (`soBaoGiaTPGiao`) — con số không đổi theo cú bấm của nhân viên.
+   *
+   * 🔴 HỘP NÀY LÀ ĐƯỜNG THỨ HAI sửa cùng con số (đường thứ nhất là nút ± ở khối ĐẦU VÀO). Hai
+   * đường phải dùng **cùng một sàn**; để lệch là nhân viên né qua đường còn lại, và chốt vừa dựng
+   * thành vô nghĩa.
+   *
+   * ⚠️ `?? sanTheoSoDangLuu` — hồ sơ cũ chưa có mốc thì giữ nguyên hành vi trước 16/09 (không hạ
+   * dưới số đang lưu). Không có mốc mà thả về 0 là cho hạ tự do trên đúng những hồ sơ ta không
+   * biết Trưởng bộ phận đã yêu cầu bao nhiêu.
+   */
+  const sanTheoSoDangLuu = deNghi.items.reduce(
     (max, d) => (typeof d.soBaoGiaYeuCau === "number" ? Math.max(max, d.soBaoGiaYeuCau) : max),
     0,
   );
+  const sanKhongDuocHa = sanSoBaoGiaTPGiao(deNghi) ?? sanTheoSoDangLuu;
 
   /** Số báo giá của dòng đầu — mốc mà việc lưu so vào để quyết định có ghi hay không. */
   const soCuCuaPhieu = dong[0]?.goc?.soBaoGiaYeuCau;
@@ -466,7 +483,10 @@ export function HopSuaTruongTuyChinh({
        đè số cũ). Ở đây chỉ thi hành — cố ý dùng CHUNG một hàm với chỗ khóa mục trong ô chọn, để
        cái được hiện ra và cái thật sự được ghi không thể lệch nhau. */
     const soGhi = soBaoGiaSeGhi(soBaoGia);
-    if (soGhi > 0) datSoBaoGiaChoPhieu(deNghi.id, soGhi, nguoiDung.tenHienThi);
+    /* ★ Truyền cờ quyền để mốc sàn chỉ dời khi chính Trưởng bộ phận đặt số — Sếp 16/09/2026.
+       Quên truyền là nhân viên tự nâng sàn của mình, nút giảm thành vô nghĩa. */
+    if (soGhi > 0)
+      datSoBaoGiaChoPhieu(deNghi.id, soGhi, nguoiDung.tenHienThi, quyen.phanBoCongViec);
 
     toast.success("Đã cập nhật các trường dữ liệu");
     onDong();

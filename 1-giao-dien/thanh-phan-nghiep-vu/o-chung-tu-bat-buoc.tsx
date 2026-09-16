@@ -34,6 +34,20 @@ export function OChungTuBatBuoc({
   khoa = false,
   /** Tệp đã có của ô này — nơi gọi tự lọc bằng hàm thuần ở `chung-tu-cuoi-quy-trinh.ts`. */
   tepDaCo,
+  /**
+   * ★★ NÚT PHỤ ĐỨNG NGAY CẠNH TIÊU ĐỀ Ô — thêm 16/09/2026, Sếp vẽ mũi tên từ nút *"Bổ sung sau"*
+   * (đang nằm tít dưới dòng *"Nhận PDF, ảnh, Word, Excel…"*) lên ngang nút đính kèm: ***"Đưa nút
+   * này lên"***.
+   *
+   * 🔴 TUỲ CHỌN, và mặc định KHÔNG vẽ gì. Component này dùng chung cho 8 chỗ (Hợp đồng · Đơn mua
+   * hàng · Hoá đơn VAT · UNC · Phiếu chi · và hộp "Gỡ vướng" trên Kanban). Bắt buộc phải là prop
+   * tuỳ chọn — để mặc định đổi bố cục là kéo theo cả 7 ô kia, mà Sếp chỉ khoanh đúng một ô.
+   *
+   * ⚠️ NƠI GỌI TỰ QUYẾT KHI NÀO VẼ. Ô này không biết gì về "lý do chưa có": điều kiện hiện nút
+   * (chưa có tệp, đủ quyền, hồ sơ chưa đóng) nằm ở chỗ gọi. Nhét điều kiện vào đây là ô chứng từ
+   * phải biết luật của một chứng từ cụ thể — sai tầng, và 7 ô kia không dùng tới.
+   */
+  nutPhu,
 }: {
   deNghi: DeNghiMuaHang;
   maGiaiDoan: string;
@@ -44,6 +58,7 @@ export function OChungTuBatBuoc({
   duocSua: boolean;
   khoa?: boolean;
   tepDaCo: MoTaTep[];
+  nutPhu?: React.ReactNode;
 }) {
   const { datTepVaoOGiaiDoan, goTepGiaiDoan } = useDuLieu();
   const { nguoiDung } = useNguoiDung();
@@ -82,6 +97,9 @@ export function OChungTuBatBuoc({
             Nếu có
           </span>
         )}
+        {/* Nút phụ (vd "Bổ sung sau") — xem chú thích ở prop `nutPhu`. `ml-auto` đẩy sang mép
+            phải; hàng đã `flex-wrap` nên màn hẹp thì nút tự xuống dòng, không đè tiêu đề. */}
+        {nutPhu && <span className="ml-auto flex items-center gap-2">{nutPhu}</span>}
       </div>
       {moTa && <p className="text-xs text-text-desc">{moTa}</p>}
 

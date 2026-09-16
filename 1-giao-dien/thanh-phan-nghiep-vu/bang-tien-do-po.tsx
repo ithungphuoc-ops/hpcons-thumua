@@ -178,7 +178,19 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12 text-right">Dòng</TableHead>
-                <TableHead>Vật liệu</TableHead>
+                {/**
+                  * ★★ "Tên hàng" + "Thông số kỹ thuật" — Sếp 16/09/2026, vẽ mũi tên từ hai cột đó
+                  * ở bảng *Giá trị đơn hàng* lên đây: ***"Thêm 2 trường này lên đây"***.
+                  *
+                  * 📌 Cột đầu ĐÃ LÀ tên hàng, chỉ mang nhãn "Vật liệu" — nay đổi nhãn cho khớp
+                  * bảng dưới, KHÔNG thêm cột thứ hai cùng nội dung. Thứ thật sự thiếu chỉ là
+                  * **Thông số kỹ thuật**.
+                  *
+                  * 📌 Dữ liệu có sẵn, KHÔNG phải đụng tầng tính toán: `TienDoDongPO extends DongPO`
+                  * nên `thongSoKyThuat` đi theo mỗi dòng.
+                  */}
+                <TableHead>Tên hàng</TableHead>
+                <TableHead>Thông số kỹ thuật</TableHead>
                 <TableHead>ĐVT</TableHead>
                 <TableHead className="text-right">Đặt</TableHead>
                 {lanGiaoDaTinh.map((p) => (
@@ -199,6 +211,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                     {d.tenVatLieu}
                     <NhanThemNgoaiDeNghi hien={d.themNgoaiDeNghi === true} />
                   </TableCell>
+                  <TableCell className="text-text-secondary">{d.thongSoKyThuat ?? "—"}</TableCell>
                   <TableCell>{d.donViTinh}</TableCell>
                   <TableCell className="text-right font-semibold">
                     {d.khoiLuongDat.toLocaleString("vi-VN")}
@@ -242,6 +255,13 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                 {d.sttDong}. {d.tenVatLieu}
                 <NhanThemNgoaiDeNghi hien={d.themNgoaiDeNghi === true} />
               </span>
+              {/* 🔴 PHẢI CÓ CẢ Ở ĐÂY, không chỉ ở bảng desktop — Design System V1.1 §3.2 quy định
+                  bảng nhiều cột đổi thành Card List trên điện thoại, nên bỏ qua khối này là hai
+                  thiết bị đọc ra hai thông tin khác nhau về cùng một đơn.
+                  📌 Chỉ hiện khi có: dòng "Thông số kỹ thuật —" trống trơn chỉ làm thẻ dài thêm. */}
+              {d.thongSoKyThuat && (
+                <span className="-mt-1 text-xs text-text-secondary">{d.thongSoKyThuat}</span>
+              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-text-desc">Đặt</span>
                 <span className="font-semibold">

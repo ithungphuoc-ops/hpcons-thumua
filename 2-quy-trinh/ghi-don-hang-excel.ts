@@ -21,6 +21,41 @@
 //     A=STT · B=Mã hàng · C=Tên hàng · D=Thông số kỹ thuật · E=ĐVT · F=SL ·
 //     G=Đơn giá · H=Thành tiền · J=Mục đích sử dụng
 // Sửa một bên mà quên bên kia là file xuất ra chính app lại không đọc được.
+//
+// ⚠️ File này VẪN GIỮ cột "Mã hàng" (B). Cùng ngày 16/09/2026, `xuat-don-hang-excel.ts` đã BỎ
+// cột đó khỏi tờ PO gửi nhà cung cấp — nhưng đó là hai việc khác nhau và Sếp chỉ nói về tờ PO.
+// Bên NHẬP vẫn cần cột này để đọc được file do MISA hoặc người ngoài lập. Đừng "dọn cho đồng bộ".
+//
+// 🔴🔴 FILE MẪU CHỈ CÒN BẢNG MẶT HÀNG — Sếp 16/09/2026.
+//
+// Sếp khoanh đỏ hai khối thông tin trong file mẫu và ghi: *"2 trường thông tin này không cần
+// hiển thị trong file import, dễ gây hiểu nhầm. Và chỉ cho import trường thông tin đặt hàng
+// thôi"*. Hỏi lại về cái giá phải trả (bỏ đi thì phải gõ tay lại NCC / MST / điều khoản), Sếp
+// chốt: ***"Chỉ import thông tin mặt hàng thôi, những thông tin NCC mã số thuế thì đã nhập tại
+// giao diện PO rồi"***.
+//
+// 👉 ĐÃ BỎ khỏi file mẫu:
+//   · khối ĐẦU: Tên nhà cung cấp · Địa chỉ · Mã số thuế · Người Nhận · Mã nhà cung cấp ·
+//     Người liên hệ · Nhân viên mua hàng · Tham chiếu · Số ngày được nợ · Ngày đơn hàng ·
+//     Ngày hợp đồng
+//   · khối CUỐI: Cộng tiền hàng · Thuế suất thuế GTGT · Ngày giao hàng · Mã đề xuất và tên
+//     công trình · Căn cứ hợp đồng số · Địa điểm giao hàng · Điều khoản khác · Điều khoản
+//     thanh toán
+//
+// 👉 CÒN LẠI: ô A1 (tiêu đề) + bảng mặt hàng + mấy câu hướng dẫn ở cuối. Hết.
+//
+// ⚠️ ĐÂY LÀ MẤT MÁT CÓ CHỦ Ý, KHÔNG PHẢI THIẾU SÓT: file mẫu nay KHÔNG mang thông tin nhà cung
+// cấp và điều khoản nữa, nên nhập file vào là các ô đó trên màn PO **giữ nguyên giá trị đang có**
+// chứ không bị file ghi đè. Đúng ý Sếp — thông tin đó nhập thẳng trên màn PO.
+//
+// 🔴 ĐỪNG KHÔI PHỤC HAI KHỐI NÀY "cho tiện". Lý do Sếp bỏ là *dễ gây hiểu nhầm*: người mở file
+// thấy hai khối đó tưởng phải điền, điền xong lại tưởng app sẽ lấy — trong khi đường nhập chính
+// thức của các trường ấy là màn PO.
+//
+// ⚠️ `doc-don-hang-excel.ts` KHÔNG ĐƯỢC SỬA THEO. Nó vẫn phải đọc được file cũ (người dùng còn
+// giữ bản tải hôm trước) và file MISA của người ngoài — cả hai đều còn đủ hai khối. Đã kiểm:
+// thiếu nhãn thì `timTheoNhan` trả `undefined`, không rơi vào nhánh lỗi nào, và nơi gọi
+// (`form-lap-don-mua-hang.tsx`) bọc mọi trường bằng `if (c.X)` nên chỉ là không ghi đè gì.
 // ============================================================
 
 /** Một dòng cần đưa vào file mẫu. */
@@ -46,6 +81,20 @@ export interface DongDeGhi {
   thueSuatDong?: number;
 }
 
+/**
+ * Dữ liệu nơi gọi truyền sang.
+ *
+ * 🔴 TỪ 16/09/2026 CHỈ CÒN BA TRƯỜNG ĐƯỢC GHI RA FILE: `dong`, `thueSuatGTGT` (dùng để quyết
+ * định có điền cột "% Thuế GTGT" của dòng hay không) và `nhapTuDo` (chọn câu hướng dẫn).
+ *
+ * Mọi trường còn lại — nhà cung cấp, mã số thuế, điều khoản, ngày tháng, mã đề nghị… — **vẫn
+ * nhận vào nhưng KHÔNG còn được ghi ra**, vì Sếp chốt file mẫu chỉ chở thông tin mặt hàng
+ * (xem đầu file).
+ *
+ * 📌 CỐ Ý GIỮ LẠI trong kiểu dữ liệu chứ không xoá: nơi gọi (`form-lap-don-mua-hang.tsx`) đang
+ * truyền đủ, xoá ở đây là buộc phải sửa file giao diện trong cùng một lần thay đổi. Dọn call
+ * site là việc riêng, làm sau và làm có chủ đích.
+ */
 export interface DauVaoFileMau {
   /**
    * Mã phiếu đề nghị nguồn.
@@ -93,7 +142,16 @@ export interface DauVaoFileMau {
   nhapTuDo?: boolean;
 }
 
-/** Nhãn của biểu mẫu giấy — giữ nguyên chữ để người dùng nhìn ra ngay là cùng một mẫu. */
+/**
+ * Nhãn của biểu mẫu giấy — giữ nguyên chữ để người dùng nhìn ra ngay là cùng một mẫu.
+ *
+ * ⚠️ TỪ 16/09/2026 CHỈ CÒN `tieuDe` ĐƯỢC IN RA. Mọi nhãn khác trong bảng này KHÔNG còn xuất
+ * hiện trong file mẫu (Sếp cho bỏ hai khối thông tin — xem đầu file).
+ *
+ * 📌 CỐ Ý GIỮ LẠI cả danh sách: đây là bản chép đúng từng chữ những nhãn mà
+ * `doc-don-hang-excel.ts` vẫn đang dò để đọc file CŨ và file MISA. Xoá đi là mất chỗ duy nhất
+ * đối chiếu được hai bên viết có khớp nhau không — kể cả dấu hai chấm.
+ */
 const NHAN = {
   tieuDe: "ĐƠN MUA HÀNG",
   nhaCungCap: "Tên nhà cung cấp:",
@@ -186,24 +244,14 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
     { width: 12 }, // K % Thuế GTGT
   ];
 
-  const datNhan = (dong: number, chu: string) => {
-    const o = ws.getRow(dong).getCell(1);
-    o.value = chu;
-    return o;
-  };
+  /* ❌ ĐÃ BỎ HAI HÀM `datNhan` / `datNhanCoGiaTri` (16/09/2026) — chúng chỉ phục vụ hai khối
+     nhãn vừa gỡ, không còn chỗ nào gọi.
 
-  /**
-   * Ghi "Nhãn: giá trị" vào CHUNG một ô ở cột A.
-   *
-   * 🔴 Cố ý ghi chung ô chứ không tách sang ô kế bên: đó là cách biểu mẫu công ty điền và là
-   * cách `doc-don-hang-excel.ts` đọc chắc nhất (cách 1 — giá trị nằm sau dấu hai chấm). Tách
-   * giá trị ra cột B, H hay bất cứ cột nào của BẢNG là tự tạo thêm một "dòng hàng" giả nằm
-   * dưới bảng, rồi bên đọc phải đoán xem nó là hàng hay là chú thích.
-   */
-  const datNhanCoGiaTri = (dong: number, nhan: string, giaTri?: string | number) => {
-    const chu = giaTri === undefined || giaTri === "" ? nhan : `${nhan} ${giaTri}`;
-    return datNhan(dong, chu);
-  };
+     📌 Ghi lại cách chúng làm việc, phòng khi sau này Sếp cho in lại một dòng nhãn nào đó:
+     nhãn và giá trị phải nằm CHUNG MỘT Ô ở cột A (`"Tên nhà cung cấp: Công ty A"`), vì đó là
+     cách `doc-don-hang-excel.ts` đọc chắc nhất (giá trị nằm sau dấu hai chấm). Tách giá trị ra
+     cột B, H hay bất cứ cột nào của BẢNG là tự tạo thêm một "dòng hàng" giả nằm dưới bảng, rồi
+     bên đọc phải đoán xem nó là hàng hay là chú thích. */
 
   /* 🔴 TIÊU ĐỀ NÓI RÕ ĐÂY LÀ BIỂU MẪU, KHÔNG PHẢI ĐƠN CHÍNH THỨC (21/08/2026).
      Trước đây ô A1 ghi đúng chữ "ĐƠN MUA HÀNG" y như đơn thật, nên người mở file ra tin đây là
@@ -215,28 +263,32 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
   ws.getRow(1).getCell(1).value = `BIỂU MẪU NHẬP ${NHAN.tieuDe} — chưa phải đơn chính thức`;
   ws.getRow(1).getCell(1).font = { bold: true, size: 14 };
 
-  // Nhãn và giá trị nằm CHUNG một ô, gõ ngay sau dấu hai chấm — đúng cách bên đọc hiểu.
-  datNhanCoGiaTri(3, NHAN.nhaCungCap, dv.tenNhaCungCap);
-  datNhanCoGiaTri(4, NHAN.diaChi, dv.diaChiNCC);
-  datNhanCoGiaTri(5, NHAN.maSoThue, dv.maSoThueNCC);
-  datNhanCoGiaTri(6, NHAN.nguoiNhan, dv.nguoiNhanHang);
+  /* ❌❌ KHỐI THÔNG TIN ĐẦU PHIẾU ĐÃ BỎ HẲN — Sếp 16/09/2026:
+     *"2 trường thông tin này không cần hiển thị trong file import, dễ gây hiểu nhầm"*, và
+     *"Chỉ import thông tin mặt hàng thôi, những thông tin NCC mã số thuế thì đã nhập tại giao
+     diện PO rồi"*.
 
-  /* ★ Bảy dòng của màn MISA — app đã biết ĐỌC chúng từ 17/08/2026 mà biểu mẫu chưa từng IN ra.
-     Đặt ngay dưới khối nhà cung cấp, TRƯỚC dòng tiêu đề bảng (dòng 8 cũ đã dời xuống). */
-  datNhanCoGiaTri(7, NHAN.maNCC, dv.maNCC);
-  datNhanCoGiaTri(8, NHAN.nguoiLienHe, dv.nguoiLienHeNCC);
-  datNhanCoGiaTri(9, NHAN.nhanVienMuaHang, dv.nhanVienMuaHang);
-  datNhanCoGiaTri(10, NHAN.thamChieu, dv.thamChieu);
-  datNhanCoGiaTri(11, NHAN.soNgayDuocNo, dv.soNgayDuocNo);
-  datNhanCoGiaTri(12, NHAN.ngayDonHang, dv.ngayDonHang);
-  datNhanCoGiaTri(13, NHAN.ngayHopDong, dv.ngayHopDongCDT);
+     Mười một dòng đã gỡ khỏi đây: Tên nhà cung cấp · Địa chỉ · Mã số thuế · Người Nhận ·
+     Mã nhà cung cấp · Người liên hệ · Nhân viên mua hàng · Tham chiếu · Số ngày được nợ ·
+     Ngày đơn hàng · Ngày hợp đồng.
+
+     🔴 ĐỪNG IN LẠI. Bảy dòng trong số đó từng được thêm ngày 21/08/2026 vì bên ĐỌC đã dò chúng
+     mà biểu mẫu chưa hề in ra — nay Sếp quyết ngược lại, và quyết định đó mới hơn. Bên đọc vẫn
+     giữ nguyên khả năng dò để nhận file cũ và file MISA; hai chuyện không mâu thuẫn.
+
+     ⚠️ Ô A1 phía trên PHẢI GIỮ chuỗi "ĐƠN MUA HÀNG": `doc-don-hang-excel.ts` (~dòng 484) dò đúng
+     chuỗi đó (bỏ dấu, viết hoa) để biết vùng thông tin phiếu bắt đầu từ đâu. Đã kiểm lại khi bỏ
+     khối này — chuỗi vẫn còn, nên bên đọc không mất mốc. */
 
   /* --- Bảng hàng ---
-     ⚠️ Dòng tiêu đề dời từ 8 xuống 15 khi thêm bảy dòng MISA ở trên. Con số này KHÔNG phải quy
-     ước hai bên phải khớp: `doc-don-hang-excel.ts` tìm dòng tiêu đề bằng cách quét tên cột chứ
-     không đọc theo số dòng cứng (xem `dongTieuDe` ở hàm `docDonHangTuExcel`), nên chèn thêm dòng
-     phía trên bảng là an toàn — đã kiểm bằng một vòng ghi rồi đọc lại. */
-  const DONG_TIEU_DE = 15;
+     ⚠️ Dòng tiêu đề LÙI TỪ 15 VỀ 3 sau khi bỏ khối thông tin đầu phiếu (16/09/2026) — để nguyên
+     15 thì file mở ra là mười mấy dòng trống trơ trước bảng, người dùng tưởng nội dung bị mất.
+     Con số này KHÔNG phải quy ước hai bên phải khớp: `doc-don-hang-excel.ts` tìm dòng tiêu đề
+     bằng cách quét tên cột chứ không đọc theo số dòng cứng (xem `dongTieuDe` ở hàm
+     `docDonHangTuExcel`), nên đổi số dòng là an toàn.
+     📌 Vẫn chừa dòng 2 trống để bảng không dính vào tiêu đề — và để bên đọc không bao giờ nhầm
+     ô A1 thành một phần của bảng. */
+  const DONG_TIEU_DE = 3;
   const hangTieuDe = ws.getRow(DONG_TIEU_DE);
   TIEU_DE_BANG.forEach((chu, i) => {
     if (chu === "") return;
@@ -246,8 +298,9 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
     o.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
   });
 
-  /** Tổng tiền hàng của những dòng ĐÃ CÓ GIÁ — chỉ để ghi vào ô "Cộng tiền hàng". */
-  let congTienHang = 0;
+  /* ❌ ĐÃ BỎ biến cộng dồn `congTienHang` (16/09/2026): nó chỉ dùng để ghi ô "Cộng tiền hàng"
+     ở khối cuối, mà khối đó Sếp đã cho bỏ. Người lập xem tổng tiền trên màn PO, còn trong Excel
+     thì tự kéo hàm SUM nếu cần. */
 
   dv.dong.forEach((d, i) => {
     const r = ws.getRow(DONG_TIEU_DE + 1 + i);
@@ -267,7 +320,6 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
       r.getCell(8).value = { formula: `F${dongExcel}*G${dongExcel}` };
       r.getCell(7).numFmt = "#,##0";
       r.getCell(8).numFmt = "#,##0";
-      congTienHang += d.donGia * d.soLuong;
     }
     if (d.mucDichSuDung) r.getCell(10).value = d.mucDichSuDung;
     /* Cột 11 (% Thuế GTGT) chỉ điền khi dòng này có thuế suất KHÁC thuế suất chung của đơn.
@@ -278,28 +330,20 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
     }
   });
 
-  // --- Khối tổng và các điều khoản, đặt sau bảng ---
+  /* ❌❌ KHỐI TỔNG VÀ ĐIỀU KHOẢN SAU BẢNG ĐÃ BỎ HẲN — Sếp 16/09/2026, cùng một chỉ đạo với khối
+     đầu phiếu: *"2 trường thông tin này không cần hiển thị trong file import, dễ gây hiểu nhầm.
+     Và chỉ cho import trường thông tin đặt hàng thôi"*.
+
+     Tám dòng đã gỡ khỏi đây: Cộng tiền hàng (Chưa trừ CK) · Thuế suất thuế GTGT · Ngày giao hàng ·
+     Mã đề xuất và tên công trình · Căn cứ hợp đồng số · Địa điểm giao hàng · Điều khoản khác ·
+     Điều khoản thanh toán.
+
+     🔴 ĐỪNG IN LẠI, kể cả dòng "Thuế suất thuế GTGT" trông có vẻ vô hại. Nó là thuế suất CHUNG
+     của đơn — in ra thì người lập sửa trong Excel, nhập lại thì app lấy con số đó đè lên ô thuế
+     suất trên màn PO, đúng kiểu "hai chỗ cùng nhập một thứ" mà Sếp gọi là dễ gây hiểu nhầm.
+     `dv.thueSuatGTGT` VẪN ĐƯỢC DÙNG, nhưng chỉ để quyết định cột "% Thuế GTGT" của từng dòng có
+     phải điền hay không (xem vòng lặp phía trên) — không in ra thành một dòng nhãn nữa. */
   const sauBang = DONG_TIEU_DE + 1 + dv.dong.length;
-  datNhanCoGiaTri(
-    sauBang,
-    NHAN.congTienHang,
-    congTienHang > 0 ? congTienHang.toLocaleString("vi-VN") : undefined,
-  );
-  datNhanCoGiaTri(
-    sauBang + 1,
-    NHAN.thueSuat,
-    dv.thueSuatGTGT !== undefined ? `${dv.thueSuatGTGT}%` : undefined,
-  );
-  datNhanCoGiaTri(sauBang + 3, NHAN.ngayGiaoHang, dv.ngayGiaoHang);
-  // `filter(Boolean)`: đơn không gắn đề nghị thì chỉ còn tên công trình, không in " — " trơ.
-  datNhan(
-    sauBang + 4,
-    `${NHAN.maDeXuat} ${[dv.maDeNghi, dv.tenCongTrinh].filter(Boolean).join(" — ")}`.trim(),
-  );
-  datNhan(sauBang + 5, `${NHAN.canCuHopDong} ${dv.maHopDongCDT ?? ""}`.trim());
-  datNhan(sauBang + 6, `${NHAN.diaDiemGiao} ${dv.diaDiemGiaoHang ?? ""}`.trim());
-  datNhanCoGiaTri(sauBang + 7, NHAN.dieuKhoanKhac, dv.dieuKhoanKhac);
-  datNhanCoGiaTri(sauBang + 8, NHAN.dieuKhoanThanhToan, dv.dieuKhoanThanhToan);
 
   /* 📌 Ghi chú cho người điền, đặt cách ra để không lẫn vào vùng app dò nhãn.
    *
@@ -319,18 +363,23 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
    * VẮT NGANG qua các ô bên phải đang trống — Excel chỉ vẽ tràn ra, không đặt nội dung vào ô
    * nào, nên các ô B…K của dòng đó vẫn trống thật và bên đọc loại dòng đúng như cơ chế cũ.
    */
+  /* 🔴 CÂU DẶN "Ghi tên nhà cung cấp ngay sau dấu hai chấm ở dòng “Tên nhà cung cấp:”" ĐÃ BỎ
+     (16/09/2026) — dòng đó không còn tồn tại trong file. Để nguyên là app dặn người dùng điền
+     vào một chỗ không có thật, rồi họ đi tìm và tự trách mình (CLAUDE.md §3.5).
+     👉 Thay bằng một câu nói THẲNG rằng file này chỉ chở mặt hàng, phần còn lại nhập ở màn PO —
+     người mở file biết ngay là không thiếu gì cả. */
   const cauHuongDan = dv.nhapTuDo
     ? [
         // Đơn không gắn đề nghị: app KHÔNG đối chiếu tên hàng với hồ sơ nào, nên được gõ tự do
         // và được thêm dòng mới. Nói đúng như vậy, đừng dặn ngược lại.
         "Hướng dẫn: điền Tên hàng (C), ĐVT (E), SL (F) và Đơn giá (G) cho từng dòng — thêm bao nhiêu dòng cũng được.",
-        "Ghi tên nhà cung cấp ngay sau dấu hai chấm ở dòng “Tên nhà cung cấp:”.",
+        "File này CHỈ dùng để nhập mặt hàng. Nhà cung cấp, mã số thuế, điều khoản, ngày giao… nhập thẳng trên màn Đơn mua hàng của app.",
         "Cột “% Thuế GTGT” (K) chỉ điền khi dòng đó có thuế suất KHÁC thuế suất chung của đơn; để trống là dùng thuế suất chung.",
         "Đơn này KHÔNG gắn phiếu đề nghị nên app không đối chiếu tên hàng với hồ sơ nào — tên gõ thế nào thì in ra đơn thế ấy.",
       ]
     : [
         "Hướng dẫn: điền cột Đơn giá (G) cho từng dòng, sửa SL (F) nếu chia nhỏ đơn cho nhiều nhà cung cấp.",
-        "Ghi tên nhà cung cấp ngay sau dấu hai chấm ở dòng “Tên nhà cung cấp:”.",
+        "File này CHỈ dùng để nhập mặt hàng. Nhà cung cấp, mã số thuế, điều khoản, ngày giao… nhập thẳng trên màn Đơn mua hàng của app.",
         "Cột “% Thuế GTGT” (K) chỉ điền khi dòng đó có thuế suất KHÁC thuế suất chung của đơn; để trống là dùng thuế suất chung.",
         "KHÔNG đổi tên hàng ở cột C — app đối chiếu theo tên này.",
       ];
@@ -340,7 +389,9 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
     "KHÔNG đổi chữ ở dòng tiêu đề bảng — app tìm cột theo đúng những tên đó.",
     "Lưu lại rồi bấm “Chọn file Excel” trong app để nạp lại.",
   ].forEach((cau, i) => {
-    const o = ws.getRow(sauBang + 11 + i).getCell(1);
+    /* Cách bảng 2 dòng. Trước 16/09/2026 phải cách 11 dòng để nhảy qua khối tổng và điều khoản;
+       khối đó bỏ rồi nên giữ 11 là chừa một khoảng trắng dài vô nghĩa giữa bảng và hướng dẫn. */
+    const o = ws.getRow(sauBang + 2 + i).getCell(1);
     o.value = cau;
     o.font = { italic: true, size: 10 };
   });

@@ -1056,6 +1056,34 @@ export function duocSuaHopDongTheoGiaiDoan(
 }
 
 /**
+ * ★★ AI ĐƯỢC ĐÍNH / THAY BẢN **ĐƠN MUA HÀNG NHÀ CUNG CẤP KÝ** — Sếp 16/09/2026, nguyên văn:
+ * ***"Nhân viên là người đính kèm file PO ký"***.
+ *
+ * 🔴 TÁCH HẲN KHỎI `duocSuaHopDongTheoGiaiDoan`, VÀ ĐÂY LÀ ĐIỂM CHÍNH — đọc trước khi gộp lại:
+ * hai ô **không cùng một chứng từ**. Ô "Đơn mua hàng NCC ký" là chứng từ **mới tách ra ngày
+ * 16/09/2026** (`BUOC_DINH_KEM_DON_MUA_HANG`); trước hôm đó bước ⑤ chỉ dán một cái tên khác lên
+ * chính tệp hợp đồng. Khi tách, ô mới **thừa hưởng cờ quyền của Hợp đồng cho tiện** — đó là một
+ * lượt chép, KHÔNG phải một quyết định. Chỉ đạo 01/09/2026 nói về **tệp hợp đồng**, không nói gì
+ * về bản PO nhà cung cấp ký.
+ *
+ * 🔴 VÀ CỜ CHÉP ĐÓ ĐÁ NGƯỢC CHÍNH LÝ DO CỦA 01/09. Hôm đó Sếp mở ô ở bước ⑤ vì *"bản nhà cung cấp
+ * ký và đóng mộc thường chỉ gửi về sau khi đã đặt hàng"* — tức để người đang làm việc ở bước ⑤
+ * đính vào được. Nhưng cờ `phanBoCongViec` chỉ có ở Trưởng bộ phận cấp ≥3 / quản trị, nên **chính
+ * nhân viên nhận được bản NCC ký lại không đính vào được**. Đúng thứ Sếp báo lỗi 16/09.
+ *
+ * 📌 HỢP ĐỒNG GIỮ NGUYÊN SIẾT. Chỉ đạo 01/09 về tệp hợp đồng còn nguyên hiệu lực — xem hàm ngay
+ * trên. Đừng "dọn cho gọn" bằng cách cho ô Hợp đồng dùng hàm này.
+ *
+ * ⚠️ `lapPO` = nhân viên thu mua hoặc trưởng bộ phận, cấp ≥2 (`4-phan-quyen/quyen.ts`). Người chỉ
+ * có quyền xem (cấp 1) vẫn không đính được — Sếp nói *"nhân viên"*, không nói *"mọi người"*.
+ */
+export function duocDinhDonMuaHangNCCKy(
+  quyen: Pick<Quyen, "phanBoCongViec" | "lapPO">,
+): boolean {
+  return quyen.phanBoCongViec || quyen.lapPO;
+}
+
+/**
  * Quyết định điều gì xảy ra khi thả thẻ `the` vào cột `dich`.
  * Hàm thuần — không đụng dữ liệu; việc thực thi nằm ở trang gọi nó.
  * Trả về null khi thả về đúng cột cũ (không làm gì).

@@ -532,13 +532,28 @@ export default function TrangChiTietDonHang() {
             <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
               <div className="overflow-x-auto">
                 <Table>
-                  {/* Thứ tự cột giữ đúng biểu mẫu 1. DON HANG HPCONS.xlsx để người quen
-                      dùng bản giấy đọc ra ngay: STT · Mã hàng · Tên hàng · Thông số kỹ thuật
-                      · ĐVT · SL · Đơn giá · Thành tiền · Mục đích sử dụng */}
+                  {/**
+                    * ❌❌ CỘT "MÃ HÀNG" ĐÃ BỎ — Sếp 16/09/2026, khoanh đỏ đúng cột đang hiện toàn
+                    * dấu "—": ***"Bỏ cột này"***, và chốt thêm ***"Bỏ trên file excel luôn"***.
+                    *
+                    * 📌 Thứ tự cột còn lại vẫn bám biểu mẫu `1. DON HANG HPCONS.xlsx`, chỉ khuyết
+                    * cột này: STT · Tên hàng · Thông số kỹ thuật · SL · Đơn giá · Thành tiền ·
+                    * Mục đích sử dụng.
+                    *
+                    * 🔴 TRƯỜNG `maHang` VẪN CÒN TRONG DỮ LIỆU, ĐỪNG DỌN THEO. Bộ đọc file Excel
+                    * vẫn nhận 5 biến thể tên cột (`2-quy-trinh/doc-don-hang-excel.ts`) để file
+                    * MISA hay biểu mẫu do người ngoài lập vẫn nhập được; dữ liệu cũ cũng còn
+                    * nguyên. Chỉ ba chỗ VẼ ra bỏ cột: tờ in A4 (bỏ từ 27/08/2026), màn này, và
+                    * file Excel xuất ra (bỏ 16/09/2026 theo chốt trên).
+                    *
+                    * ⚠️ Ô TÌM KIẾM VẪN TRA THEO MÃ HÀNG (`2-quy-trinh/tim-kiem.ts`). Cố ý giữ:
+                    * người quen gõ mã vẫn tìm ra đơn. Nhưng biết trước cái lạ — gõ một mã ra kết
+                    * quả rồi mở vào **không thấy mã đó ở đâu trên màn hình**. Nếu về sau Sếp thấy
+                    * khó hiểu thì bỏ `maHang` khỏi `tim-kiem.ts`, đừng dựng lại cột ở đây.
+                    */}
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12 text-right">STT</TableHead>
-                      <TableHead>Mã hàng</TableHead>
                       <TableHead>Tên hàng</TableHead>
                       <TableHead>Thông số kỹ thuật</TableHead>
                       <TableHead className="text-right">SL</TableHead>
@@ -554,7 +569,6 @@ export default function TrangChiTietDonHang() {
                       return (
                         <TableRow key={d.sttDong}>
                           <TableCell className="text-right text-text-desc">{d.sttDong}</TableCell>
-                          <TableCell className="text-text-desc">{d.maHang ?? "—"}</TableCell>
                           <TableCell className="font-medium">{d.tenVatLieu}</TableCell>
                           <TableCell className="text-text-secondary">{d.thongSoKyThuat ?? "—"}</TableCell>
                           <TableCell className="text-right">

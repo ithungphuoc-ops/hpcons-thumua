@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Lock, Minus, Plus } from "lucide-react";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import { sanSoBaoGiaTPGiao } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 
 /**
@@ -45,9 +46,32 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
  * thêm được ô** khi có nhiều nhà cung cấp cùng chào giá — chặn đúng việc cần làm. Lấy được nhiều
  * báo giá hơn yêu cầu là việc tốt, không có gì phải chặn.
  *
- * 📌 **CÁI GIÁ, chấp nhận có chủ đích:** nhân viên bấm nhầm lên 9 thì **tự sửa lại không được**,
- * phải nhờ trưởng bộ phận (hoặc quản trị) hạ giúp. Đây đúng là điều chỉ đạo yêu cầu, không phải
- * sơ suất — đừng "chữa" bằng cách mở lại nút trừ khi số vừa tăng trong phiên này.
+ * 📌 **CÁI GIÁ** của bản 13/09: nhân viên bấm nhầm lên 9 thì **tự sửa lại không được**, phải nhờ
+ * trưởng bộ phận hạ giúp. Chỉ đạo hôm đó chấp nhận cái giá này, và dặn *"đừng chữa bằng cách mở
+ * lại nút trừ khi số vừa tăng trong phiên này"*.
+ *
+ * ---
+ * # ✅ TỪ 16/09/2026: GIẢM ĐƯỢC, NHƯNG CHỈ VỀ ĐÚNG MỨC TRƯỞNG BỘ PHẬN GIAO
+ *
+ * Sếp 16/09/2026, nguyên văn: ***"Phải có thêm nút giảm và chỉ được giảm về mức được giao. Ví dụ:
+ * TP giao 2 báo giá nhưng tới nhân viên bấm lên 3 thì phải có thêm nút giảm về 2"***, và:
+ * ***"nếu có lỡ bấm tăng lên thì cũng được bấm giảm về lại mức được giao"***.
+ *
+ * 🔴 ĐÂY LÀ TINH CHỈNH, KHÔNG PHẢI ĐẢO CHỈ ĐẠO 13/09 — đọc kỹ chỗ khác nhau:
+ *   · 13/09 chặn **nhân viên tự nới luật đang chấm chính mình** (hạ xuống dưới mức TP yêu cầu).
+ *     Điều đó **vẫn nguyên**: sàn là mức TP giao, không hạ thấp hơn được một đơn vị nào.
+ *   · Thứ được mở là **gỡ cú bấm nhầm** của chính nhân viên — phần "9 rồi kẹt ở 9".
+ *
+ * 🔴 VÀ CÂU DẶN 13/09 CŨNG KHÔNG BỊ VI PHẠM: thứ bị cấm ở đó là sàn **theo phiên làm việc** — một
+ * con số nằm trong bộ nhớ, bốc hơi khi tải lại trang, nên hôm sau nhân viên hạ tiếp được. Sàn nay
+ * là `soBaoGiaTPGiao`, **lưu trong hồ sơ**, ai mở lúc nào cũng thấy.
+ *
+ * ⚠️ MỐC CHỈ TRƯỞNG BỘ PHẬN ĐẶT ĐƯỢC. Nhân viên bấm `+` thì `soBaoGiaYeuCau` tăng còn mốc đứng
+ * yên — nếu không, nhân viên tự nâng sàn của mình và cả chốt này thành vô nghĩa. Xem tham số
+ * `nguoiDatCoQuyenPhanBo` của `datSoBaoGiaChoPhieu`.
+ *
+ * ⚠️ HỒ SƠ CŨ (trước 16/09/2026) KHÔNG CÓ MỐC → giữ nguyên hành vi 13/09: khoá hẳn nút giảm. Đoán
+ * bừa một cái sàn cho chúng là mở đúng cái cửa mà 13/09 đóng lại.
  *
  * ⚠️ `chiTangDuoc` **không bắt buộc, và khi không truyền thì ô này TỰ TRA QUYỀN** từ
  * `useNguoiDung()`. Cố ý như vậy: nếu để mặc định là "cho hạ như cũ" thì chốt chặn chỉ có hiệu
@@ -62,9 +86,13 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
  * 🔴 PHẢI NÓI RA AI MỞ ĐƯỢC, không chỉ nói "không được phép". Nhân viên gặp nút xám mà không
  * biết đi hỏi ai thì sẽ đi hỏi vòng quanh, hoặc tệ hơn là tưởng app lỗi.
  */
+/* 🔴 CÂU NÀY NAY CHỈ DÙNG CHO CA "KHÔNG CÓ MỐC" — hồ sơ chưa ai phân bổ, hoặc dòng lập
+   trước 16/09/2026 nên app không biết Trưởng bộ phận đã giao bao nhiêu. Từ 16/09 nhân viên
+   giảm được về đúng mức TP giao (Sếp chốt), nên câu cũ *"nhân viên chỉ được tăng"* không
+   còn đúng cho mọi ca — phải nói đúng cái đang vướng, và chỉ ra người gỡ được. */
 const LY_DO_KHOA_HA =
-  "Chỉ trưởng bộ phận (hoặc quản trị) mới hạ được số báo giá. " +
-  "Tài khoản nhân viên chỉ được tăng.";
+  "Chưa có mức báo giá do trưởng bộ phận giao nên không hạ được. " +
+  "Nhờ trưởng bộ phận đặt lại số ở bảng Phân bổ công việc.";
 
 /** Chặn trên cho số báo giá. Không phải luật công ty, chỉ là ngưỡng bắt lỗi gõ nhầm. */
 const SO_BAO_GIA_TOI_DA = 20;
@@ -227,8 +255,31 @@ export function OSuaSoBaoGia({
    * nói ra hai câu khác nhau: bị chặn vì mức sàn thì lát nữa tăng lên là trừ lại được, còn bị
    * chặn vì quyền thì bấm bao nhiêu lần cũng vậy, người dùng cần biết ngay để đi nhờ đúng người.
    */
-  const khoaHaVaiTro = chiTang;
-  const giamDuoc = !khoaHaVaiTro && so !== undefined && so > 1;
+  /**
+   * ★★ SÀN CỦA NÚT GIẢM — Sếp 16/09/2026, nguyên văn: ***"Phải có thêm nút giảm và chỉ được giảm
+   * về mức được giao. Ví dụ: TP giao 2 báo giá nhưng tới nhân viên bấm lên 3 thì phải có thêm nút
+   * giảm về 2"***, chốt thêm: ***"nếu có lỡ bấm tăng lên thì cũng được bấm giảm về lại mức được
+   * giao"***.
+   *
+   * 🔴🔴 CHỈ ĐẠO 13/09/2026 Ở ĐẦU FILE ĐÃ ĐƯỢC THAY THẾ — đọc kỹ trước khi "khôi phục cho đúng":
+   * hôm đó Ban lãnh đạo yêu cầu *"chỉ được tăng số lượng báo giá, ko được bấm giảm"*, và khối chú
+   * thích đầu file còn dặn *"đừng chữa bằng cách mở lại nút trừ khi số vừa tăng trong phiên này"*.
+   * Cái bị cấm ở đó là **sàn theo phiên làm việc** — một thứ bốc hơi khi tải lại trang. Sàn nay
+   * là **con số Trưởng bộ phận đã giao, có lưu trong hồ sơ**, nên tinh thần 13/09 vẫn nguyên: nhân
+   * viên KHÔNG hạ được xuống dưới mức TP yêu cầu. Chỉ khác: cú bấm nhầm nay gỡ lại được.
+   *
+   * 🔴 BA TRẠNG THÁI KHÁC NHAU, ĐỪNG GỘP:
+   *   · TP / quản trị (`!chiTang`) → sàn **1**, như trước giờ.
+   *   · Nhân viên, hồ sơ CÓ mốc   → sàn **= mốc TP giao**.
+   *   · Nhân viên, hồ sơ KHÔNG mốc (dòng lập trước 16/09/2026, hoặc chưa ai phân bổ) → **khoá
+   *     hẳn nút giảm**, y như trước. Đoán bừa một cái sàn ở đây là mở đường hạ xuống dưới mức TP
+   *     yêu cầu trên chính những hồ sơ cũ mà ta không biết TP đã giao bao nhiêu.
+   */
+  const mocTPGiao = sanSoBaoGiaTPGiao(deNghi);
+  const sanGiam = chiTang ? mocTPGiao : 1;
+  /** Khoá vì KHÔNG CÓ MỐC để biết sàn ở đâu — khác hẳn "đang đứng đúng ở sàn". */
+  const khoaHaVaiTro = chiTang && mocTPGiao === undefined;
+  const giamDuoc = sanGiam !== undefined && so !== undefined && so > sanGiam;
   const tangDuoc = (so ?? 0) < SO_BAO_GIA_TOI_DA;
 
   /**
@@ -256,7 +307,9 @@ export function OSuaSoBaoGia({
           ở hộp "Chỉnh sửa các trường dữ liệu tùy chỉnh", nơi có chỗ cho chữ. */}
       <button
         type="button"
-        onClick={() => setSo((v) => (v !== undefined && v > 1 ? v - 1 : v))}
+        onClick={() =>
+          setSo((v) => (v !== undefined && sanGiam !== undefined && v > sanGiam ? v - 1 : v))
+        }
         disabled={!giamDuoc}
         className={
           khoaHaVaiTro
@@ -265,13 +318,19 @@ export function OSuaSoBaoGia({
               "flex size-11 cursor-not-allowed items-center justify-center rounded-md text-text-desc"
             : "flex size-11 items-center justify-center rounded-md text-text-desc transition-colors hover:bg-muted hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
         }
+        /* 🔴 BA CÂU CHO BA TÌNH HUỐNG — gộp lại là người dùng không biết mình đang vướng cái gì:
+             · không có mốc → bấm bao nhiêu lần cũng vậy, phải đi nhờ Trưởng bộ phận;
+             · đang đứng đúng ở mức TP giao → lát nữa tăng lên là trừ lại được;
+             · mức 1 (Trưởng bộ phận) → hết đường trừ. */
         aria-label={khoaHaVaiTro ? LY_DO_KHOA_HA : "Bớt một báo giá"}
         title={
           khoaHaVaiTro
             ? LY_DO_KHOA_HA
             : giamDuoc
               ? "Bớt một báo giá"
-              : "Ít nhất phải lấy 1 báo giá"
+              : chiTang
+                ? `Đang ở đúng mức Trưởng bộ phận giao (${sanGiam}) — không hạ thấp hơn được`
+                : "Ít nhất phải lấy 1 báo giá"
         }
       >
         {khoaHaVaiTro ? (

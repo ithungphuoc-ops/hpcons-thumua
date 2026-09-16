@@ -10,21 +10,40 @@
 // đuôi .zip, giải nén, đọc `xl/worksheets/sheet1.xml` — TUYỆT ĐỐI không mở bằng Excel COM vì
 // Excel ghi lại metadata làm đổi file gốc (CLAUDE.md mục 3.4).
 //
-// Bản đồ ô của biểu mẫu (giữ nguyên, đừng "dọn cho gọn"):
-//   A1:B4  logo · C1:J1 tên công ty · C2:I2 địa chỉ + MST (MỘT ô, hai dòng)
-//   A4:J4  "ĐƠN MUA HÀNG"
-//   A6:H6  "Tên nhà cung cấp: <giá trị>"   | I6 "Ngày:"      J6 <giá trị>
-//   A7:H7  "Địa chỉ: <giá trị>"            | I7 "Số:"        J7 <mã PO>
-//   A8     "Mã số thuế: <giá trị>"         | I8 "Loại tiền:" J8 <VND>
+// 🔴🔴 ĐÃ BỎ CỘT "MÃ HÀNG" KHỎI FILE XUẤT RA — Sếp 16/09/2026.
+//
+// Sếp khoanh đỏ cột *Mã hàng* trên màn chi tiết đơn hàng: *"Bỏ cột này"*. Hỏi lại *"file Excel
+// xuất ra có bỏ theo không?"*, Sếp chốt: ***"Bỏ trên file excel luôn"***. Màn chi tiết đơn và tờ
+// in A4 (27/08/2026) đã bỏ trước đó — nay ba đường ra của cùng một tờ PO nói cùng một chuyện.
+//
+// 👉 Cột cũ là **B**, nên MỌI CỘT TỪ C TRỞ ĐI DỊCH TRÁI MỘT Ô. Bảng đối chiếu (giữ lại để người
+// sau đọc bản đồ ô cũ trong git vẫn lần ra được):
+//     STT A→A · ~~Mã hàng B (BỎ)~~ · Tên hàng C→B · Quy cách D→C · ĐVT E→D · SL F→E ·
+//     Đơn giá G→F · Thành tiền H→G (gộp G:H) · Mục đích J→I · % Thuế K→J · Tiền thuế L→K
+// Công thức trong ô đổi theo: Thành tiền `=+F*G` → `=+E*F`; `SUM(H..)` → `SUM(G..)`.
+//
+// ⚠️ TRƯỜNG DỮ LIỆU `maHang` GIỮ NGUYÊN, và `doc-don-hang-excel.ts` VẪN ĐỌC cột "Mã hàng":
+// file do MISA hoặc người ngoài lập vẫn có cột đó, ô tìm kiếm trong app vẫn tra theo mã. Đây chỉ
+// là bỏ một cột IN RA, không đụng dữ liệu. Đừng "dọn cho đồng bộ" bên đọc.
+// ⚠️ Hệ quả đã biết: nhập lại chính file này thì bên đọc thêm một dòng cảnh báo *"File thiếu 1
+// cột so với mẫu đơn mua hàng: Mã hàng"*. Đó là cảnh báo ĐÚNG và vô hại (mã hàng để trống), KHÔNG
+// phải lỗi — đừng chữa bằng cách in lại cột đã bỏ.
+//
+// Bản đồ ô của biểu mẫu SAU KHI BỎ CỘT B (giữ nguyên, đừng "dọn cho gọn"):
+//   A1:A4  logo (ảnh nổi, vẫn tràn sang B) · B1:I1 tên công ty · B2:H2 địa chỉ + MST (MỘT ô, hai dòng)
+//   A4:I4  "ĐƠN MUA HÀNG"
+//   A6:G6  "Tên nhà cung cấp: <giá trị>"   | H6 "Ngày:"      I6 <giá trị>
+//   A7:G7  "Địa chỉ: <giá trị>"            | H7 "Số:"        I7 <mã PO>
+//   A8     "Mã số thuế: <giá trị>"         | H8 "Loại tiền:" I8 <VND>
 //   A9     "Người Nhận: <giá trị>"
-//   A11:J11 tiêu đề bảng (H11:I11 gộp) → hàng từ dòng 12
-//   khối tổng: A:G "Cộng tiền hàng (Chưa trừ CK):" H · E "Số tiền CK:" H:I
-//              E "Cộng tiền hàng (Đã trừ CK):" H:I
-//              A "Thuế suất thuế GTGT:" C <%>  +  E "Tiền thuế GTGT:" H:I
-//              E "Tổng tiền thanh toán:" H:I
-//   A "Số tiền viết bằng chữ:" C:J <chữ>
-//   6 dòng điều khoản, mỗi dòng gộp A:J, nhãn và giá trị CHUNG một ô
-//   B:C "Xác nhận của nhà cung cấp" | G:H "Bên mua hàng", dưới là "(Ký, họ tên)"
+//   A11:I11 tiêu đề bảng (G11:H11 gộp) → hàng từ dòng 12
+//   khối tổng: A:F "Cộng tiền hàng (Chưa trừ CK):" G · D "Số tiền CK:" G:H
+//              D "Cộng tiền hàng (Đã trừ CK):" G:H
+//              A "Thuế suất thuế GTGT:" B <%>  +  D "Tiền thuế GTGT:" G:H
+//              D "Tổng tiền thanh toán:" G:H
+//   A "Số tiền viết bằng chữ:" B:I <chữ>
+//   6 dòng điều khoản, mỗi dòng gộp A:I, nhãn và giá trị CHUNG một ô
+//   B:C "Xác nhận của nhà cung cấp" | F:G "Bên mua hàng", dưới là "(Ký, họ tên)"
 //
 // ⚠️ NHÃN VÀ GIÁ TRỊ NẰM CHUNG MỘT Ô ở khối thông tin và khối điều khoản — đúng như biểu mẫu
 // giấy, và cũng đúng cách `doc-don-hang-excel.ts` dò nhãn. Tách ra hai ô là bản in lệch so
@@ -36,16 +55,20 @@
 //   1. DÒNG GHI CHÚ chèn giữa bảng hàng (`DongPO.laDongGhiChu`). Vẫn IN RA vì đó là lời dặn
 //      thật của người lập đơn, nhà cung cấp cần đọc — nhưng KHÔNG có STT, SL, đơn giá, thành
 //      tiền, thuế, và không lọt vào một dòng tổng nào.
-//      🔴 Ô ghi chú CHỈ gộp C:D, không gộp rộng hơn. `doc-don-hang-excel.ts` nhận ra dòng ghi
-//      chú nhờ các ô Mã hàng (B) · ĐVT (E) · SL (F) · Đơn giá (G) · % Thuế (K) đều TRỐNG, mà
-//      thư viện Excel trả giá trị ô GỐC cho mọi ô con trong vùng gộp. Gộp qua cột E là ô ĐVT
-//      "có nội dung" → nhập lại chính file này thì ghi chú bị xếp thành dòng hàng hỏng và bị
-//      loại. Đã tính đường đó, đừng "gộp cho đẹp".
+//      🔴 Ô ghi chú CHỈ gộp B:C (trước 16/09/2026 là C:D — dịch trái theo việc bỏ cột Mã hàng),
+//      không gộp rộng hơn. `doc-don-hang-excel.ts` nhận ra dòng ghi chú nhờ các ô Mã hàng ·
+//      ĐVT (D) · SL (E) · Đơn giá (F) · % Thuế (J) đều TRỐNG, mà thư viện Excel trả giá trị ô
+//      GỐC cho mọi ô con trong vùng gộp. Gộp qua cột D là ô ĐVT "có nội dung" → nhập lại chính
+//      file này thì ghi chú bị xếp thành dòng hàng hỏng và bị loại. Đã tính đường đó, đừng
+//      "gộp cho đẹp".
+//      📌 Ô "Mã hàng" nay KHÔNG CÒN TRONG FILE, nên bên đọc trả về chuỗi rỗng cho nó — điều
+//      kiện "mã hàng trống" của dòng ghi chú tự thỏa, cơ chế nhận dạng không yếu đi.
 //
 //   2. ĐƠN TRỘN NHIỀU MỨC THUẾ SUẤT (vừa 8% vừa 10%). Biểu mẫu chỉ có MỘT ô "Thuế suất thuế
 //      GTGT" cho cả đơn nên không nói được đơn kiểu này. Khi và CHỈ KHI trộn mức, file thêm
-//      hai cột K "% Thuế GTGT" và L "Tiền thuế GTGT", ô thuế suất chung ghi "nhiều mức".
-//      Đơn một mức (gần như mọi đơn) giữ nguyên đúng dải A:J của biểu mẫu, không xê dịch ô nào.
+//      hai cột J "% Thuế GTGT" và K "Tiền thuế GTGT" (trước 16/09/2026 là K và L), ô thuế suất
+//      chung ghi "nhiều mức".
+//      Đơn một mức (gần như mọi đơn) giữ nguyên đúng dải A:I của biểu mẫu, không xê dịch ô nào.
 //      🔴 Trước 17/08/2026 chỗ này in `gia.thueSuatGTGT` như thuế suất của CẢ ĐƠN và ghi công
 //      thức `=H18*8%`. Excel tính lại công thức mỗi lần mở file, nên đơn trộn mức bị ghi thiếu
 //      hẳn phần thuế của nhóm 10% — sai số tiền phải trả trên chứng từ gửi nhà cung cấp.
@@ -91,13 +114,21 @@ const DINH_DANG = {
   thueSuat: '0.##"%"',
 } as const;
 
-/** Bề rộng cột đọc từ biểu mẫu (đơn vị ký tự của Excel). */
-const BE_RONG_COT = [7.57, 13, 22.29, 22.29, 8.86, 13, 12.14, 11.43, 8.29, 17.29];
+/**
+ * Bề rộng cột đọc từ biểu mẫu (đơn vị ký tự của Excel) — A…I, CHÍN cột.
+ *
+ * ❌ Số `13` của cột "Mã hàng" (cột B cũ, đứng ngay sau `7.57`) đã BỎ — Sếp 16/09/2026
+ * *"Bỏ trên file excel luôn"*. Đừng thêm lại một con số vào đây để "cho khớp biểu mẫu giấy":
+ * mảng này quyết định cột nào rộng bao nhiêu THEO THỨ TỰ, thêm dư một phần tử là toàn bộ bề
+ * rộng lệch một cột mà không có lỗi nào báo.
+ */
+const BE_RONG_COT = [7.57, 22.29, 22.29, 8.86, 13, 12.14, 11.43, 8.29, 17.29];
 
 /**
- * Bề rộng hai cột K, L — CHỈ có mặt khi đơn trộn nhiều mức thuế suất.
+ * Bề rộng hai cột J, K — CHỈ có mặt khi đơn trộn nhiều mức thuế suất.
+ * (Trước 16/09/2026 là K, L; bỏ cột "Mã hàng" nên dịch trái một ô.)
  *
- * Đặt ở CUỐI (sau "Mục đích sử dụng") chứ không chèn vào giữa: dải A:J của biểu mẫu giữ
+ * Đặt ở CUỐI (sau "Mục đích sử dụng") chứ không chèn vào giữa: dải A:I của biểu mẫu giữ
  * nguyên từng ô, còn `doc-don-hang-excel.ts` khớp cột theo TÊN TIÊU ĐỀ nên thứ tự không
  * ảnh hưởng gì tới việc nhập lại file.
  */
@@ -186,8 +217,11 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
   const tienTheoDong = new Map(tien.dong.map((t) => [t.sttDong, t]));
   /** Đơn trộn nhiều mức thuế → phải thêm hai cột thuế theo dòng (xem đầu file, mục 2). */
   const coCotThue = tien.nhieuMucThue;
-  /** Cột cuối cùng của bảng hàng — dùng cho kẻ viền, đổi theo việc có hai cột thuế hay không. */
-  const COT_CUOI = coCotThue ? 12 : 10;
+  /**
+   * Cột cuối cùng của bảng hàng — dùng cho kẻ viền, đổi theo việc có hai cột thuế hay không.
+   * Từ 16/09/2026 lùi một cột (12→11, 10→9) vì đã bỏ cột "Mã hàng".
+   */
+  const COT_CUOI = coCotThue ? 11 : 9;
 
   ws.columns = [...BE_RONG_COT, ...(coCotThue ? BE_RONG_COT_THUE : [])].map((width) => ({ width }));
   for (const [dong, cao] of Object.entries(CAO_DONG)) ws.getRow(Number(dong)).height = cao;
@@ -198,7 +232,8 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     orientation: "portrait" as const,
     margins: { left: 0.394, right: 0.197, top: 0.394, bottom: 0.394, header: 0, footer: 0 },
   };
-  // scale 71% là mức của biểu mẫu, vừa đúng một trang A4 dọc với 10 cột. Thêm hai cột thuế thì
+  // scale 71% là mức của biểu mẫu, vừa đúng một trang A4 dọc với 10 cột — nay còn 9 cột (bỏ
+  // "Mã hàng" 16/09/2026) nên càng thừa chỗ, giữ nguyên 71% để bản in không đổi cỡ chữ. Thêm hai cột thuế thì
   // 71% tràn sang trang thứ hai theo chiều NGANG (bảng bị xé đôi, không ai đọc nổi) — trường
   // hợp đó ép vừa một trang bề ngang, còn dài bao nhiêu trang cũng được.
   ws.pageSetup = coCotThue
@@ -218,24 +253,28 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
 
   // ---------- ĐẦU TRANG ----------
   if (logo) {
-    // Logo nằm ở A1:B4 như biểu mẫu. Không có logo thì đơn vẫn xuất được — thiếu logo đỡ
+    // Logo neo ở A1 như biểu mẫu. Không có logo thì đơn vẫn xuất được — thiếu logo đỡ
     // hơn là không xuất được đơn.
+    // ⚠️ Ảnh là ĐỐI TƯỢNG NỔI, rộng cố định 106px, không co theo cột. Bỏ cột "Mã hàng"
+    // (16/09/2026) làm phần đế hẹp lại nên ảnh tràn sang đầu cột B — chỉ là vẽ đè, ô B vẫn
+    // trống thật, và chữ tên công ty ở B1:I1 canh giữa nên không bị ảnh che.
     const id = wb.addImage({ buffer: logo, extension: "png" });
     ws.addImage(id, { tl: { col: 0.1, row: 0.1 }, ext: { width: 106, height: 91 } });
   }
-  dat(1, 3, BEN_MUA.ten, 10).font = { bold: true, size: 12 };
-  ws.getRow(1).getCell(3).alignment = { horizontal: "center", vertical: "middle" };
+  dat(1, 2, BEN_MUA.ten, 9).font = { bold: true, size: 12 };
+  ws.getRow(1).getCell(2).alignment = { horizontal: "center", vertical: "middle" };
 
-  const oDiaChi = dat(2, 3, BEN_MUA.diaChiVaMST, 9);
+  const oDiaChi = dat(2, 2, BEN_MUA.diaChiVaMST, 8);
   oDiaChi.font = { size: 9 };
   oDiaChi.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
 
-  dat(4, 1, "ĐƠN MUA HÀNG", 10).font = { bold: true, size: 16 };
+  dat(4, 1, "ĐƠN MUA HÀNG", 9).font = { bold: true, size: 16 };
   ws.getRow(4).getCell(1).alignment = { horizontal: "center", vertical: "middle" };
 
   // ---------- THÔNG TIN HAI BÊN ----------
-  datNhanKemGiaTri(6, 1, "Tên nhà cung cấp:", po.supplierTen, 8).font = { size: 11, bold: true };
-  datNhanKemGiaTri(7, 1, "Địa chỉ:", ncc?.diaChi ?? "", 8).font = { size: 11 };
+  // Gộp tới cột G (7) thay vì H (8) — dịch trái theo việc bỏ cột "Mã hàng" 16/09/2026.
+  datNhanKemGiaTri(6, 1, "Tên nhà cung cấp:", po.supplierTen, 7).font = { size: 11, bold: true };
+  datNhanKemGiaTri(7, 1, "Địa chỉ:", ncc?.diaChi ?? "", 7).font = { size: 11 };
   datNhanKemGiaTri(8, 1, "Mã số thuế:", ncc?.maSoThue ?? "").font = { size: 11 };
   datNhanKemGiaTri(9, 1, "Người Nhận:", po.nguoiNhanHangTen ?? "").font = { size: 11 };
 
@@ -245,28 +284,33 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     [8, "Loại tiền:", gia?.loaiTien ?? "VND"],
   ];
   for (const [dong, nhan, giaTri] of cotPhai) {
-    dat(dong, 9, nhan).font = { size: 11 };
-    dat(dong, 10, giaTri).font = { size: 11, bold: dong === 7 };
+    // Nhãn H, giá trị I (trước 16/09/2026 là I và J) — dịch trái theo việc bỏ cột "Mã hàng".
+    dat(dong, 8, nhan).font = { size: 11 };
+    dat(dong, 9, giaTri).font = { size: 11, bold: dong === 7 };
   }
 
   // ---------- BẢNG HÀNG ----------
   const DONG_TIEU_DE = 11;
+  /* ❌ KHÔNG CÒN CỘT "Mã hàng" (cột 2 cũ) — Sếp 16/09/2026: *"Bỏ trên file excel luôn"*.
+     Mọi cột sau đó đã dịch trái một ô; bảng đối chiếu đầy đủ ở đầu file.
+     ⚠️ Thêm lại dòng `[n, "Mã hàng", ...]` vào đây mà không dịch lại toàn bộ chỉ số bên dưới
+     (thân bảng, công thức, khối tổng, chữ ký) là bảng lệch cột IM LẶNG — Excel không báo gì. */
   const tieuDe: [number, string, "left" | "center" | "right"][] = [
     [1, "STT", "center"],
-    [2, "Mã hàng", "left"],
-    [3, "Tên hàng", "left"],
-    [4, "Thông số kỹ thuật", "left"],
-    [5, "ĐVT", "center"],
-    [6, "SL", "right"],
-    [7, "Đơn giá", "right"],
-    [8, "Thành tiền", "right"],
-    [10, "Mục đích sử dụng", "left"],
+    [2, "Tên hàng", "left"],
+    [3, "Thông số kỹ thuật", "left"],
+    [4, "ĐVT", "center"],
+    [5, "SL", "right"],
+    [6, "Đơn giá", "right"],
+    [7, "Thành tiền", "right"],
+    [9, "Mục đích sử dụng", "left"],
   ];
   // Tên hai cột thêm phải viết ĐÚNG cách `doc-don-hang-excel.ts` → `CACH_VIET_COT` chấp nhận,
   // nếu không thì nhập lại chính file này sẽ không thấy thuế suất từng dòng.
-  if (coCotThue) tieuDe.push([11, "% Thuế GTGT", "right"], [12, "Tiền thuế GTGT", "right"]);
+  if (coCotThue) tieuDe.push([10, "% Thuế GTGT", "right"], [11, "Tiền thuế GTGT", "right"]);
   for (const [cot, chu, canh] of tieuDe) {
-    const o = dat(DONG_TIEU_DE, cot, chu, cot === 8 ? 9 : undefined);
+    // Ô "Thành tiền" gộp G:H như biểu mẫu (trước 16/09/2026 là H:I).
+    const o = dat(DONG_TIEU_DE, cot, chu, cot === 7 ? 8 : undefined);
     o.font = { bold: true, size: 11 };
     o.alignment = { horizontal: canh, vertical: "middle", wrapText: true };
   }
@@ -281,9 +325,9 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
        Không STT, không SL, không đơn giá, không thành tiền, không thuế. Nhờ vậy nó không lọt
        vào `SUM` của khối tổng bên dưới, và cũng không thành "mặt hàng 0 đồng" trên chứng từ
        gửi nhà cung cấp. Chữ nghiêng + ô gộp để người đọc phân biệt ngay với dòng hàng.
-       🔴 Chỉ gộp C:D — lý do ở đầu file, mục 1. */
+       🔴 Chỉ gộp B:C (C:D trước 16/09/2026) — lý do ở đầu file, mục 1. */
     if (!laDongHang(d)) {
-      const oGhiChu = dat(dong, 3, d.tenVatLieu, 4);
+      const oGhiChu = dat(dong, 2, d.tenVatLieu, 3);
       oGhiChu.font = { size: 11, italic: true };
       oGhiChu.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
       keVien(ws, dong, 1, COT_CUOI);
@@ -295,24 +339,28 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     const t = tienTheoDong.get(d.sttDong);
 
     dat(dong, 1, d.sttDong).alignment = { horizontal: "center", vertical: "middle" };
-    dat(dong, 2, d.maHang ?? "");
-    dat(dong, 3, d.tenVatLieu);
-    dat(dong, 4, d.thongSoKyThuat ?? "");
-    dat(dong, 5, d.donViTinh).alignment = { horizontal: "center", vertical: "middle" };
-    r.getCell(6).value = d.khoiLuongDat;
-    r.getCell(6).numFmt = DINH_DANG.soLuong;
-    r.getCell(7).value = t?.donGia ?? 0;
-    r.getCell(7).numFmt = DINH_DANG.tien;
+    /* ❌ KHÔNG ghi `d.maHang` ra file nữa — Sếp 16/09/2026 *"Bỏ trên file excel luôn"*.
+       📌 Trường `d.maHang` VẪN CÒN trong dữ liệu và vẫn dùng ở màn tìm kiếm cùng bộ ĐỌC file
+       của MISA; đây chỉ là thôi in ra, không phải xoá dữ liệu. */
+    dat(dong, 2, d.tenVatLieu);
+    dat(dong, 3, d.thongSoKyThuat ?? "");
+    dat(dong, 4, d.donViTinh).alignment = { horizontal: "center", vertical: "middle" };
+    r.getCell(5).value = d.khoiLuongDat;
+    r.getCell(5).numFmt = DINH_DANG.soLuong;
+    r.getCell(6).value = t?.donGia ?? 0;
+    r.getCell(6).numFmt = DINH_DANG.tien;
     // Thành tiền là CÔNG THỨC như biểu mẫu (bản gốc dùng `=+F12*G12`) — hai bên sửa SL hay
     // đơn giá trên file là thấy số cập nhật theo.
-    r.getCell(8).value = { formula: `+F${dong}*G${dong}` };
-    r.getCell(8).numFmt = DINH_DANG.tien;
-    ws.mergeCells(dong, 8, dong, 9);
-    dat(dong, 10, d.mucDichSuDung ?? "");
+    // 🔴 SL nay ở cột E và Đơn giá ở cột F (trước 16/09/2026 là F và G) — CHỮ CÁI TRONG CÔNG
+    // THỨC phải đổi theo, nếu không Excel nhân hai ô khác và ra số sai ngay khi mở file.
+    r.getCell(7).value = { formula: `+E${dong}*F${dong}` };
+    r.getCell(7).numFmt = DINH_DANG.tien;
+    ws.mergeCells(dong, 7, dong, 8);
+    dat(dong, 9, d.mucDichSuDung ?? "");
 
     if (coCotThue) {
-      r.getCell(11).value = t?.thueSuatGTGT ?? 0;
-      r.getCell(11).numFmt = DINH_DANG.thueSuat;
+      r.getCell(10).value = t?.thueSuatGTGT ?? 0;
+      r.getCell(10).numFmt = DINH_DANG.thueSuat;
       /**
        * 🔴 TIỀN THUẾ TỪNG DÒNG LÀ SỐ CHẾT, KHÔNG PHẢI CÔNG THỨC — cố ý, khác cột "Thành tiền".
        *
@@ -322,8 +370,8 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
        * kia làm tròn từng dòng. Hai cách lệch nhau vài đồng, và lệch giữa màn hình với file
        * gửi nhà cung cấp là đúng thứ `tinh-toan.ts` sinh ra để tránh.
        */
-      r.getCell(12).value = t?.tienThueGTGT ?? 0;
-      r.getCell(12).numFmt = DINH_DANG.tien;
+      r.getCell(11).value = t?.tienThueGTGT ?? 0;
+      r.getCell(11).numFmt = DINH_DANG.tien;
     }
 
     for (let c = 1; c <= COT_CUOI; c++) {
@@ -362,27 +410,34 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     const oNhan = dat(dong, cotNhan, nhan, denNhan);
     oNhan.alignment = { horizontal: "right", vertical: "middle" };
     oNhan.font = { size: 11, bold: dong === d5 };
-    const oSo = ws.getRow(dong).getCell(8);
+    // Ô số của cả khối tổng nằm ở cột G, gộp G:H (trước 16/09/2026 là H, gộp H:I) — dịch trái
+    // theo việc bỏ cột "Mã hàng". Đây cũng chính là cột "Thành tiền" của bảng hàng phía trên.
+    const oSo = ws.getRow(dong).getCell(7);
     // Kèm `result` để chương trình nào không tính lại công thức vẫn hiện đúng số.
     oSo.value = congThuc ? { formula: congThuc, result: so } : so;
     oSo.numFmt = DINH_DANG.tien;
     oSo.font = { size: dong === d5 ? 12 : 11, bold: dong === d5 };
     oSo.alignment = { horizontal: "right", vertical: "middle" };
-    ws.mergeCells(dong, 8, dong, 9);
+    ws.mergeCells(dong, 7, dong, 8);
     return oSo;
   };
 
-  // Dòng đầu khối gộp A:G đúng biểu mẫu; ba dòng sau nhãn bắt đầu ở cột E.
-  const cotTien = `H${DONG_TIEU_DE + 1}:H${dongCuoiBang}`;
-  datDongTong(d1, 1, "Cộng tiền hàng (Chưa trừ CK):", tien.congTienHang, 7, `SUM(${cotTien})`);
+  // Dòng đầu khối gộp A:F đúng biểu mẫu; ba dòng sau nhãn bắt đầu ở cột D.
+  const cotTien = `G${DONG_TIEU_DE + 1}:G${dongCuoiBang}`;
+  datDongTong(d1, 1, "Cộng tiền hàng (Chưa trừ CK):", tien.congTienHang, 6, `SUM(${cotTien})`);
   // Chiết khấu là số tiền người lập nhập, không suy ra được — để số chết.
-  datDongTong(d2, 5, "Số tiền CK:", tien.chietKhau, 7);
-  datDongTong(d3, 5, "Cộng tiền hàng (Đã trừ CK):", tien.congTienHangSauCK, 7, `H${d1}-H${d2}`);
+  datDongTong(d2, 4, "Số tiền CK:", tien.chietKhau, 6);
+  datDongTong(d3, 4, "Cộng tiền hàng (Đã trừ CK):", tien.congTienHangSauCK, 6, `G${d1}-G${d2}`);
 
-  // 🔴 Ô "Thuế suất thuế GTGT" phải ĐỨNG RIÊNG ở A + giá trị ở C, đúng biểu mẫu. Gộp thuế
+  // 🔴 Ô "Thuế suất thuế GTGT" phải ĐỨNG RIÊNG ở A + giá trị ở ô KẾ BÊN, đúng biểu mẫu. Gộp thuế
   // suất vào nhãn dòng thuế thì `doc-don-hang-excel.ts` dò nhãn không ra → nhập lại file
   // mình vừa xuất là MẤT thuế suất.
-  dat(d4, 1, "Thuế suất thuế GTGT:", 2).font = { size: 11 };
+  //
+  // 📌 Trước 16/09/2026 nhãn gộp A:B và giá trị ở C. Bỏ cột "Mã hàng" thì phần gộp đó biến mất:
+  // nhãn nằm trơ ở A, giá trị sang B. Bên đọc vẫn ra đúng — `timTheoNhan` thấy nhãn ở A, phần
+  // sau dấu hai chấm rỗng nên nó quét ô kế bên, và B nay KHÔNG còn là ô con của vùng gộp nên
+  // không bị bỏ qua. (Chính cái bẫy "ô con vùng gộp trả lại chuỗi nhãn" mà bên đọc đã chép lại.)
+  dat(d4, 1, "Thuế suất thuế GTGT:").font = { size: 11 };
   /**
    * 🔴 ĐƠN TRỘN MỨC THÌ Ô NÀY GHI "nhiều mức", KHÔNG ĐƯỢC ghi đại một con số.
    *
@@ -391,36 +446,37 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
    * thuế. `moTaThueSuat` là chỗ duy nhất quyết định cách viết này.
    *
    * 📌 Nhập lại file: `docSo("nhiều mức")` trả về `undefined` chứ không phải 0, nên app hiểu
-   * đúng là "đơn này không có một thuế suất chung", rồi lấy thuế suất thật từ cột K.
+   * đúng là "đơn này không có một thuế suất chung", rồi lấy thuế suất thật từ cột J.
    */
   dat(
     d4,
-    3,
+    2,
     tien.nhieuMucThue
       ? moTaThueSuat(tien)
       : `${tien.thueSuatGTGT.toLocaleString("vi-VN", { minimumFractionDigits: 2 })} %`,
   ).font = { size: 11 };
   // Thuế trên dòng d3 (đã trừ CK), KHÔNG phải d1.
   //
-  // 🔴 Đơn trộn mức thì tổng thuế = TỔNG CỘT L, chứ tuyệt đối không phải `H(d3) × một mức nào
-  // đó`. Excel tính lại công thức mỗi lần mở file nên công thức sai không có cách nào cứu:
-  // người nhận thấy con số do Excel tính, không phải con số app đã tính.
+  // 🔴 Đơn trộn mức thì tổng thuế = TỔNG CỘT "Tiền thuế GTGT" (nay là K, trước 16/09/2026 là L),
+  // chứ tuyệt đối không phải `G(d3) × một mức nào đó`. Excel tính lại công thức mỗi lần mở file
+  // nên công thức sai không có cách nào cứu: người nhận thấy con số do Excel tính, không phải
+  // con số app đã tính.
   datDongTong(
     d4,
-    5,
+    4,
     "Tiền thuế GTGT:",
     tien.tienThueGTGT,
-    7,
+    6,
     coCotThue
-      ? `SUM(L${DONG_TIEU_DE + 1}:L${dongCuoiBang})`
-      : `H${d3}*${tien.thueSuatGTGT}%`,
+      ? `SUM(K${DONG_TIEU_DE + 1}:K${dongCuoiBang})`
+      : `G${d3}*${tien.thueSuatGTGT}%`,
   );
-  datDongTong(d5, 5, "Tổng tiền thanh toán:", tien.tongThanhToan, 7, `H${d3}+H${d4}`);
+  datDongTong(d5, 4, "Tổng tiền thanh toán:", tien.tongThanhToan, 6, `G${d3}+G${d4}`);
 
   // ---------- SỐ TIỀN BẰNG CHỮ ----------
   const dongChu = d5 + 1;
   ws.getRow(dongChu).height = 27;
-  // Nhãn KHÔNG gộp ô, đúng biểu mẫu (bản gốc để A20 trơ, chỉ gộp phần chữ C20:J20).
+  // Nhãn KHÔNG gộp ô, đúng biểu mẫu (bản gốc để A20 trơ, chỉ gộp phần chữ — nay B:I).
   dat(dongChu, 1, "Số tiền viết bằng chữ:").font = { size: 11 };
   // ⚠️ `docSoTien` đọc theo đồng Việt Nam. Đơn ngoại tệ thì ghi kèm mã tiền để không ai
   // tưởng con số đó là VND.
@@ -429,12 +485,12 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
     donViTien === "VND"
       ? docSoTien(tien.tongThanhToan)
       : `${tien.tongThanhToan.toLocaleString("vi-VN")} ${donViTien}`;
-  const oChu = dat(dongChu, 3, chuTien, 10);
+  const oChu = dat(dongChu, 2, chuTien, 9);
   oChu.font = { size: 11, italic: true };
   oChu.alignment = { vertical: "middle", wrapText: true };
 
   // ---------- ĐIỀU KHOẢN ----------
-  // Nhãn và giá trị chung một ô, mỗi dòng gộp A:J — đúng biểu mẫu.
+  // Nhãn và giá trị chung một ô, mỗi dòng gộp A:I (A:J trước khi bỏ cột "Mã hàng") — đúng biểu mẫu.
   const dieuKhoan: [string, string][] = [
     ["Ngày giao hàng:", new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")],
     [
@@ -456,17 +512,18 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
   ];
   const dongDK = dongChu + 2;
   dieuKhoan.forEach(([nhan, giaTri], i) => {
-    const o = datNhanKemGiaTri(dongDK + i, 1, nhan, giaTri, 10);
+    const o = datNhanKemGiaTri(dongDK + i, 1, nhan, giaTri, 9);
     o.font = { size: 11 };
     o.alignment = { vertical: "middle", wrapText: true };
   });
 
   // ---------- CHỮ KÝ ----------
   const dongKy = dongDK + dieuKhoan.length + 2;
-  // Gộp ĐÚNG HAI CỘT như biểu mẫu (B:C và G:H), không phải ba.
+  // Gộp ĐÚNG HAI CỘT như biểu mẫu (B:C và F:G — trước 16/09/2026 là B:C và G:H), không phải ba.
+  // Ô ký bên mua dịch trái một cột theo việc bỏ cột "Mã hàng", để vẫn nằm dưới khối tổng tiền.
   const ky: [number, string][] = [
     [2, "Xác nhận của nhà cung cấp"],
-    [7, "Bên mua hàng"],
+    [6, "Bên mua hàng"],
   ];
   for (const [cot, chu] of ky) {
     const o = dat(dongKy, cot, chu, cot + 1);

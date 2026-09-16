@@ -18,6 +18,7 @@ import {
   lyDoBoQuaSoSanh,
   nhanOBaoGia,
   NHAN_O_SO_SANH,
+  soBanBaoGiaThat,
   soBaoGiaCanCo,
   soOBaoGia,
   soSanhBaoGiaBatBuoc,
@@ -558,7 +559,24 @@ export function KhuBaoGiaTheoSoLuong({
 
           📌 Đặt SAU các ô báo giá, có đường kẻ tách: nó là kết quả đọc từ mấy bản báo giá phía
           trên, không phải một bản báo giá thứ N+1. */}
-      {soO > 0 && (
+      {/**
+        * ★★ CHỈ HIỆN KHI ĐÃ CÓ ĐỦ 2 BẢN BÁO GIÁ — Sếp 16/09/2026, nguyên văn: ***"Mục này đang hơi
+        * thiếu thông minh, khi đính kèm 1 báo giá thì đâu cần phải đính kèm file so sánh. Vậy nên
+        * sửa lại chỉ khi đính kèm 2 báo giá thì mới hiện nút đính kèm bảng so sánh"***.
+        *
+        * 🔴 TRƯỚC ĐÂY KHỐI NÀY HIỆN NGAY TỪ ĐẦU (`soO > 0`), nên hồ sơ chưa đính bản báo giá nào
+        * vẫn thấy ô "Bảng so sánh báo giá" — mời người dùng so sánh một thứ chưa tồn tại. Nút
+        * *"Không cần đính kèm"* bên trong thì lại gác `soSanhBatBuoc` (đòi ≥2 bản), nên người dùng
+        * thấy ô mà không thấy đường thoát. Nay cả khối cùng một điều kiện, hết lệch.
+        *
+        * 🔴 VẾ `|| tepBangSoSanh` LÀ BẮT BUỘC, ĐỪNG BỎ CHO GỌN: hồ sơ đã đính bảng so sánh rồi mà
+        * sau đó một bản báo giá bị gỡ (còn 1 bản) thì khối biến mất — **tệp vẫn nằm trong hồ sơ
+        * nhưng không màn nào bày ra nữa**, người dùng không xem, không tải, không gỡ được. Giấu
+        * chứng từ đi là thứ nguy hơn hẳn việc bày thừa một ô.
+        *
+        * 📌 `soO > 0` giữ nguyên ở đầu: bước chưa khai số báo giá nào thì cả khu này không có nghĩa.
+        */}
+      {soO > 0 && (soBanBaoGiaThat(deNghi) >= 2 || tepBangSoSanh) && (
         <div className="flex flex-col gap-1.5 rounded-xl border border-dashed border-border bg-card p-(--hp-md-row-pad)">
           <p className="flex items-center gap-2 text-xs font-semibold text-text-desc uppercase">
             {NHAN_O_SO_SANH}

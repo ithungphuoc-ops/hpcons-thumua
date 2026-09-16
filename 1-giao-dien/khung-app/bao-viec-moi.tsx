@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { thongBaoDanhChoToi } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
 
 /**
  * 🔔 BẬT THÔNG BÁO NỔI KHI CÓ VIỆC MỚI — Ban lãnh đạo 18/08/2026: *"cài đặt thêm tính năng thông
@@ -51,7 +52,7 @@ import { thongBaoDanhChoToi } from "@/2-quy-trinh/giai-doan-mua-hang";
  */
 export function BaoViecMoi() {
   const router = useRouter();
-  const { thongBao } = useDuLieu();
+  const { thongBao, deNghi } = useDuLieu();
   const { quyen, nguoiDung } = useNguoiDung();
 
   /** Những id đã bật hộp nổi rồi — xem chốt số 2 ở khối chú thích trên. */
@@ -66,6 +67,19 @@ export function BaoViecMoi() {
   useEffect(() => {
     dieuHuong.current = router;
   }, [router]);
+
+  /**
+   * ★ Danh sách đề nghị cũng giữ qua ref, CÙNG LÝ DO với `router` ngay trên — chỉ dùng để **tra
+   * tên hồ sơ lúc bắn hộp nổi**, không phải thứ hiệu ứng này nên phản ứng theo.
+   *
+   * 🔴 Để `deNghi` vào danh sách phụ thuộc là hiệu ứng chạy lại **mỗi lần bất kỳ hồ sơ nào trong
+   * cả phòng đổi một chữ** — mà kho dùng chung thì chuyện đó xảy ra liên tục. Chốt `daBao` giữ cho
+   * không bắn trùng, nhưng vẫn là quét thừa cả danh sách thông báo hàng chục lần một phút.
+   */
+  const dsDeNghi = useRef(deNghi);
+  useEffect(() => {
+    dsDeNghi.current = deNghi;
+  }, [deNghi]);
 
   useEffect(() => {
     const cuaToi = thongBao.filter(
@@ -91,7 +105,17 @@ export function BaoViecMoi() {
       if (daBao.current.has(t.id)) continue;
       daBao.current.add(t.id);
 
-      toast.success(`Bạn có việc mới: ${t.prCode}`, {
+      /**
+       * ★★ TRA LẠI TÊN LÚC BÁO, KHÔNG IN CHUỖI CHÉP SẴN — Sếp 16/09/2026 (*"Sao tên thông báo ko
+       * cập nhật theo tên mới"*). Cùng một lỗi với chuông, nhưng đây là **kênh thứ hai**: sửa mỗi
+       * chuông thì hộp nổi vẫn bắn tên cũ ra màn hình ngay lúc người dùng được giao việc.
+       *
+       * 📌 `?? t.prCode` cho ca hồ sơ không còn trong danh sách (bản tách bị gộp mất khi lùi bước).
+       */
+      const hoSoCuaTin = dsDeNghi.current.find((d) => d.id === t.prId);
+      const tenHienTai = hoSoCuaTin ? tenTheDeNghi(hoSoCuaTin) : t.prCode;
+
+      toast.success(`Bạn có việc mới: ${tenHienTai}`, {
         description: [
           `${t.soDongViec ?? ""} dòng vật tư · ${t.tieuDe}`,
           t.loiNhan ? `“${t.loiNhan}”` : "",

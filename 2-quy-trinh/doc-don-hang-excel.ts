@@ -428,7 +428,23 @@ export async function docDonHangTuExcel(file: ArrayBuffer): Promise<KetQuaDocExc
    * số liệu nào không được lấy vào.
    */
   const COT_BAT_BUOC: MaCot[] = [
-    "maHang",
+    /**
+     * ❌ "maHang" ĐÃ BỎ KHỎI DANH SÁCH NÀY — Sếp 16/09/2026, chốt gọn: ***"Bỏ cột"***.
+     *
+     * 🔴 VÌ SAO: cùng ngày Sếp cho bỏ cột *Mã hàng* khỏi màn chi tiết đơn hàng **và khỏi file
+     * Excel app xuất ra**. Để nguyên ở đây thì người dùng xuất một đơn rồi nhập lại chính file
+     * đó **luôn nhận một dòng cảnh báo vàng** *"File thiếu 1 cột so với mẫu: Mã hàng"* — app tự
+     * chê file do chính nó vừa tạo. Cảnh báo sai kiểu đó làm người ta thôi đọc mọi cảnh báo
+     * khác, đúng bài học đã ghi ở §6.6 (*"một chốt báo động sai thì lần thứ hai người ta đã bỏ
+     * qua nó"*).
+     *
+     * ✅ VẪN ĐỌC ĐƯỢC CỘT ĐÓ NHƯ CŨ: `banDoCot` nhận 5 biến thể tên cột (`ma hang`, `ma vat tu`,
+     * `ma vt`, `ma hang hoa`, `ma san pham`) và `maHang` vẫn được gán vào dòng hàng. File MISA
+     * hay biểu mẫu do người ngoài lập có cột đó thì giá trị vẫn vào app. Chỉ thôi **đòi** nó.
+     *
+     * ⚠️ Đừng dựng lại: dự án vẫn chưa có danh mục mã vật tư (quyết định 1 của dự án — *"đặt mã
+     * vật tư làm sau"*), nên cột này gần như luôn trống.
+     */
     "tenHang",
     "thongSoKyThuat",
     "donViTinh",

@@ -1525,7 +1525,17 @@ interface GiaTriDuLieu {
    * Đặt số báo giá cần lấy cho MỌI dòng của phiếu — dùng ở hộp chuyển sang bước ②
    * (trường bắt buộc "SL Báo giá" theo mẫu Base).
    */
-  datSoBaoGiaChoPhieu: (prId: string, soBaoGia: number, nguoiThucHien: string) => void;
+  /**
+   * ★ Tham số thứ tư `nguoiDatCoQuyenPhanBo` — Sếp 16/09/2026: chỉ Trưởng bộ phận mới dời được
+   * **mốc sàn** của nút giảm. Xem chú thích đầy đủ tại thân hàm, và `soBaoGiaTPGiao` ở
+   * `3-du-lieu/kieu-du-lieu.ts`.
+   */
+  datSoBaoGiaChoPhieu: (
+    prId: string,
+    soBaoGia: number,
+    nguoiThucHien: string,
+    nguoiDatCoQuyenPhanBo?: boolean,
+  ) => void;
 
   /**
    * Tích / bỏ tích một công việc bắt buộc của bước.
@@ -4355,6 +4365,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                         nguoiPhanBoTen,
                         thoiDiemPhanBo: homNay(),
                         soBaoGiaYeuCau: yeuCau?.soBaoGia,
+                        /* ★ MỐC SÀN CHO NÚT GIẢM — Sếp 16/09/2026. Đây là **đường chính** Trưởng bộ
+                           phận đặt số báo giá (bảng Phân bổ), nên ghi mốc ngay tại đây cùng lúc với
+                           `soBaoGiaYeuCau`. Giao lại lần sau thì mốc đi theo lần mới nhất, đúng ý
+                           Sếp. Xem `soBaoGiaTPGiao` ở `3-du-lieu/kieu-du-lieu.ts`. */
+                        soBaoGiaTPGiao: yeuCau?.soBaoGia,
                         ghiChuPhanBo: yeuCau?.ghiChu?.trim() || undefined,
                       }
                     : d,
@@ -4544,6 +4559,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                       nguoiPhanBoTen: undefined,
                       thoiDiemPhanBo: undefined,
                       soBaoGiaYeuCau: undefined,
+                      /* ★ XOÁ MỐC SÀN CÙNG LÚC — Sếp 16/09/2026. Bỏ phân bổ mà giữ mốc lại là
+                         vòng giao việc sau nhân viên bị chặn ở con số của vòng trước, không ai
+                         hiểu vì sao. Xem `soBaoGiaTPGiao` ở `3-du-lieu/kieu-du-lieu.ts`. */
+                      soBaoGiaTPGiao: undefined,
                       ghiChuPhanBo: undefined,
                     })),
                   },
@@ -4568,6 +4587,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             nguoiPhanBoTen: undefined,
             thoiDiemPhanBo: undefined,
             soBaoGiaYeuCau: undefined,
+            /* Xoá mốc sàn cùng lúc — xem chú thích ở nhánh "không gộp" phía trên. Nhánh này là
+               đường GỘP bản tách, cũng bỏ sạch phân bổ nên mốc phải theo. */
+            soBaoGiaTPGiao: undefined,
             ghiChuPhanBo: undefined,
           }));
 
@@ -7163,14 +7185,40 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * chỗ đó vốn cho đặt theo từng dòng.
    */
   const datSoBaoGiaChoPhieu = useCallback(
-    (prId: string, soBaoGia: number, nguoiThucHien: string) => {
+    (
+      prId: string,
+      soBaoGia: number,
+      nguoiThucHien: string,
+      /**
+       * ★★ NGƯỜI BẤM CÓ QUYỀN "Phân bổ công việc" KHÔNG — Sếp 16/09/2026, chốt: ***"Chính TP bấm
+       * thì sàn nâng theo"***.
+       *
+       * 🔴 ĐÂY LÀ THAM SỐ QUYẾT ĐỊNH CẢ TÍNH NĂNG, KHÔNG PHẢI THÊM CHO ĐỦ. Hàm này là **đường
+       * dùng chung** của nút ±: cả Trưởng bộ phận lẫn nhân viên đều đi qua đây. Không phân biệt
+       * được ai bấm thì cú `+` của nhân viên cũng nâng mốc sàn — **nhân viên tự nâng sàn của
+       * chính mình**, và nút giảm thành vô nghĩa đúng lúc nó vừa được mở ra.
+       *
+       * 📌 Nhận **cờ quyền** chứ không nhận `uid` rồi tự tra: tầng ghi không được đọc bảng phân
+       * quyền (§3.4b), và nơi gọi đã có sẵn `quyen.phanBoCongViec` trong tay.
+       *
+       * ⚠️ Mặc định `false` — thiếu thông tin thì KHÔNG nâng sàn, đúng nếp "thiếu thông tin thì
+       * cho quyền thấp nhất" (§3.6c). Nơi gọi quên truyền thì mất một lần nâng mốc, không phải
+       * mất cả chốt.
+       */
+      nguoiDatCoQuyenPhanBo = false,
+    ) => {
       setDeNghi((truoc) =>
         truoc.map((dn) =>
           dn.id !== prId
             ? dn
             : {
                 ...dn,
-                items: dn.items.map((d) => ({ ...d, soBaoGiaYeuCau: soBaoGia })),
+                items: dn.items.map((d) => ({
+                  ...d,
+                  soBaoGiaYeuCau: soBaoGia,
+                  /* Chỉ Trưởng bộ phận mới dời được mốc sàn — xem tham số trên. */
+                  ...(nguoiDatCoQuyenPhanBo ? { soBaoGiaTPGiao: soBaoGia } : {}),
+                })),
                 lichSu: [
                   ...dn.lichSu,
                   {
