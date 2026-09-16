@@ -2782,7 +2782,17 @@ export default function TrangChiTietDeNghi({
                       maGiaiDoan={BUOC_DINH_KEM_DON_MUA_HANG}
                       nhanO={NHAN_TEP_DON_MUA_HANG}
                       tieuDe={TEN_HIEN_DON_MUA_HANG}
-                      moTa="Bản đơn mua hàng đã ký, đóng mộc từ nhà cung cấp gửi về khi đặt hàng. Đây là chứng từ riêng, KHÁC tệp hợp đồng ở ô trên."
+                      /* 🔴 MÔ TẢ Ô CHỈ NÓI CHỨNG TỪ ĐÓ LÀ GÌ — Sếp 16/09/2026, khoanh đỏ đúng vế
+                         giải thích cơ chế của ô hợp đồng (*"cùng tệp với bước ④, sửa ở đây bước ⑤
+                         cũng thấy ngay. Chỉ Trưởng bộ phận/quản trị sửa được ở bước này"*) và ghi
+                         *"bỏ những dòng ghi chú có nội dung kiểu này đi"*.
+                         👉 Vế *"Đây là chứng từ riêng, KHÁC tệp hợp đồng ở ô trên"* vừa bị bỏ ở đây
+                         cũng đúng loại đó: nó kể chuyện app lưu vào ngăn nào, một chuyện nội bộ.
+                         Người thu mua cần biết PHẢI NỘP GIẤY GÌ — tên hai ô đã đủ phân biệt.
+                         📌 Giữ lại vế nói chứng từ là gì và khi nào có: đó là thông tin nghiệp vụ.
+                         Cùng tiêu chí này, các mô tả còn lại (Hoá đơn VAT, UNC, Phiếu chi) được
+                         GIỮ NGUYÊN — chúng chỉ việc phải làm, không kể cơ chế. */
+                      moTa="Bản đơn mua hàng đã ký, đóng mộc từ nhà cung cấp gửi về khi đặt hàng."
                       batBuoc
                       duocSua={duocSuaHopDong}
                       khoa={hoSoDaDong}
