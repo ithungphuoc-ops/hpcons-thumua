@@ -180,7 +180,7 @@ export function vuongMacChiDinhNCCLucGiaoViec(
 ): string | null {
   if (soBaoGia !== 1) return null;
   if ((ghiChu ?? "").trim() !== "") return null;
-  return "Ghi rõ lý do chọn 1 báo giá ở ô trên trước khi giao việc.";
+  return "Ghi rõ lý do chọn 1 báo giá trước khi giao việc.";
 }
 
 /**

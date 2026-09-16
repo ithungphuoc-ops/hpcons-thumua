@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/1-giao-dien/nen-tang
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
+import { KhoiXoaDuLieuChayThu } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-xoa-du-lieu-chay-thu";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
@@ -290,6 +291,19 @@ export default function TrangCaiDatQuyTrinh() {
           </CardContent>
         </Card>
       )}
+
+      {/**
+        * ★★ VÙNG NGUY HIỂM — dời từ menu tài khoản sang đây, Sếp 16/09/2026: *"Ẩn nút này ở mục
+        * này, đưa vào mục cài đặt quy trình. Và chức năng này chỉ hiện ở tài khoản cấp quản trị"*.
+        *
+        * 📌 ĐẶT CUỐI TRANG, DƯỚI CẢ NÚT LƯU. Đây là thao tác hiếm và không hoàn tác được, nên nó
+        * phải là thứ người dùng gặp SAU CÙNG — không chen vào giữa luồng chỉnh cấu hình hàng ngày.
+        *
+        * 🔴 KHÔNG BỌC THÊM `if (quyen...)` Ở ĐÂY. Khối tự gác `quyen.xoaToanBoDuLieu` (chỉ quản
+        * trị) và tự trả `null` khi không đủ quyền — kiểm hai nơi là sớm muộn hai nơi lệch nhau,
+        * mà lệch ở chỗ này nghĩa là mở nút xoá sạch dữ liệu cho người không được phép.
+        */}
+      <KhoiXoaDuLieuChayThu />
 
       {/* Danh sách lỗi đặt CUỐI, cạnh nút Lưu — chỗ người dùng đang nhìn khi bấm không được. */}
       {loi.length > 0 && (

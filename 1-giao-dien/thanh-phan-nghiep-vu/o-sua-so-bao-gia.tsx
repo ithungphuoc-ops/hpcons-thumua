@@ -204,7 +204,7 @@ export function OSuaSoBaoGia({
     return (
       <span
         className={LOP_GIA_TRI}
-        title={`Mỗi dòng một số (${tongHop.soDong} dòng đã giao việc). Sửa ở bảng Phân bổ công việc — sửa ở đây sẽ ghi đè số của mọi dòng.`}
+        title={`Mỗi dòng một số (${tongHop.soDong} dòng đã giao việc).`}
       >
         {tongHop.nhoNhat}–{tongHop.lonNhat}
       </span>

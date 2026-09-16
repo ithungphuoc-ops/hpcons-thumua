@@ -727,43 +727,32 @@ export function dungBoHoSoThanhToan(
   const tepHopDongDaKy = tepHopDong(deNghi);
 
   /**
-   * ★★★ TỆP CỦA MỤC 4 — **CHỖ NGUY HIỂM NHẤT CỦA CẢ LƯỢT TÁCH NGÀY 16/09/2026.** Đọc hết khối này
-   * trước khi sửa một ký tự.
+   * ★★★ TỆP CỦA MỤC 4 — **CHỈ LẤY TỪ NGĂN RIÊNG CỦA ĐƠN MUA HÀNG. KHÔNG MƯỢN TỆP CỦA MỤC 3.**
    *
-   * 🔴 VẤN ĐỀ: tới hết ngày 15/09/2026, app dùng **MỘT ô, MỘT tệp** cho cả Hợp đồng lẫn Đơn mua
-   * hàng — tất cả cất chung vào `tepGiaiDoan.lap_don_mua_hang` với nhãn `NHAN_TEP_HOP_DONG`. Tách
-   * xong thì tờ đã đính đó thuộc về mục nào? Cả hai câu trả lời "gọn gàng" đều sai:
-   *   · Gán hết cho **Hợp đồng** → mọi hồ sơ cũ đột nhiên báo **thiếu Đơn mua hàng**;
-   *   · Gán hết cho **Đơn mua hàng** → ngược lại, mọi hồ sơ cũ báo thiếu Hợp đồng.
-   * Cả hai đều làm **hàng loạt dấu đỏ mọc lên trên dữ liệu đang chạy của cả phòng** trong khi
-   * không ai làm sai điều gì — và chốt mất tin cậy còn tệ hơn không có chốt.
+   * 🔴 ĐÃ SỬA 16/09/2026 SAU KHI SẾP BẮT LỖI, kèm ảnh mục 3 và mục 4 bày **y hệt một tệp**
+   * (`…4f513b727cfe9590a2ceb6d558b60e39.jpg`, 303 KB): ***"Cái gì đây, Hợp đồng và đơn mua hàng
+   * là riêng biệt mà"***.
    *
-   * ✅ LUẬT SẾP CHỐT: **tệp đã đính ở ô chung TRƯỚC ngày tách thì hiện ở CẢ HAI mục**, kèm ghi chú
-   * nói rõ đó là tệp dùng chung từ trước khi tách. Hồ sơ MỚI thì nộp riêng vào ngăn của nó.
+   * ⚠️ BẢN SÁNG CÙNG NGÀY LÀM SAI, VÀ SAI THEO KIỂU DỄ LẶP LẠI — ghi lại để không ai làm lại:
+   * lúc tách hai chứng từ, mọi tệp cũ đều nằm chung ở `tepGiaiDoan.lap_don_mua_hang`, nên có ý
+   * "cho tệp chung hiện ở CẢ HAI mục, kèm ghi chú giải thích" để hồ sơ cũ khỏi báo thiếu hàng
+   * loạt. Nghe hợp lý, nhưng nó **phá đúng thứ Sếp vừa yêu cầu**: Sếp chốt *"Tách làm 2 mục
+   * riêng"*, mà hai mục bày chung một tệp thì có tách gì đâu. Tệ hơn: bộ hồ sơ giao Kế toán có
+   * hai dòng chứng từ khác tên trỏ vào cùng một tờ giấy — người đối chiếu không cách nào biết
+   * tờ đó thật ra là hợp đồng hay là đơn mua hàng.
    *
-   * 🔴 PHÂN BIỆT CŨ / MỚI BẰNG **KHOÁ NGĂN**, TUYỆT ĐỐI KHÔNG BẰNG NGÀY THÁNG (Sếp dặn thẳng):
-   *   · tệp nằm ở ngăn chung cũ  ⇒ tệp dùng chung;
-   *   · tệp nằm ở ngăn mới       ⇒ tệp riêng của mục 4.
-   * Lấy ngày làm mốc thì phải tin vào `thoiDiem` của từng tệp — thứ do máy người dùng sinh ra, lệch
-   * múi giờ và chỉnh tay được; một hồ sơ nhập sai giờ là chứng từ nhảy mục, không gì báo.
+   * 🔴 Ý ĐÓ CHƯA TỪNG ĐƯỢC SẾP DUYỆT. Chú thích cũ tại đây ghi *"LUẬT SẾP CHỐT"* — **không đúng**,
+   * đó là đề xuất nội bộ được đưa thẳng vào mã nguồn rồi mới báo cáo sau. Việc đổi cách hiểu một
+   * chứng từ phải hỏi trước, không phải làm trước.
    *
-   * 🔴 **TỆP RIÊNG THẮNG**: đã có tệp ở ngăn mới thì THÔI hiện tệp dùng chung ở mục này. Nếu không,
-   * hồ sơ đã nộp đúng bản đơn NCC ký vẫn kéo theo tờ hợp đồng vào mục 4, và người đối chiếu thấy
-   * hai tờ khác nhau cho một mục mà không biết tờ nào đúng.
+   * ✅ NAY: mục 4 chỉ hiện tệp ở ngăn riêng `BUOC_DINH_KEM_DON_MUA_HANG`. Chưa có thì **báo thiếu**
+   * — và đó là sự thật: hồ sơ đó thật sự chưa nộp bản đơn NCC ký. Báo thiếu ở đây KHÔNG oan, nó
+   * đúng tinh thần Sếp chốt cùng ngày: *"PO là chắc chắn có, chỉ là bổ sung sau thôi"*.
    *
-   * ⚠️ CÁI GIÁ PHẢI NÓI RA, ĐÃ CÂN NHẮC VÀ CHẤP NHẬN THEO ĐÚNG CÁCH SẾP DẶN: luật "theo khoá ngăn"
-   * áp cho **mọi** tệp ở ngăn chung, kể cả tệp đính SAU hôm nay. Nên từ nay, hồ sơ chỉ đính Hợp
-   * đồng (ngăn chung) mà chưa có bản đơn NCC ký vẫn thấy mục 4 mang dấu ✓ kèm câu ghi chú "tệp dùng
-   * chung". Tức mục 4 **không còn bắt được ca thiếu bản đơn ký** khi hồ sơ đã có hợp đồng.
-   * 👉 Đổi lại là không một hồ sơ cũ nào bị báo thiếu oan — đúng thứ Sếp yêu cầu ưu tiên. Muốn siết
-   *    lại thì phải có một đợt **chuyển dữ liệu cũ** (gán từng tệp về đúng ngăn), và đó là việc
-   *    đụng kho chung của cả phòng, **phải xin Sếp duyệt riêng**.
+   * 📌 Mục 3 (Hợp đồng) giữ nguyên ngăn chung cũ, nên hồ sơ cũ **không mất** tờ đã đính — nó vẫn
+   * nằm đúng ở mục 3. Cái mất duy nhất là dấu ✓ mượn ở mục 4, mà dấu ✓ đó vốn sai.
    */
-  const tepDonMuaHangRieng = tepDonMuaHangNCCKy(deNghi);
-  const tepDonMuaHangCuaMuc4 =
-    tepDonMuaHangRieng.length > 0 ? tepDonMuaHangRieng : tepHopDongDaKy;
-  /** Mục 4 đang phải mượn tệp của ngăn chung cũ — quyết định cả câu ghi chú lẫn bài kiểm máy. */
-  const muc4DungTepChung = tepDonMuaHangRieng.length === 0 && tepHopDongDaKy.length > 0;
+  const tepDonMuaHangCuaMuc4 = tepDonMuaHangNCCKy(deNghi);
 
   const thieu = (co: boolean, cau: string) => (co ? undefined : cau);
 
@@ -846,42 +835,24 @@ export function dungBoHoSoThanhToan(
       ma: "don_mua_hang",
       ten: "Đơn mua hàng (PO)",
       batBuoc: true,
-      /* 🔴 NGĂN RIÊNG TỪ 16/09/2026, có đường lùi về tệp dùng chung cũ — đọc `tepDonMuaHangCuaMuc4`
-         phía trên trước khi đổi dòng này. */
+      /* 🔴 CHỈ NGĂN RIÊNG, KHÔNG mượn tệp của mục 3 — đọc `tepDonMuaHangCuaMuc4` phía trên. */
       tep: tepDonMuaHangCuaMuc4,
       /**
        * 🔴 CHƯA CÓ TỆP THÌ PHẢI CHỈ ĐÚNG CHỖ ĐÍNH, đừng để trống trơn (CLAUDE.md §3.5).
        *
-       * 📌 TÁCH HAI CÂU CHO HAI TÌNH HUỐNG KHÁC HẲN NHAU — gộp một câu là chỉ sai việc:
-       *   · chưa lập đơn nào  → việc phải làm là **lập đơn**, chưa có gì để đi xin bản ký
-       *   · đã lập, chưa có bản ký → việc phải làm là **đòi NCC gửi bản ký về rồi đính vào**
+       * 📌 HAI CÂU CHO HAI TÌNH HUỐNG KHÁC HẲN NHAU — gộp một câu là chỉ sai việc phải làm:
+       *   · chưa lập đơn nào       → việc phải làm là **lập đơn**, chưa có gì để đi xin bản ký;
+       *   · đã lập, chưa có bản ký → việc phải làm là **đòi NCC gửi bản ký về rồi đính vào**.
        *
-       * 📌 Nói cả hai bước ④/⑤ vì đó thật sự là **một ô dùng chung**, đính ở bước nào cũng vào
-       * đúng chỗ. Tên ô lấy từ hằng số nên đổi chữ hiển thị thì câu này tự đúng theo.
+       * ⚠️ ĐÃ BỎ CÂU THỨ BA (*"đang dùng chung tệp với mục 3…"*) cùng lượt bỏ đường mượn tệp —
+       * xem `tepDonMuaHangCuaMuc4`. Không còn ca nào mục 4 bày tệp của mục 3 nữa.
        */
-      /**
-       * 🔴 BA CÂU CHO BA TÌNH HUỐNG KHÁC HẲN NHAU. Gộp lại là chỉ sai việc phải làm:
-       *   · chưa lập đơn nào          → việc phải làm là **lập đơn**;
-       *   · đã lập, chưa có tệp nào   → việc phải làm là **đòi NCC gửi bản ký về rồi đính vào**;
-       *   · đang mượn tệp dùng chung  → **KHÔNG phải việc phải làm**, mà là một lời nói thật: tờ
-       *     đang hiện ở đây được đính từ trước khi app tách hai chứng từ, nên nó cũng đang hiện ở
-       *     mục 3. Im lặng ở ca này là để người đối chiếu tưởng hồ sơ có hai tờ khác nhau.
-       *
-       * ⚠️ CA THỨ BA ĐI KÈM `tep` KHÔNG RỖNG (nên `mucDaCo` = true) VÀ MỤC 4 CŨNG CÓ Ô NỘP — hai
-       * điều đó cùng lúc đã lộ ra một lỗ hổng vẽ có sẵn, đã vá 16/09/2026: câu `ghiChu` trước đây
-       * nằm **bên trong nhánh chỉ-đọc** của `khoi-bo-ho-so-thanh-toan.tsx`, nên mọi mục có ô nộp
-       * đều im lặng mất câu này. Nay nó được vẽ ở cấp `<li>`, ngoài cả hai nhánh.
-       * 👉 Ai sửa nơi vẽ thì phải giữ đúng vậy: `ghiChu` in **kể cả khi mục đã có tệp**, và in cho
-       *    **cả mục có ô nộp lẫn mục chỉ đọc**. Đẩy nó về một nhánh là ca thứ ba trở lại câm.
-       */
-      ghiChu: muc4DungTepChung
-        ? `Đang dùng chung tệp với mục 3 (${TEN_HIEN_HOP_DONG}) — tệp này được đính ở ô chung TRƯỚC khi app tách hai chứng từ, nên hiện ở cả hai mục. Có bản ${TEN_HIEN_DON_MUA_HANG} riêng thì đính vào ô "${TEN_HIEN_DON_MUA_HANG}" ở bước Tiến hành đặt hàng, mục này sẽ chỉ hiện bản riêng đó.`
-        : thieu(
-            tepDonMuaHangCuaMuc4.length > 0,
-            poCuaDeNghi.length === 0
-              ? "Chưa lập đơn mua hàng nào cho đề nghị này."
-              : `Đã lập ${poCuaDeNghi.map((po) => po.code).join(", ")} nhưng chưa đính bản đơn mua hàng đã ký, đóng mộc của nhà cung cấp — đính ở ô "${TEN_HIEN_DON_MUA_HANG}" của bước Tiến hành đặt hàng, hoặc ngay tại dòng này ở bước Hồ sơ thanh toán.`,
-          ),
+      ghiChu: thieu(
+        tepDonMuaHangCuaMuc4.length > 0,
+        poCuaDeNghi.length === 0
+          ? "Chưa lập đơn mua hàng nào cho đề nghị này."
+          : `Đã lập ${poCuaDeNghi.map((po) => po.code).join(", ")} nhưng chưa đính bản đơn mua hàng đã ký, đóng mộc của nhà cung cấp — đính ở ô "${TEN_HIEN_DON_MUA_HANG}" của bước Tiến hành đặt hàng.`,
+      ),
     },
     {
       stt: 5,

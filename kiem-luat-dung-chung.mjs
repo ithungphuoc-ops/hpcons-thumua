@@ -274,6 +274,23 @@ try {
   process.exit(1);
 }
 
+/* ★★ PHÂN QUYỀN — thêm 16/09/2026 cho cờ `xoaToanBoDuLieu` (Sếp: *"chức năng này chỉ hiện ở tài
+   khoản cấp quản trị"*). Đây là cờ DUY NHẤT trong bảng quyền chỉ mở cho quản trị, và nới nhầm nó
+   nghĩa là mở nút xoá sạch dữ liệu cả phòng cho người không được phép — hỏng thì không khôi phục
+   lại được, nên phải có phép gọi thật canh. */
+const tepRa16 = join(thuMuc, "quyen.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "4-phan-quyen/quyen.ts" --bundle --platform=node --format=cjs --outfile="${tepRa16}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 4-phan-quyen/quyen.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
@@ -286,6 +303,7 @@ const CQ = nap(tepRa11);
 const QLK = nap(tepRa12);
 const NH = nap(tepRa14);
 const GB = nap(tepRa15);
+const PQ = nap(tepRa16);
 
 /* ---------- Bộ khung chấm ---------- */
 let dat = 0;
@@ -2042,6 +2060,49 @@ kiem(
       duoc: r?.loai === "lui_buoc" && r.ve === "yeu_cau_bao_gia" && r.batBuocLyDo === true && /giữ nguyên/i.test(v),
       thucTe: `${r?.loai ?? "?"} ve=${r?.ve ?? "-"} viec="${v.slice(0, 70)}"`,
       mongDoi: 'lui_buoc ve "yeu_cau_bao_gia", cau noi ro gia giu nguyen',
+    };
+  },
+);
+
+kiem(
+  "Nut XOA TOAN BO DU LIEU chi mo cho QUAN TRI — moi vai tro khac deu KHONG co",
+  'Sếp · 16/09/2026 — *"chuc nang nay chi hien o tai khoan cap quan tri"*',
+  () => {
+    /* 🔴 CHIEU NGHICH NAM NGAY TRONG BAI NAY, va no moi la phan quan trong: khong chi kiem
+       "admin co", ma kiem CA 5 vai tro khac deu KHONG co — ke ca Ban Giam doc (`director`) va
+       Truong bo phan cap 4 (nguoi dang co `suaPODaChot`, tuc VAO DUOC trang Cai dat quy trinh
+       noi nut nay dat). Chi kiem chieu thuan thi ai sua thanh `true` vo dieu kien van di lot,
+       va luc do nut xoa sach du lieu ca phong mo cho tat ca.
+
+       ⚠️ Nut nay xoa MOI de nghi, bao gia, don hang, phieu nhan khoi kho chung va KHONG khoi
+       phuc duoc — nen no la co DUY NHAT trong bang quyen chi mo cho quan tri. */
+    const ai = (them) =>
+      PQ.tinhQuyen({
+        uid: "u-thu",
+        tenHienThi: "Nguoi thu",
+        chucDanh: "",
+        vaiTro: "staff",
+        chucNang: "nhan_vien_thu_mua",
+        capTM: 2,
+        ...them,
+      });
+
+    const quanTri = ai({ vaiTro: "admin", capTM: 4 });
+    const khac = [
+      ["Ban Giam doc", ai({ vaiTro: "director", capTM: 4 })],
+      ["Truong bo phan cap 4", ai({ chucNang: "truong_bo_phan_thu_mua", capTM: 4 })],
+      ["Truong bo phan cap 3", ai({ chucNang: "truong_bo_phan_thu_mua", capTM: 3 })],
+      ["Nhan vien thu mua", ai({ capTM: 2 })],
+      ["Thu kho", ai({ chucNang: "thu_kho_cong_trinh", capTM: 1, capKho: 2 })],
+    ];
+    const loGio = khac.filter(([, q]) => q.xoaToanBoDuLieu).map(([t]) => t);
+
+    return {
+      duoc: quanTri.xoaToanBoDuLieu === true && loGio.length === 0,
+      thucTe:
+        `admin=${quanTri.xoaToanBoDuLieu}` +
+        (loGio.length ? ` · LO CHO: ${loGio.join(", ")}` : " · 5 vai tro khac deu false"),
+      mongDoi: "admin=true, moi vai tro khac=false (ke ca director va truong bo phan cap 4)",
     };
   },
 );
@@ -4979,18 +5040,55 @@ const muc4 = (deNghi, po = poBoHoSo) => {
   return BH.dungBoHoSoThanhToan(deNghi, po, [], []).find((m) => m.ma === "don_mua_hang");
 };
 
+/** Tệp đơn mua hàng NCC ký nằm ở NGĂN RIÊNG — khác hẳn `tepPOKy` (ngăn chung, nhãn "Hợp đồng"). */
+const dnCoPORieng = {
+  id: "dn-bo-ho-so",
+  tepGiaiDoan: {
+    don_mua_hang_ncc_ky: [{ id: "porieng1", ten: "DMH260007-da-ky.pdf", ghiChu: "Đơn mua hàng" }],
+  },
+};
+
 kiem(
-  "Muc 4 CO tep PO da ky -> bay DUNG TEP do (khong phai to in)",
+  "Muc 4 CO tep o NGAN RIENG -> bay dung tep do",
   CHU_SEP_PO_KY,
   () => {
     const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
-    const m = muc4(dnBoHoSo([tepPOKy]));
-    const dung = m?.tep?.length === 1 && m.tep[0].id === "poky1" && BH.mucDaCo(m) === true;
+    const m = muc4(dnCoPORieng);
+    const dung = m?.tep?.length === 1 && m.tep[0].id === "porieng1" && BH.mucDaCo(m) === true;
     return {
       duoc: dung,
       thucTe: `tep=${JSON.stringify(m?.tep?.map((t) => t.id) ?? null)} · mucDaCo=${m ? BH.mucDaCo(m) : "KHONG CO MUC 4"}`,
+      mongDoi: 'muc 4 tra ve tep cua ngan rieng "don_mua_hang_ncc_ky" va tinh la DA CO',
+    };
+  },
+);
+
+kiem(
+  "Muc 4 TUYET DOI KHONG muon tep cua muc 3 (chieu nghich)",
+  'Sếp · 16/09/2026 — anh muc 3 va muc 4 bay Y HET mot tep: *"Cai gi day, Hop dong va don mua hang la rieng biet ma"*',
+  () => {
+    /* 🔴🔴 BAI NAY GHI LAI MOT LOI DA XAY RA THAT, va hai moc cua no:
+         · SANG 16/09/2026 — luc tach hai chung tu, moi tep cu deu nam chung o `lap_don_mua_hang`.
+           Da chon cach "tep o ngan chung hien o CA HAI muc, kem ghi chu giai thich" de ho so cu
+           khoi bao thieu hang loat. Y do CHUA TUNG DUOC SEP DUYET — dua thang vao ma nguon roi
+           moi bao cao sau. Bai kiem cu o cho nay ghi dung luat do.
+         · CHIEU 16/09/2026 — Sep gui anh muc 3 va muc 4 bay cung mot tep 303 KB va bat loi.
+       👉 Day la SUA MOT VIEC LAM SAI, khong phai doi y: Sep da chot *"Tach lam 2 muc rieng"* tu
+          truoc, ma hai muc bay chung mot tep thi co tach gi dau.
+       ⚠️ Hau qua neu de nguyen: bo ho so giao Ke toan co HAI dong chung tu khac ten tro vao CUNG
+          mot to giay — nguoi doi chieu khong cach nao biet to do la hop dong hay don mua hang. */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const ds = BH.dungBoHoSoThanhToan(dnBoHoSo([tepPOKy]), poBoHoSo, [], []);
+    const m3 = ds.find((m) => m.ma === "hop_dong");
+    const m4 = ds.find((m) => m.ma === "don_mua_hang");
+    const id3 = (m3?.tep ?? []).map((t) => t.id);
+    const id4 = (m4?.tep ?? []).map((t) => t.id);
+    const trung = id4.filter((x) => id3.includes(x));
+    return {
+      duoc: id3.length === 1 && id3[0] === "poky1" && id4.length === 0 && trung.length === 0,
+      thucTe: `muc3=${JSON.stringify(id3)} · muc4=${JSON.stringify(id4)}${trung.length ? ` · TRUNG TEP: ${trung.join(", ")}` : ""}`,
       mongDoi:
-        'muc 4 tra ve dung tep "DMH260007-da-ky.pdf" (doc qua tepHopDong: khoa lap_don_mua_hang + nhan "Hợp đồng") va tinh la DA CO',
+        "tep o ngan chung chi thuoc MUC 3; muc 4 rong va bao thieu — khong tep nao xuat hien o ca hai muc",
     };
   },
 );
@@ -5134,28 +5232,36 @@ const dsBoHoSo = (tepGiaiDoan) => {
 const mucTheoMa = (tepGiaiDoan, ma) => dsBoHoSo(tepGiaiDoan).find((m) => m.ma === ma);
 
 kiem(
-  "HO SO CU (chi co tep o NGAN CHUNG) -> CA HAI muc deu thay tep do",
-  CHU_SEP_TACH,
+  "HO SO CU (chi co tep o NGAN CHUNG) -> CHI muc 3 thay tep do, muc 4 bao THIEU",
+  'Sếp · 16/09/2026 (chieu) — *"Cai gi day, Hop dong va don mua hang la rieng biet ma"*',
   () => {
-    /* 🔴 BAI KIEM CHINH CUA VIEC XU DU LIEU CU. Ai gan tep chung cho mot muc thoi thi bai nay bat
-       duoc ngay: muc con lai se rong va bao thieu tren toan bo ho so dang chay. */
+    /* 🔴🔴 BAI NAY DA BI VIET LAI, VA PHAI NOI RO DE KHONG AI TUONG LA SUA BAI KIEM CHO VUA MA
+       NGUON. Ban cu ten *"CA HAI muc deu thay tep do"*, ghi lai cach xu du lieu cu chon sang
+       16/09/2026: tep o ngan chung hien o CA HAI muc kem ghi chu "dang dung chung".
+
+       👉 Cach do CHUA TUNG DUOC SEP DUYET — no la de xuat noi bo dua thang vao ma nguon roi moi
+          bao cao. Chieu cung ngay Sep gui anh muc 3 va muc 4 bay Y HET mot tep 303 KB va bat loi:
+          Sep da chot *"Tach lam 2 muc rieng"* tu truoc, ma hai muc bay chung mot tep thi khong
+          con la tach nua.
+
+       ⚠️ CAI GIA DA CAN NHAC: ho so cu gio bao THIEU o muc 4. Do la SU THAT — ho thuc su chua nop
+       ban don NCC ky rieng — va dung tinh than Sep chot cung ngay: *"PO la chac chan co, chi la bo
+       sung sau thoi"*. To da dinh KHONG MAT: no van nam dung o muc 3. */
     const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
     const tg = { lap_don_mua_hang: [tepChungCu] };
     const m3 = mucTheoMa(tg, "hop_dong");
     const m4 = mucTheoMa(tg, "don_mua_hang");
-    const caHai =
-      m3?.tep?.some((t) => t.id === "chung1") === true &&
-      m4?.tep?.some((t) => t.id === "chung1") === true &&
-      BH.mucDaCo(m3) === true &&
-      BH.mucDaCo(m4) === true;
-    /* Muc 4 phai NOI RA la dang muon tep chung — im lang la nguoi doi chieu tuong co hai to khac
-       nhau trong ho so. */
-    const coGhiChu = typeof m4?.ghiChu === "string" && /d[ùu]ng chung/i.test(m4.ghiChu);
+    const id3 = (m3?.tep ?? []).map((t) => t.id);
+    const id4 = (m4?.tep ?? []).map((t) => t.id);
     return {
-      duoc: caHai && coGhiChu,
-      thucTe: `muc3=${JSON.stringify(m3?.tep?.map((t) => t.id) ?? null)} · muc4=${JSON.stringify(m4?.tep?.map((t) => t.id) ?? null)} · ghiChu4="${String(m4?.ghiChu ?? "(trong)").slice(0, 80)}"`,
-      mongDoi:
-        'ca hai muc cung thay "chung1" va cung tinh la DA CO, muc 4 kem ghi chu noi ro do la tep dung chung tu truoc khi tach',
+      duoc:
+        id3.length === 1 &&
+        id3[0] === "chung1" &&
+        BH.mucDaCo(m3) === true &&
+        id4.length === 0 &&
+        BH.mucDaCo(m4) === false,
+      thucTe: `muc3=${JSON.stringify(id3)} · muc4=${JSON.stringify(id4)} · muc4DaCo=${m4 ? BH.mucDaCo(m4) : "?"}`,
+      mongDoi: 'chi muc 3 thay "chung1"; muc 4 rong va mucDaCo=false',
     };
   },
 );

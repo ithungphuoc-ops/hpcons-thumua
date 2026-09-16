@@ -3716,7 +3716,7 @@ export function FormLapDonMuaHang({
                       <span className="text-xs text-text-desc">
                         {trongDanhMuc
                           ? `Đã liên kết với “${trongDanhMuc.ten}” trong danh mục.`
-                          : "Chưa có trong danh mục — vẫn lập được đơn, thông tin lấy theo những ô trên."}
+                          : "Chưa có trong danh mục — vẫn lập được đơn."}
                       </span>
                     );
                   })()}

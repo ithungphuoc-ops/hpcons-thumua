@@ -2543,7 +2543,7 @@ export default function TrangChiTietDeNghi({
                          📌 BƯỚC ④ GIỮ TÊN "Hợp đồng" — Sếp 15/09/2026 chỉnh lại: tên "Đơn mua hàng"
                          đặt ở **bước ⑤ Tiến hành đặt hàng**, không phải ở đây. */
                       tieuDe={TEN_HIEN_HOP_DONG}
-                      moTa="Bản hợp đồng mua bán / thoả thuận đã ký với nhà cung cấp. PHẢI có bản này (hoặc ghi lý do chưa có ở ô dưới) thì mới lập được đơn mua hàng."
+                      moTa="Bản hợp đồng mua bán / thoả thuận đã ký với nhà cung cấp."
                       batBuoc
                       duocSua={duocSuaHopDong}
                       khoa={hoSoDaDong}

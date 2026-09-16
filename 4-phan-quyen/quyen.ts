@@ -144,6 +144,23 @@ export interface Quyen {
   xemBaoGia: boolean;
   xemCongNo: boolean;
   /**
+   * ★★ XOÁ TOÀN BỘ DỮ LIỆU CHẠY THỬ CỦA CẢ PHÒNG — Sếp 16/09/2026: *"Ẩn nút này ở mục này, đưa
+   * vào mục cài đặt quy trình. Và chức năng này chỉ hiện ở tài khoản cấp quản trị"*.
+   *
+   * 🔴 CHỈ `admin`, KHÔNG dùng lại `suaPODaChot`. Hai việc khác hẳn mức nguy hiểm: sai một lượt
+   * sửa PO thì sửa lại được, còn nút này xoá **mọi đề nghị, báo giá, đơn hàng, phiếu nhận của cả
+   * phòng** và **không khôi phục được**. Trưởng bộ phận cấp 3 (đang có `suaPODaChot`) không nên
+   * chạm tới nó. Đây cũng là cờ DUY NHẤT trong bảng này chỉ mở cho quản trị — cố ý.
+   *
+   * ⚠️ Ban Giám đốc (`director`) CŨNG KHÔNG có. Không phải hạ thấp vai trò: BGĐ cần *xem* mọi hồ
+   * sơ chứ không cần *xoá sạch dữ liệu chạy thử*, mà đây đúng nghĩa là một nút dọn dẹp kỹ thuật.
+   *
+   * 📌 CỜ RIÊNG chứ không viết thẳng `vaiTro === "admin"` tại chỗ vẽ: luật phân quyền phải nằm ở
+   * `4-phan-quyen/` (CLAUDE.md §3.4b). Viết tại chỗ vẽ thì hôm nào mở thêm một đường vào nút này,
+   * người viết mới chép nhầm điều kiện là hở ngay, mà hở ở đây là mất sạch dữ liệu cả phòng.
+   */
+  xoaToanBoDuLieu: boolean;
+  /**
    * ★ ĐƯỢC VÀO MÀN "QUY TRÌNH MUA HÀNG" (bảng 8 cột) KHÔNG.
    *
    * 🔴 Ban lãnh đạo 16/08/2026: *"ở tk thủ kho và tk của phòng ban khác thì không được phép
@@ -226,6 +243,10 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     xuatHoSo: capTM >= 1,
     xemBaoGia: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laQLDA || laKeToan,
     xemCongNo: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laKeToan,
+
+    /* 🔴 CHỈ QUẢN TRỊ — xem chú thích đầy đủ ở khai báo `xoaToanBoDuLieu`. Đừng thêm `|| laBGD`
+       hay `|| capTM >= 3` cho "tiện": nút này xoá sạch dữ liệu cả phòng, không khôi phục được. */
+    xoaToanBoDuLieu: laQuanTri,
 
     // Chỉ người LÀM thu mua, cộng quản trị và Ban Giám đốc. Thủ kho, QLDA, kế toán và các
     // phòng ban đề xuất theo dõi tiến độ ở mục "Theo dõi đề nghị" — xem `xemQuyTrinhMuaHang`.

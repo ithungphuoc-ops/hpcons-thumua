@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleUser, LogOut, Trash2 } from "lucide-react";
+import { CircleUser, LogOut } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,8 +25,6 @@ import {
   DropdownMenuTrigger,
 } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
-import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
-import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { NHAN_CAP_QUYEN } from "@/4-phan-quyen/quyen";
 
@@ -61,8 +59,6 @@ export function MenuTaiKhoan() {
    * khoản thật vẫn bị app bảo là tài khoản giả lập. Nay hỏi đúng cờ này trước khi nói.
    */
   const { nguoiDung, quyen, dangXuat, cheDoThu } = useNguoiDung();
-  const { deNghi, xoaDuLieuChayThu, trangThaiKhoChung } = useDuLieu();
-  const [hoiXoa, doiHoiXoa] = useState(false);
 
   /**
    * HỒ SƠ CÁ NHÂN TỪ APP TỔNG (chỉ đạo Ban lãnh đạo 10/08/2026: *"bấm vào avatar này sẽ ra
@@ -151,20 +147,22 @@ export function MenuTaiKhoan() {
           </DropdownMenuItem>
 
           {/**
-           * 🔴 NHÃN PHẢI NÓI ĐÚNG MỨC NGUY HIỂM — Ban lãnh đạo 20/08/2026.
+           * ❌❌ MỤC "Xóa toàn bộ dữ liệu" ĐÃ DỜI KHỎI ĐÂY — Sếp 16/09/2026: ***"Ẩn nút này ở mục
+           * này, đưa vào mục cài đặt quy trình. Và chức năng này chỉ hiện ở tài khoản cấp quản
+           * trị"***.
            *
-           * Nhãn cũ *"Xóa dữ liệu chạy thử"* làm người dùng tưởng đây là nút dọn dữ liệu mẫu,
-           * vô hại. Thực tế nó xóa **mọi đề nghị, báo giá, đơn hàng, phiếu nhận** khỏi kho dữ
-           * liệu dùng chung — tức **cả phòng cùng mất**, và không khôi phục lại được. Hai chữ
-           * "chạy thử" che đúng cái phần nguy hiểm nhất.
+           * 🔴 VÌ SAO CHỖ NÀY NGUY: mục xoá từng nằm **ngay dưới "Đăng xuất"** — một mục người ta
+           * bấm hàng ngày, một mục xoá sạch dữ liệu cả phòng không khôi phục được, cách nhau đúng
+           * một dòng. Bấm trượt là mất hết.
            *
-           * 📌 Vẫn giữ mục này (bản chạy thử cần dọn dữ liệu để thử lại từ đầu), nhưng nói thật
-           * nó làm gì. Hộp xác nhận bên dưới đã nêu đủ hệ quả và đếm số đề nghị sắp mất.
+           * ✅ KHÔNG MỒ CÔI CHỨC NĂNG (CLAUDE.md §3.4b): toàn bộ nút + hộp xác nhận chuyển nguyên
+           * vẹn sang `1-giao-dien/thanh-phan-nghiep-vu/khoi-xoa-du-lieu-chay-thu.tsx`, dựng ở
+           * trang Cài đặt quy trình. Lời cảnh báo (chỉ đạo Ban lãnh đạo 20/08/2026) giữ nguyên
+           * từng chữ — lượt này chỉ đổi CHỖ ĐẶT và AI THẤY.
+           *
+           * ⚠️ ĐỪNG DỰNG LẠI MỤC NÀY Ở ĐÂY. Khối mới tự gác `quyen.xoaToanBoDuLieu` (chỉ quản
+           * trị); thêm một đường vào từ menu này là mở lại đúng cửa vừa đóng.
            */}
-          <DropdownMenuItem onClick={() => doiHoiXoa(true)}>
-            <Trash2 className="size-4 shrink-0" aria-hidden />
-            Xóa toàn bộ dữ liệu {trangThaiKhoChung === "chung" ? "của cả phòng" : "trên máy này"}
-          </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -254,26 +252,6 @@ export function MenuTaiKhoan() {
         </DialogContent>
       </Dialog>
 
-      {/* 🔴 Từ 12/08/2026 dữ liệu để trên máy chủ dùng chung, nên lời cảnh báo phải nói
-          đúng phạm vi: xóa là MỌI NGƯỜI cùng mất, không phải "trên máy này" như trước. */}
-      <HopXacNhan
-        mo={hoiXoa}
-        tieuDe="Xóa toàn bộ dữ liệu chạy thử?"
-        moTa={
-          trangThaiKhoChung === "chung"
-            ? "Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng khỏi kho dữ liệu chung."
-            : "Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng đã nhập trên máy này."
-        }
-        canhBao={
-          trangThaiKhoChung === "chung"
-            ? `Đang có ${deNghi.length} đề nghị mua hàng. ⚠️ Cả phòng đang dùng chung kho dữ liệu này — xóa xong thì MỌI NGƯỜI đều mất, không riêng máy của bạn. Không khôi phục lại được.`
-            : `Đang có ${deNghi.length} đề nghị mua hàng. Không khôi phục lại được — app sẽ về trạng thái trống như lần mở đầu tiên.`
-        }
-        nhanDongY="Xóa hết"
-        nguyHiem
-        onDong={() => doiHoiXoa(false)}
-        onDongY={xoaDuLieuChayThu}
-      />
     </>
   );
 }
