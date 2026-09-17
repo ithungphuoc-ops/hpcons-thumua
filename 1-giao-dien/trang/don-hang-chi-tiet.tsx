@@ -553,9 +553,21 @@ export default function TrangChiTietDonHang() {
                     */}
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12 text-right">STT</TableHead>
-                      <TableHead className="whitespace-normal">Tên hàng</TableHead>
-                      <TableHead className="whitespace-normal">Thông số kỹ thuật</TableHead>
+                      {/**
+                        * ★★ BỀ RỘNG GHIM PHẢI GIỐNG HỆT BẢNG *Tiến độ nhận hàng* — Sếp 17/09/2026:
+                        * ***"cho đồng nhất, thẳng cột"***, nhắc lại ***"Chưa thẳng hàng"***.
+                        *
+                        * `w-14` · `w-48` · `w-56` · `w-20` · `w-28` cho 5 cột đầu. Lý do đầy đủ
+                        * (vì sao cùng thứ tự cột mà vẫn không tự thẳng) ghi ở
+                        * `thanh-phan-nghiep-vu/bang-tien-do-po.tsx`, ngay trên cột "Dòng".
+                        *
+                        * 🔴 ĐỔI Ở ĐÂY THÌ PHẢI ĐỔI CẢ BÊN KIA. Hai bảng nằm chồng nhau trên cùng
+                        * một màn; lệch một con số là lệch cả cột, và đây là việc Sếp đã phải nhắc
+                        * năm lần trong một ngày.
+                        */}
+                      <TableHead className="w-14 text-right">STT</TableHead>
+                      <TableHead className="w-48 whitespace-normal">Tên hàng</TableHead>
+                      <TableHead className="w-56 whitespace-normal">Thông số kỹ thuật</TableHead>
                       {/**
                         * ★★ TÁCH "SL" VÀ "ĐVT" LÀM HAI CỘT — Sếp 17/09/2026, khoanh đỏ đúng cột
                         * đang ghi gộp *"10 Thùng"*: ***"Tách đơn vị và số lượng ra"***.
@@ -581,8 +593,8 @@ export default function TrangChiTietDonHang() {
                         * SL** · Đơn giá…). Nên đổi thứ tự ở đây là về đúng chuẩn, không phải chiều
                         * theo một bảng khác.
                         */}
-                      <TableHead>ĐVT</TableHead>
-                      <TableHead className="text-right">SL</TableHead>
+                      <TableHead className="w-20">ĐVT</TableHead>
+                      <TableHead className="w-28 text-right">SL</TableHead>
                       <TableHead className="text-right">Đơn giá</TableHead>
                       <TableHead className="text-right">Thành tiền</TableHead>
                       <TableHead className="whitespace-normal">Mục đích sử dụng</TableHead>

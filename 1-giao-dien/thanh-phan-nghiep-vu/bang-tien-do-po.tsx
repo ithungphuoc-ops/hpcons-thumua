@@ -195,7 +195,30 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12 text-right">Dòng</TableHead>
+                {/**
+                  * ★★ BỀ RỘNG GHIM CHO 5 CỘT ĐẦU — Sếp 17/09/2026: ***"bố cục lại giao diện mục
+                  * này cho đồng nhất, thẳng cột"***, rồi nhắc lại: ***"Chưa thẳng hàng"*** kèm ảnh
+                  * khoanh ba cột lệch nhau.
+                  *
+                  * 🔴 VÌ SAO CÙNG THỨ TỰ CỘT MÀ VẪN KHÔNG THẲNG: bảng này và bảng *Giá trị đơn
+                  * hàng* ở `trang/don-hang-chi-tiet.tsx` là **hai `<table>` độc lập**, mỗi cái
+                  * `table-layout: auto` nên **tự tính bề rộng theo nội dung của riêng nó**. Bảng
+                  * này có thêm cột động theo từng lần giao + Đã nhận/Còn lại/Tiến độ; bảng kia có
+                  * Đơn giá/Thành tiền/Mục đích. Số cột và nội dung khác nhau ⇒ cùng một cột "Thông
+                  * số kỹ thuật" ra hai bề rộng khác nhau. **Không có cách nào để chúng tự khớp.**
+                  *
+                  * 👉 Cách duy nhất là GHIM cùng một bề rộng cho các cột chung ở CẢ HAI bảng:
+                  * `w-14` · `w-48` · `w-56` · `w-20` · `w-28`.
+                  *
+                  * 🔴 SỬA MỘT BÊN LÀ HỎNG NGAY. Năm con số này phải giống hệt ở
+                  * `trang/don-hang-chi-tiet.tsx` (bảng "Giá trị đơn hàng"). Đổi ở đây mà quên bên
+                  * kia là hai bảng lệch lại, và Sếp đã phải nhắc việc này **năm lần trong một ngày**.
+                  *
+                  * 📌 `whitespace-normal` ở hai cột chữ là phần không thể thiếu của cách này: nội
+                  * dung dài hơn bề rộng ghim thì XUỐNG DÒNG, không kéo cột giãn ra. Bỏ nó đi là bề
+                  * rộng ghim mất tác dụng ngay khi gặp một tên hàng dài.
+                  */}
+                <TableHead className="w-14 text-right">Dòng</TableHead>
                 {/**
                   * ★★ "Tên hàng" + "Thông số kỹ thuật" — Sếp 16/09/2026, vẽ mũi tên từ hai cột đó
                   * ở bảng *Giá trị đơn hàng* lên đây: ***"Thêm 2 trường này lên đây"***.
@@ -227,10 +250,10 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                   * 📌 BÀI HỌC ĐỂ ĐỪNG LẶP: chọn chỗ nhận phần dư thì tìm cột có **phần tử co giãn**
                   * (thanh, biểu đồ), không phải cột có **chữ dài nhất**.
                   */}
-                <TableHead className="whitespace-normal">Tên hàng</TableHead>
-                <TableHead className="whitespace-normal">Thông số kỹ thuật</TableHead>
-                <TableHead>ĐVT</TableHead>
-                <TableHead className="text-right">Đặt</TableHead>
+                <TableHead className="w-48 whitespace-normal">Tên hàng</TableHead>
+                <TableHead className="w-56 whitespace-normal">Thông số kỹ thuật</TableHead>
+                <TableHead className="w-20">ĐVT</TableHead>
+                <TableHead className="w-28 text-right">Đặt</TableHead>
                 {lanGiaoDaTinh.map((p) => (
                   <TableHead key={p.id} className="text-right whitespace-nowrap">
                     {new Date(p.ngayNhanThucTe).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
