@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getHpcoreDb } from "@/5-ket-noi/hpcore-may-chu";
-import { bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
-import { DUONG_DAN_TACH } from "@/3-du-lieu/duong-dan-tach";
+import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
 import {
   tinhTienDoPO,
   vuongMacGhiThemPhieuNhan,
@@ -10,6 +9,7 @@ import {
   laDongHang,
 } from "@/2-quy-trinh/tinh-toan";
 import type { DonDatHang, DongNhanHang, PhieuNhanHang } from "@/3-du-lieu/kieu-du-lieu";
+import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import type { PhieuNhanMoiTuQlkCtr, KetQuaNhanPhieuTuQlkCtr } from "@/3-du-lieu/tich-hop-qlk-ctr-nhan-hang-types";
 
 // "Cửa tiếp nhận" của App Thu mua cho QLK CTR — mirror đúng khuôn `de-nghi-moi/route.ts`
@@ -50,43 +50,26 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanPhi
 
   try {
     const db = getHpcoreDb();
-
-    /**
-     * ★★ CHUYỂN SANG CẤU TRÚC TÁCH — 17/09/2026.
-     *
-     * Trước đây: đọc MỘT tài liệu chứa cả kho rồi lọc bằng `.find()` trong bộ nhớ.
-     * Nay: đơn hàng là tài liệu riêng trong `tm_donhang`, phiếu nhận nằm LỒNG trong đơn tại
-     * `tm_donhang/{poId}/nhanhang/{id}` — đúng quyết định ③ của Sếp ngày 16/09/2026.
-     *
-     * 🔴 PHẢI ĐỌC HẾT RỒI MỚI ĐƯỢC GHI. Transaction của Firestore bắt buộc mọi lượt đọc đứng
-     * trước mọi lượt ghi; xen một lượt đọc vào sau lượt ghi là lỗi ngay lúc chạy.
-     *
-     * 📌 CHỐNG TRÙNG NAY CHỈ QUÉT TRONG ĐÚNG ĐƠN ĐÓ, không quét toàn bộ phiếu nhận của cả công
-     * ty như bản cũ. Ba lý do: (a) phiếu nhận luôn thuộc đúng một đơn, mà đơn đã xác định được
-     * từ `poCode` ngay trên; (b) rẻ hơn hẳn — quét một đơn thay vì mọi đơn, đúng bài học lượt
-     * đọc Firestore rút ra từ sự cố app Kho ngày 15–16/09; (c) không phải dựng index
-     * `collectionGroup` chỉ để phục vụ một phép chống trùng.
-     */
-    const donHangCol = db.collection(DUONG_DAN_TACH.donHang);
+    const docRef = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
 
     const ketQua = await db.runTransaction(async (tx) => {
-      const poSnap = await tx.get(donHangCol.where("code", "==", payload.poCode).limit(1));
-      if (poSnap.empty) {
-        throw new Error(`Không tìm thấy đơn mua hàng "${payload.poCode}".`);
-      }
-      const poDoc = poSnap.docs[0];
-      const po = poDoc.data() as DonDatHang;
-      const phieuCol = poDoc.ref.collection(DUONG_DAN_TACH.phieuNhanTrongDon);
-
-      const phieuSnap = await tx.get(phieuCol);
-      const phieuCuaPO: PhieuNhanHang[] = phieuSnap.docs.map((d) => d.data() as PhieuNhanHang);
+      const snap = await tx.get(docRef);
+      const data = (snap.exists ? snap.data() : {}) as Partial<DuLieuLuu>;
+      const donHangHienCo: DonDatHang[] = Array.isArray(data.donHang) ? data.donHang : [];
+      const phieuNhanHienCo: PhieuNhanHang[] = Array.isArray(data.phieuNhan) ? data.phieuNhan : [];
 
       // Chống trùng khi QLK CTR gọi lại (retry do mạng lỗi) — trả lại đúng phiếu đã tạo.
-      const trungRoi = phieuCuaPO.find((p) => p.maPhieuNhanQlkCtr === payload.maPhieuNhanQlkCtr);
+      const trungRoi = phieuNhanHienCo.find((p) => p.maPhieuNhanQlkCtr === payload.maPhieuNhanQlkCtr);
       if (trungRoi) {
         return { moi: false as const, phieu: trungRoi };
       }
 
+      const po = donHangHienCo.find((p) => p.code === payload.poCode);
+      if (!po) {
+        throw new Error(`Không tìm thấy đơn mua hàng "${payload.poCode}".`);
+      }
+
+      const phieuCuaPO = phieuNhanHienCo.filter((p) => p.poId === po.id);
       const tienDo = tinhTienDoPO(po, phieuCuaPO);
 
       // Khớp theo TÊN vật liệu (không theo số thứ tự) — cả 2 hệ thống đều có sẵn tên gốc
@@ -156,16 +139,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanPhi
         anhQlkCtr: payload.anhQlkCtr,
       };
 
-      /* Phiếu nhận thành MỘT tài liệu riêng lồng trong đơn — không còn nối vào mảng rồi ghi đè
-         cả kho. Đây chính là điểm khiến hai thủ kho ghi hai đơn khác nhau không còn đè nhau. */
-      tx.set(phieuCol.doc(phieuMoi.id), bo0Undefined(phieuMoi));
+      const donHangMoi = donHangHienCo.map((p) =>
+        p.id === po.id && p.trangThai === "da_chot" ? { ...p, trangThai: "dang_giao" as const } : p,
+      );
 
-      /* 📌 CHỈ ĐỘNG VÀO ĐƠN KHI THẬT SỰ PHẢI ĐỔI TRẠNG THÁI. Bản cũ `map()` qua toàn bộ đơn rồi
-         ghi lại tất cả, nên mỗi lần nhận hàng là một lượt ghi đè lên mọi đơn của cả phòng — đúng
-         thứ đẻ ra vòng dội ngược. Nay chạm đúng một tài liệu, và chỉ khi cần. */
-      if (po.trangThai === "da_chot") {
-        tx.update(poDoc.ref, { trangThai: "dang_giao" });
-      }
+      tx.set(
+        docRef,
+        bo0Undefined({ donHang: donHangMoi, phieuNhan: [...phieuNhanHienCo, phieuMoi] }),
+        { merge: true },
+      );
       return { moi: true as const, phieu: phieuMoi };
     });
 

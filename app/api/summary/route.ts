@@ -1,53 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unstable_cache } from "next/cache";
 import { getHpcoreDb } from "@/5-ket-noi/hpcore-may-chu";
-import { DUONG_DAN_TACH } from "@/3-du-lieu/duong-dan-tach";
-import type { DonDatHang, DeNghiMuaHang, GiaDonDatHang, NhaCungCap } from "@/3-du-lieu/kieu-du-lieu";
+import { DUONG_DAN } from "@/3-du-lieu/kho-chung-firestore";
+import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
+import type { DonDatHang, DeNghiMuaHang, GiaDonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import { tinhTienChiTietPO } from "@/2-quy-trinh/tinh-toan";
-
-/**
- * ★★★ BỘ NHỚ TẠM 5 PHÚT — THÊM 17/09/2026 CÙNG LÚC CHUYỂN SANG CẤU TRÚC TÁCH.
- *
- * 🔴 ĐÂY KHÔNG PHẢI TỐI ƯU CHO VUI, MÀ LÀ VÁ MỘT LỖ DO CHÍNH LƯỢT CHUYỂN NÀY MỞ RA.
- *
- * Mô hình cũ: cả kho nằm trong MỘT tài liệu → mỗi lần gọi API tốn đúng **1 lượt đọc** Firestore,
- * bất kể có bao nhiêu đơn hàng.
- * Mô hình tách: mỗi bản ghi một tài liệu → quét ba collection tốn **N lượt đọc**, N là tổng số
- * đơn + đề nghị + bảng giá, và N chỉ có tăng theo thời gian.
- *
- * 🔴 ĐÃ CÓ TIỀN LỆ THẬT, CÁCH ĐÂY ĐÚNG MỘT NGÀY: app Kho công trình sập ngày 15–16/09 vì
- * `RESOURCE_EXHAUSTED` — không phải do dữ liệu nhiều (chỉ ~110 tài liệu một lần quét) mà do quét
- * quá thường: bộ nhớ tạm chỉ 45 giây. Vá bằng cách nới lên 10 phút. Nếu bê nguyên lối cũ sang
- * đây thì App Thu mua sẽ đi đúng vào cái bẫy vừa thoát ra.
- *
- * 📌 VÌ SAO 5 PHÚT ĐỦ: đây là số liệu cho ô tổng quan của App Tổng — người xem cần biết "khoảng
- * bao nhiêu đơn đang chạy", không ai ra quyết định dựa trên con số lệch vài phút. Đổi lại, số
- * lượt đọc giảm theo đúng tần suất gọi: gọi 100 lần trong 5 phút cũng chỉ quét một lần.
- *
- * ⚠️ KHÔNG gắn `tags` và KHÔNG `revalidateTag` ở đâu cả — cố ý. Đây là đường CHỈ ĐỌC cho app
- * ngoài; xả bộ nhớ tạm mỗi lần có người sửa đơn là quay lại đúng bài toán cũ. Thà số liệu trễ
- * tối đa 5 phút.
- */
-const docSoLieuTomTat = unstable_cache(
-  async () => {
-    const db = getHpcoreDb();
-    /* Bốn lượt đọc chạy song song — tuần tự thì cộng dồn độ trễ mà chẳng được gì. */
-    const [donHangSnap, deNghiSnap, giaSnap, caiDatSnap] = await Promise.all([
-      db.collection(DUONG_DAN_TACH.donHang).get(),
-      db.collection(DUONG_DAN_TACH.deNghi).get(),
-      db.collection(DUONG_DAN_TACH.giaDonHang).get(),
-      db.collection(DUONG_DAN_TACH.caiDat).doc(DUONG_DAN_TACH.tepCaiDat).get(),
-    ]);
-    return {
-      donHang: donHangSnap.docs.map((d) => d.data() as DonDatHang),
-      deNghi: deNghiSnap.docs.map((d) => d.data() as DeNghiMuaHang),
-      giaDonHang: giaSnap.docs.map((d) => d.data() as GiaDonDatHang),
-      nhaCungCapThem: ((caiDatSnap.data()?.nhaCungCapThem ?? []) as NhaCungCap[]),
-    };
-  },
-  ["api-summary-thu-mua"],
-  { revalidate: 300 },
-);
 
 // Số liệu tóm tắt cho Dashboard toàn cảnh của App Tổng (09/2026) — đúng khuôn với 5 app con
 // khác đã có (/api/summary hoặc /api/v1/summary ở PKD/Kho/Công nợ/Thiết kế/Đấu thầu): bảo vệ
@@ -67,11 +23,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const data = await docSoLieuTomTat();
+    const db = getHpcoreDb();
+    const snap = await db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep).get();
+    const data = (snap.data() ?? {}) as Partial<DuLieuLuu>;
 
-    const donHang: DonDatHang[] = data.donHang;
-    const deNghi: DeNghiMuaHang[] = data.deNghi;
-    const giaDonHang: GiaDonDatHang[] = data.giaDonHang;
+    const donHang: DonDatHang[] = data.donHang ?? [];
+    const deNghi: DeNghiMuaHang[] = data.deNghi ?? [];
+    const giaDonHang: GiaDonDatHang[] = data.giaDonHang ?? [];
     const giaTheoPoId = new Map(giaDonHang.map((g) => [g.poId, g]));
 
     const donHangHoanThanh = donHang.filter((p) => p.trangThai === "hoan_thanh");
@@ -108,7 +66,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       de_nghi_tong: deNghi.length,
       de_nghi_dang_xu_ly: deNghiDangXuLy.length,
       de_nghi_hoan_thanh_hoac_dong: deNghiHoanThanhHoacDong.length,
-      nha_cung_cap_tong: data.nhaCungCapThem.length,
+      nha_cung_cap_tong: (data.nhaCungCapThem ?? []).length,
       cho_de_nghi_list: donHangChoDeNghi.slice(0, 8).map((p) => ({
         code: p.code,
         ma_du_an: p.maDuAn,
