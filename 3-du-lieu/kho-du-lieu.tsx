@@ -132,13 +132,7 @@ import {
   xoaDuLieuDaLuu,
   type DuLieuLuu,
 } from "@/3-du-lieu/luu-tren-may";
-/* ★★ CẤU TRÚC TÁCH — BẬT NGÀY 17/09/2026 (Sếp duyệt kế hoạch 16/09, bước 1 gộp ở PR #24).
-   Trước đây cả phòng ghi chung MỘT tài liệu `chay-thu/du-lieu-chung`: một người sửa là cả phòng
-   nhận lại toàn bộ dữ liệu, nền của sự cố vòng lặp 13–15/09. Nay mỗi loại chứng từ một collection,
-   mỗi bản ghi một tài liệu — hai người sửa hai đơn khác nhau không còn đụng nhau.
-   ⚠️ Tệp cũ `kho-chung-firestore.ts` VẪN CÒN vì 3 route máy chủ dùng `DUONG_DAN` của nó; đừng xoá
-   khi chưa chuyển hết. */
-import { noiKhoChungTach, type KetNoiKhoChungTach } from "@/3-du-lieu/kho-chung-tach";
+import { noiKhoChung, type KetNoiKhoChung } from "@/3-du-lieu/kho-chung-firestore";
 /* ★★ NHỊP GHI & NHỊP THỬ LẠI (Sếp 15/09/2026, theo phân tích của đội QLK CTR cùng ngày) — hàm
    THUẦN đặt ở `2-quy-trinh/` đúng chỉ đạo *"luật nằm trong hook thì không bài kiểm nào bắt
    được"*. `kiem-luat-dung-chung.mjs` gọi thật cả bốn hàm này. */
@@ -2001,7 +1995,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * Cách chặn: ghi nhớ chuỗi JSON vừa nhận/vừa gửi; lần ghi nào có nội dung y hệt thì bỏ qua.
    */
   const anhChupCuoi = useRef<string>("");
-  const ketNoiChung = useRef<KetNoiKhoChungTach | null>(null);
+  const ketNoiChung = useRef<KetNoiKhoChung | null>(null);
 
   /**
    * 🔴 CHỐT AN TOÀN: chưa nghe được máy chủ nói gì thì TUYỆT ĐỐI không đẩy lên.
@@ -2162,32 +2156,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
       void ketNoiChung.current
         .day(d)
-        .then((loiTuChoi) => {
-          /**
-           * ★★★ LƯỚI CHẮN TỪ CHỐI GHI — cấu trúc tách, 17/09/2026.
-           *
-           * 🔴 `day()` của bản tách trả về CHUỖI khi nó **từ chối ghi** (xem cờ `dangNgo` ở
-           * `2-quy-trinh/so-sanh-kho-tach.ts`): lần ghi này sẽ xoá quá nửa số bản ghi, dấu hiệu
-           * state vừa về rỗng vì một lý do bất thường. Ở mô hình một-tài-liệu cũ, ghi đè bằng
-           * rỗng chỉ hỏng một document và còn cứu được; ở mô hình tách nó thành lệnh xoá hàng
-           * loạt tài liệu thật.
-           *
-           * 🔴 TỪ CHỐI **KHÔNG PHẢI** LỖI MẠNG, NÊN TUYỆT ĐỐI KHÔNG `henDayLai()`.
-           * Đẩy lại đúng bản dữ liệu đó sẽ bị từ chối y hệt, lần sau cũng vậy — thành một vòng
-           * lặp ghi vô tận, đúng thứ đã làm sập app ngày 13–15/09. Bài học đã ghi trong
-           * `nhip-dong-bo-qlk-ctr.ts`: lỗi gửi lại y nguyên không đổi được gì thì phải đứng yên.
-           * Chỉ khi state đổi sang bản hợp lệ thì lần ghi sau mới có cơ hội qua.
-           */
-          if (loiTuChoi) {
-            console.error("[kho chung] TỪ CHỐI ghi:", loiTuChoi);
-            /* Gỡ dấu "chính mình vừa gửi" — lần ghi này KHÔNG lên máy chủ, để nguyên dấu thì ảnh
-               chụp thật dội về sẽ bị tưởng là echo của mình và bị bỏ qua. */
-            if (chuoiDaDanhDau !== undefined && anhChupCuoi.current === chuoiDaDanhDau) {
-              anhChupCuoi.current = "";
-            }
-            setTrangThaiKhoChung("rieng");
-            return;
-          }
+        .then(() => {
           // ✅ Ghi được → dọn lịch hẹn, đặt lại đếm, và nói thật là đang dùng chung trở lại.
           soLanGhiHong.current = 0;
           donLichGhiLai();
@@ -2863,38 +2832,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
     // ② Rồi nối kho chung. Từ lúc này máy chủ là nguồn chính.
     let conSong = true;
-    void noiKhoChungTach(
+    void noiKhoChung(
       (tuMayChu) => {
         if (!conSong) return;
         daNgheMayChu.current = true;
         setTrangThaiKhoChung("chung");
 
-        /**
-         * ★★★ THAY CHO PHÉP THỬ `tuMayChu === null` CỦA MÔ HÌNH CŨ — 17/09/2026.
-         *
-         * 🔴 Mô hình một-tài-liệu phân biệt được "máy chủ CHƯA CÓ tài liệu" (`null`) với "có
-         * nhưng rỗng". Mô hình tách **không phân biệt được**: chưa ai ghi gì thì các collection
-         * đơn giản là không có tài liệu nào, trông y hệt "có nhưng rỗng". Nên `khiCoDuLieu` của
-         * bản tách không bao giờ trả `null`.
-         *
-         * 🔴 BỎ HẲN PHÉP THỬ NÀY LÀ MẤT DỮ LIỆU THẬT: lần đầu cả phòng dùng, máy chủ rỗng, app sẽ
-         * `apDung(rỗng)` và **xoá sạch việc đang có trên máy** thay vì đẩy nó lên làm bản gốc.
-         * Vì vậy phải dựng lại phép thử bằng thứ đo được: máy chủ rỗng ở MỌI nhóm.
-         *
-         * ⚠️ Phải xét CẢ `cauHinh` chứ không chỉ các mảng. Cấu hình quy trình nằm ở tài liệu
-         * `tm_caidat/chung` riêng; một kho đã dùng thật mà vô tình sạch hết chứng từ vẫn còn cấu
-         * hình, và lúc đó **không được** coi là "lần đầu" rồi đem state của một máy đè lên.
-         */
-        const mayChuRong =
-          tuMayChu.deNghi.length === 0 &&
-          tuMayChu.donHang.length === 0 &&
-          tuMayChu.giaDonHang.length === 0 &&
-          tuMayChu.phieuNhan.length === 0 &&
-          tuMayChu.baoGia.length === 0 &&
-          tuMayChu.thongBao.length === 0 &&
-          !tuMayChu.cauHinh;
-
-        if (mayChuRong) {
+        // `null` = máy chủ CHƯA CÓ tài liệu (lần đầu cả phòng dùng). Lúc này phải ĐẨY
+        // dữ liệu của mình lên làm bản gốc, chứ không phải lấy cái rỗng về rồi tự xóa mình.
+        if (tuMayChu === null) {
           const d = duLieuHienTai.current;
           if (d) {
             /* Cùng lý do với chỗ gọi trong effect ghi: ghi hỏng thì phải gỡ dấu, không thì lần
