@@ -50,6 +50,13 @@ async function docPhanHoi(res: Response): Promise<PhanHoiTrungChuyen> {
 //      màn hình lại nói một đằng còn đường gửi làm một nẻo, đúng cái sai đang chữa. Hàm này từ nay
 //      dùng cho CẢ HAI loại PO (có đề nghị và độc lập) nên chữ "DocLap" trong tên cũ thành sai.
 //      Đây là hàm do chính đợt sửa 15/09 thêm vào, KHÔNG phải hàm của phiên tích hợp.
+//   ⑤ (17/09/2026) Thêm trường `daHuy` vào CẢ HAI payload PO gửi sang QLK CTR (`xayDungPayloadPO`/
+//      `xayDungPayloadPODocLap`) — Sếp yêu cầu trực tiếp: "PO thay đổi hoặc bị hủy, QLK CTR phải
+//      nhận được đúng thay đổi/bản hủy đó, không đọc lại hết". Chỉ THÊM 1 trường boolean, không
+//      đổi field nào khác, không đổi điều kiện `apDung`/hồ sơ phòng ban đã chốt ở việc ②③④.
+//      Dùng LẠI nguyên cơ chế `canDongBoLaiPO`/`canDongBoLaiPODocLap` có sẵn (so JSON payload cũ
+//      với `qlkCtrSyncedSnapshot`) — hủy 1 PO làm `daHuy` đổi giá trị, tự nhận ra là "có thay đổi
+//      chưa gửi" như mọi lần sửa PO khác, không cần đường gửi/đường phát hiện riêng.
 // Không dọn dẹp, không xoá gì khác của các anh — ghi ra đây để người đọc sau biết đây là sửa có
 // phép chứ không phải ai đó tự tiện.
 // ============================================================
@@ -100,6 +107,9 @@ function xayDungPayloadPO(po: DonDatHang, maDeXuat: string) {
     diaDiemGiao: po.diaDiemGiaoHang,
     dieuKhoanKhac: po.dieuKhoanKhac,
     nguoiNhan: po.nguoiNhanHangTen,
+    // (17/09/2026, việc ⑤ ở đầu tệp) Báo QLK CTR biết PO này đã hủy — không xóa hẳn PO bên đó, chỉ
+    // đánh dấu để loại khỏi "còn thiếu"/"Hàng cần nhập", vẫn giữ lịch sử nhập kho cũ nếu có.
+    daHuy: po.trangThai === "huy",
     // 🔴 (30/08/2026): KHÔNG còn lọc bỏ dòng thiếu `sttDongDeNghi` — trước đây lọc ở đây làm PO
     // "độc lập" (lập trước khi có đề nghị, xem `DongPO.sttDongDeNghi`) mất sạch vật tư lúc gắn
     // vào đề nghị thật: dòng nào cũng thiếu `sttDongDeNghi` (đúng thiết kế, đơn độc lập chưa
@@ -229,6 +239,8 @@ function xayDungPayloadPODocLap(po: DonDatHang) {
     diaDiemGiao: po.diaDiemGiaoHang,
     dieuKhoanKhac: po.dieuKhoanKhac,
     nguoiNhan: po.nguoiNhanHangTen,
+    // (17/09/2026, việc ⑤ ở đầu tệp) — xem chú thích ở `xayDungPayloadPO`, cùng lý do/cùng cách.
+    daHuy: po.trangThai === "huy",
     // Gửi kèm `quyCach` (khác `xayDungPayloadPO` ở trên) — không có dòng đề nghị gốc nào để đối
     // chiếu tên, quy cách là tín hiệu phân biệt DUY NHẤT khi công trình có nhiều vật tư trùng
     // tên+ĐVT.
