@@ -3112,7 +3112,7 @@ export default function TrangChiTietDeNghi({
                    * ★★ HỒ SƠ PHÒNG BAN — Sếp 15/09/2026, nguyên văn: *"Đề nghị phòng ban thì ko
                    * cần nút này"* (ảnh chụp production: hồ sơ DMH260007 đã "Đã nhận hàng", tiến độ
                    * 5/5 "Đã nhận đủ", đã có phiếu giao nhận — mà vẫn còn badge "Chờ kho xác nhận"
-                   * và nút xanh "Kho xác nhận nhận đủ hàng").
+                   * và nút xanh "Xác nhận nhận hàng").
                    *
                    * 🔴 ẨN NÚT MÀ KHÔNG LÀM HỒ SƠ KẸT — đọc kỹ chỗ này trước khi nghĩ tới việc bỏ:
                    * nút không bị *giấu đi*, nó THỪA THẬT. Tầng ghi ở `3-du-lieu/kho-du-lieu.tsx`
@@ -3248,7 +3248,12 @@ export default function TrangChiTietDeNghi({
                                   }}
                                 >
                                   <Check className="size-4" aria-hidden />
-                                  Kho xác nhận nhận đủ hàng
+                                  {/* ★ Sếp đổi chữ 17/09/2026: "Kho xác nhận nhận đủ hàng" →
+                                      "Xác nhận nhận hàng". Ngắn hơn, và bỏ chữ "Kho" ở đầu — nút
+                                      này vốn chỉ hiện cho người có quyền kho, nên nhắc lại chữ đó
+                                      trên chính nút họ bấm là thừa. Cùng hướng với lần đổi chữ cho
+                                      hồ sơ phòng ban ngày 15/09: nói việc đang làm, đừng nói ai làm. */}
+                                  Xác nhận nhận hàng
                                 </Button>
                                 {vuongMacTep !== null && (
                                   <span className="text-xs text-warning-soft">{vuongMacTep}</span>
