@@ -4528,7 +4528,36 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         const dsHienTai = deNghiRef.current;
         const phieuKeo = dsHienTai.find((d) => d.id === prId);
         const idGoc = phieuKeo?.deNghiGocId ?? prId;
-        const banTach = dsHienTai.filter((d) => d.deNghiGocId === idGoc && d.id !== idGoc);
+        const banTachTatCa = dsHienTai.filter((d) => d.deNghiGocId === idGoc && d.id !== idGoc);
+
+        /**
+         * ★★ TÁCH TỰ ĐỘNG vs NHÂN BẢN TAY — Sếp 17/09/2026, sửa một lỗi đo được.
+         *
+         * 🔴 LỖI: hai đường sinh phiếu con khác nhau ở một điểm sống còn, mà chỗ gộp này lại đối
+         * xử y hệt:
+         *   · **Tách tự động** (`tachTheoPhanBo`) — phiếu gốc **bị CẮT** dòng đi, mỗi người một
+         *     phần. Gộp về là trả lại đúng nguyên trạng. ✅
+         *   · **Nhân bản tay** (`nhanBanDeNghi`) — phiếu gốc **CÒN NGUYÊN** cả dòng (chỉ làm mờ,
+         *     Sếp chốt 15/09 *"làm mờ đi để vẫn xem được"*). Gộp thêm dòng của bản con vào là
+         *     **dòng nhân đôi**: phiếu 3 mặt hàng nhân bản 2 → kéo về bước ① thành 5 mặt hàng.
+         *
+         * 📌 KHÔNG THÊM CỜ MỚI. App đã có sẵn dấu phân biệt, chỉ là chỗ này chưa hỏi tới:
+         * `sttDongGoc` chỉ được ghi bởi `nhanBanDeNghi`, còn `tachTheoPhanBo` **cố ý không ghi**
+         * (lý do ở khối chú thích của hàm đó — ghi vào là làm mờ sai dòng). Thêm một cờ nữa là
+         * lại phải dọn nó ở bốn chỗ, đúng thứ `nhan-ban-de-nghi.ts` đã bác.
+         *
+         * 🔴 BẢN NHÂN BẢN TAY CŨ (trước 15/09/2026) KHÔNG CÓ `sttDongGoc` → **KHÔNG GỘP, GIỮ
+         * NGUYÊN PHIẾU**. Không đoán bừa bằng cách so tên mặt hàng: đoán sai là mất dòng thật.
+         * Nhận ra chúng bằng dòng nhật ký đầu tiên — `"Nhân bản từ ..."` vs `"Tách tự động từ ..."`
+         * — dấu vết này có trên **mọi** bản con, kể cả bản cũ nhất. Kết quả xấu nhất là người dùng
+         * phải tự xoá bản copy đó, còn hơn hồ sơ tự phình thêm dòng mà không ai biết.
+         */
+        const laNhanBanTay = (d: DeNghiMuaHang): boolean =>
+          typeof d.lichSu?.[0]?.hanhDong === "string" &&
+          d.lichSu[0].hanhDong.startsWith("Nhân bản từ");
+        const banTach = banTachTatCa.filter(
+          (d) => !laNhanBanTay(d) || d.items.some((x) => typeof x.sttDongGoc === "number"),
+        );
         const coChungTu = [idGoc, ...banTach.map((d) => d.id)].some(
           (id) =>
             donHangRef.current.some((po) => po.prId === id && po.trangThai !== "huy") ||
@@ -4574,11 +4603,27 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           const idBanTach = new Set(banTach.map((d) => d.id));
           /* Dòng của gốc trước, rồi dòng của từng bản tách theo đúng thứ tự mã — để danh sách
              sau khi gộp có thứ tự đoán được, không phụ thuộc thứ tự trong kho dữ liệu. */
+          /**
+           * 🔴 BỎ DÒNG MÀ PHIẾU GỐC VẪN ĐANG GIỮ — Sếp 17/09/2026.
+           *
+           * Bản **nhân bản tay** không cắt dòng khỏi phiếu gốc, nó chỉ trỏ ngược về bằng
+           * `sttDongGoc`. Dòng nào của bản con trỏ về một `stt` mà phiếu gốc **vẫn còn** thì gộp
+           * vào là nhân đôi — đây chính là lỗi đang vá. Dòng của bản **tách tự động** không có
+           * `sttDongGoc` nên đi qua phép lọc này nguyên vẹn, gộp đúng như trước.
+           *
+           * ⚠️ So với `goc.items` (bản trong `truoc`, tức dữ liệu ngay lúc ghi) chứ không phải
+           * `dsHienTai` — hai lần đọc cách nhau vài dòng, mà giữa chừng người khác có thể đã ghi.
+           */
+          const sttGocConGiu = new Set(goc.items.map((d) => d.stt));
           const dongGop = [
             ...goc.items,
             ...[...banTach]
               .sort((a, b) => a.code.localeCompare(b.code, "vi"))
-              .flatMap((d) => d.items),
+              .flatMap((d) =>
+                d.items.filter(
+                  (x) => typeof x.sttDongGoc !== "number" || !sttGocConGiu.has(x.sttDongGoc),
+                ),
+              ),
           ].map((d, i) => ({
             ...d,
             stt: i + 1,

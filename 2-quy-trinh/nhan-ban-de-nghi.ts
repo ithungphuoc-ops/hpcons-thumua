@@ -106,6 +106,44 @@ export function dongDaChuyenDiHet(stt: number, daNhanBan: Map<number, string[]>)
 }
 
 /**
+ * ★★ LỌC BỎ DÒNG ĐÃ NHÂN BẢN ĐI KHỎI MỘT MẢNG TIẾN ĐỘ — Sếp 17/09/2026.
+ *
+ * 🔴 LỖI THẬT ĐÃ ĐO ĐƯỢC, KHÔNG PHẢI DỌN DẸP CHO ĐẸP. Trước bản vá này, phiếu gốc đã nhân bản 2/3
+ * mặt hàng đi vẫn bị tính tiến độ trên **cả 3 dòng**, nên:
+ *   · `xacDinhGiaiDoan` → nhánh `daVeDu` không bao giờ đúng ⇒ thẻ **không vào nổi cột ⑦ Hồ sơ
+ *     thanh toán**, nằm lại ở ⑤/⑥ vĩnh viễn;
+ *   · `vuongMacHoanThanhQuyTrinh` → *"còn 2 mặt hàng chưa lên đơn"* ⇒ **không bấm hoàn thành được**,
+ *     dù 2 mặt hàng đó đang được người khác mua ở bản con.
+ * Người giữ phiếu gốc không sai gì mà hồ sơ kẹt — và trên bảng KPI thì đó là một phiếu "trễ hạn"
+ * ghi vào tên họ.
+ *
+ * 🔴 VÌ SAO KHÔNG SỬA `tinhTienDoDeNghi` (cách nghe hợp lý nhất và LÀ CÁCH SAI):
+ * `giai-doan-mua-hang.ts` dòng ~200 đã ghi rõ lý do bác — `khoiLuongChuaLenPO` có **13 nơi đọc**,
+ * trong đó có bảng phân bổ (**Sếp 15/09 yêu cầu dòng đã nhân bản vẫn LÀM MỜ để xem được**, trừ ở
+ * tầng đó là dòng biến mất hẳn) và phép kiểm ngân sách khi sửa đơn. Nên trừ ở **đúng hai điểm
+ * quyết định**, giống hệt khuôn `dongConPhaiLam` người trước đã đặt, chứ không trừ ở gốc.
+ *
+ * ⚠️ THIẾU `tatCaDeNghi` THÌ TRẢ NGUYÊN MẢNG — cư xử y như trước, tuyệt đối không trừ mù. Nơi gọi
+ * chưa cập nhật mà đã trừ là cho đóng hồ sơ chưa mua gì, tức đổi một lỗi kẹt lấy một lỗi nặng hơn.
+ *
+ * 📌 `stt` ĐỂ TÙY CHỌN, VÀ DÒNG KHÔNG CÓ `stt` THÌ GIỮ LẠI. `vuongMacHoanThanhQuyTrinh` khai tham
+ * số tiến độ ở dạng rút gọn (chỉ hai con số) và `kiem-luat-dung-chung.mjs` dựng mảng tay theo đúng
+ * dạng đó. Đòi `stt` bắt buộc là mọi bài kiểm cũ gãy cùng lúc; còn loại bỏ dòng thiếu `stt` là trừ
+ * mù — cả hai đều tệ hơn việc giữ nguyên dòng không đối chiếu được.
+ */
+export function locTienDoConPhaiMua<T extends { stt?: number }>(
+  goc: Pick<DeNghiMuaHang, "id">,
+  tatCaDeNghi: DeNghiMuaHang[] | undefined,
+  tienDo: T[],
+): T[] {
+  if (!tatCaDeNghi || tatCaDeNghi.length === 0) return tienDo;
+  const daNhanBan = dongDaNhanBanSang(goc, tatCaDeNghi);
+  /* Phiếu chưa bị nhân bản lần nào — ca thường gặp nhất. Trả thẳng mảng cũ, không tạo mảng mới. */
+  if (daNhanBan.size === 0) return tienDo;
+  return tienDo.filter((d) => typeof d.stt !== "number" || !dongDaChuyenDiHet(d.stt, daNhanBan));
+}
+
+/**
  * MÃ của bản sao sắp tạo ra khi nhân bản `dn` — ví dụ `260001-HPCS-PR-001 (copy)`.
  *
  * 🔴 Ban lãnh đạo 13/08/2026 nói rõ bằng ví dụ: *"ý a là 26001-HPCS-PR-001 (copy)"*. Tức

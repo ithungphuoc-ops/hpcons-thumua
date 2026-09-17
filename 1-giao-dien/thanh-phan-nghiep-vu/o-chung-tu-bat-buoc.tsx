@@ -35,9 +35,9 @@ export function OChungTuBatBuoc({
   /** Tệp đã có của ô này — nơi gọi tự lọc bằng hàm thuần ở `chung-tu-cuoi-quy-trinh.ts`. */
   tepDaCo,
   /**
-   * ★★ NÚT PHỤ ĐỨNG NGAY CẠNH TIÊU ĐỀ Ô — thêm 16/09/2026, Sếp vẽ mũi tên từ nút *"Bổ sung sau"*
-   * (đang nằm tít dưới dòng *"Nhận PDF, ảnh, Word, Excel…"*) lên ngang nút đính kèm: ***"Đưa nút
-   * này lên"***.
+   * ★★ NÚT PHỤ ĐỨNG NGAY CẠNH NÚT CHỌN TỆP — vị trí hiện tại Sếp chốt 17/09/2026. Chỗ VẼ nằm ở
+   * cuối `return` (không phải ở hàng tiêu đề), xem khối chú thích tại đó để biết vì sao đã dời hai
+   * lần và đừng trả về chỗ cũ.
    *
    * 🔴 TUỲ CHỌN, và mặc định KHÔNG vẽ gì. Component này dùng chung cho 8 chỗ (Hợp đồng · Đơn mua
    * hàng · Hoá đơn VAT · UNC · Phiếu chi · và hộp "Gỡ vướng" trên Kanban). Bắt buộc phải là prop
@@ -97,9 +97,6 @@ export function OChungTuBatBuoc({
             Nếu có
           </span>
         )}
-        {/* Nút phụ (vd "Bổ sung sau") — xem chú thích ở prop `nutPhu`. `ml-auto` đẩy sang mép
-            phải; hàng đã `flex-wrap` nên màn hẹp thì nút tự xuống dòng, không đè tiêu đề. */}
-        {nutPhu && <span className="ml-auto flex items-center gap-2">{nutPhu}</span>}
       </div>
       {moTa && <p className="text-xs text-text-desc">{moTa}</p>}
 
@@ -157,15 +154,41 @@ export function OChungTuBatBuoc({
 
       {/* Ô trống để thêm bản mới. Chưa có bản nào thì luôn hiện; đã có rồi thì chỉ hiện khi người
           dùng bấm "Thêm bản nữa" — bày sẵn ô trống dưới mỗi bản làm khối dài ra vô ích. */}
-      {(tepDaCo.length === 0 || themBanNua) && (
-        <ODinhKemTep
-          nhanThem={tieuDe}
-          nguoi={nguoi}
-          onXong={(moi) => luu(moi, undefined)}
-          batBuoc={batBuoc && tepDaCo.length === 0}
-          khoa={khoa || !duocSua}
-          anHuongDan={tepDaCo.length > 0}
-        />
+      {/**
+       * ★★ NÚT PHỤ ĐỨNG NGAY CẠNH NÚT CHỌN TỆP — Sếp 17/09/2026: ***"Đưa về vị trí này cho dễ
+       * quan sát"***, mũi tên vẽ từ nút *"Bổ sung sau"* (đang ở góc phải trên cùng của khối) xuống
+       * ngang nút vàng *"Đơn mua hàng"*.
+       *
+       * 🔴 ĐÂY LÀ LẦN DỜI THỨ HAI, VÀ NGƯỢC VỚI LẦN ĐẦU — ghi lại để người sau đừng "trả về chỗ cũ":
+       *   · 16/09/2026 Sếp bảo *"Đưa nút này lên"* → dời từ dưới cùng (dưới dòng "Nhận PDF, ảnh…")
+       *     lên ngang TIÊU ĐỀ ô.
+       *   · 17/09/2026 Sếp bảo đưa về ngang NÚT CHỌN TỆP. Lên tiêu đề thì nút nằm cách chỗ người
+       *     dùng đang nhìn (nút đính kèm) gần một khối chữ, mắt phải nhảy lên mới thấy.
+       * Cả hai lần đều là chỉ đạo trực tiếp kèm ảnh, không phải ai đó tuỳ tiện đổi.
+       *
+       * 🔴 `items-start` CHỨ KHÔNG `items-center`: `ODinhKemTep` cao hai dòng (nút + câu hướng dẫn
+       * *"Nhận PDF, ảnh, Word, Excel…"*). Canh giữa thì nút phụ tụt xuống lưng chừng, không thẳng
+       * hàng với nút vàng — đúng chỗ Sếp khoanh.
+       *
+       * ⚠️ NÚT PHỤ CÒN ĐƯỜNG VẼ THỨ HAI ngay dưới. Ô trống chỉ hiện khi **chưa có tệp nào** (hoặc
+       * người dùng bấm "Thêm bản nữa"); nếu chỉ vẽ ở đây thì hồ sơ đã đính tệp rồi là nút biến mất
+       * im lặng. Nơi gọi hiện đang tự ẩn nút khi đã có tệp, nhưng đó là luật của NƠI GỌI — ô này
+       * không được phép nuốt mất thứ người ta truyền vào.
+       */}
+      {tepDaCo.length === 0 || themBanNua ? (
+        <div className="flex flex-wrap items-start gap-2">
+          <ODinhKemTep
+            nhanThem={tieuDe}
+            nguoi={nguoi}
+            onXong={(moi) => luu(moi, undefined)}
+            batBuoc={batBuoc && tepDaCo.length === 0}
+            khoa={khoa || !duocSua}
+            anHuongDan={tepDaCo.length > 0}
+          />
+          {nutPhu && <span className="flex items-center gap-2">{nutPhu}</span>}
+        </div>
+      ) : (
+        nutPhu && <span className="flex flex-wrap items-center gap-2">{nutPhu}</span>
       )}
 
       {tepDaCo.length > 0 && !themBanNua && duocSua && !khoa && (

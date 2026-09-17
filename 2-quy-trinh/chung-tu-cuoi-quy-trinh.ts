@@ -28,7 +28,7 @@ import {
   laHoSoPhongBan,
   LY_DO_NHANH_PHONG_BAN,
 } from "@/2-quy-trinh/ho-so-phong-ban";
-import { cacBanTachCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import { cacBanTachCua, locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -1010,7 +1010,12 @@ export function hoSoDaChotXong(deNghi: DeNghiMuaHang): boolean {
  */
 export function vuongMacHoanThanhQuyTrinh(
   deNghi: DeNghiMuaHang,
-  tienDo: { khoiLuongChuaLenPO: number; khoiLuongConLai: number }[],
+  /**
+   * ⚠️ `stt` TÙY CHỌN, thêm 17/09/2026. Nơi gọi thật luôn truyền `TienDoDongDeNghi[]` (có `stt`),
+   * còn `kiem-luat-dung-chung.mjs` dựng mảng tay chỉ hai con số — đòi `stt` bắt buộc là mọi bài
+   * kiểm cũ gãy cùng lúc. Dòng thiếu `stt` được GIỮ LẠI, không phải bỏ đi (xem `locTienDoConPhaiMua`).
+   */
+  tienDo: { stt?: number; khoiLuongChuaLenPO: number; khoiLuongConLai: number }[],
   /**
    * ★★ TOÀN BỘ đề nghị đang có — **THÊM 15/09/2026, THAM SỐ TÙY CHỌN, ĐỨNG CUỐI**.
    *
@@ -1065,7 +1070,24 @@ export function vuongMacHoanThanhQuyTrinh(
     return "Phiếu đề nghị này chưa có mặt hàng nào để hoàn thành.";
   }
 
-  const chuaLenDon = tienDo.filter((d) => d.khoiLuongChuaLenPO > 0).length;
+  /**
+   * ★★ ② BỎ DÒNG ĐÃ NHÂN BẢN ĐI KHỎI HAI PHÉP ĐẾM KHỐI LƯỢNG — Sếp 17/09/2026.
+   *
+   * Sếp chốt 15/09: phần đã nhân bản đi thì phiếu gốc *"không cần mua"*. Nhưng hai chốt dưới
+   * (`chuaLenDon`, `chuaVeDu`) vẫn đếm trên cả những dòng đó, nên phiếu gốc đã giao việc đi
+   * **không bao giờ bấm hoàn thành được** — người giữ phiếu gốc không sai gì mà hồ sơ kẹt.
+   *
+   * 🔴 ĐẶT SAU CHỐT ① LÀ BẮT BUỘC, ĐỪNG ĐẢO. Chốt ① ("còn bản con dở") mới là thứ giữ cho phiếu
+   * gốc không đóng sớm. Trừ dòng trước khi hỏi ① là mở đúng lỗ hổng mà ① sinh ra để bịt.
+   *
+   * 🔴 VÀ ĐẶT SAU `tienDo.length === 0` cũng là cố ý: câu đó nói về **phiếu không có mặt hàng
+   * nào** — hồ sơ hỏng. Phiếu đã nhân bản đi hết dòng thì mảng lọc rỗng nhưng phiếu KHÔNG hỏng,
+   * nó chỉ đã giao hết việc; lúc đó chốt ① đã trả lời xong và hai phép đếm dưới đều bằng 0, tức
+   * đóng được — đúng ý Sếp.
+   */
+  const conPhaiMua = locTienDoConPhaiMua(deNghi, tatCaDeNghi, tienDo);
+
+  const chuaLenDon = conPhaiMua.filter((d) => d.khoiLuongChuaLenPO > 0).length;
   if (chuaLenDon > 0) {
     return `Còn ${chuaLenDon} mặt hàng chưa lên đơn hàng. Đóng hồ sơ lúc này là bỏ rơi phần vật tư chưa ai mua.`;
   }
@@ -1115,7 +1137,7 @@ export function vuongMacHoanThanhQuyTrinh(
    * gộp lại thì lần sau ai sửa cũng phải giải mã, mà sửa nhầm một dấu là im lặng nới cho **cả hai**
    * loại hồ sơ — không lỗi kiểu nào báo vì cả hai nhánh đều trả `string | null`.
    */
-  const chuaVeDu = tienDo.filter((d) => d.khoiLuongConLai > 0).length;
+  const chuaVeDu = conPhaiMua.filter((d) => d.khoiLuongConLai > 0).length;
   if (chuaVeDu > 0) {
     if (!laHoSoPhongBan(deNghi)) {
       return `Còn ${chuaVeDu} mặt hàng chưa nhận đủ hàng. Ghi nốt phiếu nhận hàng trước khi hoàn thành.`;

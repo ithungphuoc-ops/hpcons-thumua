@@ -16,7 +16,17 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Phòng Thu mua // HPCons",
+  /**
+   * ★ TÊN TAB TRÌNH DUYỆT — Sếp chốt 17/09/2026: **"HP CONS Thu mua"**.
+   *
+   * Trước đó là *"Phòng Thu mua // HPCons"*. Dấu `//` không có căn cứ nào trong quy chuẩn
+   * công ty và không app anh em nào dùng — Sếp mở 4 tab cạnh nhau (`HP CONS Portal`,
+   * `QLK CTR`, `Nhà Thầu…`) thì tab này lạc lõng.
+   *
+   * 📌 Tab bị co hẹp khi mở nhiều app, nên **chữ đứng đầu mới là chữ đọc được**. Để
+   * `HP CONS` trước thì dù bị cắt vẫn nhận ra là app nội bộ công ty, giống `HP CONS Portal`.
+   */
+  title: "HP CONS Thu mua",
   description:
     "Đề nghị mua hàng, phân bổ công việc, đơn đặt hàng và theo dõi giao nhận — module Thu mua trong hệ sinh thái HPcore.",
 };

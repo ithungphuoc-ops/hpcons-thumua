@@ -46,7 +46,11 @@ import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
  *
  * 📌 `nhan-ban-de-nghi.ts` chỉ import KIỂU dữ liệu nên không tạo vòng import với tệp này.
  */
-import { dongDaChuyenDiHet, dongDaNhanBanSang } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import {
+  dongDaChuyenDiHet,
+  dongDaNhanBanSang,
+  locTienDoConPhaiMua,
+} from "@/2-quy-trinh/nhan-ban-de-nghi";
 // Luật ba chứng từ cuối quy trình (hợp đồng · hóa đơn VAT · UNC) — một chỗ duy nhất.
 import {
   coHoaDonVAT,
@@ -292,7 +296,26 @@ export function xacDinhGiaiDoan(
    * trước khi có ai duyệt.
    */
   if (poCuaDeNghi.length > 0) {
-    const tienDoDong = tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu);
+    /**
+     * ★★ TRỪ DÒNG ĐÃ NHÂN BẢN ĐI — Sếp 17/09/2026, sửa một lỗi đo được.
+     *
+     * Trước bản vá: phiếu gốc nhân bản 2/3 mặt hàng cho người khác thì `every(...)` vẫn xét cả 2
+     * dòng đã giao đi, nên `daVeDu` **không bao giờ đúng** — thẻ nằm lại ở cột ⑤/⑥ và không vào
+     * nổi ⑦ Hồ sơ thanh toán, dù phần việc còn lại của nó đã mua xong.
+     *
+     * 📌 Dùng chung `locTienDoConPhaiMua` với `vuongMacHoanThanhQuyTrinh` — cùng một câu hỏi
+     * nghiệp vụ (*"phiếu này còn phải mua những dòng nào"*) thì phải cùng một câu trả lời, nếu
+     * không thì thẻ sang được ⑦ mà nút hoàn thành vẫn chặn, hoặc ngược lại.
+     *
+     * ⚠️ `length > 0` giữ nguyên, KHÔNG nới: phiếu gốc đã nhân bản đi HẾT dòng thì mảng này rỗng
+     * và thẻ không tự nhảy sang ⑦. Đúng ý — lúc đó phiếu gốc không còn việc mua nào của riêng nó,
+     * việc nằm ở các bản con, và chốt "còn bản con dở" mới là thứ quyết định khi nào đóng được.
+     */
+    const tienDoDong = locTienDoConPhaiMua(
+      deNghi,
+      tatCaDeNghi,
+      tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu),
+    );
     const daVeDu =
       tienDoDong.length > 0 &&
       tienDoDong.every((d) => d.khoiLuongChuaLenPO <= 0 && d.khoiLuongConLai <= 0);
@@ -1567,7 +1590,37 @@ export function mucConNoCuaBuoc(
 
      📌 "Bổ sung sau" và mọi lý do gõ tay của hồ sơ CŨ vẫn tô đỏ y như trước — chỉ đúng một chuỗi
      được miễn. */
-  if (giaiDoan === "dat_hang" && !coHopDong(deNghi) && !daKhaiKhongCoHopDong(deNghi)) {
+  /**
+   * ★★ BÁO ĐỎ Ở CẢ BƯỚC ④ — Sếp 17/09/2026: *"Lý do bổ sung sau thì phải báo đỏ bước lập đơn mua
+   * hàng giống bước tiến hành đặt hàng bên dưới"*.
+   *
+   * 🔴 ĐÂY LÀ SỬA MỘT CHỖ LỆCH, KHÔNG PHẢI BÀY HAI LẦN. Ô đính Hợp đồng nằm ở **bước ④ Lập đơn
+   * mua hàng** (`BUOC_DINH_KEM_HOP_DONG` = `lap_don_mua_hang`, xem `de-nghi-chi-tiet.tsx`), nhưng
+   * cờ đỏ trước nay chỉ gắn ở bước ⑤. Kết quả Sếp chụp được: khối ④ — **nơi có ô để đính** — viền
+   * xanh trơn, còn khối ⑤ bên dưới thì đỏ. Người dùng đọc dòng đỏ ở ⑤ rồi đi tìm chỗ đính trong
+   * chính khối ⑤, không có, phải mò ngược lên ④.
+   *
+   * 📌 Một món nợ, hai khối cùng nhắc là ĐÚNG ở đây vì hai khối trả lời hai câu khác nhau: ④ nói
+   * *"chỗ đính nằm đây"*, ⑤ nói *"đây là thứ đang chặn bước"*. Khác hẳn việc nhân bản một ô nhập
+   * liệu — nợ chỉ có MỘT nguồn duy nhất là hàm này, sửa luật vẫn chỉ sửa một chỗ.
+   *
+   * 🔴 BƯỚC ④ CHỈ ĐỎ KHI **ĐÃ GHI LÝ DO NỢ**, ĐỪNG NỚI THÀNH VÔ ĐIỀU KIỆN. Hợp đồng là việc của
+   * lúc đặt hàng, nên hồ sơ vừa sang ④ mà chưa có hợp đồng là **chuyện bình thường** — tô đỏ mọi
+   * hồ sơ đang lập đơn là biến cờ đỏ thành thứ ai cũng bỏ qua, đúng cái bẫy "chốt báo động sai thì
+   * lần sau không ai đọc nữa" (`CLAUDE.md` §6.6). Sếp cũng nói rõ điều kiện: ***"Lý do bổ sung
+   * sau thì phải báo đỏ"*** — tức mốc là lúc người dùng ĐÃ cam kết còn nợ chứng từ.
+   *
+   * ⚠️ Bước ⑤ giữ nguyên vô điều kiện: tới đó thì hợp đồng là thứ chặn bước thật, có ghi lý do hay
+   * không cũng vẫn đang thiếu.
+   */
+  /* ⚠️ `lyDoThieuHopDong` trả CHUỖI RỖNG khi chưa ghi, không trả `undefined` — so với `undefined`
+     là câu luôn đúng, và bước ④ sẽ đỏ cho mọi hồ sơ. Đã kiểm chữ ký hàm ở `chung-tu-cuoi-quy-trinh.ts`. */
+  const coLyDoNoHopDong = lyDoThieuHopDong(deNghi) !== "";
+  if (
+    (giaiDoan === "dat_hang" || (giaiDoan === "lap_don_mua_hang" && coLyDoNoHopDong)) &&
+    !coHopDong(deNghi) &&
+    !daKhaiKhongCoHopDong(deNghi)
+  ) {
     const lyDo = lyDoThieuHopDong(deNghi);
     thieu.push({
       /* 📌 CÙNG MỘT NHÃN NGẮN dù đã ghi lý do hay chưa — thiếu tệp là thiếu tệp. Lý do đã ghi

@@ -1092,10 +1092,12 @@ export function BangPhanBo({
                 <option key={n} value={String(n)}>
                   {/* ★ MỨC TRẦN GHI LÀ "NHIỀU" — Ban lãnh đạo 21/08/2026: *"sửa thành chữ nhiều"*
                       (khoanh đỏ đúng mục cuối).
-                      🔴 VẪN GHI RÕ CON SỐ TRONG NGOẶC: quy trình có thể cần 5–6 báo giá, nhưng app
-                      chỉ mở được {TOI_DA_O_BAO_GIA} ô (mỗi bước giữ tối đa 5 tệp, một suất đã dành
-                      cho bảng so sánh bắt buộc). Ghi trơ chữ "Nhiều" là để người giao việc tưởng
-                      app nhận bao nhiêu cũng được, rồi yêu cầu của họ không bao giờ thỏa. */}
+                      🔴 VẪN GHI RÕ CON SỐ TRONG NGOẶC: quy trình có thể cần nhiều hơn, nhưng app
+                      chỉ mở được đúng `TOI_DA_O_BAO_GIA` ô — bằng hạn mức tệp mỗi bước trừ đi một
+                      suất dành cho bảng so sánh bắt buộc. Ghi trơ chữ "Nhiều" là để người giao
+                      việc tưởng app nhận bao nhiêu cũng được, rồi yêu cầu của họ không bao giờ thỏa.
+                      ⚠️ ĐỪNG VIẾT LẠI CON SỐ VÀO CÂU NÀY: hạn mức đã nâng 5→6 ngày 17/09/2026, và
+                      chính vì trước đó có chỗ chép cứng "tối đa 5 tệp" mà phải đi dò lại từng câu. */}
                   {n === TOI_DA_O_BAO_GIA ? `Nhiều báo giá (tối đa ${n})` : `${n} báo giá`}
                 </option>
               ))}

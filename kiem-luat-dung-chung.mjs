@@ -175,6 +175,22 @@ try {
   process.exit(1);
 }
 
+/* ★★ HẠN MỨC TỆP MỖI BƯỚC — Sếp 17/09/2026 nâng 5→6 để mở đủ 5 ô báo giá NCC. Dựng riêng để bài
+   kiểm đối chiếu ĐƯỢC hai hằng số với nhau: số ô báo giá cộng bảng so sánh bắt buộc phải vừa hạn
+   mức, thiếu chỗ là phiếu kẹt vĩnh viễn ở bước ②. */
+const tepRaGH = join(thuMuc, "gioi-han.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "3-du-lieu/gioi-han-dinh-kem.ts" --bundle --platform=node --format=cjs --outfile="${tepRaGH}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 3-du-lieu/gioi-han-dinh-kem.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 /* ★★ TÊN HIỂN THỊ TRÊN THẺ KANBAN — Sếp 15/09/2026: *"khi nhân bản thì tên tiêu đề này cũng phải
    hiển thị luôn chư (copy..)"*. Luật ghép tên đã dời ra khỏi tệp giao diện để canh được. */
 const tepRa10 = join(thuMuc, "ten-the-de-nghi.cjs");
@@ -4768,6 +4784,197 @@ kiem(
       duoc: ra === 3 && copy2.deNghiGocId === "pr-goc",
       thucTe: `sttDongGoc=${ra} · deNghiGocId=${copy2.deNghiGocId}`,
       mongDoi: "sttDongGoc=3 (dong o phieu goc dau tien) · deNghiGocId=pr-goc (cha–con MOT cap)",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 17/09/2026: SỐ Ô BÁO GIÁ + BẢNG SO SÁNH PHẢI VỪA HẠN MỨC
+//
+// Sếp: *"Đang chỉ cho tạo tối đa 4 báo giá NCC… nếu tăng được 5 NCC thì nâng
+// hạng lên 5 nha"*. Đã nâng `TOI_DA_TEP_MOI_BUOC` 5 → 6 nên `TOI_DA_O_BAO_GIA`
+// thành 5.
+//
+// 🔴 TRẦN NÀY TRƯỚC 17/09/2026 KHÔNG CÓ MỘT CHỐT NÀO CANH. Ai bỏ phép trừ 1
+// (cho `TOI_DA_O_BAO_GIA` bằng thẳng hạn mức) thì mọi bài kiểm vẫn xanh, còn
+// hồ sơ đặt mức báo giá cao nhất thì **kẹt vĩnh viễn** ở bước ②: bản cuối cùng
+// cộng bảng so sánh vượt hạn mức, tệp bị từ chối, điều kiện chuyển bước không
+// bao giờ thoả. Đúng loại lỗi §6.6 nói `grep` không bắt được.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "BAO GIA — so o toi da CONG bang so sanh phai VUA han muc tep moi buoc",
+  'Sếp · 17/09/2026 — "nếu tăng được 5 NCC thì nâng hạng lên 5"; thieu cho cho bang so sanh la phieu ket vinh vien',
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const GH = nap(join(thuMuc, "gioi-han.cjs"));
+    const vua = BG.TOI_DA_O_BAO_GIA + 1 <= GH.TOI_DA_TEP_MOI_BUOC;
+    return {
+      duoc: vua && BG.TOI_DA_O_BAO_GIA >= 5,
+      thucTe: `${BG.TOI_DA_O_BAO_GIA} o bao gia + 1 bang so sanh = ${
+        BG.TOI_DA_O_BAO_GIA + 1
+      } / han muc ${GH.TOI_DA_TEP_MOI_BUOC}`,
+      mongDoi: "it nhat 5 o bao gia, va tong (o + bang so sanh) KHONG vuot han muc",
+    };
+  },
+);
+
+kiem(
+  "BAO GIA — CHIEU NGHICH: dat SL Bao gia cao ngat van bi kep ve dung so o app mo duoc",
+  "Sếp · 17/09/2026 — ho so cu dat 20 (do tran cu) khong duoc phep ket lai",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const can = BG.soBaoGiaCanCo(
+      { items: [{ stt: 1, soBaoGiaYeuCau: 99 }] },
+      { soBaoGiaToiThieu: 0 },
+    );
+    return {
+      duoc: can <= BG.TOI_DA_O_BAO_GIA,
+      thucTe: `can=${can} (tran ${BG.TOI_DA_O_BAO_GIA})`,
+      mongDoi: `can bi kep ve toi da ${BG.TOI_DA_O_BAO_GIA} — khong doi bang thu app khong mo cho dinh`,
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 17/09/2026: PHIẾU GỐC ĐÃ NHÂN BẢN ĐI THÌ KHÔNG BỊ KẸT
+//
+// Lỗi đo được trước bản vá: phiếu gốc nhân bản 2/3 mặt hàng cho người khác
+// vẫn bị tính tiến độ trên CẢ 3 dòng, nên:
+//   · thẻ không vào nổi cột ⑦ Hồ sơ thanh toán (nhánh `daVeDu` không bao giờ đúng);
+//   · nút hoàn thành báo *"còn 2 mặt hàng chưa lên đơn"* và không bấm được.
+// Người giữ phiếu gốc không sai gì mà hồ sơ kẹt — và trên bảng đánh giá thì
+// đó là một phiếu "trễ hạn" ghi vào tên họ.
+//
+// 🔴 BA BÀI DƯỚI ĐÂY PHẢI GIỮ ĐỦ CẢ BA. Bài ① một mình thì ai sửa hàm thành
+// `return []` vô điều kiện vẫn xanh — mà làm vậy là cho đóng hồ sơ CHƯA MUA GÌ.
+// ════════════════════════════════════════════════════════════════════
+
+/** Phiếu gốc 3 dòng, đã nhân bản dòng 2 và 3 sang một bản con. */
+const boNhanBan = () => {
+  const goc = { id: "pr-goc", code: "PR-001", items: [{ stt: 1 }, { stt: 2 }, { stt: 3 }] };
+  const con = {
+    id: "pr-con",
+    code: "PR-001 (copy)",
+    deNghiGocId: "pr-goc",
+    items: [
+      { stt: 1, sttDongGoc: 2 },
+      { stt: 2, sttDongGoc: 3 },
+    ],
+  };
+  return { goc, con, tatCa: [goc, con] };
+};
+
+kiem(
+  "LOC TIEN DO — dong da nhan ban di KHONG con tinh vao phieu goc",
+  'Sếp · 17/09/2026 — dong da nhan ban thi phieu goc "khong can mua" (chot 15/09)',
+  () => {
+    const { goc, tatCa } = boNhanBan();
+    const tienDo = [
+      { stt: 1, khoiLuongChuaLenPO: 0, khoiLuongConLai: 0 },
+      { stt: 2, khoiLuongChuaLenPO: 5, khoiLuongConLai: 5 },
+      { stt: 3, khoiLuongChuaLenPO: 7, khoiLuongConLai: 7 },
+    ];
+    const ra = NB.locTienDoConPhaiMua(goc, tatCa, tienDo);
+    const stt = ra.map((d) => d.stt).join(",");
+    return {
+      duoc: ra.length === 1 && stt === "1",
+      thucTe: `con ${ra.length} dong (stt=${stt})`,
+      mongDoi: "con 1 dong (stt=1) — hai dong kia da giao cho nguoi khac",
+    };
+  },
+);
+
+kiem(
+  "LOC TIEN DO — CHIEU NGHICH: thieu `tatCaDeNghi` thi TRA NGUYEN, khong tru mu",
+  "Sếp · 17/09/2026 — tru mu la cho dong ho so CHUA MUA GI, nang hon loi dang va",
+  () => {
+    const { goc } = boNhanBan();
+    const tienDo = [
+      { stt: 1, khoiLuongChuaLenPO: 0, khoiLuongConLai: 0 },
+      { stt: 2, khoiLuongChuaLenPO: 5, khoiLuongConLai: 5 },
+    ];
+    const ra = NB.locTienDoConPhaiMua(goc, undefined, tienDo);
+    return {
+      duoc: ra.length === 2,
+      thucTe: `con ${ra.length} dong`,
+      mongDoi: "con 2 dong (nguyen mang) — noi goi chua cap nhat thi KHONG duoc tru",
+    };
+  },
+);
+
+kiem(
+  "LOC TIEN DO — CHIEU NGHICH: phieu CHUA nhan ban lan nao thi khong dong nao bi bo",
+  "Sếp · 17/09/2026 — ca thuong gap nhat, bo nham mot dong la bo roi vat tu chua ai mua",
+  () => {
+    const goc = { id: "pr-le", code: "PR-009", items: [{ stt: 1 }, { stt: 2 }] };
+    const tienDo = [
+      { stt: 1, khoiLuongChuaLenPO: 3, khoiLuongConLai: 3 },
+      { stt: 2, khoiLuongChuaLenPO: 0, khoiLuongConLai: 4 },
+    ];
+    const ra = NB.locTienDoConPhaiMua(goc, [goc], tienDo);
+    return {
+      duoc: ra.length === 2,
+      thucTe: `con ${ra.length} dong`,
+      mongDoi: "con 2 dong — khong co ban con nao thi giu nguyen",
+    };
+  },
+);
+
+kiem(
+  "HOAN THANH — phieu goc da nhan ban di, phan con lai mua xong -> KHONG con chan khoi luong",
+  'Sếp · 17/09/2026 — truoc ban va bao "con 2 mat hang chua len don" va khong bam duoc',
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const { con } = boNhanBan();
+    /* Phiếu gốc dựng theo khuôn `hoSoSanSangDong` (đủ hợp đồng + hóa đơn VAT) rồi thêm 3 dòng
+       và một bản con ĐÃ CHỐT XONG — để chốt "còn bản con dở" không phải thứ đang chặn. */
+    const goc = {
+      ...hoSoSanSangDong(undefined, true),
+      id: "pr-goc",
+      code: "PR-001",
+      items: [{ stt: 1 }, { stt: 2 }, { stt: 3 }],
+    };
+    const conXong = { ...con, trangThai: "hoan_thanh" };
+    const tienDo = [
+      { stt: 1, khoiLuongChuaLenPO: 0, khoiLuongConLai: 0 },
+      { stt: 2, khoiLuongChuaLenPO: 5, khoiLuongConLai: 5 },
+      { stt: 3, khoiLuongChuaLenPO: 7, khoiLuongConLai: 7 },
+    ];
+    const r = CT.vuongMacHoanThanhQuyTrinh(goc, tienDo, [goc, conXong]);
+    const vuongVeKhoiLuong = typeof r === "string" && /ch[ưu]a l[êe]n đ[ơo]n|ch[ưu]a nh[ậa]n đ[ủu]/i.test(r);
+    return {
+      duoc: !vuongVeKhoiLuong,
+      thucTe: r === null ? "null (khong vuong gi)" : `"${String(r).slice(0, 100)}"`,
+      mongDoi: "khong con cau chan ve khoi luong cua 2 dong da giao di",
+    };
+  },
+);
+
+kiem(
+  "HOAN THANH — CHIEU NGHICH: dong CHUA nhan ban di ma chua len don thi VAN CHAN",
+  "Sếp · 17/09/2026 — ban va khong duoc bien thanh duong dong ho so bo roi vat tu",
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const { con } = boNhanBan();
+    const goc = {
+      ...hoSoSanSangDong(undefined, true),
+      id: "pr-goc",
+      code: "PR-001",
+      items: [{ stt: 1 }, { stt: 2 }, { stt: 3 }],
+    };
+    const conXong = { ...con, trangThai: "hoan_thanh" };
+    /* Dòng 1 KHÔNG nằm trong bản con — nó vẫn là việc của phiếu gốc và chưa lên đơn. */
+    const tienDo = [
+      { stt: 1, khoiLuongChuaLenPO: 9, khoiLuongConLai: 9 },
+      { stt: 2, khoiLuongChuaLenPO: 0, khoiLuongConLai: 0 },
+      { stt: 3, khoiLuongChuaLenPO: 0, khoiLuongConLai: 0 },
+    ];
+    const r = CT.vuongMacHoanThanhQuyTrinh(goc, tienDo, [goc, conXong]);
+    return {
+      duoc: typeof r === "string" && /ch[ưu]a l[êe]n đ[ơo]n/i.test(r),
+      thucTe: r === null ? "null (LOT — dong ho so bo roi vat tu!)" : `"${String(r).slice(0, 90)}"`,
+      mongDoi: "cau chan nhac con mat hang chua len don",
     };
   },
 );

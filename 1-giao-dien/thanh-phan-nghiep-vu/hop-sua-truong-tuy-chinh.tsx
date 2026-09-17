@@ -23,7 +23,7 @@ import { useDuLieu, TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { DANH_MUC_PHONG_BAN } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_GIAI_DOAN } from "@/2-quy-trinh/giai-doan-mua-hang";
-import { sanSoBaoGiaTPGiao } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import { sanSoBaoGiaTPGiao, TOI_DA_O_BAO_GIA } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import {
   NHAN_NHOM_DE_XUAT,
   type DeNghiMuaHang,
@@ -249,17 +249,31 @@ export function HopSuaTruongTuyChinh({
    * Số ô cần mở theo ô "SL Báo giá". `0` khi chưa đặt hoặc mỗi dòng một số.
    * "Nhiều" thì mở HẾT hạn mức — xem khối chú thích của `MA_NHIEU`.
    */
-  const soChon = soBaoGia === MA_NHIEU ? TOI_DA_TEP_MOI_BUOC : Number(soBaoGia) || 0;
+  /**
+   * 🔴 SỬA 17/09/2026 — TRƯỚC ĐÓ DÙNG NHẦM `TOI_DA_TEP_MOI_BUOC`, VẼ THỪA MỘT Ô.
+   *
+   * Hạn mức tệp mỗi bước phải chừa **một suất cho bảng so sánh bắt buộc**, nên số ô báo giá là
+   * `TOI_DA_O_BAO_GIA` (= hạn mức − 1), không phải cả hạn mức. Dùng con số lớn hơn là hộp này mở
+   * ra nhiều hơn màn chính đúng một ô, và tệp đính vào ô cuối sẽ bị tầng ghi từ chối khi bảng so
+   * sánh vào chỗ — người dùng chỉ thấy tệp "biến mất".
+   *
+   * Lỗi có sẵn từ trước, nhưng nâng hạn mức 5→6 hôm nay làm nó lộ rõ (vẽ 6 ô so với 5 ô ở màn
+   * chính) nên sửa luôn.
+   */
+  const soChon = soBaoGia === MA_NHIEU ? TOI_DA_O_BAO_GIA : Number(soBaoGia) || 0;
   /** Số hiệu ô CAO NHẤT đang giữ tệp — chốt 1: hạ SL Báo giá không được ẩn mất tệp. */
   const soODaCoTep = tepBuocBaoGia.reduce((max, t) => Math.max(max, chiSoOBaoGia(t.ghiChu)), 0);
   /** Số ô thật sự vẽ ra. Chốt 2: không vượt hạn mức tệp mỗi bước của tầng dữ liệu. */
-  const soO = Math.min(Math.max(soChon, soODaCoTep), TOI_DA_TEP_MOI_BUOC);
+  const soO = Math.min(Math.max(soChon, soODaCoTep), TOI_DA_O_BAO_GIA);
   /**
    * Đang bị hạn mức chặn — phải nói ra, đừng để người dùng tự đoán vì sao thiếu ô.
    * ⚠️ So trên `soODaCoTep` nữa, không chỉ số đang chọn: hồ sơ cũ có thể giữ tệp mang nhãn
    * "Báo giá NCC 8" (từ thời ô chọn còn cho tới 10), lúc đó thiếu ô số 8 mà không có gì giải thích.
    */
-  const biChanBoiHanMuc = Math.max(soChon, soODaCoTep) > TOI_DA_TEP_MOI_BUOC;
+  /* 🔴 SO VỚI `TOI_DA_O_BAO_GIA`, không phải hạn mức tệp — sửa 17/09/2026 cùng lúc với `soO`.
+     Số ô thật sự vẽ ra kẹp ở `TOI_DA_O_BAO_GIA`, nên so với hạn mức lớn hơn là có ca bị thiếu ô
+     mà câu giải thích KHÔNG hiện — đúng cái khối `if` này sinh ra để tránh. */
+  const biChanBoiHanMuc = Math.max(soChon, soODaCoTep) > TOI_DA_O_BAO_GIA;
 
   const tepTheoO = Array.from({ length: soO }, (_, i) =>
     tepBuocBaoGia.find((t) => chiSoOBaoGia(t.ghiChu) === i + 1),
@@ -772,7 +786,7 @@ export function HopSuaTruongTuyChinh({
                   <>
                     {" "}
                     “Nhiều” ghi vào hồ sơ là <strong>từ {SO_BAO_GIA_NHIEU} báo giá</strong>, và mở
-                    sẵn {TOI_DA_TEP_MOI_BUOC} ô đính kèm.
+                    sẵn {TOI_DA_O_BAO_GIA} ô đính kèm.
                   </>
                 )}
               </span>
@@ -815,8 +829,9 @@ export function HopSuaTruongTuyChinh({
             {biChanBoiHanMuc && (
               <p className="text-xs text-text-desc">
                 Hồ sơ này cần tới <strong>{Math.max(soChon, soODaCoTep)}</strong> ô, nhưng mỗi bước
-                chỉ giữ được <strong>{TOI_DA_TEP_MOI_BUOC}</strong> tệp nên chỉ mở{" "}
-                {TOI_DA_TEP_MOI_BUOC} ô. Các báo giá còn lại nằm ở ô “Báo giá khác”.
+                chỉ giữ được <strong>{TOI_DA_TEP_MOI_BUOC}</strong> tệp — một suất dành cho bảng so
+                sánh bắt buộc — nên chỉ mở {TOI_DA_O_BAO_GIA} ô. Các báo giá còn lại nằm ở ô “Báo
+                giá khác”.
               </p>
             )}
 

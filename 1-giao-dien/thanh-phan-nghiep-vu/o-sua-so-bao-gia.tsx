@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Lock, Minus, Plus } from "lucide-react";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
-import { sanSoBaoGiaTPGiao } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import { sanSoBaoGiaTPGiao, TOI_DA_O_BAO_GIA } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 
 /**
@@ -94,8 +94,20 @@ const LY_DO_KHOA_HA =
   "Chưa có mức báo giá do trưởng bộ phận giao nên không hạ được. " +
   "Nhờ trưởng bộ phận đặt lại số ở bảng Phân bổ công việc.";
 
-/** Chặn trên cho số báo giá. Không phải luật công ty, chỉ là ngưỡng bắt lỗi gõ nhầm. */
-const SO_BAO_GIA_TOI_DA = 20;
+/**
+ * ★ CHẶN TRÊN CHO SỐ BÁO GIÁ = ĐÚNG SỐ Ô APP MỞ ĐƯỢC — Sếp 17/09/2026.
+ *
+ * 🔴 CON SỐ CŨ LÀ **20**, VÀ ĐÓ LÀ MỘT CÁI BẪY THẬT. Sếp bắt lỗi bằng ảnh chụp: ô "SL Báo giá"
+ * bấm lên được 5–20, trong khi bước ② chỉ mở **`TOI_DA_O_BAO_GIA`** ô để đính tệp. Đặt 5 là hồ sơ
+ * **kẹt vĩnh viễn**: app đòi đủ 5 bản báo giá, mà không có chỗ nào đính bản thứ 5 vào — đúng loại
+ * bế tắc mà `bao-gia-dinh-kem.ts` đã dựng `TOI_DA_O_BAO_GIA` ra để chặn, chỉ là ô nhập này không
+ * hỏi tới nó.
+ *
+ * 📌 KHÔNG CHÉP CON SỐ, DÙNG THẲNG HẰNG SỐ. Trần ô đính kèm suy ra từ `TOI_DA_TEP_MOI_BUOC`; mai
+ * này nâng hạn mức tệp lên thì ô này tự nới theo, không phải nhớ sửa hai nơi. Đây đúng là lỗi mà
+ * `gioi-han-dinh-kem.ts` cảnh báo: *"hai chỗ giữ cùng một con số là sớm muộn lệch nhau"*.
+ */
+const SO_BAO_GIA_TOI_DA = TOI_DA_O_BAO_GIA;
 
 /**
  * Chờ bao lâu sau cú bấm cuối mới ghi vào hồ sơ.
