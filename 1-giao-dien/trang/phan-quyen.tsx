@@ -116,6 +116,30 @@ export default function TrangPhanQuyen() {
    */
   const [phongBanChon, setPhongBanChon] = useState("");
   const [vaiTroChonMoi, setVaiTroChonMoi] = useState<Record<string, string>>({});
+
+  /**
+   * ★★ ẨN TÀI KHOẢN ĐÃ NGỪNG TRUY CẬP — Sếp 17/09/2026: ***"nếu như tài khoản nào đã bị đổi
+   * ngừng truy cập thì phải ẩn khỏi giao diện này"***.
+   *
+   * 🔴 ẨN CHO GỌN, NHƯNG PHẢI CÓ ĐƯỜNG QUAY LẠI — vì thứ duy nhất mở lại quyền cho một người
+   * chính là màn này. Ẩn hẳn mà không chừa cửa là người bị ngừng nhầm **không ai khôi phục được
+   * nữa** — đổi một màn hình gọn lấy một ngõ cụt, đúng loại bế tắc dự án này đã dính nhiều lần.
+   *
+   * 📌 MẶC ĐỊNH ẨN (đúng ý Sếp), ô tích bên trên mở lại khi cần. Số đã ẩn luôn hiện cạnh ô
+   * tích — ẩn mà không nói đã ẩn bao nhiêu là người dùng tưởng app đọc thiếu tài khoản.
+   */
+  const [hienNgungTruyCap, setHienNgungTruyCap] = useState(false);
+
+  /**
+   * Danh sách THỰC SỤ vẽ ra, và số đã ẩn để nói cho người dùng biết.
+   *
+   * 🔴 DÙNG `vaiTroKhopVoiHoSo` ĐỂ BIẾT AI ĐANG NGỪNG TRUY CẬP — đúng hàm mà ô chọn ngay
+   * dưới đang dùng để hiện vai trò hiện tại. Tự so tay `capTM`/`chucNang` ở đây là hai chỗ
+   * cùng trả lời một câu, sớm muộn lệch nhau và người bị ẩn lại không phải người đang ngừng.
+   */
+  const laNgungTruyCap = (hs: HoSoKemMa) => vaiTroKhopVoiHoSo(hs.hoSo)?.ma === "ngung_truy_cap";
+  const dsHien = (danhSach ?? []).filter((hs) => hienNgungTruyCap || !laNgungTruyCap(hs));
+  const soDaAn = (danhSach ?? []).filter(laNgungTruyCap).length;
   const [hoiThemMoi, setHoiThemMoi] = useState<{ tv: ThanhVienDanhBa; vt: VaiTroChuan } | null>(null);
 
   /**
@@ -460,23 +484,39 @@ export default function TrangPhanQuyen() {
           <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-text-secondary">
-                {danhSach === null ? "Đang đọc danh sách…" : `${danhSach.length} tài khoản`}
+                {danhSach === null
+                  ? "Đang đọc danh sách…"
+                  : `${dsHien.length} tài khoản`}
               </p>
+              {/* 🔴 CỬA QUAY LẠI — xem chú thích ở `hienNgungTruyCap`. Chỉ hiện khi THẬT SỰ có
+                  người bị ẩn; không có ai mà vẫn bày ô tích là thêm một thứ vô nghĩa lên màn. */}
+              {soDaAn > 0 && (
+                <label className="flex min-h-11 items-center gap-2 text-sm text-text-secondary md:min-h-9">
+                  <input
+                    type="checkbox"
+                    id="hien-ngung-truy-cap"
+                    checked={hienNgungTruyCap}
+                    onChange={(e) => setHienNgungTruyCap(e.target.checked)}
+                    className="size-4"
+                  />
+                  Hiện cả {soDaAn} tài khoản đã ngừng truy cập
+                </label>
+              )}
               <Button variant="outline" size="sm" onClick={() => void tai()} disabled={dangTai}>
                 <RefreshCw className={`size-4 ${dangTai ? "animate-spin" : ""}`} aria-hidden />
                 Đọc lại
               </Button>
             </div>
 
-            {danhSach !== null && danhSach.length === 0 && (
+            {danhSach !== null && dsHien.length === 0 && (
               <p className="text-sm text-text-desc">
                 Không đọc được tài khoản nào. Kiểm tra lại kết nối máy chủ.
               </p>
             )}
 
-            {danhSach !== null && danhSach.length > 0 && (
+            {danhSach !== null && dsHien.length > 0 && (
               <div className="flex flex-col gap-(--hp-md-row-gap)">
-                {danhSach.map((hs) => {
+                {dsHien.map((hs) => {
                   /* So bằng `uidNghiepVu`, KHÔNG bằng mã Firebase: `nguoiDung.uid` mà toàn app
                      dùng là mã NGHIỆP VỤ (`u-tm1`…) — hai lớp danh tính khác nhau, xem
                      `xac-thuc-firebase.ts`. So nhầm lớp là chốt "không tự sửa mình" mất tác dụng
