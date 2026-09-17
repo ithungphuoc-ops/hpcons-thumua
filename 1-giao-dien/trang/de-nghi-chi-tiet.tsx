@@ -3222,7 +3222,7 @@ export default function TrangChiTietDeNghi({
                             {!daKhoXacNhan &&
                               daGiaoDu &&
                               !hoSoPhongBan &&
-                              duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung, quyen) && (
+                              duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung) && (
                               <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                   size="sm"
@@ -3374,7 +3374,7 @@ export default function TrangChiTietDeNghi({
                                 /* Phải hỏi CÙNG một hàm với nút ở trên. Dùng cờ toàn cục ở đây là
                                    người thu mua của hồ sơ phòng ban vừa thấy nút bấm được, vừa đọc
                                    câu "đang chờ thủ kho xác nhận" — hai thứ trái nhau trên một màn. */
-                                !duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung, quyen)) ||
+                                !duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung)) ||
                                 (daKhoXacNhan &&
                                   !po.xacNhanTruongBP &&
                                   !duocDuyetHoanThanhDon)) && (

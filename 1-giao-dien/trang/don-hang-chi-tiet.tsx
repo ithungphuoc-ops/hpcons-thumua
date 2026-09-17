@@ -762,16 +762,22 @@ export default function TrangChiTietDonHang() {
 
                   📌 Điều kiện chứng từ KHÔNG đổi — `vuongMacTep` bên dưới vẫn khoá nút của hồ sơ
                   công trình khi còn lần giao nào thiếu phiếu giao hàng. */}
-              {duocXacNhanNhanDuHangCuaHoSo(deNghiNguon, nguoiDung, quyen) &&
+              {duocXacNhanNhanDuHangCuaHoSo(deNghiNguon, nguoiDung) &&
                 daGiaoDu &&
                 !hoSoPhongBan &&
                 !po.xacNhanKho && (
                 <>
-                  {/* Nút KHÓA khi còn phiếu thiếu tệp — không giấu nút, vì giấu đi thì thủ
-                      kho tưởng mình không có quyền. Khóa kèm lý do ngay bên cạnh. */}
+                  {/* Nút KHÓA khi còn phiếu thiếu tệp — không giấu nút, vì giấu đi thì người
+                      bấm tưởng mình không có quyền. Khóa kèm lý do ngay bên cạnh. */}
+                  {/* ★ Đổi chữ 17/09/2026 cùng lượt với nút bên `de-nghi-chi-tiet.tsx`:
+                      "Thủ kho xác nhận đã nhận đủ" → "Xác nhận nhận hàng".
+                      🔴 BẮT BUỘC ĐỔI CẢ HAI CÙNG LÚC. Đây là hai lối vào của CÙNG một việc
+                      (`bamXacNhanKho`); để hai tên khác nhau là người dùng tưởng hai chức năng
+                      khác nhau rồi đi tìm cái thứ hai. Chữ "Thủ kho" nay cũng sai sự thật —
+                      từ hôm nay người bấm là nhân viên thu mua, không phải thủ kho. */}
                   <Button onClick={bamXacNhanKho} disabled={vuongMacTep !== null}>
                     <BadgeCheck className="size-4" aria-hidden />
-                    Thủ kho xác nhận đã nhận đủ
+                    Xác nhận nhận hàng
                   </Button>
                   {vuongMacTep && (
                     <span className="flex items-start gap-1.5 text-sm text-warning-soft">

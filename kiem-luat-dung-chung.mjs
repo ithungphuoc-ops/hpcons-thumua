@@ -7840,6 +7840,105 @@ kiem(
   },
 );
 
+/* ★★★ AI ĐƯỢC BẤM "XÁC NHẬN NHẬN HÀNG" — Sếp chốt phương án B ngày 17/09/2026.
+
+   🔴 LUẬT NÀY VỪA BỊ ĐẢO, NÊN PHẢI CÓ BÀI KIỂM KHOÁ LẠI. Trước 17/09 nút thuộc về thủ kho
+   (`quyen.xacNhanKho`), và thu mua chỉ bấm được hồ sơ PHÒNG BAN. Sếp mô tả lại quy trình thật:
+   *"Kho chỉ gửi phiếu đánh đủ số lượng, còn thu mua trên app thu mua bấm xác nhận nhận hàng qua
+   bước chứ"*. Hỏi lại ai còn được bấm, Sếp chốt **chỉ nhân viên thu mua**.
+
+   🔴 CHIỀU NGHỊCH MỚI LÀ CHIỀU NGUY HIỂM: nếu ai đó nối lại `quyen.xacNhanKho` vào hàm này thì
+   thủ kho lại bấm được, hồ sơ vẫn qua bước bình thường, và **không có triệu chứng nào** — chỉ tới
+   lúc đối chiếu trách nhiệm mới phát hiện hai bên cùng bấm được. Vì vậy phải canh cả chiều đó. */
+const tepRaQuyen = join(thuMuc, "quyen-theo-ho-so.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "4-phan-quyen/quyen-theo-ho-so.ts" --bundle --platform=node --format=cjs --outfile="${tepRaQuyen}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 4-phan-quyen/quyen-theo-ho-so.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+const QH = nap(tepRaQuyen);
+
+/** Hồ sơ CÔNG TRÌNH — có mã hợp đồng chủ đầu tư. */
+const hsCongTrinh = { maHopDongCDT: "2026/HDXD", items: [] };
+/** Hồ sơ PHÒNG BAN — không có mã hợp đồng. */
+const hsPhongBan = { maHopDongCDT: "", items: [] };
+/** Nhân viên thu mua đủ cấp (cấp 2 = "Nhập liệu" trở lên). */
+const nvTMQuyen = { uid: "u1", chucNang: "nhan_vien_thu_mua", capTM: 2 };
+
+kiem(
+  "🔴 Nhân viên thu mua BẤM ĐƯỢC trên hồ sơ CÔNG TRÌNH",
+  'Sếp 17/09/2026, phương án B — *"thu mua trên app thu mua bấm xác nhận nhận hàng qua bước"*',
+  () => {
+    const r = QH.duocXacNhanNhanDuHangCuaHoSo(hsCongTrinh, nvTMQuyen);
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true — trước 17/09 chỗ này trả false" };
+  },
+);
+
+kiem(
+  "Nhân viên thu mua vẫn bấm được trên hồ sơ PHÒNG BAN",
+  "nhánh cũ mở từ 15/09/2026 không được mất khi đổi luật",
+  () => {
+    const r = QH.duocXacNhanNhanDuHangCuaHoSo(hsPhongBan, nvTMQuyen);
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true" };
+  },
+);
+
+kiem(
+  "🔴 Người CHỈ ĐƯỢC XEM (cấp 1) KHÔNG bấm được",
+  "sàn cấp 2 — cấp 1 là Xem theo chuẩn App Tổng, người chỉ xem không chốt chứng từ",
+  () => {
+    const r = QH.duocXacNhanNhanDuHangCuaHoSo(hsCongTrinh, { uid: "u2", chucNang: "nhan_vien_thu_mua", capTM: 1 });
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false" };
+  },
+);
+
+kiem(
+  "🔴 Người NGOÀI phòng thu mua, KHÔNG được chia việc → KHÔNG bấm được",
+  "mở cho thu mua không có nghĩa mở cho cả công ty",
+  () => {
+    const r = QH.duocXacNhanNhanDuHangCuaHoSo(hsCongTrinh, { uid: "u3", chucNang: "nhan_vien_ky_thuat", capTM: 3 });
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false" };
+  },
+);
+
+kiem(
+  "Người ngoài phòng nhưng ĐƯỢC CHIA VIỆC dòng này → bấm được",
+  "đường `duocChiaViec` sẵn có, không bị đợt đổi luật làm mất",
+  () => {
+    const hs = { maHopDongCDT: "2026/HDXD", items: [{ nguoiPhuTrachUid: "u4" }] };
+    const r = QH.duocXacNhanNhanDuHangCuaHoSo(hs, { uid: "u4", chucNang: "nhan_vien_ky_thuat", capTM: 2 });
+    return { duoc: r === true, thucTe: String(r), mongDoi: "true" };
+  },
+);
+
+kiem(
+  "Không có đề nghị → KHÔNG bấm được, và KHÔNG ném lỗi",
+  "đơn chưa gắn đề nghị vẫn gọi hàm này (xem `don-hang-chi-tiet.tsx`)",
+  () => {
+    const r = QH.duocXacNhanNhanDuHangCuaHoSo(undefined, nvTMQuyen);
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false" };
+  },
+);
+
+kiem(
+  "🔴 CHIỀU NGHỊCH: hàm chỉ nhận ĐÚNG 2 tham số, không còn cờ quyền kho",
+  "Sếp chọn B chứ không chọn 'cả hai cùng bấm được' — nối lại `quyen.xacNhanKho` là sai chỉ đạo",
+  () => {
+    const n = QH.duocXacNhanNhanDuHangCuaHoSo.length;
+    return {
+      duoc: n === 2,
+      thucTe: String(n) + " tham số",
+      mongDoi: "2 — thêm tham số thứ ba nghĩa là cờ quyền kho đã bị nối lại",
+    };
+  },
+);
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 
