@@ -80,8 +80,42 @@ export function coCongThucTuDong(maPhongBan: MaPhongBan): boolean {
  * 📌 Vòng `while` cuối là chốt chặn cuối cùng: dữ liệu cũ có thể chứa mã không theo khuôn
  * (nhập tay, nhập từ Excel), lúc đó `max` không phản ánh hết thực tế.
  */
+/**
+ * ★★ KÝ HIỆU LOẠI HỒ SƠ CỦA ĐỀ NGHỊ — **ĐỂ TRỐNG = KHÔNG CÓ TIỀN TỐ**.
+ *
+ * 🔴 Sếp 17/09/2026: ***"e bỏ luôn chữ PR đó đi"***, sau khi hỏi *"ký hiệu PR-001 ở đây là gì,
+ * sao ở quy trình nào cũng ghi vậy"*. Nên hằng này để **chuỗi rỗng**, và mã sinh ra từ nay là
+ * `2026/HDXD-001` thay vì `2026/HDXD-PR-001`.
+ *
+ * 🔴 ĐÂY CHÍNH LÀ THỨ `CLAUDE.md` §3.1 ĐÒI TỪ ĐẦU, và code trước đó đang vi phạm: *"3 mã `PR` /
+ * `DO` / `GRN` trong đặc tả **đang chờ duyệt** — để ở dạng cấu hình sửa được, không viết cứng vào
+ * code"*. Trước 17/09/2026 nó viết cứng **ba lần** ngay trong hàm dưới.
+ *
+ * 📌 `PR` KHÔNG nằm trong danh mục mã loại đã duyệt của Thông báo 09/2026 (`HDXD HDTK HDMH HDTC
+ * BBNT BG HSTK TT PO PL QD CV TB`) — nên bỏ nó **không đụng chỉ đạo nào**. Nhưng quy tắc E-6 cấm
+ * TỰ ĐẶT mã loại mới: mai kia Ban lãnh đạo chốt một ký hiệu khác thì **chỉ sửa đúng dòng này**,
+ * không phải đi dò cả app.
+ */
+export const MA_LOAI_DE_NGHI = "";
+
+/** Phần tiền tố chèn giữa mã dự án và số thứ tự — rỗng khi không dùng ký hiệu loại nào. */
+const TIEN_TO = MA_LOAI_DE_NGHI === "" ? "" : `${MA_LOAI_DE_NGHI}-`;
+
 export function maDeNghiTiepTheo(maDuAn: string, maDaDung: readonly string[]): string {
-  const cungDuAn = new RegExp(`^${maDuAn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-PR-(\\d+)`);
+  /**
+   * 🔴 NHẬN CẢ HAI DẠNG MÃ: có tiền tố (`-PR-001`, dữ liệu cũ) và không tiền tố (`-001`, từ
+   * 17/09/2026). ĐÂY LÀ CHỖ DỄ HỎNG NHẤT của cả thay đổi này.
+   *
+   * Chỉ dò dạng mới thì phiếu cũ `…-PR-003` không được tính ⇒ `lonNhat = 0` ⇒ phiếu mới ra số
+   * 001 trong khi hồ sơ của cùng dự án đã dùng tới 003 — hai hồ sơ mang số thứ tự lẫn nhau, đúng
+   * cái sự cố 14/08/2026 đã sửa một lần (xem khối chú thích trên).
+   *
+   * 📌 `[A-Z]+-` chứ không phải `PR-`: nhận luôn mọi ký hiệu loại từng dùng, kể cả chưa ai nhớ.
+   * ⚠️ NEO CUỐI `(?=$|[\s(])` là BẮT BUỘC — thiếu nó thì `2026/HDXD-0012` cũng khớp và trả về số
+   * sai. Dấu `(` để nhận bản sao `…-001 (copy 2)`, vẫn là số đã cấp thật.
+   */
+  const esc = maDuAn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const cungDuAn = new RegExp(`^${esc}-(?:[A-Z]+-)?(\\d+)(?=$|[\\s(])`);
   let lonNhat = 0;
   for (const ma of maDaDung) {
     const khop = cungDuAn.exec(ma.trim());
@@ -90,10 +124,10 @@ export function maDeNghiTiepTheo(maDuAn: string, maDaDung: readonly string[]): s
 
   const daDung = new Set(maDaDung.map((m) => m.trim()));
   let so = lonNhat + 1;
-  let ma = `${maDuAn}-PR-${String(so).padStart(3, "0")}`;
+  let ma = `${maDuAn}-${TIEN_TO}${String(so).padStart(3, "0")}`;
   while (daDung.has(ma)) {
     so += 1;
-    ma = `${maDuAn}-PR-${String(so).padStart(3, "0")}`;
+    ma = `${maDuAn}-${TIEN_TO}${String(so).padStart(3, "0")}`;
   }
   return ma;
 }

@@ -208,6 +208,22 @@ try {
 
 /* ★★ TÊN HIỂN THỊ TRÊN THẺ KANBAN — Sếp 15/09/2026: *"khi nhân bản thì tên tiêu đề này cũng phải
    hiển thị luôn chư (copy..)"*. Luật ghép tên đã dời ra khỏi tệp giao diện để canh được. */
+/* ★★ SINH MÃ ĐỀ NGHỊ — Sếp 17/09/2026 bỏ ký hiệu `PR`. Hàm này là thứ `CLAUDE.md` §3.1 gọi là
+   bất di bất dịch (hệ mã hồ sơ), mà tới 17/09/2026 **chưa có một chốt nào canh** — đo được: cả
+   tệp kiểm không hề import `dat-ten-de-nghi`. Dựng riêng để gọi THẬT. */
+const tepRaMa = join(thuMuc, "dat-ten.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/dat-ten-de-nghi.ts" --bundle --platform=node --format=cjs --outfile="${tepRaMa}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/dat-ten-de-nghi.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const tepRa10 = join(thuMuc, "ten-the-de-nghi.cjs");
 try {
   execSync(
@@ -4860,6 +4876,50 @@ kiem(
       duoc: ra.length === 0,
       thucTe: ra.length === 0 ? "khong dem cai nao (dung)" : `dem nham: ${ra.join(",")}`,
       mongDoi: "khong dem — chi nhan dung dang nhan + \" (so)\"",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 17/09/2026: BỎ KÝ HIỆU `PR` KHỎI MÃ ĐỀ NGHỊ
+//
+// Sep: "e bo luon chu PR do di". Ma sinh ra tu nay la 2026/HDXD-001.
+//
+// 🔴 BAI CHIEU NGHICH LA THU QUAN TRONG NHAT: du lieu that dang co ma CU
+// dang ...-PR-003. Neu ham sinh ma chi do dang MOI thi phieu tiep theo ra 001
+// trong khi du an do da dung toi 003 => hai ho so mang so thu tu lan nhau, dung
+// cai su co 14/08/2026 da sua mot lan.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "MA DE NGHI — KHONG con chu PR trong ma moi",
+  'Sếp · 17/09/2026 — "e bo luon chu PR do di"',
+  () => {
+    const M2 = nap(join(thuMuc, "dat-ten.cjs"));
+    const ra = M2.maDeNghiTiepTheo("2026/HDXD", []);
+    return {
+      duoc: !ra.includes("PR") && ra === "2026/HDXD-001",
+      thucTe: `"${ra}"`,
+      mongDoi: '"2026/HDXD-001" — khong co -PR-',
+    };
+  },
+);
+
+kiem(
+  "MA DE NGHI — CHIEU NGHICH: ma CU co PR van duoc tinh, KHONG duoc cap trung so",
+  "Su co 14/08/2026: dem lai tu dau la hai ho so mang so thu tu lan nhau",
+  () => {
+    const M2 = nap(join(thuMuc, "dat-ten.cjs"));
+    const daDung = [
+      "2026/HDXD-PR-001",
+      "2026/HDXD-PR-002",
+      "2026/HDXD-PR-003 (copy)",
+    ];
+    const ra = M2.maDeNghiTiepTheo("2026/HDXD", daDung);
+    return {
+      duoc: ra === "2026/HDXD-004",
+      thucTe: `"${ra}"`,
+      mongDoi: '"2026/HDXD-004" — tiep sau so 003 cua ma CU, khong quay ve 001',
     };
   },
 );
