@@ -48,6 +48,13 @@ export function OChungTuBatBuoc({
    * phải biết luật của một chứng từ cụ thể — sai tầng, và 7 ô kia không dùng tới.
    */
   nutPhu,
+  /**
+   * ★★ DÁNG GỌN CHO TỆP ĐÃ ĐÍNH — Sếp 17/09/2026: ***"muốn mục hiển thị file đính kèm
+   * này giống mục số 4 và 5"***. Chỉ truyền xuống, luật ở `o-dinh-kem-tep.tsx`.
+   *
+   * ⚠️ BẬT ĐÚNG CHỖ CẦN. Ô này dùng chung 9 chỗ; Sếp chỉ khoanh bộ hồ sơ thanh toán.
+   */
+  dangGon,
 }: {
   deNghi: DeNghiMuaHang;
   maGiaiDoan: string;
@@ -59,6 +66,7 @@ export function OChungTuBatBuoc({
   khoa?: boolean;
   tepDaCo: MoTaTep[];
   nutPhu?: React.ReactNode;
+  dangGon?: boolean;
 }) {
   const { datTepVaoOGiaiDoan, goTepGiaiDoan } = useDuLieu();
   const { nguoiDung } = useNguoiDung();
@@ -105,6 +113,7 @@ export function OChungTuBatBuoc({
         <ODinhKemTep
           key={t.id}
           tep={t}
+          dangGon={dangGon}
           nhanThem={tieuDe}
           nguoi={nguoi}
           onXong={(moi) => luu(moi, t)}

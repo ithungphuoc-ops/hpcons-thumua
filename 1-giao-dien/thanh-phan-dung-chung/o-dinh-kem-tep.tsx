@@ -72,6 +72,20 @@ export function ODinhKemTep({
    * Xem khối chú thích ở chỗ vẽ để biết vì sao không xếp cạnh được từ nơi gọi.
    */
   nutKemTheo,
+  /**
+   * ★★ DÁNG GỌN KHI ĐÃ CÓ TỆP — Sếp 17/09/2026: ***"muốn mục hiển thị file đính kèm này
+   * giống mục số 4 và 5"***, khoanh đỏ ô Hóa đơn VAT và ô Đính kèm khác trong bộ hồ sơ.
+   *
+   * 🔴 CHỈ ĐỔI DÁNG, KHÔNG BỎ MỘT NÚT NÀO. Mục 4·5 gọn được vì chứng từ của chúng **nộp ở
+   * bước khác**, ở đây chỉ là liên kết đọc. Còn Hóa đơn VAT thì **bước này là chỗ nộp duy
+   * nhất** — bỏ nút thay/gỡ đi là đính nhầm một lần rồi không sửa được nữa, mà thiếu hoá đơn thì
+   * hồ sơ không đóng được. Nên dáng gọn = bỏ viền, bỏ nền xanh, bỏ dòng phụ; **bốn nút giữ nguyên**.
+   *
+   * ⚠️ MẶC ĐỊNH `false` — ô này dùng chung 8 chỗ (khu báo giá, phiếu giao nhận…), mà dáng
+   * khung xanh ở những chỗ đó là kết quả chỉ đạo Ban lãnh đạo 13·20·21/08/2026. Bật toàn bộ là
+   * đổi 15 điểm hiển thị trong khi Sếp chỉ khoanh bộ hồ sơ thanh toán.
+   */
+  dangGon = false,
 }: {
   tep?: MoTaTep;
   nhanThem: string;
@@ -83,6 +97,7 @@ export function ODinhKemTep({
   nhanPhu?: React.ReactNode;
   anHuongDan?: boolean;
   nutKemTheo?: React.ReactNode;
+  dangGon?: boolean;
 }) {
   const [dangCat, setDangCat] = useState(false);
   const [hoiXoa, setHoiXoa] = useState(false);
@@ -147,7 +162,13 @@ export function ODinhKemTep({
            🔴 Bản cũ để tất cả trên một hàng `flex-wrap`: gặp tên tệp dài (ảnh chụp từ điện
            thoại có tên cả trăm ký tự) là tên chiếm trọn hàng, đẩy nút "Xem" xuống dòng
            dưới, và `ml-auto` mất tác dụng — mỗi lần giao một kiểu cao thấp khác nhau. */
-        <div className="flex items-center gap-2 rounded-lg border border-success bg-success-bg px-2.5 py-1.5">
+        <div
+          className={
+            dangGon
+              ? "flex items-center gap-2"
+              : "flex items-center gap-2 rounded-lg border border-success bg-success-bg px-2.5 py-1.5"
+          }
+        >
           <Paperclip className="size-4 shrink-0 text-success-soft" aria-hidden />
 
           {/* `min-w-0` là bắt buộc để `truncate` bên trong hoạt động: mặc định ô flex
@@ -159,8 +180,12 @@ export function ODinhKemTep({
             >
               {rutGonTenTep(tep.tenTep)}
             </span>
+            {/* Dáng gọn chỉ giữ CỠ TỆP — bỏ người tải và thời điểm cho vừa một dòng, đúng
+                như mục 4·5. Hai thông tin đó không mất: nhật ký hồ sơ vẫn ghi ai đính lúc nào. */}
             <span className="truncate text-xs text-text-desc">
-              {coTep(tep.kichThuoc)} · {tep.nguoiTaiTen} · {formatMocThoiGian(tep.thoiDiem)}
+              {dangGon
+                ? coTep(tep.kichThuoc)
+                : `${coTep(tep.kichThuoc)} · ${tep.nguoiTaiTen} · ${formatMocThoiGian(tep.thoiDiem)}`}
             </span>
           </span>
 

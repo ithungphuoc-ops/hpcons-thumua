@@ -4820,6 +4820,87 @@ kiem(
 // ════════════════════════════════════════════════════════════════════
 
 kiem(
+  "THEM BAN NUA — ban thu hai (nhan co hau to) PHAI duoc nhan",
+  'Sếp · 17/09/2026 — "Truong nay dang ko hoat dong" (nut + Them ban nua)',
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const dn = {
+      tepGiaiDoan: {
+        ho_so_thanh_toan: [
+          { id: "t1", ten: "vat1.pdf", ghiChu: CT.NHAN_TEP_HOA_DON_VAT },
+          { id: "t2", ten: "vat2.pdf", ghiChu: `${CT.NHAN_TEP_HOA_DON_VAT} (2)` },
+        ],
+      },
+    };
+    const ra = CT.tepHoaDonVAT(dn).map((t) => t.id);
+    return {
+      duoc: ra.length === 2 && ra.includes("t2"),
+      thucTe: `nhan ${ra.length} ban: ${ra.join(",")}`,
+      mongDoi: "nhan CA HAI ban — ban (2) la thu nut \"Them ban nua\" sinh ra",
+    };
+  },
+);
+
+kiem(
+  "THEM BAN NUA — CHIEU NGHICH: ghi chu nguoi dung tu go KHONG duoc dem la chung tu",
+  "Ly do cu van con nguyen: dem nham la app bao du ho so khi ho so con thieu",
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const dn = {
+      tepGiaiDoan: {
+        ho_so_thanh_toan: [
+          { id: "x1", ten: "a.pdf", ghiChu: `cho ${CT.NHAN_TEP_HOA_DON_VAT} ben A gui` },
+          { id: "x2", ten: "b.pdf", ghiChu: `${CT.NHAN_TEP_HOA_DON_VAT} ban nhap` },
+          { id: "x3", ten: "c.pdf", ghiChu: `${CT.NHAN_TEP_HOA_DON_VAT} (ban cu)` },
+        ],
+      },
+    };
+    const ra = CT.tepHoaDonVAT(dn).map((t) => t.id);
+    return {
+      duoc: ra.length === 0,
+      thucTe: ra.length === 0 ? "khong dem cai nao (dung)" : `dem nham: ${ra.join(",")}`,
+      mongDoi: "khong dem — chi nhan dung dang nhan + \" (so)\"",
+    };
+  },
+);
+
+kiem(
+  "MA KIEM SOAT — phai gom MA HOP DONG + MA DE NGHI + hau to (copy N)",
+  'Sếp · 17/09/2026 — "Hay lay ma hop dong + ma de nghi de nhan vien de kiem soat"',
+  () => {
+    const ra = TT.maKiemSoatDeNghi({
+      code: "2026/HDXD-PR-001 (copy 2)",
+      maHopDongCDT: "2026/HDXD",
+      maDeXuatAppRequest: "000000096",
+      tieuDe: "Nha xuong Howell (copy 2)",
+    });
+    return {
+      duoc: ra.includes("2026/HDXD") && ra.includes("000000096") && ra.includes("(copy 2)"),
+      thucTe: `"${ra}"`,
+      mongDoi: "co ca ma hop dong, ma 6 so, va hau to (copy 2)",
+    };
+  },
+);
+
+kiem(
+  "MA KIEM SOAT — CHIEU NGHICH: ba ban con cung mot de nghi KHONG duoc ra ba chuoi giong het",
+  "Sếp · 17/09/2026 — ban sao ke thua nguyen maDeXuatAppRequest cua phieu goc",
+  () => {
+    const nen = { maHopDongCDT: "2026/HDXD", maDeXuatAppRequest: "000000096" };
+    const ds = [
+      { ...nen, code: "x (copy)", tieuDe: "Nha xuong (copy)" },
+      { ...nen, code: "x (copy 2)", tieuDe: "Nha xuong (copy 2)" },
+      { ...nen, code: "x (copy 3)", tieuDe: "Nha xuong (copy 3)" },
+    ].map((d) => TT.maKiemSoatDeNghi(d));
+    return {
+      duoc: new Set(ds).size === 3,
+      thucTe: ds.join(" | "),
+      mongDoi: "ba chuoi KHAC nhau — giong het la khong ai biet dong nao la phieu nao",
+    };
+  },
+);
+
+kiem(
   "NHAN BAN CAP 2 — phieu o GIUA phai biet dong nao cua minh da giao di",
   "Sếp · 17/09/2026 (huong C) — truoc do phieu giua ket y nhu loi A cua phieu goc",
   () => {

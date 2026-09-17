@@ -598,9 +598,30 @@ export function daKhaiKhongCoHopDong(deNghi: DeNghiMuaHang): boolean {
 /** Tệp của một bước, lọc theo nhãn ghi chú. */
 function tepTheoNhan(deNghi: DeNghiMuaHang, buoc: string, nhan: string): MoTaTep[] {
   const ds = deNghi.tepGiaiDoan?.[buoc] ?? [];
-  /* So sánh CHÍNH XÁC nhãn: nới thành "có chứa" là ghi chú người dùng tự gõ ("chờ hóa đơn VAT
-     bên A gửi") bị đếm thành chứng từ thật, và app báo đủ hồ sơ khi hồ sơ còn thiếu. */
-  return ds.filter((t) => (t.ghiChu ?? "").trim() === nhan);
+  /**
+   * 🔴 NHẬN CẢ BẢN THỨ HAI TRỞ ĐI — Sếp báo lỗi 17/09/2026: ***"Trường này đang ko hoạt
+   * động"***, khoanh đỏ nút *"+ Thêm bản nữa"* ở ô Hóa đơn VAT.
+   *
+   * ĐÃ ĐO RA GỐC: `OChungTuBatBuoc` đặt nhãn bản thứ hai là `"Hóa đơn VAT (2)"` (phải khác
+   * nhãn bản đầu, vì `datTepVaoOGiaiDoan` tự gỡ bản cũ CÙNG NHÃN). Nhưng phép lọc này so
+   * CHÍNH XÁC `=== nhan`, nên bản thứ hai **không bao giờ được nhận**: tệp đã lưu thật vào hồ sơ
+   * mà màn hình không hiện gì — đúng loại lỗi `CLAUDE.md` §3.5 cấm.
+   *
+   * 🔴 VÀ NÓ KHÔNG CHỈ LÀ LỖI HIỂN THỊ: `coHoaDonVAT` dựa trên chính phép lọc này, nên đơn tách
+   * cho hai nhà cung cấp (hai hoá đơn) mà bỏ bản đầu đi thì hồ sơ bị coi là **thiếu hoá đơn** dù đang
+   * còn một bản — và không đóng được hồ sơ.
+   *
+   * ⚠️ VẪN KHÔNG NỚI THÀNH "CÓ CHỨA" — lý do cũ còn nguyên: ghi chú người dùng tự gõ
+   * (*"chờ hóa đơn VAT bên A gửi"*) sẽ bị đếm thành chứng từ thật, và app báo đủ hồ sơ khi còn
+   * thiếu. Chỉ nhận thêm **đúng một dạng**: nhãn + khoảng trắng + `(số)` ở cuối — đúng cái
+   * `OChungTuBatBuoc` sinh ra, không hơn.
+   */
+  return ds.filter((t) => {
+    const g = (t.ghiChu ?? "").trim();
+    if (g === nhan) return true;
+    if (!g.startsWith(`${nhan} (`) || !g.endsWith(")")) return false;
+    return /^\d+$/.test(g.slice(nhan.length + 2, -1));
+  });
 }
 
 export function tepHopDong(deNghi: DeNghiMuaHang): MoTaTep[] {

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronUp, GitBranch } from "lucide-react";
 import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
+import { maKiemSoatDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
 import type {
   BaoGia,
   DeNghiMuaHang,
@@ -130,8 +131,13 @@ export function KhoiDeXuatCon({
                   <Link
                     href={`/de-nghi/${con.id}`}
                     className="font-medium text-primary hover:underline"
+                    title={con.code}
                   >
-                    {con.code}
+                    {/* 🔴 MÃ KIỂM SOÁT, KHÔNG PHẢI `con.code` — Sếp 17/09/2026: *"Hãy lấy mã
+                        hợp đồng + mã đề nghị để nhân viên dễ kiểm soát"*. `code` là mã nội bộ của
+                        app thu mua; thứ nhân viên tra trên giấy tờ là số hợp đồng + mã 6 số.
+                        📌 `title` giữ `code` để ai quen mã cũ rê chuột vẫn tra ra. */}
+                    {maKiemSoatDeNghi(con)}
                   </Link>
                   <span className="truncate text-xs text-text-desc">
                     {con.items.length} mặt hàng

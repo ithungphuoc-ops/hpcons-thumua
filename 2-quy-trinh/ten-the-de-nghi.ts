@@ -171,6 +171,31 @@ export function manhTenTheDeNghi(deNghi: DeNghiMuaHang): { ma: string; phanSau: 
 
 /** Cả dòng tiêu đề thẻ, ghép sẵn — dùng cho bài kiểm và cho chỗ nào cần một chuỗi (tooltip, tìm
  *  kiếm). Giao diện thẻ dùng `manhTenTheDeNghi` để tô màu riêng phần mã. */
+/**
+ * ★★ MÃ NGẮN ĐỂ KIỂM SOÁT: **mã hợp đồng + mã đề nghị** — Sếp 17/09/2026:
+ * ***"Hãy lấy mã hợp đồng + mã đề nghị để nhân viên dễ kiểm soát"***, khoanh đỏ danh sách
+ * đề xuất con đang chỉ hiện `2026/HDXD-PR-001 (copy)`.
+ *
+ * 🔴 VÌ SAO MÃ CŨ KHÓ KIỂM SOÁT: `code` của phiếu con là mã nội bộ của app thu mua
+ * (`…-PR-001`), còn thứ nhân viên tra trên giấy tờ và trên app đề xuất là **mã 6 số**
+ * (`000000096`) và **số hợp đồng** (`2026/HDXD`). Hai thứ đó mới dùng để đối chiếu giữa các app.
+ *
+ * 🔴 PHẢI GIỮ HẬU TỐ `(copy N)`. Bản sao **kế thừa nguyên `maDeXuatAppRequest` của phiếu
+ * gốc**, nên ba bản con của cùng một đề nghị đều ra `000000096` — bỏ hậu tố là ba dòng giống
+ * hệt nhau, không ai biết dòng nào là phiếu nào.
+ *
+ * 📌 DÙNG LẠI `maDauTheDeNghi` và `phanThemCuaTieuDe` — không tự đọc `maDeXuatAppRequest`
+ * hay tự dò hậu tố ở nơi gọi. Hai chỗ cùng tính một cái mã là sớm muộn lệch nhau.
+ */
+export function maKiemSoatDeNghi(deNghi: DeNghiMuaHang): string {
+  const them = phanThemCuaTieuDe(deNghi);
+  return (
+    (deNghi.maHopDongCDT ? `${deNghi.maHopDongCDT} - ` : "") +
+    maDauTheDeNghi(deNghi) +
+    (them ? ` ${them}` : "")
+  );
+}
+
 export function tenTheDeNghi(deNghi: DeNghiMuaHang): string {
   const { ma, phanSau } = manhTenTheDeNghi(deNghi);
   return ma + phanSau;

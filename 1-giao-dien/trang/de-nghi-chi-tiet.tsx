@@ -3595,6 +3595,10 @@ export default function TrangChiTietDeNghi({
                             deNghi={dn}
                             maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
                             nhanO={NHAN_TEP_HOA_DON_VAT}
+                            /* 🔴 Dáng gọn — Sếp 17/09/2026: *"muốn mục hiển thị file đính kèm này
+                               giống mục số 4 và 5"*. Bật cho CẢ BỐN ô của bộ hồ sơ — bật một ô là một
+                               danh sách hai dáng, đúng cái Sếp vừa bắt. */
+                            dangGon
                             tieuDe="Hóa đơn VAT"
                             moTa="Hóa đơn GTGT nhà cung cấp xuất cho đơn hàng này. Bắt buộc phải có mới duyệt hoàn thành được. Đơn tách cho nhiều nhà cung cấp thì thêm từng bản."
                             batBuoc
@@ -3608,6 +3612,10 @@ export default function TrangChiTietDeNghi({
                             deNghi={dn}
                             maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
                             nhanO={NHAN_TEP_UNC}
+                            /* 🔴 Dáng gọn — Sếp 17/09/2026: *"muốn mục hiển thị file đính kèm này
+                               giống mục số 4 và 5"*. Bật cho CẢ BỐN ô của bộ hồ sơ — bật một ô là một
+                               danh sách hai dáng, đúng cái Sếp vừa bắt. */
+                            dangGon
                             tieuDe="Ủy nhiệm chi"
                             /* 🔴 CÂU CŨ GHI *"chỉ cần tích xong việc của bước này"* — đã sửa
                                15/09/2026 vì cái tích đó không còn tồn tại (Sếp bỏ). Để nguyên là
@@ -3628,6 +3636,10 @@ export default function TrangChiTietDeNghi({
                             deNghi={dn}
                             maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
                             nhanO={NHAN_TEP_PHIEU_CHI}
+                            /* 🔴 Dáng gọn — Sếp 17/09/2026: *"muốn mục hiển thị file đính kèm này
+                               giống mục số 4 và 5"*. Bật cho CẢ BỐN ô của bộ hồ sơ — bật một ô là một
+                               danh sách hai dáng, đúng cái Sếp vừa bắt. */
+                            dangGon
                             tieuDe="Phiếu chi"
                             moTa="Phiếu chi của khoản trả bằng tiền mặt. Đơn chuyển khoản thì để trống — chứng từ là ủy nhiệm chi ở trên."
                             duocSua={duocSuaTepBuoc}
@@ -3673,6 +3685,8 @@ export default function TrangChiTietDeNghi({
                             deNghi={dn}
                             maGiaiDoan={BUOC_DINH_KEM_KHAC}
                             nhanO={TEN_HIEN_DINH_KEM_KHAC}
+                            /* Dáng gọn như ba ô trên — Sếp khoanh đỏ cả ô này 17/09/2026. */
+                            dangGon
                             tieuDe={TEN_HIEN_DINH_KEM_KHAC}
                             duocSua={duocSuaTepBuoc}
                             khoa={hoSoDaDong}

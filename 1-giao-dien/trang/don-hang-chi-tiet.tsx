@@ -597,7 +597,24 @@ export default function TrangChiTietDonHang() {
                       <TableHead className="w-28 text-right">Số lượng</TableHead>
                       <TableHead className="w-36 text-right">Đơn giá</TableHead>
                       <TableHead className="w-40 text-right">Thành tiền</TableHead>
-                      <TableHead className="w-full whitespace-normal">Mục đích sử dụng</TableHead>
+                      {/**
+                        * 🔴 ĐÃ BỎ `w-full` Ở ĐÂY — Sếp 17/09/2026: ***"Giao diện này sao bị bóp lại hết
+                        * vậy"***. Đây là lỗi của chính tôi cùng ngày.
+                        *
+                        * Khi năm cột đầu đã ghim bề rộng cứng (`w-14…w-28`) và hai cột tiền ghim tiếp
+                        * (`w-36`, `w-40`), đặt thêm `w-full` (= width:100%) lên cột cuối là tổng bề rộng
+                        * yêu cầu **vượt 100%**. Trình duyệt xử lý bằng cách co tất cả lại theo tỷ lệ — và vì
+                        * hai cột chữ đang `whitespace-normal` nên chúng xuống dòng thay vì giữ bề rộng, thành
+                        * ra cả bảng bị bóp về một góc đúng như ảnh Sếp chụp.
+                        *
+                        * 📌 Bỏ `w-full` thì cột cuối **vẫn nhận phần dư** — nó là cột duy nhất không ghim
+                        * bề rộng, nên `table-layout: auto` tự dồn chỗ thừa vào đó. Không cần nói thêm một
+                        * lần nữa bằng `w-full`.
+                        *
+                        * ⚠️ BÀI HỌC: `w-full` trên một cột chỉ an toàn khi các cột khác **không ghim** bề rộng.
+                        * Đã ghim rồi thì thêm `w-full` là vượt 100% và vỡ cả bảng.
+                        */}
+                      <TableHead className="whitespace-normal">Mục đích sử dụng</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
