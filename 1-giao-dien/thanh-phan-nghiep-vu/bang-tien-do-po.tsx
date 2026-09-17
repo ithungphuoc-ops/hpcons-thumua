@@ -208,25 +208,27 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                   * nên `thongSoKyThuat` đi theo mỗi dòng.
                   */}
                 {/**
-                  * ★★ `w-full` Ở CỘT "Thông số kỹ thuật" — Sếp 17/09/2026: ***"Bố cục lại"***,
-                  * khoanh cả bảng.
+                  * ★★ PHẦN DƯ DỒN VÀO CỘT "Tiến độ" — Sếp 17/09/2026, **lần sửa thứ hai trong
+                  * cùng ngày**, cùng một câu: ***"bố cục lại giao diện này cho cân đối"***.
                   *
-                  * 🔴 NGUYÊN NHÂN KHOẢNG TRỐNG (đo được, không đoán): `TableCell` có sẵn
-                  * `whitespace-nowrap` nên mọi cột co về đúng nội dung; bảng lại là `w-full`, nên
-                  * phần dư giữa bề rộng bảng và tổng nội dung bị **chia đều cho mọi cột**. Kết quả
-                  * là các cột số (Đặt · ngày giao · Đã nhận · Còn lại) dãn cách nhau cả trăm pixel
-                  * — mắt phải chạy ngang rất xa mới đọc được một dòng, đúng thứ Sếp thấy.
+                  * 🔴 NGUYÊN NHÂN KHOẢNG TRỐNG: `TableCell` có sẵn `whitespace-nowrap` nên mọi cột
+                  * co về đúng nội dung; bảng lại là `w-full`, nên phần dư giữa bề rộng bảng và tổng
+                  * nội dung bị **chia đều cho mọi cột** — các cột số dãn cách nhau cả trăm pixel.
                   *
-                  * `w-full` ở đây nghĩa là *"cột này xin 100%"*, nên nó hút toàn bộ phần dư và các
-                  * cột còn lại co sát nội dung, các con số về đứng cạnh nhau.
+                  * ❌ LẦN ĐẦU TÔI ĐẶT `w-full` VÀO "Thông số kỹ thuật" VÀ SAI. Nội dung cột đó rất
+                  * ngắn ("A4", "Xanh", "Laptop") nên nó phình thành **một mảng trắng khổng lồ giữa
+                  * bảng** — Sếp chụp lại đúng mảng trắng đó. Đổi một lỗi lấy một lỗi khó coi hơn.
                   *
-                  * 📌 CHỌN CỘT "Thông số kỹ thuật" LÀM CHỖ NHẬN PHẦN DƯ là cố ý: nó là cột chữ dài
-                  * nhất và không có gì phải so hàng dọc. Đặt vào cột cuối ("Tiến độ") thì thanh
-                  * tiến độ kéo dài vô ích; đặt vào một cột số là số của dòng này lệch số của dòng
-                  * kia.
+                  * ✅ CHỖ ĐÚNG LÀ CỘT CUỐI "Tiến độ", vì `ThanhTienDo` bên trong là `w-full`: ô
+                  * rộng thêm bao nhiêu thì **thanh dài ra bấy nhiêu**, không để lại khoảng trắng
+                  * nào. Đây là cột duy nhất của bảng có phần tử tự co giãn — mọi cột khác đều là
+                  * chữ hoặc số, phình ra là thành chỗ trống.
+                  *
+                  * 📌 BÀI HỌC ĐỂ ĐỪNG LẶP: chọn chỗ nhận phần dư thì tìm cột có **phần tử co giãn**
+                  * (thanh, biểu đồ), không phải cột có **chữ dài nhất**.
                   */}
                 <TableHead>Tên hàng</TableHead>
-                <TableHead className="w-full">Thông số kỹ thuật</TableHead>
+                <TableHead>Thông số kỹ thuật</TableHead>
                 <TableHead>ĐVT</TableHead>
                 <TableHead className="text-right">Đặt</TableHead>
                 {lanGiaoDaTinh.map((p) => (
@@ -236,7 +238,9 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                 ))}
                 <TableHead className="text-right">Đã nhận</TableHead>
                 <TableHead className="text-right">Còn lại</TableHead>
-                <TableHead>Tiến độ</TableHead>
+                {/* `w-full` = "cột này xin 100%" → hút toàn bộ phần dư của bảng, các cột còn lại co
+                    sát nội dung. Xem lý do đầy đủ ở khối chú thích đầu hàng tiêu đề này. */}
+                <TableHead className="w-full">Tiến độ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
