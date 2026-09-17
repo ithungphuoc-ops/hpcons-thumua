@@ -291,15 +291,40 @@ service cloud.firestore {
       // 🔴 Kho là NGUỒN DUY NHẤT của số thực nhận: Thu mua và QLDA chỉ đọc, KHÔNG tự ghi
       // số nhận thay kho. Cấp 3 của app tm được ghi chỉ để sửa sai sót nghiệp vụ.
       //
-      // ⚠️ App nghe phiếu nhận bằng `collectionGroup("nhanhang")`. Rule này khớp đúng đường
-      // `tm_donhang/{poId}/nhanhang/{grnId}` nên collection group đọc được; nếu sau này có
-      // collection `nhanhang` ở chỗ khác thì phải khai riêng, rules KHÔNG tự suy ra.
+      // ⚠️ RULE NÀY CHỈ ÁP CHO TRUY CẬP TRỰC TIẾP `tm_donhang/{poId}/nhanhang/{grnId}`.
+      // 🔴 NÓ **KHÔNG** ÁP CHO `collectionGroup("nhanhang")` — xem khối riêng bên dưới.
+      // Tôi đã kết luận sai chiều này ngày 17/09/2026 và làm app mất kết nối trên production.
       match /nhanhang/{grnId} {
         allow read: if conHanChayThu() && duocXemHoSoMuaHang();
         allow create, update: if conHanChayThu() && thuKho();
         allow delete: if conHanChayThu() && quanLyThuMua();
       }
     }
+
+    // ---------- 🔴 PHIẾU NHẬN ĐỌC BẰNG collectionGroup — KHỐI BẮT BUỘC RIÊNG ----------
+    //
+    // ⚠️ ĐÂY LÀ LỖI ĐÃ XẢY RA THẬT TRÊN PRODUCTION, 17/09/2026 lúc 18:41.
+    //
+    // Rule lồng `match /tm_donhang/{poId}/nhanhang/{grnId}` ở trên **KHÔNG** áp cho truy vấn
+    // `collectionGroup("nhanhang")`. Firestore coi collection group là một phép truy vấn khác
+    // hẳn: nó cần một rule khớp ở MỌI cấp, tức phải có wildcard đệ quy `{duongDan=**}`.
+    //
+    // Hậu quả đo được: app gọi collectionGroup → bị từ chối → theo chốt `daNgheDu` trong
+    // `kho-chung-tach.ts` (chỉ báo dữ liệu khi nghe đủ CẢ BẢY nguồn), thiếu một nguồn là app
+    // **không bao giờ** hiện dữ liệu, và dải báo đứng mãi ở *"Chưa nối kho chung"*.
+    //
+    // 🔴 VÌ SAO PHÉP THỬ CỦA TÔI KHÔNG BẮT ĐƯỢC: tôi thử bằng **Admin SDK**, mà Admin SDK
+    // BỎ QUA toàn bộ Security Rules. Nó chạy được không chứng minh gì về phía trình duyệt.
+    // Muốn kiểm thật phải dùng client SDK có đăng nhập, hoặc Firebase Emulator.
+    //
+    // 📌 Giữ CẢ HAI khối: khối lồng ở trên cho truy cập trực tiếp một phiếu, khối này cho
+    // truy vấn collection group. Quyền đặt giống hệt nhau để không có đường nào lỏng hơn.
+    match /{duongDan=**}/nhanhang/{grnId} {
+      allow read: if conHanChayThu() && duocXemHoSoMuaHang();
+      allow create, update: if conHanChayThu() && thuKho();
+      allow delete: if conHanChayThu() && quanLyThuMua();
+    }
+
 
     // ---------- 🔒 GIÁ CỦA ĐƠN HÀNG — CHỨNG TỪ RIÊNG ----------
     // Đây là lý do tồn tại của cả cách tách document. ĐỪNG gộp lại vào `tm_donhang`.
