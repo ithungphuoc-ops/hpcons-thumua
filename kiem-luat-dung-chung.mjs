@@ -4865,42 +4865,6 @@ kiem(
 );
 
 kiem(
-  "MA KIEM SOAT — phai gom MA HOP DONG + MA DE NGHI + hau to (copy N)",
-  'Sếp · 17/09/2026 — "Hay lay ma hop dong + ma de nghi de nhan vien de kiem soat"',
-  () => {
-    const ra = TT.maKiemSoatDeNghi({
-      code: "2026/HDXD-PR-001 (copy 2)",
-      maHopDongCDT: "2026/HDXD",
-      maDeXuatAppRequest: "000000096",
-      tieuDe: "Nha xuong Howell (copy 2)",
-    });
-    return {
-      duoc: ra.includes("2026/HDXD") && ra.includes("000000096") && ra.includes("(copy 2)"),
-      thucTe: `"${ra}"`,
-      mongDoi: "co ca ma hop dong, ma 6 so, va hau to (copy 2)",
-    };
-  },
-);
-
-kiem(
-  "MA KIEM SOAT — CHIEU NGHICH: ba ban con cung mot de nghi KHONG duoc ra ba chuoi giong het",
-  "Sếp · 17/09/2026 — ban sao ke thua nguyen maDeXuatAppRequest cua phieu goc",
-  () => {
-    const nen = { maHopDongCDT: "2026/HDXD", maDeXuatAppRequest: "000000096" };
-    const ds = [
-      { ...nen, code: "x (copy)", tieuDe: "Nha xuong (copy)" },
-      { ...nen, code: "x (copy 2)", tieuDe: "Nha xuong (copy 2)" },
-      { ...nen, code: "x (copy 3)", tieuDe: "Nha xuong (copy 3)" },
-    ].map((d) => TT.maKiemSoatDeNghi(d));
-    return {
-      duoc: new Set(ds).size === 3,
-      thucTe: ds.join(" | "),
-      mongDoi: "ba chuoi KHAC nhau — giong het la khong ai biet dong nao la phieu nao",
-    };
-  },
-);
-
-kiem(
   "NHAN BAN CAP 2 — phieu o GIUA phai biet dong nao cua minh da giao di",
   "Sếp · 17/09/2026 (huong C) — truoc do phieu giua ket y nhu loi A cua phieu goc",
   () => {

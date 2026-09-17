@@ -121,6 +121,7 @@ import {
   vuongMacXacNhanKho,
 } from "@/2-quy-trinh/tinh-toan";
 import { BangTienDoPO } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-tien-do-po";
+import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import {
   GIAI_DOAN_MUA_HANG,
@@ -1289,7 +1290,26 @@ export default function TrangChiTietDeNghi({
                   href={`/de-nghi/${dn.deNghiGocId}`}
                   className="font-semibold text-primary hover:underline"
                 >
-                  {dn.maDeNghiGoc ?? dn.deNghiGocId}
+                  {/**
+                    * 🔴 HIỆN **MÃ ĐỀ NGHỊ + MÃ HỢP ĐỒNG + TÊN CÔNG TRÌNH**, KHÔNG hiện `maDeNghiGoc`
+                    * — Sếp 17/09/2026: ***"Bỏ ký hiệu PR-001 đó đi, hãy hiển thị Mã đề nghị + Mã Hợp đồng +
+                    * Tên công trình, giống tên tiêu đề của quy trình"***.
+                    *
+                    * `maDeNghiGoc` là mã NỘI BỘ của app thu mua (`…-PR-001`). Sếp hỏi thẳng *"ký hiệu
+                    * PR-001 ở đây là gì, sao ở quy trình nào cũng ghi vậy"* — vì số thứ tự đếm theo TỪNG
+                    * DỰ ÁN, nên hợp đồng nào cũng bắt đầu lại từ 001 và dòng nào cũng trông giống nhau.
+                    *
+                    * 📌 DÙNG `tenTheDeNghi` — **đúng hàm dựng tiêu đề thẻ trên bảng quy trình**, không ghép
+                    * chuỗi tại đây. Sếp muốn *"giống tên tiêu đề của quy trình"*, mà giống thật thì chỉ có
+                    * một cách: gọi chung một hàm. Ghép tay là hai chỗ sớm muộn lệch nhau.
+                    *
+                    * ⚠️ Phiếu gốc có thể đã bị xoá (app không chặn) — khi đó rơi về `maDeNghiGoc` như cũ
+                    * chứ không để trống: mất dấu vết cha–con là không ai biết phiếu này tách ra từ đâu.
+                    */}
+                  {(() => {
+                    const goc = deNghi.find((x) => x.id === dn.deNghiGocId);
+                    return goc ? tenTheDeNghi(goc) : (dn.maDeNghiGoc ?? dn.deNghiGocId);
+                  })()}
                 </Link>
               </div>
             )}

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronUp, GitBranch } from "lucide-react";
 import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
-import { maKiemSoatDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
+import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
 import type {
   BaoGia,
   DeNghiMuaHang,
@@ -137,7 +137,11 @@ export function KhoiDeXuatCon({
                         hợp đồng + mã đề nghị để nhân viên dễ kiểm soát"*. `code` là mã nội bộ của
                         app thu mua; thứ nhân viên tra trên giấy tờ là số hợp đồng + mã 6 số.
                         📌 `title` giữ `code` để ai quen mã cũ rê chuột vẫn tra ra. */}
-                    {maKiemSoatDeNghi(con)}
+                    {/* 🔴 CÙNG CÁCH VỚI DÒNG "Tách ra từ đề xuất" ở trang chi tiết — Sếp 17/09/2026:
+                        *"hiển thị Mã đề nghị + Mã Hợp đồng + Tên công trình, giống tên tiêu đề của quy trình"*.
+                        Hai khối này nói về cùng một quan hệ cha–con, ghi hai kiểu là người đọc phải tự ghép.
+                        📌 `title` giữ `code` để ai quen mã cũ rê chuột vẫn tra ra. */}
+                    {tenTheDeNghi(con)}
                   </Link>
                   <span className="truncate text-xs text-text-desc">
                     {con.items.length} mặt hàng
