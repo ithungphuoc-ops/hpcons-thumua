@@ -253,7 +253,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                 <TableHead className="w-48 whitespace-normal">Tên hàng</TableHead>
                 <TableHead className="w-56 whitespace-normal">Thông số kỹ thuật</TableHead>
                 <TableHead className="w-20">ĐVT</TableHead>
-                <TableHead className="w-28 text-right">Đặt</TableHead>
+                <TableHead className="w-28 text-right">Số lượng</TableHead>
                 {lanGiaoDaTinh.map((p) => (
                   <TableHead key={p.id} className="text-right whitespace-nowrap">
                     {new Date(p.ngayNhanThucTe).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
@@ -343,7 +343,10 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                 <span className="-mt-1 text-xs text-text-secondary">{d.thongSoKyThuat}</span>
               )}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-desc">Đặt</span>
+                {/* 🔴 ĐỔI THEO BẢNG DESKTOP — Sếp 17/09/2026 *"Đổi tên Số lượng"*. Đây là bản Card
+                    List cho điện thoại; để nguyên chữ "Đặt" là hai thiết bị gọi cùng một con số
+                    bằng hai tên khác nhau. */}
+                <span className="text-text-desc">Số lượng</span>
                 <span className="font-semibold">
                   {d.khoiLuongDat.toLocaleString("vi-VN")} {d.donViTinh}
                 </span>

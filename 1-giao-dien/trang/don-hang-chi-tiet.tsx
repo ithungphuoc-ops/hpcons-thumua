@@ -594,10 +594,10 @@ export default function TrangChiTietDonHang() {
                         * theo một bảng khác.
                         */}
                       <TableHead className="w-20">ĐVT</TableHead>
-                      <TableHead className="w-28 text-right">SL</TableHead>
-                      <TableHead className="text-right">Đơn giá</TableHead>
-                      <TableHead className="text-right">Thành tiền</TableHead>
-                      <TableHead className="whitespace-normal">Mục đích sử dụng</TableHead>
+                      <TableHead className="w-28 text-right">Số lượng</TableHead>
+                      <TableHead className="w-36 text-right">Đơn giá</TableHead>
+                      <TableHead className="w-40 text-right">Thành tiền</TableHead>
+                      <TableHead className="w-full whitespace-normal">Mục đích sử dụng</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
