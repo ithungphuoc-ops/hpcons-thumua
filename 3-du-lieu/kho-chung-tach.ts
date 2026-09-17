@@ -56,32 +56,18 @@ import { tinhViecGhi, type ViecGhi } from "@/2-quy-trinh/so-sanh-kho-tach";
 import { daCauHinhFirebase, moFirebase } from "@/5-ket-noi/firebase-chung";
 
 /**
- * ★ TÊN COLLECTION — LẤY ĐÚNG THEO `5-ket-noi/firestore.rules` ĐÃ THIẾT KẾ SẴN TRONG REPO.
+ * ★ TÊN COLLECTION — dời sang `3-du-lieu/duong-dan-tach.ts` ngày 17/09/2026.
  *
- * 🔴 ĐỪNG TỰ ĐẶT TÊN KIỂU KHÁC (`tm-don-hang` gạch ngang chẳng hạn). Rules đã viết theo đúng mấy
- * cái tên này; lệch một chữ là Firestore từ chối mọi lượt ghi — hỏng ngay nhưng rất khó đoán ra,
- * vì thông báo chỉ là "thiếu quyền" chứ không nói tên sai.
+ * 🔴 VÌ SAO DỜI ĐI: ba route máy chủ chạy bằng Admin SDK cũng cần đúng bộ tên này. Tệp hiện tại
+ * `import` SDK Firebase **bản trình duyệt**, nên để chúng import từ đây là kéo cả SDK trình duyệt
+ * vào bundle máy chủ chỉ để lấy mấy chuỗi hằng. Tệp mới không import gì cả nên cả hai phía dùng
+ * chung được.
  *
- * ⚠️ TÔI ĐÃ SUÝT ĐẶT SAI. Ngày 16/09/2026 tôi tự nghĩ ra bộ tên gạch ngang rồi mới đọc thấy
- * `firestore.rules` có sẵn thiết kế. Đọc trước, đừng sáng tác.
- *
- * 📌 `tm_caidat` KHÔNG có trong rules gốc — thiết kế đó chưa tính tới cấu hình quy trình. Đặt theo
- * cùng lối cho nhất quán; rules cho nó phải thêm tay lúc deploy.
- *
- * ⚠️ `tm_caidat` là NGOẠI LỆ CỐ Ý, chỉ một tài liệu tên `chung`. Cấu hình quy trình, danh mục nhà
- * cung cấp, danh mục thủ kho — mỗi thứ chỉ có đúng một bản cho cả công ty, không phải chứng từ.
+ * 📌 Re-export để mọi nơi đang `import { DUONG_DAN_TACH } from "@/3-du-lieu/kho-chung-tach"` vẫn
+ * chạy y nguyên — một nguồn tên duy nhất, không bên nào chép lại lần hai.
  */
-export const DUONG_DAN_TACH = {
-  deNghi: "tm_denghi",
-  donHang: "tm_donhang",
-  giaDonHang: "tm_donhang_gia",
-  baoGia: "tm_baogia",
-  thongBao: "tm_thongbao",
-  /** Subcollection của `tm_donhang/{poId}` — Sếp chốt 16/09/2026, xem quyết định ③ đầu tệp. */
-  phieuNhanTrongDon: "nhanhang",
-  caiDat: "tm_caidat",
-  tepCaiDat: "chung",
-} as const;
+import { DUONG_DAN_TACH } from "@/3-du-lieu/duong-dan-tach";
+export { DUONG_DAN_TACH };
 
 /**
  * Năm nhóm cất PHẲNG — mỗi nhóm một collection gốc.
