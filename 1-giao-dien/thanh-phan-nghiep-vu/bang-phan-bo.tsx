@@ -55,7 +55,6 @@ import { vuongMacGiaoViec } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   dongDaChuyenDiHet,
   dongDaNhanBanSang,
-  ghiChuDaNhanBan,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { nhanAnToan, NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -641,9 +640,9 @@ export function BangPhanBo({
               {tienDo.map((d) => {
                 const tt = nhanAnToan(NHAN_TRANG_THAI_DONG, d.trangThaiDong);
                 const daPhan = Boolean(d.nguoiPhuTrachUid);
-                /* ★ Dòng đã nhân bản đi — Sếp 15/09/2026. Mã các phiếu đã nhận dòng này dùng cho
-                   câu ghi chú ngay dưới tên vật liệu. */
-                const maDaNhanBan = daNhanBan.get(d.stt) ?? [];
+                /* ★ Dòng đã nhân bản đi — Sếp 15/09/2026, chỉ còn dùng để LÀM MỜ dòng.
+                   📌 `maDaNhanBan` đã bỏ 17/09/2026 cùng dòng ghi chú (Sếp: *"bỏ các ghi chú này"*).
+                   Cần lại thì lấy bằng `daNhanBan.get(d.stt)`. */
                 const daChuyenDi = dongDaChuyenDiHet(d.stt, daNhanBan);
                 return (
                   <TableRow
@@ -730,17 +729,21 @@ export function BangPhanBo({
                             {d.quyCach}
                           </span>
                         )}
-                        {/* ★ GHI CHÚ "ĐÃ NHÂN BẢN SANG…" — Sếp 15/09/2026: *"phải có điều kiện hoặc
-                            ghi chú nào đó để biết rằng đề nghị đó đã được nhân bản để ko bị quên"*.
-                            Sếp chọn cách LIỆT KÊ ĐỦ mọi mã phiếu đích (không rút gọn thành "2 bản")
-                            — câu chữ dựng ở `ghiChuDaNhanBan`, đừng ghép chuỗi tại đây.
-                            📌 Khuôn badge bám đúng badge "Vật tư kiểm soát định mức" ngay dưới:
-                            11px là bậc nhỏ nhất còn được dùng cho nhãn trong dự án. */}
-                        {daChuyenDi && (
-                          <span className="mt-0.5 w-fit rounded bg-primary-bg px-1.5 py-0.5 text-[11px] font-semibold text-primary-soft">
-                            {ghiChuDaNhanBan(maDaNhanBan)} · phiếu này không cần mua
-                          </span>
-                        )}
+                        {/**
+                          * ★★ GHI CHÚ "Đã nhân bản sang…" ĐÃ BỎ KHỎle MÀN HÌNH — Sếp 17/09/2026:
+                          * ***"bỏ các ghi chú này"***, khoanh đỏ cả ba dòng trên bảng phân bổ.
+                          *
+                          * 🔴 ĐÂY LÀ ĐẢO CHÍNH CHỈ ĐẠO CỦA SẾP NGÀY 15/09/2026 — ghi đủ hai mốc để người sau
+                          * không tưởng ai đó tự ý gỡ:
+                          *   · 15/09: *"phải có điều kiện hoặc ghi chú nào đó để biết rằng đề nghị đó đã được
+                          *     nhân bản để ko bị quên"* → sinh ra dòng chữ này.
+                          *   · 17/09: Sếp xem bản thật và cho bỏ.
+                          *
+                          * 📌 KHÔNG XÓA HẴN THÔNG TIN, CHUYỂN SANG `title` (rê chuột). Lý do 15/09 vẫn còn
+                          * thật: dòng mờ mà không biết đã đi đâu thì người đọc hồ sơ phải đi dò từng bản copy.
+                          * Bỏ khỏi màn cho gọn đúng ý Sếp, nhưng giữ đường tra — và **dòng vẫn LÀM MỜ** như cũ
+                          * (đó là ý ① của chỉ đạo 15/09, Sếp chỉ khoanh dòng chữ chứ không bảo bỏ làm mờ).
+                          */}
                         {/* Mục đích sử dụng do người đề nghị ghi trên phiếu — hiện ngay
                             dưới tên vật liệu để người lập đơn biết mua cho hạng mục nào,
                             khỏi phải mở lại phiếu gốc. */}
@@ -946,7 +949,6 @@ export function BangPhanBo({
             const tt = nhanAnToan(NHAN_TRANG_THAI_DONG, d.trangThaiDong);
             /* ★ Cùng luật với bảng Desktop ở trên — Sếp 15/09/2026. 🔴 PHẢI SỬA CẢ HAI BẢN: sửa
                một bên là máy tính và điện thoại nói hai chuyện khác nhau về cùng một dòng. */
-            const maDaNhanBan = daNhanBan.get(d.stt) ?? [];
             const daChuyenDi = dongDaChuyenDiHet(d.stt, daNhanBan);
             return (
               <div
@@ -973,13 +975,9 @@ export function BangPhanBo({
                     {d.mucDichSuDung && (
                       <span className="text-xs text-text-desc">Dùng cho: {d.mucDichSuDung}</span>
                     )}
-                    {/* Ghi chú GIỮ SÁNG NGUYÊN — đây là thứ phải đọc được, xem chú thích dài ở
-                        bảng Desktop. */}
-                    {daChuyenDi && (
-                      <span className="mt-1 w-fit rounded bg-primary-bg px-1.5 py-0.5 text-[11px] font-semibold text-primary-soft">
-                        {ghiChuDaNhanBan(maDaNhanBan)} · phiếu này không cần mua
-                      </span>
-                    )}
+                    {/* Ghi chú đã bỏ khỏi màn cùng lủn với bảng Desktop (Sếp 17/09/2026) — hai nơi
+                        phải nói giống nhau, bỏ một bên là điện thoại và máy tính hiện hai kiểu.
+                        Xem chú thích đầy đủ ở bảng Desktop. */}
                   </div>
                   <StatusBadge label={tt.nhan} tone={tt.tong} />
                 </div>
