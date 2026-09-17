@@ -103,7 +103,20 @@ export function KhoiNangLucPhong() {
           ) : (
             <>
               {/* Bảng — Desktop/Tablet */}
-              <div className="hidden overflow-x-auto md:block">
+              {/**
+                * ★★ GIỚI HẠN BỀ RỘNG BẢNG — Sếp 17/09/2026: ***"bố cục lại"***.
+                *
+                * 🔴 TÔI ĐÃ MẮC LẠI ĐÚNG LỖI CỦA CHÍNH MÌNH HÔM NAY: đặt `w-full` ở cột cuối để nó
+                * hút phần dư, nhưng nội dung cột đó chỉ là một con số ⇒ thành mảng trắng khổng lồ giữa bảng.
+                *
+                * Bài học đã ghi ở `bang-tien-do-po.tsx`: chọn chỗ nhận phần dư thì tìm cột có **phần tử co
+                * giãn** (thanh, biểu đồ). Bảng này **không có cột nào như vậy** — toàn chữ và số ngắn.
+                * Nên cách duy nhất là **không để bảng rộng hơn nội dung**: `max-w-4xl` giữ bảng ở 896px thay
+                * vì kéo suốt chiều ngang Card, nên phần dư nhỏ và chia đều không lộ ra thành khoảng trống.
+                *
+                * ⚠️ `overflow-x-auto` giữ nguyên — màn hẹp hơn 896px vẫn cuộn ngang được.
+                */}
+              <div className="hidden max-w-4xl overflow-x-auto md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -112,7 +125,7 @@ export function KhoiNangLucPhong() {
                       <TableHead className="w-32 text-right">Thuộc mấy phiếu</TableHead>
                       <TableHead className="w-32 text-right">Phiếu đã đóng</TableHead>
                       <TableHead className="w-32 text-right">Phiếu đóng dở</TableHead>
-                      <TableHead className="w-full text-right">Đang quá hạn</TableHead>
+                      <TableHead className="w-36 text-right">Đang quá hạn</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
