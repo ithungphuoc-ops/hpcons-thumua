@@ -227,8 +227,8 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                   * 📌 BÀI HỌC ĐỂ ĐỪNG LẶP: chọn chỗ nhận phần dư thì tìm cột có **phần tử co giãn**
                   * (thanh, biểu đồ), không phải cột có **chữ dài nhất**.
                   */}
-                <TableHead>Tên hàng</TableHead>
-                <TableHead>Thông số kỹ thuật</TableHead>
+                <TableHead className="whitespace-normal">Tên hàng</TableHead>
+                <TableHead className="whitespace-normal">Thông số kỹ thuật</TableHead>
                 <TableHead>ĐVT</TableHead>
                 <TableHead className="text-right">Đặt</TableHead>
                 {lanGiaoDaTinh.map((p) => (
@@ -240,18 +240,18 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                 <TableHead className="text-right">Còn lại</TableHead>
                 {/* `w-full` = "cột này xin 100%" → hút toàn bộ phần dư của bảng, các cột còn lại co
                     sát nội dung. Xem lý do đầy đủ ở khối chú thích đầu hàng tiêu đề này. */}
-                <TableHead className="w-full">Tiến độ</TableHead>
+                <TableHead>Tiến độ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tienDo.map((d) => (
                 <TableRow key={d.sttDong}>
                   <TableCell className="text-right text-text-desc">{d.sttDong}</TableCell>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-medium whitespace-normal">
                     {d.tenVatLieu}
                     <NhanThemNgoaiDeNghi hien={d.themNgoaiDeNghi === true} />
                   </TableCell>
-                  <TableCell className="text-text-secondary">{d.thongSoKyThuat ?? "—"}</TableCell>
+                  <TableCell className="whitespace-normal text-text-secondary">{d.thongSoKyThuat ?? "—"}</TableCell>
                   <TableCell>{d.donViTinh}</TableCell>
                   <TableCell className="text-right font-semibold">
                     {d.khoiLuongDat.toLocaleString("vi-VN")}
@@ -273,7 +273,24 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                     {d.khoiLuongConLai.toLocaleString("vi-VN")}
                   </TableCell>
                   <TableCell>
+                    {/**
+                      * ★ THANH NGẮN LẠI — Sếp 17/09/2026: ***"Thanh tiến độ ngắn lại chút, ko cần
+                      * dài vậy"***, kèm ***"sao thông tin dồn hết về 1 bên"***.
+                      *
+                      * 🔴 GỐC LÀ BẢN VÁ SAI CỦA CHÍNH TÔI SÁNG NAY: tôi đặt `w-full` lên cột này
+                      * để nó hút phần dư của bảng, tưởng thanh sẽ giãn ra lấp chỗ. Thanh CÓ giãn
+                      * thật — nhưng nó cao **6px, nền xám nhạt**, nên giãn ra 400px thì mắt vẫn
+                      * đọc là khoảng trắng, và mọi chữ bị dồn về trái. Nay bỏ `w-full` ở tiêu đề
+                      * cột và chặn bề rộng ở đây.
+                      *
+                      * 📌 `max-w-40` (160px) đủ để đọc tỉ lệ mà không kéo bảng giãn ra. `ThanhTienDo`
+                      * có `min-w-24` (96px) nên vẫn còn khoảng an toàn ở màn hẹp.
+                      *
+                      * ⚠️ TRUYỀN QUA `className`, KHÔNG SỬA `thanh-tien-do.tsx` — thành phần đó dùng
+                      * chung nhiều nơi, đổi bề rộng ở gốc là đổi cả app.
+                      */}
                     <ThanhTienDo
+                      className="max-w-40"
                       phanTram={d.phanTram}
                       tong={d.khoiLuongConLai === 0 ? "success" : "primary"}
                       nhan={

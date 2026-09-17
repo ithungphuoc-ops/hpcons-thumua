@@ -126,6 +126,29 @@ export function tepBaoGiaDaCo(deNghi: DeNghiMuaHang): MoTaTep[] {
 }
 
 /**
+ * ★★ CHỈ CÁC BẢN BÁO GIÁ CỦA NHÀ CUNG CẤP — **BỎ BẢNG SO SÁNH** — Sếp 17/09/2026.
+ *
+ * 🔴 SỬA MỘT LỖI TÔI VỪA GÂY RA. Sáng 17/09 tôi dựng danh sách "các bản báo giá đang chờ duyệt" ở
+ * bước ③ bằng `tepBaoGiaDaCo`, và **bảng so sánh lọt vào kèm một nút "Duyệt bản này"**. Sếp bắt
+ * ngay: *"Mục này để xem thông tin nên chọn NCC nào. Sao lại có nút duyệt"*.
+ *
+ * 🔴 VÌ SAO LỌT: bảng so sánh và các bản báo giá **nằm chung một ngăn** `yeu_cau_bao_gia` (đó cũng
+ * là lý do `TOI_DA_O_BAO_GIA` phải trừ đi một suất). `tepBaoGiaDaCo` trả cả ngăn, nên ai dùng nó
+ * để liệt kê "các bản báo giá" đều dính bảng so sánh — đây là cái bẫy của chính cấu trúc dữ liệu,
+ * không phải sơ suất một lần.
+ *
+ * 📌 VỀ MẶT NGHIỆP VỤ CHÚNG LÀ HAI THỨ KHÁC HẲN: bản báo giá là **thứ được chọn** (duyệt bản nào
+ * tức chọn nhà cung cấp nào); bảng so sánh là **thứ để đọc mà quyết**. Duyệt một bảng so sánh là
+ * câu vô nghĩa.
+ *
+ * 👉 Nơi nào liệt kê "các bản báo giá để chọn" thì dùng hàm này, đừng tự lọc ở file giao diện —
+ * lọc ở đó thì mỗi chỗ phải tự nhớ, sớm muộn một chỗ quên đúng như lần này.
+ */
+export function tepBanBaoGiaNCC(deNghi: DeNghiMuaHang): MoTaTep[] {
+  return tepBaoGiaDaCo(deNghi).filter((t) => (t.ghiChu ?? "").trim() !== NHAN_O_SO_SANH);
+}
+
+/**
  * ★ HƯỚNG DẪN CHỌN SỐ BÁO GIÁ THEO GIÁ TRỊ ĐƠN HÀNG — văn bản quy định của công ty.
  *
  * 🔴🔴 HIỆN KHÔNG CÒN HIỂN THỊ Ở ĐÂU — Ban lãnh đạo 12/09/2026: *"bỏ ghi chú này"*, chỉ vào đúng

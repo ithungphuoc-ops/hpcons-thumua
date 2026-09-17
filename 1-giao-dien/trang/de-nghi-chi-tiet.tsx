@@ -78,9 +78,12 @@ import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 /* N ô đính kèm báo giá theo đúng SL Báo giá đã yêu cầu (Ban lãnh đạo 20/08/2026). */
 import { KhuBaoGiaTheoSoLuong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-bao-gia-theo-so-luong";
 import {
+  chiSoOBaoGia,
   danhSachNCCDaBaoGia,
   NHAN_O_SO_SANH,
+  nhanOBaoGia,
   tenNCCCuaO,
+  tepBanBaoGiaNCC,
   tepBaoGiaDaCo,
   tepBaoGiaDaDuyet,
   tepSoSanh,
@@ -2194,7 +2197,7 @@ export default function TrangChiTietDeNghi({
                                     * sơ duyệt xong không còn biết đã chọn bản nào.
                                     */}
                                   {(() => {
-                                    const banBaoGia = tepBaoGiaDaCo(dn);
+                                    const banBaoGia = tepBanBaoGiaNCC(dn);
                                     if (banBaoGia.length === 0) return null;
                                     return (
                                       <div className="flex flex-col gap-2">
@@ -2202,7 +2205,31 @@ export default function TrangChiTietDeNghi({
                                           Các bản báo giá đang chờ duyệt
                                         </p>
                                         {banBaoGia.map((t) => {
-                                          const nhanO = (t.ghiChu ?? "").trim();
+                                          /**
+                                           * 🔴 NHÃN SẠCH, KHÔNG PHẢI `t.ghiChu` — sửa 17/09/2026,
+                                           * đây là lỗi bản vá sáng nay tự gây ra.
+                                           *
+                                           * `ghiChu` của ô đã ghi tên NCC là *"Báo giá NCC 1 — Thép
+                                           * ABC"*. Ghi nguyên chuỗi đó vào căn cứ duyệt thì thành
+                                           * `[Báo giá NCC 1 — Thép ABC]`, mà `tepBaoGiaDaDuyet` đọc
+                                           * lại bằng `/^\[(Báo giá NCC (\d+))\]/` — **sau chữ số
+                                           * phải là `]` ngay**, nên không khớp. Hậu quả im lặng:
+                                           * dòng *"Bản báo giá được chọn"* ở đầu vào bước ③ biến
+                                           * mất, và `bo-ho-so-thanh-toan.ts` mất bản báo giá khỏi
+                                           * bộ hồ sơ giao Kế toán.
+                                           *
+                                           * 📌 Đường cũ ở bước ② truyền `nhanOBaoGia(i)` — nhãn
+                                           * sạch. Dời nút sang đây mà đổi luôn nguồn nhãn là chỗ
+                                           * hỏng; nay dựng lại đúng nhãn đó từ chỉ số ô.
+                                           *
+                                           * 🔴 VÀ NHÃN SẠCH CÒN CHE TÊN NCC: chuỗi `ghiChu` đem in
+                                           * thẳng là tên nhà cung cấp lọt ra cho vai trò không có
+                                           * `quyen.xemNhaCungCap` — ngay dòng dưới đã gác quyền đó
+                                           * cho `tenNCC`, mà dòng trên lại in vô điều kiện.
+                                           */
+                                          const chiSo = chiSoOBaoGia(t.ghiChu);
+                                          const nhanO =
+                                            chiSo > 0 ? nhanOBaoGia(chiSo - 1) : undefined;
                                           const tenNCC = tenNCCCuaO(t.ghiChu);
                                           return (
                                             <div
@@ -2210,7 +2237,7 @@ export default function TrangChiTietDeNghi({
                                               className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad)"
                                             >
                                               <span className="text-sm font-semibold text-text-primary">
-                                                {nhanO || "Bản báo giá"}
+                                                {nhanO ?? "Bản báo giá"}
                                               </span>
                                               {tenNCC !== "" && quyen.xemNhaCungCap && (
                                                 <span className="text-sm text-text-secondary">
@@ -2230,7 +2257,7 @@ export default function TrangChiTietDeNghi({
                                                     setHoiDuyet({
                                                       bgId: bg.id,
                                                       loai: "duyet",
-                                                      nhanO: nhanO || undefined,
+                                                      nhanO,
                                                     });
                                                   }}
                                                 >
@@ -2257,7 +2284,7 @@ export default function TrangChiTietDeNghi({
                                     * vào bước ③ không dựng được dòng "Bản báo giá được chọn". Chấp
                                     * nhận, vì ca này vốn không có bản nào để chỉ tên.
                                     */}
-                                  {tepBaoGiaDaCo(dn).length === 0 && (
+                                  {tepBanBaoGiaNCC(dn).length === 0 && (
                                     <Button
                                       size="sm"
                                       onClick={() => {

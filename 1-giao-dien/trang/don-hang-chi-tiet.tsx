@@ -554,8 +554,8 @@ export default function TrangChiTietDonHang() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12 text-right">STT</TableHead>
-                      <TableHead>Tên hàng</TableHead>
-                      <TableHead>Thông số kỹ thuật</TableHead>
+                      <TableHead className="whitespace-normal">Tên hàng</TableHead>
+                      <TableHead className="whitespace-normal">Thông số kỹ thuật</TableHead>
                       {/**
                         * ★★ TÁCH "SL" VÀ "ĐVT" LÀM HAI CỘT — Sếp 17/09/2026, khoanh đỏ đúng cột
                         * đang ghi gộp *"10 Thùng"*: ***"Tách đơn vị và số lượng ra"***.
@@ -571,7 +571,7 @@ export default function TrangChiTietDonHang() {
                       <TableHead>ĐVT</TableHead>
                       <TableHead className="text-right">Đơn giá</TableHead>
                       <TableHead className="text-right">Thành tiền</TableHead>
-                      <TableHead>Mục đích sử dụng</TableHead>
+                      <TableHead className="whitespace-normal">Mục đích sử dụng</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -581,8 +581,8 @@ export default function TrangChiTietDonHang() {
                       return (
                         <TableRow key={d.sttDong}>
                           <TableCell className="text-right text-text-desc">{d.sttDong}</TableCell>
-                          <TableCell className="font-medium">{d.tenVatLieu}</TableCell>
-                          <TableCell className="text-text-secondary">{d.thongSoKyThuat ?? "—"}</TableCell>
+                          <TableCell className="font-medium whitespace-normal">{d.tenVatLieu}</TableCell>
+                          <TableCell className="whitespace-normal text-text-secondary">{d.thongSoKyThuat ?? "—"}</TableCell>
                           <TableCell className="text-right tabular-nums">
                             {d.khoiLuongDat.toLocaleString("vi-VN")}
                           </TableCell>

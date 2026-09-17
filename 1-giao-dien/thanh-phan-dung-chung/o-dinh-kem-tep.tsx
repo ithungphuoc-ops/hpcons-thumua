@@ -67,6 +67,11 @@ export function ODinhKemTep({
    * ⚠️ Mặc định `false` để mọi chỗ dùng một ô đơn lẻ vẫn có hướng dẫn như cũ.
    */
   anHuongDan = false,
+  /**
+   * Nút đi kèm, vẽ NGAY CẠNH nút chọn tệp khi ô còn trống (Sếp 17/09/2026 — *"Đưa gần lại"*).
+   * Xem khối chú thích ở chỗ vẽ để biết vì sao không xếp cạnh được từ nơi gọi.
+   */
+  nutKemTheo,
 }: {
   tep?: MoTaTep;
   nhanThem: string;
@@ -77,6 +82,7 @@ export function ODinhKemTep({
   onXoa?: () => void;
   nhanPhu?: React.ReactNode;
   anHuongDan?: boolean;
+  nutKemTheo?: React.ReactNode;
 }) {
   const [dangCat, setDangCat] = useState(false);
   const [hoiXoa, setHoiXoa] = useState(false);
@@ -245,7 +251,8 @@ export function ODinhKemTep({
 
         </div>
       ) : (
-        <label
+        <span className="flex flex-wrap items-center gap-2">
+          <label
           className={`inline-flex w-fit min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors md:min-h-9 ${
             khoa || dangCat
               ? "pointer-events-none border-border opacity-60"
@@ -271,7 +278,21 @@ export function ODinhKemTep({
             <Paperclip className="size-4 shrink-0" aria-hidden />
           )}
           {dangCat ? "Đang lưu tệp…" : nhanThem}
-        </label>
+          </label>
+          {/**
+            * ★★ NÚT ĐI KÈM, ĐỨNG SÁT NÚT CHỌN TỆP — Sếp 17/09/2026: ***"Đưa gần lại, sao phải để
+            * cách xa nhau vậy"***, mũi tên từ nút *"Bổ sung sau"* về nút vàng *"Đơn mua hàng"*.
+            *
+            * 🔴 VÌ SAO PHẢI ĐẶT VÀO ĐÂY chứ không xếp cạnh ở nơi gọi: nơi gọi chỉ đặt được nút
+            * cạnh **cả ô đính kèm**, mà ô đó rộng bằng câu hướng dẫn *"Nhận PDF, ảnh, Word, Excel ·
+            * tối đa 10MB…"* bên dưới — dài gần 500px. Nút phụ vì thế bị đẩy ra tít bên phải, đúng
+            * khoảng cách Sếp khoanh. Đặt trong hàng của chính cái nút thì nó luôn sát, bất kể câu
+            * hướng dẫn dài bao nhiêu.
+            *
+            * 📌 TUỲ CHỌN, mặc định không vẽ gì — ô này dùng chung cho rất nhiều chỗ.
+            */}
+          {nutKemTheo}
+        </span>
       )}
 
       {/**

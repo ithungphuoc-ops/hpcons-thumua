@@ -176,17 +176,18 @@ export function OChungTuBatBuoc({
        * không được phép nuốt mất thứ người ta truyền vào.
        */}
       {tepDaCo.length === 0 || themBanNua ? (
-        <div className="flex flex-wrap items-start gap-2">
-          <ODinhKemTep
-            nhanThem={tieuDe}
-            nguoi={nguoi}
-            onXong={(moi) => luu(moi, undefined)}
-            batBuoc={batBuoc && tepDaCo.length === 0}
-            khoa={khoa || !duocSua}
-            anHuongDan={tepDaCo.length > 0}
-          />
-          {nutPhu && <span className="flex items-center gap-2">{nutPhu}</span>}
-        </div>
+        <ODinhKemTep
+          nhanThem={tieuDe}
+          nguoi={nguoi}
+          onXong={(moi) => luu(moi, undefined)}
+          batBuoc={batBuoc && tepDaCo.length === 0}
+          khoa={khoa || !duocSua}
+          anHuongDan={tepDaCo.length > 0}
+          /* 🔴 TRUYỀN XUỐNG TẬN NÚT, không bọc flex ở ngoài — Sếp 17/09/2026 *"Đưa gần lại, sao
+             phải để cách xa nhau vậy"*. Bọc flex ở đây thì nút phụ đứng cạnh CẢ Ô, mà ô rộng bằng
+             câu hướng dẫn dài gần 500px bên dưới nó. Xem `nutKemTheo` ở `o-dinh-kem-tep.tsx`. */
+          nutKemTheo={nutPhu}
+        />
       ) : (
         nutPhu && <span className="flex flex-wrap items-center gap-2">{nutPhu}</span>
       )}

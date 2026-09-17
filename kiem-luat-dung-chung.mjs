@@ -4789,6 +4789,69 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 17/09/2026: DUYỆT BÁO GIÁ NGAY TẠI BƯỚC ③
+//
+// Sep bat loi: bang so sanh bi gan nut "Duyet ban nay" — "Muc nay de xem
+// thong tin nen chon NCC nao. Sao lai co nut duyet".
+//
+// 🔴 HAI BAI DUOI CANH HAI LOI KHAC NHAU MA CUNG MOT GOC: lay mot danh sach
+// GOP CHUNG roi doi xu nhu the no chi chua mot loai.
+//   ① ngan `yeu_cau_bao_gia` chua CA ban bao gia LAN bang so sanh;
+//   ② `ghiChu` cua o chua CA nhan o LAN ten NCC.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "BAO GIA — danh sach ban bao gia KHONG duoc lan bang so sanh",
+  'Sếp · 17/09/2026 — "Muc nay de xem thong tin nen chon NCC nao. Sao lai co nut duyet"',
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dn = {
+      tepGiaiDoan: {
+        yeu_cau_bao_gia: [
+          { id: "t1", ten: "bg1.pdf", ghiChu: "Báo giá NCC 1" },
+          { id: "t2", ten: "bg2.pdf", ghiChu: "Báo giá NCC 2 — Thép ABC" },
+          { id: "t3", ten: "ss.pdf", ghiChu: BG.NHAN_O_SO_SANH },
+        ],
+      },
+    };
+    const ra = BG.tepBanBaoGiaNCC(dn).map((t) => t.id);
+    return {
+      duoc: ra.length === 2 && !ra.includes("t3"),
+      thucTe: `con ${ra.length} ban: ${ra.join(",")}`,
+      mongDoi: "con 2 ban bao gia NCC, KHONG co bang so sanh",
+    };
+  },
+);
+
+kiem(
+  "BAO GIA — CHIEU NGHICH: nhan o phai doc lai duoc tu can cu duyet, KE CA o co ten NCC",
+  "Sếp · 17/09/2026 — ghi ca ten NCC vao can cu duyet la mat dong 'Ban bao gia duoc chon'",
+  () => {
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    /* Ô số 2 CÓ ghi tên NCC — nhãn sạch phải là "Báo giá NCC 2", không kèm tên. */
+    const dn = {
+      tepGiaiDoan: {
+        yeu_cau_bao_gia: [
+          { id: "t1", ten: "bg1.pdf", ghiChu: "Báo giá NCC 1" },
+          { id: "t2", ten: "bg2.pdf", ghiChu: "Báo giá NCC 2 — Thép ABC" },
+        ],
+      },
+    };
+    const chiSo = BG.chiSoOBaoGia("Báo giá NCC 2 — Thép ABC");
+    const nhanSach = BG.nhanOBaoGia(chiSo - 1);
+    const docLai = BG.tepBaoGiaDaDuyet(dn, `[${nhanSach}] Duyet cho ben A`);
+    return {
+      duoc: docLai !== undefined && docLai.tep.id === "t2",
+      thucTe:
+        docLai === undefined
+          ? `nhan "${nhanSach}" -> KHONG doc lai duoc (mat link Ban bao gia duoc chon)`
+          : `doc lai ra tep ${docLai.tep.id}`,
+      mongDoi: "doc lai dung tep t2",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // LUẬT CỦA SẾP — 17/09/2026: "HỒ SƠ ĐÃ ĐỦ — CHỜ XÁC NHẬN"
 //
 // Sep khoanh do the o cot 7 Ho so thanh toan: "Them thong bao 'Ho so da du,

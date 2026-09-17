@@ -107,6 +107,18 @@ export function KhuBaoGiaTheoSoLuong({
    * Nhận `chiSoO` (đếm từ 0), `nhanO` để hiện trong hộp xác nhận, và `tenNCCDaGhi` là tên đã lưu
    * ở hồ sơ cũ nếu có (điền sẵn cho đỡ gõ lại).
    */
+  /**
+   * ⚠️ HIỆN KHÔNG CÒN NƠI NÀO TRUYỀN — Sếp 17/09/2026 dời nút "Duyệt bản này" sang bước ③
+   * (`de-nghi-chi-tiet.tsx`, khối KẾT QUẢ "Xét duyệt phương án giá").
+   *
+   * 🔴 CỐ Ý GIỮ LẠI, KHÔNG XOÁ: nút này từng ở đây theo chỉ đạo Ban lãnh đạo 20/08 và 13/09/2026,
+   * và Sếp có thể đổi lại bất cứ lúc nào — chỉ cần truyền `onDuyetO` là nút hiện lại nguyên vẹn.
+   * Xoá đi thì lần sau phải dựng lại cả phép truyền `nhanO` (thứ giữ đường link *"Bản báo giá được
+   * chọn"*), và đó đúng là chỗ vừa hỏng khi dời nút.
+   *
+   * 🔴 NHƯNG ĐỪNG TRUYỀN LẠI MÀ KHÔNG BỎ NÚT Ở BƯỚC ③ — hai nút Duyệt ở hai chỗ là hai chỗ làm
+   * cùng một việc, đúng thứ dự án cấm.
+   */
   onDuyetO?: (o: { chiSoO: number; nhanO: string; tenNCCDaGhi: string }) => void;
   /**
    * ★ LÝ DO ĐANG KHÓA — hiện thành dải thông báo trên đầu khu. `undefined` là không khóa.

@@ -74,7 +74,7 @@ import {
   lyDoThieuHopDong,
   NHAN_TEP_HOA_DON_VAT,
   TEN_HIEN_HOP_DONG,
-  vuongMacDuyetHoanThanhDeNghi,
+  vuongMacHoanThanhQuyTrinh,
   vuongMacRoiBuocDatHang,
   vuongMacRoiBuocLapDon,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
@@ -846,7 +846,14 @@ export function dungBangQuyTrinh(
        * ⚠️ HAI ĐIỀU KIỆN, THIẾU MỘT LÀ NÓI SAI:
        *   ① không còn nợ gì (`dsConNo` rỗng — dùng mảng ĐẦY ĐỦ, không dùng mảng đã lọc bày trên
        *      thẻ, nếu không thì hồ sơ thiếu hoá đơn vẫn được khoe là "đã đủ");
-       *   ② `vuongMacDuyetHoanThanhDeNghi` trả `null` — tức người duyệt bấm được ngay.
+       *   ② **đúng cái cổng mà nút Hoàn thành đang dùng** — xem khối 🔴 ngay dưới.
+       *
+       * 🔴 PHẢI GỌI `vuongMacHoanThanhQuyTrinh`, KHÔNG PHẢI `vuongMacDuyetHoanThanhDeNghi` — sửa
+       * 17/09/2026 vài giờ sau khi thêm tính năng này. Hàm sau chỉ kiểm **đúng một thứ: hoá đơn
+       * VAT** (3 dòng), trong khi cổng thật của nút còn có chốt ĐẦU TIÊN là *"phiếu này đã tách ra
+       * N hồ sơ con còn dở"* — và `dsConNoToanHoSo` **không hề có mục đó**. Hậu quả: phiếu gốc tách
+       * tự động mà bản con chưa xong sẽ khoe xanh *"đã đủ — chờ xác nhận"*, người duyệt bấm vào thì
+       * bị từ chối. Đúng loại bế tắc im lặng mà tính năng này sinh ra để diệt, chỉ đảo chiều.
        *
        * 📌 Loại trừ hai giai đoạn cuối: `hoan_thanh` thì đã xong rồi, `that_bai` thì đóng dở —
        * khoe "đã đủ" ở đó là nói ngược với trạng thái của chính thẻ.
@@ -863,7 +870,11 @@ export function dungBangQuyTrinh(
           tinhVuongMacBaoGia?.(deNghi) ?? null,
           tatCaDeNghi,
         ).length === 0 &&
-        vuongMacDuyetHoanThanhDeNghi(deNghi) === null,
+        vuongMacHoanThanhQuyTrinh(
+          deNghi,
+          tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu),
+          tatCaDeNghi,
+        ) === null,
       maPOLienQuan: tatCaPO
         .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
         .map((po) => po.code),
@@ -1685,8 +1696,43 @@ export function mucConNoCuaBuoc(
    * 📌 Đếm theo SỐ DÒNG chưa về đủ, không đọc từng con số khối lượng: thẻ kanban không đủ chỗ, mà
    * bảng tiến độ ngay dưới đã ghi rõ từng dòng thiếu bao nhiêu.
    */
-  if (giaiDoan === "dat_hang") {
-    const tienDo = tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu);
+  /**
+   * ★★ CHUYỂN TỪ BƯỚC ⑤ SANG BƯỚC ⑥ — Sếp 17/09/2026: ***"Mục cảnh báo thiếu này đang nhầm bước,
+   * nó phải báo ở bước Tiến hành nhận hàng"***, khoanh đỏ dòng *"Còn 2/2 dòng chưa nhận đủ hàng"*
+   * đang nằm trong khối ⑤.
+   *
+   * 🔴 CHÚ THÍCH CŨ Ở ĐÂY ĐÃ LỖI THỜI VÀ TÔI ĐỂ NÓ ĐỨNG QUÁ LÂU. Nó viết ngày 23/08/2026 rằng phải
+   * gắn vào ⑤ vì *"bảng Tiến độ nhận hàng nằm trong khối KẾT QUẢ của bước ⑤"*. Lý do đó đúng **lúc
+   * bấy giờ**, nhưng bảng đã được dời sang khối ⑥ (`de-nghi-chi-tiet.tsx`, khối `ma: "nhan_hang"`)
+   * — từ đó câu cảnh báo và cái bảng nó nói về **nằm ở hai khối khác nhau**: người đọc dòng đỏ ở ⑤
+   * rồi tìm bảng trong chính khối đó, không thấy.
+   *
+   * 📌 ĐÂY LÀ BÀI HỌC VỀ CHÚ THÍCH, KHÔNG PHẢI VỀ BƯỚC: lý do được ghi kèm một sự thật về bố cục
+   * ("bảng nằm ở ⑤"), mà sự thật đó đổi thì lý do hết hiệu lực — nhưng chú thích thì vẫn nằm đó và
+   * đọc như một chỉ đạo còn nguyên giá trị. Ai dời một khối giao diện phải soát cả những luật viện
+   * dẫn vị trí của nó.
+   *
+   * ⚠️ CÁI GIÁ, CÓ THẬT: mọi hồ sơ đang ở bước ⑥ mà chưa nhận đủ đều có dòng đỏ này — tức gần như
+   * mọi hồ sơ vừa vào bước. Chú thích 23/08 đã lo đúng chuyện đó. Nhưng nay dòng này đứng **cạnh
+   * chính bảng tiến độ**, nên nó đọc ra là *"còn thiếu bấy nhiêu"*, không phải một lời trách.
+   */
+  if (giaiDoan === "nhan_hang") {
+    /**
+     * 🔴 TRỪ DÒNG ĐÃ NHÂN BẢN ĐI — sửa 17/09/2026, chỗ này bị bỏ sót trong đợt vá lỗi A.
+     *
+     * `tatCaDeNghi` vốn đã nằm trong tham số của hàm này mà không ai dùng. Hệ quả đo được: phiếu
+     * gốc nhân bản 2/3 dòng đi thì `xacDinhGiaiDoan` (đã vá) nói *"về đủ rồi"* và cho thẻ sang cột
+     * ⑦, còn chỗ này vẫn kêu *"thiếu hàng 2/3 dòng"* ⇒ **thẻ đỏ vĩnh viễn**. Hai chỗ trả lời khác
+     * nhau cho cùng một câu hỏi — đúng thứ dự án cấm.
+     *
+     * 📌 Và vì `dsConNo` khi đó không bao giờ rỗng, dòng xanh *"Hồ sơ đã đủ — chờ xác nhận"* (thêm
+     * cùng ngày) **không bao giờ bật được** cho nhóm hồ sơ này.
+     */
+    const tienDo = locTienDoConPhaiMua(
+      deNghi,
+      tatCaDeNghi,
+      tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu),
+    );
     const dongChuaDu = tienDo.filter((d) => d.khoiLuongConLai > 0).length;
     if (dongChuaDu > 0) {
       thieu.push({
