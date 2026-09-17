@@ -5692,7 +5692,7 @@ kiem(
 );
 
 kiem(
-  "Muc 9 dung O NOP KIEU KHU TU DO, khong phai o chung tu co ten",
+  "Muc 9 dung O NOP CO TEN nhu moi muc khac — GIAO DIEN DONG BO",
   CHU_SEP_MUC9,
   () => {
     /* Quyet dinh bo cuc nam o ham thuan `kieuONop` chu khong phai `if` trong JSX — nho vay bai kiem
@@ -5700,7 +5700,16 @@ kiem(
     const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
     return {
       duoc:
-        BH.kieuONop("dinh_kem_khac") === "khu_tu_do" &&
+        /* 🔴🔴 DOI TU `khu_tu_do` SANG `o_co_ten` — VA DAY LA DOI YEU CAU, khong phai sua bai
+           kiem cho vua ma nguon. Hai moc:
+             · 16/09/2026 (sang) — Sep mo muc 9: *"Can thiet mo them de dinh kem tai lieu khac"*.
+               Luc do chon khu tu do vi muc 9 nhan tai lieu gi cung duoc, khong co nhan co dinh.
+             · 16/09/2026 (dem) — Sep khoanh do dung muc 9: *"Dong bo lai giao dien dinh kem cho
+               giong nhau, sao muc nay dinh kem giao dien lai khac cac buoc kia"*.
+           👉 Ly le cu khong sai ve ky thuat, nhung cai gia la muc 9 bay ra mot giao dien THU HAI
+              giua danh sach 9 muc — va do moi la thu nguoi dung nhin thay. "Nhan co dinh" hoa ra
+              khong phai van de: `OChungTuBatBuoc` tu danh so ban thu hai tro di. */
+        BH.kieuONop("dinh_kem_khac") === "o_co_ten" &&
         /* 🔴🔴 `don_mua_hang` DOI TU `o_co_ten` SANG `khong` — VA DAY LA DOI YEU CAU, KHONG PHAI
            SUA BAI KIEM CHO VUA MA NGUON. Hai moc, ca hai deu cua Sep, cach nhau vai gio:
              · SANG 16/09/2026 — *"Tach lam 2 muc rieng"*, kem yeu cau o nop rieng cho Don mua
@@ -5719,7 +5728,7 @@ kiem(
         .map((m) => `${m}=${BH.kieuONop(m)}`)
         .join(" · "),
       mongDoi:
-        "dinh_kem_khac=khu_tu_do · don_mua_hang=khong (Sep 16/09 CHIEU bo o nop) · hop_dong=khong (Sep 16/09 bo o nop) · phieu_giao_hang=khong",
+        "dinh_kem_khac=o_co_ten (Sep 16/09 DEM: dong bo giao dien) · don_mua_hang=khong · hop_dong=khong · phieu_giao_hang=khong",
     };
   },
 );
@@ -6954,6 +6963,22 @@ kiem(
 );
 
 kiem(
+  "Câu nhắc mức GẤP phải nói ra HẬU QUẢ, không chỉ mời tải lại",
+  "Sếp 16/09/2026 · tới lúc đó lời mời đã thất bại một lần",
+  () => {
+    const thuong = BM.cauNhacBanMoi(false);
+    const gap = BM.cauNhacBanMoi(true);
+    const coHauQua = /ghi sai|dữ liệu chung/i.test(gap.chiDan);
+    const khacNhau = thuong.chiDan !== gap.chiDan && thuong.tieuDe !== gap.tieuDe;
+    return {
+      duoc: coHauQua && khacNhau,
+      thucTe: `gấp="${gap.chiDan.slice(0, 50)}…" · khác câu thường: ${khacNhau}`,
+      mongDoi: "câu gấp nói hậu quả và khác hẳn câu thường",
+    };
+  },
+);
+
+kiem(
   "Vừa phát hiện → đếm ngược đủ 30 giây",
   "Sếp chốt 16/09/2026 chiều: tự tải lại sau 30 giây",
   () => {
@@ -7004,22 +7029,6 @@ kiem(
       duoc: noiThang && coSoGiay && canhBaoMat,
       thucTe: c,
       mongDoi: "mở đầu bằng 'Trang sẽ tự tải lại', có số giây, có cảnh báo mất nội dung đang gõ",
-    };
-  },
-);
-
-kiem(
-  "Câu nhắc mức GẤP phải nói ra HẬU QUẢ, không chỉ mời tải lại",
-  "Sếp 16/09/2026 · tới lúc đó lời mời đã thất bại một lần",
-  () => {
-    const thuong = BM.cauNhacBanMoi(false);
-    const gap = BM.cauNhacBanMoi(true);
-    const coHauQua = /ghi sai|dữ liệu chung/i.test(gap.chiDan);
-    const khacNhau = thuong.chiDan !== gap.chiDan && thuong.tieuDe !== gap.tieuDe;
-    return {
-      duoc: coHauQua && khacNhau,
-      thucTe: `gấp="${gap.chiDan.slice(0, 50)}…" · khác câu thường: ${khacNhau}`,
-      mongDoi: "câu gấp nói hậu quả và khác hẳn câu thường",
     };
   },
 );

@@ -231,7 +231,19 @@ export function laMaCoONop(ma: MaMucHoSo): ma is MaMucCoONop {
  * định** cho tệp, mà mục 9 nhận tài liệu gì cũng được nên không có nhãn nào để đòi.
  */
 export function kieuONop(ma: MaMucHoSo): "khong" | "o_co_ten" | "khu_tu_do" {
-  if (ma === "dinh_kem_khac") return "khu_tu_do";
+  /**
+   * ★★ MỤC 9 ĐỔI TỪ `khu_tu_do` SANG `o_co_ten` — Sếp 16/09/2026, khoanh đỏ đúng mục đó:
+   * ***"Đồng bộ lại giao diện đính kèm cho giống nhau, sao mục này đính kèm giao diện lại khác
+   * các bước kia"***.
+   *
+   * 📌 GIỮ NGUYÊN BA NHÁNH của hàm này dù hiện không mục nào trả `khu_tu_do` nữa. Đây là **câu
+   * trả lời cho một câu hỏi có thật** (*"ô nộp của mục này hình dạng nào"*), không phải phép đếm
+   * — hôm nào mở một mục nhận tài liệu tự do thì có sẵn chỗ khai, và nơi vẽ đã chờ sẵn nhánh đó.
+   *
+   * ⚠️ Nơi vẽ (`khoi-bo-ho-so-thanh-toan.tsx`) đang bỏ qua `LienKetTep` cho `khu_tu_do` để tránh
+   * bày tệp hai lần. Nay mục 9 là `o_co_ten` nên nó đi nhánh ô nộp — **kiểm lại bằng mắt xem có
+   * bày đôi không** trước khi coi là xong.
+   */
   return laMaCoONop(ma) ? "o_co_ten" : "khong";
 }
 

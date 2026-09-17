@@ -431,13 +431,18 @@ export function KhoiBoHoSoThanhToan({
                   * nó** (kèm cỡ tệp, người tải, ngày giờ, nút xem). Vẽ thêm `LienKetTep` ở đây là
                   * cùng một tệp hiện hai lần, và người đọc bộ hồ sơ tưởng có hai bản.
                   *
-                  * 📌 GIỮ NGUYÊN cho `o_co_ten` và `khong`: ô kiểu `o_co_ten` (Hoá đơn VAT · UNC ·
-                  * Phiếu chi) bày tệp trong chính ô, còn mục chỉ đọc (2 · 3 · 4 · 5) không có ô nào
-                  * — cả hai đều không trùng. Chỉ `khu_tu_do` mới sinh ra cảnh bày đôi.
+                  * 📌 ĐÃ ĐO LẠI 16/09/2026 (đêm) — chú thích này lúc đầu nói chưa chính xác, sửa
+                  * cho đúng: khối `m.tep` nằm **bên trong nhánh CHỈ ĐỌC** của ternary phía trên
+                  * (mở ở `) : (`, đóng ở `)}` cuối khối). Mục kiểu `o_co_ten` đi nhánh ô nộp nên
+                  * **không bao giờ chạy tới đây** — tệp của nó do chính ô nộp bày. Vì vậy chỉ mục
+                  * chỉ đọc (2 · 3 · 4 · 5) và `khu_tu_do` mới qua dòng này.
                   *
-                  * ⚠️ Hỏi qua hàm thuần `kieuONop`, đừng viết `m.ma === "dinh_kem_khac"` tại chỗ:
-                  * mai mốt có mục thứ hai dùng khu tự do thì nó lặp lại đúng lỗi này mà không ai
-                  * nhớ quay về đây.
+                  * ⚠️ TỪ 16/09/2026 (đêm) KHÔNG MỤC NÀO CÒN LÀ `khu_tu_do` — mục 9 đã đổi sang ô
+                  * có tên để đồng bộ giao diện (Sếp: *"sao mục này đính kèm giao diện lại khác các
+                  * bước kia"*). Điều kiện dưới đây vì thế hiện **luôn đúng**. Cố ý giữ: nó là chốt
+                  * chặn cho lần sau có ai mở lại một mục kiểu tự do, và đã có bài kiểm canh.
+                  *
+                  * ⚠️ Hỏi qua hàm thuần `kieuONop`, đừng viết `m.ma === "dinh_kem_khac"` tại chỗ.
                   */}
                 {kieu !== "khu_tu_do" &&
                   m.tep.map((t) => <LienKetTep key={t.id} tep={t} />)}

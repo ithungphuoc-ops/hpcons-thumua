@@ -108,6 +108,17 @@ export const BUOC_DINH_KEM_DON_MUA_HANG = "don_mua_hang_ncc_ky";
 export const BUOC_DINH_KEM_KHAC = "dinh_kem_khac";
 
 /**
+ * ★ TÊN HIỂN THỊ của mục 9, dùng cho cả tiêu đề ô lẫn nhãn ghi vào tệp — thêm 16/09/2026 khi Sếp
+ * cho mục 9 dùng chung giao diện với các ô chứng từ khác (*"Đồng bộ lại giao diện đính kèm cho
+ * giống nhau"*).
+ *
+ * 📌 Khác với Hợp đồng, ở đây **chữ vẽ và chữ lưu là một** — mục 9 chưa từng có nhãn lưu riêng nên
+ * không có dữ liệu cũ nào để giữ tương thích. Nếu về sau đổi chữ hiển thị thì phải tách làm hai
+ * hằng như cặp `NHAN_TEP_HOP_DONG` / `TEN_HIEN_HOP_DONG`, đừng đổi thẳng chuỗi này.
+ */
+export const TEN_HIEN_DINH_KEM_KHAC = "Đính kèm khác";
+
+/**
  * ★ Bước giữ CẢ hóa đơn VAT VÀ ủy nhiệm chi — Ban lãnh đạo 23/08/2026: *"Gộp 2 mục này lại thành
  * 1 'Hồ sơ thanh toán'"*.
  */

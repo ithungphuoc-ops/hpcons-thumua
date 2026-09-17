@@ -163,6 +163,8 @@ import {
      hiển thị theo bước) đã bị XOÁ trong cùng lượt — xem bia mộ tại chỗ khai cũ. */
   BUOC_DINH_KEM_DON_MUA_HANG,
   BUOC_DINH_KEM_KHAC,
+  TEN_HIEN_DINH_KEM_KHAC,
+  tepDinhKemKhac,
   cauNhacConNoChungTu,
   KHOA_LY_DO_THIEU_DON_MUA_HANG,
   LY_DO_THIEU_DON_MUA_HANG_CHON,
@@ -3530,21 +3532,36 @@ export default function TrangChiTietDeNghi({
                          *      đóng được nữa (`vuongMacDuyetHoanThanhDeNghi`);
                          *   ③ hạn mức 5 tệp tính CHUNG cả ngăn, mục 9 còn 1–2 chỗ rồi báo đầy.
                          *
-                         * 🔴 DÙNG `KhuDinhKemGiaiDoan` CHỨ KHÔNG PHẢI `OChungTuBatBuoc`: ô có tên
-                         * đòi một **nhãn cố định** cho tệp, mà mục 9 nhận tài liệu gì cũng được nên
-                         * không có nhãn nào để đòi. Khối bộ hồ sơ tự in hàng nhãn *"9. Đính kèm
-                         * khác"* cho nó — xem `kieuONop` ở `2-quy-trinh/bo-ho-so-thanh-toan.ts`.
+                         * ★★ ĐỔI SANG `OChungTuBatBuoc` NGÀY 16/09/2026 — Sếp, khoanh đỏ đúng mục 9:
+                         * ***"Đồng bộ lại giao diện đính kèm cho giống nhau, sao mục này đính kèm
+                         * giao diện lại khác các bước kia"***.
+                         *
+                         * ⚠️ CHÚ THÍCH CŨ TẠI ĐÂY NÓI NGƯỢC, chép lại để không ai khôi phục: nó viết
+                         * *"DÙNG `KhuDinhKemGiaiDoan` CHỨ KHÔNG PHẢI `OChungTuBatBuoc`: ô có tên đòi
+                         * một nhãn cố định, mà mục 9 nhận tài liệu gì cũng được"*. Lý lẽ đó **không
+                         * sai về kỹ thuật** — nhưng cái giá của nó là mục 9 bày ra một giao diện
+                         * thứ hai giữa một danh sách 9 mục, và đó mới là thứ người dùng nhìn thấy.
+                         *
+                         * 📌 "Nhãn cố định" hoá ra không phải vấn đề: `OChungTuBatBuoc` tự đánh số
+                         * bản thứ hai trở đi (*"Đính kèm khác (2)"*), y như Hoá đơn VAT khi đơn tách
+                         * cho nhiều nhà cung cấp. Tài liệu gì cũng đính được như cũ.
+                         *
+                         * 🔴 `batBuoc` KHÔNG truyền ⇒ nhãn *"Nếu có"*, giữ đúng trạng thái cũ của
+                         * mục 9. Truyền `batBuoc` là biến tài liệu phụ thành điều kiện đóng hồ sơ.
                          *
                          * 📌 `duocSuaTepBuoc` (không phải `duocSuaHopDong`): đây là tài liệu phụ
                          * *"Nếu có"*, không phải chứng từ có chữ ký, nên không siết quyền như hợp
                          * đồng / đơn mua hàng.
                          */
                         dinh_kem_khac: (
-                          <KhuDinhKemGiaiDoan
+                          <OChungTuBatBuoc
                             deNghi={dn}
                             maGiaiDoan={BUOC_DINH_KEM_KHAC}
+                            nhanO={TEN_HIEN_DINH_KEM_KHAC}
+                            tieuDe={TEN_HIEN_DINH_KEM_KHAC}
                             duocSua={duocSuaTepBuoc}
                             khoa={hoSoDaDong}
+                            tepDaCo={tepDinhKemKhac(dn)}
                           />
                         ),
                       }}
