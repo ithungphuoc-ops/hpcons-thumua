@@ -242,13 +242,43 @@ export function duocGhiNhanGiaoHangCuaHoSo(
  * vẫn phải đính kèm phiếu giao hàng cho từng lần giao rồi mới bấm hoàn thành được, đúng chỉ đạo
  * 11/08/2026 và đúng câu của Sếp 14/09/2026 (*"bấm hoàn thành **và** đính kèm phiếu giao hàng"*).
  */
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════
+ * ★★★ ĐÃ ĐỔI 17/09/2026 — SẾP MÔ TẢ LẠI QUY TRÌNH THẬT. ĐỪNG SỬA NGƯỢC MÀ KHÔNG HỎI.
+ * ════════════════════════════════════════════════════════════════════════════════════════
+ * Nguyên văn Sếp: *"Kho chỉ gửi phiếu đánh đủ số lượng, còn thu mua trên app thu mua bấm
+ * xác nhận nhận hàng qua bước chứ"*. Hỏi lại ai còn được bấm, Sếp chốt **phương án B: chỉ
+ * nhân viên thu mua**.
+ *
+ * 🔴 HAI VIỆC KHÁC NHAU, TRƯỚC ĐÂY BỊ GỘP LÀM MỘT:
+ *   ① GHI SỐ THỰC NHẬN — vẫn là việc của kho, không đổi một chữ. Kho ghi phiếu bên app QLK
+ *      CTR, phiếu tự sinh sang đây. Luật *"kho là nguồn duy nhất của số thực nhận"* còn
+ *      nguyên hiệu lực.
+ *   ② BẤM XÁC NHẬN ĐỂ HỒ SƠ QUA BƯỚC — nay là việc của thu mua. Đây là thao tác quản lý
+ *      quy trình, không phải khai số liệu.
+ *
+ * 🔴 VÌ SAO BỎ HẲN `quyen.xacNhanKho` CHỨ KHÔNG CỘNG THÊM: Sếp chọn B chứ không chọn "cả
+ * hai cùng bấm được". Để cờ kho lại là hai bên cùng bấm được, và khi hồ sơ qua bước thì
+ * không ai biết ai đã bấm — đúng thứ sinh ra tranh cãi trách nhiệm sau này.
+ *
+ * 🔴 VÌ SAO BỎ CHẶN `laHoSoPhongBan`: trước đây thu mua chỉ bấm được hồ sơ phòng ban, còn
+ * hồ sơ công trình phải chờ thủ kho. Nay cả hai loại đều do thu mua bấm, nên phép chặn đó
+ * mất lý do tồn tại.
+ *
+ * ⚠️ ĐÂY CHỈ LÀ QUYỀN, KHÔNG PHẢI ĐIỀU KIỆN NGHIỆP VỤ — phần này KHÔNG đổi:
+ *   · `poDaGiaoDu` vẫn bắt hàng phải về đủ mới hiện nút;
+ *   · `vuongMacXacNhanKho` vẫn bắt mọi lần giao phải có phiếu giao nhận.
+ * Sếp xác nhận giữ cả hai ràng buộc này ngày 17/09/2026. Bỏ chúng là đóng đơn không chứng
+ * từ — đúng thứ hai luật kia sinh ra để chặn.
+ *
+ * 📌 THAM SỐ `quyen` ĐÃ BỎ HẲN, không để lại dạng `_quyen`. Giữ một tham số không ai dùng
+ * là mời người sau tưởng quyền kho vẫn còn tác dụng ở đây rồi nối lại nhầm.
+ */
 export function duocXacNhanNhanDuHangCuaHoSo(
   deNghi: DeNghiMuaHang | null | undefined,
   nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
-  quyen: Quyen,
 ): boolean {
-  if (quyen.xacNhanKho) return true;
-  if (!deNghi || !laHoSoPhongBan(deNghi)) return false;
+  if (!deNghi) return false;
   return laNguoiThuMuaGhiNhanDuoc(deNghi, nguoiDung);
 }
 
