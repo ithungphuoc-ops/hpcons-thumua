@@ -273,6 +273,31 @@ export function ghiNhanGiaoHangNhoNhanhPhongBan(
   return duocGhiNhanGiaoHangCuaHoSo(deNghi, nguoiDung, quyen);
 }
 
+/**
+ * ★★ CÓ ĐƯỢC GHI DẤU ĐỐI CHIẾU CỦA PHÒNG THU MUA LÊN MỘT PHIẾU NHẬN KHÔNG — Sếp 17/09/2026.
+ *
+ * Sếp: *"bước tiến hành nhận hàng… là bước **check song song** với dữ liệu từ app kho đưa về"*,
+ * và chốt làm theo hướng **đối chiếu**, không phải hướng ghi thay kho.
+ *
+ * 🔴 MỞ CHO **MỌI HỒ SƠ**, KHÔNG KHOÁ THEO `laHoSoPhongBan` — khác hẳn hai hàm ghi nhận ở trên, và
+ * đây là chỗ dễ hiểu nhầm nhất của tệp này. Hai hàm kia bị khoá vì chúng **sinh ra khối lượng**:
+ * cho thu mua tự ghi trên hồ sơ công trình là mất người đối chứng, và đụng ngay lỗi đếm trùng mã
+ * phiếu (xem `thuMuaDoiChieu` ở `kieu-du-lieu.ts`). Dấu này **không sinh khối lượng nào**, nó chỉ
+ * nói *"thu mua đã soi phiếu này"* — mà soi chéo số của kho thì đúng việc của hồ sơ công trình
+ * nhất, vì đó mới là nơi có phiếu kho để soi.
+ *
+ * 🔴 ĐÒI ĐÚNG NGƯỜI PHÒNG THU MUA, cấp ≥ 2 (Nhập liệu) — dùng lại `laNguoiThuMuaGhiNhanDuoc` để
+ * không sinh thang cấp thứ hai. Thủ kho KHÔNG ghi dấu này: họ là bên bị đối chiếu, tự soi mình
+ * thì dấu vô nghĩa.
+ */
+export function duocGhiDoiChieuThuMua(
+  deNghi: DeNghiMuaHang | null | undefined,
+  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+): boolean {
+  if (!deNghi) return false;
+  return laNguoiThuMuaGhiNhanDuoc(deNghi, nguoiDung);
+}
+
 /** Lý do bị chặn, để nói cho người dùng biết phải làm gì. Trả `null` khi được xem. */
 export function lyDoKhongXemBaoGia(
   deNghi: DeNghiMuaHang,

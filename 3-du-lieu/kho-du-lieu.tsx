@@ -1295,6 +1295,17 @@ interface GiaTriDuLieu {
     nguoiThucHien?: string,
   ) => void;
   /**
+   * Ghi dấu đối chiếu của Phòng Thu mua lên một phiếu nhận (Sếp 17/09/2026) — xem chú thích đầy đủ
+   * ở phần thân hàm. KHÔNG đụng khối lượng, không đổi trạng thái phiếu.
+   * @returns Câu lý do bị chặn (ghi lệch mà không nêu lý do), `null` là đã ghi xong.
+   */
+  ghiDoiChieuThuMua: (
+    phieuId: string,
+    khop: boolean,
+    ghiChu: string | undefined,
+    nguoi: { uid: string; ten: string },
+  ) => string | null;
+  /**
    * Đính kèm / thay phiếu giao nhận cho một phiếu nhận hàng đã ghi.
    * @returns Câu lý do bị chặn (đơn đã hoàn thành), `null` là đã đính xong.
    */
@@ -5747,6 +5758,58 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * ★★ GHI DẤU ĐỐI CHIẾU CỦA PHÒNG THU MUA LÊN MỘT PHIẾU NHẬN — Sếp 17/09/2026: *"bước tiến hành
+   * nhận hàng… là bước **check song song** với dữ liệu từ app kho đưa về"*.
+   *
+   * 🔴 HÀM NÀY KHÔNG ĐỤNG MỘT CON SỐ KHỐI LƯỢNG NÀO, và phải giữ nguyên như vậy. Nó chỉ gắn thêm
+   * `thuMuaDoiChieu` — dấu đứng CẠNH dấu của kho. Kho vẫn là nguồn duy nhất của số lượng thực nhận
+   * (nguyên tắc dữ liệu số 2). Ai đó sửa hàm này để đổi `trangThai` hay sửa `lines` là biến một
+   * dấu đối chiếu thành đường lật ngược chứng từ của kho — Sếp chưa hề chốt việc đó.
+   *
+   * 🔴 BẤM LẠI = GHI ĐÈ, KHÔNG CỘNG THÊM DẤU. Một phiếu chỉ có một dấu đối chiếu hiện hành; soi
+   * lại thấy khác thì sửa dấu cũ, còn dấu vết ai sửa lúc nào nằm ở nhật ký đơn hàng.
+   *
+   * ⚠️ Lệch mà không ghi lý do thì người đọc không làm gì được — chặn ngay ở tầng ghi, đừng chỉ
+   * chặn ở nút (nút có thể bị đi vòng, bài học §6.6).
+   */
+  const ghiDoiChieuThuMua = useCallback(
+    (
+      phieuId: string,
+      khop: boolean,
+      ghiChu: string | undefined,
+      nguoi: { uid: string; ten: string },
+    ): string | null => {
+      const gc = (ghiChu ?? "").trim();
+      if (!khop && gc === "") {
+        return "Ghi nhận lệch số liệu thì phải nói rõ lệch ở đâu.";
+      }
+      const dau: NonNullable<PhieuNhanHang["thuMuaDoiChieu"]> = {
+        khop,
+        ...(gc === "" ? {} : { ghiChu: gc }),
+        nguoiUid: nguoi.uid,
+        nguoiTen: nguoi.ten,
+        thoiDiem: new Date().toISOString(),
+      };
+      setPhieuNhan((truoc) =>
+        truoc.map((p) => (p.id === phieuId ? { ...p, thuMuaDoiChieu: dau } : p)),
+      );
+      const phieu = phieuNhanRef.current.find((p) => p.id === phieuId);
+      const po = phieu && donHangRef.current.find((d) => d.id === phieu.poId);
+      if (phieu && po) {
+        ghiNhatKyDonHang(
+          po,
+          nguoi.ten,
+          khop
+            ? `Thu mua đối chiếu phiếu ${phieu.code}: khớp số liệu app kho`
+            : `Thu mua đối chiếu phiếu ${phieu.code}: LỆCH — ${gc}`,
+        );
+      }
+      return null;
+    },
+    [ghiNhatKyDonHang],
+  );
+
+  /**
    * Đính kèm (hoặc thay) phiếu giao nhận của một phiếu nhận hàng ĐÃ GHI.
    *
    * 🔴 Phải có đường bổ sung này, không chỉ bắt buộc lúc ghi phiếu mới. Những phiếu ghi
@@ -8393,6 +8456,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chotDonNhap,
       themPhieuNhanPhongBan,
       doiTrangThaiPhieu,
+      ghiDoiChieuThuMua,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
       suaDonHang,
@@ -8466,6 +8530,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chotDonNhap,
       themPhieuNhanPhongBan,
       doiTrangThaiPhieu,
+      ghiDoiChieuThuMua,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
       suaDonHang,

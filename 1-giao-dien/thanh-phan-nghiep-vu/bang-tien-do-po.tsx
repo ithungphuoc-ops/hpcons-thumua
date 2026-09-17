@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { AlertTriangle, Info, Lock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, Check, Info, Lock, ScanSearch } from "lucide-react";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import {
   Table,
@@ -23,6 +23,7 @@ import { tinhTienDoPO, vuongMacThayTepPhieuGiao } from "@/2-quy-trinh/tinh-toan"
 import { xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
 import {
+  duocGhiDoiChieuThuMua,
   duocGhiNhanGiaoHangCuaHoSo,
   ghiNhanGiaoHangNhoNhanhPhongBan,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
@@ -92,8 +93,16 @@ function NhanThemNgoaiDeNghi({ hien }: { hien: boolean }) {
  * **nhưng phải đính kèm phiếu giao hàng**"*. Nút Lưu trong hộp khóa tới khi có tệp.
  */
 export function BangTienDoPO({ po }: { po: DonDatHang }) {
-  const { deNghi, donHang, baoGia, phieuNhan, dinhKemPhieuGiao } = useDuLieu();
+  const { deNghi, donHang, baoGia, phieuNhan, dinhKemPhieuGiao, ghiDoiChieuThuMua } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  /**
+   * ★ Phiếu đang mở ô ghi lý do lệch (Sếp 17/09/2026 — dấu đối chiếu của Thu mua).
+   *
+   * 📌 CHỈ LÀ STATE MÀN HÌNH, không lưu gì. Bấm "Lệch" mở ô ngay tại dòng đó thay vì bật hộp thoại:
+   * người dùng đang so số trên chính dòng này, đẩy họ sang một hộp khác là mất chỗ đang nhìn.
+   */
+  const [dangGhiLech, setDangGhiLech] = useState<string | null>(null);
+  const [lyDoLech, setLyDoLech] = useState("");
 
   const phieuCuaPO = useMemo(
     () => phieuNhan.filter((p) => p.poId === po.id).sort((a, b) => a.lanGiaoThu - b.lanGiaoThu),
@@ -141,6 +150,15 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
    * với `vuongMacThayTepPhieuGiao` ngay dưới: một luật, mọi nơi gọi chung.
    */
   const duocDinhKemPhieuGiao = duocGhiNhanGiaoHangCuaHoSo(deNghiCuaPO, nguoiDung, quyen);
+  /**
+   * ★★ ĐƯỢC GHI DẤU ĐỐI CHIẾU KHÔNG — Sếp 17/09/2026: *"bước tiến hành nhận hàng… là bước check
+   * song song với dữ liệu từ app kho đưa về"*.
+   *
+   * 🔴 KHÁC HẲN `duocDinhKemPhieuGiao` NGAY TRÊN, đừng gộp hai cờ. Cờ kia mở theo hồ sơ phòng ban
+   * vì nó SINH RA khối lượng; cờ này mở cho **mọi hồ sơ** vì nó chỉ ghi lại việc thu mua đã soi
+   * chéo số của kho — và hồ sơ công trình mới là nơi có phiếu kho để soi.
+   */
+  const duocDoiChieu = duocGhiDoiChieuThuMua(deNghiCuaPO, nguoiDung);
   /** Mở được là NHỜ nhánh phòng ban → bắt buộc in lý do ra, không nới im lặng. */
   const moNhoNhanhPhongBan = ghiNhanGiaoHangNhoNhanhPhongBan(deNghiCuaPO, nguoiDung, quyen);
 
@@ -366,6 +384,32 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                       {p.soPhieuGiaoNCC && (
                         <span className="text-xs text-text-desc">Phiếu NCC: {p.soPhieuGiaoNCC}</span>
                       )}
+                      {/**
+                       * ★★ HAI MỐC ĐỂ ĐỐI CHIẾU VỚI APP KHO — Sếp 17/09/2026: *"bước tiến hành nhận
+                       * hàng… là bước **check song song** với dữ liệu từ app kho đưa về"*.
+                       *
+                       * 🔴 HAI TRƯỜNG NÀY CÓ TRONG DỮ LIỆU TỪ 23/08/2026 MÀ CHƯA MÀN NÀO HIỆN RA.
+                       * Đo được 17/09: `grep maPhieuNhanQlkCtr` trong toàn bộ tệp `.tsx` trả **0 kết
+                       * quả** — app nhận số phiếu nhập kho bên QLK CTR rồi cất đi, không ai đọc được.
+                       * Người thu mua muốn đối chiếu một lô hàng phải gọi điện hỏi thủ kho mà **không
+                       * có mã nào để nói**. Đó mới là thứ "check song song" đang thiếu, chứ không phải
+                       * thiếu quyền ghi phiếu.
+                       *
+                       * 📌 CHỈ BÀY, KHÔNG ĐỤNG QUYỀN. Đây là đường rẻ nhất và không phá chốt nào:
+                       * "người xác nhận hàng về phải là người nhận hàng" giữ nguyên, hai bài kiểm mang
+                       * tên Sếp ngày 15/09 vẫn xanh.
+                       *
+                       * ⚠️ `maPhieuNhanQlkCtr` là trường của **phiên tích hợp** (`CLAUDE.md` §6.6) —
+                       * chỉ ĐỌC để hiện, tuyệt đối không sửa cửa API sinh ra nó.
+                       */}
+                      {p.maPhieuNhanQlkCtr && (
+                        <span className="text-xs text-text-desc">
+                          Phiếu kho: {p.maPhieuNhanQlkCtr}
+                        </span>
+                      )}
+                      {p.nguoiNhanTen && (
+                        <span className="text-xs text-text-desc">Người nhận: {p.nguoiNhanTen}</span>
+                      )}
                       <StatusBadge label={tt.nhan} tone={tt.tong} className="ml-auto shrink-0" />
                     </div>
 
@@ -484,6 +528,133 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                           )}
                         </div>
                       ))}
+
+                    {/**
+                      * ★★ DẤU ĐỐI CHIẾU CỦA PHÒNG THU MUA — Sếp 17/09/2026: *"bước tiến hành nhận
+                      * hàng… là bước **check song song** với dữ liệu từ app kho đưa về"*.
+                      *
+                      * 🔴 ĐỨNG CẠNH DẤU CỦA KHO, KHÔNG THAY NÓ. Không đụng một con số khối lượng
+                      * nào — kho vẫn là nguồn duy nhất của số lượng thực nhận. Sếp được trình hai
+                      * cách và **bác** cách cho thu mua tự ghi nhận hàng thay kho, vì hai đường ghi
+                      * phiếu dùng chung công thức sinh mã nên sẽ đếm trùng khối lượng (lỗi tiền).
+                      *
+                      * 🔴 MỘT NÚT DUY NHẤT, VẼ Ở ĐÚNG ĐÂY. `BangTienDoPO` dùng chung cho cả trang
+                      * chi tiết đề nghị lẫn trang chi tiết đơn hàng, nên vẽ ở đây là cả hai màn đều
+                      * có mà không nhân bản. Dự án đã bác một lần việc dựng ô tích thứ hai cho cùng
+                      * một việc — đừng thêm nút này ở màn khác.
+                      *
+                      * 📌 Phiếu `tu_choi_nhan` không hiện: không nhận thì không có gì để đối chiếu.
+                      */}
+                    {p.trangThai !== "tu_choi_nhan" && (p.thuMuaDoiChieu || duocDoiChieu) && (
+                      <div className="flex flex-col gap-1.5 border-t border-border pt-2">
+                        {p.thuMuaDoiChieu ? (
+                          /* Trạng thái LUÔN có cả màu lẫn chữ lẫn icon (Design System V1.1). */
+                          <span
+                            className={`flex items-start gap-1.5 text-xs ${
+                              p.thuMuaDoiChieu.khop ? "text-success-soft" : "text-danger"
+                            }`}
+                          >
+                            {p.thuMuaDoiChieu.khop ? (
+                              <Check className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                            ) : (
+                              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                            )}
+                            <span>
+                              {p.thuMuaDoiChieu.khop
+                                ? "Thu mua đã đối chiếu: khớp số liệu app kho"
+                                : `Thu mua đối chiếu: LỆCH — ${p.thuMuaDoiChieu.ghiChu ?? ""}`}
+                              <span className="text-text-desc">
+                                {" "}
+                                · {p.thuMuaDoiChieu.nguoiTen},{" "}
+                                {new Date(p.thuMuaDoiChieu.thoiDiem).toLocaleDateString("vi-VN")}
+                              </span>
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5 text-xs text-text-desc">
+                            <ScanSearch className="size-3.5 shrink-0" aria-hidden />
+                            Phòng Thu mua chưa đối chiếu lần giao này
+                          </span>
+                        )}
+
+                        {/* Ghi rồi vẫn sửa được: soi lại thấy khác thì phải nói lại được. Bấm lại
+                            là GHI ĐÈ dấu cũ, dấu vết ai sửa lúc nào nằm ở nhật ký đơn hàng. */}
+                        {duocDoiChieu && dangGhiLech !== p.id && (
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                ghiDoiChieuThuMua(p.id, true, undefined, {
+                                  uid: nguoiDung.uid,
+                                  ten: nguoiDung.tenHienThi,
+                                })
+                              }
+                              className="min-h-9 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-success hover:text-success"
+                            >
+                              Khớp số liệu
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDangGhiLech(p.id);
+                                setLyDoLech(p.thuMuaDoiChieu?.ghiChu ?? "");
+                              }}
+                              className="min-h-9 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-danger hover:text-danger"
+                            >
+                              Ghi nhận lệch
+                            </button>
+                          </div>
+                        )}
+
+                        {dangGhiLech === p.id && (
+                          <div className="flex flex-col gap-2">
+                            <label
+                              htmlFor={`lech-${p.id}`}
+                              className="text-xs font-medium text-text-secondary"
+                            >
+                              Lệch ở đâu? (bắt buộc — không nói rõ thì người đọc không xử được)
+                            </label>
+                            <textarea
+                              id={`lech-${p.id}`}
+                              value={lyDoLech}
+                              onChange={(e) => setLyDoLech(e.target.value)}
+                              rows={2}
+                              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none"
+                              placeholder="VD: app kho ghi 150 tấn, phiếu giao NCC ghi 120 tấn"
+                            />
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={lyDoLech.trim() === ""}
+                                onClick={() => {
+                                  const loi = ghiDoiChieuThuMua(p.id, false, lyDoLech, {
+                                    uid: nguoiDung.uid,
+                                    ten: nguoiDung.tenHienThi,
+                                  });
+                                  if (loi === null) {
+                                    setDangGhiLech(null);
+                                    setLyDoLech("");
+                                  }
+                                }}
+                                className="min-h-9 rounded-lg bg-danger px-3 text-xs font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Lưu ghi nhận lệch
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDangGhiLech(null);
+                                  setLyDoLech("");
+                                }}
+                                className="min-h-9 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary"
+                              >
+                                Hủy
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {p.ghiChuTinhTrangHang && (
                       <p className="text-xs text-warning-soft">{p.ghiChuTinhTrangHang}</p>

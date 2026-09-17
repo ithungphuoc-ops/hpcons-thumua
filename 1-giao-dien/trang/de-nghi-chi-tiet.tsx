@@ -23,6 +23,7 @@ import {
   GitBranch,
   Forward,
   Package,
+  ScanSearch,
   ShoppingCart,
   X,
 } from "lucide-react";
@@ -111,6 +112,7 @@ import {
   poDaGiaoDu,
   soNgayConLai,
   tinhTienDoDeNghi,
+  nhacDoiChieuThuMua,
   tinhTienDoPO,
   vuongMacXacNhanKho,
 } from "@/2-quy-trinh/tinh-toan";
@@ -3058,6 +3060,35 @@ export default function TrangChiTietDeNghi({
                                 tone={daKhoXacNhan ? "success" : "warning"}
                               />
                             </p>
+
+                            {/**
+                              * ★★ NHẮC VIỆC ĐỐI CHIẾU CỦA PHÒNG THU MUA — Sếp 17/09/2026.
+                              *
+                              * 🔴 NHẮC, KHÔNG CHẶN. Tuyệt đối đừng đem câu này vào `disabled` của
+                              * nút bên dưới: hàng về đủ, chứng từ đủ mà đơn không đóng được chỉ vì
+                              * thiếu một dấu tích nội bộ thì app tự dựng bế tắc cho chính mình.
+                              *
+                              * 🔴 NHƯNG PHẢI CÓ. Dấu đối chiếu mà không ai đọc là nghi thức rỗng —
+                              * người ta bấm cho xong hoặc bỏ luôn, rồi cả tính năng thành vô nghĩa.
+                              * Đặt đúng chỗ người duyệt đang nhìn là cách rẻ nhất để nó có người
+                              * dùng thật. Luật ở `2-quy-trinh/tinh-toan.ts` → `nhacDoiChieuThuMua`,
+                              * một chỗ duy nhất.
+                              */}
+                            {(() => {
+                              const nhac = nhacDoiChieuThuMua(phieuCuaPO);
+                              if (!nhac) return null;
+                              const lech = nhac.includes("LỆCH");
+                              return (
+                                <p
+                                  className={`flex items-start gap-1.5 rounded-lg px-3 py-2 text-xs ${
+                                    lech ? "bg-danger-bg text-danger" : "bg-muted text-text-secondary"
+                                  }`}
+                                >
+                                  <ScanSearch className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                                  <span>{nhac}</span>
+                                </p>
+                              );
+                            })()}
 
                             {/* Kho xác nhận trước — nút chỉ hiện cho người có quyền kho, và CHỈ CHO
                                 HỒ SƠ CÔNG TRÌNH.

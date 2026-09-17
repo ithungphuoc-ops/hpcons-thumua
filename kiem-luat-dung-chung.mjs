@@ -4789,6 +4789,91 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 17/09/2026: DẤU ĐỐI CHIẾU CỦA THU MUA LÀ NHẮC, KHÔNG CHẶN
+//
+// Sếp: *"bước tiến hành nhận hàng… là bước check song song với dữ liệu từ
+// app kho đưa về"*. Sếp được trình hai cách và chọn cách ĐỐI CHIẾU (dấu của
+// thu mua đứng CẠNH dấu của kho), bác cách cho thu mua tự ghi nhận hàng thay
+// kho — vì hai đường ghi phiếu dùng CHUNG công thức sinh mã grn-{poId}-{lan}
+// nên sẽ đếm trùng khối lượng, mà khối lượng nhận là căn cứ trả tiền NCC.
+//
+// 🔴 HAI BÀI DƯỚI CANH HAI CHIỀU NGƯỢC NHAU:
+//   ① nhắc phải kêu khi còn phiếu chưa soi / đã soi ra lệch;
+//   ② nhưng KHÔNG được biến thành chốt chặn — hàng đủ, chứng từ đủ mà đơn
+//      không đóng được chỉ vì thiếu một dấu tích nội bộ là app tự dựng bế tắc.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "DOI CHIEU THU MUA — con phieu chua soi thi CO cau nhac",
+  'Sếp · 17/09/2026 — "buoc check song song voi du lieu tu app kho dua ve"',
+  () => {
+    const r = M.nhacDoiChieuThuMua([
+      { lanGiaoThu: 1, trangThai: "da_nhap_kho", thuMuaDoiChieu: { khop: true } },
+      { lanGiaoThu: 2, trangThai: "da_nhap_kho" },
+    ]);
+    return {
+      duoc: typeof r === "string" && /ch[ưu]a đ[ốo]i chi[ếe]u/i.test(r),
+      thucTe: r === null ? "null (LOT — dau doi chieu thanh nghi thuc rong)" : `"${String(r).slice(0, 80)}"`,
+      mongDoi: "cau nhac con lan giao chua doi chieu",
+    };
+  },
+);
+
+kiem(
+  "DOI CHIEU THU MUA — da soi ra LECH thi noi cai LECH truoc, khong noi 'chua soi'",
+  "Sếp · 17/09/2026 — lech la viec phai xu, nang hon viec chua soi",
+  () => {
+    const r = M.nhacDoiChieuThuMua([
+      {
+        lanGiaoThu: 1,
+        trangThai: "da_nhap_kho",
+        thuMuaDoiChieu: { khop: false, ghiChu: "kho ghi 150, phieu NCC ghi 120" },
+      },
+      { lanGiaoThu: 2, trangThai: "da_nhap_kho" },
+    ]);
+    return {
+      duoc: typeof r === "string" && /L[ỆE]CH/.test(r),
+      thucTe: `"${String(r).slice(0, 90)}"`,
+      mongDoi: "cau nhac noi ve viec LECH so lieu",
+    };
+  },
+);
+
+kiem(
+  "DOI CHIEU THU MUA — CHIEU NGHICH: soi het roi + deu khop thi IM, khong nhac vo co",
+  "Sếp · 17/09/2026 — nhac khi khong con gi de nhac la chot bao dong sai, lan sau khong ai doc",
+  () => {
+    const r = M.nhacDoiChieuThuMua([
+      { lanGiaoThu: 1, trangThai: "da_nhap_kho", thuMuaDoiChieu: { khop: true } },
+      { lanGiaoThu: 2, trangThai: "tu_choi_nhan" },
+    ]);
+    return {
+      duoc: r === null,
+      thucTe: r === null ? "null (im)" : `"${String(r).slice(0, 80)}"`,
+      mongDoi: "null — phieu tu_choi_nhan khong tinh, con lai da soi va khop",
+    };
+  },
+);
+
+kiem(
+  "DOI CHIEU THU MUA — CHIEU NGHICH: KHONG duoc dung dieu kien khoi luong cua kho",
+  "Nguyen tac du lieu so 2: Kho la nguon duy nhat cua so luong thuc nhan",
+  () => {
+    /* Phiếu thiếu tệp phiếu giao -> `vuongMacXacNhanKho` PHẢI chặn y như trước, dấu đối chiếu
+       của thu mua không được làm nhẹ đi chốt 11/08/2026 đó. */
+    const phieu = [
+      { lanGiaoThu: 1, trangThai: "da_nhap_kho", thuMuaDoiChieu: { khop: true } },
+    ];
+    const r = M.vuongMacXacNhanKho(phieu);
+    return {
+      duoc: typeof r === "string" && /phi[ếe]u giao nh[ậa]n/i.test(r),
+      thucTe: r === null ? "null (LOT — dau doi chieu da lam mat chot 11/08/2026!)" : `"${String(r).slice(0, 80)}"`,
+      mongDoi: "van chan vi thieu tep phieu giao nhan — dau doi chieu KHONG thay the chung tu",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // LUẬT CỦA SẾP — 17/09/2026: SỐ Ô BÁO GIÁ + BẢNG SO SÁNH PHẢI VỪA HẠN MỨC
 //
 // Sếp: *"Đang chỉ cho tạo tối đa 4 báo giá NCC… nếu tăng được 5 NCC thì nâng

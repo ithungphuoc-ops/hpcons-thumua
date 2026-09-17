@@ -144,6 +144,38 @@ export function vuongMacXacNhanKho(phieuCuaPO: PhieuNhanHang[]): string | null {
 }
 
 /**
+ * ★★ NHẮC THU MUA CÒN PHIẾU CHƯA SOI — Sếp 17/09/2026, *"bước check song song với dữ liệu từ app
+ * kho đưa về"*.
+ *
+ * 🔴 ĐÂY LÀ CÂU NHẮC, TUYỆT ĐỐI KHÔNG PHẢI CHỐT CHẶN. Trả về câu chữ để giao diện in ra cạnh nút
+ * *Xác nhận hoàn thành đơn*; nơi gọi **không được** dùng nó để `disabled` nút.
+ *
+ * Vì sao không chặn: hàng đã về đủ, chứng từ đã đủ, mà đơn không đóng được chỉ vì thu mua chưa
+ * bấm một dấu tích nội bộ thì đó là app tự dựng bế tắc cho chính mình — đúng loại lỗi dự án đã
+ * dính nhiều lần. Kho mới là nguồn của số lượng thực nhận (nguyên tắc dữ liệu số 2).
+ *
+ * 🔴 NHƯNG PHẢI CÓ CÂU NÀY, ĐỪNG BỎ. Một dấu tích không ai đọc là nghi thức rỗng: người ta bấm cho
+ * xong hoặc không bấm, và cả tính năng thành vô nghĩa. Câu nhắc đặt đúng chỗ người duyệt đang nhìn
+ * là thứ rẻ nhất khiến dấu đối chiếu có người dùng thật.
+ *
+ * 📌 Phiếu `tu_choi_nhan` KHÔNG tính — không nhận thì không có gì để đối chiếu, cùng lẽ với
+ * `vuongMacXacNhanKho` ngay trên.
+ */
+export function nhacDoiChieuThuMua(phieuCuaPO: PhieuNhanHang[]): string | null {
+  const chuaSoi = phieuCuaPO.filter((p) => p.trangThai !== "tu_choi_nhan" && !p.thuMuaDoiChieu);
+  const lech = phieuCuaPO.filter((p) => p.thuMuaDoiChieu && !p.thuMuaDoiChieu.khop);
+
+  /* Nói cái NẶNG trước: đã soi ra lệch thì đó là việc phải xử, quan trọng hơn việc chưa soi. */
+  if (lech.length > 0) {
+    const ds = lech.map((p) => `lần ${p.lanGiaoThu}`).join(", ");
+    return `Phòng Thu mua đã đối chiếu và ghi nhận LỆCH số liệu ở ${lech.length} lần giao (${ds}). Đọc ghi chú trong khối "Tiến độ nhận hàng" trước khi đóng đơn.`;
+  }
+  if (chuaSoi.length === 0) return null;
+  const ds = chuaSoi.map((p) => `lần ${p.lanGiaoThu}`).join(", ");
+  return `Còn ${chuaSoi.length} lần giao Phòng Thu mua chưa đối chiếu với số liệu app kho (${ds}).`;
+}
+
+/**
  * ★★ CÒN ĐƯỢC THAY / GỠ TỆP PHIẾU GIAO NHẬN CỦA MỘT LẦN GIAO KHÔNG — trả lý do bị khóa,
  * `null` là còn được.
  *

@@ -1332,6 +1332,39 @@ export interface PhieuNhanHang {
    * ngoài. Xem 1-giao-dien/thanh-phan-dung-chung/lien-ket-anh-qlk-ctr.tsx.
    */
   anhQlkCtr?: { ten: string; url: string };
+  /**
+   * ★★ DẤU ĐỐI CHIẾU CỦA PHÒNG THU MUA — Sếp chốt 17/09/2026, nguyên văn: *"bước tiến hành nhận
+   * hàng… là bước **check song song** với dữ liệu từ app kho đưa về"*.
+   *
+   * 🔴 ĐÂY LÀ DẤU ĐỨNG **CẠNH** DẤU CỦA KHO, TUYỆT ĐỐI KHÔNG THAY NÓ. Sếp được trình hai cách hiểu
+   * và chọn cách này:
+   *   · (i) ✅ thu mua đối chiếu rồi ký *"đã kiểm khớp"* — **không sinh khối lượng**;
+   *   · (ii) ❌ thu mua tự ghi nhận hàng thay kho — đã bác.
+   *
+   * 🔴 VÌ SAO CÁCH (ii) BỊ BÁC, GHI LẠI ĐỂ ĐỪNG AI MỞ LẠI: hai đường ghi phiếu (thu mua ghi tay ở
+   * `kho-du-lieu.tsx` và cửa API của QLK CTR) dùng **CHUNG một công thức sinh mã**
+   * `grn-{poId}-{lanGiaoThu}`, trong khi chốt chống trùng chỉ dò theo `maPhieuNhanQlkCtr` — trường
+   * mà phiếu ghi tay **không có**. Mở cách (ii) là thu mua ghi lần giao 1 (10 tấn), kho đẩy cùng
+   * lần giao đó sang, app cộng thành **20 tấn**, không một dòng cảnh báo. Khối lượng nhận là căn
+   * cứ trả tiền NCC nên đó là lỗi tiền, không phải lỗi hiển thị.
+   *
+   * 🔴 KHÔNG ĐƯỢC ĐỌC TRƯỜNG NÀY TRONG BẤT KỲ PHÉP TÍNH KHỐI LƯỢNG NÀO. `tinhTienDoPO` chỉ cộng
+   * phiếu `da_nhap_kho`, và nguyên tắc dữ liệu số 2 của dự án là *"Kho là nguồn duy nhất của số
+   * lượng thực nhận"*. Dấu này chỉ trả lời *"thu mua đã soi phiếu này chưa, có khớp không"*.
+   *
+   * ⚠️ `khop: false` KHÔNG tự lật ngược chứng từ của kho. Nó chỉ ghi lại rằng thu mua thấy lệch,
+   * kèm lý do, để người duyệt đọc trước khi đóng đơn — đưa phiếu về `cho_kiem_tra` là việc khác,
+   * chưa có chỉ đạo, và làm vậy là trừ thẳng khối lượng đã nhận.
+   */
+  thuMuaDoiChieu?: {
+    /** `true` = số liệu khớp với phiếu kho · `false` = thu mua thấy lệch. */
+    khop: boolean;
+    /** Bắt buộc khi `khop = false` — lệch mà không nói lệch chỗ nào thì người đọc không làm gì được. */
+    ghiChu?: string;
+    nguoiUid: string;
+    nguoiTen: string;
+    thoiDiem: NgayISO;
+  };
 }
 
 // ------------------------------------------------------------
