@@ -343,7 +343,8 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
      suất trên màn PO, đúng kiểu "hai chỗ cùng nhập một thứ" mà Sếp gọi là dễ gây hiểu nhầm.
      `dv.thueSuatGTGT` VẪN ĐƯỢC DÙNG, nhưng chỉ để quyết định cột "% Thuế GTGT" của từng dòng có
      phải điền hay không (xem vòng lặp phía trên) — không in ra thành một dòng nhãn nữa. */
-  const sauBang = DONG_TIEU_DE + 1 + dv.dong.length;
+  /* 🔴 `sauBang` đã bỏ 17/09/2026 cùng khối ghi chú — không còn gì viết sau bảng nữa.
+     Thêm lại dòng nào dưới bảng thì tính lại: `DONG_TIEU_DE + 1 + dv.dong.length`. */
 
   /* 📌 Ghi chú cho người điền, đặt cách ra để không lẫn vào vùng app dò nhãn.
    *
@@ -384,17 +385,24 @@ export async function taoFileNhapDonHang(dv: DauVaoFileMau): Promise<Blob> {
         "KHÔNG đổi tên hàng ở cột C — app đối chiếu theo tên này.",
       ];
 
-  [
-    ...cauHuongDan,
-    "KHÔNG đổi chữ ở dòng tiêu đề bảng — app tìm cột theo đúng những tên đó.",
-    "Lưu lại rồi bấm “Chọn file Excel” trong app để nạp lại.",
-  ].forEach((cau, i) => {
-    /* Cách bảng 2 dòng. Trước 16/09/2026 phải cách 11 dòng để nhảy qua khối tổng và điều khoản;
-       khối đó bỏ rồi nên giữ 11 là chừa một khoảng trắng dài vô nghĩa giữa bảng và hướng dẫn. */
-    const o = ws.getRow(sauBang + 2 + i).getCell(1);
-    o.value = cau;
-    o.font = { italic: true, size: 10 };
-  });
+  /**
+   * ★★ KHỐI GHI CHÚ ĐÃ BỎ KHỎI FILE MẪU — Sếp 17/09/2026, khoanh đỏ trọn khối 6 dòng chữ nghiêng
+   * dưới bảng: ***"Bỏ ghi chú ở file mẫu import"***.
+   *
+   * 🔴 GIỮ NGUYÊN BIẾN `cauHuongDan` Ở TRÊN, ĐỪNG XOÁ THEO. Mỗi câu trong đó ghi lại một lỗi thật
+   * đã xảy ra (câu dặn điền vào dòng "Tên nhà cung cấp:" khi dòng ấy không còn tồn tại, cách gộp ô
+   * làm bên đọc hiểu nhầm dòng hướng dẫn thành một dòng hàng…). Xoá đi là mất dấu vết, và người sau
+   * lại viết lại đúng những câu đó vào file.
+   *
+   * ⚠️ CÁI GIÁ, ĐÃ BÁO SẾP: một câu trong khối vừa bỏ là *"KHÔNG đổi chữ ở dòng tiêu đề bảng — app
+   * tìm cột theo đúng những tên đó"*. Không còn câu đó thì người dùng sửa tên cột rồi nạp lại sẽ
+   * gặp lỗi mà không hiểu vì sao. Bên đọc (`doc-don-hang-excel.ts`) vẫn nhận nhiều biến thể tên cột
+   * và vẫn báo rõ khi không tìm ra cột — nên đây là **khó hiểu hơn**, không phải mất chức năng.
+   *
+   * 👉 Muốn bày lại hướng dẫn thì đặt Ở TRONG APP (cạnh nút "Chọn file Excel"), đừng nhét lại vào
+   * file — đó là chỗ Sếp đã bảo bỏ.
+   */
+  void cauHuongDan;
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], {

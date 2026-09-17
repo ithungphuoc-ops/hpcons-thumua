@@ -80,6 +80,7 @@ import { KhuBaoGiaTheoSoLuong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-bao
 import {
   danhSachNCCDaBaoGia,
   NHAN_O_SO_SANH,
+  tenNCCCuaO,
   tepBaoGiaDaCo,
   tepBaoGiaDaDuyet,
   tepSoSanh,
@@ -1857,55 +1858,22 @@ export default function TrangChiTietDeNghi({
                      */
                     chanXoaTep={daDuyetBaoGia}
                     /**
-                     * ★ NÚT "DUYỆT BẢN NÀY" TRÊN TỪNG BẢN BÁO GIÁ — Ban lãnh đạo 20/08/2026:
-                     * *"bố cục thêm nút Duyệt và khi bấm nút đó thì file sẽ tự chuyển sang bước
-                     * tiếp theo"*.
+                     * ★★ NÚT "DUYỆT BẢN NÀY" ĐÃ DỜI KHỎI ĐÂY — Sếp chốt 17/09/2026.
                      *
-                     * 🔴 CHỈ HIỆN KHI ĐỦ BA ĐIỀU: đúng bước ③ (đã trình, đang chờ duyệt) · người
-                     * xem có quyền trưởng bộ phận · hồ sơ chưa duyệt. Thiếu một điều là không
-                     * truyền `onDuyetO`, và khu báo giá không vẽ nút — chứ không bày nút rồi chặn
-                     * khi bấm.
+                     * Nút nay nằm trong khối KẾT QUẢ *"Xét duyệt phương án giá"* của bước ③, ngay
+                     * cạnh danh sách các bản báo giá. Xem khối chú thích lớn ở đó để biết đủ lý do.
                      *
-                     * 📌 Trưởng bộ phận vẫn phải ghi tên nhà cung cấp và căn cứ duyệt trong hộp
-                     * xác nhận: bấm nút là chọn BẢN nào, còn duyệt cho BÊN nào và vì sao thì phải
-                     * ghi ra — đó là thứ về sau dùng để giải trình.
+                     * 🔴 ĐỪNG TRUYỀN LẠI `onDuyetO` Ở ĐÂY. Sếp chụp được cảnh Trưởng bộ phận đứng ở
+                     * bước ③ mà khối ② đang gập: không thấy bản báo giá nào, cũng không thấy nút
+                     * duyệt. Trả nút về đây là dựng lại đúng bế tắc đó — hoặc tệ hơn, để cả hai nơi
+                     * cùng có nút, tức hai chỗ làm một việc.
+                     *
+                     * 📌 LỊCH SỬ ĐỦ BA MỐC, để người sau không tưởng ai tự ý đổi:
+                     *   · 20/08/2026 Ban lãnh đạo: *"bố cục thêm nút Duyệt"* → nút sinh ra ở đây.
+                     *   · 13/09/2026 Ban lãnh đạo: *"Đã duyệt ở mục này"* (chỉ vào nút này) và
+                     *     *"Mục này bỏ"* (chỉ vào cặp nút bước ③) → giữ nút ở đây, bỏ ở bước ③.
+                     *   · 17/09/2026 Sếp xem demo so ba trạng thái và **chốt ngược lại**.
                      */
-                    onDuyetO={
-                      quyen.xacNhanTruongBP &&
-                      giaiDoan === "xet_duyet_bao_gia" &&
-                      !hoSoDaDong &&
-                      /**
-                       * 🔴 CHỈ BÀY NÚT KHI CÓ ĐÚNG **MỘT** HỒ SƠ CHỜ DUYỆT (sửa 21/08/2026).
-                       *
-                       * Bản trước dùng `.find()` — lấy hồ sơ ĐẦU TIÊN trong danh sách, không phải
-                       * hồ sơ tương ứng bản báo giá vừa bấm. Phiếu có hai hồ sơ chờ duyệt thì bấm
-                       * "Duyệt bản này" ở hồ sơ thứ hai lại ghi quyết định vào hồ sơ thứ nhất —
-                       * duyệt sai hồ sơ, và không có gì báo.
-                       *
-                       * 👉 Nhiều hơn một thì không bày nút tắt này; người duyệt dùng cặp nút
-                       * Duyệt / Không duyệt trong từng khối hồ sơ ở dưới, nơi mỗi nút gắn đúng
-                       * `bg.id` của khối đó.
-                       */
-                      baoGiaLienQuan.filter((bg) => bg.trangThai === "da_so_sanh").length === 1
-                        ? (o) => {
-                            const bg = baoGiaLienQuan.find(
-                              (b) => b.trangThai === "da_so_sanh",
-                            );
-                            if (!bg) return;
-                            /* Điền hộ tên nhà cung cấp nếu tra ra được: ưu tiên tên ghi ở chính ô
-                               báo giá vừa bấm, sau đó tới tên hồ sơ cũ còn lưu. Tra không ra thì
-                               để trống — người duyệt gõ ngay trong hộp thoại (ô "Duyệt cho nhà
-                               cung cấp nào?"), không còn phải đi tìm ô ở khối khác như trước
-                               23/08/2026. */
-                            const tenGoiY =
-                              o.tenNCCDaGhi !== ""
-                                ? o.tenNCCDaGhi
-                                : (danhSachNCCDaBaoGia(dn)[0]?.tenNCC ?? "");
-                            if (tenGoiY !== "") setNccDuyet(tenGoiY);
-                            setHoiDuyet({ bgId: bg.id, loai: "duyet", nhanO: o.nhanO });
-                          }
-                        : undefined
-                    }
                     /* Tên nhà cung cấp cho từng ô báo giá (Ban lãnh đạo 20/08/2026) — gác
                        `xemNhaCungCap` như mọi chỗ hiện tên NCC. Gõ tự do, KHÔNG truyền danh mục
                        gợi ý (chỉ đạo 20/08/2026: *"bỏ danh mục gợi ý NCC đi"*). */
@@ -2168,11 +2136,11 @@ export default function TrangChiTietDeNghi({
                             {quyen.xacNhanTruongBP &&
                               !daDuyet &&
                               !hoSoDaDong && (() => {
-                              /* Đúng 1 bảng đã trình → nút tắt "Duyệt bản này" đang hiện trên ô báo
-                                 giá, nên ở đây CHỈ bày nút "Không duyệt". */
-                              const anNutDuyet =
-                                baoGiaLienQuan.filter((b) => b.trangThai === "da_so_sanh")
-                                  .length === 1;
+                              /* 🔴 CỜ `anNutDuyet` ĐÃ BỎ 17/09/2026 cùng lần dời nút duyệt về đây.
+                                 Nó từng đếm "đúng 1 bảng đã trình" để ẩn nút Duyệt, vì lúc đó nút
+                                 thật nằm trên ô báo giá của bước ②. Nay nút nằm ngay dưới, gắn đúng
+                                 `bg.id` của khối này, nên phép đếm đó không còn nghĩa gì — và giữ
+                                 lại là một điều kiện chết mà người sau phải đoán. */
                               /**
                                * ★ TRƯỞNG BỘ PHẬN GÕ TÊN NHÀ CUNG CẤP KHI DUYỆT — Ban lãnh đạo
                                * 20/08/2026, sau khi bỏ ô ghi tên ở bước ②
@@ -2198,10 +2166,98 @@ export default function TrangChiTietDeNghi({
                                */
                               const goiY = danhSachNCCDaBaoGia(dn)[0]?.tenNCC ?? "";
                               return (
-                                <div className="flex flex-wrap items-center gap-2">
-                                  {/* Ẩn khi đã có nút tắt "Duyệt bản này" trên ô báo giá — không
-                                      bày hai nút Duyệt cạnh nhau (chủ ý từ 13/09/2026). */}
-                                  {!anNutDuyet && (
+                                <div className="flex flex-col gap-3">
+                                  {/**
+                                    * ★★ BÀY CÁC BẢN BÁO GIÁ NGAY TẠI CHỖ QUYẾT + NÚT DUYỆT TỪNG
+                                    * BẢN — Sếp 17/09/2026, sau khi xem demo so ba trạng thái.
+                                    *
+                                    * 🔴 SẾP CHỤP ĐƯỢC ĐÚNG BẾ TẮC: khối bước ② gập lại (mặc định,
+                                    * và F5 là gập hết theo luật 18/08/2026) thì Trưởng bộ phận
+                                    * đứng ở đây **vừa không thấy bản báo giá nào, vừa không thấy
+                                    * nút Duyệt** — vì từ 13/09/2026 nút duyệt đã dời sang ô báo giá
+                                    * của bước ②. Nguyên văn Sếp: *"nếu như group bước yêu cầu NCC
+                                    * báo giá thì TP ko biết duyệt báo giá nào"*.
+                                    *
+                                    * 🔴 ĐẢO CHỈ ĐẠO 13/09/2026, CÓ SẾP CHỐT LẠI 17/09/2026. Hôm
+                                    * 13/09 Ban lãnh đạo chỉ vào nút ở bước ② (*"Đã duyệt ở mục
+                                    * này"*) và bảo bỏ cặp nút ở bước ③ (*"Mục này bỏ"*). Nay Sếp
+                                    * xem demo và chọn ngược lại. **Ghi cả hai mốc để người sau
+                                    * không tưởng ai đó tự ý đổi.**
+                                    *
+                                    * 🔴 KHÔNG BÀY HAI LẦN: nút ở bước ② đã **bỏ hẳn** cùng lần sửa
+                                    * này (`onDuyetO` không còn được truyền). Giữ cả hai mới là
+                                    * hai chỗ cùng làm một việc — đúng thứ dự án cấm.
+                                    *
+                                    * ⚠️ PHẢI TRUYỀN `nhanO`, ĐỪNG BỎ CHO GỌN. Đó là thứ `chonNCCChoBaoGia`
+                                    * ghi vào căn cứ duyệt, và `tepBaoGiaDaDuyet` đọc lại để dựng
+                                    * dòng *"Bản báo giá được chọn"* ở đầu vào bước ③. Bỏ đi là hồ
+                                    * sơ duyệt xong không còn biết đã chọn bản nào.
+                                    */}
+                                  {(() => {
+                                    const banBaoGia = tepBaoGiaDaCo(dn);
+                                    if (banBaoGia.length === 0) return null;
+                                    return (
+                                      <div className="flex flex-col gap-2">
+                                        <p className="text-xs font-semibold text-text-desc uppercase">
+                                          Các bản báo giá đang chờ duyệt
+                                        </p>
+                                        {banBaoGia.map((t) => {
+                                          const nhanO = (t.ghiChu ?? "").trim();
+                                          const tenNCC = tenNCCCuaO(t.ghiChu);
+                                          return (
+                                            <div
+                                              key={t.id}
+                                              className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted p-(--hp-md-row-pad)"
+                                            >
+                                              <span className="text-sm font-semibold text-text-primary">
+                                                {nhanO || "Bản báo giá"}
+                                              </span>
+                                              {tenNCC !== "" && quyen.xemNhaCungCap && (
+                                                <span className="text-sm text-text-secondary">
+                                                  · {tenNCC}
+                                                </span>
+                                              )}
+                                              <span className="ml-auto flex flex-wrap items-center gap-2">
+                                                <LienKetTep tep={t} />
+                                                <Button
+                                                  size="sm"
+                                                  onClick={() => {
+                                                    /* Điền hộ tên NCC: ưu tiên tên ghi ở chính ô
+                                                       vừa bấm, sau đó tới hồ sơ cũ. Tra không ra
+                                                       thì để trống, người duyệt gõ trong hộp. */
+                                                    const ten = tenNCC !== "" ? tenNCC : goiY;
+                                                    if (ten !== "") setNccDuyet(ten);
+                                                    setHoiDuyet({
+                                                      bgId: bg.id,
+                                                      loai: "duyet",
+                                                      nhanO: nhanO || undefined,
+                                                    });
+                                                  }}
+                                                >
+                                                  <Check className="size-4" aria-hidden />
+                                                  Duyệt bản này
+                                                </Button>
+                                              </span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })()}
+
+                                  <div className="flex flex-wrap items-center gap-2">
+                                  {/**
+                                    * 🔴 NÚT "DUYỆT" TRƠN CHỈ CÒN LÀ ĐƯỜNG LUI CHO HỒ SƠ KHÔNG CÓ
+                                    * BẢN NÀO ĐỂ BẤM — ví dụ hồ sơ cũ mà tệp báo giá không mang
+                                    * nhãn ô, hoặc quy trình cho bỏ qua báo giá kèm lý do. Bỏ hẳn
+                                    * nút này là những hồ sơ đó **không còn đường duyệt nào**, kẹt
+                                    * vĩnh viễn ở bước ③.
+                                    *
+                                    * ⚠️ Duyệt bằng nút này KHÔNG ghi được `nhanO`, nên về sau đầu
+                                    * vào bước ③ không dựng được dòng "Bản báo giá được chọn". Chấp
+                                    * nhận, vì ca này vốn không có bản nào để chỉ tên.
+                                    */}
+                                  {tepBaoGiaDaCo(dn).length === 0 && (
                                     <Button
                                       size="sm"
                                       onClick={() => {
@@ -2226,6 +2282,7 @@ export default function TrangChiTietDeNghi({
                                     <X className="size-4" aria-hidden />
                                     Không duyệt
                                   </Button>
+                                  </div>
                                 </div>
                               );
                             })()}

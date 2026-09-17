@@ -207,8 +207,26 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                   * 📌 Dữ liệu có sẵn, KHÔNG phải đụng tầng tính toán: `TienDoDongPO extends DongPO`
                   * nên `thongSoKyThuat` đi theo mỗi dòng.
                   */}
+                {/**
+                  * ★★ `w-full` Ở CỘT "Thông số kỹ thuật" — Sếp 17/09/2026: ***"Bố cục lại"***,
+                  * khoanh cả bảng.
+                  *
+                  * 🔴 NGUYÊN NHÂN KHOẢNG TRỐNG (đo được, không đoán): `TableCell` có sẵn
+                  * `whitespace-nowrap` nên mọi cột co về đúng nội dung; bảng lại là `w-full`, nên
+                  * phần dư giữa bề rộng bảng và tổng nội dung bị **chia đều cho mọi cột**. Kết quả
+                  * là các cột số (Đặt · ngày giao · Đã nhận · Còn lại) dãn cách nhau cả trăm pixel
+                  * — mắt phải chạy ngang rất xa mới đọc được một dòng, đúng thứ Sếp thấy.
+                  *
+                  * `w-full` ở đây nghĩa là *"cột này xin 100%"*, nên nó hút toàn bộ phần dư và các
+                  * cột còn lại co sát nội dung, các con số về đứng cạnh nhau.
+                  *
+                  * 📌 CHỌN CỘT "Thông số kỹ thuật" LÀM CHỖ NHẬN PHẦN DƯ là cố ý: nó là cột chữ dài
+                  * nhất và không có gì phải so hàng dọc. Đặt vào cột cuối ("Tiến độ") thì thanh
+                  * tiến độ kéo dài vô ích; đặt vào một cột số là số của dòng này lệch số của dòng
+                  * kia.
+                  */}
                 <TableHead>Tên hàng</TableHead>
-                <TableHead>Thông số kỹ thuật</TableHead>
+                <TableHead className="w-full">Thông số kỹ thuật</TableHead>
                 <TableHead>ĐVT</TableHead>
                 <TableHead className="text-right">Đặt</TableHead>
                 {lanGiaoDaTinh.map((p) => (

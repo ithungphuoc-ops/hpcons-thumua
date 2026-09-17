@@ -556,7 +556,19 @@ export default function TrangChiTietDonHang() {
                       <TableHead className="w-12 text-right">STT</TableHead>
                       <TableHead>Tên hàng</TableHead>
                       <TableHead>Thông số kỹ thuật</TableHead>
+                      {/**
+                        * ★★ TÁCH "SL" VÀ "ĐVT" LÀM HAI CỘT — Sếp 17/09/2026, khoanh đỏ đúng cột
+                        * đang ghi gộp *"10 Thùng"*: ***"Tách đơn vị và số lượng ra"***.
+                        *
+                        * 🔴 GỘP HAI THỨ VÀO MỘT CỘT CĂN PHẢI LÀM CÁC CON SỐ KHÔNG THẲNG HÀNG:
+                        * "10 Thùng" · "5 Cây" · "1 Máy" — đơn vị dài ngắn khác nhau nên chữ số
+                        * hàng đơn vị mỗi dòng một chỗ, đọc cột số mà phải dò từng dòng.
+                        *
+                        * 📌 Bảng *Tiến độ nhận hàng* ngay trên đã tách sẵn ĐVT thành cột riêng —
+                        * bảng này gộp là hai bảng cùng màn nói cùng một thứ theo hai kiểu.
+                        */}
                       <TableHead className="text-right">SL</TableHead>
+                      <TableHead>ĐVT</TableHead>
                       <TableHead className="text-right">Đơn giá</TableHead>
                       <TableHead className="text-right">Thành tiền</TableHead>
                       <TableHead>Mục đích sử dụng</TableHead>
@@ -571,9 +583,10 @@ export default function TrangChiTietDonHang() {
                           <TableCell className="text-right text-text-desc">{d.sttDong}</TableCell>
                           <TableCell className="font-medium">{d.tenVatLieu}</TableCell>
                           <TableCell className="text-text-secondary">{d.thongSoKyThuat ?? "—"}</TableCell>
-                          <TableCell className="text-right">
-                            {d.khoiLuongDat.toLocaleString("vi-VN")} {d.donViTinh}
+                          <TableCell className="text-right tabular-nums">
+                            {d.khoiLuongDat.toLocaleString("vi-VN")}
                           </TableCell>
+                          <TableCell className="text-text-secondary">{d.donViTinh}</TableCell>
                           <TableCell className="text-right">{donGia.toLocaleString("vi-VN")} ₫</TableCell>
                           <TableCell className="text-right font-semibold">
                             {(donGia * d.khoiLuongDat).toLocaleString("vi-VN")} ₫
