@@ -70,14 +70,49 @@ export function dongDaNhanBanSang(
   tatCa: DeNghiMuaHang[],
 ): Map<number, string[]> {
   const ra = new Map<number, string[]>();
+  const them = (stt: number, ma: string) => {
+    const ds = ra.get(stt) ?? [];
+    /* Một bản con có thể chứa nhiều dòng cùng trỏ về một dòng gốc (nếu sau này cho tách theo
+       khối lượng). Chỉ ghi mã phiếu MỘT LẦN để câu chữ không lặp. */
+    if (!ds.includes(ma)) ds.push(ma);
+    ra.set(stt, ds);
+  };
+
+  /**
+   * ★★ ĐƯỜNG ①: BẢN CON TRỰC TIẾP — thêm 17/09/2026 (hướng C Sếp chốt).
+   *
+   * 🔴 ĐƯỜNG NÀY GIẢI CA BẢN COPY CẤP 2. Trước đây hàm chỉ quét `cacBanTachCua(goc.id)` — lọc theo
+   * `deNghiGocId`, mà trường đó luôn trỏ về phiếu **gốc đầu tiên**. Nên một phiếu copy ở giữa
+   * (bản thân nó là con của phiếu khác) tra ra **rỗng**, không biết dòng nào của mình đã giao đi,
+   * và kẹt đúng như lỗi đã vá cho phiếu gốc: không vào nổi bước ⑦, không bấm hoàn thành được.
+   *
+   * Đo trên kho thật 17/09/2026: `2026/HDXD-PR-001 (copy 3)` nhân bản tay từ `(copy)`, mà `(copy)`
+   * sinh ra từ tách tự động nên **không có `sttDongGoc`** — tức không có cách nào suy ra, phải có
+   * cặp trường riêng `deNghiChaId` + `sttDongCha`.
+   *
+   * 📌 Khớp theo `deNghiChaId` nên phân biệt được hai bản con của cùng một phiếu; khớp mò theo
+   * "anh em cùng gốc" thì cả hai cùng tưởng dòng của mình đã đi, cùng bị trừ hết, và **đóng được
+   * hồ sơ chưa mua gì** — nặng hơn hẳn lỗi đang chữa.
+   */
+  for (const con of tatCa) {
+    if (con.deNghiChaId !== goc.id) continue;
+    for (const d of con.items ?? []) {
+      if (typeof d.sttDongCha !== "number") continue;
+      them(d.sttDongCha, con.code);
+    }
+  }
+
+  /**
+   * ★★ ĐƯỜNG ②: BẢN CÙNG GỐC theo `sttDongGoc` — đường vốn có, GIỮ NGUYÊN.
+   *
+   * 🔴 ĐỪNG BỎ DÙ ĐƯỜNG ① NGHE ĐẦY ĐỦ HƠN. Mọi hồ sơ nhân bản **trước 17/09/2026** không có
+   * `deNghiChaId`; bỏ đường này là dấu mờ trên hàng loạt phiếu gốc biến mất, và những phiếu đó
+   * kẹt trở lại. Hai đường cùng ghi vào một `Map` nên trùng nhau cũng vô hại.
+   */
   for (const con of cacBanTachCua(goc.id, tatCa)) {
     for (const d of con.items ?? []) {
       if (typeof d.sttDongGoc !== "number") continue;
-      const ds = ra.get(d.sttDongGoc) ?? [];
-      /* Một bản con có thể chứa nhiều dòng cùng trỏ về một dòng gốc (nếu sau này cho tách theo
-         khối lượng). Chỉ ghi mã phiếu MỘT LẦN để câu chữ không lặp. */
-      if (!ds.includes(con.code)) ds.push(con.code);
-      ra.set(d.sttDongGoc, ds);
+      them(d.sttDongGoc, con.code);
     }
   }
   return ra;
@@ -317,6 +352,13 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
     tieuDe: tenBanSaoTheoMa(phieuGocDau.tieuDe, t.maMoi),
     // ★ Quan hệ cha–con để TỔNG HỢP LẠI được các bản tách (xem `deNghiGocId`).
     deNghiGocId: phieuGocDau.id,
+    /**
+     * ★★ PHIẾU CHA TRỰC TIẾP — Sếp chốt 17/09/2026. Ghi `goc.id` (phiếu vừa bấm nhân bản), KHÔNG
+     * phải `phieuGocDau.id`. Đây là điểm khác duy nhất giữa hai trường, và cũng là cả tác dụng của
+     * nó: khi nhân bản từ một bản copy thì phiếu copy ở giữa mới tra ra được dòng nào của mình đã
+     * đi sang bản cháu.
+     */
+    deNghiChaId: goc.id,
     maDeNghiGoc: phieuGocDau.code,
     ngayDeNghi: t.ngay,
     ngayDuyet: t.ngay,
@@ -361,6 +403,14 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
         ...d,
         stt: i + 1,
         sttDongGoc: nguonLaBanSao ? d.sttDongGoc : d.stt,
+        /**
+         * ★★ DÒNG NÀO CỦA **PHIẾU CHA TRỰC TIẾP** — Sếp chốt 17/09/2026.
+         *
+         * 🔴 LUÔN LÀ `d.stt`, KHÔNG kế thừa như `sttDongGoc` ngay trên. `d` chính là dòng của phiếu
+         * vừa bấm nhân bản, nên `d.stt` đúng là số dòng ở phiếu cha — bất kể phiếu cha là phiếu gốc
+         * hay đã là một bản copy. Kế thừa ở đây là quay lại đúng lỗ hổng đang vá.
+         */
+        sttDongCha: d.stt,
         ...(daCoNguoi
           ? {
               nguoiPhuTrachUid: nguoi.uid,

@@ -14,6 +14,7 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { phanTramPO, soNgayConLai, tinhTienDoDeNghi, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { deNghiConDangChay } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { KhoiNangLucPhong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-nang-luc-phong";
 import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { soSanhDonHangUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { cn } from "@/6-tien-ich/gop-lop";
@@ -205,6 +206,12 @@ export default function TrangTongQuan() {
           </CardContent>
         </Card>
       </section>
+
+      {/* ★★ NĂNG LỰC PHÒNG — Sếp 17/09/2026. Khối tự gác quyền bên trong
+          (`phanBoCongViec` = trưởng phòng + quản trị), nơi gọi không phải nhớ — xem chú thích đầu
+          `khoi-nang-luc-phong.tsx`. Đặt ở Tổng quan thay vì thêm mục menu: thanh dưới điện thoại đã
+          đủ 8 mục, mục thứ 9 là vỡ vùng chạm 44px (xem `dieu-huong.ts`). */}
+      <KhoiNangLucPhong />
     </>
   );
 }

@@ -164,6 +164,22 @@ export interface DongDeNghi {
    * ⚠️ TRỐNG với mọi dòng lập tay và mọi hồ sơ có trước 15/09/2026. Chỗ đọc phải chịu được trống.
    */
   sttDongGoc?: number;
+  /**
+   * ★★ `stt` CỦA DÒNG Ở **PHIẾU CHA TRỰC TIẾP** — Sếp chốt 17/09/2026 (hướng C).
+   *
+   * 🔴 KHÁC `sttDongGoc` NGAY TRÊN, VÀ ĐÓ LÀ CẢ LÝ DO NÓ TỒN TẠI. `sttDongGoc` luôn trỏ về phiếu
+   * **gốc đầu tiên** (kế thừa qua các đời), nên khi nhân bản từ một bản copy thì phiếu copy ở giữa
+   * **không có cách nào biết dòng nào của mình đã đi sang bản cháu**. Trường này trỏ về dòng của
+   * đúng phiếu vừa bấm nhân bản, nên phiếu giữa tra được.
+   *
+   * Đo trên kho thật 17/09/2026: `2026/HDXD-PR-001 (copy 3)` nhân bản tay từ `(copy)`, và
+   * `(copy)` — vốn sinh ra từ tách tự động — **không có `sttDongGoc`**, nên cách tra theo
+   * `sttDongGoc` cho kết quả rỗng. Đó là lý do phải có trường riêng chứ không suy ra được.
+   *
+   * ⚠️ TRỐNG với mọi hồ sơ có trước 17/09/2026 — chỗ đọc phải chịu được trống và khi trống thì
+   * cư xử y như trước, không trừ mù.
+   */
+  sttDongCha?: number;
 }
 
 /**
@@ -271,6 +287,22 @@ export interface DeNghiMuaHang {
    * được vào một nhóm bằng một phép lọc, không phải đi lần ngược từng đời.
    */
   deNghiGocId?: string;
+  /**
+   * ★★ PHIẾU CHA **TRỰC TIẾP** — phiếu vừa bấm nhân bản ra bản này. Sếp chốt 17/09/2026 (hướng C).
+   *
+   * 🔴 KHÔNG THAY `deNghiGocId`, ĐỨNG CẠNH NÓ. `deNghiGocId` giữ nguyên nghĩa **một cấp** để mọi
+   * bản tách của cùng một đề xuất vẫn gom được bằng một phép lọc (lý do ghi ngay trên). Trường này
+   * trả lời câu khác: *"phiếu nào vừa đẻ ra bản này"* — cần cho việc làm mờ dòng đã giao đi khi
+   * phiếu cha bản thân nó cũng là một bản copy.
+   *
+   * 🔴 VÌ SAO KHÔNG ĐỔI `deNghiGocId` THÀNH NHIỀU CẤP: `cacBanTachCua`, `phieuGocCua`,
+   * `tinhPhuongAnTach`, `maBanSaoTiepTheo` đều dựa vào giả định một cấp. Đổi nó là đụng cả bốn
+   * hàm cùng lúc, trong khi thêm một trường tuỳ chọn thì không hàm nào phải sửa.
+   *
+   * ⚠️ TRỐNG với mọi hồ sơ có trước 17/09/2026 (đo được trên kho thật: có sẵn một bản cháu không
+   * mang trường này). Chỗ đọc phải rơi về đúng hành vi cũ khi trống.
+   */
+  deNghiChaId?: string;
   /** Mã phiếu gốc — chép sẵn để hiện lên màn hình khỏi phải tra ngược. */
   maDeNghiGoc?: string;
   /**

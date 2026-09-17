@@ -178,6 +178,21 @@ try {
 /* ★★ HẠN MỨC TỆP MỖI BƯỚC — Sếp 17/09/2026 nâng 5→6 để mở đủ 5 ô báo giá NCC. Dựng riêng để bài
    kiểm đối chiếu ĐƯỢC hai hằng số với nhau: số ô báo giá cộng bảng so sánh bắt buộc phải vừa hạn
    mức, thiếu chỗ là phiếu kẹt vĩnh viễn ở bước ②. */
+/* ★★ NĂNG LỰC PHÒNG THU MUA — Sếp 17/09/2026 (màn KPI). Dựng riêng để bài kiểm gọi THẬT hàm cộng,
+   nhất là hai chốt: không đếm hai lần dòng đã nhân bản, và KHÔNG tính phiếu đóng dở là "xong". */
+const tepRaNL = join(thuMuc, "nang-luc.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/nang-luc-phong-thu-mua.ts" --bundle --platform=node --format=cjs --outfile="${tepRaNL}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/nang-luc-phong-thu-mua.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const tepRaGH = join(thuMuc, "gioi-han.cjs");
 try {
   execSync(
@@ -4784,6 +4799,115 @@ kiem(
       duoc: ra === 3 && copy2.deNghiGocId === "pr-goc",
       thucTe: `sttDongGoc=${ra} · deNghiGocId=${copy2.deNghiGocId}`,
       mongDoi: "sttDongGoc=3 (dong o phieu goc dau tien) · deNghiGocId=pr-goc (cha–con MOT cap)",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 17/09/2026: BẢN NHÂN BẢN CẤP 2 + MÀN KPI PHÒNG
+//
+// ① Nhan ban cap 2: quan he cha-con chi MOT CAP nen ban chau tro thang
+//    ve phieu goc dau tien, bo qua phieu o giua => phieu giua khong biet
+//    dong nao cua minh da giao di va KET (khong vao noi buoc 7). Da do
+//    tren kho that 17/09/2026: "2026/HDXD-PR-001 (copy 3)" nhan ban tay
+//    tu "(copy)", va "(copy)" KHONG co sttDongGoc.
+//    Cach chua (huong C Sep chot): them deNghiChaId + sttDongCha.
+//
+// ② Man KPI: 🔴 HAI BAI CHIEU NGHICH LA THU QUAN TRONG NHAT — chung ghim
+//    dung hai loi cua khoi thong ke cu:
+//      · dem HAI LAN dong da nhan ban di;
+//      · tinh phieu DONG DO la "xong" => thuong cong cho viec that bai.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "NHAN BAN CAP 2 — phieu o GIUA phai biet dong nao cua minh da giao di",
+  "Sếp · 17/09/2026 (huong C) — truoc do phieu giua ket y nhu loi A cua phieu goc",
+  () => {
+    const A = { id: "pr-a", code: "PR-001", items: [{ stt: 1 }, { stt: 2 }] };
+    /* B sinh ra tu TACH TU DONG nen KHONG co sttDongGoc — dung nhu ca that tren kho. */
+    const B = { id: "pr-b", code: "PR-001 (copy)", deNghiGocId: "pr-a", items: [{ stt: 1 }, { stt: 2 }] };
+    /* C nhan ban tay tu B: deNghiGocId van tro ve A (mot cap), nhung deNghiChaId tro ve B. */
+    const C = {
+      id: "pr-c",
+      code: "PR-001 (copy 3)",
+      deNghiGocId: "pr-a",
+      deNghiChaId: "pr-b",
+      items: [{ stt: 1, sttDongCha: 2 }],
+    };
+    const ra = NB.dongDaNhanBanSang(B, [A, B, C]);
+    return {
+      duoc: ra.size === 1 && (ra.get(2) ?? []).includes("PR-001 (copy 3)"),
+      thucTe: `phieu giua tra ra ${ra.size} dong da giao di (stt=${[...ra.keys()].join(",")})`,
+      mongDoi: "tra ra dong stt=2 da giao sang PR-001 (copy 3)",
+    };
+  },
+);
+
+kiem(
+  "NHAN BAN CAP 2 — CHIEU NGHICH: hai ban con cua CUNG mot phieu KHONG duoc tru lan nhau",
+  "Sếp · 17/09/2026 — tru lan nhau la ca hai cung dong duoc ho so CHUA MUA GI",
+  () => {
+    const A = { id: "pr-a", code: "PR-001", items: [{ stt: 1 }, { stt: 2 }] };
+    /* Hai ban con nhan ban TAY tu cung phieu A, cung sttDongGoc — neu khop mo theo "anh em"
+       thi moi ban tuong dong cua minh da di sang ban kia. */
+    const B1 = {
+      id: "pr-b1", code: "PR-001 (copy)", deNghiGocId: "pr-a", deNghiChaId: "pr-a",
+      items: [{ stt: 1, sttDongGoc: 1, sttDongCha: 1 }],
+    };
+    const B2 = {
+      id: "pr-b2", code: "PR-001 (copy 2)", deNghiGocId: "pr-a", deNghiChaId: "pr-a",
+      items: [{ stt: 1, sttDongGoc: 1, sttDongCha: 1 }],
+    };
+    const ra = NB.dongDaNhanBanSang(B1, [A, B1, B2]);
+    return {
+      duoc: ra.size === 0,
+      thucTe: ra.size === 0 ? "B1 khong bi tru dong nao (dung)" : `B1 bi tru ${ra.size} dong (LOT!)`,
+      mongDoi: "khong tru gi — B1 chua nhan ban cho ai",
+    };
+  },
+);
+
+kiem(
+  "KPI PHONG — KHONG dem hai lan dong da nhan ban di",
+  'Sếp · 17/09/2026 — khoi thong ke cu duyet dn.items khong loc, mot viec that dem thanh hai',
+  () => {
+    const NL = nap(join(thuMuc, "nang-luc.cjs"));
+    const goc = {
+      id: "pr-a", code: "PR-001", ngayDeNghi: "2026-09-01", items: [
+        { stt: 1, nguoiPhuTrachUid: "u1", nguoiPhuTrachTen: "NV A" },
+        { stt: 2, nguoiPhuTrachUid: "u1", nguoiPhuTrachTen: "NV A" },
+      ],
+    };
+    const con = {
+      id: "pr-b", code: "PR-001 (copy)", deNghiGocId: "pr-a", deNghiChaId: "pr-a",
+      ngayDeNghi: "2026-09-02",
+      items: [{ stt: 1, sttDongGoc: 2, sttDongCha: 2, nguoiPhuTrachUid: "u1", nguoiPhuTrachTen: "NV A" }],
+    };
+    const ds = NL.congNangLucTheoNhanVien([goc, con], [goc, con], [], [], []);
+    const nv = ds.find((x) => x.uid === "u1");
+    return {
+      duoc: nv?.soDong === 2,
+      thucTe: `NV A duoc tinh ${nv?.soDong} dong`,
+      mongDoi: "2 dong (1 con lai o phieu goc + 1 o ban con), KHONG phai 3",
+    };
+  },
+);
+
+kiem(
+  "KPI PHONG — CHIEU NGHICH: phieu DONG DO khong duoc tinh la 'xong'",
+  "Sếp · 17/09/2026 — dem chung la bang danh gia thuong cong cho viec that bai",
+  () => {
+    const NL = nap(join(thuMuc, "nang-luc.cjs"));
+    const dongDo = {
+      id: "pr-x", code: "PR-009", ngayDeNghi: "2026-09-01", trangThai: "dong_do",
+      items: [{ stt: 1, nguoiPhuTrachUid: "u1", nguoiPhuTrachTen: "NV A" }],
+    };
+    const ds = NL.congNangLucTheoNhanVien([dongDo], [dongDo], [], [], []);
+    const nv = ds.find((x) => x.uid === "u1");
+    return {
+      duoc: nv?.soPhieuXong === 0 && nv?.soPhieuDongDo === 1,
+      thucTe: `xong=${nv?.soPhieuXong} · dongDo=${nv?.soPhieuDongDo}`,
+      mongDoi: "xong=0 · dongDo=1",
     };
   },
 );
