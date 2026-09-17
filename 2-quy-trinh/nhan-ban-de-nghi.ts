@@ -174,7 +174,18 @@ export function locTienDoConPhaiMua<T extends { stt?: number }>(
 export function tenBanSaoTheoMa(tieuDeGoc: string, maBanSao: string): string {
   const khop = maBanSao.match(/\(copy(?: (\d+))?\)\s*$/);
   if (!khop) return tieuDeGoc;
-  const so = khop[1] ? ` ${khop[1]}` : " 1";
+  /**
+   * 🔴 BẢN ĐẦU TIÊN: MÃ LÀ "(copy)" THÌ TÊN CŨNG PHẢI LÀ "(copy)" — sửa 17/09/2026.
+   *
+   * Trước đây dòng này ghi `" 1"` khi mã không có số, nên bản đầu tiên có **mã `…PR-001 (copy)`
+   * mà tên `… (copy 1)`**. Hai thứ lệch nhau ngay trong cùng một hồ sơ, trong khi chú thích ngay
+   * trên hàm này tự nhận *"tên và mã luôn khớp nhau"* — app tự nói sai về chính nó.
+   *
+   * 📌 Hậu quả tuy nhẹ nhưng có thật: người dùng tìm theo tên đọc được trên thẻ (`copy 1`) sẽ
+   * không khớp mã hồ sơ, và hai bản tách đầu tiên của hai đề nghị khác nhau lại trông như cùng
+   * một cách đánh số. Từ bản thứ hai trở đi (`(copy 2)`) vốn đã khớp, chỉ bản đầu sai.
+   */
+  const so = khop[1] ? ` ${khop[1]}` : "";
   return `${tieuDeGoc} (copy${so})`;
 }
 

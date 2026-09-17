@@ -14,6 +14,7 @@ import {
   CalendarClock,
   /* Đồng hồ TRÒN — dùng cho thời hạn tính bằng giờ ở đầu cột (Sếp 15/09/2026). Khác
      `CalendarClock` (tờ lịch) ngay trên, vốn dành cho mốc NGÀY. */
+  CheckCircle2,
   Clock,
   CopyPlus,
   Eye,
@@ -1150,6 +1151,27 @@ function TheDeNghi({
               <span>{muc.charAt(0).toUpperCase() + muc.slice(1)}</span>
             </span>
           ))}
+        </span>
+      )}
+
+      {/**
+        * ★★ "HỒ SƠ ĐÃ ĐỦ — CHỜ XÁC NHẬN" — Sếp 17/09/2026, khoanh đỏ thẻ ở cột ⑦ Hồ sơ thanh toán.
+        *
+        * 🔴 ĐỐI XỨNG VỚI DÒNG ĐỎ NGAY TRÊN, và đó là cả ý nghĩa của nó: thẻ đang nói được *"còn
+        * thiếu gì"* nhưng **im lặng khi đã đủ**. Hồ sơ xong hết mà chưa ai bấm duyệt thì thẻ trắng
+        * trơn, trông y như hồ sơ vừa vào bước — nên nó nằm chờ mà không ai biết là đang chờ MÌNH.
+        *
+        * 🔴 ĐIỀU KIỆN TÍNH Ở TẦNG QUY TRÌNH (`the.hoSoDaDuChoXacNhan`), thẻ chỉ bày. Đừng so
+        * `dsConNo.length === 0` ngay tại đây: mảng bày trên thẻ đã bị lọc bớt (bỏ hoá đơn/UNC theo
+        * chỉ đạo 15/09), nên hồ sơ **thiếu hoá đơn vẫn có mảng rỗng** và sẽ được khoe nhầm là đã đủ.
+        *
+        * 📌 Trạng thái có CẢ MÀU LẪN CHỮ LẪN ICON (Design System V1.1) — `text-success` có thật
+        * trong `app/globals.css`.
+        */}
+      {the.hoSoDaDuChoXacNhan && (
+        <span className="flex items-start gap-1 text-xs font-medium text-success">
+          <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>Hồ sơ đã đủ — chờ xác nhận</span>
         </span>
       )}
 

@@ -14,6 +14,7 @@ import { docDanhDau, ghiDanhDau } from "@/3-du-lieu/danh-dau-ca-nhan";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { laViecCuaToi, soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
@@ -110,7 +111,19 @@ export default function TrangViecCuaToi() {
         giaiDoan,
         conLai,
         xong,
-        soMatHang: dn.items.length,
+        /**
+         * ★ ĐẾM PHẦN CÒN PHẢI MUA CỦA PHIẾU NÀY, không đếm `dn.items.length` — sửa 17/09/2026.
+         *
+         * 🔴 Phiếu gốc nhân bản 2/3 mặt hàng cho người khác thì `items` vẫn đủ 3 dòng (phiếu gốc
+         * giữ nguyên dòng, chỉ làm mờ — Sếp chốt 15/09). Đếm thẳng `items.length` là thẻ ở màn này
+         * ghi *"3 mặt hàng"* trong khi việc của người đang xem chỉ còn **1**, và con số đó không
+         * khớp với chính bảng phân bổ của cùng hồ sơ.
+         *
+         * ⚠️ Màn **Theo dõi đề nghị** thì CỐ Ý KHÔNG trừ — đó là màn của người đề nghị, Sếp chốt
+         * 15/09/2026 *"ko cần làm mờ theo"*: họ đề xuất mấy món thì phải thấy đủ mấy món, việc
+         * Phòng Thu mua chia nhau thế nào là chuyện nội bộ của phòng. Đừng "làm cho nhất quán".
+         */
+        soMatHang: locTienDoConPhaiMua(dn, deNghi, tienDo).length,
         soDaNhanDu: tomTat.soDongDaNhanDu,
         // "Đến lượt tôi": tôi đang phụ trách ít nhất một dòng và hồ sơ chưa xong.
         // Dùng `laViecCuaToi` chứ không tự viết lại điều kiện — cùng một câu hỏi với bảng

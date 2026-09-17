@@ -14,7 +14,11 @@ import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
 import { formatNumber } from "@/6-tien-ich/dinh-dang";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
-import { maBanSaoTiepTheo, phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import {
+  maBanSaoTiepTheo,
+  phieuGocCua,
+  tenBanSaoTheoMa,
+} from "@/2-quy-trinh/nhan-ban-de-nghi";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -112,8 +116,20 @@ export function HopNhanBanDeNghi({
         <p className="rounded-lg border border-border bg-muted px-3 py-2 text-sm">
           <span className="text-text-desc">Mã phiếu mới: </span>
           <span className="font-semibold text-text-primary">{maMoi}</span>
+          {/**
+            * ★ IN ĐÚNG TÊN APP SẼ LƯU — sửa 17/09/2026.
+            *
+            * 🔴 Câu cũ ghi *"Tên đề xuất giữ nguyên: {goc.tieuDe}"*, nhưng từ 22/08/2026 Ban lãnh
+            * đạo đã chốt tên bản tách **có thêm "(copy N)"** (*"tên của nó sẽ vẫn giống như công
+            * việc cha chỉ thêm từ copy + số tt"*). Tức hộp hứa một đằng, app lưu một nẻo — đúng
+            * loại lỗi mà chính khối chú thích ngay trên đây kể lại là Ban lãnh đạo đã bắt ngày
+            * 13/08/2026, và nó quay lại lần thứ hai ở một câu khác.
+            *
+            * 📌 GỌI `tenBanSaoTheoMa` CHỨ KHÔNG TỰ GHÉP CHUỖI. Đó là bài học của chính file
+            * `nhan-ban-de-nghi.ts`: hai chỗ cùng tính một cái tên thì sớm muộn lệch nhau.
+            */}
           <span className="block text-xs text-text-desc">
-            Tên đề xuất giữ nguyên: {goc.tieuDe}
+            Tên đề xuất mới: {tenBanSaoTheoMa(goc.tieuDe, maMoi)}
           </span>
         </p>
 

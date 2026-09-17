@@ -4789,6 +4789,70 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 17/09/2026: "HỒ SƠ ĐÃ ĐỦ — CHỜ XÁC NHẬN"
+//
+// Sep khoanh do the o cot 7 Ho so thanh toan: "Them thong bao 'Ho so da du,
+// cho xac nhan' doi voi cac quy trinh da hoan thanh va chi cho xac nhan".
+//
+// 🔴 BAI CHIEU NGHICH LA THU QUAN TRONG NHAT O DAY: the bay "da du" cho mot
+// ho so CON THIEU HOA DON la app noi doi ngay tren mat bang quy trinh, va
+// nguoi duyet bam vao roi moi biet bi chan. Mang `dsConNoBayTrenThe` da bi
+// loc bot hoa don/UNC (chi dao 15/09) nen ai do dung nham mang do de tinh
+// la dinh dung cai bay nay.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "THE KANBAN — ho so CON THIEU HOA DON thi KHONG duoc bay 'da du, cho xac nhan'",
+  "Sếp · 17/09/2026 — bay 'da du' cho ho so thieu hoa don la app noi doi tren mat bang",
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const thieuVAT = { id: "x", items: [{ stt: 1 }], tepGiaiDoan: {} };
+    const r = CT.vuongMacDuyetHoanThanhDeNghi(thieuVAT);
+    return {
+      duoc: typeof r === "string",
+      thucTe: r === null ? "null (LOT — se bay 'da du' cho ho so thieu hoa don!)" : `"${String(r).slice(0, 70)}"`,
+      mongDoi: "van vuong vi thieu Hoa don VAT",
+    };
+  },
+);
+
+kiem(
+  "TEN BAN SAO — hau to trong TEN phai khop y het hau to trong MA",
+  "Sếp · 17/09/2026 — ban dau tien tung co ma '(copy)' ma ten '(copy 1)', lech ngay trong mot ho so",
+  () => {
+    const bo = [
+      { ma: "260001-HPCS-PR-001 (copy)", mong: "Vat tu phan tho (copy)" },
+      { ma: "260001-HPCS-PR-001 (copy 2)", mong: "Vat tu phan tho (copy 2)" },
+      { ma: "260001-HPCS-PR-001 (copy 3)", mong: "Vat tu phan tho (copy 3)" },
+    ];
+    const sai = bo
+      .map((b) => ({ ...b, that: NB.tenBanSaoTheoMa("Vat tu phan tho", b.ma) }))
+      .filter((b) => b.that !== b.mong);
+    return {
+      duoc: sai.length === 0,
+      thucTe:
+        sai.length === 0
+          ? "ca 3 ban: ten khop ma"
+          : sai.map((s) => `ma "${s.ma}" -> ten "${s.that}"`).join(" · "),
+      mongDoi: "hau to trong ten giong het hau to trong ma",
+    };
+  },
+);
+
+kiem(
+  "TEN BAN SAO — CHIEU NGHICH: ma KHONG phai ban sao thi GIU NGUYEN tieu de, khong tu them '(copy)'",
+  "Sếp · 17/09/2026 — them hau to cho phieu goc la doi ten mot ho so chua he duoc nhan ban",
+  () => {
+    const ra = NB.tenBanSaoTheoMa("Vat tu phan tho", "260001-HPCS-PR-001");
+    return {
+      duoc: ra === "Vat tu phan tho",
+      thucTe: `"${ra}"`,
+      mongDoi: '"Vat tu phan tho" (nguyen ven)',
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // LUẬT CỦA SẾP — 17/09/2026: DẤU ĐỐI CHIẾU CỦA THU MUA LÀ NHẮC, KHÔNG CHẶN
 //
 // Sếp: *"bước tiến hành nhận hàng… là bước check song song với dữ liệu từ

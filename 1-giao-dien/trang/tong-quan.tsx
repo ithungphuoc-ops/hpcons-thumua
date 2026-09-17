@@ -14,6 +14,7 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { phanTramPO, soNgayConLai, tinhTienDoDeNghi, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { deNghiConDangChay } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { soSanhDonHangUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { cn } from "@/6-tien-ich/gop-lop";
 
@@ -25,11 +26,31 @@ export default function TrangTongQuan() {
     // Chỉ đếm đề nghị còn đang chạy — đề nghị đã hoàn thành hoặc đóng dở
     // mà vẫn tính vào việc tồn thì thẻ KPI báo nhiều hơn thực tế.
     const deNghiDangChay = deNghi.filter(deNghiConDangChay);
+    /**
+     * ★★ TRỪ DÒNG ĐÃ NHÂN BẢN ĐI — Sếp 17/09/2026 (cùng đợt vá bài toán nhân bản).
+     *
+     * 🔴 THỔI PHỒNG SỐ LIỆU, ĐO ĐƯỢC: phiếu gốc nhân bản 2/3 mặt hàng cho người khác thì hai dòng
+     * đã giao đi **vẫn ở trạng thái `chua_phan_bo` trên phiếu gốc** (bản copy mới là nơi có người
+     * phụ trách). Thẻ KPI *"Mặt hàng chờ phân bổ"* vì thế đếm cả phần việc đã giao xong — Ban lãnh
+     * đạo nhìn vào tưởng phòng còn tồn nhiều hơn thực tế.
+     *
+     * 📌 Sếp đã chốt 15/09/2026: dòng đã nhân bản đi thì phiếu gốc *"không cần mua"* và **không
+     * tính là chưa phân bổ** (*"vì người nhân bản sẽ là người thực hiện"*). Luật ở
+     * `2-quy-trinh/nhan-ban-de-nghi.ts` → `locTienDoConPhaiMua`, dùng chung với chỗ xét chuyển bước
+     * và nút hoàn thành — một câu hỏi, một câu trả lời.
+     *
+     * ⚠️ TRUYỀN `deNghi` (danh sách ĐẦY ĐỦ, chưa lọc `deNghiConDangChay`): hàm cần tra các bản con,
+     * mà bản con có thể đã hoàn thành. Truyền danh sách đã lọc là dòng đã giao đi lại được tính
+     * ngược trở lại vào phiếu gốc.
+     */
+    const conPhaiMua = (dn: (typeof deNghiDangChay)[number]) =>
+      locTienDoConPhaiMua(dn, deNghi, tinhTienDoDeNghi(dn, donHang, phieuNhan));
+
     const dongChuaPhanBo = deNghiDangChay.flatMap((dn) =>
-      tinhTienDoDeNghi(dn, donHang, phieuNhan).filter((d) => d.trangThaiDong === "chua_phan_bo"),
+      conPhaiMua(dn).filter((d) => d.trangThaiDong === "chua_phan_bo"),
     );
     const dongDaPhanChuaLenPO = deNghiDangChay.flatMap((dn) =>
-      tinhTienDoDeNghi(dn, donHang, phieuNhan).filter((d) => d.trangThaiDong === "da_phan_bo"),
+      conPhaiMua(dn).filter((d) => d.trangThaiDong === "da_phan_bo"),
     );
     /* "cho_de_nghi" NẰM TRONG danh sách này (thêm 29/08/2026) — PO này đã đặt hàng thật (NCC,
        giá, ngày giao đều có), chỉ thiếu giấy đề nghị đi kèm; hàng có thể giao trễ y hệt PO
@@ -42,7 +63,10 @@ export default function TrangTongQuan() {
 
     return {
       deNghiChoPhanBo: deNghiDangChay.filter((dn) =>
-        tinhTienDoDeNghi(dn, donHang, phieuNhan).some((d) => d.trangThaiDong === "chua_phan_bo"),
+        /* Cùng phép trừ như hai dòng trên — nếu không thì thẻ "Đề nghị chờ phân bổ" đếm cả phiếu
+           đã giao hết việc đi, mà thẻ "Mặt hàng chờ phân bổ" ngay cạnh lại đếm đúng. Hai con số
+           cạnh nhau nói ngược nhau là thứ khó chịu nhất cho người đọc. */
+        conPhaiMua(dn).some((d) => d.trangThaiDong === "chua_phan_bo"),
       ).length,
       dongChuaPhanBo: dongChuaPhanBo.length,
       dongDaPhanChuaLenPO: dongDaPhanChuaLenPO.length,

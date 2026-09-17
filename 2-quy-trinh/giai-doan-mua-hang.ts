@@ -74,6 +74,7 @@ import {
   lyDoThieuHopDong,
   NHAN_TEP_HOA_DON_VAT,
   TEN_HIEN_HOP_DONG,
+  vuongMacDuyetHoanThanhDeNghi,
   vuongMacRoiBuocDatHang,
   vuongMacRoiBuocLapDon,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
@@ -665,6 +666,11 @@ export interface TheDeNghiTrenBang {
    * Xem bảng ba cột ở chú thích `dsConNoBayTrenThe`.
    */
   dsConNoBayTrenThe?: string[];
+  /**
+   * Hồ sơ không còn thiếu gì và người có quyền bấm duyệt hoàn thành được ngay — Sếp 17/09/2026.
+   * Xem khối chú thích ở chỗ tính giá trị này để biết vì sao cần và vì sao dùng `dsConNo` đầy đủ.
+   */
+  hoSoDaDuChoXacNhan?: boolean;
   /* 📌 ĐÃ BỎ trường `vuongMac` (Ban lãnh đạo 16/08/2026 yêu cầu bỏ dòng cảnh báo trên thẻ).
      Không giữ lại trường không ai đọc: mỗi lần dựng bảng nó vẫn chạy `vuongMacSangBuocSau`
      cho từng hồ sơ, tốn công tính một chuỗi rồi vứt đi. Lý do chặn vẫn được tính ĐÚNG LÚC cần
@@ -824,6 +830,40 @@ export function dungBangQuyTrinh(
         tinhVuongMacBaoGia?.(deNghi) ?? null,
         tatCaDeNghi,
       ),
+      /**
+       * ★★ "HỒ SƠ ĐÃ ĐỦ — CHỜ XÁC NHẬN" — Sếp 17/09/2026, khoanh đỏ thẻ ở cột ⑦ Hồ sơ thanh toán:
+       * ***"Thêm thông báo 'Hồ sơ đã đủ, chờ xác nhận' đối với các quy trình đã hoàn thành và chỉ
+       * chờ xác nhận"***.
+       *
+       * 🔴 THẺ ĐANG IM LẶNG ĐÚNG LÚC CẦN NÓI NHẤT. Hồ sơ còn thiếu thì thẻ có dòng đỏ; hồ sơ xong
+       * hẳn thì sang cột Hoàn thành. Nhưng hồ sơ **đã đủ hết mà chưa ai bấm duyệt** thì thẻ trắng
+       * trơn — trông y như một hồ sơ mới vào bước, nên nó nằm đó chờ mà không ai biết là đang chờ
+       * MÌNH. Đây đúng loại bế tắc im lặng dự án đã gặp nhiều lần.
+       *
+       * 🔴 TÍNH Ở TẦNG QUY TRÌNH, KHÔNG ĐỂ GIAO DIỆN TỰ SO. Cùng lý do đã ghi cho `dsConNoBayTrenThe`
+       * ngay trên: mỗi chỗ bày thẻ mà tự viết điều kiện thì sớm muộn một chỗ lệch.
+       *
+       * ⚠️ HAI ĐIỀU KIỆN, THIẾU MỘT LÀ NÓI SAI:
+       *   ① không còn nợ gì (`dsConNo` rỗng — dùng mảng ĐẦY ĐỦ, không dùng mảng đã lọc bày trên
+       *      thẻ, nếu không thì hồ sơ thiếu hoá đơn vẫn được khoe là "đã đủ");
+       *   ② `vuongMacDuyetHoanThanhDeNghi` trả `null` — tức người duyệt bấm được ngay.
+       *
+       * 📌 Loại trừ hai giai đoạn cuối: `hoan_thanh` thì đã xong rồi, `that_bai` thì đóng dở —
+       * khoe "đã đủ" ở đó là nói ngược với trạng thái của chính thẻ.
+       */
+      hoSoDaDuChoXacNhan:
+        giaiDoan !== "hoan_thanh" &&
+        giaiDoan !== "that_bai" &&
+        dsConNoToanHoSo(
+          deNghi,
+          giaiDoan,
+          cauHinh,
+          tatCaPO,
+          tatCaPhieu,
+          tinhVuongMacBaoGia?.(deNghi) ?? null,
+          tatCaDeNghi,
+        ).length === 0 &&
+        vuongMacDuyetHoanThanhDeNghi(deNghi) === null,
       maPOLienQuan: tatCaPO
         .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
         .map((po) => po.code),
