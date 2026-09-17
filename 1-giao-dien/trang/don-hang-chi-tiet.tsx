@@ -566,9 +566,23 @@ export default function TrangChiTietDonHang() {
                         *
                         * 📌 Bảng *Tiến độ nhận hàng* ngay trên đã tách sẵn ĐVT thành cột riêng —
                         * bảng này gộp là hai bảng cùng màn nói cùng một thứ theo hai kiểu.
+                        *
+                        * ★★ THỨ TỰ **ĐVT TRƯỚC, SL SAU** — Sếp 17/09/2026 (lần nhắc thứ hai trong
+                        * ngày): ***"bố cục lại giao diện mục này cho đồng nhất, thẳng cột"***.
+                        *
+                        * 🔴 LÚC TÁCH CỘT TÔI ĐẶT NGƯỢC (SL trước, ĐVT sau) và đó là lý do hai bảng
+                        * không thể thẳng hàng: bảng *Tiến độ nhận hàng* xếp `… Thông số · ĐVT ·
+                        * Đặt …`, bảng này xếp `… Thông số · SL · ĐVT …`. Hai bảng nằm chồng nhau
+                        * trên cùng một màn mà cột lệch nhau một nhịp, mắt phải đọc lại từ đầu cho
+                        * mỗi bảng.
+                        *
+                        * 📌 ĐVT-trước cũng đúng biểu mẫu giấy đang lưu hành `1. INPUT/Bieu mau/
+                        * 1. DON HANG HPCONS.xlsx` (STT · Mã hàng · Tên hàng · Quy cách · **ĐVT ·
+                        * SL** · Đơn giá…). Nên đổi thứ tự ở đây là về đúng chuẩn, không phải chiều
+                        * theo một bảng khác.
                         */}
-                      <TableHead className="text-right">SL</TableHead>
                       <TableHead>ĐVT</TableHead>
+                      <TableHead className="text-right">SL</TableHead>
                       <TableHead className="text-right">Đơn giá</TableHead>
                       <TableHead className="text-right">Thành tiền</TableHead>
                       <TableHead className="whitespace-normal">Mục đích sử dụng</TableHead>
@@ -583,10 +597,10 @@ export default function TrangChiTietDonHang() {
                           <TableCell className="text-right text-text-desc">{d.sttDong}</TableCell>
                           <TableCell className="font-medium whitespace-normal">{d.tenVatLieu}</TableCell>
                           <TableCell className="whitespace-normal text-text-secondary">{d.thongSoKyThuat ?? "—"}</TableCell>
+                          <TableCell className="text-text-secondary">{d.donViTinh}</TableCell>
                           <TableCell className="text-right tabular-nums">
                             {d.khoiLuongDat.toLocaleString("vi-VN")}
                           </TableCell>
-                          <TableCell className="text-text-secondary">{d.donViTinh}</TableCell>
                           <TableCell className="text-right">{donGia.toLocaleString("vi-VN")} ₫</TableCell>
                           <TableCell className="text-right font-semibold">
                             {(donGia * d.khoiLuongDat).toLocaleString("vi-VN")} ₫
