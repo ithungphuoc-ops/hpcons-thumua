@@ -1,9 +1,11 @@
 {
   "_ghiChu": [
     "File nay CHI dung cho Firestore. App chay tren VERCEL — xem CLAUDE.md muc 6.3.",
-    "KHONG them lai khoi hosting vao day."
+    "KHONG them lai khoi hosting vao day.",
+    "17/09/2026: tro sang firestore-gop-tach.rules — luat dang chay that + khoi cau truc tach.",
+    "firestore.rules (ban long duoi projects/{pid}) la THIET KE TUONG LAI, CHUA publish."
   ],
   "firestore": {
-    "rules": "5-ket-noi/firestore.rules"
+    "rules": "5-ket-noi/firestore-gop-tach.rules"
   }
 }

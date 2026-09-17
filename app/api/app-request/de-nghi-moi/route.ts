@@ -6,7 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getHpcoreDb } from "@/5-ket-noi/hpcore-may-chu";
-import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
+import { bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
+import { DUONG_DAN_TACH } from "@/3-du-lieu/duong-dan-tach";
 import { maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import {
   chuanHoaLoaiHoSo,
@@ -22,7 +23,6 @@ import type {
   DonDatHang,
   LoaiHoSoDeNghi,
 } from "@/3-du-lieu/kieu-du-lieu";
-import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import type { DeNghiMoiTuAppRequest, KetQuaNhanDeNghiTuAppRequest } from "@/3-du-lieu/tich-hop-app-request-types";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { TEN_COLLECTION_NHAT_KY } from "@/3-du-lieu/nhat-ky-he-thong";
@@ -68,7 +68,24 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
 
   try {
     const db = getHpcoreDb();
-    const docRef = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
+
+    /**
+     * ★★ CHUYỂN SANG CẤU TRÚC TÁCH — 17/09/2026.
+     *
+     * 🔴 CỐ Ý GIỮ NGUYÊN 100% LOGIC NGHIỆP VỤ Ở DƯỚI. Route này dài gần 700 dòng, mang nhiều
+     * luật đã trả giá bằng sự cố thật (vá `idHoSoAppRequest` cho hồ sơ cũ, vá danh mục tệp, vá
+     * người theo dõi, tự khớp PO "chờ đề nghị"…). Lượt sửa này **chỉ đổi nguồn đọc và đích ghi**
+     * — đọc hai collection thay vì một tài liệu, ghi từng tài liệu thay vì ghi đè cả kho. Viết
+     * lại luật cùng lúc với đổi cấu trúc là cách chắc chắn nhất để đẻ ra lỗi không ai truy được.
+     *
+     * 📌 VẪN ĐỌC CẢ HAI COLLECTION, KHÔNG LỌC BẰNG `where`. Nghe có vẻ phí, nhưng đúng ở đây:
+     *   · `maDeNghiTiepTheo()` cần **toàn bộ mã đã dùng** để sinh mã kế tiếp không trùng;
+     *   · nhánh tự khớp PO cần quét các đơn "chờ đề nghị";
+     *   · và route này chỉ chạy khi App Đề xuất duyệt xong một đề xuất — vài lần mỗi ngày, không
+     *     phải đường nóng. Khác hẳn `/api/summary` (bị gọi liên tục) nên chỗ đó mới phải đệm.
+     */
+    const deNghiCol = db.collection(DUONG_DAN_TACH.deNghi);
+    const donHangCol = db.collection(DUONG_DAN_TACH.donHang);
 
     /**
      * ★★ XÁC ĐỊNH LOẠI HỒ SƠ (công trình / phòng ban) — BA BƯỚC, ĐÚNG THỨ TỰ NÀY.
@@ -152,9 +169,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
     // Transaction: đọc + kiểm trùng + ghi trong một bước — chặn trường hợp App Request gọi
     // lại 2 lần gần nhau (retry do mạng lỗi) tạo ra 2 đề nghị trùng mã đề xuất.
     const ketQua = await db.runTransaction(async (tx) => {
-      const snap = await tx.get(docRef);
-      const data = (snap.exists ? snap.data() : {}) as Partial<DuLieuLuu>;
-      const deNghiHienCo: DeNghiMuaHang[] = Array.isArray(data.deNghi) ? data.deNghi : [];
+      /* 🔴 MỌI LƯỢT ĐỌC PHẢI ĐỨNG TRƯỚC MỌI LƯỢT GHI — luật của transaction Firestore. Đọc cả hai
+         collection ngay đây, đừng để lượt đọc nào lọt xuống dưới các nhánh ghi. */
+      const deNghiSnap = await tx.get(deNghiCol);
+      const deNghiHienCo: DeNghiMuaHang[] = deNghiSnap.docs.map((d) => d.data() as DeNghiMuaHang);
 
       const trungRoi = deNghiHienCo.find((d) => d.maDeXuatAppRequest === payload.requestCode);
       if (trungRoi) {
@@ -221,7 +239,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
             }
             return d2;
           });
-          tx.set(docRef, bo0Undefined({ deNghi: deNghiDaVa }), { merge: true });
+          /* Chỉ ghi lại ĐÚNG những hồ sơ vừa được vá — tức các hồ sơ cùng `maDeXuatAppRequest`
+             (gồm cả bản nhân bản). Bản cũ ghi đè toàn bộ mảng `deNghi`, nghĩa là mỗi lần vá một
+             hồ sơ là đụng vào hồ sơ của cả phòng; đó chính là thứ mô hình tách sinh ra để bỏ. */
+          for (const d of deNghiDaVa) {
+            if (d.maDeXuatAppRequest === payload.requestCode) {
+              tx.set(deNghiCol.doc(d.id), bo0Undefined(d), { merge: true });
+            }
+          }
           return {
             moi: false as const,
             deNghi: {
@@ -408,7 +433,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
        * chạy lại 2 hàm trên — mục tiêu là bắt lỗi TRÙNG MÃ DỰ ÁN NGẪU NHIÊN giữa hai công
        * trình khác nhau, không phải bắt lỗi thiếu báo giá (không áp dụng cho đường này).
        */
-      const donHangHienCo: DonDatHang[] = Array.isArray(data.donHang) ? data.donHang : [];
+      /* 📌 ĐỌC ĐƠN HÀNG Ở ĐÂY CHỨ KHÔNG Ở ĐẦU TRANSACTION — cố ý. Nhánh "đã trùng" phía trên
+         `return` ngay nên không bao giờ chạy tới dòng này; đọc sớm là tốn lượt đọc cho mọi lần
+         App Đề xuất gửi lại. Vẫn đúng luật "đọc trước ghi" vì trên đường đi tới đây chưa có
+         lượt ghi nào. */
+      const donHangSnap = await tx.get(donHangCol);
+      const donHangHienCo: DonDatHang[] = donHangSnap.docs.map((d) => d.data() as DonDatHang);
       const chuanHoa = (s: string) => boDau(s).replace(/[^a-z0-9]/g, "");
       const ungVien = donHangHienCo.filter((po) => {
         if (po.trangThai !== "cho_de_nghi" || po.maDuAn !== deNghiMoi.maDuAn) return false;
@@ -427,7 +457,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
         return true;
       });
 
-      let donHangMoi = donHangHienCo;
       let poDaGan: DonDatHang | null = null;
       if (ungVien.length === 1) {
         const po = ungVien[0];
@@ -440,7 +469,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
           // ("CHỈ ĐIỀN, KHÔNG TỰ CHỐT") và `xacNhanTuDongGanDeNghi` (`kho-du-lieu.tsx`).
           trangThai: "cho_de_nghi",
         };
-        donHangMoi = donHangHienCo.map((p) => (p.id === po.id ? poMoi : p));
         poDaGan = poMoi;
         const soNgay = soNgayDaTroiQua(po.ngayLapPO);
         deNghiMoi.lichSu.push({
@@ -451,11 +479,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
         });
       }
 
-      tx.set(
-        docRef,
-        bo0Undefined({ deNghi: [...deNghiHienCo, deNghiMoi], donHang: donHangMoi }),
-        { merge: true },
-      );
+      /* Đề nghị mới thành MỘT tài liệu riêng — không nối vào mảng rồi ghi đè cả kho nữa. */
+      tx.set(deNghiCol.doc(deNghiMoi.id), bo0Undefined(deNghiMoi));
+
+      /* Và chỉ chạm đúng đơn hàng vừa được gán, nếu có. Bản cũ `map()` qua toàn
+   bộ đơn rồi ghi lại tất cả, nhưng thứ thật sự đổi chỉ là một đơn — ghi cả mảng là quay về đúng thói
+         quen cũ mà lượt chuyển này đang bỏ. */
+      if (poDaGan) {
+        tx.set(donHangCol.doc(poDaGan.id), bo0Undefined(poDaGan), { merge: true });
+      }
 
       if (poDaGan) {
         // ★ MINH BẠCH — ghi thẳng bằng Admin SDK (route này không có phiên đăng nhập người
