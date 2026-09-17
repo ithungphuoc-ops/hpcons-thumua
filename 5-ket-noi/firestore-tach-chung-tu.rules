@@ -1,0 +1,210 @@
+rules_version = '2';
+
+// ============================================================================
+// SECURITY RULES — CẤU TRÚC TÁCH CHỨNG TỪ (`tm_*`)
+// Thêm 16/09/2026, cho việc tách kho chung mà Sếp duyệt cùng ngày.
+//
+// 🔴 ĐÂY LÀ MỘT MẢNH GHÉP, KHÔNG PHẢI FILE DEPLOY ĐÈ ĐƯỢC.
+//    Project `hpcons-portal` dùng CHUNG cho cả công ty và đã có `firestore.rules` của App
+//    Tổng. Deploy đè file này lên đó là XOÁ SẠCH rule của mọi app khác. Cách đúng: chép
+//    khối "KHỐI RULE CHO CẤU TRÚC TÁCH" bên dưới vào đúng chỗ trong file của App Tổng.
+//
+// ════════════════════════════════════════════════════════════════════════════════════════
+// 🔴🔴 VÌ SAO FILE NÀY KHÔNG DÙNG CUSTOM CLAIMS NHƯ `firestore.rules` ĐÃ THIẾT KẾ
+// ════════════════════════════════════════════════════════════════════════════════════════
+// `5-ket-noi/firestore.rules` mô tả một mô hình đẹp hơn hẳn: phân quyền bằng claims
+// `{ role, apps: { tm: 1..4 } }` do Cloud Function của App Tổng ghi. Nhưng **app Thu mua
+// hiện chưa có claims đó**. Luật ĐANG CHẠY THẬT (`firestore-chay-thu.rules`) chỉ có đúng
+// một điều kiện: *đã đăng nhập*.
+//
+//     match /chay-thu/{tep} { allow read, write: if conHanChayThu() && duocVao(); }
+//
+// ⇒ Viết rule mới theo claims rồi deploy là **khoá cả phòng ra ngoài**: mọi người vẫn đăng
+//   nhập được nhưng không đọc nổi một dòng dữ liệu, app mở lên trắng trơn. Chính
+//   `firestore-chay-thu.rules` đã cảnh báo đúng cái bẫy này ("siết rules TRƯỚC khi mọi
+//   người có tài khoản là khoá cả phòng ra ngoài").
+//
+// ✅ NÊN FILE NÀY LÀM HAI TẦNG:
+//     · TẦNG ĐANG DÙNG — y hệt mức bảo vệ hiện tại: đăng nhập + còn hạn chạy thử.
+//     · TẦNG CLAIMS    — viết sẵn, ĐANG TẮT bằng `daCoClaims()`. Khi App Tổng cấp claims
+//                        thật thì đổi một hàm đó thành `true`, không phải viết lại rule.
+//
+// ⚠️ CHÍNH VÌ TẦNG CLAIMS CÒN TẮT: việc TÁCH `tm_donhang_gia` ra khỏi `tm_donhang` hôm nay
+//    mới chỉ là **điều kiện cần** cho chuyện "kho không đọc được giá". Nó CHƯA có hiệu lực
+//    thật cho tới khi bật được tầng claims. Đừng nói với ai là giá đã được chặn.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==================================================================
+    // HÀM DÙNG CHUNG
+    // ==================================================================
+
+    function daDangNhap() {
+      return request.auth != null;
+    }
+
+    /** Hết hạn 01/11/2026 — giữ đúng mốc của `firestore-chay-thu.rules`, đừng để lệch nhau. */
+    function conHanChayThu() {
+      return request.time < timestamp.date(2026, 11, 1);
+    }
+
+    /**
+     * 🔴 CÔNG TẮC TẦNG CLAIMS — ĐANG TẮT.
+     *
+     * Đổi thành `true` CHỈ KHI đủ cả ba điều, theo đúng thứ tự:
+     *   ① App Tổng đã ghi claims `{ role, apps: { tm: … , kh: … } }` cho MỌI người dùng app;
+     *   ② Đã kiểm trên một tài khoản thật rằng `request.auth.token.apps.tm` đọc ra đúng số;
+     *   ③ Đã báo trước cho cả phòng — vì ai thiếu claims sẽ mất quyền ngay lúc deploy.
+     *
+     * ⚠️ Bật khi chưa đủ ba điều là khoá cả phòng ra ngoài. Đây không phải lo xa: app từng
+     * phải lùi một lần vì siết rules trước khi mọi người có tài khoản (12/08/2026).
+     */
+    function daCoClaims() {
+      return false;
+    }
+
+    function vaiTro() {
+      return daDangNhap() ? request.auth.token.get('role', 'staff') : '';
+    }
+
+    function laQuanTri() {
+      return vaiTro() == 'admin';
+    }
+
+    function laBanGiamDoc() {
+      return vaiTro() == 'director';
+    }
+
+    /** Cấp quyền trong một app con. 0 = chưa được cấp. */
+    function cap(app) {
+      return daDangNhap() ? request.auth.token.get('apps', {}).get(app, 0) : 0;
+    }
+
+    /**
+     * Ai được đọc hồ sơ mua hàng KHÔNG CÓ GIÁ (đề nghị · đơn hàng · phiếu nhận).
+     * Kho (`kh`) CÓ trong danh sách — họ cần biết đặt hàng gì để nhận hàng.
+     */
+    function duocXemHoSoMuaHang() {
+      return daCoClaims()
+        ? (laQuanTri() || laBanGiamDoc()
+           || cap('tm') >= 1 || cap('kh') >= 1 || cap('qd') >= 1 || cap('kt') >= 1)
+        : daDangNhap();
+    }
+
+    /**
+     * 🔒 Ai được đọc TIỀN (đơn giá, báo giá).
+     * ⛔ KHÔNG có Kho (`kh`) — đây chính là điều khoản chặn giá, và là lý do `tm_donhang_gia`
+     * phải là một document RIÊNG: Security Rules chặn được cả document, KHÔNG chặn được từng
+     * trường. Sếp 16/09/2026: *"kho thì không cần biết giá"*.
+     *
+     * ⚠️ Khi `daCoClaims()` còn `false` thì hàm này rơi về "cứ đăng nhập là đọc được", tức
+     * CHẶN GIÁ CHƯA CÓ HIỆU LỰC. Tách document là bước chuẩn bị, chưa phải bảo vệ.
+     */
+    function duocXemTien() {
+      return daCoClaims()
+        ? (laQuanTri() || laBanGiamDoc() || cap('tm') >= 1 || cap('qd') >= 1 || cap('kt') >= 1)
+        : daDangNhap();
+    }
+
+    /** Nhập liệu trở lên trong app Thu mua. */
+    function nhapLieuThuMua() {
+      return daCoClaims() ? (laQuanTri() || cap('tm') >= 2) : daDangNhap();
+    }
+
+    /** Quản lý trở lên trong app Thu mua. */
+    function quanLyThuMua() {
+      return daCoClaims() ? (laQuanTri() || cap('tm') >= 3) : daDangNhap();
+    }
+
+    /** Thủ kho — người DUY NHẤT được ghi số thực nhận. */
+    function thuKho() {
+      return daCoClaims() ? (laQuanTri() || cap('kh') >= 2 || cap('tm') >= 3) : daDangNhap();
+    }
+
+    // ==================================================================
+    // KHỐI RULE CHO CẤU TRÚC TÁCH — chép nguyên khối này sang App Tổng
+    // ==================================================================
+    //
+    // 📌 KHÔNG lồng dưới `projects/{pid}` như `firestore.rules` mô tả — Sếp chốt 16/09/2026.
+    //    Lý do đo được: hồ sơ PHÒNG BAN không thuộc dự án nào, `maDuAn` của nó đang mang
+    //    chính tên phòng ban. Lồng bây giờ là tạo ra những "dự án" tên phòng ban.
+    //    Mỗi tài liệu vẫn giữ trường `maDuAn` để sau này chuyển sang lồng chỉ là chép một lần.
+
+    // ---------- ĐỀ NGHỊ MUA HÀNG — KHÔNG chứa giá ----------
+    match /tm_denghi/{prId} {
+      allow read: if conHanChayThu() && duocXemHoSoMuaHang();
+      allow create, update: if conHanChayThu() && nhapLieuThuMua();
+      allow delete: if conHanChayThu() && quanLyThuMua();
+    }
+
+    // ---------- ĐƠN ĐẶT HÀNG — KHÔNG chứa giá ----------
+    match /tm_donhang/{poId} {
+      allow read: if conHanChayThu() && duocXemHoSoMuaHang();
+      allow create: if conHanChayThu() && nhapLieuThuMua();
+      allow update: if conHanChayThu() && nhapLieuThuMua();
+      allow delete: if conHanChayThu() && quanLyThuMua();
+
+      // ---------- PHIẾU NHẬN HÀNG — lồng trong đơn (Sếp chốt 16/09/2026) ----------
+      // 🔴 Kho là NGUỒN DUY NHẤT của số thực nhận: Thu mua và QLDA chỉ đọc, KHÔNG tự ghi
+      // số nhận thay kho. Cấp 3 của app tm được ghi chỉ để sửa sai sót nghiệp vụ.
+      match /nhanhang/{grnId} {
+        allow read: if conHanChayThu() && duocXemHoSoMuaHang();
+        allow create, update: if conHanChayThu() && thuKho();
+        allow delete: if conHanChayThu() && quanLyThuMua();
+      }
+    }
+
+    // ---------- 🔒 GIÁ CỦA ĐƠN HÀNG — CHỨNG TỪ RIÊNG ----------
+    // Đây là lý do tồn tại của cả cách tách document. ĐỪNG gộp lại vào `tm_donhang`.
+    // Chứa: đơn giá từng dòng · chiết khấu · thuế suất · điều khoản thanh toán.
+    match /tm_donhang_gia/{poId} {
+      allow read: if conHanChayThu() && duocXemTien();
+      allow create, update: if conHanChayThu() && nhapLieuThuMua();
+      allow delete: if conHanChayThu() && quanLyThuMua();
+    }
+
+    // ---------- 🔒 BẢNG BÁO GIÁ — TOÀN BỘ chứa giá nhà cung cấp ----------
+    match /tm_baogia/{rfqId} {
+      allow read: if conHanChayThu() && duocXemTien();
+      allow create, update: if conHanChayThu() && nhapLieuThuMua();
+      allow delete: if conHanChayThu() && quanLyThuMua();
+    }
+
+    // ---------- THÔNG BÁO CHUYỂN BƯỚC ----------
+    // ⚠️ Bản chạy thử cho mọi người đọc mọi thông báo. `firestore.rules` thiết kế chặt hơn
+    // (mỗi người chỉ đọc thông báo gửi cho mình, và client KHÔNG được tự tạo). Siết theo
+    // hướng đó được, nhưng phải đợi thông báo có trường `guiToiUid` và có Cloud Function ghi
+    // — hiện app tự ghi từ trình duyệt, siết ngay là app không tạo được thông báo nào.
+    match /tm_thongbao/{tbId} {
+      allow read: if conHanChayThu() && daDangNhap();
+      allow create, update: if conHanChayThu() && nhapLieuThuMua();
+      allow delete: if conHanChayThu() && quanLyThuMua();
+    }
+
+    // ---------- CÀI ĐẶT DÙNG CHUNG ----------
+    // Cấu hình quy trình · danh mục nhà cung cấp · danh mục thủ kho. Một tài liệu duy nhất
+    // (`tm_caidat/chung`) cho cả công ty — không phải chứng từ nên không tách.
+    // 🔴 Sửa cấu hình quy trình là đổi luật cho CẢ PHÒNG (ngưỡng giá trị, hạn từng bước), nên
+    // quyền ghi hẹp hơn chứng từ thường.
+    match /tm_caidat/{id} {
+      allow read: if conHanChayThu() && daDangNhap();
+      allow create, update: if conHanChayThu() && quanLyThuMua();
+      allow delete: if false;
+    }
+  }
+}
+
+// ============================================================================
+// CÁCH KIỂM TRƯỚC KHI DEPLOY
+//
+// 1. Chép khối "KHỐI RULE CHO CẤU TRÚC TÁCH" vào `firestore.rules` của App Tổng, kèm mấy
+//    hàm dùng chung ở trên (nếu App Tổng chưa có hàm trùng tên).
+// 2. Chạy Firebase Emulator, thử ba vai: chưa đăng nhập · đã đăng nhập · (sau này) có claims.
+// 3. Kiểm ĐÚNG hai điều dễ sai nhất:
+//    · `collectionGroup("nhanhang")` có đọc được không — app nghe phiếu nhận bằng đường này,
+//      và `collectionGroup` cần rule khớp ở MỌI cấp, không chỉ cấp cha.
+//    · Ghi vào `tm_donhang_gia` có bị chặn nhầm không khi người dùng là nhân viên thu mua.
+// 4. Chỉ sau khi App Tổng cấp claims thật thì mới đổi `daCoClaims()` thành `true`.
+// ============================================================================
