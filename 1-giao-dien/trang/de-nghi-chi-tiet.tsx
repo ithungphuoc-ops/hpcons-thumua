@@ -3219,8 +3219,30 @@ export default function TrangChiTietDeNghi({
                                 📌 KHÔNG nới điều kiện chứng từ ở bất kỳ nhánh nào: `vuongMacTep` vẫn
                                 khoá nút với hồ sơ công trình, và vẫn chặn tầng tự chốt với hồ sơ phòng
                                 ban — đổi người ghi nhận chứ không bỏ bằng chứng. */}
+                            {/**
+                              * ★★★ ĐỔI 17/09/2026 — ĐIỀU KIỆN HIỆN NÚT: "CÓ TIẾN ĐỘ NHẬN HÀNG"
+                              * THAY CHO "ĐÃ NHẬN ĐỦ". Sếp nói lại quy trình thật:
+                              *
+                              *   *"Cái nút ở bước 6 thu mua là phải có tiến độ nhận hàng, có đủ
+                              *   hay thiếu thì NV thu mua cũng bấm được vì có trường hợp giao
+                              *   thiếu"*
+                              *
+                              * 🔴 VÌ SAO PHẢI ĐỔI: `daGiaoDu` đòi MỌI dòng về đủ. Nhà cung cấp
+                              * giao thiếu là chuyện có thật và nhiều khi không bao giờ giao nốt —
+                              * hồ sơ đó sẽ kẹt vĩnh viễn ở cột ⑥, không ai đóng được. Đo lúc
+                              * 21:03 ngày 17/09: 4/5 đề nghị đứng ở cột ⑥ chỉ vì còn thiếu hàng.
+                              *
+                              * 🔴 ĐỔI SANG `phieuCuaPO.length > 0`, KHÔNG PHẢI BỎ HẲN ĐIỀU KIỆN.
+                              * Sếp nói *"phải có tiến độ nhận hàng"* — tức phải có ít nhất một
+                              * phiếu nhận thì mới bấm được. Bỏ hẳn là xác nhận được cả đơn chưa
+                              * nhận một món nào, và lúc đó chữ "xác nhận nhận hàng" thành vô nghĩa.
+                              *
+                              * ⚠️ `vuongMacTep` bên dưới GIỮ NGUYÊN — vẫn khoá nút khi có phiếu
+                              * chưa đính kèm chứng từ giao nhận. Đổi ngưỡng số lượng chứ không bỏ
+                              * bằng chứng.
+                              */}
                             {!daKhoXacNhan &&
-                              daGiaoDu &&
+                              phieuCuaPO.length > 0 &&
                               !hoSoPhongBan &&
                               duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung) && (
                               <div className="flex flex-wrap items-center gap-2">

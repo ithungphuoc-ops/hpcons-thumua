@@ -1112,6 +1112,64 @@ kiem(
   },
 );
 
+/* ★★★ GIAO THIẾU VẪN QUA ĐƯỢC BƯỚC ⑦ — Sếp 17/09/2026.
+
+   Nguyên văn: *"Cái nút ở bước 6 thu mua là phải có tiến độ nhận hàng, có đủ hay thiếu thì NV thu
+   mua cũng bấm được vì có trường hợp giao thiếu"*.
+
+   🔴 VÌ SAO PHẢI CÓ BÀI KIỂM: trước 17/09 chỉ có hai đường vào ⑦ và cả hai đều đòi hàng về ĐỦ.
+   Nhà cung cấp giao thiếu rồi không giao nốt là chuyện có thật — hồ sơ đó kẹt vĩnh viễn ở cột ⑥.
+   Đo lúc 21:03 ngày 17/09: 4/5 đề nghị đứng ở cột ⑥ đúng vì lý do này.
+
+   🔴 BA BÀI, TRONG ĐÓ HAI BÀI LÀ CHIỀU NGHỊCH. Chiều thuận (giao thiếu + đã xác nhận → qua bước)
+   mà xanh một mình thì chưa chứng minh được gì: một hàm trả bừa `"ho_so_thanh_toan"` cũng xanh.
+   Phải có bài canh "chưa xác nhận thì KHÔNG được qua" và bài canh `every` mới đủ. */
+
+kiem(
+  "🔴 Giao THIẾU nhưng thu mua ĐÃ xác nhận nhận hàng → qua được ⑦ Hồ sơ thanh toán",
+  'Sếp 17/09/2026 — *"có đủ hay thiếu thì NV thu mua cũng bấm được vì có trường hợp giao thiếu"*',
+  () => {
+    const b = boGiaiDoanThu();
+    const poDaXN = { ...b.po, xacNhanKho: { uid: "u1", ten: "NV Thu mua", thoiDiem: "2026-09-17" } };
+    const gd = G.xacDinhGiaiDoan(b.dn, [poDaXN], [], b.phieu(50));
+    return {
+      duoc: gd === "ho_so_thanh_toan",
+      thucTe: `xacDinhGiaiDoan = "${gd}" (mới nhận 50/100, đã xác nhận)`,
+      mongDoi: '"ho_so_thanh_toan" — trước 17/09 chỗ này trả "nhan_hang" và hồ sơ kẹt vĩnh viễn',
+    };
+  },
+);
+
+kiem(
+  "🔴 CHIỀU NGHỊCH: giao thiếu mà CHƯA ai xác nhận → vẫn đứng ở ⑥",
+  "mở cho giao thiếu không có nghĩa mọi hồ sơ tự nhảy bước",
+  () => {
+    const b = boGiaiDoanThu();
+    const gd = G.xacDinhGiaiDoan(b.dn, [b.po], [], b.phieu(50));
+    return {
+      duoc: gd === "nhan_hang",
+      thucTe: `xacDinhGiaiDoan = "${gd}"`,
+      mongDoi: '"nhan_hang" — phải có người bấm xác nhận thì mới qua bước',
+    };
+  },
+);
+
+kiem(
+  "🔴 Đề nghị có HAI đơn, mới xác nhận MỘT → vẫn đứng ở ⑥",
+  "dùng `every` chứ không phải `some` — một đơn xong không kéo cả hồ sơ sang bước thanh toán",
+  () => {
+    const b = boGiaiDoanThu();
+    const po1 = { ...b.po, xacNhanKho: { uid: "u1", ten: "NV Thu mua", thoiDiem: "2026-09-17" } };
+    const po2 = { ...b.po, id: b.po.id + "-2", code: b.po.code + "-2" };
+    const gd = G.xacDinhGiaiDoan(b.dn, [po1, po2], [], b.phieu(50));
+    return {
+      duoc: gd === "nhan_hang",
+      thucTe: `xacDinhGiaiDoan = "${gd}" (1/2 đơn đã xác nhận)`,
+      mongDoi: '"nhan_hang" — còn đơn chưa xác nhận thì hồ sơ chưa qua bước',
+    };
+  },
+);
+
 // ════════════════════════════════════════════════════════════════════
 // CÔNG NỢ THEO ĐƠN HÀNG — bảng 8 cột, Ban lãnh đạo 27/08/2026
 //
