@@ -130,7 +130,7 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/tong-quan",
     nhom: "quan_trong",
     icon: LayoutDashboard,
-    duocThay: () => true,
+    duocThay: (q) => q.xemQuyTrinhMuaHang,
   },
   {
     // Màn hình CÁ NHÂN, theo ảnh Base.vn Ban lãnh đạo cung cấp 10/08/2026: lọc theo
@@ -146,7 +146,7 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/viec-cua-toi",
     nhom: "quan_trong",
     icon: CircleUser,
-    duocThay: () => true,
+    duocThay: (q) => q.xemQuyTrinhMuaHang,
   },
   {
     // Chỉ đạo Ban lãnh đạo 11/08/2026: *"Thêm chức năng lịch ghi chú cho các tài khoản của bộ
@@ -156,16 +156,20 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     // này là cặp: một cái trả lời "việc nào đang tới tay tôi", một cái trả lời "việc nào tới
     // hạn ngày nào". Đặt cạnh nhau thì người dùng quét mắt một lần là thấy cả hai.
     //
-    // 📌 MỌI VAI TRÒ ĐỀU CÓ LỊCH, không lọc theo bộ phận. Thủ kho cũng có hạn ghi phiếu nhận,
-    // kế toán cũng có hạn thanh toán — chặn họ khỏi lịch không được lợi gì mà lại sinh trường
-    // hợp ngoại lệ phải nhớ. Lịch tự lọc theo NGƯỜI PHỤ TRÁCH nên mỗi người chỉ thấy việc của
-    // mình; vai trò không được phân việc gì thì mở ra thấy lịch trống, đúng thực tế.
+    // 🔴 TỪ 18/09/2026 CHỈ NGƯỜI LÀM THU MUA — Sếp: *"Ở tài khoản của các phòng ban khác khi
+    // phân quyền thì chỉ mở được chức năng 'Theo dõi đề nghị' thôi"*.
+    //
+    // ⚠️ ĐẢO NGƯỢC MỘT QUYẾT ĐỊNH CŨ, ghi lại để người sau không tưởng là bỏ sót rồi mở lại:
+    // trước đó chỗ này cố ý mở cho MỌI vai trò với lý do *"thủ kho cũng có hạn ghi phiếu nhận,
+    // kế toán cũng có hạn thanh toán… lịch tự lọc theo người phụ trách nên ai không được phân
+    // việc thì mở ra thấy lịch trống"*. Thực tế đúng như vậy: các phòng ban khác mở ra chỉ thấy
+    // lịch trống, nên mục này với họ là một cửa không dẫn tới đâu.
     nhan: "Lịch công việc",
     nhanNgan: "Lịch",
     href: "/lich",
     nhom: "quan_trong",
     icon: CalendarDays,
-    duocThay: () => true,
+    duocThay: (q) => q.xemQuyTrinhMuaHang,
   },
   {
     // Nhãn "Quy trình mua hàng" theo chỉ đạo Ban lãnh đạo 10/08/2026 (trước là "Đề nghị mua
@@ -255,7 +259,21 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/don-hang",
     nhom: "quy_trinh",
     icon: Package,
-    duocThay: () => true,
+    /**
+     * ★★ SIẾT 18/09/2026 — Sếp: ***"Ở tài khoản của các phòng ban khác khi phân quyền thì chỉ mở
+     * được chức năng 'Theo dõi đề nghị' thôi"*** (ảnh chụp một tài khoản ngoài phòng Thu mua đang
+     * thấy Tổng quan · Công việc của tôi · Lịch công việc · Đơn hàng).
+     *
+     * 🔴 NHƯNG VẪN MỞ CHO THỦ KHO — `xacNhanKho`. Nút **"Kho xác nhận nhận đủ hàng"** nằm ở trang
+     * `/don-hang/{poId}`, và từ 30/08/2026 thủ kho không còn ghi phiếu nhận trong app này nữa nên
+     * đây là **việc duy nhất** của họ ở đây. Ẩn nốt mục này là màn đó thành mồ côi với thủ kho —
+     * đúng cái bẫy `CLAUDE.md` §3.4b bắt phải kiểm trước khi bỏ một mục menu (phiên 03 suýt làm
+     * module Báo giá mồ côi y hệt).
+     *
+     * 📌 Trang `/don-hang` tự ẩn cột giá và nhà cung cấp theo `quyen.xemGia` / `quyen.xemNhaCungCap`,
+     * nên thủ kho vào cũng không thấy giá.
+     */
+    duocThay: (q) => q.xemQuyTrinhMuaHang || q.xacNhanKho,
     // Xem chú thích đầy đủ ở `MucDieuHuong.chiSidebar` — tránh vỡ thanh dưới điện thoại.
     chiSidebar: true,
   },

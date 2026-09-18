@@ -654,7 +654,8 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                                   ten: nguoiDung.tenHienThi,
                                 })
                               }
-                              className="min-h-9 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-success hover:text-success"
+                              /* Vùng chạm 44px trên điện thoại — khối này không bị ẩn ở mobile. */
+                              className="min-h-11 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-success hover:text-success md:min-h-9"
                             >
                               Khớp số liệu
                             </button>
@@ -664,10 +665,45 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                                 setDangGhiLech(p.id);
                                 setLyDoLech(p.thuMuaDoiChieu?.ghiChu ?? "");
                               }}
-                              className="min-h-9 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-danger hover:text-danger"
+                              className="min-h-11 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-danger hover:text-danger md:min-h-9"
                             >
                               Ghi nhận lệch
                             </button>
+                            {/**
+                              * ★ GỠ DẤU — Sếp 18/09/2026: ***"Nút khớp số liệu này đang chỉ cho
+                              * tick chứ ko cho bỏ tick"***.
+                              *
+                              * 🔴 CHỈ HIỆN KHI ĐÃ CÓ DẤU. Phiếu chưa đối chiếu mà bày nút gỡ là
+                              * bày một nút không làm gì — và người đọc tưởng mình vừa bỏ lỡ việc gì.
+                              *
+                              * 📌 Gỡ xong VẪN GHI NHẬT KÝ đơn hàng (xem `ghiDoiChieuThuMua`): dấu
+                              * này mang tên người đối chiếu, nên việc gỡ cũng phải truy lại được.
+                              */}
+                            {p.thuMuaDoiChieu && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  ghiDoiChieuThuMua(p.id, null, undefined, {
+                                    uid: nguoiDung.uid,
+                                    ten: nguoiDung.tenHienThi,
+                                  })
+                                }
+                                title="Bỏ dấu đối chiếu — phiếu về lại trạng thái chưa đối chiếu"
+                                /**
+                                 * 🔴 SỬA 18/09/2026, hai lỗi của chính bản vá sáng nay:
+                                 *  · KHÔNG VIỀN + `hover:bg-muted`: khối "lần giao" này nền đã là
+                                 *    `bg-muted`, nên rê chuột đổi nền sang đúng màu đang đứng —
+                                 *    người dùng không thấy gì phản hồi. Nay có viền như hai nút
+                                 *    anh em, và hover đổi sang tông danger nhạt.
+                                 *  · CAO 36px: khối này KHÔNG bị ẩn trên điện thoại, mà Design
+                                 *    System V1.1 đòi vùng chạm ≥44px. Dùng đúng khuôn
+                                 *    `min-h-11 md:min-h-9` như 14 chỗ khác trong app.
+                                 */
+                                className="min-h-11 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-danger hover:bg-danger-bg hover:text-danger md:min-h-9"
+                              >
+                                Bỏ đánh dấu
+                              </button>
+                            )}
                           </div>
                         )}
 

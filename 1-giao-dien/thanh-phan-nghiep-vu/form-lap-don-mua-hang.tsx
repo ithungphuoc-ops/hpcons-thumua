@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
+import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
@@ -3765,14 +3766,13 @@ export function FormLapDonMuaHang({
                 {/* 🔒 KHOÁ Ở CHẾ ĐỘ SỬA — `ThayDoiDonHang` không nhận `ngayLapPO`. Ô này còn
                     quyết định NĂM của số đơn hàng, mà số đó đã cấp rồi: đổi ngày lập của một đơn
                     đã có số là làm lệch chính mã hồ sơ. */}
-                <Input
+                <OChonNgay
                   id="ngay-don-hang"
-                  type="date"
-                  value={ngayDonHang}
-                  readOnly={laSuaDon}
-                  disabled={laSuaDon}
-                  onChange={(e) => setNgayDonHang(e.target.value)}
-                  className="w-48"
+                  nhan="Ngày đơn hàng"
+                  giaTri={ngayDonHang}
+                  onDoi={setNgayDonHang}
+                  khoa={laSuaDon}
+                  xoaDuoc={false}
                 />
               </div>
 
@@ -4613,26 +4613,23 @@ export function FormLapDonMuaHang({
               Thời gian nhận hàng <span className="text-danger">*</span>
             </Label>
             <div className="flex flex-wrap items-center gap-2">
-              <Input
+              <OChonNgay
                 id="ngay-giao"
-                type="date"
-                value={ngayGiao}
-                onChange={(e) => setNgayGiao(e.target.value)}
-                className="w-44"
-                aria-label="Nhận hàng từ ngày"
+                nhan="Nhận hàng từ ngày"
+                giaTri={ngayGiao}
+                onDoi={setNgayGiao}
               />
               <span className="text-sm text-text-secondary">đến</span>
-              <Input
+              <OChonNgay
                 id="ngay-giao-den"
-                type="date"
-                value={ngayGiaoDen}
-                /* 🔴 `min` chặn ngay tại ô: chọn ngày kết thúc trước ngày bắt đầu là một khoảng
-                   không tồn tại. Chặn ở đây thì người lập biết ngay lúc chọn, không phải bấm Cất
-                   rồi mới thấy báo lỗi. */
-                min={ngayGiao || undefined}
-                onChange={(e) => setNgayGiaoDen(e.target.value)}
-                className="w-44"
-                aria-label="Nhận hàng đến ngày"
+                nhan="Nhận hàng đến ngày"
+                giaTri={ngayGiaoDen}
+                /* 🔴 `toiThieu` chặn ngay tại lịch: chọn ngày kết thúc trước ngày bắt đầu là một
+                   khoảng không tồn tại. Chặn ở đây thì người lập biết ngay lúc chọn, không phải
+                   bấm Cất rồi mới thấy báo lỗi. (Trước 18/09/2026 việc này do `min` của ô ngày
+                   native làm — đổi sang lịch tự vẽ thì phải mang chốt đó theo, bỏ là mất thật.) */
+                toiThieu={ngayGiao || undefined}
+                onDoi={setNgayGiaoDen}
               />
               {/**
                 * ★ Ô GHI CHÚ THỜI GIAN GIAO — Ban lãnh đạo 27/08/2026: *"Thêm cột ghi chú thời

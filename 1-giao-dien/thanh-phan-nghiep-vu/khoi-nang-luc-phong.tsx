@@ -104,34 +104,55 @@ export function KhoiNangLucPhong() {
             <>
               {/* Bảng — Desktop/Tablet */}
               {/**
-                * ★★ GIỚI HẠN BỀ RỘNG BẢNG — Sếp 17/09/2026: ***"bố cục lại"***.
+                * ★★ BỀ RỘNG BẢNG — Sếp 18/09/2026 khoanh đỏ nửa phải Card: ***"Cân đối lại giao
+                * diện, đang trống mục này"***.
                 *
-                * 🔴 TÔI ĐÃ MẮC LẠI ĐÚNG LỖI CỦA CHÍNH MÌNH HÔM NAY: đặt `w-full` ở cột cuối để nó
-                * hút phần dư, nhưng nội dung cột đó chỉ là một con số ⇒ thành mảng trắng khổng lồ giữa bảng.
+                * 🔴 HAI LẦN SAI TRƯỚC ĐÓ, ghi lại để không ai dựng lại:
+                *  · Lần 1 (17/09): đặt `w-full` ở cột cuối để nó hút phần dư — nội dung cột đó chỉ là
+                *    một con số ⇒ mảng trắng khổng lồ giữa bảng.
+                *  · Lần 2 (17/09): chữa bằng `max-w-4xl` ghim bảng ở 896px. Hết mảng trắng TRONG bảng,
+                *    nhưng `Card` vẫn ăn hết ~1780px (khung đã bỏ giới hạn 1440px theo chỉ đạo BLĐ
+                *    16/08/2026 *"full màn hình"*, xem `khung-tong.tsx`) ⇒ khoảng trống chỉ **dời ra
+                *    ngoài bảng**, thành nửa Card rỗng. Đó là thứ Sếp khoanh đỏ hôm nay.
                 *
-                * Bài học đã ghi ở `bang-tien-do-po.tsx`: chọn chỗ nhận phần dư thì tìm cột có **phần tử co
-                * giãn** (thanh, biểu đồ). Bảng này **không có cột nào như vậy** — toàn chữ và số ngắn.
-                * Nên cách duy nhất là **không để bảng rộng hơn nội dung**: `max-w-4xl` giữ bảng ở 896px thay
-                * vì kéo suốt chiều ngang Card, nên phần dư nhỏ và chia đều không lộ ra thành khoảng trống.
+                * ✅ DÙNG ĐÚNG KHUÔN MẪU ĐÃ CHỐT ở `trang/cong-no.tsx` (cùng một loại chỉ đạo, BLĐ
+                * 15/09/2026): `table-fixed` + bề rộng PHẦN TRĂM cộng đúng **100**. Khi đó phần dư được
+                * chia ĐỀU theo tỷ lệ cho cả 6 cột, không cột nào phình thành dải trắng — nên bảng trải
+                * hết Card mà vẫn cân. `min-w-[56rem]` là sàn: hẹp hơn thì cuộn ngang trong khung riêng.
                 *
-                * ⚠️ `overflow-x-auto` giữ nguyên — màn hẹp hơn 896px vẫn cuộn ngang được.
+                * ⚠️ BA CÁI BẪY CỦA `table-fixed`, đã dính ở `cong-no.tsx`:
+                *  · Nó **chỉ đọc bề rộng ở HÀNG ĐẦU** — đặt `w-…` ở `TableCell` thân bảng là vô nghĩa.
+                *  · Nó **không nong cột cho vừa chữ**, chữ `nowrap` dài sẽ TRÀN đè ô bên cạnh ⇒ mọi
+                *    tiêu đề nhiều chữ phải `whitespace-normal` (trước đây chỉ cột Nhân viên có).
+                *  · Tên người dài phải `truncate` + `title` để rê chuột vẫn đọc đủ.
                 */}
-              <div className="hidden max-w-4xl overflow-x-auto md:block">
-                <Table>
+              <div className="hidden overflow-x-auto md:block">
+                <Table className="min-w-[56rem] table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-48 whitespace-normal">Nhân viên</TableHead>
-                      <TableHead className="w-32 text-right">Dòng vật tư</TableHead>
-                      <TableHead className="w-32 text-right">Thuộc mấy phiếu</TableHead>
-                      <TableHead className="w-32 text-right">Phiếu đã đóng</TableHead>
-                      <TableHead className="w-32 text-right">Phiếu đóng dở</TableHead>
-                      <TableHead className="w-36 text-right">Đang quá hạn</TableHead>
+                      <TableHead className="w-[25%] whitespace-normal">Nhân viên</TableHead>
+                      <TableHead className="w-[15%] text-right whitespace-normal">Dòng vật tư</TableHead>
+                      <TableHead className="w-[15%] text-right whitespace-normal">
+                        Thuộc mấy phiếu
+                      </TableHead>
+                      <TableHead className="w-[15%] text-right whitespace-normal">
+                        Phiếu đã đóng
+                      </TableHead>
+                      <TableHead className="w-[15%] text-right whitespace-normal">
+                        Phiếu đóng dở
+                      </TableHead>
+                      <TableHead className="w-[15%] text-right whitespace-normal">
+                        Đang quá hạn
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {ds.map((x) => (
                       <TableRow key={x.uid}>
-                        <TableCell className="font-medium whitespace-normal">{x.ten}</TableCell>
+                        {/* `table-fixed` không nong cột — tên dài phải cắt, `title` để rê chuột đọc đủ. */}
+                        <TableCell className="truncate font-medium" title={x.ten}>
+                          {x.ten}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{x.soDong}</TableCell>
                         <TableCell className="text-right tabular-nums">{x.soPhieu}</TableCell>
                         <TableCell className="text-right tabular-nums text-success-soft">

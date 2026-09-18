@@ -93,6 +93,7 @@ export function KhuDinhKemGiaiDoan({
   maGiaiDoan,
   duocSua = false,
   khoa = false,
+  boNhan,
 }: {
   deNghi: DeNghiMuaHang;
   /** Mã giai đoạn — khóa tra trong `deNghi.tepGiaiDoan`. */
@@ -107,6 +108,19 @@ export function KhuDinhKemGiaiDoan({
   duocSua?: boolean;
   /** Hồ sơ đã đóng (hoàn thành / đóng dở) — khóa thêm và gỡ, nhưng XEM thì vẫn xem được. */
   khoa?: boolean;
+  /**
+   * ★★ NHÃN BỊ LOẠI KHỎI KHU NÀY — thêm 18/09/2026 để bịt một ĐƯỜNG VÒNG QUYỀN.
+   *
+   * 🔴 VÌ SAO CẦN: ngăn `lap_don_mua_hang` chứa CẢ tệp Hợp đồng (có ô riêng, quyền siết chặt từ
+   * bước ⑤ theo chỉ đạo Sếp 01/09/2026) lẫn tệp tự do khác. Khu này liệt kê **cả ngăn** và gác
+   * bằng cờ rộng hơn (`duocSuaTepBuoc`, nhân viên có), nên nhân viên xoá được bản hợp đồng đã ký
+   * ngay tại đây — trong khi ô Hợp đồng ngay phía trên đã khoá đúng luật. Ô khoá mà đường bên
+   * cạnh vẫn mở thì việc siết quyền chỉ là hình thức.
+   *
+   * 📌 SO CẢ NHÃN CÓ HẬU TỐ: bản thứ hai mang nhãn `"Hợp đồng (2)"` (xem `luu` trong
+   * `o-chung-tu-bat-buoc.tsx`), nên so đúng chuỗi là lọt bản từ thứ hai trở đi.
+   */
+  boNhan?: string[];
 }) {
   const { themTepGiaiDoan, goTepGiaiDoan, datGhiChuTepGiaiDoan } = useDuLieu();
   const { nguoiDung } = useNguoiDung();
@@ -125,7 +139,17 @@ export function KhuDinhKemGiaiDoan({
    */
   const [chuGhiChu, setChuGhiChu] = useState("");
 
-  const daCo = deNghi.tepGiaiDoan?.[maGiaiDoan] ?? [];
+  const tatCaTep = deNghi.tepGiaiDoan?.[maGiaiDoan] ?? [];
+  /* Loại tệp thuộc các ô chứng từ có quyền riêng — xem chú thích prop `boNhan`. */
+  const daCo =
+    boNhan && boNhan.length > 0
+      ? tatCaTep.filter((t) => {
+          const g = (t.ghiChu ?? "").trim();
+          return !boNhan.some(
+            (n) => g === n || (g.startsWith(`${n} (`) && g.endsWith(")")),
+          );
+        })
+      : tatCaTep;
   const duocThemGo = duocSua && !khoa;
 
   /**

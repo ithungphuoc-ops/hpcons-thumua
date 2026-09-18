@@ -73,7 +73,9 @@ import {
   coPhieuGiaoHangPhongBan,
   lyDoThieuHopDong,
   NHAN_TEP_HOA_DON_VAT,
+  TEN_HIEN_DON_MUA_HANG,
   TEN_HIEN_HOP_DONG,
+  tepDonMuaHangNCCKy,
   vuongMacHoanThanhQuyTrinh,
   vuongMacRoiBuocDatHang,
   vuongMacRoiBuocLapDon,
@@ -1185,6 +1187,34 @@ export function duocDinhDonMuaHangNCCKy(
 }
 
 /**
+ * ★★ AI ĐƯỢC ĐÍNH TỆP **HỢP ĐỒNG VÀO Ô ĐANG TRỐNG** — Sếp 18/09/2026: ***"mở nút đính kèm cho
+ * nhân viên"*** (ảnh: hồ sơ ở bước ⑦, tài khoản nhân viên, nút "Hợp đồng" mờ không bấm được).
+ *
+ * 🔴 ĐỌC CÙNG `duocSuaHopDongTheoGiaiDoan` Ở TRÊN — HAI HÀM NÀY TRẢ LỜI HAI CÂU KHÁC NHAU:
+ *   · hàm trên: *"ai được **thay hoặc xoá** bản đã có"* → từ bước ⑤ vẫn CHỈ Trưởng bộ phận
+ *   · hàm này: *"ai được **đính vào ô đang trống**"* → nhân viên thu mua cấp ≥2 cũng được
+ *
+ * 📌 VÌ SAO TÁCH CHỨ KHÔNG NỚI HÀM TRÊN: chỉ đạo Sếp 01/09/2026 viết nguyên văn *"bản ký, đóng
+ * mộc là chứng từ chính thức, **siết người được thay lại** kể từ giai đoạn này"* — nó siết việc
+ * THAY. Nới hàm trên là nhân viên **thay/xoá được bản hợp đồng đã ký** mà Trưởng bộ phận đã
+ * duyệt, ở tận bước ⑦, không còn lớp nào chặn. Ô hợp đồng khác ô báo giá ở chỗ **app không giữ
+ * bản đối chiếu nào**: tệp đính kèm là bản ghi DUY NHẤT của nội dung hợp đồng, thay nhầm là mất
+ * hẳn.
+ *
+ * ⚠️ HAI NƠI GỌI, PHẢI SỬA CÙNG LÚC (`de-nghi-chi-tiet.tsx` khối ④ và `hop-chuyen-giai-doan.tsx`
+ * hộp "Gỡ vướng" trên Kanban). Sửa một nơi là đúng cái bẫy *"siết quyền chỉ có tác dụng ảo"* mà
+ * chú thích của `duocSuaHopDongTheoGiaiDoan` đã cảnh báo.
+ *
+ * ⚠️ `lapPO` = nhân viên thu mua hoặc trưởng bộ phận, cấp ≥2. Người chỉ có quyền xem (cấp 1) vẫn
+ * không đính được — Sếp nói *"nhân viên"*, không nói *"mọi người"*.
+ */
+export function duocDinhHopDongVaoOTrong(
+  quyen: Pick<Quyen, "phanBoCongViec" | "lapPO">,
+): boolean {
+  return quyen.phanBoCongViec || quyen.lapPO;
+}
+
+/**
  * Quyết định điều gì xảy ra khi thả thẻ `the` vào cột `dich`.
  * Hàm thuần — không đụng dữ liệu; việc thực thi nằm ở trang gọi nó.
  * Trả về null khi thả về đúng cột cũ (không làm gì).
@@ -1329,6 +1359,24 @@ export function mucConNoToanHoSo(
    * thất bại**.
    */
   if (giaiDoanHienTai === "that_bai") return [];
+
+  /**
+   * ★★ HỒ SƠ ĐÃ HOÀN THÀNH CŨNG KHÔNG NHẮC NỢ NỮA — thêm 18/09/2026, cùng một lý do với nhánh
+   * thất bại ngay trên.
+   *
+   * 🔴 SỬA MỘT HẬU QUẢ CỦA CHÍNH BẢN VÁ SÁNG NAY. Mục nợ *"thiếu ĐMH"* vừa thêm cho bước ⑤ không
+   * có cửa thoát nào: ngăn tệp riêng cho Đơn mua hàng NCC ký chỉ tồn tại **từ 16/09/2026**, nên
+   * **mọi hồ sơ đóng trước ngày đó** đều đội một dòng đỏ vĩnh viễn ở cột *Hoàn thành* — không ai
+   * gỡ được, kể cả đính tệp (hồ sơ đã đóng). Đó là báo động sai hàng loạt, đúng cái bẫy
+   * `CLAUDE.md` §6.6 cảnh báo: *"chốt báo động sai thì lần sau người ta bỏ qua nó"*.
+   *
+   * 📌 KHÔNG GIẤU NỢ THẬT: hồ sơ chỉ vào được bước ⑧ khi `vuongMacHoanThanhQuyTrinh` cho qua —
+   * tức đã có hợp đồng và hoá đơn VAT. Thứ duy nhất còn có thể thiếu là bản ĐMH ký, mà hồ sơ đã
+   * đóng thì không ai đi bổ sung nữa.
+   *
+   * ⚠️ CHỈ ÁP CHO BƯỚC ⑧. Hồ sơ đang ở ⑥ hay ⑦ vẫn phải thấy đủ nợ — đó mới là lúc bổ sung được.
+   */
+  if (giaiDoanHienTai === "hoan_thanh") return [];
 
   const viTri = THU_TU_GIAI_DOAN.indexOf(giaiDoanHienTai);
   /* Mã lạ (hồ sơ cũ / máy khác chạy bản khác) → chỉ soát đúng bước đó, đừng đoán thứ tự. */
@@ -1694,8 +1742,30 @@ export function mucConNoCuaBuoc(
   /* ⚠️ `lyDoThieuHopDong` trả CHUỖI RỖNG khi chưa ghi, không trả `undefined` — so với `undefined`
      là câu luôn đúng, và bước ④ sẽ đỏ cho mọi hồ sơ. Đã kiểm chữ ký hàm ở `chung-tu-cuoi-quy-trinh.ts`. */
   const coLyDoNoHopDong = lyDoThieuHopDong(deNghi) !== "";
+  /**
+   * ★★ MỘT MÓN NỢ CHỈ ĐƯỢC BÀY Ở MỘT BƯỚC — Sếp 18/09/2026, hai ảnh trong cùng buổi sáng:
+   *   · thẻ kanban hiện **hai dòng giống hệt**: *"④ thiếu HĐ"* và *"Thiếu HĐ"*
+   *   · khối ⑤ *Tiến hành đặt hàng* hiện câu *"Chưa có tệp Hợp đồng (đã ghi lý do: Bổ sung sau)"*,
+   *     Sếp khoanh đỏ: ***"Thông báo này ở sai chỗ. Đây là thông báo ở bước lập đơn mua hàng"***.
+   *
+   * 🔴 GỐC: từ 17/09/2026 điều kiện này bật cho CẢ HAI bước, mà `mucConNoToanHoSo` thì gộp nợ của
+   * mọi bước đã tới ⇒ hồ sơ đã ghi lý do bị đếm hai lần. Ô đính Hợp đồng nằm ở bước ④
+   * (`BUOC_DINH_KEM_HOP_DONG = "lap_don_mua_hang"`), nên bước ⑤ là chỗ SAI để nhắc: người đọc mở
+   * khối ⑤ đi tìm ô hợp đồng và không thấy.
+   *
+   * ✅ HAI NHÁNH NAY LOẠI TRỪ NHAU:
+   *   · đã ghi lý do nợ → báo ở **④** (nơi có ô để đính) — đúng chỉ đạo Sếp 17/09
+   *   · chưa ghi lý do gì → vẫn báo ở **⑤** như trước
+   *
+   * 🔴 ĐỪNG "DỌN CHO GỌN" BẰNG CÁCH BỎ HẲN NHÁNH ⑤. Agent phản biện 18/09 đo ra: hồ sơ chưa từng
+   * bấm "Bổ sung sau" thì nhánh ④ KHÔNG bật (nó đòi `coLyDoNoHopDong`), nên bỏ ⑤ là hồ sơ đó mất
+   * sạch cảnh báo thiếu hợp đồng — trong khi `vuongMacRoiBuocLapDon` vẫn chặn nó chuyển bước.
+   * Người dùng bị chặn mà màn hình trắng trơn. Bốn bài kiểm trong `kiem-luat-dung-chung.mjs` đang
+   * ghim đúng ca đó (chúng dùng hồ sơ KHÔNG lý do), nên bỏ nhánh ⑤ là bốn bài đỏ.
+   */
+  const buocBaoNoHopDong = coLyDoNoHopDong ? "lap_don_mua_hang" : "dat_hang";
   if (
-    (giaiDoan === "dat_hang" || (giaiDoan === "lap_don_mua_hang" && coLyDoNoHopDong)) &&
+    giaiDoan === buocBaoNoHopDong &&
     !coHopDong(deNghi) &&
     !daKhaiKhongCoHopDong(deNghi)
   ) {
@@ -1708,6 +1778,32 @@ export function mucConNoCuaBuoc(
       day: lyDo
         ? `chưa có tệp ${TEN_HIEN_HOP_DONG} (đã ghi lý do: ${lyDo}) — phải bổ sung bản đã ký`
         : `chưa đính kèm ${TEN_HIEN_HOP_DONG}`,
+    });
+  }
+
+  /**
+   * ★★ BƯỚC ⑤ THIẾU **ĐƠN MUA HÀNG NHÀ CUNG CẤP KÝ** — Sếp 18/09/2026: ***"đó là thiếu ĐMH"***.
+   *
+   * 🔴 TRƯỚC HÔM NAY THẺ KHÔNG HỀ NHẮC MÓN NÀY. Luật đòi bản NCC ký đã có từ 16/09
+   * (`vuongMacRoiBuocDatHang`) và bộ hồ sơ thanh toán vẫn báo đỏ mục 4, nhưng thẻ kanban thì im —
+   * nên nhìn thẻ không ai biết đang nợ tờ nào. Hai dòng *"thiếu HĐ"* giống hệt nhau càng che mất.
+   *
+   * 🔴 KHÔNG GỌI `vuongMacRoiBuocDatHang` LÀM NGUỒN, dù nghe có vẻ hợp lý — agent phản biện
+   * 18/09 đo ra hai chỗ hỏng nếu làm vậy:
+   *   · hàm đó trả `null` ngay khi đã bấm *"Bổ sung sau"* ⇒ bấm một cái là thẻ thôi nhắc, trong
+   *     khi chính chú thích của nó ghi *"'Bổ sung sau' KHÔNG xoá món nợ"*, và hợp đồng thì vẫn
+   *     báo đỏ trong đúng ca này (Sếp 13/09: chỉ *"Không có HĐ"* mới hết đỏ).
+   *   · hàm đó là **chốt chuyển bước**, nên từ bước ⑥ trở đi nó luôn `null` ⇒ nợ biến mất khỏi
+   *     thẻ ngay khi qua bước — đúng lỗi 24/08 đã phải chữa bằng `mucConNoToanHoSo`.
+   *
+   * 📌 Viết tắt **ĐMH** là chữ của Ban lãnh đạo 27/08/2026 (*"Điều chỉnh ghi là ĐMH nhé"*, xem
+   * `3-du-lieu/dieu-khoan-chuan-don-mua-hang.ts`), không phải tôi tự đặt. Bản đầy đủ vẫn dùng hằng
+   * `TEN_HIEN_DON_MUA_HANG` để một chỗ đổi chữ là mọi nơi đổi theo.
+   */
+  if (giaiDoan === "dat_hang" && tepDonMuaHangNCCKy(deNghi).length === 0) {
+    thieu.push({
+      ngan: `thiếu ĐMH`,
+      day: `chưa đính kèm ${TEN_HIEN_DON_MUA_HANG} (bản nhà cung cấp ký, đóng mộc)`,
     });
   }
 

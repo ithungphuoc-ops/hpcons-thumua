@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
+import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
@@ -95,12 +96,11 @@ export function HopGhiChuLich({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="gc-ngay">Ngày phải làm</Label>
-            <Input
+            <OChonNgay
               id="gc-ngay"
-              type="date"
-              value={ngayHan}
-              onChange={(e) => setNgayHan(e.target.value)}
-              className="w-48"
+              nhan="Ngày phải làm"
+              giaTri={ngayHan}
+              onDoi={setNgayHan}
             />
             {/* Cho đổi ngày ngay trong hộp: việc bị hoãn là chuyện thường, không nên bắt
                 người dùng xóa rồi viết lại ở ngày khác. */}

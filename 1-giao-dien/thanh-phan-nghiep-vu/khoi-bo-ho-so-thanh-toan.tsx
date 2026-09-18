@@ -466,8 +466,24 @@ export function KhoiBoHoSoThanhToan({
                     {n.tep.map((t) => (
                       <LienKetTep key={t.id} tep={t} />
                     ))}
+                    {/**
+                      * ★★ TÔ MÀU THEO LÝ DO — sửa 18/09/2026.
+                      *
+                      * 🔴 Ba lý do nhóm rỗng KHÁC HẲN NHAU về nghĩa, trước đó dùng CHUNG một màu
+                      * xám: ① kho gửi kèm ảnh (đủ chứng từ, lành tính) · ② lần giao bị từ chối
+                      * nhận (không đòi phiếu, lành tính) · ③ **thật sự thiếu một tờ phiếu**.
+                      * Cái thứ ba là việc phải đi làm, mà lại hiện y hệt hai cái kia — trái quy
+                      * ước *"trạng thái luôn có cả màu lẫn chữ"* (Design System V1.1).
+                      *
+                      * 📌 `bangChungNgoai` chính là cờ phân biệt: bật = đã có bằng chứng ở nơi
+                      * khác (xem `mucDaCo` ở `2-quy-trinh/bo-ho-so-thanh-toan.ts`).
+                      */}
                     {n.tep.length === 0 && (
-                      <span className="text-xs text-text-desc">{n.ghiChu ?? "Chưa có."}</span>
+                      <span
+                        className={`text-xs ${n.bangChungNgoai ? "text-text-desc" : "text-warning-soft"}`}
+                      >
+                        {n.ghiChu ?? "Chưa có."}
+                      </span>
                     )}
                     {n.tep.length > 0 && n.ghiChu && (
                       <span className="text-xs text-warning-soft">{n.ghiChu}</span>

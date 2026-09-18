@@ -55,6 +55,21 @@ export function OChungTuBatBuoc({
    * ⚠️ BẬT ĐÚNG CHỖ CẦN. Ô này dùng chung 9 chỗ; Sếp chỉ khoanh bộ hồ sơ thanh toán.
    */
   dangGon,
+  /**
+   * ★★ ĐƯỢC ĐÍNH VÀO Ô ĐANG TRỐNG, DÙ KHÔNG ĐƯỢC THAY/XOÁ BẢN ĐÃ CÓ — Sếp 18/09/2026:
+   * ***"mở nút đính kèm cho nhân viên"*** (ảnh: nút "Hợp đồng" mờ ở tài khoản nhân viên).
+   *
+   * 🔴 TÁCH LÀM HAI QUYỀN LÀ ĐIỂM CHÍNH. Trước hôm nay một prop `duocSua` gác cả ba việc — đính
+   * mới, thay bản cũ, xoá bản cũ. Nên muốn cho nhân viên đính vào ô trống thì buộc phải mở luôn
+   * quyền **thay và xoá bản hợp đồng đã ký** ở bước ⑦, không có lớp nào chặn.
+   *
+   * 📌 Chỉ đạo Sếp 01/09/2026 viết nguyên văn là *"siết người được **thay lại**"* — nó nói về việc
+   * THAY, không nói về ô đang trống. Nên việc tách này là **thi hành đúng chữ của chỉ đạo đó**,
+   * không phải đảo nó.
+   *
+   * ⚠️ MẶC ĐỊNH BẰNG `duocSua` để 8 ô còn lại không đổi hành vi. Nơi nào cần nới thì tự truyền.
+   */
+  duocDinhMoi,
 }: {
   deNghi: DeNghiMuaHang;
   maGiaiDoan: string;
@@ -67,9 +82,12 @@ export function OChungTuBatBuoc({
   tepDaCo: MoTaTep[];
   nutPhu?: React.ReactNode;
   dangGon?: boolean;
+  duocDinhMoi?: boolean;
 }) {
   const { datTepVaoOGiaiDoan, goTepGiaiDoan } = useDuLieu();
   const { nguoiDung } = useNguoiDung();
+  /* Không truyền thì y như cũ: một quyền gác cả ba việc. */
+  const choDinhMoi = duocDinhMoi ?? duocSua;
   /* Nhiều bản của cùng một loại chứng từ là chuyện thường: đơn tách cho hai nhà cung cấp thì có
      hai hóa đơn VAT. Nên ô này cho thêm bản nữa, không chỉ một tệp. */
   const [themBanNua, setThemBanNua] = useState(false);
@@ -190,7 +208,9 @@ export function OChungTuBatBuoc({
           nguoi={nguoi}
           onXong={(moi) => luu(moi, undefined)}
           batBuoc={batBuoc && tepDaCo.length === 0}
-          khoa={khoa || !duocSua}
+          /* ★ Ô TRỐNG dùng `choDinhMoi`, hai ô trên dùng `duocSua` — xem chú thích ở prop
+             `duocDinhMoi`. Đổi dòng này về `duocSua` là đóng lại đúng thứ Sếp vừa mở 18/09/2026. */
+          khoa={khoa || !choDinhMoi}
           anHuongDan={tepDaCo.length > 0}
           /* 🔴 TRUYỀN XUỐNG TẬN NÚT, không bọc flex ở ngoài — Sếp 17/09/2026 *"Đưa gần lại, sao
              phải để cách xa nhau vậy"*. Bọc flex ở đây thì nút phụ đứng cạnh CẢ Ô, mà ô rộng bằng

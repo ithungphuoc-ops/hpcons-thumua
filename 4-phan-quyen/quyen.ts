@@ -298,6 +298,40 @@ export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
    * ⚠️ Phải bắt cả `/de-nghi/…` (trang chi tiết) chứ không riêng `/de-nghi`.
    */
   if (duongDan.startsWith("/de-nghi")) return q.xemQuyTrinhMuaHang;
+
+  /**
+   * ★★ CÁC MÀN CHỈ DÀNH CHO NGƯỜI LÀM THU MUA — Sếp 18/09/2026: ***"Ở tài khoản của các phòng
+   * ban khác khi phân quyền thì chỉ mở được chức năng 'Theo dõi đề nghị' thôi"***.
+   *
+   * 🔴 PHẢI CHẶN Ở ĐÂY, KHÔNG CHỈ ẨN MENU — đúng lý do đã ghi ngay trên cho `/de-nghi`: ẩn mục
+   * menu không chặn được người gõ thẳng địa chỉ hay bấm lại thẻ đã lưu trong trình duyệt. Ba màn
+   * này vừa bị ẩn khỏi menu ở `2-quy-trinh/dieu-huong.ts`; không chặn kèm ở đây thì việc siết
+   * quyền chỉ là siết ảo.
+   *
+   * 📌 `/don-hang` KHÔNG nằm trong danh sách: thủ kho phải vào `/don-hang/{poId}` để bấm *"Kho
+   * xác nhận nhận đủ hàng"* — xem chú thích cùng mục trong `dieu-huong.ts`.
+   */
+  if (
+    duongDan.startsWith("/tong-quan") ||
+    duongDan.startsWith("/viec-cua-toi") ||
+    duongDan.startsWith("/lich")
+  ) {
+    return q.xemQuyTrinhMuaHang;
+  }
+
+  /**
+   * ★ `/don-hang` — CÙNG ĐIỀU KIỆN VỚI MỤC MENU, thêm 18/09/2026 (cùng ngày, vá ngay).
+   *
+   * 🔴 Bản siết sáng nay ẩn mục menu này với người ngoài phòng Thu mua nhưng **quên chặn đường
+   * dẫn**, nên gõ thẳng `thumua.hpcore.vn/don-hang` là vẫn vào. Hai tầng nói hai chuyện khác nhau
+   * — đúng cái lỗi mà chính chú thích `/de-nghi` ngay trên đã cảnh báo, chỉ lặp lại ở màn khác.
+   *
+   * 📌 `|| q.xacNhanKho` giữ cửa cho THỦ KHO: nút *"Kho xác nhận nhận đủ hàng"* nằm ở
+   * `/don-hang/{poId}` và từ 30/08/2026 đó là việc duy nhất của họ trong app. Điều kiện này phải
+   * y hệt điều kiện của mục menu trong `2-quy-trinh/dieu-huong.ts` — lệch một chỗ là lại sinh ra
+   * cảnh "thấy mục menu mà bấm vào bị đá ra", hoặc ngược lại.
+   */
+  if (duongDan.startsWith("/don-hang")) return q.xemQuyTrinhMuaHang || q.xacNhanKho;
   return q.xemDuocApp;
 }
 

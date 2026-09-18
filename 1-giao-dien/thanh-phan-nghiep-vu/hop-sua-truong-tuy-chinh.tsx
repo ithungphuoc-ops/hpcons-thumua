@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
+import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
@@ -579,12 +580,15 @@ export function HopSuaTruongTuyChinh({
               id="tc-ngay"
             >
               <div className="flex flex-wrap gap-2">
-                <Input
+                {/* 📌 Ô GIỜ bên cạnh VẪN là `type="time"` — giờ hiển thị `HH:mm` giống nhau ở
+                    mọi ngôn ngữ (chỉ khác chỗ có/không có SA-CH), nên không dính lỗi định dạng
+                    kiểu Mỹ như ô ngày. Đừng thay nốt nó cho "đồng bộ": mất bánh xe chọn giờ của
+                    điện thoại mà chẳng sửa được vấn đề nào. */}
+                <OChonNgay
                   id="tc-ngay"
-                  type="date"
-                  value={ngay}
-                  onChange={(e) => setNgay(e.target.value)}
-                  className="w-40"
+                  nhan="Ngày đề nghị cấp"
+                  giaTri={ngay}
+                  onDoi={setNgay}
                 />
                 <Input
                   type="time"

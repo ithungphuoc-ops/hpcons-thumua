@@ -1301,7 +1301,8 @@ interface GiaTriDuLieu {
    */
   ghiDoiChieuThuMua: (
     phieuId: string,
-    khop: boolean,
+    /** `true` khớp · `false` lệch · `null` gỡ dấu (Sếp 18/09/2026 — phải bỏ tick được). */
+    khop: boolean | null,
     ghiChu: string | undefined,
     nguoi: { uid: string; ten: string },
   ) => string | null;
@@ -5771,14 +5772,45 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    *
    * ⚠️ Lệch mà không ghi lý do thì người đọc không làm gì được — chặn ngay ở tầng ghi, đừng chỉ
    * chặn ở nút (nút có thể bị đi vòng, bài học §6.6).
+   *
+   * ★★ BỎ DẤU ĐƯỢC — Sếp 18/09/2026: ***"Nút khớp số liệu này đang chỉ cho tick chứ ko cho bỏ
+   * tick"***. Truyền `khop = null` là gỡ hẳn `thuMuaDoiChieu`, phiếu quay về *"Phòng Thu mua chưa
+   * đối chiếu lần giao này"*.
+   *
+   * 🔴 VÌ SAO PHẢI CÓ: bấm nhầm sang phiếu bên cạnh là chuyện thường, mà dấu này ghi TÊN người
+   * đối chiếu — không gỡ được nghĩa là tên một người bị gắn vĩnh viễn vào một việc họ chưa làm.
+   * Ghi đè bằng "Ghi nhận lệch" cũng không chữa được, vì nó lại là một khẳng định khác.
+   *
+   * 📌 GỠ DẤU VẪN GHI NHẬT KÝ. Xoá im lặng thì sau này không ai biết phiếu từng được đánh dấu rồi
+   * bị gỡ — đúng loại mất dấu vết mà nhật ký đơn hàng sinh ra để tránh.
    */
   const ghiDoiChieuThuMua = useCallback(
     (
       phieuId: string,
-      khop: boolean,
+      /** `true` khớp · `false` lệch · **`null` = gỡ dấu**, phiếu về lại trạng thái chưa đối chiếu. */
+      khop: boolean | null,
       ghiChu: string | undefined,
       nguoi: { uid: string; ten: string },
     ): string | null => {
+      if (khop === null) {
+        setPhieuNhan((truoc) =>
+          truoc.map((p) => {
+            if (p.id !== phieuId) return p;
+            const { thuMuaDoiChieu: _bo, ...conLai } = p;
+            return conLai;
+          }),
+        );
+        const phieuGo = phieuNhanRef.current.find((p) => p.id === phieuId);
+        const poGo = phieuGo && donHangRef.current.find((d) => d.id === phieuGo.poId);
+        if (phieuGo && poGo) {
+          ghiNhatKyDonHang(
+            poGo,
+            nguoi.ten,
+            `Thu mua GỠ dấu đối chiếu của phiếu ${phieuGo.code} — phiếu về lại trạng thái chưa đối chiếu`,
+          );
+        }
+        return null;
+      }
       const gc = (ghiChu ?? "").trim();
       if (!khop && gc === "") {
         return "Ghi nhận lệch số liệu thì phải nói rõ lệch ở đâu.";
@@ -7316,14 +7348,32 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       nguoiDatCoQuyenPhanBo = false,
     ) => {
       setDeNghi((truoc) =>
-        truoc.map((dn) =>
-          dn.id !== prId
-            ? dn
-            : {
+        truoc.map((dn) => {
+          if (dn.id !== prId) return dn;
+          /**
+           * ★★ KẸP SÀN NGAY Ở TẦNG GHI — thêm 18/09/2026 cùng lúc với việc cho *"SL Báo giá"*
+           * thắng cấu hình chung (`soBaoGiaCanCo`).
+           *
+           * 🔴 VÌ SAO PHẢI CÓ: từ hôm nay con số này **quyết định luôn số bản báo giá bắt buộc**,
+           * nên hạ nó xuống 1 là né được quy định cạnh tranh giá của công ty. Trước đó nút ± ở
+           * giao diện có chặn (`chiTang` + `sanSoBaoGiaTPGiao` trong `o-sua-so-bao-gia.tsx`),
+           * nhưng **tầng ghi thì không kiểm gì** — mà chặn ở nút là chặn được đúng cái nút đó.
+           * Đây là bài học §6.6: *"nút có thể bị đi vòng"*.
+           *
+           * 📌 Chỉ kẹp khi người bấm KHÔNG có quyền phân bổ. Trưởng bộ phận vẫn hạ được xuống 1 —
+           * đó chính là việc Sếp vừa mở. Người hạ là người chịu trách nhiệm, và nhật ký ghi tên.
+           */
+          const mocTP = dn.items
+            .map((d) => d.soBaoGiaTPGiao)
+            .filter((x): x is number => typeof x === "number" && x > 0);
+          const san = mocTP.length > 0 ? Math.max(...mocTP) : undefined;
+          const soGhi =
+            !nguoiDatCoQuyenPhanBo && san !== undefined ? Math.max(soBaoGia, san) : soBaoGia;
+          return {
                 ...dn,
                 items: dn.items.map((d) => ({
                   ...d,
-                  soBaoGiaYeuCau: soBaoGia,
+                  soBaoGiaYeuCau: soGhi,
                   /* Chỉ Trưởng bộ phận mới dời được mốc sàn — xem tham số trên. */
                   ...(nguoiDatCoQuyenPhanBo ? { soBaoGiaTPGiao: soBaoGia } : {}),
                 })),
@@ -7332,11 +7382,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                   {
                     thoiDiem: thoiDiemHienTai(),
                     nguoiThucHien,
-                    hanhDong: `Yêu cầu lấy ${soBaoGia} báo giá cho mọi mặt hàng`,
+                    /* Ghi con số THẬT SỰ được lưu, không ghi con số người ta bấm: bị kẹp sàn mà
+                       nhật ký vẫn ghi số đã bấm là hồ sơ nói sai chính nó. */
+                    hanhDong: `Yêu cầu lấy ${soGhi} báo giá cho mọi mặt hàng`,
                   },
                 ],
-              },
-        ),
+              };
+        }),
       );
     },
     [],

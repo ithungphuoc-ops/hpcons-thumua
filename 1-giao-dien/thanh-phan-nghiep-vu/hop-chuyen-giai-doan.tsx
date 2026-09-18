@@ -25,6 +25,7 @@ import {
   type CongViecGiaiDoan,
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 import {
+  duocDinhHopDongVaoOTrong,
   duocSuaHopDongTheoGiaiDoan,
   NHAN_GIAI_DOAN,
   type DieuKienConVuong,
@@ -607,6 +608,10 @@ function OGoDieuKien({
      chi tiết đính vào ĐÚNG CÙNG MỘT tệp, "siết quyền" mà mỗi nơi tự tính riêng là hai luật có thể
      lệch nhau. */
   const duocSuaHopDong = duocSuaHopDongTheoGiaiDoan(quyen, giaiDoan);
+  /* 🔴 PHẢI NỚI CẢ Ở ĐÂY. Hộp "Gỡ vướng" đính vào ĐÚNG CÙNG MỘT tệp với trang chi tiết; nới một
+     nơi thôi là nhân viên đính được ở màn này mà bị chặn ở màn kia — đúng kiểu lệch mà chú thích
+     của `duocSuaHopDongTheoGiaiDoan` cảnh báo. */
+  const duocDinhHopDong = duocDinhHopDongVaoOTrong(quyen);
 
   /**
    * `hienCau` — có in câu vướng mắc ở đầu khối không.
@@ -645,6 +650,7 @@ function OGoDieuKien({
             tieuDe={TEN_HIEN_HOP_DONG}
             batBuoc
             duocSua={duocSuaHopDong}
+            duocDinhMoi={duocDinhHopDong}
             tepDaCo={tepHopDongSuaDuoc(deNghi)}
           />
           {/* ★ ĐƯỜNG THỨ HAI: chưa có bản ký thì GHI LÝ DO cũng đi tiếp được (Ban lãnh đạo

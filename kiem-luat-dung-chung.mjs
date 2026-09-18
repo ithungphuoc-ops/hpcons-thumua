@@ -1112,64 +1112,6 @@ kiem(
   },
 );
 
-/* ★★★ GIAO THIẾU VẪN QUA ĐƯỢC BƯỚC ⑦ — Sếp 17/09/2026.
-
-   Nguyên văn: *"Cái nút ở bước 6 thu mua là phải có tiến độ nhận hàng, có đủ hay thiếu thì NV thu
-   mua cũng bấm được vì có trường hợp giao thiếu"*.
-
-   🔴 VÌ SAO PHẢI CÓ BÀI KIỂM: trước 17/09 chỉ có hai đường vào ⑦ và cả hai đều đòi hàng về ĐỦ.
-   Nhà cung cấp giao thiếu rồi không giao nốt là chuyện có thật — hồ sơ đó kẹt vĩnh viễn ở cột ⑥.
-   Đo lúc 21:03 ngày 17/09: 4/5 đề nghị đứng ở cột ⑥ đúng vì lý do này.
-
-   🔴 BA BÀI, TRONG ĐÓ HAI BÀI LÀ CHIỀU NGHỊCH. Chiều thuận (giao thiếu + đã xác nhận → qua bước)
-   mà xanh một mình thì chưa chứng minh được gì: một hàm trả bừa `"ho_so_thanh_toan"` cũng xanh.
-   Phải có bài canh "chưa xác nhận thì KHÔNG được qua" và bài canh `every` mới đủ. */
-
-kiem(
-  "🔴 Giao THIẾU nhưng thu mua ĐÃ xác nhận nhận hàng → qua được ⑦ Hồ sơ thanh toán",
-  'Sếp 17/09/2026 — *"có đủ hay thiếu thì NV thu mua cũng bấm được vì có trường hợp giao thiếu"*',
-  () => {
-    const b = boGiaiDoanThu();
-    const poDaXN = { ...b.po, xacNhanKho: { uid: "u1", ten: "NV Thu mua", thoiDiem: "2026-09-17" } };
-    const gd = G.xacDinhGiaiDoan(b.dn, [poDaXN], [], b.phieu(50));
-    return {
-      duoc: gd === "ho_so_thanh_toan",
-      thucTe: `xacDinhGiaiDoan = "${gd}" (mới nhận 50/100, đã xác nhận)`,
-      mongDoi: '"ho_so_thanh_toan" — trước 17/09 chỗ này trả "nhan_hang" và hồ sơ kẹt vĩnh viễn',
-    };
-  },
-);
-
-kiem(
-  "🔴 CHIỀU NGHỊCH: giao thiếu mà CHƯA ai xác nhận → vẫn đứng ở ⑥",
-  "mở cho giao thiếu không có nghĩa mọi hồ sơ tự nhảy bước",
-  () => {
-    const b = boGiaiDoanThu();
-    const gd = G.xacDinhGiaiDoan(b.dn, [b.po], [], b.phieu(50));
-    return {
-      duoc: gd === "nhan_hang",
-      thucTe: `xacDinhGiaiDoan = "${gd}"`,
-      mongDoi: '"nhan_hang" — phải có người bấm xác nhận thì mới qua bước',
-    };
-  },
-);
-
-kiem(
-  "🔴 Đề nghị có HAI đơn, mới xác nhận MỘT → vẫn đứng ở ⑥",
-  "dùng `every` chứ không phải `some` — một đơn xong không kéo cả hồ sơ sang bước thanh toán",
-  () => {
-    const b = boGiaiDoanThu();
-    const po1 = { ...b.po, xacNhanKho: { uid: "u1", ten: "NV Thu mua", thoiDiem: "2026-09-17" } };
-    const po2 = { ...b.po, id: b.po.id + "-2", code: b.po.code + "-2" };
-    const gd = G.xacDinhGiaiDoan(b.dn, [po1, po2], [], b.phieu(50));
-    return {
-      duoc: gd === "nhan_hang",
-      thucTe: `xacDinhGiaiDoan = "${gd}" (1/2 đơn đã xác nhận)`,
-      mongDoi: '"nhan_hang" — còn đơn chưa xác nhận thì hồ sơ chưa qua bước',
-    };
-  },
-);
-
 // ════════════════════════════════════════════════════════════════════
 // CÔNG NỢ THEO ĐƠN HÀNG — bảng 8 cột, Ban lãnh đạo 27/08/2026
 //
@@ -1548,6 +1490,50 @@ kiem(
     const dn = { id: "x", items: [{ stt: 1, soBaoGiaYeuCau: 3 }, { stt: 2 }], tepGiaiDoan: {} };
     const can = BG.soBaoGiaCanCo(dn, { soBaoGiaToiThieu: 2 });
     return { duoc: can === 3, thucTe: `cần ${can} bản`, mongDoi: "3 (số riêng > mức tối thiểu)" };
+  },
+);
+
+kiem(
+  "SL Bao gia = 1 -> CHI can 1 ban, du cau hinh chung doi 2",
+  'Sếp · 18/09/2026 — *"Số lượng 1 thì chỉ mở 1 mục đính kèm báo giá thôi"*',
+  () => {
+    /* 🔴 ĐÂY LÀ CHIỀU MỚI MỞ 18/09/2026. Trước đó hàm lấy `Math.max(riêng, chung)` nên đặt 1 vẫn
+       ra 2 — trong khi chính app dạy người dùng rằng *"số đó thắng số này"* (ô Số báo giá tối
+       thiểu ở trang Cài đặt, và hộp kéo thẻ Kanban đều in câu ấy). Người đặt 1 rồi mong ra 1 là
+       làm đúng như app dạy.
+
+       ⚠️ AI HẠ ĐƯỢC: chỉ Trưởng bộ phận. Nhân viên bị kẹp sàn ở mốc TP giao — chốt đó nằm ở
+       `datSoBaoGiaChoPhieu` (tầng ghi) và `sanSoBaoGiaTPGiao` (nút ±). Bài kiểm ngay dưới canh. */
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const dn = {
+      id: "x",
+      items: [{ stt: 1, soBaoGiaYeuCau: 1 }, { stt: 2, soBaoGiaYeuCau: 1 }],
+      tepGiaiDoan: {},
+    };
+    const can = BG.soBaoGiaCanCo(dn, { soBaoGiaToiThieu: 2 });
+    return { duoc: can === 1, thucTe: `cần ${can} bản`, mongDoi: "1 — số đặt riêng thắng cả khi NHỎ hơn" };
+  },
+);
+
+kiem(
+  "CHIEU NGHICH — KHONG dat so nao thi VAN ve cau hinh chung (chot su co 24/08)",
+  'Sếp · 18/09/2026 (giữ nguyên luật Ban lãnh đạo 20/08/2026)',
+  () => {
+    /* 🔴 Chống cách sửa "gọn tay" cho yêu cầu 18/09: bỏ hẳn `canChung` và luôn lấy số riêng. Làm
+       vậy thì hồ sơ KHÔNG dòng nào đặt số quay về `0` — cổng `vuongMacTrinhXetDuyet` mở toang,
+       hồ sơ 0 tệp báo giá vẫn trình xét duyệt được. Đúng sự cố 24/08/2026 đã mất công vá một lần.
+       Hai ca này KHÁC NHAU: "để trống" là không ai quyết, "đặt rõ 1" là có người chịu trách nhiệm. */
+    const BG = nap(join(thuMuc, "bao-gia.cjs"));
+    const trong = BG.soBaoGiaCanCo({ id: "x", items: [{ stt: 1 }], tepGiaiDoan: {} }, { soBaoGiaToiThieu: 3 });
+    const soKhong = BG.soBaoGiaCanCo(
+      { id: "x", items: [{ stt: 1, soBaoGiaYeuCau: 0 }], tepGiaiDoan: {} },
+      { soBaoGiaToiThieu: 3 },
+    );
+    return {
+      duoc: trong === 3 && soKhong === 3,
+      thucTe: `bo trong=${trong} · dat 0=${soKhong}`,
+      mongDoi: "ca hai = 3 — chi so >= 1 moi tinh la 'co nguoi dat'",
+    };
   },
 );
 
@@ -2908,8 +2894,21 @@ kiem(
     const cauHinh = { soBaoGiaToiThieu: 2, hanGioTheoBuoc: {}, congViecTheoBuoc: {}, caiDatTungBuoc: {} };
     /* ⚠️ Tên trường là `ngan`/`day` (xem interface MucConNo) — KHÔNG phải `nhan`/`chiTiet`.
        Đọc sai tên thì mọi mục thành chuỗi rỗng và bài kiểm "xanh giả" ở chiều thứ nhất. */
+    /**
+     * ★★ ĐỔI BƯỚC SOÁT `dat_hang` → `lap_don_mua_hang` NGÀY 18/09/2026. ĐỌC TRƯỚC KHI ĐỔI LẠI.
+     *
+     * Luật 13/09 KHÔNG đổi: *"Không có HĐ"* thì thôi báo đỏ, *"Bổ sung sau"* thì vẫn đỏ. Chỉ đổi
+     * **chỗ bày** — Sếp 18/09 khoanh đỏ câu "Chưa có tệp Hợp đồng…" đang hiện ở khối ⑤:
+     * ***"Thông báo này ở sai chỗ. Đây là thông báo ở bước lập đơn mua hàng"***. Ô đính Hợp đồng
+     * nằm ở bước ④ (`BUOC_DINH_KEM_HOP_DONG`), nên nhắc ở ⑤ là chỉ người ta tới một khối không có
+     * ô để đính.
+     *
+     * ⚠️ HAI HỒ SƠ THỬ ở đây ĐỀU ĐÃ GHI LÝ DO (`LY_DO_KHONG_CO_HOP_DONG` / `LY_DO_BO_SUNG_SAU`)
+     * nên nợ hợp đồng của chúng bày ở bước ④. Hồ sơ CHƯA ghi lý do vẫn bày ở ⑤ — ca đó do các bài
+     * kiểm khác giữ, đừng gộp hai ca vào một bài.
+     */
     const gomNhan = (dn) =>
-      (G.mucConNoCuaBuoc(dn, "dat_hang", cauHinh, [], []) ?? [])
+      (G.mucConNoCuaBuoc(dn, "lap_don_mua_hang", cauHinh, [], []) ?? [])
         .map((m) => `${m?.ngan ?? ""} / ${m?.day ?? ""}`)
         .join(" | ");
 
@@ -7894,6 +7893,431 @@ kiem(
       duoc: r.datLai.length === 1 && r.datLai[0].khoa === "a",
       thucTe: `datLai=${JSON.stringify(r.datLai.map((v) => v.khoa))}`,
       mongDoi: 'datLai=["a"] — bỏ bản thiếu khoá, giữ bản hợp lệ',
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// ⑤ PHIẾU GIAO HÀNG — BỘ HỒ SƠ THANH TOÁN PHẢI TRẢ LỜI GIỐNG `vuongMacXacNhanKho`
+//
+// 🔴 VÌ SAO CÓ BÀI KIỂM NÀY: tới 18/09/2026 hai nơi trả lời NGƯỢC NHAU cho cùng một phiếu.
+//    `vuongMacXacNhanKho` coi ảnh QLK CTR là bằng chứng giao nhận hợp lệ (luật của phiên tích
+//    hợp, 23/08/2026), còn `dungBoHoSoThanhToan` chỉ đếm `tep` nên vẫn báo vàng "Chưa có phiếu
+//    giao nhận nào". Sếp nhìn thấy app vừa liệt kê 4 ảnh vừa bảo không có ảnh, và hỏi
+//    *"có cách nào kéo nội dung này về app Thu mua không"*.
+//
+// ⚠️ `grep "anhQlkCtr"` trong `bo-ho-so-thanh-toan.ts` CHO XANH GIẢ — chuỗi đó còn nằm trong
+//    câu ghi chú của nhóm. Chỉ phép gọi thật mới phân biệt được (CLAUDE.md §6.6).
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_ANH_QLK =
+  'Sếp · 18/09/2026 — *"CÓ CÁCH NÀO KÉO NỘI DUNG NÀY VỀ APP THU MUA KO"* (hỏi vì mục ⑤ vừa ' +
+  "liệt kê ảnh QLK CTR vừa báo vàng chưa có phiếu giao nhận)";
+
+/** Lấy đúng mục ⑤ bằng cách gọi thật hàm dựng bộ hồ sơ. */
+const muc5PhieuGiao = (phieu) => {
+  const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+  return BH.dungBoHoSoThanhToan({ id: "dn-anh-qlk", tepGiaiDoan: {} }, poBoHoSo, phieu, []).find(
+    (m) => m.ma === "phieu_giao_hang",
+  );
+};
+const phieuCoAnhQlk = [
+  {
+    id: "pn1",
+    poCode: "DMH260007",
+    lanGiaoThu: 1,
+    trangThai: "da_nhap_kho",
+    anhQlkCtr: { ten: "TC_cot.jpg", url: "https://qlk/api/files/abc" },
+  },
+];
+
+kiem("Lan giao CO anh QLK CTR -> muc ⑤ tinh la DA CO, KHONG bao vang", CHU_SEP_ANH_QLK, () => {
+  const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+  const m = muc5PhieuGiao(phieuCoAnhQlk);
+  const daCo = m ? BH.mucDaCo(m) === true : false;
+  const khongBaoThieu = !/Chưa có phiếu giao nhận nào/.test(String(m?.ghiChu ?? ""));
+  return {
+    duoc: daCo && khongBaoThieu,
+    thucTe: `mucDaCo=${m ? BH.mucDaCo(m) : "KHONG CO MUC 5"} · ghiChu="${String(m?.ghiChu ?? "(trống)").slice(0, 90)}"`,
+    mongDoi:
+      "mucDaCo=true va KHONG con cau vang — `vuongMacXacNhanKho` da coi anh QLK CTR la bang " +
+      "chung hop le, hai noi phai tra loi giong nhau",
+  };
+});
+
+kiem(
+  "CHIEU NGHICH — lan giao KHONG co gi -> VAN phai bao thieu",
+  CHU_SEP_ANH_QLK,
+  () => {
+    /* 🔴 Chống chữa bài trên bằng cách cho `bangChungNgoai` luôn bật: làm vậy thì hồ sơ thật sự
+       thiếu phiếu giao nhận cũng hiện đủ, và luật 11/08/2026 (mỗi lần giao một tờ phiếu) mất
+       sạch. Đừng sửa bài kiểm cho vừa mã nguồn. */
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const m = muc5PhieuGiao([
+      { id: "pn2", poCode: "DMH260007", lanGiaoThu: 1, trangThai: "cho_kiem_tra" },
+    ]);
+    const thieu = m ? BH.mucDaCo(m) === false : false;
+    /* ⚠️ ĐỔI CHUỖI ĐÒI HỎI 18/09/2026 — LUẬT KHÔNG ĐỔI, chỉ CÂU CHỮ đổi. Trước đó mục ⑤ luôn in
+       "Chưa có phiếu giao nhận nào" kể cả khi hồ sơ đã có phiếu cho lần 1 và chỉ thiếu lần 2 —
+       sai sự thật, và người đọc đi tìm nhầm chỗ. Nay câu nói rõ THIẾU LẦN NÀO. Bài kiểm vì vậy
+       chỉ đòi "còn câu cảnh báo và nó nhắc tới phiếu giao nhận", không ghim nguyên văn. */
+    const conCauCanhBao = /phiếu giao nhận/i.test(String(m?.ghiChu ?? ""));
+    return {
+      duoc: thieu && conCauCanhBao,
+      thucTe: `mucDaCo=${m ? BH.mucDaCo(m) : "KHONG CO MUC 5"} · ghiChu="${String(m?.ghiChu ?? "(trống)").slice(0, 90)}"`,
+      mongDoi: "mucDaCo=false VA con cau canh bao — khong co anh, khong co tep thi dung la thieu that",
+    };
+  },
+);
+
+// ────────────────────────────────────────────────────────────────────
+// 🔴 CA HỖN HỢP — NHIỀU LẦN GIAO, MỘT LẦN THIẾU. Lỗ hổng đo được 18/09/2026.
+//
+// Ba bài kiểm phía trên (viết cùng ngày) đều truyền mảng MỘT phiếu duy nhất, nên không bài nào
+// bắt được ca thật hay gặp nhất: đơn giao nhiều lần. Mục ⑤ hỏi bằng `.some` còn luật gốc
+// `vuongMacXacNhanKho` hỏi bằng `.every` ⇒ hồ sơ thiếu một tờ phiếu vẫn hiện ✓ xanh cho Kế toán.
+//
+// 📌 CÁCH KIỂM MẠNH NHẤT: so THẲNG hai nơi với nhau, đúng câu luật mà chú thích mục ⑤ tự đặt ra —
+//    *"HAI NƠI NÀY PHẢI LUÔN CÙNG MỘT CÂU TRẢ LỜI"*. So như vậy thì sau này ai sửa một bên mà
+//    quên bên kia là đỏ ngay, không cần thêm bài mới cho từng ca.
+// ────────────────────────────────────────────────────────────────────
+
+const hoSoNhieuLanGiao = (...ds) =>
+  ds.map((kieu, i) => {
+    const nen = { id: `pn-h${i}`, poCode: "DMH260007", lanGiaoThu: i + 1, trangThai: "da_nhap_kho" };
+    if (kieu === "tep") return { ...nen, tepPhieuGiao: { id: `t${i}`, ten: `phieu-${i}.pdf` } };
+    if (kieu === "anh") return { ...nen, anhQlkCtr: { ten: `a${i}.jpg`, url: "https://qlk/x" } };
+    if (kieu === "tu-choi") return { ...nen, trangThai: "tu_choi_nhan" };
+    return nen; // "thieu"
+  });
+
+for (const ca of [
+  { ten: "co tep + THIEU", ds: ["tep", "thieu"], mongCo: false },
+  { ten: "tu choi + THIEU", ds: ["tu-choi", "thieu"], mongCo: false },
+  { ten: "anh QLK + THIEU", ds: ["anh", "thieu"], mongCo: false },
+  { ten: "anh QLK + anh QLK (chieu nghich)", ds: ["anh", "anh"], mongCo: true },
+  { ten: "tep + tu choi (chieu nghich)", ds: ["tep", "tu-choi"], mongCo: true },
+]) {
+  kiem(`Nhieu lan giao — ${ca.ten}: muc ⑤ va luat kho phai NOI CUNG MOT CAU`, CHU_SEP_ANH_QLK, () => {
+    const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+    const TT = nap(join(thuMuc, "tinh-toan.cjs"));
+    const phieu = hoSoNhieuLanGiao(...ca.ds);
+    const m = muc5PhieuGiao(phieu);
+    const mucCo = m ? BH.mucDaCo(m) === true : false;
+    const khoKhongVuong = TT.vuongMacXacNhanKho(phieu) === null;
+    return {
+      duoc: mucCo === khoKhongVuong && mucCo === ca.mongCo,
+      thucTe: `muc ⑤ da co=${mucCo} · luat kho khong vuong=${khoKhongVuong} · ghiChu="${String(m?.ghiChu ?? "(trống)").slice(0, 80)}"`,
+      mongDoi: `ca hai = ${ca.mongCo} — thieu mot to phieu la thieu ca muc (BLD 11/08/2026: moi lan giao mot to)`,
+    };
+  });
+}
+
+kiem("Lan giao BI TU CHOI NHAN -> khong doi phieu, muc ⑤ khong bao thieu", CHU_SEP_ANH_QLK, () => {
+  /* Cùng một luật với `vuongMacXacNhanKho`: hàng bị từ chối thì không có tờ phiếu nào được ký,
+     bắt đính kèm là làm kẹt đơn vĩnh viễn (chỉ đạo 11/08/2026). */
+  const BH = nap(join(thuMuc, "bo-ho-so.cjs"));
+  const m = muc5PhieuGiao([
+    { id: "pn3", poCode: "DMH260007", lanGiaoThu: 1, trangThai: "tu_choi_nhan" },
+  ]);
+  return {
+    duoc: m ? BH.mucDaCo(m) === true : false,
+    thucTe: `mucDaCo=${m ? BH.mucDaCo(m) : "KHONG CO MUC 5"}`,
+    mongDoi: "true — `vuongMacXacNhanKho` cung bo qua phieu `tu_choi_nhan`",
+  };
+});
+
+// ════════════════════════════════════════════════════════════════════
+// MỘT MÓN NỢ CHỈ BÀY Ở MỘT BƯỚC — Sếp 18/09/2026
+//
+// Hai ảnh trong cùng buổi sáng: thẻ kanban hiện hai dòng giống hệt *"④ thiếu HĐ"* + *"Thiếu HĐ"*;
+// khối ⑤ hiện câu "Chưa có tệp Hợp đồng…" mà Sếp khoanh đỏ *"Thông báo này ở sai chỗ. Đây là
+// thông báo ở bước lập đơn mua hàng"*.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_NO_DUNG_BUOC =
+  'Sếp · 18/09/2026 — *"Thông báo này ở sai chỗ. Đây là thông báo ở bước lập đơn mua hàng"* + ' +
+  '*"ở mục báo thiếu… đó là thiếu ĐMH"*';
+
+const CH_TRONG = { soBaoGiaToiThieu: 2, hanGioTheoBuoc: {}, congViecTheoBuoc: {}, caiDatTungBuoc: {} };
+const nhanCuaBuoc = (dn, buoc) =>
+  (G.mucConNoCuaBuoc(dn, buoc, CH_TRONG, [], []) ?? []).map((m) => `${m?.ngan ?? ""}`).join(" | ");
+
+kiem("Da ghi ly do no HD -> bao o buoc ④, KHONG bao o buoc ⑤", CHU_SEP_NO_DUNG_BUOC, () => {
+  const CT = nap(join(thuMuc, "chung-tu.cjs"));
+  const dn = hoSoThieuHD(CT.LY_DO_BO_SUNG_SAU);
+  const o4 = nhanCuaBuoc(dn, "lap_don_mua_hang");
+  const o5 = nhanCuaBuoc(dn, "dat_hang");
+  return {
+    duoc: /HĐ/.test(o4) && !/thiếu HĐ/.test(o5),
+    thucTe: `④=[${o4 || "(rỗng)"}] · ⑤=[${o5 || "(rỗng)"}]`,
+    mongDoi: "④ co 'thieu HĐ' (noi co o de dinh), ⑤ KHONG con — mot mon no mot dong",
+  };
+});
+
+kiem(
+  "CHIEU NGHICH — CHUA ghi ly do nao thi buoc ⑤ VAN phai bao thieu HD",
+  CHU_SEP_NO_DUNG_BUOC,
+  () => {
+    /* 🔴 Chống chữa bài trên bằng cách bỏ hẳn nhánh ⑤. Hồ sơ chưa từng bấm "Bổ sung sau" thì
+       nhánh ④ KHÔNG bật (nó đòi có lý do), nên bỏ ⑤ là hồ sơ đó mất sạch cảnh báo — trong khi
+       `vuongMacRoiBuocLapDon` vẫn chặn nó chuyển bước. Người dùng bị chặn mà màn hình trắng trơn. */
+    const dn = hoSoThieuHD("");
+    const o5 = nhanCuaBuoc(dn, "dat_hang");
+    return {
+      duoc: /thiếu HĐ/.test(o5),
+      thucTe: `⑤=[${o5 || "(rỗng)"}]`,
+      mongDoi: "⑤ VAN co 'thieu HĐ' — khong co ly do thi khong co dong nao o ④ de thay the",
+    };
+  },
+);
+
+kiem("Buoc ⑤ thieu ban NCC ky -> bao 'thieu ĐMH'", CHU_SEP_NO_DUNG_BUOC, () => {
+  /* Trước 18/09/2026 thẻ kanban KHÔNG hề nhắc món này, dù luật đòi bản NCC ký đã có từ 16/09. */
+  const dn = hoSoThieuHD("");
+  const o5 = nhanCuaBuoc(dn, "dat_hang");
+  return {
+    duoc: /thiếu ĐMH/.test(o5),
+    thucTe: `⑤=[${o5 || "(rỗng)"}]`,
+    mongDoi: "⑤ co 'thieu ĐMH' — chu viet tat cua Ban lanh dao 27/08/2026",
+  };
+});
+
+kiem(
+  'CHIEU NGHICH — bam "Bo sung sau" cho DMH thi VAN con "thieu ĐMH"',
+  CHU_SEP_NO_DUNG_BUOC,
+  () => {
+    /* 🔴 Chống việc lấy `vuongMacRoiBuocDatHang` làm nguồn: hàm đó trả null ngay khi có lý do, nên
+       bấm "Bổ sung sau" một cái là thẻ thôi nhắc — trái cách hợp đồng đang xử (Sếp 13/09: chỉ
+       "Không có HĐ" mới hết đỏ, "Bổ sung sau" vẫn đỏ). */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const dn = {
+      ...hoSoThieuHD(""),
+      /* 🔴 KHOÁ LÀ `.khoa`, KHÔNG PHẢI CẢ OBJECT — sửa 18/09/2026. Bản đầu viết
+         `{ [CT.CHUNG_TU_DON_MUA_HANG]: ... }`, mà khoá của object trong JS bị ép thành chuỗi nên
+         ra `"[object Object]"`: hồ sơ thử KHÔNG hề mang lý do nào, và bài kiểm xanh vì lý do sai.
+         Xanh giả kiểu này nguy hơn không có bài kiểm — nó tạo cảm giác đã được canh. */
+      lyDoThieuChungTu: { [CT.CHUNG_TU_DON_MUA_HANG.khoa]: CT.LY_DO_BO_SUNG_SAU },
+    };
+    const o5 = nhanCuaBuoc(dn, "dat_hang");
+    return {
+      duoc: /thiếu ĐMH/.test(o5),
+      thucTe: `⑤=[${o5 || "(rỗng)"}]`,
+      mongDoi: '"Bo sung sau" KHONG xoa mon no — chi co tep that moi xoa',
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// PHÒNG BAN KHÁC CHỈ CÒN "THEO DÕI ĐỀ NGHỊ" — Sếp 18/09/2026
+//
+// Nguyên văn: *"Ở tài khoản của các phòng ban khác khi phân quyền thì chỉ mở được chức năng
+// 'Theo dõi đề nghị' thôi"* (ảnh: một tài khoản ngoài phòng Thu mua đang thấy Tổng quan · Công
+// việc của tôi · Lịch công việc · Đơn hàng).
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_CHI_THEO_DOI =
+  'Sếp · 18/09/2026 — *"Ở tài khoản của các phòng ban khác khi phân quyền thì chỉ mở được chức ' +
+  'năng \'Theo dõi đề nghị\' thôi"*';
+
+const aiDo = (them) =>
+  PQ.tinhQuyen({
+    uid: "u-ngoai",
+    tenHienThi: "Nguoi ngoai",
+    chucDanh: "",
+    vaiTro: "staff",
+    chucNang: "phong_thi_cong",
+    capTM: 2,
+    ...them,
+  });
+
+kiem("Phong ban khac KHONG vao duoc /tong-quan /viec-cua-toi /lich", CHU_SEP_CHI_THEO_DOI, () => {
+  /* 🔴 KIỂM `duocVaoDuongDan`, KHÔNG kiểm mục menu. Ẩn menu không phải là chặn — người gõ thẳng
+     địa chỉ hoặc bấm thẻ đã lưu vẫn vào được. Đây đúng bài học đã ghi cho `/de-nghi` (BLĐ 16/08). */
+  const q = aiDo({});
+  const chan = ["/tong-quan", "/viec-cua-toi", "/lich", "/de-nghi"].filter(
+    (d) => PQ.duocVaoDuongDan(d, q) === false,
+  );
+  const moTheoDoi = PQ.duocVaoDuongDan("/theo-doi", q) === true;
+  return {
+    duoc: chan.length === 4 && moTheoDoi,
+    thucTe: `chan=[${chan.join(" ")}] · /theo-doi=${moTheoDoi}`,
+    mongDoi: "chan du 4 duong dan, va /theo-doi VAN mo",
+  };
+});
+
+kiem("CHIEU NGHICH — nguoi lam THU MUA van vao duoc ca 3 man", CHU_SEP_CHI_THEO_DOI, () => {
+  /* Chống chữa bài trên bằng cách chặn tất cả: siết nhầm là cả phòng Thu mua mất màn Tổng quan,
+     Công việc của tôi và Lịch — tức app gần như vô dụng với chính người dùng chính. */
+  const nv = aiDo({ chucNang: "nhan_vien_thu_mua" });
+  const tp = aiDo({ chucNang: "truong_bo_phan_thu_mua", capTM: 3 });
+  const mo = (q) =>
+    ["/tong-quan", "/viec-cua-toi", "/lich"].every((d) => PQ.duocVaoDuongDan(d, q) === true);
+  return {
+    duoc: mo(nv) && mo(tp),
+    thucTe: `nhan vien=${mo(nv)} · truong bo phan=${mo(tp)}`,
+    mongDoi: "ca hai deu vao duoc — ho la nguoi dung chinh cua nhung man nay",
+  };
+});
+
+kiem("THU KHO van vao duoc /don-hang de bam xac nhan nhan du hang", CHU_SEP_CHI_THEO_DOI, () => {
+  /* 🔴 Nút "Kho xác nhận nhận đủ hàng" nằm ở `/don-hang/{poId}`, và từ 30/08/2026 thủ kho không
+     ghi phiếu nhận trong app này nữa — đó là việc DUY NHẤT của họ ở đây. Siết nốt màn này là màn
+     đó thành mồ côi với thủ kho (CLAUDE.md §3.4b). */
+  const tk = aiDo({ chucNang: "thu_kho_cong_trinh", capTM: 1, capKho: 2 });
+  return {
+    duoc: PQ.duocVaoDuongDan("/don-hang", tk) === true && PQ.duocVaoDuongDan("/de-nghi", tk) === false,
+    thucTe: `/don-hang=${PQ.duocVaoDuongDan("/don-hang", tk)} · /de-nghi=${PQ.duocVaoDuongDan("/de-nghi", tk)}`,
+    mongDoi: "/don-hang MO (co viec that o do) · /de-nghi VAN chan (BLD 16/08/2026)",
+  };
+});
+
+// ════════════════════════════════════════════════════════════════════
+// HỢP ĐỒNG: ĐÍNH VÀO Ô TRỐNG ≠ THAY BẢN ĐÃ CÓ — Sếp 18/09/2026
+//
+// *"mở nút đính kèm cho nhân viên"*, và khi được hỏi lại thì chốt *"vẫn giữ ở trưởng bộ phận"*
+// cho việc thay/xoá. Hai câu đó là HAI quyền khác nhau trên cùng một ô.
+//
+// 🔴 TRƯỚC 18/09 KHÔNG CÓ BÀI KIỂM NÀO GHIM CHỈ ĐẠO 01/09/2026 (siết quyền thay hợp đồng từ bước
+//    ⑤). Grep cả tên hàm lẫn ngày trong tệp này đều ra 0 — nghĩa là ai nới hàm đó cũng không có
+//    dòng đỏ nào báo đang đụng chỉ đạo của ai. Ba bài dưới bịt đúng lỗ đó.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_DINH_HD =
+  'Sếp · 18/09/2026 *"mở nút đính kèm cho nhân viên"* + *"vẫn giữ ở trưởng bộ phận"* (thay/xoá), ' +
+  'trên nền chỉ đạo Sếp · 01/09/2026 *"siết người được thay lại kể từ bước ⑤"*';
+
+const qNhanVien = { phanBoCongViec: false, lapPO: true };
+const qTruongBP = { phanBoCongViec: true, lapPO: true };
+const qChiXem = { phanBoCongViec: false, lapPO: false };
+
+kiem("Nhan vien DINH duoc hop dong vao o trong", CHU_SEP_DINH_HD, () => {
+  /* ⚠️ BỎ MẢNG 4 GIAI ĐOẠN — sửa 18/09/2026. Bản đầu lặp qua mảng đó nhưng KHÔNG truyền giai đoạn
+     vào hàm, nên mảng chỉ là trang trí: gọi cùng một phép bốn lần. Tệ hơn, nó che đúng ca cần
+     canh — ai thêm tham số giai đoạn rồi siết "từ bước ⑤ cũng chỉ trưởng bộ phận" là đóng lại
+     thứ Sếp vừa mở, mà bài vẫn xanh. Nay bài kiểm nói đúng thứ nó thật sự đo, và có thêm một bài
+     riêng bên dưới canh việc hàm bị thêm tham số giai đoạn. */
+  return {
+    duoc:
+      G.duocDinhHopDongVaoOTrong(qNhanVien) === true &&
+      G.duocDinhHopDongVaoOTrong(qTruongBP) === true,
+    thucTe: `nhan vien=${G.duocDinhHopDongVaoOTrong(qNhanVien)} · truong bo phan=${G.duocDinhHopDongVaoOTrong(qTruongBP)}`,
+    mongDoi: "ca hai deu TRUE — o dang trong thi nguoi nhan duoc ban ky phai dinh vao duoc",
+  };
+});
+
+kiem("Quyen DINH hop dong KHONG phu thuoc giai doan", CHU_SEP_DINH_HD, () => {
+  /* 🔴 Ghim đúng điểm khác nhau giữa hai hàm: `duocSuaHopDongTheoGiaiDoan` NHẬN giai đoạn và siết
+     từ bước ⑤; `duocDinhHopDongVaoOTrong` thì KHÔNG — ô trống thì bước nào cũng đính được. Ai
+     thêm tham số giai đoạn cho hàm này rồi siết theo bước là đóng lại thứ Sếp mở 18/09/2026, và
+     bài này đỏ ngay vì hàm nhận thừa tham số. */
+  return {
+    duoc: G.duocDinhHopDongVaoOTrong.length === 1,
+    thucTe: `so tham so cua duocDinhHopDongVaoOTrong = ${G.duocDinhHopDongVaoOTrong.length}`,
+    mongDoi: "1 — chi nhan bo quyen, KHONG nhan giai doan",
+  };
+});
+
+kiem(
+  "CHIEU NGHICH — tu buoc ⑤, nhan vien KHONG duoc THAY/XOA ban da co",
+  CHU_SEP_DINH_HD,
+  () => {
+    /* 🔴 Đây là nửa còn lại của chỉ đạo, và là nửa dễ mất nhất: cách sửa "tiện tay" là nới thẳng
+       `duocSuaHopDongTheoGiaiDoan` cho `lapPO` — lúc đó nhân viên thay hoặc xoá được bản hợp đồng
+       đã ký ở tận bước ⑦, không còn lớp nào chặn. Ô hợp đồng KHÔNG có bản đối chiếu nào trong app:
+       tệp đính kèm là bản ghi duy nhất của nội dung hợp đồng. */
+    const nvTuBuoc5 = ["dat_hang", "nhan_hang", "ho_so_thanh_toan"].map((gd) =>
+      G.duocSuaHopDongTheoGiaiDoan(qNhanVien, gd),
+    );
+    const tpTuBuoc5 = G.duocSuaHopDongTheoGiaiDoan(qTruongBP, "ho_so_thanh_toan");
+    return {
+      duoc: nvTuBuoc5.every((x) => x === false) && tpTuBuoc5 === true,
+      thucTe: `nhan vien tu ⑤=[${nvTuBuoc5.join(" ")}] · truong bo phan=${tpTuBuoc5}`,
+      mongDoi: "nhan vien FALSE o ca 3 buoc · truong bo phan TRUE",
+    };
+  },
+);
+
+kiem("CHIEU NGHICH — tai khoan chi XEM khong dinh duoc gi", CHU_SEP_DINH_HD, () => {
+  /* Sếp nói "nhân viên", không nói "mọi người". Cấp 1 (chỉ xem) phải trượt cả hai quyền. */
+  return {
+    duoc:
+      G.duocDinhHopDongVaoOTrong(qChiXem) === false &&
+      G.duocSuaHopDongTheoGiaiDoan(qChiXem, "lap_don_mua_hang") === false,
+    thucTe: `dinh moi=${G.duocDinhHopDongVaoOTrong(qChiXem)} · sua=${G.duocSuaHopDongTheoGiaiDoan(qChiXem, "lap_don_mua_hang")}`,
+    mongDoi: "ca hai FALSE",
+  };
+});
+
+kiem("Buoc ④ — nhan vien VAN sua duoc nhu truoc (chi dao 01/09 chi siet tu ⑤)", CHU_SEP_DINH_HD, () => {
+  /* Chống siết nhầm theo chiều ngược: ai đó "dọn cho gọn" bằng cách bắt mọi giai đoạn dùng
+     `phanBoCongViec` là nhân viên mất luôn quyền đính bản hợp đồng đầu tiên ở bước ④. */
+  return {
+    duoc: G.duocSuaHopDongTheoGiaiDoan(qNhanVien, "lap_don_mua_hang") === true,
+    thucTe: `buoc ④ nhan vien=${G.duocSuaHopDongTheoGiaiDoan(qNhanVien, "lap_don_mua_hang")}`,
+    mongDoi: "TRUE — 01/09/2026 ghi ro: con o buoc ④ thi `phanBoCongViec || lapPO`",
+  };
+});
+
+// ════════════════════════════════════════════════════════════════════
+// ⬇⬇ BÀI KIỂM CỦA PHIÊN TÍCH HỢP APP TỔNG — commit e012a5f / 35cbd82 (17/09/2026).
+// Trộn vào đây 18/09/2026 vì cả hai phiên cùng thêm bài ở cuối tệp. KHÔNG SỬA NỘI DUNG.
+// ════════════════════════════════════════════════════════════════════
+
+/* ★★★ GIAO THIẾU VẪN QUA ĐƯỢC BƯỚC ⑦ — Sếp 17/09/2026.
+
+   Nguyên văn: *"Cái nút ở bước 6 thu mua là phải có tiến độ nhận hàng, có đủ hay thiếu thì NV thu
+   mua cũng bấm được vì có trường hợp giao thiếu"*.
+
+   🔴 VÌ SAO PHẢI CÓ BÀI KIỂM: trước 17/09 chỉ có hai đường vào ⑦ và cả hai đều đòi hàng về ĐỦ.
+   Nhà cung cấp giao thiếu rồi không giao nốt là chuyện có thật — hồ sơ đó kẹt vĩnh viễn ở cột ⑥.
+   Đo lúc 21:03 ngày 17/09: 4/5 đề nghị đứng ở cột ⑥ đúng vì lý do này.
+
+   🔴 BA BÀI, TRONG ĐÓ HAI BÀI LÀ CHIỀU NGHỊCH. Chiều thuận (giao thiếu + đã xác nhận → qua bước)
+   mà xanh một mình thì chưa chứng minh được gì: một hàm trả bừa `"ho_so_thanh_toan"` cũng xanh.
+   Phải có bài canh "chưa xác nhận thì KHÔNG được qua" và bài canh `every` mới đủ. */
+
+kiem(
+  "🔴 Giao THIẾU nhưng thu mua ĐÃ xác nhận nhận hàng → qua được ⑦ Hồ sơ thanh toán",
+  'Sếp 17/09/2026 — *"có đủ hay thiếu thì NV thu mua cũng bấm được vì có trường hợp giao thiếu"*',
+  () => {
+    const b = boGiaiDoanThu();
+    const poDaXN = { ...b.po, xacNhanKho: { uid: "u1", ten: "NV Thu mua", thoiDiem: "2026-09-17" } };
+    const gd = G.xacDinhGiaiDoan(b.dn, [poDaXN], [], b.phieu(50));
+    return {
+      duoc: gd === "ho_so_thanh_toan",
+      thucTe: `xacDinhGiaiDoan = "${gd}" (mới nhận 50/100, đã xác nhận)`,
+      mongDoi: '"ho_so_thanh_toan" — trước 17/09 chỗ này trả "nhan_hang" và hồ sơ kẹt vĩnh viễn',
+    };
+  },
+);
+
+kiem(
+  "🔴 CHIỀU NGHỊCH: giao thiếu mà CHƯA ai xác nhận → vẫn đứng ở ⑥",
+  "mở cho giao thiếu không có nghĩa mọi hồ sơ tự nhảy bước",
+  () => {
+    const b = boGiaiDoanThu();
+    const gd = G.xacDinhGiaiDoan(b.dn, [b.po], [], b.phieu(50));
+    return {
+      duoc: gd === "nhan_hang",
+      thucTe: `xacDinhGiaiDoan = "${gd}"`,
+      mongDoi: '"nhan_hang" — phải có người bấm xác nhận thì mới qua bước',
+    };
+  },
+);
+
+kiem(
+  "🔴 Đề nghị có HAI đơn, mới xác nhận MỘT → vẫn đứng ở ⑥",
+  "dùng `every` chứ không phải `some` — một đơn xong không kéo cả hồ sơ sang bước thanh toán",
+  () => {
+    const b = boGiaiDoanThu();
+    const po1 = { ...b.po, xacNhanKho: { uid: "u1", ten: "NV Thu mua", thoiDiem: "2026-09-17" } };
+    const po2 = { ...b.po, id: b.po.id + "-2", code: b.po.code + "-2" };
+    const gd = G.xacDinhGiaiDoan(b.dn, [po1, po2], [], b.phieu(50));
+    return {
+      duoc: gd === "nhan_hang",
+      thucTe: `xacDinhGiaiDoan = "${gd}" (1/2 đơn đã xác nhận)`,
+      mongDoi: '"nhan_hang" — còn đơn chưa xác nhận thì hồ sơ chưa qua bước',
     };
   },
 );

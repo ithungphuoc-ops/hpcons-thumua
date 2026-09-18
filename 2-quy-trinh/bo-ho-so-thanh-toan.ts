@@ -276,6 +276,13 @@ export interface MucHoSoThanhToan {
    * ràng buộc nào — cả hai đều "(nếu có)".
    */
   batBuoc: boolean;
+  /**
+   * ★★ MỌI NHÓM ĐỀU PHẢI CÓ CHỨNG TỪ (`true`), hay chỉ cần MỘT nhóm có là đủ (mặc định).
+   *
+   * Bật cho mục ⑤ *Phiếu giao hàng*: mỗi lần giao là một tờ phiếu riêng (Ban lãnh đạo 11/08/2026),
+   * nên thiếu một lần là thiếu cả mục. Xem chú thích đầy đủ ở `mucDaCo`.
+   */
+  moiNhomPhaiCo?: boolean;
   /** Tệp của mục này — MẢNG RỖNG nghĩa là chưa có. */
   tep: MoTaTep[];
   /**
@@ -333,7 +340,21 @@ export interface MucHoSoThanhToan {
    * 📌 Có `nhom` thì `tep` để RỖNG — nơi vẽ đọc `nhom` trước. Không nhồi cả hai để tránh cùng
    * một tệp hiện hai lần.
    */
-  nhom?: { ten: string; tep: MoTaTep[]; ghiChu?: string }[];
+  /**
+   * ★ `bangChungNgoai` — nhóm này **đã có bằng chứng hợp lệ dù `tep` rỗng** (Sếp 18/09/2026).
+   *
+   * 🔴 SINH RA ĐỂ VÁ MỘT MÂU THUẪN CÓ THẬT: ảnh do QLK CTR gửi kèm nằm bên kho công trình chứ
+   * không nằm trong kho tệp của Thu mua (hợp đồng dữ liệu của phiên tích hợp, 23/08/2026 —
+   * `3-du-lieu/tich-hop-qlk-ctr-nhan-hang-types.ts`). `vuongMacXacNhanKho` **đã** coi ảnh đó là
+   * bằng chứng giao nhận hợp lệ, nhưng bộ hồ sơ thanh toán chỉ đếm `tep` nên vẫn báo vàng
+   * *"Chưa có phiếu giao nhận nào"* — app vừa **hiện** bằng chứng vừa **báo không có** bằng
+   * chứng, trên cùng một khối. Sếp bắt được 18/09/2026.
+   *
+   * ⚠️ CỜ NÀY KHÔNG PHẢI "MIỄN CHỨNG TỪ". Chỉ bật khi có một bằng chứng thật ở nơi khác (ảnh QLK
+   * CTR) hoặc khi luật không đòi chứng từ cho lần đó (`tu_choi_nhan`). Bật bừa là dựng lại đúng
+   * lỗi "màn hình nói đủ, dữ liệu thì thiếu" mà chú thích `mucDaCo` bên dưới cấm.
+   */
+  nhom?: { ten: string; tep: MoTaTep[]; ghiChu?: string; bangChungNgoai?: boolean }[];
   /** Câu nói rõ mục này đang thiếu gì / lấy ở bước nào. Rỗng khi đã đủ. */
   ghiChu?: string;
 }
@@ -359,7 +380,34 @@ export interface MucHoSoThanhToan {
  * ngoài.
  */
 export function mucDaCo(m: MucHoSoThanhToan): boolean {
-  return m.tep.length > 0 || (m.nhom ?? []).some((n) => n.tep.length > 0);
+  if (m.tep.length > 0) return true;
+  const nhom = m.nhom ?? [];
+  /**
+   * ★★ `moiNhomPhaiCo` — MỌI NHÓM ĐỀU PHẢI CÓ CHỨNG TỪ, không phải "có ít nhất một".
+   *
+   * 🔴 SỬA MỘT LỖI ĐO ĐƯỢC 18/09/2026, và nó có từ 15/09 chứ không phải mới: mục ⑤ *Phiếu giao
+   * hàng* hỏi bằng `.some` trong khi luật gốc `vuongMacXacNhanKho` (`2-quy-trinh/tinh-toan.ts`)
+   * hỏi bằng `.every` — **kiểm TỪNG phiếu**, đúng chỉ đạo Ban lãnh đạo 11/08/2026 *"mỗi lần giao
+   * phải có phiếu giao nhận"*. Hai nơi lệch lượng từ nên sinh ca hỗn hợp:
+   *
+   *   lần 1 có ảnh QLK CTR (hoặc bị từ chối nhận) · lần 2 hàng vào kho nhưng CHƯA có phiếu
+   *   → `vuongMacXacNhanKho` VƯỚNG (đúng), nhưng mục ⑤ hiện dấu ✓ xanh và không một câu cảnh báo
+   *   ở cấp mục. Kế toán mở bảng kiểm thấy đủ, trong khi hồ sơ thật sự thiếu một tờ phiếu.
+   *
+   * 📌 Chính chú thích của mục ⑤ đã tự đặt luật *"HAI NƠI NÀY PHẢI LUÔN CÙNG MỘT CÂU TRẢ LỜI"* —
+   * nên đây là mã nguồn mâu thuẫn với chú thích ngay trên nó, không phải hành vi cố ý.
+   *
+   * ⚠️ KHÔNG ĐỔI `.some` THÀNH `.every` CHO MỌI MỤC. Mục ② (bản báo giá · bảng so sánh) đang dựa
+   * đúng vào `.some`: đổi hết là mọi hồ sơ chưa đính bảng so sánh mất dấu ✓. Vì vậy mới cần cờ
+   * riêng, bật cho đúng mục `phieu_giao_hang`.
+   *
+   * ⚠️ `nhom.length > 0` là bắt buộc: `[].every(...)` trả `true`, nên bỏ điều kiện này là hồ sơ
+   * **chưa giao lần nào** bỗng hiện đủ.
+   */
+  if (m.moiNhomPhaiCo) {
+    return nhom.length > 0 && nhom.every((n) => n.tep.length > 0 || n.bangChungNgoai);
+  }
+  return nhom.some((n) => n.tep.length > 0 || n.bangChungNgoai);
 }
 
 /**
@@ -690,11 +738,27 @@ export function dungBoHoSoThanhToan(
    * ⚠️ Không lọc theo trạng thái phiếu: phiếu còn chờ kiểm tra vẫn là chứng từ đã giao. Việc "chỉ
    * tính khối lượng của phiếu đã nhập kho" là luật về KHỐI LƯỢNG, không phải về chứng từ.
    */
-  const nhomPhieuGiao: { ten: string; tep: MoTaTep[]; ghiChu?: string }[] = [...phieuCuaDeNghi]
+  const nhomPhieuGiao: {
+    ten: string;
+    tep: MoTaTep[];
+    ghiChu?: string;
+    bangChungNgoai?: boolean;
+  }[] = [...phieuCuaDeNghi]
     .sort((a, b) => a.poCode.localeCompare(b.poCode) || a.lanGiaoThu - b.lanGiaoThu)
     .map((p) => ({
       ten: `Lần giao thứ ${p.lanGiaoThu} — ${p.poCode}`,
       tep: p.tepPhieuGiao ? [p.tepPhieuGiao] : [],
+      /**
+       * 🔴 BẬT CỜ ĐÚNG HAI CA MÀ `vuongMacXacNhanKho` KHÔNG BẮT LỖI (`2-quy-trinh/tinh-toan.ts`):
+       * ảnh QLK CTR gửi kèm, và lần giao bị từ chối nhận. Hai ca này **không thiếu chứng từ**, và
+       * chú thích ngay dưới đây đã ghi luật đó từ 15/09/2026 — nhưng phép đếm `coPhieuGiao` lại
+       * quên, nên câu vàng tổng vẫn báo thiếu. Đây chính là chỗ hai bên nói ngược nhau.
+       *
+       * ⚠️ HAI NƠI NÀY PHẢI LUÔN CÙNG MỘT CÂU TRẢ LỜI. Sửa điều kiện ở đây mà không sửa
+       * `vuongMacXacNhanKho` (hoặc ngược lại) là dựng lại đúng mâu thuẫn vừa vá. Có bài kiểm
+       * hai chiều ghim việc này trong `kiem-luat-dung-chung.mjs`.
+       */
+      bangChungNgoai: Boolean(p.anhQlkCtr) || p.trangThai === "tu_choi_nhan",
       /* 🔴 NHÓM RỖNG PHẢI NÓI RÕ VÌ SAO RỖNG — ba lý do khác hẳn nhau, gộp một câu là báo động sai.
          Hai lý do đầu KHÔNG phải thiếu chứng từ, và `vuongMacXacNhanKho` cũng không bắt lỗi chúng
          (`2-quy-trinh/tinh-toan.ts`) — viết "chưa đính" cho chúng là đuổi người dùng đi tìm một tờ
@@ -702,7 +766,7 @@ export function dungBoHoSoThanhToan(
       ghiChu: p.tepPhieuGiao
         ? undefined
         : p.anhQlkCtr
-          ? `Kho công trình (QLK CTR) gửi kèm ảnh phiếu "${p.anhQlkCtr.ten}" — ảnh nằm bên QLK CTR, xem ở bước Nhận hàng. App Thu mua không giữ bản sao.`
+          ? `Đã có bằng chứng giao nhận: ảnh phiếu "${p.anhQlkCtr.ten}" do Kho công trình (QLK CTR) gửi kèm — mở khối "Tiến độ nhận hàng" ở bước Nhận hàng để xem và tải về. Lần giao này không phải đính thêm phiếu.`
           : p.trangThai === "tu_choi_nhan"
             ? "Lần giao bị từ chối nhận — không đòi phiếu giao nhận cho lần này."
             : "Chưa đính phiếu giao nhận cho lần giao này.",
@@ -733,7 +797,19 @@ export function dungBoHoSoThanhToan(
       tep: tepGiaoPhongBan,
     });
   }
-  const coPhieuGiao = nhomPhieuGiao.some((n) => n.tep.length > 0);
+  /**
+   * 🔴 XÉT CẢ `bangChungNgoai` — nếu không thì hồ sơ có đủ ảnh QLK CTR cho mọi lần giao vẫn bị
+   * báo vàng *"Chưa có phiếu giao nhận nào"*, trong khi ngay bên trên app vừa liệt kê đúng những
+   * ảnh đó. Sếp 18/09/2026 hỏi *"có cách nào kéo nội dung này về app Thu mua không"* — hỏi vì
+   * nhìn thấy app tự mâu thuẫn, không phải vì thiếu ảnh.
+   */
+  /**
+   * 🔴 `every` CHỨ KHÔNG PHẢI `some` — sửa 18/09/2026, xem chú thích đầy đủ ở `mucDaCo`.
+   * Luật gốc `vuongMacXacNhanKho` kiểm TỪNG phiếu (Ban lãnh đạo 11/08/2026); hỏi bằng `some` là
+   * hồ sơ có 1 lần giao đủ và 1 lần giao thiếu vẫn hiện ✓ xanh, không một câu cảnh báo nào.
+   */
+  const nhomConThieu = nhomPhieuGiao.filter((n) => n.tep.length === 0 && !n.bangChungNgoai);
+  const coPhieuGiao = nhomPhieuGiao.length > 0 && nhomConThieu.length === 0;
 
   /**
    * ★★★ ĐÃ TÁCH HAI CHỨNG TỪ — Sếp 16/09/2026: ***"Tách làm 2 mục riêng"***.
@@ -881,9 +957,21 @@ export function dungBoHoSoThanhToan(
       /* `tep` RỖNG vì mục này dùng `nhom` (từ 15/09/2026) — xem chú thích ở khai báo `nhom`. */
       tep: [],
       nhom: nhomPhieuGiao,
+      /* Mỗi lần giao một tờ phiếu — thiếu một lần là thiếu cả mục. Xem `mucDaCo`. */
+      moiNhomPhaiCo: true,
+      /**
+       * 🔴 CÂU CẢNH BÁO PHẢI NÓI ĐÚNG LẦN GIAO NÀO THIẾU (18/09/2026). Trước đó luôn in *"Chưa có
+       * phiếu giao nhận nào"* — sai sự thật khi hồ sơ đã có phiếu cho lần 1 và chỉ thiếu lần 2,
+       * và người đọc đi tìm nhầm chỗ. `vuongMacXacNhanKho` đã liệt kê *"lần N"* từ lâu; đây là
+       * mượn đúng cách nói đó cho khớp hai nơi.
+       */
       ghiChu: thieu(
         coPhieuGiao,
-        "Chưa có phiếu giao nhận nào — mỗi lần giao phải đính một phiếu.",
+        nhomPhieuGiao.length === 0
+          ? "Chưa có phiếu giao nhận nào — mỗi lần giao phải đính một phiếu."
+          : `Còn ${nhomConThieu.length}/${nhomPhieuGiao.length} lần giao chưa có phiếu giao nhận: ${nhomConThieu
+              .map((n) => n.ten)
+              .join(" · ")}.`,
       ),
     },
     /* 🔴 TÁCH HAI MỤC (Sếp 15/09/2026) — trước đây là MỘT mục `hoa_don_unc` chia hai `nhom`.

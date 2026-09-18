@@ -129,6 +129,7 @@ import {
   NHAN_GIAI_DOAN,
   xacDinhGiaiDoan,
   duocDinhDonMuaHangNCCKy,
+  duocDinhHopDongVaoOTrong,
   duocSuaHopDongTheoGiaiDoan,
   giaiDoanDaToiLuot,
   conNoCuaBuoc,
@@ -890,6 +891,10 @@ export default function TrangChiTietDeNghi({
    * chỗ kia — xem chú thích đầy đủ ở nơi khai báo hàm.
    */
   const duocSuaHopDong = duocSuaHopDongTheoGiaiDoan(quyen, giaiDoan);
+  /* ★ ĐÍNH VÀO Ô TRỐNG là quyền RIÊNG, rộng hơn quyền thay/xoá — Sếp 18/09/2026 *"mở nút đính kèm
+     cho nhân viên"*, và chốt lại *"vẫn giữ ở trưởng bộ phận"* cho việc thay. Xem
+     `duocDinhHopDongVaoOTrong` để biết vì sao KHÔNG nới thẳng `duocSuaHopDong`. */
+  const duocDinhHopDong = duocDinhHopDongVaoOTrong(quyen);
   /* ★ Bản PO nhà cung cấp ký có cờ RIÊNG — Sếp 16/09/2026: "Nhân viên là người đính kèm file PO
      ký". Xem `duocDinhDonMuaHangNCCKy` để biết vì sao không dùng chung cờ với Hợp đồng. */
   const duocDinhPOKy = duocDinhDonMuaHangNCCKy(quyen);
@@ -2660,6 +2665,7 @@ export default function TrangChiTietDeNghi({
                       moTa="Bản hợp đồng mua bán / thoả thuận đã ký với nhà cung cấp."
                       batBuoc
                       duocSua={duocSuaHopDong}
+                      duocDinhMoi={duocDinhHopDong}
                       khoa={hoSoDaDong}
                       tepDaCo={tepHopDongSuaDuoc(dn)}
                     />
@@ -2794,6 +2800,11 @@ export default function TrangChiTietDeNghi({
                         maGiaiDoan="lap_don_mua_hang"
                         duocSua={duocSuaTepBuoc}
                         khoa={hoSoDaDong}
+                        /* 🔴 KHÔNG ĐỂ KHU NÀY ĐỤNG VÀO TỆP HỢP ĐỒNG — bịt đường vòng đo được
+                           18/09/2026: ô Hợp đồng siết quyền từ bước ⑤ (Sếp 01/09), nhưng khu tệp
+                           tự do cùng ngăn lại gác bằng cờ rộng hơn, nên nhân viên xoá được bản đã
+                           ký ngay tại đây. Xem prop `boNhan`. */
+                        boNhan={[NHAN_TEP_HOP_DONG]}
                       />
                     )}
                   </div>

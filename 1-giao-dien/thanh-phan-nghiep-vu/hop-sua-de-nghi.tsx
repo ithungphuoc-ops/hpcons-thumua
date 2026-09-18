@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
+import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
@@ -221,12 +222,11 @@ export function HopSuaThoiHan({
         <div className="flex flex-col gap-(--hp-md-card-gap)">
           <div className="flex flex-col gap-2">
             <Label htmlFor="sua-ngay-can-hang">Ngày cần hàng mới</Label>
-            <Input
+            <OChonNgay
               id="sua-ngay-can-hang"
-              type="date"
-              value={ngay}
-              onChange={(e) => setNgay(e.target.value)}
-              className="w-48"
+              nhan="Ngày cần hàng mới"
+              giaTri={ngay}
+              onDoi={setNgay}
             />
           </div>
           <div className="flex flex-col gap-2">

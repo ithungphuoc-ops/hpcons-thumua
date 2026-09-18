@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
+import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
@@ -278,12 +279,12 @@ export function HopGhiNhanGiaoHang({
             <div className="flex flex-wrap gap-3">
               <div className="flex min-w-48 flex-1 flex-col gap-1.5">
                 <Label htmlFor="ggh-ngay">Ngày nhận hàng thực tế</Label>
-                <Input
+                <OChonNgay
                   id="ggh-ngay"
-                  type="date"
-                  className="min-h-11 md:min-h-9"
-                  value={ngayNhan}
-                  onChange={(e) => setNgayNhan(e.target.value)}
+                  nhan="Ngày nhận hàng thực tế"
+                  giaTri={ngayNhan}
+                  onDoi={setNgayNhan}
+                  xoaDuoc={false}
                 />
               </div>
               <div className="flex min-w-48 flex-1 flex-col gap-1.5">

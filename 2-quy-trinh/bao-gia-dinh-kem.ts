@@ -106,18 +106,48 @@ export function tenNCCCuaO(ghiChu: string | undefined): string {
  * ⚠️ Và giao diện thì nói ngược lại: bảng phân bổ in *"Quy trình yêu cầu tối thiểu 02 báo giá"* —
  * app hứa một luật nó không áp, đúng thứ `CLAUDE.md` §3.5 cấm.
  *
- * 📌 Vẫn còn đường về `0`: đặt `soBaoGiaToiThieu = 0` ở trang Cài đặt. Khi đó KHÔNG chặn — nhưng
- * đó là một quyết định **có người bấm**, không phải hệ quả của việc bỏ trống một ô tuỳ chọn.
+ * 📌 Ô `soBaoGiaToiThieu` ở trang Cài đặt nhận **1–10** (`THAM_SO_QUY_TRINH`), nên không còn đặt
+ * về 0 được nữa — dòng chú thích cũ nói *"vẫn còn đường về 0"* đã lỗi thời, đã bỏ 18/09/2026.
+ *
+ * ---
+ *
+ * ★★ TỪ 18/09/2026: SỐ ĐẶT RIÊNG **THẮNG** CẤU HÌNH CHUNG, KỂ CẢ KHI NHỎ HƠN.
+ *
+ * Sếp 18/09/2026, ảnh khối bước ② có ô *"SL Báo giá"* = 1 mà app vẽ 2 ô đính kèm:
+ * ***"Ở đây yêu cầu có 1 báo giá sao lại có 2 chỗ đính kèm"***, rồi chốt: ***"Số lượng 1 thì chỉ
+ * mở 1 mục đính kèm báo giá thôi"***.
+ *
+ * 🔴 TRƯỚC ĐÓ LẤY `Math.max(canRieng, canChung)`, VÀ ĐÓ LÀ MỘT LỖI CÓ THẬT — không phải chỉ là
+ * chuyện hiển thị. Chính app đang dạy người dùng luật ngược lại: ô *"Số báo giá tối thiểu"* ở
+ * trang Cài đặt ghi *"Trưởng bộ phận đặt riêng cho từng dòng ở ô 'SL Báo giá' thì **số đó thắng
+ * số này**"* (`cau-hinh-quy-trinh.ts`), và hộp kéo thẻ Kanban in y hệt câu ấy. Người đặt 1 rồi
+ * mong ra 1 là **làm đúng như app dạy**; lấy MAX là app tự nói một đằng làm một nẻo — đúng thứ
+ * `CLAUDE.md` §3.5 cấm. Nay mã nguồn khớp với câu đã viết, không phải sửa hai câu đó.
+ *
+ * 🔴 SỰ CỐ 24/08/2026 KHÔNG QUAY LẠI, ĐỌC KỸ CHỖ NÀY TRƯỚC KHI ĐỔI: hôm đó hỏng vì ca **KHÔNG
+ * DÒNG NÀO ĐẶT SỐ** (`canRieng === 0`) làm hàm trả `0` và cổng chặn mở toang. Ca đó **vẫn rơi về
+ * `canChung` y như cũ** — nhánh `so.length === 0` ở dưới. Cái đổi hôm nay chỉ là ca người dùng
+ * **đặt rõ một con số ≥ 1**, tức có người chịu trách nhiệm cho con số đó.
+ *
+ * ⚠️ AI HẠ ĐƯỢC XUỐNG DƯỚI MỨC TỐI THIỂU: chỉ Trưởng bộ phận. Nhân viên bị kẹp sàn ở mốc TP đã
+ * giao (`sanSoBaoGiaTPGiao`, cờ `chiTang` trong `o-sua-so-bao-gia.tsx`), nên không tự hạ để né
+ * quy định cạnh tranh giá. Đây là chốt PHẢI GIỮ — bỏ nó là ai cũng hạ được về 1.
+ *
+ * 📌 Hồ sơ chỉ cần 1 báo giá vẫn còn hai đường hợp lệ khác đã có sẵn: chỉ định thẳng nhà cung cấp
+ * kèm lý do (`vuongMacChiDinhNCCLucGiaoViec`) và xin bỏ qua ô còn thiếu (`khoaLyDoBoQuaBaoGia`).
  */
 export function soBaoGiaCanCo(deNghi: DeNghiMuaHang, cauHinh: CauHinhQuyTrinh): number {
   const so = deNghi.items
     .map((d) => d.soBaoGiaYeuCau)
     .filter((x): x is number => typeof x === "number" && x > 0);
-  /* Đặt riêng cho dòng nào thì con số đó THẮNG cấu hình chung — trưởng bộ phận biết dòng nào cần
-     hỏi kỹ hơn mức tối thiểu. */
-  const canRieng = so.length === 0 ? 0 : Math.max(...so);
   const canChung = Math.max(0, Math.trunc(cauHinh.soBaoGiaToiThieu ?? 0));
-  return Math.min(Math.max(canRieng, canChung), TOI_DA_O_BAO_GIA);
+  /* 🔴 KHÔNG DÒNG NÀO ĐẶT SỐ thì rơi về cấu hình chung — đây chính là chốt vá sự cố 24/08/2026,
+     đừng gộp hai nhánh lại cho gọn. */
+  if (so.length === 0) return Math.min(canChung, TOI_DA_O_BAO_GIA);
+  /* Có người đặt rõ: lấy số CAO NHẤT trong các dòng (trưởng bộ phận có thể đòi dòng thép 3 bản,
+     dòng cát 2 bản — lấy số nhỏ hơn là bỏ qua yêu cầu chặt nhất), và con số đó THẮNG cấu hình
+     chung theo cả hai chiều. */
+  return Math.min(Math.max(...so), TOI_DA_O_BAO_GIA);
 }
 
 /** Tệp báo giá đang đính ở bước ②. */
