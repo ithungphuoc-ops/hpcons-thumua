@@ -762,8 +762,15 @@ export default function TrangChiTietDonHang() {
 
                   📌 Điều kiện chứng từ KHÔNG đổi — `vuongMacTep` bên dưới vẫn khoá nút của hồ sơ
                   công trình khi còn lần giao nào thiếu phiếu giao hàng. */}
+              {/* ★★★ ĐỔI 17/09/2026 cùng lượt với nút bên `de-nghi-chi-tiet.tsx`: điều kiện
+                  "đã nhận đủ" (`daGiaoDu`) đổi thành "có tiến độ nhận hàng"
+                  (`phieuCuaPO.length > 0`). Sếp: *"có đủ hay thiếu thì NV thu mua cũng bấm được
+                  vì có trường hợp giao thiếu"*.
+                  🔴 HAI NÚT PHẢI CÙNG ĐIỀU KIỆN. Đây là hai lối vào của CÙNG một việc; để lệch
+                  nhau là người dùng thấy nút ở màn này mà không thấy ở màn kia, rồi tưởng app
+                  lỗi — đúng loại lỗi khó truy nhất. */}
               {duocXacNhanNhanDuHangCuaHoSo(deNghiNguon, nguoiDung) &&
-                daGiaoDu &&
+                phieuCuaPO.length > 0 &&
                 !hoSoPhongBan &&
                 !po.xacNhanKho && (
                 <>

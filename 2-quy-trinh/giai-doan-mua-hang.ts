@@ -345,7 +345,34 @@ export function xacDinhGiaiDoan(
      */
     const phongBanDaGiao = laHoSoPhongBan(deNghi) && coPhieuGiaoHangPhongBan(deNghi);
 
-    if (daVeDu || phongBanDaGiao) {
+    /**
+     * ★★★ ĐƯỜNG VÀO THỨ BA — "THU MUA ĐÃ XÁC NHẬN NHẬN HÀNG". Sếp 17/09/2026.
+     *
+     * Nguyên văn: *"Cái nút ở bước 6 thu mua là phải có tiến độ nhận hàng, có đủ hay thiếu thì
+     * NV thu mua cũng bấm được vì có trường hợp giao thiếu"*.
+     *
+     * 🔴 KHÔNG THÊM ĐƯỜNG NÀY THÌ CẢ VIỆC SỬA NÚT LÀ VÔ NGHĨA. Hai `daVeDu` và `phongBanDaGiao`
+     * đều đòi hàng về đủ. Mở nút cho người bấm mà cửa vào bước ⑦ vẫn khoá thì người dùng bấm
+     * xong, thấy toast xanh, rồi thẻ **đứng nguyên ở cột ⑥** — và họ sẽ bấm lại, tưởng app hỏng.
+     * Đây đúng loại lỗi "sửa ở cổng ghi mà quên chỗ đọc" mà chú thích ⑧ phía trên đã ghi lại như
+     * một bài học.
+     *
+     * 🔴 `every` CHỨ KHÔNG PHẢI `some`: đề nghị có nhiều đơn thì phải xác nhận HẾT mới qua bước.
+     * Dùng `some` là một đơn xong kéo cả hồ sơ sang bước thanh toán trong khi các đơn khác còn
+     * đang giao. `poCuaDeNghi` đã lọc bỏ đơn huỷ ngay đầu hàm nên đơn huỷ không chặn.
+     *
+     * ⚠️ VÌ SAO CHẤP NHẬN CHO QUA BƯỚC KHI HÀNG CÒN THIẾU: nhà cung cấp giao thiếu là chuyện có
+     * thật, và nhiều khi không bao giờ giao nốt. Giữ nguyên luật cũ thì hồ sơ đó kẹt vĩnh viễn ở
+     * cột ⑥. Đo lúc 21:03 ngày 17/09: 4/5 đề nghị đứng ở cột ⑥ đúng vì lý do này.
+     *
+     * 📌 KHÔNG nới cửa cuối. `vuongMacHoanThanhQuyTrinh` vẫn đòi đủ hoá đơn VAT, đã tích UNC,
+     * hàng về đủ, không còn dòng chưa lên đơn — nên hồ sơ giao thiếu đi tới được cột ⑦ để làm
+     * chứng từ, nhưng vẫn KHÔNG tự đóng sang cột ⑧ Hoàn thành. Người có thẩm quyền phải quyết.
+     */
+    const daXacNhanNhanHang =
+      poCuaDeNghi.length > 0 && poCuaDeNghi.every((po) => Boolean(po.xacNhanKho));
+
+    if (daVeDu || phongBanDaGiao || daXacNhanNhanHang) {
       return "ho_so_thanh_toan";
     }
   }
