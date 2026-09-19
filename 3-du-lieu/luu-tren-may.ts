@@ -18,6 +18,7 @@
 
 import type {
   DeNghiMuaHang,
+  DotThanhToanPO,
   DonDatHang,
   GiaDonDatHang,
   PhieuNhanHang,
@@ -134,6 +135,55 @@ export function xoaDuLieuDaLuu(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(KHOA);
+  } catch {
+    /* Không xóa được thì thôi. */
+  }
+}
+
+/**
+ * ★★ BẢN LƯU TRÊN MÁY CỦA ĐỢT THANH TOÁN — KHOÁ RIÊNG, tách khỏi `KHOA` ở trên.
+ *
+ * 🔴 CÙNG LÝ DO VỚI VIỆC TÁCH TÀI LIỆU TRÊN FIRESTORE (xem đầu `kho-thanh-toan-firestore.ts`):
+ * `ghiDuLieu` ghi đè **cả** bản lưu theo hình dạng `DuLieuLuu`, và `docDuLieuDaLuu` đọc lại theo
+ * **danh sách trắng**. Nhét đợt thanh toán vào đó là mỗi lần một bản deploy cũ ghi đè thì tiền
+ * biến mất — đúng lỗi `cauHinh` ngày 13/08/2026, chỉ khác là lần này mất dữ liệu tiền.
+ *
+ * 📌 Khoá riêng nên bản cũ không biết mà đụng tới.
+ */
+const KHOA_THANH_TOAN = "hpcons-thumua-thanh-toan-v1";
+
+/** Đọc đợt thanh toán đã lưu. Hỏng hoặc chưa có → mảng rỗng (KHÔNG phải `null`). */
+export function docThanhToanDaLuu(): DotThanhToanPO[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const s = window.localStorage.getItem(KHOA_THANH_TOAN);
+    if (!s) return [];
+    const d = JSON.parse(s) as { dotThanhToan?: unknown };
+    const ds = Array.isArray(d?.dotThanhToan) ? d.dotThanhToan : [];
+    /* Lọc từng bản ghi: thiếu `id` hoặc `poId` là không truy ngược được về đơn nào — giữ lại chỉ
+       làm số liệu tiền sai mà không ai lần ra nguồn. */
+    return (ds as DotThanhToanPO[]).filter(
+      (x) => !!x && typeof x.id === "string" && !!x.id && typeof x.poId === "string" && !!x.poId,
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function ghiThanhToanLenMay(ds: DotThanhToanPO[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(KHOA_THANH_TOAN, JSON.stringify({ dotThanhToan: ds }));
+  } catch {
+    /* Hết dung lượng — mất bản lưu còn hơn treo app. Máy chủ vẫn là nguồn chính. */
+  }
+}
+
+/** Dọn kèm khi bấm "Xóa dữ liệu chạy thử" — để sót là tiền cũ sống lại sau khi xoá sạch. */
+export function xoaThanhToanDaLuu(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(KHOA_THANH_TOAN);
   } catch {
     /* Không xóa được thì thôi. */
   }

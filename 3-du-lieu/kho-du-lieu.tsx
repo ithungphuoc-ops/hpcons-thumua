@@ -128,11 +128,15 @@ import {
 } from "@/3-du-lieu/du-lieu-mau";
 import {
   docDuLieuDaLuu,
+  docThanhToanDaLuu,
+  ghiThanhToanLenMay,
+  xoaThanhToanDaLuu,
   ghiDuLieu,
   xoaDuLieuDaLuu,
   type DuLieuLuu,
 } from "@/3-du-lieu/luu-tren-may";
 import { noiKhoChung, type KetNoiKhoChung } from "@/3-du-lieu/kho-chung-firestore";
+import { noiKhoThanhToan, type KetNoiThanhToan } from "@/3-du-lieu/kho-thanh-toan-firestore";
 /* ★★ NHỊP GHI & NHỊP THỬ LẠI (Sếp 15/09/2026, theo phân tích của đội QLK CTR cùng ngày) — hàm
    THUẦN đặt ở `2-quy-trinh/` đúng chỉ đạo *"luật nằm trong hook thì không bài kiểm nào bắt
    được"*. `kiem-luat-dung-chung.mjs` gọi thật cả bốn hàm này. */
@@ -178,6 +182,7 @@ import type {
   DongNhanHang,
   DongPO,
   DonDatHang,
+  DotThanhToanPO,
   GiaDonDatHang,
   NgayISO,
   NguoiTheoDoi,
@@ -817,6 +822,47 @@ export function vuongMacQuyenXacNhanHoanThanhDon(
   return "Chỉ Trưởng bộ phận, người phụ trách đơn này, hoặc người đang phụ trách một phần việc của đề nghị gốc mới duyệt hoàn thành đơn được.";
 }
 
+/**
+ * ★★ AI ĐƯỢC GHI / SỬA / XOÁ MỘT ĐỢT THANH TOÁN — Sếp 18/09/2026 duyệt **Kế toán và Trưởng phòng**.
+ *
+ * 🔴 CHẶN Ở TẦNG GHI, KHÔNG CHỈ ẨN NÚT. Đây là luật về TIỀN; ẩn nút chỉ chặn được đúng cái nút đó,
+ * còn mọi đường khác (gõ tay, thao tác cũ còn trong bộ nhớ trình duyệt) vẫn đi lọt — bài học §6.6.
+ *
+ * 📌 Dùng cờ RIÊNG `ghiThanhToan`, không mượn `lapPO` của điều khoản công nợ: điều kiện nợ là thứ
+ * Thu mua đàm phán, còn số tiền đã chi là việc Kế toán ghi theo uỷ nhiệm chi.
+ */
+export function vuongMacQuyenGhiThanhToan(quyen: Pick<Quyen, "ghiThanhToan">): string | null {
+  if (quyen.ghiThanhToan) return null;
+  return "Chỉ Kế toán, Trưởng bộ phận (cấp 3 trở lên) hoặc quản trị mới ghi được số tiền đã thanh toán.";
+}
+
+/**
+ * ★★ KIỂM MỘT ĐỢT THANH TOÁN TRƯỚC KHI GHI — hàm THUẦN, gọi thật được nên bài kiểm canh được.
+ *
+ * 🔴 BỐN ĐIỀU KIỆN, mỗi cái vá một cách hỏng số liệu tiền:
+ *   · **số tiền > 0** — ghi 0 đồng là một dòng vô nghĩa làm bảng có đợt mà tổng không đổi;
+ *     ghi số âm là "trả âm", tức lén tăng dư nợ mà nhìn bảng không ra.
+ *   · **số hữu hạn** — chuỗi rác hoặc phép chia lỗi cho ra `NaN`/`Infinity`, lọt vào là CẢ cột
+ *     "Còn lại" của đơn đó hiện "NaN đ".
+ *   · **có ngày chi** — không có ngày thì không đối chiếu được với sao kê ngân hàng.
+ *   · **có đơn** — đợt chi không gắn đơn là tiền ra khỏi tài khoản mà không biết trả cho việc gì.
+ */
+export function vuongMacDotThanhToan(dot: {
+  poId?: string;
+  ngayChi?: string;
+  soTien?: number;
+}): string | null {
+  if (!dot.poId) return "Đợt thanh toán phải gắn với một đơn hàng.";
+  if (!dot.ngayChi || !/^\d{4}-\d{2}-\d{2}$/.test(dot.ngayChi)) {
+    return "Phải chọn ngày chi để đối chiếu với sao kê.";
+  }
+  const tien = Number(dot.soTien);
+  if (!Number.isFinite(tien) || tien <= 0) {
+    return "Số tiền thanh toán phải lớn hơn 0.";
+  }
+  return null;
+}
+
 export function vuongMacQuyenSuaDieuKhoanCongNo(quyen: Pick<Quyen, "lapPO">): string | null {
   /* 🔴 `lapPO`, KHÔNG phải `xemCongNo` — đúng cờ màn Công nợ đang dùng (`suaDuocDieuKhoan`).
      Xem và sửa là hai việc khác nhau: Kế toán cần ĐỌC công nợ, nhưng điều kiện thanh toán là thứ
@@ -1321,9 +1367,33 @@ interface GiaTriDuLieu {
    *
    * @returns Câu lý do bị chặn, `null` là đã ghi xong (hoặc không có gì đổi).
    */
+  /** ★ Các đợt đã chi của mọi đơn (Sếp 18/09/2026). Cất ở tài liệu RIÊNG, xem `kho-thanh-toan-firestore.ts`. */
+  dotThanhToan: DotThanhToanPO[];
+  /** @returns câu lý do bị chặn, `null` là ghi xong. */
+  themDotThanhToan: (dot: {
+    poId: string;
+    ngayChi: NgayISO;
+    soTien: number;
+    soChungTuChi?: string;
+    ghiChu?: string;
+  }) => string | null;
+  suaDotThanhToan: (
+    id: string,
+    thayDoi: { ngayChi?: NgayISO; soTien?: number; soChungTuChi?: string; ghiChu?: string },
+  ) => string | null;
+  xoaDotThanhToan: (id: string) => string | null;
   datDieuKhoanCongNo: (
     poId: string,
-    thayDoi: { soNgayDuocNo?: number | null; ngayBatDauTinhNoTay?: NgayISO | null },
+    thayDoi: {
+      soNgayDuocNo?: number | null;
+      ngayBatDauTinhNoTay?: NgayISO | null;
+      /** Số hoá đơn NCC — Sếp 18/09/2026, cùng cụm điều kiện thanh toán. */
+      soHoaDon?: string | null;
+      /** Tổng tiền ghi trên hoá đơn — Sếp 19/09/2026. `null` = xoá về "chưa nhập". */
+      tongTienHoaDon?: number | null;
+      /** Căn cứ tính nợ của RIÊNG đơn này — Sếp 19/09/2026. */
+      canCuCongNo?: "po" | "hoa_don";
+    },
     nguoiThucHien: string,
   ) => string | null;
   /**
@@ -1951,6 +2021,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   const [baoGia, setBaoGia] = useState<BaoGia[]>(BAO_GIA_MAU);
   const [thongBao, setThongBao] = useState<ThongBaoChuyenBuoc[]>([]);
   /**
+   * ★★ ĐỢT THANH TOÁN — state RIÊNG, không nằm trong `DuLieuLuu` (Sếp 18/09/2026).
+   *
+   * 🔴 Tách khỏi kho chung là CÓ CHỦ Ý và là điểm quan trọng nhất của cả tính năng: kho chung ghi
+   * đè cả tài liệu rồi lọc theo danh sách trắng, nên một tab chạy bản deploy CŨ sẽ xoá sạch khoá
+   * mới — đã nổ một lần với `cauHinh` ngày 13/08/2026. Lần này thứ bị xoá là TIỀN.
+   * Xem khối chú thích đầu `3-du-lieu/kho-thanh-toan-firestore.ts`.
+   */
+  const [dotThanhToan, setDotThanhToan] = useState<DotThanhToanPO[]>([]);
+  /**
    * Nhà cung cấp do bộ phận thu mua tự thêm — Ban lãnh đạo 20/08/2026.
    *
    * 📌 CHỈ giữ phần NGƯỜI DÙNG THÊM. Danh mục mẫu `NHA_CUNG_CAP` vẫn nằm trong mã nguồn và được
@@ -1997,6 +2076,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const anhChupCuoi = useRef<string>("");
   const ketNoiChung = useRef<KetNoiKhoChung | null>(null);
+  /**
+   * ★ KHO ĐỢT THANH TOÁN — bốn biến dưới là ba chốt an toàn §3.6b của riêng nó, cộng một sổ
+   * ảnh chụp để không đẩy lại thứ vừa nhận về. Xem effect *"KHO ĐỢT THANH TOÁN"* bên dưới.
+   */
+  const ketNoiThanhToan = useRef<KetNoiThanhToan | null>(null);
+  const daNgheThanhToan = useRef(false);
+  const hangChoThanhToan = useRef<DotThanhToanPO[] | null>(null);
+  const anhChupThanhToan = useRef<string | null>(null);
 
   /**
    * 🔴 CHỐT AN TOÀN: chưa nghe được máy chủ nói gì thì TUYỆT ĐỐI không đẩy lên.
@@ -2903,6 +2990,94 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     };
   }, [apDung, dayLenMayChu, ghiNhanAnhChupMayChu, donLichGhiLai, dongBoSoChoGiaoDien]);
 
+  /**
+   * ★★★ KHO ĐỢT THANH TOÁN — MỘT ĐƯỜNG NỐI RIÊNG, KHÔNG ĐI CHUNG VỚI KHO CHUNG.
+   *
+   * 🔴 VÌ SAO RIÊNG: kho chung ghi đè cả tài liệu rồi lọc theo danh sách trắng, nên một tab chạy
+   * bản deploy CŨ sẽ xoá sạch khoá mới — đã nổ với `cauHinh` ngày 13/08/2026. Lần này thứ bị xoá
+   * là TIỀN. Tách tài liệu cắt hẳn ca đó (xem `3-du-lieu/kho-thanh-toan-firestore.ts`).
+   *
+   * 🔴 GIỮ NGUYÊN BA CHỐT AN TOÀN §3.6b, KHÔNG BỎ CÁI NÀO:
+   *   ① `daNgheThanhToan` — **chưa nghe máy chủ nói gì thì không đẩy lên**. Bỏ chốt này là máy
+   *      mới mở app đẩy danh sách rỗng lên và xoá sạch tiền cả phòng đã ghi.
+   *   ② `null` (máy chủ CHƯA CÓ tài liệu) **khác** danh sách rỗng — `null` thì đẩy bản của mình
+   *      lên làm bản gốc; rỗng thì lấy về. Gộp hai thứ dẫn tới đúng cách xoá sạch ở ①.
+   *   ③ `hangChoThanhToan` — `onSnapshot` có thể bắn trước khi `noiKhoThanhToan()` kịp trả về;
+   *      đẩy thẳng lúc đó là lần ghi đầu tiên rơi mất im lặng.
+   */
+  useEffect(() => {
+    // ① Bản lưu trên máy trước — mở app là thấy ngay, kể cả khi mạng chậm.
+    const tuMay = docThanhToanDaLuu();
+    if (tuMay.length > 0) setDotThanhToan(tuMay);
+
+    let conSong = true;
+    void noiKhoThanhToan(
+      (tuMayChu) => {
+        if (!conSong) return;
+        daNgheThanhToan.current = true;
+
+        /* ★ CHỐT ②: `null` = máy chủ chưa có tài liệu (lần đầu cả phòng dùng tính năng này).
+           Phải ĐẨY bản của mình lên làm bản gốc, không phải lấy cái rỗng về rồi tự xoá mình. */
+        if (tuMayChu === null) {
+          const d = dotThanhToanRef.current;
+          if (d.length > 0) void ketNoiThanhToan.current?.day({ dotThanhToan: d });
+          return;
+        }
+
+        const chuoi = JSON.stringify(tuMayChu.dotThanhToan);
+        if (chuoi === anhChupThanhToan.current) return; // chính mình vừa gửi lên
+        anhChupThanhToan.current = chuoi;
+        setDotThanhToan(tuMayChu.dotThanhToan);
+        ghiThanhToanLenMay(tuMayChu.dotThanhToan);
+      },
+      (e) => {
+        /* Nói ra thay vì im lặng — người ghi tiền phải biết mình đang ghi một mình hay chung. */
+        console.error("[kho thanh toán] không nối được:", e);
+      },
+    ).then((kn) => {
+      if (!conSong) {
+        kn?.dong();
+        return;
+      }
+      ketNoiThanhToan.current = kn;
+      /* ★ CHỐT ③: đổ hàng chờ — thứ muốn đẩy lúc kết nối chưa sẵn sàng. */
+      const cho = hangChoThanhToan.current;
+      hangChoThanhToan.current = null;
+      if (cho) void kn?.day({ dotThanhToan: cho });
+    });
+
+    return () => {
+      conSong = false;
+      ketNoiThanhToan.current?.dong();
+      ketNoiThanhToan.current = null;
+    };
+  }, []);
+
+  /**
+   * Đẩy đợt thanh toán lên máy chủ mỗi khi danh sách đổi.
+   *
+   * 🔴 CHỐT ① NẰM Ở ĐÂY: `daNgheThanhToan.current` phải bật rồi mới được đẩy. Lần chạy đầu tiên
+   * của effect này xảy ra TRƯỚC khi nghe được máy chủ, và lúc đó `dotThanhToan` đang là danh sách
+   * rỗng — đẩy lên là xoá sạch tiền của cả phòng.
+   */
+  useEffect(() => {
+    if (!daNgheThanhToan.current) return;
+    const chuoi = JSON.stringify(dotThanhToan);
+    if (chuoi === anhChupThanhToan.current) return;
+    anhChupThanhToan.current = chuoi;
+    ghiThanhToanLenMay(dotThanhToan);
+    if (!ketNoiThanhToan.current) {
+      hangChoThanhToan.current = dotThanhToan;
+      return;
+    }
+    void ketNoiThanhToan.current.day({ dotThanhToan }).catch((e) => {
+      /* Ghi hỏng thì PHẢI gỡ dấu ảnh chụp, không thì lần đổi sau trùng chuỗi và không ai đẩy lại
+         nữa — tiền nằm mãi trên máy này. */
+      anhChupThanhToan.current = null;
+      console.error("[kho thanh toán] đẩy lên hỏng:", e);
+    });
+  }, [dotThanhToan]);
+
   // ⚠️ Chờ nạp xong mới cho ghi. Bỏ điều kiện này là lần chạy đầu ghi đè bản lưu bằng
   // dữ liệu rỗng — tức xóa sạch việc người dùng đã nhập hôm trước.
   useEffect(() => {
@@ -3216,6 +3391,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       console.error("[nhat ky he thong] ghi hỏng:", e);
     }
     xoaDuLieuDaLuu();
+    /**
+     * 🔴 DỌN CẢ KHO ĐỢT THANH TOÁN — thêm 18/09/2026 cùng lượt làm tính năng.
+     *
+     * Kho đó nằm ở **tài liệu riêng** nên bộ rỗng ghi lên `du-lieu-chung` ở trên KHÔNG chạm tới
+     * nó. Quên dọn là bấm "Xóa dữ liệu chạy thử" xong, mọi đề nghị/đơn hàng biến mất nhưng tiền
+     * đã ghi vẫn còn nguyên — treo lơ lửng, trỏ vào những đơn không còn tồn tại.
+     */
+    xoaThanhToanDaLuu();
+    setDotThanhToan([]);
+    anhChupThanhToan.current = JSON.stringify([]);
+    void ketNoiThanhToan.current?.day({ dotThanhToan: [] }).catch((e) => {
+      console.error("[kho thanh toán] không dọn được khi xoá dữ liệu chạy thử:", e);
+    });
     // Tải lại cả trang thay vì chỉ đặt state rỗng: dứt điểm mọi thứ đang giữ trong bộ
     // nhớ (form đang mở, bộ lọc, thông báo) — sạch đúng như mở app lần đầu.
     if (typeof window !== "undefined") window.location.href = "/de-nghi";
@@ -3237,6 +3425,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      nó không được để `giaDonHang` trong deps (hàm sẽ dựng lại mỗi lần bảng giá đổi). */
   const giaDonHangRef = useRef(giaDonHang);
   giaDonHangRef.current = giaDonHang;
+  /* Đợt thanh toán — ba cửa ghi cần đọc bản CŨ để dựng câu nhật ký và tra đơn, mà không được
+     để state trong deps (hàm sẽ dựng lại mỗi lần có người ghi một đợt ở máy khác). */
+  const dotThanhToanRef = useRef(dotThanhToan);
+  dotThanhToanRef.current = dotThanhToan;
   const deNghiRef = useRef(deNghi);
   deNghiRef.current = deNghi;
   const baoGiaRef = useRef(baoGia);
@@ -3557,12 +3749,133 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * cuốn sổ mà người ghi tự khai tên mình thì không dùng để đối chiếu trách nhiệm được nữa.
    * Tham số vẫn giữ trong chữ ký để nơi gọi (`cong-no.tsx`) không phải sửa, nhưng CỐ Ý KHÔNG dùng.
    */
+  /**
+   * ★★★ BA CỬA GHI ĐỢT THANH TOÁN — Sếp 18/09/2026, yêu cầu ④ của màn Công nợ.
+   *
+   * 🔴 MỌI LƯỢT ĐỀU: ① kiểm quyền ở TẦNG GHI (`vuongMacQuyenGhiThanhToan`) · ② kiểm dữ liệu bằng
+   * hàm thuần (`vuongMacDotThanhToan`) · ③ ghi nhật ký đơn hàng. Đây là dữ liệu TIỀN nên không có
+   * đường nào được bỏ qua ba việc đó — kể cả khi giao diện đã chặn sẵn.
+   *
+   * 🔴 `id` SINH NGẪU NHIÊN, KHÔNG theo chỉ số mảng. Sinh theo chỉ số là xoá đợt giữa rồi thêm
+   * đợt mới sẽ ra trùng id với đợt cũ — sửa một đợt hoá ra sửa hai. Agent phản biện 18/09 bắt
+   * đúng lỗi này trong bản thiết kế đầu.
+   */
+  const themDotThanhToan = useCallback(
+    (dot: {
+      poId: string;
+      ngayChi: NgayISO;
+      soTien: number;
+      soChungTuChi?: string;
+      ghiChu?: string;
+    }): string | null => {
+      const chanQuyen = vuongMacQuyenGhiThanhToan(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const chanDuLieu = vuongMacDotThanhToan(dot);
+      if (chanDuLieu) return chanDuLieu;
+
+      const po = donHangRef.current.find((p) => p.id === dot.poId);
+      if (!po) return "Không tìm thấy đơn hàng này.";
+
+      const ban: DotThanhToanPO = {
+        id: `dtt-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`,
+        poId: dot.poId,
+        ngayChi: dot.ngayChi,
+        soTien: Math.round(Number(dot.soTien)),
+        ...(dot.soChungTuChi?.trim() ? { soChungTuChi: dot.soChungTuChi.trim().slice(0, 60) } : {}),
+        ...(dot.ghiChu?.trim() ? { ghiChu: dot.ghiChu.trim().slice(0, 200) } : {}),
+        nguoiGhiUid: nguoiDung.uid,
+        nguoiGhiTen: nguoiDung.tenHienThi,
+        thoiDiemGhi: thoiDiemHienTai(),
+      };
+      setDotThanhToan((truoc) => [...truoc, ban]);
+      ghiNhatKyDonHang(
+        po,
+        nguoiDung.tenHienThi,
+        `Ghi thanh toán ${ban.soTien.toLocaleString("vi-VN")} đ ngày ${ban.ngayChi}${
+          ban.soChungTuChi ? ` — chứng từ ${ban.soChungTuChi}` : ""
+        }`,
+      );
+      return null;
+    },
+    [nguoiDung, ghiNhatKyDonHang],
+  );
+
+  const suaDotThanhToan = useCallback(
+    (
+      id: string,
+      thayDoi: { ngayChi?: NgayISO; soTien?: number; soChungTuChi?: string; ghiChu?: string },
+    ): string | null => {
+      const chanQuyen = vuongMacQuyenGhiThanhToan(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const cu = dotThanhToanRef.current.find((d) => d.id === id);
+      if (!cu) return "Không tìm thấy đợt thanh toán này.";
+      const sau = { ...cu, ...thayDoi };
+      const chanDuLieu = vuongMacDotThanhToan(sau);
+      if (chanDuLieu) return chanDuLieu;
+
+      setDotThanhToan((truoc) =>
+        truoc.map((d) =>
+          d.id !== id
+            ? d
+            : {
+                ...d,
+                ...(thayDoi.ngayChi ? { ngayChi: thayDoi.ngayChi } : {}),
+                ...(thayDoi.soTien !== undefined ? { soTien: Math.round(Number(thayDoi.soTien)) } : {}),
+                soChungTuChi: (thayDoi.soChungTuChi ?? d.soChungTuChi)?.trim().slice(0, 60) || undefined,
+                ghiChu: (thayDoi.ghiChu ?? d.ghiChu)?.trim().slice(0, 200) || undefined,
+              },
+        ),
+      );
+      const po = donHangRef.current.find((p) => p.id === cu.poId);
+      if (po) {
+        ghiNhatKyDonHang(
+          po,
+          nguoiDung.tenHienThi,
+          `Sửa đợt thanh toán ngày ${cu.ngayChi}: ${cu.soTien.toLocaleString("vi-VN")} đ → ${Math.round(
+            Number(sau.soTien),
+          ).toLocaleString("vi-VN")} đ`,
+        );
+      }
+      return null;
+    },
+    [nguoiDung, ghiNhatKyDonHang],
+  );
+
+  const xoaDotThanhToan = useCallback(
+    (id: string): string | null => {
+      const chanQuyen = vuongMacQuyenGhiThanhToan(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const cu = dotThanhToanRef.current.find((d) => d.id === id);
+      if (!cu) return "Không tìm thấy đợt thanh toán này.";
+      setDotThanhToan((truoc) => truoc.filter((d) => d.id !== id));
+      const po = donHangRef.current.find((p) => p.id === cu.poId);
+      if (po) {
+        /* 🔴 XOÁ CŨNG PHẢI GHI NHẬT KÝ. Một dòng tiền biến mất mà không ai biết ai xoá, lúc nào,
+           là thứ đối chiếu sổ sách không bao giờ lần ra được. */
+        ghiNhatKyDonHang(
+          po,
+          nguoiDung.tenHienThi,
+          `XOÁ đợt thanh toán ${cu.soTien.toLocaleString("vi-VN")} đ ngày ${cu.ngayChi}`,
+        );
+      }
+      return null;
+    },
+    [nguoiDung, ghiNhatKyDonHang],
+  );
+
   const datDieuKhoanCongNo = useCallback(
     (
       poId: string,
       thayDoi: {
         soNgayDuocNo?: number | null;
         ngayBatDauTinhNoTay?: NgayISO | null;
+        /** ★ Số hoá đơn NCC — Sếp 18/09/2026. Cùng cụm điều kiện thanh toán, nên đi chung cửa ghi
+            này thay vì dựng một hàm thứ hai: một cụm dữ liệu thì một cửa vào, một dòng nhật ký. */
+        soHoaDon?: string | null;
+        /** ★ Tổng tiền trên hoá đơn — Sếp 19/09/2026. Cùng cửa ghi, cùng lý do. */
+        tongTienHoaDon?: number | null;
+        /** ★ Căn cứ tính nợ của riêng đơn này — Sếp 19/09/2026. */
+        canCuCongNo?: "po" | "hoa_don";
       },
       /** ⚠️ KHÔNG CÒN ĐƯỢC DÙNG — tên ghi vào sổ lấy từ `nguoiDung` của phiên đăng nhập. */
       _nguoiThucHien: string,
@@ -3603,6 +3916,34 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           );
         }
       }
+      if (thayDoi.soHoaDon !== undefined) {
+        const cu = giaCu.soHoaDon;
+        const moi = thayDoi.soHoaDon?.trim() || null;
+        if ((cu ?? null) !== moi) {
+          moc.push(`số hoá đơn: ${cu || "chưa có"} → ${moi ?? "chưa có"}`);
+        }
+      }
+      if (thayDoi.canCuCongNo !== undefined) {
+        const cu = giaCu.canCuCongNo ?? "po";
+        if (cu !== thayDoi.canCuCongNo) {
+          const ten = (x: string) => (x === "hoa_don" ? "hoá đơn" : "PO");
+          moc.push(`căn cứ tính nợ: theo ${ten(cu)} → theo ${ten(thayDoi.canCuCongNo)}`);
+        }
+      }
+      if (thayDoi.tongTienHoaDon !== undefined) {
+        const cu = giaCu.tongTienHoaDon;
+        /* 🔴 `null` = XOÁ về "chưa nhập", khác hẳn số 0. Đơn có hoá đơn 0 đồng là chuyện bất
+           thường nhưng CÓ thật (hàng tặng, xuất bù); gộp nó với "chưa nhập" là mất một sự thật. */
+        const moi =
+          thayDoi.tongTienHoaDon === null ? null : Math.round(Number(thayDoi.tongTienHoaDon));
+        if ((cu ?? null) !== moi) {
+          moc.push(
+            `tổng tiền hoá đơn: ${cu === undefined ? "chưa nhập" : cu.toLocaleString("vi-VN")} → ${
+              moi === null ? "chưa nhập" : moi.toLocaleString("vi-VN")
+            }`,
+          );
+        }
+      }
       // Không có gì đổi thì KHÔNG ghi — nếu không, mỗi lần rời ô nhập lại đẻ một dòng nhật ký
       // y hệt dòng trước, và sổ lịch sử thành vô dụng vì phải lội qua hàng chục dòng trùng.
       if (moc.length === 0) return null;
@@ -3616,6 +3957,21 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           }
           if (thayDoi.ngayBatDauTinhNoTay !== undefined) {
             sau.ngayBatDauTinhNoTay = thayDoi.ngayBatDauTinhNoTay?.trim() || undefined;
+          }
+          if (thayDoi.canCuCongNo !== undefined) {
+            sau.canCuCongNo = thayDoi.canCuCongNo;
+          }
+          if (thayDoi.tongTienHoaDon !== undefined) {
+            const so =
+              thayDoi.tongTienHoaDon === null ? undefined : Math.round(Number(thayDoi.tongTienHoaDon));
+            /* Số âm hoặc NaN thì coi như chưa nhập — đừng để một con số vô nghĩa làm cột
+               "Còn phải trả" tính ra số lạ mà bảng vẫn trông bình thường. */
+            sau.tongTienHoaDon = so !== undefined && Number.isFinite(so) && so >= 0 ? so : undefined;
+          }
+          if (thayDoi.soHoaDon !== undefined) {
+            /* ⚠️ CẮT BỚT Ở TẦNG GHI, không tin giao diện: ô gõ tự do nên người dùng dễ dán cả một
+               đoạn. 60 ký tự đủ cho "1C25TYY - 00012345" lẫn hai ba số ngăn bằng dấu phẩy. */
+            sau.soHoaDon = thayDoi.soHoaDon?.trim().slice(0, 60) || undefined;
           }
           sau.lichSuDieuKhoanCongNo = [
             ...(g.lichSuDieuKhoanCongNo ?? []),
@@ -8510,6 +8866,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiTrangThaiPhieu,
       ghiDoiChieuThuMua,
       dinhKemPhieuGiao,
+      dotThanhToan,
+      themDotThanhToan,
+      suaDotThanhToan,
+      xoaDotThanhToan,
       datDieuKhoanCongNo,
       suaDonHang,
       xacNhanKho,

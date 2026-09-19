@@ -38,7 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/1-giao-dien/nen-tang-ui/dialog";
-import { formatDate, formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
+import { formatCurrencyVnd, formatDate, formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import type { MocLichSu, NgayISO } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -140,6 +140,162 @@ export function OSoNgayDuocNo({
         if (e.key === "Escape") {
           dangGo.current = false;
           setChu(giaTri === undefined ? "" : String(giaTri));
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
+/**
+ * ★★ Ô "SỐ HOÁ ĐƠN" — Sếp 18/09/2026, yêu cầu ② của màn Công nợ.
+ *
+ * 🔴 SỐ HOÁ ĐƠN THUỘC VỀ ĐƠN, KHÔNG THUỘC VỀ TỪNG LẦN CHI. Hoá đơn tồn tại **trước** lần chi
+ * tiền: gắn nó vào đợt chi thì đơn đã nhận hoá đơn mà chưa trả đồng nào sẽ hiện ô trống — đúng
+ * dòng Kế toán cần nhìn nhất. Lưu ở `GiaDonDatHang.soHoaDon`, cùng cụm điều kiện thanh toán với
+ * `soNgayDuocNo` / `ngayBatDauTinhNoTay` (xem chú thích tại chỗ khai ở `kieu-du-lieu.ts`).
+ *
+ * 🔴 GÕ TỰ DO, KHÔNG ÉP KHUÔN. Hoá đơn VAT Việt Nam có nhiều dạng (mẫu số · ký hiệu · số), mỗi
+ * nhà cung cấp ghi một kiểu, và một đơn giao nhiều đợt có thể nhận nhiều hoá đơn. Ép khuôn là
+ * chặn đúng người đang gõ đúng. Tầng ghi tự cắt còn 60 ký tự.
+ *
+ * 📌 DÙNG LẠI ĐÚNG NẾP CỦA `OSoNgayDuocNo` ngay trên — kể cả cú "đọc thẳng từ ô, không đọc từ
+ * state" ở `onBlur`: hai thứ đó lệch nhau đúng một khoảnh khắc, và đã đo thấy lỗi ghi lại giá
+ * trị cũ khi xoá trắng ô rồi rời ngay.
+ */
+export function OSoHoaDon({
+  giaTri,
+  suaDuoc,
+  onLuu,
+}: {
+  giaTri?: string;
+  suaDuoc: boolean;
+  onLuu: (soHoaDon: string | null) => void;
+}) {
+  const [chu, setChu] = useState(giaTri ?? "");
+  const dangGo = useRef(false);
+
+  useEffect(() => {
+    if (!dangGo.current) setChu(giaTri ?? "");
+  }, [giaTri]);
+
+  if (!suaDuoc) {
+    return giaTri ? (
+      <span className="block truncate" title={giaTri}>
+        {giaTri}
+      </span>
+    ) : (
+      <span className="text-text-desc">—</span>
+    );
+  }
+
+  function ghi(giaTriO: string) {
+    dangGo.current = false;
+    const s = giaTriO.trim();
+    onLuu(s === "" ? null : s);
+  }
+
+  return (
+    <Input
+      value={chu}
+      aria-label="Số hoá đơn nhà cung cấp"
+      placeholder="—"
+      title={chu || "Số hoá đơn nhà cung cấp"}
+      className={LOP_O}
+      onChange={(e) => {
+        dangGo.current = true;
+        setChu(e.target.value);
+      }}
+      onBlur={(e) => ghi(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          dangGo.current = false;
+          setChu(giaTri ?? "");
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
+/**
+ * ★★ Ô "TỔNG TIỀN THEO HOÁ ĐƠN" — Sếp 19/09/2026.
+ *
+ * 🔴 ĐỂ TRỐNG KHÁC HẲN SỐ 0, và ô này phải nói được cả hai. `undefined` = **chưa nhập hoá đơn**
+ * (chờ NCC xuất); `0` = hoá đơn có thật nhưng 0 đồng (hàng tặng, xuất bù) — hiếm nhưng có. Gộp
+ * hai thứ là mất một sự thật, và cột "Còn phải trả" tính theo hoá đơn sẽ nói sai.
+ *
+ * 📌 GÕ CÓ DẤU PHÂN CÁCH CŨNG NHẬN. Kế toán gõ "45.522.000" theo thói quen; `Number()` cho `NaN`
+ * rồi tầng ghi coi như chưa nhập — người dùng thấy ô tự trống lại mà không hiểu vì sao.
+ */
+export function OTongTienHoaDon({
+  giaTri,
+  suaDuoc,
+  onLuu,
+}: {
+  giaTri?: number;
+  suaDuoc: boolean;
+  onLuu: (soTien: number | null) => void;
+}) {
+  /**
+   * 🔴 HIỆN CÓ DẤU PHÂN CÁCH KHI KHÔNG GÕ — số tiền hàng chục triệu mà in trần ("44000000") thì
+   * người đọc phải đếm chữ số để biết là 4,4 triệu hay 44 triệu. Lúc ĐANG gõ thì giữ nguyên chữ
+   * người ta đang nhập, chèn dấu giữa chừng làm con trỏ nhảy lung tung.
+   */
+  const hienSo = (n?: number) => (n === undefined ? "" : n.toLocaleString("vi-VN"));
+  const [chu, setChu] = useState(hienSo(giaTri));
+  const dangGo = useRef(false);
+
+  useEffect(() => {
+    if (!dangGo.current) setChu(hienSo(giaTri));
+  }, [giaTri]);
+
+  if (!suaDuoc) {
+    return giaTri !== undefined ? (
+      <span className="tabular-nums">{formatCurrencyVnd(giaTri)}</span>
+    ) : (
+      <span className="text-text-desc">—</span>
+    );
+  }
+
+  function ghi(giaTriO: string) {
+    dangGo.current = false;
+    const s = giaTriO.trim();
+    if (s === "") {
+      onLuu(null);
+      return;
+    }
+    /* Bỏ dấu chấm/phẩy/khoảng trắng — xem chú thích đầu hàm. */
+    const n = Number(s.replace(/[.,\s]/g, ""));
+    if (!Number.isFinite(n) || n < 0) {
+      /* Số âm hoặc chữ → trả ô về giá trị cũ và KHÔNG ghi. Ghi bừa là cột "Còn phải trả" tính ra
+         số vô nghĩa trong khi bảng vẫn trông bình thường. */
+      setChu(hienSo(giaTri));
+      return;
+    }
+    /* Chèn dấu phân cách ngay sau khi rời ô, để con số vừa nhập cũng dễ đọc như số nạp từ kho. */
+    setChu(hienSo(Math.round(n)));
+    onLuu(Math.round(n));
+  }
+
+  return (
+    <Input
+      inputMode="numeric"
+      value={chu}
+      aria-label="Tổng tiền theo hoá đơn"
+      placeholder="—"
+      className={`${LOP_O} text-right`}
+      onChange={(e) => {
+        dangGo.current = true;
+        setChu(e.target.value);
+      }}
+      onBlur={(e) => ghi(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          dangGo.current = false;
+          setChu(hienSo(giaTri));
           e.currentTarget.blur();
         }
       }}

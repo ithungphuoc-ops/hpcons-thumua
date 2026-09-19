@@ -282,7 +282,18 @@ export function ODinhKemTep({
             khoa || dangCat
               ? "pointer-events-none border-border opacity-60"
               : batBuoc
-                ? "cursor-pointer border-warning bg-warning-bg text-warning-soft hover:bg-warning hover:text-white"
+                ? /* ★★ TÔNG XANH DƯƠNG cho ô BẮT BUỘC — Sếp 19/09/2026: *"các nút đính kèm này
+                     sửa màu sắc border về màu Xanh dương cho đồng nhất"*.
+
+                     🔴 ĐỔI Ý NGHĨA MÀU, KHÔNG CHỈ ĐỔI MÀU. Trước đó ô bắt buộc mang tông `warning`
+                     (vàng) để báo "còn thiếu". Nhưng vàng ở app này đang dành cho CẢNH BÁO thật
+                     (nợ chứng từ, quá hạn, lệch số liệu), mà một ô đính kèm chưa có tệp là việc
+                     BÌNH THƯỜNG của bước đang làm — tô vàng cả những ô như vậy làm màu cảnh báo
+                     mất thiêng, đúng cái bẫy "chốt báo động sai thì lần sau không ai đọc nữa".
+
+                     📌 KHÔNG MẤT THÔNG TIN "BẮT BUỘC": dấu sao đỏ ở nhãn ô và câu vướng mắc ở đầu
+                     khối vẫn nói điều đó — trạng thái vẫn có cả màu lẫn chữ (Design System V1.1). */
+                  "cursor-pointer border-primary bg-primary-bg text-primary hover:bg-primary hover:text-white"
                 : "cursor-pointer border-border hover:border-primary hover:bg-muted"
           }`}
         >

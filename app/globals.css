@@ -29,7 +29,7 @@
   --color-destructive: var(--hp-danger);
   --color-destructive-foreground: #ffffff;
   --color-border: var(--hp-border);
-  --color-input: var(--hp-border);
+  --color-input: var(--hp-border-input);
   --color-ring: var(--hp-primary);
 
   --font-sans: var(--font-inter);
@@ -142,6 +142,19 @@
   --hp-card: #ffffff;
   --hp-elevated: #ffffff;
   --hp-border: rgba(15, 25, 35, 0.1);
+  /**
+   * ★★ VIỀN CỦA Ô NHẬP VÀ Ô TICK — ĐẬM HƠN viền khung. Sếp 19/09/2026, khoanh đỏ ô tick ở bảng
+   * phân bổ: ***"Boder tick chọn này tăng màu lên cho dễ nhìn"***.
+   *
+   * 🔴 TÁCH KHỎI `--hp-border`, KHÔNG đổi chính nó. Viền khung/thẻ nhạt (10%) là cố ý — nền app
+   * đã nhiều khung, đậm hết lên là màn hình đầy lưới. Nhưng ô TICK và ô NHẬP là thứ người dùng
+   * phải **tìm bằng mắt rồi bấm trúng**, mà ở 10% thì một ô vuông 16px gần như tàng hình trên
+   * nền trắng — đúng chỗ Sếp khoanh.
+   *
+   * 📌 `--color-input` (Tailwind) trỏ vào đây, nên mọi `border-input` của thư viện nền (checkbox,
+   * input, select…) đậm lên cùng lúc, không phải sửa từng nơi gọi.
+   */
+  --hp-border-input: rgba(15, 25, 35, 0.3);
   --hp-divider: rgba(15, 25, 35, 0.06);
   --hp-text-primary: #1b2733;
   --hp-text-secondary: #46545f;
@@ -168,6 +181,8 @@
   --hp-card: #182531;
   --hp-elevated: #1f2f3d;
   --hp-border: rgba(255, 255, 255, 0.08);
+  /* Nền tối thì viền là màu SÁNG — cùng lý do với chế độ sáng, xem chú thích ở khối `:root`. */
+  --hp-border-input: rgba(255, 255, 255, 0.28);
   --hp-divider: rgba(255, 255, 255, 0.06);
   --hp-text-primary: #f5f7fa;
   --hp-text-secondary: #b8c0c8;

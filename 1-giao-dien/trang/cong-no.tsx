@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   Wallet,
+  ChevronRight,
   AlertTriangle,
   Clock,
   CheckCircle2,
@@ -11,6 +12,7 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
+import { KhoiDotThanhToan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dot-thanh-toan";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
@@ -38,13 +40,16 @@ import { nhanAnToan, NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
  * luật chia 5 khoảng tuổi nợ, sẽ cần lại đầy đủ khi app có sổ công nợ thật (theo dõi từng lần
  * chi). Xóa đi rồi dựng lại là dựng lại một luật tài chính từ trí nhớ.
  */
-import { congNoTheoDonHang, soTienConLai } from "@/2-quy-trinh/tuoi-no";
+import { congNoTheoDonHang, soTienConLai, tienLamCanCu } from "@/2-quy-trinh/tuoi-no";
+import type { CanCuCongNo } from "@/2-quy-trinh/tuoi-no";
 import { formatCurrencyVnd, formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import {
   NutLichSuCongNo,
   ONgayBatDau,
+  OSoHoaDon,
+  OTongTienHoaDon,
   OSoNgayDuocNo,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-dieu-khoan-cong-no";
 import type { CongNo } from "@/3-du-lieu/kieu-du-lieu";
@@ -148,7 +153,16 @@ export default function TrangCongNo() {
    * (`lich-cong-viec.ts` sinh mốc "Hạn thanh toán") còn đọc nó. Đây là hai nguồn song song cho
    * tới khi có sổ công nợ thật — đừng bỏ cái nào khi chưa chuyển hết chỗ dùng.
    */
-  const { congNo, donHang, giaDonHang, phieuNhan, datDieuKhoanCongNo } = useDuLieu();
+  const {
+    congNo,
+    donHang,
+    giaDonHang,
+    phieuNhan,
+    datDieuKhoanCongNo,
+    dotThanhToan,
+    themDotThanhToan,
+    xoaDotThanhToan,
+  } = useDuLieu();
   const { quyen, nguoiDung } = useNguoiDung();
 
   /**
@@ -160,6 +174,17 @@ export default function TrangCongNo() {
    * với đúng nhóm người dùng đó, nên rất dễ lọt khi thử bằng tài khoản Thu mua.
    */
   const [timNCC, setTimNCC] = useState("");
+  /**
+   * Dòng PO đang mở danh sách đợt chi — `null` là chưa mở dòng nào.
+   *
+   * 🔴 PHẢI KHAI Ở ĐÂY, TRƯỚC MỌI `return` SỚM. Màn này có một cổng quyền trả về sớm khi người
+   * dùng không được xem công nợ; đặt `useState` sau cổng đó là hook gọi có điều kiện — React đổi
+   * thứ tự hook giữa các lần vẽ và app hỏng theo kiểu rất khó lần. `npm run verify` bắt được
+   * (rule `react-hooks/rules-of-hooks`), nhưng đừng để nó phải bắt.
+   */
+  const [moDotChi, setMoDotChi] = useState<string | null>(null);
+  /* ❌ ĐÃ BỎ state căn cứ chung cho cả bảng — Sếp 19/09/2026: *"Nút này đưa vào các DMH, vì số liệu
+     mỗi DMH sẽ khác nhau"*. Nay căn cứ là thuộc tính của TỪNG đơn, lưu ở `GiaDonDatHang.canCuCongNo`. */
 
   /**
    * 🔴 CHẶN NGAY TẠI TRANG, không chỉ ẩn mục menu.
@@ -194,7 +219,8 @@ export default function TrangCongNo() {
 
   /* Bảng 8 cột theo từng đơn hàng — luật tính nằm hết ở `2-quy-trinh/tuoi-no.ts`, ở đây chỉ
      gọi và vẽ. Quy tắc 3.4b: không để hàm tính nghiệp vụ trong tệp giao diện. */
-  const theoDonTatCa = congNoTheoDonHang(donHang, giaDonHang, phieuNhan);
+  /* ★ Truyền đợt chi vào để hàm tính ra "đã trả / còn lại / đã tất toán" — Sếp 18/09/2026. */
+  const theoDonTatCa = congNoTheoDonHang(donHang, giaDonHang, phieuNhan, new Date(), dotThanhToan);
 
   /**
    * Lọc theo tên nhà cung cấp (Ban lãnh đạo 28/08/2026).
@@ -215,6 +241,12 @@ export default function TrangCongNo() {
    * ⚠️ Đây vẫn là chặn ở trình duyệt. Chặn thật phải bằng Firestore Rules trên `tm_donhang_gia`.
    */
   const suaDuocDieuKhoan = quyen.lapPO;
+  /**
+   * ★ AI GHI ĐƯỢC TIỀN ĐÃ TRẢ — cờ RIÊNG, không dùng chung với điều khoản công nợ.
+   * Sếp 18/09/2026 duyệt: **Kế toán và Trưởng phòng**. Chặn thật nằm ở tầng ghi
+   * (`vuongMacQuyenGhiThanhToan`), cờ này chỉ để không bày nút ra.
+   */
+  const ghiDuocThanhToan = quyen.ghiThanhToan;
 
   /**
    * Ghi một thay đổi điều khoản công nợ.
@@ -393,31 +425,79 @@ export default function TrangCongNo() {
             * (`overflow-visible`) thì div này mới là khung cuộn thật và mới ăn lớp thanh cuộn.
             */}
           <div className="thanh-keo-ngang-ro overflow-x-auto [&>[data-slot=table-container]]:overflow-visible">
-            <Table className="min-w-[78rem] table-fixed">
+            {/**
+              * ★★ BẢNG NỚI TỪ 9 → 12 CỘT — Sếp 18–19/09/2026: thêm **Tên công trình**, **Mã số đề
+              * nghị**, **Số hoá đơn**.
+              *
+              * 🔴 SÀN NÂNG 78rem → 92rem. `table-fixed` chia bề rộng theo phần trăm của bảng, nên
+              * giữ nguyên sàn cũ mà thêm ba cột là mỗi cột hụt đi ~25%: cột tiền (“1.234.567.890 đ”
+              * ≈ 115px) và nhãn cảnh báo (`whitespace-nowrap` trong `StatusBadge`) sẽ **tràn đè ô
+              * bên cạnh** chứ không xuống dòng. Bảng này Sếp đã bắt lỗi bố cục nhiều lần — thà cuộn
+              * ngang (đã có thanh cuộn luôn hiện) còn hơn vỡ chữ.
+              *
+              * ⚠️ TỔNG PHẦN TRĂM PHẢI ĐÚNG 100 — đây là chốt của cả cách chia: 3 + 12 + 8 + 9 + 11 + 9
+              * + 8 + 7 + 9 + 8 + 12 + 4 = 100. Sai một ly là trình duyệt tự co kéo lại theo tỷ lệ
+              * và mọi tính toán bên trên thành vô nghĩa.
+              *
+              * ⚠️ MỌI CỘT CHỮ TỰ DO PHẢI `truncate` + `title`: `table-fixed` không nong cột cho vừa
+              * chữ, tên công trình dài sẽ tràn sang cột bên cạnh.
+              */}
+            <Table className="min-w-[112rem] table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[4%] px-1 text-center">STT</TableHead>
-                  <TableHead className="w-[15%]">Tên đơn hàng (PO)</TableHead>
-                  <TableHead className="w-[18%]">Tên NCC</TableHead>
+                  <TableHead className="w-[3%] px-1 text-center">STT</TableHead>
+                  <TableHead className="w-[10%]">Tên đơn hàng (PO)</TableHead>
+                  {/* ★ Sếp 19/09/2026: *"Thêm cho a trường thông tin Mã số đề nghị"*. Lấy thẳng
+                      `po.prCode` đã có trên đơn — xem `maDeNghi` ở `2-quy-trinh/tuoi-no.ts`. */}
+                  <TableHead className="w-[7%] leading-tight whitespace-normal">
+                    Mã số đề nghị
+                  </TableHead>
+                  {/* ★ Sếp 18/09/2026 — TÁCH khỏi dòng chữ xám dưới mã PO, KHÔNG nhân bản: để cả
+                      hai là hai chỗ cùng nói một chuyện, đúng nếp dự án cấm. */}
+                  <TableHead className="w-[8%] leading-tight whitespace-normal">
+                    Tên công trình
+                  </TableHead>
+                  <TableHead className="w-[9%]">Tên NCC</TableHead>
+                  {/* ★ Sếp 18/09/2026 — ô SỬA TẠI CHỖ, đặt ở cấp ĐƠN (hoá đơn có trước lần chi). */}
+                  <TableHead className="w-[7%] leading-tight whitespace-normal">
+                    Số hoá đơn
+                  </TableHead>
                   {/* Cột tiền rộng hơn một nhịp: số tiền đơn hàng có thể lên hàng tỷ
                       ("1.234.567.890 đ" ≈ 115px), hụt chỗ là số bị cắt hoặc tràn cột. */}
-                  <TableHead className="w-[12%] text-right">Tổng công nợ</TableHead>
+                  {/* ★ ĐỔI TÊN 19/09/2026 — Sếp: *"Sửa tên cột Tổng công nợ thành Tổng tiền theo PO"*.
+                      Tên cũ mơ hồ từ khi có thêm con số của hoá đơn: "công nợ" không nói rõ đang
+                      lấy theo cam kết mua hay theo chứng từ NCC xuất. */}
+                  <TableHead className="w-[8%] text-right leading-tight whitespace-normal">
+                    Tổng tiền theo PO
+                  </TableHead>
+                  {/* ★ CỘT MỚI 19/09/2026 — ô SỬA TẠI CHỖ. Hoá đơn thường lệch PO (giao thiếu,
+                      phụ phí, xuất gộp nhiều lần giao), nên phải có cả hai để đối chiếu. */}
+                  <TableHead className="w-[8%] text-right leading-tight whitespace-normal">
+                    Tổng tiền theo hoá đơn
+                  </TableHead>
+                  {/* ★★ CÒN LẠI = Tổng − đã trả (Sếp 18/09/2026, yêu cầu ③).
+                      📌 KHÔNG làm thêm cột "Đã trả" riêng: bảng đã 13 cột, thêm nữa là vỡ. Số đã
+                      trả để làm dòng phụ ngay trong ô này — người đọc vẫn thấy đủ hai con số mà
+                      bảng không phải gánh thêm một cột. */}
+                  <TableHead className="w-[9%] text-right leading-tight whitespace-normal">
+                    Còn phải trả
+                  </TableHead>
                   {/* ⚠️ Bốn tiêu đề giữa dài hơn bề rộng cột đã khai. Lớp gốc của `TableHead` là
                       `whitespace-nowrap`, mà `table-fixed` KHÔNG nong cột ra cho vừa chữ nữa —
                       nên phải cho tiêu đề xuống dòng, bằng không nó tràn đè sang cột bên cạnh. */}
-                  <TableHead className="w-[10%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-[5%] text-center leading-tight whitespace-normal">
                     Thời gian C.Nợ
                   </TableHead>
-                  <TableHead className="w-[13%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-[8%] text-center leading-tight whitespace-normal">
                     Ngày bắt đầu tính
                   </TableHead>
-                  <TableHead className="w-[11%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-[7%] text-center leading-tight whitespace-normal">
                     Ngày tới hạn
                   </TableHead>
-                  <TableHead className="w-[12%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-[8%] text-center leading-tight whitespace-normal">
                     Cảnh báo tới hạn
                   </TableHead>
-                  <TableHead className="w-[5%] px-1 text-center">Lịch sử</TableHead>
+                  <TableHead className="w-[3%] px-1 text-center">Lịch sử</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -426,7 +506,7 @@ export default function TrangCongNo() {
                     {/* `whitespace-normal`: bảng đã `table-fixed`, câu giải thích dài mà giữ
                         `nowrap` (lớp gốc của TableCell) thì nó tràn ra ngoài khung cuộn. */}
                     <TableCell
-                      colSpan={9}
+                      colSpan={14}
                       className="py-6 text-center text-sm whitespace-normal text-text-desc"
                     >
                       {/* 🔴 NÓI ĐÚNG LÝ DO BẢNG RỖNG. Đang lọc mà vẫn in "chưa phát sinh công nợ"
@@ -439,9 +519,43 @@ export default function TrangCongNo() {
                   </TableRow>
                 ) : (
                   theoDon.map((r, i) => (
-                    <TableRow key={r.poId}>
+                    <Fragment key={r.poId}>
+                    <TableRow>
+                      {/**
+                        * ★★ Ô STT KIÊM NÚT GẬP/MỞ danh sách đợt chi — Sếp 18/09/2026 (yêu cầu ④:
+                        * *"group lại theo tên PO"*).
+                        *
+                        * 🔴 GỘP VÀO Ô STT, không thêm một cột thứ 14: bảng đã 13 cột và Sếp đã bắt
+                        * lỗi bố cục nhiều lần. Số thứ tự vẫn đọc được, chỉ thêm mũi tên khi dòng đó
+                        * CÓ đợt chi hoặc người dùng được phép thêm đợt.
+                        *
+                        * 🔴 VÙNG CHẠM 44px (`size-11`) theo Design System V1.1 — ô này nhỏ nên rất
+                        * dễ bấm trượt trên máy tính bảng.
+                        */}
                       <TableCell className="px-1 text-center tabular-nums text-text-desc">
-                        {i + 1}
+                        {r.dotChi.length > 0 || ghiDuocThanhToan ? (
+                          <button
+                            type="button"
+                            onClick={() => setMoDotChi(moDotChi === r.poId ? null : r.poId)}
+                            aria-expanded={moDotChi === r.poId}
+                            title={
+                              moDotChi === r.poId
+                                ? "Thu gọn các đợt thanh toán"
+                                : `Xem ${r.dotChi.length} đợt thanh toán của đơn này`
+                            }
+                            className="inline-flex size-11 items-center justify-center rounded-lg transition-colors hover:bg-muted md:size-9"
+                          >
+                            <ChevronRight
+                              className={`size-4 shrink-0 transition-transform ${
+                                moDotChi === r.poId ? "rotate-90" : ""
+                              }`}
+                              aria-hidden
+                            />
+                            <span className="sr-only">{i + 1}</span>
+                          </button>
+                        ) : (
+                          i + 1
+                        )}
                       </TableCell>
                       <TableCell>
                         {/* Mã đơn bấm được sang chính đơn đó — dùng lại lối đi đã có ở bảng hóa
@@ -455,13 +569,30 @@ export default function TrangCongNo() {
                         >
                           {r.maDonHang}
                         </Link>
-                        {r.tenCongTrinh && (
-                          <span
-                            className="block truncate text-xs text-text-desc"
-                            title={r.tenCongTrinh}
-                          >
+                        {/* ❌ ĐÃ BỎ dòng chữ xám "tên công trình" ở đây — Sếp 18/09/2026 yêu cầu
+                            tên công trình thành CỘT RIÊNG. Giữ cả hai là hai chỗ cùng nói một
+                            chuyện, đúng nếp dự án cấm. Xem cột ngay bên phải. */}
+                      </TableCell>
+                      {/* ★ MÃ SỐ ĐỀ NGHỊ — Sếp 19/09/2026. Bấm được sang chính đề nghị đó nếu đơn
+                          có gắn; đơn KHÔNG gắn đề nghị (bản mẫu in, dữ liệu cũ) thì in gạch ngang
+                          chứ không để trống trơn — ô trống làm người đọc tưởng bảng lỗi. */}
+                      <TableCell className="text-text-primary">
+                        {r.maDeNghi ? (
+                          <span className="block truncate tabular-nums" title={r.maDeNghi}>
+                            {r.maDeNghi}
+                          </span>
+                        ) : (
+                          <span className="text-text-desc">—</span>
+                        )}
+                      </TableCell>
+                      {/* ★ TÊN CÔNG TRÌNH — cột riêng từ 18/09/2026 (trước là dòng chữ xám dưới mã PO). */}
+                      <TableCell className="text-text-primary">
+                        {r.tenCongTrinh ? (
+                          <span className="block truncate" title={r.tenCongTrinh}>
                             {r.tenCongTrinh}
                           </span>
+                        ) : (
+                          <span className="text-text-desc">—</span>
                         )}
                       </TableCell>
                       <TableCell className="text-text-primary">
@@ -469,11 +600,122 @@ export default function TrangCongNo() {
                           {r.tenNCC}
                         </span>
                       </TableCell>
+                      {/* ★★ SỐ HOÁ ĐƠN — Sếp 18/09/2026. Ô SỬA TẠI CHỖ, cùng nếp với hai ô điều
+                          khoản công nợ bên phải (`OSoNgayDuocNo`, `ONgayBatDau`): người đang so
+                          chứng từ trên chính dòng này gõ luôn, không phải mở màn khác. */}
+                      <TableCell>
+                        <OSoHoaDon
+                          giaTri={r.soHoaDon}
+                          suaDuoc={suaDuocDieuKhoan}
+                          onLuu={(so) => {
+                            const loi = datDieuKhoanCongNo(r.poId, { soHoaDon: so }, "");
+                            if (loi) toast.error(loi);
+                          }}
+                        />
+                      </TableCell>
                       {/* 🔴 CỘT TIỀN: căn PHẢI + `tabular-nums`. Không có `tabular-nums` thì chữ
                           số rộng hẹp khác nhau, hàng nghìn của dòng trên lệch hàng nghìn của dòng
                           dưới và người đọc so nhầm bậc số tiền. */}
                       <TableCell className="text-right font-bold tabular-nums text-text-primary">
                         {formatCurrencyVnd(r.tongCongNo)}
+                      </TableCell>
+                      {/* ★ TỔNG TIỀN THEO HOÁ ĐƠN — ô sửa tại chỗ, Sếp 19/09/2026. */}
+                      <TableCell className="text-right">
+                        <OTongTienHoaDon
+                          giaTri={r.tongTienHoaDon}
+                          suaDuoc={suaDuocDieuKhoan}
+                          onLuu={(so) => {
+                            const loi = datDieuKhoanCongNo(r.poId, { tongTienHoaDon: so }, "");
+                            if (loi) toast.error(loi);
+                          }}
+                        />
+                      </TableCell>
+                      {/**
+                        * ★★ CÒN PHẢI TRẢ — Sếp 18/09/2026 (yêu cầu ③).
+                        *
+                        * 🔴 SỐ ĐÃ TRẢ LÀM DÒNG PHỤ, không làm cột riêng: bảng đã 13 cột, thêm nữa
+                        * là vỡ ở màn hẹp — mà bảng này Sếp đã bắt lỗi bố cục nhiều lần.
+                        *
+                        * 🔴 TRẠNG THÁI CÓ CẢ MÀU LẪN CHỮ (Design System V1.1): trả hết thì số 0
+                        * hiện tông success kèm chữ *"đã trả đủ"*, chứ không để một số 0 trơ trọi —
+                        * 0 có thể là "trả hết" mà cũng có thể là "đơn chưa có giá".
+                        */}
+                      {/**
+                        * 🔴 TÍNH THEO CĂN CỨ ĐANG CHỌN (Sếp 19/09/2026). Chọn "theo hoá đơn" mà đơn
+                        * CHƯA nhập hoá đơn thì phải NÓI RA, tuyệt đối không rơi về số của PO cho
+                        * "đỡ trống": người đọc tưởng đang nhìn số hoá đơn trong khi đó là số PO, mà
+                        * hai con số này lệch nhau là chuyện thường. Rơi về 0 còn tệ hơn — đơn chưa
+                        * có hoá đơn sẽ trông như đã trả xong.
+                        */}
+                      <TableCell className="text-right tabular-nums">
+                        {(() => {
+                          const canCuTien = tienLamCanCu(r, r.canCu);
+                          if (canCuTien === undefined) {
+                            return (
+                              <span className="text-xs font-normal text-warning-soft">
+                                chưa nhập hoá đơn
+                              </span>
+                            );
+                          }
+                          const conLaiTheoCanCu = Math.max(0, canCuTien - r.daTra);
+                          const traDu = r.daTra > 0 && conLaiTheoCanCu === 0;
+                          return (
+                            <>
+                              {traDu ? (
+                                <span className="font-semibold text-success-soft">đã trả đủ</span>
+                              ) : (
+                                <span className="font-bold text-text-primary">
+                                  {formatCurrencyVnd(conLaiTheoCanCu)}
+                                </span>
+                              )}
+                              {r.daTra > 0 && (
+                                <span className="block text-xs font-normal text-text-desc">
+                                  đã trả {formatCurrencyVnd(r.daTra)}
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
+                        {/**
+                          * ★★ NÚT CHỌN CĂN CỨ CỦA RIÊNG DÒNG NÀY — Sếp 19/09/2026: *"Nút này đưa
+                          * vào các DMH, vì số liệu mỗi DMH sẽ khác nhau. Có cái sẽ dùng theo PO,
+                          * cái dùng theo hoá đơn"*.
+                          *
+                          * 📌 Chữ rất nhỏ và nằm ngay dưới con số nó quyết định — người đọc thấy
+                          * ngay con số này đang tính theo căn cứ nào, không phải đi tra chỗ khác.
+                          */}
+                        {suaDuocDieuKhoan && (
+                          <span className="mt-1 flex items-center justify-end gap-0.5 text-[11px]">
+                            {(
+                              [
+                                ["po", "PO"],
+                                ["hoa_don", "Hoá đơn"],
+                              ] as const
+                            ).map(([ma, nhan]) => (
+                              <button
+                                key={ma}
+                                type="button"
+                                onClick={() => {
+                                  const loi = datDieuKhoanCongNo(r.poId, { canCuCongNo: ma }, "");
+                                  if (loi) toast.error(loi);
+                                }}
+                                aria-pressed={r.canCu === ma}
+                                title={
+                                  ma === "po"
+                                    ? "Tính nợ của đơn này theo tổng tiền PO"
+                                    : "Tính nợ của đơn này theo tổng tiền trên hoá đơn"
+                                }
+                                className={`rounded px-1.5 py-0.5 font-medium transition-colors ${
+                                  r.canCu === ma
+                                    ? "bg-primary text-white"
+                                    : "text-text-desc hover:bg-muted"
+                                }`}
+                              >
+                                {nhan}
+                              </button>
+                            ))}
+                          </span>
+                        )}
                       </TableCell>
                       {/* ★★ SỬA ĐƯỢC TẠI CHỖ (Ban lãnh đạo 28/08/2026). Ô trống vẫn nói rõ là
                           trống — số 0 nghĩa "phải trả ngay", khác hẳn "chưa ai điền". */}
@@ -540,6 +782,33 @@ export default function TrangCongNo() {
                         />
                       </TableCell>
                     </TableRow>
+
+                    {/**
+                      * ★★★ HÀNG CON — CÁC ĐỢT THANH TOÁN CỦA ĐƠN NÀY. Sếp 18/09/2026, yêu cầu ④:
+                      * ***"Mỗi PO sẽ được tạo thêm dòng để nhập số tiền thanh toán từng đợt (và có
+                      * tính năng group lại theo tên PO)"***.
+                      *
+                      * 🔴 MỘT `TableCell colSpan` DUY NHẤT, KHÔNG chia lại thành 13 ô con. Bảng ngoài
+                      * là `table-fixed` với bề rộng phần trăm của 13 cột tiêu đề; nhồi ô con vào đó
+                      * là chúng bị ép theo bề rộng của cột nói chuyện khác — dòng con nằm lệch hẳn
+                      * so với tiêu đề phía trên, đúng kiểu vỡ bố cục Sếp đã bắt nhiều lần.
+                      *
+                      * 🔴 `table-fixed` KHÔNG áp cho bảng lồng bên trong, nên bên trong dùng lưới
+                      * thường (`grid`) là an toàn và tự co theo nội dung.
+                      */}
+                    {moDotChi === r.poId && (
+                      <TableRow>
+                        <TableCell colSpan={14} className="bg-muted/40 p-0 whitespace-normal">
+                          <KhoiDotThanhToan
+                            dong={r}
+                            ghiDuoc={ghiDuocThanhToan}
+                            onThem={themDotThanhToan}
+                            onXoa={xoaDotThanhToan}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </Fragment>
                   ))
                 )}
               </TableBody>

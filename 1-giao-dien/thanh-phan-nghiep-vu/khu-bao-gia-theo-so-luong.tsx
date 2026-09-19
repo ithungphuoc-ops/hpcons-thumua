@@ -25,7 +25,6 @@ import {
   tenNCCCuaO,
   tepBaoGiaDaCo,
   tepSoSanh,
-  TOI_DA_O_BAO_GIA,
   vuongMacTrinhXetDuyet,
 } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
@@ -164,16 +163,24 @@ export function KhuBaoGiaTheoSoLuong({
   const vuongMac = vuongMacTrinhXetDuyet(deNghi, cauHinh);
 
   /**
-   * ★ THÊM Ô NGOÀI SỐ BẮT BUỘC — Ban lãnh đạo 31/08/2026: *"nếu tìm được nhà cung cấp tốt hơn
-   * thì thêm 1 nút cho nhân viên thêm báo giá nhà cung cấp khác"*.
+   * ❌❌ ĐÃ BỎ NÚT *"Thêm báo giá NCC khác (ngoài số bắt buộc)"* — Sếp 19/09/2026, khoanh đỏ đúng
+   * nút đó: ***"Bỏ trường thêm này, đã có ở nút tăng giảm số lượng rồi"***.
    *
-   * 🔴 CHỈ LÀ STATE MÀN HÌNH, KHÔNG LƯU GÌ. Ô thêm chỉ cần TỒN TẠI để có chỗ đính tệp — một khi
-   * đã đính, `soOBaoGia` (`max(can, chỉ số ô cao nhất đang có tệp)`) tự nhận ra ô đó ở lần tải
-   * lại sau, không cần một trường "đã thêm mấy ô" nào cả. Bấm nút mà chưa đính gì thì rời trang
-   * là ô biến mất — không sao, vì đó cũng chưa phải chứng từ thật.
+   * 📌 ĐÂY LÀ THAY MỘT ĐƯỜNG BẰNG MỘT ĐƯỜNG KHÁC, KHÔNG PHẢI CẮT CHỨC NĂNG — đã kiểm trước khi
+   * bỏ (quy ước §3.4b: bỏ lối vào nào thì phải chắc còn lối khác):
+   *   · Ô **"SL Báo giá"** ở khối ĐẦU VÀO có nút ➕ ➖ (`o-sua-so-bao-gia.tsx`), tăng số đó là số
+   *     ô đính kèm nhảy theo ngay — từ 18/09/2026 `soBaoGiaCanCo` lấy thẳng con số người dùng đặt.
+   *   · Nhân viên **vẫn tăng được** (cờ `chiTang` chỉ chặn HẠ xuống dưới mốc Trưởng phòng giao).
+   *
+   * ⚠️ VIỆC NÀY ĐẢO MỘT CHỈ ĐẠO CŨ, ghi lại để người sau không tưởng là xoá nhầm rồi dựng lại:
+   * Ban lãnh đạo 31/08/2026 từng yêu cầu *"nếu tìm được nhà cung cấp tốt hơn thì thêm 1 nút cho
+   * nhân viên thêm báo giá nhà cung cấp khác"*. Lúc đó số ô do cấu hình quyết định nên cần một
+   * nút riêng; nay ô SL Báo giá làm đúng việc ấy, nên hai nút thành hai chỗ cùng làm một chuyện.
+   *
+   * 🔴 KHÔNG XOÁ `soOBaoGia`: nó vẫn lấy `max(số cần, chỉ số ô cao nhất đang có tệp)` nên hồ sơ
+   * cũ từng đính tệp ở ô thứ 4, 5 vẫn hiện đủ ô — bỏ nút không làm mất tệp nào.
    */
-  const [soThem, setSoThem] = useState(0);
-  const soOHienThi = Math.min(soO + soThem, TOI_DA_O_BAO_GIA);
+  const soOHienThi = soO;
 
   const tepTheoO = Array.from({ length: soOHienThi }, (_, i) =>
     tepDaCo.find((t) => chiSoOBaoGia(t.ghiChu) === i + 1),
@@ -390,7 +397,7 @@ export function KhuBaoGiaTheoSoLuong({
             <button
               type="button"
               onClick={onMoKhoa}
-              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-warning bg-warning-bg px-3 text-xs font-semibold text-warning-soft transition-colors hover:bg-warning hover:text-white"
+              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-primary bg-primary-bg px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
             >
               <LockOpen className="size-3.5 shrink-0" aria-hidden />
               Mở khóa để sửa
@@ -539,7 +546,7 @@ export function KhuBaoGiaTheoSoLuong({
                      nhật bo góc hết"*. 8px là bán kính nút chuẩn của Design System V1.1
                      (`--radius: 0.5rem` trong `app/globals.css`, cũng là bán kính `Button` dùng).
                      Nút viền bo tròn hoàn toàn nằm cạnh các nút bo góc trông như của app khác. */
-                  className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-warning/40 bg-warning-bg px-3 text-xs font-semibold text-warning-soft transition-colors hover:bg-warning/20"
+                  className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-primary/50 bg-primary-bg px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
                 >
                   <X className="size-3.5 shrink-0" aria-hidden />
                   Không tìm được nhà cung cấp cho ô này — bỏ qua, ghi lý do
@@ -550,17 +557,8 @@ export function KhuBaoGiaTheoSoLuong({
         ))}
       </div>
 
-      {/* ★ THÊM Ô NGOÀI SỐ BẮT BUỘC — xem chú thích ở `soThem`. */}
-      {duocSua && !khoa && soOHienThi < TOI_DA_O_BAO_GIA && (
-        <button
-          type="button"
-          onClick={() => setSoThem((n) => n + 1)}
-          className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-primary/40 bg-primary-bg px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
-        >
-          <Plus className="size-3.5 shrink-0" aria-hidden />
-          Thêm báo giá NCC khác (ngoài số bắt buộc)
-        </button>
-      )}
+      {/* ❌ NÚT "Thêm báo giá NCC khác" ĐÃ BỎ — Sếp 19/09/2026. Muốn thêm ô thì tăng ô
+          "SL Báo giá" ở khối ĐẦU VÀO. Lý do đầy đủ ở chú thích chỗ khai `soOHienThi`. */}
 
       {/* ★ Ô "BẢNG SO SÁNH BÁO GIÁ" — Ban lãnh đạo 20/08/2026: *"thêm trường đính kèm file so
           sánh"*.
@@ -657,7 +655,7 @@ export function KhuBaoGiaTheoSoLuong({
                    🔴 `rounded-lg` (8px, bán kính nút chuẩn V1.1) — Sếp 14/09/2026 chỉ đúng nút này
                    trong ảnh: *"chuyển về hình chữ nhật bo góc hết"*. Đổi ở đây thì đổi luôn nút
                    trên cho khớp, đừng để hai nút cùng việc mà khác hình. */
-                className="inline-flex min-h-9 w-fit shrink-0 items-center gap-1.5 rounded-lg border border-warning/40 bg-warning-bg px-3 text-xs font-semibold text-warning-soft transition-colors hover:bg-warning/20"
+                className="inline-flex min-h-9 w-fit shrink-0 items-center gap-1.5 rounded-lg border border-primary/50 bg-primary-bg px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
               >
                 <X className="size-3.5 shrink-0" aria-hidden />
                 Không cần đính kèm

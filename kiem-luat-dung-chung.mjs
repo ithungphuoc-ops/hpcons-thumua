@@ -8559,6 +8559,124 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// ĐỢT THANH TOÁN & SỐ TIỀN CÒN LẠI — Sếp 18/09/2026, yêu cầu ③+④ của màn Công nợ
+//
+// 🔴 ĐÂY LÀ LUẬT VỀ TIỀN, nên mỗi chiều đều phải có bài canh. Sai ở đây không ai thấy ngay: bảng
+// vẫn đẹp, chỉ là con số "Còn lại" nói sai, và người ta đi trả tiền theo con số đó.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_DOT_CHI =
+  'Sếp · 18/09/2026 — *"Số tiền còn lại = Tổng công nợ − Tổng số tiền đã thanh toán các đợt"* + ' +
+  '*"Mỗi PO sẽ được tạo thêm dòng để nhập số tiền thanh toán từng đợt"*';
+
+/* Tuoi no da duoc dung san o dau tep (tepRa5) — dung lai, dung dung bundle thu hai. */
+const TN2 = nap(tepRa5);
+
+const dotChi = (poId, soTien, ngayChi = "2026-09-01", them = {}) => ({
+  id: `dtt-${poId}-${soTien}`,
+  poId,
+  ngayChi,
+  soTien,
+  nguoiGhiUid: "u-kt",
+  nguoiGhiTen: "Kế toán thử",
+  thoiDiemGhi: "2026-09-01T08:00:00.000Z",
+  ...them,
+});
+
+kiem("Cong dung tong da tra cua MOT don, bo qua dot cua don khac", CHU_SEP_DOT_CHI, () => {
+  const ds = [dotChi("po-1", 1_000_000), dotChi("po-2", 5_000_000), dotChi("po-1", 2_500_000)];
+  const r = TN2.daTraCuaPO("po-1", ds);
+  return { duoc: r === 3_500_000, thucTe: `${r}`, mongDoi: "3500000 — chi cong dot cua po-1" };
+});
+
+kiem("CHIEU NGHICH — ban ghi hong (soTien khong phai so) KHONG lam ca cot thanh NaN", CHU_SEP_DOT_CHI, () => {
+  /* 🔴 Một bản ghi hỏng (dữ liệu cũ, hoặc ai đó sửa tay trên kho chung) mà lọt vào phép cộng thì
+     CẢ cột "Còn lại" của đơn đó hiện ra chữ "NaN đ" — người đọc không biết đơn đó đã trả bao nhiêu.
+     Đừng bỏ `|| 0` trong `daTraCuaPO` cho gọn. */
+  const ds = [dotChi("po-1", 1_000_000), { ...dotChi("po-1", 0), soTien: "hai trieu" }];
+  const r = TN2.daTraCuaPO("po-1", ds);
+  return {
+    duoc: Number.isFinite(r) && r === 1_000_000,
+    thucTe: `${r}`,
+    mongDoi: "1000000 — ban ghi hong bi coi la 0, KHONG lan ra NaN",
+  };
+});
+
+kiem("Con lai = tong - da tra, va KHONG BAO GIO am", CHU_SEP_DOT_CHI, () => {
+  /* 📌 Trả dư (chuyển nhầm, hoặc trả gộp nhiều đơn vào một lệnh) có thật. Nhưng hiện số âm ở cột
+     "Còn lại" thì người đọc hiểu thành "nhà cung cấp nợ lại mình" — sai hẳn nghĩa. */
+  const binhThuong = TN2.conLaiCuaPO(10_000_000, 4_000_000);
+  const traDu = TN2.conLaiCuaPO(10_000_000, 12_000_000);
+  return {
+    duoc: binhThuong === 6_000_000 && traDu === 0,
+    thucTe: `binh thuong=${binhThuong} · tra du=${traDu}`,
+    mongDoi: "6000000 va 0 (kep o 0, khong am)",
+  };
+});
+
+kiem("Chi KE TOAN / TRUONG BO PHAN / QUAN TRI moi ghi duoc tien da tra", CHU_SEP_DOT_CHI, () => {
+  /* 🔴 CHIỀU NGHỊCH NẰM NGAY TRONG BÀI: không chỉ kiểm "kế toán ghi được", mà kiểm CẢ nhân viên
+     thu mua và thủ kho đều KHÔNG ghi được. Chỉ kiểm chiều thuận thì ai sửa cờ thành `true` vô
+     điều kiện vẫn xanh, và lúc đó mọi tài khoản đều ghi được tiền đã chi. */
+  const ai = (them) =>
+    PQ.tinhQuyen({
+      uid: "u-t",
+      tenHienThi: "Nguoi thu",
+      chucDanh: "",
+      phongBan: "",
+      vaiTro: "staff",
+      chucNang: "nhan_vien_thu_mua",
+      capTM: 2,
+      ...them,
+    });
+  const duoc = [
+    ["ke toan", ai({ chucNang: "ke_toan" })],
+    ["truong bo phan cap 3", ai({ chucNang: "truong_bo_phan_thu_mua", capTM: 3 })],
+    ["quan tri", ai({ vaiTro: "admin", capTM: 4 })],
+  ];
+  const khong = [
+    ["nhan vien thu mua", ai({})],
+    ["thu kho", ai({ chucNang: "thu_kho_cong_trinh", capTM: 1, capKho: 2 })],
+    ["QLDA", ai({ chucNang: "qlda" })],
+    ["phong thi cong", ai({ chucNang: "phong_thi_cong", capTM: 1 })],
+  ];
+  const saiDuoc = duoc.filter(([, q]) => q.ghiThanhToan !== true).map(([t]) => t);
+  const saiKhong = khong.filter(([, q]) => q.ghiThanhToan !== false).map(([t]) => t);
+  return {
+    duoc: saiDuoc.length === 0 && saiKhong.length === 0,
+    thucTe:
+      saiDuoc.length === 0 && saiKhong.length === 0
+        ? "dung het"
+        : `thieu quyen: [${saiDuoc.join(" ")}] · thua quyen: [${saiKhong.join(" ")}]`,
+    mongDoi: "ke toan + truong bo phan cap ≥3 + quan tri CO · bon vai tro con lai KHONG",
+  };
+});
+
+kiem("Tang ghi CHAN dot thanh toan khong hop le", CHU_SEP_DOT_CHI, () => {
+  /* 🔴 Bốn ca này đều làm hỏng số liệu tiền theo cách KHÔNG nhìn ra trên bảng:
+     · 0 đồng → một dòng vô nghĩa, tổng không đổi nhưng bảng có thêm đợt;
+     · số âm → lén TĂNG dư nợ;
+     · chuỗi rác → `NaN`, cả cột "Còn lại" của đơn đó hiện "NaN đ";
+     · thiếu ngày → không đối chiếu được với sao kê ngân hàng. */
+  const KD = nap(join(thuMuc, "kho-du-lieu.cjs"));
+  const ca = [
+    ["so 0", { poId: "po-1", ngayChi: "2026-09-01", soTien: 0 }],
+    ["so am", { poId: "po-1", ngayChi: "2026-09-01", soTien: -500 }],
+    ["chuoi rac", { poId: "po-1", ngayChi: "2026-09-01", soTien: Number("hai trieu") }],
+    ["thieu ngay", { poId: "po-1", soTien: 1000 }],
+    ["ngay sai khuon", { poId: "po-1", ngayChi: "01/09/2026", soTien: 1000 }],
+    ["khong gan don", { ngayChi: "2026-09-01", soTien: 1000 }],
+  ];
+  const lot = ca.filter(([, d]) => KD.vuongMacDotThanhToan(d) === null).map(([t]) => t);
+  const hopLe = KD.vuongMacDotThanhToan({ poId: "po-1", ngayChi: "2026-09-01", soTien: 1_000_000 });
+  return {
+    duoc: lot.length === 0 && hopLe === null,
+    thucTe: lot.length === 0 ? `chan het · ca hop le=${hopLe ?? "cho qua"}` : `LOT: ${lot.join(" · ")}`,
+    mongDoi: "chan ca 6 ca hong, va CHO QUA dot hop le",
+  };
+});
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 

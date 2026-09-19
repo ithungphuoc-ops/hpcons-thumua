@@ -144,6 +144,18 @@ export interface Quyen {
   xemBaoGia: boolean;
   xemCongNo: boolean;
   /**
+   * ★★ GHI SỐ TIỀN ĐÃ THANH TOÁN cho nhà cung cấp — Sếp 18/09/2026 duyệt: **Kế toán và Trưởng
+   * phòng**.
+   *
+   * 🔴 CỜ RIÊNG, KHÔNG MƯỢN `lapPO` NHƯ ĐIỀU KHOẢN CÔNG NỢ. Hai việc khác hẳn nhau về người làm:
+   * *điều kiện* thanh toán (số ngày được nợ) là thứ **Thu mua đàm phán**; còn *số tiền đã chi thật*
+   * là việc **Kế toán** ghi theo uỷ nhiệm chi. Mượn `lapPO` là khoá đúng người cần dùng ra ngoài —
+   * lỗi này chính một agent phản biện bắt được 18/09, và nó đúng.
+   *
+   * ⚠️ KHÔNG mở cho QLDA hay Phòng Thi công dù họ xem được giá: xem tiền và chi tiền là hai việc.
+   */
+  ghiThanhToan: boolean;
+  /**
    * ★★ XOÁ TOÀN BỘ DỮ LIỆU CHẠY THỬ CỦA CẢ PHÒNG — Sếp 16/09/2026: *"Ẩn nút này ở mục này, đưa
    * vào mục cài đặt quy trình. Và chức năng này chỉ hiện ở tài khoản cấp quản trị"*.
    *
@@ -243,6 +255,9 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     xuatHoSo: capTM >= 1,
     xemBaoGia: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laQLDA || laKeToan,
     xemCongNo: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laKeToan,
+    /* Kế toán + Trưởng bộ phận cấp ≥3 + quản trị — Sếp chốt 18/09/2026. Nhân viên thu mua KHÔNG
+       có: họ đàm phán điều kiện, không phải người chi tiền. */
+    ghiThanhToan: laQuanTri || laKeToan || (laTruongBP && capTM >= 3),
 
     /* 🔴 CHỈ QUẢN TRỊ — xem chú thích đầy đủ ở khai báo `xoaToanBoDuLieu`. Đừng thêm `|| laBGD`
        hay `|| capTM >= 3` cho "tiện": nút này xoá sạch dữ liệu cả phòng, không khôi phục được. */

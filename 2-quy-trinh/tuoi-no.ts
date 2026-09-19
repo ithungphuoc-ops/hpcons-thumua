@@ -8,6 +8,7 @@
 import type {
   CongNo,
   DonDatHang,
+  DotThanhToanPO,
   GiaDonDatHang,
   NgayISO,
   PhieuNhanHang,
@@ -170,6 +171,53 @@ export interface CongNoTheoDon {
   tenDonHang: string;
   maDonHang: string;
   tenCongTrinh?: string;
+  /**
+   * ★ MÃ SỐ ĐỀ NGHỊ — Sếp 19/09/2026: ***"Thêm cho a trường thông tin Mã số đề nghị"***.
+   *
+   * 📌 LẤY THẲNG `po.prCode` ĐÃ CÓ SẴN TRÊN ĐƠN, KHÔNG tra ngược qua `prId` sang bảng đề nghị.
+   * Bản chép là **cố ý** (xem chú thích cặp `prId`/`prCode` ở `kieu-du-lieu.ts`): đơn là chứng từ
+   * đã phát hành, phải đứng yên kể cả khi đề nghị nguồn đổi tên hay bị xoá.
+   *
+   * ⚠️ `undefined` với đơn KHÔNG gắn đề nghị (bản mẫu in / dữ liệu cũ) — giao diện phải chịu được,
+   * đừng in chữ "undefined" ra bảng.
+   */
+  maDeNghi?: string;
+  /**
+   * ★ SỐ HOÁ ĐƠN của nhà cung cấp cho đơn này — Sếp 18/09/2026 (yêu cầu 2 của màn Công nợ).
+   *
+   * 🔴 ĐẶT Ở CẤP ĐƠN, KHÔNG ĐẶT Ở TỪNG ĐỢT CHI. Hoá đơn tồn tại **trước** lần chi: gắn nó vào đợt
+   * thì đơn đã nhận hoá đơn mà chưa trả đồng nào sẽ có cột trống — đúng dòng Kế toán cần nhìn nhất.
+   *
+   * 📌 Lưu trong chứng từ GIÁ (`GiaDonDatHang`), cùng cụm với `soNgayDuocNo` và `ngayBatDauTinhNoTay`
+   * — cả ba đều là điều kiện thanh toán, và chú thích ở `kieu-du-lieu.ts` CẤM tách cụm đó sang
+   * chứng từ khác vì lộ thế đàm phán (nguyên tắc dữ liệu số 3).
+   */
+  soHoaDon?: string;
+  /**
+   * ★★ TỔNG TIỀN GHI TRÊN HOÁ ĐƠN — Sếp 19/09/2026. `undefined` = **chưa nhập**, khác hẳn `0`.
+   * Cột "Tổng tiền theo PO" (`tongCongNo`) là cam kết mua; con số này là thứ Kế toán trả tiền
+   * theo. Hai số thường lệch nhau (giao thiếu, phụ phí, xuất gộp) — đó chính là lý do phải có cả hai.
+   */
+  tongTienHoaDon?: number;
+  /**
+   * ★★ Căn cứ tính nợ CỦA RIÊNG ĐƠN NÀY — Sếp 19/09/2026. `"po"` là mặc định khi chưa ai chọn.
+   * Là thuộc tính của đơn (lưu ở `GiaDonDatHang.canCuCongNo`), không phải cách đọc của cả bảng.
+   */
+  canCu: CanCuCongNo;
+  /** ★ Tổng đã trả của đơn — cộng từ các đợt (Sếp 18/09/2026). `0` khi chưa trả đợt nào. */
+  daTra: number;
+  /** ★ Còn phải trả = tổng − đã trả, kẹp ở 0. Xem `conLaiCuaPO`. */
+  conLai: number;
+  /** ★ Các đợt đã chi của đơn này, xếp theo ngày chi tăng dần — hàng con gập/mở của bảng. */
+  dotChi: DotThanhToanPO[];
+  /**
+   * ★ ĐÃ TẤT TOÁN — trả đủ (hoặc dư). Sếp 18/09/2026 chốt: đơn trả hết **ở lại bảng** với nhãn
+   * trung tính, KHÔNG biến mất và KHÔNG báo đỏ quá hạn nữa.
+   *
+   * 🔴 Nếu không có cờ này thì đơn đã trả xong vẫn đội nhãn *"Quá hạn N ngày"* — app tự nói dối
+   * trên đúng cột người ta nhìn để đi đòi/đi trả.
+   */
+  daTatToan: boolean;
   /** Cột ③. */
   tenNCC: string;
   /** Cột ④ — tổng phải trả của đơn (đã gồm thuế, đã trừ chiết khấu). */
@@ -236,6 +284,56 @@ function canhBaoToiHan(ngayToiHan: NgayISO | undefined, moc: Date): {
 }
 
 /**
+ * ★★ TỔNG ĐÃ TRẢ CỦA MỘT ĐƠN — cộng các đợt thanh toán.
+ *
+ * 🔴 CỘNG TẠI CHỖ, KHÔNG LƯU SẴN MỘT CON SỐ TỔNG trên đơn. Lưu sẵn là hai chỗ cùng giữ một con
+ * số: xoá một đợt mà quên trừ tổng thì bảng báo đã trả nhiều hơn thực tế, và không ai phát hiện
+ * vì hai chỗ đều "có vẻ" đúng.
+ *
+ * ⚠️ `|| 0` chống `NaN`: một bản ghi hỏng (số tiền là chuỗi, hoặc `undefined` do dữ liệu cũ) mà
+ * lọt vào phép cộng thì CẢ cột "Còn lại" của đơn đó thành `NaN` — hiện ra màn hình là chữ "NaN đ",
+ * và người đọc không biết đơn đó đã trả bao nhiêu.
+ */
+export function daTraCuaPO(poId: string, dotThanhToan: readonly DotThanhToanPO[]): number {
+  return dotThanhToan.reduce((s, d) => (d.poId === poId ? s + (Number(d.soTien) || 0) : s), 0);
+}
+
+/**
+ * ★★ CÒN PHẢI TRẢ = tổng công nợ − đã trả. **KHÔNG BAO GIỜ ÂM.**
+ *
+ * 📌 Kẹp ở 0 là cố ý: trả dư (chuyển nhầm, hoặc trả gộp nhiều đơn vào một lệnh) vẫn có thật, nhưng
+ * hiện số âm ở cột "Còn lại" thì người đọc hiểu thành "nhà cung cấp nợ lại mình" — sai hẳn nghĩa.
+ * Muốn theo dõi phần trả dư thì phải là một việc riêng, có chỗ nói rõ, chứ không nhét vào cột này.
+ */
+export function conLaiCuaPO(tongCongNo: number, daTra: number): number {
+  return Math.max(0, (Number(tongCongNo) || 0) - (Number(daTra) || 0));
+}
+
+/**
+ * ★★ CĂN CỨ TÍNH CÔNG NỢ — Sếp 19/09/2026: ***"mục tính toán số liệu của cột Còn phải trả sẽ có
+ * thêm nút Lựa chọn tổng tiền theo hoá đơn hoặc tổng tiền theo PO"***.
+ *
+ * 📌 `"po"` là mặc định vì mọi đơn đều có giá trị PO, còn hoá đơn thì phải chờ NCC xuất.
+ */
+export type CanCuCongNo = "po" | "hoa_don";
+
+/**
+ * ★★ SỐ TIỀN LÀM CĂN CỨ TÍNH NỢ của một đơn, theo lựa chọn của người xem.
+ *
+ * 🔴 TRẢ `undefined` KHI CHỌN "THEO HOÁ ĐƠN" MÀ CHƯA NHẬP HOÁ ĐƠN — và nơi gọi PHẢI hiện ra điều
+ * đó thay vì in một con số. Rơi về giá trị PO cho "đỡ trống" là nói dối: người đọc tưởng đang
+ * nhìn số của hoá đơn trong khi đó là số của đơn mua hàng, và hai số này thường lệch nhau thật.
+ * Rơi về `0` còn tệ hơn — đơn chưa có hoá đơn sẽ trông như đã trả xong.
+ */
+export function tienLamCanCu(
+  r: Pick<CongNoTheoDon, "tongCongNo" | "tongTienHoaDon">,
+  canCu: CanCuCongNo,
+): number | undefined {
+  if (canCu === "po") return r.tongCongNo;
+  return typeof r.tongTienHoaDon === "number" ? r.tongTienHoaDon : undefined;
+}
+
+/**
  * ★★ DỰNG BẢNG CÔNG NỢ TỪ ĐƠN HÀNG THẬT — một dòng một đơn.
  *
  * 🔴 CHỈ LẤY ĐƠN ĐÃ NHẬN ĐỦ HÀNG. Đơn còn đang giao thì chưa phát sinh nghĩa vụ trả tiền cho
@@ -257,15 +355,51 @@ export function congNoTheoDonHang(
   giaDonHang: GiaDonDatHang[],
   phieuNhan: PhieuNhanHang[],
   moc: Date = new Date(),
+  /**
+   * ★ Các đợt đã chi (Sếp 18/09/2026). Để TUỲ CHỌN và mặc định rỗng: nơi gọi cũ chưa truyền thì
+   * bảng chạy y như trước (đã trả 0, còn lại = tổng), không vỡ.
+   */
+  dotThanhToan: readonly DotThanhToanPO[] = [],
 ): CongNoTheoDon[] {
   const ra: CongNoTheoDon[] = [];
   for (const po of donHang) {
     if (po.trangThai === "huy") continue;
     const phieuCuaPO = phieuNhan.filter((p) => p.poId === po.id);
-    if (!poDaGiaoDu(tinhTienDoPO(po, phieuCuaPO))) continue;
+    const dotChi = dotThanhToan
+      .filter((d) => d.poId === po.id)
+      .slice()
+      .sort((a, b) => (a.ngayChi < b.ngayChi ? -1 : a.ngayChi > b.ngayChi ? 1 : 0));
+    /**
+     * 🔴 NỚI BỘ LỌC 18/09/2026: đơn **đã có ít nhất một đợt chi** cũng vào bảng, dù hàng chưa về đủ.
+     *
+     * Trước đó bảng chỉ nhận đơn đã nhận đủ hàng — đúng cho việc tính dư nợ, nhưng nó tạo một
+     * VÙNG MÙ: tiền **tạm ứng / trả trước** cho đơn đang giao (chuyện thường với vật tư xây dựng)
+     * ghi vào rồi **không hiện ở bất cứ đâu**. Tiền đã ra khỏi tài khoản mà không màn nào thấy là
+     * lỗi nặng hơn hẳn việc bảng có thêm một dòng.
+     *
+     * ⚠️ Đơn kiểu đó vẫn phải NHÌN RA ĐƯỢC là hàng chưa về đủ — xem `hangChuaVeDu` bên dưới và
+     * nhãn ở cột cảnh báo. Trộn nó lẫn với đơn đã giao đủ là thổi phồng dư nợ thật.
+     */
+    const daGiaoDu = poDaGiaoDu(tinhTienDoPO(po, phieuCuaPO));
+    if (!daGiaoDu && dotChi.length === 0) continue;
 
     const gia = giaDonHang.find((g) => g.poId === po.id);
     const tien = tinhTienChiTietPO(po, gia);
+    const daTra = daTraCuaPO(po.id, dotChi);
+    /* Căn cứ của RIÊNG đơn này — chưa ai chọn thì theo PO. */
+    const canCu: CanCuCongNo = gia?.canCuCongNo === "hoa_don" ? "hoa_don" : "po";
+    /**
+     * 🔴 `conLai` VÀ `daTatToan` TÍNH THEO ĐÚNG CĂN CỨ CỦA ĐƠN, không phải luôn theo PO.
+     *
+     * Chọn "theo hoá đơn" mà chưa nhập hoá đơn thì **chưa có căn cứ**: lúc đó `conLai` giữ theo PO
+     * để các phép cộng khác không vỡ, nhưng `daTatToan` phải là `false` và giao diện phải nói rõ
+     * *"chưa nhập hoá đơn"* — xem `tienLamCanCu`. Không được coi đơn đó là đã trả xong.
+     */
+    const tienCanCu = canCu === "hoa_don" ? gia?.tongTienHoaDon : tien.tongThanhToan;
+    const conLai = conLaiCuaPO(tienCanCu ?? tien.tongThanhToan, daTra);
+    /* 🔴 `> 0` chứ không phải `>= 0`: đơn chưa trả đồng nào mà tổng công nợ bằng 0 (đơn 0 đồng,
+       hoặc chưa nhập giá) KHÔNG phải "đã tất toán" — nó là đơn chưa có số liệu. */
+    const daTatToan = daTra > 0 && conLai === 0 && tienCanCu !== undefined;
     const soNgayDuocNo = gia?.soNgayDuocNo;
     /**
      * ★★ ĐẢO VAI HAI CỘT NGÀY (Ban lãnh đạo 06/09/2026):
@@ -287,7 +421,23 @@ export function congNoTheoDonHang(
      */
     const batDauGoTay = gia?.ngayBatDauTinhNoTay?.trim() || undefined;
     const batDauTuNhan = ngayBatDauTinhNo(phieuCuaPO);
-    const ngayBatDau = batDauGoTay ?? batDauTuNhan;
+    /**
+     * ★★ NỀN CUỐI CÙNG: NGÀY LẬP PO — Sếp 19/09/2026: ***"Ngày mặc định thì sẽ lấy theo PO"***.
+     *
+     * 🔴 ĐỨNG SAU CÙNG TRONG BA NGUỒN, KHÔNG ĐƯỢC ĐẢO THỨ TỰ:
+     *   ① ngày **gõ tay** — người dùng đã chốt mốc, phải thắng tất cả (Ban lãnh đạo 06/09/2026);
+     *   ② ngày **nhận hàng lần cuối** — mốc đúng nhất về nghiệp vụ, nợ tính từ lúc hàng về;
+     *   ③ ngày **lập PO** — chỉ dùng khi hai cái trên đều trống.
+     *
+     * 📌 VÌ SAO CẦN ③: từ 18/09 bảng nhận cả đơn **đã tạm ứng mà hàng chưa về đủ**. Những đơn đó
+     * chưa có phiếu nhập kho nào nên ② trống, và trước hôm nay chúng hiện *"Thiếu số ngày nợ"* —
+     * tức có tiền đã chi mà không mốc nào để tính hạn. Lấy ngày lập PO làm nền thì bảng luôn có
+     * một mốc đọc được, và người dùng vẫn gõ tay đè lên được bất cứ lúc nào.
+     *
+     * ⚠️ KHÔNG dùng `ngayGiaoDuKien`: đó là dự kiến, đổi được và thường lùi — lấy nó làm mốc tính
+     * nợ là hạn thanh toán tự trôi theo mỗi lần sửa đơn.
+     */
+    const ngayBatDau = batDauGoTay ?? batDauTuNhan ?? po.ngayLapPO;
     /* Ngày tới hạn CỐ ĐỊNH tự tính từ ngày bắt đầu (dù ngày bắt đầu là tay hay tự suy ra).
        Thiếu một trong hai vế (chưa có ngày bắt đầu / chưa ghi số ngày được nợ) thì để trống,
        KHÔNG bịa ngày. */
@@ -304,6 +454,14 @@ export function congNoTheoDonHang(
          trước để vẫn tra cứu được. Đơn không gắn công trình thì chỉ hiện mã. */
       maDonHang: po.code,
       tenCongTrinh: po.tenCongTrinh,
+      maDeNghi: po.prCode,
+      soHoaDon: gia?.soHoaDon,
+      tongTienHoaDon: gia?.tongTienHoaDon,
+      canCu,
+      daTra,
+      conLai,
+      dotChi,
+      daTatToan,
       tenDonHang: [po.code, po.tenCongTrinh].filter(Boolean).join(" — "),
       tenNCC: po.supplierTen,
       tongCongNo: tien.tongThanhToan,
@@ -311,8 +469,25 @@ export function congNoTheoDonHang(
       ngayBatDau,
       batDauNhapTay: batDauGoTay !== undefined,
       ngayToiHan,
-      canhBao,
-      soNgayConLai,
+      /**
+       * ★★ BA TRẠNG THÁI ĐÈ LÊN CẢNH BÁO HẠN, theo đúng thứ tự ưu tiên — Sếp 18/09/2026.
+       *
+       * ① **Đã tất toán** thắng tất cả: trả xong rồi thì hạn thanh toán hết ý nghĩa. Để nguyên
+       *    *"Quá hạn N ngày"* là app nói dối trên chính cột người ta nhìn để đi trả tiền.
+       * ② **Hàng chưa về đủ** (đơn chỉ vào bảng vì đã tạm ứng): chưa phát sinh nghĩa vụ trả nốt,
+       *    nên không tính hạn — nhưng PHẢI nói rõ lý do, không để trống.
+       * ③ Còn lại: giữ nguyên cảnh báo theo hạn như trước.
+       *
+       * 🔴 LUÔN CÓ CẢ MÀU LẪN CHỮ (Design System V1.1) — `neutral` cho ①② vì chúng không phải
+       * việc phải làm gấp, nhưng chữ thì nói rõ tình trạng.
+       */
+      canhBao: daTatToan
+        ? { nhan: "Đã tất toán", tong: "success" }
+        : !daGiaoDu
+          ? { nhan: "Mới tạm ứng", tong: "neutral" }
+          : canhBao,
+      /* Đã tất toán thì bỏ hẳn số ngày còn lại: mọi phép đếm quá hạn ở nơi khác đọc trường này. */
+      soNgayConLai: daTatToan ? undefined : soNgayConLai,
     });
   }
   /* Đơn chưa tính được hạn (`undefined`) xuống cuối; còn lại xếp theo số ngày còn lại tăng

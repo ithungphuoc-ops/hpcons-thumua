@@ -1220,6 +1220,48 @@ export interface DongGiaPO {
 export type KieuChietKhau = "khong" | "ty_le" | "so_tien";
 
 /**
+ * ★★★ MỘT ĐỢT THANH TOÁN cho nhà cung cấp — Sếp 18/09/2026, yêu cầu ③+④ của màn Công nợ:
+ * ***"Số tiền còn lại = Tổng công nợ − Tổng số tiền đã thanh toán các đợt"*** và ***"Mỗi PO sẽ
+ * được tạo thêm dòng để nhập số tiền thanh toán từng đợt"***.
+ *
+ * 🔴🔴 CẤT Ở MỘT TÀI LIỆU RIÊNG, KHÔNG NHÉT VÀO `chay-thu/du-lieu-chung`. ĐỌC HẾT TRƯỚC KHI DỜI.
+ *
+ * Kho chung ghi bằng `setDoc(merge:false)` (đè cả tài liệu) và khi nhận về thì **lọc theo danh
+ * sách trắng** (`chuanHoa`). Hai thứ đó cộng lại thành một cái bẫy đã nổ một lần ngày 13/08/2026
+ * với `cauHinh`: **một tab đang mở bản deploy CŨ** không biết khoá mới, nên lần ghi kế tiếp của
+ * nó đẩy lên một ảnh chụp **không có khoá đó** và xoá sạch dữ liệu của cả phòng — im lặng.
+ * Lần này thứ bị xoá sẽ là TIỀN, nên không được chấp nhận rủi ro đó.
+ *
+ * ✅ Tài liệu riêng (`3-du-lieu/kho-thanh-toan-firestore.ts`) cắt hẳn ca này: máy chạy bản cũ
+ * không biết tài liệu ấy tồn tại nên **không thể ghi đè** nó.
+ *
+ * 🔴 MỖI ĐỢT LÀ MỘT BẢN GHI CÓ `id` RIÊNG, không phải một con số cộng dồn trên đơn. Ba lý do:
+ *   · sửa/xoá được đúng một đợt mà không đụng đợt khác;
+ *   · giữ được dấu vết ai ghi, lúc nào — tiền thì phải truy lại được;
+ *   · `id` mới toanh là điều kiện để lưới chống mất dữ liệu (`ghepBanChuaLenMayChu`) che được nó.
+ *
+ * ⚠️ `soTien` là số tiền ĐÃ CHI của riêng đợt này, **không phải luỹ kế**. Cộng dồn là việc của
+ * `2-quy-trinh/tuoi-no.ts` → `daTraCuaPO`; lưu sẵn tổng ở đây là hai chỗ giữ một con số, sớm muộn
+ * lệch nhau (đúng nếp dự án cấm).
+ */
+export interface DotThanhToanPO {
+  id: string;
+  /** Đơn hàng được trả tiền. Một đơn có nhiều đợt. */
+  poId: string;
+  /** Ngày chi thật (ISO `yyyy-mm-dd`). */
+  ngayChi: NgayISO;
+  /** Số tiền của RIÊNG đợt này, đồng. Luôn > 0 — tầng ghi từ chối số 0 và số âm. */
+  soTien: number;
+  /** Số uỷ nhiệm chi / phiếu chi — gõ tự do, để Kế toán đối chiếu với chứng từ giấy. */
+  soChungTuChi?: string;
+  ghiChu?: string;
+  nguoiGhiUid: string;
+  nguoiGhiTen: string;
+  /** Mốc ghi (ISO đầy đủ). Dùng để truy vết, KHÔNG dùng thay `ngayChi`. */
+  thoiDiemGhi: string;
+}
+
+/**
  * Phần TIỀN của một đơn mua hàng — tách hẳn khỏi `DonDatHang`.
  *
  * 🔴 MỌI thứ dính tới tiền đều để ở đây, kể cả chiết khấu, thuế suất và điều khoản
@@ -1281,6 +1323,55 @@ export interface GiaDonDatHang {
    * thanh toán. Tách ra hai chứng từ là mở đường cho một bên đổi mà bên kia không biết.
    */
   ngayBatDauTinhNoTay?: NgayISO;
+  /**
+   * ★★ SỐ HOÁ ĐƠN nhà cung cấp xuất cho đơn này — Sếp 18/09/2026, yêu cầu ② của màn Công nợ.
+   *
+   * 🔴 ĐẶT Ở CẤP ĐƠN, KHÔNG Ở TỪNG ĐỢT CHI. Hoá đơn tồn tại **trước** lần chi tiền: gắn nó vào
+   * đợt chi thì đơn đã nhận hoá đơn mà chưa trả đồng nào sẽ hiện cột trống — đúng dòng Kế toán
+   * cần nhìn nhất (nợ chưa trả).
+   *
+   * 📌 CÙNG CHỖ với `soNgayDuocNo` / `ngayBatDauTinhNoTay` là **cố ý**: ba thứ này là một cụm
+   * điều kiện thanh toán, và hai chú thích ngay trên đã ghi luật *"đừng tách sang chứng từ khác"*.
+   * Số hoá đơn dùng để đối chiếu với tiền nên thuộc nhóm chỉ người được xem giá mới đọc —
+   * `tm_donhang_gia` đã có sẵn rules `duocXemTien()`.
+   *
+   * ⚠️ CHUỖI TỰ DO, không ép khuôn: hoá đơn VAT Việt Nam có nhiều dạng ký hiệu và mỗi NCC ghi một
+   * kiểu. Ép khuôn là chặn đúng người đang gõ đúng. Tầng ghi cắt còn 60 ký tự.
+   */
+  soHoaDon?: string;
+  /**
+   * ★★ TỔNG TIỀN GHI TRÊN HOÁ ĐƠN của nhà cung cấp — Sếp 19/09/2026: ***"Thêm 1 cột: Tổng tiền
+   * theo hoá đơn"***, kèm nút chọn tính công nợ theo hoá đơn hay theo PO.
+   *
+   * 🔴 VÌ SAO PHẢI LÀ MỘT CON SỐ RIÊNG, KHÔNG SUY RA TỪ PO: hoá đơn thực tế **thường lệch** đơn
+   * mua hàng — giao thiếu/thừa, làm tròn, phụ phí vận chuyển, hoặc NCC xuất gộp nhiều lần giao.
+   * Kế toán trả tiền theo **hoá đơn**, còn Thu mua theo dõi cam kết theo **PO**. Hai con số phải
+   * cùng tồn tại thì mới đối chiếu được; ép một bên suy ra bên kia là mất đúng thứ cần đối chiếu.
+   *
+   * 📌 `undefined` = **chưa nhập hoá đơn**, khác hẳn `0`. Khi chưa nhập thì cột "Còn phải trả"
+   * tính theo hoá đơn phải nói rõ là chưa có căn cứ, chứ không được coi như nợ 0 đồng.
+   *
+   * ⚠️ Cùng cụm điều kiện thanh toán với `soHoaDon` / `soNgayDuocNo` nên ở CÙNG chứng từ giá —
+   * đây là dữ liệu tiền, chỉ người có quyền xem giá mới đọc được.
+   */
+  tongTienHoaDon?: number;
+  /**
+   * ★★ CĂN CỨ TÍNH CÔNG NỢ CỦA RIÊNG ĐƠN NÀY — Sếp 19/09/2026: ***"Nút này đưa vào các DMH, vì số
+   * liệu mỗi DMH sẽ khác nhau. Có cái sẽ dùng theo PO, cái dùng theo hoá đơn"***.
+   *
+   * 🔴 LÀ THUỘC TÍNH CỦA ĐƠN, PHẢI LƯU — KHÔNG phải state màn hình. Bản đầu của tôi làm một nút
+   * chung cho cả bảng với lập luận *"đây là cách đọc, không phải thuộc tính của đơn"*; Sếp bác và
+   * Sếp đúng: thực tế mỗi đơn một kiểu — đơn đã có hoá đơn thì Kế toán theo hoá đơn, đơn chưa xuất
+   * hoá đơn thì vẫn phải theo PO. Để chung một nút là ép cả bảng đọc theo một kiểu, và nửa số đơn
+   * hiện sai căn cứ.
+   *
+   * 📌 `undefined` = **theo PO** (mặc định), vì mọi đơn đều có giá trị PO còn hoá đơn thì phải chờ
+   * nhà cung cấp xuất. Không cần di trú dữ liệu cũ.
+   *
+   * ⚠️ Chọn "theo hoá đơn" mà `tongTienHoaDon` chưa nhập thì bảng PHẢI nói *"chưa nhập hoá đơn"*,
+   * tuyệt đối không lặng lẽ rơi về số của PO — xem `tienLamCanCu` ở `2-quy-trinh/tuoi-no.ts`.
+   */
+  canCuCongNo?: "po" | "hoa_don";
   /**
    * ⛔ KHÔNG CÒN DÙNG từ 06/09/2026 — trước đó là ô nhập tay của NGÀY TỚI HẠN (chỉ đạo 28/08).
    * Ban lãnh đạo 06/09 đổi hướng: *"cố định ngày này và tự tính"* — ngày tới hạn nay LUÔN suy ra
