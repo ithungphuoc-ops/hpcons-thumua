@@ -24,6 +24,7 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { duocXacNhanNhanDuHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
 import { laPOCuaHoSoPhongBan } from "@/5-ket-noi/gui-po-qlk-ctr";
@@ -205,7 +206,9 @@ export default function TrangChiTietDonHang() {
     <>
       <PageHeader
         crumbs={[
-          { label: "Thu mua", href: "/tong-quan" },
+          /* Thủ kho vào màn này để bấm "Xác nhận nhận hàng" nhưng KHÔNG vào được `/tong-quan`
+             từ 18/09/2026 — xem `duongDanGocTheoQuyen`. */
+          { label: "Thu mua", href: duongDanGocTheoQuyen(quyen) },
           { label: "Đơn đặt hàng", href: "/don-hang" },
           { label: po.code },
         ]}

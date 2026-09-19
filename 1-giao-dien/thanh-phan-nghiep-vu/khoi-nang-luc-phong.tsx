@@ -126,7 +126,13 @@ export function KhoiNangLucPhong() {
                 *    tiêu đề nhiều chữ phải `whitespace-normal` (trước đây chỉ cột Nhân viên có).
                 *  · Tên người dài phải `truncate` + `title` để rê chuột vẫn đọc đủ.
                 */}
-              <div className="hidden overflow-x-auto md:block">
+              {/* 🔴 `thanh-keo-ngang-ro`: thanh cuộn ngang LUÔN HIỆN (Ban lãnh đạo 22/08/2026).
+                  Thêm 18/09/2026 — bảng có sàn 896px nên ở dải 768–896px nó BẮT BUỘC cuộn, mà
+                  thanh mặc định của trình duyệt chỉ hiện khi đang kéo: người dùng tưởng bảng chỉ
+                  có 5 cột và mất hẳn cột "Đang quá hạn". Khuôn mẫu đã chốt ở `trang/cong-no.tsx`.
+                  `Table` tự bọc sẵn một khung cuộn bên trong nên phải tắt khung đó thì lớp thanh
+                  cuộn mới ăn. */}
+              <div className="thanh-keo-ngang-ro hidden overflow-x-auto md:block [&>[data-slot=table-container]]:overflow-visible">
                 <Table className="min-w-[56rem] table-fixed">
                   <TableHeader>
                     <TableRow>
@@ -208,6 +214,30 @@ export function KhoiNangLucPhong() {
                     </span>
                   </div>
                 ))}
+                {/**
+                  * ★ DÒNG TỔNG "CẢ PHÒNG" CHO BẢN ĐIỆN THOẠI — thêm 18/09/2026.
+                  *
+                  * 🔴 Bản desktop có hàng cuối cộng đủ 5 con số, bản thẻ thì không — trưởng phòng
+                  * mở trên điện thoại phải tự cộng tay. Hai bản của CÙNG một khối mà nói khác nhau
+                  * là đúng thứ dự án cấm; và người hay xem bằng điện thoại nhất chính là người cần
+                  * con số tổng.
+                  */}
+                {tong && (
+                  <div className="flex flex-col gap-1 rounded-xl border border-primary/40 bg-primary-bg p-4">
+                    <span className="text-sm font-semibold text-text-primary">Cả phòng</span>
+                    <span className="text-sm text-text-secondary">
+                      {tong.soDong} dòng vật tư · {tong.soPhieu} phiếu
+                    </span>
+                    <span className="text-sm text-text-secondary">
+                      Đã đóng {tong.soPhieuXong} · đóng dở {tong.soPhieuDongDo}
+                      {tong.soPhieuQuaHan > 0 && (
+                        <span className="ml-1 font-semibold text-danger">
+                          · quá hạn {tong.soPhieuQuaHan}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
             </>
           )}

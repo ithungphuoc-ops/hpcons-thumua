@@ -1697,7 +1697,12 @@ export function mucConNoCuaBuoc(
     });
   }
 
-  /* 🔴 GẮN VÀO BƯỚC ⑤, KHÔNG CÒN Ở ④ — Ban lãnh đạo 24/08/2026 chuyển hợp đồng sang bước
+  /* ⚠️⚠️ KHỐI CHÚ THÍCH NGAY DƯỚI LÀ **LỊCH SỬ**, KHÔNG CÒN MÔ TẢ ĐÚNG HÀNH VI HIỆN TẠI.
+     Đọc khối ★★ ở cuối (18/09/2026) mới là luật đang chạy: nợ hợp đồng nay bày ở ĐÚNG MỘT bước —
+     đã ghi lý do thì bày ở ④ (nơi có ô đính), chưa ghi gì thì bày ở ⑤. Giữ lại phần dưới vì nó
+     ghi các chỉ đạo 24/08 và 13/09 vẫn còn hiệu lực về ĐIỀU KIỆN (không phải về CHỖ BÀY).
+
+     🔴 GẮN VÀO BƯỚC ⑤, KHÔNG CÒN Ở ④ — Ban lãnh đạo 24/08/2026 chuyển hợp đồng sang bước
      "Tiến hành đặt hàng". Để nguyên ở ④ là tô đỏ một khối không còn chứa ô đính kèm đó, người
      dùng mở khối ④ đi tìm ô hợp đồng và không thấy.
 
@@ -1735,6 +1740,10 @@ export function mucConNoCuaBuoc(
    * hồ sơ đang lập đơn là biến cờ đỏ thành thứ ai cũng bỏ qua, đúng cái bẫy "chốt báo động sai thì
    * lần sau không ai đọc nữa" (`CLAUDE.md` §6.6). Sếp cũng nói rõ điều kiện: ***"Lý do bổ sung
    * sau thì phải báo đỏ"*** — tức mốc là lúc người dùng ĐÃ cam kết còn nợ chứng từ.
+   *
+   * ⚠️⚠️ CÂU NGAY DƯỚI ĐÃ LỖI THỜI TỪ 18/09/2026 — giữ lại để hiểu lịch sử, đừng làm theo. Nay
+   * bước ⑤ chỉ báo khi CHƯA ghi lý do nào (hai nhánh loại trừ nhau, xem `buocBaoNoHopDong` bên
+   * dưới); đã ghi lý do thì dòng nợ chuyển hẳn về bước ④.
    *
    * ⚠️ Bước ⑤ giữ nguyên vô điều kiện: tới đó thì hợp đồng là thứ chặn bước thật, có ghi lý do hay
    * không cũng vẫn đang thiếu.

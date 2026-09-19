@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { KpiCard } from "@/1-giao-dien/thanh-phan-dung-chung/kpi-card";
@@ -243,7 +244,12 @@ export default function TrangCongNo() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Phòng Thu Mua", href: "/tong-quan" }, { label: "Công nợ nhà cung cấp" }]}
+        /* Người ngoài phòng Thu mua (Kế toán) không vào được `/tong-quan` từ 18/09/2026 —
+           breadcrumb phải trỏ về màn gốc CỦA HỌ, xem `duongDanGocTheoQuyen`. */
+        crumbs={[
+          { label: "Phòng Thu Mua", href: duongDanGocTheoQuyen(quyen) },
+          { label: "Công nợ nhà cung cấp" },
+        ]}
         title="Công nợ nhà cung cấp"
         description="Hóa đơn phải trả lấy từ đơn đặt hàng · phân tích tuổi nợ 30-60-90 ngày theo từng nhà cung cấp."
       />

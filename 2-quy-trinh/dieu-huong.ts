@@ -369,3 +369,21 @@ export function hrefDangChon(duongDan: string, muc: MucDieuHuong[]): string | nu
   }
   return chon;
 }
+
+/**
+ * ★★ MÀN GỐC CỦA MỘT NGƯỜI — chỗ breadcrumb *"Thu mua"* nên trỏ về. Thêm 18/09/2026.
+ *
+ * 🔴 SINH RA TỪ MỘT LỖI CÓ THẬT của chính bản siết quyền sáng nay: mọi breadcrumb trong app đều
+ * trỏ cứng `/tong-quan`, mà từ hôm nay người ngoài phòng Thu mua không vào được màn đó. Thủ kho
+ * đang ở `/don-hang/{poId}` bấm *"Thu mua"* là bị cổng bảo vệ đưa ngược về `/theo-doi` — mất chỗ
+ * đang đứng, không một câu giải thích.
+ *
+ * 📌 MỘT HÀM DÙNG CHUNG, không để mỗi màn tự viết `quyen.x ? "/a" : "/b"`. Mười ba màn đang có
+ * breadcrumb; mỗi nơi tự quyết là sớm muộn vài nơi lệch nhau khi quyền đổi lần sau.
+ *
+ * ⚠️ Chỉ cần sửa ở những màn người ngoài phòng Thu mua VÀO ĐƯỢC (Theo dõi · Công nợ · Đơn hàng).
+ * Các màn khác họ đã bị chặn từ cổng nên breadcrumb ở đó không bao giờ tới tay họ.
+ */
+export function duongDanGocTheoQuyen(quyen: Pick<Quyen, "xemQuyTrinhMuaHang">): string {
+  return quyen.xemQuyTrinhMuaHang ? "/tong-quan" : "/theo-doi";
+}

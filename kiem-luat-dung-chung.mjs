@@ -338,6 +338,27 @@ try {
   process.exit(1);
 }
 
+/**
+ * ★★ DỰNG `2-quy-trinh/dieu-huong.ts` — thêm 18/09/2026.
+ *
+ * 🔴 VÌ SAO GIỜ MỚI CÓ: tệp này giữ luật **ai thấy mục menu nào**, mà tới hôm nay bộ kiểm chưa
+ * bao giờ dựng nó. Bốn luật menu đổi ngày 18/09 (ẩn Tổng quan · Công việc của tôi · Lịch cho
+ * người ngoài phòng Thu mua, giữ Đơn hàng cho thủ kho) vì vậy **không có một dòng đỏ nào canh** —
+ * ai siết nốt mục Đơn hàng cho "nhất quán" là thủ kho mất luôn màn duy nhất có việc của họ.
+ */
+const tepRa17 = join(thuMuc, "dieu-huong.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/dieu-huong.ts" --bundle --platform=node --format=cjs --outfile="${tepRa17}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/dieu-huong.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const nap = createRequire(import.meta.url);
 const M = nap(tepRa);
 const G = nap(tepRa2);
@@ -8417,6 +8438,123 @@ kiem(
       duoc: n === 2,
       thucTe: String(n) + " tham số",
       mongDoi: "2 — thêm tham số thứ ba nghĩa là cờ quyền kho đã bị nối lại",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
+// MỤC MENU — ai thấy cái gì. Bộ kiểm chưa bao giờ canh `dieu-huong.ts` tới 18/09/2026.
+// ════════════════════════════════════════════════════════════════════
+
+const DH = nap(tepRa17);
+const mucCuaAi = (q) => DH.MUC_DIEU_HUONG.filter((m) => m.duocThay(q)).map((m) => m.href);
+
+kiem("Phong ban khac chi con MOT muc menu: /theo-doi", CHU_SEP_CHI_THEO_DOI, () => {
+  const ds = mucCuaAi(aiDo({}));
+  return {
+    duoc: ds.length === 1 && ds[0] === "/theo-doi",
+    thucTe: `menu=[${ds.join(" ")}]`,
+    mongDoi: "dung mot muc /theo-doi",
+  };
+});
+
+kiem("THU KHO VAN con muc /don-hang — man duy nhat co viec cua ho", CHU_SEP_CHI_THEO_DOI, () => {
+  /* 🔴 CHIỀU NGHỊCH QUAN TRỌNG NHẤT của cả nhóm: nút *"Xác nhận nhận hàng"* nằm ở
+     `/don-hang/{poId}`, và từ 30/08/2026 thủ kho không ghi phiếu nhận trong app này nữa — đó là
+     việc DUY NHẤT của họ. Ai siết nốt mục này cho "nhất quán" là màn đó thành mồ côi với thủ kho
+     (CLAUDE.md §3.4b). Bài này đỏ nghĩa là bạn vừa làm đúng việc đó. */
+  const ds = mucCuaAi(aiDo({ chucNang: "thu_kho_cong_trinh", capTM: 1, capKho: 2 }));
+  return {
+    duoc: ds.includes("/don-hang") && ds.includes("/theo-doi") && !ds.includes("/de-nghi"),
+    thucTe: `menu=[${ds.join(" ")}]`,
+    mongDoi: "co /don-hang va /theo-doi · KHONG co /de-nghi (BLD 16/08/2026)",
+  };
+});
+
+kiem("CHIEU NGHICH — nguoi lam thu mua VAN thay du muc chinh", CHU_SEP_CHI_THEO_DOI, () => {
+  const ds = mucCuaAi(aiDo({ chucNang: "nhan_vien_thu_mua" }));
+  const du = ["/tong-quan", "/viec-cua-toi", "/lich", "/de-nghi", "/don-hang", "/theo-doi"].every(
+    (h) => ds.includes(h),
+  );
+  return { duoc: du, thucTe: `menu=[${ds.join(" ")}]`, mongDoi: "co du 6 muc chinh" };
+});
+
+kiem("Menu va duong dan PHAI NOI CUNG MOT CAU", CHU_SEP_CHI_THEO_DOI, () => {
+  /* 🔴 Hai tầng phải khớp: thấy mục menu thì bấm vào phải đi được, và ẩn mục thì gõ thẳng địa chỉ
+     cũng phải bị chặn. Lệch một bên là "thấy nút bấm vào bị đá ra" (18/09 đã dính với /don-hang:
+     menu ẩn nhưng đường dẫn vẫn mở). */
+  const ai = [
+    ["ngoai phong", aiDo({})],
+    ["thu kho", aiDo({ chucNang: "thu_kho_cong_trinh", capTM: 1, capKho: 2 })],
+    ["nhan vien thu mua", aiDo({ chucNang: "nhan_vien_thu_mua" })],
+  ];
+  const lech = [];
+  for (const [ten, q] of ai) {
+    for (const m of DH.MUC_DIEU_HUONG) {
+      const thayMuc = m.duocThay(q);
+      const vaoDuoc = PQ.duocVaoDuongDan(m.href, q);
+      /* Mục ẩn có chủ ý (`() => false`, như "Lập đơn mua hàng (PO)" tạm ngưng) thì không tính. */
+      if (!thayMuc && !vaoDuoc) continue;
+      if (thayMuc !== vaoDuoc && thayMuc) lech.push(`${ten}:${m.href}(thay nhung khong vao duoc)`);
+    }
+  }
+  return {
+    duoc: lech.length === 0,
+    thucTe: lech.length === 0 ? "khop het" : lech.join(" · "),
+    mongDoi: "khong muc nao HIEN ma lai bi chan duong dan",
+  };
+});
+
+// ════════════════════════════════════════════════════════════════════
+// HAI LUẬT NẰM TRONG HOOK — KIỂM BẰNG CẤU TRÚC MÃ NGUỒN, KHÔNG GỌI ĐƯỢC HÀM
+//
+// ⚠️ NÓI THẲNG GIỚI HẠN: hai bài dưới đây đọc MÃ NGUỒN chứ không gọi hàm như 370 bài còn lại —
+// `ghiDoiChieuThuMua` nằm trong `useCallback` và `choDinhMoi` là prop của một component React,
+// cả hai không nạp bằng Node được. Nên chúng yếu hơn, và KHÔNG được coi là bằng chứng hành vi.
+//
+// 📌 Nhưng vẫn hơn không có gì, và chúng không phải `grep` chuỗi trơn: bài thứ nhất đòi đúng
+// QUAN HỆ *"trong nhánh gỡ dấu phải có lời gọi ghi nhật ký"*, bài thứ hai đòi ô trống dùng cờ
+// KHÁC với hai ô trên. Muốn kiểm thật thì phải tách phần thuần của `ghiDoiChieuThuMua` ra
+// `2-quy-trinh/`, lúc đó đổi hai bài này sang gọi hàm.
+// ════════════════════════════════════════════════════════════════════
+
+const doc = (p) => readFileSync(p, "utf8");
+
+kiem(
+  "Go dau doi chieu (khop = null) VAN phai ghi nhat ky don hang",
+  'Sếp · 18/09/2026 — *"Nut khop so lieu nay dang chi cho tick chu ko cho bo tick"*',
+  () => {
+    /* 🔴 Dấu đối chiếu mang TÊN người đối chiếu. Gỡ im lặng thì sau này không ai biết phiếu từng
+       được đánh dấu rồi bị gỡ — đúng loại mất dấu vết mà nhật ký đơn hàng sinh ra để tránh. */
+    const src = doc("3-du-lieu/kho-du-lieu.tsx");
+    const i = src.indexOf("if (khop === null) {");
+    if (i < 0) {
+      return { duoc: false, thucTe: "KHONG con nhanh `khop === null`", mongDoi: "nhanh go dau con ton tai" };
+    }
+    /* Cắt đúng thân nhánh: từ chỗ mở tới `return null;` đầu tiên sau đó. */
+    const than = src.slice(i, src.indexOf("return null;", i));
+    return {
+      duoc: than.includes("ghiNhatKyDonHang"),
+      thucTe: than.includes("ghiNhatKyDonHang") ? "co goi ghiNhatKyDonHang" : "KHONG goi ghiNhatKyDonHang",
+      mongDoi: "nhanh go dau phai goi ghiNhatKyDonHang",
+    };
+  },
+);
+
+kiem(
+  "O TRONG cua o chung tu dung co RIENG, khong dung chung `duocSua`",
+  'Sếp · 18/09/2026 *"mo nut dinh kem cho nhan vien"* + *"van giu o truong bo phan"* (thay/xoa)',
+  () => {
+    /* 🔴 Nếu ai đổi dòng ô trống về `duocSua` thì nhân viên mất quyền đính vừa được mở — lặng lẽ,
+       `npm run kiem-luat` vẫn xanh nếu không có bài này. Ngược lại, đổi hai ô TRÊN sang
+       `choDinhMoi` là nhân viên thay/xoá được bản hợp đồng đã ký. */
+    const src = doc("1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc.tsx");
+    const soODaCo = (src.match(/khoa=\{khoa \|\| !duocSua\}/g) ?? []).length;
+    const soOTrong = (src.match(/khoa=\{khoa \|\| !choDinhMoi\}/g) ?? []).length;
+    return {
+      duoc: soODaCo === 1 && soOTrong === 1,
+      thucTe: `o da co dung duocSua: ${soODaCo} · o trong dung choDinhMoi: ${soOTrong}`,
+      mongDoi: "dung 1 va 1 — hai o khac nhau dung hai co khac nhau",
     };
   },
 );

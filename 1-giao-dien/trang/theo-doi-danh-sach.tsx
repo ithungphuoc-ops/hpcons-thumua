@@ -12,6 +12,7 @@ import { TimelineDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/timeline-de-n
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
@@ -289,7 +290,10 @@ export default function TrangTheoDoi() {
         /* 🔴 BREADCRUMB TRỎ VỀ CHÍNH MÀN NÀY, KHÔNG TRỎ `/tong-quan` — sửa 18/09/2026. Từ hôm nay
            người ngoài phòng Thu mua KHÔNG vào được `/tong-quan`; để nguyên là họ bấm "Thu mua" rồi
            bị cổng bảo vệ ném ngược về đây, mất chỗ đang đứng mà không hiểu vì sao. */
-        crumbs={[{ label: "Thu mua", href: "/theo-doi" }, { label: "Theo dõi đề nghị" }]}
+        crumbs={[
+          { label: "Thu mua", href: duongDanGocTheoQuyen(quyen) },
+          { label: "Theo dõi đề nghị" },
+        ]}
         title="Theo dõi đề nghị"
         description="Tiến trình hồ sơ đề nghị mua hàng — không hiển thị giá và nhà cung cấp"
         /**

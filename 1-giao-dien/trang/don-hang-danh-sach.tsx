@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { phanTramPO, soNgayConLai, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
@@ -41,7 +42,11 @@ export default function TrangDanhSachDonHang() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Thu mua", href: "/tong-quan" }, { label: "Đơn đặt hàng" }]}
+        /* Thủ kho vào được màn này nhưng KHÔNG vào được `/tong-quan` — xem `duongDanGocTheoQuyen`. */
+        crumbs={[
+          { label: "Thu mua", href: duongDanGocTheoQuyen(quyen) },
+          { label: "Đơn đặt hàng" },
+        ]}
         title="Đơn đặt hàng"
         description={
           quyen.xemGia
