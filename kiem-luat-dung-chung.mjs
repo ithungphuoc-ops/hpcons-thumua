@@ -571,15 +571,22 @@ kiem(
       [],
       [],
     );
-    /* Ban lãnh đạo 24/08 yêu cầu tối giản ký tự -> bản ngắn dùng số bước khoanh tròn.
-       ⚠️ Là bước ⑤ chứ không phải ④: cùng ngày 24/08 Ban lãnh đạo chuyển ô Hợp đồng sang bước
-       "Tiến hành đặt hàng" (*"Hợp đồng mua hàng em đưa sang bước tiến hành đặt hàng"*). Đây là
-       ĐỔI YÊU CẦU, không phải sửa bài kiểm cho vừa mã nguồn. */
-    const coNhacBuoc5 = ds.some((m) => m.startsWith("⑤"));
+    /* ★ LUẬT BÀI NÀY GHIM: hồ sơ ĐÃ QUA bước rồi thì nợ của bước cũ **vẫn phải hiện trên thẻ**
+       (Ban lãnh đạo 24/08/2026). Thẻ trắng trơn là lỗi đã phải chữa một lần.
+
+       ⚠️ CÁCH NHẬN DIỆN ĐỔI NGÀY 19/09/2026, LUẬT THÌ KHÔNG. Trước đây bài này nhận ra mục bằng
+       tiền tố số khoanh (`m.startsWith("⑤")`) — nhưng Sếp 19/09 yêu cầu *"Bỏ số 4 đi và ghi rõ
+       thông tin"*, nên tiền tố không còn tồn tại. Nay nhận bằng chính tên tệp đang thiếu, thứ
+       không phụ thuộc vào việc app có đánh số bước hay không.
+
+       📌 Món nợ này thuộc bước ⑤ *Tiến hành đặt hàng* (Ban lãnh đạo 24/08 chuyển ô Hợp đồng sang
+       đó: *"Hợp đồng mua hàng em đưa sang bước tiến hành đặt hàng"*) — hồ sơ thử không có lý do
+       nợ nào nên đi nhánh ⑤, xem `buocBaoNoHopDong`. */
+    const coNhacHopDong = ds.some((m) => /Thiếu hợp đồng/.test(m));
     return {
-      duoc: coNhacBuoc5,
+      duoc: coNhacHopDong,
       thucTe: ds.length === 0 ? "[] (THẺ TRẮNG TRƠN — đúng lỗi đã báo)" : JSON.stringify(ds),
-      mongDoi: 'có ít nhất một mục nhắc bước ⑤ (Tiến hành đặt hàng)',
+      mongDoi: 'qua bước ⑦ rồi vẫn còn mục "Thiếu hợp đồng" của bước ⑤ (Tiến hành đặt hàng)',
     };
   },
 );
@@ -655,13 +662,16 @@ kiem(
     );
     const conHoaDon = bay.filter((m) => /ho[áa] đơn/i.test(m));
     /* 🔴 CHỐT CHỐNG "XANH RỖNG": hàm trả về mảng rỗng thì phép trên cũng xanh, mà lúc đó
-       thẻ mất luôn dòng "⑤ thiếu HĐ" — chính thứ Sếp yêu cầu GIỮ. Nên đòi thêm dòng đó. */
-    const conHopDong = bay.some((m) => m.includes("HĐ"));
+       thẻ mất luôn dòng nợ Hợp đồng — chính thứ Sếp yêu cầu GIỮ. Nên đòi thêm dòng đó.
+       📌 19/09/2026: nhãn đổi từ viết tắt "thiếu HĐ" sang đủ chữ "Thiếu hợp đồng" (Sếp:
+       *"Bỏ số 4 đi và ghi rõ thông tin"*). Luật của bài này — *bỏ chữ hoá đơn, giữ chữ hợp
+       đồng* — không đổi một ly; chỉ đổi chuỗi dùng để nhận ra mục. */
+    const conHopDong = bay.some((m) => /Thiếu hợp đồng/.test(m));
     return {
       duoc: conHoaDon.length === 0 && conHopDong,
       thucTe: JSON.stringify(bay),
       mongDoi:
-        'không còn mục nào nhắc hoá đơn, nhưng VẪN còn mục "⑤ thiếu HĐ" (Hợp đồng — Sếp yêu cầu giữ)',
+        'không còn mục nào nhắc hoá đơn, nhưng VẪN còn mục "Thiếu hợp đồng" (Sếp yêu cầu giữ)',
     };
   },
 );
@@ -8064,15 +8074,34 @@ const CH_TRONG = { soBaoGiaToiThieu: 2, hanGioTheoBuoc: {}, congViecTheoBuoc: {}
 const nhanCuaBuoc = (dn, buoc) =>
   (G.mucConNoCuaBuoc(dn, buoc, CH_TRONG, [], []) ?? []).map((m) => `${m?.ngan ?? ""}`).join(" | ");
 
+/* ════════════════════════════════════════════════════════════════════
+   🔴 NHÃN NGẮN ĐỔI CHỮ NGÀY 19/09/2026 — ĐỌC TRƯỚC KHI SỬA BỐN BÀI DƯỚI
+
+   Sếp 19/09/2026, nguyên văn: ***"Bỏ số 4 đi và ghi rõ thông tin / Thiếu hợp đồng / Thiếu đơn
+   mua hàng (PO)"***. Bốn bài dưới đây trước đó tìm chuỗi viết tắt `thiếu HĐ` / `thiếu ĐMH`, nên
+   chúng đỏ ngay khi nhãn đổi chữ.
+
+   📌 VÌ SAO ĐỔI BÀI KIỂM Ở ĐÂY KHÔNG PHẢI LÀ "SỬA BÀI CHO VỪA MÃ NGUỒN":
+   luật mà bốn bài này ghim là **món nợ được báo ở BƯỚC NÀO** và **bấm "Bổ sung sau" không xoá
+   món nợ** (Sếp 18/09/2026) — không phải chuỗi chữ. Chuỗi chỉ là cách nhận ra mục. Mọi điều kiện
+   về bước giữ nguyên từng chữ; chỉ đổi thứ dùng để nhận diện.
+
+   ⚠️ CỐ Ý KHÔNG CHẤP NHẬN CẢ CHỮ CŨ LẪN CHỮ MỚI. Viết `/thiếu HĐ|Thiếu hợp đồng/` thì ai quay về
+   bản viết tắt vẫn xanh — tức mất luôn dấu vết chỉ đạo 19/09. Bài "KHONG con so khoanh" ngay
+   dưới nhóm này là chỗ ghim chỉ đạo đó.
+   ════════════════════════════════════════════════════════════════════ */
+const CHU_SEP_NHAN_DU_CHU =
+  'Sếp · 19/09/2026 — *"Bỏ số 4 đi và ghi rõ thông tin / Thiếu hợp đồng / Thiếu đơn mua hàng (PO)"*';
+
 kiem("Da ghi ly do no HD -> bao o buoc ④, KHONG bao o buoc ⑤", CHU_SEP_NO_DUNG_BUOC, () => {
   const CT = nap(join(thuMuc, "chung-tu.cjs"));
   const dn = hoSoThieuHD(CT.LY_DO_BO_SUNG_SAU);
   const o4 = nhanCuaBuoc(dn, "lap_don_mua_hang");
   const o5 = nhanCuaBuoc(dn, "dat_hang");
   return {
-    duoc: /HĐ/.test(o4) && !/thiếu HĐ/.test(o5),
+    duoc: /Thiếu hợp đồng/.test(o4) && !/Thiếu hợp đồng/.test(o5),
     thucTe: `④=[${o4 || "(rỗng)"}] · ⑤=[${o5 || "(rỗng)"}]`,
-    mongDoi: "④ co 'thieu HĐ' (noi co o de dinh), ⑤ KHONG con — mot mon no mot dong",
+    mongDoi: "④ co 'Thieu hop dong' (noi co o de dinh), ⑤ KHONG con — mot mon no mot dong",
   };
 });
 
@@ -8086,9 +8115,9 @@ kiem(
     const dn = hoSoThieuHD("");
     const o5 = nhanCuaBuoc(dn, "dat_hang");
     return {
-      duoc: /thiếu HĐ/.test(o5),
+      duoc: /Thiếu hợp đồng/.test(o5),
       thucTe: `⑤=[${o5 || "(rỗng)"}]`,
-      mongDoi: "⑤ VAN co 'thieu HĐ' — khong co ly do thi khong co dong nao o ④ de thay the",
+      mongDoi: "⑤ VAN co 'Thieu hop dong' — khong co ly do thi khong co dong nao o ④ de thay the",
     };
   },
 );
@@ -8098,9 +8127,9 @@ kiem("Buoc ⑤ thieu ban NCC ky -> bao 'thieu ĐMH'", CHU_SEP_NO_DUNG_BUOC, () =
   const dn = hoSoThieuHD("");
   const o5 = nhanCuaBuoc(dn, "dat_hang");
   return {
-    duoc: /thiếu ĐMH/.test(o5),
+    duoc: /Thiếu đơn mua hàng \(PO\)/.test(o5),
     thucTe: `⑤=[${o5 || "(rỗng)"}]`,
-    mongDoi: "⑤ co 'thieu ĐMH' — chu viet tat cua Ban lanh dao 27/08/2026",
+    mongDoi: "⑤ co 'Thieu don mua hang (PO)' — chu day du, Sep 19/09/2026",
   };
 });
 
@@ -8122,12 +8151,28 @@ kiem(
     };
     const o5 = nhanCuaBuoc(dn, "dat_hang");
     return {
-      duoc: /thiếu ĐMH/.test(o5),
+      duoc: /Thiếu đơn mua hàng \(PO\)/.test(o5),
       thucTe: `⑤=[${o5 || "(rỗng)"}]`,
       mongDoi: '"Bo sung sau" KHONG xoa mon no — chi co tep that moi xoa',
     };
   },
 );
+
+kiem("Nhan tren the KHONG con so khoanh ④ — ghi du chu", CHU_SEP_NHAN_DU_CHU, () => {
+  /* 🔴 Ghim chỉ đạo 19/09/2026. Hồ sơ đã ghi lý do nợ HĐ thì món nợ nằm ở bước ④, còn thẻ đang
+     đứng ở bước ⑤ ⇒ đi đúng nhánh trước đây gắn tiền tố `④` (`mucConNoToanHoSo`). Bài này đòi
+     nhãn in ra mặt thẻ không còn ký tự số khoanh nào, và vẫn phải nói đủ tên tệp đang thiếu.
+
+     ⚠️ ĐÒI CẢ HAI VẾ là cố ý: chỉ đòi "không có số khoanh" thì ai xoá sạch nhãn cũng xanh. */
+  const CT = nap(join(thuMuc, "chung-tu.cjs"));
+  const dn = hoSoThieuHD(CT.LY_DO_BO_SUNG_SAU);
+  const the = (G.dsConNoBayTrenThe(dn, "dat_hang", CH_TRONG, [], []) ?? []).join(" | ");
+  return {
+    duoc: !/[①②③④⑤⑥⑦⑧⑨]/.test(the) && /Thiếu hợp đồng/.test(the),
+    thucTe: `thẻ=[${the || "(rỗng)"}]`,
+    mongDoi: "khong con ky tu ①..⑨, va van co dong 'Thieu hop dong'",
+  };
+});
 
 // ════════════════════════════════════════════════════════════════════
 // PHÒNG BAN KHÁC CHỈ CÒN "THEO DÕI ĐỀ NGHỊ" — Sếp 18/09/2026
@@ -8615,10 +8660,14 @@ kiem("Con lai = tong - da tra, va KHONG BAO GIO am", CHU_SEP_DOT_CHI, () => {
   };
 });
 
-kiem("Chi KE TOAN / TRUONG BO PHAN / QUAN TRI moi ghi duoc tien da tra", CHU_SEP_DOT_CHI, () => {
-  /* 🔴 CHIỀU NGHỊCH NẰM NGAY TRONG BÀI: không chỉ kiểm "kế toán ghi được", mà kiểm CẢ nhân viên
-     thu mua và thủ kho đều KHÔNG ghi được. Chỉ kiểm chiều thuận thì ai sửa cờ thành `true` vô
-     điều kiện vẫn xanh, và lúc đó mọi tài khoản đều ghi được tiền đã chi. */
+kiem(
+  "Ai ghi duoc tien da tra: KE TOAN / TBP3 / QUAN TRI / NHAN VIEN THU MUA cap ≥2",
+  'Sếp · 19/09/2026 — *"Mở quyền nhập đơn hàng cho tài khoản nhân viên / Vì đa phần công việc ' +
+    'này sẽ do nhân viên làm"* (đè chỉ đạo 18/09/2026 "chỉ Kế toán + Trưởng phòng")',
+  () => {
+  /* 🔴 CHIỀU NGHỊCH NẰM NGAY TRONG BÀI: không chỉ kiểm "ai ghi được", mà kiểm CẢ thủ kho, QLDA,
+     phòng thi công và nhân viên thu mua CẤP 1 đều KHÔNG ghi được. Chỉ kiểm chiều thuận thì ai
+     sửa cờ thành `true` vô điều kiện vẫn xanh, và lúc đó mọi tài khoản đều ghi được tiền đã chi. */
   const ai = (them) =>
     PQ.tinhQuyen({
       uid: "u-t",
@@ -8630,13 +8679,23 @@ kiem("Chi KE TOAN / TRUONG BO PHAN / QUAN TRI moi ghi duoc tien da tra", CHU_SEP
       capTM: 2,
       ...them,
     });
+  /* 🔴 NHÂN VIÊN THU MUA CHUYỂN TỪ NHÓM "KHÔNG" SANG NHÓM "ĐƯỢC" — Sếp 19/09/2026.
+     Nguyên văn: *"Mở quyền nhập đơn hàng cho tài khoản nhân viên / Vì đa phần công việc này sẽ
+     do nhân viên làm"*, hỏi lại đúng câu thì Sếp chọn **Có**. Đây là đổi ý đè lên chỉ đạo
+     18/09/2026 (*"chỉ Kế toán và Trưởng phòng"*), không phải sửa bài kiểm cho vừa mã nguồn.
+
+     ⚠️ CHUYỂN CHỖ, TUYỆT ĐỐI KHÔNG XOÁ DÒNG. `ai({})` mặc định chính là nhân viên thu mua cấp 2
+     — xoá nó đi là bài kiểm mất luôn chiều nghịch cho đúng vai trò đang được nới quyền. */
   const duoc = [
     ["ke toan", ai({ chucNang: "ke_toan" })],
     ["truong bo phan cap 3", ai({ chucNang: "truong_bo_phan_thu_mua", capTM: 3 })],
     ["quan tri", ai({ vaiTro: "admin", capTM: 4 })],
+    ["nhan vien thu mua cap 2", ai({})],
   ];
   const khong = [
-    ["nhan vien thu mua", ai({})],
+    /* 🔴 CHIỀU NGHỊCH CỦA CHÍNH LUẬT MỚI: nhân viên thu mua cấp 1 chỉ được XEM, không được ghi
+       tiền. Bỏ ca này là ai viết `|| laNhanVienTM` trơn cũng xanh, tức nới rộng hơn Sếp duyệt. */
+    ["nhan vien thu mua cap 1", ai({ capTM: 1 })],
     ["thu kho", ai({ chucNang: "thu_kho_cong_trinh", capTM: 1, capKho: 2 })],
     ["QLDA", ai({ chucNang: "qlda" })],
     ["phong thi cong", ai({ chucNang: "phong_thi_cong", capTM: 1 })],
@@ -8649,9 +8708,12 @@ kiem("Chi KE TOAN / TRUONG BO PHAN / QUAN TRI moi ghi duoc tien da tra", CHU_SEP
       saiDuoc.length === 0 && saiKhong.length === 0
         ? "dung het"
         : `thieu quyen: [${saiDuoc.join(" ")}] · thua quyen: [${saiKhong.join(" ")}]`,
-    mongDoi: "ke toan + truong bo phan cap ≥3 + quan tri CO · bon vai tro con lai KHONG",
+    mongDoi:
+      "ke toan + TBP cap ≥3 + quan tri + NHAN VIEN THU MUA cap ≥2 CO · " +
+      "nhan vien cap 1, thu kho, QLDA, thi cong KHONG",
   };
-});
+  },
+);
 
 kiem("Tang ghi CHAN dot thanh toan khong hop le", CHU_SEP_DOT_CHI, () => {
   /* 🔴 Bốn ca này đều làm hỏng số liệu tiền theo cách KHÔNG nhìn ra trên bảng:

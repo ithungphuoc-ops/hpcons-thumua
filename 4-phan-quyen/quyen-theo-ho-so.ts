@@ -31,6 +31,37 @@ export function laNguoiTheoDoi(deNghi: DeNghiMuaHang, uid: string): boolean {
 }
 
 /**
+ * ★★ ĐƠN HÀNG (PO) NÀY CÓ PHẢI VIỆC CỦA TÔI KHÔNG — Sếp 19/09/2026.
+ *
+ * Nguyên văn: *"Tạo thêm nút lọc để nhân viên có thể chọn chỉ hiển thị các PO **do mình làm hoặc
+ * được theo dõi**"* (ảnh chụp màn Công nợ).
+ *
+ * Hai đường, đúng hai vế trong câu của Sếp:
+ *   ① **do mình làm** → `po.nguoiPhuTrachUid` — gán bằng uid người lập lúc chốt đơn
+ *      (`form-lap-don-mua-hang.tsx`). Trường này BẮT BUỘC nên luôn có.
+ *   ② **được theo dõi** → danh sách người theo dõi nằm trên ĐỀ NGHỊ, không nằm trên PO, nên phải
+ *      tra ngược qua `po.prId`.
+ *
+ * ⚠️ `po.prId` LÀ TUỲ CHỌN. PO độc lập (lập thẳng, chưa gắn đề nghị) không có đề nghị nào để tra
+ * → vế ② trả `false`, chỉ còn vế ①. Đó là hành vi ĐÚNG, không phải thiếu sót: đơn không gắn đề
+ * nghị thì không có ai "theo dõi" nó cả.
+ *
+ * 🔴 SO BẰNG `uid`, KHÔNG SO BẰNG TÊN. Tên người trùng nhau được, và đổi tên hiển thị là bộ lọc
+ * lặng lẽ sai — đây là nếp đã có sẵn của `duocChiaViec` / `laNguoiTheoDoi` ngay trên.
+ */
+export function laDonHangCuaToi(
+  po: { nguoiPhuTrachUid?: string; prId?: string },
+  tatCaDeNghi: readonly DeNghiMuaHang[],
+  uid: string,
+): boolean {
+  if (!uid) return false;
+  if (po.nguoiPhuTrachUid === uid) return true;
+  if (!po.prId) return false;
+  const dn = tatCaDeNghi.find((x) => x.id === po.prId);
+  return dn ? laNguoiTheoDoi(dn, uid) || duocChiaViec(dn, uid) : false;
+}
+
+/**
  * Có được xem bảng báo giá của đề nghị này không.
  *
  * Ba đường được xem:

@@ -116,6 +116,7 @@ import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
 import { catBanMauDonMuaHang } from "@/3-du-lieu/ban-mau-don-mua-hang";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { boDau } from "@/6-tien-ich/bo-dau";
+import { homNayISO } from "@/6-tien-ich/dinh-dang";
 
 /**
  * FORM LẬP ĐƠN MUA HÀNG — TOÀN BỘ phần nhập liệu của bước ④, dùng chung cho HAI CHỖ.
@@ -4617,6 +4618,19 @@ export function FormLapDonMuaHang({
                 id="ngay-giao"
                 nhan="Nhận hàng từ ngày"
                 giaTri={ngayGiao}
+                /**
+                 * ★★ KHOÁ NGÀY LÙI — Sếp 19/09/2026: ***"Cho chọn ngày từ hiện tại tới tương lai.
+                 * Ko được chọn ngày giao hàng lùi, khoá luôn mục chọn ngày lùi"***.
+                 *
+                 * 🔴 ĐÂY LÀ NGÀY HẸN GIAO, KHÔNG PHẢI NGÀY ĐÃ GIAO. Hẹn nhà cung cấp giao vào một
+                 * ngày đã qua là một cam kết không thể thực hiện — và nó còn kéo theo hạn công nợ
+                 * tính sai từ một mốc không có thật.
+                 *
+                 * ⚠️ KHÔNG áp luật này cho ô "Ngày nhận hàng thực tế" (`hop-ghi-nhan-giao-hang`)
+                 * hay "Ngày bắt đầu tính nợ": hai ô đó ghi lại việc ĐÃ xảy ra, nên ngày quá khứ
+                 * mới là giá trị đúng. Chặn nhầm ở đó là thủ kho không ghi nổi phiếu hôm qua.
+                 */
+                toiThieu={homNayISO()}
                 onDoi={setNgayGiao}
               />
               <span className="text-sm text-text-secondary">đến</span>
@@ -4628,7 +4642,9 @@ export function FormLapDonMuaHang({
                    khoảng không tồn tại. Chặn ở đây thì người lập biết ngay lúc chọn, không phải
                    bấm Cất rồi mới thấy báo lỗi. (Trước 18/09/2026 việc này do `min` của ô ngày
                    native làm — đổi sang lịch tự vẽ thì phải mang chốt đó theo, bỏ là mất thật.) */
-                toiThieu={ngayGiao || undefined}
+                /* Ngày kết thúc: không lùi trước hôm nay, và cũng không trước ngày bắt đầu. Lấy
+                   mốc muộn hơn trong hai cái — thiếu một vế là lọt một kiểu khoảng không tồn tại. */
+                toiThieu={ngayGiao && ngayGiao > homNayISO() ? ngayGiao : homNayISO()}
                 onDoi={setNgayGiaoDen}
               />
               {/**

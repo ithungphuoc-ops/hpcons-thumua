@@ -41,7 +41,7 @@ import { nhanAnToan, NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
  * chi). Xóa đi rồi dựng lại là dựng lại một luật tài chính từ trí nhớ.
  */
 import { congNoTheoDonHang, soTienConLai, tienLamCanCu } from "@/2-quy-trinh/tuoi-no";
-import type { CanCuCongNo } from "@/2-quy-trinh/tuoi-no";
+import { laDonHangCuaToi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { formatCurrencyVnd, formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
@@ -155,6 +155,7 @@ export default function TrangCongNo() {
    */
   const {
     congNo,
+    deNghi,
     donHang,
     giaDonHang,
     phieuNhan,
@@ -183,6 +184,17 @@ export default function TrangCongNo() {
    * (rule `react-hooks/rules-of-hooks`), nhưng đừng để nó phải bắt.
    */
   const [moDotChi, setMoDotChi] = useState<string | null>(null);
+  /**
+   * ★★ BỘ LỌC "PO CỦA TÔI" — Sếp 19/09/2026: *"Tạo thêm nút lọc để nhân viên có thể chọn chỉ
+   * hiển thị các PO do mình làm hoặc được theo dõi"*.
+   *
+   * 🔴 MẶC ĐỊNH `"tat_ca"`, KHÔNG mặc định "của tôi". Màn này là sổ công nợ của cả phòng; mở lên
+   * mà đã giấu sẵn phần lớn đơn thì người dùng tưởng dữ liệu bị mất — và họ không có cách nào
+   * biết mình đang bị lọc nếu không để ý dải tab. Ai muốn thu hẹp thì tự bấm.
+   *
+   * 📌 Cũng khai trước cổng quyền, cùng lý do Rules of Hooks đã ghi ở hai state trên.
+   */
+  const [locNguoi, setLocNguoi] = useState<"tat_ca" | "cua_toi">("tat_ca");
   /* ❌ ĐÃ BỎ state căn cứ chung cho cả bảng — Sếp 19/09/2026: *"Nút này đưa vào các DMH, vì số liệu
      mỗi DMH sẽ khác nhau"*. Nay căn cứ là thuộc tính của TỪNG đơn, lưu ở `GiaDonDatHang.canCuCongNo`. */
 
@@ -267,11 +279,26 @@ export default function TrangCongNo() {
   }
 
   const chuTim = chuanHoaTim(timNCC);
-  const theoDon = chuTim
-    ? theoDonTatCa.filter(
-        (r) => chuanHoaTim(r.tenNCC).includes(chuTim) || chuanHoaTim(r.maDonHang).includes(chuTim),
-      )
-    : theoDonTatCa;
+  /**
+   * ★ Hai bộ lọc CHỒNG NHAU: tên NCC (28/08) và người làm (19/09). Người dùng gõ tên NCC rồi bấm
+   * "PO của tôi" thì phải còn đúng giao của hai tập — làm loại trừ nhau là bấm cái này mất cái kia
+   * mà không có gì báo.
+   *
+   * 📌 Luật "PO này của tôi không" nằm ở `4-phan-quyen/quyen-theo-ho-so.ts` → `laDonHangCuaToi`,
+   * không viết tại đây (quy ước 3.4b). Ở đây chỉ tra PO gốc theo `poId` rồi hỏi hàm đó.
+   */
+  const locCuaToi = (r: { poId: string }) => {
+    const po = donHang.find((p) => p.id === r.poId);
+    return po ? laDonHangCuaToi(po, deNghi, nguoiDung.uid) : false;
+  };
+  const theoDon = theoDonTatCa.filter((r) => {
+    if (chuTim && !(chuanHoaTim(r.tenNCC).includes(chuTim) || chuanHoaTim(r.maDonHang).includes(chuTim)))
+      return false;
+    if (locNguoi === "cua_toi" && !locCuaToi(r)) return false;
+    return true;
+  });
+  /* Đếm trên bản CHƯA lọc theo người để hiện được "N/M" — xem cảnh báo ở chú thích ô tìm. */
+  const soCuaToi = theoDonTatCa.filter(locCuaToi).length;
 
   return (
     <>
@@ -353,9 +380,12 @@ export default function TrangCongNo() {
         * được: ma trận 5 khoảng tuổi nợ của từng NCC · số hoá đơn chưa tất toán mỗi NCC · mức rủi
         * ro CẤP NHÀ CUNG CẤP · và NCC nào đang nợ nhiều nhất. Thay hẳn là mất cả bốn.
         *
-        * ⚠️ CHƯA PHẢI SỔ CÔNG NỢ ĐẦY ĐỦ — app chưa theo dõi từng lần chi, nên cột "Tổng công nợ"
-        * là TOÀN BỘ giá trị đơn, chưa trừ phần đã trả. Câu chú ngay dưới tiêu đề nói rõ điều đó
-        * với người dùng, không để họ tưởng đây là số dư thật.
+        * 🔴 ĐÃ BỎ CÂU CHÚ DƯỚI TIÊU ĐỀ ngày 19/09/2026 (Sếp: *"Bỏ dòng ghi chú này đi"*). Câu đó
+        * viết ngày 27/08 khi app **chưa** theo dõi từng lần chi: *"Số tiền là toàn bộ giá trị đơn
+        * — app chưa theo dõi từng lần chi"*. Từ 19/09/2026 đã có đợt thanh toán (`dotChi`) và cột
+        * "Còn phải trả" trừ đúng phần đã trả, nên câu đó **thành sai** — giữ lại là app tự nói
+        * sai về chính mình. ⚠️ Đừng viết lại một câu chú tương tự ở đây: đầu bảng đã có 14 tiêu
+        * đề cột, mỗi cột khó hiểu thì chú ngay tại cột đó, không nhồi thành đoạn văn trên đầu.
         */}
       <Card>
         <CardHeader>
@@ -363,10 +393,6 @@ export default function TrangCongNo() {
             <Wallet className="size-4 text-primary" aria-hidden />
             Theo dõi công nợ theo đơn hàng
           </CardTitle>
-          <p className="text-sm text-text-secondary">
-            Đơn đã nhận đủ hàng · nợ tính từ <strong>ngày nhận hàng lần cuối</strong> cộng số ngày
-            được nợ ghi trên đơn. Số tiền là toàn bộ giá trị đơn — app chưa theo dõi từng lần chi.
-          </p>
           {/* ★★ Ô TÌM THEO TÊN NHÀ CUNG CẤP (Ban lãnh đạo 28/08/2026). Dựng theo đúng mẫu ô tìm
               của `data-table.tsx`: icon Search đặt tuyệt đối trong ô, `pl-9` chừa chỗ cho icon. */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -383,9 +409,47 @@ export default function TrangCongNo() {
                 className="pl-9"
               />
             </div>
+            {/**
+              * ★★ DẢI LỌC THEO NGƯỜI LÀM — Sếp 19/09/2026: *"Tạo thêm nút lọc để nhân viên có thể
+              * chọn chỉ hiển thị các PO do mình làm hoặc được theo dõi"*.
+              *
+              * 📌 Dựng theo đúng khuôn dải tab của `trang/viec-cua-toi.tsx` (nút bo tròn, nền đậm
+              * khi đang chọn, có số đếm) để hai màn trông như một app — đừng tự chế kiểu khác.
+              *
+              * ⚠️ Vùng chạm `min-h-11` (44px) theo Design System V1.1 cho màn điện thoại.
+              */}
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Lọc theo người làm">
+              {(
+                [
+                  ["tat_ca", "Tất cả", theoDonTatCa.length],
+                  ["cua_toi", "PO của tôi", soCuaToi],
+                ] as const
+              ).map(([ma, nhan, so]) => (
+                <button
+                  key={ma}
+                  type="button"
+                  onClick={() => setLocNguoi(ma)}
+                  aria-pressed={locNguoi === ma}
+                  className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors md:min-h-9 ${
+                    locNguoi === ma
+                      ? "bg-primary text-white"
+                      : "text-text-secondary hover:bg-primary-bg hover:text-primary"
+                  }`}
+                >
+                  {nhan}
+                  <span
+                    className={`tabular-nums text-xs ${
+                      locNguoi === ma ? "text-white/80" : "text-text-desc"
+                    }`}
+                  >
+                    {so}
+                  </span>
+                </button>
+              ))}
+            </div>
             {/* 🔴 ĐANG LỌC THÌ PHẢI NÓI RÕ ĐANG GIẤU BAO NHIÊU ĐƠN. Không có dòng này thì người
                 dùng gõ tìm rồi quên xóa, hôm sau mở lại thấy bảng thiếu đơn mà tưởng mất dữ liệu. */}
-            {chuTim !== "" && (
+            {(chuTim !== "" || locNguoi !== "tat_ca") && (
               <span className="text-xs text-text-desc">
                 Đang lọc: {theoDon.length}/{theoDonTatCa.length} đơn
               </span>

@@ -24,16 +24,13 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
-import { formatCurrencyVnd, formatDate } from "@/6-tien-ich/dinh-dang";
+import { formatCurrencyVnd, formatDate, homNayISO } from "@/6-tien-ich/dinh-dang";
 import type { CongNoTheoDon } from "@/2-quy-trinh/tuoi-no";
 import type { NgayISO } from "@/3-du-lieu/kieu-du-lieu";
 
-/** Hôm nay dạng `yyyy-mm-dd`, theo giờ máy người dùng. */
-function homNay(): NgayISO {
-  const d = new Date();
-  const hai = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai(d.getDate())}`;
-}
+/* 📌 Mốc "hôm nay" dùng chung `homNayISO()` ở `6-tien-ich/dinh-dang.ts` — ba nơi cùng cần mốc
+   này (khoá ngày giao lùi, ngày chi mặc định, nền ngày bắt đầu tính nợ) và chúng phải luôn cho
+   ra cùng một ngày. Bản riêng từng tệp là sớm muộn một chỗ quên sửa. */
 
 export function KhoiDotThanhToan({
   dong,
@@ -53,7 +50,7 @@ export function KhoiDotThanhToan({
   onXoa: (id: string) => string | null;
 }) {
   const [dangThem, setDangThem] = useState(false);
-  const [ngayChi, setNgayChi] = useState<string>(homNay());
+  const [ngayChi, setNgayChi] = useState<string>(homNayISO());
   const [soTien, setSoTien] = useState("");
   const [soChungTu, setSoChungTu] = useState("");
   /** Đợt đang hỏi xoá — `null` là chưa hỏi ai. */
@@ -79,7 +76,7 @@ export function KhoiDotThanhToan({
     setDangThem(false);
     setSoTien("");
     setSoChungTu("");
-    setNgayChi(homNay());
+    setNgayChi(homNayISO());
   }
 
   return (

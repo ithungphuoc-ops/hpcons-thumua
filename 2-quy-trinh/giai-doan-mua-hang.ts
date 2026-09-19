@@ -1401,13 +1401,20 @@ export function mucConNoToanHoSo(
           ? muc
           : {
               /* 🔴 `...muc` ĐỨNG TRƯỚC LÀ BẮT BUỘC, không phải cho gọn: nhánh này dựng một đối
-                 tượng MỚI để gắn tiền tố số bước, nên mọi trường khác của `MucConNo` sẽ rơi mất
-                 nếu không sao chép lại. Cụ thể `nhacTrenThe: false` của mục hoá đơn (Sếp
+                 tượng MỚI để đổi bản đầy đủ, nên mọi trường khác của `MucConNo` sẽ rơi mất nếu
+                 không sao chép lại. Cụ thể `nhacTrenThe: false` của mục hoá đơn (Sếp
                  15/09/2026): hồ sơ đã sang bước ⑧ thì nợ hoá đơn của bước ⑦ đi qua đúng nhánh
-                 này — mất cờ là dòng *"⑦ thiếu hoá đơn"* hiện lại trên thẻ, đúng cái Sếp yêu cầu
+                 này — mất cờ là dòng *"thiếu hoá đơn"* hiện lại trên thẻ, đúng cái Sếp yêu cầu
                  bỏ, mà không một lỗi nào báo. */
               ...muc,
-              ngan: `${kyHieuNganCuaBuoc(buoc)} ${muc.ngan}`.trim(),
+              /* 🔴 BẢN NGẮN GIỮ NGUYÊN, KHÔNG GẮN TIỀN TỐ SỐ BƯỚC — Sếp 19/09/2026, nguyên văn:
+                 ***"Bỏ số 4 đi và ghi rõ thông tin / Thiếu hợp đồng / Thiếu đơn mua hàng (PO)"***
+                 (ảnh khoanh dòng *"④ thiếu HĐ"* trên thẻ).
+
+                 📌 Tiền tố `④` sinh ra ngày 24/08/2026 để bù cho chữ viết tắt: *"thiếu HĐ"* trơ
+                 trọi thì người đọc không biết mở khối nào đi bổ sung, nên phải chỉ số bước. Nay
+                 bản ngắn đã ghi thẳng *"Thiếu hợp đồng"* / *"Thiếu đơn mua hàng (PO)"* — tên tệp
+                 đã nói đúng khối cần mở, tiền tố thành thừa và chỉ tốn chỗ trên thẻ 240px. */
               day: `bước “${NHAN_GIAI_DOAN[buoc].nhan}” ${muc.day}`,
             },
       );
@@ -1602,14 +1609,10 @@ export interface MucConNo {
   nhacTrenThe?: boolean;
 }
 
-/** Số bước khoanh tròn (①②③…) — tiền tố cực ngắn để thẻ biết nợ nằm ở bước nào. */
-const SO_KHOANH = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"];
-
-/** Ký hiệu ngắn của một bước, dùng làm tiền tố trên thẻ. Rỗng nếu không tra được thứ tự. */
-export function kyHieuNganCuaBuoc(giaiDoan: GiaiDoanMuaHang): string {
-  const i = THU_TU_GIAI_DOAN.indexOf(giaiDoan);
-  return i >= 0 && i < SO_KHOANH.length ? SO_KHOANH[i] : "";
-}
+/* 🔴 ĐÃ BỎ `SO_KHOANH` / `kyHieuNganCuaBuoc` ngày 19/09/2026 (Sếp: *"Bỏ số 4 đi"*). Chúng sinh
+   ra để gắn tiền tố `④` vào nhãn viết tắt trên thẻ; nay nhãn ghi đủ chữ nên không còn nơi gọi.
+   ⚠️ Đừng dựng lại chỉ vì "thẻ không biết nợ ở bước nào" — tên tệp trong nhãn đã chỉ đúng khối
+   cần mở, và bản đầy đủ (`day`) vẫn ghi rõ tên bước cho chữ rê chuột lẫn trang chi tiết. */
 
 export function mucConNoCuaBuoc(
   deNghi: DeNghiMuaHang,
@@ -1782,8 +1785,13 @@ export function mucConNoCuaBuoc(
     thieu.push({
       /* 📌 CÙNG MỘT NHÃN NGẮN dù đã ghi lý do hay chưa — thiếu tệp là thiếu tệp. Lý do đã ghi
          là thông tin của người đi bổ sung, thuộc bản đầy đủ; nhồi vào thẻ chỉ làm dài mà
-         không đổi việc phải làm. */
-      ngan: `thiếu HĐ`,
+         không đổi việc phải làm.
+
+         🔴 GHI ĐỦ CHỮ *"Thiếu hợp đồng"*, KHÔNG VIẾT TẮT *"thiếu HĐ"* — Sếp 19/09/2026. Đây là
+         chỉ đạo MỚI đè lên yêu cầu tối giản ký tự ngày 24/08/2026 (xem chú thích `MucConNo`):
+         viết tắt tiết kiệm được vài ký tự nhưng phải bù bằng tiền tố số bước `④`, hoá ra dài
+         hơn mà vẫn phải đoán. Đừng "dọn lại cho gọn" về bản viết tắt. */
+      ngan: `Thiếu hợp đồng`,
       day: lyDo
         ? `chưa có tệp ${TEN_HIEN_HOP_DONG} (đã ghi lý do: ${lyDo}) — phải bổ sung bản đã ký`
         : `chưa đính kèm ${TEN_HIEN_HOP_DONG}`,
@@ -1808,10 +1816,14 @@ export function mucConNoCuaBuoc(
    * 📌 Viết tắt **ĐMH** là chữ của Ban lãnh đạo 27/08/2026 (*"Điều chỉnh ghi là ĐMH nhé"*, xem
    * `3-du-lieu/dieu-khoan-chuan-don-mua-hang.ts`), không phải tôi tự đặt. Bản đầy đủ vẫn dùng hằng
    * `TEN_HIEN_DON_MUA_HANG` để một chỗ đổi chữ là mọi nơi đổi theo.
+   *
+   * 🔴 NHÃN NGẮN TRÊN THẺ ĐỔI THÀNH *"Thiếu đơn mua hàng (PO)"* — Sếp 19/09/2026, nguyên văn:
+   * ***"Bỏ số 4 đi và ghi rõ thông tin / Thiếu hợp đồng / Thiếu đơn mua hàng (PO)"***. Chữ **PO**
+   * trong ngoặc là do Sếp viết ra, giữ đúng vậy: người dùng gọi tờ này là PO nhiều hơn là ĐMH.
    */
   if (giaiDoan === "dat_hang" && tepDonMuaHangNCCKy(deNghi).length === 0) {
     thieu.push({
-      ngan: `thiếu ĐMH`,
+      ngan: `Thiếu đơn mua hàng (PO)`,
       day: `chưa đính kèm ${TEN_HIEN_DON_MUA_HANG} (bản nhà cung cấp ký, đóng mộc)`,
     });
   }

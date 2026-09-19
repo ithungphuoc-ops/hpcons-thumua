@@ -144,15 +144,24 @@ export interface Quyen {
   xemBaoGia: boolean;
   xemCongNo: boolean;
   /**
-   * ★★ GHI SỐ TIỀN ĐÃ THANH TOÁN cho nhà cung cấp — Sếp 18/09/2026 duyệt: **Kế toán và Trưởng
-   * phòng**.
+   * ★★ GHI SỐ TIỀN ĐÃ THANH TOÁN cho nhà cung cấp.
    *
-   * 🔴 CỜ RIÊNG, KHÔNG MƯỢN `lapPO` NHƯ ĐIỀU KHOẢN CÔNG NỢ. Hai việc khác hẳn nhau về người làm:
-   * *điều kiện* thanh toán (số ngày được nợ) là thứ **Thu mua đàm phán**; còn *số tiền đã chi thật*
-   * là việc **Kế toán** ghi theo uỷ nhiệm chi. Mượn `lapPO` là khoá đúng người cần dùng ra ngoài —
-   * lỗi này chính một agent phản biện bắt được 18/09, và nó đúng.
+   * 🔴🔴 **SẾP 19/09/2026 MỞ THÊM CHO NHÂN VIÊN THU MUA** — nguyên văn: *"Mở quyền nhập đơn hàng
+   * cho tài khoản nhân viên / **Vì đa phần công việc này sẽ do nhân viên làm**"* (ảnh chụp màn
+   * Công nợ), và khi được hỏi lại đúng câu *"mở quyền ghi số tiền đã thanh toán từng đợt cho nhân
+   * viên Thu mua?"* thì Sếp chọn **Có**.
    *
-   * ⚠️ KHÔNG mở cho QLDA hay Phòng Thi công dù họ xem được giá: xem tiền và chi tiền là hai việc.
+   * 📌 ĐÂY LÀ ĐỔI Ý CÓ CHỦ Ý, KHÔNG PHẢI SƠ SUẤT. Bản 18/09/2026 chốt **chỉ Kế toán + Trưởng
+   * phòng**, lý do ghi ngay tại đây: *"điều kiện thanh toán là thứ Thu mua đàm phán, còn số tiền
+   * đã chi thật là việc Kế toán ghi theo uỷ nhiệm chi"*. Lý do đó vẫn đúng về mặt sổ sách, nhưng
+   * thực tế vận hành ở HP Cons thì **nhân viên thu mua mới là người làm việc này hằng ngày** —
+   * Sếp quyết theo thực tế. Giữ nguyên đoạn trên để người đọc sau biết vì sao từng có luật cũ.
+   *
+   * ⚠️ VẪN **KHÔNG** mở cho QLDA hay Phòng Thi công dù họ xem được giá: xem tiền và chi tiền là
+   * hai việc. Chỉ đúng người trong bộ phận Thu mua.
+   *
+   * ⚠️ PHẢI KÈM `capTM >= 2`, y như `lapPO`. Viết `|| laNhanVienTM` trơn là nhân viên thu mua cấp
+   * 1 (chỉ được XEM) cũng ghi được tiền — rộng hơn cả điều Sếp duyệt.
    */
   ghiThanhToan: boolean;
   /**
@@ -255,9 +264,11 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     xuatHoSo: capTM >= 1,
     xemBaoGia: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laQLDA || laKeToan,
     xemCongNo: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laKeToan,
-    /* Kế toán + Trưởng bộ phận cấp ≥3 + quản trị — Sếp chốt 18/09/2026. Nhân viên thu mua KHÔNG
-       có: họ đàm phán điều kiện, không phải người chi tiền. */
-    ghiThanhToan: laQuanTri || laKeToan || (laTruongBP && capTM >= 3),
+    /* Kế toán + Trưởng bộ phận cấp ≥3 + quản trị (Sếp 18/09/2026), **cộng nhân viên thu mua từ
+       cấp Nhập liệu trở lên** (Sếp 19/09/2026 — xem chú thích ở khai báo `ghiThanhToan`).
+       ⚠️ `capTM >= 2` là bắt buộc: bỏ đi thì nhân viên cấp 1 (chỉ Xem) cũng ghi được tiền. */
+    ghiThanhToan:
+      laQuanTri || laKeToan || (laTruongBP && capTM >= 3) || (laNhanVienTM && capTM >= 2),
 
     /* 🔴 CHỈ QUẢN TRỊ — xem chú thích đầy đủ ở khai báo `xoaToanBoDuLieu`. Đừng thêm `|| laBGD`
        hay `|| capTM >= 3` cho "tiện": nút này xoá sạch dữ liệu cả phòng, không khôi phục được. */

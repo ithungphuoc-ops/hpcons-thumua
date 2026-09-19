@@ -166,3 +166,21 @@ export function daysUntil(iso: string, now: Date = new Date()): number {
   const diffMs = startOfDay(target).getTime() - startOfDay(now).getTime();
   return Math.round(diffMs / 86_400_000);
 }
+
+/**
+ * ★ HÔM NAY dạng `yyyy-mm-dd` **theo giờ máy người dùng**.
+ *
+ * 🔴 KHÔNG DÙNG `new Date().toISOString().slice(0,10)`. `toISOString` trả giờ UTC, mà Việt Nam
+ * lệch +7: từ 0h tới 7h sáng nó cho ra NGÀY HÔM QUA. Hệ quả cụ thể ở app này: người lập đơn lúc
+ * 6h sáng sẽ thấy ô "Thời gian nhận hàng" khoá luôn cả ngày hôm nay — chặn đúng thứ vừa được
+ * phép chọn, mà không một câu nào giải thích.
+ *
+ * 📌 Dùng chung một chỗ thay vì mỗi tệp tự viết lại: ba nơi cùng cần mốc "hôm nay" (khoá ngày
+ * giao lùi, ngày chi mặc định của đợt thanh toán, nền ngày bắt đầu tính nợ), và chúng phải luôn
+ * cho ra cùng một ngày.
+ */
+export function homNayISO(): string {
+  const d = new Date();
+  const hai = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai(d.getDate())}`;
+}
