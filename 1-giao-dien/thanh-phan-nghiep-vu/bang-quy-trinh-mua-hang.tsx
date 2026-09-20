@@ -847,11 +847,28 @@ function TheDeNghi({
         * Nhãn hạn (`Còn 6 ngày` / viền đỏ khi quá hạn) cũng giữ — hai việc khác nhau: quá hạn là
         * chuyện THỜI GIAN, còn nợ chứng từ là chuyện HỒ SƠ.
         */
+      /**
+        * 🔴🔴 TRỄ HẠN BƯỚC CŨNG TÔ VIỀN ĐỎ — Sếp 20/09/2026, nguyên văn: ***"Những công việc bị
+        * báo trễ này hãy đổ màu boder đỏ luôn để không bị quên"*** (ảnh bảng thật, khoanh các
+        * badge *"Trễ 15 giờ"* · *"Trễ 1 ngày 14 giờ"*).
+        *
+        * 📌 ĐÂY LÀ SẾP ĐẢO MỘT QUYẾT ĐỊNH CỦA CHÍNH HÔM QUA, và đảo có lý. Khi làm đồng hồ theo
+        * bước (19/09), một agent phản biện khuyên **không** nhuộm viền vì thẻ đã có hai nguồn tô
+        * đỏ (quá ngày cần hàng · nợ chứng từ) — thêm nguồn thứ ba thì nhìn thẻ đỏ không biết đỏ
+        * vì gì. Lập luận đó đúng về mặt thị giác, nhưng Sếp nhìn bản thật và chọn ĐÁNH ĐỔI: thà
+        * đỏ chung còn hơn bỏ sót việc trễ. Badge chữ riêng vẫn giữ nguyên nên vẫn phân biệt được
+        * lý do khi đọc kỹ — chỉ là cái viền không còn nói riêng chuyện gì nữa.
+        *
+        * ⚠️ Vẫn KHÔNG tô cho thẻ *"Chưa có mốc vào bước"*: `hanBuoc.quaHan` chỉ bật khi tra ra
+        * mốc thật và đã quá hạn (xem `hanTheoBuoc`). Hồ sơ chưa tra được mốc mà tô đỏ là báo động
+        * cho một điều app không biết chắc — đúng thứ Sếp đã loại khi chốt *"ghi Chưa có mốc,
+        * không báo đỏ"*.
+        */
       className={`-mb-px flex flex-col gap-1.5 rounded-none border border-l-4 p-(--hp-md-row-pad) transition-colors hover:border-primary ${
-        the.conNo ? "border-danger" : "border-border"
+        the.conNo || the.hanBuoc?.quaHan ? "border-danger" : "border-border"
       } ${
         keoThaDuoc ? "cursor-grab active:cursor-grabbing" : ""
-      } ${LOP_VIEN_TRAI[han.quaHan ? "danger" : tongGiaiDoan]} ${nenThe}`}
+      } ${LOP_VIEN_TRAI[han.quaHan || the.hanBuoc?.quaHan ? "danger" : tongGiaiDoan]} ${nenThe}`}
     >
       {/**
         * ★ TIÊU ĐỀ MỘT DÒNG THEO ĐÚNG MẪU BASE — Ban lãnh đạo 21/08/2026 gửi ảnh bảng Base thật
