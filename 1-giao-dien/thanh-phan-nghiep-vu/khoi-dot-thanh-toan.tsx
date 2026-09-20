@@ -24,7 +24,7 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
-import { formatCurrencyVnd, formatDate, homNayISO } from "@/6-tien-ich/dinh-dang";
+import { chamNganCachNghin, formatCurrencyVnd, formatDate, homNayISO } from "@/6-tien-ich/dinh-dang";
 import type { CongNoTheoDon } from "@/2-quy-trinh/tuoi-no";
 import type { NgayISO } from "@/3-du-lieu/kieu-du-lieu";
 
@@ -173,7 +173,7 @@ export function KhoiDotThanhToan({
                 id={`so-tien-${dong.poId}`}
                 inputMode="numeric"
                 value={soTien}
-                onChange={(e) => setSoTien(e.target.value)}
+                onChange={(e) => setSoTien(chamNganCachNghin(e.target.value))}
                 placeholder={`tối đa ${formatCurrencyVnd(dong.conLai)}`}
                 className="w-44"
                 onKeyDown={(e) => {

@@ -184,3 +184,26 @@ export function homNayISO(): string {
   const hai = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai(d.getDate())}`;
 }
+
+/**
+ * ★★ CHẤM PHÂN CÁCH NGHÌN NGAY KHI ĐANG GÕ — Sếp 20/09/2026: ***"Thêm dấu ngăn cách ví dụ
+ * 5.000.000 để người nhập ko bị nhầm"***.
+ *
+ * 🔴 VÌ SAO ĐÁNG LÀM: ô tiền của app nhận số trần (`50000000`). Đếm số 0 bằng mắt là việc người
+ * ta làm sai thật — thừa một số 0 là **sai gấp mười lần**, mà nhìn vào ô thì không thấy gì bất
+ * thường. Có dấu chấm thì `5.000.000` và `50.000.000` khác nhau ngay từ cái liếc.
+ *
+ * 🔴 CHỈ ĐỔI CHỮ TRONG Ô, KHÔNG ĐỔI SỐ ĐEM ĐI LƯU. Nơi gọi vẫn phải bỏ dấu trước khi đổi sang
+ * số (`.replace(/[.,\s]/g, "")`) — `Number("5.000.000")` cho `NaN`, và nếu để lọt thì tầng ghi
+ * từ chối bằng câu "số tiền phải là số không âm", người dùng đọc mà không hiểu vì sao.
+ *
+ * 📌 Giữ lại chuỗi rỗng và bỏ mọi ký tự không phải chữ số: người dùng dán "45.522.000 đ" vào ô
+ * thì vẫn ra đúng số, thay vì báo lỗi.
+ */
+export function chamNganCachNghin(chuoi: string): string {
+  const so = String(chuoi ?? "").replace(/\D/g, "");
+  if (!so) return "";
+  /* Bỏ số 0 ở đầu (trừ khi chỉ có mỗi "0") — "007" là do gõ nhầm, không phải mã. */
+  const gon = so.replace(/^0+(?=\d)/, "");
+  return gon.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}

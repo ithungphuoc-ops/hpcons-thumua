@@ -30,7 +30,7 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
-import { formatCurrencyVnd, formatDate, homNayISO } from "@/6-tien-ich/dinh-dang";
+import { chamNganCachNghin, formatCurrencyVnd, formatDate, homNayISO } from "@/6-tien-ich/dinh-dang";
 import type { DongHoaDonVAT, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -272,7 +272,7 @@ export function BangHoaDonVAT({
                     id={`sua-tien-${d.id}`}
                     inputMode="numeric"
                     value={sTien}
-                    onChange={(e) => setsTien(e.target.value)}
+                    onChange={(e) => setsTien(chamNganCachNghin(e.target.value))}
                     className="w-full text-right"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") luuSua(d.id);
@@ -363,7 +363,7 @@ export function BangHoaDonVAT({
                       setDangSua(d.id);
                       setsSoHoaDon(d.soHoaDon);
                       setsNgay(String(d.ngayHoaDon));
-                      setsTien(String(d.soTien));
+                      setsTien(chamNganCachNghin(String(d.soTien)));
                     }}
                     title={`Sửa hoá đơn ${d.soHoaDon}`}
                     className="inline-flex size-11 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-primary-bg hover:text-primary md:size-9"
@@ -438,7 +438,7 @@ export function BangHoaDonVAT({
                 id={`tien-hd-${poId}`}
                 inputMode="numeric"
                 value={soTien}
-                onChange={(e) => setSoTien(e.target.value)}
+                onChange={(e) => setSoTien(chamNganCachNghin(e.target.value))}
                 placeholder="VD: 45522000"
                 className="w-44"
                 onKeyDown={(e) => {

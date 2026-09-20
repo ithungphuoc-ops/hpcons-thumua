@@ -506,8 +506,19 @@ export default function TrangCongNo() {
               * + 8 + 7 + 9 + 8 + 12 + 4 = 100. Sai một ly là trình duyệt tự co kéo lại theo tỷ lệ
               * và mọi tính toán bên trên thành vô nghĩa.
               *
-              * ⚠️ MỌI CỘT CHỮ TỰ DO PHẢI `truncate` + `title`: `table-fixed` không nong cột cho vừa
-              * chữ, tên công trình dài sẽ tràn sang cột bên cạnh.
+              * 🔴🔴 CỘT CHỮ TỰ DO NAY **XUỐNG DÒNG**, KHÔNG CẮT CỤT NỮA — Sếp 20/09/2026:
+              * ***"Chữ đang bị mất, thêm tính năng Wrap text cho các thông tin dài kiểu này"***.
+              *
+              * Trước đó các cột này dùng `truncate`, nên `CÔNG TY TNHH TÂN HOÀNG…` chỉ hiện một
+              * nửa và người đọc phải rê chuột mới biết là nhà cung cấp nào — trên bảng công nợ
+              * thì đó là thông tin người ta cần đọc lướt, không phải tra từng dòng.
+              *
+              * ⚠️ PHẢI ĐẶT `whitespace-normal` TRÊN CHÍNH THẺ CHỮ. `TableCell` của thư viện có
+              * `whitespace-nowrap` mặc định (`1-giao-dien/nen-tang-ui/table.tsx`), nên chỉ thêm
+              * `break-words` thôi thì chữ **vẫn không xuống dòng** — nó chỉ thôi tràn. Thuộc tính
+              * `white-space` kế thừa từ ô cha, con đặt lại mới thắng.
+              *
+              * 📌 `title` vẫn giữ: chữ rê chuột không thừa, nó là cách đọc nhanh khi hàng cao.
               */}
             <Table className="min-w-[112rem] table-fixed">
               <TableHeader>
@@ -631,7 +642,7 @@ export default function TrangCongNo() {
                             nong cột ra nữa mà TRÀN sang ô bên cạnh nếu không cắt. */}
                         <Link
                           href={`/don-hang/${r.poId}`}
-                          className="block truncate font-medium text-primary hover:underline"
+                          className="block break-words whitespace-normal font-medium text-primary hover:underline"
                           title={r.maDonHang}
                         >
                           {r.maDonHang}
@@ -645,7 +656,7 @@ export default function TrangCongNo() {
                           chứ không để trống trơn — ô trống làm người đọc tưởng bảng lỗi. */}
                       <TableCell className="text-text-primary">
                         {r.maDeNghi ? (
-                          <span className="block truncate tabular-nums" title={r.maDeNghi}>
+                          <span className="block break-words whitespace-normal tabular-nums" title={r.maDeNghi}>
                             {r.maDeNghi}
                           </span>
                         ) : (
@@ -655,7 +666,7 @@ export default function TrangCongNo() {
                       {/* ★ TÊN CÔNG TRÌNH — cột riêng từ 18/09/2026 (trước là dòng chữ xám dưới mã PO). */}
                       <TableCell className="text-text-primary">
                         {r.tenCongTrinh ? (
-                          <span className="block truncate" title={r.tenCongTrinh}>
+                          <span className="block break-words whitespace-normal" title={r.tenCongTrinh}>
                             {r.tenCongTrinh}
                           </span>
                         ) : (
@@ -663,7 +674,7 @@ export default function TrangCongNo() {
                         )}
                       </TableCell>
                       <TableCell className="text-text-primary">
-                        <span className="block truncate" title={r.tenNCC}>
+                        <span className="block break-words whitespace-normal" title={r.tenNCC}>
                           {r.tenNCC}
                         </span>
                       </TableCell>
@@ -925,7 +936,7 @@ export default function TrangCongNo() {
                                 * Sếp chốt 20/09 làm hai nhịp; nhịp này chỉ trả lời *"tờ nào sắp
                                 * tới hạn"*. Đừng thêm cột đó bằng cách đoán.
                                 */}
-                              <div className="grid grid-cols-[1.5rem_minmax(6rem,auto)_6.5rem_minmax(7rem,auto)_5rem_7rem_7rem_auto] items-center gap-x-3 px-3 text-[11px] font-medium text-text-desc">
+                              <div className="grid grid-cols-[1.5rem_minmax(7rem,1fr)_7rem_minmax(8rem,1fr)_6rem_8.5rem_7rem_minmax(8rem,1fr)] items-center gap-x-3 px-3 text-[11px] font-medium text-text-desc">
                                 <span>#</span>
                                 <span>Số hoá đơn</span>
                                 <span>Ngày HĐ</span>
@@ -939,7 +950,7 @@ export default function TrangCongNo() {
                                 {r.hoaDon.map((h, i) => (
                                   <li
                                     key={h.id}
-                                    className="grid grid-cols-[1.5rem_minmax(6rem,auto)_6.5rem_minmax(7rem,auto)_5rem_7rem_7rem_auto] items-center gap-x-3 rounded-md bg-card px-3 py-1.5 text-sm"
+                                    className="grid grid-cols-[1.5rem_minmax(7rem,1fr)_7rem_minmax(8rem,1fr)_6rem_8.5rem_7rem_minmax(8rem,1fr)] items-center gap-x-3 rounded-md bg-card px-3 py-1.5 text-sm"
                                   >
                                     <span className="tabular-nums text-xs text-text-desc">
                                       {i + 1}.

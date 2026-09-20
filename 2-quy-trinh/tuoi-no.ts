@@ -649,7 +649,24 @@ export function congNoTheoDonHang(
          trước để vẫn tra cứu được. Đơn không gắn công trình thì chỉ hiện mã. */
       maDonHang: po.code,
       tenCongTrinh: po.tenCongTrinh,
-      maDeNghi: po.prCode,
+      /**
+       * 🔴 ƯU TIÊN MÃ ĐỀ XUẤT (`000000097`), KHÔNG PHẢI MÃ ĐỀ NGHỊ NỘI BỘ — Sếp 20/09/2026 chỉ
+       * đúng cột này và ghi ***"Mã này đang sai"***.
+       *
+       * Đo trên kho thật: `prCode` của hồ sơ phòng ban là
+       * `"Phòng Kỹ thuật Thi công (HP Cons)-PR-001"` — vì mã đề nghị nội bộ được ghép từ ô mã
+       * hợp đồng, mà App Request nhét **tên phòng** vào ô đó với hồ sơ không có công trình. Nên
+       * cột "Mã số đề nghị" in ra một cái tên, không phải một cái mã.
+       *
+       * 📌 `maDeXuatAppRequest` mới là mã người dùng nhận ra — chính là con số thẻ kanban đang
+       * hiện (`000000121 - 30-2025-HĐXD…`). Lấy thẳng từ PO, không tra ngược sang bảng đề nghị:
+       * `DonDatHang` đã chép sẵn trường này, và bản chép là cố ý để đơn đứng yên kể cả khi đề
+       * nghị nguồn đổi.
+       *
+       * ⚠️ VẪN RƠI VỀ `prCode` khi đơn chưa có mã đề xuất (hồ sơ lập tay trong app, dữ liệu cũ) —
+       * thà hiện mã nội bộ còn hơn để trống một cột người ta dùng để đối chiếu.
+       */
+      maDeNghi: po.maDeXuatAppRequest?.trim() || po.prCode,
       /* ★ Cùng một nguồn với `tienCanCu` ở trên — xem `chuoiSoHoaDonCuaDon` / `tongTienHoaDonCuaDon`. */
       soHoaDon: chuoiSoHoaDonCuaDon(gia),
       tongTienHoaDon: tongTienHoaDonCuaDon(gia),

@@ -101,10 +101,13 @@ type CachXem = "bang" | "danh_sach";
  *
  * 📌 "Nhiệm vụ" của Base = TẤT CẢ, nên ở đây gọi thẳng `tat_ca` cho đỡ nhầm.
  */
-type LocDanhSach = "tat_ca" | "hoan_thanh" | "dang_xu_ly" | "that_bai" | "qua_han";
+type LocDanhSach = "tat_ca" | "cua_toi" | "hoan_thanh" | "dang_xu_ly" | "that_bai" | "qua_han";
 
 const NHAN_LOC_DS: { ma: LocDanhSach; nhan: string }[] = [
   { ma: "tat_ca", nhan: "Tất cả" },
+  /* ★★ Sếp 20/09/2026: ***"Chức năng lọc công việc phụ trách sao vẫn chưa có"***.
+     Đặt ngay sau "Tất cả" vì đây là bộ lọc nhân viên dùng hằng ngày, không phải lọc phụ. */
+  { ma: "cua_toi", nhan: "Việc của tôi" },
   { ma: "dang_xu_ly", nhan: "Đang xử lý" },
   { ma: "qua_han", nhan: "Quá hạn" },
   { ma: "hoan_thanh", nhan: "Hoàn thành" },
@@ -346,15 +349,28 @@ export default function TrangDanhSachDeNghi() {
         if (locDS === "that_bai") return t.giaiDoan === "that_bai";
         if (locDS === "dang_xu_ly") return !giaiDoanDaKetThuc(t.giaiDoan);
         if (locDS === "qua_han") return t.han.quaHan;
+        /**
+          * ★ VIỆC CỦA TÔI — Sếp 20/09/2026.
+          *
+          * 🔴 SO BẰNG `uid`, KHÔNG SO BẰNG TÊN. Trường `uidPhuTrach` sinh ra đúng cho việc này,
+          * và chú thích của nó ở `2-quy-trinh/giai-doan-mua-hang.ts` đã ghi lý do: công ty hoàn
+          * toàn có thể có hai người trùng tên, so tên là đẩy nhầm việc của người khác vào danh
+          * sách của mình mà không một dấu hiệu nào để phát hiện.
+          *
+          * 📌 "Phụ trách" ở đây là **được chia dòng vật tư trong đề nghị** — cùng một định nghĩa
+          * với chỗ app đẩy việc của mình lên đầu mỗi cột, nên hai nơi không bao giờ nói khác nhau.
+          */
+        if (locDS === "cua_toi") return t.uidPhuTrach.includes(nguoiDung.uid);
         return true;
       }),
-    [moiThe, locDS],
+    [moiThe, locDS, nguoiDung.uid],
   );
 
   /** Đếm cho từng tab — Base ghi số ngay cạnh tên tab. */
   const demTheoLoc: Record<LocDanhSach, number> = useMemo(
     () => ({
       tat_ca: moiThe.length,
+      cua_toi: moiThe.filter((t) => t.uidPhuTrach.includes(nguoiDung.uid)).length,
       hoan_thanh: moiThe.filter((t) => t.giaiDoan === "hoan_thanh").length,
       dang_xu_ly: moiThe.filter((t) => !giaiDoanDaKetThuc(t.giaiDoan)).length,
       that_bai: moiThe.filter((t) => t.giaiDoan === "that_bai").length,
