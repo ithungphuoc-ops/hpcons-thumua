@@ -668,9 +668,23 @@ export default function TrangCongNo() {
                           khoản công nợ bên phải (`OSoNgayDuocNo`, `ONgayBatDau`): người đang so
                           chứng từ trên chính dòng này gõ luôn, không phải mở màn khác. */}
                       <TableCell>
+                        {/**
+                          * 🔴 KHOÁ Ô KHI ĐƠN ĐÃ CÓ BẢNG HOÁ ĐƠN — Sếp chốt 19/09/2026: *"bảng là
+                          * nguồn duy nhất, ô Công nợ tự cộng"*.
+                          *
+                          * Đơn đã ghi hoá đơn ở mục ⑥ thì con số ở đây là **tổng/chuỗi suy ra**
+                          * (xem `tongTienHoaDonCuaDon` · `chuoiSoHoaDonCuaDon`). Cho gõ đè lên nó
+                          * là hai chỗ cùng giữ một số: người sửa ở đây rồi thêm một tờ hoá đơn ở
+                          * mục ⑥ là số bị ghi đè lại, và ngược lại — cột "Còn phải trả" lấy theo
+                          * số nào thì không ai biết, mà lệch thì **không có gì báo**.
+                          *
+                          * 📌 Đơn CHƯA có tờ hoá đơn nào (`soToHoaDon === 0`) vẫn gõ tay được như
+                          * cũ — hàng chục đơn cũ đã nhập theo đường này, khoá cứng hết là chúng
+                          * mất luôn chỗ sửa.
+                          */}
                         <OSoHoaDon
                           giaTri={r.soHoaDon}
-                          suaDuoc={suaDuocDieuKhoan}
+                          suaDuoc={suaDuocDieuKhoan && r.soToHoaDon === 0}
                           onLuu={(so) => {
                             const loi = datDieuKhoanCongNo(r.poId, { soHoaDon: so }, "");
                             if (loi) toast.error(loi);
@@ -685,9 +699,12 @@ export default function TrangCongNo() {
                       </TableCell>
                       {/* ★ TỔNG TIỀN THEO HOÁ ĐƠN — ô sửa tại chỗ, Sếp 19/09/2026. */}
                       <TableCell className="text-right">
+                        {/* 🔴 Cùng luật khoá với ô Số hoá đơn bên trái — đọc chú thích tại đó.
+                            Hai ô phải khoá/mở CÙNG LÚC: mở một ô thôi là người dùng sửa được
+                            tổng tiền mà không sửa được số hoá đơn, hai thứ vốn của cùng một tờ. */}
                         <OTongTienHoaDon
                           giaTri={r.tongTienHoaDon}
-                          suaDuoc={suaDuocDieuKhoan}
+                          suaDuoc={suaDuocDieuKhoan && r.soToHoaDon === 0}
                           onLuu={(so) => {
                             const loi = datDieuKhoanCongNo(r.poId, { tongTienHoaDon: so }, "");
                             if (loi) toast.error(loi);

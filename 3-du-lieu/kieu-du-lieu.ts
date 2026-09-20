@@ -1292,6 +1292,34 @@ export interface DotThanhToanPO {
  *    Các con số này KHÔNG lưu, mà tính lại ở `2-quy-trinh/tinh-toan.ts` → `tinhTienDonHang`,
  *    để không bao giờ có hai chỗ giữ hai kết quả khác nhau.
  */
+/**
+ * ★★★ MỘT TỜ HOÁ ĐƠN VAT — Sếp 19/09/2026, năm trường đúng thứ tự Sếp liệt kê trên ảnh:
+ * *"1. STT · 2. Số hoá đơn · 3. Ngày hoá đơn · 4. Số tiền trên hoá đơn · 5. Đính kèm"*.
+ *
+ * 📌 **STT KHÔNG LƯU** — đó là số thứ tự hiển thị, suy từ vị trí trong danh sách sau khi sắp theo
+ * ngày. Lưu lại là sớm muộn có hai dòng cùng STT 3 sau một lần xoá, hoặc STT nhảy cóc 1-2-4.
+ *
+ * 🔴 `id` LÀ MÃ NGẪU NHIÊN, KHÔNG PHẢI SỐ ĐẾM. Kho chung là một tài liệu cho cả phòng: hai người
+ * cùng thêm hoá đơn trong vài giây thì số đếm đụng nhau và người ghi sau đè người trước, im lặng.
+ */
+export interface DongHoaDonVAT {
+  id: string;
+  /** Số hoá đơn NCC xuất. Chuỗi tự do — mỗi NCC ghi một kiểu ký hiệu, ép khuôn là chặn đúng người
+   *  đang gõ đúng. Tầng ghi cắt còn 60 ký tự. */
+  soHoaDon: string;
+  /** Ngày ghi trên hoá đơn (`yyyy-mm-dd`). Trường DUY NHẤT trong năm trường Sếp liệt kê mà app
+   *  chưa từng có ở bất kỳ đâu. */
+  ngayHoaDon: NgayISO;
+  /** Số tiền ghi trên tờ hoá đơn này. Là GIÁ — chỉ người có quyền xem giá mới đọc được. */
+  soTien: number;
+  /** Tệp bản chụp/PDF hoá đơn, lưu qua `3-du-lieu/kho-tep.ts`. Trống = đã ghi số nhưng chưa đính
+   *  bản chụp; luật đóng hồ sơ vẫn chấp nhận (Sếp chốt 19/09: nhắc chứ không chặn). */
+  tep?: MoTaTep;
+  /** Ai ghi dòng này — tiền thì phải truy lại được. */
+  nguoiGhiTen: string;
+  thoiDiemGhi: string;
+}
+
 export interface GiaDonDatHang {
   /** = DonDatHang.id */
   poId: string;
@@ -1358,8 +1386,38 @@ export interface GiaDonDatHang {
    */
   soHoaDon?: string;
   /**
+   * ★★★ DANH SÁCH TỪNG TỜ HOÁ ĐƠN — Sếp 19/09/2026 (ảnh mục ⑥ Bộ hồ sơ thanh toán):
+   * ***"Thêm các trường nhập liệu: 1. STT · 2. Số hoá đơn · 3. Ngày hoá đơn · 4. Số tiền trên hoá
+   * đơn · 5. Đính kèm"***.
+   *
+   * 🔴🔴 ĐÂY LÀ **NGUỒN DUY NHẤT** CỦA SỐ HOÁ ĐƠN VÀ TIỀN HOÁ ĐƠN — Sếp chốt khi được hỏi lại.
+   * Hai trường `soHoaDon` / `tongTienHoaDon` ngay trên **KHÔNG bị xoá** (dữ liệu cũ còn dùng),
+   * nhưng từ nay chúng là **giá trị suy ra**: hai ô ở màn Công nợ thành chỉ-đọc và tự cộng từ
+   * danh sách này. Lý do Sếp duyệt: để hai nơi cùng gõ tay thì cột "Còn phải trả" lấy theo số
+   * nào không ai biết, mà lệch thì **không có gì báo**.
+   *
+   * 🔴 VÌ SAO GIẢI ĐÚNG BÀI TOÁN CÁT ĐÁ XI MĂNG: đơn khối lượng lớn giao nhiều đợt, mỗi đợt một
+   * hoá đơn. Trước đây app chỉ có MỘT ô số hoá đơn cho cả đơn nên đợt thứ hai trở đi không có
+   * chỗ ghi. Đây chính là lớp tiền của từng lần giao mà bài toán PO cha–con còn thiếu.
+   *
+   * ⚠️ KHÔNG ÉP MỖI ĐỢT GIAO MỘT HOÁ ĐƠN. Sếp chốt 19/09: hồ sơ **vẫn đóng được** khi số hoá đơn
+   * ít hơn số đợt giao, chỉ hiện câu nhắc vàng. Nhà cung cấp thường xuất gộp cuối tháng — ép đủ
+   * từng đợt là đơn giao 3 lần mà NCC xuất 1 tờ sẽ **kẹt vĩnh viễn**, không có đường gỡ.
+   *
+   * 📌 Ở CHỨNG TỪ GIÁ, không ở `DonDatHang` và cũng không ở kho `chay-thu/thanh-toan`: `soTien`
+   * là tiền, mà `tm_donhang_gia` là nơi DUY NHẤT trong ba chỗ có rules `duocXemTien()` gác
+   * (nguyên tắc dữ liệu số 3). Đặt ở đây còn tự động khoá đúng theo PO — một đề nghị tách cho
+   * hai nhà cung cấp là hai chứng từ giá, hai danh sách hoá đơn riêng.
+   */
+  hoaDonVAT?: DongHoaDonVAT[];
+  /**
    * ★★ TỔNG TIỀN GHI TRÊN HOÁ ĐƠN của nhà cung cấp — Sếp 19/09/2026: ***"Thêm 1 cột: Tổng tiền
    * theo hoá đơn"***, kèm nút chọn tính công nợ theo hoá đơn hay theo PO.
+   *
+   * ⚠️ TỪ 19/09/2026 (chiều) TRƯỜNG NÀY LÀ BẢN DỰ PHÒNG, KHÔNG CÒN LÀ NƠI GÕ TAY. Khi đơn đã có
+   * `hoaDonVAT` thì con số đúng là **tổng `soTien` của danh sách đó** — xem `tongTienHoaDonCuaDon`
+   * ở `2-quy-trinh/tuoi-no.ts`. Giữ lại vì hàng chục đơn cũ đã gõ tay vào đây và không ai đi nhập
+   * lại; xoá đi là mất sạch căn cứ tính nợ của chúng.
    *
    * 🔴 VÌ SAO PHẢI LÀ MỘT CON SỐ RIÊNG, KHÔNG SUY RA TỪ PO: hoá đơn thực tế **thường lệch** đơn
    * mua hàng — giao thiếu/thừa, làm tròn, phụ phí vận chuyển, hoặc NCC xuất gộp nhiều lần giao.

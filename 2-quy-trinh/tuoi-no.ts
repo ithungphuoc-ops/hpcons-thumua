@@ -200,6 +200,12 @@ export interface CongNoTheoDon {
    */
   tongTienHoaDon?: number;
   /**
+   * Số TỜ hoá đơn đã ghi trong danh sách của đơn (Sếp 19/09/2026).
+   * `0` = chưa nhập tờ nào — khi đó hai ô ở màn Công nợ vẫn cho gõ tay như cũ, để đơn cũ không
+   * bị khoá cứng chỉ vì tính năng mới chưa được dùng tới.
+   */
+  soToHoaDon: number;
+  /**
    * ★★ Căn cứ tính nợ CỦA RIÊNG ĐƠN NÀY — Sếp 19/09/2026. `"po"` là mặc định khi chưa ai chọn.
    * Là thuộc tính của đơn (lưu ở `GiaDonDatHang.canCuCongNo`), không phải cách đọc của cả bảng.
    */
@@ -334,6 +340,57 @@ export function tienLamCanCu(
 }
 
 /**
+ * ★★★ TỔNG TIỀN HOÁ ĐƠN CỦA MỘT ĐƠN — **một chỗ duy nhất**, Sếp chốt 19/09/2026.
+ *
+ * Sếp duyệt phương án *"bảng là nguồn duy nhất, ô Công nợ tự cộng"*. Hàm này là hiện thân của
+ * quyết định đó: có danh sách hoá đơn thì **cộng danh sách**, không có thì mới rơi về con số gõ
+ * tay cũ.
+ *
+ * 🔴 THỨ TỰ ƯU TIÊN KHÔNG ĐƯỢC ĐẢO. Ưu tiên `tongTienHoaDon` trước là người dùng nhập bảng xong
+ * mà cột "Còn phải trả" vẫn giữ số cũ — đúng thứ hai-chỗ-một-số mà Sếp yêu cầu dẹp.
+ *
+ * 🔴 DANH SÁCH RỖNG ≠ ĐÃ NHẬP 0 ĐỒNG. Mảng trống thì coi như CHƯA nhập và rơi về trường cũ; nếu
+ * trả `0` thì mọi đơn chưa nhập hoá đơn sẽ trông như **đã trả xong** khi người xem chọn căn cứ
+ * "theo hoá đơn". Đây đúng cái bẫy chú thích `tienLamCanCu` ngay trên đã cảnh báo.
+ *
+ * 📌 Bỏ qua dòng có `soTien` không phải số hữu hạn — dữ liệu từ kho chung không qua phép kiểm
+ * từng phần tử, một dòng rác là cả cột hiện "NaN đ".
+ */
+export function tongTienHoaDonCuaDon(
+  gia: { hoaDonVAT?: readonly { soTien: number }[]; tongTienHoaDon?: number } | undefined,
+): number | undefined {
+  const ds = gia?.hoaDonVAT;
+  if (Array.isArray(ds) && ds.length > 0) {
+    let tong = 0;
+    let coDongHopLe = false;
+    for (const d of ds) {
+      const n = Number(d?.soTien);
+      if (Number.isFinite(n)) {
+        tong += n;
+        coDongHopLe = true;
+      }
+    }
+    if (coDongHopLe) return tong;
+  }
+  return typeof gia?.tongTienHoaDon === "number" ? gia.tongTienHoaDon : undefined;
+}
+
+/**
+ * Chuỗi số hoá đơn hiện trên màn Công nợ — nối từ danh sách, hoặc trường cũ nếu chưa có danh sách.
+ * Cùng luật ưu tiên với `tongTienHoaDonCuaDon`; hai thứ phải luôn nói về cùng một nguồn.
+ */
+export function chuoiSoHoaDonCuaDon(
+  gia: { hoaDonVAT?: readonly { soHoaDon: string }[]; soHoaDon?: string } | undefined,
+): string | undefined {
+  const ds = gia?.hoaDonVAT;
+  if (Array.isArray(ds) && ds.length > 0) {
+    const cac = ds.map((d) => String(d?.soHoaDon ?? "").trim()).filter(Boolean);
+    if (cac.length > 0) return cac.join(" · ");
+  }
+  return gia?.soHoaDon;
+}
+
+/**
  * ★★ DỰNG BẢNG CÔNG NỢ TỪ ĐƠN HÀNG THẬT — một dòng một đơn.
  *
  * 🔴 CHỈ LẤY ĐƠN ĐÃ NHẬN ĐỦ HÀNG. Đơn còn đang giao thì chưa phát sinh nghĩa vụ trả tiền cho
@@ -395,7 +452,11 @@ export function congNoTheoDonHang(
      * để các phép cộng khác không vỡ, nhưng `daTatToan` phải là `false` và giao diện phải nói rõ
      * *"chưa nhập hoá đơn"* — xem `tienLamCanCu`. Không được coi đơn đó là đã trả xong.
      */
-    const tienCanCu = canCu === "hoa_don" ? gia?.tongTienHoaDon : tien.tongThanhToan;
+    /* ★ Từ 19/09/2026 (chiều) con số hoá đơn lấy qua `tongTienHoaDonCuaDon` — nó cộng danh sách
+       từng tờ hoá đơn (nguồn duy nhất, Sếp chốt), chỉ rơi về trường gõ tay cũ khi đơn chưa có
+       danh sách. Đọc thẳng `gia.tongTienHoaDon` ở đây là bảng Công nợ **không thấy** hoá đơn vừa
+       nhập ở mục ⑥ — đúng kiểu hai chỗ nói hai số. */
+    const tienCanCu = canCu === "hoa_don" ? tongTienHoaDonCuaDon(gia) : tien.tongThanhToan;
     const conLai = conLaiCuaPO(tienCanCu ?? tien.tongThanhToan, daTra);
     /* 🔴 `> 0` chứ không phải `>= 0`: đơn chưa trả đồng nào mà tổng công nợ bằng 0 (đơn 0 đồng,
        hoặc chưa nhập giá) KHÔNG phải "đã tất toán" — nó là đơn chưa có số liệu. */
@@ -455,8 +516,12 @@ export function congNoTheoDonHang(
       maDonHang: po.code,
       tenCongTrinh: po.tenCongTrinh,
       maDeNghi: po.prCode,
-      soHoaDon: gia?.soHoaDon,
-      tongTienHoaDon: gia?.tongTienHoaDon,
+      /* ★ Cùng một nguồn với `tienCanCu` ở trên — xem `chuoiSoHoaDonCuaDon` / `tongTienHoaDonCuaDon`. */
+      soHoaDon: chuoiSoHoaDonCuaDon(gia),
+      tongTienHoaDon: tongTienHoaDonCuaDon(gia),
+      /* Số tờ hoá đơn đã ghi — nơi vẽ cần để biết ô còn sửa tay được không, và để so với số đợt
+         giao mà nhắc bằng chữ vàng (Sếp chốt 19/09: nhắc, KHÔNG chặn). */
+      soToHoaDon: Array.isArray(gia?.hoaDonVAT) ? gia.hoaDonVAT.length : 0,
       canCu,
       daTra,
       conLai,

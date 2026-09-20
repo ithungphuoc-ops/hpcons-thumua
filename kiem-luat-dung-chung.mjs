@@ -8175,6 +8175,101 @@ kiem("Nhan tren the KHONG con so khoanh ④ — ghi du chu", CHU_SEP_NHAN_DU_CHU
 });
 
 // ════════════════════════════════════════════════════════════════════
+// BẢNG HOÁ ĐƠN VAT LÀ NGUỒN DUY NHẤT — Sếp 19/09/2026
+//
+// *"Thêm các trường nhập liệu: 1. STT · 2. Số hoá đơn · 3. Ngày hoá đơn · 4. Số tiền trên hoá
+// đơn · 5. Đính kèm"*, và khi được hỏi lại thì Sếp chọn **"Bảng là nguồn duy nhất, ô Công nợ tự
+// cộng"** + **"Cho đóng hồ sơ, chỉ nhắc bằng chữ vàng"**.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_BANG_HOA_DON =
+  'Sếp · 19/09/2026 — *"Thêm các trường nhập liệu: STT · Số hoá đơn · Ngày hoá đơn · Số tiền ' +
+  'trên hoá đơn · Đính kèm"* + chốt "Bảng là nguồn duy nhất, ô Công nợ tự cộng"';
+
+kiem("Co bang hoa don -> TONG lay tu bang, KHONG lay o go tay", CHU_SEP_BANG_HOA_DON, () => {
+  const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+  /* 🔴 Chot cua Sep: uu tien nguoc lai (doc `tongTienHoaDon` truoc) la nguoi dung nhap bang xong
+     ma cot "Con phai tra" van giu so cu — dung thu hai-cho-mot-so ma Sep yeu cau dep. */
+  const coBang = TN.tongTienHoaDonCuaDon({
+    hoaDonVAT: [{ soTien: 30_000_000 }, { soTien: 15_522_000 }],
+    tongTienHoaDon: 999,
+  });
+  const chuoi = TN.chuoiSoHoaDonCuaDon({
+    hoaDonVAT: [{ soHoaDon: "HD-01" }, { soHoaDon: "HD-02" }],
+    soHoaDon: "so-cu",
+  });
+  return {
+    duoc: coBang === 45_522_000 && chuoi === "HD-01 · HD-02",
+    thucTe: `tong=${coBang} · chuoi=${JSON.stringify(chuoi)}`,
+    mongDoi: "45522000 va 'HD-01 · HD-02' (bang thang o go tay)",
+  };
+});
+
+kiem(
+  "CHIEU NGHICH — CHUA co bang thi VAN doc o go tay cua don cu",
+  CHU_SEP_BANG_HOA_DON,
+  () => {
+    /* 🔴 Hang chuc don cu da go tay vao `tongTienHoaDon` va khong ai di nhap lai. Bo nhanh du
+       phong nay la chung mat sach can cu tinh no, im lang. */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const khongBang = TN.tongTienHoaDonCuaDon({ tongTienHoaDon: 7_000_000 });
+    const bangRong = TN.tongTienHoaDonCuaDon({ hoaDonVAT: [], tongTienHoaDon: 7_000_000 });
+    /* Mang RONG khac "da nhap 0 dong": tra 0 thi don chua nhap hoa don se trong nhu DA TRA XONG
+       khi nguoi xem chon can cu "theo hoa don". */
+    const trongTron = TN.tongTienHoaDonCuaDon({});
+    return {
+      duoc: khongBang === 7_000_000 && bangRong === 7_000_000 && trongTron === undefined,
+      thucTe: `khong bang=${khongBang} · bang rong=${bangRong} · trong tron=${trongTron}`,
+      mongDoi: "7000000 · 7000000 · undefined (RONG khong phai da nhap 0 dong)",
+    };
+  },
+);
+
+kiem(
+  "Dong hoa don RAC khong lam hong ca cot tien",
+  CHU_SEP_BANG_HOA_DON,
+  () => {
+    /* Du lieu tu kho chung KHONG qua phep kiem tung phan tu — mot dong rac la ca cot hien "NaN d". */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const r = TN.tongTienHoaDonCuaDon({
+      hoaDonVAT: [{ soTien: 1_000_000 }, { soTien: Number("hai trieu") }, { soTien: 500_000 }],
+    });
+    return {
+      duoc: r === 1_500_000,
+      thucTe: String(r),
+      mongDoi: "1500000 — bo qua dong rac, KHONG tra NaN",
+    };
+  },
+);
+
+kiem(
+  "CHIEU NGHICH — thieu hoa don cho tung dot giao VAN dong duoc ho so",
+  CHU_SEP_BANG_HOA_DON + ' + Sếp chốt "Cho đóng, chỉ nhắc bằng chữ vàng"',
+  () => {
+    /* 🔴 Sep chot 19/09: NCC thuong xuat GOP cuoi thang. Ep moi dot giao mot hoa don thi don giao
+       3 lan ma NCC xuat 1 to se KET VINH VIEN, va moi ho so dang mo bi chan dong ngay hom trien
+       khai. Bai nay chan viec "siet cho chat" ve sau. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    /* 📌 Tệp hoá đơn nhận diện bằng NHÃN ghi chú (`NHAN_TEP_HOA_DON_VAT`) trong ngăn
+       `ho_so_thanh_toan`, không phải bằng khoá riêng — xem `gopTepHaiKhoa` ở
+       `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`. Dựng sai chỗ này thì bài kiểm đỏ oan. */
+    const dn = {
+      id: "pr-hd",
+      lichSu: [],
+      tepGiaiDoan: {
+        ho_so_thanh_toan: [{ id: "t1", ten: "HD.pdf", ghiChu: CT.NHAN_TEP_HOA_DON_VAT }],
+      },
+    };
+    const r = CT.vuongMacDuyetHoanThanhDeNghi(dn);
+    return {
+      duoc: r === null,
+      thucTe: JSON.stringify(r),
+      mongDoi: "null — co it nhat 1 hoa don la dong duoc, khong doi du tung dot giao",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // ĐỒNG HỒ THEO BƯỚC — Sếp 19/09/2026
 //
 // *"Nút thời gian này chưa hoạt động / Thời gian ở các bước này tính từ khi công việc chuyển bước

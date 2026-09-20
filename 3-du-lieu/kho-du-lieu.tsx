@@ -1397,6 +1397,17 @@ interface GiaTriDuLieu {
     nguoiThucHien: string,
   ) => string | null;
   /**
+   * ★★★ Ghi một tờ hoá đơn VAT vào đơn — Sếp 19/09/2026, mục ⑥ Bộ hồ sơ thanh toán:
+   * *"Thêm các trường nhập liệu: STT · Số hoá đơn · Ngày hoá đơn · Số tiền trên hoá đơn · Đính kèm"*.
+   * Trả câu lý do khi bị chặn (không có quyền, thiếu số/ngày, tiền âm), `null` là ghi được.
+   */
+  themHoaDonVAT: (
+    poId: string,
+    dong: { soHoaDon: string; ngayHoaDon: string; soTien: number; tep?: MoTaTep },
+  ) => string | null;
+  /** Xoá một tờ hoá đơn đã ghi. Nhật ký chứng từ giá vẫn giữ lại dấu vết ai xoá. */
+  xoaHoaDonVAT: (poId: string, id: string) => string | null;
+  /**
    * ★★★ Sửa một đơn hàng đã lập (còn ở 1 trong 6 bước đầu) — Sếp demo bằng Artifact, chốt
    * 31/08/2026. Xem chú thích đầy đủ ở nơi định nghĩa (`GiaTriDuLieu` → `suaDonHang`).
    *
@@ -4076,6 +4087,118 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          `DeNghiMuaHang.lichSu`, mà khối "Lịch sử" của đề nghị hiện cho CẢ vai trò không được xem
          giá — đưa "số ngày được nợ 30 → 45" vào đó là lộ điều kiện thương mại. Xem chú thích
          `lichSuDieuKhoanCongNo` trong `kieu-du-lieu.ts`. */
+      return null;
+    },
+    [nguoiDung],
+  );
+
+  /**
+   * ★★★ GHI MỘT TỜ HOÁ ĐƠN VAT — Sếp 19/09/2026, mục ⑥ Bộ hồ sơ thanh toán.
+   *
+   * 🔴 ĐI CHUNG CHỨNG TỪ GIÁ, CHUNG CỬA QUYỀN với điều khoản công nợ: `soTien` là tiền, và cả
+   * cụm này chỉ người được xem giá mới đọc. Dựng một đường ghi riêng không kiểm quyền là mở đúng
+   * lỗ mà `tm_donhang_gia` sinh ra để bịt.
+   *
+   * 🔴 NHẬT KÝ VÀO `lichSuDieuKhoanCongNo`, KHÔNG vào nhật ký đề nghị — cùng lý do đã ghi ở
+   * `datDieuKhoanCongNo` ngay trên: khối "Lịch sử" của đề nghị hiện cho cả vai trò không xem
+   * được giá, đẩy số tiền hoá đơn vào đó là lộ.
+   */
+  const vuongMacDongHoaDon = useCallback(
+    (d: { soHoaDon?: string; ngayHoaDon?: string; soTien?: number }): string | null => {
+      if (!d.soHoaDon?.trim()) return "Phải nhập số hoá đơn.";
+      /* Khuôn `yyyy-mm-dd` — ô chọn ngày luôn trả đúng khuôn này, nhưng tầng ghi không được tin
+         giao diện: một chuỗi rác lọt vào là cột ngày của cả bảng hiện "Invalid Date". */
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.ngayHoaDon ?? ""))) {
+        return "Phải chọn ngày ghi trên hoá đơn.";
+      }
+      const so = Number(d.soTien);
+      /* 🔴 CHO PHÉP 0, CHẶN SỐ ÂM. Hoá đơn 0 đồng bất thường nhưng CÓ thật (hàng tặng, xuất bù);
+         còn số âm thì không có tờ hoá đơn nào như vậy, và nó lén làm giảm tổng nợ. */
+      if (!Number.isFinite(so) || so < 0) return "Số tiền trên hoá đơn phải là số không âm.";
+      return null;
+    },
+    [],
+  );
+
+  const themHoaDonVAT = useCallback(
+    (
+      poId: string,
+      dong: { soHoaDon: string; ngayHoaDon: string; soTien: number; tep?: MoTaTep },
+    ): string | null => {
+      const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const loi = vuongMacDongHoaDon(dong);
+      if (loi) return loi;
+      const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
+      if (!giaCu) return "Đơn này chưa có chứng từ giá nên chưa ghi được hoá đơn.";
+
+      const soHoaDon = dong.soHoaDon.trim().slice(0, 60);
+      const soTien = Math.round(Number(dong.soTien));
+      /* 🔴 MÃ NGẪU NHIÊN, KHÔNG PHẢI SỐ ĐẾM — kho chung là một tài liệu cho cả phòng, hai người
+         cùng thêm trong vài giây thì số đếm đụng nhau và người ghi sau đè người trước, im lặng. */
+      const id = `hd-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+      setGiaDonHang((truoc) =>
+        truoc.map((g) =>
+          g.poId !== poId
+            ? g
+            : {
+                ...g,
+                hoaDonVAT: [
+                  ...(g.hoaDonVAT ?? []),
+                  {
+                    id,
+                    soHoaDon,
+                    ngayHoaDon: dong.ngayHoaDon,
+                    soTien,
+                    tep: dong.tep,
+                    nguoiGhiTen: nguoiDung.tenHienThi,
+                    thoiDiemGhi: thoiDiemHienTai(),
+                  },
+                ],
+                lichSuDieuKhoanCongNo: [
+                  ...(g.lichSuDieuKhoanCongNo ?? []),
+                  {
+                    thoiDiem: thoiDiemHienTai(),
+                    nguoiThucHien: nguoiDung.tenHienThi,
+                    hanhDong: `Thêm hoá đơn ${soHoaDon} ngày ${dong.ngayHoaDon} — ${soTien.toLocaleString("vi-VN")} đ`,
+                  },
+                ],
+              },
+        ),
+      );
+      return null;
+    },
+    [nguoiDung, vuongMacDongHoaDon],
+  );
+
+  const xoaHoaDonVAT = useCallback(
+    (poId: string, id: string): string | null => {
+      const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
+      const dong = giaCu?.hoaDonVAT?.find((x) => x.id === id);
+      if (!dong) return "Không tìm thấy dòng hoá đơn này.";
+
+      setGiaDonHang((truoc) =>
+        truoc.map((g) =>
+          g.poId !== poId
+            ? g
+            : {
+                ...g,
+                hoaDonVAT: (g.hoaDonVAT ?? []).filter((x) => x.id !== id),
+                /* Xoá một dòng tiền là đổi số liệu công nợ — nhật ký phải giữ lại dấu vết, kể cả
+                   khi dòng đó đã biến mất khỏi bảng. */
+                lichSuDieuKhoanCongNo: [
+                  ...(g.lichSuDieuKhoanCongNo ?? []),
+                  {
+                    thoiDiem: thoiDiemHienTai(),
+                    nguoiThucHien: nguoiDung.tenHienThi,
+                    hanhDong: `XOÁ hoá đơn ${dong.soHoaDon} ngày ${dong.ngayHoaDon} — ${Number(dong.soTien).toLocaleString("vi-VN")} đ`,
+                  },
+                ],
+              },
+        ),
+      );
       return null;
     },
     [nguoiDung],
@@ -8959,6 +9082,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       suaDotThanhToan,
       xoaDotThanhToan,
       datDieuKhoanCongNo,
+      themHoaDonVAT,
+      xoaHoaDonVAT,
       suaDonHang,
       xacNhanKho,
       xacNhanTruongBP,
@@ -9033,6 +9158,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ghiDoiChieuThuMua,
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
+      themHoaDonVAT,
+      xoaHoaDonVAT,
       suaDonHang,
       xacNhanKho,
       xacNhanTruongBP,

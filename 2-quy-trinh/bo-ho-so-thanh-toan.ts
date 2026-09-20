@@ -354,7 +354,34 @@ export interface MucHoSoThanhToan {
    * CTR) hoặc khi luật không đòi chứng từ cho lần đó (`tu_choi_nhan`). Bật bừa là dựng lại đúng
    * lỗi "màn hình nói đủ, dữ liệu thì thiếu" mà chú thích `mucDaCo` bên dưới cấm.
    */
-  nhom?: { ten: string; tep: MoTaTep[]; ghiChu?: string; bangChungNgoai?: boolean }[];
+  nhom?: {
+    ten: string;
+    tep: MoTaTep[];
+    ghiChu?: string;
+    bangChungNgoai?: boolean;
+    /**
+     * ★★ ẢNH PHIẾU GIAO DO KHO CÔNG TRÌNH (QLK CTR) GỬI KÈM — Sếp 19/09/2026: *"link hình ảnh từ
+     * mục tiến hành nhận hàng xuống đây / Ghi rõ lần giao 1, 2, 3 và có nút xem và tải về giống
+     * các mục khác"*. Đây là **nửa còn lại** của câu Sếp hỏi hôm 18/09 (*"có cách nào kéo nội
+     * dung này về app Thu mua ko"*, đã ghim trong `kiem-luat-dung-chung.mjs`): bản vá hôm đó mới
+     * dập được câu vàng báo sai, còn nội dung thì chỉ *chỉ đường* chứ chưa kéo xuống.
+     *
+     * 🔴🔴 ĐÂY LÀ **LIÊN KẾT NGOÀI**, KHÔNG PHẢI TỆP APP ĐANG GIỮ — đọc kỹ trước khi dùng.
+     * QLK CTR tự host ảnh; app Thu mua không giữ một byte nào. Chú thích `mucDaCo` ngay dưới
+     * trong CHÍNH interface này đã cấm đếm `lienKetNgoai` là "đã có chứng từ", vì *"liên kết
+     * chứng minh tra được bản gốc, không chứng minh app đang giữ chứng từ"*.
+     *
+     * ⚠️ HỆ QUẢ BẮT BUỘC CHO NƠI VẼ: phải cho người đọc **phân biệt được bằng mắt** đâu là tệp
+     * app giữ, đâu là link sang máy chủ bên khác. Bày y hệt nhau là khi QLK CTR đổi khoá hay xoá
+     * tệp thì mục ⑤ vẫn trông đầy đủ mà bấm ra lỗi — đúng kiểu "màn hình nói đủ, dữ liệu thì
+     * thiếu". Một agent phản biện 19/09 bắt đúng chỗ này.
+     *
+     * 📌 Khai INLINE, cố ý không `import { AnhTuQlkCtr }` từ `3-du-lieu/tich-hop-*` — tệp đó
+     * thuộc vùng cấm sửa §6.6, và shape trùng nhau nên vẫn truyền thẳng vào `LienKetAnhQlkCtr`
+     * được. Giữ tệp này là hàm thuần, không dính React.
+     */
+    anhQlkCtr?: { ten: string; url: string };
+  }[];
   /** Câu nói rõ mục này đang thiếu gì / lấy ở bước nào. Rỗng khi đã đủ. */
   ghiChu?: string;
 }
@@ -743,6 +770,7 @@ export function dungBoHoSoThanhToan(
     tep: MoTaTep[];
     ghiChu?: string;
     bangChungNgoai?: boolean;
+    anhQlkCtr?: { ten: string; url: string };
   }[] = [...phieuCuaDeNghi]
     .sort((a, b) => a.poCode.localeCompare(b.poCode) || a.lanGiaoThu - b.lanGiaoThu)
     .map((p) => ({
@@ -759,14 +787,25 @@ export function dungBoHoSoThanhToan(
        * hai chiều ghim việc này trong `kiem-luat-dung-chung.mjs`.
        */
       bangChungNgoai: Boolean(p.anhQlkCtr) || p.trangThai === "tu_choi_nhan",
+      /* ★ Kéo thẳng ảnh xuống đây (Sếp 19/09/2026) — nơi vẽ dựng nút xem/tải bằng
+         `LienKetAnhQlkCtr`, thay cho câu chữ chỉ đường dài dòng trước đây. */
+      anhQlkCtr: p.anhQlkCtr,
       /* 🔴 NHÓM RỖNG PHẢI NÓI RÕ VÌ SAO RỖNG — ba lý do khác hẳn nhau, gộp một câu là báo động sai.
          Hai lý do đầu KHÔNG phải thiếu chứng từ, và `vuongMacXacNhanKho` cũng không bắt lỗi chúng
          (`2-quy-trinh/tinh-toan.ts`) — viết "chưa đính" cho chúng là đuổi người dùng đi tìm một tờ
          giấy không tồn tại. */
+      /* 🔴 CÂU CHO CA CÓ ẢNH ĐÃ RÚT NGẮN — Sếp 19/09/2026. Bản cũ dài bốn dòng vì phải *chỉ
+         đường*: *"mở khối Tiến độ nhận hàng ở bước Nhận hàng để xem và tải về"*. Nay ảnh nằm
+         ngay tại đây có nút xem/tải, nên vế chỉ đường thành thừa.
+
+         ⚠️ VẪN GIỮ MỘT CÂU NGẮN, KHÔNG XOÁ HẲN. Nhánh xám ở nơi vẽ tồn tại để phân biệt BA lý do
+         nhóm rỗng, ca "kho gửi kèm ảnh" là một trong ba — xoá sạch câu cho ca này là nhánh đó
+         nửa chết và chú thích của nó thành nói sai về chính mình. Câu ngắn cũng là chỗ duy nhất
+         nói cho người dùng biết **họ không phải đi đính thêm phiếu**. */
       ghiChu: p.tepPhieuGiao
         ? undefined
         : p.anhQlkCtr
-          ? `Đã có bằng chứng giao nhận: ảnh phiếu "${p.anhQlkCtr.ten}" do Kho công trình (QLK CTR) gửi kèm — mở khối "Tiến độ nhận hàng" ở bước Nhận hàng để xem và tải về. Lần giao này không phải đính thêm phiếu.`
+          ? "Kho công trình gửi kèm ảnh phiếu — lần giao này không phải đính thêm."
           : p.trangThai === "tu_choi_nhan"
             ? "Lần giao bị từ chối nhận — không đòi phiếu giao nhận cho lần này."
             : "Chưa đính phiếu giao nhận cho lần giao này.",

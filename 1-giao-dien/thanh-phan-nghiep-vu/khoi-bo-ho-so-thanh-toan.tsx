@@ -85,6 +85,8 @@ import { AlertTriangle, Check, ExternalLink, FileText, Info, Minus } from "lucid
    khối này chỉ XEM. Truyền prop giả cho một ô đính kèm rồi khóa lại là mời người sau mở khóa —
    `LienKetTep` không có đường ghi nào nên không thể lỡ tay. */
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
+/* 🔴 Component của PHIÊN TÍCH HỢP (vùng cấm sửa §6.6) — chỉ dùng lại, tuyệt đối không sửa. */
+import { LienKetAnhQlkCtr } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-anh-qlk-ctr";
 /* 📌 ĐÃ BỎ `import { StatusBadge }` và `import { tomTatBoHoSo }` ngày 16/09/2026 — cả hai chỉ phục
    vụ huy hiệu đếm mà Sếp cho bỏ (xem khối ❌❌ ngay trên thẻ `<section>`). `tomTatBoHoSo` VẪN CÒN
    NGUYÊN ở `2-quy-trinh/bo-ho-so-thanh-toan.ts` và vẫn là hàm luật — chỉ khối này thôi gọi tới. */
@@ -106,6 +108,7 @@ export function KhoiBoHoSoThanhToan({
   /** Bảng báo giá của đề nghị — chỉ để tra ra bản báo giá ĐÃ ĐƯỢC CHỌN (Sếp 26/08/2026). */
   baoGiaCuaDeNghi,
   oNopTheoMuc,
+  bangHoaDon,
 }: {
   deNghi: DeNghiMuaHang;
   poCuaDeNghi: DonDatHang[];
@@ -126,6 +129,14 @@ export function KhoiBoHoSoThanhToan({
    * là chỗ nộp DUY NHẤT trong cả app, CLAUDE.md §3.4b).
    */
   oNopTheoMuc: Record<MaMucCoONop, ReactNode>;
+  /**
+   * ★★ Bảng hoá đơn VAT từng tờ, vẽ trong ruột mục ⑥ — Sếp 19/09/2026.
+   *
+   * 📌 `undefined` thì mục ⑥ trông y như trước (chỉ có ô nộp tệp). Cố ý để tuỳ chọn: trang in và
+   * các nơi chỉ bày lại hồ sơ không cần bảng nhập liệu, và ép bắt buộc sẽ kéo cả `useDuLieu` vào
+   * những chỗ đó.
+   */
+  bangHoaDon?: ReactNode;
   /**
    * ⚠️ VẪN NHẬN NHƯNG HIỆN KHÔNG ĐỌC TỚI — cố ý, không phải sót. Đọc trước khi "dọn cho gọn".
    *
@@ -467,6 +478,33 @@ export function KhoiBoHoSoThanhToan({
                       <LienKetTep key={t.id} tep={t} />
                     ))}
                     {/**
+                      * ★★ ẢNH PHIẾU GIAO DO KHO CÔNG TRÌNH GỬI — Sếp 19/09/2026: *"link hình ảnh
+                      * từ mục tiến hành nhận hàng xuống đây / Ghi rõ lần giao 1, 2, 3 và có nút
+                      * xem và tải về giống các mục khác"*.
+                      *
+                      * Tên nhóm ngay trên đã ghi sẵn *"Lần giao thứ N — <mã PO>"*, nên yêu cầu
+                      * "ghi rõ lần giao 1, 2, 3" đã có sẵn; phần thiếu đúng là cái link này.
+                      *
+                      * 🔴🔴 CÓ VIỀN VÀ NHÃN RIÊNG — KHÔNG BÀY Y HỆT TỆP APP GIỮ. Ảnh này do QLK
+                      * CTR tự host, app Thu mua **không giữ một byte nào**; chú thích `mucDaCo`
+                      * ở `2-quy-trinh/bo-ho-so-thanh-toan.ts` cố ý không đếm liên kết ngoài là
+                      * "đã có chứng từ", đúng vì lý do đó. Bày giống hệt `LienKetTep` thì hôm nào
+                      * QLK CTR đổi khoá hay xoá tệp, mục ⑤ vẫn trông đầy đủ mà bấm ra lỗi — đúng
+                      * kiểu *"màn hình nói đủ, dữ liệu thì thiếu"*. Một agent phản biện 19/09 bắt
+                      * đúng chỗ này, và nó đúng.
+                      *
+                      * 📌 `LienKetAnhQlkCtr` là component CỦA PHIÊN TÍCH HỢP (vùng cấm sửa §6.6)
+                      * — chỉ `import` và dùng lại, không đụng một ký tự nào bên trong nó.
+                      */}
+                    {n.anhQlkCtr && (
+                      <div className="flex flex-col gap-0.5 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1">
+                        <span className="text-[11px] font-medium text-text-desc">
+                          Liên kết ngoài — ảnh do Kho công trình giữ, app Thu mua không lưu bản sao
+                        </span>
+                        <LienKetAnhQlkCtr anh={n.anhQlkCtr} />
+                      </div>
+                    )}
+                    {/**
                       * ★★ TÔ MÀU THEO LÝ DO — sửa 18/09/2026.
                       *
                       * 🔴 Ba lý do nhóm rỗng KHÁC HẲN NHAU về nghĩa, trước đó dùng CHUNG một màu
@@ -477,6 +515,11 @@ export function KhoiBoHoSoThanhToan({
                       *
                       * 📌 `bangChungNgoai` chính là cờ phân biệt: bật = đã có bằng chứng ở nơi
                       * khác (xem `mucDaCo` ở `2-quy-trinh/bo-ho-so-thanh-toan.ts`).
+                      *
+                      * ⚠️ 19/09/2026: ca ① nay ĐÃ CÓ ảnh bày ngay trên, nhưng câu xám vẫn giữ —
+                      * chỉ rút ngắn lại ở tầng quy trình. Nó là chỗ duy nhất nói cho người dùng
+                      * biết **không phải đi đính thêm phiếu**; bỏ hẳn thì ba lý do lại còn hai và
+                      * chính chú thích này thành nói sai về lý do tồn tại của mình.
                       */}
                     {n.tep.length === 0 && (
                       <span
@@ -522,6 +565,19 @@ export function KhoiBoHoSoThanhToan({
                   * hằng số trong `chung-tu-cuoi-quy-trinh.ts`.
                   */}
                 {kieu === "khu_tu_do" && oNop}
+
+                {/**
+                  * ★★★ BẢNG HOÁ ĐƠN VAT TỪNG TỜ — Sếp 19/09/2026: *"Thêm các trường nhập liệu:
+                  * 1. STT · 2. Số hoá đơn · 3. Ngày hoá đơn · 4. Số tiền trên hoá đơn · 5. Đính kèm"*.
+                  *
+                  * 🔴 NHẬN SẴN PHẦN TỬ TỪ NƠI GỌI, không tự dựng ở đây — đúng nếp của `oNopTheoMuc`
+                  * ngay trên và cùng lý do: bảng cần quyền ghi, quyền xem giá, danh sách hoá đơn
+                  * của từng PO và hai cửa ghi. Tính lại ở đây là hai chỗ cùng quyết định một câu
+                  * hỏi, rồi sớm muộn lệch nhau.
+                  *
+                  * 📌 Chỉ mục ⑥ có bảng này nên không cần `Record` theo mã mục như `oNopTheoMuc`.
+                  */}
+                {m.ma === "hoa_don_vat" && bangHoaDon}
               </div>
                 </>
               )}

@@ -189,6 +189,7 @@ import {
 import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
 /* Khối "Kết quả" của bước ⑦ — bộ hồ sơ thanh toán 7 mục (Ban lãnh đạo 26/08/2026). */
 import { KhoiBoHoSoThanhToan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan";
+import { BangHoaDonVAT } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-hoa-don-vat";
 import {
   nhanAnToan,
   NHAN_TRANG_THAI_PO,
@@ -297,6 +298,11 @@ export default function TrangChiTietDeNghi({
        "Thông tin đề nghị" bên dưới. */
     doiLuuTru,
     suaTruongBoSung,
+    /* ★ Bảng hoá đơn VAT từng tờ ở mục ⑥ — Sếp 19/09/2026. `giaDonHang` là chứng từ GIÁ, chỉ
+       dùng để đọc danh sách hoá đơn của từng PO. */
+    giaDonHang,
+    themHoaDonVAT,
+    xoaHoaDonVAT,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   /**
@@ -3587,6 +3593,43 @@ export default function TrangChiTietDeNghi({
                       phieuCuaDeNghi={phieuLienQuan}
                       baoGiaCuaDeNghi={baoGiaLienQuan}
                       xemGia={quyen.xemGia}
+                      /**
+                       * ★★★ BẢNG HOÁ ĐƠN VAT TỪNG TỜ — Sếp 19/09/2026 (ảnh mục ⑥):
+                       * *"Thêm các trường nhập liệu: 1. STT · 2. Số hoá đơn · 3. Ngày hoá đơn ·
+                       * 4. Số tiền trên hoá đơn · 5. Đính kèm"*.
+                       *
+                       * 🔴 MỘT BẢNG CHO MỖI PO, không phải một bảng cho cả đề nghị. Một đề nghị
+                       * tách được cho nhiều nhà cung cấp, mỗi PO là một chứng từ giá riêng và
+                       * NCC nào xuất hoá đơn của NCC đó. Gộp chung là trộn hoá đơn hai nhà cung
+                       * cấp vào một cột tiền.
+                       *
+                       * 🔴 QUYỀN GHI DÙNG `lapPO`, KHÔNG DÙNG `ghiThanhToan`. Hai việc khác bản
+                       * chất: hoá đơn tồn tại TRƯỚC lần chi tiền (xem chú thích `soHoaDon` ở
+                       * `kieu-du-lieu.ts`), còn `ghiThanhToan` là cờ cho đợt CHI. Màn Công nợ
+                       * cũng đang gác hai ô số hoá đơn bằng đúng `lapPO` — giữ cho nhất quán.
+                       */
+                      bangHoaDon={
+                        poLienQuan.length === 0 ? null : (
+                          <div className="flex flex-col gap-2">
+                            {poLienQuan.map((po) => (
+                              <BangHoaDonVAT
+                                key={po.id}
+                                poId={po.id}
+                                poCode={po.code}
+                                dong={giaDonHang.find((g) => g.poId === po.id)?.hoaDonVAT ?? []}
+                                /* Số lần giao = số phiếu nhận của PO đó. Chỉ để NHẮC khi số hoá
+                                   đơn ít hơn số đợt — tuyệt đối không dùng để chặn đóng hồ sơ
+                                   (Sếp chốt 19/09: NCC hay xuất gộp cuối tháng). */
+                                soDotGiao={phieuLienQuan.filter((p) => p.poId === po.id).length}
+                                ghiDuoc={quyen.lapPO}
+                                xemGia={quyen.xemGia}
+                                onThem={(d) => themHoaDonVAT(po.id, d)}
+                                onXoa={(id) => xoaHoaDonVAT(po.id, id)}
+                              />
+                            ))}
+                          </div>
+                        )
+                      }
                       oNopTheoMuc={{
                         /**
                          * ❌❌ ĐÃ BỎ Ô ĐÍNH KÈM **HỢP ĐỒNG** Ở BƯỚC ⑧ — Sếp 16/09/2026, khoanh đỏ
