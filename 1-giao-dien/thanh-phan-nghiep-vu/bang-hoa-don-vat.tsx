@@ -86,7 +86,22 @@ export function BangHoaDonVAT({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
+    /**
+      * 🔴 KHÔNG CÓ VIỀN VÀ NỀN RIÊNG — sửa 19/09/2026 sau khi Sếp xem bản thật.
+      *
+      * Bản đầu bọc khối này trong `rounded-lg border border-border bg-card p-3`. Mục ⑥ vốn đã là
+      * một thẻ trắng có viền, nên thành **hộp lồng trong hộp**: trên màn hình nó trông như một
+      * mục thứ 10 nằm tách hẳn ra, không dính gì tới Hoá đơn VAT. Sếp khoanh đỏ đúng mục ⑥ để
+      * nói "các trường nhập liệu phải ở trong đây".
+      *
+      * 📌 `pl-7` là bậc thụt của RUỘT MỤC trong khối này (xem chú thích nhóm con ở
+      * `khoi-bo-ho-so-thanh-toan.tsx`) — để bảng thẳng hàng với tên chứng từ và danh sách tệp
+      * phía trên, thay vì bắt đầu từ mép trái nơi đặt số thứ tự.
+      *
+      * 📌 Đường kẻ mảnh phía trên chỉ để tách phần *nhập liệu* khỏi phần *đính kèm* — nhẹ hơn
+      * một cái viền kín, đủ để mắt thấy là hai việc khác nhau mà vẫn cùng một mục.
+      */
+    <div className="flex flex-col gap-2 border-t border-border/60 pt-2 pl-7">
       <div className="flex flex-wrap items-center gap-2">
         <FileText className="size-4 shrink-0 text-text-desc" aria-hidden />
         <span className="text-sm font-semibold text-text-primary">Hoá đơn của đơn {poCode}</span>
