@@ -565,22 +565,27 @@ export function KhoiBoHoSoThanhToan({
                   * hằng số trong `chung-tu-cuoi-quy-trinh.ts`.
                   */}
                 {kieu === "khu_tu_do" && oNop}
-
-                {/**
-                  * ★★★ BẢNG HOÁ ĐƠN VAT TỪNG TỜ — Sếp 19/09/2026: *"Thêm các trường nhập liệu:
-                  * 1. STT · 2. Số hoá đơn · 3. Ngày hoá đơn · 4. Số tiền trên hoá đơn · 5. Đính kèm"*.
-                  *
-                  * 🔴 NHẬN SẴN PHẦN TỬ TỪ NƠI GỌI, không tự dựng ở đây — đúng nếp của `oNopTheoMuc`
-                  * ngay trên và cùng lý do: bảng cần quyền ghi, quyền xem giá, danh sách hoá đơn
-                  * của từng PO và hai cửa ghi. Tính lại ở đây là hai chỗ cùng quyết định một câu
-                  * hỏi, rồi sớm muộn lệch nhau.
-                  *
-                  * 📌 Chỉ mục ⑥ có bảng này nên không cần `Record` theo mã mục như `oNopTheoMuc`.
-                  */}
-                {m.ma === "hoa_don_vat" && bangHoaDon}
               </div>
                 </>
               )}
+
+              {/**
+                * ★★★ BẢNG HOÁ ĐƠN VAT TỪNG TỜ — Sếp 19/09/2026: *"Thêm các trường nhập liệu:
+                * 1. STT · 2. Số hoá đơn · 3. Ngày hoá đơn · 4. Số tiền trên hoá đơn · 5. Đính kèm"*.
+                *
+                * 🔴🔴 PHẢI ĐẶT Ở CẤP `<li>`, NGOÀI CẢ HAI NHÁNH — ĐỪNG ĐẨY NÓ VÀO TRONG.
+                * Bản đầu của tôi chèn vào nhánh `else` (mục KHÔNG có ô nộp), mà Hoá đơn VAT thì
+                * **có** ô nộp nên nó đi nhánh `o_co_ten` ⇒ bảng không bao giờ được vẽ. Sếp mở bản
+                * thật và báo ngay: *"Mục hoá đơn này a chưa thấy các trường nhập thông tin hoá
+                * đơn"*. Không một lỗi nào báo, vì về cú pháp thì hoàn toàn hợp lệ.
+                *
+                * 🔴 NHẬN SẴN PHẦN TỬ TỪ NƠI GỌI, không tự dựng ở đây — đúng nếp của `oNopTheoMuc`
+                * và cùng lý do: bảng cần quyền ghi, quyền xem giá, danh sách hoá đơn của từng PO
+                * và hai cửa ghi. Tính lại ở đây là hai chỗ cùng quyết định một câu hỏi.
+                *
+                * 📌 Chỉ mục ⑥ có bảng này nên không cần `Record` theo mã mục như `oNopTheoMuc`.
+                */}
+              {m.ma === "hoa_don_vat" && bangHoaDon}
 
               {/**
                 * ★★★ CÂU `ghiChu` CỦA MỤC — DỜI LÊN CẤP `<li>` NGÀY 16/09/2026. ĐỌC TRƯỚC KHI ĐẨY
