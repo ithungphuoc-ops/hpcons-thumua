@@ -165,6 +165,38 @@ function congNgay(ngay: NgayISO, soNgay: number): NgayISO {
  */
 export const NGAY_SAP_DEN_HAN = 7;
 
+/**
+ * ★★★ MỘT TỜ HOÁ ĐƠN KÈM HẠN NỢ RIÊNG — Sếp 20/09/2026: ***"Thêm trường nhập thông tin giống mục
+ * theo dõi công nợ"***, sau khi đã yêu cầu *"theo dõi công nợ theo từng hoá đơn"*.
+ *
+ * 🔴 CỐ Ý KHÔNG CÓ `conLai` / `daTra`. Đợt chi tiền hiện gắn theo ĐƠN, **không một trường nào
+ * trỏ tới hoá đơn** (xem `DotThanhToanPO` ở `3-du-lieu/kieu-du-lieu.ts`) — nên "còn phải trả của
+ * riêng tờ này" là thứ app KHÔNG BIẾT. Suy ra bằng cách đoán (trả tờ cũ trước, hoặc chia theo tỷ
+ * lệ) thì sai với cách trả thật, mà app lại in con số đoán ra như sự thật — đúng thứ CLAUDE.md
+ * §3.5 cấm.
+ *
+ * 📌 Sếp chốt 20/09/2026 làm **hai nhịp**: nhịp này chỉ trả lời câu *"tờ nào sắp tới hạn"*; việc
+ * gắn tiền vào từng tờ để tính "còn phải trả" là nhịp sau, và nó cần đổi mô hình đợt chi.
+ */
+export interface CongNoTheoHoaDon {
+  id: string;
+  soHoaDon: string;
+  ngayHoaDon: NgayISO;
+  soTien: number;
+  nhanTep?: string;
+  nguoiGhiTen: string;
+  /** Số ngày được nợ đang có hiệu lực — của riêng tờ, hoặc kế thừa từ đơn. */
+  soNgayDuocNo?: number;
+  /** Có phải người dùng gõ đè số ngày cho riêng tờ này không (để giao diện nói rõ). */
+  soNgayRieng: boolean;
+  ngayBatDau?: NgayISO;
+  /** Ngày bắt đầu là do gõ tay, hay tự lấy theo ngày hoá đơn. */
+  batDauNhapTay: boolean;
+  ngayToiHan?: NgayISO;
+  canhBao: MoTaTrangThai;
+  soNgayConLai?: number;
+}
+
 /** Một dòng của bảng "Công nợ theo đơn hàng" — đúng 8 cột Ban lãnh đạo yêu cầu. */
 export interface CongNoTheoDon {
   poId: string;
@@ -214,7 +246,7 @@ export interface CongNoTheoDon {
    * duy nhất. Dựng thêm ô nhập ở đây là hai nơi cùng ghi một tờ hoá đơn, đúng cái vừa phải dẹp
    * hôm qua với hai ô số hoá đơn.
    */
-  hoaDon: readonly DongHoaDonVAT[];
+  hoaDon: readonly CongNoTheoHoaDon[];
   /**
    * ★★ Căn cứ tính nợ CỦA RIÊNG ĐƠN NÀY — Sếp 19/09/2026. `"po"` là mặc định khi chưa ai chọn.
    * Là thuộc tính của đơn (lưu ở `GiaDonDatHang.canCuCongNo`), không phải cách đọc của cả bảng.
@@ -383,6 +415,67 @@ export function tongTienHoaDonCuaDon(
     if (coDongHopLe) return tong;
   }
   return typeof gia?.tongTienHoaDon === "number" ? gia.tongTienHoaDon : undefined;
+}
+
+/**
+ * ★★★ HẠN NỢ CỦA TỪNG TỜ HOÁ ĐƠN — Sếp 20/09/2026.
+ *
+ * 🔴 DÙNG LẠI ĐÚNG HAI HÀM MÀ DÒNG PO ĐANG DÙNG (`congNgay`, `canhBaoToiHan`). Viết lại phép
+ * tính ngày tới hạn ở đây là hai chỗ cùng trả lời một câu hỏi — sửa ngưỡng cảnh báo một bên thì
+ * bảng con và dòng cha nói hai chuyện khác nhau về cùng một đơn.
+ *
+ * 🔴 BA TẦNG MỐC BẮT ĐẦU, Sếp chốt *"Từ ngày hoá đơn, nhưng cho sửa tay"*:
+ *   ① `d.ngayBatDauTinhNoTay` — gõ đè cho riêng tờ
+ *   ② `d.ngayHoaDon` — mặc định
+ *   ③ `ngayBatDauCuaDon` — khi tờ chưa có ngày hoá đơn hợp lệ
+ * Giữ đúng nếp "tay thắng tự tính" của cấp đơn.
+ *
+ * 📌 SỐ NGÀY NỢ KẾ THỪA TỪ ĐƠN khi tờ không khai riêng: đó là điều khoản thương mại đàm phán ở
+ * cấp đơn, không phải thuộc tính của từng tờ giấy.
+ */
+export function hanNoTungToHoaDon(
+  gia: { hoaDonVAT?: readonly DongHoaDonVAT[]; soNgayDuocNo?: number } | undefined,
+  ngayBatDauCuaDon: NgayISO | undefined,
+  moc: Date = new Date(),
+): CongNoTheoHoaDon[] {
+  const ds = Array.isArray(gia?.hoaDonVAT) ? gia.hoaDonVAT : [];
+  return [...ds]
+    .sort(
+      (x, y) =>
+        String(x?.ngayHoaDon).localeCompare(String(y?.ngayHoaDon)) ||
+        String(x?.id).localeCompare(String(y?.id)),
+    )
+    .map((d) => {
+      const soNgayRieng = typeof d.soNgayDuocNo === "number";
+      const soNgayDuocNo = soNgayRieng ? d.soNgayDuocNo : gia?.soNgayDuocNo;
+      const batDauGoTay = d.ngayBatDauTinhNoTay?.trim() || undefined;
+      /* ⚠️ Chỉ nhận ngày hoá đơn đúng khuôn — chuỗi rác lọt vào là `congNgay` cho "Invalid Date"
+         và cả cột ngày tới hạn của bảng con hỏng theo. */
+      const batDauTheoHoaDon = /^\d{4}-\d{2}-\d{2}$/.test(String(d.ngayHoaDon))
+        ? d.ngayHoaDon
+        : undefined;
+      const ngayBatDau = batDauGoTay ?? batDauTheoHoaDon ?? ngayBatDauCuaDon;
+      const ngayToiHan =
+        ngayBatDau && typeof soNgayDuocNo === "number" && Number.isFinite(soNgayDuocNo)
+          ? congNgay(ngayBatDau, soNgayDuocNo)
+          : undefined;
+      const { canhBao, soNgayConLai } = canhBaoToiHan(ngayToiHan, moc);
+      return {
+        id: d.id,
+        soHoaDon: d.soHoaDon,
+        ngayHoaDon: d.ngayHoaDon,
+        soTien: d.soTien,
+        nhanTep: d.nhanTep,
+        nguoiGhiTen: d.nguoiGhiTen,
+        soNgayDuocNo,
+        soNgayRieng,
+        ngayBatDau,
+        batDauNhapTay: batDauGoTay !== undefined,
+        ngayToiHan,
+        canhBao,
+        soNgayConLai,
+      };
+    });
 }
 
 /**
@@ -564,12 +657,10 @@ export function congNoTheoDonHang(
          giao mà nhắc bằng chữ vàng (Sếp chốt 19/09: nhắc, KHÔNG chặn). */
       soToHoaDon: Array.isArray(gia?.hoaDonVAT) ? gia.hoaDonVAT.length : 0,
       /* Sắp theo ngày ngay tại tầng quy trình để mọi nơi bày ra đều cùng một thứ tự. */
-      hoaDon: Array.isArray(gia?.hoaDonVAT)
-        ? [...gia.hoaDonVAT].sort(
-            (x, y) =>
-              String(x.ngayHoaDon).localeCompare(String(y.ngayHoaDon)) || x.id.localeCompare(y.id),
-          )
-        : [],
+      /* ★ Hạn nợ RIÊNG cho từng tờ — Sếp 20/09/2026. Tính ở tầng quy trình, giao diện chỉ bày:
+         quy ước 3.4b cấm để hàm tính nghiệp vụ trong tệp giao diện, và để hai chỗ cùng tính một
+         ngày tới hạn là sớm muộn lệch nhau. */
+      hoaDon: hanNoTungToHoaDon(gia, ngayBatDau, moc),
       canCu,
       daTra,
       conLai,

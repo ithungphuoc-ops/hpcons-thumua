@@ -1415,6 +1415,13 @@ interface GiaTriDuLieu {
     id: string,
     thayDoi: { soHoaDon: string; ngayHoaDon: string; soTien: number },
   ) => string | null;
+  /** Đặt số ngày được nợ / ngày bắt đầu tính cho RIÊNG một tờ hoá đơn (Sếp 20/09/2026).
+   *  Truyền `null` để xoá về "kế thừa điều khoản của đơn". */
+  datDieuKhoanHoaDon: (
+    poId: string,
+    id: string,
+    thayDoi: { soNgayDuocNo?: number | null; ngayBatDauTinhNoTay?: string | null },
+  ) => string | null;
   /** Xoá một tờ hoá đơn đã ghi. Nhật ký chứng từ giá vẫn giữ lại dấu vết ai xoá, và bản chụp của
    *  tờ đó được gỡ khỏi hồ sơ cùng lúc để hai nơi không lệch nhau. */
   xoaHoaDonVAT: (poId: string, id: string) => string | null;
@@ -4286,6 +4293,89 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       return null;
     },
     [nguoiDung, vuongMacDongHoaDon],
+  );
+
+  /**
+   * ★★★ ĐẶT ĐIỀU KHOẢN CÔNG NỢ CHO RIÊNG MỘT TỜ HOÁ ĐƠN — Sếp 20/09/2026: ***"Thêm trường nhập
+   * thông tin giống mục theo dõi công nợ"***.
+   *
+   * 🔴 `null` = XOÁ VỀ "KẾ THỪA ĐƠN", khác hẳn số 0 hay chuỗi rỗng. Tờ không khai riêng thì dùng
+   * điều khoản của đơn — đó là mặc định đúng, và người dùng phải xoá về được sau khi lỡ gõ.
+   *
+   * 📌 Đi chung cửa quyền với `datDieuKhoanCongNo` (`lapPO`): đây vẫn là điều kiện thanh toán mà
+   * Thu mua đàm phán, chỉ khác là ở cấp từng tờ giấy thay vì cấp đơn.
+   */
+  const datDieuKhoanHoaDon = useCallback(
+    (
+      poId: string,
+      id: string,
+      thayDoi: { soNgayDuocNo?: number | null; ngayBatDauTinhNoTay?: string | null },
+    ): string | null => {
+      const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const cu = giaDonHangRef.current
+        .find((g) => g.poId === poId)
+        ?.hoaDonVAT?.find((x) => x.id === id);
+      if (!cu) return "Không tìm thấy dòng hoá đơn này.";
+
+      const moc: string[] = [];
+      if (thayDoi.soNgayDuocNo !== undefined) {
+        const moi = thayDoi.soNgayDuocNo === null ? undefined : Math.round(Number(thayDoi.soNgayDuocNo));
+        /* Số âm hoặc NaN thì coi như chưa đặt — đừng để một con số vô nghĩa đẻ ra ngày tới hạn lạ
+           mà bảng vẫn trông bình thường. */
+        const sach = moi !== undefined && Number.isFinite(moi) && moi >= 0 ? moi : undefined;
+        if (cu.soNgayDuocNo !== sach) {
+          moc.push(
+            `số ngày được nợ hoá đơn ${cu.soHoaDon}: ${
+              cu.soNgayDuocNo === undefined ? "theo đơn" : `${cu.soNgayDuocNo} ngày`
+            } → ${sach === undefined ? "theo đơn" : `${sach} ngày`}`,
+          );
+        }
+      }
+      if (thayDoi.ngayBatDauTinhNoTay !== undefined) {
+        const moi = thayDoi.ngayBatDauTinhNoTay?.trim() || null;
+        if ((cu.ngayBatDauTinhNoTay ?? null) !== moi) {
+          moc.push(
+            `ngày bắt đầu tính hoá đơn ${cu.soHoaDon}: ${
+              cu.ngayBatDauTinhNoTay ?? "theo ngày hoá đơn"
+            } → ${moi ?? "theo ngày hoá đơn"}`,
+          );
+        }
+      }
+      if (moc.length === 0) return null;
+
+      setGiaDonHang((truoc) =>
+        truoc.map((g) => {
+          if (g.poId !== poId) return g;
+          return {
+            ...g,
+            hoaDonVAT: (g.hoaDonVAT ?? []).map((x) => {
+              if (x.id !== id) return x;
+              const sau = { ...x };
+              if (thayDoi.soNgayDuocNo !== undefined) {
+                const so =
+                  thayDoi.soNgayDuocNo === null ? undefined : Math.round(Number(thayDoi.soNgayDuocNo));
+                sau.soNgayDuocNo = so !== undefined && Number.isFinite(so) && so >= 0 ? so : undefined;
+              }
+              if (thayDoi.ngayBatDauTinhNoTay !== undefined) {
+                sau.ngayBatDauTinhNoTay = thayDoi.ngayBatDauTinhNoTay?.trim() || undefined;
+              }
+              return sau;
+            }),
+            lichSuDieuKhoanCongNo: [
+              ...(g.lichSuDieuKhoanCongNo ?? []),
+              {
+                thoiDiem: thoiDiemHienTai(),
+                nguoiThucHien: nguoiDung.tenHienThi,
+                hanhDong: `Sửa điều khoản công nợ — ${moc.join(" · ")}`,
+              },
+            ],
+          };
+        }),
+      );
+      return null;
+    },
+    [nguoiDung],
   );
 
   const xoaHoaDonVAT = useCallback(
@@ -9274,6 +9364,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       datDieuKhoanCongNo,
       themHoaDonVAT,
       suaHoaDonVAT,
+      datDieuKhoanHoaDon,
       xoaHoaDonVAT,
       dinhTepHoaDonVAT,
       goTepHoaDonVAT,
@@ -9353,6 +9444,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       datDieuKhoanCongNo,
       themHoaDonVAT,
       suaHoaDonVAT,
+      datDieuKhoanHoaDon,
       xoaHoaDonVAT,
       dinhTepHoaDonVAT,
       goTepHoaDonVAT,

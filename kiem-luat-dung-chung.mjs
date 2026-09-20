@@ -8243,6 +8243,107 @@ kiem(
 );
 
 kiem(
+  "Han no TUNG TO: moc mac dinh la NGAY HOA DON, khong phai ngay nhan hang cua don",
+  'Sếp · 20/09/2026 — *"Thêm trường nhập thông tin giống mục theo dõi công nợ"* + chốt "Từ ngày hoá đơn, nhưng cho sửa tay"',
+  () => {
+    /* 🔴 Lay lai moc cua PO cho tung to thi MOI to co cung ngay toi han => bang con chi lap lai
+       dung dong PO phia tren, tinh nang thanh vo nghia. Bai nay ghim dung dieu do. */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const ra = TN.hanNoTungToHoaDon(
+      {
+        soNgayDuocNo: 30,
+        hoaDonVAT: [
+          { id: "a", soHoaDon: "HD-A", ngayHoaDon: "2026-09-01", soTien: 1, nguoiGhiTen: "X" },
+          { id: "b", soHoaDon: "HD-B", ngayHoaDon: "2026-09-20", soTien: 2, nguoiGhiTen: "X" },
+        ],
+      },
+      "2026-08-01", // ngay bat dau cua DON — KHONG duoc dung khi to da co ngay hoa don
+      new Date(2026, 8, 25),
+    );
+    return {
+      duoc:
+        ra.length === 2 &&
+        ra[0].ngayBatDau === "2026-09-01" &&
+        ra[0].ngayToiHan === "2026-10-01" &&
+        ra[1].ngayBatDau === "2026-09-20" &&
+        ra[1].ngayToiHan === "2026-10-20",
+      thucTe: ra.map((x) => `${x.soHoaDon}: ${x.ngayBatDau} -> ${x.ngayToiHan}`).join(" · "),
+      mongDoi: "HD-A: 2026-09-01 -> 2026-10-01 · HD-B: 2026-09-20 -> 2026-10-20 (hai to HAI han khac nhau)",
+    };
+  },
+);
+
+kiem(
+  "CHIEU NGHICH — go tay thi THANG ngay hoa don; khong khai so ngay thi KE THUA don",
+  'Sếp · 20/09/2026 — *"Từ ngày hoá đơn, nhưng cho sửa tay"*',
+  () => {
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const ra = TN.hanNoTungToHoaDon(
+      {
+        soNgayDuocNo: 30,
+        hoaDonVAT: [
+          /* To nay go tay ca hai truong -> phai thang ca ngay hoa don lan so ngay cua don. */
+          {
+            id: "a",
+            soHoaDon: "HD-A",
+            ngayHoaDon: "2026-09-01",
+            soTien: 1,
+            nguoiGhiTen: "X",
+            ngayBatDauTinhNoTay: "2026-09-10",
+            soNgayDuocNo: 7,
+          },
+          /* To nay khong khai gi -> ke thua 30 ngay cua don, moc la ngay hoa don. */
+          { id: "b", soHoaDon: "HD-B", ngayHoaDon: "2026-09-01", soTien: 2, nguoiGhiTen: "X" },
+        ],
+      },
+      "2026-08-01",
+      new Date(2026, 8, 25),
+    );
+    return {
+      duoc:
+        ra[0].ngayBatDau === "2026-09-10" &&
+        ra[0].ngayToiHan === "2026-09-17" &&
+        ra[0].batDauNhapTay === true &&
+        ra[0].soNgayRieng === true &&
+        ra[1].soNgayDuocNo === 30 &&
+        ra[1].soNgayRieng === false &&
+        ra[1].batDauNhapTay === false,
+      thucTe: `go tay: ${ra[0].ngayBatDau}->${ra[0].ngayToiHan} (rieng=${ra[0].soNgayRieng}) · ke thua: ${ra[1].soNgayDuocNo} ngay (rieng=${ra[1].soNgayRieng})`,
+      mongDoi: "go tay 2026-09-10 -> 2026-09-17 voi 7 ngay rieng · to kia ke thua 30 ngay cua don",
+    };
+  },
+);
+
+kiem(
+  "Thieu so ngay no -> KHONG bia ra ngay toi han",
+  'Sếp · 20/09/2026 — *"Thêm trường nhập thông tin giống mục theo dõi công nợ"*',
+  () => {
+    /* Don chua dat so ngay duoc no thi khong co can cu nao tinh han. Bia ra mot ngay cho bang
+       trong day du la app noi doi — cung luat voi cap don (xem `congNoTheoDonHang`). */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const ra = TN.hanNoTungToHoaDon(
+      { hoaDonVAT: [{ id: "a", soHoaDon: "HD-A", ngayHoaDon: "2026-09-01", soTien: 1, nguoiGhiTen: "X" }] },
+      undefined,
+      new Date(2026, 8, 25),
+    );
+    /* Ngay hoa don RAC cung khong duoc lam hong cot ngay. */
+    const raRac = TN.hanNoTungToHoaDon(
+      {
+        soNgayDuocNo: 30,
+        hoaDonVAT: [{ id: "b", soHoaDon: "HD-B", ngayHoaDon: "khong-phai-ngay", soTien: 1, nguoiGhiTen: "X" }],
+      },
+      undefined,
+      new Date(2026, 8, 25),
+    );
+    return {
+      duoc: ra[0].ngayToiHan === undefined && raRac[0].ngayToiHan === undefined,
+      thucTe: `thieu so ngay=${ra[0].ngayToiHan} · ngay rac=${raRac[0].ngayToiHan}`,
+      mongDoi: "ca hai undefined — khong bia ngay toi han",
+    };
+  },
+);
+
+kiem(
   "Co hoa don ma CHUA ai chon -> tu lay can cu HOA DON",
   'Sếp · 20/09/2026 — *"hoá đơn này chưa thấy link tự động qua chức năng công nợ"* → *"E SỬA ĐI"*',
   () => {

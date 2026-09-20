@@ -161,6 +161,8 @@ export default function TrangCongNo() {
     giaDonHang,
     phieuNhan,
     datDieuKhoanCongNo,
+    /* ★ Điều khoản công nợ của RIÊNG từng tờ hoá đơn — Sếp 20/09/2026. */
+    datDieuKhoanHoaDon,
     dotThanhToan,
     themDotThanhToan,
     xoaDotThanhToan,
@@ -909,31 +911,87 @@ export default function TrangCongNo() {
                                   {formatCurrencyVnd(r.tongTienHoaDon ?? 0)}
                                 </span>
                               </div>
+                              {/**
+                                * ★★ BỐN TRƯỜNG THEO DÕI CÔNG NỢ CHO TỪNG TỜ — Sếp 20/09/2026:
+                                * ***"Thêm trường nhập thông tin giống mục theo dõi công nợ"***.
+                                *
+                                * 🔴 DÙNG LẠI ĐÚNG HAI Ô CỦA DÒNG PO (`OSoNgayDuocNo`,
+                                * `ONgayBatDau`). Dựng ô riêng cho bảng con là hai kiểu nhập cho
+                                * cùng một loại dữ liệu, và luật "để trống = tự suy" sẽ phải chép
+                                * lại lần nữa.
+                                *
+                                * 🔴 KHÔNG CÓ CỘT "CÒN PHẢI TRẢ" — đợt chi tiền hiện gắn theo ĐƠN,
+                                * không trỏ tới tờ nào, nên app KHÔNG biết tờ này đã trả bao nhiêu.
+                                * Sếp chốt 20/09 làm hai nhịp; nhịp này chỉ trả lời *"tờ nào sắp
+                                * tới hạn"*. Đừng thêm cột đó bằng cách đoán.
+                                */}
+                              <div className="grid grid-cols-[1.5rem_minmax(6rem,auto)_6.5rem_minmax(7rem,auto)_5rem_7rem_7rem_auto] items-center gap-x-3 px-3 text-[11px] font-medium text-text-desc">
+                                <span>#</span>
+                                <span>Số hoá đơn</span>
+                                <span>Ngày HĐ</span>
+                                <span className="text-right">Số tiền</span>
+                                <span>Số ngày nợ</span>
+                                <span>Bắt đầu tính</span>
+                                <span>Tới hạn</span>
+                                <span>Cảnh báo</span>
+                              </div>
                               <ul className="flex flex-col gap-0.5">
                                 {r.hoaDon.map((h, i) => (
                                   <li
                                     key={h.id}
-                                    className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md bg-card px-3 py-1.5 text-sm"
+                                    className="grid grid-cols-[1.5rem_minmax(6rem,auto)_6.5rem_minmax(7rem,auto)_5rem_7rem_7rem_auto] items-center gap-x-3 rounded-md bg-card px-3 py-1.5 text-sm"
                                   >
-                                    <span className="w-5 shrink-0 tabular-nums text-xs text-text-desc">
+                                    <span className="tabular-nums text-xs text-text-desc">
                                       {i + 1}.
                                     </span>
-                                    <span className="font-medium text-text-primary">
+                                    <span
+                                      className="truncate font-medium text-text-primary"
+                                      title={`${h.soHoaDon} — ghi bởi ${h.nguoiGhiTen}`}
+                                    >
                                       {h.soHoaDon}
                                     </span>
                                     <span className="tabular-nums text-text-secondary">
                                       {formatDate(h.ngayHoaDon)}
                                     </span>
-                                    <span className="font-semibold tabular-nums text-text-primary">
+                                    <span className="text-right font-semibold tabular-nums text-text-primary">
                                       {formatCurrencyVnd(h.soTien)}
                                     </span>
-                                    <span className="text-xs text-text-desc">· {h.nguoiGhiTen}</span>
+                                    {/* Trống = kế thừa điều khoản của đơn — `OSoNgayDuocNo` tự in
+                                        dấu "—" cho ca đó, không cần thêm chữ. */}
+                                    <OSoNgayDuocNo
+                                      giaTri={h.soNgayRieng ? h.soNgayDuocNo : undefined}
+                                      suaDuoc={suaDuocDieuKhoan}
+                                      onLuu={(so) => {
+                                        const loi = datDieuKhoanHoaDon(r.poId, h.id, {
+                                          soNgayDuocNo: so,
+                                        });
+                                        if (loi) toast.error(loi);
+                                      }}
+                                    />
+                                    <ONgayBatDau
+                                      giaTri={h.ngayBatDau}
+                                      nhapTay={h.batDauNhapTay}
+                                      suaDuoc={suaDuocDieuKhoan}
+                                      onLuu={(ngay) => {
+                                        const loi = datDieuKhoanHoaDon(r.poId, h.id, {
+                                          ngayBatDauTinhNoTay: ngay,
+                                        });
+                                        if (loi) toast.error(loi);
+                                      }}
+                                    />
+                                    <span className="tabular-nums text-text-secondary">
+                                      {h.ngayToiHan ? formatDate(h.ngayToiHan) : "—"}
+                                    </span>
+                                    <span>
+                                      <StatusBadge label={h.canhBao.nhan} tone={h.canhBao.tong} />
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
                               {/* Nói rõ sửa ở đâu — đừng để người dùng đi tìm nút không tồn tại. */}
                               <span className="text-xs text-text-desc">
-                                Sửa hoặc đính kèm hoá đơn ở mục ⑥ trong hồ sơ đề nghị.
+                                Số hoá đơn, số tiền và bản chụp sửa ở mục ⑥ trong hồ sơ đề nghị.
+                                Số ngày nợ để trống là dùng theo điều khoản của đơn.
                               </span>
                             </div>
                           )}

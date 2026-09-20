@@ -1336,6 +1336,31 @@ export interface DongHoaDonVAT {
    * chốt 19/09: nhắc chứ không chặn).
    */
   nhanTep?: string;
+  /**
+   * ★★ SỐ NGÀY ĐƯỢC NỢ CỦA RIÊNG TỜ NÀY — Sếp 20/09/2026: ***"Thêm trường nhập thông tin giống
+   * mục theo dõi công nợ"*** (ảnh khoanh khối gập/mở của dòng PO ở màn Công nợ).
+   *
+   * 📌 TRỐNG = KẾ THỪA ĐIỀU KHOẢN CỦA ĐƠN (`GiaDonDatHang.soNgayDuocNo`). Số ngày được nợ là
+   * điều kiện thương mại đàm phán ở CẤP ĐƠN, nên mặc định mọi tờ dùng chung; chỉ gõ đè khi tờ
+   * đó thật sự khác. Bắt nhập lại N lần cùng một con số là việc thừa, và mỗi lần nhập là một
+   * lần sai được.
+   */
+  soNgayDuocNo?: number;
+  /**
+   * ★★ NGÀY BẮT ĐẦU TÍNH NỢ CỦA RIÊNG TỜ NÀY — nhập tay, đè lên ngày hoá đơn.
+   *
+   * 🔴 BA TẦNG, Sếp chốt 20/09/2026 (*"Từ ngày hoá đơn, nhưng cho sửa tay"*):
+   *   ① trường này — người dùng gõ đè
+   *   ② `ngayHoaDon` của chính tờ đó — mặc định
+   *   ③ ngày bắt đầu tính của cả ĐƠN — khi tờ chưa có ngày hoá đơn hợp lệ
+   *
+   * ⚠️ ĐÂY LÀ ĐỔI MỐC SO VỚI CẤP ĐƠN, VÀ LÀ QUYẾT ĐỊNH CỦA SẾP. Cấp đơn tính từ **ngày nhận
+   * hàng lần cuối** (xem `ngayBatDauTinhNo` ở `2-quy-trinh/tuoi-no.ts`). Lấy lại đúng mốc đó cho
+   * từng tờ thì mọi tờ có cùng ngày tới hạn, bảng con chỉ lặp lại dòng PO phía trên — vô nghĩa.
+   * App cũng **không** suy được "ngày nhận hàng của riêng tờ này" vì hoá đơn không gắn với phiếu
+   * nhận nào.
+   */
+  ngayBatDauTinhNoTay?: NgayISO;
   /** Ai ghi dòng này — tiền thì phải truy lại được. */
   nguoiGhiTen: string;
   thoiDiemGhi: string;
