@@ -1270,6 +1270,24 @@ export interface DotThanhToanPO {
   ngayChi: NgayISO;
   /** Số tiền của RIÊNG đợt này, đồng. Luôn > 0 — tầng ghi từ chối số 0 và số âm. */
   soTien: number;
+  /**
+   * ★★★ ĐỢT CHI NÀY TRẢ CHO TỜ HOÁ ĐƠN NÀO — Sếp 20/09/2026: ***"Trường nhập số tiền đã thanh
+   * toán đâu / Để như vậy thì sao hoàn thành được"*** (khoanh bảng hoá đơn từng tờ ở màn Công nợ).
+   *
+   * 🔴 ĐÂY LÀ MỐI NỐI DUY NHẤT GIỮA TIỀN ĐÃ CHI VÀ TỜ HOÁ ĐƠN. Không có nó thì app chỉ biết
+   * *"đơn này đã trả 14.500.000 đ"* mà không biết trả cho tờ nào — và "còn phải trả của riêng
+   * tờ này" là thứ **không tính được**, chỉ đoán được (trả tờ cũ trước, hay chia theo tỷ lệ), mà
+   * đoán thì sai với cách trả thật.
+   *
+   * ⚠️ TRỐNG = CHƯA GÁN CHO TỜ NÀO, và đó là ca **có thật, không được giấu**: mọi đợt chi ghi
+   * trước 20/09/2026 đều không có trường này. Giao diện phải hiện thẳng một dòng *"còn N đ chưa
+   * gán cho tờ nào"* — nếu giấu thì tổng các tờ cộng lại không khớp tổng của đơn mà không ai
+   * hiểu vì sao.
+   *
+   * 📌 TỔNG TIỀN ĐÃ TRẢ CỦA ĐƠN KHÔNG ĐỔI. `daTraCuaPO` vẫn cộng theo `poId` và không đọc trường
+   * này — thêm trường không làm lệch một đồng nào của sổ cũ.
+   */
+  hoaDonId?: string;
   /** Số uỷ nhiệm chi / phiếu chi — gõ tự do, để Kế toán đối chiếu với chứng từ giấy. */
   soChungTuChi?: string;
   ghiChu?: string;

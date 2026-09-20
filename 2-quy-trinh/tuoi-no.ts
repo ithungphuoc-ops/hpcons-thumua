@@ -169,14 +169,17 @@ export const NGAY_SAP_DEN_HAN = 7;
  * ★★★ MỘT TỜ HOÁ ĐƠN KÈM HẠN NỢ RIÊNG — Sếp 20/09/2026: ***"Thêm trường nhập thông tin giống mục
  * theo dõi công nợ"***, sau khi đã yêu cầu *"theo dõi công nợ theo từng hoá đơn"*.
  *
- * 🔴 CỐ Ý KHÔNG CÓ `conLai` / `daTra`. Đợt chi tiền hiện gắn theo ĐƠN, **không một trường nào
- * trỏ tới hoá đơn** (xem `DotThanhToanPO` ở `3-du-lieu/kieu-du-lieu.ts`) — nên "còn phải trả của
- * riêng tờ này" là thứ app KHÔNG BIẾT. Suy ra bằng cách đoán (trả tờ cũ trước, hoặc chia theo tỷ
- * lệ) thì sai với cách trả thật, mà app lại in con số đoán ra như sự thật — đúng thứ CLAUDE.md
- * §3.5 cấm.
+ * 🔴 `daTra` CHỈ CỘNG ĐỢT CHI ĐÃ GẮN ĐÚNG TỜ (`DotThanhToanPO.hoaDonId`). TUYỆT ĐỐI KHÔNG chia
+ * đều, KHÔNG suy "trả tờ cũ trước" — hai cách đó đều sai với cách trả thật, mà app lại in con số
+ * đoán ra như sự thật, đúng thứ CLAUDE.md §3.5 cấm.
  *
- * 📌 Sếp chốt 20/09/2026 làm **hai nhịp**: nhịp này chỉ trả lời câu *"tờ nào sắp tới hạn"*; việc
- * gắn tiền vào từng tờ để tính "còn phải trả" là nhịp sau, và nó cần đổi mô hình đợt chi.
+ * 🔴 TIỀN CHƯA GẮN TỜ NÀO KHÔNG BIẾN MẤT: nó được đếm riêng ở `tienChuaGanHoaDon` và giao diện
+ * **bắt buộc** hiện ra. Bất biến phải luôn đúng:
+ *   Σ(daTra của các tờ) + (tiền chưa gắn) = tổng đã trả của đơn
+ * Bài kiểm "CHIEU NGHICH — them lop hoa don KHONG duoc lam lech TONG cua don" ghim đúng phép này,
+ * kèm một đợt chi trỏ tới tờ **đã bị xoá** — ca đó từng làm 5 triệu bốc hơi khỏi cả hai phép cộng.
+ *
+ * 📌 Sếp chốt 20/09/2026 làm hai nhịp: nhịp 1 là hạn nợ từng tờ, nhịp 2 (khối này) là tiền.
  */
 export interface CongNoTheoHoaDon {
   id: string;
@@ -185,6 +188,12 @@ export interface CongNoTheoHoaDon {
   soTien: number;
   nhanTep?: string;
   nguoiGhiTen: string;
+  /** Tổng tiền các đợt chi ĐÃ GẮN cho đúng tờ này (Sếp 20/09/2026). */
+  daTra: number;
+  /** `soTien − daTra`, kẹp ở 0 — trả dư không hiện số âm. */
+  conLai: number;
+  /** Đã trả đủ tờ này chưa. `soTien` = 0 thì không tính là tất toán (đó là tờ chưa có số liệu). */
+  daTatToan: boolean;
   /** Số ngày được nợ đang có hiệu lực — của riêng tờ, hoặc kế thừa từ đơn. */
   soNgayDuocNo?: number;
   /** Có phải người dùng gõ đè số ngày cho riêng tờ này không (để giao diện nói rõ). */
@@ -247,6 +256,12 @@ export interface CongNoTheoDon {
    * hôm qua với hai ô số hoá đơn.
    */
   hoaDon: readonly CongNoTheoHoaDon[];
+  /**
+   * Tiền đã chi cho đơn này nhưng CHƯA gắn cho tờ hoá đơn nào (Sếp 20/09/2026).
+   * `0` = mọi đợt chi đều đã gắn. Khác 0 thì giao diện **bắt buộc** hiện ra — xem
+   * `tienChuaGanHoaDon`.
+   */
+  tienChuaGan: number;
   /**
    * ★★ Căn cứ tính nợ CỦA RIÊNG ĐƠN NÀY — Sếp 19/09/2026. `"po"` là mặc định khi chưa ai chọn.
    * Là thuộc tính của đơn (lưu ở `GiaDonDatHang.canCuCongNo`), không phải cách đọc của cả bảng.
@@ -437,8 +452,18 @@ export function hanNoTungToHoaDon(
   gia: { hoaDonVAT?: readonly DongHoaDonVAT[]; soNgayDuocNo?: number } | undefined,
   ngayBatDauCuaDon: NgayISO | undefined,
   moc: Date = new Date(),
+  /**
+   * ★ Đợt chi của ĐƠN NÀY — để cộng ra tiền đã trả của từng tờ (Sếp 20/09/2026).
+   *
+   * 📌 Bỏ trống thì mọi tờ hiện `daTra = 0` — mặc định an toàn cho nơi gọi chưa có dữ liệu đợt
+   * chi trong tay (hiện chỉ có bài kiểm dùng tới đường này). Không phải mặc định sai, chỉ là
+   * chưa hỏi.
+   */
+  dotChiCuaDon: readonly DotThanhToanPO[] = [],
 ): CongNoTheoHoaDon[] {
   const ds = Array.isArray(gia?.hoaDonVAT) ? gia.hoaDonVAT : [];
+  /* Đơn có tiền đã chi mà chưa gắn tờ nào — quyết định nhãn cảnh báo, xem khối ba mức bên dưới. */
+  const coTienChuaGan = tienChuaGanHoaDon(dotChiCuaDon, ds.map((x) => x?.id)) > 0;
   return [...ds]
     .sort(
       (x, y) =>
@@ -459,7 +484,22 @@ export function hanNoTungToHoaDon(
         ngayBatDau && typeof soNgayDuocNo === "number" && Number.isFinite(soNgayDuocNo)
           ? congNgay(ngayBatDau, soNgayDuocNo)
           : undefined;
+      /**
+       * ★ TIỀN ĐÃ TRẢ CHO RIÊNG TỜ NÀY — chỉ cộng đợt chi ĐÃ GẮN đúng tờ (Sếp 20/09/2026).
+       *
+       * 🔴 KHÔNG CHIA ĐỀU, KHÔNG SUY "TRẢ TỜ CŨ TRƯỚC". Đợt chi chưa gắn tờ nào thì **không**
+       * được gán bừa cho tờ nào cả — nơi gọi phải hiện riêng một dòng *"còn N đ chưa gán"*.
+       */
+      const daTraTo = dotChiCuaDon.reduce(
+        (s, x) => (x?.hoaDonId === d.id ? s + (Number(x.soTien) || 0) : s),
+        0,
+      );
+      const tienTo = Number(d.soTien) || 0;
+      const conLaiTo = Math.max(0, tienTo - daTraTo);
+      /* 🔴 `tienTo > 0` là bắt buộc: tờ ghi 0 đồng mà coi là "đã tất toán" thì nó hiện xanh
+         trong khi thực ra là tờ **chưa có số liệu** — cùng luật với cấp đơn (`daTatToan`). */
       const { canhBao, soNgayConLai } = canhBaoToiHan(ngayToiHan, moc);
+      const daTatToan = tienTo > 0 && conLaiTo === 0;
       return {
         id: d.id,
         soHoaDon: d.soHoaDon,
@@ -467,15 +507,73 @@ export function hanNoTungToHoaDon(
         soTien: d.soTien,
         nhanTep: d.nhanTep,
         nguoiGhiTen: d.nguoiGhiTen,
+        daTra: daTraTo,
+        conLai: conLaiTo,
+        daTatToan,
         soNgayDuocNo,
         soNgayRieng,
         ngayBatDau,
         batDauNhapTay: batDauGoTay !== undefined,
         ngayToiHan,
-        canhBao,
-        soNgayConLai,
+        /* 🔴 ĐÃ TẤT TOÁN THÌ THÔI CẢNH BÁO HẠN — trả xong rồi mà thẻ vẫn kêu "Quá hạn 3 ngày"
+           là app đuổi người dùng đi làm một việc đã xong. Cùng thứ tự ưu tiên với cấp đơn:
+           trạng thái tất toán ĐÈ LÊN cảnh báo thời gian. */
+        /**
+          * 🔴🔴 BA MỨC, ĐỌC ĐỦ TRƯỚC KHI RÚT GỌN:
+          *   ① đã trả đủ tờ này → **Đã tất toán** (xanh), đè lên cảnh báo hạn. Trả xong rồi mà
+          *      vẫn kêu *"Quá hạn 3 ngày"* là app đuổi người dùng đi làm việc đã xong.
+          *   ② CHƯA có đồng nào gắn vào tờ này, MÀ đơn lại đang có tiền chi chưa gắn tờ nào →
+          *      **"Chưa gán tiền"** (xám), KHÔNG đỏ.
+          *   ③ còn lại → cảnh báo hạn bình thường.
+          *
+          * 🔴 VÌ SAO PHẢI CÓ MỨC ②: mọi đợt chi ghi TRƯỚC 20/09/2026 đều chưa gắn tờ. Không có
+          * mức này thì sáng hôm triển khai, một đơn **đã trả xong** vẫn hiện bảng con đỏ rực
+          * "Quá hạn" ở từng tờ — app báo động về một khoản nợ không còn tồn tại. Một agent phản
+          * biện 20/09 đo ra đúng ca này trên dữ liệu thật.
+          *
+          * ⚠️ VẪN KHÔNG TỰ SUY "chắc là đã trả tờ này". Xám nghĩa là *chưa biết*, không phải
+          * *đã xong* — người dùng phải vào gắn tiền cho từng tờ thì app mới nói chắc được.
+          */
+        canhBao: daTatToan
+          ? { nhan: "Đã tất toán", tong: "success" as const }
+          : daTraTo === 0 && coTienChuaGan
+            ? { nhan: "Chưa gán tiền", tong: "neutral" as const }
+            : canhBao,
+        soNgayConLai: daTatToan ? undefined : soNgayConLai,
       };
     });
+}
+
+/**
+ * ★★ TIỀN ĐÃ CHI NHƯNG CHƯA GẮN CHO TỜ HOÁ ĐƠN NÀO — Sếp 20/09/2026.
+ *
+ * 🔴 PHẢI HIỆN RA, TUYỆT ĐỐI KHÔNG GIẤU. Mọi đợt chi ghi trước hôm nay đều chưa gắn tờ; nếu
+ * giao diện im lặng bỏ qua chúng thì tổng tiền các tờ cộng lại **không khớp** tổng đã trả của
+ * đơn, và người đối chiếu không hiểu tiền đi đâu. Hiện thẳng con số là cách duy nhất thật thà.
+ */
+export function tienChuaGanHoaDon(
+  dotChiCuaDon: readonly DotThanhToanPO[],
+  /**
+   * ★ Mã của các tờ hoá đơn CÓ THẬT trong đơn. Bỏ trống = không kiểm (giữ hành vi cũ).
+   *
+   * 🔴🔴 THAM SỐ NÀY LÀ THỨ CHẶN TIỀN BIẾN MẤT — đọc kỹ trước khi bỏ.
+   * Đợt chi giữ `hoaDonId` trỏ tới một tờ **đã bị xoá** thì: `hanNoTungToHoaDon` không tờ nào
+   * khớp mã nên không cộng nó, mà phép đếm "chưa gán" cũng bỏ qua vì trường vẫn có giá trị ⇒
+   * **tiền rơi khỏi cả hai chỗ**, trong khi tổng của đơn vẫn cộng nó. Đo được 20/09/2026 trên
+   * bộ thử: 5.000.000 đ bốc hơi, mà bài kiểm khi đó vẫn xanh vì bộ thử toàn dữ liệu sạch.
+   *
+   * 📌 `xoaHoaDonVAT` đã gỡ mối nối khi xoá tờ QUA APP. Lớp này là phòng thủ thứ hai, cho dữ
+   * liệu đã hỏng từ trước hoặc bị sửa bằng đường khác — nó **tự lành**, không cần ai đi dọn.
+   */
+  idToHopLe?: readonly string[],
+): number {
+  const hopLe = idToHopLe ? new Set(idToHopLe) : undefined;
+  return dotChiCuaDon.reduce((s, x) => {
+    const gan = x?.hoaDonId;
+    /* Mã trỏ hụt được coi là CHƯA GÁN — tiền quay về chỗ nhìn thấy được, thay vì biến mất. */
+    const daGanThat = gan ? (hopLe ? hopLe.has(gan) : true) : false;
+    return daGanThat ? s : s + (Number(x?.soTien) || 0);
+  }, 0);
 }
 
 /**
@@ -677,7 +775,12 @@ export function congNoTheoDonHang(
       /* ★ Hạn nợ RIÊNG cho từng tờ — Sếp 20/09/2026. Tính ở tầng quy trình, giao diện chỉ bày:
          quy ước 3.4b cấm để hàm tính nghiệp vụ trong tệp giao diện, và để hai chỗ cùng tính một
          ngày tới hạn là sớm muộn lệch nhau. */
-      hoaDon: hanNoTungToHoaDon(gia, ngayBatDau, moc),
+      hoaDon: hanNoTungToHoaDon(gia, ngayBatDau, moc, dotChi),
+      /* ★ Tiền đã chi mà chưa gắn cho tờ nào — phải hiện ra, xem `tienChuaGanHoaDon`. */
+      tienChuaGan: tienChuaGanHoaDon(
+        dotChi,
+        Array.isArray(gia?.hoaDonVAT) ? gia.hoaDonVAT.map((x) => x?.id) : [],
+      ),
       canCu,
       daTra,
       conLai,

@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   FileText,
   Lock,
+  Plus,
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -137,6 +138,17 @@ const columns: ColumnDef<CongNo, unknown>[] = [
 ];
 
 /** M8 — Công nợ nhà cung cấp: hóa đơn phải trả lấy từ PO và phân tích tuổi nợ 30-60-90. */
+/**
+ * ★★ LƯỚI CỘT CỦA BẢNG HOÁ ĐƠN TỪNG TỜ — Sếp 20/09/2026 yêu cầu "đầy đủ trường theo cách
+ * theo dõi tổng", nên bảng con nay có đúng bộ cột của bảng tổng: số · ngày · tiền · đã trả ·
+ * còn phải trả · số ngày nợ · bắt đầu tính · tới hạn · cảnh báo.
+ *
+ * ⚠️ MỘT HẰNG SỐ DÙNG CHUNG cho hàng tiêu đề và các dòng. Viết lặp hai nơi là sớm muộn sửa
+ * một chỗ quên chỗ kia, rồi tiêu đề lệch khỏi cột nó đặt tên.
+ */
+const LUOI_HOA_DON =
+  "grid grid-cols-[1.5rem_minmax(7rem,1fr)_6.5rem_minmax(7.5rem,1fr)_minmax(7rem,1fr)_minmax(7.5rem,1fr)_5.5rem_8rem_6.5rem_minmax(7rem,auto)_auto]";
+
 export default function TrangCongNo() {
   /**
    * 🔴 LẤY THÊM ĐƠN HÀNG · BẢNG GIÁ · PHIẾU NHẬN để DỰNG công nợ — Ban lãnh đạo 27/08/2026.
@@ -165,6 +177,7 @@ export default function TrangCongNo() {
     datDieuKhoanHoaDon,
     dotThanhToan,
     themDotThanhToan,
+    ganHoaDonChoDot,
     xoaDotThanhToan,
   } = useDuLieu();
   const { quyen, nguoiDung } = useNguoiDung();
@@ -187,6 +200,14 @@ export default function TrangCongNo() {
    * (rule `react-hooks/rules-of-hooks`), nhưng đừng để nó phải bắt.
    */
   const [moDotChi, setMoDotChi] = useState<string | null>(null);
+  /**
+   * ★ Tờ hoá đơn mà form "Thêm đợt thanh toán" sẽ gắn sẵn — Sếp 20/09/2026.
+   *
+   * 🔴 ĐỂ Ở TRANG, KHÔNG ĐỂ TRONG KHỐI ĐỢT CHI: nút bấm nằm ở bảng hoá đơn (khối trên), còn form
+   * nhận nó nằm ở khối đợt chi (khối dưới) — hai khối anh em, nên state phải ở cha chung.
+   * `null` = ghi đợt chi không gắn tờ nào, đúng cách người dùng vẫn làm từ trước.
+   */
+  const [ganHoaDon, setGanHoaDon] = useState<{ id: string; lan: number } | null>(null);
   /**
    * ★★ BỘ LỌC "PO CỦA TÔI" — Sếp 19/09/2026: *"Tạo thêm nút lọc để nhân viên có thể chọn chỉ
    * hiển thị các PO do mình làm hoặc được theo dõi"*.
@@ -923,6 +944,34 @@ export default function TrangCongNo() {
                                 </span>
                               </div>
                               {/**
+                                * 🔴🔴 NÓI RÕ KHI TỔNG HOÁ ĐƠN ≠ TỔNG PO — nếu không thì dòng cha
+                                * và bảng con **nói ngược nhau** trên cùng một màn hình.
+                                *
+                                * Ca đo được: PO 108tr, nhà cung cấp xuất một tờ 80tr, Kế toán trả
+                                * đủ 80tr và gắn vào tờ đó ⇒ bảng con ghi *"Đã tất toán"* trong khi
+                                * dòng cha vẫn ghi *"còn 28tr · Quá hạn 25 ngày"*. Cả hai đều đúng
+                                * theo căn cứ của mình: tờ tính theo tiền hoá đơn, đơn tính theo
+                                * tiền PO — mà chú thích `tongTienHoaDon` đã ghi hai số **thường
+                                * lệch nhau là chuyện bình thường** (giao thiếu/thừa, phụ phí, NCC
+                                * xuất gộp).
+                                *
+                                * 📌 KHÔNG ẨN CỘT "CÒN PHẢI TRẢ" của tờ — Sếp yêu cầu đủ trường.
+                                * Thay vào đó nói thẳng nó là số của TỜ GIẤY, không phải phần dư
+                                * nợ của đơn. Một agent phản biện 20/09 bắt đúng chỗ này.
+                                */}
+                              {typeof r.tongTienHoaDon === "number" &&
+                                r.tongTienHoaDon !== r.tongCongNo && (
+                                  <span className="text-xs text-text-desc">
+                                    Tổng hoá đơn {formatCurrencyVnd(r.tongTienHoaDon)} khác tổng PO{" "}
+                                    {formatCurrencyVnd(r.tongCongNo)} — cột “Còn phải trả” dưới đây
+                                    là của <strong>từng tờ hoá đơn</strong>, không phải phần dư nợ
+                                    của đơn
+                                    {r.canCu === "po"
+                                      ? " (đơn này đang tính nợ theo PO)."
+                                      : "."}
+                                  </span>
+                                )}
+                              {/**
                                 * ★★ BỐN TRƯỜNG THEO DÕI CÔNG NỢ CHO TỪNG TỜ — Sếp 20/09/2026:
                                 * ***"Thêm trường nhập thông tin giống mục theo dõi công nợ"***.
                                 *
@@ -936,21 +985,35 @@ export default function TrangCongNo() {
                                 * Sếp chốt 20/09 làm hai nhịp; nhịp này chỉ trả lời *"tờ nào sắp
                                 * tới hạn"*. Đừng thêm cột đó bằng cách đoán.
                                 */}
-                              <div className="grid grid-cols-[1.5rem_minmax(7rem,1fr)_7rem_minmax(8rem,1fr)_6rem_8.5rem_7rem_minmax(8rem,1fr)] items-center gap-x-3 px-3 text-[11px] font-medium text-text-desc">
+                              {/**
+                                * ★★ ĐỦ CỘT NHƯ BẢNG TỔNG — Sếp 20/09/2026: ***"Đang quản lý theo
+                                * từng hoá đơn, thì phải có đầy đủ trường theo cách theo dõi
+                                * tổng"***, sau khi hỏi ***"Trường nhập số tiền đã thanh toán
+                                * đâu / Để như vậy thì sao hoàn thành được"***.
+                                *
+                                * 🔴 CỘT "ĐÃ TRẢ" CHỈ ĐẾM ĐỢT CHI ĐÃ GẮN ĐÚNG TỜ. Không chia đều,
+                                * không suy "trả tờ cũ trước" — xem `hanNoTungToHoaDon` ở
+                                * `2-quy-trinh/tuoi-no.ts`. Tiền chưa gắn tờ nào hiện thành một
+                                * dòng riêng ngay dưới bảng, **không được giấu**.
+                                */}
+                              <div className={LUOI_HOA_DON + " items-center gap-x-3 px-3 text-[11px] font-medium text-text-desc"}>
                                 <span>#</span>
                                 <span>Số hoá đơn</span>
                                 <span>Ngày HĐ</span>
                                 <span className="text-right">Số tiền</span>
+                                <span className="text-right">Đã trả</span>
+                                <span className="text-right">Còn phải trả</span>
                                 <span>Số ngày nợ</span>
                                 <span>Bắt đầu tính</span>
                                 <span>Tới hạn</span>
                                 <span>Cảnh báo</span>
+                                <span />
                               </div>
                               <ul className="flex flex-col gap-0.5">
                                 {r.hoaDon.map((h, i) => (
                                   <li
                                     key={h.id}
-                                    className="grid grid-cols-[1.5rem_minmax(7rem,1fr)_7rem_minmax(8rem,1fr)_6rem_8.5rem_7rem_minmax(8rem,1fr)] items-center gap-x-3 rounded-md bg-card px-3 py-1.5 text-sm"
+                                    className={LUOI_HOA_DON + " items-center gap-x-3 rounded-md bg-card px-3 py-1.5 text-sm"}
                                   >
                                     <span className="tabular-nums text-xs text-text-desc">
                                       {i + 1}.
@@ -966,6 +1029,18 @@ export default function TrangCongNo() {
                                     </span>
                                     <span className="text-right font-semibold tabular-nums text-text-primary">
                                       {formatCurrencyVnd(h.soTien)}
+                                    </span>
+                                    <span className="text-right tabular-nums text-text-secondary">
+                                      {h.daTra > 0 ? formatCurrencyVnd(h.daTra) : "—"}
+                                    </span>
+                                    {/* Trả xong thì tô xanh — người đọc lướt cột này để biết tờ
+                                        nào còn phải lo, không phải đọc từng nhãn cảnh báo. */}
+                                    <span
+                                      className={`text-right font-semibold tabular-nums ${
+                                        h.daTatToan ? "text-success" : "text-text-primary"
+                                      }`}
+                                    >
+                                      {h.daTatToan ? "Đã trả đủ" : formatCurrencyVnd(h.conLai)}
                                     </span>
                                     {/* Trống = kế thừa điều khoản của đơn — `OSoNgayDuocNo` tự in
                                         dấu "—" cho ca đó, không cần thêm chữ. */}
@@ -996,9 +1071,56 @@ export default function TrangCongNo() {
                                     <span>
                                       <StatusBadge label={h.canhBao.nhan} tone={h.canhBao.tong} />
                                     </span>
+                                    {/**
+                                      * ★★ NÚT GHI TIỀN CỦA RIÊNG TỜ NÀY — Sếp 20/09/2026:
+                                      * ***"Trường nhập số tiền đã thanh toán đâu"***.
+                                      *
+                                      * 🔴 KHÔNG DỰNG MỘT SỔ TIỀN THỨ HAI. Nút này mở đúng form
+                                      * "Thêm đợt thanh toán" có sẵn ngay dưới, chỉ **gắn sẵn tờ
+                                      * hoá đơn**. Tiền vẫn ghi vào một sổ duy nhất, nên tổng đã
+                                      * trả của đơn không bao giờ đếm hai lần.
+                                      */}
+                                    <span>
+                                      {ghiDuocThanhToan && !h.daTatToan && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMoDotChi(r.poId);
+                                            /* 🔴 MANG THEO SỐ LẦN BẤM. Chỉ truyền id thì bấm
+                                               "Ghi tiền" tờ A → tự đổi select về "chưa gắn" →
+                                               bấm lại tờ A: giá trị không đổi nên form KHÔNG mở
+                                               lại, người dùng tưởng đã gắn. Một agent phản biện
+                                               20/09 bắt đúng ca này. */
+                                            setGanHoaDon((cu) => ({
+                                              id: h.id,
+                                              lan: (cu?.lan ?? 0) + 1,
+                                            }));
+                                          }}
+                                          className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-medium text-primary transition-colors hover:bg-primary-bg md:min-h-8"
+                                        >
+                                          <Plus className="size-3.5 shrink-0" aria-hidden />
+                                          Ghi tiền
+                                        </button>
+                                      )}
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
+                              {/**
+                                * 🔴🔴 TIỀN ĐÃ CHI MÀ CHƯA GẮN TỜ NÀO — HIỆN THẲNG, KHÔNG GIẤU.
+                                *
+                                * Mọi đợt chi ghi trước 20/09/2026 đều chưa gắn tờ. Giấu chúng đi
+                                * thì tổng các tờ cộng lại **không khớp** tổng đã trả của đơn, và
+                                * người đối chiếu không hiểu tiền đi đâu — đúng loại lỗi im lặng
+                                * mà dự án này phải chữa nhiều lần.
+                                */}
+                              {r.tienChuaGan > 0 && (
+                                <span className="text-xs text-warning-soft">
+                                  Còn {formatCurrencyVnd(r.tienChuaGan)} đã chi nhưng chưa gắn cho
+                                  tờ hoá đơn nào — mở khối “Các đợt đã thanh toán” bên dưới để
+                                  chọn tờ cho từng đợt.
+                                </span>
+                              )}
                               {/* Nói rõ sửa ở đâu — đừng để người dùng đi tìm nút không tồn tại. */}
                               <span className="text-xs text-text-desc">
                                 Số hoá đơn, số tiền và bản chụp sửa ở mục ⑥ trong hồ sơ đề nghị.
@@ -1009,8 +1131,13 @@ export default function TrangCongNo() {
                           <KhoiDotThanhToan
                             dong={r}
                             ghiDuoc={ghiDuocThanhToan}
+                            /* ★ Tờ hoá đơn gắn sẵn khi người dùng bấm "Ghi tiền" ở bảng trên
+                               (Sếp 20/09/2026). `null` = ghi đợt chi chung như trước. */
+                            ganSanHoaDon={ganHoaDon}
+                            onXongGan={() => setGanHoaDon(null)}
                             onThem={themDotThanhToan}
                             onXoa={xoaDotThanhToan}
+                            onGanHoaDon={ganHoaDonChoDot}
                           />
                         </TableCell>
                       </TableRow>

@@ -8243,6 +8243,129 @@ kiem(
 );
 
 kiem(
+  "Tien da tra cua TUNG TO: chi cong dot chi DA GAN dung to",
+  'Sếp · 20/09/2026 — *"Trường nhập số tiền đã thanh toán đâu / Để như vậy thì sao hoàn thành được"*',
+  () => {
+    /* 🔴 KHONG CHIA DEU, KHONG SUY "TRA TO CU TRUOC". Dot chi chua gan to nao thi KHONG duoc gan
+       bua cho to nao ca — app se in con so doan ra nhu su that, dung thu §3.5 cam. */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const gia = {
+      soNgayDuocNo: 30,
+      hoaDonVAT: [
+        { id: "hd1", soHoaDon: "A", ngayHoaDon: "2026-09-01", soTien: 10_000_000, nguoiGhiTen: "X" },
+        { id: "hd2", soHoaDon: "B", ngayHoaDon: "2026-09-05", soTien: 5_000_000, nguoiGhiTen: "X" },
+      ],
+    };
+    const dotChi = [
+      { id: "d1", poId: "po", ngayChi: "2026-09-10", soTien: 10_000_000, hoaDonId: "hd1" },
+      { id: "d2", poId: "po", ngayChi: "2026-09-11", soTien: 2_000_000, hoaDonId: "hd2" },
+      /* Dot CHUA gan to nao — khong duoc cong vao to nao. */
+      { id: "d3", poId: "po", ngayChi: "2026-09-12", soTien: 3_000_000 },
+    ];
+    const ra = TN.hanNoTungToHoaDon(gia, "2026-09-01", new Date(2026, 8, 25), dotChi);
+    const chuaGan = TN.tienChuaGanHoaDon(dotChi);
+    return {
+      duoc:
+        ra[0].daTra === 10_000_000 &&
+        ra[0].conLai === 0 &&
+        ra[0].daTatToan === true &&
+        ra[1].daTra === 2_000_000 &&
+        ra[1].conLai === 3_000_000 &&
+        ra[1].daTatToan === false &&
+        chuaGan === 3_000_000,
+      thucTe: `A: tra=${ra[0].daTra} con=${ra[0].conLai} tatToan=${ra[0].daTatToan} · B: tra=${ra[1].daTra} con=${ra[1].conLai} · chua gan=${chuaGan}`,
+      mongDoi: "A tra du 10tr (tat toan) · B moi tra 2tr con 3tr · 3tr chua gan cho to nao",
+    };
+  },
+);
+
+kiem(
+  "CHIEU NGHICH — them lop hoa don KHONG duoc lam lech TONG cua don",
+  'Sếp · 20/09/2026 + nguyên tắc: tiền lệch một đồng là sai sổ',
+  () => {
+    /* 🔴🔴 BAI KIEM QUAN TRONG NHAT CUA DOT NAY. `daTraCuaPO` cong theo `poId` va KHONG doc
+       `hoaDonId` — nen them truong moi KHONG duoc lam doi mot dong nao cua so cu. Neu ai do sau
+       nay sua `daTraCuaPO` cho "chi cong dot da gan" thi tong da tra cua don tut xuong am tham,
+       va cot "Con phai tra" cua ca bang cong no sai. */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const dotChi = [
+      { id: "d1", poId: "po", ngayChi: "2026-09-10", soTien: 10_000_000, hoaDonId: "hd1" },
+      { id: "d2", poId: "po", ngayChi: "2026-09-11", soTien: 2_000_000 },
+      /* 🔴🔴 CA MO COI — them 20/09/2026 sau khi mot agent phan bien do ra bai nay XANH GIA.
+         Ban dau bo thu chi co du lieu SACH (moi `hoaDonId` deu tro toi to co that), nen bat bien
+         "tong cac to + chua gan = tong cua don" luon dung ma khong chung minh duoc gi.
+         Dot chi nay tro toi mot to DA BI XOA: neu `tienChuaGanHoaDon` chi hoi "co hoaDonId khong"
+         thi no bi bo qua ca hai phep cong => 5tr bien mat khoi CA HAI cho, bai kiem phai DO. */
+      { id: "d4", poId: "po", ngayChi: "2026-09-13", soTien: 5_000_000, hoaDonId: "hd-da-bi-xoa" },
+      { id: "d3", poId: "khac", ngayChi: "2026-09-11", soTien: 99_000_000, hoaDonId: "hd9" },
+    ];
+    const tongCuaDon = TN.daTraCuaPO("po", dotChi); // 10 + 2 + 5 = 17tr
+    /* Tong cac to + phan chua gan phai BANG tong cua don — khong duoc ho mot dong nao. */
+    const gia = {
+      hoaDonVAT: [{ id: "hd1", soHoaDon: "A", ngayHoaDon: "2026-09-01", soTien: 10_000_000, nguoiGhiTen: "X" }],
+    };
+    const ra = TN.hanNoTungToHoaDon(gia, "2026-09-01", new Date(2026, 8, 25), dotChi.filter((d) => d.poId === "po"));
+    const tongCacTo = ra.reduce((s, x) => s + x.daTra, 0);
+    const chuaGan = TN.tienChuaGanHoaDon(
+      dotChi.filter((d) => d.poId === "po"),
+      gia.hoaDonVAT.map((x) => x.id),
+    );
+    return {
+      duoc: tongCuaDon === 17_000_000 && tongCacTo + chuaGan === tongCuaDon,
+      thucTe: `tong don=${tongCuaDon} · tong cac to=${tongCacTo} + chua gan=${chuaGan} = ${tongCacTo + chuaGan}`,
+      mongDoi: "17000000 va tong cac to + chua gan PHAI bang tong cua don — KE CA khi co dot tro toi to da bi xoa",
+    };
+  },
+);
+
+kiem(
+  "Da tat toan thi THOI canh bao han",
+  'Sếp · 20/09/2026 — *"Để như vậy thì sao hoàn thành được"*',
+  () => {
+    /* To tra xong roi ma the van keu "Qua han 3 ngay" la app duoi nguoi dung di lam mot viec da
+       xong. Cung thu tu uu tien voi cap don: trang thai tat toan DE LEN canh bao thoi gian. */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const gia = {
+      soNgayDuocNo: 5,
+      hoaDonVAT: [{ id: "hd1", soHoaDon: "A", ngayHoaDon: "2026-09-01", soTien: 1_000_000, nguoiGhiTen: "X" }],
+    };
+    const chuaTra = TN.hanNoTungToHoaDon(gia, "2026-09-01", new Date(2026, 8, 25), []);
+    const daTra = TN.hanNoTungToHoaDon(gia, "2026-09-01", new Date(2026, 8, 25), [
+      { id: "d1", poId: "po", ngayChi: "2026-09-10", soTien: 1_000_000, hoaDonId: "hd1" },
+    ]);
+    return {
+      duoc:
+        chuaTra[0].canhBao.tong === "danger" &&
+        daTra[0].canhBao.nhan === "Đã tất toán" &&
+        daTra[0].canhBao.tong === "success",
+      thucTe: `chua tra=${chuaTra[0].canhBao.nhan} · da tra=${daTra[0].canhBao.nhan}`,
+      mongDoi: "chua tra thi qua han (danger) · tra du thi 'Đã tất toán' (success)",
+    };
+  },
+);
+
+kiem(
+  "To ghi 0 dong KHONG phai da tat toan",
+  'Sếp · 20/09/2026',
+  () => {
+    /* To ghi 0 dong la to CHUA CO SO LIEU, khong phai to da tra xong. Hien xanh "da tat toan"
+       cho no la giau mat mot dong con thieu du lieu — cung luat voi cap don. */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const ra = TN.hanNoTungToHoaDon(
+      { hoaDonVAT: [{ id: "hd1", soHoaDon: "A", ngayHoaDon: "2026-09-01", soTien: 0, nguoiGhiTen: "X" }] },
+      "2026-09-01",
+      new Date(2026, 8, 25),
+      [],
+    );
+    return {
+      duoc: ra[0].daTatToan === false,
+      thucTe: `daTatToan=${ra[0].daTatToan} · nhan=${ra[0].canhBao.nhan}`,
+      mongDoi: "false — to 0 dong la chua co so lieu, khong phai da tra xong",
+    };
+  },
+);
+
+kiem(
   "Han no TUNG TO: moc mac dinh la NGAY HOA DON, khong phai ngay nhan hang cua don",
   'Sếp · 20/09/2026 — *"Thêm trường nhập thông tin giống mục theo dõi công nợ"* + chốt "Từ ngày hoá đơn, nhưng cho sửa tay"',
   () => {

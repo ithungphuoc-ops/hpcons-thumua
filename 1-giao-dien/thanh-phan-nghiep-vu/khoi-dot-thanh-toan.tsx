@@ -16,7 +16,7 @@
 // vụ trong tệp giao diện. Ở đây chỉ gọi và hiện lại câu lý do khi bị chặn.
 // ============================================================
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
@@ -35,19 +35,38 @@ import type { NgayISO } from "@/3-du-lieu/kieu-du-lieu";
 export function KhoiDotThanhToan({
   dong,
   ghiDuoc,
+  ganSanHoaDon,
+  onXongGan,
   onThem,
   onXoa,
+  onGanHoaDon,
 }: {
   dong: CongNoTheoDon;
   /** Có được thêm/xoá đợt không. Chặn THẬT nằm ở tầng ghi — cờ này chỉ để không bày nút ra. */
   ghiDuoc: boolean;
+  /**
+   * ★★ TỜ HOÁ ĐƠN GẮN SẴN cho đợt sắp ghi — Sếp 20/09/2026: ***"Trường nhập số tiền đã thanh
+   * toán đâu"***.
+   *
+   * Người dùng bấm "Ghi tiền" ở đúng dòng hoá đơn phía trên, form này mở ra với tờ đó chọn sẵn.
+   * `null` = ghi đợt chi chung, không gắn tờ nào — đúng cách vẫn làm từ trước.
+   *
+   * 🔴 KHÔNG DỰNG SỔ TIỀN THỨ HAI. Tiền vẫn ghi vào đúng sổ đợt chi này, chỉ thêm mối nối tới
+   * tờ hoá đơn — nên tổng đã trả của đơn không bao giờ đếm hai lần.
+   */
+  ganSanHoaDon?: { id: string; lan: number } | null;
+  /** Gọi khi form đóng lại, để trang thôi giữ tờ đã gắn sẵn. */
+  onXongGan?: () => void;
   onThem: (dot: {
     poId: string;
     ngayChi: NgayISO;
     soTien: number;
     soChungTuChi?: string;
+    hoaDonId?: string;
   }) => string | null;
   onXoa: (id: string) => string | null;
+  /** Gắn/gỡ tờ hoá đơn cho một đợt chi ĐÃ GHI (Sếp 20/09/2026). `null` = gỡ về "chưa gắn". */
+  onGanHoaDon?: (dotId: string, hoaDonId: string | null) => string | null;
 }) {
   const [dangThem, setDangThem] = useState(false);
   const [ngayChi, setNgayChi] = useState<string>(homNayISO());
@@ -55,6 +74,22 @@ export function KhoiDotThanhToan({
   const [soChungTu, setSoChungTu] = useState("");
   /** Đợt đang hỏi xoá — `null` là chưa hỏi ai. */
   const [hoiXoa, setHoiXoa] = useState<string | null>(null);
+  /** Tờ hoá đơn đang chọn cho đợt sắp ghi. `"khong"` = cố ý không gắn tờ nào. */
+  const [hoaDonChon, setHoaDonChon] = useState<string>("khong");
+
+  /**
+   * ★ Mở sẵn form và chọn sẵn tờ khi người dùng bấm "Ghi tiền" ở bảng hoá đơn phía trên.
+   *
+   * 📌 Phụ thuộc `ganSanHoaDon` chứ không phải một lần chạy: bấm lần lượt hai tờ khác nhau thì
+   * form phải đổi theo tờ mới, không giữ tờ cũ.
+   */
+  useEffect(() => {
+    if (!ganSanHoaDon) return;
+    setDangThem(true);
+    setHoaDonChon(ganSanHoaDon.id);
+    /* 🔴 PHỤ THUỘC CẢ `lan` — số lần bấm. Chỉ phụ thuộc `id` thì bấm lại cùng một tờ sau khi đã
+       tự đổi lựa chọn, effect không chạy và form giữ nguyên trạng thái cũ. */
+  }, [ganSanHoaDon]);
 
   function luu() {
     /* 🔴 BỎ DẤU PHÂN CÁCH TRƯỚC KHI ĐỔI SANG SỐ. Người dùng gõ tiền theo thói quen kế toán
@@ -67,6 +102,8 @@ export function KhoiDotThanhToan({
       ngayChi,
       soTien: tien,
       soChungTuChi: soChungTu.trim() || undefined,
+      /* ★ Gắn tờ hoá đơn người dùng đang chọn (Sếp 20/09/2026). `"khong"` = cố ý không gắn. */
+      hoaDonId: hoaDonChon && hoaDonChon !== "khong" ? hoaDonChon : undefined,
     });
     if (loi) {
       toast.error(loi);
@@ -77,6 +114,8 @@ export function KhoiDotThanhToan({
     setSoTien("");
     setSoChungTu("");
     setNgayChi(homNayISO());
+    setHoaDonChon("khong");
+    onXongGan?.();
   }
 
   return (
@@ -115,6 +154,61 @@ export function KhoiDotThanhToan({
               <span className="font-semibold tabular-nums text-text-primary">
                 {formatCurrencyVnd(d.soTien)}
               </span>
+              {/**
+                * ★ ĐỢT NÀY TRẢ CHO TỜ NÀO — Sếp 20/09/2026.
+                *
+                * 🔴 NÓI RÕ CẢ KHI CHƯA GẮN. Đợt ghi trước 20/09 đều chưa gắn tờ; để trống thì
+                * người đọc tưởng nó đã được tính vào một tờ nào đó, trong khi nó đang nằm ngoài
+                * mọi tờ (xem dòng "chưa gắn" ở bảng hoá đơn phía trên).
+                */}
+              {/**
+                * 🔴 Ô CHỌN, KHÔNG PHẢI CHỮ TĨNH — sửa ngay trong đợt 20/09/2026 sau khi một agent
+                * phản biện chỉ ra: bản đầu chỉ IN ra *"chưa gắn hoá đơn"* trong khi dòng nhắc ở
+                * bảng trên lại mời người dùng *"mở khối Các đợt đã thanh toán để chọn tờ"* — mà
+                * không có đường nào chọn cả. Đúng thứ §3.5 cấm: giao diện hứa việc app không làm.
+                *
+                * 📌 Gỡ được về "chưa gắn": ai lỡ gắn nhầm tờ phải sửa lại được, không thì kẹt
+                * vĩnh viễn với lựa chọn sai.
+                */}
+              {ghiDuoc && dong.hoaDon.length > 0 ? (
+                <select
+                  value={d.hoaDonId ?? "khong"}
+                  onChange={(e) => {
+                    const chon = e.target.value;
+                    const loi = onGanHoaDon?.(d.id, chon === "khong" ? null : chon);
+                    if (loi) toast.error(loi);
+                  }}
+                  aria-label={`Tờ hoá đơn của đợt chi ngày ${formatDate(d.ngayChi)}`}
+                  className={`h-7 rounded border px-1 text-xs ${
+                    d.hoaDonId
+                      ? "border-primary/40 bg-primary-bg font-medium text-primary"
+                      : "border-warning/40 bg-warning-bg text-warning-soft"
+                  }`}
+                >
+                  <option value="khong">— chưa gắn hoá đơn —</option>
+                  {dong.hoaDon.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      HĐ {h.soHoaDon}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                (() => {
+                  const to = d.hoaDonId ? dong.hoaDon.find((h) => h.id === d.hoaDonId) : undefined;
+                  if (to) {
+                    return (
+                      <span className="rounded bg-primary-bg px-1.5 py-0.5 text-xs font-medium text-primary">
+                        HĐ {to.soHoaDon}
+                      </span>
+                    );
+                  }
+                  /* Chỉ nhắc khi đơn CÓ hoá đơn — đơn chưa ghi tờ nào thì "chưa gắn" là bình
+                     thường, không phải việc phải làm. */
+                  return dong.hoaDon.length > 0 ? (
+                    <span className="text-xs text-warning-soft">chưa gắn hoá đơn</span>
+                  ) : null;
+                })()
+              )}
               {d.soChungTuChi && (
                 <span className="text-xs text-text-desc">chứng từ {d.soChungTuChi}</span>
               )}
@@ -191,8 +285,43 @@ export function KhoiDotThanhToan({
                 className="w-44"
               />
             </div>
+            {/**
+              * ★★ CHỌN TỜ HOÁ ĐƠN CHO ĐỢT CHI NÀY — Sếp 20/09/2026.
+              *
+              * 🔴 CHỈ HIỆN KHI ĐƠN ĐÃ CÓ HOÁ ĐƠN. Đơn chưa ghi tờ nào mà bày ô rỗng là mời người
+              * dùng đi tìm một danh sách không tồn tại.
+              *
+              * 📌 VẪN CÓ LỰA CHỌN "Chưa gắn tờ nào" — không ép. Kế toán trả gộp một lần cho nhiều
+              * tờ là chuyện thật; ép gắn một tờ là bắt họ khai sai. Tiền chưa gắn hiện thành dòng
+              * riêng ở bảng trên, không mất đi đâu.
+              */}
+            {dong.hoaDon.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`hd-${dong.poId}`}>Trả cho hoá đơn</Label>
+                <select
+                  id={`hd-${dong.poId}`}
+                  value={hoaDonChon}
+                  onChange={(e) => setHoaDonChon(e.target.value)}
+                  className="h-9 min-h-11 w-52 rounded-lg border border-input bg-card px-2 text-sm md:min-h-9"
+                >
+                  <option value="khong">— Chưa gắn tờ nào —</option>
+                  {dong.hoaDon.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.soHoaDon} · còn {formatCurrencyVnd(h.conLai)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <Button onClick={luu}>Lưu đợt</Button>
-            <Button variant="ghost" onClick={() => setDangThem(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDangThem(false);
+                setHoaDonChon("khong");
+                onXongGan?.();
+              }}
+            >
               Huỷ
             </Button>
           </div>

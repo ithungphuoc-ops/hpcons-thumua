@@ -1380,11 +1380,17 @@ interface GiaTriDuLieu {
     soTien: number;
     soChungTuChi?: string;
     ghiChu?: string;
+    /** ★ Trả cho tờ hoá đơn nào (Sếp 20/09/2026). Bỏ trống = chưa gắn tờ nào — ca có thật với
+     *  mọi đợt chi ghi trước hôm nay, và giao diện phải hiện ra chứ không giấu. */
+    hoaDonId?: string;
   }) => string | null;
   suaDotThanhToan: (
     id: string,
     thayDoi: { ngayChi?: NgayISO; soTien?: number; soChungTuChi?: string; ghiChu?: string },
   ) => string | null;
+  /** Gắn (hoặc gỡ, bằng `null`) tờ hoá đơn cho một đợt chi ĐÃ GHI — Sếp 20/09/2026.
+   *  Chỉ đổi mối nối, không đụng số tiền. */
+  ganHoaDonChoDot: (dotId: string, hoaDonId: string | null) => string | null;
   xoaDotThanhToan: (id: string) => string | null;
   datDieuKhoanCongNo: (
     poId: string,
@@ -3888,6 +3894,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       soTien: number;
       soChungTuChi?: string;
       ghiChu?: string;
+      /** ★ Trả cho tờ hoá đơn nào — Sếp 20/09/2026. Bỏ trống = chưa gắn tờ nào. */
+      hoaDonId?: string;
     }): string | null => {
       const chanQuyen = vuongMacQuyenGhiThanhToan(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
@@ -3897,11 +3905,23 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const po = donHangRef.current.find((p) => p.id === dot.poId);
       if (!po) return "Không tìm thấy đơn hàng này.";
 
+      /* 🔴 GẮN TỜ NÀO THÌ TỜ ĐÓ PHẢI CÓ THẬT, và phải thuộc ĐÚNG đơn này. Nhận bừa một mã là
+         tiền treo vào một tờ không tồn tại: `daTra` của mọi tờ đều không đếm nó, mà
+         `tienChuaGanHoaDon` cũng bỏ qua (vì trường có giá trị) — tiền biến mất khỏi cả hai chỗ
+         trong khi tổng của đơn vẫn cộng nó. Đúng kiểu lệch sổ không ai lần ra. */
+      if (dot.hoaDonId) {
+        const coTo = giaDonHangRef.current
+          .find((g) => g.poId === dot.poId)
+          ?.hoaDonVAT?.some((x) => x.id === dot.hoaDonId);
+        if (!coTo) return "Không tìm thấy tờ hoá đơn này trong đơn.";
+      }
+
       const ban: DotThanhToanPO = {
         id: `dtt-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`,
         poId: dot.poId,
         ngayChi: dot.ngayChi,
         soTien: Math.round(Number(dot.soTien)),
+        ...(dot.hoaDonId ? { hoaDonId: dot.hoaDonId } : {}),
         ...(dot.soChungTuChi?.trim() ? { soChungTuChi: dot.soChungTuChi.trim().slice(0, 60) } : {}),
         ...(dot.ghiChu?.trim() ? { ghiChu: dot.ghiChu.trim().slice(0, 200) } : {}),
         nguoiGhiUid: nguoiDung.uid,
@@ -3919,6 +3939,54 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       return null;
     },
     [nguoiDung, ghiNhatKyDonHang],
+  );
+
+  /**
+   * ★★★ GẮN (HOẶC GỠ) TỜ HOÁ ĐƠN CHO MỘT ĐỢT CHI ĐÃ GHI — Sếp 20/09/2026.
+   *
+   * 🔴 VÌ SAO PHẢI CÓ: mọi đợt chi ghi TRƯỚC hôm nay đều chưa gắn tờ, và app đang mời người dùng
+   * đi gắn chúng. Không có hàm này thì cách duy nhất là **xoá đợt rồi ghi lại** — bẩn nhật ký hai
+   * dòng cho một việc sửa, và trong khoảng giữa thì sổ tiền thiếu một khoản có thật. Một agent
+   * phản biện 20/09 bắt đúng chỗ giao diện đang hứa một việc app không làm được (§3.5).
+   *
+   * 📌 HÀM RIÊNG, KHÔNG NHÉT VÀO `suaDotThanhToan`: hàm kia sửa NỘI DUNG đợt chi (ngày, tiền,
+   * số chứng từ) và phải chạy qua `vuongMacDotThanhToan`; còn đây chỉ đổi MỐI NỐI, không đụng
+   * một đồng nào. Gộp lại là mỗi lần gắn tờ phải kiểm lại cả số tiền, và câu lỗi trả về sẽ nói
+   * về thứ người dùng không hề sửa.
+   *
+   * ⚠️ `null` = GỠ mối nối, trả đợt chi về "chưa gán" — phải gỡ được, nếu không ai lỡ gắn nhầm
+   * tờ sẽ kẹt vĩnh viễn với lựa chọn sai.
+   */
+  const ganHoaDonChoDot = useCallback(
+    (dotId: string, hoaDonId: string | null): string | null => {
+      const chanQuyen = vuongMacQuyenGhiThanhToan(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const cu = dotThanhToanRef.current.find((d) => d.id === dotId);
+      if (!cu) return "Không tìm thấy đợt thanh toán này.";
+
+      /* 🔴 Tờ phải có thật VÀ thuộc đúng đơn của đợt chi này — cùng chốt với `themDotThanhToan`.
+         Gắn vào một mã trỏ hụt là tiền biến mất khỏi cả phép cộng theo tờ lẫn phép đếm "chưa gán". */
+      if (hoaDonId) {
+        const coTo = giaDonHangRef.current
+          .find((g) => g.poId === cu.poId)
+          ?.hoaDonVAT?.some((x) => x.id === hoaDonId);
+        if (!coTo) return "Không tìm thấy tờ hoá đơn này trong đơn.";
+      }
+      if ((cu.hoaDonId ?? null) === hoaDonId) return null;
+
+      setDotThanhToan((truoc) =>
+        truoc.map((d) => {
+          if (d.id !== dotId) return d;
+          if (!hoaDonId) {
+            const { hoaDonId: _bo, ...conLai } = d;
+            return conLai;
+          }
+          return { ...d, hoaDonId };
+        }),
+      );
+      return null;
+    },
+    [nguoiDung],
   );
 
   const suaDotThanhToan = useCallback(
@@ -4385,6 +4453,29 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
       const dong = giaCu?.hoaDonVAT?.find((x) => x.id === id);
       if (!dong) return "Không tìm thấy dòng hoá đơn này.";
+
+      /**
+       * 🔴🔴 TRẢ CÁC ĐỢT CHI ĐANG GẮN TỜ NÀY VỀ "CHƯA GÁN" — nếu không thì **TIỀN BIẾN MẤT KHỎI
+       * CẢ HAI CHỖ**, im lặng.
+       *
+       * Đường lệch cụ thể: đợt chi giữ `hoaDonId` trỏ tới một tờ không còn tồn tại ⇒ `daTra` của
+       * mọi tờ đều không cộng nó (không tờ nào khớp mã), mà `tienChuaGanHoaDon` cũng bỏ qua (vì
+       * trường vẫn có giá trị). Trong khi `daTraCuaPO` vẫn cộng nó vào tổng của đơn ⇒ tổng các tờ
+       * cộng phần chưa gán **nhỏ hơn** tổng đã trả của đơn, và không ai lần ra khoản chênh.
+       *
+       * 📌 KHÔNG XOÁ ĐỢT CHI. Người dùng đang xoá một tờ hoá đơn ghi nhầm, không phải xoá một
+       * lần chuyển tiền đã xảy ra thật. Tiền vẫn nguyên, chỉ là thôi trỏ vào tờ vừa bỏ.
+       */
+      const dotDangGan = dotThanhToanRef.current.filter((x) => x.hoaDonId === id);
+      if (dotDangGan.length > 0) {
+        setDotThanhToan((truoc) =>
+          truoc.map((x) => {
+            if (x.hoaDonId !== id) return x;
+            const { hoaDonId: _bo, ...conLai } = x;
+            return conLai;
+          }),
+        );
+      }
 
       /**
        * 🔴🔴 GỠ LUÔN BẢN CHỤP KHỎI NGĂN ĐÍNH KÈM — nếu không, hai nơi lệch nhau theo cách nguy
@@ -9359,6 +9450,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       dinhKemPhieuGiao,
       dotThanhToan,
       themDotThanhToan,
+      ganHoaDonChoDot,
       suaDotThanhToan,
       xoaDotThanhToan,
       datDieuKhoanCongNo,
