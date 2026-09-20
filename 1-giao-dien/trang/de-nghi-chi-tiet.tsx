@@ -303,6 +303,9 @@ export default function TrangChiTietDeNghi({
     giaDonHang,
     themHoaDonVAT,
     xoaHoaDonVAT,
+    /* ★ Mỗi tờ hoá đơn một bản chụp riêng — Sếp 20/09/2026. */
+    dinhTepHoaDonVAT,
+    goTepHoaDonVAT,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
   /**
@@ -3623,8 +3626,14 @@ export default function TrangChiTietDeNghi({
                                 soDotGiao={phieuLienQuan.filter((p) => p.poId === po.id).length}
                                 ghiDuoc={quyen.lapPO}
                                 xemGia={quyen.xemGia}
+                                nguoiGhi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
+                                /* Toàn bộ tệp hoá đơn của hồ sơ — mỗi dòng tự tra tệp của mình
+                                   theo `nhanTep`. Một nguồn duy nhất, xem `DongHoaDonVAT`. */
+                                tepDaDinh={tepHoaDonVAT(dn)}
                                 onThem={(d) => themHoaDonVAT(po.id, d)}
                                 onXoa={(id) => xoaHoaDonVAT(po.id, id)}
+                                onDinhTep={(idDong, tep) => dinhTepHoaDonVAT(po.id, idDong, tep)}
+                                onGoTep={(idDong) => goTepHoaDonVAT(po.id, idDong)}
                               />
                             ))}
                           </div>
@@ -3691,7 +3700,27 @@ export default function TrangChiTietDeNghi({
                          * không khoanh chúng, và **Phiếu chi** thì đây là chỗ nộp DUY NHẤT trong cả
                          * app, bỏ là chức năng mồ côi.
                          */
-                        hoa_don_vat: (
+                        /**
+                          * ★★★ Ô ĐÍNH KÈM CHUNG CỦA MỤC ⑥ — CHỈ CÒN CHO HỒ SƠ **KHÔNG CÓ ĐƠN
+                          * MUA HÀNG**. Sếp 20/09/2026: ***"bỏ mục này vì đã có mục đính kèm rồi,
+                          * đang bị trùng chức năng"***, rồi ***"nếu vậy tích hợp mục đính kèm hoá
+                          * đơn đó xuống mục dưới"***.
+                          *
+                          * 🔴🔴 KHÔNG BỎ SẠCH ĐƯỢC — ĐÂY LÀ CHỖ SUÝT LÀM KẸT HỒ SƠ VĨNH VIỄN.
+                          * Bảng hoá đơn chỉ hiện khi đề nghị **có PO** (`poLienQuan.length > 0`),
+                          * vì mỗi tờ hoá đơn thuộc về một đơn. Hồ sơ 0 PO là có thật: phiếu gốc
+                          * đã nhân bản hết dòng sang phiếu con thì `conPhaiMua` rỗng, chốt "chưa
+                          * lên đơn" không chặn, nên nó chạy thẳng tới chốt hoá đơn — mà chốt đó
+                          * vẫn đòi `coHoaDonVAT`. Bỏ cả ô này là hồ sơ ấy **không còn đường nào
+                          * đính hoá đơn**, và không bấm hoàn thành được mãi mãi.
+                          * Một agent phản biện 20/09 đo ra trước khi nó kịp xảy ra.
+                          *
+                          * 📌 `null` khi đã có bảng: `oNopTheoMuc` khai `Record` đầy đủ nên vẫn
+                          * phải có khoá này, nhưng `ReactNode` nhận `null` — lúc đó mục ⑥ rơi về
+                          * dáng chỉ đọc, vẫn bày danh sách tệp cũ qua `LienKetTep` để hồ sơ lập
+                          * trước hôm nay không mất chỗ xem và tải.
+                          */
+                        hoa_don_vat: poLienQuan.length > 0 ? null : (
                           <OChungTuBatBuoc
                             deNghi={dn}
                             maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}

@@ -46,6 +46,10 @@ import {
      (`nguoiKhaiKhongCoChungTu`). Sếp 16/09/2026. */
   cauNhatKyGhiLyDoThieu,
   vuongMacHoanThanhQuyTrinh,
+  /* ★ Ngăn và nhãn của bản chụp hoá đơn — dùng để cấp nhãn ổn định cho từng tờ và gỡ đúng tệp
+     khi xoá dòng (Sếp 20/09/2026). Một nguồn chữ, đừng gõ lại chuỗi ở đây. */
+  BUOC_DINH_KEM_HO_SO_THANH_TOAN,
+  NHAN_TEP_HOA_DON_VAT,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import {
   CAU_HINH_MAC_DINH,
@@ -1403,10 +1407,15 @@ interface GiaTriDuLieu {
    */
   themHoaDonVAT: (
     poId: string,
-    dong: { soHoaDon: string; ngayHoaDon: string; soTien: number; tep?: MoTaTep },
+    dong: { soHoaDon: string; ngayHoaDon: string; soTien: number },
   ) => string | null;
-  /** Xoá một tờ hoá đơn đã ghi. Nhật ký chứng từ giá vẫn giữ lại dấu vết ai xoá. */
+  /** Xoá một tờ hoá đơn đã ghi. Nhật ký chứng từ giá vẫn giữ lại dấu vết ai xoá, và bản chụp của
+   *  tờ đó được gỡ khỏi hồ sơ cùng lúc để hai nơi không lệch nhau. */
   xoaHoaDonVAT: (poId: string, id: string) => string | null;
+  /** Đính bản chụp cho ĐÚNG một tờ hoá đơn (Sếp 20/09/2026: mỗi tờ một tệp riêng). */
+  dinhTepHoaDonVAT: (poId: string, idDong: string, tep: MoTaTep) => string | null;
+  /** Gỡ bản chụp khỏi một tờ hoá đơn — tệp vẫn nằm trong kho, chỉ rời khỏi hồ sơ. */
+  goTepHoaDonVAT: (poId: string, idDong: string) => string | null;
   /**
    * ★★★ Sửa một đơn hàng đã lập (còn ở 1 trong 6 bước đầu) — Sếp demo bằng Artifact, chốt
    * 31/08/2026. Xem chú thích đầy đủ ở nơi định nghĩa (`GiaTriDuLieu` → `suaDonHang`).
@@ -4123,7 +4132,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   const themHoaDonVAT = useCallback(
     (
       poId: string,
-      dong: { soHoaDon: string; ngayHoaDon: string; soTien: number; tep?: MoTaTep },
+      dong: { soHoaDon: string; ngayHoaDon: string; soTien: number },
     ): string | null => {
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
@@ -4137,6 +4146,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       /* 🔴 MÃ NGẪU NHIÊN, KHÔNG PHẢI SỐ ĐẾM — kho chung là một tài liệu cho cả phòng, hai người
          cùng thêm trong vài giây thì số đếm đụng nhau và người ghi sau đè người trước, im lặng. */
       const id = `hd-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+      /**
+       * ★★ CẤP NHÃN TỆP NGAY LÚC TẠO DÒNG, VÀ KHÔNG BAO GIỜ ĐỔI — Sếp 20/09/2026 chốt mỗi tờ
+       * hoá đơn một tệp riêng.
+       *
+       * 🔴 LẤY SỐ LỚN NHẤT ĐANG DÙNG RỒI +1, KHÔNG lấy `độ dài mảng + 1`. Xoá tờ giữa rồi thêm
+       * tờ mới thì độ-dài+1 cho ra một số **đã có người dùng**, mà `datTepVaoOGiaiDoan` tự gỡ bản
+       * cũ cùng nhãn ⇒ đính tệp cho tờ mới là **âm thầm xoá mất bản chụp của tờ khác**.
+       *
+       * 🔴 KHUÔN `Hóa đơn VAT (n)` VỚI `n` CHỮ SỐ THUẦN là khuôn duy nhất `tepTheoNhan` nhận ra.
+       * Đổi khuôn là tệp lưu thật mà `coHoaDonVAT` không thấy ⇒ hồ sơ kẹt, không lỗi nào báo.
+       */
+      let soLonNhat = 0;
+      for (const d of giaCu.hoaDonVAT ?? []) {
+        const khop = /\((\d+)\)\s*$/.exec(String(d?.nhanTep ?? ""));
+        const n = khop ? Number(khop[1]) : 0;
+        if (n > soLonNhat) soLonNhat = n;
+      }
+      const nhanTep = `${NHAN_TEP_HOA_DON_VAT} (${soLonNhat + 1})`;
       setGiaDonHang((truoc) =>
         truoc.map((g) =>
           g.poId !== poId
@@ -4150,7 +4177,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                     soHoaDon,
                     ngayHoaDon: dong.ngayHoaDon,
                     soTien,
-                    tep: dong.tep,
+                    nhanTep,
                     nguoiGhiTen: nguoiDung.tenHienThi,
                     thoiDiemGhi: thoiDiemHienTai(),
                   },
@@ -4171,6 +4198,20 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [nguoiDung, vuongMacDongHoaDon],
   );
 
+  /**
+   * ★★★ ĐÍNH BẢN CHỤP CHO ĐÚNG MỘT TỜ HOÁ ĐƠN — Sếp 20/09/2026, chốt **mỗi tờ một tệp riêng**.
+   *
+   * 🔴 GHI VÀO ĐÚNG NGĂN MÀ LUẬT ĐANG ĐỌC (`BUOC_DINH_KEM_HO_SO_THANH_TOAN`), với nhãn
+   * `Hóa đơn VAT (n)` đã cấp sẵn cho dòng. Nhờ vậy `coHoaDonVAT` / `vuongMacDuyetHoanThanhDeNghi`
+   * **không phải sửa một dòng nào** — không hồ sơ nào kẹt, không bài kiểm nào đỏ.
+   *
+   * 🔴 DÙNG `datTepVaoOGiaiDoan` CHỨ KHÔNG PHẢI `themTepGiaiDoan`: hàm kia không gắn nhãn, mà
+   * không có nhãn thì `tepTheoNhan` bỏ qua ⇒ tệp lưu thật mà app bảo chưa đính kèm.
+   *
+   * 📌 `datTepVaoOGiaiDoan` tự gỡ bản cũ CÙNG NHÃN — đúng hành vi mong muốn ở đây: đính lại cho
+   * cùng một tờ thì thay bản chụp, không đẻ thêm tệp. Nó cũng đã tự kiểm hồ sơ đã đóng và trần
+   * đính kèm, nên không phải kiểm lại ở đây.
+   */
   const xoaHoaDonVAT = useCallback(
     (poId: string, id: string): string | null => {
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
@@ -4178,6 +4219,31 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
       const dong = giaCu?.hoaDonVAT?.find((x) => x.id === id);
       if (!dong) return "Không tìm thấy dòng hoá đơn này.";
+
+      /**
+       * 🔴🔴 GỠ LUÔN BẢN CHỤP KHỎI NGĂN ĐÍNH KÈM — nếu không, hai nơi lệch nhau theo cách nguy
+       * hiểm: bảng hoá đơn trống trơn mà `coHoaDonVAT` vẫn thấy một tệp mồ côi ⇒ app cho đóng hồ
+       * sơ trong khi **không còn tờ hoá đơn nào được ghi nhận**. Một agent phản biện 20/09 đo ra
+       * đúng đường lệch này trước khi nó kịp xảy ra.
+       *
+       * 📌 Tệp chỉ được GỠ KHỎI HỒ SƠ, nội dung vẫn nằm trong kho tệp — đúng nếp của cả app
+       * (`xoaTep` chưa được gọi ở bất kỳ đâu, vì chứng từ mất là mất hẳn).
+       *
+       * ⚠️ Lỗi khi gỡ thì **không chặn việc xoá dòng**: người dùng đang muốn bỏ tờ hoá đơn, chặn
+       * họ lại vì một tệp không gỡ được là biến việc dọn dẹp thành ngõ cụt. Ghi ra console để còn
+       * lần được, và nhật ký chứng từ giá vẫn ghi đủ.
+       */
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (dong.nhanTep && po?.prId) {
+        const deNghiGoc = deNghiRef.current.find((dn) => dn.id === po.prId);
+        const tepCuaDong = (deNghiGoc?.tepGiaiDoan?.[BUOC_DINH_KEM_HO_SO_THANH_TOAN] ?? []).filter(
+          (t) => t.ghiChu === dong.nhanTep,
+        );
+        for (const t of tepCuaDong) {
+          const loiGo = goTepGiaiDoan(po.prId, BUOC_DINH_KEM_HO_SO_THANH_TOAN, t.id, nguoiDung.tenHienThi);
+          if (loiGo) console.warn("[Hoá đơn] Không gỡ được bản chụp khỏi hồ sơ:", loiGo);
+        }
+      }
 
       setGiaDonHang((truoc) =>
         truoc.map((g) =>
@@ -8527,6 +8593,54 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [ghiLichSuDeNghi, loiKhiHoSoDaDong],
   );
 
+  const dinhTepHoaDonVAT = useCallback(
+    (poId: string, idDong: string, tep: MoTaTep): string | null => {
+      const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po?.prId) return "Đơn này không gắn với đề nghị nào nên chưa đính kèm được.";
+      const dong = giaDonHangRef.current
+        .find((g) => g.poId === poId)
+        ?.hoaDonVAT?.find((x) => x.id === idDong);
+      if (!dong) return "Không tìm thấy dòng hoá đơn này.";
+      if (!dong.nhanTep) return "Dòng hoá đơn này thiếu nhãn tệp — thử ghi lại tờ hoá đơn.";
+      return datTepVaoOGiaiDoan(
+        po.prId,
+        BUOC_DINH_KEM_HO_SO_THANH_TOAN,
+        tep,
+        dong.nhanTep,
+        nguoiDung.tenHienThi,
+      );
+    },
+    [nguoiDung, datTepVaoOGiaiDoan],
+  );
+
+  /** Gỡ bản chụp khỏi một tờ hoá đơn. Tệp vẫn nằm trong kho, chỉ rời khỏi hồ sơ. */
+  const goTepHoaDonVAT = useCallback(
+    (poId: string, idDong: string): string | null => {
+      const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po?.prId) return "Đơn này không gắn với đề nghị nào.";
+      const dong = giaDonHangRef.current
+        .find((g) => g.poId === poId)
+        ?.hoaDonVAT?.find((x) => x.id === idDong);
+      if (!dong?.nhanTep) return "Không tìm thấy bản chụp của tờ hoá đơn này.";
+      const deNghiGoc = deNghiRef.current.find((dn) => dn.id === po.prId);
+      const tepCuaDong = (deNghiGoc?.tepGiaiDoan?.[BUOC_DINH_KEM_HO_SO_THANH_TOAN] ?? []).filter(
+        (t) => t.ghiChu === dong.nhanTep,
+      );
+      if (tepCuaDong.length === 0) return "Không tìm thấy bản chụp của tờ hoá đơn này.";
+      for (const t of tepCuaDong) {
+        const loi = goTepGiaiDoan(po.prId, BUOC_DINH_KEM_HO_SO_THANH_TOAN, t.id, nguoiDung.tenHienThi);
+        if (loi) return loi;
+      }
+      return null;
+    },
+    [nguoiDung, goTepGiaiDoan],
+  );
+
+
   /**
    * ★ GHI CHÚ CHO MỘT TỆP ĐÍNH KÈM — Ban lãnh đạo 17/08/2026: *"thêm chức năng ghi chú cho
    * mỗi tệp đính kèm thêm"*.
@@ -9084,6 +9198,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       datDieuKhoanCongNo,
       themHoaDonVAT,
       xoaHoaDonVAT,
+      dinhTepHoaDonVAT,
+      goTepHoaDonVAT,
       suaDonHang,
       xacNhanKho,
       xacNhanTruongBP,
@@ -9160,6 +9276,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       datDieuKhoanCongNo,
       themHoaDonVAT,
       xoaHoaDonVAT,
+      dinhTepHoaDonVAT,
+      goTepHoaDonVAT,
       suaDonHang,
       xacNhanKho,
       xacNhanTruongBP,

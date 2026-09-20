@@ -8243,6 +8243,34 @@ kiem(
 );
 
 kiem(
+  "Nhan tep cua tung to hoa don PHAI dung khuon luat nhan ra duoc",
+  'Sếp · 20/09/2026 — *"tích hợp mục đính kèm hoá đơn đó xuống mục dưới"* + chốt "mỗi tờ hoá đơn một tệp riêng"',
+  () => {
+    /* 🔴🔴 BAI KIEM NAY GHIM CHO DE KET HO SO VINH VIEN.
+       `tepTheoNhan` chi nhan `ghiChu` bang dung "Hóa đơn VAT" hoac "Hóa đơn VAT (n)" voi n la CHU
+       SO THUAN. Moi to hoa don duoc cap mot nhan rieng luc tao dong; dat nhan kieu khac (vd theo
+       id dong: "Hóa đơn VAT hd-ab12") thi tep LUU THAT ma `coHoaDonVAT` KHONG THAY -> ho so khong
+       bao gio dong duoc, va khong mot loi nao bao. */
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const hoSo = (ghiChu) => ({
+      id: "pr-nhan",
+      lichSu: [],
+      tepGiaiDoan: { ho_so_thanh_toan: [{ id: "t1", ten: "HD.pdf", ghiChu }] },
+    });
+    const nhanSo = CT.tepHoaDonVAT(hoSo(`${CT.NHAN_TEP_HOA_DON_VAT} (3)`)).length;
+    const nhanTron = CT.tepHoaDonVAT(hoSo(CT.NHAN_TEP_HOA_DON_VAT)).length;
+    /* Chieu nghich: nhan theo id dong KHONG duoc nhan ra — neu bai nay xanh voi ca nhan rac thi
+       phep loc da bi noi long va chot mat tac dung. */
+    const nhanRac = CT.tepHoaDonVAT(hoSo(`${CT.NHAN_TEP_HOA_DON_VAT} hd-ab12`)).length;
+    return {
+      duoc: nhanSo === 1 && nhanTron === 1 && nhanRac === 0,
+      thucTe: `"(3)"=${nhanSo} · tron=${nhanTron} · "hd-ab12"=${nhanRac}`,
+      mongDoi: "1 · 1 · 0 — chi khuon 'Hóa đơn VAT' va 'Hóa đơn VAT (n)' moi duoc nhan",
+    };
+  },
+);
+
+kiem(
   "CHIEU NGHICH — thieu hoa don cho tung dot giao VAN dong duoc ho so",
   CHU_SEP_BANG_HOA_DON + ' + Sếp chốt "Cho đóng, chỉ nhắc bằng chữ vàng"',
   () => {

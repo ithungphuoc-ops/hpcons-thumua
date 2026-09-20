@@ -28,7 +28,7 @@ import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
-import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
+import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { formatCurrencyVnd, formatDate, homNayISO } from "@/6-tien-ich/dinh-dang";
 import type { DongHoaDonVAT, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
@@ -40,8 +40,12 @@ export function BangHoaDonVAT({
   soDotGiao,
   ghiDuoc,
   xemGia,
+  nguoiGhi,
+  tepDaDinh,
   onThem,
   onXoa,
+  onDinhTep,
+  onGoTep,
 }: {
   poId: string;
   poCode: string;
@@ -51,8 +55,21 @@ export function BangHoaDonVAT({
   ghiDuoc: boolean;
   /** Không được xem giá thì ẩn cột tiền, vẫn thấy số hoá đơn + ngày + tệp. */
   xemGia: boolean;
-  onThem: (d: { soHoaDon: string; ngayHoaDon: string; soTien: number; tep?: MoTaTep }) => string | null;
+  /** Người đang thao tác — `ODinhKemTep` ghi lại ai đính kèm. */
+  nguoiGhi: { uid: string; ten: string };
+  /**
+   * ★ TOÀN BỘ tệp hoá đơn đang có trong hồ sơ. Mỗi dòng tự tra tệp của mình theo `nhanTep`.
+   *
+   * 🔴 NHẬN TỪ NƠI GỌI, không tự đọc — khối này là thành phần thuần hiển thị, kéo `useDuLieu` vào
+   * đây là nó không dùng lại được ở trang in và các nơi chỉ bày.
+   */
+  tepDaDinh: readonly MoTaTep[];
+  onThem: (d: { soHoaDon: string; ngayHoaDon: string; soTien: number }) => string | null;
   onXoa: (id: string) => string | null;
+  /** Đính bản chụp cho ĐÚNG tờ hoá đơn này. Trả câu lý do khi bị chặn, `null` là xong. */
+  onDinhTep: (idDong: string, tep: MoTaTep) => string | null;
+  /** Gỡ bản chụp khỏi tờ hoá đơn này (tệp vẫn nằm trong kho, chỉ rời khỏi hồ sơ). */
+  onGoTep: (idDong: string) => string | null;
 }) {
   const [dangThem, setDangThem] = useState(false);
   const [soHoaDon, setSoHoaDon] = useState("");
@@ -73,7 +90,7 @@ export function BangHoaDonVAT({
        câu "số tiền phải là số không âm" — người dùng đọc mà không hiểu vì sao, vì họ vừa gõ đúng
        số tiền thật. Cùng cách xử với khối Đợt thanh toán. */
     const tien = Number(soTien.replace(/[.,\s]/g, ""));
-    const loi = onThem({ soHoaDon, ngayHoaDon, soTien: tien, tep: undefined });
+    const loi = onThem({ soHoaDon, ngayHoaDon, soTien: tien });
     if (loi) {
       toast.error(loi);
       return;
@@ -144,7 +161,34 @@ export function BangHoaDonVAT({
                   {formatCurrencyVnd(d.soTien)}
                 </span>
               )}
-              {d.tep && <LienKetTep tep={d.tep} />}
+              {/**
+                * ★★ Ô ĐÍNH KÈM CỦA RIÊNG TỜ NÀY — Sếp 20/09/2026: *"tích hợp mục đính kèm hoá đơn
+                * đó xuống mục dưới"*, và khi được hỏi lại thì chốt **mỗi tờ hoá đơn một tệp riêng**.
+                *
+                * 🔴 ĐẶT TRÊN DÒNG ĐÃ LƯU, TUYỆT ĐỐI KHÔNG ĐẶT TRONG FORM "ĐANG THÊM".
+                * `ODinhKemTep` cất tệp vào kho **ngay khi chọn**, trước khi nơi gọi kịp lưu. Form
+                * thêm có nút *Huỷ* — đặt ô ở đó thì bấm Huỷ là tệp đã nằm trong kho (và đã đẩy đủ
+                * mảnh lên máy chủ) mà **không dòng nào trỏ tới**. Rác trên máy chủ, ăn hạn mức.
+                *
+                * 🔴 TRA TỆP THEO NHÃN, KHÔNG GIỮ BẢN SAO trong dòng — xem chú thích `nhanTep` ở
+                * `3-du-lieu/kieu-du-lieu.ts`. Một tệp, một chỗ.
+                */}
+              {(() => {
+                const tepCuaDong = d.nhanTep
+                  ? tepDaDinh.find((t) => t.ghiChu === d.nhanTep)
+                  : undefined;
+                return (
+                  <ODinhKemTep
+                    tep={tepCuaDong}
+                    nhanThem="Đính bản chụp"
+                    nguoi={nguoiGhi}
+                    khoa={!ghiDuoc}
+                    dangGon
+                    onXong={(t) => onDinhTep(d.id, t)}
+                    onXoa={tepCuaDong ? () => onGoTep(d.id) : undefined}
+                  />
+                );
+              })()}
               <span className="text-xs text-text-desc">· {d.nguoiGhiTen}</span>
               {ghiDuoc && (
                 <button
@@ -230,7 +274,7 @@ export function BangHoaDonVAT({
                 thì mới thêm, và phải cấp ngăn đính kèm riêng vì trần hiện là 6 tệp chung cả
                 Hoá đơn + UNC + Phiếu chi. */}
             <span className="basis-full text-xs text-text-desc">
-              Bản chụp hoá đơn đính ở ô nộp ngay dưới mục này.
+              Lưu xong sẽ có nút đính bản chụp cho riêng tờ hoá đơn này.
             </span>
           </div>
         ) : (

@@ -1312,9 +1312,30 @@ export interface DongHoaDonVAT {
   ngayHoaDon: NgayISO;
   /** Số tiền ghi trên tờ hoá đơn này. Là GIÁ — chỉ người có quyền xem giá mới đọc được. */
   soTien: number;
-  /** Tệp bản chụp/PDF hoá đơn, lưu qua `3-du-lieu/kho-tep.ts`. Trống = đã ghi số nhưng chưa đính
-   *  bản chụp; luật đóng hồ sơ vẫn chấp nhận (Sếp chốt 19/09: nhắc chứ không chặn). */
-  tep?: MoTaTep;
+  /**
+   * ★★ NHÃN CỦA TỆP BẢN CHỤP HOÁ ĐƠN — Sếp 20/09/2026: *"tích hợp mục đính kèm hoá đơn đó xuống
+   * mục dưới"*, và chốt **mỗi tờ hoá đơn một tệp riêng**.
+   *
+   * 🔴🔴 LƯU **CON TRỎ**, TUYỆT ĐỐI KHÔNG LƯU BẢN SAO `MoTaTep`. Tệp thật nằm trong ngăn đính kèm
+   * của đề nghị (`deNghi.tepGiaiDoan`), nơi luật `coHoaDonVAT` đọc. Chép thêm một bản `MoTaTep`
+   * vào đây là **hai chỗ giữ một tệp, ở hai document khác nhau với hai quyền đọc khác nhau**
+   * (`tm_donhang_gia` gác bằng `duocXemTien()`, còn đề nghị thì không) — rồi ba đường lệch nhau
+   * đo được: xoá dòng không gỡ tệp · gỡ tệp thì dòng vẫn bày · người không xem được giá mất bản
+   * chụp. Một agent phản biện 20/09 đo ra cả ba.
+   *
+   * 🔴 NHÃN PHẢI ĐÚNG KHUÔN `Hóa đơn VAT (n)` với `n` là CHỮ SỐ THUẦN — đó là khuôn duy nhất
+   * `tepTheoNhan` (`2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`) nhận ra. Đặt nhãn kiểu khác (ví dụ
+   * theo `id` dòng) thì tệp **lưu thật mà `coHoaDonVAT` không thấy** ⇒ hồ sơ kẹt vĩnh viễn, không
+   * một lỗi nào báo.
+   *
+   * 🔴 `n` CẤP MỘT LẦN KHI TẠO DÒNG VÀ KHÔNG ĐỔI. Đánh lại số theo vị trí là xoá dòng giữa rồi
+   * thêm dòng mới sẽ trùng nhãn, mà `datTepVaoOGiaiDoan` **tự gỡ bản cũ cùng nhãn** ⇒ âm thầm
+   * xoá mất tệp của tờ khác.
+   *
+   * ⚠️ Trống = đã ghi số hoá đơn nhưng chưa đính bản chụp. Luật đóng hồ sơ vẫn chấp nhận (Sếp
+   * chốt 19/09: nhắc chứ không chặn).
+   */
+  nhanTep?: string;
   /** Ai ghi dòng này — tiền thì phải truy lại được. */
   nguoiGhiTen: string;
   thoiDiemGhi: string;
