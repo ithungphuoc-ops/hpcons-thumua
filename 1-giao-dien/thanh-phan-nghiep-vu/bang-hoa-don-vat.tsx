@@ -145,19 +145,63 @@ export function BangHoaDonVAT({
         </span>
       )}
 
+      {/**
+        * ★★ BỐ CỤC DẠNG CỘT THẲNG HÀNG — Sếp 20/09/2026: ***"Bố cục lại giao diện cho đẹp mắt"***.
+        *
+        * 🔴 BA THỨ LÀM BẢN ĐẦU RỐI, sửa đúng ba thứ đó:
+        *   ① Mỗi dòng in lại câu *"Nhận PDF, ảnh, Word, Excel · tối đa 10MB…"* — hai tờ hoá đơn là
+        *      hai lần, ba tờ là ba lần. `ODinhKemTep` có sẵn cờ `anHuongDan` sinh ra đúng cho ca
+        *      này (chú thích tại đó: *"khu báo giá có N ô, mỗi ô in lại đúng một câu"*).
+        *   ② Nút xoá dùng `ml-auto` nên bị đẩy ra tận mép phải, để lại một khoảng trống lớn giữa
+        *      nội dung và nút — đúng vùng Sếp khoanh đỏ bên phải.
+        *   ③ Các ô co giãn theo nội dung nên số hoá đơn, ngày, tiền của hai dòng **không thẳng
+        *      cột** với nhau, mắt phải dò từng dòng.
+        *
+        * 📌 Dùng `grid` với bề rộng cột cố định thay cho `flex-wrap`: cột số tiền căn PHẢI kèm
+        * `tabular-nums` để hàng nghìn của dòng trên thẳng hàng nghìn của dòng dưới — cùng nếp với
+        * bảng Công nợ. Điện thoại thì `grid-cols-1` cho xuống dòng, không ép cuộn ngang.
+        */}
       {dsSapXep.length > 0 && (
         <div className="flex flex-col gap-1">
+          {/* Hàng tiêu đề chỉ hiện từ màn tablet trở lên — trên điện thoại các ô xếp dọc nên
+              tiêu đề cột thành vô nghĩa, còn tốn một dòng. */}
+          <div
+            className={`hidden gap-x-3 px-2 text-[11px] font-medium text-text-desc sm:grid ${
+              xemGia
+                ? "sm:grid-cols-[1.5rem_9rem_6.5rem_8rem_1fr_auto]"
+                : "sm:grid-cols-[1.5rem_9rem_6.5rem_1fr_auto]"
+            }`}
+          >
+            <span>#</span>
+            <span>Số hoá đơn</span>
+            <span>Ngày</span>
+            {xemGia && <span className="text-right">Số tiền</span>}
+            <span>Bản chụp</span>
+            <span />
+          </div>
           {dsSapXep.map((d, i) => (
             <div
               key={d.id}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-muted/40 px-2 py-1.5 text-sm"
+              className={`items-center gap-x-3 gap-y-1 rounded-md bg-muted/40 px-2 py-1.5 text-sm sm:grid ${
+                xemGia
+                  ? "sm:grid-cols-[1.5rem_9rem_6.5rem_8rem_1fr_auto]"
+                  : "sm:grid-cols-[1.5rem_9rem_6.5rem_1fr_auto]"
+              } flex flex-wrap`}
             >
-              <span className="w-5 shrink-0 tabular-nums text-xs text-text-desc">{i + 1}.</span>
-              <span className="font-medium text-text-primary">{d.soHoaDon}</span>
+              <span className="shrink-0 tabular-nums text-xs text-text-desc">{i + 1}.</span>
+              {/* 📌 TÊN NGƯỜI GHI DỜI VÀO CHỮ RÊ CHUỘT, không còn in ra dòng. Tiền thì vẫn phải
+                  truy lại được ai ghi, nhưng in cả tên ra giữa bảng làm gãy hàng cột — mà đây là
+                  thứ người ta chỉ tra khi cần. Nhật ký chứng từ giá vẫn ghi đủ. */}
+              <span
+                className="truncate font-medium text-text-primary"
+                title={`${d.soHoaDon} — ghi bởi ${d.nguoiGhiTen}`}
+              >
+                {d.soHoaDon}
+              </span>
               <span className="tabular-nums text-text-secondary">{formatDate(d.ngayHoaDon)}</span>
               {/* Ẩn CỘT TIỀN cho người không được xem giá — họ vẫn cần biết đã có hoá đơn nào. */}
               {xemGia && (
-                <span className="font-semibold tabular-nums text-text-primary">
+                <span className="font-semibold tabular-nums text-text-primary sm:text-right">
                   {formatCurrencyVnd(d.soTien)}
                 </span>
               )}
@@ -184,18 +228,23 @@ export function BangHoaDonVAT({
                     nguoi={nguoiGhi}
                     khoa={!ghiDuoc}
                     dangGon
+                    /* 🔴 ẨN DÒNG HƯỚNG DẪN — bảng có N tờ hoá đơn, không bật cờ này thì câu
+                       "Nhận PDF, ảnh, Word, Excel · tối đa 10MB…" in lại N lần, chiếm chỗ hơn cả
+                       dữ liệu. Câu đó vẫn còn nguyên ở các ô nộp khác của mục ⑦ và ⑧. */
+                    anHuongDan
                     onXong={(t) => onDinhTep(d.id, t)}
                     onXoa={tepCuaDong ? () => onGoTep(d.id) : undefined}
                   />
                 );
               })()}
-              <span className="text-xs text-text-desc">· {d.nguoiGhiTen}</span>
+              {/* 🔴 KHÔNG `ml-auto` — trong lưới cột thì nút tự nằm ở cột cuối. Dùng `ml-auto`
+                  là nó bị đẩy ra tận mép phải thẻ, để lại đúng khoảng trống Sếp khoanh đỏ. */}
               {ghiDuoc && (
                 <button
                   type="button"
                   onClick={() => setHoiXoa(d.id)}
-                  title="Xoá tờ hoá đơn này"
-                  className="ml-auto inline-flex size-11 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger md:size-9"
+                  title={`Xoá hoá đơn ${d.soHoaDon}`}
+                  className="ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger sm:ml-0 md:size-9"
                 >
                   <Trash2 className="size-4" aria-hidden />
                   <span className="sr-only">Xoá hoá đơn {d.soHoaDon}</span>
