@@ -303,6 +303,8 @@ export default function TrangChiTietDeNghi({
     giaDonHang,
     themHoaDonVAT,
     xoaHoaDonVAT,
+    /* ★ Nút chỉnh sửa thông tin trên hoá đơn — Sếp 20/09/2026. */
+    suaHoaDonVAT,
     /* ★ Mỗi tờ hoá đơn một bản chụp riêng — Sếp 20/09/2026. */
     dinhTepHoaDonVAT,
     goTepHoaDonVAT,
@@ -3632,6 +3634,7 @@ export default function TrangChiTietDeNghi({
                                 tepDaDinh={tepHoaDonVAT(dn)}
                                 onThem={(d) => themHoaDonVAT(po.id, d)}
                                 onXoa={(id) => xoaHoaDonVAT(po.id, id)}
+                                onSua={(id, d) => suaHoaDonVAT(po.id, id, d)}
                                 onDinhTep={(idDong, tep) => dinhTepHoaDonVAT(po.id, idDong, tep)}
                                 onGoTep={(idDong) => goTepHoaDonVAT(po.id, idDong)}
                               />

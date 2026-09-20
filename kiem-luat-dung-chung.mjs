@@ -8243,6 +8243,42 @@ kiem(
 );
 
 kiem(
+  "Co hoa don ma CHUA ai chon -> tu lay can cu HOA DON",
+  'Sếp · 20/09/2026 — *"hoá đơn này chưa thấy link tự động qua chức năng công nợ"* → *"E SỬA ĐI"*',
+  () => {
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const coBang = TN.canCuHieuLuc({ hoaDonVAT: [{ soTien: 1 }] });
+    const coTruongCu = TN.canCuHieuLuc({ tongTienHoaDon: 5_000_000 });
+    const chuaCoGi = TN.canCuHieuLuc({});
+    const khongCoGia = TN.canCuHieuLuc(undefined);
+    return {
+      duoc:
+        coBang === "hoa_don" && coTruongCu === "hoa_don" && chuaCoGi === "po" && khongCoGia === "po",
+      thucTe: `co bang=${coBang} · truong cu=${coTruongCu} · chua co=${chuaCoGi} · khong gia=${khongCoGia}`,
+      mongDoi: "hoa_don · hoa_don · po · po",
+    };
+  },
+);
+
+kiem(
+  "CHIEU NGHICH — nguoi dung DA chon thi app KHONG duoc tu doi",
+  'Sếp · 19/09/2026 — *"Nút này đưa vào các DMH… Có cái sẽ dùng theo PO, cái dùng theo hoá đơn"*',
+  () => {
+    /* 🔴 Sep 20/09 chi doi GIA TRI MAC DINH, KHONG doi quyen quyet. Don da co hoa don ma nguoi
+       dung co y chon "theo PO" thi phai giu nguyen — app tu doi lai la cuop quyen quyet cua ho,
+       va xoa mat chi dao 19/09. */
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const chonPO = TN.canCuHieuLuc({ canCuCongNo: "po", hoaDonVAT: [{ soTien: 9 }] });
+    const chonHoaDon = TN.canCuHieuLuc({ canCuCongNo: "hoa_don" });
+    return {
+      duoc: chonPO === "po" && chonHoaDon === "hoa_don",
+      thucTe: `chon PO (du co hoa don)=${chonPO} · chon hoa don (du chua co)=${chonHoaDon}`,
+      mongDoi: "po · hoa_don — lua chon cua nguoi dung thang moi phep suy",
+    };
+  },
+);
+
+kiem(
   "Nhan tep cua tung to hoa don PHAI dung khuon luat nhan ra duoc",
   'Sếp · 20/09/2026 — *"tích hợp mục đính kèm hoá đơn đó xuống mục dưới"* + chốt "mỗi tờ hoá đơn một tệp riêng"',
   () => {

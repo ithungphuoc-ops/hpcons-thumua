@@ -1409,6 +1409,12 @@ interface GiaTriDuLieu {
     poId: string,
     dong: { soHoaDon: string; ngayHoaDon: string; soTien: number },
   ) => string | null;
+  /** Sửa số / ngày / số tiền của một tờ hoá đơn đã ghi (Sếp 20/09/2026). Không đụng bản chụp. */
+  suaHoaDonVAT: (
+    poId: string,
+    id: string,
+    thayDoi: { soHoaDon: string; ngayHoaDon: string; soTien: number },
+  ) => string | null;
   /** Xoá một tờ hoá đơn đã ghi. Nhật ký chứng từ giá vẫn giữ lại dấu vết ai xoá, và bản chụp của
    *  tờ đó được gỡ khỏi hồ sơ cùng lúc để hai nơi không lệch nhau. */
   xoaHoaDonVAT: (poId: string, id: string) => string | null;
@@ -4212,6 +4218,76 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * cùng một tờ thì thay bản chụp, không đẻ thêm tệp. Nó cũng đã tự kiểm hồ sơ đã đóng và trần
    * đính kèm, nên không phải kiểm lại ở đây.
    */
+  /**
+   * ★★★ SỬA THÔNG TIN MỘT TỜ HOÁ ĐƠN — Sếp 20/09/2026: ***"Thêm nút chỉnh sửa thông tin trên
+   * hoá đơn"***.
+   *
+   * 🔴 VÌ SAO CẦN: gõ nhầm một chữ số của số tiền thì trước đây phải **xoá cả tờ rồi ghi lại** —
+   * mà xoá là gỡ luôn bản chụp đã đính và đẻ một dòng *"XOÁ hoá đơn…"* trong nhật ký chứng từ
+   * giá. Sổ sách tiền bẩn vì một lỗi đánh máy.
+   *
+   * 🔴 KHÔNG ĐỤNG `nhanTep`. Nhãn là mối nối tới bản chụp đã đính; đổi nó là tệp thành mồ côi và
+   * dòng mất bản chụp, im lặng. Sửa nội dung thì giữ nguyên mối nối.
+   *
+   * 📌 Nhật ký ghi RÕ GIÁ TRỊ CŨ → MỚI, không chỉ ghi "đã sửa": đây là số tiền, người đối chiếu
+   * sau này cần biết con số đã đổi từ bao nhiêu.
+   */
+  const suaHoaDonVAT = useCallback(
+    (
+      poId: string,
+      id: string,
+      thayDoi: { soHoaDon: string; ngayHoaDon: string; soTien: number },
+    ): string | null => {
+      const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+      const loi = vuongMacDongHoaDon(thayDoi);
+      if (loi) return loi;
+      const cu = giaDonHangRef.current
+        .find((g) => g.poId === poId)
+        ?.hoaDonVAT?.find((x) => x.id === id);
+      if (!cu) return "Không tìm thấy dòng hoá đơn này.";
+
+      const soHoaDon = thayDoi.soHoaDon.trim().slice(0, 60);
+      const soTien = Math.round(Number(thayDoi.soTien));
+      const moc: string[] = [];
+      if (cu.soHoaDon !== soHoaDon) moc.push(`số: ${cu.soHoaDon} → ${soHoaDon}`);
+      if (cu.ngayHoaDon !== thayDoi.ngayHoaDon) {
+        moc.push(`ngày: ${cu.ngayHoaDon} → ${thayDoi.ngayHoaDon}`);
+      }
+      if (Number(cu.soTien) !== soTien) {
+        moc.push(
+          `tiền: ${Number(cu.soTien).toLocaleString("vi-VN")} → ${soTien.toLocaleString("vi-VN")}`,
+        );
+      }
+      /* Không có gì đổi thì KHÔNG ghi — mở form ra rồi bấm Lưu mà không sửa gì cũng đẻ một dòng
+         nhật ký y hệt dòng trước thì sổ thành vô dụng. */
+      if (moc.length === 0) return null;
+
+      setGiaDonHang((truoc) =>
+        truoc.map((g) =>
+          g.poId !== poId
+            ? g
+            : {
+                ...g,
+                hoaDonVAT: (g.hoaDonVAT ?? []).map((x) =>
+                  x.id !== id ? x : { ...x, soHoaDon, ngayHoaDon: thayDoi.ngayHoaDon, soTien },
+                ),
+                lichSuDieuKhoanCongNo: [
+                  ...(g.lichSuDieuKhoanCongNo ?? []),
+                  {
+                    thoiDiem: thoiDiemHienTai(),
+                    nguoiThucHien: nguoiDung.tenHienThi,
+                    hanhDong: `Sửa hoá đơn ${cu.soHoaDon} — ${moc.join(" · ")}`,
+                  },
+                ],
+              },
+        ),
+      );
+      return null;
+    },
+    [nguoiDung, vuongMacDongHoaDon],
+  );
+
   const xoaHoaDonVAT = useCallback(
     (poId: string, id: string): string | null => {
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
@@ -9197,6 +9273,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       xoaDotThanhToan,
       datDieuKhoanCongNo,
       themHoaDonVAT,
+      suaHoaDonVAT,
       xoaHoaDonVAT,
       dinhTepHoaDonVAT,
       goTepHoaDonVAT,
@@ -9275,6 +9352,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       dinhKemPhieuGiao,
       datDieuKhoanCongNo,
       themHoaDonVAT,
+      suaHoaDonVAT,
       xoaHoaDonVAT,
       dinhTepHoaDonVAT,
       goTepHoaDonVAT,

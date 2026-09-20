@@ -23,7 +23,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { FileText, Plus, Trash2 } from "lucide-react";
+import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
@@ -32,6 +32,24 @@ import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep"
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { formatCurrencyVnd, formatDate, homNayISO } from "@/6-tien-ich/dinh-dang";
 import type { DongHoaDonVAT, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
+
+/**
+ * ★★ BỀ RỘNG CỘT — Sếp 20/09/2026: ***"Bố cục dãn ra cho hợp mắt, sao lại gom 1 lại góc vậy"***.
+ *
+ * 🔴 BẢN ĐẦU DÙNG BỀ RỘNG CỐ ĐỊNH (`9rem`, `6.5rem`…) nên cả bảng co cụm vào mép trái và để lại
+ * một khoảng trống lớn bên phải — đúng vùng Sếp khoanh đỏ. Nay mỗi cột là `minmax(tối thiểu, tỷ
+ * lệ)`: đủ rộng để không vỡ chữ, nhưng vẫn **dãn đều** theo bề ngang thật của mục.
+ *
+ * 📌 Cột số tiền chia phần lớn hơn (`1.2fr`) vì nó là con số dài nhất và cần căn phải cho thẳng
+ * hàng nghìn — cùng nếp với bảng Công nợ.
+ *
+ * ⚠️ Khai thành hằng số để hàng tiêu đề và các dòng dùng CHUNG một chuỗi. Viết lặp hai nơi là
+ * sớm muộn sửa một chỗ quên chỗ kia, rồi tiêu đề lệch khỏi cột nó đặt tên.
+ */
+const LUOI_CO_GIA =
+  "sm:grid-cols-[2rem_minmax(7rem,1.2fr)_minmax(6rem,1fr)_minmax(7rem,1.2fr)_minmax(9rem,1.4fr)_auto]";
+const LUOI_KHONG_GIA =
+  "sm:grid-cols-[2rem_minmax(7rem,1.2fr)_minmax(6rem,1fr)_minmax(9rem,1.6fr)_auto]";
 
 export function BangHoaDonVAT({
   poId,
@@ -44,6 +62,7 @@ export function BangHoaDonVAT({
   tepDaDinh,
   onThem,
   onXoa,
+  onSua,
   onDinhTep,
   onGoTep,
 }: {
@@ -66,6 +85,8 @@ export function BangHoaDonVAT({
   tepDaDinh: readonly MoTaTep[];
   onThem: (d: { soHoaDon: string; ngayHoaDon: string; soTien: number }) => string | null;
   onXoa: (id: string) => string | null;
+  /** Sửa số / ngày / số tiền của một tờ đã ghi (Sếp 20/09/2026). Không đụng bản chụp. */
+  onSua: (id: string, d: { soHoaDon: string; ngayHoaDon: string; soTien: number }) => string | null;
   /** Đính bản chụp cho ĐÚNG tờ hoá đơn này. Trả câu lý do khi bị chặn, `null` là xong. */
   onDinhTep: (idDong: string, tep: MoTaTep) => string | null;
   /** Gỡ bản chụp khỏi tờ hoá đơn này (tệp vẫn nằm trong kho, chỉ rời khỏi hồ sơ). */
@@ -76,6 +97,11 @@ export function BangHoaDonVAT({
   const [ngayHoaDon, setNgayHoaDon] = useState<string>(homNayISO());
   const [soTien, setSoTien] = useState("");
   const [hoiXoa, setHoiXoa] = useState<string | null>(null);
+  /** Tờ hoá đơn đang mở form sửa — `null` là không sửa tờ nào (Sếp 20/09/2026). */
+  const [dangSua, setDangSua] = useState<string | null>(null);
+  const [sSoHoaDon, setsSoHoaDon] = useState("");
+  const [sNgay, setsNgay] = useState<string>(homNayISO());
+  const [sTien, setsTien] = useState("");
 
   /* 📌 SẮP THEO NGÀY rồi mới đánh STT. STT là số thứ tự HIỂN THỊ, cố ý không lưu vào dữ liệu —
      lưu lại là sớm muộn có hai dòng cùng STT 3 sau một lần xoá, hoặc STT nhảy cóc 1-2-4. */
@@ -100,6 +126,18 @@ export function BangHoaDonVAT({
     setSoHoaDon("");
     setSoTien("");
     setNgayHoaDon(homNayISO());
+  }
+
+  /** Lưu bản sửa của một tờ — Sếp 20/09/2026. Cùng cách xử số tiền với `luu()` ở trên. */
+  function luuSua(id: string) {
+    const tien = Number(sTien.replace(/[.,\s]/g, ""));
+    const loi = onSua(id, { soHoaDon: sSoHoaDon, ngayHoaDon: sNgay, soTien: tien });
+    if (loi) {
+      toast.error(loi);
+      return;
+    }
+    toast.success("Đã sửa thông tin hoá đơn");
+    setDangSua(null);
   }
 
   return (
@@ -167,9 +205,7 @@ export function BangHoaDonVAT({
               tiêu đề cột thành vô nghĩa, còn tốn một dòng. */}
           <div
             className={`hidden gap-x-3 px-2 text-[11px] font-medium text-text-desc sm:grid ${
-              xemGia
-                ? "sm:grid-cols-[1.5rem_9rem_6.5rem_8rem_1fr_auto]"
-                : "sm:grid-cols-[1.5rem_9rem_6.5rem_1fr_auto]"
+              xemGia ? LUOI_CO_GIA : LUOI_KHONG_GIA
             }`}
           >
             <span>#</span>
@@ -179,14 +215,65 @@ export function BangHoaDonVAT({
             <span>Bản chụp</span>
             <span />
           </div>
-          {dsSapXep.map((d, i) => (
+          {dsSapXep.map((d, i) =>
+            /**
+              * ★ ĐANG SỬA THÌ THAY CẢ DÒNG BẰNG FORM, không chen ô nhập vào giữa các cột.
+              * Chen vào là hàng đó phình cao gấp đôi và mọi cột lệch khỏi tiêu đề — mắt mất chỗ
+              * bám đúng lúc người dùng cần đối chiếu con số cũ với con số đang gõ.
+              */
+            dangSua === d.id ? (
+              <div
+                key={d.id}
+                className="flex flex-wrap items-end gap-2 rounded-md border border-primary/40 bg-card px-2 py-2"
+              >
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor={`sua-so-${d.id}`}>Số hoá đơn</Label>
+                  <Input
+                    id={`sua-so-${d.id}`}
+                    value={sSoHoaDon}
+                    onChange={(e) => setsSoHoaDon(e.target.value)}
+                    className="w-44"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") luuSua(d.id);
+                      if (e.key === "Escape") setDangSua(null);
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor={`sua-ngay-${d.id}`}>Ngày hoá đơn</Label>
+                  <OChonNgay
+                    id={`sua-ngay-${d.id}`}
+                    nhan="Ngày hoá đơn"
+                    giaTri={sNgay}
+                    onDoi={setsNgay}
+                    xoaDuoc={false}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor={`sua-tien-${d.id}`}>Số tiền</Label>
+                  <Input
+                    id={`sua-tien-${d.id}`}
+                    inputMode="numeric"
+                    value={sTien}
+                    onChange={(e) => setsTien(e.target.value)}
+                    className="w-40"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") luuSua(d.id);
+                      if (e.key === "Escape") setDangSua(null);
+                    }}
+                  />
+                </div>
+                <Button onClick={() => luuSua(d.id)}>Lưu</Button>
+                <Button variant="ghost" onClick={() => setDangSua(null)}>
+                  Huỷ
+                </Button>
+              </div>
+            ) : (
             <div
               key={d.id}
-              className={`items-center gap-x-3 gap-y-1 rounded-md bg-muted/40 px-2 py-1.5 text-sm sm:grid ${
-                xemGia
-                  ? "sm:grid-cols-[1.5rem_9rem_6.5rem_8rem_1fr_auto]"
-                  : "sm:grid-cols-[1.5rem_9rem_6.5rem_1fr_auto]"
-              } flex flex-wrap`}
+              className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-muted/40 px-2 py-1.5 text-sm sm:grid ${
+                xemGia ? LUOI_CO_GIA : LUOI_KHONG_GIA
+              }`}
             >
               <span className="shrink-0 tabular-nums text-xs text-text-desc">{i + 1}.</span>
               {/* 📌 TÊN NGƯỜI GHI DỜI VÀO CHỮ RÊ CHUỘT, không còn in ra dòng. Tiền thì vẫn phải
@@ -240,18 +327,45 @@ export function BangHoaDonVAT({
               {/* 🔴 KHÔNG `ml-auto` — trong lưới cột thì nút tự nằm ở cột cuối. Dùng `ml-auto`
                   là nó bị đẩy ra tận mép phải thẻ, để lại đúng khoảng trống Sếp khoanh đỏ. */}
               {ghiDuoc && (
-                <button
-                  type="button"
-                  onClick={() => setHoiXoa(d.id)}
-                  title={`Xoá hoá đơn ${d.soHoaDon}`}
-                  className="ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger sm:ml-0 md:size-9"
-                >
-                  <Trash2 className="size-4" aria-hidden />
-                  <span className="sr-only">Xoá hoá đơn {d.soHoaDon}</span>
-                </button>
+                <span className="ml-auto flex shrink-0 items-center sm:ml-0">
+                  {/**
+                    * ★★ NÚT SỬA — Sếp 20/09/2026: ***"Thêm nút chỉnh sửa thông tin trên hoá đơn"***.
+                    *
+                    * 🔴 VÌ SAO CẦN: gõ nhầm một chữ số tiền thì trước đây phải **xoá cả tờ rồi ghi
+                    * lại** — mà xoá là gỡ luôn bản chụp đã đính và đẻ một dòng *"XOÁ hoá đơn…"*
+                    * trong nhật ký. Sổ sách tiền bẩn vì một lỗi đánh máy.
+                    *
+                    * 📌 Sửa KHÔNG đụng bản chụp: nhãn tệp giữ nguyên nên mối nối tới tệp còn y
+                    * nguyên (xem `suaHoaDonVAT` ở `3-du-lieu/kho-du-lieu.tsx`).
+                    */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDangSua(d.id);
+                      setsSoHoaDon(d.soHoaDon);
+                      setsNgay(String(d.ngayHoaDon));
+                      setsTien(String(d.soTien));
+                    }}
+                    title={`Sửa hoá đơn ${d.soHoaDon}`}
+                    className="inline-flex size-11 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-primary-bg hover:text-primary md:size-9"
+                  >
+                    <Pencil className="size-4" aria-hidden />
+                    <span className="sr-only">Sửa hoá đơn {d.soHoaDon}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHoiXoa(d.id)}
+                    title={`Xoá hoá đơn ${d.soHoaDon}`}
+                    className="inline-flex size-11 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger md:size-9"
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                    <span className="sr-only">Xoá hoá đơn {d.soHoaDon}</span>
+                  </button>
+                </span>
               )}
             </div>
-          ))}
+            ),
+          )}
         </div>
       )}
 

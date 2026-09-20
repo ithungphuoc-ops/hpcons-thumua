@@ -376,6 +376,37 @@ export function tongTienHoaDonCuaDon(
 }
 
 /**
+ * ★★★ CĂN CỨ TÍNH NỢ ĐANG CÓ HIỆU LỰC cho một đơn — **một chỗ duy nhất**, Sếp 20/09/2026.
+ *
+ * Sếp báo: *"hoá đơn này chưa thấy link tự động qua chức năng công nợ"*, rồi khi được hỏi có muốn
+ * app **tự** chuyển sang căn cứ hoá đơn ngay khi đơn có hoá đơn không, Sếp chốt: ***"E SỬA ĐI"***.
+ *
+ * Hai tầng, đúng thứ tự, đừng đảo:
+ *   ① Người dùng ĐÃ bấm chọn (`gia.canCuCongNo` có giá trị) → **tôn trọng tuyệt đối**, kể cả khi
+ *      họ chọn "theo PO" trong lúc đơn đã có hoá đơn. Đó vẫn là chỉ đạo 19/09 (*"Có cái sẽ dùng
+ *      theo PO, cái dùng theo hoá đơn"*) — nút vẫn còn, quyền quyết vẫn của người dùng.
+ *   ② Chưa ai bấm → **suy**: có hoá đơn thì lấy hoá đơn, chưa có thì lấy PO.
+ *
+ * 🔴 CHỈ ĐỔI GIÁ TRỊ MẶC ĐỊNH, KHÔNG ĐỔI QUYỀN QUYẾT. Trước hôm nay mặc định cứng là `"po"`, nên
+ * người dùng ghi hoá đơn xong vẫn thấy cột "Còn phải trả" giữ nguyên số của PO và tưởng app
+ * không nhận — đúng thứ Sếp vừa gặp. Sau khi sửa, đơn chưa ai đụng vào sẽ tự dùng con số hoá đơn.
+ *
+ * ⚠️ VẪN KHÔNG TỰ GHI `canCuCongNo` VÀO DỮ LIỆU. Đây là phép suy lúc đọc, không phải một lượt
+ * ghi: ghi tự động là app tự quyết thay người dùng rồi khoá luôn lựa chọn đó, và mỗi máy đang mở
+ * app sẽ đẩy một lượt ghi lên kho chung cho cùng một việc.
+ */
+export function canCuHieuLuc(
+  gia: { canCuCongNo?: CanCuCongNo; hoaDonVAT?: readonly unknown[]; tongTienHoaDon?: number } | undefined,
+): CanCuCongNo {
+  if (gia?.canCuCongNo === "hoa_don") return "hoa_don";
+  if (gia?.canCuCongNo === "po") return "po";
+  const coHoaDon =
+    (Array.isArray(gia?.hoaDonVAT) && gia.hoaDonVAT.length > 0) ||
+    typeof gia?.tongTienHoaDon === "number";
+  return coHoaDon ? "hoa_don" : "po";
+}
+
+/**
  * Chuỗi số hoá đơn hiện trên màn Công nợ — nối từ danh sách, hoặc trường cũ nếu chưa có danh sách.
  * Cùng luật ưu tiên với `tongTienHoaDonCuaDon`; hai thứ phải luôn nói về cùng một nguồn.
  */
@@ -444,7 +475,7 @@ export function congNoTheoDonHang(
     const tien = tinhTienChiTietPO(po, gia);
     const daTra = daTraCuaPO(po.id, dotChi);
     /* Căn cứ của RIÊNG đơn này — chưa ai chọn thì theo PO. */
-    const canCu: CanCuCongNo = gia?.canCuCongNo === "hoa_don" ? "hoa_don" : "po";
+    const canCu: CanCuCongNo = canCuHieuLuc(gia);
     /**
      * 🔴 `conLai` VÀ `daTatToan` TÍNH THEO ĐÚNG CĂN CỨ CỦA ĐƠN, không phải luôn theo PO.
      *
