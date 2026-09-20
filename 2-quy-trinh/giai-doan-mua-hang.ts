@@ -642,6 +642,164 @@ export function hanXuLyPODocLap(po: DonDatHang, moc: Date = new Date()): HanXuLy
 }
 
 // ------------------------------------------------------------
+// ★★ HẠN THEO TỪNG BƯỚC — Sếp 19/09/2026
+//
+// Nguyên văn: *"Nút thời gian này chưa hoạt động / Thời gian ở các bước này tính từ khi công việc
+// chuyển bước tới là bắt đầu tính / Nếu quá hạn thì đề nghị đó sẽ báo đỏ"*.
+//
+// 🔴 ĐÂY LÀ ĐỒNG HỒ THỨ HAI, KHÔNG THAY CÁI THỨ NHẤT. `hanXuLyDeNghi` ngay trên đếm theo **ngày
+// cần hàng của cả đề nghị** và có 5 màn khác đang dùng (`viec-cua-toi`, `tong-quan`,
+// `don-hang-danh-sach`, `timeline-de-nghi`, `cot-thong-tin-de-nghi`) cùng hai bảng KPI năng lực.
+// Đồng hồ này đếm theo **giờ hồ sơ ngồi ở một bước**. Hai thứ khác hẳn nhau về đơn vị lẫn ý nghĩa
+// — trộn vào một hàm là hỏng cả hai. Một agent phản biện 19/09 đã bác đề xuất "gom lại cho gọn".
+//
+// ⚠️ VÌ THẾ TRÊN THẺ PHẢI LÀ **BADGE CÓ CHỮ RIÊNG**, không nhuộm lại nền/viền thẻ. Thẻ đã có ba
+// nguồn tô đỏ (quá ngày cần hàng · nợ chứng từ · viền trái); thêm màu đỏ thứ tư thì nhìn thẻ đỏ
+// không ai biết đỏ vì lý do gì. Design System V1.1 cũng đòi trạng thái phải có CẢ màu VÀ chữ.
+// ------------------------------------------------------------
+
+/** Kết quả đo hạn của MỘT BƯỚC. `null` ở nơi gọi nghĩa là bước này không đặt hạn. */
+export interface HanBuoc {
+  nhan: string;
+  tong: Tong;
+  quaHan: boolean;
+  /** `false` = chưa tra ra hồ sơ vào bước lúc nào. Khi đó **không được báo đỏ** (Sếp chốt 19/09). */
+  coMoc: boolean;
+}
+
+/** Số giờ trôi qua giữa hai mốc, bỏ Chủ nhật nếu cấu hình bật. */
+export function gioTroiQua(tu: Date, den: Date, boQuaChuNhat: boolean): number {
+  const MS_GIO = 3_600_000;
+  if (!(tu.getTime() < den.getTime())) return 0;
+  if (!boQuaChuNhat) return (den.getTime() - tu.getTime()) / MS_GIO;
+
+  /* 🔴 CHẶN VÒNG LẶP DÀI. Mốc hỏng (dữ liệu rác, năm 1970) mà cứ lặp từng ngày thì hai chục nghìn
+     vòng × mỗi thẻ × mỗi nhịp đồng hồ = treo trình duyệt. Quá 400 ngày thì tính xấp xỉ: bỏ đúng
+     1/7 tổng thời gian, sai số không đáng kể vì hồ sơ đó chắc chắn đã quá hạn từ lâu. */
+  const tongThoLuong = (den.getTime() - tu.getTime()) / MS_GIO;
+  if (tongThoLuong > 400 * 24) return tongThoLuong * (6 / 7);
+
+  let tong = 0;
+  let con = tu.getTime();
+  while (con < den.getTime()) {
+    const d = new Date(con);
+    /* Nửa đêm hôm sau THEO GIỜ ĐỊA PHƯƠNG — dùng `getFullYear/getMonth/getDate` chứ không phải
+       chuỗi ISO. Ở UTC+7 mà cắt ngày bằng `toISOString()` thì mọi mốc trước 07:00 sáng rơi nhầm
+       về hôm trước (bẫy đã ghi ở `2-quy-trinh/lich-cong-viec.ts`). */
+    const nuaDemSau = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+    const het = Math.min(nuaDemSau, den.getTime());
+    if (d.getDay() !== 0) tong += (het - con) / MS_GIO;
+    con = het;
+  }
+  return tong;
+}
+
+/** "3 giờ" · "45 phút" · "2 ngày 4 giờ" — chữ ngắn đủ đọc trên thẻ 240px. */
+function chuoiKhoangGio(gio: number): string {
+  const g = Math.abs(gio);
+  if (g < 1) return `${Math.max(1, Math.round(g * 60))} phút`;
+  if (g < 24) return `${Math.round(g)} giờ`;
+  const ngay = Math.floor(g / 24);
+  const du = Math.round(g - ngay * 24);
+  return du > 0 ? `${ngay} ngày ${du} giờ` : `${ngay} ngày`;
+}
+
+/**
+ * Đo hạn của bước đang đứng.
+ *
+ * @param mocVaoBuoc ISO đầy đủ giờ phút, hoặc `undefined` khi chưa tra ra được.
+ * @param hanGio     Hạn của bước, lấy từ `cauHinh.hanGioTheoBuoc`. `0`/thiếu = không đặt hạn.
+ * @returns `null` khi bước không đặt hạn — nơi gọi đừng vẽ gì cả.
+ *
+ * 🔴 CHƯA CÓ MỐC THÌ KHÔNG ĐỎ — Sếp chốt 19/09/2026. Coi thiếu mốc là 0 giờ thì cả bảng đỏ rực
+ * ngay lần deploy đầu; coi thiếu mốc là "vừa vào bước" thì mọi hồ sơ tồn đọng từ tuần trước được
+ * tha oan. Cả hai đều là app nói dối, chỉ khác chiều. Nói thẳng "chưa có mốc" là cách duy nhất
+ * thật thà.
+ */
+export function hanTheoBuoc(
+  mocVaoBuoc: string | undefined,
+  hanGio: number | undefined,
+  moc: Date = new Date(),
+  boQuaChuNhat = true,
+): HanBuoc | null {
+  if (!hanGio || hanGio <= 0) return null;
+  if (!mocVaoBuoc) {
+    return { nhan: "Chưa có mốc vào bước", tong: "neutral", quaHan: false, coMoc: false };
+  }
+  const tu = new Date(mocVaoBuoc);
+  if (Number.isNaN(tu.getTime())) {
+    return { nhan: "Chưa có mốc vào bước", tong: "neutral", quaHan: false, coMoc: false };
+  }
+
+  const daTroi = gioTroiQua(tu, moc, boQuaChuNhat);
+  const conLai = hanGio - daTroi;
+  if (conLai < 0) {
+    return { nhan: `Trễ ${chuoiKhoangGio(conLai)}`, tong: "danger", quaHan: true, coMoc: true };
+  }
+  /* Ngưỡng cảnh báo = 1/4 hạn còn lại. Với bước 4 giờ là còn 1 giờ, với bước 12 giờ là còn 3 giờ —
+     tỷ lệ chứ không phải con số cứng, vì hạn từng bước chênh nhau gấp ba lần. */
+  const tong: Tong = conLai <= hanGio / 4 ? "warning" : "primary";
+  return { nhan: `Còn ${chuoiKhoangGio(conLai)}`, tong, quaHan: false, coMoc: true };
+}
+
+/**
+ * ★★ TRA MỐC VÀO BƯỚC — BA TẦNG, hết tầng này mới xuống tầng sau.
+ *
+ * 🔴 VÌ SAO KHÔNG CHỈ DÙNG `deNghi.mocVaoBuoc`: app mới bắt đầu ghi mốc từ 19/09/2026, mà mốc chỉ
+ * ghi được khi có trình duyệt đang mở app ĐÚNG lúc hồ sơ chuyển bước. Hồ sơ đã nằm sẵn ở bước
+ * ②–⑦ từ hôm qua thì không bao giờ có mốc ⇒ tính năng **im lặng với toàn bộ hồ sơ tồn đọng**,
+ * đúng thứ Sếp muốn nhìn thấy nhất. Một agent phản biện 19/09 đo ra chỗ này và nó đúng.
+ *
+ *   ① `mocVaoBuoc` đã ghi, VÀ đúng bước đang đứng.
+ *   ② Thông báo chuyển bước gần nhất có `denBuoc` = bước đang đứng — app đã lưu sẵn, có ISO đầy
+ *      đủ giờ phút. ⚠️ Phải BỎ tin `tuBuoc` trống: đó là tin "đề nghị mới vào bảng", không phải
+ *      chuyển bước.
+ *   ③ Dòng SỚM NHẤT trong nhật ký — **chỉ dùng cho bước đầu tiên**. Lúc đó "vào bước ①" đúng
+ *      bằng "hồ sơ vào app". Dùng tầng này cho bước khác là bịa.
+ *
+ * ⚠️ Tầng ② có giới hạn thật: danh sách thông báo bị cắt còn 30 tin cho CẢ PHÒNG
+ * (`kho-du-lieu.tsx`), nên hồ sơ cũ sẽ rơi khỏi danh sách. Đó là lý do nó là tầng bù, không phải
+ * nguồn chính — và vì sao tầng ③ vẫn cần.
+ */
+export function traMocVaoBuoc(
+  deNghi: DeNghiMuaHang,
+  giaiDoan: GiaiDoanMuaHang,
+  thongBao?: readonly { prId: string; tuBuoc?: string; denBuoc: string; thoiDiem: string }[],
+): string | undefined {
+  // ① Mốc đã ghi — chỉ dùng khi còn đúng bước (hồ sơ lùi bước thì đếm lại từ đầu).
+  if (deNghi.mocVaoBuoc?.buoc === giaiDoan && deNghi.mocVaoBuoc.thoiDiem) {
+    return deNghi.mocVaoBuoc.thoiDiem;
+  }
+
+  // ② Thông báo chuyển bước gần nhất tới đúng bước này.
+  if (thongBao?.length) {
+    let moiNhat: string | undefined;
+    for (const t of thongBao) {
+      if (t.prId !== deNghi.id || t.denBuoc !== giaiDoan) continue;
+      if (!t.tuBuoc) continue; // tin "đề nghị mới vào bảng", không phải chuyển bước
+      if (!moiNhat || t.thoiDiem > moiNhat) moiNhat = t.thoiDiem;
+    }
+    if (moiNhat) return moiNhat;
+  }
+
+  // ③ Dòng sớm nhất trong nhật ký — CHỈ cho bước đầu tiên.
+  if (giaiDoan === THU_TU_GIAI_DOAN[0]) {
+    /* ⚠️ `lichSu` khai là bắt buộc nhưng dữ liệu đọc từ Firestore KHÔNG qua phép kiểm từng phần
+       tử (`chuanHoa` chỉ hỏi `Array.isArray(d.deNghi)`), nên ở runtime nó có thể `undefined`. */
+    const ds = Array.isArray(deNghi.lichSu) ? deNghi.lichSu : [];
+    let somNhat: string | undefined;
+    for (const m of ds) {
+      const t = m?.thoiDiem;
+      if (typeof t !== "string" || !t) continue;
+      if (!somNhat || t < somNhat) somNhat = t;
+    }
+    return somNhat;
+  }
+
+  return undefined;
+}
+
+// ------------------------------------------------------------
 // GOM NHÓM CHO BẢNG
 // ------------------------------------------------------------
 
@@ -649,6 +807,13 @@ export interface TheDeNghiTrenBang {
   deNghi: DeNghiMuaHang;
   giaiDoan: GiaiDoanMuaHang;
   han: HanXuLy;
+  /**
+   * ★ ĐỒNG HỒ CỦA BƯỚC ĐANG ĐỨNG — Sếp 19/09/2026. `undefined` = bước này không đặt hạn.
+   *
+   * 🔴 KHÁC HẲN `han` ngay trên: `han` đếm theo NGÀY CẦN HÀNG của cả đề nghị, cái này đếm theo
+   * GIỜ hồ sơ ngồi ở một bước. Đừng gộp, đừng thay — xem khối chú thích ở `hanTheoBuoc`.
+   */
+  hanBuoc?: HanBuoc;
   /** Người phụ trách lấy từ các dòng đã phân bổ, không trùng lặp. */
   nguoiPhuTrach: string[];
   /**
@@ -785,6 +950,17 @@ export function dungBangQuyTrinh(
    * chỉ bày (trang in), vì thiếu một lời nhắc không cho lọt hành động sai nào.
    */
   tinhVuongMacBaoGia?: (dn: DeNghiMuaHang) => string | null,
+  /**
+   * ★ Thông báo chuyển bước của cả phòng — tầng bù để tra mốc vào bước (Sếp 19/09/2026).
+   *
+   * ⚠️ THÊM Ở CUỐI DANH SÁCH THAM SỐ, cố ý. Chèn vào giữa là mọi nơi gọi phải sửa theo đúng thứ
+   * tự, và bài kiểm `kiem-luat-dung-chung.mjs` gọi hàm này với 5 tham số sẽ lặng lẽ truyền nhầm
+   * chỗ — hỏng mà không lỗi nào báo.
+   *
+   * 📌 Bỏ trống = chỉ còn tầng ① và ③ (xem `traMocVaoBuoc`). Chấp nhận được ở nơi chỉ bày như
+   * trang in: thiếu một đồng hồ không cho lọt hành động sai nào.
+   */
+  thongBaoChuyenBuoc?: readonly { prId: string; tuBuoc?: string; denBuoc: string; thoiDiem: string }[],
 ): CotBangQuyTrinh[] {
   // 🔴 BỎ HỒ SƠ ĐÃ LƯU TRỮ khỏi bảng (chỉ đạo Ban lãnh đạo 10/08/2026, menu ⋯ theo Base).
   // Lưu trữ ≠ đóng dở: hồ sơ vẫn nguyên trạng thái nghiệp vụ, chỉ không hiện trên bảng cho
@@ -800,6 +976,16 @@ export function dungBangQuyTrinh(
       deNghi,
       giaiDoan,
       han: hanXuLyDeNghi(deNghi, giaiDoan, moc),
+      /* ★ Đồng hồ của bước (Sếp 19/09/2026). Hồ sơ đã kết thúc thì thôi đếm — không ai còn phải
+         làm gì với nó nữa, đếm tiếp chỉ tô đỏ vô nghĩa. */
+      hanBuoc: giaiDoanDaKetThuc(giaiDoan)
+        ? undefined
+        : (hanTheoBuoc(
+            traMocVaoBuoc(deNghi, giaiDoan, thongBaoChuyenBuoc),
+            cauHinh.hanGioTheoBuoc?.[giaiDoan],
+            moc,
+            cauHinh.caiDatTungBuoc?.[giaiDoan]?.boQuaChuNhat ?? true,
+          ) ?? undefined),
       nguoiPhuTrach: [
         ...new Set(
           deNghi.items

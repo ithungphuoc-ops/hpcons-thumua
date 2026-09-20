@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import NextDynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, FileText, LayoutGrid, List, X } from "lucide-react";
 /* 📌 KHÔNG còn import `DropdownMenu*` và `MoreHorizontal` ở đây (13/09/2026): menu ⋯ của pop-up
@@ -135,7 +135,29 @@ export default function TrangDanhSachDeNghi() {
     ghiLichSuDeNghi,
     danhDauCongViecGiaiDoan,
     datSoBaoGiaChoPhieu,
+    /* ★ Dùng làm tầng bù tra mốc vào bước (Sếp 19/09/2026) — xem `traMocVaoBuoc`. */
+    thongBao,
   } = useDuLieu();
+
+  /**
+   * ★★ NHỊP ĐỒNG HỒ CHO ĐỒNG HỒ THEO BƯỚC — Sếp 19/09/2026.
+   *
+   * 🔴 KHÔNG CÓ CÁI NÀY THÌ THẺ KHÔNG BAO GIỜ TỰ CHUYỂN ĐỎ. `useMemo` dựng bảng chỉ chạy lại khi
+   * dữ liệu đổi; hạn theo NGÀY thì ít lộ, nhưng hạn theo GIỜ thì tới hạn rồi mà thẻ vẫn xanh cho
+   * tới khi có người sửa dữ liệu hoặc bấm F5.
+   *
+   * 🔴 LÀM TRÒN THEO PHÚT, KHÔNG ĐỂ `Date.now()` THÔ. Giá trị thô đổi mỗi 30 giây là `useMemo`
+   * dựng lại cả bảng (chạy `xacDinhGiaiDoan` cho mọi hồ sơ + sắp xếp) hai lần mỗi phút, vô ích vì
+   * chữ trên badge tính theo phút. Làm tròn xuống phút thì mỗi phút mới dựng lại đúng một lần.
+   *
+   * 📌 Nhịp 30 giây chép theo nếp sẵn có của `1-giao-dien/khung-app/dong-ho.tsx` — đặt bằng phút
+   * thì badge có thể trễ tới gần một phút so với mốc thật.
+   */
+  const [nhipPhut, setNhipPhut] = useState(() => Math.floor(Date.now() / 60_000) * 60_000);
+  useEffect(() => {
+    const id = setInterval(() => setNhipPhut(Math.floor(Date.now() / 60_000) * 60_000), 30_000);
+    return () => clearInterval(id);
+  }, []);
   const { nguoiDung, quyen } = useNguoiDung();
   const [cachXem, setCachXem] = useState<CachXem>("bang");
 
@@ -266,15 +288,18 @@ export default function TrangDanhSachDeNghi() {
         baoGia,
         phieuNhan,
         cauHinh,
-        new Date(),
+        new Date(nhipPhut),
         nguoiDung.uid,
         /* Dấu đỏ "thiếu báo giá" ở bước ② — cùng luật với nút "Trình xét duyệt báo giá" nên thẻ
            và nút không bao giờ nói khác nhau (Ban lãnh đạo 24/08/2026).
            📌 Bọc lại vì từ 24/08 hàm này cần cả `cauHinh` (nó đọc `soBaoGiaToiThieu`), còn
            `dungBangQuyTrinh` chỉ truyền một tham số là đề nghị. */
         (dn) => vuongMacTrinhXetDuyet(dn, cauHinh),
+        /* ★ Thông báo chuyển bước — tầng bù để tra mốc vào bước (Sếp 19/09/2026).
+           Xem `traMocVaoBuoc` ở `2-quy-trinh/giai-doan-mua-hang.ts`. */
+        thongBao,
       ),
-    [deNghi, donHang, baoGia, phieuNhan, cauHinh, nguoiDung.uid],
+    [deNghi, donHang, baoGia, phieuNhan, cauHinh, nguoiDung.uid, nhipPhut, thongBao],
   );
 
   /**

@@ -8175,6 +8175,158 @@ kiem("Nhan tren the KHONG con so khoanh ④ — ghi du chu", CHU_SEP_NHAN_DU_CHU
 });
 
 // ════════════════════════════════════════════════════════════════════
+// ĐỒNG HỒ THEO BƯỚC — Sếp 19/09/2026
+//
+// *"Nút thời gian này chưa hoạt động / Thời gian ở các bước này tính từ khi công việc chuyển bước
+// tới là bắt đầu tính / Nếu quá hạn thì đề nghị đó sẽ báo đỏ"*
+//
+// Hỏi lại, Sếp chốt thêm ba điều:
+//   · đầu cột GIỮ hạn chuẩn (chỉ đạo 15/09), đồng hồ đếm nằm trên TỪNG THẺ
+//   · hồ sơ chưa tra ra mốc → ghi "Chưa có mốc", **KHÔNG báo đỏ**
+//   · tính theo giờ làm việc **bỏ Chủ nhật**, thứ Bảy vẫn tính
+//   · hồ sơ bị kéo LÙI rồi đẩy lên lại → đồng hồ **đếm lại từ đầu**
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_DONG_HO_BUOC =
+  'Sếp · 19/09/2026 — *"Thời gian ở các bước này tính từ khi công việc chuyển bước tới là bắt ' +
+  'đầu tính / Nếu quá hạn thì đề nghị đó sẽ báo đỏ"*';
+
+kiem("Qua han buoc -> BAO DO (tong danger, quaHan=true)", CHU_SEP_DONG_HO_BUOC, () => {
+  /* Vao buoc luc 08:00 thu Hai, han 4 gio, bay gio la 14:00 cung ngay -> tre 2 gio. */
+  const vao = new Date(2026, 8, 14, 8, 0, 0); // 14/09/2026 la thu Hai
+  const bayGio = new Date(2026, 8, 14, 14, 0, 0);
+  const r = G.hanTheoBuoc(vao.toISOString(), 4, bayGio, true);
+  return {
+    duoc: r !== null && r.quaHan === true && r.tong === "danger" && r.coMoc === true,
+    thucTe: JSON.stringify(r),
+    mongDoi: "quaHan=true · tong=danger · coMoc=true",
+  };
+});
+
+kiem(
+  "CHIEU NGHICH — CHUA co moc thi KHONG duoc bao do",
+  CHU_SEP_DONG_HO_BUOC + ' + Sếp chốt "Ghi Chưa có mốc, không báo đỏ"',
+  () => {
+    /* 🔴 Chot cua Sep 19/09. Coi thieu moc = 0 gio thi ca bang do ruc ngay lan deploy dau;
+       coi thieu moc = vua vao buoc thi ho so ton dong tu tuan truoc duoc tha oan. Ca hai deu
+       la app noi doi, chi khac chieu. */
+    const r = G.hanTheoBuoc(undefined, 4, new Date(2026, 8, 14, 14, 0, 0), true);
+    const rRac = G.hanTheoBuoc("khong-phai-ngay", 4, new Date(2026, 8, 14, 14, 0, 0), true);
+    return {
+      duoc:
+        r !== null && r.quaHan === false && r.coMoc === false &&
+        rRac !== null && rRac.quaHan === false && rRac.coMoc === false,
+      thucTe: `khong moc=${JSON.stringify(r)} · moc rac=${JSON.stringify(rRac)}`,
+      mongDoi: "ca hai: quaHan=false, coMoc=false (chuoi ngay hong cung phai an toan)",
+    };
+  },
+);
+
+kiem("Buoc KHONG dat han -> khong ve gi (tra null)", CHU_SEP_DONG_HO_BUOC, () => {
+  /* Buoc "Tien hanh nhan hang" mac dinh han = 0 = khong dat han. Ve badge "Tre 900 gio" cho
+     buoc do la bao dong gia — chot mat tin cay con te hon khong co chot. */
+  const vao = new Date(2026, 8, 1, 8, 0, 0).toISOString();
+  const r0 = G.hanTheoBuoc(vao, 0, new Date(2026, 8, 14), true);
+  const rU = G.hanTheoBuoc(vao, undefined, new Date(2026, 8, 14), true);
+  return {
+    duoc: r0 === null && rU === null,
+    thucTe: `han 0 -> ${JSON.stringify(r0)} · han undefined -> ${JSON.stringify(rU)}`,
+    mongDoi: "ca hai tra null",
+  };
+});
+
+kiem(
+  "Bo qua CHU NHAT: thu Bay VAN tinh, Chu nhat KHONG tinh",
+  CHU_SEP_DONG_HO_BUOC + ' + Sếp chốt "giờ làm việc nhưng chỉ bỏ Chủ nhật"',
+  () => {
+    /* 19/09/2026 la thu Bay, 20/09 Chu nhat, 21/09 thu Hai.
+       Tu 12:00 thu Bay -> 12:00 thu Hai = 48 gio lich, bo tron 24 gio Chu nhat con 24. */
+    const tu = new Date(2026, 8, 19, 12, 0, 0);
+    const den = new Date(2026, 8, 21, 12, 0, 0);
+    const coBo = G.gioTroiQua(tu, den, true);
+    const khongBo = G.gioTroiQua(tu, den, false);
+    /* Chieu nghich trong cung mot bai: thu Bay phai VAN duoc tinh. 12:00 thu Sau -> 12:00 thu Bay
+       la 24 gio, bo Chu nhat khong anh huong gi. */
+    const thuBay = G.gioTroiQua(new Date(2026, 8, 18, 12), new Date(2026, 8, 19, 12), true);
+    return {
+      duoc: Math.round(coBo) === 24 && Math.round(khongBo) === 48 && Math.round(thuBay) === 24,
+      thucTe: `bo CN=${coBo} · khong bo=${khongBo} · qua thu Bay=${thuBay}`,
+      mongDoi: "24 · 48 · 24 (Chu nhat bi tru, thu Bay van tinh)",
+    };
+  },
+);
+
+kiem(
+  "Moc CU cua buoc KHAC khong duoc dung cho buoc dang dung",
+  CHU_SEP_DONG_HO_BUOC + ' + Sếp chốt "lùi bước thì đếm lại từ đầu"',
+  () => {
+    /* 🔴 Vi sao `mocVaoBuoc` phai luu CA `buoc` lan `thoiDiem`: ho so lui buoc roi day len lai thi
+       dong ho dem lai tu dau. Chi luu thoi diem thi khong phan biet duoc "moc cua buoc nay" voi
+       "moc cu cua buoc khac con sot lai". */
+    const dn = {
+      id: "pr-x",
+      lichSu: [],
+      mocVaoBuoc: { buoc: "tiep_nhan", thoiDiem: new Date(2026, 8, 1, 8).toISOString() },
+    };
+    const dungBuoc = G.traMocVaoBuoc(dn, "tiep_nhan");
+    const khacBuoc = G.traMocVaoBuoc(dn, "dat_hang");
+    return {
+      duoc: Boolean(dungBuoc) && khacBuoc === undefined,
+      thucTe: `dung buoc=${JSON.stringify(dungBuoc)} · khac buoc=${JSON.stringify(khacBuoc)}`,
+      mongDoi: "dung buoc co moc · khac buoc KHONG lay moc cu",
+    };
+  },
+);
+
+kiem(
+  "Tang bu: tra duoc moc tu THONG BAO chuyen buoc va tu NHAT KY",
+  CHU_SEP_DONG_HO_BUOC,
+  () => {
+    /* 🔴 Khong co tang bu thi tinh nang IM LANG voi toan bo ho so ton dong: app chi ghi moc tu
+       19/09/2026, ma ho so da nam san o buoc ②–⑦ tu hom qua thi khong bao gio co moc. */
+    const dn = {
+      id: "pr-y",
+      lichSu: [
+        { thoiDiem: new Date(2026, 8, 10, 9).toISOString(), nguoiThucHien: "A", hanhDong: "Tao" },
+        { thoiDiem: new Date(2026, 8, 12, 9).toISOString(), nguoiThucHien: "A", hanhDong: "Sua" },
+      ],
+    };
+    const tb = [
+      { prId: "pr-y", tuBuoc: "tiep_nhan", denBuoc: "dat_hang", thoiDiem: new Date(2026, 8, 13, 10).toISOString() },
+      /* Tin "de nghi moi vao bang" — `tuBuoc` trong. PHAI bi bo qua, no khong phai chuyen buoc. */
+      { prId: "pr-y", denBuoc: "dat_hang", thoiDiem: new Date(2026, 8, 18, 10).toISOString() },
+    ];
+    const tuThongBao = G.traMocVaoBuoc(dn, "dat_hang", tb);
+    const tuNhatKy = G.traMocVaoBuoc(dn, "tiep_nhan");
+    return {
+      duoc:
+        tuThongBao === tb[0].thoiDiem &&
+        tuNhatKy === dn.lichSu[0].thoiDiem,
+      thucTe: `tu thong bao=${tuThongBao} · tu nhat ky=${tuNhatKy}`,
+      mongDoi: "lay tin CO tuBuoc (bo tin tuBuoc trong) · nhat ky lay dong SOM NHAT",
+    };
+  },
+);
+
+kiem(
+  "CHIEU NGHICH — nhat ky CHI dung cho buoc DAU, khong bia cho buoc khac",
+  CHU_SEP_DONG_HO_BUOC,
+  () => {
+    /* Dung dong dau nhat ky lam moc cho buoc ⑤ la bia: luc do ho so vao APP chu khong vao BUOC do. */
+    const dn = {
+      id: "pr-z",
+      lichSu: [{ thoiDiem: new Date(2026, 8, 10, 9).toISOString(), nguoiThucHien: "A", hanhDong: "Tao" }],
+    };
+    const r = G.traMocVaoBuoc(dn, "dat_hang");
+    return {
+      duoc: r === undefined,
+      thucTe: JSON.stringify(r),
+      mongDoi: "undefined — khong lay dong dau nhat ky lam moc cho buoc giua chung",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // PHÒNG BAN KHÁC CHỈ CÒN "THEO DÕI ĐỀ NGHỊ" — Sếp 18/09/2026
 //
 // Nguyên văn: *"Ở tài khoản của các phòng ban khác khi phân quyền thì chỉ mở được chức năng

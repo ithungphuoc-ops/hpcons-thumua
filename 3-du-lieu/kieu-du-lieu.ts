@@ -257,6 +257,24 @@ export interface DeNghiMuaHang {
   lichSu: MocLichSu[];
   /** Người được thêm vào để nắm tiến trình. Trống = chưa có ai theo dõi. */
   nguoiTheoDoi?: NguoiTheoDoi[];
+  /**
+   * ★★ HỒ SƠ VÀO BƯỚC HIỆN TẠI LÚC NÀO — Sếp 19/09/2026: *"Thời gian ở các bước này tính từ khi
+   * công việc chuyển bước tới là bắt đầu tính / Nếu quá hạn thì đề nghị đó sẽ báo đỏ"*.
+   *
+   * 🔴 TUỲ CHỌN, VÀ PHẢI GIỮ TUỲ CHỌN MÃI MÃI. Trước 19/09/2026 app **chưa bao giờ** lưu thời điểm
+   * chuyển bước — giai đoạn được suy ra từ chứng từ mỗi lần vẽ (`xacDinhGiaiDoan`). Nên mọi hồ sơ
+   * lập trước hôm nay đều không có trường này, và ép kiểu bắt buộc là vỡ toàn bộ dữ liệu cũ.
+   *
+   * 🔴 `buoc` ĐI KÈM `thoiDiem` LÀ BẮT BUỘC, đừng rút gọn còn mỗi thời điểm. Hồ sơ bị kéo LÙI rồi
+   * đẩy lên lại thì đồng hồ **đếm lại từ đầu** (Sếp chốt 19/09/2026) — muốn biết mốc này còn đúng
+   * cho bước đang đứng hay không thì phải so `buoc` với giai đoạn hiện tại. Chỉ có thời điểm thì
+   * không phân biệt được "mốc của bước này" với "mốc cũ của bước khác còn sót lại".
+   *
+   * ⚠️ `thoiDiem` là ISO **đầy đủ giờ phút** (`thoiDiemHienTai()` ở `6-tien-ich/dinh-dang.ts`),
+   * KHÔNG phải `NgayISO`. Hạn của bước tính bằng GIỜ nên mốc chỉ có ngày là vô dụng: `new
+   * Date("2026-09-15")` ra 00:00 UTC = 07:00 giờ Việt Nam, hồ sơ lập buổi chiều sẽ đỏ ngay lúc tạo.
+   */
+  mocVaoBuoc?: { buoc: string; thoiDiem: string };
   /* 📌 12/08/2026 (chiều): ĐÃ GỠ các trường duyệt hai cấp (`duyetCap1/2`,
      `nguoiDuyetCap1/2`, `duyetBoPhan`). Ban lãnh đạo chốt: việc duyệt đề nghị nằm ở APP
      KHÁC của bộ phận đề xuất — phiếu vào app Thu mua là ĐÃ duyệt (`ngayDuyet` luôn có).

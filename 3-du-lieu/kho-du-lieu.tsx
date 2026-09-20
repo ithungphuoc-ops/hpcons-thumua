@@ -2701,6 +2701,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          * chữa sự cố. Xem chú thích đầu `3-du-lieu/moc-thu-lai-qlk-ctr.ts`.
          */
         const noiDungDaDoi = canDongBoLaiPO(po, deNghiGoc);
+        /* ⑥ xem ngay dưới hai câu chốt ⑤. */
         /* 🔴 CHỐT ⑤ (15/09/2026 đêm): CHỈ `failed` (lỗi tạm thời) mới vào hàng thử lại.
            `can_xu_ly_tay` (Kho trả lỗi vĩnh viễn: không có đề nghị, sai dữ liệu…) đứng ngoài —
            gửi lại y nguyên không bao giờ khác, chỉ sửa đơn (nội dung đổi) mới gửi lại. Đây là
@@ -2708,6 +2709,40 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         const thuLaiSauLoi = coTuThuLaiQlkCtr(po.qlkCtrSyncStatus);
         if (!thuLaiSauLoi && !noiDungDaDoi) continue;
         if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)) {
+          continue;
+        }
+        /**
+         * 🔴🔴 CHỐT ⑥ (19/09/2026) — BỊT CHỖ HỞ CỦA CHÍNH HAI CHỐT NGAY TRÊN.
+         *
+         * Sếp gửi ảnh console bản thật: **6 dòng 404** cho `DMH260001·03·06·07·09·10`, lặp lại mỗi
+         * lần mở trang. Đo ra: cả 6 PO đều `can_xu_ly_tay` **và chưa từng gửi thành công lần nào**
+         * nên `qlkCtrSyncedSnapshot` rỗng.
+         *
+         * Chuỗi nhân quả: `canDongBoLaiPO` so payload với snapshot; KHÔNG có snapshot thì phép so
+         * **luôn khác** ⇒ `noiDungDaDoi = true` ⇒ chốt ⑤ (`!thuLaiSauLoi && !noiDungDaDoi`) không
+         * bao giờ chặn, và chốt ④ (độ trễ) cũng bị đi vòng vì nó chỉ áp khi `thuLaiSauLoi`.
+         * Kết quả: lỗi VĨNH VIỄN được thử lại vô hạn — đúng thứ hai chốt kia sinh ra để chặn.
+         *
+         * ⚠️ VÌ SAO KHÔNG SỬA `canDongBoLaiPO` CHO "SNAPSHOT RỖNG = KHÔNG ĐỔI": một agent phản
+         * biện 19/09 mô phỏng trên 15 PO thật, đo ra cách đó làm **10/15 PO bị bỏ qua vĩnh viễn**
+         * — gồm 6 PO công trình thật — mà app **cố ý không có nút "Gửi lại"**
+         * (`trang/don-hang-chi-tiet.tsx`), nên không còn đường nào cứu. Hàm đó cũng nằm trong vùng
+         * cấm sửa §6.6.
+         *
+         * ✅ CÁCH NÀY CHỈ GIÃN NHỊP, KHÔNG CHẶN HẲN: bắt nhóm "lỗi vĩnh viễn chưa từng gửi được"
+         * đi qua **đúng bậc chờ đã có** (1 phút → 5 phút → 30 phút → 2 giờ). Lần đầu mở app vẫn
+         * thử, các lần sau im — console sạch. Khi bên QLK CTR bổ sung đề nghị còn thiếu thì tới
+         * bậc chờ kế tiếp là tự gửi được, không ai phải bấm gì.
+         *
+         * 📌 GỐC RỄ KHÔNG NẰM Ở APP THU MUA: 6 PO đó lỗi vì ba đề nghị `000000096` · `000000098` ·
+         * `000000100` **chưa được App Request đồng bộ sang QLK CTR**. Đây là chống ồn, không phải
+         * chữa bệnh — phải báo phiên tích hợp.
+         */
+        if (
+          !thuLaiSauLoi &&
+          !po.qlkCtrSyncedSnapshot &&
+          !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)
+        ) {
           continue;
         }
         daThuDongBoQlkCtrPhienNay.current.add(po.id);
@@ -2783,6 +2818,16 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         const thuLaiSauLoi = coTuThuLaiQlkCtr(po.qlkCtrSyncStatus);
         if (!thuLaiSauLoi && !noiDungDaDoi) continue;
         if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)) {
+          continue;
+        }
+        /* 🔴 CHỐT ⑥ (19/09/2026) — y hệt nhánh PO có đề nghị ở trên, đọc chú thích dài tại đó.
+           HAI NHÁNH PHẢI GIỐNG NHAU: vá một nhánh thì nhánh kia vẫn dội 404 mỗi lần tải trang,
+           và PO độc lập chính là loại dễ kẹt lỗi vĩnh viễn nhất. */
+        if (
+          !thuLaiSauLoi &&
+          !po.qlkCtrSyncedSnapshot &&
+          !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)
+        ) {
           continue;
         }
         daThuDongBoQlkCtrPhienNay.current.add(po.id);
@@ -3512,6 +3557,28 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     }
 
     const moi: ThongBaoChuyenBuoc[] = [];
+    /**
+     * ★★ MỐC VÀO BƯỚC — Sếp 19/09/2026: *"Thời gian ở các bước này tính từ khi công việc chuyển
+     * bước tới là bắt đầu tính"*.
+     *
+     * 🔴 GHI Ở ĐÂY VÌ ĐÂY LÀ NƠI DUY NHẤT TRONG APP BIẾT `buocCu → buocMoi`. Giai đoạn không được
+     * lưu trong dữ liệu mà suy ra mỗi lần vẽ (`xacDinhGiaiDoan`), nên không có chỗ nào khác nhận
+     * ra khoảnh khắc chuyển bước.
+     *
+     * 🔴 CỐ Ý KHÔNG GỌI `ghiLichSuDeNghi` — LỆCH LUẬT §7 CLAUDE.md, và lệch có chủ ý:
+     * đặt mốc là **dấu vết hệ thống**, không phải hành động của người. Mỗi hồ sơ đi qua 8 bước,
+     * đẻ thêm 8 dòng *"Hệ thống ghi nhận vào bước X"* cho mọi hồ sơ sẽ làm loãng đúng cái nhật ký
+     * dùng để truy trách nhiệm — trong khi chính app đã có thông báo chuyển bước ghi lại việc đó.
+     * Tiền lệ lệch §7 có sẵn: `lichSuDieuKhoanCongNo` của chứng từ giá cũng cố ý không vào nhật ký
+     * đề nghị (lý do bảo mật giá).
+     *
+     * ⚠️ VẪN NẰM SAU CHỐT `dangNhanTuNoiKhac` ở trên, cố ý: chỉ máy GÂY RA thay đổi mới ghi mốc.
+     * Cho mọi máy cùng ghi thì N máy đang mở = N lượt đẩy TOÀN BỘ tài liệu lên kho chung, mà kho
+     * chung là một document duy nhất nên người ghi sau đè người trước (§3.6b).
+     * Ca "không máy nào chứng kiến" (App Request tạo hồ sơ lúc nửa đêm, QLK CTR đẩy phiếu nhận)
+     * được bù bằng hai tầng tra mốc khác — xem `traMocVaoBuoc` ở `2-quy-trinh/giai-doan-mua-hang.ts`.
+     */
+    const mocMoi: { id: string; buoc: string }[] = [];
     for (const dn of deNghi) {
       const buocMoi = hienTai.get(dn.id);
       const buocCu = truoc.get(dn.id);
@@ -3571,6 +3638,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
       if (!buocMoi || buocCu === undefined || buocCu === buocMoi) continue;
 
+      /* ★ Ghi mốc cho CẢ hai chiều — tiến bước lẫn lùi bước. Sếp chốt 19/09/2026: hồ sơ bị kéo
+         lùi rồi đẩy lên lại thì đồng hồ **đếm lại từ đầu**, nên mốc phải đổi theo mọi lần bước
+         đổi, không chỉ khi đi tới. */
+      mocMoi.push({ id: dn.id, buoc: buocMoi });
+
       moi.push({
         id: `tb-${soKeTiepThongBao()}`,
         prId: dn.id,
@@ -3606,6 +3678,22 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         if (themVao.length === 0) return truocDo;
         return [...themVao, ...truocDo].slice(0, 30);
       });
+    }
+
+    /* ★ Ghi mốc vào bước (Sếp 19/09/2026) — xem khối chú thích ở khai báo `mocMoi`.
+       📌 KHÔNG sợ vòng lặp ghi: `setDeNghi` làm effect chạy lại, nhưng lần đó `xacDinhGiaiDoan`
+       trả về đúng bước cũ nên `buocCu === buocMoi` và vòng lặp bỏ qua — hội tụ ngay lần hai.
+       Câu `dn.mocVaoBuoc?.buoc !== m.buoc` là chốt thứ hai: không có gì đổi thì trả về đúng
+       tham chiếu cũ, React không vẽ lại. */
+    if (mocMoi.length > 0) {
+      const luc = thoiDiemHienTai();
+      setDeNghi((ds) =>
+        ds.map((dn) => {
+          const m = mocMoi.find((x) => x.id === dn.id);
+          if (!m || dn.mocVaoBuoc?.buoc === m.buoc) return dn;
+          return { ...dn, mocVaoBuoc: { buoc: m.buoc, thoiDiem: luc } };
+        }),
+      );
     }
 
     /**

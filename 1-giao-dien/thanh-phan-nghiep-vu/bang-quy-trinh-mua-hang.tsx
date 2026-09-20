@@ -1155,6 +1155,48 @@ function TheDeNghi({
       )}
 
       {/**
+        * ★★ ĐỒNG HỒ CỦA BƯỚC — Sếp 19/09/2026: *"Thời gian ở các bước này tính từ khi công việc
+        * chuyển bước tới là bắt đầu tính / Nếu quá hạn thì đề nghị đó sẽ báo đỏ"*.
+        *
+        * 🔴 BADGE CÓ CHỮ RIÊNG, TUYỆT ĐỐI KHÔNG NHUỘM LẠI NỀN/VIỀN THẺ. Thẻ này đã có **ba** nguồn
+        * tô đỏ sẵn: nền đỏ nhạt khi quá NGÀY CẦN HÀNG, viền trái đỏ cùng lý do, và viền ngoài đỏ
+        * khi nợ chứng từ. Thêm màu đỏ thứ tư thì nhìn thẻ đỏ không ai biết đỏ vì lý do gì — đúng
+        * cái bẫy chú thích ở khối viền đã cảnh báo (*"quá hạn là chuyện THỜI GIAN, nợ chứng từ là
+        * chuyện HỒ SƠ"*). Một agent phản biện 19/09 đo ra chỗ này.
+        *
+        * 🔴 CHƯA CÓ MỐC THÌ KHÔNG ĐỎ (Sếp chốt 19/09) — hiện chữ xám *"Chưa có mốc vào bước"*.
+        * App mới bắt đầu lưu thời điểm chuyển bước từ hôm nay, nên hồ sơ cũ có thể chưa tra ra.
+        * Coi thiếu mốc là 0 giờ thì cả bảng đỏ rực; coi là vừa vào bước thì hồ sơ tồn đọng được
+        * tha oan. Nói thẳng là cách duy nhất thật thà.
+        *
+        * 📌 Luật tính nằm ở `2-quy-trinh/giai-doan-mua-hang.ts` → `hanTheoBuoc`; ở đây chỉ bày.
+        */}
+      {the.hanBuoc && (
+        <span
+          className={`flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${
+            the.hanBuoc.quaHan
+              ? "bg-danger-bg text-danger"
+              : the.hanBuoc.tong === "warning"
+                ? /* `text-warning-soft` chứ không `text-warning`: đây là cặp màu đang dùng ở
+                     `chi-bao-kho-chung.tsx` và `anh-dai-dien-chu.tsx` cho nền `bg-warning-bg` —
+                     bản `-soft` đủ tương phản ở cả Light lẫn Dark Mode. */
+                  "bg-warning-bg text-warning-soft"
+                : the.hanBuoc.coMoc
+                  ? "bg-primary-bg text-primary"
+                  : "text-text-desc"
+          }`}
+          title={
+            the.hanBuoc.coMoc
+              ? "Thời hạn của bước hiện tại, tính từ lúc hồ sơ chuyển sang bước này"
+              : "Chưa tra được hồ sơ vào bước này lúc nào — app chỉ lưu mốc chuyển bước từ 19/09/2026"
+          }
+        >
+          <Clock className="size-3.5 shrink-0" aria-hidden />
+          <span>{the.hanBuoc.nhan}</span>
+        </span>
+      )}
+
+      {/**
         * ★★ "HỒ SƠ ĐÃ ĐỦ — CHỜ XÁC NHẬN" — Sếp 17/09/2026, khoanh đỏ thẻ ở cột ⑦ Hồ sơ thanh toán.
         *
         * 🔴 ĐỐI XỨNG VỚI DÒNG ĐỎ NGAY TRÊN, và đó là cả ý nghĩa của nó: thẻ đang nói được *"còn
