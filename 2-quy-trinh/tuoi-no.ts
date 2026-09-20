@@ -8,6 +8,7 @@
 import type {
   CongNo,
   DonDatHang,
+  DongHoaDonVAT,
   DotThanhToanPO,
   GiaDonDatHang,
   NgayISO,
@@ -205,6 +206,15 @@ export interface CongNoTheoDon {
    * bị khoá cứng chỉ vì tính năng mới chưa được dùng tới.
    */
   soToHoaDon: number;
+  /**
+   * ★★ DANH SÁCH TỪNG TỜ HOÁ ĐƠN của đơn — Sếp 20/09/2026: ***"Link thông tin các đợt hoá đơn
+   * sang đây để theo dõi công nợ theo từng hoá đơn"*** (ảnh khoanh khối gập/mở của dòng PO).
+   *
+   * 🔴 CHỈ ĐỂ ĐỌC Ở MÀN CÔNG NỢ. Chỗ nhập/sửa/đính kèm là mục ⑥ trong hồ sơ đề nghị — một chỗ
+   * duy nhất. Dựng thêm ô nhập ở đây là hai nơi cùng ghi một tờ hoá đơn, đúng cái vừa phải dẹp
+   * hôm qua với hai ô số hoá đơn.
+   */
+  hoaDon: readonly DongHoaDonVAT[];
   /**
    * ★★ Căn cứ tính nợ CỦA RIÊNG ĐƠN NÀY — Sếp 19/09/2026. `"po"` là mặc định khi chưa ai chọn.
    * Là thuộc tính của đơn (lưu ở `GiaDonDatHang.canCuCongNo`), không phải cách đọc của cả bảng.
@@ -553,6 +563,13 @@ export function congNoTheoDonHang(
       /* Số tờ hoá đơn đã ghi — nơi vẽ cần để biết ô còn sửa tay được không, và để so với số đợt
          giao mà nhắc bằng chữ vàng (Sếp chốt 19/09: nhắc, KHÔNG chặn). */
       soToHoaDon: Array.isArray(gia?.hoaDonVAT) ? gia.hoaDonVAT.length : 0,
+      /* Sắp theo ngày ngay tại tầng quy trình để mọi nơi bày ra đều cùng một thứ tự. */
+      hoaDon: Array.isArray(gia?.hoaDonVAT)
+        ? [...gia.hoaDonVAT].sort(
+            (x, y) =>
+              String(x.ngayHoaDon).localeCompare(String(y.ngayHoaDon)) || x.id.localeCompare(y.id),
+          )
+        : [],
       canCu,
       daTra,
       conLai,

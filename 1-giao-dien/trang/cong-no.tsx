@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
+  FileText,
   Lock,
   Search,
 } from "lucide-react";
@@ -880,6 +881,62 @@ export default function TrangCongNo() {
                     {moDotChi === r.poId && (
                       <TableRow>
                         <TableCell colSpan={14} className="bg-muted/40 p-0 whitespace-normal">
+                          {/**
+                            * ★★ DANH SÁCH TỪNG TỜ HOÁ ĐƠN — Sếp 20/09/2026: ***"Link thông tin các
+                            * đợt hoá đơn sang đây để theo dõi công nợ theo từng hoá đơn"***.
+                            *
+                            * 🔴 CHỈ ĐỂ ĐỌC. Chỗ nhập / sửa / đính kèm là mục ⑥ trong hồ sơ đề
+                            * nghị — một chỗ duy nhất. Dựng thêm ô nhập ở đây là hai nơi cùng ghi
+                            * một tờ hoá đơn, đúng cái vừa phải dẹp hôm qua với hai ô số hoá đơn.
+                            *
+                            * 📌 ĐẶT TRÊN khối đợt thanh toán, cố ý theo đúng trình tự nghiệp vụ:
+                            * nhà cung cấp **xuất hoá đơn trước**, mình **chi tiền sau**. Người đối
+                            * chiếu đọc từ trên xuống là đi đúng dòng thời gian.
+                            *
+                            * 🔴 `sticky left-0 w-fit` — bảng ngoài rộng và cuộn ngang; không có nó
+                            * thì cuộn sang phải là danh sách hoá đơn trôi khuất khỏi màn, đúng lúc
+                            * cần đối chiếu với cột "Còn phải trả". Cùng cách xử với khối đợt chi.
+                            */}
+                          {r.hoaDon.length > 0 && (
+                            <div className="sticky left-0 flex w-fit max-w-[100vw] flex-col gap-1 border-l-2 border-primary/40 px-3 pt-3 pb-1 pl-6">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <FileText className="size-4 shrink-0 text-text-desc" aria-hidden />
+                                <span className="text-sm font-semibold text-text-primary">
+                                  Hoá đơn của đơn {r.maDonHang}
+                                </span>
+                                <span className="text-xs text-text-desc">
+                                  {r.hoaDon.length} tờ · tổng{" "}
+                                  {formatCurrencyVnd(r.tongTienHoaDon ?? 0)}
+                                </span>
+                              </div>
+                              <ul className="flex flex-col gap-0.5">
+                                {r.hoaDon.map((h, i) => (
+                                  <li
+                                    key={h.id}
+                                    className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md bg-card px-3 py-1.5 text-sm"
+                                  >
+                                    <span className="w-5 shrink-0 tabular-nums text-xs text-text-desc">
+                                      {i + 1}.
+                                    </span>
+                                    <span className="font-medium text-text-primary">
+                                      {h.soHoaDon}
+                                    </span>
+                                    <span className="tabular-nums text-text-secondary">
+                                      {formatDate(h.ngayHoaDon)}
+                                    </span>
+                                    <span className="font-semibold tabular-nums text-text-primary">
+                                      {formatCurrencyVnd(h.soTien)}
+                                    </span>
+                                    <span className="text-xs text-text-desc">· {h.nguoiGhiTen}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                              {/* Nói rõ sửa ở đâu — đừng để người dùng đi tìm nút không tồn tại. */}
+                              <span className="text-xs text-text-desc">
+                                Sửa hoặc đính kèm hoá đơn ở mục ⑥ trong hồ sơ đề nghị.
+                              </span>
+                            </div>
+                          )}
                           <KhoiDotThanhToan
                             dong={r}
                             ghiDuoc={ghiDuocThanhToan}

@@ -36,20 +36,24 @@ import type { DongHoaDonVAT, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 /**
  * ★★ BỀ RỘNG CỘT — Sếp 20/09/2026: ***"Bố cục dãn ra cho hợp mắt, sao lại gom 1 lại góc vậy"***.
  *
- * 🔴 BẢN ĐẦU DÙNG BỀ RỘNG CỐ ĐỊNH (`9rem`, `6.5rem`…) nên cả bảng co cụm vào mép trái và để lại
- * một khoảng trống lớn bên phải — đúng vùng Sếp khoanh đỏ. Nay mỗi cột là `minmax(tối thiểu, tỷ
- * lệ)`: đủ rộng để không vỡ chữ, nhưng vẫn **dãn đều** theo bề ngang thật của mục.
+ * 🔴 HAI LẦN SỬA, HAI LÝ DO NGƯỢC NHAU — chép đủ để đừng quay về bản nào cũng sai:
+ *   ① Bản đầu dùng bề rộng CỨNG cho mọi cột ⇒ bảng co cụm vào mép trái, bỏ trống cả nửa phải.
+ *   ② Bản thứ hai cho mọi cột `minmax(…, fr)` ⇒ ngược lại: cột Ngày phình ra, đẩy cột Số tiền
+ *      sang tận giữa màn, giữa Ngày và Số tiền há một khoảng trống lớn. Sếp khoanh đúng chỗ đó
+ *      và ghi *"Di chuyển qua đây"*.
  *
- * 📌 Cột số tiền chia phần lớn hơn (`1.2fr`) vì nó là con số dài nhất và cần căn phải cho thẳng
- * hàng nghìn — cùng nếp với bảng Công nợ.
+ * ✅ Nay: ba cột dữ liệu (số hoá đơn · ngày · số tiền) có bề rộng CỐ ĐỊNH vừa đủ nên chúng nằm
+ * sát nhau bên trái, còn cột **Tệp đính kèm** lấy `1fr` — tức nó nuốt toàn bộ phần dư. Khoảng
+ * trống dồn về cuối hàng thay vì há ra giữa bảng.
  *
- * ⚠️ Khai thành hằng số để hàng tiêu đề và các dòng dùng CHUNG một chuỗi. Viết lặp hai nơi là
- * sớm muộn sửa một chỗ quên chỗ kia, rồi tiêu đề lệch khỏi cột nó đặt tên.
+ * 📌 Cột số tiền căn PHẢI kèm `tabular-nums` để hàng nghìn của dòng trên thẳng hàng nghìn của
+ * dòng dưới — cùng nếp với bảng Công nợ.
+ *
+ * ⚠️ Khai thành hằng số để hàng tiêu đề, các dòng dữ liệu VÀ form sửa dùng CHUNG một chuỗi. Viết
+ * lặp ba nơi là sớm muộn sửa một chỗ quên hai chỗ kia, rồi ô nhập lệch khỏi cột nó đang sửa.
  */
-const LUOI_CO_GIA =
-  "sm:grid-cols-[2rem_minmax(7rem,1.2fr)_minmax(6rem,1fr)_minmax(7rem,1.2fr)_minmax(9rem,1.4fr)_auto]";
-const LUOI_KHONG_GIA =
-  "sm:grid-cols-[2rem_minmax(7rem,1.2fr)_minmax(6rem,1fr)_minmax(9rem,1.6fr)_auto]";
+const LUOI_CO_GIA = "sm:grid-cols-[2rem_10rem_7.5rem_10rem_minmax(9rem,1fr)_auto]";
+const LUOI_KHONG_GIA = "sm:grid-cols-[2rem_10rem_7.5rem_minmax(9rem,1fr)_auto]";
 
 export function BangHoaDonVAT({
   poId,
@@ -212,7 +216,7 @@ export function BangHoaDonVAT({
             <span>Số hoá đơn</span>
             <span>Ngày</span>
             {xemGia && <span className="text-right">Số tiền</span>}
-            <span>Bản chụp</span>
+            <span>Tệp đính kèm</span>
             <span />
           </div>
           {dsSapXep.map((d, i) =>
@@ -222,17 +226,30 @@ export function BangHoaDonVAT({
               * bám đúng lúc người dùng cần đối chiếu con số cũ với con số đang gõ.
               */
             dangSua === d.id ? (
+              /**
+                * ★ FORM SỬA DÙNG CHUNG LƯỚI CỘT VỚI HÀNG DỮ LIỆU — Sếp 20/09/2026: *"Dãn cột ra
+                * chút"*.
+                *
+                * 🔴 Bản đầu dùng `flex` với bề rộng cứng (`w-44`, `w-40`) nên ba ô dồn sát nhau ở
+                * mép trái, còn nửa phải bỏ trống — và tệ hơn: **không ô nào thẳng cột với con số
+                * nó đang sửa** ở các hàng trên dưới. Người sửa phải nhớ trong đầu mình đang gõ
+                * vào cột nào.
+                *
+                * 📌 Dùng lại `LUOI_CO_GIA` thì ô Số hoá đơn nằm đúng dưới cột Số hoá đơn, ô Ngày
+                * dưới cột Ngày, ô Số tiền dưới cột Số tiền. Ô trống đầu tiên giữ chỗ cột STT.
+                */
               <div
                 key={d.id}
-                className="flex flex-wrap items-end gap-2 rounded-md border border-primary/40 bg-card px-2 py-2"
+                className={`flex flex-wrap items-end gap-x-3 gap-y-2 rounded-md border border-primary/40 bg-card px-2 py-2 sm:grid ${LUOI_CO_GIA}`}
               >
+                <span className="hidden sm:block" />
                 <div className="flex flex-col gap-1">
                   <Label htmlFor={`sua-so-${d.id}`}>Số hoá đơn</Label>
                   <Input
                     id={`sua-so-${d.id}`}
                     value={sSoHoaDon}
                     onChange={(e) => setsSoHoaDon(e.target.value)}
-                    className="w-44"
+                    className="w-full"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") luuSua(d.id);
                       if (e.key === "Escape") setDangSua(null);
@@ -240,7 +257,7 @@ export function BangHoaDonVAT({
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor={`sua-ngay-${d.id}`}>Ngày hoá đơn</Label>
+                  <Label htmlFor={`sua-ngay-${d.id}`}>Ngày</Label>
                   <OChonNgay
                     id={`sua-ngay-${d.id}`}
                     nhan="Ngày hoá đơn"
@@ -256,17 +273,19 @@ export function BangHoaDonVAT({
                     inputMode="numeric"
                     value={sTien}
                     onChange={(e) => setsTien(e.target.value)}
-                    className="w-40"
+                    className="w-full text-right"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") luuSua(d.id);
                       if (e.key === "Escape") setDangSua(null);
                     }}
                   />
                 </div>
-                <Button onClick={() => luuSua(d.id)}>Lưu</Button>
-                <Button variant="ghost" onClick={() => setDangSua(null)}>
-                  Huỷ
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button onClick={() => luuSua(d.id)}>Lưu</Button>
+                  <Button variant="ghost" onClick={() => setDangSua(null)}>
+                    Huỷ
+                  </Button>
+                </div>
               </div>
             ) : (
             <div
@@ -311,7 +330,7 @@ export function BangHoaDonVAT({
                 return (
                   <ODinhKemTep
                     tep={tepCuaDong}
-                    nhanThem="Đính bản chụp"
+                    nhanThem="Đính kèm"
                     nguoi={nguoiGhi}
                     khoa={!ghiDuoc}
                     dangGon
