@@ -118,8 +118,13 @@ Rồi deploy lại.
 
 ## Đường lùi
 
-Gỡ biến `NEXT_PUBLIC_KHO_TEP` → app quay lại đọc Firestore ngay, không phải sửa code. Dữ
-liệu cũ trong Firestore **không bị công cụ di trú xoá**, giữ nguyên ít nhất một tuần.
+1. Gỡ biến `NEXT_PUBLIC_KHO_TEP` trên Vercel
+2. **Deploy lại** — bắt buộc. Biến `NEXT_PUBLIC_*` được nhúng thẳng vào mã tải về trình duyệt
+   lúc dựng bản, nên gỡ biến không thôi thì bản đang chạy vẫn còn giá trị cũ và app vẫn đọc
+   R2. Chưa deploy lại thì chưa lùi xong.
+3. Kiểm mở thử một tệp cũ
+
+Dữ liệu cũ trong Firestore **không bị công cụ di trú xoá**, giữ nguyên ít nhất một tuần.
 
 > ⚠️ **Nhưng đường lùi chỉ sạch khi chưa ai tải tệp mới.** Tệp tải lên trong lúc chạy R2 nằm
 > ở R2 và **không tự theo về** Firestore — lùi sau đó là những tệp mới đó không mở được nữa.
@@ -134,3 +139,8 @@ sót vẫn mở được thay vì hiện ô trống.
   274 MB kia thật sự rời khỏi hoá đơn Firestore.
 - **1 mảnh mồ côi** `tep/tep-1789293178207-291321/manh/0` (586 KB, cha đã bị xoá từ 13/09) —
   rác, không thuộc tệp nào. Dọn cùng lúc.
+- **Quyền xem tệp theo từng hồ sơ** — hiện ai đăng nhập cũng mở được mọi tệp nếu biết mã tệp.
+  Đây **không phải điều R2 làm tệ đi**: luật Firestore cho `tep/{tepId}` cũng chỉ đòi
+  `conHanChayThu() && duocVao()`, tức đã đăng nhập và còn hạn. Route R2 giữ đúng mức đó (kiểm
+  vé đăng nhập + hạn dùng khớp với rules). Muốn siết theo hồ sơ thì phải làm ở cả hai đường,
+  là một việc riêng chứ không gộp vào lần chuyển kho này.

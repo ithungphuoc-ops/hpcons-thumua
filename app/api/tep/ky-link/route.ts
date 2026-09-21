@@ -24,9 +24,24 @@ function layIdToken(req: NextRequest): string | undefined {
  *  ai lách sang đường dẫn khác trong kho bằng `../`. */
 const MA_TEP_HOP_LE = /^[A-Za-z0-9_-]{1,120}$/;
 
+/**
+ * Hạn dùng — phải KHỚP với `conHanChayThu()` trong `5-ket-noi/firestore-gop-tach.rules`.
+ *
+ * 🔴 Luật Firestore cho `tep/{tepId}` đòi `conHanChayThu() && duocVao()`. Khi ruột tệp chuyển
+ * sang R2 thì luật đó KHÔNG còn chắn nữa — chắn duy nhất là route này. Thiếu dòng kiểm hạn ở
+ * đây là lặng lẽ nới lỏng bảo mật so với cách cũ, mà không ai thấy.
+ *
+ * ⚠️ ĐỔI NGÀY Ở ĐÂY THÌ PHẢI ĐỔI CẢ TRONG RULES, và ngược lại.
+ */
+const HAN_DUNG = new Date("2026-11-01T00:00:00+07:00");
+
 export async function POST(req: NextRequest) {
   const nguoiGoi = await verifyClientIdToken(layIdToken(req));
   if (!nguoiGoi) return NextResponse.json({ loi: "CHUA_DANG_NHAP" }, { status: 401 });
+
+  if (Date.now() >= HAN_DUNG.getTime()) {
+    return NextResponse.json({ loi: "HET_HAN_CHAY_THU" }, { status: 403 });
+  }
 
   if (!daCauHinhR2()) {
     return NextResponse.json({ loi: "CHUA_CAU_HINH_R2" }, { status: 503 });

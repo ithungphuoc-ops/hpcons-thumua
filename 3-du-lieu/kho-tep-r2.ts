@@ -107,17 +107,26 @@ export async function taiTepTuMayChuR2(id: string): Promise<Blob | null> {
  * 📌 Đi qua cửa `/api/tep/xoa` chứ không ký link xoá: link ký sẵn để xoá là thứ nguy hiểm —
  * rơi vào tay ai là người đó xoá được chứng từ mà không cần đăng nhập.
  */
-export async function xoaTepTrenMayChuR2(id: string): Promise<void> {
+export async function xoaTepTrenMayChuR2(id: string): Promise<boolean> {
   try {
     const ve = await layVe();
-    if (!ve) return;
-    await fetch("/api/tep/xoa", {
+    if (!ve) return false;
+    const res = await fetch("/api/tep/xoa", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${ve}` },
       body: JSON.stringify({ tepId: id }),
     });
-  } catch {
-    /* Xoá hụt không được làm hỏng luồng của người dùng — tệp thừa trong kho là rác, còn ném
-       lỗi ở đây là chặn họ xoá dòng đính kèm khỏi hồ sơ. */
+    if (!res.ok) {
+      console.warn(`[kho tệp R2] Xoá ${id} không thành công (mã ${res.status}) — tệp còn nằm lại trong kho.`);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    /* 🔴 KHÔNG NÉM RA NGOÀI, nhưng cũng KHÔNG im lặng. Ném là chặn người dùng xoá dòng đính
+       kèm khỏi hồ sơ — việc của họ đứng lại vì một lỗi kho. Im lặng thì tệp nằm lại vĩnh viễn
+       mà không ai biết. Nên: báo về `false` cho nơi gọi quyết định, kèm một dòng trong Console
+       để còn lần ra khi cần dọn. */
+    console.warn(`[kho tệp R2] Xoá ${id} lỗi:`, e);
+    return false;
   }
 }

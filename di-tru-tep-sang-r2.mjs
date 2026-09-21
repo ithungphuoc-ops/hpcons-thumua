@@ -115,8 +115,13 @@ async function coTrenR2(id) {
     if (CHI_DOI_CHIEU) {
       const co = await coTrenR2(id);
       const goc = Number(mt.kichThuoc ?? 0);
+      /* 🔴 SO CHÍNH XÁC TỪNG BYTE, và THIẾU `kichThuoc` cũng là lỗi. Bản đầu cho sai số 16 B
+         và bỏ qua khi `kichThuoc` bằng 0 — hai chỗ nới đó đều có thể để lọt một tệp hỏng qua
+         cổng. Cùng loại sai lầm với bản đối chiếu đầu của công cụ tách project: nới tay ở
+         phép kiểm thì phép kiểm mất tác dụng, mà lại không ai biết. */
       if (co === null) { loi.push(`${ten} — CHƯA CÓ trên R2`); hong++; }
-      else if (goc > 0 && Math.abs(co - goc) > 16) { loi.push(`${ten} — LỆCH CỠ: Firestore ${goc} B, R2 ${co} B`); hong++; }
+      else if (goc <= 0) { loi.push(`${ten} — Firestore không ghi kichThuoc, không đối chiếu được`); hong++; }
+      else if (co !== goc) { loi.push(`${ten} — LỆCH CỠ: Firestore ${goc} B, R2 ${co} B`); hong++; }
       else xong++;
       continue;
     }
@@ -124,7 +129,10 @@ async function coTrenR2(id) {
     /* Đã có trên R2 với đúng cỡ thì bỏ qua — chạy lại lần hai không phải đẩy lại từ đầu. */
     const daCo = await coTrenR2(id);
     const coGoc = Number(mt.kichThuoc ?? 0);
-    if (daCo !== null && (coGoc === 0 || Math.abs(daCo - coGoc) <= 16)) { boQua++; continue; }
+    /* Chỉ bỏ qua khi CHẮC CHẮN đã có bản đúng: cỡ phải khớp từng byte. Không biết cỡ gốc thì
+       đẩy lại cho chắc — đẩy thừa chỉ tốn vài giây, bỏ sót thì tệp hỏng nằm im tới lúc ai đó
+       cần mở nó. */
+    if (daCo !== null && coGoc > 0 && daCo === coGoc) { boQua++; continue; }
 
     const noi = await ghepTep(id, soManh);
     if (!noi) { loi.push(`${ten} — THIẾU MẢNH (khai ${soManh} mảnh)`); hong++; continue; }

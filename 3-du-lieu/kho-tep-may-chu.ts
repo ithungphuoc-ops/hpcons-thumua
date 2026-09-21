@@ -73,6 +73,14 @@ export async function taiTepTuMayChu(id: string): Promise<Blob | null> {
  * nó lên lại sau khi người dùng tưởng đã xoá xong.
  */
 export async function xoaTepTrenMayChu(id: string): Promise<void> {
-  if (KHO_TEP === "r2") await xoaTepTrenMayChuR2(id);
+  /* 🔴 DỌN FIRESTORE TRƯỚC, R2 SAU. Nếu R2 xoá hụt mà Firestore chưa dọn thì nhánh rơi về ở
+     `taiTepTuMayChu` sẽ moi bản Firestore lên lại — người dùng xoá xong vẫn thấy tệp, tưởng
+     app hỏng. Dọn Firestore trước thì trường hợp xấu nhất chỉ còn một tệp thừa nằm trong kho
+     R2 mà không giao diện nào trỏ tới. */
   await xoaTrenFirestore(id);
+  if (KHO_TEP !== "r2") return;
+  const xong = await xoaTepTrenMayChuR2(id);
+  if (!xong) {
+    console.warn(`[kho tệp] Tệp ${id} đã gỡ khỏi hồ sơ nhưng CÒN NẰM trong kho R2 — cần dọn tay.`);
+  }
 }

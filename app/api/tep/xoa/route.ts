@@ -18,9 +18,15 @@ function layIdToken(req: NextRequest): string | undefined {
 
 const MA_TEP_HOP_LE = /^[A-Za-z0-9_-]{1,120}$/;
 
+/** Khớp `conHanChayThu()` trong rules — xem giải thích ở `app/api/tep/ky-link/route.ts`. */
+const HAN_DUNG = new Date("2026-11-01T00:00:00+07:00");
+
 export async function POST(req: NextRequest) {
   const nguoiGoi = await verifyClientIdToken(layIdToken(req));
   if (!nguoiGoi) return NextResponse.json({ loi: "CHUA_DANG_NHAP" }, { status: 401 });
+  if (Date.now() >= HAN_DUNG.getTime()) {
+    return NextResponse.json({ loi: "HET_HAN_CHAY_THU" }, { status: 403 });
+  }
   if (!daCauHinhR2()) return NextResponse.json({ loi: "CHUA_CAU_HINH_R2" }, { status: 503 });
 
   let than: { tepId?: string };
