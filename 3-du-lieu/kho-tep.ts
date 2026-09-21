@@ -24,7 +24,7 @@ import {
   dayTepLenMayChu,
   taiTepTuMayChu,
   xoaTepTrenMayChu,
-} from "@/3-du-lieu/kho-tep-firestore";
+} from "@/3-du-lieu/kho-tep-may-chu";
 
 const TEN_KHO = "hpcons-thumua-tep";
 const TEN_BANG = "tep";
