@@ -8,9 +8,15 @@
 // ════════════════════════════════════════════════════════════════════════════════════════
 // 🔴 MẶC ĐỊNH LÀ CHẠY THỬ — KHÔNG GHI GÌ SANG PROJECT MỚI.
 //
-//     node di-tru-sang-project-rieng.mjs            → đọc, đếm, in ra, KHÔNG ghi
-//     node di-tru-sang-project-rieng.mjs --ghi-that → sao lưu rồi mới ghi
+//     node di-tru-sang-project-rieng.mjs             → đọc, đếm, in ra, KHÔNG ghi
+//     node di-tru-sang-project-rieng.mjs --ghi-that  → sao lưu rồi mới ghi
 //     node di-tru-sang-project-rieng.mjs --doi-chieu → chỉ so hai bên, không ghi
+//
+//   Thêm `--don-truoc` để XOÁ dữ liệu cũ ở project đích trước khi chép (xem `donProjectDich`
+//   để biết vì sao cần). Một mình nó vẫn là chạy thử; phải đi kèm `--ghi-that` mới xoá thật:
+//
+//     node di-tru-sang-project-rieng.mjs --don-truoc              → xem sẽ xoá những gì
+//     node di-tru-sang-project-rieng.mjs --don-truoc --ghi-that   → dọn rồi chép
 //
 // Theo đúng lệ của `chuyen-kho-sang-tach.mjs`: ai muốn ghi thật phải gõ thêm một cờ — và gõ
 // được cờ đó nghĩa là đã đọc tới dòng này.
@@ -29,6 +35,7 @@ import admin from "firebase-admin";
 
 const GHI_THAT = process.argv.includes("--ghi-that");
 const CHI_DOI_CHIEU = process.argv.includes("--doi-chieu");
+const DON_TRUOC = process.argv.includes("--don-truoc");
 
 const XANH = "\x1b[32m";
 const DO = "\x1b[31m";
@@ -78,6 +85,94 @@ const BO_SUU_TAP_CO_RUOT = [
   { ten: "tm_donhang", ruot: ["nhanhang"] },
   { ten: "tep", ruot: ["manh"] },
 ];
+
+/**
+ * Dọn sạch dữ liệu CŨ ở project ĐÍCH trước khi chép.
+ *
+ * 🔴 VÌ SAO CẦN: project `hpcons-thumua` còn nguyên dữ liệu chạy thử từ 20/08/2026 — ngày app
+ * chuyển sang dùng chung `hpcons-portal` và bỏ project này lại. Đo ngày 21/09/2026: 11 hồ sơ
+ * `nguoi-dung` + 33 tệp + 1 tài liệu `chay-thu/du-lieu-chung`, và **KHÔNG id nào trùng** với
+ * production. Nghĩa là chép đè lên KHÔNG xoá được chúng — chúng sót lại lẫn vào dữ liệu thật.
+ *
+ * Nguy nhất là `nguoi-dung`: 11 hồ sơ đó gồm ba tài khoản `capTM=4` (quyền cao nhất) mang
+ * email giả `@thumua-chaythu.hpcons`. Để lẫn thì màn "Phân quyền người dùng" bày ra 25 người
+ * thay vì 14, và ba dòng quyền cao nhất là tài khoản không có thật.
+ *
+ * ⚠️ XOÁ KHÔNG LÙI ĐƯỢC. Chỉ động vào project ĐÍCH, không bao giờ đụng nguồn.
+ */
+async function donProjectDich() {
+  const cacKhoi = [
+    ...BO_SUU_TAP_PHANG,
+    ...BO_SUU_TAP_CO_RUOT.map((x) => x.ten),
+  ];
+  const daXoa = [];
+
+  for (const { boSuuTap, ma } of TAI_LIEU_LE) {
+    const snap = await dbDich.collection(boSuuTap).doc(ma).get();
+    if (snap.exists) daXoa.push({ duongDan: snap.ref.path, data: snap.data() });
+  }
+  for (const ten of cacKhoi) {
+    const snap = await dbDich.collection(ten).get();
+    for (const d of snap.docs) {
+      daXoa.push({ duongDan: d.ref.path, data: d.data() });
+      const ruot = BO_SUU_TAP_CO_RUOT.find((x) => x.ten === ten)?.ruot ?? [];
+      for (const conName of ruot) {
+        const con = await dbDich.collection(ten).doc(d.id).collection(conName).get();
+        for (const c of con.docs) daXoa.push({ duongDan: c.ref.path, data: c.data() });
+      }
+    }
+  }
+
+  if (daXoa.length === 0) {
+    console.log(`  ${XAM}Project đích đã sạch — không có gì để dọn.${HET}`);
+    return 0;
+  }
+
+  if (!GHI_THAT) {
+    console.log(`  ${VANG}Sẽ xoá ${daXoa.length} tài liệu cũ ở ${saDich.project_id} (chạy thử — chưa xoá).${HET}`);
+    return daXoa.length;
+  }
+
+  const tenTep = `sao-luu-truoc-di-tru-${new Date().toISOString().replace(/[:.]/g, "-")}-DA-XOA.json`;
+  writeFileSync(tenTep, JSON.stringify(daXoa, null, 2), "utf8");
+  console.log(`  ${XAM}Đã sao lưu ${daXoa.length} tài liệu sắp xoá ra ${tenTep}.${HET}`);
+
+  for (let i = 0; i < daXoa.length; i += 400) {
+    const lo = dbDich.batch();
+    for (const { duongDan } of daXoa.slice(i, i + 400)) lo.delete(dbDich.doc(duongDan));
+    await lo.commit();
+  }
+  console.log(`  ${XANH}Đã dọn ${daXoa.length} tài liệu cũ.${HET}`);
+  return daXoa.length;
+}
+
+/**
+ * Xoá tài khoản Auth chạy thử còn sót ở project đích.
+ * Ngày 21/09/2026 project mới có 11 tài khoản email/mật khẩu `@thumua-chaythu.hpcons`. Cách
+ * đăng nhập bằng mật khẩu đã bị TẮT ở Console (đã kiểm: API trả `PASSWORD_LOGIN_DISABLED`),
+ * nên chúng không còn vào được — nhưng vẫn nên dọn để danh sách người dùng khỏi lẫn.
+ * Chỉ xoá tài khoản mang tên miền chạy thử, KHÔNG đụng tài khoản thật.
+ */
+const DUOI_EMAIL_CHAY_THU = "@thumua-chaythu.hpcons";
+async function donTaiKhoanChayThu() {
+  const { getAuth } = await import("firebase-admin/auth");
+  const auth = getAuth(appDich);
+  const r = await auth.listUsers(1000);
+  const canXoa = r.users.filter((u) => (u.email ?? "").endsWith(DUOI_EMAIL_CHAY_THU));
+  const giuLai = r.users.length - canXoa.length;
+
+  if (canXoa.length === 0) {
+    console.log(`  ${XAM}Không có tài khoản chạy thử nào để dọn.${HET}`);
+    return 0;
+  }
+  if (!GHI_THAT) {
+    console.log(`  ${VANG}Sẽ xoá ${canXoa.length} tài khoản ${DUOI_EMAIL_CHAY_THU} (giữ lại ${giuLai} tài khoản khác).${HET}`);
+    return canXoa.length;
+  }
+  await auth.deleteUsers(canXoa.map((u) => u.uid));
+  console.log(`  ${XANH}Đã xoá ${canXoa.length} tài khoản chạy thử (giữ lại ${giuLai}).${HET}`);
+  return canXoa.length;
+}
 
 /** Ghi theo lô 400 — Firestore chặn ở 500 thao tác mỗi lô. */
 async function ghiTheoLo(ban) {
@@ -151,6 +246,12 @@ async function demHaiBen() {
     const lech = await demHaiBen();
     console.log(lech === 0 ? `\n${XANH}✓ Hai bên khớp nhau hoàn toàn.${HET}\n` : `\n${DO}✖ Có ${lech} khối lệch — CHƯA được chuyển đổi.${HET}\n`);
     process.exit(lech === 0 ? 0 : 1);
+  }
+
+  if (DON_TRUOC) {
+    console.log(`\n${VANG}── DỌN DỮ LIỆU CŨ Ở PROJECT ĐÍCH ──${HET}`);
+    await donProjectDich();
+    await donTaiKhoanChayThu();
   }
 
   const { banGhi, thongKe } = await chep();

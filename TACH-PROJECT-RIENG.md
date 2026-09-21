@@ -97,13 +97,40 @@ npx firebase deploy --only firestore:rules --project hpcons-thumua
 > ⚠️ Khoá JSON là **toàn quyền trên project**. Đừng dán vào chat, đừng commit. Tải tệp về rồi
 > cho biết đường dẫn.
 
-### Bước 3 — Chạy thử di trú _(không ghi gì)_
+### Bước 3 — Dọn dữ liệu chạy thử còn sót ở project đích
+
+> 🔴 **Đo ngày 21/09/2026:** project `hpcons-thumua` còn nguyên dữ liệu từ 20/08 — ngày app
+> chuyển sang dùng chung `hpcons-portal` và bỏ project này lại. **Không id nào trùng** với
+> production, nên chép đè KHÔNG xoá được chúng.
+
+| Còn sót ở project đích | Số lượng | Vì sao phải dọn |
+|---|---:|---|
+| `nguoi-dung` | 11 | Gồm **3 tài khoản `capTM=4`** (quyền cao nhất) mang email giả `@thumua-chaythu.hpcons`. Để lẫn thì màn Phân quyền bày 25 người thay vì 14 |
+| `tep` | 33 | Tệp rác, tốn dung lượng |
+| `chay-thu/du-lieu-chung` | 1 | Dữ liệu thử 7 KB, sẽ bị ghi đè |
+| Tài khoản Auth | 11 | Xem mục bảo mật bên dưới |
+
+**Đã xử lý xong phần nguy hiểm nhất:** phương thức đăng nhập Email/Password ở project mới đã
+được **tắt** (21/09/2026). Trước đó 11 tài khoản chạy thử vẫn đăng nhập được bằng mật khẩu —
+kể cả sau khi app đã gỡ màn đăng nhập, vì Firebase vẫn nhận đăng nhập qua đường API trực tiếp.
+Ba trong số đó có quyền cao nhất. Đã kiểm chứng bằng cách gọi thật API đăng nhập: trả về
+`PASSWORD_LOGIN_DISABLED`, tức bịt ở gốc, mật khẩu đúng cũng vô dụng.
+
+```bash
+node di-tru-sang-project-rieng.mjs --don-truoc              # xem sẽ xoá những gì
+node di-tru-sang-project-rieng.mjs --don-truoc --ghi-that   # dọn rồi chép
+```
+
+Công cụ sao lưu ra tệp JSON trước khi xoá. **Chỉ động vào project đích, không bao giờ đụng nguồn.**
+
+### Bước 3b — Chạy thử di trú _(không ghi gì)_
 
 ```bash
 node di-tru-sang-project-rieng.mjs
 ```
 
-In ra bảng đếm từng khối. Chưa ghi gì sang project mới.
+Kết quả đo ngày 21/09/2026: **dọn 81 tài liệu + 11 tài khoản**, rồi **chép 1.300 tài liệu**
+(457 tệp + 750 mảnh + 74 bản ghi `tm_*` + 14 hồ sơ + 1 tài liệu chung ~312 KB).
 
 ### Bước 4 — Chọn cửa sổ ngừng dịch vụ
 
