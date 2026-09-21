@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getHpcoreDb } from "@/5-ket-noi/hpcore-may-chu";
+import { getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN } from "@/3-du-lieu/kho-chung-firestore";
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import type { DonDatHang, DeNghiMuaHang, GiaDonDatHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const db = getHpcoreDb();
+    const db = getThuMuaDb();
     const snap = await db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep).get();
     const data = (snap.data() ?? {}) as Partial<DuLieuLuu>;
 

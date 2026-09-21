@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
    `getHpcoreDb` của phiên tích hợp giữ nguyên, không đụng. */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
-import { getHpcoreDb } from "@/5-ket-noi/hpcore-may-chu";
+import { getHpcoreDb, getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
 import { maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import {
@@ -40,9 +40,11 @@ import { soNgayDaTroiQua } from "@/2-quy-trinh/tinh-toan";
 // API vẫn chạy được ngay (để test trước khi 2 đội thống nhất khóa), đúng kiểu QLK CTR đang
 // làm với chính App Request.
 //
-// 📌 Dùng CHUNG kết nối Admin SDK với cầu nối SSO (`getHpcoreDb()` ở
-// `5-ket-noi/hpcore-may-chu.ts`) — cùng project `hpcons-portal`, không cần khóa/project riêng
-// nào khác cho route này (20/08/2026, sau khi xác nhận lại với IT).
+// 📌 HAI KẾT NỐI KHÁC PROJECT (cập nhật 21/09/2026, khi tách project riêng cho Thu mua):
+//   • `getThuMuaDb()` — ghi đề nghị vào dữ liệu nghiệp vụ, project RIÊNG của Thu mua.
+//   • `getHpcoreDb()` — chỉ để tra `users` (chức danh người theo dõi), vĩnh viễn ở App Tổng.
+// Trước ngày đó cả hai là một; nay chưa khai `THUMUA_FIREBASE_SERVICE_ACCOUNT` thì vẫn là một
+// (xem đường lùi trong `5-ket-noi/hpcore-may-chu.ts`).
 export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeNghiTuAppRequest>> {
   const apiKeyYeuCau = process.env.APP_REQUEST_API_KEY;
   if (apiKeyYeuCau) {
@@ -67,7 +69,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
   }
 
   try {
-    const db = getHpcoreDb();
+    // Dữ liệu nghiệp vụ → project riêng của Thu mua (chưa tách thì vẫn là `hpcons-portal`).
+    const db = getThuMuaDb();
     const docRef = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
 
     /**
@@ -638,8 +641,10 @@ async function docHoSoAppRequest(idHoSo: string | undefined): Promise<Record<str
  * 📌 DÙNG `getAll` — MỘT LƯỢT MẠNG cho cả danh sách, không phải `.get()` từng người một. Một đề
  * nghị thường có 2–5 người theo dõi; gọi lẻ là 5 vòng mạng nối tiếp nhau, đủ để chạm hạn chờ.
  *
- * 📌 DÙNG LẠI `getHpcoreDb()` của phiên tích hợp — cùng project `hpcons-portal`, không mở thêm
- * kết nối nào. Khác hẳn `getAppRequestDb()` (project `hpcons-request`, khoá riêng).
+ * 📌 `getHpcoreDb()` — `users` do App Tổng sở hữu nên Ở LẠI project `hpcons-portal` kể cả sau
+ * khi tách (21/09/2026). ĐỪNG đổi chỗ này sang `getThuMuaDb()`: project riêng của Thu mua
+ * không có `users`, đổi nhầm là mọi chức danh người theo dõi trống trơn. Khác hẳn
+ * `getAppRequestDb()` (project `hpcons-request`, khoá riêng).
  *
  * ⚠️ TRẦN 30 NGƯỜI. Danh sách dài bất thường (App Request đổi lược đồ, hoặc dữ liệu rác) thì cắt
  * bớt chứ không kéo một lượt đọc khổng lồ vào giữa đường nhận đề nghị. Người quá số đó vẫn được

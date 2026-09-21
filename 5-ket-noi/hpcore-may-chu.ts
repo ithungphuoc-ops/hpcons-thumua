@@ -21,12 +21,14 @@ import type { VaiTroToanCucAppTong } from "@/4-phan-quyen/quyen";
 // dùng thẳng phiên đăng nhập App Tổng — đúng mẫu đã áp dụng cho các app con khác trong
 // hệ sinh thái (Đấu Thầu, Booking, Cuộc Họp...).
 //
-// 📌 KHÁC VỚI CÁC APP CON RIÊNG PROJECT: app Thu mua dùng CHUNG project Firebase
-// `hpcons-portal` với chính App Tổng (xem `5-ket-noi/firebase-chung.ts`). Nên KHÔNG cần
-// "mint Custom Token sang project khác" — chỉ cần xác minh đúng người rồi cấp lại Custom
-// Token CHO CHÍNH project đó, để trình duyệt (đang ở origin thumua.hpcore.vn, khác hẳn
-// account.hpcore.vn) có được phiên đăng nhập Firebase Auth CỦA RIÊNG NÓ — trình duyệt
-// không tự chia sẻ phiên đăng nhập giữa hai tên miền con dù cùng một project Firebase.
+// 📌 LỊCH SỬ — 20/08 đến 21/09/2026 app Thu mua dùng CHUNG project `hpcons-portal` với App
+// Tổng, nên chỉ cần cấp lại Custom Token cho chính project đó. Sếp chốt 21/09/2026 TÁCH ra
+// project riêng, nên nay đã giống các app con khác (Kho `qlk-ctr`, Task Manager
+// `hpcons-thietke`, Cuộc họp): xác minh cookie ở project App Tổng rồi ký vé đăng nhập bằng
+// chìa của project RIÊNG. Xem khối "PROJECT RIÊNG CỦA APP THU MUA" bên dưới.
+//
+// Điều KHÔNG đổi: trình duyệt không tự chia sẻ phiên đăng nhập giữa hai tên miền con, nên
+// dù trước hay sau khi tách, `thumua.hpcore.vn` vẫn phải có phiên Firebase Auth của riêng nó.
 //
 // File này CHỈ chạy phía máy chủ (`import "server-only"` chặn lọt vào bundle trình duyệt)
 // vì nó cầm khóa Admin SDK — khóa đó TOÀN QUYỀN trên project, lộ ra ngoài là mất tất cả.
@@ -70,6 +72,64 @@ function getHpcoreAuth(): Auth {
  */
 export function getHpcoreDb(): Firestore {
   return (dbCache ??= getFirestore(getHpcoreApp()));
+}
+
+// ============================================================
+// PROJECT RIÊNG CỦA APP THU MUA — tách khỏi `hpcons-portal` (Sếp chốt 21/09/2026)
+//
+// 🔴 VÌ SAO PHẢI CÓ HAI CHÌA KHÓA: trước đây MỘT chìa `HPCORE_FIREBASE_SERVICE_ACCOUNT` làm
+// bốn việc cùng lúc. Sau khi tách, bốn việc đó thuộc HAI project khác nhau:
+//
+//   Ở LẠI `hpcons-portal`          │ SANG PROJECT MỚI
+//   ───────────────────────────────┼──────────────────────────────────
+//   verifyHpcore (cookie App Tổng) │ mintCustomToken (vé đăng nhập)
+//   fetchVaiTroToanCuc (`users`)   │ verifyClientIdToken (ID token)
+//   `users` + `departments`        │ dữ liệu nghiệp vụ + `nguoi-dung`
+//
+// Vé đăng nhập (Custom Token) CHỈ dùng được ở đúng project đã ký nó. Trình duyệt sau khi
+// tách sẽ nối vào project mới, nên vé BẮT BUỘC do chìa mới ký — ký bằng chìa cũ thì
+// `signInWithCustomToken` báo lỗi và không ai đăng nhập được.
+//
+// 📌 ĐƯỜNG LÙI: chưa khai `THUMUA_FIREBASE_SERVICE_ACCOUNT` thì mọi hàm dưới đây rơi về
+// đúng kết nối `hpcons-portal` như trước — app chạy y hệt hiện nay. Nhờ vậy bản sửa này
+// merge được mà KHÔNG đổi một hành vi nào trên production, và ngày chuyển đổi chỉ cần
+// thêm biến môi trường rồi deploy lại, không phải sửa code lần nữa.
+// ============================================================
+
+const THUMUA_APP_NAME = "thumua";
+
+/** Đã tách project chưa — nơi khác cần biết để bày cảnh báo / chọn nhánh xử lý. */
+export function daTachProjectRieng(): boolean {
+  return Boolean(process.env.THUMUA_FIREBASE_SERVICE_ACCOUNT);
+}
+
+let thuMuaAuthCache: Auth | null = null;
+let thuMuaDbCache: Firestore | null = null;
+
+function getThuMuaApp(): App {
+  const existing = getApps().find((a) => a.name === THUMUA_APP_NAME);
+  if (existing) return existing;
+  const raw = process.env.THUMUA_FIREBASE_SERVICE_ACCOUNT;
+  if (!raw) throw new Error("Thiếu THUMUA_FIREBASE_SERVICE_ACCOUNT — gọi nhầm nhánh.");
+  return initializeApp({ credential: cert(JSON.parse(raw) as Parameters<typeof cert>[0]) }, THUMUA_APP_NAME);
+}
+
+/** Auth của project Thu mua — ký và xác minh vé đăng nhập. Chưa tách thì dùng lại `hpcore`. */
+function getThuMuaAuth(): Auth {
+  if (!daTachProjectRieng()) return getHpcoreAuth();
+  return (thuMuaAuthCache ??= getAuth(getThuMuaApp()));
+}
+
+/**
+ * Firestore chứa DỮ LIỆU NGHIỆP VỤ của app Thu mua (`chay-thu/du-lieu-chung`, các khối
+ * `tm_*`, `tep`, `nguoi-dung`). Chưa tách thì vẫn là `hpcons-portal` như cũ.
+ *
+ * 🔴 ĐỪNG dùng hàm này để đọc `users`/`departments` — hai khối đó do App Tổng sở hữu và ghi,
+ * vĩnh viễn ở lại `hpcons-portal`; phải gọi `getHpcoreDb()`.
+ */
+export function getThuMuaDb(): Firestore {
+  if (!daTachProjectRieng()) return getHpcoreDb();
+  return (thuMuaDbCache ??= getFirestore(getThuMuaApp()));
 }
 
 export interface HpcoreIdentity {
@@ -134,9 +194,17 @@ export const fetchVaiTroToanCuc = unstable_cache(
   { revalidate: 30 },
 );
 
-/** Custom Token cho CHÍNH project `hpcons-portal` — client tự `signInWithCustomToken`. */
+/**
+ * Vé đăng nhập (Custom Token) cho trình duyệt — client tự `signInWithCustomToken`.
+ *
+ * 🔴 PHẢI ký bằng chìa của ĐÚNG project mà trình duyệt nối vào (`NEXT_PUBLIC_FIREBASE_PROJECT_ID`).
+ * Sau khi tách, đó là project riêng của Thu mua, KHÔNG còn là `hpcons-portal`. Ký sai project
+ * thì `signInWithCustomToken` ném `auth/invalid-custom-token` và KHÔNG AI đăng nhập được —
+ * nên khi đổi biến môi trường phải đổi ĐỒNG THỜI cả `THUMUA_FIREBASE_SERVICE_ACCOUNT` lẫn
+ * sáu biến `NEXT_PUBLIC_FIREBASE_*`, không được đổi lệch một bên.
+ */
 export async function mintCustomToken(uid: string): Promise<string> {
-  return getHpcoreAuth().createCustomToken(uid);
+  return getThuMuaAuth().createCustomToken(uid);
 }
 
 /**
@@ -151,7 +219,8 @@ export async function verifyClientIdToken(
 ): Promise<{ uid: string; email: string } | null> {
   if (!idToken) return null;
   try {
-    const decoded = await getHpcoreAuth().verifyIdToken(idToken);
+    // Cùng project với nơi đã ký vé (`mintCustomToken`) — sau khi tách là project riêng.
+    const decoded = await getThuMuaAuth().verifyIdToken(idToken);
     return { uid: decoded.uid, email: (decoded.email ?? "").trim().toLowerCase() };
   } catch {
     return null;
@@ -184,11 +253,16 @@ export interface ThanhVienDanhBa {
  */
 export const fetchDanhBaCongTy = unstable_cache(
   async (): Promise<ThanhVienDanhBa[]> => {
-    const db = getHpcoreDb();
+    // 🔴 HAI NGUỒN KHÁC PROJECT sau khi tách: `users`/`departments` vĩnh viễn ở App Tổng,
+    // còn `nguoi-dung` (hồ sơ phân quyền riêng của Thu mua) đi theo project mới. Trước
+    // 21/09/2026 cả ba cùng một `db` nên gộp chung được; nay phải tách đúng nguồn — nếu
+    // không, sau ngày chuyển đổi cờ "đã có hồ sơ Thu mua" sẽ trống trơn toàn bộ.
+    const dbAppTong = getHpcoreDb();
+    const dbThuMua = getThuMuaDb();
     const [usersSnap, deptSnap, nguoiDungSnap] = await Promise.all([
-      db.collection("users").where("isActive", "==", true).get(),
-      db.collection("departments").get(),
-      db.collection("nguoi-dung").get(),
+      dbAppTong.collection("users").where("isActive", "==", true).get(),
+      dbAppTong.collection("departments").get(),
+      dbThuMua.collection("nguoi-dung").get(),
     ]);
 
     const tenPhongBan = new Map<string, string>();
@@ -218,7 +292,7 @@ export const fetchDanhBaCongTy = unstable_cache(
 /** Đọc hồ sơ `nguoi-dung/{uid}` bằng Admin SDK (đi vòng qua Security Rules) — dùng ở API route
  *  để biết CHÍNH XÁC cấp quyền của người đang gọi, không tin dữ liệu do trình duyệt tự khai. */
 export async function docHoSoNguoiDungMayChu(uid: string): Promise<Record<string, unknown> | null> {
-  const snap = await getHpcoreDb().collection("nguoi-dung").doc(uid).get();
+  const snap = await getThuMuaDb().collection("nguoi-dung").doc(uid).get();
   return snap.exists ? (snap.data() ?? null) : null;
 }
 
@@ -228,7 +302,7 @@ export async function docHoSoNguoiDungMayChu(uid: string): Promise<Record<string
  * gọi hàm này SAU KHI đã tự kiểm đủ luật ở `4-phan-quyen/luat-phan-quyen.ts`.
  */
 export async function ghiHoSoNguoiDungMayChu(uid: string, data: Record<string, unknown>): Promise<void> {
-  await getHpcoreDb().collection("nguoi-dung").doc(uid).set(data, { merge: true });
+  await getThuMuaDb().collection("nguoi-dung").doc(uid).set(data, { merge: true });
   // BẮT BUỘC — đây là đường ghi duy nhất tới `nguoi-dung`, mà `fetchDanhBaCongTy()` ở trên đọc
   // (cờ `daCoHoSoThuMua`) đang cache 60s. Thiếu dòng này thì màn "Phân quyền người dùng" sẽ hiện
   // sai cờ "đã có hồ sơ" tới 60 giây sau khi vừa cấp/sửa quyền — xem chú thích QUY ƯỚC HẠN MỨC
