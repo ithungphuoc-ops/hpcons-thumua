@@ -129,8 +129,19 @@ Công cụ sao lưu ra tệp JSON trước khi xoá. **Chỉ động vào projec
 node di-tru-sang-project-rieng.mjs
 ```
 
-Kết quả đo ngày 21/09/2026: **dọn 81 tài liệu + 11 tài khoản**, rồi **chép 1.300 tài liệu**
-(457 tệp + 750 mảnh + 74 bản ghi `tm_*` + 14 hồ sơ + 1 tài liệu chung ~312 KB).
+Kết quả đo ngày 21/09/2026: **dọn 81 tài liệu + 11 tài khoản**, rồi **chép 1.300 tài liệu**:
+
+| Thành phần | Số lượng |
+|---|---:|
+| `tep` | 457 |
+| `tep/*/manh` (mảnh tệp) | 750 |
+| `tm_*` (6 khối) | 74 |
+| `tm_donhang/*/nhanhang` | 4 |
+| `nguoi-dung` | 14 |
+| `chay-thu/du-lieu-chung` (~312 KB) | 1 |
+| **Tổng** | **1.300** |
+
+Mất khoảng **7 phút** cho 274 MB — dùng con số này để tính cửa sổ ngừng dịch vụ.
 
 ### Bước 4 — Chọn cửa sổ ngừng dịch vụ
 
@@ -178,9 +189,21 @@ Rồi deploy lại.
 
 ### Bước 8 — Theo dõi
 
-**Giữ nguyên dữ liệu ở project cũ ít nhất một tuần.** Hỏng thì gỡ
-`THUMUA_FIREBASE_SERVICE_ACCOUNT` và trả sáu biến `NEXT_PUBLIC_FIREBASE_*` về giá trị cũ —
-app chạy lại như chưa có gì.
+**Giữ nguyên dữ liệu ở project cũ ít nhất một tuần.**
+
+> ⚠️ **Đường lùi chỉ sạch khi chưa ai kịp nhập liệu.** Đổi biến ngược lại thì app quay về
+> project cũ — nhưng **mọi thứ người dùng đã nhập vào project mới ở lại đó, không tự theo về**.
+> Lùi sau khi đã có người dùng là **mất đúng phần dữ liệu mới**.
+
+Vì vậy đường lùi có hai kiểu, tuỳ lúc phát hiện hỏng:
+
+| Phát hiện hỏng khi nào | Cách lùi |
+|---|---|
+| **Còn trong cửa sổ ngừng**, chưa ai nhập gì | Đổi 7 biến về giá trị cũ → deploy. Sạch, không mất gì |
+| **Đã mở cho người dùng**, đã có dữ liệu mới | ① Ngừng dịch vụ lại ② Chép NGƯỢC project mới → cũ ③ Rồi mới đổi biến. Đừng đổi biến trước |
+
+Nên **kiểm cho xong checklist bước 7 TRƯỚC KHI báo mọi người vào làm** — đó là lúc đường lùi
+còn rẻ nhất.
 
 ---
 

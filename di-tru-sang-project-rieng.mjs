@@ -22,15 +22,20 @@
 // được cờ đó nghĩa là đã đọc tới dòng này.
 // ════════════════════════════════════════════════════════════════════════════════════════
 //
-// 🔴 KHÔNG XOÁ DỮ LIỆU NGUỒN. Project cũ giữ nguyên làm đường lùi ít nhất một tuần. Hỏng thì
-// chỉ cần gỡ biến `THUMUA_FIREBASE_SERVICE_ACCOUNT` và trả sáu biến `NEXT_PUBLIC_FIREBASE_*`
-// về giá trị cũ là app chạy lại như chưa có gì (xem đường lùi ở `5-ket-noi/hpcore-may-chu.ts`).
+// 🔴 KHÔNG XOÁ DỮ LIỆU NGUỒN. Project cũ giữ nguyên làm đường lùi ít nhất một tuần.
+//
+// ⚠️ NHƯNG ĐƯỜNG LÙI CHỈ SẠCH TRONG CỬA SỔ NGỪNG DỊCH VỤ. Gỡ biến
+// `THUMUA_FIREBASE_SERVICE_ACCOUNT` và trả sáu biến `NEXT_PUBLIC_FIREBASE_*` về giá trị cũ
+// thì app quay lại project cũ — nhưng MỌI THỨ NGƯỜI DÙNG ĐÃ NHẬP VÀO PROJECT MỚI Ở LẠI ĐÓ,
+// không tự theo về. Lùi sau khi đã có người nhập liệu là MẤT đúng phần dữ liệu mới đó.
+// Muốn lùi lúc ấy phải: ngừng dịch vụ → chép ngược project mới → cũ → rồi mới đổi biến.
 //
 // ⚠️ PHẢI CHẠY TRONG CỬA SỔ NGỪNG DỊCH VỤ. Script chép một lần, không theo dõi thay đổi —
 // ai nhập liệu trong lúc chép thì bản ghi đó nằm lại project cũ và MẤT sau khi chuyển đổi.
 // ============================================================
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import admin from "firebase-admin";
 
 const GHI_THAT = process.argv.includes("--ghi-that");
@@ -169,18 +174,71 @@ async function donTaiKhoanChayThu() {
     console.log(`  ${VANG}Sẽ xoá ${canXoa.length} tài khoản ${DUOI_EMAIL_CHAY_THU} (giữ lại ${giuLai} tài khoản khác).${HET}`);
     return canXoa.length;
   }
-  await auth.deleteUsers(canXoa.map((u) => u.uid));
-  console.log(`  ${XANH}Đã xoá ${canXoa.length} tài khoản chạy thử (giữ lại ${giuLai}).${HET}`);
-  return canXoa.length;
+
+  /* 🔴 XOÁ TÀI KHOẢN AUTH KHÔNG LÙI ĐƯỢC — khác hẳn Firestore, không có cách dựng lại tài
+     khoản với đúng uid cũ. Nên ghi hồ sơ ra tệp trước: không khôi phục được tài khoản, nhưng
+     còn biết đã xoá những ai, uid nào, để đối chiếu về sau. */
+  const tepTk = `sao-luu-truoc-di-tru-${new Date().toISOString().replace(/[:.]/g, "-")}-TAI-KHOAN-DA-XOA.json`;
+  writeFileSync(tepTk, JSON.stringify(canXoa.map((u) => ({
+    uid: u.uid, email: u.email, hoTen: u.displayName ?? null,
+    taoLuc: u.metadata?.creationTime ?? null, dangNhapCuoi: u.metadata?.lastSignInTime ?? null,
+  })), null, 2), "utf8");
+  console.log(`  ${XAM}Đã ghi hồ sơ ${canXoa.length} tài khoản sắp xoá ra ${tepTk} (KHÔNG khôi phục lại được).${HET}`);
+
+  /* `deleteUsers()` KHÔNG ném lỗi khi vài tài khoản xoá hỏng — nó trả về bảng đếm. Báo
+     "đã xoá N" theo `canXoa.length` là báo sai; phải đọc `successCount`. */
+  const kq = await auth.deleteUsers(canXoa.map((u) => u.uid));
+  if (kq.failureCount > 0) {
+    for (const e of kq.errors.slice(0, 5)) {
+      console.log(`  ${DO}Xoá hỏng tài khoản #${e.index}: ${e.error?.message ?? "(không rõ)"}${HET}`);
+    }
+    throw new Error(`Xoá tài khoản chạy thử hỏng ${kq.failureCount}/${canXoa.length} — dừng lại, đừng chép tiếp khi chưa dọn sạch.`);
+  }
+  console.log(`  ${XANH}Đã xoá ${kq.successCount} tài khoản chạy thử (giữ lại ${giuLai}).${HET}`);
+  return kq.successCount;
 }
 
-/** Ghi theo lô 400 — Firestore chặn ở 500 thao tác mỗi lô. */
+/**
+ * Ghi theo lô — cắt lô theo CẢ số lượng lẫn KÍCH THƯỚC.
+ *
+ * 🔴 Vì sao không cắt theo số lượng không thôi: lần chạy thật đầu tiên (21/09/2026) chết với
+ * `DEADLINE_EXCEEDED sau 60s`. Lô 400 tài liệu nghe thì nhỏ, nhưng dữ liệu này có 750 mảnh tệp
+ * nặng trung bình ~365 KB — một lô 400 mảnh là ~146 MB, quá xa giới hạn ~10 MB mỗi lô của
+ * Firestore, và mạng không đẩy kịp trong 60 giây.
+ *
+ * Nay lô đóng lại ngay khi chạm MỘT trong hai ngưỡng. Tài liệu đơn lẻ vượt ngưỡng vẫn đi
+ * được vì luôn có ít nhất một phần tử trong lô.
+ */
+const TRAN_SO_LUONG = 400;
+const TRAN_BYTE = 5 * 1024 * 1024; // 5 MB — nửa giới hạn Firestore, chừa chỗ cho phần bao gói
+
 async function ghiTheoLo(ban) {
-  for (let i = 0; i < ban.length; i += 400) {
-    const lo = dbDich.batch();
-    for (const { ref, data } of ban.slice(i, i + 400)) lo.set(ref, data);
+  let lo = dbDich.batch();
+  let soTrongLo = 0;
+  let byteTrongLo = 0;
+  let daGhi = 0;
+  let soLo = 0;
+
+  const dongLo = async () => {
+    if (soTrongLo === 0) return;
     await lo.commit();
+    daGhi += soTrongLo;
+    soLo++;
+    process.stdout.write(`\r  ${XAM}Đã ghi ${daGhi}/${ban.length} tài liệu (${soLo} lô)…${HET}   `);
+    lo = dbDich.batch();
+    soTrongLo = 0;
+    byteTrongLo = 0;
+  };
+
+  for (const { ref, data } of ban) {
+    const co = Buffer.byteLength(JSON.stringify(data), "utf8");
+    if (soTrongLo > 0 && (soTrongLo >= TRAN_SO_LUONG || byteTrongLo + co > TRAN_BYTE)) await dongLo();
+    lo.set(ref, data);
+    soTrongLo++;
+    byteTrongLo += co;
   }
+  await dongLo();
+  process.stdout.write("\n");
 }
 
 async function chep() {
@@ -220,19 +278,77 @@ async function chep() {
   return { banGhi, thongKe };
 }
 
+/** Vân tay nội dung — so được cả những khác biệt mà phép đếm không thấy. */
+function vanTay(data) {
+  return createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 12);
+}
+
+/**
+ * Đối chiếu hai bên — đây là CỔNG CHO PHÉP CHUYỂN ĐỔI, nên phải soi đủ ba tầng.
+ *
+ * 🔴 Bản đầu chỉ đếm tài liệu cấp gốc, và đã bỏ lọt thật: lần chạy 21/09/2026 báo "8/8 khối
+ * khớp" trong khi mảnh tệp lệch 751 ↔ 750 (một mảnh mồ côi ở nguồn, cha đã bị xoá) — phải
+ * kiểm tay mới thấy. Đếm cấp gốc cũng không nói được nội dung bên trong có giống nhau không.
+ *
+ * Nay kiểm đủ:
+ *   ① tài liệu lẻ (`chay-thu/du-lieu-chung`) — so cả vân tay nội dung, không chỉ có/không
+ *   ② mọi collection cấp gốc — so số lượng
+ *   ③ collection con (`manh`, `nhanhang`) — so số lượng qua `collectionGroup`
+ */
 async function demHaiBen() {
-  const ten = [...BO_SUU_TAP_PHANG, ...BO_SUU_TAP_CO_RUOT.map((x) => x.ten)];
-  console.log(`\n  ${"Khối dữ liệu".padEnd(18)}${"Nguồn".padStart(8)}${"Đích".padStart(8)}   Kết quả`);
+  console.log(`\n  ${"Khối dữ liệu".padEnd(22)}${"Nguồn".padStart(8)}${"Đích".padStart(8)}   Kết quả`);
   let lech = 0;
-  for (const t of ten) {
+
+  for (const { boSuuTap, ma } of TAI_LIEU_LE) {
+    const [a, b] = await Promise.all([
+      dbNguon.collection(boSuuTap).doc(ma).get(),
+      dbDich.collection(boSuuTap).doc(ma).get(),
+    ]);
+    const va = a.exists ? vanTay(a.data()) : "(trống)";
+    const vb = b.exists ? vanTay(b.data()) : "(trống)";
+    const khop = va === vb;
+    if (!khop) lech++;
+    console.log(`  ${`${boSuuTap}/${ma}`.padEnd(24)}${va.padStart(8)}${vb.padStart(8)}   ${khop ? XANH + "khớp nội dung" : DO + "LỆCH NỘI DUNG"}${HET}`);
+  }
+
+  for (const t of [...BO_SUU_TAP_PHANG, ...BO_SUU_TAP_CO_RUOT.map((x) => x.ten)]) {
     const [a, b] = await Promise.all([
       dbNguon.collection(t).count().get(),
       dbDich.collection(t).count().get(),
     ]);
     const x = a.data().count, y = b.data().count;
     if (x !== y) lech++;
-    console.log(`  ${t.padEnd(18)}${String(x).padStart(8)}${String(y).padStart(8)}   ${x === y ? XANH + "khớp" : DO + "LỆCH"}${HET}`);
+    console.log(`  ${t.padEnd(24)}${String(x).padStart(8)}${String(y).padStart(8)}   ${x === y ? XANH + "khớp" : DO + "LỆCH"}${HET}`);
   }
+
+  /* Collection con: `.collection(...).count()` ở trên KHÔNG đếm tới. Dùng `collectionGroup`
+     để quét mọi tầng — đúng chỗ đã bỏ lọt lần trước.
+
+     🔴 TRỪ ĐI TÀI LIỆU MỒ CÔI. Firestore KHÔNG xoá collection con khi xoá tài liệu cha, nên
+     nguồn có thể còn tài liệu con của những cha đã bị xoá — không thuộc về ai, không ai mở
+     được. Việc chép bỏ qua chúng là ĐÚNG (chép theo danh sách cha có thật). Đo 21/09/2026:
+     nguồn có đúng 1 mảnh mồ côi 586 KB, cha `tep-1789293178207-291321` xoá từ 13/09. Nếu
+     không trừ ra thì phép đối chiếu báo lệch mãi mãi và chặn chuyển đổi vì một cọng rác. */
+  for (const { ten: tenCha, ruot } of BO_SUU_TAP_CO_RUOT) {
+    const idCha = new Set((await dbNguon.collection(tenCha).get()).docs.map((d) => d.id));
+    for (const conName of ruot) {
+      const [a, b] = await Promise.all([
+        dbNguon.collectionGroup(conName).get(),
+        dbDich.collectionGroup(conName).count().get(),
+      ]);
+      const moCoi = a.docs.filter((d) => {
+        const doan = d.ref.path.split("/");
+        return doan[0] === tenCha && !idCha.has(doan[1]);
+      });
+      const x = a.size - moCoi.length;
+      const y = b.data().count;
+      if (x !== y) lech++;
+      const ghiChu = moCoi.length > 0 ? `${XAM} (nguồn có ${moCoi.length} mồ côi, đã trừ)` : "";
+      console.log(`  ${`  └ ${conName}`.padEnd(24)}${String(x).padStart(8)}${String(y).padStart(8)}   ${x === y ? XANH + "khớp" : DO + "LỆCH"}${HET}${ghiChu}${HET}`);
+      for (const d of moCoi.slice(0, 3)) console.log(`  ${XAM}      mồ côi: ${d.ref.path}${HET}`);
+    }
+  }
+
   return lech;
 }
 
