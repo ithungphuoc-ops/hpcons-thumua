@@ -64,3 +64,13 @@ desktop.ini
 # đính kèm) — lọt lên GitHub là lộ ra ngoài vĩnh viễn, kể cả sau khi xoá commit.
 sao-luu-truoc-khi-tach-*.json
 sao-luu-truoc-di-tru-*.json
+
+# ---- Tệp khoá tải về từ Cloudflare / Google — CHỨA BÍ MẬT ----
+# 21/09/2026: khoá R2 được tải về đúng thư mục này với tên "Access Key ID R2.txt", mà
+# `.gitignore` lúc đó không chặn — một lần `git add .` là khoá nằm công khai trên GitHub
+# vĩnh viễn, kể cả sau khi xoá commit. Chặn sẵn các tên hay gặp.
+Access Key*.txt
+*credentials*.txt
+*api-token*.txt
+*-key.json
+*serviceaccount*.json
