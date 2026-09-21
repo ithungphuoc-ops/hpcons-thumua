@@ -57,3 +57,10 @@ desktop.ini
 # Giữ lại file MẪU khai báo biến môi trường — không chứa khóa thật, người mới cần nó
 # để biết app đòi những biến gì.
 !.env.local.example
+
+# ---- Tệp sao lưu do script sinh ra — CHỨA DỮ LIỆU THẬT CỦA CÔNG TY ----
+# `chuyen-kho-sang-tach.mjs` và `di-tru-sang-project-rieng.mjs` đều ghi một bản sao lưu ra
+# gốc repo trước khi ghi thật. Đó là dữ liệu production (đề nghị, đơn hàng, báo giá, tệp
+# đính kèm) — lọt lên GitHub là lộ ra ngoài vĩnh viễn, kể cả sau khi xoá commit.
+sao-luu-truoc-khi-tach-*.json
+sao-luu-truoc-di-tru-*.json

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getHpcoreDb } from "@/5-ket-noi/hpcore-may-chu";
+import { getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
 import {
   tinhTienDoPO,
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanPhi
   }
 
   try {
-    const db = getHpcoreDb();
+    const db = getThuMuaDb();
     const docRef = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
 
     const ketQua = await db.runTransaction(async (tx) => {
