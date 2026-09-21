@@ -142,13 +142,24 @@ async function donProjectDich() {
   writeFileSync(tenTep, JSON.stringify(daXoa, null, 2), "utf8");
   console.log(`  ${XAM}Đã sao lưu ${daXoa.length} tài liệu sắp xoá ra ${tenTep}.${HET}`);
 
-  for (let i = 0; i < daXoa.length; i += 400) {
+  /* 🔴 LÔ NHỎ 100, KHÔNG PHẢI 400. Lần chạy 21/09/2026 lô 400 chết với
+     `INVALID_ARGUMENT: Transaction too big` khi phải dọn 1.300 tài liệu — lần dọn đầu chỉ
+     81 tài liệu nhỏ nên lọt qua, tưởng là ổn. Firestore giới hạn kích thước cả giao dịch chứ
+     không chỉ đếm số thao tác, mà dữ liệu này có mảnh tệp tới 586 KB. Cùng loại lỗi với
+     `ghiTheoLo` nhưng ở hàm xoá — sửa một chỗ mà quên chỗ kia. */
+  const TRAN_XOA = 100;
+  let daDon = 0;
+  for (let i = 0; i < daXoa.length; i += TRAN_XOA) {
+    const phan = daXoa.slice(i, i + TRAN_XOA);
     const lo = dbDich.batch();
-    for (const { duongDan } of daXoa.slice(i, i + 400)) lo.delete(dbDich.doc(duongDan));
+    for (const { duongDan } of phan) lo.delete(dbDich.doc(duongDan));
     await lo.commit();
+    daDon += phan.length;
+    process.stdout.write(`\r  ${XAM}Đã dọn ${daDon}/${daXoa.length} tài liệu…${HET}   `);
   }
-  console.log(`  ${XANH}Đã dọn ${daXoa.length} tài liệu cũ.${HET}`);
-  return daXoa.length;
+  process.stdout.write("\n");
+  console.log(`  ${XANH}Đã dọn ${daDon} tài liệu cũ.${HET}`);
+  return daDon;
 }
 
 /**

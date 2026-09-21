@@ -215,3 +215,34 @@ còn rẻ nhất.
   tháng, nhưng phải gia hạn trước ngày đó nếu không cả app dừng.
 - **App Thu mua chưa có `instrumentation.ts`** — chưa báo sự cố về App Tổng. Các app khác đều
   có. Nghĩa là nếu Thu mua lỗi máy chủ thì không có bản ghi nào để tra lại.
+
+---
+
+## Giá trị cũ để lùi — ghi lại 21/09/2026 trước khi chuyển đổi
+
+Sáu biến này trỏ về project cũ `hpcons-portal`. Cần lùi thì đặt lại đúng như dưới đây (cấu
+hình web không phải bí mật, mọi app Firebase đều để lộ nó trong mã tải về máy) rồi **gỡ**
+`THUMUA_FIREBASE_SERVICE_ACCOUNT` và deploy lại.
+
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDtF6mzeCk9snm7I6-IayZ1OYc0AxiGAUE
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=hpcons-portal.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=hpcons-portal
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=hpcons-portal.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=459933685455
+NEXT_PUBLIC_FIREBASE_APP_ID=1:459933685455:web:da27ee2c5c493459dfc9ba
+```
+
+Giá trị mới (project `hpcons-thumua`):
+
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyAr_iiBiN4kVFZFJjUpXs1wkKX2ELGU8uM
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=hpcons-thumua.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=hpcons-thumua
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=hpcons-thumua.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=740211231196
+NEXT_PUBLIC_FIREBASE_APP_ID=1:740211231196:web:06fe2b1a8fa0a271dfe719
+```
+
+> Nhắc lại vì đây là chỗ hỏng chắc chắn nếu làm lệch: đổi sáu biến này thì **phải** đổi cùng
+> lúc `THUMUA_FIREBASE_SERVICE_ACCOUNT`. Vé đăng nhập chỉ dùng được ở đúng project đã ký nó.
