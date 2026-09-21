@@ -21,6 +21,7 @@
 // không làm.
 // ============================================================
 
+import { doiTienHoaDon } from "@/2-quy-trinh/doc-hoa-don-van-ban";
 import type { NgayISO } from "@/3-du-lieu/kieu-du-lieu";
 
 /** Kết quả đọc một file XML hoá đơn. Trường nào không đọc được thì `undefined`. */
@@ -85,28 +86,25 @@ function chuanHoaNgay(chuoi: string | undefined): NgayISO | undefined {
   return undefined;
 }
 
-/**
- * ★ Đổi chuỗi tiền trong XML thành số.
+/*
+ * ★ VÌ SAO TỆP NÀY KHÔNG CÒN HÀM ĐỔI TIỀN RIÊNG.
  *
  * 🔴 XML CHUẨN GHI SỐ KIỂU MÁY (`45522000` hoặc `45522000.00`), KHÔNG có dấu phân cách nghìn.
  * Nhưng vẫn có mẫu ghi kiểu người đọc (`45.522.000`), nên phải xử cả hai — và đây là chỗ dễ sai
  * nhất: `45.522.000` mà hiểu dấu chấm là thập phân thì ra **45,5 đồng** thay vì 45 triệu.
  *
- * Luật phân biệt: còn nhiều hơn một dấu chấm ⇒ chắc chắn là phân cách nghìn. Một dấu chấm mà
- * phần sau đúng 3 chữ số cũng là phân cách nghìn (tiền Việt không có phần lẻ tới 3 số).
+ * 🔴🔴 ĐÃ BỎ BẢN RIÊNG Ở ĐÂY — DÙNG CHUNG `doiTienHoaDon` (20/09/2026).
+ *
+ * Tệp này từng có hàm `chuanHoaTien` của riêng mình, làm đúng cùng một việc với
+ * `doiTienHoaDon` ở `doc-hoa-don-van-ban.ts`. Hai bản **đã lệch nhau ngay trong tuần đầu**, đo
+ * được trên chuỗi `69.444,444` (đơn giá có phần lẻ kiểu Việt, lấy từ hoá đơn thật):
+ *
+ *     bản riêng ở đây   →       69   ← sai
+ *     doiTienHoaDon     →   69.444   ← đúng
+ *
+ * Sai gấp 1000 lần, và bản ở đây vẫn giữ nguyên lỗi mà bản kia đã sửa. Đúng thứ CLAUDE.md §3.4b
+ * cấm: *"hai chỗ cùng tính một con số rồi lệch nhau"*. Nay chỉ còn một chỗ duy nhất.
  */
-function chuanHoaTien(chuoi: string | undefined): number | undefined {
-  if (!chuoi) return undefined;
-  let s = chuoi.trim().replace(/\s/g, "");
-  if (!s) return undefined;
-  const soDauCham = (s.match(/\./g) ?? []).length;
-  const soDauPhay = (s.match(/,/g) ?? []).length;
-  if (soDauCham > 1 || (soDauCham === 1 && /\.\d{3}$/.test(s))) s = s.replace(/\./g, "");
-  if (soDauPhay > 1 || (soDauPhay === 1 && /,\d{3}$/.test(s))) s = s.replace(/,/g, "");
-  s = s.replace(",", "."); // dấu phẩy còn lại là dấu thập phân kiểu Việt
-  const n = Number(s);
-  return Number.isFinite(n) && n >= 0 ? Math.round(n) : undefined;
-}
 
 /**
  * ★★★ ĐỌC MỘT FILE XML HOÁ ĐƠN.
@@ -127,7 +125,7 @@ export function docHoaDonXML(xml: string): ThongTinHoaDonXML {
 
   const soHoaDon = soRaw?.slice(0, 60);
   const ngayHoaDon = chuanHoaNgay(ngayRaw);
-  const soTien = chuanHoaTien(tienRaw);
+  const soTien = doiTienHoaDon(tienRaw);
 
   if (soHoaDon) daDoc.push("số hoá đơn");
   if (ngayHoaDon) daDoc.push("ngày");

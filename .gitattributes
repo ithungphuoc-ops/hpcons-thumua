@@ -1,0 +1,24 @@
+# Quy ước xuống dòng cho KHO MÃ NGUỒN ĐẨY LÊN GITHUB.
+#
+# 🔴 VÌ SAO PHẢI CÓ TỆP NÀY Ở ĐÂY, TRONG KHI THƯ MỤC GỐC DỰ ÁN ĐÃ CÓ MỘT TỆP TƯƠNG TỰ:
+# repo GitHub sinh ra từ `thumua-v1/`, nên `.gitattributes` ở thư mục gốc dự án **không bao giờ
+# đi sang GitHub**. Ai clone từ GitHub chỉ nhận những gì nằm trong thư mục này.
+#
+# 🔴 VẤN ĐỀ CỤ THỂ ĐÃ ĐO (20/09/2026): kho đẩy `C:\Users\trand\hpcons-thumua-github` có
+# `core.autocrlf=true` (mặc định của Git trên Windows) và KHÔNG có `.gitattributes`. Tệp worker
+# của pdf.js chứa 20 ký tự xuống dòng LF; clone trên Windows là Git đổi hết sang CRLF, và băm
+# sha256 của tệp đổi theo:
+#
+#     LF   → bd88805178a26c72
+#     CRLF → 3c0ae95808b1f964
+#
+# Bài kiểm "Worker pdf.js trong public/ dung phien ban voi thu vien da cai" trong
+# `kiem-luat-dung-chung.mjs` so đúng hai băm đó, nên máy nào clone từ GitHub sẽ thấy
+# `npm run kiem-luat` ĐỎ, kéo theo `npm run verify` và `npm run deploy` chết — với một thông báo
+# nói về "lệch phiên bản pdf.js" trong khi pdf.js không hề lệch. Vercel build trên Linux nên bản
+# chạy thật vẫn đúng; tức đây là **chốt báo động sai**, thứ CLAUDE.md §6.6 cảnh báo là còn tệ hơn
+# không có chốt.
+#
+# 📌 CỐ Ý CHỈ KHAI CHO `public/pdfjs/`, không khai `* text=auto`: khai toàn bộ là Git chuẩn hoá
+# lại mọi tệp đang theo dõi, sinh một diff phình hàng nghìn dòng ảo — đúng sự cố ngày 16/08/2026.
+public/pdfjs/** -text

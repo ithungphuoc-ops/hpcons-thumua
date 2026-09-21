@@ -21,9 +21,9 @@
 // vụ trong tệp giao diện. Ở đây chỉ gọi và hiện lại câu lý do khi bị chặn.
 // ============================================================
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
+import { FileText, Pencil, Plus, ScanLine, Trash2, X } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { Label } from "@/1-giao-dien/nen-tang-ui/label";
@@ -31,6 +31,8 @@ import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { chamNganCachNghin, formatCurrencyVnd, formatDate, homNayISO } from "@/6-tien-ich/dinh-dang";
+import { catTep, coTep } from "@/3-du-lieu/kho-tep";
+import { doHoaDonTuVanBan } from "@/2-quy-trinh/doc-hoa-don-van-ban";
 import type { DongHoaDonVAT, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -87,7 +89,17 @@ export function BangHoaDonVAT({
    * đây là nó không dùng lại được ở trang in và các nơi chỉ bày.
    */
   tepDaDinh: readonly MoTaTep[];
-  onThem: (d: { soHoaDon: string; ngayHoaDon: string; soTien: number }) => string | null;
+  /**
+   * Ghi một tờ mới. Trả `{ loi }` khi bị chặn, `{ id }` là mã dòng vừa tạo.
+   *
+   * 🔴 PHẢI TRẢ `id` — nút *"Đọc tệp hoá đơn"* cho chọn tệp TRƯỚC khi dòng tồn tại, nên sau khi
+   * lưu còn phải đính đúng tệp đó vào đúng dòng. Xem chú thích ở `themHoaDonVAT`.
+   */
+  onThem: (d: {
+    soHoaDon: string;
+    ngayHoaDon: string;
+    soTien: number;
+  }) => { loi: string; id?: undefined } | { loi?: undefined; id: string };
   onXoa: (id: string) => string | null;
   /** Sửa số / ngày / số tiền của một tờ đã ghi (Sếp 20/09/2026). Không đụng bản chụp. */
   onSua: (id: string, d: { soHoaDon: string; ngayHoaDon: string; soTien: number }) => string | null;
@@ -106,6 +118,19 @@ export function BangHoaDonVAT({
   const [sSoHoaDon, setsSoHoaDon] = useState("");
   const [sNgay, setsNgay] = useState<string>(homNayISO());
   const [sTien, setsTien] = useState("");
+  /**
+   * ★★ TỆP PDF NGƯỜI DÙNG VỪA CHỌN ĐỂ APP TỰ ĐỌC — Sếp 20/09/2026: ***"a muốn đính kèm file hoá
+   * đơn vào là app tự đọc thông tin trên hoá đơn và nhập số liệu vào trường dữ liệu đang có"***.
+   *
+   * 🔴 GIỮ NGUYÊN `File` TRONG BỘ NHỚ, CHƯA CẤT VÀO KHO. Đây chính là lý do không dùng được
+   * `ODinhKemTep` ở form thêm: ô đó cất tệp **ngay khi chọn**, mà form này có nút *Huỷ* — bấm
+   * Huỷ là tệp đã nằm trong kho mà không dòng nào trỏ tới (rác, ăn hạn mức). Tệp chỉ được cất
+   * khi bấm **Lưu hoá đơn** và dòng đã ghi thành công.
+   */
+  const [tepChoDoc, setTepChoDoc] = useState<File | null>(null);
+  const [dangDoc, setDangDoc] = useState(false);
+  const [dangLuu, setDangLuu] = useState(false);
+  const oChonTep = useRef<HTMLInputElement>(null);
 
   /* 📌 SẮP THEO NGÀY rồi mới đánh STT. STT là số thứ tự HIỂN THỊ, cố ý không lưu vào dữ liệu —
      lưu lại là sớm muộn có hai dòng cùng STT 3 sau một lần xoá, hoặc STT nhảy cóc 1-2-4. */
@@ -114,22 +139,117 @@ export function BangHoaDonVAT({
   );
   const tong = dsSapXep.reduce((s, d) => s + (Number(d.soTien) || 0), 0);
 
-  function luu() {
+  /**
+   * ★★★ ĐỌC TỆP PDF RỒI ĐIỀN SẴN BA Ô — Sếp 20/09/2026, phạm vi Sếp chốt: ***"Hãy làm trước
+   * nhánh với file PDF vector"***.
+   *
+   * 🔴 CHỈ ĐIỀN SẴN, KHÔNG TỰ LƯU. Hoá đơn có nhiều dòng tiền (tiền hàng chưa thuế · tiền thuế ·
+   * tổng thanh toán) và mỗi nhà cung cấp một mẫu — app đọc nhầm dòng là sổ công nợ sai mà nhìn
+   * vào bảng không thấy gì bất thường. Người dùng nhìn ba ô rồi mới bấm **Lưu hoá đơn**.
+   *
+   * 🔴 ĐỌC KHÔNG RA THÌ NÓI THẲNG, TUYỆT ĐỐI KHÔNG ĐỂ Ô TRỐNG IM LẶNG. PDF ảnh quét không có một
+   * ký tự nào để trích; không báo gì thì người dùng tưởng app hỏng, hoặc tệ hơn là tưởng hoá đơn
+   * không có số tiền. Tệp vẫn được giữ để đính kèm — đọc được hay không thì bản chụp vẫn cần.
+   */
+  async function docTep(f: File) {
+    setTepChoDoc(f);
+    setDangDoc(true);
+    try {
+      const { trichTextPdf } = await import("@/6-tien-ich/trich-text-pdf");
+      const { vanBan, soKyTu } = await trichTextPdf(f);
+      if (soKyTu < 20) {
+        toast.warning("Tệp này không có chữ để đọc", {
+          description:
+            "Có thể là hoá đơn chụp/quét thành ảnh. Mời nhập tay ba ô bên dưới — tệp vẫn được đính kèm khi bấm Lưu.",
+        });
+        return;
+      }
+      const doc = doHoaDonTuVanBan(vanBan);
+      if (doc.soHoaDon) setSoHoaDon(doc.soHoaDon);
+      if (doc.ngayHoaDon) setNgayHoaDon(doc.ngayHoaDon);
+      if (doc.soTien !== undefined) setSoTien(chamNganCachNghin(String(doc.soTien)));
+      /**
+       * 🔴 CÓ CÂU CẢNH BÁO THÌ PHẢI HIỆN RA — hôm nay là ca **hoá đơn điều chỉnh giảm**: app đọc
+       * ra số âm nên cố ý KHÔNG điền. Nuốt câu này đi thì ô tiền để trống mà không nói vì sao,
+       * người dùng tưởng app hỏng hoặc tưởng hoá đơn không có số tiền.
+       */
+      if (doc.canhBao) {
+        toast.warning(doc.canhBao, {
+          description:
+            doc.daDoc.length > 0
+              ? `App vẫn điền được: ${doc.daDoc.join(" · ")}.`
+              : "Mời nhập tay ba ô bên dưới.",
+        });
+        return;
+      }
+      if (doc.daDoc.length === 0) {
+        toast.warning("Đọc được chữ nhưng không tìm ra thông tin hoá đơn", {
+          description: "Mẫu hoá đơn này app chưa nhận ra. Mời nhập tay ba ô bên dưới.",
+        });
+        return;
+      }
+      toast.success(`App đã đọc được: ${doc.daDoc.join(" · ")}`, {
+        description: "Mời kiểm lại ba ô bên dưới rồi bấm Lưu hoá đơn.",
+      });
+    } catch (e) {
+      /* 🔴 BÁO RA, ĐỪNG NUỐT. Nuốt lỗi ở đây thì người dùng ngồi chờ một việc đã hỏng. */
+      toast.error("Không đọc được tệp PDF này", {
+        description: `${e instanceof Error ? e.message : String(e)} — mời nhập tay ba ô bên dưới.`,
+      });
+    } finally {
+      setDangDoc(false);
+    }
+  }
+
+  /** Dọn sạch form thêm — gọi cả khi lưu xong lẫn khi bấm Huỷ, để hai đường không lệch nhau. */
+  function donForm() {
+    setDangThem(false);
+    setSoHoaDon("");
+    setSoTien("");
+    setNgayHoaDon(homNayISO());
+    setTepChoDoc(null);
+    if (oChonTep.current) oChonTep.current.value = "";
+  }
+
+  async function luu() {
+    if (dangLuu) return;
     /* 🔴 BỎ DẤU PHÂN CÁCH TRƯỚC KHI ĐỔI SANG SỐ. Người dùng gõ tiền theo thói quen kế toán
        ("45.522.000"); `Number("45.522.000")` cho `NaN`, và nếu để lọt thì tầng ghi từ chối với
        câu "số tiền phải là số không âm" — người dùng đọc mà không hiểu vì sao, vì họ vừa gõ đúng
        số tiền thật. Cùng cách xử với khối Đợt thanh toán. */
     const tien = Number(soTien.replace(/[.,\s]/g, ""));
-    const loi = onThem({ soHoaDon, ngayHoaDon, soTien: tien });
-    if (loi) {
-      toast.error(loi);
+    const kq = onThem({ soHoaDon, ngayHoaDon, soTien: tien });
+    if (kq.loi) {
+      toast.error(kq.loi);
       return;
     }
     toast.success(`Đã ghi hoá đơn ${soHoaDon.trim()} cho đơn ${poCode}`);
-    setDangThem(false);
-    setSoHoaDon("");
-    setSoTien("");
-    setNgayHoaDon(homNayISO());
+
+    /**
+     * ★ CẤT TỆP VÀ ĐÍNH VÀO ĐÚNG DÒNG VỪA GHI.
+     *
+     * 🔴 LÀM SAU KHI DÒNG ĐÃ GHI THÀNH CÔNG, không làm trước. Cất trước rồi dòng bị chặn (hết
+     * quyền, thiếu số) là tệp nằm trong kho mà không ai trỏ tới.
+     *
+     * 🔴 TỆP HỎNG THÌ TỜ HOÁ ĐƠN VẪN CÒN, chỉ báo riêng phần đính kèm. Cuộn ngược lại xoá tờ vừa
+     * ghi là mất luôn con số người dùng vừa gõ đúng — họ phải gõ lại từ đầu vì một việc phụ.
+     */
+    if (tepChoDoc && kq.id) {
+      setDangLuu(true);
+      try {
+        const mt = await catTep(tepChoDoc, nguoiGhi);
+        const loiTep = onDinhTep(kq.id, mt);
+        if (loiTep) toast.error("Đã ghi hoá đơn nhưng chưa đính được tệp", { description: loiTep });
+        else toast.success("Đã đính kèm", { description: `${mt.tenTep} · ${coTep(mt.kichThuoc)}` });
+      } catch (e) {
+        toast.error("Đã ghi hoá đơn nhưng chưa đính được tệp", {
+          description: `${e instanceof Error ? e.message : String(e)} — mời dùng nút Đính kèm trên dòng vừa ghi.`,
+        });
+      } finally {
+        setDangLuu(false);
+      }
+    }
+    donForm();
   }
 
   /** Lưu bản sửa của một tờ — Sếp 20/09/2026. Cùng cách xử số tiền với `luu()` ở trên. */
@@ -339,7 +459,18 @@ export function BangHoaDonVAT({
                        dữ liệu. Câu đó vẫn còn nguyên ở các ô nộp khác của mục ⑦ và ⑧. */
                     anHuongDan
                     onXong={(t) => onDinhTep(d.id, t)}
-                    onXoa={tepCuaDong ? () => onGoTep(d.id) : undefined}
+                    /**
+                      * 🔴 KHÔNG TRUYỀN `onXoa` — Sếp 20/09/2026: ***"2 nút xoá là sao"***.
+                      *
+                      * Ô đính kèm tự vẽ một nút thùng rác (xoá TỆP), mà ngay cạnh nó dòng này
+                      * đã có một nút thùng rác khác (xoá TỜ HOÁ ĐƠN). Hai icon giống hệt nhau,
+                      * cách nhau vài chục pixel, làm hai việc khác hẳn về hậu quả — bấm nhầm
+                      * cái thứ hai là mất cả số tiền của tờ.
+                      *
+                      * 📌 Vẫn thay được bản chụp: nút **đổi tệp** (mũi tên xoay) của chính ô đó
+                      * cho chọn tệp khác. Còn muốn bỏ hẳn tờ thì xoá tờ — và `xoaHoaDonVAT` đã
+                      * gỡ luôn bản chụp, không để tệp mồ côi.
+                      */
                   />
                 );
               })()}
@@ -418,7 +549,7 @@ export function BangHoaDonVAT({
                 placeholder="VD: 1C25TYY-0001234"
                 className="w-48"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") luu();
+                  if (e.key === "Enter") void luu();
                 }}
               />
             </div>
@@ -442,22 +573,80 @@ export function BangHoaDonVAT({
                 placeholder="VD: 45522000"
                 className="w-44"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") luu();
+                  if (e.key === "Enter") void luu();
                 }}
               />
             </div>
-            <Button onClick={luu}>Lưu hoá đơn</Button>
-            <Button variant="ghost" onClick={() => setDangThem(false)}>
+            <Button onClick={() => void luu()} disabled={dangLuu || dangDoc}>
+              {dangLuu ? "Đang lưu…" : "Lưu hoá đơn"}
+            </Button>
+            <Button variant="ghost" onClick={donForm} disabled={dangLuu}>
               Huỷ
             </Button>
-            {/* 🔴 NÓI THẲNG CHỖ ĐÍNH TỆP, ĐỪNG ĐỂ NGƯỜI DÙNG ĐI TÌM. Ô nộp bản chụp hoá đơn nằm
-                ngay dưới mục ⑥ (ô nộp chung của mục) — làm thêm một ô nữa ở đây là hai chỗ cùng
-                nộp một tờ, đúng nếp dự án cấm. Khi nào cần buộc từng tệp vào đúng dòng hoá đơn
-                thì mới thêm, và phải cấp ngăn đính kèm riêng vì trần hiện là 6 tệp chung cả
-                Hoá đơn + UNC + Phiếu chi. */}
-            <span className="basis-full text-xs text-text-desc">
-              Lưu xong sẽ có nút đính bản chụp cho riêng tờ hoá đơn này.
-            </span>
+
+            {/**
+              * ★★★ NÚT ĐỌC TỆP — Sếp 20/09/2026: ***"Sao chưa có nút đính kèm hoá đơn để app tự
+              * đọc là lấy thông tin"***.
+              *
+              * 🔴 KHÔNG DÙNG `ODinhKemTep` Ở ĐÂY. Ô đó cất tệp vào kho **ngay khi chọn**, mà form
+              * này có nút Huỷ ⇒ bấm Huỷ là tệp đã nằm trong kho không ai trỏ tới. Dùng
+              * `<input type="file">` thuần, giữ `File` trong bộ nhớ, chỉ cất khi bấm Lưu.
+              *
+              * 📌 `accept="application/pdf"` vì hôm nay mới làm nhánh PDF vector đúng như Sếp
+              * chốt. Nhánh XML (`2-quy-trinh/doc-hoa-don-xml.ts`) và nhánh ảnh quét chưa nối.
+              */}
+            <div className="flex basis-full flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={oChonTep}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  /* 🔴 `hidden` chứ KHÔNG PHẢI `sr-only`. `sr-only` là `position:absolute`; không
+                     có tổ tiên `relative` thì nó bám vào khung chứa gốc và thoát khỏi
+                     `overflow-x-hidden` của vùng nội dung, kéo giãn cả trang trên điện thoại
+                     (đã dính khi làm bảng Kanban). `display:none` vẫn `.click()` được. */
+                  className="hidden"
+                  id={`doc-hd-${poId}`}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void docTep(f);
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  disabled={dangDoc || dangLuu}
+                  onClick={() => oChonTep.current?.click()}
+                >
+                  <ScanLine className="size-4" aria-hidden />
+                  {dangDoc ? "Đang đọc tệp…" : "Đính kèm hoá đơn PDF — app tự đọc"}
+                </Button>
+                {tepChoDoc && (
+                  <span className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary-bg px-2 py-1 text-xs text-primary">
+                    <FileText className="size-3.5 shrink-0" aria-hidden />
+                    <span className="truncate">{tepChoDoc.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTepChoDoc(null);
+                        if (oChonTep.current) oChonTep.current.value = "";
+                      }}
+                      title="Bỏ tệp này"
+                      className="ml-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded hover:bg-danger-bg hover:text-danger"
+                    >
+                      <X className="size-3.5" aria-hidden />
+                      <span className="sr-only">Bỏ tệp {tepChoDoc.name}</span>
+                    </button>
+                  </span>
+                )}
+              </div>
+              {/* 🔴 NÓI THẲNG APP LÀM ĐƯỢC TỚI ĐÂU — §3.5: đừng để giao diện hứa việc app không
+                  làm. Hoá đơn quét thành ảnh thì không có chữ nào để trích, và app không đoán bừa. */}
+              <span className="text-xs text-text-desc">
+                Chọn tệp PDF hoá đơn điện tử, app tự điền số hoá đơn · ngày · số tiền vào ba ô trên
+                để bạn kiểm lại. Hoá đơn chụp/quét thành ảnh thì phải nhập tay. Tệp được đính kèm
+                vào đúng tờ này khi bấm <strong>Lưu hoá đơn</strong>.
+              </span>
+            </div>
           </div>
         ) : (
           <button

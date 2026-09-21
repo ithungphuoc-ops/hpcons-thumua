@@ -1409,12 +1409,19 @@ interface GiaTriDuLieu {
   /**
    * ★★★ Ghi một tờ hoá đơn VAT vào đơn — Sếp 19/09/2026, mục ⑥ Bộ hồ sơ thanh toán:
    * *"Thêm các trường nhập liệu: STT · Số hoá đơn · Ngày hoá đơn · Số tiền trên hoá đơn · Đính kèm"*.
-   * Trả câu lý do khi bị chặn (không có quyền, thiếu số/ngày, tiền âm), `null` là ghi được.
+   *
+   * @returns `{ loi }` mang câu lý do khi bị chặn (không có quyền, thiếu số/ngày, tiền âm);
+   *   `{ id }` là mã dòng vừa tạo khi ghi được.
+   *
+   * 🔴 VÌ SAO TRẢ VỀ `id` CHỨ KHÔNG CÒN LÀ `string | null` (đổi 20/09/2026): nút *"Đọc tệp hoá
+   * đơn"* cho người dùng chọn một tệp PDF **trước khi** dòng tồn tại, rồi phải đính đúng tệp đó
+   * vào đúng dòng vừa ghi. Không có `id` trả về thì nơi gọi phải đoán dòng mới là dòng nào —
+   * đoán sai là bản chụp của tờ này nằm dưới tờ khác, mà nhìn vào bảng không thấy gì bất thường.
    */
   themHoaDonVAT: (
     poId: string,
     dong: { soHoaDon: string; ngayHoaDon: string; soTien: number },
-  ) => string | null;
+  ) => { loi: string; id?: undefined } | { loi?: undefined; id: string };
   /** Sửa số / ngày / số tiền của một tờ hoá đơn đã ghi (Sếp 20/09/2026). Không đụng bản chụp. */
   suaHoaDonVAT: (
     poId: string,
@@ -4214,13 +4221,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     (
       poId: string,
       dong: { soHoaDon: string; ngayHoaDon: string; soTien: number },
-    ): string | null => {
+    ): { loi: string; id?: undefined } | { loi?: undefined; id: string } => {
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
-      if (chanQuyen) return chanQuyen;
+      if (chanQuyen) return { loi: chanQuyen };
       const loi = vuongMacDongHoaDon(dong);
-      if (loi) return loi;
+      if (loi) return { loi };
       const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
-      if (!giaCu) return "Đơn này chưa có chứng từ giá nên chưa ghi được hoá đơn.";
+      if (!giaCu) return { loi: "Đơn này chưa có chứng từ giá nên chưa ghi được hoá đơn." };
 
       const soHoaDon = dong.soHoaDon.trim().slice(0, 60);
       const soTien = Math.round(Number(dong.soTien));
@@ -4274,7 +4281,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
               },
         ),
       );
-      return null;
+      return { id };
     },
     [nguoiDung, vuongMacDongHoaDon],
   );

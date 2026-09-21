@@ -25,6 +25,7 @@
 // ============================================================
 
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -101,6 +102,21 @@ try {
   );
 } catch (e) {
   console.error(`${DO}⛔ Không dựng được 2-quy-trinh/tuoi-no.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
+/* ★ Dò thông tin hoá đơn từ chữ — Sếp 20/09/2026. Hàm thuần nên kiểm được ở Node; phần lấy chữ
+   ra khỏi PDF nằm ở `6-tien-ich/trich-text-pdf.ts` và không kiểm ở đây (cần trình duyệt). */
+const tepRaHoaDon = join(thuMuc, "doc-hoa-don.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/doc-hoa-don-van-ban.ts" --bundle --platform=node --format=cjs --outfile="${tepRaHoaDon}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/doc-hoa-don-van-ban.ts:${HET}`);
   console.error(String(e.stderr ?? e.message));
   rmSync(thuMuc, { recursive: true, force: true });
   process.exit(1);
@@ -8241,6 +8257,208 @@ kiem(
     };
   },
 );
+
+// ════════════════════════════════════════════════════════════════════
+// ĐỌC HOÁ ĐƠN PDF VECTOR — Sếp 20/09/2026
+//
+// *"a muốn đính kèm file hoá đơn vào là app tự đọc thông tin trên hoá đơn và nhập số liệu vào
+// trường dữ liệu đang có thì có được không?"* → *"Hãy làm trước nhánh với file PDF vector"*.
+//
+// 🔴 VĂN BẢN THỬ DƯỚI ĐÂY LẤY ĐÚNG CẤU TRÚC hoá đơn thật Sếp gửi (mẫu Bkav, ký hiệu `1C25THA`),
+// CHỈ THAY tên nhà cung cấp và mã số thuế bằng tên giả — quy ước dự án cấm để tên thương hiệu
+// NCC thật trong dữ liệu mẫu.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_DOC_HOA_DON =
+  'Sếp · 20/09/2026 — *"đính kèm file hoá đơn vào là app tự đọc thông tin"* + *"làm trước nhánh với file PDF vector"*';
+
+/* Cấu trúc SONG NGỮ đúng như hoá đơn thật: tiếng Việt · (tiếng Anh) · dấu hai chấm · giá trị. */
+const HOA_DON_THU =
+  "HÓA ĐƠN GIÁ TRỊ GIA TĂNG  (VAT INVOICE)  Ngày   (day)   10   tháng   (month)   12   năm   " +
+  "(year)   2025  Đơn vị bán   (Seller) :   CÔNG TY TNHH VLXD A  Mã số thuế   (Tax Code) :   " +
+  "0000000000  1   Nước uống đóng chai   Thùng   100   69.444,444   6.944.444  " +
+  "Cộng tiền hàng   (Sub total) :   6.944.444  Thuế suất GTGT   (Tax rate) :   8%   " +
+  "Tiền thuế GTGT   (VAT amount) :   555.556  " +
+  "Tổng cộng tiền thanh toán   (Total payment) :   7.500.000  " +
+  "Mẫu số - Ký hiệu   (Serial No.) :   1C25THA  Số   (Invoice No.) :   00001879";
+
+kiem("Doc dung 3 truong tu hoa don PDF that", CHU_SEP_DOC_HOA_DON, () => {
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const r = D.doHoaDonTuVanBan(HOA_DON_THU);
+  return {
+    duoc: r.soHoaDon === "00001879" && r.ngayHoaDon === "2025-12-10" && r.soTien === 7_500_000,
+    thucTe: `so=${r.soHoaDon} · ngay=${r.ngayHoaDon} · tien=${r.soTien}`,
+    mongDoi: "00001879 · 2025-12-10 · 7500000",
+  };
+});
+
+kiem(
+  "CHIEU NGHICH — KHONG duoc lay nham tien hang chua thue hay tien thue",
+  CHU_SEP_DOC_HOA_DON,
+  () => {
+    /* 🔴🔴 BAI KIEM QUAN TRONG NHAT CUA TINH NANG NAY. Hoa don co BA dong tien:
+         Cong tien hang (chua thue) = 6.944.444
+         Tien thue GTGT             =   555.556
+         Tong cong tien thanh toan  = 7.500.000  <- DUNG con so cong no can
+       Lay nham mot trong hai dong dau la so no THIEU dung phan VAT, ma nhin vao bang thi khong
+       co gi bat thuong. Bai nay ghim thu tu uu tien cua `KHOA_TIEN`. */
+    const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+    const r = D.doHoaDonTuVanBan(HOA_DON_THU);
+    return {
+      duoc: r.soTien !== 6_944_444 && r.soTien !== 555_556 && r.soTien === 7_500_000,
+      thucTe: String(r.soTien),
+      mongDoi: "7500000 — KHONG phai 6944444 (chua thue) hay 555556 (thue)",
+    };
+  },
+);
+
+kiem("Doi tien: dau cham la PHAN CACH NGHIN, khong phai thap phan", CHU_SEP_DOC_HOA_DON, () => {
+  /* 🔴 Hieu "45.522.000" la 45,5 dong thay vi 45 trieu thi con so do troi thang vao so cong no. */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const ca = [
+    ["45.522.000", 45_522_000],
+    ["7.500.000", 7_500_000],
+    ["1.234", 1_234],
+    ["69.444,444", 69_444], // don gia co phan le kieu Viet -> lam tron
+    ["500", 500],
+  ];
+  const sai = ca.filter(([chuoi, mong]) => D.doiTienHoaDon(chuoi) !== mong);
+  return {
+    duoc: sai.length === 0,
+    thucTe: sai.length === 0 ? "dung het" : sai.map(([c]) => `${c} -> ${D.doiTienHoaDon(c)}`).join(" · "),
+    mongDoi: "45522000 · 7500000 · 1234 · 69444 · 500",
+  };
+});
+
+kiem(
+  "Khong doc duoc thi tra undefined, KHONG bia so",
+  CHU_SEP_DOC_HOA_DON,
+  () => {
+    /* App bia mot con so roi dien san vao o tien la nguoi dung bam Luu ma khong biet no sai o dau. */
+    const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+    const r = D.doHoaDonTuVanBan("Day khong phai hoa don, chi la mot doan chu bat ky.");
+    return {
+      duoc: r.soTien === undefined && r.daDoc.length === 0,
+      thucTe: `tien=${r.soTien} · daDoc=[${r.daDoc.join(",")}]`,
+      mongDoi: "undefined va daDoc rong",
+    };
+  },
+);
+
+/* ============================================================================
+   NĂM BÀI DƯỚI ĐÂY RA ĐỜI TỪ MỘT LƯỢT PHẢN BIỆN NGÀY 20/09/2026.
+   Mỗi bài ghim MỘT lỗi đã ĐO ĐƯỢC, và điểm chung của cả năm: app cho ra một giá trị
+   TRÔNG HỢP LỆ HOÀN TOÀN, nên người nhập không có cách nào biết mình đang lưu cái sai.
+   ============================================================================ */
+
+kiem("CHIEU NGHICH — hoa don dieu chinh GIAM khong duoc thanh so DUONG", CHU_SEP_DOC_HOA_DON, () => {
+  /* 🔴 Bo dau tru la no TANG thay vi GIAM. Nguoi nhap nhin o thay dung con so 1.500.000 nen
+     khong co dau hieu nao de biet. Hoa don dieu chinh giam la chuyen thuong trong xay dung. */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const r = D.doHoaDonTuVanBan("HOA DON DIEU CHINH GIAM Tổng cộng tiền thanh toán : -1.500.000");
+  return {
+    duoc: r.soTien === undefined && typeof r.canhBao === "string" && r.canhBao.length > 0,
+    thucTe: `tien=${r.soTien} · canhBao=${r.canhBao ? "co" : "KHONG"}`,
+    mongDoi: "KHONG dien so tien, va co cau canh bao cho nguoi dung",
+  };
+});
+
+kiem("So hoa don: khong duoc lay nham Mau so / Ma so thue", CHU_SEP_DOC_HOA_DON, () => {
+  /* 🔴 `"so:"` la chuoi con cua "Mau so:" va "Ma so:". `indexOf` lay lan dau tien nen tren hoa
+     don CHI TIENG VIET no vo ngay ma mau hoac ma so thue. So hoa don sai thi doi chieu voi nha
+     cung cap la hong. */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const a = D.doHoaDonTuVanBan(
+    "Mẫu số: 01GTKT0/001 Ký hiệu: 1C25THA Số: 00001879 Tổng cộng tiền thanh toán: 7.500.000",
+  ).soHoaDon;
+  const b = D.doHoaDonTuVanBan(
+    "Mã số: 0301234567 Số: 00001879 Tổng cộng tiền thanh toán: 7.500.000",
+  ).soHoaDon;
+  /* Ca thu ba: phan tieng Anh trong ngoac tung bi lay lam so hoa don (ra chu "Invoice"). */
+  const c = D.doHoaDonTuVanBan(
+    "Số hoá đơn   (Invoice No.) :   00001879 Tổng cộng tiền thanh toán: 7.500.000",
+  ).soHoaDon;
+  return {
+    duoc: a === "00001879" && b === "00001879" && c === "00001879",
+    thucTe: `mau-so=${a} · ma-so=${b} · song-ngu=${c}`,
+    mongDoi: "ca ba deu 00001879",
+  };
+});
+
+kiem("Ngay: khong nhan ngay KHONG CO THAT, khong lay han thanh toan", CHU_SEP_DOC_HOA_DON, () => {
+  /* 🔴 Ma tra cuu `1234-56-78` khop khuon ISO va LOT qua `vuongMacDongHoaDon` (chi kiem khuon).
+     Ngay hoa don la dau vao cua han no va canh bao qua han — ngay rac la ca cot canh bao sai. */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const ca = [
+    [D.doiNgayHoaDon("1234-56-78"), undefined, "ma tra cuu khong phai ngay"],
+    [D.doiNgayHoaDon("32/13/2026"), undefined, "thang 13 ngay 32"],
+    [D.doiNgayHoaDon("29/02/2025"), undefined, "2025 khong nhuan"],
+    [D.doiNgayHoaDon("29/02/2024"), "2024-02-29", "2024 nhuan — phai nhan"],
+    [
+      D.doHoaDonTuVanBan("Hạn thanh toán 30/12/2026 ; Ngày 05/11/2026").ngayHoaDon,
+      "2026-11-05",
+      "khong duoc lay han thanh toan",
+    ],
+  ];
+  const sai = ca.filter(([duoc, mong]) => duoc !== mong);
+  return {
+    duoc: sai.length === 0,
+    thucTe: sai.length === 0 ? "dung het" : sai.map(([d, m, t]) => `${t}: ${d} (mong ${m})`).join(" · "),
+    mongDoi: "chan ngay rac, van giu ngay that",
+  };
+});
+
+kiem("Doc duoc ca chu dang NFD (dau tach roi)", CHU_SEP_DOC_HOA_DON, () => {
+  /* 🔴 `doanSauKhoa` tim chi so tren chuoi DA BO DAU roi cat tren chuoi GOC — chi dung khi hai
+     chuoi cung do dai. Chu dang NFD tach dau thanh ky tu rieng, `boDau` xoa di nen chuoi ngan
+     hon va MOI CHI SO LECH. Do duoc: ban NFD cho ra so hoa don la chu "hoa".
+     pdf.js tra dung nhung gi bang ToUnicode cua tep ghi, co bo sinh hoa don xuat NFD. */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const nfd = D.doHoaDonTuVanBan(HOA_DON_THU.normalize("NFD"));
+  const nfc = D.doHoaDonTuVanBan(HOA_DON_THU.normalize("NFC"));
+  return {
+    duoc:
+      nfd.soHoaDon === "00001879" && nfd.ngayHoaDon === "2025-12-10" && nfd.soTien === 7_500_000 &&
+      nfc.soHoaDon === nfd.soHoaDon,
+    thucTe: `NFD: so=${nfd.soHoaDon} ngay=${nfd.ngayHoaDon} tien=${nfd.soTien}`,
+    mongDoi: "NFD cho ket qua y het NFC",
+  };
+});
+
+kiem("Doi tien: CHI CON MOT BAN duy nhat, XML dung chung", CHU_SEP_DOC_HOA_DON, () => {
+  /* 🔴 `doc-hoa-don-xml.ts` tung co ban `chuanHoaTien` rieng, va hai ban DA LECH NHAU ngay trong
+     tuan dau: "69.444,444" -> ban XML cho 69, ban van ban cho 69444 (lech 1000 lan).
+     Dung §3.4b: "hai cho cung tinh mot con so roi lech nhau". */
+  const nguon = readFileSync("2-quy-trinh/doc-hoa-don-xml.ts", "utf8");
+  const conHamRieng = /function\s+chuanHoaTien/.test(nguon);
+  const dungChung = nguon.includes("doiTienHoaDon(tienRaw)");
+  return {
+    duoc: !conHamRieng && dungChung,
+    thucTe: `ham rieng: ${conHamRieng ? "CON" : "da bo"} · dung chung: ${dungChung ? "co" : "KHONG"}`,
+    mongDoi: "khong con ham rieng, goi doiTienHoaDon",
+  };
+});
+
+kiem("Worker pdf.js trong public/ dung phien ban voi thu vien da cai", CHU_SEP_DOC_HOA_DON, () => {
+  /* 🔴🔴 KHONG BAT DUOC BANG MAT, VA HONG THI HONG LUC CHAY THAT.
+     `6-tien-ich/trich-text-pdf.ts` nap thu vien tu `node_modules` nhung worker thi lay tep tinh
+     o `public/pdfjs/`. pdf.js 4.x NEM LOI *"The API version does not match the Worker version"*
+     khi hai ben lech nhau — `npm run verify` van PASS, chi la nguoi dung bam nut doc hoa don thi
+     khong co gi xay ra.
+     Nen sau moi lan `npm update pdfjs-dist` phai chep lai tep:
+       cp node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs public/pdfjs/pdf.worker.min.mjs */
+  const bam = (p) => createHash("sha256").update(readFileSync(p)).digest("hex").slice(0, 16);
+  const a = bam("public/pdfjs/pdf.worker.min.mjs");
+  const b = bam("node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs");
+  /* Doc them chuoi duong dan trong ma nguon — doi cho de tep ma quen doi hang la 404 im lang. */
+  const nguon = readFileSync("6-tien-ich/trich-text-pdf.ts", "utf8");
+  const trungDuongDan = nguon.includes('"/pdfjs/pdf.worker.min.mjs"');
+  return {
+    duoc: a === b && trungDuongDan,
+    thucTe: `public=${a} · node_modules=${b} · duong dan trong ma nguon: ${trungDuongDan ? "khop" : "KHONG khop"}`,
+    mongDoi: "hai bam giong nhau va ma nguon tro dung /pdfjs/pdf.worker.min.mjs",
+  };
+});
 
 kiem(
   "Tien da tra cua TUNG TO: chi cong dot chi DA GAN dung to",

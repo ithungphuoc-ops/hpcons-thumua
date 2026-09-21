@@ -545,7 +545,7 @@ export default function TrangCongNo() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[3%] px-1 text-center">STT</TableHead>
-                  <TableHead className="w-[10%]">Tên đơn hàng (PO)</TableHead>
+                  <TableHead className="w-[9%]">Tên đơn hàng (PO)</TableHead>
                   {/* ★ Sếp 19/09/2026: *"Thêm cho a trường thông tin Mã số đề nghị"*. Lấy thẳng
                       `po.prCode` đã có trên đơn — xem `maDeNghi` ở `2-quy-trinh/tuoi-no.ts`. */}
                   <TableHead className="w-[7%] leading-tight whitespace-normal">
@@ -553,10 +553,10 @@ export default function TrangCongNo() {
                   </TableHead>
                   {/* ★ Sếp 18/09/2026 — TÁCH khỏi dòng chữ xám dưới mã PO, KHÔNG nhân bản: để cả
                       hai là hai chỗ cùng nói một chuyện, đúng nếp dự án cấm. */}
-                  <TableHead className="w-[8%] leading-tight whitespace-normal">
+                  <TableHead className="w-[7%] leading-tight whitespace-normal">
                     Tên công trình
                   </TableHead>
-                  <TableHead className="w-[9%]">Tên NCC</TableHead>
+                  <TableHead className="w-[8%]">Tên NCC</TableHead>
                   {/* ★ Sếp 18/09/2026 — ô SỬA TẠI CHỖ, đặt ở cấp ĐƠN (hoá đơn có trước lần chi). */}
                   <TableHead className="w-[7%] leading-tight whitespace-normal">
                     Số hoá đơn
@@ -566,19 +566,30 @@ export default function TrangCongNo() {
                   {/* ★ ĐỔI TÊN 19/09/2026 — Sếp: *"Sửa tên cột Tổng công nợ thành Tổng tiền theo PO"*.
                       Tên cũ mơ hồ từ khi có thêm con số của hoá đơn: "công nợ" không nói rõ đang
                       lấy theo cam kết mua hay theo chứng từ NCC xuất. */}
-                  <TableHead className="w-[8%] text-right leading-tight whitespace-normal">
+                  <TableHead className="w-[7%] text-right leading-tight whitespace-normal">
                     Tổng tiền theo PO
                   </TableHead>
                   {/* ★ CỘT MỚI 19/09/2026 — ô SỬA TẠI CHỖ. Hoá đơn thường lệch PO (giao thiếu,
                       phụ phí, xuất gộp nhiều lần giao), nên phải có cả hai để đối chiếu. */}
-                  <TableHead className="w-[8%] text-right leading-tight whitespace-normal">
+                  <TableHead className="w-[7%] text-right leading-tight whitespace-normal">
                     Tổng tiền theo hoá đơn
                   </TableHead>
-                  {/* ★★ CÒN LẠI = Tổng − đã trả (Sếp 18/09/2026, yêu cầu ③).
-                      📌 KHÔNG làm thêm cột "Đã trả" riêng: bảng đã 13 cột, thêm nữa là vỡ. Số đã
-                      trả để làm dòng phụ ngay trong ô này — người đọc vẫn thấy đủ hai con số mà
-                      bảng không phải gánh thêm một cột. */}
-                  <TableHead className="w-[9%] text-right leading-tight whitespace-normal">
+                  {/**
+                    * ★★★ CỘT "ĐÃ TRẢ" RIÊNG — Sếp 20/09/2026: ***"Sẽ thêm cột số tiền đã trả, vì
+                    * có trường hợp hoá đơn 10 triệu nhưng sẽ trả 2 lần, mỗi lần 5tr"***.
+                    *
+                    * 📌 ĐÂY LÀ SẾP ĐẢO QUYẾT ĐỊNH CỦA CHÍNH MÌNH NGÀY 18/09, VÀ ĐẢO CÓ LÝ. Chú
+                    * thích cũ ở đúng chỗ này từng ghi *"KHÔNG làm thêm cột Đã trả riêng: bảng đã
+                    * 13 cột, thêm nữa là vỡ"* — số đã trả khi đó nằm thành một dòng chữ nhỏ bên
+                    * dưới con số Còn phải trả. Nhưng đơn trả làm nhiều đợt thì "đã trả bao nhiêu"
+                    * là con số người ta **đọc lướt cả cột** để đối chiếu, không phải thứ đi tìm
+                    * trong từng ô. Đổi lại bảng gánh thêm một cột — chấp nhận được.
+                    */}
+                  <TableHead className="w-[7%] text-right leading-tight whitespace-normal">
+                    Đã trả
+                  </TableHead>
+                  {/* ★★ CÒN LẠI = Tổng − đã trả (Sếp 18/09/2026, yêu cầu ③). Tự tính, không gõ. */}
+                  <TableHead className="w-[8%] text-right leading-tight whitespace-normal">
                     Còn phải trả
                   </TableHead>
                   {/* ⚠️ Bốn tiêu đề giữa dài hơn bề rộng cột đã khai. Lớp gốc của `TableHead` là
@@ -587,7 +598,7 @@ export default function TrangCongNo() {
                   <TableHead className="w-[5%] text-center leading-tight whitespace-normal">
                     Thời gian C.Nợ
                   </TableHead>
-                  <TableHead className="w-[8%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-[7%] text-center leading-tight whitespace-normal">
                     Ngày bắt đầu tính
                   </TableHead>
                   <TableHead className="w-[7%] text-center leading-tight whitespace-normal">
@@ -605,7 +616,7 @@ export default function TrangCongNo() {
                     {/* `whitespace-normal`: bảng đã `table-fixed`, câu giải thích dài mà giữ
                         `nowrap` (lớp gốc của TableCell) thì nó tràn ra ngoài khung cuộn. */}
                     <TableCell
-                      colSpan={14}
+                      colSpan={15}
                       className="py-6 text-center text-sm whitespace-normal text-text-desc"
                     >
                       {/* 🔴 NÓI ĐÚNG LÝ DO BẢNG RỖNG. Đang lọc mà vẫn in "chưa phát sinh công nợ"
@@ -757,6 +768,27 @@ export default function TrangCongNo() {
                         * 0 có thể là "trả hết" mà cũng có thể là "đơn chưa có giá".
                         */}
                       {/**
+                        * ★★★ CỘT "ĐÃ TRẢ" — Sếp 20/09/2026: ***"Sẽ thêm cột số tiền đã trả, vì có
+                        * trường hợp hoá đơn 10 triệu nhưng sẽ trả 2 lần, mỗi lần 5tr"***.
+                        *
+                        * 🔴 CỘNG TỪ CÁC ĐỢT CHI, KHÔNG GÕ TAY. `r.daTra` do `tuoi-no.ts` cộng từ
+                        * khối Đợt thanh toán — một nguồn duy nhất. Cho gõ tay ở đây là hai chỗ
+                        * cùng giữ một con số rồi lệch nhau mà không gì báo.
+                        *
+                        * 📌 Chưa trả đồng nào thì in dấu gạch, KHÔNG in "0 đ": số không trong cột
+                        * tiền dễ bị đọc lướt thành "đã đối chiếu, bằng không", còn gạch thì đọc
+                        * ngay ra là chưa có đợt chi nào.
+                        */}
+                      <TableCell className="text-right tabular-nums">
+                        {r.daTra > 0 ? (
+                          <span className="font-semibold text-text-primary">
+                            {formatCurrencyVnd(r.daTra)}
+                          </span>
+                        ) : (
+                          <span className="text-text-desc">—</span>
+                        )}
+                      </TableCell>
+                      {/**
                         * 🔴 TÍNH THEO CĂN CỨ ĐANG CHỌN (Sếp 19/09/2026). Chọn "theo hoá đơn" mà đơn
                         * CHƯA nhập hoá đơn thì phải NÓI RA, tuyệt đối không rơi về số của PO cho
                         * "đỡ trống": người đọc tưởng đang nhìn số hoá đơn trong khi đó là số PO, mà
@@ -784,11 +816,10 @@ export default function TrangCongNo() {
                                   {formatCurrencyVnd(conLaiTheoCanCu)}
                                 </span>
                               )}
-                              {r.daTra > 0 && (
-                                <span className="block text-xs font-normal text-text-desc">
-                                  đã trả {formatCurrencyVnd(r.daTra)}
-                                </span>
-                              )}
+                              {/* 🔴 ĐÃ BỎ dòng phụ *"đã trả …"* ở đây — từ 20/09/2026 con số đó có
+                                  CỘT RIÊNG ngay bên trái. Để cả hai là hai chỗ cùng nói một
+                                  chuyện, đúng nếp dự án cấm; và khi một bên đổi cách tính thì
+                                  cùng một hàng in ra hai con số khác nhau. */}
                             </>
                           );
                         })()}
@@ -904,8 +935,8 @@ export default function TrangCongNo() {
                       * ***"Mỗi PO sẽ được tạo thêm dòng để nhập số tiền thanh toán từng đợt (và có
                       * tính năng group lại theo tên PO)"***.
                       *
-                      * 🔴 MỘT `TableCell colSpan` DUY NHẤT, KHÔNG chia lại thành 13 ô con. Bảng ngoài
-                      * là `table-fixed` với bề rộng phần trăm của 13 cột tiêu đề; nhồi ô con vào đó
+                      * 🔴 MỘT `TableCell colSpan` DUY NHẤT, KHÔNG chia lại thành 15 ô con. Bảng ngoài
+                      * là `table-fixed` với bề rộng phần trăm của 15 cột tiêu đề; nhồi ô con vào đó
                       * là chúng bị ép theo bề rộng của cột nói chuyện khác — dòng con nằm lệch hẳn
                       * so với tiêu đề phía trên, đúng kiểu vỡ bố cục Sếp đã bắt nhiều lần.
                       *
@@ -914,7 +945,7 @@ export default function TrangCongNo() {
                       */}
                     {moDotChi === r.poId && (
                       <TableRow>
-                        <TableCell colSpan={14} className="bg-muted/40 p-0 whitespace-normal">
+                        <TableCell colSpan={15} className="bg-muted/40 p-0 whitespace-normal">
                           {/**
                             * ★★ DANH SÁCH TỪNG TỜ HOÁ ĐƠN — Sếp 20/09/2026: ***"Link thông tin các
                             * đợt hoá đơn sang đây để theo dõi công nợ theo từng hoá đơn"***.
