@@ -122,6 +122,21 @@ try {
   process.exit(1);
 }
 
+/* ★ Ghi từng phần — đợt 2 lộ trình chống mất dữ liệu (22/09/2026). Phần QUYẾT ĐỊNH của việc
+   "chỉ gửi thứ mình vừa sửa" nằm ở đây để kiểm được bằng cách gọi thật. */
+const tepRaGTP = join(thuMuc, "ghi-tung-phan.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/ghi-tung-phan.ts" --bundle --platform=node --format=cjs --outfile="${tepRaGTP}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/ghi-tung-phan.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const tepRa6 = join(thuMuc, "tich-hop-app-request.cjs");
 try {
   execSync(
@@ -382,6 +397,7 @@ const AR = nap(tepRa6);
 const KD = nap(tepRa7);
 const HS = nap(tepRa8);
 const NB = nap(tepRa9);
+const GTP = nap(tepRaGTP);
 const TT = nap(tepRa10);
 const CQ = nap(tepRa11);
 const QLK = nap(tepRa12);
@@ -9494,6 +9510,284 @@ kiem("Tang ghi CHAN dot thanh toan khong hop le", CHU_SEP_DOT_CHI, () => {
 
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
+
+// ════════════════════════════════════════════════════════════════════
+// GHI TỪNG PHẦN — đợt 2 lộ trình chống mất dữ liệu, Sếp chốt 22/09/2026
+//
+// Luật ở đây canh đúng MỘT điều: app chỉ được gửi lên thứ mình vừa sửa. Mỗi luật
+// dưới đây ứng với một cách mà việc đó có thể hỏng — và cách nào cũng đã từng làm
+// mất đơn thật ở bản cũ.
+// ════════════════════════════════════════════════════════════════════
+
+kiem(
+  "Bản ghi KHÔNG đổi thì KHÔNG được gửi lên — đây là toàn bộ giá trị của đợt 2",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const x = { id: "X", soLuong: 10 };
+    const anh = GTP.chupAnh("donHang", [x]);
+    const r = GTP.tinhThayDoi("donHang", anh, [x]);
+    return {
+      duoc: r.length === 0,
+      thucTe: `${r.length} thay đổi`,
+      mongDoi: "0 — y hệt bản trên máy chủ thì khỏi gửi, nhờ vậy không đè lên việc người khác",
+    };
+  },
+);
+
+kiem(
+  "Sửa đơn X thì CHỈ gửi đơn X, không đụng đơn Y",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const anh = GTP.chupAnh("donHang", [{ id: "X", soLuong: 10 }, { id: "Y", ncc: "A" }]);
+    const r = GTP.tinhThayDoi("donHang", anh, [{ id: "X", soLuong: 50 }, { id: "Y", ncc: "A" }]);
+    const chiX = r.length === 1 && r[0].duongDan === "donHang.X";
+    return {
+      duoc: chiX,
+      thucTe: r.map((t) => t.duongDan).join(", ") || "(rỗng)",
+      mongDoi: "chỉ donHang.X — đơn Y không đụng thì không gửi, nên không đè bản người khác vừa sửa",
+    };
+  },
+);
+
+kiem(
+  "Bản ghi bị xoá phải báo riêng bằng null, không được lặng lẽ bỏ qua",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const anh = GTP.chupAnh("donHang", [{ id: "X" }, { id: "Y" }]);
+    const r = GTP.tinhThayDoi("donHang", anh, [{ id: "X" }]);
+    const dung = r.length === 1 && r[0].duongDan === "donHang.Y" && r[0].giaTri === null;
+    return {
+      duoc: dung,
+      thucTe: JSON.stringify(r),
+      mongDoi: 'donHang.Y = null — bỏ qua thì người dùng xoá xong đơn vẫn nằm trên máy chủ và hiện về lần sau',
+    };
+  },
+);
+
+kiem(
+  "CHƯA nhận được ảnh chụp nào thì KHÔNG ghi gì — không được coi là 'ghi tất'",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const r = GTP.tinhThayDoi("donHang", null, [{ id: "X", soLuong: 1 }]);
+    return {
+      duoc: r.length === 0,
+      thucTe: `${r.length} thay đổi`,
+      mongDoi: "0 — chưa biết máy chủ đang có gì mà ghi đè tất là đúng cái sai đang muốn sửa",
+    };
+  },
+);
+
+kiem(
+  "Đọc được CẢ dữ liệu cũ (mảng) lẫn dữ liệu mới (map)",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const tuMang = GTP.tuMap([{ id: "X" }, { id: "Y" }]);
+    const tuMapMoi = GTP.tuMap({ X: { id: "X" }, Y: { id: "Y" } });
+    return {
+      duoc: tuMang.length === 2 && tuMapMoi.length === 2,
+      thucTe: `mảng→${tuMang.length}, map→${tuMapMoi.length}`,
+      mongDoi: "2 và 2 — thiếu vế nào cũng khiến một nửa số máy đọc ra kho rỗng trong lúc chuyển đổi",
+    };
+  },
+);
+
+kiem(
+  "Bảng giá khoá theo poId, KHÔNG phải id — sai khoá là mọi bảng giá đè lên nhau",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const m = GTP.sangMap("giaDonHang", [{ poId: "PO1", tien: 100 }, { poId: "PO2", tien: 200 }]);
+    return {
+      duoc: Object.keys(m).length === 2 && !!m.PO1 && !!m.PO2,
+      thucTe: Object.keys(m).join(", ") || "(rỗng)",
+      mongDoi: "PO1, PO2 — bảng giá không có trường `id`, khoá nhầm là cả hai dồn vào một ô rồi mất một",
+    };
+  },
+);
+
+kiem(
+  "Bản ghi không có mã thì bỏ, không dựng bản ghi ma",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const m = GTP.sangMap("donHang", [{ id: "X" }, { soLuong: 5 }, { id: "" }]);
+    return {
+      duoc: Object.keys(m).length === 1 && !!m.X,
+      thucTe: `${Object.keys(m).length} bản ghi`,
+      mongDoi: "1 — không mã thì không ghi riêng được, giữ lại là bày ra bản ghi không ai sửa được",
+    };
+  },
+);
+
+kiem(
+  "Thứ tự trường khác nhau KHÔNG bị coi là đã đổi",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const anh = GTP.chupAnh("donHang", [{ id: "X", a: 1, b: 2 }]);
+    const r = GTP.tinhThayDoi("donHang", anh, [{ b: 2, id: "X", a: 1 }]);
+    return {
+      duoc: r.length === 0,
+      thucTe: `${r.length} thay đổi`,
+      mongDoi: "0 — so bằng chuỗi không ổn định thì mỗi lần render lại tưởng có đổi, ghi loạn cả kho",
+    };
+  },
+);
+
+// ------------------------------------------------------------
+// QUYẾT ĐỊNH GHI — phần dễ sai nhất của đợt 2. Cố ý tách khỏi `kho-chung-firestore.ts`
+// (file đó phải mở Firebase mới chạy) để chỗ này gọi thật được.
+// ------------------------------------------------------------
+
+/** Trạng thái "máy chủ đã ở dạng map, biết rõ đang có gì" — nền để dựng từng ca kiểm. */
+function ttMap(sach) {
+  return GTP.chupTrangThai(GTP.sangMapCaKho(sach));
+}
+
+kiem(
+  "Lưu mà KHÔNG đổi gì thì không ghi một byte nào",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const sach = { donHang: [{ id: "X", soLuong: 10 }], deNghi: [{ id: "D1" }] };
+    const r = GTP.quyetDinhGhi(ttMap(sach), sach);
+    return {
+      duoc: r.kieu === "bo-qua",
+      thucTe: r.kieu,
+      mongDoi:
+        "bo-qua — mở hồ sơ ra xem rồi đóng lại mà vẫn đẩy cả kho lên là cách đơn của Sếp biến mất 15/09",
+    };
+  },
+);
+
+kiem(
+  "Sửa một đơn thì chỉ gửi ĐÚNG đơn đó, không đụng đơn bên cạnh",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const cu = { donHang: [{ id: "X", soLuong: 10 }, { id: "Y", soLuong: 20 }] };
+    const moi = { donHang: [{ id: "X", soLuong: 50 }, { id: "Y", soLuong: 20 }] };
+    const r = GTP.quyetDinhGhi(ttMap(cu), moi);
+    const dung =
+      r.kieu === "tung-phan" &&
+      r.thayDoi.length === 1 &&
+      r.thayDoi[0].duongDan === "donHang.X";
+    return {
+      duoc: dung,
+      thucTe:
+        r.kieu === "tung-phan" ? r.thayDoi.map((t) => t.duongDan).join(", ") || "(rỗng)" : r.kieu,
+      mongDoi: "chỉ donHang.X — gửi kèm Y là đè lên bản Y mà người khác vừa sửa",
+    };
+  },
+);
+
+kiem(
+  "Máy chủ CÒN DẠNG MẢNG thì phải ghi đầy đủ để chuyển dạng, không ghi từng phần",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    /* Dữ liệu thô còn là mảng — đúng như production hôm nay, trước khi bật công tắc. */
+    const tt = GTP.chupTrangThai({ donHang: [{ id: "X", soLuong: 10 }] });
+    const r = GTP.quyetDinhGhi(tt, { donHang: [{ id: "X", soLuong: 50 }] });
+    return {
+      duoc: r.kieu === "day-du" && r.ly === "con-dang-mang",
+      thucTe: `${r.kieu}${r.ly ? " / " + r.ly : ""}`,
+      mongDoi:
+        "day-du / con-dang-mang — Firestore không hiểu đường dẫn `donHang.X` trên một trường đang là MẢNG",
+    };
+  },
+);
+
+kiem(
+  "Lần chuyển dạng ghi lên MAP chứ không phải mảng",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const tt = GTP.chupTrangThai({ donHang: [{ id: "X" }] });
+    const r = GTP.quyetDinhGhi(tt, { donHang: [{ id: "X" }, { id: "Y" }] });
+    const dh = r.kieu === "day-du" ? r.ban.donHang : null;
+    const dung = dh !== null && !Array.isArray(dh) && Boolean(dh.X) && Boolean(dh.Y);
+    return {
+      duoc: dung,
+      thucTe: Array.isArray(dh) ? "vẫn là mảng" : JSON.stringify(Object.keys(dh ?? {})),
+      mongDoi:
+        'map khoá ["X","Y"] — ghi lại dạng mảng thì lần sau vẫn không ghi riêng được, chuyển dạng thành vô nghĩa',
+    };
+  },
+);
+
+kiem(
+  "Máy chủ CHƯA CÓ tài liệu thì phải TẠO chứ không bỏ qua",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const r = GTP.quyetDinhGhi(GTP.chupTrangThai(undefined), { donHang: [{ id: "X" }] });
+    return {
+      duoc: r.kieu === "day-du" && r.ly === "chua-co-tai-lieu",
+      thucTe: `${r.kieu}${r.ly ? " / " + r.ly : ""}`,
+      mongDoi:
+        "day-du / chua-co-tai-lieu — `updateDoc` không tạo được tài liệu, gọi nó ở đây là ném lỗi và mất trắng lần lưu",
+    };
+  },
+);
+
+kiem(
+  "CHƯA nghe được lần nào thì ghi đầy đủ, KHÔNG suy đoán",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const tt = { daNhanAnh: false, anhTheoKhoi: null, anhNguyenKhoi: {}, conDangMang: false };
+    const r = GTP.quyetDinhGhi(tt, { donHang: [{ id: "X" }] });
+    return {
+      duoc: r.kieu === "day-du" && r.ly === "chua-nhan-anh",
+      thucTe: `${r.kieu}${r.ly ? " / " + r.ly : ""}`,
+      mongDoi: "day-du / chua-nhan-anh — chưa biết máy chủ có gì thì không được tính 'đã đổi'",
+    };
+  },
+);
+
+kiem(
+  "Xoá một đơn phải báo riêng để nơi gọi dịch sang deleteField()",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const cu = { donHang: [{ id: "X" }, { id: "Y" }] };
+    const r = GTP.quyetDinhGhi(ttMap(cu), { donHang: [{ id: "X" }] });
+    const xoa = r.kieu === "tung-phan" ? r.thayDoi.filter((t) => t.giaTri === null) : [];
+    return {
+      duoc: xoa.length === 1 && xoa[0].duongDan === "donHang.Y",
+      thucTe: xoa.map((t) => t.duongDan).join(", ") || "(không có)",
+      mongDoi:
+        "donHang.Y = null — bỏ qua thì người dùng xoá đơn xong nó vẫn nằm trên máy chủ và hiện về lần sau",
+    };
+  },
+);
+
+kiem(
+  "Cấu hình đổi thì gửi, không đổi thì thôi",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const cu = { donHang: [], cauHinh: { nguong: 5 } };
+    const yNguyen = GTP.quyetDinhGhi(ttMap(cu), { donHang: [], cauHinh: { nguong: 5 } });
+    const daDoi = GTP.quyetDinhGhi(ttMap(cu), { donHang: [], cauHinh: { nguong: 9 } });
+    const dung =
+      yNguyen.kieu === "bo-qua" &&
+      daDoi.kieu === "tung-phan" &&
+      daDoi.thayDoi.length === 1 &&
+      daDoi.thayDoi[0].duongDan === "cauHinh";
+    return {
+      duoc: dung,
+      thucTe: `y nguyên → ${yNguyen.kieu}; đã đổi → ${daDoi.kieu}`,
+      mongDoi:
+        "bo-qua / tung-phan(cauHinh) — cấu hình từng bị lột sạch vì quên khai một khoá, đừng để nó lọt lần nữa",
+    };
+  },
+);
+
+kiem(
+  "chupTrangThai phải đọc DỮ LIỆU THÔ, không đọc bản đã chuẩn hoá",
+  "đợt 2 chống mất dữ liệu · 22/09/2026",
+  () => {
+    const dangMap = GTP.chupTrangThai({ donHang: { X: { id: "X" } } });
+    const dangMang = GTP.chupTrangThai({ donHang: [{ id: "X" }] });
+    return {
+      duoc: dangMap.conDangMang === false && dangMang.conDangMang === true,
+      thucTe: `map → ${dangMap.conDangMang}; mảng → ${dangMang.conDangMang}`,
+      mongDoi:
+        "false / true — hỏi bản đã chuẩn hoá thì lúc nào cũng thấy mảng, app sẽ ghi đè cả kho mãi mãi mà không ai biết",
+    };
+  },
+);
 
 const tong = dat + truot.length;
 console.log("");
