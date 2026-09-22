@@ -366,6 +366,20 @@ service cloud.firestore {
 
     // Mọi đường dẫn khác: KHÓA. Kể cả khi sau này ai đó ghi nhầm dữ liệu thật vào một
     // collection mới, nó cũng không lộ ra ngoài.
+    /* ★ KHOÁ MỀM — ai đang mở hồ sơ nào (đợt 1 lộ trình chống mất dữ liệu, 22/09/2026).
+       Kho RIÊNG, cố ý không nằm chung `chay-thu` — nhét cờ "đang sửa" vào kho chung là vừa bị
+       ghi đè xoá mất, vừa tự sinh thêm lượt ghi vào đúng chỗ đang nghẽn.
+
+       🔴 AI CŨNG GHI ĐƯỢC, kể cả xoá — vì mỗi người tự dọn khoá của mình khi rời màn hình, và
+       mã tài liệu đã gắn sẵn uid (`{loai}__{id}__{uid}`) nên không ai giả danh người khác được
+       mà không bị lộ ngay trên giao diện. Dữ liệu ở đây KHÔNG phải chứng từ: mất hết cũng chỉ
+       là mất cảnh báo, không mất nghiệp vụ. Siết chặt hơn mức này là đổi lấy rủi ro khoá chết
+       hồ sơ khi người dùng đóng tab đột ngột. */
+    match /dang-sua/{khoa} {
+      allow read: if conHanChayThu() && duocVao();
+      allow create, update, delete: if conHanChayThu() && duocVao();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

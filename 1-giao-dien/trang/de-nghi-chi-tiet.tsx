@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import BangAiDangSua from "@/1-giao-dien/thanh-phan-dung-chung/bang-ai-dang-sua";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -1006,6 +1007,11 @@ export default function TrangChiTietDeNghi({
                  · Lập đơn đặt hàng → nút ở khối "Đơn đặt hàng" ngay trong trang này
                  · Trạng thái → khối "Giai đoạn hiện tại" ở cột phải, chi tiết hơn */
           />
+
+          {/* ★ AI ĐANG MỞ HỒ SƠ NÀY — đợt 1 lộ trình chống mất dữ liệu (22/09/2026).
+              Đặt ngay dưới tiêu đề, TRƯỚC dải giai đoạn: người mở phải thấy trước khi bắt đầu
+              gõ, chứ không phải sau khi đã nhập xong nửa trang. */}
+          <BangAiDangSua loai="de-nghi" id={dn.id} uid={nguoiDung.uid} ten={nguoiDung.tenHienThi} />
 
           {/* Dải mũi tên 7 bước — nhìn ra ngay đề nghị đang đứng ở đâu trong quy trình */}
           <ThanhGiaiDoan giaiDoan={giaiDoan} />
