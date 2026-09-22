@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import BangAiDangSua from "@/1-giao-dien/thanh-phan-dung-chung/bang-ai-dang-sua";
 import { useMemo } from "react";
 import {
   AlertTriangle,
@@ -286,6 +287,11 @@ export default function TrangChiTietDonHang() {
           </div>
         }
       />
+
+      {/* ★ AI ĐANG MỞ HỒ SƠ NÀY — đợt 1 lộ trình chống mất dữ liệu (22/09/2026).
+          Đặt NGAY DƯỚI tiêu đề, trước mọi nội dung khác: người mở hồ sơ phải thấy trước khi
+          bắt đầu gõ, chứ không phải sau khi đã nhập xong nửa trang. */}
+      <BangAiDangSua loai="don-hang" id={po.id} uid={nguoiDung.uid} ten={nguoiDung.tenHienThi} />
 
       {/* =====================================================================
           ★★ CHƯA GỬI ĐƯỢC SANG KHO CÔNG TRÌNH — thêm 15/09/2026
