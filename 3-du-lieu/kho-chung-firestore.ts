@@ -18,12 +18,41 @@
 //     Chấp nhận được khi cả phòng cùng test; lên bản thật phải tách từng chứng từ ra document
 //     riêng để hai người sửa hai hồ sơ khác nhau không đụng nhau.
 //
+// ★ CẬP NHẬT 22/09/2026 — ĐỢT 2 ĐÃ VÁ ĐÚNG CHỖ ĐÁNH ĐỔI Ở TRÊN.
+//   Vẫn một document, nhưng sáu khối lớn đổi từ MẢNG sang MAP (khoá = mã bản ghi), và mỗi lần
+//   lưu chỉ gửi đường dẫn của những bản ghi THẬT SỰ đã đổi. Hai người sửa hai đơn khác nhau
+//   không còn chạm vào nhau; lưu mà không đổi gì thì không gửi một byte nào.
+//   Bật bằng `NEXT_PUBLIC_GHI_TUNG_PHAN=1`. Xem `2-quy-trinh/ghi-tung-phan.ts` để biết vì sao
+//   phải đổi sang map — chỉ "gửi ít hơn" thì KHÔNG đủ.
+//
 // ⚠️ localStorage VẪN GIỮ, làm bản dự phòng: mất mạng thì app vẫn mở ra được dữ liệu lần
 // cuối. Firestore là nguồn chính, localStorage chỉ là bản sao đọc lúc chờ mạng.
 // ============================================================
 
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import { daCauHinhFirebase, moFirebase } from "@/5-ket-noi/firebase-chung";
+import {
+  tuMap,
+  chupTrangThai,
+  quyetDinhGhi,
+  type TrangThaiKho,
+} from "@/2-quy-trinh/ghi-tung-phan";
+
+/**
+ * ★ CÔNG TẮC GHI TỪNG PHẦN — đợt 2 lộ trình chống mất dữ liệu (Sếp chốt 22/09/2026).
+ *
+ * · tắt (mặc định) — ghi đè cả tài liệu như cũ. App chạy y hệt hôm nay.
+ * · `1` — lưu dạng map, mỗi lần chỉ gửi bản ghi đã đổi.
+ *
+ * 🔴 CỐ Ý ĐỂ MẶC ĐỊNH LÀ TẮT. Bản sửa này merge được mà KHÔNG đổi một hành vi nào trên
+ * production; ngày chuyển đổi chỉ cần thêm biến môi trường rồi deploy lại — cùng cách đã dùng
+ * khi tách project Firebase và khi chuyển tệp sang R2, cả hai lần đều có đường lùi bằng một biến.
+ *
+ * ⚠️ `.trim().toLowerCase()` bắt buộc — biến môi trường dính ký tự xuống dòng từng khiến app
+ * lặng lẽ chạy nhánh sai (lỗi thật 12/08/2026).
+ */
+const GHI_TUNG_PHAN =
+  (process.env.NEXT_PUBLIC_GHI_TUNG_PHAN ?? "").trim().toLowerCase() === "1";
 
 /**
  * Tất cả người dùng bản chạy thử chung một "phòng" dữ liệu.
@@ -42,8 +71,10 @@ export const daCauHinhFirestore = daCauHinhFirebase;
 async function moKetNoi() {
   const app = await moFirebase();
   if (!app) return null;
-  const { getFirestore, doc, onSnapshot, setDoc } = await import("firebase/firestore");
-  return { app, db: getFirestore(app), doc, onSnapshot, setDoc };
+  const { getFirestore, doc, onSnapshot, setDoc, updateDoc, deleteField } = await import(
+    "firebase/firestore",
+  );
+  return { app, db: getFirestore(app), doc, onSnapshot, setDoc, updateDoc, deleteField };
 }
 
 /**
@@ -62,13 +93,16 @@ async function moKetNoi() {
  * gọi phân biệt "chưa có" với "có nhưng để mặc định" để quyết định đẩy lên hay lấy về.
  */
 function chuanHoa(d: Partial<DuLieuLuu>): DuLieuLuu {
+  /* ★ ĐỌC ĐƯỢC CẢ HAI DẠNG — mảng (cũ) và map (mới). Bắt buộc để chuyển đổi mà không phải
+     ngừng dịch vụ: trong lúc chuyển thì hai dạng cùng tồn tại trên các máy khác nhau.
+     `tuMap` nhận mảng thì trả nguyên mảng, nhận map thì đổi thành mảng. */
   return {
-    deNghi: Array.isArray(d.deNghi) ? d.deNghi : [],
-    donHang: Array.isArray(d.donHang) ? d.donHang : [],
-    giaDonHang: Array.isArray(d.giaDonHang) ? d.giaDonHang : [],
-    phieuNhan: Array.isArray(d.phieuNhan) ? d.phieuNhan : [],
-    baoGia: Array.isArray(d.baoGia) ? d.baoGia : [],
-    thongBao: Array.isArray(d.thongBao) ? d.thongBao : [],
+    deNghi: tuMap(d.deNghi),
+    donHang: tuMap(d.donHang),
+    giaDonHang: tuMap(d.giaDonHang),
+    phieuNhan: tuMap(d.phieuNhan),
+    baoGia: tuMap(d.baoGia),
+    thongBao: tuMap(d.thongBao),
     ...(d.cauHinh ? { cauHinh: d.cauHinh } : {}),
     ...(Array.isArray(d.lichSuCauHinh) ? { lichSuCauHinh: d.lichSuCauHinh } : {}),
     /* Danh mục nhà cung cấp thu mua tự thêm (20/08/2026) — khai ở ĐÂY và ở `docDuLieuDaLuu`,
@@ -120,7 +154,18 @@ export async function noiKhoChung(
   try {
     const kn = await moKetNoi();
     if (!kn) return null;
-    const { db, doc, onSnapshot, setDoc, app } = kn;
+    const { db, doc, onSnapshot, setDoc, updateDoc, deleteField, app } = kn;
+
+    /* ★ TRẠNG THÁI KHO — chìa khoá của đợt 2.
+
+       Giữ chuỗi JSON của mỗi bản ghi lúc nhận từ máy chủ, để lần ghi sau biết CÁI NÀO đã đổi
+       mà chỉ gửi đúng cái đó. Không có nó thì không phân biệt được "tôi sửa" với "người khác
+       sửa", và lại quay về ghi đè cả kho.
+
+       🔴 `null` = CHƯA nghe được lần nào. Phần quyết định nằm ở `quyetDinhGhi` trong
+       `2-quy-trinh/ghi-tung-phan.ts` — cố ý để bên đó vì bên đó bộ luật GỌI THẬT được. */
+    let trangThai: TrangThaiKho | null = null;
+
     const tep = doc(db, DUONG_DAN.boSuuTap, DUONG_DAN.tep);
 
     /**
@@ -149,6 +194,12 @@ export async function noiKhoChung(
         tep,
         (anh) => {
           const du = anh.data() as Partial<DuLieuLuu> | undefined;
+
+          /* 🔴 CHỤP TRƯỚC, BÁO CHO NƠI GỌI SAU. `khiCoDuLieu` có thể gọi thẳng `day()` ngay
+             trong lượt này, mà `day()` cần trạng thái mới nhất mới biết cái gì đã đổi. Đảo
+             thứ tự là lần ghi đó so với ảnh cũ — tính nhầm, gửi thừa, đè lên người khác. */
+          trangThai = chupTrangThai(du as Record<string, unknown> | undefined);
+
           khiCoDuLieu(du ? chuanHoa(du) : null);
         },
         (e) => khiLoi?.(e),
@@ -159,6 +210,10 @@ export async function noiKhoChung(
       // Gỡ kết nối cũ trước: giữ lại là còn một kết nối chạy bằng danh tính đã hết hiệu lực.
       huyNghe?.();
       huyNghe = null;
+      /* 🔴 QUÊN BƯỚC NÀY LÀ HỎNG: đổi người đăng nhập thì quyền đọc đổi theo, bản mới nhận về
+         có thể khác hẳn. Giữ trạng thái cũ là đem ảnh chụp của người trước đi so với dữ liệu
+         của người sau — tính ra một đống "thay đổi" không có thật rồi gửi lên đè. */
+      trangThai = null;
       nghe();
     });
 
@@ -168,8 +223,35 @@ export async function noiKhoChung(
         huyAuth();
       },
       day: async (d) => {
-        // `merge: false` — ghi đè cả document. Đúng ý: đây là ảnh chụp toàn bộ kho.
-        await setDoc(tep, bo0Undefined(d));
+        const sach = bo0Undefined(d);
+
+        /* Công tắc tắt → đi đúng đường cũ. `merge: false`, ghi đè cả tài liệu.
+           Mặc định là nhánh này, nên bản sửa merge được mà production không đổi hành vi nào. */
+        if (!GHI_TUNG_PHAN) {
+          await setDoc(tep, sach);
+          return;
+        }
+
+        /* Chưa nghe được lần nào → chưa biết máy chủ có gì. `quyetDinhGhi` xử nước này bằng
+           một lần ghi đầy đủ, an toàn ngang cách cũ. */
+        const tt: TrangThaiKho =
+          trangThai ?? { daNhanAnh: false, anhTheoKhoi: null, anhNguyenKhoi: {}, conDangMang: false };
+
+        const kq = quyetDinhGhi(tt, sach as unknown as Record<string, unknown>);
+
+        if (kq.kieu === "bo-qua") return;
+        if (kq.kieu === "day-du") {
+          await setDoc(tep, kq.ban);
+          return;
+        }
+
+        const thayDoi: Record<string, unknown> = {};
+        for (const t of kq.thayDoi) {
+          /* `null` nghĩa là bản ghi đã bị xoá tại máy này. Phải dịch sang `deleteField()`; ghi
+             thẳng `null` là để lại một ô rỗng, lần đọc sau nó vẫn hiện ra như bản ghi hỏng. */
+          thayDoi[t.duongDan] = t.giaTri === null ? deleteField() : t.giaTri;
+        }
+        await updateDoc(tep, thayDoi);
       },
     };
   } catch (e) {
