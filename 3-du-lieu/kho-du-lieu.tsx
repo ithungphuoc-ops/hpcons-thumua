@@ -39,6 +39,7 @@ import { boDau } from "@/6-tien-ich/bo-dau";
 import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import { giuThongBaoGanNhat } from "@/2-quy-trinh/giu-thong-bao";
+import { xinMaMayChu } from "@/3-du-lieu/xin-ma-may-chu";
 import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
 import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
 // Chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
@@ -1202,7 +1203,7 @@ interface GiaTriDuLieu {
     diaChi?: string;
     dienThoai?: string;
     nguoiLienHe?: string;
-  }) => { loi: string } | { ma: string };
+  }) => Promise<{ loi: string } | { ma: string }>;
   /** Xoa mot nha cung cap khoi danh muc. Tra ly do bi chan, `null` la da xoa. */
   xoaNhaCungCap: (id: string) => string | null;
 
@@ -1303,7 +1304,7 @@ interface GiaTriDuLieu {
    * chuỗi rỗng — một giá trị "giả" rất dễ bị bỏ qua. Nay đơn có thể bị chặn vì lý do NGHIỆP VỤ
    * (chưa duyệt báo giá), mà lý do đó phải tới được mắt người dùng.
    */
-  themDonHang: (dauVao: DauVaoDonHangMoi) => { id: string } | { loi: string };
+  themDonHang: (dauVao: DauVaoDonHangMoi) => Promise<{ id: string } | { loi: string }>;
   /**
    * ★ GẮN ĐỀ NGHỊ VÀO PO "CHỜ ĐỀ NGHỊ" — thêm 29/08/2026 (hộp thoại "+ Gắn đề nghị").
    *
@@ -3277,13 +3278,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * nên khóa kỹ thuật bám theo nó thì về sau đối chiếu dễ hơn.
    */
   const themNhaCungCap = useCallback(
-    (n: {
+    async (n: {
       ten: string;
       maSoThue?: string;
       diaChi?: string;
       dienThoai?: string;
       nguoiLienHe?: string;
-    }): { loi: string } | { ma: string } => {
+    }): Promise<{ loi: string } | { ma: string }> => {
       const ten = n.ten.trim();
       if (ten === "") return { loi: "Chưa có tên nhà cung cấp." };
 
@@ -3300,9 +3301,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * `nhaCungCap` mà app phát ra cho giao diện cũng chính là biến này (xem chỗ dựng context).
        * Nên tập chống trùng ở đây đã nhìn hết mọi mã đang có, kể cả mã cũ dạng `NCC0001`.
        */
-      const ma = maNhaCungCapTiepTheo(
-        nhaCungCapThem.map((x) => (x.maNCC ?? "").trim()).filter((x) => x !== ""),
-      );
+      /* ★ NHỊP 3b — xin mã ở máy chủ trước, tự tính là đường lùi.
+         Máy chủ cấp trong một giao dịch nên hai người bấm cùng lúc không nhận cùng mã.
+         Công tắc tắt hoặc gọi hỏng thì `xinMaMayChu` trả `null` và app chạy y như cũ. */
+      const ma =
+        (await xinMaMayChu("nha-cung-cap", "")) ??
+        maNhaCungCapTiepTheo(
+          nhaCungCapThem.map((x) => (x.maNCC ?? "").trim()).filter((x) => x !== ""),
+        );
 
       const chuanHoaTen = (s: string) => boDau(s).replace(/\s+/g, " ").trim().toLowerCase();
       /* Chỉ so với danh mục THẬT (phần tự thêm) — danh mục mẫu đã bỏ 21/08/2026. */
@@ -5916,7 +5922,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   const themDonHang = useCallback(
-    (dauVao: DauVaoDonHangMoi) => {
+    async (dauVao: DauVaoDonHangMoi) => {
       const { donGia, thueSuatDong, phanTien, ...po } = dauVao;
 
       /**
@@ -6064,10 +6070,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           loi: "Ngày lập đơn không hợp lệ nên chưa cấp được số đơn hàng. Chọn lại ngày đơn hàng rồi thử lại.",
         };
       }
-      const code = maDonHangTiepTheo(
-        namLap,
-        donHangRef.current.map((p) => p.code),
-      );
+      /* ★ NHỊP 3b — xin mã ở máy chủ trước, tự tính là đường lùi. Xem chú thích ở
+         `themNhaCungCap`. Đơn hàng đánh số theo NĂM nên tham số là năm lập đơn. */
+      const code =
+        (await xinMaMayChu("don-hang", namLap)) ??
+        maDonHangTiepTheo(
+          namLap,
+          donHangRef.current.map((p) => p.code),
+        );
 
       /* ✅ BỎ GIỚI HẠN 20 ĐƠN (22/08/2026, cùng lý do với hồ sơ báo giá — xem
          `6-tien-ich/sinh-id-ho-so.ts`).

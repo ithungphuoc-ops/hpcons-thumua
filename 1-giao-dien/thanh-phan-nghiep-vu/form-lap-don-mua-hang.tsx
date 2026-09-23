@@ -2329,7 +2329,7 @@ export function FormLapDonMuaHang({
      với chốt thật trong `themDonHang`, nên câu báo trên form không thể nói khác lúc cất. */
   const chanLapDon = dn ? vuongMacLapDonHang(baoGia.filter((b) => b.prId === dn.id), dn) : null;
 
-  function luu(rangIn: boolean) {
+  async function luu(rangIn: boolean) {
     if (tenNCC.trim() === "") return;
     /**
      * Nhà cung cấp của đơn — lấy theo FILE PO (chỉ đạo Ban lãnh đạo 10/08/2026).
@@ -2483,7 +2483,7 @@ export function FormLapDonMuaHang({
       return;
     }
 
-    const ketQua = themDonHang({
+    const ketQua = await themDonHang({
       // Một chỗ duy nhất, hai chế độ — xem `maDuAnDon`.
       maDuAn: maDuAnDon,
       /* Mã hợp đồng CĐT — khoá đối chiếu phụ, không in lên đơn nữa (07/09/2026). Xem chú thích
@@ -5580,8 +5580,8 @@ export function FormLapDonMuaHang({
            dùng không nhập nên không thể thiếu. */
         khoaDongY={nccMoi.ten.trim() === "" ? "Phải có tên nhà cung cấp." : undefined}
         onDong={() => setMoThemNCC(false)}
-        onDongY={() => {
-          const kq = themNhaCungCap(nccMoi);
+        onDongY={async () => {
+          const kq = await themNhaCungCap(nccMoi);
           if ("loi" in kq) {
             toast.error("Không thêm được vào danh mục", { description: kq.loi });
             return;
@@ -5755,7 +5755,7 @@ export function FormLapDonMuaHang({
         }
         nhanDongY={hoiCat === "cat-in" ? "Lưu và In" : "Lưu"}
         onDong={() => setHoiCat(null)}
-        onDongY={() => luu(hoiCat === "cat-in")}
+        onDongY={() => void luu(hoiCat === "cat-in")}
       />
 
       {/**

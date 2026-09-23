@@ -152,6 +152,21 @@ try {
   process.exit(1);
 }
 
+/* ★ Cấp mã ở máy chủ — nhịp 3b (23/09/2026). Phần quyết định tách khỏi route vì route phải mở
+   Firebase mới chạy; luật phải gọi thật được chỗ dễ sai nhất. */
+const tepRaCM = join(thuMuc, "cap-ma-may-chu.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/cap-ma-may-chu.ts" --bundle --platform=node --format=cjs --outfile="${tepRaCM}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/cap-ma-may-chu.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const tepRa6 = join(thuMuc, "tich-hop-app-request.cjs");
 try {
   execSync(
@@ -414,6 +429,7 @@ const HS = nap(tepRa8);
 const NB = nap(tepRa9);
 const GTP = nap(tepRaGTP);
 const TB = nap(tepRaTB);
+const CM = nap(tepRaCM);
 const TT = nap(tepRa10);
 const CQ = nap(tepRa11);
 const QLK = nap(tepRa12);
@@ -10005,6 +10021,104 @@ kiem(
       duoc: typeof n === "number" && ra.length === n,
       thucTe: `SO_THONG_BAO_GIU = ${n}, giữ được ${ra.length}`,
       mongDoi: "hai số bằng nhau — sáu đường thêm thông báo đều gọi chung hàm này, đừng để lệch",
+    };
+  },
+);
+
+// ------------------------------------------------------------
+// NHỊP 3b — cấp mã ở máy chủ (23/09/2026)
+// ------------------------------------------------------------
+
+kiem(
+  "Mã đang GIỮ CHỖ phải được tính vào, không thì hai người cách vài giây vẫn trùng",
+  "nhịp 3b · 23/09/2026",
+  () => {
+    const trongKho = ["DMH260018"];
+    const giuCho = [{ ma: "DMH260019", luc: new Date().toISOString() }];
+    const coGiuCho = CM.maTiepTheoTrenMayChu("don-hang", "26", trongKho, giuCho);
+    const khongGiuCho = CM.maTiepTheoTrenMayChu("don-hang", "26", trongKho, []);
+    return {
+      duoc: coGiuCho === "DMH260020" && khongGiuCho === "DMH260019",
+      thucTe: `có giữ chỗ → ${coGiuCho}; bỏ giữ chỗ → ${khongGiuCho}`,
+      mongDoi:
+        "DMH260020 / DMH260019 — người đầu cấp xong chưa kịp ghi chứng từ, người sau nhìn vào kho không thấy gì; sổ giữ chỗ sinh ra đúng để chặn ca đó",
+    };
+  },
+);
+
+kiem(
+  "Giữ chỗ hết hạn thì TRẢ SỐ VỀ, không treo vĩnh viễn",
+  "nhịp 3b · 23/09/2026",
+  () => {
+    const bayGio = Date.now();
+    const cu = [{ ma: "DMH260019", luc: new Date(bayGio - CM.HAN_GIU_CHO_MS - 1000).toISOString() }];
+    const moi = [{ ma: "DMH260019", luc: new Date(bayGio - 1000).toISOString() }];
+    const conHan = CM.locGiuChoConHieuLuc(moi, [], bayGio);
+    const hetHan = CM.locGiuChoConHieuLuc(cu, [], bayGio);
+    return {
+      duoc: conHan.length === 1 && hetHan.length === 0,
+      thucTe: `còn hạn giữ ${conHan.length}; hết hạn giữ ${hetHan.length}`,
+      mongDoi:
+        "1 / 0 — giữ vĩnh viễn thì mỗi lần người dùng bỏ dở là dãy số nhảy cóc một nấc, kế toán sẽ hỏi",
+    };
+  },
+);
+
+kiem(
+  "Mã đã thành chứng từ thật thì thôi giữ chỗ — sổ tự dọn, không phình",
+  "nhịp 3b · 23/09/2026",
+  () => {
+    const giuCho = [{ ma: "DMH260019", luc: new Date().toISOString() }];
+    const conLai = CM.locGiuChoConHieuLuc(giuCho, ["DMH260018", "DMH260019"]);
+    return {
+      duoc: conLai.length === 0,
+      thucTe: `${conLai.length} mục còn giữ`,
+      mongDoi: "0 — giữ chỗ xong việc; không dọn thì sổ phình mãi và mỗi lần cấp lại đọc thêm",
+    };
+  },
+);
+
+kiem(
+  "So mã KHÔNG phân biệt hoa thường — mã cũ nhập tay có thể là 'nc0001'",
+  "nhịp 3b · 23/09/2026",
+  () => {
+    const conLai = CM.locGiuChoConHieuLuc([{ ma: "NC0007", luc: new Date().toISOString() }], ["nc0007"]);
+    return {
+      duoc: conLai.length === 0,
+      thucTe: `${conLai.length} mục còn giữ`,
+      mongDoi:
+        "0 — hai nơi so khác nhau thì một bên tưởng đã dùng, bên kia tưởng còn trống, rồi cấp trùng",
+    };
+  },
+);
+
+kiem(
+  "Khoá sổ tách theo đúng phạm vi đánh số, và chịu được dấu '/' trong mã dự án",
+  "nhịp 3b · 23/09/2026",
+  () => {
+    const a = CM.khoaSoCapPhat("de-nghi", "30/2025/HĐXD/UNICE-HPCS");
+    const b = CM.khoaSoCapPhat("de-nghi", "43-2025-HĐXD-HPCS");
+    const nam26 = CM.khoaSoCapPhat("don-hang", "26");
+    const nam27 = CM.khoaSoCapPhat("don-hang", "27");
+    return {
+      duoc: !a.includes("/") && a !== b && nam26 !== nam27,
+      thucTe: `${a} | ${b} | ${nam26} | ${nam27}`,
+      mongDoi:
+        "không còn '/' (Firestore cấm trong mã tài liệu) và hai dự án/hai năm ra hai khoá khác nhau",
+    };
+  },
+);
+
+kiem(
+  "Loại mã lạ bị chặn — route không được nhận dữ liệu tuỳ tiện",
+  "nhịp 3b · 23/09/2026",
+  () => {
+    const ok = CM.laLoaiMa("don-hang") && CM.laLoaiMa("de-nghi") && CM.laLoaiMa("nha-cung-cap");
+    const chan = !CM.laLoaiMa("xoa-het") && !CM.laLoaiMa("") && !CM.laLoaiMa(null);
+    return {
+      duoc: ok && chan,
+      thucTe: `ba loại thật: ${ok}; chặn loại lạ: ${chan}`,
+      mongDoi: "true / true — thiếu chặn là mở cửa cho dữ liệu lạ đi thẳng vào giao dịch",
     };
   },
 );
