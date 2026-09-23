@@ -7,7 +7,7 @@ import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getHpcoreDb, getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
-import { tuMap, ghiTheoDangHienCo } from "@/2-quy-trinh/ghi-tung-phan";
+import { tuMap, ghiTheoDangHienCo, chonBanSomNhat } from "@/2-quy-trinh/ghi-tung-phan";
 import { maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import {
   chuanHoaLoaiHoSo,
@@ -165,7 +165,19 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
          mới — 76 đề nghị biến mất. Phát hiện 23/09 trước khi kịp xảy ra. */
       const deNghiHienCo: DeNghiMuaHang[] = tuMap<DeNghiMuaHang>(data.deNghi);
 
-      const trungRoi = deNghiHienCo.find((d) => d.maDeXuatAppRequest === payload.requestCode);
+      /* ★ CHỌN BẢN GỐC TƯỜNG MINH — không dựa vào thứ tự (CodeRabbit chỉ ra ở PR #35).
+
+         🔴 `.find(...)` lấy bản ĐẦU TIÊN theo thứ tự. Khi còn là mảng, thứ tự là thứ tự thêm
+         vào nên nó tình cờ đúng — lấy được bản gốc. Sang map thì `Object.values` trả theo thứ
+         tự KHOÁ, và `.find` sẽ vớ phải một bản khác: route vá nhầm hồ sơ, rồi trả về mã đề
+         nghị của bản đó cho App Đề xuất.
+
+         ⚠️ CHUYỆN NÀY CÓ THẬT. Đo production 23/09/2026: 12 mã đề xuất đang có nhiều hơn một
+         đề nghị, mã `000000098` có tới 7 bản. */
+      const cungMaDeXuat = deNghiHienCo.filter(
+        (d) => d.maDeXuatAppRequest === payload.requestCode,
+      );
+      const trungRoi = chonBanSomNhat(cungMaDeXuat);
       if (trungRoi) {
         /**
          * ★★ VÁ THIẾU `idHoSoAppRequest` CHO HỒ SƠ CŨ — thêm 13/09/2026, có phép riêng của Sếp

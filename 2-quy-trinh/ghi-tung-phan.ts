@@ -289,3 +289,30 @@ export function ghiTheoDangHienCo<T>(
   /* Ép kiểu vì `interface` của TS không có chỉ mục ngầm — cùng lý do với `mangCua`. */
   return sangMap(khoi, danhSach as unknown as Record<string, unknown>[]) as unknown as Record<string, T>;
 }
+
+/**
+ * Chọn bản GỐC trong một nhóm bản ghi trùng nhau — bản được tạo sớm nhất.
+ *
+ * 🔴 VÌ SAO CẦN: khi còn là mảng, thứ tự phần tử chính là thứ tự thêm vào, nên `.find(...)`
+ * lấy được bản gốc một cách tình cờ. Đổi sang map thì `Object.values` trả theo thứ tự KHOÁ —
+ * bản nào ra trước là chuyện của chữ cái, không còn liên quan đến thời gian. Chỗ nào đang
+ * ngầm dựa vào thứ tự mảng phải nói rõ tiêu chí ra, nếu không nó đổi kết quả trong im lặng.
+ *
+ * ⚠️ CÓ THẬT, KHÔNG PHẢI LO XA: đo trên dữ liệu production 23/09/2026 — 12 mã đề xuất đang
+ * có nhiều hơn một đề nghị, cao nhất là mã `000000098` với 7 đề nghị.
+ *
+ * Tiêu chí, theo đúng thứ tự: ngày sớm hơn thắng → mã nhỏ hơn thắng → id nhỏ hơn thắng.
+ * Ba tầng để kết quả LUÔN xác định, kể cả khi hai bản cùng ngày cùng mã.
+ */
+export function chonBanSomNhat<T extends { id?: string; code?: string; ngayDeNghi?: string }>(
+  ds: readonly T[],
+): T | undefined {
+  let tot: T | undefined;
+  for (const x of ds) {
+    if (!tot) { tot = x; continue; }
+    const a = `${x.ngayDeNghi ?? ""}|${x.code ?? ""}|${x.id ?? ""}`;
+    const b = `${tot.ngayDeNghi ?? ""}|${tot.code ?? ""}|${tot.id ?? ""}`;
+    if (a < b) tot = x;
+  }
+  return tot;
+}

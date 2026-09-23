@@ -9868,6 +9868,44 @@ kiem(
   },
 );
 
+kiem(
+  "Chọn bản gốc KHÔNG được dựa vào thứ tự — phải theo ngày, mã, id",
+  "nhịp 3a · CodeRabbit PR #35 · 23/09/2026",
+  () => {
+    /* Cùng một mã đề xuất, 3 đề nghị. Bản gốc là bản ngày sớm nhất, dù nằm ở đâu trong danh sách. */
+    const ds = [
+      { id: "z9", code: "PR-003", ngayDeNghi: "2026-09-20" },
+      { id: "a1", code: "PR-001", ngayDeNghi: "2026-09-18" },
+      { id: "m5", code: "PR-002", ngayDeNghi: "2026-09-19" },
+    ];
+    const xuoi = GTP.chonBanSomNhat(ds);
+    const nguoc = GTP.chonBanSomNhat([...ds].reverse());
+    return {
+      duoc: xuoi?.id === "a1" && nguoc?.id === "a1",
+      thucTe: `xuôi → ${xuoi?.id}; ngược → ${nguoc?.id}`,
+      mongDoi:
+        "a1 ở cả hai chiều — `.find` cũ lấy phần tử đầu, đổi mảng sang map là đổi luôn bản được chọn (production 23/09 có mã 7 đề nghị trùng)",
+    };
+  },
+);
+
+kiem(
+  "Cùng ngày cùng mã thì vẫn ra một kết quả xác định",
+  "nhịp 3a · CodeRabbit PR #35 · 23/09/2026",
+  () => {
+    const ds = [
+      { id: "b", code: "PR-001", ngayDeNghi: "2026-09-18" },
+      { id: "a", code: "PR-001", ngayDeNghi: "2026-09-18" },
+    ];
+    const x = GTP.chonBanSomNhat(ds), y = GTP.chonBanSomNhat([...ds].reverse());
+    return {
+      duoc: x?.id === "a" && y?.id === "a",
+      thucTe: `${x?.id} / ${y?.id}`,
+      mongDoi: "a ở cả hai chiều — thiếu tầng id thì hai lần gọi ra hai kết quả, lỗi không tài nào truy được",
+    };
+  },
+);
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {

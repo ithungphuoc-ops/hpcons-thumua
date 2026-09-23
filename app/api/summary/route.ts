@@ -42,7 +42,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const donHangHoanThanh = donHang.filter((p) => p.trangThai === "hoan_thanh");
     const donHangHuy = donHang.filter((p) => p.trangThai === "huy");
     const donHangDangXuLy = donHang.filter((p) => p.trangThai !== "hoan_thanh" && p.trangThai !== "huy");
-    const donHangChoDeNghi = donHang.filter((p) => p.trangThai === "cho_de_nghi");
+    /* ★ SẮP XẾP TƯỜNG MINH TRƯỚC KHI CẮT 8 ĐƠN (CodeRabbit chỉ ra ở PR #35).
+
+       🔴 Danh sách này bị `slice(0, 8)` ở cuối. Khi còn là mảng, thứ tự là thứ tự thêm vào
+       nên 8 đơn hiện ra là 8 đơn cũ nhất — hợp lý một cách tình cờ. Sang map thì `Object.values`
+       trả theo thứ tự KHOÁ, và dashboard đổi sang hiện 8 đơn khác mà không ai hiểu vì sao.
+       Sắp theo ngày lập rồi mã đơn: cũ trước, và kết quả luôn xác định. */
+    const donHangChoDeNghi = donHang
+      .filter((p) => p.trangThai === "cho_de_nghi")
+      .sort((a, b) =>
+        `${a.ngayLapPO ?? ""}|${a.code ?? ""}`.localeCompare(`${b.ngayLapPO ?? ""}|${b.code ?? ""}`),
+      );
 
     let giaTriDangXuLy = 0;
     for (const p of donHangDangXuLy) {
