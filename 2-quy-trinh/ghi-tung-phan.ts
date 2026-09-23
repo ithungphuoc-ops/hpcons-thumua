@@ -247,3 +247,45 @@ export function sangMapCaKho(sach: Record<string, unknown>): Record<string, unkn
   }
   return ra;
 }
+
+// ============================================================
+// ĐƯỜNG GHI PHÍA MÁY CHỦ — nhịp 3a (23/09/2026)
+//
+// 🔴 SỰ CỐ SUÝT XẢY RA, 23/09/2026. Hai route máy chủ (`app-request/de-nghi-moi`,
+// `qlk-ctr/phieu-nhan-moi`) đọc dữ liệu bằng `Array.isArray(x) ? x : []`. Khi đợt 2 đổi kho
+// sang dạng map, câu đó trả về RỖNG — rồi route ghi đè cả khối bằng đúng một bản ghi mới.
+// Đo được lúc phát hiện: 76 đề nghị, 18 đơn hàng, 15 phiếu nhận đều nằm trong tầm ghi đè.
+// Chưa nổ vì chưa ai bấm Lưu kể từ khi bật công tắc. Công tắc đợt 2 đã tắt ngay lúc đó.
+//
+// ✅ CÁCH CHỮA: route GHI THEO ĐÚNG DẠNG MÁY CHỦ ĐANG CÓ, không nhìn công tắc.
+//
+// 🔴 VÌ SAO KHÔNG NHÌN CÔNG TẮC: công tắc là biến của lúc BUILD, còn dạng dữ liệu là chuyện
+// của lúc CHẠY. Hai thứ đó lệch nhau là bình thường — bật công tắc xong vẫn còn người dùng
+// bản cũ trong trình duyệt, và ngày tắt công tắc thì dữ liệu vẫn đang ở dạng map. Hỏi thẳng
+// dữ liệu thì không bao giờ sai; hỏi công tắc thì sai ngay lần lệch đầu tiên.
+//
+// ⚠️ XÉT TỪNG KHỐI RIÊNG, không xét cả kho. Trong lúc chuyển đổi, `deNghi` có thể đã sang map
+// trong khi `donHang` còn là mảng — gộp lại mà xét là ghi sai một trong hai.
+// ============================================================
+
+/**
+ * Trả về giá trị đem ghi cho một khối, đúng dạng mà máy chủ đang dùng.
+ *
+ * ⚠️ HAI DẠNG CÓ HÀNH VI KHÁC HẲN NHAU khi ghi kèm `{ merge: true }`:
+ *   · mảng → Firestore **thay cả mảng**, bản ghi nào không có trong mảng là mất.
+ *   · map  → Firestore **chỉ trộn thêm**, khoá nào không nhắc tới vẫn còn nguyên.
+ * Nên nhánh map an toàn hơn hẳn; nhánh mảng giữ nguyên chỉ vì phải tương thích dữ liệu cũ.
+ *
+ * Khối CHƯA TỒN TẠI thì ghi dạng mảng — giữ đúng hành vi cũ. Đợt 2 sẽ chuyển sang map ở lần
+ * người dùng bấm Lưu đầu tiên; route không tự ý chuyển dạng thay họ.
+ */
+export function ghiTheoDangHienCo<T>(
+  khoi: KhoiTheoId,
+  hienCoTho: unknown,
+  danhSach: readonly T[],
+): T[] | Record<string, T> {
+  const laMap = hienCoTho != null && typeof hienCoTho === "object" && !Array.isArray(hienCoTho);
+  if (!laMap) return danhSach as T[];
+  /* Ép kiểu vì `interface` của TS không có chỉ mục ngầm — cùng lý do với `mangCua`. */
+  return sangMap(khoi, danhSach as unknown as Record<string, unknown>[]) as unknown as Record<string, T>;
+}

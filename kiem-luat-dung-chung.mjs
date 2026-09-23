@@ -9789,6 +9789,85 @@ kiem(
   },
 );
 
+// ------------------------------------------------------------
+// NHỊP 3a — đường ghi phía máy chủ. Sự cố suýt xảy ra 23/09/2026.
+// ------------------------------------------------------------
+
+kiem(
+  "Kho đang dạng MAP thì route máy chủ phải ghi lại dạng MAP",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    const trenMayChu = { "D1": { id: "D1" }, "D2": { id: "D2" } };
+    const r = GTP.ghiTheoDangHienCo("deNghi", trenMayChu, [{ id: "D1" }, { id: "D2" }, { id: "D3" }]);
+    const dung = !Array.isArray(r) && Object.keys(r).sort().join(",") === "D1,D2,D3";
+    return {
+      duoc: dung,
+      thucTe: Array.isArray(r) ? "ghi ra MẢNG" : "map " + JSON.stringify(Object.keys(r).sort()),
+      mongDoi:
+        "map D1,D2,D3 — ghi mảng đè lên kho đang là map thì kho quay về dạng cũ, đợt 2 thành vô nghĩa",
+    };
+  },
+);
+
+kiem(
+  "Kho còn dạng MẢNG thì route giữ nguyên MẢNG, không tự chuyển dạng",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    const r = GTP.ghiTheoDangHienCo("deNghi", [{ id: "D1" }], [{ id: "D1" }, { id: "D2" }]);
+    return {
+      duoc: Array.isArray(r) && r.length === 2,
+      thucTe: Array.isArray(r) ? "mảng " + r.length + " bản ghi" : "map",
+      mongDoi:
+        "mảng 2 bản ghi — route không được tự chuyển dạng thay người dùng, đó là việc của đợt 2 lúc bấm Lưu",
+    };
+  },
+);
+
+kiem(
+  "Khối CHƯA TỒN TẠI thì ghi dạng mảng (giữ hành vi cũ)",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    const r = GTP.ghiTheoDangHienCo("donHang", undefined, [{ id: "X" }]);
+    return {
+      duoc: Array.isArray(r),
+      thucTe: Array.isArray(r) ? "mảng" : "map",
+      mongDoi: "mảng — kho mới tinh chưa có gì thì đi đường cũ, đừng tự ý đổi luật",
+    };
+  },
+);
+
+kiem(
+  "Route đọc kho dạng MAP phải ra ĐỦ bản ghi, không ra rỗng",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    /* Đúng ca suýt xảy ra 23/09: `Array.isArray(x) ? x : []` trả rỗng rồi ghi đè cả khối. */
+    const trenMayChu = { D1: { id: "D1" }, D2: { id: "D2" }, D3: { id: "D3" } };
+    const cachCu = Array.isArray(trenMayChu) ? trenMayChu : [];
+    const cachMoi = GTP.tuMap(trenMayChu);
+    return {
+      duoc: cachCu.length === 0 && cachMoi.length === 3,
+      thucTe: `cách cũ ${cachCu.length} bản ghi, cách mới ${cachMoi.length}`,
+      mongDoi:
+        "cũ 0 / mới 3 — chính là chỗ 76 đề nghị suýt bị ghi đè bằng đúng 1 bản ghi mới ngày 23/09",
+    };
+  },
+);
+
+kiem(
+  "Xét TỪNG khối riêng — hai khối có thể đang ở hai dạng khác nhau",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    /* Trong lúc chuyển đổi: deNghi đã sang map, donHang còn mảng. Gộp lại mà xét là ghi sai một bên. */
+    const rDeNghi = GTP.ghiTheoDangHienCo("deNghi", { D1: { id: "D1" } }, [{ id: "D1" }]);
+    const rDonHang = GTP.ghiTheoDangHienCo("donHang", [{ id: "X" }], [{ id: "X" }]);
+    return {
+      duoc: !Array.isArray(rDeNghi) && Array.isArray(rDonHang),
+      thucTe: `deNghi → ${Array.isArray(rDeNghi) ? "mảng" : "map"}; donHang → ${Array.isArray(rDonHang) ? "mảng" : "map"}`,
+      mongDoi: "deNghi map / donHang mảng — mỗi khối theo dạng của chính nó",
+    };
+  },
+);
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {
