@@ -3722,7 +3722,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           (t) => !t.id.startsWith("tb-req-") || !daCoReq.has(t.prId),
         );
         if (themVao.length === 0) return truocDo;
-        return [...themVao, ...truocDo].slice(0, 30);
+        /* ★ SẮP THEO THỜI ĐIỂM TRƯỚC KHI CẮT — vá 23/09/2026.
+
+           🔴 Dòng cũ là `[...themVao, ...truocDo].slice(0, 30)`, tức cắt theo VỊ TRÍ trong
+           mảng. Khi kho còn là mảng thì vị trí trùng với thứ tự thêm vào nên nó tình cờ đúng —
+           cắt đi 30 tin gần nhất. Kho sang map (đợt 2) thì `tuMap` trả theo thứ tự KHOÁ, và
+           việc cắt bắt đầu bỏ nhầm: đo thật sau lần test đầu 23/09 — giữ lại tin ngày 19/09
+           mà đẩy mất tin `tb-vm-223` ngày 21/09, tức người dùng mất đúng tin mới.
+
+           Sắp giảm dần theo `thoiDiem` rồi mới cắt: luôn giữ 30 tin gần nhất, bất kể kho đang
+           ở dạng nào. */
+        return [...themVao, ...truocDo]
+          .sort((a, b) => String(b.thoiDiem ?? "").localeCompare(String(a.thoiDiem ?? "")))
+          .slice(0, 30);
       });
     }
 

@@ -74,3 +74,8 @@ Access Key*.txt
 *api-token*.txt
 *-key.json
 *serviceaccount*.json
+
+# Bản sao lưu dữ liệu production — CHỨA DỮ LIỆU THẬT, không bao giờ được lên GitHub.
+# Mẫu cũ chỉ bắt vài tên cụ thể nên bản sao lưu đặt tên khác lọt lưới (phát hiện 23/09/2026).
+sao-luu-*.json
+sao_luu_*.json

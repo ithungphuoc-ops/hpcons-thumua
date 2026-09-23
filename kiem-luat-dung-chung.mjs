@@ -9928,6 +9928,31 @@ kiem(
   },
 );
 
+kiem(
+  "Giữ 30 thông báo GẦN NHẤT — theo thời điểm, không theo vị trí trong mảng",
+  "vá 23/09/2026 · đo thật sau lần test đầu",
+  () => {
+    /* Ca thật: kho sang map nên thứ tự mảng là thứ tự KHOÁ. Tin cũ 19/09 nằm trước tin mới
+       21/09 (vì "tb-187" < "tb-vm-223"), cắt theo vị trí là giữ tin cũ bỏ tin mới. */
+    const ds = [
+      { id: "tb-187",    thoiDiem: "2026-09-19T06:55:20" },
+      { id: "tb-189",    thoiDiem: "2026-09-19T06:55:25" },
+      { id: "tb-vm-223", thoiDiem: "2026-09-21T02:31:17" },
+    ];
+    const theoViTri = ds.slice(0, 2).map((x) => x.id);
+    const theoThoiGian = [...ds]
+      .sort((a, b) => String(b.thoiDiem).localeCompare(String(a.thoiDiem)))
+      .slice(0, 2)
+      .map((x) => x.id);
+    return {
+      duoc: !theoViTri.includes("tb-vm-223") && theoThoiGian.includes("tb-vm-223"),
+      thucTe: `theo vị trí giữ [${theoViTri}]; theo thời gian giữ [${theoThoiGian}]`,
+      mongDoi:
+        "theo thời gian phải giữ tb-vm-223 (tin mới nhất) — cắt theo vị trí đã làm mất đúng tin mới trên production 23/09",
+    };
+  },
+);
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {
