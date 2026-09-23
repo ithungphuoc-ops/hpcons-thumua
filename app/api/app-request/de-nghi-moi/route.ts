@@ -7,6 +7,7 @@ import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getHpcoreDb, getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
+import { tuMap, ghiTheoDangHienCo, chonBanSomNhat } from "@/2-quy-trinh/ghi-tung-phan";
 import { maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import {
   chuanHoaLoaiHoSo,
@@ -157,9 +158,26 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
     const ketQua = await db.runTransaction(async (tx) => {
       const snap = await tx.get(docRef);
       const data = (snap.exists ? snap.data() : {}) as Partial<DuLieuLuu>;
-      const deNghiHienCo: DeNghiMuaHang[] = Array.isArray(data.deNghi) ? data.deNghi : [];
+      /* ★ ĐỌC ĐƯỢC CẢ HAI DẠNG — nhịp 3a, 23/09/2026.
 
-      const trungRoi = deNghiHienCo.find((d) => d.maDeXuatAppRequest === payload.requestCode);
+         🔴 Dòng cũ là `Array.isArray(data.deNghi) ? data.deNghi : []`. Gặp kho đã chuyển sang
+         map (đợt 2) nó trả RỖNG, rồi mấy dòng ghi bên dưới đè cả khối bằng đúng một đề nghị
+         mới — 76 đề nghị biến mất. Phát hiện 23/09 trước khi kịp xảy ra. */
+      const deNghiHienCo: DeNghiMuaHang[] = tuMap<DeNghiMuaHang>(data.deNghi);
+
+      /* ★ CHỌN BẢN GỐC TƯỜNG MINH — không dựa vào thứ tự (CodeRabbit chỉ ra ở PR #35).
+
+         🔴 `.find(...)` lấy bản ĐẦU TIÊN theo thứ tự. Khi còn là mảng, thứ tự là thứ tự thêm
+         vào nên nó tình cờ đúng — lấy được bản gốc. Sang map thì `Object.values` trả theo thứ
+         tự KHOÁ, và `.find` sẽ vớ phải một bản khác: route vá nhầm hồ sơ, rồi trả về mã đề
+         nghị của bản đó cho App Đề xuất.
+
+         ⚠️ CHUYỆN NÀY CÓ THẬT. Đo production 23/09/2026: 12 mã đề xuất đang có nhiều hơn một
+         đề nghị, mã `000000098` có tới 7 bản. */
+      const cungMaDeXuat = deNghiHienCo.filter(
+        (d) => d.maDeXuatAppRequest === payload.requestCode,
+      );
+      const trungRoi = chonBanSomNhat(cungMaDeXuat);
       if (trungRoi) {
         /**
          * ★★ VÁ THIẾU `idHoSoAppRequest` CHO HỒ SƠ CŨ — thêm 13/09/2026, có phép riêng của Sếp
@@ -224,7 +242,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
             }
             return d2;
           });
-          tx.set(docRef, bo0Undefined({ deNghi: deNghiDaVa }), { merge: true });
+          tx.set(
+            docRef,
+            bo0Undefined({ deNghi: ghiTheoDangHienCo("deNghi", data.deNghi, deNghiDaVa) }),
+            { merge: true },
+          );
           return {
             moi: false as const,
             deNghi: {
@@ -411,7 +433,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
        * chạy lại 2 hàm trên — mục tiêu là bắt lỗi TRÙNG MÃ DỰ ÁN NGẪU NHIÊN giữa hai công
        * trình khác nhau, không phải bắt lỗi thiếu báo giá (không áp dụng cho đường này).
        */
-      const donHangHienCo: DonDatHang[] = Array.isArray(data.donHang) ? data.donHang : [];
+      const donHangHienCo: DonDatHang[] = tuMap<DonDatHang>(data.donHang); // cùng lý do trên
       const chuanHoa = (s: string) => boDau(s).replace(/[^a-z0-9]/g, "");
       const ungVien = donHangHienCo.filter((po) => {
         if (po.trangThai !== "cho_de_nghi" || po.maDuAn !== deNghiMoi.maDuAn) return false;
@@ -454,9 +476,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
         });
       }
 
+      /* ★ GHI ĐÚNG DẠNG MÁY CHỦ ĐANG CÓ — xét TỪNG khối riêng, vì trong lúc chuyển đổi
+         `deNghi` có thể đã sang map mà `donHang` còn là mảng. */
       tx.set(
         docRef,
-        bo0Undefined({ deNghi: [...deNghiHienCo, deNghiMoi], donHang: donHangMoi }),
+        bo0Undefined({
+          deNghi: ghiTheoDangHienCo("deNghi", data.deNghi, [...deNghiHienCo, deNghiMoi]),
+          donHang: ghiTheoDangHienCo("donHang", data.donHang, donHangMoi),
+        }),
         { merge: true },
       );
 

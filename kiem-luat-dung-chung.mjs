@@ -9789,6 +9789,145 @@ kiem(
   },
 );
 
+// ------------------------------------------------------------
+// NHỊP 3a — đường ghi phía máy chủ. Sự cố suýt xảy ra 23/09/2026.
+// ------------------------------------------------------------
+
+kiem(
+  "Kho đang dạng MAP thì route máy chủ phải ghi lại dạng MAP",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    const trenMayChu = { "D1": { id: "D1" }, "D2": { id: "D2" } };
+    const r = GTP.ghiTheoDangHienCo("deNghi", trenMayChu, [{ id: "D1" }, { id: "D2" }, { id: "D3" }]);
+    const dung = !Array.isArray(r) && Object.keys(r).sort().join(",") === "D1,D2,D3";
+    return {
+      duoc: dung,
+      thucTe: Array.isArray(r) ? "ghi ra MẢNG" : "map " + JSON.stringify(Object.keys(r).sort()),
+      mongDoi:
+        "map D1,D2,D3 — ghi mảng đè lên kho đang là map thì kho quay về dạng cũ, đợt 2 thành vô nghĩa",
+    };
+  },
+);
+
+kiem(
+  "Kho còn dạng MẢNG thì route giữ nguyên MẢNG, không tự chuyển dạng",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    const r = GTP.ghiTheoDangHienCo("deNghi", [{ id: "D1" }], [{ id: "D1" }, { id: "D2" }]);
+    return {
+      duoc: Array.isArray(r) && r.length === 2,
+      thucTe: Array.isArray(r) ? "mảng " + r.length + " bản ghi" : "map",
+      mongDoi:
+        "mảng 2 bản ghi — route không được tự chuyển dạng thay người dùng, đó là việc của đợt 2 lúc bấm Lưu",
+    };
+  },
+);
+
+kiem(
+  "Khối CHƯA TỒN TẠI thì ghi dạng mảng (giữ hành vi cũ)",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    const r = GTP.ghiTheoDangHienCo("donHang", undefined, [{ id: "X" }]);
+    return {
+      duoc: Array.isArray(r),
+      thucTe: Array.isArray(r) ? "mảng" : "map",
+      mongDoi: "mảng — kho mới tinh chưa có gì thì đi đường cũ, đừng tự ý đổi luật",
+    };
+  },
+);
+
+kiem(
+  "Route đọc kho dạng MAP phải ra ĐỦ bản ghi, không ra rỗng",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    /* Đúng ca suýt xảy ra 23/09: `Array.isArray(x) ? x : []` trả rỗng rồi ghi đè cả khối. */
+    const trenMayChu = { D1: { id: "D1" }, D2: { id: "D2" }, D3: { id: "D3" } };
+    const cachCu = Array.isArray(trenMayChu) ? trenMayChu : [];
+    const cachMoi = GTP.tuMap(trenMayChu);
+    return {
+      duoc: cachCu.length === 0 && cachMoi.length === 3,
+      thucTe: `cách cũ ${cachCu.length} bản ghi, cách mới ${cachMoi.length}`,
+      mongDoi:
+        "cũ 0 / mới 3 — chính là chỗ 76 đề nghị suýt bị ghi đè bằng đúng 1 bản ghi mới ngày 23/09",
+    };
+  },
+);
+
+kiem(
+  "Xét TỪNG khối riêng — hai khối có thể đang ở hai dạng khác nhau",
+  "nhịp 3a · 23/09/2026",
+  () => {
+    /* Trong lúc chuyển đổi: deNghi đã sang map, donHang còn mảng. Gộp lại mà xét là ghi sai một bên. */
+    const rDeNghi = GTP.ghiTheoDangHienCo("deNghi", { D1: { id: "D1" } }, [{ id: "D1" }]);
+    const rDonHang = GTP.ghiTheoDangHienCo("donHang", [{ id: "X" }], [{ id: "X" }]);
+    return {
+      duoc: !Array.isArray(rDeNghi) && Array.isArray(rDonHang),
+      thucTe: `deNghi → ${Array.isArray(rDeNghi) ? "mảng" : "map"}; donHang → ${Array.isArray(rDonHang) ? "mảng" : "map"}`,
+      mongDoi: "deNghi map / donHang mảng — mỗi khối theo dạng của chính nó",
+    };
+  },
+);
+
+kiem(
+  "Chọn bản gốc KHÔNG được dựa vào thứ tự — phải theo ngày, mã, id",
+  "nhịp 3a · CodeRabbit PR #35 · 23/09/2026",
+  () => {
+    /* Cùng một mã đề xuất, 3 đề nghị. Bản gốc là bản ngày sớm nhất, dù nằm ở đâu trong danh sách. */
+    const ds = [
+      { id: "z9", code: "PR-003", ngayDeNghi: "2026-09-20" },
+      { id: "a1", code: "PR-001", ngayDeNghi: "2026-09-18" },
+      { id: "m5", code: "PR-002", ngayDeNghi: "2026-09-19" },
+    ];
+    const xuoi = GTP.chonBanSomNhat(ds);
+    const nguoc = GTP.chonBanSomNhat([...ds].reverse());
+    return {
+      duoc: xuoi?.id === "a1" && nguoc?.id === "a1",
+      thucTe: `xuôi → ${xuoi?.id}; ngược → ${nguoc?.id}`,
+      mongDoi:
+        "a1 ở cả hai chiều — `.find` cũ lấy phần tử đầu, đổi mảng sang map là đổi luôn bản được chọn (production 23/09 có mã 7 đề nghị trùng)",
+    };
+  },
+);
+
+kiem(
+  "Cùng ngày cùng mã thì vẫn ra một kết quả xác định",
+  "nhịp 3a · CodeRabbit PR #35 · 23/09/2026",
+  () => {
+    const ds = [
+      { id: "b", code: "PR-001", ngayDeNghi: "2026-09-18" },
+      { id: "a", code: "PR-001", ngayDeNghi: "2026-09-18" },
+    ];
+    const x = GTP.chonBanSomNhat(ds), y = GTP.chonBanSomNhat([...ds].reverse());
+    return {
+      duoc: x?.id === "a" && y?.id === "a",
+      thucTe: `${x?.id} / ${y?.id}`,
+      mongDoi: "a ở cả hai chiều — thiếu tầng id thì hai lần gọi ra hai kết quả, lỗi không tài nào truy được",
+    };
+  },
+);
+
+kiem(
+  "Bản NHÂN BẢN không được chọn thay bản gốc — ca thật của mã 000000098",
+  "nhịp 3a · dữ liệu production 23/09/2026",
+  () => {
+    /* Dữ liệu thật: mã đề xuất 000000098 có 7 đề nghị — 1 bản gốc và 6 bản người dùng tự
+       nhân bản, tất cả cùng ngày 17/09. Route phải vá vào BẢN GỐC, không vá vào bản copy. */
+    const ds = [
+      { id: "d4", code: "30/2025/HDXD/UNICE-HPCS-PR-001 (copy 3)", ngayDeNghi: "2026-09-17" },
+      { id: "d1", code: "30/2025/HDXD/UNICE-HPCS-PR-001",          ngayDeNghi: "2026-09-17" },
+      { id: "d2", code: "30/2025/HDXD/UNICE-HPCS-PR-001 (copy)",   ngayDeNghi: "2026-09-17" },
+      { id: "d6", code: "30/2025/HDXD/UNICE-HPCS-PR-001 (copy 5)", ngayDeNghi: "2026-09-17" },
+    ];
+    const chon = GTP.chonBanSomNhat(ds);
+    return {
+      duoc: chon?.id === "d1" && !String(chon?.code).includes("copy"),
+      thucTe: String(chon?.code),
+      mongDoi:
+        "bản gốc (không có chữ copy) — `.find` cũ lấy phần tử đầu danh sách, ở đây là 'copy 3', tức vá nhầm hồ sơ rồi trả mã sai cho App Đề xuất",
+    };
+  },
+);
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {

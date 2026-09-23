@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
+import { tuMap, ghiTheoDangHienCo } from "@/2-quy-trinh/ghi-tung-phan";
 import {
   tinhTienDoPO,
   vuongMacGhiThemPhieuNhan,
@@ -55,8 +56,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanPhi
     const ketQua = await db.runTransaction(async (tx) => {
       const snap = await tx.get(docRef);
       const data = (snap.exists ? snap.data() : {}) as Partial<DuLieuLuu>;
-      const donHangHienCo: DonDatHang[] = Array.isArray(data.donHang) ? data.donHang : [];
-      const phieuNhanHienCo: PhieuNhanHang[] = Array.isArray(data.phieuNhan) ? data.phieuNhan : [];
+      /* ★ ĐỌC ĐƯỢC CẢ HAI DẠNG — nhịp 3a, 23/09/2026. Dòng cũ dùng `Array.isArray(x) ? x : []`;
+         gặp kho đã chuyển sang map (đợt 2) nó trả RỖNG rồi phần ghi bên dưới đè cả khối — 18
+         đơn hàng và 15 phiếu nhận nằm trong tầm. Xem chú thích dài ở `ghi-tung-phan.ts`. */
+      const donHangHienCo: DonDatHang[] = tuMap<DonDatHang>(data.donHang);
+      const phieuNhanHienCo: PhieuNhanHang[] = tuMap<PhieuNhanHang>(data.phieuNhan);
 
       // Chống trùng khi QLK CTR gọi lại (retry do mạng lỗi) — trả lại đúng phiếu đã tạo.
       const trungRoi = phieuNhanHienCo.find((p) => p.maPhieuNhanQlkCtr === payload.maPhieuNhanQlkCtr);
@@ -143,9 +147,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanPhi
         p.id === po.id && p.trangThai === "da_chot" ? { ...p, trangThai: "dang_giao" as const } : p,
       );
 
+      /* Ghi đúng dạng máy chủ đang có, xét TỪNG khối riêng — `donHang` và `phieuNhan` có thể
+         đang ở hai dạng khác nhau trong lúc chuyển đổi. */
       tx.set(
         docRef,
-        bo0Undefined({ donHang: donHangMoi, phieuNhan: [...phieuNhanHienCo, phieuMoi] }),
+        bo0Undefined({
+          donHang: ghiTheoDangHienCo("donHang", data.donHang, donHangMoi),
+          phieuNhan: ghiTheoDangHienCo("phieuNhan", data.phieuNhan, [...phieuNhanHienCo, phieuMoi]),
+        }),
         { merge: true },
       );
       return { moi: true as const, phieu: phieuMoi };
