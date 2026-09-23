@@ -9906,6 +9906,28 @@ kiem(
   },
 );
 
+kiem(
+  "Bản NHÂN BẢN không được chọn thay bản gốc — ca thật của mã 000000098",
+  "nhịp 3a · dữ liệu production 23/09/2026",
+  () => {
+    /* Dữ liệu thật: mã đề xuất 000000098 có 7 đề nghị — 1 bản gốc và 6 bản người dùng tự
+       nhân bản, tất cả cùng ngày 17/09. Route phải vá vào BẢN GỐC, không vá vào bản copy. */
+    const ds = [
+      { id: "d4", code: "30/2025/HDXD/UNICE-HPCS-PR-001 (copy 3)", ngayDeNghi: "2026-09-17" },
+      { id: "d1", code: "30/2025/HDXD/UNICE-HPCS-PR-001",          ngayDeNghi: "2026-09-17" },
+      { id: "d2", code: "30/2025/HDXD/UNICE-HPCS-PR-001 (copy)",   ngayDeNghi: "2026-09-17" },
+      { id: "d6", code: "30/2025/HDXD/UNICE-HPCS-PR-001 (copy 5)", ngayDeNghi: "2026-09-17" },
+    ];
+    const chon = GTP.chonBanSomNhat(ds);
+    return {
+      duoc: chon?.id === "d1" && !String(chon?.code).includes("copy"),
+      thucTe: String(chon?.code),
+      mongDoi:
+        "bản gốc (không có chữ copy) — `.find` cũ lấy phần tử đầu danh sách, ở đây là 'copy 3', tức vá nhầm hồ sơ rồi trả mã sai cho App Đề xuất",
+    };
+  },
+);
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {

@@ -310,9 +310,28 @@ export function chonBanSomNhat<T extends { id?: string; code?: string; ngayDeNgh
   let tot: T | undefined;
   for (const x of ds) {
     if (!tot) { tot = x; continue; }
-    const a = `${x.ngayDeNghi ?? ""}|${x.code ?? ""}|${x.id ?? ""}`;
-    const b = `${tot.ngayDeNghi ?? ""}|${tot.code ?? ""}|${tot.id ?? ""}`;
-    if (a < b) tot = x;
+    if (somHon(x, tot)) tot = x;
   }
   return tot;
+}
+
+/**
+ * So hai bản theo ba tầng, TỪNG TẦNG MỘT.
+ *
+ * 🔴 ĐỪNG GỘP BA TẦNG THÀNH MỘT CHUỖI GHÉP. Bản đầu tiên của hàm này làm vậy —
+ * `` `${ngay}|${code}|${id}` `` — và bộ luật bắt được ngay: mã gốc
+ * `…-PR-001` thua mã nhân bản `…-PR-001 (copy 3)`, vì so đến vị trí đó thì bản gốc gặp dấu
+ * phân cách `|` (0x7C) còn bản copy gặp dấu cách (0x20), mà dấu cách nhỏ hơn. Chọn nhầm bản
+ * copy làm bản gốc. Dấu phân cách nào cũng có thể rơi vào bẫy này khi dữ liệu chứa ký tự nhỏ
+ * hơn nó — so từng tầng thì không có bẫy nào cả.
+ */
+function somHon(
+  x: { id?: string; code?: string; ngayDeNghi?: string },
+  y: { id?: string; code?: string; ngayDeNghi?: string },
+): boolean {
+  const ngayX = x.ngayDeNghi ?? "", ngayY = y.ngayDeNghi ?? "";
+  if (ngayX !== ngayY) return ngayX < ngayY;
+  const maX = x.code ?? "", maY = y.code ?? "";
+  if (maX !== maY) return maX < maY;
+  return (x.id ?? "") < (y.id ?? "");
 }
