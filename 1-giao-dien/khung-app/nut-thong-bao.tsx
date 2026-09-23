@@ -115,7 +115,13 @@ export function NutThongBao() {
               Trưởng bộ phận/Ban lãnh đạo, cảnh báo PO treo), không hiện việc của người khác.
             </p>
           ) : (
-            thongBao.slice(0, 8).map((tb) => (
+            /* ★ SẮP THEO THỜI ĐIỂM TRƯỚC KHI CẮT — vá 23/09/2026, cùng lý do với chỗ giữ
+               30 tin trong `kho-du-lieu.tsx`: kho sang dạng map thì thứ tự mảng không còn là
+               thứ tự thời gian, chuông sẽ hiện 8 tin bất kỳ thay vì 8 tin mới nhất. */
+            [...thongBao]
+              .sort((a, b) => String(b.thoiDiem ?? "").localeCompare(String(a.thoiDiem ?? "")))
+              .slice(0, 8)
+              .map((tb) => (
               <DropdownMenuItem
                 key={tb.id}
                 /* ★ Tin cảnh báo PO treo (29/08/2026) mang id/mã CỦA PO trong `prId`/`prCode`

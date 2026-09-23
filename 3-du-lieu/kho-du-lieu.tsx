@@ -38,6 +38,7 @@ import { formatNumber, thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
+import { giuThongBaoGanNhat } from "@/2-quy-trinh/giu-thong-bao";
 import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
 import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
 // Chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
@@ -3722,7 +3723,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           (t) => !t.id.startsWith("tb-req-") || !daCoReq.has(t.prId),
         );
         if (themVao.length === 0) return truocDo;
-        return [...themVao, ...truocDo].slice(0, 30);
+        /* ★ SẮP THEO THỜI ĐIỂM TRƯỚC KHI CẮT — vá 23/09/2026.
+
+           🔴 Dòng cũ là `[...themVao, ...truocDo].slice(0, 30)`, tức cắt theo VỊ TRÍ trong
+           mảng. Khi kho còn là mảng thì vị trí trùng với thứ tự thêm vào nên nó tình cờ đúng —
+           cắt đi 30 tin gần nhất. Kho sang map (đợt 2) thì `tuMap` trả theo thứ tự KHOÁ, và
+           việc cắt bắt đầu bỏ nhầm: đo thật sau lần test đầu 23/09 — giữ lại tin ngày 19/09
+           mà đẩy mất tin `tb-vm-223` ngày 21/09, tức người dùng mất đúng tin mới.
+
+           Sắp giảm dần theo `thoiDiem` rồi mới cắt: luôn giữ 30 tin gần nhất, bất kể kho đang
+           ở dạng nào. */
+        return giuThongBaoGanNhat([...themVao, ...truocDo]);
       });
     }
 
@@ -5150,7 +5161,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * dõi hồ sơ.
      */
     setThongBao((truocDo) =>
-      [
+      giuThongBaoGanNhat([
         {
           id: `tb-moi-${soKeTiepThongBao()}`,
           prId: id,
@@ -5163,7 +5174,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           daDoc: false,
         },
         ...truocDo,
-      ].slice(0, 30),
+      ]),
     );
 
     return id;
@@ -5331,7 +5342,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             deNghiRef.current,
           );
           setThongBao((truoc) =>
-            [
+            giuThongBaoGanNhat([
               {
                 id: `tb-vm-${soKeTiepThongBao()}`,
                 prId: dn.id,
@@ -5359,7 +5370,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                 loiNhan: yeuCau?.ghiChu?.trim() || undefined,
               },
               ...truoc,
-            ].slice(0, 30),
+            ]),
           );
         }
       }
@@ -5879,7 +5890,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             deNghiRef.current,
           );
           setThongBao((truoc) =>
-            [
+            giuThongBaoGanNhat([
               {
                 id: `tb-cv-${soKeTiepThongBao()}`,
                 prId: dn.id,
@@ -5896,7 +5907,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                 loiNhan: lyDo.trim() || undefined,
               },
               ...truoc,
-            ].slice(0, 30),
+            ]),
           );
         }
       }
@@ -9329,7 +9340,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (thongBaoRef.current.some((t) => t.id === idThongBao)) continue; // đã báo từ trước
 
       setThongBao((truoc) =>
-        [
+        giuThongBaoGanNhat([
           {
             id: idThongBao,
             /* Mang id/mã CỦA PO, không phải đề nghị — xem chú thích ở
@@ -9344,7 +9355,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             laCanhBaoTreo: true,
           },
           ...truoc,
-        ].slice(0, 30),
+        ]),
       );
     }
   }, [donHang]);
@@ -9383,7 +9394,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
 
       setThongBao((truoc) =>
-        [
+        giuThongBaoGanNhat([
           {
             id: `tb-ct-${soKeTiepThongBao()}`,
             prId: dn.id,
@@ -9398,7 +9409,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             loiNhan: loiNhan?.trim() || undefined,
           },
           ...truoc,
-        ].slice(0, 30),
+        ]),
       );
 
       ghiLichSuDeNghi(

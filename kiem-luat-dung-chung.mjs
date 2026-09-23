@@ -137,6 +137,21 @@ try {
   process.exit(1);
 }
 
+/* ★ Giữ 30 thông báo gần nhất (23/09/2026). Tách khỏi `kho-du-lieu.tsx` vì file đó không nạp
+   được ngoài trình duyệt — mà đây đúng là chỗ đã cắt nhầm tin trên production. */
+const tepRaTB = join(thuMuc, "giu-thong-bao.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/giu-thong-bao.ts" --bundle --platform=node --format=cjs --outfile="${tepRaTB}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/giu-thong-bao.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const tepRa6 = join(thuMuc, "tich-hop-app-request.cjs");
 try {
   execSync(
@@ -398,6 +413,7 @@ const KD = nap(tepRa7);
 const HS = nap(tepRa8);
 const NB = nap(tepRa9);
 const GTP = nap(tepRaGTP);
+const TB = nap(tepRaTB);
 const TT = nap(tepRa10);
 const CQ = nap(tepRa11);
 const QLK = nap(tepRa12);
@@ -9924,6 +9940,71 @@ kiem(
       thucTe: String(chon?.code),
       mongDoi:
         "bản gốc (không có chữ copy) — `.find` cũ lấy phần tử đầu danh sách, ở đây là 'copy 3', tức vá nhầm hồ sơ rồi trả mã sai cho App Đề xuất",
+    };
+  },
+);
+
+kiem(
+  "giuThongBaoGanNhat giữ đúng tin MỚI NHẤT, không phải tin đứng đầu mảng",
+  "vá 23/09/2026 · đo thật trên production sau lần test đầu",
+  () => {
+    /* 🔴 DỰNG ĐÚNG HÌNH DẠNG THẬT: kho sang map nên mảng về theo thứ tự KHOÁ. Ba mươi tin CŨ
+       có mã bắt đầu bằng "tb-1…" nên đứng TRƯỚC, còn tin MỚI nhất mã "tb-vm-223" đứng CUỐI —
+       y như production 23/09. Cắt theo vị trí là mất đúng tin mới.
+
+       ⚠️ Đặt tin mới ở đầu mảng thì cả hai cách đều giữ được nó, và luật mất răng. Bản đầu của
+       luật này mắc đúng lỗi đó: phá hàm production mà luật vẫn xanh. */
+    const cu = Array.from({ length: 30 }, (_, i) => ({
+      id: "tb-1" + String(i).padStart(2, "0"),
+      thoiDiem: "2026-09-19T06:55:" + String(i).padStart(2, "0"),
+    }));
+    const moiNhat = { id: "tb-vm-223", thoiDiem: "2026-09-21T02:31:17" };
+
+    const theoViTri = [...cu, moiNhat].slice(0, 30).map((x) => x.id);
+    const ra = TB.giuThongBaoGanNhat([...cu, moiNhat]);
+    const con = new Set(ra.map((x) => x.id));
+
+    return {
+      duoc: ra.length === 30 && con.has("tb-vm-223") && !theoViTri.includes("tb-vm-223"),
+      thucTe: `giữ ${ra.length} tin; có tb-vm-223: ${con.has("tb-vm-223")} (cắt theo vị trí thì: ${theoViTri.includes("tb-vm-223")})`,
+      mongDoi:
+        "giữ 30 tin VÀ phải có tb-vm-223 — đúng tin đã mất thật trên production khi còn cắt theo vị trí",
+    };
+  },
+);
+
+kiem(
+  "Tin thiếu thoiDiem bị xếp cuối chứ KHÔNG bị loại",
+  "vá 23/09/2026",
+  () => {
+    const ra = TB.giuThongBaoGanNhat([
+      { id: "khong-gio" },
+      { id: "moi", thoiDiem: "2026-09-21T00:00:00" },
+    ]);
+    return {
+      duoc: ra.length === 2 && ra[0].id === "moi" && ra[1].id === "khong-gio",
+      thucTe: ra.map((x) => x.id).join(", "),
+      mongDoi:
+        "moi, khong-gio — mất tin vì thiếu một trường là tệ hơn hiển thị nó sai chỗ; dữ liệu cũ không ai bảo đảm được",
+    };
+  },
+);
+
+kiem(
+  "Số tin giữ lại đúng bằng SO_THONG_BAO_GIU, không viết cứng 30 ở nơi khác",
+  "vá 23/09/2026",
+  () => {
+    const n = TB.SO_THONG_BAO_GIU;
+    const ra = TB.giuThongBaoGanNhat(
+      Array.from({ length: n + 15 }, (_, i) => ({
+        id: "t" + i,
+        thoiDiem: "2026-09-20T00:00:" + String(i).padStart(2, "0"),
+      })),
+    );
+    return {
+      duoc: typeof n === "number" && ra.length === n,
+      thucTe: `SO_THONG_BAO_GIU = ${n}, giữ được ${ra.length}`,
+      mongDoi: "hai số bằng nhau — sáu đường thêm thông báo đều gọi chung hàm này, đừng để lệch",
     };
   },
 );
