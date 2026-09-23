@@ -115,10 +115,18 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
      * loại nhưng thiếu người theo dõi sẽ không đọc, và người theo dõi mất im lặng.
      */
     const loaiTuPayload = chuanHoaLoaiHoSo(payload.loaiDeNghi);
-    const theoDoiTuPayload =
-      Array.isArray(payload.nguoiTheoDoi) && payload.nguoiTheoDoi.length > 0
-        ? payload.nguoiTheoDoi
-        : undefined;
+    /* ★ MẢNG RỖNG KHÁC HẲN VẮNG MẶT — sửa 23/09/2026.
+
+       🔴 Điều kiện cũ là `.length > 0`, tức hồ sơ KHÔNG có ai theo dõi cũng bị coi như "App
+       Request chưa nói gì", và route đi đọc ngược sang bên đó để tự kiểm. Lượt đọc ấy cần khoá
+       Admin của project `hpcons-request` — khoá chưa từng được cấp, nên mỗi đề nghị như vậy để
+       lại một dòng cảnh báo trong log production mà chẳng ai đọc.
+
+       Từ 23/09 App Đề xuất LUÔN gửi trường này, rỗng nghĩa là "đã xét, không có ai". Có mặt
+       mảng là đủ để khỏi hỏi lại. */
+    const theoDoiTuPayload = Array.isArray(payload.nguoiTheoDoi)
+      ? payload.nguoiTheoDoi
+      : undefined;
 
     const hoSoAppRequest =
       loaiTuPayload && theoDoiTuPayload ? null : await docHoSoAppRequest(payload.requestId);
