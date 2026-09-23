@@ -38,6 +38,7 @@ import { formatNumber, thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
+import { giuThongBaoGanNhat } from "@/2-quy-trinh/giu-thong-bao";
 import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
 import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
 // Chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
@@ -3732,9 +3733,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
            Sắp giảm dần theo `thoiDiem` rồi mới cắt: luôn giữ 30 tin gần nhất, bất kể kho đang
            ở dạng nào. */
-        return [...themVao, ...truocDo]
-          .sort((a, b) => String(b.thoiDiem ?? "").localeCompare(String(a.thoiDiem ?? "")))
-          .slice(0, 30);
+        return giuThongBaoGanNhat([...themVao, ...truocDo]);
       });
     }
 
@@ -5162,7 +5161,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * dõi hồ sơ.
      */
     setThongBao((truocDo) =>
-      [
+      giuThongBaoGanNhat([
         {
           id: `tb-moi-${soKeTiepThongBao()}`,
           prId: id,
@@ -5175,7 +5174,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           daDoc: false,
         },
         ...truocDo,
-      ].slice(0, 30),
+      ]),
     );
 
     return id;
@@ -5343,7 +5342,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             deNghiRef.current,
           );
           setThongBao((truoc) =>
-            [
+            giuThongBaoGanNhat([
               {
                 id: `tb-vm-${soKeTiepThongBao()}`,
                 prId: dn.id,
@@ -5371,7 +5370,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                 loiNhan: yeuCau?.ghiChu?.trim() || undefined,
               },
               ...truoc,
-            ].slice(0, 30),
+            ]),
           );
         }
       }
@@ -5891,7 +5890,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             deNghiRef.current,
           );
           setThongBao((truoc) =>
-            [
+            giuThongBaoGanNhat([
               {
                 id: `tb-cv-${soKeTiepThongBao()}`,
                 prId: dn.id,
@@ -5908,7 +5907,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                 loiNhan: lyDo.trim() || undefined,
               },
               ...truoc,
-            ].slice(0, 30),
+            ]),
           );
         }
       }
@@ -9341,7 +9340,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (thongBaoRef.current.some((t) => t.id === idThongBao)) continue; // đã báo từ trước
 
       setThongBao((truoc) =>
-        [
+        giuThongBaoGanNhat([
           {
             id: idThongBao,
             /* Mang id/mã CỦA PO, không phải đề nghị — xem chú thích ở
@@ -9356,7 +9355,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             laCanhBaoTreo: true,
           },
           ...truoc,
-        ].slice(0, 30),
+        ]),
       );
     }
   }, [donHang]);
@@ -9395,7 +9394,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
 
       setThongBao((truoc) =>
-        [
+        giuThongBaoGanNhat([
           {
             id: `tb-ct-${soKeTiepThongBao()}`,
             prId: dn.id,
@@ -9410,7 +9409,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             loiNhan: loiNhan?.trim() || undefined,
           },
           ...truoc,
-        ].slice(0, 30),
+        ]),
       );
 
       ghiLichSuDeNghi(
