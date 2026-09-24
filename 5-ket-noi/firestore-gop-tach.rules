@@ -380,6 +380,18 @@ service cloud.firestore {
       allow create, update, delete: if conHanChayThu() && duocVao();
     }
 
+    /* ★ SỔ GIỮ CHỖ CẤP MÃ — nhịp 3b, 23/09/2026.
+
+       🔴 CHẶN HẲN PHÍA NGƯỜI DÙNG, CỐ Ý. Sổ này chỉ do route `/api/cap-ma` ghi bằng Admin SDK
+       (Admin SDK đi vòng qua rules). Mở cho trình duyệt là mở đúng cái vừa bịt: ai sửa được sổ
+       thì cấp lại được mã đã cấp, và hai chứng từ lại mang một số.
+
+       📌 Khối `match /{document=**}` ngay dưới vốn đã chặn mọi kho không khai báo, nên dòng này
+       KHÔNG đổi hành vi — nó viết ra để người đọc rules sau này khỏi tưởng là bỏ sót. */
+    match /cap-phat-ma/{khoa} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
