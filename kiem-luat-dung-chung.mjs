@@ -10123,6 +10123,42 @@ kiem(
   },
 );
 
+kiem(
+  "Nhà cung cấp chỉ có MỘT sổ giữ chỗ, bất kể tham số truyền vào",
+  "nhịp 3b · CodeRabbit PR #37 · 23/09/2026",
+  () => {
+    /* `maTiepTheoTrenMayChu` bỏ qua tham số cho loại này. Nếu khoá sổ vẫn kèm tham số thì hai
+       lượt gọi khác tham số ghi vào HAI sổ — không tranh chấp với nhau, và cùng trả một mã. */
+    const a = CM.khoaSoCapPhat("nha-cung-cap", "");
+    const b = CM.khoaSoCapPhat("nha-cung-cap", "abc");
+    const c = CM.khoaSoCapPhat("nha-cung-cap", "2026");
+    return {
+      duoc: a === b && b === c,
+      thucTe: `"${a}" / "${b}" / "${c}"`,
+      mongDoi:
+        "ba khoá giống hệt nhau — khoá sổ phải khớp ĐÚNG phạm vi đánh số, không phải khớp thứ nơi gọi tiện truyền",
+    };
+  },
+);
+
+kiem(
+  "Đơn hàng và đề nghị thì VẪN tách sổ theo tham số",
+  "nhịp 3b · CodeRabbit PR #37 · 23/09/2026",
+  () => {
+    /* Đừng chữa lỗi trên bằng cách bỏ tham số cho mọi loại: đơn hàng đánh số theo NĂM, đề nghị
+       theo DỰ ÁN. Gộp chung là hai năm/hai dự án tranh nhau vô cớ và dãy số lẫn vào nhau. */
+    const nam26 = CM.khoaSoCapPhat("don-hang", "26");
+    const nam27 = CM.khoaSoCapPhat("don-hang", "27");
+    const duAnA = CM.khoaSoCapPhat("de-nghi", "30/2025/HĐXD/UNICE-HPCS");
+    const duAnB = CM.khoaSoCapPhat("de-nghi", "43-2025-HĐXD-HPCS");
+    return {
+      duoc: nam26 !== nam27 && duAnA !== duAnB,
+      thucTe: `${nam26} ≠ ${nam27}; ${duAnA} ≠ ${duAnB}`,
+      mongDoi: "hai năm khác khoá, hai dự án khác khoá",
+    };
+  },
+);
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {

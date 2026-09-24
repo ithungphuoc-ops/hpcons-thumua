@@ -53,6 +53,16 @@ export interface MaGiuCho {
  * mà chẳng được gì; tách nhỏ hơn phạm vi thật thì lại không chống được trùng.
  */
 export function khoaSoCapPhat(loai: LoaiMa, thamSo: string): string {
+  /* 🔴 NHÀ CUNG CẤP CHỈ CÓ MỘT DÃY SỐ → CHỈ ĐƯỢC CÓ MỘT SỔ (CodeRabbit chỉ ra, PR #37).
+     `maTiepTheoTrenMayChu` bỏ qua `thamSo` cho loại này, nên nếu khoá sổ vẫn kèm `thamSo` thì
+     hai lượt gọi với tham số khác nhau ghi vào HAI sổ khác nhau — không tranh chấp với nhau,
+     và cùng trả về một mã. Đúng cái mà cả nhịp 3b sinh ra để chặn.
+
+     Giao diện luôn truyền chuỗi rỗng nên chưa ai gặp, nhưng route nhận tham số từ bên ngoài:
+     một người đã đăng nhập gọi thẳng API là dựng được ca đó. Khoá sổ phải khớp ĐÚNG phạm vi
+     đánh số, không phải khớp những gì nơi gọi tiện truyền. */
+  if (loai === "nha-cung-cap") return loai;
+
   const s = thamSo.trim();
   /* Firestore cấm "/" trong mã tài liệu, mà mã dự án thì đầy dấu gạch chéo
      (`30/2025/HĐXD/UNICE-HPCS`). Thay bằng "__" chứ đừng bỏ đi: bỏ đi là hai dự án khác nhau

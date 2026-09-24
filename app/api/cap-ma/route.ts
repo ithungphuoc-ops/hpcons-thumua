@@ -30,7 +30,11 @@ import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 
 /** Hạn dùng — PHẢI KHỚP `conHanChayThu()` trong `5-ket-noi/firestore-gop-tach.rules`.
  *  Thiếu dòng này là lặng lẽ nới lỏng bảo mật so với cách cũ (bài học PR #32, 21/09/2026). */
-const HAN_DUNG = new Date("2026-11-01T00:00:00+07:00");
+/* 🔴 MỐC UTC, KHỚP ĐÚNG RULES (sửa 23/09/2026, CodeRabbit chỉ ra ở PR #37).
+   `timestamp.date(2026, 11, 1)` bên Firestore rules là mốc UTC. Ghi `+07:00` ở đây làm route
+   đóng cửa SỚM HƠN RULES 7 TIẾNG — trong 7 tiếng đó route trả 403 còn rules vẫn cho ghi, tức
+   hai chốt nói hai điều khác nhau về cùng một hạn dùng. */
+const HAN_DUNG = new Date("2026-11-01T00:00:00Z");
 
 function layIdToken(req: NextRequest): string | undefined {
   return (req.headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i)?.[1];
