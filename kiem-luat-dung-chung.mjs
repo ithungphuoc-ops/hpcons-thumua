@@ -167,6 +167,21 @@ try {
   process.exit(1);
 }
 
+/* ★ Soát trước khi ghi — nhịp 3c (24/09/2026). Phần quyết định "ô nào ghi được, ô nào phải
+   báo" tách khỏi tầng lưu vì tầng lưu phải mở Firebase mới chạy. */
+const tepRaSO = join(thuMuc, "soat-truoc-khi-ghi.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/soat-truoc-khi-ghi.ts" --bundle --platform=node --format=cjs --outfile="${tepRaSO}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/soat-truoc-khi-ghi.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const tepRa6 = join(thuMuc, "tich-hop-app-request.cjs");
 try {
   execSync(
@@ -430,6 +445,7 @@ const NB = nap(tepRa9);
 const GTP = nap(tepRaGTP);
 const TB = nap(tepRaTB);
 const CM = nap(tepRaCM);
+const SO = nap(tepRaSO);
 const TT = nap(tepRa10);
 const CQ = nap(tepRa11);
 const QLK = nap(tepRa12);
@@ -10155,6 +10171,229 @@ kiem(
       duoc: nam26 !== nam27 && duAnA !== duAnB,
       thucTe: `${nam26} ≠ ${nam27}; ${duAnA} ≠ ${duAnB}`,
       mongDoi: "hai năm khác khoá, hai dự án khác khoá",
+    };
+  },
+);
+
+// ------------------------------------------------------------
+// NHỊP 3c — soát trước khi ghi (24/09/2026)
+// ------------------------------------------------------------
+
+/** Dựng nhanh một kho dạng map. */
+function khoMap(khoi, ds) {
+  const m = {};
+  for (const x of ds) m[khoi === "giaDonHang" ? x.poId : x.id] = x;
+  return { [khoi]: m };
+}
+
+kiem(
+  "Ô người khác vừa đổi thì KHÔNG ghi đè — phải báo",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const banCu = { id: "X", trangThai: "cho_xac_nhan" };
+    const anh = { donHang: { X: GTP.chuoiOnDinh(banCu) } };
+    /* Máy chủ giờ đã khác: chị Thuỳ vừa xác nhận. */
+    const trenMayChu = khoMap("donHang", [
+      {
+        id: "X",
+        trangThai: "da_duyet",
+        lichSu: [{ thoiDiem: "2026-09-24T09:14:00", nguoiThucHien: "Nguyễn Thị Thuỳ" }],
+      },
+    ]);
+    const r = SO.soatTruocKhiGhi(
+      [{ duongDan: "donHang.X", giaTri: { id: "X", trangThai: "huy" } }],
+      anh,
+      trenMayChu,
+    );
+    return {
+      duoc:
+        r.ghiDuoc.length === 0 &&
+        r.xungDot.length === 1 &&
+        r.xungDot[0].aiDoi === "Nguyễn Thị Thuỳ",
+      thucTe: `ghi ${r.ghiDuoc.length}, báo ${r.xungDot.length}, ai: ${r.xungDot[0] ? r.xungDot[0].aiDoi : "—"}`,
+      mongDoi:
+        "không ghi ô nào, báo 1 ô kèm TÊN người vừa đổi — đây là chỗ cuối cùng còn mất việc sau đợt 2",
+    };
+  },
+);
+
+kiem(
+  "Ô chưa ai đụng thì vẫn ghi bình thường — đừng chặn nhầm",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const ban = { id: "X", trangThai: "cho_xac_nhan" };
+    const anh = { donHang: { X: GTP.chuoiOnDinh(ban) } };
+    const r = SO.soatTruocKhiGhi(
+      [{ duongDan: "donHang.X", giaTri: { id: "X", trangThai: "da_duyet" } }],
+      anh,
+      khoMap("donHang", [ban]),
+    );
+    return {
+      duoc: r.ghiDuoc.length === 1 && r.xungDot.length === 0,
+      thucTe: `ghi ${r.ghiDuoc.length}, báo ${r.xungDot.length}`,
+      mongDoi: "ghi 1, báo 0 — chặn nhầm ca này là app không lưu được gì nữa",
+    };
+  },
+);
+
+kiem(
+  "Bản ghi MỚI TOANH phải ghi được — tuyệt đối không chặn đường tạo mới",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const r = SO.soatTruocKhiGhi(
+      [{ duongDan: "donHang.MOI", giaTri: { id: "MOI" } }],
+      { donHang: {} },
+      khoMap("donHang", [{ id: "CU" }]),
+    );
+    return {
+      duoc: r.ghiDuoc.length === 1 && r.xungDot.length === 0,
+      thucTe: `ghi ${r.ghiDuoc.length}, báo ${r.xungDot.length}`,
+      mongDoi:
+        "ghi 1 — mình chưa từng thấy nó vì chính mình vừa tạo ra; chặn ở đây là không lập được đơn",
+    };
+  },
+);
+
+kiem(
+  "Mã mới mà máy chủ ĐÃ CÓ thì phải báo, không được đè",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const r = SO.soatTruocKhiGhi(
+      [{ duongDan: "donHang.X", giaTri: { id: "X", ghiChu: "bản của tôi" } }],
+      { donHang: {} },
+      khoMap("donHang", [{ id: "X", ghiChu: "người khác vừa tạo" }]),
+    );
+    return {
+      duoc: r.ghiDuoc.length === 0 && r.xungDot.length === 1,
+      thucTe: `ghi ${r.ghiDuoc.length}, báo ${r.xungDot.length}`,
+      mongDoi: "báo 1 — hai người vừa tạo trùng khoá, đè là xoá mất bản của người kia",
+    };
+  },
+);
+
+kiem(
+  "XOÁ cũng phải soát — không nuốt mất việc người khác vừa sửa",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const banCu = { id: "X", trangThai: "nhap" };
+    const anh = { donHang: { X: GTP.chuoiOnDinh(banCu) } };
+    const r = SO.soatTruocKhiGhi(
+      [{ duongDan: "donHang.X", giaTri: null }],
+      anh,
+      khoMap("donHang", [{ id: "X", trangThai: "da_duyet" }]),
+    );
+    return {
+      duoc: r.ghiDuoc.length === 0 && r.xungDot.length === 1,
+      thucTe: `xoá được ${r.ghiDuoc.length}, báo ${r.xungDot.length}`,
+      mongDoi: "báo 1 — mình xoá trong khi người khác vừa duyệt chính đơn đó",
+    };
+  },
+);
+
+kiem(
+  "Thứ tự trường khác nhau KHÔNG bị coi là xung đột",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const anh = { donHang: { X: GTP.chuoiOnDinh({ id: "X", a: 1, b: 2 }) } };
+    const r = SO.soatTruocKhiGhi(
+      [{ duongDan: "donHang.X", giaTri: { id: "X", a: 9 } }],
+      anh,
+      khoMap("donHang", [{ b: 2, id: "X", a: 1 }]),
+    );
+    return {
+      duoc: r.ghiDuoc.length === 1 && r.xungDot.length === 0,
+      thucTe: `ghi ${r.ghiDuoc.length}, báo ${r.xungDot.length}`,
+      mongDoi: "ghi 1 — so bằng chuỗi không ổn định thì mỗi lần render lại tưởng có xung đột",
+    };
+  },
+);
+
+kiem(
+  "Soát được cả khi kho CÒN DẠNG MẢNG (chưa bật đợt 2)",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const banCu = { id: "X", trangThai: "cho_xac_nhan" };
+    const anh = { donHang: { X: GTP.chuoiOnDinh(banCu) } };
+    /* Kho thô còn là MẢNG — hai công tắc độc lập nhau, đừng giả định đợt 2 đã bật. */
+    const r = SO.soatTruocKhiGhi(
+      [{ duongDan: "donHang.X", giaTri: { id: "X", trangThai: "huy" } }],
+      anh,
+      { donHang: [{ id: "X", trangThai: "da_duyet" }] },
+    );
+    return {
+      duoc: r.xungDot.length === 1,
+      thucTe: `báo ${r.xungDot.length}`,
+      mongDoi: "báo 1 — chỉ đọc được dạng map là nhịp 3c tắt tiếng khi đợt 2 chưa bật",
+    };
+  },
+);
+
+kiem(
+  "Khoá nguyên khối (cấu hình) cho qua — soát theo ô không áp dụng được",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const r = SO.soatTruocKhiGhi([{ duongDan: "cauHinh", giaTri: { nguong: 9 } }], {}, {});
+    return {
+      duoc: r.ghiDuoc.length === 1 && r.xungDot.length === 0,
+      thucTe: `ghi ${r.ghiDuoc.length}, báo ${r.xungDot.length}`,
+      mongDoi: "ghi 1 — chặn cấu hình vì không soát được là khoá luôn trang Cài đặt",
+    };
+  },
+);
+
+kiem(
+  "Câu báo phải có ĐỦ BA Ý: ai đổi, phần của tôi còn, làm gì tiếp",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const c = SO.cauBaoXungDot([
+      {
+        khoi: "donHang",
+        khoa: "X",
+        duongDan: "donHang.X",
+        aiDoi: "Nguyễn Thị Thuỳ",
+        luc: "2026-09-24T09:14:00",
+      },
+    ]);
+    const coAi = c.moTa.includes("Nguyễn Thị Thuỳ") && c.moTa.includes("09:14");
+    const coTranAn = /vẫn còn nguyên|chưa mất/.test(c.moTa);
+    const coViecLam = /mở lại|nhập lại/i.test(c.moTa);
+    const khongXinLoi = !/xin lỗi/i.test(c.moTa) && !/ghi đè lên bạn/i.test(c.moTa);
+    return {
+      duoc: coAi && coTranAn && coViecLam && khongXinLoi,
+      thucTe: `ai+giờ:${coAi} · trấn an:${coTranAn} · việc cần làm:${coViecLam} · không đổ lỗi:${khongXinLoi}`,
+      mongDoi:
+        "đủ bốn — người vừa gõ xong mà bị từ chối sẽ hoảng; câu mập mờ làm họ gõ lại lần nữa và hỏng thêm",
+    };
+  },
+);
+
+kiem(
+  "Không tra được tên người thì nói chung chung, KHÔNG bịa tên",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const c = SO.cauBaoXungDot([
+      { khoi: "deNghi", khoa: "D1", duongDan: "deNghi.D1", aiDoi: null, luc: null },
+    ]);
+    return {
+      duoc: c.moTa.includes("người khác") && c.tieuDe.length > 0,
+      thucTe: c.moTa.slice(0, 70),
+      mongDoi: "câu chung chung — thà nói ít hơn là nói sai tên người",
+    };
+  },
+);
+
+kiem(
+  "Nhật ký rỗng / thiếu trường không làm hỏng việc tra tên",
+  "nhịp 3c · 24/09/2026",
+  () => {
+    const a = SO.aiVuaDoi({});
+    const b = SO.aiVuaDoi({ lichSu: [] });
+    const c = SO.aiVuaDoi({ lichSu: [{ hanhDong: "sửa" }] });
+    const d = SO.aiVuaDoi(null);
+    return {
+      duoc: [a, b, c, d].every((x) => x.ten === null),
+      thucTe: JSON.stringify([a.ten, b.ten, c.ten, d.ten]),
+      mongDoi: "cả bốn đều null — dữ liệu cũ không ai bảo đảm có đủ nhật ký",
     };
   },
 );
