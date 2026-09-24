@@ -10342,8 +10342,35 @@ kiem(
 );
 
 kiem(
-  "Câu báo phải có ĐỦ BA Ý: ai đổi, phần của tôi còn, làm gì tiếp",
-  "nhịp 3c · 24/09/2026",
+  "Câu báo KHÔNG được hứa 'phần bạn vẫn còn trên màn hình'",
+  "nhịp 3c · CodeRabbit PR #38 · 24/09/2026",
+  () => {
+    /* 🔴 Bản đầu của câu này có hứa như vậy, và nó SAI: khi xung đột, ảnh chụp mới từ máy chủ
+       thay bản ghi trong bộ nhớ, mà hộp sửa có effect phụ thuộc `[mo, deNghi]` nạp lại mọi ô —
+       tức xoá đúng phần người dùng vừa gõ. Hứa sai tệ hơn không nói gì: người ta yên tâm đóng
+       hộp thoại rồi mất thật. */
+    const c = SO.cauBaoXungDot([
+      {
+        khoi: "donHang",
+        khoa: "X",
+        duongDan: "donHang.X",
+        aiDoi: "Nguyễn Thị Thuỳ",
+        luc: "2026-09-24T09:14:00",
+      },
+    ]);
+    const huaSai = /vẫn còn nguyên|chưa mất|không mất gì/i.test(c.moTa);
+    return {
+      duoc: !huaSai,
+      thucTe: huaSai ? "VẪN CÒN lời hứa sai" : "không hứa điều không bảo đảm được",
+      mongDoi:
+        "không có câu nào hứa phần vừa nhập còn trên màn hình — giữ bản nháp bị từ chối là việc của một nhịp riêng, chưa làm thì đừng hứa",
+    };
+  },
+);
+
+kiem(
+  "Câu báo phải bảo người dùng GIỮ LẤY phần của mình trước khi màn hình đổi",
+  "nhịp 3c · CodeRabbit PR #38 · 24/09/2026",
   () => {
     const c = SO.cauBaoXungDot([
       {
@@ -10355,14 +10382,67 @@ kiem(
       },
     ]);
     const coAi = c.moTa.includes("Nguyễn Thị Thuỳ") && c.moTa.includes("09:14");
-    const coTranAn = /vẫn còn nguyên|chưa mất/.test(c.moTa);
+    const baoGiuLay = /chép lại|chụp màn hình/i.test(c.moTa);
+    const canhBaoDoi = /màn hình sắp cập nhật|sắp cập nhật/i.test(c.moTa);
     const coViecLam = /mở lại|nhập lại/i.test(c.moTa);
-    const khongXinLoi = !/xin lỗi/i.test(c.moTa) && !/ghi đè lên bạn/i.test(c.moTa);
+    const khongDoLoi = !/xin lỗi/i.test(c.moTa) && !/ghi đè lên bạn/i.test(c.moTa);
     return {
-      duoc: coAi && coTranAn && coViecLam && khongXinLoi,
-      thucTe: `ai+giờ:${coAi} · trấn an:${coTranAn} · việc cần làm:${coViecLam} · không đổ lỗi:${khongXinLoi}`,
+      duoc: coAi && baoGiuLay && canhBaoDoi && coViecLam && khongDoLoi,
+      thucTe: `ai+giờ:${coAi} · bảo giữ lấy:${baoGiuLay} · báo trước màn hình đổi:${canhBaoDoi} · việc cần làm:${coViecLam} · không đổ lỗi:${khongDoLoi}`,
       mongDoi:
-        "đủ bốn — người vừa gõ xong mà bị từ chối sẽ hoảng; câu mập mờ làm họ gõ lại lần nữa và hỏng thêm",
+        "đủ năm — không giữ được bản nháp thì ít nhất phải kịp báo để người ta tự giữ",
+    };
+  },
+);
+
+kiem(
+  "KHÔNG quy tên khi nhật ký không dài ra — người sửa có thể không để lại dấu",
+  "nhịp 3c · CodeRabbit PR #38 · 24/09/2026",
+  () => {
+    /* Viết bình luận, ghi mốc vào bước, đường QLK CTR đều sửa bản ghi mà KHÔNG thêm nhật ký.
+       Lấy mục cuối làm "người vừa đổi" là có ngày hiện tên một người sửa từ tuần trước. */
+    const lichSuCu = [
+      { thoiDiem: "2026-09-17T08:00:00", nguoiThucHien: "Trần Văn Nam", hanhDong: "Lập đơn" },
+    ];
+    const anhCu = GTP.chuoiOnDinh({ id: "X", trangThai: "cho_xac_nhan", lichSu: lichSuCu });
+
+    // ① Người khác sửa NHƯNG không ghi nhật ký → không được quy tên ai
+    const khongDau = SO.aiVuaDoi({ id: "X", trangThai: "huy", lichSu: lichSuCu }, anhCu);
+
+    // ② Người khác sửa VÀ có ghi nhật ký → quy tên được
+    const coDau = SO.aiVuaDoi(
+      {
+        id: "X",
+        trangThai: "da_duyet",
+        lichSu: [
+          ...lichSuCu,
+          { thoiDiem: "2026-09-24T09:14:00", nguoiThucHien: "Nguyễn Thị Thuỳ", hanhDong: "Xác nhận" },
+        ],
+      },
+      anhCu,
+    );
+
+    return {
+      duoc: khongDau.ten === null && coDau.ten === "Nguyễn Thị Thuỳ",
+      thucTe: `không để lại dấu → ${khongDau.ten}; có ghi nhật ký → ${coDau.ten}`,
+      mongDoi:
+        "null / Nguyễn Thị Thuỳ — quy oan cho một người sửa từ tuần trước còn tệ hơn không nói tên",
+    };
+  },
+);
+
+kiem(
+  "Ảnh chụp hỏng thì không đoán tên",
+  "nhịp 3c · CodeRabbit PR #38 · 24/09/2026",
+  () => {
+    const r = SO.aiVuaDoi(
+      { lichSu: [{ thoiDiem: "2026-09-24T09:14:00", nguoiThucHien: "Ai Đó" }] },
+      "{ không phải JSON",
+    );
+    return {
+      duoc: r.ten === null,
+      thucTe: String(r.ten),
+      mongDoi: "null — không đọc được ảnh chụp thì không có cơ sở nào để so, đừng đoán",
     };
   },
 );

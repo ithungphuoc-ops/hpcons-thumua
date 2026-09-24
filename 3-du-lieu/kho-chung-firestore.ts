@@ -35,7 +35,9 @@ import {
   tuMap,
   chupTrangThai,
   quyetDinhGhi,
+  chuoiOnDinh,
   type TrangThaiKho,
+  type KhoiTheoId,
 } from "@/2-quy-trinh/ghi-tung-phan";
 import { soatTruocKhiGhi, type XungDot } from "@/2-quy-trinh/soat-truoc-khi-ghi";
 
@@ -295,16 +297,41 @@ export async function noiKhoChung(
            đôi mỗi lần giao dịch chạy lại. */
         if (SOAT_TRUOC_KHI_GHI) {
           let bao: XungDot[] = [];
+          let daGhi: typeof kq.thayDoi = [];
           await runTransaction(db, async (gd) => {
-            bao = []; // đặt lại mỗi lượt chạy — lượt trước có thể đã ghi vào đây
+            /* Đặt lại mỗi lượt chạy — lượt trước có thể đã ghi vào hai biến này. */
+            bao = [];
+            daGhi = [];
             const anh = await gd.get(tep);
             const khoTho = (anh.exists() ? anh.data() : {}) as Record<string, unknown>;
             const { ghiDuoc, xungDot } = soatTruocKhiGhi(kq.thayDoi, tt.anhTheoKhoi ?? {}, khoTho);
             bao = xungDot;
+            daGhi = ghiDuoc;
             /* Không còn ô nào ghi được thì đừng ghi rỗng — `update` với object rỗng vẫn là
                một lượt ghi, vừa tốn vừa làm mọi máy khác nhận một ảnh chụp vô nghĩa. */
             if (ghiDuoc.length > 0) gd.update(tep, dungCauLenh(ghiDuoc));
           });
+
+          /* ★ CẬP NHẬT ẢNH CHỤP NGAY, ĐỪNG CHỜ `onSnapshot` (CodeRabbit chỉ ra ở PR #38).
+
+             🔴 `onSnapshot` là đường duy nhất làm mới ảnh chụp, mà nó về sau một nhịp mạng.
+             App gom các lần lưu theo nhịp ~800ms, nên hoàn toàn có thể lưu lần nữa TRƯỚC KHI
+             ảnh chụp kịp cập nhật. Khi đó lần ghi vừa rồi của CHÍNH MÌNH bị đem ra so với ảnh
+             cũ và bị báo là xung đột — một lần lưu hợp lệ bị chặn, kèm thông báo sai sự thật.
+
+             Ghi xong thì chính mình biết ô đó giờ mang giá trị gì; cập nhật luôn cho khớp. */
+          if (daGhi.length > 0 && tt.anhTheoKhoi) {
+            for (const t of daGhi) {
+              const i = t.duongDan.indexOf(".");
+              if (i <= 0) continue; // khoá nguyên khối — không nằm trong ảnh chụp theo ô
+              const khoi = t.duongDan.slice(0, i) as KhoiTheoId;
+              const khoa = t.duongDan.slice(i + 1);
+              const o = (tt.anhTheoKhoi[khoi] ??= {});
+              if (t.giaTri === null) delete o[khoa];
+              else o[khoa] = chuoiOnDinh(t.giaTri);
+            }
+          }
+
           if (bao.length > 0) khiXungDot?.(bao);
           return;
         }

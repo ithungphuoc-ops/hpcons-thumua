@@ -62,10 +62,35 @@ export function tachDuongDan(duongDan: string): { khoi: KhoiTheoId; khoa: string
  * thể thiếu trường. Mọi ca đó trả `null` và nơi gọi hiện câu chung chung — thà nói ít hơn là
  * nói sai tên người.
  */
-export function aiVuaDoi(banGhi: unknown): { ten: string | null; luc: string | null } {
-  const o = (banGhi ?? {}) as { lichSu?: unknown };
+export function aiVuaDoi(
+  banTrenMayChu: unknown,
+  /** Ảnh chụp bản ghi lúc mình nhận về — chuỗi từ `chuoiOnDinh`. */
+  anhChupCu?: string,
+): { ten: string | null; luc: string | null } {
+  const o = (banTrenMayChu ?? {}) as { lichSu?: unknown };
   const ds = Array.isArray(o.lichSu) ? o.lichSu : [];
   if (ds.length === 0) return { ten: null, luc: null };
+
+  /* 🔴 CHỈ QUY TÊN KHI NHẬT KÝ DÀI RA (CodeRabbit chỉ ra, PR #38).
+
+     Không phải đường ghi nào cũng thêm một mục vào nhật ký — viết bình luận, ghi mốc vào bước,
+     và đường QLK CTR đều sửa bản ghi mà KHÔNG ghi nhật ký. Cứ lấy mục cuối làm "người vừa đổi"
+     là có ngày hiện tên một người sửa từ tuần trước, trong khi người vừa đụng vào lại là người
+     khác. Quy oan cho ai đó còn tệ hơn không nói tên.
+
+     So độ dài nhật ký giữa bản trên máy chủ và bản mình đã thấy: dài hơn thì mục cuối đúng là
+     việc vừa xảy ra; bằng nhau thì có người sửa mà không để lại dấu — im lặng, không đoán. */
+  if (anhChupCu !== undefined) {
+    let soCu = -1;
+    try {
+      const cu = JSON.parse(anhChupCu) as { lichSu?: unknown };
+      soCu = Array.isArray(cu?.lichSu) ? cu.lichSu.length : 0;
+    } catch {
+      return { ten: null, luc: null }; // không đọc được ảnh chụp → không đoán
+    }
+    if (ds.length <= soCu) return { ten: null, luc: null };
+  }
+
   const cuoi = (ds[ds.length - 1] ?? {}) as { nguoiThucHien?: unknown; thoiDiem?: unknown };
   const ten = typeof cuoi.nguoiThucHien === "string" && cuoi.nguoiThucHien.trim()
     ? cuoi.nguoiThucHien.trim()
@@ -147,7 +172,7 @@ export function soatTruocKhiGhi(
     if (hienTai === anhCuaToi) {
       ghiDuoc.push(t);
     } else {
-      const { ten, luc } = aiVuaDoi(banTrenMayChu);
+      const { ten, luc } = aiVuaDoi(banTrenMayChu, anhCuaToi);
       xungDot.push({ khoi, khoa, duongDan: t.duongDan, aiDoi: ten, luc });
     }
   }
@@ -195,11 +220,21 @@ export function cauBaoXungDot(xungDot: readonly XungDot[]): { tieuDe: string; mo
   const them =
     xungDot.length > 1 ? ` (và ${xungDot.length - 1} mục khác cũng vừa đổi)` : "";
 
+  /* 🔴 KHÔNG HỨA "PHẦN BẠN VẪN CÒN TRÊN MÀN HÌNH" (sửa 24/09/2026, CodeRabbit chỉ ra ở PR #38).
+
+     Bản đầu của câu này có câu đó, và nó SAI. Khi xung đột, ảnh chụp mới từ máy chủ về sẽ thay
+     bản ghi trong bộ nhớ, mà hộp sửa (`hop-sua-truong-tuy-chinh.tsx`) có effect phụ thuộc
+     `[mo, deNghi]` — nó nạp lại mọi ô từ bản mới, tức XOÁ đúng phần người dùng vừa gõ.
+
+     Hứa sai ở đây tệ hơn không nói gì: người ta yên tâm đóng hộp thoại rồi mất thật. Giữ bản
+     nháp bị từ chối là việc đáng làm nhưng lớn — để một nhịp riêng. Từ giờ đến đó, nói đúng
+     những gì bảo đảm được và bảo họ giữ lấy phần của mình trước. */
   return {
     tieuDe: "Chưa lưu được — hồ sơ vừa có người khác sửa",
     moTa:
-      `${ai}${them}. Phần bạn vừa nhập vẫn còn nguyên trên màn hình, chưa mất. ` +
-      `Mở lại hồ sơ để xem bản mới nhất rồi nhập lại phần của bạn — làm vậy để không ai mất việc của ai.`,
+      `${ai}${them}. Hãy chép lại (hoặc chụp màn hình) phần bạn vừa nhập TRƯỚC KHI làm gì tiếp — ` +
+      `màn hình sắp cập nhật theo bản mới nhất. Sau đó mở lại hồ sơ, xem người kia đã đổi gì, ` +
+      `rồi nhập lại phần của bạn.`,
   };
 }
 
