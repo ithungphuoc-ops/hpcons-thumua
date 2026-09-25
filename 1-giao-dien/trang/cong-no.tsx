@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
+import { useDungDayKhungNhin } from "@/1-giao-dien/thanh-phan-dung-chung/dung-day-khung-nhin";
 import {
   Wallet,
   ChevronRight,
@@ -220,6 +221,10 @@ export default function TrangCongNo() {
    */
   const [nhomCongTrinh, setNhomCongTrinh] = useState(false);
   const [nhomDong, setNhomDong] = useState<Set<string>>(() => new Set());
+  /* ★ Khung bảng dừng đúng đáy màn hình — thanh cuộn ngang luôn thấy, giống màn Quy trình mua
+     hàng dạng danh sách (Sếp 25/09/2026). Cùng một hook, không viết cách thứ hai. */
+  const khungBang = useRef<HTMLDivElement>(null);
+  useDungDayKhungNhin(khungBang, [quyen.xemCongNo]);
   /* ❌ ĐÃ BỎ state căn cứ chung cho cả bảng — Sếp 19/09/2026: *"Nút này đưa vào các DMH, vì số liệu
      mỗi DMH sẽ khác nhau"*. Nay căn cứ là thuộc tính của TỪNG đơn, lưu ở `GiaDonDatHang.canCuCongNo`. */
 
@@ -545,7 +550,13 @@ export default function TrangCongNo() {
             */}
           {/* `@container` (Sếp 25/09/2026): khối mở rộng của từng PO đo bề rộng KHUNG NHÌN bằng
               `100cqw` — xem chú thích ở khối "Hoá đơn của đơn". */}
-          <div className="@container thanh-keo-ngang-ro overflow-x-auto [&>[data-slot=table-container]]:overflow-visible">
+          {/* ★ Sếp 25/09/2026: *"Sửa thanh cuộn giống mục quy trình mua hàng"*. Khung cao tối đa
+              đúng tới đáy màn hình (`useDungDayKhungNhin`) và cuộn DỌC bên trong, nên thanh cuộn
+              ngang ở đáy khung luôn trong tầm nhìn; tiêu đề cột dính trên cùng. */}
+          <div
+            ref={khungBang}
+            className="@container thanh-keo-ngang-ro max-h-(--cao-toi-da) overflow-auto [&>[data-slot=table-container]]:overflow-visible"
+          >
             {/**
               * ★★ BẢNG NỚI TỪ 9 → 12 CỘT — Sếp 18–19/09/2026: thêm **Tên công trình**, **Mã số đề
               * nghị**, **Số hoá đơn**.
@@ -575,7 +586,7 @@ export default function TrangCongNo() {
               * 📌 `title` vẫn giữ: chữ rê chuột không thừa, nó là cách đọc nhanh khi hàng cao.
               */}
             <Table className="min-w-[112rem] table-fixed">
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead className="w-[3%] px-1 text-center">STT</TableHead>
                   <TableHead className="w-[9%]">Tên đơn hàng (PO)</TableHead>
