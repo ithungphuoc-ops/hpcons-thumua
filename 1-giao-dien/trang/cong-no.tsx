@@ -865,46 +865,10 @@ export default function TrangCongNo() {
                             </>
                           );
                         })()}
-                        {/**
-                          * ★★ NÚT CHỌN CĂN CỨ CỦA RIÊNG DÒNG NÀY — Sếp 19/09/2026: *"Nút này đưa
-                          * vào các DMH, vì số liệu mỗi DMH sẽ khác nhau. Có cái sẽ dùng theo PO,
-                          * cái dùng theo hoá đơn"*.
-                          *
-                          * 📌 Chữ rất nhỏ và nằm ngay dưới con số nó quyết định — người đọc thấy
-                          * ngay con số này đang tính theo căn cứ nào, không phải đi tra chỗ khác.
-                          */}
-                        {suaDuocDieuKhoan && (
-                          <span className="mt-1 flex items-center justify-end gap-0.5 text-[11px]">
-                            {(
-                              [
-                                ["po", "PO"],
-                                ["hoa_don", "Hoá đơn"],
-                              ] as const
-                            ).map(([ma, nhan]) => (
-                              <button
-                                key={ma}
-                                type="button"
-                                onClick={() => {
-                                  const loi = datDieuKhoanCongNo(r.poId, { canCuCongNo: ma }, "");
-                                  if (loi) toast.error(loi);
-                                }}
-                                aria-pressed={r.canCu === ma}
-                                title={
-                                  ma === "po"
-                                    ? "Tính nợ của đơn này theo tổng tiền PO"
-                                    : "Tính nợ của đơn này theo tổng tiền trên hoá đơn"
-                                }
-                                className={`rounded px-1.5 py-0.5 font-medium transition-colors ${
-                                  r.canCu === ma
-                                    ? "bg-primary text-white"
-                                    : "text-text-desc hover:bg-muted"
-                                }`}
-                              >
-                                {nhan}
-                              </button>
-                            ))}
-                          </span>
-                        )}
+                        {/* ❌ ĐÃ BỎ nút chọn căn cứ "PO / Hoá đơn" — Sếp 25/09/2026: *"Bỏ chữ năng đánh
+                            dấu này đi"*. App tự chọn: có hoá đơn thì tính theo hoá đơn, chưa có thì
+                            theo PO (`canCuHieuLuc` ở `2-quy-trinh/tuoi-no.ts`, nay KHÔNG đọc lựa
+                            chọn tay cũ nữa để không đơn nào kẹt ở lựa chọn không đổi được). */}
                       </TableCell>
                       {/* ★★ SỬA ĐƯỢC TẠI CHỖ (Ban lãnh đạo 28/08/2026). Ô trống vẫn nói rõ là
                           trống — số 0 nghĩa "phải trả ngay", khác hẳn "chưa ai điền". */}

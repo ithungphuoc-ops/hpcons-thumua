@@ -599,8 +599,12 @@ export function tienChuaGanHoaDon(
 export function canCuHieuLuc(
   gia: { canCuCongNo?: CanCuCongNo; hoaDonVAT?: readonly unknown[]; tongTienHoaDon?: number } | undefined,
 ): CanCuCongNo {
-  if (gia?.canCuCongNo === "hoa_don") return "hoa_don";
-  if (gia?.canCuCongNo === "po") return "po";
+  /* 🔴 25/09/2026 — Sếp: *"Bỏ chữ năng đánh dấu này đi"* (nút PO / Hoá đơn dưới cột "Còn phải
+     trả"). BỎ NÚT THÌ PHẢI BỎ LUÔN TẦNG ①: lựa chọn tay đã lưu (`gia.canCuCongNo`) nay KHÔNG CÒN
+     được đọc. Giữ lại là đơn nào từng bấm "theo PO" sẽ kẹt vĩnh viễn ở PO mà không còn nút nào để
+     đổi — người dùng ghi hoá đơn xong vẫn thấy số PO và không có cách gì sửa. Dữ liệu cũ không xoá
+     (đọc lịch sử còn thấy ai từng chọn gì), chỉ thôi dùng để tính. Chỉ đạo 19/09 ("có cái theo PO,
+     có cái theo hoá đơn") vẫn đúng — nay app tự quyết theo việc đơn đã có hoá đơn hay chưa. */
   const coHoaDon =
     (Array.isArray(gia?.hoaDonVAT) && gia.hoaDonVAT.length > 0) ||
     typeof gia?.tongTienHoaDon === "number";

@@ -9070,19 +9070,20 @@ kiem(
 );
 
 kiem(
-  "CHIEU NGHICH — nguoi dung DA chon thi app KHONG duoc tu doi",
-  'Sếp · 19/09/2026 — *"Nút này đưa vào các DMH… Có cái sẽ dùng theo PO, cái dùng theo hoá đơn"*',
+  "Bo nut chon can cu -> lua chon tay CU khong con duoc doc, app tu chon theo co hoa don hay chua",
+  'Sếp · 25/09/2026 — *"Bỏ chữ năng đánh dấu này đi"* (THAY bài kiểm 19/09 "người dùng đã chọn thì app không được tự đổi")',
   () => {
-    /* 🔴 Sep 20/09 chi doi GIA TRI MAC DINH, KHONG doi quyen quyet. Don da co hoa don ma nguoi
-       dung co y chon "theo PO" thi phai giu nguyen — app tu doi lai la cuop quyen quyet cua ho,
-       va xoa mat chi dao 19/09. */
+    /* 🔴 BAI KIEM NAY THAY bai "CHIEU NGHICH — nguoi dung DA chon thi app KHONG duoc tu doi"
+       (chi dao 19/09). 25/09 Sep bo han nut chon; giu doc lua chon cu la don tung chon "theo PO"
+       ket vinh vien o PO, khong con nut de doi. Neu sau nay dung lai nut chon thi phai dung lai
+       ca bai kiem 19/09. */
     const TN = nap(join(thuMuc, "tuoi-no.cjs"));
-    const chonPO = TN.canCuHieuLuc({ canCuCongNo: "po", hoaDonVAT: [{ soTien: 9 }] });
-    const chonHoaDon = TN.canCuHieuLuc({ canCuCongNo: "hoa_don" });
+    const cuChonPO = TN.canCuHieuLuc({ canCuCongNo: "po", hoaDonVAT: [{ soTien: 9 }] });
+    const cuChonHD = TN.canCuHieuLuc({ canCuCongNo: "hoa_don" });
     return {
-      duoc: chonPO === "po" && chonHoaDon === "hoa_don",
-      thucTe: `chon PO (du co hoa don)=${chonPO} · chon hoa don (du chua co)=${chonHoaDon}`,
-      mongDoi: "po · hoa_don — lua chon cua nguoi dung thang moi phep suy",
+      duoc: cuChonPO === "hoa_don" && cuChonHD === "po",
+      thucTe: `tung chon PO nhung co hoa don=${cuChonPO} · tung chon hoa don nhung chua co=${cuChonHD}`,
+      mongDoi: "hoa_don · po — app tu chon, bo qua lua chon tay cu",
     };
   },
 );
