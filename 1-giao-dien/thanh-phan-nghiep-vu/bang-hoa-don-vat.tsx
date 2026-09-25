@@ -32,7 +32,7 @@ import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep"
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { chamNganCachNghin, formatCurrencyVnd, formatDate, homNayISO } from "@/6-tien-ich/dinh-dang";
 import { catTep, coTep } from "@/3-du-lieu/kho-tep";
-import { doHoaDonTuVanBan } from "@/2-quy-trinh/doc-hoa-don-van-ban";
+import { doHoaDon } from "@/2-quy-trinh/doc-hoa-don-van-ban";
 import type { DongHoaDonVAT, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -156,7 +156,7 @@ export function BangHoaDonVAT({
     setDangDoc(true);
     try {
       const { trichTextPdf } = await import("@/6-tien-ich/trich-text-pdf");
-      const { vanBan, soKyTu } = await trichTextPdf(f);
+      const { vanBan, soKyTu, dong } = await trichTextPdf(f);
       if (soKyTu < 20) {
         toast.warning("Tệp này không có chữ để đọc", {
           description:
@@ -164,7 +164,8 @@ export function BangHoaDonVAT({
         });
         return;
       }
-      const doc = doHoaDonTuVanBan(vanBan);
+      /* (25/09/2026) Đọc theo dòng dựng từ toạ độ trước, ô nào trượt mới lấy cách cũ. */
+      const doc = doHoaDon(dong, vanBan);
       if (doc.soHoaDon) setSoHoaDon(doc.soHoaDon);
       if (doc.ngayHoaDon) setNgayHoaDon(doc.ngayHoaDon);
       if (doc.soTien !== undefined) setSoTien(chamNganCachNghin(String(doc.soTien)));
@@ -188,9 +189,18 @@ export function BangHoaDonVAT({
         });
         return;
       }
-      toast.success(`App đã đọc được: ${doc.daDoc.join(" · ")}`, {
-        description: "Mời kiểm lại ba ô bên dưới rồi bấm Lưu hoá đơn.",
-      });
+      /* (25/09/2026) Nói rõ Ô NÀO chưa đọc được — người dùng biết đúng chỗ phải nhập tay, và báo
+         lại kèm tệp để bổ sung nhãn cho mẫu đó. `nhac` là câu nhắc xem lại, app VẪN đã điền. */
+      const conThieu = ["số hoá đơn", "ngày", "số tiền"].filter((x) => !doc.daDoc.includes(x));
+      const moTa = [
+        ...doc.nhac,
+        conThieu.length > 0 ? `Chưa đọc được: ${conThieu.join(" · ")} — mời nhập tay.` : "",
+        "Mời kiểm lại ba ô bên dưới rồi bấm Lưu hoá đơn.",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const baoTin = doc.nhac.length > 0 ? toast.warning : toast.success;
+      baoTin(`App đã đọc được: ${doc.daDoc.join(" · ")}`, { description: moTa });
     } catch (e) {
       /* 🔴 BÁO RA, ĐỪNG NUỐT. Nuốt lỗi ở đây thì người dùng ngồi chờ một việc đã hỏng. */
       toast.error("Không đọc được tệp PDF này", {

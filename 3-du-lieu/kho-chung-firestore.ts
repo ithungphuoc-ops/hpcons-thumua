@@ -35,8 +35,11 @@ import {
   tuMap,
   chupTrangThai,
   quyetDinhGhi,
+  chuoiOnDinh,
   type TrangThaiKho,
+  type KhoiTheoId,
 } from "@/2-quy-trinh/ghi-tung-phan";
+import { soatTruocKhiGhi, type XungDot } from "@/2-quy-trinh/soat-truoc-khi-ghi";
 
 /**
  * ★ CÔNG TẮC GHI TỪNG PHẦN — đợt 2 lộ trình chống mất dữ liệu (Sếp chốt 22/09/2026).
@@ -55,6 +58,19 @@ const GHI_TUNG_PHAN =
   (process.env.NEXT_PUBLIC_GHI_TUNG_PHAN ?? "").trim().toLowerCase() === "1";
 
 /**
+ * ★ CÔNG TẮC SOÁT TRƯỚC KHI GHI — nhịp 3c (Sếp chốt 24/09/2026).
+ *
+ * Bật thì mỗi lần lưu sẽ đọc lại trong một giao dịch và **chỉ ghi những ô chưa ai đụng**; ô nào
+ * người khác vừa đổi thì không đè mà báo lên cho người dùng.
+ *
+ * 🔴 PHỤ THUỘC ĐỢT 2. Không có `GHI_TUNG_PHAN` thì mỗi lần lưu vẫn là ghi đè cả tài liệu, chẳng
+ * có "ô" nào để soát. Bật riêng công tắc này mà quên đợt 2 là bật một thứ không chạy — nên
+ * điều kiện dưới đây đòi CẢ HAI.
+ */
+const SOAT_TRUOC_KHI_GHI =
+  (process.env.NEXT_PUBLIC_SOAT_TRUOC_KHI_GHI ?? "").trim().toLowerCase() === "1";
+
+/**
  * Tất cả người dùng bản chạy thử chung một "phòng" dữ liệu.
  * Export để route handler phía máy chủ (Admin SDK) trỏ đúng cùng một document —
  * xem `app/api/app-request/de-nghi-moi/route.ts`.
@@ -71,10 +87,18 @@ export const daCauHinhFirestore = daCauHinhFirebase;
 async function moKetNoi() {
   const app = await moFirebase();
   if (!app) return null;
-  const { getFirestore, doc, onSnapshot, setDoc, updateDoc, deleteField } = await import(
-    "firebase/firestore",
-  );
-  return { app, db: getFirestore(app), doc, onSnapshot, setDoc, updateDoc, deleteField };
+  const { getFirestore, doc, onSnapshot, setDoc, updateDoc, deleteField, runTransaction } =
+    await import("firebase/firestore");
+  return {
+    app,
+    db: getFirestore(app),
+    doc,
+    onSnapshot,
+    setDoc,
+    updateDoc,
+    deleteField,
+    runTransaction,
+  };
 }
 
 /**
@@ -148,13 +172,20 @@ export interface KetNoiKhoChung {
 export async function noiKhoChung(
   khiCoDuLieu: (d: DuLieuLuu | null) => void,
   khiLoi?: (e: unknown) => void,
+  /**
+   * Gọi khi có ô KHÔNG ghi được vì người khác vừa đổi (nhịp 3c).
+   *
+   * 🔴 NƠI GỌI BẮT BUỘC PHẢI BÁO CHO NGƯỜI DÙNG. Nuốt lỗi ở đây tệ hơn cả cách cũ: người ta
+   * bấm Lưu, không thấy gì, tưởng đã xong, rồi đóng máy đi về.
+   */
+  khiXungDot?: (ds: XungDot[], soDaGhi: number) => void,
 ): Promise<KetNoiKhoChung | null> {
   if (typeof window === "undefined" || !daCauHinhFirestore()) return null;
 
   try {
     const kn = await moKetNoi();
     if (!kn) return null;
-    const { db, doc, onSnapshot, setDoc, updateDoc, deleteField, app } = kn;
+    const { db, doc, onSnapshot, setDoc, updateDoc, deleteField, runTransaction, app } = kn;
 
     /* ★ TRẠNG THÁI KHO — chìa khoá của đợt 2.
 
@@ -245,13 +276,69 @@ export async function noiKhoChung(
           return;
         }
 
-        const thayDoi: Record<string, unknown> = {};
-        for (const t of kq.thayDoi) {
-          /* `null` nghĩa là bản ghi đã bị xoá tại máy này. Phải dịch sang `deleteField()`; ghi
-             thẳng `null` là để lại một ô rỗng, lần đọc sau nó vẫn hiện ra như bản ghi hỏng. */
-          thayDoi[t.duongDan] = t.giaTri === null ? deleteField() : t.giaTri;
+        /* `null` nghĩa là bản ghi đã bị xoá tại máy này. Phải dịch sang `deleteField()`; ghi
+           thẳng `null` là để lại một ô rỗng, lần đọc sau nó vẫn hiện ra như bản ghi hỏng. */
+        const dungCauLenh = (ds: readonly typeof kq.thayDoi[number][]) => {
+          const ra: Record<string, unknown> = {};
+          for (const t of ds) ra[t.duongDan] = t.giaTri === null ? deleteField() : t.giaTri;
+          return ra;
+        };
+
+        /* ── NHỊP 3c: SOÁT TRƯỚC KHI GHI ──────────────────────────────────────────────
+           Đọc lại trong một giao dịch, chỉ ghi những ô CHƯA AI ĐỤNG, ô nào người khác vừa
+           đổi thì không đè mà báo lên.
+
+           🔴 ĐÒI CẢ HAI CÔNG TẮC. Không có đợt 2 thì mỗi lần lưu là ghi đè cả tài liệu,
+           chẳng có "ô" nào để soát — bật riêng 3c là bật một thứ không chạy.
+
+           ⚠️ Giao dịch của Firestore có thể CHẠY LẠI nhiều lượt khi tranh chấp. Nên mọi
+           thứ bên trong phải thuần: không gọi mạng, không đụng biến ngoài. Kết quả soát
+           để dành ra ngoài rồi mới báo — báo bên trong là người dùng thấy thông báo nhân
+           đôi mỗi lần giao dịch chạy lại. */
+        if (SOAT_TRUOC_KHI_GHI) {
+          let bao: XungDot[] = [];
+          let daGhi: typeof kq.thayDoi = [];
+          await runTransaction(db, async (gd) => {
+            /* Đặt lại mỗi lượt chạy — lượt trước có thể đã ghi vào hai biến này. */
+            bao = [];
+            daGhi = [];
+            const anh = await gd.get(tep);
+            const khoTho = (anh.exists() ? anh.data() : {}) as Record<string, unknown>;
+            const { ghiDuoc, xungDot } = soatTruocKhiGhi(kq.thayDoi, tt.anhTheoKhoi ?? {}, khoTho);
+            bao = xungDot;
+            daGhi = ghiDuoc;
+            /* Không còn ô nào ghi được thì đừng ghi rỗng — `update` với object rỗng vẫn là
+               một lượt ghi, vừa tốn vừa làm mọi máy khác nhận một ảnh chụp vô nghĩa. */
+            if (ghiDuoc.length > 0) gd.update(tep, dungCauLenh(ghiDuoc));
+          });
+
+          /* ★ CẬP NHẬT ẢNH CHỤP NGAY, ĐỪNG CHỜ `onSnapshot` (CodeRabbit chỉ ra ở PR #38).
+
+             🔴 `onSnapshot` là đường duy nhất làm mới ảnh chụp, mà nó về sau một nhịp mạng.
+             App gom các lần lưu theo nhịp ~800ms, nên hoàn toàn có thể lưu lần nữa TRƯỚC KHI
+             ảnh chụp kịp cập nhật. Khi đó lần ghi vừa rồi của CHÍNH MÌNH bị đem ra so với ảnh
+             cũ và bị báo là xung đột — một lần lưu hợp lệ bị chặn, kèm thông báo sai sự thật.
+
+             Ghi xong thì chính mình biết ô đó giờ mang giá trị gì; cập nhật luôn cho khớp. */
+          if (daGhi.length > 0 && tt.anhTheoKhoi) {
+            for (const t of daGhi) {
+              const i = t.duongDan.indexOf(".");
+              if (i <= 0) continue; // khoá nguyên khối — không nằm trong ảnh chụp theo ô
+              const khoi = t.duongDan.slice(0, i) as KhoiTheoId;
+              const khoa = t.duongDan.slice(i + 1);
+              const o = (tt.anhTheoKhoi[khoi] ??= {});
+              if (t.giaTri === null) delete o[khoa];
+              else o[khoa] = chuoiOnDinh(t.giaTri);
+            }
+          }
+
+          /* Truyền kèm số ô ĐÃ ghi được: câu báo phải nói rõ phần nào lưu xong, phần nào
+             chưa. Bảo nhập lại tất cả là bảo người ta gõ lại cả thứ đã lưu. */
+          if (bao.length > 0) khiXungDot?.(bao, daGhi.length);
+          return;
         }
-        await updateDoc(tep, thayDoi);
+
+        await updateDoc(tep, dungCauLenh(kq.thayDoi));
       },
     };
   } catch (e) {

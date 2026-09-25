@@ -40,6 +40,7 @@ import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import { giuThongBaoGanNhat } from "@/2-quy-trinh/giu-thong-bao";
 import { xinMaMayChu } from "@/3-du-lieu/xin-ma-may-chu";
+import { cauBaoXungDot } from "@/2-quy-trinh/soat-truoc-khi-ghi";
 import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
 import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
 // Chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
@@ -3055,6 +3056,21 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         // chung với cả phòng. Im lặng thì họ tưởng đã chung dữ liệu.
         console.error("[kho chung] không nối được:", e);
         setTrangThaiKhoChung("rieng");
+      },
+      /**
+       * ★ NHỊP 3c — phần vừa nhập KHÔNG lưu được vì người khác vừa sửa chính hồ sơ đó.
+       *
+       * 🔴 PHẢI NÓI RA, VÀ PHẢI ĐỂ NGƯỜI DÙNG TỰ TẮT. Dùng `duration: Infinity` chứ không để
+       * thông báo tự biến mất sau vài giây: người ta bấm Lưu xong thường nhìn đi chỗ khác, tin
+       * tự tắt là họ không bao giờ thấy và đinh ninh đã lưu xong rồi đóng máy đi về.
+       *
+       * Câu chữ dựng ở `2-quy-trinh/soat-truoc-khi-ghi.ts` để bộ luật canh được — nó phải nói
+       * đủ ba ý: ai vừa đổi, phần của bạn còn nguyên, và làm gì tiếp.
+       */
+      (dsXungDot, soDaGhi) => {
+        if (!conSong || dsXungDot.length === 0) return;
+        const { tieuDe, moTa } = cauBaoXungDot(dsXungDot, soDaGhi);
+        toast.warning(tieuDe, { description: moTa, duration: Infinity, closeButton: true });
       },
     ).then((kn) => {
       if (!conSong) {
