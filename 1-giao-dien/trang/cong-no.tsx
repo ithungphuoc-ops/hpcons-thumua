@@ -512,7 +512,9 @@ export default function TrangCongNo() {
             * `Table` tự bọc sẵn một khung `overflow-x-auto` bên trong, nên phải tắt khung đó
             * (`overflow-visible`) thì div này mới là khung cuộn thật và mới ăn lớp thanh cuộn.
             */}
-          <div className="thanh-keo-ngang-ro overflow-x-auto [&>[data-slot=table-container]]:overflow-visible">
+          {/* `@container` (Sếp 25/09/2026): khối mở rộng của từng PO đo bề rộng KHUNG NHÌN bằng
+              `100cqw` — xem chú thích ở khối "Hoá đơn của đơn". */}
+          <div className="@container thanh-keo-ngang-ro overflow-x-auto [&>[data-slot=table-container]]:overflow-visible">
             {/**
               * ★★ BẢNG NỚI TỪ 9 → 12 CỘT — Sếp 18–19/09/2026: thêm **Tên công trình**, **Mã số đề
               * nghị**, **Số hoá đơn**.
@@ -630,7 +632,17 @@ export default function TrangCongNo() {
                 ) : (
                   theoDon.map((r, i) => (
                     <Fragment key={r.poId}>
-                    <TableRow>
+                    {/* ★ Viền gói dòng PO + khối mở rộng thành MỘT khung — Sếp 25/09/2026: ***"tạo
+                        màu boder để dễ nhận diện cho từng PO"***. Khối hoá đơn / đợt chi nằm sát
+                        dòng PO kế tiếp nên trước đây không rõ nó thuộc đơn nào. Dòng cha giữ cạnh
+                        trên + hai bên, dòng con giữ hai bên + cạnh dưới (bảng `border-collapse`
+                        nên hai viền nối liền). Chỉ một đơn mở một lúc nên một màu primary là đủ —
+                        Design System không cho thêm mã màu. */}
+                    <TableRow
+                      className={
+                        moDotChi === r.poId ? "border-x-2 border-t-2 border-b-0 border-primary" : undefined
+                      }
+                    >
                       {/**
                         * ★★ Ô STT KIÊM NÚT GẬP/MỞ danh sách đợt chi — Sếp 18/09/2026 (yêu cầu ④:
                         * *"group lại theo tên PO"*).
@@ -944,7 +956,7 @@ export default function TrangCongNo() {
                       * thường (`grid`) là an toàn và tự co theo nội dung.
                       */}
                     {moDotChi === r.poId && (
-                      <TableRow>
+                      <TableRow className="border-x-2 border-b-2 border-primary hover:bg-transparent">
                         <TableCell colSpan={15} className="bg-muted/40 p-0 whitespace-normal">
                           {/**
                             * ★★ DANH SÁCH TỪNG TỜ HOÁ ĐƠN — Sếp 20/09/2026: ***"Link thông tin các
@@ -961,9 +973,16 @@ export default function TrangCongNo() {
                             * 🔴 `sticky left-0 w-fit` — bảng ngoài rộng và cuộn ngang; không có nó
                             * thì cuộn sang phải là danh sách hoá đơn trôi khuất khỏi màn, đúng lúc
                             * cần đối chiếu với cột "Còn phải trả". Cùng cách xử với khối đợt chi.
+                            *
+                            * ★ `w-[100cqw]` THAY `w-fit` — Sếp 25/09/2026: ***"Dãn cột qua đây"***
+                            * (khối chỉ chiếm ~60% bề ngang, nửa phải bỏ trống). `100cqw` = đúng bề
+                            * rộng KHUNG NHÌN của vùng cuộn (`@container` ở thẻ bao bảng), không phải
+                            * bề rộng bảng 1792px — nên vẫn giữ được `sticky`: cuộn ngang thì khối
+                            * không trôi khuất. Viết `w-full` là rộng bằng cả bảng, mất tác dụng
+                            * sticky. Lưới `LUOI_HOA_DON` có cột `1fr` nên tự dãn theo.
                             */}
                           {r.hoaDon.length > 0 && (
-                            <div className="sticky left-0 flex w-fit max-w-[100vw] flex-col gap-1 border-l-2 border-primary/40 px-3 pt-3 pb-1 pl-6">
+                            <div className="sticky left-0 flex w-[calc(100cqw-4px)] flex-col gap-1 border-l-2 border-primary/40 px-3 pt-3 pb-1 pl-6">
                               <div className="flex flex-wrap items-center gap-2">
                                 <FileText className="size-4 shrink-0 text-text-desc" aria-hidden />
                                 <span className="text-sm font-semibold text-text-primary">

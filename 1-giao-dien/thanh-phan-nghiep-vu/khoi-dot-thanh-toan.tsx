@@ -126,9 +126,11 @@ export function KhoiDotThanhToan({
       * cuộn sang phải để xem cột "Còn phải trả" là ngày chi và số tiền của các đợt **trôi khuất
       * khỏi màn** — đúng lúc người ta cần đối chiếu hai thứ đó với nhau.
       *
-      * 📌 `w-fit` + `max-w-[100vw]`: khối chỉ rộng bằng nội dung, không kéo bảng rộng thêm.
+      * 📌 `w-[100cqw]` (Sếp 25/09/2026 — *"Dãn cột qua đây"*, thay `w-fit`): rộng đúng bằng KHUNG
+      * NHÌN của vùng cuộn (`@container` ở thẻ bao bảng trang Công nợ), không kéo bảng rộng thêm và
+      * vẫn bám mép trái khi cuộn ngang. Chỉ trang Công nợ dùng khối này.
       */
-    <div className="sticky left-0 flex w-fit max-w-[100vw] flex-col gap-2 border-l-2 border-primary/40 py-3 pr-3 pl-6">
+    <div className="sticky left-0 flex w-[calc(100cqw-4px)] flex-col gap-2 border-l-2 border-primary/40 py-3 pr-3 pl-6">
       <div className="flex flex-wrap items-center gap-2">
         <Wallet className="size-4 shrink-0 text-text-desc" aria-hidden />
         <span className="text-sm font-semibold text-text-primary">

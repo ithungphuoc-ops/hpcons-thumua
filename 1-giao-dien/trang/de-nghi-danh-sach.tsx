@@ -1248,9 +1248,17 @@ export default function TrangDanhSachDeNghi() {
               <>
                 {/* Bảng — Desktop/Tablet. `thanh-keo-ngang-ro`: 9 cột nên màn hẹp phải cuộn ngang,
                     dùng đúng thanh cuộn dày đã chỉnh cho bảng quy trình. */}
-                <div className="thanh-keo-ngang-ro hidden overflow-x-auto md:block">
+                {/* ★ Sếp 25/09/2026: ***"Thanh di chuyển này đang bị trôi xuống dưới danh sách,
+                    hãy cố định nó trong view nhìn"***. Danh sách dài nên thanh cuộn ngang nằm tận
+                    đáy bảng — muốn kéo ngang phải cuộn hết cả danh sách. Nay khung bảng cao tối đa
+                    bằng màn hình trừ phần đầu trang và cuộn DỌC ngay bên trong, nên thanh ngang
+                    luôn nằm trong tầm nhìn; tiêu đề cột dính trên cùng để khỏi lạc cột.
+                    🔴 `[&>[data-slot=table-container]]:overflow-visible` bắt buộc: `Table` của thư
+                    viện tự bọc một khung `overflow-x-auto` riêng — không tắt thì khung ĐÓ mới là
+                    chỗ cuộn ngang, và thanh của nó lại rơi xuống đáy bảng như cũ. */}
+                <div className="thanh-keo-ngang-ro hidden max-h-[calc(100dvh-10rem)] overflow-auto md:block [&>[data-slot=table-container]]:overflow-visible">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-card">
                       {/* Nhãn cột lấy ĐÚNG CHỮ của Base để người đang dùng Base đọc ra ngay. */}
                       <TableRow>
                         <TableHead>Nhiệm vụ</TableHead>
