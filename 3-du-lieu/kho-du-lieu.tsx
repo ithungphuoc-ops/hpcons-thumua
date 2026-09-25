@@ -3067,9 +3067,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * Câu chữ dựng ở `2-quy-trinh/soat-truoc-khi-ghi.ts` để bộ luật canh được — nó phải nói
        * đủ ba ý: ai vừa đổi, phần của bạn còn nguyên, và làm gì tiếp.
        */
-      (dsXungDot) => {
+      (dsXungDot, soDaGhi) => {
         if (!conSong || dsXungDot.length === 0) return;
-        const { tieuDe, moTa } = cauBaoXungDot(dsXungDot);
+        const { tieuDe, moTa } = cauBaoXungDot(dsXungDot, soDaGhi);
         toast.warning(tieuDe, { description: moTa, duration: Infinity, closeButton: true });
       },
     ).then((kn) => {

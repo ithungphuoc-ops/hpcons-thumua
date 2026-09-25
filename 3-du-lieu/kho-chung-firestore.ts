@@ -178,7 +178,7 @@ export async function noiKhoChung(
    * 🔴 NƠI GỌI BẮT BUỘC PHẢI BÁO CHO NGƯỜI DÙNG. Nuốt lỗi ở đây tệ hơn cả cách cũ: người ta
    * bấm Lưu, không thấy gì, tưởng đã xong, rồi đóng máy đi về.
    */
-  khiXungDot?: (ds: XungDot[]) => void,
+  khiXungDot?: (ds: XungDot[], soDaGhi: number) => void,
 ): Promise<KetNoiKhoChung | null> {
   if (typeof window === "undefined" || !daCauHinhFirestore()) return null;
 
@@ -332,7 +332,9 @@ export async function noiKhoChung(
             }
           }
 
-          if (bao.length > 0) khiXungDot?.(bao);
+          /* Truyền kèm số ô ĐÃ ghi được: câu báo phải nói rõ phần nào lưu xong, phần nào
+             chưa. Bảo nhập lại tất cả là bảo người ta gõ lại cả thứ đã lưu. */
+          if (bao.length > 0) khiXungDot?.(bao, daGhi.length);
           return;
         }
 

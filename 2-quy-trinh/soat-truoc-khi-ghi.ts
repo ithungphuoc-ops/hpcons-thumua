@@ -206,7 +206,11 @@ export function tenKhoi(khoi: KhoiTheoId): string {
  * ⚠️ KHÔNG XIN LỖI, KHÔNG ĐỔ TẠI AI. "Xin lỗi, đã có lỗi xảy ra" chẳng nói được gì; còn
  * "chị Thuỳ đã ghi đè lên bạn" thì biến một sự cố kỹ thuật thành chuyện giữa hai người.
  */
-export function cauBaoXungDot(xungDot: readonly XungDot[]): { tieuDe: string; moTa: string } {
+export function cauBaoXungDot(
+  xungDot: readonly XungDot[],
+  /** Số ô ĐÃ ghi được trong cùng lần lưu. Bỏ trống = không biết, câu sẽ không nhắc tới. */
+  soDaGhi?: number,
+): { tieuDe: string; moTa: string } {
   if (xungDot.length === 0) return { tieuDe: "", moTa: "" };
 
   const dau = xungDot[0];
@@ -217,24 +221,36 @@ export function cauBaoXungDot(xungDot: readonly XungDot[]): { tieuDe: string; mo
     ? `${dau.aiDoi} vừa sửa ${ten} này${gio ? ` lúc ${gio}` : ""}`
     : `${ten.charAt(0).toUpperCase()}${ten.slice(1)} này vừa được người khác sửa${gio ? ` lúc ${gio}` : ""}`;
 
-  const them =
-    xungDot.length > 1 ? ` (và ${xungDot.length - 1} mục khác cũng vừa đổi)` : "";
+  const them = xungDot.length > 1 ? ` (và ${xungDot.length - 1} mục khác cũng vừa đổi)` : "";
 
-  /* 🔴 KHÔNG HỨA "PHẦN BẠN VẪN CÒN TRÊN MÀN HÌNH" (sửa 24/09/2026, CodeRabbit chỉ ra ở PR #38).
+  /* 🔴 CHỈ NÓI VỀ PHẦN BỊ TỪ CHỐI (CodeRabbit chỉ ra, PR #38).
 
-     Bản đầu của câu này có câu đó, và nó SAI. Khi xung đột, ảnh chụp mới từ máy chủ về sẽ thay
-     bản ghi trong bộ nhớ, mà hộp sửa (`hop-sua-truong-tuy-chinh.tsx`) có effect phụ thuộc
-     `[mo, deNghi]` — nó nạp lại mọi ô từ bản mới, tức XOÁ đúng phần người dùng vừa gõ.
+     Một lần lưu có thể mang nhiều thay đổi, và giao dịch VẪN GHI những ô không ai đụng. Bảo
+     "nhập lại phần của bạn" là bảo người ta gõ lại cả thứ đã lưu xong — rồi họ gõ lại, ghi đè
+     lên chính mình, và tưởng app hỏng. */
+  const daLuu =
+    typeof soDaGhi === "number" && soDaGhi > 0
+      ? ` ${soDaGhi} thay đổi khác của bạn trong lần lưu này ĐÃ được lưu.`
+      : "";
 
-     Hứa sai ở đây tệ hơn không nói gì: người ta yên tâm đóng hộp thoại rồi mất thật. Giữ bản
-     nháp bị từ chối là việc đáng làm nhưng lớn — để một nhịp riêng. Từ giờ đến đó, nói đúng
-     những gì bảo đảm được và bảo họ giữ lấy phần của mình trước. */
+  /* 🔴 KHÔNG HỨA "PHẦN BẠN VẪN CÒN TRÊN MÀN HÌNH", VÀ CŨNG KHÔNG DẶN "CHÉP LẠI TRƯỚC KHI…"
+     (sửa 25/09/2026, CodeRabbit chỉ ra ở PR #38).
+
+     Bản đầu hứa phần vừa nhập còn nguyên — SAI: hộp sửa có effect phụ thuộc `[mo, deNghi]`, ảnh
+     chụp mới từ máy chủ về là nó nạp lại mọi ô, tức xoá đúng phần người dùng vừa gõ.
+
+     Bản thứ hai đổi sang dặn "chép lại TRƯỚC KHI làm gì tiếp" — vẫn sai, chỉ tinh vi hơn:
+     `onSnapshot` có thể áp bản của người khác vào màn hình TRƯỚC khi giao dịch kết thúc và
+     thông báo kịp hiện ra. Lúc người ta đọc được lời dặn thì màn hình đã đổi rồi.
+
+     Nên nói đúng thứ chắc chắn đúng: phần vừa nhập CÓ THỂ đã bị thay. Giữ lại bản nháp bị từ
+     chối là việc đáng làm nhưng lớn — để một nhịp riêng, và từ giờ đến đó không hứa gì cả. */
   return {
     tieuDe: "Chưa lưu được — hồ sơ vừa có người khác sửa",
     moTa:
-      `${ai}${them}. Hãy chép lại (hoặc chụp màn hình) phần bạn vừa nhập TRƯỚC KHI làm gì tiếp — ` +
-      `màn hình sắp cập nhật theo bản mới nhất. Sau đó mở lại hồ sơ, xem người kia đã đổi gì, ` +
-      `rồi nhập lại phần của bạn.`,
+      `${ai}${them}.${daLuu} Phần bạn vừa nhập cho ${xungDot.length > 1 ? "những mục này" : "mục này"} ` +
+      `CÓ THỂ đã bị thay bằng bản mới nhất trên màn hình. Mở lại hồ sơ, xem người kia đã đổi gì, ` +
+      `rồi nhập lại phần còn thiếu.`,
   };
 }
 

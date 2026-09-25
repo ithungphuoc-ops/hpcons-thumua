@@ -10358,7 +10358,14 @@ kiem(
         luc: "2026-09-24T09:14:00",
       },
     ]);
-    const huaSai = /vẫn còn nguyên|chưa mất|không mất gì/i.test(c.moTa);
+    /* 🔴 Danh sách này phải bắt CẢ BIẾN THỂ (CodeRabbit chỉ ra, PR #38): bản đầu chỉ dò 
+       "vẫn còn nguyên" nên một câu viết "phần bạn vẫn còn trên màn hình" vẫn lọt qua luật này.
+       Cả lời dặn "chép lại TRƯỚC KHI…" cũng bị chặn: `onSnapshot` có thể áp bản của người
+       khác vào màn hình TRƯỚC khi thông báo kịp hiện — lời dặn đó đến muộn. */
+    const huaSai =
+      /vẫn còn nguyên|vẫn còn trên màn hình|chưa mất|không mất gì|trước khi làm gì tiếp|màn hình sắp cập nhật/i.test(
+        c.moTa,
+      );
     return {
       duoc: !huaSai,
       thucTe: huaSai ? "VẪN CÒN lời hứa sai" : "không hứa điều không bảo đảm được",
@@ -10369,8 +10376,8 @@ kiem(
 );
 
 kiem(
-  "Câu báo phải bảo người dùng GIỮ LẤY phần của mình trước khi màn hình đổi",
-  "nhịp 3c · CodeRabbit PR #38 · 24/09/2026",
+  "Câu báo nói ĐÚNG SỰ THẬT: phần vừa nhập CÓ THỂ đã bị thay",
+  "nhịp 3c · CodeRabbit PR #38 · 25/09/2026",
   () => {
     const c = SO.cauBaoXungDot([
       {
@@ -10382,15 +10389,34 @@ kiem(
       },
     ]);
     const coAi = c.moTa.includes("Nguyễn Thị Thuỳ") && c.moTa.includes("09:14");
-    const baoGiuLay = /chép lại|chụp màn hình/i.test(c.moTa);
-    const canhBaoDoi = /màn hình sắp cập nhật|sắp cập nhật/i.test(c.moTa);
+    const noiDung = /có thể đã bị thay/i.test(c.moTa);
     const coViecLam = /mở lại|nhập lại/i.test(c.moTa);
     const khongDoLoi = !/xin lỗi/i.test(c.moTa) && !/ghi đè lên bạn/i.test(c.moTa);
     return {
-      duoc: coAi && baoGiuLay && canhBaoDoi && coViecLam && khongDoLoi,
-      thucTe: `ai+giờ:${coAi} · bảo giữ lấy:${baoGiuLay} · báo trước màn hình đổi:${canhBaoDoi} · việc cần làm:${coViecLam} · không đổ lỗi:${khongDoLoi}`,
+      duoc: coAi && noiDung && coViecLam && khongDoLoi,
+      thucTe: `ai+giờ:${coAi} · nói đúng sự thật:${noiDung} · việc cần làm:${coViecLam} · không đổ lỗi:${khongDoLoi}`,
       mongDoi:
-        "đủ năm — không giữ được bản nháp thì ít nhất phải kịp báo để người ta tự giữ",
+        "đủ bốn — chưa giữ được bản nháp thì nói thẳng 'có thể đã bị thay', đừng hứa cũng đừng dặn một việc có thể đã muộn",
+    };
+  },
+);
+
+kiem(
+  "Chỉ bảo nhập lại phần BỊ TỪ CHỐI, không bảo gõ lại thứ đã lưu",
+  "nhịp 3c · CodeRabbit PR #38 · 25/09/2026",
+  () => {
+    /* Một lần lưu mang nhiều thay đổi; giao dịch VẪN ghi những ô không ai đụng. Bảo "nhập lại
+       phần của bạn" là bảo người ta gõ lại cả thứ đã lưu xong — rồi họ ghi đè lên chính mình. */
+    const xd = [
+      { khoi: "donHang", khoa: "X", duongDan: "donHang.X", aiDoi: "Thuỳ", luc: "2026-09-24T09:14:00" },
+    ];
+    const coDaLuu = SO.cauBaoXungDot(xd, 3);
+    const khongCo = SO.cauBaoXungDot(xd, 0);
+    return {
+      duoc: /3 thay đổi khác/.test(coDaLuu.moTa) && !/thay đổi khác/.test(khongCo.moTa),
+      thucTe: `có 3 ô đã lưu → nhắc: ${/3 thay đổi khác/.test(coDaLuu.moTa)}; không ô nào → nhắc: ${/thay đổi khác/.test(khongCo.moTa)}`,
+      mongDoi:
+        "nhắc khi có ô đã lưu, im khi không có — nói thừa cũng gây hoang mang như nói thiếu",
     };
   },
 );
