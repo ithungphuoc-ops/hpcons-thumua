@@ -40,6 +40,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -234,7 +235,12 @@ export function DataTable<TData>({
               Cột hiển thị
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Hiện/ẩn cột</DropdownMenuLabel>
+              {/* 🔴 NHÃN PHẢI NẰM TRONG `DropdownMenuGroup` — Base UI ném *"MenuGroupContext is
+                  missing"* (bản thật: "Base UI error #31") và sập cả trang. Sập màn Công nợ trên
+                  production 25/09/2026. Bốn menu ở thanh trên đều đã bọc như vầy. */}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Hiện/ẩn cột</DropdownMenuLabel>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               {cotAnDuoc.map((col) => (
                 <DropdownMenuItem
