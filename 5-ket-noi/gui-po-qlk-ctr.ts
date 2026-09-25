@@ -107,6 +107,11 @@ function xayDungPayloadPO(po: DonDatHang, maDeXuat: string) {
     diaDiemGiao: po.diaDiemGiaoHang,
     dieuKhoanKhac: po.dieuKhoanKhac,
     nguoiNhan: po.nguoiNhanHangTen,
+    // ★ (25/09/2026, chỉ đạo Sếp — QLK CTR cần biết ai phụ trách lập PO để hiện trên thẻ PO bên
+    // kho, tránh nhân viên kho hỏi lại). Gửi kèm luôn field đã có sẵn — không cần thêm gì ở màn
+    // lập đơn hay tra cứu mới, `nguoiPhuTrachTen` vốn là field BẮT BUỘC trên mọi PO ("Nhân viên
+    // mua hàng" màn MISA), nên PO nào cũng có sẵn để gửi.
+    nguoiLap: po.nguoiPhuTrachTen,
     // (17/09/2026, việc ⑤ ở đầu tệp) Báo QLK CTR biết PO này đã hủy — không xóa hẳn PO bên đó, chỉ
     // đánh dấu để loại khỏi "còn thiếu"/"Hàng cần nhập", vẫn giữ lịch sử nhập kho cũ nếu có.
     daHuy: po.trangThai === "huy",
@@ -239,6 +244,8 @@ function xayDungPayloadPODocLap(po: DonDatHang) {
     diaDiemGiao: po.diaDiemGiaoHang,
     dieuKhoanKhac: po.dieuKhoanKhac,
     nguoiNhan: po.nguoiNhanHangTen,
+    // ★ (25/09/2026) — xem chú thích ở `xayDungPayloadPO`, cùng lý do/cùng cách.
+    nguoiLap: po.nguoiPhuTrachTen,
     // (17/09/2026, việc ⑤ ở đầu tệp) — xem chú thích ở `xayDungPayloadPO`, cùng lý do/cùng cách.
     daHuy: po.trangThai === "huy",
     // Gửi kèm `quyCach` (khác `xayDungPayloadPO` ở trên) — không có dòng đề nghị gốc nào để đối
