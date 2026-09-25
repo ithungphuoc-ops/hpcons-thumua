@@ -534,10 +534,10 @@ export default function TrangCongNo() {
               <TableHeader className="sticky top-0 z-10 bg-card [&_th]:bg-primary/10 [&_th]:text-center [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-primary [&_th]:uppercase [&_tr]:border-b-2 [&_tr]:border-primary/30">
                 <TableRow>
                   <TableHead className="w-[3%] px-1 text-center">STT</TableHead>
-                  <TableHead className="w-[9%]">Tên đơn hàng (PO)</TableHead>
+                  <TableHead className="w-[6%]">Tên đơn hàng (PO)</TableHead>
                   {/* ★ Sếp 19/09/2026: *"Thêm cho a trường thông tin Mã số đề nghị"*. Lấy thẳng
                       `po.prCode` đã có trên đơn — xem `maDeNghi` ở `2-quy-trinh/tuoi-no.ts`. */}
-                  <TableHead className="w-[7%] leading-tight whitespace-normal">
+                  <TableHead className="w-[5%] leading-tight whitespace-normal">
                     Mã số đề nghị
                   </TableHead>
                   {/* ★ Sếp 18/09/2026 — TÁCH khỏi dòng chữ xám dưới mã PO, KHÔNG nhân bản: để cả
@@ -547,7 +547,7 @@ export default function TrangCongNo() {
                   </TableHead>
                   <TableHead className="w-[8%]">Tên NCC</TableHead>
                   {/* ★ Sếp 18/09/2026 — ô SỬA TẠI CHỖ, đặt ở cấp ĐƠN (hoá đơn có trước lần chi). */}
-                  <TableHead className="w-[7%] leading-tight whitespace-normal">
+                  <TableHead className="w-[9%] leading-tight whitespace-normal">
                     Số hoá đơn
                   </TableHead>
                   {/* Cột tiền rộng hơn một nhịp: số tiền đơn hàng có thể lên hàng tỷ
@@ -560,7 +560,7 @@ export default function TrangCongNo() {
                   </TableHead>
                   {/* ★ CỘT MỚI 19/09/2026 — ô SỬA TẠI CHỖ. Hoá đơn thường lệch PO (giao thiếu,
                       phụ phí, xuất gộp nhiều lần giao), nên phải có cả hai để đối chiếu. */}
-                  <TableHead className="w-[7%] text-right leading-tight whitespace-normal">
+                  <TableHead className="w-[9%] text-right leading-tight whitespace-normal">
                     Tổng tiền theo hoá đơn
                   </TableHead>
                   {/**
@@ -574,7 +574,7 @@ export default function TrangCongNo() {
                     * là con số người ta **đọc lướt cả cột** để đối chiếu, không phải thứ đi tìm
                     * trong từng ô. Đổi lại bảng gánh thêm một cột — chấp nhận được.
                     */}
-                  <TableHead className="w-[7%] text-right leading-tight whitespace-normal">
+                  <TableHead className="w-[9%] text-right leading-tight whitespace-normal">
                     Đã trả
                   </TableHead>
                   {/* ★★ CÒN LẠI = Tổng − đã trả (Sếp 18/09/2026, yêu cầu ③). Tự tính, không gõ. */}
@@ -584,7 +584,7 @@ export default function TrangCongNo() {
                   {/* ⚠️ Bốn tiêu đề giữa dài hơn bề rộng cột đã khai. Lớp gốc của `TableHead` là
                       `whitespace-nowrap`, mà `table-fixed` KHÔNG nong cột ra cho vừa chữ nữa —
                       nên phải cho tiêu đề xuống dòng, bằng không nó tràn đè sang cột bên cạnh. */}
-                  <TableHead className="w-[5%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-[4%] text-center leading-tight whitespace-normal">
                     Thời gian C.Nợ
                   </TableHead>
                   <TableHead className="w-[7%] text-center leading-tight whitespace-normal">
