@@ -527,7 +527,11 @@ export default function TrangCongNo() {
               * 📌 `title` vẫn giữ: chữ rê chuột không thừa, nó là cách đọc nhanh khi hàng cao.
               */}
             <Table className="min-w-[112rem] table-fixed">
-              <TableHeader className="sticky top-0 z-10 bg-card">
+              {/* ★ Sếp 25/09/2026: *"Tạo cột high line tiêu đề, canh giữa cột và dùng chữ in hoa"*.
+                  Nền xanh nhạt đặt TRÊN nền thẻ (`bg-card` ở thead + `bg-primary/10` ở từng ô) nên
+                  vẫn ĐỤC — tiêu đề dính trên cùng khi cuộn, nền trong suốt là chữ dòng dưới lộ qua.
+                  `[&_th]:` thắng lớp `text-right`/`text-left` riêng của từng ô (độ ưu tiên cao hơn). */}
+              <TableHeader className="sticky top-0 z-10 bg-card [&_th]:bg-primary/10 [&_th]:text-center [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-primary [&_th]:uppercase [&_tr]:border-b-2 [&_tr]:border-primary/30">
                 <TableRow>
                   <TableHead className="w-[3%] px-1 text-center">STT</TableHead>
                   <TableHead className="w-[9%]">Tên đơn hàng (PO)</TableHead>
@@ -1011,20 +1015,9 @@ export default function TrangCongNo() {
                                   {formatCurrencyVnd(r.tongTienHoaDon ?? 0)}
                                 </span>
                               </div>
-                              {/* 🔴🔴 NÓI RÕ KHI TỔNG HOÁ ĐƠN ≠ TỔNG PO — không thì dòng cha và các
-                                  dòng tờ nói ngược nhau trên cùng một màn hình (PO 108tr, tờ 80tr
-                                  trả đủ ⇒ tờ "Đã trả đủ" mà đơn vẫn "còn 28tr"). Cả hai đều đúng
-                                  theo căn cứ của mình. Agent phản biện 20/09 bắt đúng chỗ này. */}
-                              {typeof r.tongTienHoaDon === "number" &&
-                                r.tongTienHoaDon !== r.tongCongNo && (
-                                  <span className="text-xs text-text-desc">
-                                    Tổng hoá đơn {formatCurrencyVnd(r.tongTienHoaDon)} khác tổng PO{" "}
-                                    {formatCurrencyVnd(r.tongCongNo)} — cột “Còn phải trả” ở các dòng
-                                    dưới là của <strong>từng tờ hoá đơn</strong>, không phải phần dư
-                                    nợ của đơn
-                                    {r.canCu === "po" ? " (đơn này đang tính nợ theo PO)." : "."}
-                                  </span>
-                                )}
+                              {/* ❌ Đã bỏ dòng "Tổng hoá đơn … khác tổng PO …" — Sếp 25/09/2026: *"Những
+                                  ghi chú này sao chưa bỏ"*. Hai con số vẫn nằm ngay ở dòng PO (cột
+                                  Tổng tiền theo PO / theo hoá đơn), người đọc tự so được. */}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1135,7 +1128,7 @@ export default function TrangCongNo() {
                       ))}
                       <TableRow className="border-x-2 border-b-2 border-primary hover:bg-transparent">
                         <TableCell colSpan={15} className="bg-muted/40 p-0 whitespace-normal">
-                          {r.hoaDon.length > 0 && (
+                          {r.hoaDon.length > 0 && r.tienChuaGan > 0 && (
                             <div className="sticky left-0 flex w-[calc(100cqw-4px)] flex-col gap-1 px-3 pt-1 pb-1 pl-6">
                               {/* 🔴🔴 TIỀN ĐÃ CHI MÀ CHƯA GẮN TỜ NÀO — HIỆN THẲNG, KHÔNG GIẤU. Giấu
                                   thì tổng các tờ không khớp tổng đã trả của đơn. */}
@@ -1146,12 +1139,8 @@ export default function TrangCongNo() {
                                   chọn tờ cho từng đợt.
                                 </span>
                               )}
-                              {/* Nói rõ sửa ở đâu — đừng để người dùng đi tìm nút không tồn tại. */}
-                              <span className="text-xs text-text-desc">
-                                Số hoá đơn, số tiền và bản chụp sửa ở mục ⑥ trong hồ sơ đề nghị.
-                                Số ngày nợ để trống là dùng theo điều khoản của đơn. Nút + ở cột
-                                cuối là ghi tiền cho riêng tờ đó.
-                              </span>
+                              {/* ❌ Đã bỏ dòng hướng dẫn "Số hoá đơn, số tiền và bản chụp sửa ở mục ⑥…" —
+                                  Sếp 25/09/2026: *"Những ghi chú này sao chưa bỏ"*. */}
                             </div>
                           )}
                           <KhoiDotThanhToan

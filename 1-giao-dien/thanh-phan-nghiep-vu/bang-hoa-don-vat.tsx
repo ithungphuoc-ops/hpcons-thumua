@@ -53,9 +53,22 @@ import type { DongHoaDonVAT, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
  *
  * ⚠️ Khai thành hằng số để hàng tiêu đề, các dòng dữ liệu VÀ form sửa dùng CHUNG một chuỗi. Viết
  * lặp ba nơi là sớm muộn sửa một chỗ quên hai chỗ kia, rồi ô nhập lệch khỏi cột nó đang sửa.
+ *
+ * ★ CHIA THEO TỶ LỆ, KHÔNG CỐ ĐỊNH — Sếp 25/09/2026: ***"Chỗ này còn trống quá nhiều, sao ko dãn
+ * thông tin sang"***. Trước đây ba cột đầu cố định (10rem · 7.5rem · 10rem) nên TOÀN BỘ phần dư
+ * dồn vào cột tệp đính kèm, mà nội dung cột đó ngắn → một khoảng trắng lớn giữa tên tệp và các
+ * nút. Nay mọi cột dữ liệu đều có phần `fr`, dãn đều theo bề ngang; `minmax` giữ bề rộng tối
+ * thiểu để màn hẹp không bóp chữ.
+ *
+ * ⚠️ ĐÂY LÀ LẦN SỬA THỨ BA, VÀ NÓ GẦN VỚI BẢN ② ĐÃ BỊ BẮT LỖI. Khác ② ở chỗ cân tỷ lệ: cột NGÀY
+ * dãn ÍT NHẤT (1 phần) nên không phình ra đẩy Số tiền đi xa như 20/09; cột TỆP dãn NHIỀU NHẤT (2
+ * phần) vì tên tệp là thứ dài nhất. Nếu Sếp lại thấy khoảng trống há giữa bảng thì chỉnh TỶ LỆ,
+ * đừng quay về bề rộng cứng (bản ①) hay chia đều (bản ②).
  */
-const LUOI_CO_GIA = "sm:grid-cols-[2rem_10rem_7.5rem_10rem_minmax(9rem,1fr)_auto]";
-const LUOI_KHONG_GIA = "sm:grid-cols-[2rem_10rem_7.5rem_minmax(9rem,1fr)_auto]";
+const LUOI_CO_GIA =
+  "sm:grid-cols-[2rem_minmax(8rem,1.2fr)_minmax(7rem,1fr)_minmax(8rem,1.2fr)_minmax(10rem,2fr)_auto]";
+const LUOI_KHONG_GIA =
+  "sm:grid-cols-[2rem_minmax(8rem,1.2fr)_minmax(7rem,1fr)_minmax(10rem,2fr)_auto]";
 
 export function BangHoaDonVAT({
   poId,

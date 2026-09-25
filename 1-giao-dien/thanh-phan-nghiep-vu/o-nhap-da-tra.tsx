@@ -87,9 +87,11 @@ export function ONhapDaTra({
           </button>
         )}
       </div>
-      <span className="text-xs tabular-nums text-text-desc">
-        {daTra > 0 ? `đã trả ${formatCurrencyVnd(daTra)}` : "chưa trả"}
-      </span>
+      {/* Chỉ hiện khi ĐÃ có tiền — chữ "chưa trả" dưới ô làm dòng cao lệch khỏi các ô bên cạnh
+          (Sếp 25/09/2026: *"Canh dòng thẳng hàng ngay ngắn"*); ô trống đã tự nói là chưa trả. */}
+      {daTra > 0 && (
+        <span className="text-xs tabular-nums text-text-desc">đã trả {formatCurrencyVnd(daTra)}</span>
+      )}
     </div>
   );
 }
