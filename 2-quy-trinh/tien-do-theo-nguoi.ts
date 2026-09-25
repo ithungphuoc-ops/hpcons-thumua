@@ -119,9 +119,36 @@ export function tienDoCuaNguoi(
       (bg.items ?? []).some((d) => d.sttDongDeNghi !== undefined && cua.has(d.sttDongDeNghi)),
   );
 
-  /* Phiếu nhận không trỏ thẳng về dòng đề nghị — đi vòng qua đơn hàng đã lọc ở trên. */
-  const idPO = new Set(poCua.map((po) => po.id));
-  const phieuCua = tatCaPhieu.filter((p) => idPO.has(p.poId));
+  /* ★ PHIẾU NHẬN PHẢI LỌC TỚI TỪNG DÒNG, KHÔNG DỪNG Ở MÃ ĐƠN (CodeRabbit chỉ ra, PR #39).
+
+     🔴 Một đơn hàng CÓ THỂ gộp dòng của nhiều người. Chỉ lọc theo `poId` thì một phiếu nhận
+     chở toàn dòng của người khác vẫn đẩy bước của mình lên "đã nhận hàng" — báo người ta nhận
+     được hàng trong khi hàng của họ chưa về.
+
+     Đi hai chặng: dòng đề nghị → dòng đơn hàng (`sttDongDeNghi`) → dòng phiếu nhận
+     (`sttDongPO`). Phải nhóm theo TỪNG ĐƠN vì `sttDong` chỉ đánh số trong phạm vi một đơn,
+     không duy nhất giữa các đơn.
+
+     ⚠️ Lọc luôn `lines` bên trong phiếu, không chỉ bỏ cả phiếu. Giữ nguyên lines là đem khối
+     lượng của người khác vào phép tính "hàng về đủ chưa" của người này. */
+  const dongPOcuaToi = new Map<string, Set<number>>();
+  for (const po of poCua) {
+    const stt = new Set(
+      (po.items ?? [])
+        .filter((d) => d.sttDongDeNghi !== undefined && cua.has(d.sttDongDeNghi))
+        .map((d) => d.sttDong),
+    );
+    dongPOcuaToi.set(po.id, stt);
+  }
+
+  const phieuCua = tatCaPhieu
+    .map((p) => {
+      const stt = dongPOcuaToi.get(p.poId);
+      if (!stt) return null;
+      const lines = (p.lines ?? []).filter((l) => stt.has(l.sttDongPO));
+      return lines.length > 0 ? { ...p, lines } : null;
+    })
+    .filter((p): p is PhieuNhanHang => p !== null);
 
   return xacDinhGiaiDoan(
     phieuAo,

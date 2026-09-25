@@ -10423,6 +10423,101 @@ kiem(
   },
 );
 
+kiem(
+  "Hồ sơ THẤT BẠI không được vẽ thanh đầy như hoàn thành",
+  "tiến độ theo người · CodeRabbit PR #39 · 25/09/2026",
+  () => {
+    /* `that_bai` nằm CUỐI dãy nên `viTriBuoc` trả 8, trong khi thanh chỉ vẽ 8 ô (0…7).
+       Truyền thẳng số đó vào là `i <= 8` đúng với mọi ô — hồ sơ đóng dở hiện thanh ĐẦY y hệt
+       hồ sơ hoàn thành, ngay cạnh chữ "Thất bại". */
+    const soO = 8; // số ô thanh vẽ (đã bỏ that_bai)
+    const viTriThatBai = TDN.viTriBuoc("that_bai");
+    return {
+      duoc: viTriThatBai >= soO,
+      thucTe: `viTriBuoc(that_bai) = ${viTriThatBai}, thanh vẽ ${soO} ô`,
+      mongDoi:
+        "viTriBuoc(that_bai) ≥ số ô — đây chính là lý do giao diện PHẢI truyền -1 thay vì truyền thẳng vị trí",
+    };
+  },
+);
+
+kiem(
+  "Phiếu nhận của người KHÁC không được đẩy bước của mình lên 'đã nhận hàng'",
+  "tiến độ theo người · CodeRabbit PR #39 · 25/09/2026",
+  () => {
+    /* Một đơn hàng gộp dòng của hai người. Phiếu nhận chỉ chở dòng của Thùy. */
+    const deNghi = {
+      id: "D1",
+      trangThai: "dang_xu_ly",
+      items: [
+        { stt: 1, nguoiPhuTrachUid: "ny", nguoiPhuTrachTen: "Ny" },
+        { stt: 2, nguoiPhuTrachUid: "thuy", nguoiPhuTrachTen: "Thùy" },
+      ],
+    };
+    const po = {
+      id: "PO1",
+      prId: "D1",
+      trangThai: "da_chot",
+      items: [
+        { sttDong: 1, sttDongDeNghi: 1 }, // của Ny
+        { sttDong: 2, sttDongDeNghi: 2 }, // của Thùy
+      ],
+    };
+    const phieu = {
+      id: "GRN1",
+      poId: "PO1",
+      trangThai: "da_nhan",
+      lines: [{ sttDongPO: 2 }], // CHỈ dòng của Thùy
+    };
+
+    const r = TDN.tienDoTheoNguoi(deNghi, [po], [], [phieu]);
+    const ny = r.nguoi.find((n) => n.uid === "ny");
+    const thuy = r.nguoi.find((n) => n.uid === "thuy");
+    const nyChuaNhan = ny && ny.giaiDoan !== "nhan_hang" && ny.giaiDoan !== "ho_so_thanh_toan";
+
+    return {
+      duoc: Boolean(nyChuaNhan),
+      thucTe: `ny → ${ny && ny.giaiDoan}; thuy → ${thuy && thuy.giaiDoan}`,
+      mongDoi:
+        "ny CHƯA ở bước nhận hàng — lọc phiếu nhận chỉ theo poId là báo Ny đã nhận được hàng trong khi hàng của Ny chưa về",
+    };
+  },
+);
+
+kiem(
+  "Phiếu nhận CÓ dòng của mình thì vẫn tính bình thường",
+  "tiến độ theo người · CodeRabbit PR #39 · 25/09/2026",
+  () => {
+    /* Vá chặt quá tay thì bước của người có hàng về lại không nhúc nhích — kiểm cả chiều này. */
+    const deNghi = {
+      id: "D1",
+      trangThai: "dang_xu_ly",
+      items: [
+        { stt: 1, nguoiPhuTrachUid: "ny", nguoiPhuTrachTen: "Ny" },
+        { stt: 2, nguoiPhuTrachUid: "thuy", nguoiPhuTrachTen: "Thùy" },
+      ],
+    };
+    const po = {
+      id: "PO1",
+      prId: "D1",
+      trangThai: "da_chot",
+      items: [
+        { sttDong: 1, sttDongDeNghi: 1 },
+        { sttDong: 2, sttDongDeNghi: 2 },
+      ],
+    };
+    const phieu = { id: "GRN1", poId: "PO1", trangThai: "da_nhan", lines: [{ sttDongPO: 1 }] };
+
+    const r = TDN.tienDoTheoNguoi(deNghi, [po], [], [phieu]);
+    const ny = r.nguoi.find((n) => n.uid === "ny");
+    return {
+      duoc: ny && (ny.giaiDoan === "nhan_hang" || ny.giaiDoan === "ho_so_thanh_toan"),
+      thucTe: `ny → ${ny && ny.giaiDoan}`,
+      mongDoi: "ny ở bước nhận hàng (hoặc xa hơn) — phiếu nhận này CHỞ ĐÚNG dòng của Ny",
+    };
+  },
+);
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {

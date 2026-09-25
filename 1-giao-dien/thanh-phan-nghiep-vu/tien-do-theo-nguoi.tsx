@@ -91,7 +91,7 @@ export default function TienDoTheoNguoi({ tienDo }: { tienDo: TienDoPhieu }) {
                   {NHAN_GIAI_DOAN[n.giaiDoan]?.nhan ?? n.giaiDoan}
                 </span>
               </div>
-              <ThanhNho den={viTri} mo={laCham} />
+              <ThanhNho den={n.giaiDoan === "that_bai" ? -1 : viTri} mo={laCham} />
             </div>
           );
         })}
@@ -124,6 +124,11 @@ export default function TienDoTheoNguoi({ tienDo }: { tienDo: TienDoPhieu }) {
 
 /**
  * Thanh tiến độ nhỏ.
+ *
+ * 🔴 `that_bai` PHẢI TRUYỀN `den = -1` (CodeRabbit chỉ ra, PR #39). Mã đó nằm CUỐI dãy bước nên
+ * `viTriBuoc` trả 8, trong khi thanh chỉ vẽ 8 ô (0…7) — `i <= 8` đúng với mọi ô, thành ra hồ sơ
+ * đóng dở lại hiện thanh ĐẦY y hệt hồ sơ hoàn thành, ngay cạnh chữ "Thất bại". Thanh nói ngược
+ * hẳn cái nhãn bên cạnh nó.
  *
  * ⚠️ KHÔNG dùng màu riêng cho từng người — bảng màu của app chỉ có một màu nhấn, bịa thêm bốn
  * màu để phân biệt người là phá bộ màu chung (chỉ đạo đồng bộ giao diện 17/08/2026). Ai là ai

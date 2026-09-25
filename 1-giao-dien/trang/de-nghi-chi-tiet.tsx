@@ -462,9 +462,14 @@ export default function TrangChiTietDeNghi({
 
      🔴 CHỈ NGƯỜI XEM ĐƯỢC CẢ PHIẾU MỚI THẤY. Nhân viên chỉ được xem dòng của mình, nên với họ
      đây là bảng nói về người khác — vừa vô nghĩa vừa tạo cảm giác bị đem ra so sánh. */
-  const tienDoNguoi = quyen.xemMoiHoSo
-    ? tienDoTheoNguoi(dn, donHang, baoGia, phieuNhan, deNghi)
-    : null;
+  /* 🔴 ĐÒI CẢ HAI CỜ (CodeRabbit chỉ ra, PR #39). `xemMoiHoSo` cấp cho cả `capTM >= 3` và QLDA,
+     trong đó có vai trò KHÔNG được xem người phụ trách (thủ kho công trình). Khối này hiện
+     TÊN từng người, nên phải qua `xemNguoiPhuTrach` — và phải chặn TRƯỚC khi tính, không chỉ
+     trước khi vẽ: tính xong rồi mới giấu là dữ liệu đã nằm sẵn trong trang. */
+  const tienDoNguoi =
+    quyen.xemMoiHoSo && quyen.xemNguoiPhuTrach
+      ? tienDoTheoNguoi(dn, donHang, baoGia, phieuNhan, deNghi)
+      : null;
   const conLai = soNgayConLai(dn.ngayCanHang);
 
   /* 📌 KHÔNG còn tính `chanLapDon` ở trang này (17/08/2026). Lý do "chưa cất được đơn" giờ do
