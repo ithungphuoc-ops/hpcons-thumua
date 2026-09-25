@@ -52,6 +52,7 @@ import {
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 import { KhuDinhKemGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-dinh-kem-giai-doan";
 import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doan";
+import TienDoTheoNguoi from "@/1-giao-dien/thanh-phan-nghiep-vu/tien-do-theo-nguoi";
 import {
   CotThongTinDeNghi,
   type MocGiaiDoan,
@@ -124,6 +125,7 @@ import {
 import { BangTienDoPO } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-tien-do-po";
 import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
+import { tienDoTheoNguoi } from "@/2-quy-trinh/tien-do-theo-nguoi";
 import {
   GIAI_DOAN_MUA_HANG,
   giaiDoanDaKetThuc,
@@ -451,6 +453,18 @@ export default function TrangChiTietDeNghi({
      🔴 `deNghi` lấy thẳng từ `useDuLieu()` — danh sách ĐẦY ĐỦ, chưa lọc lưu trữ. Không dùng
      `cacBanTach` ở ngay dưới: đó là bản đã lọc, luật sẽ không thấy hết các bản con. */
   const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, deNghi);
+
+  /* ★ TIẾN ĐỘ THEO TỪNG NGƯỜI — Sếp chốt 25/09/2026.
+
+     Thanh bước ngay trên chỉ có MỘT, và nó chạy theo người nhanh nhất (cách tính là "chỉ cần
+     một đơn tới bước nào thì cả phiếu nhảy bước đó"). Khối này nói ra phần thanh kia giấu mất:
+     ai đang ở đâu, ai chậm, còn dòng nào chưa giao.
+
+     🔴 CHỈ NGƯỜI XEM ĐƯỢC CẢ PHIẾU MỚI THẤY. Nhân viên chỉ được xem dòng của mình, nên với họ
+     đây là bảng nói về người khác — vừa vô nghĩa vừa tạo cảm giác bị đem ra so sánh. */
+  const tienDoNguoi = quyen.xemMoiHoSo
+    ? tienDoTheoNguoi(dn, donHang, baoGia, phieuNhan, deNghi)
+    : null;
   const conLai = soNgayConLai(dn.ngayCanHang);
 
   /* 📌 KHÔNG còn tính `chanLapDon` ở trang này (17/08/2026). Lý do "chưa cất được đơn" giờ do
@@ -1015,6 +1029,7 @@ export default function TrangChiTietDeNghi({
 
           {/* Dải mũi tên 7 bước — nhìn ra ngay đề nghị đang đứng ở đâu trong quy trình */}
           <ThanhGiaiDoan giaiDoan={giaiDoan} />
+          {tienDoNguoi && <TienDoTheoNguoi tienDo={tienDoNguoi} />}
           {/* ===== THÔNG TIN ĐỀ NGHỊ — danh sách trường đánh số =====
               Bố cục theo trang nhiệm vụ Base.vn (ảnh Ban lãnh đạo cung cấp 10/08/2026):
               trường nào cũng có số thứ tự để trao đổi qua điện thoại chỉ nhau được ngay
