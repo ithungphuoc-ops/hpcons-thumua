@@ -629,8 +629,12 @@ export default function TrangCongNo() {
                     {nhom && (
                       /* ★ Sếp 25/09/2026: *"High line các mục tiêu đề cho dễ nhìn"* — nền primary đậm
                          hơn + vạch màu bên trái + chữ to, tách hẳn khỏi dòng PO. Chỉ dùng token primary. */
-                      <TableRow className="border-t-2 border-t-primary/40 bg-primary/10 hover:bg-primary/15">
-                        <TableCell colSpan={15} className="border-l-4 border-l-primary whitespace-normal py-1.5">
+                      /* 🔴 NỀN ĐẶT Ở Ô, KHÔNG Ở DÒNG — Sếp 25/09/2026: *"Thêm fill nhạt cho nền của các
+                         mục này"*. `TableRow` của thư viện có sẵn `has-aria-expanded:bg-muted/50`, mà
+                         dòng này chứa nút gập/mở (`aria-expanded`) → nền xanh ở dòng bị ĐÈ thành xám
+                         nhạt, trông như không tô gì. Ô nằm trên dòng nên nền ở ô luôn hiện. */
+                      <TableRow className="border-t-2 border-t-primary/40 hover:bg-transparent has-aria-expanded:bg-transparent">
+                        <TableCell colSpan={15} className="border-l-4 border-l-primary bg-primary/15 whitespace-normal py-1.5">
                           <button
                             type="button"
                             aria-expanded={!nhomDong.has(khoa)}
