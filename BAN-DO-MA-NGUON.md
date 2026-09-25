@@ -62,6 +62,9 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Màn báo lỗi của các trang in** (nền trắng, không theo Dark Mode) | `1-giao-dien/thanh-phan-dung-chung/thong-bao-trang-in.tsx` — dùng chung cho cả hai trang in. 🔴 KHÔNG dùng `EmptyState` ở trang in: trang in nền trắng cố định |
 | **File Excel xuất ra lệch biểu mẫu** (nút "Xuất Excel" ở chi tiết đơn hàng) | `2-quy-trinh/xuat-don-hang-excel.ts` — bố cục ô đọc từ XML biểu mẫu thật, xem mục "Ba file Excel" trong `2-quy-trinh/README.md` |
 | **Nút "Xuất Excel" bị khóa** | `2-quy-trinh/xuat-don-hang-excel.ts` → `vuongMacXuatPO` (thường là chưa có đơn giá) |
+| **Tệp Excel công nợ** thiếu đơn, sai khung ngày (nút "Tải Excel" màn Công nợ) | Lọc: `2-quy-trinh/xuat-cong-no-excel.ts` → `locCongNoTheoKhung` · Nút + hộp chọn ngày: `thanh-phan-nghiep-vu/nut-xuat-cong-no.tsx` |
+| **Theo dõi đề nghị**: tìm không ra đề nghị / mặt hàng, bảng "Xem theo mặt hàng" sai số, hoặc người không liên quan xem được | Tìm + bảng mặt hàng: `trang/theo-doi-danh-sach.tsx` (số liệu từ `tinhTienDoDeNghi`) · 🔴 Ai xem được: `4-phan-quyen/quyen-theo-ho-so.ts` → `duocXemTienTrinhDeNghi` (dùng chung cho danh sách **và** trang chi tiết `/theo-doi/[id]`) |
+| **Ô nhập "Đã trả" trên dòng tờ hoá đơn** (màn Công nợ) ghi sai / không ghi | `thanh-phan-nghiep-vu/o-nhap-da-tra.tsx` — 🔴 tạo MỘT ĐỢT CHI gắn tờ qua `themDotThanhToan`, không ghi con số tổng |
 | **Ô tìm kiếm** trên thanh trên không ra kết quả / ra sai | Giao diện: `khung-app/o-tim-kiem.tsx` · **Luật tìm và lọc quyền**: `2-quy-trinh/tim-kiem.ts` |
 | **Khối "Người theo dõi"** sai / không thêm được người | `thanh-phan-nghiep-vu/khoi-nguoi-theo-doi.tsx` + danh sách người chọn ở `3-du-lieu/danh-ba-nhan-su.ts` |
 | **Khối "Đã tách thành N đề xuất con"** — gập/mở, danh sách phiếu con, bảng "Ai đang làm phần nào" | `thanh-phan-nghiep-vu/khoi-de-xuat-con.tsx` (bọc `bang-nang-luc-theo-nhan-vien.tsx`). Quan hệ cha–con dựa trên `DeNghiMuaHang.deNghiGocId`, **không dựa vào tên** |

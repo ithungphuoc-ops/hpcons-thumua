@@ -371,3 +371,24 @@ export function lyDoKhongXemBaoGia(
   }
   return "Bảng báo giá chỉ mở cho người được chia việc trong đề nghị này, hoặc người được thêm vào mục người theo dõi. Đề nghị trưởng bộ phận phân bổ việc cho bạn hoặc thêm bạn vào người theo dõi.";
 }
+
+/**
+ * ★★ NGƯỜI NÀY CÓ ĐƯỢC XEM TIẾN TRÌNH ĐỀ NGHỊ NÀY KHÔNG — màn "Theo dõi đề nghị" (danh sách,
+ * cách xem theo mặt hàng, và trang chi tiết `/theo-doi/[id]`).
+ *
+ * 🔴 MỘT LUẬT CHO CẢ BA CHỖ (25/09/2026). Trước đây luật này viết TAY ngay trong
+ * `theo-doi-danh-sach.tsx`, còn trang chi tiết thì KHÔNG kiểm gì — tìm thẳng đề nghị theo id trong
+ * cả kho, nên ai biết địa chỉ `/theo-doi/<id>` là xem được tiến trình đề nghị của phòng khác
+ * (agent phản biện 25/09 phát hiện). Nay cả ba chỗ hỏi cùng một hàm.
+ *
+ * Luật (giữ nguyên như bộ lọc danh sách từ 15/08/2026): cấp quản lý thấy hết; còn lại chỉ đề
+ * nghị mình LẬP, được CHIA VIỆC, hoặc có tên trong danh sách THEO DÕI.
+ *
+ * ⚠️ Toàn bộ dữ liệu chạy thử vẫn tải về trình duyệt (CLAUDE.md §3.6b) — chặn ở đây là chặn
+ * GIAO DIỆN, chưa phải bảo mật thật. Bảo mật thật cần tách document khi lên bản chính thức.
+ */
+export function duocXemTienTrinhDeNghi(deNghi: DeNghiMuaHang, uid: string, quyen: Quyen): boolean {
+  if (quyen.xemMoiHoSo) return true;
+  if (!uid) return false;
+  return deNghi.nguoiDeNghiUid === uid || duocChiaViec(deNghi, uid) || laNguoiTheoDoi(deNghi, uid);
+}

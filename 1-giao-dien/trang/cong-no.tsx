@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { KhoiDotThanhToan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dot-thanh-toan";
+import { ONhapDaTra } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-nhap-da-tra";
+import { NutXuatCongNo } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-cong-no";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
@@ -24,7 +26,6 @@ import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { KpiCard } from "@/1-giao-dien/thanh-phan-dung-chung/kpi-card";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
-import { DataTable, type ColumnDef } from "@/1-giao-dien/thanh-phan-dung-chung/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/1-giao-dien/nen-tang-ui/card";
 import {
   Table,
@@ -34,7 +35,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/1-giao-dien/nen-tang-ui/table";
-import { nhanAnToan, NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
 /**
  * 🔴 TRANG NÀY CHỈ CÒN NHẬP HAI THỨ TỪ `tuoi-no.ts` — Ban lãnh đạo 28/08/2026 bỏ cả hai khối
  * dựa trên tuổi nợ (*"Phân tích tuổi nợ 30-60-90"* rồi *"Tuổi nợ theo nhà cung cấp"*).
@@ -44,7 +44,7 @@ import { nhanAnToan, NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
  * luật chia 5 khoảng tuổi nợ, sẽ cần lại đầy đủ khi app có sổ công nợ thật (theo dõi từng lần
  * chi). Xóa đi rồi dựng lại là dựng lại một luật tài chính từ trí nhớ.
  */
-import { congNoTheoDonHang, soTienConLai, tienLamCanCu } from "@/2-quy-trinh/tuoi-no";
+import { congNoTheoDonHang, tienLamCanCu, tongHopCongNo } from "@/2-quy-trinh/tuoi-no";
 import { laDonHangCuaToi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { gomTheoCongTrinh, tenCongTrinhCuaPO } from "@/2-quy-trinh/gom-cong-trinh";
 import { formatCurrencyVnd, formatDate } from "@/6-tien-ich/dinh-dang";
@@ -57,7 +57,6 @@ import {
   OTongTienHoaDon,
   OSoNgayDuocNo,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-dieu-khoan-cong-no";
-import type { CongNo } from "@/3-du-lieu/kieu-du-lieu";
 
 /** Chuẩn hóa chuỗi để so khi tìm kiếm: bỏ dấu, thường hóa, gộp khoảng trắng. */
 function chuanHoaTim(s: string): string {
@@ -72,73 +71,7 @@ function chuanHoaTim(s: string): string {
  * `bg-danger`. Design System V1.1 chỉ có 4 tông ngữ nghĩa, nên thêm mã màu thứ năm là phá chuẩn.
  */
 
-const columns: ColumnDef<CongNo, unknown>[] = [
-  {
-    accessorKey: "soHoaDon",
-    header: "Số hóa đơn",
-    meta: { label: "Số hóa đơn" },
-    enableHiding: false,
-    cell: ({ row }) => <span className="font-medium">{row.original.soHoaDon}</span>,
-  },
-  {
-    accessorKey: "tenNCC",
-    header: "Nhà cung cấp",
-    meta: { label: "Nhà cung cấp" },
-    cell: ({ row }) => (
-      <span className="block max-w-xs truncate xl:max-w-md" title={row.original.tenNCC}>
-        {row.original.tenNCC}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "poCode",
-    header: "Đơn hàng",
-    meta: { label: "Đơn hàng" },
-    cell: ({ row }) => (
-      <Link href={`/don-hang/${row.original.poId}`} className="text-text-desc hover:underline">
-        {row.original.poCode}
-      </Link>
-    ),
-  },
-  {
-    accessorKey: "soTien",
-    header: "Giá trị",
-    meta: { label: "Giá trị" },
-    cell: ({ row }) => (
-      <span className="block text-right">{formatCurrencyVnd(row.original.soTien)}</span>
-    ),
-  },
-  {
-    id: "conLai",
-    accessorFn: soTienConLai,
-    header: "Còn lại",
-    meta: { label: "Còn lại" },
-    cell: ({ row }) => (
-      <span className="block text-right font-medium">
-        {formatCurrencyVnd(soTienConLai(row.original))}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "hanThanhToan",
-    header: "Hạn thanh toán",
-    meta: { label: "Hạn thanh toán" },
-    cell: ({ row }) => formatDate(row.original.hanThanhToan),
-    sortingFn: (a, b) =>
-      new Date(a.original.hanThanhToan).getTime() - new Date(b.original.hanThanhToan).getTime(),
-  },
-  {
-    id: "trangThai",
-    accessorFn: (r) => nhanAnToan(NHAN_TRANG_THAI_CONG_NO, r.trangThai).nhan,
-    header: "Trạng thái",
-    meta: { label: "Trạng thái" },
-    enableHiding: false,
-    cell: ({ row }) => {
-      const tt = nhanAnToan(NHAN_TRANG_THAI_CONG_NO, row.original.trangThai);
-      return <StatusBadge label={tt.nhan} tone={tt.tong} />;
-    },
-  },
-];
+/* (25/09/2026) Đã bỏ `columns` của bảng "Danh sách hóa đơn phải trả" cùng với bảng đó. */
 
 /** M8 — Công nợ nhà cung cấp: hóa đơn phải trả lấy từ PO và phân tích tuổi nợ 30-60-90. */
 /* (25/09/2026) Đã bỏ lưới riêng `LUOI_HOA_DON` của bảng hoá đơn từng tờ: mỗi tờ nay là một
@@ -162,7 +95,6 @@ export default function TrangCongNo() {
    * tới khi có sổ công nợ thật — đừng bỏ cái nào khi chưa chuyển hết chỗ dùng.
    */
   const {
-    congNo,
     deNghi,
     donHang,
     giaDonHang,
@@ -251,10 +183,6 @@ export default function TrangCongNo() {
     );
   }
 
-  const quaHan = congNo.filter((p) => p.trangThai === "qua_han");
-  const sapHan = congNo.filter((p) => p.trangThai === "sap_den_han");
-  const daTraDu = congNo.filter((p) => p.trangThai === "da_thanh_toan");
-  const tongConNo = congNo.reduce((s, p) => s + soTienConLai(p), 0);
 
   /* Đã bỏ cùng hai khối tuổi nợ (28/08/2026): `mucTuoiNo` · `tongDuNo` · `tongQuaHan` · `theoNCC`.
      Xem chú thích tại chỗ hai khối đó từng đứng, phía dưới trong phần vẽ. */
@@ -329,6 +257,9 @@ export default function TrangCongNo() {
   });
   /* Đếm trên bản CHƯA lọc theo người để hiện được "N/M" — xem cảnh báo ở chú thích ô tìm. */
   const soCuaToi = theoDonTatCa.filter(locCuaToi).length;
+  /* ★ 4 thẻ KPI tính từ CHÍNH các dòng bảng dưới (Sếp 25/09/2026) — trước đây đọc `congNo`
+     luôn rỗng nên luôn hiện 0. Tính trên bản CHƯA lọc: thẻ là toàn cảnh, không đổi theo ô tìm. */
+  const kpi = tongHopCongNo(theoDonTatCa);
 
   /**
    * ★ Các nhóm công trình (Sếp 25/09/2026). Gom trên `theoDon` ĐÃ LỌC — lọc NCC / "PO của tôi"
@@ -363,33 +294,37 @@ export default function TrangCongNo() {
         <KpiCard
           icon={Wallet}
           title="Tổng công nợ còn lại"
-          value={formatCurrencyVnd(tongConNo)}
-          meta={`${congNo.length - daTraDu.length}/${congNo.length} hóa đơn chưa tất toán`}
+          value={formatCurrencyVnd(kpi.tongConLai)}
+          meta={`${kpi.soChuaTatToan}/${kpi.soDon} đơn chưa tất toán`}
           tone="primary"
         />
         <KpiCard
           icon={AlertTriangle}
-          title="Hóa đơn quá hạn"
-          value={String(quaHan.length)}
+          title="Đơn quá hạn"
+          value={String(kpi.quaHan.so)}
           meta={
-            quaHan.length > 0
-              ? `Còn nợ ${formatCurrencyVnd(quaHan.reduce((s, p) => s + soTienConLai(p), 0))}`
-              : "Không có hóa đơn quá hạn"
+            kpi.quaHan.so > 0
+              ? `Còn nợ ${formatCurrencyVnd(kpi.quaHan.tien)}`
+              : "Không có đơn quá hạn"
           }
           tone="danger"
         />
         <KpiCard
           icon={Clock}
           title="Sắp đến hạn"
-          value={String(sapHan.length)}
-          meta="Cần bố trí thanh toán trong tuần"
+          value={String(kpi.sapDenHan.so)}
+          meta={
+            kpi.sapDenHan.so > 0
+              ? `Cần bố trí ${formatCurrencyVnd(kpi.sapDenHan.tien)} trong tuần`
+              : "Cần bố trí thanh toán trong tuần"
+          }
           tone="warning"
         />
         <KpiCard
           icon={CheckCircle2}
           title="Đã thanh toán"
-          value={String(daTraDu.length)}
-          meta="Hóa đơn đã tất toán"
+          value={String(kpi.soDaTatToan)}
+          meta="Đơn đã trả đủ"
           tone="success"
         />
       </div>
@@ -507,6 +442,12 @@ export default function TrangCongNo() {
               <Layers className="size-4 shrink-0" aria-hidden />
               Nhóm theo công trình
             </button>
+            {/* ★ Tải Excel theo khung thời gian (Sếp 25/09/2026) — xuất đúng danh sách đang hiện. */}
+            <NutXuatCongNo
+              cacDong={theoDon}
+              ngayPOTheoId={new Map(donHang.map((p) => [p.id, p.ngayLapPO] as const))}
+              nguoiXuat={nguoiDung.tenHienThi}
+            />
             {/* 🔴 ĐANG LỌC THÌ PHẢI NÓI RÕ ĐANG GIẤU BAO NHIÊU ĐƠN. Không có dòng này thì người
                 dùng gõ tìm rồi quên xóa, hôm sau mở lại thấy bảng thiếu đơn mà tưởng mất dữ liệu. */}
             {(chuTim !== "" || locNguoi !== "tat_ca") && (
@@ -682,8 +623,10 @@ export default function TrangCongNo() {
                     {/* ★ Dòng tiêu đề nhóm công trình (Sếp 25/09/2026): tên · số đơn · còn phải
                         trả của cả nhóm. Bấm để thu gọn / mở. */}
                     {nhom && (
-                      <TableRow className="bg-primary-bg hover:bg-primary-bg">
-                        <TableCell colSpan={15} className="whitespace-normal py-1">
+                      /* ★ Sếp 25/09/2026: *"High line các mục tiêu đề cho dễ nhìn"* — nền primary đậm
+                         hơn + vạch màu bên trái + chữ to, tách hẳn khỏi dòng PO. Chỉ dùng token primary. */
+                      <TableRow className="border-t-2 border-t-primary/40 bg-primary/10 hover:bg-primary/15">
+                        <TableCell colSpan={15} className="border-l-4 border-l-primary whitespace-normal py-1.5">
                           <button
                             type="button"
                             aria-expanded={!nhomDong.has(khoa)}
@@ -703,7 +646,7 @@ export default function TrangCongNo() {
                               }`}
                               aria-hidden
                             />
-                            <span className="font-semibold text-primary">{nhom.ten}</span>
+                            <span className="text-base font-bold text-primary uppercase">{nhom.ten}</span>
                             <span className="text-xs text-text-desc">
                               {nhom.muc.length} đơn · còn phải trả{" "}
                               <span className="font-semibold tabular-nums text-text-primary">
@@ -1113,7 +1056,21 @@ export default function TrangCongNo() {
                           </TableCell>
                           {/* 🔴 "Đã trả" chỉ đếm đợt chi ĐÃ GẮN đúng tờ — xem `hanNoTungToHoaDon`. */}
                           <TableCell className="text-right tabular-nums text-text-secondary">
-                            {h.daTra > 0 ? formatCurrencyVnd(h.daTra) : "—"}
+                            {/* ★ Nhập thẳng số tiền đã trả (Sếp 25/09/2026) — tạo một ĐỢT CHI gắn tờ
+                                này, không mở sổ tiền thứ hai. Xem `o-nhap-da-tra.tsx`. */}
+                            {ghiDuocThanhToan && !h.daTatToan ? (
+                              <ONhapDaTra
+                                poId={r.poId}
+                                hoaDonId={h.id}
+                                soHoaDon={h.soHoaDon}
+                                daTra={h.daTra}
+                                onThem={themDotThanhToan}
+                              />
+                            ) : h.daTra > 0 ? (
+                              formatCurrencyVnd(h.daTra)
+                            ) : (
+                              "—"
+                            )}
                           </TableCell>
                           <TableCell
                             className={`text-right font-semibold tabular-nums ${
@@ -1233,59 +1190,18 @@ export default function TrangCongNo() {
         * cứng trong kho dữ liệu, không có hàm ghi, không nằm trong cả hai lớp lưu trữ. Nên nó luôn
         * hiện *"Không còn công nợ tồn đọng"* dù đơn hàng có nợ thật.
         *
-        * ⚠️ CÒN HAI KHỐI NỮA TRÊN TRANG NÀY CÙNG ĐỌC `congNo` và cùng luôn rỗng: bốn thẻ KPI ở
-        * đầu trang · bảng "Danh sách hóa đơn phải trả" ở cuối. Đã hỏi Sếp, chưa có chỉ đạo nên
-        * GIỮ NGUYÊN — không tự bỏ thêm.
+        * ✅ (25/09/2026) Hai khối còn lại từng đọc `congNo` đã xử: 4 thẻ KPI tính lại từ bảng theo
+        * đơn, bảng "Danh sách hóa đơn phải trả" đã bỏ — xem ngay dưới.
         *
         * 🔴 `nhomTuoiNoTheoNCC` và `MUC_TUOI_NO` trong `2-quy-trinh/tuoi-no.ts` VẪN GIỮ NGUYÊN,
         * chỉ là trang này thôi gọi. Xóa hàm gốc là mất luật chia 5 khoảng tuổi nợ, mà luật đó sẽ
         * cần lại nguyên vẹn khi app có sổ công nợ thật.
         */}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Danh sách hóa đơn phải trả</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable<CongNo>
-            columns={columns}
-            data={congNo}
-            getRowId={(r) => r.id}
-            searchPlaceholder="Tìm số hóa đơn, nhà cung cấp, mã đơn hàng..."
-            filters={[
-              {
-                columnId: "trangThai",
-                label: "Trạng thái",
-                options: Object.values(NHAN_TRANG_THAI_CONG_NO).map((s) => ({
-                  value: s.nhan,
-                  label: s.nhan,
-                })),
-              },
-            ]}
-            emptyIcon={Wallet}
-            emptyTitle="Chưa có công nợ nào"
-            emptyDescription="Công nợ phát sinh khi đơn đặt hàng có hóa đơn từ nhà cung cấp."
-            renderCard={(p) => (
-              <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-text-primary">{p.soHoaDon}</span>
-                  <StatusBadge
-                    label={nhanAnToan(NHAN_TRANG_THAI_CONG_NO, p.trangThai).nhan}
-                    tone={nhanAnToan(NHAN_TRANG_THAI_CONG_NO, p.trangThai).tong}
-                  />
-                </div>
-                <p className="text-sm text-text-primary">{p.tenNCC}</p>
-                <p className="text-xs text-text-desc">
-                  {p.poCode} · Hạn {formatDate(p.hanThanhToan)}
-                </p>
-                <p className="text-sm font-medium text-text-primary">
-                  Còn lại: {formatCurrencyVnd(soTienConLai(p))}
-                </p>
-              </div>
-            )}
-          />
-        </CardContent>
-      </Card>
+      {/* ❌ ĐÃ BỎ BẢNG "DANH SÁCH HÓA ĐƠN PHẢI TRẢ" — Sếp 25/09/2026 hỏi *"Kiểm tra lại 2 chức năng
+          này có bị trùng ko"*. Có trùng: bảng đó đọc `congNo` = hằng số `CONG_NO_MAU = []` nên KHÔNG
+          BAO GIỜ có dòng nào, còn việc theo dõi từng hoá đơn đã nằm trong bảng trên (mở từng PO).
+          Nút "Cột hiển thị" đi theo bảng đó. 4 thẻ KPI đầu trang nay tính từ bảng trên (`tongHopCongNo`). */}
     </>
   );
 }

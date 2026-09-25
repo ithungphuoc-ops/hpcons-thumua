@@ -16,13 +16,14 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { DongPhanCong } from "@/1-giao-dien/trang/theo-doi-danh-sach";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+import { duocXemTienTrinhDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { nhanAnToan, NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
 
 /** M6 — Chi tiết tiến trình từng mặt hàng cho người đề nghị. */
 export default function TrangTheoDoiChiTiet() {
   const params = useParams<{ id: string }>();
   const { deNghi, donHang, phieuNhan } = useDuLieu();
-  const { quyen } = useNguoiDung();
+  const { quyen, nguoiDung } = useNguoiDung();
   const [moDong, setMoDong] = useState<number | null>(null);
   /**
    * Khối "Chi tiết từng mặt hàng" đang mở hay đã thu gọn.
@@ -38,7 +39,10 @@ export default function TrangTheoDoiChiTiet() {
     [dn, donHang, phieuNhan],
   );
 
-  if (!dn) {
+  /* 🔴 KIỂM QUYỀN XEM (25/09/2026) — trước đây trang này tìm thẳng theo id trong cả kho, ai biết
+     địa chỉ là xem được đề nghị của phòng khác. Dùng CHUNG luật với trang danh sách. Không có
+     quyền thì nói y như "không tìm thấy" — không xác nhận là đề nghị đó có tồn tại. */
+  if (!dn || !duocXemTienTrinhDeNghi(dn, nguoiDung.uid, quyen)) {
     return (
       <EmptyState
         icon={FileWarning}

@@ -166,6 +166,21 @@ try {
   process.exit(1);
 }
 
+/* ★ Xuất công nợ Excel theo khung thời gian (25/09/2026). `exceljs` để ngoài — bài kiểm chỉ gọi
+   phần LỌC, phần dựng tệp đã chạy thử riêng. */
+const tepRaXCN = join(thuMuc, "xuat-cong-no-excel.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/xuat-cong-no-excel.ts" --bundle --platform=node --format=cjs --external:exceljs --outfile="${tepRaXCN}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/xuat-cong-no-excel.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 /* ★ Cấp mã ở máy chủ — nhịp 3b (23/09/2026). Phần quyết định tách khỏi route vì route phải mở
    Firebase mới chạy; luật phải gọi thật được chỗ dễ sai nhất. */
 const tepRaCM = join(thuMuc, "cap-ma-may-chu.cjs");
@@ -8731,6 +8746,52 @@ kiem(
   },
 );
 
+kiem(
+  "KPI Cong no tinh tu dong bang theo don: qua han / sap han / da tra du — KHONG con doc congNo rong",
+  'Sếp · 25/09/2026 — *"Kiểm tra lại 2 chức năng này có bị trùng ko"* (4 thẻ KPI luôn 0)',
+  () => {
+    const TN = nap(join(thuMuc, "tuoi-no.cjs"));
+    const k = TN.tongHopCongNo([
+      { conLai: 1_000_000, daTatToan: false, soNgayConLai: -3 },
+      { conLai: 2_000_000, daTatToan: false, soNgayConLai: 5 },
+      { conLai: 4_000_000, daTatToan: false, soNgayConLai: 30 },
+      { conLai: 8_000_000, daTatToan: false, soNgayConLai: undefined },
+      { conLai: 0, daTatToan: true, soNgayConLai: undefined },
+    ]);
+    return {
+      duoc:
+        k.tongConLai === 15_000_000 && k.soChuaTatToan === 4 && k.soDon === 5 &&
+        k.quaHan.so === 1 && k.quaHan.tien === 1_000_000 &&
+        k.sapDenHan.so === 1 && k.sapDenHan.tien === 2_000_000 && k.soDaTatToan === 1,
+      thucTe: JSON.stringify(k),
+      mongDoi: "tong 15tr · 4/5 chua tat toan · qua han 1 (1tr) · sap han 1 (2tr) · da tra du 1",
+    };
+  },
+);
+
+kiem(
+  "Xuat cong no Excel: loc theo NGAY HOA DON tung to; don chua co hoa don thi theo NGAY LAP PO",
+  'Sếp · 25/09/2026 — *"tải xuống danh sách công nợ (định dạng excel) có thể chọn theo khung thời gian"*',
+  () => {
+    const X = nap(tepRaXCN);
+    const ds = [
+      { poId: "a", hoaDon: [{ soHoaDon: "T9", ngayHoaDon: "2026-09-10" }, { soHoaDon: "T8", ngayHoaDon: "2026-08-01" }] },
+      { poId: "b", hoaDon: [] },
+      { poId: "c", hoaDon: [] },
+      { poId: "d", hoaDon: [{ soHoaDon: "T10", ngayHoaDon: "2026-10-01" }] },
+    ];
+    const ngayPO = new Map([["b", "2026-09-30"], ["c", "2026-07-01"]]);
+    const kq = X.locCongNoTheoKhung(ds, { tuNgay: "2026-09-01", denNgay: "2026-09-30" }, ngayPO);
+    const thucTe = kq.map((x) => `${x.dong.poId}[${x.cacTo.map((t) => t.soHoaDon).join(",")}]`).join(" ");
+    const tatCa = X.locCongNoTheoKhung(ds, { tuNgay: "", denNgay: "" }, ngayPO).length;
+    return {
+      duoc: thucTe === "a[T9] b[]" && tatCa === 4,
+      thucTe: `${thucTe} · khong gioi han=${tatCa}`,
+      mongDoi: "a[T9] b[] · khong gioi han=4 (ca ngay cuoi 30/09 duoc TINH)",
+    };
+  },
+);
+
 kiem("Doi tien: CHI CON MOT BAN duy nhat, XML dung chung", CHU_SEP_DOC_HOA_DON, () => {
   /* 🔴 `doc-hoa-don-xml.ts` tung co ban `chuanHoaTien` rieng, va hai ban DA LECH NHAU ngay trong
      tuan dau: "69.444,444" -> ban XML cho 69, ban van ban cho 69444 (lech 1000 lan).
@@ -9470,6 +9531,33 @@ try {
   process.exit(1);
 }
 const QH = nap(tepRaQuyen);
+
+kiem(
+  "🔴 Theo doi de nghi: CHI nguoi lap / duoc chia viec / theo doi (hoac cap quan ly) xem duoc — trang chi tiet cung chan",
+  'Sếp · 25/09/2026 — *"Cần tối ưu giải pháp theo dõi này"*; lỗ hổng `/theo-doi/<id>` không kiểm quyền (phản biện 25/09)',
+  () => {
+    const dn = {
+      nguoiDeNghiUid: "lap",
+      items: [{ stt: 1, nguoiPhuTrachUid: "chia" }],
+      nguoiTheoDoi: [{ uid: "theodoi" }],
+    };
+    const thuong = { xemMoiHoSo: false };
+    const xet = (uid, q = thuong) => QH.duocXemTienTrinhDeNghi(dn, uid, q);
+    const kq = {
+      lap: xet("lap"),
+      chia: xet("chia"),
+      theodoi: xet("theodoi"),
+      nguoiLa: xet("nguoi-la"),
+      uidRong: xet(""),
+      quanLy: xet("nguoi-la", { xemMoiHoSo: true }),
+    };
+    return {
+      duoc: kq.lap && kq.chia && kq.theodoi && !kq.nguoiLa && !kq.uidRong && kq.quanLy,
+      thucTe: JSON.stringify(kq),
+      mongDoi: "lap/chia/theodoi/quanLy = true · nguoiLa/uidRong = false",
+    };
+  },
+);
 
 /** Hồ sơ CÔNG TRÌNH — có mã hợp đồng chủ đầu tư. */
 const hsCongTrinh = { maHopDongCDT: "2026/HDXD", items: [] };

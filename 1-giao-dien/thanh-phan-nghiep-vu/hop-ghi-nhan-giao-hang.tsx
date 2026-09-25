@@ -237,7 +237,10 @@ export function HopGhiNhanGiaoHang({
             trong không đọc nổi (đã dính với 9 hộp thoại ngày 15/08/2026).
             `max-h` + cuộn DỌC ở phần thân: đơn nhiều dòng vật tư thì cuộn trong hộp, không đẩy
             nút "Lưu lần giao này" ra khỏi tầm mắt — đúng khuôn `hop-sua-truong-tuy-chinh.tsx`. */}
-        <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
+        {/* ★ Sếp 25/09/2026: *"Mở rộng kích thước pop-up này lên"* — 672px → 896px (1024px ở màn
+            rộng). 🔴 Phải viết `sm:max-w-…`: `max-w-…` trơn thua lớp gốc `sm:max-w-sm` của
+            DialogContent và bị đè IM LẶNG (CLAUDE.md §5). */}
+        <DialogContent className="flex max-h-[92vh] flex-col sm:max-w-4xl xl:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Ghi nhận giao hàng — {po.code}</DialogTitle>
             <DialogDescription>

@@ -646,17 +646,39 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                             là GHI ĐÈ dấu cũ, dấu vết ai sửa lúc nào nằm ở nhật ký đơn hàng. */}
                         {duocDoiChieu && dangGhiLech !== p.id && (
                           <div className="flex flex-wrap gap-2">
+                            {/**
+                              * ★ NÚT BẬT/TẮT — Sếp 25/09/2026: *"Bỏ nút này [Bỏ đánh dấu], thay bằng cách
+                              * click …"*. Không dùng bấm đúp (không ai tự phát hiện ra được, và máy tính
+                              * bảng/điện thoại gần như không có thao tác này) — bấm lại CHÍNH nút "Khớp
+                              * số liệu" là gỡ dấu. `aria-pressed` + nền xanh cho biết nút đang bật.
+                              *
+                              * 📌 Gỡ vẫn đi qua `ghiDoiChieuThuMua(…, null, …)` nên VẪN GHI NHẬT KÝ như
+                              * nút "Bỏ đánh dấu" cũ (Sếp 18/09/2026: *"chỉ cho tick chứ ko cho bỏ tick"*).
+                              */}
                             <button
                               type="button"
+                              aria-pressed={p.thuMuaDoiChieu?.khop === true}
                               onClick={() =>
-                                ghiDoiChieuThuMua(p.id, true, undefined, {
-                                  uid: nguoiDung.uid,
-                                  ten: nguoiDung.tenHienThi,
-                                })
+                                ghiDoiChieuThuMua(
+                                  p.id,
+                                  p.thuMuaDoiChieu?.khop === true ? null : true,
+                                  undefined,
+                                  { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
+                                )
+                              }
+                              title={
+                                p.thuMuaDoiChieu?.khop === true
+                                  ? "Đang đánh dấu khớp — bấm lại để bỏ dấu"
+                                  : "Đánh dấu số liệu khớp với app kho"
                               }
                               /* Vùng chạm 44px trên điện thoại — khối này không bị ẩn ở mobile. */
-                              className="min-h-11 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-success hover:text-success md:min-h-9"
+                              className={`inline-flex min-h-11 items-center gap-1 rounded-lg border px-3 text-xs font-medium transition-colors md:min-h-9 ${
+                                p.thuMuaDoiChieu?.khop === true
+                                  ? "border-success bg-success-bg text-success hover:bg-success-bg/70"
+                                  : "border-border text-text-secondary hover:border-success hover:text-success"
+                              }`}
                             >
+                              {p.thuMuaDoiChieu?.khop === true && <Check className="size-3.5 shrink-0" aria-hidden />}
                               Khớp số liệu
                             </button>
                             <button
@@ -669,41 +691,9 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                             >
                               Ghi nhận lệch
                             </button>
-                            {/**
-                              * ★ GỠ DẤU — Sếp 18/09/2026: ***"Nút khớp số liệu này đang chỉ cho
-                              * tick chứ ko cho bỏ tick"***.
-                              *
-                              * 🔴 CHỈ HIỆN KHI ĐÃ CÓ DẤU. Phiếu chưa đối chiếu mà bày nút gỡ là
-                              * bày một nút không làm gì — và người đọc tưởng mình vừa bỏ lỡ việc gì.
-                              *
-                              * 📌 Gỡ xong VẪN GHI NHẬT KÝ đơn hàng (xem `ghiDoiChieuThuMua`): dấu
-                              * này mang tên người đối chiếu, nên việc gỡ cũng phải truy lại được.
-                              */}
-                            {p.thuMuaDoiChieu && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  ghiDoiChieuThuMua(p.id, null, undefined, {
-                                    uid: nguoiDung.uid,
-                                    ten: nguoiDung.tenHienThi,
-                                  })
-                                }
-                                title="Bỏ dấu đối chiếu — phiếu về lại trạng thái chưa đối chiếu"
-                                /**
-                                 * 🔴 SỬA 18/09/2026, hai lỗi của chính bản vá sáng nay:
-                                 *  · KHÔNG VIỀN + `hover:bg-muted`: khối "lần giao" này nền đã là
-                                 *    `bg-muted`, nên rê chuột đổi nền sang đúng màu đang đứng —
-                                 *    người dùng không thấy gì phản hồi. Nay có viền như hai nút
-                                 *    anh em, và hover đổi sang tông danger nhạt.
-                                 *  · CAO 36px: khối này KHÔNG bị ẩn trên điện thoại, mà Design
-                                 *    System V1.1 đòi vùng chạm ≥44px. Dùng đúng khuôn
-                                 *    `min-h-11 md:min-h-9` như 14 chỗ khác trong app.
-                                 */
-                                className="min-h-11 rounded-lg border border-border px-3 text-xs font-medium text-text-secondary transition-colors hover:border-danger hover:bg-danger-bg hover:text-danger md:min-h-9"
-                              >
-                                Bỏ đánh dấu
-                              </button>
-                            )}
+                            {/* ❌ ĐÃ BỎ nút "Bỏ đánh dấu" (Sếp 25/09/2026) — gỡ dấu nay bằng cách bấm lại
+                                "Khớp số liệu". Dấu "lệch" thì bấm "Khớp số liệu" để đổi sang khớp, bấm
+                                lần nữa để gỡ hẳn. */}
                           </div>
                         )}
 

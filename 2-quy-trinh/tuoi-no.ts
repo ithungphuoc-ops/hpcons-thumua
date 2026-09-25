@@ -623,6 +623,54 @@ export function chuoiSoHoaDonCuaDon(
 }
 
 /**
+ * ★★ BỐN CON SỐ KPI ĐẦU TRANG CÔNG NỢ — Sếp 25/09/2026 (hỏi bảng "Danh sách hóa đơn phải trả" có
+ * trùng không). Trước ngày này 4 thẻ KPI đọc `congNo` = hằng số `CONG_NO_MAU = []` nên LUÔN hiện 0,
+ * dù bảng "Theo dõi công nợ theo đơn hàng" ngay dưới có nợ thật. Nay tính từ CHÍNH các dòng của
+ * bảng đó — một nguồn duy nhất, thẻ và bảng không thể nói ngược nhau.
+ *
+ * 📌 Đọc `soNgayConLai` / `daTatToan` mà `congNoTheoDonHang` đã tính — không tính hạn lần thứ hai.
+ */
+export interface TongHopCongNo {
+  tongConLai: number;
+  soDon: number;
+  soChuaTatToan: number;
+  quaHan: { so: number; tien: number };
+  sapDenHan: { so: number; tien: number };
+  soDaTatToan: number;
+}
+
+export function tongHopCongNo(
+  ds: readonly Pick<CongNoTheoDon, "conLai" | "daTatToan" | "soNgayConLai">[],
+): TongHopCongNo {
+  const kq: TongHopCongNo = {
+    tongConLai: 0,
+    soDon: ds.length,
+    soChuaTatToan: 0,
+    quaHan: { so: 0, tien: 0 },
+    sapDenHan: { so: 0, tien: 0 },
+    soDaTatToan: 0,
+  };
+  for (const r of ds) {
+    const con = Number(r.conLai) || 0;
+    if (r.daTatToan) {
+      kq.soDaTatToan += 1;
+      continue;
+    }
+    kq.soChuaTatToan += 1;
+    kq.tongConLai += con;
+    if (r.soNgayConLai === undefined) continue;
+    if (r.soNgayConLai < 0) {
+      kq.quaHan.so += 1;
+      kq.quaHan.tien += con;
+    } else if (r.soNgayConLai <= NGAY_SAP_DEN_HAN) {
+      kq.sapDenHan.so += 1;
+      kq.sapDenHan.tien += con;
+    }
+  }
+  return kq;
+}
+
+/**
  * ★★ DỰNG BẢNG CÔNG NỢ TỪ ĐƠN HÀNG THẬT — một dòng một đơn.
  *
  * 🔴 CHỈ LẤY ĐƠN ĐÃ NHẬN ĐỦ HÀNG. Đơn còn đang giao thì chưa phát sinh nghĩa vụ trả tiền cho
