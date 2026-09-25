@@ -125,6 +125,11 @@ export function duocNhanBanDeNghi(
  *     mới phân bổ và duyệt được.
  *   · Còn lại → chỉ thấy dòng ghi tên mình phụ trách.
  *
+ * 📌 25/09/2026 — Sếp chốt ***"cách 2"***: bảng phân bổ nay HIỆN ĐỦ mọi dòng cho mọi nhân viên
+ * Thu mua (chỉ xem), để chủ động trước khi được giao. Hàm này KHÔNG đổi: nó giờ trả lời *"dòng
+ * nào là việc CỦA người này"* — vẫn dùng để khoá xoá/thêm dòng và đánh dấu dòng của mình. Xem
+ * `bang-phan-bo.tsx` → `dongCuaMinh`.
+ *
  * ⚠️ Người CHƯA được giao dòng nào sẽ nhận về danh sách RỖNG. Nơi gọi phải hiện câu giải
  * thích tử tế, đừng để màn hình trắng trơn — người dùng sẽ tưởng app hỏng.
  *

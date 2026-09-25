@@ -289,11 +289,26 @@ export function BangPhanBo({
    * Trưởng bộ phận (`xemMoiHoSo`) vẫn thấy hết để phân bổ; nhân viên chỉ thấy phần mình.
    * Luật ở `4-phan-quyen/quyen-theo-ho-so.ts` → `sttDongDuocXem`, MỘT CHỖ DUY NHẤT.
    */
-  const tienDo = useMemo(() => {
-    const tatCa = tinhTienDoDeNghi(deNghi, donHang, phieuNhan);
-    const duocXem = new Set(sttDongDuocXem(deNghi, nguoiDung.uid, quyen));
-    return tatCa.filter((d) => duocXem.has(d.stt));
-  }, [deNghi, donHang, phieuNhan, nguoiDung.uid, quyen]);
+  /*
+   * ★★ ĐỔI 25/09/2026 — Sếp chốt ***"cách 2"***: MỌI nhân viên Thu mua thấy ĐỦ các mặt hàng,
+   * để chủ động chuẩn bị trước khi Trưởng phòng giao việc (Sếp: *"Hiển thị thông tin cho tài
+   * khoản nhân viên theo dõi trước để chủ động công việc, thay vì phải chờ TP giao việc mới
+   * thấy"*). Đây là ĐẢO LẠI chỉ đạo 12/08/2026 ở trên — đã hỏi và Sếp chọn rõ, ghi lại để người
+   * sau không tưởng là bỏ sót.
+   *
+   * 🔴 CHỈ ĐỔI PHẦN HIỂN THỊ, KHÔNG ĐỔI QUYỀN LÀM. `sttDongDuocXem` / `coLocTheoPhanViec` giữ
+   * nguyên và vẫn khoá xoá dòng, thêm dòng (`biLoc`); mọi nút giao / chuyển / bỏ phân bổ vẫn đòi
+   * `quyen.phanBoCongViec`. Nên nhân viên xem thêm dòng mà không sửa được dòng nào của người khác.
+   * 📌 `dongCuaMinh` để đánh dấu dòng của mình và ẩn ghi chú giao việc riêng ở dòng người khác.
+   */
+  const tienDo = useMemo(
+    () => tinhTienDoDeNghi(deNghi, donHang, phieuNhan),
+    [deNghi, donHang, phieuNhan],
+  );
+  const dongCuaMinh = useMemo(
+    () => new Set(sttDongDuocXem(deNghi, nguoiDung.uid, quyen)),
+    [deNghi, nguoiDung.uid, quyen],
+  );
 
   const biLoc = coLocTheoPhanViec(deNghi, nguoiDung.uid, quyen);
 
@@ -523,9 +538,9 @@ export function BangPhanBo({
             chỉ có ngần ấy vật tư, hoặc tưởng app mất dữ liệu — rồi đi hỏi vòng quanh. */}
         {biLoc && (
           <p className="rounded-lg bg-primary-bg px-3 py-2 text-xs text-primary">
-            Đang chỉ hiện <strong>phần việc được giao cho bạn</strong> ({tienDo.length}/
-            {deNghi.items.length} công việc của đề nghị này). Các công việc còn lại do người
-            khác phụ trách.
+            Bạn đang xem <strong>toàn bộ {deNghi.items.length} công việc</strong> của đề nghị này
+            để chuẩn bị trước — <strong>{dongCuaMinh.size}</strong> việc đang giao cho bạn. Việc của
+            người khác chỉ để xem; Trưởng bộ phận giao việc thì dòng đó mới thành của bạn.
           </p>
         )}
 
@@ -841,7 +856,9 @@ export function BangPhanBo({
                           </span>
                           {/* Yêu cầu giao việc của trưởng bộ phận — hiện ngay dưới tên người
                               phụ trách để người nhận việc đọc được, khỏi phải mở nhật ký. */}
+                          {(!biLoc || dongCuaMinh.has(d.stt)) && (
                           <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
+                        )}
                         </div>
                       ) : (
                         <span className="text-sm text-text-desc italic">chưa phân</span>
@@ -991,7 +1008,9 @@ export function BangPhanBo({
                   <span className="text-text-desc">Người phụ trách</span>
                   <span>{d.nguoiPhuTrachTen ?? "chưa phân"}</span>
                 </div>
-                <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
+                {(!biLoc || dongCuaMinh.has(d.stt)) && (
+                          <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
+                        )}
 
                 {/* Trên điện thoại KHÔNG dùng menu ⋯ mà hiện nút thẳng: màn hẹp thì menu bật
                     ra che gần hết nội dung, còn ở đây có sẵn chỗ. Vùng chạm ≥44px (V1.1). */}
