@@ -20,6 +20,8 @@
 // phải giữ đồng bộ phiên bản — có bài kiểm băm tệp trong `kiem-luat-dung-chung.mjs` canh việc đó.
 // ============================================================
 
+import { dungDongTuManhChu, type ManhChu } from "@/2-quy-trinh/doc-hoa-don-van-ban";
+
 /** Đường dẫn worker của pdf.js. Đổi chỗ này thì phải đổi cả bài kiểm băm tệp. */
 export const DUONG_DAN_WORKER_PDF = "/pdfjs/pdf.worker.min.mjs";
 
@@ -28,6 +30,11 @@ export interface KetQuaTrichPdf {
   vanBan: string;
   soTrang: number;
   soKyTu: number;
+  /**
+   * ★ (25/09/2026) Các DÒNG dựng lại theo TOẠ ĐỘ trên tờ — xem `dungDongTuManhChu`. Phần mềm HT
+   * invoice vẽ chữ ngược thứ tự trong mỗi dòng, nên `vanBan` (theo thứ tự vẽ) đặt số trước nhãn.
+   */
+  dong: string[];
 }
 
 /**
@@ -48,13 +55,31 @@ export async function trichTextPdf(tep: File | Blob): Promise<KetQuaTrichPdf> {
   const hoSo = await tai.promise;
 
   let vanBan = "";
+  const manh: ManhChu[] = [];
   for (let i = 1; i <= hoSo.numPages; i++) {
     const trang = await hoSo.getPage(i);
     const noiDung = await trang.getTextContent();
     vanBan += noiDung.items.map((x) => ("str" in x ? x.str : "")).join(" ") + "\n";
+    for (const x of noiDung.items) {
+      if (!("str" in x)) continue;
+      /* transform = [a, b, c, d, e, f]: e/f là toạ độ; b ≠ 0 nghĩa là chữ bị xoay. */
+      manh.push({
+        trang: i,
+        chu: x.str,
+        x: x.transform[4],
+        y: x.transform[5],
+        rong: x.width,
+        xoay: Math.abs(x.transform[1]) > 0.01,
+      });
+    }
   }
   /* Dọn bộ nhớ ngay — người dùng có thể thử liên tiếp nhiều tệp trong một lần mở trang. */
   await hoSo.destroy();
 
-  return { vanBan, soTrang: hoSo.numPages, soKyTu: vanBan.replace(/\s/g, "").length };
+  return {
+    vanBan,
+    soTrang: hoSo.numPages,
+    soKyTu: vanBan.replace(/\s/g, "").length,
+    dong: dungDongTuManhChu(manh),
+  };
 }

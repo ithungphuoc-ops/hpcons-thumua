@@ -356,3 +356,283 @@ export function doHoaDonTuVanBan(vanBan: string): ThongTinHoaDonDoc {
   if (soTien !== undefined) daDoc.push("số tiền");
   return { soHoaDon, ngayHoaDon, soTien, daDoc, canhBao };
 }
+
+// ============================================================
+// ★★★ CÁCH ĐỌC THEO DÒNG — Sếp 25/09/2026: ***"sẽ có rất nhiều các mẫu khác nữa, cần phải tối
+// ưu cách đọc"***.
+//
+// 🔴 VÌ SAO PHẢI CÓ: `doHoaDonTuVanBan` ở trên dựng từ ĐÚNG MỘT mẫu (Bkav) và đọc chữ theo THỨ
+// TỰ PHẦN MỀM VẼ. Đo 25/09/2026 trên 5 hoá đơn thật của 5 phần mềm, cách cũ đọc đủ 1/5:
+//   · HT invoice vẽ chữ NGƯỢC trong mỗi dòng: "5.600.000 (Total payment): Tổng cộng tiền thanh
+//     toán" — số đứng TRƯỚC nhãn nên không từ khoá nào khớp.
+//   · MISA ghi "Số (No.) : 00007980" — "(No.)" chen giữa nên khoá "so:" trượt; ngày nằm quá ký
+//     tự thứ 300 nên nhánh dự phòng không thấy.
+//   · EFY: không đọc được ô nào. VNPT: thiếu ngày.
+// Cách theo dòng đọc đủ 3 ô trên cả 5 tờ, và Tổng = Tiền hàng + Thuế khớp cả 5.
+//
+// Hai tầng:
+//   1. `dungDongTuManhChu` — dựng lại DÒNG theo TOẠ ĐỘ trên tờ. Phần mềm vẽ theo thứ tự nào cũng
+//      được: nhãn và số cùng một hàng về đúng một dòng.
+//   2. `doHoaDonTheoDong` — đọc cặp "Nhãn : giá trị" trên từng dòng, so NGUYÊN nhãn. "Số tài
+//      khoản", "Số lượng", "Hợp đồng số" không cướp được ô Số hoá đơn.
+// ============================================================
+
+/** Một mảnh chữ pdf.js trả về, đã rút gọn còn những gì cần để dựng dòng. */
+export interface ManhChu {
+  trang: number;
+  chu: string;
+  x: number;
+  y: number;
+  /** Bề rộng mảnh — để biết hai mảnh chữ số có đứng sát nhau không. */
+  rong?: number;
+  /** Chữ in xoay (mã tra cứu in dọc lề) — bỏ, không thì bị xé thành từng mảnh vụn chen vào dòng. */
+  xoay?: boolean;
+}
+
+/**
+ * ★ Gom mảnh chữ thành dòng: cùng trang, |y| lệch ≤ `lech` là một dòng; trong dòng xếp theo x.
+ *
+ * ⚠️ SO VỚI MỐC CỦA DÒNG (mảnh đầu tiên), KHÔNG so nối tiếp với mảnh liền trước — so nối tiếp thì
+ * các cặp lệch 1 đơn vị trôi dần và gộp nhầm hai dòng. Đo 25/09/2026: hai dòng khác nhau gần nhất
+ * cách 6 đơn vị (Bkav), cùng một dòng lệch tới 1 (HT, MISA) — ngưỡng 3 nằm giữa.
+ */
+export function dungDongTuManhChu(manh: readonly ManhChu[], lech = 3): string[] {
+  const theoTrang = new Map<number, ManhChu[]>();
+  for (const m of manh) {
+    if (!m.chu || !m.chu.trim() || m.xoay) continue;
+    const ds = theoTrang.get(m.trang) ?? [];
+    ds.push(m);
+    theoTrang.set(m.trang, ds);
+  }
+  const ra: string[] = [];
+  for (const trang of [...theoTrang.keys()].sort((a, b) => a - b)) {
+    const dong: { y: number; m: ManhChu[] }[] = [];
+    for (const m of [...(theoTrang.get(trang) ?? [])].sort((a, b) => b.y - a.y)) {
+      const d = dong.find((x) => Math.abs(x.y - m.y) <= lech);
+      if (d) d.m.push(m);
+      else dong.push({ y: m.y, m: [m] });
+    }
+    for (const d of dong.sort((a, b) => b.y - a.y)) {
+      const ms = d.m.sort((a, b) => a.x - b.x);
+      let s = ms[0].chu;
+      for (let i = 1; i < ms.length; i++) {
+        const truoc = ms[i - 1];
+        /* Hai mảnh CHỮ SỐ đứng sát nhau thì nối liền — có mẫu in số từng ký tự một. */
+        const sat =
+          truoc.rong !== undefined &&
+          ms[i].x - (truoc.x + truoc.rong) < 1.5 &&
+          /\d$/.test(truoc.chu) &&
+          /^\d/.test(ms[i].chu);
+        s += (sat ? "" : " ") + ms[i].chu;
+      }
+      ra.push(s);
+    }
+  }
+  return ra;
+}
+
+/**
+ * Bỏ dấu TỪNG KÝ TỰ để chuỗi không dấu dài ĐÚNG BẰNG chuỗi gốc — tìm chỉ số trên bản không dấu
+ * rồi cắt trên bản gốc phải trùng vị trí (cùng loại lỗi đã đo ở ca NFD phía trên).
+ */
+function boDauGiuDoDai(s: string): string {
+  let r = "";
+  for (const ch of s) {
+    let c = ch.normalize("NFD").replace(/[̀-ͯ]/g, "");
+    if (c === "đ") c = "d";
+    else if (c === "Đ") c = "D";
+    r += c.length === ch.length ? c.toLowerCase() : " ".repeat(ch.length);
+  }
+  return r;
+}
+
+/**
+ * Che phần chú thích trong ngoặc CÓ CHỮ CÁI — `(No.)`, `(Total payment)` — bằng khoảng trắng CÙNG
+ * ĐỘ DÀI. Ngoặc chỉ có số như `(1.500.000)` (số âm kiểu kế toán) thì GIỮ, để còn bắt được.
+ *
+ * 🔴 CHE, KHÔNG XOÁ. Xoá thì chỉ số lệch; và phản biện 25/09 đo được: bỏ hẳn ngoặc làm mẫu Bkav
+ * mất số hoá đơn. Ở đây nhãn "Số (Invoice No.) :" thành "Số                 :" — khớp nhãn "số".
+ */
+function cheNgoac(s: string): string {
+  let truoc: string;
+  do {
+    truoc = s;
+    s = s.replace(/\([^()]*[a-z][^()]*\)/g, (m) => " ".repeat(m.length));
+  } while (s !== truoc);
+  return s;
+}
+
+const NHAN_TONG = [
+  "tong cong tien thanh toan",
+  "tong tien thanh toan",
+  "tong cong thanh toan",
+  "tong tien can thanh toan",
+  "tong gia tri thanh toan",
+  "tong so tien thanh toan",
+  "tong thanh toan",
+  "tong cong",
+];
+const NHAN_TIEN_HANG = ["cong tien hang hoa, dich vu", "cong tien hang", "tong tien hang", "tien hang chua thue"];
+const NHAN_THUE = ["tong tien thue gtgt", "tien thue gtgt", "tong tien thue", "tien thue"];
+/** 📌 "so" để CUỐI: nhãn dài hơn phải được thử trước. */
+const NHAN_SO_HD = ["so hoa don", "so hd", "so"];
+const NHAN_NGAY = ["ngay hoa don", "ngay lap"];
+const NHAN_NGAY_KY = ["ngay ky", "ky ngay", "ngay"];
+
+/**
+ * ★★ Tìm "nhãn : giá trị" trong một dòng; trả phần chữ GỐC ngay sau dấu hai chấm.
+ *
+ * 🔴 SO NGUYÊN NHÃN. Chữ đứng trước nhãn phải là: đầu dòng · một cặp "nhãn : giá trị" khác (đã có
+ * dấu ":" phía trước) · hoặc tiêu đề hoá đơn ("VAT INVOICE", "… GIA TĂNG"). Nhờ vậy "Hợp đồng số :
+ * 45/2026", "Mã số : 0301234567" không bị coi là nhãn "Số" — phản biện 25/09 dựng đúng ca
+ * "Hợp đồng số (Contract No.): 45/2026" và cách dò từ khoá thì lấy nhầm 45/2026.
+ */
+function timCap(goc: string, khongDau: string, dsNhan: readonly string[]): string | undefined {
+  for (const n of dsNhan) {
+    const re = new RegExp(`(^|[^a-z])(${n.replace(/ /g, "\\s+")})\\s*:\\s*`, "g");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(khongDau)) !== null) {
+      const truoc = khongDau.slice(0, m.index + m[1].length).replace(/\s+$/, "");
+      if (truoc && !truoc.includes(":") && !/(invoice|gia tang)$/.test(truoc)) continue;
+      return goc.slice(m.index + m[0].length);
+    }
+  }
+  return undefined;
+}
+
+function ngayTuSo(nam: string, thang: string, ngay: string): NgayISO | undefined {
+  return ngayThat(+nam, +thang, +ngay)
+    ? `${nam}-${thang.padStart(2, "0")}-${ngay.padStart(2, "0")}`
+    : undefined;
+}
+
+export interface DoiChieuTienHoaDon {
+  tienHang: number;
+  thue: number;
+  tong: number;
+  khop: boolean;
+}
+
+export interface ThongTinHoaDonTheoDong extends ThongTinHoaDonDoc {
+  /**
+   * ★ Câu NHẮC XEM LẠI — app VẪN điền, chỉ nhắc. Cố ý tách khỏi `canhBao`: `canhBao` nghĩa là
+   * "đọc ra nhưng KHÔNG điền" và nơi gọi dừng ngay khi gặp nó (phản biện 25/09 chỉ ra).
+   */
+  nhac: string[];
+  /** Tổng = tiền hàng + thuế — chỉ có khi đọc được đủ ba dòng tiền. */
+  doiChieu?: DoiChieuTienHoaDon;
+}
+
+/**
+ * ★★★ Đọc hoá đơn từ các DÒNG đã dựng lại theo toạ độ.
+ *
+ * Thứ tự dò NGÀY (phản biện 25/09): nhãn rõ ("Ngày lập", "Ngày hoá đơn") → khuôn "Ngày … tháng …
+ * năm …" nằm TRƯỚC bảng hàng hoá → cuối cùng mới tới ngày ký số. Quét khuôn chữ trên toàn văn thì
+ * "theo HĐ số 12 ngày 05 tháng 08 năm 2026" lấn mất ngày lập; ngày ký số có thể khác ngày lập.
+ */
+export function doHoaDonTheoDong(dongGoc: readonly string[]): ThongTinHoaDonTheoDong {
+  const ds = dongGoc.map((d) => {
+    const goc = d.normalize("NFC");
+    return { goc, k: cheNgoac(boDauGiuDoDai(goc)) };
+  });
+  let dongBang = ds.findIndex((d) => /\bstt\b/.test(d.k) || /ten hang/.test(d.k));
+  if (dongBang < 0) dongBang = ds.length;
+
+  let soHoaDon: string | undefined;
+  let ngayNhan: NgayISO | undefined;
+  let ngayChu: NgayISO | undefined;
+  let ngayKy: NgayISO | undefined;
+  const tien: { tong?: string; tienHang?: string; thue?: string } = {};
+
+  ds.forEach(({ goc, k }, i) => {
+    if (!soHoaDon) {
+      /* 🔴 Số hoá đơn phải TOÀN CHỮ SỐ, không dính "/" "-" phía sau — loại "45/2026", "01GTKT0/001".
+         Giới hạn 8 chữ số: theo ghi nhớ là quy định NĐ 123/2020, CHƯA tra lại văn bản gốc. */
+      const v = timCap(goc, k, NHAN_SO_HD);
+      const m = v ? /^(\d{1,8})(?![\d/-])/.exec(v) : null;
+      if (m) soHoaDon = m[1];
+    }
+    if (!ngayNhan) {
+      const v = timCap(goc, k, NHAN_NGAY);
+      const m = v ? /^(\d{1,2})\s*[/.-]\s*(\d{1,2})\s*[/.-]\s*(\d{4})/.exec(v) : null;
+      if (m) ngayNhan = ngayTuSo(m[3], m[2], m[1]);
+    }
+    if (!ngayChu && i < dongBang) {
+      const m = /ngay\s+(\d{1,2})\s+thang\s+(\d{1,2})\s+nam\s+(\d{4})/.exec(k);
+      if (m) ngayChu = ngayTuSo(m[3], m[2], m[1]);
+    }
+    if (!ngayKy) {
+      const v = timCap(goc, k, NHAN_NGAY_KY);
+      const m = v ? /^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})/.exec(v) : null;
+      if (m) ngayKy = ngayTuSo(m[3], m[2], m[1]);
+    }
+    for (const [truong, nhan] of [
+      ["tong", NHAN_TONG],
+      ["tienHang", NHAN_TIEN_HANG],
+      ["thue", NHAN_THUE],
+    ] as const) {
+      if (tien[truong] !== undefined) continue;
+      const v = timCap(goc, k, nhan);
+      const m = v ? /^(\(?-?[\d.,]*\d\)?)/.exec(v.trim()) : null;
+      if (m) tien[truong] = m[1];
+    }
+  });
+
+  const daDoc: string[] = [];
+  const nhac: string[] = [];
+  let canhBao: string | undefined;
+  const ngayHoaDon = ngayNhan ?? ngayChu ?? ngayKy;
+  if (!ngayNhan && !ngayChu && ngayKy) {
+    nhac.push("Ngày lấy từ ngày ký số — có thể khác ngày lập hoá đơn, mời xem lại.");
+  }
+
+  /** Số âm: dấu trừ HOẶC ngoặc kiểu kế toán `(1.500.000)` — cách cũ bỏ qua ca ngoặc im lặng. */
+  const laAm = (s?: string) => !!s && (/^-/.test(s) || /^\(.*\)$/.test(s));
+  const soDuong = (s?: string) => doiTienHoaDon(s?.replace(/[()-]/g, ""));
+  let soTien: number | undefined;
+  if (tien.tong !== undefined) {
+    if (laAm(tien.tong)) {
+      canhBao = "Đây là hoá đơn điều chỉnh GIẢM (số tiền âm) — app chưa xử lý được loại này, mời nhập tay.";
+    } else {
+      soTien = soDuong(tien.tong);
+    }
+  }
+  let doiChieu: DoiChieuTienHoaDon | undefined;
+  const tong = soDuong(tien.tong);
+  const tienHang = soDuong(tien.tienHang);
+  const thue = soDuong(tien.thue);
+  if (tong !== undefined && tienHang !== undefined && thue !== undefined) {
+    /* Cho lệch 2 đồng — làm tròn thuế từng dòng hàng. */
+    doiChieu = { tienHang, thue, tong, khop: Math.abs(tienHang + thue - tong) <= 2 };
+    if (!doiChieu.khop && soTien !== undefined) {
+      nhac.push("Tiền hàng + thuế không bằng tổng thanh toán — có thể app lấy nhầm dòng, mời xem lại số tiền.");
+    }
+  }
+
+  if (soHoaDon) daDoc.push("số hoá đơn");
+  if (ngayHoaDon) daDoc.push("ngày");
+  if (soTien !== undefined) daDoc.push("số tiền");
+  return { soHoaDon, ngayHoaDon, soTien, daDoc, canhBao, nhac, doiChieu };
+}
+
+/**
+ * ★★★ ĐIỂM VÀO DUY NHẤT cho giao diện: đọc theo dòng trước, ô nào trượt thì lấy từ cách cũ.
+ *
+ * 📌 Giữ cách cũ làm dự phòng TỪNG Ô, không phải cả tờ: ca PDF không có toạ độ dùng được (hiếm)
+ * vẫn còn đường đọc, và không mẫu nào đang đọc được bị đọc kém đi.
+ * 🔴 Có `canhBao` (số âm) thì KHÔNG lấy số tiền từ cách cũ — cách cũ cũng sẽ từ chối, nhưng đừng
+ * để một đường dự phòng vô tình điền lại đúng con số mà đường chính đã cố ý bỏ trống.
+ */
+export function doHoaDon(dong: readonly string[], vanBan: string): ThongTinHoaDonTheoDong {
+  const moi = doHoaDonTheoDong(dong);
+  const cu = doHoaDonTuVanBan(vanBan);
+  const soHoaDon = moi.soHoaDon ?? cu.soHoaDon;
+  const ngayHoaDon = moi.ngayHoaDon ?? cu.ngayHoaDon;
+  const canhBao = moi.canhBao ?? cu.canhBao;
+  const soTien = moi.soTien ?? (canhBao ? undefined : cu.soTien);
+  const daDoc: string[] = [];
+  if (soHoaDon) daDoc.push("số hoá đơn");
+  if (ngayHoaDon) daDoc.push("ngày");
+  if (soTien !== undefined) daDoc.push("số tiền");
+  return { ...moi, soHoaDon, ngayHoaDon, soTien, canhBao, daDoc };
+}

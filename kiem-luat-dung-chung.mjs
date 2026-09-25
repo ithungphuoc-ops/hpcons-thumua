@@ -8473,6 +8473,189 @@ kiem("Doc duoc ca chu dang NFD (dau tach roi)", CHU_SEP_DOC_HOA_DON, () => {
   };
 });
 
+// ════════════════════════════════════════════════════════════════════
+// CÁCH ĐỌC THEO DÒNG — Sếp 25/09/2026: *"sẽ có rất nhiều các mẫu khác nữa, cần phải tối ưu
+// cách đọc"*. Dòng dưới đây là dòng `dungDongTuManhChu` dựng ra từ 5 hoá đơn THẬT của 5 phần
+// mềm (đo 25/09/2026), chỉ thay tên NCC / địa chỉ / MST / số tài khoản bằng giả định.
+// Cách cũ (`doHoaDonTuVanBan`) đọc đủ 3 ô trên 1/5 tờ; cách theo dòng đọc đủ cả 5.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_SEP_DOC_THEO_DONG =
+  'Sếp · 25/09/2026 — *"sẽ có rất nhiều các mẫu khác nữa, cần phải tối ưu cách đọc"*';
+
+const MAU_THEO_DONG = [
+  {
+    ten: "Bkav",
+    mongDoi: ["00001879", "2025-12-10", 7_500_000],
+    dong: [
+      "Mẫu số - Ký hiệu (Serial No.) : 1C25THA", "HÓA ĐƠN GIÁ TRỊ GIA TĂNG", "Số (Invoice No.) : 00001879",
+      "(VAT INVOICE)", "Ngày (day) 10 tháng (month) 12 năm (year) 2025",
+      "Đơn vị bán (Seller) : CÔNG TY TNHH VLXD A", "Mã số thuế (Tax Code) : 0 0 0 0 0 0 0 0 0 1",
+      "Số tài khoản (Account No.) : 000000000000001 tại Ngân hàng A",
+      "STT Tên hàng hóa, dịch vụ Số lượng Đơn giá Thành tiền", "1 Nước uống đóng chai Thùng 100 69.444,444 6.944.444",
+      "Cộng tiền hàng (Sub total) : 6.944.444", "Thuế suất GTGT (Tax rate) : 8% Tiền thuế GTGT (VAT amount) : 555.556",
+      "Tổng cộng tiền thanh toán (Total payment) : 7.500.000", "Ngày: 10/12/2025",
+    ],
+  },
+  {
+    ten: "HT invoice (ve chu nguoc thu tu)",
+    mongDoi: ["00000017", "2026-09-16", 5_600_000],
+    dong: [
+      "HOÁ ĐƠN GIÁ TRỊ GIA TĂNG Ký hiệu (Serial): 1 C26THK", "VAT INVOICE Số (No): 00000017",
+      "Ngày (Date) 16 tháng (month) 09 năm (year) 2026", "Đơn vị bán hàng (Company): CÔNG TY TNHH VLXD B",
+      "Số tài khoản (Account): 0000000002 Ngân hàng (Bank): Ngân hàng B",
+      "STT Tên hàng hóa, dịch vụ Đơn vị tính Số lượng Đơn giá Thành tiền", "1 Hàng mẫu B Hộp 2 2.800.000 5.600.000",
+      "Cộng tiền hàng (Sub Total): 5.600.000", "Thuế suất GTGT (VAT rate): KKKNT Tiền thuế GTGT (VAT Amount): 0",
+      "Tổng cộng tiền thanh toán (Total payment): 5.600.000", "Ngày ký(Sign date): 16/09/2026",
+    ],
+  },
+  {
+    ten: "MISA meInvoice",
+    mongDoi: ["00007980", "2026-09-16", 9_672_000],
+    dong: [
+      "CÔNG TY TNHH VLXD C", "Mã số thuế (Tax code) : 0 0 0 0 0 0 0 0 0 3",
+      "Số tài khoản (Bank account) : 00000003 - Ngân hàng C", "HÓA ĐƠN GIÁ TRỊ GIA TĂNG Ký hiệu (Serial) : 1C26THY",
+      "(VAT INVOICE) Số (No.) : 00007980", "Ngày (Date) 16 tháng (month) 09 năm (year) 2026",
+      "Hình thức thanh toán (Payment method) : CK Số tài khoản (Bank account) :",
+      "STT Tên hàng hóa, dịch vụ Đơn vị tính Số lượng Đơn giá Thành tiền", "1 Hộp 13 740.740,741 9.629.630",
+      "Tỷ lệ CK (Discount rate) : 7,00% Số tiền chiết khấu (Discount amount) : 674.074",
+      "Cộng tiền hàng (Đã trừ CK) (Total amount excl. VAT) (Discounted) : 8.955.556",
+      "Thuế suất GTGT (VAT rate) : 8% Tiền thuế GTGT (VAT amount) : 716.444",
+      "Tổng tiền thanh toán (Total amount) : 9.672.000", "Ký ngày (Signing Date) : 16/09/2026",
+    ],
+  },
+  {
+    ten: "EFY (so hoa don ngan)",
+    mongDoi: ["153", "2026-08-11", 2_937_600],
+    dong: [
+      "Ký hiệu (Serial No): 1C26THN", "HÓA ĐƠN GIÁ TRỊ GIA TĂNG", "Số (No): 153", "(VAT INVOICE)", "Mã CQT:",
+      "Ngày (Date) 11 tháng (month) 08 năm (year) 2026", "CÔNG TY TNHH VLXD D",
+      "Số tài khoản (A/C): 000000000000004 Ngân Hàng D", "Hình thức thanh toán (Pay.method): TM/CK Số tài khoản (A/C):",
+      "STT Tên hàng hóa, dịch vụ Số lượng Đơn giá Thành tiền",
+      "1 Con kê bê tông 25/30mm viên 4.000 430 1.720.000", "Cộng tiền hàng (Total before VAT): 2.720.000",
+      "Thuế suất GTGT (VAT rate): 8 % Tiền thuế GTGT (VAT amount): 217.600",
+      "Tổng tiền thanh toán (Total amount): 2.937.600", "Ký ngày: 11/08/2026 14:36:09",
+    ],
+  },
+  {
+    ten: "VNPT (khong co tieng Anh, So chung dong ma CQT)",
+    mongDoi: ["00000085", "2026-09-24", 4_840_000],
+    dong: [
+      "HÓA ĐƠN GIÁ TRỊ GIA TĂNG", "Ký hiệu: 1C26THT", "Ngày 24 tháng 09 năm 2026",
+      "Mã của cơ quan thuế: 0081900EC27408492BA1C6E91B1E7EABE9 Số: 00000085",
+      "Tên đơn vị bán hàng: CÔNG TY TNHH VLXD E", "Mã số thuế: 0000000005", "Số tài khoản:",
+      "Mã số thuế : 3703172689 Mã ĐVQHNS :", "Số căn cước công dân : Số hộ chiếu :",
+      "STT Tên hàng hóa, dịch vụ Đơn vị tính Số lượng Đơn giá Thành tiền", "1 Cát xây dựng M3 10 440.000 4.400.000",
+      "Cộng tiền hàng: 4.400.000", "Thuế suất GTGT: 10% Tiền thuế GTGT: 440.000",
+      "Tổng cộng tiền thanh toán: 4.840.000", "Ký ngày: 24/09/2026 10:43:42",
+    ],
+  },
+];
+
+for (const mau of MAU_THEO_DONG) {
+  kiem(`Doc theo dong du 3 o + tu kiem khop — mau ${mau.ten}`, CHU_SEP_DOC_THEO_DONG, () => {
+    const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+    const r = D.doHoaDonTheoDong(mau.dong);
+    const [so, ngay, tien] = mau.mongDoi;
+    return {
+      duoc: r.soHoaDon === so && r.ngayHoaDon === ngay && r.soTien === tien && r.doiChieu?.khop === true,
+      thucTe: `so=${r.soHoaDon} · ngay=${r.ngayHoaDon} · tien=${r.soTien} · khop=${r.doiChieu?.khop}`,
+      mongDoi: `${so} · ${ngay} · ${tien} · khop=true`,
+    };
+  });
+}
+
+kiem("Dung dong theo TOA DO — phan mem ve chu nguoc thu tu (HT invoice)", CHU_SEP_DOC_THEO_DONG, () => {
+  /* 🔴 Đúng thứ tự pdf.js trả về trên tờ HT thật: số TRƯỚC, nhãn SAU — nhưng toạ độ x thì bình
+     thường (nhãn x=306, số x=531) và y lệch 1 (408/409). Dựng theo toạ độ phải ra nhãn trước. */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const dong = D.dungDongTuManhChu([
+    { trang: 1, chu: "5.600.000", x: 531, y: 408, rong: 40 },
+    { trang: 1, chu: "(Total payment):", x: 416, y: 409, rong: 70 },
+    { trang: 1, chu: "Tổng cộng tiền thanh toán", x: 306, y: 408, rong: 105 },
+    { trang: 1, chu: "Số tiền viết bằng chữ", x: 23, y: 387, rong: 90 },
+    { trang: 1, chu: "MÃ TRA CỨU IN DỌC", x: 5, y: 400, rong: 10, xoay: true },
+  ]);
+  const r = D.doHoaDonTheoDong(dong);
+  return {
+    duoc: dong[0] === "Tổng cộng tiền thanh toán (Total payment): 5.600.000" && dong.length === 2 && r.soTien === 5_600_000,
+    thucTe: JSON.stringify(dong),
+    mongDoi: '["Tổng cộng tiền thanh toán (Total payment): 5.600.000","Số tiền viết bằng chữ"] — chữ xoay bị bỏ',
+  };
+});
+
+kiem("CHIEU NGHICH — 'Hop dong so' KHONG duoc cuop o So hoa don", CHU_SEP_DOC_THEO_DONG, () => {
+  /* Phản biện 25/09 dựng ca này: cách dò từ khoá sau khi bỏ ngoặc lấy nhầm "45/2026". */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const a = D.doHoaDonTheoDong(["Hợp đồng số (Contract No.): 45/2026", "Số (No.): 00000017"]);
+  const b = D.doHoaDonTheoDong(["Hợp đồng số (Contract No.): 45/2026"]);
+  const c = D.doHoaDonTheoDong(["Số tài khoản (Account No.) : 95255769", "Mã số (Tax code): 0301234567"]);
+  return {
+    duoc: a.soHoaDon === "00000017" && b.soHoaDon === undefined && c.soHoaDon === undefined,
+    thucTe: `a=${a.soHoaDon} · b=${b.soHoaDon} · c=${c.soHoaDon}`,
+    mongDoi: "a=00000017 · b=undefined · c=undefined",
+  };
+});
+
+kiem("CHIEU NGHICH — ngay hop dong trong phan dau KHONG lan ngay lap", CHU_SEP_DOC_THEO_DONG, () => {
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const r = D.doHoaDonTheoDong([
+    "Ngày lập (Date): 16/09/2026",
+    "Theo HĐ số 12 ngày 05 tháng 08 năm 2026",
+    "STT Tên hàng",
+  ]);
+  return { duoc: r.ngayHoaDon === "2026-09-16", thucTe: String(r.ngayHoaDon), mongDoi: "2026-09-16" };
+});
+
+kiem("CHIEU NGHICH — chi co ngay ky so thi dien nhung PHAI nhac xem lai", CHU_SEP_DOC_THEO_DONG, () => {
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const r = D.doHoaDonTheoDong(["Số: 00000001", "Ký ngày: 24/09/2026 10:43:42"]);
+  return {
+    duoc: r.ngayHoaDon === "2026-09-24" && r.nhac.some((x) => x.includes("ngày ký")),
+    thucTe: `ngay=${r.ngayHoaDon} · nhac=${JSON.stringify(r.nhac)}`,
+    mongDoi: "2026-09-24 + câu nhắc ngày ký",
+  };
+});
+
+kiem("CHIEU NGHICH — so am (dau tru HOAC ngoac ke toan) KHONG dien, co canh bao", CHU_SEP_DOC_THEO_DONG, () => {
+  /* Cách cũ bỏ qua ca `(1.500.000)` IM LẶNG — không điền mà cũng không nói vì sao. */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const a = D.doHoaDonTheoDong(["Tổng cộng tiền thanh toán (Total payment): (1.500.000)"]);
+  const b = D.doHoaDonTheoDong(["Tổng tiền thanh toán : -1.500.000"]);
+  const c = D.doHoaDon(["Tổng tiền thanh toán : -1.500.000"], "Tổng tiền thanh toán : -1.500.000");
+  return {
+    duoc: a.soTien === undefined && !!a.canhBao && b.soTien === undefined && !!b.canhBao && c?.soTien === undefined,
+    thucTe: `a: tien=${a.soTien} canhBao=${!!a.canhBao} · b: tien=${b.soTien} canhBao=${!!b.canhBao} · gop: tien=${c?.soTien}`,
+    mongDoi: "không điền, có cảnh báo, kể cả qua hàm gộp",
+  };
+});
+
+kiem("Tu kiem LECH thi van dien nhung nhac xem lai — KHONG dung canhBao", CHU_SEP_DOC_THEO_DONG, () => {
+  /* 🔴 `canhBao` = "đọc ra nhưng KHÔNG điền", giao diện dừng ngay khi gặp. Lệch tổng chỉ là nhắc. */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const r = D.doHoaDonTheoDong([
+    "Cộng tiền hàng : 1.000.000",
+    "Tiền thuế GTGT : 80.000",
+    "Tổng tiền thanh toán : 1.800.000",
+  ]);
+  return {
+    duoc: r.soTien === 1_800_000 && r.doiChieu?.khop === false && r.nhac.length === 1 && !r.canhBao,
+    thucTe: `tien=${r.soTien} · khop=${r.doiChieu?.khop} · nhac=${r.nhac.length} · canhBao=${r.canhBao}`,
+    mongDoi: "tien=1800000 · khop=false · nhac=1 · canhBao=undefined",
+  };
+});
+
+kiem("Ham gop: o nao cach theo dong truot thi lay tu cach cu", CHU_SEP_DOC_THEO_DONG, () => {
+  /* Không có dòng nào (PDF không toạ độ dùng được) → vẫn đọc được mẫu Bkav bằng cách cũ. */
+  const D = nap(join(thuMuc, "doc-hoa-don.cjs"));
+  const r = D.doHoaDon([], HOA_DON_THU);
+  return {
+    duoc: r.soHoaDon === "00001879" && r.ngayHoaDon === "2025-12-10" && r.soTien === 7_500_000,
+    thucTe: `so=${r.soHoaDon} · ngay=${r.ngayHoaDon} · tien=${r.soTien}`,
+    mongDoi: "00001879 · 2025-12-10 · 7500000",
+  };
+});
+
 kiem("Doi tien: CHI CON MOT BAN duy nhat, XML dung chung", CHU_SEP_DOC_HOA_DON, () => {
   /* 🔴 `doc-hoa-don-xml.ts` tung co ban `chuanHoaTien` rieng, va hai ban DA LECH NHAU ngay trong
      tuan dau: "69.444,444" -> ban XML cho 69, ban van ban cho 69444 (lech 1000 lan).
