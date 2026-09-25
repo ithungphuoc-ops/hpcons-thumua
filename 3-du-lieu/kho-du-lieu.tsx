@@ -41,6 +41,19 @@ import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh
 import { giuThongBaoGanNhat } from "@/2-quy-trinh/giu-thong-bao";
 import { xinMaMayChu } from "@/3-du-lieu/xin-ma-may-chu";
 import { cauBaoXungDot } from "@/2-quy-trinh/soat-truoc-khi-ghi";
+
+/**
+ * ★ CÔNG TẮC TÁCH TỰ ĐỘNG — mặc định TẮT từ 25/09/2026.
+ *
+ * Xem khối chú thích ở chỗ dùng (trong effect tính giai đoạn) để biết vì sao phải chặn.
+ * Bật lại bằng `NEXT_PUBLIC_TACH_TU_DONG=1` — nhưng CHỈ khi nhịp 3c đã bật và chạy êm vài
+ * ngày, vì gốc rễ nằm ở chỗ hai máy ghi đè lên cùng một hồ sơ.
+ *
+ * ⚠️ `.trim().toLowerCase()` bắt buộc — biến môi trường dính ký tự xuống dòng từng khiến app
+ * lặng lẽ chạy nhánh sai (lỗi thật 12/08/2026).
+ */
+const TACH_TU_DONG =
+  (process.env.NEXT_PUBLIC_TACH_TU_DONG ?? "").trim().toLowerCase() === "1";
 import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
 import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
 // Chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
@@ -3817,6 +3830,33 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * sau khi đã đi hỏi giá là bảng đó nằm lại phiếu gốc còn phiếu con trắng tay — người nhận
      * phiếu con không hiểu giá đã hỏi ở đâu.
      */
+    /* ★★★ TẠM CHẶN — Sếp chốt 25/09/2026, sau sự cố tách lặp trên production.
+     *
+     * 🔴 LÝ LẼ "KHÔNG SỢ CHẠY LẶP" Ở KHỐI CHÚ THÍCH NGAY TRÊN LÀ SAI, và đo được:
+     *
+     *     06/2026/HĐXD-HPCS-001   14 bản con, mỗi bản 1 dòng, cùng một người
+     *                             24/09 10:52 → 25/09 02:45
+     *     30-2025-HĐXD-UNICE-HPCS-004   5 bản con trong 2 phút
+     *     Tổng: 11/11 phiếu từng bị tách đều bị tách NHIỀU HƠN MỘT LẦN
+     *
+     * Lý lẽ đó đúng nếu phiếu gốc CẮT DÒNG XONG THÌ Ở YÊN. Thực tế nó không ở yên: máy A cắt
+     * dòng và lưu lên, máy B còn giữ bản cũ trong bộ nhớ rồi lưu đè — dòng vừa cắt QUAY LẠI
+     * phiếu gốc, app thấy lại hai người phụ trách nên tách thêm một bản nữa. Cứ thế.
+     *
+     * 🔴 ĐÂY CHÍNH LÀ CA "HAI NGƯỜI GHI ĐÈ LÊN CÙNG MỘT HỒ SƠ" mà nhịp 3c sinh ra để chữa —
+     * mà 3c thì chưa bật. Đợt 2 (đã bật) chỉ chặn được đè lên ĐƠN KHÁC, không chặn đè lên
+     * CÙNG MỘT đơn.
+     *
+     * ⚠️ VÌ SAO CHẶN CHỨ KHÔNG VÁ NGAY: chức năng này tự tạo hồ sơ mới mà không ai bấm nút.
+     * Vá sai một nhịp là nó lại sinh thêm vài chục bản, và lần này người dùng đang làm việc
+     * thật trên đó. Dừng trước, chữa sau — và chỉ bật lại khi 3c đã chạy được vài ngày.
+     *
+     * 📌 Đây là CHẶN TẠM, không phải bỏ tính năng. Chỉ đạo gốc (22/08/2026, Ban lãnh đạo:
+     * *"phân cho nhân viên khác nhau thì ở bước 2 sẽ tự copy đề nghị đó ra"*) vẫn còn nguyên
+     * giá trị; bật lại bằng `NEXT_PUBLIC_TACH_TU_DONG=1`.
+     */
+    if (!TACH_TU_DONG) return;
+
     for (const dn of deNghi) {
       if (hienTai.get(dn.id) !== "yeu_cau_bao_gia") continue;
       if (baoGia.some((bg) => bg.prId === dn.id && bg.trangThai !== "huy")) continue;
