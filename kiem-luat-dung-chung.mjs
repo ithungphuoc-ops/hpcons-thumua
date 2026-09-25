@@ -182,6 +182,21 @@ try {
   process.exit(1);
 }
 
+/* ★ Tiến độ theo từng người — Sếp chốt 25/09/2026. Phần quyết định hiển thị (ai bị gắn
+   "chậm nhất", khi nào ẩn khối) tách khỏi giao diện để bộ luật gọi thật được. */
+const tepRaTDN = join(thuMuc, "tien-do-theo-nguoi.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/tien-do-theo-nguoi.ts" --bundle --platform=node --format=cjs --outfile="${tepRaTDN}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/tien-do-theo-nguoi.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 const tepRa6 = join(thuMuc, "tich-hop-app-request.cjs");
 try {
   execSync(
@@ -446,6 +461,7 @@ const GTP = nap(tepRaGTP);
 const TB = nap(tepRaTB);
 const CM = nap(tepRaCM);
 const SO = nap(tepRaSO);
+const TDN = nap(tepRaTDN);
 const TT = nap(tepRa10);
 const CQ = nap(tepRa11);
 const QLK = nap(tepRa12);
@@ -10683,6 +10699,347 @@ kiem(
       duoc: [a, b, c, d].every((x) => x.ten === null),
       thucTe: JSON.stringify([a.ten, b.ten, c.ten, d.ten]),
       mongDoi: "cả bốn đều null — dữ liệu cũ không ai bảo đảm có đủ nhật ký",
+    };
+  },
+);
+
+// ------------------------------------------------------------
+
+/** Dựng nhanh một bảng tiến độ để kiểm phần quyết định hiển thị. */
+function tdPhieu(ds, chuaGiao) {
+  return {
+    nguoi: ds.map((x, i) => ({
+      uid: x.uid || "u" + i,
+      ten: x.ten || "Người " + i,
+      sttDong: x.sttDong || [i + 1],
+      giaiDoan: x.giaiDoan,
+    })),
+    soDongChuaGiao: chuaGiao || 0,
+  };
+}
+
+kiem(
+  "Chỉ MỘT người phụ trách thì ẩn khối — đừng lặp lại thanh bước ở trên",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    const mot = TDN.nenHienTienDoTheoNguoi(tdPhieu([{ giaiDoan: "dat_hang" }], 0));
+    const hai = TDN.nenHienTienDoTheoNguoi(
+      tdPhieu([{ giaiDoan: "dat_hang" }, { giaiDoan: "yeu_cau_bao_gia" }], 0),
+    );
+    return {
+      duoc: mot === false && hai === true,
+      thucTe: `một người → ${mot}; hai người → ${hai}`,
+      mongDoi:
+        "false / true — một người làm hết thì khối này nói đúng thứ thanh bước đã nói, thêm vào chỉ tổ rối",
+    };
+  },
+);
+
+kiem(
+  "Một người NHƯNG còn dòng chưa giao thì VẪN hiện",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    const r = TDN.nenHienTienDoTheoNguoi(tdPhieu([{ giaiDoan: "dat_hang" }], 2));
+    return {
+      duoc: r === true,
+      thucTe: String(r),
+      mongDoi:
+        "true — 'còn 2 dòng chưa giao cho ai' là việc của trưởng bộ phận, mà thanh bước ở trên không nói được điều đó",
+    };
+  },
+);
+
+kiem(
+  "Lệch 1 bước KHÔNG gắn nhãn chậm nhất",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    const r = TDN.aiChamNhat(
+      tdPhieu([
+        { uid: "ny", giaiDoan: "xet_duyet_bao_gia" },
+        { uid: "thuy", giaiDoan: "lap_don_mua_hang" },
+      ]),
+    );
+    return {
+      duoc: r === null,
+      thucTe: String(r),
+      mongDoi:
+        "null — lệch một bước là nhịp làm việc bình thường; nhãn nào cũng hiện thì hết là tín hiệu",
+    };
+  },
+);
+
+kiem(
+  "Lệch 2 bước trở lên thì gắn cho đúng người chậm",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    const r = TDN.aiChamNhat(
+      tdPhieu([
+        { uid: "ny", giaiDoan: "yeu_cau_bao_gia" },
+        { uid: "thuy", giaiDoan: "dat_hang" },
+      ]),
+    );
+    return {
+      duoc: r === "ny",
+      thucTe: String(r),
+      mongDoi: "ny — người đang ở bước thấp nhất",
+    };
+  },
+);
+
+kiem(
+  "KHÔNG gắn nhãn chậm cho người đã xong, và không tính họ khi đo khoảng cách",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    /* Người xong đứng cuối dãy; để họ trong phép đo thì lúc nào cũng ra "lệch nhiều". */
+    const r = TDN.aiChamNhat(
+      tdPhieu([
+        { uid: "ny", giaiDoan: "lap_don_mua_hang" },
+        { uid: "thuy", giaiDoan: "hoan_thanh" },
+        { uid: "quan", giaiDoan: "dat_hang" },
+      ]),
+    );
+    return {
+      duoc: r === null,
+      thucTe: String(r),
+      mongDoi:
+        "null — hai người còn chạy chỉ lệch 1 bước; nếu đếm cả người đã hoàn thành thì sẽ gắn nhãn oan cho Ny",
+    };
+  },
+);
+
+kiem(
+  "Hồ sơ THẤT BẠI không được coi là đi xa nhất",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    /* `that_bai` nằm CUỐI dãy bước. Không loại ra thì một hồ sơ đóng dở thành người chạy nhanh nhất. */
+    const viTriThatBai = TDN.viTriBuoc("that_bai");
+    const viTriHoanThanh = TDN.viTriBuoc("hoan_thanh");
+    const r = TDN.aiChamNhat(
+      tdPhieu([
+        { uid: "ny", giaiDoan: "yeu_cau_bao_gia" },
+        { uid: "thuy", giaiDoan: "that_bai" },
+      ]),
+    );
+    return {
+      duoc: viTriThatBai > viTriHoanThanh && r === null,
+      thucTe: `vị trí that_bai=${viTriThatBai} > hoan_thanh=${viTriHoanThanh}; gắn nhãn: ${r}`,
+      mongDoi:
+        "that_bai đứng sau hoan_thanh trong dãy NHƯNG phải bị loại khỏi phép so — chỉ còn 1 người đang chạy nên không gắn nhãn ai",
+    };
+  },
+);
+
+kiem(
+  "Hai người cùng chậm nhất thì chỉ gắn cho người ĐẦU TIÊN",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    const r = TDN.aiChamNhat(
+      tdPhieu([
+        { uid: "ny", giaiDoan: "yeu_cau_bao_gia" },
+        { uid: "thuy", giaiDoan: "yeu_cau_bao_gia" },
+        { uid: "quan", giaiDoan: "nhan_hang" },
+      ]),
+    );
+    return {
+      duoc: r === "ny",
+      thucTe: String(r),
+      mongDoi:
+        "ny — gắn cả hai thì nhãn mất nghĩa 'nhất', không gắn ai thì mất luôn tín hiệu",
+    };
+  },
+);
+
+kiem(
+  "Mã bước lạ không làm hỏng phép so",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    /* Hồ sơ cũ hoặc máy khác chạy bản khác có thể mang mã app này chưa biết. */
+    const r = TDN.aiChamNhat(
+      tdPhieu([
+        { uid: "ny", giaiDoan: "buoc_la_khong_co_that" },
+        { uid: "thuy", giaiDoan: "dat_hang" },
+      ]),
+    );
+    return {
+      duoc: r === null && TDN.viTriBuoc("buoc_la_khong_co_that") === -1,
+      thucTe: `gắn nhãn: ${r}; vị trí mã lạ: ${TDN.viTriBuoc("buoc_la_khong_co_that")}`,
+      mongDoi:
+        "null và -1 — mã lạ bị loại khỏi phép so, chỉ còn 1 người hợp lệ nên không gắn nhãn; tính nó là 'bước -1' sẽ gắn nhãn chậm cho một hồ sơ chỉ vì app chưa biết mã",
+    };
+  },
+);
+
+kiem(
+  "Gom dòng theo người: giữ nguyên thứ tự phân bổ, đếm đúng dòng chưa giao",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    const deNghi = {
+      id: "D1",
+      items: [
+        { stt: 1, nguoiPhuTrachUid: "ny", nguoiPhuTrachTen: "Bạn Ny" },
+        { stt: 2, nguoiPhuTrachUid: "thuy", nguoiPhuTrachTen: "Bạn Thùy" },
+        { stt: 3, nguoiPhuTrachUid: "ny", nguoiPhuTrachTen: "Bạn Ny" },
+        { stt: 4 },
+        { stt: 5, nguoiPhuTrachUid: "" },
+      ],
+    };
+    const r = TDN.tienDoTheoNguoi(deNghi, [], [], []);
+    const ny = r.nguoi.find((n) => n.uid === "ny");
+    return {
+      duoc:
+        r.nguoi.length === 2 &&
+        r.nguoi[0].uid === "ny" &&
+        String(ny.sttDong) === "1,3" &&
+        r.soDongChuaGiao === 2,
+      thucTe: `${r.nguoi.length} người, người đầu ${r.nguoi[0] && r.nguoi[0].uid}, dòng của ny [${ny && ny.sttDong}], chưa giao ${r.soDongChuaGiao}`,
+      mongDoi:
+        "2 người · ny đứng đầu (thứ tự phân bổ) · ny giữ dòng 1,3 · 2 dòng chưa giao (trống và chuỗi rỗng đều tính)",
+    };
+  },
+);
+
+kiem(
+  "Thiếu tên người thì KHÔNG bịa từ uid",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    const r = TDN.tienDoTheoNguoi(
+      { id: "D1", items: [{ stt: 1, nguoiPhuTrachUid: "abc123xyz" }] },
+      [], [], [],
+    );
+    const ten = r.nguoi[0] && r.nguoi[0].ten;
+    return {
+      duoc: ten === "(không rõ tên)" && !String(ten).includes("abc123"),
+      thucTe: String(ten),
+      mongDoi:
+        "(không rõ tên) — uid là chuỗi băm, đọc lên không ra người nào; hiện nó lên còn khó hiểu hơn để trống",
+    };
+  },
+);
+
+kiem(
+  "Đơn hàng lọc theo DÒNG, không theo người lập đơn",
+  "tiến độ theo người · 25/09/2026",
+  () => {
+    /* Trưởng bộ phận lập đơn hộ nhân viên: `po.nguoiPhuTrachUid` là trưởng bộ phận, nhưng đơn
+       mua hộ dòng của nhân viên nên phải tính vào tiến độ của NHÂN VIÊN. */
+    const deNghi = {
+      id: "D1",
+      trangThai: "dang_xu_ly",
+      items: [
+        { stt: 1, nguoiPhuTrachUid: "ny", nguoiPhuTrachTen: "Ny" },
+        { stt: 2, nguoiPhuTrachUid: "thuy", nguoiPhuTrachTen: "Thùy" },
+      ],
+    };
+    const po = {
+      id: "PO1",
+      prId: "D1",
+      trangThai: "da_chot",
+      nguoiPhuTrachUid: "quyen", // trưởng bộ phận lập hộ
+      items: [{ sttDong: 1, sttDongDeNghi: 1 }],
+    };
+    const r = TDN.tienDoTheoNguoi(deNghi, [po], [], []);
+    const ny = r.nguoi.find((n) => n.uid === "ny");
+    const thuy = r.nguoi.find((n) => n.uid === "thuy");
+    return {
+      duoc: ny.giaiDoan === "dat_hang" && thuy.giaiDoan !== "dat_hang",
+      thucTe: `ny → ${ny && ny.giaiDoan}; thuy → ${thuy && thuy.giaiDoan}`,
+      mongDoi:
+        "ny ở dat_hang (đơn mua hộ dòng của ny), thuy chưa — lọc theo người lập đơn thì cả hai cùng sai",
+    };
+  },
+);
+
+kiem(
+  "Hồ sơ THẤT BẠI không được vẽ thanh đầy như hoàn thành",
+  "tiến độ theo người · CodeRabbit PR #39 · 25/09/2026",
+  () => {
+    /* `that_bai` nằm CUỐI dãy nên `viTriBuoc` trả 8, trong khi thanh chỉ vẽ 8 ô (0…7).
+       Truyền thẳng số đó vào là `i <= 8` đúng với mọi ô — hồ sơ đóng dở hiện thanh ĐẦY y hệt
+       hồ sơ hoàn thành, ngay cạnh chữ "Thất bại". */
+    const soO = 8; // số ô thanh vẽ (đã bỏ that_bai)
+    const viTriThatBai = TDN.viTriBuoc("that_bai");
+    return {
+      duoc: viTriThatBai >= soO,
+      thucTe: `viTriBuoc(that_bai) = ${viTriThatBai}, thanh vẽ ${soO} ô`,
+      mongDoi:
+        "viTriBuoc(that_bai) ≥ số ô — đây chính là lý do giao diện PHẢI truyền -1 thay vì truyền thẳng vị trí",
+    };
+  },
+);
+
+kiem(
+  "Phiếu nhận của người KHÁC không được đẩy bước của mình lên 'đã nhận hàng'",
+  "tiến độ theo người · CodeRabbit PR #39 · 25/09/2026",
+  () => {
+    /* Một đơn hàng gộp dòng của hai người. Phiếu nhận chỉ chở dòng của Thùy. */
+    const deNghi = {
+      id: "D1",
+      trangThai: "dang_xu_ly",
+      items: [
+        { stt: 1, nguoiPhuTrachUid: "ny", nguoiPhuTrachTen: "Ny" },
+        { stt: 2, nguoiPhuTrachUid: "thuy", nguoiPhuTrachTen: "Thùy" },
+      ],
+    };
+    const po = {
+      id: "PO1",
+      prId: "D1",
+      trangThai: "da_chot",
+      items: [
+        { sttDong: 1, sttDongDeNghi: 1 }, // của Ny
+        { sttDong: 2, sttDongDeNghi: 2 }, // của Thùy
+      ],
+    };
+    const phieu = {
+      id: "GRN1",
+      poId: "PO1",
+      trangThai: "da_nhan",
+      lines: [{ sttDongPO: 2 }], // CHỈ dòng của Thùy
+    };
+
+    const r = TDN.tienDoTheoNguoi(deNghi, [po], [], [phieu]);
+    const ny = r.nguoi.find((n) => n.uid === "ny");
+    const thuy = r.nguoi.find((n) => n.uid === "thuy");
+    const nyChuaNhan = ny && ny.giaiDoan !== "nhan_hang" && ny.giaiDoan !== "ho_so_thanh_toan";
+
+    return {
+      duoc: Boolean(nyChuaNhan),
+      thucTe: `ny → ${ny && ny.giaiDoan}; thuy → ${thuy && thuy.giaiDoan}`,
+      mongDoi:
+        "ny CHƯA ở bước nhận hàng — lọc phiếu nhận chỉ theo poId là báo Ny đã nhận được hàng trong khi hàng của Ny chưa về",
+    };
+  },
+);
+
+kiem(
+  "Phiếu nhận CÓ dòng của mình thì vẫn tính bình thường",
+  "tiến độ theo người · CodeRabbit PR #39 · 25/09/2026",
+  () => {
+    /* Vá chặt quá tay thì bước của người có hàng về lại không nhúc nhích — kiểm cả chiều này. */
+    const deNghi = {
+      id: "D1",
+      trangThai: "dang_xu_ly",
+      items: [
+        { stt: 1, nguoiPhuTrachUid: "ny", nguoiPhuTrachTen: "Ny" },
+        { stt: 2, nguoiPhuTrachUid: "thuy", nguoiPhuTrachTen: "Thùy" },
+      ],
+    };
+    const po = {
+      id: "PO1",
+      prId: "D1",
+      trangThai: "da_chot",
+      items: [
+        { sttDong: 1, sttDongDeNghi: 1 },
+        { sttDong: 2, sttDongDeNghi: 2 },
+      ],
+    };
+    const phieu = { id: "GRN1", poId: "PO1", trangThai: "da_nhan", lines: [{ sttDongPO: 1 }] };
+
+    const r = TDN.tienDoTheoNguoi(deNghi, [po], [], [phieu]);
+    const ny = r.nguoi.find((n) => n.uid === "ny");
+    return {
+      duoc: ny && (ny.giaiDoan === "nhan_hang" || ny.giaiDoan === "ho_so_thanh_toan"),
+      thucTe: `ny → ${ny && ny.giaiDoan}`,
+      mongDoi: "ny ở bước nhận hàng (hoặc xa hơn) — phiếu nhận này CHỞ ĐÚNG dòng của Ny",
     };
   },
 );
