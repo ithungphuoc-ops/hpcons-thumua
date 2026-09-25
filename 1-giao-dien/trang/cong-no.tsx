@@ -12,6 +12,7 @@ import {
   Lock,
   Plus,
   Search,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { KhoiDotThanhToan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dot-thanh-toan";
@@ -44,6 +45,7 @@ import { nhanAnToan, NHAN_TRANG_THAI_CONG_NO } from "@/2-quy-trinh/trang-thai";
  */
 import { congNoTheoDonHang, soTienConLai, tienLamCanCu } from "@/2-quy-trinh/tuoi-no";
 import { laDonHangCuaToi } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { gomTheoCongTrinh, tenCongTrinhCuaPO } from "@/2-quy-trinh/gom-cong-trinh";
 import { formatCurrencyVnd, formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
@@ -219,6 +221,13 @@ export default function TrangCongNo() {
    * 📌 Cũng khai trước cổng quyền, cùng lý do Rules of Hooks đã ghi ở hai state trên.
    */
   const [locNguoi, setLocNguoi] = useState<"tat_ca" | "cua_toi">("tat_ca");
+  /**
+   * ★ NHÓM THEO CÔNG TRÌNH — Sếp 25/09/2026: ***"tạo thêm nút group theo tên công trình"***.
+   * Mặc định TẮT để bảng giữ nguyên cách đọc quen thuộc; `nhomDong` là các nhóm đang THU GỌN.
+   * Khai trước cổng quyền `return` sớm — cùng lý do với hai state ở trên.
+   */
+  const [nhomCongTrinh, setNhomCongTrinh] = useState(false);
+  const [nhomDong, setNhomDong] = useState<Set<string>>(() => new Set());
   /* ❌ ĐÃ BỎ state căn cứ chung cho cả bảng — Sếp 19/09/2026: *"Nút này đưa vào các DMH, vì số liệu
      mỗi DMH sẽ khác nhau"*. Nay căn cứ là thuộc tính của TỪNG đơn, lưu ở `GiaDonDatHang.canCuCongNo`. */
 
@@ -323,6 +332,22 @@ export default function TrangCongNo() {
   });
   /* Đếm trên bản CHƯA lọc theo người để hiện được "N/M" — xem cảnh báo ở chú thích ô tìm. */
   const soCuaToi = theoDonTatCa.filter(locCuaToi).length;
+
+  /**
+   * ★ Các nhóm công trình (Sếp 25/09/2026). Gom trên `theoDon` ĐÃ LỌC — lọc NCC / "PO của tôi"
+   * vẫn chồng lên được. Luật gom ở `2-quy-trinh/gom-cong-trinh.ts`, dùng chung với màn Theo dõi.
+   */
+  const tenCongTrinhDong = (r: { poId: string }) =>
+    tenCongTrinhCuaPO(
+      donHang.find((p) => p.id === r.poId),
+      deNghi,
+    );
+  const cacNhom = nhomCongTrinh
+    ? gomTheoCongTrinh(theoDon, tenCongTrinhDong)
+    : [{ khoa: "", ten: "", muc: theoDon }];
+  /** Khoá nhóm của từng dòng — để biết dòng nào mở đầu một nhóm mới. */
+  const khoaNhomCua = new Map(cacNhom.flatMap((n) => n.muc.map((r) => [r.poId, n.khoa] as const)));
+  const dongVe = cacNhom.flatMap((n) => n.muc);
 
   return (
     <>
@@ -471,6 +496,20 @@ export default function TrangCongNo() {
                 </button>
               ))}
             </div>
+            {/* ★ Nút nhóm theo công trình — Sếp 25/09/2026. Cùng khuôn nút với dải lọc bên cạnh. */}
+            <button
+              type="button"
+              onClick={() => setNhomCongTrinh((x) => !x)}
+              aria-pressed={nhomCongTrinh}
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors md:min-h-9 ${
+                nhomCongTrinh
+                  ? "border-primary bg-primary text-white"
+                  : "border-border text-text-secondary hover:bg-primary-bg hover:text-primary"
+              }`}
+            >
+              <Layers className="size-4 shrink-0" aria-hidden />
+              Nhóm theo công trình
+            </button>
             {/* 🔴 ĐANG LỌC THÌ PHẢI NÓI RÕ ĐANG GIẤU BAO NHIÊU ĐƠN. Không có dòng này thì người
                 dùng gõ tìm rồi quên xóa, hôm sau mở lại thấy bảng thiếu đơn mà tưởng mất dữ liệu. */}
             {(chuTim !== "" || locNguoi !== "tat_ca") && (
@@ -630,8 +669,49 @@ export default function TrangCongNo() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  theoDon.map((r, i) => (
+                  dongVe.map((r, i) => {
+                    const khoa = khoaNhomCua.get(r.poId) ?? "";
+                    const moDauNhom = nhomCongTrinh && (i === 0 || khoaNhomCua.get(dongVe[i - 1].poId) !== khoa);
+                    const nhom = moDauNhom ? cacNhom.find((n) => n.khoa === khoa) : undefined;
+                    const dangThu = nhomCongTrinh && nhomDong.has(khoa);
+                    return (
                     <Fragment key={r.poId}>
+                    {/* ★ Dòng tiêu đề nhóm công trình (Sếp 25/09/2026): tên · số đơn · còn phải
+                        trả của cả nhóm. Bấm để thu gọn / mở. */}
+                    {nhom && (
+                      <TableRow className="bg-primary-bg hover:bg-primary-bg">
+                        <TableCell colSpan={15} className="whitespace-normal py-1">
+                          <button
+                            type="button"
+                            aria-expanded={!nhomDong.has(khoa)}
+                            onClick={() =>
+                              setNhomDong((cu) => {
+                                const moi = new Set(cu);
+                                if (moi.has(khoa)) moi.delete(khoa);
+                                else moi.add(khoa);
+                                return moi;
+                              })
+                            }
+                            className="sticky left-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-left text-sm md:min-h-9"
+                          >
+                            <ChevronRight
+                              className={`size-4 shrink-0 text-primary transition-transform ${
+                                nhomDong.has(khoa) ? "" : "rotate-90"
+                              }`}
+                              aria-hidden
+                            />
+                            <span className="font-semibold text-primary">{nhom.ten}</span>
+                            <span className="text-xs text-text-desc">
+                              {nhom.muc.length} đơn · còn phải trả{" "}
+                              <span className="font-semibold tabular-nums text-text-primary">
+                                {formatCurrencyVnd(nhom.muc.reduce((s, x) => s + x.conLai, 0))}
+                              </span>
+                            </span>
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {!dangThu && (<>
                     {/* ★ Viền gói dòng PO + khối mở rộng thành MỘT khung — Sếp 25/09/2026: ***"tạo
                         màu boder để dễ nhận diện cho từng PO"***. Khối hoá đơn / đợt chi nằm sát
                         dòng PO kế tiếp nên trước đây không rõ nó thuộc đơn nào. Dòng cha giữ cạnh
@@ -1192,8 +1272,10 @@ export default function TrangCongNo() {
                         </TableCell>
                       </TableRow>
                     )}
+                    </>)}
                     </Fragment>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

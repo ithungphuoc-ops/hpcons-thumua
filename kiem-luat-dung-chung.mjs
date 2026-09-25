@@ -152,6 +152,20 @@ try {
   process.exit(1);
 }
 
+/* ★ Gom theo công trình (25/09/2026) — một luật dùng chung cho màn Theo dõi và màn Công nợ. */
+const tepRaGCT = join(thuMuc, "gom-cong-trinh.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/gom-cong-trinh.ts" --bundle --platform=node --format=cjs --outfile="${tepRaGCT}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/gom-cong-trinh.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 /* ★ Cấp mã ở máy chủ — nhịp 3b (23/09/2026). Phần quyết định tách khỏi route vì route phải mở
    Firebase mới chạy; luật phải gọi thật được chỗ dễ sai nhất. */
 const tepRaCM = join(thuMuc, "cap-ma-may-chu.cjs");
@@ -8687,6 +8701,35 @@ kiem("Ham gop: o nao cach theo dong truot thi lay tu cach cu", CHU_SEP_DOC_THEO_
     mongDoi: "00001879 · 2025-12-10 · 7500000",
   };
 });
+
+kiem(
+  "Gom cong trinh: bo dau/khoang trang/hoa thuong ve MOT nhom, 'chua ghi' xep CUOI, PO uu tien ten chep tren don",
+  'Sếp · 25/09/2026 — *"tạo thêm nút group theo tên công trình"* (màn Công nợ)',
+  () => {
+    const G = nap(tepRaGCT);
+    const ds = [
+      { id: "a", ten: "Nhà xưởng  Howell" },
+      { id: "b", ten: "" },
+      { id: "c", ten: "nha xuong howell" },
+      { id: "d", ten: "Công trình AID" },
+    ];
+    const nhom = G.gomTheoCongTrinh(ds, (x) => x.ten);
+    const po = G.tenCongTrinhCuaPO({ tenCongTrinh: "", prId: "pr1" }, [{ id: "pr1", tenCongTrinh: "Kho Bình Dương" }]);
+    const poChep = G.tenCongTrinhCuaPO({ tenCongTrinh: "Tên trên đơn", prId: "pr1" }, [{ id: "pr1", tenCongTrinh: "Đã đổi" }]);
+    const thucTe = `${nhom.map((n) => `${n.ten}[${n.muc.map((m) => m.id).join("")}]`).join(" | ")} · po=${po} · chep=${poChep}`;
+    return {
+      duoc:
+        nhom.length === 3 &&
+        nhom[0].ten === "Công trình AID" &&
+        nhom[1].muc.map((m) => m.id).join("") === "ac" &&
+        nhom[2].khoa === G.NHOM_CHUA_GHI_CONG_TRINH &&
+        po === "Kho Bình Dương" &&
+        poChep === "Tên trên đơn",
+      thucTe,
+      mongDoi: "Công trình AID[d] | Nhà xưởng  Howell[ac] | Chưa ghi công trình[b] · po=Kho Bình Dương · chep=Tên trên đơn",
+    };
+  },
+);
 
 kiem("Doi tien: CHI CON MOT BAN duy nhat, XML dung chung", CHU_SEP_DOC_HOA_DON, () => {
   /* 🔴 `doc-hoa-don-xml.ts` tung co ban `chuanHoaTien` rieng, va hai ban DA LECH NHAU ngay trong

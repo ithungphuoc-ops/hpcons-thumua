@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import NextDynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDungDayKhungNhin } from "@/1-giao-dien/thanh-phan-dung-chung/dung-day-khung-nhin";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, FileText, LayoutGrid, List, X } from "lucide-react";
 /* 📌 KHÔNG còn import `DropdownMenu*` và `MoreHorizontal` ở đây (13/09/2026): menu ⋯ của pop-up
@@ -365,6 +366,11 @@ export default function TrangDanhSachDeNghi() {
       }),
     [moiThe, locDS, nguoiDung.uid],
   );
+
+  /* ★ Khung bảng dạng danh sách dừng đúng đáy màn hình — thanh cuộn ngang luôn thấy (Sếp
+     25/09/2026). Tính lại khi đổi cách xem / đổi tab lọc, vì khung chỉ có mặt khi có dòng. */
+  const khungDanhSach = useRef<HTMLDivElement>(null);
+  useDungDayKhungNhin(khungDanhSach, [cachXem, locDS, theHienThi.length === 0]);
 
   /** Đếm cho từng tab — Base ghi số ngay cạnh tên tab. */
   const demTheoLoc: Record<LocDanhSach, number> = useMemo(
@@ -1253,10 +1259,16 @@ export default function TrangDanhSachDeNghi() {
                     đáy bảng — muốn kéo ngang phải cuộn hết cả danh sách. Nay khung bảng cao tối đa
                     bằng màn hình trừ phần đầu trang và cuộn DỌC ngay bên trong, nên thanh ngang
                     luôn nằm trong tầm nhìn; tiêu đề cột dính trên cùng để khỏi lạc cột.
+                    🔴 CHIỀU CAO ĐO LÚC CHẠY (`useDungDayKhungNhin`), KHÔNG đặt cứng: lần đầu tôi
+                    viết `max-h-[calc(100dvh-10rem)]` theo ước lượng, khung cao hơn màn hình và
+                    thanh cuộn vẫn nằm ngoài tầm nhìn — Sếp: *"e lại phá thanh cuộn ngang"*.
                     🔴 `[&>[data-slot=table-container]]:overflow-visible` bắt buộc: `Table` của thư
                     viện tự bọc một khung `overflow-x-auto` riêng — không tắt thì khung ĐÓ mới là
                     chỗ cuộn ngang, và thanh của nó lại rơi xuống đáy bảng như cũ. */}
-                <div className="thanh-keo-ngang-ro hidden max-h-[calc(100dvh-10rem)] overflow-auto md:block [&>[data-slot=table-container]]:overflow-visible">
+                <div
+                  ref={khungDanhSach}
+                  className="thanh-keo-ngang-ro hidden max-h-(--cao-toi-da) overflow-auto md:block [&>[data-slot=table-container]]:overflow-visible"
+                >
                   <Table>
                     <TableHeader className="sticky top-0 z-10 bg-card">
                       {/* Nhãn cột lấy ĐÚNG CHỮ của Base để người đang dùng Base đọc ra ngay. */}

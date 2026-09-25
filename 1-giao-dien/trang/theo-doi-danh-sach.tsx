@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
-import { boDau } from "@/6-tien-ich/bo-dau";
+import { khoaCongTrinh, NHOM_CHUA_GHI_CONG_TRINH } from "@/2-quy-trinh/gom-cong-trinh";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
@@ -34,7 +34,8 @@ import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
  * 📌 Chuẩn hóa bỏ dấu + gộp khoảng trắng + không phân biệt hoa thường: cùng một công trình mà
  * người này gõ *"Công trình AID"*, người kia *"cong trinh aid"* thì vẫn về một nhóm.
  */
-const NHOM_CHUA_GHI_CONG_TRINH = "__chua-ghi-cong-trinh__";
+/* (25/09/2026) Khoá nhóm công trình dời sang `2-quy-trinh/gom-cong-trinh.ts` để màn Công nợ dùng
+   chung — xem `khoaCongTrinh`. */
 
 /**
  * ★ CHỌN GOM NHÓM THEO CÔNG TRÌNH HAY PHÒNG BAN — Ban lãnh đạo 23/08/2026: *"thêm chức năng
@@ -58,9 +59,7 @@ export type CachGomNhom = "cong_trinh" | "phong_ban";
  */
 function khoaNhom(dn: DeNghiMuaHang, cach: CachGomNhom): string {
   if (cach === "phong_ban") return dn.phongBanNguon || NHOM_CHUA_GHI_CONG_TRINH;
-  const ten = (dn.tenCongTrinh ?? "").trim();
-  if (ten === "") return NHOM_CHUA_GHI_CONG_TRINH;
-  return boDau(ten).replace(/\s+/g, " ").trim().toLowerCase();
+  return khoaCongTrinh(dn.tenCongTrinh);
 }
 
 /** Tên hiện trên dòng tiêu đề nhóm — lấy đúng cách người dùng đã gõ / nhãn phòng ban chuẩn. */

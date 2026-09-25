@@ -81,7 +81,7 @@ thoại làm toàn bộ màn hình trôi ngang. Lỗi này đã xảy ra khi là
 
 ## `thanh-phan-dung-chung/` — 10 file
 
-`kpi-card` · `timeline-progress` · `status-badge` · `empty-state` · `skeletons` · `data-table` · `page-header` · `print-document` · `print-toolbar` · `thong-bao-trang-in`
+`kpi-card` · `timeline-progress` · `status-badge` · `empty-state` · `skeletons` · `data-table` · `page-header` · `print-document` · `print-toolbar` · `thong-bao-trang-in` · `dung-day-khung-nhin` (hook: khung cuộn dừng đúng đáy màn hình để thanh cuộn ngang luôn thấy — 25/09/2026)
 
 ⚠️ `thong-bao-trang-in.tsx` là **màn báo lỗi riêng của các trang in** (chưa đăng nhập, không đủ
 quyền, không tìm thấy hồ sơ). 🔴 Trang in **không dùng `empty-state`**: trang in nền trắng cố định,
