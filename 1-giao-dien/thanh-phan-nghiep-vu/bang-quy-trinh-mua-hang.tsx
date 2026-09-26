@@ -1041,7 +1041,8 @@ function TheDeNghi({
         {the.laPhieuGoc && !deNghi.deNghiGocId ? (
           <span>
             <span className="text-text-secondary">Quy trình:</span>{" "}
-            <span className="font-semibold text-danger">Phiếu gốc</span>
+            {/* Sếp 26/09/2026: *"Ko cần chữ in đậm, chữ bt được rồi"* — giữ màu đỏ, bỏ đậm. */}
+            <span className="text-danger">Phiếu gốc</span>
           </span>
         ) : deNghi.deNghiGocId ? (
           <span>

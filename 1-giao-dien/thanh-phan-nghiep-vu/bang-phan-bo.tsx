@@ -830,7 +830,8 @@ export function BangPhanBo({
           id={NEO_BANG_PHAN_BO}
           className="hidden scroll-mt-4 overflow-x-auto md:block lg:scroll-mt-60"
         >
-          <Table className="min-w-[1120px] table-fixed">
+          {/* Sếp 26/09/2026: *"Canh giữa cột cho"* — mọi ô tiêu đề + ô dữ liệu căn giữa (kể cả ô bọc flex). */}
+          <Table className="min-w-[1120px] table-fixed [&_td]:text-center [&_td>div]:items-center [&_th]:text-center">
             <TableHeader>
               <TableRow>
                 {hienCongCuPhanBo && <TableHead className="w-11" />}
@@ -844,7 +845,7 @@ export function BangPhanBo({
                 {/* 🔴 ĐÃ BỎ CỘT THAO TÁC (nút xoá dòng) — Ban lãnh đạo 13/09/2026: *"Bỏ mục xoá
                     này"*. Bỏ cả ô tiêu đề lẫn ô dữ liệu để bảng không thừa một cột rỗng.
                     Xem khối chú thích ở chỗ ô dữ liệu bên dưới để biết hệ quả. */}
-                <TableHead className="w-16 text-center">Dòng</TableHead>
+                <TableHead className="w-16 text-center">STT</TableHead>
                 <TableHead>Vật liệu</TableHead>
                 {/* ★ Sếp 26/09/2026: *"Cột quy cách chủng loại đâu"* / *"Cột ghi chú đâu"* — tách
                     khỏi dòng chữ nhỏ dưới tên vật liệu thành cột riêng, đọc thẳng hàng. */}
