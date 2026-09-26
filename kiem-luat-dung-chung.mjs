@@ -10652,6 +10652,281 @@ kiem("Tang ghi CHAN dot thanh toan khong hop le", CHU_SEP_DOT_CHI, () => {
   };
 });
 
+// ════════════════════════════════════════════════════════════════════
+// ★★★ NHÂN BẢN THEO NHÀ CUNG CẤP — Sếp 26/09/2026
+// *"nhân viên sẽ nhân bản đề nghị để tách từng công việc nhỏ trong đề nghị do khác nhà cung
+// cấp… phải có liên kết cha con"* + duyệt thêm *"chức năng tăng giảm khối lượng (…100 bao xi măng
+// nhưng phải cần 2 tới 3 NCC… sau khi họp thì cần 120 bao)"*.
+// 🔴 LUẬT "MỜ CẢ DÒNG" ĐỔI THÀNH "TRỪ KHỐI LƯỢNG" CÓ CHỦ Ý theo chỉ đạo này. Dòng bản con KHÔNG có
+//    `khoiLuongTuCha` (phiếu con giao việc, bản nhân bản cũ) vẫn = "cả dòng" như trước — bài 14 canh.
+// ════════════════════════════════════════════════════════════════════
+const CHU_NB_NCC = "Sếp · 26/09/2026 · nhân bản theo NCC";
+const phieuNCC = (them = {}) => ({
+  id: "pr-x",
+  code: "HD-100",
+  tieuDe: "HD-100 | CT X",
+  trangThai: "da_duyet",
+  items: [
+    { stt: 1, tenVatLieu: "Xi mang", donViTinh: "bao", khoiLuongDeNghi: 100, nguoiPhuTrachUid: "A", nguoiPhuTrachTen: "NV A" },
+    { stt: 2, tenVatLieu: "Cat", donViTinh: "m3", khoiLuongDeNghi: 10, nguoiPhuTrachUid: "A", nguoiPhuTrachTen: "NV A" },
+    { stt: 3, tenVatLieu: "Thep", donViTinh: "tan", khoiLuongDeNghi: 5, nguoiPhuTrachUid: "B", nguoiPhuTrachTen: "NV B" },
+  ],
+  lichSu: [],
+  ...them,
+});
+let soIdNB = 0;
+const nbNCC = (ds, chon, tuy = {}) =>
+  NB.apDungNhanBanDeNghi(ds, {
+    prId: tuy.prId ?? "pr-x",
+    nguoi: tuy.nguoi ?? { uid: "A", ten: "NV A" },
+    laNguoiPhanBo: tuy.laNguoiPhanBo ?? false,
+    chon,
+    lyDoVuot: tuy.lyDoVuot,
+    idMoi: tuy.idMoi ?? `nb-${++soIdNB}`,
+    ngay: "2026-09-26",
+    thoiDiem: "2026-09-26T08:00:00Z",
+    baoGia: tuy.baoGia ?? [],
+    donHang: tuy.donHang ?? [],
+  });
+const tienDoNCC = () => [
+  { stt: 1, khoiLuongDeNghi: 100, khoiLuongChuaLenPO: 100, khoiLuongConLai: 100 },
+  { stt: 2, khoiLuongDeNghi: 10, khoiLuongChuaLenPO: 10, khoiLuongConLai: 10 },
+  { stt: 3, khoiLuongDeNghi: 5, khoiLuongChuaLenPO: 5, khoiLuongConLai: 5 },
+];
+
+kiem("NB theo NCC 1: CHIA — tach 60/100 thi phieu cha CON 40 (khong mo), tien do tinh theo 40; tach 100 thi mo ca dong", CHU_NB_NCC, () => {
+  const r = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 60 }]);
+  if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+  const P = r.deNghi.find((d) => d.id === "pr-x");
+  const bd = NB.dongDaNhanBanSang(P, r.deNghi);
+  const td = NB.locTienDoConPhaiMua(P, r.deNghi, tienDoNCC());
+  const d1 = td.find((d) => d.stt === 1);
+  const conPL = G.dongConPhaiLam(P, r.deNghi).map((d) => d.stt).join();
+  const dongBan = r.ban.items[0];
+  const het = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 100 }]);
+  const P2 = het.deNghi.find((d) => d.id === "pr-x");
+  const td2 = NB.locTienDoConPhaiMua(P2, het.deNghi, tienDoNCC()).map((d) => d.stt).join();
+  return {
+    duoc:
+      !NB.dongDaChuyenDiHet(1, bd) && d1?.khoiLuongChuaLenPO === 40 && d1?.khoiLuongDeNghi === 40 &&
+      conPL === "1,2,3" && dongBan.khoiLuongDeNghi === 60 && dongBan.khoiLuongTuCha === 60 &&
+      dongBan.sttDongCha === 1 && r.ban.deNghiChaId === "pr-x" && td2 === "2,3",
+    thucTe: `diHet=${NB.dongDaChuyenDiHet(1, bd)} · chuaLenPO dong1=${d1?.khoiLuongChuaLenPO} · conPhaiLam=[${conPL}] · ban kl=${dongBan.khoiLuongDeNghi}/tuCha=${dongBan.khoiLuongTuCha} · tach 100 -> tien do [${td2}]`,
+    mongDoi: "diHet=false · chuaLenPO 40 · conPhaiLam=[1,2,3] · ban 60/60 · tach 100 -> [2,3]",
+  };
+});
+
+kiem("NB theo NCC 2: 2-3 NCC CONG DON — 60 + 30 con 10; lay 20 bi CHAN (vuot phan con lai); lay 10 thi dong di het", CHU_NB_NCC, () => {
+  const b1 = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 60 }]);
+  const b2 = nbNCC(b1.deNghi, [{ stt: 1, khoiLuongTuCha: 30 }]);
+  const P = b2.deNghi.find((d) => d.id === "pr-x");
+  const x = NB.dongDaNhanBanSang(P, b2.deNghi).khoiLuong?.get(1);
+  const qua = nbNCC(b2.deNghi, [{ stt: 1, khoiLuongTuCha: 20 }]);
+  const du = nbNCC(b2.deNghi, [{ stt: 1, khoiLuongTuCha: 10 }]);
+  const P3 = du.deNghi?.find((d) => d.id === "pr-x");
+  const het = P3 ? NB.dongDaChuyenDiHet(1, NB.dongDaNhanBanSang(P3, du.deNghi)) : false;
+  const lai = du.deNghi ? nbNCC(du.deNghi, [{ stt: 1, khoiLuongTuCha: 1 }]) : { loi: "?" };
+  return {
+    duoc: x?.daLay === 90 && x?.conLai === 10 && typeof qua.loi === "string" && !du.loi && het && typeof lai.loi === "string",
+    thucTe: `daLay=${x?.daLay} conLai=${x?.conLai} · lay 20: ${qua.loi ?? "LOT"} · lay 10: ${du.loi ?? "ok"} · het=${het} · lay tiep: ${lai.loi ?? "LOT"}`,
+    mongDoi: "daLay=90 conLai=10 · lay 20 bi chan · lay 10 ok · het=true · lay tiep bi chan (da chuyen het)",
+  };
+});
+
+kiem("NB theo NCC 3: TANG — mua them 20 ma TRONG ly do thi CHAN; co ly do thi tao, ghi 120/100 vuot 20 va nhat ky CA HAI phieu", CHU_NB_NCC, () => {
+  const trong = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 100, khoiLuongThem: 20 }], { lyDoVuot: "  " });
+  const r = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 100, khoiLuongThem: 20 }], { lyDoVuot: "Hop 26/09 chot 120 bao" });
+  if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+  const P = r.deNghi.find((d) => d.id === "pr-x");
+  const x = NB.dongDaNhanBanSang(P, r.deNghi).khoiLuong?.get(1);
+  const cau = NB.moTaVuotDeNghi(x, "bao");
+  const nkCha = P.lichSu.at(-1);
+  const nkCon = r.ban.lichSu[0];
+  const d = r.ban.items[0];
+  /* Chỉ mua thêm (không lấy từ cha): phiếu cha giữ nguyên 100. */
+  const chiThem = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 0, khoiLuongThem: 20 }], { lyDoVuot: "them" });
+  const xThem = chiThem.deNghi && NB.dongDaNhanBanSang(chiThem.deNghi[0], chiThem.deNghi).khoiLuong?.get(1);
+  return {
+    duoc:
+      typeof trong.loi === "string" && d.khoiLuongDeNghi === 120 && d.khoiLuongVuotCha === 20 &&
+      d.lyDoVuotCha === "Hop 26/09 chot 120 bao" && cau === "120 / đề nghị 100 bao · vượt 20" &&
+      /Hop 26\/09/.test(nkCha?.ghiChu ?? "") && /Hop 26\/09/.test(nkCon?.ghiChu ?? "") &&
+      xThem?.conLai === 100 && xThem?.vuot === 20,
+    thucTe: `trong ly do: ${trong.loi ?? "LOT"} · ban kl=${d.khoiLuongDeNghi} vuot=${d.khoiLuongVuotCha} · cau="${cau}" · nk cha="${nkCha?.ghiChu}" · nk con co ly do=${/Hop 26/.test(nkCon?.ghiChu ?? "")} · chi them: conLai=${xThem?.conLai} vuot=${xThem?.vuot}`,
+    mongDoi: "trong ly do bi chan · ban 120 (vuot 20, co ly do) · '120 / đề nghị 100 bao · vượt 20' · ly do o nhat ky ca hai · chi them: cha con 100",
+  };
+});
+
+kiem("NB theo NCC 4: QUYEN — nhan vien CHI lay dong cua minh (dong cua B bi chan, co ly do); Truong bo phan lay duoc moi dong", CHU_NB_NCC, () => {
+  const nv = nbNCC([phieuNCC()], [{ stt: 3, khoiLuongTuCha: 5 }]);
+  const tbp = nbNCC([phieuNCC()], [{ stt: 3, khoiLuongTuCha: 5 }], { nguoi: { uid: "T", ten: "TBP" }, laNguoiPhanBo: true });
+  const dg = NB.danhGiaDongNhanBan(phieuNCC(), [phieuNCC()], "A", false, [], []);
+  const trong = NB.danhGiaDongNhanBan(phieuNCC({ items: [{ stt: 1, khoiLuongDeNghi: 5 }] }), [], "A", false, [], []);
+  return {
+    duoc:
+      typeof nv.loi === "string" && !tbp.loi && dg.map((x) => x.duoc).join() === "true,true,false" &&
+      /NV B/.test(dg[2].lyDo ?? "") && trong[0].duoc === false,
+    thucTe: `NV lay dong B: ${nv.loi ?? "LOT"} · TBP: ${tbp.loi ?? "ok"} · danh gia=[${dg.map((x) => x.duoc)}] ly do 3="${dg[2].lyDo}" · dong chua ai: ${trong[0].duoc}`,
+    mongDoi: "NV bi chan · TBP ok · [true,true,false] ly do nhac NV B · dong chua ai: NV khong lay",
+  };
+});
+
+kiem("NB theo NCC 5: CHAN dong da co don hang / bao gia va ho so DA DONG; dong sach thi cho", CHU_NB_NCC, () => {
+  const po = [{ prId: "pr-x", trangThai: "cho_duyet", items: [{ sttDongDeNghi: 2 }] }];
+  const coPO = nbNCC([phieuNCC()], [{ stt: 2, khoiLuongTuCha: 10 }], { donHang: po });
+  const poHuy = nbNCC([phieuNCC()], [{ stt: 2, khoiLuongTuCha: 10 }], { donHang: [{ ...po[0], trangThai: "huy" }] });
+  const bg = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 5 }], { baoGia: [{ prId: "pr-x", trangThai: "dang_thu_thap", items: [{ sttDongDeNghi: 1 }] }] });
+  const ht = nbNCC([phieuNCC({ trangThai: "hoan_thanh" })], [{ stt: 1, khoiLuongTuCha: 5 }]);
+  const dd = nbNCC([phieuNCC({ trangThai: "dong_do" })], [{ stt: 1, khoiLuongTuCha: 5 }]);
+  return {
+    duoc: typeof coPO.loi === "string" && !poHuy.loi && typeof bg.loi === "string" && typeof ht.loi === "string" && typeof dd.loi === "string",
+    thucTe: `co PO: ${coPO.loi ?? "LOT"} · PO huy: ${poHuy.loi ?? "ok"} · co BG: ${bg.loi ?? "LOT"} · hoan thanh: ${ht.loi ?? "LOT"} · dong do: ${dd.loi ?? "LOT"}`,
+    mongDoi: "co PO chan · PO huy cho · co BG chan · hoan thanh chan · dong do chan",
+  };
+});
+
+kiem("NB theo NCC 6: KHONG de phieu cha thanh VO RONG — tach het moi dong cua minh ma phieu khong con gi thi CHAN; tach mot phan thi cho", CHU_NB_NCC, () => {
+  const mot = phieuNCC({ items: [{ stt: 1, tenVatLieu: "Xi mang", donViTinh: "bao", khoiLuongDeNghi: 100, nguoiPhuTrachUid: "A" }] });
+  const het = nbNCC([mot], [{ stt: 1, khoiLuongTuCha: 100 }]);
+  const motPhan = nbNCC([mot], [{ stt: 1, khoiLuongTuCha: 99 }]);
+  /* Phiếu còn dòng của người khác (dòng 3 của B) → tách hết dòng của A vẫn được. */
+  const conDongKhac = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 100 }, { stt: 2, khoiLuongTuCha: 10 }]);
+  return {
+    duoc: typeof het.loi === "string" && !motPhan.loi && !conDongKhac.loi,
+    thucTe: `tach het: ${het.loi ?? "LOT"} · mot phan: ${motPhan.loi ?? "ok"} · con dong B: ${conDongKhac.loi ?? "ok"}`,
+    mongDoi: "tach het bi chan · mot phan ok · con dong B ok",
+  };
+});
+
+kiem("NB theo NCC 7: KHONG chon dong nao / khoi luong 0 / so rac / chon trung thi CHAN", CHU_NB_NCC, () => {
+  const kq = [
+    nbNCC([phieuNCC()], []),
+    nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 0 }]),
+    nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: Number.NaN }]),
+    nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: -5 }]),
+    nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 5 }, { stt: 1, khoiLuongTuCha: 5 }]),
+  ];
+  const lot = kq.map((r, i) => (typeof r.loi === "string" ? null : i)).filter((x) => x !== null);
+  return { duoc: lot.length === 0, thucTe: lot.length ? `LOT ca ${lot.join(",")}` : "chan het", mongDoi: "chan ca 5 ca" };
+});
+
+kiem("NB theo NCC 8: phieu con GIAO VIEC tu dong da tach mot phan chi nhan PHAN CON LAI (khong mua trung); dong chua tach thi van ca dong nhu cu", CHU_NB_NCC, () => {
+  const b1 = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 60 }]);
+  const g = TKGv.apDungGiaoViec(b1.deNghi, "pr-x", [1], gThu("C"));
+  if (g.loi) return { duoc: false, thucTe: g.loi, mongDoi: "giao duoc" };
+  const con = g.deNghi.find((d) => d.id === "pr-x__C");
+  const P = g.deNghi.find((d) => d.id === "pr-x");
+  const het = NB.dongDaChuyenDiHet(1, NB.dongDaNhanBanSang(P, g.deNghi));
+  const cu = TKGv.apDungGiaoViec([phieuNCC()], "pr-x", [1], gThu("C"));
+  const dCu = cu.deNghi.find((d) => d.id === "pr-x__C")?.items[0];
+  return {
+    duoc: g.tach && con?.items[0].khoiLuongDeNghi === 40 && con?.items[0].khoiLuongTuCha === 40 && het &&
+      dCu?.khoiLuongDeNghi === 100 && dCu?.khoiLuongTuCha === undefined,
+    thucTe: `con kl=${con?.items[0].khoiLuongDeNghi} tuCha=${con?.items[0].khoiLuongTuCha} · dong cha het=${het} · khong tach truoc: kl=${dCu?.khoiLuongDeNghi} tuCha=${dCu?.khoiLuongTuCha}`,
+    mongDoi: "con kl=40 tuCha=40 · dong cha het · khong tach truoc: 100 / tuCha trong (ca dong)",
+  };
+});
+
+kiem("NB theo NCC 9: RUT dong khoi phieu con da nhan ban tiep (phieu chau) thi CHAN; dong khong co chau thi rut duoc", CHU_NB_NCC, () => {
+  const g = TKGv.apDungGiaoViec([phieuNCC()], "pr-x", [1, 2], gThu("C"));
+  const chau = nbNCC(g.deNghi, [{ stt: 1, khoiLuongTuCha: 30 }], { prId: "pr-x__C", nguoi: { uid: "C", ten: "NV C" } });
+  if (chau.loi) return { duoc: false, thucTe: chau.loi, mongDoi: "nhan ban tu phieu con duoc" };
+  const rut1 = TKGv.apDungRutDong(chau.deNghi, "pr-x__C", [1], "TBP", "t", "Bỏ phân bổ");
+  const rut2 = TKGv.apDungRutDong(chau.deNghi, "pr-x__C", [2], "TBP", "t", "Bỏ phân bổ");
+  return {
+    duoc: typeof rut1.loi === "string" && !rut2.loi,
+    thucTe: `rut dong co chau: ${rut1.loi ?? "LOT"} · rut dong khong chau: ${rut2.loi ?? "ok"}`,
+    mongDoi: "dong co chau bi chan · dong khong chau rut duoc",
+  };
+});
+
+kiem("NB theo NCC 10: CHIA khoi luong khi giao — dong cha da tach mot phan: giao ca phan con lai thi khong chia, giao it hon thi CHAN; dong ban con chia thi chia ca tuCha/vuot", CHU_NB_NCC, () => {
+  const b1 = nbNCC([phieuNCC()], [{ stt: 1, khoiLuongTuCha: 60, khoiLuongThem: 20 }], { lyDoVuot: "hop" });
+  const khongChia = TKGv.apDungChiaKhoiLuong(b1.deNghi, "pr-x", 1, 40, "TBP", "t");
+  const chan = TKGv.apDungChiaKhoiLuong(b1.deNghi, "pr-x", 1, 10, "TBP", "t");
+  /* Bản con 80 (60 lấy từ cha + 20 mua thêm) chia 50 + 30 → phiếu cha vẫn bị trừ đúng 60. */
+  const c = TKGv.apDungChiaKhoiLuong(b1.deNghi, b1.ban.id, 1, 50, "TBP", "t");
+  const ban = c.deNghi?.find((d) => d.id === b1.ban.id);
+  const P = c.deNghi?.find((d) => d.id === "pr-x");
+  const x = P ? NB.dongDaNhanBanSang(P, c.deNghi).khoiLuong?.get(1) : undefined;
+  const hai = ban?.items.map((d) => `${d.khoiLuongDeNghi}:${d.khoiLuongTuCha}:${d.khoiLuongVuotCha ?? 0}`).join(" ");
+  return {
+    duoc: khongChia.sttMoi === null && !khongChia.loi && typeof chan.loi === "string" && x?.daLay === 60 && x?.vuot === 20 && x?.conLai === 40 && hai === "50:50:0 30:10:20",
+    thucTe: `giao 40: ${khongChia.loi ?? `sttMoi=${khongChia.sttMoi}`} · giao 10: ${chan.loi ?? "LOT"} · ban sau chia=[${hai}] · cha daLay=${x?.daLay} vuot=${x?.vuot} conLai=${x?.conLai}`,
+    mongDoi: "giao 40 khong chia · giao 10 bi chan · ban [50:50:0 30:10:20] · cha daLay 60 vuot 20 con 40",
+  };
+});
+
+kiem("NB theo NCC 11: GOP ve buoc 1 CHAN khi lam mo coi ban nhan ban hoac mat phan mua vuot; nhom sach thi cho", CHU_NB_NCC, () => {
+  const ds = [
+    { id: "g", code: "G", items: [] },
+    { id: "g__A", code: "G (copy)", deNghiChaId: "g", items: [{ stt: 1 }] },
+    { id: "cu", code: "G (copy 2)", deNghiChaId: "g__A", items: [{ stt: 1 }] },
+  ];
+  const moCoi = TKGv.vuongMacGopVeBuoc1("g", [ds[1]], ds);
+  const vuot = TKGv.vuongMacGopVeBuoc1("g", [{ id: "v", code: "V", items: [{ stt: 1, khoiLuongVuotCha: 5 }] }], [ds[0]]);
+  const sach = TKGv.vuongMacGopVeBuoc1("g", [ds[1], ds[2]], ds);
+  return {
+    duoc: /G \(copy 2\)/.test(moCoi ?? "") && typeof vuot === "string" && sach === null,
+    thucTe: `mo coi: ${moCoi ?? "LOT"} · vuot: ${vuot ?? "LOT"} · sach: ${sach ?? "null"}`,
+    mongDoi: "mo coi bi chan (nhac G (copy 2)) · vuot bi chan · sach = null",
+  };
+});
+
+kiem("NB theo NCC 12: CHOT HOAN THANH nhin CA CAY — phieu con giao viec con phieu chau do thi KHONG dong duoc; chau xong thi het vuong do chau", CHU_NB_NCC, () => {
+  const CT = nap(join(thuMuc, "chung-tu.cjs"));
+  const g = TKGv.apDungGiaoViec([phieuNCC()], "pr-x", [1, 2], gThu("C"));
+  const chau = nbNCC(g.deNghi, [{ stt: 1, khoiLuongTuCha: 30 }], { prId: "pr-x__C", nguoi: { uid: "C", ten: "NV C" }, idMoi: "chau-1" });
+  const conA = chau.deNghi.find((d) => d.id === "pr-x__C");
+  const r = CT.vuongMacHoanThanhQuyTrinh(conA, [{ stt: 2, khoiLuongChuaLenPO: 0, khoiLuongConLai: 0 }], chau.deNghi);
+  const dsXong = chau.deNghi.map((d) => (d.id === "chau-1" ? { ...d, trangThai: "hoan_thanh" } : d));
+  const r2 = CT.vuongMacHoanThanhQuyTrinh(conA, [{ stt: 2, khoiLuongChuaLenPO: 0, khoiLuongConLai: 0 }], dsXong);
+  const hd = NB.hauDueCua("pr-x", chau.deNghi).map((d) => d.id).sort().join();
+  return {
+    duoc: typeof r === "string" && r.includes(chau.ban.code) && !(r2 ?? "").includes(chau.ban.code) && hd === "chau-1,pr-x__C",
+    thucTe: `con do: ${r ?? "null (LOT)"} · chau xong: ${r2 ?? "null"} · hau due goc=[${hd}]`,
+    mongDoi: "con do nhac ma phieu chau · chau xong khong nhac · hau due goc = [chau-1, pr-x__C]",
+  };
+});
+
+kiem("NB theo NCC 13: ban chau tach tu phieu con giao viec mang sttDongGoc = dong cua phieu goc (de gop ve buoc 1 khong nhan doi)", CHU_NB_NCC, () => {
+  const g = TKGv.apDungGiaoViec([phieuNCC()], "pr-x", [2, 3], gThu("C"));
+  const chau = nbNCC(g.deNghi, [{ stt: 2, khoiLuongTuCha: 5 }], { prId: "pr-x__C", nguoi: { uid: "C", ten: "NV C" } });
+  const d = chau.ban?.items[0];
+  const goc = g.deNghi.find((x) => x.id === "pr-x");
+  const gop = TKGv.gopBanTachVeGoc(goc, [g.deNghi.find((x) => x.id === "pr-x__C"), chau.ban]);
+  return {
+    duoc: d?.sttDongCha === 2 && d?.sttDongGoc === 3 && chau.ban.deNghiGocId === "pr-x" && gop.length === 3,
+    thucTe: `sttDongCha=${d?.sttDongCha} sttDongGoc=${d?.sttDongGoc} goc=${chau.ban?.deNghiGocId} · gop ve 1 = ${gop.length} dong`,
+    mongDoi: "sttDongCha=2 (dong o phieu con) · sttDongGoc=3 (dong o phieu goc) · gop = 3 dong (khong nhan doi)",
+  };
+});
+
+kiem("NB theo NCC 14 (CHIEU NGUOC): dong ban con KHONG co khoiLuongTuCha (du lieu cu / phieu con giao viec) van = CA DONG, du khoi luong ban con nho hon", CHU_NB_NCC, () => {
+  const P = phieuNCC();
+  const cu = { id: "cu", code: "HD-100 (copy)", deNghiChaId: "pr-x", deNghiGocId: "pr-x", items: [{ stt: 1, sttDongCha: 1, sttDongGoc: 1, khoiLuongDeNghi: 30 }], lichSu: [] };
+  const coMoi = { ...cu, id: "moi", code: "HD-100 (copy 2)", items: [{ stt: 1, sttDongCha: 2, khoiLuongDeNghi: 3, khoiLuongTuCha: 3 }] };
+  const bd = NB.dongDaNhanBanSang(P, [P, cu, coMoi]);
+  const mapTay = new Map([[1, ["X"]]]);
+  return {
+    duoc: NB.dongDaChuyenDiHet(1, bd) && !NB.dongDaChuyenDiHet(2, bd) && NB.khoiLuongConLaiCuaDong(2, bd) === 7 && NB.dongDaChuyenDiHet(1, mapTay),
+    thucTe: `dong 1 (cu, 30/100) het=${NB.dongDaChuyenDiHet(1, bd)} · dong 2 (moi 3/10) het=${NB.dongDaChuyenDiHet(2, bd)} con=${NB.khoiLuongConLaiCuaDong(2, bd)} · Map dung tay=${NB.dongDaChuyenDiHet(1, mapTay)}`,
+    mongDoi: "dong 1 het (ca dong nhu cu) · dong 2 chua het, con 7 · Map dung tay van dem kieu cu",
+  };
+});
+
+kiem("NB theo NCC 15: phieu cha luon co NHAT KY nhan ban (so dong, khoi luong); ban moi la CON cua phieu dang bam, KHONG tich san dong nao (tang ghi doi danh sach tuong minh)", CHU_NB_NCC, () => {
+  const r = nbNCC([phieuNCC()], [{ stt: 2, khoiLuongTuCha: 4 }]);
+  const P = r.deNghi?.find((d) => d.id === "pr-x");
+  const nk = P?.lichSu.at(-1)?.hanhDong ?? "";
+  const tatCaMacDinh = nbNCC([phieuNCC()], []);
+  return {
+    duoc: /HD-100 \(copy\)/.test(nk) && /4\/10 m3/.test(nk) && /còn 6 m3/.test(nk) && r.ban.items.length === 1 && typeof tatCaMacDinh.loi === "string",
+    thucTe: `nhat ky cha="${nk}" · ban co ${r.ban?.items.length} dong · khong chon: ${tatCaMacDinh.loi ?? "LOT"}`,
+    mongDoi: "nhat ky nhac ma ban moi + 4/10 m3 + con 6 m3 · ban 1 dong · khong chon bi chan",
+  };
+});
+
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });
 
@@ -11952,7 +12227,10 @@ kiem(
     id: "ns",
     items: [
       { stt: 1, loaiViecGiao: "nhan_su" },
-      { stt: 2, loaiViecGiao: loai2 },
+      /* Dòng 2 CÓ người phụ trách (như ngoài đời). Từ 26/09 chiều, khongCanHopDongHoaDon chỉ xét
+         dòng còn làm việc (có người phụ trách hoặc có loại việc) — dòng đã tách sang phiếu con bị
+         xoá cả hai trên phiếu gốc nên không còn làm phiếu gốc bị đòi hoá đơn oan. */
+      { stt: 2, loaiViecGiao: loai2, nguoiPhuTrachUid: "u-mua" },
     ],
     tepGiaiDoan: {},
     lyDoThieuChungTu: {},
@@ -12596,6 +12874,152 @@ kiem(
         },
       );
     }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// XOÁ TỪ APP REQUEST → THẤT BẠI — Sếp 26/09/2026
+// "bên app đề nghị xoá mã 1 đó thì bên app thu mua cũng phải tự động đẩy mã 1 đó vào mục thất
+//  bại dù nó đang ở bước nào đi nữa". Đơn hàng GIỮ NGUYÊN, báo đỏ Trưởng bộ phận.
+//
+// 📌 KHỐI TỰ ĐỦ: thư mục tạm chung đã bị xoá ở trên → dựng vào thư mục riêng và NẠP NGAY.
+// ════════════════════════════════════════════════════════════════════
+{
+  const CHU_XAR = "Sếp · 26/09/2026 · xoá từ App Request";
+  const thuMucXAR = mkdtempSync(join(tmpdir(), "kiem-luat-xar-"));
+  let XAR = null;
+  let GDX = null;
+  try {
+    execSync(
+      `npx --yes esbuild "2-quy-trinh/dong-do-theo-app-request.ts" "2-quy-trinh/giai-doan-mua-hang.ts" --bundle --platform=node --format=cjs --outdir="${thuMucXAR}" --out-extension:.js=.cjs --log-level=error`,
+      { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+    );
+    XAR = nap(join(thuMucXAR, "dong-do-theo-app-request.cjs"));
+    GDX = nap(join(thuMucXAR, "giai-doan-mua-hang.cjs"));
+  } catch (e) {
+    truot.push({
+      ten: "Dựng 2-quy-trinh/dong-do-theo-app-request.ts",
+      chu: CHU_XAR,
+      thucTe: `KHÔNG DỰNG ĐƯỢC: ${String(e.stderr ?? e.message).slice(0, 300)}`,
+      mongDoi: "dựng được",
+    });
+  } finally {
+    rmSync(thuMucXAR, { recursive: true, force: true });
+  }
+
+  if (XAR && GDX) {
+    const LUC = "2026-09-26T03:05:00.000Z"; // = 26/09/2026 10:05 giờ VN
+    const dn = (id, them) => ({
+      id, code: id.toUpperCase(), maDuAn: "260001-HPCS", tenCongTrinh: "", tieuDe: id,
+      phongBanNguon: "thu_mua", nguoiDeNghiUid: "u", nguoiDeNghiTen: "Nguyễn Văn A",
+      ngayDeNghi: "2026-09-01", ngayDuyet: "2026-09-01", ngayCanHang: "2026-09-10",
+      mucDoUuTien: "binh_thuong", trangThai: "dang_thuc_hien", items: [], lichSu: [], ...them,
+    });
+    const kho = () => [
+      dn("goc", { maDeXuatAppRequest: "000000157" }),
+      dn("copy1", { maDeXuatAppRequest: "000000157", deNghiGocId: "goc" }),
+      /* Cháu KHÔNG mang mã đề xuất — chỉ nối bằng deNghiChaId. Phải vẫn bị gom vào họ. */
+      dn("chau", { deNghiGocId: "goc", deNghiChaId: "copy1" }),
+      dn("xong", { maDeXuatAppRequest: "157", trangThai: "hoan_thanh" }),
+      dn("khac", { maDeXuatAppRequest: "000000158" }),
+      dn("khac-chu", { maDeXuatAppRequest: "0000001570" }),
+    ];
+    const po = [
+      { id: "po1", code: "PO-001", prId: "goc", trangThai: "dang_giao", qlkCtrSyncStatus: "synced", items: [] },
+      { id: "po2", code: "PO-002", prId: "copy1", trangThai: "huy", items: [] },
+      { id: "po3", code: "PO-003", prId: "khac", trangThai: "da_chot", items: [] },
+    ];
+
+    kiem(
+      "🔴 Xoá đề xuất ở App Request: CẢ HỌ phiếu (gốc + copy + cháu) sang Thất bại, gõ '157' vẫn khớp '000000157'",
+      CHU_XAR,
+      () => {
+        const r = XAR.apDungXoaTuAppRequest(kho(), "157", LUC, po);
+        const doi = [...r.daDoi].sort().join(",");
+        const giaiDoan = r.deNghiDaDoi.map((d) => GDX.xacDinhGiaiDoan(d, [], [], [])).join(",");
+        const lyDo = r.deNghiDaDoi[0]?.lyDoThatBai ?? "";
+        const moc = r.deNghiDaDoi[0]?.lichSu.at(-1);
+        return {
+          duoc:
+            doi === "chau,copy1,goc" &&
+            giaiDoan === "that_bai,that_bai,that_bai" &&
+            lyDo === "Đề xuất 157 đã bị xoá ở App Request (lúc 26/09/2026 10:05)" &&
+            moc?.nguoiThucHien === "Hệ thống · App Request",
+          thucTe: `đổi=${doi} · giai đoạn=${giaiDoan} · lý do="${lyDo}" · người=${moc?.nguoiThucHien}`,
+          mongDoi: "đổi=chau,copy1,goc · cả ba that_bai · lý do có mã + giờ VN · người 'Hệ thống · App Request'",
+        };
+      },
+    );
+
+    kiem(
+      "Chiều ngược: phiếu KHÁC mã (kể cả '0000001570' chứa chuỗi '157') KHÔNG bị đụng; phiếu Hoàn thành bị BỎ QUA",
+      CHU_XAR,
+      () => {
+        const r = XAR.apDungXoaTuAppRequest(kho(), "000000157", LUC, po);
+        const dung = r.daDoi.filter((id) => id === "khac" || id === "khac-chu" || id === "xong");
+        const boQuaXong = r.boQua.some((b) => b.id === "xong");
+        const rong = XAR.apDungXoaTuAppRequest(kho(), "999", LUC, po);
+        return {
+          duoc: dung.length === 0 && boQuaXong && !rong.timThay && rong.daDoi.length === 0,
+          thucTe: `đụng nhầm=[${dung}] · bỏ qua 'xong'=${boQuaXong} · mã lạ timThay=${rong.timThay}`,
+          mongDoi: "đụng nhầm=[] · bỏ qua 'xong'=true · mã lạ timThay=false (route trả 404)",
+        };
+      },
+    );
+
+    kiem(
+      "Gọi HAI lần (App Request thử lại) KHÔNG nhân đôi lịch sử, KHÔNG báo lại đơn hàng",
+      CHU_XAR,
+      () => {
+        const ds = kho();
+        const r1 = XAR.apDungXoaTuAppRequest(ds, "157", LUC, po);
+        const doi = new Map(r1.deNghiDaDoi.map((d) => [d.id, d]));
+        const sau1 = ds.map((d) => doi.get(d.id) ?? d);
+        const r2 = XAR.apDungXoaTuAppRequest(sau1, "157", "2026-09-26T04:00:00.000Z", po);
+        const soDong = sau1.find((d) => d.id === "goc").lichSu.length;
+        return {
+          duoc: r2.daDoi.length === 0 && r2.poCanXuLy.length === 0 && soDong === 1 && r2.timThay,
+          thucTe: `lần 2 đổi=${r2.daDoi.length} · PO báo lại=${r2.poCanXuLy.length} · lịch sử gốc=${soDong} dòng`,
+          mongDoi: "lần 2 đổi=0 · PO báo lại=0 · lịch sử gốc=1 dòng",
+        };
+      },
+    );
+
+    kiem(
+      "🔴 Đơn hàng GIỮ NGUYÊN (không tự huỷ) nhưng được liệt kê để báo đỏ: PO sống + cờ đã gửi QLK; PO huỷ và PO của phiếu khác thì không",
+      CHU_XAR,
+      () => {
+        const poTruoc = JSON.stringify(po);
+        const r = XAR.apDungXoaTuAppRequest(kho(), "157", LUC, po);
+        const ds = r.poCanXuLy.map((p) => `${p.poCode}:${p.daGuiQlk}`).join(",");
+        const tin = XAR.thongBaoPoCanXuLy(r.poCanXuLy, "157", LUC);
+        return {
+          duoc:
+            JSON.stringify(po) === poTruoc &&
+            ds === "PO-001:true" &&
+            tin.length === 1 &&
+            tin[0].id === "tb-xoa-ar-po1" &&
+            tin[0].laCanhBaoTreo === true &&
+            tin[0].guiToi.includes(GDX.NHAN_TRUONG_BO_PHAN),
+          thucTe: `PO đổi=${JSON.stringify(po) !== poTruoc} · cần xử lý=[${ds}] · tin=${tin.map((t) => t.id)}`,
+          mongDoi: "PO đổi=false · cần xử lý=[PO-001:true] · tin=tb-xoa-ar-po1 gửi Trưởng bộ phận",
+        };
+      },
+    );
+
+    kiem(
+      "Phiếu đã Thất bại từ trước (người dùng tự đóng dở) GIỮ NGUYÊN lý do cũ",
+      CHU_XAR,
+      () => {
+        const ds = [dn("goc", { maDeXuatAppRequest: "157", trangThai: "dong_do", lyDoThatBai: "NCC bỏ cuộc" })];
+        const r = XAR.apDungXoaTuAppRequest(ds, "157", LUC, []);
+        return {
+          duoc: r.daDoi.length === 0 && r.boQua.length === 1 && ds[0].lyDoThatBai === "NCC bỏ cuộc",
+          thucTe: `đổi=${r.daDoi.length} · bỏ qua=${r.boQua.length} · lý do=${ds[0].lyDoThatBai}`,
+          mongDoi: "đổi=0 · bỏ qua=1 · lý do=NCC bỏ cuộc",
+        };
+      },
+    );
   }
 }
 

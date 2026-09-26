@@ -1223,42 +1223,34 @@ export default function TrangDanhSachDeNghi() {
             deNghi={dnHoiNhanBan ?? null}
             mo={hoiNhanBan !== null}
             onDong={() => setHoiNhanBan(null)}
-            onXacNhan={(sttGiuLai) => {
-              if (!hoiNhanBan) return;
+            onXacNhan={(luaChon) => {
+              if (!hoiNhanBan) return "Chưa chọn đề nghị.";
               const goc = dnHoiNhanBan;
+              const sttGiuLai = luaChon.chon.map((c) => c.stt);
               // Truyền cả hàm kiểm quyền: kho dữ liệu tự chặn, không tin vào việc giao diện
               // đã ẩn nút (ẩn nút không phải là chặn).
-              const id = nhanBanDeNghi(
+              const kq = nhanBanDeNghi(
                 hoiNhanBan,
                 { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
-                sttGiuLai,
+                luaChon,
                 (dn) => duocNhanBanDeNghi(dn, nguoiDung.uid, quyen),
               );
-              if (!id) {
-                /**
-                 * 🔴 CÂU BÁO LỖI CŨ ĐÃ SAI, SỬA 15/09/2026. Bản cũ ghi *"Đã hết mã dự phòng cho
-                 * bản chạy thử (tối đa 12 đề nghị)"* — giới hạn 12 mã **đã bỏ từ 22/08/2026**
-                 * (id hồ sơ nay sinh động, xem `6-tien-ich/sinh-id-ho-so.ts`), và chính
-                 * `nhanBanDeNghi` cũng không còn nhánh nào từ chối vì hết mã.
-                 *
-                 * ⚠️ Báo sai nguyên nhân còn tệ hơn báo chung chung: người dùng đọc xong đi tìm
-                 * cách "xin thêm mã" trong khi lý do thật thường là **bị chặn quyền**.
-                 *
-                 * `nhanBanDeNghi` trả chuỗi rỗng ở đúng ba ca: không tìm thấy phiếu · `duocPhep`
-                 * từ chối · không giữ lại dòng nào. Ca thứ hai hỏi lại được ngay tại đây bằng
-                 * chính hàm quyền đã truyền vào, nên nói được đúng lý do thay vì đoán.
-                 */
-                const khongCoQuyen = Boolean(
-                  goc && !duocNhanBanDeNghi(goc, nguoiDung.uid, quyen),
-                );
-                toast.error("Không nhân bản được", {
-                  description: khongCoQuyen
-                    ? "Bạn chỉ nhân bản được đề nghị mình đang phụ trách. Nhờ trưởng bộ phận nhân bản, hoặc giao phần việc này cho bạn trước."
-                    : "Hồ sơ vừa thay đổi ở máy khác, hoặc không còn mặt hàng nào được giữ lại. Mở lại phiếu rồi thử lại.",
-                });
-                return;
+              /* ★ 26/09/2026: tầng ghi nay trả ĐÚNG câu lỗi (`apDungNhanBanDeNghi`) — hộp giữ nguyên
+                 để người dùng sửa, không đoán lý do ở đây nữa. */
+              if (kq.loi !== undefined) {
+                toast.error("Không nhân bản được", { description: kq.loi });
+                return kq.loi;
               }
+              const id = kq.id;
               const tach = goc && sttGiuLai.length < goc.items.length;
+              /* Dòng chỉ tách MỘT PHẦN khối lượng (Sếp 26/09/2026) — nói rõ để người dùng biết phiếu
+                 này vẫn còn phần tự mua. */
+              const soTachMotPhan = goc
+                ? luaChon.chon.filter((c) => {
+                    const d = goc.items.find((x) => x.stt === c.stt);
+                    return d && c.khoiLuongTuCha < (Number(d.khoiLuongDeNghi) || 0);
+                  }).length
+                : 0;
               /**
                * 🔴 CÂU NÀY TỪNG NÓI NGƯỢC VỚI CODE, SỬA 15/09/2026. Bản cũ báo *"chưa phân bổ cho
                * ai — giao việc trước khi đi tiếp"*, trong khi `nhanBanDeNghi` **CÓ gán người bấm
@@ -1277,6 +1269,9 @@ export default function TrangDanhSachDeNghi() {
                   tach
                     ? `Bản mới giữ ${sttGiuLai.length}/${goc.items.length} mặt hàng.`
                     : "Bản sao giữ đủ mặt hàng của phiếu gốc.",
+                  soTachMotPhan > 0
+                    ? `${soTachMotPhan} dòng chỉ tách một phần — ${goc?.code ?? "phiếu gốc"} tự mua phần còn lại.`
+                    : "",
                   soDaCoNguoi > 0 ? `Bạn phụ trách ${soDaCoNguoi} dòng.` : "",
                   soChuaAi > 0
                     ? `Còn ${soChuaAi} dòng chưa giao ai — cần phân bổ trước khi đi tiếp.`
@@ -1286,6 +1281,7 @@ export default function TrangDanhSachDeNghi() {
                   .join(" "),
                 action: { label: "Mở bản copy", onClick: () => router.push(`/de-nghi/${id}`) },
               });
+              return null;
             }}
           />
           {/* 📌 ĐÃ BỎ đoạn hướng dẫn "Thẻ tự sang cột kế tiếp khi bước hiện tại làm xong…"

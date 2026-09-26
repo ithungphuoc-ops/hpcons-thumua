@@ -354,7 +354,8 @@ export function KhoiGiaiDoanHienTai({
       🔴 Vì sao đáng đặt lên đầu: câu hỏi số một khi mở một hồ sơ là "đang ở đâu, ai phải
       làm gì tiếp". Trước đây phải đọc thanh giai đoạn ở cột trái rồi tự đếm. */
   return (
-    <section className={`rounded-xl bg-primary p-(--hp-md-card-pad) text-white ${className ?? ""}`}>
+    <section className={`rounded-none bg-primary p-(--hp-md-card-pad) text-white ${className ?? ""}`}>
+      {/* Sếp 26/09/2026: *"Cái này e tạo khối vuông vức cho a, ko cần bo góc"* → rounded-none. */}
       <span className="text-xs font-semibold tracking-wide text-white/80 uppercase">
         Giai đoạn hiện tại
       </span>

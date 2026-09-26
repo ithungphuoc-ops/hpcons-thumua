@@ -56,6 +56,8 @@ import { vuongMacGiaoViec } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   dongDaChuyenDiHet,
   dongDaNhanBanSang,
+  moTaTachMotPhan,
+  moTaVuotDeNghi,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 /* Chạy thử luật giao (hàm thuần) để hộp xác nhận nói TRƯỚC việc có tách phiếu hay không. */
 import { apDungGiaoViec, laPhieuConKhiGiao } from "@/2-quy-trinh/tach-khi-giao-viec";
@@ -91,8 +93,9 @@ const LOP_MUC_MENU = "min-h-11 whitespace-nowrap";
  */
 const LOP_NUT_THEO_LOAI_VIEC: Record<LoaiViecGiao | "mua_hang", string> = {
   mua_hang: "",
-  xuat_kho: "bg-danger text-white hover:bg-danger/85",
-  nhan_su: "",
+  /* Sếp 26/09/2026: *"2 chức danh này để màu nền đỏ, nhưng nhạt thôi"* — nền đỏ nhạt cho cả hai. */
+  xuat_kho: "border-danger/30 bg-danger-bg text-danger hover:bg-danger/15",
+  nhan_su: "border-danger/30 bg-danger-bg text-danger hover:bg-danger/15",
 };
 const HAU_TO_LOAI_VIEC: Record<LoaiViecGiao | "mua_hang", string> = {
   mua_hang: "",
@@ -453,6 +456,29 @@ export function BangPhanBo({
     });
     return [...new Set(ten)].join(", ");
   };
+  /**
+   * ★ Dòng CHỈ TÁCH MỘT PHẦN khối lượng / MUA VƯỢT đề nghị — Sếp 26/09/2026 (nhân bản theo NCC).
+   * Dòng này KHÔNG mờ: phiếu vẫn tự mua phần còn lại, nên phải nói rõ *"còn 40/100 bao · 60 bao đã
+   * tách sang …"* ngay dưới con số khối lượng (con số trên vẫn là khối lượng đề nghị ban đầu).
+   * Mua vượt: chữ + màu warning (*"120 / đề nghị 100 · vượt 20"*). Câu ở hàm thuần, một chỗ.
+   * 📌 Dòng đã đi HẾT vẫn không hiện ghi chú — Sếp 17/09/2026 *"bỏ các ghi chú này"*.
+   */
+  const ghiChuKhoiLuongTach = (stt: number, donVi: string) => {
+    const x = daNhanBan.khoiLuong?.get(stt);
+    const phan = moTaTachMotPhan(x, donVi, daNhanBan.get(stt) ?? []);
+    const vuot = moTaVuotDeNghi(x, donVi);
+    if (!phan && !vuot) return null;
+    return (
+      <span className="mt-0.5 flex flex-col items-end gap-0.5 text-right text-xs font-normal whitespace-normal">
+        {phan && <span className="text-text-secondary">{phan}</span>}
+        {vuot && (
+          <span className="w-fit rounded bg-warning-bg px-1.5 py-0.5 font-semibold text-warning-soft">
+            Mua {vuot}
+          </span>
+        )}
+      </span>
+    );
+  };
   const soDaPhanChuaLenPO = tienDo.filter((d) => d.trangThaiDong === "da_phan_bo").length;
 
   /**
@@ -797,7 +823,7 @@ export function BangPhanBo({
               <Button
                 key={nv.uid}
                 size="sm"
-                variant={nv.loaiViecGiao === "nhan_su" ? "outline" : "default"}
+                variant={nv.loaiViecGiao ? "outline" : "default"}
                 className={LOP_NUT_THEO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}
                 disabled={!!chanGiaoViec}
                 onClick={() => moGiaoViec(nv.uid, nv.ten, chonHopLe, nv.loaiViecGiao)}
@@ -810,7 +836,8 @@ export function BangPhanBo({
                 }
               >
                 <UserPlus className="size-4" aria-hidden />
-                {nv.ngan} · {nv.ten}
+                {/* Sếp 26/09/2026: *"Các tên này e bỏ chữ HP cons ở trước đi"*. */}
+                {nv.ten}
                 {HAU_TO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}
               </Button>
             ))}
@@ -991,6 +1018,7 @@ export function BangPhanBo({
                     <TableCell className="text-right font-semibold whitespace-nowrap">
                       {d.khoiLuongDeNghi.toLocaleString("vi-VN")}{" "}
                       <span className="font-normal text-text-desc">{d.donViTinh}</span>
+                      {ghiChuKhoiLuongTach(d.stt, d.donViTinh)}
                     </TableCell>
                     <TableCell>
                       {daPhan ? (
@@ -1228,8 +1256,11 @@ export function BangPhanBo({
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-text-desc">Đề nghị</span>
-                  <span className="font-semibold">
-                    {d.khoiLuongDeNghi.toLocaleString("vi-VN")} {d.donViTinh}
+                  <span className="flex flex-col items-end font-semibold">
+                    <span>
+                      {d.khoiLuongDeNghi.toLocaleString("vi-VN")} {d.donViTinh}
+                    </span>
+                    {ghiChuKhoiLuongTach(d.stt, d.donViTinh)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -1280,14 +1311,14 @@ export function BangPhanBo({
                       <Button
                         key={nv.uid}
                         size="sm"
-                        variant={nv.loaiViecGiao === "xuat_kho" ? "default" : "outline"}
+                        variant="outline"
                         className={`min-h-11 ${LOP_NUT_THEO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}`}
                         disabled={!!chanGiaoViec}
                         /* 🔴 PHẢI truyền loại việc — trước 26/09/2026 nút này bỏ sót, nên giao cho thủ
                            kho bằng điện thoại thì phiếu KHÔNG thành xuất kho (vẫn đi đường báo giá). */
                         onClick={() => moGiaoViec(nv.uid, nv.ten, [d.stt], nv.loaiViecGiao)}
                       >
-                        {nv.ngan}
+                        {nv.ten}
                         {HAU_TO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}
                       </Button>
                     ))}

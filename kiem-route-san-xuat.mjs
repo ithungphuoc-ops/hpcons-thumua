@@ -47,6 +47,9 @@ const DIA_CHI = process.env.HPCONS_DIA_CHI ?? "https://thumua.hpcore.vn";
  */
 const ROUTE = [
   { duong: "/api/app-request/de-nghi-moi", pt: "POST", cua: "tích hợp", viec: "nhận đề nghị từ App Request" },
+  /* ★ Sếp 26/09/2026 — App Request xoá đề xuất → hồ sơ sang Thất bại. Body `{}` chỉ nhận `400`
+     (thiếu mã) hoặc `401` (có khoá) kèm `error`, KHÔNG chạm dữ liệu. */
+  { duong: "/api/app-request/de-nghi-da-xoa", pt: "POST", cua: "nghiệp vụ", viec: "App Request báo xoá đề xuất" },
   { duong: "/api/qlk-ctr/gui-po", pt: "POST", cua: "tích hợp", viec: "gửi PO sang QLK CTR" },
   { duong: "/api/qlk-ctr/phieu-nhan-moi", pt: "POST", cua: "tích hợp", viec: "nhận phiếu nhận hàng từ QLK CTR" },
   { duong: "/api/auth/hpcore-session", pt: "GET", cua: "tích hợp", viec: "SSO App Tổng" },

@@ -3580,7 +3580,20 @@ export function FormLapDonMuaHang({
                   <select
                     id="mau-po"
                     value={mauPO}
-                    onChange={(e) => setMauPO(e.target.value as MauDonMuaHang)}
+                    onChange={(e) => {
+                      const mauMoi = e.target.value as MauDonMuaHang;
+                      setMauPO(mauMoi);
+                      /* ★ Ô "Theo" của phiếu xuất kho tự lấy từ đề nghị — Sếp 26/09/2026: *"Mục này lấy từ
+                         thông tin của đề nghị qua. Nó sẽ là mã số đề nghị và ngày đề nghị"*. Chỉ điền khi
+                         ô đang TRỐNG (không đè chữ người dùng đã gõ); vẫn sửa tay được. */
+                      if (laPhieuXuatKho(mauMoi) && !canCuXuatKho.trim() && dn) {
+                        const ma = dn.maDeXuatAppRequest?.trim() || dn.code;
+                        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dn.ngayDeNghi ?? "");
+                        setCanCuXuatKho(
+                          m ? `Đề nghị số ${ma} ngày ${m[3]}/${m[2]}/${m[1]}` : `Đề nghị số ${ma}`,
+                        );
+                      }
+                    }}
                     className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {(Object.keys(NHAN_MAU_PO) as MauDonMuaHang[]).map((m) => (

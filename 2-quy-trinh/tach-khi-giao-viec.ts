@@ -27,7 +27,10 @@
 import type { BaoGia, DeNghiMuaHang, DonDatHang, LoaiViecGiao } from "@/3-du-lieu/kieu-du-lieu";
 import {
   dongDaChuyenDiHet,
+  dongDaCoChungTu,
   dongDaNhanBanSang,
+  khoiLuongDaTachTheoDong,
+  lamTronKhoiLuong,
   maBanSaoTiepTheo,
   phieuGocCua,
   tenBanSaoTheoMa,
@@ -92,26 +95,10 @@ export function laPhieuConKhiGiao(dn: Pick<DeNghiMuaHang, "id" | "deNghiChaId">)
 }
 
 /**
- * ★ Dòng này đã có báo giá hoặc đơn hàng (chưa huỷ) trỏ tới chưa.
- *
- * 🔴 Dòng đã có chứng từ thì KHÔNG được chuyển việc / bỏ phân bổ: báo giá và PO trỏ về
- * `prId` + `sttDongDeNghi` của phiếu đang giữ nó; rút dòng đi là PO đã lập bị bỏ khỏi tiến độ còn
- * phiếu mới lại thấy dòng "chưa lên đơn" → mua hai lần (phản biện 26/09).
+ * ★ `dongDaCoChungTu` — dời sang `nhan-ban-de-nghi.ts` ngày 26/09/2026 (luật nhân bản cũng cần, mà
+ * tệp đó không import ngược tệp này được). Xuất lại y nguyên để mọi chỗ gọi cũ không đổi.
  */
-export function dongDaCoChungTu(
-  dnId: string,
-  stt: number,
-  baoGia: readonly Pick<BaoGia, "prId" | "trangThai" | "items">[],
-  donHang: readonly Pick<DonDatHang, "prId" | "trangThai" | "items">[],
-): boolean {
-  const coBaoGia = baoGia.some(
-    (bg) => bg.prId === dnId && bg.trangThai !== "huy" && bg.items.some((d) => d.sttDongDeNghi === stt),
-  );
-  if (coBaoGia) return true;
-  return donHang.some(
-    (po) => po.prId === dnId && po.trangThai !== "huy" && po.items.some((d) => d.sttDongDeNghi === stt),
-  );
-}
+export { dongDaCoChungTu };
 
 /**
  * ★★ GIAO (ô tích / nút giao) CÓ ĐƯỢC ĐỤNG TỚI CÁC DÒNG NÀY KHÔNG — soát giao việc 25–26/09/2026
@@ -314,7 +301,22 @@ export function apDungGiaoViec(
   /* ── Tách sang phiếu con của người nhận ── */
   const idCon = idPhieuConTheoNguoi(goc.id, g.uid);
   const conCu = tatCa.find((d) => d.id === idCon);
-  const dongGoc = goc.items.filter((d) => giao.has(d.stt));
+  /**
+   * ★ Sếp 26/09/2026 (nhân bản theo NCC): dòng ĐÃ TÁCH MỘT PHẦN khối lượng sang bản nhân bản thì
+   * phiếu con chỉ nhận PHẦN CÒN LẠI, ghi rõ `khoiLuongTuCha`. Chép nguyên khối lượng dòng là bản
+   * nhân bản mua 60, phiếu con mua 100 — mua trùng 60.
+   * 📌 Không bao giờ kế thừa `khoiLuongTuCha`/`khoiLuongVuotCha` của dòng nguồn: hai trường đó nói về
+   * quan hệ của dòng nguồn với CHA CỦA NÓ, không phải với phiếu đang tách.
+   */
+  const phanKhoiLuong = (d: DongDN): Partial<DongDN> => {
+    const x = daChuyen.khoiLuong?.get(d.stt);
+    const dong = { khoiLuongTuCha: undefined, khoiLuongVuotCha: undefined, lyDoVuotCha: undefined };
+    if (x && !x.caDong && x.conLai < x.khoiLuongDong) {
+      return { ...dong, khoiLuongDeNghi: x.conLai, khoiLuongTuCha: x.conLai };
+    }
+    return dong;
+  };
+  const dongGoc = goc.items.filter((d) => giao.has(d.stt)).map((d) => ({ ...d, ...phanKhoiLuong(d) }));
   let con: DeNghiMuaHang;
   if (conCu) {
     /* Giao thêm cho cùng người → nối vào ĐÚNG phiếu con cũ, bỏ dòng đã có (theo `sttDongCha`). */
@@ -447,6 +449,20 @@ export function apDungRutDong(
   const dongRut = con.items.filter((d) => rut.has(d.stt) && typeof d.sttDongCha === "number");
   const sttCha = dongRut.map((d) => d.sttDongCha as number);
   if (sttCha.length === 0) return { loi: "Không có dòng nào để rút." };
+  /**
+   * ★ Sếp 26/09/2026 (nhân bản theo NCC, mục (4)): dòng của phiếu con đã được NHÂN BẢN TIẾP (toàn bộ
+   * hay một phần) sang bản cháu thì KHÔNG rút về được. Rút về là dòng hết mờ ở phiếu gốc, trong khi
+   * bản cháu vẫn đang mua phần của nó → MUA TRÙNG, và bản cháu mất cha (mồ côi).
+   */
+  {
+    const daNhanBanTiep = dongDaNhanBanSang(con, tatCa as DeNghiMuaHang[]);
+    const vuong = dongRut.find((d) => (daNhanBanTiep.get(d.stt)?.length ?? 0) > 0);
+    if (vuong) {
+      return {
+        loi: `Dòng ${vuong.stt} của ${con.code} đã nhân bản sang ${(daNhanBanTiep.get(vuong.stt) ?? []).join(", ")} — xử lý (xoá / đóng) bản đó trước rồi mới rút được.`,
+      };
+    }
+  }
   const conLai = con.items.filter((d) => !rut.has(d.stt));
   /* 🔴 Rút hết dòng = BỎ phiếu con. Còn bản nhân bản trỏ về nó thì bỏ là làm bản đó mồ côi (dòng
      hết mờ ở gốc, mua hai lần) — soát #12. Tệp / bình luận không chặn ở đây: hộp xác nhận nói trước. */
@@ -519,6 +535,21 @@ export function apDungChiaKhoiLuong(
   if (!dong) return { loi: "Không tìm thấy dòng cần chia." };
   const tong = Number(dong.khoiLuongDeNghi) || 0;
   if (!(khoiLuongGiao > 0)) return { loi: "Khối lượng giao phải lớn hơn 0." };
+  /**
+   * ★ Sếp 26/09/2026 (nhân bản theo NCC): dòng ĐÃ TÁCH MỘT PHẦN sang bản nhân bản thì bản đó đang
+   * trỏ vào dòng này theo khối lượng (`khoiLuongTuCha`). Chia dòng làm hai là phần đã tách bị tính
+   * lệch sang một nửa, nửa kia hiện lại đủ khối lượng → mua trùng. Nên: giao cả phần còn lại thì
+   * cho (không chia gì), giao ít hơn thì chặn.
+   */
+  {
+    const x = khoiLuongDaTachTheoDong(dn, tatCa).get(stt);
+    if (x) {
+      if (khoiLuongGiao >= x.conLai) return { deNghi: [...tatCa], sttMoi: null };
+      return {
+        loi: `Dòng ${stt} đã tách một phần sang bản nhân bản (còn ${x.conLai} ${dong.donViTinh}) — không chia khối lượng thêm được. Giao cả phần còn lại, hoặc nhân bản tiếp phần muốn tách.`,
+      };
+    }
+  }
   if (khoiLuongGiao > tong) return { loi: `Khối lượng giao vượt khối lượng của dòng (${tong}).` };
   /* Giao đủ cả dòng → không chia gì. */
   if (khoiLuongGiao === tong) return { deNghi: [...tatCa], sttMoi: null };
@@ -526,18 +557,38 @@ export function apDungChiaKhoiLuong(
   const goc = dong.sttChiaTu ?? dong.stt;
   /* Làm tròn 3 chữ số lẻ — khối lượng có thể lẻ (2,5 tấn), tránh 4.999999 do cộng trừ số thực. */
   const conLai = Math.round((tong - khoiLuongGiao) * 1000) / 1000;
+  /**
+   * ★ Dòng này là dòng của BẢN NHÂN BẢN có ghi khối lượng lấy từ cha / mua thêm (26/09/2026) → chia
+   * luôn hai con số đó cho hai nửa. Chép nguyên sang cả hai nửa là phiếu cha bị trừ HAI LẦN.
+   * Phần lấy từ cha xếp vào nửa giao trước, phần mua thêm xếp sau.
+   */
+  const tuCha = typeof dong.khoiLuongTuCha === "number" ? dong.khoiLuongTuCha : undefined;
+  const vuot = Math.max(0, Number(dong.khoiLuongVuotCha) || 0);
+  const tuCha1 = tuCha === undefined ? undefined : Math.min(tuCha, khoiLuongGiao);
+  const tuCha2 = tuCha === undefined ? undefined : lamTronKhoiLuong(tuCha - (tuCha1 ?? 0));
+  const vuot1 = Math.min(vuot, Math.max(0, lamTronKhoiLuong(khoiLuongGiao - (tuCha1 ?? 0))));
+  const vuot2 = lamTronKhoiLuong(vuot - vuot1);
+  const truongChia = (tc: number | undefined, v: number) =>
+    tuCha === undefined && vuot === 0
+      ? {}
+      : { khoiLuongTuCha: tc, khoiLuongVuotCha: v > 0 ? v : undefined, lyDoVuotCha: v > 0 ? dong.lyDoVuotCha : undefined };
   const moi = tatCa.map((d) =>
     d.id !== prId
       ? d
       : {
           ...d,
           items: [
-            ...d.items.map((x) => (x.stt === stt ? { ...x, khoiLuongDeNghi: khoiLuongGiao, sttChiaTu: goc } : x)),
+            ...d.items.map((x) =>
+              x.stt === stt
+                ? { ...x, khoiLuongDeNghi: khoiLuongGiao, sttChiaTu: goc, ...truongChia(tuCha1, vuot1) }
+                : x,
+            ),
             {
               ...dong,
               stt: sttMoi,
               khoiLuongDeNghi: conLai,
               sttChiaTu: goc,
+              ...truongChia(tuCha2, vuot2),
               nguoiPhuTrachUid: undefined,
               nguoiPhuTrachTen: undefined,
               nguoiPhanBoTen: undefined,
@@ -577,6 +628,35 @@ export function apDungChiaKhoiLuong(
  * nhân bản tay có `sttDongGoc` thì bỏ dòng mà phiếu gốc còn giữ. Lọc bản nhân bản tay CŨ (không có
  * `sttDongGoc`) là việc của nơi gọi, trước khi truyền `banTach`.
  */
+/**
+ * ★★ CHẶN GỘP VỀ BƯỚC ① KHI GỘP SẼ LÀM MẤT LIÊN KẾT / MẤT KHỐI LƯỢNG — Sếp 26/09/2026 (nhân bản
+ * theo NCC, mục (4)). Trả câu chặn, `null` = gộp được.
+ *
+ *   · Còn phiếu KHÔNG được gộp (vd bản nhân bản tay cũ không có `sttDongGoc`) mà cha trực tiếp của
+ *     nó nằm trong nhóm sắp bị xoá → phiếu đó mồ côi: dòng ở gốc hết mờ trong khi nó vẫn mua → MUA
+ *     TRÙNG. Đây đúng là ca phiếu cháu (nhân bản từ phiếu con giao việc) trước ngày 26/09.
+ *   · Có bản đang MUA VƯỢT đề nghị (`khoiLuongVuotCha`) → gộp về là phần vượt (đã họp chốt, có lý do)
+ *     biến mất không dấu vết, vì phiếu gốc chỉ giữ khối lượng đề nghị ban đầu.
+ */
+export function vuongMacGopVeBuoc1(
+  idGoc: string,
+  banTach: readonly Pick<DeNghiMuaHang, "id" | "code" | "items">[],
+  tatCa: readonly Pick<DeNghiMuaHang, "id" | "code" | "deNghiChaId">[],
+): string | null {
+  const idGop = new Set(banTach.map((d) => d.id));
+  const moCoi = tatCa.filter(
+    (d) => d.id !== idGoc && !idGop.has(d.id) && d.deNghiChaId !== undefined && idGop.has(d.deNghiChaId),
+  );
+  if (moCoi.length > 0) {
+    return `Không kéo về bước tiếp nhận được: ${moCoi.map((d) => d.code).join(", ")} là bản nhân bản của một phiếu sắp được gộp — gộp sẽ làm bản đó mất liên kết và mua trùng. Xử lý (xoá / đóng) bản đó trước.`;
+  }
+  const vuot = banTach.filter((d) => d.items.some((x) => (Number(x.khoiLuongVuotCha) || 0) > 0));
+  if (vuot.length > 0) {
+    return `Không kéo về bước tiếp nhận được: ${vuot.map((d) => d.code).join(", ")} đang mua vượt đề nghị (đã ghi lý do) — gộp về phiếu gốc sẽ mất phần vượt đó. Xử lý bản đó trước.`;
+  }
+  return null;
+}
+
 export function gopBanTachVeGoc(
   goc: Pick<DeNghiMuaHang, "items">,
   banTach: readonly Pick<DeNghiMuaHang, "id" | "code" | "deNghiChaId" | "items">[],

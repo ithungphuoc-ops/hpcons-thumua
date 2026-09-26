@@ -192,6 +192,32 @@ export interface DongDeNghi {
    */
   sttChiaTu?: number;
   /**
+   * ★★ PHẦN KHỐI LƯỢNG DÒNG NÀY LẤY TỪ DÒNG `sttDongCha` CỦA PHIẾU CHA — Sếp 26/09/2026 (nhân bản
+   * theo NCC): *"đề nghị 100 bao xi măng nhưng phải cần 2 tới 3 NCC mới đáp ứng được nên phải tạo 2
+   * tới 3 cái đề nghị nhân bản"*.
+   *
+   * Phiếu cha chỉ coi dòng là "đã chuyển đi hết" khi tổng các phần này (qua mọi bản con trực tiếp)
+   * bằng khối lượng dòng; còn thiếu thì phiếu cha tự mua PHẦN CÒN LẠI. Xem `khoiLuongDaTachTheoDong`
+   * ở `2-quy-trinh/nhan-ban-de-nghi.ts`.
+   *
+   * 🔴 LƯU TƯỜNG MINH, KHÔNG SUY TỪ `khoiLuongDeNghi` CỦA BẢN CON: bản con có thể mua thêm ngoài đề
+   * nghị (`khoiLuongVuotCha`) và có thể chia dòng khi giao việc; suy từ khối lượng bản con là sửa bản
+   * con làm phiếu cha tự hiện lại dòng.
+   *
+   * ⚠️ TRỐNG = "CẢ DÒNG" — cư xử y như trước 26/09/2026 (dòng cha mờ hết). Mọi phiếu con giao việc và
+   * mọi bản nhân bản cũ không có trường này.
+   */
+  khoiLuongTuCha?: number;
+  /**
+   * ★★ PHẦN BẢN CON MUA THÊM NGOÀI ĐỀ NGHỊ (không trừ vào phiếu cha) — Sếp 26/09/2026: *"có trường hợp
+   * mua nhiều hơn đề xuất 100 bao, nhưng sau khi họp thì cần 120 bao"*. Bắt buộc có `lyDoVuotCha`.
+   * 📌 Hiện chưa cần Trưởng phòng duyệt (Sếp chưa yêu cầu) — nếu thêm duyệt thì chặn ở
+   * `apDungNhanBanDeNghi`.
+   */
+  khoiLuongVuotCha?: number;
+  /** Lý do mua vượt đề nghị — bắt buộc khi `khoiLuongVuotCha > 0`. */
+  lyDoVuotCha?: string;
+  /**
    * ★ LOẠI VIỆC khi giao dòng (Sếp 26/09/2026) — quyết định phiếu có đi hỏi giá không:
    *   · `xuat_kho` — giao cho THỦ KHO, lấy từ kho, không mua (*"khi giao việc cho nhân viên [thủ
    *     kho] này thì việc sẽ nhảy trực tiếp qua bước Lập đơn mua hàng"*) → lập Phiếu xuất kho PO-03.

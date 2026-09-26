@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check, Eye, UserPlus, X } from "lucide-react";
+import { Check, UserPlus, X } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
@@ -112,7 +112,6 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
                bị đẩy xa khỏi tên, dòng chữ đứt quãng, đọc rất rối. Việc bỏ theo dõi
                chuyển vào hộp "Thêm người theo dõi" — nơi đã có sẵn danh bạ nhân sự. */
             <p className="flex flex-wrap items-baseline gap-x-1.5 text-sm leading-relaxed">
-              <Eye className="size-4 shrink-0 translate-y-0.5 text-text-desc" aria-hidden />
               <span className="text-text-primary">
                 {dsTheoDoi.map((n, i) => (
                   <span key={n.uid}>

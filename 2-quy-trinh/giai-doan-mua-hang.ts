@@ -1938,7 +1938,13 @@ export function mucConNoCuaBuoc(
    * ⚠️ NHẬN QUA THAM SỐ, không import `vuongMacTrinhXetDuyet` — `bao-gia-dinh-kem.ts` import từ
    * `kho-du-lieu`, mà `kho-du-lieu` import ngược lại tệp này (vòng tròn). Nơi gọi tính hộ.
    */
-  if (giaiDoan === "yeu_cau_bao_gia" && vuongMacBaoGia) {
+  /* Việc lấy từ kho (xuất kho / nhân sự) không cần báo giá — Sếp 26/09/2026. Mọi dòng còn làm đều
+     là loại đó thì không nhắc "thiếu báo giá" (dù thẻ ở bước nào). */
+  const toanViecTuKho = (() => {
+    const con = dongConPhaiLam(deNghi, tatCaDeNghi);
+    return con.length > 0 && con.every((d) => d.loaiViecGiao === "xuat_kho" || d.loaiViecGiao === "nhan_su");
+  })();
+  if (giaiDoan === "yeu_cau_bao_gia" && vuongMacBaoGia && !toanViecTuKho) {
     thieu.push({
       /* Nhãn ngắn KHÔNG nhồi con số: câu đầy đủ đã ghi thiếu mấy bản, còn thẻ chỉ cần nói
          thiếu CÁI GÌ (Ban lãnh đạo 24/08/2026 — tối giản ký tự). */
@@ -2688,6 +2694,10 @@ export function vuongMacLapDonHang(
    */
   deNghi?: DeNghiMuaHang,
 ): string | null {
+  /* ★ Phiếu XUẤT KHO / NHÂN SỰ (mọi dòng đang làm lấy hàng có sẵn trong kho) KHÔNG cần báo giá —
+     Sếp 26/09/2026: *"phiếu xuất kho thì sẽ không cần làm báo giá"*. Vẫn qua chốt hợp đồng của bước ④
+     (`vuongMacRoiBuocLapDon`), mà chốt đó tự miễn cho đúng loại phiếu này (`khongCanHopDongHoaDon`). */
+  if (deNghi && khongCanHopDongHoaDon(deNghi)) return vuongMacRoiBuocLapDon(deNghi);
   const conSong = baoGiaCuaDeNghi.filter((b) => b.trangThai !== "huy");
   if (conSong.length === 0) {
     return "Chưa có bảng báo giá nào cho đề nghị này. Phải lập bảng báo giá, thu thập giá rồi trình trưởng bộ phận duyệt trước khi lập đơn đặt hàng.";

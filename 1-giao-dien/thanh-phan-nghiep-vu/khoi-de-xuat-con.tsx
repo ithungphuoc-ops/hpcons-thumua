@@ -74,6 +74,36 @@ export function KhoiDeXuatCon({
     [deNghi.items],
   );
 
+  /**
+   * ★ CẢ PHIẾU CHÁU, XẾP THEO CÂY — Sếp 26/09/2026 (nhân bản theo NCC, mục (3)).
+   *
+   * `deNghiCon` nay gồm cả bản nhân bản TỪ một phiếu con (vd phiếu giao việc `…__A` rồi A tách tiếp
+   * theo NCC). Xếp theo cây (con → cháu của nó) và thụt lề theo tầng để người đọc thấy ai tách từ
+   * ai; phiếu cũ chỉ nối qua `deNghiGocId` (không có cha trực tiếp) đứng cuối, tầng 1.
+   */
+  const theoCay = useMemo(() => {
+    const ra: { con: DeNghiMuaHang; tang: number }[] = [];
+    const daXep = new Set<string>();
+    const duyet = (chaId: string, tang: number) => {
+      for (const c of deNghiCon) {
+        if (c.deNghiChaId !== chaId || daXep.has(c.id)) continue;
+        daXep.add(c.id);
+        ra.push({ con: c, tang });
+        duyet(c.id, tang + 1);
+      }
+    };
+    duyet(deNghi.id, 1);
+    for (const c of deNghiCon) {
+      if (daXep.has(c.id)) continue;
+      daXep.add(c.id);
+      ra.push({ con: c, tang: 1 });
+      duyet(c.id, 2);
+    }
+    return ra;
+  }, [deNghi.id, deNghiCon]);
+  const soChau = theoCay.filter((x) => x.tang > 1).length;
+  const maTheoId = useMemo(() => new Map(deNghiCon.map((c) => [c.id, c.code])), [deNghiCon]);
+
   return (
     <div className="mt-2 rounded-lg border border-primary/30 bg-primary-bg text-sm">
       {/* Dùng `<button>` thật chứ không phải `<div onClick>` — bàn phím phải Tab tới và
@@ -87,6 +117,7 @@ export function KhoiDeXuatCon({
         <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
         <span className="font-semibold text-text-primary">
           Đã tách thành {deNghiCon.length} đề xuất con
+          {soChau > 0 ? ` (gồm ${soChau} phiếu cháu)` : ""}
         </span>
         {/* Nhãn nhắc còn gì bên trong khi đang gập — người dùng biết bấm ra sẽ thấy gì,
             không phải mở thử. */}
@@ -106,28 +137,38 @@ export function KhoiDeXuatCon({
       {mo && (
         <div className="flex flex-col gap-1.5 border-t border-primary/20 p-(--hp-md-row-pad) pt-2">
           <ul className="flex flex-col gap-1">
-            {deNghiCon.map((con) => {
+            {theoCay.map(({ con, tang }) => {
               /**
-               * ★ DÒNG NÀO CỦA PHIẾU GỐC ĐÃ SANG BẢN NÀY — Sếp 15/09/2026.
+               * ★ DÒNG NÀO CỦA PHIẾU ĐANG MỞ ĐÃ SANG BẢN NÀY — Sếp 15/09/2026, mở rộng 26/09/2026.
                *
-               * ⚠️ CHỈ CÓ VỚI BẢN NHÂN BẢN TAY. `sttDongGoc` do `nhanBanDeNghi` ghi; phiếu con
-               * sinh ra bằng TÁCH TỰ ĐỘNG theo phân công (`tachTheoPhanBo`) **cố ý không ghi**
-               * trường này — ở đó dòng bị cắt hẳn khỏi phiếu gốc và phiếu gốc đánh số lại, nên
-               * số cũ trỏ nhầm dòng (lý do đầy đủ ở `kho-du-lieu.tsx`, chỗ dựng `items` của
-               * `tachTheoPhanBo`). Bản con cũ hơn 15/09/2026 cũng không có.
-               *
-               * 👉 Không có thì KHÔNG HIỆN GÌ THÊM — thà thiếu một dòng chú thích còn hơn chỉ
-               * sai dòng vật tư.
+               * · Bản con TRỰC TIẾP (`deNghiChaId` = phiếu đang mở): đọc `sttDongCha` — đúng số dòng
+               *   của phiếu này, kèm khối lượng lấy đi (`khoiLuongTuCha`) và phần mua vượt.
+               * · Bản cũ chỉ nối qua `deNghiGocId`: đọc `sttDongGoc` như trước.
+               * · Phiếu CHÁU: số dòng nói về phiếu cha của nó (không phải phiếu đang mở) → chỉ ghi
+               *   "tách từ {mã cha}", KHÔNG ghi số dòng — ghi là chỉ sai dòng vật tư.
                */
-              const sttGoc = [
-                ...new Set(
-                  con.items
-                    .map((x) => x.sttDongGoc)
-                    .filter((x): x is number => typeof x === "number"),
-                ),
-              ].sort((a, b) => a - b);
+              const trucTiep = con.deNghiChaId === deNghi.id;
+              const laChau = tang > 1;
+              const dongNhan = laChau
+                ? []
+                : con.items
+                    .map((x) => ({
+                      stt: trucTiep ? x.sttDongCha : con.deNghiChaId ? undefined : x.sttDongGoc,
+                      tuCha: trucTiep ? x.khoiLuongTuCha : undefined,
+                      vuot: trucTiep ? Number(x.khoiLuongVuotCha) || 0 : 0,
+                      dv: x.donViTinh,
+                    }))
+                    .filter((x): x is { stt: number; tuCha: number | undefined; vuot: number; dv: string } =>
+                      typeof x.stt === "number",
+                    )
+                    .sort((a, b) => a.stt - b.stt);
               return (
-                <li key={con.id} className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm">
+                <li
+                  key={con.id}
+                  className={`flex min-w-0 flex-wrap items-center gap-x-2 text-sm ${
+                    tang === 2 ? "pl-4" : tang > 2 ? "pl-8" : ""
+                  }`}
+                >
                   <Link
                     href={`/de-nghi/${con.id}`}
                     className="font-medium text-primary hover:underline"
@@ -160,12 +201,24 @@ export function KhoiDeXuatCon({
                   </span>
                   {/* `basis-full` — xuống hàng riêng: danh sách tên vật tư dài, để chung hàng với
                       mã phiếu là bị cắt mất đúng phần cần đọc. */}
-                  {sttGoc.length > 0 && (
+                  {laChau && con.deNghiChaId && (
+                    <span className="basis-full text-xs text-text-secondary">
+                      Phiếu cháu — tách từ {maTheoId.get(con.deNghiChaId) ?? con.deNghiChaId}
+                    </span>
+                  )}
+                  {dongNhan.length > 0 && (
                     <span className="basis-full text-xs text-text-secondary">
                       Đã nhận dòng{" "}
-                      {sttGoc.map((s) => `${s}. ${tenDongGoc.get(s) ?? "(dòng đã bỏ)"}`).join(" · ")}{" "}
-                      của phiếu gốc — các dòng này ở phiếu gốc đang được làm mờ, không phải mua
-                      nữa.
+                      {dongNhan
+                        .map(
+                          (x) =>
+                            `${x.stt}. ${tenDongGoc.get(x.stt) ?? "(dòng đã bỏ)"}` +
+                            (typeof x.tuCha === "number" ? ` (${x.tuCha} ${x.dv})` : " (cả dòng)") +
+                            (x.vuot > 0 ? ` + mua vượt ${x.vuot} ${x.dv}` : ""),
+                        )
+                        .join(" · ")}{" "}
+                      của phiếu này — dòng đi hết thì được làm mờ, dòng chỉ tách một phần thì phiếu
+                      này tự mua phần còn lại.
                     </span>
                   )}
                 </li>

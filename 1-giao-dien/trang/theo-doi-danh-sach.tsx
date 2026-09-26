@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronRight, Clock, Eye, GitBranch, Plus, Search, UserCheck } from "lucide-react";
-import { Button } from "@/1-giao-dien/nen-tang-ui/button";
-import { DIA_CHI_APP_DE_NGHI } from "@/6-tien-ich/dia-chi-app-de-nghi";
+import { ChevronRight, Clock, Eye, GitBranch, Search, UserCheck } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -340,38 +338,9 @@ export default function TrangTheoDoi() {
         ]}
         title="Theo dõi đề nghị"
         description="Tiến trình hồ sơ đề nghị mua hàng — không hiển thị giá và nhà cung cấp"
-        /**
-          * ★★ NÚT "TẠO ĐỀ NGHỊ" ĐƯA VỀ ĐÂY — 18/09/2026, vá một hậu quả của việc siết menu sáng nay.
-          *
-          * 🔴 Nút này trước đó CHỈ có ở màn *Công việc của tôi*, mà màn đó vừa bị đóng với mọi
-          * phòng ban ngoài Thu mua. Hậu quả: **chính người đề nghị** (Phòng Thi công, QLDA…) mất
-          * hẳn đường lập đề nghị mua hàng — trong khi quyền `taoDeNghi` của họ vẫn còn nguyên
-          * (chỉ đạo Ban lãnh đạo 12/08/2026: *mọi tài khoản đều lập được đề nghị*). Siết quyền
-          * XEM không được phép cắt mất việc người ta vẫn có quyền LÀM.
-          *
-          * 📌 Ban lãnh đạo 15/08/2026 từng bảo bỏ nút này khỏi màn theo dõi vì *"đang bị dư"* —
-          * lúc đó nó dư thật, vì đường lập đề nghị còn ở màn Quy trình mua hàng mà họ vào được.
-          * Nay đường đó đã đóng với họ, nên lý do cũ không còn đúng. Ghi lại để người sau không
-          * tưởng là dựng lại thứ đã bị bỏ.
-          */
-        actions={
-          quyen.taoDeNghi ? (
-            <Button
-              nativeButton={false}
-              render={
-                <a
-                  href={DIA_CHI_APP_DE_NGHI}
-                  target="_blank"
-                  rel="noreferrer"
-                  title="Mở app Đề nghị trong tab mới"
-                />
-              }
-            >
-              <Plus className="size-4" aria-hidden />
-              Tạo đề nghị
-            </Button>
-          ) : null
-        }
+        /* 📌 ĐÃ BỎ NÚT "Tạo đề nghị" — Sếp 26/09/2026: *"Bỏ nút tạo đề nghị ở chức năng theo dõi
+           đi"*. Đây là màn TRA CỨU tiến trình. Nút từng được đưa về 18/09/2026 để người ngoài Thu
+           mua còn đường lập đề nghị; nay họ lập thẳng ở app Đề nghị (request.hpcore.vn). */
       />
 
       {danhSach.length === 0 ? (

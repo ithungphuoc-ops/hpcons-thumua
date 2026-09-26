@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Copy, ListChecks } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Copy, Info, ListChecks, Lock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,34 +12,55 @@ import {
 } from "@/1-giao-dien/nen-tang-ui/dialog";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
+import { Input } from "@/1-giao-dien/nen-tang-ui/input";
+import { Textarea } from "@/1-giao-dien/nen-tang-ui/textarea";
 import { formatNumber } from "@/6-tien-ich/dinh-dang";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import {
+  apDungNhanBanDeNghi,
+  danhGiaDongNhanBan,
+  lamTronKhoiLuong,
   maBanSaoTiepTheo,
   phieuGocCua,
-  sttDuocNhanBan,
   tenBanSaoTheoMa,
+  type DongChonNhanBan,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
+/** Ô nhập khối lượng của một dòng đang chọn — giữ dạng chuỗi để người dùng gõ dở "12," không bị nuốt. */
+interface ONhap {
+  tuCha: string;
+  them: string;
+}
+
+/** Đọc số người dùng gõ — chấp nhận dấu phẩy thập phân kiểu Việt. Trống = 0. */
+function docSo(s: string): number {
+  const t = s.trim().replace(",", ".");
+  if (t === "") return 0;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : Number.NaN;
+}
+
 /**
- * HỘP NHÂN BẢN ĐỀ NGHỊ — chép phiếu rồi bỏ bớt mặt hàng ngay trong một thao tác.
+ * HỘP NHÂN BẢN ĐỀ NGHỊ = TÁCH THEO NHÀ CUNG CẤP.
  *
- * 🔴 Ban lãnh đạo 13/08/2026: *"nhân bản sẽ giữ nguyên toàn bộ thông tin chỉ thêm chữ
- * (copy) phía sau và có chức năng xóa bớt mặt hàng để giao cho nhân viên phù hợp"*.
+ * 🔴 Ban lãnh đạo 13/08/2026: *"nhân bản sẽ giữ nguyên toàn bộ thông tin chỉ thêm chữ (copy) phía sau
+ * và có chức năng xóa bớt mặt hàng để giao cho nhân viên phù hợp"*.
  *
- * Đây là cách TÁCH PHIẾU: một đề nghị 10 mặt hàng cần hai người đi hỏi giá hai nhóm vật
- * tư khác nhau → nhân bản hai lần, mỗi lần giữ phần của một người, rồi giao riêng.
+ * ★★★ Sếp duyệt 26/09/2026: *"nhân viên sẽ nhân bản đề nghị để tách từng công việc nhỏ trong đề nghị
+ * do khác nhà cung cấp… phải có liên kết cha con"* — và thêm chức năng tăng giảm khối lượng: *"đề
+ * nghị 100 bao xi măng nhưng phải cần 2 tới 3 NCC… Và có trường hợp mua nhiều hơn đề xuất 100 bao,
+ * nhưng sau khi họp thì cần 120 bao"*.
  *
- * 📌 Vì sao chọn ngay trong hộp nhân bản chứ không "nhân bản xong rồi vào sửa": tách phiếu
- * là một ý định trọn vẹn của người dùng. Bắt họ làm hai bước rời nhau thì bước hai dễ bị
- * quên, và một bản copy nguyên xi 10 mặt hàng nằm lại trong bảng trông y hệt phiếu gốc —
- * không ai biết cái nào là cái nào.
- *
- * ⚠️ Mặc định TÍCH HẾT. Người dùng chỉ muốn copy nguyên thì bấm thẳng nút, không phải đi
- * tick 10 dòng; còn muốn tách thì bỏ tick vài dòng. Mặc định trống sẽ khiến thao tác
- * thường gặp nhất thành thao tác tốn công nhất.
+ *   · Chỉ tích được dòng HỢP LỆ; dòng không hợp lệ hiện xám KÈM LÝ DO (đã chuyển hết · có báo giá /
+ *     đơn · của người khác). Luật ở `danhGiaDongNhanBan` — dùng chung với tầng ghi.
+ *   · 🔴 MẶC ĐỊNH KHÔNG TÍCH DÒNG NÀO (trước 26/09 tích hết → phiếu gốc mờ toàn bộ, kéo luôn dòng
+ *     đồng nghiệp đang mua sang bản sao = mua trùng).
+ *   · Mỗi dòng chọn có ô "Lấy từ phần còn lại" (mặc định = còn lại, sửa nhỏ hơn được) và ô "Mua thêm
+ *     ngoài đề nghị" (> 0 thì bắt buộc lý do).
+ *   · Nút xác nhận khoá kèm ĐÚNG câu tầng ghi sẽ trả: hộp chạy thử `apDungNhanBanDeNghi` trên dữ liệu
+ *     đang có, nên không bao giờ cho bấm một thứ tầng ghi sẽ chặn (và ngược lại).
  */
 export function HopNhanBanDeNghi({
   deNghi,
@@ -47,214 +68,312 @@ export function HopNhanBanDeNghi({
   onDong,
   onXacNhan,
 }: {
-  /** Phiếu gốc. `null` khi chưa chọn phiếu nào — hộp vẫn dựng để hiệu ứng đóng chạy hết. */
+  /** Phiếu đang nhân bản. `null` khi chưa chọn phiếu nào — hộp vẫn dựng để hiệu ứng đóng chạy hết. */
   deNghi: DeNghiMuaHang | null;
   mo: boolean;
   onDong: () => void;
-  /** Nhận danh sách `stt` các dòng được giữ lại. */
-  onXacNhan: (sttGiuLai: number[]) => void;
+  /** Gửi dòng + khối lượng + lý do. Trả câu lỗi (hộp giữ nguyên để sửa) hoặc `null` (đã tạo, đóng hộp). */
+  onXacNhan: (luaChon: { chon: DongChonNhanBan[]; lyDoVuot?: string }) => string | null;
 }) {
-  /** Cả kho đề nghị — cần để tra phiếu gốc và đếm số bản đã tách. */
-  const { deNghi: dsDeNghi } = useDuLieu();
+  const { deNghi: dsDeNghi, baoGia, donHang } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
-  const [chon, setChon] = useState<Set<number>>(new Set());
-  /**
-   * ★ CHỈ LIỆT KÊ DÒNG ĐƯỢC NHÂN BẢN — soát giao việc 25–26/09/2026 (#16 #23 #24). Luật ở
-   * `sttDuocNhanBan` (dùng chung với tầng ghi `nhanBanDeNghi`): bỏ dòng đã tách / nhân bản đi
-   * (không mua trùng); nhân viên chỉ thấy dòng của chính mình.
-   */
-  const duoc = deNghi ? sttDuocNhanBan(deNghi, dsDeNghi, nguoiDung.uid, quyen.phanBoCongViec) : [];
+  const [chon, setChon] = useState<Map<number, ONhap>>(new Map());
+  const [lyDoVuot, setLyDoVuot] = useState("");
+  const [loiGui, setLoiGui] = useState<string | null>(null);
 
   /**
-   * Mở hộp cho phiếu nào thì tích hết dòng của phiếu đó.
-   * ⚠️ Phải phụ thuộc `deNghi?.id` chứ không phải `deNghi`: đối tượng dựng lại mỗi lần kho
-   * dữ liệu đổi, để `deNghi` là lựa chọn của người dùng bị xóa sạch giữa chừng khi có
-   * người khác trong phòng sửa một phiếu bất kỳ.
+   * Mở hộp cho phiếu nào thì làm trống lựa chọn.
+   * ⚠️ Phụ thuộc `deNghi?.id` chứ không phải `deNghi`: đối tượng dựng lại mỗi lần kho dữ liệu đổi,
+   * để `deNghi` là lựa chọn của người dùng bị xoá sạch khi có người khác sửa một phiếu bất kỳ.
    */
   useEffect(() => {
-    if (mo && deNghi) setChon(new Set(duoc));
-  }, [mo, deNghi?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (mo) {
+      setChon(new Map());
+      setLyDoVuot("");
+      setLoiGui(null);
+    }
+  }, [mo, deNghi?.id]);
+
+  const danhGia = useMemo(
+    () =>
+      deNghi
+        ? danhGiaDongNhanBan(deNghi, dsDeNghi, nguoiDung.uid, quyen.phanBoCongViec, baoGia, donHang)
+        : [],
+    [deNghi, dsDeNghi, nguoiDung.uid, quyen.phanBoCongViec, baoGia, donHang],
+  );
+
+  /* Chỉ gửi dòng còn hợp lệ — dòng vừa bị máy khác tách hết trong lúc hộp mở thì rơi ra. */
+  const dsChon: DongChonNhanBan[] = danhGia
+    .filter((x) => x.duoc && chon.has(x.stt))
+    .map((x) => {
+      const o = chon.get(x.stt) as ONhap;
+      return { stt: x.stt, khoiLuongTuCha: docSo(o.tuCha), khoiLuongThem: docSo(o.them) };
+    });
+  const coVuot = dsChon.some((c) => (c.khoiLuongThem ?? 0) > 0);
+
+  /* Chạy thử đúng hàm tầng ghi — câu lỗi hiện ở đây là câu tầng ghi sẽ trả. */
+  const loiThu = useMemo(() => {
+    if (!deNghi || dsChon.length === 0) return null;
+    const kq = apDungNhanBanDeNghi(dsDeNghi, {
+      prId: deNghi.id,
+      nguoi: { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
+      laNguoiPhanBo: quyen.phanBoCongViec,
+      chon: dsChon,
+      lyDoVuot,
+      idMoi: "__thu__",
+      ngay: "2000-01-01",
+      thoiDiem: "2000-01-01T00:00:00Z",
+      baoGia,
+      donHang,
+    });
+    return kq.loi ?? null;
+    // dsChon dựng lại mỗi lần vẽ — so bằng chuỗi để không chạy thử thừa.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deNghi, dsDeNghi, JSON.stringify(dsChon), lyDoVuot, nguoiDung.uid, quyen.phanBoCongViec, baoGia, donHang]);
 
   if (!deNghi) return null;
 
-  const tatCa = deNghi.items.filter((d) => duoc.includes(d.stt));
-  /* Chỉ đếm / gửi dòng còn được phép — dòng vừa bị người khác tách đi trong lúc hộp mở thì rơi ra. */
-  const chonHopLe = [...chon].filter((st) => duoc.includes(st));
-  const soChon = chonHopLe.length;
-  // Luật đặt tên và quan hệ cha–con: MỘT CHỖ DUY NHẤT, dùng chung với kho dữ liệu.
   const goc = phieuGocCua(deNghi, dsDeNghi);
   const maMoi = maBanSaoTiepTheo(deNghi, dsDeNghi);
+  const soDuoc = danhGia.filter((x) => x.duoc).length;
+  const dongTheoStt = new Map(deNghi.items.map((d) => [d.stt, d]));
 
-  function doiDong(stt: number) {
+  function doiDong(stt: number, conLai: number) {
+    setLoiGui(null);
     setChon((truoc) => {
-      const s = new Set(truoc);
-      if (s.has(stt)) s.delete(stt);
-      else s.add(stt);
-      return s;
+      const m = new Map(truoc);
+      if (m.has(stt)) m.delete(stt);
+      else m.set(stt, { tuCha: String(conLai), them: "" });
+      return m;
+    });
+  }
+  function doiO(stt: number, truong: keyof ONhap, gt: string) {
+    setLoiGui(null);
+    setChon((truoc) => {
+      const m = new Map(truoc);
+      const o = m.get(stt);
+      if (o) m.set(stt, { ...o, [truong]: gt });
+      return m;
     });
   }
 
   return (
     <Dialog open={mo} onOpenChange={(v: boolean) => !v && onDong()}>
-      <DialogContent className="sm:max-w-lg">
+      {/* 🔴 `sm:max-w-…` chứ không `max-w-…` trơn — lớp gốc của DialogContent có `sm:max-w-sm`,
+          viết trơn là bị đè im lặng (CLAUDE.md §5). */}
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Nhân bản đề nghị {deNghi.code}</DialogTitle>
-          {/**
-           * 🔴 CÂU NÀY TỪNG NÓI SAI, ĐÃ SỬA 15/09/2026. Bản cũ ghi *"Bạn sẽ là người phụ trách
-           * TOÀN BỘ mặt hàng của bản sao"*, trong khi `nhanBanDeNghi` (kho dữ liệu) **chỉ gán
-           * người cho dòng gốc ĐÃ CÓ NGƯỜI** — chốt của Ban lãnh đạo 16/08/2026 (*"nhân bản ở
-           * bước nào thì sẽ trả nhân bản ở đúng bước đó"*): dòng gốc chưa ai nhận thì bản copy
-           * cũng để trống, nếu không bản copy tự nhảy sang bước ② trong khi phiếu gốc còn đứng
-           * ở bước ①.
-           *
-           * ⚠️ Hộp nói quá phạm vi thật thì người dùng tưởng nhân bản là đã có người làm hết,
-           * rồi dòng chưa ai nhận nằm treo — đúng kiểu giao diện hứa một việc app không làm.
-           */}
           <DialogDescription>
-            Bản sao giữ nguyên dự án, công trình, ngày cần hàng, người theo dõi và tài liệu
-            đính kèm. <strong>Bạn nhận phần việc của những dòng đã có người phụ trách</strong>;
-            dòng nào ở phiếu gốc chưa giao cho ai thì sang bản sao vẫn để trống, chờ phân bổ.
+            Dùng khi một phần của phiếu mua ở <strong>nhà cung cấp khác</strong>: chọn mặt hàng và
+            khối lượng đưa sang bản mới. Bản mới giữ dự án, công trình, ngày cần hàng, người theo dõi
+            và tài liệu đầu vào; <strong>bạn nhận phần việc của những dòng đã có người phụ trách</strong>,
+            dòng chưa giao ai thì vẫn chờ phân bổ.
           </DialogDescription>
         </DialogHeader>
 
-        {/* 🔴 Tên bản sao TÍNH BẰNG ĐÚNG HÀM mà kho dữ liệu dùng khi lưu
-            (`2-quy-trinh/nhan-ban-de-nghi.ts`), không tự ghép chuỗi ở đây.
-
-            Bản trước viết thẳng `{deNghi.tieuDe} (copy)` nên nhân bản từ một bản copy thì
-            hộp báo *"… (copy) (copy)"* trong khi app lưu *"… (copy 2)"* — hộp nói một đằng,
-            app làm một nẻo, và người dùng tin vào cái đọc được. Ban lãnh đạo phát hiện
-            13/08/2026. */}
+        {/* Tên / mã bản sao TÍNH BẰNG ĐÚNG HÀM kho dữ liệu dùng khi lưu (13/08 + 17/09/2026). */}
         <p className="rounded-lg border border-border bg-muted px-3 py-2 text-sm">
           <span className="text-text-desc">Mã phiếu mới: </span>
           <span className="font-semibold text-text-primary">{maMoi}</span>
-          {/**
-            * ★ IN ĐÚNG TÊN APP SẼ LƯU — sửa 17/09/2026.
-            *
-            * 🔴 Câu cũ ghi *"Tên đề xuất giữ nguyên: {goc.tieuDe}"*, nhưng từ 22/08/2026 Ban lãnh
-            * đạo đã chốt tên bản tách **có thêm "(copy N)"** (*"tên của nó sẽ vẫn giống như công
-            * việc cha chỉ thêm từ copy + số tt"*). Tức hộp hứa một đằng, app lưu một nẻo — đúng
-            * loại lỗi mà chính khối chú thích ngay trên đây kể lại là Ban lãnh đạo đã bắt ngày
-            * 13/08/2026, và nó quay lại lần thứ hai ở một câu khác.
-            *
-            * 📌 GỌI `tenBanSaoTheoMa` CHỨ KHÔNG TỰ GHÉP CHUỖI. Đó là bài học của chính file
-            * `nhan-ban-de-nghi.ts`: hai chỗ cùng tính một cái tên thì sớm muộn lệch nhau.
-            */}
           <span className="block text-xs text-text-desc">
             Tên đề xuất mới: {tenBanSaoTheoMa(goc.tieuDe, maMoi)}
           </span>
+          {/* ★ Sửa 26/09/2026 — câu cũ ghi "Bản mới … KHÔNG PHẢI con của {phiếu đang mở}", ngược với
+              dữ liệu thật: từ 17/09 `deNghiChaId` = phiếu đang bấm nhân bản. */}
+          <span className="block text-xs text-text-desc">
+            Bản mới là <strong>con của {deNghi.code}</strong>
+            {goc.id !== deNghi.id ? <> · thuộc đề xuất gốc {goc.code}</> : null} — hiện trong khối
+            &quot;Đã tách thành … đề xuất con&quot; của các phiếu này.
+          </span>
         </p>
 
-        {/* Đứng ở một bản copy mà nhân bản tiếp thì nói rõ nó vẫn thuộc đề xuất lớn nào —
-            quan hệ cha–con chỉ MỘT cấp, không sinh ra chuỗi cha–con–cháu. */}
-        {goc.id !== deNghi.id && (
-          <p className="text-xs text-text-desc">
-            Bản mới vẫn thuộc đề xuất gốc <strong>{goc.code}</strong>, không phải con của{" "}
-            {deNghi.code}.
-          </p>
-        )}
-
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
               <ListChecks className="size-4 shrink-0 text-text-desc" aria-hidden />
-              Mặt hàng giữ lại ({soChon}/{tatCa.length})
+              Mặt hàng đưa sang bản mới ({dsChon.length}/{soDuoc} chọn được)
             </span>
-            {/* Hai nút này để tách phiếu nhanh: bỏ hết rồi tick vài dòng cần, thay vì bỏ
-                tick từng dòng trong phiếu 20 mặt hàng. */}
-            <span className="flex gap-1">
+            {dsChon.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setChon(new Set(tatCa.map((d) => d.stt)))}
+                className="min-h-11"
+                onClick={() => {
+                  setChon(new Map());
+                  setLoiGui(null);
+                }}
               >
-                Chọn hết
+                Bỏ chọn hết
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setChon(new Set())}>
-                Bỏ hết
-              </Button>
-            </span>
+            )}
           </div>
 
-          {/* Cuộn trong hộp: phiếu 20 mặt hàng thì danh sách dài hơn màn hình, mà nút xác
-              nhận phải luôn nhìn thấy — đẩy nút xuống dưới màn là người dùng tưởng hộp hỏng. */}
-          <ul className="flex max-h-64 flex-col divide-y divide-divider overflow-y-auto rounded-lg border border-border">
-            {tatCa.map((d) => {
-              const dangChon = chon.has(d.stt);
+          {/* Cuộn trong hộp: nút xác nhận phải luôn nhìn thấy. */}
+          <ul className="flex max-h-[50vh] flex-col divide-y divide-divider overflow-y-auto rounded-lg border border-border">
+            {danhGia.map((x) => {
+              const d = dongTheoStt.get(x.stt);
+              if (!d) return null;
+              const dangChon = x.duoc && chon.has(x.stt);
+              const o = chon.get(x.stt);
+              const tuCha = o ? docSo(o.tuCha) : 0;
+              const them = o ? docSo(o.them) : 0;
+              const dv = d.donViTinh;
+              const coKhoiLuong = x.khoiLuongDong > 0;
+              const conSau = lamTronKhoiLuong(x.conLai - (Number.isFinite(tuCha) ? tuCha : 0));
+              const tongVuot = lamTronKhoiLuong(x.vuot + (Number.isFinite(them) ? them : 0));
               return (
-                <li key={d.stt}>
+                <li key={x.stt} className={x.duoc ? "" : "bg-muted"}>
                   <label
-                    className={`flex min-w-0 cursor-pointer items-start gap-2.5 px-3 py-2.5 transition-colors hover:bg-muted ${
-                      dangChon ? "" : "opacity-55"
+                    className={`flex min-h-11 min-w-0 items-start gap-2.5 px-3 py-2.5 ${
+                      x.duoc ? "cursor-pointer hover:bg-muted" : "cursor-not-allowed"
                     }`}
                   >
-                    <Checkbox
-                      checked={dangChon}
-                      onCheckedChange={() => doiDong(d.stt)}
-                      className="mt-0.5 shrink-0"
-                      aria-label={`Giữ lại ${d.tenVatLieu}`}
-                    />
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate text-sm font-medium text-text-primary">
+                    {x.duoc ? (
+                      <Checkbox
+                        checked={dangChon}
+                        onCheckedChange={() => doiDong(x.stt, x.conLai)}
+                        className="mt-0.5 shrink-0"
+                        aria-label={`Chọn ${d.tenVatLieu}`}
+                      />
+                    ) : (
+                      <Lock className="mt-0.5 size-4 shrink-0 text-text-disabled" aria-hidden />
+                    )}
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span
+                        className={`text-sm font-medium ${x.duoc ? "text-text-primary" : "text-text-disabled"}`}
+                      >
                         {d.stt}. {d.tenVatLieu}
                       </span>
-                      <span className="truncate text-xs text-text-desc">
+                      <span className="text-xs text-text-desc">
                         {d.quyCach ? `${d.quyCach} · ` : ""}
-                        {formatNumber(d.khoiLuongDeNghi)} {d.donViTinh}
-                        {/* Dòng đã có người phụ trách ở phiếu GỐC — nói rõ để người tách
-                            biết mình đang cắt phần việc của ai ra. Ở BẢN SAO, người phụ
-                            trách được gán cho chính người bấm nhân bản (15/08/2026). */}
+                        {formatNumber(x.khoiLuongDong)} {dv}
+                        {x.daLay > 0 && x.conLai > 0
+                          ? ` · còn ${formatNumber(x.conLai)} ${dv} (${formatNumber(x.daLay)} đã tách sang ${x.maPhieuDaNhan.join(", ")})`
+                          : ""}
                         {d.nguoiPhuTrachTen ? ` · đang giao ${d.nguoiPhuTrachTen}` : ""}
                       </span>
+                      {x.vuot > 0 && (
+                        <span className="text-xs font-medium text-warning-soft">
+                          Đã mua vượt đề nghị {formatNumber(x.vuot)} {dv}
+                        </span>
+                      )}
+                      {/* 🔴 Dòng xám PHẢI kèm lý do — trạng thái có cả chữ lẫn màu (Design System V1.1). */}
+                      {!x.duoc && x.lyDo && (
+                        <span className="text-xs font-medium text-text-secondary">
+                          Không chọn được: {x.lyDo}
+                        </span>
+                      )}
                     </span>
                   </label>
+
+                  {dangChon && o && coKhoiLuong && (
+                    <div className="flex flex-col gap-2 px-3 pb-3 pl-10">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="flex flex-col gap-1 text-xs text-text-secondary">
+                          Lấy từ phần còn lại (tối đa {formatNumber(x.conLai)} {dv})
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={o.tuCha}
+                            onChange={(e) => doiO(x.stt, "tuCha", e.target.value)}
+                            aria-invalid={!Number.isFinite(tuCha) || tuCha > x.conLai || tuCha < 0}
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-xs text-text-secondary">
+                          Mua thêm ngoài đề nghị ({dv})
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0"
+                            value={o.them}
+                            onChange={(e) => doiO(x.stt, "them", e.target.value)}
+                            aria-invalid={!Number.isFinite(them) || them < 0}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-text-desc">
+                        Bản mới mua{" "}
+                        <strong className="text-text-primary">
+                          {Number.isFinite(tuCha + them) ? formatNumber(lamTronKhoiLuong(tuCha + them)) : "—"} {dv}
+                        </strong>
+                        {" · "}
+                        {conSau > 0
+                          ? `${deNghi.code} còn tự mua ${formatNumber(conSau)} ${dv}`
+                          : `${deNghi.code} hết phần dòng này`}
+                      </p>
+                      {tongVuot > 0 && Number.isFinite(them) && them > 0 && (
+                        <p className="flex items-center gap-1.5 rounded-md bg-warning-bg px-2 py-1 text-xs font-medium text-warning-soft">
+                          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+                          Vượt đề nghị: tổng {formatNumber(lamTronKhoiLuong(x.khoiLuongDong + tongVuot))} / đề nghị{" "}
+                          {formatNumber(x.khoiLuongDong)} {dv} · vượt {formatNumber(tongVuot)}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}
           </ul>
 
-          {/* 🔴 Nút mờ PHẢI kèm lý do — nút mờ không giải thích là kiểu bí việc khó chịu
-              nhất: người dùng bấm mãi không được mà chẳng biết vì sao. */}
-          {soChon === 0 && (
-            <p className="text-xs text-warning-soft">
-              Chưa giữ mặt hàng nào. Phiếu không có vật tư thì không đi tiếp được bước nào —
-              chọn ít nhất một dòng.
+          {coVuot && (
+            <label className="flex flex-col gap-1 text-sm font-medium text-text-primary">
+              Lý do mua vượt đề nghị <span className="text-xs font-normal text-danger">(bắt buộc)</span>
+              <Textarea
+                value={lyDoVuot}
+                onChange={(e) => {
+                  setLoiGui(null);
+                  setLyDoVuot(e.target.value);
+                }}
+                placeholder="VD: Họp công trường 26/09 chốt cần 120 bao"
+                aria-invalid={!lyDoVuot.trim()}
+              />
+              <span className="text-xs font-normal text-text-desc">
+                Ghi vào nhật ký của cả phiếu này và bản mới. Đừng ghi tên nhà cung cấp — nhật ký hiện cho
+                cả vai trò không được xem NCC.
+              </span>
+            </label>
+          )}
+
+          {soDuoc === 0 && (
+            <p className="flex items-start gap-1.5 text-xs text-warning-soft">
+              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              Phiếu này không còn dòng nào bạn nhân bản được — xem lý do cạnh từng dòng.
             </p>
           )}
-          {/**
-           * 🔴 LỜI DẶN CŨ ĐÃ BỎ — 15/09/2026. Bản cũ dặn: *"Muốn tách hẳn thì sau khi nhân bản,
-           * vào phiếu gốc bỏ những dòng đã chuyển sang bản mới"*. **Nay không làm theo được**:
-           * nút xoá dòng vật tư đã bị bỏ hẳn ngày 13/09/2026 theo chỉ đạo Sếp (*"Bỏ mục xoá
-           * này"* — xem khối chú thích trong `bang-phan-bo.tsx`), nên người đọc câu đó sẽ đi tìm
-           * một nút không còn tồn tại.
-           *
-           * ✅ Thay bằng đúng cách app đang làm từ 15/09/2026 — Sếp chốt: *"ở đề xuất chính sẽ
-           * làm mờ các mặt hàng đã nhân bản đi"* và *"Không cần mua (nhưng hãy làm mờ đi để vẫn
-           * xem được nhưng khi in ra sẽ ko thấy)"*. Tức là không phải dọn tay gì nữa.
-           */}
-          {soChon > 0 && soChon < tatCa.length && (
+          {dsChon.length === 0 && soDuoc > 0 && (
+            <p className="text-xs text-text-desc">Chưa chọn mặt hàng nào — tích dòng cần tách sang nhà cung cấp khác.</p>
+          )}
+          {(loiGui ?? loiThu) && (
+            <p className="flex items-start gap-1.5 rounded-md bg-danger-bg px-2 py-1.5 text-xs font-medium text-danger-soft">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              {loiGui ?? loiThu}
+            </p>
+          )}
+          {dsChon.length > 0 && !loiThu && (
             <p className="text-xs text-text-desc">
-              Phiếu gốc <strong>{deNghi.code}</strong> vẫn giữ đủ {tatCa.length} mặt hàng để tra
-              lại, nhưng {soChon} dòng vừa chọn sẽ được{" "}
-              <strong>làm mờ và ghi rõ đã nhân bản sang đâu</strong> — phiếu gốc không phải mua
-              phần đó nữa, và khi in phiếu gốc ra giấy thì các dòng này không hiện. Không cần
-              xóa tay dòng nào.
+              Phiếu <strong>{deNghi.code}</strong> vẫn giữ đủ mặt hàng để tra lại: dòng đưa đi hết được{" "}
+              <strong>làm mờ</strong>, dòng chỉ tách một phần thì hiện <strong>phần còn lại</strong> và ghi
+              rõ đã tách sang đâu.
             </p>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onDong}>
+          <Button variant="outline" className="min-h-11" onClick={onDong}>
             Hủy
           </Button>
           <Button
-            disabled={soChon === 0}
+            className="min-h-11"
+            disabled={dsChon.length === 0 || Boolean(loiThu)}
             onClick={() => {
-              onXacNhan(chonHopLe);
-              onDong();
+              const loi = onXacNhan({ chon: dsChon, lyDoVuot: coVuot ? lyDoVuot.trim() : undefined });
+              if (loi) setLoiGui(loi);
+              else onDong();
             }}
           >
             <Copy className="size-4" aria-hidden />
-            Nhân bản {soChon} mặt hàng
+            Nhân bản {dsChon.length} mặt hàng
           </Button>
         </DialogFooter>
       </DialogContent>

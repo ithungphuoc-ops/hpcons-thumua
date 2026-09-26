@@ -128,6 +128,7 @@ import {
 } from "@/2-quy-trinh/tinh-toan";
 import { BangTienDoPO } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-tien-do-po";
 import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
+import { hauDueCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { formatMocThoiGian } from "@/6-tien-ich/dinh-dang";
 import { tienDoTheoNguoi } from "@/2-quy-trinh/tien-do-theo-nguoi";
 import {
@@ -420,10 +421,10 @@ export default function TrangChiTietDeNghi({
    * Các đề xuất con đã tách ra từ phiếu này — để "tổng hợp lại các đề xuất con của cái đề
    * xuất lớn" (Ban lãnh đạo 13/08/2026). Lọc theo `deNghiGocId`, KHÔNG theo tên.
    */
-  const deNghiCon = useMemo(
-    () => deNghi.filter((d) => d.deNghiGocId === params.id),
-    [deNghi, params.id],
-  );
+  /* ★ Sếp 26/09/2026 (nhân bản theo NCC, mục (3)): gồm CẢ PHIẾU CHÁU — phiếu ở giữa (vd phiếu con
+     giao việc `…__A`) trước đây không thấy bản A nhân bản tiếp, vì bản đó mang `deNghiGocId` = phiếu
+     gốc. `hauDueCua` = hợp của lọc `deNghiGocId` (bản cũ) và cây `deNghiChaId`. */
+  const deNghiCon = useMemo(() => hauDueCua(params.id, deNghi), [deNghi, params.id]);
   /** Phiếu nhận của mọi đơn thuộc đề nghị này — dùng để lấy mốc thời gian giai đoạn nhận hàng. */
   const phieuLienQuan = useMemo(() => {
     const idDon = new Set(poLienQuan.map((po) => po.id));

@@ -28,7 +28,7 @@ import {
   laHoSoPhongBan,
   LY_DO_NHANH_PHONG_BAN,
 } from "@/2-quy-trinh/ho-so-phong-ban";
-import { cacBanTachCua, locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import { hauDueCua, locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -774,7 +774,11 @@ export function coPhieuGiaoHangPhongBan(deNghi: DeNghiMuaHang): boolean {
  * đủ hợp đồng + hoá đơn — nới cả phiếu vì một dòng là đóng được hồ sơ mua ngoài không chứng từ.
  */
 export function khongCanHopDongHoaDon(deNghi: DeNghiMuaHang): boolean {
-  const ds = deNghi.items ?? [];
+  /* 🔴 (26/09/2026, Sếp: *"xuất kho thì ko cần báo giá… và cả mục hoá đơn nữa"*) CHỈ XÉT DÒNG CÒN
+     LÀM VIỆC: dòng đã tách sang phiếu con bị xoá cả người phụ trách lẫn loại việc trên phiếu gốc
+     (`apDungGiaoViec`) — xét cả nó thì phiếu gốc còn toàn dòng xuất kho vẫn bị đòi hoá đơn. Dòng
+     mua ngoài luôn có người phụ trách khi tới các bước đòi chứng từ nên vẫn bị bắt. */
+  const ds = (deNghi.items ?? []).filter((d) => d.nguoiPhuTrachUid || d.loaiViecGiao);
   return (
     ds.length > 0 && ds.every((d) => d.loaiViecGiao === "nhan_su" || d.loaiViecGiao === "xuat_kho")
   );
@@ -1100,7 +1104,11 @@ export function vuongMacHoanThanhQuyTrinh(
    * lập của một người, đóng xong lúc nào là quyền của họ; bắt chờ phiếu gốc là dựng vòng tròn.
    */
   if (tatCaDeNghi) {
-    const conDangDo = cacBanTachCua(deNghi.id, tatCaDeNghi).filter((c) => !hoSoDaChotXong(c));
+    /* ★ Sếp 26/09/2026 (nhân bản theo NCC, mục (4)): nhìn CẢ CÂY hậu duệ (`hauDueCua` = hợp của
+       `cacBanTachCua` theo `deNghiGocId` và `cayHauDue` theo `deNghiChaId`). Trước đây chỉ lọc
+       `deNghiGocId`, nên phiếu con giao việc `…__A` không thấy bản A nhân bản tiếp theo NCC (bản cháu
+       mang `deNghiGocId` = phiếu gốc) → `…__A` đóng được trong khi phần tách đi còn đang mua. */
+    const conDangDo = hauDueCua(deNghi.id, tatCaDeNghi).filter((c) => !hoSoDaChotXong(c));
     if (conDangDo.length > 0) {
       return `Phiếu này đã tách ra ${conDangDo.length} hồ sơ con còn dở: ${conDangDo
         .map((c) => c.code)
