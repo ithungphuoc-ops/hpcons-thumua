@@ -760,7 +760,7 @@ export function BangPhanBo({
           id={NEO_BANG_PHAN_BO}
           className="hidden scroll-mt-4 overflow-x-auto md:block lg:scroll-mt-60"
         >
-          <Table className="min-w-[760px] table-fixed">
+          <Table className="min-w-[980px] table-fixed">
             <TableHeader>
               <TableRow>
                 {hienCongCuPhanBo && <TableHead className="w-11" />}
@@ -776,6 +776,9 @@ export function BangPhanBo({
                     Xem khối chú thích ở chỗ ô dữ liệu bên dưới để biết hệ quả. */}
                 <TableHead className="w-16 text-center">Dòng</TableHead>
                 <TableHead>Vật liệu</TableHead>
+                {/* ★ Sếp 26/09/2026: *"Cột quy cách chủng loại đâu"* / *"Cột ghi chú đâu"* — tách
+                    khỏi dòng chữ nhỏ dưới tên vật liệu thành cột riêng, đọc thẳng hàng. */}
+                <TableHead className="w-44">Quy cách / chủng loại</TableHead>
                 {/* 🔴 GỘP ĐVT VÀO CỘT KHỐI LƯỢNG — Ban lãnh đạo 12/08/2026 yêu cầu tối ưu.
                     Tám cột trong ~855px là chật, bảng tràn ngang và cột Trạng thái bị cắt chữ.
                     "150 Bao" đọc tự nhiên hơn hai cột rời, mà tiết kiệm hẳn một cột. */}
@@ -784,7 +787,8 @@ export function BangPhanBo({
                 <TableHead className="w-48">Trạng thái</TableHead>
                 {/* Mã đơn hàng ít tra tới — ẩn dưới 1280px thay vì để nó đẩy bảng tràn.
                     Vẫn xem được ở khối "Đơn đặt hàng đã tách" phía dưới trang. */}
-                <TableHead className="hidden w-40 xl:table-cell">Đơn hàng</TableHead>
+                <TableHead className="hidden w-36 xl:table-cell">Đơn hàng</TableHead>
+                <TableHead className="w-48">Ghi chú</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -875,11 +879,6 @@ export function BangPhanBo({
                             {d.tenVatLieu}
                           </span>
                         </span>
-                        {d.quyCach && (
-                          <span className={`text-xs text-text-desc ${daChuyenDi ? "opacity-55" : ""}`}>
-                            {d.quyCach}
-                          </span>
-                        )}
                         {/**
                           * ★★ GHI CHÚ "Đã nhân bản sang…" ĐÃ BỎ KHỎle MÀN HÌNH — Sếp 17/09/2026:
                           * ***"bỏ các ghi chú này"***, khoanh đỏ cả ba dòng trên bảng phân bổ.
@@ -913,6 +912,11 @@ export function BangPhanBo({
                           </span>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell
+                      className={`text-sm break-words text-text-secondary ${daChuyenDi ? "opacity-55" : ""}`}
+                    >
+                      {d.quyCach || "—"}
                     </TableCell>
                     <TableCell className="text-right font-semibold whitespace-nowrap">
                       {d.khoiLuongDeNghi.toLocaleString("vi-VN")}{" "}
@@ -1020,6 +1024,9 @@ export function BangPhanBo({
                     <TableCell className="hidden text-text-desc xl:table-cell">
                       {d.maPOLienQuan.length > 0 ? d.maPOLienQuan.join(", ") : "—"}
                     </TableCell>
+                    <TableCell className="text-sm break-words whitespace-pre-line text-text-secondary">
+                      {d.ghiChu?.trim() || "—"}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -1043,7 +1050,7 @@ export function BangPhanBo({
                    * này thừa một ô và đường kẻ lệch. Lỗi kiểu này không có gì báo.
                    */}
                   <TableCell
-                    colSpan={6 + (hienCongCuPhanBo ? 1 : 0) + (quyen.phanBoCongViec ? 1 : 0)}
+                    colSpan={8 + (hienCongCuPhanBo ? 1 : 0)}
                     className="py-2"
                   >
                     {dongMoi === null ? (
@@ -1134,6 +1141,12 @@ export function BangPhanBo({
                     {d.quyCach && (
                       <span className={`text-xs text-text-desc ${daChuyenDi ? "opacity-55" : ""}`}>
                         {d.quyCach}
+                      </span>
+                    )}
+                    {/* Ghi chú dòng — cùng cột "Ghi chú" của bảng máy tính (Sếp 26/09/2026). */}
+                    {d.ghiChu?.trim() && (
+                      <span className="text-xs whitespace-pre-line text-text-desc">
+                        Ghi chú: {d.ghiChu.trim()}
                       </span>
                     )}
                     {d.mucDichSuDung && (

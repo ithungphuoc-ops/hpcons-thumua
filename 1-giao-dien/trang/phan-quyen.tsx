@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Minus, RefreshCw, Search, ShieldAlert, TriangleAlert, UserPlus, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Check, Minus, RefreshCw, Search, ShieldAlert, TriangleAlert, Users } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -74,6 +74,17 @@ const CHUA_GAN_PHONG_BAN = "__chua-gan-phong-ban__";
 
 const tenPhongBan = (pb: string) => (pb === CHUA_GAN_PHONG_BAN ? "Chưa gán phòng ban" : pb);
 
+/**
+ * ★ Cột "Nhân sự" kéo rộng/hẹp được — Sếp 26/09/2026: *"Thêm chức năng có thể tự động kéo tăng giảm
+ * chiều rộng cột"*. Chỉ từ màn `lg`; dưới đó hai cột xếp chồng. Nhớ theo máy (localStorage).
+ */
+const RONG_COT_MAC_DINH = 420;
+const RONG_COT_MIN = 300;
+const RONG_COT_MAX = 700;
+const BUOC_PHIM = 16;
+const KHOA_LUU_RONG_COT = "hpcons-tm-phan-quyen-rong-cot";
+const kepRongCot = (v: number) => Math.round(Math.min(RONG_COT_MAX, Math.max(RONG_COT_MIN, v)));
+
 /** Một người trên danh sách phân quyền, đã tính sẵn mọi thứ màn hình cần. */
 interface ThongTinNguoi {
   hs: HoSoKemMa;
@@ -95,6 +106,13 @@ interface ThongTinNguoi {
    * trong hai lớp danh tính) thì dùng đúng mã của người gọi để chốt "không tự sửa" bắt được.
    */
   uidLuat: string;
+  /**
+   * ★ Người trong danh bạ App Tổng CHƯA có hồ sơ `nguoi-dung` ở app Thu mua (Sếp 26/09/2026 — gộp
+   * khối "Thêm người dùng mới" vào đây). `hs` của họ là hồ sơ DỰNG TẠM từ danh bạ (cấp 0), chỉ để
+   * màn hình dùng chung một khuôn — KHÔNG phải dữ liệu máy chủ. Phải chọn chức danh trước: lưu sẽ gọi
+   * `/api/phan-quyen` tạo hồ sơ thật, rồi mới ghi quyền riêng (route quyền riêng đòi có hồ sơ).
+   */
+  chuaCoHoSo: boolean;
 }
 
 /** Dự kiến sau khi lưu, cho từng người đang chọn. */
@@ -123,6 +141,10 @@ function lyDoKhongTickNguoi(
   sau?: { laQT: boolean; goc: Quyen; maVaiTro?: string },
 ): string | null {
   if (t.lyDoKhoa) return t.lyDoKhoa;
+  /* Chưa có hồ sơ mà chưa chọn chức danh → chưa có gì để tick lên (route quyền riêng đòi hồ sơ). */
+  if (t.chuaCoHoSo && !sau?.maVaiTro) {
+    return `${t.ten} chưa có hồ sơ ở app Thu mua — chọn chức danh trước rồi mới tick quyền.`;
+  }
   const laQT = sau ? sau.laQT : t.laQuanTri;
   const goc = sau ? sau.goc : t.goc;
   const ma = sau ? sau.maVaiTro : t.vtHienTai?.ma;
@@ -158,6 +180,8 @@ interface TomTatLuu {
   soGiuTheoChucDanh: number;
   /** Lúc mở hộp chưa đọc được quyền riêng — lần lưu chỉ đổi chức danh. */
   chuaDocRieng: boolean;
+  /** Số người CHƯA có hồ sơ được cấp quyền lần đầu trong lượt lưu này. */
+  soCapMoi: number;
 }
 
 /**
@@ -207,7 +231,13 @@ export default function TrangPhanQuyen() {
   const [tuKhoaDs, setTuKhoaDs] = useState("");
   const [phongBanDs, setPhongBanDs] = useState("");
   const [hoiLuu, setHoiLuu] = useState(false);
-  /** Bản sao cuối của hộp xác nhận — xem chú thích ở `hoiThemMoiCuoi`. */
+  /**
+   * ★ BẢN SAO CUỐI của hộp xác nhận — giữ để hộp còn nội dung trong lúc chạy hiệu ứng đóng.
+   *
+   * 🔴 Hộp bọc bằng `{hoiLuu && …}` thì bấm Đồng ý/Hủy làm `<Dialog>` bị tháo khỏi cây NGAY trong lần
+   * commit `open` chuyển sang `false`; base-ui không kịp gỡ khoá cuộn và `data-base-ui-inert`, cả app
+   * bấm không ăn tới khi F5 (sự cố Sếp báo 13 và 14/09/2026). Chỉ cập nhật khi MỞ, không xoá khi đóng.
+   */
   const [hoiLuuCuoi, setHoiLuuCuoi] = useState<TomTatLuu | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
 
@@ -221,31 +251,30 @@ export default function TrangPhanQuyen() {
    */
   const [hienNgungTruyCap, setHienNgungTruyCap] = useState(false);
 
-  // ---------- Khối "Thêm người dùng mới" — danh bạ công ty ----------
+  /**
+   * ★★ DANH BẠ CÔNG TY — GỘP VÀO KHỐI "NHÂN SỰ" (Sếp 26/09/2026).
+   *
+   * Sếp: *"Và sao danh sách nhân sự lại chưa kéo về hết được"*, rồi chỉ vào hai khối "Thêm người dùng
+   * mới" và "Nhân sự": *"2 giao diện này có cùng chức năng không. Nếu cùng thì bỏ 1 cái đi"*. Hai khối
+   * đúng là cùng một việc (gán quyền cho một người), chỉ khác là người đó đã có hồ sơ hay chưa — nên
+   * GỘP: khối "Nhân sự" nay kéo TOÀN BỘ danh bạ App Tổng (cùng nguồn `/api/directory` qua
+   * `docDanhBaCongTy` mà khối cũ dùng), người chưa có hồ sơ hiện nhãn "Chưa có quyền".
+   *
+   * ⚠️ ĐẢO NGƯỢC có chủ đích quyết định 20/08/2026 (commit e6f352f, Ban lãnh đạo: *"ẩn thông tin này
+   * đi, để mục tìm kiếm theo phòng ban của app tổng"* — khi đó danh bạ KHÔNG bày sẵn). Nay Sếp muốn thấy
+   * đủ. Danh sách cuộn trong khung nên ~100+ người không làm trang dài; mặc định "Tất cả phòng ban" +
+   * ô tìm tên/email. Màn này chỉ mở cho Quản trị/Trưởng bộ phận (`quyen.phanQuyenNguoiDung`).
+   *
+   * 📌 Mọi thứ khối cũ có đều còn: lọc phòng ban (kể cả "Chưa gán phòng ban"), tìm tên/email, nút đọc
+   * lại danh bạ (gộp vào nút "Đọc lại"), câu báo khi danh bạ đang đọc / đọc không được.
+   */
   const [danhBa, setDanhBa] = useState<ThanhVienDanhBa[] | null>(null);
   const [dangTaiDanhBa, setDangTaiDanhBa] = useState(false);
-  const [tuKhoaTim, setTuKhoaTim] = useState("");
-  /**
-   * Phòng ban đang chọn để tìm người. `""` = chưa chọn → KHÔNG hiện ai (xem chú thích ở khối
-   * "Thêm người dùng mới"). Giá trị là TÊN phòng ban đúng như App Tổng trả về, hoặc
-   * `CHUA_GAN_PHONG_BAN` cho người chưa khai bộ phận.
-   */
-  const [phongBanChon, setPhongBanChon] = useState("");
-  const [vaiTroChonMoi, setVaiTroChonMoi] = useState<Record<string, string>>({});
-  const [hoiThemMoi, setHoiThemMoi] = useState<{ tv: ThanhVienDanhBa; vt: VaiTroChuan } | null>(null);
-  /**
-   * ★ BẢN SAO CUỐI của hộp xác nhận — giữ để hộp còn nội dung trong lúc chạy hiệu ứng đóng.
-   *
-   * 🔴 Hộp TRƯỚC ĐÂY bọc bằng `{hoiThemMoi && …}`. Bấm Đồng ý hay Hủy đều làm điều kiện thành
-   * `false` và `<Dialog>` bị tháo khỏi cây NGAY trong lần commit mà `open` vừa chuyển sang `false`.
-   * base-ui gỡ khoá cuộn và `data-base-ui-inert` bằng hàm cleanup của `useEffect`; bị tháo giữa
-   * chừng là hai thứ đó kẹt lại trên DOM và **cả app bấm không ăn tới khi F5**. Sự cố Sếp báo 13 và
-   * 14/09/2026. Chỉ cập nhật khi MỞ, không xoá khi đóng.
-   */
-  const [hoiThemMoiCuoi, setHoiThemMoiCuoi] = useState<{
-    tv: ThanhVienDanhBa;
-    vt: VaiTroChuan;
-  } | null>(null);
+
+  // ---------- ★ Bề rộng cột "Nhân sự" kéo được (Sếp 26/09/2026) ----------
+  const [rongCot, setRongCot] = useState(RONG_COT_MAC_DINH);
+  /** Đang kéo: điểm bắt đầu. `null` = không kéo. Ref để khỏi vẽ lại mỗi lần di chuột. */
+  const keoRef = useRef<{ x: number; rong: number } | null>(null);
 
   const laCheDoThat = CHE_DO_XAC_THUC === "sso";
 
@@ -290,28 +319,27 @@ export default function TrangPhanQuyen() {
     void taiDanhBa();
   }, [tai, taiDanhBa]);
 
-  /**
-   * Danh sách phòng ban cho khối "Thêm người dùng mới" — gom từ CHÍNH danh bạ App Tổng, kèm số người
-   * **chưa có hồ sơ Thu mua**. PHẢI có mục "Chưa gán phòng ban": người ở App Tổng có thể THIẾU
-   * `departmentId` — không có mục này là họ không bao giờ tìm ra được, mà không có gì báo lỗi.
-   */
-  const dsPhongBan = useMemo(() => {
-    const dem = new Map<string, number>();
-    for (const tv of danhBa ?? []) {
-      if (tv.daCoHoSoThuMua) continue;
-      const k = tv.phongBan.trim() || CHUA_GAN_PHONG_BAN;
-      dem.set(k, (dem.get(k) ?? 0) + 1);
+  /* Bề rộng cột đã nhớ theo MÁY — đọc SAU khi dựng (trang dựng sẵn không có localStorage; đọc lúc dựng
+     là lệch giữa máy chủ và trình duyệt). Lỗi / giá trị lạ → giữ mặc định. */
+  useEffect(() => {
+    try {
+      const v = Number(window.localStorage.getItem(KHOA_LUU_RONG_COT));
+      if (Number.isFinite(v) && v >= RONG_COT_MIN && v <= RONG_COT_MAX) setRongCot(v);
+    } catch {
+      // Chế độ riêng tư / bị chặn bộ nhớ — dùng mặc định.
     }
-    return [...dem.entries()]
-      .map(([ten, so]) => ({ ten, so }))
-      .sort((a, b) =>
-        a.ten === CHUA_GAN_PHONG_BAN
-          ? 1
-          : b.ten === CHUA_GAN_PHONG_BAN
-            ? -1
-            : a.ten.localeCompare(b.ten, "vi"),
-      );
-  }, [danhBa]);
+  }, []);
+
+  function datRongCot(v: number, luu: boolean) {
+    const r = kepRongCot(v);
+    setRongCot(r);
+    if (!luu) return;
+    try {
+      window.localStorage.setItem(KHOA_LUU_RONG_COT, String(r));
+    } catch {
+      // Không lưu được thì lần sau về mặc định — không sao.
+    }
+  }
 
   /**
    * 🔴 MÃ FIREBASE CỦA CHÍNH MÌNH — để chốt "không tự sửa mình" so CÙNG LỚP danh tính với danh sách
@@ -368,16 +396,81 @@ export default function TrangPhanQuyen() {
           laQuanTri,
           lyDoKhoa,
           uidLuat,
+          chuaCoHoSo: false,
         };
       }),
     [danhSach, banGhiRieng, nguoiGoi, nguoiDung.uid],
   );
 
+  /**
+   * ★ NGƯỜI TRONG DANH BẠ CHƯA CÓ HỒ SƠ — gộp khối "Thêm người dùng mới" (xem chú thích ở `danhBa`).
+   *
+   * 📌 Lọc bằng CẢ cờ `daCoHoSoThuMua` của danh bạ LẪN danh sách hồ sơ vừa đọc: danh bạ máy chủ giữ bộ
+   * nhớ 60 giây, người vừa được cấp quyền có thể vẫn mang cờ cũ — so thêm với `danhSach` thì không bày
+   * một người hai lần. Hồ sơ DỰNG TẠM cấp 0 chỉ để dùng chung khuôn `ThongTinNguoi`; `vtHienTai` để
+   * trống (khuôn cấp 0 trùng "Ngừng truy cập", mà người này chưa từng bị ngừng).
+   */
+  const nguoiChuaCoHoSo = useMemo<ThongTinNguoi[]>(() => {
+    if (!danhBa || danhSach === null) return [];
+    const daCo = new Set(danhSach.map((h) => h.firebaseUid));
+    return danhBa
+      .filter((tv) => !tv.daCoHoSoThuMua && !daCo.has(tv.uid))
+      .sort((a, b) => a.hoTen.localeCompare(b.hoTen, "vi"))
+      .map((tv) => {
+        const hs: HoSoKemMa = {
+          firebaseUid: tv.uid,
+          hoSo: {
+            uidNghiepVu: tv.uid,
+            email: tv.email,
+            tenHienThi: tv.hoTen,
+            chucDanh: tv.chucDanh,
+            phongBan: tv.phongBan,
+            chucNang: "phong_thi_cong",
+            vaiTro: "staff",
+            capTM: 0,
+            dangLamViec: true,
+          },
+        };
+        const nd = thanhNguoiDung(hs.hoSo);
+        const goc = tinhQuyenTheoChucDanh(nd);
+        const laChinhMinh = tv.uid === nguoiGoi.uid;
+        const uidLuat = laChinhMinh ? nguoiGoi.uid : tv.uid;
+        const lyDoKhoa = vuongMacTraoQuyen(nguoiGoi, [
+          {
+            uid: uidLuat,
+            ten: tv.hoTen,
+            vaiTro: "staff",
+            capTM: 0,
+            quyenGoc: goc,
+            quyenTruoc: goc,
+            quyenSau: goc,
+            boVaoApp: false,
+          },
+        ]);
+        return {
+          hs,
+          ten: tv.hoTen,
+          phongBan: tv.phongBan.trim() || CHUA_GAN_PHONG_BAN,
+          nd,
+          vtHienTai: undefined,
+          goc,
+          rieng: null,
+          hieuLuc: goc,
+          laQuanTri: false,
+          lyDoKhoa,
+          uidLuat,
+          chuaCoHoSo: true,
+        };
+      });
+  }, [danhBa, danhSach, nguoiGoi]);
+
+  const tatCaVaDanhBa = useMemo(() => [...tatCaNguoi, ...nguoiChuaCoHoSo], [tatCaNguoi, nguoiChuaCoHoSo]);
+
   /* Dùng `vaiTroKhopVoiHoSo` — đúng hàm ô chức danh dùng — để biết ai đang ngừng truy cập. Tự so
      tay `capTM` ở đây là hai chỗ cùng trả lời một câu, sớm muộn lệch nhau. */
-  const laNgung = (t: ThongTinNguoi) => t.vtHienTai?.ma === "ngung_truy_cap";
+  const laNgung = (t: ThongTinNguoi) => !t.chuaCoHoSo && t.vtHienTai?.ma === "ngung_truy_cap";
   const soDaAn = tatCaNguoi.filter(laNgung).length;
-  const dsHien = tatCaNguoi.filter((t) => hienNgungTruyCap || !laNgung(t));
+  const dsHien = tatCaVaDanhBa.filter((t) => hienNgungTruyCap || !laNgung(t));
 
   const dsPhongBanDs = [...new Set(dsHien.map((t) => t.phongBan))].sort((a, b) =>
     a === CHUA_GAN_PHONG_BAN ? 1 : b === CHUA_GAN_PHONG_BAN ? -1 : a.localeCompare(b, "vi"),
@@ -393,8 +486,8 @@ export default function TrangPhanQuyen() {
   );
 
   const dsChon = useMemo(
-    () => tatCaNguoi.filter((t) => chon.includes(t.hs.firebaseUid)),
-    [tatCaNguoi, chon],
+    () => tatCaVaDanhBa.filter((t) => chon.includes(t.hs.firebaseUid)),
+    [tatCaVaDanhBa, chon],
   );
   const vtMoi = timVaiTroChuan(nhapVaiTro);
 
@@ -540,7 +633,9 @@ export default function TrangPhanQuyen() {
      cả nhóm. Muốn đổi chức danh cho họ thì chọn riêng từng người. */
   const dsLocSuaDuoc = dsLoc.filter(tickDuoc);
   /* Nói rõ đã bỏ qua ai — bỏ qua im lặng là người dùng tưởng "chọn tất cả" đã gom đủ. */
-  const soBoQuaQtNgung = dsLoc.filter((t) => !t.lyDoKhoa && !tickDuoc(t)).length;
+  const soBoQuaQtNgung = dsLoc.filter((t) => !t.lyDoKhoa && !t.chuaCoHoSo && !tickDuoc(t)).length;
+  const soBoQuaChuaCo = dsLoc.filter((t) => !t.lyDoKhoa && t.chuaCoHoSo).length;
+  const soChuaCoTrongLoc = dsLoc.filter((t) => t.chuaCoHoSo).length;
   const soBoQuaKhoa = dsLoc.filter((t) => t.lyDoKhoa).length;
   const soLocDaChon = dsLocSuaDuoc.filter((t) => chon.includes(t.hs.firebaseUid)).length;
   const giaTriChonTatCa: boolean | "mixed" =
@@ -582,7 +677,8 @@ export default function TrangPhanQuyen() {
    * 📌 Giá trị `nhapQuyen`/`loiRieng`/`vtMoi` trong hàm là của lúc BẤM — đúng thứ cần so.
    */
   async function docLai() {
-    const coLoi = await tai();
+    /* Đọc lại CẢ danh bạ (gộp nút "Đọc lại danh bạ" của khối "Thêm người dùng mới" cũ). */
+    const [coLoi] = await Promise.all([tai(), taiDanhBa()]);
     if (coLoi && Object.keys(nhapQuyen).length > 0) {
       setNhapQuyen({});
       toast.warning("Đã bỏ các ô tick chưa lưu", {
@@ -607,6 +703,16 @@ export default function TrangPhanQuyen() {
     if (dsChon.length === 0) return "Chưa chọn ai.";
     const khoa = dsChon.find((t) => t.lyDoKhoa);
     if (khoa) return khoa.lyDoKhoa;
+    /* ★ Người chưa có hồ sơ (gộp khối "Thêm người dùng mới", Sếp 26/09/2026): phải có chức danh mới
+       tạo được hồ sơ — `/api/phan-quyen` tạo hồ sơ khi gán chức danh, route quyền riêng đòi hồ sơ. */
+    const chuaCo = dsChon.filter((t) => t.chuaCoHoSo);
+    if (chuaCo.length > 0) {
+      const ai = chuaCo.length === 1 ? chuaCo[0].ten : `${chuaCo.length} người đang chọn`;
+      if (!vtMoi) return `${ai} chưa có hồ sơ ở app Thu mua — chọn chức danh để cấp quyền.`;
+      if (vtMoi.capTM === 0) {
+        return `Không cấp “${vtMoi.ten}” cho người chưa có hồ sơ — họ vốn chưa vào được app.`;
+      }
+    }
     /* Cùng trần với route — báo trước ở đây thay vì để máy chủ trả 400 sau khi đã bấm. */
     if (uidGhiQuyen.length > TOI_DA_NGUOI_MOI_LAN) {
       return `Mỗi lần lưu quyền riêng tối đa ${TOI_DA_NGUOI_MOI_LAN} người (đang chọn ${uidGhiQuyen.length}) — bỏ bớt rồi lưu thành nhiều lượt.`;
@@ -660,6 +766,7 @@ export default function TrangPhanQuyen() {
       tat,
       soGiuTheoChucDanh: ghiQuyen ? duKien.filter((d) => !d.ts.canGhi && !d.t.rieng).length : 0,
       chuaDocRieng: Boolean(loiRieng),
+      soCapMoi: dsChon.filter((t) => t.chuaCoHoSo).length,
     };
     setHoiLuuCuoi(tom);
     setHoiLuu(true);
@@ -674,7 +781,7 @@ export default function TrangPhanQuyen() {
         const loi: string[] = [];
         for (const uid of tom.uidDoiChucDanh) {
           const l = await ganVaiTro(uid, tom.vtMoi.ma);
-          if (l) loi.push(`${tatCaNguoi.find((t) => t.hs.firebaseUid === uid)?.ten ?? uid}: ${l}`);
+          if (l) loi.push(`${tatCaVaDanhBa.find((t) => t.hs.firebaseUid === uid)?.ten ?? uid}: ${l}`);
         }
         if (loi.length > 0) {
           toast.error("Chưa đổi được chức danh", { description: loi.join(" · "), duration: 12000 });
@@ -703,30 +810,9 @@ export default function TrangPhanQuyen() {
       lamMoiNguoiKhongVaoApp();
       datLaiNhap();
       /* Đọc lại từ máy chủ thay vì tự sửa danh sách trong bộ nhớ: ghi hỏng một phần mà màn vẫn
-         xanh là thứ tệ nhất ở màn này. */
-      await tai();
-    } finally {
-      setDangLuu(false);
-    }
-  }
-
-  async function themMoi(tv: ThanhVienDanhBa, vt: VaiTroChuan) {
-    setDangLuu(true);
-    try {
-      const loi = await ganVaiTro(tv.uid, vt.ma);
-      if (loi) {
-        toast.error("Chưa cấp được quyền", { description: loi, duration: 12000 });
-        return;
-      }
-      toast.success("Đã cấp quyền", { description: `${tv.hoTen} → ${vt.ten}` });
-      // Đọc lại CẢ HAI danh sách: người mới vừa thêm phải biến mất khỏi danh bạ "chưa có hồ
-      // sơ" và hiện ra ở danh sách phân quyền — không tự suy đoán, đọc lại máy chủ thật.
+         xanh là thứ tệ nhất ở màn này. Đọc CẢ danh bạ: người vừa được cấp quyền lần đầu phải thôi
+         hiện nhãn "Chưa có quyền". */
       await Promise.all([tai(), taiDanhBa()]);
-      setVaiTroChonMoi((c) => {
-        const conLai = { ...c };
-        delete conLai[tv.uid];
-        return conLai;
-      });
     } finally {
       setDangLuu(false);
     }
@@ -743,207 +829,6 @@ export default function TrangPhanQuyen() {
         title="Phân quyền người dùng"
         description={`Chọn người ở cột trái, tick quyền ở cột phải rồi bấm Lưu. Bạn gán chức danh được tới ${NHAN_CAP_QUYEN[toiDa]}.`}
       />
-
-      {/* ---------- THÊM NGƯỜI DÙNG MỚI — lấy thẳng danh bạ App Tổng ---------- */}
-      {laCheDoThat && (
-        <Card>
-          <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <UserPlus className="size-4 shrink-0 text-primary" aria-hidden />
-                <p className="text-h3 text-text-primary">Thêm người dùng mới</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void taiDanhBa()}
-                disabled={dangTaiDanhBa}
-              >
-                <RefreshCw className={`size-4 ${dangTaiDanhBa ? "animate-spin" : ""}`} aria-hidden />
-                Đọc lại danh bạ
-              </Button>
-            </div>
-            <p className="text-sm text-text-secondary">
-              Chọn <strong>phòng ban</strong> của App Tổng để xem người trong phòng đó, hoặc gõ
-              tên nếu đã biết. Không cần biết trước mã tài khoản, không cần làm gì bên ngoài app
-              này.
-            </p>
-
-            {/* 🔴 KHÔNG TRẢI SẴN DANH BẠ CÔNG TY — Ban lãnh đạo 20/08/2026: *"ẩn thông tin này
-                đi, để mục tìm kiếm theo phòng ban của app tổng"*.
-                Bản trước bày sẵn tới 30 người kèm HỌ TÊN · EMAIL · CHỨC DANH · BỘ PHẬN ngay khi
-                mở trang. Hai chỗ sai: ① phơi danh bạ nhân sự toàn công ty cho bất kỳ ai mở được
-                màn phân quyền, trong khi việc cần làm chỉ là cấp quyền cho MỘT người; ② danh sách
-                dài mà vẫn phải cuộn tìm, tức không giúp gì cho chính việc đó.
-                Nay: chưa chọn phòng ban và chưa gõ gì thì KHÔNG hiện một ai. */}
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <select
-                value={phongBanChon}
-                onChange={(e) => setPhongBanChon(e.target.value)}
-                aria-label="Chọn phòng ban của App Tổng"
-                className="min-h-11 rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none sm:w-2/5"
-              >
-                <option value="">— chọn phòng ban —</option>
-                {dsPhongBan.map((pb) => (
-                  <option key={pb.ten} value={pb.ten}>
-                    {tenPhongBan(pb.ten)} ({pb.so})
-                  </option>
-                ))}
-              </select>
-
-              <div className="relative min-w-0 flex-1">
-                <Search
-                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-desc"
-                  aria-hidden
-                />
-                <Input
-                  value={tuKhoaTim}
-                  onChange={(e) => setTuKhoaTim(e.target.value)}
-                  placeholder="Hoặc gõ tên / email…"
-                  className="pl-9"
-                  aria-label="Tìm người trong danh bạ công ty"
-                />
-              </div>
-            </div>
-
-            {dangTaiDanhBa && danhBa === null && (
-              <p className="text-sm text-text-desc">Đang đọc danh bạ công ty…</p>
-            )}
-
-            {danhBa !== null && (() => {
-              const chuaCoHoSo = danhBa.filter((tv) => !tv.daCoHoSoThuMua);
-              const tuKhoa = boDau(tuKhoaTim.trim());
-
-              if (chuaCoHoSo.length === 0) {
-                return (
-                  <p className="text-sm text-text-desc">
-                    Toàn bộ công ty đã có hồ sơ ở app Thu mua, hoặc chưa đọc được danh bạ.
-                  </p>
-                );
-              }
-
-              /* Chưa chọn phòng ban VÀ chưa gõ gì → không hiện ai. Nói rõ phải làm gì thay vì
-                 để khối trống trơn không giải thích. */
-              if (phongBanChon === "" && tuKhoa === "") {
-                return (
-                  <p className="text-sm text-text-desc">
-                    Chọn một phòng ban ở trên để xem người trong phòng đó, hoặc gõ tên/email nếu
-                    đã biết cần cấp quyền cho ai. Danh bạ công ty không bày sẵn ở đây.
-                  </p>
-                );
-              }
-
-              /* Lọc theo phòng ban trước, rồi mới lọc theo từ khóa TRONG phạm vi đó — hai ô hoạt
-                 động cùng lúc, không cái nào vô hiệu hóa cái nào. */
-              const theoPhong =
-                phongBanChon === ""
-                  ? chuaCoHoSo
-                  : chuaCoHoSo.filter(
-                      (tv) => (tv.phongBan.trim() || CHUA_GAN_PHONG_BAN) === phongBanChon,
-                    );
-              const khop = tuKhoa
-                ? theoPhong.filter(
-                    (tv) => boDau(tv.hoTen).includes(tuKhoa) || boDau(tv.email).includes(tuKhoa),
-                  )
-                : theoPhong;
-              const ketQua = khop.slice(0, 30);
-              /* Bị cắt thì PHẢI NÓI — cắt im lặng làm người dùng tưởng đã xem hết phòng đó rồi
-                 kết luận sai là "phòng này không có ai nữa". */
-              const biCat = khop.length - ketQua.length;
-
-              if (ketQua.length === 0) {
-                return (
-                  <p className="text-sm text-text-desc">
-                    Không tìm thấy ai
-                    {tuKhoa ? <> khớp &quot;{tuKhoaTim}&quot;</> : null}
-                    {phongBanChon !== "" ? (
-                      <>
-                        {" "}
-                        trong{" "}
-                        {phongBanChon === CHUA_GAN_PHONG_BAN
-                          ? "nhóm chưa gán phòng ban"
-                          : `phòng ${phongBanChon}`}
-                      </>
-                    ) : null}
-                    . Người đã có hồ sơ ở app Thu mua không hiện lại ở đây — xem danh sách bên dưới.
-                  </p>
-                );
-              }
-
-              return (
-                <div className="flex flex-col gap-(--hp-md-row-gap)">
-                  {ketQua.map((tv) => {
-                    const maChon = vaiTroChonMoi[tv.uid] ?? "";
-                    const vtChon = timVaiTroChuan(maChon);
-                    return (
-                      <div
-                        key={tv.uid}
-                        className="flex flex-col gap-3 rounded-xl border border-border p-(--hp-md-card-pad) sm:flex-row sm:items-start"
-                      >
-                        <div className="sm:w-1/3 sm:shrink-0">
-                          <p className="font-medium text-text-primary">{tv.hoTen}</p>
-                          <p className="text-xs text-text-desc">{tv.email}</p>
-                          <p className="mt-1 text-xs text-text-secondary">
-                            {tv.chucDanh || "—"} · {tv.phongBan || "—"}
-                          </p>
-                        </div>
-
-                        <div className="flex min-w-0 flex-1 flex-col gap-2">
-                          <select
-                            value={maChon}
-                            onChange={(e) =>
-                              setVaiTroChonMoi((c) => ({ ...c, [tv.uid]: e.target.value }))
-                            }
-                            aria-label={`Vai trò cho ${tv.hoTen}`}
-                            className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
-                          >
-                            <option value="">— chọn vai trò —</option>
-                            {vaiTroGanDuoc
-                              .filter((v) => v.ma !== "ngung_truy_cap")
-                              .map((v) => (
-                                <option key={v.ma} value={v.ma}>
-                                  {v.ten}
-                                </option>
-                              ))}
-                          </select>
-                          {vtChon && (
-                            <>
-                              <p className="text-xs text-text-desc">{vtChon.moTa}</p>
-                              <ViecLamDuoc vt={vtChon} />
-                            </>
-                          )}
-                        </div>
-
-                        <div className="sm:shrink-0">
-                          <Button
-                            size="sm"
-                            disabled={!vtChon || dangLuu}
-                            onClick={() => {
-                              if (!vtChon) return;
-                              /* Nhớ lại — hộp cần nội dung cả lúc đang đóng. */
-                              setHoiThemMoiCuoi({ tv, vt: vtChon });
-                              setHoiThemMoi({ tv, vt: vtChon });
-                            }}
-                          >
-                            Cấp quyền
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {biCat > 0 && (
-                    <p className="text-xs text-text-desc">
-                      Còn <strong>{biCat} người</strong> nữa khớp nhưng không hiện ở đây (mỗi lần
-                      chỉ hiện 30). Gõ thêm tên hoặc chọn phòng ban hẹp hơn để thấy họ.
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-      )}
 
       {!laCheDoThat ? (
         <EmptyState
@@ -979,7 +864,13 @@ export default function TrangPhanQuyen() {
 
           {/* Sếp 26/09/2026: *"Mở rộng mục này ra 1 chút"* (cột Nhân sự, tên bị cắt) — 340px → 420px,
               tên được xuống dòng thay vì cắt "…". */}
-          <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) lg:grid-cols-[420px_minmax(0,1fr)]">
+          {/* ★ Bề rộng cột trái kéo được (Sếp 26/09/2026) — biến CSS `--rong-cot` là inline style DUY
+              NHẤT ở đây, vì bề rộng đổi theo từng pixel khi kéo, không có lớp tiện ích cố định nào diễn
+              tả được; màu/khoảng cách vẫn đều bằng token. Dưới `lg` hai cột xếp chồng, biến bị bỏ qua. */}
+          <div
+            className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) lg:grid-cols-[var(--rong-cot)_auto_minmax(0,1fr)] lg:gap-x-0"
+            style={{ "--rong-cot": `${rongCot}px` } as CSSProperties}
+          >
             {/* ================= CỘT TRÁI — NHÂN SỰ ================= */}
             <Card className="gap-0 py-0">
               <div className="flex items-center justify-between gap-2 border-b border-divider px-4 py-3">
@@ -989,20 +880,39 @@ export default function TrangPhanQuyen() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-desc">
-                    {danhSach === null ? "Đang đọc…" : `${dsLoc.length} người`}
+                    {danhSach === null
+                      ? "Đang đọc…"
+                      : `${dsLoc.length} người${soChuaCoTrongLoc > 0 ? ` · ${soChuaCoTrongLoc} chưa có quyền` : ""}`}
                   </span>
                   <Button
                     variant="outline"
                     size="icon-sm"
                     onClick={() => void docLai()}
-                    disabled={dangTai}
-                    aria-label="Đọc lại danh sách và quyền riêng"
+                    disabled={dangTai || dangTaiDanhBa}
+                    aria-label="Đọc lại danh sách, danh bạ công ty và quyền riêng"
                     title="Đọc lại"
                   >
-                    <RefreshCw className={`size-4 ${dangTai ? "animate-spin" : ""}`} aria-hidden />
+                    <RefreshCw
+                      className={`size-4 ${dangTai || dangTaiDanhBa ? "animate-spin" : ""}`}
+                      aria-hidden
+                    />
                   </Button>
                 </div>
               </div>
+
+              {/* Danh bạ đang đọc / đọc không được — PHẢI nói ra (khối "Thêm người dùng mới" cũ có câu
+                  này). `docDanhBaCongTy` trả mảng rỗng cả khi lỗi, nên rỗng = nghi lỗi, không = "không ai". */}
+              {dangTaiDanhBa && danhBa === null && (
+                <p className="border-b border-divider bg-muted px-4 py-2 text-xs text-text-secondary">
+                  Đang đọc danh bạ công ty… (người chưa có quyền sẽ hiện thêm khi đọc xong)
+                </p>
+              )}
+              {!dangTaiDanhBa && danhBa !== null && danhBa.length === 0 && (
+                <p className="border-b border-divider bg-warning-bg px-4 py-2 text-xs text-text-secondary">
+                  Chưa đọc được danh bạ công ty — đang chỉ hiện người đã có quyền ở app Thu mua. Bấm
+                  &quot;Đọc lại&quot; để thử lại.
+                </p>
+              )}
 
               <div className="flex flex-col gap-2 border-b border-divider px-4 py-3">
                 <div className="relative">
@@ -1046,6 +956,12 @@ export default function TrangPhanQuyen() {
                       <span className="text-text-desc">
                         {" "}
                         · bỏ qua {soBoQuaQtNgung} người Quản trị/Ngừng truy cập
+                      </span>
+                    )}
+                    {soBoQuaChuaCo > 0 && (
+                      <span className="text-text-desc">
+                        {" "}
+                        · {soBoQuaChuaCo} người chưa có quyền (chọn từng người rồi gán chức danh)
                       </span>
                     )}
                     {soBoQuaKhoa > 0 && (
@@ -1114,7 +1030,9 @@ export default function TrangPhanQuyen() {
                             </span>
                             <span className="block truncate text-xs text-text-desc">
                               {tenPhongBan(t.phongBan)} ·{" "}
-                              {t.vtHienTai?.ten ?? `Tùy chỉnh (${NHAN_CAP_QUYEN[t.nd.capTM]})`}
+                              {t.chuaCoHoSo
+                                ? t.hs.hoSo.chucDanh || "Chưa có hồ sơ Thu mua"
+                                : (t.vtHienTai?.ten ?? `Tùy chỉnh (${NHAN_CAP_QUYEN[t.nd.capTM]})`)}
                             </span>
                           </span>
                           <StatusBadge label={tt.label} tone={tt.tone} className="shrink-0" />
@@ -1125,6 +1043,52 @@ export default function TrangPhanQuyen() {
                 </ul>
               )}
             </Card>
+
+            {/* ★ THANH KÉO đổi bề rộng cột "Nhân sự" — chỉ từ `lg`. Kéo chuột/chạm (pointer capture nên
+                kéo ra ngoài thanh vẫn ăn) · nhấp đúp về mặc định · phím ←/→ (Shift = bước lớn),
+                Home/End = hẹp nhất/rộng nhất. Lưu khi THẢ tay, không lưu từng pixel. */}
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Kéo để đổi bề rộng cột Nhân sự"
+              aria-valuenow={rongCot}
+              aria-valuemin={RONG_COT_MIN}
+              aria-valuemax={RONG_COT_MAX}
+              tabIndex={0}
+              title="Kéo để đổi bề rộng · nhấp đúp để về mặc định"
+              className="group hidden w-(--hp-md-card-gap) cursor-col-resize touch-none items-start justify-center self-stretch pt-24 outline-none select-none lg:flex"
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                keoRef.current = { x: e.clientX, rong: rongCot };
+              }}
+              onPointerMove={(e) => {
+                const k = keoRef.current;
+                if (k) datRongCot(k.rong + e.clientX - k.x, false);
+              }}
+              onPointerUp={(e) => {
+                const k = keoRef.current;
+                keoRef.current = null;
+                if (k) datRongCot(k.rong + e.clientX - k.x, true);
+              }}
+              onPointerCancel={() => {
+                keoRef.current = null;
+              }}
+              onDoubleClick={() => datRongCot(RONG_COT_MAC_DINH, true)}
+              onKeyDown={(e) => {
+                const buoc = e.shiftKey ? BUOC_PHIM * 3 : BUOC_PHIM;
+                if (e.key === "ArrowLeft") datRongCot(rongCot - buoc, true);
+                else if (e.key === "ArrowRight") datRongCot(rongCot + buoc, true);
+                else if (e.key === "Home") datRongCot(RONG_COT_MIN, true);
+                else if (e.key === "End") datRongCot(RONG_COT_MAX, true);
+                else return;
+                e.preventDefault();
+              }}
+            >
+              <span
+                aria-hidden
+                className="h-16 w-1 rounded-full bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary group-active:bg-primary"
+              />
+            </div>
 
             {/* ================= CỘT PHẢI — QUYỀN ================= */}
             <Card className="gap-0 py-0">
@@ -1149,7 +1113,15 @@ export default function TrangPhanQuyen() {
                             {motNguoi.hs.hoSo.email} · {tenPhongBan(motNguoi.phongBan)}
                           </p>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
-                            {loiRieng ? (
+                            {motNguoi.chuaCoHoSo ? (
+                              <>
+                                <StatusBadge label="Chưa có quyền" tone="danger" />
+                                <span className="text-xs text-text-desc">
+                                  Chưa có hồ sơ ở app Thu mua — chọn chức danh rồi Lưu để cấp quyền
+                                  {motNguoi.hs.hoSo.chucDanh ? ` · App Tổng: ${motNguoi.hs.hoSo.chucDanh}` : ""}
+                                </span>
+                              </>
+                            ) : loiRieng ? (
                               <StatusBadge label="Chưa đọc được quyền riêng" tone="warning" />
                             ) : motNguoi.rieng ? (
                               <>
@@ -1220,9 +1192,11 @@ export default function TrangPhanQuyen() {
                         className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <option value="">
-                          {motNguoi
-                            ? `Giữ nguyên: ${motNguoi.vtHienTai?.ten ?? `Tùy chỉnh (${NHAN_CAP_QUYEN[motNguoi.nd.capTM]})`}`
-                            : "Giữ nguyên chức danh của từng người"}
+                          {motNguoi?.chuaCoHoSo
+                            ? "— chọn chức danh để cấp quyền —"
+                            : motNguoi
+                              ? `Giữ nguyên: ${motNguoi.vtHienTai?.ten ?? `Tùy chỉnh (${NHAN_CAP_QUYEN[motNguoi.nd.capTM]})`}`
+                              : "Giữ nguyên chức danh của từng người"}
                         </option>
                         {vaiTroGanDuoc.map((v) => (
                           <option key={v.ma} value={v.ma}>
@@ -1449,7 +1423,7 @@ export default function TrangPhanQuyen() {
 
       {/* 🔴 HỎI TRƯỚC KHI LƯU. Đổi quyền ảnh hưởng ngay tới việc người ta làm được gì — tắt nhầm là
           họ mất việc giữa lúc đang làm, và không tự lấy lại được. */}
-      {/* 🔴 KHÔNG bọc bằng `{hoiLuu && …}` — xem chú thích ở `hoiThemMoiCuoi`. */}
+      {/* 🔴 KHÔNG bọc bằng `{hoiLuu && …}` — xem chú thích ở `hoiLuuCuoi`. */}
       {hoiLuuCuoi && (
         <HopXacNhan
           mo={hoiLuu}
@@ -1481,7 +1455,8 @@ export default function TrangPhanQuyen() {
             {hoiLuuCuoi.vtMoi && hoiLuuCuoi.uidDoiChucDanh.length > 0 && (
               <li>
                 Đổi chức danh → <strong className="text-text-primary">{hoiLuuCuoi.vtMoi.ten}</strong>{" "}
-                ({hoiLuuCuoi.uidDoiChucDanh.length} người)
+                ({hoiLuuCuoi.uidDoiChucDanh.length} người
+                {hoiLuuCuoi.soCapMoi > 0 ? `, trong đó ${hoiLuuCuoi.soCapMoi} người được cấp quyền lần đầu` : ""})
               </li>
             )}
             {/* Ẩn Bật/Tắt khi chưa đọc được quyền riêng — hai danh sách đó tính như thể không ai có
@@ -1512,47 +1487,14 @@ export default function TrangPhanQuyen() {
           </ul>
         </HopXacNhan>
       )}
-
-      {/* Hỏi trước khi CẤP QUYỀN MỚI — người này trước đó chưa vào được app, cấp nhầm vai trò
-          rộng là lộ dữ liệu ngay từ lần đăng nhập đầu tiên. */}
-      {/* 🔴 KHÔNG bọc bằng `{hoiThemMoi && …}` — xem chú thích ở `hoiThemMoiCuoi`. */}
-      {hoiThemMoiCuoi && (
-        <HopXacNhan
-          mo={hoiThemMoi !== null}
-          tieuDe="Cấp quyền cho người này?"
-          moTa={
-            `Cấp cho ${hoiThemMoiCuoi.tv.hoTen} (${hoiThemMoiCuoi.tv.email}) vai trò “${hoiThemMoiCuoi.vt.ten}”. ` +
-            `${hoiThemMoiCuoi.vt.moTa} Người này đăng nhập lần tới bằng đúng tài khoản HPcore của họ là vào được ngay.`
-          }
-          nhanDongY="Cấp quyền"
-          onDongY={() => {
-            const { tv, vt } = hoiThemMoiCuoi;
-            setHoiThemMoi(null);
-            const xet = duocDatCap(nguoiDung, vt.capTM);
-            if (!xet.duoc) {
-              toast.error("Không cấp được", { description: xet.lyDo });
-              return;
-            }
-            /* 🔴 KIỂM CẢ CỜ `chiQuanTriGan`, không chỉ kiểm cấp. Vai trò "Ban Giám đốc" có cấp 1
-               nên qua được `duocDatCap` của người cấp 3, trong khi nó mở quyền xem MỌI hồ sơ kèm
-               giá — xem `chiQuanTriGan` ở `vai-tro-chuan.ts`. */
-            if (!vaiTroGanDuocBoi(toiDa).some((x) => x.ma === vt.ma)) {
-              toast.error("Không cấp được", {
-                description: `Vai trò “${vt.ten}” chỉ tài khoản Quản trị mới gán được.`,
-              });
-              return;
-            }
-            void themMoi(tv, vt);
-          }}
-          onDong={() => setHoiThemMoi(null)}
-        />
-      )}
     </>
   );
 }
 
 /** Nhãn trạng thái một người trên danh sách — luôn có CẢ chữ lẫn màu (V1.1). */
 function trangThaiNguoi(t: ThongTinNguoi, chuaDocRieng: boolean): { label: string; tone: StatusTone } {
+  /* ★ Người trong danh bạ chưa có hồ sơ ở app Thu mua (gộp khối "Thêm người dùng mới"). */
+  if (t.chuaCoHoSo) return { label: "Chưa có quyền", tone: "danger" };
   if (t.hs.hoSo.dangLamViec === false) return { label: "Tạm ngưng", tone: "neutral" };
   if (t.vtHienTai?.ma === "ngung_truy_cap") return { label: "Ngừng truy cập", tone: "neutral" };
   if (t.laQuanTri) return { label: "Quản trị", tone: "primary" };
@@ -1605,27 +1547,5 @@ function OTich({
       aria-describedby={ariaDescribedBy}
       className={`size-4.5 shrink-0 cursor-pointer accent-primary disabled:cursor-not-allowed ${className}`}
     />
-  );
-}
-
-/** Xem trước: vai trò đang chọn làm được những việc nào. Dữ liệu từ `tinhQuyen`, không chép tay. */
-function ViecLamDuoc({ vt }: { vt: VaiTroChuan }) {
-  const q = quyenCuaVaiTro(vt);
-  const duoc = VIEC_TREN_BANG_DOI_CHIEU.filter((v) => q[v.khoa]);
-  if (duoc.length === 0) {
-    return <p className="text-xs text-text-desc">Không làm được việc nào trong app.</p>;
-  }
-  return (
-    <ul className="flex flex-wrap gap-1.5">
-      {duoc.map((v) => (
-        <li
-          key={v.khoa}
-          className="flex items-center gap-1 rounded-md bg-success-bg px-1.5 py-0.5 text-xs font-medium text-success-soft"
-        >
-          <Check className="size-3 shrink-0" aria-hidden />
-          {v.nhan}
-        </li>
-      ))}
-    </ul>
   );
 }
