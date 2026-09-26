@@ -129,9 +129,7 @@ export function KhoiTongQuanPhieuXuatKho({
                     <td className="border border-border px-2 py-1.5 text-right tabular-nums">
                       {so(d.khoiLuongDat)}
                     </td>
-                    <td className="border border-border px-2 py-1.5 text-center text-xs italic text-text-desc">
-                      thủ kho ghi
-                    </td>
+                    <td className="border border-border px-2 py-1.5" />
                     <td className="border border-border px-2 py-1.5 text-right tabular-nums">
                       {coGia && t ? so(t.donGia) : ""}
                     </td>
@@ -169,7 +167,7 @@ export function KhoiTongQuanPhieuXuatKho({
               </p>
               <p className="text-xs text-text-desc">
                 Theo chứng từ: {so(d.khoiLuongDat)}{" "}
-                {d.donViTinh} · Thực xuất: thủ kho ghi
+                {d.donViTinh}
               </p>
               {coGia && t && (
                 <p className="text-xs tabular-nums">

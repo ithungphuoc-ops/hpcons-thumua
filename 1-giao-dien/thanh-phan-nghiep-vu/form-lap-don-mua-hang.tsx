@@ -2618,7 +2618,11 @@ export function FormLapDonMuaHang({
      * Chặn ở ĐÂY, tại chỗ sinh ra đơn, thay vì chỉ chặn ở nút xuất file: sửa gốc thì mọi
      * đơn về sau đều lành, còn chặn ở ngọn thì đơn lỗi vẫn nằm trong dữ liệu.
      */
-    const dongThieuGia = dongHang.filter((it) => !(giaTheoDong[it.sttDong] > 0));
+    /* ★ Mẫu PO-03 (phiếu xuất kho) KHÔNG có đơn giá — Sếp 26/09/2026: *"Phiếu xuất kho thì ko cần
+       nhập giá, nên bỏ điều kiện này đi"*. Ô giá đã ẩn (`khongNhapGia`) nên đòi giá là chặn vĩnh viễn. */
+    const dongThieuGia = khongNhapGia
+      ? []
+      : dongHang.filter((it) => !(giaTheoDong[it.sttDong] > 0));
     if (dongThieuGia.length > 0) {
       toast.error(`Còn ${dongThieuGia.length} dòng chưa nhập đơn giá`, {
         description: `Nhập đơn giá cho: ${dongThieuGia
