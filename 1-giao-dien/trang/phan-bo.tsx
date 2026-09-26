@@ -12,6 +12,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { deNghiConDangChay } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 
 /**
  * M3 (danh sách việc) — Trưởng bộ phận thấy TOÀN BỘ dòng còn tồn ở mọi đề nghị:
@@ -28,7 +29,9 @@ export default function TrangPhanBo() {
         // Đề nghị đã hoàn thành hoặc đã đóng dở không còn là việc phải phân bổ.
         .filter(deNghiConDangChay)
         .map((dn) => {
-          const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
+          /* ★ Trừ dòng đã tách / nhân bản đi (soát giao việc 25–26/09/2026, #0 #33 #58) — không
+             thì phiếu gốc đã giao hết nằm mãi trong hàng chờ phân bổ. */
+          const tienDo = locTienDoConPhaiMua(dn, deNghi, tinhTienDoDeNghi(dn, donHang, phieuNhan));
           return {
             dn,
             chuaPhanBo: tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo"),

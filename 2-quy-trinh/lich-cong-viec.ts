@@ -36,7 +36,11 @@ import type {
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Quyen } from "@/4-phan-quyen/quyen";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
-import { deNghiConDangChay } from "@/2-quy-trinh/giai-doan-mua-hang";
+import {
+  deNghiConDangChay,
+  dongConPhaiLam,
+  soDongChuaPhanBoConLai,
+} from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { GhiChuCongViec } from "@/3-du-lieu/ghi-chu-ca-nhan";
 
 /** Loại mục trên lịch — quyết định màu, chữ và đường bấm vào. */
@@ -113,14 +117,18 @@ export function dungLichCuaToi(
     const ngay = chiNgay(dn.ngayCanHang);
     if (!ngay) continue;
 
-    const dongCuaToi = dn.items.filter((d) => d.nguoiPhuTrachUid === uid);
+    /* ★ Chỉ tính dòng CÒN phải làm ở phiếu này — trừ dòng đã tách / nhân bản đi (soát giao việc
+       25–26/09/2026, #38 #39): trước đây mẫu số tính cả dòng đã tách, và người bị nhân bản đi hết
+       dòng vẫn thấy "Cần hàng — S | 2/2 dòng của bạn" trong khi S không còn gì phải mua. */
+    const conLai = dongConPhaiLam(dn, nguon.deNghi);
+    const dongCuaToi = conLai.filter((d) => d.nguoiPhuTrachUid === uid);
     if (dongCuaToi.length > 0) {
       ra.push({
         khoa: `can_hang|${dn.id}`,
         loai: "can_hang",
         ngay,
         nhan: `Cần hàng — ${dn.code}`,
-        moTa: `${dongCuaToi.length}/${dn.items.length} dòng vật tư của bạn`,
+        moTa: `${dongCuaToi.length}/${conLai.length} dòng vật tư của bạn`,
         duongDan: `/de-nghi/${dn.id}`,
         laGhiChuTay: false,
       });
@@ -129,7 +137,8 @@ export function dungLichCuaToi(
     // ---- ② Còn dòng chưa phân bổ — chỉ người có quyền phân bổ mới thấy ----
     // Đây là việc CỦA TRƯỞNG BỘ PHẬN, không phải của nhân viên: dòng chưa ai nhận thì
     // không ai đi hỏi giá cho nó, để lâu là trễ ngày cần hàng.
-    const chuaPhanBo = dn.items.filter((d) => !d.nguoiPhuTrachUid).length;
+    /* Dùng chung luật đếm với trang chi tiết (soát #33 #46): dòng đã tách không phải "chưa phân bổ". */
+    const chuaPhanBo = soDongChuaPhanBoConLai(dn, nguon.deNghi);
     if (chuaPhanBo > 0 && quyen.phanBoCongViec) {
       ra.push({
         khoa: `cho_phan_bo|${dn.id}`,
@@ -151,7 +160,10 @@ export function dungLichCuaToi(
     if (!ngay) continue;
     // Của người phụ trách các dòng của đề nghị gốc — bảng báo giá không có người phụ trách riêng.
     const dn = nguon.deNghi.find((d) => d.id === bg.prId);
-    if (!dn || !dn.items.some((d) => d.nguoiPhuTrachUid === uid)) continue;
+    if (!dn || !dongConPhaiLam(dn, nguon.deNghi).some((d) => d.nguoiPhuTrachUid === uid)) continue;
+    /* ★ Bỏ mục trùng ngày với "Cần hàng" (soát #46): cả ba chỗ tạo bảng báo giá đều gán
+       `hanNop = ngayCanHang`, nên mục này trùng y hệt mục ① và làm lịch đếm quá hạn gấp đôi. */
+    if (ngay === chiNgay(dn.ngayCanHang)) continue;
     ra.push({
       khoa: `han_bao_gia|${bg.id}`,
       loai: "han_bao_gia",

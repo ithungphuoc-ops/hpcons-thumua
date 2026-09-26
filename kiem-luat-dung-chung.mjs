@@ -9875,6 +9875,429 @@ try {
 }
 const QH = nap(tepRaQuyen);
 
+// ════════════════════════════════════════════════════════════════════
+// SOÁT QUY TRÌNH GIAO VIỆC 25–26/09/2026 — mỗi bài dưới đây canh một lỗi
+// đã ĐO RA THẬT trên mã (số #N = chỉ số trong bản soát). Bài nào đỏ là
+// một lỗ hổng đã vá vừa mở lại — đừng sửa bài cho vừa mã.
+// ════════════════════════════════════════════════════════════════════
+const CHU_SOAT_GV = (so) => `soát giao việc 25–26/09/2026 · #${so}`;
+const TKGv = nap(tepRaTKG);
+const BGv = nap(join(thuMuc, "bao-gia.cjs"));
+/* Lịch công việc chưa được dựng ở đâu khác — dựng ngay đây, nạp liền (thư mục tạm bị xoá cuối tệp). */
+const tepRaLich = join(thuMuc, "lich-cong-viec.cjs");
+execSync(
+  `npx --yes esbuild "2-quy-trinh/lich-cong-viec.ts" --bundle --platform=node --format=cjs --outfile="${tepRaLich}" --log-level=error`,
+  { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+);
+const LICH = nap(tepRaLich);
+const tim = (ds, id) => ds.find((d) => d.id === id);
+
+kiem(
+  "🔴 Ho so DA DONG (dong_do / hoan_thanh): giao viec bi CHAN, KHONG sinh phieu con; rut dong khi phieu goc da dong cung chan",
+  CHU_SOAT_GV("2 #17 #32 #52"),
+  () => {
+    const dd = TKGv.apDungGiaoViec([{ ...phieuThuTach(), trangThai: "dong_do" }], "pr-goc", [1], gThu("C"));
+    const ht = TKGv.apDungGiaoViec([{ ...phieuThuTach(), trangThai: "hoan_thanh" }], "pr-goc", [1], gThu("C"));
+    const b1 = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1], gThu("A"));
+    const chaDong = b1.deNghi.map((d) => (d.id === "pr-goc" ? { ...d, trangThai: "dong_do" } : d));
+    const rut = TKGv.apDungRutDong(chaDong, "pr-goc__A", [1], "TBP", "t", "Bỏ phân bổ");
+    const song = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1], gThu("C"));
+    return {
+      duoc:
+        typeof dd.loi === "string" && typeof ht.loi === "string" && typeof rut.loi === "string" &&
+        song.tach === true && Boolean(tim(song.deNghi, "pr-goc__C")),
+      thucTe: `dong_do=${dd.loi ? "chan" : "KHONG chan"} · hoan_thanh=${ht.loi ? "chan" : "KHONG chan"} · rut tren cha dong=${rut.loi ? "chan" : "KHONG chan"} · da_duyet sinh con=${Boolean(song.deNghi && tim(song.deNghi, "pr-goc__C"))}`,
+      mongDoi: "ba ca da dong deu chan · phieu da_duyet van giao va sinh pr-goc__C",
+    };
+  },
+);
+
+kiem(
+  "🔴 vuongMacGiaoDong: dong da co PO / dang do NGUOI KHAC giu thi KHONG giao de qua o tich (chi sang Chuyen viec)",
+  CHU_SOAT_GV("1 #18 #31 #51"),
+  () => {
+    const goc = { id: "pr-goc", items: [{ stt: 1, nguoiPhuTrachUid: "A", nguoiPhuTrachTen: "NV A" }, { stt: 2 }, { stt: 3 }] };
+    const po = [{ prId: "pr-goc", trangThai: "da_chot", items: [{ sttDongDeNghi: 2 }] }];
+    const poHuy = [{ prId: "pr-goc", trangThai: "huy", items: [{ sttDongDeNghi: 2 }] }];
+    const coPO = TKGv.vuongMacGiaoDong(goc, [2], "B", [], po);
+    const deNguoi = TKGv.vuongMacGiaoDong(goc, [1, 3], "B", [], []);
+    const trong = TKGv.vuongMacGiaoDong(goc, [3], "B", [], po);
+    const choChinhA = TKGv.vuongMacGiaoDong(goc, [1], "A", [], []);
+    const huy = TKGv.vuongMacGiaoDong(goc, [2], "B", [], poHuy);
+    return {
+      duoc:
+        typeof coPO === "string" && coPO.includes("đơn hàng") &&
+        typeof deNguoi === "string" && deNguoi.includes("NV A") && deNguoi.includes("Chuyển việc") &&
+        trong === null && choChinhA === null && huy === null,
+      thucTe: JSON.stringify({ coPO, deNguoi, trong, choChinhA, huy }),
+      mongDoi: "coPO/deNguoi = cau chan (co ten NV A + 'Chuyển việc') · dong trong / giao lai cho chinh A / PO da huy = null",
+    };
+  },
+);
+
+kiem(
+  "🔴 Tang ghi phanBoDong goi du 5 chot (quyen · chi dinh NCC · checkin · giao dong · roi buoc ①); boPhanBoDong / chuyenViecDong co chot quyen",
+  CHU_SOAT_GV("50 #53") + " + Ban lãnh đạo 12/09/2026 (checkin trước khi giao)",
+  () => {
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const cat = (dau, cuoi) => {
+      const a = nguon.indexOf(dau);
+      const b = nguon.indexOf(cuoi, a + 1);
+      if (a < 0 || b < 0) return "";
+      return nguon.slice(a, b).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+    };
+    const pb = cat("const phanBoDong = useCallback(", "const luiVeBuoc = useCallback(");
+    const bo = cat("const boPhanBoDong = useCallback(", "const chuyenViecDong = useCallback(");
+    const cv = cat("const chuyenViecDong = useCallback(", "const themDonHang = useCallback(");
+    const canCo = ["vuongMacQuyenPhanBo(", "vuongMacChiDinhNCCLucGiaoViec(", "vuongMacGiaoViec(", "vuongMacGiaoDong(", 'vuongMacRoiBuoc(dnGoc, "tiep_nhan"'];
+    const thieu = canCo.filter((x) => !pb.includes(x));
+    return {
+      duoc:
+        pb.length > 800 && bo.length > 300 && cv.length > 800 && thieu.length === 0 &&
+        bo.includes("vuongMacQuyenPhanBo(") && cv.includes("vuongMacQuyenPhanBo("),
+      thucTe: `do dai pb/bo/cv=${pb.length}/${bo.length}/${cv.length} · phanBoDong thieu: [${thieu.join(", ")}] · bo co quyen=${bo.includes("vuongMacQuyenPhanBo(")} · cv co quyen=${cv.includes("vuongMacQuyenPhanBo(")}`,
+      mongDoi: "phanBoDong goi du 5 chot; boPhanBoDong va chuyenViecDong goi vuongMacQuyenPhanBo",
+    };
+  },
+);
+
+kiem(
+  "🔴 Keo ve ① KHONG nhan doi dong: phieu con 26/09 (sttDongCha) chi gop dong THEM THANG; ban tach cu van gop, ban nhan ban tay bo dong trung",
+  CHU_SOAT_GV("8") + " + Sếp 22/08 & 17/09 (gộp trả nguyên trạng, không nhân đôi)",
+  () => {
+    const b1 = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1], gThu("A"));
+    const b2 = TKGv.apDungGiaoViec(b1.deNghi, "pr-goc", [2, 3], gThu("B"));
+    const goc = tim(b2.deNghi, "pr-goc");
+    const conA = tim(b2.deNghi, "pr-goc__A");
+    const ra = TKGv.gopBanTachVeGoc(goc, [conA]);
+    const conThem = { ...conA, items: [...conA.items, { stt: 2, tenVatLieu: "VT-them" }] };
+    const raThem = TKGv.gopBanTachVeGoc(goc, [conThem]);
+    const tachCu = { id: "x", code: "HD-001 (copy 9)", items: [{ stt: 1, tenVatLieu: "VT9" }] };
+    const nbTay = {
+      id: "y", code: "HD-001 (copy 8)", deNghiGocId: "pr-goc",
+      items: [{ stt: 1, tenVatLieu: "VT2", sttDongGoc: 2 }, { stt: 2, tenVatLieu: "VT-moi" }],
+    };
+    const raCu = TKGv.gopBanTachVeGoc(goc, [tachCu, nbTay]);
+    const ten = (ds) => ds.map((d) => `${d.stt}:${d.tenVatLieu}`).join(" ");
+    return {
+      duoc:
+        ten(ra) === "1:VT1 2:VT2 3:VT3" && ra.every((d) => !d.nguoiPhuTrachUid) &&
+        ten(raThem) === "1:VT1 2:VT2 3:VT3 4:VT-them" &&
+        ten(raCu) === "1:VT1 2:VT2 3:VT3 4:VT-moi 5:VT9",
+      thucTe: `con26/09: ${ten(ra)} · con co dong them: ${ten(raThem)} · cu+tay: ${ten(raCu)}`,
+      mongDoi: "1:VT1 2:VT2 3:VT3 · ...4:VT-them · ...4:VT-moi 5:VT9",
+    };
+  },
+);
+
+kiem(
+  "🔴 Gop phieu con cua nguoi sau cung CHI KHI khong mat gi: co ban con / dong them thang / binh luan -> GIU phieu con",
+  CHU_SOAT_GV("12") + " + phát hiện (a) mất dữ liệu khi gộp",
+  () => {
+    const b1 = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1], gThu("B"));
+    const sua = (fn) => b1.deNghi.map((d) => (d.id === "pr-goc__B" ? fn(d) : d));
+    const coBL = sua((d) => ({ ...d, binhLuan: [{ id: "c1", noiDung: "x" }] }));
+    const coDongThem = sua((d) => ({ ...d, items: [...d.items, { stt: 2, tenVatLieu: "VT-them-tren-con" }] }));
+    const coBanCon = [...b1.deNghi, { id: "nb1", code: "HD-001 (copy 5)", deNghiChaId: "pr-goc__B", items: [{ stt: 1, sttDongCha: 1 }], lichSu: [] }];
+    const giao = (ds) => TKGv.apDungGiaoViec(ds, "pr-goc", [2, 3], gThu("B")).deNghi;
+    const r1 = giao(coBL), r2 = giao(coDongThem), r3 = giao(coBanCon);
+    const thuong = giao(b1.deNghi);
+    return {
+      duoc:
+        Boolean(tim(r1, "pr-goc__B")?.binhLuan?.length) &&
+        Boolean(tim(r2, "pr-goc__B")?.items.some((d) => d.tenVatLieu === "VT-them-tren-con")) &&
+        Boolean(tim(r3, "pr-goc__B")) && Boolean(tim(r3, "nb1")) &&
+        !tim(thuong, "pr-goc__B"),
+      thucTe: `binhLuan giu con=${Boolean(tim(r1, "pr-goc__B"))} · dong them con=${Boolean(tim(r2, "pr-goc__B"))} · ban con con cha=${Boolean(tim(r3, "pr-goc__B"))} · ca thuong gop=${!tim(thuong, "pr-goc__B")}`,
+      mongDoi: "ba ca dac biet GIU phieu con · ca thuong van gop (bo pr-goc__B)",
+    };
+  },
+);
+
+kiem(
+  "Tach xong: dong MO tren phieu goc sach yeu cau bao gia (khong keo san so bao gia cua nguoi khac); phieu con giu dung yeu cau",
+  CHU_SOAT_GV("21 #34") + " + Sếp 16/09 (mốc sàn đi theo người giữ)",
+  () => {
+    /* A giữ cả phiếu (2 báo giá), riêng dòng 1 được dặn 4 báo giá; rồi CHUYỂN dòng 1 sang C → tách.
+       Dòng mờ trên phiếu gốc còn giữ 4 thì phiếu của A bị đòi 4 báo giá — đúng lỗi đã đo. */
+    const b0 = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1, 2, 3], { ...gThu("A"), soBaoGia: 2 });
+    const b1 = TKGv.apDungGiaoViec(b0.deNghi, "pr-goc", [1], { ...gThu("A"), soBaoGia: 4, ghiChu: "x" });
+    const b2 = TKGv.apDungGiaoViec(b1.deNghi, "pr-goc", [1], {
+      ...gThu("C"), loaiHanhDong: "chuyen_viec", giuYeuCauCu: true, lyDo: "Từ NV A.",
+    });
+    const goc = tim(b2.deNghi, "pr-goc");
+    const d1 = goc.items[0];
+    const con = tim(b2.deNghi, "pr-goc__C");
+    return {
+      duoc:
+        b2.tach === true &&
+        d1.soBaoGiaYeuCau === undefined && d1.soBaoGiaTPGiao === undefined && d1.ghiChuPhanBo === undefined &&
+        BGv.sanSoBaoGiaTPGiao(goc) === 2 &&
+        con.items[0].soBaoGiaYeuCau === 4 && con.items[0].ghiChuPhanBo === "x",
+      thucTe: `dong mo: [${d1.soBaoGiaYeuCau},${d1.soBaoGiaTPGiao},${d1.ghiChuPhanBo}] · san goc=${BGv.sanSoBaoGiaTPGiao(goc)} · con=[${con.items[0].soBaoGiaYeuCau},${con.items[0].ghiChuPhanBo}]`,
+      mongDoi: "dong mo [undefined x3] · san goc=2 · con C=[4,x]",
+    };
+  },
+);
+
+kiem(
+  "Chuyen viec tu phieu con GIU yeu cau da dan (so bao gia + ghi chu); bo phan bo thi xoa sach; nhat ky co ten nguoi cu + ly do",
+  CHU_SOAT_GV("18 #21 #44 #59") + " + chỉ đạo 12/08 (chuyển việc giữ yêu cầu, ghi 'Từ …')",
+  () => {
+    const b1 = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1], { ...gThu("A"), soBaoGia: 3, ghiChu: "x" });
+    const rut = TKGv.apDungRutDong(b1.deNghi, "pr-goc__A", [1], "TBP", "t", "Chuyển việc", { mangYeuCauVe: true, tenNguoiCu: "NV A" });
+    const cv = TKGv.apDungGiaoViec(rut.deNghi, rut.chaId, rut.sttCha, {
+      ...gThu("C"), loaiHanhDong: "chuyen_viec", giuYeuCauCu: true, lyDo: "Từ NV A. nghi phep",
+    });
+    const conC = tim(cv.deNghi, "pr-goc__C");
+    const gocCv = tim(cv.deNghi, "pr-goc");
+    const cuoi = gocCv.lichSu[gocCv.lichSu.length - 1];
+    const rutCuaAi = gocCv.lichSu.some((m) => m.hanhDong.includes("của NV A"));
+    const bo = TKGv.apDungRutDong(b1.deNghi, "pr-goc__A", [1], "TBP", "t", "Bỏ phân bổ", { mangYeuCauVe: false });
+    const d1Bo = tim(bo.deNghi, "pr-goc").items[0];
+    return {
+      duoc:
+        conC?.items[0].soBaoGiaYeuCau === 3 && conC?.items[0].ghiChuPhanBo === "x" &&
+        cuoi.hanhDong.startsWith("Chuyển việc dòng") && (cuoi.ghiChu ?? "").includes("nghi phep") && rutCuaAi &&
+        d1Bo.soBaoGiaYeuCau === undefined && d1Bo.ghiChuPhanBo === undefined && d1Bo.soBaoGiaTPGiao === undefined,
+      thucTe: `conC=[${conC?.items[0].soBaoGiaYeuCau},${conC?.items[0].ghiChuPhanBo}] · nhat ky cuoi="${cuoi.hanhDong}" ghiChu="${cuoi.ghiChu}" · rut co ten A=${rutCuaAi} · bo: [${d1Bo.soBaoGiaYeuCau},${d1Bo.ghiChuPhanBo}]`,
+      mongDoi: "conC=[3,x] · 'Chuyển việc dòng…' + ly do · rut ghi 'của NV A' · bo phan bo sach",
+    };
+  },
+);
+
+kiem(
+  "Gop phieu con: dong gop ve GIU yeu cau rieng (3 bao gia) — khong bi de boi lan giao moi (1 bao gia, chi dinh)",
+  CHU_SOAT_GV("18 #21") + " (lọt chốt cạnh tranh giá khi gộp)",
+  () => {
+    const b1 = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1], { ...gThu("B"), soBaoGia: 3, ghiChu: "hoi 3 NCC" });
+    const b2 = TKGv.apDungGiaoViec(b1.deNghi, "pr-goc", [2, 3], { ...gThu("B"), soBaoGia: 1, ghiChu: "chi dinh NCC Y" });
+    const it = tim(b2.deNghi, "pr-goc").items;
+    return {
+      duoc:
+        !tim(b2.deNghi, "pr-goc__B") &&
+        it[0].soBaoGiaYeuCau === 3 && it[0].ghiChuPhanBo === "hoi 3 NCC" && it[0].nguoiPhuTrachUid === "B" &&
+        it[1].soBaoGiaYeuCau === 1 && it[2].soBaoGiaYeuCau === 1,
+      thucTe: it.map((d) => `${d.stt}:${d.nguoiPhuTrachUid}/${d.soBaoGiaYeuCau}/${d.ghiChuPhanBo ?? "-"}`).join(" "),
+      mongDoi: "1:B/3/hoi 3 NCC 2:B/1/… 3:B/1/…",
+    };
+  },
+);
+
+kiem(
+  "🔴 Nhat ky giao viec KHONG chep NOI DUNG ghi chu (co the chua ten NCC) — chi ghi 'có ghi chú giao việc'",
+  CHU_SOAT_GV("7 #22") + " + CLAUDE.md §7 (không ghi tên NCC vào nhật ký)",
+  () => {
+    const b1 = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1], { ...gThu("A"), soBaoGia: 2, ghiChu: "NCC chi dinh Cong ty X" });
+    const ca = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1, 2, 3], { ...gThu("A"), soBaoGia: 1, ghiChu: "Cong ty X doc quyen" });
+    const chu = JSON.stringify([...b1.deNghi, ...ca.deNghi].map((d) => d.lichSu));
+    return {
+      duoc: !chu.includes("Cong ty X") && chu.includes("có ghi chú giao việc") && chu.includes("có lý do chỉ định 1 báo giá") && chu.includes("yêu cầu 2 báo giá"),
+      thucTe: chu.slice(0, 400),
+      mongDoi: "khong co 'Cong ty X'; co 'có ghi chú giao việc', 'có lý do chỉ định 1 báo giá', 'yêu cầu 2 báo giá'",
+    };
+  },
+);
+
+kiem(
+  "Phieu con MOI khong muon moc vao buoc cua phieu goc (khong bao 'Tre' oan); ban nhan ban bo moc; phieu con cu giu moc",
+  CHU_SOAT_GV("14"),
+  () => {
+    const p = { ...phieuThuTach(), mocVaoBuoc: { buoc: "yeu_cau_bao_gia", thoiDiem: "2026-09-20T08:00:00" } };
+    const b1 = TKGv.apDungGiaoViec([p], "pr-goc", [1], gThu("B"));
+    const con1 = tim(b1.deNghi, "pr-goc__B");
+    const b2 = TKGv.apDungGiaoViec(b1.deNghi, "pr-goc", [2], { ...gThu("B"), thoiDiem: "2026-09-27T01:00:00Z" });
+    const con2 = tim(b2.deNghi, "pr-goc__B");
+    const nb = NB.dungBanNhanBan({ goc: p, phieuGocDau: p, idMoi: "nb", maMoi: "HD-001 (copy)", nguoi: { uid: "A", ten: "A" }, ngay: "2026-09-26", thoiDiem: "2026-09-26T01:00:00Z" });
+    return {
+      duoc:
+        con1.mocVaoBuoc?.thoiDiem === gThu("B").thoiDiem &&
+        con2.mocVaoBuoc?.thoiDiem === gThu("B").thoiDiem && con2.items.length === 2 &&
+        nb.mocVaoBuoc === undefined,
+      thucTe: `con moi=${JSON.stringify(con1.mocVaoBuoc)} · con noi them=${JSON.stringify(con2.mocVaoBuoc)} · ban nhan ban=${JSON.stringify(nb.mocVaoBuoc)}`,
+      mongDoi: "con moi moc = luc giao · noi them giu moc cu · nhan ban undefined",
+    };
+  },
+);
+
+kiem(
+  "So dong chua phan bo TRU dong da tach (mot cau tra loi cho trang chi tiet / lich / phan bo)",
+  CHU_SOAT_GV("0 #33 #38 #58") + " + Sếp 15/09 (dòng nhân bản đi không tính là chưa phân bổ)",
+  () => {
+    const b1 = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1], gThu("A"));
+    const b2 = TKGv.apDungGiaoViec(b1.deNghi, "pr-goc", [2, 3], gThu("B"));
+    const goc2 = tim(b2.deNghi, "pr-goc");
+    const kq = {
+      daGiaoHet: G.soDongChuaPhanBoConLai(goc2, b2.deNghi),
+      conTrong: G.soDongChuaPhanBoConLai(tim(b1.deNghi, "pr-goc"), b1.deNghi),
+      khongTatCa: G.soDongChuaPhanBoConLai(goc2),
+    };
+    return { duoc: kq.daGiaoHet === 0 && kq.conTrong === 2 && kq.khongTatCa === 1, thucTe: JSON.stringify(kq), mongDoi: '{"daGiaoHet":0,"conTrong":2,"khongTatCa":1}' };
+  },
+);
+
+kiem(
+  "CHIEU NGUOC luat ①->②: con dong trong thi hoso O LAI tiep_nhan (ke ca sau khi tach 1 dong)",
+  CHU_SOAT_GV("54") + " + Ban lãnh đạo 13/08 (phải đủ mọi dòng mới sang ②)",
+  () => {
+    const b1 = TKGv.apDungGiaoViec([phieuThuTach()], "pr-goc", [1], gThu("A"));
+    const sau = G.xacDinhGiaiDoan(tim(b1.deNghi, "pr-goc"), [], [], [], b1.deNghi);
+    const motDong = G.xacDinhGiaiDoan({ ...phieuThuTach(), items: [{ stt: 1 }] }, [], [], []);
+    return { duoc: sau === "tiep_nhan" && motDong === "tiep_nhan", thucTe: `${sau} · ${motDong}`, mongDoi: "tiep_nhan · tiep_nhan" };
+  },
+);
+
+kiem(
+  "🔴 vuongMacGiaoViec: viec bat buoc buoc ① chua tich -> CHAN kem ten viec; tich xong -> cho giao",
+  CHU_SOAT_GV("50") + " + Ban lãnh đạo 12/09/2026 — *\"phải checkin hàng tồn kho trước thì mới được chọn giao việc\"*",
+  () => {
+    const ch = {
+      soBaoGiaToiThieu: 2, hanGioTheoBuoc: {},
+      congViecTheoBuoc: { tiep_nhan: [{ ma: "ck", ten: "Checkin hàng tồn kho", batBuoc: true }] },
+      caiDatTungBuoc: { tiep_nhan: { batBuocXongCongViec: true } },
+    };
+    const chua = G.vuongMacGiaoViec({ ...phieuThuTach(), congViecDaXong: [] }, ch);
+    const xong = G.vuongMacGiaoViec({ ...phieuThuTach(), congViecDaXong: [{ maCongViec: "ck" }] }, ch);
+    return {
+      duoc: typeof chua === "string" && chua.includes("Checkin hàng tồn kho") && xong === null,
+      thucTe: `chua=${chua} · xong=${xong}`,
+      mongDoi: "chua = cau chan co ten viec · xong = null",
+    };
+  },
+);
+
+kiem(
+  "Thong bao chi toi DUNG nguoi: dich danh minh (ke ca lech khoang trang / hoa thuong) -> thay; nguoi khac -> khong; nhan TBP chi nguoi phan bo thay",
+  CHU_SOAT_GV("55 #42") + " + Ban lãnh đạo 12/08/2026 (tin chỉ tới đúng người được giao)",
+  () => {
+    const f = G.thongBaoDanhChoToi;
+    const kq = [
+      f(["Nguyễn Văn A"], "Nguyễn Văn A", false),
+      f(["Nguyễn Văn A"], "  nguyễn  văn a ", false),
+      f(["Nguyễn Văn A".normalize("NFD")], "Nguyễn Văn A", false),
+      f([], "Ai do", false),
+      f(["Trần Văn B"], "Nguyễn Văn A", false),
+      f([G.NHAN_TRUONG_BO_PHAN], "Nguyễn Văn A", false),
+      f([G.NHAN_TRUONG_BO_PHAN], "Nguyễn Văn A", true),
+    ];
+    return { duoc: kq.join() === "true,true,true,true,false,false,true", thucTe: kq.join(), mongDoi: "true,true,true,true,false,false,true" };
+  },
+);
+
+kiem(
+  "Tin sang ③ Xet duyet bao gia gui TRUONG BO PHAN (nguoi duyet); buoc ② van gui nhan vien; nguoi bi tach het dong khong con 'viec cua toi'",
+  CHU_SOAT_GV("28 #39"),
+  () => {
+    const D = { ...phieuThuTach(), items: [{ stt: 1, nguoiPhuTrachUid: "A", nguoiPhuTrachTen: "NV A" }] };
+    const b3 = G.nguoiCanXuLy(D, "xet_duyet_bao_gia");
+    const b2 = G.nguoiCanXuLy(D, "yeu_cau_bao_gia");
+    const nb = { id: "nb", code: "HD-001 (copy)", deNghiChaId: "pr-goc", items: [{ stt: 1, sttDongCha: 1 }], lichSu: [] };
+    const ds = [D, nb];
+    return {
+      duoc:
+        b3.includes(G.NHAN_TRUONG_BO_PHAN) && b2.join() === "NV A" &&
+        G.conViecCuaToi(D, "A") === true && G.conViecCuaToi(D, "A", ds) === false &&
+        !G.nguoiCanXuLy(D, "yeu_cau_bao_gia", ds).includes("NV A"),
+      thucTe: `③=${JSON.stringify(b3)} · ②=${JSON.stringify(b2)} · conViec A (khong/co kho)=${G.conViecCuaToi(D, "A")}/${G.conViecCuaToi(D, "A", ds)}`,
+      mongDoi: "③ co TBP · ② = NV A · conViec true/false · ② co kho khong con NV A",
+    };
+  },
+);
+
+kiem(
+  "🔴 Tang ghi giao/chuyen/bo phan bo: KHONG co quyen phan bo thi CHAN; co quyen thi qua",
+  CHU_SOAT_GV("20 #53") + " + Ban lãnh đạo 15/08/2026 (chỉ quản lý giao lại việc)",
+  () => {
+    const khong = KD.vuongMacQuyenPhanBo({ phanBoCongViec: false });
+    const co = KD.vuongMacQuyenPhanBo({ phanBoCongViec: true });
+    const nvChuyen = QH.duocChuyenViecDong({ nguoiPhuTrachUid: "A" }, "A", { phanBoCongViec: false });
+    const tbpChuyen = QH.duocChuyenViecDong({ nguoiPhuTrachUid: "A" }, "T", { phanBoCongViec: true });
+    return {
+      duoc: typeof khong === "string" && co === null && nvChuyen === false && tbpChuyen === true,
+      thucTe: `khong=${khong} · co=${co} · NV chuyen=${nvChuyen} · TBP chuyen=${tbpChuyen}`,
+      mongDoi: "khong = cau chan · co = null · NV chuyen false · TBP chuyen true",
+    };
+  },
+);
+
+kiem(
+  "🔴 Nhan ban: nhan vien CHI lay dong cua minh, KHONG lay dong da tach; Truong bo phan lay moi dong chua tach",
+  CHU_SOAT_GV("16 #23 #24"),
+  () => {
+    const p = { ...phieuThuTach(), items: [{ stt: 1, nguoiPhuTrachUid: "A" }, { stt: 2, nguoiPhuTrachUid: "B" }, { stt: 3, nguoiPhuTrachUid: "A" }] };
+    const con = { id: "pr-goc__A", code: "HD-001 (copy)", deNghiChaId: "pr-goc", items: [{ stt: 1, sttDongCha: 3 }], lichSu: [] };
+    const ds = [p, con];
+    const nvA = NB.sttDuocNhanBan(p, ds, "A", false);
+    const tbp = NB.sttDuocNhanBan(p, ds, "T", true);
+    const rong = NB.sttDuocNhanBan(p, ds, "", false);
+    return {
+      duoc: nvA.join() === "1" && tbp.join() === "1,2" && rong.length === 0,
+      thucTe: `NV A=[${nvA}] · TBP=[${tbp}] · uid rong=[${rong}]`,
+      mongDoi: "NV A=[1] (dong 3 da tach, dong 2 cua B) · TBP=[1,2] · uid rong=[]",
+    };
+  },
+);
+
+kiem(
+  "So bao gia duoc ghi (nut ±): nhan vien khong ha duoi moc TP giao; Truong bo phan ha duoc",
+  CHU_SOAT_GV("60") + " + Sếp 16/09 & 18/09/2026 (kẹp sàn ở tầng ghi)",
+  () => {
+    const dn = { items: [{ stt: 1, soBaoGiaTPGiao: 2 }, { stt: 2 }] };
+    const nv = BGv.soBaoGiaDuocGhi(dn, 1, false);
+    const tp = BGv.soBaoGiaDuocGhi(dn, 1, true);
+    const nvTang = BGv.soBaoGiaDuocGhi(dn, 4, false);
+    const khongMoc = BGv.soBaoGiaDuocGhi({ items: [{ stt: 1 }] }, 1, false);
+    return {
+      duoc: nv === 2 && tp === 1 && nvTang === 4 && khongMoc === 1,
+      thucTe: `nv=${nv} tp=${tp} nvTang=${nvTang} khongMoc=${khongMoc}`,
+      mongDoi: "nv=2 tp=1 nvTang=4 khongMoc=1",
+    };
+  },
+);
+
+kiem(
+  "'PO cua toi' chi tinh khi minh giu dong CUA CHINH PO do (khong dem PO dong nghiep o phieu nhieu nguoi)",
+  CHU_SOAT_GV("27") + " + Sếp 19/09/2026 (PO do mình làm hoặc được theo dõi)",
+  () => {
+    const dn = { id: "p", items: [{ stt: 1, nguoiPhuTrachUid: "A" }, { stt: 2, nguoiPhuTrachUid: "B" }], nguoiTheoDoi: [{ uid: "TD" }] };
+    const poB = { nguoiPhuTrachUid: "B", prId: "p", items: [{ sttDongDeNghi: 2 }] };
+    const poLapHo = { nguoiPhuTrachUid: "TBP", prId: "p", items: [{ sttDongDeNghi: 1 }] };
+    const kq = [
+      QH.laDonHangCuaToi(poB, [dn], "A"),
+      QH.laDonHangCuaToi(poLapHo, [dn], "A"),
+      QH.laDonHangCuaToi(poB, [dn], "B"),
+      QH.laDonHangCuaToi(poB, [dn], "TD"),
+    ];
+    return { duoc: kq.join() === "false,true,true,true", thucTe: kq.join(), mongDoi: "false (PO cua B),true (lap ho dong cua A),true,true (theo doi)" };
+  },
+);
+
+kiem(
+  "Lich: phieu goc da tach het KHONG con 'Cho phan bo'; mau so = so dong con lai; khong trung 'Han nop bao gia' voi 'Can hang'",
+  CHU_SOAT_GV("38 #46"),
+  () => {
+    const base = { ...phieuThuTach(), ngayCanHang: "2026-09-30" };
+    const b1 = TKGv.apDungGiaoViec([base], "pr-goc", [1], gThu("A"));
+    const b2 = TKGv.apDungGiaoViec(b1.deNghi, "pr-goc", [2, 3], gThu("B"));
+    const bg = [{ id: "bg1", code: "BG-001", prId: "pr-goc", trangThai: "dang_thu_thap", hanNop: "2026-09-30" }];
+    const nguon = (ds) => ({ deNghi: ds, donHang: [], baoGia: bg, congNo: [], ghiChu: [] });
+    const quyenTBP = { phanBoCongViec: true };
+    const lichTBP = LICH.dungLichCuaToi(nguon(b2.deNghi), "T", quyenTBP);
+    const lichB = LICH.dungLichCuaToi(nguon(b2.deNghi), "B", { phanBoCongViec: false });
+    const lichConTrong = LICH.dungLichCuaToi(nguon(b1.deNghi), "T", quyenTBP);
+    const canHangB = lichB.find((m) => m.loai === "can_hang");
+    return {
+      duoc:
+        !lichTBP.some((m) => m.loai === "cho_phan_bo") &&
+        canHangB?.moTa.startsWith("2/2") &&
+        !lichB.some((m) => m.loai === "han_bao_gia") &&
+        lichConTrong.some((m) => m.loai === "cho_phan_bo"),
+      thucTe: `TBP: ${lichTBP.map((m) => m.nhan).join(" | ")} · B: ${lichB.map((m) => `${m.nhan} (${m.moTa})`).join(" | ")} · con trong: ${lichConTrong.map((m) => m.nhan).join(" | ")}`,
+      mongDoi: "TBP khong co 'Chờ phân bổ' · B 'Cần hàng' 2/2, khong co 'Hạn nộp báo giá' trung ngay · con dong trong van co 'Chờ phân bổ'",
+    };
+  },
+);
+
 kiem(
   "🔴 Theo doi de nghi: CHI nguoi lap / duoc chia viec / theo doi (hoac cap quan ly) xem duoc — trang chi tiet cung chan",
   'Sếp · 25/09/2026 — *"Cần tối ưu giải pháp theo dõi này"*; lỗ hổng `/theo-doi/<id>` không kiểm quyền (phản biện 25/09)',

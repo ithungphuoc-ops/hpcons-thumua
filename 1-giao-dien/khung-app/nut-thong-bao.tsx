@@ -71,7 +71,19 @@ export function NutThongBao() {
     <DropdownMenu
       onOpenChange={(open) => {
         // Chỉ đánh dấu đã đọc những tin CỦA MÌNH — xem ghi chú ở `danhDauDaDocThongBao`.
-        if (open) danhDauDaDocThongBao(thongBao.map((t) => t.id));
+        /* ★ VÀ CHỈ những tin ĐANG HIỆN RA (8 tin mới nhất) — soát giao việc 25–26/09/2026 (#36).
+           Trước đây đánh dấu cả danh sách (tới 30 tin): tin không hiện ra cũng thành "đã đọc", mà
+           hộp nổi việc mới bỏ qua tin cũ, nên tin đó không còn kênh nào báo lại.
+           🔴 PHÉP SẮP + CẮT PHẢI KHỚP khối vẽ danh sách bên dưới (sắp theo `thoiDiem` giảm dần,
+           `.slice(0, 8)`) — khối đó của phiên tích hợp (23/09) nên không gom chung một biến ở
+           đây; đổi số 8 hay cách sắp ở dưới thì sửa cả dòng này. */
+        if (open)
+          danhDauDaDocThongBao(
+            [...thongBao]
+              .sort((a, b) => String(b.thoiDiem ?? "").localeCompare(String(a.thoiDiem ?? "")))
+              .slice(0, 8)
+              .map((t) => t.id),
+          );
       }}
     >
       <DropdownMenuTrigger
@@ -182,7 +194,11 @@ export function NutThongBao() {
                         ? `Bạn được giao ${tb.soDongViec ?? ""} dòng vật tư`
                         : tb.laChuyenTiep
                           ? `Trưởng bộ phận chuyển tiếp — mời tiếp tục bước "${nhanBuoc(tb.denBuoc)}"`
-                          : tb.tuBuoc
+                          : /* Tin "hồ sơ mới từ App Request" mang tuBuoc = denBuoc — in "X → X" là
+                               vô nghĩa (soát #13). */
+                            tb.id.startsWith("tb-req-")
+                            ? `Đề nghị mới từ App Request — bước "${nhanBuoc(tb.denBuoc)}"`
+                            : tb.tuBuoc
                             ? `${nhanBuoc(tb.tuBuoc)} → ${nhanBuoc(tb.denBuoc)}`
                             : `Đề nghị mới vào bước "${nhanBuoc(tb.denBuoc)}"`}
                   </span>

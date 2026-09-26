@@ -329,6 +329,36 @@ export interface ThamSoDungBanNhanBan {
  * không phải chứng từ phát sinh trong lúc chạy quy trình. Xoá nốt hai thứ này là bản copy thành
  * hồ sơ trơ, không đi hỏi giá được. Nếu Sếp muốn xoá cả chúng thì sửa ở ĐÂY, một chỗ.
  */
+/**
+ * ★ NHỮNG DÒNG NGƯỜI NÀY ĐƯỢC ĐƯA VÀO BẢN NHÂN BẢN — soát giao việc 25–26/09/2026 (#16 #23 #24).
+ *
+ * 🔴 Hai điều kiện, thiếu cái nào cũng từng đo ra lỗi thật:
+ *   · Dòng CHƯA chuyển đi hết (tách / nhân bản sang phiếu khác). Trước đây hộp tích hết mặc định,
+ *     nên nhân bản phiếu gốc mang cả dòng người khác đang mua sang bản sao dưới dạng "chưa giao" →
+ *     Trưởng bộ phận giao lại là MUA TRÙNG.
+ *   · Người không có quyền phân bổ chỉ lấy dòng CỦA MÌNH (`nguoiPhuTrachUid === uid`). Trước đây
+ *     nhân viên ở phiếu nhiều người cũ tích được dòng đồng nghiệp → việc của người kia sang tay
+ *     mình, không lý do, không báo (chỉ đạo 15/08 "ai nhân bản thì người đó làm" chỉ nói về phần
+ *     việc của chính người bấm).
+ *
+ * 📌 Mặc định BẢO THỦ: nhân viên KHÔNG lấy được dòng chưa ai nhận. Có mở hay không cần Sếp chốt.
+ */
+export function sttDuocNhanBan(
+  dn: DeNghiMuaHang,
+  tatCa: DeNghiMuaHang[],
+  uid: string,
+  laNguoiPhanBo: boolean,
+): number[] {
+  const daChuyen = dongDaNhanBanSang(dn, tatCa);
+  return dn.items
+    .filter(
+      (d) =>
+        !dongDaChuyenDiHet(d.stt, daChuyen) &&
+        (laNguoiPhanBo || (Boolean(uid) && d.nguoiPhuTrachUid === uid)),
+    )
+    .map((d) => d.stt);
+}
+
 export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
   const { goc, phieuGocDau, nguoi } = t;
 
@@ -364,6 +394,10 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
     ngayDuyet: t.ngay,
     trangThai: "da_duyet",
     luuTru: undefined,
+    /* ★ Không mượn mốc vào bước của phiếu gốc (soát giao việc 25–26/09, #14) — mượn là bản mới vừa
+       sinh đã báo "Trễ". Tầng ghi (`nhanBanDeNghi`) đặt lại mốc = lúc nhân bản; tệp này không import
+       được `xacDinhGiaiDoan` (sẽ thành vòng import). */
+    mocVaoBuoc: undefined,
 
     // ── LÀM SẠCH TIẾN TRÌNH CỦA PHIẾU GỐC (Sếp 15/09/2026) ───────────────────────────────
     /* Tệp đính kèm của TỪNG BƯỚC: bảng báo giá NCC gửi, hợp đồng đã ký, hóa đơn VAT… Chúng là

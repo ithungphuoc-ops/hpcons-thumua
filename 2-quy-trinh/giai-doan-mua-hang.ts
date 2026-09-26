@@ -210,7 +210,7 @@ export const NHAN_GIAI_DOAN: Record<GiaiDoanMuaHang, MoTaGiaiDoan> = Object.from
  * `vuongMacHoanThanhQuyTrinh` thấy *"còn 0 mặt hàng chưa lên đơn"* và **đóng được hồ sơ chưa mua
  * gì cả**. Chốt "còn bản con chưa xong thì chưa đóng" nằm ở `chung-tu-cuoi-quy-trinh.ts`.
  */
-function dongConPhaiLam(
+export function dongConPhaiLam(
   deNghi: DeNghiMuaHang,
   tatCaDeNghi?: DeNghiMuaHang[],
 ): DeNghiMuaHang["items"] {
@@ -219,6 +219,35 @@ function dongConPhaiLam(
   /* Phiếu chưa bị nhân bản lần nào (ca thường gặp nhất) → trả thẳng mảng gốc, không tạo mảng mới. */
   if (daNhanBan.size === 0) return deNghi.items;
   return deNghi.items.filter((d) => !dongDaChuyenDiHet(d.stt, daNhanBan));
+}
+
+/**
+ * ★ SỐ DÒNG CHƯA PHÂN BỔ — MỘT CÂU TRẢ LỜI CHO MỌI MÀN (soát giao việc 25–26/09/2026, #0 #33 #38 #58).
+ *
+ * 🔴 Trước đây ba chỗ (trang chi tiết, lịch công việc, /phan-bo) tự đếm `items.filter(!uid)`,
+ * KHÔNG trừ dòng đã tách / nhân bản đi. Từ 26/09 mọi dòng tách đi đều mất người phụ trách trên
+ * phiếu gốc, nên MỌI phiếu gốc đã tách bị đếm "còn dòng chưa phân bổ": công cụ giao hàng loạt mở
+ * lại ở mọi bước, lịch hiện "Chờ phân bổ" mãi — trong khi luật chuyển bước (`dongConPhaiLam`) đã
+ * coi là xong. Hai chỗ nói ngược nhau.
+ *
+ * ⚠️ Không truyền `tatCa` → đếm thô, y như trước (xem `dongConPhaiLam`).
+ */
+export function soDongChuaPhanBoConLai(deNghi: DeNghiMuaHang, tatCaDeNghi?: DeNghiMuaHang[]): number {
+  return dongConPhaiLam(deNghi, tatCaDeNghi).filter((d) => !d.nguoiPhuTrachUid).length;
+}
+
+/**
+ * ★ Người này còn phần việc CHƯA chuyển đi trên phiếu không (soát #39). Khác `duocChiaViec`
+ * (4-phan-quyen) ở chỗ trừ dòng đã nhân bản / tách đi — `duocChiaViec` KHÔNG được sửa vì nó còn
+ * làm cổng quyền xem báo giá.
+ */
+export function conViecCuaToi(
+  deNghi: DeNghiMuaHang,
+  uid: string,
+  tatCaDeNghi?: DeNghiMuaHang[],
+): boolean {
+  if (!uid) return false;
+  return dongConPhaiLam(deNghi, tatCaDeNghi).some((d) => d.nguoiPhuTrachUid === uid);
 }
 
 /**
@@ -526,12 +555,22 @@ export function giaiDoanDaKetThuc(giaiDoan: GiaiDoanMuaHang): boolean {
  * 📌 Trả về NHÃN VAI TRÒ ở bước ① vì lúc đó chưa ai được phân công — không thể nêu tên cụ thể.
  * Từ bước ② trở đi thì nêu đúng tên người phụ trách các dòng.
  */
-export function nguoiCanXuLy(deNghi: DeNghiMuaHang, buoc: GiaiDoanMuaHang): string[] {
+export function nguoiCanXuLy(
+  deNghi: DeNghiMuaHang,
+  buoc: GiaiDoanMuaHang,
+  /** Tuỳ chọn — có thì bỏ tên người đã bị nhân bản / tách đi hết dòng (soát #39). */
+  tatCaDeNghi?: DeNghiMuaHang[],
+): string[] {
   if (buoc === "tiep_nhan") return ["Trưởng bộ phận Thu mua"];
+  /* ★ Bước ③ Xét duyệt báo giá là việc của TRƯỞNG BỘ PHẬN (người duyệt) — soát 25–26/09 (#28).
+     Trước đây tin chuyển sang ③ gửi tên nhân viên, người phải duyệt không nhận được gì. */
+  if (buoc === "xet_duyet_bao_gia") return [NHAN_TRUONG_BO_PHAN];
   if (giaiDoanDaKetThuc(buoc)) return [];
   const ten = [
     ...new Set(
-      deNghi.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x)),
+      dongConPhaiLam(deNghi, tatCaDeNghi)
+        .map((d) => d.nguoiPhuTrachTen)
+        .filter((x): x is string => Boolean(x)),
     ),
   ];
   return ten.length > 0 ? ten : ["Chưa phân bổ người phụ trách"];
@@ -580,7 +619,11 @@ export function thongBaoDanhChoToi(
   laBanLanhDao = false,
 ): boolean {
   if (guiToi.length === 0) return true;
-  if (guiToi.includes(tenToi)) return true;
+  /* ★ Chuẩn hoá trước khi so (soát #42): tên lệch khoảng trắng / hoa thường / dạng Unicode NFD thì
+     tin giao việc thành vô hình với chính người nhận. Dứt điểm (lưu uid vào tin) cần Sếp chốt. */
+  const chuan = (s: string) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
+  const toi = chuan(tenToi);
+  if (toi && guiToi.some((g) => chuan(g) === toi)) return true;
   if (
     laNguoiPhanBo &&
     (guiToi.includes(NHAN_TRUONG_BO_PHAN) || guiToi.includes(NHAN_CHUA_PHAN_BO))
@@ -1008,9 +1051,11 @@ export function dungBangQuyTrinh(
             cauHinh.caiDatTungBuoc?.[giaiDoan]?.boQuaChuNhat ?? true,
           ) ?? undefined),
       nguoiPhuTrach: tenNguoiPhuTrachDeNghi(deNghi),
+      /* ★ Trừ dòng đã nhân bản / tách đi (soát #39): người bị nhân bản đi hết dòng không còn thấy
+         phiếu gốc là "Việc của bạn". */
       uidPhuTrach: [
         ...new Set(
-          deNghi.items
+          dongConPhaiLam(deNghi, tatCaDeNghi)
             .map((d) => d.nguoiPhuTrachUid)
             .filter((x): x is string => Boolean(x)),
         ),

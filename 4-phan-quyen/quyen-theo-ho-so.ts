@@ -50,7 +50,7 @@ export function laNguoiTheoDoi(deNghi: DeNghiMuaHang, uid: string): boolean {
  * lặng lẽ sai — đây là nếp đã có sẵn của `duocChiaViec` / `laNguoiTheoDoi` ngay trên.
  */
 export function laDonHangCuaToi(
-  po: { nguoiPhuTrachUid?: string; prId?: string },
+  po: { nguoiPhuTrachUid?: string; prId?: string; items?: readonly { sttDongDeNghi?: number }[] },
   tatCaDeNghi: readonly DeNghiMuaHang[],
   uid: string,
 ): boolean {
@@ -58,7 +58,14 @@ export function laDonHangCuaToi(
   if (po.nguoiPhuTrachUid === uid) return true;
   if (!po.prId) return false;
   const dn = tatCaDeNghi.find((x) => x.id === po.prId);
-  return dn ? laNguoiTheoDoi(dn, uid) || duocChiaViec(dn, uid) : false;
+  if (!dn) return false;
+  if (laNguoiTheoDoi(dn, uid)) return true;
+  /* ★ Soát giao việc 25–26/09/2026 (#27): vế thứ ba trước đây là `duocChiaViec(dn, uid)` — giữ
+     BẤT KỲ dòng nào của đề nghị là PO của đồng nghiệp cũng thành "PO của tôi" (phiếu nhiều người
+     cũ). Nay chỉ tính khi mình phụ trách ít nhất một dòng của CHÍNH PO này — vẫn giữ ca Trưởng bộ
+     phận lập hộ trên dòng của mình. */
+  const sttCuaPO = new Set((po.items ?? []).map((i) => i.sttDongDeNghi));
+  return dn.items.some((d) => d.nguoiPhuTrachUid === uid && sttCuaPO.has(d.stt));
 }
 
 /**

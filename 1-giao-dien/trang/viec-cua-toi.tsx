@@ -13,7 +13,12 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { docDanhDau, ghiDanhDau } from "@/3-du-lieu/danh-dau-ca-nhan";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import {
+  conViecCuaToi,
+  giaiDoanDaKetThuc,
+  NHAN_GIAI_DOAN,
+  xacDinhGiaiDoan,
+} from "@/2-quy-trinh/giai-doan-mua-hang";
 import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { laViecCuaToi, soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { formatDate } from "@/6-tien-ich/dinh-dang";
@@ -106,11 +111,17 @@ export default function TrangViecCuaToi() {
       const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, deNghi);
       const conLai = soNgayConLai(dn.ngayCanHang);
       const xong = giaiDoan === "hoan_thanh";
+      /* ★ Hồ sơ THẤT BẠI (đóng dở) cũng đã kết thúc — soát giao việc 25–26/09/2026 (#29 #40).
+         Trước đây chỉ `hoan_thanh` được coi là xong, nên hồ sơ đóng dở vẫn nằm ở "Đến lượt tôi",
+         "Đang chạy", "Quá hạn". `xong` giữ nguyên cho tab "Đã xong" (có tính thất bại hay không
+         là việc Sếp chốt). */
+      const daKetThuc = giaiDoanDaKetThuc(giaiDoan);
       return {
         dn,
         giaiDoan,
         conLai,
         xong,
+        daKetThuc,
         /**
          * ★ ĐẾM PHẦN CÒN PHẢI MUA CỦA PHIẾU NÀY, không đếm `dn.items.length` — sửa 17/09/2026.
          *
@@ -128,10 +139,12 @@ export default function TrangViecCuaToi() {
         // "Đến lượt tôi": tôi đang phụ trách ít nhất một dòng và hồ sơ chưa xong.
         // Dùng `laViecCuaToi` chứ không tự viết lại điều kiện — cùng một câu hỏi với bảng
         // quy trình, phải cùng một câu trả lời.
-        denLuotToi: !xong && laViecCuaToi(dn, nguoiDung.uid),
+        /* + `conViecCuaToi`: người đã bị nhân bản / tách đi hết dòng thì không còn "đến lượt" (#39). */
+        denLuotToi:
+          !daKetThuc && laViecCuaToi(dn, nguoiDung.uid) && conViecCuaToi(dn, nguoiDung.uid, deNghi),
         toiTheoDoi: Boolean(dn.nguoiTheoDoi?.some((n) => n.uid === nguoiDung.uid)),
         // Quá hạn chỉ tính khi CHƯA xong — hồ sơ đã nhận đủ thì hạn không còn ý nghĩa.
-        quaHan: !xong && conLai < 0,
+        quaHan: !daKetThuc && conLai < 0,
         nguoiPhuTrach: [
           ...new Set(dn.items.map((d) => d.nguoiPhuTrachTen).filter(Boolean)),
         ] as string[],
@@ -145,7 +158,7 @@ export default function TrangViecCuaToi() {
       .filter((x) => {
         if (loc === "den_luot_toi") return x.denLuotToi;
         if (loc === "qua_han") return x.quaHan;
-        if (loc === "dang_chay") return !x.xong;
+        if (loc === "dang_chay") return !x.daKetThuc;
         if (loc === "da_xong") return x.xong;
         if (loc === "toi_theo_doi") return x.toiTheoDoi;
         if (loc === "da_danh_dau") return daGhim.includes(x.dn.id);
@@ -193,7 +206,7 @@ export default function TrangViecCuaToi() {
       tat_ca: dong.length,
       den_luot_toi: dong.filter((x) => x.denLuotToi).length,
       qua_han: dong.filter((x) => x.quaHan).length,
-      dang_chay: dong.filter((x) => !x.xong).length,
+      dang_chay: dong.filter((x) => !x.daKetThuc).length,
       da_xong: dong.filter((x) => x.xong).length,
       toi_theo_doi: dong.filter((x) => x.toiTheoDoi).length,
       da_danh_dau: dong.filter((x) => daGhim.includes(x.dn.id)).length,
@@ -331,6 +344,7 @@ export default function TrangViecCuaToi() {
               deNghi={x.dn}
               nhanGiaiDoan={NHAN_GIAI_DOAN[x.giaiDoan]?.nhan ?? x.giaiDoan}
               xong={x.xong}
+              daKetThuc={x.daKetThuc}
               quaHan={x.quaHan}
               conLai={x.conLai}
               soMatHang={x.soMatHang}
@@ -350,6 +364,7 @@ function DongViec({
   deNghi,
   nhanGiaiDoan,
   xong,
+  daKetThuc,
   quaHan,
   conLai,
   soMatHang,
@@ -360,6 +375,8 @@ function DongViec({
   deNghi: DeNghiMuaHang;
   nhanGiaiDoan: string;
   xong: boolean;
+  /** Hoàn thành HOẶC thất bại — hết tính hạn (soát #29 #40). */
+  daKetThuc: boolean;
   quaHan: boolean;
   conLai: number;
   soMatHang: number;
@@ -403,7 +420,7 @@ function DongViec({
 
         <span className="ml-auto flex shrink-0 items-center justify-end gap-2">
           {/* Hạn: hiện CẢ CHỮ, không chỉ dựa vào màu (V1.1). Xong rồi thì không nhắc hạn. */}
-          {!xong && (
+          {!daKetThuc && (
             <span
               className={`text-xs font-medium tabular-nums ${
                 quaHan ? "text-danger" : "text-text-desc"
@@ -416,7 +433,7 @@ function DongViec({
               không có "info". Đang chạy dùng `primary`. */}
           <StatusBadge
             label={nhanGiaiDoan}
-            tone={xong ? "success" : quaHan ? "danger" : "primary"}
+            tone={xong ? "success" : daKetThuc ? "neutral" : quaHan ? "danger" : "primary"}
           />
           {nguoiPhuTrach.length > 0 && (
             <span className="flex items-center gap-1.5 text-xs text-text-secondary">

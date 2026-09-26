@@ -101,6 +101,7 @@ import {
   type DongDeTinhTien,
 } from "@/2-quy-trinh/tinh-toan";
 import { dongLapDuocDonHang, vuongMacLapDonHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docDonHangTuExcel, docNgayVN, khopVoiDeNghi } from "@/2-quy-trinh/doc-don-hang-excel";
 import { taoFileNhapDonHang, tenFileNhapDonHang } from "@/2-quy-trinh/ghi-don-hang-excel";
@@ -856,9 +857,17 @@ export function FormLapDonMuaHang({
    * 📌 Sáng 18/08/2026 hàm đó có hai nơi gọi (thêm bước "chọn đề nghị" của `/don-hang/tao-moi`);
    * chiều cùng ngày Ban lãnh đạo bỏ hẳn bước chọn nên nay chỉ còn ĐÂY là nơi gọi duy nhất.
    */
+  /* ★ Trừ dòng đã nhân bản / tách sang phiếu khác (soát giao việc 25–26/09/2026, #23): dòng đã đi
+     vẫn lập đơn (và được tự điền) ở phiếu gốc → mua trùng với bản sao. Tầng ghi `themDonHang` cũng
+     chặn lại. */
   const dongLapDuoc = useMemo(
-    () => dongLapDuocDonHang(tienDo, nguoiDung.uid, quyen.phanBoCongViec),
-    [tienDo, quyen.phanBoCongViec, nguoiDung.uid],
+    () =>
+      dongLapDuocDonHang(
+        dn ? locTienDoConPhaiMua(dn, dsDeNghi, tienDo) : tienDo,
+        nguoiDung.uid,
+        quyen.phanBoCongViec,
+      ),
+    [dn, dsDeNghi, tienDo, quyen.phanBoCongViec, nguoiDung.uid],
   );
 
   /** Phần còn được đặt của từng dòng đề nghị — bảng dùng để nhắc và cảnh báo vượt. */

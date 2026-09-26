@@ -80,9 +80,8 @@ import {
 import {
   dungBanNhanBan,
   maBanSaoTiepTheo,
-  tenBanSaoTheoMa,
   phieuGocCua,
-  tinhPhuongAnTach,
+  sttDuocNhanBan,
   dongDaNhanBanSang,
   dongDaChuyenDiHet,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
@@ -91,8 +90,11 @@ import {
   apDungGiaoViec,
   apDungRutDong,
   dongDaCoChungTu,
+  gopBanTachVeGoc,
   idPhieuConTheoNguoi,
   laPhieuConKhiGiao,
+  loiHoSoDaDongKhiGiaoViec,
+  vuongMacGiaoDong,
 } from "@/2-quy-trinh/tach-khi-giao-viec";
 import {
   /* ❌ `dongPOBiKhoaNoiDung` KHÔNG còn được `suaDonHang` gọi từ 16/09/2026: luật "dòng đã nhận
@@ -146,6 +148,7 @@ import { TOI_DA_TEP_MOI_BUOC } from "@/3-du-lieu/gioi-han-dinh-kem";
  */
 import {
   BUOC_DINH_KEM_BAO_GIA,
+  soBaoGiaDuocGhi,
   vuongMacChiDinhNCCLucGiaoViec,
   vuongMacTrinhXetDuyet,
 } from "@/2-quy-trinh/bao-gia-dinh-kem";
@@ -852,6 +855,17 @@ export function vuongMacQuyenXacNhanKho(quyen: Pick<Quyen, "xacNhanKho">): strin
      `de-nghi-chi-tiet.tsx`) — thủ kho công trình cấp 2 trở lên, hoặc quản trị. */
   if (quyen.xacNhanKho) return null;
   return "Chỉ thủ kho công trình (hoặc quản trị) mới xác nhận được đã nhận đủ hàng.";
+}
+
+/**
+ * ★ GIAO / CHUYỂN / BỎ PHÂN BỔ VIỆC — chỉ người có quyền "Phân bổ công việc" (soát giao việc
+ * 25–26/09/2026, #20 #53; luật 15/08 "chỉ quản lý giao lại việc"). Ba cửa ghi `phanBoDong`,
+ * `chuyenViecDong`, `boPhanBoDong` trước đây không hỏi người bấm là ai — chỉ giao diện ẩn nút.
+ * Từ 278f775 `tinhQuyen` gộp cả quyền tick riêng, nên bỏ tick lúc trang đang mở cũng chặn được.
+ */
+export function vuongMacQuyenPhanBo(quyen: Pick<Quyen, "phanBoCongViec">): string | null {
+  if (quyen.phanBoCongViec) return null;
+  return "Chỉ Trưởng bộ phận / Quản trị (người có quyền phân bổ công việc) mới giao, chuyển hoặc bỏ phân bổ việc được.";
 }
 
 /**
@@ -1731,17 +1745,6 @@ interface GiaTriDuLieu {
     sttGiuLai?: number[],
     duocPhep?: (deNghi: DeNghiMuaHang) => boolean,
   ) => string;
-  /**
-   * Tách phiếu thành nhiều phiếu con theo phân công của trưởng bộ phận — mỗi người nhận
-   * đúng những dòng mình được giao (Ban lãnh đạo 15/08/2026).
-   *
-   * Trả `null` khi không tách (chỉ một người phụ trách, còn dòng chưa giao, hết mã dự phòng,
-   * hoặc phiếu này vốn đã là bản tách).
-   */
-  tachTheoPhanBo: (
-    prId: string,
-    nguoiThucHienTen: string,
-  ) => { soPhieu: number; ten: string[] } | null;
   /** Xóa hẳn (chỉ bản chạy thử). Trả lý do bị chặn, `null` nghĩa là đã xóa. */
   xoaDeNghi: (prId: string) => string | null;
 
@@ -3667,14 +3670,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   phieuNhanRef.current = phieuNhan;
   const thongBaoRef = useRef(thongBao);
   thongBaoRef.current = thongBao;
-  /**
-   * Cầu nối tới `tachTheoPhanBo` — hàm đó khai báo phía dưới nên effect ở trên không gọi
-   * thẳng được. Dùng ref thay vì dời hàm lên: dời lên là phải kéo theo cả cụm `homNay`,
-   * `ID_DE_NGHI_GIA_LAP`, làm rối thứ tự đọc của file.
-   */
-  const tachTheoPhanBoRef = useRef<
-    ((prId: string, nguoiThucHienTen: string) => { soPhieu: number; ten: string[] } | null) | null
-  >(null);
 
   // ------------------------------------------------------------
   // THÔNG BÁO CHUYỂN BƯỚC — theo dõi giai đoạn SUY RA của từng đề nghị.
@@ -3804,7 +3799,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        *   ③ Lọc trùng theo `prId` NGAY TRONG updater ở dưới: kho thông báo dùng chung cả phòng,
        *      nên máy thứ hai nhận cùng dữ liệu sẽ thấy tin đã có và không tạo thêm.
        */
-      if (buocCu === undefined && dn.maDeXuatAppRequest && buocMoi) {
+      /* ★ Phiếu con tách lúc giao / bản nhân bản mang theo `maDeXuatAppRequest` của phiếu gốc (chép
+         `...goc`) — KHÔNG phải hồ sơ mới từ App Request, không bắn tin này (soát 25–26/09, #13). */
+      if (
+        buocCu === undefined &&
+        dn.maDeXuatAppRequest &&
+        !dn.deNghiChaId &&
+        !dn.deNghiGocId &&
+        buocMoi
+      ) {
         moi.push({
           id: `tb-req-${soKeTiepThongBao()}`,
           prId: dn.id,
@@ -3815,7 +3818,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           tuBuoc: buocMoi,
           denBuoc: buocMoi,
           thoiDiem: new Date().toISOString(),
-          guiToi: nguoiCanXuLy(dn, buocMoi),
+          guiToi: nguoiCanXuLy(dn, buocMoi, deNghi),
           daDoc: false,
         });
         continue;
@@ -3837,7 +3840,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         denBuoc: buocMoi,
         thoiDiem: new Date().toISOString(),
         // 🔴 "Gửi tới" là NGƯỜI CẦN HÀNH ĐỘNG, không phải người theo dõi — xem `nguoiCanXuLy`.
-        guiToi: nguoiCanXuLy(dn, buocMoi),
+        //    Truyền cả kho: bỏ tên người đã bị nhân bản / tách đi hết dòng (soát #39).
+        guiToi: nguoiCanXuLy(dn, buocMoi, deNghi),
         daDoc: false,
       });
     }
@@ -5349,6 +5353,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       yeuCau?: YeuCauPhanBo,
       tenNguoiPhuTrach?: string,
     ): string | null => {
+      /* ★ Quyền trước mọi thứ (soát #20 #53) — khóa nút không phải là chặn. */
+      {
+        const chanQuyen = vuongMacQuyenPhanBo(tinhQuyen(nguoiDung));
+        if (chanQuyen) return chanQuyen;
+      }
       /**
        * ★ CHỈ ĐỊNH THẲNG 1 NHÀ CUNG CẤP (SL Báo giá = 1) — BẮT BUỘC GHI LÝ DO — thêm 07/09/2026.
        *
@@ -5377,8 +5386,23 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       {
         const dnCheckin = deNghiRef.current.find((x) => x.id === prId);
         if (dnCheckin) {
+          /* Hồ sơ đã đóng: báo câu đúng nghĩa trước câu checkin (apDungGiaoViec cũng chặn lại). */
+          const daDong = loiHoSoDaDongKhiGiaoViec(dnCheckin, "giao việc");
+          if (daDong) return daDong;
           const chanGiaoViec = vuongMacGiaoViec(dnCheckin, cauHinhRef.current);
           if (chanGiaoViec) return chanGiaoViec;
+          /* ★ Soát giao việc 25–26/09/2026 (#1 #18 #31 #51): dòng đã có báo giá / PO, hoặc đang do
+             người khác phụ trách, thì KHÔNG giao đè qua ô tích — đi đường "Chuyển việc". Trước đây
+             chỉ kiểm chứng từ khi chia khối lượng, nên giao dòng đã lên PO tách được sang phiếu
+             con → mua hai lần. Luật thuần ở `vuongMacGiaoDong` (tach-khi-giao-viec.ts). */
+          const chanDong = vuongMacGiaoDong(
+            dnCheckin,
+            sttDong,
+            nguoiPhuTrachUid,
+            baoGiaRef.current,
+            donHangRef.current,
+          );
+          if (chanDong) return chanDong;
         }
       }
 
@@ -5529,7 +5553,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       /* `null` = da ghi xong. Noi goi CHI duoc bao thanh cong khi nhan `null`. */
       return null;
     },
-    [],
+    [nguoiDung],
   );
 
   /**
@@ -5686,29 +5710,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
            * ⚠️ So với `goc.items` (bản trong `truoc`, tức dữ liệu ngay lúc ghi) chứ không phải
            * `dsHienTai` — hai lần đọc cách nhau vài dòng, mà giữa chừng người khác có thể đã ghi.
            */
-          const sttGocConGiu = new Set(goc.items.map((d) => d.stt));
-          const dongGop = [
-            ...goc.items,
-            ...[...banTach]
-              .sort((a, b) => a.code.localeCompare(b.code, "vi"))
-              .flatMap((d) =>
-                d.items.filter(
-                  (x) => typeof x.sttDongGoc !== "number" || !sttGocConGiu.has(x.sttDongGoc),
-                ),
-              ),
-          ].map((d, i) => ({
-            ...d,
-            stt: i + 1,
-            nguoiPhuTrachUid: undefined,
-            nguoiPhuTrachTen: undefined,
-            nguoiPhanBoTen: undefined,
-            thoiDiemPhanBo: undefined,
-            soBaoGiaYeuCau: undefined,
-            /* Xoá mốc sàn cùng lúc — xem chú thích ở nhánh "không gộp" phía trên. Nhánh này là
-               đường GỘP bản tách, cũng bỏ sạch phân bổ nên mốc phải theo. */
-            soBaoGiaTPGiao: undefined,
-            ghiChuPhanBo: undefined,
-          }));
+          /* ★ Soát giao việc 25–26/09/2026 (#8): luật gộp dời sang hàm thuần `gopBanTachVeGoc`
+             (2-quy-trinh/tach-khi-giao-viec.ts) — thêm nhánh phiếu con 26/09 (bỏ dòng có
+             `sttDongCha`), trước đây kéo về ① là NHÂN ĐÔI dòng của mọi phiếu đã tách khi giao. */
+          const dongGop = gopBanTachVeGoc(goc, banTach);
 
           return truoc
             .filter((d) => !idBanTach.has(d.id))
@@ -5926,18 +5931,31 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   const boPhanBoDong = useCallback((prId: string, stt: number, nguoiThucHien: string): string | null => {
+    /* ★ Quyền trước mọi thứ (soát giao việc 25–26/09/2026, #20 #53). */
+    {
+      const chanQuyen = vuongMacQuyenPhanBo(tinhQuyen(nguoiDung));
+      if (chanQuyen) return chanQuyen;
+    }
     /* 🔴 (26/09/2026) Dòng đã có báo giá / đơn hàng thì không bỏ phân bổ — xem `dongDaCoChungTu`. */
     if (dongDaCoChungTu(prId, stt, baoGiaRef.current, donHangRef.current)) {
       return "Dòng này đã có báo giá hoặc đơn hàng — không bỏ phân bổ được. Huỷ chứng từ đó trước.";
     }
     const dn = deNghiRef.current.find((x) => x.id === prId);
+    if (!dn) return "Không tìm thấy đề nghị.";
+    /* ★ Hồ sơ đã đóng thì không bỏ phân bổ (soát #2 #17 #32 #52). */
+    {
+      const daDong = loiHoSoDaDongKhiGiaoViec(dn, "bỏ phân bổ");
+      if (daDong) return daDong;
+    }
+    const tenNguoiCu = dn.items.find((d) => d.stt === stt)?.nguoiPhuTrachTen?.trim() || undefined;
     /* ★ Dòng nằm ở PHIẾU CON tách lúc giao việc → trả dòng về phiếu gốc (Sếp 26/09/2026). */
-    if (dn && laPhieuConKhiGiao(dn)) {
+    if (laPhieuConKhiGiao(dn)) {
       const luc = thoiDiemHienTai();
-      const k = apDungRutDong(deNghiRef.current, prId, [stt], nguoiThucHien, luc, "Bỏ phân bổ");
+      const tuyChon = { mangYeuCauVe: false, tenNguoiCu };
+      const k = apDungRutDong(deNghiRef.current, prId, [stt], nguoiThucHien, luc, "Bỏ phân bổ", tuyChon);
       if (k.loi !== undefined) return k.loi;
       setDeNghi((truoc) => {
-        const r = apDungRutDong(truoc, prId, [stt], nguoiThucHien, luc, "Bỏ phân bổ");
+        const r = apDungRutDong(truoc, prId, [stt], nguoiThucHien, luc, "Bỏ phân bổ", tuyChon);
         return r.loi !== undefined ? truoc : r.deNghi;
       });
       return null;
@@ -5956,18 +5974,30 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                       nguoiPhuTrachTen: undefined,
                       nguoiPhanBoTen: undefined,
                       thoiDiemPhanBo: undefined,
+                      /* ★ Xoá cả yêu cầu giao việc, khớp `luiVeBuoc` (Sếp 16/09 — mốc sàn phải đi
+                         theo) — soát #21 #34: để lại là phiếu bị đòi số báo giá của dòng không còn
+                         ai giữ, và dòng "chưa phân" vẫn hiện ghi chú cũ. */
+                      soBaoGiaYeuCau: undefined,
+                      soBaoGiaTPGiao: undefined,
+                      ghiChuPhanBo: undefined,
+                      loaiViecGiao: undefined,
                     }
                   : d,
               ),
               lichSu: [
                 ...dn.lichSu,
-                { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong: `Bỏ phân bổ dòng ${stt}` },
+                {
+                  thoiDiem: thoiDiemHienTai(),
+                  nguoiThucHien,
+                  /* Ghi của ai (soát #44) — trước đây chỉ "Bỏ phân bổ dòng N". */
+                  hanhDong: `Bỏ phân bổ dòng ${stt}${tenNguoiCu ? ` (đang do ${tenNguoiCu})` : ""}`,
+                },
               ],
             },
       ),
     );
     return null;
-  }, []);
+  }, [nguoiDung]);
 
   /**
    * CHUYỂN VIỆC MỘT SỐ DÒNG SANG NGƯỜI KHÁC.
@@ -5992,6 +6022,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       lyDo: string,
       nguoiThucHien: string,
     ) => {
+      /* ★ Quyền trước mọi thứ (soát giao việc 25–26/09/2026, #20 #53). */
+      {
+        const chanQuyen = vuongMacQuyenPhanBo(tinhQuyen(nguoiDung));
+        if (chanQuyen) return chanQuyen;
+      }
       /* 🔴 (26/09/2026) Dòng đã có báo giá / đơn hàng thì không chuyển việc — xem `dongDaCoChungTu`. */
       const coChungTu = sttDong.find((st) =>
         dongDaCoChungTu(prId, st, baoGiaRef.current, donHangRef.current),
@@ -6015,9 +6050,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             .filter((x): x is string => Boolean(x)),
         ),
       ].join(", ");
+      /* ★ Trim tên MỘT lần, dùng cho cả dòng lẫn `guiToi` (soát #42) — lệch khoảng trắng là tin
+         bàn giao thành vô hình với chính người nhận. */
+      const tenMoi = nguoiMoi.ten.trim();
       const g = {
         uid: nguoiMoi.uid,
-        ten: nguoiMoi.ten,
+        ten: tenMoi,
         nguoiGiaoTen: nguoiThucHien,
         thoiDiem: luc,
         ngay: homNay(),
@@ -6032,7 +6070,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const tinh = (ds: DeNghiMuaHang[]) => {
         const dn = ds.find((x) => x.id === prId);
         if (dn && laPhieuConKhiGiao(dn)) {
-          const r = apDungRutDong(ds, prId, sttDong, nguoiThucHien, luc, "Chuyển việc");
+          /* Mang yêu cầu (số báo giá, ghi chú, loại việc) về dòng gốc để `giuYeuCauCu` giữ được
+             đúng điều đã dặn (soát #18 #21 — trước đây mất sạch khi chuyển từ phiếu con). */
+          const r = apDungRutDong(ds, prId, sttDong, nguoiThucHien, luc, "Chuyển việc", {
+            mangYeuCauVe: true,
+            tenNguoiCu: tenCu || undefined,
+          });
           if (r.loi !== undefined) return r;
           return apDungGiaoViec(r.deNghi, r.chaId, r.sttCha, g);
         }
@@ -6077,7 +6120,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                 tuBuoc: buoc,
                 denBuoc: buoc,
                 thoiDiem: new Date().toISOString(),
-                guiToi: [nguoiMoi.ten],
+                guiToi: [tenMoi],
                 daDoc: false,
                 laViecMoi: true,
                 soDongViec: sttDong.length,
@@ -6091,7 +6134,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
       return null;
     },
-    [],
+    [nguoiDung],
   );
 
   const themDonHang = useCallback(
@@ -6111,6 +6154,16 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       if (po.prId) {
         const dnGoc = deNghiRef.current.find((x) => x.id === po.prId);
         if (dnGoc) {
+          /* ★ Dòng đã chuyển hết sang phiếu khác (tách / nhân bản) thì KHÔNG lập đơn ở phiếu này —
+             soát giao việc 25–26/09/2026 (#23): dòng nhân bản tay đi vẫn lập đơn (và được tự điền)
+             ở phiếu gốc → mua trùng với bản sao. Chốt ở cửa ghi, form cũng lọc sẵn. */
+          const daChuyen = dongDaNhanBanSang(dnGoc, deNghiRef.current);
+          const dongDaDi = po.items.find(
+            (i) => typeof i.sttDongDeNghi === "number" && dongDaChuyenDiHet(i.sttDongDeNghi, daChuyen),
+          );
+          if (dongDaDi) {
+            return { loi: `Dòng ${dongDaDi.sttDongDeNghi} đã chuyển sang phiếu khác — lập đơn ở phiếu đó.` };
+          }
           const chanViec = vuongMacViecBatBuocCacBuocTruoc(
             dnGoc,
             /* ★ `deNghiRef.current` — trừ dòng đã nhân bản đi (Sếp 15/09/2026). Không truyền thì
@@ -8126,203 +8179,77 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const goc1 = phieuGocCua(goc, deNghiRef.current);
       const code = maBanSaoTiepTheo(goc, deNghiRef.current);
 
-      const ban = dungBanNhanBan({
+      /**
+       * ★ CHỈ NHỮNG DÒNG ĐƯỢC PHÉP — soát giao việc 25–26/09/2026 (#16 #23 #24). Dòng đã tách /
+       * nhân bản đi thì không vào bản sao (mua trùng); người không có quyền phân bổ chỉ lấy dòng
+       * của chính mình. 🔴 BẮT BUỘC danh sách TƯỜNG MINH: truyền `undefined` cho `dungBanNhanBan`
+       * nghĩa là "giữ hết", tức lấy luôn dòng đã tách. Có dòng nào ngoài tập được phép → từ chối.
+       */
+      const duoc = sttDuocNhanBan(goc, deNghiRef.current, nguoi.uid, tinhQuyen(nguoiDung).phanBoCongViec);
+      if (sttGiuLai?.length && sttGiuLai.some((st) => !duoc.includes(st))) return "";
+      const sttThuc = sttGiuLai?.length ? sttGiuLai : duoc;
+      if (sttThuc.length === 0) return "";
+      const luc = thoiDiemHienTai();
+
+      const banTho = dungBanNhanBan({
         goc,
         phieuGocDau: goc1,
         idMoi,
         maMoi: code,
         nguoi,
-        sttGiuLai,
+        sttGiuLai: sttThuc,
         ngay,
-        thoiDiem: thoiDiemHienTai(),
+        thoiDiem: luc,
       });
       // Không giữ dòng nào thì không tạo phiếu rỗng — phiếu không có vật tư là hồ sơ chết,
       // không đi tiếp được bước nào. Luật ở `dungBanNhanBan`.
-      if (!ban) return "";
-      setDeNghi((truoc) => [...truoc, ban]);
-      return idMoi;
-    },
-    [],
-  );
-
-  /**
-   * ★ TÁCH PHIẾU THEO PHÂN CÔNG — Ban lãnh đạo 15/08/2026: *"Khi trưởng phòng giao việc cho
-   * nhân viên khác nhau thì ở bước 2 sẽ tự copy đề nghị đó ra và công việc ứng với các tích
-   * chọn của trưởng phòng"*.
-   *
-   * Người có dòng đầu tiên giữ phiếu gốc (chỉ còn dòng của mình), mỗi người còn lại nhận một
-   * phiếu `(copy)` chứa đúng dòng được giao. Luật ở `2-quy-trinh/nhan-ban-de-nghi.ts`.
-   *
-   * 🔴 LÀM TRỌN GÓI TRONG MỘT LẦN `setDeNghi`. Gọi `nhanBanDeNghi` nhiều lần rồi sửa phiếu
-   * gốc sau là nhiều lần ghi liên tiếp: lần ghi giữa chừng có thể đẩy lên kho chung một trạng
-   * thái nửa vời (phiếu gốc còn đủ dòng nhưng đã có phiếu con) — máy khác đọc được đúng lúc
-   * đó là thấy khối lượng bị đếm hai lần.
-   *
-   * Trả về mô tả kết quả để nơi gọi báo cho người dùng; `null` nghĩa là không tách gì.
-   */
-  const tachTheoPhanBo = useCallback(
-    (prId: string, nguoiThucHienTen: string): { soPhieu: number; ten: string[] } | null => {
-      const goc = deNghiRef.current.find((d) => d.id === prId);
-      if (!goc) return null;
-
-      /* ✅ Không còn giới hạn mã hồ sơ (22/08/2026 — xem `6-tien-ich/sinh-id-ho-so.ts`), nên số
-         phiếu tách được không còn bị chặn. Vẫn truyền `soMaConTrong` vào `tinhPhuongAnTach` vì
-         hàm luật đó dùng chung, và giữ tham số cho nó kiểm được trường hợp thật sự hết chỗ. */
-      const pa = tinhPhuongAnTach(goc, Number.MAX_SAFE_INTEGER);
-      if (!pa.tach) return null;
-
-      const luc = thoiDiemHienTai();
-      const ngay = homNay();
-      const gocDau = phieuGocCua(goc, deNghiRef.current);
-      const tenMoiNguoi = [pa.giuPhieuGoc, ...pa.canTaoPhieu].map((n) => n.ten);
-
-      /* Mã bản sao phải tính DẦN theo danh sách đang lớn lên: tính hết một lượt trên danh
-         sách cũ thì hai phiếu tách cùng lúc nhận cùng một mã "(copy)". */
-      const dangCo = [...deNghiRef.current];
-      const phieuMoi: DeNghiMuaHang[] = [];
-      pa.canTaoPhieu.forEach((nhom) => {
-        const giu = new Set(nhom.stt);
-        const dong = goc.items.filter((d) => giu.has(d.stt));
-        /* Tính mã TRƯỚC để tên bám đúng số của mã — xem `tenBanSaoTheoMa`. */
-        const maMoi = maBanSaoTiepTheo(goc, dangCo);
-        const p: DeNghiMuaHang = {
-          ...goc,
-          id: sinhIdHoSo("pr"),
-          code: maMoi,
-          /* ★ Tên có thêm "(copy N)" (Ban lãnh đạo 22/08/2026) — trước đây giữ nguyên tên gốc
-             nên hai phiếu trông y hệt nhau trên bảng, chỉ khác mã. */
-          tieuDe: tenBanSaoTheoMa(gocDau.tieuDe, maMoi),
-          deNghiGocId: gocDau.id,
-          maDeNghiGoc: gocDau.code,
-          ngayDeNghi: ngay,
-          ngayDuyet: ngay,
-          trangThai: "da_duyet",
-          luuTru: undefined,
-          // Chứng từ và trao đổi KHÔNG chép sang: chúng thuộc về phiếu gốc. Chép bình luận
-          // sang mọi phiếu con là mỗi người đọc lại một bản y hệt, trả lời vào bản nào cũng
-          // không ai thấy.
-          binhLuan: undefined,
-          /**
-           * 🔴🔴 LÀM SẠCH TỆP VÀ GHI CHÚ CỦA BƯỚC SAU — Sếp 15/09/2026, BÁO LẦN HAI.
-           *
-           * Nguyên văn lần một: *"làm sạch thông tin khi nhân bản quy trình đối với các quy trình
-           * đã có sẵn file đính kèm hoặc ghi chú, a cần làm sạch tất cả khi trả về bước 2"*.
-           * Lần hai, sau khi đã sửa và báo xong: *"a nhân bản mới cũng vẫn còn file và nội dung
-           * đính kèm"*.
-           *
-           * 🔴 VÌ SAO LẦN MỘT SỬA HỤT — GHI LẠI ĐỂ KHÔNG LẶP: app có **HAI** đường sinh phiếu con,
-           * và lần đó chỉ sửa một.
-           *   · `nhanBanDeNghi` — người dùng bấm nút "Nhân bản" (đã làm sạch qua `dungBanNhanBan`).
-           *   · `tachTheoPhanBo` — CHÍNH ĐÂY: app tự tách khi phân công dòng cho nhiều người.
-           * Dòng `...goc` ở trên chép **mọi** trường, nên phiếu tách mang theo nguyên tệp báo giá,
-           * hợp đồng, lý do thiếu chứng từ của phiếu gốc. Đo được trên kho chung 15/09/2026: 4 bản
-           * `...PR-005 (copy N)` còn tệp ở CẢ HAI bước `yeu_cau_bao_gia` và `lap_don_mua_hang`.
-           *
-           * 👉 BÀI HỌC: sửa một luật nghiệp vụ thì phải hỏi *"còn đường nào khác tới cùng kết quả
-           * không"* rồi mới báo xong. Đếm nơi gọi, đừng đếm nơi mình vừa sửa.
-           *
-           * 📌 CHỈ BỎ THAM CHIẾU, KHÔNG XOÁ NỘI DUNG TỆP. Nội dung nằm ở `3-du-lieu/kho-tep.ts` tra
-           * theo `id`, và phiếu gốc vẫn trỏ tới đúng những `id` đó — xoá nội dung là **phiếu gốc
-           * mất chứng từ**.
-           *
-           * ⚠️ `taiLieu` / `taiLieuAppRequest` CỐ Ý GIỮ (giống `dungBanNhanBan`): đó là hồ sơ đầu
-           * vào người đề nghị nộp lúc lập phiếu — catalogue, bản vẽ — thứ người nhận việc cần cầm
-           * theo để đi hỏi giá. Bỏ luôn là phiếu con thành hồ sơ trơ, không biết phải mua cái gì.
-           */
-          tepGiaiDoan: undefined,
-          lyDoThieuChungTu: undefined,
-          lyDoThatBai: undefined,
-          /**
-           * 🔴 KẾ THỪA VIỆC ĐÃ TÍCH CỦA PHIẾU GỐC — sửa 27/08/2026, trước đó chỗ này ghi
-           * `undefined` (xóa sạch).
-           *
-           * Việc bắt buộc của bước ① (*"Checkin hàng tồn kho"*) là việc làm MỘT LẦN cho cả đề
-           * nghị: tra kho xem có sẵn hàng hay không. Tách phiếu ra bốn phần không làm việc đó
-           * phải làm lại bốn lần.
-           *
-           * ⚠️ XÓA Ở ĐÂY GÂY RA ĐÚNG LỖI SẾP BÁO 27/08/2026: phiếu tách vừa được gán người phụ
-           * trách (chỉ đạo 15/08/2026) nên đủ điều kiện rời bước ①, mà việc bắt buộc của bước ①
-           * lại về trạng thái *chưa tích* — thẻ nằm ở bước ② kèm dòng "còn 1 việc chưa xong" mà
-           * không ai tích được, vì việc đó đã làm xong từ phiếu gốc.
-           *
-           * 📌 KHÁC với `binhLuan` ngay trên: bình luận thuộc về phiếu gốc nên không chép; còn
-           * việc đã tích là DỮ KIỆN NGHIỆP VỤ chung của cả đề nghị nên phải chép.
-           */
-          congViecDaXong: gocDau.congViecDaXong,
-          /**
-           * Đánh số lại từ 1 — `stt` là khóa đối chiếu khối lượng (xem `nhanBanDeNghi`).
-           *
-           * 🔴🔴 CỐ Ý **KHÔNG** GHI `sttDongGoc` Ở ĐÂY, khác hẳn `nhanBanDeNghi`. Ai thấy hai chỗ
-           * lệch nhau rồi định "làm cho nhất quán" thì đọc hết khối này trước — ghi vào là sinh
-           * dấu mờ SAI DÒNG, một lỗi im lặng dẫn thẳng tới bỏ quên vật tư.
-           *
-           * ① DÒNG ĐÃ BỊ **CẮT HẲN** KHỎI PHIẾU GỐC, không như nhân bản. Ngay dưới đây phiếu gốc bị
-           *    `filter(...)` bỏ đi các dòng đã giao cho người khác. Dòng không còn nằm đó nữa thì
-           *    không có gì để làm mờ — dấu mờ sinh ra là để đánh dấu dòng **vẫn hiện trên phiếu gốc
-           *    nhưng thôi không phải mua**, đúng chữ Sếp 15/09/2026: *"làm mờ đi để vẫn xem được
-           *    nhưng khi in ra sẽ ko thấy"*. Ở đây không còn dòng nào để "vẫn xem được".
-           *
-           * ② GHI VÀO THÌ LÀM MỜ NHẦM DÒNG CÒN PHẢI MUA — đây mới là lý do quyết định. Phiếu gốc
-           *    sau khi cắt cũng **ĐÁNH SỐ LẠI TỪ 1** (`.map((x, k) => ({ ...x, stt: k + 1 }))` ngay
-           *    dưới), nên số cũ của bản con đâm vào số mới của phiếu gốc:
-           *
-           *      Gốc có dòng 1,2,3 · anh A giữ dòng 2,3 · anh B nhận dòng 1
-           *      → phiếu con của B mang `sttDongGoc = 1`
-           *      → phiếu gốc còn dòng 2,3, đánh số lại thành 1,2
-           *      → `dongDaNhanBanSang` trả {1: [phiếu B]} ⇒ làm mờ dòng stt 1 của phiếu gốc, tức
-           *        dòng gốc số 2 CỦA ANH A — một dòng chưa ai lấy đi và VẪN PHẢI MUA.
-           *
-           *    Còn ở `nhanBanDeNghi` thì không đâm nhau, vì phiếu gốc **giữ nguyên số cũ**.
-           *
-           * 📌 KHÔNG MẤT ĐƯỜNG TRA NGƯỢC (cái giá duy nhất của việc không ghi): quan hệ cha–con vẫn
-           * đủ ở `deNghiGocId` + `maDeNghiGoc`, và dòng nhật ký ngay dưới ghi rõ tách thành mấy
-           * phiếu, mỗi người giữ bao nhiêu mặt hàng. Muốn tra tới từng dòng thì phải sửa cách phiếu
-           * gốc đánh số (việc lớn, đụng khóa đối chiếu khối lượng) — chưa ai yêu cầu.
-           */
-          items: dong.map((d, k) => ({ ...d, stt: k + 1 })),
-          lichSu: [
-            {
-              thoiDiem: luc,
-              nguoiThucHien: nguoiThucHienTen,
-              hanhDong: `Tách tự động từ ${goc.code} theo phân công`,
-              ghiChu: `Nhận ${dong.length}/${goc.items.length} mặt hàng, do ${nhom.ten} phụ trách.`,
-            },
-          ],
-        };
-        phieuMoi.push(p);
-        dangCo.push(p);
-      });
-
-      const sttGiuLai = new Set(pa.giuPhieuGoc.stt);
+      if (!banTho) return "";
+      /* ★ Mốc vào bước = lúc nhân bản (soát #14) — `dungBanNhanBan` đã bỏ mốc mượn của phiếu gốc. */
+      const ban: DeNghiMuaHang = {
+        ...banTho,
+        mocVaoBuoc: {
+          buoc: xacDinhGiaiDoan(
+            banTho,
+            donHangRef.current,
+            baoGiaRef.current,
+            phieuNhanRef.current,
+            [...deNghiRef.current, banTho],
+          ),
+          thoiDiem: luc,
+        },
+      };
+      /* ★ Ghi một dòng nhật ký lên phiếu gốc trong CÙNG lần ghi (soát #16) — trước đây phiếu gốc
+         không có dấu vết nào cho việc một phần của nó vừa sang tay người khác. */
       setDeNghi((truoc) => [
         ...truoc.map((d) =>
           d.id !== prId
             ? d
             : {
                 ...d,
-                items: d.items
-                  .filter((x) => sttGiuLai.has(x.stt))
-                  .map((x, k) => ({ ...x, stt: k + 1 })),
                 lichSu: [
                   ...d.lichSu,
                   {
                     thoiDiem: luc,
-                    nguoiThucHien: nguoiThucHienTen,
-                    hanhDong: `Tách thành ${tenMoiNguoi.length} phiếu theo phân công`,
-                    ghiChu: `Mỗi người một phiếu: ${tenMoiNguoi.join(", ")}. Phiếu này giữ ${sttGiuLai.size}/${d.items.length} mặt hàng của ${pa.giuPhieuGoc.ten}.`,
+                    nguoiThucHien: nguoi.ten,
+                    hanhDong: `Nhân bản dòng ${[...sttThuc].sort((x, y) => x - y).join(", ")} sang phiếu ${code}`,
                   },
                 ],
               },
         ),
-        ...phieuMoi,
+        ban,
       ]);
-
-      return { soPhieu: tenMoiNguoi.length, ten: tenMoiNguoi };
+      return idMoi;
     },
-    [],
+    [nguoiDung],
   );
-  // Nối vào ref để effect theo dõi chuyển bước (khai báo phía trên) gọi được.
-  tachTheoPhanBoRef.current = tachTheoPhanBo;
+
+  /*
+   * ❌ ĐÃ XOÁ `tachTheoPhanBo` (tách kiểu cũ 15/08: CẮT dòng khỏi phiếu gốc rồi đánh số lại) —
+   * soát giao việc 25–26/09/2026 (#15). Công tắc + effect gọi nó đã bỏ từ 26/09, không màn nào
+   * gọi, nhưng hàm vẫn xuất qua context: ai gọi lại là đánh số lại phiếu gốc, làm mờ SAI DÒNG ở
+   * mọi phiếu con 26/09 đang trỏ `sttDongCha` vào đó. Tách nay chỉ xảy ra trong `apDungGiaoViec`.
+   * Cần tra lại thì xem lịch sử git (commit 68a247f).
+   */
 
   /**
    * XÓA HẲN đề nghị.
@@ -8455,12 +8382,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
            * 📌 Chỉ kẹp khi người bấm KHÔNG có quyền phân bổ. Trưởng bộ phận vẫn hạ được xuống 1 —
            * đó chính là việc Sếp vừa mở. Người hạ là người chịu trách nhiệm, và nhật ký ghi tên.
            */
-          const mocTP = dn.items
-            .map((d) => d.soBaoGiaTPGiao)
-            .filter((x): x is number => typeof x === "number" && x > 0);
-          const san = mocTP.length > 0 ? Math.max(...mocTP) : undefined;
-          const soGhi =
-            !nguoiDatCoQuyenPhanBo && san !== undefined ? Math.max(soBaoGia, san) : soBaoGia;
+          /* Luật kẹp ở hàm thuần `soBaoGiaDuocGhi` (bao-gia-dinh-kem.ts) để kiem-luat canh được (#60). */
+          const soGhi = soBaoGiaDuocGhi(dn, soBaoGia, nguoiDatCoQuyenPhanBo);
           return {
                 ...dn,
                 items: dn.items.map((d) => ({
@@ -9684,7 +9607,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiLuuTru,
       suaTruongBoSung,
       nhanBanDeNghi,
-      tachTheoPhanBo,
       xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
@@ -9764,7 +9686,6 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       doiLuuTru,
       suaTruongBoSung,
       nhanBanDeNghi,
-      tachTheoPhanBo,
       xoaDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,

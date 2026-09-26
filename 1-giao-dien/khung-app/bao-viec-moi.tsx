@@ -52,7 +52,7 @@ import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
  */
 export function BaoViecMoi() {
   const router = useRouter();
-  const { thongBao, deNghi } = useDuLieu();
+  const { thongBao, deNghi, trangThaiKhoChung } = useDuLieu();
   const { quyen, nguoiDung } = useNguoiDung();
 
   /** Những id đã bật hộp nổi rồi — xem chốt số 2 ở khối chú thích trên. */
@@ -82,6 +82,10 @@ export function BaoViecMoi() {
   }, [deNghi]);
 
   useEffect(() => {
+    /* ★ Chưa nghe máy chủ thì CHƯA đặt mốc lần đầu (soát giao việc 25–26/09/2026, #48): đặt mốc
+       trên bộ dữ liệu cục bộ (máy mới = rỗng) thì lúc kho chung về, mọi tin việc mới chưa đọc đều
+       thành "mới" và bung một loạt hộp nổi cũ. Chạy riêng / nối hỏng thì cờ sang "rieng", không kẹt. */
+    if (trangThaiKhoChung === "dang-noi") return;
     const cuaToi = thongBao.filter(
       (t) =>
         t.laViecMoi &&
@@ -131,7 +135,7 @@ export function BaoViecMoi() {
         },
       });
     }
-  }, [thongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec, nguoiDung.vaiTro]);
+  }, [thongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec, nguoiDung.vaiTro, trangThaiKhoChung]);
 
   // Không vẽ gì — chỉ nghe dữ liệu rồi gọi hộp nổi dùng chung ở `app/layout.tsx`.
   return null;

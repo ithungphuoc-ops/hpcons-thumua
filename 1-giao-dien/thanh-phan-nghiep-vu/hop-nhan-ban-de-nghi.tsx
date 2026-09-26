@@ -17,8 +17,10 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import {
   maBanSaoTiepTheo,
   phieuGocCua,
+  sttDuocNhanBan,
   tenBanSaoTheoMa,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -54,7 +56,14 @@ export function HopNhanBanDeNghi({
 }) {
   /** Cả kho đề nghị — cần để tra phiếu gốc và đếm số bản đã tách. */
   const { deNghi: dsDeNghi } = useDuLieu();
+  const { nguoiDung, quyen } = useNguoiDung();
   const [chon, setChon] = useState<Set<number>>(new Set());
+  /**
+   * ★ CHỈ LIỆT KÊ DÒNG ĐƯỢC NHÂN BẢN — soát giao việc 25–26/09/2026 (#16 #23 #24). Luật ở
+   * `sttDuocNhanBan` (dùng chung với tầng ghi `nhanBanDeNghi`): bỏ dòng đã tách / nhân bản đi
+   * (không mua trùng); nhân viên chỉ thấy dòng của chính mình.
+   */
+  const duoc = deNghi ? sttDuocNhanBan(deNghi, dsDeNghi, nguoiDung.uid, quyen.phanBoCongViec) : [];
 
   /**
    * Mở hộp cho phiếu nào thì tích hết dòng của phiếu đó.
@@ -63,13 +72,15 @@ export function HopNhanBanDeNghi({
    * người khác trong phòng sửa một phiếu bất kỳ.
    */
   useEffect(() => {
-    if (mo && deNghi) setChon(new Set(deNghi.items.map((d) => d.stt)));
+    if (mo && deNghi) setChon(new Set(duoc));
   }, [mo, deNghi?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!deNghi) return null;
 
-  const tatCa = deNghi.items;
-  const soChon = chon.size;
+  const tatCa = deNghi.items.filter((d) => duoc.includes(d.stt));
+  /* Chỉ đếm / gửi dòng còn được phép — dòng vừa bị người khác tách đi trong lúc hộp mở thì rơi ra. */
+  const chonHopLe = [...chon].filter((st) => duoc.includes(st));
+  const soChon = chonHopLe.length;
   // Luật đặt tên và quan hệ cha–con: MỘT CHỖ DUY NHẤT, dùng chung với kho dữ liệu.
   const goc = phieuGocCua(deNghi, dsDeNghi);
   const maMoi = maBanSaoTiepTheo(deNghi, dsDeNghi);
@@ -238,7 +249,7 @@ export function HopNhanBanDeNghi({
           <Button
             disabled={soChon === 0}
             onClick={() => {
-              onXacNhan([...chon]);
+              onXacNhan(chonHopLe);
               onDong();
             }}
           >

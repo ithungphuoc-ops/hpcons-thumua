@@ -340,6 +340,22 @@ export function sanSoBaoGiaTPGiao(deNghi: DeNghiMuaHang): number | undefined {
   return moc.length === 0 ? undefined : Math.max(...moc);
 }
 
+/**
+ * ★ SỐ BÁO GIÁ ĐƯỢC GHI khi bấm ± (tầng ghi `datSoBaoGiaChoPhieu`) — tách thành hàm thuần ngày
+ * 26/09/2026 để bộ kiểm luật canh được (soát giao việc #60: thay phép kẹp bằng `soBaoGia` trơn mà
+ * `kiem-luat` vẫn xanh). Luật giữ nguyên từ 18/09: người KHÔNG có quyền phân bổ không hạ được dưới
+ * mốc Trưởng bộ phận đã giao; Trưởng bộ phận hạ được (Sếp 16/09: "Chính TP bấm thì sàn nâng theo").
+ */
+export function soBaoGiaDuocGhi(
+  deNghi: Pick<DeNghiMuaHang, "items">,
+  soBaoGia: number,
+  nguoiDatCoQuyenPhanBo: boolean,
+): number {
+  if (nguoiDatCoQuyenPhanBo) return soBaoGia;
+  const san = sanSoBaoGiaTPGiao(deNghi as DeNghiMuaHang);
+  return san !== undefined ? Math.max(soBaoGia, san) : soBaoGia;
+}
+
 export function soBanBaoGiaThat(deNghi: DeNghiMuaHang): number {
   return new Set(
     tepBaoGiaDaCo(deNghi)

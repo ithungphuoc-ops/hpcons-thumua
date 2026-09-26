@@ -106,8 +106,10 @@ import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
+  duocChiaViec,
   duocXemBaoGiaCuaDeNghi,
   duocXacNhanNhanDuHangCuaHoSo,
+  lyDoKhongXemBaoGia,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
 /* 📌 KHÔNG còn `LY_DO_NHANH_PHONG_BAN` ở tệp này từ 15/09/2026 — câu giải thích đó là `moTa` của ô
    "Phiếu giao hàng" ở bước ⑥, mà ô đó đã bỏ theo chỉ đạo Sếp (*"trường này đang bị dư => bỏ"*).
@@ -144,6 +146,7 @@ import {
      checkin kho. Lý do đầy đủ ghi tại chỗ cũ trong khối bước ①. Hàm vẫn còn trong
      `2-quy-trinh/giai-doan-mua-hang.ts` — đừng xoá, xem ghi chú ở đó. */
   tenNguoiPhuTrachDeNghi,
+  soDongChuaPhanBoConLai,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, xem chú thích đầu file đó.
@@ -959,7 +962,21 @@ export default function TrangChiTietDeNghi({
   const nguoiSeNhan = [
     ...new Set(dn.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x))),
   ];
-  const soDongChuaPhanBo = dn.items.filter((d) => !d.nguoiPhuTrachUid).length;
+  /* ★ Trừ dòng đã tách / nhân bản đi — soát giao việc 25–26/09/2026 (#0 #33 #58). Trước đây đếm
+     `items.filter(!uid)` thô: từ 26/09 MỌI phiếu gốc đã tách bị coi là "còn dòng chưa phân bổ",
+     nên công cụ giao hàng loạt mở lại ở mọi bước và hộp Chuyển tiếp cảnh báo sai. Dùng chung luật
+     với bước chuyển giai đoạn (`dongConPhaiLam`). */
+  const soDongChuaPhanBo = soDongChuaPhanBoConLai(dn, deNghi);
+  /**
+   * ★ Tệp báo giá NCC ở bước ② đi qua CÙNG cổng xem báo giá với phần kết quả bước ② — soát giao
+   * việc 25–26/09/2026 (#25). Trước đây `KhuBaoGiaTheoSoLuong` chỉ gác bằng `duocSuaTepBuoc`
+   * (`lapPO`), nên nhân viên không được giao — kể cả NV Nhân sự / NV Kho tổng (có `lapPO`, không
+   * có `xemBaoGia`) — mở, đính, gỡ được tệp báo giá có đơn giá.
+   * ⚠️ Vẫn chỉ là chặn ở giao diện; bảo mật giá thật phải bằng Security Rules (§3.5).
+   */
+  const duocXemBaoGiaBuoc2 = duocXemBaoGiaCuaDeNghi(dn, nguoiDung.uid, quyen);
+  const duocSuaBaoGiaBuoc2 =
+    quyen.phanBoCongViec || (quyen.lapPO && quyen.xemBaoGia && duocChiaViec(dn, nguoiDung.uid));
 
   return (
     <>
@@ -1691,7 +1708,7 @@ export default function TrangChiTietDeNghi({
                            tiên như bản trước là hiện sai khi mỗi dòng một số. Xem
                            `tongHopSoBaoGia` trong `o-sua-so-bao-gia.tsx`. */
                         deNghi={dn}
-                        duocSua={duocSuaTepBuoc && !hoSoDaDong}
+                        duocSua={duocSuaBaoGiaBuoc2 && !hoSoDaDong}
                         onLuu={(so) => {
                           /* ★ Cờ quyền: chỉ Trưởng bộ phận mới dời mốc sàn của nút giảm —
                              Sếp 16/09/2026. Xem `soBaoGiaTPGiao`. */
@@ -1924,10 +1941,14 @@ export default function TrangChiTietDeNghi({
                  * chúng không mang nhãn ô nào nên hiện ở mục "Tệp khác của bước này" — không tệp
                  * nào biến mất.
                  */
-                khuDinhKem: (
+                khuDinhKem: !duocXemBaoGiaBuoc2 ? (
+                  <p className="text-sm text-text-desc">
+                    {lyDoKhongXemBaoGia(dn, nguoiDung.uid, quyen)}
+                  </p>
+                ) : (
                   <KhuBaoGiaTheoSoLuong
                     deNghi={dn}
-                    duocSua={duocSuaTepBuoc}
+                    duocSua={duocSuaBaoGiaBuoc2}
                     /**
                      * 🔴 KHÓA SAU KHI DUYỆT — Ban lãnh đạo 20/08/2026: *"khi đã duyệt thì khoá
                      * chức năng thay đổi báo giá và xoá sửa. Chỉ có cấp trưởng phòng và quản trị
