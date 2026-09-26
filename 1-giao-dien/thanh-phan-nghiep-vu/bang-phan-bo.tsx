@@ -80,6 +80,22 @@ const LOP_MUC_MENU = "min-h-11 whitespace-nowrap";
  * ★ Chức danh nào được nhận việc, và nhận loại việc gì (Sếp 26/09/2026). `undefined` = việc mua
  * hàng thường (qua báo giá). `xuat_kho` / `nhan_su` = bỏ qua báo giá, sang thẳng Lập đơn mua hàng.
  */
+/**
+ * Màu + chữ đuôi của nút giao việc theo loại việc (Sếp 26/09/2026: nút thủ kho *"Tạo màu nền đỏ"*).
+ * Xuất kho = nền đỏ token `danger` để khỏi bấm nhầm với giao mua hàng; luôn kèm chữ đuôi (V1.1:
+ * trạng thái có cả màu lẫn chữ).
+ */
+const LOP_NUT_THEO_LOAI_VIEC: Record<LoaiViecGiao | "mua_hang", string> = {
+  mua_hang: "",
+  xuat_kho: "bg-danger text-white hover:bg-danger/85",
+  nhan_su: "",
+};
+const HAU_TO_LOAI_VIEC: Record<LoaiViecGiao | "mua_hang", string> = {
+  mua_hang: "",
+  xuat_kho: " (xuất kho)",
+  nhan_su: " (nhân sự)",
+};
+
 const LOAI_VIEC_THEO_CHUC_NANG: Record<string, LoaiViecGiao | undefined> = {
   nhan_vien_thu_mua: undefined,
   thu_kho_cong_trinh: "xuat_kho",
@@ -218,7 +234,11 @@ export function BangPhanBo({
           ten: n.tenHienThi,
           ngan: nhanNgan(n.tenHienThi, n.chucDanh),
           loaiViecGiao: LOAI_VIEC_THEO_CHUC_NANG[n.chucNang],
-        })),
+        }))
+        /* ★ Người nhận việc LẤY TỪ KHO (xuất kho / nhân sự) xếp CUỐI danh sách — Sếp 26/09/2026:
+           *"Tạo màu nền đỏ và đưa xuống cuối danh sách chọn"* (ảnh khoanh nút thủ kho). Sắp ổn định
+           nên thứ tự nhân viên thu mua giữ nguyên. */
+        .sort((a, b) => (a.loaiViecGiao ? 1 : 0) - (b.loaiViecGiao ? 1 : 0)),
     [danhSachTaiKhoan],
   );
   /** Khối lượng giao khi chọn ĐÚNG MỘT dòng — trống = giao cả dòng (26/09/2026). */
@@ -507,7 +527,9 @@ export function BangPhanBo({
       toast.error("Chưa giao việc được", { description: chanGiaoViec });
       return;
     }
-    setSoBaoGia("2"); // Mặc định mức chung của công ty — xem chú thích ở chỗ khai `soBaoGia`.
+    /* Mặc định mức chung "2" của công ty — xem chú thích ở chỗ khai `soBaoGia`. Người nhận việc
+       lấy từ kho (thủ kho / NV Kho tổng / NV Nhân sự) thì chọn sẵn đúng loại việc của họ. */
+    setSoBaoGia(loaiViecGiao ?? "2");
     setGhiChu("");
     setGhiChuThem("");
     /* Khối lượng giao chỉ áp khi chọn ĐÚNG một dòng và nhập nhỏ hơn cả dòng — xem `apDungChiaKhoiLuong`. */
@@ -529,6 +551,15 @@ export function BangPhanBo({
     const so = Number.parseInt(soBaoGia, 10);
     return Number.isFinite(so) && so > 0 ? so : undefined;
   })();
+  /**
+   * ★ LỰA CHỌN "XUẤT KHO" NGAY TRONG Ô SỐ BÁO GIÁ — Sếp 26/09/2026 (ảnh khoanh ô "Số báo giá yêu
+   * cầu nhân viên lấy về"): *"Thêm lựa chọn xuất kho ở mục này"*. Chọn Xuất kho = việc lấy hàng có
+   * sẵn → KHÔNG báo giá, phiếu sang thẳng Lập đơn (Mẫu PO-03), hồ sơ không đòi hợp đồng/hoá đơn.
+   * 🔴 Ô này là NGUỒN DUY NHẤT của loại việc khi giao — nút bấm chỉ chọn sẵn giá trị mặc định;
+   * trưởng phòng đổi ở đây là đổi thật (vd giao nhân viên thu mua lấy từ kho).
+   */
+  const loaiViecDangChon: LoaiViecGiao | undefined =
+    soBaoGia === "xuat_kho" || soBaoGia === "nhan_su" ? soBaoGia : undefined;
 
   function xacNhanGiaoViec() {
     if (!giaoViec) return;
@@ -556,7 +587,7 @@ export function BangPhanBo({
       {
         soBaoGia: soBaoGiaSo,
         ghiChu: ghiChuCuoi,
-        loaiViecGiao: giaoViec.loaiViecGiao,
+        loaiViecGiao: loaiViecDangChon,
         khoiLuongGiao: giaoViec.khoiLuongGiao,
       },
       // Truyền thẳng tên đang hiện trên nút: tài khoản thật không có trong danh bạ viết
@@ -689,7 +720,8 @@ export function BangPhanBo({
               <Button
                 key={nv.uid}
                 size="sm"
-                variant={nv.loaiViecGiao ? "outline" : "default"}
+                variant={nv.loaiViecGiao === "nhan_su" ? "outline" : "default"}
+                className={LOP_NUT_THEO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}
                 disabled={!!chanGiaoViec}
                 onClick={() => moGiaoViec(nv.uid, nv.ten, chon, nv.loaiViecGiao)}
                 title={
@@ -702,7 +734,7 @@ export function BangPhanBo({
               >
                 <UserPlus className="size-4" aria-hidden />
                 {nv.ngan} · {nv.ten}
-                {nv.loaiViecGiao === "xuat_kho" ? " (thủ kho)" : ""}
+                {HAU_TO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}
               </Button>
             ))}
             <Button variant="ghost" size="sm" onClick={() => { setChon([]); setKlGiao(""); }}>
@@ -1153,12 +1185,15 @@ export function BangPhanBo({
                       <Button
                         key={nv.uid}
                         size="sm"
-                        variant="outline"
-                        className="min-h-11"
+                        variant={nv.loaiViecGiao === "xuat_kho" ? "default" : "outline"}
+                        className={`min-h-11 ${LOP_NUT_THEO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}`}
                         disabled={!!chanGiaoViec}
-                        onClick={() => moGiaoViec(nv.uid, nv.ten, [d.stt])}
+                        /* 🔴 PHẢI truyền loại việc — trước 26/09/2026 nút này bỏ sót, nên giao cho thủ
+                           kho bằng điện thoại thì phiếu KHÔNG thành xuất kho (vẫn đi đường báo giá). */
+                        onClick={() => moGiaoViec(nv.uid, nv.ten, [d.stt], nv.loaiViecGiao)}
                       >
                         {nv.ngan}
+                        {HAU_TO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}
                       </Button>
                     ))}
                   </div>
@@ -1224,7 +1259,19 @@ export function BangPhanBo({
                   {n === TOI_DA_O_BAO_GIA ? `Nhiều báo giá (tối đa ${n})` : `${n} báo giá`}
                 </option>
               ))}
+              {/* ★ Sếp 26/09/2026: *"Thêm lựa chọn xuất kho ở mục này"* — xem `loaiViecDangChon`. */}
+              <option value="xuat_kho">Xuất kho — lấy hàng có sẵn, không cần báo giá</option>
+              {giaoViec?.loaiViecGiao === "nhan_su" && (
+                <option value="nhan_su">Quy trình nhân sự — hàng có sẵn, không cần báo giá</option>
+              )}
             </select>
+            {loaiViecDangChon && (
+              <p className="rounded-lg bg-primary-bg px-3 py-2 text-xs text-text-secondary">
+                Bỏ qua bước báo giá — phiếu sang thẳng <strong>Lập đơn mua hàng</strong>
+                {loaiViecDangChon === "xuat_kho" ? " (Mẫu PO-03 Phiếu xuất kho)" : ""}. Hồ sơ thanh
+                toán không đòi hợp đồng và hoá đơn.
+              </p>
+            )}
             {/* ★ NGƯỠNG THEO GIÁ TRỊ ĐƠN HÀNG — Sếp chốt 07/09/2026, dời tiếp qua ô cảnh báo vàng
                 (`khoaDongY` của `HopXacNhan`) khi vướng ca "1 báo giá chưa ghi lý do" — xem
                 `vuongMacChiDinhNCCLucGiaoViec` (`2-quy-trinh/bao-gia-dinh-kem.ts`). KHÔNG còn hiện
