@@ -114,6 +114,8 @@ import {
 import { namCuaNgay, TIEN_TO_DON_HANG } from "@/2-quy-trinh/dat-ma-don-hang";
 import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
 import { catBanMauDonMuaHang } from "@/3-du-lieu/ban-mau-don-mua-hang";
+import { laPhieuXuatKho, vuongMacXuatExcelTheoMau } from "@/2-quy-trinh/phieu-xuat-kho";
+import { KhoiTongQuanPhieuXuatKho } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-tong-quan-phieu-xuat-kho";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { homNayISO } from "@/6-tien-ich/dinh-dang";
@@ -620,6 +622,18 @@ export function FormLapDonMuaHang({
    * Mặc định `thoa_thuan`: phần lớn đơn lẻ không có hợp đồng nguyên tắc riêng.
    */
   const [mauPO, setMauPO] = useState<MauDonMuaHang>("thoa_thuan");
+  /**
+   * ★ NHÓM Ô CỦA MẪU PO-03 — PHIẾU XUẤT KHO (Sếp 26/09/2026). Đúng các ô của biểu mẫu
+   * `Phieu xuat kho   HPCons.xlsx`; ý nghĩa từng trường xem `DonDatHang` (`kieu-du-lieu.ts`).
+   * "Người nhận" dùng lại `nguoiNhanHang`, "Ngày"/"Số" dùng lại ngày đơn / số đơn.
+   */
+  const [taiKhoanNoXuatKho, setTaiKhoanNoXuatKho] = useState("");
+  const [taiKhoanCoXuatKho, setTaiKhoanCoXuatKho] = useState("");
+  const [canCuXuatKho, setCanCuXuatKho] = useState("");
+  const [khoXuat, setKhoXuat] = useState("");
+  const [diaDiemKhoXuat, setDiaDiemKhoXuat] = useState("");
+  const [dienGiaiXuatKho, setDienGiaiXuatKho] = useState("");
+  const [soChungTuGocXuatKho, setSoChungTuGocXuatKho] = useState("");
   const [dieuKhoanKhac, setDieuKhoanKhac] = useState("");
   /**
    * ★ Điều khoản in ở cuối tờ đơn — `null` nghĩa là CHƯA SỬA (dùng bản chuẩn của công ty).
@@ -1037,6 +1051,15 @@ export function FormLapDonMuaHang({
     setGhiChuHopDongNCC(po.ghiChuHopDongNCC ?? "");
     setMaDuAnNhap(po.maDuAn);
     if (po.mauPO) setMauPO(po.mauPO);
+    /* Mẫu PO-03: vẫn NẠP để màn hình hiện đúng đơn đang sửa (ô bị khoá ở chế độ sửa — xem
+       `khoaOPhieuXuatKho`). */
+    setTaiKhoanNoXuatKho(po.taiKhoanNoXuatKho ?? "");
+    setTaiKhoanCoXuatKho(po.taiKhoanCoXuatKho ?? "");
+    setCanCuXuatKho(po.canCuXuatKho ?? "");
+    setKhoXuat(po.khoXuat ?? "");
+    setDiaDiemKhoXuat(po.diaDiemKhoXuat ?? "");
+    setDienGiaiXuatKho(po.dienGiaiXuatKho ?? "");
+    setSoChungTuGocXuatKho(po.soChungTuGocXuatKho ?? "");
     if (po.dieuKhoanGiaoHang !== undefined) setDieuKhoanGiaoHang(po.dieuKhoanGiaoHang);
     if (po.camKetThoaThuan !== undefined) setCamKetThoaThuan(po.camKetThoaThuan);
     if (quyen.xemGia && giaPODangSua) {
@@ -1318,6 +1341,13 @@ export function FormLapDonMuaHang({
     if (p.nguoiNhanHangSdt) setSdtNguoiNhan((v) => v || p.nguoiNhanHangSdt!);
     if (p.dieuKhoanKhac) setDieuKhoanKhac((v) => v || p.dieuKhoanKhac!);
     if (p.mauPO) setMauPO(p.mauPO);
+    /* Mẫu PO-03: kho xuất, địa điểm kho và hai tài khoản thường lặp lại giữa các phiếu của cùng
+       đề nghị — điền sẵn (không đè chữ đã gõ). Căn cứ / diễn giải / chứng từ gốc là của RIÊNG
+       từng phiếu nên KHÔNG kế thừa. */
+    if (p.khoXuat) setKhoXuat((v) => v || p.khoXuat!);
+    if (p.diaDiemKhoXuat) setDiaDiemKhoXuat((v) => v || p.diaDiemKhoXuat!);
+    if (p.taiKhoanNoXuatKho) setTaiKhoanNoXuatKho((v) => v || p.taiKhoanNoXuatKho!);
+    if (p.taiKhoanCoXuatKho) setTaiKhoanCoXuatKho((v) => v || p.taiKhoanCoXuatKho!);
     /* Ngày giao: KHÔNG lấy ngày của đơn cũ (đã qua rồi), mà lấy ngày cần hàng của đề nghị — đó
        mới là mốc thật người đề nghị đang chờ. */
     if (dn?.ngayCanHang) setNgayGiao((v) => v || dn.ngayCanHang);
@@ -2059,6 +2089,42 @@ export function FormLapDonMuaHang({
    * 📌 Truyền chuỗi thô của ô nhập (không `Number()` trước): hàm kia lo việc đổi số và phân biệt
    * "ô trống" với "số 0" — hai chỗ cùng làm việc đó là sớm muộn lệch nhau.
    */
+  /** ★ Đang chọn Mẫu PO-03 — Phiếu xuất kho (26/09/2026). */
+  const laPhieuXuatKhoDangChon = laPhieuXuatKho(mauPO);
+  /**
+   * 🔒 Ô của phiếu xuất kho KHOÁ Ở CHẾ ĐỘ SỬA — `ThayDoiDonHang` (tầng ghi
+   * `3-du-lieu/kho-du-lieu.tsx`) CHƯA khai nhóm trường này, nên mở ô ra là bấm Lưu xong chữ vừa
+   * sửa biến mất không một dòng báo (CLAUDE.md §3.5). Lập MỚI thì lưu được (`themDonHang` chép
+   * nguyên đầu vào). Mở khi tầng ghi đã nhận.
+   */
+  const khoaOPhieuXuatKho = laSuaDon;
+  /**
+   * Chữ hiện ở ô "Số đơn hàng" — gom thành MỘT biến (26/09/2026) để khối xem nhanh phiếu xuất
+   * kho hiện đúng cùng một số, không tự dựng lại công thức thứ hai. Ý nghĩa ba nhánh: xem chú
+   * thích tại ô "Số đơn hàng".
+   */
+  const soDonHienThi = laSuaDon
+    ? poDangSua!.code
+    : laCheDoMau
+      ? SO_DON_BAN_MAU
+      : `${TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`;
+  /**
+   * Nhóm trường PO-03 đưa vào đơn — CHỈ khi đang chọn mẫu PO-03. Đổi sang PO-01/02 thì không cất
+   * những chữ không in ra (state vẫn giữ trên màn hình, đổi lại PO-03 là dùng tiếp).
+   */
+  function truongPhieuXuatKho() {
+    if (!laPhieuXuatKhoDangChon) return {};
+    return {
+      taiKhoanNoXuatKho: taiKhoanNoXuatKho.trim() || undefined,
+      taiKhoanCoXuatKho: taiKhoanCoXuatKho.trim() || undefined,
+      canCuXuatKho: canCuXuatKho.trim() || undefined,
+      khoXuat: khoXuat.trim() || undefined,
+      diaDiemKhoXuat: diaDiemKhoXuat.trim() || undefined,
+      dienGiaiXuatKho: dienGiaiXuatKho.trim() || undefined,
+      soChungTuGocXuatKho: soChungTuGocXuatKho.trim() || undefined,
+    };
+  }
+
   function dungDonMau() {
     return dungDonHangMau({
       maDuAn: maDuAnDon,
@@ -2085,6 +2151,7 @@ export function FormLapDonMuaHang({
       nguoiNhanHangTen: nguoiNhanHang,
       nguoiNhanHangSdt: sdtNguoiNhan,
       mauPO,
+      ...truongPhieuXuatKho(),
       /* `?? undefined`: `null` (chưa sửa) phải thành `undefined` để tờ in rơi về bản chuẩn. */
       dieuKhoanGiaoHang: dieuKhoanGiaoHang ?? undefined,
       camKetThoaThuan: camKetThoaThuan ?? undefined,
@@ -2163,6 +2230,12 @@ export function FormLapDonMuaHang({
    * gửi nhà cung cấp.
    */
   async function xuatExcelMau() {
+    /* ★ Mẫu PO-03 chưa có bản Excel đúng biểu mẫu — nút đã khoá, chặn thêm ở đây cho chắc. */
+    const chuaXuatDuoc = vuongMacXuatExcelTheoMau(mauPO);
+    if (chuaXuatDuoc) {
+      toast.error("Chưa xuất được Excel", { description: chuaXuatDuoc });
+      return;
+    }
     const { po, gia, ncc } = dungDonMau();
 
     // Cùng một luật với nút In ở trên, và với nút Xuất Excel của đơn thật.
@@ -2261,6 +2334,11 @@ export function FormLapDonMuaHang({
     /* Ghi chú NCC là của RIÊNG từng PO (hợp đồng/báo giá khác nhau dù cùng công trình) — luôn
        dọn, khác `tenCongTrinh`/`maHopDong` ở trên. */
     setGhiChuHopDongNCC("");
+    /* Mẫu PO-03: căn cứ · diễn giải · chứng từ gốc là của RIÊNG từng phiếu → dọn. Kho xuất, địa
+       điểm kho, hai tài khoản thường lặp lại cho phiếu kế tiếp → giữ (cùng lý do giữ công trình). */
+    setCanCuXuatKho("");
+    setDienGiaiXuatKho("");
+    setSoChungTuGocXuatKho("");
     setDiaDiemGiao("");
     setNguoiNhanHang("");
     setDieuKhoanKhac("");
@@ -2529,6 +2607,8 @@ export function FormLapDonMuaHang({
       nguoiNhanHangTen: nguoiNhanHang.trim() || undefined,
       nguoiNhanHangSdt: sdtNguoiNhan.trim() || undefined,
       mauPO,
+      /* ★ Mẫu PO-03 — `themDonHang` chép nguyên đầu vào (`...po`) nên nhóm này được cất luôn. */
+      ...truongPhieuXuatKho(),
       /* 🔴 `?? undefined` chứ KHÔNG `|| undefined`: người lập xóa trắng khối điều khoản thì phải
          cất đúng chuỗi rỗng đó, để tờ in không tự thêm lại bản chuẩn. `||` biến `""` thành
          `undefined` và điều khoản họ vừa bỏ lại hiện nguyên trên chứng từ gửi nhà cung cấp. */
@@ -3825,13 +3905,7 @@ export function FormLapDonMuaHang({
                     qua đường này (`ThayDoiDonHang` cố ý không khai). */}
                 <Input
                   id="so-don-hang"
-                  value={
-                    laSuaDon
-                      ? poDangSua!.code
-                      : laCheDoMau
-                        ? SO_DON_BAN_MAU
-                        : `${TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`
-                  }
+                  value={soDonHienThi}
                   readOnly
                   disabled
                   className={laCheDoMau ? "w-72" : "w-56"}
@@ -3941,7 +4015,7 @@ export function FormLapDonMuaHang({
           <div className="muc-ngang">
             <Label htmlFor="hop-dong" className="flex items-center gap-1.5">
               Theo hợp đồng
-              {mauPO === "thoa_thuan" && <Lock className="size-3" aria-hidden />}
+              {mauPO !== "theo_hop_dong" && <Lock className="size-3" aria-hidden />}
             </Label>
             {/* ✅ BỎ VẾ `laSuaDon` KHỎI ĐIỀU KIỆN KHOÁ — Sếp 15/09/2026, `ThayDoiDonHang` nay nhận
                 `ghiChuHopDongNCC`.
@@ -3953,15 +4027,128 @@ export function FormLapDonMuaHang({
               value={ghiChuHopDongNCC}
               onChange={(e) => setGhiChuHopDongNCC(e.target.value)}
               placeholder="VD: HĐ số 089/2026/HĐKT-HPC ký ngày 01/08/2026"
-              readOnly={mauPO === "thoa_thuan"}
-              disabled={mauPO === "thoa_thuan"}
+              /* ★ Mẫu PO-03 (26/09/2026) cũng KHOÁ, cùng khuôn với PO-02: phiếu xuất kho không in
+                 dòng hợp đồng NCC. Khoá chứ không ẩn — giữ chữ đã gõ, đổi lại PO-01 là dùng tiếp. */
+              readOnly={mauPO !== "theo_hop_dong"}
+              disabled={mauPO !== "theo_hop_dong"}
             />
             <p className="text-[13px] text-text-secondary">
               {mauPO === "thoa_thuan"
                 ? "Mẫu PO-02 — chính tờ đơn này là bản thoả thuận mua bán, không dẫn hợp đồng riêng. Đổi sang mẫu PO-01 nếu cần ghi số hợp đồng NCC."
-                : "Ghi số hợp đồng NCC và ngày ký kết."}
+                : mauPO === "phieu_xuat_kho"
+                  ? "Mẫu PO-03 — phiếu xuất kho không in dòng hợp đồng NCC. Đổi sang mẫu PO-01 nếu cần ghi số hợp đồng NCC."
+                  : "Ghi số hợp đồng NCC và ngày ký kết."}
             </p>
           </div>
+
+          {/* =====================================================================
+              ★ MẪU PO-03 — CÁC Ô RIÊNG CỦA PHIẾU XUẤT KHO (Sếp 26/09/2026)
+
+              Xếp ĐÚNG thứ tự dòng của biểu mẫu `Phieu xuat kho   HPCons.xlsx`:
+                Nợ (L6) | Có (L7) → Theo … (A11) → Xuất tại kho (A13) | Địa điểm (I13)
+                → Diễn giải (A15) → Số chứng từ gốc kèm theo (A24)
+              Ba ô còn lại của mẫu KHÔNG có ô nhập mới ở đây, vì đã có sẵn trên form:
+                · "Ngày" / "Số"          = Ngày đơn hàng / Số đơn hàng ở ngay trên
+                · "Họ và tên người nhận" = ô "Người nhận hàng" ở khối giao nhận bên dưới
+              Hai ô cho cùng một trường là "hai chỗ cùng nói một chuyện" — dự án cấm.
+
+              🔒 Chế độ SỬA: khoá cả nhóm, xem `khoaOPhieuXuatKho`.
+              ===================================================================== */}
+          {laPhieuXuatKhoDangChon && (
+            <div className="flex flex-col gap-(--hp-md-card-gap) rounded-xl border border-primary/30 p-3">
+              <p className="text-sm font-semibold text-text-primary">
+                Thông tin phiếu xuất kho (Mẫu PO-03)
+              </p>
+              <p className="text-xs text-text-desc">
+                Ngày và Số của phiếu lấy theo Ngày đơn hàng / Số đơn hàng ở trên. Họ và tên người
+                nhận nhập ở ô <strong>Người nhận hàng</strong> phía dưới. Cột Thực xuất để trống
+                cho thủ kho ghi tay.
+              </p>
+              {khoaOPhieuXuatKho && (
+                <p className="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning-soft">
+                  Chưa sửa được các ô này ở chế độ sửa đơn — tầng lưu dữ liệu chưa nhận nhóm trường
+                  phiếu xuất kho khi sửa. Muốn đổi thì lập phiếu mới.
+                </p>
+              )}
+              <div className="grid gap-(--hp-md-card-gap) sm:grid-cols-2">
+                <div className="muc-ngang">
+                  <Label htmlFor="pxk-no">Nợ</Label>
+                  <Input
+                    id="pxk-no"
+                    value={taiKhoanNoXuatKho}
+                    onChange={(e) => setTaiKhoanNoXuatKho(e.target.value)}
+                    placeholder="VD: 6211"
+                    disabled={khoaOPhieuXuatKho}
+                    className="w-40"
+                  />
+                </div>
+                <div className="muc-ngang">
+                  <Label htmlFor="pxk-co">Có</Label>
+                  <Input
+                    id="pxk-co"
+                    value={taiKhoanCoXuatKho}
+                    onChange={(e) => setTaiKhoanCoXuatKho(e.target.value)}
+                    placeholder="VD: 152"
+                    disabled={khoaOPhieuXuatKho}
+                    className="w-40"
+                  />
+                </div>
+              </div>
+              <div className="muc-ngang">
+                <Label htmlFor="pxk-theo">Theo</Label>
+                <Input
+                  id="pxk-theo"
+                  value={canCuXuatKho}
+                  onChange={(e) => setCanCuXuatKho(e.target.value)}
+                  placeholder="… số … ngày … tháng … năm … của … (bỏ trống thì tờ in chừa chấm để viết tay)"
+                  disabled={khoaOPhieuXuatKho}
+                />
+              </div>
+              <div className="grid gap-(--hp-md-card-gap) sm:grid-cols-2">
+                <div className="muc-ngang">
+                  <Label htmlFor="pxk-kho">Xuất tại kho</Label>
+                  <Input
+                    id="pxk-kho"
+                    value={khoXuat}
+                    onChange={(e) => setKhoXuat(e.target.value)}
+                    placeholder="VD: Kho Tổng"
+                    disabled={khoaOPhieuXuatKho}
+                  />
+                </div>
+                <div className="muc-ngang">
+                  <Label htmlFor="pxk-dia-diem">Địa điểm</Label>
+                  <Input
+                    id="pxk-dia-diem"
+                    value={diaDiemKhoXuat}
+                    onChange={(e) => setDiaDiemKhoXuat(e.target.value)}
+                    placeholder="Địa điểm của kho xuất"
+                    disabled={khoaOPhieuXuatKho}
+                  />
+                </div>
+              </div>
+              <div className="muc-ngang">
+                <Label htmlFor="pxk-dien-giai">Diễn giải</Label>
+                <Input
+                  id="pxk-dien-giai"
+                  value={dienGiaiXuatKho}
+                  onChange={(e) => setDienGiaiXuatKho(e.target.value)}
+                  placeholder="VD: Xuất vật tư kho tổng ra công trình …"
+                  disabled={khoaOPhieuXuatKho}
+                />
+              </div>
+              <div className="muc-ngang">
+                <Label htmlFor="pxk-ct-goc">Số chứng từ gốc kèm theo</Label>
+                <Input
+                  id="pxk-ct-goc"
+                  value={soChungTuGocXuatKho}
+                  onChange={(e) => setSoChungTuGocXuatKho(e.target.value)}
+                  placeholder="VD: 01"
+                  disabled={khoaOPhieuXuatKho}
+                  className="w-40"
+                />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -4247,6 +4434,15 @@ export function FormLapDonMuaHang({
           ========================================================================= */}
       <Card>
         <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+          {/* ★ Mẫu PO-03: nói rõ khối này in gì lên phiếu — các ô còn lại vẫn LƯU vào đơn (cần cho
+              nhận hàng / công nợ) nhưng phiếu xuất kho không in, đừng để người lập tưởng là có. */}
+          {laPhieuXuatKhoDangChon && (
+            <p className="rounded-lg bg-primary-bg px-3 py-2 text-xs text-text-secondary">
+              Mẫu PO-03: phiếu xuất kho chỉ in <strong>Người nhận hàng</strong> (dòng &quot;Họ và
+              tên người nhận&quot;) từ khối này. Các ô khác vẫn lưu vào đơn nhưng không in lên
+              phiếu.
+            </p>
+          )}
           {/**
             * ★★ HAI MỤC RIÊNG, MỖI MỤC MỘT NHÃN, CÙNG MỘT HÀNG — Ban lãnh đạo 27/08/2026: *"tạo 2
             * mục này cùng dòng và được tự động link từ đề nghị"*, kèm ảnh viết rõ hai chữ
@@ -4761,6 +4957,14 @@ export function FormLapDonMuaHang({
           {/* ✅ BỎ `khoa={laSuaDon}` — Sếp 15/09/2026, `ThayDoiDonHang` nay nhận
               `dieuKhoanGiaoHang`. Tham số `khoa` của component GIỮ NGUYÊN, đừng xoá: nó là đường
               khoá dùng chung, chỉ là lượt này không ai truyền `true` vào nữa. */}
+          {/* ★ Mẫu PO-03 (26/09/2026): phiếu xuất kho KHÔNG có khối "Phương thức giao hàng" —
+              ẩn ô nhập (bày ô cho thứ không in là mời gõ vào chỗ vô ích, cùng lý do ô cam kết chỉ
+              hiện ở PO-02). State `dieuKhoanGiaoHang` vẫn giữ, đổi lại PO-01/02 là thấy lại. */}
+          {laPhieuXuatKhoDangChon ? (
+            <p className="text-xs text-text-desc">
+              Mẫu PO-03 (Phiếu xuất kho) không in khối <strong>Phương thức giao hàng</strong>.
+            </p>
+          ) : (
           <KhoiDieuKhoanTachDong
             id="dk-giao-hang"
             nhan="Phương thức giao hàng"
@@ -4772,6 +4976,7 @@ export function FormLapDonMuaHang({
                dấu +"*, cùng ngày với *"xuống dòng trong trường đó"*). */
             moTa="Chỗ để trống …… là chỗ cần điền theo từng đơn. Bấm + để thêm một mục mới, Enter để xuống dòng trong cùng một mục, thùng rác để xoá mục; xoá nhầm thì bấm Khôi phục bản chuẩn."
           />
+          )}
 
           {/**
             * ⚠️ CA ĐỔI MẪU SAU KHI ĐÃ SỬA — chốt còn lại sau khi bản chuẩn đã đi theo mẫu.
@@ -5180,6 +5385,31 @@ export function FormLapDonMuaHang({
         </CardContent>
       </Card>
 
+      {/* =========================================================================
+          ★ XEM NHANH PHIẾU XUẤT KHO — chỉ ở Mẫu PO-03 (Sếp 26/09/2026: *"tạo giao diện nhập
+          liệu giống mẫu để có cái nhìn tổng quan"*).
+          🔴 Dựng từ `dungDonMau()` — CÙNG đơn tạm mà nút In dùng — nên khối này và tờ in không
+          nói khác nhau. Chỉ đọc, không có ô nhập. Đặt ngay trên thanh nút để soát trước khi In/Lưu.
+          ========================================================================= */}
+      {laPhieuXuatKhoDangChon &&
+        (() => {
+          const { po: donXem, gia: giaXem } = dungDonMau();
+          return (
+            <Card>
+              <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
+                <p className="text-base font-semibold text-text-primary">
+                  Xem nhanh phiếu xuất kho (Mẫu PO-03)
+                </p>
+                <KhoiTongQuanPhieuXuatKho
+                  po={{ ...donXem, code: soDonHienThi }}
+                  gia={giaXem}
+                  xemGia={quyen.xemGia}
+                />
+              </CardContent>
+            </Card>
+          );
+        })()}
+
       {/* ===== NÓI RÕ VÌ SAO CHƯA CẤT ĐƯỢC — đứng ngay trên thanh nút =====
           🔴 Ban lãnh đạo 15/08/2026 chỉ vào nút xám và hỏi *"sao nút này không dùng được"*.
           App chặn ĐÚNG (bảng báo giá còn đang thu thập, chưa qua xét duyệt — chính luật Ban
@@ -5342,17 +5572,26 @@ export function FormLapDonMuaHang({
                 </Button>
                 <Button
                   variant="outline"
-                  disabled={!hopLe || !quyen.xemGia || dangXuatMau}
+                  disabled={
+                    !hopLe || !quyen.xemGia || dangXuatMau || vuongMacXuatExcelTheoMau(mauPO) !== null
+                  }
                   onClick={() => void xuatExcelMau()}
                   title={
-                    !quyen.xemGia
+                    vuongMacXuatExcelTheoMau(mauPO) ??
+                    (!quyen.xemGia
                       ? "File Excel có giá nên cần quyền xem giá"
-                      : "Tải bản mẫu ra Excel theo biểu mẫu công ty"
+                      : "Tải bản mẫu ra Excel theo biểu mẫu công ty")
                   }
                 >
                   <FileSpreadsheet className="size-4" aria-hidden />
                   {dangXuatMau ? "Đang tạo file…" : "Xuất Excel"}
                 </Button>
+                {/* 🔴 Lý do khoá IN THÀNH CHỮ — trên điện thoại không rê chuột xem `title` được. */}
+                {vuongMacXuatExcelTheoMau(mauPO) && (
+                  <span className="max-w-64 text-xs leading-snug text-warning-soft">
+                    {vuongMacXuatExcelTheoMau(mauPO)}
+                  </span>
+                )}
               </>
             ) : (
               <>

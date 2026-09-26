@@ -76,8 +76,13 @@ export const DIEU_KHOAN_GIAO_HANG_THEO_HOP_DONG = PHAN_CHUNG_GIAO_HANG;
  * sửa điều khoản trên form mà tờ in ra nội dung khác — kiểu lệch không ai phát hiện cho tới lúc
  * đối chiếu chứng từ đã gửi đi.
  */
-export function dieuKhoanGiaoHangChuanTheoMau(mau: "thoa_thuan" | "theo_hop_dong"): string {
-  return mau === "theo_hop_dong"
+export function dieuKhoanGiaoHangChuanTheoMau(
+  mau: "thoa_thuan" | "theo_hop_dong" | "phieu_xuat_kho",
+): string {
+  /* 📌 Mẫu PO-03 (phiếu xuất kho, 26/09/2026) KHÔNG in khối điều khoản nào — tờ in PO-03 không
+     đọc hàm này. Trả bản ngắn của PO-01 chỉ để form có một bản chuẩn hợp lệ nếu người lập đổi
+     qua lại giữa các mẫu; KHÔNG trả bản PO-02 (5 điều khoản) để khỏi kéo điều khoản thừa theo. */
+  return mau !== "thoa_thuan"
     ? DIEU_KHOAN_GIAO_HANG_THEO_HOP_DONG
     : DIEU_KHOAN_GIAO_HANG_CHUAN;
 }

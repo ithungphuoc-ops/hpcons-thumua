@@ -1023,11 +1023,18 @@ function TheDeNghi({
             quan hệ cha–con nằm ở `deNghiGocId` + `maDeNghiGoc` — xem `2-quy-trinh/nhan-ban-de-nghi.ts`.
             📌 VÌ SAO CẦN: hai bản nhân bản cùng một gốc có mã và tên gần như y hệt nhau, nhìn thẻ
             trên bảng không phân biệt được bản nào là gốc, bản nào là bản tách. */}
-        {deNghi.deNghiGocId && (
+        {/* ★ PHIẾU GỐC hiện chữ "Phiếu gốc" màu đỏ — Sếp 26/09/2026: *"Đối với phiếu gốc thì e hiển
+            thị là Phiếu gốc nhé và tạo màu chữ đỏ"*. Phiếu con giữ dòng "Nhân bản đề nghị" như cũ. */}
+        {the.laPhieuGoc ? (
+          <span>
+            <span className="text-text-secondary">Quy trình:</span>{" "}
+            <span className="font-semibold text-danger">Phiếu gốc</span>
+          </span>
+        ) : deNghi.deNghiGocId ? (
           <span>
             <span className="text-text-secondary">Quy trình:</span> Nhân bản đề nghị
           </span>
-        )}
+        ) : null}
         {/* Chỉ nói tới tài liệu khi CÓ tài liệu. Mẫu Base luôn hiện "Link phiếu đề..." vì bên đó
             phiếu nào cũng đính kèm; app này cho phép lập phiếu không kèm tệp, hiện nhãn trơ
             là hứa một thứ không có. */}

@@ -494,6 +494,12 @@ export function xacDinhGiaiDoan(
   const conLai = dongConPhaiLam(deNghi, tatCaDeNghi);
   const daPhanBoDu =
     deNghi.items.length > 0 && conLai.every((d) => Boolean(d.nguoiPhuTrachUid));
+  /* ★ Sếp 26/09/2026: giao cho THỦ KHO (lấy từ kho) hoặc NHÂN VIÊN NHÂN SỰ thì *"việc sẽ nhảy trực
+     tiếp qua bước Lập đơn mua hàng"*. Phiếu chỉ còn dòng có `loaiViecGiao` (gắn lúc giao) thì không
+     đi hỏi giá — sang thẳng bước ④. */
+  if (daPhanBoDu && conLai.length > 0 && conLai.every((d) => Boolean(d.loaiViecGiao))) {
+    return "lap_don_mua_hang";
+  }
   if (daPhanBoDu) return "yeu_cau_bao_gia";
 
   // ① Chưa phát sinh chứng từ nào, và còn dòng chưa có người phụ trách.
@@ -805,6 +811,12 @@ export function traMocVaoBuoc(
 
 export interface TheDeNghiTrenBang {
   deNghi: DeNghiMuaHang;
+  /**
+   * ★ Phiếu này là PHIẾU GỐC — đã có phiếu con tách / nhân bản từ nó (Sếp 26/09/2026: *"Đối với phiếu
+   * gốc thì e hiển thị là Phiếu gốc nhé và tạo màu chữ đỏ"*). Suy từ `deNghiGocId` / `deNghiChaId`
+   * của các phiếu khác — không lưu cờ lên phiếu gốc.
+   */
+  laPhieuGoc: boolean;
   giaiDoan: GiaiDoanMuaHang;
   han: HanXuLy;
   /**
@@ -974,6 +986,9 @@ export function dungBangQuyTrinh(
     const giaiDoan = xacDinhGiaiDoan(deNghi, tatCaPO, tatCaBaoGia, tatCaPhieu, tatCaDeNghi);
     return {
       deNghi,
+      laPhieuGoc: tatCaDeNghi.some(
+        (d) => d.id !== deNghi.id && (d.deNghiGocId === deNghi.id || d.deNghiChaId === deNghi.id),
+      ),
       giaiDoan,
       han: hanXuLyDeNghi(deNghi, giaiDoan, moc),
       /* ★ Đồng hồ của bước (Sếp 19/09/2026). Hồ sơ đã kết thúc thì thôi đếm — không ai còn phải

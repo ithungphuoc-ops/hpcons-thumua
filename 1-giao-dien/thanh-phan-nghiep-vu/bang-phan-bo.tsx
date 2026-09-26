@@ -57,7 +57,7 @@ import {
   dongDaNhanBanSang,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { nhanAnToan, NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
-import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import type { DeNghiMuaHang, LoaiViecGiao } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
  * Lớp chung cho mọi mục trong menu ⋯ của bảng này.
@@ -194,17 +194,23 @@ export function BangPhanBo({
    *
    * 📌 Trưởng bộ phận KHÔNG có trong danh sách: chị ấy *phân bổ*, không *nhận phần việc*.
    */
+  /* ★ (26/09/2026) THỦ KHO cũng nhận việc — dòng giao cho thủ kho là "lấy từ kho" (`xuat_kho`),
+     phiếu bỏ qua báo giá, sang thẳng Lập đơn mua hàng. Sếp: *"khi giao việc cho nhân viên [thủ kho]
+     này thì việc sẽ nhảy trực tiếp qua bước Lập đơn mua hàng"*. */
   const nhanVienThuMua = useMemo(
     () =>
       danhSachTaiKhoan
-        .filter((n) => n.chucNang === "nhan_vien_thu_mua")
+        .filter((n) => n.chucNang === "nhan_vien_thu_mua" || n.chucNang === "thu_kho_cong_trinh")
         .map((n) => ({
           uid: n.uid,
           ten: n.tenHienThi,
           ngan: nhanNgan(n.tenHienThi, n.chucDanh),
+          loaiViecGiao: n.chucNang === "thu_kho_cong_trinh" ? ("xuat_kho" as const) : undefined,
         })),
     [danhSachTaiKhoan],
   );
+  /** Khối lượng giao khi chọn ĐÚNG MỘT dòng — trống = giao cả dòng (26/09/2026). */
+  const [klGiao, setKlGiao] = useState("");
 
   /**
    * ⚠️ CỜ MỞ TÁCH KHỎI NỘI DUNG — theo đúng cảnh báo ghi sẵn trong `hop-xac-nhan.tsx`:
@@ -218,9 +224,13 @@ export function BangPhanBo({
    * 📌 Cùng cách làm với `menu-tai-khoan.tsx` (`moHoSo` tách khỏi `hoSo`).
    */
   const [moHop, setMoHop] = useState(false);
-  const [giaoViec, setGiaoViec] = useState<{ uid: string; ten: string; dong: number[] } | null>(
-    null,
-  );
+  const [giaoViec, setGiaoViec] = useState<{
+    uid: string;
+    ten: string;
+    dong: number[];
+    loaiViecGiao?: LoaiViecGiao;
+    khoiLuongGiao?: number;
+  } | null>(null);
   /**
    * Giữ dạng chuỗi (khớp `<select>`). Mặc định "2" — Sếp chốt 07/09/2026: bỏ hẳn lựa chọn
    * "Không yêu cầu riêng", trưởng bộ phận LUÔN phải tự chọn rõ ràng 1 con số mỗi lần giao việc
@@ -263,13 +273,18 @@ export function BangPhanBo({
     if (!dongChuyen || !uidNhan) return;
     const nhan = danhSachTaiKhoan.find((n) => n.uid === uidNhan);
     if (!nhan) return;
-    chuyenViecDong(
+    /* (26/09/2026) Tầng ghi có thể từ chối (dòng đã có báo giá/đơn hàng) — phải nói ra. */
+    const loi = chuyenViecDong(
       deNghi.id,
       [dongChuyen.stt],
       { uid: nhan.uid, ten: nhan.tenHienThi },
       lyDoChuyen,
       nguoiDung.tenHienThi,
     );
+    if (loi) {
+      toast.error("Chưa chuyển được việc", { description: loi });
+      return;
+    }
   }
 
   /**
@@ -301,10 +316,17 @@ export function BangPhanBo({
    * `quyen.phanBoCongViec`. Nên nhân viên xem thêm dòng mà không sửa được dòng nào của người khác.
    * 📌 `dongCuaMinh` để đánh dấu dòng của mình và ẩn ghi chú giao việc riêng ở dòng người khác.
    */
-  const tienDo = useMemo(
-    () => tinhTienDoDeNghi(deNghi, donHang, phieuNhan),
-    [deNghi, donHang, phieuNhan],
-  );
+  /*
+   * ★ (26/09/2026) Dòng ĐÃ TÁCH SANG PHIẾU CON khi giao việc: CHỈ Trưởng bộ phận thấy (mờ) trên
+   * phiếu gốc — Sếp: *"việc đó sẽ ẩn mờ đi trên phiếu tổng nhưng chỉ trưởng bộ phận xem được"*.
+   * Người giữ phiếu gốc (người nhận sau cùng) và nhân viên khác không thấy các dòng đó nữa.
+   */
+  const tienDo = useMemo(() => {
+    const tatCa = tinhTienDoDeNghi(deNghi, donHang, phieuNhan);
+    if (quyen.phanBoCongViec) return tatCa;
+    const daTach = dongDaNhanBanSang(deNghi, dsDeNghi);
+    return tatCa.filter((d) => !dongDaChuyenDiHet(d.stt, daTach));
+  }, [deNghi, donHang, phieuNhan, dsDeNghi, quyen.phanBoCongViec]);
   const dongCuaMinh = useMemo(
     () => new Set(sttDongDuocXem(deNghi, nguoiDung.uid, quyen)),
     [deNghi, nguoiDung.uid, quyen],
@@ -447,7 +469,7 @@ export function BangPhanBo({
    * xác nhận lại có giao việc không, và được viết thêm ghi chú yêu cầu số lượng báo giá cần
    * cung cấp"*. Hộp này vừa là chỗ hỏi lại, vừa là chỗ DUY NHẤT nêu yêu cầu số báo giá.
    */
-  function moGiaoViec(uid: string, ten: string, dong: number[]) {
+  function moGiaoViec(uid: string, ten: string, dong: number[], loaiViecGiao?: LoaiViecGiao) {
     if (dong.length === 0) return;
     /* 🔴 Chưa checkin tồn kho thì chưa cho giao việc (Ban lãnh đạo 12/09/2026). Chốt thật ở
        `phanBoDong`; đây chỉ chặn sớm để khỏi mở hộp rồi mới báo lỗi. */
@@ -458,7 +480,10 @@ export function BangPhanBo({
     setSoBaoGia("2"); // Mặc định mức chung của công ty — xem chú thích ở chỗ khai `soBaoGia`.
     setGhiChu("");
     setGhiChuThem("");
-    setGiaoViec({ uid, ten, dong });
+    /* Khối lượng giao chỉ áp khi chọn ĐÚNG một dòng và nhập nhỏ hơn cả dòng — xem `apDungChiaKhoiLuong`. */
+    const kl = Number(klGiao.replace(",", "."));
+    const khoiLuongGiao = dong.length === 1 && klGiao.trim() !== "" && Number.isFinite(kl) ? kl : undefined;
+    setGiaoViec({ uid, ten, dong, loaiViecGiao, khoiLuongGiao });
     setMoHop(true);
   }
 
@@ -501,6 +526,8 @@ export function BangPhanBo({
       {
         soBaoGia: soBaoGiaSo,
         ghiChu: ghiChuCuoi,
+        loaiViecGiao: giaoViec.loaiViecGiao,
+        khoiLuongGiao: giaoViec.khoiLuongGiao,
       },
       // Truyền thẳng tên đang hiện trên nút: tài khoản thật không có trong danh bạ viết
       // cứng, để kho dữ liệu tự tra là màn hình hiện mã thô thay vì tên người.
@@ -511,6 +538,7 @@ export function BangPhanBo({
       return;
     }
     setChon([]);
+    setKlGiao("");
     /**
      * ★ BÁO NGAY CHO NGƯỜI VỪA GIAO — Ban lãnh đạo 21/08/2026: *"khi giao việc cho nhân viên cũng
      * chưa hiện thông báo"*.
@@ -604,19 +632,44 @@ export function BangPhanBo({
         {/* Thanh hành động khi đã chọn dòng — chỉ ở bước phân bổ, xem `hienCongCuPhanBo`. */}
         {hienCongCuPhanBo && chon.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary-bg p-3">
-            <span className="text-sm font-medium text-primary">Đã chọn {chon.length} dòng — phân cho:</span>
+            <span className="text-sm font-medium text-primary">Đã chọn {chon.length} dòng</span>
+            {/* ★ CHIA KHỐI LƯỢNG (Sếp 26/09/2026): chọn đúng MỘT dòng thì giao được một phần — phần
+                còn lại thành dòng mới "chia từ dòng X" để giao người khác. Trống = cả dòng. */}
+            {chon.length === 1 &&
+              (() => {
+                const d = deNghi.items.find((x) => x.stt === chon[0]);
+                if (!d) return null;
+                return (
+                  <label className="flex items-center gap-2 text-sm text-primary">
+                    Khối lượng giao
+                    <Input
+                      id="kl-giao-viec"
+                      inputMode="decimal"
+                      value={klGiao}
+                      onChange={(e) => setKlGiao(e.target.value)}
+                      placeholder={String(d.khoiLuongDeNghi)}
+                      className="h-11 w-24 bg-card text-right md:h-9"
+                    />
+                    / {d.khoiLuongDeNghi.toLocaleString("vi-VN")} {d.donViTinh}
+                  </label>
+                );
+              })()}
+            <span className="text-sm font-medium text-primary">— phân cho:</span>
             {nhanVienThuMua.map((nv) => (
               <Button
                 key={nv.uid}
                 size="sm"
+                variant={nv.loaiViecGiao ? "outline" : "default"}
                 disabled={!!chanGiaoViec}
-                onClick={() => moGiaoViec(nv.uid, nv.ten, chon)}
+                onClick={() => moGiaoViec(nv.uid, nv.ten, chon, nv.loaiViecGiao)}
+                title={nv.loaiViecGiao ? "Thủ kho — lấy từ kho, phiếu sang thẳng Lập đơn mua hàng" : undefined}
               >
                 <UserPlus className="size-4" aria-hidden />
                 {nv.ngan} · {nv.ten}
+                {nv.loaiViecGiao === "xuat_kho" ? " (thủ kho)" : ""}
               </Button>
             ))}
-            <Button variant="ghost" size="sm" onClick={() => setChon([])}>
+            <Button variant="ghost" size="sm" onClick={() => { setChon([]); setKlGiao(""); }}>
               Bỏ chọn
             </Button>
           </div>
@@ -842,7 +895,10 @@ export function BangPhanBo({
                                       <DropdownMenuItem
                                         className={LOP_MUC_MENU}
                                         onClick={() =>
-                                          boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi)
+                                          {
+                            const loi = boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi);
+                            if (loi) toast.error("Chưa bỏ phân bổ được", { description: loi });
+                          }
                                         }
                                       >
                                         <X className="size-4 shrink-0" aria-hidden />
@@ -1032,7 +1088,10 @@ export function BangPhanBo({
                         variant="ghost"
                         size="sm"
                         className="min-h-11"
-                        onClick={() => boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi)}
+                        onClick={() => {
+                            const loi = boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi);
+                            if (loi) toast.error("Chưa bỏ phân bổ được", { description: loi });
+                          }}
                       >
                         <X className="size-4" aria-hidden />
                         Bỏ phân bổ

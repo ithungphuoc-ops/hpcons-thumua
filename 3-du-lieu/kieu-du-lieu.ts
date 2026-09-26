@@ -90,6 +90,9 @@ export const NHAN_NHOM_DE_XUAT: Record<NhomDeXuat, string> = {
   khac: "Khác",
 };
 
+/** Loại việc bỏ qua báo giá khi giao — xem `DongDeNghi.loaiViecGiao`. */
+export type LoaiViecGiao = "xuat_kho" | "nhan_su";
+
 export interface DongDeNghi {
   /** ★ KHÓA ĐỐI CHIẾU KHỐI LƯỢNG — dòng PO và dòng nhận hàng đều trỏ về đây.
    *  Dùng thay cho mã vật tư (mã vật tư làm ở ver sau). */
@@ -180,6 +183,24 @@ export interface DongDeNghi {
    * cư xử y như trước, không trừ mù.
    */
   sttDongCha?: number;
+  /**
+   * ★ Dòng này được CHIA KHỐI LƯỢNG từ dòng nào của cùng phiếu — Sếp 26/09/2026: *"đề nghị có 10
+   * tấn thép… 1 người lấy từ kho 5 tấn, còn 5 tấn giao cho người khác đặt mua… phải liên kết cha
+   * con được"*. Giao một phần khối lượng = dòng gốc giữ phần giao, phần còn lại thành dòng MỚI (stt
+   * nối tiếp, không đánh số lại) mang `sttChiaTu` trỏ về dòng đề nghị ban đầu. Xem
+   * `2-quy-trinh/tach-khi-giao-viec.ts` → `apDungChiaKhoiLuong`.
+   */
+  sttChiaTu?: number;
+  /**
+   * ★ LOẠI VIỆC khi giao dòng (Sếp 26/09/2026) — quyết định phiếu có đi hỏi giá không:
+   *   · `xuat_kho` — giao cho THỦ KHO, lấy từ kho, không mua (*"khi giao việc cho nhân viên [thủ
+   *     kho] này thì việc sẽ nhảy trực tiếp qua bước Lập đơn mua hàng"*) → lập Phiếu xuất kho PO-03.
+   *   · `nhan_su` — giao cho NHÂN VIÊN NHÂN SỰ (*"Nhân viên nhân sự khi được giao việc cũng sẽ nhảy
+   *     trực tiếp qua bước lập đơn mua hàng luôn"*).
+   * Phiếu chỉ còn dòng có loại việc thì bỏ qua báo giá, sang thẳng bước Lập đơn mua hàng — xem
+   * `xacDinhGiaiDoan`. Trống = việc mua bình thường của nhân viên thu mua.
+   */
+  loaiViecGiao?: LoaiViecGiao;
 }
 
 /**
@@ -804,7 +825,7 @@ export interface XacNhan {
  * ★ HAI MẪU IN ĐƠN MUA HÀNG — biểu mẫu `PO - DEMO 130826.xlsx` (Ban lãnh đạo gửi 21/08/2026).
  * Xem chú thích của `DonDatHang.mauPO` để biết khi nào dùng mẫu nào.
  */
-export type MauDonMuaHang = "thoa_thuan" | "theo_hop_dong";
+export type MauDonMuaHang = "thoa_thuan" | "theo_hop_dong" | "phieu_xuat_kho";
 
 /**
  * Nhãn hai mẫu — dùng chung cho ô chọn ở màn lập đơn và cho tiêu đề tờ in.
@@ -855,6 +876,22 @@ export const NHAN_MAU_PO: Record<MauDonMuaHang, { nhan: string; tieuDeIn: string
     nhan: "Mẫu PO-02 - ĐƠN MUA HÀNG / THOẢ THUẬN MUA BÁN",
     tieuDeIn: "Đơn mua hàng / Thỏa thuận mua bán",
     moTa: "Chưa có hợp đồng riêng — chính tờ đơn có giá trị như hợp đồng khi hai bên ký.",
+  },
+  /**
+   * ★ MẪU PO-03 — PHIẾU XUẤT KHO (Sếp 26/09/2026: *"Thêm 1 mục Mẫu PO-03 - PHIẾU XUẤT KHO"*,
+   * biểu mẫu `1. INPUT/Phieu xuat kho   HPCons.xlsx`, Mẫu theo Thông tư 200/2014/TT-BTC).
+   *
+   * 🔴 KHÁC HẲN PO-01/02: đây là chứng từ KHO (xuất vật tư ra công trình), không gửi nhà cung
+   * cấp. Tờ in không có khối bên bán, không điều khoản, không cam kết — xem
+   * `1-giao-dien/thanh-phan-nghiep-vu/to-phieu-xuat-kho-a4.tsx`.
+   *
+   * ⚠️ "Số" của phiếu tạm dùng đúng số đơn (`DonDatHang.code`): mã loại riêng cho phiếu xuất kho
+   * **[CHỜ CHỐT]** (quy tắc E-6, không tự đặt) — hằng cấu hình ở `2-quy-trinh/phieu-xuat-kho.ts`.
+   */
+  phieu_xuat_kho: {
+    nhan: "Mẫu PO-03 - PHIẾU XUẤT KHO",
+    tieuDeIn: "Phiếu xuất kho",
+    moTa: "Phiếu xuất vật tư khỏi kho ra công trình — theo mẫu Thông tư 200/2014/TT-BTC.",
   },
 };
 
@@ -1062,8 +1099,42 @@ export interface DonDatHang {
    * ⚠️ TÙY CHỌN, mặc định `thoa_thuan`: đơn cũ không có trường này, và phần lớn đơn lẻ không có
    * hợp đồng riêng. Đọc `undefined` thành `theo_hop_dong` là in thiếu hai câu cam kết trên chứng
    * từ đã gửi nhà cung cấp.
+   *
+   * ★ `phieu_xuat_kho` (Mẫu PO-03, thêm 26/09/2026) — in thành PHIẾU XUẤT KHO, dùng thêm nhóm
+   *   trường `...XuatKho` ngay dưới.
    */
   mauPO?: MauDonMuaHang;
+  /*
+   * ───────── ★ NHÓM TRƯỜNG CỦA MẪU PO-03 — PHIẾU XUẤT KHO (Sếp 26/09/2026) ─────────
+   * Lấy ĐÚNG theo biểu mẫu `1. INPUT/Phieu xuat kho   HPCons.xlsx` (sheet1). Chỉ in ở mẫu PO-03.
+   *
+   * 📌 TÙY CHỌN HẾT — đơn cũ không có, và đơn PO-01/02 không dùng. Không phá dữ liệu cũ.
+   * 📌 Hai ô của mẫu DÙNG LẠI trường sẵn có, không thêm trường mới:
+   *     · "Họ và tên người nhận"  → `nguoiNhanHangTen`
+   *     · "Ngày" / "Số"           → `ngayLapPO` / `code`
+   *
+   * ⚠️ TẦNG GHI: `themDonHang` chép nguyên đầu vào (`...po`) nên LẬP MỚI lưu được ngay. Còn
+   * `suaDonHang` chỉ nhận `ThayDoiDonHang` — kiểu đó CHƯA khai nhóm này, nên ở chế độ SỬA form
+   * khoá các ô này kèm lý do (xem `form-lap-don-mua-hang.tsx`).
+   */
+  /** Ô "Nợ:" (L6) — tài khoản ghi Nợ, vd `6211`. */
+  taiKhoanNoXuatKho?: string;
+  /** Ô "Có:" (L7) — tài khoản ghi Có, vd `152`. */
+  taiKhoanCoXuatKho?: string;
+  /**
+   * Dòng A11 *"Theo ........... số .............. ngày ..... tháng ..... năm ..... của ......"* —
+   * căn cứ xuất kho. Ghi tự do (vd *"Đề nghị số 000046 ngày 20/09/2026 của BCH công trình"*);
+   * để trống thì tờ in chừa nguyên dải chấm để viết tay.
+   */
+  canCuXuatKho?: string;
+  /** Ô "Xuất tại kho:" (A13), vd *"Kho Tổng"*. */
+  khoXuat?: string;
+  /** Ô "Địa điểm:" (I13) — địa điểm của KHO xuất, KHÁC `diaDiemGiaoHang` (chân công trình). */
+  diaDiemKhoXuat?: string;
+  /** Ô "Diễn giải:" (A15) — lý do xuất. */
+  dienGiaiXuatKho?: string;
+  /** Ô "Số chứng từ gốc kèm theo:" (A24). */
+  soChungTuGocXuatKho?: string;
   /**
    * ★ Khối "Phương thức giao hàng" in ở cuối tờ đơn — SỬA ĐƯỢC từ 22/08/2026
    * (Ban lãnh đạo: *"mục đơn PO này hãy tạo thành trường có thể sửa được nội dung"*).

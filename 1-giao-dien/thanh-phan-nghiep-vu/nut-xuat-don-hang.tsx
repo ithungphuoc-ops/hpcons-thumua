@@ -8,6 +8,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
+import { vuongMacXuatExcelTheoMau } from "@/2-quy-trinh/phieu-xuat-kho";
 
 /**
  * NÚT XUẤT ĐƠN MUA HÀNG RA EXCEL — dùng chung cho trang chi tiết VÀ danh sách đơn hàng.
@@ -75,7 +76,9 @@ export function NutXuatDonHangExcel({
     tenSau: tenCongTrinh?.trim() || nhanPhongBan(dnNguon?.phongBanNguon),
   };
 
-  const vuongMac = vuongMacXuatPO({ po, gia });
+  /* ★ Mẫu PO-03 (phiếu xuất kho, 26/09/2026) chưa có bản Excel đúng biểu mẫu → khoá kèm lý do,
+     đứng TRƯỚC luật cũ để người dùng đọc đúng nguyên nhân (xem `vuongMacXuatExcelTheoMau`). */
+  const vuongMac = vuongMacXuatExcelTheoMau(po.mauPO) ?? vuongMacXuatPO({ po, gia });
 
   async function tai() {
     setDangXuat(true);

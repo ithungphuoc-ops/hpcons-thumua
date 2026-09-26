@@ -138,6 +138,14 @@ export interface DauVaoDonHangMau {
   nguoiNhanHangSdt?: string;
   /** Mẫu in đơn — bản mẫu cũng phải in đúng mẫu người lập chọn. */
   mauPO?: MauDonMuaHang;
+  /** ★ Nhóm trường của Mẫu PO-03 — Phiếu xuất kho (26/09/2026). Xem `DonDatHang`. */
+  taiKhoanNoXuatKho?: string;
+  taiKhoanCoXuatKho?: string;
+  canCuXuatKho?: string;
+  khoXuat?: string;
+  diaDiemKhoXuat?: string;
+  dienGiaiXuatKho?: string;
+  soChungTuGocXuatKho?: string;
   /**
    * ★ Điều khoản cuối tờ, sửa được từ 22/08/2026.
    *
@@ -268,6 +276,13 @@ export function dungDonHangMau(dv: DauVaoDonHangMau): DonHangBanMau {
     nguoiNhanHangTen: dv.nguoiNhanHangTen?.trim() || undefined,
     nguoiNhanHangSdt: dv.nguoiNhanHangSdt?.trim() || undefined,
     mauPO: dv.mauPO,
+    taiKhoanNoXuatKho: dv.taiKhoanNoXuatKho?.trim() || undefined,
+    taiKhoanCoXuatKho: dv.taiKhoanCoXuatKho?.trim() || undefined,
+    canCuXuatKho: dv.canCuXuatKho?.trim() || undefined,
+    khoXuat: dv.khoXuat?.trim() || undefined,
+    diaDiemKhoXuat: dv.diaDiemKhoXuat?.trim() || undefined,
+    dienGiaiXuatKho: dv.dienGiaiXuatKho?.trim() || undefined,
+    soChungTuGocXuatKho: dv.soChungTuGocXuatKho?.trim() || undefined,
     dieuKhoanGiaoHang: dv.dieuKhoanGiaoHang,
     camKetThoaThuan: dv.camKetThoaThuan,
     dieuKhoanKhac: dv.dieuKhoanKhac?.trim() || undefined,

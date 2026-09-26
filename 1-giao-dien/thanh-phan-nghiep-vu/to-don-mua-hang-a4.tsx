@@ -19,6 +19,7 @@ import {
 } from "@/3-du-lieu/dieu-khoan-chuan-don-mua-hang";
 import { laDongHang, moTaThueSuat, tinhTienChiTietPO } from "@/2-quy-trinh/tinh-toan";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
+import { ToPhieuXuatKhoA4 } from "@/1-giao-dien/thanh-phan-nghiep-vu/to-phieu-xuat-kho-a4";
 
 /**
  * TỜ ĐƠN MUA HÀNG A4 DỌC — **BẢN VẼ DUY NHẤT** của chứng từ in gửi nhà cung cấp.
@@ -131,6 +132,13 @@ export function ToDonMuaHangA4({ po, gia, ncc, banMau = false }: PropToDonMuaHan
    * Mẫu in đang dùng. Đơn cũ không có `mauPO` → mặc định `thoa_thuan` (xem `DonDatHang.mauPO`).
    */
   const mau: MauDonMuaHang = po.mauPO ?? "thoa_thuan";
+
+  /* ★ MẪU PO-03 — PHIẾU XUẤT KHO (Sếp 26/09/2026): bố cục khác hẳn (không bên bán, không điều
+     khoản, bốn ô ký), nên vẽ bằng bản vẽ riêng. Rẽ nhánh Ở ĐÂY để cả hai trang in tự in đúng mẫu.
+     📌 Component này không có hook nào nên trả sớm là an toàn. */
+  if (mau === "phieu_xuat_kho") {
+    return <ToPhieuXuatKhoA4 po={po} gia={gia} banMau={banMau} />;
+  }
 
   /* ★ Điều khoản in ra: bản của ĐƠN nếu có, không thì bản chuẩn của công ty (22/08/2026).
      🔴 `??` chứ KHÔNG phải `||`: chuỗi rỗng là người lập cố ý xóa trắng khối điều khoản, còn
