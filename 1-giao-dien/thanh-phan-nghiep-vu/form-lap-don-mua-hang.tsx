@@ -111,7 +111,11 @@ import {
   SO_DON_BAN_MAU,
 } from "@/2-quy-trinh/don-hang-mau";
 /* Khuôn số đơn hàng — dùng CHUNG với chỗ cấp số thật, không viết lại chuỗi "DMH" ở đây. */
-import { namCuaNgay, TIEN_TO_DON_HANG } from "@/2-quy-trinh/dat-ma-don-hang";
+import {
+  namCuaNgay,
+  TIEN_TO_DON_HANG,
+  TIEN_TO_PHIEU_XUAT_KHO,
+} from "@/2-quy-trinh/dat-ma-don-hang";
 import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
 import { catBanMauDonMuaHang } from "@/3-du-lieu/ban-mau-don-mua-hang";
 import { laPhieuXuatKho, vuongMacXuatExcelTheoMau } from "@/2-quy-trinh/phieu-xuat-kho";
@@ -2121,7 +2125,8 @@ export function FormLapDonMuaHang({
     ? poDangSua!.code
     : laCheDoMau
       ? SO_DON_BAN_MAU
-      : `${TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`;
+      : /* PO-03 cấp số XK260001 (Sếp 26/09/2026) — xem `thamSoCapSoDon`. */
+        `${laPhieuXuatKhoDangChon ? TIEN_TO_PHIEU_XUAT_KHO : TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`;
   /**
    * Nhóm trường PO-03 đưa vào đơn — CHỈ khi đang chọn mẫu PO-03. Đổi sang PO-01/02 thì không cất
    * những chữ không in ra (state vẫn giữ trên màn hình, đổi lại PO-03 là dùng tiếp).

@@ -324,16 +324,30 @@ export default function TrangDanhSachDeNghi() {
   const [chiViecCuaToi, setChiViecCuaToi] = useState(false);
   const cotHien = useMemo(() => {
     const tim = tuKhoaBang.trim();
-    /* ★ Màn TRƯỞNG PHÒNG (người giao việc): phiếu gốc lên đầu mỗi cột — Sếp 26/09/2026: *"ở màn
-       hình trưởng phòng, e ưu tiên các phiếu gốc được hiện lên trên đầu để dễ theo dõi"*. Cùng điều
-       kiện với nhãn "Quy trình: Phiếu gốc" trên thẻ. Sắp ỔN ĐỊNH nên thứ tự cũ giữ nguyên trong từng
-       nhóm. Nhân viên giữ thứ tự cũ (việc của mình lên đầu). */
-    const goc = (t: (typeof cot)[number]["the"][number]) =>
-      t.laPhieuGoc && !t.deNghi.deNghiGocId ? 0 : 1;
+    /* ★ Màn TRƯỞNG PHÒNG (người giao việc): GOM THEO TỪNG ĐỀ NGHỊ, phiếu gốc đứng đầu nhóm của nó.
+       Sếp 26/09/2026: *"ưu tiên các phiếu gốc được hiện lên trên đầu"*, rồi sửa lại ngay: *"chỉ ưu
+       tiên phiếu gốc của đề nghị đó thôi, không phải toàn bộ đề nghị. Ví dụ phiếu 157 gốc đưa lên
+       đầu, nhưng bên dưới nó vẫn là 157 - copy, chứ ko phải 156 - gốc"*.
+       → Nhóm = cùng phiếu gốc (`deNghiGocId`, không có thì chính nó). Nhóm đứng ở vị trí thẻ ĐẦU
+       TIÊN của nhóm theo thứ tự cũ; trong nhóm: phiếu gốc trước, bản nhân bản sau (giữ thứ tự cũ).
+       Nhân viên giữ nguyên thứ tự cũ (việc của mình lên đầu). */
+    type The = (typeof cot)[number]["the"][number];
+    const gomTheoPhieuGoc = (ds: The[]): The[] => {
+      const nhom = new Map<string, The[]>();
+      for (const t of ds) {
+        const k = t.deNghi.deNghiGocId ?? t.deNghi.id;
+        const cu = nhom.get(k);
+        if (cu) cu.push(t);
+        else nhom.set(k, [t]);
+      }
+      /* Map giữ thứ tự chèn = thứ tự thẻ đầu tiên của mỗi nhóm. */
+      return [...nhom.values()].flatMap((g) => [
+        ...g.filter((t) => !t.deNghi.deNghiGocId),
+        ...g.filter((t) => t.deNghi.deNghiGocId),
+      ]);
+    };
     const sapGoc = <T extends (typeof cot)[number]>(ds: T[]): T[] =>
-      quyen.phanBoCongViec
-        ? ds.map((c) => ({ ...c, the: [...c.the].sort((x, y) => goc(x) - goc(y)) }))
-        : ds;
+      quyen.phanBoCongViec ? ds.map((c) => ({ ...c, the: gomTheoPhieuGoc(c.the) })) : ds;
     if (!tim && !chiViecCuaToi) return sapGoc(cot);
     return sapGoc(cot.map((c) => ({
       ...c,

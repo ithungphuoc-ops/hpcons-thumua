@@ -767,13 +767,17 @@ export function coPhieuGiaoHangPhongBan(deNghi: DeNghiMuaHang): boolean {
  * 🔴 MỘT CHỖ DUY NHẤT trả lời câu này — mọi nơi đòi Hợp đồng / Hoá đơn VAT hỏi hàm này trước
  * (chặn chuyển bước, dấu "Thiếu hợp đồng" trên thẻ, bộ hồ sơ thanh toán, nút Hoàn thành quy trình).
  *
- * 📌 ĐÒI MỌI DÒNG ĐỀU LÀ VIỆC NHÂN SỰ (`loaiViecGiao === "nhan_su"`). Phiếu lẫn dòng mua ngoài vẫn
- * phải đủ hợp đồng + hoá đơn — nới cả phiếu vì một dòng là đóng được hồ sơ mua ngoài không chứng từ.
- * ⚠️ Chỉ áp cho NHÂN SỰ. Xuất kho (`xuat_kho`) CHƯA nới — Sếp chưa nói; hỏi trước khi thêm.
+ * ★ XUẤT KHO CŨNG VẬY — Sếp 26/09/2026 trả lời câu hỏi: *"Đúng, xuất kho thì ko cần hợp đồng và hoá
+ * đơn"*. Nên áp cho cả `nhan_su` lẫn `xuat_kho`.
+ *
+ * 📌 ĐÒI MỌI DÒNG ĐỀU LÀ VIỆC LẤY TỪ KHO (`nhan_su` / `xuat_kho`). Phiếu lẫn dòng mua ngoài vẫn phải
+ * đủ hợp đồng + hoá đơn — nới cả phiếu vì một dòng là đóng được hồ sơ mua ngoài không chứng từ.
  */
 export function khongCanHopDongHoaDon(deNghi: DeNghiMuaHang): boolean {
   const ds = deNghi.items ?? [];
-  return ds.length > 0 && ds.every((d) => d.loaiViecGiao === "nhan_su");
+  return (
+    ds.length > 0 && ds.every((d) => d.loaiViecGiao === "nhan_su" || d.loaiViecGiao === "xuat_kho")
+  );
 }
 
 export function coHopDong(deNghi: DeNghiMuaHang): boolean {

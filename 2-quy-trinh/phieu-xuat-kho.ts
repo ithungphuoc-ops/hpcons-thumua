@@ -31,7 +31,11 @@ import type { DonDatHang, MauDonMuaHang } from "@/3-du-lieu/kieu-du-lieu";
  */
 
 /**
- * ★ MÃ LOẠI CHỨNG TỪ CỦA PHIẾU XUẤT KHO — **[CHỜ CHỐT]**.
+ * ★ MÃ LOẠI CHỨNG TỪ CỦA PHIẾU XUẤT KHO — **ĐÃ CHỐT 26/09/2026**, Sếp: *"Mã chứng từ sẽ có quy tắc
+ * theo mã PO là XK260001 số nhảy tự động"*. Số cấp ở `dat-ma-don-hang.ts` → `thamSoCapSoDon`, nên
+ * `DonDatHang.code` của phiếu xuất kho mới đã là `XK…`. Phiếu PO-03 lập trước ngày này giữ số DMH cũ.
+ *
+ * 📜 Lịch sử — trước khi chốt, khối này ghi [CHỜ CHỐT]:
  *
  * 🔴 KHÔNG TỰ ĐẶT MÃ LOẠI MỚI (Thông báo 09/2026/TB-HPCS, quy tắc E-6): mã loại cần đơn vị quản lý
  * hệ thống phê duyệt. Biểu mẫu Excel ghi `XK00270` — đó là số của phần mềm kế toán, CHƯA phải mã
@@ -40,12 +44,11 @@ import type { DonDatHang, MauDonMuaHang } from "@/3-du-lieu/kieu-du-lieu";
  * Để `null` = tờ in dùng đúng số đơn (`DonDatHang.code`, vd `DMH2026-0008`) làm "Số" của phiếu.
  * Khi được duyệt thì đặt chuỗi mã loại ở đây và viết lại `soPhieuXuatKho` theo đúng văn bản duyệt.
  */
-export const MA_LOAI_PHIEU_XUAT_KHO: string | null = null;
+export const MA_LOAI_PHIEU_XUAT_KHO: string | null = "XK";
 
 /** Số in ở ô "Số:" của phiếu. Chưa có mã loại được duyệt thì dùng đúng số đơn. */
 export function soPhieuXuatKho(po: Pick<DonDatHang, "code">): string {
-  /* 📌 Nhánh `MA_LOAI_PHIEU_XUAT_KHO !== null` CỐ Ý chưa viết: khuôn mã chưa có văn bản duyệt,
-     đoán khuôn ở đây là tự đặt mã. */
+  /* Số XK đã cấp thẳng vào `code` lúc lập (xem `thamSoCapSoDon`) — in đúng số đó, không dựng lại. */
   return po.code;
 }
 

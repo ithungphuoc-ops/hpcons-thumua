@@ -890,9 +890,9 @@ export function dungBoHoSoThanhToan(
   const tepDonMuaHangCuaMuc4 = tepDonMuaHangNCCKy(deNghi);
 
   const thieu = (co: boolean, cau: string) => (co ? undefined : cau);
-  /* Quy trình nhân sự (Sếp 26/09/2026): hàng có sẵn trong kho nên không cần hợp đồng, hoá đơn. */
+  /* Xuất kho + quy trình nhân sự (Sếp 26/09/2026): hàng có sẵn trong kho nên không cần hợp đồng, hoá đơn. */
   const mienHopDongHoaDon = khongCanHopDongHoaDon(deNghi);
-  const CAU_MIEN = "Không cần — quy trình nhân sự (hàng có sẵn trong kho).";
+  const CAU_MIEN = "Không cần — hàng lấy từ kho (xuất kho / quy trình nhân sự).";
 
   return [
     {

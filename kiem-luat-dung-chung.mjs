@@ -152,6 +152,20 @@ try {
   process.exit(1);
 }
 
+/* ★ Số đơn hàng / số phiếu xuất kho XK (26/09/2026). */
+const tepRaDMH = join(thuMuc, "dat-ma-don-hang.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/dat-ma-don-hang.ts" --bundle --platform=node --format=cjs --outfile="${tepRaDMH}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/dat-ma-don-hang.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 /* ★ Gom theo công trình (25/09/2026) — một luật dùng chung cho màn Theo dõi và màn Công nợ. */
 const tepRaGCT = join(thuMuc, "gom-cong-trinh.cjs");
 try {
@@ -508,6 +522,8 @@ try {
 }
 
 const nap = createRequire(import.meta.url);
+/* Nạp sẵn: thư mục tạm bị xoá giữa chừng (trước các bài kiểm cuối tệp), nạp muộn là không thấy tệp. */
+const modDMH = nap(tepRaDMH);
 const M = nap(tepRa);
 const G = nap(tepRa2);
 const AR = nap(tepRa6);
@@ -11417,8 +11433,10 @@ kiem(
     "Sếp · 26/09/2026 · quy trình nhân sự (chiều nghịch)",
     () => {
       const CT = nap(join(thuMuc, "chung-tu.cjs"));
+      /* Dòng 2 không có loại việc = mua ngoài qua báo giá. (Bản sáng 26/09 dùng "xuat_kho" làm ví dụ
+         bị chặn — đó là giả định; Sếp chốt chiều 26/09: xuất kho cũng miễn, xem bài dưới.) */
       const hd = CT.vuongMacRoiBuocLapDon(hoSoNS(undefined));
-      const vat = CT.vuongMacDuyetHoanThanhDeNghi(hoSoNS("xuat_kho"));
+      const vat = CT.vuongMacDuyetHoanThanhDeNghi(hoSoNS(undefined));
       return {
         duoc: hd !== null && vat !== null,
         thucTe: `HĐ=${hd === null ? "null" : "chặn"} · VAT=${vat === null ? "null" : "chặn"}`,
@@ -11426,7 +11444,58 @@ kiem(
       };
     },
   );
+  kiem(
+    "Phiếu toàn dòng XUẤT KHO (hoặc lẫn nhân sự) → không đòi hợp đồng, không đòi hoá đơn",
+    "Sếp · 26/09/2026 (Đúng, xuất kho thì ko cần hợp đồng và hoá đơn)",
+    () => {
+      const CT = nap(join(thuMuc, "chung-tu.cjs"));
+      const hs = {
+        ...hoSoNS("xuat_kho"),
+        items: [
+          { stt: 1, loaiViecGiao: "xuat_kho" },
+          { stt: 2, loaiViecGiao: "nhan_su" },
+        ],
+      };
+      const hd = CT.vuongMacRoiBuocLapDon(hs);
+      const vat = CT.vuongMacDuyetHoanThanhDeNghi(hs);
+      return {
+        duoc: hd === null && vat === null,
+        thucTe: `HĐ=${hd === null ? "null" : "chặn"} · VAT=${vat === null ? "null" : "chặn"}`,
+        mongDoi: "cả hai null",
+      };
+    },
+  );
 }
+
+// ════════════════════════════════════════════════════════════════════
+// SỐ PHIẾU XUẤT KHO — Sếp 26/09/2026: "XK260001 số nhảy tự động"
+// Dãy XK chạy RIÊNG theo năm, không tranh số với DMH; tiền tố lạ không tự đặt được mã mới.
+// ════════════════════════════════════════════════════════════════════
+kiem(
+  "Số phiếu xuất kho: XK + năm + 4 số, dãy riêng không lẫn DMH",
+  "Sếp · 26/09/2026 · mã chứng từ phiếu xuất kho",
+  () => {
+    const D = modDMH;
+    const daCo = ["DMH260007", "XK260001", "XK260002", "XK250009"];
+    const xk = D.maDonHangTiepTheo(D.thamSoCapSoDon("26", true), daCo);
+    const dmh = D.maDonHangTiepTheo(D.thamSoCapSoDon("26", false), daCo);
+    const xkDau = D.maDonHangTiepTheo(D.thamSoCapSoDon("27", true), daCo);
+    return {
+      duoc: xk === "XK260003" && dmh === "DMH260008" && xkDau === "XK270001",
+      thucTe: `${xk} · ${dmh} · ${xkDau}`,
+      mongDoi: "XK260003 · DMH260008 · XK270001",
+    };
+  },
+);
+kiem(
+  "Tiền tố lạ gửi vào cửa cấp số KHÔNG sinh được hệ mã mới (quy tắc E-6)",
+  "Thông báo 09/2026 E-6 · 26/09/2026",
+  () => {
+    const D = modDMH;
+    const r = D.maDonHangTiepTheo("ABC:26", []);
+    return { duoc: !r.startsWith("ABC"), thucTe: r, mongDoi: "không bắt đầu bằng ABC" };
+  },
+);
 
 const tong = dat + truot.length;
 console.log("");

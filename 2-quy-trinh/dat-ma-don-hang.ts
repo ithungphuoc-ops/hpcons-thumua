@@ -85,8 +85,10 @@ export function namCuaNgay(ngayISO: string): string {
  *                 trùng nhìn được toàn bộ.
  */
 export function maDonHangTiepTheo(nam: string, maDaDung: readonly string[]): string {
-  /* ⚠️ VIẾT LIỀN, KHÔNG DẤU PHÂN CÁCH (`DMH260001`) — chỉ đạo 23/08/2026 lượt hai. */
-  const tienTo = `${TIEN_TO_DON_HANG}${nam.trim()}`;
+  /* ⚠️ VIẾT LIỀN, KHÔNG DẤU PHÂN CÁCH (`DMH260001`) — chỉ đạo 23/08/2026 lượt hai.
+     ★ `nam` có thể kèm tiền tố loại dạng `XK:26` (phiếu xuất kho) — xem `thamSoCapSoDon`. */
+  const { tienToLoai, namSach } = tachThamSoCapSo(nam);
+  const tienTo = `${tienToLoai}${namSach}`;
   /* Neo cả hai đầu (`^…$`): thiếu `$` thì `DMH2600012` cũng khớp và bị đọc thành số 1, nên số
      lớn nhất tính ra sai và mã tiếp theo trùng.
 
@@ -110,4 +112,33 @@ export function maDonHangTiepTheo(nam: string, maDaDung: readonly string[]): str
     ma = `${tienTo}${String(so).padStart(SO_CHU_SO_STT, "0")}`;
   }
   return ma;
+}
+
+/**
+ * ★ SỐ PHIẾU XUẤT KHO (Mẫu PO-03) — Sếp 26/09/2026: *"Mã chứng từ sẽ có quy tắc theo mã PO là
+ * XK260001 số nhảy tự động"*. Tức `XK` + năm 2 chữ số + STT 4 chữ số, dãy số RIÊNG, chạy theo năm,
+ * y như `DMH`.
+ *
+ * 🔴 VÌ SAO GÓI TIỀN TỐ VÀO THAM SỐ `XK:26` MÀ KHÔNG THÊM THAM SỐ MỚI: cửa cấp số trên máy chủ
+ * (`app/api/cap-ma/route.ts` + `cap-ma-may-chu.ts`) là code của PHIÊN TÍCH HỢP, không được sửa
+ * (CLAUDE.md §6.6). Cửa đó chỉ chuyển nguyên `thamSo` vào `maDonHangTiepTheo` và mở SỔ ĐẾM riêng
+ * theo `thamSo` — nên `XK:26` tự có sổ riêng, không tranh số với `26` (dãy DMH).
+ *
+ * ⚠️ CHỈ NHẬN TIỀN TỐ TRONG DANH SÁCH `TIEN_TO_LOAI_HOP_LE`. Route nhận tham số từ bên ngoài; không
+ * lọc thì ai cũng tự đặt được một hệ mã mới — đúng thứ quy tắc E-6 cấm.
+ */
+export const TIEN_TO_PHIEU_XUAT_KHO = "XK";
+const TIEN_TO_LOAI_HOP_LE = [TIEN_TO_PHIEU_XUAT_KHO] as const;
+
+/** Tham số gửi đi để cấp số: `"26"` cho đơn thường, `"XK:26"` cho phiếu xuất kho. */
+export function thamSoCapSoDon(nam: string, laPhieuXuatKho: boolean): string {
+  return laPhieuXuatKho ? `${TIEN_TO_PHIEU_XUAT_KHO}:${nam.trim()}` : nam.trim();
+}
+
+function tachThamSoCapSo(thamSo: string): { tienToLoai: string; namSach: string } {
+  const khop = /^([A-Z]+):(\d{2})$/.exec(thamSo.trim());
+  if (khop && (TIEN_TO_LOAI_HOP_LE as readonly string[]).includes(khop[1])) {
+    return { tienToLoai: khop[1], namSach: khop[2] };
+  }
+  return { tienToLoai: TIEN_TO_DON_HANG, namSach: thamSo.trim() };
 }

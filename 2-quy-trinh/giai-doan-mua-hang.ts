@@ -2542,7 +2542,7 @@ export function dsDieuKienConVuong(
      * toán nào.
      */
     case "ho_so_thanh_toan":
-      /* Quy trình nhân sự không cần hoá đơn — xem `khongCanHopDongHoaDon`. */
+      /* Xuất kho / quy trình nhân sự không cần hoá đơn — xem `khongCanHopDongHoaDon`. */
       if (!coHoaDonVAT(deNghi) && !khongCanHopDongHoaDon(deNghi)) {
         ra.push({
           ma: "thieu_hoa_don_vat",

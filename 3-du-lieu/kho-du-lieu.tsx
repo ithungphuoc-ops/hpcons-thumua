@@ -54,7 +54,8 @@ import { cauBaoXungDot } from "@/2-quy-trinh/soat-truoc-khi-ghi";
  */
 /* (26/09/2026) Công tắc `NEXT_PUBLIC_TACH_TU_DONG` đã bỏ cùng đoạn tách ngầm — xem chú thích ở
    effect báo chuyển bước. Tách nay chỉ xảy ra lúc Trưởng bộ phận giao việc. */
-import { maDonHangTiepTheo, namCuaNgay } from "@/2-quy-trinh/dat-ma-don-hang";
+import { maDonHangTiepTheo, namCuaNgay, thamSoCapSoDon } from "@/2-quy-trinh/dat-ma-don-hang";
+import { laPhieuXuatKho } from "@/2-quy-trinh/phieu-xuat-kho";
 import { maNhaCungCapTiepTheo } from "@/2-quy-trinh/dat-ma-nha-cung-cap";
 // Chứng từ bắt buộc cuối quy trình — luật ở một chỗ, tầng ghi chỉ hỏi lại.
 import {
@@ -6149,9 +6150,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       /* ★ NHỊP 3b — xin mã ở máy chủ trước, tự tính là đường lùi. Xem chú thích ở
          `themNhaCungCap`. Đơn hàng đánh số theo NĂM nên tham số là năm lập đơn. */
       const code =
-        (await xinMaMayChu("don-hang", namLap)) ??
+        (await xinMaMayChu("don-hang", thamSoCapSoDon(namLap, laPhieuXuatKho(po.mauPO)))) ??
         maDonHangTiepTheo(
-          namLap,
+          /* ★ Phiếu xuất kho (PO-03) cấp số XK260001 — Sếp 26/09/2026, xem `thamSoCapSoDon`. */
+          thamSoCapSoDon(namLap, laPhieuXuatKho(po.mauPO)),
           donHangRef.current.map((p) => p.code),
         );
 
