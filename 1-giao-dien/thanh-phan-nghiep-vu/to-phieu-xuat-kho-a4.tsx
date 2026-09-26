@@ -39,7 +39,8 @@ const CHAM = "……………………………………";
 export function ToPhieuXuatKhoA4({ po, gia, banMau = false }: PropToPhieuXuatKhoA4) {
   const tien = tinhTienChiTietPO(po, gia);
   const tienTheoDong = new Map(tien.dong.map((t) => [t.sttDong, t]));
-  const coGia = gia !== undefined;
+  /* ★ Tổng 0 = không có đơn giá → để trống, không in số 0 (Sếp 26/09/2026). */
+  const coGia = gia !== undefined && tien.congTienHang > 0;
   const donViTien = gia?.loaiTien ?? "VND";
   const so = (n: number) => n.toLocaleString("vi-VN");
   const ngayIn = po.ngayLapPO ? new Date(po.ngayLapPO).toLocaleDateString("vi-VN") : CHAM;

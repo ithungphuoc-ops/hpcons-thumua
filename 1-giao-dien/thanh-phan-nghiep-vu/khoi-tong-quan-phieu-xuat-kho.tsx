@@ -31,7 +31,9 @@ export function KhoiTongQuanPhieuXuatKho({
 }) {
   const tien = tinhTienChiTietPO(po, gia);
   const tienTheoDong = new Map(tien.dong.map((t) => [t.sttDong, t]));
-  const coGia = xemGia && gia !== undefined;
+  /* ★ Tổng tiền 0 = phiếu không có đơn giá (PO-03 không nhập giá) → để TRỐNG, không in số 0 — Sếp
+     26/09/2026: *"Để trống luôn cho a, ko để số 0 nữa"*. */
+  const coGia = xemGia && gia !== undefined && tien.congTienHang > 0;
   const so = (n: number) => n.toLocaleString("vi-VN");
   const dongHang = po.items.filter(laDongHang);
   const trong = (v: string | undefined) =>
@@ -190,7 +192,7 @@ export function KhoiTongQuanPhieuXuatKho({
             </span>
           ) : (
             <span className="italic text-text-desc">
-              {xemGia ? "(chưa có đơn giá)" : "(bạn không có quyền xem giá)"}
+              {xemGia ? "" : "(bạn không có quyền xem giá)"}
             </span>
           )}
         </p>
