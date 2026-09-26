@@ -759,6 +759,23 @@ export function coPhieuGiaoHangPhongBan(deNghi: DeNghiMuaHang): boolean {
   return tepPhieuGiaoHangPhongBan(deNghi).length > 0;
 }
 
+/**
+ * ★ QUY TRÌNH NHÂN SỰ KHÔNG CẦN HỢP ĐỒNG VÀ HOÁ ĐƠN — Sếp 26/09/2026: *"Quy trình nhân sự cũng sẽ
+ * giống xuất kho, sẽ tới bước lập PO rồi chạy tiếp theo quy trình hiện tại nhưng sẽ khác ở hồ sơ
+ * thanh toán, là ko cần hợp đồng và hoá đơn, vì hàng có sẵn trong kho"*.
+ *
+ * 🔴 MỘT CHỖ DUY NHẤT trả lời câu này — mọi nơi đòi Hợp đồng / Hoá đơn VAT hỏi hàm này trước
+ * (chặn chuyển bước, dấu "Thiếu hợp đồng" trên thẻ, bộ hồ sơ thanh toán, nút Hoàn thành quy trình).
+ *
+ * 📌 ĐÒI MỌI DÒNG ĐỀU LÀ VIỆC NHÂN SỰ (`loaiViecGiao === "nhan_su"`). Phiếu lẫn dòng mua ngoài vẫn
+ * phải đủ hợp đồng + hoá đơn — nới cả phiếu vì một dòng là đóng được hồ sơ mua ngoài không chứng từ.
+ * ⚠️ Chỉ áp cho NHÂN SỰ. Xuất kho (`xuat_kho`) CHƯA nới — Sếp chưa nói; hỏi trước khi thêm.
+ */
+export function khongCanHopDongHoaDon(deNghi: DeNghiMuaHang): boolean {
+  const ds = deNghi.items ?? [];
+  return ds.length > 0 && ds.every((d) => d.loaiViecGiao === "nhan_su");
+}
+
 export function coHopDong(deNghi: DeNghiMuaHang): boolean {
   return tepHopDong(deNghi).length > 0;
 }
@@ -860,7 +877,7 @@ export function nguoiKhaiKhongCoChungTu(
  * đó là nguồn của viền đỏ khối bước và chữ "thiếu HĐ" trên thẻ. Sửa một nơi là app tự mâu thuẫn.
  */
 export function thieuHopDongDaGhiLyDo(deNghi: DeNghiMuaHang): boolean {
-  if (coHopDong(deNghi)) return false;
+  if (coHopDong(deNghi) || khongCanHopDongHoaDon(deNghi)) return false;
   /* Khai "Không có HĐ" là chốt dứt điểm, không phải việc còn treo → thôi đỏ. */
   if (daKhaiKhongCoHopDong(deNghi)) return false;
   return lyDoThieuHopDong(deNghi) !== "";
@@ -909,7 +926,7 @@ export function cauNhacConNoHopDong(deNghi: DeNghiMuaHang): string | null {
  * `KHOA_LY_DO_THIEU_HOP_DONG` để biết vì sao — và vì sao đi kiểu này thì hồ sơ bị tô đỏ.
  */
 export function vuongMacRoiBuocLapDon(deNghi: DeNghiMuaHang): string | null {
-  if (coHopDong(deNghi)) return null;
+  if (coHopDong(deNghi) || khongCanHopDongHoaDon(deNghi)) return null;
   if (lyDoThieuHopDong(deNghi) !== "") return null;
   /* 📌 Câu chỉ về bước ④ "Lập đơn mua hàng" — nơi ô đính kèm hợp đồng đã quay lại (Ban lãnh đạo
      26/08/2026). Chỉ sai chỗ là người dùng đi tìm ô ở khối không có nó; đã từng xảy ra khi ô dời
@@ -973,7 +990,7 @@ export function vuongMacRoiBuocDatHang(deNghi: DeNghiMuaHang): string | null {
  * ⚠️ KHÔNG đòi UNC: bước đó tùy chọn. Đòi cả UNC là chặn mọi đơn trả tiền ngay.
  */
 export function vuongMacDuyetHoanThanhDeNghi(deNghi: DeNghiMuaHang): string | null {
-  if (coHoaDonVAT(deNghi)) return null;
+  if (coHoaDonVAT(deNghi) || khongCanHopDongHoaDon(deNghi)) return null;
   return "Chưa đính kèm Hóa đơn VAT ở bước Hóa đơn VAT — bắt buộc phải có mới duyệt hoàn thành được.";
 }
 
@@ -1238,7 +1255,7 @@ export function vuongMacHoanThanhQuyTrinh(
    * đủ (hai chốt phía trên), mọi lần giao vẫn phải có phiếu giao nhận (`vuongMacXacNhanKho`,
    * `tinh-toan.ts`). Sếp mở đúng MỘT cửa, không mở cả hàng rào.
    */
-  if (!coHopDong(deNghi) && !daKhaiKhongCoHopDong(deNghi)) {
+  if (!coHopDong(deNghi) && !daKhaiKhongCoHopDong(deNghi) && !khongCanHopDongHoaDon(deNghi)) {
     /* 🔴 CÂU NÀY PHẢI CHỈ ĐÚNG CHỖ CÒN LÀM ĐƯỢC VIỆC (CLAUDE.md §3.5). Tới 15/09/2026 nó ghi
        *"Đính kèm ngay ở ô Hợp đồng trong khối này"* — đúng lúc đó, vì bước ⑧ có ô nộp hợp đồng.
        Sếp 16/09/2026 cho bỏ ô ấy (***"Bỏ nút đính kèm này, hợp đồng sẽ được link từ bước 3

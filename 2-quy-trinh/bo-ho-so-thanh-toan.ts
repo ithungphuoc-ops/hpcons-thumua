@@ -77,6 +77,7 @@ import {
   CHUNG_TU_DON_MUA_HANG,
   CHUNG_TU_HOP_DONG,
   type ChungTuCoLyDoThieu,
+  khongCanHopDongHoaDon,
   lyDoThieuChungTuCua,
   nguoiKhaiKhongCoChungTu,
   tepDinhKemKhac,
@@ -889,6 +890,9 @@ export function dungBoHoSoThanhToan(
   const tepDonMuaHangCuaMuc4 = tepDonMuaHangNCCKy(deNghi);
 
   const thieu = (co: boolean, cau: string) => (co ? undefined : cau);
+  /* Quy trình nhân sự (Sếp 26/09/2026): hàng có sẵn trong kho nên không cần hợp đồng, hoá đơn. */
+  const mienHopDongHoaDon = khongCanHopDongHoaDon(deNghi);
+  const CAU_MIEN = "Không cần — quy trình nhân sự (hàng có sẵn trong kho).";
 
   return [
     {
@@ -934,12 +938,15 @@ export function dungBoHoSoThanhToan(
       stt: 3,
       ma: "hop_dong",
       ten: `${TEN_HIEN_HOP_DONG} / thoả thuận mua hàng`,
-      batBuoc: true,
+      batBuoc: !mienHopDongHoaDon,
       tep: tepHopDongDaKy,
-      ghiChu: thieu(
-        tepHopDongDaKy.length > 0,
-        "Chưa đính hợp đồng / thoả thuận — đính ở bước Lập đơn mua hàng.",
-      ),
+      ghiChu:
+        mienHopDongHoaDon && tepHopDongDaKy.length === 0
+          ? CAU_MIEN
+          : thieu(
+              tepHopDongDaKy.length > 0,
+              "Chưa đính hợp đồng / thoả thuận — đính ở bước Lập đơn mua hàng.",
+            ),
     },
     /**
      * ★★ MỤC 4 TRỎ TỚI **TỆP ĐƠN MUA HÀNG ĐÃ KÝ**, KHÔNG PHẢI TỜ IN — Sếp 15/09/2026, nguyên văn:
@@ -1026,6 +1033,7 @@ export function dungBoHoSoThanhToan(
          `vuongMacDuyetHoanThanhDeNghi`, đừng đọc dòng này thành "hóa đơn không cần thiết". */
       batBuoc: false,
       tep: tepHoaDonVAT(deNghi),
+      ...(mienHopDongHoaDon && tepHoaDonVAT(deNghi).length === 0 ? { ghiChu: CAU_MIEN } : {}),
     },
     {
       stt: 7,

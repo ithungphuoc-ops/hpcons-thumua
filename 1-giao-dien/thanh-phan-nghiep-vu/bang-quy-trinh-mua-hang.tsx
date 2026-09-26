@@ -1014,7 +1014,14 @@ function TheDeNghi({
           {formatDate(deNghi.ngayCanHang)}
         </span>
         <span>
-          <span className="text-text-secondary">Chi tiết:</span> {deNghi.items.length} mặt hàng
+          <span className="text-text-secondary">Chi tiết:</span> {the.soMatHangConLai} mặt hàng
+          {/* Dòng đã tách sang phiếu nhân bản không tính là việc của phiếu này (Sếp 26/09/2026). */}
+          {deNghi.items.length > the.soMatHangConLai && (
+            <span className="text-text-desc">
+              {" "}
+              · {deNghi.items.length - the.soMatHangConLai} đã tách
+            </span>
+          )}
         </span>
         {/* ★ DÒNG NHẬN DIỆN BẢN NHÂN BẢN — Ban lãnh đạo 12/09/2026: *"Thêm 1 dòng thông tin đối
             với các quy trình được nhân bản — Quy trình: Nhân bản đề nghị"*.
@@ -1034,7 +1041,8 @@ function TheDeNghi({
           </span>
         ) : deNghi.deNghiGocId ? (
           <span>
-            <span className="text-text-secondary">Quy trình:</span> Nhân bản đề nghị
+            {/* Sếp 26/09/2026: *"Sửa lại tên 'Phiếu nhân bản'"*. */}
+            <span className="text-text-secondary">Quy trình:</span> Phiếu nhân bản
           </span>
         ) : null}
         {/* Chỉ nói tới tài liệu khi CÓ tài liệu. Mẫu Base luôn hiện "Link phiếu đề..." vì bên đó

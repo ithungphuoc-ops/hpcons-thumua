@@ -126,6 +126,21 @@ export function apDungGiaoViec(
   const conLai = goc.items.filter((d) => !dongDaChuyenDiHet(d.stt, daChuyen));
   const giao = new Set(sttGiao.filter((s) => conLai.some((d) => d.stt === s)));
   if (giao.size === 0) return { loi: "Các dòng này đã được giao sang phiếu khác." };
+  /* Giao lại y hệt cho đúng người đang giữ (cùng loại việc, cùng yêu cầu báo giá, cùng ghi chú) là
+     KHÔNG đổi gì — chặn để nhật ký không ghi hai lần. Đo trên phiếu 157 (26/09/2026): "Phân bổ dòng 5
+     cho Phạm Thị Trà Quế — yêu cầu 2 báo giá" ghi hai lần cách nhau 8 giây. Đổi số báo giá / ghi chú
+     thì vẫn cho giao lại. */
+  const trungHet = [...giao].every((s) => {
+    const d = conLai.find((x) => x.stt === s);
+    return (
+      d !== undefined &&
+      d.nguoiPhuTrachUid === g.uid &&
+      d.loaiViecGiao === g.loaiViecGiao &&
+      (g.giuYeuCauCu ||
+        (d.soBaoGiaYeuCau === g.soBaoGia && (d.ghiChuPhanBo ?? "") === (g.ghiChu?.trim() ?? "")))
+    );
+  });
+  if (trungHet) return { loi: `Việc này đã giao cho ${g.ten} rồi.` };
 
   const tach = conLai.some((d) => !giao.has(d.stt) && d.nguoiPhuTrachUid !== g.uid);
   const ganNguoi = <T extends DeNghiMuaHang["items"][number]>(d: T): T => ({

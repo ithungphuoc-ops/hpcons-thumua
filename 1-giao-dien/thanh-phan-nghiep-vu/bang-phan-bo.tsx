@@ -1088,7 +1088,10 @@ export function BangPhanBo({
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-text-desc">Người phụ trách</span>
-                  <span>{d.nguoiPhuTrachTen ?? "chưa phân"}</span>
+                  <span>
+                    {d.nguoiPhuTrachTen ??
+                      (daChuyenDi ? nguoiLamDongDaTach(d.stt) || "Đã tách sang phiếu con" : "chưa phân")}
+                  </span>
                 </div>
                 {(!biLoc || dongCuaMinh.has(d.stt)) && (
                           <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />

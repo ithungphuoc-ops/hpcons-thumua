@@ -62,6 +62,7 @@ import {
    * 23/08/2026: thẻ kẹt lại cột ④ dù nút chuyển bước đã mở, không lỗi nào báo.
    */
   coHopDong,
+  khongCanHopDongHoaDon,
   /**
    * ★ Lời khai "Không có HĐ" — Sếp 13/09/2026: chọn chữ đó thì **thôi báo đỏ**.
    *
@@ -838,6 +839,11 @@ export interface TheDeNghiTrenBang {
   uidPhuTrach: string[];
   soDongChuaPhanBo: number;
   /**
+   * ★ SỐ MẶT HÀNG CÒN LÀM TRÊN PHIẾU NÀY — trừ dòng đã tách sang phiếu nhân bản (Sếp 26/09/2026,
+   * phiếu 157: phiếu gốc còn 1 dòng mà thẻ ghi "5 mặt hàng"). Cùng phép trừ `dongConPhaiLam`.
+   */
+  soMatHangConLai: number;
+  /**
    * ★ BƯỚC HIỆN TẠI CỦA THẺ CÒN NỢ GÌ — `undefined` là không nợ (23/08/2026).
    *
    * 🔴 Ban lãnh đạo: *"ở quy trình này cũng cần hiển thị đỏ để biết đang thiếu ở bước nào"*, sau
@@ -1022,6 +1028,7 @@ export function dungBangQuyTrinh(
       soDongChuaPhanBo: dongConPhaiLam(deNghi, tatCaDeNghi).filter(
         (d) => !d.nguoiPhuTrachUid,
       ).length,
+      soMatHangConLai: dongConPhaiLam(deNghi, tatCaDeNghi).length,
       /* Dấu đỏ trên thẻ — xem chú thích ở khai báo `conNo`. `?? undefined` vì hàm trả `null`
          khi không nợ gì, còn trường này khai kiểu `string | undefined`.
 
@@ -1980,7 +1987,8 @@ export function mucConNoCuaBuoc(
   if (
     giaiDoan === buocBaoNoHopDong &&
     !coHopDong(deNghi) &&
-    !daKhaiKhongCoHopDong(deNghi)
+    !daKhaiKhongCoHopDong(deNghi) &&
+    !khongCanHopDongHoaDon(deNghi)
   ) {
     const lyDo = lyDoThieuHopDong(deNghi);
     thieu.push({
@@ -2108,7 +2116,7 @@ export function mucConNoCuaBuoc(
    *   · chữ hiện khi rê chuột lên thẻ
    * Bài kiểm hai chiều trong `kiem-luat-dung-chung.mjs` canh đúng chuyện này — xoá nhánh là ĐỎ.
    */
-  if (giaiDoan === "ho_so_thanh_toan" && !coHoaDonVAT(deNghi)) {
+  if (giaiDoan === "ho_so_thanh_toan" && !coHoaDonVAT(deNghi) && !khongCanHopDongHoaDon(deNghi)) {
     thieu.push({
       ngan: `thiếu hoá đơn`,
       day: `chưa đính kèm ${NHAN_TEP_HOA_DON_VAT}`,
@@ -2534,7 +2542,8 @@ export function dsDieuKienConVuong(
      * toán nào.
      */
     case "ho_so_thanh_toan":
-      if (!coHoaDonVAT(deNghi)) {
+      /* Quy trình nhân sự không cần hoá đơn — xem `khongCanHopDongHoaDon`. */
+      if (!coHoaDonVAT(deNghi) && !khongCanHopDongHoaDon(deNghi)) {
         ra.push({
           ma: "thieu_hoa_don_vat",
           cau: "Chưa đính kèm Hóa đơn VAT ở khối kết quả của bước này.",

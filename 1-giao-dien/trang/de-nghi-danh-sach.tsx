@@ -330,7 +330,9 @@ export default function TrangDanhSachDeNghi() {
       the: c.the.filter(
         (t) =>
           (!tim || khopTimBangQuyTrinh(t.deNghi, tuKhoaBang)) &&
-          (!chiViecCuaToi || t.uidPhuTrach.includes(nguoiDung.uid)),
+          /* Sếp 26/09/2026: *"cho xem thêm các việc ở bước tiếp nhận và kiểm tra để nhân viên chủ
+             động công việc"* — thẻ bước ① hiện cho mọi người, kể cả chưa được giao. */
+          (!chiViecCuaToi || t.giaiDoan === "tiep_nhan" || t.uidPhuTrach.includes(nguoiDung.uid)),
       ),
       theDocLap: [],
     }));

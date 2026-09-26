@@ -11382,6 +11382,52 @@ kiem(
   },
 );
 
+// ════════════════════════════════════════════════════════════════════
+// QUY TRÌNH NHÂN SỰ KHÔNG CẦN HỢP ĐỒNG + HOÁ ĐƠN — Sếp 26/09/2026
+// "sẽ khác ở hồ sơ thanh toán, là ko cần hợp đồng và hoá đơn, vì hàng có sẵn trong kho"
+// Kiểm HAI CHIỀU: phiếu toàn dòng nhân sự thì nới; lẫn một dòng mua ngoài thì KHÔNG nới.
+// ════════════════════════════════════════════════════════════════════
+
+{
+  const hoSoNS = (loai2) => ({
+    id: "ns",
+    items: [
+      { stt: 1, loaiViecGiao: "nhan_su" },
+      { stt: 2, loaiViecGiao: loai2 },
+    ],
+    tepGiaiDoan: {},
+    lyDoThieuChungTu: {},
+  });
+  kiem(
+    "Phiếu toàn dòng NHÂN SỰ → không đòi hợp đồng (bước ④) và không đòi hoá đơn",
+    "Sếp · 26/09/2026 · quy trình nhân sự",
+    () => {
+      const CT = nap(join(thuMuc, "chung-tu.cjs"));
+      const hd = CT.vuongMacRoiBuocLapDon(hoSoNS("nhan_su"));
+      const vat = CT.vuongMacDuyetHoanThanhDeNghi(hoSoNS("nhan_su"));
+      return {
+        duoc: hd === null && vat === null,
+        thucTe: `HĐ=${hd === null ? "null" : "chặn"} · VAT=${vat === null ? "null" : "chặn"}`,
+        mongDoi: "cả hai null",
+      };
+    },
+  );
+  kiem(
+    "Phiếu LẪN dòng mua ngoài → VẪN đòi hợp đồng và hoá đơn (không nới cả phiếu)",
+    "Sếp · 26/09/2026 · quy trình nhân sự (chiều nghịch)",
+    () => {
+      const CT = nap(join(thuMuc, "chung-tu.cjs"));
+      const hd = CT.vuongMacRoiBuocLapDon(hoSoNS(undefined));
+      const vat = CT.vuongMacDuyetHoanThanhDeNghi(hoSoNS("xuat_kho"));
+      return {
+        duoc: hd !== null && vat !== null,
+        thucTe: `HĐ=${hd === null ? "null" : "chặn"} · VAT=${vat === null ? "null" : "chặn"}`,
+        mongDoi: "cả hai chặn",
+      };
+    },
+  );
+}
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {
