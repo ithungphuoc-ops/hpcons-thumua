@@ -26,6 +26,7 @@
 // ============================================================
 
 import { xacDinhGiaiDoan, type GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { dongDaChuyenDiHet, dongDaNhanBanSang } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import type {
   BaoGia,
   DeNghiMuaHang,
@@ -55,14 +56,23 @@ export interface TienDoPhieu {
  * ⚠️ GIỮ THỨ TỰ XUẤT HIỆN, đừng sắp lại theo tên hay theo tiến độ. Trưởng bộ phận phân bổ theo
  * một thứ tự nào đó trong đầu họ; đảo đi là mỗi lần mở phiếu lại thấy danh sách nhảy chỗ.
  */
-function gomTheoNguoi(deNghi: DeNghiMuaHang): {
+function gomTheoNguoi(
+  deNghi: DeNghiMuaHang,
+  tatCaDeNghi?: readonly DeNghiMuaHang[],
+): {
   nhom: { uid: string; ten: string; sttDong: number[] }[];
   soDongChuaGiao: number;
 } {
   const theoUid = new Map<string, { uid: string; ten: string; sttDong: number[] }>();
   let soDongChuaGiao = 0;
+  /* 🔴 (Sếp 26/09/2026, phiếu 157: *"Sao lại hiển thị là chưa giao cho ai"*) Dòng ĐÃ TÁCH sang phiếu
+     con bị xoá người phụ trách trên phiếu gốc (xem `apDungGiaoViec`) — không phải "chưa giao". Trừ
+     bằng đúng phép `dongDaNhanBanSang` mà bảng phân bổ và tầng luật đang dùng. Thiếu `tatCaDeNghi`
+     thì không trừ (cư xử như cũ). */
+  const daTach = tatCaDeNghi ? dongDaNhanBanSang(deNghi, tatCaDeNghi as DeNghiMuaHang[]) : null;
 
   for (const d of deNghi.items ?? []) {
+    if (daTach && dongDaChuyenDiHet(d.stt, daTach)) continue;
     const uid = (d.nguoiPhuTrachUid ?? "").trim();
     if (!uid) {
       soDongChuaGiao += 1;
@@ -167,7 +177,7 @@ export function tienDoTheoNguoi(
   tatCaPhieu: readonly PhieuNhanHang[],
   tatCaDeNghi?: readonly DeNghiMuaHang[],
 ): TienDoPhieu {
-  const { nhom, soDongChuaGiao } = gomTheoNguoi(deNghi);
+  const { nhom, soDongChuaGiao } = gomTheoNguoi(deNghi, tatCaDeNghi);
   return {
     nguoi: nhom.map((n) => ({
       ...n,

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { ChevronRight, Users } from "lucide-react";
 import { NHAN_GIAI_DOAN, GIAI_DOAN_MUA_HANG } from "@/2-quy-trinh/giai-doan-mua-hang";
 import {
   aiChamNhat,
@@ -21,118 +23,110 @@ import {
 //
 // ⚠️ ẨN VỚI NHÂN VIÊN. Họ chỉ thấy dòng của mình nên khối này với họ là một bảng nói về người
 // khác — vừa vô nghĩa vừa tạo cảm giác bị đem ra so sánh. Nơi gọi khoá bằng `quyen.xemMoiHoSo`.
+//
+// ★ (26/09/2026) Sếp: *"Thu gọn mục này lại, và đổi màu header"*.
+//   · GẬP SẴN — thanh tiêu đề vẫn nói đủ tóm tắt (số người, ai chậm nhất, còn mấy dòng chưa giao),
+//     bấm mới mở chi tiết từng người.
+//   · Header đổi từ nền xám đậm (`--hp-neutral-soft`, chữ tóm tắt gần như không đọc được) sang nền
+//     xanh nhạt `bg-primary-bg` — cùng kiểu khối "Đã tách thành … đề xuất con" ngay dưới.
+//   · Bỏ hết `style={{…}}` và mã màu cứng (#B26A00), chữ tối thiểu 12px (Design System V1.1).
 // ============================================================
 
 /** Số bước thật để vẽ thanh — bỏ `that_bai` vì nó không nằm trên đường đi bình thường. */
 const SO_BUOC = GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "that_bai").length;
 
 export default function TienDoTheoNguoi({ tienDo }: { tienDo: TienDoPhieu }) {
+  const [mo, setMo] = useState(false);
   if (!nenHienTienDoTheoNguoi(tienDo)) return null;
 
   const uidCham = aiChamNhat(tienDo);
+  const tenCham = tienDo.nguoi.find((n) => n.uid === uidCham)?.ten;
 
   return (
     <section
-      className="mb-4 rounded-lg border"
-      style={{ borderColor: "var(--hp-border)", backgroundColor: "var(--hp-surface)" }}
+      className="overflow-hidden rounded-lg border border-primary/30 bg-card"
       aria-label="Tiến độ theo từng người phụ trách"
     >
-      <header
-        className="flex flex-wrap items-baseline gap-2 border-b px-4 py-2.5"
-        style={{ borderColor: "var(--hp-border)", backgroundColor: "var(--hp-neutral-soft)" }}
+      <button
+        type="button"
+        onClick={() => setMo((v) => !v)}
+        aria-expanded={mo}
+        className="flex min-h-11 w-full flex-wrap items-center gap-x-2 gap-y-1 bg-primary-bg px-4 py-2 text-left text-primary transition-colors hover:bg-primary-bg/70"
       >
-        <h3 className="text-[13.5px] font-semibold">Tiến độ theo người</h3>
-        <span className="text-[12px]" style={{ color: "var(--hp-text-desc)" }}>
+        <ChevronRight
+          className={`size-4 shrink-0 transition-transform ${mo ? "rotate-90" : ""}`}
+          aria-hidden
+        />
+        <Users className="size-4 shrink-0" aria-hidden />
+        <span className="text-sm font-semibold">Tiến độ theo người</span>
+        <span className="text-xs text-text-secondary">
           {tienDo.nguoi.length} người phụ trách
           {tienDo.soDongChuaGiao > 0 && ` · còn ${tienDo.soDongChuaGiao} dòng chưa giao`}
         </span>
-      </header>
-
-      <div className="flex flex-col gap-3 px-4 py-3">
-        {tienDo.nguoi.map((n) => {
-          const laCham = n.uid === uidCham;
-          const xong = daXongPhanMinh(n.giaiDoan);
-          const viTri = viTriBuoc(n.giaiDoan);
-
-          return (
-            <div key={n.uid} className="flex flex-col gap-1.5">
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-[13.5px] font-semibold">{n.ten}</span>
-                  {laCham && (
-                    <span
-                      className="rounded-full border px-2 py-px text-[11px] font-semibold"
-                      style={{
-                        color: "#B26A00",
-                        backgroundColor: "var(--hp-warning-bg)",
-                        borderColor: "color-mix(in srgb, var(--hp-warning) 35%, transparent)",
-                      }}
-                    >
-                      chậm nhất
-                    </span>
-                  )}
-                  {xong && (
-                    <span
-                      className="rounded-full border px-2 py-px text-[11px] font-semibold"
-                      style={{
-                        color: "var(--hp-success)",
-                        backgroundColor: "var(--hp-success-bg)",
-                        borderColor: "color-mix(in srgb, var(--hp-success) 35%, transparent)",
-                      }}
-                    >
-                      đã xong phần mình
-                    </span>
-                  )}
-                  <span className="text-[11.5px]" style={{ color: "var(--hp-text-desc)" }}>
-                    {n.sttDong.length} dòng
-                  </span>
-                </span>
-                <span className="text-[12.5px] font-medium" style={{ color: "var(--hp-text-desc)" }}>
-                  {NHAN_GIAI_DOAN[n.giaiDoan]?.nhan ?? n.giaiDoan}
-                </span>
-              </div>
-              <ThanhNho den={n.giaiDoan === "that_bai" ? -1 : viTri} mo={laCham} />
-            </div>
-          );
-        })}
-
-        {tienDo.soDongChuaGiao > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-              <span className="flex items-center gap-2">
-                <span
-                  className="rounded-full border border-dashed px-2 py-px text-[12px]"
-                  style={{ color: "var(--hp-text-desc)", borderColor: "var(--hp-border)" }}
-                >
-                  chưa giao cho ai
-                </span>
-                <span className="text-[11.5px]" style={{ color: "var(--hp-text-desc)" }}>
-                  {tienDo.soDongChuaGiao} dòng
-                </span>
-              </span>
-              <span className="text-[12.5px]" style={{ color: "var(--hp-text-desc)" }}>
-                chờ phân bổ
-              </span>
-            </div>
-            <ThanhNho den={-1} />
-          </div>
+        {tenCham && (
+          <span className="rounded-full border border-warning/35 bg-warning-bg px-2 text-xs font-semibold text-warning-soft">
+            chậm nhất: {tenCham}
+          </span>
         )}
-      </div>
+        <span className="ml-auto text-xs text-text-desc">{mo ? "Thu gọn" : "Xem chi tiết"}</span>
+      </button>
+
+      {mo && (
+        <div className="flex flex-col gap-2.5 px-4 py-3">
+          {tienDo.nguoi.map((n) => {
+            const laCham = n.uid === uidCham;
+            const xong = daXongPhanMinh(n.giaiDoan);
+            const viTri = viTriBuoc(n.giaiDoan);
+
+            return (
+              <div key={n.uid} className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-text-primary">{n.ten}</span>
+                    {laCham && (
+                      <span className="rounded-full border border-warning/35 bg-warning-bg px-2 text-xs font-semibold text-warning-soft">
+                        chậm nhất
+                      </span>
+                    )}
+                    {xong && (
+                      <span className="rounded-full border border-success/35 bg-success-bg px-2 text-xs font-semibold text-success-soft">
+                        đã xong phần mình
+                      </span>
+                    )}
+                    <span className="text-xs text-text-desc">{n.sttDong.length} dòng</span>
+                  </span>
+                  <span className="text-xs font-medium text-text-desc">
+                    {NHAN_GIAI_DOAN[n.giaiDoan]?.nhan ?? n.giaiDoan}
+                  </span>
+                </div>
+                <ThanhNho den={n.giaiDoan === "that_bai" ? -1 : viTri} mo={laCham} />
+              </div>
+            );
+          })}
+
+          {tienDo.soDongChuaGiao > 0 && (
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <span className="flex items-center gap-2">
+                  <span className="rounded-full border border-dashed border-border px-2 text-xs text-text-desc">
+                    chưa giao cho ai
+                  </span>
+                  <span className="text-xs text-text-desc">{tienDo.soDongChuaGiao} dòng</span>
+                </span>
+                <span className="text-xs text-text-desc">chờ phân bổ</span>
+              </div>
+              <ThanhNho den={-1} />
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
 
 /**
- * Thanh tiến độ nhỏ.
- *
- * 🔴 `that_bai` PHẢI TRUYỀN `den = -1` (CodeRabbit chỉ ra, PR #39). Mã đó nằm CUỐI dãy bước nên
- * `viTriBuoc` trả 8, trong khi thanh chỉ vẽ 8 ô (0…7) — `i <= 8` đúng với mọi ô, thành ra hồ sơ
- * đóng dở lại hiện thanh ĐẦY y hệt hồ sơ hoàn thành, ngay cạnh chữ "Thất bại". Thanh nói ngược
- * hẳn cái nhãn bên cạnh nó.
- *
- * ⚠️ KHÔNG dùng màu riêng cho từng người — bảng màu của app chỉ có một màu nhấn, bịa thêm bốn
- * màu để phân biệt người là phá bộ màu chung (chỉ đạo đồng bộ giao diện 17/08/2026). Ai là ai
- * đã có tên ghi ngay bên trên; thanh chỉ cần nói *đi được bao xa*.
+ * Thanh bước thu nhỏ — mỗi ô một bước, tô tới bước người đó đang đứng.
+ * `mo` = người chậm nhất: tô nhạt hơn để mắt dừng lại ở đó.
  */
 function ThanhNho({ den, mo = false }: { den: number; mo?: boolean }) {
   return (
@@ -140,11 +134,9 @@ function ThanhNho({ den, mo = false }: { den: number; mo?: boolean }) {
       {Array.from({ length: SO_BUOC }, (_, i) => (
         <span
           key={i}
-          className="h-[6px] flex-1 rounded-full"
-          style={{
-            backgroundColor: i <= den ? "var(--hp-primary)" : "var(--hp-border)",
-            opacity: i <= den && mo ? 0.5 : 1,
-          }}
+          className={`h-1.5 flex-1 rounded-full ${
+            i <= den ? (mo ? "bg-primary/50" : "bg-primary") : "bg-divider"
+          }`}
         />
       ))}
     </div>
