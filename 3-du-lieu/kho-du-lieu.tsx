@@ -454,6 +454,25 @@ export interface ThayDoiDonHang {
    * `mocSuaDieuKienThuongMai().doiTien`.
    */
   dieuKienThuongMai?: DieuKienThuongMaiPO;
+
+  /* ───────── MỞ 26/09/2026 · Nhóm PO-03 — 7 ô riêng của PHIẾU XUẤT KHO, nằm trên `DonDatHang` ───
+   * Sếp 26/09/2026: *"Làm tiếp cho chế độ sửa"*. Trước đó form KHOÁ bảy ô này ở chế độ sửa vì đúng
+   * một lý do kỹ thuật: kiểu này chưa khai chúng (CLAUDE.md §3.5). Luật so/ghi ở
+   * `mocSuaPhieuXuatKho` (hàm thuần, bài kiểm gọi thẳng được).
+   *
+   * 🔴 HAI TRẠNG THÁI MỖI Ô: `""` = XOÁ trường (ghi `undefined` — đúng như lúc LẬP MỚI, xem
+   * `truongPhieuXuatKho()` trong form) · `undefined` = KHÔNG ĐỤNG TỚI. Form chỉ gửi nhóm này khi
+   * đang chọn mẫu PO-03, nên đổi mẫu sang PO-01/02 KHÔNG xoá chữ đã có trên đơn.
+   *
+   * 📌 KHÔNG bắt lý do riêng: không phải giá, NCC hay ngày giao. Luật chung vẫn áp — người không có
+   * `suaPODaChot` sửa bất cứ gì cũng phải ghi lý do (`batBuocLyDo`). */
+  taiKhoanNoXuatKho?: string;
+  taiKhoanCoXuatKho?: string;
+  canCuXuatKho?: string;
+  khoXuat?: string;
+  diaDiemKhoXuat?: string;
+  dienGiaiXuatKho?: string;
+  soChungTuGocXuatKho?: string;
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════
@@ -1206,6 +1225,70 @@ export function mocSuaDieuKienThuongMai(
   }
 
   return { chung, rieng, doiTien };
+}
+
+/**
+ * ★ BẢY Ô RIÊNG CỦA MẪU PO-03 — PHIẾU XUẤT KHO, kèm nhãn ghi nhật ký (Sếp 26/09/2026).
+ *
+ * Thứ tự = thứ tự ô trên biểu mẫu: Nợ · Có → Theo → Xuất tại kho · Địa điểm → Diễn giải → Số chứng
+ * từ gốc. Nhãn viết ĐỦ NGHĨA ("Tài khoản Nợ" chứ không "Nợ", "Địa điểm kho xuất" chứ không "Địa
+ * điểm"): câu nhật ký đứng một mình trong khối Lịch sử, không có tờ phiếu bên cạnh để đoán.
+ *
+ * 📌 `satisfies` giữ phép kiểm: gõ sai tên trường của `DonDatHang` là không biên dịch được.
+ */
+export const TRUONG_PHIEU_XUAT_KHO = [
+  ["taiKhoanNoXuatKho", "Tài khoản Nợ (phiếu xuất kho)"],
+  ["taiKhoanCoXuatKho", "Tài khoản Có (phiếu xuất kho)"],
+  ["canCuXuatKho", "Căn cứ xuất kho (Theo)"],
+  ["khoXuat", "Xuất tại kho"],
+  ["diaDiemKhoXuat", "Địa điểm kho xuất"],
+  ["dienGiaiXuatKho", "Diễn giải xuất kho"],
+  ["soChungTuGocXuatKho", "Số chứng từ gốc kèm theo"],
+] as const satisfies readonly (readonly [keyof DonDatHang, string])[];
+
+export type TruongPhieuXuatKho = (typeof TRUONG_PHIEU_XUAT_KHO)[number][0];
+
+/**
+ * ★★★ SO + DỰNG BẢN VÁ CHO NHÓM Ô PHIẾU XUẤT KHO KHI SỬA ĐƠN — Sếp 26/09/2026: *"Làm tiếp cho chế
+ * độ sửa"*.
+ *
+ * 🔴 HÀM THUẦN, ĐỨNG NGOÀI HOOK — cùng lý do với `mocSuaDieuKienThuongMai` ngay trên: bộ kiểm luật
+ * không mount được hook React, luật nằm trong `useCallback` thì không bài kiểm nào bắt được khi ai
+ * đó làm rơi một vế.
+ *
+ * 🔴 MỘT PHÉP SO, HAI CÔNG DỤNG: `moc` vừa là nhật ký vừa là phép "có gì đổi không" của
+ * `suaDonHang` (rỗng hết → `MA_KHONG_CO_THAY_DOI`); `vaLai` CHỈ chứa ô THẬT SỰ đổi, nên tầng ghi
+ * chỉ ghi đúng những ô đó. Nơi gọi được phép gửi nguyên state (đúng khuôn các ô khác của
+ * `luuSua`) — quyết định "đổi hay không" nằm ở một chỗ duy nhất là đây.
+ *
+ * Quy ước mỗi ô của `moi` (khớp `ThayDoiDonHang`):
+ *   · `undefined` → không đụng tới: không mốc, không có trong `vaLai`.
+ *   · `""` (hoặc chỉ dấu cách) → XOÁ: `vaLai[ô] = undefined` — đúng như lúc LẬP MỚI
+ *     (`truongPhieuXuatKho()` trong form ghi `.trim() || undefined`).
+ *   · chuỗi khác → ghi bản đã `trim()`.
+ * So sau khi `trim()` cả hai vế: đơn cũ không có ô (`undefined`) mà form nạp về `""` thì KHÔNG coi
+ * là đổi — nếu không, mở màn sửa rồi bấm Lưu mà không đụng gì cũng sinh mốc "trống → trống" giả và
+ * ca "không có gì thay đổi" chết vĩnh viễn.
+ *
+ * ⚠️ Không có tên nhà cung cấp, không có con số tiền nào trong nhóm này — nên nhật ký đi thẳng vào
+ * nhật ký đề nghị (mọi vai trò đọc được) như các ô hành chính khác, không cần sổ riêng.
+ */
+export function mocSuaPhieuXuatKho(
+  cu: Pick<DonDatHang, TruongPhieuXuatKho>,
+  moi: Pick<ThayDoiDonHang, TruongPhieuXuatKho>,
+): { moc: string[]; vaLai: Partial<Record<TruongPhieuXuatKho, string | undefined>> } {
+  const moc: string[] = [];
+  const vaLai: Partial<Record<TruongPhieuXuatKho, string | undefined>> = {};
+  for (const [truong, nhan] of TRUONG_PHIEU_XUAT_KHO) {
+    const giaTriMoi = moi[truong];
+    if (giaTriMoi === undefined) continue;
+    const a = (cu[truong] ?? "").trim();
+    const b = giaTriMoi.trim();
+    if (a === b) continue;
+    moc.push(`${nhan}: ${a === "" ? "trống" : a} → ${b === "" ? "trống" : b}`);
+    vaLai[truong] = b === "" ? undefined : b;
+  }
+  return { moc, vaLai };
 }
 
 interface GiaTriDuLieu {
@@ -4614,6 +4697,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * `dieuKienThuongMai` cho 4 trường của chứng từ giá. Xem `ThayDoiDonHang` và
    * `DieuKienThuongMaiPO` để hiểu vì sao nhánh đó phải đứng riêng chứ không nhét vào `gia`.
    *
+   * ★ MỞ RỘNG 26/09/2026 (Sếp: *"Làm tiếp cho chế độ sửa"*): thêm 7 ô riêng của Mẫu PO-03 —
+   * Phiếu xuất kho — xem `mocSuaPhieuXuatKho`. Không bắt lý do riêng cho nhóm này.
+   *
    * 🔴 ĐỔI CHIẾT KHẤU HOẶC THUẾ SUẤT CHUNG THÌ BẮT LÝ DO, kể cả người có `suaPODaChot` (Sếp
    * 15/09/2026: *"Có, bắt ghi lý do"*) — hai thứ đó đổi số tiền phải trả nhà cung cấp.
    *
@@ -4836,6 +4922,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         moc.push(`Mẫu in đơn: ${NHAN_MAU_PO[mauCu].nhan} → ${NHAN_MAU_PO[thayDoi.mauPO].nhan}`);
       }
       soSanhBanRieng("Cam kết cuối tờ", po.camKetThoaThuan, thayDoi.camKetThoaThuan);
+      /* ───────── MỞ 26/09/2026 · Nhóm PO-03 — 7 ô phiếu xuất kho (Sếp: "Làm tiếp cho chế độ sửa")
+         Luật so + bản vá ở `mocSuaPhieuXuatKho` (hàm thuần, đầu tệp). `mocPXK.vaLai` được áp trong
+         `setDonHang` bên dưới — bỏ một trong hai chỗ là nhật ký nói đã sửa mà dữ liệu không đổi,
+         hoặc ngược lại. Có bài kiểm giữ cả hai ở `kiem-luat-dung-chung.mjs`. */
+      const mocPXK = mocSuaPhieuXuatKho(po, thayDoi);
+      moc.push(...mocPXK.moc);
       /* Điều kiện thương mại: chỉ phần `chung` (KHÔNG con số) vào nhật ký đề nghị. Con số đi vào
          sổ của chứng từ giá bên dưới — xem `mocSuaDieuKienThuongMai`. */
       moc.push(...mocTM.chung);
@@ -4996,6 +5088,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           if (thayDoi.camKetThoaThuan !== undefined) {
             sau.camKetThoaThuan = thayDoi.camKetThoaThuan ?? undefined;
           }
+          /* ── MỞ 26/09/2026 · Nhóm PO-03 ── chỉ những ô THẬT SỰ đổi (xem `mocSuaPhieuXuatKho`);
+             ô bị xoá trắng mang `undefined` trong `vaLai` nên `Object.assign` ghi đè thành
+             `undefined` — đúng như lúc lập mới để trống. */
+          Object.assign(sau, mocPXK.vaLai);
           return sau;
         }),
       );

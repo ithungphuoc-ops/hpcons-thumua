@@ -30,6 +30,8 @@ import {
   docTatCaTaiKhoan,
   thanhNguoiDung,
 } from "@/5-ket-noi/ho-so-tai-khoan";
+import { docQuyenRiengCuaToi } from "@/4-phan-quyen/quyen-rieng-ket-noi";
+import type { QuyenRieng } from "@/4-phan-quyen/quyen-rieng";
 
 /** Khóa lưu phiên đăng nhập trong trình duyệt — CHỈ dùng ở chế độ tài khoản mẫu. */
 const KHOA_PHIEN = "hpcons-tm-phien-dang-nhap";
@@ -149,8 +151,31 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (CHE_DO !== "sso") return;
     let conSong = true;
+    /** Đã cho vào app chưa — lỗi xảy ra SAU lúc này (vd đọc danh sách tài khoản) không đá người ra. */
+    let daChoVao = false;
 
+    /**
+     * 🔴 BỌC TOÀN BỘ LƯỢT ĐĂNG NHẬP (soát chéo lần 2 26/09/2026): trước đây một lỗi bất ngờ ở giữa
+     * (hàm nào đó ném thay vì trả lỗi) làm `chay()` chết im, `daDangNhap` kẹt ở `null` → màn trắng mãi
+     * mãi, không một dòng lý do. Nay lỗi nào chưa được xử lý cũng thành màn chặn KÈM LÝ DO.
+     */
     async function chay() {
+      try {
+        await chayThan();
+      } catch (e) {
+        if (!conSong) return;
+        console.error("[SSO] lượt đăng nhập hỏng bất ngờ:", e);
+        if (daChoVao) return;
+        setNguoiSSO(null);
+        setLoiHoSo(
+          `Không mở được app Thu mua (${e instanceof Error ? e.message : String(e)}). Tải lại trang để thử lại.`,
+        );
+        setDaDangNhap(false);
+        setDangXuLySSO(false);
+      }
+    }
+
+    async function chayThan() {
       // Luôn hỏi lại cầu nối SSO mỗi lần tải trang (KHÔNG chỉ dựa vào phiên Firebase cũ
       // trong máy) — đơn giản và tránh kẹt quyền cũ: Sếp đổi vai trò bên App Tổng thì
       // trang tải lại kế tiếp phải thấy ngay, không phải chờ phiên Firebase hết hạn.
@@ -195,10 +220,56 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
         setDangXuLySSO(false);
         return;
       }
-      setNguoiSSO(thanhNguoiDung(hoSoKq.hoSo));
+      /**
+       * ★ QUYỀN TICK RIÊNG — Sếp 26/09/2026 (màn Phân quyền kiểu tick chọn).
+       *
+       * 🔴 ĐỌC XONG RỒI MỚI BÁO "ĐÃ ĐĂNG NHẬP", không vẽ trước rồi áp sau. Vẽ trước là người vừa bị bỏ
+       * tick "Xem giá" vẫn thấy giá một nhịp trong lúc chờ máy chủ trả lời.
+       *
+       * 🔴 HAI TRƯỜNG HỢP KHÁC HẲN NHAU (soát chéo 26/09/2026 — bản đầu gộp làm một):
+       *   ① Máy chủ trả lời được, `quyenRieng: null` → chưa được tick riêng → quyền theo chức danh.
+       *   ② KHÔNG đọc được (mất mạng, quá 8 giây, mã khác 2xx, JSON hỏng) → thử lại MỘT lần; vẫn hỏng
+       *      thì KHÔNG cho vào app, xử lý y như nhánh lỗi hồ sơ ngay trên.
+       * Bản đầu cho ② vào bằng đủ quyền chức danh — trái luật "thiếu thông tin thì cho quyền THẤP
+       * NHẤT" (CLAUDE.md §3.6c): người bị bỏ tick "Xem giá" chỉ cần rớt mạng một nhịp là thấy lại giá.
+       *
+       * 📌 Quản trị bỏ qua lượt gọi: `apDungQuyenRieng` luôn giữ nguyên quyền quản trị nên đọc về
+       * cũng không dùng — đỡ một lượt đọc mỗi lần F5, và quản trị vẫn vào được để gỡ khi cửa này hỏng.
+       */
+      const nguoiMoi = thanhNguoiDung(hoSoKq.hoSo);
+      let quyenRieng: QuyenRieng | null = null;
+      if (nguoiMoi.vaiTro !== "admin") {
+        let kqRieng = await docQuyenRiengCuaToi();
+        if (!conSong) return;
+        if ("loi" in kqRieng) {
+          console.warn("[quyền riêng] lượt 1 không đọc được, thử lại:", kqRieng.loi);
+          /* Nghỉ một nhịp ngắn — lỗi chớp nhoáng (khởi động nguội, mạng chập) thường qua ngay. */
+          await new Promise((x) => setTimeout(x, 1000));
+          if (!conSong) return;
+          kqRieng = await docQuyenRiengCuaToi();
+          if (!conSong) return;
+        }
+        if ("loi" in kqRieng) {
+          console.error("[quyền riêng] vẫn không đọc được sau khi thử lại — không cho vào:", kqRieng.loi);
+          setNguoiSSO(null);
+          /* Kèm LÝ DO THẬT — "kiểm tra mạng" cho mọi ca là nói sai khi lỗi thật là máy chủ từ chối
+             (vd hồ sơ không đọc được, bản ghi quyền riêng hỏng). */
+          setLoiHoSo(
+            `Chưa đọc được phân quyền của bạn ở app Thu mua: ${kqRieng.loi} Tải lại trang để thử lại.`,
+          );
+          setDaDangNhap(false);
+          setDangXuLySSO(false);
+          return;
+        }
+        quyenRieng = kqRieng.quyenRieng;
+      }
+      /* Gắn vào chính `NguoiDung` để `tinhQuyen(nguoiDung)` ở MỌI nơi (kể cả tầng ghi trong
+         `kho-du-lieu.tsx`) cùng nhận quyền tick — xem chú thích trường `quyenRieng` ở `quyen.ts`. */
+      setNguoiSSO({ ...nguoiMoi, quyenRieng });
       setLoiHoSo(null);
       setDaDangNhap(true);
       setDangXuLySSO(false);
+      daChoVao = true;
       // Danh sách người có tài khoản — cho bảng phân bổ. Đọc SAU khi đã đăng nhập vì
       // Security Rules chặn người chưa đăng nhập.
       const ds = await docTatCaTaiKhoan();

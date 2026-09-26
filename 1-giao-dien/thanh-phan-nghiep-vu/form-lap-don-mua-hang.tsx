@@ -1062,8 +1062,9 @@ export function FormLapDonMuaHang({
     setGhiChuHopDongNCC(po.ghiChuHopDongNCC ?? "");
     setMaDuAnNhap(po.maDuAn);
     if (po.mauPO) setMauPO(po.mauPO);
-    /* Mẫu PO-03: vẫn NẠP để màn hình hiện đúng đơn đang sửa (ô bị khoá ở chế độ sửa — xem
-       `khoaOPhieuXuatKho`). */
+    /* Mẫu PO-03: nạp 7 ô phiếu xuất kho — SỬA ĐƯỢC từ 26/09/2026 (Sếp: "Làm tiếp cho chế độ
+       sửa"), `ThayDoiDonHang` đã nhận nhóm này. Ô trống của đơn cũ nạp về `""`; tầng ghi so sau
+       khi `trim()` nên lưu lại mà không đụng gì KHÔNG sinh thay đổi giả (`mocSuaPhieuXuatKho`). */
     setTaiKhoanNoXuatKho(po.taiKhoanNoXuatKho ?? "");
     setTaiKhoanCoXuatKho(po.taiKhoanCoXuatKho ?? "");
     setCanCuXuatKho(po.canCuXuatKho ?? "");
@@ -2109,13 +2110,12 @@ export function FormLapDonMuaHang({
    */
   const tenNCCLuu = laPhieuXuatKhoDangChon ? tenNCC.trim() || "Xuất kho nội bộ" : tenNCC;
   const ngayGiaoLuu = laPhieuXuatKhoDangChon ? ngayGiao || ngayDonHang : ngayGiao;
-  /**
-   * 🔒 Ô của phiếu xuất kho KHOÁ Ở CHẾ ĐỘ SỬA — `ThayDoiDonHang` (tầng ghi
-   * `3-du-lieu/kho-du-lieu.tsx`) CHƯA khai nhóm trường này, nên mở ô ra là bấm Lưu xong chữ vừa
-   * sửa biến mất không một dòng báo (CLAUDE.md §3.5). Lập MỚI thì lưu được (`themDonHang` chép
-   * nguyên đầu vào). Mở khi tầng ghi đã nhận.
-   */
-  const khoaOPhieuXuatKho = laSuaDon;
+  /* ✅ ĐÃ BỎ `khoaOPhieuXuatKho` — Sếp 26/09/2026: "Làm tiếp cho chế độ sửa".
+     Trước đó 7 ô phiếu xuất kho KHOÁ ở chế độ sửa vì `ThayDoiDonHang` chưa khai nhóm trường này
+     (mở ô ra là bấm Lưu xong chữ vừa sửa biến mất — CLAUDE.md §3.5). Nay tầng ghi đã nhận
+     (`mocSuaPhieuXuatKho` trong `3-du-lieu/kho-du-lieu.tsx`) và `luuSua()` gửi nhóm này đi, nên
+     ô mở ở cả hai chế độ. ⚠️ Nếu về sau phải khoá lại thì bỏ cả chỗ gửi trong `luuSua()`, đừng
+     chỉ khoá ô. */
   /**
    * Chữ hiện ở ô "Số đơn hàng" — gom thành MỘT biến (26/09/2026) để khối xem nhanh phiếu xuất
    * kho hiện đúng cùng một số, không tự dựng lại công thức thứ hai. Ý nghĩa ba nhánh: xem chú
@@ -2943,6 +2943,25 @@ export function FormLapDonMuaHang({
          là "về bản chuẩn" (nút Khôi phục bản chuẩn), khác hẳn `""` = bản riêng rỗng. Đừng `?? ""`. */
       camKetThoaThuan,
     };
+    /* ───────── MỞ 26/09/2026 · Nhóm PO-03 — 7 ô phiếu xuất kho (Sếp: "Làm tiếp cho chế độ sửa") ──
+       🔴 CHỈ GỬI KHI ĐANG CHỌN MẪU PO-03 — cùng luật `truongPhieuXuatKho()` của đường lập mới. Đổi
+       mẫu sang PO-01/02 thì KHÔNG gửi (= "không đụng tới"), nên chữ đã có trên đơn còn nguyên,
+       đổi lại PO-03 là dùng tiếp — không xoá lặng lẽ những gì người khác đã nhập.
+       🔴 GỬI CHUỖI THÔ, KHÔNG `.trim() || undefined` như `truongPhieuXuatKho()`: ở `ThayDoiDonHang`,
+       `undefined` nghĩa là "không đụng tới", nên ô xoá trắng phải đi lên dưới dạng `""` mới xoá
+       được. Tầng ghi tự `trim()` và quy `""` → `undefined` (`mocSuaPhieuXuatKho`).
+       📌 Gửi cả ô không đổi — đúng khuôn các ô Nhóm A ngay trên. Tầng ghi so với giá trị cũ, chỉ
+       ghi nhật ký và chỉ ghi đè những ô THẬT SỰ đổi; tự so lần thứ hai ở đây là hai phép so rồi
+       lệch nhau. */
+    if (laPhieuXuatKhoDangChon) {
+      thayDoi.taiKhoanNoXuatKho = taiKhoanNoXuatKho;
+      thayDoi.taiKhoanCoXuatKho = taiKhoanCoXuatKho;
+      thayDoi.canCuXuatKho = canCuXuatKho;
+      thayDoi.khoXuat = khoXuat;
+      thayDoi.diaDiemKhoXuat = diaDiemKhoXuat;
+      thayDoi.dienGiaiXuatKho = dienGiaiXuatKho;
+      thayDoi.soChungTuGocXuatKho = soChungTuGocXuatKho;
+    }
     if (doiNCCSua) {
       thayDoi.supplierTen = tenNCC.trim();
       /* ⚠️ Đổi tên tự do KHÔNG đổi `supplierId` — giữ nguyên id cũ để không phá khoá gộp công nợ
@@ -2953,14 +2972,20 @@ export function FormLapDonMuaHang({
        trong bảng luôn rỗng — gửi lên là ghi đè toàn bộ đơn giá của đơn về 0.
        📌 Tầng ghi cũng tự chặn khi đơn đã `xacNhanTruongBP` ("không sửa giá được nữa"), nên ở đây
        không kiểm lại — một luật, một chỗ. */
-    if (quyen.xemGia) thayDoi.gia = { lines };
+    /* 🔴 MẪU PO-03 (phiếu xuất kho) KHÔNG GỬI GIÁ — 26/09/2026. Ô giá đã ẩn và `khongNhapGia` ép
+       đơn giá về 0 trong bảng; gửi `gia` lên ở chế độ sửa là (1) xoá sạch giá cũ của đơn khi đổi
+       PO-01/02 → PO-03, và (2) đơn đã được trưởng bộ phận xác nhận thì BỊ CHẶN LƯU ("không sửa
+       giá được nữa") dù người dùng chỉ sửa ô phiếu xuất kho. Không gửi = giá cũ nằm im trong dữ
+       liệu, đổi lại PO-01/02 là thấy lại; phiếu xuất kho vốn không in giá, không sinh công nợ. */
+    if (quyen.xemGia && !khongNhapGia) thayDoi.gia = { lines };
     /* ───────── MỞ 15/09/2026 · Nhóm B — chứng từ giá, NHÁNH RIÊNG ─────────
        🔴 GÁC BẰNG `quyen.xemGia` CÙNG LÝ DO VỚI `gia` NGAY TRÊN: vai trò không xem được giá thì
        bốn ô này trên màn hình luôn rỗng (chúng chỉ nạp khi `quyen.xemGia`, xem khối nạp từ PO) —
        gửi lên là **xoá sạch loại tiền, chiết khấu, thuế suất và điều khoản thanh toán của đơn**.
        📌 Nhánh này KHÔNG bị chốt `xacNhanTruongBP` chặn (chốt đó chỉ áp cho `gia.lines`) — xem
        `DieuKienThuongMaiPO` để hiểu vì sao phải tách. */
-    if (quyen.xemGia) thayDoi.dieuKienThuongMai = dieuKienThuongMaiDangNhap;
+    /* PO-03: loại tiền / chiết khấu / thuế / điều khoản thanh toán đều đã ẩn — không gửi, cùng lý do. */
+    if (quyen.xemGia && !khongNhapGia) thayDoi.dieuKienThuongMai = dieuKienThuongMaiDangNhap;
 
     const loi = suaDonHang(poDangSua.id, thayDoi, lyDoSua);
     /* 🔴 CA "KHÔNG CÓ GÌ ĐỔI" ĐI RIÊNG, TRƯỚC CẢ NHÁNH LỖI. Đây KHÔNG phải lỗi (không có gì sai
@@ -3673,7 +3698,6 @@ export function FormLapDonMuaHang({
                     value={khoXuat}
                     onChange={(e) => setKhoXuat(e.target.value)}
                     placeholder="VD: Kho Tổng"
-                    disabled={khoaOPhieuXuatKho}
                   />
                 </div>
                 <div className="muc-ngang">
@@ -3683,7 +3707,6 @@ export function FormLapDonMuaHang({
                     value={diaDiemKhoXuat}
                     onChange={(e) => setDiaDiemKhoXuat(e.target.value)}
                     placeholder="Địa điểm của kho xuất"
-                    disabled={khoaOPhieuXuatKho}
                   />
                 </div>
               </div>
@@ -4008,7 +4031,6 @@ export function FormLapDonMuaHang({
                       value={taiKhoanNoXuatKho}
                       onChange={(e) => setTaiKhoanNoXuatKho(e.target.value)}
                       placeholder="VD: 6211"
-                      disabled={khoaOPhieuXuatKho}
                       className="w-40"
                     />
                   </div>
@@ -4019,7 +4041,6 @@ export function FormLapDonMuaHang({
                       value={taiKhoanCoXuatKho}
                       onChange={(e) => setTaiKhoanCoXuatKho(e.target.value)}
                       placeholder="VD: 152"
-                      disabled={khoaOPhieuXuatKho}
                       className="w-40"
                     />
                   </div>
@@ -4135,7 +4156,9 @@ export function FormLapDonMuaHang({
                 · "Họ và tên người nhận" = ô "Người nhận hàng" ở khối giao nhận bên dưới
               Hai ô cho cùng một trường là "hai chỗ cùng nói một chuyện" — dự án cấm.
 
-              🔒 Chế độ SỬA: khoá cả nhóm, xem `khoaOPhieuXuatKho`.
+              ✅ Chế độ SỬA: SỬA ĐƯỢC từ 26/09/2026 (Sếp: "Làm tiếp cho chế độ sửa") — đã bỏ khoá
+              `khoaOPhieuXuatKho` và câu cảnh báo "Chưa sửa được các ô phiếu xuất kho…". Cửa ghi:
+              `suaDonHang` → `mocSuaPhieuXuatKho`; chỗ gửi: `luuSua()`.
               ===================================================================== */}
           {laPhieuXuatKhoDangChon && (
             <div className="flex flex-col gap-(--hp-md-card-gap)">
@@ -4144,12 +4167,6 @@ export function FormLapDonMuaHang({
                 kho · Địa điểm bên trái, Số chứng từ gốc ngay dưới bảng hàng. Không có đơn giá — chỉ
                 số lượng và đơn vị. Cột Thực xuất để trống cho thủ kho ghi tay.
               </p>
-              {khoaOPhieuXuatKho && (
-                <p className="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning-soft">
-                  Chưa sửa được các ô phiếu xuất kho ở chế độ sửa đơn — tầng lưu dữ liệu chưa nhận
-                  nhóm trường này khi sửa. Muốn đổi thì lập phiếu mới.
-                </p>
-              )}
               <div className="muc-ngang">
                 <Label htmlFor="pxk-theo">Theo</Label>
                 <Input
@@ -4157,7 +4174,6 @@ export function FormLapDonMuaHang({
                   value={canCuXuatKho}
                   onChange={(e) => setCanCuXuatKho(e.target.value)}
                   placeholder="… số … ngày … tháng … năm … của … (bỏ trống thì tờ in chừa chấm để viết tay)"
-                  disabled={khoaOPhieuXuatKho}
                 />
               </div>
               <div className="muc-ngang">
@@ -4167,7 +4183,6 @@ export function FormLapDonMuaHang({
                   value={dienGiaiXuatKho}
                   onChange={(e) => setDienGiaiXuatKho(e.target.value)}
                   placeholder="VD: Xuất vật tư kho tổng ra công trình …"
-                  disabled={khoaOPhieuXuatKho}
                 />
               </div>
             </div>
@@ -4348,7 +4363,6 @@ export function FormLapDonMuaHang({
                 value={soChungTuGocXuatKho}
                 onChange={(e) => setSoChungTuGocXuatKho(e.target.value)}
                 placeholder="VD: 01"
-                disabled={khoaOPhieuXuatKho}
                 className="w-40"
               />
             </div>

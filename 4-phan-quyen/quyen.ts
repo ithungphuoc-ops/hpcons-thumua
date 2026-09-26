@@ -12,6 +12,16 @@
 // tm_donhang_gia → phải chặn bằng Security Rule của collection đó. Xem quyen.xemGia.
 // ============================================================
 
+/* ★ Lớp quyền tick riêng (Sếp 26/09/2026). `quyen-rieng.ts` chỉ `import type` từ tệp này nên
+   không có vòng nạp — đừng thêm `import` chạy được nào từ `quyen.ts` sang bên đó. */
+import {
+  apDungQuyenRieng,
+  quyenRiengHieuLuc,
+  type BanGhiQuyenRieng,
+  type DauChucDanh,
+  type QuyenRieng,
+} from "@/4-phan-quyen/quyen-rieng";
+
 /** Vai trò toàn hệ thống (App Tổng §2.3). */
 export type VaiTroHeThong = "admin" | "director" | "staff";
 
@@ -87,6 +97,19 @@ export interface NguoiDung {
   capTM: CapQuyen;
   /** users/{uid}.apps.kh — dùng cho thủ kho lập phiếu nhận hàng */
   capKho?: CapQuyen;
+  /**
+   * ★ QUYỀN TICK RIÊNG — Sếp 26/09/2026 (màn "Phân quyền người dùng" kiểu tick chọn).
+   *
+   * Đọc từ `tm_quyen_rieng/{firebaseUid}` qua `/api/quyen-rieng`. `undefined`/`null` = chưa được
+   * tick riêng → quyền đúng theo chức danh như trước. Xem `4-phan-quyen/quyen-rieng.ts`.
+   *
+   * 🔴 VÌ SAO GẮN VÀO `NguoiDung` CHỨ KHÔNG CHỈ ÁP Ở CONTEXT: tầng ghi `3-du-lieu/kho-du-lieu.tsx`
+   * tự gọi `tinhQuyen(nguoiDung)` ở ~20 chỗ để gác quyền (ghi thanh toán, chốt đơn, xác nhận kho…).
+   * Chỉ áp ở context thì giao diện hiện nút theo quyền tick mà tầng ghi vẫn gác theo chức danh —
+   * nút hiện, bấm vào bị từ chối, đúng lỗi "giao diện hứa việc app không làm". Gắn vào đây thì mọi
+   * chỗ gọi `tinhQuyen(nguoiDung)` tự nhận quyền tick mà không phải sửa tệp nào khác.
+   */
+  quyenRieng?: QuyenRieng | null;
 }
 
 /**
@@ -231,7 +254,23 @@ export function nhanVienThuMuaCoTaiKhoan(): VaiTroMau[] {
   return VAI_TRO_MAU.filter((v) => v.chucNang === "nhan_vien_thu_mua");
 }
 
+/**
+ * QUYỀN HIỆU LỰC của một người = quyền theo chức danh, rồi áp quyền tick riêng (nếu có).
+ *
+ * ★ Sếp 26/09/2026 — thêm lớp tick riêng. Chưa được tick riêng (`u.quyenRieng` trống) thì kết quả
+ * y hệt trước đây, nên mọi nơi gọi cũ (kể cả `quyenCuaVaiTro` và các bài kiểm) không đổi hành vi.
+ */
 export function tinhQuyen(u: NguoiDung): Quyen {
+  return apDungQuyenRieng(tinhQuyenTheoChucDanh(u), u.quyenRieng, u.vaiTro === "admin");
+}
+
+/**
+ * QUYỀN THEO CHỨC DANH (lớp 1) — bỏ qua quyền tick riêng.
+ *
+ * 📌 Dùng khi cần biết "chức danh này mặc định được gì": nút *Áp mẫu theo chức danh* trên màn phân
+ * quyền, và làm NỀN cho người chưa từng được tick riêng. Muốn đổi luật theo chức danh → sửa ở đây.
+ */
+export function tinhQuyenTheoChucDanh(u: NguoiDung): Quyen {
   const laQuanTri = u.vaiTro === "admin";
   const laBGD = u.vaiTro === "director";
   const capTM = u.capTM;
@@ -291,6 +330,42 @@ export function tinhQuyen(u: NguoiDung): Quyen {
        `luat-phan-quyen.ts` → `capDatDuocToiDa`, không nhét vào đây. */
     phanQuyenNguoiDung: laQuanTri || capTM >= 3,
   };
+}
+
+/**
+ * Quyền theo chức danh của một DẤU chức danh (chức danh lúc lưu bản quyền riêng) — soát chéo lần 2
+ * 26/09/2026. Để ở đây vì cần `tinhQuyenTheoChucDanh`; `quyen-rieng.ts` không được nạp tệp này.
+ */
+export function tinhQuyenTheoDauChucDanh(d: DauChucDanh): Quyen {
+  return tinhQuyenTheoChucDanh({ uid: "", tenHienThi: "", chucDanh: "", phongBan: "", ...d });
+}
+
+/**
+ * ★ QUYỀN RIÊNG CÒN HIỆU LỰC của một bản ghi với chức danh HIỆN TẠI của người đó — gói sẵn cả `goc`
+ * lẫn `gocCu` (tính từ dấu) cho `quyenRiengHieuLuc`. Route và màn Phân quyền gọi hàm này, đừng tự gọi
+ * `quyenRiengHieuLuc` rồi quên `gocCu` (quên là rơi về nhánh an toàn: người được nâng chức danh thiếu
+ * cờ mới của chức danh mới).
+ */
+export function quyenRiengConHieuLuc(
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh"> | null | undefined,
+  nd: Pick<NguoiDung, "chucNang" | "vaiTro" | "capTM" | "capKho">,
+): QuyenRieng | null {
+  if (!banGhi) return null;
+  const goc = tinhQuyenTheoChucDanh({ uid: "", tenHienThi: "", chucDanh: "", phongBan: "", ...nd });
+  const gocCu = banGhi.theoChucDanh ? tinhQuyenTheoDauChucDanh(banGhi.theoChucDanh) : null;
+  return quyenRiengHieuLuc(banGhi, nd, goc, gocCu);
+}
+
+/**
+ * ★ NGƯỜI NÀY ĐANG BỊ BỎ "VÀO APP" KHÔNG (theo quyền hiệu lực) — Sếp 26/09/2026 *"Nối vào ô tíck"*.
+ * Route `/api/quyen-rieng?biKhoa=1` dùng để lập danh sách người KHÔNG được giao việc
+ * (`bang-phan-bo.tsx` qua `dung-nguoi-khong-vao-app.ts`). Chưa có bản ghi → theo chức danh.
+ */
+export function nguoiBiKhoaVaoApp(
+  nd: NguoiDung,
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh"> | null | undefined,
+): boolean {
+  return !tinhQuyen({ ...nd, quyenRieng: quyenRiengConHieuLuc(banGhi, nd) }).xemDuocApp;
 }
 
 /** Kiểm tra quyền vào một đường dẫn. */

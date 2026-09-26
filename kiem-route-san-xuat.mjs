@@ -52,6 +52,9 @@ const ROUTE = [
   { duong: "/api/auth/hpcore-session", pt: "GET", cua: "tích hợp", viec: "SSO App Tổng" },
   { duong: "/api/directory", pt: "GET", cua: "tích hợp", viec: "danh bạ nhân sự" },
   { duong: "/api/phan-quyen", pt: "POST", cua: "tích hợp", viec: "phân quyền" },
+  /* ★ Sếp 26/09/2026 — phân quyền tick chọn. Route export CẢ `GET` lẫn `POST`; đo bằng GET vì không
+     mang thân yêu cầu (chưa đăng nhập thì cả hai đều trả 401 kèm `error` trước khi chạm dữ liệu). */
+  { duong: "/api/quyen-rieng", pt: "GET", cua: "nghiệp vụ", viec: "quyền tick riêng từng người" },
 ];
 
 const DO = "[31m";

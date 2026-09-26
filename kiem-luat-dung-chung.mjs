@@ -7248,6 +7248,126 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
+// SỬA 7 Ô PHIẾU XUẤT KHO (MẪU PO-03) Ở CHẾ ĐỘ SỬA ĐƠN — Sếp 26/09/2026: "Làm tiếp cho chế độ sửa"
+//
+// Trước hôm đó form KHOÁ bảy ô này khi sửa, vì `ThayDoiDonHang` chưa khai chúng (mở ô ra là bấm
+// Lưu xong chữ biến mất — CLAUDE.md §3.5). Luật so/ghi nay ở `mocSuaPhieuXuatKho` (hàm thuần trong
+// `3-du-lieu/kho-du-lieu.tsx`), gọi thẳng được.
+// ════════════════════════════════════════════════════════════════════
+
+const CHU_PXK = "Sếp · 26/09/2026 — sửa được các ô phiếu xuất kho (Mẫu PO-03) ở chế độ sửa đơn";
+const BAY_O_PXK = [
+  "taiKhoanNoXuatKho",
+  "taiKhoanCoXuatKho",
+  "canCuXuatKho",
+  "khoXuat",
+  "diaDiemKhoXuat",
+  "dienGiaiXuatKho",
+  "soChungTuGocXuatKho",
+];
+
+kiem(
+  "PO-03: đổi MỘT ô → đúng một mốc có nhãn, bản vá chỉ chứa đúng ô đó (đã trim)",
+  CHU_PXK,
+  () => {
+    const r = KD.mocSuaPhieuXuatKho(
+      { khoXuat: "Kho Tổng", taiKhoanNoXuatKho: "6211" },
+      { khoXuat: "  Kho Bình Dương ", taiKhoanNoXuatKho: "6211", taiKhoanCoXuatKho: "" },
+    );
+    const khoa = Object.keys(r.vaLai);
+    return {
+      duoc:
+        r.moc.length === 1 &&
+        /Xuất tại kho: Kho Tổng → Kho Bình Dương$/.test(r.moc[0]) &&
+        khoa.length === 1 &&
+        r.vaLai.khoXuat === "Kho Bình Dương",
+      thucTe: `mốc=[${r.moc.join(" · ")}] · vá=${JSON.stringify(r.vaLai)}`,
+      mongDoi: 'một mốc "Xuất tại kho: Kho Tổng → Kho Bình Dương" · vá chỉ có khoXuat',
+    };
+  },
+);
+
+kiem(
+  'PO-03: xoá trắng một ô (`""`) → bản vá ghi `undefined` = XOÁ trường, nhật ký ghi "→ trống"',
+  CHU_PXK + " · chuỗi rỗng = xoá, giống lúc lập mới",
+  () => {
+    /* 🔴 Nếu tầng ghi quy `""` về "không đụng tới" thì người dùng KHÔNG BAO GIỜ xoá được một ô đã
+       nhập nhầm — bấm Lưu, toast xanh, mà chữ cũ vẫn in trên phiếu. */
+    const r = KD.mocSuaPhieuXuatKho({ dienGiaiXuatKho: "Xuất nhầm" }, { dienGiaiXuatKho: "   " });
+    return {
+      duoc:
+        r.moc.length === 1 &&
+        /→ trống$/.test(r.moc[0]) &&
+        "dienGiaiXuatKho" in r.vaLai &&
+        r.vaLai.dienGiaiXuatKho === undefined,
+      thucTe: `mốc=[${r.moc.join(" · ")}] · có khoá=${"dienGiaiXuatKho" in r.vaLai} · giá trị=${r.vaLai.dienGiaiXuatKho}`,
+      mongDoi: 'một mốc "… → trống" · vá có khoá dienGiaiXuatKho mang undefined',
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC PO-03: lưu lại KHÔNG đụng gì (đơn cũ thiếu ô, form nạp `\"\"`) → 0 mốc, bản vá rỗng",
+  CHU_PXK + " · chống thay đổi giả làm chết ca MA_KHONG_CO_THAY_DOI",
+  () => {
+    /* Form nạp `po.x ?? ""` cho cả 7 ô rồi gửi nguyên state. So thô `undefined` với `""` là mở màn
+       sửa bấm Lưu mà không đổi gì cũng sinh 7 mốc "trống → trống" và ghi đè cả đơn. */
+    const cu = { khoXuat: "Kho Tổng" };
+    const moi = Object.fromEntries(BAY_O_PXK.map((k) => [k, ""]));
+    moi.khoXuat = "Kho Tổng ";
+    const a = KD.mocSuaPhieuXuatKho(cu, moi);
+    /* `undefined` = không đụng tới: ô có giá trị cũ mà nơi gọi không gửi thì KHÔNG bị xoá. */
+    const b = KD.mocSuaPhieuXuatKho({ khoXuat: "Kho Tổng", canCuXuatKho: "ĐN 46" }, {});
+    const n = (r) => r.moc.length + Object.keys(r.vaLai).length;
+    return {
+      duoc: n(a) === 0 && n(b) === 0,
+      thucTe: `không đổi: mốc=${a.moc.length}, vá=${Object.keys(a.vaLai).length} · không gửi: mốc=${b.moc.length}, vá=${Object.keys(b.vaLai).length}`,
+      mongDoi: "cả hai ca 0 mốc, bản vá rỗng",
+    };
+  },
+);
+
+kiem(
+  "PO-03: danh sách ô của tầng ghi phải đủ CẢ BẢY ô form gửi lên",
+  CHU_PXK,
+  () => {
+    /* 🔴 TypeScript KHÔNG bắt được ca này: bỏ một dòng khỏi `TRUONG_PHIEU_XUAT_KHO` thì mọi thứ vẫn
+       biên dịch, form vẫn gửi ô đó, còn tầng ghi lặng lẽ bỏ qua — đúng lỗi §3.5 mà việc 26/09 vừa
+       gỡ. Đọc thẳng hằng số đã bundle. */
+    const co = (KD.TRUONG_PHIEU_XUAT_KHO ?? []).map(([k]) => k);
+    const thieu = BAY_O_PXK.filter((k) => !co.includes(k));
+    return {
+      duoc: co.length === BAY_O_PXK.length && thieu.length === 0,
+      thucTe: `có ${co.length} ô · thiếu: ${thieu.join(", ") || "(không)"}`,
+      mongDoi: `đủ ${BAY_O_PXK.length} ô: ${BAY_O_PXK.join(", ")}`,
+    };
+  },
+);
+
+kiem(
+  "CHIỀU NGƯỢC PO-03: `suaDonHang` phải GỌI `mocSuaPhieuXuatKho` VÀ ÁP bản vá trong `setDonHang`",
+  CHU_PXK + " · nhật ký và dữ liệu phải đi cùng nhau",
+  () => {
+    /* 🔴 Nằm trong `useCallback` nên không gọi thật được — đọc mã nguồn. Hai lỗi ngược nhau, bài này
+       giữ cả hai: mất lệnh gọi → ô sửa không lưu, không nhật ký (toast "Không có gì thay đổi"); mất
+       lệnh áp → nhật ký nói đã sửa mà đơn vẫn giữ chữ cũ. */
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const than = nguon.split("const suaDonHang = useCallback(")[1]?.split("const themDeNghiGiaLap")[0] ?? "";
+    const coGoi = /const mocPXK = mocSuaPhieuXuatKho\(po, thayDoi\)/.test(than);
+    const coNhatKy = /moc\.push\(\.\.\.mocPXK\.moc\)/.test(than);
+    const coAp = /Object\.assign\(sau, mocPXK\.vaLai\)/.test(than);
+    return {
+      duoc: than !== "" && coGoi && coNhatKy && coAp,
+      thucTe:
+        than === ""
+          ? "KHÔNG tìm thấy thân `suaDonHang` — bài kiểm mất chỗ bám, sửa bài kiểm"
+          : `gọi=${coGoi} · nhật ký=${coNhatKy} · áp bản vá=${coAp}`,
+      mongDoi: "gọi=true · nhật ký=true · áp bản vá=true",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // GIỮ BẢN GHI VỪA TẠO CHO TỚI KHI THẤY NÓ TRÊN MÁY CHỦ
 // Sự cố MẤT DỮ LIỆU THẬT — 15/09/2026, Sếp báo lúc 19:33.
 //
@@ -11496,6 +11616,565 @@ kiem(
     return { duoc: !r.startsWith("ABC"), thucTe: r, mongDoi: "không bắt đầu bằng ABC" };
   },
 );
+
+// ════════════════════════════════════════════════════════════════════
+// PHÂN QUYỀN TICK CHỌN — Sếp 26/09/2026
+// "khi chọn nhân viên A thì sẽ hiện 1 list quyền bên cạnh, a giao cho quyền gì thì chỉ cần
+//  tick zô là được" · "được chọn nhiều người cùng lúc" · trưởng bộ phận là người tick.
+//
+// 📌 KHỐI TỰ ĐỦ: thư mục tạm chung (`thuMuc`) đã bị xoá ở phía trên, nên khối này dựng vào thư mục
+//    tạm RIÊNG rồi nạp ngay. Canh HAI CHIỀU cho mỗi luật — chỉ canh "chặn được" thì ai sửa hàm
+//    thành `return "chặn"` vô điều kiện vẫn xanh mà Sếp không tick được cho ai.
+// ════════════════════════════════════════════════════════════════════
+{
+  const thuMucPQ = mkdtempSync(join(tmpdir(), "kiem-luat-pq-"));
+  let QR = null;
+  let LPQ = null;
+  let QX = null;
+  let QTH = null;
+  let VTC = null;
+  try {
+    execSync(
+      `npx --yes esbuild "4-phan-quyen/quyen-rieng.ts" "4-phan-quyen/luat-phan-quyen.ts" "4-phan-quyen/quyen.ts" "4-phan-quyen/quyen-theo-ho-so.ts" "4-phan-quyen/vai-tro-chuan.ts" --bundle --platform=node --format=cjs --outdir="${thuMucPQ}" --out-extension:.js=.cjs --log-level=error`,
+      { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+    );
+    /* Nạp NGAY khi còn thư mục — xoá xong mới nạp là không thấy tệp (bài học `modDMH`). */
+    QR = nap(join(thuMucPQ, "quyen-rieng.cjs"));
+    LPQ = nap(join(thuMucPQ, "luat-phan-quyen.cjs"));
+    QX = nap(join(thuMucPQ, "quyen.cjs"));
+    QTH = nap(join(thuMucPQ, "quyen-theo-ho-so.cjs"));
+    VTC = nap(join(thuMucPQ, "vai-tro-chuan.cjs"));
+  } catch (e) {
+    truot.push({
+      ten: "Dựng 4-phan-quyen/quyen-rieng.ts + luat-phan-quyen.ts + quyen.ts",
+      chu: "Sếp · 26/09/2026 · phân quyền tick",
+      thucTe: `KHÔNG DỰNG ĐƯỢC: ${String(e.stderr ?? e.message).slice(0, 300)}`,
+      mongDoi: "dựng được",
+    });
+  } finally {
+    rmSync(thuMucPQ, { recursive: true, force: true });
+  }
+
+  if (QR && LPQ && QX) {
+    const CHU = "Sếp · 26/09/2026 · phân quyền tick";
+    const nd = (uid, them) => ({
+      uid,
+      tenHienThi: uid,
+      chucDanh: "",
+      phongBan: "",
+      vaiTro: "staff",
+      capKho: 0,
+      ...them,
+    });
+    const TBP = nd("tbp", { chucNang: "truong_bo_phan_thu_mua", capTM: 3, capKho: 1 });
+    const TBP2 = nd("tbp2", { chucNang: "truong_bo_phan_thu_mua", capTM: 3, capKho: 1 });
+    const NV = nd("nv", { chucNang: "nhan_vien_thu_mua", capTM: 2 });
+    const KHO = nd("kho", { chucNang: "thu_kho_cong_trinh", capTM: 1, capKho: 2 });
+    const QT = nd("qt", { chucNang: "truong_bo_phan_thu_mua", vaiTro: "admin", capTM: 4, capKho: 4 });
+    const BGD = nd("bgd", { chucNang: "truong_bo_phan_thu_mua", vaiTro: "director", capTM: 1 });
+    const NGUNG = nd("ngung", { chucNang: "phong_thi_cong", capTM: 0 });
+
+    /** Dựng một người nhận: quyền riêng đang cất + phần thay đổi → trước/sau như route tính. */
+    const dich = (n, riengCu, thayDoi) => {
+      const goc = QX.tinhQuyenTheoChucDanh(n);
+      const ts = QR.tinhTruocSauKhiLuu(goc, riengCu, n.vaiTro === "admin", thayDoi);
+      return {
+        uid: n.uid,
+        ten: n.uid,
+        vaiTro: n.vaiTro,
+        capTM: n.capTM,
+        quyenGoc: goc,
+        quyenTruoc: ts.quyenTruoc,
+        quyenSau: ts.quyenSau,
+        boVaoApp: ts.boVaoApp,
+      };
+    };
+    const goi = (n, quyenRieng = null) => ({ uid: n.uid, nguoiDung: { ...n, quyenRieng } });
+
+    kiem(
+      "🔴 Chưa có quyền riêng → GIỮ NGUYÊN quyền theo chức danh (deploy xong không ai mất quyền)",
+      `${CHU} · Sếp chốt 26/09/2026: "Tạm giữ theo chức danh"`,
+      () => {
+        const goc = QX.tinhQuyenTheoChucDanh(NV);
+        const kq = QR.apDungQuyenRieng(goc, null, false);
+        const tq = QX.tinhQuyen(NV);
+        const giong = Object.keys(goc).every((k) => kq[k] === goc[k] && tq[k] === goc[k]);
+        return {
+          duoc: giong && kq.xemGia === true && kq.lapPO === true,
+          thucTe: `giống gốc=${giong} · xemGia=${kq.xemGia} · lapPO=${kq.lapPO}`,
+          mongDoi: "y hệt quyền theo chức danh (NV Thu mua vẫn xem giá, lập đơn)",
+        };
+      },
+    );
+
+    kiem(
+      "Có quyền riêng → cờ tick được lấy ĐÚNG theo bản riêng (thiếu khoá = tắt) — hai chiều: bỏ được VÀ thêm được",
+      CHU,
+      () => {
+        /* Chiều BỎ: NV chỉ được tick "Vào app" → mất xem giá, mất lập đơn. */
+        const nv = QX.tinhQuyen({ ...NV, quyenRieng: { xemDuocApp: true } });
+        /* Chiều THÊM: thủ kho vốn KHÔNG xem giá, tick thêm là xem được. */
+        const kho = QX.tinhQuyen({ ...KHO, quyenRieng: { xemDuocApp: true, xemGia: true } });
+        const khoGoc = QX.tinhQuyen(KHO);
+        return {
+          duoc: nv.xemDuocApp && !nv.xemGia && !nv.lapPO && kho.xemGia && !khoGoc.xemGia,
+          thucTe: `NV: vào=${nv.xemDuocApp} giá=${nv.xemGia} lập đơn=${nv.lapPO} · kho gốc giá=${khoGoc.xemGia} → tick giá=${kho.xemGia}`,
+          mongDoi: "NV: vào=true giá=false lập đơn=false · kho gốc giá=false → tick giá=true",
+        };
+      },
+    );
+
+    kiem(
+      "🔴 tinhQuyen(nguoiDung) ĐÃ áp quyền riêng — tầng ghi kho-du-lieu.tsx gác quyền bằng chính hàm này",
+      CHU,
+      () => {
+        /* Nếu ai tách lớp đè ra khỏi `tinhQuyen` (chỉ áp ở context) thì giao diện hiện nút theo
+           quyền tick còn tầng ghi vẫn gác theo chức danh: nút hiện, bấm bị từ chối. */
+        const coGhi = QX.tinhQuyen({ ...KHO, quyenRieng: { xemDuocApp: true, ghiThanhToan: true } });
+        const boGhi = QX.tinhQuyen({ ...NV, quyenRieng: { xemDuocApp: true, lapPO: true } });
+        return {
+          duoc: coGhi.ghiThanhToan === true && boGhi.ghiThanhToan === false,
+          thucTe: `kho tick ghi TT=${coGhi.ghiThanhToan} · NV bỏ ghi TT=${boGhi.ghiThanhToan}`,
+          mongDoi: "kho tick ghi TT=true · NV bỏ ghi TT=false",
+        };
+      },
+    );
+
+    kiem(
+      "Quản trị KHÔNG tự khoá được · bỏ 'Vào app' là mất hết · tài khoản Ngừng truy cập KHÔNG mở lại được bằng tick",
+      CHU,
+      () => {
+        const qt = QX.tinhQuyen({ ...QT, quyenRieng: {} });
+        const tatVao = QX.tinhQuyen({ ...NV, quyenRieng: { xemDuocApp: false, xemGia: true, lapPO: true } });
+        const conBat = Object.entries(tatVao).filter(([, v]) => v).map(([k]) => k);
+        const ngung = QX.tinhQuyen({ ...NGUNG, quyenRieng: { xemDuocApp: true, xemGia: true } });
+        return {
+          duoc: qt.xoaToanBoDuLieu && qt.phanQuyenNguoiDung && conBat.length === 0 && !ngung.xemDuocApp && !ngung.xemGia,
+          thucTe: `QT xoá=${qt.xoaToanBoDuLieu} phân quyền=${qt.phanQuyenNguoiDung} · bỏ vào app còn bật=[${conBat}] · ngừng: vào=${ngung.xemDuocApp} giá=${ngung.xemGia}`,
+          mongDoi: "QT đủ quyền · bỏ vào app còn bật=[] · ngừng: vào=false giá=false",
+        };
+      },
+    );
+
+    kiem(
+      "Ghép phần thay đổi: ô đã chạm thắng, ô chưa chạm giữ của từng người; chưa có quyền riêng mà trùng mẫu → KHÔNG ghi",
+      CHU,
+      () => {
+        const nen = { xemDuocApp: true, xemGia: true, lapPO: true };
+        const g = QR.ghepQuyenRieng(nen, { xemGia: false, xemCongNo: true });
+        const gocNV = QX.tinhQuyenTheoChucDanh(NV);
+        const trungMau = QR.canGhiQuyenRieng(null, gocNV, { xemGia: true, lapPO: true });
+        const khacMau = QR.canGhiQuyenRieng(null, gocNV, { xemGia: false });
+        const voNghia = QR.canGhiQuyenRieng({ ...nen }, gocNV, { xemGia: true });
+        return {
+          duoc:
+            g.xemDuocApp && !g.xemGia && g.lapPO && g.xemCongNo && !trungMau && khacMau && !voNghia,
+          thucTe: `ghép: vào=${g.xemDuocApp} giá=${g.xemGia} lập=${g.lapPO} nợ=${g.xemCongNo} · trùng mẫu ghi=${trungMau} · khác mẫu ghi=${khacMau} · không đổi ghi=${voNghia}`,
+          mongDoi: "ghép: vào=true giá=false lập=true nợ=true · trùng mẫu ghi=false · khác mẫu ghi=true · không đổi ghi=false",
+        };
+      },
+    );
+
+    kiem(
+      "✅ Trưởng bộ phận TRAO ĐƯỢC cờ mình có cho nhân viên cấp 2 (chiều cho phép — nếu đỏ là Sếp không tick được cho ai)",
+      CHU,
+      () => {
+        /* "Xem mọi hồ sơ": chức danh NV KHÔNG cho, trưởng bộ phận CÓ → trao được. (Chọn cờ chức danh
+           NV không có, để phép thử đi đúng nhánh "người trao đang có", không nhờ nhánh miễn cờ chức danh.) */
+        const r = LPQ.vuongMacTraoQuyen(goi(TBP), [dich(NV, null, { xemMoiHoSo: true })]);
+        /* Nhiều người một lượt: NV + thủ kho, chỉ bỏ "Xem nhà cung cấp" — thủ kho vẫn giữ "Ghi phiếu
+           nhận hàng" mà trưởng bộ phận KHÔNG có; giữ nguyên không phải là trao. */
+        const r2 = LPQ.vuongMacTraoQuyen(goi(TBP), [
+          dich(NV, null, { xemNhaCungCap: false }),
+          dich(KHO, null, { xemNhaCungCap: false }),
+        ]);
+        /* Thủ kho có quyền riêng cũ thiếu "Ghi phiếu nhận hàng"; áp lại mẫu chức danh → bật lại cờ
+           chức danh đã cho sẵn, KHÔNG tính là trao. */
+        const r3 = LPQ.vuongMacTraoQuyen(goi(TBP), [
+          dich(KHO, { xemDuocApp: true }, QR.rutQuyenRieng(QX.tinhQuyenTheoChucDanh(KHO))),
+        ]);
+        return {
+          duoc: r === null && r2 === null && r3 === null,
+          thucTe: `trao xem mọi hồ sơ=${r ?? "cho qua"} · nhiều người=${r2 ?? "cho qua"} · áp mẫu kho=${r3 ?? "cho qua"}`,
+          mongDoi: "cả ba cho qua",
+        };
+      },
+    );
+
+    kiem(
+      "⛔ Chống leo quyền: trưởng bộ phận KHÔNG trao được cờ mình không có, KHÔNG trao 'Xoá toàn bộ'",
+      /* Đổi theo soát chéo 26/09/2026: bỏ ca "trao 'Phân quyền'" — cờ đó không tick được nữa (máy chủ
+         `/api/phan-quyen` gác theo cấp), việc chặn nó đã có bài kiểm riêng ngay dưới. */
+      `${CHU} · sửa theo soát chéo 26/09/2026`,
+      () => {
+        const khongCo = LPQ.vuongMacTraoQuyen(goi(TBP), [dich(NV, null, { ghiPhieuNhanHang: true })]);
+        const xoa = LPQ.vuongMacTraoQuyen(goi(TBP), [dich(NV, null, { xoaToanBoDuLieu: true })]);
+        /* Chiều ngược: Quản trị trao được cả hai. */
+        const qtTrao = LPQ.vuongMacTraoQuyen(goi(QT), [
+          dich(NV, null, { xoaToanBoDuLieu: true, ghiPhieuNhanHang: true }),
+        ]);
+        return {
+          duoc: khongCo !== null && xoa !== null && qtTrao === null,
+          thucTe: `không có=${khongCo ? "chặn" : "LỌT"} · xoá=${xoa ? "chặn" : "LỌT"} · QT trao=${qtTrao ?? "cho qua"}`,
+          mongDoi: "hai ca đầu chặn · QT trao cho qua",
+        };
+      },
+    );
+
+    kiem(
+      "⛔ Không tự sửa mình · TBP không sửa Quản trị/BGĐ/trưởng bộ phận khác · người cấp 2 không tick cho ai",
+      /* Đổi theo soát chéo 26/09/2026 (hai lượt): ca "bị bỏ tick 'Phân quyền'" rồi ca "bản riêng cũ
+         khoá 'Vào app' của TBP" đều không còn tồn tại — cờ phân quyền theo chức danh, và "Vào app" của
+         người cấp ≥ 3 bị ép bật (`apDungQuyenRieng` ⑤). Đường còn lại: người gọi cấp 2 (chức danh không
+         có quyền phân quyền). ★ Sếp chốt 26/09/2026 "Giữ quyền này": TBP không sửa được BGĐ. */
+      `${CHU} · sửa theo soát chéo 26/09/2026 · Sếp: "Giữ quyền này" (BGĐ)`,
+      () => {
+        /* Tự sửa: dùng Quản trị — trưởng bộ phận tự sửa mình còn vướng luật cấp, phép thử sẽ không
+           chứng minh được chốt "không tự sửa". */
+        const tuSua = LPQ.vuongMacTraoQuyen(goi(QT), [dich(QT, null, { xemCongNo: false })]);
+        const suaQT = LPQ.vuongMacTraoQuyen(goi(TBP), [dich(QT, null, { xemGia: false })]);
+        const suaBGD = LPQ.vuongMacTraoQuyen(goi(TBP), [dich(BGD, null, { xemGia: false })]);
+        const suaTBP2 = LPQ.vuongMacTraoQuyen(goi(TBP), [dich(TBP2, null, { xemGia: false })]);
+        const hetQuyen = LPQ.vuongMacTraoQuyen(goi(NV), [dich(KHO, null, { xemGia: false })]);
+        /* Chiều ngược: Quản trị sửa được BGĐ. */
+        const qtSuaBGD = LPQ.vuongMacTraoQuyen(goi(QT), [dich(BGD, null, { xemGia: false })]);
+        const chan = [tuSua, suaQT, suaBGD, suaTBP2, hetQuyen];
+        return {
+          duoc: chan.every((x) => x !== null) && qtSuaBGD === null,
+          thucTe: `${chan.map((x) => (x ? "chặn" : "LỌT")).join(" · ")} · QT sửa BGĐ=${qtSuaBGD ?? "cho qua"}`,
+          mongDoi: "chặn · chặn · chặn · chặn · chặn · QT sửa BGĐ=cho qua",
+        };
+      },
+    );
+
+    kiem(
+      "🔴 'Phân quyền người dùng' và 'Xuất hồ sơ' KHÔNG tick được — luôn theo chức danh; hai khoá này gửi lên là bị từ chối",
+      /* Soát chéo 26/09/2026: `/api/phan-quyen` (phiên tích hợp) gác gán chức danh theo CẤP, không đọc
+         quyền tick → bỏ tick "Phân quyền" chỉ ẩn màn hình, máy chủ vẫn cho gán. Soát lần 2: không nút
+         xuất/in nào đọc `quyen.xuatHoSo` → ô đó không chặn gì. Cả hai rút khỏi danh sách tick. */
+      `${CHU} · soát chéo 26/09/2026 (máy chủ gác theo cấp · xuatHoSo không có chỗ đọc)`,
+      () => {
+        const coTrongDs =
+          QR.KHOA_TICK.includes("phanQuyenNguoiDung") || QR.KHOA_TICK.includes("xuatHoSo");
+        const ch = QR.chuanHoaQuyenRieng({ xemGia: true, phanQuyenNguoiDung: true, xuatHoSo: false });
+        const biTuChoi =
+          ch !== null &&
+          ch.boQua.includes("phanQuyenNguoiDung") &&
+          ch.boQua.includes("xuatHoSo") &&
+          !("phanQuyenNguoiDung" in ch.quyen) &&
+          !("xuatHoSo" in ch.quyen);
+        /* Chiều BỎ: trưởng bộ phận có bản riêng ghi tắt cờ này → vẫn giữ (theo chức danh). */
+        const tbp = QX.tinhQuyen({ ...TBP, quyenRieng: { xemDuocApp: true, phanQuyenNguoiDung: false } });
+        /* Chiều THÊM: nhân viên có bản riêng ghi bật cờ này → vẫn không có (theo chức danh). */
+        const nv = QX.tinhQuyen({ ...NV, quyenRieng: { xemDuocApp: true, phanQuyenNguoiDung: true } });
+        return {
+          duoc: !coTrongDs && biTuChoi && tbp.phanQuyenNguoiDung === true && nv.phanQuyenNguoiDung === false,
+          thucTe: `trong DS tick=${coTrongDs} · khoá bị từ chối=${biTuChoi} · TBP giữ=${tbp.phanQuyenNguoiDung} · NV có=${nv.phanQuyenNguoiDung}`,
+          mongDoi: "trong DS tick=false · khoá bị từ chối=true · TBP giữ=true · NV có=false",
+        };
+      },
+    );
+
+    kiem(
+      "🔴 Không bỏ được 'Vào app' của người cấp ≥ 3 (kể cả Quản trị bỏ) — hai chiều",
+      /* Soát chéo 26/09/2026: bỏ "Vào app" của người cấp Quản lý chỉ khoá giao diện, `/api/phan-quyen`
+         vẫn cho họ gán chức danh theo cấp. Chiều ngược phải còn: bỏ của người cấp 2 được, bỏ cờ KHÁC
+         của người cấp 3 được, và tick LÊN lại được. */
+      `${CHU} · soát chéo 26/09/2026 (máy chủ gác theo cấp)`,
+      () => {
+        const boTBP = LPQ.vuongMacTraoQuyen(goi(QT), [dich(TBP, null, { xemDuocApp: false })]);
+        const boNV = LPQ.vuongMacTraoQuyen(goi(QT), [dich(NV, null, { xemDuocApp: false })]);
+        const boGiaTBP = LPQ.vuongMacTraoQuyen(goi(QT), [dich(TBP, null, { xemGia: false })]);
+        /* Bản riêng cũ đã lỡ khoá "Vào app" của TBP → tick LÊN lại phải được. */
+        const tickLai = LPQ.vuongMacTraoQuyen(goi(QT), [dich(TBP, { xemDuocApp: false }, { xemDuocApp: true })]);
+        const dungCau = typeof boTBP === "string" && boTBP.includes("Muốn thu hồi thì hạ chức danh");
+        return {
+          duoc: dungCau && boNV === null && boGiaTBP === null && tickLai === null,
+          thucTe: `bỏ vào app TBP=${boTBP ? "chặn" : "LỌT"}${dungCau ? "" : " (sai câu)"} · bỏ NV=${boNV ?? "cho qua"} · bỏ giá TBP=${boGiaTBP ?? "cho qua"} · tick lại=${tickLai ?? "cho qua"}`,
+          mongDoi: "bỏ vào app TBP=chặn (đúng câu) · bỏ NV=cho qua · bỏ giá TBP=cho qua · tick lại=cho qua",
+        };
+      },
+    );
+
+    kiem(
+      "🔴 Dấu chức danh: KHỚP thì dùng nguyên; LỆCH thì chỉ mang sang cờ ĐÃ BỊ BỎ THẬT (vòng NV→Kho→NV) — không lách được bằng đổi chức danh vòng",
+      /* Soát chéo 26/09/2026: bản lưu cho chức danh cũ áp nguyên lên chức danh mới → hạ chức danh không
+         hạ được quyền, và lách "chỉ trao cờ mình có" (NV → Thủ kho → lưu → NV, cờ thủ kho ở lại).
+         Soát lần 2: công thức lệch đổi sang `goc && !(gocCu && !rieng)` — cờ mới của chức danh mới được
+         cấp (trước đây "Lập đơn" của NV bị tắt oan chỉ vì bản thời thủ kho không có). */
+      `${CHU} · soát chéo 26/09/2026 (dấu chức danh, sửa công thức lần 2)`,
+      () => {
+        const gocKho = QX.tinhQuyenTheoChucDanh(KHO);
+        /* Bản lưu thời NV ở chức danh THỦ KHO: có ghi phiếu nhận hàng, BỎ xem NCC, được trao thêm xem giá. */
+        const banKho = {
+          quyen: { ...QR.rutQuyenRieng(gocKho), xemNhaCungCap: false, xemGia: true },
+          theoChucDanh: QR.dauChucDanhCua(KHO),
+        };
+        /* Chiều KHỚP: vẫn là thủ kho → dùng nguyên (kể cả cờ vượt chức danh "Xem giá" đã được trao). */
+        const khop = QX.quyenRiengConHieuLuc(banKho, KHO);
+        /* Chiều LỆCH: đổi lại NV → cờ thủ kho mất; "Xem NCC" đã bị bỏ thật → vẫn bỏ; "Lập đơn" là cờ
+           MỚI của NV (thủ kho không có) → được cấp; "Xem giá" NV có sẵn → có. */
+        const lech = QX.quyenRiengConHieuLuc(banKho, NV);
+        const hlNV = QX.tinhQuyen({ ...NV, quyenRieng: lech });
+        /* THIẾU dấu → cách an toàn cũ: cờ vắng trong bản coi như đã bỏ. */
+        const thieuDau = QX.quyenRiengConHieuLuc({ quyen: banKho.quyen }, NV);
+        /* Lách vòng: trưởng bộ phận (không có "Ghi phiếu nhận hàng") lưu thêm cho NV đang mang bản cũ
+           → cờ đó KHÔNG được coi là "có sẵn". */
+        const lach = LPQ.vuongMacTraoQuyen(goi(TBP), [dich(NV, lech, { ghiPhieuNhanHang: true })]);
+        return {
+          duoc:
+            khop.ghiPhieuNhanHang === true &&
+            khop.xemGia === true &&
+            lech.ghiPhieuNhanHang === false &&
+            lech.xemNhaCungCap === false &&
+            lech.lapPO === true &&
+            hlNV.ghiPhieuNhanHang === false &&
+            hlNV.xemGia === true &&
+            thieuDau.lapPO === false &&
+            lach !== null,
+          thucTe: `khớp: phiếu=${khop.ghiPhieuNhanHang} giá=${khop.xemGia} · lệch: phiếu=${lech.ghiPhieuNhanHang} NCC=${lech.xemNhaCungCap} lập=${lech.lapPO} · NV hiệu lực: phiếu=${hlNV.ghiPhieuNhanHang} giá=${hlNV.xemGia} · thiếu dấu lập=${thieuDau.lapPO} · lách=${lach ? "chặn" : "LỌT"}`,
+          mongDoi: "khớp: phiếu=true giá=true · lệch: phiếu=false NCC=false lập=true · NV hiệu lực: phiếu=false giá=true · thiếu dấu lập=false · lách=chặn",
+        };
+      },
+    );
+
+    kiem(
+      "🔴 NÂNG chức danh (NV → Trưởng BP) được ĐỦ cờ của chức danh mới, TRỪ cờ đã bị bỏ ở bản cũ",
+      /* Soát chéo lần 2 26/09/2026: công thức cũ `goc && rieng` làm người được nâng mất luôn "Giao việc"
+         (bản thời NV không có) — nâng mà không nâng. */
+      `${CHU} · soát chéo lần 2 26/09/2026`,
+      () => {
+        const gocNV = QX.tinhQuyenTheoChucDanh(NV);
+        const banNV = { quyen: { ...QR.rutQuyenRieng(gocNV), xemGia: false }, theoChucDanh: QR.dauChucDanhCua(NV) };
+        const hl = QX.tinhQuyen({ ...TBP, quyenRieng: QX.quyenRiengConHieuLuc(banNV, TBP) });
+        return {
+          duoc: hl.phanBoCongViec && hl.xacNhanTruongBP && hl.suaPODaChot && !hl.xemGia && hl.lapPO,
+          thucTe: `giao việc=${hl.phanBoCongViec} xác nhận TBP=${hl.xacNhanTruongBP} sửa đơn chốt=${hl.suaPODaChot} · giá (đã bỏ)=${hl.xemGia} · lập đơn=${hl.lapPO}`,
+          mongDoi: "giao việc=true xác nhận TBP=true sửa đơn chốt=true · giá (đã bỏ)=false · lập đơn=true",
+        };
+      },
+    );
+
+    kiem(
+      "Dấu chức danh: capKho vắng / 0 / undefined là MỘT; capKho có mặt mà sai khuôn → coi như thiếu dấu (không đoán 0)",
+      `${CHU} · soát chéo lần 2 26/09/2026`,
+      () => {
+        const vang = QR.chuanHoaDauChucDanh({ chucNang: "nhan_vien_thu_mua", vaiTro: "staff", capTM: 2 });
+        const khong = QR.chuanHoaDauChucDanh({ chucNang: "nhan_vien_thu_mua", vaiTro: "staff", capTM: 2, capKho: 0 });
+        const sai = QR.chuanHoaDauChucDanh({ chucNang: "nhan_vien_thu_mua", vaiTro: "staff", capTM: 2, capKho: "2" });
+        const ndKhongCapKho = { ...NV, capKho: undefined };
+        const khop1 = QR.khopDauChucDanh(vang, QR.dauChucDanhCua(ndKhongCapKho));
+        const khop2 = QR.khopDauChucDanh(khong, QR.dauChucDanhCua(NV));
+        const lechKho = QR.khopDauChucDanh(khong, QR.dauChucDanhCua({ ...NV, capKho: 2 }));
+        return {
+          duoc: khop1 && khop2 && sai === undefined && !lechKho,
+          thucTe: `vắng~undefined=${khop1} · 0~0=${khop2} · sai khuôn=${sai === undefined ? "thiếu dấu" : "ĐOÁN"} · 0 vs 2=${lechKho ? "KHỚP NHẦM" : "lệch"}`,
+          mongDoi: "vắng~undefined=true · 0~0=true · sai khuôn=thiếu dấu · 0 vs 2=lệch",
+        };
+      },
+    );
+
+    kiem(
+      "🔴 Người cấp ≥ 3 luôn còn 'Vào app' + 'Phân quyền' dù bản riêng cũ đã tắt (bị bỏ lúc cấp 2 rồi được nâng) — chiều ngược: cấp 2 vẫn khoá được",
+      /* Soát chéo lần 2 26/09/2026: người bị bỏ "Vào app" lúc cấp 2 rồi được nâng lên cấp ≥ 3 → dây
+         chuyền tắt luôn `phanQuyenNguoiDung` trên giao diện, trong khi `/api/phan-quyen` vẫn cho họ gán
+         chức danh theo cấp. `apDungQuyenRieng` ⑤ ép "Vào app" bật cho người chức danh có quyền phân quyền. */
+      `${CHU} · soát chéo lần 2 26/09/2026 (máy chủ gác theo cấp)`,
+      () => {
+        const tbp = QX.tinhQuyen({ ...TBP, quyenRieng: { xemDuocApp: false } });
+        const nv = QX.tinhQuyen({ ...NV, quyenRieng: { xemDuocApp: false } });
+        const conBatNV = Object.entries(nv).filter(([, v]) => v).map(([k]) => k);
+        /* Đúng kịch bản: bản thời NV đã khoá hết, rồi hồ sơ được nâng lên TBP. */
+        const banNVKhoa = { quyen: {}, theoChucDanh: QR.dauChucDanhCua(NV) };
+        const nang = QX.tinhQuyen({ ...TBP, quyenRieng: QX.quyenRiengConHieuLuc(banNVKhoa, TBP) });
+        return {
+          duoc:
+            tbp.xemDuocApp && tbp.phanQuyenNguoiDung && !tbp.xemGia && conBatNV.length === 0 &&
+            nang.xemDuocApp && nang.phanQuyenNguoiDung,
+          thucTe: `TBP bản tắt: vào=${tbp.xemDuocApp} phân quyền=${tbp.phanQuyenNguoiDung} giá=${tbp.xemGia} · NV bản tắt còn bật=[${conBatNV}] · nâng NV→TBP: vào=${nang.xemDuocApp} phân quyền=${nang.phanQuyenNguoiDung}`,
+          mongDoi: "TBP bản tắt: vào=true phân quyền=true giá=false · NV bản tắt còn bật=[] · nâng NV→TBP: vào=true phân quyền=true",
+        };
+      },
+    );
+
+    kiem(
+      "★ Cờ chức danh đã cho sẵn: Quản trị bỏ rồi trưởng bộ phận BẬT LẠI được (không tính là trao)",
+      /* Sếp chốt 26/09/2026, nguyên văn "Có được bật lại quyền". Chiều ngược: cờ chức danh KHÔNG cho mà
+         trưởng bộ phận không có thì vẫn chặn (đã canh ở bài chống leo quyền). */
+      `Sếp · 26/09/2026 · "Có được bật lại quyền"`,
+      () => {
+        const gocKho = QX.tinhQuyenTheoChucDanh(KHO);
+        /* Quản trị đã bỏ "Ghi phiếu nhận hàng" của thủ kho (bản riêng dấu thủ kho). */
+        const banQT = { quyen: { ...QR.rutQuyenRieng(gocKho), ghiPhieuNhanHang: false }, theoChucDanh: QR.dauChucDanhCua(KHO) };
+        const riengCu = QX.quyenRiengConHieuLuc(banQT, KHO);
+        const batLai = LPQ.vuongMacTraoQuyen(goi(TBP), [dich(KHO, riengCu, { ghiPhieuNhanHang: true })]);
+        const vuotChucDanh = LPQ.vuongMacTraoQuyen(goi(TBP), [dich(KHO, riengCu, { xacNhanTruongBP: true, ghiPhieuNhanHang: true })]);
+        return {
+          duoc: batLai === null && vuotChucDanh === null,
+          thucTe: `bật lại phiếu=${batLai ?? "cho qua"} · kèm cờ TBP có (xác nhận TBP)=${vuotChucDanh ?? "cho qua"}`,
+          mongDoi: "cả hai cho qua (TBP có 'Xác nhận TBP' nên trao được; 'Ghi phiếu' là cờ chức danh đã cho)",
+        };
+      },
+    );
+
+    /* ★ MỌI Ô TICK PHẢI CÓ CHỖ ĐỌC THẬT — soát chéo lần 2 26/09/2026. Ô tick mà không nút/màn nào đọc cờ
+       đó là giao diện hứa một việc app không làm (đã gặp: `xuatHoSo`). Quét MÃ NGUỒN (bỏ chú thích,
+       không tin `grep` thô — chú thích nhắc tên cờ không phải chỗ đọc). Tính cả hàm trong `quyen.ts`
+       (`duocVaoDuongDan`) và `quyen-theo-ho-so.ts`, vì chúng được giao diện/tầng ghi gọi thật; bỏ các tệp
+       chỉ để PHÂN QUYỀN (màn phân quyền, luật tick) vì chúng đọc cờ để hiện chứ không để gác. */
+    kiem(
+      "★ Mọi ô tick được đều có ít nhất một chỗ ĐỌC THẬT trong mã nguồn (không phải chú thích)",
+      `${CHU} · soát chéo lần 2 26/09/2026 (xuatHoSo từng không có chỗ đọc)`,
+      () => {
+        const fs = nap("node:fs");
+        const THU_MUC = ["1-giao-dien", "2-quy-trinh", "3-du-lieu", "4-phan-quyen", "app", "5-ket-noi", "6-tien-ich"];
+        const BO = new Set([
+          "4-phan-quyen/quyen-rieng.ts",
+          "4-phan-quyen/quyen-rieng-ket-noi.ts",
+          "4-phan-quyen/luat-phan-quyen.ts",
+          "4-phan-quyen/vai-tro-chuan.ts",
+          "4-phan-quyen/nguoi-dung-hien-tai.tsx",
+          "1-giao-dien/trang/phan-quyen.tsx",
+          "app/api/quyen-rieng/route.ts",
+        ]);
+        const tep = [];
+        const di = (d) => {
+          for (const t of fs.readdirSync(d)) {
+            const p = `${d}/${t}`;
+            if (t === "node_modules" || t === "nen-tang-ui") continue;
+            if (fs.statSync(p).isDirectory()) di(p);
+            else if (/\.(ts|tsx)$/.test(t) && !BO.has(p)) tep.push(p);
+          }
+        };
+        THU_MUC.filter((d) => fs.existsSync(d)).forEach(di);
+        const boChuThich = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+        const coDoc = new Set();
+        for (const p of tep) {
+          const s = boChuThich(fs.readFileSync(p, "utf8"));
+          for (const m of s.matchAll(/\b(?:quyen|q)\??\.(\w+)\b|tinhQuyen\([^)]*\)\.(\w+)/g)) coDoc.add(m[1] ?? m[2]);
+        }
+        const thieu = QR.KHOA_TICK.filter((k) => !coDoc.has(k));
+        /* Chốt dương tính: cờ chắc chắn có chỗ đọc phải được tìm thấy — nếu không, phép quét hỏng. */
+        const quetDuoc = coDoc.has("xemGia") && coDoc.has("lapPO") && tep.length > 50;
+        return {
+          duoc: quetDuoc && thieu.length === 0,
+          thucTe: quetDuoc ? `ô tick không chỗ đọc: [${thieu.join(", ")}]` : `phép quét hỏng (${tep.length} tệp)`,
+          mongDoi: "ô tick không chỗ đọc: [] — rút ô nào không có chỗ đọc khỏi CO_TICK_DUOC",
+        };
+      },
+    );
+
+    // ── Sếp 26/09/2026 "Nối vào ô tíck": quyền theo từng hồ sơ + danh sách Giao việc ──
+    if (QTH && VTC) {
+      const CHU_G = 'Sếp · 26/09/2026 · "Nối vào ô tíck" (quyền theo hồ sơ + Giao việc)';
+      /** Đề nghị tối giản: loại hồ sơ + có chia việc cho `uidChia` hay không. */
+      const dnThu = (loaiHoSo, uidChia) => ({
+        loaiHoSo,
+        items: [{ stt: 1, nguoiPhuTrachUid: uidChia }],
+        nguoiTheoDoi: [],
+      });
+      const ndTuVaiTro = (v, uid) => ({
+        uid,
+        tenHienThi: uid,
+        chucDanh: "",
+        phongBan: "",
+        chucNang: v.chucNang,
+        vaiTro: v.vaiTro,
+        capTM: v.capTM,
+        capKho: v.capKho,
+      });
+
+      kiem(
+        "🔴 CHƯA có quyền riêng → ba quyền theo hồ sơ Y HỆT luật cũ theo chức danh, với MỌI chức danh chuẩn",
+        /* Không ai mất quyền khi deploy. So với luật cũ viết lại ngay trong bài kiểm:
+           người thu mua = cấp ≥ 2 và (NV/Trưởng BP Thu mua hoặc được chia việc); ghi nhận giao hàng =
+           ghiPhieuNhanHang hoặc (hồ sơ phòng ban và người thu mua). */
+        CHU_G,
+        () => {
+          const lech = [];
+          for (const v of VTC.VAI_TRO_CHUAN) {
+            for (const coRiengNull of [false, true]) {
+              const nd = { ...ndTuVaiTro(v, "x"), ...(coRiengNull ? { quyenRieng: null } : {}) };
+              const q = QX.tinhQuyen(nd);
+              for (const loai of ["phong_ban", "cong_trinh"]) {
+                for (const chia of [true, false]) {
+                  const dn = dnThu(loai, chia ? "x" : "khac");
+                  const ntm =
+                    nd.capTM >= 2 &&
+                    (nd.chucNang === "nhan_vien_thu_mua" || nd.chucNang === "truong_bo_phan_thu_mua" || chia);
+                  const cu = [ntm, ntm, q.ghiPhieuNhanHang || (loai === "phong_ban" && ntm)];
+                  const moi = [
+                    QTH.duocXacNhanNhanDuHangCuaHoSo(dn, nd),
+                    QTH.duocGhiDoiChieuThuMua(dn, nd),
+                    QTH.duocGhiNhanGiaoHangCuaHoSo(dn, nd, q),
+                  ];
+                  if (cu.some((x, i) => x !== moi[i])) lech.push(`${v.ma}/${loai}/${chia ? "chia" : "-"}`);
+                }
+              }
+            }
+          }
+          return {
+            duoc: lech.length === 0,
+            thucTe: lech.length === 0 ? "khớp hết" : `LỆCH: ${lech.slice(0, 6).join(" · ")}`,
+            mongDoi: "khớp hết (người chưa có quyền riêng không đổi hành vi)",
+          };
+        },
+      );
+
+      kiem(
+        "🔴 Bỏ tick 'Lập đơn mua hàng' → mất xác nhận nhận đủ / đối chiếu / ghi nhận giao hàng phòng ban; tick lại → có lại (hai chiều)",
+        /* Cờ chọn là `lapPO` ("đang LÀM thu mua"), KHÔNG phải `xacNhanKho` (Sếp 17/09 đã gỡ cờ kho khỏi
+           luật này) hay `ghiPhieuNhanHang` (cờ thủ kho). Chiều cuối: thủ kho vẫn ghi nhận nhờ cờ riêng
+           của họ, không bị ô "Lập đơn" kéo theo. */
+        CHU_G,
+        () => {
+          const dn = dnThu("phong_ban", "nv");
+          const mauNV = QR.rutQuyenRieng(QX.tinhQuyenTheoChucDanh(NV));
+          const boLap = { ...NV, quyenRieng: { ...mauNV, lapPO: false } };
+          const coLap = { ...NV, quyenRieng: { ...mauNV } };
+          const ba = (n) => [
+            QTH.duocXacNhanNhanDuHangCuaHoSo(dn, n),
+            QTH.duocGhiDoiChieuThuMua(dn, n),
+            QTH.duocGhiNhanGiaoHangCuaHoSo(dn, n, QX.tinhQuyen(n)),
+          ];
+          const kqBo = ba(boLap);
+          const kqCo = ba(coLap);
+          const mauKho = QR.rutQuyenRieng(QX.tinhQuyenTheoChucDanh(KHO));
+          const kho = { ...KHO, quyenRieng: { ...mauKho, lapPO: false } };
+          const khoGhi = QTH.duocGhiNhanGiaoHangCuaHoSo(dnThu("cong_trinh", "khac"), kho, QX.tinhQuyen(kho));
+          return {
+            duoc: kqBo.every((x) => x === false) && kqCo.every((x) => x === true) && khoGhi === true,
+            thucTe: `bỏ lập đơn=[${kqBo}] · có lập đơn=[${kqCo}] · thủ kho ghi nhận=${khoGhi}`,
+            mongDoi: "bỏ lập đơn=[false,false,false] · có lập đơn=[true,true,true] · thủ kho ghi nhận=true",
+          };
+        },
+      );
+
+      kiem(
+        "🔴 Danh sách Giao việc: người bị bỏ 'Vào app' bị LỌC RA; chưa có quyền riêng / cấp ≥ 3 thì KHÔNG bị lọc (hai chiều)",
+        /* Máy chủ `/api/quyen-rieng?biKhoa=1` dùng đúng `nguoiBiKhoaVaoApp` để lập danh sách lọc cho
+           `bang-phan-bo.tsx`. Cấp ≥ 3 luôn còn "Vào app" (`apDungQuyenRieng` ⑤) nên không bị lọc. */
+        CHU_G,
+        () => {
+          const khoaNV = QX.nguoiBiKhoaVaoApp(NV, { quyen: {}, theoChucDanh: QR.dauChucDanhCua(NV) });
+          const chuaCo = QX.nguoiBiKhoaVaoApp(NV, null);
+          const moNV = QX.nguoiBiKhoaVaoApp(NV, {
+            quyen: QR.rutQuyenRieng(QX.tinhQuyenTheoChucDanh(NV)),
+            theoChucDanh: QR.dauChucDanhCua(NV),
+          });
+          const tbp = QX.nguoiBiKhoaVaoApp(TBP, { quyen: {}, theoChucDanh: QR.dauChucDanhCua(TBP) });
+          /* Bản cũ thời thủ kho đã khoá, nay là NV → vẫn khoá (cờ đã bị bỏ thật mang sang). */
+          const khoaCu = QX.nguoiBiKhoaVaoApp(NV, { quyen: {}, theoChucDanh: QR.dauChucDanhCua(KHO) });
+          return {
+            duoc: khoaNV && !chuaCo && !moNV && !tbp && khoaCu,
+            thucTe: `NV bị khoá=${khoaNV} · chưa có bản=${chuaCo} · NV mở=${moNV} · TBP bản tắt=${tbp} · bản cũ thời kho=${khoaCu}`,
+            mongDoi: "NV bị khoá=true · chưa có bản=false · NV mở=false · TBP bản tắt=false · bản cũ thời kho=true",
+          };
+        },
+      );
+    }
+  }
+}
 
 const tong = dat + truot.length;
 console.log("");

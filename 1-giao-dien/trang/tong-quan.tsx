@@ -1,8 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { AlertTriangle, ClipboardList, FileText, PackageCheck, ShoppingCart, Timer } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ClipboardList,
+  FileText,
+  Layers,
+  PackageCheck,
+  ShoppingCart,
+  Timer,
+} from "lucide-react";
+import { gomTheoCongTrinh, tenCongTrinhCuaPO } from "@/2-quy-trinh/gom-cong-trinh";
 import { KpiCard } from "@/1-giao-dien/thanh-phan-dung-chung/kpi-card";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -22,6 +31,10 @@ import { cn } from "@/6-tien-ich/gop-lop";
 export default function TrangTongQuan() {
   const { deNghi, donHang, phieuNhan, giaDonHang } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  /* ★ Nhóm "Đơn hàng cần chú ý" theo công trình — Sếp 26/09/2026: *"ở mục tổng quan này, thêm chức
+     năng group theo công trình nữa"*. Dùng CHUNG `gomTheoCongTrinh` với màn Công nợ / Theo dõi để
+     cùng một công trình không bị màn này gộp, màn kia tách. Chỉ là cách xem, không lưu. */
+  const [nhomCongTrinh, setNhomCongTrinh] = useState(false);
 
   const soLieu = useMemo(() => {
     // Chỉ đếm đề nghị còn đang chạy — đề nghị đã hoàn thành hoặc đóng dở
@@ -97,6 +110,52 @@ export default function TrangTongQuan() {
     [donHang, nguoiDung.uid],
   );
 
+  /** Một dòng đơn hàng — dùng chung cho cách xem phẳng và cách xem nhóm theo công trình. */
+  const veDongPO = ({ po, conLai }: (typeof poCanChuY)[number]) => {
+      const tienDo = tinhTienDoPO(
+        po,
+        phieuNhan.filter((p) => p.poId === po.id),
+      );
+      const pt = phanTramPO(tienDo);
+      const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
+      const quaHan = conLai < 0;
+      return (
+        <Link
+          key={po.id}
+          href={`/don-hang/${po.id}`}
+          className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) transition-colors hover:border-primary/40"
+        >
+          <div className="flex min-w-56 flex-col">
+            <span className="text-sm font-semibold text-text-primary">{po.code}</span>
+            <span className="text-xs text-text-desc">
+              {/* Vai trò không xem được NCC thì dòng phụ dùng mã đề nghị nguồn. Đơn
+                  không gắn đề nghị (18/08/2026) thì nói rõ, đừng để thẻ trống trơn. */}
+              {quyen.xemNhaCungCap
+                ? po.supplierTen
+                : (po.prCode ?? "Đơn không gắn đề nghị")}
+            </span>
+          </div>
+          {po.trangThai === "cho_de_nghi" ? (
+            <BadgeChoDeNghi />
+          ) : (
+            <StatusBadge label={tt.nhan} tone={tt.tong} />
+          )}
+          <span
+            className={`flex items-center gap-1 text-xs font-semibold ${quaHan ? "text-danger-soft" : conLai <= 3 ? "text-warning-soft" : "text-text-desc"}`}
+          >
+            {quaHan && <AlertTriangle className="size-3.5" aria-hidden />}
+            {quaHan ? `Quá hạn ${Math.abs(conLai)} ngày` : `Còn ${conLai} ngày`}
+          </span>
+          <ThanhTienDo
+            className="ml-auto max-w-40"
+            phanTram={pt}
+            tong={pt === 100 ? "success" : quaHan ? "danger" : "primary"}
+            nhan={`${tienDo.filter((d) => d.khoiLuongConLai === 0).length}/${tienDo.length} dòng đã nhận đủ`}
+          />
+        </Link>
+      );
+  };
+
   return (
     <>
       <PageHeader
@@ -155,54 +214,42 @@ export default function TrangTongQuan() {
 
       {/* Đơn hàng cần chú ý */}
       <section className="flex flex-col gap-(--hp-md-row-gap)">
-        <h2 className="text-h3 text-text-primary">Đơn hàng cần chú ý</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-h3 text-text-primary">Đơn hàng cần chú ý</h2>
+          {/* Cùng khuôn nút "Nhóm theo công trình" của màn Công nợ (25/09/2026). */}
+          <button
+            type="button"
+            onClick={() => setNhomCongTrinh((x) => !x)}
+            aria-pressed={nhomCongTrinh}
+            className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors md:min-h-9 ${
+              nhomCongTrinh
+                ? "border-primary bg-primary text-white"
+                : "border-border text-text-secondary hover:bg-primary-bg hover:text-primary"
+            }`}
+          >
+            <Layers className="size-4 shrink-0" aria-hidden />
+            Nhóm theo công trình
+          </button>
+        </div>
         <Card>
           <CardContent className="flex flex-col gap-(--hp-md-row-gap)">
             {poCanChuY.length === 0 && <p className="text-sm text-text-desc">Không có đơn hàng đang mở.</p>}
-            {poCanChuY.map(({ po, conLai }) => {
-              const tienDo = tinhTienDoPO(
-                po,
-                phieuNhan.filter((p) => p.poId === po.id),
-              );
-              const pt = phanTramPO(tienDo);
-              const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
-              const quaHan = conLai < 0;
-              return (
-                <Link
-                  key={po.id}
-                  href={`/don-hang/${po.id}`}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) transition-colors hover:border-primary/40"
-                >
-                  <div className="flex min-w-56 flex-col">
-                    <span className="text-sm font-semibold text-text-primary">{po.code}</span>
-                    <span className="text-xs text-text-desc">
-                      {/* Vai trò không xem được NCC thì dòng phụ dùng mã đề nghị nguồn. Đơn
-                          không gắn đề nghị (18/08/2026) thì nói rõ, đừng để thẻ trống trơn. */}
-                      {quyen.xemNhaCungCap
-                        ? po.supplierTen
-                        : (po.prCode ?? "Đơn không gắn đề nghị")}
-                    </span>
+            {nhomCongTrinh
+              ? gomTheoCongTrinh(poCanChuY, (x) => tenCongTrinhCuaPO(x.po, deNghi)).map((g) => (
+                  <div key={g.khoa} className="flex flex-col gap-(--hp-md-row-gap)">
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-primary-bg px-3 py-2 text-sm text-primary">
+                      <Layers className="size-4 shrink-0" aria-hidden />
+                      <span className="font-semibold">{g.ten}</span>
+                      <span className="text-xs text-text-secondary">
+                        {g.muc.length} đơn
+                        {g.muc.some((x) => x.conLai < 0) &&
+                          ` · ${g.muc.filter((x) => x.conLai < 0).length} quá hạn`}
+                      </span>
+                    </div>
+                    {g.muc.map(veDongPO)}
                   </div>
-                  {po.trangThai === "cho_de_nghi" ? (
-                    <BadgeChoDeNghi />
-                  ) : (
-                    <StatusBadge label={tt.nhan} tone={tt.tong} />
-                  )}
-                  <span
-                    className={`flex items-center gap-1 text-xs font-semibold ${quaHan ? "text-danger-soft" : conLai <= 3 ? "text-warning-soft" : "text-text-desc"}`}
-                  >
-                    {quaHan && <AlertTriangle className="size-3.5" aria-hidden />}
-                    {quaHan ? `Quá hạn ${Math.abs(conLai)} ngày` : `Còn ${conLai} ngày`}
-                  </span>
-                  <ThanhTienDo
-                    className="ml-auto max-w-40"
-                    phanTram={pt}
-                    tong={pt === 100 ? "success" : quaHan ? "danger" : "primary"}
-                    nhan={`${tienDo.filter((d) => d.khoiLuongConLai === 0).length}/${tienDo.length} dòng đã nhận đủ`}
-                  />
-                </Link>
-              );
-            })}
+                ))
+              : poCanChuY.map(veDongPO)}
           </CardContent>
         </Card>
       </section>

@@ -1113,9 +1113,9 @@ export interface DonDatHang {
    *     · "Họ và tên người nhận"  → `nguoiNhanHangTen`
    *     · "Ngày" / "Số"           → `ngayLapPO` / `code`
    *
-   * ⚠️ TẦNG GHI: `themDonHang` chép nguyên đầu vào (`...po`) nên LẬP MỚI lưu được ngay. Còn
-   * `suaDonHang` chỉ nhận `ThayDoiDonHang` — kiểu đó CHƯA khai nhóm này, nên ở chế độ SỬA form
-   * khoá các ô này kèm lý do (xem `form-lap-don-mua-hang.tsx`).
+   * ✅ TẦNG GHI: `themDonHang` chép nguyên đầu vào (`...po`) nên LẬP MỚI lưu được; từ 26/09/2026
+   * `suaDonHang` / `ThayDoiDonHang` cũng nhận nhóm này (`mocSuaPhieuXuatKho` trong
+   * `kho-du-lieu.tsx`) nên CHẾ ĐỘ SỬA sửa được (Sếp: *"Làm tiếp cho chế độ sửa"*).
    */
   /** Ô "Nợ:" (L6) — tài khoản ghi Nợ, vd `6211`. */
   taiKhoanNoXuatKho?: string;

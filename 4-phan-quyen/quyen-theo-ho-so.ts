@@ -17,7 +17,7 @@
 // ============================================================
 
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
-import type { NguoiDung, Quyen } from "@/4-phan-quyen/quyen";
+import { tinhQuyen, type NguoiDung, type Quyen } from "@/4-phan-quyen/quyen";
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 
 /** Người này có được chia việc trong đề nghị (phụ trách ít nhất một dòng vật tư) không. */
@@ -223,11 +223,63 @@ const CAP_TOI_THIEU_GHI_NHAN_GIAO_HANG = 2;
  * hàng. Giữ sàn cấp 2 ở đây thì cái đó không xảy ra được, đúng luật dự án *"thiếu thông tin thì
  * cho quyền THẤP NHẤT"*.
  */
+/**
+ * Người được xét ở nhánh "người thu mua" — `uid/chucNang/capTM` như trước, cộng (không bắt buộc) các
+ * trường cần để tính QUYỀN HIỆU LỰC. Nơi gọi truyền nguyên `nguoiDung` của `useNguoiDung()` là đủ —
+ * trường `quyenRieng` đã được `nguoi-dung-hien-tai.tsx` gắn sẵn. Kiểu cũ `Pick<…>` vẫn gán vào được,
+ * nên không nơi gọi nào phải sửa (có nơi gọi nằm trong tệp đang cấm sửa).
+ */
+type NguoiDungXetThuMua = Pick<NguoiDung, "uid" | "chucNang" | "capTM"> &
+  Partial<Pick<NguoiDung, "vaiTro" | "capKho" | "quyenRieng">>;
+
+/**
+ * ★★ Ô TICK CÓ CHO NGƯỜI NÀY LÀM VIỆC THU MUA KHÔNG — Sếp 26/09/2026: *"Nối vào ô tíck"* (giới hạn G
+ * trong `4-phan-quyen/README.md`).
+ *
+ * 🔴 CHỌN CỜ `lapPO` ("Lập đơn mua hàng"), vì nhánh này hỏi đúng một câu: *người này có đang LÀM thu
+ * mua không*. Bỏ tick "Lập đơn mua hàng" là rút người đó khỏi việc mua hàng → cũng không ghi nhận giao
+ * hàng / xác nhận nhận đủ / ghi dấu đối chiếu thay phòng thu mua được nữa.
+ *   · KHÔNG chọn `xacNhanKho`: Sếp 17/09/2026 chốt *"chỉ nhân viên thu mua"* bấm xác nhận nhận đủ hàng
+ *     và đã CỐ Ý gỡ cờ kho khỏi luật này (xem chú thích `duocXacNhanNhanDuHangCuaHoSo`). Nối lại cờ kho
+ *     là đảo chỉ đạo, và nhân viên thu mua (không có `xacNhanKho`) mất quyền ngay khi deploy.
+ *   · KHÔNG chọn `ghiPhieuNhanHang`: đó là cờ của THỦ KHO (ghi số thực nhận). Nhân viên thu mua không
+ *     có nó theo chức danh — dùng nó là cả phòng thu mua mất quyền ghi nhận nhánh phòng ban.
+ *
+ * 📌 NGƯỜI CHƯA CÓ QUYỀN RIÊNG → KHÔNG XÉT (trả `true`), để kết quả Y HỆT luật theo chức danh cũ — không
+ * ai mất quyền khi deploy. Với mọi chức danh chuẩn cấp ≥ 2 (Quản trị · Trưởng BP · NV Thu mua · NV Nhân
+ * sự · NV Kho tổng) `lapPO` theo chức danh vốn đã bật, nên xét hay không cũng như nhau; bỏ qua ở đây là
+ * để hồ sơ "Tùy chỉnh" lạ (vd kế toán cấp 2 được chia việc) không bị đổi hành vi lặng lẽ. Bài kiểm hai
+ * chiều ở `kiem-luat-dung-chung.mjs`.
+ *
+ * @param quyen Quyền HIỆU LỰC nếu nơi gọi đã có sẵn (vd `duocGhiNhanGiaoHangCuaHoSo`). Vắng thì tự tính
+ *              từ `nguoiDung` bằng `tinhQuyen` — cùng một hàm cả app dùng.
+ */
+function tickChoLamThuMua(nguoiDung: NguoiDungXetThuMua, quyen?: Pick<Quyen, "lapPO">): boolean {
+  if (!nguoiDung.quyenRieng) return true;
+  const q =
+    quyen ??
+    tinhQuyen({
+      uid: nguoiDung.uid,
+      tenHienThi: "",
+      chucDanh: "",
+      phongBan: "",
+      chucNang: nguoiDung.chucNang,
+      capTM: nguoiDung.capTM,
+      vaiTro: nguoiDung.vaiTro ?? "staff",
+      capKho: nguoiDung.capKho,
+      quyenRieng: nguoiDung.quyenRieng,
+    });
+  return q.lapPO;
+}
+
 function laNguoiThuMuaGhiNhanDuoc(
   deNghi: DeNghiMuaHang,
-  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+  nguoiDung: NguoiDungXetThuMua,
+  quyen?: Pick<Quyen, "lapPO">,
 ): boolean {
   if (nguoiDung.capTM < CAP_TOI_THIEU_GHI_NHAN_GIAO_HANG) return false;
+  /* ★ Sếp 26/09/2026 "Nối vào ô tíck" — xem `tickChoLamThuMua`. */
+  if (!tickChoLamThuMua(nguoiDung, quyen)) return false;
   const laNguoiThuMua =
     nguoiDung.chucNang === "nhan_vien_thu_mua" ||
     nguoiDung.chucNang === "truong_bo_phan_thu_mua";
@@ -254,12 +306,14 @@ function laNguoiThuMuaGhiNhanDuoc(
  */
 export function duocGhiNhanGiaoHangCuaHoSo(
   deNghi: DeNghiMuaHang | null | undefined,
-  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+  nguoiDung: NguoiDungXetThuMua,
   quyen: Quyen,
 ): boolean {
   if (quyen.ghiPhieuNhanHang) return true;
   if (!deNghi || !laHoSoPhongBan(deNghi)) return false;
-  return laNguoiThuMuaGhiNhanDuoc(deNghi, nguoiDung);
+  /* Truyền `quyen` (đã là quyền hiệu lực ở mọi nơi gọi) để ô tick "Lập đơn mua hàng" áp đúng một
+     nguồn — Sếp 26/09/2026 "Nối vào ô tíck", xem `tickChoLamThuMua`. */
+  return laNguoiThuMuaGhiNhanDuoc(deNghi, nguoiDung, quyen);
 }
 
 /**
@@ -309,10 +363,14 @@ export function duocGhiNhanGiaoHangCuaHoSo(
  *
  * 📌 THAM SỐ `quyen` ĐÃ BỎ HẲN, không để lại dạng `_quyen`. Giữ một tham số không ai dùng
  * là mời người sau tưởng quyền kho vẫn còn tác dụng ở đây rồi nối lại nhầm.
+ *
+ * ★ Sếp 26/09/2026 *"Nối vào ô tíck"*: nay có thêm ô tick "Lập đơn mua hàng" (cờ `lapPO`, KHÔNG phải
+ * cờ kho) — tính từ `nguoiDung.quyenRieng` bên trong `laNguoiThuMuaGhiNhanDuoc`, nên chữ ký hàm không
+ * đổi (một nơi gọi nằm ở `de-nghi-chi-tiet.tsx`). Người chưa có quyền riêng: y hệt trước.
  */
 export function duocXacNhanNhanDuHangCuaHoSo(
   deNghi: DeNghiMuaHang | null | undefined,
-  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+  nguoiDung: NguoiDungXetThuMua,
 ): boolean {
   if (!deNghi) return false;
   return laNguoiThuMuaGhiNhanDuoc(deNghi, nguoiDung);
@@ -332,7 +390,7 @@ export function duocXacNhanNhanDuHangCuaHoSo(
  */
 export function ghiNhanGiaoHangNhoNhanhPhongBan(
   deNghi: DeNghiMuaHang | null | undefined,
-  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+  nguoiDung: NguoiDungXetThuMua,
   quyen: Quyen,
 ): boolean {
   if (quyen.ghiPhieuNhanHang) return false; // đã có quyền sẵn, không phải nhờ nhánh này
@@ -355,10 +413,13 @@ export function ghiNhanGiaoHangNhoNhanhPhongBan(
  * 🔴 ĐÒI ĐÚNG NGƯỜI PHÒNG THU MUA, cấp ≥ 2 (Nhập liệu) — dùng lại `laNguoiThuMuaGhiNhanDuoc` để
  * không sinh thang cấp thứ hai. Thủ kho KHÔNG ghi dấu này: họ là bên bị đối chiếu, tự soi mình
  * thì dấu vô nghĩa.
+ *
+ * ★ Sếp 26/09/2026 *"Nối vào ô tíck"*: cùng điều kiện ô tick "Lập đơn mua hàng" như hai hàm trên
+ * (qua `laNguoiThuMuaGhiNhanDuoc`).
  */
 export function duocGhiDoiChieuThuMua(
   deNghi: DeNghiMuaHang | null | undefined,
-  nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
+  nguoiDung: NguoiDungXetThuMua,
 ): boolean {
   if (!deNghi) return false;
   return laNguoiThuMuaGhiNhanDuoc(deNghi, nguoiDung);

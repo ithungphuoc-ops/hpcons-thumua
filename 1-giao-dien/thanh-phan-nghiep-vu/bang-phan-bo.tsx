@@ -41,6 +41,7 @@ import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { useNguoiKhongVaoApp } from "@/4-phan-quyen/dung-nguoi-khong-vao-app";
 import {
   coLocTheoPhanViec,
   duocChuyenViecDong,
@@ -224,11 +225,16 @@ export function BangPhanBo({
   /* ★ (26/09/2026) THỦ KHO cũng nhận việc — dòng giao cho thủ kho là "lấy từ kho" (`xuat_kho`),
      phiếu bỏ qua báo giá, sang thẳng Lập đơn mua hàng. Sếp: *"khi giao việc cho nhân viên [thủ kho]
      này thì việc sẽ nhảy trực tiếp qua bước Lập đơn mua hàng"*. */
+  /* ★ Sếp 26/09/2026 *"Nối vào ô tíck"*: người đã bị bỏ "Vào app" KHÔNG được giao việc (họ không mở
+     app ra nhận được). Chỉ đọc khi người đang xem giao việc được; lỗi đọc thì không lọc ai (xem
+     `4-phan-quyen/dung-nguoi-khong-vao-app.ts`). Loại việc nhận được vẫn theo CHỨC DANH. */
+  const { khongVaoApp } = useNguoiKhongVaoApp(quyen.phanBoCongViec);
   const nhanVienThuMua = useMemo(
     () =>
       danhSachTaiKhoan
         /* ★ Thêm NV Kho tổng (xuất kho) và NV Nhân sự (quy trình nhân sự) — Sếp 26/09/2026. */
         .filter((n) => n.chucNang in LOAI_VIEC_THEO_CHUC_NANG)
+        .filter((n) => !khongVaoApp.has(n.uid))
         .map((n) => ({
           uid: n.uid,
           ten: n.tenHienThi,
@@ -239,7 +245,7 @@ export function BangPhanBo({
            *"Tạo màu nền đỏ và đưa xuống cuối danh sách chọn"* (ảnh khoanh nút thủ kho). Sắp ổn định
            nên thứ tự nhân viên thu mua giữ nguyên. */
         .sort((a, b) => (a.loaiViecGiao ? 1 : 0) - (b.loaiViecGiao ? 1 : 0)),
-    [danhSachTaiKhoan],
+    [danhSachTaiKhoan, khongVaoApp],
   );
   /** Khối lượng giao khi chọn ĐÚNG MỘT dòng — trống = giao cả dòng (26/09/2026). */
   const [klGiao, setKlGiao] = useState("");
