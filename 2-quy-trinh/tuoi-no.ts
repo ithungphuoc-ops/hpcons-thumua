@@ -705,6 +705,9 @@ export function congNoTheoDonHang(
   const ra: CongNoTheoDon[] = [];
   for (const po of donHang) {
     if (po.trangThai === "huy") continue;
+    /* Phiếu xuất kho (Mẫu PO-03) là xuất nội bộ: không nhà cung cấp, không đơn giá — không sinh
+       công nợ (Sếp 26/09/2026: "quy trình xuất kho thì sẽ không có đơn giá"). */
+    if (po.mauPO === "phieu_xuat_kho") continue;
     const phieuCuaPO = phieuNhan.filter((p) => p.poId === po.id);
     const dotChi = dotThanhToan
       .filter((d) => d.poId === po.id)

@@ -29,7 +29,10 @@ function phongBanTheoChucNang(c: ChucNang): MaPhongBan {
     case "nhan_vien_thu_mua":
       return "thu_mua_cung_ung";
     case "thu_kho_cong_trinh":
+    case "nhan_vien_kho_tong":
       return "kho";
+    case "nhan_vien_nhan_su":
+      return "hanh_chinh_nhan_su_it";
     case "qlda":
       return "quan_ly_du_an";
     case "ke_toan":

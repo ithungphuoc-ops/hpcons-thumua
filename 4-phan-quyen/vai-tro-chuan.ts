@@ -43,6 +43,8 @@ export type MaVaiTroChuan =
   | "nhan_vien_thu_mua"
   | "ke_toan"
   | "thu_kho"
+  | "nhan_vien_nhan_su"
+  | "nhan_vien_kho_tong"
   | "phong_thi_cong"
   | "qlda"
   | "ngung_truy_cap";
@@ -134,6 +136,24 @@ export const VAI_TRO_CHUAN: VaiTroChuan[] = [
     chucNang: "thu_kho_cong_trinh",
     vaiTro: "staff",
     capTM: 1,
+    capKho: 2,
+  },
+  /* ★ Hai chức danh mới — Sếp 26/09/2026. Cấp 2 (Nhập liệu) để lập được đơn (PO-03). */
+  {
+    ma: "nhan_vien_nhan_su",
+    ten: "NV Nhân sự",
+    moTa: "Nhận việc đề nghị đặt văn phòng phẩm (quy trình nhân sự), lập phiếu từ hàng có sẵn trong kho. 🔒 Không thấy giá.",
+    chucNang: "nhan_vien_nhan_su",
+    vaiTro: "staff",
+    capTM: 2,
+  },
+  {
+    ma: "nhan_vien_kho_tong",
+    ten: "NV Kho tổng",
+    moTa: "Nhận việc xuất kho, lập phiếu xuất kho (PO-03), nhận hàng và xác nhận nhập kho. 🔒 Không thấy giá.",
+    chucNang: "nhan_vien_kho_tong",
+    vaiTro: "staff",
+    capTM: 2,
     capKho: 2,
   },
   {

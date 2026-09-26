@@ -248,6 +248,16 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
    * nên gập hết vẫn đọc được khối nào có gì mà không phải mở ra.
    */
   const [mo, setMo] = useState<string[]>([]);
+  /**
+   * ★★ KHỐI CỦA BƯỚC ĐANG ĐỨNG LUÔN MỞ SẴN — Sếp 26/09/2026 (ảnh khoanh khối "Tiếp nhận và kiểm
+   * tra"): *"E sửa lại mục này sẽ luôn xổ ra, chỉ group lại khi người dùng bấm"*.
+   *
+   * 🔴 CHỈ ĐẠO MỚI NÀY ĐÈ LÊN "F5 THÌ GẬP HẾT" (18/08/2026, chú thích `mo` ở trên) — nhưng chỉ cho
+   * khối của BƯỚC HIỆN TẠI (`dangODay`). Các bước khác vẫn gập như cũ, không thì trang dài 8 khối.
+   * `gapTay` = khối bước hiện tại mà người dùng đã bấm gập (trong phiên). Bước đổi thì khối của bước
+   * mới tự mở, vì nó chưa từng nằm trong `gapTay`.
+   */
+  const [gapTay, setGapTay] = useState<string[]>([]);
 
   const [xemTep, setXemTep] = useState<MoTaTep | null>(null);
 
@@ -273,6 +283,7 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
     const ma = giaiDoan.map((g) => g.ma).find((m) => `#${neoBuoc(m)}` === window.location.hash);
     if (!ma) return;
     setMo((cu) => (cu.includes(ma) ? cu : [...cu, ma]));
+    setGapTay((cu) => cu.filter((x) => x !== ma));
     const khung = requestAnimationFrame(() => {
       document.getElementById(neoBuoc(ma))?.scrollIntoView({ block: "start" });
     });
@@ -288,7 +299,7 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
         /* ★ Khóa xổ khối (12/09/2026) — xem `khoaMoRong`. Khóa THẮNG trạng thái mở: ép gập kể cả
            khi người dùng đã mở từ trước rồi mới làm mất điều kiện. */
         const biKhoa = Boolean(g.khoaMoRong);
-        const dangMo = mo.includes(g.ma) && !biKhoa;
+        const dangMo = (g.dangODay ? !gapTay.includes(g.ma) : mo.includes(g.ma)) && !biKhoa;
         // Tính số thứ tự trước khi vẽ, kể cả khi khối đang gập — số phải giữ nguyên dù
         // người dùng gập mở khối nào.
         const truongCoSo = g.truong.map((t) => ({ ...t, so: ++so }));
@@ -412,7 +423,10 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
                  chứ không phải bấm mãi mà không hiểu sao không mở. */
               onClick={() => {
                 if (biKhoa) return;
-                setMo((cu) => (cu.includes(g.ma) ? cu.filter((x) => x !== g.ma) : [...cu, g.ma]));
+                const doi = (cu: string[]) =>
+                  cu.includes(g.ma) ? cu.filter((x) => x !== g.ma) : [...cu, g.ma];
+                if (g.dangODay) setGapTay(doi);
+                else setMo(doi);
               }}
               aria-expanded={dangMo}
               aria-disabled={biKhoa}

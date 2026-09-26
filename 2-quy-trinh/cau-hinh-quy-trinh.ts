@@ -271,7 +271,8 @@ export function nhanHanGioBuoc(han: number | undefined | null): string {
  * hệt** bản dài (`"4 giờ"`). Chỉ khác đúng một câu, ở đúng một chỗ. Đừng chép chuỗi này đi nơi
  * khác — cần dùng ở màn mới thì gọi hàm.
  */
-export const NHAN_BUOC_KHONG_HAN_NGAN = "Không đặt hạn";
+/* Sếp 26/09/2026: viết tắt ở đầu cột — "Không đặt hạn = K.đhạn". Chỉ đầu cột bảng quy trình dùng. */
+export const NHAN_BUOC_KHONG_HAN_NGAN = "K.đhạn";
 
 export function nhanHanGioBuocNgan(han: number | undefined | null): string {
   return coHanGioBuoc(han) ? `${han} giờ` : NHAN_BUOC_KHONG_HAN_NGAN;

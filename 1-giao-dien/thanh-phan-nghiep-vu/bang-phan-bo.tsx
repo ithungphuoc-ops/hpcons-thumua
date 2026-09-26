@@ -77,6 +77,17 @@ import type { DeNghiMuaHang, LoaiViecGiao } from "@/3-du-lieu/kieu-du-lieu";
 const LOP_MUC_MENU = "min-h-11 whitespace-nowrap";
 
 /**
+ * ★ Chức danh nào được nhận việc, và nhận loại việc gì (Sếp 26/09/2026). `undefined` = việc mua
+ * hàng thường (qua báo giá). `xuat_kho` / `nhan_su` = bỏ qua báo giá, sang thẳng Lập đơn mua hàng.
+ */
+const LOAI_VIEC_THEO_CHUC_NANG: Record<string, LoaiViecGiao | undefined> = {
+  nhan_vien_thu_mua: undefined,
+  thu_kho_cong_trinh: "xuat_kho",
+  nhan_vien_kho_tong: "xuat_kho",
+  nhan_vien_nhan_su: "nhan_su",
+};
+
+/**
  * Nhãn ngắn cho nút phân bổ.
  *
  * ⚠️ KHÔNG được dựa vào việc chức danh có ngoặc đơn. Chức danh mẫu là "Nhân viên Thu mua
@@ -200,12 +211,13 @@ export function BangPhanBo({
   const nhanVienThuMua = useMemo(
     () =>
       danhSachTaiKhoan
-        .filter((n) => n.chucNang === "nhan_vien_thu_mua" || n.chucNang === "thu_kho_cong_trinh")
+        /* ★ Thêm NV Kho tổng (xuất kho) và NV Nhân sự (quy trình nhân sự) — Sếp 26/09/2026. */
+        .filter((n) => n.chucNang in LOAI_VIEC_THEO_CHUC_NANG)
         .map((n) => ({
           uid: n.uid,
           ten: n.tenHienThi,
           ngan: nhanNgan(n.tenHienThi, n.chucDanh),
-          loaiViecGiao: n.chucNang === "thu_kho_cong_trinh" ? ("xuat_kho" as const) : undefined,
+          loaiViecGiao: LOAI_VIEC_THEO_CHUC_NANG[n.chucNang],
         })),
     [danhSachTaiKhoan],
   );
@@ -680,7 +692,13 @@ export function BangPhanBo({
                 variant={nv.loaiViecGiao ? "outline" : "default"}
                 disabled={!!chanGiaoViec}
                 onClick={() => moGiaoViec(nv.uid, nv.ten, chon, nv.loaiViecGiao)}
-                title={nv.loaiViecGiao ? "Thủ kho — lấy từ kho, phiếu sang thẳng Lập đơn mua hàng" : undefined}
+                title={
+                  nv.loaiViecGiao === "nhan_su"
+                    ? "Quy trình nhân sự — hàng có sẵn trong kho, sang thẳng Lập đơn mua hàng"
+                    : nv.loaiViecGiao
+                      ? "Xuất kho — lấy từ kho, phiếu sang thẳng Lập đơn mua hàng"
+                      : undefined
+                }
               >
                 <UserPlus className="size-4" aria-hidden />
                 {nv.ngan} · {nv.ten}

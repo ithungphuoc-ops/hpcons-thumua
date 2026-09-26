@@ -586,10 +586,13 @@ function CotQuyTrinh({
             * người quản lý đọc để biết bước nào đang nợ việc.
             */}
           <p className="flex min-h-8 flex-wrap items-center justify-between gap-x-2 text-xs text-text-desc">
-            <span>
+            {/* Sếp 26/09/2026: viết tắt "Đã giao = Đ.giao, Quá hạn = Q.hạn". Bản đủ chữ ở `title`. */}
+            <span
+              title={`${soDaGiao}/${the.length} đã giao${soQuaHan > 0 ? ` · ${soQuaHan} quá hạn` : ""}`}
+            >
             {the.length === 0
               ? "0 đề nghị"
-              : `${soDaGiao}/${the.length} đã giao${soQuaHan > 0 ? ` · ${soQuaHan} quá hạn` : ""}`}
+              : `${soDaGiao}/${the.length} Đ.giao${soQuaHan > 0 ? ` · ${soQuaHan} Q.hạn` : ""}`}
             {/* ★ SỐ HỒ SƠ CÒN THIẾU Ở NGAY ĐẦU CỘT (23/08/2026) — Ban lãnh đạo: *"cần hiển thị đỏ
                 để biết đang thiếu ở bước nào"*. Đọc đầu cột là biết bước nào có hồ sơ còn nợ, không
                 phải rà từng thẻ; thẻ nào nợ thì đã có viền đỏ để tìm ra ngay. */}

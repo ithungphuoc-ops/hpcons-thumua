@@ -324,8 +324,18 @@ export default function TrangDanhSachDeNghi() {
   const [chiViecCuaToi, setChiViecCuaToi] = useState(false);
   const cotHien = useMemo(() => {
     const tim = tuKhoaBang.trim();
-    if (!tim && !chiViecCuaToi) return cot;
-    return cot.map((c) => ({
+    /* ★ Màn TRƯỞNG PHÒNG (người giao việc): phiếu gốc lên đầu mỗi cột — Sếp 26/09/2026: *"ở màn
+       hình trưởng phòng, e ưu tiên các phiếu gốc được hiện lên trên đầu để dễ theo dõi"*. Cùng điều
+       kiện với nhãn "Quy trình: Phiếu gốc" trên thẻ. Sắp ỔN ĐỊNH nên thứ tự cũ giữ nguyên trong từng
+       nhóm. Nhân viên giữ thứ tự cũ (việc của mình lên đầu). */
+    const goc = (t: (typeof cot)[number]["the"][number]) =>
+      t.laPhieuGoc && !t.deNghi.deNghiGocId ? 0 : 1;
+    const sapGoc = <T extends (typeof cot)[number]>(ds: T[]): T[] =>
+      quyen.phanBoCongViec
+        ? ds.map((c) => ({ ...c, the: [...c.the].sort((x, y) => goc(x) - goc(y)) }))
+        : ds;
+    if (!tim && !chiViecCuaToi) return sapGoc(cot);
+    return sapGoc(cot.map((c) => ({
       ...c,
       the: c.the.filter(
         (t) =>
@@ -335,8 +345,8 @@ export default function TrangDanhSachDeNghi() {
           (!chiViecCuaToi || t.giaiDoan === "tiep_nhan" || t.uidPhuTrach.includes(nguoiDung.uid)),
       ),
       theDocLap: [],
-    }));
-  }, [cot, tuKhoaBang, chiViecCuaToi, nguoiDung.uid]);
+    })));
+  }, [cot, tuKhoaBang, chiViecCuaToi, nguoiDung.uid, quyen.phanBoCongViec]);
 
   /**
    * ★★ NGUỒN DỮ LIỆU CỦA TAB "DANH SÁCH" — GHÉP TỪ CHÍNH `cot` CỦA BẢNG KANBAN (23/08/2026).

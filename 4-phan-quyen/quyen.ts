@@ -46,6 +46,10 @@ export type ChucNang =
   | "truong_bo_phan_thu_mua"
   | "nhan_vien_thu_mua"
   | "thu_kho_cong_trinh"
+  /** ★ Sếp 26/09/2026: *"Thêm 2 chức danh mới trong app, là NV Nhân sự và NV Kho tổng"*. Nhận việc
+   *  loại `nhan_su` / `xuat_kho` — xem danh sách giao việc ở `bang-phan-bo.tsx`. */
+  | "nhan_vien_nhan_su"
+  | "nhan_vien_kho_tong"
   | "qlda"
   | "phong_thi_cong"
   | "ke_toan";
@@ -235,6 +239,11 @@ export function tinhQuyen(u: NguoiDung): Quyen {
   const laTruongBP = u.chucNang === "truong_bo_phan_thu_mua";
   const laNhanVienTM = u.chucNang === "nhan_vien_thu_mua";
   const laThuKho = u.chucNang === "thu_kho_cong_trinh";
+  /* ★ Hai chức danh mới (Sếp 26/09/2026). Đi tới bước Lập đơn nên cần `lapPO` và thấy bảng quy
+     trình; KHÔNG xem giá (phiếu xuất kho không có đơn giá). Kho tổng nhận hàng/xác nhận kho như thủ
+     kho. ⚠️ Mức quyền này là MẶC ĐỊNH em đặt — chờ Sếp chốt. */
+  const laNVNhanSu = u.chucNang === "nhan_vien_nhan_su";
+  const laNVKhoTong = u.chucNang === "nhan_vien_kho_tong";
   const laQLDA = u.chucNang === "qlda";
   const laKeToan = u.chucNang === "ke_toan";
 
@@ -253,12 +262,12 @@ export function tinhQuyen(u: NguoiDung): Quyen {
     // Xem chú thích đầy đủ ở khai báo `taoDeNghi`.
     taoDeNghi: capTM >= 1,
 
-    lapPO: laQuanTri || ((laTruongBP || laNhanVienTM) && capTM >= 2),
+    lapPO: laQuanTri || ((laTruongBP || laNhanVienTM || laNVNhanSu || laNVKhoTong) && capTM >= 2),
     taoPoDoiLap: laQuanTri || (laTruongBP && capTM >= 3),
     suaPODaChot: laQuanTri || (laTruongBP && capTM >= 3),
 
-    ghiPhieuNhanHang: laQuanTri || (laThuKho && (u.capKho ?? 0) >= 2),
-    xacNhanKho: laQuanTri || (laThuKho && (u.capKho ?? 0) >= 2),
+    ghiPhieuNhanHang: laQuanTri || ((laThuKho || laNVKhoTong) && (u.capKho ?? 0) >= 2),
+    xacNhanKho: laQuanTri || ((laThuKho || laNVKhoTong) && (u.capKho ?? 0) >= 2),
     xacNhanTruongBP: laQuanTri || (laTruongBP && capTM >= 3),
 
     xuatHoSo: capTM >= 1,
@@ -276,7 +285,7 @@ export function tinhQuyen(u: NguoiDung): Quyen {
 
     // Chỉ người LÀM thu mua, cộng quản trị và Ban Giám đốc. Thủ kho, QLDA, kế toán và các
     // phòng ban đề xuất theo dõi tiến độ ở mục "Theo dõi đề nghị" — xem `xemQuyTrinhMuaHang`.
-    xemQuyTrinhMuaHang: laQuanTri || laBGD || laTruongBP || laNhanVienTM,
+    xemQuyTrinhMuaHang: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laNVNhanSu || laNVKhoTong,
 
     /* Quản trị (cấp 4) và trưởng bộ phận (cấp 3). Giới hạn CỤ THỂ đặt được tới cấp nào nằm ở
        `luat-phan-quyen.ts` → `capDatDuocToiDa`, không nhét vào đây. */
