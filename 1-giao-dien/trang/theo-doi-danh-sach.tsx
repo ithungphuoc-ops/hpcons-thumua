@@ -2,25 +2,22 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronRight, Clock, Eye, GitBranch, Search, UserCheck } from "lucide-react";
+import { ChevronRight, Clock, Eye, GitBranch, UserCheck } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { TimelineDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/timeline-de-nghi";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
-import { Input } from "@/1-giao-dien/nen-tang-ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { khoaCongTrinh, NHOM_CHUA_GHI_CONG_TRINH } from "@/2-quy-trinh/gom-cong-trinh";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-import { nhanAnToan, NHAN_TRANG_THAI_DE_NGHI, NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
+import { nhanAnToan, NHAN_TRANG_THAI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
 import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { duocXemTienTrinhDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
-import { boDau } from "@/6-tien-ich/bo-dau";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -77,11 +74,6 @@ const NHAN_CACH_NHOM: Record<CachGomNhom, string> = {
   phong_ban: "Phòng ban",
 };
 
-/** Chuẩn hoá chuỗi để tìm: bỏ dấu, thường hoá, gộp khoảng trắng. */
-function chuanHoaTimTheoDoi(s: string): string {
-  return boDau(s).toLowerCase().replace(/\s+/g, " ").trim();
-}
-
 /**
  * M6 — Người đề nghị (Phòng Thi công) theo dõi tiến trình đề nghị của mình.
  * Màn hình MỚI, bản thumua-next cũ không có.
@@ -125,45 +117,8 @@ export default function TrangTheoDoi() {
     });
   }, [deNghi, donHang, baoGia, phieuNhan, nguoiDung.uid, quyen]);
 
-  /**
-   * ★★ Ô TÌM + CÁCH XEM "THEO MẶT HÀNG" — Sếp 25/09/2026: ***"Khi 1 người làm nhiều đề nghị và
-   * khi muốn tìm lại đề nghị cũ thì phải mở từng đề nghị để kiếm => Cần tối ưu giải pháp theo dõi
-   * này"***.
-   *
-   * 📌 THÊM VÀO MÀN SẴN CÓ, KHÔNG DỰNG MÀN MỚI — agent phản biện 25/09 chỉ ra màn này đã tính sẵn
-   * `tienDo` cho MỌI đề nghị (bằng `tinhTienDoDeNghi`, chỉ đếm phiếu `da_nhap_kho` — §3.5.4). Thứ
-   * còn thiếu chỉ là chỗ TÌM và một bảng PHẲNG gộp mặt hàng của nhiều đề nghị.
-   *
-   * 🔴 Tìm trên `danhSach` ĐÃ LỌC QUYỀN — không bao giờ lộ đề nghị người này không được xem.
-   * Khớp theo: mã đề nghị · tên đề nghị/công trình · tên vật tư. Đang tìm thì mọi nhóm tự MỞ —
-   * nhóm mặc định thu gọn, để gọn thì kết quả tìm được lại nằm khuất trong nhóm đóng.
-   */
-  const [tuKhoa, setTuKhoa] = useState("");
-  const [cachXem, setCachXem] = useState<"de_nghi" | "mat_hang">("de_nghi");
-  const chuTim = chuanHoaTimTheoDoi(tuKhoa);
-  const khopDeNghi = (m: (typeof danhSach)[number]) =>
-    chuanHoaTimTheoDoi(`${m.dn.code} ${m.dn.tenCongTrinh ?? ""}`).includes(chuTim);
-  const khopMatHang = (ten: string) => chuanHoaTimTheoDoi(ten).includes(chuTim);
-  const danhSachLoc = useMemo(
-    () =>
-      chuTim
-        ? danhSach.filter((m) => khopDeNghi(m) || m.tienDo.some((d) => khopMatHang(d.tenVatLieu)))
-        : danhSach,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [danhSach, chuTim],
-  );
-  /** Bảng phẳng mọi mặt hàng — đề nghị khớp theo mã/tên thì lấy hết dòng, không thì chỉ dòng khớp. */
-  const dongMatHang = useMemo(
-    () =>
-      danhSachLoc.flatMap((m) => {
-        const layHet = !chuTim || khopDeNghi(m);
-        return m.tienDo
-          .filter((d) => layHet || khopMatHang(d.tenVatLieu))
-          .map((d) => ({ dn: m.dn, d }));
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [danhSachLoc, chuTim],
-  );
+  /* ❌ ĐÃ BỎ Ô TÌM + CÁCH XEM "THEO MẶT HÀNG" (thêm 25/09/2026) — Sếp 26/09/2026: *"Bỏ mục này,
+     ko cần thiết"*. Tìm hồ sơ dùng ô tìm chung trên thanh đầu trang. Cần tra lại: lịch sử git. */
 
   /**
    * ★ ĐANG GOM THEO CÁCH NÀO — Ban lãnh đạo 23/08/2026.
@@ -206,7 +161,7 @@ export default function TrangTheoDoi() {
     const tenNhom = new Map<string, string>();
 
     const map = new Map<string, typeof danhSach>();
-    for (const m of danhSachLoc) {
+    for (const m of danhSach) {
       /* Khóa tính bằng hàm dùng chung với `hienThe` — xem lý do ở `khoaNhom`. */
       const khoa = khoaNhom(m.dn, nhomTheo);
       if (!tenNhom.has(khoa)) tenNhom.set(khoa, tenNhomHienThi(m.dn, nhomTheo));
@@ -280,7 +235,7 @@ export default function TrangTheoDoi() {
       });
     }
     return ra;
-  }, [danhSachLoc, nguoiDung.uid, nhomTheo]);
+  }, [danhSach, nguoiDung.uid, nhomTheo]);
 
   /**
    * Nhóm đang MỞ. Ban lãnh đạo 13/08/2026: *"thêm nút group lại cho gọn nha"* — nên mặc
@@ -321,8 +276,6 @@ export default function TrangTheoDoi() {
    */
   function hienThe(m: { trongNhom: boolean; dn: DeNghiMuaHang }) {
     if (!m.trongNhom) return true;
-    /* Đang tìm thì mọi nhóm coi như mở — xem chú thích ô tìm. */
-    if (chuTim) return true;
     return nhomMo.has(khoaNhom(m.dn, nhomTheo));
   }
 
@@ -359,59 +312,6 @@ export default function TrangTheoDoi() {
         />
       ) : (
         <div className="flex flex-col gap-(--hp-md-card-gap)">
-          {/**
-            * ★★ THANH TÌM + CÁCH XEM — Sếp 25/09/2026 (xem chú thích `tuKhoa` phía trên).
-            * 📌 Ô tìm nằm TRÊN CÙNG vì đây là việc hay làm nhất khi đã có nhiều đề nghị.
-            */}
-          <div className="flex flex-col gap-2 md:flex-row md:items-center">
-            <div className="relative md:w-96">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-desc"
-                aria-hidden
-              />
-              <Input
-                id="tim-theo-doi"
-                value={tuKhoa}
-                onChange={(e) => setTuKhoa(e.target.value)}
-                placeholder="Tìm mã đề nghị, công trình hoặc tên vật tư…"
-                aria-label="Tìm đề nghị theo mã, công trình hoặc tên vật tư"
-                className="h-11 pl-9 md:h-9"
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Cách xem">
-              <span className="text-xs font-semibold tracking-wide text-text-desc uppercase">Xem theo</span>
-              {(
-                [
-                  ["de_nghi", "Đề nghị"],
-                  ["mat_hang", "Mặt hàng"],
-                ] as const
-              ).map(([ma, nhan]) => (
-                <button
-                  key={ma}
-                  type="button"
-                  role="tab"
-                  aria-selected={cachXem === ma}
-                  onClick={() => setCachXem(ma)}
-                  className={`inline-flex min-h-11 items-center rounded-lg border px-3 text-sm font-medium transition-colors md:min-h-9 ${
-                    cachXem === ma
-                      ? "border-primary bg-primary-bg text-primary"
-                      : "border-border text-text-secondary hover:border-primary hover:text-primary"
-                  }`}
-                >
-                  {nhan}
-                </button>
-              ))}
-            </div>
-            {chuTim && (
-              <span className="text-xs text-text-desc">
-                Đang tìm: {danhSachLoc.length}/{danhSach.length} đề nghị
-                {cachXem === "mat_hang" ? ` · ${dongMatHang.length} mặt hàng` : ""}
-              </span>
-            )}
-          </div>
-
-          {cachXem === "de_nghi" && (
-          <>
           {/**
             * ★ CHỌN CÁCH GOM NHÓM — Ban lãnh đạo 23/08/2026: *"thêm chức năng group theo tên công
             * trình / Tên phòng ban"*.
@@ -452,7 +352,7 @@ export default function TrangTheoDoi() {
           {dongHienThi.map((m) => {
             // Dòng tiêu đề của một nhóm phiếu đã tách — bấm cả dòng để mở / thu gọn.
             if (m.loai === "nhom") {
-              const dangMo = !!chuTim || nhomMo.has(m.id);
+              const dangMo = nhomMo.has(m.id);
               return (
                 <button
                   key={`nhom-${m.id}`}
@@ -611,106 +511,6 @@ export default function TrangTheoDoi() {
               </Card>
             );
           })}
-          </>
-          )}
-
-          {chuTim && danhSachLoc.length === 0 && (
-            <p className="py-6 text-center text-sm text-text-desc">
-              Không có đề nghị hay mặt hàng nào khớp “{tuKhoa.trim()}”.
-            </p>
-          )}
-
-          {/**
-            * ★★ BẢNG "THEO MẶT HÀNG" — mọi mặt hàng của mọi đề nghị người này được xem, một bảng.
-            *
-            * 🔴 SỐ LIỆU LẤY NGUYÊN TỪ `tienDo` (`tinhTienDoDeNghi`) — cùng nguồn với trang chi tiết,
-            * không tính lại. Không hiện giá, nhà cung cấp, tên nhân viên thu mua (cam kết của màn này).
-            * 📌 Mã đề nghị là liên kết sang trang chi tiết — tìm ra rồi bấm vào là tới đúng hồ sơ.
-            */}
-          {cachXem === "mat_hang" && dongMatHang.length > 0 && (
-            <Card>
-              <CardContent className="p-0">
-                <div className="hidden overflow-x-auto md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Mã đề nghị</TableHead>
-                        <TableHead>Công trình</TableHead>
-                        <TableHead>Mặt hàng</TableHead>
-                        <TableHead>ĐVT</TableHead>
-                        <TableHead className="text-right">Đề nghị</TableHead>
-                        <TableHead className="text-right">Đã nhận</TableHead>
-                        <TableHead className="text-right">Còn lại</TableHead>
-                        <TableHead>Dự kiến giao</TableHead>
-                        <TableHead>Trạng thái</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {dongMatHang.map(({ dn, d }) => {
-                        const tt = nhanAnToan(NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI, d.trangThaiDong);
-                        return (
-                          <TableRow key={`${dn.id}-${d.stt}`}>
-                            <TableCell>
-                              <Link href={`/theo-doi/${dn.id}`} className="font-medium text-primary hover:underline">
-                                {dn.code}
-                              </Link>
-                            </TableCell>
-                            <TableCell className="max-w-56 truncate" title={dn.tenCongTrinh}>
-                              {dn.tenCongTrinh || "—"}
-                            </TableCell>
-                            <TableCell className="font-medium">{d.tenVatLieu}</TableCell>
-                            <TableCell>{d.donViTinh}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {d.khoiLuongDeNghi.toLocaleString("vi-VN")}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold tabular-nums">
-                              {d.khoiLuongDaNhan.toLocaleString("vi-VN")}
-                            </TableCell>
-                            <TableCell
-                              className={`text-right font-semibold tabular-nums ${
-                                d.khoiLuongConLai > 0 ? "text-warning-soft" : "text-success-soft"
-                              }`}
-                            >
-                              {d.khoiLuongConLai.toLocaleString("vi-VN")}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {d.ngayGiaoDuKien ? new Date(d.ngayGiaoDuKien).toLocaleDateString("vi-VN") : "—"}
-                            </TableCell>
-                            <TableCell>
-                              <StatusBadge label={tt.nhan} tone={tt.tong} />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-                {/* Điện thoại — Card List (Design System V1.1: bảng nhiều cột → thẻ). */}
-                <ul className="flex flex-col divide-y divide-border md:hidden">
-                  {dongMatHang.map(({ dn, d }) => {
-                    const tt = nhanAnToan(NHAN_TRANG_THAI_DONG_CHO_NGUOI_DE_NGHI, d.trangThaiDong);
-                    return (
-                      <li key={`${dn.id}-${d.stt}`} className="flex flex-col gap-1 p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="font-medium text-text-primary">{d.tenVatLieu}</span>
-                          <StatusBadge label={tt.nhan} tone={tt.tong} />
-                        </div>
-                        <Link href={`/theo-doi/${dn.id}`} className="text-sm text-primary">
-                          {dn.code}
-                          {dn.tenCongTrinh ? ` · ${dn.tenCongTrinh}` : ""}
-                        </Link>
-                        <span className="text-sm tabular-nums text-text-secondary">
-                          Đề nghị {d.khoiLuongDeNghi.toLocaleString("vi-VN")} · Đã nhận{" "}
-                          {d.khoiLuongDaNhan.toLocaleString("vi-VN")} · Còn{" "}
-                          {d.khoiLuongConLai.toLocaleString("vi-VN")} {d.donViTinh}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
         </div>
       )}
     </>
