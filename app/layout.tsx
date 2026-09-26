@@ -68,7 +68,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                       * App có hàng trăm lời gọi; mỗi chỗ một vị trí là người dùng không bao giờ
                       * biết phải nhìn đâu, và người viết mới cũng không biết theo lệ nào.
                       */}
-                    <Toaster position="top-center" />
+                    {/* (26/09/2026) `offset` 72px: nằm dưới thanh trên cùng (60px), không bị che — Sếp: *"fit giữa màn hình"*. */}
+                    <Toaster position="top-center" offset={72} />
                   </TooltipProvider>
                 </DuLieuProvider>
               </CurrentUserProvider>

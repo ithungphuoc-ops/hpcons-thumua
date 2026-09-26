@@ -1024,8 +1024,10 @@ function TheDeNghi({
             📌 VÌ SAO CẦN: hai bản nhân bản cùng một gốc có mã và tên gần như y hệt nhau, nhìn thẻ
             trên bảng không phân biệt được bản nào là gốc, bản nào là bản tách. */}
         {/* ★ PHIẾU GỐC hiện chữ "Phiếu gốc" màu đỏ — Sếp 26/09/2026: *"Đối với phiếu gốc thì e hiển
-            thị là Phiếu gốc nhé và tạo màu chữ đỏ"*. Phiếu con giữ dòng "Nhân bản đề nghị" như cũ. */}
-        {the.laPhieuGoc ? (
+            thị là Phiếu gốc nhé và tạo màu chữ đỏ"*. Phiếu con giữ dòng "Nhân bản đề nghị" như cũ.
+            📌 Chỉ phiếu GỐC THẬT (không sinh ra từ phiếu nào — không có `deNghiGocId`). Bản copy có
+            copy con vẫn là bản nhân bản, đo trên bản thật 26/09 thấy "(copy)" bị gắn nhầm "Phiếu gốc". */}
+        {the.laPhieuGoc && !deNghi.deNghiGocId ? (
           <span>
             <span className="text-text-secondary">Quy trình:</span>{" "}
             <span className="font-semibold text-danger">Phiếu gốc</span>

@@ -607,3 +607,20 @@ textarea::placeholder {
     }
   }
 }
+
+/* ★ THÔNG BÁO (sonner) LUÔN NỔI TRÊN MỌI LỚP, NỀN ĐỤC — Sếp 26/09/2026: *"Mục thông báo này đang bị
+   che, e tạo cho nó màu nền để ko bị che nha và fit giữa màn hình"*.
+   Khung "Chi tiết đề nghị" có lớp nền mờ (backdrop-blur) `z-50` phủ cả trang, thông báo nằm dưới
+   nên bị làm mờ — đúng lúc nó báo "Chưa lưu được", người dùng không đọc ra.
+   📌 Sửa ở đây, KHÔNG sửa `1-giao-dien/nen-tang-ui/sonner.tsx` (thư viện nền, quy ước không sửa).
+   Nền dùng token `--hp-card` (có sẵn cả Light/Dark), viền + bóng đậm để tách khỏi nội dung phía sau. */
+[data-sonner-toaster] {
+  z-index: 2147483000 !important;
+}
+[data-sonner-toaster] [data-sonner-toast] {
+  background: var(--hp-card) !important;
+  opacity: 1;
+  border: 1px solid var(--hp-border) !important;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.22) !important;
+  backdrop-filter: none !important;
+}
