@@ -352,7 +352,25 @@ export function BangPhanBo({
    */
   const daNhanBan = useMemo(() => dongDaNhanBanSang(deNghi, dsDeNghi), [deNghi, dsDeNghi]);
 
-  const soChuaPhanBo = tienDo.filter((d) => d.trangThaiDong === "chua_phan_bo").length;
+  /* 🔴 (26/09/2026, lỗi đề nghị 157 dòng 1) Dòng ĐÃ TÁCH SANG PHIẾU CON khi giao việc thì phiếu
+     gốc xoá người phụ trách (người làm nằm ở phiếu con) — nên `trangThaiDong` của nó vẫn là
+     "chua_phan_bo". Không trừ ở đây thì TBP thấy "1 công việc chưa phân bổ" và dòng đỏ, dù việc đã
+     giao. Tầng luật (`dongConPhaiLam`) đã trừ từ trước; bảng này phải nói cùng một câu. */
+  const soChuaPhanBo = tienDo.filter(
+    (d) => d.trangThaiDong === "chua_phan_bo" && !dongDaChuyenDiHet(d.stt, daNhanBan),
+  ).length;
+  /** Tên người đang làm dòng đã tách, đọc từ chính phiếu con (không lưu bản sao ở phiếu gốc). */
+  const nguoiLamDongDaTach = (stt: number): string => {
+    const ten = (daNhanBan.get(stt) ?? []).flatMap((ma) => {
+      const con = dsDeNghi.find(
+        (x) => x.code === ma && (x.deNghiChaId === deNghi.id || x.deNghiGocId === deNghi.id),
+      );
+      return (con?.items ?? [])
+        .filter((dong) => (dong.sttDongCha ?? dong.sttDongGoc) === stt && dong.nguoiPhuTrachTen)
+        .map((dong) => dong.nguoiPhuTrachTen as string);
+    });
+    return [...new Set(ten)].join(", ");
+  };
   const soDaPhanChuaLenPO = tienDo.filter((d) => d.trangThaiDong === "da_phan_bo").length;
 
   /**
@@ -728,7 +746,7 @@ export function BangPhanBo({
                      * đâu rồi.
                      */
                     className={[
-                      d.trangThaiDong === "chua_phan_bo" ? "bg-danger-bg/40" : "",
+                      d.trangThaiDong === "chua_phan_bo" && !daChuyenDi ? "bg-danger-bg/40" : "",
                       daChuyenDi ? "print:hidden" : "",
                     ]
                       .filter(Boolean)
@@ -736,11 +754,11 @@ export function BangPhanBo({
                   >
                     {hienCongCuPhanBo && (
                       <TableCell>
-                        <Checkbox
+                        {!daChuyenDi && <Checkbox
                           checked={chon.includes(d.stt)}
                           onCheckedChange={(c) => doiChon(d.stt, Boolean(c))}
                           aria-label={`Chọn dòng ${d.stt}`}
-                        />
+                        />}
                       </TableCell>
                     )}
                     {/**
@@ -916,12 +934,20 @@ export function BangPhanBo({
                           <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
                         )}
                         </div>
+                      ) : daChuyenDi ? (
+                        <span className="text-sm text-text-desc opacity-70">
+                          {nguoiLamDongDaTach(d.stt) || "Phiếu con"}
+                        </span>
                       ) : (
                         <span className="text-sm text-text-desc italic">chưa phân</span>
                       )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      <StatusBadge label={tt.nhan} tone={tt.tong} />
+                      {daChuyenDi && !daPhan ? (
+                        <StatusBadge label="Đã tách sang phiếu con" tone="neutral" />
+                      ) : (
+                        <StatusBadge label={tt.nhan} tone={tt.tong} />
+                      )}
                     </TableCell>
                     {/* Bỏ `text-xs`: mọi ô dữ liệu khác trong cùng một hàng đều 14px, riêng
                         cột này 12px làm hàng ngang nhìn so le (Ban lãnh đạo 16/08/2026 về

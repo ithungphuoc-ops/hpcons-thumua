@@ -7,7 +7,7 @@ import { useDungDayKhungNhin } from "@/1-giao-dien/thanh-phan-dung-chung/dung-da
 import { datTuKhoaBangQuyTrinh, useTuKhoaBangQuyTrinh } from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
 import { khopTimBangQuyTrinh } from "@/2-quy-trinh/tim-kiem";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, FileText, LayoutGrid, List, X, Search } from "lucide-react";
+import { AlertTriangle, FileText, LayoutGrid, List, X, Search, UserRound } from "lucide-react";
 /* 📌 KHÔNG còn import `DropdownMenu*` và `MoreHorizontal` ở đây (13/09/2026): menu ⋯ của pop-up
    nay dùng chung `MenuThaoTacThe` với thẻ Kanban, component đó tự lo cả khung lẫn icon. */
 import { toast } from "sonner";
@@ -316,17 +316,25 @@ export default function TrangDanhSachDeNghi() {
    * Đang lọc thì ẩn thẻ đơn độc lập (không có mã đề nghị để khớp).
    */
   const tuKhoaBang = useTuKhoaBangQuyTrinh();
-  const cotHien = useMemo(
-    () =>
-      tuKhoaBang.trim()
-        ? cot.map((c) => ({
-            ...c,
-            the: c.the.filter((t) => khopTimBangQuyTrinh(t.deNghi, tuKhoaBang)),
-            theDocLap: [],
-          }))
-        : cot,
-    [cot, tuKhoaBang],
-  );
+  /* ★ NÚT "VIỆC CỦA TÔI" — Sếp 26/09/2026: *"khi chọn zô thì chỉ hiển thị đúng các công việc mình
+     được giao"*. So bằng `uidPhuTrach` — CÙNG phép so với nhãn "Việc của bạn" trên thẻ
+     (`bang-quy-trinh-mua-hang.tsx`), nên nút và nhãn không bao giờ nói khác nhau.
+     📌 Chỉ là cách xem trong phiên, không lưu. Bật nút thì ẩn thẻ đơn độc lập (không có người phụ
+     trách theo dòng để so). */
+  const [chiViecCuaToi, setChiViecCuaToi] = useState(false);
+  const cotHien = useMemo(() => {
+    const tim = tuKhoaBang.trim();
+    if (!tim && !chiViecCuaToi) return cot;
+    return cot.map((c) => ({
+      ...c,
+      the: c.the.filter(
+        (t) =>
+          (!tim || khopTimBangQuyTrinh(t.deNghi, tuKhoaBang)) &&
+          (!chiViecCuaToi || t.uidPhuTrach.includes(nguoiDung.uid)),
+      ),
+      theDocLap: [],
+    }));
+  }, [cot, tuKhoaBang, chiViecCuaToi, nguoiDung.uid]);
 
   /**
    * ★★ NGUỒN DỮ LIỆU CỦA TAB "DANH SÁCH" — GHÉP TỪ CHÍNH `cot` CỦA BẢNG KANBAN (23/08/2026).
@@ -813,6 +821,7 @@ export default function TrangDanhSachDeNghi() {
             </button>
           </div>
         )}
+        <div className="flex flex-wrap items-center gap-3">
         <Tabs value={cachXem} onValueChange={(v) => setCachXem(v as CachXem)}>
           <TabsList variant="line" className="h-auto md:h-9">
             <TabsTrigger value="bang" className="h-11 px-3 md:h-[calc(100%-1px)]">
@@ -825,6 +834,24 @@ export default function TrangDanhSachDeNghi() {
             </TabsTrigger>
           </TabsList>
         </Tabs>
+        {/* Có cả chữ lẫn trạng thái bấm (`aria-pressed`), không chỉ đổi màu — Design System V1.1. */}
+        <Button
+          type="button"
+          size="sm"
+          variant={chiViecCuaToi ? "default" : "outline"}
+          aria-pressed={chiViecCuaToi}
+          onClick={() => setChiViecCuaToi((v) => !v)}
+          className="h-11 md:h-8"
+        >
+          <UserRound aria-hidden />
+          Việc của tôi
+          {chiViecCuaToi && (
+            <span className="tabular-nums">
+              ({cotHien.reduce((n, c) => n + c.the.length, 0)})
+            </span>
+          )}
+        </Button>
+        </div>
       </div>
 
       {deNghi.length === 0 ? (
