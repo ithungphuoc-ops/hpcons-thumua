@@ -1079,8 +1079,8 @@ export default function TrangDanhSachDeNghi() {
                 * tên công trình dài) vẫn phải nhường chỗ cho cụm nút bên phải, không đẩy tràn.
                 */}
               {/* Sếp 26/09/2026: *"Giảm chiều cao header này để có thêm diện tích"* — đệm py-3 → py-1,
-                  nút đóng md:size-7 (≈40px trên máy tính, trước ≈60px). Điện thoại giữ nút 44px (V1.1). */}
-              <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-4 py-1 text-primary-foreground">
+                  nút đóng md:size-7. Sau đó Sếp: *"Tăng chiều cao 2 mục này bằng nhau"* → cao ĐÚNG 44px (h-11) = thanh 8 bước (`thanh-giai-doan.tsx` min-h-11). */}
+              <div className="flex h-11 shrink-0 items-center justify-between gap-3 bg-primary px-4 text-primary-foreground">
                 <DialogTitle className="min-w-0 truncate text-sm font-semibold text-primary-foreground">
                   ‹ Chi tiết đề nghị
                 </DialogTitle>
