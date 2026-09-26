@@ -1050,6 +1050,12 @@ function TheDeNghi({
             <span className="text-text-secondary">Quy trình:</span> Phiếu nhân bản
           </span>
         ) : null}
+        {/* ★ Sếp 26/09/2026: *"Với các phiếu xuất kho E thêm 1 dòng ghi chú: 'Xuất kho' chữ màu đỏ ko
+            cần in đậm"*. Phiếu xuất kho = có dòng được giao theo loại việc `xuat_kho` (giao thủ kho /
+            NV Kho tổng, hoặc chọn "Xuất kho" trong hộp giao việc). */}
+        {deNghi.items.some((d) => d.loaiViecGiao === "xuat_kho") && (
+          <span className="text-danger">Xuất kho</span>
+        )}
         {/* Chỉ nói tới tài liệu khi CÓ tài liệu. Mẫu Base luôn hiện "Link phiếu đề..." vì bên đó
             phiếu nào cũng đính kèm; app này cho phép lập phiếu không kèm tệp, hiện nhãn trơ
             là hứa một thứ không có. */}
