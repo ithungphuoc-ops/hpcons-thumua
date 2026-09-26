@@ -4,8 +4,10 @@ import Link from "next/link";
 import NextDynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDungDayKhungNhin } from "@/1-giao-dien/thanh-phan-dung-chung/dung-day-khung-nhin";
+import { datTuKhoaBangQuyTrinh, useTuKhoaBangQuyTrinh } from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
+import { khopTimBangQuyTrinh } from "@/2-quy-trinh/tim-kiem";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, FileText, LayoutGrid, List, X } from "lucide-react";
+import { AlertTriangle, FileText, LayoutGrid, List, X, Search } from "lucide-react";
 /* 📌 KHÔNG còn import `DropdownMenu*` và `MoreHorizontal` ở đây (13/09/2026): menu ⋯ của pop-up
    nay dùng chung `MenuThaoTacThe` với thẻ Kanban, component đó tự lo cả khung lẫn icon. */
 import { toast } from "sonner";
@@ -307,6 +309,26 @@ export default function TrangDanhSachDeNghi() {
   );
 
   /**
+   * ★ LỌC THEO Ô TÌM Ở THANH TRÊN — Sếp 26/09/2026: *"khi a nhập mã số đề nghị vào thanh tìm kiếm,
+   * thì trên quy trình mua hàng chỉ hiện đúng cái đề nghị đó thôi"*. Luật khớp ở
+   * `2-quy-trinh/tim-kiem.ts` → `khopTimBangQuyTrinh` (gõ toàn số = đúng mã đề xuất).
+   * 📌 `cot` GỐC vẫn giữ cho các chỗ tra thẻ theo id (menu ⋯, xử lý kéo thả) — chỉ phần VẼ dùng bản lọc.
+   * Đang lọc thì ẩn thẻ đơn độc lập (không có mã đề nghị để khớp).
+   */
+  const tuKhoaBang = useTuKhoaBangQuyTrinh();
+  const cotHien = useMemo(
+    () =>
+      tuKhoaBang.trim()
+        ? cot.map((c) => ({
+            ...c,
+            the: c.the.filter((t) => khopTimBangQuyTrinh(t.deNghi, tuKhoaBang)),
+            theDocLap: [],
+          }))
+        : cot,
+    [cot, tuKhoaBang],
+  );
+
+  /**
    * ★★ NGUỒN DỮ LIỆU CỦA TAB "DANH SÁCH" — GHÉP TỪ CHÍNH `cot` CỦA BẢNG KANBAN (23/08/2026).
    *
    * 🔴 Ban lãnh đạo: *"Bố cục lại phần hiển thị dạng danh sách giống vậy"* (ảnh bảng Base
@@ -321,8 +343,8 @@ export default function TrangDanhSachDeNghi() {
    * thành "theo cột" chứ không theo mức ưu tiên chung.
    */
   const moiThe = useMemo(
-    () => [...cot.flatMap((c) => c.the)].sort((a, b) => soSanhTheTrenBang(a, b, nguoiDung.uid)),
-    [cot, nguoiDung.uid],
+    () => [...cotHien.flatMap((c) => c.the)].sort((a, b) => soSanhTheTrenBang(a, b, nguoiDung.uid)),
+    [cotHien, nguoiDung.uid],
   );
 
   /**
@@ -774,6 +796,23 @@ export default function TrangDanhSachDeNghi() {
         />
 
         {/* Cao 44px trên điện thoại cho đủ vùng chạm theo V1.1. */}
+        {/* Đang lọc theo ô tìm — nói rõ, kèm nút bỏ lọc (đừng để người dùng tưởng mất hồ sơ). */}
+        {tuKhoaBang.trim() && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary-bg px-3 py-2 text-sm text-primary">
+            <Search className="size-4 shrink-0" aria-hidden />
+            <span>
+              Đang lọc theo “<strong>{tuKhoaBang.trim()}</strong>” —{" "}
+              {cotHien.reduce((n, c) => n + c.the.length, 0)} đề nghị
+            </span>
+            <button
+              type="button"
+              onClick={() => datTuKhoaBangQuyTrinh("")}
+              className="ml-auto inline-flex min-h-11 items-center rounded-md px-2 font-medium underline-offset-2 hover:underline md:min-h-8"
+            >
+              Bỏ lọc
+            </button>
+          </div>
+        )}
         <Tabs value={cachXem} onValueChange={(v) => setCachXem(v as CachXem)}>
           <TabsList variant="line" className="h-auto md:h-9">
             <TabsTrigger value="bang" className="h-11 px-3 md:h-[calc(100%-1px)]">
@@ -839,7 +878,7 @@ export default function TrangDanhSachDeNghi() {
             * — hai việc đã tách rời hẳn nhau kể từ đây.
             */}
           <BangQuyTrinhMuaHang
-            cot={cot}
+            cot={cotHien}
             keoThaDuoc={false}
             /**
              * ★★ CHỈ CHO VAI TRÒ LÀM NGHIỆP VỤ — giữ đúng luật cũ của `onXemNhanh`: hộp

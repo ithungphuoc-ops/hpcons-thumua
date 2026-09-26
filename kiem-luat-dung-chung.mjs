@@ -195,6 +195,20 @@ try {
   process.exit(1);
 }
 
+/* ★ Lọc bảng quy trình theo ô tìm (26/09/2026). */
+const tepRaTK = join(thuMuc, "tim-kiem.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/tim-kiem.ts" --bundle --platform=node --format=cjs --outfile="${tepRaTK}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/tim-kiem.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+
 /* ★ Cấp mã ở máy chủ — nhịp 3b (23/09/2026). Phần quyết định tách khỏi route vì route phải mở
    Firebase mới chạy; luật phải gọi thật được chỗ dễ sai nhất. */
 const tepRaCM = join(thuMuc, "cap-ma-may-chu.cjs");
@@ -8962,6 +8976,27 @@ kiem("Dong da co bao gia / don hang (chua huy) thi KHONG duoc chuyen / bo phan b
   const kq = [1, 2, 3].map((st) => T.dongDaCoChungTu("p", st, bg, po));
   return { duoc: kq.join() === "false,true,false", thucTe: kq.join(), mongDoi: "false,true,false (PO da huy khong tinh)" };
 });
+
+kiem(
+  "Loc bang quy trinh: go TOAN SO = dung ma de xuat (154 == 000000154, KHONG dinh 1541); go chu = tim chua bo dau",
+  'Sếp · 26/09/2026 — *"khi a nhập mã số đề nghị vào thanh tìm kiếm, thì trên quy trình mua hàng chỉ hiện đúng cái đề nghị đó thôi"*',
+  () => {
+    const TK = nap(tepRaTK);
+    const dn = (ma, cong) => ({ code: `HD-${ma}`, tieuDe: `HD | ${cong}`, tenCongTrinh: cong, maDeXuatAppRequest: ma });
+    const a = dn("000000154", "Nhà máy Howell"), b = dn("000001541", "Chen Yi"), c = dn("000000015", "Unice");
+    const kq = {
+      so154: [a, b, c].filter((d) => TK.khopTimBangQuyTrinh(d, "154")).map((d) => d.maDeXuatAppRequest),
+      soDu: TK.khopTimBangQuyTrinh(a, "000000154"),
+      chu: [a, b, c].filter((d) => TK.khopTimBangQuyTrinh(d, "howell")).length,
+      rong: [a, b, c].every((d) => TK.khopTimBangQuyTrinh(d, "  ")),
+    };
+    return {
+      duoc: kq.so154.join() === "000000154" && kq.soDu && kq.chu === 1 && kq.rong,
+      thucTe: JSON.stringify(kq),
+      mongDoi: 'so154=["000000154"] · soDu=true · chu=1 · rong=true',
+    };
+  },
+);
 
 kiem("Doi tien: CHI CON MOT BAN duy nhat, XML dung chung", CHU_SEP_DOC_HOA_DON, () => {
   /* 🔴 `doc-hoa-don-xml.ts` tung co ban `chuanHoaTien` rieng, va hai ban DA LECH NHAU ngay trong

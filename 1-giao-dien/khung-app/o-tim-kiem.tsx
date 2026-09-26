@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { datTuKhoaBangQuyTrinh, useTuKhoaBangQuyTrinh } from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Search, ShoppingCart, Tags, X } from "lucide-react";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
@@ -33,6 +34,21 @@ export function OTimKiem() {
   const [dangMo, setDangMo] = useState(false);
   const [viTri, setViTri] = useState(0);
   const boc = useRef<HTMLDivElement>(null);
+  /**
+   * ★ Ở MÀN QUY TRÌNH MUA HÀNG, ô tìm LỌC LUÔN BẢNG — Sếp 26/09/2026: *"khi a nhập mã số đề nghị vào
+   * thanh tìm kiếm, thì trên quy trình mua hàng chỉ hiện đúng cái đề nghị đó thôi"*. Ở đó không bật
+   * danh sách xổ xuống (nó đè lên chính cái bảng đang lọc). Rời màn thì bỏ lọc.
+   */
+  const pathname = usePathname();
+  const laBangQuyTrinh = pathname === "/de-nghi";
+  useEffect(() => {
+    datTuKhoaBangQuyTrinh(laBangQuyTrinh ? tuKhoa : "");
+  }, [laBangQuyTrinh, tuKhoa]);
+  /* Bấm "Bỏ lọc" trên màn Quy trình thì xoá luôn chữ trong ô — hai chỗ không được nói khác nhau. */
+  const tuKhoaDangLoc = useTuKhoaBangQuyTrinh();
+  useEffect(() => {
+    if (laBangQuyTrinh && tuKhoaDangLoc === "") setTuKhoa("");
+  }, [laBangQuyTrinh, tuKhoaDangLoc]);
 
   // Truyền uid vì luật xem báo giá còn xét theo TỪNG hồ sơ (ai được chia việc / ai theo dõi),
   // không chỉ theo cấp quyền.
@@ -79,7 +95,7 @@ export function OTimKiem() {
   }
 
   const daGoDu = tuKhoa.trim().length >= SO_KY_TU_TOI_THIEU;
-  const hienHop = dangMo && tuKhoa.trim().length > 0;
+  const hienHop = dangMo && tuKhoa.trim().length > 0 && !laBangQuyTrinh;
 
   return (
     <div ref={boc} className="relative hidden max-w-sm flex-1 sm:block">
@@ -92,7 +108,9 @@ export function OTimKiem() {
         }}
         onFocus={() => setDangMo(true)}
         onKeyDown={khiGoPhim}
-        placeholder="Tìm mã hồ sơ, công trình, vật liệu..."
+        placeholder={
+          laBangQuyTrinh ? "Lọc bảng: gõ mã đề nghị, công trình…" : "Tìm mã hồ sơ, công trình, vật liệu..."
+        }
         className="pl-9 pr-9"
         aria-label="Tìm hồ sơ theo mã"
         role="combobox"

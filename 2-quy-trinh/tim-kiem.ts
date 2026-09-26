@@ -171,3 +171,31 @@ export function timHoSo(
 
   return { ketQua: gom.slice(0, SO_KET_QUA_TOI_DA), tongKhop: gom.length };
 }
+
+/**
+ * ★★ LỌC BẢNG QUY TRÌNH MUA HÀNG THEO Ô TÌM — Sếp 26/09/2026: *"khi a nhập mã số đề nghị vào thanh
+ * tìm kiếm, thì trên quy trình mua hàng chỉ hiện đúng cái đề nghị đó thôi"*.
+ *
+ * 🔴 GÕ TOÀN SỐ = SO ĐÚNG MÃ ĐỀ XUẤT, KHÔNG SO CHỨA. "154" phải ra đúng đề nghị 000000154, không dính
+ * 000001541 hay mã hợp đồng có "154". So theo GIÁ TRỊ số nên gõ "154" hay "000000154" đều khớp.
+ * Phiếu con tách / nhân bản mang cùng mã đề xuất với phiếu gốc nên hiện theo cả họ — đúng ý "liên kết
+ * cha con" Sếp dặn.
+ * Gõ có chữ → tìm chứa (bỏ dấu, không phân biệt hoa thường) trong mã hồ sơ, tên đề nghị, công trình.
+ * Từ khoá trống → khớp mọi đề nghị (không lọc).
+ */
+export function khopTimBangQuyTrinh(
+  dn: Pick<DeNghiMuaHang, "code" | "tieuDe" | "tenCongTrinh" | "maDeXuatAppRequest">,
+  tuKhoa: string,
+): boolean {
+  const q = tuKhoa.trim();
+  if (!q) return true;
+  if (/^\d+$/.test(q)) {
+    const ma = (dn.maDeXuatAppRequest ?? "").trim();
+    if (/^\d+$/.test(ma) && Number(ma) === Number(q)) return true;
+    /* Đề nghị không có mã đề xuất số (tạo trong app) — so đúng mã hồ sơ gõ đủ. */
+    return (dn.code ?? "").trim() === q;
+  }
+  const chuan = (x: string | undefined) => boDau(x ?? "").toLowerCase().replace(/\s+/g, " ");
+  const k = chuan(q);
+  return [dn.code, dn.tieuDe, dn.tenCongTrinh, dn.maDeXuatAppRequest].some((x) => chuan(x).includes(k));
+}
