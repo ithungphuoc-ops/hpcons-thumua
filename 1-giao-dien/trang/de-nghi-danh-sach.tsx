@@ -1078,7 +1078,9 @@ export default function TrangDanhSachDeNghi() {
                 * 🔴 GIỮ `truncate` + `min-w-0`: mã đề nghị dài (đã thấy thực tế: mã hợp đồng +
                 * tên công trình dài) vẫn phải nhường chỗ cho cụm nút bên phải, không đẩy tràn.
                 */}
-              <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-4 py-3 text-primary-foreground">
+              {/* Sếp 26/09/2026: *"Giảm chiều cao header này để có thêm diện tích"* — đệm py-3 → py-1,
+                  nút đóng md:size-7 (≈40px trên máy tính, trước ≈60px). Điện thoại giữ nút 44px (V1.1). */}
+              <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-4 py-1 text-primary-foreground">
                 <DialogTitle className="min-w-0 truncate text-sm font-semibold text-primary-foreground">
                   ‹ Chi tiết đề nghị
                 </DialogTitle>
@@ -1128,7 +1130,7 @@ export default function TrangDanhSachDeNghi() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                        className="text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground md:size-7"
                         aria-label="Đóng"
                       />
                     }
