@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, Minus, RefreshCw, Search, ShieldAlert, TriangleAlert, Users } from "lucide-react";
+import { Check, ChevronRight, Minus, RefreshCw, Search, ShieldAlert, TriangleAlert, Users } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -232,6 +232,8 @@ export default function TrangPhanQuyen() {
   /** Chức danh mới. `""` = giữ nguyên. */
   const [nhapVaiTro, setNhapVaiTro] = useState("");
   const [tuKhoaDs, setTuKhoaDs] = useState("");
+  /** Nhóm quyền đang GẬP (Được xem / Được làm / Quản trị) — chỉ là cách xem. */
+  const [nhomGap, setNhomGap] = useState<string[]>([]);
   const [phongBanDs, setPhongBanDs] = useState("");
   const [hoiLuu, setHoiLuu] = useState(false);
   /**
@@ -1271,14 +1273,28 @@ export default function TrangPhanQuyen() {
                     return (
                       <fieldset key={nhom} className="border-b border-divider px-4 py-4">
                         <legend className="sr-only">{nhom}</legend>
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold tracking-wide text-text-secondary uppercase">
+                        {/* Sếp 26/09/2026: *"Tạo màu cho header này và chức năng group"* — thanh nhóm nền xanh
+                            nhạt, bấm để gập/mở nhóm (gập chỉ ẩn ô tick, không đổi quyền nào). */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNhomGap((cu) => (cu.includes(nhom) ? cu.filter((x) => x !== nhom) : [...cu, nhom]))
+                          }
+                          aria-expanded={!nhomGap.includes(nhom)}
+                          className="mb-2 flex min-h-10 w-full items-center justify-between gap-2 rounded-lg bg-primary-bg px-3 text-left text-primary transition-colors hover:bg-primary-bg/70"
+                        >
+                          <span className="flex items-center gap-2 text-xs font-semibold tracking-wide uppercase">
+                            <ChevronRight
+                              className={`size-4 shrink-0 transition-transform ${nhomGap.includes(nhom) ? "" : "rotate-90"}`}
+                              aria-hidden
+                            />
                             {nhom}
-                          </p>
-                          <span className="text-xs text-text-desc">
+                          </span>
+                          <span className="text-xs text-text-secondary">
                             {soBat}/{ds.length}
                           </span>
-                        </div>
+                        </button>
+                        {!nhomGap.includes(nhom) && (<>
                         <div className="grid grid-cols-1 gap-x-4 gap-y-1 md:grid-cols-2">
                           {ds.map((c) => {
                             const gt = giaTriCo(c.khoa);
@@ -1340,6 +1356,7 @@ export default function TrangPhanQuyen() {
                             không chặn được. Ai xem được hồ sơ thì xuất/in được hồ sơ đó.
                           </p>
                         )}
+                        </>)}
                       </fieldset>
                     );
                   })}
