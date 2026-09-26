@@ -1179,31 +1179,59 @@ export default function TrangPhanQuyen() {
                   </div>
 
                   {/* ---- Chức danh + tick nhanh ---- */}
-                  <div className="flex flex-col gap-3 border-b border-divider px-4 py-4 md:flex-row md:items-end">
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <label htmlFor="chuc-danh-phan-quyen" className="text-xs font-semibold text-text-secondary">
-                        Chức danh (quyết định có trong danh sách Giao việc không)
-                      </label>
-                      <select
-                        id="chuc-danh-phan-quyen"
-                        value={nhapVaiTro}
-                        onChange={(e) => doiChucDanhNhap(e.target.value)}
-                        disabled={dsChon.some((t) => t.lyDoKhoa) || dangLuu}
-                        className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <option value="">
-                          {motNguoi?.chuaCoHoSo
-                            ? "— chọn chức danh để cấp quyền —"
-                            : motNguoi
-                              ? `Giữ nguyên: ${motNguoi.vtHienTai?.ten ?? `Tùy chỉnh (${NHAN_CAP_QUYEN[motNguoi.nd.capTM]})`}`
-                              : "Giữ nguyên chức danh của từng người"}
-                        </option>
-                        {vaiTroGanDuoc.map((v) => (
-                          <option key={v.ma} value={v.ma}>
-                            {v.ten}
+                  {/* Sếp 26/09/2026: *"Căn dòng ngay ngắn"* — nhãn ở trên, rồi MỘT HÀNG [ô chức danh | hai
+                      nút] căn giữa theo chiều cao ô chọn, dòng gợi ý nằm dưới cả hàng. Trước đây hai nút
+                      căn theo cả khối (nhãn + ô + gợi ý) nên lệch khỏi ô chọn. */}
+                  <div className="flex flex-col gap-1.5 border-b border-divider px-4 py-4">
+                    <label htmlFor="chuc-danh-phan-quyen" className="text-xs font-semibold text-text-secondary">
+                      Chức danh (quyết định có trong danh sách Giao việc không)
+                    </label>
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                      <div className="min-w-0 flex-1">
+                        <select
+                          id="chuc-danh-phan-quyen"
+                          value={nhapVaiTro}
+                          onChange={(e) => doiChucDanhNhap(e.target.value)}
+                          disabled={dsChon.some((t) => t.lyDoKhoa) || dangLuu}
+                          className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <option value="">
+                            {motNguoi?.chuaCoHoSo
+                              ? "— chọn chức danh để cấp quyền —"
+                              : motNguoi
+                                ? `Giữ nguyên: ${motNguoi.vtHienTai?.ten ?? `Tùy chỉnh (${NHAN_CAP_QUYEN[motNguoi.nd.capTM]})`}`
+                                : "Giữ nguyên chức danh của từng người"}
                           </option>
-                        ))}
-                      </select>
+                          {vaiTroGanDuoc.map((v) => (
+                            <option key={v.ma} value={v.ma}>
+                              {v.ten}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          disabled={!mauApDuoc || Boolean(lyDoKhongTick) || dangLuu}
+                          title={
+                            mauApDuoc
+                              ? undefined
+                              : "Những người đang chọn khác mẫu chức danh — chọn một chức danh ở ô bên cạnh để áp."
+                          }
+                          onClick={() => mauApDuoc && setNhapQuyen(rutQuyenRieng(mauApDuoc))}
+                        >
+                          Áp mẫu theo chức danh
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          disabled={Boolean(lyDoKhongTick) || dangLuu}
+                          title={lyDoKhoaVaoApp ? "Giữ “Vào app” — người cấp Quản lý trở lên không bỏ được ô này." : undefined}
+                          onClick={boHet}
+                        >
+                          Bỏ hết
+                        </Button>
+                      </div>
+                    </div>
                       <p className="text-xs text-text-desc">
                         {vtMoi
                           ? loiRieng
@@ -1213,29 +1241,6 @@ export default function TrangPhanQuyen() {
                               : `Đổi sang “${vtMoi.ten}”: đã tick lại theo mẫu của chức danh này — thêm/bớt tiếp nếu cần. ${vtMoi.moTa}`
                           : "Đổi chức danh là tick lại toàn bộ theo mẫu của chức danh đó."}
                       </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        disabled={!mauApDuoc || Boolean(lyDoKhongTick) || dangLuu}
-                        title={
-                          mauApDuoc
-                            ? undefined
-                            : "Những người đang chọn khác mẫu chức danh — chọn một chức danh ở ô bên cạnh để áp."
-                        }
-                        onClick={() => mauApDuoc && setNhapQuyen(rutQuyenRieng(mauApDuoc))}
-                      >
-                        Áp mẫu theo chức danh
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        disabled={Boolean(lyDoKhongTick) || dangLuu}
-                        title={lyDoKhoaVaoApp ? "Giữ “Vào app” — người cấp Quản lý trở lên không bỏ được ô này." : undefined}
-                        onClick={boHet}
-                      >
-                        Bỏ hết
-                      </Button>
-                    </div>
                   </div>
 
                   {/* ---- Khoá tick thì PHẢI nói vì sao ---- */}
