@@ -28,13 +28,8 @@ import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 // (qua `2-quy-trinh/cap-ma-may-chu.ts`). Chép sang là hai bên lệch nhau sau vài lần sửa.
 // ============================================================
 
-/** Hạn dùng — PHẢI KHỚP `conHanChayThu()` trong `5-ket-noi/firestore-gop-tach.rules`.
- *  Thiếu dòng này là lặng lẽ nới lỏng bảo mật so với cách cũ (bài học PR #32, 21/09/2026). */
-/* 🔴 MỐC UTC, KHỚP ĐÚNG RULES (sửa 23/09/2026, CodeRabbit chỉ ra ở PR #37).
-   `timestamp.date(2026, 11, 1)` bên Firestore rules là mốc UTC. Ghi `+07:00` ở đây làm route
-   đóng cửa SỚM HƠN RULES 7 TIẾNG — trong 7 tiếng đó route trả 403 còn rules vẫn cho ghi, tức
-   hai chốt nói hai điều khác nhau về cùng một hạn dùng. */
-const HAN_DUNG = new Date("2026-11-01T00:00:00Z");
+/* 📌 25/09/2026: ĐÃ BỎ hạn dùng `HAN_DUNG` (01/11/2026) theo chỉ đạo Ban lãnh đạo, cùng lúc với
+   `conHanChayThu()` trong `5-ket-noi/firestore-gop-tach.rules`. Bốn chỗ này phải luôn đi cùng nhau. */
 
 function layIdToken(req: NextRequest): string | undefined {
   return (req.headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i)?.[1];
@@ -57,10 +52,6 @@ function maTrongKho(d: Partial<DuLieuLuu>, loai: LoaiMa): string[] {
 export async function POST(req: NextRequest) {
   const nguoiGoi = await verifyClientIdToken(layIdToken(req));
   if (!nguoiGoi) return NextResponse.json({ loi: "CHUA_DANG_NHAP" }, { status: 401 });
-
-  if (Date.now() >= HAN_DUNG.getTime()) {
-    return NextResponse.json({ loi: "HET_HAN_CHAY_THU" }, { status: 403 });
-  }
 
   let than: { loai?: unknown; thamSo?: unknown };
   try {

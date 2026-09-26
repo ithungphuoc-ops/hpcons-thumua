@@ -50,16 +50,17 @@ service cloud.firestore {
       return batBuocDangNhap() ? request.auth != null : true;
     }
 
-    /** Hết hạn 01/11/2026. Đổi ngày này là hành động có ý thức, không phải mặc định. */
-    function conHanChayThu() {
-      return request.time < timestamp.date(2026, 11, 1);
-    }
+    // 📌 25/09/2026: ĐÃ BỎ "cầu chì" hạn dùng `conHanChayThu()` (hết hạn 01/11/2026) theo
+    //    chỉ đạo Ban lãnh đạo. Cầu chì sinh ra 12/08/2026 cho BẢN CHẠY THỬ để cửa mở không bị
+    //    quên; nay app là bản dùng thật của cả phòng nên một ngày tự khoá ngầm trong mã là
+    //    rủi ro, không còn là lưới an toàn. Ba route máy chủ (`cap-ma`, `tep/ky-link`,
+    //    `tep/xoa`) đã bỏ cùng lúc — bốn chỗ này phải luôn đi cùng nhau.
 
     // ------------------------------------------------------------------
     // KHO DỮ LIỆU CHUNG của bản chạy thử — MỘT document duy nhất.
     // ------------------------------------------------------------------
     match /chay-thu/{tep} {
-      allow read, write: if conHanChayThu() && duocVao();
+      allow read, write: if duocVao();
     }
 
     /**
@@ -111,9 +112,8 @@ service cloud.firestore {
     //
     // 🔴 CHỈ CHO TẠO (`create`), TUYỆT ĐỐI KHÔNG CHO SỬA/XÓA. Nhật ký mà tự sửa/xóa được thì
     // mất hết ý nghĩa tồn tại — đúng người vừa xóa dữ liệu chạy thử lại tiện tay xóa luôn
-    // dòng nhật ký tố cáo chính mình. KHÔNG áp `conHanChayThu()` như collection trên: nhật ký
-    // vẫn phải ghi/đọc được ngay cả khi qua ngày hết hạn "chạy thử" — tách khỏi vòng đời dữ
-    // liệu tạm để phục vụ đúng vai trò của nó.
+    // dòng nhật ký tố cáo chính mình. (Trước 25/09/2026 nhật ký cố ý KHÔNG áp hạn dùng
+    // `conHanChayThu()` như các collection khác; nay hạn dùng đã bỏ toàn bộ nên không còn khác biệt.)
     //
     // 🔴 ĐỌC: giới hạn đúng bằng quyền `phanQuyenNguoiDung` ở màn hình (cùng mức nhạy cảm
     // với "Phân quyền người dùng") — KHÔNG chỉ "đã đăng nhập là đủ" như bản đầu (29/08/2026),
@@ -164,9 +164,9 @@ service cloud.firestore {
     // collection con: khai mỗi `tep/{tepId}` thì mảnh bị chặn, và người dùng thấy đúng cảnh
     // "tải lên xong mà mở ra không có gì".
     match /tep/{tepId} {
-      allow read, write: if conHanChayThu() && duocVao();
+      allow read, write: if duocVao();
       match /{duongDanCon=**} {
-        allow read, write: if conHanChayThu() && duocVao();
+        allow read, write: if duocVao();
       }
     }
 
@@ -275,17 +275,17 @@ service cloud.firestore {
 
     // ---------- ĐỀ NGHỊ MUA HÀNG — KHÔNG chứa giá ----------
     match /tm_denghi/{prId} {
-      allow read: if conHanChayThu() && duocXemHoSoMuaHang();
-      allow create, update: if conHanChayThu() && nhapLieuThuMua();
-      allow delete: if conHanChayThu() && quanLyThuMua();
+      allow read: if duocXemHoSoMuaHang();
+      allow create, update: if nhapLieuThuMua();
+      allow delete: if quanLyThuMua();
     }
 
     // ---------- ĐƠN ĐẶT HÀNG — KHÔNG chứa giá ----------
     match /tm_donhang/{poId} {
-      allow read: if conHanChayThu() && duocXemHoSoMuaHang();
-      allow create: if conHanChayThu() && nhapLieuThuMua();
-      allow update: if conHanChayThu() && nhapLieuThuMua();
-      allow delete: if conHanChayThu() && quanLyThuMua();
+      allow read: if duocXemHoSoMuaHang();
+      allow create: if nhapLieuThuMua();
+      allow update: if nhapLieuThuMua();
+      allow delete: if quanLyThuMua();
 
       // ---------- PHIẾU NHẬN HÀNG — lồng trong đơn (Sếp chốt 16/09/2026) ----------
       // 🔴 Kho là NGUỒN DUY NHẤT của số thực nhận: Thu mua và QLDA chỉ đọc, KHÔNG tự ghi
@@ -295,9 +295,9 @@ service cloud.firestore {
       // 🔴 NÓ **KHÔNG** ÁP CHO `collectionGroup("nhanhang")` — xem khối riêng bên dưới.
       // Tôi đã kết luận sai chiều này ngày 17/09/2026 và làm app mất kết nối trên production.
       match /nhanhang/{grnId} {
-        allow read: if conHanChayThu() && duocXemHoSoMuaHang();
-        allow create, update: if conHanChayThu() && thuKho();
-        allow delete: if conHanChayThu() && quanLyThuMua();
+        allow read: if duocXemHoSoMuaHang();
+        allow create, update: if thuKho();
+        allow delete: if quanLyThuMua();
       }
     }
 
@@ -320,9 +320,9 @@ service cloud.firestore {
     // 📌 Giữ CẢ HAI khối: khối lồng ở trên cho truy cập trực tiếp một phiếu, khối này cho
     // truy vấn collection group. Quyền đặt giống hệt nhau để không có đường nào lỏng hơn.
     match /{duongDan=**}/nhanhang/{grnId} {
-      allow read: if conHanChayThu() && duocXemHoSoMuaHang();
-      allow create, update: if conHanChayThu() && thuKho();
-      allow delete: if conHanChayThu() && quanLyThuMua();
+      allow read: if duocXemHoSoMuaHang();
+      allow create, update: if thuKho();
+      allow delete: if quanLyThuMua();
     }
 
 
@@ -330,16 +330,16 @@ service cloud.firestore {
     // Đây là lý do tồn tại của cả cách tách document. ĐỪNG gộp lại vào `tm_donhang`.
     // Chứa: đơn giá từng dòng · chiết khấu · thuế suất · điều khoản thanh toán.
     match /tm_donhang_gia/{poId} {
-      allow read: if conHanChayThu() && duocXemTien();
-      allow create, update: if conHanChayThu() && nhapLieuThuMua();
-      allow delete: if conHanChayThu() && quanLyThuMua();
+      allow read: if duocXemTien();
+      allow create, update: if nhapLieuThuMua();
+      allow delete: if quanLyThuMua();
     }
 
     // ---------- 🔒 BẢNG BÁO GIÁ — TOÀN BỘ chứa giá nhà cung cấp ----------
     match /tm_baogia/{rfqId} {
-      allow read: if conHanChayThu() && duocXemTien();
-      allow create, update: if conHanChayThu() && nhapLieuThuMua();
-      allow delete: if conHanChayThu() && quanLyThuMua();
+      allow read: if duocXemTien();
+      allow create, update: if nhapLieuThuMua();
+      allow delete: if quanLyThuMua();
     }
 
     // ---------- THÔNG BÁO CHUYỂN BƯỚC ----------
@@ -348,9 +348,9 @@ service cloud.firestore {
     // hướng đó được, nhưng phải đợi thông báo có trường `guiToiUid` và có Cloud Function ghi
     // — hiện app tự ghi từ trình duyệt, siết ngay là app không tạo được thông báo nào.
     match /tm_thongbao/{tbId} {
-      allow read: if conHanChayThu() && daDangNhap();
-      allow create, update: if conHanChayThu() && nhapLieuThuMua();
-      allow delete: if conHanChayThu() && quanLyThuMua();
+      allow read: if daDangNhap();
+      allow create, update: if nhapLieuThuMua();
+      allow delete: if quanLyThuMua();
     }
 
     // ---------- CÀI ĐẶT DÙNG CHUNG ----------
@@ -359,8 +359,8 @@ service cloud.firestore {
     // 🔴 Sửa cấu hình quy trình là đổi luật cho CẢ PHÒNG (ngưỡng giá trị, hạn từng bước), nên
     // quyền ghi hẹp hơn chứng từ thường.
     match /tm_caidat/{id} {
-      allow read: if conHanChayThu() && daDangNhap();
-      allow create, update: if conHanChayThu() && quanLyThuMua();
+      allow read: if daDangNhap();
+      allow create, update: if quanLyThuMua();
       allow delete: if false;
     }
 
@@ -376,8 +376,8 @@ service cloud.firestore {
        là mất cảnh báo, không mất nghiệp vụ. Siết chặt hơn mức này là đổi lấy rủi ro khoá chết
        hồ sơ khi người dùng đóng tab đột ngột. */
     match /dang-sua/{khoa} {
-      allow read: if conHanChayThu() && duocVao();
-      allow create, update, delete: if conHanChayThu() && duocVao();
+      allow read: if duocVao();
+      allow create, update, delete: if duocVao();
     }
 
     /* ★ SỔ GIỮ CHỖ CẤP MÃ — nhịp 3b, 23/09/2026.
