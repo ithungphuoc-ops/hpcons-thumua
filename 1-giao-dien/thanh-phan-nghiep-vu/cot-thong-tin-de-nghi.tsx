@@ -45,6 +45,7 @@ export function CotThongTinDeNghi({
   soNgayConLai,
   moc = {},
   hanGioTheoBuoc = {},
+  anGiaiDoanHienTaiTuLg = false,
 }: {
   deNghi: DeNghiMuaHang;
   giaiDoan: GiaiDoanMuaHang;
@@ -55,13 +56,13 @@ export function CotThongTinDeNghi({
    * và "DURATION". 0 = bước không đặt hạn.
    */
   hanGioTheoBuoc?: Record<string, number>;
+  /** Ẩn khối "Giai đoạn hiện tại" từ màn lg — khi nơi gọi đã vẽ nó ở vùng đầu dính cố định. */
+  anGiaiDoanHienTaiTuLg?: boolean;
 }) {
   const chuoi = GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "that_bai");
   const viTri = chuoi.findIndex((g) => g.ma === giaiDoan);
   const moTa = NHAN_GIAI_DOAN[giaiDoan];
-  /** Bước kế tiếp — Base hiện ngay trong khối giai đoạn hiện tại ("» GIAI ĐOẠN KẾ TIẾP"). */
-  const buocKeTiep = viTri >= 0 ? chuoi[viTri + 1] : undefined;
-  const ketThuc = giaiDoan === "hoan_thanh" || giaiDoan === "that_bai";
+  /* Bước kế tiếp / đã kết thúc: nay tính trong `KhoiGiaiDoanHienTai` (tách 26/09/2026). */
 
   // --- Thời hạn tổng: từ ngày duyệt tới ngày cần hàng ---
   // Base hiện "Đã sử dụng 115.73 của 15.00h". Của ta đơn vị là NGÀY, vì thu mua tính
@@ -74,58 +75,13 @@ export function CotThongTinDeNghi({
 
   return (
     <div className="flex flex-col gap-(--hp-md-row-gap)">
-      {/* ================= GIAI ĐOẠN HIỆN TẠI =================
-          Ban lãnh đạo 15/08/2026 gửi ảnh trang chi tiết job trên Base: khối này là thứ NỔI
-          NHẤT ở đầu cột phải, nền xanh, ghi "[1/6] Tên bước" kèm thời hạn và bước kế tiếp.
-
-          🔴 Vì sao đáng đặt lên đầu: câu hỏi số một khi mở một hồ sơ là "đang ở đâu, ai phải
-          làm gì tiếp". Trước đây phải đọc thanh giai đoạn ở cột trái rồi tự đếm. */}
-      <section className="rounded-xl bg-primary p-(--hp-md-card-pad) text-white">
-        <span className="text-xs font-semibold tracking-wide text-white/80 uppercase">
-          Giai đoạn hiện tại
-        </span>
-        <p className="mt-1 text-sm font-semibold leading-snug">
-          {viTri >= 0 && !ketThuc && (
-            <span className="tabular-nums">[{viTri + 1}/{chuoi.length - 1}] </span>
-          )}
-          {moTa?.nhan ?? giaiDoan}
-        </p>
-
-        {/* MÔ TẢ BƯỚC — dời từ danh sách "Tiến trình của các giai đoạn" lên đây (16/08/2026).
-            Ở danh sách bên dưới, đây là dòng DUY NHẤT dài 2–3 dòng trong khi mọi giai đoạn
-            khác chỉ 1 dòng, nên nó làm các dòng cao thấp so le — đúng chỗ Ban lãnh đạo
-            khoanh đỏ. Khối này mới là chỗ nói về bước đang đứng, lại đủ bề ngang để đọc.
-            🔴 DỜI chứ không bỏ: bỏ hẳn là mất lời giải thích bước đang làm, không còn chỗ
-            nào khác trong app nói câu đó. */}
-        {moTa?.moTa && <p className="mt-1 text-sm leading-snug text-white/90">{moTa.moTa}</p>}
-
-        {/* Hạn chuẩn của bước — Base gọi là "KỲ VỌNG". 0 giờ = bước không đặt hạn. */}
-        {!ketThuc && (
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/25 pt-2 text-sm">
-            <span className="text-white/80">Thời hạn chuẩn của bước</span>
-            <span className="font-semibold tabular-nums">
-              {nhanHanGioBuoc(hanGioTheoBuoc[giaiDoan])}
-            </span>
-          </div>
-        )}
-
-        {/* Bước kế tiếp — người dùng biết trước phải chuẩn bị gì. */}
-        {buocKeTiep && (
-          <p className="mt-1.5 text-sm text-white/90">
-            » Bước kế tiếp: <strong className="font-semibold">{buocKeTiep.nhan}</strong>
-            {/* Bước kế tiếp không đặt hạn thì KHÔNG in gì trong ngoặc — dòng này là lời nhắc
-                chuẩn bị, thêm "(Không đặt thời hạn)" chỉ làm dài chứ không thêm thông tin. Phần
-                CÓ hạn thì lấy chữ từ hàm chung, không tự ghép `${n} giờ` lần nữa. */}
-            {coHanGioBuoc(hanGioTheoBuoc[buocKeTiep.ma])
-              ? ` (${nhanHanGioBuoc(hanGioTheoBuoc[buocKeTiep.ma])})`
-              : ""}
-          </p>
-        )}
-
-        {/* 📌 ĐÃ BỎ câu "App chưa đếm được số giờ đã ở bước này…" (Ban lãnh đạo 16/08/2026).
-            App tự kể giới hạn kỹ thuật của mình ngay giữa màn làm việc; người dùng đọc xong
-            cũng không làm gì khác đi. Thời hạn thật đã hiện ở khối Tổng thời gian ngay dưới. */}
-      </section>
+      {/* Khối "Giai đoạn hiện tại" — tách thành `KhoiGiaiDoanHienTai` (26/09/2026) để trang chi
+          tiết đặt nó vào vùng đầu DÍNH CỐ ĐỊNH. Trang đó đã vẽ nó ở trên thì ẩn bản ở đây từ lg. */}
+      <KhoiGiaiDoanHienTai
+        giaiDoan={giaiDoan}
+        hanGioTheoBuoc={hanGioTheoBuoc}
+        className={anGiaiDoanHienTaiTuLg ? "lg:hidden" : undefined}
+      />
 
       {/* ================= THÔNG TIN NHIỆM VỤ =================
           Theo khối cùng tên trong ảnh Base: mã, ai tạo, tạo lúc nào, cập nhật gần nhất. */}
@@ -370,4 +326,79 @@ function soNgay(tu: string, den: string): number {
   const b = new Date(den).getTime();
   if (!Number.isFinite(a) || !Number.isFinite(b)) return 1;
   return Math.max(1, Math.round((b - a) / 86_400_000));
+}
+
+/**
+ * ★ KHỐI "GIAI ĐOẠN HIỆN TẠI" (nền xanh đầu cột phải) — tách riêng 26/09/2026 để trang chi tiết đề
+ * nghị đặt nó vào vùng đầu DÍNH CỐ ĐỊNH (Sếp: *"Cố định vùng hiển thị này thì cuộn thanh vẫn phải
+ * thấy vùng này"*). Nội dung giữ nguyên như khi còn nằm trong `CotThongTinDeNghi`.
+ */
+export function KhoiGiaiDoanHienTai({
+  giaiDoan,
+  hanGioTheoBuoc = {},
+  className,
+}: {
+  giaiDoan: GiaiDoanMuaHang;
+  hanGioTheoBuoc?: Record<string, number>;
+  className?: string;
+}) {
+  const chuoi = GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "that_bai");
+  const viTri = chuoi.findIndex((g) => g.ma === giaiDoan);
+  const moTa = NHAN_GIAI_DOAN[giaiDoan];
+  const buocKeTiep = viTri >= 0 ? chuoi[viTri + 1] : undefined;
+  const ketThuc = giaiDoan === "hoan_thanh" || giaiDoan === "that_bai";
+  /* ================= GIAI ĐOẠN HIỆN TẠI =================
+      Ban lãnh đạo 15/08/2026 gửi ảnh trang chi tiết job trên Base: khối này là thứ NỔI
+      NHẤT ở đầu cột phải, nền xanh, ghi "[1/6] Tên bước" kèm thời hạn và bước kế tiếp.
+
+      🔴 Vì sao đáng đặt lên đầu: câu hỏi số một khi mở một hồ sơ là "đang ở đâu, ai phải
+      làm gì tiếp". Trước đây phải đọc thanh giai đoạn ở cột trái rồi tự đếm. */
+  return (
+    <section className={`rounded-xl bg-primary p-(--hp-md-card-pad) text-white ${className ?? ""}`}>
+      <span className="text-xs font-semibold tracking-wide text-white/80 uppercase">
+        Giai đoạn hiện tại
+      </span>
+      <p className="mt-1 text-sm font-semibold leading-snug">
+        {viTri >= 0 && !ketThuc && (
+          <span className="tabular-nums">[{viTri + 1}/{chuoi.length - 1}] </span>
+        )}
+        {moTa?.nhan ?? giaiDoan}
+      </p>
+
+      {/* MÔ TẢ BƯỚC — dời từ danh sách "Tiến trình của các giai đoạn" lên đây (16/08/2026).
+          Ở danh sách bên dưới, đây là dòng DUY NHẤT dài 2–3 dòng trong khi mọi giai đoạn
+          khác chỉ 1 dòng, nên nó làm các dòng cao thấp so le — đúng chỗ Ban lãnh đạo
+          khoanh đỏ. Khối này mới là chỗ nói về bước đang đứng, lại đủ bề ngang để đọc.
+          🔴 DỜI chứ không bỏ: bỏ hẳn là mất lời giải thích bước đang làm, không còn chỗ
+          nào khác trong app nói câu đó. */}
+      {moTa?.moTa && <p className="mt-1 text-sm leading-snug text-white/90">{moTa.moTa}</p>}
+
+      {/* Hạn chuẩn của bước — Base gọi là "KỲ VỌNG". 0 giờ = bước không đặt hạn. */}
+      {!ketThuc && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/25 pt-2 text-sm">
+          <span className="text-white/80">Thời hạn chuẩn của bước</span>
+          <span className="font-semibold tabular-nums">
+            {nhanHanGioBuoc(hanGioTheoBuoc[giaiDoan])}
+          </span>
+        </div>
+      )}
+
+      {/* Bước kế tiếp — người dùng biết trước phải chuẩn bị gì. */}
+      {buocKeTiep && (
+        <p className="mt-1.5 text-sm text-white/90">
+          » Bước kế tiếp: <strong className="font-semibold">{buocKeTiep.nhan}</strong>
+          {/* Bước kế tiếp không đặt hạn thì KHÔNG in gì trong ngoặc — dòng này là lời nhắc
+              chuẩn bị, thêm "(Không đặt thời hạn)" chỉ làm dài chứ không thêm thông tin. Phần
+              CÓ hạn thì lấy chữ từ hàm chung, không tự ghép `${n} giờ` lần nữa. */}
+          {coHanGioBuoc(hanGioTheoBuoc[buocKeTiep.ma])
+            ? ` (${nhanHanGioBuoc(hanGioTheoBuoc[buocKeTiep.ma])})`
+            : ""}
+        </p>
+      )}
+
+      {/* 📌 ĐÃ BỎ câu "App chưa đếm được số giờ đã ở bước này…" (Ban lãnh đạo 16/08/2026).
+          App tự kể giới hạn kỹ thuật của mình ngay giữa màn làm việc; người dùng đọc xong
+          cũng không làm gì khác đi. Thời hạn thật đã hiện ở khối Tổng thời gian ngay dưới. */}
+    </section>
+  );
 }

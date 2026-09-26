@@ -1007,13 +1007,7 @@ export function dungBangQuyTrinh(
             moc,
             cauHinh.caiDatTungBuoc?.[giaiDoan]?.boQuaChuNhat ?? true,
           ) ?? undefined),
-      nguoiPhuTrach: [
-        ...new Set(
-          deNghi.items
-            .map((d) => d.nguoiPhuTrachTen)
-            .filter((x): x is string => Boolean(x)),
-        ),
-      ],
+      nguoiPhuTrach: tenNguoiPhuTrachDeNghi(deNghi),
       uidPhuTrach: [
         ...new Set(
           deNghi.items
@@ -3727,4 +3721,19 @@ export function dungXacNhanKeoTha(
       // "khong_the" không bao giờ tới được đây — trang gọi đã chặn và báo lý do trước.
       return { ...chung, seLam: "", nhanNut: "Xác nhận", nguyHiem: false };
   }
+}
+
+/**
+ * ★ TÊN NGƯỜI PHỤ TRÁCH MỘT ĐỀ NGHỊ — MỘT CHỖ DUY NHẤT cho chữ ở chân thẻ bảng quy trình VÀ ô
+ * "Người phụ trách" ở đầu trang chi tiết (Sếp 26/09/2026: *"Thêm tên người phụ trách đề nghị ở
+ * đây"*). Hai chỗ tự tính riêng là sớm muộn nói khác nhau về cùng một hồ sơ.
+ * 📌 Dòng đã tách sang phiếu con bị xoá người phụ trách trên phiếu gốc (xem `apDungGiaoViec`),
+ * nên danh sách này tự chỉ còn người đang làm phần việc CÒN LẠI của phiếu.
+ */
+export function tenNguoiPhuTrachDeNghi(deNghi: Pick<DeNghiMuaHang, "items">): string[] {
+  return [
+    ...new Set(
+      deNghi.items.map((d) => d.nguoiPhuTrachTen).filter((x): x is string => Boolean(x)),
+    ),
+  ];
 }

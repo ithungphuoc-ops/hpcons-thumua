@@ -26,6 +26,7 @@ import {
   Package,
   ScanSearch,
   ShoppingCart,
+  UserRound,
   X,
 } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
@@ -55,6 +56,7 @@ import { ThanhGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-giai-doa
 import TienDoTheoNguoi from "@/1-giao-dien/thanh-phan-nghiep-vu/tien-do-theo-nguoi";
 import {
   CotThongTinDeNghi,
+  KhoiGiaiDoanHienTai,
   type MocGiaiDoan,
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
@@ -141,6 +143,7 @@ import {
      là khoá luôn bảng vật tư nằm trong đó, mà phải xem bảng đó mới biết cần kiểm vật tư gì để
      checkin kho. Lý do đầy đủ ghi tại chỗ cũ trong khối bước ①. Hàm vẫn còn trong
      `2-quy-trinh/giai-doan-mua-hang.ts` — đừng xoá, xem ghi chú ở đó. */
+  tenNguoiPhuTrachDeNghi,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, xem chú thích đầu file đó.
@@ -453,6 +456,8 @@ export default function TrangChiTietDeNghi({
      🔴 `deNghi` lấy thẳng từ `useDuLieu()` — danh sách ĐẦY ĐỦ, chưa lọc lưu trữ. Không dùng
      `cacBanTach` ở ngay dưới: đó là bản đã lọc, luật sẽ không thấy hết các bản con. */
   const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, deNghi);
+  /* Người phụ trách hiện ở vùng đầu dính cố định — cùng hàm với chân thẻ bảng quy trình. */
+  const nguoiPhuTrachDn = tenNguoiPhuTrachDeNghi(dn);
 
   /* ★ TIẾN ĐỘ THEO TỪNG NGƯỜI — Sếp chốt 25/09/2026.
 
@@ -971,8 +976,21 @@ export default function TrangChiTietDeNghi({
             làm sàn, đẩy vỡ grid và tràn ngang cả trang.
           · Cột phải minmax(320px,27%): sàn 320px giữ cho các khối tra cứu không bị bóp
             nát trên màn hẹp (1280px trở xuống, khi 27% chỉ còn ~260px). */}
-      <div className="grid gap-(--hp-md-section) lg:grid-cols-[minmax(0,1fr)_minmax(320px,27%)] lg:items-start">
-        <div className="flex min-w-0 flex-col gap-(--hp-md-section)">
+      {/* ★★ VÙNG ĐẦU DÍNH CỐ ĐỊNH — Sếp 26/09/2026 (ảnh khoanh đỏ cả dải trên cùng): *"Cố định vùng
+          hiển thị này thì cuộn thanh vẫn phải thấy vùng này"*. Gồm nút quay lại + người phụ trách,
+          tiêu đề, dải 8 bước (cột trái) và khối "Giai đoạn hiện tại" (cột phải).
+          📌 CÙNG LƯỚI CỘT với phần thân bên dưới nên hai cột vẫn thẳng hàng như trước.
+          📌 CHỈ DÍNH TỪ lg: trên điện thoại vùng này cao gần nửa màn hình, dính vào là hết chỗ làm việc.
+          📌 NỀN ĐẶC theo nơi đặt (popup = `bg-popover`, trang riêng = `bg-background`) để nội dung
+             cuộn bên dưới không lộ qua.
+          ⚠️ Ở trang riêng `/de-nghi/[id]` thẻ `<main>` của khung app có `overflow-x-hidden` nên trình
+             duyệt coi nó là khung cuộn → dính KHÔNG có tác dụng ở đó (vô hại). Popup mới là nơi dùng. */}
+      <div
+        className={`grid gap-(--hp-md-section) lg:sticky lg:top-0 lg:z-20 lg:grid-cols-[minmax(0,1fr)_minmax(320px,27%)] lg:items-start lg:pb-3 ${
+          onDongPopup ? "bg-popover" : "bg-background"
+        }`}
+      >
+        <div className="flex min-w-0 flex-col gap-3">
           {/* 🔴 NÚT QUAY LẠI · TIÊU ĐỀ · DẢI BƯỚC NẰM TRONG CỘT TRÁI — Ban lãnh đạo 17/08/2026:
               *"kéo tịnh tiến lên trên"* (mũi tên chỉ vào khoảng trống góc trên phải).
 
@@ -991,23 +1009,41 @@ export default function TrangChiTietDeNghi({
             * `onDongPopup` nên vẫn giữ nguyên `<Link>` — Ctrl+click/chuột giữa vẫn mở tab mới
             * được, đúng hành vi cũ.
             */}
-          {onDongPopup ? (
-            <Button variant="ghost" size="sm" className="w-fit -ml-2" onClick={onDongPopup}>
-              <ArrowLeft className="size-4" aria-hidden />
-              Quay lại danh sách đề nghị
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-fit -ml-2"
-              nativeButton={false}
-              render={<Link href="/de-nghi" />}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {onDongPopup ? (
+              <Button variant="ghost" size="sm" className="w-fit -ml-2" onClick={onDongPopup}>
+                <ArrowLeft className="size-4" aria-hidden />
+                Quay lại danh sách đề nghị
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-fit -ml-2"
+                nativeButton={false}
+                render={<Link href="/de-nghi" />}
+              >
+                <ArrowLeft className="size-4" aria-hidden />
+                Quay lại danh sách đề nghị
+              </Button>
+            )}
+            {/* ★ NGƯỜI PHỤ TRÁCH ĐỀ NGHỊ — Sếp 26/09/2026 (ảnh khoanh góc trên phải): *"Thêm tên người
+                phụ trách đề nghị ở đây"*. Cùng hàm với chữ ở chân thẻ bảng quy trình
+                (`tenNguoiPhuTrachDeNghi`) nên hai chỗ không bao giờ nói khác nhau. Có cả chữ lẫn màu. */}
+            <span
+              className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-sm ${
+                nguoiPhuTrachDn.length > 0
+                  ? "bg-primary-bg text-primary"
+                  : "bg-danger-bg text-danger-soft"
+              }`}
             >
-              <ArrowLeft className="size-4" aria-hidden />
-              Quay lại danh sách đề nghị
-            </Button>
-          )}
+              <UserRound className="size-4 shrink-0" aria-hidden />
+              <span className="text-text-secondary">Người phụ trách:</span>
+              <strong className="font-semibold">
+                {nguoiPhuTrachDn.length > 0 ? nguoiPhuTrachDn.join(" · ") : "Chưa được giao"}
+              </strong>
+            </span>
+          </div>
 
           <PageHeader
             crumbs={[
@@ -1027,13 +1063,23 @@ export default function TrangChiTietDeNghi({
                  · Trạng thái → khối "Giai đoạn hiện tại" ở cột phải, chi tiết hơn */
           />
 
+          {/* Dải mũi tên 7 bước — nhìn ra ngay đề nghị đang đứng ở đâu trong quy trình */}
+          <ThanhGiaiDoan giaiDoan={giaiDoan} />
+        </div>
+        <div className="hidden lg:block">
+          <KhoiGiaiDoanHienTai giaiDoan={giaiDoan} hanGioTheoBuoc={cauHinh.hanGioTheoBuoc} />
+        </div>
+      </div>
+
+      <div className="grid gap-(--hp-md-section) lg:grid-cols-[minmax(0,1fr)_minmax(320px,27%)] lg:items-start mt-(--hp-md-section) lg:mt-0">
+        <div className="flex min-w-0 flex-col gap-(--hp-md-section)">
+          {/* Dải "ai đang mở hồ sơ này" (khoá mềm — code của phiên tích hợp) GIỮ NGUYÊN, chỉ dời xuống
+              ngay dưới vùng đầu dính (26/09/2026): vẫn đứng TRƯỚC mọi ô nhập đúng ý gốc của nó. */}
           {/* ★ AI ĐANG MỞ HỒ SƠ NÀY — đợt 1 lộ trình chống mất dữ liệu (22/09/2026).
               Đặt ngay dưới tiêu đề, TRƯỚC dải giai đoạn: người mở phải thấy trước khi bắt đầu
               gõ, chứ không phải sau khi đã nhập xong nửa trang. */}
           <BangAiDangSua loai="de-nghi" id={dn.id} uid={nguoiDung.uid} ten={nguoiDung.tenHienThi} />
 
-          {/* Dải mũi tên 7 bước — nhìn ra ngay đề nghị đang đứng ở đâu trong quy trình */}
-          <ThanhGiaiDoan giaiDoan={giaiDoan} />
           {tienDoNguoi && <TienDoTheoNguoi tienDo={tienDoNguoi} />}
           {/* ===== THÔNG TIN ĐỀ NGHỊ — danh sách trường đánh số =====
               Bố cục theo trang nhiệm vụ Base.vn (ảnh Ban lãnh đạo cung cấp 10/08/2026):
@@ -3979,6 +4025,8 @@ export default function TrangChiTietDeNghi({
         <aside className="flex min-w-0 flex-col gap-(--hp-md-section)">
           <CotThongTinDeNghi
             deNghi={dn}
+            /* Khối "Giai đoạn hiện tại" đã vẽ ở vùng đầu dính cố định (từ lg). */
+            anGiaiDoanHienTaiTuLg
             giaiDoan={giaiDoan}
             soNgayConLai={conLai}
             moc={mocGiaiDoan}
