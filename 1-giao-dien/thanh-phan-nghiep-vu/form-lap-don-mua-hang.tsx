@@ -100,7 +100,13 @@ import {
   tinhTienDoDeNghi,
   type DongDeTinhTien,
 } from "@/2-quy-trinh/tinh-toan";
-import { dongLapDuocDonHang, vuongMacLapDonHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import {
+  dongLapDuocDonHang,
+  dongVuotKhiLapDon,
+  taCacDongVuotKhiLapDon,
+  vuongMacLapDonHang,
+  vuongMacVuotKhiLapDon,
+} from "@/2-quy-trinh/giai-doan-mua-hang";
 import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docDonHangTuExcel, docNgayVN, khopVoiDeNghi } from "@/2-quy-trinh/doc-don-hang-excel";
@@ -618,6 +624,12 @@ export function FormLapDonMuaHang({
    * là UI. PHẢI dọn về "" trong `donForm()` — xem chú thích ở đó.
    */
   const [lyDoTaoDocLap, setLyDoTaoDocLap] = useState("");
+  /**
+   * ★ Lý do đặt vượt phần còn lại của đề nghị khi LẬP đơn mới — Sếp 26/09/2026: *"Không cần chặn
+   * vượt đơn chỉ cần cảnh báo và yêu cầu ghi lý do"*. Chốt thật ở `themDonHang`; ô này chỉ là UI.
+   * PHẢI dọn về "" trong `donForm()`.
+   */
+  const [lyDoVuotLapDon, setLyDoVuotLapDon] = useState("");
   const [diaDiemGiao, setDiaDiemGiao] = useState("");
   const [nguoiNhanHang, setNguoiNhanHang] = useState("");
   /** So dien thoai nguoi nhan hang — ô riêng trên biểu mẫu (21/08/2026). */
@@ -1261,7 +1273,10 @@ export function FormLapDonMuaHang({
    * 📌 `sttDong` dùng CHỈ SỐ dòng trong `dongBang` (kể cả dòng ghi chú) để bảng tra ngược
    * được kết quả về đúng dòng đang hiện trên màn hình.
    *
-   * 🔴 KHỐI LƯỢNG PHẢI CẮT ĐÚNG NHƯ LÚC CẤT ĐƠN. `luu()` cắt về phần còn được đặt, nên nếu ở
+   * ★ TỪ 26/09/2026 (Sếp: *"Không cần chặn vượt đơn chỉ cần cảnh báo và yêu cầu ghi lý do"*) `luu()`
+   * KHÔNG CẮT nữa — khối này cũng thôi cắt; nguyên tắc "hai chỗ phải bằng nhau" bên dưới vẫn đúng.
+   *
+   * (Bản cũ) 🔴 KHỐI LƯỢNG PHẢI CẮT ĐÚNG NHƯ LÚC CẤT ĐƠN. `luu()` cắt về phần còn được đặt, nên nếu ở
    * đây tính theo con số người dùng gõ thì "Tổng tiền thanh toán" cỡ lớn trên đầu màn hình là
    * một số KHÔNG BAO GIỜ THÀNH ĐƠN THẬT — file ghi 9.999 kg mà chỉ còn đặt được 2.400 kg thì
    * màn hình báo 199 triệu trong khi đơn cất ra 44 triệu. Người lập ký duyệt theo con số nhìn
@@ -1284,8 +1299,9 @@ export function FormLapDonMuaHang({
       const nhapThat = d.sttDeNghi === undefined && !dongTuDoDuVaoDon(d) ? 0 : nhap;
       dongVao.push({
         sttDong: i,
-        // Bỏ trống thì lấy hết phần còn lại — y hệt `luu()`.
-        soLuong: con === undefined ? nhapThat : nhapThat > 0 ? Math.min(nhapThat, con) : con,
+        // Bỏ trống thì lấy hết phần còn lại — y hệt `luu()`. ★ Sếp 26/09/2026: nhập vượt thì tính
+        // ĐÚNG số đã gõ (không cắt nữa), khớp với `luu()`.
+        soLuong: con === undefined ? nhapThat : nhapThat > 0 ? nhapThat : con,
         donGia: (khongNhapGia ? 0 : Number(d.donGia) || 0),
         // Ô trống = theo thuế suất chung của đơn. Ép về 0 ở đây là biến "chưa khai" thành
         // "không chịu thuế" — hai việc khác hẳn nhau trên chứng từ thuế.
@@ -2379,7 +2395,36 @@ export function FormLapDonMuaHang({
        (component không unmount giữa 2 lần lập đơn) mà comment ở đây đã cảnh
        báo — phát hiện lúc review PR "bắt buộc ghi lý do" (04/09/2026). */
     setLyDoTaoDocLap("");
+    /* ★ Lý do vượt là của RIÊNG từng đơn — cùng lý do dọn `lyDoTaoDocLap` ngay trên. */
+    setLyDoVuotLapDon("");
   }
+
+  /**
+   * ★★ DÒNG ĐANG ĐẶT VƯỢT PHẦN CÒN LẠI (đường LẬP MỚI) — Sếp 26/09/2026: *"Không cần chặn vượt đơn
+   * chỉ cần cảnh báo và yêu cầu ghi lý do"*.
+   *
+   * 🔴 GỌI ĐÚNG HÀM LUẬT tầng ghi dùng (`dongVuotKhiLapDon`, `2-quy-trinh/giai-doan-mua-hang.ts`) với
+   * đúng mốc "còn lại" (`dongLapDuoc` = `khoiLuongChuaLenPO` đã trừ phần tách đi). Ở đây chỉ nhặt
+   * số từ ô nhập — ô trống = lấy hết phần còn lại, y như `luu()`.
+   * ⚠️ CỐ Ý KHÔNG BỌC `useMemo` — khối này nằm sau các `return` sớm (xem `soatBangSua`).
+   */
+  const conLaiLapMoi = new Map(dongLapDuoc.map((d) => [d.stt, d.khoiLuongChuaLenPO]));
+  const vuotLapMoi =
+    laSuaDon || laDonDocLap
+      ? []
+      : dongVuotKhiLapDon(
+          dongBang
+            .filter((d) => !d.laGhiChu && d.sttDeNghi !== undefined && conLaiLapMoi.has(d.sttDeNghi))
+            .map((d) => {
+              const nhap = Number(d.soLuong);
+              return {
+                sttDongDeNghi: d.sttDeNghi,
+                khoiLuongDat: nhap > 0 ? nhap : (conLaiLapMoi.get(d.sttDeNghi as number) ?? 0),
+              };
+            }),
+          dongLapDuoc,
+        );
+  const thieuLyDoVuot = vuotLapMoi.length > 0 && lyDoVuotLapDon.trim() === "";
 
   /** Dòng hàng thật (bỏ dòng ghi chú) — dùng để biết đơn đã có gì chưa. */
   const soDongHang = dongBang.filter((d) => !d.laGhiChu).length;
@@ -2412,7 +2457,9 @@ export function FormLapDonMuaHang({
        xong rồi mới bị báo lỗi. Đưa điều kiện lên đây để nút "Lưu" khoá ngay từ
        đầu, cùng cách các trường bắt buộc khác (tenNCC, ngayGiao, maDuAnDon) ở
        trên đã làm — không mở hộp xác nhận rồi mới báo. */
-    (!canLapDocLap || lyDoTaoDocLap.trim() !== "");
+    (!canLapDocLap || lyDoTaoDocLap.trim() !== "") &&
+    /* ★ Sếp 26/09/2026: vượt phần còn lại thì KHÔNG chặn, nhưng phải ghi lý do mới lưu được. */
+    !thieuLyDoVuot;
 
   /**
    * Lý do CHƯA CẤT được đơn — `null` là cất được.
@@ -2524,8 +2571,10 @@ export function FormLapDonMuaHang({
       if (!sttHopLe.has(d.sttDeNghi)) continue;
       const con = conLai.get(d.sttDeNghi) ?? 0;
       const nhap = Number(d.soLuong);
-      // Nhập vượt thì tự cắt về phần còn lại (bảng đã cảnh báo tại chỗ); để trống thì lấy hết.
-      const khoiLuongDat = nhap > 0 ? Math.min(nhap, con) : con;
+      /* ★ Sếp 26/09/2026 *"Không cần chặn vượt đơn chỉ cần cảnh báo và yêu cầu ghi lý do"*: nhập vượt
+         thì GIỮ ĐÚNG số người lập gõ (trước đây tự cắt về phần còn lại). Lý do vượt bắt buộc — kiểm ở
+         `hopLe` và lại ở `themDonHang`. Để trống thì vẫn lấy hết phần còn lại. */
+      const khoiLuongDat = nhap > 0 ? nhap : con;
 
       const sttDong = items.length + 1;
       items.push({
@@ -2588,6 +2637,13 @@ export function FormLapDonMuaHang({
       });
       return;
     }
+    /* ★ Sếp 26/09/2026 — cùng câu với tầng ghi (`vuongMacVuotKhiLapDon`), tính trên đúng `items`
+       sắp gửi. Chốt thật vẫn ở `themDonHang`. */
+    const chanVuot = vuongMacVuotKhiLapDon(dongVuotKhiLapDon(items, dongLapDuoc), lyDoVuotLapDon);
+    if (chanVuot) {
+      toast.error("Chưa ghi lý do đặt vượt", { description: chanVuot });
+      return;
+    }
 
     const ketQua = await themDonHang({
       // Một chỗ duy nhất, hai chế độ — xem `maDuAnDon`.
@@ -2645,6 +2701,8 @@ export function FormLapDonMuaHang({
       dieuKhoanKhac: dieuKhoanKhac.trim() || undefined,
       tepDinhKem: tepDinhKem.length > 0 ? tepDinhKem : undefined,
       items,
+      /* ★ Tầng ghi tự tính lại phần vượt và gắn lý do vào đúng dòng vượt (Sếp 26/09/2026). */
+      lyDoVuotDeNghi: lyDoVuotLapDon.trim() || undefined,
       donGia: giaTheoDong,
       thueSuatDong: Object.keys(thueSuatTheoDong).length > 0 ? thueSuatTheoDong : undefined,
       phanTien: {
@@ -3329,6 +3387,39 @@ export function FormLapDonMuaHang({
             {taCacDongVuot(soatBangSua.vuot)}. Vẫn lưu được — nhưng phải ghi rõ{" "}
             <strong>lý do sửa đơn</strong> ở ô cuối trang, và con số vượt sẽ được ghi vào lịch sử
             hồ sơ để người duyệt và Kế toán đối chiếu.
+          </span>
+        </div>
+      )}
+
+      {/**
+        * ★★★ LẬP MỚI VƯỢT PHẦN CÒN LẠI — Sếp chốt 26/09/2026: *"Không cần chặn vượt đơn chỉ cần cảnh
+        * báo và yêu cầu ghi lý do"*. Cùng khuôn dải của đường SỬA ngay trên: tông `warning` (không phải
+        * `danger` — không bị chặn), có CẢ biểu tượng lẫn chữ, câu dựng bởi hàm luật
+        * `taCacDongVuotKhiLapDon` (cùng câu tầng ghi và nhật ký dùng). Ô lý do BẮT BUỘC — trống thì
+        * nút Lưu khoá (`hopLe`).
+        */}
+      {vuotLapMoi.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
+            <span className="min-w-0 text-text-secondary">
+              <strong className="text-text-primary">Đang đặt vượt phần còn lại của đề nghị.</strong>{" "}
+              {taCacDongVuotKhiLapDon(vuotLapMoi)}. Vẫn lưu được — nhưng phải ghi rõ lý do vượt; lý
+              do được lưu vào dòng đơn và ghi vào lịch sử hồ sơ.
+            </span>
+          </div>
+          <Label htmlFor="ly-do-vuot-lap-don" className="text-sm font-medium text-text-primary">
+            Lý do đặt vượt <span className="text-xs font-normal text-danger">(bắt buộc)</span>
+          </Label>
+          <Textarea
+            id="ly-do-vuot-lap-don"
+            value={lyDoVuotLapDon}
+            onChange={(e) => setLyDoVuotLapDon(e.target.value)}
+            placeholder="VD: Họp công trường chốt tăng khối lượng; hao hụt thi công…"
+            aria-invalid={thieuLyDoVuot}
+          />
+          <span className="text-xs text-text-desc">
+            Đừng ghi tên nhà cung cấp hay đơn giá — lịch sử hồ sơ hiện cho cả vai trò không được xem.
           </span>
         </div>
       )}
@@ -5619,7 +5710,9 @@ export function FormLapDonMuaHang({
                     trong câu "còn thiếu gì" là chỉ người dùng đi tìm một ô họ không sửa được. */}
                 Cần {!laSuaDon && laDonDocLap ? "mã dự án, " : ""}tên nhà cung cấp,{" "}
                 {laSuaDon ? "" : "ngày đơn hàng, "}ngày giao hàng và ít nhất một dòng hàng
-                {laDonDocLap ? " có đủ tên hàng, ĐVT và số lượng" : ""}.
+                {laDonDocLap ? " có đủ tên hàng, ĐVT và số lượng" : ""}
+                {/* ★ Sếp 26/09/2026 — nút khoá vì thiếu lý do vượt thì phải nói ra. */}
+                {thieuLyDoVuot ? "; và lý do đặt vượt phần còn lại (ô cảnh báo vàng phía trên)" : ""}.
               </span>
             )}
 

@@ -31,6 +31,11 @@ import {
   type GiaiDoanMuaHang,
   NHAN_TRUONG_BO_PHAN,
   NHAN_BAN_LANH_DAO,
+  /* ★ Lập đơn vượt phần còn lại: cảnh báo + bắt lý do, KHÔNG chặn (Sếp 26/09/2026). */
+  dongVuotKhiLapDon,
+  ganLyDoVuotVaoDongPO,
+  taCacDongVuotKhiLapDon,
+  vuongMacVuotKhiLapDon,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 /* `formatNumber` — dựng mốc nhật ký "số lượng 12 → 15" cho người đọc, không để số thô kiểu
    `12.000000000000002` lọt vào sổ lịch sử (xem `mocSuaBangMatHang`). */
@@ -82,6 +87,7 @@ import {
   cacConTrucTiep,
   dongDaNhanBanSang,
   dongDaChuyenDiHet,
+  locTienDoConPhaiMua,
   type DongChonNhanBan,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import {
@@ -134,6 +140,7 @@ import { duocChiaViec, duocGhiNhanGiaoHangCuaHoSo } from "@/4-phan-quyen/quyen-t
    thủ công mở hay đóng. Xem `themPhieuNhanPhongBan`. */
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 import { ghiNhatKyHeThong } from "@/3-du-lieu/nhat-ky-he-thong";
+import { phanLoaiXoaDeNghi } from "@/2-quy-trinh/xoa-de-nghi";
 /* `dongCanKiemSoatDinhMuc` thôi được nhập ở đây từ 06/09/2026 — effect tự báo QLDA (chỗ dùng
    duy nhất) đã bỏ theo chỉ đạo Sếp. Hàm vẫn còn trong `2-quy-trinh/kiem-soat-dinh-muc.ts` cho
    nơi khác (VD dòng cảnh báo định mức trên màn); đừng xoá khỏi tệp gốc. */
@@ -315,6 +322,12 @@ export interface DauVaoDeNghiGiaLap {
 export type DauVaoDonHangMoi = Omit<DonDatHang, "id" | "code" | "trangThai" | "lichSu"> & {
   /** Đơn giá theo số thứ tự dòng PO. */
   donGia: Record<number, number>;
+  /**
+   * ★ Lý do đặt vượt phần còn lại của đề nghị — Sếp 26/09/2026: *"Không cần chặn vượt đơn chỉ cần
+   * cảnh báo và yêu cầu ghi lý do"*. Bắt buộc khi có dòng vượt (`themDonHang` tự tính lại và từ chối
+   * nếu trống). KHÔNG lưu lên `DonDatHang` — tầng ghi gắn vào từng dòng vượt (`DongPO.lyDoVuotDeNghi`).
+   */
+  lyDoVuotDeNghi?: string;
   /**
    * ★ Thuế suất RIÊNG của từng dòng (%), theo số thứ tự dòng PO — cột "% Thuế GTGT" của màn
    * Đơn mua hàng MISA (chỉ đạo Ban lãnh đạo 17/08/2026).
@@ -1748,6 +1761,8 @@ interface GiaTriDuLieu {
   ) => { id: string; loi?: undefined } | { loi: string };
   /** Xóa hẳn (chỉ bản chạy thử). Trả lý do bị chặn, `null` nghĩa là đã xóa. */
   xoaDeNghi: (prId: string) => string | null;
+  /** Xoá nhiều đề nghị đã chọn — luật ở `2-quy-trinh/xoa-de-nghi.ts`. */
+  xoaNhieuDeNghi: (ids: readonly string[]) => { daXoa: string[]; biChan: { id: string; lyDo: string }[] };
 
   // --- Người theo dõi ---
   /** Thêm một người vào danh sách theo dõi đề nghị. Thêm trùng thì bỏ qua. */
@@ -3187,10 +3202,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * Câu chữ dựng ở `2-quy-trinh/soat-truoc-khi-ghi.ts` để bộ luật canh được — nó phải nói
        * đủ ba ý: ai vừa đổi, phần của bạn còn nguyên, và làm gì tiếp.
        */
+      /* ❌ ĐÃ TẮT THÔNG BÁO TRÊN MÀN HÌNH — Sếp 26/09/2026, khoanh đúng thông báo này: *"bỏ thông
+         báo đó đi"*. Nó bật cả khi người dùng không nhập gì (vd App Request tự tạo đề nghị đúng
+         lúc máy này đang tự lưu), làm người dùng hoảng vô cớ. Việc soát trước khi ghi VẪN CHẠY —
+         ô người khác vừa sửa vẫn không bị đè — chỉ là không báo ra màn hình; vẫn in console để
+         tra lỗi. Câu chữ ở `2-quy-trinh/soat-truoc-khi-ghi.ts` (của phiên tích hợp) giữ nguyên. */
       (dsXungDot, soDaGhi) => {
         if (!conSong || dsXungDot.length === 0) return;
         const { tieuDe, moTa } = cauBaoXungDot(dsXungDot, soDaGhi);
-        toast.warning(tieuDe, { description: moTa, duration: Infinity, closeButton: true });
+        console.warn(`[kho chung] ${tieuDe}: ${moTa}`);
       },
     ).then((kn) => {
       if (!conSong) {
@@ -3950,12 +3970,19 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
   /** Ghi một dòng nhật ký vào lịch sử của đề nghị — dùng cho MỌI thao tác sửa dữ liệu. */
   const ghiLichSuDeNghi = useCallback(
-    (prId: string, nguoiThucHien: string, hanhDong: string) => {
+    (prId: string, nguoiThucHien: string, hanhDong: string, ghiChu?: string) => {
       setDeNghi((truoc) =>
         truoc.map((dn) =>
           dn.id !== prId
             ? dn
-            : { ...dn, lichSu: [...dn.lichSu, { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong }] },
+            : {
+                ...dn,
+                lichSu: [
+                  ...dn.lichSu,
+                  /* `ghiChu` tuỳ chọn (26/09/2026, lý do đặt vượt khi lập đơn) — vắng thì dòng y như cũ. */
+                  { thoiDiem: thoiDiemHienTai(), nguoiThucHien, hanhDong, ...(ghiChu ? { ghiChu } : {}) },
+                ],
+              },
         ),
       );
     },
@@ -6146,7 +6173,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
   const themDonHang = useCallback(
     async (dauVao: DauVaoDonHangMoi) => {
-      const { donGia, thueSuatDong, phanTien, ...po } = dauVao;
+      const { donGia, thueSuatDong, phanTien, lyDoVuotDeNghi, ...poVao } = dauVao;
+      let po = poVao;
+      /** Câu nhật ký phần vượt — chỉ có khi đơn đặt vượt phần còn lại (Sếp 26/09/2026). */
+      let ghiChuVuot: string | undefined;
 
       /**
        * 🔴🔴 CHỐT CÔNG VIỆC BẮT BUỘC CỦA CÁC BƯỚC TRƯỚC (Sếp chốt 23/08/2026, sau khi phát hiện
@@ -6170,6 +6200,24 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           );
           if (dongDaDi) {
             return { loi: `Dòng ${dongDaDi.sttDongDeNghi} đã chuyển sang phiếu khác — lập đơn ở phiếu đó.` };
+          }
+          /**
+           * ★★ ĐẶT VƯỢT PHẦN CÒN LẠI — Sếp chốt 26/09/2026: *"Không cần chặn vượt đơn chỉ cần cảnh báo
+           * và yêu cầu ghi lý do"*. Tầng ghi TỰ TÍNH LẠI phần còn lại (cùng hàm form dùng:
+           * `tinhTienDoDeNghi` → `locTienDoConPhaiMua`) trên dữ liệu mới nhất, không tin con số giao
+           * diện gửi. Vượt mà trống lý do → từ chối; có lý do → gắn vào từng dòng vượt + nhật ký.
+           */
+          const conLaiDN = locTienDoConPhaiMua(
+            dnGoc,
+            deNghiRef.current,
+            tinhTienDoDeNghi(dnGoc, donHangRef.current, phieuNhanRef.current),
+          );
+          const vuot = dongVuotKhiLapDon(po.items, conLaiDN);
+          const chanVuot = vuongMacVuotKhiLapDon(vuot, lyDoVuotDeNghi);
+          if (chanVuot) return { loi: chanVuot };
+          po = { ...po, items: ganLyDoVuotVaoDongPO(po.items, vuot, lyDoVuotDeNghi) };
+          if (vuot.length > 0) {
+            ghiChuVuot = `⚠ Đặt vượt phần còn lại của đề nghị: ${taCacDongVuotKhiLapDon(vuot)}. Lý do: ${(lyDoVuotDeNghi ?? "").trim()}`;
           }
           const chanViec = vuongMacViecBatBuocCacBuocTruoc(
             dnGoc,
@@ -6428,7 +6476,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ]);
       // Không ghi tên NCC vào nhật ký — lịch sử đề nghị hiện cho cả vai trò không được xem NCC.
       if (po.prId) {
-        ghiLichSuDeNghi(po.prId, po.nguoiPhuTrachTen, `Lập và chốt đơn hàng ${code}`);
+        /* ★ Kèm câu phần vượt + lý do (Sếp 26/09/2026) — không có tên NCC, không có giá. */
+        ghiLichSuDeNghi(po.prId, po.nguoiPhuTrachTen, `Lập và chốt đơn hàng ${code}`, ghiChuVuot);
       } else {
         // ★ PO "chờ đề nghị" không có đề nghị nào để ghi lịch sử vào — ghi thẳng Nhật ký hệ
         // thống, cùng mức truy vết như xóa dữ liệu chạy thử (đây là quyết định mua trước khi
@@ -8291,6 +8340,34 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [nguoiDung],
   );
 
+  /**
+   * ★★ XOÁ NHIỀU ĐỀ NGHỊ ĐÃ CHỌN — thay nút "Xoá toàn bộ dữ liệu của cả phòng" (Sếp 26/09/2026:
+   * *"nếu xoá thì sẽ cho chọn từng cái để xoá, ko được xoá toàn bộ"*).
+   *
+   * 🔴 KHÔNG gọi `xoaDeNghi` trong vòng lặp: hàm đó đọc `deNghiRef.current`, mà ref chỉ đổi sau
+   * lần vẽ lại — chọn cả phiếu cha lẫn phiếu con thì phiếu cha luôn bị chặn "còn bản con" dù bản
+   * con cũng đang bị xoá cùng lượt. Luật xét CẢ TẬP ở `2-quy-trinh/xoa-de-nghi.ts`, một lần.
+   */
+  const xoaNhieuDeNghi = useCallback(
+    (ids: readonly string[]): { daXoa: string[]; biChan: { id: string; lyDo: string }[] } => {
+      const tatCa = deNghiRef.current;
+      const kq = phanLoaiXoaDeNghi(ids, tatCa, baoGiaRef.current, donHangRef.current);
+      if (kq.xoaDuoc.length === 0) return { daXoa: [], biChan: kq.biChan };
+      const xoa = new Set(kq.xoaDuoc);
+      const dsXoa = tatCa.filter((d) => xoa.has(d.id));
+      setDeNghi((truoc) => truoc.filter((d) => !xoa.has(d.id)));
+      setThongBao((truoc) => truoc.filter((t) => !t.prId || !xoa.has(t.prId)));
+      // Mỗi phiếu một dòng nhật ký — tra lại được đúng từng mã đã xoá, không gộp mất dấu vết.
+      for (const d of dsXoa) {
+        void ghiNhatKyHeThong(nguoiDung, "xoa_de_nghi", `Xóa đề nghị ${d.code} — ${d.tieuDe}`).catch(
+          (e) => console.error("[nhat ky he thong] ghi hỏng:", e),
+        );
+      }
+      return { daXoa: kq.xoaDuoc, biChan: kq.biChan };
+    },
+    [nguoiDung],
+  );
+
   // ------------------------------------------------------------
   // NGƯỜI THEO DÕI
   // Nhật ký ghi trong CÙNG lần cập nhật (như `phanBoDong`) để danh sách và
@@ -9601,6 +9678,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       suaTruongBoSung,
       nhanBanDeNghi,
       xoaDeNghi,
+      xoaNhieuDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
       ghiLichSuDeNghi,
@@ -9680,6 +9758,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       suaTruongBoSung,
       nhanBanDeNghi,
       xoaDeNghi,
+      xoaNhieuDeNghi,
       themNguoiTheoDoi,
       boNguoiTheoDoi,
       ghiLichSuDeNghi,

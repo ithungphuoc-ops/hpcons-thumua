@@ -118,7 +118,10 @@ export function HopXemTruocNhapExcel({
       tong: (k.vuotKhoiLuong ? "warning" : "success") as StatusTone,
       chiTiet: `Đề nghị dòng ${k.sttDeNghi}${
         duLieu.tenDongDeNghi[k.sttDeNghi] ? ` — ${duLieu.tenDongDeNghi[k.sttDeNghi]}` : ""
-      }${k.vuotKhoiLuong ? ". Khi cất đơn sẽ tự cắt về phần còn được đặt." : ""}`,
+      }${
+        /* ★ Sếp 26/09/2026: không cắt số nữa — vượt thì cảnh báo + bắt ghi lý do khi cất đơn. */
+        k.vuotKhoiLuong ? ". Vượt phần còn được đặt — khi cất đơn phải ghi lý do vượt." : ""
+      }`,
       seDo: true,
     })),
     ...(duLieu.dongTuDo ?? []).map((e) => ({

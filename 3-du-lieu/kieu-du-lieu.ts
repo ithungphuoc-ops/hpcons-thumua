@@ -839,6 +839,21 @@ export interface DongPO {
    * chẳng dòng nào là "thêm ngoài đề nghị" — chúng chỉ chưa trỏ về đề nghị nào.
    */
   themNgoaiDeNghi?: boolean;
+  /**
+   * ★★ PHẦN ĐẶT VƯỢT "CÒN LẠI" CỦA DÒNG ĐỀ NGHỊ LÚC LẬP ĐƠN — Sếp chốt 26/09/2026: *"Không cần chặn
+   * vượt đơn chỉ cần cảnh báo và yêu cầu ghi lý do"*. Cùng tinh thần `khoiLuongVuotCha` /
+   * `lyDoVuotCha` của bản nhân bản.
+   *
+   * 🔴 DO TẦNG GHI ĐẶT (`themDonHang` → `ganLyDoVuotVaoDongPO` ở `2-quy-trinh/giai-doan-mua-hang.ts`),
+   * tầng ghi tự tính lại phần vượt — giao diện gửi gì lên cũng bị đè. Một dòng đề nghị cắt thành
+   * nhiều dòng PO thì con số chỉ nằm ở dòng PO ĐẦU TIÊN của `stt` đó (cộng cả đơn ra đúng tổng vượt).
+   *
+   * ⚠️ `undefined` = không vượt, hoặc đơn lập trước 26/09/2026 (khi đó đường lập mới tự cắt số về phần
+   * còn lại nên không thể vượt). Đường SỬA đơn ghi lý do vượt vào lý do sửa, không dùng hai trường này.
+   */
+  khoiLuongVuotDeNghi?: number;
+  /** Lý do đặt vượt phần còn lại — có mặt trên MỌI dòng PO của `stt` đề nghị bị vượt. */
+  lyDoVuotDeNghi?: string;
 }
 
 export interface XacNhan {

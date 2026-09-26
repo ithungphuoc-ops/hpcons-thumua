@@ -1272,7 +1272,11 @@ export default function TrangDanhSachDeNghi() {
                   soTachMotPhan > 0
                     ? `${soTachMotPhan} dòng chỉ tách một phần — ${goc?.code ?? "phiếu gốc"} tự mua phần còn lại.`
                     : "",
-                  soDaCoNguoi > 0 ? `Bạn phụ trách ${soDaCoNguoi} dòng.` : "",
+                  soDaCoNguoi > 0
+                    ? quyen.phanBoCongViec
+                      ? `${soDaCoNguoi} dòng giữ nguyên người phụ trách của phiếu gốc.`
+                      : `Bạn phụ trách ${soDaCoNguoi} dòng.`
+                    : "",
                   soChuaAi > 0
                     ? `Còn ${soChuaAi} dòng chưa giao ai — cần phân bổ trước khi đi tiếp.`
                     : "",

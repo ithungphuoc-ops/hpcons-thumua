@@ -2789,6 +2789,127 @@ export function dongLapDuocDonHang(
   );
 }
 
+// ════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ LẬP ĐƠN VƯỢT PHẦN CÒN LẠI CỦA ĐỀ NGHỊ — Sếp chốt 26/09/2026, nguyên văn: *"Không cần chặn
+// vượt đơn chỉ cần cảnh báo và yêu cầu ghi lý do"*.
+//
+// 🔴 TRƯỚC HÔM NAY đường LẬP MỚI tự CẮT số lượng về phần còn lại (`Math.min(nhap, con)` trong
+// `luu()` của `form-lap-don-mua-hang.tsx`). Nay: không cắt, không chặn — nhưng dòng vượt phải có lý
+// do, lý do lưu vào dòng đơn (`DongPO.lyDoVuotDeNghi`) và ghi vào lịch sử đề nghị.
+//
+// 📌 "PHẦN CÒN LẠI" = `khoiLuongChuaLenPO` của `tinhTienDoDeNghi` đã qua `locTienDoConPhaiMua` (trừ
+// phần đã tách / nhân bản đi) — ĐÚNG con số form bày ở ô "còn …" và đúng con số tầng ghi dùng. Hàm ở
+// đây KHÔNG tự tính lại con số đó, chỉ so.
+//
+// ⚠️ Cùng khuôn đường SỬA đơn (Sếp 16/09/2026, `soatBangMatHangKhiSua`): gom theo `sttDongDeNghi`
+// (một dòng đề nghị cắt thành nhiều dòng PO thì cộng lại), tông cảnh báo `warning` chứ không `danger`.
+// ════════════════════════════════════════════════════════════════════════════════════════
+
+/** Một dòng đề nghị đang được đặt vượt phần còn lại khi LẬP đơn mới. */
+export interface DongVuotKhiLapDon {
+  /** `stt` dòng đề nghị. */
+  stt: number;
+  ten: string;
+  donViTinh: string;
+  /** Phần còn được đặt trước khi lập đơn này. */
+  conLai: number;
+  /** Tổng khối lượng đơn này đặt cho dòng đề nghị đó. */
+  dangDat: number;
+  /** `dangDat - conLai`, luôn > 0. */
+  vuot: number;
+}
+
+/** Sai số cho phép khi so khối lượng (cộng trừ số thực). */
+const NGUONG_VUOT_KHI_LAP = 1e-9;
+
+/**
+ * Các dòng đề nghị mà đơn đang lập đặt VƯỢT phần còn lại. Rỗng = không vượt.
+ *
+ * @param items    Dòng của đơn đang lập (dòng ghi chú và dòng không trỏ về đề nghị bị bỏ qua).
+ * @param conLaiDN Tiến độ các dòng đề nghị (đã trừ phần tách đi) — chỉ cần `stt`, tên, ĐVT và
+ *                 `khoiLuongChuaLenPO`. Dòng PO trỏ về `stt` không có ở đây thì KHÔNG xét (việc
+ *                 "dòng không lập được" là của chốt khác, không bịa mốc 0 ở đây).
+ */
+export function dongVuotKhiLapDon(
+  items: readonly { sttDongDeNghi?: number; khoiLuongDat: number; laDongGhiChu?: boolean }[],
+  conLaiDN: readonly Pick<TienDoDongDeNghi, "stt" | "tenVatLieu" | "donViTinh" | "khoiLuongChuaLenPO">[],
+): DongVuotKhiLapDon[] {
+  const tong = new Map<number, number>();
+  for (const d of items) {
+    if (d.laDongGhiChu || typeof d.sttDongDeNghi !== "number" || d.sttDongDeNghi <= 0) continue;
+    tong.set(d.sttDongDeNghi, (tong.get(d.sttDongDeNghi) ?? 0) + (Number(d.khoiLuongDat) || 0));
+  }
+  const ra: DongVuotKhiLapDon[] = [];
+  for (const [stt, dangDat] of tong) {
+    const dn = conLaiDN.find((x) => x.stt === stt);
+    if (!dn) continue;
+    const conLai = Math.max(0, Number(dn.khoiLuongChuaLenPO) || 0);
+    if (dangDat > conLai + NGUONG_VUOT_KHI_LAP) {
+      ra.push({
+        stt,
+        ten: dn.tenVatLieu,
+        donViTinh: dn.donViTinh,
+        conLai,
+        dangDat,
+        vuot: Math.round((dangDat - conLai) * 1000) / 1000,
+      });
+    }
+  }
+  return ra.sort((a, b) => a.stt - b.stt);
+}
+
+const soVN = (x: number) => new Intl.NumberFormat("vi-VN").format(x);
+
+/**
+ * Câu chữ các dòng vượt — MỘT BẢN cho dải cảnh báo trên form, câu chặn của tầng ghi và dòng nhật ký.
+ * ⚠️ Không chứa tên nhà cung cấp, đơn giá hay thành tiền — câu này chảy vào nhật ký đề nghị, nơi mọi
+ * vai trò đọc được (CLAUDE.md §7).
+ */
+export function taCacDongVuotKhiLapDon(vuot: readonly DongVuotKhiLapDon[]): string {
+  return vuot
+    .map((v) => {
+      const dv = v.donViTinh ? ` ${v.donViTinh}` : "";
+      return `"${v.ten}" còn ${soVN(v.conLai)}${dv}, đang đặt ${soVN(v.dangDat)}${dv} (vượt ${soVN(v.vuot)}${dv})`;
+    })
+    .join(" · ");
+}
+
+/**
+ * Chốt: có dòng vượt mà chưa ghi lý do → trả câu lỗi. Không vượt, hoặc đã có lý do → `null`.
+ * 🔴 KHÔNG CHẶN VIỆC VƯỢT — chỉ chặn việc vượt MÀ KHÔNG GIẢI TRÌNH (Sếp 26/09/2026).
+ */
+export function vuongMacVuotKhiLapDon(
+  vuot: readonly DongVuotKhiLapDon[],
+  lyDo: string | undefined,
+): string | null {
+  if (vuot.length === 0) return null;
+  if ((lyDo ?? "").trim()) return null;
+  return `Đang đặt vượt phần còn lại của đề nghị — ${taCacDongVuotKhiLapDon(vuot)}. Vẫn lưu được, nhưng phải ghi rõ lý do vượt.`;
+}
+
+/**
+ * Gắn lý do + phần vượt vào dòng đơn. Dòng KHÔNG vượt thì xoá hai trường này (không để nơi gọi gắn
+ * bừa). Một dòng đề nghị cắt thành nhiều dòng PO: lý do gắn MỌI dòng của `stt` đó, còn con số vượt chỉ
+ * gắn DÒNG ĐẦU TIÊN — cộng `khoiLuongVuotDeNghi` của cả đơn ra đúng tổng vượt, không đếm hai lần.
+ */
+export function ganLyDoVuotVaoDongPO<
+  T extends { sttDongDeNghi?: number; khoiLuongVuotDeNghi?: number; lyDoVuotDeNghi?: string },
+>(items: readonly T[], vuot: readonly DongVuotKhiLapDon[], lyDo: string | undefined): T[] {
+  const theoStt = new Map(vuot.map((v) => [v.stt, v]));
+  const daGanSo = new Set<number>();
+  const ly = (lyDo ?? "").trim();
+  return items.map((d) => {
+    const v = typeof d.sttDongDeNghi === "number" ? theoStt.get(d.sttDongDeNghi) : undefined;
+    if (!v || !ly) {
+      if (d.khoiLuongVuotDeNghi === undefined && d.lyDoVuotDeNghi === undefined) return d;
+      return { ...d, khoiLuongVuotDeNghi: undefined, lyDoVuotDeNghi: undefined };
+    }
+    const dauTien = !daGanSo.has(v.stt);
+    daGanSo.add(v.stt);
+    return { ...d, khoiLuongVuotDeNghi: dauTien ? v.vuot : undefined, lyDoVuotDeNghi: ly };
+  });
+}
+
 /*
  * 📌 ĐÃ XÓA `dongThuocVeNguoi` NGÀY 18/08/2026 (chiều).
  *

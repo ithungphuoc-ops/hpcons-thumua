@@ -861,7 +861,6 @@ export function BangHangTien({
                       <Input
                         type="number"
                         min={0}
-                        max={con?.conLai}
                         value={d.soLuong}
                         onChange={(e) => onDoiDong(d.id, { soLuong: e.target.value })}
                         className="w-28 text-right khong-nut-tang-giam"
@@ -869,9 +868,12 @@ export function BangHangTien({
                       />
                       {/* Cảnh báo vượt: CẢ màu lẫn chữ, và nói luôn hệ quả để người lập tự
                           quyết sửa file hay sửa số — không tự cắt số rồi im lặng. */}
+                      {/* ★ Sếp 26/09/2026 *"Không cần chặn vượt đơn chỉ cần cảnh báo và yêu cầu ghi
+                          lý do"*: form KHÔNG cắt số nữa — câu cũ "sẽ cắt về X" thành nói sai, nên đổi
+                          sang tông cảnh báo (vàng) và nói đúng việc phải làm. */}
                       {vuot && (
-                        <span className="text-xs text-danger-soft">
-                          Vượt phần còn lại — sẽ cắt về {con.conLai.toLocaleString("vi-VN")}
+                        <span className="text-xs text-warning-soft">
+                          Vượt phần còn lại {con.conLai.toLocaleString("vi-VN")} — phải ghi lý do vượt
                         </span>
                       )}
                       {/* 🔴 NÓI RÕ SỐ VỪA GÕ ĐANG KHÔNG ĐƯỢC TÍNH, VÀ THIẾU Ô NÀO.

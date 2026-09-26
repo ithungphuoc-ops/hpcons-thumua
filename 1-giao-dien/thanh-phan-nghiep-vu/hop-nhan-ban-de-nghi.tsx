@@ -166,9 +166,16 @@ export function HopNhanBanDeNghi({
           <DialogTitle>Nhân bản đề nghị {deNghi.code}</DialogTitle>
           <DialogDescription>
             Dùng khi một phần của phiếu mua ở <strong>nhà cung cấp khác</strong>: chọn mặt hàng và
-            khối lượng đưa sang bản mới. Bản mới giữ dự án, công trình, ngày cần hàng, người theo dõi
-            và tài liệu đầu vào; <strong>bạn nhận phần việc của những dòng đã có người phụ trách</strong>,
-            dòng chưa giao ai thì vẫn chờ phân bổ.
+            khối lượng đưa sang bản mới. Bản mới giữ dự án, công trình, ngày cần hàng và người theo
+            dõi; <strong>không chép tệp đã đính kèm</strong> (xem ở phiếu gốc).{" "}
+            {/* ★ Sếp 26/09/2026: TBP nhân bản thì phiếu con GIỮ người phụ trách — câu phải nói đúng
+                theo quyền người đang bấm (luật ở `dungBanNhanBan` → `giuNguoiPhuTrachGoc`). */}
+            {quyen.phanBoCongViec ? (
+              <strong>Dòng đã giao ai thì giữ nguyên người phụ trách đó</strong>
+            ) : (
+              <strong>Bạn nhận phần việc của những dòng đã có người phụ trách</strong>
+            )}
+            , dòng chưa giao ai thì vẫn chờ phân bổ.
           </DialogDescription>
         </DialogHeader>
 

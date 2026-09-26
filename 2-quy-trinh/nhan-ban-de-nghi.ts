@@ -555,8 +555,19 @@ export interface ThamSoDungBanNhanBan {
   idMoi: string;
   /** Mã bản sao, tính bằng `maBanSaoTiepTheo`. */
   maMoi: string;
-  /** Người bấm nhân bản — họ nhận luôn phần việc này (Ban lãnh đạo 15/08/2026). */
+  /** Người bấm nhân bản — họ nhận luôn phần việc này (Ban lãnh đạo 15/08/2026), TRỪ khi
+   *  `giuNguoiPhuTrachGoc` (Trưởng bộ phận nhân bản — Sếp 26/09/2026). */
   nguoi: { uid: string; ten: string };
+  /**
+   * ★★ GIỮ NGUYÊN NGƯỜI PHỤ TRÁCH CỦA TỪNG DÒNG — Sếp chốt 26/09/2026, nguyên văn: *"Trưởng bộ phận
+   * nhân bản thì phiếu con vẫn giữ người phụ trách"*.
+   *
+   * `true` (người bấm có quyền phân bổ) → dòng ở bản mới mang đúng `nguoiPhuTrachUid/Ten`,
+   * `nguoiPhanBoTen`, `thoiDiemPhanBo` của dòng nguồn — TBP tách phiếu theo NCC không có nghĩa là TBP
+   * tự nhận việc của nhân viên. `false`/vắng → luật cũ 15/08/2026: người bấm nhận phần việc (nhân viên
+   * chỉ tách được dòng của chính mình nên kết quả vẫn là chính họ).
+   */
+  giuNguoiPhuTrachGoc?: boolean;
   /** `stt` các dòng giữ lại; bỏ trống = giữ hết. */
   sttGiuLai?: number[];
   /**
@@ -579,15 +590,16 @@ export interface ThamSoDungBanNhanBan {
  *
  * ⚠️ PHÂN BIỆT "thông tin" và "tiến trình":
  *   · Thông tin (công trình, phòng ban, loại hồ sơ, mặt hàng, ngày cần hàng, mức ưu tiên, người
- *     theo dõi, **tài liệu đầu vào lúc lập phiếu**) → CHÉP HẾT.
+ *     theo dõi) → CHÉP HẾT.
  *   · Tiến trình (tệp từng bước, bình luận, lý do thiếu chứng từ, lý do thất bại, cờ lưu trữ,
  *     nhật ký) → BỎ. Bản mới bắt đầu vòng mua hàng của riêng nó.
- *   · Người phụ trách → GÁN CHO NGƯỜI BẤM NHÂN BẢN (Ban lãnh đạo 15/08/2026).
+ *   · Người phụ trách → GÁN CHO NGƯỜI BẤM NHÂN BẢN (Ban lãnh đạo 15/08/2026) — TRỪ khi Trưởng bộ
+ *     phận nhân bản thì GIỮ NGUYÊN người phụ trách của từng dòng (Sếp 26/09/2026,
+ *     `giuNguoiPhuTrachGoc`).
  *
- * 📌 `taiLieu` và `taiLieuAppRequest` **CỐ Ý GIỮ**: đó là hồ sơ ĐẦU VÀO người đề nghị nộp kèm lúc
- * lập phiếu (catalogue, bản vẽ, mẫu chi tiết) — thứ nhân viên cần cầm theo để đi hỏi giá ở bước ②,
- * không phải chứng từ phát sinh trong lúc chạy quy trình. Xoá nốt hai thứ này là bản copy thành
- * hồ sơ trơ, không đi hỏi giá được. Nếu Sếp muốn xoá cả chúng thì sửa ở ĐÂY, một chỗ.
+ * ❌ ĐÃ ĐỔI 26/09/2026: `taiLieu` và `taiLieuAppRequest` trước đây CỐ Ý GIỮ (hồ sơ đầu vào để đi hỏi
+ * giá). Sếp chốt *"không chép các tệp đã đính kèm"* → nay BỎ cả hai. Bản con vẫn tra được tệp qua
+ * phiếu gốc (liên kết cha–con) và đường dẫn hồ sơ App Request (`idHoSoAppRequest` vẫn chép).
  */
 /**
  * ★ NHỮNG DÒNG NGƯỜI NÀY ĐƯỢC ĐƯA VÀO BẢN NHÂN BẢN — soát giao việc 25–26/09/2026 (#16 #23 #24).
@@ -803,6 +815,8 @@ export function apDungNhanBanDeNghi(
     idMoi: t.idMoi,
     maMoi,
     nguoi: t.nguoi,
+    /* ★ Sếp 26/09/2026: Trưởng bộ phận nhân bản → phiếu con GIỮ người phụ trách của từng dòng. */
+    giuNguoiPhuTrachGoc: t.laNguoiPhanBo,
     sttGiuLai: sttChon,
     khoiLuong: dsKhoiLuong,
     lyDoVuot: coVuot ? lyDo : undefined,
@@ -900,6 +914,13 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
        chứng từ của phiếu gốc, bản copy chưa có cái nào. 🔴 Chỉ bỏ tham chiếu — nội dung trong
        `3-du-lieu/kho-tep.ts` giữ nguyên cho phiếu gốc dùng. */
     tepGiaiDoan: undefined,
+    /* ★★ TÀI LIỆU ĐÍNH KÈM LÚC LẬP PHIẾU — Sếp chốt 26/09/2026: *"không chép các tệp đã đính kèm"*.
+       Trước hôm nay hai trường này CỐ Ý GIỮ (xem chú thích đầu hàm, bản 15/09); nay bỏ theo chỉ đạo
+       mới. Bản con vẫn nối về phiếu gốc (`deNghiGocId` / `deNghiChaId`) và vẫn giữ đường dẫn hồ sơ
+       App Request (`idHoSoAppRequest`), nên người mua tra được tệp ở đó. 🔴 Chỉ bỏ THAM CHIẾU —
+       nội dung trong `kho-tep.ts` dùng chung `id` với phiếu gốc, tuyệt đối không xoá. */
+    taiLieu: undefined,
+    taiLieuAppRequest: undefined,
     /* Lý do "chưa có chứng từ bắt buộc" — nó MỞ ĐƯỜNG ĐI TIẾP (Ban lãnh đạo 23/08/2026). Chép
        sang là bản copy được đi tiếp bằng một lời giải thích viết cho hồ sơ khác. */
     lyDoThieuChungTu: undefined,
@@ -961,7 +982,11 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
          * hay đã là một bản copy. Kế thừa ở đây là quay lại đúng lỗ hổng đang vá.
          */
         sttDongCha: d.stt,
-        ...(daCoNguoi
+        /* ★ Sếp 26/09/2026: Trưởng bộ phận nhân bản → GIỮ NGUYÊN người phụ trách + người phân bổ +
+           mốc phân bổ của dòng nguồn (đã có sẵn qua `...d`), không đè bằng người bấm. */
+        ...(daCoNguoi && t.giuNguoiPhuTrachGoc
+          ? {}
+          : daCoNguoi
           ? {
               nguoiPhuTrachUid: nguoi.uid,
               nguoiPhuTrachTen: nguoi.ten,
@@ -991,9 +1016,13 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
           // Nói đúng số dòng thật sự được giao — dòng gốc chưa ai nhận thì bản copy cũng để
           // trống, nên câu cũ ("nhận phụ trách toàn bộ") có thể sai.
           (dongGiuLai.some((d) => d.nguoiPhuTrachUid)
-            ? `. Người tách nhận ${
-                dongGiuLai.filter((d) => d.nguoiPhuTrachUid).length
-              } công việc đã được giao ở phiếu gốc.`
+            ? t.giuNguoiPhuTrachGoc
+              ? `. Giữ nguyên người phụ trách của ${
+                  dongGiuLai.filter((d) => d.nguoiPhuTrachUid).length
+                } công việc như phiếu gốc (Trưởng bộ phận nhân bản).`
+              : `. Người tách nhận ${
+                  dongGiuLai.filter((d) => d.nguoiPhuTrachUid).length
+                } công việc đã được giao ở phiếu gốc.`
             : ". Các công việc chưa phân bổ, giữ nguyên như phiếu gốc.") +
           /* ★ Khối lượng từng dòng + lý do mua vượt (Sếp 26/09/2026) — ghi ở CẢ bản mới lẫn phiếu cha. */
           (t.khoiLuong && t.khoiLuong.length > 0
@@ -1013,7 +1042,7 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
               }`
             : "") +
           // Nói thẳng đã bỏ gì, để người đọc hồ sơ không đi tìm chứng từ tưởng bị mất.
-          " Bản sao bắt đầu lại từ bước ② nên KHÔNG mang theo tệp đính kèm của từng bước, bình luận và lý do thiếu chứng từ của phiếu gốc.",
+          " Bản sao bắt đầu lại từ bước ② nên KHÔNG mang theo tệp đính kèm (tài liệu lúc lập phiếu và tệp của từng bước), bình luận và lý do thiếu chứng từ của phiếu gốc — xem tệp ở phiếu gốc.",
       },
     ],
   };

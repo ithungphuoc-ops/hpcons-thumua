@@ -1,91 +1,161 @@
 "use client";
 
-import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
+import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
+import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { formatDate } from "@/6-tien-ich/dinh-dang";
 
 /**
- * ★★ KHỐI "XOÁ TOÀN BỘ DỮ LIỆU CHẠY THỬ" — dời từ menu tài khoản sang trang Cài đặt quy trình.
+ * ★★ VÙNG NGUY HIỂM — CHỌN TỪNG ĐỀ NGHỊ ĐỂ XOÁ.
  *
- * Sếp 16/09/2026, khoanh đỏ mục *"Xóa toàn bộ dữ liệu của cả phòng"* đang nằm trong menu tài
- * khoản: ***"Ẩn nút này ở mục này, đưa vào mục cài đặt quy trình. Và chức năng này chỉ hiện ở
- * tài khoản cấp quản trị"***.
+ * ❌ ĐÃ BỎ NÚT "Xóa toàn bộ dữ liệu của cả phòng" — Sếp 26/09/2026: *"Quá nguy hiểm"*, rồi chốt
+ * *"nếu xoá thì sẽ cho chọn từng cái để xoá, ko được xoá toàn bộ"*. Phản biện cùng ngày cho thấy
+ * làm nút khôi phục cho việc xoá toàn bộ không an toàn được (bản sao ai cũng ghi đè được, mã hồ
+ * sơ bị cấp trùng sau khi xoá, máy khác đang mở app ghi đè ngược lại) — nên bỏ hẳn, không vá.
+ * 🔴 ĐỪNG DỰNG LẠI NÚT XOÁ TOÀN BỘ. Cần dọn cả kho thì chạy lệnh quản trị có sao lưu ra tệp.
  *
- * 🔴 VÌ SAO CHỖ CŨ NGUY: menu tài khoản là chỗ người ta bấm hàng ngày để **Đăng xuất**, và mục
- * xoá nằm ngay dưới *Đăng xuất* — hai mục sát nhau, một mục vô hại và một mục xoá sạch dữ liệu
- * cả phòng không khôi phục được. Bấm trượt một dòng là mất hết. Trang Cài đặt quy trình thì
- * người dùng phải chủ ý vào, và không có thao tác hàng ngày nào ở đó.
+ * 📌 Luật phiếu nào xoá được nằm ở `2-quy-trinh/xoa-de-nghi.ts` (đã có báo giá/đơn hàng thì
+ * chặn, phiếu cha chỉ xoá được khi chọn cả bản con). Khối này chỉ hiện kết quả.
  *
- * 🔴 GÁC BẰNG `quyen.xoaToanBoDuLieu` (chỉ `admin`), KHÔNG dùng lại cờ của trang chứa nó. Trang
- * Cài đặt quy trình mở cho `suaPODaChot` — tức **Trưởng bộ phận cấp 3 cũng vào được**. Nếu khối
- * này không tự gác thì việc "chỉ hiện ở tài khoản cấp quản trị" **không thành**, mà lại trông
- * như đã làm xong. Xem chú thích đầy đủ ở khai báo cờ trong `4-phan-quyen/quyen.ts`.
- *
- * ⚠️ TỰ TRẢ `null` KHI KHÔNG ĐỦ QUYỀN, không bắt nơi gọi tự hỏi. Nơi gọi tự kiểm là kiểu hở đã
- * phải sửa nhiều lần trong dự án này: thêm đường vào thứ hai mà quên chép điều kiện.
- *
- * 📌 KHÔNG ĐỔI MỘT CHỮ trong hộp xác nhận — nhãn và câu cảnh báo là chỉ đạo Ban lãnh đạo
- * 20/08/2026 (nhãn cũ *"Xóa dữ liệu chạy thử"* làm người dùng tưởng là nút dọn dữ liệu mẫu vô
- * hại). Lượt này chỉ đổi CHỖ ĐẶT và AI THẤY, không đổi lời cảnh báo.
+ * 🔴 GÁC BẰNG `quyen.xoaToanBoDuLieu` (chỉ `admin`), không dùng cờ của trang chứa nó — trang Cài
+ * đặt quy trình mở cho cả Trưởng bộ phận cấp 3. Tự trả `null` khi không đủ quyền.
  */
 export function KhoiXoaDuLieuChayThu() {
-  const { deNghi, xoaDuLieuChayThu, trangThaiKhoChung } = useDuLieu();
+  const { deNghi, xoaNhieuDeNghi } = useDuLieu();
   const { quyen } = useNguoiDung();
+  const [tuKhoa, doiTuKhoa] = useState("");
+  const [daChon, doiDaChon] = useState<ReadonlySet<string>>(new Set());
   const [hoiXoa, doiHoiXoa] = useState(false);
+
+  const ketQua = useMemo(() => {
+    const k = tuKhoa.trim().toLowerCase();
+    const ds = [...deNghi].sort((a, b) => a.code.localeCompare(b.code));
+    if (!k) return ds;
+    return ds.filter((d) =>
+      [d.code, d.maDeXuatAppRequest ?? "", d.tieuDe, d.tenCongTrinh]
+        .join(" ")
+        .toLowerCase()
+        .includes(k),
+    );
+  }, [deNghi, tuKhoa]);
 
   if (!quyen.xoaToanBoDuLieu) return null;
 
-  const dungChung = trangThaiKhoChung === "chung";
+  // Chỉ đếm phiếu còn tồn tại — phiếu đã bị xoá từ máy khác thì tự rơi khỏi lựa chọn.
+  const chon = deNghi.filter((d) => daChon.has(d.id));
+
+  const batTat = (id: string, bat: boolean) =>
+    doiDaChon((truoc) => {
+      const moi = new Set(truoc);
+      if (bat) moi.add(id);
+      else moi.delete(id);
+      return moi;
+    });
+
+  const thucHienXoa = () => {
+    const { daXoa, biChan } = xoaNhieuDeNghi(chon.map((d) => d.id));
+    doiDaChon(new Set(biChan.map((b) => b.id)));
+    if (daXoa.length > 0) toast.success(`Đã xóa ${daXoa.length} đề nghị`);
+    if (biChan.length > 0) {
+      const ma = (id: string) => deNghi.find((d) => d.id === id)?.code ?? id;
+      toast.error(`${biChan.length} đề nghị không xóa được`, {
+        description: biChan.map((b) => `${ma(b.id)}: ${b.lyDo}`).join("\n"),
+      });
+    }
+  };
 
   return (
     <>
-      {/* Viền danh nguy hiểm + tiêu đề nói thẳng — V1.1 buộc trạng thái có CẢ màu lẫn chữ, nên
-          không dựa vào riêng màu đỏ để báo đây là vùng nguy hiểm. */}
       <Card className="border-danger/40">
         <CardContent className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <h2 className="text-base font-semibold text-danger-soft">Vùng nguy hiểm</h2>
+            <h2 className="text-base font-semibold text-danger-soft">Vùng nguy hiểm — Xóa đề nghị</h2>
             <p className="text-sm text-text-secondary">
-              {dungChung
-                ? "Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng khỏi kho dữ liệu chung. Cả phòng cùng mất, không khôi phục lại được."
-                : "Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng đã nhập trên máy này. Không khôi phục lại được."}
-            </p>
-            <p className="text-sm text-text-desc">
-              Đang có {deNghi.length} đề nghị mua hàng.
+              Chọn từng đề nghị cần xóa hẳn khỏi kho dữ liệu chung. Cả phòng cùng mất các đề nghị
+              đã xóa, không khôi phục lại được. Đề nghị đã có báo giá hoặc đơn đặt hàng thì không
+              xóa được — dùng “Đánh dấu thất bại”.
             </p>
           </div>
-          <div>
-            <Button variant="destructive" size="sm" onClick={() => doiHoiXoa(true)}>
+
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-desc"
+              aria-hidden
+            />
+            <Input
+              value={tuKhoa}
+              onChange={(e) => doiTuKhoa(e.target.value)}
+              placeholder="Tìm theo mã, mã đề xuất, tiêu đề, công trình…"
+              className="pl-9"
+              aria-label="Tìm đề nghị cần xóa"
+            />
+          </div>
+
+          <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
+            {ketQua.length === 0 ? (
+              <p className="p-4 text-center text-sm text-text-desc">Không có đề nghị nào khớp.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {ketQua.map((d) => (
+                  <li key={d.id}>
+                    <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted">
+                      <Checkbox
+                        checked={daChon.has(d.id)}
+                        onCheckedChange={(v) => batTat(d.id, v === true)}
+                        aria-label={`Chọn xóa ${d.code}`}
+                      />
+                      <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm">
+                        <span className="font-medium text-text-primary">{d.code}</span>
+                        {d.maDeXuatAppRequest && (
+                          <span className="text-text-desc">Mã đề xuất {d.maDeXuatAppRequest}</span>
+                        )}
+                        {d.deNghiChaId && <span className="text-text-desc">Bản con</span>}
+                        <span className="min-w-0 truncate text-text-secondary">{d.tieuDe}</span>
+                        <span className="text-text-desc">{formatDate(d.ngayDeNghi)}</span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={chon.length === 0}
+              onClick={() => doiHoiXoa(true)}
+            >
               <Trash2 className="size-4 shrink-0" aria-hidden />
-              Xóa toàn bộ dữ liệu {dungChung ? "của cả phòng" : "trên máy này"}
+              Xóa {chon.length > 0 ? `${chon.length} ` : ""}đề nghị đã chọn
             </Button>
+            {chon.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => doiDaChon(new Set())}>
+                Bỏ chọn
+              </Button>
+            )}
+            <span className="text-sm text-text-desc">Đang có {deNghi.length} đề nghị mua hàng.</span>
           </div>
         </CardContent>
       </Card>
 
-      {/* 🔴 Từ 12/08/2026 dữ liệu để trên máy chủ dùng chung, nên lời cảnh báo phải nói
-          đúng phạm vi: xóa là MỌI NGƯỜI cùng mất, không phải "trên máy này" như trước. */}
       <HopXacNhan
         mo={hoiXoa}
-        tieuDe="Xóa toàn bộ dữ liệu chạy thử?"
-        moTa={
-          dungChung
-            ? "Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng khỏi kho dữ liệu chung."
-            : "Xóa mọi đề nghị, báo giá, đơn đặt hàng và phiếu nhận hàng đã nhập trên máy này."
-        }
-        canhBao={
-          dungChung
-            ? `Đang có ${deNghi.length} đề nghị mua hàng. ⚠️ Cả phòng đang dùng chung kho dữ liệu này — xóa xong thì MỌI NGƯỜI đều mất, không riêng máy của bạn. Không khôi phục lại được.`
-            : `Đang có ${deNghi.length} đề nghị mua hàng. Không khôi phục lại được — app sẽ về trạng thái trống như lần mở đầu tiên.`
-        }
-        nhanDongY="Xóa hết"
+        tieuDe={`Xóa hẳn ${chon.length} đề nghị?`}
+        moTa={chon.map((d) => d.code).join(", ")}
+        canhBao="Cả phòng đang dùng chung kho dữ liệu này — xóa xong thì MỌI NGƯỜI đều mất các đề nghị trên. Không khôi phục lại được."
+        nhanDongY="Xóa hẳn"
         nguyHiem
         onDong={() => doiHoiXoa(false)}
-        onDongY={xoaDuLieuChayThu}
+        onDongY={thucHienXoa}
       />
     </>
   );

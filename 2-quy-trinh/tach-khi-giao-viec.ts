@@ -355,6 +355,11 @@ export function apDungGiaoViec(
       luuTru: undefined,
       binhLuan: undefined,
       tepGiaiDoan: undefined,
+      /* ★ Sếp 26/09/2026 *"không chép các tệp đã đính kèm"* — cùng luật với bản nhân bản tay
+         (`dungBanNhanBan`): phiếu con không mang tài liệu đính kèm lúc lập phiếu. Chỉ bỏ tham chiếu,
+         nội dung tệp vẫn thuộc phiếu gốc. */
+      taiLieu: undefined,
+      taiLieuAppRequest: undefined,
       lyDoThieuChungTu: undefined,
       lyDoThatBai: undefined,
       items: dongGoc.map((d, k) => ganNguoi({ ...d, stt: k + 1, sttDongCha: d.stt })),

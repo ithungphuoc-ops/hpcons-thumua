@@ -5022,7 +5022,9 @@ kiem(
       ban.items[0]?.stt === 1 && ban.items[1]?.stt === 2 ? "" : "danh so lai tu 1",
       ban.tenCongTrinh === goc.tenCongTrinh ? "" : "tenCongTrinh",
       ban.maDuAn === goc.maDuAn ? "" : "maDuAn",
-      (ban.taiLieu ?? []).length === 1 ? "" : "taiLieu (ho so dau vao)",
+      /* ❌ Bỏ đòi `taiLieu` 26/09/2026: Sếp chốt *"không chép các tệp đã đính kèm"* sang phiếu con —
+         bài kiểm hai chiều mới ở khối "LUẬT CỦA SẾP 26/09/2026 — NHÂN BẢN" cuối tệp. Việc giữ
+         `taiLieu` trước đây là lựa chọn của người làm (15/09), không phải chỉ đạo. */
       (ban.nguoiTheoDoi ?? []).length === 1 ? "" : "nguoiTheoDoi",
       (ban.congViecDaXong ?? []).some((v) => v.maCongViec === "checkin_ton_kho")
         ? ""
@@ -13021,6 +13023,259 @@ kiem(
       },
     );
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP 26/09/2026 — NHÂN BẢN: giữ người phụ trách · ai thấy phiếu con ·
+// không chép tệp đính kèm · lập đơn VƯỢT phần còn lại chỉ cảnh báo + bắt lý do.
+// Nguyên văn: "Trưởng bộ phận nhân bản thì phiếu con vẫn giữ người phụ trách. TP và
+// nhân viên phụ trách thấy phiếu con, không chép các tệp đã đính kèm, Không cần chặn
+// vượt đơn chỉ cần cảnh báo và yêu cầu ghi lý do".
+// Mỗi luật có bài HAI CHIỀU.
+// ════════════════════════════════════════════════════════════════════
+{
+  const CHU_2609 = "luật của: Sếp 26/09/2026 — nhân bản / lập đơn vượt";
+  const phieuCoNguoi = (them = {}) =>
+    phieuNCC({
+      items: [
+        { stt: 1, tenVatLieu: "Xi mang", donViTinh: "bao", khoiLuongDeNghi: 100, nguoiPhuTrachUid: "A", nguoiPhuTrachTen: "NV A", nguoiPhanBoTen: "TBP X", thoiDiemPhanBo: "2026-09-20T01:00:00Z" },
+        { stt: 2, tenVatLieu: "Cat", donViTinh: "m3", khoiLuongDeNghi: 10 },
+        { stt: 3, tenVatLieu: "Thep", donViTinh: "tan", khoiLuongDeNghi: 5, nguoiPhuTrachUid: "B", nguoiPhuTrachTen: "NV B", nguoiPhanBoTen: "TBP X", thoiDiemPhanBo: "2026-09-21T01:00:00Z" },
+        { stt: 4, tenVatLieu: "Da", donViTinh: "m3", khoiLuongDeNghi: 8 },
+      ],
+      ...them,
+    });
+
+  kiem(
+    "TBP nhan ban -> phieu con GIU NGUYEN nguoi phu trach, nguoi phan bo, moc phan bo cua tung dong",
+    CHU_2609,
+    () => {
+      const r = nbNCC([phieuCoNguoi()], [{ stt: 1, khoiLuongTuCha: 100 }, { stt: 3, khoiLuongTuCha: 5 }, { stt: 4, khoiLuongTuCha: 8 }], {
+        nguoi: { uid: "TP", ten: "TBP X" },
+        laNguoiPhanBo: true,
+      });
+      if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+      const it = r.ban.items;
+      const ra = it.map((d) => `${d.nguoiPhuTrachUid ?? "-"}/${d.nguoiPhanBoTen ?? "-"}/${d.thoiDiemPhanBo ?? "-"}`).join(" ");
+      return {
+        duoc:
+          it[0].nguoiPhuTrachUid === "A" && it[0].nguoiPhuTrachTen === "NV A" && it[0].nguoiPhanBoTen === "TBP X" &&
+          it[0].thoiDiemPhanBo === "2026-09-20T01:00:00Z" &&
+          it[1].nguoiPhuTrachUid === "B" && it[1].thoiDiemPhanBo === "2026-09-21T01:00:00Z" &&
+          it[2].nguoiPhuTrachUid === undefined,
+        thucTe: ra,
+        mongDoi: "A/TBP X/2026-09-20 · B/TBP X/2026-09-21 · dong chua giao van trong",
+      };
+    },
+  );
+
+  kiem(
+    "CHIEU NGHICH: NHAN VIEN nhan ban dong cua minh van theo luat 15/08 (nguoi bam nhan viec) — va TBP KHONG tu nhan viec cua nhan vien",
+    CHU_2609,
+    () => {
+      const nv = nbNCC([phieuCoNguoi()], [{ stt: 1, khoiLuongTuCha: 40 }], { nguoi: { uid: "A", ten: "NV A" } });
+      const tp = nbNCC([phieuCoNguoi()], [{ stt: 1, khoiLuongTuCha: 40 }], { nguoi: { uid: "TP", ten: "TBP X" }, laNguoiPhanBo: true });
+      if (nv.loi || tp.loi) return { duoc: false, thucTe: nv.loi ?? tp.loi, mongDoi: "tao duoc" };
+      const dNV = nv.ban.items[0];
+      const dTP = tp.ban.items[0];
+      return {
+        duoc: dNV.nguoiPhuTrachUid === "A" && dNV.nguoiPhanBoTen === "NV A" && dTP.nguoiPhuTrachUid !== "TP",
+        thucTe: `NV: ${dNV.nguoiPhuTrachUid}/${dNV.nguoiPhanBoTen} · TP: ${dTP.nguoiPhuTrachUid}`,
+        mongDoi: "NV: A/NV A · TP: khong phai TP (giu A)",
+      };
+    },
+  );
+
+  kiem(
+    "Phieu con do TBP nhan ban: nhan vien phu trach + cap quan ly THAY (Theo doi, Viec cua toi); nguoi la KHONG thay",
+    CHU_2609,
+    () => {
+      const r = nbNCC([phieuCoNguoi()], [{ stt: 1, khoiLuongTuCha: 100 }, { stt: 3, khoiLuongTuCha: 5 }], {
+        nguoi: { uid: "TP", ten: "TBP X" },
+        laNguoiPhanBo: true,
+      });
+      if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+      const thuong = { xemMoiHoSo: false };
+      const kq = {
+        A: QH.duocXemTienTrinhDeNghi(r.ban, "A", thuong),
+        B: QH.duocXemTienTrinhDeNghi(r.ban, "B", thuong),
+        TP: QH.duocXemTienTrinhDeNghi(r.ban, "TP", { xemMoiHoSo: true }),
+        la: QH.duocXemTienTrinhDeNghi(r.ban, "C", thuong),
+        TPkhongQuanLy: QH.duocXemTienTrinhDeNghi(r.ban, "TP", thuong),
+        viecA: G.conViecCuaToi(r.ban, "A", r.deNghi),
+        viecTP: G.conViecCuaToi(r.ban, "TP", r.deNghi),
+      };
+      return {
+        duoc: kq.A && kq.B && kq.TP && !kq.la && !kq.TPkhongQuanLy && kq.viecA && !kq.viecTP,
+        thucTe: JSON.stringify(kq),
+        mongDoi: "A/B/TP(quan ly)/viecA = true · nguoi la / TP khong co quyen quan ly / viecTP = false",
+      };
+    },
+  );
+
+  kiem(
+    "Nhan ban KHONG chep tep da dinh kem (taiLieu, taiLieuAppRequest, tepGiaiDoan, tep trong binh luan)",
+    CHU_2609,
+    () => {
+      const tepX = { id: "t-x", ten: "catalogue.pdf", loai: "application/pdf", kichThuoc: 10 };
+      const goc = phieuCoNguoi({
+        taiLieu: [tepX],
+        taiLieuAppRequest: [{ ten: "mau.xlsx", duongDan: "requests/x/mau.xlsx" }],
+        tepGiaiDoan: { yeu_cau_bao_gia: [tepX] },
+        binhLuan: [{ id: "b", nguoiVietUid: "A", nguoiVietTen: "NV A", thoiDiem: "2026-09-20T01:00:00Z", noiDung: "x", tep: [tepX] }],
+        idHoSoAppRequest: "ar-1",
+      });
+      const r = nbNCC([goc], [{ stt: 1, khoiLuongTuCha: 50 }]);
+      if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+      const con = [
+        r.ban.taiLieu ? "taiLieu" : "",
+        r.ban.taiLieuAppRequest ? "taiLieuAppRequest" : "",
+        r.ban.tepGiaiDoan ? "tepGiaiDoan" : "",
+        r.ban.binhLuan ? "binhLuan" : "",
+      ].filter(Boolean);
+      return {
+        duoc: con.length === 0,
+        thucTe: con.length === 0 ? "khong mang tep nao" : `con mang: ${con.join(", ")}`,
+        mongDoi: "khong mang tep nao",
+      };
+    },
+  );
+
+  kiem(
+    "CHIEU NGHICH: bo tep o ban con KHONG dung toi phieu goc, va ban con van noi ve goc + giu duong dan App Request",
+    CHU_2609,
+    () => {
+      const tepX = { id: "t-x", ten: "catalogue.pdf", loai: "application/pdf", kichThuoc: 10 };
+      const goc = phieuCoNguoi({ taiLieu: [tepX], taiLieuAppRequest: [{ ten: "mau.xlsx" }], idHoSoAppRequest: "ar-1" });
+      const r = nbNCC([goc], [{ stt: 1, khoiLuongTuCha: 50 }]);
+      if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+      const gocSau = r.deNghi.find((d) => d.id === "pr-x");
+      return {
+        duoc:
+          (gocSau.taiLieu ?? []).length === 1 && (gocSau.taiLieuAppRequest ?? []).length === 1 &&
+          r.ban.deNghiChaId === "pr-x" && r.ban.idHoSoAppRequest === "ar-1",
+        thucTe: `goc taiLieu=${(gocSau.taiLieu ?? []).length}/AR=${(gocSau.taiLieuAppRequest ?? []).length} · cha=${r.ban.deNghiChaId} · idAR=${r.ban.idHoSoAppRequest}`,
+        mongDoi: "goc taiLieu=1/AR=1 · cha=pr-x · idAR=ar-1",
+      };
+    },
+  );
+
+  kiem(
+    "Phieu con khi GIAO VIEC cung KHONG chep tep dinh kem luc lap phieu (cung luat voi nhan ban tay)",
+    CHU_2609,
+    () => {
+      const T = nap(tepRaTKG);
+      const goc = { ...phieuThuTach(), taiLieu: [{ id: "t", ten: "a.pdf" }], taiLieuAppRequest: [{ ten: "b.xlsx" }] };
+      const b1 = T.apDungGiaoViec([goc], "pr-goc", [1], gThu("A"));
+      const con = b1.deNghi?.find((d) => d.id !== "pr-goc");
+      const gocSau = b1.deNghi?.find((d) => d.id === "pr-goc");
+      return {
+        duoc: !!con && !con.taiLieu && !con.taiLieuAppRequest && (gocSau?.taiLieu ?? []).length === 1,
+        thucTe: `con taiLieu=${con?.taiLieu?.length ?? 0}/AR=${con?.taiLieuAppRequest?.length ?? 0} · goc taiLieu=${gocSau?.taiLieu?.length ?? 0}`,
+        mongDoi: "con taiLieu=0/AR=0 · goc taiLieu=1",
+      };
+    },
+  );
+
+  const conLaiLap = [
+    { stt: 1, tenVatLieu: "Xi mang", donViTinh: "bao", khoiLuongChuaLenPO: 100 },
+    { stt: 2, tenVatLieu: "Cat", donViTinh: "m3", khoiLuongChuaLenPO: 10 },
+  ];
+
+  kiem(
+    "Lap don VUOT phan con lai: KHONG chan khi CO ly do; gan ly do + phan vuot vao dong PO (chi dong dau cua stt mang con so)",
+    CHU_2609,
+    () => {
+      const items = [
+        { sttDong: 1, sttDongDeNghi: 1, khoiLuongDat: 80 },
+        { sttDong: 2, sttDongDeNghi: 1, khoiLuongDat: 40 },
+        { sttDong: 3, sttDongDeNghi: 2, khoiLuongDat: 10 },
+        { sttDong: 4, sttDongDeNghi: 0, khoiLuongDat: 0, laDongGhiChu: true },
+      ];
+      const vuot = G.dongVuotKhiLapDon(items, conLaiLap);
+      const chan = G.vuongMacVuotKhiLapDon(vuot, "Hop cong truong chot 120 bao");
+      const gan = G.ganLyDoVuotVaoDongPO(items, vuot, "Hop cong truong chot 120 bao");
+      const cau = G.taCacDongVuotKhiLapDon(vuot);
+      return {
+        duoc:
+          vuot.length === 1 && vuot[0].stt === 1 && vuot[0].vuot === 20 && vuot[0].conLai === 100 && vuot[0].dangDat === 120 &&
+          chan === null &&
+          gan[0].khoiLuongVuotDeNghi === 20 && gan[0].lyDoVuotDeNghi === "Hop cong truong chot 120 bao" &&
+          gan[1].khoiLuongVuotDeNghi === undefined && gan[1].lyDoVuotDeNghi === "Hop cong truong chot 120 bao" &&
+          gan[2].lyDoVuotDeNghi === undefined && cau.includes("vượt 20"),
+        thucTe: `vuot=${JSON.stringify(vuot)} · chan=${chan} · gan=${JSON.stringify(gan.map((d) => [d.khoiLuongVuotDeNghi, d.lyDoVuotDeNghi]))}`,
+        mongDoi: "1 dong vuot 20 (100 -> 120) · chan=null · dong PO dau mang 20 + ly do, dong thu hai chi ly do, dong khong vuot trong",
+      };
+    },
+  );
+
+  kiem(
+    "CHIEU NGHICH: vuot ma TRONG ly do thi CHAN (co cau loi); KHONG vuot thi khong doi ly do va xoa ly do nguoi goi gan bua",
+    CHU_2609,
+    () => {
+      const vuotItems = [{ sttDongDeNghi: 1, khoiLuongDat: 101 }];
+      const chanTrong = G.vuongMacVuotKhiLapDon(G.dongVuotKhiLapDon(vuotItems, conLaiLap), "   ");
+      const vuaDu = [{ sttDongDeNghi: 1, khoiLuongDat: 100, lyDoVuotDeNghi: "gan bua", khoiLuongVuotDeNghi: 5 }];
+      const vDu = G.dongVuotKhiLapDon(vuaDu, conLaiLap);
+      const chanDu = G.vuongMacVuotKhiLapDon(vDu, undefined);
+      const sach = G.ganLyDoVuotVaoDongPO(vuaDu, vDu, "gan bua")[0];
+      return {
+        duoc:
+          typeof chanTrong === "string" && chanTrong.includes("vượt 1") &&
+          vDu.length === 0 && chanDu === null &&
+          sach.lyDoVuotDeNghi === undefined && sach.khoiLuongVuotDeNghi === undefined,
+        thucTe: `chanTrong=${chanTrong} · vuaDu vuot=${vDu.length} chan=${chanDu} · sach=${JSON.stringify(sach)}`,
+        mongDoi: "chanTrong = cau loi co 'vượt 1' · vua du: khong vuot, khong chan, ly do bi xoa",
+      };
+    },
+  );
+}
+
+/* ★ XOÁ TỪNG ĐỀ NGHỊ (Sếp 26/09/2026: *"cho chọn từng cái để xoá, ko được xoá toàn bộ"*).
+   Thư mục riêng — `thuMuc` chung đã bị dọn giữa tệp. */
+{
+  const thuMucXoa = mkdtempSync(join(tmpdir(), "kiem-luat-xoa-"));
+  const tepRaXoa = join(thuMucXoa, "xoa-de-nghi.cjs");
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/xoa-de-nghi.ts" --bundle --platform=node --format=cjs --outfile="${tepRaXoa}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+  const XO = nap(tepRaXoa);
+  rmSync(thuMucXoa, { recursive: true, force: true });
+  const CHU = "Sếp 26/09/2026 — xoá từng đề nghị";
+  const ds = [
+    { id: "cha", code: "C" },
+    { id: "con", code: "C (copy)", deNghiChaId: "cha" },
+    { id: "don", code: "D" },
+    { id: "le", code: "L" },
+  ];
+  const don = [{ prId: "don", trangThai: "da_dat" }];
+  kiem("XOA DE NGHI — chon ca cha lan con thi xoa duoc ca cum", CHU, () => {
+    const kq = XO.phanLoaiXoaDeNghi(["cha", "con", "le"], ds, [], don);
+    return {
+      duoc: kq.xoaDuoc.join() === "cha,con,le" && kq.biChan.length === 0,
+      thucTe: JSON.stringify(kq),
+      mongDoi: "xoaDuoc = cha,con,le",
+    };
+  });
+  kiem("XOA DE NGHI — CHIEU NGHICH: chi chon cha (bo lai con) hoac phieu co don hang thi chan", CHU, () => {
+    const a = XO.phanLoaiXoaDeNghi(["cha"], ds, [], don);
+    const b = XO.phanLoaiXoaDeNghi(["don"], ds, [], don);
+    const huy = XO.phanLoaiXoaDeNghi(["don"], ds, [], [{ prId: "don", trangThai: "huy" }]);
+    return {
+      duoc: a.xoaDuoc.length === 0 && b.xoaDuoc.length === 0 && huy.xoaDuoc.join() === "don",
+      thucTe: `${JSON.stringify(a)} · ${JSON.stringify(b)} · huy=${JSON.stringify(huy)}`,
+      mongDoi: "cha bi chan, don bi chan, don chi co PO huy thi xoa duoc",
+    };
+  });
+  kiem("XOA DE NGHI — con bi chan (co don hang) thi cha cung bi chan theo", CHU, () => {
+    const kq = XO.phanLoaiXoaDeNghi(["cha", "con"], ds, [], [{ prId: "con", trangThai: "da_dat" }]);
+    return {
+      duoc: kq.xoaDuoc.length === 0 && kq.biChan.length === 2,
+      thucTe: JSON.stringify(kq),
+      mongDoi: "ca cha lan con deu bi chan",
+    };
+  });
 }
 
 const tong = dat + truot.length;
