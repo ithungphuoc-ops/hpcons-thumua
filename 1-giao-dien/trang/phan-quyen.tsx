@@ -254,7 +254,7 @@ export default function TrangPhanQuyen() {
    * chính là màn này. Ẩn hẳn mà không chừa cửa là người bị ngừng nhầm **không ai khôi phục được
    * nữa**. Mặc định ẩn (đúng ý Sếp), ô tích mở lại khi cần, và luôn nói đã ẩn bao nhiêu người.
    */
-  const [hienNgungTruyCap, setHienNgungTruyCap] = useState(false);
+  // Ô tích bật lại đã bỏ 26/09/2026 — cửa quay lại nay là ô tìm (xem `dsHien`).
 
   /**
    * ★★ DANH BẠ CÔNG TY — GỘP VÀO KHỐI "NHÂN SỰ" (Sếp 26/09/2026).
@@ -474,8 +474,12 @@ export default function TrangPhanQuyen() {
   /* Dùng `vaiTroKhopVoiHoSo` — đúng hàm ô chức danh dùng — để biết ai đang ngừng truy cập. Tự so
      tay `capTM` ở đây là hai chỗ cùng trả lời một câu, sớm muộn lệch nhau. */
   const laNgung = (t: ThongTinNguoi) => !t.chuaCoHoSo && t.vtHienTai?.ma === "ngung_truy_cap";
-  const soDaAn = tatCaNguoi.filter(laNgung).length;
-  const dsHien = tatCaVaDanhBa.filter((t) => hienNgungTruyCap || !laNgung(t));
+  /* ★ Sếp 26/09/2026 bỏ ô "Hiện cả N tài khoản đã ngừng truy cập". CỬA QUAY LẠI chuyển sang ô
+     tìm: GÕ TÊN thì tài khoản ngừng truy cập vẫn hiện — không có đường này thì người bị ngừng
+     nhầm không ai khôi phục được (lý do ở chú thích phía trên, Sếp 17/09/2026). */
+  const dsHien = tatCaVaDanhBa.filter(
+    (t) => tuKhoaDs.trim() !== "" || !laNgung(t),
+  );
 
   const dsPhongBanDs = [...new Set(dsHien.map((t) => t.phongBan))].sort((a, b) =>
     a === CHUA_GAN_PHONG_BAN ? 1 : b === CHUA_GAN_PHONG_BAN ? -1 : a.localeCompare(b, "vi"),
@@ -987,14 +991,6 @@ export default function TrangPhanQuyen() {
                 </label>
                 )}
 
-                {/* 🔴 CỬA QUAY LẠI — xem chú thích ở `hienNgungTruyCap`. Chỉ hiện khi THẬT SỰ có
-                    người bị ẩn. */}
-                {!chuaLoc && soDaAn > 0 && (
-                  <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-text-secondary">
-                    <OTich giaTri={hienNgungTruyCap} onDoi={setHienNgungTruyCap} />
-                    Hiện cả {soDaAn} tài khoản đã ngừng truy cập
-                  </label>
-                )}
               </div>
 
               {danhSach !== null && dsLoc.length === 0 && (
