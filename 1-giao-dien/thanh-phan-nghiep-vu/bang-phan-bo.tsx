@@ -830,8 +830,10 @@ export function BangPhanBo({
           id={NEO_BANG_PHAN_BO}
           className="hidden scroll-mt-4 overflow-x-auto md:block lg:scroll-mt-60"
         >
-          {/* Sếp 26/09/2026: *"Canh giữa cột cho"* — mọi ô tiêu đề + ô dữ liệu căn giữa (kể cả ô bọc flex). */}
-          <Table className="min-w-[1120px] table-fixed [&_td]:text-center [&_td>div]:items-center [&_th]:text-center">
+          {/* Sếp 26/09/2026: *"Canh giữa cột cho"* — mọi ô tiêu đề + ô dữ liệu căn giữa (kể cả ô bọc flex).
+              *"Thêm chức năng Wrap text"* — ô bảng nền tảng mặc định `whitespace-nowrap` nên chữ dài
+              (quy cách, mục đích) tràn đè cột bên cạnh; ép `whitespace-normal` + `break-words`. */}
+          <Table className="min-w-[1120px] table-fixed [&_td]:text-center [&_td]:break-words [&_td]:whitespace-normal [&_td>div]:items-center [&_th]:text-center [&_th]:whitespace-normal">
             <TableHeader>
               <TableRow>
                 {hienCongCuPhanBo && <TableHead className="w-11" />}
