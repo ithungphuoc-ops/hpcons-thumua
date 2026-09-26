@@ -212,6 +212,9 @@ interface TomTatLuu {
  * · 18/08/2026 — gán theo VAI TRÒ đóng gói (`vai-tro-chuan.ts`), không bắt ghép tay bốn trường.
  * · 20/08/2026 — ghi thật qua API máy chủ; khối "Thêm người dùng mới" lấy thẳng danh bạ App Tổng.
  */
+/** Giá trị ô lọc "Tất cả phòng ban" — khác "" (chưa chọn gì = chưa hiện danh sách). */
+const TAT_CA_PHONG_BAN = "__tat_ca__";
+
 export default function TrangPhanQuyen() {
   const { nguoiDung, quyen } = useNguoiDung();
 
@@ -477,9 +480,15 @@ export default function TrangPhanQuyen() {
   );
 
   const tuKhoaLoc = boDau(tuKhoaDs.trim());
+  /* ★ Sếp 26/09/2026: *"Khi bấm chọn phòng ban thì mới hiện ra danh sách nhân sự của phòng ban đó"*,
+     *"Mục này chưa cần hiển thị, chỉ khi nào chọn phòng ban hoặc tìm tên thì mới hiện"*. Chưa chọn
+     phòng ban và chưa gõ tên → danh sách TRỐNG kèm lời nhắc. "Tất cả phòng ban" vẫn chọn được
+     (giá trị riêng `TAT_CA_PHONG_BAN`). Người đang được chọn vẫn giữ nguyên ở cột phải. */
+  const chuaLoc = phongBanDs === "" && tuKhoaLoc === "";
   const dsLoc = dsHien.filter(
     (t) =>
-      (phongBanDs === "" || t.phongBan === phongBanDs) &&
+      !chuaLoc &&
+      (phongBanDs === "" || phongBanDs === TAT_CA_PHONG_BAN || t.phongBan === phongBanDs) &&
       (tuKhoaLoc === "" ||
         boDau(t.ten).includes(tuKhoaLoc) ||
         boDau(t.hs.hoSo.email ?? "").includes(tuKhoaLoc)),
@@ -934,7 +943,8 @@ export default function TrangPhanQuyen() {
                   aria-label="Lọc theo phòng ban"
                   className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
                 >
-                  <option value="">Tất cả phòng ban</option>
+                  <option value="">— Chọn phòng ban —</option>
+                  <option value={TAT_CA_PHONG_BAN}>Tất cả phòng ban</option>
                   {dsPhongBanDs.map((pb) => (
                     <option key={pb} value={pb}>
                       {tenPhongBan(pb)}
@@ -944,6 +954,7 @@ export default function TrangPhanQuyen() {
 
                 {/* ★ Chọn nhiều người (Sếp 26/09/2026 ②). Chỉ gom người SỬA ĐƯỢC — người bị khoá
                     (chính mình, cấp cao hơn, Quản trị) gom vào là cả lượt lưu bị từ chối. */}
+                {!chuaLoc && (
                 <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-text-secondary has-disabled:cursor-not-allowed has-disabled:opacity-60">
                   <OTich
                     giaTri={giaTriChonTatCa}
@@ -972,10 +983,11 @@ export default function TrangPhanQuyen() {
                     )}
                   </span>
                 </label>
+                )}
 
                 {/* 🔴 CỬA QUAY LẠI — xem chú thích ở `hienNgungTruyCap`. Chỉ hiện khi THẬT SỰ có
                     người bị ẩn. */}
-                {soDaAn > 0 && (
+                {!chuaLoc && soDaAn > 0 && (
                   <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-text-secondary">
                     <OTich giaTri={hienNgungTruyCap} onDoi={setHienNgungTruyCap} />
                     Hiện cả {soDaAn} tài khoản đã ngừng truy cập
@@ -985,7 +997,9 @@ export default function TrangPhanQuyen() {
 
               {danhSach !== null && dsLoc.length === 0 && (
                 <p className="px-4 py-6 text-sm text-text-desc">
-                  {dsHien.length === 0
+                  {chuaLoc
+                    ? "Chọn phòng ban hoặc gõ tên để hiện danh sách nhân sự."
+                    : dsHien.length === 0
                     ? "Không đọc được tài khoản nào. Kiểm tra lại kết nối máy chủ."
                     : "Không có ai khớp bộ lọc."}
                 </p>
