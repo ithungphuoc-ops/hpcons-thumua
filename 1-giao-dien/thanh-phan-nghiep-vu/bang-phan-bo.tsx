@@ -57,6 +57,8 @@ import {
   dongDaChuyenDiHet,
   dongDaNhanBanSang,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
+/* Chạy thử luật giao (hàm thuần) để hộp xác nhận nói TRƯỚC việc có tách phiếu hay không. */
+import { apDungGiaoViec, laPhieuConKhiGiao } from "@/2-quy-trinh/tach-khi-giao-viec";
 import { nhanAnToan, NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang, LoaiViecGiao } from "@/3-du-lieu/kieu-du-lieu";
 import { NEO_BANG_PHAN_BO } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
@@ -309,9 +311,20 @@ export function BangPhanBo({
   }
 
   function xacNhanChuyen() {
-    if (!dongChuyen || !uidNhan) return;
+    /* ★ Soát giao việc 25–26/09/2026 (#5 #61): hộp đóng TRƯỚC rồi mới gọi hàm này, nên thoát im
+       lặng là người dùng tưởng đã chuyển. Nút đã khoá khi chưa chọn người (`khoaDongY`); hai nhánh
+       dưới chỉ còn để phòng thủ, nhưng vẫn phải nói ra. */
+    if (!dongChuyen || !uidNhan) {
+      toast.error("Chưa chuyển được việc", { description: "Chưa chọn người nhận việc." });
+      return;
+    }
     const nhan = danhSachTaiKhoan.find((n) => n.uid === uidNhan);
-    if (!nhan) return;
+    if (!nhan) {
+      toast.error("Chưa chuyển được việc", {
+        description: "Không tìm thấy tài khoản người nhận — tải lại trang rồi thử lại.",
+      });
+      return;
+    }
     /* (26/09/2026) Tầng ghi có thể từ chối (dòng đã có báo giá/đơn hàng) — phải nói ra. */
     const loi = chuyenViecDong(
       deNghi.id,
@@ -324,6 +337,36 @@ export function BangPhanBo({
       toast.error("Chưa chuyển được việc", { description: loi });
       return;
     }
+    toast.success(`Đã chuyển dòng ${dongChuyen.stt} cho ${nhan.tenHienThi}`, {
+      description: "Người nhận sẽ thấy việc mới trong chuông thông báo.",
+    });
+  }
+
+  /**
+   * ★ HỎI LẠI TRƯỚC KHI BỎ PHÂN BỔ — soát giao việc 25–26/09/2026 (#4 #44). Trước đây một chạm là
+   * gỡ việc của người khác, không hỏi, không báo xong; ở phiếu con thì chạm vào dòng cuối là BỎ LUÔN
+   * phiếu con cùng tệp đính kèm và bình luận của nó.
+   */
+  const [moBoPhanBo, setMoBoPhanBo] = useState(false);
+  const [hoiBoPhanBo, setHoiBoPhanBo] = useState<{ stt: number; ten: string; boPhieuCon: boolean } | null>(
+    null,
+  );
+  function moHoiBoPhanBo(stt: number, ten: string) {
+    setHoiBoPhanBo({ stt, ten, boPhieuCon: laPhieuConKhiGiao(deNghi) && deNghi.items.length === 1 });
+    setMoBoPhanBo(true);
+  }
+  function xacNhanBoPhanBo() {
+    if (!hoiBoPhanBo) return;
+    const loi = boPhanBoDong(deNghi.id, hoiBoPhanBo.stt, nguoiDung.tenHienThi);
+    if (loi) {
+      toast.error("Chưa bỏ phân bổ được", { description: loi });
+      return;
+    }
+    toast.success(`Đã bỏ phân bổ dòng ${hoiBoPhanBo.stt}`, {
+      description: hoiBoPhanBo.boPhieuCon
+        ? `Phiếu ${deNghi.code} đã bỏ, dòng trở về phiếu gốc để giao lại.`
+        : "Dòng trở về trạng thái chưa giao.",
+    });
   }
 
   /**
@@ -419,6 +462,8 @@ export function BangPhanBo({
    * người dùng bấm hai lần mới biết chẳng có gì.
    */
   function coHanhDong(d: { stt: number; trangThaiDong: string; nguoiPhuTrachUid?: string }) {
+    /* Hồ sơ đã đóng: không chuyển / bỏ phân bổ nữa (soát #2 #52 — tầng ghi cũng chặn). */
+    if (hoSoDaDong) return false;
     if (d.trangThaiDong !== "da_phan_bo") return false;
     return duocChuyenViecDong(d, nguoiDung.uid, quyen) || quyen.phanBoCongViec;
   }
@@ -445,7 +490,21 @@ export function BangPhanBo({
    * đó (nút xóa vật tư, menu ⋯, nút phân cho dòng lẻ chưa có người). Chỉ bộ công cụ chọn
    * hàng loạt mới ẩn đi sau bước ①.
    */
-  const hienCongCuPhanBo = quyen.phanBoCongViec && dangOBuocPhanBo;
+  /* ★ `!hoSoDaDong` (soát #2 #17 #32 #52): hồ sơ đã đóng mà còn bày công cụ giao hàng loạt thì giao
+     được một dòng là đẻ ra một phiếu con SỐNG từ hồ sơ đã huỷ. Tầng ghi cũng chặn. */
+  const hienCongCuPhanBo = quyen.phanBoCongViec && dangOBuocPhanBo && !hoSoDaDong;
+  /**
+   * ★ CHỈ DÒNG CHƯA AI NHẬN mới tích chọn được (soát #1 #18 #31 #51). Giao đè dòng đã có người qua
+   * ô tích là đổi chủ không ghi người cũ; dòng đã lên đơn còn bị tách sang phiếu con → mua hai lần.
+   * Đổi người thì đi "Chuyển việc" ở menu ⋯. Tầng ghi `phanBoDong` chặn lại lần nữa.
+   * 📌 `chonHopLe` (không phải `chon`) cho mọi thao tác: số dòng đã tích từ trước có thể đã được
+   * người khác giao / tách trong lúc trang đang mở, hoặc công cụ vừa bị ẩn (sang bước khác).
+   */
+  const dongTichDuoc = (d: { stt: number; trangThaiDong: string }) =>
+    d.trangThaiDong === "chua_phan_bo" && !dongDaChuyenDiHet(d.stt, daNhanBan);
+  const chonHopLe = hienCongCuPhanBo
+    ? chon.filter((st) => tienDo.some((d) => d.stt === st && dongTichDuoc(d)))
+    : [];
 
   /**
    * Số NGƯỜI khác nhau đang được giao việc trong phiếu này — dùng để báo trước việc tách.
@@ -568,6 +627,24 @@ export function BangPhanBo({
   const loaiViecDangChon: LoaiViecGiao | undefined =
     soBaoGia === "xuat_kho" || soBaoGia === "nhan_su" ? soBaoGia : undefined;
 
+  /**
+   * ★ Lần giao đang hỏi có TÁCH sang phiếu con không — chạy thử đúng hàm thuần tầng ghi dùng
+   * (soát #11): tách là việc khó đảo ngược, phải nói TRƯỚC khi bấm, không để người giao phát hiện
+   * sau. Chia khối lượng thì chỉ là ước lượng (phần còn lại thành dòng mới chưa ai nhận).
+   */
+  const seTachKhiGiao = useMemo(() => {
+    if (!giaoViec) return false;
+    const kq = apDungGiaoViec(dsDeNghi, deNghi.id, giaoViec.dong, {
+      uid: giaoViec.uid,
+      ten: giaoViec.ten,
+      nguoiGiaoTen: "",
+      thoiDiem: "",
+      ngay: "",
+      loaiViecGiao: giaoViec.loaiViecGiao,
+    });
+    return kq.loi === undefined && kq.tach;
+  }, [giaoViec, dsDeNghi, deNghi.id]);
+
   function xacNhanGiaoViec() {
     if (!giaoViec) return;
     /**
@@ -634,7 +711,7 @@ export function BangPhanBo({
             chỉ có ngần ấy vật tư, hoặc tưởng app mất dữ liệu — rồi đi hỏi vòng quanh. */}
         {biLoc && (
           <p className="rounded-lg bg-primary-bg px-3 py-2 text-xs text-primary">
-            Bạn đang xem <strong>toàn bộ {deNghi.items.length} công việc</strong> của đề nghị này
+            Bạn đang xem <strong>toàn bộ {tienDo.length} công việc</strong> của đề nghị này
             để chuẩn bị trước — <strong>{dongCuaMinh.size}</strong> việc đang giao cho bạn. Việc của
             người khác chỉ để xem; Trưởng bộ phận giao việc thì dòng đó mới thành của bạn.
           </p>
@@ -645,11 +722,15 @@ export function BangPhanBo({
             dùng, mỗi dòng vật tư được giao cho một người CHÍNH LÀ một đầu việc — "dòng" là
             cách gọi theo cấu trúc bảng, nói đúng thứ họ phải làm mới dễ hiểu. */}
         <div className="flex flex-wrap items-center gap-3">
+          {/* Dải đỏ "chưa phân bổ" chỉ cho người GIAO được việc (soát #6) — nhân viên không có nút
+              nào để xử lý, bày ra chỉ gây lo. */}
           {soChuaPhanBo > 0 ? (
-            <span className="flex items-center gap-2 rounded-lg bg-danger-bg px-3 py-1.5 text-sm font-medium text-danger-soft">
-              <AlertTriangle className="size-4 shrink-0" aria-hidden />
-              {soChuaPhanBo} công việc chưa phân bổ
-            </span>
+            quyen.phanBoCongViec ? (
+              <span className="flex items-center gap-2 rounded-lg bg-danger-bg px-3 py-1.5 text-sm font-medium text-danger-soft">
+                <AlertTriangle className="size-4 shrink-0" aria-hidden />
+                {soChuaPhanBo} công việc chưa phân bổ
+              </span>
+            ) : null
           ) : (
             <span className="rounded-lg bg-success-bg px-3 py-1.5 text-sm font-medium text-success-soft">
               Đã phân bổ đủ {tienDo.length} công việc
@@ -662,29 +743,18 @@ export function BangPhanBo({
           )}
         </div>
 
-        {/* ★ BÁO TRƯỚC VIỆC TÁCH PHIẾU — Ban lãnh đạo 15/08/2026 chốt: giao cho nhiều người
-            thì sang bước ② phiếu tự tách, mỗi người một phiếu.
-
-            🔴 Phải nói TRƯỚC khi nó xảy ra. Tách phiếu là việc khó đảo ngược (sinh hồ sơ mới,
-            ăn vào 12 mã dự phòng của bản chạy thử); để người dùng phân bổ xong mới phát hiện
-            phiếu của mình đã bị chia ba là đúng kiểu app tự tiện làm thay người. */}
+        {/* ★ PHIẾU CŨ NHIỀU NGƯỜI — soát giao việc 25–26/09/2026 (#3 #11 #19 #30 #41 #56).
+            Câu cũ hứa *"phiếu sẽ tự tách thành N phiếu…"* nhưng tách ngầm đã bỏ hẳn từ 26/09: tách
+            nay xảy ra NGAY LÚC GIAO (hộp xác nhận giao việc nói trước), và luồng giao mới không để
+            hai người trên cùng một phiếu. Khối này chỉ còn hiện ở phiếu giao cho nhiều người TRƯỚC
+            26/09 — nói đúng sự thật cho những phiếu đó, đừng hứa một lần tách không bao giờ xảy ra. */}
         {hienCongCuPhanBo && soNguoiDuocGiao > 1 && (
           <p className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary-bg px-3 py-2 text-sm text-primary">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span>
-              Đang giao cho <strong>{soNguoiDuocGiao} người</strong>.{" "}
-              {soChuaPhanBo > 0 ? (
-                <>
-                  Khi phân bổ hết {soChuaPhanBo} dòng còn lại, phiếu sẽ <strong>tự tách thành{" "}
-                  {soNguoiDuocGiao} phiếu</strong> — mỗi người một phiếu chứa đúng phần việc của
-                  họ, vẫn gom lại được vì cùng mã gốc.
-                </>
-              ) : (
-                <>
-                  Phiếu sẽ <strong>tự tách thành {soNguoiDuocGiao} phiếu</strong> khi sang bước
-                  Yêu cầu NCC báo giá — mỗi người một phiếu, vẫn gom lại được vì cùng mã gốc.
-                </>
-              )}
+              Phiếu này đang có <strong>{soNguoiDuocGiao} người</strong> cùng làm (giao trước
+              26/09) — app không tự tách nữa. Giao việc mới chỉ tách phần vừa giao sang phiếu con
+              của người nhận.
             </span>
           </p>
         )}
@@ -698,14 +768,14 @@ export function BangPhanBo({
         )}
 
         {/* Thanh hành động khi đã chọn dòng — chỉ ở bước phân bổ, xem `hienCongCuPhanBo`. */}
-        {hienCongCuPhanBo && chon.length > 0 && (
+        {hienCongCuPhanBo && chonHopLe.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary-bg p-3">
-            <span className="text-sm font-medium text-primary">Đã chọn {chon.length} dòng</span>
+            <span className="text-sm font-medium text-primary">Đã chọn {chonHopLe.length} dòng</span>
             {/* ★ CHIA KHỐI LƯỢNG (Sếp 26/09/2026): chọn đúng MỘT dòng thì giao được một phần — phần
                 còn lại thành dòng mới "chia từ dòng X" để giao người khác. Trống = cả dòng. */}
-            {chon.length === 1 &&
+            {chonHopLe.length === 1 &&
               (() => {
-                const d = deNghi.items.find((x) => x.stt === chon[0]);
+                const d = deNghi.items.find((x) => x.stt === chonHopLe[0]);
                 if (!d) return null;
                 return (
                   <label className="flex items-center gap-2 text-sm text-primary">
@@ -730,7 +800,7 @@ export function BangPhanBo({
                 variant={nv.loaiViecGiao === "nhan_su" ? "outline" : "default"}
                 className={LOP_NUT_THEO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}
                 disabled={!!chanGiaoViec}
-                onClick={() => moGiaoViec(nv.uid, nv.ten, chon, nv.loaiViecGiao)}
+                onClick={() => moGiaoViec(nv.uid, nv.ten, chonHopLe, nv.loaiViecGiao)}
                 title={
                   nv.loaiViecGiao === "nhan_su"
                     ? "Quy trình nhân sự — hàng có sẵn trong kho, sang thẳng Lập đơn mua hàng"
@@ -760,7 +830,7 @@ export function BangPhanBo({
           id={NEO_BANG_PHAN_BO}
           className="hidden scroll-mt-4 overflow-x-auto md:block lg:scroll-mt-60"
         >
-          <Table className="min-w-[980px] table-fixed">
+          <Table className="min-w-[1120px] table-fixed">
             <TableHeader>
               <TableRow>
                 {hienCongCuPhanBo && <TableHead className="w-11" />}
@@ -788,6 +858,8 @@ export function BangPhanBo({
                 {/* Mã đơn hàng ít tra tới — ẩn dưới 1280px thay vì để nó đẩy bảng tràn.
                     Vẫn xem được ở khối "Đơn đặt hàng đã tách" phía dưới trang. */}
                 <TableHead className="hidden w-36 xl:table-cell">Đơn hàng</TableHead>
+                {/* Sếp 26/09/2026: *"Thêm trường mục đích sử dụng giống ở nội dung bên app đề nghị"*, rồi *"đặt trước cột ghi chú"*. */}
+                <TableHead className="w-44">Mục đích sử dụng</TableHead>
                 <TableHead className="w-48">Ghi chú</TableHead>
               </TableRow>
             </TableHeader>
@@ -823,7 +895,7 @@ export function BangPhanBo({
                   >
                     {hienCongCuPhanBo && (
                       <TableCell>
-                        {!daChuyenDi && <Checkbox
+                        {dongTichDuoc(d) && <Checkbox
                           checked={chon.includes(d.stt)}
                           onCheckedChange={(c) => doiChon(d.stt, Boolean(c))}
                           aria-label={`Chọn dòng ${d.stt}`}
@@ -897,11 +969,6 @@ export function BangPhanBo({
                         {/* Mục đích sử dụng do người đề nghị ghi trên phiếu — hiện ngay
                             dưới tên vật liệu để người lập đơn biết mua cho hạng mục nào,
                             khỏi phải mở lại phiếu gốc. */}
-                        {d.mucDichSuDung && (
-                          <span className="text-xs text-text-desc">
-                            Dùng cho: {d.mucDichSuDung}
-                          </span>
-                        )}
                         {d.vatTuKiemSoatDinhMuc && (
                           /* 11px chứ không phải 10px: đây là chữ CẢNH BÁO người dùng phải
                              đọc được, mà 10px nằm ngoài thang chữ của dự án (11/12/14/16/18)
@@ -981,12 +1048,7 @@ export function BangPhanBo({
                                     {quyen.phanBoCongViec && (
                                       <DropdownMenuItem
                                         className={LOP_MUC_MENU}
-                                        onClick={() =>
-                                          {
-                            const loi = boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi);
-                            if (loi) toast.error("Chưa bỏ phân bổ được", { description: loi });
-                          }
-                                        }
+                                        onClick={() => moHoiBoPhanBo(d.stt, d.nguoiPhuTrachTen ?? "")}
                                       >
                                         <X className="size-4 shrink-0" aria-hidden />
                                         Bỏ phân bổ dòng này
@@ -1024,6 +1086,9 @@ export function BangPhanBo({
                     <TableCell className="hidden text-text-desc xl:table-cell">
                       {d.maPOLienQuan.length > 0 ? d.maPOLienQuan.join(", ") : "—"}
                     </TableCell>
+                    <TableCell className="text-sm break-words text-text-secondary">
+                      {d.mucDichSuDung?.trim() || "—"}
+                    </TableCell>
                     <TableCell className="text-sm break-words whitespace-pre-line text-text-secondary">
                       {d.ghiChu?.trim() || "—"}
                     </TableCell>
@@ -1050,7 +1115,7 @@ export function BangPhanBo({
                    * này thừa một ô và đường kẻ lệch. Lỗi kiểu này không có gì báo.
                    */}
                   <TableCell
-                    colSpan={8 + (hienCongCuPhanBo ? 1 : 0)}
+                    colSpan={9 + (hienCongCuPhanBo ? 1 : 0)}
                     className="py-2"
                   >
                     {dongMoi === null ? (
@@ -1171,7 +1236,8 @@ export function BangPhanBo({
                       (daChuyenDi ? nguoiLamDongDaTach(d.stt) || "Đã tách sang phiếu con" : "chưa phân")}
                   </span>
                 </div>
-                {(!biLoc || dongCuaMinh.has(d.stt)) && (
+                {/* Chỉ dòng ĐÃ có người mới có yêu cầu giao việc (soát #4) — cùng luật bảng máy tính. */}
+                {d.nguoiPhuTrachUid && (!biLoc || dongCuaMinh.has(d.stt)) && (
                           <YeuCauGiaoViec soBaoGia={d.soBaoGiaYeuCau} ghiChu={d.ghiChuPhanBo} />
                         )}
 
@@ -1195,10 +1261,7 @@ export function BangPhanBo({
                         variant="ghost"
                         size="sm"
                         className="min-h-11"
-                        onClick={() => {
-                            const loi = boPhanBoDong(deNghi.id, d.stt, nguoiDung.tenHienThi);
-                            if (loi) toast.error("Chưa bỏ phân bổ được", { description: loi });
-                          }}
+                        onClick={() => moHoiBoPhanBo(d.stt, d.nguoiPhuTrachTen ?? "")}
                       >
                         <X className="size-4" aria-hidden />
                         Bỏ phân bổ
@@ -1207,7 +1270,8 @@ export function BangPhanBo({
                   </div>
                 )}
 
-                {quyen.phanBoCongViec && !d.nguoiPhuTrachUid && (
+                {/* Hồ sơ đã đóng / dòng đã tách sang phiếu con thì không bày nút giao (soát #2 #33). */}
+                {quyen.phanBoCongViec && !d.nguoiPhuTrachUid && !hoSoDaDong && !daChuyenDi && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {nhanVienThuMua.map((nv) => (
                       <Button
@@ -1240,7 +1304,10 @@ export function BangPhanBo({
         tieuDe="Giao việc cho nhân viên?"
         moTa={
           giaoViec &&
-          `Giao ${giaoViec.dong.length} công việc (dòng ${giaoViec.dong.join(", ")}) của đề nghị ${deNghi.code} cho ${giaoViec.ten}.`
+          `Giao ${giaoViec.dong.length} công việc (dòng ${giaoViec.dong.join(", ")}) của đề nghị ${deNghi.code} cho ${giaoViec.ten}.` +
+            (seTachKhiGiao
+              ? ` Phần việc này sẽ tách sang phiếu con của ${giaoViec.ten} (vẫn liên kết với phiếu gốc).`
+              : "")
         }
         nhanDongY="Giao việc"
         /* 🔴 ĐÃ BỎ GHI CHÚ HƯỚNG DẪN SỐ BÁO GIÁ — Ban lãnh đạo 12/09/2026: "bỏ ghi chú này".
@@ -1325,7 +1392,8 @@ export function BangPhanBo({
             <Textarea
               id="ghi-chu-giao-viec"
               rows={3}
-              placeholder={soBaoGiaSo === 1 ? "Giá trị < 10 triệu, NCC chỉ định, NCC độc quyền..." : undefined}
+              /* Không gợi ý ghi TÊN nhà cung cấp (soát #7 #22) — chỉ cần lý do. */
+              placeholder={soBaoGiaSo === 1 ? "Giá trị < 10 triệu, hàng độc quyền... (không cần ghi tên NCC)" : undefined}
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
             />
@@ -1361,6 +1429,13 @@ export function BangPhanBo({
         }
         canhBao="Yêu cầu số báo giá và ghi chú giao việc giữ nguyên — chỉ đổi người làm, không đổi nội dung công việc."
         nhanDongY="Chuyển việc"
+        khoaDongY={
+          nguoiNhanDuoc.length === 0
+            ? "Không còn nhân viên nào khác để chuyển"
+            : !uidNhan
+              ? "Chọn người nhận việc"
+              : undefined
+        }
         onDong={() => setMoChuyen(false)}
         onDongY={xacNhanChuyen}
       >
@@ -1407,6 +1482,25 @@ export function BangPhanBo({
           </div>
         </div>
       </HopXacNhan>
+
+      {/* ===== HỘP HỎI LẠI TRƯỚC KHI BỎ PHÂN BỔ — soát giao việc 25–26/09/2026 (#4 #44) ===== */}
+      <HopXacNhan
+        mo={moBoPhanBo}
+        tieuDe="Bỏ phân bổ công việc?"
+        moTa={
+          hoiBoPhanBo &&
+          `Bỏ phân bổ dòng ${hoiBoPhanBo.stt}${hoiBoPhanBo.ten ? ` của ${hoiBoPhanBo.ten}` : ""}? Dòng về trạng thái chưa giao; yêu cầu số báo giá và ghi chú giao việc của dòng bị xoá.`
+        }
+        canhBao={
+          hoiBoPhanBo?.boPhieuCon
+            ? `Đây là dòng cuối của phiếu ${deNghi.code} — bỏ phân bổ sẽ BỎ LUÔN phiếu này (kể cả tệp đính kèm và bình luận của nó); dòng trở về phiếu gốc.`
+            : undefined
+        }
+        nhanDongY="Bỏ phân bổ"
+        nguyHiem
+        onDong={() => setMoBoPhanBo(false)}
+        onDongY={xacNhanBoPhanBo}
+      />
 
       {/* Hỏi lại trước khi xóa: mất một dòng vật tư khỏi chứng từ không lùi lại được.
           Luật chặn đầy đủ nằm ở `suaMatHangDeNghi`, hộp này chỉ hỏi. */}
