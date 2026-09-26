@@ -228,6 +228,14 @@ export function neoBuoc(maGiaiDoan: string): string {
   return `buoc-${maGiaiDoan}`;
 }
 
+/**
+ * ★ NEO THẲNG TỚI BẢNG GIAO VIỆC (nằm trong khối "Tiếp nhận và kiểm tra") — Sếp 26/09/2026: *"khi
+ * bấm vào chức năng giao việc lại cho người khác thì phải mở đúng tới mục này"*. Mục "Giao lại cho
+ * người khác" trên thẻ bảng quy trình mở trang chi tiết kèm neo này: khối Tiếp nhận tự MỞ (dù không
+ * phải bước hiện tại) rồi cuộn tới đúng bảng, không dừng ở đầu khối.
+ */
+export const NEO_BANG_PHAN_BO = "bang-phan-bo";
+
 export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[] }) {
   /**
    * Giai đoạn nào đang mở. **Mặc định GẬP HẾT** — mỗi lần vào trang, hoặc F5, đều về gập.
@@ -280,14 +288,32 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
    * giới hạn đã biết, không chữa ở đây.
    */
   useEffect(() => {
-    const ma = giaiDoan.map((g) => g.ma).find((m) => `#${neoBuoc(m)}` === window.location.hash);
+    const hash = window.location.hash;
+    const laNeoBang = hash === `#${NEO_BANG_PHAN_BO}`;
+    const ma = laNeoBang
+      ? giaiDoan.find((g) => g.ma === "tiep_nhan")?.ma
+      : giaiDoan.map((g) => g.ma).find((m) => `#${neoBuoc(m)}` === hash);
     if (!ma) return;
     setMo((cu) => (cu.includes(ma) ? cu : [...cu, ma]));
     setGapTay((cu) => cu.filter((x) => x !== ma));
-    const khung = requestAnimationFrame(() => {
-      document.getElementById(neoBuoc(ma))?.scrollIntoView({ block: "start" });
-    });
-    return () => cancelAnimationFrame(khung);
+    const dich = laNeoBang ? NEO_BANG_PHAN_BO : neoBuoc(ma);
+    /* Bảng giao việc chỉ vẽ SAU khi khối mở và dữ liệu về — thử lại vài nhịp (tối đa ~1,5 giây)
+       thay vì một khung hình rồi bỏ. `scroll-mt` trên đích chừa chỗ cho vùng đầu dính cố định. */
+    let lan = 0;
+    let hen: ReturnType<typeof setTimeout> | undefined;
+    const thu = () => {
+      const el = document.getElementById(dich);
+      if (el && el.offsetParent !== null) {
+        el.scrollIntoView({ block: "start" });
+        return;
+      }
+      if (++lan < 15) hen = setTimeout(thu, 100);
+    };
+    const khung = requestAnimationFrame(thu);
+    return () => {
+      cancelAnimationFrame(khung);
+      if (hen) clearTimeout(hen);
+    };
   }, [giaiDoan]);
 
   // Đánh số liên tục qua MỌI giai đoạn, không đánh lại từ 01 ở mỗi khối.
@@ -410,9 +436,10 @@ export function KhoiDauVaoTheoGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanDauVao[
           <section
             key={g.ma}
             id={neoBuoc(g.ma)}
+            /* Chừa chỗ cho vùng đầu dính cố định (≈210px từ lg) khi cuộn tới neo — 26/09/2026. */
             /* Chừa chỗ cho thanh trên cố định 60px khi trình duyệt cuộn tới neo — không có nó thì
                tiêu đề khối chui lên dưới thanh và người dùng tưởng nhảy sai chỗ. */
-            className={`scroll-mt-20 overflow-hidden rounded-xl border bg-surface ${
+            className={`scroll-mt-20 overflow-hidden rounded-xl border bg-surface lg:scroll-mt-60 ${
               g.conThieu ? "border-danger" : "border-primary/30"
             }`}
           >

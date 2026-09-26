@@ -967,7 +967,8 @@ export default function TrangPhanQuyen() {
                 Người chưa được tick riêng vẫn giữ nguyên quyền theo chức danh.
               </strong>{" "}
               Lưu quyền riêng cho ai thì chỉ những ô được tick mới mở cho người đó. Danh sách
-              &quot;Giao việc&quot; vẫn lấy theo <strong>chức danh</strong>, không theo ô tick. Thay
+              &quot;Giao việc&quot; lấy theo <strong>chức danh</strong>; ai bị bỏ tick &quot;Vào app&quot;
+              thì không có trong danh sách đó. Thay
               đổi có hiệu lực từ lần tải trang kế tiếp của người đó — trang họ đang mở giữ quyền cũ
               tới khi tải lại. Lúc tải trang mà app không đọc được phân quyền thì người đó chưa vào
               được app cho tới khi đọc được. Đổi chức danh thì người đó nhận các quyền mặc định của
@@ -976,7 +977,9 @@ export default function TrangPhanQuyen() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) lg:grid-cols-[340px_minmax(0,1fr)]">
+          {/* Sếp 26/09/2026: *"Mở rộng mục này ra 1 chút"* (cột Nhân sự, tên bị cắt) — 340px → 420px,
+              tên được xuống dòng thay vì cắt "…". */}
+          <div className="grid grid-cols-1 items-start gap-(--hp-md-card-gap) lg:grid-cols-[420px_minmax(0,1fr)]">
             {/* ================= CỘT TRÁI — NHÂN SỰ ================= */}
             <Card className="gap-0 py-0">
               <div className="flex items-center justify-between gap-2 border-b border-divider px-4 py-3">
@@ -1106,7 +1109,7 @@ export default function TrangPhanQuyen() {
                         >
                           <AnhDaiDienChu ten={t.ten} />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold text-text-primary">
+                            <span className="block text-sm leading-snug font-semibold break-words text-text-primary">
                               {t.ten}
                             </span>
                             <span className="block truncate text-xs text-text-desc">

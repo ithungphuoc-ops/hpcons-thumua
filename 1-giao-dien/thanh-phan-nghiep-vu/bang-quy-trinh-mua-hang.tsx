@@ -51,6 +51,7 @@ import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huon
 /* Neo để mục "Xem nhật ký hồ sơ" trỏ thẳng vào tab Lịch sử — một chuỗi duy nhất, xem chú thích
    của `NEO_NHAT_KY` ở tệp đó. */
 import { NEO_NHAT_KY } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi";
+import { NEO_BANG_PHAN_BO } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 import {
   GIAI_DOAN_MUA_HANG,
   /**
@@ -1508,7 +1509,10 @@ export function MenuThaoTacThe({
 
             {/* Ba mục dưới đều mở trang chi tiết — bảng phân bổ, khối người theo dõi và nút
                 Chuyển tiếp đều nằm ở đó; trang chi tiết tự chặn theo quyền. */}
-            <DropdownMenuItem onClick={() => router.push(duongDan)}>
+            {/* Sếp 26/09/2026: *"khi bấm vào chức năng giao việc lại cho người khác thì phải mở đúng tới
+                mục này"* — kèm neo `NEO_BANG_PHAN_BO`: trang chi tiết tự mở khối Tiếp nhận và cuộn thẳng
+                tới bảng giao việc (xem `khoi-dau-vao-theo-giai-doan.tsx`). */}
+            <DropdownMenuItem onClick={() => router.push(`${duongDan}#${NEO_BANG_PHAN_BO}`)}>
               <UserRound className="size-4 shrink-0" aria-hidden />
               Giao lại cho người khác
             </DropdownMenuItem>

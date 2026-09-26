@@ -59,6 +59,7 @@ import {
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { nhanAnToan, NHAN_TRANG_THAI_DONG } from "@/2-quy-trinh/trang-thai";
 import type { DeNghiMuaHang, LoaiViecGiao } from "@/3-du-lieu/kieu-du-lieu";
+import { NEO_BANG_PHAN_BO } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-dau-vao-theo-giai-doan";
 
 /**
  * Lớp chung cho mọi mục trong menu ⋯ của bảng này.
@@ -750,11 +751,19 @@ export function BangPhanBo({
         )}
 
         {/* Bảng — Desktop/Tablet */}
-        <div className="hidden overflow-x-auto md:block">
-          <Table>
+        {/* ★ CỘT THẲNG HÀNG, KHOẢNG CÁCH CÂN ĐỐI — Sếp 26/09/2026: *"Bố cục lại các cột này cho thẳng
+            hàng và khoảng cách cân đối"*. `table-fixed` + bề rộng CỐ ĐỊNH cho mọi cột trừ "Vật liệu"
+            (co giãn theo chỗ còn lại): trước đây trình duyệt tự chia theo độ dài chữ nên mỗi phiếu
+            một kiểu, cột Vật liệu phình gần nửa bảng. `min-w` để máy tính bảng cuộn ngang thay vì
+            bóp chữ. `id` = neo cho mục "Giao lại cho người khác" trên thẻ (mở thẳng tới bảng này). */}
+        <div
+          id={NEO_BANG_PHAN_BO}
+          className="hidden scroll-mt-4 overflow-x-auto md:block lg:scroll-mt-60"
+        >
+          <Table className="min-w-[760px] table-fixed">
             <TableHeader>
               <TableRow>
-                {hienCongCuPhanBo && <TableHead className="w-10" />}
+                {hienCongCuPhanBo && <TableHead className="w-11" />}
                 {/* ★ CỘT THAO TÁC NẰM BÊN TRÁI — Ban lãnh đạo 20/08/2026: *"mục thêm xoá tên
                     công tác này a đã nói e đưa về phía trái rồi mà"*. Ngày 19/08 đã thử gom về
                     cột cuối bên phải; chỉ đạo nay là bên trái, giữ nguyên cách gom một cột.
@@ -765,17 +774,17 @@ export function BangPhanBo({
                 {/* 🔴 ĐÃ BỎ CỘT THAO TÁC (nút xoá dòng) — Ban lãnh đạo 13/09/2026: *"Bỏ mục xoá
                     này"*. Bỏ cả ô tiêu đề lẫn ô dữ liệu để bảng không thừa một cột rỗng.
                     Xem khối chú thích ở chỗ ô dữ liệu bên dưới để biết hệ quả. */}
-                <TableHead className="w-12 text-right">Dòng</TableHead>
+                <TableHead className="w-16 text-center">Dòng</TableHead>
                 <TableHead>Vật liệu</TableHead>
                 {/* 🔴 GỘP ĐVT VÀO CỘT KHỐI LƯỢNG — Ban lãnh đạo 12/08/2026 yêu cầu tối ưu.
                     Tám cột trong ~855px là chật, bảng tràn ngang và cột Trạng thái bị cắt chữ.
                     "150 Bao" đọc tự nhiên hơn hai cột rời, mà tiết kiệm hẳn một cột. */}
-                <TableHead className="text-right">KL đề nghị</TableHead>
-                <TableHead>Người phụ trách</TableHead>
-                <TableHead>Trạng thái</TableHead>
+                <TableHead className="w-32 text-right">KL đề nghị</TableHead>
+                <TableHead className="w-56 pl-6">Người phụ trách</TableHead>
+                <TableHead className="w-48">Trạng thái</TableHead>
                 {/* Mã đơn hàng ít tra tới — ẩn dưới 1280px thay vì để nó đẩy bảng tràn.
                     Vẫn xem được ở khối "Đơn đặt hàng đã tách" phía dưới trang. */}
-                <TableHead className="hidden xl:table-cell">Đơn hàng</TableHead>
+                <TableHead className="hidden w-40 xl:table-cell">Đơn hàng</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -839,7 +848,7 @@ export function BangPhanBo({
                      * ⚠️ ĐÃ BỎ CẢ Ô TIÊU ĐỀ Ở `<TableHeader>`. Bỏ một bên là bảng lệch cột —
                      * lỗi bảng kinh điển, và chỉ lộ ra ở đúng vài hàng.
                      */}
-                    <TableCell className="text-right text-text-desc">{d.stt}</TableCell>
+                    <TableCell className="text-center text-text-desc">{d.stt}</TableCell>
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
                         {/* 📌 KHÔNG CÓ NÚT XOÁ Ở ĐÂY NỮA. Lịch sử để người sau khỏi dời lại lần
