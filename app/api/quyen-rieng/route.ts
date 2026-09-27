@@ -124,6 +124,19 @@ function nguoiDungTuAnh(
   return { nguoiDung: thanhNguoiDung(hs), dangLamViec: hs.dangLamViec !== false };
 }
 
+/**
+ * ★★ CHẠY Ở SINGAPORE (`sin1`) — Sếp 27/09/2026 *"e làm luôn đi"* (màn Phân quyền chờ ~3 giây).
+ *
+ * Đo được: function mặc định chạy ở `iad1` (Washington, header `x-vercel-id: hkg1::iad1::…`), trong khi
+ * Firestore `hpcons-thumua` ở `asia-southeast1` (Singapore) — mỗi lượt đọc vượt Thái Bình Dương ~0,2s.
+ * CHỈ đặt cho cửa này (tệp của phiên nghiệp vụ); cửa của phiên tích hợp giữ vùng mặc định.
+ *
+ * 🔴 Cửa này nằm trên ĐƯỜNG ĐĂNG NHẬP của mọi người không phải Quản trị (`nguoi-dung-hien-tai.tsx`) —
+ * hỏng là họ không vào được app. Sau mỗi lần đổi phải đo lại `x-vercel-id` + `npm run kiem-route`;
+ * sự cố thì Instant Rollback trên Vercel. Gói Vercel không cho đặt vùng riêng thì dòng này vô hại.
+ */
+export const preferredRegion = "sin1";
+
 const laOwner = async (uid: string) => (await fetchVaiTroToanCuc(uid)) === "owner";
 
 /**
@@ -192,6 +205,24 @@ export async function GET(req: NextRequest) {
 
   try {
     const db = getThuMuaDb();
+    const thamSo = req.nextUrl.searchParams;
+    /* ★ Đọc trước "mọi bản ghi quyền riêng" SONG SONG với bước kiểm người gọi (27/09/2026) — trước đây
+       nối tiếp nên `?tatCa=1` tốn 3 lượt đi-về, nay còn 2. Chỉ ĐỌC trước, KHÔNG trả ra: kết quả chỉ
+       dùng sau khi người gọi qua đủ bước kiểm quyền bên dưới. Lỗi được giữ lại rồi ném ĐÚNG chỗ dùng —
+       người không đủ quyền vẫn nhận 403 chứ không nhận 500 vì một bản ghi hỏng họ không được xem. */
+    const huaTatCa =
+      thamSo.get("tatCa") === "1" || thamSo.get("biKhoa") === "1"
+        ? docTatCaKemHoSo().then(
+            (v) => ({ ok: true as const, v }),
+            (e: unknown) => ({ ok: false as const, e }),
+          )
+        : null;
+    const layTatCa = async () => {
+      const kq = await huaTatCa;
+      if (!kq) return docTatCaKemHoSo();
+      if (!kq.ok) throw kq.e;
+      return kq.v;
+    };
     const [owner, [anhHoSo, anhRieng]] = await Promise.all([
       laOwner(caller.uid),
       db.getAll(refHoSo(caller.uid), refRieng(caller.uid)),
@@ -201,7 +232,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Bạn chưa được cấp quyền ở app Thu mua." }, { status: 403 });
     }
     const riengCuaToi = goi.nguoiDung.quyenRieng ?? null;
-    const thamSo = req.nextUrl.searchParams;
 
     /**
      * ★ `?biKhoa=1` — danh sách MÃ NGHIỆP VỤ của người đang bị bỏ "Vào app" (quyền hiệu lực), cho danh
@@ -216,7 +246,7 @@ export async function GET(req: NextRequest) {
       if (!qGoi.phanBoCongViec && !coQuyenPhanQuyen(goi.nguoiDung)) {
         return NextResponse.json({ error: "Bạn không có quyền giao việc." }, { status: 403 });
       }
-      const khongVaoApp = (await docTatCaKemHoSo())
+      const khongVaoApp = (await layTatCa())
         .filter(({ b, hs }) => nguoiBiKhoaVaoApp(hs.nguoiDung, b))
         .map(({ hs }) => hs.nguoiDung.uid);
       return NextResponse.json({ ok: true, quyenRieng: riengCuaToi, khongVaoApp });
@@ -231,7 +261,7 @@ export async function GET(req: NextRequest) {
     }
 
     const tatCa: Record<string, BanGhiQuyenRiengHienThi> = {};
-    for (const { uid, b, hs } of await docTatCaKemHoSo()) {
+    for (const { uid, b, hs } of await layTatCa()) {
       tatCa[uid] = {
         ...b,
         quyenHieuLuc: quyenRiengConHieuLuc(b, hs.nguoiDung) ?? {},
