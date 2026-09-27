@@ -19,8 +19,10 @@ import type { TienDoDongDeNghi } from "@/3-du-lieu/kieu-du-lieu";
  * 🔒 KHÔNG hiện đơn giá / nhà cung cấp — `TienDoDongDeNghi` CÓ hai trường đó nhưng màn Theo dõi cam
  * kết không bày ra (người ngoài phòng Thu mua xem được màn này).
  *
- * 📐 `table-fixed`: mọi cột trừ Tên hàng + Quy cách khai bề rộng cố định → hai cột đó chia phần còn
- * lại. `min-w-[56rem]`: khung hẹp thì cuộn ngang chứ không bóp chữ.
+ * 📐 `table-fixed`, MỌI cột khai bề rộng: Tên hàng + Quy cách mỗi cột 18rem (Sếp 27/09/2026: *"không cần
+ * quá rộng vậy, giảm còn 2/3"* — trước đó hai cột chia hết phần còn lại, ~431px ở màn 1920). Bảng vẫn
+ * `w-full` nên phần dư chia theo tỷ lệ cho MỌI cột. `min-w-[88rem]` = tổng bề rộng các cột: khung
+ * hẹp thì cuộn ngang chứ không bóp chữ. Thêm cột thì cộng vào sàn.
  */
 const O = "px-3 py-2 text-center align-middle whitespace-normal wrap-break-word";
 const TD = `${O} text-xs`;
@@ -41,12 +43,12 @@ export function BangHangDaDat({
     <div className="flex w-full flex-col gap-2">
       <TieuDeHangDaDat soMatHang={tienDo.length} soDongDaTach={soDongDaTach} />
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
-        <table className="w-full min-w-[56rem] table-fixed">
+        <table className="w-full min-w-[88rem] table-fixed">
           <thead>
             <tr className="border-b bg-primary/10 text-primary">
               <th className={`${TH} w-12`}>STT</th>
-              <th className={TH}>Tên hàng</th>
-              <th className={TH}>Quy cách</th>
+              <th className={`${TH} w-72`}>Tên hàng</th>
+              <th className={`${TH} w-72`}>Quy cách</th>
               <th className={`${TH} w-20`}>ĐVT</th>
               <th className={`${TH} w-24`}>Đề nghị</th>
               <th className={`${TH} w-24`}>Đã đặt</th>

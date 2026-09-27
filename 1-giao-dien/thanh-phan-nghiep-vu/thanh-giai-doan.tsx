@@ -89,7 +89,9 @@ export function ThanhGiaiDoan({ giaiDoan }: { giaiDoan: GiaiDoanMuaHang }) {
                     ? "bg-primary text-white"
                     : daQua
                       ? "bg-success/85 text-white"
-                      : "bg-muted text-text-desc",
+                      /* Sếp 27/09/2026: *"Tăng màu nền của thanh này lên 2 tône"* — `bg-muted` (#F8FAFC) gần như
+                         trắng, bước chưa tới lẫn vào nền trang. `neutral/25` ≈ #E7E7E7; chữ đậm hơn một bậc cho đủ tương phản. */
+                      : "bg-neutral/25 text-text-secondary",
                 ].join(" ")}
               >
                 {/* Bước đã qua hiện dấu tick, bước hiện tại hiện số thứ tự —

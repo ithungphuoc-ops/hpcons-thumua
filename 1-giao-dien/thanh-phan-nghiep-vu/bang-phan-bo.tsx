@@ -862,8 +862,10 @@ export function BangPhanBo({
               (quy cách, mục đích) tràn đè cột bên cạnh; ép `whitespace-normal` + `break-words`. */}
           {/* ★ Sếp 27/09/2026 (ảnh cột Vật liệu gãy chục dòng, tiêu đề đè cột Quy cách): tổng cột CỐ ĐỊNH
               đã ~1.340px (w-11+16+44+32+56+48+36+44+48) mà sàn chỉ 1.120px → "Vật liệu" (cột co giãn DUY
-              NHẤT) bị ép về ~0. Sàn = tổng cố định + ~14rem cho Vật liệu. Thêm cột thì CỘNG vào sàn. */}
-          <Table className="min-w-[98rem] table-fixed [&_td]:text-center [&_td]:break-words [&_td]:whitespace-normal [&_td>div]:items-center [&_th]:text-center [&_th]:whitespace-normal">
+              NHẤT) bị ép về ~0. Sàn = tổng cố định + ~14rem cho Vật liệu. Thêm cột thì CỘNG vào sàn.
+              ★ Cùng ngày: *"cỡ chữ ở đây … lớn hơn 12 thì đưa về 12"* — thân bảng đang 14px (`text-sm` gốc của
+              Table + `text-sm` riêng cột Quy cách) → ép MỌI chữ thân bảng về `text-xs` (12px) bằng bộ chọn con cháu. */}
+          <Table className="min-w-[98rem] table-fixed [&_tbody]:text-xs [&_tbody_*]:text-xs [&_td]:text-center [&_td]:break-words [&_td]:whitespace-normal [&_td>div]:items-center [&_th]:text-center [&_th]:whitespace-normal">
             <TableHeader>
               <TableRow>
                 {hienCongCuPhanBo && <TableHead className="w-11" />}
