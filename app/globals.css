@@ -624,3 +624,14 @@ textarea::placeholder {
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.22) !important;
   backdrop-filter: none !important;
 }
+
+/* ============================================================
+ * Ô TIÊU ĐỀ CỘT DÍNH MÉP TRÁI — nền ĐỤC (Sếp 27/09/2026, bảng Công nợ cuộn ngang)
+ *
+ * Tiêu đề bảng tô `bg-primary/10` (trong suốt). Ô dính trái mà trong suốt thì tiêu đề các cột
+ * khác cuộn chui bên dưới LỘ QUA. Trộn sẵn cùng tông trên nền thẻ → nhìn y hệt mà đục.
+ * 📌 Cố ý KHÔNG bọc @layer: phải thắng `[&_th]:bg-primary/10` (nằm trong layer utilities).
+ * ============================================================ */
+.nen-o-dinh-tieu-de {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, var(--color-card));
+}

@@ -508,9 +508,21 @@ export default function TrangCongNo() {
               * bên cạnh** chứ không xuống dòng. Bảng này Sếp đã bắt lỗi bố cục nhiều lần — thà cuộn
               * ngang (đã có thanh cuộn luôn hiện) còn hơn vỡ chữ.
               *
-              * ⚠️ TỔNG PHẦN TRĂM PHẢI ĐÚNG 100 — đây là chốt của cả cách chia: 3 + 12 + 8 + 9 + 11 + 9
-              * + 8 + 7 + 9 + 8 + 12 + 4 = 100. Sai một ly là trình duyệt tự co kéo lại theo tỷ lệ
-              * và mọi tính toán bên trên thành vô nghĩa.
+              * ★★★ BỎ CHIA THEO PHẦN TRĂM, CHIA THEO NỘI DUNG — Sếp 27/09/2026: *"cần fit lại trang
+              * trên mọi màn hình máy tính… sang 1 tỉ lệ màn hình khác nó vẫn sẽ bị"*, chốt *"Cho cuộn
+              * ngang, và luôn có wrap text"*.
+              *
+              * 🔴 VÌ SAO % HỎNG Ở MỌI MÀN: bảng đứng ở đúng sàn 112rem trên mọi khung hẹp hơn ~2100px,
+              * nên cột PO 6% luôn ≈ 108px (trừ đệm còn ~83px) → `DMH260004` gãy đôi trên CẢ máy 1366
+              * lẫn 1920. Đã đo trên bản thật 27/09; thử cả phóng thu cả trang (`zoom`) — mã VẪN gãy
+              * (chữ và cột co cùng tỷ lệ) mà menu bật ra còn lệch chỗ, nên bỏ hướng đó.
+              *
+              * ✅ Nay: cột mã / ngày / tiền / ô nhập có bề rộng CỐ ĐỊNH theo rem vừa nội dung (ô nhập
+              * tiền giữ ≥ 160px như Sếp chốt 25/09 — commit 291cb9e); HAI cột chữ tự do (Tên công
+              * trình · Tên NCC) KHÔNG khai bề rộng → chia phần còn lại, màn rộng thì giãn ra. Sàn
+              * `min-w` = tổng cột cố định (~101,5rem) + 2 × ~9rem cho hai cột chữ. Hẹp hơn thì cuộn
+              * ngang; STT + mã PO DÍNH MÉP TRÁI để kéo sang cột tiền vẫn biết đang ở dòng nào.
+              * ⚠️ Thêm cột thì cộng bề rộng của nó vào sàn `min-w`, không là hai cột chữ bị bóp.
               *
               * 🔴🔴 CỘT CHỮ TỰ DO NAY **XUỐNG DÒNG**, KHÔNG CẮT CỤT NỮA — Sếp 20/09/2026:
               * ***"Chữ đang bị mất, thêm tính năng Wrap text cho các thông tin dài kiểu này"***.
@@ -526,28 +538,32 @@ export default function TrangCongNo() {
               *
               * 📌 `title` vẫn giữ: chữ rê chuột không thừa, nó là cách đọc nhanh khi hàng cao.
               */}
-            <Table className="min-w-[112rem] table-fixed">
+            <Table className="min-w-[120rem] table-fixed">
               {/* ★ Sếp 25/09/2026: *"Tạo cột high line tiêu đề, canh giữa cột và dùng chữ in hoa"*.
                   Nền xanh nhạt đặt TRÊN nền thẻ (`bg-card` ở thead + `bg-primary/10` ở từng ô) nên
                   vẫn ĐỤC — tiêu đề dính trên cùng khi cuộn, nền trong suốt là chữ dòng dưới lộ qua.
                   `[&_th]:` thắng lớp `text-right`/`text-left` riêng của từng ô (độ ưu tiên cao hơn). */}
-              <TableHeader className="sticky top-0 z-10 bg-card [&_th]:bg-primary/10 [&_th]:text-center [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-primary [&_th]:uppercase [&_tr]:border-b-2 [&_tr]:border-primary/30">
+              <TableHeader className="sticky top-0 z-10 bg-card [&_th]:bg-primary/10 [&_th]:text-center [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-primary [&_th]:uppercase [&_th]:leading-tight [&_th]:whitespace-normal [&_tr]:border-b-2 [&_tr]:border-primary/30">
                 <TableRow>
-                  <TableHead className="w-[3%] px-1 text-center">STT</TableHead>
-                  <TableHead className="w-[6%]">Tên đơn hàng (PO)</TableHead>
+                  {/* `nen-o-dinh-tieu-de` (globals.css): nền ĐỤC — ô dính trái đè lên tiêu đề cột khác khi cuộn ngang. */}
+                  <TableHead className="nen-o-dinh-tieu-de sticky left-0 z-20 w-14 px-1 text-center">STT</TableHead>
+                  <TableHead className="nen-o-dinh-tieu-de sticky left-14 z-20 w-32 border-r border-primary/30">
+                    Tên đơn hàng (PO)
+                  </TableHead>
                   {/* ★ Sếp 19/09/2026: *"Thêm cho a trường thông tin Mã số đề nghị"*. Lấy thẳng
                       `po.prCode` đã có trên đơn — xem `maDeNghi` ở `2-quy-trinh/tuoi-no.ts`. */}
-                  <TableHead className="w-[5%] leading-tight whitespace-normal">
+                  <TableHead className="w-28">
                     Mã số đề nghị
                   </TableHead>
                   {/* ★ Sếp 18/09/2026 — TÁCH khỏi dòng chữ xám dưới mã PO, KHÔNG nhân bản: để cả
                       hai là hai chỗ cùng nói một chuyện, đúng nếp dự án cấm. */}
-                  <TableHead className="w-[7%] leading-tight whitespace-normal">
+                  {/* Cột chữ tự do — KHÔNG khai bề rộng, nhận phần còn lại (xem chú thích bảng). */}
+                  <TableHead>
                     Tên công trình
                   </TableHead>
-                  <TableHead className="w-[8%]">Tên NCC</TableHead>
+                  <TableHead>Tên NCC</TableHead>
                   {/* ★ Sếp 18/09/2026 — ô SỬA TẠI CHỖ, đặt ở cấp ĐƠN (hoá đơn có trước lần chi). */}
-                  <TableHead className="w-[9%] leading-tight whitespace-normal">
+                  <TableHead className="w-40">
                     Số hoá đơn
                   </TableHead>
                   {/* Cột tiền rộng hơn một nhịp: số tiền đơn hàng có thể lên hàng tỷ
@@ -555,12 +571,12 @@ export default function TrangCongNo() {
                   {/* ★ ĐỔI TÊN 19/09/2026 — Sếp: *"Sửa tên cột Tổng công nợ thành Tổng tiền theo PO"*.
                       Tên cũ mơ hồ từ khi có thêm con số của hoá đơn: "công nợ" không nói rõ đang
                       lấy theo cam kết mua hay theo chứng từ NCC xuất. */}
-                  <TableHead className="w-[7%] text-right leading-tight whitespace-normal">
+                  <TableHead className="w-36 text-right">
                     Tổng tiền theo PO
                   </TableHead>
                   {/* ★ CỘT MỚI 19/09/2026 — ô SỬA TẠI CHỖ. Hoá đơn thường lệch PO (giao thiếu,
                       phụ phí, xuất gộp nhiều lần giao), nên phải có cả hai để đối chiếu. */}
-                  <TableHead className="w-[9%] text-right leading-tight whitespace-normal">
+                  <TableHead className="w-40 text-right">
                     Tổng tiền theo hoá đơn
                   </TableHead>
                   {/**
@@ -574,29 +590,29 @@ export default function TrangCongNo() {
                     * là con số người ta **đọc lướt cả cột** để đối chiếu, không phải thứ đi tìm
                     * trong từng ô. Đổi lại bảng gánh thêm một cột — chấp nhận được.
                     */}
-                  <TableHead className="w-[9%] text-right leading-tight whitespace-normal">
+                  <TableHead className="w-40 text-right">
                     Đã trả
                   </TableHead>
                   {/* ★★ CÒN LẠI = Tổng − đã trả (Sếp 18/09/2026, yêu cầu ③). Tự tính, không gõ. */}
-                  <TableHead className="w-[8%] text-right leading-tight whitespace-normal">
+                  <TableHead className="w-36 text-right">
                     Còn phải trả
                   </TableHead>
                   {/* ⚠️ Bốn tiêu đề giữa dài hơn bề rộng cột đã khai. Lớp gốc của `TableHead` là
                       `whitespace-nowrap`, mà `table-fixed` KHÔNG nong cột ra cho vừa chữ nữa —
                       nên phải cho tiêu đề xuống dòng, bằng không nó tràn đè sang cột bên cạnh. */}
-                  <TableHead className="w-[4%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-24 text-center">
                     Thời gian C.Nợ
                   </TableHead>
-                  <TableHead className="w-[7%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-32 text-center">
                     Ngày bắt đầu tính
                   </TableHead>
-                  <TableHead className="w-[7%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-32 text-center">
                     Ngày tới hạn
                   </TableHead>
-                  <TableHead className="w-[8%] text-center leading-tight whitespace-normal">
+                  <TableHead className="w-36 text-center">
                     Cảnh báo tới hạn
                   </TableHead>
-                  <TableHead className="w-[3%] px-1 text-center">Lịch sử</TableHead>
+                  <TableHead className="w-16 px-1 text-center">Lịch sử</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -688,7 +704,7 @@ export default function TrangCongNo() {
                         * 🔴 VÙNG CHẠM 44px (`size-11`) theo Design System V1.1 — ô này nhỏ nên rất
                         * dễ bấm trượt trên máy tính bảng.
                         */}
-                      <TableCell className="px-1 text-center tabular-nums text-text-desc">
+                      <TableCell className="sticky left-0 z-[5] bg-card px-1 text-center tabular-nums text-text-desc">
                         {r.dotChi.length > 0 || ghiDuocThanhToan ? (
                           <button
                             type="button"
@@ -713,7 +729,7 @@ export default function TrangCongNo() {
                           i + 1
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="sticky left-14 z-[5] border-r border-border bg-card">
                         {/* Mã đơn bấm được sang chính đơn đó — dùng lại lối đi đã có ở bảng hóa
                             đơn bên dưới, đừng bày một mã chết rồi bắt người dùng tự đi tìm.
                             🔴 `block truncate` + `title`: bảng đã `table-fixed` nên chữ dài không
