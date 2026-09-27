@@ -860,7 +860,10 @@ export function BangPhanBo({
           {/* Sếp 26/09/2026: *"Canh giữa cột cho"* — mọi ô tiêu đề + ô dữ liệu căn giữa (kể cả ô bọc flex).
               *"Thêm chức năng Wrap text"* — ô bảng nền tảng mặc định `whitespace-nowrap` nên chữ dài
               (quy cách, mục đích) tràn đè cột bên cạnh; ép `whitespace-normal` + `break-words`. */}
-          <Table className="min-w-[1120px] table-fixed [&_td]:text-center [&_td]:break-words [&_td]:whitespace-normal [&_td>div]:items-center [&_th]:text-center [&_th]:whitespace-normal">
+          {/* ★ Sếp 27/09/2026 (ảnh cột Vật liệu gãy chục dòng, tiêu đề đè cột Quy cách): tổng cột CỐ ĐỊNH
+              đã ~1.340px (w-11+16+44+32+56+48+36+44+48) mà sàn chỉ 1.120px → "Vật liệu" (cột co giãn DUY
+              NHẤT) bị ép về ~0. Sàn = tổng cố định + ~14rem cho Vật liệu. Thêm cột thì CỘNG vào sàn. */}
+          <Table className="min-w-[98rem] table-fixed [&_td]:text-center [&_td]:break-words [&_td]:whitespace-normal [&_td>div]:items-center [&_th]:text-center [&_th]:whitespace-normal">
             <TableHeader>
               <TableRow>
                 {hienCongCuPhanBo && <TableHead className="w-11" />}

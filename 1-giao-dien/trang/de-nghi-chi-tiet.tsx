@@ -993,7 +993,9 @@ export default function TrangChiTietDeNghi({
           · Cột trái minmax(0,1fr): không có sàn 0 thì bảng rộng bên trong lấy min-content
             làm sàn, đẩy vỡ grid và tràn ngang cả trang.
           · Cột phải minmax(320px,27%): sàn 320px giữ cho các khối tra cứu không bị bóp
-            nát trên màn hẹp (1280px trở xuống, khi 27% chỉ còn ~260px). */}
+            nát trên màn hẹp (1280px trở xuống, khi 27% chỉ còn ~260px).
+          ★ Sếp 27/09/2026 (khoanh cột phải): *"Có thể bóp bề rộng của khung này lại"* → 22%, sàn 300px.
+            Sửa CẢ HAI chỗ `grid-cols` (vùng đầu dính + thân) — lệch nhau là hai cột trên/dưới không thẳng. */}
       {/* ★★ VÙNG ĐẦU DÍNH CỐ ĐỊNH — Sếp 26/09/2026 (ảnh khoanh đỏ cả dải trên cùng): *"Cố định vùng
           hiển thị này thì cuộn thanh vẫn phải thấy vùng này"*. Gồm nút quay lại + người phụ trách,
           tiêu đề, dải 8 bước (cột trái) và khối "Giai đoạn hiện tại" (cột phải).
@@ -1004,7 +1006,7 @@ export default function TrangChiTietDeNghi({
           ⚠️ Ở trang riêng `/de-nghi/[id]` thẻ `<main>` của khung app có `overflow-x-hidden` nên trình
              duyệt coi nó là khung cuộn → dính KHÔNG có tác dụng ở đó (vô hại). Popup mới là nơi dùng. */}
       <div
-        className={`grid gap-(--hp-md-section) lg:sticky lg:top-0 lg:z-20 lg:grid-cols-[minmax(0,1fr)_minmax(320px,27%)] lg:items-start lg:pb-3 ${
+        className={`grid gap-(--hp-md-section) lg:sticky lg:top-0 lg:z-20 lg:grid-cols-[minmax(0,1fr)_minmax(300px,22%)] lg:items-start lg:pb-3 ${
           onDongPopup ? "bg-popover" : "bg-background"
         }`}
       >
@@ -1090,7 +1092,7 @@ export default function TrangChiTietDeNghi({
         </div>
       </div>
 
-      <div className="grid gap-(--hp-md-section) lg:grid-cols-[minmax(0,1fr)_minmax(320px,27%)] lg:items-start mt-(--hp-md-section) lg:mt-0">
+      <div className="grid gap-(--hp-md-section) lg:grid-cols-[minmax(0,1fr)_minmax(300px,22%)] lg:items-start mt-(--hp-md-section) lg:mt-0">
         <div className="flex min-w-0 flex-col gap-(--hp-md-section)">
           {/* Dải "ai đang mở hồ sơ này" (khoá mềm — code của phiên tích hợp) GIỮ NGUYÊN, chỉ dời xuống
               ngay dưới vùng đầu dính (26/09/2026): vẫn đứng TRƯỚC mọi ô nhập đúng ý gốc của nó. */}
