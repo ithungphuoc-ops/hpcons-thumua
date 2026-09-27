@@ -125,7 +125,11 @@ import {
 } from "@/2-quy-trinh/dat-ma-don-hang";
 import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
 import { catBanMauDonMuaHang } from "@/3-du-lieu/ban-mau-don-mua-hang";
-import { laPhieuXuatKho, vuongMacXuatExcelTheoMau } from "@/2-quy-trinh/phieu-xuat-kho";
+import {
+  canCuXuatThuDeNghi,
+  laPhieuXuatKho,
+  vuongMacXuatExcelTheoMau,
+} from "@/2-quy-trinh/phieu-xuat-kho";
 import { KhoiTongQuanPhieuXuatKho } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-tong-quan-phieu-xuat-kho";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 import { boDau } from "@/6-tien-ich/bo-dau";
@@ -3681,12 +3685,15 @@ export function FormLapDonMuaHang({
                       /* ★ Ô "Theo" của phiếu xuất kho tự lấy từ đề nghị — Sếp 26/09/2026: *"Mục này lấy từ
                          thông tin của đề nghị qua. Nó sẽ là mã số đề nghị và ngày đề nghị"*. Chỉ điền khi
                          ô đang TRỐNG (không đè chữ người dùng đã gõ); vẫn sửa tay được. */
+                      /* Sếp 27/09/2026: ngày dạng "ngày … tháng … năm …" (`canCuXuatThuDeNghi`), và ô Diễn
+                         giải tự lấy TÊN CÔNG TRÌNH của đề nghị. Cùng luật: chỉ điền ô đang trống. */
                       if (laPhieuXuatKho(mauMoi) && !canCuXuatKho.trim() && dn) {
-                        const ma = dn.maDeXuatAppRequest?.trim() || dn.code;
-                        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dn.ngayDeNghi ?? "");
                         setCanCuXuatKho(
-                          m ? `Đề nghị số ${ma} ngày ${m[3]}/${m[2]}/${m[1]}` : `Đề nghị số ${ma}`,
+                          canCuXuatThuDeNghi(dn.maDeXuatAppRequest?.trim() || dn.code, dn.ngayDeNghi),
                         );
+                      }
+                      if (laPhieuXuatKho(mauMoi) && !dienGiaiXuatKho.trim() && dn?.tenCongTrinh?.trim()) {
+                        setDienGiaiXuatKho(dn.tenCongTrinh.trim());
                       }
                     }}
                     className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
@@ -4299,7 +4306,19 @@ export function FormLapDonMuaHang({
                   id="pxk-dien-giai"
                   value={dienGiaiXuatKho}
                   onChange={(e) => setDienGiaiXuatKho(e.target.value)}
-                  placeholder="VD: Xuất vật tư kho tổng ra công trình …"
+                  placeholder="Tên công trình theo đề nghị"
+                />
+              </div>
+              {/* ★ Số HĐ theo đề nghị — Sếp 27/09/2026: *"Thêm số HĐ theo đề nghị"*. Chỉ ĐỌC: đúng
+                  `maHopDongCDT` của đơn (đề nghị công trình tự điền + khoá theo đề nghị). */}
+              <div className="muc-ngang">
+                <Label htmlFor="pxk-so-hd">Số HĐ</Label>
+                <Input
+                  id="pxk-so-hd"
+                  value={maHopDong}
+                  readOnly
+                  placeholder="Đề nghị không ghi số hợp đồng — tờ in chừa chấm để viết tay"
+                  className="bg-muted"
                 />
               </div>
             </div>

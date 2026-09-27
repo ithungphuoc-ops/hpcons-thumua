@@ -2,7 +2,12 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import type { DonDatHang, GiaDonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import { laDongHang, tinhTienChiTietPO } from "@/2-quy-trinh/tinh-toan";
-import { dongNgayThangNam, soPhieuXuatKho } from "@/2-quy-trinh/phieu-xuat-kho";
+import {
+  chuanHoaCanCuXuatKho,
+  dienGiaiPhieuXuatKho,
+  dongNgayThangNam,
+  soPhieuXuatKho,
+} from "@/2-quy-trinh/phieu-xuat-kho";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 
 /**
@@ -95,14 +100,19 @@ export function ToPhieuXuatKhoA4({ po, gia, banMau = false }: PropToPhieuXuatKho
         {/* Dòng "Theo …" để trống thì in NGUYÊN dải chấm của biểu mẫu — chỗ viết tay. */}
         <p>
           Theo{" "}
-          {po.canCuXuatKho?.trim() ||
+          {chuanHoaCanCuXuatKho(po.canCuXuatKho?.trim()) ||
             "........... số .............. ngày ..... tháng ..... năm ..... của .............................................."}
         </p>
         <div className="grid grid-cols-[3fr_2fr] gap-4">
           <p>Xuất tại kho: {po.khoXuat?.trim() || CHAM}</p>
           <p>Địa điểm: {po.diaDiemKhoXuat?.trim() || CHAM}</p>
         </div>
-        <p>Diễn giải: {po.dienGiaiXuatKho?.trim() || CHAM}</p>
+        {/* ★ Sếp 27/09/2026: Diễn giải = tên công trình theo đề nghị; Số HĐ theo đề nghị nằm cùng
+            hàng, thẳng cột với "Địa điểm" bên trên (cùng lưới 3fr/2fr). */}
+        <div className="grid grid-cols-[3fr_2fr] gap-4">
+          <p>Diễn giải: {dienGiaiPhieuXuatKho(po) || CHAM}</p>
+          <p>Số HĐ: {po.maHopDongCDT?.trim() || CHAM}</p>
+        </div>
       </section>
 
       {/* ---------- BẢNG (A17:M22) ----------

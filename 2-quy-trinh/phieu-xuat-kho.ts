@@ -68,6 +68,40 @@ export function dongNgayThangNam(ngayISO: string | undefined): string {
 }
 
 /**
+ * ★ DÒNG "THEO …" CỦA PHIẾU XUẤT KHO — Sếp 27/09/2026 (ảnh khoanh dòng "Theo Đề nghị số 000000162
+ * ngày 26/09/2026"): *"Định dạng ngày … tháng … năm …. nhé"*.
+ *
+ * `canCuXuatThuDeNghi` dựng câu tự điền khi chọn Mẫu PO-03 (form). `chuanHoaCanCuXuatKho` đổi câu
+ * ĐÃ LƯU dạng cũ `ngày dd/mm/yyyy` (phiếu lập trước 27/09) sang dạng chữ LÚC HIỆN / IN — không sửa
+ * dữ liệu, nên người đã gõ tay câu khác vẫn giữ nguyên chữ của họ.
+ */
+export function canCuXuatThuDeNghi(maDeNghi: string, ngayDeNghiISO: string | undefined): string {
+  const m = ngayDeNghiISO ? /^(\d{4})-(\d{2})-(\d{2})/.exec(ngayDeNghiISO) : null;
+  return m
+    ? `Đề nghị số ${maDeNghi} ngày ${m[3]} tháng ${m[2]} năm ${m[1]}`
+    : `Đề nghị số ${maDeNghi}`;
+}
+export function chuanHoaCanCuXuatKho(s: string | undefined): string | undefined {
+  if (!s) return s;
+  return s.replace(
+    /ngày (\d{1,2})\/(\d{1,2})\/(\d{4})/g,
+    (_, d: string, mo: string, y: string) =>
+      `ngày ${d.padStart(2, "0")} tháng ${mo.padStart(2, "0")} năm ${y}`,
+  );
+}
+
+/**
+ * ★ "DIỄN GIẢI" = TÊN CÔNG TRÌNH THEO ĐỀ NGHỊ — Sếp 27/09/2026: *"Nhập tên công trình theo phiếu đề
+ * nghị"*. Ô đã gõ thì giữ chữ người gõ; trống (phiếu lập trước ngày này) thì lấy tên công trình
+ * của đơn — đơn mang sẵn `tenCongTrinh` chép từ đề nghị lúc lập.
+ */
+export function dienGiaiPhieuXuatKho(
+  po: Pick<DonDatHang, "dienGiaiXuatKho" | "tenCongTrinh">,
+): string | undefined {
+  return po.dienGiaiXuatKho?.trim() || po.tenCongTrinh?.trim() || undefined;
+}
+
+/**
  * ★ VÌ SAO NÚT "XUẤT EXCEL" BỊ KHOÁ Ở MẪU PO-03 — `null` là xuất được.
  *
  * 🔴 CLAUDE.md §3.5 *"đừng để giao diện hứa một việc app không làm"*: bộ xuất Excel hiện có

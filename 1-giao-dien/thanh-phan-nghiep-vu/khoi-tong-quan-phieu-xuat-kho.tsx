@@ -1,6 +1,11 @@
 import type { DonDatHang, GiaDonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import { laDongHang, tinhTienChiTietPO } from "@/2-quy-trinh/tinh-toan";
-import { dongNgayThangNam, soPhieuXuatKho } from "@/2-quy-trinh/phieu-xuat-kho";
+import {
+  chuanHoaCanCuXuatKho,
+  dienGiaiPhieuXuatKho,
+  dongNgayThangNam,
+  soPhieuXuatKho,
+} from "@/2-quy-trinh/phieu-xuat-kho";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
 
 /**
@@ -74,7 +79,7 @@ export function KhoiTongQuanPhieuXuatKho({
         </div>
         <div>
           <dt className="inline">Theo: </dt>
-          <dd className="inline">{trong(po.canCuXuatKho)}</dd>
+          <dd className="inline">{trong(chuanHoaCanCuXuatKho(po.canCuXuatKho))}</dd>
         </div>
         <div className="grid gap-1 md:grid-cols-[3fr_2fr]">
           <div>
@@ -86,9 +91,15 @@ export function KhoiTongQuanPhieuXuatKho({
             <dd className="inline">{trong(po.diaDiemKhoXuat)}</dd>
           </div>
         </div>
-        <div>
-          <dt className="inline">Diễn giải: </dt>
-          <dd className="inline">{trong(po.dienGiaiXuatKho)}</dd>
+        <div className="grid gap-1 md:grid-cols-[3fr_2fr]">
+          <div>
+            <dt className="inline">Diễn giải: </dt>
+            <dd className="inline">{trong(dienGiaiPhieuXuatKho(po))}</dd>
+          </div>
+          <div>
+            <dt className="inline">Số HĐ: </dt>
+            <dd className="inline">{trong(po.maHopDongCDT)}</dd>
+          </div>
         </div>
       </dl>
 

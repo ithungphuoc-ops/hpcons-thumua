@@ -13278,6 +13278,42 @@ kiem(
   });
 }
 
+/* ★ PHIẾU XUẤT KHO — dòng "Theo" dạng "ngày … tháng … năm …" + Diễn giải = tên công trình
+   (Sếp 27/09/2026). */
+{
+  const thuMucPxk = mkdtempSync(join(tmpdir(), "kiem-luat-pxk-"));
+  const tepRaPxk = join(thuMucPxk, "phieu-xuat-kho.cjs");
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/phieu-xuat-kho.ts" --bundle --platform=node --format=cjs --outfile="${tepRaPxk}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+  const PX = nap(tepRaPxk);
+  rmSync(thuMucPxk, { recursive: true, force: true });
+  const CHU = "Sếp 27/09/2026 — phiếu xuất kho";
+  kiem("PXK — dong Theo tu dien dang ngay ... thang ... nam ...", CHU, () => {
+    const a = PX.canCuXuatThuDeNghi("000000162", "2026-09-26");
+    const b = PX.chuanHoaCanCuXuatKho("Đề nghị số 000000162 ngày 26/09/2026");
+    const c = PX.chuanHoaCanCuXuatKho("Công văn 12 của Ban chỉ huy");
+    return {
+      duoc:
+        a === "Đề nghị số 000000162 ngày 26 tháng 09 năm 2026" &&
+        b === "Đề nghị số 000000162 ngày 26 tháng 09 năm 2026" &&
+        c === "Công văn 12 của Ban chỉ huy",
+      thucTe: `${a} | ${b} | ${c}`,
+      mongDoi: "ca hai = 'ngày 26 tháng 09 năm 2026'; cau go tay khac giu nguyen",
+    };
+  });
+  kiem("PXK — Dien giai: o da go thi giu, trong thi lay ten cong trinh", CHU, () => {
+    const giu = PX.dienGiaiPhieuXuatKho({ dienGiaiXuatKho: "Xuất bổ sung", tenCongTrinh: "Howell" });
+    const lay = PX.dienGiaiPhieuXuatKho({ dienGiaiXuatKho: " ", tenCongTrinh: "Howell test" });
+    return {
+      duoc: giu === "Xuất bổ sung" && lay === "Howell test",
+      thucTe: `${giu} | ${lay}`,
+      mongDoi: "Xuất bổ sung | Howell test",
+    };
+  });
+}
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {
