@@ -538,16 +538,16 @@ export default function TrangCongNo() {
               *
               * 📌 `title` vẫn giữ: chữ rê chuột không thừa, nó là cách đọc nhanh khi hàng cao.
               */}
-            {/* ★ MỘT CỠ CHỮ CHO CẢ BẢNG — Sếp 27/09/2026: *"Dùng cỡ chữ đồng nhất"*. Ép mọi chữ trong thân bảng
-                (kể cả dòng phụ "Theo ngày nhận", nhãn cảnh báo, khối mở rộng hoá đơn/đợt chi) về `text-sm`
+            {/* ★ MỘT CỠ CHỮ CHO CẢ BẢNG — Sếp 27/09/2026: *"Dùng cỡ chữ đồng nhất"*. Sếp chốt tiếp cùng ngày *"chỉnh về 12 luôn"* → 12px (`text-xs`, đúng sàn Design System). Ép mọi chữ trong thân bảng
+                (kể cả dòng phụ "Theo ngày nhận", nhãn cảnh báo, khối mở rộng hoá đơn/đợt chi) về `text-xs`
                 bằng bộ chọn con cháu — thắng `text-xs` riêng lẻ của từng ô/thành phần con. Chỉ đổi CỠ, độ
                 đậm giữ nguyên để số tiền quan trọng vẫn nổi. */}
-            <Table className="min-w-[122rem] table-fixed [&_tbody]:text-sm [&_tbody_*]:text-sm">
+            <Table className="min-w-[122rem] table-fixed [&_tbody]:text-xs [&_tbody_*]:text-xs">
               {/* ★ Sếp 25/09/2026: *"Tạo cột high line tiêu đề, canh giữa cột và dùng chữ in hoa"*.
                   Nền xanh nhạt đặt TRÊN nền thẻ (`bg-card` ở thead + `bg-primary/10` ở từng ô) nên
                   vẫn ĐỤC — tiêu đề dính trên cùng khi cuộn, nền trong suốt là chữ dòng dưới lộ qua.
                   `[&_th]:` thắng lớp `text-right`/`text-left` riêng của từng ô (độ ưu tiên cao hơn). */}
-              <TableHeader className="sticky top-0 z-10 bg-card [&_th]:bg-primary/10 [&_th]:text-center [&_th]:text-sm [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-primary [&_th]:uppercase [&_th]:leading-tight [&_th]:whitespace-normal [&_tr]:border-b-2 [&_tr]:border-primary/30">
+              <TableHeader className="sticky top-0 z-10 bg-card [&_th]:bg-primary/10 [&_th]:text-center [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-primary [&_th]:uppercase [&_th]:leading-tight [&_th]:whitespace-normal [&_tr]:border-b-2 [&_tr]:border-primary/30">
                 <TableRow>
                   {/* `nen-o-dinh-tieu-de` (globals.css): nền ĐỤC — ô dính trái đè lên tiêu đề cột khác khi cuộn ngang. */}
                   <TableHead className="nen-o-dinh-tieu-de sticky left-0 z-20 w-14 px-1 text-center">STT</TableHead>
