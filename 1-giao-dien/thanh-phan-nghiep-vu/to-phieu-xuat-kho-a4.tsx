@@ -99,7 +99,7 @@ export function ToPhieuXuatKhoA4({ po, gia, banMau = false }: PropToPhieuXuatKho
         <p>Họ và tên người nhận: {po.nguoiNhanHangTen?.trim() || CHAM}</p>
         {/* Dòng "Theo …" để trống thì in NGUYÊN dải chấm của biểu mẫu — chỗ viết tay. */}
         <p>
-          Theo{" "}
+          Theo:{" "}
           {chuanHoaCanCuXuatKho(po.canCuXuatKho?.trim()) ||
             "........... số .............. ngày ..... tháng ..... năm ..... của .............................................."}
         </p>
