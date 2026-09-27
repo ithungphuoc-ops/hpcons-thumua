@@ -114,6 +114,14 @@ export function noiDungDongTheoXuatKho(canCu: string | undefined): string {
  * Đọc thẳng chuỗi ISO, KHÔNG qua `new Date()`: đổi múi giờ là lệch một ngày trên máy đặt giờ khác.
  * Ngày rỗng/hỏng → `undefined` để nơi gọi tự quyết (Excel để trống nhãn).
  */
+/**
+ * ★ PHIẾU XUẤT KHO KHÔNG BAO GIỜ IN GIÁ — Sếp 26/09/2026: *"Phiếu xuất kho thì ko cần nhập giá"*, *"Để trống
+ * luôn cho a, ko để số 0 nữa"*. Tờ in A4, bản xem nhanh và file Excel đều đọc cờ này → ba nơi cùng một
+ * câu trả lời. 🔴 Không dựa vào "có chứng từ giá hay không": đơn đổi từ PO-01 sang PO-03 vẫn còn chứng từ
+ * giá cũ, dựa vào đó là tờ in hiện giá trong khi Excel trống (phản biện 27/09/2026 đo được).
+ */
+export const PHIEU_XUAT_KHO_IN_GIA = false;
+
 export function ngayPhieuXuatKho(ngayISO: string | undefined): string | undefined {
   const m = ngayISO ? /^(\d{4})-(\d{2})-(\d{2})/.exec(ngayISO) : null;
   return m ? `${m[3]}/${m[2]}/${m[1]}` : undefined;

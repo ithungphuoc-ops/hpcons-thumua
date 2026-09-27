@@ -4,6 +4,8 @@ import {
   chuanHoaCanCuXuatKho,
   dienGiaiPhieuXuatKho,
   dongNgayThangNam,
+  ngayPhieuXuatKho,
+  PHIEU_XUAT_KHO_IN_GIA,
   soPhieuXuatKho,
 } from "@/2-quy-trinh/phieu-xuat-kho";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
@@ -38,7 +40,8 @@ export function KhoiTongQuanPhieuXuatKho({
   const tienTheoDong = new Map(tien.dong.map((t) => [t.sttDong, t]));
   /* ★ Tổng tiền 0 = phiếu không có đơn giá (PO-03 không nhập giá) → để TRỐNG, không in số 0 — Sếp
      26/09/2026: *"Để trống luôn cho a, ko để số 0 nữa"*. */
-  const coGia = xemGia && gia !== undefined && tien.congTienHang > 0;
+  /* Phiếu xuất kho KHÔNG in giá — xem `PHIEU_XUAT_KHO_IN_GIA`. */
+  const coGia = PHIEU_XUAT_KHO_IN_GIA && xemGia && gia !== undefined && tien.congTienHang > 0;
   const so = (n: number) => n.toLocaleString("vi-VN");
   const dongHang = po.items.filter(laDongHang);
   const trong = (v: string | undefined) =>
@@ -62,7 +65,7 @@ export function KhoiTongQuanPhieuXuatKho({
           </p>
           <p>
             Ngày:{" "}
-            {trong(po.ngayLapPO ? new Date(po.ngayLapPO).toLocaleDateString("vi-VN") : undefined)}
+            {trong(ngayPhieuXuatKho(po.ngayLapPO))}
           </p>
           <p>Số: {trong(soPhieuXuatKho(po))}</p>
         </div>

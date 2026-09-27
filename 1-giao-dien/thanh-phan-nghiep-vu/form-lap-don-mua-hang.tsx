@@ -5783,7 +5783,13 @@ export function FormLapDonMuaHang({
                   disabled={!hopLe || !quyen.xemGia || dangXuatMau}
                   onClick={inMauPO}
                   /* Bản in luôn có giá nên đòi quyền xem giá — nút mờ phải nói lý do. */
-                  title={!quyen.xemGia ? "Bản mẫu có giá nên cần quyền xem giá" : undefined}
+                  title={
+                    !quyen.xemGia
+                      ? laPhieuXuatKho(mauPO)
+                        ? "Cần quyền xem giá (cùng cổng với nút In đơn thật)"
+                        : "Bản mẫu có giá nên cần quyền xem giá"
+                      : undefined
+                  }
                 >
                   <Printer className="size-4" aria-hidden />
                   In mẫu PO
@@ -5797,7 +5803,9 @@ export function FormLapDonMuaHang({
                   title={
                     vuongMacXuatExcelTheoMau(mauPO) ??
                     (!quyen.xemGia
-                      ? "File Excel có giá nên cần quyền xem giá"
+                      ? laPhieuXuatKho(mauPO)
+                        ? "Cần quyền xem giá (cùng cổng với nút In đơn thật)"
+                        : "File Excel có giá nên cần quyền xem giá"
                       : "Tải bản mẫu ra Excel theo biểu mẫu công ty")
                   }
                 >

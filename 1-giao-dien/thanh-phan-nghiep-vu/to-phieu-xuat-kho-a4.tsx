@@ -5,6 +5,8 @@ import { laDongHang, tinhTienChiTietPO } from "@/2-quy-trinh/tinh-toan";
 import {
   dienGiaiPhieuXuatKho,
   dongNgayThangNam,
+  ngayPhieuXuatKho,
+  PHIEU_XUAT_KHO_IN_GIA,
   noiDungDongTheoXuatKho,
   soPhieuXuatKho,
 } from "@/2-quy-trinh/phieu-xuat-kho";
@@ -45,10 +47,12 @@ export function ToPhieuXuatKhoA4({ po, gia, banMau = false }: PropToPhieuXuatKho
   const tien = tinhTienChiTietPO(po, gia);
   const tienTheoDong = new Map(tien.dong.map((t) => [t.sttDong, t]));
   /* ★ Tổng 0 = không có đơn giá → để trống, không in số 0 (Sếp 26/09/2026). */
-  const coGia = gia !== undefined && tien.congTienHang > 0;
+  /* Phiếu xuất kho KHÔNG in giá — xem `PHIEU_XUAT_KHO_IN_GIA` (một cờ cho tờ in, xem nhanh và Excel). */
+  const coGia = PHIEU_XUAT_KHO_IN_GIA && gia !== undefined && tien.congTienHang > 0;
   const donViTien = gia?.loaiTien ?? "VND";
   const so = (n: number) => n.toLocaleString("vi-VN");
-  const ngayIn = po.ngayLapPO ? new Date(po.ngayLapPO).toLocaleDateString("vi-VN") : CHAM;
+  /* Cùng hàm với file Excel ("26/09/2026", đúng biểu mẫu) — `toLocaleDateString` ra "26/9/2026". */
+  const ngayIn = ngayPhieuXuatKho(po.ngayLapPO) ?? CHAM;
 
   return (
     <article className="mx-auto w-full max-w-[210mm] px-[15mm] py-[12mm] text-[#000000] [font-family:'Times_New_Roman',Times,serif]">
