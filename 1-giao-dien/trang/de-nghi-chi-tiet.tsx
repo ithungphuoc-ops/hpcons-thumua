@@ -2715,10 +2715,11 @@ export default function TrangChiTietDeNghi({
                             </div>
                           );
                         }
+                        /* ★ Sếp 27/09/2026: *"Nút này khi được mở, e để n màu xanh lá cây cho a"* — mở được thì
+                           nền success (xanh lá) cho nổi; còn vướng thì vẫn là nút mờ viền + câu lý do ở trên. */
                         return (
                           <Button
-                            variant="outline"
-                            className="w-fit"
+                            className="w-fit bg-success text-primary-foreground hover:bg-success/90"
                             nativeButton={false}
                             render={<Link href={`/don-hang/tao-moi?prId=${dn.id}`} />}
                           >
