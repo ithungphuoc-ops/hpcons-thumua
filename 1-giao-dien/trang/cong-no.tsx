@@ -520,7 +520,7 @@ export default function TrangCongNo() {
               * ✅ Nay: cột mã / ngày / tiền / ô nhập có bề rộng CỐ ĐỊNH theo rem vừa nội dung (ô nhập
               * tiền giữ ≥ 160px như Sếp chốt 25/09 — commit 291cb9e); HAI cột chữ tự do (Tên công
               * trình · Tên NCC) KHÔNG khai bề rộng → chia phần còn lại, màn rộng thì giãn ra. Sàn
-              * `min-w` = tổng cột cố định (~101,5rem) + 2 × ~9rem cho hai cột chữ. Hẹp hơn thì cuộn
+              * `min-w` = tổng cột cố định (~103,5rem) + 2 × ~9rem cho hai cột chữ. Hẹp hơn thì cuộn
               * ngang; STT + mã PO DÍNH MÉP TRÁI để kéo sang cột tiền vẫn biết đang ở dòng nào.
               * ⚠️ Thêm cột thì cộng bề rộng của nó vào sàn `min-w`, không là hai cột chữ bị bóp.
               *
@@ -542,7 +542,7 @@ export default function TrangCongNo() {
                 (kể cả dòng phụ "Theo ngày nhận", nhãn cảnh báo, khối mở rộng hoá đơn/đợt chi) về `text-sm`
                 bằng bộ chọn con cháu — thắng `text-xs` riêng lẻ của từng ô/thành phần con. Chỉ đổi CỠ, độ
                 đậm giữ nguyên để số tiền quan trọng vẫn nổi. */}
-            <Table className="min-w-[120rem] table-fixed [&_tbody]:text-sm [&_tbody_*]:text-sm">
+            <Table className="min-w-[122rem] table-fixed [&_tbody]:text-sm [&_tbody_*]:text-sm">
               {/* ★ Sếp 25/09/2026: *"Tạo cột high line tiêu đề, canh giữa cột và dùng chữ in hoa"*.
                   Nền xanh nhạt đặt TRÊN nền thẻ (`bg-card` ở thead + `bg-primary/10` ở từng ô) nên
                   vẫn ĐỤC — tiêu đề dính trên cùng khi cuộn, nền trong suốt là chữ dòng dưới lộ qua.
@@ -604,7 +604,7 @@ export default function TrangCongNo() {
                   {/* ⚠️ Bốn tiêu đề giữa dài hơn bề rộng cột đã khai. Lớp gốc của `TableHead` là
                       `whitespace-nowrap`, mà `table-fixed` KHÔNG nong cột ra cho vừa chữ nữa —
                       nên phải cho tiêu đề xuống dòng, bằng không nó tràn đè sang cột bên cạnh. */}
-                  <TableHead className="w-24 text-center">
+                  <TableHead className="w-32 text-center">
                     Thời gian C.Nợ
                   </TableHead>
                   <TableHead className="w-32 text-center">
