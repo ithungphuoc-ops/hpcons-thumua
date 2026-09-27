@@ -1049,15 +1049,16 @@ export default function TrangChiTietDeNghi({
                 phụ trách đề nghị ở đây"*. Cùng hàm với chữ ở chân thẻ bảng quy trình
                 (`tenNguoiPhuTrachDeNghi`) nên hai chỗ không bao giờ nói khác nhau. Có cả chữ lẫn màu. */}
             {/* Sếp 26/09/2026: *"Dùng font chữ đồng nhất"* — cả dòng MỘT cỡ, MỘT độ đậm, MỘT màu,
-                cùng kiểu với nút "Quay lại danh sách đề nghị" (text-sm font-medium) nằm cùng hàng. */}
+                cùng kiểu với nút "Quay lại danh sách đề nghị" (text-sm font-medium) nằm cùng hàng.
+                Sếp 27/09/2026 (ảnh khoanh): *"Giảm cỡ chữ này nhỏ lại"* → 12px (`text-xs`), vẫn một cỡ cả dòng. */}
             <span
-              className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-medium ${
+              className={`inline-flex min-h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium ${
                 nguoiPhuTrachDn.length > 0
                   ? "bg-primary-bg text-primary"
                   : "bg-danger-bg text-danger-soft"
               }`}
             >
-              <UserRound className="size-4 shrink-0" aria-hidden />
+              <UserRound className="size-3.5 shrink-0" aria-hidden />
               Người phụ trách:{" "}
               {nguoiPhuTrachDn.length > 0 ? nguoiPhuTrachDn.join(" · ") : "Chưa được giao"}
             </span>
