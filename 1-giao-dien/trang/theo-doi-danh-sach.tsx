@@ -1,12 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronRight, Clock, Eye, GitBranch, UserCheck } from "lucide-react";
+import { ChevronRight, Clock, Eye, UserCheck } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
-import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
-import { TimelineDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/timeline-de-nghi";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -14,8 +11,17 @@ import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { khoaCongTrinh, NHOM_CHUA_GHI_CONG_TRINH } from "@/2-quy-trinh/gom-cong-trinh";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-import { nhanAnToan, NHAN_TRANG_THAI_DE_NGHI } from "@/2-quy-trinh/trang-thai";
-import { NHAN_GIAI_DOAN, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { dungBangQuyTrinh, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
+import {
+  DauBangDanhSachHoSo,
+  DongDanhSachHoSo,
+  SO_COT_DANH_SACH_HO_SO,
+  TheDanhSachHoSo,
+} from "@/1-giao-dien/thanh-phan-nghiep-vu/danh-sach-ho-so";
+import { BangHangDaDat, TheHangDaDat } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-hang-da-dat";
 import { soSanhDeNghiUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import { duocXemTienTrinhDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
@@ -80,7 +86,7 @@ const NHAN_CACH_NHOM: Record<CachGomNhom, string> = {
  * 🔒 Không hiển thị: đơn giá, thành tiền, nhà cung cấp, tên nhân viên thu mua.
  */
 export default function TrangTheoDoi() {
-  const { deNghi, donHang, baoGia, phieuNhan } = useDuLieu();
+  const { deNghi, donHang, baoGia, phieuNhan, cauHinh, thongBao } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
   /**
@@ -102,9 +108,14 @@ export default function TrangTheoDoi() {
     const nguon = deNghi.filter((dn) => duocXemTienTrinhDeNghi(dn, nguoiDung.uid, quyen));
     return nguon.map((dn) => {
       const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
+      /* ★ Bảng "Hàng đã đặt" (27/09/2026): trừ dòng đã tách hết sang phiếu con — không thì phiếu gốc
+         báo "chưa lên đơn" cho dòng mà phiếu con đang mua, người đọc tưởng mua thiếu. */
+      const tienDoPhaiMua = locTienDoConPhaiMua(dn, deNghi, tienDo);
       return {
         dn,
         tienDo,
+        tienDoPhaiMua,
+        soDongDaTach: tienDo.length - tienDoPhaiMua.length,
         tomTat: tomTatTienDoDeNghi(tienDo),
         /* Giai đoạn SUY RA từ chứng từ thật, không thêm trường mới — xem `xacDinhGiaiDoan`.
            🔴 PHẢI TRUYỀN `deNghi` (tham số cuối) — Sếp 15/09/2026: dòng đã nhân bản đi thì
@@ -238,46 +249,51 @@ export default function TrangTheoDoi() {
   }, [danhSach, nguoiDung.uid, nhomTheo]);
 
   /**
-   * Nhóm đang MỞ. Ban lãnh đạo 13/08/2026: *"thêm nút group lại cho gọn nha"* — nên mặc
-   * định các nhóm THU GỌN, bấm mới bung ra.
+   * ★★ THẺ DÙNG CHUNG VỚI BẢNG QUY TRÌNH — Sếp 27/09/2026 duyệt bản demo *"cửa sổ theo dõi đề nghị
+   * có hiển thị tương tự vậy"* (dạng Danh sách của Quy trình mua hàng).
    *
-   * ⚠️ Giữ danh sách "đang mở" chứ không phải "đang gọn": nhóm mới xuất hiện (ai đó vừa
-   * tách phiếu) sẽ mặc định gọn theo đúng ý trên. Làm ngược lại thì mỗi nhóm mới lại tự
-   * bung ra, và màn hình dài thêm mà không ai bấm gì.
+   * 🔴 LẤY TỪ `dungBangQuyTrinh`, KHÔNG tự tính: giai đoạn, hạn, người phụ trách, chứng từ còn nợ
+   * phải đúng bộ số của bảng quy trình — tự tính ở đây là màn Theo dõi nói khác bảng về cùng một hồ
+   * sơ. `baoGomLuuTru`: người theo dõi vẫn cần thấy hồ sơ Thu mua đã lưu trữ cho gọn bảng.
    */
-  const [nhomMo, setNhomMo] = useState<Set<string>>(new Set());
+  const theTheoId = useMemo(() => {
+    const cot = dungBangQuyTrinh(
+      deNghi,
+      donHang,
+      baoGia,
+      phieuNhan,
+      cauHinh,
+      new Date(),
+      nguoiDung.uid,
+      (dn) => vuongMacTrinhXetDuyet(dn, cauHinh),
+      thongBao,
+      true,
+    );
+    return new Map(cot.flatMap((c) => c.the).map((t) => [t.deNghi.id, t]));
+  }, [deNghi, donHang, baoGia, phieuNhan, cauHinh, nguoiDung.uid, thongBao]);
 
   /**
-   * Đổi cách gom thì DỌN danh sách nhóm đang mở.
-   *
-   * 🔴 KHÔNG PHẢI DỌN CHO SẠCH SẼ — bắt buộc. Khóa nhóm của hai cách gom khác nhau hoàn toàn
-   * (tên công trình đã chuẩn hóa ≠ mã phòng ban), nên giữ lại khóa cũ là `nhomMo` chứa những
-   * khóa **không thuộc cách gom hiện tại**. Chúng không khớp nhóm nào nên nằm im, nhưng nếu về
-   * sau có công trình tên đúng bằng một mã phòng ban thì nhóm đó tự bung ra không rõ vì sao.
+   * Nhóm đang THU GỌN — ĐẢO so với trước 27/09/2026 (khi đó mặc định gọn): bản demo Sếp duyệt để
+   * mọi nhóm mở sẵn, bấm dòng nhóm mới gọn lại. Giữ danh sách "đang gọn" để nhóm mới xuất hiện tự mở.
+   */
+  const [nhomDong, setNhomDong] = useState<Set<string>>(new Set());
+  /** Đề nghị đang xổ bảng "Hàng đã đặt". */
+  const [dongMo, setDongMo] = useState<Set<string>>(new Set());
+
+  /**
+   * Đổi cách gom thì DỌN danh sách nhóm đang gọn — khóa nhóm của hai cách gom khác nhau hoàn toàn
+   * (tên công trình đã chuẩn hóa ≠ mã phòng ban); giữ khóa cũ là nhóm trùng tên tự gọn không rõ vì sao.
    */
   function doiCachNhom(cach: CachGomNhom) {
     setNhomTheo(cach);
-    setNhomMo(new Set());
+    setNhomDong(new Set());
   }
-  function doiMoNhom(id: string) {
-    setNhomMo((truoc) => {
-      const s = new Set(truoc);
-      if (s.has(id)) s.delete(id);
-      else s.add(id);
-      return s;
-    });
-  }
-  /**
-   * Thẻ có được hiện không: không thuộc nhóm nào, hoặc thuộc nhóm đang mở.
-   *
-   * 🔴 KHÓA NHÓM PHẢI TÍNH ĐÚNG NHƯ LÚC GOM (`dongHienThi`) — từ 22/08/2026 là tên công trình
-   * đã chuẩn hóa, không còn là `deNghiGocId`. Hai chỗ tính khóa khác nhau thì bấm mở nhóm mà
-   * thẻ không hiện, và không có lỗi nào báo ra.
-   */
-  function hienThe(m: { trongNhom: boolean; dn: DeNghiMuaHang }) {
-    if (!m.trongNhom) return true;
-    return nhomMo.has(khoaNhom(m.dn, nhomTheo));
-  }
+  const doiTrongSet = (id: string) => (truoc: Set<string>) => {
+    const moi = new Set(truoc);
+    if (moi.has(id)) moi.delete(id);
+    else moi.add(id);
+    return moi;
+  };
 
   return (
     <>
@@ -349,168 +365,118 @@ export default function TrangTheoDoi() {
             })}
           </div>
 
-          {dongHienThi.map((m) => {
-            // Dòng tiêu đề của một nhóm phiếu đã tách — bấm cả dòng để mở / thu gọn.
-            if (m.loai === "nhom") {
-              const dangMo = nhomMo.has(m.id);
-              return (
-                <button
-                  key={`nhom-${m.id}`}
-                  type="button"
-                  onClick={() => doiMoNhom(m.id)}
-                  aria-expanded={dangMo}
-                  className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary/30 bg-primary-bg px-3 py-2 text-left text-sm transition-colors hover:border-primary"
-                >
-                  <ChevronRight
-                    className={`size-4 shrink-0 text-primary transition-transform ${dangMo ? "rotate-90" : ""}`}
-                    aria-hidden
-                  />
-                  {/* Biểu tượng nhánh: nhóm có nhiều đề nghị của cùng một công trình. */}
-                  {m.ds.length > 1 && (
-                    <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
-                  )}
-                  {/* ★ TIÊU ĐỀ NHÓM LÀ TÊN CÔNG TRÌNH (22/08/2026). Trước đây là mã phiếu gốc
-                      kèm tiêu đề — mà tiêu đề đề nghị thường lặp gần đúng tên công trình, nên
-                      một dòng in gần như hai lần cùng một chuỗi. */}
-                  <span className="min-w-0 truncate font-semibold text-text-primary">{m.ma}</span>
-                  <span className="rounded bg-card px-1.5 py-0.5 text-xs font-medium text-primary">
-                    {m.ds.length > 1 ? `${m.ds.length} đề nghị` : "1 đề nghị"}
-                  </span>
-                  {/* 🔴 Khi GỌN vẫn phải thấy nhóm đang ở đâu, nếu không thu gọn chỉ là
-                      giấu thông tin. Hiện mã từng phiếu kèm bước hiện tại — đủ để quyết
-                      định có cần bung ra hay không. */}
-                  {!dangMo && (
-                    <span className="flex w-full flex-col gap-1 pt-0.5 pl-6">
-                      {m.ds.map((x) => (
-                        <span
-                          key={x.dn.id}
-                          className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
-                        >
-                          {/* ★ MÃ ĐỀ NGHỊ + TÊN ĐỀ XUẤT — Ban lãnh đạo 22/08/2026.
-                              Mã đứng trước để tra hồ sơ, tên đề xuất theo sau để biết mua gì.
-                              Tên công trình KHÔNG lặp lại ở đây: nó đã là tiêu đề của nhóm. */}
-                          {/**
-                            * ★ THÊM MÃ SỐ ĐỀ NGHỊ BÊN APP ĐỀ NGHỊ — Ban lãnh đạo 23/08/2026:
-                            * *"Mục này hãy hiển thị cả mã số đề nghị"*.
-                            *
-                            * 🔴 ĐÂY LÀ MÃ THỨ HAI, KHÔNG THAY MÃ CŨ. `maDeXuatAppRequest` (dạng
-                            * `000000041`) là số người đề nghị và các phòng ban dùng để gọi tên hồ
-                            * sơ; `code` (`43/2025/HĐXD-HPCS-…-PR-001`) là mã hồ sơ của app theo
-                            * Thông báo 09/2026. Bỏ một trong hai là một nửa người đọc mất mã họ
-                            * đang tra.
-                            *
-                            * 📌 Chỉ hiện khi CÓ. Hồ sơ lập trước ngày nối App Request không có mã
-                            * này — vẽ một ô trống hay chữ "—" chỉ làm dòng rối thêm.
-                            */}
-                          {x.dn.maDeXuatAppRequest && (
-                            <span className="rounded bg-card px-1.5 py-0.5 font-semibold text-primary">
-                              {x.dn.maDeXuatAppRequest}
-                            </span>
-                          )}
-                          <span className="font-medium text-text-primary">{x.dn.code}</span>
-                          <span className="min-w-0 truncate text-text-secondary">
-                            {x.dn.tieuDe}
-                          </span>
-                          <span className="rounded bg-card px-1.5 py-0.5 text-text-desc">
-                            {NHAN_GIAI_DOAN[x.giaiDoan].nhan}
-                          </span>
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                </button>
-              );
-            }
-            /* Dòng thu gọn cuối nhóm — chỉ vẽ khi nhóm ĐANG MỞ. Nhóm gọn rồi thì thêm một
-               dòng "Thu gọn" nữa là vô nghĩa. Xem lý do ở khai báo `cuoi_nhom`. */
-            if (m.loai === "cuoi_nhom") {
-              if (!nhomMo.has(m.id)) return null;
-              return (
-                <button
-                  key={`cuoi-${m.id}`}
-                  type="button"
-                  onClick={() => doiMoNhom(m.id)}
-                  /* Lùi vào 12px cho thẳng với các thẻ trong nhóm (`ml-3`), để thấy ngay dòng
-                     này thuộc nhóm phía trên chứ không phải một mục mới. */
-                  className="ml-3 flex min-h-11 w-full items-center gap-2 rounded-lg border border-border border-dashed bg-card px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:border-primary hover:text-primary"
-                >
-                  <ChevronRight className="size-4 shrink-0 rotate-[-90deg]" aria-hidden />
-                  <span className="min-w-0 truncate">
-                    Thu gọn {nhomTheo === "phong_ban" ? "phòng ban" : "công trình"} {m.ma}
-                  </span>
-                  <span className="shrink-0 text-xs text-text-desc">
-                    ({m.soPhieu} đề nghị)
-                  </span>
-                </button>
-              );
-            }
-            if (!hienThe(m)) return null;
-            const { dn, tienDo, tomTat, giaiDoan } = m;
-            const tt = nhanAnToan(NHAN_TRANG_THAI_DE_NGHI, dn.trangThai);
-            const buoc = NHAN_GIAI_DOAN[giaiDoan];
-            return (
-              <Card
-                key={dn.id}
-                // Viền trái + lùi vào: thấy ngay thẻ này thuộc nhóm phía trên, mà không
-                // phải lồng thêm một lớp khung bọc quanh cả nhóm.
-                className={m.trongNhom ? "ml-3 border-l-4 border-l-primary" : undefined}
-              >
-                <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex flex-col gap-1">
-                      {/* Mã số bên App Đề nghị đứng trên mã hồ sơ của app — cùng lý do với dòng
-                          gọn của nhóm (23/08/2026). */}
-                      {dn.maDeXuatAppRequest && (
-                        <span className="text-xs font-semibold text-primary">
-                          Mã đề nghị {dn.maDeXuatAppRequest}
-                        </span>
-                      )}
-                      <Link
-                        href={`/theo-doi/${dn.id}`}
-                        className="text-sm font-semibold text-primary hover:underline"
+          {/* ★ BẢNG — cùng dạng "Danh sách" của Quy trình mua hàng (Sếp 27/09/2026). */}
+          <Card>
+            <CardContent className="flex min-w-0 flex-col gap-(--hp-md-card-gap)">
+              {/* `[&>[data-slot=table-container]]:overflow-visible`: tắt khung cuộn riêng của `Table` để
+                  div này là khung cuộn ngang thật (thanh cuộn dày `thanh-keo-ngang-ro`). */}
+              <div className="thanh-keo-ngang-ro hidden overflow-x-auto md:block [&>[data-slot=table-container]]:overflow-visible">
+                <Table>
+                  <TableHeader className="bg-card">
+                    <DauBangDanhSachHoSo canhGiua />
+                  </TableHeader>
+                  <TableBody>
+                    {dongHienThi.map((m) => {
+                      if (m.loai === "cuoi_nhom") return null;
+                      if (m.loai === "nhom") {
+                        const gon = nhomDong.has(m.id);
+                        return (
+                          <TableRow
+                            key={`nhom-${m.id}`}
+                            className="border-t-2 border-t-primary/40 hover:bg-transparent has-aria-expanded:bg-transparent"
+                          >
+                            {/* Nền đặt ở Ô (không ở dòng) — dòng có nút `aria-expanded` nên lớp gốc
+                                `has-aria-expanded:bg-muted/50` của TableRow sẽ đè mất nền xanh. */}
+                            <TableCell
+                              colSpan={SO_COT_DANH_SACH_HO_SO}
+                              className="border-l-4 border-l-primary bg-primary/15 py-1.5 whitespace-normal"
+                            >
+                              <button
+                                type="button"
+                                aria-expanded={!gon}
+                                onClick={() => setNhomDong(doiTrongSet(m.id))}
+                                className="sticky left-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-left text-sm md:min-h-9"
+                              >
+                                <ChevronRight
+                                  className={`size-4 shrink-0 text-primary transition-transform ${gon ? "" : "rotate-90"}`}
+                                  aria-hidden
+                                />
+                                <span className="text-base font-bold text-primary uppercase">{m.ma}</span>
+                                <span className="text-xs text-text-desc">{m.ds.length} đề nghị</span>
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+                      if (nhomDong.has(khoaNhom(m.dn, nhomTheo))) return null;
+                      const the = theTheoId.get(m.dn.id);
+                      if (!the) return null;
+                      return (
+                        <DongDanhSachHoSo
+                          key={m.dn.id}
+                          the={the}
+                          duongDan={`/theo-doi/${m.dn.id}`}
+                          hienNguoiPhuTrach={quyen.xemNguoiPhuTrach}
+                          canhGiua
+                          anMoTaPhu
+                          moRong={dongMo.has(m.dn.id)}
+                          onDoiMoRong={() => setDongMo(doiTrongSet(m.dn.id))}
+                          nhanMoRong="Xem hàng đã đặt"
+                          noiDungMoRong={
+                            <BangHangDaDat tienDo={m.tienDoPhaiMua} soDongDaTach={m.soDongDaTach} />
+                          }
+                        />
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Điện thoại — Card List (V1.1: bảng nhiều cột trên màn hẹp phải đổi sang thẻ). */}
+              <div className="flex flex-col gap-(--hp-md-row-gap) md:hidden">
+                {dongHienThi.map((m) => {
+                  if (m.loai === "cuoi_nhom") return null;
+                  if (m.loai === "nhom") {
+                    const gon = nhomDong.has(m.id);
+                    return (
+                      <button
+                        key={`nhom-${m.id}`}
+                        type="button"
+                        aria-expanded={!gon}
+                        onClick={() => setNhomDong(doiTrongSet(m.id))}
+                        className="flex min-h-11 w-full items-center gap-2 rounded-lg border-l-4 border-l-primary bg-primary/15 px-3 py-2 text-left"
                       >
-                        {dn.code}
-                      </Link>
-                      <span className="text-sm text-text-primary">{dn.tieuDe}</span>
-                      {/* Ở cách gom theo PHÒNG BAN thì tên công trình chưa nằm ở tiêu đề nhóm,
-                          nên dòng này là chỗ duy nhất đọc được nó — giữ nguyên cho cả hai cách. */}
-                      <span className="text-xs text-text-desc">
-                        {dn.tenCongTrinh}
-                        {nhomTheo === "cong_trinh" && dn.phongBanNguon
-                          ? ` · ${nhanPhongBan(dn.phongBanNguon)}`
-                          : ""}
-                      </span>
-                    </div>
-                    {/* Bước hiện tại đứng cạnh trạng thái: người đề nghị cần biết hồ sơ
-                        đang nằm ở đâu, không chỉ "đã duyệt" hay "hoàn thành". */}
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <StatusBadge label={buoc.nhan} tone={buoc.tong} />
-                      <StatusBadge label={tt.nhan} tone={tt.tong} />
-                    </span>
-                  </div>
-
-                  {/* ---- Phòng Thu mua đã phân công chưa ---- */}
-                  <DongPhanCong deNghi={dn} hienTen={quyen.xemNguoiPhuTrach} />
-
-                  <TimelineDeNghi
-                    ngayDuyet={dn.ngayDuyet}
-                    ngayCanHang={dn.ngayCanHang}
-                    soDongDaNhanDu={tomTat.soDongDaNhanDu}
-                    tongSoDong={tomTat.tongSoDong}
-                    soDongDaPhanBo={tienDo.filter((d) => d.trangThaiDong !== "chua_phan_bo").length}
-                    soDongDaLenPO={tienDo.filter((d) => d.maPOLienQuan.length > 0).length}
-                  />
-
-                  <Link
-                    href={`/theo-doi/${dn.id}`}
-                    className="text-sm font-medium text-primary hover:underline"
-                  >
-                    Xem chi tiết từng mặt hàng →
-                  </Link>
-                </CardContent>
-              </Card>
-            );
-          })}
+                        <ChevronRight
+                          className={`size-4 shrink-0 text-primary transition-transform ${gon ? "" : "rotate-90"}`}
+                          aria-hidden
+                        />
+                        <span className="text-sm font-bold text-primary uppercase">{m.ma}</span>
+                        <span className="text-xs text-text-desc">{m.ds.length} đề nghị</span>
+                      </button>
+                    );
+                  }
+                  if (nhomDong.has(khoaNhom(m.dn, nhomTheo))) return null;
+                  const the = theTheoId.get(m.dn.id);
+                  if (!the) return null;
+                  const mo = dongMo.has(m.dn.id);
+                  return (
+                    <TheDanhSachHoSo
+                      key={m.dn.id}
+                      the={the}
+                      duongDan={`/theo-doi/${m.dn.id}`}
+                      hienNguoiPhuTrach={quyen.xemNguoiPhuTrach}
+                          canhGiua
+                          anMoTaPhu
+                      moRong={mo}
+                      onDoiMoRong={() => setDongMo(doiTrongSet(m.dn.id))}
+                      nhanMoRong={mo ? "Ẩn hàng đã đặt" : `Xem ${m.tienDoPhaiMua.length} mặt hàng đã đặt`}
+                      noiDungMoRong={<TheHangDaDat tienDo={m.tienDoPhaiMua} soDongDaTach={m.soDongDaTach} />}
+                    />
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </>

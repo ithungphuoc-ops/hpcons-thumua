@@ -44,6 +44,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Khối "Soát theo ngưỡng giá trị"** ở màn báo giá sai số / sai lời nhắc | Hiển thị: `thanh-phan-nghiep-vu/khoi-nguong-gia-tri.tsx` · **Luật**: `2-quy-trinh/nguong-gia-tri.ts` |
 | Sai ở **chi tiết Đề nghị** | `1-giao-dien/trang/de-nghi-chi-tiet.tsx` |
 | Sai ở **màn Phân bổ công việc** | `1-giao-dien/trang/phan-bo.tsx` + `thanh-phan-nghiep-vu/bang-phan-bo.tsx` |
+| Sai ở **màn Theo dõi đề nghị** (dạng bảng, xổ hàng đã đặt) | `1-giao-dien/trang/theo-doi-danh-sach.tsx` + dòng dùng chung `thanh-phan-nghiep-vu/danh-sach-ho-so.tsx` (cùng tab Danh sách của Quy trình mua hàng) + `thanh-phan-nghiep-vu/bang-hang-da-dat.tsx`. Số liệu: `dungBangQuyTrinh(…, baoGomLuuTru=true)` |
 | Sai ở **danh sách Đơn hàng** | `1-giao-dien/trang/don-hang-danh-sach.tsx` |
 | Sai ở **chi tiết Đơn hàng** | `1-giao-dien/trang/don-hang-chi-tiet.tsx` |
 | Sai ở **bảng tiến độ nhận hàng** (cột theo từng lần giao) | `thanh-phan-nghiep-vu/bang-tien-do-po.tsx` |

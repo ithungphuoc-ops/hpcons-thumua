@@ -1022,12 +1022,18 @@ export function dungBangQuyTrinh(
    * trang in: thiếu một đồng hồ không cho lọt hành động sai nào.
    */
   thongBaoChuyenBuoc?: readonly { prId: string; tuBuoc?: string; denBuoc: string; thoiDiem: string }[],
+  /**
+   * ★ Giữ cả hồ sơ ĐÃ LƯU TRỮ — màn Theo dõi đề nghị (27/09/2026) dùng chung hàm này để có đúng bộ số
+   * của bảng quy trình, mà người theo dõi vẫn cần thấy hồ sơ đã lưu trữ (lưu trữ chỉ là gọn BẢNG
+   * của Thu mua). Bỏ trống = như cũ, bỏ lưu trữ. THÊM Ở CUỐI vì lý do ghi ở tham số trên.
+   */
+  baoGomLuuTru = false,
 ): CotBangQuyTrinh[] {
   // 🔴 BỎ HỒ SƠ ĐÃ LƯU TRỮ khỏi bảng (chỉ đạo Ban lãnh đạo 10/08/2026, menu ⋯ theo Base).
   // Lưu trữ ≠ đóng dở: hồ sơ vẫn nguyên trạng thái nghiệp vụ, chỉ không hiện trên bảng cho
   // đỡ rối. Bỏ lưu trữ là nó quay lại đúng cột cũ, vì cột suy ra từ chứng từ chứ không lưu.
   const the: TheDeNghiTrenBang[] = tatCaDeNghi
-    .filter((dn) => !dn.luuTru)
+    .filter((dn) => baoGomLuuTru || !dn.luuTru)
     .map((deNghi) => {
     /* 📌 TRUYỀN `tatCaDeNghi` (danh sách ĐẦY ĐỦ, chưa lọc `luuTru`) — hàm cần nó để biết dòng nào
        của phiếu này đã nhân bản sang phiếu khác (Sếp 15/09/2026, xem `dongConPhaiLam`). Truyền bản
