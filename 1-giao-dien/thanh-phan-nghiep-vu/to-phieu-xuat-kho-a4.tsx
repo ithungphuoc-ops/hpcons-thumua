@@ -3,9 +3,9 @@ import Image from "next/image";
 import type { DonDatHang, GiaDonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import { laDongHang, tinhTienChiTietPO } from "@/2-quy-trinh/tinh-toan";
 import {
-  chuanHoaCanCuXuatKho,
   dienGiaiPhieuXuatKho,
   dongNgayThangNam,
+  noiDungDongTheoXuatKho,
   soPhieuXuatKho,
 } from "@/2-quy-trinh/phieu-xuat-kho";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
@@ -97,12 +97,9 @@ export function ToPhieuXuatKhoA4({ po, gia, banMau = false }: PropToPhieuXuatKho
       {/* ---------- A9 · A11 · A13 | I13 · A15 ---------- */}
       <section className="mt-4 flex flex-col gap-1.5 text-[12px]">
         <p>Họ và tên người nhận: {po.nguoiNhanHangTen?.trim() || CHAM}</p>
-        {/* Dòng "Theo …" để trống thì in NGUYÊN dải chấm của biểu mẫu — chỗ viết tay. */}
-        <p>
-          Theo:{" "}
-          {chuanHoaCanCuXuatKho(po.canCuXuatKho?.trim()) ||
-            "........... số .............. ngày ..... tháng ..... năm ..... của .............................................."}
-        </p>
+        {/* Dòng "Theo …" để trống thì in NGUYÊN dải chấm của biểu mẫu — chỗ viết tay. Cùng một
+            hàm với file Excel (`noiDungDongTheoXuatKho`), để hai bản không nói khác nhau. */}
+        <p>Theo: {noiDungDongTheoXuatKho(po.canCuXuatKho)}</p>
         <div className="grid grid-cols-[3fr_2fr] gap-4">
           <p>Xuất tại kho: {po.khoXuat?.trim() || CHAM}</p>
           <p>Địa điểm: {po.diaDiemKhoXuat?.trim() || CHAM}</p>

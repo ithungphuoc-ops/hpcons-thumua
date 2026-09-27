@@ -254,12 +254,16 @@ export function DauBangDanhSachHoSo({ canhGiua = false }: { canhGiua?: boolean }
       <TableHead>Nhiệm vụ</TableHead>
       <TableHead className={`w-48 ${g}`}>Giai đoạn</TableHead>
       <TableHead className={g}>Trạng thái</TableHead>
-      <TableHead className={g}>Đã giao cho</TableHead>
+      {/* Cột TÊN NGƯỜI luôn căn trái — Sếp 27/09/2026: *"Căn trái mục tên nhân sự này"*. */}
+      <TableHead>Đã giao cho</TableHead>
       <TableHead className={g}>Thời hạn</TableHead>
       <TableHead className={g}>Còn lại</TableHead>
       <TableHead className={g}>Công việc</TableHead>
-      <TableHead className={g}>Người tạo</TableHead>
-      <TableHead className={`w-full ${g}`}>Cập nhật</TableHead>
+      <TableHead>Người tạo</TableHead>
+      {/* ★ Bảng canh giữa (màn Theo dõi) KHÔNG dồn phần dư vào cột cuối — Sếp 27/09/2026: *"Cân đối lại
+          giao diện này nhé, khoảng trống còn khá nhiều"* (khoảng trắng lớn trước "Cập nhật"). Chữ đã canh
+          giữa nên để trình duyệt chia phần dư cho MỌI cột; bảng quy trình (canh trái) giữ `w-full`. */}
+      <TableHead className={canhGiua ? g : "w-full"}>Cập nhật</TableHead>
     </TableRow>
   );
 }
@@ -277,10 +281,7 @@ export function DongDanhSachHoSo({
 }: TuyChonDongHoSo) {
   const dn = the.deNghi;
   const coMoRong = Boolean(onDoiMoRong);
-  /* Ô có khối flex bên trong (tên người, vạch giai đoạn) phải canh bằng `justify/items-center`,
-     `text-center` của ô không kéo được khối flex vào giữa. */
   const g = canhGiua ? "text-center" : "";
-  const gFlex = canhGiua ? "justify-center" : "";
   return (
     <>
       <TableRow
@@ -303,8 +304,9 @@ export function DongDanhSachHoSo({
         <TableCell className={`align-top ${g}`}>
           <HuyHieuTrangThai the={the} />
         </TableCell>
-        <TableCell className={`align-top ${g}`}>
-          <ONguoiPhuTrach the={the} hienTen={hienNguoiPhuTrach} canhGiua={canhGiua} />
+        {/* Hai cột tên người (Đã giao cho · Người tạo) luôn căn trái, kể cả khi bảng canh giữa. */}
+        <TableCell className="align-top">
+          <ONguoiPhuTrach the={the} hienTen={hienNguoiPhuTrach} />
         </TableCell>
         <TableCell className={`align-top text-xs whitespace-nowrap text-text-primary ${g}`}>
           {new Date(dn.ngayCanHang).toLocaleDateString("vi-VN")}
@@ -315,8 +317,8 @@ export function DongDanhSachHoSo({
         <TableCell className={`align-top ${g}`}>
           <OConThieu the={the} />
         </TableCell>
-        <TableCell className={`align-top ${g}`}>
-          <span className={`flex items-center gap-1.5 text-xs text-text-primary ${gFlex}`}>
+        <TableCell className="align-top">
+          <span className="flex items-center gap-1.5 text-xs text-text-primary">
             <VongTronTen ten={dn.nguoiDeNghiTen} />
             <span className="truncate">{dn.nguoiDeNghiTen}</span>
           </span>

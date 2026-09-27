@@ -1,17 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import NextDynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDungDayKhungNhin } from "@/1-giao-dien/thanh-phan-dung-chung/dung-day-khung-nhin";
-import { datTuKhoaBangQuyTrinh, useTuKhoaBangQuyTrinh } from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
+import { useTuKhoaBangQuyTrinh } from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
 import { khopTimBangQuyTrinh } from "@/2-quy-trinh/tim-kiem";
 import { useRouter } from "next/navigation";
-import { FileText, LayoutGrid, List, X, Search, UserRound } from "lucide-react";
+import { FileText, LayoutGrid, List, X, UserRound } from "lucide-react";
 /* 📌 KHÔNG còn import `DropdownMenu*` và `MoreHorizontal` ở đây (13/09/2026): menu ⋯ của pop-up
    nay dùng chung `MenuThaoTacThe` với thẻ Kanban, component đó tự lo cả khung lẫn icon. */
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
+import { DaiDangLoc } from "@/1-giao-dien/thanh-phan-dung-chung/dai-dang-loc";
 /* Nhãn nhóm đề xuất + định dạng mốc thời gian cho tab Danh sách (23/08/2026). */
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import {
@@ -829,22 +829,12 @@ export default function TrangDanhSachDeNghi() {
 
         {/* Cao 44px trên điện thoại cho đủ vùng chạm theo V1.1. */}
         {/* Đang lọc theo ô tìm — nói rõ, kèm nút bỏ lọc (đừng để người dùng tưởng mất hồ sơ). */}
-        {tuKhoaBang.trim() && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary-bg px-3 py-2 text-sm text-primary">
-            <Search className="size-4 shrink-0" aria-hidden />
-            <span>
-              Đang lọc theo “<strong>{tuKhoaBang.trim()}</strong>” —{" "}
-              {cotHien.reduce((n, c) => n + c.the.length, 0)} đề nghị
-            </span>
-            <button
-              type="button"
-              onClick={() => datTuKhoaBangQuyTrinh("")}
-              className="ml-auto inline-flex min-h-11 items-center rounded-md px-2 font-medium underline-offset-2 hover:underline md:min-h-8"
-            >
-              Bỏ lọc
-            </button>
-          </div>
-        )}
+        {/* Dải dùng chung cho mọi màn lọc bảng (Quy trình · Theo dõi · Đơn hàng) — `DaiDangLoc`. */}
+        <DaiDangLoc
+          tuKhoa={tuKhoaBang}
+          soKetQua={cotHien.reduce((n, c) => n + c.the.length, 0)}
+          donVi="đề nghị"
+        />
         <div className="flex flex-wrap items-center gap-3">
         <Tabs value={cachXem} onValueChange={(v) => setCachXem(v as CachXem)}>
           <TabsList variant="line" className="h-auto md:h-9">

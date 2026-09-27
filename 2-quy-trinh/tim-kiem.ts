@@ -199,3 +199,30 @@ export function khopTimBangQuyTrinh(
   const k = chuan(q);
   return [dn.code, dn.tieuDe, dn.tenCongTrinh, dn.maDeXuatAppRequest].some((x) => chuan(x).includes(k));
 }
+
+/**
+ * ★ LỌC BẢNG ĐƠN ĐẶT HÀNG theo ô tìm ở thanh trên — Sếp 27/09/2026: *"Ở tab đơn hàng cũng vậy"* (gõ
+ * mã đề nghị nào thì chỉ hiện đúng hồ sơ đó).
+ *
+ * Gõ TOÀN SỐ → khớp đúng mã đề xuất của đề nghị NGUỒN (cùng luật `khopTimBangQuyTrinh`), tức hiện
+ * mọi đơn của đề nghị đó — không khớp "chứa" để `16` không kéo theo `160`, `161`… Gõ CHỮ → mã PO,
+ * mã hồ sơ đề nghị, công trình, nhà cung cấp.
+ * 🔒 Nhà cung cấp chỉ đưa vào so khi vai trò xem được NCC — không thì gõ tên NCC mà lọc ra đúng đơn
+ * là lộ NCC qua đường vòng.
+ */
+export function khopTimDonHang(
+  po: Pick<DonDatHang, "code" | "prCode" | "supplierTen" | "tenCongTrinh">,
+  dnNguon: Pick<DeNghiMuaHang, "code" | "tieuDe" | "tenCongTrinh" | "maDeXuatAppRequest"> | undefined,
+  tuKhoa: string,
+  xemNhaCungCap: boolean,
+): boolean {
+  const q = tuKhoa.trim();
+  if (!q) return true;
+  if (/^\d+$/.test(q)) return dnNguon ? khopTimBangQuyTrinh(dnNguon, q) : false;
+  if (dnNguon && khopTimBangQuyTrinh(dnNguon, q)) return true;
+  const chuan = (x: string | undefined) => boDau(x ?? "").toLowerCase().replace(/\s+/g, " ");
+  const k = chuan(q);
+  return [po.code, po.prCode, po.tenCongTrinh, xemNhaCungCap ? po.supplierTen : undefined].some((x) =>
+    chuan(x).includes(k),
+  );
+}

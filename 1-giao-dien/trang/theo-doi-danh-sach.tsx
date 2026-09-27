@@ -14,6 +14,9 @@ import { tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { dungBangQuyTrinh, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import { khopTimBangQuyTrinh } from "@/2-quy-trinh/tim-kiem";
+import { useTuKhoaBangQuyTrinh } from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
+import { DaiDangLoc } from "@/1-giao-dien/thanh-phan-dung-chung/dai-dang-loc";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import {
   DauBangDanhSachHoSo,
@@ -167,12 +170,20 @@ export default function TrangTheoDoi() {
    * cấp thì 90 dòng JSX bên dưới phải thụt lại hết — diff phình lên mà giao diện không
    * khác gì. Thẻ thuộc nhóm nhận viền trái để mắt thấy chúng đi cùng nhau.
    */
+  /* ★ Lọc theo ô tìm ở thanh trên — Sếp 27/09/2026: *"A muốn khi bấm tìm kiếm mã đề nghị nào thì trên
+     màn hình chỉ hiển thị đúng đề nghị đó"*. Cùng luật khớp với bảng Quy trình (`khopTimBangQuyTrinh`). */
+  const tuKhoaBang = useTuKhoaBangQuyTrinh();
+  const danhSachLoc = useMemo(
+    () => danhSach.filter((m) => khopTimBangQuyTrinh(m.dn, tuKhoaBang)),
+    [danhSach, tuKhoaBang],
+  );
+
   const dongHienThi = useMemo(() => {
     /** Tên công trình hiển thị cho từng khóa nhóm — lấy đúng cách người dùng đã gõ lần đầu. */
     const tenNhom = new Map<string, string>();
 
     const map = new Map<string, typeof danhSach>();
-    for (const m of danhSach) {
+    for (const m of danhSachLoc) {
       /* Khóa tính bằng hàm dùng chung với `hienThe` — xem lý do ở `khoaNhom`. */
       const khoa = khoaNhom(m.dn, nhomTheo);
       if (!tenNhom.has(khoa)) tenNhom.set(khoa, tenNhomHienThi(m.dn, nhomTheo));
@@ -246,7 +257,7 @@ export default function TrangTheoDoi() {
       });
     }
     return ra;
-  }, [danhSach, nguoiDung.uid, nhomTheo]);
+  }, [danhSachLoc, nguoiDung.uid, nhomTheo]);
 
   /**
    * ★★ THẺ DÙNG CHUNG VỚI BẢNG QUY TRÌNH — Sếp 27/09/2026 duyệt bản demo *"cửa sổ theo dõi đề nghị
@@ -328,6 +339,7 @@ export default function TrangTheoDoi() {
         />
       ) : (
         <div className="flex flex-col gap-(--hp-md-card-gap)">
+          <DaiDangLoc tuKhoa={tuKhoaBang} soKetQua={danhSachLoc.length} donVi="đề nghị" />
           {/**
             * ★ CHỌN CÁCH GOM NHÓM — Ban lãnh đạo 23/08/2026: *"thêm chức năng group theo tên công
             * trình / Tên phòng ban"*.

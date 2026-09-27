@@ -40,7 +40,10 @@ export function OTimKiem() {
    * danh sách xổ xuống (nó đè lên chính cái bảng đang lọc). Rời màn thì bỏ lọc.
    */
   const pathname = usePathname();
-  const laBangQuyTrinh = pathname === "/de-nghi";
+  /* ★ Màn có ô tìm LỌC BẢNG (thay vì mở hộp gợi ý) — Sếp 27/09/2026 thêm Theo dõi đề nghị + Đơn hàng:
+     *"khi bấm tìm kiếm mã đề nghị nào thì trên màn hình chỉ hiển thị đúng đề nghị đó"*. Tên biến giữ
+     `laBangQuyTrinh` để các chỗ dùng bên dưới khỏi đổi; kho từ khoá dùng chung cho cả ba màn. */
+  const laBangQuyTrinh = pathname === "/de-nghi" || pathname === "/theo-doi" || pathname === "/don-hang";
   useEffect(() => {
     datTuKhoaBangQuyTrinh(laBangQuyTrinh ? tuKhoa : "");
   }, [laBangQuyTrinh, tuKhoa]);
@@ -109,7 +112,11 @@ export function OTimKiem() {
         onFocus={() => setDangMo(true)}
         onKeyDown={khiGoPhim}
         placeholder={
-          laBangQuyTrinh ? "Lọc bảng: gõ mã đề nghị, công trình…" : "Tìm mã hồ sơ, công trình, vật liệu..."
+          pathname === "/don-hang"
+            ? "Lọc bảng: gõ mã PO, mã đề nghị, công trình…"
+            : laBangQuyTrinh
+              ? "Lọc bảng: gõ mã đề nghị, công trình…"
+              : "Tìm mã hồ sơ, công trình, vật liệu..."
         }
         className="pl-9 pr-9"
         aria-label="Tìm hồ sơ theo mã"

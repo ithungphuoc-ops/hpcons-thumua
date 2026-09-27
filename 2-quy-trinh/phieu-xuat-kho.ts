@@ -1,4 +1,5 @@
 import type { DonDatHang, MauDonMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import { laDongHang } from "@/2-quy-trinh/tinh-toan";
 
 /**
  * ★ LUẬT RIÊNG CỦA MẪU PO-03 — PHIẾU XUẤT KHO (Sếp 26/09/2026).
@@ -19,6 +20,11 @@ import type { DonDatHang, MauDonMuaHang } from "@/3-du-lieu/kieu-du-lieu";
  *   Bảng     STT(A) · Tên mặt hàng(B) · Quy cách / chủng loại(C) · Đơn vị tính(D) ·
  *            Số lượng [Theo chứng từ(1) | Thực xuất(2)] ·
  *            Đơn giá(3) · Thành tiền(4) — rồi dòng "Cộng"
+ *            📌 Chữ trong ngoặc là NHÃN CỘT in ở dòng 19, không phải cột Excel. Cột Excel thật
+ *            (đọc lại 27/09/2026): STT A · Tên B:D · Quy cách E:F · ĐVT G · Theo chứng từ H:I ·
+ *            Thực xuất J · Đơn giá K:L · Thành tiền M; tiêu đề ở dòng 17–18, hàng từ dòng 20.
+ *            Cột N:P ẨN là cột phụ của phần mềm kế toán (N7 = ngày cho công thức I25) — app
+ *            không dùng.
  *   A23      Tổng số tiền (Viết bằng chữ): …
  *   A24      Số chứng từ gốc kèm theo: …
  *   I25      Ngày … tháng … năm …
@@ -90,6 +96,29 @@ export function chuanHoaCanCuXuatKho(s: string | undefined): string | undefined 
   );
 }
 
+/** Dải chấm của biểu mẫu (ô A11) — in khi dòng "Theo" để trống, chừa chỗ viết tay. */
+export const DAI_CHAM_CAN_CU_XUAT_KHO =
+  "........... số .............. ngày ..... tháng ..... năm ..... của ..............................................";
+
+/**
+ * ★ PHẦN SAU CHỮ "Theo:" của phiếu xuất kho — MỘT chỗ cho cả tờ in A4 lẫn file Excel (27/09/2026).
+ * Trước đó tờ in tự ghép `chuanHoaCanCuXuatKho(...) || "…dải chấm…"`; thêm bản Excel mà chép lại
+ * biểu thức đó là hai chỗ cùng nói một chuyện (CLAUDE.md §3.4b).
+ */
+export function noiDungDongTheoXuatKho(canCu: string | undefined): string {
+  return chuanHoaCanCuXuatKho(canCu?.trim()) || DAI_CHAM_CAN_CU_XUAT_KHO;
+}
+
+/**
+ * Ô "Ngày:" (D6) dạng `dd/mm/yyyy` có số 0 đứng trước — đúng chữ biểu mẫu (`Ngày: 22/09/2026`).
+ * Đọc thẳng chuỗi ISO, KHÔNG qua `new Date()`: đổi múi giờ là lệch một ngày trên máy đặt giờ khác.
+ * Ngày rỗng/hỏng → `undefined` để nơi gọi tự quyết (Excel để trống nhãn).
+ */
+export function ngayPhieuXuatKho(ngayISO: string | undefined): string | undefined {
+  const m = ngayISO ? /^(\d{4})-(\d{2})-(\d{2})/.exec(ngayISO) : null;
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : undefined;
+}
+
 /**
  * ★ "DIỄN GIẢI" = TÊN CÔNG TRÌNH THEO ĐỀ NGHỊ — Sếp 27/09/2026: *"Nhập tên công trình theo phiếu đề
  * nghị"*. Ô đã gõ thì giữ chữ người gõ; trống (phiếu lập trước ngày này) thì lấy tên công trình
@@ -102,13 +131,39 @@ export function dienGiaiPhieuXuatKho(
 }
 
 /**
- * ★ VÌ SAO NÚT "XUẤT EXCEL" BỊ KHOÁ Ở MẪU PO-03 — `null` là xuất được.
+ * ★ MẪU NÀO CHƯA CÓ BỘ XUẤT EXCEL — `null` là xuất được.
  *
- * 🔴 CLAUDE.md §3.5 *"đừng để giao diện hứa một việc app không làm"*: bộ xuất Excel hiện có
- * (`xuat-don-hang-excel.ts`) chỉ dựng được tờ ĐƠN MUA HÀNG (PO-01/02). Cho bấm ở mẫu PO-03 là
- * người dùng nhận về một tờ đơn mua hàng trong khi họ chọn phiếu xuất kho. Nên khoá và nói rõ.
+ * ✅ TỪ 27/09/2026 PO-03 ĐÃ CÓ BỘ XUẤT RIÊNG (`xuat-phieu-xuat-kho-excel.ts`) — Sếp: *"e giải quyết
+ * xuất excel của PO3 đi"*. Nên cả ba mẫu đều trả `null`.
+ *
+ * 📜 Trước 27/09/2026 hàm này khoá PO-03 kèm câu *"Mẫu PO-03 (Phiếu xuất kho) chưa có bản xuất
+ * Excel theo đúng biểu mẫu — dùng nút In để in phiếu"* (CLAUDE.md §3.5 — bộ xuất lúc đó chỉ dựng
+ * được tờ ĐƠN MUA HÀNG, cho bấm là người dùng nhận nhầm loại chứng từ).
+ *
+ * 🔴 GIỮ HÀM, ĐỪNG XOÁ: `switch` vét cạn `MauDonMuaHang`. Mai kia thêm mẫu thứ tư vào kiểu dữ liệu
+ * mà chưa viết bộ xuất thì mẫu đó rơi vào `default` và TỰ BỊ KHOÁ kèm lý do — không lặng lẽ xuất
+ * ra tờ đơn mua hàng như lỗi đã chặn ở trên.
  */
 export function vuongMacXuatExcelTheoMau(mau: MauDonMuaHang | undefined): string | null {
-  if (!laPhieuXuatKho(mau)) return null;
-  return "Mẫu PO-03 (Phiếu xuất kho) chưa có bản xuất Excel theo đúng biểu mẫu — dùng nút In để in phiếu.";
+  switch (mau ?? "thoa_thuan") {
+    case "thoa_thuan":
+    case "theo_hop_dong":
+    case "phieu_xuat_kho":
+      return null;
+    default:
+      return "Mẫu này chưa có bản xuất Excel theo đúng biểu mẫu — dùng nút In để in.";
+  }
+}
+
+/**
+ * ★ VÌ SAO CHƯA XUẤT ĐƯỢC PHIẾU XUẤT KHO RA EXCEL — `null` là xuất được (Sếp 27/09/2026).
+ *
+ * 🔴 KHÔNG DÙNG `vuongMacXuatPO` CHO PO-03: luật đó đòi chứng từ giá và MỌI dòng có đơn giá > 0,
+ * mà PO-03 lưu giá = 0 theo chỉ đạo 26/09/2026 (*"quy trình xuất kho thì sẽ không có đơn giá"*).
+ * Đi qua luật đó là nút khoá vĩnh viễn với câu *"Mọi mặt hàng đều chưa có đơn giá"*.
+ * Phiếu xuất kho chỉ cần có ít nhất một mặt hàng — dòng ghi chú không tính (`laDongHang`).
+ */
+export function vuongMacXuatPhieuXuatKho(po: Pick<DonDatHang, "items">): string | null {
+  if (!po.items.some(laDongHang)) return "Phiếu xuất kho chưa có mặt hàng nào.";
+  return null;
 }

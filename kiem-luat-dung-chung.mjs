@@ -13314,6 +13314,237 @@ kiem(
   });
 }
 
+/* ★ XUẤT EXCEL PHIẾU XUẤT KHO (Mẫu PO-03) — Sếp 27/09/2026: "e giải quyết xuất excel của PO3 đi".
+   DỰNG WORKBOOK RỒI ĐỌC LẠI TỪNG Ô (ghi ra bộ nhớ → nạp lại bằng exceljs), không chỉ gọi hàm:
+   người nhận, dòng Theo, Diễn giải = tên công trình, Số HĐ cùng hàng cột I, dòng hàng, ô giá TRỐNG.
+   Chiều ngược: PO-01/02 vẫn bị luật giá cũ chặn như trước.
+   📌 `exceljs` để ngoài bundle và TRUYỀN VÀO hàm dựng (`dungPhieuXuatKhoExcel(thuVien, …)`): bundle
+   nằm ở thư mục tạm nên tự `require("exceljs")` không tìm thấy `node_modules`. Thư mục tạm riêng. */
+{
+  const CHU = "Sếp 27/09/2026 — xuất Excel phiếu xuất kho (PO-03)";
+  const thuMucXK = mkdtempSync(join(tmpdir(), "kiem-luat-xk-excel-"));
+  let XK = null;
+  let PXK = null;
+  let XDH = null;
+  try {
+    execSync(
+      `npx --yes esbuild "2-quy-trinh/xuat-phieu-xuat-kho-excel.ts" "2-quy-trinh/phieu-xuat-kho.ts" "2-quy-trinh/xuat-don-hang-excel.ts" --bundle --platform=node --format=cjs --external:exceljs --outdir="${thuMucXK}" --out-extension:.js=.cjs --log-level=error`,
+      { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+    );
+    XK = nap(join(thuMucXK, "xuat-phieu-xuat-kho-excel.cjs"));
+    PXK = nap(join(thuMucXK, "phieu-xuat-kho.cjs"));
+    XDH = nap(join(thuMucXK, "xuat-don-hang-excel.cjs"));
+  } catch (e) {
+    truot.push({
+      ten: "Dựng 2-quy-trinh/xuat-phieu-xuat-kho-excel.ts",
+      chu: CHU,
+      thucTe: `KHÔNG DỰNG ĐƯỢC: ${String(e.stderr ?? e.message).slice(0, 300)}`,
+      mongDoi: "dựng được",
+    });
+  } finally {
+    rmSync(thuMucXK, { recursive: true, force: true });
+  }
+
+  if (XK && PXK && XDH) {
+    const ExcelJS = nap("exceljs");
+    const dongHang = [
+      { sttDong: 1, tenVatLieu: "Lưới thép hàn", thongSoKyThuat: "D10 *2.3m*7m", donViTinh: "Tấm", khoiLuongDat: 14 },
+      { sttDong: 0, tenVatLieu: "Giao buổi sáng", donViTinh: "", khoiLuongDat: 0, laDongGhiChu: true },
+      { sttDong: 2, tenVatLieu: "Thép lưới hàn", thongSoKyThuat: "D10*2.3m*7.95m", donViTinh: "Tấm", khoiLuongDat: 12.5 },
+    ];
+    const poXK = {
+      code: "XK260001",
+      ngayLapPO: "2026-09-26",
+      mauPO: "phieu_xuat_kho",
+      nguoiNhanHangTen: "Nguyễn Văn A",
+      canCuXuatKho: "Đề nghị số 000000162 ngày 26/09/2026",
+      khoXuat: "Kho Tổng",
+      diaDiemKhoXuat: "Kho A",
+      dienGiaiXuatKho: undefined,
+      tenCongTrinh: "Nhà xưởng Howell",
+      maHopDongCDT: "26003-HDXD/HOWELL",
+      soChungTuGocXuatKho: "01",
+      taiKhoanNoXuatKho: "6211",
+      taiKhoanCoXuatKho: "152",
+      items: dongHang,
+    };
+    /* PO-03 lưu giá = 0 (Sếp 26/09/2026). Truyền THÊM một chứng từ giá CÓ SỐ vào hàm dựng để chắc
+       rằng dù ai đó lỡ đưa giá vào, file vẫn không in giá (hàm không nhận giá). */
+    const giaCoSo = { lines: [{ sttDong: 1, donGia: 500000 }, { sttDong: 2, donGia: 700000 }] };
+    const giaBang0 = { lines: dongHang.map((d) => ({ sttDong: d.sttDong, donGia: 0 })) };
+
+    const docLai = async (po) => {
+      const wb = XK.dungPhieuXuatKhoExcel(ExcelJS, { po, gia: giaCoSo });
+      const wb2 = new ExcelJS.Workbook();
+      await wb2.xlsx.load(await wb.xlsx.writeBuffer());
+      const ws = wb2.worksheets[0];
+      const chu = (dc) => {
+        const v = ws.getCell(dc).value;
+        if (v === null || v === undefined) return "";
+        if (typeof v === "object" && Array.isArray(v.richText)) return v.richText.map((t) => t.text).join("");
+        return typeof v === "object" ? JSON.stringify(v) : String(v);
+      };
+      const gocCua = (dc) => (ws.getCell(dc).isMerged ? ws.getCell(dc).master.address : dc);
+      return { chu, gocCua };
+    };
+    let du = null;
+    let trong = null;
+    let loiDung = null;
+    try {
+      du = await docLai(poXK);
+      trong = await docLai({ code: "XK260002", ngayLapPO: "2026-09-27", items: dongHang.slice(0, 1) });
+    } catch (e) {
+      loiDung = e;
+    }
+    const neuDung = (ham) => () =>
+      loiDung
+        ? { duoc: false, thucTe: `NÉM LỖI khi dựng/đọc lại: ${loiDung.message}`, mongDoi: "dựng + đọc lại được" }
+        : ham();
+
+    kiem(
+      "PXK EXCEL — đầu phiếu + thông tin: Ngày/Số/Nợ/Có, người nhận, Theo dạng chữ, Diễn giải = tên công trình, Số HĐ ở I15 thẳng cột Địa điểm I13",
+      CHU,
+      neuDung(() => {
+        const { chu, gocCua } = du;
+        const ra = {
+          D6: chu("D6"), D7: chu("D7"), L6: chu("L6"), L7: chu("L7"), A9: chu("A9"), A11: chu("A11"),
+          A13: chu("A13"), I13: chu("I13"), A15: chu("A15"), I15: chu("I15"),
+          gopM13: gocCua("M13"), gopM15: gocCua("M15"), gopH15: gocCua("H15"),
+        };
+        return {
+          duoc:
+            ra.D6 === "Ngày: 26/09/2026" && ra.D7 === "Số: XK260001" &&
+            ra.L6 === "Nợ: 6211" && ra.L7 === "Có: 152" &&
+            ra.A9 === "Họ và tên người nhận: Nguyễn Văn A" &&
+            ra.A11 === "Theo: Đề nghị số 000000162 ngày 26 tháng 09 năm 2026" &&
+            ra.A13 === "Xuất tại kho: Kho Tổng" && ra.I13 === "Địa điểm: Kho A" &&
+            ra.A15 === "Diễn giải: Nhà xưởng Howell" && ra.I15 === "Số HĐ: 26003-HDXD/HOWELL" &&
+            ra.gopM13 === "I13" && ra.gopM15 === "I15" && ra.gopH15 === "A15",
+          thucTe: JSON.stringify(ra),
+          mongDoi: "đúng chữ từng ô; I13:M13 và I15:M15 cùng lưới, A15:H15",
+        };
+      }),
+    );
+
+    kiem(
+      "PXK EXCEL — dòng hàng đúng cột biểu mẫu (A · B:D · E:F · G · H:I), dòng ghi chú không thành mặt hàng, rồi dòng Cộng",
+      CHU,
+      neuDung(() => {
+        const { chu, gocCua } = du;
+        const ra = {
+          r20: [chu("A20"), chu("B20"), chu("E20"), chu("G20"), chu("H20")].join("|"),
+          r21: [chu("A21"), chu("B21"), gocCua("M21")].join("|"),
+          r22: [chu("A22"), chu("B22"), chu("E22"), chu("H22")].join("|"),
+          cong: chu("B23"),
+          gop: [gocCua("D20"), gocCua("F20"), gocCua("I20"), gocCua("L20")].join(","),
+        };
+        return {
+          duoc:
+            ra.r20 === "1|Lưới thép hàn|D10 *2.3m*7m|Tấm|14" &&
+            ra.r21 === "|Giao buổi sáng|B21" &&
+            ra.r22 === "2|Thép lưới hàn|D10*2.3m*7.95m|12.5" &&
+            ra.cong === "Cộng" && ra.gop === "B20,E20,H20,K20",
+          thucTe: JSON.stringify(ra),
+          mongDoi: "r20 = 1|Lưới thép hàn|D10 *2.3m*7m|Tấm|14 · ghi chú trải B:M, STT trống · r22 SL 12.5 · B23 = Cộng",
+        };
+      }),
+    );
+
+    kiem(
+      "🔴 PXK EXCEL — PO-03 KHÔNG CÓ GIÁ: Thực xuất · Đơn giá · Thành tiền · Cộng · Tổng tiền bằng chữ đều TRỐNG (không ghi 0), kể cả khi lỡ truyền chứng từ giá có số",
+      CHU,
+      neuDung(() => {
+        const { chu } = du;
+        const oGia = ["J20", "K20", "M20", "J22", "K22", "M22", "E23", "H23", "K23", "M23"];
+        const coChu = oGia.filter((dc) => chu(dc) !== "");
+        const ra = { coChu, A24: chu("A24"), A25: chu("A25"), I26: chu("I26"), A27: chu("A27"), I28: chu("I28") };
+        return {
+          duoc:
+            coChu.length === 0 &&
+            ra.A24 === "Tổng số tiền (Viết bằng chữ): " &&
+            ra.A25 === "Số chứng từ gốc kèm theo: 01" &&
+            ra.I26 === "Ngày 26 tháng 09 năm 2026" &&
+            ra.A27 === "Người lập biểu" && ra.I28 === "(Hoặc bộ phận có nhu cầu nhập)",
+          thucTe: JSON.stringify(ra),
+          mongDoi: "mọi ô giá/thực xuất/cộng rỗng · A24 chỉ nhãn · A25 số chứng từ · I26 dòng ngày ký",
+        };
+      }),
+    );
+
+    kiem(
+      "PXK EXCEL — ô trống giữ NHÃN TRƠN như biểu mẫu; dòng Theo trống in nguyên dải chấm của biểu mẫu",
+      CHU,
+      neuDung(() => {
+        const { chu } = trong;
+        const ra = { A9: chu("A9"), A11: chu("A11"), A13: chu("A13"), A15: chu("A15"), I15: chu("I15"), L6: chu("L6") };
+        return {
+          duoc:
+            ra.A9 === "Họ và tên người nhận: " &&
+            ra.A11 === `Theo: ${PXK.DAI_CHAM_CAN_CU_XUAT_KHO}` &&
+            ra.A13 === "Xuất tại kho: " && ra.A15 === "Diễn giải: " && ra.I15 === "Số HĐ: " &&
+            ra.L6 === "Nợ: ",
+          thucTe: JSON.stringify(ra),
+          mongDoi: "nhãn trơn; A11 = 'Theo: ' + dải chấm",
+        };
+      }),
+    );
+
+    kiem(
+      "PXK — MỞ KHOÁ: cả 3 mẫu có bộ xuất; PO-03 giá 0 vẫn xuất được (luật riêng), chỉ có ghi chú thì chặn; luật giá PO-01 SẼ khoá PO-03 nên phải đi nhánh riêng",
+      CHU,
+      () => {
+        const mau = ["thoa_thuan", "theo_hop_dong", "phieu_xuat_kho", undefined].map((m) =>
+          PXK.vuongMacXuatExcelTheoMau(m),
+        );
+        const pxkDu = PXK.vuongMacXuatPhieuXuatKho(poXK);
+        const pxkChiGhiChu = PXK.vuongMacXuatPhieuXuatKho({ items: [dongHang[1]] });
+        const luatGiaVoiPXK = XDH.vuongMacXuatPO({ po: poXK, gia: giaBang0 });
+        return {
+          duoc:
+            mau.every((x) => x === null) &&
+            pxkDu === null &&
+            typeof pxkChiGhiChu === "string" && pxkChiGhiChu.includes("chưa có mặt hàng") &&
+            typeof luatGiaVoiPXK === "string",
+          thucTe: `mau=${JSON.stringify(mau)} · pxk=${pxkDu} · chiGhiChu=${pxkChiGhiChu} · vuongMacXuatPO(PO-03)=${luatGiaVoiPXK}`,
+          mongDoi: "mau=[null×4] · pxk=null · chiGhiChu='…chưa có mặt hàng…' · vuongMacXuatPO(PO-03) = câu chặn",
+        };
+      },
+    );
+
+    kiem(
+      "CHIỀU NGƯỢC — PO-01/02 vẫn qua luật giá cũ: không chứng từ giá → chặn · thiếu 1 đơn giá → chặn · đủ giá → xuất được",
+      CHU,
+      () => {
+        const po01 = { ...poXK, mauPO: "thoa_thuan", code: "DMH260001" };
+        const khongGia = XDH.vuongMacXuatPO({ po: po01, gia: undefined });
+        const thieu1 = XDH.vuongMacXuatPO({ po: po01, gia: { lines: [{ sttDong: 1, donGia: 500000 }, { sttDong: 2, donGia: 0 }] } });
+        const du = XDH.vuongMacXuatPO({ po: po01, gia: giaCoSo });
+        return {
+          duoc:
+            typeof khongGia === "string" && khongGia.includes("Chưa có chứng từ giá") &&
+            typeof thieu1 === "string" && thieu1.includes("Còn 1 mặt hàng") &&
+            du === null,
+          thucTe: `khongGia=${khongGia} · thieu1=${thieu1} · du=${du}`,
+          mongDoi: "khongGia='Chưa có chứng từ giá…' · thieu1='Còn 1 mặt hàng…' · du=null",
+        };
+      },
+    );
+
+    kiem("PXK — tên file = số phiếu + tên công trình, làm sạch ký tự cấm", CHU, () => {
+      const a = XK.tenFilePhieuXuatKho("XK260001", "26003-HDXD/HOWELL");
+      const b = XK.tenFilePhieuXuatKho("XK260001", " ");
+      const c = XK.tenFilePhieuXuatKhoMau("260001-HPCS", "2026-09-27");
+      return {
+        duoc:
+          a === "XK260001 - 26003-HDXD-HOWELL.xlsx" && b === "XK260001.xlsx" &&
+          c === "MAU-phieu-xuat-kho-260001-HPCS-2026-09-27.xlsx",
+        thucTe: `${a} | ${b} | ${c}`,
+        mongDoi: "XK260001 - 26003-HDXD-HOWELL.xlsx | XK260001.xlsx | MAU-phieu-xuat-kho-260001-HPCS-2026-09-27.xlsx",
+      };
+    });
+  }
+}
+
 const tong = dat + truot.length;
 console.log("");
 if (truot.length === 0) {

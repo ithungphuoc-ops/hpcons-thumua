@@ -134,6 +134,9 @@ function nguoiDungTuAnh(
  * 🔴 Cửa này nằm trên ĐƯỜNG ĐĂNG NHẬP của mọi người không phải Quản trị (`nguoi-dung-hien-tai.tsx`) —
  * hỏng là họ không vào được app. Sau mỗi lần đổi phải đo lại `x-vercel-id` + `npm run kiem-route`;
  * sự cố thì Instant Rollback trên Vercel. Gói Vercel không cho đặt vùng riêng thì dòng này vô hại.
+ * ⚠️ ĐO SAU KHI ĐẨY (27/09/2026, commit 6f37299): header VẪN `hkg1::iad1` → gói Vercel hiện KHÔNG nhận vùng
+ * riêng từng route. Giữ dòng (vô hại, tự có tác dụng nếu nâng gói). Muốn nhanh hẳn phải đổi vùng mặc định
+ * CẢ project sang `sin1` — kéo theo cửa của phiên tích hợp, phải thống nhất với họ trước.
  */
 export const preferredRegion = "sin1";
 

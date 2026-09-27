@@ -15,6 +15,9 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { gomTheoCongTrinh, tenCongTrinhCuaPO } from "@/2-quy-trinh/gom-cong-trinh";
+import { khopTimDonHang } from "@/2-quy-trinh/tim-kiem";
+import { useTuKhoaBangQuyTrinh } from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
+import { DaiDangLoc } from "@/1-giao-dien/thanh-phan-dung-chung/dai-dang-loc";
 import {
   phanTramPO,
   soNgayConLai,
@@ -81,12 +84,27 @@ export default function TrangDanhSachDonHang() {
 
   /* Nhóm NCC chỉ có nghĩa với vai trò xem được NCC — vai trò khác luôn gom theo công trình. */
   const cachNhom: CachNhom = quyen.xemNhaCungCap ? nhomTheo : "cong_trinh";
+  /* ★ Lọc theo ô tìm ở thanh trên — Sếp 27/09/2026 *"Ở tab đơn hàng cũng vậy"*: gõ mã đề nghị nào thì
+     chỉ hiện đơn của đề nghị đó. Luật khớp ở `2-quy-trinh/tim-kiem.ts` → `khopTimDonHang`. */
+  const tuKhoaBang = useTuKhoaBangQuyTrinh();
+  const danhSachLoc = useMemo(
+    () =>
+      danhSach.filter((m) =>
+        khopTimDonHang(
+          m.po,
+          deNghi.find((d) => d.id === m.po.prId),
+          tuKhoaBang,
+          quyen.xemNhaCungCap,
+        ),
+      ),
+    [danhSach, deNghi, tuKhoaBang, quyen.xemNhaCungCap],
+  );
   const cacNhom = useMemo(
     () =>
-      gomTheoCongTrinh(danhSach, (m) =>
+      gomTheoCongTrinh(danhSachLoc, (m) =>
         cachNhom === "nha_cung_cap" ? m.po.supplierTen ?? "" : tenCongTrinhCuaPO(m.po, deNghi),
       ),
-    [danhSach, cachNhom, deNghi],
+    [danhSachLoc, cachNhom, deNghi],
   );
 
   /* Số cột — dòng nhóm và dòng xổ dùng `colSpan` bằng đúng số này (cột ẩn theo quyền). */
@@ -136,6 +154,7 @@ export default function TrangDanhSachDonHang() {
         />
       ) : (
         <div className="flex flex-col gap-(--hp-md-card-gap)">
+          <DaiDangLoc tuKhoa={tuKhoaBang} soKetQua={danhSachLoc.length} donVi="đơn" />
           {quyen.xemNhaCungCap && (
             <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Cách gom nhóm đơn">
               <span className="text-xs font-semibold tracking-wide text-text-desc uppercase">Nhóm theo</span>

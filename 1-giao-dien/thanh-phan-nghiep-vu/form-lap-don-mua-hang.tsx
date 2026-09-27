@@ -129,6 +129,7 @@ import {
   canCuXuatThuDeNghi,
   laPhieuXuatKho,
   vuongMacXuatExcelTheoMau,
+  vuongMacXuatPhieuXuatKho,
 } from "@/2-quy-trinh/phieu-xuat-kho";
 import { KhoiTongQuanPhieuXuatKho } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-tong-quan-phieu-xuat-kho";
 import { docSoTien } from "@/6-tien-ich/doc-so-tien";
@@ -2235,8 +2236,10 @@ export function FormLapDonMuaHang({
        "tờ PO này đã đủ để đưa ra ngoài chưa". Đòi: có mặt hàng, có chứng từ giá, và MỌI dòng
        có đơn giá > 0. Viết một luật riêng cho bản mẫu là sớm muộn hai chỗ nói khác nhau.
 
-       🔴 KHÔNG ĐỂ NÚT BẤM KHÔNG PHẢN ỨNG: bị chặn thì nói ngay thiếu gì. */
-    const vuongMac = vuongMacXuatPO({ po, gia });
+       🔴 KHÔNG ĐỂ NÚT BẤM KHÔNG PHẢN ỨNG: bị chặn thì nói ngay thiếu gì.
+       ★ PO-03 (phiếu xuất kho) không có giá → `vuongMacXuatPO` khoá vĩnh viễn; dùng luật riêng
+       `vuongMacXuatPhieuXuatKho` như nút Xuất Excel bên dưới (27/09/2026). */
+    const vuongMac = laPhieuXuatKho(mauPO) ? vuongMacXuatPhieuXuatKho(po) : vuongMacXuatPO({ po, gia });
     if (vuongMac) {
       toast.error("Chưa in được bản mẫu", { description: vuongMac });
       return;
@@ -2278,16 +2281,19 @@ export function FormLapDonMuaHang({
    * gửi nhà cung cấp.
    */
   async function xuatExcelMau() {
-    /* ★ Mẫu PO-03 chưa có bản Excel đúng biểu mẫu — nút đã khoá, chặn thêm ở đây cho chắc. */
+    /* Mẫu nào CHƯA có bộ xuất thì khoá (nay cả ba mẫu đều có — PO-03 từ 27/09/2026). */
     const chuaXuatDuoc = vuongMacXuatExcelTheoMau(mauPO);
     if (chuaXuatDuoc) {
       toast.error("Chưa xuất được Excel", { description: chuaXuatDuoc });
       return;
     }
     const { po, gia, ncc } = dungDonMau();
+    /* ★ PO-03 → phiếu xuất kho (Sếp 27/09/2026), luật chặn riêng KHÔNG đòi giá — PO-03 không có
+       giá nên `vuongMacXuatPO` sẽ khoá vĩnh viễn. Xem `vuongMacXuatPhieuXuatKho`. */
+    const laPXK = laPhieuXuatKho(mauPO);
 
     // Cùng một luật với nút In ở trên, và với nút Xuất Excel của đơn thật.
-    const vuongMac = vuongMacXuatPO({ po, gia });
+    const vuongMac = laPXK ? vuongMacXuatPhieuXuatKho(po) : vuongMacXuatPO({ po, gia });
     if (vuongMac) {
       toast.error("Chưa xuất được bản mẫu", { description: vuongMac });
       return;
@@ -2295,8 +2301,6 @@ export function FormLapDonMuaHang({
 
     setDangXuatMau(true);
     try {
-      const { xuatDonHangExcel } = await import("@/2-quy-trinh/xuat-don-hang-excel");
-
       // Logo lấy từ `public/` để file có nhận diện như biểu mẫu giấy. Không tải được thì vẫn
       // xuất — thiếu logo đỡ hơn là không xuất được đơn.
       let logo: ArrayBuffer | undefined;
@@ -2307,17 +2311,27 @@ export function FormLapDonMuaHang({
         // Bỏ qua, xuất không logo.
       }
 
-      const blob = await xuatDonHangExcel({
-        po,
-        gia,
-        ncc,
-        /* Tên công trình truyền RIÊNG vì hàm xuất không đọc `po.tenCongTrinh` (chú thích ở
-           `DauVaoXuatPO`). Không truyền là file mất luôn ô "Mã đề xuất và tên công trình". */
-        tenCongTrinh: tenCongTrinh.trim() || undefined,
-        logo,
-      });
-
-      const tenFile = tenFileDonHangMau(maDuAnDon, ngayDonHang);
+      let blob: Blob;
+      let tenFile: string;
+      if (laPXK) {
+        const { xuatPhieuXuatKhoExcel, tenFilePhieuXuatKhoMau } = await import(
+          "@/2-quy-trinh/xuat-phieu-xuat-kho-excel"
+        );
+        blob = await xuatPhieuXuatKhoExcel({ po, logo });
+        tenFile = tenFilePhieuXuatKhoMau(maDuAnDon, ngayDonHang);
+      } else {
+        const { xuatDonHangExcel } = await import("@/2-quy-trinh/xuat-don-hang-excel");
+        blob = await xuatDonHangExcel({
+          po,
+          gia,
+          ncc,
+          /* Tên công trình truyền RIÊNG vì hàm xuất không đọc `po.tenCongTrinh` (chú thích ở
+             `DauVaoXuatPO`). Không truyền là file mất luôn ô "Mã đề xuất và tên công trình". */
+          tenCongTrinh: tenCongTrinh.trim() || undefined,
+          logo,
+        });
+        tenFile = tenFileDonHangMau(maDuAnDon, ngayDonHang);
+      }
       // Tải xuống bằng thẻ <a> tạm — không cần máy chủ, chạy được cả trên hosting tĩnh.
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -2327,8 +2341,10 @@ export function FormLapDonMuaHang({
       // Thu hồi địa chỉ tạm, nếu không mỗi lần bấm lại giữ thêm một bản trong bộ nhớ.
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
 
-      toast.success("Đã tải bản mẫu đơn mua hàng", {
-        description: `${tenFile} — bản mẫu, chưa lưu vào hệ thống và chưa được cấp số đơn hàng.`,
+      toast.success(laPXK ? "Đã tải bản mẫu phiếu xuất kho" : "Đã tải bản mẫu đơn mua hàng", {
+        description: `${tenFile} — bản mẫu, chưa lưu vào hệ thống và chưa được cấp số ${
+          laPXK ? "phiếu" : "đơn hàng"
+        }.`,
       });
     } catch (loi) {
       // 🔴 Nói ra lỗi thay vì im lặng — bấm mà không thấy gì thì người dùng tưởng app hỏng.
