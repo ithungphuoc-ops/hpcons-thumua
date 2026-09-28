@@ -56,14 +56,21 @@ export default function TrangTheoDoiChiTiet() {
 
   /** Lịch sử nhận hàng của một dòng đề nghị — gộp từ mọi PO liên quan. */
   function lichSuNhan(sttDeNghi: number) {
-    const ketQua: { ngay: string; khoiLuong: number; lan: number }[] = [];
+    const ketQua: { ngay: string; khoiLuong: number; lan: number; soLuongQuyDoi?: number; dvtQuyDoi?: string }[] = [];
     for (const po of donHang.filter((p) => p.prId === params.id)) {
       const dongPO = po.items.filter((d) => d.sttDongDeNghi === sttDeNghi);
       if (dongPO.length === 0) continue;
       for (const p of phieuNhan.filter((x) => x.poId === po.id && x.trangThai === "da_nhap_kho")) {
         for (const d of dongPO) {
           const line = p.lines.find((l) => l.sttDongPO === d.sttDong);
-          if (line) ketQua.push({ ngay: p.ngayNhanThucTe, khoiLuong: line.khoiLuongThucNhan, lan: p.lanGiaoThu });
+          if (line)
+            ketQua.push({
+              ngay: p.ngayNhanThucTe,
+              khoiLuong: line.khoiLuongThucNhan,
+              lan: p.lanGiaoThu,
+              // (28/09/2026) Số quy đổi kho ghi kèm — chỉ hiển thị tham khảo, không đổi cách tính.
+              ...(typeof line.soLuongQuyDoi === "number" ? { soLuongQuyDoi: line.soLuongQuyDoi, dvtQuyDoi: line.dvtQuyDoi } : {}),
+            });
         }
       }
     }
@@ -265,6 +272,13 @@ export default function TrangTheoDoiChiTiet() {
                                     <li key={i} className="text-sm text-text-secondary">
                                       Lần {x.lan} · {new Date(x.ngay).toLocaleDateString("vi-VN")} · nhận{" "}
                                       <strong>{x.khoiLuong.toLocaleString("vi-VN")}</strong> {d.donViTinh}
+                                      {typeof x.soLuongQuyDoi === "number" && (
+                                        <span className="text-primary">
+                                          {" "}
+                                          (≈ {x.soLuongQuyDoi.toLocaleString("vi-VN")}
+                                          {x.dvtQuyDoi ? ` ${x.dvtQuyDoi}` : ""})
+                                        </span>
+                                      )}
                                     </li>
                                   ))}
                                 </ul>
@@ -336,6 +350,13 @@ export default function TrangTheoDoiChiTiet() {
                         <li key={i}>
                           Lần {x.lan} · {new Date(x.ngay).toLocaleDateString("vi-VN")} ·{" "}
                           {x.khoiLuong.toLocaleString("vi-VN")} {d.donViTinh}
+                          {typeof x.soLuongQuyDoi === "number" && (
+                            <span className="text-primary">
+                              {" "}
+                              (≈ {x.soLuongQuyDoi.toLocaleString("vi-VN")}
+                              {x.dvtQuyDoi ? ` ${x.dvtQuyDoi}` : ""})
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>

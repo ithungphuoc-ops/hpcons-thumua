@@ -107,12 +107,17 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanPhi
 
       const khongKhop: string[] = [];
       const lines: DongNhanHang[] = payload.lines.map((l) => {
+        // (28/09/2026) Số quy đổi từ kho — chỉ lưu để hiển thị, không tham gia tính tiến độ.
+        const quyDoi =
+          typeof l.soLuongQuyDoi === "number" && l.soLuongQuyDoi > 0
+            ? { soLuongQuyDoi: l.soLuongQuyDoi, ...(l.dvtQuyDoi ? { dvtQuyDoi: l.dvtQuyDoi } : {}) }
+            : {};
         const dong = chonMotDong(l);
         if (!dong) {
           khongKhop.push(l.thongSoKyThuat ? `${l.tenVatLieu} (${l.thongSoKyThuat})` : l.tenVatLieu);
-          return { sttDongPO: -1, khoiLuongThucNhan: l.khoiLuongThucNhan };
+          return { sttDongPO: -1, khoiLuongThucNhan: l.khoiLuongThucNhan, ...quyDoi };
         }
-        return { sttDongPO: dong.sttDong, khoiLuongThucNhan: l.khoiLuongThucNhan };
+        return { sttDongPO: dong.sttDong, khoiLuongThucNhan: l.khoiLuongThucNhan, ...quyDoi };
       });
       if (khongKhop.length > 0) {
         throw new Error(`Không khớp được vật liệu trong PO "${payload.poCode}": ${khongKhop.join(", ")}.`);

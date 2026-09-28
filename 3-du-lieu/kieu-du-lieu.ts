@@ -1659,10 +1659,14 @@ export type TrangThaiPhieuNhan = "cho_kiem_tra" | "da_nhap_kho" | "tu_choi_nhan"
 export interface DongNhanHang {
   /** Trỏ về DongPO.sttDong. */
   sttDongPO: number;
-  /** Khối lượng của CHÍNH LẦN NÀY, không phải cộng dồn. */
+  /** Khối lượng của CHÍNH LẦN NÀY, không phải cộng dồn. Theo ĐVT của PO. */
   khoiLuongThucNhan: number;
   khoiLuongTuChoi?: number;
   lyDoTuChoi?: string;
+  /** (28/09/2026) Kho quy đổi ĐVT lúc nhập: số + ĐVT đã quy đổi — CHỈ để hiển thị tham khảo,
+   *  không dùng tính tiến độ (tiến độ vẫn theo khoiLuongThucNhan/ĐVT của PO). */
+  soLuongQuyDoi?: number;
+  dvtQuyDoi?: string;
 }
 
 export interface PhieuNhanHang {

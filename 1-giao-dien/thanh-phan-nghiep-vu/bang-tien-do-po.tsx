@@ -284,6 +284,13 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                     return (
                       <TableCell key={p.id} className="text-right">
                         {line ? line.khoiLuongThucNhan.toLocaleString("vi-VN") : "—"}
+                        {/* (28/09/2026) Kho quy đổi ĐVT — hiện thêm số quy đổi để tham khảo, không tính tiến độ. */}
+                        {line && typeof line.soLuongQuyDoi === "number" && (
+                          <span className="block text-xs whitespace-nowrap text-primary">
+                            ≈ {line.soLuongQuyDoi.toLocaleString("vi-VN")}
+                            {line.dvtQuyDoi ? ` ${line.dvtQuyDoi}` : ""}
+                          </span>
+                        )}
                       </TableCell>
                     );
                   })}

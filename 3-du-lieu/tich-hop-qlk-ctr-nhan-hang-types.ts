@@ -29,6 +29,11 @@ export type DongNhanHangTuQlkCtr = {
    *  sau sự cố PO DMH260002: so khớp chỉ theo tên gán nhầm khối lượng sang dòng khác, kích
    *  hoạt nhầm chặn "vượt quá số lượng" làm rollback cả phiếu. */
   thongSoKyThuat?: string;
+  /** (28/09/2026) Khi kho quy đổi ĐVT lúc nhập (vd PO tính Cây, kho đếm Bó): số + ĐVT đã quy đổi
+   *  — CHỈ để HIỂN THỊ tham khảo. Tiến độ/đã nhận của Thu mua vẫn tính theo khoiLuongThucNhan
+   *  (ĐVT của PO). Vắng mặt = lần nhập không quy đổi. */
+  soLuongQuyDoi?: number;
+  dvtQuyDoi?: string;
 };
 
 export type AnhTuQlkCtr = {
