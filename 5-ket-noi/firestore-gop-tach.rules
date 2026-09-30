@@ -59,8 +59,21 @@ service cloud.firestore {
     // ------------------------------------------------------------------
     // KHO DỮ LIỆU CHUNG của bản chạy thử — MỘT document duy nhất.
     // ------------------------------------------------------------------
+    //
+    // 🔴 VÁ 30/09/2026 — trước đây chỉ `duocVao()` (tức chỉ cần đăng nhập App Tổng, KHÔNG
+    // kiểm đã được cấp quyền Thu mua hay chưa). Sự cố thật: một nhân viên CHƯA từng được cấp
+    // quyền Thu mua vẫn đọc được nguyên `chay-thu/du-lieu-chung` + `chay-thu/thanh-toan` chỉ
+    // bằng cách bắt gói tin Firestore trong DevTools — vì bất kỳ ai trong ~121 tài khoản App
+    // Tổng cũng qua được cửa `duocVao()`.
+    //
+    // Chốt thêm: phải CÓ hồ sơ `nguoi-dung/{uid}` — hồ sơ này chỉ được tạo cho người thật sự
+    // được cấp quyền Thu mua (qua `tao-tai-khoan.js` hoặc màn "Phân quyền người dùng", xem
+    // `ghiHoSoNguoiDungMayChu` ở `hpcore-may-chu.ts`), nên đây là chốt tối thiểu đúng ý —
+    // "đã được cấp quyền vào app" — mà KHÔNG cần chờ hạ tầng claims (`daCoClaims`) của khối
+    // `tm_*` bên dưới, vì `chay-thu` là MỘT document chung, không tách được theo trường/cấp.
     match /chay-thu/{tep} {
-      allow read, write: if duocVao();
+      allow read, write: if duocVao()
+        && exists(/databases/$(database)/documents/nguoi-dung/$(request.auth.uid));
     }
 
     /**
