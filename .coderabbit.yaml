@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# Cấu hình CodeRabbit — thêm 04/09/2026 theo yêu cầu chuẩn hoá review cho toàn bộ app con.
+# Tài liệu đầy đủ: https://docs.coderabbit.ai/reference/configuration
+
+language: "vi-VN"
+
+tone_instructions: >
+  Ưu tiên chỉ ra lỗi logic thật, lỗ hổng bảo mật, và sai sót phân quyền. Hạn chế góp ý
+  style/format nếu code đã nhất quán với phần còn lại của repo. Trả lời ngắn gọn, không lặp
+  lại nội dung diff.
+
+reviews:
+  profile: "assertive"
+  auto_review:
+    enabled: true
+    drafts: false
+
+  path_filters:
+    - "!node_modules/**"
+    - "!.next/**"
+    - "!openspec/changes/**/tasks.md"
+    - "!**/*.lock"
+    - "!package-lock.json"
+
+  path_instructions:
+    - path: "2-quy-trinh/**"
+      instructions: >
+        Tầng luật nghiệp vụ thuần (business rules) của app Thu Mua. Mọi điều kiện chặn/mở bước, tính
+        quyền sửa chứng từ, tính trạng thái đơn hàng PHẢI là một hàm dùng chung — nơi giao diện (UI) và
+        nơi ghi dữ liệu đều gọi vào ĐÚNG hàm đó. Gắn cờ nếu thấy điều kiện tương đương bị viết lại ở
+        1-giao-dien/ hoặc 3-du-lieu/ thay vì gọi hàm có sẵn ở đây.
+    - path: "app/api/**"
+      instructions: >
+        Route tích hợp với hệ thống ngoài (QLK CTR, App Request, App Tổng). Luôn kiểm tra: có xác thực
+        đúng (x-api-key hoặc session/uid) trước khi đọc/ghi không, có tránh lộ dữ liệu giá/công nợ ra
+        ngoài phạm vi cho phép của bên gọi không, và route có idempotent (gọi lại nhiều lần an toàn)
+        khi nhận webhook/callback từ hệ thống khác không.
+    - path: "3-du-lieu/kho-du-lieu.tsx"
+      instructions: >
+        Tầng ghi dữ liệu Firestore trung tâm. Mọi hàm ghi (set/update) phải tự kiểm tra lại điều kiện
+        quyền và trạng thái hồ sơ (đã đóng/đã hoàn thành chưa) ở CHÍNH tầng này — không tin tưởng rằng
+        UI gọi vào đã kiểm tra đủ, vì UI có thể bị đi vòng qua nhiều đường (kéo thả, nút khác, URL trực
+        tiếp).
+
+  pre_merge_checks:
+    docstrings:
+      mode: "warning"
+      threshold: 80
+    title:
+      mode: "warning"
+    description:
+      mode: "warning"
+    issue_assessment:
+      mode: "off" # repo không dùng issue tracker liên kết PR
+    custom_checks:
+      - name: "Một luật, một nơi giữ"
+        mode: "warning"
+        instructions: >
+          Nếu PR thêm một điều kiện/luật nghiệp vụ (chặn hành động, tính quyền, tính trạng
+          thái...) mà điều kiện tương đương đã tồn tại ở một hàm/nơi khác trong repo, PR phải
+          GỌI LẠI đúng hàm đó — không viết lại điều kiện tương đương ở một nơi thứ hai. Hai nơi
+          cùng trả lời một câu hỏi mà có thể lệch nhau là lỗi nghiêm trọng cần gắn cờ.
+      - name: "Không tin dữ liệu từ client"
+        mode: "warning"
+        instructions: >
+          Với API route hoặc hàm ghi dữ liệu (Firestore/DB) nhận tham số quyết định quyền/trạng
+          thái từ phía gọi (client, props UI), phải tự kiểm tra lại điều kiện đó ở tầng ghi —
+          không chỉ dựa vào việc UI đã ẩn/khóa nút. Gắn cờ nếu tầng ghi tin thẳng tham số mà
+          không xác minh lại.
+
+chat:
+  auto_reply: true
