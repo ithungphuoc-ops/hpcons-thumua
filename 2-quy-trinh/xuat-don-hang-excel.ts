@@ -274,8 +274,12 @@ export async function xuatDonHangExcel(dv: DauVaoXuatPO): Promise<Blob> {
   // ---------- THÔNG TIN HAI BÊN ----------
   // Gộp tới cột G (7) thay vì H (8) — dịch trái theo việc bỏ cột "Mã hàng" 16/09/2026.
   datNhanKemGiaTri(6, 1, "Tên nhà cung cấp:", po.supplierTen, 7).font = { size: 11, bold: true };
-  datNhanKemGiaTri(7, 1, "Địa chỉ:", ncc?.diaChi ?? "", 7).font = { size: 11 };
-  datNhanKemGiaTri(8, 1, "Mã số thuế:", ncc?.maSoThue ?? "").font = { size: 11 };
+  /* 🔴 ƯU TIÊN BẢN GHI TRÊN ĐƠN (02/10/2026), y như tờ in A4: NCC gõ tay không có trong danh mục
+     thì `ncc` rỗng — trước đây file Excel ra ô Mã số thuế / Địa chỉ trống dù đơn có ghi. */
+  datNhanKemGiaTri(7, 1, "Địa chỉ:", po.diaChiNCC || ncc?.diaChi || "", 7).font = { size: 11 };
+  datNhanKemGiaTri(8, 1, "Mã số thuế:", po.maSoThueNCC || ncc?.maSoThue || "").font = {
+    size: 11,
+  };
   datNhanKemGiaTri(9, 1, "Người Nhận:", po.nguoiNhanHangTen ?? "").font = { size: 11 };
 
   const cotPhai: [number, string, string][] = [

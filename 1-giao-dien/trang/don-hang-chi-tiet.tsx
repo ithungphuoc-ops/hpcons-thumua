@@ -210,7 +210,7 @@ export default function TrangChiTietDonHang() {
           /* Thủ kho vào màn này để bấm "Xác nhận nhận hàng" nhưng KHÔNG vào được `/tong-quan`
              từ 18/09/2026 — xem `duongDanGocTheoQuyen`. */
           { label: "Thu mua", href: duongDanGocTheoQuyen(quyen) },
-          { label: "Đơn đặt hàng", href: "/don-hang" },
+          { label: "Theo dõi đơn hàng", href: "/don-hang" },
           { label: po.code },
         ]}
         title={po.code}

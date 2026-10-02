@@ -12,7 +12,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | **`thanh-phan-dung-chung/`** | Thư viện dùng chung HPCons theo Design System V1.1: thẻ KPI, timeline, badge trạng thái, màn hình trống, bảng dữ liệu, trang in | ⚠️ Sửa cẩn thận — các app khác cũng dùng chung mẫu này |
 | **`nen-tang-ui/`** | **Thư viện ngoài** (shadcn/ui): nút, ô nhập, thẻ, bảng, hộp thoại... | 🔴 **KHÔNG SỬA** — mất khi cập nhật thư viện |
 
-## `trang/` — 13 màn hình (1 màn là công cụ chạy thử)
+## `trang/` — 14 màn hình (1 màn là công cụ chạy thử)
 
 | File | Màn hình | Địa chỉ URL |
 |---|---|---|
@@ -21,7 +21,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `de-nghi-nhan-moi.tsx` | 🧪 **Nhận đề nghị mới (giả lập)** — CHỈ để chạy thử, bỏ khi nối Firebase | `/de-nghi/nhan-moi` |
 | `de-nghi-chi-tiet.tsx` | Chi tiết đề nghị + bảng phân bổ | `/de-nghi/[id]` |
 | `phan-bo.tsx` | Việc tồn cần phân bổ (Trưởng bộ phận) | `/phan-bo` |
-| `don-hang-danh-sach.tsx` | Danh sách đơn đặt hàng | `/don-hang` |
+| `don-hang-danh-sach.tsx` | **Theo dõi đơn hàng** (tên menu đổi 02/10/2026) — bảng theo mẫu Excel *"Bảng theo dõi đơn mua hàng"*: 3 cột Theo dõi, ô **Ngày up workflow** nhập tay. Số liệu từ `2-quy-trinh/theo-doi-don-hang.ts` | `/don-hang` |
 | `don-hang-chi-tiet.tsx` | Chi tiết PO + tiến độ nhận hàng + xác nhận hoàn thành | `/don-hang/[id]` |
 | `don-hang-lap-moi.tsx` | Lập đơn đặt hàng — **vỏ mỏng** bọc `thanh-phan-nghiep-vu/form-lap-don-mua-hang.tsx` (từ 17/08/2026). 🔴 Từ **18/08/2026 vào từ menu (không `prId`) là MODULE TẠO MẪU PO**: hiện ngay ô nhập liệu, nhưng **không cất đơn** — hai nút cuối là [In mẫu PO] và [Xuất Excel] (Ban lãnh đạo: *"chỉ cần tạo mẫu PO thôi, chưa cần lưu"*). Bước "chọn đề nghị" làm sáng hôm đó đã **xóa hẳn**. Vẫn là đường DUY NHẤT của chức năng tách PO theo phân bổ báo giá (`?prId=&rfqId=&nccId=`) | `/don-hang/tao-moi` |
 | `don-hang-in.tsx` | **In đơn mua hàng A4** — chỉ lo *tra kho theo id + gác 3 lớp quyền*. 🔴 Bản vẽ tờ giấy ở `thanh-phan-nghiep-vu/to-don-mua-hang-a4.tsx` | `/in/don-hang/[id]` |
@@ -31,6 +31,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `bao-gia-danh-sach.tsx` | Danh sách bảng báo giá | `/bao-gia` |
 | `bao-gia-chi-tiet.tsx` | Bảng so sánh giá nhiều nhà cung cấp | `/bao-gia/[id]` |
 | `cong-no.tsx` | Công nợ nhà cung cấp + tuổi nợ 30-60-90 | `/cong-no` |
+| `nha-cung-cap.tsx` | **Danh mục nhà cung cấp** (02/10/2026) — xem, **Xuất Excel**, **Nhập Excel** có xem trước (dòng trùng MST/tên bỏ qua). Vào được: `xemQuyTrinhMuaHang && xemNhaCungCap`; nhập/xoá: `lapPO` | `/nha-cung-cap` |
 
 > Địa chỉ URL do thư mục `app/` quyết định (Next.js). File trong `app/` chỉ có **1 dòng** trỏ về đây.
 
@@ -55,7 +56,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `che-do-mau.tsx` | Bộ điều khiển Sáng/Tối (thư viện `next-themes`) |
 | `mat-do.tsx` | Bộ điều khiển mật độ — **mức chuẩn "Vừa" khai ở đây** (`MAT_DO_MAC_DINH`) |
 
-## `thanh-phan-nghiep-vu/` — 31 file (25/09/2026 thêm `o-nhap-da-tra.tsx` · `nut-xuat-cong-no.tsx`)
+## `thanh-phan-nghiep-vu/` — 32 file (25/09/2026 thêm `o-nhap-da-tra.tsx` · `nut-xuat-cong-no.tsx`; 02/10/2026 thêm `o-ghi-ly-do.tsx` — ô chữ + nút Lưu cho lý do "không có chứng từ", dùng ở mục Phiếu chi. `o-chung-tu-bat-buoc.tsx` có thêm prop tuỳ chọn `congTac` — ô tick bật/tắt chỗ đính kèm, dùng ở UNC và Gỡ ứng)
 
 ⚠️ Bảng dưới **chỉ liệt kê những file hay phải sửa nhất**, không phải danh sách đủ. Danh sách
 đủ tra ở `BAN-DO-MA-NGUON.md` mục 2 (hiện tượng → sửa file nào).

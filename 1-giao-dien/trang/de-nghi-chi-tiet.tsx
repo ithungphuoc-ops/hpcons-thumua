@@ -168,9 +168,7 @@ import {
   vuongMacRoiBuocLapDon,
   NHAN_TEP_HOA_DON_VAT,
   NHAN_TEP_HOP_DONG,
-  NHAN_TEP_PHIEU_CHI,
   NHAN_TEP_UNC,
-  tepPhieuChi,
   /* 📌 ĐÃ BỎ `BUOC_DINH_KEM_PHIEU_GIAO_HANG`, `NHAN_TEP_PHIEU_GIAO_HANG`,
      `tepPhieuGiaoHangPhongBan` khỏi tệp này ngày 15/09/2026 — chúng chỉ phục vụ ô "Phiếu giao hàng"
      ở bước ⑥, mà Sếp đã cho bỏ ô đó (*"trường này đang bị dư => bỏ"*). Ba thứ đó **vẫn còn** trong
@@ -193,9 +191,12 @@ import {
   tepHoaDonVAT,
   tepHopDongSuaDuoc,
   tepUNC,
+  coUyNhiemChi,
+  lyDoKhongBoTickUNC,
   thieuHopDongDaGhiLyDo,
   vuongMacHoanThanhQuyTrinh,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
+import { OPhieuChiGoUng } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-phieu-chi-go-ung";
 import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
 /* Khối "Kết quả" của bước ⑦ — bộ hồ sơ thanh toán 7 mục (Ban lãnh đạo 26/08/2026). */
 import { KhoiBoHoSoThanhToan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan";
@@ -303,6 +304,7 @@ export default function TrangChiTietDeNghi({
     xacNhanTruongBP,
     luiVeBuoc,
     ghiLyDoThieuChungTu,
+    datTickChungTu,
     /* ★ Ba hàm dưới đây phục vụ các LỐI VÀO VỪA DỜI TỪ MENU ⋯ SANG ĐÂY (Ban lãnh đạo 12/09/2026:
        *"chỉ bỏ ở mục hiển thị thôi, còn chức năng thì vẫn phải giữ lại"*). Xem khối nút ở đầu
        "Thông tin đề nghị" bên dưới. */
@@ -3856,26 +3858,38 @@ export default function TrangChiTietDeNghi({
                             duocSua={duocSuaTepBuoc}
                             khoa={hoSoDaDong}
                             tepDaCo={tepUNC(dn)}
+                            /* ★ Ô TICK "Có ủy nhiệm chi" — Sếp 02/10/2026. Không tick (mặc định) = hồ
+                               sơ không có UNC, ẩn nút đính kèm. Luật ở `chung-tu-cuoi-quy-trinh.ts`. */
+                            congTac={{
+                              bat: coUyNhiemChi(dn),
+                              nhan: "Có ủy nhiệm chi",
+                              khiTat: "Không có UNC",
+                              khoa: hoSoDaDong
+                                ? "Hồ sơ đã đóng."
+                                : !duocSuaTepBuoc
+                                  ? "Bạn không có quyền sửa chứng từ của bước này."
+                                  : coUyNhiemChi(dn)
+                                    ? (lyDoKhongBoTickUNC(dn) ?? undefined)
+                                    : undefined,
+                              onDoi: (co) => {
+                                const loi = datTickChungTu(dn.id, "unc", co, nguoiDung.tenHienThi);
+                                if (loi) toast.error(loi);
+                              },
+                            }}
                           />
                         ),
                         /* ★★ PHIẾU CHI — mục 8 của bộ hồ sơ thanh toán (Ban lãnh đạo 26/08/2026,
                            số thứ tự đổi thành 8 theo danh sách Sếp 15/09/2026).
                            📌 TÙY CHỌN đúng chữ Sếp *"(Nếu có)"*: đơn trả qua ngân hàng thì chứng
                            từ là ủy nhiệm chi ở trên, phiếu chi là của khoản trả bằng tiền mặt. */
+                        /* ★ Phiếu chi + ô tick "Gỡ ứng" (Sếp 02/10/2026) — MỘT thành phần dùng chung với
+                           hộp "Gỡ vướng" khi kéo thẻ ⑦ → ⑧, xem `o-phieu-chi-go-ung.tsx`. */
                         phieu_chi: (
-                          <OChungTuBatBuoc
+                          <OPhieuChiGoUng
                             deNghi={dn}
-                            maGiaiDoan={BUOC_DINH_KEM_HO_SO_THANH_TOAN}
-                            nhanO={NHAN_TEP_PHIEU_CHI}
-                            /* 🔴 Dáng gọn — Sếp 17/09/2026: *"muốn mục hiển thị file đính kèm này
-                               giống mục số 4 và 5"*. Bật cho CẢ BỐN ô của bộ hồ sơ — bật một ô là một
-                               danh sách hai dáng, đúng cái Sếp vừa bắt. */
-                            dangGon
-                            tieuDe="Phiếu chi"
-                            moTa="Phiếu chi của khoản trả bằng tiền mặt. Đơn chuyển khoản thì để trống — chứng từ là ủy nhiệm chi ở trên."
                             duocSua={duocSuaTepBuoc}
                             khoa={hoSoDaDong}
-                            tepDaCo={tepPhieuChi(dn)}
+                            dangGon
                           />
                         ),
                         /**

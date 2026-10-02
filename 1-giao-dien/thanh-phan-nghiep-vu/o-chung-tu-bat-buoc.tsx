@@ -19,6 +19,7 @@
 import { useState } from "react";
 import { FileCheck2 } from "lucide-react";
 import { ODinhKemTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
+import { Checkbox } from "@/1-giao-dien/nen-tang-ui/checkbox";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -56,6 +57,12 @@ export function OChungTuBatBuoc({
    */
   dangGon,
   /**
+   * ★ Ô TICK BẬT / TẮT CHỖ ĐÍNH KÈM — Sếp 02/10/2026, hiện chỉ ô Ủy nhiệm chi dùng. Không truyền thì
+   * ô y như cũ (8 chỗ khác không đổi). Tắt → không có nút đính kèm, chỉ hiện `khiTat`.
+   * 📌 Ô tick đứng NGAY CẠNH nút đính kèm (ảnh Sếp khoanh), cùng hàng với nó.
+   */
+  congTac,
+  /**
    * ★★ ĐƯỢC ĐÍNH VÀO Ô ĐANG TRỐNG, DÙ KHÔNG ĐƯỢC THAY/XOÁ BẢN ĐÃ CÓ — Sếp 18/09/2026:
    * ***"mở nút đính kèm cho nhân viên"*** (ảnh: nút "Hợp đồng" mờ ở tài khoản nhân viên).
    *
@@ -81,6 +88,15 @@ export function OChungTuBatBuoc({
   khoa?: boolean;
   tepDaCo: MoTaTep[];
   nutPhu?: React.ReactNode;
+  congTac?: {
+    bat: boolean;
+    nhan: string;
+    /** Chữ hoặc ô (vd ô ghi lý do) hiện cạnh ô tick khi TẮT. */
+    khiTat: React.ReactNode;
+    /** Lý do không đổi được — có thì ô tick mờ và chữ này hiện khi rê chuột. */
+    khoa?: string;
+    onDoi: (bat: boolean) => void;
+  };
   dangGon?: boolean;
   duocDinhMoi?: boolean;
 }) {
@@ -93,6 +109,28 @@ export function OChungTuBatBuoc({
   const [themBanNua, setThemBanNua] = useState(false);
 
   const nguoi = { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi };
+
+  const oTick = congTac && (
+    <label
+      title={congTac.khoa}
+      className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-text-primary has-disabled:cursor-not-allowed has-disabled:opacity-60 md:min-h-9"
+    >
+      <Checkbox
+        checked={congTac.bat}
+        disabled={congTac.khoa !== undefined}
+        onCheckedChange={(c) => congTac.onDoi(c === true)}
+      />
+      {congTac.nhan}
+    </label>
+  );
+  /* Ô tick đứng chung hàng với nút phụ (nếu có) ngay cạnh nút đính kèm. */
+  const nutPhuDu =
+    oTick || nutPhu ? (
+      <>
+        {oTick}
+        {nutPhu}
+      </>
+    ) : undefined;
 
   function luu(tep: MoTaTep, thayBanCu: MoTaTep | undefined): string | null {
     /* `datTepVaoOGiaiDoan` tự gỡ bản cũ CÙNG NHÃN — nên khi muốn giữ nhiều bản, phải đặt nhãn
@@ -126,6 +164,17 @@ export function OChungTuBatBuoc({
       </div>
       {moTa && <p className="text-xs text-text-desc">{moTa}</p>}
 
+      {congTac && !congTac.bat ? (
+        <div className="flex flex-wrap items-center gap-3">
+          {oTick}
+          {typeof congTac.khiTat === "string" ? (
+            <span className="text-sm font-medium text-text-secondary">{congTac.khiTat}</span>
+          ) : (
+            congTac.khiTat
+          )}
+        </div>
+      ) : (
+      <>
       {/* Các bản đã có — mỗi bản một ô, thay được từng bản. */}
       {tepDaCo.map((t) => (
         <ODinhKemTep
@@ -215,10 +264,10 @@ export function OChungTuBatBuoc({
           /* 🔴 TRUYỀN XUỐNG TẬN NÚT, không bọc flex ở ngoài — Sếp 17/09/2026 *"Đưa gần lại, sao
              phải để cách xa nhau vậy"*. Bọc flex ở đây thì nút phụ đứng cạnh CẢ Ô, mà ô rộng bằng
              câu hướng dẫn dài gần 500px bên dưới nó. Xem `nutKemTheo` ở `o-dinh-kem-tep.tsx`. */
-          nutKemTheo={nutPhu}
+          nutKemTheo={nutPhuDu}
         />
       ) : (
-        nutPhu && <span className="flex flex-wrap items-center gap-2">{nutPhu}</span>
+        nutPhuDu && <span className="flex flex-wrap items-center gap-2">{nutPhuDu}</span>
       )}
 
       {tepDaCo.length > 0 && !themBanNua && duocSua && !khoa && (
@@ -229,6 +278,8 @@ export function OChungTuBatBuoc({
         >
           + Thêm bản nữa
         </button>
+      )}
+      </>
       )}
     </section>
   );

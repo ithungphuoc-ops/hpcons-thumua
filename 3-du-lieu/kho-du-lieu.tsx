@@ -41,6 +41,7 @@ import {
    `12.000000000000002` lọt vào sổ lịch sử (xem `mocSuaBangMatHang`). */
 import { formatNumber, thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
+import { phanLoaiNhapNCC, type NCCTuFile } from "@/2-quy-trinh/danh-muc-ncc-excel";
 import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import { giuThongBaoGanNhat } from "@/2-quy-trinh/giu-thong-bao";
@@ -72,6 +73,8 @@ import {
      khi xoá dòng (Sếp 20/09/2026). Một nguồn chữ, đừng gõ lại chuỗi ở đây. */
   BUOC_DINH_KEM_HO_SO_THANH_TOAN,
   NHAN_TEP_HOA_DON_VAT,
+  lyDoKhongBoTickUNC,
+  lyDoKhongBoTickGoUng,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import {
   CAU_HINH_MAC_DINH,
@@ -1347,6 +1350,13 @@ interface GiaTriDuLieu {
     dienThoai?: string;
     nguoiLienHe?: string;
   }) => Promise<{ loi: string } | { ma: string }>;
+  /**
+   * ★ Nhập NHIỀU nhà cung cấp một lần (từ file Excel, Sếp 02/10/2026). Dòng trùng MST / trùng tên
+   * với danh mục thì BỎ QUA. Trả số đã thêm và số bị bỏ qua.
+   */
+  themNhieuNhaCungCap: (
+    ds: readonly NCCTuFile[],
+  ) => Promise<{ daThem: number; boQua: number; loi?: string }>;
   /** Xoa mot nha cung cap khoi danh muc. Tra ly do bi chan, `null` la da xoa. */
   xoaNhaCungCap: (id: string) => string | null;
 
@@ -1603,6 +1613,11 @@ interface GiaTriDuLieu {
    *   · chuỗi khác — câu lý do bị chặn.
    */
   suaDonHang: (poId: string, thayDoi: ThayDoiDonHang, lyDo: string) => string | null;
+  /**
+   * ★ Ghi / xoá NGÀY UP WORKFLOW của một đơn (Sếp 02/10/2026 — bảng theo dõi đơn hàng). `""` = xoá.
+   * @returns Câu lý do bị chặn, `null` là đã ghi xong.
+   */
+  ghiNgayUpWorkflow: (poId: string, ngay: NgayISO | "") => string | null;
   /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
   xacNhanKho: (poId: string, nguoi: XacNhan) => string | null;
   /**
@@ -1854,6 +1869,16 @@ interface GiaTriDuLieu {
    * `khoa` là hằng số ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`, đừng gõ tay chuỗi.
    * 🔴 Có lý do chỉ MỞ ĐƯỜNG ĐI TIẾP, không phải là đã đủ hồ sơ — hồ sơ vẫn bị tô đỏ.
    */
+  /**
+   * ★ Tick / bỏ tick hai ô ở bộ hồ sơ thanh toán (Sếp 02/10/2026): `unc` = "Có ủy nhiệm chi",
+   * `go_ung` = "Gỡ ứng". Trả lý do bị chặn, `null` là đã ghi.
+   */
+  datTickChungTu: (
+    prId: string,
+    loai: "unc" | "go_ung",
+    co: boolean,
+    nguoiThucHienTen: string,
+  ) => string | null;
   ghiLyDoThieuChungTu: (
     prId: string,
     khoa: string,
@@ -3494,6 +3519,62 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * ★ NHẬP NHIỀU NHÀ CUNG CẤP MỘT LẦN — Sếp 02/10/2026 (danh mục NCC nhập từ file Excel).
+   *
+   * 🔴 KHÔNG GỌI `themNhaCungCap` TRONG VÒNG LẶP: hàm đó tính chống trùng và mã dự phòng trên
+   * `nhaCungCapThem` của lần render hiện tại — lặp 50 lần trong cùng một lượt là 50 lần nhìn CÙNG
+   * một danh mục cũ, nên hai dòng trong file trùng tên lọt cả hai, và khi máy chủ cấp mã tắt thì
+   * cả 50 dòng nhận CÙNG một mã. Ở đây phân loại một lần cho cả lô, mã dự phòng tính nối tiếp nhau.
+   *
+   * 📌 Phân loại lại ngay tại tầng ghi (`phanLoaiNhapNCC`), không tin kết quả xem trước của giao
+   * diện: giữa lúc xem và lúc bấm, người khác có thể vừa thêm đúng NCC đó.
+   * 📌 Một lần `setNhaCungCapThem` cho cả lô — kho chung ghi một lần, không phải 50 lần.
+   */
+  /* Khoá chống nhập chồng hai lô: lô đầu còn đang chờ cấp mã thì `nhaCungCapThem` chưa có dòng
+     nào của nó, lô thứ hai phân loại trên danh mục cũ là thêm trùng cả lô (phản biện 02/10/2026). */
+  const dangNhapNCCRef = useRef(false);
+  const themNhieuNhaCungCap = useCallback(
+    async (ds: readonly NCCTuFile[]): Promise<{ daThem: number; boQua: number; loi?: string }> => {
+      if (dangNhapNCCRef.current) {
+        return { daThem: 0, boQua: ds.length, loi: "Đang nhập một file khác — chờ xong rồi nhập tiếp." };
+      }
+      dangNhapNCCRef.current = true;
+      try {
+      const phanLoai = phanLoaiNhapNCC(
+        ds.map((d, i) => ({ ...d, dongTrongFile: i + 1 })),
+        nhaCungCapThem,
+      );
+      const hopLe = phanLoai.filter((k) => k.loai === "moi").map((k) => k.dong);
+      const maDaCo = nhaCungCapThem.map((x) => (x.maNCC ?? "").trim()).filter((x) => x !== "");
+      const moi: NhaCungCap[] = [];
+      for (const n of hopLe) {
+        /* 🔴 Mã máy chủ cấp mà ĐÃ có trong lô (dòng trước rơi về mã tự tính vì máy chủ hỏng giữa
+           chừng) thì không dùng — tự tính tiếp, nếu không hai NCC mang cùng mã, cùng `id`. */
+        const maMayChu = await xinMaMayChu("nha-cung-cap", "");
+        const ma =
+          maMayChu && !maDaCo.includes(maMayChu) ? maMayChu : maNhaCungCapTiepTheo(maDaCo);
+        maDaCo.push(ma);
+        moi.push({
+          id: `ncc-them-${ma.toLowerCase().replace(/\s+/g, "-")}`,
+          ten: n.ten,
+          maNCC: ma,
+          ...(n.maSoThue ? { maSoThue: n.maSoThue } : {}),
+          ...(n.diaChi?.trim() ? { diaChi: n.diaChi.trim() } : {}),
+          ...(n.dienThoai?.trim() ? { dienThoai: n.dienThoai.trim() } : {}),
+          ...(n.nguoiLienHe?.trim() ? { nguoiLienHe: n.nguoiLienHe.trim() } : {}),
+        });
+      }
+      if (moi.length > 0) setNhaCungCapThem((truoc) => [...truoc, ...moi]);
+      return { daThem: moi.length, boQua: ds.length - moi.length };
+      } finally {
+        dangNhapNCCRef.current = false;
+      }
+    },
+    /* Cùng lý do `themNhaCungCap`: bỏ `nhaCungCapThem` khỏi đây là chống trùng trên danh mục cũ. */
+    [nhaCungCapThem],
+  );
+
+  /**
    * ★ XÓA MỘT NHÀ CUNG CẤP KHỎI DANH MỤC — Ban lãnh đạo 21/08/2026: *"thêm chức năng xoá NCC"*.
    *
    * Trả câu giải thích khi bị chặn, `null` là đã xóa.
@@ -4755,6 +4836,48 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    *
    * @returns Câu lý do bị chặn, `null` là đã ghi xong.
    */
+  /**
+   * ★ NGÀY UP WORKFLOW — Sếp 02/10/2026: ô nhập tay trên bảng theo dõi đơn hàng.
+   *
+   * 🔴 KHÔNG đi qua `suaDonHang`: hàm đó chặn đơn đã hoàn thành, mà hồ sơ thường chỉ lên workflow
+   * SAU khi đóng đơn — đi qua đó là ô này không bao giờ ghi được đúng lúc cần. Chỉ chặn đơn đã huỷ.
+   * Quyền: người lập PO là quản lý (`suaPODaChot`) hoặc chính người phụ trách đơn — cùng hai đường
+   * với `suaDonHang`.
+   */
+  const ghiNgayUpWorkflow = useCallback(
+    (poId: string, ngay: NgayISO | ""): string | null => {
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po) return "Không tìm thấy đơn hàng này.";
+      if (po.trangThai === "huy") return "Đơn đã huỷ — không ghi ngày up workflow được.";
+      const quyen = tinhQuyen(nguoiDung);
+      if (!quyen.lapPO || (!quyen.suaPODaChot && po.nguoiPhuTrachUid !== nguoiDung.uid)) {
+        return "Chỉ Trưởng bộ phận trở lên, hoặc người phụ trách đơn này, mới ghi được ngày up workflow.";
+      }
+      const moi = ngay.trim();
+      if (moi !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(moi)) return "Ngày không hợp lệ.";
+      if ((po.ngayUpWorkflow ?? "") === moi) return null;
+      setDonHang((truoc) =>
+        truoc.map((p) => {
+          if (p.id !== poId) return p;
+          /* Xoá thì BỎ HẲN khoá (không để `undefined`) — Firestore từ chối giá trị `undefined`. */
+          const sau = { ...p };
+          if (moi === "") delete sau.ngayUpWorkflow;
+          else sau.ngayUpWorkflow = moi;
+          return sau;
+        }),
+      );
+      ghiNhatKyDonHang(
+        po,
+        nguoiDung.tenHienThi,
+        moi === ""
+          ? `Xoá ngày up workflow của đơn ${po.code}`
+          : `Ghi ngày up workflow của đơn ${po.code}: ${moi.split("-").reverse().join("/")}`,
+      );
+      return null;
+    },
+    [nguoiDung, ghiNhatKyDonHang],
+  );
+
   const suaDonHang = useCallback(
     (poId: string, thayDoi: ThayDoiDonHang, lyDo: string): string | null => {
       const po = donHangRef.current.find((p) => p.id === poId);
@@ -8950,6 +9073,42 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * `lyDoThieuHopDong` đọc `.trim() !== ""` nên chuỗi rỗng vẫn đúng, nhưng để rác lại thì dữ liệu
    * đẩy lên Firestore phình thêm một khóa vô nghĩa cho mỗi hồ sơ.
    */
+  /**
+   * ★ Ô TICK "CÓ ỦY NHIỆM CHI" — Sếp 02/10/2026. Luật đọc ở `coUyNhiemChi` / `lyDoKhongBoTickUNC`.
+   * 📌 Bỏ tick thì XOÁ HẲN khoá (cùng lý do `ghiLyDoThieuChungTu` bên dưới), và ghi nhật ký.
+   */
+  const datTickChungTu = useCallback(
+    (prId: string, loai: "unc" | "go_ung", co: boolean, nguoiThucHienTen: string): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+      const ten = loai === "unc" ? "Có ủy nhiệm chi" : "Gỡ ứng";
+      const loi = loiKhiHoSoDaDong(dn, `đổi ô tick “${ten}”`);
+      if (loi) return loi;
+      if (!co) {
+        const chan = loai === "unc" ? lyDoKhongBoTickUNC(dn) : lyDoKhongBoTickGoUng(dn);
+        if (chan) return chan;
+      }
+      const truong = loai === "unc" ? "coUNC" : "goUng";
+      if ((dn[truong] === true) === co) return null;
+      setDeNghi((truoc) =>
+        truoc.map((d) => {
+          if (d.id !== prId) return d;
+          const sau = { ...d };
+          if (co) sau[truong] = true;
+          else delete sau[truong];
+          return sau;
+        }),
+      );
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHienTen,
+        co ? `Tick “${ten}” ở Hồ sơ thanh toán` : `Bỏ tick “${ten}” ở Hồ sơ thanh toán`,
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+  );
+
   const ghiLyDoThieuChungTu = useCallback(
     (
       prId: string,
@@ -9622,6 +9781,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        */
       nhaCungCap: nhaCungCapThem,
       themNhaCungCap,
+      themNhieuNhaCungCap,
       xoaNhaCungCap,
       thuKho: thuKhoThem,
       themThuKho,
@@ -9656,6 +9816,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       dinhTepHoaDonVAT,
       goTepHoaDonVAT,
       suaDonHang,
+      ghiNgayUpWorkflow,
       xacNhanKho,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,
@@ -9687,6 +9848,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themTepGiaiDoan,
       datTepVaoOGiaiDoan,
       ghiLyDoThieuChungTu,
+      datTickChungTu,
       goTepGiaiDoan,
       datGhiChuTepGiaiDoan,
       vietBinhLuan,
@@ -9705,6 +9867,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       nhaCungCapThem,
       thuKhoThem,
       themNhaCungCap,
+      themNhieuNhaCungCap,
       xoaNhaCungCap,
       themThuKho,
       xoaThuKho,
@@ -9736,6 +9899,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       dinhTepHoaDonVAT,
       goTepHoaDonVAT,
       suaDonHang,
+      ghiNgayUpWorkflow,
       xacNhanKho,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,
@@ -9767,6 +9931,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themTepGiaiDoan,
       datTepVaoOGiaiDoan,
       ghiLyDoThieuChungTu,
+      datTickChungTu,
       goTepGiaiDoan,
       datGhiChuTepGiaiDoan,
       vietBinhLuan,

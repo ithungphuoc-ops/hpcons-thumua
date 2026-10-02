@@ -3,6 +3,7 @@ import {
   FileText,
   Eye,
   Wallet,
+  Building2,
   CircleUser,
   CalendarDays,
   Settings,
@@ -254,8 +255,9 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
      * trên — hai mục `/don-hang` và `/don-hang/tao-moi` không bao giờ cùng sáng, xem chú thích
      * ở mục đó.
      */
-    nhan: "Đơn hàng",
-    nhanNgan: "Đơn hàng",
+    /* Đổi tên 02/10/2026 — Sếp: *"E sửa tên Đơn hàng thành Theo dõi đơn hàng"*. */
+    nhan: "Theo dõi đơn hàng",
+    nhanNgan: "Theo dõi đơn hàng",
     href: "/don-hang",
     nhom: "quy_trinh",
     icon: Package,
@@ -283,6 +285,23 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/theo-doi",
     icon: Eye,
     duocThay: () => true,
+  },
+  {
+    /**
+     * ★ DANH MỤC NHÀ CUNG CẤP — Sếp 02/10/2026: *"Thêm tab danh sách nhà cung cấp có chức năng xuất
+     * file excel và import file"*. Trước đó danh mục chỉ nằm trong ô sổ xuống của form lập PO.
+     *
+     * 🔴 Điều kiện phải Y HỆT `duocVaoDuongDan` ở `4-phan-quyen/quyen.ts` (`/nha-cung-cap`). Chỉ
+     * người làm thu mua (`xemQuyTrinhMuaHang`, giữ luật 18/09/2026 "phòng ban khác chỉ mở Theo dõi
+     * đề nghị") VÀ được xem tên NCC.
+     */
+    nhan: "Nhà cung cấp",
+    nhanNgan: "NCC",
+    href: "/nha-cung-cap",
+    icon: Building2,
+    duocThay: (q) => q.xemQuyTrinhMuaHang && q.xemNhaCungCap,
+    // Thanh dưới điện thoại có chỗ hạn chế — xem `MucDieuHuong.chiSidebar`.
+    chiSidebar: true,
   },
   {
     nhan: "Công nợ nhà cung cấp",

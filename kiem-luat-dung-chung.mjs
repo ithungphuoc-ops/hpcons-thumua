@@ -1943,6 +1943,10 @@ kiem(
       items: [{ stt: 1, nguoiPhuTrachUid: "u1" }],
       congViecDaXong: [{ maCongViec: "unc_xong" }],
       tepGiaiDoan: { ho_so_thanh_toan: [{ id: "t", tenTep: "hd.pdf", ghiChu: "Hóa đơn VAT" }] },
+      /* ★ 02/10/2026 — hồ sơ "đủ điều kiện" nay phải có cả lý do phiếu chi (luật Gỡ ứng, Sếp
+         02/10/2026). Không phải nới bài này: chiều chặn có bài riêng ("Kéo thả ⑦ → ⑧: thiếu lý
+         do / phiếu chi…"). */
+      lyDoThieuChungTu: { "ho_so_thanh_toan|phieu_chi": "Mẫu kiểm: trả qua ủy nhiệm chi" },
     };
     const r = G.quyetDinhKeoTha(
       { deNghi: dn, giaiDoan: "ho_so_thanh_toan" },
@@ -3205,6 +3209,10 @@ kiem(
 // ════════════════════════════════════════════════════════════════════
 
 /** Hồ sơ đã xong hết mọi điều kiện KHÁC của bước ⑧, chỉ còn chuyện hợp đồng. */
+/* ★ 02/10/2026 — Sếp thêm luật mục Phiếu chi ("không tích Gỡ ứng thì phải ghi lý do mới được qua
+   bước", `vuongMacPhieuChi`). Hồ sơ mẫu "đủ chứng từ" của các bài dưới phải mang lý do đó mới còn là
+   "đủ" — KHÔNG phải nới luật đang kiểm. Luật Phiếu chi có bài kiểm riêng, cả hai chiều. */
+const LY_DO_PHIEU_CHI_MAU = { "ho_so_thanh_toan|phieu_chi": "Mẫu kiểm: trả qua ủy nhiệm chi" };
 const hoSoSanSangDong = (lyDo, coTepHopDong) => ({
   id: "x",
   items: [{ stt: 1 }],
@@ -3214,7 +3222,7 @@ const hoSoSanSangDong = (lyDo, coTepHopDong) => ({
       : {}),
     ho_so_thanh_toan: [{ id: "v1", ten: "vat.pdf", ghiChu: "Hóa đơn VAT" }],
   },
-  lyDoThieuChungTu: lyDo === undefined ? {} : { [KHOA_HD]: lyDo },
+  lyDoThieuChungTu: lyDo === undefined ? { ...LY_DO_PHIEU_CHI_MAU } : { [KHOA_HD]: lyDo, ...LY_DO_PHIEU_CHI_MAU },
   /* ⚠️ DÒNG NÀY NAY LÀ DỮ LIỆU THỪA, CỐ Ý GIỮ. Trước 15/09/2026 nó là thứ bắt buộc để hồ sơ vượt
      qua chốt `daTichXongUNC`; Sếp đã bỏ cái tích đó (xem khối bài kiểm "BỎ Ô TÍCH ỦY NHIỆM CHI").
      Giữ lại để chứng minh thêm một điều: hồ sơ CŨ còn mang dấu tích cũ vẫn chạy bình thường —
@@ -3460,7 +3468,7 @@ kiem(
         lap_don_mua_hang: [{ id: "hd1", ten: "hop-dong.pdf", ghiChu: "Hợp đồng" }],
         ho_so_thanh_toan: [{ id: "v1", ten: "vat.pdf", ghiChu: "Hóa đơn VAT" }],
       },
-      lyDoThieuChungTu: {},
+      lyDoThieuChungTu: { ...LY_DO_PHIEU_CHI_MAU },
       /* 🔴 CO Y DE RONG — do dung thu Sep vua bo: khong tich gi ca. */
       congViecDaXong: [],
     };
@@ -4637,7 +4645,7 @@ const hoSoDongPB = ({ tenCongTrinh, nhanPhieuGiao, coTepHopDong = true }) => ({
       ? { nhan_hang: [{ id: "pg1", ten: "phieu.jpg", ghiChu: nhanPhieuGiao }] }
       : {}),
   },
-  lyDoThieuChungTu: {},
+  lyDoThieuChungTu: { ...LY_DO_PHIEU_CHI_MAU },
   congViecDaXong: [{ maCongViec: "unc_xong", thoiDiem: "2026-09-15T01:00:00.000Z" }],
 });
 /* Hàng CHƯA về đủ — trạng thái thật của MỌI hồ sơ phòng ban (không kho nào gửi phiếu sang). */
@@ -13543,6 +13551,188 @@ kiem(
       };
     });
   }
+}
+
+/* ★ BẢNG THEO DÕI ĐƠN HÀNG + DANH MỤC NCC — Sếp 02/10/2026. */
+{
+  const thuMucTD = mkdtempSync(join(tmpdir(), "kiem-luat-td-"));
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/theo-doi-don-hang.ts" "2-quy-trinh/danh-muc-ncc-excel.ts" --bundle --external:exceljs --platform=node --format=cjs --outdir="${thuMucTD}" --out-extension:.js=.cjs --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+  const TD = nap(join(thuMucTD, "theo-doi-don-hang.cjs"));
+  const NCC = nap(join(thuMucTD, "danh-muc-ncc-excel.cjs"));
+  rmSync(thuMucTD, { recursive: true, force: true });
+  const CHU = "Sếp 02/10/2026 — bảng theo dõi đơn hàng theo mẫu Excel";
+
+  kiem("Theo dõi đơn hàng: 3 cột Theo dõi ra ĐÚNG hai dòng mẫu Excel Sếp gửi (−4/1/1 và 0/2/6)", CHU, () => {
+    const dong = (dn, po, ngayNhan, ngayHD) =>
+      TD.dungDongTheoDoiDonHang(
+        { id: "p", items: [], ...po },
+        { id: "d", items: [], ...dn },
+        [{ poId: "p", trangThai: "da_nhap_kho", ngayNhanThucTe: ngayNhan }],
+        { poId: "p", hoaDonVAT: [{ ngayHoaDon: ngayHD }] },
+      );
+    /* Dòng 1: cấp 28/03, nhận 01/04, thoả thuận 02/04, HĐ 01/04, up 02/04. */
+    const a = dong({ ngayCanHang: "2026-03-28" }, { ngayGiaoDuKien: "2026-04-02", ngayUpWorkflow: "2026-04-02" }, "2026-04-01", "2026-04-01");
+    /* Dòng 2: cấp 04/04, nhận 04/04, thoả thuận 06/04, HĐ 08/04, up 14/04. */
+    const b = dong({ ngayCanHang: "2026-04-04" }, { ngayGiaoDuKien: "2026-04-06", ngayUpWorkflow: "2026-04-14" }, "2026-04-04", "2026-04-08");
+    const kq = [a.theoDoiCongTrinh, a.theoDoiNCC, a.theoDoiWorkflow, b.theoDoiCongTrinh, b.theoDoiNCC, b.theoDoiWorkflow];
+    return { duoc: kq.join(",") === "-4,1,1,0,2,6", thucTe: kq.join(","), mongDoi: "-4,1,1,0,2,6" };
+  });
+
+  kiem("Theo dõi đơn hàng: thiếu ngày thì Ô TRỐNG (null), chỉ phiếu đã nhập kho, lấy LẦN GIAO ĐẦU", CHU, () => {
+    const r = TD.dungDongTheoDoiDonHang(
+      { id: "p", items: [], ngayGiaoDuKien: "2026-04-10" },
+      { id: "d", items: [], ngayCanHang: "2026-04-05" },
+      [
+        { poId: "p", trangThai: "da_nhap_kho", ngayNhanThucTe: "2026-04-09" },
+        { poId: "p", trangThai: "da_nhap_kho", ngayNhanThucTe: "2026-04-07" },
+        { poId: "p", trangThai: "cho_kiem_tra", ngayNhanThucTe: "2026-04-01" },
+      ],
+      undefined,
+    );
+    const rong = TD.dungDongTheoDoiDonHang({ id: "p", items: [] }, undefined, [], undefined);
+    return {
+      duoc:
+        r.ngayNhanLanDau === "2026-04-07" && r.theoDoiCongTrinh === -2 && r.theoDoiWorkflow === null &&
+        rong.theoDoiCongTrinh === null && rong.theoDoiNCC === null,
+      thucTe: JSON.stringify({ n: r.ngayNhanLanDau, ct: r.theoDoiCongTrinh, wf: r.theoDoiWorkflow, rong: [rong.theoDoiCongTrinh, rong.theoDoiNCC] }),
+      mongDoi: "ngayNhanLanDau=2026-04-07 (bỏ phiếu chờ kiểm tra 01/04) · ct=-2 · wf=null · đơn trống = null",
+    };
+  });
+
+  kiem("Nhập NCC từ Excel: TRÙNG MST / trùng tên / trùng trong file → BỎ QUA; dòng mới → thêm (cả hai chiều)", "Sếp 02/10/2026 — *\"Bỏ qua dòng trùng\"*", () => {
+    const daCo = [{ ten: "Công ty TNHH A", maSoThue: "0301234567" }];
+    const kq = NCC.phanLoaiNhapNCC(
+      [
+        { dongTrongFile: 4, ten: "Tên khác hẳn", maSoThue: "0301 234 567" },
+        { dongTrongFile: 5, ten: "CÔNG TY TNHH  A" },
+        { dongTrongFile: 6, ten: "Công ty B", maSoThue: "0309999999" },
+        { dongTrongFile: 7, ten: "Công ty B bản 2", maSoThue: "0309999999" },
+        { dongTrongFile: 8, ten: "", maSoThue: "0300000001" },
+        { dongTrongFile: 9, ten: "Công ty C", maSoThue: "12345" },
+        { dongTrongFile: 10, ten: "Công ty D" },
+      ],
+      daCo,
+    ).map((k) => `${k.dong.dongTrongFile}:${k.loai}`);
+    const mongDoi = "4:trung,5:trung,6:moi,7:trung,8:loi,9:loi,10:moi";
+    return { duoc: kq.join(",") === mongDoi, thucTe: kq.join(","), mongDoi };
+  });
+
+  kiem("Nhập NCC: MST 12 số (cá nhân) và 13 số liền (chi nhánh) là HỢP LỆ; 11 số là lỗi", "Sếp 02/10/2026 · phản biện trước push", () => {
+    const kq = NCC.phanLoaiNhapNCC(
+      [
+        { dongTrongFile: 2, ten: "Hộ KD A", maSoThue: "079123456789" },
+        { dongTrongFile: 3, ten: "Chi nhánh B", maSoThue: "0301234567001" },
+        { dongTrongFile: 4, ten: "C", maSoThue: "03012345670" },
+      ],
+      [],
+    ).map((k) => k.loai);
+    return { duoc: kq.join(",") === "moi,moi,loi", thucTe: kq.join(","), mongDoi: "moi,moi,loi" };
+  });
+
+  kiem("Theo dõi đơn hàng: cột ③ dùng chữ RIÊNG (up SAU hoá đơn), không dùng Sớm/Trễ của cột ① ②", "Phản biện 02/10/2026 — cột ③ ngược chiều", () => {
+    const a = TD.chuTheoDoiWorkflow(6);
+    const b = TD.chuTheoDoiHan(-4);
+    return {
+      duoc: a.includes("sau hoá đơn") && !/Sớm|Trễ/.test(a) && b === "Trễ 4 ngày",
+      thucTe: `③(6)="${a}" · ①(-4)="${b}"`,
+      mongDoi: "③ nói 'sau hoá đơn', ① nói 'Trễ 4 ngày'",
+    };
+  });
+
+  kiem("Theo dõi đơn hàng: phiếu CON lấy 'Ngày lập đề nghị' của phiếu GỐC; hồ sơ xuất kho lấy ngày phiếu giao làm ngày chứng từ", "Phản biện 02/10/2026", () => {
+    const con = { id: "c", items: [{ stt: 1, nguoiPhuTrachUid: "u", loaiViecGiao: "mua_ngoai" }], ngayDeNghi: "2026-09-26", deNghiGocId: "g" };
+    const goc = { id: "g", items: [], ngayDeNghi: "2026-09-20" };
+    const r1 = TD.dungDongTheoDoiDonHang({ id: "p", items: [] }, con, [], undefined, goc);
+    const xk = { id: "x", items: [{ stt: 1, nguoiPhuTrachUid: "u", loaiViecGiao: "xuat_kho" }] };
+    const r2 = TD.dungDongTheoDoiDonHang(
+      { id: "p", items: [] }, xk,
+      [{ poId: "p", trangThai: "da_nhap_kho", ngayNhanThucTe: "2026-09-28" }], undefined,
+    );
+    const muaNgoai = { id: "m", items: [{ stt: 1, nguoiPhuTrachUid: "u", loaiViecGiao: "mua_ngoai" }] };
+    const r3 = TD.dungDongTheoDoiDonHang(
+      { id: "p", items: [] }, muaNgoai,
+      [{ poId: "p", trangThai: "da_nhap_kho", ngayNhanThucTe: "2026-09-28" }], undefined,
+    );
+    return {
+      duoc: r1.ngayLapDeNghi === "2026-09-20" && r2.ngayHoaDon === "2026-09-28" && r3.ngayHoaDon === undefined,
+      thucTe: JSON.stringify({ lapCon: r1.ngayLapDeNghi, hdXuatKho: r2.ngayHoaDon, hdMuaNgoai: r3.ngayHoaDon ?? null }),
+      mongDoi: "lapCon=2026-09-20 (phiếu gốc) · hdXuatKho=2026-09-28 · hdMuaNgoai=null (mua ngoài chưa có HĐ thì TRỐNG)",
+    };
+  });
+
+  kiem("Kéo thả ⑦ → ⑧: thiếu lý do / phiếu chi thì danh sách vướng PHẢI có 'thieu_phieu_chi'; ghi lý do rồi thì hết (cả hai chiều)", 'Sếp 02/10/2026 · phản biện: kéo thả vẫn báo "đủ điều kiện"', () => {
+    const vat = { id: "v1", tenTep: "vat.pdf", ghiChu: "Hóa đơn VAT" };
+    const hs = (them) => ({
+      id: "h", items: [{ stt: 1, nguoiPhuTrachUid: "u", loaiViecGiao: "mua_ngoai" }],
+      tepGiaiDoan: { ho_so_thanh_toan: [vat] }, lyDoThieuChungTu: {}, ...them,
+    });
+    const ma = (dn) => G.dsDieuKienConVuong(dn, "ho_so_thanh_toan", [], G.CAU_HINH_MAC_DINH ?? {}, null).map((d) => d.ma);
+    const thieu = ma(hs({}));
+    const coLyDo = ma(hs({ lyDoThieuChungTu: { "ho_so_thanh_toan|phieu_chi": "Trả qua UNC" } }));
+    return {
+      duoc: thieu.includes("thieu_phieu_chi") && !coLyDo.includes("thieu_phieu_chi"),
+      thucTe: `thiếu=${JSON.stringify(thieu)} · cóLýDo=${JSON.stringify(coLyDo)}`,
+      mongDoi: 'thiếu có "thieu_phieu_chi" · có lý do thì không',
+    };
+  });
+}
+
+/* ★ Ô TICK "CÓ ỦY NHIỆM CHI" — Sếp 02/10/2026. */
+{
+  const thuMucUNC = mkdtempSync(join(tmpdir(), "kiem-luat-unc-"));
+  const tepRa = join(thuMucUNC, "chung-tu.cjs");
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/chung-tu-cuoi-quy-trinh.ts" --bundle --platform=node --format=cjs --outfile="${tepRa}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+  const CT = nap(tepRa);
+  rmSync(thuMucUNC, { recursive: true, force: true });
+  kiem(
+    "UNC: mặc định KHÔNG có; tick → có; đã đính tệp UNC (hồ sơ cũ) → vẫn có và KHÔNG bỏ tick được (cả hai chiều)",
+    'Sếp 02/10/2026 — *"ko tích thì mặc định không có UNC và hiển thị nội dung Không có UNC"*',
+    () => {
+      const tep = { id: "t1", tenTep: "unc.pdf", ghiChu: "Ủy nhiệm chi" };
+      const trong = { id: "a", items: [], tepGiaiDoan: {} };
+      const tick = { ...trong, coUNC: true };
+      const coTep = { ...trong, tepGiaiDoan: { ho_so_thanh_toan: [tep] } };
+      const kq = {
+        trong: CT.coUyNhiemChi(trong),
+        tick: CT.coUyNhiemChi(tick),
+        coTep: CT.coUyNhiemChi(coTep),
+        boTickTrong: CT.lyDoKhongBoTickUNC(tick),
+        boTickCoTep: CT.lyDoKhongBoTickUNC(coTep) !== null,
+      };
+      return {
+        duoc: !kq.trong && kq.tick && kq.coTep && kq.boTickTrong === null && kq.boTickCoTep,
+        thucTe: JSON.stringify(kq),
+        mongDoi: "trong=false · tick=true · coTep=true · bỏ tick khi chưa có tệp = được · bỏ tick khi có tệp = CHẶN",
+      };
+    },
+  );
+  kiem(
+    "Phiếu chi: KHÔNG tick Gỡ ứng mà chưa ghi lý do → CHẶN qua bước; có lý do → qua; tick mà chưa có tệp → CHẶN; xuất kho → miễn",
+    'Sếp 02/10/2026 — *"Không tích thì phải ghi lý do thì mới được qua bước"*',
+    () => {
+      const muaNgoai = [{ stt: 1, nguoiPhuTrachUid: "u1", loaiViecGiao: "mua_ngoai" }];
+      const tep = { id: "t1", tenTep: "pc.pdf", ghiChu: "Phiếu chi" };
+      const goc = { id: "a", items: muaNgoai, tepGiaiDoan: {} };
+      const kq = {
+        trong: CT.vuongMacPhieuChi(goc) !== null,
+        coLyDo: CT.vuongMacPhieuChi({ ...goc, lyDoThieuChungTu: { [CT.KHOA_LY_DO_KHONG_GO_UNG]: "Trả qua UNC" } }),
+        tickChuaTep: CT.vuongMacPhieuChi({ ...goc, goUng: true }) !== null,
+        tickCoTep: CT.vuongMacPhieuChi({ ...goc, goUng: true, tepGiaiDoan: { ho_so_thanh_toan: [tep] } }),
+        xuatKho: CT.vuongMacPhieuChi({ ...goc, items: [{ stt: 1, nguoiPhuTrachUid: "u1", loaiViecGiao: "xuat_kho" }] }),
+      };
+      return {
+        duoc: kq.trong && kq.coLyDo === null && kq.tickChuaTep && kq.tickCoTep === null && kq.xuatKho === null,
+        thucTe: JSON.stringify(kq),
+        mongDoi: "trong=CHẶN · coLyDo=null · tickChuaTep=CHẶN · tickCoTep=null · xuatKho=null",
+      };
+    },
+  );
 }
 
 const tong = dat + truot.length;

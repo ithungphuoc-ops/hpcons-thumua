@@ -442,6 +442,19 @@ export interface DeNghiMuaHang {
    */
   lyDoThieuChungTu?: Record<string, string>;
   /**
+   * ★ Ô TICK "CÓ ỦY NHIỆM CHI" ở bước Hồ sơ thanh toán — Sếp 02/10/2026: *"Khi tích vào thì sẽ hiện
+   * nút đính kèm UNC, còn ko tích thì mặc định không có UNC và hiển thị nội dung 'Không có UNC'"*.
+   * Đọc qua `coUyNhiemChi` (`chung-tu-cuoi-quy-trinh.ts`) — hồ sơ đã đính UNC trước ngày này
+   * vẫn tính là có, không phải tick lại.
+   */
+  coUNC?: boolean;
+  /**
+   * ★ Ô TICK "GỠ ỨNG" ở mục Phiếu chi — Sếp 02/10/2026: *"Tích zô thì hiện nút đính kèm 'Phiếu
+   * chi'. Không tích thì phải ghi lý do thì mới được qua bước"*. Lý do lưu ở `lyDoThieuChungTu`
+   * khoá `KHOA_LY_DO_KHONG_GO_UNG`. Đọc qua `coGoUng` (`chung-tu-cuoi-quy-trinh.ts`).
+   */
+  goUng?: boolean;
+  /**
    * ★ CÔNG VIỆC BẮT BUỘC CỦA GIAI ĐOẠN ĐÃ TÍCH XONG — mục "Danh sách công việc" của Base.
    *
    * Danh mục công việc nằm ở `2-quy-trinh/cau-hinh-quy-trinh.ts` → `congViecTheoBuoc`; ở đây
@@ -1195,6 +1208,13 @@ export interface DonDatHang {
   /** Ô "Điều khoản khác" trên mẫu đơn (bảo hành, bốc xếp, chứng chỉ chất lượng...). */
   dieuKhoanKhac?: string;
   ghiChu?: string;
+  /**
+   * ★ NGÀY ĐƯA HỒ SƠ LÊN WORKFLOW — nhập tay (Sếp 02/10/2026, bảng theo dõi đơn hàng). App không
+   * nối với Base Workflow nên không tự biết ngày này. Cột "Theo dõi" cuối bảng = ngày này − ngày
+   * hoá đơn (`2-quy-trinh/theo-doi-don-hang.ts`). Ghi được cả khi đơn đã hoàn thành — hồ sơ thường
+   * chỉ lên workflow SAU khi đóng đơn.
+   */
+  ngayUpWorkflow?: NgayISO;
   /**
    * ★ Khối "Đính kèm" của màn MISA (MISA ghi "Dung lượng tối đa 5MB").
    *

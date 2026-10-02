@@ -63,6 +63,8 @@ import {
    */
   coHopDong,
   khongCanHopDongHoaDon,
+  /* ★ Luật mục Phiếu chi / Gỡ ứng (Sếp 02/10/2026) — dùng cho điều kiện kéo thả ⑦ → ⑧. */
+  vuongMacPhieuChi,
   /**
    * ★ Lời khai "Không có HĐ" — Sếp 13/09/2026: chọn chữ đó thì **thôi báo đỏ**.
    *
@@ -2413,6 +2415,8 @@ export interface DieuKienConVuong {
     /* ★ Bước ⑤ — Sếp 16/09/2026: đính bản PO nhà cung cấp ký, hoặc bấm "Bổ sung sau". */
     | "thieu_don_mua_hang"
     | "thieu_hoa_don_vat"
+    /* ★ Bước ⑧ — Sếp 02/10/2026: không tick "Gỡ ứng" thì phải ghi lý do (`vuongMacPhieuChi`). */
+    | "thieu_phieu_chi"
     | "chua_tich_unc";
   /** Câu nói cho người dùng — giữ nguyên chữ của các hàm luật đang dùng. */
   cau: string;
@@ -2600,6 +2604,16 @@ export function dsDieuKienConVuong(
           cau: "Chưa đính kèm Hóa đơn VAT ở khối kết quả của bước này.",
           goDuocTaiCho: true,
         });
+      }
+      /* ★ PHIẾU CHI / GỠ ỨNG — Sếp 02/10/2026. 🔴 PHẢI CÓ CẢ Ở ĐÂY, không chỉ ở nút "Hoàn thành
+         quy trình": thiếu dòng này thì kéo thẻ ⑦ → ⑧ vẫn báo "đủ điều kiện" (phản biện 02/10 đo
+         ra) rồi tầng ghi mới chặn — người dùng thấy hộp xanh mà bấm không được. Câu chặn lấy
+         nguyên từ `vuongMacPhieuChi`, một nguồn chữ. Hồ sơ xuất kho / nhân sự hàm tự miễn. */
+      {
+        const vuongPhieuChi = vuongMacPhieuChi(deNghi);
+        if (vuongPhieuChi) {
+          ra.push({ ma: "thieu_phieu_chi", cau: vuongPhieuChi, goDuocTaiCho: true });
+        }
       }
       break;
 

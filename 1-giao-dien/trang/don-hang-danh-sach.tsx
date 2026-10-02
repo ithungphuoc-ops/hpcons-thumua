@@ -10,6 +10,7 @@ import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { NutXuatDonHangExcel } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-don-hang";
 import { BangHangTrongDon, TheHangTrongDon } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-hang-trong-don";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
+import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
@@ -27,6 +28,14 @@ import {
 } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-nghi";
+import {
+  chuTheoDoiHan,
+  chuTheoDoiWorkflow,
+  dungDongTheoDoiDonHang,
+  ngayNganTheoDoi,
+} from "@/2-quy-trinh/theo-doi-don-hang";
+import { phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import { toast } from "sonner";
 
 /**
  * ★★ MÀN ĐƠN ĐẶT HÀNG DẠNG NHÓM + XỔ "HÀNG TRONG ĐƠN" — Sếp 27/09/2026 duyệt bản demo (artifact
@@ -41,8 +50,8 @@ import { BadgeChoDeNghi } from "@/1-giao-dien/thanh-phan-nghiep-vu/badge-cho-de-
 type CachNhom = "cong_trinh" | "nha_cung_cap";
 
 export default function TrangDanhSachDonHang() {
-  const { donHang, phieuNhan, giaDonHang, deNghi } = useDuLieu();
-  const { quyen } = useNguoiDung();
+  const { donHang, phieuNhan, giaDonHang, deNghi, ghiNgayUpWorkflow } = useDuLieu();
+  const { quyen, nguoiDung } = useNguoiDung();
   const [nhomTheo, setNhomTheo] = useState<CachNhom>("cong_trinh");
   /** Nhóm đang GỌN — giữ danh sách "đang gọn" để nhóm mới xuất hiện tự mở. */
   const [nhomDong, setNhomDong] = useState<Set<string>>(new Set());
@@ -65,6 +74,17 @@ export default function TrangDanhSachDonHang() {
         const gia = giaDonHang.find((g) => g.poId === po.id);
         return {
           po,
+          /* Các cột theo mẫu Excel "Bảng theo dõi đơn mua hàng" — Sếp 02/10/2026. */
+          td: (() => {
+            const dn = deNghi.find((d) => d.id === po.prId);
+            return dungDongTheoDoiDonHang(
+              po,
+              dn,
+              phieuNhan.filter((p) => p.poId === po.id),
+              gia,
+              dn ? phieuGocCua(dn, deNghi) : undefined,
+            );
+          })(),
           tienDo,
           phanTram: phanTramPO(tienDo),
           conLai: soNgayConLai(po.ngayGiaoDuKien),
@@ -79,7 +99,7 @@ export default function TrangDanhSachDonHang() {
           ),
         };
       }),
-    [donHang, phieuNhan, giaDonHang],
+    [donHang, phieuNhan, giaDonHang, deNghi],
   );
 
   /* Nhóm NCC chỉ có nghĩa với vai trò xem được NCC — vai trò khác luôn gom theo công trình. */
@@ -109,10 +129,20 @@ export default function TrangDanhSachDonHang() {
 
   /* Số cột — dòng nhóm và dòng xổ dùng `colSpan` bằng đúng số này (cột ẩn theo quyền). */
   const soCot =
-    6 +
+    17 +
     (quyen.xemNhaCungCap ? 1 : 0) +
     (quyen.xemNguoiPhuTrach ? 1 : 0) +
-    (quyen.xemGia ? 2 : 0);
+    (quyen.xemGia ? 4 : 0);
+
+  /* Ai ghi được Ngày up workflow — cùng luật tầng ghi (`ghiNgayUpWorkflow`); ô chỉ là lối vào. */
+  const duocGhiWorkflow = (uidPhuTrach: string | undefined) =>
+    quyen.lapPO && (quyen.suaPODaChot || uidPhuTrach === nguoiDung.uid);
+  function doiNgayWorkflow(poId: string, ngay: string) {
+    const loi = ghiNgayUpWorkflow(poId, ngay);
+    if (loi) toast.error(loi);
+  }
+  /* STT chạy liền qua các nhóm, như cột STT của mẫu Excel. */
+  let stt = 0;
 
   function doiCachNhom(c: CachNhom) {
     setNhomTheo(c);
@@ -125,9 +155,9 @@ export default function TrangDanhSachDonHang() {
         /* Thủ kho vào được màn này nhưng KHÔNG vào được `/tong-quan` — xem `duongDanGocTheoQuyen`. */
         crumbs={[
           { label: "Thu mua", href: duongDanGocTheoQuyen(quyen) },
-          { label: "Đơn đặt hàng" },
+          { label: "Theo dõi đơn hàng" },
         ]}
-        title="Đơn đặt hàng"
+        title="Theo dõi đơn hàng"
         description={
           quyen.xemGia
             ? "Toàn bộ PO đã chốt — bao gồm giá (vai trò được xem giá)"
@@ -186,19 +216,45 @@ export default function TrangDanhSachDonHang() {
             <CardContent>
               {/* `[&>[data-slot=table-container]]:overflow-visible`: div này là khung cuộn ngang thật. */}
               <div className="thanh-keo-ngang-ro hidden overflow-x-auto md:block [&>[data-slot=table-container]]:overflow-visible">
-                <Table className="[&_td]:text-center [&_td]:whitespace-normal [&_th]:text-center [&_th]:whitespace-normal">
+                <Table className="min-w-[160rem] [&_td]:text-center [&_td]:whitespace-normal [&_th]:text-center [&_th]:whitespace-normal">
+                  {/* ★ HAI TẦNG TIÊU ĐỀ theo mẫu Excel (Sếp 02/10/2026): nhóm "Công trình" và "Nhà cung
+                      cấp" mỗi nhóm ba cột ngày, mỗi nhóm có cột "Theo dõi" riêng. */}
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Mã PO</TableHead>
-                      <TableHead>Đề nghị</TableHead>
-                      {quyen.xemNhaCungCap && <TableHead>Nhà cung cấp</TableHead>}
-                      {quyen.xemNguoiPhuTrach && <TableHead>Phụ trách</TableHead>}
-                      <TableHead>Giao dự kiến</TableHead>
-                      {quyen.xemGia && <TableHead>Giá trị</TableHead>}
-                      <TableHead>Tiến độ nhận</TableHead>
-                      <TableHead>Trạng thái</TableHead>
+                      <TableHead rowSpan={2}>STT</TableHead>
+                      <TableHead rowSpan={2}>Mã đề xuất</TableHead>
+                      <TableHead rowSpan={2}>Số đơn hàng</TableHead>
+                      {quyen.xemNhaCungCap && <TableHead rowSpan={2}>Nhà cung cấp</TableHead>}
+                      <TableHead rowSpan={2}>Mục đích sử dụng</TableHead>
+                      <TableHead rowSpan={2}>Nơi sử dụng</TableHead>
+                      {quyen.xemGia && <TableHead rowSpan={2}>Giá trị</TableHead>}
+                      <TableHead colSpan={3} className="border-b border-border">
+                        Công trình
+                      </TableHead>
+                      <TableHead rowSpan={2}>Theo dõi</TableHead>
+                      <TableHead colSpan={3} className="border-b border-border">
+                        Nhà cung cấp
+                      </TableHead>
+                      <TableHead rowSpan={2}>Theo dõi</TableHead>
+                      <TableHead rowSpan={2}>Người nhận</TableHead>
+                      {quyen.xemNguoiPhuTrach && (
+                        <TableHead rowSpan={2}>Nhân viên thực hiện đơn hàng</TableHead>
+                      )}
+                      <TableHead rowSpan={2}>Ghi chú</TableHead>
+                      {quyen.xemGia && <TableHead rowSpan={2}>Ngày hoá đơn / phiếu giao hàng</TableHead>}
+                      <TableHead rowSpan={2}>Ngày up workflow</TableHead>
+                      {quyen.xemGia && <TableHead rowSpan={2}>Theo dõi</TableHead>}
+                      <TableHead rowSpan={2}>Trạng thái</TableHead>
                       {/* Cột xuất file — chỉ có nghĩa với vai trò xem được giá. */}
-                      {quyen.xemGia && <TableHead>Xuất</TableHead>}
+                      {quyen.xemGia && <TableHead rowSpan={2}>Xuất</TableHead>}
+                    </TableRow>
+                    <TableRow>
+                      <TableHead>Ngày lập đề nghị</TableHead>
+                      <TableHead>Ngày đề nghị cấp</TableHead>
+                      <TableHead>Ngày nhận hàng</TableHead>
+                      <TableHead>Ngày đặt hàng</TableHead>
+                      <TableHead>Ngày thoả thuận giao hàng</TableHead>
+                      <TableHead>Ngày giao hàng</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -241,14 +297,23 @@ export default function TrangDanhSachDonHang() {
                             </TableCell>
                           </TableRow>
                           {!gon &&
-                            n.muc.map(({ po, tienDo, phanTram, conLai, giaTri, giaTheoDong }) => {
+                            n.muc.map(({ po, td, tienDo, conLai, giaTri, giaTheoDong }) => {
                               const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
-                              const quaHan = conLai < 0 && po.trangThai !== "hoan_thanh";
                               const mo = dongMo.has(po.id);
+                              stt += 1;
+                              /* Chưa giao lần nào mà đã quá ngày thoả thuận — bảng cũ báo "Quá hạn N
+                                 ngày", bố cục mới giữ lại ở ô "Ngày giao hàng" (phản biện 02/10/2026). */
+                              const quaHanChuaGiao =
+                                !td.ngayNhanLanDau &&
+                                conLai < 0 &&
+                                po.trangThai !== "hoan_thanh" &&
+                                po.trangThai !== "huy";
                               const doiMo = () => setDongMo(doiTrongSet(po.id));
                               return (
                                 <Fragment key={po.id}>
                                   <TableRow onClick={doiMo} className="cursor-pointer">
+                                    <TableCell className="tabular-nums">{stt}</TableCell>
+                                    <TableCell className="text-sm">{td.maDeXuat}</TableCell>
                                     <TableCell>
                                       <div className="flex items-center justify-center gap-2">
                                         <button
@@ -276,47 +341,52 @@ export default function TrangDanhSachDonHang() {
                                         </Link>
                                       </div>
                                     </TableCell>
-                                    {/* Đơn không gắn đề nghị (module Lập PO độc lập, 18/08/2026) thì nói
-                                        rõ bằng CHỮ, không để ô trống — ô trống trong bảng đọc ra là "dữ
-                                        liệu thiếu", còn đây là chuyện cố ý. */}
-                                    <TableCell className="text-sm text-text-desc">
-                                      {po.prCode
-                                        ? po.trangThai === "cho_de_nghi"
-                                          ? `${po.prCode} (chờ xác nhận)`
-                                          : po.prCode
-                                        : "Không gắn đề nghị"}
-                                    </TableCell>
-                                    {quyen.xemNhaCungCap && <TableCell className="text-sm">{po.supplierTen}</TableCell>}
-                                    {quyen.xemNguoiPhuTrach && (
-                                      <TableCell className="text-sm">{po.nguoiPhuTrachTen}</TableCell>
+                                    {quyen.xemNhaCungCap && (
+                                      <TableCell className="text-sm text-left!">{po.supplierTen}</TableCell>
                                     )}
-                                    <TableCell className="text-sm">
-                                      <div className="flex flex-col items-center">
-                                        <span>{new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}</span>
-                                        <span
-                                          className={`text-xs font-semibold ${quaHan ? "text-danger-soft" : conLai <= 3 ? "text-warning-soft" : "text-text-desc"}`}
-                                        >
-                                          {po.trangThai === "hoan_thanh"
-                                            ? "Đã hoàn thành"
-                                            : quaHan
-                                              ? `Quá hạn ${Math.abs(conLai)} ngày`
-                                              : `Còn ${conLai} ngày`}
-                                        </span>
-                                      </div>
-                                    </TableCell>
+                                    <TableCell className="text-sm">{td.mucDichSuDung}</TableCell>
+                                    <TableCell className="text-sm">{td.noiSuDung}</TableCell>
                                     {quyen.xemGia && (
                                       <TableCell className="font-semibold tabular-nums">
-                                        {giaTri.toLocaleString("vi-VN")} ₫
+                                        {giaTri.toLocaleString("vi-VN")}
                                       </TableCell>
                                     )}
-                                    <TableCell>
-                                      <ThanhTienDo
-                                        phanTram={phanTram}
-                                        tong={phanTram === 100 ? "success" : quaHan ? "danger" : "primary"}
-                                        nhan={`${tienDo.filter((d) => d.khoiLuongConLai === 0).length}/${tienDo.length} dòng đã nhận đủ`}
-                                        className="mx-auto min-w-36"
-                                      />
+                                    <OTheoDoiNgay ngay={td.ngayLapDeNghi} />
+                                    <OTheoDoiNgay ngay={td.ngayDeNghiCap} />
+                                    <OTheoDoiNgay ngay={td.ngayNhanLanDau} />
+                                    <OTheoDoi so={td.theoDoiCongTrinh} />
+                                    <OTheoDoiNgay ngay={td.ngayDatHang} />
+                                    <OTheoDoiNgay ngay={td.ngayThoaThuanGiao} />
+                                    {quaHanChuaGiao ? (
+                                      <TableCell className="text-xs font-semibold text-danger-soft">
+                                        Chưa giao · quá hạn {Math.abs(conLai)} ngày
+                                      </TableCell>
+                                    ) : (
+                                      <OTheoDoiNgay ngay={td.ngayNhanLanDau} />
+                                    )}
+                                    <OTheoDoi so={td.theoDoiNCC} />
+                                    <TableCell className="text-sm">{td.nguoiNhan}</TableCell>
+                                    {quyen.xemNguoiPhuTrach && (
+                                      <TableCell className="text-sm text-left!">{po.nguoiPhuTrachTen}</TableCell>
+                                    )}
+                                    <TableCell className="text-sm">{po.ghiChu}</TableCell>
+                                    {quyen.xemGia && <OTheoDoiNgay ngay={td.ngayHoaDon} />}
+                                    <TableCell
+                                      className="text-sm tabular-nums"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {duocGhiWorkflow(po.nguoiPhuTrachUid) && po.trangThai !== "huy" ? (
+                                        <OChonNgay
+                                          nhan={`Ngày up workflow của đơn ${po.code}`}
+                                          giaTri={td.ngayUpWorkflow ?? ""}
+                                          onDoi={(ngay) => doiNgayWorkflow(po.id, ngay)}
+                                          className="mx-auto w-36"
+                                        />
+                                      ) : (
+                                        ngayNganTheoDoi(td.ngayUpWorkflow)
+                                      )}
                                     </TableCell>
+                                    {quyen.xemGia && <OTheoDoi so={td.theoDoiWorkflow} kieu="sau_hoa_don" />}
                                     <TableCell>
                                       {/* PO "chờ đề nghị" (29/08/2026) dùng badge tím riêng, KHÔNG phải
                                           StatusBadge chuẩn — xem `badge-cho-de-nghi.tsx` vì sao. */}
@@ -373,7 +443,7 @@ export default function TrangDanhSachDonHang() {
                         <span className="text-xs text-text-desc">{n.muc.length} đơn</span>
                       </button>
                       {!gon &&
-                        n.muc.map(({ po, tienDo, phanTram, conLai, giaTheoDong }) => {
+                        n.muc.map(({ po, td, tienDo, phanTram, conLai, giaTheoDong }) => {
                           const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
                           const quaHan = conLai < 0 && po.trangThai !== "hoan_thanh";
                           const mo = dongMo.has(po.id);
@@ -395,11 +465,48 @@ export default function TrangDanhSachDonHang() {
                               {quyen.xemNhaCungCap && (
                                 <span className="text-sm text-text-secondary">{po.supplierTen}</span>
                               )}
+                              {td.maDeXuat && (
+                                <span className="text-xs text-text-desc">Mã đề xuất {td.maDeXuat}</span>
+                              )}
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-text-desc">Giao dự kiến</span>
                                 <span className={quaHan ? "font-semibold text-danger-soft" : ""}>
                                   {new Date(po.ngayGiaoDuKien).toLocaleDateString("vi-VN")}
                                 </span>
+                              </div>
+                              {/* ★ Các cột mới của bảng theo dõi (02/10/2026) — bản điện thoại cũng phải có,
+                                  nhất là ô Ngày up workflow: không có ở đây là người đi công trình
+                                  không ghi được (phản biện 02/10/2026). */}
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-text-desc">Ngày nhận hàng</span>
+                                <span>{ngayNganTheoDoi(td.ngayNhanLanDau) || "Chưa nhận"}</span>
+                              </div>
+                              {(td.theoDoiCongTrinh !== null || td.theoDoiNCC !== null) && (
+                                <div className="flex flex-col gap-0.5 text-sm">
+                                  {td.theoDoiCongTrinh !== null && (
+                                    <span className={td.theoDoiCongTrinh < 0 ? "font-semibold text-danger-soft" : ""}>
+                                      Công trình: {chuTheoDoiHan(td.theoDoiCongTrinh)}
+                                    </span>
+                                  )}
+                                  {td.theoDoiNCC !== null && (
+                                    <span className={td.theoDoiNCC < 0 ? "font-semibold text-danger-soft" : ""}>
+                                      Nhà cung cấp: {chuTheoDoiHan(td.theoDoiNCC)}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                <span className="text-text-desc">Ngày up workflow</span>
+                                {duocGhiWorkflow(po.nguoiPhuTrachUid) && po.trangThai !== "huy" ? (
+                                  <OChonNgay
+                                    nhan={`Ngày up workflow của đơn ${po.code}`}
+                                    giaTri={td.ngayUpWorkflow ?? ""}
+                                    onDoi={(ngay) => doiNgayWorkflow(po.id, ngay)}
+                                    className="w-40"
+                                  />
+                                ) : (
+                                  <span>{ngayNganTheoDoi(td.ngayUpWorkflow) || "—"}</span>
+                                )}
                               </div>
                               <ThanhTienDo
                                 phanTram={phanTram}
@@ -442,5 +549,33 @@ export default function TrangDanhSachDonHang() {
         </div>
       )}
     </>
+  );
+}
+
+/** Ô ngày dạng `dd/mm/yy` như mẫu Excel. */
+function OTheoDoiNgay({ ngay }: { ngay: string | undefined }) {
+  return <TableCell className="text-sm tabular-nums">{ngayNganTheoDoi(ngay)}</TableCell>;
+}
+
+/**
+ * Ô "Theo dõi" — số ngày chênh như mẫu Excel. Không tính được thì để trống.
+ *
+ * · `kieu="han"` (cột ① ②, mốc hẹn − ngày thật): âm là TRỄ → nền vàng + chữ đỏ như ô tô vàng
+ *   của mẫu, và in thêm chữ "trễ" ngay dưới số — trạng thái phải có cả chữ, không chỉ màu (V1.1).
+ * · `kieu="sau_hoa_don"` (cột ③, up workflow − hoá đơn): 🔴 CHIỀU NGƯỢC, không tô cảnh báo theo
+ *   dấu — mẫu Excel không tô ô này, và số dương là up SAU hoá đơn (bình thường). Chữ giải thích
+ *   ở `chuTheoDoiWorkflow`.
+ */
+function OTheoDoi({ so, kieu = "han" }: { so: number | null; kieu?: "han" | "sau_hoa_don" }) {
+  if (so === null) return <TableCell />;
+  const tre = kieu === "han" && so < 0;
+  return (
+    <TableCell
+      title={kieu === "han" ? chuTheoDoiHan(so) : chuTheoDoiWorkflow(so)}
+      className={`text-sm font-semibold tabular-nums ${tre ? "bg-warning-bg text-danger-soft" : "text-text-primary"}`}
+    >
+      {so}
+      {tre && <span className="block text-xs font-medium">trễ</span>}
+    </TableCell>
   );
 }

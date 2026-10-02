@@ -442,6 +442,9 @@ export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
    * cảnh "thấy mục menu mà bấm vào bị đá ra", hoặc ngược lại.
    */
   if (duongDan.startsWith("/don-hang")) return q.xemQuyTrinhMuaHang || q.xacNhanKho;
+  /* ★ Danh mục NCC (02/10/2026) — y hệt điều kiện mục menu ở `dieu-huong.ts`. Không có dòng này thì
+     rơi xuống `xemDuocApp` bên dưới: mọi tài khoản gõ thẳng địa chỉ là xem được tên mọi NCC. */
+  if (duongDan.startsWith("/nha-cung-cap")) return q.xemQuyTrinhMuaHang && q.xemNhaCungCap;
   return q.xemDuocApp;
 }
 

@@ -175,7 +175,7 @@ function NoiDungLapDonHang() {
           suaPoId !== null && poDangSua
             ? [
                 { label: "Thu mua", href: "/tong-quan" },
-                { label: "Đơn đặt hàng", href: "/don-hang" },
+                { label: "Theo dõi đơn hàng", href: "/don-hang" },
                 { label: poDangSua.code, href: `/don-hang/${poDangSua.id}` },
                 { label: "Sửa đơn" },
               ]

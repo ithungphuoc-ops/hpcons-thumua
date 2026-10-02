@@ -3912,8 +3912,8 @@ export function FormLapDonMuaHang({
                     />
                     <PopoverContent align="start" className="w-80">
                       <p className="text-xs text-text-desc">
-                        Danh mục nhà cung cấp — chọn một dòng để điền mã, tên, mã số thuế, địa chỉ
-                        và người liên hệ.
+                        Danh mục nhà cung cấp — chọn một dòng để điền tên, mã số thuế, địa chỉ và
+                        người liên hệ.
                       </p>
                       {nhaCungCap.length === 0 ? (
                         <p className="text-sm text-text-secondary">
@@ -3931,14 +3931,15 @@ export function FormLapDonMuaHang({
                                 onClick={() => dienNhaCungCap(n)}
                                 className="flex min-h-11 min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-primary-bg"
                               >
+                                {/* ★ Hiện MÃ SỐ THUẾ thay mã nội bộ `NC0000` — Sếp 02/10/2026:
+                                    *"Điều chỉnh mã số NCC ở bước lập PO thành mã số thuế"*. Mã
+                                    `maNCC` vẫn lưu trong danh mục, chỉ thôi bày ra ở đây. */}
                                 <span className="text-sm font-medium text-text-primary">
-                                  {n.maNCC ? `${n.maNCC} — ` : ""}
+                                  {n.maSoThue ? `${n.maSoThue} — ` : ""}
                                   {n.ten}
                                 </span>
-                                {n.maSoThue && (
-                                  <span className="text-xs text-text-desc">
-                                    MST {n.maSoThue}
-                                  </span>
+                                {!n.maSoThue && (
+                                  <span className="text-xs text-text-desc">Chưa có mã số thuế</span>
                                 )}
                               </button>
                               {/* ★ XÓA KHỎI DANH MỤC — Ban lãnh đạo 21/08/2026.
@@ -5867,7 +5868,7 @@ export function FormLapDonMuaHang({
           hoiXoaNCC && (
             <>
               <strong>
-                {hoiXoaNCC.maNCC ? `${hoiXoaNCC.maNCC} — ` : ""}
+                {hoiXoaNCC.maSoThue ? `${hoiXoaNCC.maSoThue} — ` : ""}
                 {hoiXoaNCC.ten}
               </strong>{" "}
               sẽ không còn trong ô chọn nhà cung cấp. Đơn đặt hàng đã lập không đổi — mã, tên và
