@@ -760,8 +760,9 @@ export function lyDoKhongBoTickGoUng(deNghi: DeNghiMuaHang): string | null {
  *   · Không tick → phải ghi lý do.
  * 📌 Hồ sơ xuất kho / nhân sự (`khongCanHopDongHoaDon`) MIỄN: hàng có sẵn trong kho, không có
  *    khoản chi nào để gỡ ứng — đòi lý do ở đó là bắt ghi một câu vô nghĩa cho mọi hồ sơ.
- * ⚠️ Suy luận của Claude, Sếp chưa nói thẳng: "tick rồi thì BẮT BUỘC có tệp". Không đòi thì tick
- *    xong để trống vẫn qua — dễ hơn cả đường không tick (phải ghi lý do), tức tick thành lối né.
+ * ✅ "Tick rồi thì BẮT BUỘC có tệp" — Sếp XÁC NHẬN 02/10/2026 (*"Đúng"*), sau khi được hỏi lại vì
+ *    ban đầu đây là suy luận. Lý do giữ: không đòi thì tick xong để trống vẫn qua — dễ hơn cả
+ *    đường không tick (phải ghi lý do), tức tick thành lối né.
  */
 export function vuongMacPhieuChi(deNghi: DeNghiMuaHang): string | null {
   if (khongCanHopDongHoaDon(deNghi)) return null;
