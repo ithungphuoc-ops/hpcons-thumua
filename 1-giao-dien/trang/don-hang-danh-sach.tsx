@@ -8,6 +8,7 @@ import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { NutXuatDonHangExcel } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-don-hang";
+import { NutXuatTheoDoiDonHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/nut-xuat-theo-doi-don-hang";
 import { BangHangTrongDon, TheHangTrongDon } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-hang-trong-don";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { OChonNgay } from "@/1-giao-dien/thanh-phan-dung-chung/o-chon-ngay";
@@ -33,6 +34,7 @@ import {
   chuTheoDoiWorkflow,
   dungDongTheoDoiDonHang,
   ngayNganTheoDoi,
+  soNgayQuaHanChuaGiao,
 } from "@/2-quy-trinh/theo-doi-don-hang";
 import { phieuGocCua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import { toast } from "sonner";
@@ -144,6 +146,22 @@ export default function TrangDanhSachDonHang() {
   /* STT chạy liền qua các nhóm, như cột STT của mẫu Excel. */
   let stt = 0;
 
+  /* ★ Dòng cho nút "Xuất Excel" cả bảng (Sếp 02/10/2026) — ĐÚNG thứ tự đang hiện (theo nhóm), đã
+     qua ô tìm ở thanh trên. Số liệu lấy nguyên `td` / `giaTri` của bảng, không tính lại. */
+  const dongXuat = useMemo(
+    () =>
+      cacNhom.flatMap((n) =>
+        n.muc.map(({ po, td, giaTri, conLai }) => ({
+          po,
+          td,
+          giaTri,
+          trangThai: nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai).nhan,
+          quaHanChuaGiao: soNgayQuaHanChuaGiao(po, td, conLai),
+        })),
+      ),
+    [cacNhom],
+  );
+
   function doiCachNhom(c: CachNhom) {
     setNhomTheo(c);
     setNhomDong(new Set());
@@ -185,81 +203,109 @@ export default function TrangDanhSachDonHang() {
       ) : (
         <div className="flex flex-col gap-(--hp-md-card-gap)">
           <DaiDangLoc tuKhoa={tuKhoaBang} soKetQua={danhSachLoc.length} donVi="đơn" />
-          {quyen.xemNhaCungCap && (
-            <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Cách gom nhóm đơn">
-              <span className="text-xs font-semibold tracking-wide text-text-desc uppercase">Nhóm theo</span>
-              {(
-                [
-                  ["cong_trinh", "Công trình"],
-                  ["nha_cung_cap", "Nhà cung cấp"],
-                ] as const
-              ).map(([ma, nhan]) => (
-                <button
-                  key={ma}
-                  type="button"
-                  role="tab"
-                  aria-selected={cachNhom === ma}
-                  onClick={() => doiCachNhom(ma)}
-                  className={`inline-flex min-h-11 items-center rounded-lg border px-3 text-sm font-medium transition-colors ${
-                    cachNhom === ma
-                      ? "border-primary bg-primary-bg text-primary"
-                      : "border-border text-text-secondary hover:border-primary hover:text-primary"
-                  }`}
-                >
-                  {nhan}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Hàng công cụ: "Nhóm theo" (chỉ vai trò xem được NCC) bên trái, "Xuất Excel" bên phải. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {quyen.xemNhaCungCap && (
+              <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Cách gom nhóm đơn">
+                <span className="text-xs font-semibold tracking-wide text-text-desc uppercase">Nhóm theo</span>
+                {(
+                  [
+                    ["cong_trinh", "Công trình"],
+                    ["nha_cung_cap", "Nhà cung cấp"],
+                  ] as const
+                ).map(([ma, nhan]) => (
+                  <button
+                    key={ma}
+                    type="button"
+                    role="tab"
+                    aria-selected={cachNhom === ma}
+                    onClick={() => doiCachNhom(ma)}
+                    className={`inline-flex min-h-11 items-center rounded-lg border px-3 text-sm font-medium transition-colors ${
+                      cachNhom === ma
+                        ? "border-primary bg-primary-bg text-primary"
+                        : "border-border text-text-secondary hover:border-primary hover:text-primary"
+                    }`}
+                  >
+                    {nhan}
+                  </button>
+                ))}
+              </div>
+            )}
+            <span className="ml-auto">
+              <NutXuatTheoDoiDonHang
+                cacDong={dongXuat}
+                quyen={{
+                  xemGia: quyen.xemGia,
+                  xemNhaCungCap: quyen.xemNhaCungCap,
+                  xemNguoiPhuTrach: quyen.xemNguoiPhuTrach,
+                }}
+                nguoiXuat={nguoiDung.tenHienThi}
+              />
+            </span>
+          </div>
 
           <Card>
             <CardContent>
-              {/* `[&>[data-slot=table-container]]:overflow-visible`: div này là khung cuộn ngang thật. */}
-              <div className="thanh-keo-ngang-ro hidden overflow-x-auto md:block [&>[data-slot=table-container]]:overflow-visible">
+              {/* `[&>[data-slot=table-container]]:overflow-visible`: div này là khung cuộn THẬT (cả hai chiều).
+                  ★ Sếp 02/10/2026: *"fix lại thanh cuộn ngang, luôn hiện trên màn hình. và free panes
+                  thanh tiêu đề"*. Trước đây khung chỉ cuộn NGANG và cao theo nội dung, nên thanh cuộn
+                  ngang nằm tít đáy bảng — phải kéo trang xuống cuối mới thấy. Nay khung CAO TỐI ĐA bằng
+                  phần màn còn lại và tự cuộn dọc: thanh ngang luôn nằm ở đáy màn hình, và hàng tiêu đề
+                  `sticky` dính trên đỉnh khung khi cuộn (giống Freeze Panes của Excel).
+                  📌 `16rem` = thanh trên (60px) + tiêu đề trang + hàng "Nhóm theo" + lề thẻ, đo trên màn
+                  1080p. Khung ngắn hơn nội dung thì chỉ khung cuộn, trang không cuộn thêm. */}
+              <div className="thanh-keo-ngang-ro hidden overflow-auto md:block md:max-h-[calc(100dvh-16rem)] [&>[data-slot=table-container]]:overflow-visible">
                 {/* ★ Hàng tiêu đề chữ IN ĐẬM + đường kẻ ngăn từng ô — Sếp 02/10/2026 (khoanh đỏ cả hàng
                     tiêu đề): *"e dùng chữ in đậm và thêm boder ngăn cách các ô nha"*. Chỉ áp cho
                     `thead`; thân bảng giữ đường kẻ ngang giữa các dòng như cũ.
                     📌 Dùng `border-input` (30%) chứ không `border-border` (10%): đo trên màn, viền 10%
                     gần như không thấy được giữa các ô tiêu đề — tức kẻ mà như không kẻ. */}
-                <Table className="min-w-[160rem] [&_td]:text-center [&_td]:whitespace-normal [&_th]:text-center [&_th]:whitespace-normal [&_thead_th]:border [&_thead_th]:border-input [&_thead_th]:font-bold">
+                {/* ★ CỐ ĐỊNH TIÊU ĐỀ: mọi ô `thead` `sticky` (tầng 1 ở `top-0`, tầng 2 ở `top-12` = đúng
+                    chiều cao 48px của tầng 1), có nền `bg-card` để thân bảng không lộ qua khi cuộn.
+                    ★ GIÃN CỘT — Sếp 02/10/2026: *"Dãn chiều rộng cột ra. Do có thanh cuộn ngang nên ko
+                    bị giới hạn chiều rộng cột"*. Bỏ khung cứng `min-w-[160rem]` (cột phải co lại chia
+                    nhau 160rem), thay bằng BỀ RỘNG TỐI THIỂU TỪNG CỘT ở `TableHead` — bảng rộng bằng
+                    tổng các cột, chữ vẫn xuống dòng trong cột.
+                    🔴 ĐƯỜNG KẺ Ô TIÊU ĐỀ VẼ BẰNG `shadow inset`, KHÔNG BẰNG `border`: bảng dùng
+                    `border-collapse` (preflight), mà Chrome vẽ viền gộp thuộc về BẢNG chứ không thuộc
+                    ô — ô `sticky` dính lại còn viền thì trôi đi, đo trên màn: cuộn xuống là hàng tiêu
+                    đề mất sạch đường kẻ. Bóng thuộc về ô nên đi theo ô. Mỗi ô vẽ cạnh PHẢI + DƯỚI;
+                    tầng 1 vẽ thêm cạnh TRÊN, ô đầu bảng vẽ thêm cạnh TRÁI — không cạnh nào bị đôi. */}
+                <Table className="[&_td]:text-center [&_td]:whitespace-normal [&_th]:text-center [&_th]:whitespace-normal [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-card [&_thead_th]:font-bold [&_thead_th]:shadow-[inset_-1px_-1px_0_0_var(--color-input)] [&_thead_tr:first-child_th]:shadow-[inset_-1px_-1px_0_0_var(--color-input),inset_0_1px_0_0_var(--color-input)] [&_thead_tr:first-child_th:first-child]:shadow-[inset_-1px_-1px_0_0_var(--color-input),inset_1px_1px_0_0_var(--color-input)] [&_thead_tr:nth-child(2)_th]:top-12">
                   {/* ★ HAI TẦNG TIÊU ĐỀ theo mẫu Excel (Sếp 02/10/2026): nhóm "Công trình" và "Nhà cung
                       cấp" mỗi nhóm ba cột ngày, mỗi nhóm có cột "Theo dõi" riêng. */}
                   <TableHeader>
                     <TableRow>
-                      <TableHead rowSpan={2}>STT</TableHead>
-                      <TableHead rowSpan={2}>Mã đề xuất</TableHead>
-                      <TableHead rowSpan={2}>Số đơn hàng</TableHead>
-                      {quyen.xemNhaCungCap && <TableHead rowSpan={2}>Nhà cung cấp</TableHead>}
-                      <TableHead rowSpan={2}>Mục đích sử dụng</TableHead>
-                      <TableHead rowSpan={2}>Nơi sử dụng</TableHead>
-                      {quyen.xemGia && <TableHead rowSpan={2}>Giá trị</TableHead>}
-                      <TableHead colSpan={3} className="border-b border-border">
-                        Công trình
-                      </TableHead>
-                      <TableHead rowSpan={2}>Theo dõi</TableHead>
-                      <TableHead colSpan={3} className="border-b border-border">
-                        Nhà cung cấp
-                      </TableHead>
-                      <TableHead rowSpan={2}>Theo dõi</TableHead>
-                      <TableHead rowSpan={2}>Người nhận</TableHead>
+                      <TableHead rowSpan={2} className="min-w-14">STT</TableHead>
+                      <TableHead rowSpan={2} className="min-w-28">Mã đề xuất</TableHead>
+                      <TableHead rowSpan={2} className="min-w-40">Số đơn hàng</TableHead>
+                      {quyen.xemNhaCungCap && <TableHead rowSpan={2} className="min-w-64">Nhà cung cấp</TableHead>}
+                      <TableHead rowSpan={2} className="min-w-64">Mục đích sử dụng</TableHead>
+                      <TableHead rowSpan={2} className="min-w-52">Nơi sử dụng</TableHead>
+                      {quyen.xemGia && <TableHead rowSpan={2} className="min-w-32">Giá trị</TableHead>}
+                      <TableHead colSpan={3}>Công trình</TableHead>
+                      <TableHead rowSpan={2} className="min-w-20">Theo dõi</TableHead>
+                      <TableHead colSpan={3}>Nhà cung cấp</TableHead>
+                      <TableHead rowSpan={2} className="min-w-20">Theo dõi</TableHead>
+                      <TableHead rowSpan={2} className="min-w-48">Người nhận</TableHead>
                       {quyen.xemNguoiPhuTrach && (
-                        <TableHead rowSpan={2}>Nhân viên thực hiện đơn hàng</TableHead>
+                        <TableHead rowSpan={2} className="min-w-48">Nhân viên thực hiện đơn hàng</TableHead>
                       )}
-                      <TableHead rowSpan={2}>Ghi chú</TableHead>
-                      {quyen.xemGia && <TableHead rowSpan={2}>Ngày hoá đơn / phiếu giao hàng</TableHead>}
-                      <TableHead rowSpan={2}>Ngày up workflow</TableHead>
-                      {quyen.xemGia && <TableHead rowSpan={2}>Theo dõi</TableHead>}
-                      <TableHead rowSpan={2}>Trạng thái</TableHead>
+                      <TableHead rowSpan={2} className="min-w-40">Ghi chú</TableHead>
+                      {quyen.xemGia && <TableHead rowSpan={2} className="min-w-32">Ngày hoá đơn / phiếu giao hàng</TableHead>}
+                      <TableHead rowSpan={2} className="min-w-44">Ngày up workflow</TableHead>
+                      {quyen.xemGia && <TableHead rowSpan={2} className="min-w-20">Theo dõi</TableHead>}
+                      <TableHead rowSpan={2} className="min-w-36">Trạng thái</TableHead>
                       {/* Cột xuất file — chỉ có nghĩa với vai trò xem được giá. */}
-                      {quyen.xemGia && <TableHead rowSpan={2}>Xuất</TableHead>}
+                      {quyen.xemGia && <TableHead rowSpan={2} className="min-w-28">Xuất</TableHead>}
                     </TableRow>
                     <TableRow>
-                      <TableHead>Ngày lập đề nghị</TableHead>
-                      <TableHead>Ngày đề nghị cấp</TableHead>
-                      <TableHead>Ngày nhận hàng</TableHead>
-                      <TableHead>Ngày đặt hàng</TableHead>
-                      <TableHead>Ngày thoả thuận giao hàng</TableHead>
-                      <TableHead>Ngày giao hàng</TableHead>
+                      <TableHead className="min-w-28">Ngày lập đề nghị</TableHead>
+                      <TableHead className="min-w-28">Ngày đề nghị cấp</TableHead>
+                      <TableHead className="min-w-28">Ngày nhận hàng</TableHead>
+                      <TableHead className="min-w-28">Ngày đặt hàng</TableHead>
+                      <TableHead className="min-w-32">Ngày thoả thuận giao hàng</TableHead>
+                      <TableHead className="min-w-32">Ngày giao hàng</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -308,11 +354,7 @@ export default function TrangDanhSachDonHang() {
                               stt += 1;
                               /* Chưa giao lần nào mà đã quá ngày thoả thuận — bảng cũ báo "Quá hạn N
                                  ngày", bố cục mới giữ lại ở ô "Ngày giao hàng" (phản biện 02/10/2026). */
-                              const quaHanChuaGiao =
-                                !td.ngayNhanLanDau &&
-                                conLai < 0 &&
-                                po.trangThai !== "hoan_thanh" &&
-                                po.trangThai !== "huy";
+                              const quaHanChuaGiao = soNgayQuaHanChuaGiao(po, td, conLai);
                               const doiMo = () => setDongMo(doiTrongSet(po.id));
                               return (
                                 <Fragment key={po.id}>
@@ -364,9 +406,9 @@ export default function TrangDanhSachDonHang() {
                                     <OTheoDoi so={td.theoDoiCongTrinh} />
                                     <OTheoDoiNgay ngay={td.ngayDatHang} />
                                     <OTheoDoiNgay ngay={td.ngayThoaThuanGiao} />
-                                    {quaHanChuaGiao ? (
+                                    {quaHanChuaGiao !== null ? (
                                       <TableCell className="text-xs font-semibold text-danger-soft">
-                                        Chưa giao · quá hạn {Math.abs(conLai)} ngày
+                                        Chưa giao · quá hạn {quaHanChuaGiao} ngày
                                       </TableCell>
                                     ) : (
                                       <OTheoDoiNgay ngay={td.ngayNhanLanDau} />

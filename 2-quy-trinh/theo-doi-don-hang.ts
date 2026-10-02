@@ -165,6 +165,25 @@ export function chuTheoDoiWorkflow(so: number | null): string {
       : `Up workflow trước hoá đơn ${-so} ngày`;
 }
 
+/**
+ * ★ SỐ NGÀY "CHƯA GIAO · QUÁ HẠN" — đơn chưa nhận lần nào mà đã quá ngày thoả thuận giao.
+ * `null` = không phải ca đó (đã giao, chưa tới hạn, đơn đã xong / đã huỷ).
+ *
+ * 🔴 MỘT CHỖ cho cả bảng trên màn lẫn file Excel (phản biện 02/10/2026: file từng để trống ô này,
+ * trong khi đây là loại đơn trễ NẶNG NHẤT — cột Theo dõi ② không tính được vì chưa có ngày giao).
+ *
+ * @param conLai `soNgayConLai(po.ngayGiaoDuKien)` — số ngày còn lại tới ngày thoả thuận (âm = đã qua).
+ */
+export function soNgayQuaHanChuaGiao(
+  po: Pick<DonDatHang, "trangThai">,
+  td: Pick<DongTheoDoiDonHang, "ngayNhanLanDau">,
+  conLai: number,
+): number | null {
+  if (td.ngayNhanLanDau || conLai >= 0) return null;
+  if (po.trangThai === "hoan_thanh" || po.trangThai === "huy") return null;
+  return -conLai;
+}
+
 /** Ngày `yyyy-mm-dd` → `dd/mm/yy` như mẫu Excel. Rỗng → chuỗi rỗng. */
 export function ngayNganTheoDoi(ngay: string | undefined): string {
   const x = phanNgay(ngay);

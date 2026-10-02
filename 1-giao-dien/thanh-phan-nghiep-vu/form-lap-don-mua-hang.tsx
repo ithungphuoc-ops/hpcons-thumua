@@ -6060,32 +6060,36 @@ export function FormLapDonMuaHang({
           setTenNCC(nccMoi.ten.trim());
           if (nccMoi.maSoThue.trim()) setMstNCC(nccMoi.maSoThue.trim());
           if (nccMoi.diaChi.trim()) setDiaChiNCC(nccMoi.diaChi.trim());
-          /* Nhắc lại mã vừa cấp — người dùng không tự đặt nên cần thấy app đã cấp số nào. */
+          /* Nhắc lại bằng MÃ SỐ THUẾ (Sếp 02/10/2026: mã người dùng nhìn là MST, không phải `NC0000`). */
           toast.success("Đã thêm vào danh mục", {
-            description: `${kq.ma} — ${nccMoi.ten.trim()}`,
+            description: nccMoi.maSoThue.trim()
+              ? `MST ${nccMoi.maSoThue.trim()} — ${nccMoi.ten.trim()}`
+              : nccMoi.ten.trim(),
           });
           setMoThemNCC(false);
           setNccMoi({ ten: "", maSoThue: "", diaChi: "", dienThoai: "", nguoiLienHe: "" });
         }}
       >
         <div className="flex flex-col gap-(--hp-md-row-gap)">
+          {/**
+            * ★★ Ô ĐẦU LÀ MÃ SỐ THUẾ, KHÔNG CÒN Ô "MÃ NHÀ CUNG CẤP" — Sếp 02/10/2026 (khoanh ô
+            * "NC0000 (app tự cấp)"): *"Đây là mã số thuế"*. Cùng ngày Sếp đã chốt ở danh mục NCC:
+            * *"Mã này là MST, sửa lại"*.
+            *
+            * 📌 Mã nội bộ `NC0000` VẪN do `themNhaCungCap` cấp lúc ghi (Ban lãnh đạo 25/08/2026: tự
+            * sinh, không cho sửa) — chỉ thôi bày ra cho người dùng. Lý do giữ ô cũ trước đây
+            * ("bỏ đi thì người dùng không biết app có cấp mã") hết hiệu lực vì mã đó không còn hiện
+            * ở đâu trên màn nữa (ô chọn NCC và danh mục đều hiện MST).
+            */}
           <div className="flex flex-col gap-2 sm:flex-row">
-            {/**
-              * ★★ MÃ DO APP TỰ CẤP, KHÔNG CHO SỬA — Ban lãnh đạo 25/08/2026: *"Mã NCC sẽ tự động
-              * sinh ra sau khi nhập thông tin NCC. Theo cấu trúc: NC+0000. Và mục này sẽ không
-              * được sửa"*.
-              *
-              * 🔴 KHÔNG ĐOÁN TRƯỚC CON SỐ, cùng lối với ô "Số đơn hàng". `themNhaCungCap` cấp mã
-              * lúc GHI, nên đoán ở đây là hai người cùng thêm một lúc sẽ thấy cùng một mã, rồi
-              * bản ghi ra lại mang mã khác cái vừa hiện. Bày phần KHUÔN (`NC0000`) là đủ để
-              * người dùng biết mã sẽ ra dạng gì mà không nói một con số có thể sai.
-              *
-              * 📌 VẪN GIỮ Ô, không bỏ hẳn: bỏ đi thì người dùng không biết app có cấp mã hay
-              * không, và lần sau mở danh mục thấy một dãy `NC…` lạ không hiểu ở đâu ra.
-              */}
             <div className="flex flex-col gap-1.5 sm:w-1/3">
-              <Label htmlFor="ncc-moi-ma">Mã nhà cung cấp</Label>
-              <Input id="ncc-moi-ma" value="NC0000 (app tự cấp)" readOnly disabled />
+              <Label htmlFor="ncc-moi-mst">Mã số thuế</Label>
+              <Input
+                id="ncc-moi-mst"
+                value={nccMoi.maSoThue}
+                onChange={(e) => setNccMoi((c) => ({ ...c, maSoThue: e.target.value }))}
+                placeholder="0300000005"
+              />
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <Label htmlFor="ncc-moi-ten">Tên nhà cung cấp *</Label>
@@ -6098,24 +6102,13 @@ export function FormLapDonMuaHang({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="flex flex-col gap-1.5 sm:w-1/2">
-              <Label htmlFor="ncc-moi-mst">Mã số thuế</Label>
-              <Input
-                id="ncc-moi-mst"
-                value={nccMoi.maSoThue}
-                onChange={(e) => setNccMoi((c) => ({ ...c, maSoThue: e.target.value }))}
-                placeholder="0300000005"
-              />
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <Label htmlFor="ncc-moi-dt">Điện thoại</Label>
-              <Input
-                id="ncc-moi-dt"
-                value={nccMoi.dienThoai}
-                onChange={(e) => setNccMoi((c) => ({ ...c, dienThoai: e.target.value }))}
-              />
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ncc-moi-dt">Điện thoại</Label>
+            <Input
+              id="ncc-moi-dt"
+              value={nccMoi.dienThoai}
+              onChange={(e) => setNccMoi((c) => ({ ...c, dienThoai: e.target.value }))}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

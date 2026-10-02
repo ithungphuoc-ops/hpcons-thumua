@@ -13680,6 +13680,134 @@ kiem(
   });
 }
 
+/* ★ XUẤT EXCEL CẢ BẢNG THEO DÕI ĐƠN HÀNG — Sếp 02/10/2026. Dựng tệp THẬT rồi đọc lại từng ô. */
+{
+  const thuMucXTD = mkdtempSync(join(tmpdir(), "kiem-luat-xtd-"));
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/xuat-theo-doi-don-hang-excel.ts" --bundle --external:exceljs --platform=node --format=cjs --outdir="${thuMucXTD}" --out-extension:.js=.cjs --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+  const XTD = nap(join(thuMucXTD, "xuat-theo-doi-don-hang-excel.cjs"));
+  rmSync(thuMucXTD, { recursive: true, force: true });
+  const ExcelJS = nap("exceljs");
+  const CHU = "Sếp 02/10/2026 — xuất Excel bảng Theo dõi đơn hàng";
+  const dong = (code, ngayDat, cong, wf) => ({
+    po: { code, supplierTen: "Công ty TNHH VLXD A", nguoiPhuTrachTen: "Nguyễn Văn A", ghiChu: "" },
+    td: {
+      maDeXuat: "2774197", mucDichSuDung: "Khoan cấy sắt", noiSuDung: "Công trình A",
+      ngayLapDeNghi: "2026-03-25", ngayDeNghiCap: "2026-03-28", ngayNhanLanDau: "2026-04-01",
+      ngayDatHang: ngayDat, ngayThoaThuanGiao: "2026-04-02", nguoiNhan: "Anh B", ngayHoaDon: "2026-04-01",
+      ngayUpWorkflow: "2026-04-02", theoDoiCongTrinh: cong, theoDoiNCC: 1, theoDoiWorkflow: wf,
+    },
+    giaTri: 5670000,
+    trangThai: "Hoàn thành",
+  });
+  const ds = [dong("DMH0241-26", "2026-04-02", -4, 1), dong("DMH0250-26", "2026-05-03", 0, 6)];
+  const docLai = async (quyen, khung) => {
+    const wb = XTD.dungTheoDoiDonHangExcel(ExcelJS, { dong: XTD.locTheoKhungNgayDat(ds, khung), quyen, khung, nguoiXuat: "Thử" });
+    const wb2 = new ExcelJS.Workbook();
+    await wb2.xlsx.load(await wb.xlsx.writeBuffer());
+    return wb2.worksheets[0];
+  };
+  const du = { xemGia: true, xemNhaCungCap: true, xemNguoiPhuTrach: true };
+  const thang4 = { tuNgay: "2026-04-01", denNgay: "2026-04-30" };
+  const wsDu = await docLai(du, thang4);
+  const wsKhongGia = await docLai({ xemGia: false, xemNhaCungCap: false, xemNguoiPhuTrach: false }, { tuNgay: "", denNgay: "" });
+  const tieuDeCot = (ws) => {
+    const ra = [];
+    for (let c = 1; c <= ws.columnCount; c++) {
+      const tren = ws.getCell(3, c).value;
+      const duoi = ws.getCell(4, c).value;
+      ra.push(String(duoi ?? tren ?? ""));
+    }
+    return ra;
+  };
+
+  kiem("Xuất Excel theo dõi: tiêu đề tháng như mẫu, lọc theo NGÀY ĐẶT HÀNG, ô ngày là NGÀY THẬT dd/mm/yy", CHU, () => {
+    const td = wsDu.getCell(1, 1).value;
+    const cot = tieuDeCot(wsDu);
+    const cNgayDat = cot.indexOf("Ngày đặt hàng") + 1;
+    const oNgay = wsDu.getCell(5, cNgayDat);
+    const soDong = wsDu.actualRowCount - 4;
+    const ngayDung = oNgay.value instanceof Date && oNgay.value.toISOString().slice(0, 10) === "2026-04-02";
+    return {
+      duoc: td === "BẢNG THEO DÕI ĐƠN MUA HÀNG THÁNG 04 NĂM 2026" && soDong === 1 && ngayDung && oNgay.numFmt === "dd/mm/yy",
+      thucTe: JSON.stringify({ td, soDong, ngay: oNgay.value, fmt: oNgay.numFmt }),
+      mongDoi: "tiêu đề 'THÁNG 04 NĂM 2026' · 1 dòng (đơn tháng 5 bị lọc) · ô ngày Date 2026-04-02 dạng dd/mm/yy",
+    };
+  });
+
+  kiem("Xuất Excel theo dõi: cắt cột THEO QUYỀN y như màn (không xem giá → không Giá trị / Ngày HĐ / Theo dõi ③; không xem NCC → không cột NCC)", CHU, () => {
+    const a = tieuDeCot(wsDu);
+    const b = tieuDeCot(wsKhongGia);
+    const coDu = ["Giá trị", "Nhà cung cấp", "Nhân viên thực hiện đơn hàng", "Ngày hoá đơn / phiếu giao hàng"].every((t) => a.includes(t));
+    /* `tieuDeCot` đọc tầng DƯỚI trước, nên tiêu đề NHÓM "Nhà cung cấp" (trên 3 cột ngày) không vào
+       danh sách — chỉ cột TÊN NCC (gộp dọc) mới hiện chữ "Nhà cung cấp". Không xem NCC → phải 0. */
+    const khongLot = !b.includes("Giá trị") && !b.includes("Ngày hoá đơn / phiếu giao hàng") && !b.includes("Nhân viên thực hiện đơn hàng") &&
+      !b.includes("Nhà cung cấp") && a.includes("Nhà cung cấp");
+    const soTheoDoi = (x) => x.filter((t) => t === "Theo dõi").length;
+    return {
+      duoc: coDu && khongLot && soTheoDoi(a) === 3 && soTheoDoi(b) === 2,
+      thucTe: `đủ quyền: ${a.length} cột, ${soTheoDoi(a)} Theo dõi · không quyền: ${b.length} cột, ${soTheoDoi(b)} Theo dõi · ${JSON.stringify(b)}`,
+      mongDoi: "đủ quyền có Giá trị/NCC/NV/Ngày HĐ + 3 cột Theo dõi · không quyền mất 4 cột đó + Theo dõi ③",
+    };
+  });
+
+  kiem("Xuất Excel theo dõi: ô Theo dõi ①② ÂM tô nền vàng; cột ③ không tô theo dấu", CHU, () => {
+    const cot = tieuDeCot(wsDu);
+    const viTri = cot.map((t, i) => (t === "Theo dõi" ? i + 1 : 0)).filter(Boolean);
+    const o1 = wsDu.getCell(5, viTri[0]);
+    const o3 = wsDu.getCell(5, viTri[2]);
+    const vang = (o) => o.fill?.fgColor?.argb === "FFFFFF00";
+    return {
+      duoc: o1.value === -4 && vang(o1) && o3.value === 1 && !vang(o3),
+      thucTe: JSON.stringify({ o1: o1.value, vang1: vang(o1), o3: o3.value, vang3: vang(o3) }),
+      mongDoi: "① = -4 tô vàng · ③ = 1 không tô",
+    };
+  });
+
+  const dsQuaHan = [{ ...dong("DMH0260-26", "2026-04-05", null, null), quaHanChuaGiao: 12 }];
+  dsQuaHan[0].td = { ...dsQuaHan[0].td, ngayNhanLanDau: undefined };
+  const wbQH = XTD.dungTheoDoiDonHangExcel(ExcelJS, { dong: dsQuaHan, quyen: du, khung: { tuNgay: "", denNgay: "" }, nguoiXuat: "Thử" });
+  const wsQH = new ExcelJS.Workbook();
+  await wsQH.xlsx.load(await wbQH.xlsx.writeBuffer());
+  const TD2 = (() => {
+    const t = mkdtempSync(join(tmpdir(), "kiem-luat-qh-"));
+    execSync(`npx --yes esbuild "2-quy-trinh/theo-doi-don-hang.ts" --bundle --platform=node --format=cjs --outfile="${join(t, "td.cjs")}" --log-level=error`, { stdio: ["ignore", "pipe", "pipe"] });
+    const m = nap(join(t, "td.cjs"));
+    rmSync(t, { recursive: true, force: true });
+    return m;
+  })();
+
+  kiem("Xuất Excel theo dõi: đơn CHƯA GIAO mà quá hạn ghi 'Chưa giao · quá hạn N ngày' (không để trống); chú thích ③ đúng nghĩa", "Phản biện 02/10/2026 — file từng bỏ mất đơn trễ nặng nhất", () => {
+    const ws = wsQH.worksheets[0];
+    let o = null;
+    for (let c = 1; c <= ws.columnCount; c++) if (ws.getCell(4, c).value === "Ngày giao hàng") o = ws.getCell(5, c);
+    const chuThich = String(ws.getCell(2, 1).value);
+    const hamChung = [
+      TD2.soNgayQuaHanChuaGiao({ trangThai: "dang_giao" }, {}, -12),
+      TD2.soNgayQuaHanChuaGiao({ trangThai: "dang_giao" }, { ngayNhanLanDau: "2026-04-01" }, -12),
+      TD2.soNgayQuaHanChuaGiao({ trangThai: "hoan_thanh" }, {}, -12),
+      TD2.soNgayQuaHanChuaGiao({ trangThai: "dang_giao" }, {}, 3),
+    ];
+    return {
+      duoc: o?.value === "Chưa giao · quá hạn 12 ngày" && chuThich.includes("SAU ngày hoá đơn") && JSON.stringify(hamChung) === "[12,null,null,null]",
+      thucTe: JSON.stringify({ o: o?.value, chuThich: chuThich.slice(-90), hamChung }),
+      mongDoi: "ô = 'Chưa giao · quá hạn 12 ngày' · chú thích nói ③ là 'SAU ngày hoá đơn' · hàm chung [12,null,null,null]",
+    };
+  });
+
+  kiem("Xuất Excel theo dõi: tiêu đề nửa tháng KHÔNG ghi 'THÁNG' (ghi từ ngày / đến ngày)", CHU, () => {
+    const a = XTD.tieuDeBangTheoDoi({ tuNgay: "2026-04-01", denNgay: "2026-04-15" });
+    const b = XTD.tieuDeBangTheoDoi({ tuNgay: "", denNgay: "" });
+    return {
+      duoc: a.includes("TỪ NGÀY 01/04/2026 ĐẾN NGÀY 15/04/2026") && !a.includes("THÁNG") && b === "BẢNG THEO DÕI ĐƠN MUA HÀNG",
+      thucTe: `"${a}" · "${b}"`,
+      mongDoi: "'… TỪ NGÀY 01/04/2026 ĐẾN NGÀY 15/04/2026' · không khung = tiêu đề gốc",
+    };
+  });
+}
+
 /* ★ Ô TICK "CÓ ỦY NHIỆM CHI" — Sếp 02/10/2026. */
 {
   const thuMucUNC = mkdtempSync(join(tmpdir(), "kiem-luat-unc-"));
