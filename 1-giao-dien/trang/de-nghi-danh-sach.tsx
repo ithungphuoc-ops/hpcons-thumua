@@ -318,8 +318,9 @@ export default function TrangDanhSachDeNghi() {
      (`bang-quy-trinh-mua-hang.tsx`), nên nút và nhãn không bao giờ nói khác nhau.
      📌 Chỉ là cách xem trong phiên, không lưu. Bật nút thì ẩn thẻ đơn độc lập (không có người phụ
      trách theo dòng để so). */
-  /* ★ MẶC ĐỊNH BẬT — Sếp 26/09/2026: *"Nút này sẽ luôn bật, nhưng vẫn cho bấm zô để tắt"*. */
-  const [chiViecCuaToi, setChiViecCuaToi] = useState(true);
+  /* ★ MẶC ĐỊNH TẮT — Sếp 02/10/2026: *"e bỏ chức năng luôn bật nút việc của tôi đi, để khi nào cần thì
+     mọi người tự bật"* (đảo lại chỉ đạo 26/09/2026 "luôn bật"). */
+  const [chiViecCuaToi, setChiViecCuaToi] = useState(false);
   const cotHien = useMemo(() => {
     const tim = tuKhoaBang.trim();
     /* ★ Màn TRƯỞNG PHÒNG (người giao việc): GOM THEO TỪNG ĐỀ NGHỊ, phiếu gốc đứng đầu nhóm của nó.
