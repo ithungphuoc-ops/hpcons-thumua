@@ -31,7 +31,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `bao-gia-danh-sach.tsx` | Danh sách bảng báo giá | `/bao-gia` |
 | `bao-gia-chi-tiet.tsx` | Bảng so sánh giá nhiều nhà cung cấp | `/bao-gia/[id]` |
 | `cong-no.tsx` | Công nợ nhà cung cấp + tuổi nợ 30-60-90 | `/cong-no` |
-| `nha-cung-cap.tsx` | **Danh mục nhà cung cấp** (02/10/2026) — xem, **Xuất Excel**, **Nhập Excel** có xem trước (dòng trùng MST/tên bỏ qua). Vào được: `xemQuyTrinhMuaHang && xemNhaCungCap`; nhập/xoá: `lapPO` | `/nha-cung-cap` |
+| `nha-cung-cap.tsx` | **Danh mục nhà cung cấp** (02/10/2026) — xem (cột đầu là **Mã số thuế**, có **Ghi chú**), **Thêm nhà cung cấp** từng bên, **Xuất Excel**, **Nhập Excel** có xem trước (dòng trùng MST/tên bỏ qua — thêm tay cũng chặn theo đúng luật đó). Vào được: `xemQuyTrinhMuaHang && xemNhaCungCap`; nhập/xoá: `lapPO` | `/nha-cung-cap` |
 
 > Địa chỉ URL do thư mục `app/` quyết định (Next.js). File trong `app/` chỉ có **1 dòng** trỏ về đây.
 

@@ -10,13 +10,18 @@
 // `kho-du-lieu.tsx` → `themNhieuNhaCungCap` (tầng ghi phân loại lại, không tin bản xem trước này).
 // 📌 Quyền: vào màn = `xemNhaCungCap` (chặn ở `quyen.ts` → `duocVaoDuongDan`); nhập / xoá =
 //    `lapPO` — cùng người vốn thêm, xoá NCC được ở form lập PO.
-// 📌 Thêm từng NCC vẫn làm ở form lập PO như cũ; màn này không dựng hộp thêm thứ hai cho cùng việc.
+// ★ Sếp 02/10/2026 (lượt 2): *"Mã này là MST, sửa lại"* (cột Mã NCC NC0001 → Mã số thuế), *"Thêm
+//   cột ghi chú"*, *"Thêm nút thêm thông tin NCC khác"* — nút "Thêm nhà cung cấp" ngay tại màn này
+//   (trước đó chỉ thêm được trong form lập PO). Cùng một tầng ghi `themNhaCungCap` với form đó, nên
+//   mã `NC0000` vẫn cấp đúng một chỗ.
 // 🔴 Toast chỉ nói SỐ LƯỢNG, không nói tên NCC (luật không ghi tên NCC ra chỗ chung, §7).
 // ============================================================
 
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Building2, FileSpreadsheet, Trash2, Upload } from "lucide-react";
+import { Building2, FileSpreadsheet, Plus, Trash2, Upload } from "lucide-react";
+import { Input } from "@/1-giao-dien/nen-tang-ui/input";
+import { Label } from "@/1-giao-dien/nen-tang-ui/label";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -50,6 +55,7 @@ const NUT =
 
 export default function TrangNhaCungCap() {
   const { nhaCungCap, donHang, themNhieuNhaCungCap, xoaNhaCungCap } = useDuLieu();
+  const [moThem, setMoThem] = useState(false);
   const { quyen, nguoiDung } = useNguoiDung();
   const chonTep = useRef<HTMLInputElement>(null);
   const [dangXuat, setDangXuat] = useState(false);
@@ -139,7 +145,7 @@ export default function TrangNhaCungCap() {
       <PageHeader
         crumbs={[{ label: "Thu mua", href: duongDanGocTheoQuyen(quyen) }, { label: "Nhà cung cấp" }]}
         title="Danh mục nhà cung cấp"
-        description={`${ds.length} nhà cung cấp · mã NCC do app tự cấp`}
+        description={`${ds.length} nhà cung cấp`}
         actions={
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={xuat} disabled={dangXuat} className={NUT}>
@@ -148,6 +154,10 @@ export default function TrangNhaCungCap() {
             </button>
             {quyen.lapPO && (
               <>
+                <button type="button" onClick={() => setMoThem(true)} className={NUT}>
+                  <Plus className="size-4 shrink-0" aria-hidden />
+                  Thêm nhà cung cấp
+                </button>
                 <button type="button" onClick={() => chonTep.current?.click()} className={NUT}>
                   <Upload className="size-4 shrink-0" aria-hidden />
                   Nhập Excel
@@ -175,7 +185,7 @@ export default function TrangNhaCungCap() {
           title="Danh mục đang trống"
           description={
             quyen.lapPO
-              ? "Bấm “Xuất Excel” để lấy tệp mẫu đúng cột, điền nhà cung cấp rồi bấm “Nhập Excel”. Hoặc thêm từng nhà cung cấp ở form lập đơn mua hàng."
+              ? "Bấm “Thêm nhà cung cấp” để thêm từng bên, hoặc “Xuất Excel” lấy tệp mẫu đúng cột, điền rồi bấm “Nhập Excel”."
               : "Chưa có nhà cung cấp nào trong danh mục."
           }
         />
@@ -187,12 +197,12 @@ export default function TrangNhaCungCap() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-14 text-center">STT</TableHead>
-                    <TableHead className="w-24 text-center">Mã NCC</TableHead>
-                    <TableHead>Tên nhà cung cấp</TableHead>
                     <TableHead className="w-36 text-center">Mã số thuế</TableHead>
+                    <TableHead>Tên nhà cung cấp</TableHead>
                     <TableHead>Địa chỉ</TableHead>
                     <TableHead className="w-32 text-center">Điện thoại</TableHead>
                     <TableHead className="w-48">Người liên hệ</TableHead>
+                    <TableHead className="w-56">Ghi chú</TableHead>
                     <TableHead className="w-20 text-center">Số đơn</TableHead>
                     {quyen.lapPO && <TableHead className="w-16 text-center">Xoá</TableHead>}
                   </TableRow>
@@ -201,12 +211,12 @@ export default function TrangNhaCungCap() {
                   {ds.map((n, i) => (
                     <TableRow key={n.id}>
                       <TableCell className="text-center tabular-nums">{i + 1}</TableCell>
-                      <TableCell className="text-center text-sm">{n.maNCC}</TableCell>
-                      <TableCell className="text-sm font-medium">{n.ten}</TableCell>
                       <TableCell className="text-center text-sm tabular-nums">{n.maSoThue}</TableCell>
+                      <TableCell className="text-sm font-medium">{n.ten}</TableCell>
                       <TableCell className="text-sm">{n.diaChi}</TableCell>
                       <TableCell className="text-center text-sm">{n.dienThoai}</TableCell>
                       <TableCell className="text-sm">{n.nguoiLienHe}</TableCell>
+                      <TableCell className="text-sm">{n.ghiChu}</TableCell>
                       <TableCell className="text-center text-sm tabular-nums">{soDonTheoNCC.get(n.id) ?? 0}</TableCell>
                       {quyen.lapPO && (
                         <TableCell className="text-center">
@@ -233,15 +243,15 @@ export default function TrangNhaCungCap() {
                 <div key={n.id} className="flex flex-col gap-1 rounded-xl border border-border bg-card p-4">
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-semibold text-text-primary">{n.ten}</span>
-                    <span className="shrink-0 text-xs text-text-desc">{n.maNCC}</span>
+                    {n.maSoThue && <span className="shrink-0 text-xs text-text-desc">MST {n.maSoThue}</span>}
                   </div>
-                  {n.maSoThue && <span className="text-sm text-text-secondary">MST {n.maSoThue}</span>}
                   {n.diaChi && <span className="text-sm text-text-secondary">{n.diaChi}</span>}
                   {(n.dienThoai || n.nguoiLienHe) && (
                     <span className="text-sm text-text-secondary">
                       {[n.nguoiLienHe, n.dienThoai].filter(Boolean).join(" · ")}
                     </span>
                   )}
+                  {n.ghiChu && <span className="text-sm text-text-desc italic">{n.ghiChu}</span>}
                   {quyen.lapPO && (
                     <button
                       type="button"
@@ -263,6 +273,8 @@ export default function TrangNhaCungCap() {
           🔴 KHÔNG dùng `HopXacNhan`: hộp đó ĐÓNG ngay khi bấm Đồng ý (rồi mới chạy việc), nên khoá
           "Đang thêm…" không bao giờ có tác dụng, và nó rộng có `sm:max-w-md` — bảng 4 cột chật cứng
           (phản biện 02/10/2026). Hộp này chỉ đóng SAU KHI nhập xong. */}
+      <HopThemNCC mo={moThem} onDong={() => setMoThem(false)} />
+
       <HopXemTruocNhap
         xemTruoc={xemTruoc}
         soMoi={soMoi}
@@ -373,6 +385,92 @@ function HopXemTruocNhap({
           </Button>
           <Button onClick={onNhap} disabled={dangNhap || soMoi === 0}>
             {dangNhap ? "Đang thêm…" : `Thêm ${soMoi} nhà cung cấp`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const NCC_TRONG = { ten: "", maSoThue: "", diaChi: "", dienThoai: "", nguoiLienHe: "", ghiChu: "" };
+
+/**
+ * ★ HỘP "THÊM NHÀ CUNG CẤP" — Sếp 02/10/2026: *"Thêm nút thêm thông tin NCC khác"*.
+ *
+ * 📌 Soát trùng bằng ĐÚNG luật của nhập Excel (`phanLoaiNhapNCC`: trùng MST / trùng tên / MST sai
+ * dạng) trước khi ghi — thêm tay và thêm bằng file phải chặn như nhau, nếu không một đường thành lối
+ * né đường kia. Ghi qua `themNhaCungCap` (cùng tầng ghi với form lập PO), mã `NC0000` cấp ở đó.
+ */
+function HopThemNCC({ mo, onDong }: { mo: boolean; onDong: () => void }) {
+  const { nhaCungCap, themNhaCungCap } = useDuLieu();
+  const [ncc, setNcc] = useState(NCC_TRONG);
+  const [dangLuu, setDangLuu] = useState(false);
+  useDonDepHopThoaiKet(mo);
+
+  const dong = () => {
+    if (dangLuu) return;
+    setNcc(NCC_TRONG);
+    onDong();
+  };
+
+  async function luu() {
+    const [kq] = phanLoaiNhapNCC([{ ...ncc, dongTrongFile: 1 }], nhaCungCap);
+    if (kq.loai !== "moi") {
+      toast.error("Chưa thêm được", { description: kq.lyDo });
+      return;
+    }
+    setDangLuu(true);
+    try {
+      const r = await themNhaCungCap(kq.dong);
+      if ("loi" in r) {
+        toast.error("Chưa thêm được", { description: r.loi });
+        return;
+      }
+      /* Toast không nêu tên NCC (luật §7) — nêu mã số thuế nếu có. */
+      toast.success(kq.dong.maSoThue ? `Đã thêm nhà cung cấp MST ${kq.dong.maSoThue}` : "Đã thêm nhà cung cấp");
+      setNcc(NCC_TRONG);
+      onDong();
+    } finally {
+      setDangLuu(false);
+    }
+  }
+
+  const o = (khoa: keyof typeof NCC_TRONG, nhan: string, goiY: string, rong = false) => (
+    <div className={`flex min-w-0 flex-col gap-1.5 ${rong ? "sm:col-span-2" : ""}`}>
+      <Label htmlFor={`ncc-them-${khoa}`}>{nhan}</Label>
+      <Input
+        id={`ncc-them-${khoa}`}
+        value={ncc[khoa]}
+        placeholder={goiY}
+        onChange={(e) => setNcc((c) => ({ ...c, [khoa]: e.target.value }))}
+        className="h-11 md:h-9"
+      />
+    </div>
+  );
+
+  return (
+    <Dialog open={mo} onOpenChange={(v: boolean) => !v && dong()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Thêm nhà cung cấp</DialogTitle>
+          <DialogDescription>
+            Trùng mã số thuế hoặc trùng tên với danh mục thì không thêm được. Mã nội bộ do app tự cấp.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {o("ten", "Tên nhà cung cấp *", "CÔNG TY TNHH …", true)}
+          {o("maSoThue", "Mã số thuế", "0300000005")}
+          {o("dienThoai", "Điện thoại", "0280000000")}
+          {o("diaChi", "Địa chỉ", "Số nhà, đường, phường, tỉnh/thành", true)}
+          {o("nguoiLienHe", "Người liên hệ", "Họ tên · số điện thoại")}
+          {o("ghiChu", "Ghi chú", "Ví dụ: chỉ nhận chuyển khoản")}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={dong} disabled={dangLuu}>
+            Hủy
+          </Button>
+          <Button onClick={() => void luu()} disabled={dangLuu || ncc.ten.trim() === ""}>
+            {dangLuu ? "Đang thêm…" : "Thêm nhà cung cấp"}
           </Button>
         </DialogFooter>
       </DialogContent>

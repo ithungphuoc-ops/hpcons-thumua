@@ -6,8 +6,9 @@
 // ghi đè thông tin đang có.
 //
 // 📌 Hai chiều dùng CHUNG một bộ tiêu đề cột (`COT`): tệp xuất ra mở sửa rồi nhập lại được ngay.
-// 🔴 Cột "Mã NCC" chỉ để XEM khi xuất — lúc nhập thì bỏ qua: mã do app tự cấp theo `NC0000` và
-//    không được sửa (Ban lãnh đạo 25/08/2026). Nhận mã từ file là cho người dùng tự đặt mã.
+// 🔴 KHÔNG CÒN CỘT "Mã NCC" — Sếp 02/10/2026 (khoanh cột NC0001 trên màn): *"Mã này là MST, sửa
+//    lại"*. Mã định danh người dùng nhìn là MÃ SỐ THUẾ. Mã nội bộ `NC0000` vẫn do app tự cấp và lưu
+//    trong danh mục, chỉ thôi bày ra. File cũ còn cột "Mã NCC" thì lúc nhập cột đó bị bỏ qua.
 // 🔴 Báo lỗi theo SỐ DÒNG TRONG FILE (chỉ đạo 17/08/2026 cho việc nhập Excel), không theo STT.
 // ============================================================
 
@@ -21,6 +22,7 @@ export interface NCCTuFile {
   diaChi?: string;
   dienThoai?: string;
   nguoiLienHe?: string;
+  ghiChu?: string;
 }
 
 export interface DongNhapNCC extends NCCTuFile {
@@ -35,7 +37,6 @@ export type KetQuaDongNhap =
 
 /** Bộ cột dùng cho CẢ xuất lẫn nhập. `cachViet` = các tiêu đề chấp nhận khi đọc (đã bỏ dấu). */
 const COT = [
-  { khoa: "maNCC", tieuDe: "Mã NCC", rong: 12, cachViet: ["ma ncc", "ma nha cung cap", "ma ncc noi bo"] },
   {
     khoa: "ten",
     tieuDe: "Tên nhà cung cấp",
@@ -51,6 +52,7 @@ const COT = [
     cachViet: ["dien thoai", "so dien thoai", "sdt", "so dt", "dt", "dien thoai lien he", "hotline"],
   },
   { khoa: "nguoiLienHe", tieuDe: "Người liên hệ", rong: 28, cachViet: ["nguoi lien he", "lien he", "nguoi lh"] },
+  { khoa: "ghiChu", tieuDe: "Ghi chú", rong: 36, cachViet: ["ghi chu", "ghi chu ncc", "note"] },
 ] as const;
 
 type KhoaCot = (typeof COT)[number]["khoa"];
@@ -208,16 +210,15 @@ export async function docNCCTuExcel(file: ArrayBuffer): Promise<KetQuaDocNCC> {
       ...(doc(row, "diaChi") ? { diaChi: doc(row, "diaChi") } : {}),
       ...(doc(row, "dienThoai") ? { dienThoai: doc(row, "dienThoai") } : {}),
       ...(doc(row, "nguoiLienHe") ? { nguoiLienHe: doc(row, "nguoiLienHe") } : {}),
+      ...(doc(row, "ghiChu") ? { ghiChu: doc(row, "ghiChu") } : {}),
     };
-    const trong = !d.ten && !d.maSoThue && !d.diaChi && !d.dienThoai && !d.nguoiLienHe;
+    const trong = !d.ten && !d.maSoThue && !d.diaChi && !d.dienThoai && !d.nguoiLienHe && !d.ghiChu;
     if (!trong) ketQua.push(d);
   }
-  /* Mã NCC không tính là "thiếu" — cột đó chỉ để xem, nhập thì bỏ qua. */
-  const cotNhap = COT.filter((c) => c.khoa !== "maNCC");
   return {
     dong: ketQua,
-    cotDoc: cotNhap.filter((c) => banDo[c.khoa] !== undefined).map((c) => c.tieuDe),
-    cotThieu: cotNhap.filter((c) => banDo[c.khoa] === undefined).map((c) => c.tieuDe),
+    cotDoc: COT.filter((c) => banDo[c.khoa] !== undefined).map((c) => c.tieuDe),
+    cotThieu: COT.filter((c) => banDo[c.khoa] === undefined).map((c) => c.tieuDe),
   };
 }
 
@@ -235,7 +236,7 @@ export async function xuatDanhMucNCCExcel(
   ws.getCell(1, 1).value = "DANH MỤC NHÀ CUNG CẤP";
   ws.getCell(1, 1).font = { bold: true, size: 14 };
   ws.mergeCells(2, 1, 2, soCot);
-  ws.getCell(2, 1).value = `Xuất bởi ${nguoiXuat} lúc ${new Date().toLocaleString("vi-VN")} · ${ds.length} nhà cung cấp · Cột “Mã NCC” do app cấp, khi nhập lại sẽ bỏ qua cột này`;
+  ws.getCell(2, 1).value = `Xuất bởi ${nguoiXuat} lúc ${new Date().toLocaleString("vi-VN")} · ${ds.length} nhà cung cấp`;
   ws.getCell(2, 1).font = { italic: true, size: 10 };
   ws.getRow(3).values = ["STT", ...COT.map((c) => c.tieuDe)];
   ws.getRow(3).font = { bold: true };

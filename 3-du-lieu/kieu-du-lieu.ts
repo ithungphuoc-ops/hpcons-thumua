@@ -733,6 +733,8 @@ export interface NhaCungCap {
   maNCC?: string;
   /** ★ Ô "Người liên hệ" trên màn MISA — người bên NCC để gọi khi cần giục hàng. */
   nguoiLienHe?: string;
+  /** ★ Ghi chú tự do về NCC (Sếp 02/10/2026: *"Thêm cột ghi chú"* ở danh mục nhà cung cấp). */
+  ghiChu?: string;
 }
 
 // ------------------------------------------------------------

@@ -1349,6 +1349,7 @@ interface GiaTriDuLieu {
     diaChi?: string;
     dienThoai?: string;
     nguoiLienHe?: string;
+    ghiChu?: string;
   }) => Promise<{ loi: string } | { ma: string }>;
   /**
    * ★ Nhập NHIỀU nhà cung cấp một lần (từ file Excel, Sếp 02/10/2026). Dòng trùng MST / trùng tên
@@ -3465,6 +3466,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       diaChi?: string;
       dienThoai?: string;
       nguoiLienHe?: string;
+      ghiChu?: string;
     }): Promise<{ loi: string } | { ma: string }> => {
       const ten = n.ten.trim();
       if (ten === "") return { loi: "Chưa có tên nhà cung cấp." };
@@ -3506,6 +3508,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         ...(n.diaChi?.trim() ? { diaChi: n.diaChi.trim() } : {}),
         ...(n.dienThoai?.trim() ? { dienThoai: n.dienThoai.trim() } : {}),
         ...(n.nguoiLienHe?.trim() ? { nguoiLienHe: n.nguoiLienHe.trim() } : {}),
+        ...(n.ghiChu?.trim() ? { ghiChu: n.ghiChu.trim() } : {}),
       };
       setNhaCungCapThem((truoc) => [...truoc, moi]);
       /* Trả MÃ VỪA CẤP để nơi gọi điền thẳng vào đơn đang lập — người dùng thêm nhà cung cấp
@@ -3562,6 +3565,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           ...(n.diaChi?.trim() ? { diaChi: n.diaChi.trim() } : {}),
           ...(n.dienThoai?.trim() ? { dienThoai: n.dienThoai.trim() } : {}),
           ...(n.nguoiLienHe?.trim() ? { nguoiLienHe: n.nguoiLienHe.trim() } : {}),
+          ...(n.ghiChu?.trim() ? { ghiChu: n.ghiChu.trim() } : {}),
         });
       }
       if (moi.length > 0) setNhaCungCapThem((truoc) => [...truoc, ...moi]);

@@ -216,7 +216,12 @@ export default function TrangDanhSachDonHang() {
             <CardContent>
               {/* `[&>[data-slot=table-container]]:overflow-visible`: div này là khung cuộn ngang thật. */}
               <div className="thanh-keo-ngang-ro hidden overflow-x-auto md:block [&>[data-slot=table-container]]:overflow-visible">
-                <Table className="min-w-[160rem] [&_td]:text-center [&_td]:whitespace-normal [&_th]:text-center [&_th]:whitespace-normal">
+                {/* ★ Hàng tiêu đề chữ IN ĐẬM + đường kẻ ngăn từng ô — Sếp 02/10/2026 (khoanh đỏ cả hàng
+                    tiêu đề): *"e dùng chữ in đậm và thêm boder ngăn cách các ô nha"*. Chỉ áp cho
+                    `thead`; thân bảng giữ đường kẻ ngang giữa các dòng như cũ.
+                    📌 Dùng `border-input` (30%) chứ không `border-border` (10%): đo trên màn, viền 10%
+                    gần như không thấy được giữa các ô tiêu đề — tức kẻ mà như không kẻ. */}
+                <Table className="min-w-[160rem] [&_td]:text-center [&_td]:whitespace-normal [&_th]:text-center [&_th]:whitespace-normal [&_thead_th]:border [&_thead_th]:border-input [&_thead_th]:font-bold">
                   {/* ★ HAI TẦNG TIÊU ĐỀ theo mẫu Excel (Sếp 02/10/2026): nhóm "Công trình" và "Nhà cung
                       cấp" mỗi nhóm ba cột ngày, mỗi nhóm có cột "Theo dõi" riêng. */}
                   <TableHeader>
@@ -311,21 +316,24 @@ export default function TrangDanhSachDonHang() {
                               const doiMo = () => setDongMo(doiTrongSet(po.id));
                               return (
                                 <Fragment key={po.id}>
-                                  <TableRow onClick={doiMo} className="cursor-pointer">
+                                  {/* 🔴 DÒNG KHÔNG CÒN TỰ XỔ KHI BẤM — Sếp 02/10/2026: *"tắt chức năng xổ dòng tự động…
+                                      khi bấm zô mũi tên thì mới xổ. Hiện trạng chỉ cần click zô mục nào cũng
+                                      tự xổ"*. Bảng giờ có ô nhập (Ngày up workflow) và nút Excel nằm ngay trên
+                                      dòng; bấm nhầm một chỗ là bảng hàng bung ra đẩy cả bảng xuống. Chỉ còn
+                                      MŨI TÊN đầu ô "Số đơn hàng" là chỗ xổ / gọn. */}
+                                  <TableRow>
                                     <TableCell className="tabular-nums">{stt}</TableCell>
                                     <TableCell className="text-sm">{td.maDeXuat}</TableCell>
                                     <TableCell>
                                       <div className="flex items-center justify-center gap-2">
                                         <button
                                           type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            doiMo();
-                                          }}
+                                          onClick={doiMo}
                                           aria-expanded={mo}
-                                          aria-label="Xem hàng trong đơn"
-                                          title="Xem hàng trong đơn"
-                                          className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg text-primary transition-colors hover:bg-muted"
+                                          aria-label={mo ? "Ẩn hàng trong đơn" : "Xem hàng trong đơn"}
+                                          title={mo ? "Ẩn hàng trong đơn" : "Xem hàng trong đơn"}
+                                          /* size-8 thay size-6: nay là chỗ bấm DUY NHẤT để xổ, phải dễ trúng. */
+                                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-primary transition-colors hover:bg-muted"
                                         >
                                           <ChevronRight
                                             className={`size-4 shrink-0 transition-transform ${mo ? "rotate-90" : ""}`}
@@ -334,7 +342,6 @@ export default function TrangDanhSachDonHang() {
                                         </button>
                                         <Link
                                           href={`/don-hang/${po.id}`}
-                                          onClick={(e) => e.stopPropagation()}
                                           className="font-semibold text-primary hover:underline"
                                         >
                                           {po.code}
@@ -371,10 +378,7 @@ export default function TrangDanhSachDonHang() {
                                     )}
                                     <TableCell className="text-sm">{po.ghiChu}</TableCell>
                                     {quyen.xemGia && <OTheoDoiNgay ngay={td.ngayHoaDon} />}
-                                    <TableCell
-                                      className="text-sm tabular-nums"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
+                                    <TableCell className="text-sm tabular-nums">
                                       {duocGhiWorkflow(po.nguoiPhuTrachUid) && po.trangThai !== "huy" ? (
                                         <OChonNgay
                                           nhan={`Ngày up workflow của đơn ${po.code}`}
@@ -398,7 +402,7 @@ export default function TrangDanhSachDonHang() {
                                     </TableCell>
                                     {/* Xuất Excel ngay tại danh sách — không phải mở chi tiết mới xuất được. */}
                                     {quyen.xemGia && (
-                                      <TableCell onClick={(e) => e.stopPropagation()}>
+                                      <TableCell>
                                         <NutXuatDonHangExcel poId={po.id} kieu="gon" />
                                       </TableCell>
                                     )}
