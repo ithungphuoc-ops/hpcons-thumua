@@ -1,7 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { datTuKhoaBangQuyTrinh, useTuKhoaBangQuyTrinh } from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
+import {
+  datTuKhoaBangQuyTrinh,
+  useBangQuyTrinhDangHien,
+  useTuKhoaBangQuyTrinh,
+} from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Search, ShoppingCart, Tags, X } from "lucide-react";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
@@ -43,7 +47,9 @@ export function OTimKiem() {
   /* ★ Màn có ô tìm LỌC BẢNG (thay vì mở hộp gợi ý) — Sếp 27/09/2026 thêm Theo dõi đề nghị + Đơn hàng:
      *"khi bấm tìm kiếm mã đề nghị nào thì trên màn hình chỉ hiển thị đúng đề nghị đó"*. Tên biến giữ
      `laBangQuyTrinh` để các chỗ dùng bên dưới khỏi đổi; kho từ khoá dùng chung cho cả ba màn. */
-  const laBangQuyTrinh = pathname === "/de-nghi" || pathname === "/theo-doi" || pathname === "/don-hang";
+  const bangQuyTrinhDangHien = useBangQuyTrinhDangHien();
+  const laBangQuyTrinh =
+    pathname === "/de-nghi" || pathname === "/theo-doi" || pathname === "/don-hang" || bangQuyTrinhDangHien;
   useEffect(() => {
     datTuKhoaBangQuyTrinh(laBangQuyTrinh ? tuKhoa : "");
   }, [laBangQuyTrinh, tuKhoa]);

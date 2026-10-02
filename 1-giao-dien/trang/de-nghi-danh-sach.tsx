@@ -3,8 +3,15 @@
 import NextDynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDungDayKhungNhin } from "@/1-giao-dien/thanh-phan-dung-chung/dung-day-khung-nhin";
-import { useTuKhoaBangQuyTrinh } from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
+import {
+  useDanhDauBangQuyTrinhDangHien,
+  useTuKhoaBangQuyTrinh,
+} from "@/1-giao-dien/khung-app/tu-khoa-bang-quy-trinh";
 import { khopTimBangQuyTrinh } from "@/2-quy-trinh/tim-kiem";
+import { bangDuongDanDeNghi } from "@/2-quy-trinh/duong-dan-de-nghi";
+
+/** Khoá trong `history.state` đánh dấu mục lịch sử do pop-up xem nhanh thêm vào. */
+const KHOA_POPUP_LICH_SU = "deNghiPopupId";
 import { useRouter } from "next/navigation";
 import { FileText, LayoutGrid, List, X, UserRound } from "lucide-react";
 /* 📌 KHÔNG còn import `DropdownMenu*` và `MoreHorizontal` ở đây (13/09/2026): menu ⋯ của pop-up
@@ -182,10 +189,15 @@ export default function TrangDanhSachDeNghi() {
   const [hoiNhanBan, setHoiNhanBan] = useState<string | null>(null);
   /**
    * Phiếu đang xem nhanh dạng pop-up — menu ⋯ "Xem trong pop-up" ("cách 3", 28/08/2026).
-   * `null` là đóng. KHÔNG đổi URL: `/de-nghi` vẫn đứng nguyên, board vẫn ở dưới lớp phủ —
-   * đóng lại là về ngay đúng chỗ đang xem, không mất bộ lọc/vị trí cuộn.
+   * `null` là đóng. Board vẫn ở dưới lớp phủ — đóng lại là về ngay đúng chỗ đang xem, không mất
+   * bộ lọc/vị trí cuộn. Từ 02/10/2026 địa chỉ đổi theo phiếu đang mở (xem `onXemPopupThe`).
    */
   const [xemPopupId, setXemPopupId] = useState<string | null>(null);
+  /** Link theo mã đề xuất của mọi phiếu — tính một lượt cho cả bảng (Sếp 02/10/2026). */
+  const duongDanTheoId = useMemo(() => bangDuongDanDeNghi(deNghi), [deNghi]);
+  const linkCua = (dn: { id: string }) => duongDanTheoId.get(dn.id) ?? `/de-nghi/${dn.id}`;
+  /* Ô tìm ở thanh trên cần biết bảng còn hiện khi pop-up đổi địa chỉ — nếu không là mất bộ lọc. */
+  useDanhDauBangQuyTrinhDangHien();
 
   const dnDangSua = dangSua ? deNghi.find((d) => d.id === dangSua.prId) : undefined;
   const dnHoiXoa = hoiXoa ? deNghi.find((d) => d.id === hoiXoa) : undefined;
@@ -628,7 +640,35 @@ export default function TrangDanhSachDeNghi() {
    */
   function onXemPopupThe(prId: string) {
     setXemPopupId(prId);
+    /* ★ Sếp 02/10/2026: mở pop-up thì thanh địa chỉ ra link của phiếu (`/de-nghi/000000162`) để
+       sao chép gửi đi được. `pushState` không tải lại trang nên bảng giữ nguyên lọc / cuộn. */
+    window.history.pushState({ [KHOA_POPUP_LICH_SU]: prId }, "", linkCua({ id: prId }));
   }
+
+  /** Đang chờ `history.back()` của lần đóng trước — chặn bấm Đóng/Esc hai lần lùi hai trang. */
+  const dangLuiRef = useRef(false);
+  /** Đóng pop-up: nếu đang đứng ở mục lịch sử do pop-up thêm vào thì lùi lại — Back và nút Đóng cùng một đường. */
+  function dongPopup() {
+    if (typeof window.history.state?.[KHOA_POPUP_LICH_SU] !== "string") {
+      setXemPopupId(null);
+      return;
+    }
+    if (dangLuiRef.current) return;
+    dangLuiRef.current = true;
+    window.history.back();
+  }
+
+  /* Back / Forward / quay về từ trang đầy đủ: pop-up mở hay đóng theo đúng mục lịch sử đang đứng. */
+  useEffect(() => {
+    const theoLichSu = () => {
+      dangLuiRef.current = false;
+      const id: unknown = window.history.state?.[KHOA_POPUP_LICH_SU];
+      setXemPopupId(typeof id === "string" ? id : null);
+    };
+    theoLichSu();
+    window.addEventListener("popstate", theoLichSu);
+    return () => window.removeEventListener("popstate", theoLichSu);
+  }, []);
 
   /**
    * Thực thi sau khi người dùng đã bấm xác nhận trong hộp thoại.
@@ -955,6 +995,7 @@ export default function TrangDanhSachDeNghi() {
              * được nội dung, chỉ riêng các nút GHI bên trong (nếu có) mới tự khoá theo quyền.
              */
             onXemNhanh={onXemPopupThe}
+            duongDanDeNghi={linkCua}
           />
 
           {/**
@@ -1000,7 +1041,7 @@ export default function TrangDanhSachDeNghi() {
            * nội dung là `flex-1 overflow-y-auto` bên dưới — nguyên lý "tách khối cuộn khỏi khối
            * chứa nút Đóng" vẫn giữ, chỉ đổi CÁCH tách cho khớp luôn với bản demo đã duyệt.
            */}
-          <Dialog open={xemPopupId !== null} onOpenChange={(mo) => !mo && setXemPopupId(null)}>
+          <Dialog open={xemPopupId !== null} onOpenChange={(mo) => !mo && dongPopup()}>
             {/**
               * ★★ THANH TIÊU ĐỀ XANH + NÚT ĐÓNG NỔI BẬT — thêm 28/08/2026, Sếp đối chiếu ảnh
               * code thật với ảnh demo đã duyệt và chỉ ra: bản code thiếu hẳn khối chrome này,
@@ -1112,6 +1153,7 @@ export default function TrangDanhSachDeNghi() {
                       kieuNut="popup"
                       onTha={quyen.lapPO ? (prId, dich) => xuLyTha(prId, dich, "menu_the") : undefined}
                       thaoTac={quyen.lapPO ? thaoTacThe : undefined}
+                      duongDan={linkCua(theDangMoPopup.deNghi)}
                     />
                   )}
                   <DialogClose
@@ -1140,7 +1182,7 @@ export default function TrangDanhSachDeNghi() {
                   <TrangChiTietDeNghi
                     key={xemPopupId}
                     id={xemPopupId}
-                    onDongPopup={() => setXemPopupId(null)}
+                    onDongPopup={dongPopup}
                   />
                 )}
               </div>

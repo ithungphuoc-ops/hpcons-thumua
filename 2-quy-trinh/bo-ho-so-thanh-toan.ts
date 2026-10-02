@@ -93,7 +93,7 @@ import {
 /* 📌 DÙNG LẠI hàm dựng đường dẫn App Request thay vì tự `trim()` lại ở đây: chỉ cần biết hồ sơ
    này có tra được bản gốc bên đó hay không. Hai chỗ cùng tự đoán một câu hỏi là hai câu trả lời
    — và chỗ này sẽ lặng lẽ lệch với ô "Đường dẫn đề nghị" ở trang chi tiết. */
-import { duongDanHoSoAppRequest } from "@/6-tien-ich/dia-chi-app-de-nghi";
+import { chuDuongDanPhieuAppRequest, duongDanPhieuAppRequest } from "@/6-tien-ich/dia-chi-app-de-nghi";
 
 /**
  * Mã máy đọc được của từng mục — dùng làm khóa khi đẩy sang app Kế toán.
@@ -315,11 +315,10 @@ export interface MucHoSoThanhToan {
    * (`/in/...`) và bị gác quyền xem giá. Trường này là địa chỉ đầy đủ sang app khác — nơi vẽ phải
    * mở bằng `<a>` thường + tab mới, không dùng `next/link`.
    *
-   * 🔴 CHỈ ĐẶT KHI ĐỊA CHỈ CHẮC CHẮN MỞ ĐÚNG HỒ SƠ — ba điều cấm đã đo thật, đừng thử lại:
-   *   · `duongDanHoSoAppRequest` trả `null` khi thiếu `idHoSoAppRequest` (hồ sơ trước 13/09/2026
-   *     và hồ sơ lập tay). Lúc đó **để trống trường này**, đừng vẽ một nút chết.
-   *   · KHÔNG ghép địa chỉ từ `maDeXuatAppRequest` (mã 6 số) — đo 13/09/2026: ra một địa chỉ mở
-   *     được nhưng SAI hồ sơ, loại lỗi không ai phát hiện tới lúc đối chiếu chứng từ.
+   * 🔴 CHỈ ĐẶT KHI ĐỊA CHỈ CHẮC CHẮN MỞ ĐÚNG HỒ SƠ:
+   *   · Dựng bằng `duongDanPhieuAppRequest(maDeXuatAppRequest)` (trang `/request/<mã số>` của App
+   *     Request, Sếp 02/10/2026). Trả `null` khi thiếu mã (hồ sơ lập tay) → **để trống trường này**.
+   *   · KHÔNG ghép mã vào `list?scope=all&id=` — tham số đó là id kỹ thuật, đo 13/09/2026 ra SAI hồ sơ.
    *   · KHÔNG dựng liên kết từ `taiLieuAppRequest[].duongDan` — đó là khóa R2 cần chữ ký, không
    *     phải địa chỉ mở được (xem `kieu-du-lieu.ts`).
    *
@@ -669,11 +668,10 @@ export function dungBoHoSoThanhToan(
    * 🔴 TRƯỚC HÔM NAY MỤC NÀY CHỈ IN MỘT CÂU CHỈ ĐƯỜNG, KHÔNG BẤM ĐƯỢC — người đọc phải tự cuộn
    * lên khối Thông tin đề nghị tìm ô "Đường dẫn đề nghị". Nay bày thẳng liên kết tại đây.
    *
-   * ⚠️ `null` = hồ sơ KHÔNG có `idHoSoAppRequest` (về trước 13/09/2026, hoặc lập tay trong app).
-   * Khi đó **giữ nguyên câu chữ** như cũ, tuyệt đối không vẽ nút chết và không ghép địa chỉ từ
-   * `maDeXuatAppRequest` — ba điều cấm đã ghi đủ tại `lienKetNgoai` phía trên.
+   * ⚠️ `null` = hồ sơ KHÔNG có mã đề xuất (lập tay trong app) — không vẽ nút chết. Điều cấm ghi
+   * đủ tại `lienKetNgoai` phía trên.
    */
-  const duongDanAppRequest = duongDanHoSoAppRequest(deNghi.idHoSoAppRequest);
+  const duongDanAppRequest = duongDanPhieuAppRequest(deNghi.maDeXuatAppRequest);
 
   /**
    * ❌❌ ĐÃ BỎ NHÓM CHỈ ĐƯỜNG CỦA MỤC ① — Sếp 16/09/2026, khoanh đỏ đúng hai dòng chữ nhỏ dưới
@@ -694,10 +692,8 @@ export function dungBoHoSoThanhToan(
    *     `lienKetNgoai`).
    *   · `deNghi.taiLieu` — đúng thứ mục này đếm — chỉ được ghi bởi `themDeNghiGiaLap`, tức **chỉ
    *     có ở dữ liệu chạy thử**. Đó cũng là lý do mục ① thôi bắt buộc từ 13/09/2026.
-   *   · Hồ sơ THIẾU `idHoSoAppRequest` (về trước 13/09/2026, hoặc lập tay trong app) thì
-   *     `duongDanHoSoAppRequest` trả `null` → mục ① không có liên kết nào. TUYỆT ĐỐI đừng ghép địa
-   *     chỉ từ `maDeXuatAppRequest` để "cho có nút": đo 13/09/2026, cách đó ra một địa chỉ mở được
-   *     nhưng SAI hồ sơ.
+   *   · Hồ sơ THIẾU mã đề xuất (lập tay trong app) thì `duongDanPhieuAppRequest` trả `null` → mục
+   *     ① không có liên kết nào, đừng ghép địa chỉ bừa "cho có nút".
    *
    * 📌 BA BIẾN ĐÃ BỎ THEO (chỉ phục vụ hai dòng chữ trên, không luật nào dùng):
    * `coDuongDanAppRequest`, `soTepBenAppRequest`, `denTuAppRequest` — biến cuối nhận ra "hồ sơ đến
@@ -902,11 +898,10 @@ export function dungBoHoSoThanhToan(
       /* 🔴 KHÔNG bắt buộc từ 13/09/2026 (Sếp) — lý do đầy đủ ở khối ★★ mục ① phía trên. */
       batBuoc: false,
       tep: phieuDeNghi,
-      /* ★★ LIÊN KẾT MỞ ĐÚNG HỒ SƠ BÊN APP REQUEST — Sếp 15/09/2026. Thiếu `idHoSoAppRequest` thì
-         `duongDanHoSoAppRequest` trả `null` và ở đây để TRỐNG: người đọc vẫn còn câu chỉ đường
-         `cauBanGocPhieuDeNghi` bên dưới, còn hơn một cái nút bấm vào ra sai hồ sơ. */
+      /* ★★ LIÊN KẾT MỞ ĐÚNG HỒ SƠ BÊN APP REQUEST — Sếp 15/09/2026; Sếp 02/10/2026: chữ trên nút là
+         chính địa chỉ `request.hpcore.vn/request/<mã>`. Thiếu mã thì để TRỐNG, không vẽ nút chết. */
       lienKetNgoai: duongDanAppRequest
-        ? [{ nhan: "Mở phiếu đề nghị bên App Request", url: duongDanAppRequest }]
+        ? [{ nhan: chuDuongDanPhieuAppRequest(duongDanAppRequest), url: duongDanAppRequest }]
         : undefined,
       /**
        * ❌ KHÔNG CÒN `nhom` — Sếp 16/09/2026 cho bỏ hai dòng chữ nhỏ của mục này; lý do đầy đủ và

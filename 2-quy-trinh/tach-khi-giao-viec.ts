@@ -29,6 +29,7 @@ import {
   dongDaChuyenDiHet,
   dongDaCoChungTu,
   dongDaNhanBanSang,
+  ghiSoBanSaoDaCap,
   khoiLuongDaTachTheoDong,
   lamTronKhoiLuong,
   maBanSaoTiepTheo,
@@ -318,6 +319,8 @@ export function apDungGiaoViec(
   };
   const dongGoc = goc.items.filter((d) => giao.has(d.stt)).map((d) => ({ ...d, ...phanKhoiLuong(d) }));
   let con: DeNghiMuaHang;
+  /** Phiếu gốc đầu tiên phải ghi lại số bản sao vừa cấp — chỉ khi sinh phiếu con MỚI. */
+  let idGocGhiSo: string | null = null;
   if (conCu) {
     /* Giao thêm cho cùng người → nối vào ĐÚNG phiếu con cũ, bỏ dòng đã có (theo `sttDongCha`). */
     const daCo = new Set(conCu.items.map((d) => d.sttDongCha));
@@ -341,6 +344,7 @@ export function apDungGiaoViec(
   } else {
     const gocDau = phieuGocCua(goc, tatCa as DeNghiMuaHang[]);
     const ma = maBanSaoTiepTheo(goc, tatCa as DeNghiMuaHang[]);
+    idGocGhiSo = gocDau.id;
     const conTam: DeNghiMuaHang = {
       ...goc,
       id: idCon,
@@ -349,6 +353,7 @@ export function apDungGiaoViec(
       deNghiGocId: gocDau.id,
       maDeNghiGoc: gocDau.code,
       deNghiChaId: goc.id,
+      soBanSaoDaCap: undefined,
       ngayDeNghi: g.ngay,
       ngayDuyet: g.ngay,
       trangThai: "da_duyet",
@@ -412,7 +417,8 @@ export function apDungGiaoViec(
               },
             ],
           },
-    );
+    )
+    .map((d) => (d.id === idGocGhiSo ? ghiSoBanSaoDaCap(d, con.code) : d));
   moi.push(con);
   return { deNghi: moi, idDich: con.id, tach: true };
 }

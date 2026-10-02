@@ -26,23 +26,20 @@ export const DIA_CHI_APP_DE_NGHI =
   process.env.NEXT_PUBLIC_APP_DE_NGHI_URL ?? "https://request.hpcore.vn/request";
 
 /**
- * ★★ ĐƯỜNG DẪN MỞ ĐÚNG MỘT HỒ SƠ BÊN APP REQUEST.
+ * ★★ ĐƯỜNG DẪN MỞ ĐÚNG MỘT PHIẾU BÊN APP REQUEST THEO MÃ ĐỀ XUẤT — Sếp chốt 02/10/2026:
+ * `request.hpcore.vn/request/000000162`. Trang `/request/<mã số>` của App Request có từ cùng ngày;
+ * trước đó chỉ mở được bằng id kỹ thuật (`list?scope=all&id=…`), ghép mã vào `?id=` là SAI hồ sơ.
+ * Đo kho App Request 02/10/2026: không mã nào trùng, không nhóm nào bật bộ đếm riêng.
  *
- * 🔴 KHUÔN ĐỊA CHỈ NÀY DO BAN LÃNH ĐẠO CUNG CẤP NGÀY 13/09/2026, chép từ thanh địa chỉ khi mở
- * hồ sơ thật:
- *     https://request.hpcore.vn/request/list?scope=all&id=fSH4lYLX63FaV4B1pcY1
- *
- * 🔴 THAM SỐ LÀ ID KỸ THUẬT, KHÔNG PHẢI MÃ 6 SỐ. Đã đo thật cùng ngày: thử cả ba cách
- * `?code=000000058`, `?id=000000058`, `?q=000000058` đều KHÔNG mở đúng hồ sơ. Nên tuyệt đối
- * đừng "tiện tay" truyền `maDeXuatAppRequest` vào đây — ra một địa chỉ mở được nhưng SAI hồ sơ,
- * loại lỗi không ai phát hiện cho tới lúc đối chiếu chứng từ.
- *
- * @param idHoSo `idHoSoAppRequest` của đề nghị. Rỗng/thiếu thì trả `null` — CHỖ GỌI PHẢI xử lý
- *   `null` bằng cách không vẽ liên kết, chứ đừng ghép chuỗi bừa. Hồ sơ lập tay trong app và hồ
- *   sơ về trước 13/09/2026 đều không có id này.
+ * Mã thiếu / không phải chữ số → `null`: chỗ gọi không vẽ liên kết, đừng ghép chuỗi bừa.
  */
-export function duongDanHoSoAppRequest(idHoSo: string | undefined): string | null {
-  const id = (idHoSo ?? "").trim();
-  if (id === "") return null;
-  return `${DIA_CHI_APP_DE_NGHI}/list?scope=all&id=${encodeURIComponent(id)}`;
+export function duongDanPhieuAppRequest(maDeXuat: string | undefined): string | null {
+  const ma = (maDeXuat ?? "").trim();
+  if (!/^\d+$/.test(ma)) return null;
+  return `${DIA_CHI_APP_DE_NGHI}/${ma}`;
+}
+
+/** Chữ hiện trên nút = chính địa chỉ, bỏ `https://` — đọc là biết bấm vào đi tới đâu. */
+export function chuDuongDanPhieuAppRequest(url: string): string {
+  return url.replace(/^https?:\/\//, "");
 }

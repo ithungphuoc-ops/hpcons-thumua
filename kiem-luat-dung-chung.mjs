@@ -521,6 +521,26 @@ try {
   process.exit(1);
 }
 
+/* ★ LINK ĐỀ NGHỊ THEO MÃ ĐỀ XUẤT + LINK PHIẾU APP REQUEST — Sếp chốt 02/10/2026. */
+const tepRaDD = join(thuMuc, "duong-dan-de-nghi.cjs");
+const tepRaDC = join(thuMuc, "dia-chi-app-de-nghi.cjs");
+for (const [nguon, ra] of [
+  ["2-quy-trinh/duong-dan-de-nghi.ts", tepRaDD],
+  ["6-tien-ich/dia-chi-app-de-nghi.ts", tepRaDC],
+]) {
+  try {
+    execSync(
+      `npx --yes esbuild "${nguon}" --bundle --platform=node --format=cjs --outfile="${ra}" --log-level=error`,
+      { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+    );
+  } catch (e) {
+    console.error(`${DO}⛔ Không dựng được ${nguon}:${HET}`);
+    console.error(String(e.stderr ?? e.message));
+    rmSync(thuMuc, { recursive: true, force: true });
+    process.exit(1);
+  }
+}
+
 const nap = createRequire(import.meta.url);
 /* Nạp sẵn: thư mục tạm bị xoá giữa chừng (trước các bài kiểm cuối tệp), nạp muộn là không thấy tệp. */
 const modDMH = nap(tepRaDMH);
@@ -541,6 +561,8 @@ const QLK = nap(tepRa12);
 const NH = nap(tepRa14);
 const GB = nap(tepRa15);
 const PQ = nap(tepRa16);
+const DD = nap(tepRaDD);
+const DC = nap(tepRaDC);
 
 /* ---------- Bộ khung chấm ---------- */
 let dat = 0;
@@ -13858,6 +13880,131 @@ kiem(
         duoc: kq.trong && kq.coLyDo === null && kq.tickChuaTep && kq.tickCoTep === null && kq.xuatKho === null,
         thucTe: JSON.stringify(kq),
         mongDoi: "trong=CHẶN · coLyDo=null · tickChuaTep=CHẶN · tickCoTep=null · xuatKho=null",
+      };
+    },
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 02/10/2026: LINK ĐỀ NGHỊ THEO MÃ ĐỀ XUẤT, SỐ BẢN SAO KHÔNG CẤP LẠI,
+// NÚT "MỞ PHIẾU ĐỀ NGHỊ" DẪN SANG request.hpcore.vn/request/<mã>.
+// ════════════════════════════════════════════════════════════════════
+{
+  const MA_GOC = "01-02/2026/PLHĐXD-HPCS-001";
+  const dnLink = (id, them) => ({ id, code: MA_GOC, maDeXuatAppRequest: "000000162", trangThai: "da_duyet", items: [], lichSu: [], ...them });
+  const goc = dnLink("553ad264-goc");
+  const ban1 = dnLink("553ad264-goc__A", { code: `${MA_GOC} (copy)`, deNghiGocId: "553ad264-goc" });
+  const ban2 = dnLink("pr-ban2", { code: `${MA_GOC} (copy 2)`, deNghiGocId: "553ad264-goc" });
+  const lapTay = { id: "pr-laptay", code: "260001-HPCS-PR-004", trangThai: "da_duyet", items: [], lichSu: [] };
+  const tatCa = [goc, ban1, ban2, lapTay];
+
+  kiem(
+    "LINK DE NGHI — goc /000000162, ban sao -copy1 -copy2, phieu lap tay giu ma ky thuat",
+    'Sếp · 02/10/2026 — "thumua.hpcore.vn/de-nghi/mã đề nghị", bản copy "RQ001-copy1, RQ001-copy2"',
+    () => {
+      const ra = tatCa.map((d) => DD.duongDanDeNghi(d, tatCa)).join(" | ");
+      const mong = "/de-nghi/000000162 | /de-nghi/000000162-copy1 | /de-nghi/000000162-copy2 | /de-nghi/pr-laptay";
+      return { duoc: ra === mong, thucTe: ra, mongDoi: mong };
+    },
+  );
+
+  kiem(
+    "LINK DE NGHI — mo duoc ca link moi (ke ca thieu so 0, chu hoa) LAN link cu ma ky thuat",
+    "Sếp · 02/10/2026 — link cũ đã nằm trong Zalo / thông báo / app khác, không được chết",
+    () => {
+      const bo = [
+        ["000000162", goc.id], ["162", goc.id], ["000000162-copy2", ban2.id], ["000000162-COPY1", ban1.id],
+        ["000000162-copy", ban1.id], ["553ad264-goc__A", ban1.id], ["pr-laptay", lapTay.id],
+        ["000000999", undefined], ["000000162-copy0", undefined], ["000000162-copy9", undefined], ["", undefined],
+      ];
+      const sai = bo.filter(([t, id]) => DD.timDeNghiTheoDuongDan(t, tatCa)?.id !== id);
+      return {
+        duoc: sai.length === 0,
+        thucTe: sai.length === 0 ? "ca 11 ca dung" : sai.map(([t, id]) => `"${t}" -> ${DD.timDeNghiTheoDuongDan(t, tatCa)?.id} (mong ${id})`).join(" · "),
+        mongDoi: "moi link mo dung phieu, link khong co thi undefined",
+      };
+    },
+  );
+
+  kiem(
+    "LINK DE NGHI — hai phieu trung y het ma: link moi ve phieu CON CHAY, phieu kia giu ma ky thuat, link nao cung mo lai dung chinh no",
+    "Sếp · 02/10/2026 — kho thật có 5 cặp phiếu copy trùng y hệt mã (sót sự cố tách 24–25/09)",
+    () => {
+      const dongDo = dnLink("pr-dongdo", { code: `${MA_GOC} (copy)`, trangThai: "dong_do" });
+      const ds = [goc, dongDo, ban1, ban2];
+      const linkBan1 = DD.duoiDuongDanDeNghi(ban1, ds);
+      const linkDongDo = DD.duoiDuongDanDeNghi(dongDo, ds);
+      const khuHoi = ds.every((d) => DD.timDeNghiTheoDuongDan(DD.duoiDuongDanDeNghi(d, ds), ds)?.id === d.id);
+      return {
+        duoc: linkBan1 === "000000162-copy1" && linkDongDo === "pr-dongdo" && khuHoi,
+        thucTe: `dang chay="${linkBan1}" · dong do="${linkDongDo}" · khu hoi=${khuHoi}`,
+        mongDoi: 'dang chay="000000162-copy1" · dong do="pr-dongdo" · khu hoi=true',
+      };
+    },
+  );
+
+  kiem(
+    "LINK DE NGHI — bang link ca bang (mot luot quet) ra Y HET link tinh tung phieu, ke ca khi trung ma",
+    "Sếp · 02/10/2026 — bảng quy trình và trang chi tiết không được nói hai link khác nhau cho một phiếu",
+    () => {
+      const dongDo = dnLink("pr-dongdo", { code: `${MA_GOC} (copy)`, trangThai: "dong_do" });
+      const ds = [goc, dongDo, ban1, ban2, lapTay];
+      const bang = DD.bangDuongDanDeNghi(ds);
+      const lech = ds.filter((d) => bang.get(d.id) !== DD.duongDanDeNghi(d, ds));
+      return {
+        duoc: lech.length === 0 && bang.size === ds.length,
+        thucTe: lech.length === 0 ? `khop ca ${bang.size} phieu` : lech.map((d) => `${d.id}: bang=${bang.get(d.id)} rieng=${DD.duongDanDeNghi(d, ds)}`).join(" · "),
+        mongDoi: "khop ca 5 phieu",
+      };
+    },
+  );
+
+  kiem(
+    "SO BAN SAO — KHONG cap lai so da xoa: xoa (copy) roi nhan ban thi ra (copy 3), co bo dem thi vuot ca bo dem",
+    'Sếp · 02/10/2026 — "RQ001-copy1 ... RQ001-copy2 k trùng lặp với cái đã xóa trước"',
+    () => {
+      const conLai = [goc, ban2];
+      const a = NB.maBanSaoTiepTheo(goc, conLai);
+      const gocCoDem = { ...goc, soBanSaoDaCap: 5 };
+      const b = NB.maBanSaoTiepTheo(gocCoDem, [gocCoDem, ban2]);
+      const c = NB.maBanSaoTiepTheo(ban2, [gocCoDem, ban2]);
+      const ghi = NB.ghiSoBanSaoDaCap(goc, `${MA_GOC} (copy 3)`).soBanSaoDaCap;
+      const khongLui = NB.ghiSoBanSaoDaCap(gocCoDem, `${MA_GOC} (copy 3)`).soBanSaoDaCap;
+      const mong = [`${MA_GOC} (copy 3)`, `${MA_GOC} (copy 6)`, `${MA_GOC} (copy 6)`, 3, 5];
+      const ra = [a, b, c, ghi, khongLui];
+      return {
+        duoc: ra.every((x, i) => x === mong[i]),
+        thucTe: ra.join(" | "),
+        mongDoi: mong.join(" | "),
+      };
+    },
+  );
+
+  kiem(
+    "SO BAN SAO — ban sao moi KHONG mang bo dem cua phieu goc (bo dem chi song tren phieu goc)",
+    "Sếp · 02/10/2026 — `...goc` chép mọi trường sang bản copy",
+    () => {
+      const gocCoDem = { ...goc, soBanSaoDaCap: 4, items: [{ stt: 1, tenVatLieu: "VT" }] };
+      const ban = NB.dungBanNhanBan({ goc: gocCoDem, phieuGocDau: gocCoDem, idMoi: "pr-moi", maMoi: `${MA_GOC} (copy 5)`, nguoi: { uid: "A", ten: "A" }, ngay: "2026-10-02", thoiDiem: "2026-10-02T01:00:00Z" });
+      return {
+        duoc: ban !== null && ban.soBanSaoDaCap === undefined,
+        thucTe: `soBanSaoDaCap tren ban sao = ${ban?.soBanSaoDaCap}`,
+        mongDoi: "undefined",
+      };
+    },
+  );
+
+  kiem(
+    'NUT "MO PHIEU DE NGHI" — dan sang request.hpcore.vn/request/<ma>, chu tren nut la chinh dia chi; thieu ma thi khong ve',
+    'Sếp · 02/10/2026 — ảnh "Request.hpcore.vn/request-mã số request"',
+    () => {
+      const url = DC.duongDanPhieuAppRequest("000000162");
+      const chu = url ? DC.chuDuongDanPhieuAppRequest(url) : null;
+      const rong = [undefined, "", "  ", "abc", "000000162-copy1"].map((m) => DC.duongDanPhieuAppRequest(m));
+      return {
+        duoc: url === "https://request.hpcore.vn/request/000000162" && chu === "request.hpcore.vn/request/000000162" && rong.every((x) => x === null),
+        thucTe: `url=${url} · chu=${chu} · ma xau=${rong.join(",")}`,
+        mongDoi: "url=https://request.hpcore.vn/request/000000162 · chu=request.hpcore.vn/request/000000162 · ma xau=null het",
       };
     },
   );

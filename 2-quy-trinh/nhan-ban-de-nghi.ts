@@ -476,23 +476,38 @@ export function tenBanSaoTheoMa(tieuDeGoc: string, maBanSao: string): string {
   return `${tieuDeGoc} (copy${so})`;
 }
 
+/** `… (copy)` → 1, `… (copy 7)` → 7, không phải bản sao → 0. Link `-copyN` cũng đọc từ đây. */
+export function soThuTuBanSao(code: string | undefined): number {
+  const khop = (code ?? "").match(/\(copy(?: (\d+))?\)\s*$/i);
+  if (!khop) return 0;
+  return khop[1] ? Number(khop[1]) : 1;
+}
+
+const maBanSaoSo = (maGoc: string, so: number) => (so === 1 ? `${maGoc} (copy)` : `${maGoc} (copy ${so})`);
+
+/**
+ * ★ Sếp chốt 02/10/2026: số bản sao KHÔNG BAO GIỜ cấp lại, kể cả khi bản đó đã xoá — cấp lại là
+ * link `…-copy1` đã gửi đi mở nhầm sang phiếu mới. Bản xoá thì mất khỏi dữ liệu, nên phiếu gốc giữ
+ * `soBanSaoDaCap`; lấy max với số đang có vì dữ liệu trước 02/10 chưa có trường này.
+ */
 export function maBanSaoTiepTheo(dn: DeNghiMuaHang, tatCa: DeNghiMuaHang[]): string {
   const goc = phieuGocCua(dn, tatCa);
-  /**
-   * ⚠️ ĐẾM KHÔNG ĐỦ, PHẢI DÒ CHO TỚI KHI KHÔNG TRÙNG.
-   *
-   * Đếm số bản đang có rồi +1 nghe hợp lý nhưng sai khi có bản bị xóa: còn "(copy)" và
-   * "(copy 2)", xóa "(copy)" đi thì số bản còn 1 → bản mới lại mang tên "(copy 2)", **trùng
-   * mã với bản đang tồn tại**. Hai hồ sơ cùng mã là chuyện không được phép xảy ra.
-   */
+  const boDuoi = (code: string) => code.replace(/\s*\(copy(?: \d+)?\)\s*$/i, "");
+  const lonNhatDangCo = tatCa.reduce(
+    (m, d) => (d.id !== goc.id && boDuoi(d.code) === goc.code ? Math.max(m, soThuTuBanSao(d.code)) : m),
+    0,
+  );
   const daDung = new Set(tatCa.map((d) => d.code));
-  let ma = `${goc.code} (copy)`;
-  let lan = 1;
-  while (daDung.has(ma)) {
-    lan += 1;
-    ma = `${goc.code} (copy ${lan})`;
-  }
-  return ma;
+  let lan = Math.max(goc.soBanSaoDaCap ?? 0, lonNhatDangCo) + 1;
+  while (daDung.has(maBanSaoSo(goc.code, lan))) lan += 1;
+  return maBanSaoSo(goc.code, lan);
+}
+
+/** Ghi số vừa cấp lên phiếu gốc để lần sau không cấp lại (xem `maBanSaoTiepTheo`). */
+export function ghiSoBanSaoDaCap(goc: DeNghiMuaHang, maMoi: string): DeNghiMuaHang {
+  const so = soThuTuBanSao(maMoi);
+  if (so <= (goc.soBanSaoDaCap ?? 0)) return goc;
+  return { ...goc, soBanSaoDaCap: so };
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════
@@ -849,22 +864,24 @@ export function apDungNhanBanDeNghi(
     });
   const ghiChuCha = vuotCau.length > 0 ? `Mua vượt đề nghị: ${vuotCau.join("; ")}. Lý do: ${lyDo}` : undefined;
 
-  const moi = tatCa.map((d) =>
-    d.id !== goc.id
-      ? d
-      : {
-          ...d,
-          lichSu: [
-            ...d.lichSu,
-            {
-              thoiDiem: t.thoiDiem,
-              nguoiThucHien: t.nguoi.ten,
-              hanhDong: `Nhân bản sang phiếu ${maMoi}: ${moTaDong.join("; ")}`,
-              ...(ghiChuCha ? { ghiChu: ghiChuCha } : {}),
-            },
-          ],
-        },
-  );
+  const moi = tatCa.map((d) => {
+    const x: DeNghiMuaHang =
+      d.id !== goc.id
+        ? d
+        : {
+            ...d,
+            lichSu: [
+              ...d.lichSu,
+              {
+                thoiDiem: t.thoiDiem,
+                nguoiThucHien: t.nguoi.ten,
+                hanhDong: `Nhân bản sang phiếu ${maMoi}: ${moTaDong.join("; ")}`,
+                ...(ghiChuCha ? { ghiChu: ghiChuCha } : {}),
+              },
+            ],
+          };
+    return x.id === phieuGocDau.id ? ghiSoBanSaoDaCap(x, maMoi) : x;
+  });
   moi.push(ban);
   return { deNghi: moi, ban };
 }
@@ -900,6 +917,8 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
      */
     deNghiChaId: goc.id,
     maDeNghiGoc: phieuGocDau.code,
+    /* Bộ đếm bản sao chỉ sống trên phiếu gốc — `...goc` không được mang nó sang bản copy. */
+    soBanSaoDaCap: undefined,
     ngayDeNghi: t.ngay,
     ngayDuyet: t.ngay,
     trangThai: "da_duyet",

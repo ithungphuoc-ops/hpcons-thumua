@@ -371,6 +371,11 @@ export interface DeNghiMuaHang {
   /** Mã phiếu gốc — chép sẵn để hiện lên màn hình khỏi phải tra ngược. */
   maDeNghiGoc?: string;
   /**
+   * ★ Số bản sao lớn nhất ĐÃ TỪNG cấp — chỉ có trên phiếu gốc đầu tiên (Sếp 02/10/2026: số đã
+   * cấp không dùng lại kể cả khi bản đó bị xoá). Xem `maBanSaoTiepTheo`. Trống ở dữ liệu cũ.
+   */
+  soBanSaoDaCap?: number;
+  /**
    * ★ TRƯỜNG BỔ SUNG — cặp nhãn/giá trị do người dùng tự đặt, tương ứng "dữ liệu tùy chỉnh"
    * của Base.vn.
    *

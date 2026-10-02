@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import BangAiDangSua from "@/1-giao-dien/thanh-phan-dung-chung/bang-ai-dang-sua";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { duongDanDeNghi, timDeNghiTheoDuongDan } from "@/2-quy-trinh/duong-dan-de-nghi";
 import {
   AlertTriangle,
   Archive,
@@ -61,7 +62,7 @@ import {
 } from "@/1-giao-dien/thanh-phan-nghiep-vu/cot-thong-tin-de-nghi";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 /* Dựng đường dẫn mở hồ sơ bên App Request — Ban lãnh đạo 13/09/2026, xem ô "Đường dẫn đề nghị". */
-import { duongDanHoSoAppRequest } from "@/6-tien-ich/dia-chi-app-de-nghi";
+import { duongDanPhieuAppRequest } from "@/6-tien-ich/dia-chi-app-de-nghi";
 /* Menu ⋯ gom 4 việc của khối "Thông tin đề nghị" — Ban lãnh đạo 13/09/2026, xem chỗ dùng. */
 import {
   DropdownMenu,
@@ -281,7 +282,6 @@ export default function TrangChiTietDeNghi({
   onDongPopup?: () => void;
 } = {}) {
   const routeParams = useParams<{ id: string }>();
-  const params = { id: idTruyenVao ?? routeParams.id };
   const {
     deNghi,
     donHang,
@@ -321,6 +321,10 @@ export default function TrangChiTietDeNghi({
     dinhTepHoaDonVAT,
     goTepHoaDonVAT,
   } = useDuLieu();
+  /* ★ Đoạn sau `/de-nghi/` có thể là mã đề xuất (`000000162-copy1`, Sếp 02/10/2026) chứ không chỉ
+     id — đổi về id NGAY ĐÂY vì ~30 chỗ bên dưới lọc báo giá / PO theo `params.id`. */
+  const thamSoDuongDan = idTruyenVao ?? routeParams.id;
+  const params = { id: timDeNghiTheoDuongDan(thamSoDuongDan, deNghi)?.id ?? thamSoDuongDan };
   const { nguoiDung, quyen } = useNguoiDung();
   /**
    * ★ HỘP SỬA TRƯỜNG ĐANG MỞ — dời từ menu ⋯ của thẻ sang đây (Ban lãnh đạo 12/09/2026).
@@ -432,6 +436,16 @@ export default function TrangChiTietDeNghi({
     const idDon = new Set(poLienQuan.map((po) => po.id));
     return phieuNhan.filter((p) => idDon.has(p.poId));
   }, [phieuNhan, poLienQuan]);
+
+  /* ★ Trang đầy đủ: thanh địa chỉ đổi sang link theo mã (Sếp 02/10/2026), kể cả khi vào bằng link
+     cũ. Pop-up (`idTruyenVao`) thì bảng quy trình tự đổi — ở đây không đụng. */
+  const duongDanChuan = dn ? duongDanDeNghi(dn, deNghi) : null;
+  useEffect(() => {
+    if (idTruyenVao || !duongDanChuan) return;
+    const { pathname, search, hash } = window.location;
+    if (!pathname.startsWith("/de-nghi/") || pathname === duongDanChuan) return;
+    window.history.replaceState(null, "", `${duongDanChuan}${search}${hash}`);
+  }, [idTruyenVao, duongDanChuan]);
 
   /* 📌 Không còn tính `tienDo` ở trang này (15/08/2026): khối "Hoạt động chính" và timeline
      ngang — hai chỗ duy nhất dùng nó — đã bỏ theo yêu cầu Ban lãnh đạo. Bảng Phân bổ tự tính
@@ -1313,14 +1327,12 @@ export default function TrangChiTietDeNghi({
                    * đề xuất chứ"*. Trước đó ô này trỏ nội bộ `/de-nghi/<id>`.
                    *
                    * 🔴 HAI NHÁNH, CỐ Ý KHÁC ĐÍCH:
-                   *   · Hồ sơ ĐẾN TỪ App Request (có `idHoSoAppRequest`) → mở đúng hồ sơ bên App
-                   *     Request. Đó mới là "nhà" của tờ đề nghị; app Thu mua chỉ là nơi xử lý.
-                   *   · Hồ sơ LẬP TAY trong app (không có id đó) → giữ liên kết nội bộ. Bên App
+                   *   · Hồ sơ ĐẾN TỪ App Request (có mã đề xuất) → `request.hpcore.vn/request/<mã>`
+                   *     (Sếp 02/10/2026; trước đó dùng `idHoSoAppRequest`). Đó mới là "nhà" của tờ
+                   *     đề nghị; app Thu mua chỉ là nơi xử lý.
+                   *   · Hồ sơ LẬP TAY trong app (không có mã) → giữ liên kết nội bộ. Bên App
                    *     Request KHÔNG có hồ sơ nào để mở, trỏ sang là ra trang trống.
                    *   Cả hai đều đúng nghĩa "đường dẫn tới đề nghị" nên dùng chung một nhãn.
-                   *
-                   * ⚠️ HỒ SƠ CŨ (về trước 13/09/2026) cũng rơi vào nhánh hai, vì lúc đó app chưa
-                   * lưu `idHoSoAppRequest`. Không phải lỗi — chỉ là dữ liệu cũ thiếu trường.
                    *
                    * 🔴 `target="_blank"` giữ nguyên cho CẢ HAI nhánh, xem chú thích ở trên: nhánh
                    * nội bộ mà điều hướng cùng tab thì ở trang đầy đủ là no-op (bấm không đi đâu),
@@ -1344,12 +1356,12 @@ export default function TrangChiTietDeNghi({
                    */
                   giaTri: (
                     <a
-                      href={duongDanHoSoAppRequest(dn.idHoSoAppRequest) ?? `/de-nghi/${dn.id}`}
+                      href={duongDanPhieuAppRequest(dn.maDeXuatAppRequest) ?? `/de-nghi/${dn.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
                     >
-                      {duongDanHoSoAppRequest(dn.idHoSoAppRequest)
+                      {duongDanPhieuAppRequest(dn.maDeXuatAppRequest)
                         ? (dn.maDeXuatAppRequest?.trim() || dn.code)
                         : dn.code}
                     </a>
@@ -1493,11 +1505,11 @@ export default function TrangChiTietDeNghi({
                 </ul>
                 {/* Một lối đi CÓ THẬT, không phải lời hứa: mở đúng hồ sơ bên App Request. Hồ sơ
                     thiếu `idHoSoAppRequest` (lập tay trong app) thì không vẽ nút, chỉ nói lý do. */}
-                {duongDanHoSoAppRequest(dn.idHoSoAppRequest) ? (
+                {duongDanPhieuAppRequest(dn.maDeXuatAppRequest) ? (
                   <p className="text-xs text-text-desc">
                     Nội dung tệp nằm ở App Request —{" "}
                     <a
-                      href={duongDanHoSoAppRequest(dn.idHoSoAppRequest) ?? undefined}
+                      href={duongDanPhieuAppRequest(dn.maDeXuatAppRequest) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"

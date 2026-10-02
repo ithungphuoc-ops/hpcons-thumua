@@ -12,7 +12,7 @@
 // 📌 Chỉ là trạng thái GIAO DIỆN trong phiên (tải lại trang là hết) — không lưu, không đồng bộ.
 // ============================================================
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 let tuKhoa = "";
 const nguoiNghe = new Set<() => void>();
@@ -31,5 +31,33 @@ export function useTuKhoaBangQuyTrinh(): string {
     },
     () => tuKhoa,
     () => "",
+  );
+}
+
+/* ★ Màn Quy trình mua hàng CÒN ĐANG HIỆN — Sếp 02/10/2026: mở pop-up xem nhanh thì địa chỉ thành
+   `/de-nghi/<mã>` dù bảng vẫn nằm phía sau. Ô tìm hỏi ở đây chứ không chỉ so địa chỉ, nếu không mở
+   pop-up là mất bộ lọc (QA bắt được 02/10/2026). */
+let soBangDangHien = 0;
+const nguoiNgheBang = new Set<() => void>();
+
+export function useDanhDauBangQuyTrinhDangHien(): void {
+  useEffect(() => {
+    soBangDangHien += 1;
+    nguoiNgheBang.forEach((f) => f());
+    return () => {
+      soBangDangHien -= 1;
+      nguoiNgheBang.forEach((f) => f());
+    };
+  }, []);
+}
+
+export function useBangQuyTrinhDangHien(): boolean {
+  return useSyncExternalStore(
+    (f) => {
+      nguoiNgheBang.add(f);
+      return () => nguoiNgheBang.delete(f);
+    },
+    () => soBangDangHien > 0,
+    () => false,
   );
 }

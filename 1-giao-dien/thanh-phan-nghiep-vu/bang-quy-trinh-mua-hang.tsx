@@ -163,6 +163,11 @@ export interface BangQuyTrinhMuaHangProps {
    * `preventDefault` trong `onClick` chỉ ăn với cú bấm thường, xem chỗ dùng ở `TheDeNghi`.
    */
   onXemNhanh?: (prId: string) => void;
+  /**
+   * Link trang chi tiết theo mã đề xuất (`/de-nghi/000000162-copy1`, Sếp 02/10/2026) — trang chứa
+   * tính vì cần cả danh sách đề nghị (bảng không đụng kho dữ liệu). Thiếu thì dùng link mã kỹ thuật.
+   */
+  duongDanDeNghi?: (deNghi: DeNghiMuaHang) => string;
 }
 
 /**
@@ -208,6 +213,7 @@ export function BangQuyTrinhMuaHang({
   onTha,
   thaoTac,
   onXemNhanh,
+  duongDanDeNghi,
 }: BangQuyTrinhMuaHangProps) {
   /**
    * ★ GIAI ĐOẠN CỦA THẺ ĐANG KÉO — `null` là không kéo gì.
@@ -343,6 +349,7 @@ export function BangQuyTrinhMuaHang({
             onTha={onTha}
             thaoTac={thaoTac}
             onXemNhanh={onXemNhanh}
+            duongDanDeNghi={duongDanDeNghi}
           />
         ))}
       </div>
@@ -360,6 +367,7 @@ function CotQuyTrinh({
   onTha,
   thaoTac,
   onXemNhanh,
+  duongDanDeNghi,
 }: {
   cot: CotBangQuyTrinh;
   keoThaDuoc: boolean;
@@ -372,6 +380,7 @@ function CotQuyTrinh({
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
   onXemNhanh?: (prId: string) => void;
+  duongDanDeNghi?: (deNghi: DeNghiMuaHang) => string;
 }) {
   /* `hanGio` = thời hạn chuẩn của bước, ĐÃ thành chữ sẵn ở `dungBangQuyTrinh` (15/09/2026) —
      bảng chỉ bày, không tự tra cấu hình. Xem chú thích ở chỗ hiển thị, cuối dòng thống kê. */
@@ -706,6 +715,7 @@ function CotQuyTrinh({
                 onTha={onTha}
                 thaoTac={thaoTac}
                 onXemNhanh={onXemNhanh}
+                duongDan={duongDanDeNghi?.(t.deNghi)}
               />
             ))}
           </>
@@ -737,6 +747,7 @@ function TheDeNghi({
   onTha,
   thaoTac,
   onXemNhanh,
+  duongDan: duongDanTruyenVao,
 }: {
   the: TheDeNghiTrenBang;
   tongGiaiDoan: Tong;
@@ -750,6 +761,8 @@ function TheDeNghi({
   thaoTac?: ThaoTacThe;
   /** Bấm thẻ mở pop-up đè lên board — xem `BangQuyTrinhMuaHangProps`. */
   onXemNhanh?: (prId: string) => void;
+  /** Link theo mã đề xuất do trang chứa tính — xem `BangQuyTrinhMuaHangProps.duongDanDeNghi`. */
+  duongDan?: string;
 }) {
   /* `soDongChuaPhanBo` không lấy ra nữa — số đó đã nằm trong câu `the.conNo`. Trường vẫn còn
      trên `TheDeNghiTrenBang` cho nơi khác dùng, chỉ thẻ này thôi đọc trực tiếp. */
@@ -778,7 +791,7 @@ function TheDeNghi({
 
   return (
     <Link
-      href={`/de-nghi/${deNghi.id}`}
+      href={duongDanTruyenVao ?? `/de-nghi/${deNghi.id}`}
       /**
        * ★★★ BẤM THƯỜNG → MỞ POP-UP ĐÈ LÊN BOARD — "cách 3" trong 3 cách xem, chốt LẦN BA cùng
        * ngày 28/08/2026 (xem lịch sử đủ 3 lần ở JSDoc `onXemNhanh` trong `BangQuyTrinhMuaHangProps`
@@ -945,6 +958,7 @@ function TheDeNghi({
              */
             onTha={onTha}
             thaoTac={thaoTac}
+            duongDan={duongDanTruyenVao}
           />
         </span>
       </div>
@@ -1387,15 +1401,18 @@ export function MenuThaoTacThe({
   onTha,
   thaoTac,
   kieuNut = "the",
+  duongDan: duongDanTruyenVao,
 }: {
   the: TheDeNghiTrenBang;
   onTha?: (prId: string, dich: GiaiDoanMuaHang) => void;
   thaoTac?: ThaoTacThe;
   kieuNut?: "the" | "popup";
+  /** Link theo mã đề xuất (Sếp 02/10/2026) — "Sao chép đường dẫn" ra đúng link này. */
+  duongDan?: string;
 }) {
   const router = useRouter();
   const { deNghi, giaiDoan } = the;
-  const duongDan = `/de-nghi/${deNghi.id}`;
+  const duongDan = duongDanTruyenVao ?? `/de-nghi/${deNghi.id}`;
 
   // Bước kế / bước trước tính trên chuỗi 7 bước (bỏ "Thất bại" — nó không nằm trong chuỗi).
   const chuoi = GIAI_DOAN_MUA_HANG.filter((g) => g.ma !== "that_bai").map((g) => g.ma);
