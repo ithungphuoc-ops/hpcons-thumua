@@ -10,10 +10,14 @@
 //    lại"*. Mã định danh người dùng nhìn là MÃ SỐ THUẾ. Mã nội bộ `NC0000` vẫn do app tự cấp và lưu
 //    trong danh mục, chỉ thôi bày ra. File cũ còn cột "Mã NCC" thì lúc nhập cột đó bị bỏ qua.
 // 🔴 Báo lỗi theo SỐ DÒNG TRONG FILE (chỉ đạo 17/08/2026 cho việc nhập Excel), không theo STT.
+// ★ Cột "Nhóm NCC" (Sếp 02/10/2026): nhiều nhóm một ô, xuất nối bằng "; ", nhập tách bằng
+//   `tachNhomNCC` (`nhom-nha-cung-cap.ts`). 🔴 Dòng TRÙNG vẫn BỎ QUA NGUYÊN DÒNG, kể cả cột nhóm
+//   (Sếp chốt) — gán nhóm cho NCC đã có làm trên màn danh mục, không qua file.
 // ============================================================
 
 import type { NhaCungCap } from "@/3-du-lieu/kieu-du-lieu";
 import { boDau } from "@/6-tien-ich/bo-dau";
+import { lyDoTenNhomKhongHop, noiNhomNCC, tachNhomNCC } from "@/2-quy-trinh/nhom-nha-cung-cap";
 
 /** Thông tin một NCC đọc từ file — đúng các trường `themNhaCungCap` nhận. */
 export interface NCCTuFile {
@@ -23,6 +27,12 @@ export interface NCCTuFile {
   dienThoai?: string;
   nguoiLienHe?: string;
   ghiChu?: string;
+  /**
+   * ★ Nhóm NCC (Sếp 02/10/2026) — đã tách sẵn thành mảng bằng `tachNhomNCC`.
+   * 🔴 Dòng TRÙNG thì nhóm ở đây KHÔNG được áp (Sếp chốt: bỏ qua nguyên dòng) — gán nhóm cho NCC
+   * đã có làm trên màn danh mục.
+   */
+  nhomNCC?: string[];
 }
 
 export interface DongNhapNCC extends NCCTuFile {
@@ -53,6 +63,13 @@ const COT = [
   },
   { khoa: "nguoiLienHe", tieuDe: "Người liên hệ", rong: 28, cachViet: ["nguoi lien he", "lien he", "nguoi lh"] },
   { khoa: "ghiChu", tieuDe: "Ghi chú", rong: 36, cachViet: ["ghi chu", "ghi chu ncc", "note"] },
+  /* ★ Sếp 02/10/2026. Nhiều nhóm trong một ô, cách nhau "; " (đọc vào nhận cả ";" lẫn ","). */
+  {
+    khoa: "nhomNCC",
+    tieuDe: "Nhóm NCC",
+    rong: 30,
+    cachViet: ["nhom ncc", "nhom nha cung cap", "nhom", "phan nhom"],
+  },
 ] as const;
 
 type KhoaCot = (typeof COT)[number]["khoa"];
@@ -102,9 +119,17 @@ export function phanLoaiNhapNCC(
     if (tenDaCo.has(t)) return { loai: "trung", dong: d, lyDo: "Trùng tên với NCC đã có." };
     if (mst && mstTrongFile.has(mst)) return { loai: "trung", dong: d, lyDo: "Trùng mã số thuế với dòng trên trong file." };
     if (tenTrongFile.has(t)) return { loai: "trung", dong: d, lyDo: "Trùng tên với dòng trên trong file." };
+    /* Nhóm xét SAU luật trùng: dòng trùng bị bỏ nguyên dòng, nhóm của nó không có ý nghĩa gì. */
+    const nhom = tachNhomNCC(d.nhomNCC);
+    const loiNhom = nhom.map(lyDoTenNhomKhongHop).find((x) => x !== null);
+    if (loiNhom) return { loai: "loi", dong: d, lyDo: loiNhom };
     tenTrongFile.add(t);
     if (mst) mstTrongFile.add(mst);
-    return { loai: "moi", dong: { ...d, ten, ...(mst ? { maSoThue: mst } : {}) } };
+    /* Nhóm đã chuẩn hoá thay cho nhóm thô; dòng không có nhóm thì KHÔNG mang khoá. */
+    const sach: DongNhapNCC = { ...d, ten, ...(mst ? { maSoThue: mst } : {}) };
+    if (nhom.length > 0) sach.nhomNCC = nhom;
+    else delete sach.nhomNCC;
+    return { loai: "moi", dong: sach };
   });
 }
 
@@ -212,7 +237,12 @@ export async function docNCCTuExcel(file: ArrayBuffer): Promise<KetQuaDocNCC> {
       ...(doc(row, "nguoiLienHe") ? { nguoiLienHe: doc(row, "nguoiLienHe") } : {}),
       ...(doc(row, "ghiChu") ? { ghiChu: doc(row, "ghiChu") } : {}),
     };
-    const trong = !d.ten && !d.maSoThue && !d.diaChi && !d.dienThoai && !d.nguoiLienHe && !d.ghiChu;
+    const nhom = tachNhomNCC(doc(row, "nhomNCC"));
+    if (nhom.length > 0) d.nhomNCC = nhom;
+    /* Dòng chỉ ghi mỗi nhóm vẫn là dòng có dữ liệu → vào bản xem trước và báo "Thiếu tên", không
+       lặng lẽ biến mất. */
+    const trong =
+      !d.ten && !d.maSoThue && !d.diaChi && !d.dienThoai && !d.nguoiLienHe && !d.ghiChu && nhom.length === 0;
     if (!trong) ketQua.push(d);
   }
   return {
@@ -251,7 +281,8 @@ export async function xuatDanhMucNCCExcel(
   [...ds]
     .sort((a, b) => (a.maNCC ?? "").localeCompare(b.maNCC ?? ""))
     .forEach((n, i) => {
-      const row = ws.addRow([i + 1, ...COT.map((c) => n[c.khoa] ?? "")]);
+      /* Nhóm là MẢNG — phải nối thành chữ, đưa thẳng mảng vào ô là ExcelJS ghi rác. */
+      const row = ws.addRow([i + 1, ...COT.map((c) => (c.khoa === "nhomNCC" ? noiNhomNCC(n.nhomNCC) : (n[c.khoa] ?? "")))]);
       row.alignment = { vertical: "top", wrapText: true };
     });
   ws.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: soCot } };

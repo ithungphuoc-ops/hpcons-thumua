@@ -48,7 +48,13 @@ export function PageHeader({ crumbs, title, description, actions }: PageHeaderPr
           <h1 className="text-lg md:text-xl font-bold text-text-primary leading-tight">{title}</h1>
           {description ? <p className="text-xs text-text-desc leading-tight">{description}</p> : null}
         </div>
-        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+        {/* 🔴 KHÔNG `shrink-0` (bỏ 02/10/2026): khung nút không được co thì nhóm nút bên trong không
+            bao giờ xuống dòng được — đo trên màn 375px trang Nhà cung cấp (3 nút) tràn ra 450px, nút
+            cuối bị cắt mất. Bỏ `shrink-0` + `max-w-full` + `flex-wrap`: màn rộng thì cả cụm vẫn đứng
+            cùng hàng như cũ (dòng flex tự xuống trước khi co), màn hẹp thì nút tự xuống dòng. */}
+        {actions ? (
+          <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">{actions}</div>
+        ) : null}
       </div>
     </div>
   );

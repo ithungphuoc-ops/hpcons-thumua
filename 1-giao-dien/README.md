@@ -31,7 +31,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `bao-gia-danh-sach.tsx` | Danh sách bảng báo giá | `/bao-gia` |
 | `bao-gia-chi-tiet.tsx` | Bảng so sánh giá nhiều nhà cung cấp | `/bao-gia/[id]` |
 | `cong-no.tsx` | Công nợ nhà cung cấp + tuổi nợ 30-60-90 | `/cong-no` |
-| `nha-cung-cap.tsx` | **Danh mục nhà cung cấp** (02/10/2026) — xem (cột đầu là **Mã số thuế**, có **Ghi chú**), **Thêm nhà cung cấp** từng bên, **Xuất Excel**, **Nhập Excel** có xem trước (dòng trùng MST/tên bỏ qua — thêm tay cũng chặn theo đúng luật đó). Vào được: `xemQuyTrinhMuaHang && xemNhaCungCap`; nhập/xoá: `lapPO` | `/nha-cung-cap` |
+| `nha-cung-cap.tsx` | **Danh mục nhà cung cấp** (02/10/2026) — xem (cột đầu là **Mã số thuế**, có **Ghi chú**), **Thêm nhà cung cấp** từng bên, **Xuất Excel**, **Nhập Excel** có xem trước (dòng trùng MST/tên bỏ qua — thêm tay cũng chặn theo đúng luật đó). ★ **Nhóm NCC** (Sếp 02/10/2026, một NCC nhiều nhóm): cột "Nhóm" (mỗi nhóm một nhãn có chữ), **hàng lọc** "Tất cả · từng nhóm (n) · Chưa phân nhóm (n)", **tick chọn nhiều dòng** → "Thêm vào nhóm" / "Bỏ khỏi nhóm", **"Đổi tên nhóm"** khi đang lọc một nhóm (trùng nhóm có sẵn thì gộp), ô "Nhóm NCC" trong hộp thêm. Luật ở `2-quy-trinh/nhom-nha-cung-cap.ts`, ghi qua `datNhomNCC` / `doiTenNhomNCC`. Vào được: `xemQuyTrinhMuaHang && xemNhaCungCap`; nhập/xoá/gán nhóm: `lapPO` | `/nha-cung-cap` |
 
 > Địa chỉ URL do thư mục `app/` quyết định (Next.js). File trong `app/` chỉ có **1 dòng** trỏ về đây.
 

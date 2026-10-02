@@ -26,7 +26,7 @@
 
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -13885,6 +13885,192 @@ kiem(
   );
 }
 
+/* ★ NHÓM NHÀ CUNG CẤP — Sếp 02/10/2026: *"nhóm được NCC theo mong muốn. Ví dụ: NCC chuyên cung cấp
+   VLXD, NCC chuyên cung cấp bê tông"*. Sếp chốt: một NCC nhiều nhóm; nhập Excel BỎ QUA nguyên dòng
+   trùng (kể cả cột nhóm). Tầng ghi (`datNhomNCC`, `doiTenNhomNCC` trong hook React) không chạy được
+   ở Node — luật thật nằm ở `2-quy-trinh/nhom-nha-cung-cap.ts` và được gọi thật ở đây. */
+{
+  /* 📌 Dựng vào `node_modules/.cache/` (đã bị .gitignore chặn), KHÔNG vào thư mục tạm của máy:
+     `xuatDanhMucNCCExcel` / `docNCCTuExcel` nạp `exceljs` bằng `import()` lúc CHẠY, mà `import()`
+     tìm gói tính từ chỗ đặt tệp dựng — đặt ở %TEMP% là "Cannot find package 'exceljs'". Thư mục chỉ
+     xoá SAU bài kiểm trọn vòng, vì lúc đó mới nạp gói.
+     📌 `--supported:dynamic-import=false`: esbuild đổi `import()` thành `require()` bọc `__toESM`.
+     `import()` gốc của Node trên gói CJS `exceljs` chỉ trả `default` → "Workbook is not a
+     constructor" (trình duyệt qua webpack thì không dính). */
+  const goc = join(process.cwd(), "node_modules", ".cache");
+  mkdirSync(goc, { recursive: true });
+  const thuMucNH = mkdtempSync(join(goc, "kiem-luat-nhom-ncc-"));
+  /* Bọc như mọi bước dựng khác: hỏng thì nói rõ tệp nào và dọn thư mục tạm, không văng lỗi thô. */
+  try {
+    execSync(
+      `npx --yes esbuild "2-quy-trinh/nhom-nha-cung-cap.ts" "2-quy-trinh/danh-muc-ncc-excel.ts" --bundle --external:exceljs --supported:dynamic-import=false --platform=node --format=cjs --outdir="${thuMucNH}" --out-extension:.js=.cjs --log-level=error`,
+      { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+    );
+  } catch (e) {
+    console.error(`${DO}⛔ Không dựng được 2-quy-trinh/nhom-nha-cung-cap.ts / danh-muc-ncc-excel.ts:${HET}`);
+    console.error(String(e.stderr ?? e.message));
+    rmSync(thuMucNH, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    process.exit(1);
+  }
+  const NHOM = nap(join(thuMucNH, "nhom-nha-cung-cap.cjs"));
+  const NCCX = nap(join(thuMucNH, "danh-muc-ncc-excel.cjs"));
+  const CHU = 'Sếp 02/10/2026 — *"nhóm được NCC theo mong muốn"* (một NCC nhiều nhóm)';
+
+  kiem("Nhóm NCC: tách 'A; B, C' — bỏ rỗng, bỏ trùng THEO CHUẨN HOÁ, giữ cách viết đầu (cả hai chiều)", CHU, () => {
+    const a = NHOM.tachNhomNCC("VLXD; Bê tông, BÊ  TÔNG ;; vlxd , Thép");
+    const b = NHOM.tachNhomNCC(["Thép", " THÉP ", "Bê tông tươi"]);
+    const c = [NHOM.tachNhomNCC(""), NHOM.tachNhomNCC(undefined), NHOM.tachNhomNCC(" ; , ")].map((x) => x.length);
+    return {
+      duoc:
+        JSON.stringify(a) === '["VLXD","Bê tông","Thép"]' &&
+        JSON.stringify(b) === '["Thép","Bê tông tươi"]' &&
+        c.join(",") === "0,0,0",
+      thucTe: `${JSON.stringify(a)} · ${JSON.stringify(b)} · rỗng=${c.join(",")}`,
+      mongDoi: '["VLXD","Bê tông","Thép"] · ["Thép","Bê tông tươi"] (khác chữ "tươi" là nhóm KHÁC) · rỗng=0,0,0',
+    };
+  });
+
+  /* ★ SỬA 02/10/2026 (soát lỗi trước push): bản đầu so trùng BỎ DẤU, nên "Cửa"/"Cưa" thành một
+     nhóm. Đây là lựa chọn tự đặt lúc dựng (Sếp chưa chỉ đạo) và sai nghĩa tiếng Việt — nay so GIỮ DẤU,
+     chỉ bỏ qua hoa/thường, khoảng trắng thừa và khác biệt NFC/NFD. */
+  kiem("Nhóm NCC: so trùng GIỮ DẤU (Cửa ≠ Cưa, Cát ≠ Cắt) — chỉ bỏ qua hoa thường, khoảng trắng, NFC/NFD", CHU, () => {
+    const trung = NHOM.khoaNhom("Bê tông") === NHOM.khoaNhom("  BÊ   TÔNG ");
+    const nfd = NHOM.khoaNhom("Bê tông") === NHOM.khoaNhom("Bê tông".normalize("NFD"));
+    const khacChu = NHOM.khoaNhom("Bê tông") !== NHOM.khoaNhom("Bê tông tươi");
+    const khacDau = NHOM.khoaNhom("Cửa") !== NHOM.khoaNhom("Cưa") && NHOM.khoaNhom("Cát") !== NHOM.khoaNhom("Cắt") && NHOM.khoaNhom("Đá") !== NHOM.khoaNhom("Da");
+    const co = NHOM.coTrongNhom({ nhomNCC: ["VLXD", "Bê Tông"] }, "bê tông");
+    const khong = NHOM.coTrongNhom({ nhomNCC: ["VLXD"] }, "bê tông") || NHOM.coTrongNhom({}, "VLXD") || NHOM.coTrongNhom({ nhomNCC: ["Cửa"] }, "Cưa");
+    const dai = NHOM.lyDoTenNhomKhongHop("Vật liệu xây dựng thiết bị điện nước công trình".normalize("NFD"));
+    return {
+      duoc: trung && nfd && khacChu && khacDau && co && !khong && dai === null,
+      thucTe: JSON.stringify({ trung, nfd, khacChu, khacDau, co, khong, dai }),
+      mongDoi: "trung/nfd/khacChu/khacDau/co = true · khong = false · tên 47 chữ gõ NFD không bị báo dài",
+    };
+  });
+
+  kiem("Nhóm NCC: lọc 'Chưa phân nhóm' chỉ ra NCC KHÔNG có nhóm (kể cả mảng rỗng); lọc một nhóm ra cả NCC nhiều nhóm", CHU, () => {
+    const ds = [
+      { id: "a", nhomNCC: ["VLXD", "Bê tông"] },
+      { id: "b", nhomNCC: [] },
+      { id: "c" },
+      { id: "d", nhomNCC: ["Bê tông"] },
+    ];
+    const chua = NHOM.locNCCTheoNhom(ds, { loai: "chua_phan_nhom" }).map((n) => n.id).join(",");
+    const beTong = NHOM.locNCCTheoNhom(ds, { loai: "nhom", ten: "BÊ TÔNG" }).map((n) => n.id).join(",");
+    const tatCa = NHOM.locNCCTheoNhom(ds, { loai: "tat_ca" }).length;
+    const tk = NHOM.thongKeNhomNCC(ds);
+    const dem = tk.nhom.map((n) => `${n.ten}:${n.soNCC}`).join(",");
+    return {
+      duoc: chua === "b,c" && beTong === "a,d" && tatCa === 4 && dem === "Bê tông:2,VLXD:1" && tk.chuaPhanNhom === 2,
+      thucTe: JSON.stringify({ chua, beTong, tatCa, dem, chuaPhanNhom: tk.chuaPhanNhom }),
+      mongDoi: 'chua="b,c" · beTong="a,d" · tatCa=4 · dem="Bê tông:2,VLXD:1" · chuaPhanNhom=2',
+    };
+  });
+
+  kiem("Nhóm NCC: tên nhóm cấm dấu ; , — cấm 'Chưa phân nhóm' — tên thường thì DÙNG ĐƯỢC (cả hai chiều)", CHU, () => {
+    const loi = ["Thép, tôn", "a;b", "  ", "chua phan NHOM", "x".repeat(61)].map((t) => NHOM.lyDoTenNhomKhongHop(t) !== null);
+    const duocDung = ["VLXD", "Bê tông", "x".repeat(60)].map((t) => NHOM.lyDoTenNhomKhongHop(t));
+    return {
+      duoc: loi.every(Boolean) && duocDung.every((x) => x === null),
+      thucTe: `cấm=${JSON.stringify(loi)} · dùng được=${JSON.stringify(duocDung)}`,
+      mongDoi: "cấm = toàn true · dùng được = toàn null",
+    };
+  });
+
+  kiem("Nhóm NCC: thêm/bỏ chỉ đụng NCC đã chọn; thêm dùng CÁCH VIẾT ĐANG CÓ; bỏ hết thì XOÁ HẲN khoá nhomNCC", CHU, () => {
+    const ds = [
+      { id: "a", ten: "A", nhomNCC: ["VLXD"] },
+      { id: "b", ten: "B" },
+      { id: "c", ten: "C", diaChi: "Q1" },
+    ];
+    const them = NHOM.datNhomTrongDanhMuc(ds, ["b", "c"], "vlxd", "them");
+    const bo = NHOM.datNhomTrongDanhMuc(them, ["a", "b"], "VLXD", "bo");
+    return {
+      duoc:
+        JSON.stringify(them.map((n) => n.nhomNCC ?? null)) === '[["VLXD"],["VLXD"],["VLXD"]]' &&
+        them[0] === ds[0] &&
+        them[2].diaChi === "Q1" &&
+        !("nhomNCC" in bo[0]) && !("nhomNCC" in bo[1]) &&
+        JSON.stringify(bo[2].nhomNCC) === '["VLXD"]',
+      thucTe: JSON.stringify({ them: them.map((n) => n.nhomNCC ?? null), aGiuNguyen: them[0] === ds[0], bo: bo.map((n) => ("nhomNCC" in n ? n.nhomNCC : "KHÔNG KHOÁ")) }),
+      mongDoi: 'them = ba NCC đều "VLXD" (không "vlxd") · NCC a giữ nguyên đối tượng · bỏ ở a,b → KHÔNG KHOÁ, c còn ["VLXD"]',
+    };
+  });
+
+  kiem("Nhóm NCC: đổi tên trùng nhóm đã có → GỘP (NCC thuộc cả hai chỉ còn một nhãn); NCC ngoài nhóm không đổi", CHU, () => {
+    const ds = [
+      { id: "a", nhomNCC: ["Be tong", "Bê tông tươi"] },
+      { id: "b", nhomNCC: ["Bê tông tươi"] },
+      { id: "c", nhomNCC: ["Thép"] },
+    ];
+    const sau = NHOM.doiTenNhomTrongDanhMuc(ds, "Be tong", "Bê tông tươi");
+    return {
+      duoc:
+        JSON.stringify(sau.map((n) => n.nhomNCC)) === '[["Bê tông tươi"],["Bê tông tươi"],["Thép"]]' && sau[2] === ds[2],
+      thucTe: JSON.stringify({ sau: sau.map((n) => n.nhomNCC), cGiuNguyen: sau[2] === ds[2] }),
+      mongDoi: 'a,b = ["Bê tông tươi"] (gộp, không lặp) · c giữ nguyên đối tượng',
+    };
+  });
+
+  kiem("Nhập Excel có cột nhóm: dòng TRÙNG vẫn BỎ QUA (kể cả nhóm); dòng mới mang nhóm đã tách; không nhóm thì KHÔNG khoá; tên nhóm sai → lỗi", 'Sếp 02/10/2026 — *"Bỏ qua dòng trùng"* (cả cột nhóm)', () => {
+    const daCo = [{ ten: "Công ty TNHH A", maSoThue: "0301234567" }];
+    const kq = NCCX.phanLoaiNhapNCC(
+      [
+        { dongTrongFile: 4, ten: "Công ty TNHH A", nhomNCC: ["VLXD"] },
+        { dongTrongFile: 5, ten: "Tên khác", maSoThue: "0301234567", nhomNCC: ["Chưa phân nhóm"] },
+        { dongTrongFile: 6, ten: "Công ty B", nhomNCC: ["VLXD", " vlxd ", "Bê tông"] },
+        { dongTrongFile: 7, ten: "Công ty C" },
+        { dongTrongFile: 8, ten: "Công ty D", nhomNCC: ["Chưa phân nhóm"] },
+      ],
+      daCo,
+    );
+    const loai = kq.map((k) => `${k.dong.dongTrongFile}:${k.loai}`).join(",");
+    return {
+      duoc:
+        loai === "4:trung,5:trung,6:moi,7:moi,8:loi" &&
+        JSON.stringify(kq[2].dong.nhomNCC) === '["VLXD","Bê tông"]' &&
+        !("nhomNCC" in kq[3].dong),
+      thucTe: JSON.stringify({ loai, nhomB: kq[2].dong.nhomNCC, cCoKhoa: "nhomNCC" in kq[3].dong }),
+      mongDoi: 'loai="4:trung,5:trung,6:moi,7:moi,8:loi" · nhomB=["VLXD","Bê tông"] · cCoKhoa=false',
+    };
+  });
+
+  /* Đi trọn vòng thật: xuất tệp → đọc lại → phân loại. Bắt lỗi quên nối mảng khi xuất (ExcelJS ghi
+     rác) hoặc quên đọc cột khi nhập (nhóm mất im lặng). */
+  let vong = null;
+  try {
+    const blob = await NCCX.xuatDanhMucNCCExcel(
+      [
+        { id: "a", maNCC: "NC0001", ten: "Công ty A", maSoThue: "0301234567", nhomNCC: ["VLXD", "Bê tông"] },
+        { id: "b", maNCC: "NC0002", ten: "Công ty B" },
+      ],
+      "Thử",
+    );
+    vong = await NCCX.docNCCTuExcel(await blob.arrayBuffer());
+  } catch (e) {
+    vong = { loi: e.message };
+  } finally {
+    /* Có thử lại: trên Windows, trình quét / đồng bộ tệp có thể giữ tệp vừa ghi (EBUSY). */
+    rmSync(thuMucNH, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
+  kiem("Excel danh mục NCC: xuất rồi đọc lại GIỮ NHÓM ('VLXD; Bê tông' → 2 nhóm); NCC không nhóm → không khoá; nhập lại → TRÙNG cả hai", CHU, () => {
+    if (!vong || vong.loi) return { duoc: false, thucTe: `không chạy được: ${vong?.loi}`, mongDoi: "xuất + đọc được" };
+    const [a, b] = vong.dong;
+    const lai = NCCX.phanLoaiNhapNCC(vong.dong, [{ ten: "Công ty A", maSoThue: "0301234567" }, { ten: "Công ty B" }]).map((k) => k.loai);
+    const moi = NCCX.phanLoaiNhapNCC(vong.dong, []).map((k) => k.dong.nhomNCC ?? null);
+    return {
+      duoc:
+        vong.cotDoc.includes("Nhóm NCC") &&
+        JSON.stringify(a?.nhomNCC) === '["VLXD","Bê tông"]' &&
+        b !== undefined && !("nhomNCC" in b) &&
+        lai.join(",") === "trung,trung" &&
+        JSON.stringify(moi) === '[["VLXD","Bê tông"],null]',
+      thucTe: JSON.stringify({ cot: vong.cotDoc, a: a?.nhomNCC, bCoKhoa: b ? "nhomNCC" in b : "thiếu dòng", lai, moi }),
+      mongDoi: 'cột có "Nhóm NCC" · a=["VLXD","Bê tông"] · b không khoá · nhập lại = trung,trung · danh mục trống = [nhóm a, null]',
+    };
+  });
+}
+
 // ════════════════════════════════════════════════════════════════════
 // LUẬT CỦA SẾP — 02/10/2026: LINK ĐỀ NGHỊ THEO MÃ ĐỀ XUẤT, SỐ BẢN SAO KHÔNG CẤP LẠI,
 // NÚT "MỞ PHIẾU ĐỀ NGHỊ" DẪN SANG request.hpcore.vn/request/<mã>.
@@ -14009,6 +14195,7 @@ kiem(
     },
   );
 }
+
 
 const tong = dat + truot.length;
 console.log("");

@@ -740,6 +740,16 @@ export interface NhaCungCap {
   nguoiLienHe?: string;
   /** ★ Ghi chú tự do về NCC (Sếp 02/10/2026: *"Thêm cột ghi chú"* ở danh mục nhà cung cấp). */
   ghiChu?: string;
+  /**
+   * ★ NHÓM NCC do nhân viên tự đặt — Sếp 02/10/2026: *"nhóm được NCC theo mong muốn. Ví dụ: NCC
+   * chuyên cung cấp VLXD, NCC chuyên cung cấp bê tông"*. Sếp chốt: MỘT NCC thuộc được NHIỀU nhóm.
+   *
+   * 🔴 KHÔNG có danh sách nhóm lưu riêng — danh sách nhóm suy ra từ chính trường này trên cả danh
+   * mục (`2-quy-trinh/nhom-nha-cung-cap.ts`). Trùng tên so theo chuẩn hoá (bỏ dấu, hoa thường).
+   * 📌 Không có nhóm thì KHÔNG có khoá (không để `[]`, không để `undefined` — Firestore từ chối).
+   * Chỉ ghi qua `datNhomNCC` / `doiTenNhomNCC` / `themNhaCungCap` / `themNhieuNhaCungCap`.
+   */
+  nhomNCC?: string[];
 }
 
 // ------------------------------------------------------------

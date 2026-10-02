@@ -42,6 +42,15 @@ import {
 import { formatNumber, thoiDiemHienTai } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
 import { phanLoaiNhapNCC, type NCCTuFile } from "@/2-quy-trinh/danh-muc-ncc-excel";
+import {
+  coTrongNhom,
+  datNhomTrongDanhMuc,
+  doiTenNhomTrongDanhMuc,
+  gonTenNhom,
+  lyDoTenNhomKhongHop,
+  tachNhomNCC,
+  theoCachVietSan,
+} from "@/2-quy-trinh/nhom-nha-cung-cap";
 import { sinhIdHoSo } from "@/6-tien-ich/sinh-id-ho-so";
 import { coCongThucTuDong, dungTenDeNghi, maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import { giuThongBaoGanNhat } from "@/2-quy-trinh/giu-thong-bao";
@@ -1350,6 +1359,8 @@ interface GiaTriDuLieu {
     dienThoai?: string;
     nguoiLienHe?: string;
     ghiChu?: string;
+    /** ★ Nhóm NCC (Sếp 02/10/2026) — một NCC nhiều nhóm. */
+    nhomNCC?: readonly string[];
   }) => Promise<{ loi: string } | { ma: string }>;
   /**
    * ★ Nhập NHIỀU nhà cung cấp một lần (từ file Excel, Sếp 02/10/2026). Dòng trùng MST / trùng tên
@@ -1360,6 +1371,16 @@ interface GiaTriDuLieu {
   ) => Promise<{ daThem: number; boQua: number; loi?: string }>;
   /** Xoa mot nha cung cap khoi danh muc. Tra ly do bi chan, `null` la da xoa. */
   xoaNhaCungCap: (id: string) => string | null;
+  /**
+   * ★ THÊM / BỎ MỘT NHÓM cho nhiều NCC một lần (Sếp 02/10/2026: nhân viên tự nhóm NCC).
+   * Chỉ đụng trường `nhomNCC`, không đụng trường nào khác. Trả lý do bị chặn, `null` là đã ghi.
+   */
+  datNhomNCC: (ids: readonly string[], nhom: string, hanhDong: "them" | "bo") => string | null;
+  /**
+   * ★ ĐỔI TÊN MỘT NHÓM trên cả danh mục. Tên mới trùng một nhóm khác thì hai nhóm GỘP làm một.
+   * Trả lý do bị chặn, `null` là đã ghi.
+   */
+  doiTenNhomNCC: (tenCu: string, tenMoi: string) => string | null;
 
   /**
    * ★ DANH MỤC THỦ KHO CÔNG TRÌNH — Ban lãnh đạo 22/08/2026: *"Thêm trường nhập liệu thông tin
@@ -3467,9 +3488,15 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       dienThoai?: string;
       nguoiLienHe?: string;
       ghiChu?: string;
+      nhomNCC?: readonly string[];
     }): Promise<{ loi: string } | { ma: string }> => {
       const ten = n.ten.trim();
       if (ten === "") return { loi: "Chưa có tên nhà cung cấp." };
+      /* ★ Nhóm NCC (Sếp 02/10/2026): chuẩn hoá lại tại tầng ghi, không tin nơi gọi đã tách đúng;
+         nhóm đã có trên danh mục thì dùng đúng cách viết đang có ("vlxd" → "VLXD"). */
+      const nhom = theoCachVietSan(tachNhomNCC(n.nhomNCC), nhaCungCapThem);
+      const loiNhom = nhom.map(lyDoTenNhomKhongHop).find((x) => x !== null);
+      if (loiNhom) return { loi: loiNhom };
 
       /**
        * ★★ MÃ DO TẦNG GHI TỰ CẤP — Ban lãnh đạo 25/08/2026: *"Mã NCC sẽ tự động sinh ra sau khi
@@ -3509,6 +3536,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         ...(n.dienThoai?.trim() ? { dienThoai: n.dienThoai.trim() } : {}),
         ...(n.nguoiLienHe?.trim() ? { nguoiLienHe: n.nguoiLienHe.trim() } : {}),
         ...(n.ghiChu?.trim() ? { ghiChu: n.ghiChu.trim() } : {}),
+        /* Không có nhóm thì KHÔNG có khoá — Firestore từ chối `undefined`. */
+        ...(nhom.length > 0 ? { nhomNCC: nhom } : {}),
       };
       setNhaCungCapThem((truoc) => [...truoc, moi]);
       /* Trả MÃ VỪA CẤP để nơi gọi điền thẳng vào đơn đang lập — người dùng thêm nhà cung cấp
@@ -3551,6 +3580,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       const maDaCo = nhaCungCapThem.map((x) => (x.maNCC ?? "").trim()).filter((x) => x !== "");
       const moi: NhaCungCap[] = [];
       for (const n of hopLe) {
+        /* ★ Nhóm NCC (Sếp 02/10/2026) — `phanLoaiNhapNCC` đã chặn tên nhóm sai, tách lại cho chắc.
+           Cách viết theo danh mục + các dòng TRƯỚC trong cùng lô (dòng 3 gõ "vlxd", dòng 2 đã
+           tạo "VLXD" → cùng một nhãn).
+           🔴 Quên chép trường này ở đây là nhóm trong file MẤT IM LẶNG khi nhập. */
+        const nhom = theoCachVietSan(tachNhomNCC(n.nhomNCC), [...nhaCungCapThem, ...moi]);
         /* 🔴 Mã máy chủ cấp mà ĐÃ có trong lô (dòng trước rơi về mã tự tính vì máy chủ hỏng giữa
            chừng) thì không dùng — tự tính tiếp, nếu không hai NCC mang cùng mã, cùng `id`. */
         const maMayChu = await xinMaMayChu("nha-cung-cap", "");
@@ -3566,6 +3600,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           ...(n.dienThoai?.trim() ? { dienThoai: n.dienThoai.trim() } : {}),
           ...(n.nguoiLienHe?.trim() ? { nguoiLienHe: n.nguoiLienHe.trim() } : {}),
           ...(n.ghiChu?.trim() ? { ghiChu: n.ghiChu.trim() } : {}),
+          ...(nhom.length > 0 ? { nhomNCC: nhom } : {}),
         });
       }
       if (moi.length > 0) setNhaCungCapThem((truoc) => [...truoc, ...moi]);
@@ -3606,6 +3641,51 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       return null;
     },
     [nhaCungCapThem],
+  );
+
+  /**
+   * ★ GÁN / BỎ NHÓM NCC — Sếp 02/10/2026: *"Thêm trường để nhân viên có thể tự thêm và nhóm được
+   * NCC theo mong muốn"*. Một NCC thuộc được nhiều nhóm (Sếp chốt).
+   *
+   * 🔴 HÀM HẸP, KHÔNG PHẢI "SỬA NCC" TỔNG QUÁT: chỉ đụng `nhomNCC`. Một hàm sửa tự do (địa chỉ,
+   * MST…) là chuyện khác hẳn — tờ in của đơn cũ đọc danh mục, sửa ở đây là đổi chứng từ đã phát
+   * hành (phản biện 02/10/2026).
+   * 🔴 KIỂM QUYỀN `lapPO` NGAY Ở TẦNG GHI — cùng người vốn thêm / xoá NCC được. Ẩn nút trên màn
+   * không phải chốt chặn.
+   * 📌 Một lần `setNhaCungCapThem(truoc => …)`: tính trên danh mục MỚI NHẤT, không trên bản đóng gói.
+   * Luật tách / gộp / chuẩn hoá ở `2-quy-trinh/nhom-nha-cung-cap.ts`.
+   */
+  const datNhomNCC = useCallback(
+    (ids: readonly string[], nhom: string, hanhDong: "them" | "bo"): string | null => {
+      if (!tinhQuyen(nguoiDung).lapPO) return "Chỉ người lập được đơn mua hàng mới phân nhóm nhà cung cấp.";
+      if (ids.length === 0) return "Chưa chọn nhà cung cấp nào.";
+      const ten = gonTenNhom(nhom);
+      const loiTen = hanhDong === "them" ? lyDoTenNhomKhongHop(ten) : ten === "" ? "Chưa có tên nhóm." : null;
+      if (loiTen) return loiTen;
+      const tapId = new Set(ids);
+      if (!nhaCungCapThem.some((n) => tapId.has(n.id))) return "Các nhà cung cấp đã chọn không còn trong danh mục.";
+      setNhaCungCapThem((truoc) => datNhomTrongDanhMuc(truoc, ids, ten, hanhDong));
+      return null;
+    },
+    [nguoiDung, nhaCungCapThem],
+  );
+
+  /**
+   * ★ ĐỔI TÊN NHÓM NCC trên cả danh mục — Sếp 02/10/2026. Tên mới trùng (theo chuẩn hoá) một nhóm
+   * khác thì hai nhóm GỘP làm một (`doiTenNhomTrongDanhMuc`). Cùng quyền, cùng lối ghi `datNhomNCC`.
+   */
+  const doiTenNhomNCC = useCallback(
+    (tenCu: string, tenMoi: string): string | null => {
+      if (!tinhQuyen(nguoiDung).lapPO) return "Chỉ người lập được đơn mua hàng mới đổi tên nhóm nhà cung cấp.";
+      const moi = gonTenNhom(tenMoi);
+      const loiTen = lyDoTenNhomKhongHop(moi);
+      if (loiTen) return loiTen;
+      if (!nhaCungCapThem.some((n) => coTrongNhom(n, tenCu))) return "Không còn nhà cung cấp nào trong nhóm này.";
+      if (gonTenNhom(tenCu) === moi) return null;
+      setNhaCungCapThem((truoc) => doiTenNhomTrongDanhMuc(truoc, tenCu, moi));
+      return null;
+    },
+    [nguoiDung, nhaCungCapThem],
   );
 
   /**
@@ -9787,6 +9867,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themNhaCungCap,
       themNhieuNhaCungCap,
       xoaNhaCungCap,
+      datNhomNCC,
+      doiTenNhomNCC,
       thuKho: thuKhoThem,
       themThuKho,
       xoaThuKho,
@@ -9873,6 +9955,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       themNhaCungCap,
       themNhieuNhaCungCap,
       xoaNhaCungCap,
+      datNhomNCC,
+      doiTenNhomNCC,
       themThuKho,
       xoaThuKho,
       deNghi,
