@@ -197,9 +197,12 @@ import {
   NHIP_GOM_GHI_MS,
   coTuThuLaiQlkCtr,
   duocThuLaiQlkCtr,
+  lyDoDungTuGuiLaiQlkCtr,
+  mocCuaNoiDung,
   mocSauLanThuHong,
   tinhDoTreGhi,
   trangThaiSauLoiQlkCtr,
+  vanTayNoiDungPO,
 } from "@/2-quy-trinh/nhip-dong-bo-qlk-ctr";
 /* ★★ GIỮ BẢN GHI VỪA TẠO CHO TỚI KHI THẤY NÓ TRÊN MÁY CHỦ — sự cố mất đơn 15/09/2026 (Sếp báo
    19:33). Toàn bộ phần QUYẾT ĐỊNH nằm ở `2-quy-trinh/giu-ban-ghi-moi.ts` để `kiem-luat-dung-chung`
@@ -226,6 +229,7 @@ import {
   canDongBoLaiPO,
   guiPOSangQlkCtrDocLap,
   canDongBoLaiPODocLap,
+  catNganLoiQlkCtr,
   laPOCuaHoSoPhongBan,
 } from "@/5-ket-noi/gui-po-qlk-ctr";
 import type {
@@ -1490,6 +1494,12 @@ interface GiaTriDuLieu {
    */
   ganDeNghiVaoPO: (poId: string, baoGiaId: string) => string | null;
   /**
+   * ★★ (04/10/2026, L11/L12) NÚT "GỬI LẠI NGAY" cho đơn đã DỪNG tự gửi sang app Kho (quá 5 lần / 1
+   * ngày, xem `qlkCtrDungTuGui`). Gửi ngay một lần, xoá dấu dừng — hỏng nữa thì app tự gửi lại theo
+   * bậc chờ, tính lại từ đầu (5 lần / 1 ngày mới). Trả `null` khi gửi được, chuỗi là lý do lỗi.
+   */
+  guiLaiPOSangKhoNgay: (poId: string) => Promise<string | null>;
+  /**
    * Xác nhận đề nghị mà route tự động khớp (`app-request/de-nghi-moi`) đã điền sẵn vào PO
    * "chờ đề nghị" — chuyển PO sang "đã chốt" thật. Xem chú thích đầy đủ ở nơi định nghĩa.
    */
@@ -2724,6 +2734,93 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [dongBoSoChoGiaoDien],
   );
 
+  /**
+   * ★★ (04/10/2026, L11/L12 "liên kết 4 app" — Sếp: "không cho gửi mãi như vậy") DỪNG TỰ GỬI LẠI
+   * một PO: ghi MỘT lần dấu `qlkCtrDungTuGui` (mọi máy thôi tự gửi đúng nội dung này) + tin báo
+   * người lập PO và trưởng bộ phận. Luật ở `lyDoDungTuGuiLaiQlkCtr` (`2-quy-trinh/nhip-dong-bo-qlk-ctr.ts`).
+   *
+   * 🔴 KHÔNG GÂY VÒNG GHI: dấu dừng nằm ngoài vân tay nội dung (vân tay bỏ qua mọi trường `qlkCtr*`),
+   * và vòng tự đồng bộ gặp `qlkCtrDungTuGui === vânTay` là `continue` ngay — ghi xong thì không còn gì
+   * để ghi. Tin báo có id cố định theo đơn + nội dung, đã có thì không thêm (chống trùng giữa các máy).
+   *
+   * 🔴 CHỈ GỌI KHI ĐÃ NGHE ĐƯỢC MÁY CHỦ (`daNgheMayChu`) — trước đó ghi không được đẩy lên và bị ảnh chụp
+   * máy chủ đè mất; xem `dungDangHoan` ngay dưới.
+   */
+  const dungTuGuiLaiPO = useCallback((po: DonDatHang, vanTay: string, lyDo: string, loiCuoi: string | undefined) => {
+    const thoiDiem = new Date().toISOString();
+    /* Lỗi cuối có thể chính là câu dừng của một lần dừng trước — chỉ lấy phần lỗi gốc, không lồng. */
+    const loiGoc = (loiCuoi ?? "").split("Lỗi gần nhất: ").pop()?.trim() || "không rõ";
+    const loi = catNganLoiQlkCtr(
+      `${lyDo} — app đã DỪNG tự gửi, cần người xử lý (bấm "Gửi lại ngay" trên đơn). Lỗi gần nhất: ${loiGoc}`,
+    );
+    setDonHang((truoc) =>
+      truoc.map((p) =>
+        p.id !== po.id
+          ? p
+          : { ...p, qlkCtrSyncStatus: "can_xu_ly_tay", qlkCtrSyncError: loi, qlkCtrSyncAt: thoiDiem, qlkCtrDungTuGui: vanTay },
+      ),
+    );
+    const idThongBao = `tb-dung-gui-po-${po.id}-${vanTay}`;
+    setThongBao((truoc) =>
+      truoc.some((t) => t.id === idThongBao)
+        ? truoc
+        : giuThongBaoGanNhat([
+            {
+              id: idThongBao,
+              /* Mang id/mã CỦA PO — cùng khuôn tin cảnh báo đơn hàng `laCanhBaoTreo` (bấm vào mở đơn). */
+              prId: po.id,
+              prCode: po.code,
+              tieuDe: `⚠️ Đơn hàng ${po.code} chưa sang được app Kho công trình — đã dừng tự gửi, cần người xử lý`,
+              denBuoc: po.trangThai,
+              thoiDiem,
+              guiToi: [po.nguoiPhuTrachTen, NHAN_TRUONG_BO_PHAN].filter(Boolean),
+              daDoc: false,
+              laCanhBaoTreo: true,
+            },
+            ...truoc,
+          ]),
+    );
+    console.warn("[L11/L12] Dừng tự gửi PO", po.code, "sang QLK CTR:", lyDo);
+  }, []);
+
+  /**
+   * ★★ (04/10/2026, QA vòng 1 + 2) CHỐT DỪNG ĐANG HOÃN.
+   *
+   * 🔴 VÌ SAO: quyết định dừng có thể rơi vào lúc CHƯA nghe được máy chủ — lượt `apDung` dựng từ dữ liệu
+   * trên máy khi vừa mở trang (hạn 1 ngày gần như luôn bị phát hiện đúng ở lượt này), hoặc kết quả lần
+   * gửi thứ 5 về trước ảnh chụp máy chủ đầu tiên. Ghi lúc đó không được đẩy lên, ảnh chụp máy chủ về sau
+   * đè mất dấu dừng + tin báo, còn mốc trên máy đã cạn → đơn thôi gửi mà KHÔNG AI ĐƯỢC BÁO.
+   *
+   * ✅ CÁCH LÀM: cất quyết định vào đây, chốt ngay khi ảnh chụp máy chủ ĐẦU TIÊN về — kể cả khi ảnh chụp
+   * đó giống hệt bản trên máy (lúc ấy `apDung` không chạy lại, nên không thể trông vào vòng quét). Lúc
+   * chốt xét lại trên dữ liệu máy chủ: nội dung đã đổi / đã có người gửi được / đã dừng sẵn → bỏ, trả
+   * đơn về cho vòng tự đồng bộ.
+   */
+  const dungDangHoan = useRef<Map<string, { vanTay: string; lyDo: string; loiCuoi?: string }>>(new Map());
+
+  const chotDungDangHoan = useCallback(
+    (d: Pick<DuLieuLuu, "donHang" | "deNghi">) => {
+      if (dungDangHoan.current.size === 0) return;
+      const ds = [...dungDangHoan.current];
+      dungDangHoan.current.clear();
+      for (const [poId, h] of ds) {
+        const po = d.donHang.find((p) => p.id === poId);
+        if (!po) continue;
+        const deNghiGoc = po.prId ? d.deNghi.find((dn) => dn.id === po.prId) : undefined;
+        const vanTay = po.prId ? vanTayNoiDungPO(po, deNghiGoc?.maDeXuatAppRequest) : vanTayNoiDungPO(po);
+        /* Cùng điều kiện "còn việc để gửi" với vòng tự đồng bộ: nội dung khác bản Kho đã có, HOẶC đang lỗi tạm thời. */
+        const conCanGui =
+          (po.prId ? canDongBoLaiPO(po, deNghiGoc) : canDongBoLaiPODocLap(po)) || coTuThuLaiQlkCtr(po.qlkCtrSyncStatus);
+        if (vanTay !== h.vanTay || po.qlkCtrDungTuGui === vanTay || !conCanGui) {
+          daThuDongBoQlkCtrPhienNay.current.delete(poId);
+          continue;
+        }
+        dungTuGuiLaiPO(po, vanTay, h.lyDo, h.loiCuoi);
+      }
+    },
+    [dungTuGuiLaiPO],
+  );
+
   const apDung = useCallback((d: DuLieuLuu) => {
     /**
      * 🔴 ĐÁNH DẤU "thay đổi này ĐẾN TỪ NƠI KHÁC, không phải việc máy này vừa làm".
@@ -2938,8 +3035,53 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
            gửi lại y nguyên không bao giờ khác, chỉ sửa đơn (nội dung đổi) mới gửi lại. Đây là
            điểm cắt đúng vòng lặp 000000085. Luật ở `coTuThuLaiQlkCtr`, bài kiểm gọi thật. */
         const thuLaiSauLoi = coTuThuLaiQlkCtr(po.qlkCtrSyncStatus);
-        if (!thuLaiSauLoi && !noiDungDaDoi) continue;
-        if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)) {
+        if (!thuLaiSauLoi && !noiDungDaDoi) {
+          /* ★ L11/L12: đơn đã sang Kho đúng bản hiện tại → bỏ mốc thử lại còn sót trên máy này (máy
+             khác gửi được hộ thì máy này không có dịp xoá), kẻo mai sửa ngược về đúng nội dung cũ lại
+             bị tính tiếp số lần đã thử từ hôm trước. Chỉ chạm localStorage khi thật sự còn mốc. */
+          if (po.qlkCtrSyncStatus === "synced" && bangMocThuLai[po.id]) xoaMocThuLai(po.id);
+          /* ★ L11/L12 (QA vòng 2): đơn bị dừng rồi được sửa NGƯỢC về đúng bản Kho đã có → không còn gì
+             phải gửi; gỡ dấu dừng + trạng thái "cần xử lý", kẻo dải cảnh báo hứa "sẽ tự gửi" mãi. Ghi
+             một lần (sau đó điều kiện hết đúng), chỉ khi đã nghe được máy chủ. */
+          else if (
+            po.qlkCtrDungTuGui &&
+            po.qlkCtrSyncStatus === "can_xu_ly_tay" &&
+            po.qlkCtrSyncedSnapshot &&
+            daNgheMayChu.current
+          ) {
+            daThuDongBoQlkCtrPhienNay.current.add(po.id);
+            xoaMocThuLai(po.id);
+            setDonHang((truoc) =>
+              truoc.map((p) =>
+                p.id !== po.id
+                  ? p
+                  : { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncError: undefined, qlkCtrDungTuGui: undefined },
+              ),
+            );
+          }
+          continue;
+        }
+        /* ★★ CHỐT ⑦ (04/10/2026, L11/L12) — xem `dungTuGuiLaiPO` ở đầu vòng. Đã dừng đúng nội dung này
+           thì đứng yên; sửa đơn (vân tay đổi) mới gửi tiếp. Mốc thử lại chỉ tính cho CÙNG nội dung.
+           Đặt TRƯỚC các bậc chờ ④ ⑥: đã chạm giới hạn thì chốt dừng ngay, không đợi hết bậc chờ. */
+        const vanTay = vanTayNoiDungPO(po, deNghiGoc?.maDeXuatAppRequest);
+        if (po.qlkCtrDungTuGui === vanTay) continue;
+        const moc = mocCuaNoiDung(bangMocThuLai[po.id], vanTay);
+        const lyDoDung = lyDoDungTuGuiLaiQlkCtr(moc, bayGioMs);
+        if (lyDoDung) {
+          /* 🔴 Chưa nghe được máy chủ (lượt dựng từ dữ liệu trên máy lúc vừa mở trang) thì CHƯA chốt:
+             lần ghi lúc này không được đẩy lên, ảnh chụp máy chủ về sau đè mất dấu dừng + tin báo, và
+             đơn thôi gửi mà không ai được báo (QA 04/10). Cất vào `dungDangHoan`, chốt khi ảnh chụp
+             máy chủ đầu tiên về. */
+          daThuDongBoQlkCtrPhienNay.current.add(po.id);
+          if (!daNgheMayChu.current) {
+            dungDangHoan.current.set(po.id, { vanTay, lyDo: lyDoDung, loiCuoi: po.qlkCtrSyncError });
+            continue;
+          }
+          dungTuGuiLaiPO(po, vanTay, lyDoDung, po.qlkCtrSyncError);
+          continue;
+        }
+        if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(moc, bayGioMs)) {
           continue;
         }
         /**
@@ -2958,7 +3100,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          * biện 19/09 mô phỏng trên 15 PO thật, đo ra cách đó làm **10/15 PO bị bỏ qua vĩnh viễn**
          * — gồm 6 PO công trình thật — mà app **cố ý không có nút "Gửi lại"**
          * (`trang/don-hang-chi-tiet.tsx`), nên không còn đường nào cứu. Hàm đó cũng nằm trong vùng
-         * cấm sửa §6.6.
+         * cấm sửa §6.6. (📌 04/10/2026, L11/L12: nay đơn đã DỪNG tự gửi thì có nút "Gửi lại ngay" —
+         * xem chốt ⑦ ngay dưới và `guiLaiPOSangKhoNgay`.)
          *
          * ✅ CÁCH NÀY CHỈ GIÃN NHỊP, KHÔNG CHẶN HẲN: bắt nhóm "lỗi vĩnh viễn chưa từng gửi được"
          * đi qua **đúng bậc chờ đã có** (1 phút → 5 phút → 30 phút → 2 giờ). Lần đầu mở app vẫn
@@ -2972,14 +3115,21 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         if (
           !thuLaiSauLoi &&
           !po.qlkCtrSyncedSnapshot &&
-          !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)
+          !duocThuLaiQlkCtr(moc, bayGioMs)
         ) {
           continue;
         }
+        /* ★★ CHỐT ⑦ (04/10/2026, L11/L12) — HAI CHỖ HỞ CÒN LẠI CỦA ④ ⑥: PO đã từng gửi được rồi bị sửa
+           mà gửi hỏng (`noiDungDaDoi` luôn đúng cho tới khi gửi được) thì trước đây MỖI LẦN mở trang
+           lại gửi ngay, không qua bậc chờ nào, và không bao giờ dừng. Nay mốc đi theo vân tay nội
+           dung: lần đầu của một nội dung vẫn gửi NGAY (`moc` rỗng), các lần gửi lại CÙNG nội dung đều
+           qua bậc chờ, quá 5 lần / 1 ngày thì DỪNG + báo (chốt dừng ở đầu nhánh). */
+        if (moc && !duocThuLaiQlkCtr(moc, bayGioMs)) continue;
         daThuDongBoQlkCtrPhienNay.current.add(po.id);
         /* Ghi mốc TRƯỚC khi gửi, không phải sau: trang có thể đóng giữa chừng, và một lượt thử
            không được ghi nhận là một lượt thử miễn phí cho lần mở app sau. */
-        ghiMocThuLai(po.id, mocSauLanThuHong(bangMocThuLai[po.id], bayGioMs));
+        const mocMoi = mocSauLanThuHong(moc, bayGioMs, vanTay);
+        ghiMocThuLai(po.id, mocMoi);
         dangBay.push(guiPOSangQlkCtr(po, deNghiGoc).then((ketQua) => {
           /* Không áp dụng = KHÔNG có lượt gửi nào đi cả (hàm gửi tự bail) → không tính là một
              lần thử hỏng, trả mốc về như cũ. Tính vào là phạt oan một PO chưa hề được gửi. */
@@ -2989,6 +3139,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           }
           /* Gửi được rồi thì xoá mốc: giữ lại là lần hỏng thật sau này đứng sẵn ở bậc 2 giờ. */
           if (ketQua.thanhCong) xoaMocThuLai(po.id);
+          /* ★ CHỐT ⑦: hỏng lần thứ 5 (hoặc đã quá 1 ngày) → dừng luôn, ghi một lần cùng lỗi mới nhất. */
+          const lyDoDungSau = ketQua.thanhCong ? null : lyDoDungTuGuiLaiQlkCtr(mocMoi, Date.now());
+          if (!ketQua.thanhCong && lyDoDungSau) {
+            /* Chưa nghe được máy chủ → cất lại, chốt khi ảnh chụp máy chủ đầu tiên về (`dungDangHoan`). */
+            if (!daNgheMayChu.current) {
+              dungDangHoan.current.set(po.id, { vanTay, lyDo: lyDoDungSau, loiCuoi: ketQua.loi });
+              return;
+            }
+            dungTuGuiLaiPO(po, vanTay, lyDoDungSau, ketQua.loi);
+            return;
+          }
           const trangThaiLoi = ketQua.thanhCong ? undefined : trangThaiSauLoiQlkCtr(ketQua.loaiLoi);
           /**
            * 🔴 CHỐT ②: THẤT BẠI LẶP LẠI Y HỆT THÌ KHÔNG GHI GÌ CẢ.
@@ -3029,12 +3190,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                       qlkCtrSyncedSnapshot: ketQua.snapshot,
                       qlkCtrSyncError: undefined,
                       qlkCtrSyncAt: new Date().toISOString(),
+                      qlkCtrDungTuGui: undefined,
                     }
                   : {
                       ...p,
                       qlkCtrSyncStatus: trangThaiLoi,
                       qlkCtrSyncError: ketQua.loi,
                       qlkCtrSyncAt: new Date().toISOString(),
+                      qlkCtrDungTuGui: undefined,
                     },
             ),
           );
@@ -3047,8 +3210,45 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         const noiDungDaDoi = canDongBoLaiPODocLap(po);
         /* 🔴 CHỐT ⑤ — y hệt nhánh PO có đề nghị ở trên (xem chú thích tại đó). */
         const thuLaiSauLoi = coTuThuLaiQlkCtr(po.qlkCtrSyncStatus);
-        if (!thuLaiSauLoi && !noiDungDaDoi) continue;
-        if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)) {
+        if (!thuLaiSauLoi && !noiDungDaDoi) {
+          if (po.qlkCtrSyncStatus === "synced" && bangMocThuLai[po.id]) xoaMocThuLai(po.id);
+          /* ★ L11/L12 (QA vòng 2): đơn bị dừng rồi được sửa NGƯỢC về đúng bản Kho đã có → không còn gì
+             phải gửi; gỡ dấu dừng + trạng thái "cần xử lý", kẻo dải cảnh báo hứa "sẽ tự gửi" mãi. Ghi
+             một lần (sau đó điều kiện hết đúng), chỉ khi đã nghe được máy chủ. */
+          else if (
+            po.qlkCtrDungTuGui &&
+            po.qlkCtrSyncStatus === "can_xu_ly_tay" &&
+            po.qlkCtrSyncedSnapshot &&
+            daNgheMayChu.current
+          ) {
+            daThuDongBoQlkCtrPhienNay.current.add(po.id);
+            xoaMocThuLai(po.id);
+            setDonHang((truoc) =>
+              truoc.map((p) =>
+                p.id !== po.id
+                  ? p
+                  : { ...p, qlkCtrSyncStatus: "synced", qlkCtrSyncError: undefined, qlkCtrDungTuGui: undefined },
+              ),
+            );
+          }
+          continue;
+        }
+        /* ★★ CHỐT ⑦ (04/10/2026, L11/L12) — y hệt nhánh PO có đề nghị ở trên (đọc chú thích tại đó).
+           PO độc lập không có đề nghị nên vân tay không kèm mã đề xuất. */
+        const vanTay = vanTayNoiDungPO(po);
+        if (po.qlkCtrDungTuGui === vanTay) continue;
+        const moc = mocCuaNoiDung(bangMocThuLai[po.id], vanTay);
+        const lyDoDung = lyDoDungTuGuiLaiQlkCtr(moc, bayGioMs);
+        if (lyDoDung) {
+          daThuDongBoQlkCtrPhienNay.current.add(po.id);
+          if (!daNgheMayChu.current) {
+            dungDangHoan.current.set(po.id, { vanTay, lyDo: lyDoDung, loiCuoi: po.qlkCtrSyncError });
+            continue;
+          }
+          dungTuGuiLaiPO(po, vanTay, lyDoDung, po.qlkCtrSyncError);
+          continue;
+        }
+        if (thuLaiSauLoi && !noiDungDaDoi && !duocThuLaiQlkCtr(moc, bayGioMs)) {
           continue;
         }
         /* 🔴 CHỐT ⑥ (19/09/2026) — y hệt nhánh PO có đề nghị ở trên, đọc chú thích dài tại đó.
@@ -3057,18 +3257,31 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         if (
           !thuLaiSauLoi &&
           !po.qlkCtrSyncedSnapshot &&
-          !duocThuLaiQlkCtr(bangMocThuLai[po.id], bayGioMs)
+          !duocThuLaiQlkCtr(moc, bayGioMs)
         ) {
           continue;
         }
+        /* ★★ CHỐT ⑦ — y hệt nhánh PO có đề nghị ở trên. */
+        if (moc && !duocThuLaiQlkCtr(moc, bayGioMs)) continue;
         daThuDongBoQlkCtrPhienNay.current.add(po.id);
-        ghiMocThuLai(po.id, mocSauLanThuHong(bangMocThuLai[po.id], bayGioMs));
+        const mocMoi = mocSauLanThuHong(moc, bayGioMs, vanTay);
+        ghiMocThuLai(po.id, mocMoi);
         dangBay.push(guiPOSangQlkCtrDocLap(po).then((ketQua) => {
           if (!ketQua.apDung) {
             xoaMocThuLai(po.id);
             return;
           }
           if (ketQua.thanhCong) xoaMocThuLai(po.id);
+          const lyDoDungSau = ketQua.thanhCong ? null : lyDoDungTuGuiLaiQlkCtr(mocMoi, Date.now());
+          if (!ketQua.thanhCong && lyDoDungSau) {
+            /* Chưa nghe được máy chủ → cất lại, chốt khi ảnh chụp máy chủ đầu tiên về (`dungDangHoan`). */
+            if (!daNgheMayChu.current) {
+              dungDangHoan.current.set(po.id, { vanTay, lyDo: lyDoDungSau, loiCuoi: ketQua.loi });
+              return;
+            }
+            dungTuGuiLaiPO(po, vanTay, lyDoDungSau, ketQua.loi);
+            return;
+          }
           const trangThaiLoi = ketQua.thanhCong ? undefined : trangThaiSauLoiQlkCtr(ketQua.loaiLoi);
           /* 🔴 CHỐT ② — y hệt nhánh PO có đề nghị ở trên. Hai nhánh phải giống nhau: vá một
              nhánh là nhánh kia vẫn dội ghi lên kho chung, mà PO độc lập cũng gặp đúng ca
@@ -3099,12 +3312,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                       qlkCtrSyncedSnapshot: ketQua.snapshot,
                       qlkCtrSyncError: undefined,
                       qlkCtrSyncAt: new Date().toISOString(),
+                      qlkCtrDungTuGui: undefined,
                     }
                   : {
                       ...p,
                       qlkCtrSyncStatus: trangThaiLoi,
                       qlkCtrSyncError: ketQua.loi,
                       qlkCtrSyncAt: new Date().toISOString(),
+                      qlkCtrDungTuGui: undefined,
                     },
             ),
           );
@@ -3160,7 +3375,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         dangGuiQlkCtr.current = false;
       });
     }
-  }, []);
+  }, [dungTuGuiLaiPO]);
 
   useEffect(() => {
     /**
@@ -3212,6 +3427,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             const chuoiDay = JSON.stringify(d);
             anhChupCuoi.current = chuoiDay;
             dayLenMayChu(d, chuoiDay);
+            chotDungDangHoan(d); // ★ L11/L12 — xem `dungDangHoan`.
           }
           return;
         }
@@ -3228,9 +3444,17 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          */
         ghiNhanAnhChupMayChu(tuMayChu);
 
-        if (chuoi === anhChupCuoi.current) return; // Chính mình vừa gửi lên — bỏ qua.
+        if (chuoi === anhChupCuoi.current) {
+          /* ★ L11/L12 (QA vòng 2): ảnh chụp đầu giống hệt bản trên máy thì `apDung` KHÔNG chạy lại — quyết
+             định dừng đang hoãn phải chốt ở đây, không thì không bao giờ được ghi. Rỗng thì không làm gì. */
+          chotDungDangHoan(tuMayChu);
+          return; // Chính mình vừa gửi lên — bỏ qua.
+        }
         anhChupCuoi.current = chuoi;
         apDung(tuMayChu);
+        /* ★ L11/L12 — chốt SAU `apDung`: `apDung` đặt lại cả danh sách đơn theo máy chủ, chốt trước là
+           bị đè mất ngay trong cùng một nhịp. */
+        chotDungDangHoan(tuMayChu);
         ghiDuLieu(tuMayChu); // Giữ bản dự phòng trên máy để lần sau mở offline vẫn có.
       },
       (e) => {
@@ -3284,7 +3508,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       //   đóng, và ở chế độ Strict Mode (mount hai lần) thì hai lịch chồng nhau.
       donLichGhiLai();
     };
-  }, [apDung, dayLenMayChu, ghiNhanAnhChupMayChu, donLichGhiLai, dongBoSoChoGiaoDien]);
+  }, [apDung, chotDungDangHoan, dayLenMayChu, ghiNhanAnhChupMayChu, donLichGhiLai, dongBoSoChoGiaoDien]);
 
   /**
    * ★★★ KHO ĐỢT THANH TOÁN — MỘT ĐƯỜNG NỐI RIÊNG, KHÔNG ĐI CHUNG VỚI KHO CHUNG.
@@ -6621,6 +6845,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                       ...p,
                       qlkCtrSyncStatus: "synced",
                       qlkCtrSyncedSnapshot: ketQua.snapshot,
+                      qlkCtrDungTuGui: undefined,
                       qlkCtrSyncError: undefined,
                       qlkCtrSyncAt: new Date().toISOString(),
                     }
@@ -6646,6 +6871,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                       ...p,
                       qlkCtrSyncStatus: "synced",
                       qlkCtrSyncedSnapshot: ketQua.snapshot,
+                      qlkCtrDungTuGui: undefined,
                       qlkCtrSyncError: undefined,
                       qlkCtrSyncAt: new Date().toISOString(),
                     }
@@ -6797,6 +7023,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                     ...p,
                     qlkCtrSyncStatus: "synced",
                     qlkCtrSyncedSnapshot: ketQua.snapshot,
+                    qlkCtrDungTuGui: undefined,
                     qlkCtrSyncError: undefined,
                     qlkCtrSyncAt: new Date().toISOString(),
                   }
@@ -6815,6 +7042,57 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     },
     [ghiLichSuDeNghi, nguoiDung],
   );
+
+  /**
+   * ★★ (04/10/2026, L11/L12) "GỬI LẠI NGAY" — xem chú thích ở interface. Chọn đường gửi y hệt vòng tự
+   * đồng bộ (`apDung`): có `prId` → PO có đề nghị; không có mà đang "chờ đề nghị" → PO độc lập.
+   *
+   * 📌 Đánh dấu `daThuDongBoQlkCtrPhienNay` để vòng tự đồng bộ không gửi trùng đơn này trong phiên.
+   * Hỏng thì ghi mốc lần thử 1 (vân tay hiện tại) — vòng tự đồng bộ tiếp tục theo bậc chờ, tối đa
+   * thêm 4 lần / trong 1 ngày rồi lại dừng + báo.
+   */
+  const guiLaiPOSangKhoNgay = useCallback(async (poId: string): Promise<string | null> => {
+    const po = donHangRef.current.find((p) => p.id === poId);
+    if (!po) return "Không tìm thấy đơn hàng.";
+    const deNghiGoc = po.prId ? deNghiRef.current.find((dn) => dn.id === po.prId) : undefined;
+    if (!po.prId && po.trangThai !== "cho_de_nghi") return "Đơn này không thuộc diện gửi sang app Kho công trình.";
+    daThuDongBoQlkCtrPhienNay.current.add(po.id);
+    xoaMocThuLai(po.id);
+    /* Tăng lượt gửi lại → vân tay đổi trên MỌI máy → máy khác bỏ mốc cũ đã cạn, có lại đủ 5 lần / 1
+       ngày (QA 04/10: không tăng thì máy khác dừng ngay ở lần mở trang sau mà không gửi). */
+    const luotMoi = (po.qlkCtrLuotGuiLai ?? 0) + 1;
+    const ketQua = po.prId ? await guiPOSangQlkCtr(po, deNghiGoc) : await guiPOSangQlkCtrDocLap(po);
+    if (!ketQua.apDung) return "Đơn này không thuộc diện gửi sang app Kho công trình.";
+    if (!ketQua.thanhCong) {
+      const vanTay = vanTayNoiDungPO({ ...po, qlkCtrLuotGuiLai: luotMoi }, deNghiGoc?.maDeXuatAppRequest);
+      ghiMocThuLai(po.id, mocSauLanThuHong(undefined, Date.now(), vanTay));
+    }
+    setDonHang((truoc) =>
+      truoc.map((p) =>
+        p.id !== po.id
+          ? p
+          : ketQua.thanhCong
+            ? {
+                ...p,
+                qlkCtrSyncStatus: "synced",
+                qlkCtrSyncedSnapshot: ketQua.snapshot,
+                qlkCtrSyncError: undefined,
+                qlkCtrSyncAt: new Date().toISOString(),
+                qlkCtrDungTuGui: undefined,
+                qlkCtrLuotGuiLai: luotMoi,
+              }
+            : {
+                ...p,
+                qlkCtrSyncStatus: trangThaiSauLoiQlkCtr(ketQua.loaiLoi),
+                qlkCtrSyncError: ketQua.loi,
+                qlkCtrSyncAt: new Date().toISOString(),
+                qlkCtrDungTuGui: undefined,
+                qlkCtrLuotGuiLai: luotMoi,
+              },
+      ),
+    );
+    return ketQua.thanhCong ? null : ketQua.loi;
+  }, []);
 
   /**
    * ★ CHỐT LẠI ĐƠN NHÁP — thêm 12/09/2026. Vá "ngõ cụt bước ④": đơn đã chốt bị lùi về bước
@@ -6930,6 +7208,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
                     ...p,
                     qlkCtrSyncStatus: "synced",
                     qlkCtrSyncedSnapshot: ketQua.snapshot,
+                    qlkCtrDungTuGui: undefined,
                     qlkCtrSyncError: undefined,
                     qlkCtrSyncAt: new Date().toISOString(),
                   }
@@ -9882,6 +10161,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chuyenViecDong,
       themDonHang,
       ganDeNghiVaoPO,
+      guiLaiPOSangKhoNgay,
       xacNhanTuDongGanDeNghi,
       huyKhopTuDongDeNghi,
       chotDonNhap,
@@ -9972,6 +10252,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       chuyenViecDong,
       themDonHang,
       ganDeNghiVaoPO,
+      guiLaiPOSangKhoNgay,
       xacNhanTuDongGanDeNghi,
       huyKhopTuDongDeNghi,
       chotDonNhap,

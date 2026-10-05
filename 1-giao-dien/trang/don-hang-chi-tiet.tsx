@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import BangAiDangSua from "@/1-giao-dien/thanh-phan-dung-chung/bang-ai-dang-sua";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -29,6 +29,7 @@ import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { duocXacNhanNhanDuHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
 import { laPOCuaHoSoPhongBan } from "@/5-ket-noi/gui-po-qlk-ctr";
+import { vanTayNoiDungPO } from "@/2-quy-trinh/nhip-dong-bo-qlk-ctr";
 import {
   poDaGiaoDu,
   tinhTienDonHang,
@@ -56,8 +57,11 @@ export default function TrangChiTietDonHang() {
     xacNhanTruongBP,
     chotDonNhap,
     banGhiChuaLenKhoChung,
+    guiLaiPOSangKhoNgay,
   } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  /* ★ (04/10/2026, L11/L12) Nút "Gửi lại ngay" đang chạy — khai TRƯỚC mọi `return` sớm (luật hook). */
+  const [dangGuiLaiKho, setDangGuiLaiKho] = useState(false);
 
   const po = donHang.find((x) => x.id === params.id);
   const gia = giaDonHang.find((g) => g.poId === params.id);
@@ -152,6 +156,29 @@ export default function TrangChiTietDonHang() {
    * điều khác nhau về cùng một đơn, đúng cái sai Sếp vừa báo.
    */
   const poThuocHoSoPhongBan = laPOCuaHoSoPhongBan(po, deNghiNguon);
+
+  /**
+   * ★★ (04/10/2026, L11/L12 — Sếp: "không cho gửi mãi như vậy") APP ĐÃ DỪNG TỰ GỬI ĐƠN NÀY sang app
+   * Kho (quá 5 lần / 1 ngày cho cùng nội dung — luật ở `2-quy-trinh/nhip-dong-bo-qlk-ctr.ts`). So ĐÚNG
+   * vân tay như vòng tự đồng bộ: dấu dừng của một nội dung cũ (đơn đã sửa sau đó) không còn hiệu lực.
+   */
+  const daDungTuGuiKho =
+    !!po.qlkCtrDungTuGui && po.qlkCtrDungTuGui === vanTayNoiDungPO(po, deNghiNguon?.maDeXuatAppRequest);
+  /* Đơn đã bị dừng rồi được SỬA (dấu dừng cũ không còn khớp): trạng thái vẫn đang mang
+     `can_xu_ly_tay` của lần dừng, nhưng app SẼ gửi bản mới — đừng nói "bị từ chối, không tự gửi". */
+  const daSuaSauKhiDung = !!po.qlkCtrDungTuGui && !daDungTuGuiKho && po.qlkCtrSyncStatus === "can_xu_ly_tay";
+
+  async function handleGuiLaiKhoNgay() {
+    if (!po) return;
+    setDangGuiLaiKho(true);
+    try {
+      const loi = await guiLaiPOSangKhoNgay(po.id);
+      if (loi) toast.error(`Vẫn chưa gửi được sang app Kho: ${loi}`);
+      else toast.success(`Đã gửi đơn ${po.code} sang app Kho công trình.`);
+    } finally {
+      setDangGuiLaiKho(false);
+    }
+  }
 
   const daGiaoDu = poDaGiaoDu(tienDo);
   const tien = tinhTienDonHang(po, gia);
@@ -310,6 +337,9 @@ export default function TrangChiTietDonHang() {
           từ kho chung về (mở app · tải lại trang · sửa đơn), vòng retry trong `kho-du-lieu.tsx`
           tự gọi lại `guiPOSangQlkCtr`. Thêm nút là hai đường cùng làm một việc, rồi lệch nhau —
           và người bấm sẽ tưởng phải bấm thì mới gửi, trong khi app vẫn đang tự thử.
+          ⚠️ (04/10/2026, L11/L12 — Sếp: "không cho gửi mãi như vậy") NAY CÓ NÚT "Gửi lại ngay", nhưng
+          CHỈ hiện khi app đã DỪNG tự gửi (quá 5 lần / 1 ngày) — lúc đó không còn đường tự động nào chạy
+          song song, nên lý do trên không còn áp dụng.
 
           ⚠️ Đặt NGAY DƯỚI tiêu đề, trên mọi khối nội dung: đây là thứ phải đọc trước khi tin
           vào bảng tiến độ nhận hàng bên dưới.
@@ -344,9 +374,11 @@ export default function TrangChiTietDonHang() {
             {/* Trạng thái có CẢ MÀU LẪN CHỮ (Design System V1.1) — người không phân biệt được
                 màu vẫn đọc ra đây là cảnh báo. */}
             <span className="text-sm font-semibold text-warning-soft">
-              {po.qlkCtrSyncStatus === "can_xu_ly_tay"
-                ? "App Kho công trình từ chối đơn này — cần người xử lý"
-                : "Chưa gửi được đơn này sang app Kho công trình"}
+              {daDungTuGuiKho
+                ? "Đã dừng tự gửi đơn này sang app Kho công trình — cần người xử lý"
+                : po.qlkCtrSyncStatus === "can_xu_ly_tay" && !daSuaSauKhiDung
+                  ? "App Kho công trình từ chối đơn này — cần người xử lý"
+                  : "Chưa gửi được đơn này sang app Kho công trình"}
             </span>
             <p className="text-sm text-text-secondary">
               Thủ kho công trình chưa nhìn thấy đơn <strong>{po.code}</strong> bên app Kho, nên
@@ -369,17 +401,37 @@ export default function TrangChiTietDonHang() {
               {po.qlkCtrSyncAt
                 ? `Thử gửi lần gần nhất: ${formatDateTime(po.qlkCtrSyncAt)}`
                 : "Chưa ghi nhận thời điểm thử gửi gần nhất."}{" "}
-              {po.qlkCtrSyncStatus === "can_xu_ly_tay"
+              {daDungTuGuiKho
+                ? <>App đã thử gửi đơn này <strong>5 lần hoặc suốt 1 ngày</strong> vẫn lỗi nên{" "}
+                    <strong>thôi tự gửi</strong> (người lập đơn và trưởng bộ phận đã nhận tin báo).
+                    Kiểm tra lý do ở trên — thường là app Kho đang lỗi hoặc đề nghị gốc chưa sang
+                    được app Kho — rồi bấm <strong>Gửi lại ngay</strong>. Sửa đơn (đổi nội dung) thì
+                    app cũng tự gửi lại.</>
+                : daSuaSauKhiDung
+                ? <>Đơn đã được sửa sau lần app dừng tự gửi — app sẽ <strong>tự gửi bản mới</strong> ở lần
+                    mở hoặc tải lại trang kế tiếp (tối đa 5 lần / 1 ngày rồi dừng và báo).</>
+                : po.qlkCtrSyncStatus === "can_xu_ly_tay"
                 ? <>App <strong>không tự gửi lại</strong> đơn này — gửi lại y nguyên sẽ bị từ chối
                     y hệt. Thường gặp: đề nghị gốc chưa sang được app Kho (kiểm tra bên App Request),
                     hoặc tên/ĐVT vật tư không khớp đề nghị. Sửa đơn (đổi nội dung) thì app sẽ gửi
                     lại; nếu không rõ nguyên nhân, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và
                     nguyên văn lý do ở trên.</>
                 : <>App tự gửi lại theo nhịp thưa dần (1 phút → 5 phút → 30 phút → 2 giờ) mỗi lần mở
-                    hoặc tải lại trang — không cần bấm gì thêm. Nếu dòng này còn đây sau vài lần tải
-                    lại, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và nguyên văn lý do ở
-                    trên.</>}
+                    hoặc tải lại trang, tối đa 5 lần / 1 ngày rồi dừng và báo — không cần bấm gì thêm.
+                    Nếu dòng này còn đây sau vài lần tải lại, báo bộ phận phụ trách tích hợp kèm mã đơn{" "}
+                    {po.code} và nguyên văn lý do ở trên.</>}
             </p>
+            {/* ★ (04/10/2026, L11/L12) Nút CHỈ hiện khi app đã DỪNG tự gửi — lúc đó không còn đường tự
+                động nào chạy song song, nên không phạm lý do "cố ý không có nút Gửi lại" ở chú thích
+                trên (hai đường cùng làm một việc). */}
+            {daDungTuGuiKho && (
+              <div>
+                <Button size="sm" variant="outline" disabled={dangGuiLaiKho} onClick={() => void handleGuiLaiKhoNgay()}>
+                  {dangGuiLaiKho ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+                  {dangGuiLaiKho ? "Đang gửi…" : "Gửi lại ngay"}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}

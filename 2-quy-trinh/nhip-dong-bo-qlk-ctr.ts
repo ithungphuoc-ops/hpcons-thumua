@@ -32,6 +32,13 @@ export interface MocThuLaiQlkCtr {
   soLanDaThu: number;
   /** Thời điểm lần thử gần nhất, tính bằng mili-giây (`Date.now()`). */
   lanCuoi: number;
+  /** ★ (04/10/2026, L11/L12) Lần thử ĐẦU TIÊN của nội dung này — để tính hạn 1 ngày. Mốc cũ (trước
+   *  04/10) không có trường này → chỉ áp trần số lần. */
+  lanDau?: number;
+  /** ★ (04/10/2026, L11/L12) Vân tay nội dung PO lúc thử (`vanTayNoiDungPO`). Nội dung đổi = mốc
+   *  này không còn đúng → coi như chưa thử, gửi NGAY. Mốc cũ không có trường này → BỎ, tính lại từ
+   *  đầu (QA 04/10: giữ mốc cũ làm dừng oan lần gửi đầu của nội dung vừa sửa). */
+  vanTay?: string;
 }
 
 /**
@@ -143,8 +150,101 @@ export function tinhDoTreGhi(
 export function mocSauLanThuHong(
   moc: MocThuLaiQlkCtr | undefined,
   bayGio: number,
+  vanTay?: string,
 ): MocThuLaiQlkCtr {
-  return { soLanDaThu: (moc?.soLanDaThu ?? 0) + 1, lanCuoi: bayGio };
+  const ra: MocThuLaiQlkCtr = { soLanDaThu: (moc?.soLanDaThu ?? 0) + 1, lanCuoi: bayGio, lanDau: moc?.lanDau ?? bayGio };
+  const vt = vanTay ?? moc?.vanTay;
+  if (vt !== undefined) ra.vanTay = vt;
+  return ra;
+}
+
+// ============================================================
+// ★★ GIỚI HẠN TỰ GỬI LẠI — L11/L12 "liên kết 4 app" (Sếp 04/10/2026: "sửa lại không cho gửi mãi như vậy")
+//
+// 🔴 TRƯỚC ĐÂY: một PO gửi sang QLK CTR hỏng thì app tự gửi lại MÃI (bậc trần 2 giờ, không điểm dừng),
+// mỗi máy đang mở app tự gửi riêng; PO đã từng gửi được rồi bị sửa mà gửi hỏng thì còn tệ hơn — mỗi lần
+// mở trang lại gửi NGAY, không qua bậc chờ nào (`canDongBoLaiPO` luôn thấy "nội dung khác bản đã gửi").
+//
+// ✅ BÂY GIỜ — đúng luật chung Sếp chốt 03/10/2026 cho cả 4 app:
+//   · Cùng MỘT nội dung PO (vân tay `vanTayNoiDungPO`): thử tối đa 5 lần HOẶC trong 1 ngày, giữa các
+//     lần vẫn qua bậc chờ 1 phút · 5 phút · 30 phút · 2 giờ.
+//   · Quá giới hạn → DỪNG trên mọi máy (dấu `DonDatHang.qlkCtrDungTuGui` = vân tay lúc dừng) + BÁO
+//     người lập PO và trưởng bộ phận. Không im lặng — dải cảnh báo trên đơn có nút "Gửi lại ngay".
+//   · Sửa đơn (nội dung đổi → vân tay đổi) thì tính lại từ đầu và gửi NGAY, y như cũ.
+//
+// 📌 KHÔNG ĐỔI `duocThuLaiQlkCtr`: hàm đó chỉ trả lời "đã qua bậc chờ chưa" và bài kiểm chiều nghịch
+// của nó vẫn đúng. Điểm dừng nằm ở hàm RIÊNG `lyDoDungTuGuiLaiQlkCtr` dưới đây — dừng có báo, có nút
+// gửi lại, nên không rơi vào ca "kẹt vĩnh viễn mà không ai biết" bài kiểm kia canh.
+// ============================================================
+
+export const SO_LAN_TU_GUI_TOI_DA_QLK_CTR = 5;
+export const HAN_TU_GUI_LAI_QLK_CTR_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Vân tay NỘI DUNG của một PO — chuỗi ngắn, giống nhau trên mọi máy cho cùng một dữ liệu.
+ *
+ * Lấy TOÀN BỘ đơn (trừ các trường `qlkCtr*` do chính vòng đồng bộ ghi và `lichSu`), chứ không chép lại
+ * danh sách trường trong payload (`5-ket-noi/gui-po-qlk-ctr.ts`, vùng cấm): thừa thì chỉ làm "tính lại
+ * từ đầu" thêm vài lần khi người dùng sửa đơn; thiếu thì một lần sửa thật bị coi là gửi lại y nguyên.
+ * Thừa an toàn hơn thiếu. Khoá sắp theo thứ tự chữ cái để máy nào tính cũng ra cùng một chuỗi.
+ *
+ * 📌 NGOẠI LỆ DUY NHẤT: `qlkCtrLuotGuiLai` (số lần bấm "Gửi lại ngay") ĐƯỢC tính vào — bấm nút là
+ * mở một lượt mới cho MỌI máy (mốc thử lại lưu riêng từng máy, không có cách nào xoá hộ máy khác).
+ *
+ * @param maDeXuat `maDeXuatAppRequest` của đề nghị gốc (payload PO có đề nghị dùng nó).
+ */
+export function vanTayNoiDungPO(po: object, maDeXuat?: string): string {
+  const goc: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(po as Record<string, unknown>)) {
+    if ((k.startsWith("qlkCtr") && k !== "qlkCtrLuotGuiLai") || k === "lichSu") continue;
+    goc[k] = v;
+  }
+  goc.__maDeXuat = maDeXuat ?? null;
+  const s = chuoiOnDinh(goc);
+  // FNV-1a 32 bit — đủ để phân biệt các bản sửa của CÙNG một đơn, không cần chống giả mạo.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0") + s.length.toString(36);
+}
+
+function chuoiOnDinh(x: unknown): string {
+  if (x === null || typeof x !== "object") return JSON.stringify(x) ?? "null";
+  if (Array.isArray(x)) return `[${x.map((p) => (p === undefined ? "null" : chuoiOnDinh(p))).join(",")}]`;
+  const khoa = Object.keys(x as Record<string, unknown>)
+    .filter((k) => (x as Record<string, unknown>)[k] !== undefined)
+    .sort();
+  return `{${khoa.map((k) => `${JSON.stringify(k)}:${chuoiOnDinh((x as Record<string, unknown>)[k])}`).join(",")}}`;
+}
+
+/**
+ * Mốc thử lại CHỈ còn giá trị khi cùng nội dung — nội dung đã đổi thì coi như chưa thử lần nào.
+ *
+ * 🔴 Mốc KHÔNG có vân tay (ghi trước 04/10/2026) cũng bỏ: không biết nó thuộc nội dung nào, giữ lại là
+ * có thể dừng oan lần gửi đầu của một nội dung vừa sửa (QA 04/10, ca mốc cũ 12 lần của PO kẹt tháng 9).
+ * Cái giá: lúc vừa lên bản mới, PO đang lỗi được thử thêm một lượt mới — có giới hạn 5 lần / 1 ngày.
+ */
+export function mocCuaNoiDung(moc: MocThuLaiQlkCtr | undefined, vanTay: string): MocThuLaiQlkCtr | undefined {
+  if (!moc || moc.vanTay !== vanTay) return undefined;
+  return moc;
+}
+
+/**
+ * Đã tới lúc DỪNG tự gửi lại chưa — trả lý do (để ghi vào đơn + tin báo), `null` = còn được thử.
+ *
+ * 🔴 `moc` rỗng (chưa thử lần nào với nội dung này) PHẢI trả `null`: lần gửi đầu tiên không bao giờ
+ * bị chặn.
+ */
+export function lyDoDungTuGuiLaiQlkCtr(moc: MocThuLaiQlkCtr | undefined, bayGio: number): string | null {
+  if (!moc) return null;
+  if (moc.soLanDaThu >= SO_LAN_TU_GUI_TOI_DA_QLK_CTR) return `Đã tự gửi ${moc.soLanDaThu} lần vẫn lỗi`;
+  if (moc.lanDau !== undefined) {
+    const troiQua = bayGio - moc.lanDau;
+    if (Number.isFinite(troiQua) && troiQua >= HAN_TU_GUI_LAI_QLK_CTR_MS) return "Quá 1 ngày tự gửi lại vẫn lỗi";
+  }
+  return null;
 }
 
 // ============================================================

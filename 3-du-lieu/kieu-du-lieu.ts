@@ -576,6 +576,13 @@ export interface DeNghiMuaHang {
    * mất dữ liệu).
    */
   lyDoThatBai?: string;
+  /**
+   * ★ (03/10/2026, Sếp chốt — đợt 1 "liên kết 4 app") Trạng thái NGAY TRƯỚC khi hồ sơ bị tự chuyển
+   * sang Thất bại vì đề xuất gốc bị xoá bên App Request. App Request khôi phục đề xuất thì hồ sơ trở
+   * về đúng chỗ cũ (xem `apDungKhoiPhucTuAppRequest`). Trống = hồ sơ Thất bại vì lý do khác → khôi
+   * phục bên App Request KHÔNG được đụng tới (giữ lý do thật của người dùng).
+   */
+  trangThaiTruocXoaAR?: TrangThaiDeNghi;
 }
 
 /**
@@ -1350,6 +1357,21 @@ export interface DonDatHang {
    * gian thì đúng một tuần sau không ai dám tin nó còn đúng.
    */
   qlkCtrSyncAt?: string;
+  /**
+   * ★★ (04/10/2026, L11/L12 "liên kết 4 app" — Sếp: "không cho gửi mãi như vậy") ĐÃ DỪNG TỰ GỬI LẠI.
+   * Giá trị = vân tay nội dung PO lúc dừng (`vanTayNoiDungPO`, `2-quy-trinh/nhip-dong-bo-qlk-ctr.ts`).
+   *
+   * Một máy thử cùng một nội dung quá 5 lần hoặc quá 1 ngày thì ghi dấu này → MỌI máy thôi tự gửi đơn
+   * này, dải cảnh báo trên đơn hiện nút "Gửi lại ngay". Sửa đơn làm vân tay đổi → dấu tự hết hiệu lực,
+   * app gửi lại ngay như cũ. Gửi được (tự động hay bấm tay) thì xoá dấu.
+   */
+  qlkCtrDungTuGui?: string;
+  /**
+   * ★ (04/10/2026, L11/L12) Số lần người dùng bấm "Gửi lại ngay". Được tính vào vân tay nội dung, nên
+   * mỗi lần bấm là MỌI máy bỏ mốc thử lại cũ và có lại đủ 5 lần / 1 ngày — mốc lưu riêng từng máy, đây là
+   * cách duy nhất để "tính lại từ đầu" cho cả phòng.
+   */
+  qlkCtrLuotGuiLai?: number;
 }
 
 // ------------------------------------------------------------

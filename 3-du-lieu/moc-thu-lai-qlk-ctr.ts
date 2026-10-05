@@ -49,9 +49,12 @@ export function docBangMocThuLai(): BangMoc {
     const ra: BangMoc = {};
     for (const [id, m] of Object.entries(x as Record<string, unknown>)) {
       if (!m || typeof m !== "object") continue;
-      const { soLanDaThu, lanCuoi } = m as Partial<MocThuLaiQlkCtr>;
+      const { soLanDaThu, lanCuoi, lanDau, vanTay } = m as Partial<MocThuLaiQlkCtr>;
       if (typeof soLanDaThu !== "number" || typeof lanCuoi !== "number") continue;
       ra[id] = { soLanDaThu, lanCuoi };
+      // ★ (04/10/2026, L11/L12) Hai trường mới cho giới hạn 5 lần / 1 ngày — mốc cũ không có thì bỏ qua.
+      if (typeof lanDau === "number") ra[id].lanDau = lanDau;
+      if (typeof vanTay === "string") ra[id].vanTay = vanTay;
     }
     return ra;
   } catch {

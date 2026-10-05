@@ -128,6 +128,8 @@ export function apDungXoaTuAppRequest(
       ...d,
       trangThai: "dong_do",
       lyDoThatBai: lyDo,
+      // ★ (03/10/2026) Nhớ chỗ cũ để App Request khôi phục đề xuất thì trả hồ sơ về đúng bước.
+      trangThaiTruocXoaAR: d.trangThai,
       lichSu: [
         ...(d.lichSu ?? []),
         {
@@ -158,6 +160,123 @@ export function apDungXoaTuAppRequest(
     poCanXuLy,
     timThay: ho.length > 0,
   };
+}
+
+// ============================================================
+// ★ (03/10/2026, Sếp chốt — đợt 1 "liên kết 4 app") CÁC SỰ KIỆN SAU DUYỆT KHÁC TỪ APP REQUEST
+//
+// Cửa nhận: `app/api/app-request/cap-nhat-de-nghi/route.ts` (khôi phục · điều chỉnh sau duyệt ·
+// thêm tài liệu; xoá cũng đi qua cửa đó và dùng lại đúng `apDungXoaTuAppRequest` ở trên).
+//
+// 📌 CHỐNG GHI 2 LẦN cho điều chỉnh / thêm tệp: mỗi sự kiện có `suKienId` riêng (mã việc trong
+// hàng chờ App Request) → ghi kèm vào `ghiChu` của dòng lịch sử, gặp lại mã đó thì bỏ qua.
+// Khôi phục tự nó đã idempotent (hồ sơ hết Thất bại thì lần hai không còn gì để trả về).
+// ============================================================
+
+export interface KetQuaSuKienAR {
+  deNghiDaDoi: DeNghiMuaHang[];
+  daDoi: string[];
+  boQua: { id: string; code: string; lyDo: string }[];
+  timThay: boolean;
+  /** Đã áp sự kiện này từ trước (App Request gửi lại) — không đổi gì. */
+  daXuLyTruoc: boolean;
+}
+
+const dauSuKien = (suKienId: string) => `[mã sự kiện ${suKienId}]`;
+
+function daCoSuKien(ho: readonly DeNghiMuaHang[], suKienId: string): boolean {
+  const dau = dauSuKien(suKienId);
+  return ho.some((d) => (d.lichSu ?? []).some((m) => (m.ghiChu ?? "").includes(dau)));
+}
+
+/**
+ * Khôi phục đề xuất bên App Request → hồ sơ đã bị TỰ chuyển Thất bại vì việc xoá đó (có
+ * `trangThaiTruocXoaAR`) trở về đúng bước cũ. Hồ sơ Thất bại vì lý do khác thì GIỮ NGUYÊN.
+ */
+export function apDungKhoiPhucTuAppRequest(
+  tatCaDeNghi: readonly DeNghiMuaHang[],
+  maDeXuat: string,
+  thoiDiem: string,
+): KetQuaSuKienAR {
+  const ma = maDeXuat.trim();
+  const ho = ma ? hoPhieuCuaMaDeXuat(tatCaDeNghi, ma) : [];
+  const deNghiDaDoi: DeNghiMuaHang[] = [];
+  const boQua: KetQuaSuKienAR["boQua"] = [];
+
+  for (const d of ho) {
+    if (d.trangThai !== "dong_do") continue; // đang chạy bình thường — không có gì để khôi phục
+    if (!d.trangThaiTruocXoaAR) {
+      boQua.push({ id: d.id, code: d.code, lyDo: "Hồ sơ Thất bại vì lý do khác — giữ nguyên" });
+      continue;
+    }
+    const { trangThaiTruocXoaAR, lyDoThatBai: _lyDoCu, ...conLai } = d;
+    void _lyDoCu;
+    deNghiDaDoi.push({
+      ...conLai,
+      trangThai: trangThaiTruocXoaAR,
+      lichSu: [
+        ...(d.lichSu ?? []),
+        {
+          thoiDiem,
+          nguoiThucHien: NGUOI_THUC_HIEN_XOA_AR,
+          hanhDong: "Đề xuất được khôi phục ở App Request — hồ sơ trở về bước cũ",
+          ghiChu: `Mã đề xuất App Request: ${ma}. Lý do Thất bại trước đó: ${d.lyDoThatBai ?? "—"}.`,
+        },
+      ],
+    });
+  }
+  return { deNghiDaDoi, daDoi: deNghiDaDoi.map((d) => d.id), boQua, timThay: ho.length > 0, daXuLyTruoc: false };
+}
+
+/**
+ * Điều chỉnh sau duyệt / thêm tài liệu bên App Request → ghi 1 dòng lịch sử vào mọi hồ sơ của họ
+ * phiếu, và nối tệp (nếu có) vào `taiLieuAppRequest` (bỏ trùng theo đường dẫn). Bảng vật tư KHÔNG
+ * tự đổi — điều chỉnh là ghi chú tự do, người phụ trách đọc rồi tự xử lý.
+ */
+export function apDungGhiChuTuAppRequest(
+  tatCaDeNghi: readonly DeNghiMuaHang[],
+  maDeXuat: string,
+  thoiDiem: string,
+  suKien: {
+    suKienId: string;
+    loai: "dieu_chinh" | "them_file";
+    nguoi?: string;
+    noiDung?: string;
+    tep?: { ten: string; duongDan?: string }[];
+  },
+): KetQuaSuKienAR {
+  const ma = maDeXuat.trim();
+  const ho = ma ? hoPhieuCuaMaDeXuat(tatCaDeNghi, ma) : [];
+  if (ho.length === 0) return { deNghiDaDoi: [], daDoi: [], boQua: [], timThay: false, daXuLyTruoc: false };
+  if (daCoSuKien(ho, suKien.suKienId)) {
+    return { deNghiDaDoi: [], daDoi: [], boQua: [], timThay: true, daXuLyTruoc: true };
+  }
+
+  const tep = suKien.tep ?? [];
+  const tenTep = tep.map((t) => t.ten).join(", ");
+  const hanhDong =
+    suKien.loai === "dieu_chinh"
+      ? `Điều chỉnh sau duyệt từ App Request${suKien.nguoi ? ` (${suKien.nguoi})` : ""}: ${suKien.noiDung ?? ""}`
+      : `Thêm tài liệu từ App Request${suKien.nguoi ? ` (${suKien.nguoi})` : ""}: ${tenTep}`;
+  const ghiChu = [
+    suKien.loai === "dieu_chinh" && tenTep ? `Tệp kèm: ${tenTep}.` : "",
+    "Bảng vật tư không tự đổi — người phụ trách đọc để xử lý.",
+    dauSuKien(suKien.suKienId),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const deNghiDaDoi = ho.map((d) => {
+    const cu = d.taiLieuAppRequest ?? [];
+    const daCo = new Set(cu.map((t) => t.duongDan ?? t.ten));
+    const moi = tep.filter((t) => !daCo.has(t.duongDan ?? t.ten));
+    return {
+      ...d,
+      ...(moi.length ? { taiLieuAppRequest: [...cu, ...moi] } : {}),
+      lichSu: [...(d.lichSu ?? []), { thoiDiem, nguoiThucHien: NGUOI_THUC_HIEN_XOA_AR, hanhDong, ghiChu }],
+    };
+  });
+  return { deNghiDaDoi, daDoi: deNghiDaDoi.map((d) => d.id), boQua: [], timThay: true, daXuLyTruoc: false };
 }
 
 /**

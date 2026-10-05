@@ -6844,6 +6844,119 @@ kiem(
   },
 );
 
+// ★★ L11/L12 "liên kết 4 app" — Sếp 04/10/2026: "sửa lại không cho gửi mãi như vậy". Luật chung 4 app:
+// cùng một nội dung PO thử tối đa 5 lần / 1 ngày rồi DỪNG + báo; sửa đơn (nội dung đổi) thì tính lại.
+const CHU_0410 = "Sếp · 04/10/2026 · L11/L12 không cho gửi PO mãi";
+
+kiem(
+  "lyDoDungTuGuiLaiQlkCtr: chưa thử (mốc rỗng) → KHÔNG dừng — lần gửi đầu không bao giờ bị chặn",
+  CHU_0410,
+  () => {
+    const r = NH.lyDoDungTuGuiLaiQlkCtr(undefined, 100 * GIO);
+    return { duoc: r === null, thucTe: String(r), mongDoi: "null" };
+  },
+);
+
+kiem(
+  "lyDoDungTuGuiLaiQlkCtr: 4 lần hỏng trong 3 giờ → còn thử; lần hỏng thứ 5 → DỪNG",
+  CHU_0410,
+  () => {
+    const bayGio = 100 * GIO;
+    const con = NH.lyDoDungTuGuiLaiQlkCtr({ soLanDaThu: 4, lanCuoi: bayGio - PHUT, lanDau: bayGio - 3 * GIO }, bayGio);
+    const dung = NH.lyDoDungTuGuiLaiQlkCtr({ soLanDaThu: 5, lanCuoi: bayGio - PHUT, lanDau: bayGio - 3 * GIO }, bayGio);
+    return { duoc: con === null && typeof dung === "string" && dung.includes("5 lần"), thucTe: `${con} · ${dung}`, mongDoi: "null · 'Đã tự gửi 5 lần…'" };
+  },
+);
+
+kiem(
+  "lyDoDungTuGuiLaiQlkCtr: mới hỏng 2 lần nhưng lần đầu đã quá 1 ngày → DỪNG; 23 giờ → còn thử",
+  CHU_0410,
+  () => {
+    const bayGio = 100 * GIO;
+    const quaNgay = NH.lyDoDungTuGuiLaiQlkCtr({ soLanDaThu: 2, lanCuoi: bayGio - GIO, lanDau: bayGio - 24 * GIO }, bayGio);
+    const chuaToi = NH.lyDoDungTuGuiLaiQlkCtr({ soLanDaThu: 2, lanCuoi: bayGio - GIO, lanDau: bayGio - 23 * GIO }, bayGio);
+    return { duoc: typeof quaNgay === "string" && chuaToi === null, thucTe: `${quaNgay} · ${chuaToi}`, mongDoi: "'Quá 1 ngày…' · null" };
+  },
+);
+
+kiem(
+  "🔴 Mốc cũ (trước 04/10, KHÔNG có vân tay) bị BỎ — không dừng oan lần gửi đầu của nội dung vừa sửa (QA 04/10)",
+  CHU_0410,
+  () => {
+    /* Ca thật QA dựng: máy A tích 12 lần hồi PO kẹt tháng 9, PO sau đó gửi được ở máy khác, 10 ngày sau
+       có người sửa → nếu giữ mốc cũ thì máy A dừng NGAY mà chưa gửi nội dung mới lần nào. */
+    const moc = NH.mocCuaNoiDung({ soLanDaThu: 12, lanCuoi: 1 }, "vt-moi");
+    return {
+      duoc: moc === undefined && NH.lyDoDungTuGuiLaiQlkCtr(moc, 100 * GIO) === null,
+      thucTe: moc ? `giữ (${moc.soLanDaThu} lần)` : "bỏ",
+      mongDoi: "bỏ — tính lại từ đầu",
+    };
+  },
+);
+
+kiem(
+  "Bấm \"Gửi lại ngay\" (qlkCtrLuotGuiLai tăng) → vân tay đổi → MỌI máy có lại đủ 5 lần; các trường qlkCtr* khác thì không",
+  CHU_0410,
+  () => {
+    const po = { id: "po-2", code: "DMH260002", items: [{ tenVatLieu: "Cát" }] };
+    const goc = NH.vanTayNoiDungPO(po);
+    const sauBam = NH.vanTayNoiDungPO({ ...po, qlkCtrLuotGuiLai: 1 });
+    const sauGhiLoi = NH.vanTayNoiDungPO({ ...po, qlkCtrSyncError: "502", qlkCtrSyncAt: "2026-10-04" });
+    return { duoc: goc !== sauBam && goc === sauGhiLoi, thucTe: `${goc} · ${sauBam} · ${sauGhiLoi}`, mongDoi: "khác khi bấm, giữ nguyên khi chỉ ghi lỗi" };
+  },
+);
+
+kiem(
+  "mocSauLanThuHong giữ lanDau của lần ĐẦU và ghi vân tay nội dung",
+  CHU_0410,
+  () => {
+    const a = NH.mocSauLanThuHong(undefined, 500, "vt1");
+    const b = NH.mocSauLanThuHong(a, 900);
+    return {
+      duoc: a.lanDau === 500 && b.lanDau === 500 && b.soLanDaThu === 2 && b.vanTay === "vt1",
+      thucTe: JSON.stringify(b),
+      mongDoi: "{soLanDaThu:2, lanCuoi:900, lanDau:500, vanTay:'vt1'}",
+    };
+  },
+);
+
+kiem(
+  "🔴 CHIỀU NGHỊCH: sửa đơn (vân tay đổi) → mốc cũ hết hiệu lực, gửi NGAY — không bị dừng oan",
+  CHU_0410,
+  () => {
+    const po = { id: "po-1", code: "DMH260001", items: [{ tenVatLieu: "Thép", khoiLuongDat: 10 }], ngayGiaoDuKien: "2026-10-05" };
+    const vtCu = NH.vanTayNoiDungPO(po, "000000157");
+    const vtMoi = NH.vanTayNoiDungPO({ ...po, items: [{ tenVatLieu: "Thép", khoiLuongDat: 12 }] }, "000000157");
+    const mocCu = { soLanDaThu: 5, lanCuoi: 1, lanDau: 1, vanTay: vtCu };
+    const moc = NH.mocCuaNoiDung(mocCu, vtMoi);
+    return {
+      duoc: vtCu !== vtMoi && moc === undefined && NH.lyDoDungTuGuiLaiQlkCtr(moc, 100 * GIO) === null,
+      thucTe: `${vtCu} → ${vtMoi} · mốc ${moc ? "còn" : "bỏ"}`,
+      mongDoi: "vân tay khác · mốc bỏ · không dừng",
+    };
+  },
+);
+
+kiem(
+  "vanTayNoiDungPO: KHÔNG đổi khi chỉ các trường qlkCtr* / lichSu đổi, KHÔNG phụ thuộc thứ tự khoá — dấu dừng không tự xoá chính nó",
+  CHU_0410,
+  () => {
+    const a = NH.vanTayNoiDungPO({ id: "x", code: "A", items: [{ b: 1, a: 2 }] });
+    const b = NH.vanTayNoiDungPO({
+      items: [{ a: 2, b: 1 }],
+      code: "A",
+      id: "x",
+      qlkCtrSyncStatus: "can_xu_ly_tay",
+      qlkCtrDungTuGui: "abc",
+      qlkCtrSyncError: "loi",
+      lichSu: [{ luc: 1 }],
+      ghiChu: undefined,
+    });
+    const khacMa = NH.vanTayNoiDungPO({ id: "x", code: "A", items: [{ b: 1, a: 2 }] }, "000000157");
+    return { duoc: a === b && a !== khacMa, thucTe: `${a} · ${b} · ${khacMa}`, mongDoi: "a = b, khác khi mã đề xuất khác" };
+  },
+);
+
 kiem(
   "Nhịp gom ghi kho chung nằm trong 600–1000ms",
   CHU_NHIP,
@@ -13049,6 +13162,72 @@ kiem(
           duoc: r.daDoi.length === 0 && r.boQua.length === 1 && ds[0].lyDoThatBai === "NCC bỏ cuộc",
           thucTe: `đổi=${r.daDoi.length} · bỏ qua=${r.boQua.length} · lý do=${ds[0].lyDoThatBai}`,
           mongDoi: "đổi=0 · bỏ qua=1 · lý do=NCC bỏ cuộc",
+        };
+      },
+    );
+
+    // ── ★ Sếp 03/10/2026 · đợt 1 "liên kết 4 app": khôi phục / điều chỉnh / thêm tệp từ App Request ──
+    const CHU_0310 = "Sếp · 03/10/2026 · liên kết 4 app (khôi phục / điều chỉnh / thêm tệp)";
+    const sauKhi = (ds, r) => {
+      const doi = new Map(r.deNghiDaDoi.map((d) => [d.id, d]));
+      return ds.map((d) => doi.get(d.id) ?? d);
+    };
+
+    kiem(
+      "🔴 Xoá rồi khôi phục bên App Request: cả họ phiếu trở về ĐÚNG bước cũ, hết lý do Thất bại",
+      CHU_0310,
+      () => {
+        const ds = [
+          dn("goc", { maDeXuatAppRequest: "000000157", trangThai: "dang_phan_bo" }),
+          dn("copy1", { maDeXuatAppRequest: "000000157", deNghiGocId: "goc", trangThai: "dang_thuc_hien" }),
+        ];
+        const sauXoa = sauKhi(ds, XAR.apDungXoaTuAppRequest(ds, "157", LUC, []));
+        const r = XAR.apDungKhoiPhucTuAppRequest(sauXoa, "157", "2026-10-03T03:00:00.000Z");
+        const sau = sauKhi(sauXoa, r);
+        const tt = sau.map((d) => `${d.id}:${d.trangThai}`).join(",");
+        const conLyDo = sau.some((d) => d.lyDoThatBai || d.trangThaiTruocXoaAR);
+        return {
+          duoc: tt === "goc:dang_phan_bo,copy1:dang_thuc_hien" && !conLyDo && r.daDoi.length === 2,
+          thucTe: `trạng thái=${tt} · còn lý do/dấu cũ=${conLyDo}`,
+          mongDoi: "goc:dang_phan_bo,copy1:dang_thuc_hien · còn lý do/dấu cũ=false",
+        };
+      },
+    );
+
+    kiem(
+      "Chiều ngược: khôi phục KHÔNG đụng hồ sơ Thất bại vì lý do khác (người dùng tự đóng dở), gọi lại lần 2 không đổi gì",
+      CHU_0310,
+      () => {
+        const ds = [dn("goc", { maDeXuatAppRequest: "157", trangThai: "dong_do", lyDoThatBai: "NCC bỏ cuộc" })];
+        const r = XAR.apDungKhoiPhucTuAppRequest(ds, "157", LUC);
+        const ds2 = [dn("goc2", { maDeXuatAppRequest: "158", trangThai: "dang_thuc_hien" })];
+        const r2 = XAR.apDungKhoiPhucTuAppRequest(ds2, "158", LUC);
+        return {
+          duoc: r.daDoi.length === 0 && r.boQua.length === 1 && r2.daDoi.length === 0 && r2.timThay,
+          thucTe: `đổi=${r.daDoi.length} · bỏ qua=${r.boQua.length} · phiếu đang chạy đổi=${r2.daDoi.length}`,
+          mongDoi: "đổi=0 · bỏ qua=1 · phiếu đang chạy đổi=0",
+        };
+      },
+    );
+
+    kiem(
+      "Điều chỉnh / thêm tệp: ghi lịch sử cả họ phiếu, nối tệp KHÔNG trùng, gửi lại cùng mã sự kiện thì KHÔNG ghi lần 2",
+      CHU_0310,
+      () => {
+        const ds = [
+          dn("goc", { maDeXuatAppRequest: "000000157", taiLieuAppRequest: [{ ten: "a.pdf", duongDan: "requests/x/a.pdf" }] }),
+          dn("copy1", { maDeXuatAppRequest: "000000157", deNghiGocId: "goc" }),
+        ];
+        const sk = { suKienId: "sk-1", loai: "them_file", nguoi: "Phan Bá Nam", tep: [{ ten: "a.pdf", duongDan: "requests/x/a.pdf" }, { ten: "b.pdf", duongDan: "requests/x/b.pdf" }] };
+        const r1 = XAR.apDungGhiChuTuAppRequest(ds, "157", LUC, sk);
+        const sau1 = sauKhi(ds, r1);
+        const r2 = XAR.apDungGhiChuTuAppRequest(sau1, "157", LUC, sk);
+        const tepGoc = sau1.find((d) => d.id === "goc").taiLieuAppRequest.map((t) => t.ten).join(",");
+        const soDong = sau1.find((d) => d.id === "copy1").lichSu.length;
+        return {
+          duoc: r1.daDoi.length === 2 && tepGoc === "a.pdf,b.pdf" && soDong === 1 && r2.daXuLyTruoc && r2.daDoi.length === 0,
+          thucTe: `đổi=${r1.daDoi.length} · tệp gốc=${tepGoc} · lịch sử copy1=${soDong} · lần 2 đã xử lý=${r2.daXuLyTruoc}`,
+          mongDoi: "đổi=2 · tệp gốc=a.pdf,b.pdf · lịch sử copy1=1 · lần 2 đã xử lý=true",
         };
       },
     );
