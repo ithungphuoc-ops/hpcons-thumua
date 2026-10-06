@@ -58,6 +58,10 @@ const ROUTE = [
   /* ★ Sếp 26/09/2026 — phân quyền tick chọn. Route export CẢ `GET` lẫn `POST`; đo bằng GET vì không
      mang thân yêu cầu (chưa đăng nhập thì cả hai đều trả 401 kèm `error` trước khi chạm dữ liệu). */
   { duong: "/api/quyen-rieng", pt: "GET", cua: "nghiệp vụ", viec: "quyền tick riêng từng người" },
+  /* ★ Sếp 06/10/2026 — bảng mẫu quyền theo chức danh sửa được. Route CHỈ export `POST` (không có GET —
+     mẫu đọc qua `/api/quyen-rieng?tatCa=1`). Kiểm vé TRƯỚC khi đọc thân, nên body `{}` chưa đăng nhập
+     nhận `401` kèm `error`, KHÔNG chạm dữ liệu. */
+  { duong: "/api/quyen-mau-chuc-danh", pt: "POST", cua: "nghiệp vụ", viec: "sửa mẫu quyền theo chức danh (Sếp 06/10/2026)" },
 ];
 
 const DO = "[31m";

@@ -3944,16 +3944,21 @@ export function FormLapDonMuaHang({
                               </button>
                               {/* ★ XÓA KHỎI DANH MỤC — Ban lãnh đạo 21/08/2026.
                                   🔴 Hỏi lại trước khi xóa, và tầng dữ liệu còn CHẶN nếu nhà cung
-                                  cấp đang có đơn đặt hàng — xem `xoaNhaCungCap`. */}
-                              <button
-                                type="button"
-                                title={`Xóa ${n.ten} khỏi danh mục`}
-                                onClick={() => setHoiXoaNCC(n)}
-                                className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
-                              >
-                                <Trash2 className="size-4 shrink-0" aria-hidden />
-                                <span className="sr-only">Xóa {n.ten} khỏi danh mục</span>
-                              </button>
+                                  cấp đang có đơn đặt hàng — xem `xoaNhaCungCap`.
+                                  ★ Chỉ hiện khi có `quyen.lapPO` — Sếp 06/10/2026 (GĐ2): form ở chế
+                                  độ SỬA đơn gác bằng `duocSuaDon`, không hỏi `lapPO`, mà tầng ghi
+                                  `xoaNhaCungCap` nay hỏi `lapPO` — nút phải khớp tầng ghi. */}
+                              {quyen.lapPO && (
+                                <button
+                                  type="button"
+                                  title={`Xóa ${n.ten} khỏi danh mục`}
+                                  onClick={() => setHoiXoaNCC(n)}
+                                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
+                                >
+                                  <Trash2 className="size-4 shrink-0" aria-hidden />
+                                  <span className="sr-only">Xóa {n.ten} khỏi danh mục</span>
+                                </button>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -3963,19 +3968,23 @@ export function FormLapDonMuaHang({
                           mục NCC do bộ phận thu mua điền thông tin"*.
                           🔴 Đặt TRONG danh mục, không phải một nút riêng ở đâu khác: người dùng
                           mở danh mục ra, không thấy bên mình cần, thì đúng lúc đó mới cần thêm.
-                          Bắt họ đóng lại rồi đi tìm nút khác là mời họ gõ tay cho xong. */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMoThemNCC(true);
-                          /* Tên đã gõ ở ô bên cạnh thì mang sang, đỡ gõ lại. */
-                          setNccMoi((c) => ({ ...c, ten: c.ten || tenNCC }));
-                        }}
-                        className="mt-1 flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed border-border px-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary-bg"
-                      >
-                        <Plus className="size-4 shrink-0" aria-hidden />
-                        Thêm nhà cung cấp mới vào danh mục
-                      </button>
+                          Bắt họ đóng lại rồi đi tìm nút khác là mời họ gõ tay cho xong.
+                          ★ Chỉ hiện khi có `quyen.lapPO` — Sếp 06/10/2026 (GĐ2), khớp tầng ghi
+                          `themNhaCungCap` (chế độ sửa đơn không tự hỏi cờ này). */}
+                      {quyen.lapPO && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMoThemNCC(true);
+                            /* Tên đã gõ ở ô bên cạnh thì mang sang, đỡ gõ lại. */
+                            setNccMoi((c) => ({ ...c, ten: c.ten || tenNCC }));
+                          }}
+                          className="mt-1 flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed border-border px-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary-bg"
+                        >
+                          <Plus className="size-4 shrink-0" aria-hidden />
+                          Thêm nhà cung cấp mới vào danh mục
+                        </button>
+                      )}
                     </PopoverContent>
                   </Popover>
 
@@ -4921,15 +4930,19 @@ export function FormLapDonMuaHang({
                               <span className="text-xs text-text-desc">{n.soDienThoai}</span>
                             )}
                           </button>
-                          <button
-                            type="button"
-                            title={`Xóa ${n.ten} khỏi danh mục`}
-                            onClick={() => setMoXoaThuKho(true)}
-                            className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
-                          >
-                            <Trash2 className="size-4 shrink-0" aria-hidden />
-                            <span className="sr-only">Xóa {n.ten} khỏi danh mục</span>
-                          </button>
+                          {/* ★ Chỉ hiện khi có `quyen.lapPO` — Sếp 06/10/2026 (GĐ2), khớp tầng ghi
+                              `xoaThuKho` (chế độ sửa đơn gác bằng `duocSuaDon`, không hỏi cờ này). */}
+                          {quyen.lapPO && (
+                            <button
+                              type="button"
+                              title={`Xóa ${n.ten} khỏi danh mục`}
+                              onClick={() => setMoXoaThuKho(true)}
+                              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-desc transition-colors hover:bg-danger-bg hover:text-danger"
+                            >
+                              <Trash2 className="size-4 shrink-0" aria-hidden />
+                              <span className="sr-only">Xóa {n.ten} khỏi danh mục</span>
+                            </button>
+                          )}
                         </li>
                       ))}
 
@@ -4956,6 +4969,8 @@ export function FormLapDonMuaHang({
                     </ul>
                   )}
 
+                  {/* ★ Chỉ hiện khi có `quyen.lapPO` — Sếp 06/10/2026 (GĐ2), khớp tầng ghi `themThuKho`. */}
+                  {quyen.lapPO && (
                   <button
                     type="button"
                     onClick={() => {
@@ -4976,6 +4991,7 @@ export function FormLapDonMuaHang({
                     <Plus className="size-4 shrink-0" aria-hidden />
                     Thêm thủ kho vào danh mục
                   </button>
+                  )}
                 </PopoverContent>
               </Popover>
             </div>

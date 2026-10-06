@@ -32,6 +32,8 @@ import {
   type VaiTroHeThong,
 } from "@/4-phan-quyen/quyen";
 import { CO_CHI_QUAN_TRI_TRAO, KHOA_TICK, nhanCoTick } from "@/4-phan-quyen/quyen-rieng";
+/* `vai-tro-chuan.ts` chỉ nạp `quyen.ts` — không nạp ngược tệp này, nên không có vòng nạp. */
+import { vaiTroKhopVoiHoSo } from "@/4-phan-quyen/vai-tro-chuan";
 
 export { NHAN_CAP_QUYEN };
 
@@ -61,6 +63,40 @@ export function capDatDuocToiDa(nguoiSua: NguoiDung): CapQuyen {
 /** Người này có được vào màn phân quyền không. */
 export function duocPhanQuyen(nguoiSua: NguoiDung): boolean {
   return capDatDuocToiDa(nguoiSua) > 0;
+}
+
+/**
+ * Người này có QUYỀN PHÂN QUYỀN không — cùng HAI điều kiện màn hình, `/api/phan-quyen` và
+ * `/api/quyen-rieng` dùng: cờ `phanQuyenNguoiDung` (theo chức danh, không tick được) VÀ đặt được ít nhất
+ * một cấp (`duocPhanQuyen` — dùng lại, không viết lần thứ ba).
+ *
+ * 📌 Bổ sung đặc tả B-F3 (06/10/2026): dời từ `mau-chuc-danh.ts` về đây — nhà của luật phân quyền — để
+ * `mau-chuc-danh.ts` và `tinh-luu-phan-quyen.ts` cùng nạp MỘT bản, không vòng nạp.
+ * ⚠️ `app/api/quyen-rieng/route.ts` còn một bản cục bộ cùng thân — gói C (máy chủ) bỏ bản đó, nạp từ đây.
+ *
+ * @param nd Hồ sơ ĐÃ gộp mẫu + ngoại lệ (`ganQuyenRiengHieuLuc`) — cờ tính theo quyền hiệu lực.
+ */
+export function coQuyenPhanQuyen(nd: NguoiDung): boolean {
+  return tinhQuyen(nd).phanQuyenNguoiDung && duocPhanQuyen(nd);
+}
+
+/**
+ * ★ AI ĐƯỢC SỬA BẢNG MẪU QUYỀN THEO CHỨC DANH — Sếp 06/10/2026, Câu 2 = B: *"Quản trị sửa tất"* + *"Cả
+ * Trưởng BP"* (bổ sung đặc tả B-F3).
+ *
+ * CHỈ HAI LOẠI NGƯỜI, và phải qua `coQuyenPhanQuyen` trước:
+ *   · `vaiTro === "admin"` (Quản trị);
+ *   · hồ sơ KHỚP chức danh "Trưởng bộ phận Thu mua" (`vaiTroKhopVoiHoSo(nguoiGoi)?.ma` — ĐÚNG hàm gắn
+ *     nhãn của màn Phân quyền, ba trường `chucNang + vaiTro + capTM`).
+ *
+ * 🔴 KHÔNG mở cho mọi hồ sơ cấp 3 "Tùy chỉnh" (vd kế toán cấp 3, Trưởng BP cấp 4 không phải admin): Sếp
+ * nói đúng "Trưởng BP". Bản đầu gói B chỉ hỏi `coQuyenPhanQuyen` → mọi hồ sơ cấp ≥ 3 sửa được bảng mẫu.
+ * Giới hạn CỘT / DÒNG của Trưởng BP nằm ở `lyDoKhongSuaOMau` (`mau-chuc-danh.ts`), không ở đây.
+ */
+export function duocSuaMauChucDanh(nguoiGoi: NguoiDung): boolean {
+  if (!coQuyenPhanQuyen(nguoiGoi)) return false;
+  if (nguoiGoi.vaiTro === "admin") return true;
+  return vaiTroKhopVoiHoSo(nguoiGoi)?.ma === "truong_bo_phan_thu_mua";
 }
 
 /**
@@ -252,19 +288,63 @@ export function vuongMacTraoQuyen(
     }
 
     for (const k of KHOA_TICK) {
-      if (d.quyenTruoc[k] || !d.quyenSau[k]) continue; // không phải cờ MỚI được trao
-      /* Chức danh của người nhận đã cho sẵn — xem ⑤ ở trên.
-         ★ SẾP CHỐT 26/09/2026 — GIỮ miễn trừ này KỂ CẢ KHI QUẢN TRỊ ĐÃ CHỦ ĐỘNG BỎ cờ đó: trưởng bộ
-         phận ĐƯỢC bật lại. Nguyên văn Sếp: *"Có được bật lại quyền"*. Đừng "sửa cho chặt" thành chỉ
-         người đã bỏ mới bật lại được — đó là đổi ngược chỉ đạo. */
-      if (d.quyenGoc[k]) continue;
-      if (!laQuanTriGoi && CO_CHI_QUAN_TRI_TRAO.includes(k)) {
-        return `Chỉ tài khoản Quản trị trao được quyền “${nhanCoTick(k)}” (${d.ten}).`;
-      }
-      if (!quyenGoi[k]) {
-        return `Bạn không có quyền “${nhanCoTick(k)}” nên không trao cho ${d.ten} được.`;
-      }
+      if (!d.quyenSau[k]) continue; // không phải cờ MỚI được trao
+      const chan = lyDoChanTraoMotCo(laQuanTriGoi, quyenGoi, d, k);
+      if (chan) return chan;
     }
+  }
+  return null;
+}
+
+/**
+ * ⑤ CHO MỘT CỜ, MỘT NGƯỜI — thân luật ⑤ của `vuongMacTraoQuyen`, tách ra (gói D 06/10/2026, bổ sung đặc
+ * tả D-F3) để màn Phân quyền KHOÁ ĐƯỢC chiều BẬT ngay tại ô tick bằng ĐÚNG luật máy chủ dùng, không viết
+ * lại luật trong tệp giao diện. Nơi gọi đã biết "sau khi lưu người này có cờ `k`".
+ */
+function lyDoChanTraoMotCo(
+  laQuanTriGoi: boolean,
+  quyenGoi: Quyen,
+  d: Pick<DichTraoQuyen, "ten" | "quyenGoc" | "quyenTruoc">,
+  k: keyof Quyen,
+): string | null {
+  if (d.quyenTruoc[k]) return null; // đã có từ trước — giữ nguyên không phải là trao
+  /* Chức danh của người nhận đã cho sẵn — xem ⑤ ở `vuongMacTraoQuyen`.
+     ★ SẾP CHỐT 26/09/2026 — GIỮ miễn trừ này KỂ CẢ KHI QUẢN TRỊ ĐÃ CHỦ ĐỘNG BỎ cờ đó: trưởng bộ
+     phận ĐƯỢC bật lại. Nguyên văn Sếp: *"Có được bật lại quyền"*. Đừng "sửa cho chặt" thành chỉ
+     người đã bỏ mới bật lại được — đó là đổi ngược chỉ đạo. */
+  if (d.quyenGoc[k]) return null;
+  if (!laQuanTriGoi && CO_CHI_QUAN_TRI_TRAO.includes(k)) {
+    return `Chỉ tài khoản Quản trị trao được quyền “${nhanCoTick(k)}” (${d.ten}).`;
+  }
+  if (!quyenGoi[k]) {
+    return `Bạn không có quyền “${nhanCoTick(k)}” nên không trao cho ${d.ten} được.`;
+  }
+  return null;
+}
+
+/**
+ * ★ KHOÁ CHIỀU BẬT Ở KHỐI TICK TỪNG NGƯỜI — bổ sung đặc tả D-F3 (06/10/2026).
+ *
+ * Lý do KHÔNG BẬT được ô `khoa` cho cả nhóm người đang chọn, hoặc `null`. Là ĐÚNG luật ⑤ của
+ * `vuongMacTraoQuyen` (cùng thân `lyDoChanTraoMotCo`) hỏi trước cho trường hợp "bật ô này cho mọi người
+ * trong nhóm": màn hình khoá ô ngay, thay vì để người tick bấm Lưu rồi mới bị máy chủ từ chối.
+ *
+ * 📌 CHỈ chiều BẬT. TẮT một cờ ở khối tick từng người thì luôn được (luật ⑤ chỉ chặn TRAO) — KHÁC bảng
+ * mẫu chức danh, nơi ô mình không có khoá CẢ HAI chiều (`lyDoKhongSuaOMau` ⑤ ở `mau-chuc-danh.ts`). Màn
+ * Phân quyền nói rõ khác biệt này cho người dùng.
+ *
+ * @param dich Từng người: quyền theo chức danh (sau lần lưu nếu có đổi) và quyền hiệu lực TRƯỚC khi lưu.
+ */
+export function lyDoKhongBatCoKhiTick(
+  nguoiGoi: NguoiGoiTraoQuyen,
+  dich: readonly Pick<DichTraoQuyen, "ten" | "quyenGoc" | "quyenTruoc">[],
+  khoa: keyof Quyen,
+): string | null {
+  const quyenGoi = tinhQuyen(nguoiGoi.nguoiDung);
+  const laQuanTriGoi = nguoiGoi.nguoiDung.vaiTro === "admin";
+  for (const d of dich) {
+    const chan = lyDoChanTraoMotCo(laQuanTriGoi, quyenGoi, d, khoa);
+    if (chan) return chan;
   }
   return null;
 }

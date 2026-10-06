@@ -252,6 +252,12 @@ type NguoiDungXetThuMua = Pick<NguoiDung, "uid" | "chucNang" | "capTM"> &
  *   · KHÔNG chọn `ghiPhieuNhanHang`: đó là cờ của THỦ KHO (ghi số thực nhận). Nhân viên thu mua không
  *     có nó theo chức danh — dùng nó là cả phòng thu mua mất quyền ghi nhận nhánh phòng ban.
  *
+ * ★ Sếp 06/10/2026 (mẫu chức danh sửa được): "chưa có quyền riêng" (`quyenRieng` trống) nay nghĩa là
+ * KHÔNG CÓ LỚP ĐÈ NÀO — không ngoại lệ riêng VÀ chức danh không có ô đè mẫu. Có ô đè mẫu thì máy chủ trả
+ * đủ 18 ô hiệu lực (xem `NguoiDung.quyenRieng` ở `quyen.ts`) nên nhánh dưới XÉT `lapPO` như người có quyền
+ * riêng: mẫu bỏ "Làm việc thu mua" ở một chức danh là cả chức danh mất ba quyền theo hồ sơ này. Đây là
+ * THU HẸP, đúng ý kế hoạch phân quyền 06/10 (lỗ "chưa có bản riêng thì bỏ qua ô" tự hết khi có mẫu).
+ *
  * 📌 NGƯỜI CHƯA CÓ QUYỀN RIÊNG → KHÔNG XÉT (trả `true`), để kết quả Y HỆT luật theo chức danh cũ — không
  * ai mất quyền khi deploy. Với mọi chức danh chuẩn cấp ≥ 2 (Quản trị · Trưởng BP · NV Thu mua · NV Nhân
  * sự · NV Kho tổng) `lapPO` theo chức danh vốn đã bật, nên xét hay không cũng như nhau; bỏ qua ở đây là

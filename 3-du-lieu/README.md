@@ -15,6 +15,8 @@
 | **`dieu-khoan-chuan-don-mua-hang.ts`** | **Văn bản điều khoản chuẩn in ở cuối tờ PO** (khối "Phương thức giao hàng" + 2 câu cam kết của mẫu Thỏa thuận), kèm `tachDongDieuKhoan` để tờ in và ô nhập trình bày giống nhau. Từ 22/08/2026 **người lập sửa được** — bản đã sửa lưu trên từng đơn (`DonDatHang.dieuKhoanGiaoHang`), bản chuẩn ở đây chỉ dùng khi đơn chưa sửa gì | Điều khoản in ra sai chữ · muốn đổi bản chuẩn cho **đơn lập từ nay** (đơn cũ giữ bản của nó) |
 | **`du-lieu-mau.ts`** | Dữ liệu chạy thử: **9 đề nghị** (phủ đủ 8 giai đoạn của bảng quy trình), 8 PO, 8 phiếu nhận, 6 bảng báo giá | Muốn đổi số liệu để trình bày |
 
+| **`kho-phan-quyen-demo.ts`** | ★ 06/10/2026 — **Kho demo phân quyền** (CHỈ chế độ tài khoản mẫu, localStorage khoá `hpcons-thumua-phan-quyen-demo-v1`): bảng mẫu chức danh + quyền riêng + lịch sử demo. Lưu bằng ĐÚNG `tinhLuuQuyenRieng` / `tinhLuuMauChucDanh` máy chủ dùng. Một kho cho cả app (`layKhoDemo`) — `nguoi-dung-hien-tai.tsx` gộp quyền vào tài khoản mẫu, màn Phân quyền đọc/ghi qua `4-phan-quyen/nguon-phan-quyen.ts`. `taoKhoDemo("sso")` NÉM | Demo phân quyền không lưu / không đổi menu theo mẫu |
+
 ### 🔴 `DonDatHang.prId` / `prCode` LÀ TÙY CHỌN (từ 18/08/2026)
 
 Ban lãnh đạo 18/08/2026 cho lập đơn **không gắn phiếu đề nghị nào** (module *"Lập đơn mua hàng

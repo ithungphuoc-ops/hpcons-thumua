@@ -316,15 +316,22 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
      * có thể chỉnh sửa các điều kiện trong quy trình"*.
      *
      * 🔴 CHỈ TRƯỞNG BỘ PHẬN VÀ QUẢN TRỊ THẤY. Cấu hình dùng chung cả phòng: một người sửa là
-     * đổi luật cho mọi người. Dùng `suaPODaChot` làm mốc vì đó đã là quyền "được sửa thứ đã
-     * chốt" — cùng một mức trách nhiệm, khỏi sinh thêm một cờ quyền chỉ dùng một chỗ.
+     * đổi luật cho mọi người.
+     *
+     * ★ ĐỔI CỜ 06/10/2026 — Sếp duyệt kế hoạch phân quyền GĐ2: gác bằng `phanQuyenNguoiDung`
+     * (theo cấp Quản lý từ cấp 3 / Quản trị, KHÔNG tick riêng được), thay cho `suaPODaChot`.
+     * Lý do: `suaPODaChot` là ô tick riêng được — tick "Sửa đơn đã chốt" cho một nhân viên là
+     * mở luôn trang sửa luật cả phòng, trái ý gốc 13/08 "chỉ Trưởng bộ phận và Quản trị".
+     * 🔴 BỐN CHỖ PHẢI CÙNG MỘT CỜ: mục menu này · `duocVaoDuongDan` (`quyen.ts`) · trang
+     * `cai-dat-quy-trinh.tsx` · hộp hướng dẫn bước (`hop-huong-dan-giai-doan.tsx`) — và tầng ghi
+     * `luuCauHinhQuyTrinh`. Lệch một chỗ là nút hiện mà bấm bị từ chối, hoặc ngược lại.
      */
     nhan: "Cài đặt quy trình",
     nhanNgan: "Cài đặt",
     href: "/cai-dat-quy-trinh",
     nhom: "quan_tri",
     icon: Settings,
-    duocThay: (q) => q.suaPODaChot,
+    duocThay: (q) => q.phanQuyenNguoiDung,
   },
   {
     /**

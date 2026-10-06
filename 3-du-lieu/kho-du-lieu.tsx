@@ -36,6 +36,9 @@ import {
   ganLyDoVuotVaoDongPO,
   taCacDongVuotKhiLapDon,
   vuongMacVuotKhiLapDon,
+  /* ★ Chốt QUYỀN lùi bước ở tầng ghi — Sếp 06/10/2026 (kế hoạch phân quyền GĐ2). Luật bảng lùi
+     vẫn một chỗ (`vaiTroDuocLui`), tầng ghi chỉ hỏi lại đúng câu đó. Xem `luiVeBuoc`. */
+  vuongMacQuyenLuiVe,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 /* `formatNumber` — dựng mốc nhật ký "số lượng 12 → 15" cho người đọc, không để số thô kiểu
    `12.000000000000002` lọt vào sổ lịch sử (xem `mocSuaBangMatHang`). */
@@ -145,6 +148,9 @@ import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhQuyen, type NguoiDung, type Quyen } from "@/4-phan-quyen/quyen";
+/* Nhãn ô tick của cờ quyền — câu chặn ở tầng ghi gọi đúng tên người dùng thấy trên bảng phân
+   quyền, không gõ lại chữ (Sếp 06/10/2026, GĐ2). Xem `vuongMacThieuQuyen`. */
+import { nhanCoTick } from "@/4-phan-quyen/quyen-rieng";
 /* "Người này có phụ trách ít nhất một dòng của đề nghị không" — DÙNG LẠI hàm chung, không
    viết lại điều kiện. Màn chi tiết đề nghị đang hỏi đúng câu này (qua `laViecCuaToi`) để
    quyết định ai THẤY nút duyệt hoàn thành đơn; cửa ghi phải hỏi y hệt, nếu không thì nút
@@ -886,6 +892,43 @@ export function vuongMacQuyenChotDonNhap(quyen: Pick<Quyen, "lapPO">): string | 
 }
 
 /**
+ * ★★ CHỐT QUYỀN Ở TẦNG GHI — MỘT HÀM CHO MỌI CỬA GHI CÒN HỞ — Sếp 06/10/2026 (kế hoạch phân quyền
+ * GĐ2: *"tầng ghi hỏi đúng cờ của nút"*).
+ *
+ * 🔴 VÌ SAO: rà phân quyền 06/10/2026 đo được 16 cửa ghi chỉ kiểm ĐIỀU KIỆN NGHIỆP VỤ, không hỏi
+ * người đang bấm là ai — chỉ giao diện ẩn nút. Bỏ tick quyền lúc trang người đó đang mở sẵn, hoặc
+ * một nút lỡ hiện sai chỗ (nút gắn đề nghị vào PO chờ từng hiện cho cả thủ kho), là ghi lọt.
+ *
+ * 📌 Câu chặn gọi ĐÚNG NHÃN ô tick (`nhanCoTick`), không gõ lại chữ: đổi nhãn trên bảng phân quyền
+ * thì câu chặn đổi theo, người dùng biết đúng ô phải xin. `phanQuyenNguoiDung` không phải ô tick
+ * (theo cấp, `quyen-rieng.ts`) nên có nhãn riêng.
+ *
+ * ⚠️ Cùng giao kèo với `vuongMacQuyenChotDonNhap`: trả câu lý do, không ném lỗi, không `null` im lặng.
+ */
+export type CoGacTangGhi =
+  | "lapPO"
+  | "xacNhanTruongBP"
+  | "xoaToanBoDuLieu"
+  | "phanQuyenNguoiDung"
+  | "ghiThanhToan";
+
+/* Kiểu chung `C`: nơi gọi chỉ cần đưa đúng cờ đang hỏi (`Pick<Quyen, C>`), không phải dựng đủ năm
+   cờ — dựng thêm cờ giả `true` cho vừa kiểu là đúng kiểu viết dễ lọt quyền nhất. */
+export function vuongMacThieuQuyen<C extends CoGacTangGhi>(
+  quyen: Pick<Quyen, C>,
+  co: C,
+  viec: string,
+): string | null {
+  if (quyen[co]) return null;
+  const nhan =
+    co === "phanQuyenNguoiDung" ? "Phân quyền người dùng (Trưởng bộ phận / Quản trị)" : nhanCoTick(co);
+  /* ★ Bổ sung đặc tả A-F2 (06/10/2026): KHÔNG ghi cứng "Nhờ Trưởng bộ phận hoặc Quản trị" — sai chỗ xin
+     ở hai cờ: `xoaToanBoDuLieu` chỉ Quản trị có (Trưởng BP không làm giúp được), `ghiThanhToan` người làm
+     chính là Kế toán. Nói chung "người có quyền này" — tên ô quyền đã nêu ngay trước. */
+  return `Bạn không có quyền “${nhan}” nên không ${viec} được. Nhờ người có quyền này (hoặc Quản trị) làm giúp.`;
+}
+
+/**
  * ★★ AI ĐƯỢC BẤM "XÁC NHẬN NHẬN HÀNG" (bước ⑥) — ĐỔI 06/10/2026 theo chỉ đạo Sếp 17/09/2026.
  *
  * Sếp 17/09: *"Kho chỉ gửi phiếu đánh đủ số lượng, còn thu mua trên app thu mua bấm xác nhận nhận
@@ -936,7 +979,11 @@ export function vuongMacDuyetGiaoThieu(
  * ★ GIAO / CHUYỂN / BỎ PHÂN BỔ VIỆC — chỉ người có quyền "Phân bổ công việc" (soát giao việc
  * 25–26/09/2026, #20 #53; luật 15/08 "chỉ quản lý giao lại việc"). Ba cửa ghi `phanBoDong`,
  * `chuyenViecDong`, `boPhanBoDong` trước đây không hỏi người bấm là ai — chỉ giao diện ẩn nút.
- * Từ 278f775 `tinhQuyen` gộp cả quyền tick riêng, nên bỏ tick lúc trang đang mở cũng chặn được.
+ * Từ 278f775 `tinhQuyen` gộp cả quyền tick riêng (từ 06/10/2026: cả mẫu chức danh), nên chốt này hỏi
+ * đúng quyền HIỆU LỰC mà trang đang giữ. ⚠️ Bổ sung đặc tả A-F4 (06/10/2026) — câu cũ "bỏ tick lúc trang
+ * đang mở cũng chặn được" là SAI: quyền riêng chỉ đọc lúc vào app, và từ gói D đọc lại khi tab HIỆN LẠI
+ * hoặc ngay sau khi chính người đó lưu phân quyền (`nguoi-dung-hien-tai.tsx`, D-F2). Trang để mở liên tục
+ * ở tiền cảnh thì vẫn giữ quyền cũ tới lúc đó — chốt thật là máy chủ / rules, không phải tầng ghi này.
  */
 export function vuongMacQuyenPhanBo(quyen: Pick<Quyen, "phanBoCongViec">): string | null {
   if (quyen.phanBoCongViec) return null;
@@ -979,8 +1026,10 @@ export function vuongMacQuyenXacNhanHoanThanhDon(
  * Thu mua đàm phán, còn số tiền đã chi là việc Kế toán ghi theo uỷ nhiệm chi.
  */
 export function vuongMacQuyenGhiThanhToan(quyen: Pick<Quyen, "ghiThanhToan">): string | null {
-  if (quyen.ghiThanhToan) return null;
-  return "Chỉ Kế toán, Trưởng bộ phận (cấp 3 trở lên) hoặc quản trị mới ghi được số tiền đã thanh toán.";
+  /* ★ 06/10/2026 (GĐ2): câu cũ *"Chỉ Kế toán, Trưởng bộ phận (cấp 3 trở lên) hoặc quản trị…"*
+     thiếu nhân viên thu mua từ cấp Nhập liệu (Sếp 19/09/2026 mở `ghiThanhToan` cho họ) — câu chặn
+     liệt kê người mà sót người là chỉ sai chỗ xin. Nay gọi tên ĐÚNG Ô QUYỀN qua hàm chung. */
+  return vuongMacThieuQuyen(quyen, "ghiThanhToan", "ghi số tiền đã thanh toán");
 }
 
 /**
@@ -3761,6 +3810,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ghiChu?: string;
       nhomNCC?: readonly string[];
     }): Promise<{ loi: string } | { ma: string }> => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Phải đứng TRƯỚC `xinMaMayChu` bên dưới:
+         `/api/cap-ma` chỉ kiểm đã đăng nhập, để chốt sau là người không có quyền vẫn đốt mã NCC. */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "thêm nhà cung cấp");
+      if (chanQuyen) return { loi: chanQuyen };
       const ten = n.ten.trim();
       if (ten === "") return { loi: "Chưa có tên nhà cung cấp." };
       /* ★ Nhóm NCC (Sếp 02/10/2026): chuẩn hoá lại tại tầng ghi, không tin nơi gọi đã tách đúng;
@@ -3817,8 +3870,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     },
     /* `nhaCungCapThem` vừa là tập chống trùng TÊN vừa là tập chống trùng MÃ, nên chỉ cần nó.
        ⚠️ Đừng bỏ nó khỏi danh sách phụ thuộc cho "gọn": `useCallback` sẽ giữ bản đóng gói cũ và
-       mã được tính trên một danh mục đã lỗi thời — cấp trùng mà không có gì báo. */
-    [nhaCungCapThem],
+       mã được tính trên một danh mục đã lỗi thời — cấp trùng mà không có gì báo.
+       `nguoiDung`: chốt quyền đầu hàm phải xét người của phiên HIỆN TẠI (Sếp 06/10/2026). */
+    [nguoiDung, nhaCungCapThem],
   );
 
   /**
@@ -3838,6 +3892,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
   const dangNhapNCCRef = useRef(false);
   const themNhieuNhaCungCap = useCallback(
     async (ds: readonly NCCTuFile[]): Promise<{ daThem: number; boQua: number; loi?: string }> => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Trước khi bật `dangNhapNCCRef` (chặn ở sau
+         là khoá treo không ai mở) và trước `xinMaMayChu` (đốt mã ở máy chủ). */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "nhập nhà cung cấp");
+      if (chanQuyen) return { daThem: 0, boQua: ds.length, loi: chanQuyen };
       if (dangNhapNCCRef.current) {
         return { daThem: 0, boQua: ds.length, loi: "Đang nhập một file khác — chờ xong rồi nhập tiếp." };
       }
@@ -3881,7 +3939,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
     },
     /* Cùng lý do `themNhaCungCap`: bỏ `nhaCungCapThem` khỏi đây là chống trùng trên danh mục cũ. */
-    [nhaCungCapThem],
+    [nguoiDung, nhaCungCapThem],
   );
 
   /**
@@ -3899,6 +3957,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const xoaNhaCungCap = useCallback(
     (id: string): string | null => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2), cùng cờ với nút xoá ở danh mục. */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "xoá nhà cung cấp");
+      if (chanQuyen) return chanQuyen;
       const ncc = nhaCungCapThem.find((n) => n.id === id);
       if (!ncc) return "Nhà cung cấp này không còn trong danh mục.";
 
@@ -3911,7 +3972,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       setNhaCungCapThem((truoc) => truoc.filter((n) => n.id !== id));
       return null;
     },
-    [nhaCungCapThem],
+    [nguoiDung, nhaCungCapThem],
   );
 
   /**
@@ -3973,6 +4034,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const themThuKho = useCallback(
     (n: { ten: string; soDienThoai?: string; congTrinh?: string; ghiChu?: string }): string | null => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Danh mục thủ kho là danh mục của người lập
+         đơn, cùng cờ với danh mục nhà cung cấp. */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "thêm thủ kho vào danh mục");
+      if (chanQuyen) return chanQuyen;
       const ten = n.ten.trim();
       if (ten === "") return "Chưa có tên thủ kho.";
 
@@ -3993,7 +4058,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       setThuKhoThem((truoc) => [...truoc, moi]);
       return null;
     },
-    [thuKhoThem],
+    [nguoiDung, thuKhoThem],
   );
 
   /**
@@ -4003,12 +4068,26 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * chữ (`nguoiNhanHangTen`, `nguoiNhanHangSdt`), không trỏ khóa về danh mục này. Nên xóa khỏi
    * danh mục không làm đơn cũ mất thông tin gì — chỉ là lần sau không chọn nhanh được nữa.
    */
-  const xoaThuKho = useCallback((id: string): string | null => {
-    setThuKhoThem((truoc) => truoc.filter((n) => n.id !== id));
-    return null;
-  }, []);
+  const xoaThuKho = useCallback(
+    (id: string): string | null => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Trước đây hàm này không kiểm gì, luôn `null`. */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "xoá thủ kho khỏi danh mục");
+      if (chanQuyen) return chanQuyen;
+      setThuKhoThem((truoc) => truoc.filter((n) => n.id !== id));
+      return null;
+    },
+    [nguoiDung],
+  );
 
   const xoaDuLieuChayThu = useCallback(async () => {
+    /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Hàm này xoá TOÀN BỘ kho chung mà trước đây không
+       hỏi người bấm là ai. Đo 06/10: không còn nơi gọi nào ngoài context, nên chặn chỉ in console
+       (không có màn nào để hiện câu) — nhưng vẫn phải chặn, vì context là cửa mở cho mọi màn. */
+    const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "xoaToanBoDuLieu", "xoá toàn bộ dữ liệu chạy thử");
+    if (chanQuyen) {
+      console.error(chanQuyen);
+      return;
+    }
     // 🔴 Từ 12/08/2026 dữ liệu nằm trên máy chủ dùng chung, nên xóa là XÓA CỦA CẢ PHÒNG.
     // Phải dọn kho chung TRƯỚC rồi mới tải lại trang: nếu chỉ xóa bản trên máy, lần
     // tải lại sẽ kéo nguyên dữ liệu cũ từ máy chủ về — nút bấm xong mà không xóa được gì.
@@ -6070,9 +6149,14 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * bước = HỦY ĐÚNG CHỨNG TỪ đang giữ đề nghị ở bước hiện tại. Đổi một trường trạng thái
    * nào đó rồi coi như xong thì lần vẽ lại bảng tiếp theo thẻ tự nhảy về chỗ cũ.
    *
-   * ⚠️ Hàm này CHỈ THỰC THI. Việc *có được lùi hay không* do `quyetDinhLui` trong
-   * `2-quy-trinh/giai-doan-mua-hang.ts` quyết — một luật, một chỗ. Đừng thêm điều kiện chặn
+   * ⚠️ Luật NGHIỆP VỤ (*có được lùi từ chỗ này hay không*) vẫn chỉ do `quyetDinhLui` trong
+   * `2-quy-trinh/giai-doan-mua-hang.ts` quyết — một luật, một chỗ. Đừng thêm điều kiện nghiệp vụ
    * ở đây, nếu không hai nơi sẽ nói khác nhau và người dùng không biết tin bên nào.
+   *
+   * ★ NHƯNG TỪ 06/10/2026 CÓ CHỐT **QUYỀN** Ở ĐẦU HÀM — Sếp duyệt kế hoạch phân quyền GĐ2. Lùi bước
+   * XOÁ dữ liệu thật (phân bổ, bảng báo giá, quyết định chọn NCC); trước đây chỉ giao diện hỏi
+   * quyền. Chốt hỏi lại ĐÚNG bảng lùi của `vaiTroDuocLui` qua `vuongMacQuyenLuiVe` (suy bước đang
+   * đứng từ `ve` — đúng cặp mà 4 nhánh dưới đây xử lý), nên không có luật thứ hai.
    */
   const luiVeBuoc = useCallback(
     (
@@ -6082,6 +6166,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       /** Có = trưởng bộ phận KHÔNG DUYỆT bảng báo giá, kèm lý do bắt buộc. */
       traLai?: { lyDo: string },
     ): { soPhieuDaGop: number; maGoc: string } | { loi: string } | null => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2), TRƯỚC khối `traLai`. `ve` ngoài 4 bước lùi
+         được thì chặn luôn (kể cả đủ quyền) — không thì hàm ghi một dòng nhật ký sai bên dưới. */
+      const chanQuyen = vuongMacQuyenLuiVe(ve, tinhQuyen(nguoiDung));
+      if (chanQuyen) return { loi: chanQuyen };
       const ngay = thoiDiemHienTai();
       /** Kết quả gộp bản tách — nơi gọi cần để nói đúng trong thông báo. */
       let ketQuaGop: { soPhieuDaGop: number; maGoc: string } | null = null;
@@ -6411,7 +6499,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          lại phiếu gốc" ghi trong cùng lần cập nhật ở trên, nên hồ sơ vẫn có vết. */
       return ketQuaGop;
     },
-    [ghiLichSuDeNghi],
+    [ghiLichSuDeNghi, nguoiDung],
   );
 
   /**
@@ -6424,9 +6512,16 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    *
    * ⚠️ Cấu hình dùng CHUNG CẢ PHÒNG (kho chung Firestore). Sửa là đổi luật cho mọi người,
    * nên phải ghi rõ ai sửa — người gọi truyền `nguoiThucHien`.
+   *
+   * ★ CHỐT QUYỀN ĐẦU HÀM — Sếp 06/10/2026 (GĐ2), ý gốc Ban lãnh đạo 13/08/2026 *"chỉ Trưởng bộ
+   * phận và Quản trị"*: gác bằng `phanQuyenNguoiDung` (theo cấp, không tick được), CÙNG cờ với
+   * trang Cài đặt quy trình, menu, `duocVaoDuongDan` và hộp hướng dẫn bước. Trước đây không chốt,
+   * và hai nút gọi hàm này gác bằng `suaPODaChot` — một ô tick riêng mở được trang sửa luật cả phòng.
    */
   const luuCauHinhQuyTrinh = useCallback(
     (moi: CauHinhQuyTrinh, nguoiThucHien: string): string[] => {
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "phanQuyenNguoiDung", "sửa cài đặt quy trình");
+      if (chanQuyen) return [chanQuyen];
       const loi = loiCauHinh(moi);
       if (loi.length > 0) return loi;
       const thayDoi = soSanhCauHinh(cauHinhRef.current, moi);
@@ -6439,7 +6534,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
       return [];
     },
-    [],
+    [nguoiDung],
   );
 
   const boPhanBoDong = useCallback((prId: string, stt: number, nguoiThucHien: string): string | null => {
@@ -6651,6 +6746,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
   const themDonHang = useCallback(
     async (dauVao: DauVaoDonHangMoi) => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Trước đây đơn CÓ đề nghị (`po.prId`) không
+         bị hỏi `lapPO` — chỉ nhánh độc lập hỏi `taoPoDoiLap` (bên dưới, giữ nguyên). Đứng trước cả
+         hai nhánh và trước `xinMaMayChu("don-hang")`, để người không có quyền không đốt số đơn. */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "lập đơn mua hàng");
+      if (chanQuyen) return { loi: chanQuyen };
       const { donGia, thueSuatDong, phanTien, lyDoVuotDeNghi, ...poVao } = dauVao;
       let po = poVao;
       /** Câu nhật ký phần vượt — chỉ có khi đơn đặt vượt phần còn lại (Sếp 26/09/2026). */
@@ -6982,6 +7082,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const ganDeNghiVaoPO = useCallback(
     (poId: string, baoGiaId: string): string | null => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2, kế hoạch đã duyệt: `lapPO`). Đo 06/10: nút gắn
+         ở trang đơn hàng KHÔNG gác gì, nên thủ kho / Ban Giám đốc cấp 1 cũng thấy và bấm được.
+         Nút nay cũng chỉ dựng khi có `lapPO` (`don-hang-chi-tiet.tsx`).
+         ⚠️ Còn lệch với `xacNhanTuDongGanDeNghi` (gác `taoPoDoiLap`) — để Sếp quyết sau. */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "gắn đề nghị vào đơn");
+      if (chanQuyen) return chanQuyen;
       const po = donHangRef.current.find((p) => p.id === poId);
       if (!po) return "Không tìm thấy đơn hàng này.";
       if (po.trangThai !== "cho_de_nghi") {
@@ -7950,6 +8056,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
 
   const doiTrangThaiBaoGiaTheoDeNghi = useCallback(
     (prId: string, tu: TrangThaiBaoGia, sang: TrangThaiBaoGia, nguoiThucHien: string): string | null => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Cùng cờ với kéo thẻ (`onTha` chỉ có khi `lapPO`). */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "đổi trạng thái bảng báo giá");
+      if (chanQuyen) return chanQuyen;
       const ngay = homNay();
       /**
        * 🔴 CHẶN "BÁO THÀNH CÔNG GIẢ" — sửa 11/09/2026 (ca sót từ đợt vá 24/08). Không có bảng nào
@@ -7990,7 +8099,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
       return null;
     },
-    [ghiLichSuDeNghi],
+    [ghiLichSuDeNghi, nguoiDung],
   );
 
   const chonNCCChoBaoGia = useCallback(
@@ -8003,6 +8112,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       /** Tài liệu dẫn chứng đính kèm — văn bản TGĐ duyệt, email NCC, báo giá gốc… */
       tep?: MoTaTep[],
     ) => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Cùng cờ với khối duyệt báo giá ở trang chi
+         tiết đề nghị (`quyen.xacNhanTruongBP`); trước đây hàm chỉ kiểm luật nghiệp vụ. */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "xacNhanTruongBP", "duyệt báo giá");
+      if (chanQuyen) return chanQuyen;
       /**
        * 🔴🔴 TRẢ LÝ DO CHO NƠI GỌI — sửa 24/08/2026 sau khi Ban lãnh đạo báo lệch lần thứ hai.
        *
@@ -8074,7 +8187,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       /* `null` = đã ghi xong. Nơi gọi CHỈ được báo thành công khi nhận `null`. */
       return null;
     },
-    [ghiLichSuDeNghi],
+    [ghiLichSuDeNghi, nguoiDung],
   );
 
   /* 📌 KHÔNG có hàm "không duyệt" riêng — việc đó đi qua `luiVeBuoc(prId, "yeu_cau_bao_gia", …,
@@ -8410,6 +8523,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const hoanThanhQuyTrinh = useCallback(
     (prId: string, nguoiThucHien: string): string | null => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Nút "Hoàn thành quy trình" gác bằng
+         `quyen.xacNhanTruongBP`; đóng hồ sơ không lùi lại được nên tầng ghi phải hỏi lại đúng cờ đó. */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "xacNhanTruongBP", "hoàn thành hồ sơ");
+      if (chanQuyen) return chanQuyen;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị này.";
       if (dn.trangThai === "hoan_thanh") return "Đề nghị này đã hoàn thành trước đó.";
@@ -8424,8 +8541,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * gọi nào không truyền thì hàm **không chặn** (có chủ ý — xem chú thích tại chỗ khai báo).
        * Nút "Hoàn thành quy trình" ở `de-nghi-chi-tiet.tsx` hiện chưa truyền, nên nút vẫn sáng và
        * người dùng chỉ biết khi bấm — hơi khó chịu nhưng **không lọt**, vì mọi đường đóng hồ sơ đều
-       * đi qua đây. Ai sửa được tệp giao diện thì truyền thêm danh sách vào cả ba chỗ gọi cho nút
-       * tắt sẵn kèm lý do.
+       * đi qua đây. Ai sửa được tệp giao diện thì truyền thêm danh sách vào chỗ gọi cho nút tắt
+       * sẵn kèm lý do. (Đo lại 06/10/2026: chỉ còn MỘT chỗ gọi — `de-nghi-chi-tiet.tsx`; bản cũ ghi
+       * "ba chỗ gọi" là chép từ thời còn ba màn.)
        *
        * 📌 `deNghiRef.current` chứ không phải biến `deNghi` của closure: cùng lý do đã ghi ở đầu
        * hàm — phải đọc trạng thái mới nhất, không đọc bản chụp lúc render.
@@ -8468,7 +8586,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
       return null;
     },
-    [],
+    [nguoiDung],
   );
 
   // ------------------------------------------------------------
@@ -8871,6 +8989,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const xoaDeNghi = useCallback(
     (prId: string): string | null => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Xoá đề nghị là việc CHỈ Quản trị (cờ
+         `xoaToanBoDuLieu`, cùng cờ với khối "Vùng nguy hiểm"). Đo 06/10: mục Xoá trên menu thẻ đã
+         bỏ nên hàm không còn đường gọi từ màn nào, nhưng context vẫn phát nó ra cho mọi màn. */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "xoaToanBoDuLieu", "xoá đề nghị");
+      if (chanQuyen) return chanQuyen;
       const coBaoGia = baoGiaRef.current.some((b) => b.prId === prId && b.trangThai !== "huy");
       const coDonHang = donHangRef.current.some((p) => p.prId === prId && p.trangThai !== "huy");
       if (coBaoGia || coDonHang) {
@@ -8925,6 +9048,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const xoaNhieuDeNghi = useCallback(
     (ids: readonly string[]): { daXoa: string[]; biChan: { id: string; lyDo: string }[] } => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Cùng cờ với khối "Vùng nguy hiểm" ở Cài đặt
+         quy trình (`quyen.xoaToanBoDuLieu`). Chặn thì mọi phiếu đều vào `biChan` kèm lý do, để nơi
+         gọi hiện đúng câu chứ không im lặng "đã xoá 0 phiếu". */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "xoaToanBoDuLieu", "xoá đề nghị");
+      if (chanQuyen) return { daXoa: [], biChan: ids.map((id) => ({ id, lyDo: chanQuyen })) };
       const tatCa = deNghiRef.current;
       const kq = phanLoaiXoaDeNghi(ids, tatCa, baoGiaRef.current, donHangRef.current);
       if (kq.xoaDuoc.length === 0) return { daXoa: [], biChan: kq.biChan };
@@ -9275,6 +9403,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   const trinhXetDuyetBaoGiaChoDeNghi = useCallback(
     (prId: string, nguoiThucHien: string): string | null => {
+      /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Cùng cờ với nút "Trình xét duyệt" ở trang chi
+         tiết đề nghị (`quyen.lapPO`). */
+      const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "trình xét duyệt báo giá");
+      if (chanQuyen) return chanQuyen;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
 
@@ -9371,7 +9503,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
       return null;
     },
-    [ghiLichSuDeNghi, loiKhiHoSoDaDong],
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong, nguoiDung],
   );
   const themTepGiaiDoan = useCallback(
     (

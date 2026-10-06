@@ -6,7 +6,9 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import {
@@ -30,8 +32,9 @@ import {
   docTatCaTaiKhoan,
   thanhNguoiDung,
 } from "@/5-ket-noi/ho-so-tai-khoan";
-import { docQuyenRiengCuaToi } from "@/4-phan-quyen/quyen-rieng-ket-noi";
-import type { QuyenRieng } from "@/4-phan-quyen/quyen-rieng";
+import { docQuyenRiengCuaToi, ketQuaDocLaiQuyen } from "@/4-phan-quyen/quyen-rieng-ket-noi";
+import { KHOA_TICK, type QuyenRieng } from "@/4-phan-quyen/quyen-rieng";
+import { layKhoDemo } from "@/3-du-lieu/kho-phan-quyen-demo";
 
 /** Khóa lưu phiên đăng nhập trong trình duyệt — CHỈ dùng ở chế độ tài khoản mẫu. */
 const KHOA_PHIEN = "hpcons-tm-phien-dang-nhap";
@@ -58,6 +61,35 @@ function docCheDo(): "mau" | "sso" {
 }
 
 const CHE_DO: "mau" | "sso" = docCheDo();
+
+/**
+ * ★ KHO DEMO PHÂN QUYỀN — Sếp 06/10/2026 (gói D, bổ sung đặc tả D-F1). CHỈ tạo ở chế độ tài khoản mẫu;
+ * chế độ `sso` luôn `null` (quyền lấy từ máy chủ, không bao giờ từ trình duyệt). Cùng MỘT kho với màn
+ * Phân quyền (`layKhoDemo` là bản dùng chung), nên lưu bảng mẫu / tick riêng ở demo là menu, nút và tầng
+ * ghi của tài khoản mẫu đổi theo — đúng như bản thật sau khi tải lại trang.
+ * 📌 Tạo kho KHÔNG đọc localStorage (chỉ đọc khi có thao tác) — an toàn khi dựng trang phía máy chủ.
+ */
+const khoDemo = CHE_DO === "mau" ? layKhoDemo(CHE_DO) : null;
+const khongDangKy = () => () => {};
+const tra0 = () => 0;
+
+/**
+ * Đủ 18 ô TẮT — quyền HẸP NHẤT. Dùng cho nhịp dựng trang đầu (ảnh chụp phía máy chủ, chưa đọc được kho
+ * demo): thiếu thông tin thì quyền thấp nhất, không lấy công thức chức danh (rộng hơn) cho tiện.
+ */
+const QUYEN_HEP_NHAT: QuyenRieng = Object.fromEntries(KHOA_TICK.map((k) => [k, false])) as QuyenRieng;
+
+/**
+ * ★ YÊU CẦU ĐỌC LẠI QUYỀN CỦA CHÍNH MÌNH (chế độ `sso`) — bổ sung đặc tả D-F2 (06/10/2026). Màn Phân quyền
+ * gọi ngay sau khi chính mình lưu bảng mẫu / quyền riêng thành công. Phát một sự kiện trong cửa sổ;
+ * `CurrentUserProvider` nghe và đọc lại `GET /api/quyen-rieng`. Chế độ mẫu: không làm gì (kho demo tự
+ * phát tin).
+ */
+const SU_KIEN_DOC_LAI_QUYEN = "hpcons-tm-doc-lai-quyen";
+export function yeuCauDocLaiQuyenCuaToi(): void {
+  if (CHE_DO !== "sso" || typeof window === "undefined") return;
+  window.dispatchEvent(new Event(SU_KIEN_DOC_LAI_QUYEN));
+}
 
 interface GiaTriNguoiDung {
   nguoiDung: NguoiDung;
@@ -123,6 +155,19 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
    * màn hình trống hoặc bị đá lòng vòng về màn đăng nhập App Tổng.
    */
   const [loiHoSo, setLoiHoSo] = useState<string | null>(null);
+
+  /**
+   * ★ Số lần kho demo phân quyền đổi (chế độ mẫu) — để `value` tính lại quyền khi lưu bảng mẫu / tick
+   * riêng ở demo (cùng tab hoặc tab khác). Dựng trang phía máy chủ dùng `0` = chưa đọc kho → quyền hẹp
+   * nhất (xem `QUYEN_HEP_NHAT`); chế độ `sso` luôn `0` và không dùng tới.
+   */
+  const soPhienDemo = useSyncExternalStore(khoDemo?.dangKy ?? khongDangKy, khoDemo?.phienBan ?? tra0, tra0);
+
+  /** Bản mới nhất của `nguoiSSO` cho lượt đọc lại quyền (D-F2) — effect đăng ký một lần, đọc qua ref. */
+  const nguoiSSORef = useRef<NguoiDung | null>(null);
+  useEffect(() => {
+    nguoiSSORef.current = nguoiSSO;
+  }, [nguoiSSO]);
 
   // ============================================================
   // CHẾ ĐỘ TÀI KHOẢN MẪU — đọc phiên cũ trong máy
@@ -282,6 +327,62 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // ============================================================
+  // ★ ĐỌC LẠI QUYỀN RIÊNG GIỮA PHIÊN (chế độ `sso`) — bổ sung đặc tả D-F2, Sếp 06/10/2026
+  //
+  // Trước đây quyền riêng chỉ đọc MỘT LẦN lúc vào app: Sếp sửa bảng mẫu / bỏ tick của ai đó thì trang họ
+  // đang mở giữ quyền cũ tới khi F5. Nay đọc lại khi:
+  //   · tab HIỆN LẠI (`visibilitychange` → visible) — người đó quay lại app là nhận quyền mới;
+  //   · ngay sau khi CHÍNH MÌNH lưu bảng mẫu / quyền riêng (`yeuCauDocLaiQuyenCuaToi`).
+  //
+  // 🔴 ĐỌC LẠI LỖI KHÔNG ĐƯỢC THÀNH RỘNG HƠN (luật quyết định ở `ketQuaDocLaiQuyen`, hàm thuần có bài kiểm):
+  //   · đọc được → đặt quyền mới (kể cả `null` = máy chủ nói rõ "không có lớp đè nào");
+  //   · mẫu chức danh HỎNG → xử y như lúc vào app: không cho dùng tiếp, kèm lý do (Quản trị không gọi cửa
+  //     này nên vẫn vào được để cứu);
+  //   · lỗi khác (mạng, quá hạn…) → GIỮ quyền đang có — đó là kết quả máy chủ trả ở lần đọc thành công gần
+  //     nhất. KHÔNG đặt `null` (null = công thức chức danh, có thể rộng hơn).
+  // 📌 Khối đăng nhập SSO phía trên (phiên tích hợp) KHÔNG đổi một dòng — đây là effect riêng.
+  // ============================================================
+  useEffect(() => {
+    if (CHE_DO !== "sso") return;
+    let conSong = true;
+    let dangDoc = false;
+    async function docLai() {
+      const nd = nguoiSSORef.current;
+      /* Chưa vào app (đang đăng nhập / bị chặn) hoặc Quản trị (không dùng quyền riêng) → không đọc. */
+      if (dangDoc || !nd || nd.vaiTro === "admin") return;
+      dangDoc = true;
+      try {
+        const xuLy = ketQuaDocLaiQuyen(await docQuyenRiengCuaToi());
+        if (!conSong) return;
+        if (xuLy.loai === "dat") {
+          /* Chỉ đặt cho ĐÚNG người đã hỏi — trong lúc chờ mà phiên đổi người thì bỏ kết quả. */
+          setNguoiSSO((c) => (c && c.uid === nd.uid ? { ...c, quyenRieng: xuLy.quyenRieng } : c));
+        } else if (xuLy.loai === "chan") {
+          console.error("[quyền riêng] đọc lại: mẫu chức danh hỏng — không cho dùng tiếp:", xuLy.lyDo);
+          setNguoiSSO(null);
+          setLoiHoSo(xuLy.lyDo);
+          setDaDangNhap(false);
+        } else {
+          console.warn("[quyền riêng] đọc lại không được — giữ quyền đang có:", xuLy.lyDo);
+        }
+      } finally {
+        dangDoc = false;
+      }
+    }
+    const khiTabHienLai = () => {
+      if (document.visibilityState === "visible") void docLai();
+    };
+    const khiDuocYeuCau = () => void docLai();
+    document.addEventListener("visibilitychange", khiTabHienLai);
+    window.addEventListener(SU_KIEN_DOC_LAI_QUYEN, khiDuocYeuCau);
+    return () => {
+      conSong = false;
+      document.removeEventListener("visibilitychange", khiTabHienLai);
+      window.removeEventListener(SU_KIEN_DOC_LAI_QUYEN, khiDuocYeuCau);
+    };
+  }, []);
+
   const luuPhienMau = useCallback((uidLuu: string, ghiNho: boolean) => {
     try {
       // Xóa ở kho kia trước, tránh còn sót phiên cũ gây lẫn lộn khi đổi lựa chọn.
@@ -353,15 +454,24 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
     // thầm có quyền phân bổ công việc, xác nhận hoàn thành đơn và xem giá, không một dòng
     // báo lỗi. Đừng tin rằng màn chặn ở giao diện đỡ hộ: quyền được tính TRƯỚC khi màn đó
     // kịp dựng, và bất kỳ khối nào vẽ sớm hơn cũng lộ dữ liệu.
+    const nguoiMau = VAI_TRO_MAU.find((v) => v.uid === uidMau) ?? VAI_TRO_MAC_DINH;
+    /* ★ Chế độ mẫu (06/10/2026, gói D): gắn quyền HIỆU LỰC từ kho demo (mẫu chức danh + ngoại lệ — đúng
+       phép gộp máy chủ dùng) vào chính tài khoản mẫu, để `tinhQuyen(nguoiDung)` ở MỌI nơi (menu, nút, tầng
+       ghi `kho-du-lieu.tsx`) đổi theo bảng mẫu demo. `soPhienDemo === 0` = nhịp dựng trang đầu (chưa đọc
+       kho) → hẹp nhất; ngay sau đó React vẽ lại với kho thật. */
     const nguoiDung =
       CHE_DO === "sso"
         ? (nguoiSSO ?? KHONG_QUYEN)
-        : (VAI_TRO_MAU.find((v) => v.uid === uidMau) ?? VAI_TRO_MAC_DINH);
+        : khoDemo && soPhienDemo > 0
+          ? { ...nguoiMau, quyenRieng: khoDemo.quyenRiengCua(nguoiMau) }
+          : { ...nguoiMau, quyenRieng: QUYEN_HEP_NHAT };
 
     return {
       nguoiDung,
       quyen: tinhQuyen(nguoiDung),
-      daDangNhap,
+      /* Chế độ mẫu: chưa đọc kho demo (nhịp dựng trang đầu) thì coi như CHƯA BIẾT đã đăng nhập chưa — màn
+         bảo vệ hiện khoảng trắng, không kịp chuyển hướng theo quyền hẹp tạm thời. */
+      daDangNhap: CHE_DO === "mau" && soPhienDemo === 0 ? null : daDangNhap,
       dangNhapMau,
       dangXuat,
       doiVaiTro,
@@ -370,7 +480,18 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
       loiHoSo,
       dangXuLySSO,
     };
-  }, [uidMau, nguoiSSO, danhSachMayChu, daDangNhap, dangNhapMau, dangXuat, doiVaiTro, loiHoSo, dangXuLySSO]);
+  }, [
+    uidMau,
+    nguoiSSO,
+    danhSachMayChu,
+    daDangNhap,
+    dangNhapMau,
+    dangXuat,
+    doiVaiTro,
+    loiHoSo,
+    dangXuLySSO,
+    soPhienDemo,
+  ]);
 
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

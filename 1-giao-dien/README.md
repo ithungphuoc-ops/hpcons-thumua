@@ -31,6 +31,8 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `bao-gia-danh-sach.tsx` | Danh sách bảng báo giá | `/bao-gia` |
 | `bao-gia-chi-tiet.tsx` | Bảng so sánh giá nhiều nhà cung cấp | `/bao-gia/[id]` |
 | `cong-no.tsx` | Công nợ nhà cung cấp + tuổi nợ 30-60-90 | `/cong-no` |
+| `phan-quyen.tsx` | **Phân quyền người dùng** — tick quyền riêng từng người / nhiều người + ★ **bảng mẫu theo chức danh bấm được** (06/10/2026, `thanh-phan-nghiep-vu/bang-mau-chuc-danh.tsx`), lọc theo chức danh, nút "Bỏ quyền riêng — về theo chức danh". Đọc / ghi qua `4-phan-quyen/nguon-phan-quyen.ts` — **chế độ tài khoản mẫu chạy KHO DEMO** (localStorage), không còn màn trống | `/phan-quyen` |
+| `nhat-ky-he-thong.tsx` | **Nhật ký hệ thống** (chỉ xem). ★ 06/10/2026: lọc `?loc=phan_quyen` (`hanhDong` tiền tố `phan_quyen_`, chỉ trong 200 dòng mới nhất; `useSearchParams` bọc `Suspense`). Chế độ tài khoản mẫu: báo không có nhật ký thay vì kẹt "Đang tải…" | `/nhat-ky-he-thong` |
 | `nha-cung-cap.tsx` | **Danh mục nhà cung cấp** (02/10/2026) — xem (cột đầu là **Mã số thuế**, có **Ghi chú**), **Thêm nhà cung cấp** từng bên, **Xuất Excel**, **Nhập Excel** có xem trước (dòng trùng MST/tên bỏ qua — thêm tay cũng chặn theo đúng luật đó). ★ **Nhóm NCC** (Sếp 02/10/2026, một NCC nhiều nhóm): cột "Nhóm" (mỗi nhóm một nhãn có chữ), **hàng lọc** "Tất cả · từng nhóm (n) · Chưa phân nhóm (n)", **tick chọn nhiều dòng** → "Thêm vào nhóm" / "Bỏ khỏi nhóm", **"Đổi tên nhóm"** khi đang lọc một nhóm (trùng nhóm có sẵn thì gộp), ô "Nhóm NCC" trong hộp thêm. Luật ở `2-quy-trinh/nhom-nha-cung-cap.ts`, ghi qua `datNhomNCC` / `doiTenNhomNCC`. Vào được: `xemQuyTrinhMuaHang && xemNhaCungCap`; nhập/xoá/gán nhóm: `lapPO` | `/nha-cung-cap` |
 
 > Địa chỉ URL do thư mục `app/` quyết định (Next.js). File trong `app/` chỉ có **1 dòng** trỏ về đây.
@@ -80,6 +82,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `khoi-de-xuat-con.tsx` | Khối **"Đã tách thành N đề xuất con"** ở trang chi tiết — gập lại được (Ban lãnh đạo 17/08/2026). Dòng tiêu đề luôn hiện kể cả khi gập, vì giấu đi thì người mở phiếu tưởng khối lượng trên màn là toàn bộ. Bên trong bọc `bang-nang-luc-theo-nhan-vien.tsx` |
 | `timeline-de-nghi.tsx` | Thanh 5 mốc tiến trình đề nghị, gộp từ nhiều PO |
 | `thanh-tien-do.tsx` | Thanh tiến độ nhỏ dùng trong bảng và thẻ |
+| `bang-mau-chuc-danh.tsx` | ★ 06/10/2026 — **Bảng mẫu quyền theo chức danh BẤM ĐƯỢC** ở màn Phân quyền (Sếp: Câu 1 = A · Câu 2 = B · Câu 3 = A). Dòng = `CO_TICK_DUOC` + hai dòng ghi chú G1/G2; cột = `VAI_TRO_CHUAN`; ô khoá + lý do = `lyDoKhongSuaOMau` (CÙNG hàm máy chủ hỏi lại). 🔴 **Chỉ hiện và hỏi luật, không viết luật** — phép tính lưu thật là `tinhLuuMauChucDanh` (màn cha chạy thử trước khi mở hộp xác nhận). Dưới 768px là **Card List** (chọn một chức danh → 18 ô, vùng chạm ≥ 44px). Ô có `sr-only` đều có `relative` (nằm trong khung cuộn ngang) |
 
 ⚠️ **Không dùng lớp `sr-only` bên trong khung cuộn ngang.** `sr-only` là `position:absolute`,
 nó thoát khỏi vùng cắt `overflow-x-hidden` của khung nội dung và kéo giãn cả trang — trên điện
@@ -87,7 +90,7 @@ thoại làm toàn bộ màn hình trôi ngang. Lỗi này đã xảy ra khi là
 
 ## `thanh-phan-dung-chung/` — 10 file
 
-`kpi-card` · `timeline-progress` · `status-badge` · `empty-state` · `skeletons` · `data-table` · `page-header` · `print-document` · `print-toolbar` · `thong-bao-trang-in` · `dung-day-khung-nhin` (hook: khung cuộn dừng đúng đáy màn hình để thanh cuộn ngang luôn thấy — 25/09/2026)
+`kpi-card` · `timeline-progress` · `status-badge` · `empty-state` · `skeletons` · `data-table` · `page-header` · `print-document` · `print-toolbar` · `thong-bao-trang-in` · `dung-day-khung-nhin` (hook: khung cuộn dừng đúng đáy màn hình để thanh cuộn ngang luôn thấy — 25/09/2026) · `o-tich-ba-trang-thai` (★ 06/10/2026 — ô tích bật / tắt / "mỗi người một kiểu" bằng `<input type="checkbox">` gốc, dời từ màn Phân quyền để bảng mẫu chức danh dùng chung; 🔴 KHÔNG dùng `nen-tang-ui/checkbox` — base-ui vẽ dấu tích cả khi "mỗi người một kiểu")
 
 ⚠️ `thong-bao-trang-in.tsx` là **màn báo lỗi riêng của các trang in** (chưa đăng nhập, không đủ
 quyền, không tìm thấy hồ sơ). 🔴 Trang in **không dùng `empty-state`**: trang in nền trắng cố định,

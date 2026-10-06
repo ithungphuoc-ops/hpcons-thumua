@@ -132,7 +132,9 @@ export const VAI_TRO_CHUAN: VaiTroChuan[] = [
   {
     ma: "thu_kho",
     ten: "Thủ kho công trình",
-    moTa: "Lập phiếu nhận hàng từng lần và xác nhận đã nhập kho. 🔒 Không thấy giá.",
+    /* 06/10/2026: bỏ "xác nhận đã nhập kho" — sau GĐ1 (Sếp 17/09/2026) nút "Xác nhận nhận hàng" là việc
+       của thu mua (dòng ghi chú G2); cờ kho chỉ còn mở mục Theo dõi đơn hàng + đính phiếu giao nhận. */
+    moTa: "Đính / bổ sung phiếu giao nhận cho từng lần giao, theo dõi tiến độ đơn hàng. 🔒 Không thấy giá.",
     chucNang: "thu_kho_cong_trinh",
     vaiTro: "staff",
     capTM: 1,
@@ -150,7 +152,8 @@ export const VAI_TRO_CHUAN: VaiTroChuan[] = [
   {
     ma: "nhan_vien_kho_tong",
     ten: "NV Kho tổng",
-    moTa: "Nhận việc xuất kho, lập phiếu xuất kho (PO-03), nhận hàng và xác nhận nhập kho. 🔒 Không thấy giá.",
+    /* 06/10/2026: bỏ "nhận hàng và xác nhận nhập kho" — cùng lý do với Thủ kho ở trên (G2, Sếp 17/09/2026). */
+    moTa: "Nhận việc xuất kho, lập phiếu xuất kho (PO-03), đính phiếu giao nhận và theo dõi đơn hàng. 🔒 Không thấy giá.",
     chucNang: "nhan_vien_kho_tong",
     vaiTro: "staff",
     capTM: 2,
@@ -249,30 +252,8 @@ export function quyenCuaVaiTro(v: VaiTroChuan): Quyen {
   return tinhQuyen(nguoiGia);
 }
 
-/**
- * Các việc đưa lên bảng đối chiếu, kèm nhãn tiếng Việt.
- *
- * ⚠️ CỐ Ý KHÔNG LIỆT KÊ HẾT mọi cờ trong `Quyen`. Bảng này để người phân quyền **quyết định**,
- * nên chỉ giữ những việc họ thật sự cân nhắc khi trao quyền. Bày cả `xuatHoSo` hay `taoDeNghi`
- * (vốn mở cho mọi tài khoản) chỉ làm bảng dài ra mà không giúp quyết định gì.
- *
- * 🔴 Xếp việc NHẠY CẢM lên đầu: xem giá và xem nhà cung cấp là hai thứ Ban lãnh đạo đã chốt phải
- * chặn với thủ kho và Phòng Thi công. Người phân quyền phải nhìn thấy chúng trước tiên.
- */
-export const VIEC_TREN_BANG_DOI_CHIEU: { khoa: keyof Quyen; nhan: string }[] = [
-  { khoa: "xemGia", nhan: "Xem giá" },
-  { khoa: "xemNhaCungCap", nhan: "Xem nhà cung cấp" },
-  { khoa: "xemQuyTrinhMuaHang", nhan: "Vào Quy trình mua hàng" },
-  { khoa: "phanBoCongViec", nhan: "Phân bổ công việc" },
-  { khoa: "lapPO", nhan: "Lập đơn mua hàng" },
-  /* Thêm 29/08/2026 cùng tính năng "PO chờ đề nghị" — cùng mức nhạy cảm với `suaPODaChot`/
-     `xacNhanTruongBP` (lập được PO thật, tính công nợ ngay, KHÔNG cần đề nghị nào trước), nên
-     phải hiện trong bảng đối chiếu để người phân quyền thấy rõ ai đang có quyền này. */
-  { khoa: "taoPoDoiLap", nhan: "Lập PO độc lập (chờ đề nghị)" },
-  { khoa: "suaPODaChot", nhan: "Sửa đơn đã chốt" },
-  { khoa: "ghiPhieuNhanHang", nhan: "Ghi phiếu nhận hàng" },
-  { khoa: "xacNhanKho", nhan: "Xác nhận nhập kho" },
-  { khoa: "xacNhanTruongBP", nhan: "Xác nhận hoàn thành đơn" },
-  { khoa: "xemCongNo", nhan: "Xem công nợ" },
-  { khoa: "phanQuyenNguoiDung", nhan: "Phân quyền người dùng" },
-];
+/* 📌 ĐÃ BỎ `VIEC_TREN_BANG_DOI_CHIEU` (06/10/2026, gói D phân quyền — Sếp chốt Câu 1 = A "bấm thẳng vào
+   bảng mẫu"). Danh sách 12 việc chép tay đó là nguồn THỨ HAI cho dòng của bảng "chức danh nào mặc định
+   làm được gì" (thiếu 7 ô tick được, nhãn đã cũ). Bảng mẫu nay lấy dòng từ MỘT nguồn: `CO_TICK_DUOC`
+   (`quyen-rieng.ts`) + hai dòng ghi chú `DONG_GHI_CHU_MAU` (`mau-chuc-danh.ts`). Đã đo trước khi xoá:
+   chỉ `1-giao-dien/trang/phan-quyen.tsx` dùng nó, route của phiên tích hợp không nạp. Đừng thêm lại. */

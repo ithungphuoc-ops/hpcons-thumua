@@ -783,26 +783,32 @@ export default function TrangDanhSachDeNghi() {
          * nào để cất, mà cờ `batBuocLyDo` của tầng luật đòi hồ sơ phải có vết — không ghi là bỏ
          * qua chỉ đạo, ghi vào nhật ký là chỗ đúng nhất còn lại.
          *
-         * ⚠️ GHI TRƯỚC KHI LÙI, cố ý: nhánh lùi về ① có thể GỘP các bản tách rồi XOÁ phiếu đang
-         * kéo, và sau đó không còn hồ sơ nào để ghi vào. Ghi trước thì ca thường gặp (không gộp)
-         * chắc chắn có vết; ca gộp mất phiếu thì vẫn mất — đúng giới hạn `luiVeBuoc` đã tự ghi
-         * chú, không sửa được từ tệp này.
+         * ★ GHI SAU KHI LÙI THÀNH CÔNG — bổ sung đặc tả A-F1 (06/10/2026). Từ GĐ2 `luiVeBuoc` có chốt
+         * QUYỀN ở đầu hàm (`vuongMacQuyenLuiVe`) nên CÓ THỂ TỪ CHỐI; bản trước ghi lý do TRƯỚC khi gọi
+         * → bị từ chối mà hồ sơ vẫn có dòng "Lý do lùi bước" cho một lượt lùi KHÔNG HỀ XẢY RA.
+         * 📌 Ca lùi về ① GỘP các bản tách (có thể XOÁ chính phiếu đang kéo): ghi vào PHIẾU GỐC còn lại
+         * (`deNghiGocId` của thẻ, vắng thì chính nó) — `ghiLichSuDeNghi` cập nhật theo hàm nên chạy sau
+         * phần gộp của `luiVeBuoc`, phiếu gốc lúc đó còn nguyên.
          *
          * ⚠️ Lý do hiện trong Lịch sử hồ sơ — nơi cả vai trò KHÔNG được xem nhà cung cấp cũng
          * đọc được (§7). Ô nhập bên dưới nói rõ điều đó cho người gõ biết mà tránh nêu tên NCC.
          */
         const traLai = hanhDong.ve === "yeu_cau_bao_gia" && lyDo ? { lyDo } : undefined;
-        if (lyDo && !traLai) {
-          ghiLichSuDeNghi(prId, nguoiDung.tenHienThi, `Lý do lùi bước: ${lyDo}`);
-        }
         // Hủy chứng từ tương ứng để thẻ thật sự về bước trước — xem `luiVeBuoc`.
         const gop = luiVeBuoc(prId, hanhDong.ve, nguoiDung.tenHienThi, traLai);
-        /* Nhánh `{ loi }` phát sinh khi TRẢ LẠI báo giá mà chưa bảng nào được trình.
+        /* Nhánh `{ loi }`: chốt quyền GĐ2 từ chối, hoặc TRẢ LẠI báo giá mà chưa bảng nào được trình.
            ★ 15/09/2026: đường này NAY CÓ truyền `traLai` (nhánh ③→②, xem khối trên) nên nhánh lỗi
            đã tới được thật — không còn là phép kiểm phòng xa. Bỏ nó đi là "báo thành công giả". */
         if (gop && "loi" in gop) {
           toast.error("Chưa lùi được", { description: gop.loi });
           break;
+        }
+        if (lyDo && !traLai) {
+          ghiLichSuDeNghi(
+            gop ? (the.deNghi.deNghiGocId ?? prId) : prId,
+            nguoiDung.tenHienThi,
+            `Lý do lùi bước: ${lyDo}`,
+          );
         }
         /* 🔴 NÓI ĐÚNG CHUYỆN VỪA XẢY RA (22/08/2026). Lùi về bước ① có thể GỘP các bản tách trở
            lại phiếu gốc, và khi đó chính thẻ vừa kéo có thể không còn. Báo *"{mã} về Tiếp nhận"*

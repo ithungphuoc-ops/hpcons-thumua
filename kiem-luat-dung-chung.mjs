@@ -4454,6 +4454,403 @@ kiem(
 );
 
 // ════════════════════════════════════════════════════════════════════
+// ★★ GĐ2 — CHỐT QUYỀN Ở TẦNG GHI — Sếp 06/10/2026 (kế hoạch phân quyền đã duyệt)
+//
+// Rà phân quyền 06/10/2026 đo được 16 cửa ghi chỉ kiểm ĐIỀU KIỆN NGHIỆP VỤ, không hỏi người đang
+// bấm là ai — chỉ giao diện ẩn nút. Năm bài dưới canh: hàm chốt chung (hai chiều), luật lùi bước
+// ở tầng ghi (hai chiều + ca ngoài bảng), vị trí chốt trong 16 hàm (có chốt dương tính), Cài đặt
+// quy trình gác cùng một cờ ở mọi lớp, và nút gắn đề nghị khớp tầng ghi.
+// ⚠️ KHÔNG so chữ nhãn ô quyền cứng — nhãn đổi song song ở gói khác (`CO_TICK_DUOC`).
+// ════════════════════════════════════════════════════════════════════
+
+/* ---------- Bộ đọc mã nhỏ cho bài kiểm đọc mã nguồn (bổ sung đặc tả A-F3, 06/10/2026) ----------
+   Cắt thân hàm bằng ĐẾM NGOẶC chứ không bằng "câu lệnh kế tiếp thụt 2 dấu cách": mốc thụt lề trượt là
+   khối bị cắt cụt / nuốt sang hàm khác mà bài vẫn có thể xanh. Bỏ qua ngoặc nằm trong chuỗi, template,
+   regex và chú thích. Hàm `function` khai ở cấp ngoài cùng nên khối kiểm nào phía dưới cũng gọi được. */
+function ketThucChuoiMa(s, j) {
+  const q = s[j];
+  for (let k = j + 1; k < s.length; k++) {
+    if (s[k] === "\\") { k++; continue; }
+    if (s[k] === q) return k + 1;
+    if (s[k] === "\n") return k;
+  }
+  return s.length;
+}
+function ketThucTemplateMa(s, j) {
+  for (let k = j + 1; k < s.length; k++) {
+    if (s[k] === "\\") { k++; continue; }
+    if (s[k] === "`") return k + 1;
+    if (s[k] === "$" && s[k + 1] === "{") {
+      const d = viTriNgoacDong(s, k + 1);
+      if (d < 0) return s.length;
+      k = d;
+    }
+  }
+  return s.length;
+}
+function ketThucRegexMa(s, j) {
+  let lop = false;
+  for (let k = j + 1; k < s.length; k++) {
+    const c = s[k];
+    if (c === "\\") { k++; continue; }
+    if (c === "\n") return k;
+    if (lop) { if (c === "]") lop = false; continue; }
+    if (c === "[") { lop = true; continue; }
+    if (c === "/") { let e = k + 1; while (/[a-z]/i.test(s[e] ?? "")) e++; return e; }
+  }
+  return s.length;
+}
+/** `/` ở vị trí `k` mở regex không (đoán theo ký tự có nghĩa đứng trước — đủ cho mã của dự án). */
+function laDauRegexMa(s, k, viTriTruoc) {
+  if (s[k + 1] === "/" || s[k + 1] === "*") return false;
+  if (viTriTruoc < 0) return true;
+  const c = s[viTriTruoc];
+  if ("(,=:[!&|?{};+-*%<>~^".includes(c)) return true;
+  if (/[\w$]/.test(c)) {
+    let b = viTriTruoc;
+    while (b > 0 && /[\w$]/.test(s[b - 1])) b--;
+    return /^(return|typeof|case|in|of|delete|void|throw|new|else|do|yield|await)$/.test(s.slice(b, viTriTruoc + 1));
+  }
+  return false;
+}
+/** Vị trí ngoặc đóng khớp với ngoặc mở `s[i]` ∈ ( [ {, hoặc -1. */
+function viTriNgoacDong(s, i) {
+  const cap = { "(": ")", "[": "]", "{": "}" };
+  const ngan = [];
+  let truoc = -1;
+  for (let k = i; k < s.length; k++) {
+    const c = s[k];
+    if (c === "/" && s[k + 1] === "/") { const e = s.indexOf("\n", k); if (e < 0) return -1; k = e; continue; }
+    if (c === "/" && s[k + 1] === "*") { const e = s.indexOf("*/", k + 2); if (e < 0) return -1; k = e + 1; continue; }
+    if (c === '"' || c === "'") { const e = ketThucChuoiMa(s, k); truoc = e - 1; k = e - 1; continue; }
+    if (c === "`") { const e = ketThucTemplateMa(s, k); truoc = e - 1; k = e - 1; continue; }
+    if (c === "/" && laDauRegexMa(s, k, truoc)) { const e = ketThucRegexMa(s, k); truoc = e - 1; k = e - 1; continue; }
+    if (cap[c]) ngan.push(cap[c]);
+    else if (c === ")" || c === "]" || c === "}") {
+      if (ngan.pop() !== c) return -1;
+      if (ngan.length === 0) return k;
+    }
+    if (!/\s/.test(c)) truoc = k;
+  }
+  return -1;
+}
+/** Bỏ chú thích bằng cách ĐI QUA mã (chuỗi / template / regex chứa "//" hay "/*" vẫn còn nguyên). */
+function boChuThichMa(s) {
+  let ra = "";
+  let truoc = -1;
+  let k = 0;
+  while (k < s.length) {
+    const c = s[k];
+    if (c === "/" && s[k + 1] === "/") { const e = s.indexOf("\n", k); k = e < 0 ? s.length : e; continue; }
+    if (c === "/" && s[k + 1] === "*") { const e = s.indexOf("*/", k + 2); ra += " "; k = e < 0 ? s.length : e + 2; continue; }
+    let e = -1;
+    if (c === '"' || c === "'") e = ketThucChuoiMa(s, k);
+    else if (c === "`") e = ketThucTemplateMa(s, k);
+    else if (c === "/" && laDauRegexMa(s, k, truoc)) e = ketThucRegexMa(s, k);
+    if (e > k) {
+      ra += s.slice(k, e);
+      truoc = ra.length - 1;
+      k = e;
+      continue;
+    }
+    ra += c;
+    if (!/\s/.test(c)) truoc = ra.length - 1;
+    k += 1;
+  }
+  return ra;
+}
+/** Các đối số cấp ngoài cùng của lời gọi có ngoặc mở ở `i` (mã ĐÃ bỏ chú thích). `null` = không khớp ngoặc. */
+function doiSoLoiGoi(s, i) {
+  const d = viTriNgoacDong(s, i);
+  if (d < 0) return null;
+  const ra = [];
+  let dau = i + 1;
+  for (let k = i + 1; k < d; k++) {
+    const c = s[k];
+    let e = -1;
+    if (c === '"' || c === "'") e = ketThucChuoiMa(s, k);
+    else if (c === "`") e = ketThucTemplateMa(s, k);
+    else if ("([{".includes(c)) e = viTriNgoacDong(s, k) + 1;
+    if (e > k) { k = e - 1; continue; }
+    if (c === ",") { ra.push(s.slice(dau, k)); dau = k + 1; }
+  }
+  const cuoi = s.slice(dau, d);
+  if (cuoi.trim() !== "" || ra.length > 0) ra.push(cuoi);
+  return ra.map((x) => x.trim()).filter((x, idx, mang) => x !== "" || idx < mang.length - 1);
+}
+
+kiem(
+  "GĐ2: vuongMacThieuQuyen chặn khi thiếu cờ, cho qua khi có (lapPO · xacNhanTruongBP · xoaToanBoDuLieu · phanQuyenNguoiDung · ghiThanhToan)",
+  "Sếp · 06/10/2026 · kế hoạch phân quyền GĐ2 — tầng ghi hỏi đúng cờ của nút",
+  () => {
+    const CO = ["lapPO", "xacNhanTruongBP", "xoaToanBoDuLieu", "phanQuyenNguoiDung", "ghiThanhToan"];
+    const du = Object.fromEntries(CO.map((c) => [c, true]));
+    const sai = [];
+    for (const co of CO) {
+      /* Chiều chặn: CHỈ thiếu đúng cờ đang hỏi, bốn cờ kia đều có — để cờ khác không "gánh hộ". */
+      const chan = KD.vuongMacThieuQuyen({ ...du, [co]: false }, co, "làm việc thử");
+      if (!(typeof chan === "string" && chan.trim() !== "" && chan.includes("“") && chan.includes("”"))) {
+        sai.push(`${co} thiếu → ${JSON.stringify(chan)}`);
+      }
+      /* Chiều ngược: có cờ thì phải đi được — chặn vô điều kiện là cả phòng đứng hình. */
+      const qua = KD.vuongMacThieuQuyen({ ...du }, co, "làm việc thử");
+      if (qua !== null) sai.push(`${co} có → ${JSON.stringify(qua)}`);
+    }
+    /* `vuongMacQuyenGhiThanhToan` nay đi qua hàm chung (câu cũ sót NV thu mua cấp 2) — canh luôn hai chiều. */
+    const ttChan = KD.vuongMacQuyenGhiThanhToan({ ghiThanhToan: false });
+    const ttQua = KD.vuongMacQuyenGhiThanhToan({ ghiThanhToan: true });
+    if (!(typeof ttChan === "string" && ttChan !== "")) sai.push(`ghiThanhToan(false) → ${JSON.stringify(ttChan)}`);
+    if (ttQua !== null) sai.push(`ghiThanhToan(true) → ${JSON.stringify(ttQua)}`);
+    return {
+      duoc: sai.length === 0,
+      thucTe: sai.length ? sai.join(" · ").slice(0, 400) : "đủ 5 cờ × 2 chiều + ghi thanh toán",
+      mongDoi: "thiếu cờ → câu có “tên quyền”; có cờ → null",
+    };
+  },
+);
+
+kiem(
+  "GĐ2: lùi bước theo đúng cặp; về bước ngoài bảng thì CHẶN kể cả đủ quyền",
+  "Kế hoạch phân quyền 06/10/2026 (Sếp duyệt) · bảng lùi vaiTroDuocLui",
+  () => {
+    /* ve → cờ đúng của cặp (tu ← ve) theo `vaiTroDuocLui`. */
+    const BANG = {
+      tiep_nhan: "phanBoCongViec",
+      yeu_cau_bao_gia: "xacNhanTruongBP",
+      xet_duyet_bao_gia: "xacNhanTruongBP",
+      lap_don_mua_hang: "phanBoCongViec",
+    };
+    const sai = [];
+    for (const [ve, co] of Object.entries(BANG)) {
+      const khac = co === "phanBoCongViec" ? "xacNhanTruongBP" : "phanBoCongViec";
+      const dung = G.vuongMacQuyenLuiVe(ve, { [co]: true, [khac]: false });
+      const chiCoKhac = G.vuongMacQuyenLuiVe(ve, { [co]: false, [khac]: true });
+      const khongCo = G.vuongMacQuyenLuiVe(ve, { phanBoCongViec: false, xacNhanTruongBP: false });
+      if (dung !== null) sai.push(`${ve} có ${co} → ${JSON.stringify(dung)}`);
+      if (typeof chiCoKhac !== "string" || chiCoKhac === "") sai.push(`${ve} chỉ có ${khac} → LỌT`);
+      if (typeof khongCo !== "string" || khongCo === "") sai.push(`${ve} không cờ nào → LỌT`);
+    }
+    /* 🔴 Ca ngoài bảng: `vuongMacQuyenLui` trả null với cặp không lùi được — tầng ghi phải tự chặn. */
+    for (const ve of ["dat_hang", "hoan_thanh", "xac_nhan_kho"]) {
+      const r = G.vuongMacQuyenLuiVe(ve, { phanBoCongViec: true, xacNhanTruongBP: true });
+      if (typeof r !== "string" || r === "") sai.push(`ve=${ve} đủ quyền → LỌT (${JSON.stringify(r)})`);
+    }
+    return {
+      duoc: sai.length === 0,
+      thucTe: sai.length ? sai.join(" · ").slice(0, 400) : "4 cặp × 3 ca + 3 bước ngoài bảng đều đúng",
+      mongDoi: "cờ đúng → null; cờ sai / không cờ → câu chặn; bước ngoài bảng → câu chặn",
+    };
+  },
+);
+
+kiem(
+  "GĐ2: 16 cửa ghi gọi chốt quyền ĐẦU hàm, có nguoiDung trong phụ thuộc (đọc mã đã bỏ chú thích)",
+  "Sếp · 06/10/2026 · kế hoạch phân quyền GĐ2 — tầng ghi hỏi đúng cờ của nút",
+  () => {
+    /* ★ Bổ sung đặc tả A-F3 (06/10/2026) — đổi CÁCH ĐO, không đổi luật được canh:
+         · bỏ chú thích bằng bộ đọc mã (`boChuThichMa`), không bằng regex trơn;
+         · cắt thân hàm bằng ĐẾM NGOẶC từ `useCallback(` tới ngoặc đóng khớp (bản trước cắt theo "câu
+           lệnh kế tiếp thụt 2 dấu cách" — thụt lề trượt là cắt cụt / nuốt sang hàm khác);
+         · chốt phải đứng trước MỌI lệnh ghi: `set[A-Z]…(` · `ghiLichSu…(` · `xinMaMayChu(` ·
+           `…Ref.current =` · `ghiNhatKyHeThong(` · `await ` (bản trước chỉ đòi trước `set*` và
+           `xinMaMayChu`);
+         · mảng phụ thuộc phải có `nguoiDung` TRẦN (`\bnguoiDung\b(?!\.)`) — `[nguoiDung.uid]` không đủ:
+           đổi tick quyền thì `uid` không đổi, hàm giữ quyền CŨ trong bao đóng.
+       Phép thử đột biến (06/10/2026): tạm đặt `[nguoiDung.uid]` cho một cửa / chèn `ghiLichSuDeNghi(` trước
+       chốt → bài này ĐỎ (bản đo cũ vẫn xanh ở cả hai ca). */
+    const nguon = boChuThichMa(readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8"));
+    const khoi = (ten) => {
+      const m = new RegExp(`const ${ten} = useCallback\\(`).exec(nguon);
+      if (!m) return "";
+      const mo = m.index + m[0].length - 1;
+      const dong = viTriNgoacDong(nguon, mo);
+      return dong < 0 ? "" : nguon.slice(m.index, dong + 1);
+    };
+    const goiCo = (co) =>
+      new RegExp(`vuongMacThieuQuyen\\(\\s*tinhQuyen\\(\\s*nguoiDung\\s*\\)\\s*,\\s*"${co}"`);
+    const CUA = [
+      ["chonNCCChoBaoGia", goiCo("xacNhanTruongBP")],
+      ["hoanThanhQuyTrinh", goiCo("xacNhanTruongBP")],
+      ["luuCauHinhQuyTrinh", goiCo("phanQuyenNguoiDung")],
+      ["xoaNhieuDeNghi", goiCo("xoaToanBoDuLieu")],
+      ["ganDeNghiVaoPO", goiCo("lapPO")],
+      ["themNhaCungCap", goiCo("lapPO")],
+      ["themNhieuNhaCungCap", goiCo("lapPO")],
+      ["xoaNhaCungCap", goiCo("lapPO")],
+      ["luiVeBuoc", /vuongMacQuyenLuiVe\(\s*ve\s*,\s*tinhQuyen\(\s*nguoiDung\s*\)\s*\)/],
+      ["themDonHang", goiCo("lapPO")],
+      ["doiTrangThaiBaoGiaTheoDeNghi", goiCo("lapPO")],
+      ["trinhXetDuyetBaoGiaChoDeNghi", goiCo("lapPO")],
+      ["themThuKho", goiCo("lapPO")],
+      ["xoaThuKho", goiCo("lapPO")],
+      ["xoaDeNghi", goiCo("xoaToanBoDuLieu")],
+      ["xoaDuLieuChayThu", goiCo("xoaToanBoDuLieu")],
+      /* ★ CHỐT DƯƠNG TÍNH: `chotDonNhap` có chốt từ 15/09/2026 — phép đo sai (cắt hỏng, regex hỏng)
+         thì chính dòng này đỏ, không để 16 dòng trên "xanh" vì đo trượt. */
+      ["chotDonNhap", /vuongMacQuyenChotDonNhap\(\s*tinhQuyen\(\s*nguoiDung\s*\)\s*\)/],
+    ];
+    const sai = [];
+    for (const [ten, re] of CUA) {
+      const k = khoi(ten);
+      if (k.length <= 200) {
+        sai.push(`${ten}: khối ${k.length} ký tự (neo trượt?)`);
+        continue;
+      }
+      const m = re.exec(k);
+      if (!m) {
+        sai.push(`${ten}: KHÔNG có lời gọi chốt đúng cờ`);
+        continue;
+      }
+      const viTriChot = m.index;
+      const truocNhung = [
+        /\bset[A-Z]\w*\(/,
+        /\bghiLichSu\w*\(/,
+        /\bxinMaMayChu\(/,
+        /\b\w+Ref\.current\s*=(?!=)/,
+        /\bghiNhatKyHeThong\(/,
+        /\bawait\s/,
+      ];
+      for (const reSau of truocNhung) {
+        const s = reSau.exec(k);
+        if (s && s.index < viTriChot) sai.push(`${ten}: chốt đứng SAU ${s[0].trim()}`);
+      }
+      /* Khối kết thúc ở ngoặc đóng của `useCallback(` → đối số cuối là mảng phụ thuộc. */
+      const pt = /\[([^[\]]*)\]\s*,?\s*\)$/.exec(k);
+      if (!pt) sai.push(`${ten}: không đọc được mảng phụ thuộc`);
+      else if (!/\bnguoiDung\b(?!\s*\??\.)/.test(pt[1])) {
+        sai.push(`${ten}: phụ thuộc [${pt[1].trim()}] thiếu nguoiDung (trần)`);
+      }
+    }
+    return {
+      duoc: sai.length === 0,
+      thucTe: sai.length ? sai.join(" · ").slice(0, 500) : "16 cửa + chốt dương tính đều đạt",
+      mongDoi:
+        "mỗi cửa: khối (đếm ngoặc) >200 ký tự · gọi chốt đúng cờ · chốt trước set*/ghiLichSu*/xinMaMayChu/…Ref.current=/ghiNhatKyHeThong/await · nguoiDung trần trong phụ thuộc",
+    };
+  },
+);
+
+kiem(
+  "Cài đặt quy trình gác bằng Phân quyền người dùng ở cả ba lớp + hộp hướng dẫn bước",
+  'Kế hoạch 06/10/2026 (Sếp duyệt) — ý gốc Ban lãnh đạo 13/08/2026 "chỉ Trưởng bộ phận và Quản trị"',
+  () => {
+    const ai = (them) =>
+      PQ.tinhQuyen({
+        uid: "u-thu",
+        tenHienThi: "Nguoi thu",
+        chucDanh: "",
+        vaiTro: "staff",
+        chucNang: "nhan_vien_thu_mua",
+        capTM: 2,
+        ...them,
+      });
+    const vao = (q) => PQ.duocVaoDuongDan("/cai-dat-quy-trinh", q);
+    const kq = {
+      tbp: vao(ai({ chucNang: "truong_bo_phan_thu_mua", capTM: 3 })),
+      qt: vao(ai({ vaiTro: "admin", capTM: 4 })),
+      nv: vao(ai({})),
+      /* 🔴 Chiều quan trọng nhất: NV được tick riêng "Sửa đơn đã chốt" KHÔNG vào được nữa — đó
+         chính là lỗ hổng của cờ cũ. Đè thẳng lên kết quả `tinhQuyen` để không phụ thuộc luật tick. */
+      nvCoSuaPO: vao({ ...ai({}), suaPODaChot: true }),
+    };
+    const boCT = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+    const dh = boCT(readFileSync("2-quy-trinh/dieu-huong.ts", "utf8"));
+    const iHref = dh.indexOf('href: "/cai-dat-quy-trinh"');
+    const iHet = iHref < 0 ? -1 : dh.indexOf("\n  },", iHref);
+    const mucMenu = iHref < 0 || iHet < 0 ? "" : dh.slice(iHref, iHet);
+    const trang = boCT(readFileSync("1-giao-dien/trang/cai-dat-quy-trinh.tsx", "utf8"));
+    const hop = boCT(readFileSync("1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan.tsx", "utf8"));
+    const doc = {
+      menuDung: /duocThay:\s*\(q\)\s*=>\s*q\.phanQuyenNguoiDung\b/.test(mucMenu),
+      menuKhongSuaPO: mucMenu !== "" && !/suaPODaChot/.test(mucMenu),
+      trangDung: /!quyen\.phanQuyenNguoiDung\b/.test(trang) && !/quyen\.suaPODaChot/.test(trang),
+      hopDung: /duocSua\s*=\s*quyen\.phanQuyenNguoiDung\b/.test(hop) && !/quyen\.suaPODaChot/.test(hop),
+    };
+    return {
+      duoc:
+        kq.tbp === true && kq.qt === true && kq.nv === false && kq.nvCoSuaPO === false &&
+        doc.menuDung && doc.menuKhongSuaPO && doc.trangDung && doc.hopDung,
+      thucTe: JSON.stringify({ ...kq, ...doc }),
+      mongDoi: "tbp=true qt=true nv=false nvCoSuaPO=false · menu/trang/hộp đều đọc phanQuyenNguoiDung, không còn suaPODaChot",
+    };
+  },
+);
+
+kiem(
+  "Nút gắn đề nghị (PO chờ) chỉ dựng khi có Làm việc thu mua — khớp ganDeNghiVaoPO",
+  "Sếp · 06/10/2026 · kế hoạch phân quyền GĐ2 — tầng ghi hỏi đúng cờ của nút",
+  () => {
+    const ma = readFileSync("1-giao-dien/trang/don-hang-chi-tiet.tsx", "utf8")
+      .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(^|\s)\/\/.*$/gm, "$1");
+    const viTri = [];
+    for (let i = ma.indexOf("<HopGanDeNghi"); i >= 0; i = ma.indexOf("<HopGanDeNghi", i + 1)) viTri.push(i);
+    const thieu = viTri.filter((i) => !ma.slice(Math.max(0, i - 400), i).includes("quyen.lapPO"));
+    /* Chiều ngược: không có quyền thì phải NÓI vì sao (gọi tên ô quyền), không để ô trống như app lỗi. */
+    const coCauLyDo = /nhanCoTick\(\s*"lapPO"\s*\)/.test(ma);
+    return {
+      duoc: viTri.length > 0 && thieu.length === 0 && coCauLyDo,
+      thucTe: JSON.stringify({ soNut: viTri.length, khongGac: thieu.length, coCauLyDo }),
+      mongDoi: "có ít nhất 1 <HopGanDeNghi, mọi chỗ đều có quyen.lapPO trong 400 ký tự trước · có câu lý do nhanCoTick(\"lapPO\")",
+    };
+  },
+);
+
+kiem(
+  "A-F1: lý do lùi bước ghi vào lịch sử SAU KHI luiVeBuoc thành công — bị chốt quyền từ chối thì KHÔNG có dòng lùi ma",
+  "Bổ sung đặc tả A-F1 · 06/10/2026 (phản biện sau gói A — GĐ2 Sếp duyệt) · de-nghi-danh-sach.tsx",
+  () => {
+    /* Từ GĐ2 `luiVeBuoc` có chốt QUYỀN đầu hàm nên có thể từ chối. Ghi lý do TRƯỚC khi gọi là hồ sơ có
+       dòng "Lý do lùi bước" cho một lượt lùi không hề xảy ra. Đo trên mã đã bỏ chú thích, cắt khối
+       `case "lui_buoc": { … }` bằng đếm ngoặc. Chiều ngược: lý do VẪN được ghi (không bị vứt), vẫn gác
+       `lyDo && !traLai` (nhánh ③→② cất lý do vào bảng báo giá qua `traLai`). */
+    const ma = boChuThichMa(readFileSync("1-giao-dien/trang/de-nghi-danh-sach.tsx", "utf8"));
+    const iCase = ma.indexOf('case "lui_buoc": {');
+    const iMo = iCase < 0 ? -1 : ma.indexOf("{", iCase);
+    const iDong = iMo < 0 ? -1 : viTriNgoacDong(ma, iMo);
+    const khoi = iDong < 0 ? "" : ma.slice(iMo, iDong + 1);
+    const iLui = khoi.search(/\bluiVeBuoc\(/);
+    const iLoi = khoi.search(/if\s*\(\s*gop\s*&&\s*"loi"\s+in\s+gop\s*\)\s*\{/);
+    const iHetLoi = iLoi < 0 ? -1 : viTriNgoacDong(khoi, khoi.indexOf("{", iLoi));
+    const ghi = [...khoi.matchAll(/\bghiLichSuDeNghi\(/g)].map((x) => x.index);
+    const iGac = khoi.search(/if\s*\(\s*lyDo\s*&&\s*!traLai\s*\)/);
+    const coCauLyDo = /Lý do lùi bước: \$\{lyDo\}/.test(khoi);
+    const duoc =
+      khoi.length > 300 && iLui >= 0 && iHetLoi > iLui && ghi.length === 1 && ghi[0] > iHetLoi &&
+      iGac > iHetLoi && iGac < ghi[0] && coCauLyDo;
+    return {
+      duoc,
+      thucTe: JSON.stringify({ khoi: khoi.length, iLui, iHetLoi, ghi, iGac, coCauLyDo }),
+      mongDoi: "khối >300 · 1 lời ghiLichSuDeNghi, đứng SAU luiVeBuoc( và sau khối `if (gop && \"loi\" in gop) {…}` · gác `if (lyDo && !traLai)` · còn câu \"Lý do lùi bước: ${lyDo}\"",
+    };
+  },
+);
+
+kiem(
+  "A-F2: câu chặn tầng ghi không ghi cứng \"Nhờ Trưởng bộ phận hoặc Quản trị\" — nói \"người có quyền này (hoặc Quản trị)\" cho cả 5 cờ",
+  "Bổ sung đặc tả A-F2 · 06/10/2026 — xoaToanBoDuLieu chỉ Quản trị có, ghiThanhToan người làm chính là Kế toán",
+  () => {
+    const CO = ["lapPO", "xacNhanTruongBP", "xoaToanBoDuLieu", "phanQuyenNguoiDung", "ghiThanhToan"];
+    const sai = [];
+    for (const co of CO) {
+      const chan = KD.vuongMacThieuQuyen({ [co]: false }, co, "làm việc thử");
+      if (typeof chan !== "string" || !chan.includes("Nhờ người có quyền này (hoặc Quản trị) làm giúp.")) {
+        sai.push(`${co}: thiếu câu mới (${JSON.stringify(chan)})`);
+      }
+      if (typeof chan === "string" && /Nhờ Trưởng bộ phận hoặc Quản trị/.test(chan)) sai.push(`${co}: còn câu cũ`);
+      /* Chiều ngược: có cờ thì không chặn. */
+      if (KD.vuongMacThieuQuyen({ [co]: true }, co, "làm việc thử") !== null) sai.push(`${co}: có cờ vẫn chặn`);
+    }
+    return {
+      duoc: sai.length === 0,
+      thucTe: sai.length ? sai.join(" · ").slice(0, 400) : "5 cờ × 2 chiều đúng câu mới",
+      mongDoi: "thiếu cờ → câu có \"Nhờ người có quyền này (hoặc Quản trị) làm giúp.\", không còn \"Nhờ Trưởng bộ phận hoặc Quản trị\"; có cờ → null",
+    };
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════
 // ★★★ GHI NHẬN GIAO HÀNG BẰNG TAY — CHỈ HỒ SƠ PHÒNG BAN — Sếp 15/09/2026
 //
 // Nguyên văn: *"E mở cho nhánh phòng ban"* và *"Đúng, nhân viên thu mua tự hoàn thành, **nhưng
@@ -4575,6 +4972,424 @@ kiem(
     };
   },
 );
+
+// ════════════════════════════════════════════════════════════════════
+// ★★★ GÓI C — MÁY CHỦ PHÂN QUYỀN (GĐ3.5 route + GĐ4b/4c) — Sếp 06/10/2026
+//
+// Mẫu chức danh sửa được (Câu 1 = A · Câu 2 = B · Câu 3 = A) đi vào HAI cửa máy chủ:
+// `app/api/quyen-rieng` (GET quyền đã gộp mẫu, POST tick / bỏ quyền riêng) và `app/api/quyen-mau-chuc-danh`
+// (POST sửa bảng mẫu), cùng phần dùng chung `5-ket-noi/phan-quyen-may-chu.ts`. Kèm bổ sung đặc tả sau
+// phản biện C-F1…C-F5.
+//
+// 📌 CÁCH ĐO: ĐỌC MÃ NGUỒN đã bỏ chú thích (`boChuThichMa` — đi qua mã, chuỗi chứa "//" vẫn còn) và đòi
+// độ dài tối thiểu, để mốc trượt / tệp mất thì bài ĐỎ chứ không xanh giả. KHÔNG dựng route bằng esbuild
+// (route kéo theo `firebase-admin`). Hai chỗ gọi THẬT: hàm thuần `laQuanTriKhongCanMau` được TÁCH đúng
+// thân ra khỏi tệp máy chủ rồi gọi; phép tính lưu `tinh-luu-phan-quyen.ts` dựng trong thư mục tạm RIÊNG
+// của khối này (tạo trong `try`, xoá trong `finally`).
+// ════════════════════════════════════════════════════════════════════
+{
+  const CHU_C = "Sếp · 06/10/2026 · Câu 2 = B, Câu 3 = A — máy chủ cưỡng chế";
+  const CHU_CF = "Bổ sung đặc tả sau phản biện · 06/10/2026 · gói C (máy chủ)";
+  const TEP_RIENG = "app/api/quyen-rieng/route.ts";
+  const TEP_MAU = "app/api/quyen-mau-chuc-danh/route.ts";
+  const TEP_MC = "5-ket-noi/phan-quyen-may-chu.ts";
+  /** Mã đã bỏ chú thích. Tệp không đọc được → "" (mọi bài đòi độ dài tối thiểu nên sẽ ĐỎ). */
+  const maC = (p) => {
+    try {
+      return boChuThichMa(readFileSync(p, "utf8"));
+    } catch {
+      return "";
+    }
+  };
+  /**
+   * Khai báo hàm từ chỗ khớp `dau` tới ngoặc đóng của THÂN. Thân = ngoặc `{` đứng cuối dòng đầu tiên sau
+   * danh sách tham số — để kiểu trả về dạng `{ … }` viết trên cùng dòng không bị nhầm là thân.
+   */
+  const thanHam = (s, dau) => {
+    const i = s.indexOf(dau);
+    if (i < 0) return "";
+    const mo = s.indexOf("(", i);
+    const dong = mo < 0 ? -1 : viTriNgoacDong(s, mo);
+    if (dong < 0) return "";
+    const re = /\{[ \t\r]*\n/g;
+    re.lastIndex = dong;
+    const m = re.exec(s);
+    const het = m ? viTriNgoacDong(s, m.index) : -1;
+    return het < 0 ? "" : s.slice(i, het + 1);
+  };
+  /** Đối số của lời gọi `ten(` ĐẦU TIÊN trong `s` (chuỗi ghép lại), hoặc "" khi không có. */
+  const doiSoCua = (s, ten) => {
+    const i = s.indexOf(`${ten}(`);
+    if (i < 0) return "";
+    const d = viTriNgoacDong(s, i + ten.length);
+    return d < 0 ? "" : s.slice(i, d + 1);
+  };
+
+  const sR = maC(TEP_RIENG);
+  const sM = maC(TEP_MAU);
+  const sC = maC(TEP_MC);
+  const iGetR = sR.indexOf("export async function GET");
+  const iPostR = sR.indexOf("export async function POST");
+  const getR = iGetR >= 0 && iPostR > iGetR ? sR.slice(iGetR, iPostR) : "";
+  const postR = iPostR >= 0 ? sR.slice(iPostR) : "";
+  const txR = doiSoCua(postR, "runTransaction");
+  const postM = sM.indexOf("export async function POST") >= 0 ? sM.slice(sM.indexOf("export async function POST")) : "";
+  const txM = doiSoCua(postM, "runTransaction");
+
+  kiem(
+    "Route quyen-rieng POST: vé trước thân · có phienBanMau · đọc mẫu TRONG giao dịch · gọi tinhLuuQuyenRieng · có tx.delete · nhật ký tx.create · không tự dựng bản ghi",
+    /* Chiều có: đủ các mốc trong khối giao dịch. Chiều không: route KHÔNG tự tính luật (không còn
+       `tinhTruocSauKhiLuu` / `vuongMacTraoQuyen` / `coQuyenPhanQuyen` cục bộ / tự đóng dấu chức danh) — luật
+       ở hàm thuần, kho demo gọi y hệt; route tự tính là hai nơi lệch nhau. */
+    CHU_C,
+    () => {
+      const iVe = postR.indexOf("verifyClientIdToken(");
+      const iThan = postR.indexOf("req.json(");
+      const veTruoc = iVe >= 0 && iThan > iVe;
+      const banCu = /body\.phienBanMau\s*===\s*undefined/.test(postR) && postR.includes('"ban-cu"');
+      const trongTx = {
+        "tx.getAll(…refMau())": /tx\.getAll\([^;]*refMau\(\)/.test(txR),
+        "tinhLuuQuyenRieng(": txR.includes("tinhLuuQuyenRieng("),
+        "phienBanMauGui": /phienBanMauGui\s*:/.test(txR),
+        "tx.delete(": txR.includes("tx.delete("),
+        "tx.create(": txR.includes("tx.create("),
+        TEN_COLLECTION_NHAT_KY: txR.includes("TEN_COLLECTION_NHAT_KY"),
+      };
+      const thieuTx = Object.entries(trongTx).filter(([, co]) => !co).map(([k]) => k);
+      const tuTinh = [
+        ["theoChucDanh: dauChucDanhCua(", sR.includes("theoChucDanh: dauChucDanhCua(")],
+        ["function coQuyenPhanQuyen", /function\s+coQuyenPhanQuyen\b/.test(sR)],
+        ["tinhTruocSauKhiLuu(", /\btinhTruocSauKhiLuu\(/.test(sR)],
+        ["vuongMacTraoQuyen(", /\bvuongMacTraoQuyen\(/.test(sR)],
+        ["tinhQuyenTheoChucDanh(", /\btinhQuyenTheoChucDanh\(/.test(sR)],
+      ].filter(([, co]) => co).map(([k]) => k);
+      const duDai = postR.length > 1500 && txR.length > 800;
+      return {
+        duoc: duDai && veTruoc && banCu && thieuTx.length === 0 && tuTinh.length === 0,
+        thucTe: `POST ${postR.length} ký tự, giao dịch ${txR.length} · vé trước thân=${veTruoc} · ban-cu=${banCu} · thiếu trong giao dịch=[${thieuTx.join(", ")}] · route tự tính=[${tuTinh.join(", ")}]`,
+        mongDoi: "POST >1500, giao dịch >800 · vé trước thân=true · ban-cu=true · thiếu trong giao dịch=[] · route tự tính=[]",
+      };
+    },
+  );
+
+  kiem(
+    "GET quyen-rieng: đọc mẫu cùng lượt; mẫu hỏng → 500 mau-hong, không trả quyenRieng null",
+    /* 🔴 `quyenRieng: null` = "theo chức danh" = quyền RỘNG hơn. Mẫu hỏng mà trả null là người bị mẫu
+       siết lấy lại đúng thứ đã bị bỏ. Chiều ngược: nhánh `?tatCa=1` trả `mau` + `canhBaoMau` và tính
+       `quyenHieuLuc` qua ô đè mẫu — không thì màn Phân quyền hiện quyền không gộp mẫu. */
+    CHU_C,
+    () => {
+      const cungLuot = /\.getAll\([^;]*refHoSo\([^;]*refRieng\([^;]*refMau\(\)/.test(getR);
+      const catchMauHong = /catch\s*\(\s*(\w+)\s*\)\s*\{[\s\S]*?laLoiMauHong\(\s*\1\s*\)/.test(getR);
+      const tra500 = /maLoi:\s*"mau-hong"\s*\}\s*,\s*\{\s*status:\s*500\s*\}/.test(sR);
+      const coNull = /quyenRieng:\s*null\b/.test(sR);
+      const traMau = /NextResponse\.json\(\{[^{}]*\btatCa\b[^{}]*\bmau:[^{}]*\bcanhBaoMau\b/.test(getR);
+      const hieuLucQuaMau = /quyenHieuLuc:\s*quyenRiengConHieuLuc\([^;]*oDeCuaHoSo\(/.test(getR);
+      return {
+        duoc: getR.length > 1500 && cungLuot && catchMauHong && tra500 && !coNull && traMau && hieuLucQuaMau,
+        thucTe: `GET ${getR.length} ký tự · getAll hồ sơ+riêng+mẫu=${cungLuot} · catch bắt mẫu hỏng=${catchMauHong} · 500 mau-hong=${tra500} · có "quyenRieng: null"=${coNull} · ?tatCa=1 trả mau+canhBaoMau=${traMau} · quyenHieuLuc qua oDeCuaHoSo=${hieuLucQuaMau}`,
+        mongDoi: "GET >1500 · getAll hồ sơ+riêng+mẫu=true · catch bắt mẫu hỏng=true · 500 mau-hong=true · có \"quyenRieng: null\"=false · ?tatCa=1 trả mau+canhBaoMau=true · quyenHieuLuc qua oDeCuaHoSo=true",
+      };
+    },
+  );
+
+  kiem(
+    "Route quyen-mau-chuc-danh: chỉ POST · vé trước thân · runTransaction · docMauChucDanh (qua chuanHoaMauChucDanh, B-F8) + tinhLuuMauChucDanh · nhật ký · đường cứu mẫu hỏng chỉ cho admin",
+    /* Chiều có: đủ mốc trong giao dịch; đường cứu (`tinhCuuMauHong`) chỉ tới được sau khi hỏi
+       `laQuanTriKhongCanMau` — hàm đó đòi `vaiTro === "admin"` (hoặc owner). Chiều không: không có GET /
+       PUT / PATCH / DELETE (mẫu đọc qua `?tatCa=1`); nhánh mẫu hỏng không phải Quản trị trả `mau-hong`.
+       📌 Đặc tả gốc ghi `chuanHoaMauChucDanh`; bổ sung B-F8 bắt đọc QUA `docMauChucDanh` (kèm dấu vết). */
+    CHU_C,
+    () => {
+      const chiPost =
+        /export\s+async\s+function\s+POST\b/.test(sM) &&
+        !/export\s+(?:async\s+)?(?:function|const)\s+(?:GET|PUT|PATCH|DELETE|HEAD)\b/.test(sM);
+      const iVe = postM.indexOf("verifyClientIdToken(");
+      const iThan = postM.indexOf("req.json(");
+      const veTruoc = iVe >= 0 && iThan > iVe;
+      const moc = {
+        "docMauChucDanh(": txM.includes("docMauChucDanh("),
+        "tinhLuuMauChucDanh(": txM.includes("tinhLuuMauChucDanh("),
+        "tinhVeMacDinhMauToanBo(": txM.includes("tinhVeMacDinhMauToanBo("),
+        "tinhCuuMauHong(": txM.includes("tinhCuuMauHong("),
+        "tx.set(refMau()": /tx\.set\(\s*refMau\(\)/.test(txM),
+        "tx.create(": txM.includes("tx.create("),
+        TEN_COLLECTION_NHAT_KY: txM.includes("TEN_COLLECTION_NHAT_KY"),
+        "HANH_DONG_NHAT_KY.mau": txM.includes("HANH_DONG_NHAT_KY.mau"),
+        "HANH_DONG_NHAT_KY.veMacDinh": txM.includes("HANH_DONG_NHAT_KY.veMacDinh"),
+        "không gọi thẳng chuanHoaMauChucDanh": !/\bchuanHoaMauChucDanh\(/.test(sM),
+      };
+      const thieu = Object.entries(moc).filter(([, co]) => !co).map(([k]) => k);
+      const iQT = txM.indexOf("laQuanTriKhongCanMau(");
+      const iCuu = txM.indexOf("tinhCuuMauHong(");
+      const giuaQTCuu = iQT >= 0 && iCuu > iQT ? txM.slice(iQT, iCuu) : "";
+      const canCuu = giuaQTCuu.includes('"mau-hong"') && giuaQTCuu.includes('"ve-mac-dinh"');
+      const qtAdmin = /vaiTro\s*===\s*"admin"/.test(thanHam(sC, "export function laQuanTriKhongCanMau("));
+      return {
+        duoc: sM.length > 2500 && txM.length > 1200 && chiPost && veTruoc && thieu.length === 0 && canCuu && qtAdmin,
+        thucTe: `tệp ${sM.length}, giao dịch ${txM.length} ký tự · chỉ POST=${chiPost} · vé trước thân=${veTruoc} · thiếu=[${thieu.join(", ")}] · laQuanTriKhongCanMau trước tinhCuuMauHong + chặn mau-hong=${canCuu} · laQuanTriKhongCanMau đòi vaiTro === "admin"=${qtAdmin}`,
+        mongDoi: "tệp >2500, giao dịch >1200 · chỉ POST=true · vé trước thân=true · thiếu=[] · …=true · …=true",
+      };
+    },
+  );
+
+  kiem(
+    "phan-quyen-may-chu: bản ghi tồn tại mà sai khuôn → NÉM, không coi là chưa có; mẫu hỏng → NÉM LoiMauHong",
+    /* Luật soát chéo lần 2 26/09/2026, nay áp cho cả mẫu (06/10/2026). Chiều không: tài liệu VẮNG thì
+       `null` (chưa có), không ném — ném cả khi vắng là ai chưa được tick riêng cũng bị chặn vào app. */
+    "Sếp · soát chéo lần 2 26/09/2026 · áp thêm cho mẫu chức danh 06/10/2026",
+    () => {
+      const bg = thanHam(sC, "export function banGhiTuAnh(");
+      const mt = thanHam(sC, "export function mauTuAnh(");
+      const bgNem = /\bthrow\b/.test(bg) && bg.includes("chuanHoaBanGhiQuyenRieng(");
+      const bgVangNull = /if\s*\(\s*!anh\?\.exists\s*\)\s*return\s+null\b/.test(bg);
+      const mtNem = /throw\s+new\s+LoiMauHong\(/.test(mt) && mt.includes("docMauChucDanh(");
+      const lop = /class\s+LoiMauHong\s+extends\s+Error\b/.test(sC);
+      const khongBanCu = !/\bdocBanGhi\b/.test(sC) && !/\bdocBanGhi\b/.test(sR);
+      return {
+        duoc: bg.length > 120 && mt.length > 120 && bgNem && bgVangNull && mtNem && lop && khongBanCu,
+        thucTe: `banGhiTuAnh ${bg.length} ký tự: ném=${bgNem} vắng→null=${bgVangNull} · mauTuAnh ${mt.length}: ném LoiMauHong=${mtNem} · class LoiMauHong=${lop} · không còn docBanGhi cũ=${khongBanCu}`,
+        mongDoi: "banGhiTuAnh: ném=true vắng→null=true · mauTuAnh: ném LoiMauHong=true · class LoiMauHong=true · không còn docBanGhi cũ=true",
+      };
+    },
+  );
+
+  kiem(
+    "kiem-route có dòng /api/quyen-mau-chuc-danh POST (khớp phương thức route export)",
+    /* Bảng ROUTE thiếu dòng là lần sau không ai biết route từng tồn tại — đúng cách sự cố 23/08 lọt.
+       Chiều ngược: `pt` phải khớp mã nguồn (route chỉ export POST) và dòng `/api/quyen-rieng` GET còn nguyên. */
+    CHU_C,
+    () => {
+      const sK = maC("kiem-route-san-xuat.mjs");
+      const coDong = /duong:\s*"\/api\/quyen-mau-chuc-danh",\s*pt:\s*"POST",\s*cua:\s*"nghiệp vụ"/.test(sK);
+      const coCu = /duong:\s*"\/api\/quyen-rieng",\s*pt:\s*"GET"/.test(sK);
+      const routePost = /export\s+async\s+function\s+POST\b/.test(sM);
+      return {
+        duoc: sK.length > 2000 && coDong && coCu && routePost,
+        thucTe: `dòng quyen-mau-chuc-danh POST=${coDong} · dòng quyen-rieng GET=${coCu} · route export POST=${routePost}`,
+        mongDoi: "cả ba true",
+      };
+    },
+  );
+
+  kiem(
+    "C-F1: máy chủ dựng người gọi LUÔN qua mẫu — mọi quyenRiengConHieuLuc( ở máy chủ có đối số mẫu khác null; nguoiGoiTuAnh qua ganQuyenRiengHieuLuc, đủ 5 đối số ở mọi chỗ gọi",
+    /* Quên mẫu = người gọi RỘNG hơn mẫu Sếp vừa siết (vd mẫu bỏ "Giao việc" ở cột Trưởng BP mà Trưởng BP vẫn
+       trao được). Chiều có: bắt được các lời gọi đã biết (chốt dương tính). Chiều không: không lời gọi nào
+       truyền `null` / thiếu mẫu. */
+    `${CHU_CF} · C-F1`,
+    () => {
+      const sai = [];
+      let demQRCHL = 0;
+      for (const [p, s] of [[TEP_RIENG, sR], [TEP_MAU, sM], [TEP_MC, sC]]) {
+        for (const m of s.matchAll(/\bquyenRiengConHieuLuc\s*\(/g)) {
+          const ds = doiSoLoiGoi(s, m.index + m[0].length - 1);
+          demQRCHL += 1;
+          if (!ds || ds.length !== 3 || ds[2] === "null" || ds[2] === "undefined") sai.push(`${p}: quyenRiengConHieuLuc(${ds ? ds.join(", ") : "?"})`);
+        }
+      }
+      const goiNG = [];
+      for (const [p, s] of [[TEP_RIENG, sR], [TEP_MAU, sM]]) {
+        for (const m of s.matchAll(/\bnguoiGoiTuAnh\s*\(/g)) {
+          const ds = doiSoLoiGoi(s, m.index + m[0].length - 1);
+          goiNG.push(p);
+          if (!ds || ds.length !== 5) sai.push(`${p}: nguoiGoiTuAnh(${ds ? ds.length : "?"} đối số)`);
+        }
+      }
+      const ng = thanHam(sC, "export function nguoiGoiTuAnh(");
+      const quaMau = /ganQuyenRiengHieuLuc\([^;]*,\s*mau\s*\)/.test(ng);
+      const demR = goiNG.filter((p) => p === TEP_RIENG).length;
+      const demM = goiNG.filter((p) => p === TEP_MAU).length;
+      return {
+        duoc: demQRCHL >= 1 && demR >= 3 && demM >= 2 && quaMau && sai.length === 0,
+        thucTe: `quyenRiengConHieuLuc ở máy chủ: ${demQRCHL} lời gọi · nguoiGoiTuAnh: quyen-rieng ${demR}, quyen-mau ${demM} · nguoiGoiTuAnh qua ganQuyenRiengHieuLuc(…, mau)=${quaMau} · sai=[${sai.slice(0, 4).join(" | ")}]`,
+        mongDoi: "quyenRiengConHieuLuc ≥1 · nguoiGoiTuAnh quyen-rieng ≥3, quyen-mau ≥2 · qua mẫu=true · sai=[]",
+      };
+    },
+  );
+
+  kiem(
+    "C-F5: route ghi NGUYÊN bản ghi / mẫu do hàm thuần trả (không tự dựng); bản khuôn 2 mang phienBanMau, đủ 18 ô; bản ghi + mẫu + mẫu cứu KHÔNG chứa undefined (Admin SDK không bật ignoreUndefinedProperties)",
+    /* Gọi THẬT `tinhLuuQuyenRieng` / `tinhLuuMauChucDanh` / `tinhCuuMauHong` (dựng riêng trong thư mục tạm
+       của bài này) — đúng thứ route `tx.set` xuống. Một `undefined` ở bất kỳ tầng nào là Firestore ném, cả
+       giao dịch hỏng: Sếp bấm Lưu mà không lưu được. Chiều ngược: bộ dò `undefined` bắt được ca có thật
+       (chốt dương tính), và lệch `phienBanMau` vẫn 409 (route dựa vào đó, không tự so). */
+    `${CHU_CF} · C-F5`,
+    () => {
+      const thuMucC = mkdtempSync(join(tmpdir(), "kiem-luat-goi-c-"));
+      try {
+        const tepTLP = join(thuMucC, "tinh-luu.cjs");
+        execSync(
+          `npx --yes esbuild "4-phan-quyen/tinh-luu-phan-quyen.ts" --bundle --platform=node --format=cjs --outfile="${tepTLP}" --log-level=error`,
+          { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+        );
+        const TLP = nap(tepTLP);
+        const coUndefined = (o) =>
+          o === undefined || (o !== null && typeof o === "object" && Object.values(o).some((v) => coUndefined(v)));
+        const ND = (uid, them) => ({ uid, tenHienThi: uid, chucDanh: "", phongBan: "", capKho: 0, ...them });
+        const QT = ND("u-qt", { chucNang: "truong_bo_phan_thu_mua", vaiTro: "admin", capTM: 4, capKho: 4 });
+        const NV = ND("u-nv", { chucNang: "nhan_vien_thu_mua", vaiTro: "staff", capTM: 2 });
+        const mau3 = { khuon: 1, phienBan: 3, de: {} };
+        const LUC = "2026-10-06T08:00:00.000Z";
+        const chung = { luc: LUC, capNhatBoi: "fb-qt", capNhatBoiTen: "Quản trị thử" };
+        const r1 = TLP.tinhLuuQuyenRieng({
+          nguoiGoi: { uid: "fb-qt", nguoiDung: QT },
+          nhan: [{ uid: "fb-nv", nd: NV, banGhi: null }],
+          mau: mau3,
+          phienBanMauGui: 3,
+          yeuCau: { loai: "tick", thayDoi: { xemGia: false } },
+          ...chung,
+        });
+        const b = r1.ok ? r1.ghi[0]?.banGhi : undefined;
+        const banGhiDung =
+          !!b && b.khuon === 2 && b.phienBanMau === 3 && Object.keys(b.quyen ?? {}).length === 18 &&
+          b.ngoaiLe?.xemGia === false && !coUndefined(b);
+        const r2 = TLP.tinhLuuMauChucDanh({
+          nguoiGoi: { uid: "fb-qt", nguoiDung: QT },
+          mauCu: mau3,
+          phienBanGui: 3,
+          thayDoi: { nhan_vien_thu_mua: { xemGia: false } },
+          ...chung,
+        });
+        const mauDung = r2.ok && r2.mauMoi.phienBan === 4 && !coUndefined(r2.mauMoi);
+        const r3 = TLP.tinhCuuMauHong({ laQuanTri: true, rawMau: { khuon: 7, phienBan: 9 }, lyDoHong: "thử", ...chung });
+        const cuuDung = r3.ok && r3.mauMoi.phienBan > 9 && !coUndefined(r3.mauMoi);
+        /* Chiều ngược. */
+        const doDuoc = coUndefined({ a: { b: undefined } }) && !coUndefined({ a: { b: false } });
+        const r4 = TLP.tinhLuuQuyenRieng({
+          nguoiGoi: { uid: "fb-qt", nguoiDung: QT },
+          nhan: [{ uid: "fb-nv", nd: NV, banGhi: null }],
+          mau: mau3,
+          phienBanMauGui: 2,
+          yeuCau: { loai: "tick", thayDoi: { xemGia: false } },
+          ...chung,
+        });
+        const lech409 = !r4.ok && r4.status === 409 && r4.maLoi === "mau-doi";
+        /* Nguồn: route ghi đúng `g.banGhi` / `tinh.mauMoi`, không object tự dựng. */
+        const ghiNguyenR = /tx\.set\(\s*refRieng\(\s*(\w+)\.uid\s*\)\s*,\s*\1\.banGhi\s*\)/.test(txR) && !/tx\.set\(\s*refRieng\([^)]*\)\s*,\s*\{/.test(txR);
+        const ghiNguyenM = /tx\.set\(\s*refMau\(\)\s*,\s*\w+\.mauMoi\s*\)/.test(txM);
+        const tuGhiPBM = /\bphienBanMau\s*:/.test(txR);
+        return {
+          duoc: banGhiDung && mauDung && cuuDung && doDuoc && lech409 && ghiNguyenR && ghiNguyenM && !tuGhiPBM,
+          thucTe: `bản ghi khuôn 2 đúng (phienBanMau 3, 18 ô, không undefined)=${banGhiDung} · mẫu mới đúng=${mauDung} · mẫu cứu đúng=${cuuDung} · bộ dò undefined=${doDuoc} · lệch phienBanMau→409=${lech409} · route ghi nguyên g.banGhi=${ghiNguyenR} · ghi nguyên mauMoi=${ghiNguyenM} · route tự ghi phienBanMau=${tuGhiPBM}`,
+          mongDoi: "mọi mục true, route tự ghi phienBanMau=false",
+        };
+      } finally {
+        rmSync(thuMucC, { recursive: true, force: true });
+      }
+    },
+  );
+
+  kiem(
+    "C-F2: đường cứu mẫu hỏng — laQuanTriKhongCanMau(hoSo, owner) chỉ true với owner / hồ sơ admin đang làm việc; route rẽ nhánh TRƯỚC khi dựng người gọi qua mẫu",
+    /* 🔴 BÀI QUAN TRỌNG NHẤT CỦA GÓI C. Mẫu hỏng là lúc MỌI người không phải Quản trị bị chặn vào app, và
+       đường cứu ghi đè cả bảng mẫu. Hàm này nói "có" với Trưởng bộ phận / hồ sơ tạm ngưng là ai cũng xoá
+       được bảng mẫu Sếp đã siết. Gọi THẬT: tách đúng thân hàm khỏi tệp máy chủ, dịch TS → JS, chạy. Thân hàm
+       gọi tên nào ngoài tham số là `ReferenceError` → bài ĐỎ (hàm phải thuần). Chiều ngược: owner và Quản
+       trị đang làm việc PHẢI cứu được — không thì mẫu hỏng là kẹt vĩnh viễn, chỉ còn Admin SDK. */
+    `${CHU_CF} · C-F2`,
+    () => {
+      const ma = thanHam(sC, "export function laQuanTriKhongCanMau(");
+      if (ma.length < 80) {
+        return { duoc: false, thucTe: `không tách được hàm (${ma.length} ký tự)`, mongDoi: "tách được thân laQuanTriKhongCanMau" };
+      }
+      const js = execSync("npx --yes esbuild --loader=ts --format=cjs --log-level=error", {
+        input: ma,
+        stdio: ["pipe", "pipe", "pipe"],
+        encoding: "utf8",
+      });
+      const mod = { exports: {} };
+      new Function("module", "exports", "require", js)(mod, mod.exports, () => {
+        throw new Error("thân laQuanTriKhongCanMau không được nạp gì");
+      });
+      const f = mod.exports.laQuanTriKhongCanMau;
+      const hs = (vaiTro, dangLamViec = true) => ({ nguoiDung: { vaiTro }, dangLamViec });
+      const ca = [
+        ["owner, không hồ sơ", f(null, true), true],
+        ["hồ sơ admin đang làm việc", f(hs("admin"), false), true],
+        ["hồ sơ admin TẠM NGƯNG", f(hs("admin", false), false), false],
+        ["hồ sơ staff (Trưởng BP / NV)", f(hs("staff"), false), false],
+        ["hồ sơ director (BGĐ)", f(hs("director"), false), false],
+        ["không hồ sơ, không owner", f(null, false), false],
+        ["owner truthy nhưng không phải true", f(null, "owner"), false],
+      ];
+      const sai = ca.filter(([, thuc, mong]) => thuc !== mong).map(([ten, thuc]) => `${ten}→${thuc}`);
+      /* Nguồn: trong giao dịch, `laQuanTriKhongCanMau(` đứng TRƯỚC `nguoiGoiTuAnh(` (dựng qua mẫu), đối số
+         đầu là kết quả `nguoiDungTuAnh` (không qua mẫu). */
+      const iQT = txM.indexOf("laQuanTriKhongCanMau(");
+      const iGoi = txM.indexOf("nguoiGoiTuAnh(");
+      const truocGoi = iQT >= 0 && iGoi > iQT;
+      const bien = (txM.match(/const\s+(\w+)\s*=\s*nguoiDungTuAnh\(/) ?? [])[1];
+      const dsQT = iQT >= 0 ? doiSoLoiGoi(txM, iQT + "laQuanTriKhongCanMau".length) : null;
+      const khongQuaMau = !!bien && !!dsQT && dsQT[0] === bien;
+      return {
+        duoc: typeof f === "function" && sai.length === 0 && truocGoi && khongQuaMau,
+        thucTe: `gọi được=${typeof f === "function"} · sai=[${sai.join(" | ")}] · rẽ nhánh trước nguoiGoiTuAnh=${truocGoi} · đối số hồ sơ từ nguoiDungTuAnh=${khongQuaMau}`,
+        mongDoi: "gọi được=true · sai=[] · rẽ nhánh trước nguoiGoiTuAnh=true · đối số hồ sơ từ nguoiDungTuAnh=true",
+      };
+    },
+  );
+
+  kiem(
+    "C-F3: dấu vết mẫu bị xoá — GET của mình truyền bản ghi của mình, ?tatCa=1 truyền MỌI bản (kể cả mồ côi), POST truyền bản người gọi + người nhận; không chỗ nào gọi mauTuAnh với [] hay đọc thẳng chuanHoaMauChucDanh",
+    /* Mẫu vắng + bản ghi mang phienBanMau ≥ 1 → hỏng (B-F8). Route quên truyền bản ghi thì mẫu bị xoá ở
+       console đọc thành MẪU TRỐNG → mọi chức danh về công thức → rộng hơn mẫu Sếp đã siết, không một dòng
+       báo. Chiều có: ba chỗ truyền đúng. Chiều không: không có `mauTuAnh(…, [])`, không đọc thẳng. */
+    `${CHU_CF} · C-F3`,
+    () => {
+      const mt = thanHam(sC, "export function mauTuAnh(");
+      const truyenVet = /docMauChucDanh\([^;]*,\s*vet\s*\)/.test(mt);
+      const getCuaMinh = /mauTuAnh\(\s*\w+\s*,\s*\[\s*banGhiTuAnh\(/.test(getR);
+      const getTatCa = /mauTuAnh\(\s*\w+\s*,\s*\w+\.map\(/.test(getR);
+      const postNhan = /mauTuAnh\([^;]*\[\s*\w+\s*,\s*\.\.\.\w+\s*\]\s*\)/.test(txR);
+      const dt = thanHam(sC, "export async function docTatCaKemHoSo(");
+      const giuMoCoi = /hs:\s*nguoiDungTuAnh\(/.test(dt) && !/if\s*\(\s*hs\s*\)/.test(dt);
+      const rong = [sR, sM, sC].some((s) => /mauTuAnh\([^;]*,\s*\[\s*\]\s*\)/.test(s));
+      const thang = [sR, sC].some((s) => /\bchuanHoaMauChucDanh\(/.test(s));
+      return {
+        duoc: truyenVet && getCuaMinh && getTatCa && postNhan && giuMoCoi && !rong && !thang,
+        thucTe: `mauTuAnh truyền vet=${truyenVet} · GET của mình=${getCuaMinh} · ?tatCa=1 mọi bản=${getTatCa} · POST người gọi+nhận=${postNhan} · giữ bản mồ côi làm dấu vết=${giuMoCoi} · có mauTuAnh(…, [])=${rong} · đọc thẳng chuanHoaMauChucDanh=${thang}`,
+        mongDoi: "năm mục đầu true · hai mục cuối false",
+      };
+    },
+  );
+
+  kiem(
+    "C-F4: phan-quyen-may-chu.ts có import \"server-only\" và KHÔNG tệp phía trình duyệt nào nạp nó (chỉ route)",
+    /* Tệp này nạp `firebase-admin`. Lọt vào bundle trình duyệt là lộ đường đi của khoá máy chủ / dựng hỏng
+       muộn. Chiều có: hai route nạp nó (chốt dương tính của phép quét). */
+    `${CHU_CF} · C-F4`,
+    () => {
+      const fs = nap("node:fs");
+      const coServerOnly = /^\s*import\s+"server-only";/m.test(sC);
+      const tep = [];
+      const di = (d) => {
+        for (const t of fs.readdirSync(d)) {
+          const p = `${d}/${t}`;
+          if (t === "node_modules" || t === "nen-tang-ui") continue;
+          if (fs.statSync(p).isDirectory()) di(p);
+          else if (/\.(ts|tsx)$/.test(t)) tep.push(p);
+        }
+      };
+      ["1-giao-dien", "2-quy-trinh", "3-du-lieu", "4-phan-quyen", "6-tien-ich", "app", "5-ket-noi"]
+        .filter((d) => fs.existsSync(d))
+        .forEach(di);
+      /* Lọc thô trước (rẻ), rồi mới bỏ chú thích để đo — chú thích nhắc tên tệp không phải chỗ nạp. */
+      const napVao = tep.filter(
+        (p) =>
+          fs.readFileSync(p, "utf8").includes("phan-quyen-may-chu") &&
+          /from\s+["']@\/5-ket-noi\/phan-quyen-may-chu["']/.test(maC(p)),
+      );
+      const ngoaiRoute = napVao.filter((p) => !/^app\/api\/.+\/route\.ts$/.test(p));
+      const haiRoute = napVao.includes(TEP_RIENG) && napVao.includes(TEP_MAU);
+      return {
+        duoc: coServerOnly && haiRoute && ngoaiRoute.length === 0 && tep.length > 50,
+        thucTe: `import "server-only"=${coServerOnly} · tệp nạp: [${napVao.join(", ")}] · ngoài route=[${ngoaiRoute.join(", ")}]`,
+        mongDoi: `import "server-only"=true · tệp nạp gồm ${TEP_RIENG} và ${TEP_MAU} · ngoài route=[]`,
+      };
+    },
+  );
+}
 
 // ════════════════════════════════════════════════════════════════════
 // ★★★ HỒ SƠ PHÒNG BAN TỰ CHỐT "ĐÃ NHẬN ĐỦ HÀNG" — Sếp 15/09/2026
@@ -13095,6 +13910,16 @@ kiem(
           "4-phan-quyen/nguoi-dung-hien-tai.tsx",
           "1-giao-dien/trang/phan-quyen.tsx",
           "app/api/quyen-rieng/route.ts",
+          /* ★ Sếp 06/10/2026 (mẫu chức danh): các tệp dưới đọc cờ theo kiểu TỔNG QUÁT để hiện/tính bảng
+             mẫu, không để gác — không loại ra thì bài này có thể xanh giả. Phép kiểm giữ nguyên. */
+          "4-phan-quyen/mau-chuc-danh.ts",
+          "4-phan-quyen/tinh-luu-phan-quyen.ts",
+          "4-phan-quyen/mau-chuc-danh-ket-noi.ts",
+          "4-phan-quyen/nguon-phan-quyen.ts",
+          "3-du-lieu/kho-phan-quyen-demo.ts",
+          "1-giao-dien/thanh-phan-nghiep-vu/bang-mau-chuc-danh.tsx",
+          "app/api/quyen-mau-chuc-danh/route.ts",
+          "5-ket-noi/phan-quyen-may-chu.ts",
         ]);
         const tep = [];
         const di = (d) => {
@@ -13231,6 +14056,924 @@ kiem(
           };
         },
       );
+
+      // ════════════════════════════════════════════════════════════════════
+      // ★ PHÂN QUYỀN GĐ3 (nhãn) + GĐ3.5 (khuôn ngoại lệ) + GĐ4a (mẫu chức danh) — Sếp 06/10/2026
+      // Câu 1 = A: bấm thẳng vào bảng mẫu · Câu 2 = B: Trưởng BP sửa được, giới hạn cột mình gán được và
+      // dòng mình có · Câu 3 = A: người có quyền riêng chỉ giữ ô cố ý khác, ô còn lại theo mẫu mới.
+      //
+      // 📌 KHỐI LỒNG TỰ ĐỦ: dựng riêng hai tệp mới vào thư mục tạm RIÊNG (`kiem-luat-mcd-`), nạp ngay,
+      //    xoá trong `finally`. Lỗi dựng chỉ thêm MỘT dòng trượt — 19 bài phân quyền cũ ở trên không ảnh
+      //    hưởng. Mỗi luật canh HAI CHIỀU.
+      // ════════════════════════════════════════════════════════════════════
+      {
+        const CHU_B = "Sếp · 06/10/2026 · Câu 1 = A · Câu 2 = B · Câu 3 = A";
+        const thuMucMCD = mkdtempSync(join(tmpdir(), "kiem-luat-mcd-"));
+        let MCD = null;
+        let TLP = null;
+        try {
+          execSync(
+            `npx --yes esbuild "4-phan-quyen/mau-chuc-danh.ts" "4-phan-quyen/tinh-luu-phan-quyen.ts" --bundle --platform=node --format=cjs --outdir="${thuMucMCD}" --out-extension:.js=.cjs --log-level=error`,
+            { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+          );
+          MCD = nap(join(thuMucMCD, "mau-chuc-danh.cjs"));
+          TLP = nap(join(thuMucMCD, "tinh-luu-phan-quyen.cjs"));
+        } catch (e) {
+          truot.push({
+            ten: "Dựng 4-phan-quyen/mau-chuc-danh.ts + tinh-luu-phan-quyen.ts",
+            chu: CHU_B,
+            thucTe: `KHÔNG DỰNG ĐƯỢC: ${String(e.stderr ?? e.message).slice(0, 300)}`,
+            mongDoi: "dựng được",
+          });
+        } finally {
+          rmSync(thuMucMCD, { recursive: true, force: true });
+        }
+
+        if (MCD && TLP) {
+          const LUC = "2026-10-06T00:00:00.000Z";
+          const VT = (ma) => VTC.VAI_TRO_CHUAN.find((v) => v.ma === ma);
+          const mauVoi = (de, phienBan = 1) => ({ khuon: 1, phienBan, de });
+          const goiMau = (n, mau = MCD.MAU_TRONG, banGhi = null) => ({
+            uid: n.uid,
+            nguoiDung: TLP.ganQuyenRiengHieuLuc(n, banGhi, mau),
+          });
+          const luuMau = (n, mauCu, thayDoi, phienBanGui = mauCu.phienBan) =>
+            TLP.tinhLuuMauChucDanh({
+              nguoiGoi: goiMau(n, mauCu),
+              mauCu,
+              phienBanGui,
+              thayDoi,
+              luc: LUC,
+              capNhatBoi: n.uid,
+              capNhatBoiTen: n.uid,
+            });
+          const nhanLuu = (n, banGhi = null) => ({ uid: n.uid, nd: n, banGhi });
+          const luuRieng = (n, nhan, yeuCau, mau = MCD.MAU_TRONG, phienBanMauGui = mau.phienBan) =>
+            TLP.tinhLuuQuyenRieng({
+              nguoiGoi: goiMau(n, mau),
+              nhan,
+              mau,
+              phienBanMauGui,
+              yeuCau,
+              luc: LUC,
+              capNhatBoi: n.uid,
+              capNhatBoiTen: n.uid,
+            });
+          /** Quyền hiệu lực đúng như trình duyệt nhận: máy chủ gộp mẫu + ngoại lệ, rồi `tinhQuyen`. */
+          const hieuLuc = (n, banGhi, mau = MCD.MAU_TRONG) => QX.tinhQuyen(TLP.ganQuyenRiengHieuLuc(n, banGhi, mau));
+          const PTC = nd("tc", { chucNang: "phong_thi_cong", capTM: 1 });
+          const NV2 = nd("nv2", { chucNang: "nhan_vien_thu_mua", capTM: 2 });
+
+          kiem(
+            "★ Ảnh chụp 11 chức danh × 20 cờ = bảng mặc định mục 3 kế hoạch 06/10 (đổi công thức phải di trú tm_quyen_rieng khuôn 1 trước)",
+            /* 🔴 Bản ghi khuôn 1 được "chuyển khi đọc" (ngoại lệ ngầm = ô khác CÔNG THỨC tại dấu lúc lưu)
+               — chỉ đúng khi công thức `tinhQuyenTheoChucDanh` không đổi từ `278f775`. Bài này đỏ nghĩa là
+               ai đó vừa đổi công thức: PHẢI di trú `tm_quyen_rieng` khuôn 1 sang khuôn 2 TRƯỚC, rồi mới cập
+               nhật ma trận dưới đây. Chốt dương tính: Quản trị đủ 20 ô, Ngừng truy cập không ô nào. */
+            `${CHU_B} · khoá công thức chức danh (chuyển-khi-đọc khuôn 1 dựa vào nó)`,
+            () => {
+              const COT = [
+                "quan_tri", "ban_giam_doc", "truong_bo_phan_thu_mua", "nhan_vien_thu_mua", "ke_toan", "thu_kho",
+                "nhan_vien_nhan_su", "nhan_vien_kho_tong", "phong_thi_cong", "qlda", "ngung_truy_cap",
+              ];
+              /* Cột theo đúng thứ tự trên: QT · BGĐ · TBP · NVTM · KT · TK · NS · KTg · PTC · QLDA · Ngừng. */
+              const MA_TRAN = {
+                xemDuocApp: "11111111110",
+                xemQuyTrinhMuaHang: "11110011000",
+                xemMoiHoSo: "11100000010",
+                xemGia: "11111000010",
+                xemNhaCungCap: "11111100010",
+                xemBaoGia: "11111000010",
+                xemNguoiPhuTrach: "11111000010",
+                xemCongNo: "11111000000",
+                taoDeNghi: "11111111110",
+                phanBoCongViec: "10100000000",
+                lapPO: "10110011000",
+                taoPoDoiLap: "10100000000",
+                suaPODaChot: "10100000000",
+                ghiPhieuNhanHang: "10000101000",
+                xacNhanKho: "10000101000",
+                xacNhanTruongBP: "10100000000",
+                ghiThanhToan: "10111000000",
+                xoaToanBoDuLieu: "10000000000",
+                phanQuyenNguoiDung: "10100000000",
+                xuatHoSo: "11111111110",
+              };
+              const lech = [];
+              for (const [k, hang] of Object.entries(MA_TRAN)) {
+                COT.forEach((ma, i) => {
+                  const v = VT(ma);
+                  if (!v || VTC.quyenCuaVaiTro(v)[k] !== (hang[i] === "1")) lech.push(`${ma}.${k}`);
+                });
+              }
+              const qQT = VTC.quyenCuaVaiTro(VT("quan_tri"));
+              const qNg = VTC.quyenCuaVaiTro(VT("ngung_truy_cap"));
+              const soCo = Object.keys(qQT).length;
+              const dungThuTu = VTC.VAI_TRO_CHUAN.map((v) => v.ma).join(",") === COT.join(",");
+              const qtDu = Object.values(qQT).every((x) => x === true);
+              const ngRong = Object.values(qNg).every((x) => x === false);
+              return {
+                duoc: lech.length === 0 && soCo === 20 && Object.keys(MA_TRAN).length === 20 && dungThuTu && qtDu && ngRong,
+                thucTe: `lệch=[${lech.slice(0, 8).join(", ")}] · số cờ=${soCo} · đúng thứ tự cột=${dungThuTu} · QT đủ=${qtDu} · Ngừng rỗng=${ngRong}`,
+                mongDoi: "lệch=[] · số cờ=20 · đúng thứ tự cột=true · QT đủ=true · Ngừng rỗng=true",
+              };
+            },
+          );
+
+          kiem(
+            "Khuôn 1 với mẫu trống: quyền hiệu lực Y HỆT công thức cũ (khớp · lệch · thiếu dấu · thiếu khoá · cả 18 ô tắt) — chiều ngược: mẫu bỏ một ô thì ô không cố ý khác đi theo mẫu",
+            `${CHU_B} · chuyển-khi-đọc không đổi hành vi hôm nay`,
+            () => {
+              /* Chép NGUYÊN công thức `quyenRiengHieuLuc` trước 06/10/2026 (quyen-rieng.ts:441-446 tại
+                 f941724) — đừng sửa hàm này cho vừa mã mới. */
+              const cu = (banGhi, n) => {
+                if (!banGhi) return null;
+                if (QR.khopDauChucDanh(banGhi.theoChucDanh, QR.dauChucDanhCua(n))) return banGhi.quyen;
+                const goc = QX.tinhQuyenTheoChucDanh(n);
+                const gocCu = banGhi.theoChucDanh ? QX.tinhQuyenTheoDauChucDanh(banGhi.theoChucDanh) : null;
+                const ra = {};
+                const c = banGhi.theoChucDanh !== undefined ? (gocCu ?? null) : null;
+                for (const k of QR.KHOA_TICK) {
+                  ra[k] = c ? goc[k] && !(c[k] && banGhi.quyen[k] !== true) : goc[k] && banGhi.quyen[k] === true;
+                }
+                return ra;
+              };
+              const nguoi = VTC.VAI_TRO_CHUAN.map((v) => ndTuVaiTro(v, `x-${v.ma}`));
+              const lech = [];
+              let soCa = 0;
+              for (const p of nguoi) {
+                if (QX.quyenRiengConHieuLuc(null, p, MCD.oDeCuaHoSo(MCD.MAU_TRONG, p)) !== null) lech.push(`${p.uid}/chưa có bản≠null`);
+                for (const s of nguoi) {
+                  const gocS = QX.tinhQuyenTheoChucDanh(s);
+                  const rut = QR.rutQuyenRieng(gocS);
+                  const bienThe = [
+                    rut,
+                    { ...rut, xemGia: !gocS.xemGia, lapPO: !gocS.lapPO },
+                    { ...rut, ghiPhieuNhanHang: true, xemCongNo: false },
+                    { xemDuocApp: true, xemGia: true },
+                    {},
+                  ];
+                  bienThe.forEach((quyen, i) => {
+                    for (const coDau of [true, false]) {
+                      const b = coDau ? { quyen, theoChucDanh: QR.dauChucDanhCua(s) } : { quyen };
+                      const moi = QX.tinhQuyen({ ...p, quyenRieng: QX.quyenRiengConHieuLuc(b, p) });
+                      const quaMau = hieuLuc(p, b, MCD.MAU_TRONG);
+                      const cuQ = QX.tinhQuyen({ ...p, quyenRieng: cu(b, p) });
+                      soCa += 1;
+                      const sai = Object.keys(cuQ).filter((k) => moi[k] !== cuQ[k] || quaMau[k] !== cuQ[k]);
+                      if (sai.length > 0) lech.push(`${p.uid}←${s.uid}#${i}${coDau ? "" : "(thiếu dấu)"}:${sai[0]}`);
+                    }
+                  });
+                }
+              }
+              /* Chiều ngược (Câu 3 = A): NV có bản khuôn 1 cố ý bỏ "Xem giá"; mẫu bỏ "Xem công nợ" ở cột NV
+                 Thu mua → công nợ đi theo mẫu (tắt), giá vẫn giữ ngoại lệ (tắt), lập đơn theo chức danh. */
+              const mauBoCN = mauVoi({ nhan_vien_thu_mua: { xemCongNo: false } });
+              const banNV = { quyen: { ...QR.rutQuyenRieng(QX.tinhQuyenTheoChucDanh(NV)), xemGia: false }, theoChucDanh: QR.dauChucDanhCua(NV) };
+              const theoMau = hieuLuc(NV, banNV, mauBoCN);
+              const theoCu = QX.tinhQuyen({ ...NV, quyenRieng: cu(banNV, NV) });
+              const chuaCo = hieuLuc(NV, null, mauBoCN);
+              const nguoc = !theoMau.xemCongNo && !theoMau.xemGia && theoMau.lapPO && theoCu.xemCongNo && !chuaCo.xemCongNo && chuaCo.xemGia;
+              return {
+                duoc: lech.length === 0 && soCa === 11 * 11 * 5 * 2 && nguoc,
+                thucTe: `${soCa} ca · lệch=[${lech.slice(0, 5).join(" · ")}] · mẫu bỏ công nợ: bản cũ→nợ=${theoMau.xemCongNo} giá=${theoMau.xemGia} lập=${theoMau.lapPO} (công thức cũ nợ=${theoCu.xemCongNo}) · chưa có bản: nợ=${chuaCo.xemCongNo} giá=${chuaCo.xemGia}`,
+                mongDoi: "1210 ca · lệch=[] · mẫu bỏ công nợ: bản cũ→nợ=false giá=false lập=true (công thức cũ nợ=true) · chưa có bản: nợ=false giá=true",
+              };
+            },
+          );
+
+          kiem(
+            "Khuôn 2: ô vắng theo chức danh + mẫu; ô có mặt là ngoại lệ, thắng mẫu",
+            CHU_B,
+            () => {
+              const mau = mauVoi({ nhan_vien_thu_mua: { xemCongNo: false } });
+              const dau = QR.dauChucDanhCua(NV);
+              const vang = hieuLuc(NV, { khuon: 2, ngoaiLe: { xemGia: false }, theoChucDanh: dau, quyen: {} }, mau);
+              const co = hieuLuc(NV, { khuon: 2, ngoaiLe: { xemCongNo: true }, theoChucDanh: dau, quyen: {} }, mau);
+              return {
+                duoc: !vang.xemCongNo && !vang.xemGia && vang.lapPO && co.xemCongNo && co.xemGia && co.lapPO,
+                thucTe: `vắng công nợ: nợ=${vang.xemCongNo} giá(ngoại lệ tắt)=${vang.xemGia} lập=${vang.lapPO} · ngoại lệ nợ=true: nợ=${co.xemCongNo} giá=${co.xemGia} lập=${co.lapPO}`,
+                mongDoi: "vắng công nợ: nợ=false giá(ngoại lệ tắt)=false lập=true · ngoại lệ nợ=true: nợ=true giá=true lập=true",
+              };
+            },
+          );
+
+          kiem(
+            "🔴 Lệch dấu chỉ mang ô FALSE: thủ kho có ngoại lệ Xem giá chuyển sang Phòng Thi công thì KHÔNG có giá (khuôn 1 và khuôn 2)",
+            /* Lách vòng bằng đổi chức danh: ô `true` vượt chức danh không bao giờ được mang sang chức danh
+               mới. Chiều ngược: ô `false` đã bỏ thật vẫn mang sang; vẫn là thủ kho thì ngoại lệ còn nguyên. */
+            `${CHU_B} · soát chéo 26/09/2026 (dấu chức danh)`,
+            () => {
+              const gocKho = QX.tinhQuyenTheoChucDanh(KHO);
+              const dau = QR.dauChucDanhCua(KHO);
+              const k1 = { quyen: { ...QR.rutQuyenRieng(gocKho), xemGia: true, taoDeNghi: false }, theoChucDanh: dau };
+              const k2 = { khuon: 2, ngoaiLe: { xemGia: true, taoDeNghi: false }, theoChucDanh: dau, quyen: k1.quyen };
+              const tc1 = hieuLuc(PTC, k1);
+              const tc2 = hieuLuc(PTC, k2);
+              const kho1 = hieuLuc(KHO, k1);
+              const kho2 = hieuLuc(KHO, k2);
+              const duoc =
+                !tc1.xemGia && !tc2.xemGia && !tc1.taoDeNghi && !tc2.taoDeNghi && tc1.xemDuocApp && tc2.xemDuocApp &&
+                kho1.xemGia && kho2.xemGia && !kho1.taoDeNghi && !kho2.taoDeNghi && kho2.ghiPhieuNhanHang;
+              return {
+                duoc,
+                thucTe: `sang PTC: giá k1=${tc1.xemGia} k2=${tc2.xemGia} · đề nghị (đã bỏ) k1=${tc1.taoDeNghi} k2=${tc2.taoDeNghi} · vẫn thủ kho: giá k1=${kho1.xemGia} k2=${kho2.xemGia} đề nghị k2=${kho2.taoDeNghi} phiếu k2=${kho2.ghiPhieuNhanHang}`,
+                mongDoi: "sang PTC: giá k1=false k2=false · đề nghị (đã bỏ) k1=false k2=false · vẫn thủ kho: giá k1=true k2=true đề nghị k2=false phiếu k2=true",
+              };
+            },
+          );
+
+          kiem(
+            "chuanHoaBanGhiQuyenRieng: khuôn 2 có khoá lạ / giá trị không phải boolean / thiếu dấu / khuon=3 → null; khuôn 1 lờ khoá lạ như cũ",
+            /* Ở khuôn 2 ô VẮNG nghĩa là "theo chức danh" — lờ đi một ô `false` hỏng là trả lại quyền vừa bỏ.
+               `null` thì route NÉM (GET 500 → chặn vào app), không coi là "chưa có". */
+            CHU_B,
+            () => {
+              const dau = QR.dauChucDanhCua(NV);
+              const sai = [
+                { khuon: 2, ngoaiLe: { xemGia: false, abc: true }, theoChucDanh: dau, quyen: {} },
+                { khuon: 2, ngoaiLe: { xemGia: "false" }, theoChucDanh: dau, quyen: {} },
+                { khuon: 2, ngoaiLe: { xemGia: false }, quyen: {} },
+                { khuon: 2, ngoaiLe: { phanQuyenNguoiDung: true }, theoChucDanh: dau, quyen: {} },
+                { khuon: 2, ngoaiLe: [], theoChucDanh: dau, quyen: {} },
+                { khuon: 3, ngoaiLe: {}, theoChucDanh: dau, quyen: {} },
+                { quyen: "x", theoChucDanh: dau },
+                null,
+              ].map((x) => QR.chuanHoaBanGhiQuyenRieng(x));
+              const k1 = QR.chuanHoaBanGhiQuyenRieng({ quyen: { xemGia: true, abc: true, xemCongNo: "x" }, theoChucDanh: dau });
+              const k2 = QR.chuanHoaBanGhiQuyenRieng({ khuon: 2, ngoaiLe: { xemGia: false }, theoChucDanh: dau, quyen: { xemGia: false }, capNhatLuc: LUC, capNhatBoi: "qt" });
+              const k1Dung = k1 !== null && k1.quyen.xemGia === true && !("abc" in k1.quyen) && !("xemCongNo" in k1.quyen) && k1.khuon === undefined;
+              const k2Dung = k2 !== null && k2.khuon === 2 && k2.ngoaiLe.xemGia === false && Object.keys(k2.ngoaiLe).length === 1 && QR.khopDauChucDanh(k2.theoChucDanh, dau);
+              return {
+                duoc: sai.every((x) => x === null) && k1Dung && k2Dung,
+                thucTe: `sai khuôn → null: [${sai.map((x) => (x === null ? "null" : "ĐỌC ĐƯỢC")).join(",")}] · khuôn 1 lờ khoá lạ=${k1Dung} · khuôn 2 hợp lệ đọc được=${k2Dung}`,
+                mongDoi: "sai khuôn → null: [null ×8] · khuôn 1 lờ khoá lạ=true · khuôn 2 hợp lệ đọc được=true",
+              };
+            },
+          );
+
+          kiem(
+            "rutNgoaiLe khứ hồi: đọc lại bản khuôn 2 vừa rút ra đúng quyền hiệu lực ban đầu; trùng gốc thì ra {}",
+            CHU_B,
+            () => {
+              const mau = mauVoi({ nhan_vien_thu_mua: { xemCongNo: false, suaPODaChot: true } });
+              const oDe = MCD.oDeCuaHoSo(mau, NV);
+              const goc = QR.quyenTheoChucDanhCoMau(QX.tinhQuyenTheoChucDanh(NV), oDe);
+              const muon = { ...QR.rutQuyenRieng(goc), xemGia: false, xemCongNo: true, phanBoCongViec: true };
+              const nl = QR.rutNgoaiLe(muon, goc);
+              const dungNL = JSON.stringify(Object.keys(nl).sort()) === JSON.stringify(["phanBoCongViec", "xemCongNo", "xemGia"]);
+              const doc = QR.chuanHoaBanGhiQuyenRieng(JSON.parse(JSON.stringify({ khuon: 2, ngoaiLe: nl, theoChucDanh: QR.dauChucDanhCua(NV), quyen: muon })));
+              const lai = QX.quyenRiengConHieuLuc(doc, NV, oDe);
+              const khuHoi = lai !== null && QR.KHOA_TICK.every((k) => lai[k] === (muon[k] === true));
+              const trung = QR.rutNgoaiLe(QR.rutQuyenRieng(goc), goc);
+              return {
+                duoc: dungNL && khuHoi && Object.keys(trung).length === 0 && goc.suaPODaChot === true,
+                thucTe: `ngoại lệ=[${Object.keys(nl).sort()}] · khứ hồi=${khuHoi} · trùng gốc={${Object.keys(trung)}} · mẫu cho sửa đơn chốt=${goc.suaPODaChot}`,
+                mongDoi: "ngoại lệ=[phanBoCongViec,xemCongNo,xemGia] · khứ hồi=true · trùng gốc={} · mẫu cho sửa đơn chốt=true",
+              };
+            },
+          );
+
+          kiem(
+            "chuanHoaMauChucDanh: tài liệu vắng = mẫu trống bản 0; giá trị hỏng ở khoá đã biết = LỖI; cột/khoá lạ, ô khoá = bỏ kèm cảnh báo",
+            /* Đọc mẫu hỏng mà "bỏ qua cho xong" là rơi về công thức — rộng hơn cái Sếp vừa bỏ ở mẫu. */
+            CHU_B,
+            () => {
+              const vang = MCD.chuanHoaMauChucDanh(undefined);
+              const vangDung = !("loi" in vang) && vang.mau.phienBan === 0 && Object.keys(vang.mau.de).length === 0;
+              const loi = [
+                { khuon: 1, phienBan: 1, de: { nhan_vien_thu_mua: { xemGia: "x" } } },
+                { khuon: 1, phienBan: 1, de: { cot_la: { xemGia: 1 } } },
+                { khuon: 2, phienBan: 1, de: {} },
+                { khuon: 1, phienBan: -1, de: {} },
+                { khuon: 1, phienBan: 1.5, de: {} },
+                { khuon: 1, phienBan: 1, de: [] },
+                { khuon: 1, phienBan: 1, de: { ke_toan: true } },
+                { khuon: 1, phienBan: 1 },
+                null,
+              ].map((x) => "loi" in MCD.chuanHoaMauChucDanh(x));
+              const bo = MCD.chuanHoaMauChucDanh({
+                khuon: 1,
+                phienBan: 3,
+                de: {
+                  cot_la: { xemGia: true },
+                  quan_tri: { xemGia: false },
+                  ke_toan: { phanBoCongViec: true, xemGia: true, xemDuocApp: false, khoaLa: true },
+                },
+              });
+              const boDung =
+                !("loi" in bo) &&
+                bo.mau.phienBan === 3 &&
+                JSON.stringify(bo.mau.de) === JSON.stringify({ ke_toan: { phanBoCongViec: true } }) &&
+                bo.canhBao.length === 5;
+              return {
+                duoc: vangDung && loi.every(Boolean) && boDung,
+                thucTe: `vắng=bản 0 trống:${vangDung} · lỗi=[${loi}] · bỏ kèm cảnh báo: de=${"loi" in bo ? "LỖI" : JSON.stringify(bo.mau.de)} cảnh báo=${"loi" in bo ? "-" : bo.canhBao.length}`,
+                mongDoi: "vắng=bản 0 trống:true · lỗi=[true ×9] · bỏ kèm cảnh báo: de={\"ke_toan\":{\"phanBoCongViec\":true}} cảnh báo=5",
+              };
+            },
+          );
+
+          kiem(
+            "Ô khoá: cột Quản trị / Ngừng, dòng Vào app / Xoá đề nghị — từ chối kể cả Quản trị; đọc mẫu có ô khoá thì bỏ",
+            /* Chiều ngược: Quản trị sửa được ô thường. */
+            CHU_B,
+            () => {
+              const ly = [
+                MCD.lyDoOKhoaMau("quan_tri", "xemGia"),
+                MCD.lyDoOKhoaMau("ngung_truy_cap", "xemGia"),
+                MCD.lyDoOKhoaMau("nhan_vien_thu_mua", "xemDuocApp"),
+                MCD.lyDoOKhoaMau("nhan_vien_thu_mua", "xoaToanBoDuLieu"),
+                MCD.lyDoOKhoaMau("nhan_vien_thu_mua", "phanQuyenNguoiDung"),
+              ];
+              const qtLuu = [
+                luuMau(QT, MCD.MAU_TRONG, { quan_tri: { xemGia: false } }),
+                luuMau(QT, MCD.MAU_TRONG, { ngung_truy_cap: { xemGia: true } }),
+                luuMau(QT, MCD.MAU_TRONG, { nhan_vien_thu_mua: { xemDuocApp: false } }),
+                luuMau(QT, MCD.MAU_TRONG, { nhan_vien_thu_mua: { xoaToanBoDuLieu: true } }),
+              ].map((r) => (r.ok ? "LỌT" : r.status));
+              const gocNV = QX.tinhQuyenTheoChucDanh(NV);
+              const ap = QR.quyenTheoChucDanhCoMau(gocNV, { xemDuocApp: false, xoaToanBoDuLieu: true, xemGia: false });
+              const ngung = QR.quyenTheoChucDanhCoMau(QX.tinhQuyenTheoChucDanh(NGUNG), { xemGia: true });
+              const cotQT = MCD.oDeCuaHoSo(mauVoi({ quan_tri: { xemGia: false } }), QT);
+              const hlQT = hieuLuc(QT, null, mauVoi({ quan_tri: { xemGia: false } }));
+              const thuong = luuMau(QT, MCD.MAU_TRONG, { nhan_vien_thu_mua: { xemCongNo: false } });
+              const duoc =
+                ly.every((x) => typeof x === "string" && x.length > 0) &&
+                qtLuu.every((x) => x === 403) &&
+                ap.xemDuocApp && !ap.xoaToanBoDuLieu && !ap.xemGia &&
+                !ngung.xemGia && !ngung.xemDuocApp &&
+                cotQT === null && hlQT.xemGia &&
+                thuong.ok === true;
+              return {
+                duoc,
+                thucTe: `lý do khoá=${ly.filter(Boolean).length}/5 · QT lưu ô khoá=[${qtLuu}] · áp ô khoá: vào=${ap.xemDuocApp} xoá=${ap.xoaToanBoDuLieu} giá(ô thường)=${ap.xemGia} · Ngừng nhận giá=${ngung.xemGia} · cột QT áp=${cotQT === null ? "không" : "CÓ"} QT giá=${hlQT.xemGia} · QT sửa ô thường=${thuong.ok ? "được" : thuong.error}`,
+                mongDoi: "lý do khoá=5/5 · QT lưu ô khoá=[403,403,403,403] · áp ô khoá: vào=true xoá=false giá(ô thường)=false · Ngừng nhận giá=false · cột QT áp=không QT giá=true · QT sửa ô thường=được",
+              };
+            },
+          );
+
+          kiem(
+            "Câu 2 = B: Trưởng BP chỉ sửa cột mình gán được, chỉ dòng mình có (cả bật lẫn tắt); Quản trị sửa mọi ô không khoá",
+            /* 🔴 BẪY: cột Trưởng BP phải bị chặn với chính Trưởng BP (`capDatDuocToiDa` = 2, không viết cứng 3).
+               Khoá cả hai chiều là cách hiểu "chỉ các cờ mình có" — muốn nới chỉ sửa MỘT dòng ⑤ trong
+               `lyDoKhongSuaOMau` và sửa bài này theo chỉ đạo mới. */
+            CHU_B,
+            () => {
+              const gTBP = goiMau(TBP).nguoiDung;
+              const gQT = goiMau(QT).nguoiDung;
+              const cotCam = ["truong_bo_phan_thu_mua", "ban_giam_doc", "quan_tri"].map((ma) => MCD.lyDoKhongSuaOMau(gTBP, ma, "xemGia"));
+              const cauDung = cotCam.slice(0, 2).every((x) => typeof x === "string" && x.includes("chỉ Quản trị sửa được"));
+              /* Ba dòng TBP không có (Đính phiếu · Vào Theo dõi đơn hàng kho · Xoá đề nghị) khoá ở MỌI cột. */
+              const dongKhoa = VTC.VAI_TRO_CHUAN.every((v) =>
+                ["ghiPhieuNhanHang", "xacNhanKho", "xoaToanBoDuLieu"].every((k) => MCD.lyDoKhongSuaOMau(gTBP, v.ma, k) !== null),
+              );
+              const tat = luuMau(TBP, MCD.MAU_TRONG, { thu_kho: { ghiPhieuNhanHang: false } });
+              const bat = luuMau(TBP, MCD.MAU_TRONG, { nhan_vien_thu_mua: { ghiPhieuNhanHang: true } });
+              const nvKhong = MCD.lyDoKhongSuaOMau(NV, "ke_toan", "xemGia");
+              /* Chiều cho phép. */
+              const keToan = luuMau(TBP, MCD.MAU_TRONG, { ke_toan: { phanBoCongViec: true } });
+              const qtSua = MCD.lyDoKhongSuaOMau(gQT, "truong_bo_phan_thu_mua", "xemGia");
+              return {
+                duoc:
+                  cotCam.every((x) => x !== null) && cauDung && dongKhoa &&
+                  !tat.ok && tat.status === 403 && !bat.ok && bat.status === 403 && nvKhong !== null &&
+                  keToan.ok === true && qtSua === null,
+                thucTe: `TBP sửa cột TBP/BGĐ/QT=[${cotCam.map((x) => (x ? "chặn" : "LỌT"))}] đúng câu=${cauDung} · 3 dòng khoá mọi cột=${dongKhoa} · tắt phiếu kho=${tat.ok ? "LỌT" : tat.status} · bật phiếu NV=${bat.ok ? "LỌT" : bat.status} · NV sửa=${nvKhong ? "chặn" : "LỌT"} · TBP bật Giao việc cột KT=${keToan.ok ? "được" : keToan.error} · QT sửa cột TBP=${qtSua ?? "được"}`,
+                mongDoi: "TBP sửa cột TBP/BGĐ/QT=[chặn,chặn,chặn] đúng câu=true · 3 dòng khoá mọi cột=true · tắt phiếu kho=403 · bật phiếu NV=403 · NV sửa=chặn · TBP bật Giao việc cột KT=được · QT sửa cột TBP=được",
+              };
+            },
+          );
+
+          kiem(
+            "Chống leo quyền qua gán chức danh: cột gán được nhận cờ ngoài cột Trưởng BP (trừ cờ công thức có sẵn) → Quản trị được lưu kèm CẢNH BÁO (B-F4 \"Quản trị sửa tất\"); bớt cờ ở cột TBP mà cột khác đang được thêm cờ đó → cũng cảnh báo",
+            /* Bài học 18/08/2026 (`chiQuanTriGan`): Trưởng BP gán chức danh là trao được quyền mình không có.
+               ★ SỬA BÀI THEO CHỈ ĐẠO MỚI, KHÔNG PHẢI CHO VỪA MÃ: bản đầu (gói B, fb14992) CHẶN cả Quản trị
+               (400). Bổ sung đặc tả B-F4 06/10/2026 theo đúng chữ Sếp *"Quản trị sửa tất"* (Câu 2 = B): với
+               Quản trị đây là CẢNH BÁO trong hộp xác nhận. Phần chặn Trưởng BP canh ở bài B-F4 ngay dưới.
+               Chiều ngược: thêm cờ TBP có → không cảnh báo leo quyền; "Đính phiếu" của Thủ kho là cờ công
+               thức → không cảnh báo; hàm trực tiếp vẫn nhận ra ô leo quyền. */
+            `${CHU_B} · bổ sung đặc tả B-F4 06/10/2026`,
+            () => {
+              const coCanhBaoLeo = (r) => r.ok && r.canhBao.some((c) => c.includes("cột Trưởng bộ phận không có"));
+              const leo = luuMau(QT, MCD.MAU_TRONG, { nhan_vien_thu_mua: { ghiPhieuNhanHang: true } });
+              const coTBP = luuMau(QT, MCD.MAU_TRONG, { nhan_vien_thu_mua: { suaPODaChot: true } });
+              const thuKho = luuMau(QT, MCD.MAU_TRONG, { thu_kho: { xemCongNo: true } });
+              const mauCu = mauVoi({ ke_toan: { suaPODaChot: true } }, 1);
+              const bot = luuMau(QT, mauCu, { truong_bo_phan_thu_mua: { suaPODaChot: false } });
+              const truc = MCD.vuongMacLeoQuyenQuaGanChucDanh({ thu_kho: { xacNhanTruongBP: false } });
+              const truc2 = MCD.vuongMacLeoQuyenQuaGanChucDanh({ qlda: { xacNhanKho: true } });
+              return {
+                duoc:
+                  coCanhBaoLeo(leo) && coCanhBaoLeo(bot) &&
+                  coTBP.ok === true && !coCanhBaoLeo(coTBP) && thuKho.ok === true && !coCanhBaoLeo(thuKho) &&
+                  truc === null && truc2 !== null,
+                thucTe: `QT thêm phiếu cho NVTM=${leo.ok ? (coCanhBaoLeo(leo) ? "lưu + cảnh báo" : "lưu, THIẾU cảnh báo") : `CHẶN ${leo.status}`} · bớt ở cột TBP=${bot.ok ? (coCanhBaoLeo(bot) ? "lưu + cảnh báo" : "lưu, THIẾU cảnh báo") : `CHẶN ${bot.status}`} · thêm sửa đơn chốt=${coTBP.ok ? (coCanhBaoLeo(coTBP) ? "cảnh báo THỪA" : "được") : coTBP.error} · thủ kho thêm công nợ=${thuKho.ok ? (coCanhBaoLeo(thuKho) ? "cảnh báo THỪA" : "được") : thuKho.error} · hàm trực tiếp: tắt=${truc ?? "được"} thêm kho cho QLDA=${truc2 ? "nhận ra" : "LỌT"}`,
+                mongDoi: "QT thêm phiếu cho NVTM=lưu + cảnh báo · bớt ở cột TBP=lưu + cảnh báo · thêm sửa đơn chốt=được · thủ kho thêm công nợ=được · hàm trực tiếp: tắt=được thêm kho cho QLDA=nhận ra",
+              };
+            },
+          );
+
+          kiem(
+            "phienBan lệch → 409 (lưu mẫu và lưu quyền riêng); khớp → đi",
+            /* Tab cũ gửi bản nháp dựng theo mẫu cũ → trả lại cờ Sếp vừa bỏ. */
+            CHU_B,
+            () => {
+              const mau = mauVoi({ ke_toan: { phanBoCongViec: true } }, 2);
+              const mauLech = luuMau(QT, mau, { nhan_vien_thu_mua: { xemCongNo: false } }, 1);
+              const riengLech = luuRieng(QT, [nhanLuu(NV)], { loai: "tick", thayDoi: { xemCongNo: false } }, mau, 1);
+              const mauKhop = luuMau(QT, mau, { nhan_vien_thu_mua: { xemCongNo: false } }, 2);
+              const riengKhop = luuRieng(QT, [nhanLuu(NV)], { loai: "tick", thayDoi: { xemCongNo: false } }, mau, 2);
+              return {
+                duoc:
+                  !mauLech.ok && mauLech.status === 409 && mauLech.maLoi === "mau-doi" &&
+                  !riengLech.ok && riengLech.status === 409 && riengLech.maLoi === "mau-doi" &&
+                  mauKhop.ok === true && mauKhop.mauMoi.phienBan === 3 && riengKhop.ok === true,
+                thucTe: `lệch: mẫu=${mauLech.ok ? "LỌT" : `${mauLech.status}/${mauLech.maLoi}`} riêng=${riengLech.ok ? "LỌT" : `${riengLech.status}/${riengLech.maLoi}`} · khớp: mẫu=${mauKhop.ok ? `bản ${mauKhop.mauMoi.phienBan}` : mauKhop.error} riêng=${riengKhop.ok ? "được" : riengKhop.error}`,
+                mongDoi: "lệch: mẫu=409/mau-doi riêng=409/mau-doi · khớp: mẫu=bản 3 riêng=được",
+              };
+            },
+          );
+
+          kiem(
+            "tinhLuuQuyenRieng: ngoại lệ rỗng → XOÁ; bỏ quyền riêng → xoá nhưng vẫn qua vuongMacTraoQuyen (TBP không bỏ được bản riêng của QT, BGĐ, TBP khác); bản ghi ra là khuôn 2 có quyen đủ 18 ô",
+            CHU_B,
+            () => {
+              const coUndefined = (o) =>
+                o === undefined || (o !== null && typeof o === "object" && Object.values(o).some(coUndefined));
+              const b2 = (n, ngoaiLe) => ({ khuon: 2, ngoaiLe, theoChucDanh: QR.dauChucDanhCua(n), quyen: {}, capNhatLuc: LUC, capNhatBoi: "x" });
+              /* Ngoại lệ trở về đúng chức danh → xoá bản, không cất `{}`. */
+              const veGoc = luuRieng(QT, [nhanLuu(NV, b2(NV, { xemGia: false }))], { loai: "tick", thayDoi: { xemGia: true } });
+              /* Người chưa có bản: tạo bản khuôn 2. */
+              const moi = luuRieng(TBP, [nhanLuu(NV2)], { loai: "tick", thayDoi: { xemCongNo: false } });
+              const g = moi.ok ? moi.ghi[0]?.banGhi : null;
+              const banDung =
+                !!g && g.khuon === 2 && JSON.stringify(g.ngoaiLe) === JSON.stringify({ xemCongNo: false }) &&
+                Object.keys(g.quyen).length === 18 && QR.khopDauChucDanh(g.theoChucDanh, QR.dauChucDanhCua(NV2)) && !coUndefined(g);
+              /* Khuôn 1 mà lần tick không đổi gì → GIỮ NGUYÊN khuôn 1. */
+              const banK1 = { quyen: { ...QR.rutQuyenRieng(QX.tinhQuyenTheoChucDanh(NV)), xemGia: false }, theoChucDanh: QR.dauChucDanhCua(NV) };
+              const khongDoi = luuRieng(TBP, [nhanLuu(NV, banK1)], { loai: "tick", thayDoi: { xemGia: false } });
+              /* Bỏ quyền riêng. */
+              const bo = { loai: "bo-quyen-rieng" };
+              const boQT = luuRieng(TBP, [nhanLuu(QT, b2(QT, { xemGia: false }))], bo);
+              const boBGD = luuRieng(TBP, [nhanLuu(BGD, b2(BGD, { xemGia: false }))], bo);
+              const boTBP2 = luuRieng(TBP, [nhanLuu(TBP2, b2(TBP2, { xemGia: false }))], bo);
+              const boNV = luuRieng(TBP, [nhanLuu(NV, b2(NV, { xemGia: false })), nhanLuu(NV2)], bo);
+              const chan = [boQT, boBGD, boTBP2].every((r) => !r.ok && r.status === 403);
+              return {
+                duoc:
+                  veGoc.ok && veGoc.xoa.join() === "nv" && veGoc.ghi.length === 0 &&
+                  banDung && khongDoi.ok && khongDoi.giuNguyen.join() === "nv" && khongDoi.ghi.length === 0 && khongDoi.xoa.length === 0 &&
+                  chan && boNV.ok && boNV.xoa.join() === "nv" && boNV.giuNguyen.join() === "nv2",
+                thucTe: `về gốc: xoá=[${veGoc.ok ? veGoc.xoa : veGoc.error}] · bản mới khuôn 2 đủ 18 ô=${banDung} · khuôn 1 không đổi giữ nguyên=${khongDoi.ok ? khongDoi.giuNguyen : khongDoi.error} · TBP bỏ bản QT/BGĐ/TBP khác chặn=${chan} · bỏ NV: xoá=[${boNV.ok ? boNV.xoa : boNV.error}] giữ=[${boNV.ok ? boNV.giuNguyen : ""}]`,
+                mongDoi: "về gốc: xoá=[nv] · bản mới khuôn 2 đủ 18 ô=true · khuôn 1 không đổi giữ nguyên=nv · TBP bỏ bản QT/BGĐ/TBP khác chặn=true · bỏ NV: xoá=[nv] giữ=[nv2]",
+              };
+            },
+          );
+
+          kiem(
+            "Mẫu đi vào quyền NGƯỜI GỌI và người nhận: mẫu bỏ 'Giao việc' ở cột TBP → TBP không trao 'Giao việc' được; mẫu bỏ 'Làm việc thu mua' ở cột NVTM → dòng G2 cột NVTM thành 'không'",
+            /* Chiều ngược: mẫu trống thì TBP trao được, và dòng G1/G2 khớp đúng dòng ghi chú của kế hoạch
+               06/10 (mục 3). ⚠️ G2 gọi THẬT `duocXacNhanNhanDuHangCuaHoSo` với hồ sơ giả chỉ có
+               `items[].nguoiPhuTrachUid` — luật đổi mà đọc thêm trường khác thì bài này đỏ, phải dựng lại. */
+            CHU_B,
+            () => {
+              const mauBoGV = mauVoi({ truong_bo_phan_thu_mua: { phanBoCongViec: false } });
+              const chan = luuRieng(TBP, [nhanLuu(NV)], { loai: "tick", thayDoi: { phanBoCongViec: true } }, mauBoGV);
+              const cho = luuRieng(TBP, [nhanLuu(NV)], { loai: "tick", thayDoi: { phanBoCongViec: true } });
+              const nvNhan = hieuLuc(NV, null, mauVoi({ nhan_vien_thu_mua: { xemCongNo: false } }));
+              const mauBoLap = mauVoi({ nhan_vien_thu_mua: { lapPO: false } });
+              const g2Bo = MCD.giaTriDongGhiChu("G2", VT("nhan_vien_thu_mua"), mauBoLap);
+              const G2 = "duoc,khong,duoc,duoc,khong,khong,khi-duoc-chia-viec,khi-duoc-chia-viec,khong,khong,khong";
+              const G1 = "duoc,khong,duoc,khong,khong,khong,khong,khong,khong,khong,khong";
+              const g2 = VTC.VAI_TRO_CHUAN.map((v) => MCD.giaTriDongGhiChu("G2", v, MCD.MAU_TRONG)).join(",");
+              const g1 = VTC.VAI_TRO_CHUAN.map((v) => MCD.giaTriDongGhiChu("G1", v, MCD.MAU_TRONG)).join(",");
+              return {
+                duoc: !chan.ok && chan.status === 403 && cho.ok === true && !nvNhan.xemCongNo && nvNhan.xemGia && g2Bo === "khong" && g2 === G2 && g1 === G1,
+                thucTe: `mẫu bỏ GV ở TBP → trao GV=${chan.ok ? "LỌT" : chan.status} · mẫu trống → trao=${cho.ok ? "được" : cho.error} · NV nhận mẫu: nợ=${nvNhan.xemCongNo} giá=${nvNhan.xemGia} · G2 cột NVTM khi bỏ ô=${g2Bo} · G2=[${g2}] · G1=[${g1}]`,
+                mongDoi: `mẫu bỏ GV ở TBP → trao GV=403 · mẫu trống → trao=được · NV nhận mẫu: nợ=false giá=true · G2 cột NVTM khi bỏ ô=khong · G2=[${G2}] · G1=[${G1}]`,
+              };
+            },
+          );
+
+          kiem(
+            "Hồ sơ Tùy chỉnh và Quản trị không nhận mẫu",
+            /* Khớp chức danh bằng đúng hàm gắn nhãn (`vaiTroKhopVoiHoSo`, 3 trường); Quản trị theo chốt ②.
+               Chiều ngược: hồ sơ khớp chức danh chuẩn thì nhận mẫu. */
+            CHU_B,
+            () => {
+              const KT = nd("kt", { chucNang: "ke_toan", capTM: 1 });
+              const KT2 = nd("kt2", { chucNang: "ke_toan", capTM: 2 }); // Tùy chỉnh: kế toán cấp 2
+              const mau = mauVoi({ ke_toan: { phanBoCongViec: true }, quan_tri: { xemGia: false } });
+              const odKT = MCD.oDeCuaHoSo(mau, KT);
+              const odKT2 = MCD.oDeCuaHoSo(mau, KT2);
+              const odQT = MCD.oDeCuaHoSo(mau, QT);
+              const hlKT = hieuLuc(KT, null, mau);
+              const hlKT2 = hieuLuc(KT2, null, mau);
+              const hlQT = hieuLuc(QT, null, mau);
+              const rKT2 = TLP.ganQuyenRiengHieuLuc(KT2, null, mau).quyenRieng;
+              return {
+                duoc: odKT !== null && hlKT.phanBoCongViec && odKT2 === null && !hlKT2.phanBoCongViec && rKT2 === null && odQT === null && hlQT.xemGia,
+                thucTe: `KT chuẩn nhận=${odKT !== null}/${hlKT.phanBoCongViec} · KT tùy chỉnh nhận=${odKT2 !== null}/${hlKT2.phanBoCongViec} (quyenRieng=${rKT2 === null ? "null" : "CÓ"}) · QT nhận=${odQT !== null} giá=${hlQT.xemGia}`,
+                mongDoi: "KT chuẩn nhận=true/true · KT tùy chỉnh nhận=false/false (quyenRieng=null) · QT nhận=false giá=true",
+              };
+            },
+          );
+
+          kiem(
+            "Nhãn mới không đổi khoá: tập KHOA_TICK đúng 18 khoá cũ; nhãn và thứ tự khớp bảng 2.6; hai dòng ghi chú KHÔNG vào CO_TICK_DUOC",
+            /* Đổi khoá là hỏng mọi bản ghi `tm_quyen_rieng` và mẫu đã cất. Chiều ngược: phanQuyenNguoiDung /
+               xuatHoSo vẫn không tick được; G1, G2 chỉ là dòng xem. */
+            `${CHU_B} · kế hoạch GĐ3 (nhãn 18 ô)`,
+            () => {
+              const KHOA_CU = [
+                "xemDuocApp", "xemQuyTrinhMuaHang", "xemMoiHoSo", "xemGia", "xemNhaCungCap", "xemBaoGia", "xemCongNo",
+                "xemNguoiPhuTrach", "phanBoCongViec", "taoDeNghi", "lapPO", "taoPoDoiLap", "suaPODaChot",
+                "ghiPhieuNhanHang", "xacNhanKho", "xacNhanTruongBP", "ghiThanhToan", "xoaToanBoDuLieu",
+              ];
+              const BANG = [
+                ["xemDuocApp", "Vào app Thu mua"],
+                ["xemQuyTrinhMuaHang", "Vào Quy trình mua hàng"],
+                ["xemMoiHoSo", "Xem mọi hồ sơ"],
+                ["xemGia", "Xem giá"],
+                ["xemNhaCungCap", "Xem nhà cung cấp"],
+                ["xemBaoGia", "Xem báo giá"],
+                ["xemNguoiPhuTrach", "Xem người phụ trách"],
+                ["xemCongNo", "Xem công nợ"],
+                ["taoDeNghi", "Tạo đề nghị"],
+                ["phanBoCongViec", "Giao việc"],
+                ["lapPO", "Làm việc thu mua"],
+                ["taoPoDoiLap", "Xác nhận khớp PO chờ đề nghị"],
+                ["suaPODaChot", "Sửa đơn đã chốt"],
+                ["ghiPhieuNhanHang", "Đính / bổ sung phiếu giao nhận"],
+                ["xacNhanKho", "Vào Theo dõi đơn hàng (kho)"],
+                ["xacNhanTruongBP", "Duyệt báo giá & hoàn thành đơn, hồ sơ"],
+                ["ghiThanhToan", "Ghi thanh toán"],
+                ["xoaToanBoDuLieu", "Xoá đề nghị"],
+              ];
+              const tap = [...QR.KHOA_TICK].sort().join(",") === [...KHOA_CU].sort().join(",") && QR.KHOA_TICK.length === 18;
+              const thucNhan = QR.CO_TICK_DUOC.map((c) => `${c.khoa}=${c.nhan}`).join(" | ");
+              const nhanDung = thucNhan === BANG.map(([k, n]) => `${k}=${n}`).join(" | ");
+              const ghiChu = MCD.DONG_GHI_CHU_MAU.map((d) => d.ma).join(",") === "G1,G2";
+              const khongLan =
+                MCD.DONG_GHI_CHU_MAU.every((d) => !QR.CO_TICK_DUOC.some((c) => c.nhan === d.nhan)) &&
+                !QR.KHOA_TICK.includes("phanQuyenNguoiDung") && !QR.KHOA_TICK.includes("xuatHoSo");
+              return {
+                duoc: tap && nhanDung && ghiChu && khongLan,
+                thucTe: `đúng 18 khoá cũ=${tap} · nhãn+thứ tự khớp=${nhanDung}${nhanDung ? "" : ` [${thucNhan.slice(0, 200)}]`} · G1,G2=${ghiChu} · không lẫn vào ô tick=${khongLan}`,
+                mongDoi: "đúng 18 khoá cũ=true · nhãn+thứ tự khớp=true · G1,G2=true · không lẫn vào ô tick=true",
+              };
+            },
+          );
+
+          // ══════════════════════════════════════════════════════════════════
+          // ★ SỬA LÕI SAU PHẢN BIỆN — bổ sung đặc tả B-F1…B-F10 (06/10/2026, đè lên đặc tả gói B).
+          // Mỗi bài canh HAI CHIỀU; `chu` ghi mã mục để người sau tra đúng câu trong bổ sung đặc tả.
+          // ══════════════════════════════════════════════════════════════════
+          const CHU_BF = "Bổ sung đặc tả sau phản biện · 06/10/2026 · Sếp: Câu 2 = B, Câu 3 = A";
+          const b2Cua = (n, ngoaiLe, them = {}) => ({
+            khuon: 2, ngoaiLe, theoChucDanh: QR.dauChucDanhCua(n), quyen: {}, capNhatLuc: LUC, capNhatBoi: "x", ...them,
+          });
+          const NV3 = nd("nv3", { chucNang: "nhan_vien_thu_mua", capTM: 2 });
+          const KT3 = nd("kt3", { chucNang: "ke_toan", capTM: 3 }); // "Tùy chỉnh" cấp 3
+          const TBP4 = nd("tbp4", { chucNang: "truong_bo_phan_thu_mua", capTM: 4, capKho: 1 }); // "Tùy chỉnh" cấp 4, không admin
+
+          kiem(
+            "B-F1: tham số mẫu BẮT BUỘC — chưa có bản ghi mà cột có ô đè → đủ 18 khoá (KHÔNG null); quét mã: mọi lời gọi quyenRiengConHieuLuc( đủ 3 đối số, quyenRiengHieuLuc( đủ 5, ngoaiLeCuaBanGhi( đủ 3",
+            /* Quên truyền mẫu = bỏ qua mẫu = người chưa có bản ghi RỘNG hơn mẫu Sếp vừa siết, TypeScript không
+               báo khi tham số tuỳ chọn. Quét MÃ NGUỒN đã bỏ chú thích (bộ đọc mã đếm ngoặc), mọi thư mục. */
+            `${CHU_BF} · B-F1`,
+            () => {
+              const oDe = MCD.oDeCuaHoSo(mauVoi({ nhan_vien_thu_mua: { xemCongNo: false } }), NV);
+              const r = QX.quyenRiengConHieuLuc(null, NV, oDe);
+              const du18 = r !== null && QR.KHOA_TICK.every((k) => typeof r[k] === "boolean") && Object.keys(r).length === 18;
+              const dungGiaTri = r !== null && r.xemCongNo === false && r.xemGia === true;
+              const rongNull = QX.quyenRiengConHieuLuc(null, NV, null) === null && QX.quyenRiengConHieuLuc(null, NV, MCD.oDeCuaHoSo(MCD.MAU_TRONG, NV)) === null;
+              const fs = nap("node:fs");
+              const tep = [];
+              const di = (d) => {
+                for (const t of fs.readdirSync(d)) {
+                  const p = `${d}/${t}`;
+                  if (t === "node_modules") continue;
+                  if (fs.statSync(p).isDirectory()) di(p);
+                  else if (/\.(ts|tsx)$/.test(t)) tep.push(p);
+                }
+              };
+              ["1-giao-dien", "2-quy-trinh", "3-du-lieu", "4-phan-quyen", "app", "5-ket-noi", "6-tien-ich"].filter((d) => fs.existsSync(d)).forEach(di);
+              const CAN = { quyenRiengConHieuLuc: 3, quyenRiengHieuLuc: 5, ngoaiLeCuaBanGhi: 3 };
+              const dem = { quyenRiengConHieuLuc: 0, quyenRiengHieuLuc: 0, ngoaiLeCuaBanGhi: 0 };
+              const sai = [];
+              for (const p of tep) {
+                const s = boChuThichMa(fs.readFileSync(p, "utf8"));
+                for (const [ten, so] of Object.entries(CAN)) {
+                  for (const m of s.matchAll(new RegExp(`\\b${ten}\\s*\\(`, "g"))) {
+                    if (/function\s+$/.test(s.slice(Math.max(0, m.index - 20), m.index))) continue; // chỗ khai báo
+                    const ds = doiSoLoiGoi(s, m.index + m[0].length - 1);
+                    dem[ten] += 1;
+                    if (!ds || ds.length !== so) sai.push(`${p}: ${ten}(${ds ? ds.length : "?"} đối số)`);
+                  }
+                }
+              }
+              /* Chốt dương tính: phải bắt được các lời gọi đã biết (quyen.ts, tinh-luu, mau-chuc-danh, route,
+                 phan-quyen.tsx…) — quét hỏng thì bài đỏ, không xanh giả vì không tìm thấy gì.
+                 📌 Gói C (máy chủ, 06/10/2026) thay 3 lời gọi tạm truyền `null` ở `app/api/quyen-rieng/route.ts`
+                 bằng `ganQuyenRiengHieuLuc` / `tinhLuuQuyenRieng` (đặc tả 5 · C1, C2) → toàn mã còn 5 lời gọi
+                 TRỰC TIẾP (quyen.ts 1 · tinh-luu 2 · route 1 · phan-quyen.tsx 1), ngưỡng 6 → 5. Chỉ đổi NGƯỠNG
+                 CHỐT DƯƠNG TÍNH của phép quét; luật (mọi lời gọi đủ 3 đối số) giữ nguyên. Bài "C-F1" ở mốc C
+                 canh riêng phía máy chủ (đối số mẫu khác `null`, người gọi qua mẫu). */
+              const quetDuoc = dem.quyenRiengConHieuLuc >= 5 && dem.quyenRiengHieuLuc >= 1 && dem.ngoaiLeCuaBanGhi >= 1 && tep.length > 50;
+              return {
+                duoc: du18 && dungGiaTri && rongNull && quetDuoc && sai.length === 0,
+                thucTe: `chưa có bản + có ô đè: đủ 18=${du18} đúng giá trị=${dungGiaTri} · không ô đè → null=${rongNull} · quét ${tep.length} tệp, gọi ${JSON.stringify(dem)} · sai=[${sai.slice(0, 4).join(" | ")}]`,
+                mongDoi: "chưa có bản + có ô đè: đủ 18=true đúng giá trị=true · không ô đè → null=true · quét >50 tệp, gọi ≥5/≥1/≥1 · sai=[]",
+              };
+            },
+          );
+
+          kiem(
+            "B-F2: GIỮ ngoại lệ không bị chạm — tm2 có ngoại lệ 'Xem công nợ' khi mẫu NVTM tắt ô đó → Sếp bật ô ở mẫu → TBP lưu ô KHÁC → ngoại lệ VẪN CÒN → Sếp tắt lại → tm2 vẫn có Xem công nợ",
+            /* Câu 3 = A "chỉ GIỮ ô đã cố ý khác". Bản đầu rút ngoại lệ bằng `rutNgoaiLe(riengMoi, goc)` cho
+               mọi ca: ngoại lệ đang TRÙNG mẫu hiện tại rơi mất ở lần lưu ô khác, Sếp đổi mẫu lại là người đó
+               mất quyền đã được cố ý trao. Chiều ngược: TBP CHẠM đúng ô đó về bằng mẫu → ngoại lệ bị bỏ → mẫu
+               tắt lại thì mất; người không có ngoại lệ theo mẫu. Kèm ca khuôn 1 (ngoại lệ ngầm). */
+            `${CHU_BF} · B-F2 (ví dụ tm2)`,
+            () => {
+              const mau1 = mauVoi({ nhan_vien_thu_mua: { xemCongNo: false } }, 1);
+              const b1 = luuRieng(TBP, [nhanLuu(NV2)], { loai: "tick", thayDoi: { xemCongNo: true } }, mau1);
+              const ban1 = b1.ok ? b1.ghi[0]?.banGhi ?? null : null;
+              const l2 = luuMau(QT, mau1, { nhan_vien_thu_mua: { xemCongNo: null } });
+              const mau2 = l2.ok ? l2.mauMoi : mau1;
+              const b2 = luuRieng(TBP, [nhanLuu(NV2, ban1)], { loai: "tick", thayDoi: { xemGia: false } }, mau2);
+              const ban2 = b2.ok ? b2.ghi[0]?.banGhi ?? null : null;
+              const conNL = ban2?.ngoaiLe?.xemCongNo === true && ban2?.ngoaiLe?.xemGia === false;
+              const l3 = luuMau(QT, mau2, { nhan_vien_thu_mua: { xemCongNo: false } });
+              const mau3 = l3.ok ? l3.mauMoi : mau2;
+              const hl3 = hieuLuc(NV2, ban2, mau3);
+              const nv3 = hieuLuc(NV, null, mau3);
+              /* Chiều ngược: chạm ĐÚNG ô Xem công nợ về bằng mẫu (bật, mẫu đang bật) → bỏ khỏi ngoại lệ. */
+              const b2b = luuRieng(TBP, [nhanLuu(NV2, ban1)], { loai: "tick", thayDoi: { xemCongNo: true, xemGia: false } }, mau2);
+              const ban2b = b2b.ok ? b2b.ghi[0]?.banGhi ?? null : null;
+              const hl3b = ban2b ? hieuLuc(NV2, ban2b, mau3) : null;
+              /* Khuôn 1: ngoại lệ ngầm "Xem giá tắt"; mẫu cũng tắt Xem giá; TBP lưu ô khác → vẫn giữ; mẫu về
+                 trống thì Xem giá vẫn tắt (bản đầu: rơi mất → có lại giá). */
+              const mauG = mauVoi({ nhan_vien_thu_mua: { xemGia: false } }, 1);
+              const k1 = { quyen: { ...QR.rutQuyenRieng(QX.tinhQuyenTheoChucDanh(NV2)), xemGia: false }, theoChucDanh: QR.dauChucDanhCua(NV2) };
+              const bk = luuRieng(TBP, [nhanLuu(NV2, k1)], { loai: "tick", thayDoi: { xemCongNo: false } }, mauG);
+              const bank = bk.ok ? bk.ghi[0]?.banGhi ?? null : null;
+              const hlk = bank ? hieuLuc(NV2, bank, MCD.MAU_TRONG) : null;
+              const duoc =
+                !!ban1 && l2.ok && conNL && l3.ok && hl3.xemCongNo === true && hl3.xemGia === false && nv3.xemCongNo === false &&
+                !!ban2b && !("xemCongNo" in ban2b.ngoaiLe) && hl3b?.xemCongNo === false &&
+                bank?.ngoaiLe?.xemGia === false && hlk?.xemGia === false && hlk?.xemCongNo === false;
+              return {
+                duoc,
+                thucTe: `ngoại lệ sau lưu ô khác=${JSON.stringify(ban2?.ngoaiLe)} · mẫu tắt lại: tm2 nợ=${hl3.xemCongNo} giá=${hl3.xemGia} · NV không ngoại lệ nợ=${nv3.xemCongNo} · chạm đúng ô: ngoại lệ=${JSON.stringify(ban2b?.ngoaiLe)} nợ sau=${hl3b?.xemCongNo} · khuôn 1: ngoại lệ=${JSON.stringify(bank?.ngoaiLe)} giá khi mẫu trống=${hlk?.xemGia}`,
+                mongDoi: "ngoại lệ sau lưu ô khác={xemCongNo:true,xemGia:false} · mẫu tắt lại: tm2 nợ=true giá=false · NV không ngoại lệ nợ=false · chạm đúng ô: ngoại lệ không còn xemCongNo, nợ sau=false · khuôn 1: ngoại lệ có xemGia:false, giá khi mẫu trống=false",
+              };
+            },
+          );
+
+          kiem(
+            "B-F3: CHỈ Quản trị hoặc hồ sơ khớp chức danh Trưởng BP Thu mua sửa được bảng mẫu — hồ sơ cấp 3/4 'Tùy chỉnh' bị chặn (vẫn tick riêng được); coQuyenPhanQuyen + duocSuaMauChucDanh MỘT chỗ ở luat-phan-quyen.ts",
+            /* Sếp: "Quản trị sửa tất" + "Cả Trưởng BP" (Câu 2 = B). Bản đầu chỉ hỏi `coQuyenPhanQuyen` → mọi hồ
+               sơ cấp ≥ 3 sửa được mẫu. Chiều ngược: Quản trị và Trưởng BP chuẩn sửa được; Tùy chỉnh cấp 3 vẫn
+               có quyền phân quyền (tick riêng) như cũ. */
+            `${CHU_BF} · B-F3`,
+            () => {
+              const ai = { QT, TBP, KT3, TBP4, NV, BGD };
+              const sua = Object.fromEntries(Object.entries(ai).map(([k, n]) => [k, LPQ.duocSuaMauChucDanh(goiMau(n).nguoiDung)]));
+              const dungSua = sua.QT && sua.TBP && !sua.KT3 && !sua.TBP4 && !sua.NV && !sua.BGD;
+              const kt3PhanQuyen = LPQ.coQuyenPhanQuyen(goiMau(KT3).nguoiDung);
+              const kt3Luu = luuMau(KT3, MCD.MAU_TRONG, { ke_toan: { phanBoCongViec: true } });
+              const kt3O = MCD.lyDoKhongSuaOMau(goiMau(KT3).nguoiDung, "ke_toan", "xemGia");
+              const kt3Tick = luuRieng(KT3, [nhanLuu(NV)], { loai: "tick", thayDoi: { xemCongNo: false } });
+              const tbpLuu = luuMau(TBP, MCD.MAU_TRONG, { ke_toan: { phanBoCongViec: true } });
+              /* Một chỗ: chỉ luat-phan-quyen.ts KHAI hai hàm; mau-chuc-danh + tinh-luu NẠP từ đó. */
+              const fs = nap("node:fs");
+              const doc = (p) => boChuThichMa(fs.readFileSync(p, "utf8"));
+              const khai = ["4-phan-quyen/luat-phan-quyen.ts", "4-phan-quyen/mau-chuc-danh.ts", "4-phan-quyen/tinh-luu-phan-quyen.ts"].map((p) => {
+                const s = doc(p);
+                return [/function\s+coQuyenPhanQuyen\s*\(/.test(s), /function\s+duocSuaMauChucDanh\s*\(/.test(s)];
+              });
+              const motCho = khai[0][0] && khai[0][1] && !khai[1][0] && !khai[1][1] && !khai[2][0] && !khai[2][1];
+              const napTu = ["4-phan-quyen/mau-chuc-danh.ts", "4-phan-quyen/tinh-luu-phan-quyen.ts"].every((p) =>
+                /import\s*\{[^}]*\bcoQuyenPhanQuyen\b[^}]*\bduocSuaMauChucDanh\b[^}]*\}\s*from\s*"@\/4-phan-quyen\/luat-phan-quyen"/.test(doc(p)));
+              return {
+                duoc:
+                  dungSua && kt3PhanQuyen && !kt3Luu.ok && kt3Luu.status === 403 && kt3O === MCD.LY_DO_KHONG_SUA_MAU &&
+                  kt3Tick.ok === true && tbpLuu.ok === true && motCho && napTu,
+                thucTe: `sửa mẫu=${JSON.stringify(sua)} · KT3 phân quyền=${kt3PhanQuyen} lưu mẫu=${kt3Luu.ok ? "LỌT" : kt3Luu.status} lý do ô đúng câu=${kt3O === MCD.LY_DO_KHONG_SUA_MAU} tick riêng=${kt3Tick.ok ? "được" : kt3Tick.error} · TBP lưu mẫu=${tbpLuu.ok ? "được" : tbpLuu.error} · một chỗ khai=${motCho} · nạp từ luat-phan-quyen=${napTu}`,
+                mongDoi: "sửa mẫu={QT:true,TBP:true,KT3:false,TBP4:false,NV:false,BGD:false} · KT3 phân quyền=true lưu mẫu=403 lý do ô đúng câu=true tick riêng=được · TBP lưu mẫu=được · một chỗ khai=true · nạp từ luat-phan-quyen=true",
+              };
+            },
+          );
+
+          kiem(
+            "B-F4: chống leo quyền KHÔNG chặn Quản trị (thành cảnh báo); Trưởng BP có cờ nhờ NGOẠI LỆ RIÊNG bật cờ đó cho cả cột → CHẶN; ô leo quyền Quản trị đã chấp nhận KHÔNG làm Trưởng BP kẹt",
+            /* Sếp "Quản trị sửa tất". Phần chặn Trưởng BP là ca biên em giữ chặt hơn bổ sung đặc tả (xem chú
+               thích `tinhLuuMauChucDanh` ⑦): chỉ ô leo quyền MỚI sinh ở lần lưu của Trưởng BP. */
+            `${CHU_BF} · B-F4`,
+            () => {
+              const thayDoi = { nhan_vien_thu_mua: { ghiPhieuNhanHang: true } };
+              const qt = luuMau(QT, MCD.MAU_TRONG, thayDoi);
+              const banTBP = b2Cua(TBP, { ghiPhieuNhanHang: true });
+              const goiTBP = { uid: TBP.uid, nguoiDung: TLP.ganQuyenRiengHieuLuc(TBP, banTBP, MCD.MAU_TRONG) };
+              const tbpCoCo = QX.tinhQuyen(goiTBP.nguoiDung).ghiPhieuNhanHang === true;
+              const tbp = TLP.tinhLuuMauChucDanh({ nguoiGoi: goiTBP, mauCu: MCD.MAU_TRONG, phienBanGui: 0, thayDoi, luc: LUC, capNhatBoi: "tbp", capNhatBoiTen: "tbp" });
+              const mauCo = qt.ok ? qt.mauMoi : MCD.MAU_TRONG;
+              const tbpKhac = luuMau(TBP, mauCo, { ke_toan: { phanBoCongViec: true } });
+              return {
+                duoc:
+                  qt.ok === true && qt.canhBao.some((c) => c.includes("cột Trưởng bộ phận không có")) &&
+                  tbpCoCo && !tbp.ok && tbp.status === 400 && typeof tbp.error === "string" && tbp.error.includes("cột Trưởng bộ phận không có") &&
+                  qt.ok && tbpKhac.ok === true,
+                thucTe: `QT=${qt.ok ? `lưu, cảnh báo=${qt.canhBao.length}` : `CHẶN ${qt.status}`} · TBP có cờ nhờ ngoại lệ=${tbpCoCo} bật cho cột NVTM=${tbp.ok ? "LỌT" : tbp.status} · TBP sửa ô khác trên mẫu đã có ô leo quyền=${tbpKhac.ok ? "được" : tbpKhac.error}`,
+                mongDoi: "QT=lưu, cảnh báo≥1 · TBP có cờ nhờ ngoại lệ=true bật cho cột NVTM=400 · TBP sửa ô khác trên mẫu đã có ô leo quyền=được",
+              };
+            },
+          );
+
+          kiem(
+            "B-F5: đọc mẫu — ô LẠ mang false (hoặc khác true) = HỎNG; ô lạ mang true = bỏ kèm cảnh báo; ô KHOÁ mang giá trị gì cũng bỏ",
+            /* Đổi tên khoá / mã chức danh về sau thì ô `false` dưới tên cũ thành "ô lạ" — bỏ qua là trả lại im
+               lặng quyền Sếp đã bỏ. Chiều ngược: ô lạ `true` và ô khoá bỏ được (không làm ai rộng hơn). */
+            `${CHU_BF} · B-F5`,
+            () => {
+              const doc = (de) => MCD.chuanHoaMauChucDanh({ khuon: 1, phienBan: 1, de });
+              const hong = [
+                { cot_la: { xemGia: false } },
+                { ke_toan: { khoaLa: false } },
+                { cot_la: { khoaLa: "x" } },
+                { ke_toan: { xemGia: "x" } },
+              ].map((de) => "loi" in doc(de));
+              const bo = doc({
+                quan_tri: { xemGia: "x" },
+                ke_toan: { xemDuocApp: 5, khoaLa: true },
+                cot_la: { xemGia: true },
+              });
+              const boDung = !("loi" in bo) && JSON.stringify(bo.mau.de) === "{}" && bo.canhBao.length === 4;
+              return {
+                duoc: hong.every(Boolean) && boDung,
+                thucTe: `hỏng=[${hong}] · bỏ được: ${"loi" in bo ? `LỖI ${bo.loi}` : `de=${JSON.stringify(bo.mau.de)} cảnh báo=${bo.canhBao.length}`}`,
+                mongDoi: "hỏng=[true,true,true,true] · bỏ được: de={} cảnh báo=4",
+              };
+            },
+          );
+
+          kiem(
+            "B-F6: anhHuongKhiDoiMau đếm theo TỪNG Ô — soGiuNgoaiLe là người giữ ngoại lệ ĐÚNG ô đó; không còn số theo cột",
+            /* Chiều ngược: người có ngoại lệ ở ô KHÁC không bị đếm ở ô vừa đổi; Quản trị / cột khác không tính. */
+            `${CHU_BF} · B-F6`,
+            () => {
+              const mauMoi = mauVoi({ nhan_vien_thu_mua: { xemCongNo: false, xemGia: false } }, 1);
+              const ds = [
+                { nd: NV, banGhi: null },
+                { nd: NV2, banGhi: b2Cua(NV2, { xemCongNo: true }) },
+                { nd: NV3, banGhi: b2Cua(NV3, { lapPO: false }) },
+                { nd: KHO, banGhi: null },
+                { nd: QT, banGhi: null },
+              ];
+              const r = MCD.anhHuongKhiDoiMau(MCD.MAU_TRONG, mauMoi, ds);
+              const o = (k) => r[0]?.doi.find((d) => d.khoa === k);
+              const no = o("xemCongNo");
+              const gia = o("xemGia");
+              const khongTheoCot = r.every((x) => !("soGiuNgoaiLe" in x) && !("soNgoaiLeChanThayDoi" in x) && !("soNguoi" in x));
+              return {
+                duoc:
+                  r.length === 1 && r[0].ma === "nhan_vien_thu_mua" && r[0].doi.length === 2 &&
+                  no?.soNguoi === 3 && no?.soGiuNgoaiLe === 1 && gia?.soNguoi === 3 && gia?.soGiuNgoaiLe === 0 && khongTheoCot,
+                thucTe: JSON.stringify(r).slice(0, 400),
+                mongDoi: "1 cột NVTM, 2 ô: xemCongNo {soNguoi:3, soGiuNgoaiLe:1} · xemGia {soNguoi:3, soGiuNgoaiLe:0} · không còn trường đếm theo cột",
+              };
+            },
+          );
+
+          kiem(
+            "B-F7: thứ tự kiểm thống nhất — quyền → phienBan → khuôn → từng ô (lưu mẫu và lưu quyền riêng)",
+            /* Người không có quyền gửi bản cũ phải nhận 403 (không phải "tải lại trang"); bản cũ hỏng khuôn
+               nhận 409 trước; khuôn hỏng kèm ô khoá nhận 400 trước 403 của ô. */
+            `${CHU_BF} · B-F7`,
+            () => {
+              const mau = mauVoi({ ke_toan: { phanBoCongViec: true } }, 2);
+              const kq = {
+                nvRieng: luuRieng(NV, [nhanLuu(NV2)], { loai: "tick", thayDoi: { xemCongNo: false } }, mau, 1).status,
+                nvMau: luuMau(NV, mau, { ke_toan: { xemGia: false } }, 1).status,
+                kt3Mau: luuMau(KT3, mau, { ke_toan: { xemGia: false } }, 1).status,
+                qtLechHong: luuMau(QT, mau, { cot_la: { xemGia: true } }, 1).status,
+                qtHong: luuMau(QT, mau, { cot_la: { xemGia: true } }, 2).status,
+                qtHongKhoa: luuMau(QT, mau, { quan_tri: { xemGia: false }, cot_la: { xemGia: true } }, 2).status,
+                qtKhoa: luuMau(QT, mau, { quan_tri: { xemGia: false } }, 2).status,
+                qtRiengLechHong: luuRieng(QT, [nhanLuu(NV2)], { loai: "tick", thayDoi: { abc: true } }, mau, 1).status,
+                qtRiengHong: luuRieng(QT, [nhanLuu(NV2)], { loai: "tick", thayDoi: { abc: true } }, mau, 2).status,
+              };
+              const mong = { nvRieng: 403, nvMau: 403, kt3Mau: 403, qtLechHong: 409, qtHong: 400, qtHongKhoa: 400, qtKhoa: 403, qtRiengLechHong: 409, qtRiengHong: 400 };
+              return {
+                duoc: JSON.stringify(kq) === JSON.stringify(mong),
+                thucTe: JSON.stringify(kq),
+                mongDoi: JSON.stringify(mong),
+              };
+            },
+          );
+
+          kiem(
+            "B-F8: bản ghi khuôn 2 ghi phienBanMau; mẫu VẮNG mà có bản ghi phienBanMau ≥ 1 → mẫu HỎNG (không phải mẫu trống); vắng không dấu vết → mẫu trống bản 0",
+            /* Tài liệu mẫu bị xoá ở console mà đọc thành mẫu trống là mọi chức danh về công thức — rộng hơn mẫu
+               Sếp đã siết, không một dòng báo. Chiều ngược: không dấu vết → mẫu trống như đặc tả 2.3; mẫu có
+               mặt thì đọc bình thường dù bản ghi mang phienBanMau. */
+            `${CHU_BF} · B-F8`,
+            () => {
+              const mau4 = mauVoi({ ke_toan: { phanBoCongViec: true } }, 4);
+              const r = luuRieng(TBP, [nhanLuu(NV2)], { loai: "tick", thayDoi: { xemCongNo: false } }, mau4);
+              const g = r.ok ? r.ghi[0]?.banGhi : null;
+              const ghiDung = g?.phienBanMau === 4;
+              const doc = (x) => QR.chuanHoaBanGhiQuyenRieng(x);
+              const k2 = b2Cua(NV2, { xemCongNo: false });
+              const docDung =
+                doc({ ...k2, phienBanMau: 4 })?.phienBanMau === 4 && doc({ ...k2, phienBanMau: "x" }) === null &&
+                doc({ ...k2, phienBanMau: -1 }) === null && doc(k2) !== null && doc(k2).phienBanMau === undefined;
+              const vangCoVet = "loi" in MCD.docMauChucDanh(undefined, [null, { phienBanMau: 0 }, doc({ ...k2, phienBanMau: 3 })]);
+              const vangKhongVet = MCD.docMauChucDanh(undefined, [null, { phienBanMau: 0 }, {}]);
+              const coMat = MCD.docMauChucDanh({ khuon: 1, phienBan: 4, de: {} }, [{ phienBanMau: 9 }]);
+              return {
+                duoc:
+                  ghiDung && docDung && vangCoVet && !("loi" in vangKhongVet) && vangKhongVet.mau.phienBan === 0 &&
+                  !("loi" in coMat) && coMat.mau.phienBan === 4,
+                thucTe: `ghi phienBanMau=${g?.phienBanMau} · đọc đúng=${docDung} · vắng + vết → hỏng=${vangCoVet} · vắng không vết=${"loi" in vangKhongVet ? "LỖI" : `bản ${vangKhongVet.mau.phienBan}`} · có mặt=${"loi" in coMat ? "LỖI" : `bản ${coMat.mau.phienBan}`}`,
+                mongDoi: "ghi phienBanMau=4 · đọc đúng=true · vắng + vết → hỏng=true · vắng không vết=bản 0 · có mặt=bản 4",
+              };
+            },
+          );
+
+          kiem(
+            "B-F9: cứu mẫu hỏng — phienBan CHỈ TĂNG = max(phienBan thô + 1, số giây epoch của lúc cứu); tab cũ giữ số nhỏ bị 409; chỉ Quản trị",
+            `${CHU_BF} · B-F9`,
+            () => {
+              const giay = Math.floor(Date.parse(LUC) / 1000);
+              const p = [
+                MCD.phienBanCuuMauHong({ khuon: 9, phienBan: 5 }, LUC),
+                MCD.phienBanCuuMauHong({ phienBan: giay + 10 }, LUC),
+                MCD.phienBanCuuMauHong(undefined, LUC),
+                MCD.phienBanCuuMauHong({ phienBan: "x" }, LUC),
+              ];
+              const dungSo = p[0] === giay && p[1] === giay + 11 && p[2] === giay && p[3] === giay && giay > 1e9;
+              const cu = (laQuanTri) => TLP.tinhCuuMauHong({ laQuanTri, rawMau: { khuon: 3, phienBan: 7 }, lyDoHong: "thử", luc: LUC, capNhatBoi: "qt", capNhatBoiTen: "qt" });
+              const khong = cu(false);
+              const co = cu(true);
+              const tabCu = co.ok ? luuMau(QT, co.mauMoi, { ke_toan: { phanBoCongViec: true } }, 8) : { ok: true };
+              return {
+                duoc: dungSo && !khong.ok && khong.status === 403 && co.ok && co.mauMoi.phienBan === giay && JSON.stringify(co.mauMoi.de) === "{}" && !tabCu.ok && tabCu.status === 409,
+                thucTe: `phiên bản=[${p}] (giây=${giay}) · không QT=${khong.ok ? "LỌT" : khong.status} · QT cứu=${co.ok ? `bản ${co.mauMoi.phienBan}` : co.error} · tab cũ giữ bản 8=${tabCu.ok ? "LỌT" : tabCu.status}`,
+                mongDoi: `phiên bản=[giây, giây+11, giây, giây] · không QT=403 · QT cứu=bản giây, de {} · tab cũ giữ bản 8=409`,
+              };
+            },
+          );
+
+          kiem(
+            "B-F10: nhãn/mô tả nói đúng việc thật (Xem giá có In đơn · Giao việc bỏ 2 việc chưa chốt · Làm việc thu mua không còn 'rút khỏi việc thu mua' · Đính phiếu có ghi nhận giao hàng phòng ban · G2 'cũng từ cấp 2'); phuThuocCuaO đúng đường vào thật; CHI_DAO Xem giá / NCC trích nguyên văn quyen.ts, không ngày",
+            /* Mỗi câu đối chiếu với MÃ THẬT: phụ thuộc gọi thật `duocVaoDuongDan` + đọc trang chứa nút; câu
+               chỉ đạo phải còn nguyên văn trong `quyen.ts`. Chiều ngược: ô không phụ thuộc trả null; bật Xem giá
+               cho Thủ kho có cảnh báo chỉ đạo, đổi ô khác thì không. */
+            `${CHU_BF} · B-F10`,
+            () => {
+              const mo = Object.fromEntries(QR.CO_TICK_DUOC.map((c) => [c.khoa, c.moTa]));
+              const g2 = MCD.DONG_GHI_CHU_MAU.find((d) => d.ma === "G2")?.moTa ?? "";
+              const nhan =
+                mo.xemGia.includes("In đơn mua hàng") &&
+                !/xoá dòng mặt hàng|tick việc bắt buộc/.test(mo.phanBoCongViec) &&
+                !mo.lapPO.includes("rút người đó khỏi việc thu mua") &&
+                mo.ghiPhieuNhanHang.includes("ghi nhận giao hàng ở hồ sơ phòng ban") &&
+                mo.taoDeNghi.includes("Vào Quy trình mua hàng") && mo.xoaToanBoDuLieu.includes("Cài đặt quy trình") &&
+                g2.includes("cũng từ cấp 2");
+              const ptDN = MCD.phuThuocCuaO("taoDeNghi");
+              const ptXoa = MCD.phuThuocCuaO("xoaToanBoDuLieu");
+              const fs = nap("node:fs");
+              const doc = (p) => boChuThichMa(fs.readFileSync(p, "utf8"));
+              const qQT = QX.tinhQuyen(QT);
+              const phuThuocThat =
+                ptDN?.can === "xemQuyTrinhMuaHang" && ptXoa?.can === "phanQuyenNguoiDung" && MCD.phuThuocCuaO("xemGia") === null &&
+                QX.duocVaoDuongDan("/viec-cua-toi", { ...qQT, xemQuyTrinhMuaHang: false }) === false &&
+                QX.duocVaoDuongDan("/viec-cua-toi", qQT) === true &&
+                /quyen\.taoDeNghi\b/.test(doc("1-giao-dien/trang/viec-cua-toi.tsx")) &&
+                QX.duocVaoDuongDan("/cai-dat-quy-trinh", { ...qQT, phanQuyenNguoiDung: false }) === false &&
+                /<KhoiXoaDuLieuChayThu\b/.test(doc("1-giao-dien/trang/cai-dat-quy-trinh.tsx"));
+              const quyenTs = fs.readFileSync("4-phan-quyen/quyen.ts", "utf8");
+              const chiDao = ["xemGia", "xemNhaCungCap"].map((k) => {
+                const c = MCD.CHI_DAO_THEO_DONG[k] ?? "";
+                const trich = /“([^”]+)”/.exec(c)?.[1] ?? "";
+                return c.includes("4-phan-quyen/quyen.ts") && trich.length > 20 && quyenTs.includes(trich) && !/\d{1,2}\/\d{1,2}\/\d{4}/.test(c);
+              });
+              const batGia = luuMau(QT, MCD.MAU_TRONG, { thu_kho: { xemGia: true } });
+              const khac = luuMau(QT, MCD.MAU_TRONG, { nhan_vien_thu_mua: { xemCongNo: false } });
+              const coCD = (r) => r.ok && r.canhBao.some((c) => c.includes(MCD.CHI_DAO_THEO_DONG.xemGia));
+              return {
+                duoc: nhan && phuThuocThat && chiDao.every(Boolean) && coCD(batGia) && khac.ok && !coCD(khac),
+                thucTe: `nhãn/mô tả=${nhan} · phụ thuộc khớp đường vào thật=${phuThuocThat} · chỉ đạo trích nguyên văn, không ngày=[${chiDao}] · bật giá cho Thủ kho có cảnh báo=${coCD(batGia)} · đổi ô khác có cảnh báo=${coCD(khac)}`,
+                mongDoi: "nhãn/mô tả=true · phụ thuộc khớp đường vào thật=true · chỉ đạo trích nguyên văn, không ngày=[true,true] · bật giá cho Thủ kho có cảnh báo=true · đổi ô khác có cảnh báo=false",
+              };
+            },
+          );
+        }
+      }
     }
   }
 }
@@ -14588,6 +16331,441 @@ kiem(
   );
 }
 
+
+// ════════════════════════════════════════════════════════════════════
+// ★ GÓI D — GIAO DIỆN + DEMO PHÂN QUYỀN (GĐ3 bảng / lọc / nút + GĐ4d) — Sếp 06/10/2026
+// Bảng mẫu chức danh bấm được, lọc chức danh, "Bỏ quyền riêng", 409 khi tab cũ, đọc lại quyền giữa phiên,
+// và BẢN DEMO trên máy (chế độ tài khoản mẫu) chạy ĐÚNG phép tính máy chủ dùng.
+//
+// 📌 KHỐI TỰ ĐỦ: dựng vào thư mục tạm RIÊNG (`kiem-luat-goi-d-`), nạp NGAY trong `try`, xoá trong `finally`.
+//    Hai tệp nối máy chủ (`quyen-rieng-ket-noi.ts`, `mau-chuc-danh-ket-noi.ts`) dựng với `--alias` thay
+//    `@/5-ket-noi/xac-thuc-firebase` bằng một tệp giả (chỉ trả vé thử) — không kéo Firebase vào bài kiểm,
+//    và `fetch` được giả để đọc đúng THÂN YÊU CẦU trình duyệt gửi đi. Mỗi luật canh HAI CHIỀU.
+// ════════════════════════════════════════════════════════════════════
+{
+  const CHU_D = "Sếp · 06/10/2026 · demo trên máy trước khi đẩy · CLAUDE.md §3.6c";
+  const fsD = nap("node:fs");
+  const thuMucD = mkdtempSync(join(tmpdir(), "kiem-luat-goi-d-"));
+  let KDM = null; // 3-du-lieu/kho-phan-quyen-demo.ts
+  let KNR = null; // 4-phan-quyen/quyen-rieng-ket-noi.ts
+  let KNM = null; // 4-phan-quyen/mau-chuc-danh-ket-noi.ts
+  let LPQD = null; // 4-phan-quyen/luat-phan-quyen.ts
+  let QXD = null; // 4-phan-quyen/quyen.ts
+  let TLPD = null; // 4-phan-quyen/tinh-luu-phan-quyen.ts
+  let HSNS = null; // 5-ket-noi/ho-so-nhan-su.ts (quy ước email hồ sơ demo — D-F6)
+  try {
+    const tepGia = join(thuMucD, "xac-thuc-firebase-gia.mjs");
+    fsD.writeFileSync(tepGia, 'export async function layIdTokenHienTai() { return "ve-thu-kiem-luat"; }\n');
+    execSync(
+      `npx --yes esbuild "3-du-lieu/kho-phan-quyen-demo.ts" "4-phan-quyen/quyen-rieng-ket-noi.ts" "4-phan-quyen/mau-chuc-danh-ket-noi.ts" "4-phan-quyen/luat-phan-quyen.ts" "4-phan-quyen/quyen.ts" "4-phan-quyen/tinh-luu-phan-quyen.ts" "5-ket-noi/ho-so-nhan-su.ts" --bundle --platform=node --format=cjs --outdir="${thuMucD}" --outbase=. --out-extension:.js=.cjs "--alias:@/5-ket-noi/xac-thuc-firebase=${tepGia}" --log-level=error`,
+      { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+    );
+    KDM = nap(join(thuMucD, "3-du-lieu", "kho-phan-quyen-demo.cjs"));
+    KNR = nap(join(thuMucD, "4-phan-quyen", "quyen-rieng-ket-noi.cjs"));
+    KNM = nap(join(thuMucD, "4-phan-quyen", "mau-chuc-danh-ket-noi.cjs"));
+    LPQD = nap(join(thuMucD, "4-phan-quyen", "luat-phan-quyen.cjs"));
+    QXD = nap(join(thuMucD, "4-phan-quyen", "quyen.cjs"));
+    TLPD = nap(join(thuMucD, "4-phan-quyen", "tinh-luu-phan-quyen.cjs"));
+    HSNS = nap(join(thuMucD, "5-ket-noi", "ho-so-nhan-su.cjs"));
+  } catch (e) {
+    truot.push({
+      ten: "Dựng kho demo phân quyền + hai tệp nối máy chủ + luật phân quyền (gói D)",
+      chu: CHU_D,
+      thucTe: `KHÔNG DỰNG ĐƯỢC: ${String(e.stderr ?? e.message).slice(0, 300)}`,
+      mongDoi: "dựng được",
+    });
+  } finally {
+    rmSync(thuMucD, { recursive: true, force: true });
+  }
+
+  /** Đọc mã nguồn đã bỏ chú thích (bộ đọc mã — chuỗi / regex chứa "//" vẫn nguyên). */
+  const docMaD = (p) => boChuThichMa(fsD.readFileSync(p, "utf8"));
+  /** Mọi tệp .ts/.tsx của mã nguồn app (bỏ `node_modules`). */
+  const moiTepD = () => {
+    const ra = [];
+    const di = (d) => {
+      for (const t of fsD.readdirSync(d)) {
+        const p = `${d}/${t}`;
+        if (t === "node_modules") continue;
+        if (fsD.statSync(p).isDirectory()) di(p);
+        else if (/\.(ts|tsx)$/.test(t)) ra.push(p);
+      }
+    };
+    ["1-giao-dien", "2-quy-trinh", "3-du-lieu", "4-phan-quyen", "app", "5-ket-noi", "6-tien-ich"]
+      .filter((d) => fsD.existsSync(d))
+      .forEach(di);
+    return ra;
+  };
+
+  if (KDM && KNR && KNM && LPQD && QXD && TLPD && HSNS) {
+    const KHOA_DEMO = "hpcons-thumua-phan-quyen-demo-v1";
+    const VM = (uid) => QXD.VAI_TRO_MAU.find((v) => v.uid === uid);
+
+    /* localStorage GIẢ bằng Map, có ĐẾM số lần chạm — để biết chế độ sso có đụng bộ nhớ không. */
+    const taoLS = () => {
+      const m = new Map();
+      const dem = { n: 0 };
+      return {
+        m,
+        dem,
+        kho: {
+          getItem: (k) => (dem.n++, m.has(k) ? m.get(k) : null),
+          setItem: (k, v) => (dem.n++, void m.set(k, String(v))),
+          removeItem: (k) => (dem.n++, void m.delete(k)),
+          clear: () => m.clear(),
+          key: () => null,
+          get length() {
+            return m.size;
+          },
+        },
+      };
+    };
+    const moTaLSCu = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    const datLS = (kho) =>
+      Object.defineProperty(globalThis, "localStorage", { value: kho, configurable: true, writable: true });
+    const traLS = () => {
+      if (moTaLSCu) Object.defineProperty(globalThis, "localStorage", moTaLSCu);
+      else delete globalThis.localStorage;
+    };
+
+    // ── Phần chạy bất đồng bộ (gọi thật hai tệp nối máy chủ với `fetch` giả) — tính TRƯỚC, chấm sau ──
+    const fetchCu = globalThis.fetch;
+    const daGui = [];
+    let traVe = { ok: true, status: 200, than: { ok: true, soDaGhi: 1, soDaXoa: 0, soGiuNguyen: 0, phienBan: 7, soODoi: 1, canhBao: [] } };
+    globalThis.fetch = async (url, opt) => {
+      daGui.push({ url: String(url), method: opt?.method, than: opt?.body ? JSON.parse(opt.body) : undefined });
+      const tv = traVe;
+      return { ok: tv.ok, status: tv.status, json: async () => tv.than };
+    };
+    let kqKetNoi = null;
+    let loiKetNoi = null;
+    let hoSoNhanSuTm1 = null;
+    try {
+      const luuR = await KNR.luuQuyenRieng(["u-a"], { xemGia: true }, 3);
+      const boR = await KNR.boQuyenRieng(["u-a"], 4);
+      const luuM = await KNM.luuMauChucDanh(5, { ke_toan: { xemCongNo: false } });
+      const veM = await KNM.veMacDinhMauToanBo(6);
+      const cuuM = await KNM.veMacDinhMauToanBo();
+      traVe = { ok: false, status: 409, than: { error: "Mẫu vừa được sửa", maLoi: "mau-doi" } };
+      const bi409 = await KNR.luuQuyenRieng(["u-a"], { xemGia: true }, 1);
+      traVe = { ok: false, status: 500, than: { error: "Mẫu hỏng", maLoi: "mau-hong" } };
+      const docHong = await KNR.docQuyenRiengCuaToi();
+      kqKetNoi = { luuR, boR, luuM, veM, cuuM, bi409, docHong, gui: daGui.slice() };
+      hoSoNhanSuTm1 = await HSNS.layHoSoNhanSu("u-tm1");
+    } catch (e) {
+      loiKetNoi = e;
+    } finally {
+      globalThis.fetch = fetchCu;
+    }
+
+    kiem(
+      "Kho demo phân quyền: sso → NÉM và không đụng localStorage; mau → dùng đúng hàm thuần (tick ngoại lệ cho u-tm2, đổi mẫu thì quyenRiengCua đổi theo)",
+      /* D9 + D-F1 + D-F6. Ngoài hai chiều chính, đòi thêm: 409 khi gửi bản mẫu cũ (hai tab), kho MỚI đọc lại
+         đúng từ localStorage (không giữ trạng thái trong bộ nhớ làm nguồn), kho tự dựng người gọi (NV lưu mẫu
+         bị chặn), lịch sử demo, mẫu HỎNG → quyền HẸP NHẤT (không null) + chỉ Quản trị cứu được, email hồ sơ
+         demo khớp quy ước `ho-so-nhan-su.ts`. */
+      `${CHU_D} · D9 · D-F1 · D-F6`,
+      () => {
+        const ls = taoLS();
+        datLS(ls.kho);
+        try {
+          let nemSso = false;
+          try {
+            KDM.taoKhoDemo("sso");
+          } catch {
+            nemSso = true;
+          }
+          const chamSso = ls.dem.n;
+          const kho = KDM.taoKhoDemo("mau");
+          const chamKhiTao = ls.dem.n;
+          const tm1 = VM("u-tm1");
+          const tm2 = VM("u-tm2");
+          const r1 = kho.luuQuyenRieng("u-admin", ["u-tm2"], { loai: "tick", thayDoi: { xemCongNo: false } }, 0);
+          const q2a = kho.quyenRiengCua(tm2);
+          const q1a = kho.quyenRiengCua(tm1);
+          const r2 = kho.luuMau("u-admin", 0, { nhan_vien_thu_mua: { xemGia: false } });
+          const q1b = kho.quyenRiengCua(tm1);
+          const q2b = kho.quyenRiengCua(tm2);
+          const r3 = kho.luuQuyenRieng("u-admin", ["u-tm3"], { loai: "tick", thayDoi: { xemCongNo: false } }, 0);
+          const q1c = KDM.taoKhoDemo("mau").quyenRiengCua(tm1);
+          const r5 = kho.luuMau("u-tm1", 1, { ke_toan: { xemCongNo: false } });
+          const lichSu = kho.lichSu();
+          const hoSo = kho.docHoSo().find((h) => h.firebaseUid === "u-tm1");
+          /* Chiều ngược: sửa tay localStorage cho mẫu HỎNG. */
+          const d = JSON.parse(ls.m.get(KHOA_DEMO) ?? "{}");
+          if (d?.mau?.de?.nhan_vien_thu_mua) d.mau.de.nhan_vien_thu_mua.xemGia = "sai-khuon";
+          ls.m.set(KHOA_DEMO, JSON.stringify(d));
+          const qHong = kho.quyenRiengCua(tm1);
+          const tcHong = kho.docTatCa("u-admin");
+          const cuuTBP = kho.luuMau("u-tbp", undefined, "ve-mac-dinh-toan-bo");
+          const cuuQT = kho.luuMau("u-admin", undefined, "ve-mac-dinh-toan-bo");
+          const qSauCuu = kho.quyenRiengCua(tm1);
+          const hepNhat = qHong !== null && Object.keys(qHong).length === 18 && Object.values(qHong).every((x) => x === false);
+          const ok = {
+            sso: nemSso && chamSso === 0,
+            khongDocLucTao: chamKhiTao === 0,
+            khoa: KDM.KHOA_KHO_DEMO_PHAN_QUYEN === KHOA_DEMO,
+            tick: r1.loi === null && r1.soDaGhi === 1 && q2a?.xemCongNo === false && q1a === null,
+            mau: r2.loi === null && r2.phienBan === 1 && q1b?.xemGia === false && q2b?.xemGia === false && q2b?.xemCongNo === false,
+            hai_tab_409: r3.loi !== null && r3.maLoi === "mau-doi",
+            doc_lai: q1c?.xemGia === false,
+            tu_dung_nguoi_goi: r5.loi !== null,
+            lich_su: lichSu.length === 2 && lichSu[0]?.hanhDong === "phan_quyen_mau_chuc_danh" && lichSu[1]?.hanhDong === "phan_quyen_tick_rieng",
+            email: hoSo?.hoSo.email === hoSoNhanSuTm1?.email && typeof hoSo?.hoSo.email === "string",
+            hong_hep: hepNhat && tcHong.mauHong === true,
+            cuu: cuuTBP.loi !== null && cuuQT.loi === null && qSauCuu === null,
+            cham_bo_nho: ls.dem.n > 0,
+          };
+          const sai = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
+          return {
+            duoc: sai.length === 0,
+            thucTe: sai.length === 0 ? "đủ 13 điều" : `sai: [${sai.join(", ")}] · r1=${JSON.stringify(r1)} r2=${JSON.stringify(r2)} r3=${JSON.stringify(r3)} r5=${r5.loi}`,
+            mongDoi: "sso ném + 0 lần chạm · tạo không đọc · tick / mẫu / 409 / đọc lại / tự dựng người gọi / lịch sử / email / mẫu hỏng → hẹp nhất / chỉ QT cứu / có chạm localStorage",
+          };
+        } finally {
+          traLS();
+        }
+      },
+    );
+
+    kiem(
+      "Một nguồn cho bảng: không còn VIEC_TREN_BANG_DOI_CHIEU; bang-mau dùng CO_TICK_DUOC + lyDoKhongSuaOMau + quyenCuaVaiTroCoMau; phan-quyen.tsx không gọi quyenCuaVaiTro( trần",
+      /* D9. Bảng mẫu chép tay một danh sách dòng riêng (12 việc, thiếu 7 ô) là màn hình nói khác luật thật;
+         tính quyền gốc theo công thức trơn (bỏ mẫu) là màn hình bày quyền khác máy chủ. Quét mã đã bỏ chú
+         thích. Chốt dương tính: phải tìm thấy `quyenCuaVaiTroCoMau(` và `quyenTheoChucDanhCoMau(` ở màn. */
+      `${CHU_D} · D9 · Câu 1 = A`,
+      () => {
+        const tep = moiTepD();
+        const conViec = tep.filter((p) => /\bVIEC_TREN_BANG_DOI_CHIEU\b/.test(docMaD(p)));
+        const bang = docMaD("1-giao-dien/thanh-phan-nghiep-vu/bang-mau-chuc-danh.tsx");
+        const man = docMaD("1-giao-dien/trang/phan-quyen.tsx");
+        const bangDung = ["CO_TICK_DUOC", "lyDoKhongSuaOMau(", "quyenCuaVaiTroCoMau("].every((x) => bang.includes(x));
+        const tran = (man.match(/\bquyenCuaVaiTro\(/g) ?? []).length + (bang.match(/\bquyenCuaVaiTro\(/g) ?? []).length;
+        const goiCT = [...man.matchAll(/\btinhQuyenTheoChucDanh\(/g)];
+        const ctTran = goiCT.filter((m) => !/quyenTheoChucDanhCoMau\(\s*$/.test(man.slice(Math.max(0, m.index - 40), m.index)));
+        const duong = man.includes("quyenCuaVaiTroCoMau(") && man.includes("quyenTheoChucDanhCoMau(") && goiCT.length >= 2 && tep.length > 50;
+        return {
+          duoc: conViec.length === 0 && bangDung && tran === 0 && ctTran.length === 0 && duong,
+          thucTe: `còn VIEC_TREN…: [${conViec.join(", ")}] · bảng dùng đủ 3 hàm=${bangDung} · quyenCuaVaiTro( trần=${tran} · tinhQuyenTheoChucDanh( ngoài mẫu=${ctTran.length}/${goiCT.length} · chốt dương tính=${duong}`,
+          mongDoi: "còn VIEC_TREN…: [] · bảng dùng đủ 3 hàm=true · quyenCuaVaiTro( trần=0 · tinhQuyenTheoChucDanh( ngoài mẫu=0/≥2 · chốt dương tính=true",
+        };
+      },
+    );
+
+    kiem(
+      "Trình duyệt luôn gửi phienBanMau / phienBan khi lưu",
+      /* Đặc tả 2.5: thiếu `phienBanMau` → máy chủ 400 `ban-cu`; tab cũ gửi bản mẫu cũ → 409 `mau-doi`. Gọi THẬT
+         hai tệp nối máy chủ với `fetch` giả, đọc đúng thân yêu cầu gửi đi. Chiều ngược: 409 trả về phải mang
+         `maLoi:"mau-doi"` tới màn hình; chỉ đường CỨU mẫu hỏng mới được bỏ `phienBan`. */
+      `${CHU_D} · D9 · đặc tả 2.5`,
+      () => {
+        if (!kqKetNoi) return { duoc: false, thucTe: `NÉM LỖI: ${loiKetNoi?.message ?? loiKetNoi}`, mongDoi: "gọi được" };
+        const g = kqKetNoi.gui;
+        const ok = {
+          luu_rieng: g[0]?.url === "/api/quyen-rieng" && g[0]?.method === "POST" && g[0]?.than?.phienBanMau === 3 && g[0]?.than?.quyen?.xemGia === true && !("boQuyenRieng" in (g[0]?.than ?? {})),
+          bo_rieng: g[1]?.than?.phienBanMau === 4 && g[1]?.than?.boQuyenRieng === true && !("quyen" in (g[1]?.than ?? {})),
+          luu_mau: g[2]?.url === "/api/quyen-mau-chuc-danh" && g[2]?.than?.phienBan === 5 && g[2]?.than?.thayDoi?.ke_toan?.xemCongNo === false,
+          ve_mac_dinh: g[3]?.than?.veMacDinhToanBo === true && g[3]?.than?.phienBan === 6,
+          cuu_khong_phien_ban: g[4]?.than?.veMacDinhToanBo === true && !("phienBan" in (g[4]?.than ?? {})),
+          ket_qua: kqKetNoi.luuR.loi === null && kqKetNoi.boR.loi === null && kqKetNoi.luuM.loi === null && kqKetNoi.luuM.phienBan === 7,
+          ma_loi_409: kqKetNoi.bi409.loi !== null && kqKetNoi.bi409.maLoi === "mau-doi",
+          ma_loi_hong: "loi" in kqKetNoi.docHong && kqKetNoi.docHong.maLoi === "mau-hong",
+        };
+        const sai = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
+        return {
+          duoc: sai.length === 0,
+          thucTe: sai.length === 0 ? "đủ 8 điều" : `sai: [${sai.join(", ")}] · gửi=${JSON.stringify(g.map((x) => x.than))}`,
+          mongDoi: "mọi lần lưu mang phienBanMau / phienBan; bỏ quyền riêng = POST boQuyenRieng; cứu mẫu hỏng không phienBan; 409 → maLoi mau-doi",
+        };
+      },
+    );
+
+    kiem(
+      "nguoi-dung-hien-tai: kho demo chỉ tạo khi CHE_DO === 'mau'",
+      /* D9 + bổ sung đặc tả D-F1: MỘT kho demo cho cả app — toàn mã chỉ một chỗ gọi `taoKhoDemo(` (trong
+         `layKhoDemo`); `nguoi-dung-hien-tai.tsx` và `nguon-phan-quyen.ts` gọi `layKhoDemo(` đúng một lần, nằm
+         trong biểu thức `=== "mau" ?`. Kho chỉ `import type` từ hai tệp nối máy chủ / `ho-so-tai-khoan` (nạp
+         hàm chạy được là kéo Firebase). Chốt dương tính: kho có gọi `localStorage` trong mã (không phải chú thích). */
+      `${CHU_D} · D9 · D-F1`,
+      () => {
+        const tep = moiTepD();
+        const goiTao = [];
+        for (const p of tep) {
+          const s = docMaD(p);
+          for (const m of s.matchAll(/\btaoKhoDemo\s*\(/g)) {
+            if (/function\s+$/.test(s.slice(Math.max(0, m.index - 20), m.index))) continue;
+            goiTao.push(p);
+          }
+        }
+        const kho = docMaD("3-du-lieu/kho-phan-quyen-demo.ts");
+        const thanLay = kho.slice(kho.indexOf("function layKhoDemo"));
+        const taoTrongLay = goiTao.length === 1 && goiTao[0] === "3-du-lieu/kho-phan-quyen-demo.ts" && /\btaoKhoDemo\s*\(/.test(thanLay);
+        const nd = docMaD("4-phan-quyen/nguoi-dung-hien-tai.tsx");
+        const ng = docMaD("4-phan-quyen/nguon-phan-quyen.ts");
+        const layNd = (nd.match(/\blayKhoDemo\s*\(/g) ?? []).length;
+        const layNg = (ng.match(/\blayKhoDemo\s*\(/g) ?? []).length;
+        const gacNd = /CHE_DO\s*===\s*"mau"\s*\?\s*layKhoDemo\s*\(/.test(nd);
+        const gacNg = /CHE_DO_XAC_THUC\s*===\s*"mau"\s*\?\s*layKhoDemo\s*\(/.test(ng);
+        const chiType = [
+          /import\s+type\s*\{[^}]*\}\s*from\s*"@\/5-ket-noi\/ho-so-tai-khoan"/,
+          /import\s+type\s*\{[^}]*\}\s*from\s*"@\/4-phan-quyen\/quyen-rieng-ket-noi"/,
+        ].every((r) => r.test(kho)) && !/^import\s*\{[^}]*\}\s*from\s*"@\/(5-ket-noi\/ho-so-tai-khoan|4-phan-quyen\/quyen-rieng-ket-noi|4-phan-quyen\/mau-chuc-danh-ket-noi)"/m.test(kho);
+        const coLS = /\blocalStorage\b/.test(kho);
+        return {
+          duoc: taoTrongLay && layNd === 1 && layNg === 1 && gacNd && gacNg && chiType && coLS,
+          thucTe: `taoKhoDemo( gọi ở: [${goiTao.join(", ")}] (trong layKhoDemo=${taoTrongLay}) · layKhoDemo( nd=${layNd} nguồn=${layNg} · gác mau nd=${gacNd} nguồn=${gacNg} · chỉ import type=${chiType} · kho có localStorage=${coLS}`,
+          mongDoi: "taoKhoDemo( gọi đúng 1 chỗ trong layKhoDemo · layKhoDemo( 1/1 · gác \"mau\" cả hai · chỉ import type · có localStorage",
+        };
+      },
+    );
+
+    kiem(
+      "D-F3: khối tick khoá chiều BẬT cờ người tick không có — lyDoKhongBatCoKhiTick cùng luật ⑤ với vuongMacTraoQuyen (miễn cờ chức danh cho sẵn); TẮT luôn được",
+      /* Hai chiều: chặn đúng ca (TBP bật "Đính phiếu giao nhận" cho NV; TBP bật "Xoá đề nghị"; nhóm có một người
+         thiếu) và cho qua đúng ca (QT bật; người nhận đã có; chức danh cho sẵn; TBP bật cờ mình có). Kèm đối
+         chiếu: kết quả `null` ⇔ `vuongMacTraoQuyen` cho qua cùng lần bật — MỘT luật, hai nơi hỏi. */
+      `Sếp · 06/10/2026 · bổ sung đặc tả D-F3 · luật ⑤ "chỉ trao cờ mình có" (Sếp 26/09/2026)`,
+      () => {
+        const nd = (uid, them) => ({ uid, tenHienThi: uid, chucDanh: "", phongBan: "", vaiTro: "staff", capKho: 0, ...them });
+        const TBP = nd("tbp", { chucNang: "truong_bo_phan_thu_mua", capTM: 3, capKho: 1 });
+        const QT = nd("qt", { chucNang: "truong_bo_phan_thu_mua", vaiTro: "admin", capTM: 4, capKho: 4 });
+        const NV = nd("nv", { chucNang: "nhan_vien_thu_mua", capTM: 2 });
+        const KHO = nd("kho", { chucNang: "thu_kho_cong_trinh", capTM: 1, capKho: 2 });
+        const goi = (n) => ({ uid: n.uid, nguoiDung: n });
+        const dich = (n) => {
+          const g = QXD.tinhQuyen(n);
+          return { uid: n.uid, ten: n.uid, vaiTro: n.vaiTro, capTM: n.capTM, quyenGoc: g, quyenTruoc: g };
+        };
+        const ca = [
+          ["TBP→NV ghiPhieuNhanHang", TBP, [NV], "ghiPhieuNhanHang", false],
+          ["TBP→NV xoaToanBoDuLieu", TBP, [NV], "xoaToanBoDuLieu", false],
+          ["TBP→[NV,KHO] ghiPhieuNhanHang", TBP, [NV, KHO], "ghiPhieuNhanHang", false],
+          ["QT→NV ghiPhieuNhanHang", QT, [NV], "ghiPhieuNhanHang", true],
+          ["TBP→KHO ghiPhieuNhanHang (đã có)", TBP, [KHO], "ghiPhieuNhanHang", true],
+          ["TBP→KHO xemCongNo (TBP có)", TBP, [KHO], "xemCongNo", true],
+          ["TBP→NV xemCongNo (đã có)", TBP, [NV], "xemCongNo", true],
+        ];
+        const sai = [];
+        for (const [ten, g, ds, k, choQua] of ca) {
+          const r = LPQD.lyDoKhongBatCoKhiTick(goi(g), ds.map(dich), k);
+          const vm = LPQD.vuongMacTraoQuyen(
+            goi(g),
+            ds.map((n) => {
+              const d = dich(n);
+              return { ...d, quyenSau: { ...d.quyenTruoc, [k]: true }, boVaoApp: false };
+            }),
+          );
+          if ((r === null) !== choQua) sai.push(`${ten}: ${r === null ? "cho qua" : "chặn"}`);
+          if ((r === null) !== (vm === null)) sai.push(`${ten}: lệch vuongMacTraoQuyen (${vm})`);
+        }
+        const luat = docMaD("4-phan-quyen/luat-phan-quyen.ts");
+        const motThan = (luat.match(/\blyDoChanTraoMotCo\s*\(/g) ?? []).length >= 3; // khai báo + 2 nơi gọi
+        const manGoi = docMaD("1-giao-dien/trang/phan-quyen.tsx").includes("lyDoKhongBatCoKhiTick(");
+        return {
+          duoc: sai.length === 0 && motThan && manGoi,
+          thucTe: `sai=[${sai.join(" | ")}] · một thân luật ⑤=${motThan} · màn gọi=${manGoi}`,
+          mongDoi: "sai=[] · một thân luật ⑤=true · màn gọi=true",
+        };
+      },
+    );
+
+    kiem(
+      "D-F2: đọc lại quyền của chính mình giữa phiên — đọc được thì đặt (kể cả null), MẪU HỎNG thì chặn như lúc vào app, lỗi khác thì GIỮ quyền đang có (không rơi về null = rộng hơn)",
+      /* Hàm quyết định là thuần (`ketQuaDocLaiQuyen`) — gọi thật cả ba nhánh. Kèm đọc mã: `nguoi-dung-hien-tai`
+         nghe `visibilitychange` + sự kiện đọc lại và đi qua đúng hàm đó; màn Phân quyền yêu cầu đọc lại sau
+         khi lưu (tick riêng, bỏ quyền riêng, lưu mẫu, cứu mẫu). */
+      `Sếp · 06/10/2026 · bổ sung đặc tả D-F2 · luật "thiếu thông tin thì quyền THẤP NHẤT" (CLAUDE.md §3.6c)`,
+      () => {
+        const kq = KNR.ketQuaDocLaiQuyen;
+        const a = kq({ quyenRieng: null });
+        const b = kq({ quyenRieng: { xemGia: false } });
+        const c = kq({ loi: "Mẫu hỏng", maLoi: "mau-hong" });
+        const d = kq({ loi: "Không kết nối được máy chủ." });
+        const ham = a.loai === "dat" && a.quyenRieng === null && b.loai === "dat" && b.quyenRieng?.xemGia === false && c.loai === "chan" && d.loai === "giu";
+        const nd = docMaD("4-phan-quyen/nguoi-dung-hien-tai.tsx");
+        const nghe = nd.includes('"visibilitychange"') && nd.includes("ketQuaDocLaiQuyen(") && /export function yeuCauDocLaiQuyenCuaToi/.test(nd);
+        const soYeuCau = (docMaD("1-giao-dien/trang/phan-quyen.tsx").match(/\byeuCauDocLaiQuyenCuaToi\(\)/g) ?? []).length;
+        return {
+          duoc: ham && nghe && soYeuCau >= 4,
+          thucTe: `hàm=${JSON.stringify([a.loai, b.loai, c.loai, d.loai])} · nghe tab + đi qua hàm=${nghe} · màn yêu cầu đọc lại ${soYeuCau} chỗ`,
+          mongDoi: 'hàm=["dat","dat","chan","giu"] · nghe tab + đi qua hàm=true · màn yêu cầu đọc lại ≥ 4 chỗ',
+        };
+      },
+    );
+
+    kiem(
+      "D1: đọc ?tatCa=1 — MỘT bản ghi hỏng hoặc thiếu mẫu = lỗi cả lượt (không bỏ qua thành 'theo chức danh'); mẫu hỏng báo mauHong; thân hợp lệ đọc đủ",
+      /* Bản cũ `continue` bỏ qua bản hỏng → người đó hiện "theo chức danh", tức màn bày quyền RỘNG hơn thật. */
+      `${CHU_D} · D1 · luật soát chéo 26/09/2026 "đọc lỗi không thành rộng hơn"`,
+      () => {
+        const du18 = (gt) => Object.fromEntries(["xemDuocApp", "xemQuyTrinhMuaHang", "xemMoiHoSo", "xemGia", "xemNhaCungCap", "xemBaoGia", "xemNguoiPhuTrach", "xemCongNo", "taoDeNghi", "phanBoCongViec", "lapPO", "taoPoDoiLap", "suaPODaChot", "ghiPhieuNhanHang", "xacNhanKho", "xacNhanTruongBP", "ghiThanhToan", "xoaToanBoDuLieu"].map((k) => [k, gt]));
+        const dau = { chucNang: "nhan_vien_thu_mua", vaiTro: "staff", capTM: 2, capKho: 0 };
+        const banTot = { khuon: 2, ngoaiLe: { xemGia: false }, theoChucDanh: dau, quyen: du18(true), capNhatLuc: "x", capNhatBoi: "y", quyenHieuLuc: du18(true), lechChucDanh: false };
+        const mau = { khuon: 1, phienBan: 2, de: {} };
+        const tot = KNR.chuanHoaKetQuaTatCa({ ok: true, tatCa: { a: banTot }, mau, canhBaoMau: [] });
+        const motHong = KNR.chuanHoaKetQuaTatCa({ ok: true, tatCa: { a: banTot, b: { ...banTot, ngoaiLe: { khoaLa: true } } }, mau, canhBaoMau: [] });
+        const thieu18 = KNR.chuanHoaKetQuaTatCa({ ok: true, tatCa: { a: { ...banTot, quyenHieuLuc: { xemGia: true } } }, mau, canhBaoMau: [] });
+        const thieuMau = KNR.chuanHoaKetQuaTatCa({ ok: true, tatCa: { a: banTot }, canhBaoMau: [] });
+        const mauHong = KNR.chuanHoaKetQuaTatCa({ ok: true, tatCa: {}, mau: { khuon: 9 }, canhBaoMau: [] });
+        const ok = {
+          tot: "tatCa" in tot && tot.tatCa.a?.ngoaiLe?.xemGia === false && tot.mau.phienBan === 2,
+          mot_hong: "loi" in motHong,
+          thieu_18: "loi" in thieu18,
+          thieu_mau: "loi" in thieuMau && thieuMau.mauHong === false,
+          mau_hong: "loi" in mauHong && mauHong.mauHong === true,
+        };
+        const sai = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
+        return {
+          duoc: sai.length === 0,
+          thucTe: sai.length === 0 ? "đủ 5 ca" : `sai: [${sai.join(", ")}]`,
+          mongDoi: "thân tốt đọc đủ · một bản hỏng / thiếu ô / thiếu mẫu → lỗi · mẫu hỏng → mauHong",
+        };
+      },
+    );
+
+    kiem(
+      "Nhật ký lọc ?loc=phan_quyen: mọi hanhDong phân quyền mang tiền tố phan_quyen_; trang lọc đúng tiền tố đó, useSearchParams bọc Suspense (D-F7)",
+      /* Thiếu Suspense thì `next build` dừng ("missing-suspense-with-csr-bailout"); mã hành động mới không mang
+         tiền tố thì bộ lọc lặng lẽ bỏ sót dòng lịch sử. Chiều ngược: trang KHÔNG lọc khi không có `?loc=`. */
+      `${CHU_D} · D7 · D-F7`,
+      () => {
+        const ma = Object.values(TLPD.HANH_DONG_NHAT_KY);
+        const tienTo = ma.length === 4 && ma.every((x) => x.startsWith("phan_quyen_"));
+        const trang = docMaD("1-giao-dien/trang/nhat-ky-he-thong.tsx");
+        const thanMacDinh = trang.slice(trang.indexOf("export default function"), trang.indexOf("function NoiDungNhatKyHeThong"));
+        const suspense = /<Suspense\b/.test(thanMacDinh) && /\buseSearchParams\(\)/.test(trang) && !/\buseSearchParams\(\)/.test(thanMacDinh);
+        const loc = trang.includes('tienTo: "phan_quyen_"') && /loc\s*\?\s*muc\.filter\(/.test(trang);
+        return {
+          duoc: tienTo && suspense && loc,
+          thucTe: `mã=[${ma.join(", ")}] · Suspense bọc useSearchParams=${suspense} · lọc đúng tiền tố, không lọc khi trống=${loc}`,
+          mongDoi: "4 mã đều tiền tố phan_quyen_ · Suspense=true · lọc=true",
+        };
+      },
+    );
+
+    kiem(
+      "Bảng mẫu theo Design System V1.1: < 768px là Card List; vùng chạm ≥ 44px; không chữ < 12px; không màu cứng; mọi ô <td> có relative (sr-only không thoát khung cuộn ngang)",
+      /* CLAUDE.md §3.2 + §5 (sr-only trong khung cuộn ngang đã làm trang 375px trôi tới 2025px). Đọc mã đã bỏ
+         chú thích. Chốt dương tính: phải tìm thấy ít nhất một `<td` và một `sr-only`. */
+      `${CHU_D} · D6 · Design System V1.1`,
+      () => {
+        const s = docMaD("1-giao-dien/thanh-phan-nghiep-vu/bang-mau-chuc-danh.tsx");
+        const cardList = /md:hidden/.test(s) && /hidden[^"]*md:block/.test(s);
+        const vungCham = /min-h-11/.test(s);
+        const chuNho = /text-\[(?:[0-9]|1[01])px\]/.test(s);
+        const mauCung = /#[0-9a-fA-F]{3,8}\b|rgb\(|hsl\(/.test(s);
+        const td = [...s.matchAll(/<td\b[^>]*>/g)].map((m) => m[0]);
+        const tdThieu = td.filter((t) => !/\brelative\b/.test(t));
+        const coSr = /sr-only/.test(s) && td.length >= 2;
+        return {
+          duoc: cardList && vungCham && !chuNho && !mauCung && tdThieu.length === 0 && coSr,
+          thucTe: `Card List=${cardList} · min-h-11=${vungCham} · chữ <12px=${chuNho} · màu cứng=${mauCung} · <td> thiếu relative=${tdThieu.length}/${td.length} · có sr-only=${coSr}`,
+          mongDoi: "Card List=true · min-h-11=true · chữ <12px=false · màu cứng=false · <td> thiếu relative=0/≥2 · có sr-only=true",
+        };
+      },
+    );
+  }
+}
 
 const tong = dat + truot.length;
 console.log("");

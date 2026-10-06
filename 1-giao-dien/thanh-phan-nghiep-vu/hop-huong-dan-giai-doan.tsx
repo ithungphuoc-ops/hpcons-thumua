@@ -119,11 +119,14 @@ export function HopHuongDanGiaiDoan({
   const huongDan = huongDanHienThi(giaiDoan, cauHinh.huongDanTuyChinh);
 
   /**
-   * ★ Ai được sửa: dùng chung khuôn quyền với `suaPODaChot` (Quản trị, hoặc Trưởng bộ phận từ
-   * cấp 3). Nội dung hướng dẫn là văn bản nghiệp vụ dùng chung cho cả phòng — một người sửa là
-   * đổi chữ trên màn hình mọi người, nên đặt cùng mức nhạy cảm với việc sửa PO đã chốt.
+   * ★ Ai được sửa: CÙNG CỜ với trang Cài đặt quy trình — `phanQuyenNguoiDung` (Quản trị, hoặc
+   * cấp Quản lý từ cấp 3; không tick riêng được). Đổi từ `suaPODaChot` ngày 06/10/2026 (Sếp duyệt
+   * kế hoạch phân quyền GĐ2). Hộp này ghi qua `luuCauHinhQuyTrinh` — tầng ghi đó nay hỏi đúng cờ
+   * này; để cờ cũ ở đây là nút "Sửa" hiện ra mà bấm bị từ chối (hoặc ngược lại).
+   * Nội dung hướng dẫn là văn bản nghiệp vụ dùng chung cho cả phòng — một người sửa là đổi chữ
+   * trên màn hình mọi người.
    */
-  const duocSua = quyen.suaPODaChot && goc !== undefined;
+  const duocSua = quyen.phanQuyenNguoiDung && goc !== undefined;
   const dangSua = nhap !== null;
 
   function moSua() {

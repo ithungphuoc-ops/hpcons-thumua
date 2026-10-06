@@ -16,7 +16,10 @@
    không có vòng nạp — đừng thêm `import` chạy được nào từ `quyen.ts` sang bên đó. */
 import {
   apDungQuyenRieng,
+  demODeDungDuoc,
+  ngoaiLeCuaBanGhi,
   quyenRiengHieuLuc,
+  quyenTheoChucDanhCoMau,
   type BanGhiQuyenRieng,
   type DauChucDanh,
   type QuyenRieng,
@@ -100,8 +103,11 @@ export interface NguoiDung {
   /**
    * ★ QUYỀN TICK RIÊNG — Sếp 26/09/2026 (màn "Phân quyền người dùng" kiểu tick chọn).
    *
-   * Đọc từ `tm_quyen_rieng/{firebaseUid}` qua `/api/quyen-rieng`. `undefined`/`null` = chưa được
-   * tick riêng → quyền đúng theo chức danh như trước. Xem `4-phan-quyen/quyen-rieng.ts`.
+   * Đọc qua `/api/quyen-rieng`. ★ Từ Sếp 06/10/2026 (mẫu chức danh sửa được + khuôn ngoại lệ): máy chủ
+   * trả ĐỦ 18 ô tick HIỆU LỰC, đã gộp sẵn mẫu chức danh (`quyen-mau-chuc-danh/chung`) và ngoại lệ riêng
+   * (`tm_quyen_rieng/{firebaseUid}`) — xem thứ tự áp ở đầu `4-phan-quyen/quyen-rieng.ts`.
+   * `undefined`/`null` = chức danh của người này KHÔNG có ô đè mẫu VÀ người này KHÔNG có ngoại lệ →
+   * quyền đúng theo công thức chức danh như trước. Đọc lỗi KHÔNG được thành `null` (null = rộng hơn).
    *
    * 🔴 VÌ SAO GẮN VÀO `NguoiDung` CHỨ KHÔNG CHỈ ÁP Ở CONTEXT: tầng ghi `3-du-lieu/kho-du-lieu.tsx`
    * tự gọi `tinhQuyen(nguoiDung)` ở ~20 chỗ để gác quyền (ghi thanh toán, chốt đơn, xác nhận kho…).
@@ -345,27 +351,62 @@ export function tinhQuyenTheoDauChucDanh(d: DauChucDanh): Quyen {
  * lẫn `gocCu` (tính từ dấu) cho `quyenRiengHieuLuc`. Route và màn Phân quyền gọi hàm này, đừng tự gọi
  * `quyenRiengHieuLuc` rồi quên `gocCu` (quên là rơi về nhánh an toàn: người được nâng chức danh thiếu
  * cờ mới của chức danh mới).
+ *
+ * ★ Sếp 06/10/2026 (mẫu chức danh, Câu 1 = A · Câu 3 = A): thêm `oDeMau` — ô đè mẫu của chức danh
+ * HIỆN TẠI (`oDeCuaHoSo(mau, nd)` ở `mau-chuc-danh.ts`). `goc` = công thức + mẫu; `gocCu` = CÔNG THỨC
+ * (không mẫu) tại dấu lúc lưu, chỉ cho khuôn 1 (khuôn 1 sinh ra khi chưa có mẫu). `oDeMau = null` = mẫu
+ * trống → kết quả Y HỆT trước 06/10/2026 (bài kiểm "Khuôn 1 với mẫu trống" canh).
+ *
+ * 🔴 Bổ sung đặc tả B-F1 (06/10/2026): `oDeMau` BẮT BUỘC — truyền `null` TƯỜNG MINH khi chắc chắn không
+ * cần mẫu (vd `nguoiBiKhoaVaoApp`). Bản đầu để tuỳ chọn: quên truyền = bỏ qua mẫu = người chưa có bản ghi
+ * RỘNG hơn mẫu Sếp vừa siết, mà TypeScript không báo. Bài kiểm-luật quét mã: mọi lời gọi đủ 3 đối số.
  */
 export function quyenRiengConHieuLuc(
-  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh"> | null | undefined,
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe"> | null | undefined,
   nd: Pick<NguoiDung, "chucNang" | "vaiTro" | "capTM" | "capKho">,
+  oDeMau: QuyenRieng | null,
 ): QuyenRieng | null {
-  if (!banGhi) return null;
-  const goc = tinhQuyenTheoChucDanh({ uid: "", tenHienThi: "", chucDanh: "", phongBan: "", ...nd });
-  const gocCu = banGhi.theoChucDanh ? tinhQuyenTheoDauChucDanh(banGhi.theoChucDanh) : null;
-  return quyenRiengHieuLuc(banGhi, nd, goc, gocCu);
+  const coODe = demODeDungDuoc(oDeMau) > 0;
+  if (!banGhi && !coODe) return null;
+  const congThuc = tinhQuyenTheoChucDanh({ uid: "", tenHienThi: "", chucDanh: "", phongBan: "", ...nd });
+  const goc = quyenTheoChucDanhCoMau(congThuc, oDeMau);
+  return quyenRiengHieuLuc(banGhi, nd, goc, gocCuCuaBanGhi(banGhi), coODe);
+}
+
+/** `gocCu` của một bản ghi: CÔNG THỨC tại dấu lúc lưu — chỉ khuôn 1 có dấu (khuôn 2 không dùng). */
+function gocCuCuaBanGhi(
+  banGhi: Pick<BanGhiQuyenRieng, "theoChucDanh" | "khuon"> | null | undefined,
+): Quyen | null {
+  return banGhi && banGhi.khuon !== 2 && banGhi.theoChucDanh
+    ? tinhQuyenTheoDauChucDanh(banGhi.theoChucDanh)
+    : null;
+}
+
+/**
+ * ★ NGOẠI LỆ ĐANG GIỮ của một bản ghi với chức danh HIỆN TẠI (gói sẵn `gocCu`) — xem `ngoaiLeCuaBanGhi`
+ * ở `quyen-rieng.ts`. Dùng cho phép tính lưu "chỉ GIỮ ô đã cố ý khác" (bổ sung đặc tả B-F2), phép đếm ảnh
+ * hưởng khi đổi mẫu (B-F6) và dấu "(khác chức danh)" trên màn Phân quyền (`k in ngoaiLe`).
+ */
+export function ngoaiLeConHieuLuc(
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe">,
+  nd: Pick<NguoiDung, "chucNang" | "vaiTro" | "capTM" | "capKho">,
+): { khop: boolean; ngoaiLe: QuyenRieng } {
+  return ngoaiLeCuaBanGhi(banGhi, nd, gocCuCuaBanGhi(banGhi));
 }
 
 /**
  * ★ NGƯỜI NÀY ĐANG BỊ BỎ "VÀO APP" KHÔNG (theo quyền hiệu lực) — Sếp 26/09/2026 *"Nối vào ô tíck"*.
  * Route `/api/quyen-rieng?biKhoa=1` dùng để lập danh sách người KHÔNG được giao việc
  * (`bang-phan-bo.tsx` qua `dung-nguoi-khong-vao-app.ts`). Chưa có bản ghi → theo chức danh.
+ *
+ * 📌 Không cần mẫu chức danh (06/10/2026): "Vào app" là ô KHOÁ trên bảng mẫu (`DONG_KHOA_MAU`), mẫu
+ * không đổi được nó — nên truyền `null` TƯỜNG MINH cho tham số mẫu (B-F1), không bỏ trống.
  */
 export function nguoiBiKhoaVaoApp(
   nd: NguoiDung,
-  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh"> | null | undefined,
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe"> | null | undefined,
 ): boolean {
-  return !tinhQuyen({ ...nd, quyenRieng: quyenRiengConHieuLuc(banGhi, nd) }).xemDuocApp;
+  return !tinhQuyen({ ...nd, quyenRieng: quyenRiengConHieuLuc(banGhi, nd, null) }).xemDuocApp;
 }
 
 /** Kiểm tra quyền vào một đường dẫn. */
@@ -380,6 +421,7 @@ export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
    * (thêm 29/08/2026, xem chú thích ở `2-quy-trinh/dieu-huong.ts`).
    */
   if (duongDan.startsWith("/nhat-ky-he-thong")) return q.phanQuyenNguoiDung;
+  if (duongDan.startsWith("/cai-dat-quy-trinh")) return q.phanQuyenNguoiDung; // Sếp 06/10/2026 (GĐ2) — trước rơi xuống `xemDuocApp`, cùng cờ menu `dieu-huong.ts`
   if (duongDan.startsWith("/phan-bo")) return q.phanBoCongViec;
   if (duongDan.startsWith("/don-hang/tao-moi")) return q.lapPO;
   /**
@@ -604,6 +646,36 @@ export const VAI_TRO_MAU: VaiTroMau[] = [
     vaiTro: "staff",
     capTM: 1,
     moTa: "Cấp 1 — Xem: xem toàn bộ có giá · nhận cảnh báo vật tư kiểm soát định mức",
+  },
+  /**
+   * ★ Hai tài khoản mẫu cho hai chức danh mới (Sếp 26/09/2026) — thêm 06/10/2026 để bản demo bảng mẫu
+   * chức danh thử được cả hai cột "NV Nhân sự" và "NV Kho tổng" (trước đó không có tài khoản nào nên
+   * đổi mẫu hai cột này không đăng nhập thử được). Bộ số khớp ĐÚNG `VAI_TRO_CHUAN` ở `vai-tro-chuan.ts`
+   * — lệch là tài khoản mẫu rơi vào "Tùy chỉnh" và không nhận mẫu. Tên giả định (CLAUDE.md §7).
+   * ⚠️ Không có trong danh bạ nhân sự mẫu: người nhận việc lọc từ chính danh sách tài khoản này.
+   */
+  {
+    uid: "u-ns",
+    tenDangNhap: "nhansu",
+    tenHienThi: "Đỗ Thị M",
+    chucDanh: "NV Nhân sự",
+    phongBan: "Phòng Hành chính Nhân sự",
+    chucNang: "nhan_vien_nhan_su",
+    vaiTro: "staff",
+    capTM: 2,
+    moTa: "Cấp 2 — Nhập liệu: nhận việc đề nghị nhân sự, lập phiếu từ hàng có sẵn trong kho · 🔒 KHÔNG thấy giá",
+  },
+  {
+    uid: "u-ktg",
+    tenDangNhap: "khotong",
+    tenHienThi: "Bùi Văn P",
+    chucDanh: "NV Kho tổng",
+    phongBan: "Kho tổng",
+    chucNang: "nhan_vien_kho_tong",
+    vaiTro: "staff",
+    capTM: 2,
+    capKho: 2,
+    moTa: "Cấp 2 — Nhập liệu: nhận việc xuất kho, lập phiếu xuất kho · 🔒 KHÔNG thấy giá",
   },
 ];
 

@@ -78,6 +78,35 @@ giảm rủi ro so với cách giao diện đang ghi đè cả document. Đây v
 document chứa cả bộ dữ liệu) — khi Thu mua tách từng chứng từ ra document riêng (theo đúng
 kế hoạch "lên bản thật" đã ghi ở trên), điểm ghi này phải sửa theo.
 
+## Phân quyền phía máy chủ — `phan-quyen-may-chu.ts` (Sếp 06/10/2026)
+
+📌 **Tệp của phiên nghiệp vụ, chỉ chạy ở máy chủ** (`import "server-only"` — Next.js tự trỏ tên này vào
+bản kèm sẵn `node_modules/next/dist/compiled/server-only`, cùng cách `hpcore-may-chu.ts` và `kho-r2.ts`).
+Không phải vùng của phiên tích hợp; nó chỉ GỌI `hpcore-may-chu.ts` / `ho-so-tai-khoan.ts`, không sửa.
+
+Phần dùng chung của hai cửa phân quyền — tách ra vì tệp `route.ts` của Next chỉ được export tên route:
+
+| Cửa | Việc |
+|---|---|
+| `app/api/quyen-rieng` (`GET`, `POST`) | GET: quyền HIỆU LỰC của mình (đủ 18 ô, đã gộp mẫu + ngoại lệ) · `?tatCa=1` thêm bản ghi mọi người + `mau` + `canhBaoMau` · `?biKhoa=1` danh sách người bị bỏ "Vào app". POST: tick riêng / "Bỏ quyền riêng" (`boQuyenRieng: true`), bắt buộc `phienBanMau` |
+| `app/api/quyen-mau-chuc-danh` (chỉ `POST`) | Sửa ô bảng mẫu (`{ phienBan, thayDoi }`) hoặc đưa cả bảng về mặc định gốc (`{ veMacDinhToanBo: true }`) |
+
+| Hàm | Việc |
+|---|---|
+| `layIdToken` · `MA_HOP_LE` · `refHoSo` · `refRieng` · `refMau` · `laOwner` | Vé đăng nhập, mã hợp lệ, đường dẫn tài liệu (`nguoi-dung`, `tm_quyen_rieng`, `quyen-mau-chuc-danh/chung`), owner App Tổng |
+| `banGhiTuAnh` | Đọc `tm_quyen_rieng/{uid}` qua `chuanHoaBanGhiQuyenRieng` (khuôn 1 + khuôn 2). 🔴 Tồn tại mà sai khuôn → **NÉM**, không coi là "chưa có" |
+| `mauTuAnh` · `LoiMauHong` · `laLoiMauHong` | Đọc mẫu qua `docMauChucDanh` kèm dấu vết `phienBanMau` của các bản ghi vừa đọc. 🔴 Hỏng (hoặc vắng mà còn dấu vết) → ném `LoiMauHong` → route trả **500 `maLoi:"mau-hong"`**, không bao giờ trả `quyenRieng: null` |
+| `nguoiDungTuAnh` · `nguoiGoiTuAnh` | Hồ sơ → `NguoiDung`; người gọi **luôn qua mẫu** (`ganQuyenRiengHieuLuc`) |
+| `laQuanTriKhongCanMau` | Hàm thuần: owner hoặc hồ sơ `vaiTro === "admin"` đang làm việc. Chỉ dùng cho **đường cứu mẫu hỏng** — lúc đó không dựng được người gọi qua mẫu |
+| `docTatCaKemHoSo` | Mọi bản ghi kèm hồ sơ chủ (bản mồ côi `hs: null` vẫn làm dấu vết mẫu) |
+
+🔴 **Không viết luật trong route.** Ghi gì / xoá gì / chặn vì sao do hàm thuần `4-phan-quyen/tinh-luu-phan-quyen.ts`
+quyết định (kho demo gọi y hệt). Route đọc trong `runTransaction`, áp đúng kết quả (`tx.set` / `tx.delete`) và
+ghi **một dòng `nhat-ky-he-thong` bằng `tx.create` trong cùng giao dịch** (`hanhDong` tiền tố `phan_quyen_`).
+
+⚠️ Admin SDK ở đây không bật `ignoreUndefinedProperties`: giá trị `undefined` trong tài liệu làm cả giao dịch
+ném (không ghi gì). Hàm thuần không sinh `undefined` — bài kiểm-luật canh.
+
 ## ⚠️ Không copy `.env.local` bằng tay giữa các máy
 
 Đó là cấu hình môi trường. Xin lại giá trị từ quản trị HPcore, hoặc copy có kiểm tra. Các giá trị `NEXT_PUBLIC_FIREBASE_*` **không phải bí mật** (mọi web app Firebase đều lộ chúng ở phía trình duyệt) — **bảo mật thật nằm ở Security Rules**.

@@ -1,35 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, ChevronRight, Minus, RefreshCw, Search, ShieldAlert, TriangleAlert, Users } from "lucide-react";
+import { ChevronRight, RefreshCw, Search, ShieldAlert, TriangleAlert, Users } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge, type StatusTone } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { AnhDaiDienChu } from "@/1-giao-dien/thanh-phan-dung-chung/anh-dai-dien-chu";
-import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
+import { OTich } from "@/1-giao-dien/thanh-phan-dung-chung/o-tich-ba-trang-thai";
+import { BangMauChucDanh } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-mau-chuc-danh";
+import { Card } from "@/1-giao-dien/nen-tang-ui/card";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { HopXacNhan } from "@/1-giao-dien/thanh-phan-dung-chung/hop-xac-nhan";
-import { useNguoiDung, CHE_DO_XAC_THUC } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { useNguoiDung, yeuCauDocLaiQuyenCuaToi } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   CAP_KHONG_BO_VAO_APP,
   capDatDuocToiDa,
   duocDatCap,
+  duocSuaMauChucDanh,
+  lyDoKhongBatCoKhiTick,
   lyDoKhongBoVaoApp,
   NHAN_CAP_QUYEN,
   vuongMacTraoQuyen,
 } from "@/4-phan-quyen/luat-phan-quyen";
 import {
-  quyenCuaVaiTro,
   timVaiTroChuan,
   vaiTroGanDuocBoi,
   vaiTroKhopVoiHoSo,
   VAI_TRO_CHUAN,
-  VIEC_TREN_BANG_DOI_CHIEU,
+  type MaVaiTroChuan,
   type VaiTroChuan,
 } from "@/4-phan-quyen/vai-tro-chuan";
 import {
+  ngoaiLeConHieuLuc,
   quyenRiengConHieuLuc,
   tinhQuyenTheoChucDanh,
   type NguoiDung,
@@ -42,7 +46,7 @@ import {
   KHOA_TICK,
   NHOM_QUYEN_TICK,
   nhanCoTick,
-  quyenRiengGiongNhau,
+  quyenTheoChucDanhCoMau,
   rutQuyenRieng,
   tinhTruocSauKhiLuu,
   TOI_DA_NGUOI_MOI_LAN,
@@ -50,12 +54,22 @@ import {
   type QuyenRieng,
   type TruocSauKhiLuu,
 } from "@/4-phan-quyen/quyen-rieng";
-import { docQuyenRiengTatCa, luuQuyenRieng } from "@/4-phan-quyen/quyen-rieng-ket-noi";
+import {
+  anhHuongKhiDoiMau,
+  CHI_DAO_THEO_DONG,
+  LY_DO_KHONG_SUA_MAU,
+  MAU_TRONG,
+  oDeCuaHoSo,
+  quyenCuaVaiTroCoMau,
+  tomTatQuyenCuaVaiTro,
+  type MauChucDanh,
+  type ThayDoiMau,
+} from "@/4-phan-quyen/mau-chuc-danh";
+import { ganQuyenRiengHieuLuc, tinhLuuMauChucDanh } from "@/4-phan-quyen/tinh-luu-phan-quyen";
+import { layNguonPhanQuyen, LY_DO_DEMO_KHONG_DOI_CHUC_DANH } from "@/4-phan-quyen/nguon-phan-quyen";
+import type { DongLichSuDemo } from "@/3-du-lieu/kho-phan-quyen-demo";
 import { lamMoiNguoiKhongVaoApp } from "@/4-phan-quyen/dung-nguoi-khong-vao-app";
 import {
-  docDanhBaCongTy,
-  docHoSoDePhanQuyen,
-  ganVaiTro,
   thanhNguoiDung,
   type HoSoKemMa,
   type ThanhVienDanhBa,
@@ -182,6 +196,33 @@ interface TomTatLuu {
   chuaDocRieng: boolean;
   /** Số người CHƯA có hồ sơ được cấp quyền lần đầu trong lượt lưu này. */
   soCapMoi: number;
+  /** Bản mẫu chức danh trang đang giữ lúc mở hộp — gửi kèm khi lưu (đặc tả 2.5), lệch là 409. */
+  phienBanMau: number;
+}
+
+/** Nội dung hộp xác nhận LƯU BẢNG MẪU — chụp lúc mở (cùng nếp `hoiLuuCuoi`). */
+interface TomTatLuuMau {
+  thayDoi: ThayDoiMau;
+  phienBan: number;
+  /** Lỗi khi CHẠY THỬ `tinhLuuMauChucDanh` trên máy — có thì khoá nút Đồng ý kèm lý do. */
+  loi: string | null;
+  soODoi: number;
+  /** Ảnh hưởng theo TỪNG Ô (`anhHuongKhiDoiMau`, B-F6): "NV Thu mua: tắt Xem công nợ — 4 người, 1 người giữ ngoại lệ". */
+  dong: string[];
+  canhBao: string[];
+  /** Câu chỉ đạo gắn với dòng có ô đổi (`CHI_DAO_THEO_DONG`). */
+  chiDao: string[];
+}
+
+/** Nội dung hộp xác nhận "BỎ QUYỀN RIÊNG — về theo chức danh" — chụp lúc mở. */
+interface TomTatBoRieng {
+  uids: string[];
+  ten: string[];
+  bat: string[];
+  tat: string[];
+  phienBanMau: number;
+  /** Lý do máy chủ sẽ từ chối (hỏi trước bằng đúng `vuongMacTraoQuyen`) — có thì khoá nút Đồng ý. */
+  loi: string | null;
 }
 
 /**
@@ -208,12 +249,30 @@ interface TomTatLuu {
  * Mỗi người một kiểu thì ô tích hiện trạng thái TRUNG GIAN, và chỉ những ô đã chạm mới được ghi —
  * ô chưa chạm giữ nguyên của từng người (máy chủ tự ghép với bản đang cất).
  *
+ * ## ★ Sếp 06/10/2026 — MẪU CHỨC DANH SỬA ĐƯỢC (gói D · Câu 1 = A · Câu 2 = B · Câu 3 = A)
+ * · Bảng "chức danh nào mặc định làm được gì" nay BẤM ĐƯỢC — `thanh-phan-nghiep-vu/bang-mau-chuc-danh.tsx`.
+ * · Quyền gốc của mỗi người = công thức + MẪU (`quyenTheoChucDanhCoMau` / `quyenCuaVaiTroCoMau`) — không
+ *   còn chỗ nào tính theo công thức trơn (bài kiểm-luật canh).
+ * · Người có quyền riêng chỉ giữ ô cố ý khác (`ngoaiLeConHieuLuc`) — ô đó hiện "(khác chức danh)". Nút
+ *   "Bỏ quyền riêng — về theo chức danh" thay nút "Áp mẫu theo chức danh" (hai nút cùng làm một việc).
+ * · Mọi lần lưu gửi `phienBanMau`; 409 `mau-doi` → báo, bỏ nháp, đọc lại (tab cũ không trả lại quyền
+ *   Sếp vừa bỏ ở mẫu).
+ * · Đọc / ghi qua `layNguonPhanQuyen`: chế độ tài khoản mẫu chạy KHO DEMO (localStorage) bằng ĐÚNG phép
+ *   tính máy chủ dùng — không còn màn trống ở chế độ mẫu.
+ *
  * ## 📌 LỊCH SỬ (vẫn đúng)
  * · 18/08/2026 — gán theo VAI TRÒ đóng gói (`vai-tro-chuan.ts`), không bắt ghép tay bốn trường.
  * · 20/08/2026 — ghi thật qua API máy chủ; khối "Thêm người dùng mới" lấy thẳng danh bạ App Tổng.
  */
 /** Giá trị ô lọc "Tất cả phòng ban" — khác "" (chưa chọn gì = chưa hiện danh sách). */
 const TAT_CA_PHONG_BAN = "__tat_ca__";
+
+/**
+ * ★ Lọc theo CHỨC DANH (Sếp 06/10/2026, gói D). `""` = mọi chức danh; còn lại là mã `VAI_TRO_CHUAN` hoặc
+ * hai giá trị riêng dưới — cùng nếp `CHUA_GAN_PHONG_BAN` (khoá không trùng được với mã thật).
+ */
+const LOC_TUY_CHINH = "__tuy-chinh__";
+const LOC_CHUA_CO_HO_SO = "__chua-co-ho-so__";
 
 export default function TrangPhanQuyen() {
   const { nguoiDung, quyen } = useNguoiDung();
@@ -223,6 +282,29 @@ export default function TrangPhanQuyen() {
   /** Quyền riêng đang cất, khoá = mã Firebase. `null` = chưa đọc được. */
   const [banGhiRieng, setBanGhiRieng] = useState<Record<string, BanGhiQuyenRiengHienThi> | null>(null);
   const [loiRieng, setLoiRieng] = useState<string | null>(null);
+
+  // ---------- ★ Mẫu chức danh (Sếp 06/10/2026, gói D) — mọi state đặt TRƯỚC `return` sớm (D-F9) ----------
+  /** Mẫu đang cất (đọc cùng lượt với quyền riêng). `null` = chưa đọc được / hỏng — khoá tick và bảng mẫu. */
+  const [mau, setMau] = useState<MauChucDanh | null>(null);
+  const [canhBaoMau, setCanhBaoMau] = useState<string[]>([]);
+  /** Lý do mẫu HỎNG (máy chủ trả `mau-hong`) — chỉ Quản trị thấy nút cứu. */
+  const [mauHong, setMauHong] = useState<string | null>(null);
+  /** Lọc theo chức danh ở khối Nhân sự (`""` = mọi chức danh). */
+  const [chucDanhLoc, setChucDanhLoc] = useState("");
+  /** Bản nháp của bảng mẫu — CHỈ ô định đổi; `null` ở một ô = về mặc định gốc. */
+  const [nhapMau, setNhapMau] = useState<ThayDoiMau>({});
+  const [hoiLuuMau, setHoiLuuMau] = useState(false);
+  /** Bản chụp hộp xác nhận lưu mẫu — cùng nếp `hoiLuuCuoi` (chỉ cập nhật khi MỞ). */
+  const [hoiLuuMauCuoi, setHoiLuuMauCuoi] = useState<TomTatLuuMau | null>(null);
+  const [hoiBoRieng, setHoiBoRieng] = useState(false);
+  const [hoiBoRiengCuoi, setHoiBoRiengCuoi] = useState<TomTatBoRieng | null>(null);
+  const [hoiCuuMau, setHoiCuuMau] = useState(false);
+  const [hoiXoaDemo, setHoiXoaDemo] = useState(false);
+  const [dangLuuMau, setDangLuuMau] = useState(false);
+  /** Lịch sử demo (chế độ tài khoản mẫu) — bản thật xem ở Nhật ký hệ thống. */
+  const [lichSuDemo, setLichSuDemo] = useState<DongLichSuDemo[] | null>(null);
+  /** Khối Nhân sự — bấm "N người…" ở đầu cột bảng mẫu thì cuộn lên đây. */
+  const khoiNhanSuRef = useRef<HTMLDivElement>(null);
 
   // ---------- Chọn người + bản nháp ----------
   /** Mã Firebase của những người đang chọn. */
@@ -281,43 +363,65 @@ export default function TrangPhanQuyen() {
   /** Đang kéo: điểm bắt đầu. `null` = không kéo. Ref để khỏi vẽ lại mỗi lần di chuột. */
   const keoRef = useRef<{ x: number; rong: number } | null>(null);
 
-  const laCheDoThat = CHE_DO_XAC_THUC === "sso";
+  /**
+   * ★ NGUỒN DỮ LIỆU (Sếp 06/10/2026, gói D): máy chủ thật ở chế độ `sso`, KHO DEMO (localStorage) ở chế
+   * độ tài khoản mẫu — một đối tượng, màn này không tự rẽ nhánh theo chế độ ở từng chỗ gọi.
+   * 📌 Phụ thuộc ĐÚNG `nguoiDung.uid`: quyền của mình đổi (kho demo phát tin) KHÔNG được làm trang tự đọc
+   * lại mẫu — tự đọc lại là bản nháp dựng theo mẫu cũ đi kèm phiên bản mẫu MỚI, lọt chốt 409.
+   */
+  const uidCuaToi = nguoiDung.uid;
+  const nguon = useMemo(() => layNguonPhanQuyen({ uid: uidCuaToi }), [uidCuaToi]);
+  const laDemo = nguon.laDemo;
+  /* Đổi người đang đăng nhập (bản demo đổi tài khoản mẫu trên Header) → bỏ mọi bản nháp của người trước:
+     nháp đó dựng theo quyền của người khác, lưu dưới tên người mới là sai người. */
+  useEffect(() => {
+    setNhapMau({});
+    setNhapQuyen({});
+    setNhapVaiTro("");
+  }, [uidCuaToi]);
 
   /**
-   * Đọc CẢ hồ sơ lẫn quyền riêng một lượt — thứ hiện trên màn phải là thứ máy chủ THẬT SỰ đang giữ.
+   * Đọc CẢ hồ sơ lẫn quyền riêng + MẪU một lượt — thứ hiện trên màn phải là thứ máy chủ THẬT SỰ đang giữ.
    *
    * ⚠️ Đọc quyền riêng hỏng thì GHI NHỚ LỖI (khoá ô tick), không coi như "chưa ai có quyền riêng":
    * coi nhầm vậy là màn hiện quyền theo chức danh trong khi người ta đang có quyền riêng khác hẳn.
+   * Mẫu đọc cùng lượt (`?tatCa=1` trả kèm) — lỗi thì mẫu `null` (khoá cả tick lẫn bảng mẫu), hỏng thì nhớ
+   * lý do để Quản trị thấy nút cứu. 🔴 KHÔNG rơi về mẫu trống (mẫu trống có thể rộng hơn mẫu đang cất).
    */
-  /** Trả `true` khi KHÔNG đọc được quyền riêng — `docLai` dùng để dọn/dựng lại bản nháp tick. */
-  const tai = useCallback(async (): Promise<boolean> => {
-    if (!laCheDoThat) return false;
+  /** Trả MẪU vừa đọc, hoặc `null` khi KHÔNG đọc được quyền riêng / mẫu — `docLai` dùng để dọn/dựng lại bản nháp tick. */
+  const tai = useCallback(async (): Promise<MauChucDanh | null> => {
     setDangTai(true);
     try {
-      const [ds, rieng] = await Promise.all([docHoSoDePhanQuyen(), docQuyenRiengTatCa()]);
+      const [ds, rieng] = await Promise.all([nguon.docHoSo(), nguon.docQuyenRiengTatCa()]);
       setDanhSach(ds);
+      setLichSuDemo(nguon.lichSuDemo());
       if ("loi" in rieng) {
         setBanGhiRieng(null);
         setLoiRieng(rieng.loi);
-        return true;
+        setMau(null);
+        setCanhBaoMau([]);
+        setMauHong(rieng.mauHong ? rieng.loi : null);
+        return null;
       }
       setBanGhiRieng(rieng.tatCa);
       setLoiRieng(null);
-      return false;
+      setMau(rieng.mau);
+      setCanhBaoMau(rieng.canhBaoMau);
+      setMauHong(null);
+      return rieng.mau;
     } finally {
       setDangTai(false);
     }
-  }, [laCheDoThat]);
+  }, [nguon]);
 
   const taiDanhBa = useCallback(async () => {
-    if (!laCheDoThat) return;
     setDangTaiDanhBa(true);
     try {
-      setDanhBa(await docDanhBaCongTy());
+      setDanhBa(await nguon.docDanhBa());
     } finally {
       setDangTaiDanhBa(false);
     }
-  }, [laCheDoThat]);
+  }, [nguon]);
 
   useEffect(() => {
     void tai();
@@ -351,19 +455,23 @@ export default function TrangPhanQuyen() {
    * (khoá = mã Firebase). `nguoiDung.uid` là mã NGHIỆP VỤ (`u-tm1`…), so thẳng là lệch lớp và chốt
    * mất tác dụng mà không có gì báo. Owner thì hai mã trùng nhau nên đường lùi vẫn đúng.
    */
-  const nguoiGoi = useMemo(
-    () => ({
-      uid: danhSach?.find((h) => h.hoSo.uidNghiepVu === nguoiDung.uid)?.firebaseUid ?? nguoiDung.uid,
-      nguoiDung,
-    }),
-    [danhSach, nguoiDung],
-  );
+  const nguoiGoi = useMemo(() => {
+    const uid = danhSach?.find((h) => h.hoSo.uidNghiepVu === nguoiDung.uid)?.firebaseUid ?? nguoiDung.uid;
+    /* ★ 06/10/2026: quyền người gọi tính ĐÚNG như máy chủ dựng — hồ sơ + bản riêng của mình + MẪU ĐANG CẤT
+       (`ganQuyenRiengHieuLuc`). Quyền trong phiên đăng nhập có thể là của mẫu cũ (đọc lúc vào app); dùng nó
+       là màn hình nói "được" mà máy chủ nói "không", hoặc ngược lại. Chưa đọc được mẫu → giữ quyền phiên. */
+    const ndHieuLuc =
+      mau && banGhiRieng ? ganQuyenRiengHieuLuc(nguoiDung, banGhiRieng[uid] ?? null, mau) : nguoiDung;
+    return { uid, nguoiDung: ndHieuLuc };
+  }, [danhSach, nguoiDung, mau, banGhiRieng]);
 
   const tatCaNguoi = useMemo<ThongTinNguoi[]>(
     () =>
       (danhSach ?? []).map((hs) => {
         const nd = thanhNguoiDung(hs.hoSo);
-        const goc = tinhQuyenTheoChucDanh(nd);
+        /* ★ Quyền gốc = công thức + MẪU chức danh (06/10/2026). Mẫu chưa đọc được (`null`) thì phần tick đã
+           khoá và nhãn từng người ghi "Chưa rõ quyền riêng" — không bày số quyền đoán mò. */
+        const goc = quyenTheoChucDanhCoMau(tinhQuyenTheoChucDanh(nd), mau ? oDeCuaHoSo(mau, nd) : null);
         const laQuanTri = nd.vaiTro === "admin";
         const rieng = banGhiRieng?.[hs.firebaseUid] ?? null;
         /* `quyenHieuLuc` = máy chủ đã đối chiếu dấu chức danh — bản lưu cho chức danh cũ chỉ mang sang
@@ -404,7 +512,7 @@ export default function TrangPhanQuyen() {
           chuaCoHoSo: false,
         };
       }),
-    [danhSach, banGhiRieng, nguoiGoi, nguoiDung.uid],
+    [danhSach, banGhiRieng, nguoiGoi, nguoiDung.uid, mau],
   );
 
   /**
@@ -437,7 +545,9 @@ export default function TrangPhanQuyen() {
           },
         };
         const nd = thanhNguoiDung(hs.hoSo);
-        const goc = tinhQuyenTheoChucDanh(nd);
+        /* Cấp 0 — mẫu không áp (`quyenTheoChucDanhCoMau` trả nguyên công thức khi không vào được app); viết
+           cùng một biểu thức với `tatCaNguoi` để mọi chỗ tính quyền gốc đều qua mẫu. */
+        const goc = quyenTheoChucDanhCoMau(tinhQuyenTheoChucDanh(nd), mau ? oDeCuaHoSo(mau, nd) : null);
         const laChinhMinh = tv.uid === nguoiGoi.uid;
         const uidLuat = laChinhMinh ? nguoiGoi.uid : tv.uid;
         const lyDoKhoa = vuongMacTraoQuyen(nguoiGoi, [
@@ -467,7 +577,7 @@ export default function TrangPhanQuyen() {
           chuaCoHoSo: true,
         };
       });
-  }, [danhBa, danhSach, nguoiGoi]);
+  }, [danhBa, danhSach, nguoiGoi, mau]);
 
   const tatCaVaDanhBa = useMemo(() => [...tatCaNguoi, ...nguoiChuaCoHoSo], [tatCaNguoi, nguoiChuaCoHoSo]);
 
@@ -477,8 +587,10 @@ export default function TrangPhanQuyen() {
   /* ★ Sếp 26/09/2026 bỏ ô "Hiện cả N tài khoản đã ngừng truy cập". CỬA QUAY LẠI chuyển sang ô
      tìm: GÕ TÊN thì tài khoản ngừng truy cập vẫn hiện — không có đường này thì người bị ngừng
      nhầm không ai khôi phục được (lý do ở chú thích phía trên, Sếp 17/09/2026). */
+  /* ★ 06/10/2026: lọc chức danh "Ngừng truy cập" cũng là một cửa quay lại — không có dòng này thì chọn
+     chức danh đó luôn ra danh sách rỗng và báo "Không có ai khớp bộ lọc", tức nói sai. */
   const dsHien = tatCaVaDanhBa.filter(
-    (t) => tuKhoaDs.trim() !== "" || !laNgung(t),
+    (t) => tuKhoaDs.trim() !== "" || chucDanhLoc === "ngung_truy_cap" || !laNgung(t),
   );
 
   const dsPhongBanDs = [...new Set(dsHien.map((t) => t.phongBan))].sort((a, b) =>
@@ -490,11 +602,20 @@ export default function TrangPhanQuyen() {
      *"Mục này chưa cần hiển thị, chỉ khi nào chọn phòng ban hoặc tìm tên thì mới hiện"*. Chưa chọn
      phòng ban và chưa gõ tên → danh sách TRỐNG kèm lời nhắc. "Tất cả phòng ban" vẫn chọn được
      (giá trị riêng `TAT_CA_PHONG_BAN`). Người đang được chọn vẫn giữ nguyên ở cột phải. */
-  const chuaLoc = phongBanDs === "" && tuKhoaLoc === "";
+  const chuaLoc = phongBanDs === "" && tuKhoaLoc === "" && chucDanhLoc === "";
+  /** Người có khớp ô lọc chức danh không (Sếp 06/10/2026). Dùng ĐÚNG nhãn chức danh của danh sách (`vtHienTai`). */
+  const khopChucDanh = (t: ThongTinNguoi) =>
+    chucDanhLoc === "" ||
+    (chucDanhLoc === LOC_CHUA_CO_HO_SO
+      ? t.chuaCoHoSo
+      : chucDanhLoc === LOC_TUY_CHINH
+        ? !t.chuaCoHoSo && !t.vtHienTai
+        : !t.chuaCoHoSo && t.vtHienTai?.ma === chucDanhLoc);
   const dsLoc = dsHien.filter(
     (t) =>
       !chuaLoc &&
       (phongBanDs === "" || phongBanDs === TAT_CA_PHONG_BAN || t.phongBan === phongBanDs) &&
+      khopChucDanh(t) &&
       (tuKhoaLoc === "" ||
         boDau(t.ten).includes(tuKhoaLoc) ||
         boDau(t.hs.hoSo.email ?? "").includes(tuKhoaLoc)),
@@ -517,11 +638,13 @@ export default function TrangPhanQuyen() {
           doiCD && vtMoi
             ? { chucNang: vtMoi.chucNang, vaiTro: vtMoi.vaiTro, capTM: vtMoi.capTM, capKho: vtMoi.capKho ?? 0 }
             : t.nd;
-        const goc = doiCD && vtMoi ? quyenCuaVaiTro(vtMoi) : t.goc;
+        const goc = doiCD && vtMoi ? quyenCuaVaiTroCoMau(vtMoi, mau ?? MAU_TRONG) : t.goc;
         const laQT = ndSau.vaiTro === "admin";
         /* 🔴 Bản riêng cũ đối chiếu với chức danh SAU lần lưu — đúng như route sẽ làm sau khi
-           `/api/phan-quyen` đổi hồ sơ. Đổi chức danh thì chỉ mang sang những cờ đã bị bỏ thật. */
-        const riengCu = quyenRiengConHieuLuc(t.rieng, ndSau);
+           `/api/phan-quyen` đổi hồ sơ. Đổi chức danh thì chỉ mang sang những cờ đã bị bỏ thật.
+           ★ 06/10/2026 (B-F1, gói D): tham số mẫu bắt buộc — ô đè mẫu của chức danh SAU lần lưu. Mẫu chưa
+           đọc được thì phần tick đã khoá (`loiRieng`), `null` ở đây chỉ để xem trước lần đổi chức danh. */
+        const riengCu = quyenRiengConHieuLuc(t.rieng, ndSau, mau ? oDeCuaHoSo(mau, ndSau) : null);
         return {
           t,
           goc,
@@ -532,7 +655,16 @@ export default function TrangPhanQuyen() {
           ts: tinhTruocSauKhiLuu(goc, riengCu, laQT, nhapQuyen),
         };
       }),
-    [dsChon, vtMoi, nhapQuyen],
+    [dsChon, vtMoi, nhapQuyen, mau],
+  );
+
+  /** ★ Sếp 06/10/2026: số người theo chức danh cho đầu cột bảng mẫu ("N người · M có quyền riêng"). */
+  const demNguoi = useCallback(
+    (ma: MaVaiTroChuan) => {
+      const ds = tatCaNguoi.filter((t) => t.vtHienTai?.ma === ma);
+      return { soNguoi: ds.length, soCoRieng: ds.filter((t) => t.rieng).length };
+    },
+    [tatCaNguoi],
   );
 
   /* Lớp chặn thứ ba — hai lớp kia là mục menu và `duocVaoDuongDan`. Mỗi lớp che một đường vào
@@ -595,12 +727,35 @@ export default function TrangPhanQuyen() {
     return bat === 0 ? false : bat === duKien.length ? true : "mixed";
   }
 
+  /**
+   * ★ Bổ sung đặc tả D-F3 (06/10/2026): KHOÁ CHIỀU BẬT ngay tại ô — bật là TRAO một cờ mà người tick không
+   * có (luật ⑤). Hỏi ĐÚNG luật máy chủ dùng (`lyDoKhongBatCoKhiTick` ở `luat-phan-quyen.ts`, cùng thân với
+   * `vuongMacTraoQuyen` ⑤), không viết luật ở đây. TẮT thì luôn được — khác bảng mẫu (khoá cả hai chiều).
+   */
+  const lyDoKhongBatO = (k: keyof Quyen): string | null =>
+    lyDoKhongBatCoKhiTick(
+      nguoiGoi,
+      duKien.map((d) => ({ ten: d.t.ten, quyenGoc: d.goc, quyenTruoc: d.ts.quyenTruoc })),
+      k,
+    );
+
   /* Tick một ô "Được làm/Được xem" thì tự tick "Vào app"; bỏ "Vào app" là bỏ hết — y như luật áp
      quyền ở `quyen-rieng.ts`, để thứ nhìn thấy khớp thứ được cất. */
   function doiCo(k: keyof Quyen, bat: boolean) {
     if (k === "xemDuocApp" && !bat && lyDoKhoaVaoApp) {
       toast.error("Không bỏ được", { description: lyDoKhoaVaoApp });
       return;
+    }
+    /* D-F3: bấm ra BẬT mà là trao cờ mình không có → chặn kèm lý do. Riêng ô "mỗi người một kiểu" thì chiều
+       duy nhất còn lại là TẮT cho cả nhóm — làm đúng chiều đó và nói rõ (hộp xác nhận vẫn liệt kê "Tắt"). */
+    const chanBat = bat ? lyDoKhongBatO(k) : null;
+    if (chanBat) {
+      if (giaTriCo(k) !== "mixed") {
+        toast.error("Không bật được", { description: chanBat });
+        return;
+      }
+      toast.info("Không bật được cho cả nhóm — đã đặt TẮT cho cả nhóm", { description: chanBat });
+      bat = false;
     }
     setNhapQuyen((c) => {
       const moi: QuyenRieng = { ...c, [k]: bat };
@@ -661,14 +816,187 @@ export default function TrangPhanQuyen() {
     setChon((c) => (them ? [...new Set([...c, ...uids])] : c.filter((x) => !uids.includes(x))));
   }
 
-  /* "Áp mẫu theo chức danh": chức danh mới nếu đang đổi; không thì mẫu chung của nhóm — chỉ áp được
-     khi mọi người đang chọn có CÙNG một mẫu, không thì một bản nháp không diễn tả nổi. */
-  const mauApDuoc: Quyen | null = vtMoi
-    ? quyenCuaVaiTro(vtMoi)
-    : dsChon.length > 0 &&
-        dsChon.every((t) => quyenRiengGiongNhau(rutQuyenRieng(t.goc), rutQuyenRieng(dsChon[0].goc)))
-      ? dsChon[0].goc
+  /* 📌 Nút "Áp mẫu theo chức danh" ĐÃ BỎ (06/10/2026): với khuôn ngoại lệ (Câu 3 = A), áp mẫu rồi lưu là
+     không còn ô ngoại lệ nào → xoá bản ghi — đúng việc của nút "Bỏ quyền riêng — về theo chức danh" bên
+     dưới. Giữ cả hai là hai chỗ cùng làm một việc. */
+
+  // ---------- ★ BỎ QUYỀN RIÊNG — về theo chức danh (Sếp 06/10/2026) ----------
+  const dsCoRieng = dsChon.filter((t) => t.rieng);
+  /** Vì sao nút "Bỏ quyền riêng" mờ — `null` = bấm được. */
+  const lyDoKhongBoRieng: string | null =
+    dsCoRieng.length === 0
+      ? "Không ai trong số đang chọn có quyền riêng."
+      : coNhap
+        ? "Đang có thay đổi chưa lưu ở khối tick — lưu hoặc hoàn tác trước."
+        : nhapVaiTro !== ""
+          ? "Đang đổi chức danh — lưu hoặc hoàn tác trước."
+          : loiRieng || !mau
+            ? "Chưa đọc được quyền riêng / mẫu chức danh — bấm “Đọc lại”."
+            : Object.keys(nhapMau).length > 0
+              ? "Đang có thay đổi chưa lưu ở bảng mẫu — lưu hoặc hoàn tác bảng mẫu trước."
+              : null;
+
+  function moHopBoRieng() {
+    if (lyDoKhongBoRieng || !mau) return;
+    /* Xem trước: quyền hiệu lực HIỆN TẠI → quyền theo chức danh (công thức + mẫu). Hỏi trước ĐÚNG luật máy
+       chủ sẽ hỏi (`vuongMacTraoQuyen` — xoá bản đã bỏ ô là trao lại cờ đó). */
+    const bat = KHOA_TICK.filter((k) => dsCoRieng.some((t) => !t.hieuLuc[k] && t.goc[k])).map(nhanCoTick);
+    const tat = KHOA_TICK.filter((k) => dsCoRieng.some((t) => t.hieuLuc[k] && !t.goc[k])).map(nhanCoTick);
+    const loi = vuongMacTraoQuyen(
+      nguoiGoi,
+      dsCoRieng.map((t) => ({
+        uid: t.uidLuat,
+        ten: t.ten,
+        vaiTro: t.nd.vaiTro,
+        capTM: t.nd.capTM,
+        quyenGoc: t.goc,
+        quyenTruoc: t.hieuLuc,
+        quyenSau: t.goc,
+        boVaoApp: false,
+      })),
+    );
+    setHoiBoRiengCuoi({
+      uids: dsCoRieng.map((t) => t.hs.firebaseUid),
+      ten: dsCoRieng.map((t) => t.ten),
+      bat,
+      tat,
+      phienBanMau: mau.phienBan,
+      loi,
+    });
+    setHoiBoRieng(true);
+  }
+
+  async function boRiengThat(tom: TomTatBoRieng) {
+    setDangLuu(true);
+    try {
+      const kq = await nguon.boQuyenRieng(tom.uids, tom.phienBanMau);
+      if (kq.loi !== null) {
+        toast.error(kq.maLoi === "mau-doi" ? "Mẫu chức danh vừa được sửa ở nơi khác" : "Chưa bỏ được quyền riêng", {
+          description: kq.loi,
+          duration: 12000,
+        });
+        await docLai();
+        return;
+      }
+      toast.success("Đã bỏ quyền riêng", {
+        description: `${kq.soDaXoa} người về theo chức danh · có hiệu lực khi họ tải lại trang hoặc quay lại tab.`,
+      });
+      lamMoiNguoiKhongVaoApp();
+      yeuCauDocLaiQuyenCuaToi();
+      await tai();
+    } finally {
+      setDangLuu(false);
+    }
+  }
+
+  // ---------- ★ BẢNG MẪU CHỨC DANH (Sếp 06/10/2026 — Câu 1 = A, Câu 2 = B) ----------
+  const coNhapMau = Object.keys(nhapMau).length > 0;
+  /** Lý do khoá CẢ bảng mẫu (từng ô vẫn hỏi `lyDoKhongSuaOMau` trong bảng). */
+  const khoaBangMau: string | null = !mau
+    ? (loiRieng ?? "Đang đọc bảng mẫu…")
+    : !duocSuaMauChucDanh(nguoiGoi.nguoiDung)
+      ? LY_DO_KHONG_SUA_MAU
       : null;
+
+  /**
+   * Mở hộp xác nhận lưu mẫu. 🔴 CHẠY THỬ `tinhLuuMauChucDanh` (đúng phép tính máy chủ / kho demo chạy)
+   * trước — lỗi thì hộp hiện lý do và khoá nút Đồng ý, không để người dùng bấm rồi mới biết.
+   */
+  function moHopLuuMau() {
+    if (!mau || !coNhapMau) return;
+    const thu = tinhLuuMauChucDanh({
+      nguoiGoi,
+      mauCu: mau,
+      phienBanGui: mau.phienBan,
+      thayDoi: nhapMau,
+      luc: new Date().toISOString(),
+      capNhatBoi: nguoiGoi.uid,
+      capNhatBoiTen: nguoiDung.tenHienThi,
+    });
+    let dong: string[] = [];
+    let chiDao: string[] = [];
+    if (thu.ok) {
+      const anhHuong = anhHuongKhiDoiMau(
+        mau,
+        thu.mauMoi,
+        tatCaNguoi.map((t) => ({ nd: t.nd, banGhi: t.rieng })),
+      );
+      dong = anhHuong.flatMap((a) =>
+        a.doi.map(
+          (o) =>
+            `${timVaiTroChuan(a.ma)?.ten ?? a.ma}: ${o.sang ? "bật" : "tắt"} “${nhanCoTick(o.khoa)}” — ${o.soNguoi} người${
+              o.soGiuNgoaiLe > 0 ? `, ${o.soGiuNgoaiLe} người giữ ngoại lệ (không đổi theo)` : ""
+            }`,
+        ),
+      );
+      const khoaDoi = [...new Set(anhHuong.flatMap((a) => a.doi.map((o) => o.khoa)))];
+      chiDao = khoaDoi.flatMap((k) => (CHI_DAO_THEO_DONG[k] ? [`${nhanCoTick(k)}: ${CHI_DAO_THEO_DONG[k]}`] : []));
+    }
+    setHoiLuuMauCuoi({
+      thayDoi: nhapMau,
+      phienBan: mau.phienBan,
+      loi: thu.ok ? null : thu.error,
+      soODoi: thu.ok ? thu.soODoi : 0,
+      dong,
+      canhBao: thu.ok ? thu.canhBao : [],
+      chiDao,
+    });
+    setHoiLuuMau(true);
+  }
+
+  async function luuMauThat(tom: TomTatLuuMau) {
+    setDangLuuMau(true);
+    try {
+      const kq = await nguon.luuMau(tom.phienBan, tom.thayDoi);
+      if (kq.loi !== null) {
+        if (kq.maLoi === "mau-doi") {
+          /* Đặc tả 6 · D5: 409 → báo, XOÁ bản nháp (dựng theo mẫu cũ), đọc lại. */
+          setNhapMau({});
+          toast.error("Mẫu chức danh vừa được sửa ở nơi khác — đã bỏ bản nháp", { description: kq.loi, duration: 12000 });
+        } else {
+          toast.error("Chưa lưu được bảng mẫu", { description: kq.loi, duration: 12000 });
+        }
+        await tai();
+        return;
+      }
+      toast.success(`Đã lưu bảng mẫu (bản ${kq.phienBan})`, {
+        description: `${kq.soODoi} ô đổi · có hiệu lực khi người đó tải lại trang hoặc quay lại tab.${
+          kq.canhBao.length > 0 ? ` Lưu ý: ${kq.canhBao.join(" ")}` : ""
+        }`,
+        duration: kq.canhBao.length > 0 ? 15000 : 6000,
+      });
+      setNhapMau({});
+      lamMoiNguoiKhongVaoApp();
+      yeuCauDocLaiQuyenCuaToi();
+      await tai();
+    } finally {
+      setDangLuuMau(false);
+    }
+  }
+
+  /** Cứu mẫu HỎNG — chỉ Quản trị, không gửi `phienBan` (mẫu không đọc được thì không có bản nào để so). */
+  async function cuuMauThat() {
+    setDangLuuMau(true);
+    try {
+      const kq = await nguon.veMacDinhMauToanBo();
+      if (kq.loi !== null) {
+        toast.error("Chưa cứu được bảng mẫu", { description: kq.loi, duration: 12000 });
+      } else {
+        toast.success(`Đã đưa cả bảng mẫu về mặc định gốc (bản ${kq.phienBan})`);
+        setNhapMau({});
+        yeuCauDocLaiQuyenCuaToi();
+      }
+      await tai();
+    } finally {
+      setDangLuuMau(false);
+    }
+  }
+
+  /** Bấm "N người…" ở đầu cột bảng mẫu → lọc khối Nhân sự theo chức danh đó rồi cuộn lên (MỘT danh sách). */
+  function xemNguoiCuaChucDanh(ma: MaVaiTroChuan) {
+    setChucDanhLoc(ma);
+    khoiNhanSuRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function doiChucDanhNhap(ma: string) {
     setNhapVaiTro(ma);
@@ -679,8 +1007,9 @@ export default function TrangPhanQuyen() {
        danh, bày một bộ ô "đã đổi" mà không ghi là giao diện hứa việc app không làm. Ô tick khi đó
        tự hiện mẫu chức danh mới (xem `giaTriCo`). */
     /* Cùng lý do: chức danh Quản trị / Ngừng truy cập thì lần lưu cũng không ghi ô tick (xem `ghiQuyen`). */
-    const khongGhiTick = !vt || loiRieng || vt.vaiTro === "admin" || vt.capTM === 0;
-    setNhapQuyen(khongGhiTick ? {} : rutQuyenRieng(quyenCuaVaiTro(vt)));
+    const khongGhiTick = !vt || loiRieng || !mau || vt.vaiTro === "admin" || vt.capTM === 0;
+    /* ★ 06/10/2026: mẫu của chức danh = công thức + MẪU ĐANG CẤT (không còn công thức trơn). */
+    setNhapQuyen(khongGhiTick ? {} : rutQuyenRieng(quyenCuaVaiTroCoMau(vt, mau)));
   }
 
   /**
@@ -693,7 +1022,8 @@ export default function TrangPhanQuyen() {
    */
   async function docLai() {
     /* Đọc lại CẢ danh bạ (gộp nút "Đọc lại danh bạ" của khối "Thêm người dùng mới" cũ). */
-    const [coLoi] = await Promise.all([tai(), taiDanhBa()]);
+    const [mauVuaDoc] = await Promise.all([tai(), taiDanhBa()]);
+    const coLoi = mauVuaDoc === null;
     if (coLoi && Object.keys(nhapQuyen).length > 0) {
       setNhapQuyen({});
       toast.warning("Đã bỏ các ô tick chưa lưu", {
@@ -701,8 +1031,9 @@ export default function TrangPhanQuyen() {
         duration: 10000,
       });
     }
-    if (!coLoi && loiRieng && vtMoi && vtMoi.vaiTro !== "admin" && vtMoi.capTM !== 0) {
-      setNhapQuyen(rutQuyenRieng(quyenCuaVaiTro(vtMoi)));
+    /* ★ 06/10/2026: dựng theo MẪU VỪA ĐỌC (`tai` trả về) — state `mau` của lượt vẽ này vẫn là bản cũ. */
+    if (mauVuaDoc && loiRieng && vtMoi && vtMoi.vaiTro !== "admin" && vtMoi.capTM !== 0) {
+      setNhapQuyen(rutQuyenRieng(quyenCuaVaiTroCoMau(vtMoi, mauVuaDoc)));
       toast.info(`Đã tick lại theo mẫu chức danh “${vtMoi.ten}”.`);
     }
   }
@@ -718,6 +1049,11 @@ export default function TrangPhanQuyen() {
     if (dsChon.length === 0) return "Chưa chọn ai.";
     const khoa = dsChon.find((t) => t.lyDoKhoa);
     if (khoa) return khoa.lyDoKhoa;
+    /* ★ Hai bản nháp LOẠI TRỪ NHAU (06/10/2026): bấm một nút Lưu mà tưởng đã lưu cả hai là mất việc. */
+    if (coNhapMau) return "Đang có thay đổi chưa lưu ở bảng mẫu chức danh — lưu hoặc hoàn tác bảng mẫu trước.";
+    /* Ghi ô tick mà mẫu chưa đọc được thì không gửi được `phienBanMau` (máy chủ trả 400) — nói trước. Chỉ
+       ĐỔI CHỨC DANH (ca E, chưa đọc được quyền riêng) thì vẫn cho — lượt đó không gọi cửa quyền riêng. */
+    if (ghiQuyen && !mau) return "Đang đọc mẫu chức danh…";
     /* ★ Người chưa có hồ sơ (gộp khối "Thêm người dùng mới", Sếp 26/09/2026): phải có chức danh mới
        tạo được hồ sơ — `/api/phan-quyen` tạo hồ sơ khi gán chức danh, route quyền riêng đòi hồ sơ. */
     const chuaCo = dsChon.filter((t) => t.chuaCoHoSo);
@@ -782,6 +1118,8 @@ export default function TrangPhanQuyen() {
       soGiuTheoChucDanh: ghiQuyen ? duKien.filter((d) => !d.ts.canGhi && !d.t.rieng).length : 0,
       chuaDocRieng: Boolean(loiRieng),
       soCapMoi: dsChon.filter((t) => t.chuaCoHoSo).length,
+      /* Chụp CÙNG lúc với bản nháp: bản nháp dựng theo mẫu này — máy chủ so, lệch là 409 (đặc tả 2.5). */
+      phienBanMau: mau?.phienBan ?? -1,
     };
     setHoiLuuCuoi(tom);
     setHoiLuu(true);
@@ -795,7 +1133,7 @@ export default function TrangPhanQuyen() {
       if (tom.vtMoi && tom.uidDoiChucDanh.length > 0) {
         const loi: string[] = [];
         for (const uid of tom.uidDoiChucDanh) {
-          const l = await ganVaiTro(uid, tom.vtMoi.ma);
+          const l = await nguon.ganVaiTro(uid, tom.vtMoi.ma);
           if (l) loi.push(`${tatCaVaDanhBa.find((t) => t.hs.firebaseUid === uid)?.ten ?? uid}: ${l}`);
         }
         if (loi.length > 0) {
@@ -807,9 +1145,11 @@ export default function TrangPhanQuyen() {
 
       // ② QUYỀN RIÊNG — một lượt cho cả nhóm, máy chủ kiểm lại toàn bộ luật.
       if (tom.uidGhiQuyen.length > 0) {
-        const kq = await luuQuyenRieng(tom.uidGhiQuyen, tom.thayDoi);
+        const kq = await nguon.luuQuyenRieng(tom.uidGhiQuyen, tom.thayDoi, tom.phienBanMau);
         if (kq.loi !== null) {
-          toast.error("Chưa lưu được quyền", {
+          /* ★ 409 `mau-doi` (đặc tả 6 · D5): bản nháp dựng theo mẫu cũ — báo, XOÁ nháp, đọc lại. */
+          if (kq.maLoi === "mau-doi") datLaiNhap();
+          toast.error(kq.maLoi === "mau-doi" ? "Mẫu chức danh vừa được sửa — đã bỏ thay đổi chưa lưu" : "Chưa lưu được quyền", {
             description: tom.uidDoiChucDanh.length > 0 ? `${kq.loi} (Chức danh đã đổi xong.)` : kq.loi,
             duration: 12000,
           });
@@ -819,10 +1159,12 @@ export default function TrangPhanQuyen() {
       }
 
       toast.success("Đã lưu phân quyền", {
-        description: `${tom.ten.length} người · có hiệu lực từ lần tải trang kế tiếp của họ.`,
+        description: `${tom.ten.length} người · có hiệu lực khi họ tải lại trang hoặc quay lại tab.`,
       });
       /* Bảng "Giao việc cho ai" giữ danh sách người bị khoá 60 giây — bỏ bộ nhớ để nó thấy ngay. */
       lamMoiNguoiKhongVaoApp();
+      /* D-F2: chính mình vừa lưu → đọc lại quyền của mình (bản thật; demo kho tự phát tin). */
+      yeuCauDocLaiQuyenCuaToi();
       datLaiNhap();
       /* Đọc lại từ máy chủ thay vì tự sửa danh sách trong bộ nhớ: ghi hỏng một phần mà màn vẫn
          xanh là thứ tệ nhất ở màn này. Đọc CẢ danh bạ: người vừa được cấp quyền lần đầu phải thôi
@@ -834,6 +1176,13 @@ export default function TrangPhanQuyen() {
   }
 
   const motNguoi = dsChon.length === 1 ? dsChon[0] : null;
+  /**
+   * ★ Ô người này đang GIỮ RIÊNG — không đi theo mẫu chức danh (Câu 3 = A; dấu "(khác chức danh)" hiện
+   * theo `k in ngoaiLe` — bổ sung đặc tả B-F2). Một chỗ suy ra: `ngoaiLeConHieuLuc` (cùng hàm phép tính lưu
+   * dùng). Đang đổi chức danh thì không hiện (ngoại lệ tính theo chức danh hiện tại).
+   */
+  const ngoaiLeMotNguoi: QuyenRieng | null =
+    motNguoi?.rieng && !vtMoi && !loiRieng ? ngoaiLeConHieuLuc(motNguoi.rieng, motNguoi.nd).ngoaiLe : null;
   const soBatHien = KHOA_TICK.filter((k) => giaTriCo(k) === true).length;
   const soMixed = KHOA_TICK.filter((k) => giaTriCo(k) === "mixed").length;
 
@@ -845,35 +1194,51 @@ export default function TrangPhanQuyen() {
         description={`Chọn người ở cột trái, tick quyền ở cột phải rồi bấm Lưu. Bạn gán chức danh được tới ${NHAN_CAP_QUYEN[toiDa]}.`}
       />
 
-      {!laCheDoThat ? (
-        <EmptyState
-          icon={ShieldAlert}
-          title="Bản chạy thử đang dùng tài khoản mẫu"
-          description="Danh sách người dùng thật chỉ có khi app chạy chế độ đăng nhập Firebase. Ở chế độ tài khoản mẫu, vai trò được viết sẵn trong mã nguồn nên không có hồ sơ nào để phân quyền."
-        />
-      ) : (
-        <>
+      {/* ★ BẢN DEMO (chế độ tài khoản mẫu, Sếp 06/10/2026) — toàn màn chạy được, dữ liệu chỉ trên trình
+          duyệt này. Trước đây chế độ mẫu chỉ hiện một màn trống. */}
+      {laDemo && (
+        <div
+          role="note"
+          className="flex flex-col gap-3 rounded-xl border border-primary bg-primary-bg p-(--hp-md-card-pad) text-sm text-text-secondary md:flex-row md:items-center md:justify-between"
+        >
+          <p className="flex items-start gap-2">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <span>
+              <strong className="text-text-primary">
+                Bản demo — chỉ lưu trên trình duyệt này, không ghi lên máy chủ.
+              </strong>{" "}
+              Đổi chức danh không làm được ở bản demo. Luật lưu chạy ĐÚNG hai phép tính máy chủ dùng; đổi tài
+              khoản mẫu ở góc trên để thấy menu, nút đổi theo.
+            </span>
+          </p>
+          <Button variant="outline" className="shrink-0" disabled={dangLuu || dangLuuMau} onClick={() => setHoiXoaDemo(true)}>
+            Xoá dữ liệu demo phân quyền
+          </Button>
+        </div>
+      )}
+
+      <>
           {/* 🔴 NÓI ĐÚNG MẶC ĐỊNH ĐANG CHẠY. Demo ghi "mặc định không xem được gì" — app thật đang để
               an toàn: chưa tick riêng thì giữ quyền theo chức danh. Ghi sai ở đây là người phân quyền
               tưởng người chưa tick đang bị khoá hết, trong khi họ vẫn làm việc bình thường.
-              ★ Sếp chốt 26/09/2026: *"Tạm giữ theo chức danh"* — câu in đậm dưới đây đúng chỉ đạo đó. */}
+              ★ Sếp chốt 26/09/2026: *"Tạm giữ theo chức danh"*; ★ 06/10/2026 "theo chức danh" nghĩa là theo
+              MẪU chức danh ở bảng dưới (Câu 1 = A), người có quyền riêng chỉ giữ ô cố ý khác (Câu 3 = A). */}
           <div
             role="note"
             className="flex items-start gap-3 rounded-xl border border-warning bg-warning-bg p-(--hp-md-card-pad) text-sm text-text-secondary"
           >
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
             <p>
+              Người chưa được tick riêng theo <strong className="text-text-primary">mẫu chức danh</strong> ở
+              bảng dưới. Người có quyền riêng chỉ giữ những ô đã cố ý khác chức danh; các ô còn lại đi theo
+              mẫu, kể cả khi mẫu đổi về sau (Sếp 06/10/2026). Danh sách &quot;Giao việc&quot; lấy theo{" "}
+              <strong>chức danh</strong>; ai bị bỏ tick &quot;Vào app&quot; thì không có trong danh sách đó.{" "}
               <strong className="text-text-primary">
-                Người chưa được tick riêng vẫn giữ nguyên quyền theo chức danh.
+                Mẫu và quyền riêng có hiệu lực khi người đó tải lại trang hoặc quay lại tab.
               </strong>{" "}
-              Lưu quyền riêng cho ai thì chỉ những ô được tick mới mở cho người đó. Danh sách
-              &quot;Giao việc&quot; lấy theo <strong>chức danh</strong>; ai bị bỏ tick &quot;Vào app&quot;
-              thì không có trong danh sách đó. Thay
-              đổi có hiệu lực từ lần tải trang kế tiếp của người đó — trang họ đang mở giữ quyền cũ
-              tới khi tải lại. Lúc tải trang mà app không đọc được phân quyền thì người đó chưa vào
-              được app cho tới khi đọc được. Đổi chức danh thì người đó nhận các quyền mặc định của
-              chức danh mới, trừ những quyền đã bị bỏ ở quyền riêng cũ (vẫn bỏ); quyền từng được tick
-              thêm vượt chức danh cũ không mang sang.
+              Lúc tải trang mà app không đọc được phân quyền thì người đó chưa vào được app cho tới khi đọc
+              được. Đổi chức danh thì người đó nhận các quyền mặc định của chức danh mới, trừ những quyền đã
+              bị bỏ ở quyền riêng cũ (vẫn bỏ); quyền từng được tick thêm vượt chức danh cũ không mang sang.
             </p>
           </div>
 
@@ -887,7 +1252,7 @@ export default function TrangPhanQuyen() {
             style={{ "--rong-cot": `${rongCot}px` } as CSSProperties}
           >
             {/* ================= CỘT TRÁI — NHÂN SỰ ================= */}
-            <Card className="gap-0 py-0">
+            <Card ref={khoiNhanSuRef} className="scroll-mt-4 gap-0 py-0">
               <div className="flex items-center justify-between gap-2 border-b border-divider px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Users className="size-4 shrink-0 text-primary" aria-hidden />
@@ -957,6 +1322,23 @@ export default function TrangPhanQuyen() {
                     </option>
                   ))}
                 </select>
+                {/* ★ Lọc theo CHỨC DANH (Sếp 06/10/2026). Bấm "N người…" ở đầu cột bảng mẫu cũng đặt ô này —
+                    MỘT danh sách người, không dựng danh sách thứ hai. */}
+                <select
+                  value={chucDanhLoc}
+                  onChange={(e) => setChucDanhLoc(e.target.value)}
+                  aria-label="Lọc theo chức danh"
+                  className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none"
+                >
+                  <option value="">Mọi chức danh</option>
+                  {VAI_TRO_CHUAN.map((v) => (
+                    <option key={v.ma} value={v.ma}>
+                      {v.ten}
+                    </option>
+                  ))}
+                  <option value={LOC_TUY_CHINH}>Tùy chỉnh (không khớp chức danh nào)</option>
+                  <option value={LOC_CHUA_CO_HO_SO}>Chưa có quyền ở app Thu mua</option>
+                </select>
 
                 {/* ★ Chọn nhiều người (Sếp 26/09/2026 ②). Chỉ gom người SỬA ĐƯỢC — người bị khoá
                     (chính mình, cấp cao hơn, Quản trị) gom vào là cả lượt lưu bị từ chối. */}
@@ -996,7 +1378,7 @@ export default function TrangPhanQuyen() {
               {danhSach !== null && dsLoc.length === 0 && (
                 <p className="px-4 py-6 text-sm text-text-desc">
                   {chuaLoc
-                    ? "Chọn phòng ban hoặc gõ tên để hiện danh sách nhân sự."
+                    ? "Chọn phòng ban, chức danh hoặc gõ tên để hiện danh sách nhân sự."
                     : dsHien.length === 0
                     ? "Không đọc được tài khoản nào. Kiểm tra lại kết nối máy chủ."
                     : "Không có ai khớp bộ lọc."}
@@ -1204,7 +1586,8 @@ export default function TrangPhanQuyen() {
                           id="chuc-danh-phan-quyen"
                           value={nhapVaiTro}
                           onChange={(e) => doiChucDanhNhap(e.target.value)}
-                          disabled={dsChon.some((t) => t.lyDoKhoa) || dangLuu}
+                          disabled={laDemo || dsChon.some((t) => t.lyDoKhoa) || dangLuu}
+                          title={laDemo ? LY_DO_DEMO_KHONG_DOI_CHUC_DANH : undefined}
                           className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-text-primary transition-colors hover:border-primary focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <option value="">
@@ -1222,17 +1605,15 @@ export default function TrangPhanQuyen() {
                         </select>
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
+                        {/* ★ Sếp 06/10/2026: THAY nút "Áp mẫu theo chức danh" — với khuôn ngoại lệ hai nút làm
+                            cùng một việc (xem chú thích ở `lyDoKhongBoRieng`). */}
                         <Button
                           variant="outline"
-                          disabled={!mauApDuoc || Boolean(lyDoKhongTick) || dangLuu}
-                          title={
-                            mauApDuoc
-                              ? undefined
-                              : "Những người đang chọn khác mẫu chức danh — chọn một chức danh ở ô bên cạnh để áp."
-                          }
-                          onClick={() => mauApDuoc && setNhapQuyen(rutQuyenRieng(mauApDuoc))}
+                          disabled={Boolean(lyDoKhongBoRieng) || dangLuu}
+                          title={lyDoKhongBoRieng ?? "Xoá quyền riêng của người đang chọn — họ đi theo mẫu chức danh."}
+                          onClick={moHopBoRieng}
                         >
-                          Áp mẫu theo chức danh
+                          Bỏ quyền riêng — về theo chức danh
                         </Button>
                         <Button
                           variant="ghost"
@@ -1244,13 +1625,17 @@ export default function TrangPhanQuyen() {
                         </Button>
                       </div>
                     </div>
+                      {/* ★ 06/10/2026: mô tả chức danh SINH TỪ QUYỀN THẬT (công thức + mẫu) — `tomTatQuyenCuaVaiTro`,
+                          thay câu `moTa` viết cứng (mẫu đổi thì câu viết cứng nói sai). */}
                       <p className="text-xs text-text-desc">
-                        {vtMoi
+                        {laDemo
+                          ? LY_DO_DEMO_KHONG_DOI_CHUC_DANH
+                          : vtMoi
                           ? loiRieng
-                            ? `Đổi sang “${vtMoi.ten}”: lần lưu này CHỈ đổi chức danh (chưa đọc được quyền riêng nên không ghi ô tick). ${vtMoi.moTa}`
+                            ? `Đổi sang “${vtMoi.ten}”: lần lưu này CHỈ đổi chức danh (chưa đọc được quyền riêng nên không ghi ô tick). ${tomTatQuyenCuaVaiTro(vtMoi, mau ?? MAU_TRONG)}`
                             : vtMoi.vaiTro === "admin" || vtMoi.capTM === 0
-                              ? `Đổi sang “${vtMoi.ten}”: lần lưu này chỉ đổi chức danh — ${vtMoi.vaiTro === "admin" ? "Quản trị luôn đủ mọi quyền" : "Ngừng truy cập thì ô tick không có tác dụng"}. ${vtMoi.moTa}`
-                              : `Đổi sang “${vtMoi.ten}”: đã tick lại theo mẫu của chức danh này — thêm/bớt tiếp nếu cần. ${vtMoi.moTa}`
+                              ? `Đổi sang “${vtMoi.ten}”: lần lưu này chỉ đổi chức danh — ${vtMoi.vaiTro === "admin" ? "Quản trị luôn đủ mọi quyền" : "Ngừng truy cập thì ô tick không có tác dụng"}. ${tomTatQuyenCuaVaiTro(vtMoi, mau ?? MAU_TRONG)}`
+                              : `Đổi sang “${vtMoi.ten}”: đã tick lại theo mẫu của chức danh này — thêm/bớt tiếp nếu cần. ${tomTatQuyenCuaVaiTro(vtMoi, mau ?? MAU_TRONG)}`
                           : "Đổi chức danh là tick lại toàn bộ theo mẫu của chức danh đó."}
                       </p>
                   </div>
@@ -1299,6 +1684,13 @@ export default function TrangPhanQuyen() {
                             /* "Vào app" của người cấp ≥ 3: khoá khi ĐANG BẬT (không cho bỏ), vẫn mở
                                khi đang tắt / mỗi người một kiểu để tick lên được. */
                             const khoaBoVaoApp = c.khoa === "xemDuocApp" && Boolean(lyDoKhoaVaoApp) && gt === true;
+                            /* ★ D-F3: chiều BẬT khoá khi bật là trao cờ mình không có. Ô đang tắt → khoá hẳn kèm
+                               lý do; ô "mỗi người một kiểu" vẫn bấm được để TẮT cho cả nhóm (xem `doiCo`). */
+                            const lyDoBat = gt !== true && !lyDoKhongTick ? lyDoKhongBatO(c.khoa) : null;
+                            const khoaBat = gt === false && Boolean(lyDoBat);
+                            /* ★ Câu 3 = A: ô người này đang GIỮ RIÊNG (không theo mẫu) — `k in ngoaiLe` (B-F2). */
+                            const khacCD =
+                              !daDoi && ngoaiLeMotNguoi !== null && Object.prototype.hasOwnProperty.call(ngoaiLeMotNguoi, c.khoa);
                             return (
                               <label
                                 key={c.khoa}
@@ -1307,7 +1699,7 @@ export default function TrangPhanQuyen() {
                                 <OTich
                                   giaTri={gt}
                                   onDoi={(b) => doiCo(c.khoa, b)}
-                                  disabled={Boolean(lyDoKhongTick) || dangLuu || khoaBoVaoApp}
+                                  disabled={Boolean(lyDoKhongTick) || dangLuu || khoaBoVaoApp || khoaBat}
                                   ariaDescribedBy={idMoTa}
                                   className="mt-0.5"
                                 />
@@ -1320,6 +1712,9 @@ export default function TrangPhanQuyen() {
                                         (mỗi người một kiểu)
                                       </span>
                                     )}
+                                    {khacCD && (
+                                      <span className="text-xs font-normal text-warning-soft">(khác chức danh)</span>
+                                    )}
                                     {daDoi && <StatusBadge label="đã đổi" tone="primary" />}
                                   </span>
                                   <span id={idMoTa} className="block text-xs text-text-desc">
@@ -1328,30 +1723,22 @@ export default function TrangPhanQuyen() {
                                     {khoaBoVaoApp && lyDoKhoaVaoApp && (
                                       <span className="mt-0.5 block text-warning-soft">{lyDoKhoaVaoApp}</span>
                                     )}
+                                    {lyDoBat && (
+                                      <span className="mt-0.5 block text-warning-soft">
+                                        {gt === "mixed" ? "Chỉ tắt được cho cả nhóm — " : "Không bật được — "}
+                                        {lyDoBat}
+                                      </span>
+                                    )}
                                   </span>
                                 </span>
                               </label>
                             );
                           })}
                         </div>
-                        {/* `phanQuyenNguoiDung` cố ý KHÔNG có ô tick — nói ra để người phân quyền
-                            không đi tìm (xem chú thích `CO_TICK_DUOC`). */}
-                        {nhom === "Quản trị" && (
-                          <p className="mt-2 px-2 text-xs text-text-desc">
-                            <strong className="text-text-secondary">Phân quyền người dùng</strong> không
-                            tick được: luôn theo chức danh (cấp Quản lý trở lên), vì máy chủ gán chức danh
-                            theo cấp. Muốn thu hồi thì hạ chức danh.
-                          </p>
-                        )}
-                        {/* `xuatHoSo` cố ý KHÔNG có ô tick (soát chéo lần 2 26/09/2026) — không nút
-                            xuất/in nào đọc cờ này, tick vào không chặn/mở được gì. */}
-                        {nhom === "Được làm" && (
-                          <p className="mt-2 px-2 text-xs text-text-desc">
-                            <strong className="text-text-secondary">Xuất hồ sơ / in chứng từ</strong> không
-                            có ô tick: các nút xuất Excel và in hiện chưa gác theo quyền riêng, tick vào cũng
-                            không chặn được. Ai xem được hồ sơ thì xuất/in được hồ sơ đó.
-                          </p>
-                        )}
+                        {/* ★ Bổ sung đặc tả D-F4 (06/10/2026): ĐÃ BỎ hai ghi chú cũ ở đây — "Phân quyền người
+                            dùng không tick được" (trùng dòng ghi chú G1 của bảng mẫu bên dưới) và "Xuất hồ sơ /
+                            in chứng từ chưa gác theo quyền riêng" (đã SAI: In / Excel đơn hàng nay gác bằng
+                            "Xem giá"). */}
                         </>)}
                       </fieldset>
                     );
@@ -1389,69 +1776,159 @@ export default function TrangPhanQuyen() {
                     {lyDoKhongLuu && coNhap && lyDoKhongLuu !== lyDoKhongTick && (
                       <p className="text-xs text-warning-soft">{lyDoKhongLuu}</p>
                     )}
+                    {/* Bổ sung đặc tả D-F3: nói rõ khác biệt chiều TẮT giữa khối này và bảng mẫu. */}
+                    <p className="text-xs text-text-desc">
+                      Ở khối này, ô của quyền bạn không có chỉ khoá chiều <strong>bật</strong> — tắt bớt cho một
+                      người vẫn được. Ở bảng mẫu theo chức danh bên dưới, ô đó khoá cả bật lẫn tắt.
+                    </p>
                   </div>
                 </>
               )}
             </Card>
           </div>
-        </>
+      </>
+
+      {/* ---------- ★ BẢNG MẪU QUYỀN THEO CHỨC DANH — bấm được (Sếp 06/10/2026, Câu 1 = A · Câu 2 = B) ---------- */}
+      <BangMauChucDanh
+        mau={mau}
+        mauHong={mauHong}
+        canhBaoMau={canhBaoMau}
+        nguoiGoi={nguoiGoi.nguoiDung}
+        nhap={nhapMau}
+        onDoiNhap={setNhapMau}
+        khoaVi={khoaBangMau}
+        lyDoKhongLuu={
+          coNhap ? "Đang có thay đổi chưa lưu ở khối tick quyền từng người — lưu hoặc hoàn tác ở đó trước." : null
+        }
+        demNguoi={demNguoi}
+        onXemNguoi={xemNguoiCuaChucDanh}
+        onLuu={moHopLuuMau}
+        onHoanTac={() => setNhapMau({})}
+        onVeMacDinhKhiHong={() => setHoiCuuMau(true)}
+        dangLuu={dangLuuMau || dangLuu}
+        laDemo={laDemo}
+        lichSuDemo={lichSuDemo}
+      />
+
+      {/* 🔴 HỘP XÁC NHẬN LƯU BẢNG MẪU — chụp nội dung lúc mở (`hoiLuuMauCuoi`), KHÔNG bọc `{hoiLuuMau && …}`. */}
+      {hoiLuuMauCuoi && (
+        <HopXacNhan
+          mo={hoiLuuMau}
+          tieuDe="Lưu bảng mẫu quyền theo chức danh?"
+          moTa={`${hoiLuuMauCuoi.soODoi} ô đổi. Áp cho mọi người thuộc chức danh đó, trừ ô ai đang giữ ngoại lệ riêng. Có hiệu lực khi người đó tải lại trang hoặc quay lại tab.`}
+          canhBao={
+            hoiLuuMauCuoi.canhBao.length > 0 ? (
+              <ul className="flex flex-col gap-1">
+                {hoiLuuMauCuoi.canhBao.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            ) : undefined
+          }
+          khoaDongY={hoiLuuMauCuoi.loi ?? undefined}
+          nhanDongY="Lưu bảng mẫu"
+          nguyHiem={hoiLuuMauCuoi.dong.some((d) => d.includes(": tắt"))}
+          onDongY={() => {
+            const tom = hoiLuuMauCuoi;
+            setHoiLuuMau(false);
+            void luuMauThat(tom);
+          }}
+          onDong={() => setHoiLuuMau(false)}
+        >
+          <div className="flex flex-col gap-2 text-sm text-text-secondary">
+            {hoiLuuMauCuoi.dong.length > 0 && (
+              <ul className="thanh-cuon-doc-ro flex max-h-60 flex-col gap-1 overflow-y-auto">
+                {hoiLuuMauCuoi.dong.map((d) => (
+                  <li key={d}>{d}</li>
+                ))}
+              </ul>
+            )}
+            {hoiLuuMauCuoi.chiDao.length > 0 && (
+              <div className="rounded-lg bg-muted p-2 text-xs">
+                <p className="font-semibold text-text-primary">Chỉ đạo gắn với dòng đang đổi:</p>
+                <ul className="flex flex-col gap-1">
+                  {hoiLuuMauCuoi.chiDao.map((c) => (
+                    <li key={c}>{c}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="text-xs text-text-desc">Có hiệu lực từ lần tải trang kế tiếp (hoặc khi người đó quay lại tab).</p>
+          </div>
+        </HopXacNhan>
       )}
 
-      {/* ---------- BẢNG ĐỐI CHIẾU: chức danh nào mặc định làm được gì ---------- */}
-      <Card>
-        <CardContent className="flex flex-col gap-(--hp-md-card-gap)">
-          <div>
-            <p className="text-h3 text-text-primary">Chức danh nào mặc định làm được gì</p>
-            <p className="text-sm text-text-secondary">
-              Bảng này <strong>tự sinh từ luật phân quyền thật của app</strong>, không phải mô tả
-              chép tay. Đây là MẪU theo chức danh — người đã được tick riêng có thể khác.
-            </p>
-          </div>
+      {/* HỘP XÁC NHẬN "BỎ QUYỀN RIÊNG" — chụp lúc mở, cùng nếp. */}
+      {hoiBoRiengCuoi && (
+        <HopXacNhan
+          mo={hoiBoRieng}
+          tieuDe="Bỏ quyền riêng — về theo chức danh?"
+          moTa={`Xoá quyền riêng của ${hoiBoRiengCuoi.ten.length} người: ${hoiBoRiengCuoi.ten.slice(0, 5).join(", ")}${
+            hoiBoRiengCuoi.ten.length > 5 ? ` và ${hoiBoRiengCuoi.ten.length - 5} người nữa` : ""
+          }. Họ đi theo mẫu chức danh (kể cả khi mẫu đổi về sau). Có hiệu lực khi họ tải lại trang hoặc quay lại tab.`}
+          canhBao={hoiBoRiengCuoi.tat.length > 0 ? "Có quyền bị TẮT — người được chọn mất các việc đó." : undefined}
+          khoaDongY={hoiBoRiengCuoi.loi ?? undefined}
+          nhanDongY="Bỏ quyền riêng"
+          nguyHiem={hoiBoRiengCuoi.tat.length > 0}
+          onDongY={() => {
+            const tom = hoiBoRiengCuoi;
+            setHoiBoRieng(false);
+            void boRiengThat(tom);
+          }}
+          onDong={() => setHoiBoRieng(false)}
+        >
+          <ul className="flex flex-col gap-1.5 text-sm text-text-secondary">
+            {hoiBoRiengCuoi.bat.length > 0 && (
+              <li>
+                <span className="font-medium text-success-soft">Bật:</span> {hoiBoRiengCuoi.bat.join(", ")}
+              </li>
+            )}
+            {hoiBoRiengCuoi.tat.length > 0 && (
+              <li>
+                <span className="font-medium text-danger-soft">Tắt:</span> {hoiBoRiengCuoi.tat.join(", ")}
+              </li>
+            )}
+            {hoiBoRiengCuoi.bat.length === 0 && hoiBoRiengCuoi.tat.length === 0 && (
+              <li className="text-xs text-text-desc">Quyền hiệu lực không đổi — chỉ bỏ bản ghi riêng.</li>
+            )}
+          </ul>
+        </HopXacNhan>
+      )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[52rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs font-semibold tracking-wide text-text-desc uppercase">
-                  <th className="px-2 py-2">Việc</th>
-                  {VAI_TRO_CHUAN.map((v) => (
-                    <th key={v.ma} className="px-2 py-2 text-center align-bottom">
-                      {v.ten}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {VIEC_TREN_BANG_DOI_CHIEU.map((viec) => (
-                  <tr key={viec.khoa} className="border-b border-border">
-                    <td className="px-2 py-2 text-text-secondary">{viec.nhan}</td>
-                    {VAI_TRO_CHUAN.map((v) => {
-                      const co = quyenCuaVaiTro(v)[viec.khoa];
-                      return (
-                        <td key={v.ma} className="relative px-2 py-2 text-center">
-                          {/* 🔴 CÓ CẢ DẤU LẪN CHỮ CHO TRÌNH ĐỌC — Design System V1.1 cấm dùng
-                              mỗi màu/biểu tượng để diễn tả trạng thái. `relative` ở ô để `sr-only`
-                              bám vào ô, không thoát khỏi khung cuộn ngang (CLAUDE.md §5). */}
-                          {co ? (
-                            <>
-                              <Check className="mx-auto size-4 text-success" aria-hidden />
-                              <span className="sr-only">Được</span>
-                            </>
-                          ) : (
-                            <>
-                              <Minus className="mx-auto size-4 text-text-desc" aria-hidden />
-                              <span className="sr-only">Không</span>
-                            </>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* HỘP XÁC NHẬN CỨU MẪU HỎNG — chỉ Quản trị (máy chủ / kho demo kiểm lại). */}
+      <HopXacNhan
+        mo={hoiCuuMau}
+        tieuDe="Đưa cả bảng mẫu về mặc định gốc?"
+        moTa="Bảng mẫu đang hỏng nên không đọc được. Cứu bằng cách đưa CẢ bảng về mặc định gốc (công thức trong mã) — mọi ô Sếp đã sửa ở mẫu mất, quyền riêng từng người giữ nguyên."
+        canhBao="Sau khi cứu, kiểm lại bảng mẫu và sửa lại các ô cần thiết."
+        nhanDongY="Đưa về mặc định gốc"
+        nguyHiem
+        onDongY={() => void cuuMauThat()}
+        onDong={() => setHoiCuuMau(false)}
+      />
+
+      {/* HỘP XÁC NHẬN XOÁ DỮ LIỆU DEMO — chỉ bản demo. */}
+      {laDemo && (
+        <HopXacNhan
+          mo={hoiXoaDemo}
+          tieuDe="Xoá dữ liệu demo phân quyền?"
+          moTa="Xoá bảng mẫu, quyền riêng và lịch sử demo trên trình duyệt này — mọi tài khoản mẫu về đúng mặc định gốc. Không đụng máy chủ."
+          nhanDongY="Xoá dữ liệu demo"
+          nguyHiem
+          onDongY={() => {
+            const loi = nguon.xoaDuLieuDemo();
+            if (loi) {
+              toast.error("Chưa xoá được", { description: loi });
+              return;
+            }
+            setNhapMau({});
+            datLaiNhap();
+            toast.success("Đã xoá dữ liệu demo phân quyền");
+            void tai();
+          }}
+          onDong={() => setHoiXoaDemo(false)}
+        />
+      )}
 
       {/* 🔴 HỎI TRƯỚC KHI LƯU. Đổi quyền ảnh hưởng ngay tới việc người ta làm được gì — tắt nhầm là
           họ mất việc giữa lúc đang làm, và không tự lấy lại được. */}
@@ -1462,14 +1939,14 @@ export default function TrangPhanQuyen() {
           tieuDe="Lưu phân quyền?"
           moTa={`Áp cho ${hoiLuuCuoi.ten.length} người: ${hoiLuuCuoi.ten.slice(0, 5).join(", ")}${
             hoiLuuCuoi.ten.length > 5 ? ` và ${hoiLuuCuoi.ten.length - 5} người nữa` : ""
-          }. Có hiệu lực từ lần tải trang kế tiếp của họ — trang đang mở giữ quyền cũ tới khi tải lại.`}
+          }. Có hiệu lực khi họ tải lại trang hoặc quay lại tab — trang đang mở giữ quyền cũ tới lúc đó.`}
           canhBao={
             /* Chưa đọc được quyền riêng thì danh sách Bật/Tắt KHÔNG tính được (không biết bản cũ có
                gì) — nói đúng công thức sẽ áp thay vì bày một danh sách sai (soát chéo lần 2). */
             hoiLuuCuoi.chuaDocRieng && hoiLuuCuoi.uidDoiChucDanh.length > 0
               ? "Chưa đọc được quyền riêng đang lưu nên không tính được quyền nào bật/tắt. Sau khi đổi chức danh: ai chưa có quyền riêng thì theo đúng chức danh mới; ai có quyền riêng cũ thì nhận các cờ mặc định của chức danh mới, TRỪ những cờ đã bị bỏ ở quyền riêng cũ (vẫn bỏ). Cờ từng được tick thêm vượt chức danh cũ không mang sang."
               : hoiLuuCuoi.tat.length > 0 || hoiLuuCuoi.vtMoi?.capTM === 0
-                ? "Có quyền bị TẮT — người được chọn mất các việc đó từ lần tải trang kế tiếp (trang đang mở giữ quyền cũ tới khi tải lại)."
+                ? "Có quyền bị TẮT — người được chọn mất các việc đó khi họ tải lại trang hoặc quay lại tab."
                 : undefined
           }
           nhanDongY="Lưu phân quyền"
@@ -1540,44 +2017,5 @@ function trangThaiNguoi(t: ThongTinNguoi, chuaDocRieng: boolean): { label: strin
     : { label: `${so} quyền · chức danh`, tone: "neutral" };
 }
 
-/**
- * Ô tích ba trạng thái (bật / tắt / mỗi người một kiểu).
- *
- * 📌 DÙNG `<input type="checkbox">` GỐC, KHÔNG dùng `nen-tang-ui/checkbox`: `Checkbox.Indicator` của
- * base-ui vẽ DẤU TÍCH cho cả trạng thái `indeterminate` (đo trong `CheckboxIndicator.js`:
- * `rendered = checked || indeterminate`), tức ô "mỗi người một kiểu" trông y như ô đã bật — đúng
- * thứ dễ khiến người phân quyền hiểu nhầm nhất. Ô gốc vẽ dấu gạch ngang và tự báo `aria-checked=
- * "mixed"` cho trình đọc màn hình. Thư viện `nen-tang-ui/` là thư viện ngoài, không sửa.
- */
-function OTich({
-  giaTri,
-  onDoi,
-  disabled,
-  ariaLabel,
-  ariaDescribedBy,
-  className = "",
-}: {
-  giaTri: boolean | "mixed";
-  onDoi: (bat: boolean) => void;
-  disabled?: boolean;
-  ariaLabel?: string;
-  ariaDescribedBy?: string;
-  className?: string;
-}) {
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = giaTri === "mixed";
-  }, [giaTri]);
-  return (
-    <input
-      ref={ref}
-      type="checkbox"
-      checked={giaTri === true}
-      disabled={disabled}
-      onChange={(e) => onDoi(e.target.checked)}
-      aria-label={ariaLabel}
-      aria-describedby={ariaDescribedBy}
-      className={`size-4.5 shrink-0 cursor-pointer accent-primary disabled:cursor-not-allowed ${className}`}
-    />
-  );
-}
+/* 📌 `OTich` (ô tích ba trạng thái) đã dời sang `thanh-phan-dung-chung/o-tich-ba-trang-thai.tsx` ngày
+   06/10/2026 — bảng mẫu chức danh dùng chung, không để hai bản sao. */

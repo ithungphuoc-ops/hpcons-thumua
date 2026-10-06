@@ -3013,9 +3013,14 @@ export function vaiTroDuocLui(tu: GiaiDoanMuaHang): VaiTroLuiBuoc | null {
   }
 }
 
+/* ★ 06/10/2026 (GĐ2): gọi theo tên Ô QUYỀN MỚI trên bảng phân quyền, GIỮ tên cũ trong ngoặc —
+   người dùng quen tên cũ vẫn nhận ra, và bài kiểm lùi bước (đo cụm tên quyền trong câu chặn) vẫn
+   đúng. Đừng bỏ cụm "(trước gọi là …)" cho gọn khi chưa sửa các bài đó. */
 const NHAN_VAI_TRO_LUI: Record<VaiTroLuiBuoc, string> = {
-  phanBoCongViec: "người có quyền “Phân bổ công việc” (Trưởng bộ phận cấp 3 trở lên, hoặc Quản trị hệ thống)",
-  xacNhanTruongBP: "người có quyền “Xác nhận hoàn thành đơn” (Trưởng bộ phận cấp 3 trở lên, hoặc Quản trị hệ thống)",
+  phanBoCongViec:
+    "người có quyền “Giao việc” (trước gọi là “Phân bổ công việc”) — Trưởng bộ phận cấp 3 trở lên, hoặc Quản trị hệ thống",
+  xacNhanTruongBP:
+    "người có quyền “Duyệt báo giá & hoàn thành đơn, hồ sơ” (trước gọi là “Xác nhận hoàn thành đơn”) — Trưởng bộ phận cấp 3 trở lên, hoặc Quản trị hệ thống",
 };
 
 /**
@@ -3050,6 +3055,36 @@ export function vuongMacQuyenLui(
     return `Chỉ ${NHAN_VAI_TRO_LUI[vaiTro]} mới lùi được bước này. Lùi bước xoá dữ liệu đã nhập nên không mở cho vai trò nhập liệu — nhờ trưởng bộ phận thao tác giúp.`;
   }
   return null;
+}
+
+/**
+ * ★★ CHỐT QUYỀN LÙI Ở TẦNG GHI, THEO BƯỚC ĐÍCH — Sếp 06/10/2026 (kế hoạch phân quyền GĐ2).
+ *
+ * `luiVeBuoc` (tầng ghi) chỉ biết bước ĐÍCH `ve`, không biết bước đang đứng. Bốn nhánh của nó ứng
+ * đúng bốn cặp lùi trong `vaiTroDuocLui`, nên suy ngược `tu` từ `ve` — chính xác hơn tính lại
+ * giai đoạn, vì dữ liệu bị xoá là do `ve` quyết định.
+ *
+ * 🔴 `ve` NGOÀI BỐN GIÁ TRỊ THÌ CHẶN, KỂ CẢ ĐỦ QUYỀN. `vuongMacQuyenLui` trả `null` với cặp ngoài
+ * bảng (vì `quyetDinhLui` đã chặn trước ở giao diện) — dùng nó trơn ở tầng ghi là CHO QUA, và tầng
+ * ghi còn ghi một dòng nhật ký "lùi về …" sai.
+ * 🔴 Thiếu quyền thì vẫn đi qua `vuongMacQuyenLui` — một bảng lùi, một câu chặn, không viết lại.
+ */
+export function vuongMacQuyenLuiVe(
+  ve: GiaiDoanMuaHang,
+  quyen: Pick<Quyen, "phanBoCongViec" | "xacNhanTruongBP">,
+): string | null {
+  const TU_THEO_VE: Partial<Record<GiaiDoanMuaHang, GiaiDoanMuaHang>> = {
+    tiep_nhan: "yeu_cau_bao_gia",
+    yeu_cau_bao_gia: "xet_duyet_bao_gia",
+    xet_duyet_bao_gia: "lap_don_mua_hang",
+    lap_don_mua_hang: "dat_hang",
+  };
+  const tu = TU_THEO_VE[ve];
+  if (!tu) return "Không lùi về bước này được.";
+  return vuongMacQuyenLui(tu, {
+    phanBoCongViec: quyen.phanBoCongViec === true,
+    xacNhanTruongBP: quyen.xacNhanTruongBP === true,
+  });
 }
 
 /**

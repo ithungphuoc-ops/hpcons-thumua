@@ -137,6 +137,16 @@ npm run verify   # lint + typecheck + build (build vào .next-check, an toàn kh
 
 ⚠️ **Không chạy `npm run build` khi dev server đang chạy** — hai tiến trình cùng ghi `.next/` sẽ làm hỏng build. Dùng `npm run verify`.
 
+### 📣 GỬI PHIÊN TÍCH HỢP — PHÂN QUYỀN MỚI (Sếp 06/10/2026)
+
+Tệp này là tệp DUY NHẤT của phiên nghiệp vụ đi được sang GitHub, nên những gì phiên tích hợp cần biết về đợt phân quyền 06/10/2026 ghi ở đây. Chi tiết: `4-phan-quyen/README.md`, mục "Mẫu chức danh sửa được".
+
+- **Collection MỚI `quyen-mau-chuc-danh`** — một tài liệu `quyen-mau-chuc-danh/chung`: `{ khuon: 1, phienBan, de: { [mã chức danh]: { [khoá tick]: boolean } }, capNhatLuc, capNhatBoi, capNhatBoiTen }` (chỉ ô KHÁC công thức). Chỉ Admin SDK ghi, qua `POST /api/quyen-mau-chuc-danh` (route mới của phiên nghiệp vụ). Tài liệu chưa có = mẫu trống = y hệt trước 06/10.
+- **`tm_quyen_rieng` có KHUÔN 2**: `{ khuon: 2, ngoaiLe: {chỉ ô cố ý khác chức danh}, theoChucDanh, quyen: {đủ 18 ô — để bản mã cũ đọc khi rollback}, phienBanMau, capNhat… }`. Bản khuôn 1 cũ (đủ 18 ô, không có `khuon`) vẫn đọc được — chuyển khi đọc, không ghi lại. Mọi POST `/api/quyen-rieng` phải gửi `phienBanMau` (thiếu → 400 `ban-cu`, lệch → 409 `mau-doi`).
+- **Nhật ký**: mỗi lần lưu phân quyền ghi một dòng `nhat-ky-he-thong` với `hanhDong` tiền tố `phan_quyen_` (từ máy chủ, trong giao dịch).
+- 🔴 **CHỖ HỞ LEO QUYỀN Ở `/api/phan-quyen` (vùng của phiên tích hợp — phiên nghiệp vụ KHÔNG sửa):** cửa đó gác gán chức danh theo **CẤP TĨNH** (`capDatDuocToiDa`, `vaiTroGanDuocBoi`), không đọc mẫu chức danh hay quyền riêng. Hệ quả: Trưởng BP có ngoại lệ riêng thiếu một cờ vẫn gán được chức danh mà mẫu cho cờ đó → trao được quyền mình không có. Bảng mẫu đã chặn phía mẫu (Trưởng BP chỉ sửa cột mình gán được, dòng mình có; Quản trị bị cảnh báo), nhưng chốt gốc nằm ở `/api/phan-quyen`. Đề nghị phiên tích hợp cân nhắc hỏi thêm quyền HIỆU LỰC của người gán (đã gộp mẫu) — xin hỏi Sếp trước khi đổi.
+- **Script chuyển project** (nếu có đợt chuyển sang project riêng): đề nghị bổ sung **`tm_quyen_rieng`**, **`quyen-mau-chuc-danh`** và **`nhat-ky-he-thong`** vào danh sách collection phải chép. Không chép thì mọi quyền riêng / mẫu Sếp đã sửa mất, mọi người về công thức trong mã (rộng hơn mẫu đã siết), và mất dấu vết ai đổi quyền.
+
 ## 6 màn hình
 
 | Đường dẫn | Màn hình | Ghi chú |

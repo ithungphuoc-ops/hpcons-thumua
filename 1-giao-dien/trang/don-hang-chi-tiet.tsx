@@ -28,6 +28,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { duocXacNhanNhanDuHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { nhanCoTick } from "@/4-phan-quyen/quyen-rieng";
 import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
 import { laPOCuaHoSoPhongBan } from "@/5-ket-noi/gui-po-qlk-ctr";
 import { vanTayNoiDungPO } from "@/2-quy-trinh/nhip-dong-bo-qlk-ctr";
@@ -539,14 +540,23 @@ export default function TrangChiTietDonHang() {
             </div>
           ) : po.prId && po.prCode ? (
             <ThongTin nhan="Đề nghị nguồn" giaTri={po.prCode} href={`/de-nghi/${po.prId}`} />
-          ) : po.trangThai === "cho_de_nghi" ? (
+          ) : po.trangThai === "cho_de_nghi" && quyen.lapPO ? (
             /* ★ PO "chờ đề nghị" (29/08/2026) — nút gắn đề nghị ngay tại đây, đúng chỗ đang
                nói "chưa có đề nghị". Xem `hop-gan-de-nghi.tsx` cho toàn bộ luồng chọn + kiểm
-               điều kiện + đổi trạng thái. */
+               điều kiện + đổi trạng thái.
+               ★ CHỈ DỰNG KHI CÓ `quyen.lapPO` — Sếp 06/10/2026 (GĐ2). Đo 06/10: nút này không gác
+               gì, trang đơn hàng lại mở cho cả thủ kho / Ban Giám đốc cấp 1, nên ai vào trang cũng
+               gắn được. Tầng ghi `ganDeNghiVaoPO` nay hỏi đúng cờ này — nút phải khớp. */
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-text-desc">Đề nghị nguồn</span>
               <HopGanDeNghi po={po} />
             </div>
+          ) : po.trangThai === "cho_de_nghi" ? (
+            /* Không có quyền thì nói rõ VÌ SAO không có nút, đừng để ô trống như thể app lỗi. */
+            <ThongTin
+              nhan="Đề nghị nguồn"
+              giaTri={`Chưa gắn đề nghị — cần quyền “${nhanCoTick("lapPO")}” để gắn`}
+            />
           ) : (
             <ThongTin nhan="Đề nghị nguồn" giaTri="Không gắn đề nghị" />
           )}

@@ -63,7 +63,9 @@ export default function TrangCaiDatQuyTrinh() {
     setNhap(cauHinh);
   }, [cauHinh]);
 
-  if (!quyen.suaPODaChot) {
+  /* ★ Sếp 06/10/2026 (GĐ2): gác bằng `phanQuyenNguoiDung` (theo cấp, không tick riêng được), thay
+     `suaPODaChot` — cùng cờ với menu, `duocVaoDuongDan` và tầng ghi `luuCauHinhQuyTrinh`. */
+  if (!quyen.phanQuyenNguoiDung) {
     return (
       <EmptyState
         icon={Lock}
