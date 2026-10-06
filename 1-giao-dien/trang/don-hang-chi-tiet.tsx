@@ -21,6 +21,7 @@ import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { TimelineProgress } from "@/1-giao-dien/thanh-phan-dung-chung/timeline-progress";
 import { BangTienDoPO } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-tien-do-po";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
+import { ODuyetGiaoThieu } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-duyet-giao-thieu";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
@@ -31,6 +32,7 @@ import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong
 import { laPOCuaHoSoPhongBan } from "@/5-ket-noi/gui-po-qlk-ctr";
 import { vanTayNoiDungPO } from "@/2-quy-trinh/nhip-dong-bo-qlk-ctr";
 import {
+  phieuDuocTinh,
   poDaGiaoDu,
   tinhTienDonHang,
   tinhTienDoPO,
@@ -213,6 +215,20 @@ export default function TrangChiTietDonHang() {
     if (loi !== null) {
       toast.error("Chưa xác nhận được", { description: loi });
     }
+  }
+
+  /* ★ Duyệt hoàn thành GIAO THIẾU — Sếp 06/10/2026 (cùng thành phần với trang chi tiết đề nghị). */
+  function duyetGiaoThieu(lyDo: string): string | null {
+    const loi = xacNhanTruongBP(
+      po!.id,
+      { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi, thoiDiem: new Date().toISOString().slice(0, 10) },
+      lyDo,
+    );
+    if (loi === null) {
+      /* Câu trung tính: nếu đúng lúc đó kho gửi nốt hàng thì đơn duyệt như đơn giao đủ, không lưu lý do. */
+      toast.success("Đã duyệt hoàn thành đơn", { description: `${po!.code} hoàn thành — chuyển hồ sơ Kế toán.` });
+    }
+    return loi;
   }
 
   function bamXacNhanTruongBP() {
@@ -752,8 +768,14 @@ export default function TrangChiTietDonHang() {
               <DieuKien
                 so={1}
                 nhan="Đã giao đủ toàn bộ khối lượng"
-                xong={daGiaoDu}
-                moTa={daGiaoDu ? "Mọi dòng còn lại = 0" : "Còn dòng chưa nhận đủ"}
+                xong={daGiaoDu || Boolean(po.lyDoGiaoThieu)}
+                moTa={
+                  daGiaoDu
+                    ? "Mọi dòng còn lại = 0"
+                    : po.lyDoGiaoThieu
+                      ? "Giao thiếu — Trưởng bộ phận đã duyệt kèm lý do"
+                      : "Còn dòng chưa nhận đủ"
+                }
               />
               {/* 🔴 ĐIỀU KIỆN MỚI — chỉ đạo Ban lãnh đạo 11/08/2026: *"thủ kho khi nhận hàng
                   phải đính kèm file phiếu giao nhận thì mới được bấm hoàn thành"*.
@@ -773,7 +795,7 @@ export default function TrangChiTietDonHang() {
                   SỰ VIỆC (đã nhận đủ hàng) chứ không nói về người. */}
               <DieuKien
                 so={3}
-                nhan={hoSoPhongBan ? "Đã nhận đủ hàng" : "Thủ kho công trình xác nhận"}
+                nhan={hoSoPhongBan ? "Đã nhận đủ hàng" : "Thu mua xác nhận nhận hàng"}
                 xong={Boolean(po.xacNhanKho)}
                 moTa={
                   po.xacNhanKho
@@ -831,7 +853,11 @@ export default function TrangChiTietDonHang() {
                   nhau là người dùng thấy nút ở màn này mà không thấy ở màn kia, rồi tưởng app
                   lỗi — đúng loại lỗi khó truy nhất. */}
               {duocXacNhanNhanDuHangCuaHoSo(deNghiNguon, nguoiDung) &&
-                phieuCuaPO.length > 0 &&
+                /* ★ 06/10/2026: chỉ đếm lần giao ĐÃ NHẬP KHO, và đơn "chờ đề nghị" / đã huỷ chưa
+                   được chốt — cùng luật tầng ghi (`vuongMacDonXacNhanNhanHang`). */
+                phieuCuaPO.some(phieuDuocTinh) &&
+                po.trangThai !== "cho_de_nghi" &&
+                po.trangThai !== "huy" &&
                 !hoSoPhongBan &&
                 !po.xacNhanKho && (
                 <>
@@ -891,7 +917,13 @@ export default function TrangChiTietDonHang() {
 
               {duocDuyetHoanThanhDon && daGiaoDu && po.xacNhanKho && !po.xacNhanTruongBP && (
                 <div className="flex flex-col gap-1">
-                  <Button onClick={bamXacNhanTruongBP}>
+                  <Button
+                    onClick={bamXacNhanTruongBP}
+                    /* ★ 06/10/2026: lần giao kho gửi SAU khi đã xác nhận nhận hàng mà thiếu phiếu thì
+                       khoá — tầng ghi cũng chặn. */
+                    disabled={vuongMacTep !== null}
+                    title={vuongMacTep ?? undefined}
+                  >
                     <BadgeCheck className="size-4" aria-hidden />
                     {/* 🔴 Nhãn nói TÊN CỦA VIỆC, không nói vai trò người đang bấm — Ban lãnh đạo
                         26/08/2026. Xem chú thích đầy đủ ở `trang/de-nghi-chi-tiet.tsx`, cùng nút
@@ -902,6 +934,12 @@ export default function TrangChiTietDonHang() {
                   <span className="text-xs text-text-desc">
                     Nhân viên phụ trách đơn xác nhận. Trưởng bộ phận bấm thay khi cần.
                   </span>
+                  {vuongMacTep && (
+                    <span className="flex items-start gap-1.5 text-sm text-warning-soft">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                      {vuongMacTep}
+                    </span>
+                  )}
                 </div>
               )}
               {po.trangThai === "hoan_thanh" && (
@@ -909,9 +947,27 @@ export default function TrangChiTietDonHang() {
                   PO đã hoàn thành — hồ sơ chuyển sang app Kế toán, PO khóa không sửa được nữa.
                 </p>
               )}
-              {!daGiaoDu && (
+              {/* ★ GIAO THIẾU — Sếp 06/10/2026: thu mua đã xác nhận nhận hàng thì Trưởng bộ phận được
+                  duyệt hoàn thành, bắt buộc lý do. Câu cũ "phải giao đủ khối lượng trước" nay sai. */}
+              {po.xacNhanKho && !daGiaoDu && !po.xacNhanTruongBP && quyen.xacNhanTruongBP && (
+                <ODuyetGiaoThieu maDon={po.code} vuongMac={vuongMacTep} onDuyet={duyetGiaoThieu} />
+              )}
+              {po.lyDoGiaoThieu && (
+                <p className="text-sm text-text-secondary">
+                  Đã duyệt hoàn thành giao thiếu — lý do: {po.lyDoGiaoThieu}
+                </p>
+              )}
+              {/* Chỉ hồ sơ công trình có đề nghị gốc — phòng ban có câu riêng, đơn chưa gắn đề nghị thì
+                  chưa có nút này (06/10/2026). */}
+              {!daGiaoDu && !po.xacNhanKho && !hoSoPhongBan && deNghiNguon && po.trangThai !== "cho_de_nghi" && (
                 <p className="text-sm text-text-desc">
-                  Chưa đủ điều kiện — phải giao đủ khối lượng trước khi xác nhận hoàn thành.
+                  Hàng chưa về đủ khối lượng. Nếu nhà cung cấp giao thiếu, thu mua vẫn bấm “Xác nhận nhận
+                  hàng”; sau đó Trưởng bộ phận duyệt hoàn thành kèm lý do.
+                </p>
+              )}
+              {!daGiaoDu && po.xacNhanKho && !po.xacNhanTruongBP && !quyen.xacNhanTruongBP && (
+                <p className="text-sm text-text-desc">
+                  Đơn giao thiếu — đang chờ Trưởng bộ phận duyệt hoàn thành (kèm lý do).
                 </p>
               )}
 

@@ -144,6 +144,35 @@ export function vuongMacXacNhanKho(phieuCuaPO: PhieuNhanHang[]): string | null {
 }
 
 /**
+ * ★ ĐƠN NÀY CÓ ĐANG Ở CHỖ "XÁC NHẬN NHẬN HÀNG" ĐƯỢC KHÔNG — 06/10/2026 (soát GĐ1 bước ⑥).
+ *
+ * Khi tầng ghi còn đòi "giao đủ" (trước 06/10), chính điều kiện đó chặn hộ mọi ca dưới đây. Bỏ đòi
+ * giao đủ (Sếp 17/09: giao thiếu vẫn bấm được) thì phải chặn TƯỜNG MINH từng ca, nếu không:
+ *   · đơn "chờ đề nghị" đã tự khớp (`cho_de_nghi` + có `prId`) bị chốt nhận hàng → bước xác nhận
+ *     khớp Sếp chốt 29/08 bị bỏ qua và không gỡ khớp được nữa;
+ *   · một tab cũ bấm lại lật đơn giao thiếu ĐÃ duyệt từ `hoan_thanh` về `cho_xac_nhan_hoan_thanh`
+ *     (vẫn giữ chữ ký duyệt) → không nút nào hiện lại, hồ sơ kẹt;
+ *   · đơn chỉ có phiếu `cho_kiem_tra` / `tu_choi_nhan` (khối lượng được tính = 0) vẫn qua "có ít
+ *     nhất một lần giao" — trái nguyên tắc chỉ phiếu `da_nhap_kho` mới tính (CLAUDE.md §3.5).
+ * Luật phiếu giao nhận từng lần giao (11/08/2026) giữ nguyên ở dòng cuối.
+ */
+export function vuongMacDonXacNhanNhanHang(
+  po: DonDatHang,
+  phieuCuaPO: PhieuNhanHang[],
+): string | null {
+  if (po.xacNhanKho) return "Đơn đã được xác nhận nhận hàng rồi.";
+  if (po.trangThai === "cho_de_nghi") {
+    return "Đơn đang chờ gắn đề nghị mua hàng — gắn xong đề nghị rồi mới xác nhận nhận hàng được.";
+  }
+  if (po.trangThai === "hoan_thanh") return "Đơn đã hoàn thành — không xác nhận nhận hàng lại được.";
+  if (po.trangThai === "huy") return "Đơn đã huỷ — không xác nhận nhận hàng được.";
+  if (!phieuCuaPO.some(phieuDuocTinh)) {
+    return "Đơn chưa có lần giao nào được nhập kho — chưa xác nhận nhận hàng được.";
+  }
+  return vuongMacXacNhanKho(phieuCuaPO);
+}
+
+/**
  * ★★ NHẮC THU MUA CÒN PHIẾU CHƯA SOI — Sếp 17/09/2026, *"bước check song song với dữ liệu từ app
  * kho đưa về"*.
  *
@@ -416,6 +445,9 @@ export function tinhTienDoDeNghi(
     let khoiLuongDaNhan = 0;
     const maPOLienQuan: string[] = [];
     const ngayGiao: string[] = [];
+    /* Các đơn chứa dòng này + đơn đó đã giao đủ PHẦN CỦA NÓ chưa — để biết phần thiếu đã được
+       duyệt giao thiếu chưa (Sếp 06/10/2026). */
+    const poChuaDong: { po: DonDatHang; giaoDuDong: boolean }[] = [];
 
     for (const po of poCuaDeNghi) {
       // Lọc dòng ghi chú cho chắc: nó mang `sttDongDeNghi = 0` nên không khớp stt nào (stt
@@ -425,7 +457,9 @@ export function tinhTienDoDeNghi(
 
       maPOLienQuan.push(po.code);
       ngayGiao.push(po.ngayGiaoDuKien);
-      khoiLuongDaLenPO += dongPOLienQuan.reduce((s, d) => s + d.khoiLuongDat, 0);
+      const datCuaPO = dongPOLienQuan.reduce((s, d) => s + d.khoiLuongDat, 0);
+      khoiLuongDaLenPO += datCuaPO;
+      let nhanCuaPO = 0;
 
       const phieuCuaPO = tatCaPhieu.filter((p) => p.poId === po.id).filter(phieuDuocTinh);
       for (const p of phieuCuaPO) {
@@ -445,13 +479,39 @@ export function tinhTienDoDeNghi(
            * 📌 Bắt được lúc chạy thử luật "chưa nhận đủ hàng" ngày 23/08/2026: một phiếu thử thiếu
            * trường này làm cả hai phép thử (chưa đủ / đã đủ) đều trả về "không thiếu gì".
            */
-          if (line) khoiLuongDaNhan += line.khoiLuongThucNhan || 0;
+          if (line) {
+            khoiLuongDaNhan += line.khoiLuongThucNhan || 0;
+            nhanCuaPO += line.khoiLuongThucNhan || 0;
+          }
         }
       }
+      poChuaDong.push({ po, giaoDuDong: nhanCuaPO >= datCuaPO });
     }
 
     const khoiLuongChuaLenPO = Math.max(0, dong.khoiLuongDeNghi - khoiLuongDaLenPO);
     const khoiLuongConLai = Math.max(0, dong.khoiLuongDeNghi - khoiLuongDaNhan);
+    /**
+     * ★ CHẤP NHẬN GIAO THIẾU — Sếp 06/10/2026: hồ sơ có đơn đã được Trưởng bộ phận duyệt hoàn thành
+     * giao thiếu (kèm lý do) thì được "Hoàn thành quy trình".
+     *
+     * 🔴 XÉT THEO TỪNG ĐƠN (sửa cùng ngày sau soát GĐ1): MỌI đơn chứa dòng phải đã `hoan_thanh`, và
+     * mỗi đơn hoặc đã giao đủ PHẦN CỦA NÓ, hoặc có lý do giao thiếu; và phải có ít nhất một đơn có lý
+     * do. Bản đầu đòi MỌI đơn có lý do ⇒ mặt hàng chia hai đơn (A giao đủ, B giao thiếu đã duyệt) kẹt
+     * vĩnh viễn ở bước ⑧, vì đơn A giao đủ thì không bao giờ có lý do.
+     * Một đơn còn đang giao thì phần thiếu có thể vẫn đang về — chưa phải "chấp nhận thiếu".
+     *
+     * ⚠️ KHÔNG đòi "đã lên đơn hết" ở đây (bản đầu có, đã bỏ): phép so đó dùng khối lượng GỐC của
+     * dòng, nên phiếu đã tách một phần sang phiếu con thì không bao giờ đạt. Phần chưa lên đơn vẫn bị
+     * `chuaLenDon` ở bước ⑧ chặn riêng — và phép đó có trừ phần đã tách (`truPhanDaTach`).
+     */
+    const coLyDoGiaoThieu = (po: DonDatHang) => (po.lyDoGiaoThieu ?? "").trim() !== "";
+    const chapNhanGiaoThieu =
+      khoiLuongConLai > 0 &&
+      poChuaDong.length > 0 &&
+      poChuaDong.every(
+        ({ po, giaoDuDong }) => po.trangThai === "hoan_thanh" && (giaoDuDong || coLyDoGiaoThieu(po)),
+      ) &&
+      poChuaDong.some(({ po }) => coLyDoGiaoThieu(po));
     const phanTram = dong.khoiLuongDeNghi > 0 ? (khoiLuongDaNhan / dong.khoiLuongDeNghi) * 100 : 0;
 
     let trangThaiDong: TrangThaiDongDeNghi;
@@ -467,6 +527,7 @@ export function tinhTienDoDeNghi(
       khoiLuongChuaLenPO,
       khoiLuongDaNhan,
       khoiLuongConLai,
+      chapNhanGiaoThieu,
       phanTram,
       trangThaiDong,
       maPOLienQuan,

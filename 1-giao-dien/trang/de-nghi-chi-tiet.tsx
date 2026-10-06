@@ -120,6 +120,7 @@ import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 // Quyền theo TỪNG hồ sơ: ai đang phụ trách dòng nào của đề nghị này.
 import { laViecCuaToi } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
+  phieuDuocTinh,
   poDaGiaoDu,
   soNgayConLai,
   tinhTienDoDeNghi,
@@ -198,6 +199,7 @@ import {
   vuongMacHoanThanhQuyTrinh,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { OPhieuChiGoUng } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-phieu-chi-go-ung";
+import { ODuyetGiaoThieu } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-duyet-giao-thieu";
 import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
 /* Khối "Kết quả" của bước ⑦ — bộ hồ sơ thanh toán 7 mục (Ban lãnh đạo 26/08/2026). */
 import { KhoiBoHoSoThanhToan } from "@/1-giao-dien/thanh-phan-nghiep-vu/khoi-bo-ho-so-thanh-toan";
@@ -3203,7 +3205,10 @@ export default function TrangChiTietDeNghi({
                     (po) =>
                       po.trangThai !== "hoan_thanh" &&
                       po.trangThai !== "huy" &&
-                      po.trangThai !== "nhap",
+                      po.trangThai !== "nhap" &&
+                      /* ★ 06/10/2026 — đơn "chờ đề nghị" (tự khớp, chưa xác nhận khớp — Sếp 29/08) chưa
+                         được chốt nhận hàng; tầng ghi chặn ở `vuongMacDonXacNhanNhanHang`. */
+                      po.trangThai !== "cho_de_nghi",
                   );
 
                   /**
@@ -3239,9 +3244,33 @@ export default function TrangChiTietDeNghi({
                       </div>
                     );
 
+                  /* ★ LÝ DO GIAO THIẾU ĐÃ DUYỆT — 06/10/2026. Đơn đã hoàn thành rơi khỏi
+                     `poChoXacNhan`, nên dòng này phải dựng TRƯỚC lối ra sớm ngay dưới và có mặt ở CẢ
+                     HAI lối ra. Bản đầu đặt trong vòng lặp đơn chờ xác nhận (mã chết), bản thứ hai
+                     đặt sau lối ra sớm — đúng ca hay gặp nhất (mọi đơn đã xong) lại không hiện. */
+                  const dongLyDoGiaoThieu = poLienQuan
+                    .filter((po) => (po.lyDoGiaoThieu ?? "").trim() !== "")
+                    .map((po) => (
+                      <p
+                        key={`giao-thieu-${po.id}`}
+                        className="rounded-lg bg-muted px-3 py-2 text-xs text-text-secondary"
+                      >
+                        Đơn <strong>{po.code}</strong> đã duyệt hoàn thành giao thiếu — lý do:{" "}
+                        {po.lyDoGiaoThieu}
+                      </p>
+                    ));
+
                   /* Không có đơn nào chờ xác nhận thì vẫn phải bày bảng tiến độ (đơn đã hoàn thành
                      chẳng hạn) — trả `undefined` ở đây là giấu mất chứng từ giao nhận của hồ sơ. */
-                  if (poChoXacNhan.length === 0) return bangTienDo ?? undefined;
+                  if (poChoXacNhan.length === 0) {
+                    if (dongLyDoGiaoThieu.length === 0) return bangTienDo ?? undefined;
+                    return (
+                      <div className="flex flex-col gap-(--hp-md-row-gap)">
+                        {bangTienDo}
+                        {dongLyDoGiaoThieu}
+                      </div>
+                    );
+                  }
                   /**
                    * ★★ HỒ SƠ PHÒNG BAN — Sếp 15/09/2026, nguyên văn: *"Đề nghị phòng ban thì ko
                    * cần nút này"* (ảnh chụp production: hồ sơ DMH260007 đã "Đã nhận hàng", tiến độ
@@ -3291,9 +3320,10 @@ export default function TrangChiTietDeNghi({
                                     ? daKhoXacNhan
                                       ? "Đã nhận đủ hàng"
                                       : "Chờ nhận đủ hàng"
-                                    : daKhoXacNhan
-                                      ? "Kho đã xác nhận"
-                                      : "Chờ kho xác nhận"
+                                    : /* Từ 17/09 thu mua bấm, không phải kho (06/10/2026 sửa chữ). */
+                                      daKhoXacNhan
+                                      ? "Đã xác nhận nhận hàng"
+                                      : "Chờ xác nhận nhận hàng"
                                 }
                                 tone={daKhoXacNhan ? "success" : "warning"}
                               />
@@ -3376,7 +3406,9 @@ export default function TrangChiTietDeNghi({
                               * bằng chứng.
                               */}
                             {!daKhoXacNhan &&
-                              phieuCuaPO.length > 0 &&
+                              /* ★ 06/10/2026: chỉ đếm lần giao ĐÃ NHẬP KHO (CLAUDE.md §3.5) — phiếu
+                                 chờ kiểm / từ chối có khối lượng được tính = 0. Cùng luật tầng ghi. */
+                              phieuCuaPO.some(phieuDuocTinh) &&
                               !hoSoPhongBan &&
                               duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung) && (
                               <div className="flex flex-wrap items-center gap-2">
@@ -3398,8 +3430,11 @@ export default function TrangChiTietDeNghi({
                                       toast.error("Chưa xác nhận được", { description: loiKho });
                                       return;
                                     }
-                                    toast.success("Kho đã xác nhận nhận đủ hàng", {
-                                      description: `${po.code} chuyển sang chờ trưởng bộ phận xác nhận.`,
+                                    /* Từ 17/09 người bấm là thu mua — chữ "Kho đã xác nhận" nói sai vai. */
+                                    toast.success("Đã xác nhận nhận hàng", {
+                                      description: daGiaoDu
+                                        ? `${po.code} chuyển sang chờ duyệt hoàn thành.`
+                                        : `${po.code} giao thiếu — chờ Trưởng bộ phận duyệt hoàn thành kèm lý do.`,
                                     });
                                   }}
                                 >
@@ -3462,6 +3497,10 @@ export default function TrangChiTietDeNghi({
                               <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                   size="sm"
+                                  /* ★ 06/10/2026: kho có thể gửi thêm lần giao SAU khi thu mua đã xác
+                                     nhận — lần giao đó thiếu phiếu thì khoá (tầng ghi cũng chặn). */
+                                  disabled={vuongMacTep !== null}
+                                  title={vuongMacTep ?? undefined}
                                   onClick={() => {
                                     /* 🔴 Từ 22/08/2026 phải có Hóa đơn VAT mới duyệt được — đọc
                                        kết quả trả về, đừng báo thành công vô điều kiện. */
@@ -3504,6 +3543,12 @@ export default function TrangChiTietDeNghi({
                                 <span className="text-xs text-text-desc">
                                   Nhân viên phụ trách đơn xác nhận. Trưởng bộ phận bấm thay khi cần.
                                 </span>
+                                {vuongMacTep && (
+                                  <span className="flex items-start gap-1.5 text-xs text-warning-soft">
+                                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                                    {vuongMacTep}
+                                  </span>
+                                )}
                               </div>
                             )}
 
@@ -3514,13 +3559,47 @@ export default function TrangChiTietDeNghi({
 
                 ⚠️ Luật hóa đơn VAT vẫn còn, chỉ ở bước sau: nút **Hoàn thành quy trình** (⑧). */}
 
+                            {/* ★ GIAO THIẾU — Sếp 06/10/2026: thu mua đã xác nhận nhận hàng thì Trưởng bộ
+                                phận được duyệt hoàn thành, BẮT BUỘC ghi lý do. Chỉ người có quyền
+                                Trưởng BP thấy ô (tầng ghi kiểm lại: `vuongMacDuyetGiaoThieu`). */}
+                            {daKhoXacNhan && !daGiaoDu && !po.xacNhanTruongBP && quyen.xacNhanTruongBP && (
+                              <ODuyetGiaoThieu
+                                maDon={po.code}
+                                vuongMac={vuongMacTep}
+                                onDuyet={(lyDo) => {
+                                  const loi = xacNhanTruongBP(
+                                    po.id,
+                                    {
+                                      uid: nguoiDung.uid,
+                                      ten: nguoiDung.tenHienThi,
+                                      thoiDiem: new Date().toISOString().slice(0, 10),
+                                    },
+                                    lyDo,
+                                  );
+                                  if (loi === null) {
+                                    /* Câu trung tính: nếu đúng lúc đó kho gửi nốt hàng thì đơn
+                                       duyệt như đơn giao đủ và không lưu lý do (tầng ghi). */
+                                    toast.success("Đã duyệt hoàn thành đơn", {
+                                      description: `${po.code} hoàn thành — chuyển hồ sơ Kế toán.`,
+                                    });
+                                  }
+                                  return loi;
+                                }}
+                              />
+                            )}
                             {/* 🔴 CHƯA GIAO ĐỦ thì nói rõ, đừng để khối trống không giải thích —
-                                người dùng thấy không có nút sẽ tưởng mình thiếu quyền. */}
-                            {!daGiaoDu && (
+                                người dùng thấy không có nút sẽ tưởng mình thiếu quyền.
+                                ★ 06/10/2026: giao thiếu KHÔNG còn là ngõ cụt (Sếp 17/09 + 06/10) — câu
+                                cũ "chưa xác nhận hoàn thành được, ghi phiếu cho tới khi đủ" nói sai. */}
+                            {!daGiaoDu && !daKhoXacNhan && !hoSoPhongBan && (
                               <p className="text-xs text-warning-soft">
-                                Chưa nhận đủ khối lượng của đơn này nên chưa xác nhận hoàn thành
-                                được. Ghi phiếu nhận hàng ở bước “Tiến hành đặt hàng” cho tới khi
-                                đủ.
+                                Hàng chưa về đủ khối lượng. Nếu nhà cung cấp giao thiếu, thu mua vẫn bấm
+                                “Xác nhận nhận hàng”; sau đó Trưởng bộ phận duyệt hoàn thành kèm lý do.
+                              </p>
+                            )}
+                            {!daGiaoDu && daKhoXacNhan && !po.xacNhanTruongBP && !quyen.xacNhanTruongBP && (
+                              <p className="text-xs text-text-desc">
+                                Đơn giao thiếu — đang chờ Trưởng bộ phận duyệt hoàn thành (kèm lý do).
                               </p>
                             )}
 
@@ -3539,12 +3618,13 @@ export default function TrangChiTietDeNghi({
                                     ? /* Từ 22/08/2026 người duyệt có thể là nhân viên phụ trách,
                                          nên câu chờ không được chỉ nêu trưởng bộ phận. */
                                       "Đang chờ nhân viên phụ trách hoặc trưởng bộ phận xác nhận hoàn thành."
-                                    : "Đang chờ kho xác nhận đã nhận đủ hàng."}
+                                    : "Đang chờ thu mua xác nhận nhận hàng."}
                                 </p>
                               )}
                           </div>
                         );
                       })}
+                      {dongLyDoGiaoThieu}
                     </div>
                   );
                 })(),

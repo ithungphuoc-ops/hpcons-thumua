@@ -80,6 +80,8 @@ import {
   TEN_HIEN_HOP_DONG,
   tepDonMuaHangNCCKy,
   vuongMacHoanThanhQuyTrinh,
+  soDongChuaVeDuKhiDong,
+  cauChuaVeDuKhiDong,
   vuongMacRoiBuocDatHang,
   vuongMacRoiBuocLapDon,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
@@ -165,7 +167,9 @@ export const GIAI_DOAN_MUA_HANG: MoTaGiaiDoan[] = [
     nhan: "Hồ sơ thanh toán",
     // Nói rõ cái nào bắt buộc, cái nào không — nếu không, người nhìn bảng tưởng mọi đơn đều phải
     // có ủy nhiệm chi mới xong được.
-    moTa: "Đã nhận đủ hàng — chờ hóa đơn VAT (bắt buộc) và ủy nhiệm chi nếu đơn này cần",
+    // ★ 06/10/2026: "Đã xác nhận nhận hàng" chứ không "Đã nhận đủ hàng" — từ 17/09 đơn GIAO THIẾU cũng
+    // vào được bước này (thu mua xác nhận), nói "nhận đủ" là sai với chính các hồ sơ đó.
+    moTa: "Đã xác nhận nhận hàng — chờ hóa đơn VAT (bắt buộc) và ủy nhiệm chi nếu đơn này cần",
     tong: "warning",
   },
   {
@@ -928,6 +932,13 @@ export interface TheDeNghiTrenBang {
    * Xem khối chú thích ở chỗ tính giá trị này để biết vì sao cần và vì sao dùng `dsConNo` đầy đủ.
    */
   hoSoDaDuChoXacNhan?: boolean;
+  /**
+   * ★ CÂU CHẶN "CHƯA NHẬN ĐỦ HÀNG" CỦA NÚT HOÀN THÀNH QUY TRÌNH — 06/10/2026 (soát GĐ1).
+   * `undefined` = không chặn. Từ 06/10 hồ sơ giao thiếu tới được cột ⑦ TRƯỚC khi Trưởng bộ phận
+   * duyệt; không có trường này thì kéo ⑦ → ⑧ báo "đủ điều kiện" rồi nút lại chặn. Chỉ hồ sơ công
+   * trình — hồ sơ phòng ban chặn bằng tờ phiếu giao hàng, đã có đường riêng.
+   */
+  chanHoanThanhVeHang?: string;
   /* 📌 ĐÃ BỎ trường `vuongMac` (Ban lãnh đạo 16/08/2026 yêu cầu bỏ dòng cảnh báo trên thẻ).
      Không giữ lại trường không ai đọc: mỗi lần dựng bảng nó vẫn chạy `vuongMacSangBuocSau`
      cho từng hồ sơ, tốn công tính một chuỗi rồi vứt đi. Lý do chặn vẫn được tính ĐÚNG LÚC cần
@@ -1159,6 +1170,14 @@ export function dungBangQuyTrinh(
           tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu),
           tatCaDeNghi,
         ) === null,
+      /* Cùng phép đếm + cùng câu với nút ⑧ (`soDongChuaVeDuKhiDong` / `cauChuaVeDuKhiDong`). */
+      chanHoanThanhVeHang: (() => {
+        if (laHoSoPhongBan(deNghi)) return undefined;
+        const soDong = soDongChuaVeDuKhiDong(
+          locTienDoConPhaiMua(deNghi, tatCaDeNghi, tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu)),
+        );
+        return soDong > 0 ? cauChuaVeDuKhiDong(soDong) : undefined;
+      })(),
       maPOLienQuan: tatCaPO
         .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
         .map((po) => po.code),
@@ -2139,7 +2158,9 @@ export function mucConNoCuaBuoc(
       tatCaDeNghi,
       tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu),
     );
-    const dongChuaDu = tienDo.filter((d) => d.khoiLuongConLai > 0).length;
+    /* ★ 06/10/2026: dòng giao thiếu ĐÃ được Trưởng bộ phận duyệt không còn là nợ — cùng phép đếm
+       với nút ⑧, không thì thẻ đỏ "thiếu hàng" mãi và "Hồ sơ đã đủ — chờ xác nhận" không bật. */
+    const dongChuaDu = soDongChuaVeDuKhiDong(tienDo);
     if (dongChuaDu > 0) {
       thieu.push({
         ngan: `thiếu hàng ${dongChuaDu}/${tienDo.length} dòng`,
@@ -3439,6 +3460,11 @@ export function quyetDinhKeoTha(
      * 📌 Ở ĐÂY GIỮ NGUYÊN `cauHinh` (KHÔNG xoá `congViecTheoBuoc`), khác khối cuối hàm. Cửa hoàn
      * thành phải soát cả việc bắt buộc của bước ⑦, và hộp có sẵn danh sách tích được cho chúng.
      */
+    /* ★ 06/10/2026 — hàng chưa về đủ (đơn giao thiếu chưa được duyệt) thì CHẶN, nói đúng câu của
+       nút ⑧. Không gỡ tại chỗ được: phải sang bước ⑥ duyệt giao thiếu hoặc chờ hàng về. */
+    if (the.chanHoanThanhVeHang) {
+      return { loai: "khong_the", lyDo: the.chanHoanThanhVeHang };
+    }
     const dsHoanThanh = dsDieuKienConVuong(
       the.deNghi,
       tu,

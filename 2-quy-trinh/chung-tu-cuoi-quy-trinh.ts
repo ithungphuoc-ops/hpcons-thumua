@@ -1118,6 +1118,29 @@ export function hoSoDaChotXong(deNghi: DeNghiMuaHang): boolean {
  * viên mua hàng đính. Ba điều kiện còn lại (chưa lên đơn · hợp đồng · hóa đơn VAT) **áp y hệt cho
  * cả hai loại**, không nhánh nào được nới. Xem khối chú thích tại chỗ rẽ.
  */
+/**
+ * ★ SỐ MẶT HÀNG "CHƯA NHẬN ĐỦ" KHI ĐÓNG HỒ SƠ — MỘT phép đếm cho ba chỗ (06/10/2026, soát GĐ1):
+ * nút "Hoàn thành quy trình" (`vuongMacHoanThanhQuyTrinh`), dòng nợ "thiếu hàng" trên thẻ
+ * (`mucConNoCuaBuoc` ở `giai-doan-mua-hang.ts`) và kéo thẻ ⑦ → ⑧ (`chanHoanThanhVeHang`).
+ * Dòng có phần thiếu đã được Trưởng bộ phận duyệt (`chapNhanGiaoThieu`, Sếp 06/10/2026) KHÔNG tính —
+ * thiếu chỗ nào là thẻ đỏ "thiếu hàng" vĩnh viễn cho hồ sơ đã được duyệt.
+ * 📌 Nhận mảng ĐÃ qua `locTienDoConPhaiMua` (trừ dòng đã nhân bản đi).
+ */
+export function soDongChuaVeDuKhiDong(
+  conPhaiMua: readonly { khoiLuongConLai: number; chapNhanGiaoThieu?: boolean }[],
+): number {
+  return conPhaiMua.filter((d) => d.khoiLuongConLai > 0 && !d.chapNhanGiaoThieu).length;
+}
+
+/**
+ * Câu chặn "chưa nhận đủ hàng" của hồ sơ công trình — dùng chung nút ⑧ và kéo thả ⑦ → ⑧ để hai
+ * đường không nói khác nhau. ★ 06/10/2026: chỉ thêm đường giao thiếu — câu cũ chỉ bảo "ghi nốt
+ * phiếu nhận hàng", trong khi nhà cung cấp giao thiếu thì không còn phiếu nào để ghi.
+ */
+export function cauChuaVeDuKhiDong(soDong: number): string {
+  return `Còn ${soDong} mặt hàng chưa nhận đủ hàng. Ghi nốt phiếu nhận hàng — hoặc nếu nhà cung cấp giao thiếu: thu mua bấm “Xác nhận nhận hàng”, rồi Trưởng bộ phận duyệt hoàn thành đơn giao thiếu kèm lý do (bước “Tiến hành nhận hàng”).`;
+}
+
 export function vuongMacHoanThanhQuyTrinh(
   deNghi: DeNghiMuaHang,
   /**
@@ -1125,7 +1148,7 @@ export function vuongMacHoanThanhQuyTrinh(
    * còn `kiem-luat-dung-chung.mjs` dựng mảng tay chỉ hai con số — đòi `stt` bắt buộc là mọi bài
    * kiểm cũ gãy cùng lúc. Dòng thiếu `stt` được GIỮ LẠI, không phải bỏ đi (xem `locTienDoConPhaiMua`).
    */
-  tienDo: { stt?: number; khoiLuongChuaLenPO: number; khoiLuongConLai: number }[],
+  tienDo: { stt?: number; khoiLuongChuaLenPO: number; khoiLuongConLai: number; chapNhanGiaoThieu?: boolean }[],
   /**
    * ★★ TOÀN BỘ đề nghị đang có — **THÊM 15/09/2026, THAM SỐ TÙY CHỌN, ĐỨNG CUỐI**.
    *
@@ -1251,10 +1274,13 @@ export function vuongMacHoanThanhQuyTrinh(
    * gộp lại thì lần sau ai sửa cũng phải giải mã, mà sửa nhầm một dấu là im lặng nới cho **cả hai**
    * loại hồ sơ — không lỗi kiểu nào báo vì cả hai nhánh đều trả `string | null`.
    */
-  const chuaVeDu = conPhaiMua.filter((d) => d.khoiLuongConLai > 0).length;
+  /* ★ Sếp 06/10/2026: dòng mà mọi đơn chứa nó đã được duyệt hoàn thành GIAO THIẾU (có lý do) thì
+     phần thiếu đã được chấp nhận — không chặn nữa (`chapNhanGiaoThieu`, tính ở `tinhTienDoDeNghi`).
+     Các chốt khác của bước ⑧ (chưa lên đơn, hợp đồng, hoá đơn VAT, phiếu chi) giữ nguyên. */
+  const chuaVeDu = soDongChuaVeDuKhiDong(conPhaiMua);
   if (chuaVeDu > 0) {
     if (!laHoSoPhongBan(deNghi)) {
-      return `Còn ${chuaVeDu} mặt hàng chưa nhận đủ hàng. Ghi nốt phiếu nhận hàng trước khi hoàn thành.`;
+      return cauChuaVeDuKhiDong(chuaVeDu);
     }
     /* 🔴 ĐÂY LÀ CHỖ GIỮ CHỮ CỦA SẾP. Hồ sơ phòng ban thôi bị đòi khối lượng, NHƯNG phải nộp tờ
        phiếu giao hàng vào đúng chỗ đó. Gỡ dòng này đi là "phòng ban thì bấm hoàn thành được luôn" —

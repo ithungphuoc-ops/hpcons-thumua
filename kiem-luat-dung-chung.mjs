@@ -1131,6 +1131,30 @@ kiem(
 );
 
 kiem(
+  "Kéo ⑦ → ⑧ khi còn hàng chưa về đủ (đơn giao thiếu CHƯA duyệt) → CHẶN bằng đúng câu của nút ⑧; không có thì không chặn vì lý do đó",
+  "06/10/2026 — soát GĐ1: hồ sơ giao thiếu tới được ⑦ trước khi Trưởng BP duyệt; trước đó kéo báo 'đủ điều kiện' rồi nút lại chặn",
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const cau = CT.cauChuaVeDuKhiDong(1);
+    const coChan = G.quyetDinhKeoTha(
+      { deNghi: deNghiThu(), giaiDoan: "ho_so_thanh_toan", chanHoanThanhVeHang: cau },
+      "hoan_thanh", [], [], G.CAU_HINH_MAC_DINH ?? {}, null,
+    );
+    const khongChan = G.quyetDinhKeoTha(
+      { deNghi: deNghiThu(), giaiDoan: "ho_so_thanh_toan" },
+      "hoan_thanh", [], [], G.CAU_HINH_MAC_DINH ?? {}, null,
+    );
+    return {
+      duoc:
+        coChan?.loai === "khong_the" && coChan.lyDo === cau && cauDangChan(khongChan) !== cau &&
+        /giao thiếu/.test(cau) && CT.soDongChuaVeDuKhiDong([{ khoiLuongConLai: 3, chapNhanGiaoThieu: true }, { khoiLuongConLai: 2 }, { khoiLuongConLai: 0 }]) === 1,
+      thucTe: `coChan=${coChan?.loai} · khongChan=${khongChan?.loai}`,
+      mongDoi: "coChan=khong_the (đúng câu nút ⑧, có nhắc giao thiếu) · khongChan không dùng câu đó · đếm bỏ dòng đã chấp nhận",
+    };
+  },
+);
+
+kiem(
   "Kéo ⑥ → ⑦ phải nói việc cần làm, KHÔNG nói 'chưa được hỗ trợ'",
   "Ban lãnh đạo · 24/08/2026",
   () => {
@@ -1547,7 +1571,8 @@ kiem(
       /* Đòi khối đủ dài: cắt trượt thành chuỗi ngắn thì phép `!conGoi` luôn đúng — xanh giả. */
       duoc: !conGoi && chayThat.length > 800,
       thucTe: `thân hàm ${khoiXacNhan.length} ký tự (bỏ chú thích còn ${chayThat.length}) · còn gọi luật hóa đơn = ${conGoi}`,
-      mongDoi: "nút ⑦ chỉ đòi: hàng về đủ + thủ kho xác nhận (tức có tệp phiếu giao nhận)",
+      mongDoi:
+        "nút duyệt hoàn thành đơn KHÔNG đòi hoá đơn VAT — chỉ đòi: thu mua đã xác nhận nhận hàng + mọi lần giao có phiếu giao nhận (giao thiếu: Trưởng BP duyệt kèm lý do, 06/10/2026)",
     };
   },
 );
@@ -4149,27 +4174,172 @@ kiem(
   },
 );
 
+/* ★ 06/10/2026 — HAI BÀI 15/09/2026 ("không phải thủ kho → chặn" / "đúng thủ kho → được") ĐÃ ĐƯỢC THAY,
+   không phải lỡ xoá: chỉ đạo Sếp 17/09/2026 chốt phương án B — CHỈ THU MUA bấm "Xác nhận nhận hàng"
+   (`quyen-theo-ho-so.ts`). Nút đổi từ 17/09, tầng ghi còn giữ luật 15/09 nên nút sáng mà bấm bị từ
+   chối — đo ra khi rà phân quyền 06/10/2026. Hai bài dưới canh luật MỚI, cả hai chiều. */
 kiem(
-  "Không phải thủ kho → CHẶN xác nhận đã nhận đủ hàng",
-  "Sếp · 15/09/2026 — chữ ký thủ kho là điều kiện ② để duyệt hoàn thành đơn",
+  "Xác nhận nhận hàng: NV thu mua / người được chia việc → ĐƯỢC; thủ kho không chia việc → CHẶN (17/09: chỉ thu mua)",
+  'Sếp · 17/09/2026 — *"thu mua trên app thu mua bấm xác nhận nhận hàng qua bước"* (phương án B)',
   () => {
-    const r = KD.vuongMacQuyenXacNhanKho({ xacNhanKho: false });
+    const dn = { id: "d", items: [{ stt: 1, nguoiPhuTrachUid: "u-chia" }] };
+    const nvtm = { uid: "u-tm", chucNang: "nhan_vien_thu_mua", capTM: 2 };
+    const chia = { uid: "u-chia", chucNang: "phong_thi_cong", capTM: 2 };
+    const thuKho = { uid: "u-kho", chucNang: "thu_kho_cong_trinh", capTM: 2, capKho: 2 };
+    const kq = {
+      nvtm: KD.vuongMacQuyenXacNhanNhanHang(dn, nvtm),
+      chia: KD.vuongMacQuyenXacNhanNhanHang(dn, chia),
+      thuKho: KD.vuongMacQuyenXacNhanNhanHang(dn, thuKho),
+    };
     return {
-      duoc: typeof r === "string" && r !== "",
-      thucTe: r === null ? "null (LỌT — ai cũng ký thay thủ kho được)" : `"${String(r).slice(0, 90)}"`,
-      mongDoi: "một câu lý do",
+      duoc: kq.nvtm === null && kq.chia === null && typeof kq.thuKho === "string",
+      thucTe: JSON.stringify(kq),
+      mongDoi: "nvtm=null · chia=null · thuKho=câu chặn",
     };
   },
 );
 
 kiem(
-  "CHIỀU NGƯỢC: đúng thủ kho → xác nhận được",
-  "Sếp · 15/09/2026",
+  "Xác nhận nhận hàng — đơn KHÔNG gắn đề nghị → CHẶN (cùng câu trả lời với nút, nút ẩn); có đề nghị + đúng người → được",
+  "06/10/2026 — soát GĐ1: bản đầu cho qua theo `lapPO`, tầng ghi rộng hơn nút; mở nút cho khớp thì đơn 'chờ đề nghị' bị chốt trước khi xác nhận khớp (Sếp 29/08)",
   () => {
-    const r = KD.vuongMacQuyenXacNhanKho({ xacNhanKho: true });
-    return { duoc: r === null, thucTe: r === null ? "null" : `"${String(r).slice(0, 90)}"`, mongDoi: "null" };
+    const nd = { uid: "u-tm", chucNang: "nhan_vien_thu_mua", capTM: 2 };
+    const khongDN = KD.vuongMacQuyenXacNhanNhanHang(undefined, nd);
+    const coDN = KD.vuongMacQuyenXacNhanNhanHang({ id: "d", items: [{ stt: 1 }] }, nd);
+    return {
+      duoc: typeof khongDN === "string" && coDN === null,
+      thucTe: JSON.stringify({ khongDN, coDN }),
+      mongDoi: "khongDN=câu chặn · coDN=null",
+    };
   },
 );
+
+kiem(
+  "Xác nhận nhận hàng — TRẠNG THÁI ĐƠN: chỉ đơn đang giao, chưa xác nhận, có lần giao ĐÃ NHẬP KHO + đủ phiếu giao nhận mới qua (cả hai chiều)",
+  "06/10/2026 — soát GĐ1: bỏ đòi 'giao đủ' thì phải chặn tường minh từng ca nó từng chặn hộ",
+  () => {
+    const coTep = { tenTep: "pg.jpg" };
+    const phieu = (them) => ({ id: "ph", poId: "p", lanGiaoThu: 1, trangThai: "da_nhap_kho", lines: [], tepPhieuGiao: coTep, ...them });
+    const po = (them) => ({ id: "p", code: "DMH1", trangThai: "dang_giao", items: [], ...them });
+    const kq = {
+      hopLe: M.vuongMacDonXacNhanNhanHang(po({}), [phieu({})]),
+      daXacNhan: M.vuongMacDonXacNhanNhanHang(po({ xacNhanKho: { uid: "a", ten: "A", thoiDiem: "2026-10-06" } }), [phieu({})]),
+      choDeNghi: M.vuongMacDonXacNhanNhanHang(po({ trangThai: "cho_de_nghi", prId: "d" }), [phieu({})]),
+      hoanThanh: M.vuongMacDonXacNhanNhanHang(po({ trangThai: "hoan_thanh" }), [phieu({})]),
+      huy: M.vuongMacDonXacNhanNhanHang(po({ trangThai: "huy" }), [phieu({})]),
+      chiChoKiem: M.vuongMacDonXacNhanNhanHang(po({}), [phieu({ trangThai: "cho_kiem_tra" })]),
+      khongPhieu: M.vuongMacDonXacNhanNhanHang(po({}), []),
+      thieuTep: M.vuongMacDonXacNhanNhanHang(po({}), [phieu({ tepPhieuGiao: undefined })]),
+    };
+    const chan = ["daXacNhan", "choDeNghi", "hoanThanh", "huy", "chiChoKiem", "khongPhieu", "thieuTep"];
+    return {
+      duoc: kq.hopLe === null && chan.every((k) => typeof kq[k] === "string" && kq[k] !== ""),
+      thucTe: JSON.stringify(Object.fromEntries(Object.entries(kq).map(([k, v]) => [k, v === null ? null : String(v).slice(0, 40)]))),
+      mongDoi: "hopLe=null · 7 ca còn lại đều có câu chặn",
+    };
+  },
+);
+
+kiem(
+  "Tầng ghi `xacNhanTruongBP` KIỂM LẠI phiếu giao nhận; `xacNhanKho` gọi luật trạng thái đơn (đọc mã đã bỏ chú thích)",
+  "06/10/2026 — soát GĐ1: kho gửi tiếp lần giao SAU khi thu mua đã xác nhận (giao thiếu) — không kiểm lại là đơn hoàn thành với lần giao không chứng từ (luật 11/08/2026)",
+  () => {
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const khoi = (dauStr, cuoiStr) => {
+      const dau = nguon.indexOf(dauStr);
+      const cuoi = nguon.indexOf(cuoiStr, dau + 1);
+      if (dau < 0 || cuoi < 0) return "";
+      return nguon
+        .slice(dau, cuoi)
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^[ \t]*\/\/.*$/gm, "");
+    };
+    const kho = khoi("const xacNhanKho = useCallback(", "const xacNhanTruongBP = useCallback(");
+    const tbp = khoi("const xacNhanTruongBP = useCallback(", "const taoBaoGiaGiaLap");
+    const kq = {
+      khoDai: kho.length,
+      tbpDai: tbp.length,
+      khoGoiLuatDon: /vuongMacDonXacNhanNhanHang\s*\(/.test(kho),
+      tbpGoiPhieuGiao: /vuongMacXacNhanKho\s*\(\s*phieuCuaPO\s*\)/.test(tbp),
+    };
+    return {
+      /* Đòi khối đủ dài: neo trượt thì khối rỗng và phép tìm luôn sai — đỏ chứ không xanh giả. */
+      duoc: kq.khoDai > 400 && kq.tbpDai > 800 && kq.khoGoiLuatDon && kq.tbpGoiPhieuGiao,
+      thucTe: JSON.stringify(kq),
+      mongDoi: "cả hai khối đọc được, và đều gọi đúng luật",
+    };
+  },
+);
+
+kiem(
+  "Duyệt hoàn thành GIAO THIẾU: chỉ Trưởng BP + BẮT BUỘC lý do; giao đủ thì không đòi (cả hai chiều)",
+  'Sếp · 06/10/2026 — *"Được, phải ghi lý do"*',
+  () => {
+    const kq = {
+      giaoDu: KD.vuongMacDuyetGiaoThieu(true, undefined, { xacNhanTruongBP: false }),
+      nvCoLyDo: KD.vuongMacDuyetGiaoThieu(false, "NCC hết hàng", { xacNhanTruongBP: false }),
+      tbpKhongLyDo: KD.vuongMacDuyetGiaoThieu(false, "   ", { xacNhanTruongBP: true }),
+      tbpCoLyDo: KD.vuongMacDuyetGiaoThieu(false, " NCC hết hàng ", { xacNhanTruongBP: true }),
+    };
+    return {
+      duoc: kq.giaoDu === null && typeof kq.nvCoLyDo === "string" && typeof kq.tbpKhongLyDo === "string" && kq.tbpCoLyDo === null,
+      thucTe: JSON.stringify(kq),
+      mongDoi: "giaoDu=null · nvCoLyDo=chặn · tbpKhongLyDo=chặn · tbpCoLyDo=null",
+    };
+  },
+);
+
+kiem(
+  "Tiến độ đề nghị: phần thiếu CHỈ được chấp nhận khi mọi đơn chứa dòng đã HOÀN THÀNH + CÓ lý do giao thiếu (cả hai chiều)",
+  "Sếp · 06/10/2026 — hồ sơ có đơn duyệt giao thiếu được Hoàn thành quy trình",
+  () => {
+    const dn = { id: "d", items: [{ stt: 1, tenVatLieu: "Sắt", donViTinh: "Cây", khoiLuongDeNghi: 10 }] };
+    const po = (them) => ({
+      id: "p", code: "DMH1", prId: "d", ngayGiaoDuKien: "2026-10-01", trangThai: "hoan_thanh",
+      items: [{ sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Sắt", donViTinh: "Cây", khoiLuongDat: 10 }],
+      ...them,
+    });
+    const phieu = [{ id: "ph", poId: "p", trangThai: "da_nhap_kho", lines: [{ sttDongPO: 1, khoiLuongThucNhan: 7 }] }];
+    const TT = nap(join(thuMuc, "tinh-toan.cjs"));
+    const co = TT.tinhTienDoDeNghi(dn, [po({ lyDoGiaoThieu: "NCC hết hàng" })], phieu)[0];
+    const khongLyDo = TT.tinhTienDoDeNghi(dn, [po({})], phieu)[0];
+    const dangGiao = TT.tinhTienDoDeNghi(dn, [po({ trangThai: "dang_giao", lyDoGiaoThieu: "x" })], phieu)[0];
+    const kq = { co: co.chapNhanGiaoThieu, conLai: co.khoiLuongConLai, khongLyDo: khongLyDo.chapNhanGiaoThieu, dangGiao: dangGiao.chapNhanGiaoThieu };
+    return {
+      duoc: kq.co === true && kq.conLai === 3 && kq.khongLyDo === false && kq.dangGiao === false,
+      thucTe: JSON.stringify(kq),
+      mongDoi: "co=true (vẫn còn lại 3, không sửa số) · khongLyDo=false · dangGiao=false",
+    };
+  },
+);
+
+kiem(
+  "Giao thiếu — MỘT MẶT HÀNG HAI ĐƠN: đơn A giao đủ (không lý do) + đơn B giao thiếu đã duyệt → CHẤP NHẬN; B chưa có lý do → KHÔNG",
+  "06/10/2026 — soát GĐ1: bản đầu đòi MỌI đơn có lý do ⇒ đơn giao đủ không bao giờ có lý do ⇒ hồ sơ kẹt vĩnh viễn ở bước ⑧",
+  () => {
+    const TT = nap(join(thuMuc, "tinh-toan.cjs"));
+    const dn = { id: "d", items: [{ stt: 1, tenVatLieu: "Sắt", donViTinh: "Cây", khoiLuongDeNghi: 10 }] };
+    const po = (id, dat, them) => ({
+      id, code: id, prId: "d", ngayGiaoDuKien: "2026-10-01", trangThai: "hoan_thanh",
+      items: [{ sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Sắt", donViTinh: "Cây", khoiLuongDat: dat }],
+      ...them,
+    });
+    const phieu = [
+      { id: "pa", poId: "A", trangThai: "da_nhap_kho", lines: [{ sttDongPO: 1, khoiLuongThucNhan: 6 }] },
+      { id: "pb", poId: "B", trangThai: "da_nhap_kho", lines: [{ sttDongPO: 1, khoiLuongThucNhan: 1 }] },
+    ];
+    const tron = TT.tinhTienDoDeNghi(dn, [po("A", 6, {}), po("B", 4, { lyDoGiaoThieu: "NCC hết hàng" })], phieu)[0];
+    const bKhongLyDo = TT.tinhTienDoDeNghi(dn, [po("A", 6, {}), po("B", 4, {})], phieu)[0];
+    const kq = { tron: tron.chapNhanGiaoThieu, conLai: tron.khoiLuongConLai, bKhongLyDo: bKhongLyDo.chapNhanGiaoThieu };
+    return {
+      duoc: kq.tron === true && kq.conLai === 3 && kq.bKhongLyDo === false,
+      thucTe: JSON.stringify(kq),
+      mongDoi: "tron=true (còn lại 3) · bKhongLyDo=false",
+    };
+  },
+);
+
+
 
 kiem(
   "Không quyền sửa điều khoản công nợ → CHẶN",
@@ -4776,6 +4946,49 @@ kiem(
       duoc: r === null,
       thucTe: r === null ? "null (dong duoc ho so)" : `"${String(r).slice(0, 90)}"`,
       mongDoi: "null",
+    };
+  },
+);
+
+kiem(
+  "Bước ⑧: phần thiếu ĐÃ CHẤP NHẬN thì không chặn 'chưa nhận đủ'; CHƯA chấp nhận thì vẫn chặn (cả hai chiều)",
+  "Sếp · 06/10/2026 — *\"Cho, theo lý do đã duyệt\"*",
+  () => {
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    /* Hồ sơ CÔNG TRÌNH đủ chứng từ (nhánh phòng ban đòi phiếu giao hàng riêng, không phải ca này). */
+    const hs = hoSoDongPB({ tenCongTrinh: "CT Sunrise" });
+    const duoc = CT.vuongMacHoanThanhQuyTrinh(hs, [{ stt: 1, khoiLuongChuaLenPO: 0, khoiLuongConLai: 3, chapNhanGiaoThieu: true }]);
+    const chan = CT.vuongMacHoanThanhQuyTrinh(hs, [{ stt: 1, khoiLuongChuaLenPO: 0, khoiLuongConLai: 3 }]);
+    return {
+      duoc: duoc === null && typeof chan === "string" && /chưa nhận đủ/.test(chan),
+      thucTe: JSON.stringify({ duoc, chan: chan && String(chan).slice(0, 60) }),
+      mongDoi: "chấp nhận → null · chưa chấp nhận → câu 'chưa nhận đủ hàng'",
+    };
+  },
+);
+
+kiem(
+  "Giao thiếu — PHIẾU ĐÃ TÁCH MỘT PHẦN: cờ chấp nhận KHÔNG phụ thuộc 'đã lên đơn hết' (khối lượng gốc); phần chưa lên đơn vẫn bị bước ⑧ chặn riêng",
+  "06/10/2026 — soát GĐ1: bản đầu so `khoiLuongDaLenPO >= khoiLuongDeNghi` bằng khối lượng GỐC ⇒ phiếu tách 4/10 sang phiếu con không bao giờ đạt",
+  () => {
+    const TT = nap(join(thuMuc, "tinh-toan.cjs"));
+    const CT = nap(join(thuMuc, "chung-tu.cjs"));
+    const dn = { id: "d", items: [{ stt: 1, tenVatLieu: "Sắt", donViTinh: "Cây", khoiLuongDeNghi: 10 }] };
+    const po = {
+      id: "p", code: "p", prId: "d", ngayGiaoDuKien: "2026-10-01", trangThai: "hoan_thanh", lyDoGiaoThieu: "NCC hết hàng",
+      items: [{ sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Sắt", donViTinh: "Cây", khoiLuongDat: 6 }],
+    };
+    const phieu = [{ id: "ph", poId: "p", trangThai: "da_nhap_kho", lines: [{ sttDongPO: 1, khoiLuongThucNhan: 4 }] }];
+    const td = TT.tinhTienDoDeNghi(dn, [po], phieu)[0];
+    const hs = hoSoDongPB({ tenCongTrinh: "CT Sunrise" });
+    /* Đã trừ phần tách (như `truPhanDaTach` làm): chưa lên đơn 0, còn lại 2 → đóng được. */
+    const daTach = CT.vuongMacHoanThanhQuyTrinh(hs, [{ stt: 1, khoiLuongChuaLenPO: 0, khoiLuongConLai: 2, chapNhanGiaoThieu: td.chapNhanGiaoThieu }]);
+    /* Chưa tách: 4 chưa lên đơn → vẫn chặn "chưa lên đơn" dù cờ bật. */
+    const chuaTach = CT.vuongMacHoanThanhQuyTrinh(hs, [{ stt: 1, khoiLuongChuaLenPO: td.khoiLuongChuaLenPO, khoiLuongConLai: td.khoiLuongConLai, chapNhanGiaoThieu: td.chapNhanGiaoThieu }]);
+    return {
+      duoc: td.chapNhanGiaoThieu === true && daTach === null && typeof chuaTach === "string" && /chưa lên đơn/.test(chuaTach),
+      thucTe: JSON.stringify({ co: td.chapNhanGiaoThieu, daTach, chuaTach: chuaTach && String(chuaTach).slice(0, 50) }),
+      mongDoi: "co=true · daTach=null · chuaTach=câu 'chưa lên đơn'",
     };
   },
 );

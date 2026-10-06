@@ -198,7 +198,7 @@ export default function TrangTongQuan() {
           icon={PackageCheck}
           title="Chờ xác nhận hoàn thành"
           value={String(soLieu.poChoXacNhan)}
-          meta="đã giao đủ, chờ kho / trưởng bộ phận"
+          meta="đã xác nhận nhận hàng, chờ duyệt hoàn thành"
           tone={soLieu.poChoXacNhan > 0 ? "warning" : "neutral"}
         />
         {quyen.xemGia && (

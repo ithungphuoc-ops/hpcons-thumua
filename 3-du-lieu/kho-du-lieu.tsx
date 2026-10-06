@@ -136,6 +136,8 @@ import {
   /* Chốt "mỗi lần giao phải có tệp phiếu giao nhận" (Ban lãnh đạo 11/08/2026) — kiểm lại ở tầng
      ghi vì khóa nút không phải là chặn. Xem `xacNhanKho`. */
   vuongMacXacNhanKho,
+  /* Đơn có ở chỗ xác nhận nhận hàng được không (06/10/2026) — xem `xacNhanKho`. */
+  vuongMacDonXacNhanNhanHang,
 } from "@/2-quy-trinh/tinh-toan";
 import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 /* 🔴 DÙNG DANH BẠ THẬT, KHÔNG DÙNG `nhanSuDangLamViec()` (danh bạ MẪU, tên giả định) —
@@ -147,7 +149,11 @@ import { tinhQuyen, type NguoiDung, type Quyen } from "@/4-phan-quyen/quyen";
    viết lại điều kiện. Màn chi tiết đề nghị đang hỏi đúng câu này (qua `laViecCuaToi`) để
    quyết định ai THẤY nút duyệt hoàn thành đơn; cửa ghi phải hỏi y hệt, nếu không thì nút
    sáng mà bấm vào bị chặn — hoặc ngược lại. Xem `vuongMacQuyenXacNhanHoanThanhDon`. */
-import { duocChiaViec, duocGhiNhanGiaoHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
+import {
+  duocChiaViec,
+  duocGhiNhanGiaoHangCuaHoSo,
+  duocXacNhanNhanDuHangCuaHoSo,
+} from "@/4-phan-quyen/quyen-theo-ho-so";
 /* Hồ sơ PHÒNG BAN (không gắn công trình) — dấu hiệu duy nhất quyết định nhánh ghi phiếu nhận
    thủ công mở hay đóng. Xem `themPhieuNhanPhongBan`. */
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
@@ -879,11 +885,51 @@ export function vuongMacQuyenChotDonNhap(quyen: Pick<Quyen, "lapPO">): string | 
   return "Bạn không có quyền lập đơn mua hàng nên không chốt lại được đơn nháp này. Nhờ người phụ trách đơn hoặc Trưởng bộ phận chốt.";
 }
 
-export function vuongMacQuyenXacNhanKho(quyen: Pick<Quyen, "xacNhanKho">): string | null {
-  /* Đúng cờ mà nút đang dùng (`quyen.xacNhanKho` ở `don-hang-chi-tiet.tsx` và
-     `de-nghi-chi-tiet.tsx`) — thủ kho công trình cấp 2 trở lên, hoặc quản trị. */
-  if (quyen.xacNhanKho) return null;
-  return "Chỉ thủ kho công trình (hoặc quản trị) mới xác nhận được đã nhận đủ hàng.";
+/**
+ * ★★ AI ĐƯỢC BẤM "XÁC NHẬN NHẬN HÀNG" (bước ⑥) — ĐỔI 06/10/2026 theo chỉ đạo Sếp 17/09/2026.
+ *
+ * Sếp 17/09: *"Kho chỉ gửi phiếu đánh đủ số lượng, còn thu mua trên app thu mua bấm xác nhận nhận
+ * hàng qua bước chứ"* — chốt phương án B: CHỈ NHÂN VIÊN THU MUA (chi tiết ở `quyen-theo-ho-so.ts`).
+ * Nút ở hai màn đã đổi theo từ 17/09 (`duocXacNhanNhanDuHangCuaHoSo`), nhưng tầng ghi vẫn giữ luật
+ * 15/09 (`quyen.xacNhanKho` = thủ kho) — nút hiện cho thu mua mà bấm thì bị từ chối. Đo được khi rà
+ * phân quyền 06/10/2026. Nay tầng ghi hỏi ĐÚNG hàm của nút.
+ *
+ * 🔴 Đơn KHÔNG gắn đề nghị thì CHẶN — cùng câu trả lời với nút (`duocXacNhanNhanDuHangCuaHoSo(undefined)`
+ * trả `false`, nút ở hai màn ẩn). Bản đầu 06/10 cho qua theo ô "Làm việc thu mua" (`lapPO`) — tầng
+ * ghi rộng hơn nút; soát GĐ1 đo ra, và mở nút cho khớp thì đơn "chờ đề nghị" bị chốt nhận hàng trước
+ * khi xác nhận khớp đề nghị (Sếp 29/08).
+ * ⚠️ Thay `vuongMacQuyenXacNhanKho` (15/09/2026): luật đó bị chỉ đạo 17/09 thay, không phải ai lỡ xoá.
+ */
+export function vuongMacQuyenXacNhanNhanHang(
+  deNghi: DeNghiMuaHang | undefined,
+  nguoiDung: NguoiDung,
+): string | null {
+  if (!deNghi) return "Đơn chưa gắn đề nghị mua hàng — gắn đề nghị xong mới xác nhận nhận hàng được.";
+  if (duocXacNhanNhanDuHangCuaHoSo(deNghi, nguoiDung)) return null;
+  return "Chỉ nhân viên thu mua (hoặc người được chia việc trong hồ sơ) mới xác nhận nhận hàng được.";
+}
+
+/**
+ * ★ DUYỆT HOÀN THÀNH ĐƠN GIAO THIẾU — Sếp 06/10/2026: *"Được, phải ghi lý do"* (đơn giao thiếu, sau
+ * khi thu mua đã "Xác nhận nhận hàng", Trưởng bộ phận được duyệt hoàn thành).
+ *
+ * 🔴 Giao thiếu thì CHỈ người có quyền Trưởng bộ phận (`xacNhanTruongBP`: trưởng BP, quản trị) — câu
+ * Sếp chốt nói đúng "Trưởng BP". Đơn giao đủ thì nhân viên phụ trách vẫn tự duyệt như từ 22/08.
+ * 🔴 Bắt buộc có lý do — đó là thứ duy nhất ghi lại vì sao đơn đóng khi hàng chưa về đủ.
+ */
+export function vuongMacDuyetGiaoThieu(
+  daGiaoDu: boolean,
+  lyDoGiaoThieu: string | undefined,
+  quyen: Pick<Quyen, "xacNhanTruongBP">,
+): string | null {
+  if (daGiaoDu) return null;
+  if (!quyen.xacNhanTruongBP) {
+    return "Đơn giao thiếu — chỉ Trưởng bộ phận (hoặc quản trị) duyệt hoàn thành được.";
+  }
+  if ((lyDoGiaoThieu ?? "").trim() === "") {
+    return "Đơn giao thiếu — ghi lý do giao thiếu rồi mới duyệt hoàn thành được.";
+  }
+  return null;
 }
 
 /**
@@ -1664,7 +1710,8 @@ interface GiaTriDuLieu {
    * ★ TRẢ `string | null` từ 22/08/2026: bắt buộc phải có Hóa đơn VAT mới duyệt được (chỉ đạo
    * Ban lãnh đạo). Trả câu lý do để nút hiện ra, thay vì bấm mà không có gì xảy ra.
    */
-  xacNhanTruongBP: (poId: string, nguoi: XacNhan) => string | null;
+  /** `lyDoGiaoThieu` bắt buộc khi đơn chưa nhận đủ (Sếp 06/10/2026 — `vuongMacDuyetGiaoThieu`). */
+  xacNhanTruongBP: (poId: string, nguoi: XacNhan, lyDoGiaoThieu?: string) => string | null;
   /** Kéo thả ① Tiếp nhận → ② Yêu cầu báo giá: tạo bảng báo giá đang thu thập cho đề nghị. */
   taoBaoGiaGiaLap: (prId: string, nguoiThucHien: string) => string | null;
   /** Kéo thả ② → ③: chuyển mọi bảng báo giá của đề nghị từ trạng thái `tu` sang `sang`. */
@@ -7682,18 +7729,22 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * không"* — nên trước hôm nay bất kỳ vai trò nào cũng ghi được chữ ký thủ kho lên đơn, và
        * chữ ký đó là điều kiện ② để duyệt hoàn thành. Luật ở `vuongMacQuyenXacNhanKho`.
        */
-      const chanQuyen = vuongMacQuyenXacNhanKho(tinhQuyen(nguoiDung));
+      /* ★ 06/10/2026 — QUYỀN theo đúng hàm của nút (Sếp 17/09: chỉ thu mua bấm), xem
+         `vuongMacQuyenXacNhanNhanHang`. Xét theo `nguoiDung` của phiên, không theo `nguoi` truyền vào. */
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po) return "Không tìm thấy đơn hàng — có thể đơn vừa bị xoá ở máy khác.";
+      const dnCuaPO = po.prId ? deNghiRef.current.find((d) => d.id === po.prId) : undefined;
+      const chanQuyen = vuongMacQuyenXacNhanNhanHang(dnCuaPO, nguoiDung);
       if (chanQuyen) return chanQuyen;
 
-      const po = donHangRef.current.find((p) => p.id === poId);
-      if (po) {
-        const phieuCuaPO = phieuNhanRef.current.filter((p) => p.poId === poId);
-        if (!poDaGiaoDu(tinhTienDoPO(po, phieuCuaPO))) {
-          return "Đơn hàng chưa nhận đủ khối lượng nên chưa xác nhận được. Ghi tiếp phiếu nhận ở khối “Tiến độ nhận hàng”.";
-        }
-        const thieuPhieu = vuongMacXacNhanKho(phieuCuaPO);
-        if (thieuPhieu) return thieuPhieu;
-      }
+      const phieuCuaPO = phieuNhanRef.current.filter((p) => p.poId === poId);
+      /* ★ 06/10/2026 — BỎ đòi "giao đủ" (Sếp 17/09: *"có đủ hay thiếu thì NV thu mua cũng bấm được
+         vì có trường hợp giao thiếu"*); nút đã đổi từ 17/09, tầng ghi nay theo. Đòi "giao đủ" trước
+         đây chặn HỘ nhiều ca (đơn chờ đề nghị, đơn đã hoàn thành, chỉ có phiếu chưa nhập kho) — nay
+         chặn tường minh ở `vuongMacDonXacNhanNhanHang`, gồm cả luật phiếu giao nhận từng lần giao. */
+      const chanDon = vuongMacDonXacNhanNhanHang(po, phieuCuaPO);
+      if (chanDon) return chanDon;
+      const giaoDu = poDaGiaoDu(tinhTienDoPO(po, phieuCuaPO));
 
       setDonHang((truoc) =>
         truoc.map((po) =>
@@ -7701,14 +7752,23 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         ),
       );
       const poSau = donHangRef.current.find((p) => p.id === poId);
-      if (poSau) ghiNhatKyDonHang(poSau, nguoi.ten, `Thủ kho xác nhận đã nhận đủ — ${poSau.code}`);
+      /* Từ 17/09 người bấm là THU MUA, không phải thủ kho — câu cũ "Thủ kho xác nhận…" ghi sai vai. */
+      if (poSau) {
+        ghiNhatKyDonHang(
+          poSau,
+          nguoi.ten,
+          giaoDu
+            ? `Thu mua xác nhận nhận hàng — ${poSau.code}`
+            : `Thu mua xác nhận nhận hàng (GIAO THIẾU) — ${poSau.code}`,
+        );
+      }
       return null;
     },
     [ghiNhatKyDonHang, nguoiDung],
   );
 
   const xacNhanTruongBP = useCallback(
-    (poId: string, nguoi: XacNhan): string | null => {
+    (poId: string, nguoi: XacNhan, lyDoGiaoThieu?: string): string | null => {
       /**
        * 🔴 BẮT BUỘC CÓ HÓA ĐƠN VAT MỚI DUYỆT HOÀN THÀNH ĐƯỢC (Ban lãnh đạo 22/08/2026:
        * *"Hoá đơn VAT - bắt buộc phải có thì trưởng bộ phận mới duyệt hoàn thành được"*).
@@ -7751,14 +7811,27 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        *
        * 📌 Thứ tự câu theo đúng thứ tự người dùng gặp: hàng về đủ → thủ kho xác nhận → hóa đơn.
        */
+      let lyDoThieu: string | undefined;
       if (po) {
         const phieuCuaPO = phieuNhanRef.current.filter((p) => p.poId === poId);
-        if (!poDaGiaoDu(tinhTienDoPO(po, phieuCuaPO))) {
-          return "Đơn hàng chưa nhận đủ khối lượng nên chưa duyệt hoàn thành được.";
-        }
+        /* ★ 06/10/2026 — GIAO THIẾU vẫn duyệt được, nhưng chỉ Trưởng bộ phận và bắt buộc lý do
+           (Sếp, `vuongMacDuyetGiaoThieu`). Trước đây chặn cứng "chưa nhận đủ". */
+        const giaoDu = poDaGiaoDu(tinhTienDoPO(po, phieuCuaPO));
         if (!po.xacNhanKho) {
-          return "Thủ kho chưa xác nhận đã nhận đủ hàng. Trưởng bộ phận duyệt sau bước đó.";
+          return "Thu mua chưa xác nhận nhận hàng. Duyệt hoàn thành sau bước đó.";
         }
+        if (po.xacNhanTruongBP || po.trangThai === "hoan_thanh") return "Đơn đã được duyệt hoàn thành rồi.";
+        if (po.trangThai === "huy") return "Đơn đã huỷ — không duyệt hoàn thành được.";
+        /* 🔴 KIỂM LẠI PHIẾU GIAO NHẬN Ở ĐÂY — 06/10/2026 (soát GĐ1). Từ khi thu mua xác nhận được lúc
+           hàng còn thiếu, kho VẪN gửi tiếp lần giao sau (cửa QLK CTR không xét trạng thái đơn, ảnh là
+           tuỳ chọn). Lần giao đó chưa qua `vuongMacXacNhanKho` ở cổng xác nhận nhận hàng — không kiểm
+           lại ở đây là đơn hoàn thành với một lần giao không chứng từ, rồi `vuongMacThayTepPhieuGiao`
+           khoá tệp vĩnh viễn nên không bổ sung được nữa (luật 11/08/2026). */
+        const thieuPhieuGiao = vuongMacXacNhanKho(phieuCuaPO);
+        if (thieuPhieuGiao) return thieuPhieuGiao;
+        const chanThieu = vuongMacDuyetGiaoThieu(giaoDu, lyDoGiaoThieu, tinhQuyen(nguoiDung));
+        if (chanThieu) return chanThieu;
+        if (!giaoDu) lyDoThieu = (lyDoGiaoThieu ?? "").trim();
       }
 
       /**
@@ -7774,12 +7847,22 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        * (bước ⑧, qua `vuongMacHoanThanhQuyTrinh`) — đóng cả hồ sơ để đẩy sang Kế toán thì bắt
        * buộc phải có hóa đơn. Đừng bỏ nốt chỗ đó khi dọn dẹp.
        *
-       * 📌 Hai điều kiện còn giữ ở ngay trên vẫn đủ nghĩa "phiếu giao hàng": `po.xacNhanKho` chỉ
-       * bật được khi mọi lần giao đều có tệp đính kèm — luật 11/08/2026 ở `vuongMacXacNhanKho`.
+       * 📌 "Phiếu giao hàng" được kiểm THẲNG ở trên (`vuongMacXacNhanKho(phieuCuaPO)`, 06/10/2026).
+       * Trước đó chỉ dựa vào `po.xacNhanKho` — đúng khi xác nhận nhận hàng còn đòi giao đủ, SAI từ
+       * khi giao thiếu cũng xác nhận được (kho gửi tiếp lần giao sau khi đã xác nhận).
        */
 
       setDonHang((truoc) =>
-        truoc.map((p) => (p.id === poId ? { ...p, xacNhanTruongBP: nguoi, trangThai: "hoan_thanh" } : p)),
+        truoc.map((p) =>
+          p.id === poId
+            ? {
+                ...p,
+                xacNhanTruongBP: nguoi,
+                trangThai: "hoan_thanh",
+                ...(lyDoThieu ? { lyDoGiaoThieu: lyDoThieu } : {}),
+              }
+            : p,
+        ),
       );
       if (po) {
         /* 🔴 KHÔNG ghi cứng "Trưởng bộ phận xác nhận" — sửa 26/08/2026.
@@ -7788,7 +7871,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
            bên cạnh lại là nhân viên. Người đọc lại hồ sơ sau này không biết tin cái nào.
            📌 "Thu mua xác nhận hoàn thành" đúng cho cả hai vai — và `nguoi.ten` ngay cạnh đã nói
            chính xác ai bấm, nên không mất thông tin nào. */
-        ghiNhatKyDonHang(po, nguoi.ten, `Thu mua xác nhận hoàn thành — ${po.code}, chuyển hồ sơ Kế toán`);
+        ghiNhatKyDonHang(
+          po,
+          nguoi.ten,
+          lyDoThieu
+            ? `Duyệt hoàn thành GIAO THIẾU — ${po.code}, lý do: ${lyDoThieu}. Chuyển hồ sơ Kế toán`
+            : `Thu mua xác nhận hoàn thành — ${po.code}, chuyển hồ sơ Kế toán`,
+        );
       }
       return null;
     },

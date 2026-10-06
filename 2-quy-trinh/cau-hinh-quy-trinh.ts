@@ -745,7 +745,10 @@ export const DIEU_KIEN_KHONG_SUA: { nhan: string; giaTri: string; lyDo: string }
     /* 🔴 "Thu mua xác nhận", KHÔNG phải "Trưởng bộ phận xác nhận" — sửa 26/08/2026.
        Từ 22/08 nhân viên phụ trách đơn cũng xác nhận được (chỉ đạo Ban lãnh đạo), nên ghi cứng
        "Trưởng bộ phận" là bảng cài đặt nói sai thứ app đang làm. */
-    giaTri: "Giao đủ khối lượng · Thủ kho xác nhận · Thu mua xác nhận",
+    /* ★ 06/10/2026: người bấm lớp ② là THU MUA (Sếp 17/09), và giao thiếu được Trưởng bộ phận duyệt
+       kèm lý do (Sếp 06/10) — câu cũ "Giao đủ · Thủ kho xác nhận" nói sai cả hai. */
+    giaTri:
+      "Giao đủ khối lượng (giao thiếu: Trưởng bộ phận duyệt kèm lý do) · Thu mua xác nhận nhận hàng · Duyệt hoàn thành đơn",
     lyDo: "Ba lớp là ba người khác nhau kiểm chéo. Bỏ một lớp thì mất chỗ đối chiếu, không phải nhanh hơn.",
   },
   {

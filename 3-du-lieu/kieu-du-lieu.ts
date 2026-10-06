@@ -1271,6 +1271,13 @@ export interface DonDatHang {
   xacNhanKho?: XacNhan;
   /** Điều kiện ③ hoàn thành PO. */
   xacNhanTruongBP?: XacNhan;
+  /**
+   * ★ LÝ DO GIAO THIẾU — Sếp 06/10/2026: đơn giao thiếu, sau khi thu mua đã "Xác nhận nhận hàng",
+   * Trưởng bộ phận ĐƯỢC duyệt hoàn thành nhưng BẮT BUỘC ghi lý do. Có trường này = đơn đã được chấp
+   * nhận giao thiếu; phần hàng còn thiếu thôi chặn "Hoàn thành quy trình" (bước ⑧).
+   * Ghi ở `xacNhanTruongBP` (`kho-du-lieu.tsx`), luật ở `vuongMacDuyetGiaoThieu`.
+   */
+  lyDoGiaoThieu?: string;
   lyDoHuyHoacDongDo?: string;
   /**
    * ★ Việc 2 (20/08/2026): kết quả lần gửi PO này sang QLK CTR GẦN NHẤT — vắng mặt = chưa
@@ -1889,6 +1896,12 @@ export interface TienDoDongDeNghi extends DongDeNghi {
   khoiLuongChuaLenPO: number;
   khoiLuongDaNhan: number;
   khoiLuongConLai: number;
+  /**
+   * ★ Phần còn thiếu của dòng này ĐÃ ĐƯỢC CHẤP NHẬN — mọi đơn chứa dòng đã được duyệt hoàn thành
+   * GIAO THIẾU kèm lý do (Sếp 06/10/2026). Khi đó bước ⑧ không còn bị chặn vì "chưa nhận đủ".
+   * Tính ở `tinhTienDoDeNghi`; vắng = không chấp nhận (dữ liệu dựng tay, bài kiểm cũ).
+   */
+  chapNhanGiaoThieu?: boolean;
   phanTram: number;
   trangThaiDong: TrangThaiDongDeNghi;
   /** Các PO có dòng trỏ về dòng đề nghị này. */
