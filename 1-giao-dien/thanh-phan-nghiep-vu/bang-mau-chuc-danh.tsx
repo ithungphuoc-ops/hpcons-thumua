@@ -499,27 +499,36 @@ function DauCot({
   onVeMacDinh: () => void;
 }) {
   const khoaCot = COT_KHOA_MAU.includes(v.ma);
+  /* ★ BA Ô CAO CỐ ĐỊNH, CĂN ĐỈNH — Sếp 06/10/2026 (ảnh bản thật, khoanh hàng tiêu đề): *"Căn chỉnh dòng
+     hiển thị đồng nhất"*. Bản đầu xếp chồng tự do + `align-bottom`: cột Quản trị / Ngừng truy cập có thêm
+     dòng "khoá" nên cao hơn, tên dài 1 hay 2 dòng làm số người và nút "…" rơi ở độ cao khác nhau.
+     Nay mọi cột cùng khuôn: ① tên (đúng 2 dòng, quá thì cắt + title) · ② số người (2 dòng) · ③ khoá / chỉ
+     xem / nút "…" ở CÙNG một ô — cột nào cũng chiếm đủ ba ô nên thẳng hàng. */
   return (
-    <th scope="col" className="min-w-24 border-b border-border px-1 py-2 align-bottom text-xs font-semibold text-text-secondary">
-      <div className="flex flex-col items-center gap-0.5 text-center">
-        <span className="leading-snug text-text-primary">{v.ten}</span>
-        {khoaCot ? (
-          <span className="inline-flex items-center gap-1 font-normal text-text-desc">
-            <Lock className="size-3" aria-hidden />
-            khoá
-          </span>
-        ) : !suaDuoc ? (
-          <span className="font-normal text-text-desc">chỉ xem</span>
-        ) : null}
+    <th scope="col" className="min-w-24 border-b border-border px-1 py-2 align-top text-xs font-semibold text-text-secondary">
+      <div className="flex flex-col items-center text-center">
+        <span className="flex h-8 items-end justify-center leading-4 text-text-primary" title={v.ten}>
+          <span className="line-clamp-2">{v.ten}</span>
+        </span>
         <button
           type="button"
           onClick={onXemNguoi}
           title="Lọc khối Nhân sự theo chức danh này"
-          className="min-h-11 rounded px-1 font-normal text-primary underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none md:min-h-8"
+          className="mt-1 flex min-h-11 flex-col items-center justify-center rounded px-1 leading-4 font-normal text-primary underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none md:min-h-9"
         >
-          {dem.soNguoi} người · {dem.soCoRieng} có quyền riêng
+          <span>{dem.soNguoi} người</span>
+          <span>{dem.soCoRieng} quyền riêng</span>
         </button>
-        {suaDuoc && (
+        <span className="flex h-7 items-center justify-center font-normal text-text-desc">
+          {khoaCot ? (
+            <span className="inline-flex items-center gap-1">
+              <Lock className="size-3" aria-hidden />
+              khoá
+            </span>
+          ) : !suaDuoc ? (
+            "chỉ xem"
+          ) : null}
+          {!khoaCot && suaDuoc && (
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon-xs" aria-label={`Tuỳ chọn cột ${v.ten}`} />}
@@ -531,7 +540,8 @@ function DauCot({
               <DropdownMenuItem onClick={onXemNguoi}>Xem người thuộc chức danh này</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
+          )}
+        </span>
       </div>
     </th>
   );
