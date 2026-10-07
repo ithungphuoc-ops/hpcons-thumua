@@ -123,6 +123,19 @@ export interface MoTaGiaiDoan {
 }
 
 /** Thứ tự trong mảng này CHÍNH LÀ thứ tự cột trên bảng. */
+/**
+ * ★ BƯỚC NÀY CÓ ĐỨNG TRƯỚC "LẬP ĐƠN MUA HÀNG" (④) KHÔNG — tức ① Tiếp nhận · ② Yêu cầu NCC báo giá ·
+ * ③ Xét duyệt báo giá. Sếp 07/10/2026: Kế toán / QLDA xem bảng Quy trình từ bước ④, *"Bước 1-3 không
+ * hiện"* (luật người xem ở `4-phan-quyen/quyen.ts` → `chiXemTuBuocLapDon`).
+ * 📌 Tính theo THỨ TỰ trong `GIAI_DOAN_MUA_HANG`, không liệt kê cứng — thêm bước mới vào trước ④ thì
+ * bước đó cũng tự ẩn. "Thất bại" đứng cuối nên không bao giờ bị ẩn (Sếp: cột Thất bại vẫn hiện hết).
+ */
+export function laBuocTruocLapDon(ma: string): boolean {
+  const viTriLapDon = GIAI_DOAN_MUA_HANG.findIndex((g) => g.ma === "lap_don_mua_hang");
+  const viTri = GIAI_DOAN_MUA_HANG.findIndex((g) => g.ma === ma);
+  return viTri >= 0 && viTriLapDon >= 0 && viTri < viTriLapDon;
+}
+
 export const GIAI_DOAN_MUA_HANG: MoTaGiaiDoan[] = [
   {
     ma: "tiep_nhan",

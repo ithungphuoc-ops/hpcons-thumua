@@ -14125,7 +14125,7 @@ kiem(
           const NV2 = nd("nv2", { chucNang: "nhan_vien_thu_mua", capTM: 2 });
 
           kiem(
-            "★ Ảnh chụp 11 chức danh × 20 cờ = bảng mặc định mục 3 kế hoạch 06/10 (đổi công thức phải di trú tm_quyen_rieng khuôn 1 trước)",
+            "★ Ảnh chụp 11 chức danh × 21 cờ = bảng mặc định mục 3 kế hoạch 06/10 + cờ xemQuyTrinhTuBuocLapDon 07/10 (đổi công thức phải di trú tm_quyen_rieng khuôn 1 trước)",
             /* 🔴 Bản ghi khuôn 1 được "chuyển khi đọc" (ngoại lệ ngầm = ô khác CÔNG THỨC tại dấu lúc lưu)
                — chỉ đúng khi công thức `tinhQuyenTheoChucDanh` không đổi từ `278f775`. Bài này đỏ nghĩa là
                ai đó vừa đổi công thức: PHẢI di trú `tm_quyen_rieng` khuôn 1 sang khuôn 2 TRƯỚC, rồi mới cập
@@ -14158,6 +14158,9 @@ kiem(
                 xoaToanBoDuLieu: "10000000000",
                 phanQuyenNguoiDung: "10100000000",
                 xuatHoSo: "11111111110",
+                /* ★ Thêm 07/10/2026 (Sếp: Kế toán / QLDA xem bảng Quy trình từ bước ④). Cờ KHÔNG tick được
+                   (ngoài `KHOA_TICK`) nên bản ghi quyền riêng khuôn 1 không cần di trú. QT có cho đủ bộ. */
+                xemQuyTrinhTuBuocLapDon: "10001000010",
               };
               const lech = [];
               for (const [k, hang] of Object.entries(MA_TRAN)) {
@@ -14173,9 +14176,118 @@ kiem(
               const qtDu = Object.values(qQT).every((x) => x === true);
               const ngRong = Object.values(qNg).every((x) => x === false);
               return {
-                duoc: lech.length === 0 && soCo === 20 && Object.keys(MA_TRAN).length === 20 && dungThuTu && qtDu && ngRong,
+                duoc: lech.length === 0 && soCo === 21 && Object.keys(MA_TRAN).length === 21 && dungThuTu && qtDu && ngRong,
                 thucTe: `lệch=[${lech.slice(0, 8).join(", ")}] · số cờ=${soCo} · đúng thứ tự cột=${dungThuTu} · QT đủ=${qtDu} · Ngừng rỗng=${ngRong}`,
-                mongDoi: "lệch=[] · số cờ=20 · đúng thứ tự cột=true · QT đủ=true · Ngừng rỗng=true",
+                mongDoi: "lệch=[] · số cờ=21 · đúng thứ tự cột=true · QT đủ=true · Ngừng rỗng=true",
+              };
+            },
+          );
+
+          /* ═══ Sếp 07/10/2026: Kế toán / QLDA xem bảng Quy trình mua hàng TỪ BƯỚC ④ ═══ */
+          const CHU_BUOC4 =
+            'Sếp 07/10/2026 — *"A muốn tk của kế toán và phòng dự án xem được những thông tin ở bước này. Bước 1-3 không hiện"* · chốt: chỉ mở bảng Quy trình, ẩn khối ②③ giữ ①, cột Thất bại hiện hết';
+          kiem(
+            "KT / QLDA: chỉ thấy từ bước ④ (chiXemTuBuocLapDon = true); người làm thu mua, BGĐ, Quản trị thấy đủ; TK / PTC không vào bảng (cả hai chiều)",
+            CHU_BUOC4,
+            () => {
+              const q = (ma) => VTC.quyenCuaVaiTro(VT(ma));
+              const chi = (ma) => QX.chiXemTuBuocLapDon(q(ma));
+              const vao = (ma) => QX.duocVaoDuongDan("/de-nghi", q(ma));
+              const kq = {
+                chiTu4: ["ke_toan", "qlda"].map(chi),
+                thayDu: ["quan_tri", "ban_giam_doc", "truong_bo_phan_thu_mua", "nhan_vien_thu_mua", "nhan_vien_nhan_su", "nhan_vien_kho_tong"].map(chi),
+                vaoBang: ["ke_toan", "qlda", "quan_tri", "nhan_vien_thu_mua"].map(vao),
+                khongVao: ["thu_kho", "phong_thi_cong", "ngung_truy_cap"].map(vao),
+              };
+              return {
+                duoc:
+                  kq.chiTu4.every((x) => x === true) &&
+                  kq.thayDu.every((x) => x === false) &&
+                  kq.vaoBang.every((x) => x === true) &&
+                  kq.khongVao.every((x) => x === false),
+                thucTe: JSON.stringify(kq),
+                mongDoi: "chiTu4=[true,true] · thayDu=[false×6] · vaoBang=[true×4] · khongVao=[false×3]",
+              };
+            },
+          );
+
+          kiem(
+            "KT / QLDA: CHỈ mở /de-nghi — Tổng quan · Việc của tôi · Lịch · Theo dõi đơn hàng · NCC · Công nợ vẫn ĐÓNG như 18/09; Theo dõi đề nghị vẫn mở (cả hai chiều)",
+            `${CHU_BUOC4} · giữ chỉ đạo 18/09/2026 "phòng ban khác chỉ mở Theo dõi đề nghị"`,
+            () => {
+              const dong = ["/tong-quan", "/viec-cua-toi", "/lich", "/don-hang", "/nha-cung-cap"];
+              const kq = {};
+              for (const ma of ["ke_toan", "qlda"]) {
+                const qq = VTC.quyenCuaVaiTro(VT(ma));
+                kq[ma] = {
+                  deNghi: QX.duocVaoDuongDan("/de-nghi/pr-1", qq),
+                  dongMo: dong.filter((d) => QX.duocVaoDuongDan(d, qq)),
+                  theoDoi: QX.duocVaoDuongDan("/theo-doi", qq),
+                };
+              }
+              const qTBP = VTC.quyenCuaVaiTro(VT("truong_bo_phan_thu_mua"));
+              const tbpMo = dong.filter((d) => QX.duocVaoDuongDan(d, qTBP));
+              return {
+                duoc:
+                  ["ke_toan", "qlda"].every((ma) => kq[ma].deNghi === true && kq[ma].dongMo.length === 0 && kq[ma].theoDoi === true) &&
+                  tbpMo.length === dong.length,
+                thucTe: JSON.stringify({ kq, tbpMo }),
+                mongDoi: "KT/QLDA: deNghi=true · dongMo=[] · theoDoi=true · TBP mở đủ 5 màn (chốt dương tính)",
+              };
+            },
+          );
+
+          kiem(
+            "Bước nào ẩn: ĐÚNG ba bước đứng trước 'Lập đơn mua hàng' theo thứ tự GIAI_DOAN_MUA_HANG; ④→⑧ và Thất bại KHÔNG ẩn (cả hai chiều)",
+            CHU_BUOC4,
+            () => {
+              const ds = G.GIAI_DOAN_MUA_HANG.map((g) => g.ma);
+              const an = ds.filter((m) => G.laBuocTruocLapDon(m));
+              const iLap = ds.indexOf("lap_don_mua_hang");
+              return {
+                duoc:
+                  JSON.stringify(an) === JSON.stringify(ds.slice(0, iLap)) &&
+                  JSON.stringify(an) === '["tiep_nhan","yeu_cau_bao_gia","xet_duyet_bao_gia"]' &&
+                  !G.laBuocTruocLapDon("that_bai") && !G.laBuocTruocLapDon("hoan_thanh") && !G.laBuocTruocLapDon("lap_don_mua_hang") &&
+                  !G.laBuocTruocLapDon("khong_co_buoc_nay"),
+                thucTe: JSON.stringify({ an }),
+                mongDoi: 'an=["tiep_nhan","yeu_cau_bao_gia","xet_duyet_bao_gia"] · that_bai/hoan_thanh/lap_don/mã lạ = không ẩn',
+              };
+            },
+          );
+
+          kiem(
+            "Tick 'Vào Quy trình mua hàng' cho cột Kế toán ở BẢNG MẪU → thấy ĐỦ mọi bước (chiXemTuBuocLapDon = false); mẫu trống → chỉ từ ④ (cả hai chiều)",
+            `${CHU_BUOC4} · bảng mẫu Sếp 06/10 (Câu 1 = A) thắng luật cố định`,
+            () => {
+              const mauTick = { khuon: 1, phienBan: 1, de: { ke_toan: { xemQuyTrinhMuaHang: true } } };
+              const coTick = MCD.quyenCuaVaiTroCoMau(VT("ke_toan"), mauTick);
+              const trong = MCD.quyenCuaVaiTroCoMau(VT("ke_toan"), MCD.MAU_TRONG);
+              const kq = { coTick: QX.chiXemTuBuocLapDon(coTick), trong: QX.chiXemTuBuocLapDon(trong) };
+              return {
+                duoc: kq.coTick === false && kq.trong === true,
+                thucTe: JSON.stringify(kq),
+                mongDoi: "coTick=false (thấy đủ) · trong=true (chỉ từ ④)",
+              };
+            },
+          );
+
+          kiem(
+            "Dây nối: bảng (de-nghi-danh-sach) lọc cột bằng chiXemTuBuocLapDon + laBuocTruocLapDon; trang chi tiết chặn hồ sơ ①–③ VÀ ẩn khối ②③ giữ ① (đọc mã đã bỏ chú thích)",
+            CHU_BUOC4,
+            () => {
+              const bo = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+              const ds = bo(readFileSync("1-giao-dien/trang/de-nghi-danh-sach.tsx", "utf8"));
+              const ct = bo(readFileSync("1-giao-dien/trang/de-nghi-chi-tiet.tsx", "utf8"));
+              const kq = {
+                bangLoc: /chiXemTuBuocLapDon\(quyen\)\s*\?\s*cot\.filter\(\(c\)\s*=>\s*!laBuocTruocLapDon\(c\.giaiDoan\.ma\)\)/.test(ds),
+                chiTietChan: /if\s*\(chiXemTuBuocLapDon\(quyen\)\s*&&\s*laBuocTruocLapDon\(giaiDoan\)\)/.test(ct),
+                khoiAn: /!\(chiXemTuBuocLapDon\(quyen\)\s*&&\s*laBuocTruocLapDon\(g\.ma\)\s*&&\s*g\.ma\s*!==\s*"tiep_nhan"\)/.test(ct),
+              };
+              return {
+                duoc: kq.bangLoc && kq.chiTietChan && kq.khoiAn && ds.length > 10000 && ct.length > 10000,
+                thucTe: JSON.stringify(kq),
+                mongDoi: "bangLoc=true · chiTietChan=true · khoiAn=true",
               };
             },
           );
@@ -16182,6 +16294,17 @@ kiem(
       "Thử",
     );
     vong = await NCCX.docNCCTuExcel(await blob.arrayBuffer());
+    /* ★ 07/10/2026 — soi thẳng ô của tệp xuất: cột "Mã NCC" (Sếp: thêm vào file xuất; Mã NCC = MST). */
+    const ExcelJS = (await import("exceljs")).default;
+    const wbX = new ExcelJS.Workbook();
+    await wbX.xlsx.load(await blob.arrayBuffer());
+    const wsX = wbX.worksheets[0];
+    vong.oMaNCC = {
+      tieuDe: wsX.getCell(3, 2).value,
+      a: wsX.getCell(4, 2).value,
+      b: wsX.getCell(5, 2).value,
+      tieuDeTen: wsX.getCell(3, 3).value,
+    };
   } catch (e) {
     vong = { loi: e.message };
   } finally {
@@ -16204,6 +16327,29 @@ kiem(
       mongDoi: 'cột có "Nhóm NCC" · a=["VLXD","Bê tông"] · b không khoá · nhập lại = trung,trung · danh mục trống = [nhóm a, null]',
     };
   });
+
+  kiem(
+    "Excel danh mục NCC: cột 'Mã NCC' (cột 2) ghi MÃ SỐ THUẾ, KHÔNG ghi NC0000; đọc lại thì cột đó bị BỎ QUA, MST vẫn đọc đúng (cả hai chiều)",
+    'Sếp 07/10/2026 — *"file excel danh sách NCC khi xuất ra e thêm trường Mã NCC vào nữa"* + *"mã NCC này là MST luôn, chứ ko phải định dạng NC000 nữa"*',
+    () => {
+      if (!vong || vong.loi) return { duoc: false, thucTe: `không chạy được: ${vong?.loi}`, mongDoi: "xuất + đọc được" };
+      const o = vong.oMaNCC ?? {};
+      const [a, b] = vong.dong;
+      return {
+        duoc:
+          o.tieuDe === "Mã NCC" &&
+          o.a === "0301234567" &&
+          o.b === "" &&
+          o.tieuDeTen === "Tên nhà cung cấp" &&
+          !vong.cotDoc.includes("Mã NCC") &&
+          a?.maSoThue === "0301234567" &&
+          a?.ten === "Công ty A" &&
+          b !== undefined && !("maSoThue" in b),
+        thucTe: JSON.stringify({ o, cotDoc: vong.cotDoc, aMST: a?.maSoThue, aTen: a?.ten, bCoMST: b ? "maSoThue" in b : "thiếu dòng" }),
+        mongDoi: 'ô (3,2)="Mã NCC" · (4,2)="0301234567" (không phải NC0001) · (5,2)="" · (3,3)="Tên nhà cung cấp" · đọc lại: cột Mã NCC không có trong cotDoc, a.maSoThue đúng, b không có MST',
+      };
+    },
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════

@@ -229,6 +229,20 @@ export interface Quyen {
    */
   xemQuyTrinhMuaHang: boolean;
   /**
+   * ★ XEM BẢNG "QUY TRÌNH MUA HÀNG" TỪ BƯỚC ④ (Lập đơn mua hàng) — Sếp 07/10/2026 (ảnh bảng Quy trình mua hàng, khoanh các cột từ "Lập đơn mua hàng" tới "Thất bại"):
+ * *"A muốn tk của kế toán và phòng dự án xem được những thông tin ở bước này. Bước 1-3 không hiện"*.
+   * Sếp chốt cùng ngày: **chỉ mở riêng bảng Quy trình** (bảng + trang chi tiết hồ sơ) — KHÔNG mở lại
+   * Tổng quan · Việc của tôi · Lịch · Theo dõi đơn hàng · Danh mục NCC (giữ chỉ đạo 18/09/2026 "phòng
+   * ban khác chỉ mở Theo dõi đề nghị"); trang chi tiết ẩn khối ② báo giá và ③ xét duyệt, GIỮ khối ①
+   * (danh sách mặt hàng + cảnh báo vật tư định mức cho QLDA); cột "Thất bại" vẫn hiện hết.
+   *
+   * 📌 CỜ RIÊNG, KHÔNG TICK ĐƯỢC (không nằm trong `KHOA_TICK`) — nên không đụng khuôn bản ghi quyền
+   * riêng, và không dựng lại bộ tick "Xem bước ①…⑦" Sếp đã HUỶ 02/10/2026. Người có CẢ
+   * `xemQuyTrinhMuaHang` (vd Sếp tick ô "Vào Quy trình mua hàng" cho cột Kế toán ở bảng mẫu) thì
+   * thấy đủ mọi bước — xem `chiXemTuBuocLapDon`.
+   */
+  xemQuyTrinhTuBuocLapDon: boolean;
+  /**
    * ★ VÀO ĐƯỢC MÀN "PHÂN QUYỀN NGƯỜI DÙNG" — Ban lãnh đạo 18/08/2026: *"thêm tính năng phân
    * quyền cho tài khoản quản trị và tài khoản trưởng bộ phận"*.
    *
@@ -331,6 +345,10 @@ export function tinhQuyenTheoChucDanh(u: NguoiDung): Quyen {
     // Chỉ người LÀM thu mua, cộng quản trị và Ban Giám đốc. Thủ kho, QLDA, kế toán và các
     // phòng ban đề xuất theo dõi tiến độ ở mục "Theo dõi đề nghị" — xem `xemQuyTrinhMuaHang`.
     xemQuyTrinhMuaHang: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laNVNhanSu || laNVKhoTong,
+    /* ★ Sếp 07/10/2026 — Kế toán và QLDA xem bảng Quy trình từ bước ④ (chỉ xem; bước ①–③ không hiện).
+       Quản trị có cờ này cho đủ bộ (Quản trị luôn đủ mọi quyền) nhưng vẫn thấy mọi bước vì có
+       `xemQuyTrinhMuaHang` — xem `chiXemTuBuocLapDon`. */
+    xemQuyTrinhTuBuocLapDon: laQuanTri || (capTM >= 1 && (laKeToan || laQLDA)),
 
     /* Quản trị (cấp 4) và trưởng bộ phận (cấp 3). Giới hạn CỤ THỂ đặt được tới cấp nào nằm ở
        `luat-phan-quyen.ts` → `capDatDuocToiDa`, không nhét vào đây. */
@@ -409,6 +427,16 @@ export function nguoiBiKhoaVaoApp(
   return !tinhQuyen({ ...nd, quyenRieng: quyenRiengConHieuLuc(banGhi, nd, null) }).xemDuocApp;
 }
 
+/**
+ * ★ NGƯỜI NÀY CHỈ ĐƯỢC THẤY BẢNG QUY TRÌNH TỪ BƯỚC ④ — Sếp 07/10/2026 (ảnh bảng Quy trình mua hàng, khoanh các cột từ "Lập đơn mua hàng" tới "Thất bại"): *"A muốn tk của kế toán và phòng dự án xem được những thông tin ở bước này. Bước 1-3 không hiện"*.
+ * Đúng khi có cờ `xemQuyTrinhTuBuocLapDon` mà KHÔNG có `xemQuyTrinhMuaHang` (người có quyền Quy trình
+ * đầy đủ thấy mọi bước). MỘT hàm cho mọi nơi: bảng (bỏ cột ①–③), trang chi tiết (chặn hồ sơ ①–③, ẩn
+ * khối ②③). Bước nào là "trước ④" do `laBuocTruocLapDon` (`2-quy-trinh/giai-doan-mua-hang.ts`) quyết.
+ */
+export function chiXemTuBuocLapDon(q: Pick<Quyen, "xemQuyTrinhMuaHang" | "xemQuyTrinhTuBuocLapDon">): boolean {
+  return !q.xemQuyTrinhMuaHang && q.xemQuyTrinhTuBuocLapDon;
+}
+
 /** Kiểm tra quyền vào một đường dẫn. */
 export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
   /* 🔴 CHẶN CẢ ĐƯỜNG DẪN, không chỉ ẩn mục menu. Đây là màn đổi quyền của người khác — ẩn menu
@@ -449,7 +477,9 @@ export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
    *
    * ⚠️ Phải bắt cả `/de-nghi/…` (trang chi tiết) chứ không riêng `/de-nghi`.
    */
-  if (duongDan.startsWith("/de-nghi")) return q.xemQuyTrinhMuaHang;
+  /* ★ Sếp 07/10/2026: Kế toán / QLDA vào được bảng Quy trình (từ bước ④) qua cờ riêng — CHỈ đường
+     `/de-nghi`, không mở các màn khác. Hồ sơ đang ở ①–③ thì trang chi tiết tự chặn (`chiXemTuBuocLapDon`). */
+  if (duongDan.startsWith("/de-nghi")) return q.xemQuyTrinhMuaHang || q.xemQuyTrinhTuBuocLapDon;
 
   /**
    * ★★ CÁC MÀN CHỈ DÀNH CHO NGƯỜI LÀM THU MUA — Sếp 18/09/2026: ***"Ở tài khoản của các phòng

@@ -190,8 +190,12 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
      *
      * 📌 Thủ kho, QLDA, kế toán, các phòng ban đề xuất vẫn theo dõi được tiến độ ở mục "Theo
      * dõi đề nghị" — mục đó mở cho mọi vai trò, chỉ không hiện giá và nhà cung cấp.
+     *
+     * ★ NỚI 07/10/2026 CHO KẾ TOÁN / QLDA — Sếp: *"A muốn tk của kế toán và phòng dự án xem được những
+     * thông tin ở bước này. Bước 1-3 không hiện"*. CHỈ mục này (bảng Quy trình, hiện từ bước ④) —
+     * Tổng quan · Việc của tôi · Lịch · Theo dõi đơn hàng · NCC vẫn đóng như 18/09 (Sếp chốt cùng ngày).
      */
-    duocThay: (q) => q.xemQuyTrinhMuaHang,
+    duocThay: (q) => q.xemQuyTrinhMuaHang || q.xemQuyTrinhTuBuocLapDon,
   },
   {
     /**

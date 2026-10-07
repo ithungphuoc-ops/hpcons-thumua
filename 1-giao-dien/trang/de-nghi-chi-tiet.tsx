@@ -34,7 +34,7 @@ import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_NHOM_DE_XUAT } from "@/3-du-lieu/kieu-du-lieu";
 import type { BaoGia } from "@/3-du-lieu/kieu-du-lieu";
-import type { Quyen } from "@/4-phan-quyen/quyen";
+import { chiXemTuBuocLapDon, type Quyen } from "@/4-phan-quyen/quyen";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -150,6 +150,7 @@ import {
      `2-quy-trinh/giai-doan-mua-hang.ts` — đừng xoá, xem ghi chú ở đó. */
   tenNguoiPhuTrachDeNghi,
   soDongChuaPhanBoConLai,
+  laBuocTruocLapDon,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, xem chú thích đầu file đó.
@@ -478,6 +479,19 @@ export default function TrangChiTietDeNghi({
      🔴 `deNghi` lấy thẳng từ `useDuLieu()` — danh sách ĐẦY ĐỦ, chưa lọc lưu trữ. Không dùng
      `cacBanTach` ở ngay dưới: đó là bản đã lọc, luật sẽ không thấy hết các bản con. */
   const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, deNghi);
+
+  /* ★ Sếp 07/10/2026 — Kế toán / QLDA xem bảng Quy trình TỪ BƯỚC ④: hồ sơ còn ở ①–③ thì không mở
+     (mở thẳng bằng đường dẫn, bấm liên kết phiếu gốc/phiếu con…). Hồ sơ "Thất bại" vẫn mở được — Sếp
+     chốt cột Thất bại hiện hết. Đặt SAU mọi hook (trả về sớm ở đây không phá thứ tự hook). */
+  if (chiXemTuBuocLapDon(quyen) && laBuocTruocLapDon(giaiDoan)) {
+    return (
+      <EmptyState
+        icon={FileWarning}
+        title="Hồ sơ chưa tới bước Lập đơn mua hàng"
+        description={`Hồ sơ đang ở bước “${NHAN_GIAI_DOAN[giaiDoan].nhan}”. Tài khoản của bạn xem được Quy trình mua hàng từ bước Lập đơn mua hàng trở đi.`}
+      />
+    );
+  }
   /* Người phụ trách hiện ở vùng đầu dính cố định — cùng hàm với chân thẻ bảng quy trình. */
   const nguoiPhuTrachDn = tenNguoiPhuTrachDeNghi(dn);
 
@@ -4100,7 +4114,13 @@ export default function TrangChiTietDeNghi({
                * ⚠️ Nếu Ban lãnh đạo muốn ĐÚNG MỘT bước duy nhất thì đổi `giaiDoanDaToiLuot(...)`
                * thành `g.ma === giaiDoan` — một dòng, và luật thứ tự vẫn nằm ở `2-quy-trinh/`.
                */
-            ].filter((g) => giaiDoanDaToiLuot(g.ma, giaiDoan)))}
+            ].filter(
+              (g) =>
+                giaiDoanDaToiLuot(g.ma, giaiDoan) &&
+                /* ★ Sếp 07/10/2026: Kế toán / QLDA — ẩn khối ② báo giá và ③ xét duyệt, GIỮ khối ①
+                   (danh sách mặt hàng + cảnh báo vật tư định mức). */
+                !(chiXemTuBuocLapDon(quyen) && laBuocTruocLapDon(g.ma) && g.ma !== "tiep_nhan"),
+            ))}
           />
 
           {/* 📌 15/08/2026 — Ban lãnh đạo:

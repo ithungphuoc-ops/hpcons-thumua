@@ -47,6 +47,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocNhanBanDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { chiXemTuBuocLapDon } from "@/4-phan-quyen/quyen";
 /* 📌 KHÔNG còn import `tinhTienDoDeNghi` / `tomTatTienDoDeNghi` / `soSanhDeNghiUuTien` ở đây
    (23/08/2026): cả hai chế độ xem nay lấy dữ liệu từ `dungBangQuyTrinh`, nó đã tính sẵn tiến độ
    và đã sắp thứ tự. Import lại là mở đường cho một nguồn số thứ hai. */
@@ -60,6 +61,7 @@ import {
   quyetDinhKeoTha,
   quyetDinhMoHopChuyenBuoc,
   soSanhTheTrenBang,
+  laBuocTruocLapDon,
   type GiaiDoanMuaHang,
   type HanhDongKeoTha,
   type NguonMoHopChuyenBuoc,
@@ -359,8 +361,14 @@ export default function TrangDanhSachDeNghi() {
     };
     const sapGoc = <T extends (typeof cot)[number]>(ds: T[]): T[] =>
       quyen.phanBoCongViec ? ds.map((c) => ({ ...c, the: gomTheoPhieuGoc(c.the) })) : ds;
-    if (!tim && !chiViecCuaToi) return sapGoc(cot);
-    return sapGoc(cot.map((c) => ({
+    /* ★ Sếp 07/10/2026 — Kế toán / QLDA xem từ bước ④: BỎ HẲN cột ①–③ (cả thẻ lẫn số đếm đầu cột,
+       chế độ Danh sách ghép từ chính `cotHien` nên cũng theo). Luật người xem ở `chiXemTuBuocLapDon`,
+       bước nào ẩn ở `laBuocTruocLapDon` — không viết danh sách bước tại đây. */
+    const cotTheoNguoiXem = chiXemTuBuocLapDon(quyen)
+      ? cot.filter((c) => !laBuocTruocLapDon(c.giaiDoan.ma))
+      : cot;
+    if (!tim && !chiViecCuaToi) return sapGoc(cotTheoNguoiXem);
+    return sapGoc(cotTheoNguoiXem.map((c) => ({
       ...c,
       the: c.the.filter(
         (t) =>
@@ -371,7 +379,7 @@ export default function TrangDanhSachDeNghi() {
       ),
       theDocLap: [],
     })));
-  }, [cot, tuKhoaBang, chiViecCuaToi, nguoiDung.uid, quyen.phanBoCongViec]);
+  }, [cot, tuKhoaBang, chiViecCuaToi, nguoiDung.uid, quyen]);
 
   /**
    * ★★ NGUỒN DỮ LIỆU CỦA TAB "DANH SÁCH" — GHÉP TỪ CHÍNH `cot` CỦA BẢNG KANBAN (23/08/2026).

@@ -6,9 +6,12 @@
 // ghi đè thông tin đang có.
 //
 // 📌 Hai chiều dùng CHUNG một bộ tiêu đề cột (`COT`): tệp xuất ra mở sửa rồi nhập lại được ngay.
-// 🔴 KHÔNG CÒN CỘT "Mã NCC" — Sếp 02/10/2026 (khoanh cột NC0001 trên màn): *"Mã này là MST, sửa
-//    lại"*. Mã định danh người dùng nhìn là MÃ SỐ THUẾ. Mã nội bộ `NC0000` vẫn do app tự cấp và lưu
-//    trong danh mục, chỉ thôi bày ra. File cũ còn cột "Mã NCC" thì lúc nhập cột đó bị bỏ qua.
+// ★ CỘT "Mã NCC" = MÃ SỐ THUẾ, CHỈ Ở CHIỀU XUẤT — Sếp 07/10/2026: *"file excel danh sách NCC khi xuất
+//    ra e thêm trường Mã NCC vào nữa"*, cùng ngày đã chốt *"mã NCC này là MST luôn, chứ ko phải định
+//    dạng NC000 nữa"*. Nên cột "Mã NCC" (cột 2, ngay sau STT — khớp màn danh mục) ghi MST, KHÔNG phải
+//    mã nội bộ `NC0000`. Cột này KHÔNG nằm trong `COT`: chiều nhập đọc theo tiêu đề, gặp "Mã NCC" thì
+//    bỏ qua (không có trong `cachViet` nào) — MST vẫn đọc từ cột "Mã số thuế". (02/10 từng bỏ hẳn cột
+//    "Mã NCC" vì nó in `NC0000` — Sếp: *"Mã này là MST, sửa lại"*.)
 // 🔴 Báo lỗi theo SỐ DÒNG TRONG FILE (chỉ đạo 17/08/2026 cho việc nhập Excel), không theo STT.
 // ★ Cột "Nhóm NCC" (Sếp 02/10/2026): nhiều nhóm một ô, xuất nối bằng "; ", nhập tách bằng
 //   `tachNhomNCC` (`nhom-nha-cung-cap.ts`). 🔴 Dòng TRÙNG vẫn BỎ QUA NGUYÊN DÒNG, kể cả cột nhóm
@@ -261,28 +264,37 @@ export async function xuatDanhMucNCCExcel(
   const wb = new ExcelJS.Workbook();
   wb.creator = "App Thu mua HP Cons";
   const ws = wb.addWorksheet("Danh mục NCC", { views: [{ state: "frozen", ySplit: 3 }] });
-  const soCot = COT.length + 1;
+  /* Cột 1 = STT · cột 2 = "Mã NCC" (MST, chỉ chiều xuất — xem đầu tệp) · từ cột 3 = `COT`. */
+  const COT_DAU = 3;
+  const soCot = COT.length + 2;
   ws.mergeCells(1, 1, 1, soCot);
   ws.getCell(1, 1).value = "DANH MỤC NHÀ CUNG CẤP";
   ws.getCell(1, 1).font = { bold: true, size: 14 };
   ws.mergeCells(2, 1, 2, soCot);
   ws.getCell(2, 1).value = `Xuất bởi ${nguoiXuat} lúc ${new Date().toLocaleString("vi-VN")} · ${ds.length} nhà cung cấp`;
   ws.getCell(2, 1).font = { italic: true, size: 10 };
-  ws.getRow(3).values = ["STT", ...COT.map((c) => c.tieuDe)];
+  ws.getRow(3).values = ["STT", "Mã NCC", ...COT.map((c) => c.tieuDe)];
   ws.getRow(3).font = { bold: true };
   ws.getRow(3).alignment = { vertical: "middle", wrapText: true };
   ws.getColumn(1).width = 6;
+  ws.getColumn(2).width = 16;
   COT.forEach((c, i) => {
-    ws.getColumn(i + 2).width = c.rong;
+    ws.getColumn(i + COT_DAU).width = c.rong;
   });
-  /* MST và điện thoại ghi dạng CHỮ — để Excel không ăn số 0 đầu khi người dùng mở ra điền tiếp. */
-  ws.getColumn(COT.findIndex((c) => c.khoa === "maSoThue") + 2).numFmt = "@";
-  ws.getColumn(COT.findIndex((c) => c.khoa === "dienThoai") + 2).numFmt = "@";
+  /* MST (cả cột "Mã NCC") và điện thoại ghi dạng CHỮ — để Excel không ăn số 0 đầu khi người dùng mở ra
+     điền tiếp. */
+  ws.getColumn(2).numFmt = "@";
+  ws.getColumn(COT.findIndex((c) => c.khoa === "maSoThue") + COT_DAU).numFmt = "@";
+  ws.getColumn(COT.findIndex((c) => c.khoa === "dienThoai") + COT_DAU).numFmt = "@";
   [...ds]
     .sort((a, b) => (a.maNCC ?? "").localeCompare(b.maNCC ?? ""))
     .forEach((n, i) => {
       /* Nhóm là MẢNG — phải nối thành chữ, đưa thẳng mảng vào ô là ExcelJS ghi rác. */
-      const row = ws.addRow([i + 1, ...COT.map((c) => (c.khoa === "nhomNCC" ? noiNhomNCC(n.nhomNCC) : (n[c.khoa] ?? "")))]);
+      const row = ws.addRow([
+        i + 1,
+        n.maSoThue ?? "",
+        ...COT.map((c) => (c.khoa === "nhomNCC" ? noiNhomNCC(n.nhomNCC) : (n[c.khoa] ?? ""))),
+      ]);
       row.alignment = { vertical: "top", wrapText: true };
     });
   ws.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: soCot } };

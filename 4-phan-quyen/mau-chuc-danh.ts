@@ -506,6 +506,7 @@ export const GHI_CHU_LUAT_CO_DINH: readonly string[] = [
   `Danh sách “Giao việc cho ai” lọc theo CHỨC DANH, không theo ô tick: việc mua hàng giao cho NV Thu mua; việc xuất kho cho Thủ kho công trình và NV Kho tổng; việc nhân sự cho NV Nhân sự. Tick thêm ô không biến chức danh khác thành người nhận việc.`,
   `Xác nhận nhận hàng (bước ⑥) theo luật cố định — chỉ đạo 17/09/2026: nhân viên hoặc Trưởng bộ phận Thu mua từ cấp 2 có ô “${nhanCoTick("lapPO")}”; hoặc người được chia việc trong chính hồ sơ đó, cũng từ cấp 2.`,
   `Người phụ trách một đơn (hoặc phụ trách một phần việc của đề nghị gốc) luôn duyệt hoàn thành được đơn đó, kể cả khi không có ô “${nhanCoTick("xacNhanTruongBP")}”.`,
+  `Kế toán và Ban Quản lý Dự án xem được bảng Quy trình mua hàng TỪ BƯỚC Lập đơn mua hàng (chỉ xem; bước ①–③ không hiện, trang chi tiết ẩn khối báo giá và xét duyệt) — luật cố định theo chỉ đạo 07/10/2026. Tick thêm ô “${nhanCoTick("xemQuyTrinhMuaHang")}” cho chức danh đó thì thấy đủ mọi bước và mở thêm Tổng quan · Việc của tôi · Lịch · Theo dõi đơn hàng · NCC.`,
 ];
 
 /**
