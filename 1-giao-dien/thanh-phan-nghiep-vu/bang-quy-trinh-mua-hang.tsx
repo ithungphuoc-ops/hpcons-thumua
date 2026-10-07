@@ -384,7 +384,7 @@ function CotQuyTrinh({
 }) {
   /* `hanGio` = thời hạn chuẩn của bước, ĐÃ thành chữ sẵn ở `dungBangQuyTrinh` (15/09/2026) —
      bảng chỉ bày, không tự tra cấu hình. Xem chú thích ở chỗ hiển thị, cuối dòng thống kê. */
-  const { giaiDoan, the, theDocLap, soQuaHan, hanGio } = cot;
+  const { giaiDoan, the, theDocLap, soQuaHan, hanGio, anNoiDung } = cot;
 
   /**
    * ★ SỐ HỒ SƠ ĐÃ CÓ NGƯỜI PHỤ TRÁCH — nguồn của thanh tiến độ đầu cột (23/08/2026).
@@ -512,8 +512,9 @@ function CotQuyTrinh({
                 đọc được hướng dẫn sử dụng"). Đặt ở ĐẦU CỘT vì đó là chỗ người dùng nhìn khi
                 phân vân "cột này phải làm gì thì mới qua được cột sau". */}
             <NutHuongDanGiaiDoan giaiDoan={giaiDoan.ma} />
+            {/* Cột "không hiện thông tin" (Sếp 07/10/2026) — không đếm, in "—" để không nói sai là 0. */}
             <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold text-text-primary">
-              {the.length}
+              {anNoiDung ? "—" : the.length}
             </span>
           </span>
         </div>
@@ -600,9 +601,11 @@ function CotQuyTrinh({
             <span
               title={`${soDaGiao}/${the.length} đã giao${soQuaHan > 0 ? ` · ${soQuaHan} quá hạn` : ""}`}
             >
-            {the.length === 0
-              ? "0 đề nghị"
-              : `${soDaGiao}/${the.length} Đ.giao${soQuaHan > 0 ? ` · ${soQuaHan} Q.hạn` : ""}`}
+            {anNoiDung
+              ? "Không hiển thị"
+              : the.length === 0
+                ? "0 đề nghị"
+                : `${soDaGiao}/${the.length} Đ.giao${soQuaHan > 0 ? ` · ${soQuaHan} Q.hạn` : ""}`}
             {/* ★ SỐ HỒ SƠ CÒN THIẾU Ở NGAY ĐẦU CỘT (23/08/2026) — Ban lãnh đạo: *"cần hiển thị đỏ
                 để biết đang thiếu ở bước nào"*. Đọc đầu cột là biết bước nào có hồ sơ còn nợ, không
                 phải rà từng thẻ; thẻ nào nợ thì đã có viền đỏ để tìm ra ngay. */}
@@ -695,7 +698,11 @@ function CotQuyTrinh({
           hai viền chồng thành một — xử ở `TheDeNghi` bằng `-mb-px`, xem chú thích ở đó. Sửa một
           chỗ mà bỏ chỗ kia là bảng có vạch đôi, nhìn như lỗi kẻ bảng. */}
       <div className="flex flex-1 flex-col gap-0 p-0">
-        {the.length === 0 && theDocLap.length === 0 ? (
+        {anNoiDung ? (
+          /* Sếp 07/10/2026: cột không được xem thì "ko hiện thông tin" — nói rõ lý do, không để trống
+             trơn (người xem tưởng bước đó không có hồ sơ nào). */
+          <p className="px-3 py-4 text-center text-xs text-text-desc">{anNoiDung}</p>
+        ) : the.length === 0 && theDocLap.length === 0 ? (
           <p className="py-4 text-center text-xs text-text-disabled">Không có đề nghị nào</p>
         ) : (
           <>

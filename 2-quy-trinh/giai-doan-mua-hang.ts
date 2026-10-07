@@ -982,6 +982,13 @@ export interface TheDonHangDocLapTrenBang {
 
 export interface CotBangQuyTrinh {
   giaiDoan: MoTaGiaiDoan;
+  /**
+   * ★ CỘT HIỆN KHUNG NHƯNG KHÔNG HIỆN THÔNG TIN — Sếp 07/10/2026 (lượt 2): *"hãy hiện đủ quy trình 8
+   * bước, các cột không được xem thì ko hiện thông tin thôi"*. Có giá trị = câu lý do in trong thân cột;
+   * thẻ đã rỗng, đầu cột KHÔNG in "0 đề nghị" (nói sai là không có hồ sơ nào). Màn bảng đặt trường
+   * này cho cột bước ①–③ khi người xem chỉ xem từ bước ④ (`chiXemTuBuocLapDon`).
+   */
+  anNoiDung?: string;
   the: TheDeNghiTrenBang[];
   /** Rỗng ở mọi cột trừ "Lập đơn mua hàng" — xem chú thích ở `TheDonHangDocLapTrenBang`. */
   theDocLap: TheDonHangDocLapTrenBang[];

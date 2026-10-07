@@ -361,11 +361,23 @@ export default function TrangDanhSachDeNghi() {
     };
     const sapGoc = <T extends (typeof cot)[number]>(ds: T[]): T[] =>
       quyen.phanBoCongViec ? ds.map((c) => ({ ...c, the: gomTheoPhieuGoc(c.the) })) : ds;
-    /* ★ Sếp 07/10/2026 — Kế toán / QLDA xem từ bước ④: BỎ HẲN cột ①–③ (cả thẻ lẫn số đếm đầu cột,
-       chế độ Danh sách ghép từ chính `cotHien` nên cũng theo). Luật người xem ở `chiXemTuBuocLapDon`,
-       bước nào ẩn ở `laBuocTruocLapDon` — không viết danh sách bước tại đây. */
+    /* ★ Sếp 07/10/2026 — Kế toán / QLDA xem từ bước ④. Lượt 2 cùng ngày: *"hãy hiện đủ quy trình 8
+       bước, các cột không được xem thì ko hiện thông tin thôi"* → GIỮ cột ①–③ (người xem thấy đủ quy
+       trình), nhưng RỖNG thẻ + PO độc lập, đầu cột không đếm, thân cột in lý do (`anNoiDung`). Chế độ
+       Danh sách ghép thẻ từ `cotHien` nên cũng không có hồ sơ ①–③. Luật người xem ở
+       `chiXemTuBuocLapDon`, bước nào ở `laBuocTruocLapDon` — không viết danh sách bước tại đây. */
     const cotTheoNguoiXem = chiXemTuBuocLapDon(quyen)
-      ? cot.filter((c) => !laBuocTruocLapDon(c.giaiDoan.ma))
+      ? cot.map((c) =>
+          laBuocTruocLapDon(c.giaiDoan.ma)
+            ? {
+                ...c,
+                the: [],
+                theDocLap: [],
+                soQuaHan: 0,
+                anNoiDung: "Không hiển thị — tài khoản của bạn xem từ bước Lập đơn mua hàng trở đi.",
+              }
+            : c,
+        )
       : cot;
     if (!tim && !chiViecCuaToi) return sapGoc(cotTheoNguoiXem);
     return sapGoc(cotTheoNguoiXem.map((c) => ({

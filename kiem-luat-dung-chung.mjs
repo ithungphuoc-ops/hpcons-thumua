@@ -14273,21 +14273,27 @@ kiem(
           );
 
           kiem(
-            "Dây nối: bảng (de-nghi-danh-sach) lọc cột bằng chiXemTuBuocLapDon + laBuocTruocLapDon; trang chi tiết chặn hồ sơ ①–③ VÀ ẩn khối ②③ giữ ① (đọc mã đã bỏ chú thích)",
+            "Dây nối: bảng (de-nghi-danh-sach) GIỮ cột ①–③ nhưng rỗng thẻ + anNoiDung (Sếp lượt 2: hiện đủ quy trình); trang chi tiết chặn hồ sơ ①–③ VÀ ẩn khối ②③ giữ ① (đọc mã đã bỏ chú thích)",
             CHU_BUOC4,
             () => {
               const bo = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
               const ds = bo(readFileSync("1-giao-dien/trang/de-nghi-danh-sach.tsx", "utf8"));
               const ct = bo(readFileSync("1-giao-dien/trang/de-nghi-chi-tiet.tsx", "utf8"));
               const kq = {
-                bangLoc: /chiXemTuBuocLapDon\(quyen\)\s*\?\s*cot\.filter\(\(c\)\s*=>\s*!laBuocTruocLapDon\(c\.giaiDoan\.ma\)\)/.test(ds),
+                /* ★ Lượt 2 (Sếp 07/10/2026: "hãy hiện đủ quy trình 8 bước, các cột không được xem thì ko hiện
+                   thông tin thôi") — bản lượt 1 BỎ cột bằng `cot.filter`; nay phải `cot.map` giữ cột, rỗng
+                   `the` + `theDocLap`, gắn `anNoiDung`; và KHÔNG còn `cot.filter` theo laBuocTruocLapDon. */
+                bangLoc:
+                  /chiXemTuBuocLapDon\(quyen\)\s*\?\s*cot\.map\(\(c\)\s*=>\s*laBuocTruocLapDon\(c\.giaiDoan\.ma\)\s*\?\s*\{[^}]*the:\s*\[\],\s*theDocLap:\s*\[\],[^}]*anNoiDung:/.test(ds) &&
+                  !/cot\.filter\(\(c\)\s*=>\s*!laBuocTruocLapDon/.test(ds),
+                cotVe: /anNoiDung\s*\?\s*"—"/.test(bo(readFileSync("1-giao-dien/thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang.tsx", "utf8"))),
                 chiTietChan: /if\s*\(chiXemTuBuocLapDon\(quyen\)\s*&&\s*laBuocTruocLapDon\(giaiDoan\)\)/.test(ct),
                 khoiAn: /!\(chiXemTuBuocLapDon\(quyen\)\s*&&\s*laBuocTruocLapDon\(g\.ma\)\s*&&\s*g\.ma\s*!==\s*"tiep_nhan"\)/.test(ct),
               };
               return {
-                duoc: kq.bangLoc && kq.chiTietChan && kq.khoiAn && ds.length > 10000 && ct.length > 10000,
+                duoc: kq.bangLoc && kq.cotVe && kq.chiTietChan && kq.khoiAn && ds.length > 10000 && ct.length > 10000,
                 thucTe: JSON.stringify(kq),
-                mongDoi: "bangLoc=true · chiTietChan=true · khoiAn=true",
+                mongDoi: "bangLoc=true (giữ cột, rỗng thẻ) · cotVe=true (đầu cột in —) · chiTietChan=true · khoiAn=true",
               };
             },
           );
