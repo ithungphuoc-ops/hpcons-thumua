@@ -468,7 +468,6 @@ export function FormLapDonMuaHang({
   // ① KHỐI THÔNG TIN CHUNG — đúng thứ tự ô của màn MISA
   // ---------------------------------------------------------------------------
   // Cột 1
-  const [maNCC, setMaNCC] = useState("");
   const [mstNCC, setMstNCC] = useState("");
   // Cột 2
   /**
@@ -913,7 +912,6 @@ export function FormLapDonMuaHang({
   const dienNhaCungCap = useCallback((n: NhaCungCap) => {
     setSupplierId(n.id);
     setTenNCC(n.ten);
-    if (n.maNCC) setMaNCC(n.maNCC);
     if (n.maSoThue) setMstNCC(n.maSoThue);
     if (n.diaChi) setDiaChiNCC(n.diaChi);
   }, []);
@@ -1081,7 +1079,6 @@ export function FormLapDonMuaHang({
     /* ----- Nhóm ô CHỈ ĐỌC ở chế độ sửa -----
        Vẫn phải nạp: tờ đơn trên màn hình phải hiện đúng đơn đang sửa, và khối tiền phải tính ra
        đúng con số của đơn đó. Khoá nằm ở chỗ vẽ ô, không phải ở đây. */
-    setMaNCC("");
     setNgayDonHang(po.ngayLapPO);
     setTenCongTrinh(po.tenCongTrinh ?? "");
     setMaHopDong(po.maHopDongCDT ?? "");
@@ -1248,7 +1245,6 @@ export function FormLapDonMuaHang({
       setSupplierId(nccIdTuBaoGia);
       setTenNCC(tenNCCPhanBo);
       const trongDanhMuc = nhaCungCap.find((n) => n.id === nccIdTuBaoGia);
-      if (trongDanhMuc?.maNCC) setMaNCC(trongDanhMuc.maNCC);
       if (trongDanhMuc?.maSoThue) setMstNCC(trongDanhMuc.maSoThue);
       if (trongDanhMuc?.diaChi) setDiaChiNCC(trongDanhMuc.diaChi);
       setNguonTuBaoGia({
@@ -1833,7 +1829,6 @@ export function FormLapDonMuaHang({
            nhưng trước 23/08/2026 form bỏ qua, nên nhập một file ghi USD vẫn ra đơn VND. */
         if (c.loaiTien) setLoaiTien(c.loaiTien);
         if (c.thamChieu) setThamChieu(c.thamChieu);
-        if (c.maNCC) setMaNCC(c.maNCC);
         if (c.soNgayDuocNo !== undefined) setSoNgayDuocNo(String(c.soNgayDuocNo));
         /**
          * File Excel giữ hợp đồng ở HAI Ô TÁCH RỜI ("Căn cứ hợp đồng số" và "Ngày hợp đồng"),
@@ -2053,7 +2048,9 @@ export function FormLapDonMuaHang({
         maSoThueNCC: mstNCC.replace(/\D/g, "") || undefined,
         /* ★ Bảy ô của màn MISA: app đã biết đọc chúng từ 17/08/2026 nhưng biểu mẫu chưa từng in
            ra dòng nào, nên người lập không có chỗ điền và không ai báo là thiếu. */
-        maNCC: maNCC.trim() || undefined,
+        /* ★ "Mã nhà cung cấp:" = MÃ SỐ THUẾ — Sếp 07/10/2026: *"mã NCC này là MST luôn, chứ ko phải
+           định dạng NC000 nữa"*. Trước đó ô này in mã nội bộ `NC0000` (state `maNCC`, đã gỡ). */
+        maNCC: mstNCC.replace(/\D/g, "") || undefined,
         nhanVienMuaHang: nguoiDung.tenHienThi,
         thamChieu: thamChieu.trim() || undefined,
         soNgayDuocNo: Number(soNgayDuocNo) || undefined,
@@ -2371,7 +2368,6 @@ export function FormLapDonMuaHang({
    */
   function donForm() {
     setDongBang([]);
-    setMaNCC("");
     setMstNCC("");
     setTenNCC("");
     setDiaChiNCC("");
@@ -3885,9 +3881,9 @@ export function FormLapDonMuaHang({
                   * chật quá nên ô TÊN bị đẩy xuống dòng hai, lệch 52px so với nhãn. Nay còn hai
                   * thứ, ô tên nằm thẳng hàng với nhãn.
                   *
-                  * ⚠️ STATE `maNCC` VẪN GIỮ, ĐỪNG DỌN THEO: nó còn được ghi vào FILE EXCEL gửi nhà
-                  * cung cấp (ô "Mã nhà cung cấp:" hàng 7) và còn nhận giá trị từ bốn đường khác —
-                  * chọn NCC trong danh mục, đọc file Excel vào, thêm NCC mới, dọn form.
+                  * ★ 07/10/2026: state `maNCC` ĐÃ GỠ — ô "Mã nhà cung cấp:" (hàng 7) của file Excel
+                  * gửi NCC nay ghi MÃ SỐ THUẾ (Sếp: *"mã NCC này là MST luôn, chứ ko phải định dạng
+                  * NC000 nữa"*).
                   */}
                 <div className="flex flex-wrap items-center gap-2">
                   <Popover>
@@ -6069,10 +6065,8 @@ export function FormLapDonMuaHang({
             return;
           }
           /* Thêm xong thì ĐIỀN LUÔN vào đơn đang lập — người dùng mở hộp này giữa lúc lập đơn,
-             bắt họ mở lại danh mục để chọn là thêm một bước vô ích.
-             📌 Mã lấy từ KẾT QUẢ trả về, không lấy từ ô nhập: từ 25/08/2026 người dùng không
-             nhập mã nữa, `themNhaCungCap` mới là nơi biết mã vừa cấp là gì. */
-          setMaNCC(kq.ma);
+             bắt họ mở lại danh mục để chọn là thêm một bước vô ích. (Mã nội bộ `NC0000` thôi
+             điền vào đơn từ 07/10/2026 — mã NCC trên chứng từ là MST.) */
           setTenNCC(nccMoi.ten.trim());
           if (nccMoi.maSoThue.trim()) setMstNCC(nccMoi.maSoThue.trim());
           if (nccMoi.diaChi.trim()) setDiaChiNCC(nccMoi.diaChi.trim());

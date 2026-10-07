@@ -14,6 +14,8 @@
 //   cột ghi chú"*, *"Thêm nút thêm thông tin NCC khác"* — nút "Thêm nhà cung cấp" ngay tại màn này
 //   (trước đó chỉ thêm được trong form lập PO). Cùng một tầng ghi `themNhaCungCap` với form đó, nên
 //   mã `NC0000` vẫn cấp đúng một chỗ.
+// ★ Sếp 07/10/2026: **Mã NCC = Mã số thuế** (không còn dạng `NC0000`). Bảng có cột đầu "Mã NCC" (MST,
+//   chữ mờ) + cột "Mã số thuế" sau tên NCC (Sếp chọn "Cả hai cột"). Xem chú thích ở hàng tiêu đề bảng.
 // ★ Sếp 02/10/2026 (lượt 3): *"Thêm trường để nhân viên có thể tự thêm và nhóm được NCC theo mong
 //   muốn. Ví dụ: NCC chuyên cung cấp VLXD, NCC chuyên cung cấp bê tông.."*. Sếp chốt: một NCC thuộc
 //   được NHIỀU nhóm; nhập Excel vẫn bỏ qua nguyên dòng trùng — gán nhóm cho NCC đã có làm TẠI MÀN NÀY.
@@ -486,10 +488,20 @@ export default function TrangNhaCungCap() {
                         </TableHead>
                       )}
                       <TableHead className="w-14 text-center">STT</TableHead>
-                      <TableHead className="w-36 text-center">Mã số thuế</TableHead>
+                      {/* ★ Sếp 07/10/2026 (ảnh bản thật, khoanh hai chỗ): *"Mã nhà cung cấp, hiển thị ở chế độ
+                          mờ"* cho cột đầu, và *"Mã số thuế"* vào khoảng trống sau tên NCC. Rồi chốt: *"mã NCC này
+                          là MST luôn, chứ ko phải định dạng NC000 nữa"* và chọn "Cả hai cột" — nên cột "Mã NCC"
+                          hiện MST bằng chữ MỜ, cột "Mã số thuế" sau tên hiện cùng số đó. Mã nội bộ `NC0000`
+                          (`maNCC`) KHÔNG còn hiện ở đâu. */}
+                      {/* `whitespace-nowrap` đặt ở THẺ CON: bảng có `[&_th]:whitespace-normal` (độ ưu tiên cao hơn
+                          lớp trên chính `th`), nên đặt trên `th` là bị đè im lặng — tiêu đề xuống "Mã / NCC". */}
+                      <TableHead className="w-28 text-center">
+                        <span className="whitespace-nowrap">Mã NCC</span>
+                      </TableHead>
                       {/* Giãn cột chữ dài — cùng chỉ đạo Sếp 02/10/2026 ở bảng Theo dõi đơn hàng: *"có thanh
                           cuộn ngang nên ko bị giới hạn chiều rộng cột"*. Trước đây tên NCC xuống 4 dòng. */}
                       <TableHead className="min-w-64">Tên nhà cung cấp</TableHead>
+                      <TableHead className="w-36 text-center">Mã số thuế</TableHead>
                       <TableHead className="min-w-48">Nhóm</TableHead>
                       <TableHead className="min-w-72">Địa chỉ</TableHead>
                       <TableHead className="w-32 text-center">Điện thoại</TableHead>
@@ -513,8 +525,9 @@ export default function TrangNhaCungCap() {
                           </TableCell>
                         )}
                         <TableCell className="text-center tabular-nums">{i + 1}</TableCell>
-                        <TableCell className="text-center text-sm tabular-nums">{n.maSoThue}</TableCell>
+                        <TableCell className="text-center text-xs text-text-desc tabular-nums">{n.maSoThue}</TableCell>
                         <TableCell className="text-sm font-medium">{n.ten}</TableCell>
+                        <TableCell className="text-center text-sm tabular-nums">{n.maSoThue}</TableCell>
                         <TableCell>
                           <NhanNhom nhom={n.nhomNCC} />
                         </TableCell>
