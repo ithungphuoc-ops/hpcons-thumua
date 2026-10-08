@@ -57,6 +57,11 @@ async function docPhanHoi(res: Response): Promise<PhanHoiTrungChuyen> {
 //      Dùng LẠI nguyên cơ chế `canDongBoLaiPO`/`canDongBoLaiPODocLap` có sẵn (so JSON payload cũ
 //      với `qlkCtrSyncedSnapshot`) — hủy 1 PO làm `daHuy` đổi giá trị, tự nhận ra là "có thay đổi
 //      chưa gửi" như mọi lần sửa PO khác, không cần đường gửi/đường phát hiện riêng.
+//   ⑥ (08/10/2026, Sếp cho phép: "code đi" sau demo "Thu mua sửa PO") Thêm `quyCach` (= Thông số kỹ
+//      thuật của dòng PO) vào payload PO CÓ đề nghị (`xayDungPayloadPO`) — QLK CTR hiện tên + quy cách
+//      ĐÚNG theo PO và báo thủ kho khi Thu mua sửa. CHỈ gửi khi dòng có thông số (dòng không có thì
+//      payload giữ nguyên y hệt, không làm PO cũ bị gửi lại thừa). Không đổi field nào khác, không đổi
+//      điều kiện `apDung`. Payload PO độc lập vốn đã gửi `quyCach` từ trước.
 // Không dọn dẹp, không xoá gì khác của các anh — ghi ra đây để người đọc sau biết đây là sửa có
 // phép chứ không phải ai đó tự tiện.
 // ============================================================
@@ -128,6 +133,8 @@ function xayDungPayloadPO(po: DonDatHang, maDeXuat: string) {
       .map((d) => ({
         stt: d.sttDongDeNghi,
         tenVatTu: d.tenVatLieu,
+        // (08/10/2026, việc ⑥ ở đầu tệp) Thông số kỹ thuật — chỉ gửi khi có.
+        ...(d.thongSoKyThuat?.trim() ? { quyCach: d.thongSoKyThuat.trim() } : {}),
         dvt: d.donViTinh,
         soLuongDat: d.khoiLuongDat,
       })),
