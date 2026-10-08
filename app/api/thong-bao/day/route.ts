@@ -1,6 +1,11 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { verifyClientIdToken } from "@/5-ket-noi/hpcore-may-chu";
-import { daBatThongBaoAppTong, guiTinTheoMa } from "@/5-ket-noi/thong-bao-app-tong-may-chu";
+import {
+  daBatThongBaoAppTong,
+  guiCacTin,
+  laNguoiDungThuMua,
+  timTinCanGui,
+} from "@/5-ket-noi/thong-bao-app-tong-may-chu";
 import * as PQ from "@/5-ket-noi/phan-quyen-may-chu";
 import { docMaTin, GioiHanTanSuat } from "@/2-quy-trinh/thong-bao-app-tong";
 
@@ -11,14 +16,20 @@ import { docMaTin, GioiHanTanSuat } from "@/2-quy-trinh/thong-bao-app-tong";
 // thành công). Thân chỉ có `{ ids: string[] }` (≤ 20) — máy chủ đọc lại tin từ tài liệu chung, nên trình
 // duyệt KHÔNG chèn được nội dung hay người nhận.
 //
-// 🔴 KHÔNG GHI GÌ vào dữ liệu nghiệp vụ. Việc gửi chạy trong `after()` — trả lời ngay 202, gửi hỏng chỉ ghi log.
-// 🔴 Chống vòng lặp: trình duyệt chỉ gọi cho tin CHÍNH MÌNH vừa tạo (không bao giờ cho tin nhận qua
-// onSnapshot); ở đây thêm giới hạn tần suất theo người + tối đa 20 mã + chỉ tin tạo trong 15 phút gần nhất.
+// Thứ tự: nguồn + JSON → vé đăng nhập → công tắc → là người dùng Thu mua được vào app (danh bạ quyền,
+// đệm 5 phút) → giới hạn 10 lần/phút/người → PHA 1 (chỉ đọc khối `thongBao`) trả lời `timThay` để trình
+// duyệt biết mã nào chưa lên tới nơi → PHA 2 (người nhận + gửi) chạy trong `after()`.
 //
-// Công tắc: thiếu `NOTIFY_INGEST_KEY` → trả 200 `{ ok: true, tat: true }`, không đọc gì.
+// 🔴 KHÔNG GHI GÌ vào dữ liệu nghiệp vụ. Gửi hỏng chỉ ghi log.
+// 📌 Vé: `verifyClientIdToken` (tệp vùng cấm `hpcore-may-chu.ts`) KHÔNG kiểm thu hồi (`checkRevoked`) —
+//    không sửa được ở đây; người bị khoá app vẫn bị chặn nhờ bước kiểm danh bạ quyền.
+// Công tắc: thiếu / sai khuôn `NOTIFY_INGEST_KEY` → trả 200 `{ ok: true, tat: true }`, không đọc gì.
 // ============================================================
 
-const gioiHan = new GioiHanTanSuat(30, 60_000);
+/** Vercel: cho `after()` đủ thời gian (đợt gửi tự dừng nhận việc mới sau 20s). */
+export const maxDuration = 30;
+
+const gioiHan = new GioiHanTanSuat(10, 60_000);
 
 function layIdToken(req: NextRequest): string | undefined {
   return (req.headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i)?.[1];
@@ -60,6 +71,19 @@ export async function POST(req: NextRequest) {
   const ids = docMaTin(than);
   if (!ids) return NextResponse.json({ ok: false, loi: "MA_KHONG_HOP_LE" }, { status: 400 });
 
-  after(() => guiTinTheoMa(ids, nguoiGoi.uid, PQ));
-  return NextResponse.json({ ok: true }, { status: 202 });
+  if (!(await laNguoiDungThuMua(nguoiGoi.uid, PQ))) {
+    return NextResponse.json({ ok: false, loi: "KHONG_PHAI_NGUOI_DUNG_THU_MUA" }, { status: 403 });
+  }
+
+  let timThay: string[];
+  let canGui: Awaited<ReturnType<typeof timTinCanGui>>["canGui"];
+  try {
+    ({ timThay, canGui } = await timTinCanGui(ids));
+  } catch (e) {
+    console.warn("[thong-bao-app-tong] pha 1 lỗi:", e instanceof Error ? e.message : e, `người gọi=${nguoiGoi.uid}`);
+    return NextResponse.json({ ok: false, loi: "LOI_MAY_CHU" }, { status: 503 });
+  }
+
+  if (canGui.length > 0) after(() => guiCacTin(canGui, nguoiGoi.uid, PQ));
+  return NextResponse.json({ ok: true, timThay }, { status: 202 });
 }

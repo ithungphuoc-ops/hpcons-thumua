@@ -199,6 +199,8 @@ tích hợp — **đọc được, KHÔNG sửa**:
 `app/api/directory/route.ts` · `app/api/phan-quyen/route.ts` · `5-ket-noi/hpcore-may-chu.ts` ·
 `5-ket-noi/xac-thuc-firebase.ts` · `5-ket-noi/ho-so-tai-khoan.ts`
 
+📌 **NGOẠI LỆ DUY NHẤT — Sếp duyệt 08/10/2026, chỉ 1 dòng gửi thông báo:** `app/api/app-request/de-nghi-moi/route.ts` được thêm đúng một dòng `if (ketQua.moi) after(() => guiDeNghiMoi(ketQua.deNghi.id, PQ));` (kèm import `after`, `guiDeNghiMoi`, `PQ`) để báo chuông App Tổng *"Đề nghị đã duyệt xong cần phân bổ"*. Không sửa gì khác trong tệp đó; phần còn lại vẫn là vùng cấm.
+
 ⚠️ **Phần của họ còn nằm LẪN trong tệp dùng chung** — chỗ dễ xóa nhầm nhất:
 
 | Tệp | Giữ nguyên phần này |

@@ -284,7 +284,13 @@ import type {
    biết đó là mẫu gì. */
 import { NHAN_NHOM_DE_XUAT, NHAN_MAU_PO } from "@/3-du-lieu/kieu-du-lieu";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
-import { phanLoaiTin, type TinDePhanLoai } from "@/2-quy-trinh/thong-bao-app-tong";
+import {
+  capNhatSauKhiGui,
+  layMaCanGui,
+  themVaoHangCho,
+  type HangChoTin,
+  type TinDePhanLoai,
+} from "@/2-quy-trinh/thong-bao-app-tong";
 import { guiTinSangAppTong } from "@/3-du-lieu/gui-tin-app-tong";
 
 /**
@@ -2173,8 +2179,8 @@ const khoaPhieuNhan = (x: { id: string }) => `pn:${x.id}`;
  * ★ Đánh dấu tin chuông CHÍNH MÁY NÀY vừa sinh để báo sang chuông App Tổng sau khi lưu xong
  * (Sếp duyệt demo 08/10/2026). Chỉ giữ loại có trong bảng đã duyệt (`phanLoaiTin`). Xem `tinChoAppTong`.
  */
-function danhDauTinChoAppTong(cho: Map<string, number>, ds: readonly TinDePhanLoai[]): void {
-  for (const t of ds) if (phanLoaiTin(t) !== null) cho.set(t.id, Date.now());
+function danhDauTinChoAppTong(cho: HangChoTin, ds: readonly TinDePhanLoai[]): void {
+  themVaoHangCho(cho, ds);
 }
 
 function khoaTheoDoi(d: DuLieuLuu): string[] {
@@ -2546,26 +2552,20 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * 🔴 CHỈ đánh dấu ở chỗ CHÍNH MÁY NÀY sinh tin (`danhDauTinChoAppTong`), KHÔNG BAO GIỜ cho tin nhận
    * về qua `onSnapshot` (`apDung`) — không thì mỗi máy đang mở app đều báo một lần.
    * Chỉ gửi SAU KHI lần lưu chứa tin đó đã lên kho chung (nhánh `.then` của `dayLenMayChu`), vì máy chủ
-   * đọc lại tin từ kho chung chứ không tin nội dung trình duyệt gửi. Không gửi lại, không thử lại.
-   * Mã tin → lúc đánh dấu. Quá 10 phút chưa lên được kho chung thì bỏ.
+   * đọc lại tin từ kho chung chứ không tin nội dung trình duyệt gửi. Không thử lại vòng vòng.
+   * Mã tin → { lúc đánh dấu, số lần đã gửi }. Quá 10 phút chưa lên được kho chung thì bỏ; máy chủ chưa
+   * thấy mã thì gửi lại tối đa MỘT lần (luật ở `layMaCanGui` / `capNhatSauKhiGui`).
    * 📌 KHÔNG đổi cách lưu dữ liệu: chỉ đọc `d.thongBao` của bản vừa ghi xong.
    */
-  const tinChoAppTong = useRef<Map<string, number>>(new Map());
+  const tinChoAppTong = useRef<HangChoTin>(new Map());
   const xaTinChoAppTong = (d: DuLieuLuu) => {
     const cho = tinChoAppTong.current;
     if (cho.size === 0) return;
-    const daLen = new Set((d.thongBao ?? []).map((t) => t.id));
-    const bayGio = Date.now();
-    const ids: string[] = [];
-    for (const [id, luc] of cho) {
-      if (daLen.has(id)) {
-        ids.push(id);
-        cho.delete(id);
-      } else if (bayGio - luc > 10 * 60_000) {
-        cho.delete(id);
-      }
-    }
-    if (ids.length > 0) void guiTinSangAppTong(ids);
+    const ids = layMaCanGui(cho, new Set((d.thongBao ?? []).map((t) => t.id)));
+    if (ids.length === 0) return;
+    /* Máy chủ chưa thấy mã nào (vd lần ghi bị soát xung đột bỏ qua) thì giữ lại, gửi lại MỘT lần sau lần
+       lưu thành công kế tiếp; lỗi / không rõ thì bỏ. */
+    void guiTinSangAppTong(ids).then((thay) => capNhatSauKhiGui(cho, ids, thay));
   };
   const xaTinChoAppTongRef = useRef(xaTinChoAppTong);
   xaTinChoAppTongRef.current = xaTinChoAppTong;

@@ -31,7 +31,9 @@ export const DIA_CHI_APP = "https://thumua.hpcore.vn";
 /** Tối đa số mã tin một lần gọi `/api/thong-bao/day`. */
 export const TOI_DA_MA_MOI_LAN = 20;
 /** Tin cũ hơn mốc này thì không gửi (chặn gửi lại tin cũ bằng cách gọi lại mã của nó). */
-export const TUOI_TOI_DA_TIN_MS = 15 * 60_000;
+export const TUOI_TOI_DA_TIN_MS = 60 * 60_000;
+/** Cho phép đồng hồ máy lệch tới trước tối đa 10 phút. */
+export const LECH_TOI_TRUOC_MS = 10 * 60_000;
 
 export type LoaiTinAppTong =
   | "giao_viec"
@@ -147,16 +149,32 @@ export function chu(s: unknown, toiDa: number): string {
 
 /**
  * 🔴 BỎ SỐ TIỀN trong chữ tự do (lời nhắn, tiêu đề) — thông báo KHÔNG BAO GIỜ được mang giá.
- * Bắt: số + đơn vị tiền (đ, ₫, VND, đồng, nghìn/ngàn, triệu, tr, tỷ, k), hoặc ký hiệu tiền trước số.
- * Số không kèm đơn vị tiền (khối lượng, mã hồ sơ) GIỮ NGUYÊN.
+ *
+ * Che (thay bằng "[…]"), theo thứ tự:
+ *   ① ký hiệu tiền trước số: `₫ 45000`, `$200`, `VND 1.000`;
+ *   ② số + đơn vị tiền: đ/₫/đồng/VND/VNĐ/USD, nghìn/ngàn/k, triệu/tr (cả `1tr2`), tỷ/tỉ;
+ *   ③ số đứng sau từ khoá giá: giá · đơn giá · báo giá · tiền · thành tiền · tổng (giữ từ khoá);
+ *   ④ mọi số có NHÓM NGHÌN (`1.200.000`, `1,200`, `1 200 000`).
+ * GIỮ NGUYÊN: mã (`PO-2026`, `DMH260012`, `000231`), số nhỏ không đơn vị tiền (`10 tấn`, `12m`).
+ * ⚠️ Che thừa chấp nhận được (vd số lượng có nhóm nghìn `5.000 viên`) — lọt giá thì không.
  */
+const SO = String.raw`(?:\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)`;
+const DAU_SO = String.raw`(?<![\p{L}\d\-])`;
+const DON_VI_TIEN = String.raw`(?:\s?(?:triệu|trieu|tỷ|tỉ|ty|ti|nghìn|nghin|ngàn|ngan)(?![\p{L}])(?:\s?(?:đồng|dong|vnđ|vnd|đ)(?![\p{L}]))?|\s?(?:đồng|dong|vnđ|vnd|usd|₫|đ)(?![\p{L}])|\s?tr\d*(?![\p{L}])|\s?k(?![\p{L}\d]))`;
+const RE_KY_HIEU = new RegExp(String.raw`(?:₫|\$|VNĐ|VND|USD)\s?${SO}`, "giu");
+const RE_SO_DON_VI = new RegExp(`${DAU_SO}${SO}${DON_VI_TIEN}`, "giu");
+const RE_TU_KHOA = new RegExp(
+  String.raw`((?<![\p{L}])(?:thành tiền|đơn giá|báo giá|giá|tiền|tổng)(?![\p{L}])\s*(?:là|:|=)?\s*)${SO}`,
+  "giu",
+);
+const RE_NHOM_NGHIN = new RegExp(String.raw`${DAU_SO}\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d+)?(?!\d)`, "gu");
+
 export function boSoTien(s: string): string {
   return s
-    .replace(/(?:₫|\$|VNĐ|VND)\s*\d[\d.,]*/giu, "[…]")
-    .replace(
-      /\d[\d.,]*(?:\s?(?:triệu|trieu|tỷ|ty|nghìn|nghin|ngàn|ngan)(?:\s?(?:đồng|dong|đ|vnđ|vnd))?|\s?(?:đồng|vnđ|vnd|₫)|\s?đ(?![\p{L}])|\s?(?:tr|k)(?![\p{L}\d]))/giu,
-      "[…]",
-    );
+    .replace(RE_KY_HIEU, "[…]")
+    .replace(RE_SO_DON_VI, "[…]")
+    .replace(RE_TU_KHOA, "$1[…]")
+    .replace(RE_NHOM_NGHIN, "[…]");
 }
 
 // ------------------------------------------------------------
@@ -211,7 +229,8 @@ export function dungNoiDung(v: DauVaoNoiDung): NoiDungTin {
   if (code) meta.code = code;
   const body = [dongPhu, them].filter(Boolean).join(" — ");
   return {
-    title: catAnToan(`${bt} ${headline}`, 200),
+    /* Không biểu tượng ở title/headline — App Tổng tự gắn biểu tượng theo `kind`; chỉ push.title có. */
+    title: catAnToan(headline, 200),
     body: catAnToan(body || headline, 500),
     link: v.link,
     meta,
@@ -250,7 +269,7 @@ export function noiDungChoTin(
       });
     }
     case "de_nghi_moi":
-      return dungNoiDung({ loai, headline: "Đề nghị mới cần phân bổ", code, excerpt: tieuDe, link: linkHoSo(t.prId) });
+      return dungNoiDung({ loai, headline: "Đề nghị đã duyệt xong cần phân bổ", code, excerpt: tieuDe, link: linkHoSo(t.prId) });
     case "cho_duyet_bao_gia":
       return dungNoiDung({
         loai,
@@ -460,6 +479,71 @@ export function dungGoiGui(eventId: string, recipients: readonly string[], nd: N
   };
 }
 
+/** Tối đa người nhận mỗi lần gọi App Tổng. */
+export const TOI_DA_NGUOI_NHAN_MOI_GOI = 200;
+
+/**
+ * Chia người nhận thành nhiều gói ≤ 200. Một gói → giữ nguyên `eventId`; nhiều gói → `eventId:c<i>` (ổn
+ * định theo thứ tự người nhận đã sắp, để gửi lại vẫn trùng mã — App Tổng chống trùng từng gói).
+ */
+export function chiaGoiGui(eventId: string, recipients: readonly string[], nd: NoiDungTin): GoiGuiAppTong[] {
+  const ds = [...new Set(recipients)].sort();
+  if (ds.length <= TOI_DA_NGUOI_NHAN_MOI_GOI) return [dungGoiGui(eventId, ds, nd)];
+  const ra: GoiGuiAppTong[] = [];
+  for (let i = 0; i * TOI_DA_NGUOI_NHAN_MOI_GOI < ds.length; i += 1) {
+    ra.push(dungGoiGui(`${eventId}:c${i}`, ds.slice(i * TOI_DA_NGUOI_NHAN_MOI_GOI, (i + 1) * TOI_DA_NGUOI_NHAN_MOI_GOI), nd));
+  }
+  return ra;
+}
+
+/**
+ * Chạy `viec` cho từng phần tử, tối đa `soLuong` việc cùng lúc, dừng NHẬN việc mới khi quá `hanMs`
+ * (việc đang chạy để tự kết thúc theo hẹn giờ riêng). Không ném lỗi — lỗi từng việc bị nuốt.
+ * Trả số việc đã bắt đầu.
+ */
+export async function chaySongSong<T>(
+  ds: readonly T[],
+  soLuong: number,
+  viec: (x: T) => Promise<unknown>,
+  hanMs: number,
+): Promise<number> {
+  const batDau = Date.now();
+  let i = 0;
+  let daBatDau = 0;
+  const luong = async () => {
+    while (i < ds.length) {
+      if (Date.now() - batDau > hanMs) return;
+      const x = ds[i++];
+      daBatDau += 1;
+      try {
+        await viec(x);
+      } catch {
+        /* nuốt */
+      }
+    }
+  };
+  let henGio: ReturnType<typeof setTimeout> | undefined;
+  const het = new Promise<void>((r) => {
+    henGio = setTimeout(r, hanMs);
+  });
+  await Promise.race([Promise.all(Array.from({ length: Math.max(1, soLuong) }, luong)), het]);
+  clearTimeout(henGio);
+  return daBatDau;
+}
+
+/** Nên thử lại một lần không: lỗi mạng, 5xx, 429. Không thử lại 4xx khác. */
+export function nenThuLai(kq: { ok: boolean; status?: number; loiMang?: boolean }): boolean {
+  if (kq.ok) return false;
+  if (kq.loiMang) return true;
+  return kq.status === 429 || (typeof kq.status === "number" && kq.status >= 500);
+}
+
+/** Khoá cổng App Tổng có dùng được không — ngắn hơn 24 ký tự coi như TẮT (khoá thử / gõ nhầm). */
+export const DO_DAI_KHOA_TOI_THIEU = 24;
+export function khoaHopLe(k: string | undefined): boolean {
+  return (k ?? "").trim().length >= DO_DAI_KHOA_TOI_THIEU;
+}
+
 /**
  * Chặn gọi lại nhanh trong CÙNG một máy chủ (bộ nhớ ngắn hạn, mất khi máy chủ khởi động lại — App Tổng mới
  * là chốt chống trùng thật theo `eventId`).
@@ -524,5 +608,50 @@ export function docMaTin(than: unknown): string[] | null {
 export function tinConMoi(thoiDiem: string | undefined, bayGio = Date.now()): boolean {
   const t = Date.parse(String(thoiDiem ?? ""));
   if (!Number.isFinite(t)) return false;
-  return bayGio - t <= TUOI_TOI_DA_TIN_MS && t - bayGio <= 5 * 60_000;
+  return bayGio - t <= TUOI_TOI_DA_TIN_MS && t - bayGio <= LECH_TOI_TRUOC_MS;
+}
+
+// ------------------------------------------------------------
+// HÀNG CHỜ PHÍA TRÌNH DUYỆT — mã tin máy này vừa sinh, chờ báo App Tổng (`kho-du-lieu.tsx` dùng)
+// ------------------------------------------------------------
+
+/** `lanGui` = số lần đã gửi mã này cho máy chủ. Tối đa 2 (gửi đầu + gửi lại một lần nếu máy chủ chưa thấy). */
+export type HangChoTin = Map<string, { luc: number; lanGui: number }>;
+export const HAN_CHO_TIN_MS = 10 * 60_000;
+const SO_LAN_GUI_TOI_DA = 2;
+
+/** Đánh dấu tin máy này vừa sinh — chỉ loại có trong bảng đã duyệt; mã đã có thì giữ nguyên. */
+export function themVaoHangCho(cho: HangChoTin, ds: readonly TinDePhanLoai[], bayGio = Date.now()): void {
+  for (const t of ds) if (phanLoaiTin(t) !== null && !cho.has(t.id)) cho.set(t.id, { luc: bayGio, lanGui: 0 });
+}
+
+/**
+ * Sau một lần lưu THÀNH CÔNG: lấy các mã có trong bản vừa ghi (`daLen`) mà chưa gửi đủ lượt; tăng lượt.
+ * Mã quá hạn 10 phút bị bỏ.
+ */
+export function layMaCanGui(cho: HangChoTin, daLen: ReadonlySet<string>, bayGio = Date.now()): string[] {
+  const ra: string[] = [];
+  for (const [id, v] of cho) {
+    if (bayGio - v.luc > HAN_CHO_TIN_MS || v.lanGui >= SO_LAN_GUI_TOI_DA) {
+      cho.delete(id);
+      continue;
+    }
+    if (daLen.has(id)) {
+      v.lanGui += 1;
+      ra.push(id);
+    }
+  }
+  return ra;
+}
+
+/**
+ * Máy chủ trả lời: mã đã thấy → xong; mã chưa thấy → giữ để gửi lại MỘT lần (nếu còn lượt).
+ * `thay = null` (lỗi / không biết) → bỏ hết, không gửi lại.
+ */
+export function capNhatSauKhiGui(cho: HangChoTin, daGui: readonly string[], thay: ReadonlySet<string> | null): void {
+  for (const id of daGui) {
+    const v = cho.get(id);
+    if (!v) continue;
+    if (thay === null || thay.has(id) || v.lanGui >= SO_LAN_GUI_TOI_DA) cho.delete(id);
+  }
 }

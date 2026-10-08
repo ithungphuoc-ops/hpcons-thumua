@@ -201,7 +201,8 @@ kiem("Nội dung: đường dẫn đúng trang — hồ sơ /de-nghi, cảnh bá
     de_nghi: a.link === "https://thumua.hpcore.vn/de-nghi/pr1",
     don: b.link === "https://thumua.hpcore.vn/don-hang/po9",
     bo_bieu_tuong_dau: !b.meta.headline.startsWith("⚠"),
-    title_co_bieu_tuong: b.title.startsWith("⚠️"),
+    title_khong_bieu_tuong: !b.title.startsWith("⚠"),
+    push_co_bieu_tuong: b.push.title.startsWith("⚠️"),
   });
 });
 kiem("Nội dung: kho đã nhận đủ / chưa đủ", () => {
@@ -252,10 +253,13 @@ kiem("Giới hạn tần suất theo người", () => {
   const ds = [g.choPhep("u", 0), g.choPhep("u", 1), g.choPhep("u", 2), g.choPhep("u", 3), g.choPhep("v", 3), g.choPhep("u", 1500)];
   return ds.join() === "true,true,true,false,true,true" || ds.join();
 });
-kiem("Tin cũ (> 15 phút) hoặc thời điểm hỏng không gửi", () =>
+kiem("Tin cũ (> 60 phút), lệch tới trước > 10 phút hoặc thời điểm hỏng không gửi", () =>
   sai({
     moi: TB.tinConMoi(new Date(Date.now() - 60_000).toISOString()),
-    cu: !TB.tinConMoi(new Date(Date.now() - 16 * 60_000).toISOString()),
+    con_59_phut: TB.tinConMoi(new Date(Date.now() - 59 * 60_000).toISOString()),
+    cu: !TB.tinConMoi(new Date(Date.now() - 61 * 60_000).toISOString()),
+    toi_truoc_9: TB.tinConMoi(new Date(Date.now() + 9 * 60_000).toISOString()),
+    toi_truoc_11: !TB.tinConMoi(new Date(Date.now() + 11 * 60_000).toISOString()),
     hong: !TB.tinConMoi("abc"),
   }),
 );
@@ -289,10 +293,164 @@ kiem("Mã nguồn: route /api/thong-bao/day kiểm vé + nguồn + JSON + tần 
     ve: r.includes("verifyClientIdToken("),
     nguon: r.includes("cungNguon(req)"),
     json: r.includes("application/json"),
-    tan_suat: r.includes("gioiHan.choPhep("),
-    after: /after\(\(\) => guiTinTheoMa\(ids, nguoiGoi\.uid, PQ\)\)/.test(r),
+    tan_suat_10: r.includes("new GioiHanTanSuat(10, 60_000)") && r.includes("gioiHan.choPhep("),
+    nguoi_dung_thu_mua: r.includes("laNguoiDungThuMua(nguoiGoi.uid, PQ)"),
+    pha_1_truoc:
+      r.indexOf("timTinCanGui(ids)") > r.indexOf("laNguoiDungThuMua(nguoiGoi") &&
+      r.indexOf("timTinCanGui(ids)") < r.indexOf("after(() =>"),
+    tra_tim_thay: r.includes("{ ok: true, timThay }"),
+    after: /after\(\(\) => guiCacTin\(canGui, nguoiGoi\.uid, PQ\)\)/.test(r),
+    max_duration: /export const maxDuration = 30;/.test(r),
   });
 });
+
+// ---------- 8. Vòng soát 08/10/2026 ----------
+kiem("Che tiền: các ca lọt đã đo (giá, đơn giá/m3, tỉ, 1tr2, USD, nhóm nghìn có dấu cách)", () => {
+  const ca = {
+    gia: "giá 1.200.000",
+    don_gia_m3: "đơn giá 150.000 / m3",
+    ti: "khoảng 1,2 tỉ",
+    tr2: "chào 1tr2",
+    usd: "1,200 USD",
+    cach: "1 200 000 đ",
+    ty_dong: "1,5 tỷ đồng",
+    gia_khong_nhom: "giá 45000",
+    thanh_tien: "thành tiền: 980000",
+    tong: "tổng 3500000",
+    ky_hieu: "$200 và ₫ 45000",
+    nhom_tran: "chi 2.500.000 cho vận chuyển",
+  };
+  const ra = Object.fromEntries(Object.entries(ca).map(([k, v]) => [k, TB.boSoTien(v)]));
+  const lot = Object.entries(ra).filter(([, v]) => /\d/.test(v.replace(/m3/g, "")));
+  const giu = {
+    po: TB.boSoTien("PO-2026 gửi kho") === "PO-2026 gửi kho",
+    dmh: TB.boSoTien("DMH260012 · 000231") === "DMH260012 · 000231",
+    tan: TB.boSoTien("giao 10 tấn trước thứ 6, dài 12m, 5 trụ") === "giao 10 tấn trước thứ 6, dài 12m, 5 trụ",
+    ten_phieu: TB.boSoTien("1.0. Phiếu đề nghị") === "1.0. Phiếu đề nghị",
+  };
+  return lot.length === 0 && Object.values(giu).every(Boolean)
+    ? true
+    : `lọt: ${JSON.stringify(lot)} · giữ: ${JSON.stringify(giu)}`;
+});
+kiem('Nội dung: đề nghị mới = "Đề nghị đã duyệt xong cần phân bổ"; title/headline không biểu tượng, push.title có', () => {
+  const nd = TB.noiDungChoTin(tin({ id: "tb-req-1" }), "de_nghi_moi");
+  return sai({
+    headline: nd.meta.headline === "Đề nghị đã duyệt xong cần phân bổ",
+    title: nd.title === "Đề nghị đã duyệt xong cần phân bổ",
+    push: nd.push.title === "🆕 Đề nghị đã duyệt xong cần phân bổ",
+  });
+});
+kiem("Chia người nhận ≤ 200/gói, mã sự kiện theo gói; ≤ 200 giữ nguyên mã", () => {
+  const nd = TB.noiDungChoTin(tin({ id: "tb-req-1" }), "de_nghi_moi");
+  const nguoiNhan = Array.from({ length: 450 }, (_, i) => `u${String(i).padStart(3, "0")}`);
+  const goi = TB.chiaGoiGui("thu_mua:x", nguoiNhan, nd);
+  const mot = TB.chiaGoiGui("thu_mua:x", nguoiNhan.slice(0, 200), nd);
+  return sai({
+    ba_goi: goi.length === 3 && goi.every((g) => g.recipients.length <= 200),
+    du_nguoi: new Set(goi.flatMap((g) => g.recipients)).size === 450,
+    ma_goi: goi.map((g) => g.eventId).join() === "thu_mua:x:c0,thu_mua:x:c1,thu_mua:x:c2",
+    mot_goi: mot.length === 1 && mot[0].eventId === "thu_mua:x",
+  });
+});
+kiem("Thử lại: chỉ lỗi mạng / 5xx / 429; không thử lại 4xx khác", () =>
+  sai({
+    mang: TB.nenThuLai({ ok: false, loiMang: true }),
+    s503: TB.nenThuLai({ ok: false, status: 503 }),
+    s429: TB.nenThuLai({ ok: false, status: 429 }),
+    s400: !TB.nenThuLai({ ok: false, status: 400 }),
+    s401: !TB.nenThuLai({ ok: false, status: 401 }),
+    ok: !TB.nenThuLai({ ok: true, status: 200 }),
+  }),
+);
+kiem("Khoá cổng < 24 ký tự coi như TẮT", () =>
+  sai({
+    rong: !TB.khoaHopLe(""),
+    ngan: !TB.khoaHopLe("abc123"),
+    du: TB.khoaHopLe("x".repeat(24)),
+    cat_trang: !TB.khoaHopLe(` ${"x".repeat(22)} `),
+  }),
+);
+kiem("Hàng chờ trình duyệt: chỉ gửi mã đã lên kho chung; máy chủ chưa thấy → gửi lại đúng 1 lần; lỗi → bỏ", () => {
+  const cho = new Map();
+  TB.themVaoHangCho(
+    cho,
+    [
+      { id: "tb-vm-1", laViecMoi: true },
+      { id: "tb-5", denBuoc: "dat_hang", tuBuoc: "lap_don_mua_hang" },
+      { id: "tb-ct-2", laChuyenTiep: true },
+      { id: "tb-ct-3", laChuyenTiep: true },
+    ],
+    0,
+  );
+  const boLoai = !cho.has("tb-5");
+  const l1 = TB.layMaCanGui(cho, new Set(["tb-vm-1", "tb-ct-2", "tb-ct-3"]), 1);
+  TB.capNhatSauKhiGui(cho, l1, new Set(["tb-vm-1"])); // tb-ct-2, tb-ct-3 máy chủ chưa thấy
+  const l2 = TB.layMaCanGui(cho, new Set(["tb-ct-2", "tb-ct-3"]), 2);
+  TB.capNhatSauKhiGui(cho, ["tb-ct-2"], new Set()); // vẫn chưa thấy → hết lượt, bỏ
+  TB.capNhatSauKhiGui(cho, ["tb-ct-3"], null); // lỗi → bỏ
+  const l3 = TB.layMaCanGui(cho, new Set(["tb-ct-2", "tb-ct-3"]), 3);
+  const cho2 = new Map();
+  TB.themVaoHangCho(cho2, [{ id: "tb-ct-9", laChuyenTiep: true }], 0);
+  const chuaLen = TB.layMaCanGui(cho2, new Set(), 1);
+  const conGiuSauKhiChuaLen = cho2.has("tb-ct-9");
+  const quaHan = TB.layMaCanGui(cho2, new Set(["tb-ct-9"]), TB.HAN_CHO_TIN_MS + 1);
+  return sai({
+    bo_loai: boLoai,
+    l1: [...l1].sort().join() === "tb-ct-2,tb-ct-3,tb-vm-1",
+    l2: [...l2].sort().join() === "tb-ct-2,tb-ct-3",
+    l3: l3.length === 0 && cho.size === 0,
+    chua_len_khong_gui: chuaLen.length === 0 && conGiuSauKhiChuaLen,
+    qua_han_bo: quaHan.length === 0 && cho2.size === 0,
+  });
+});
+kiem("Mã nguồn: máy chủ đọc HAI PHA (pha 1 chỉ thongBao; pha 2 không thongBao, không giaDonHang), danh bạ đệm 5 phút", () => {
+  const m = readFileSync("5-ket-noi/thong-bao-app-tong-may-chu.ts", "utf8");
+  return sai({
+    pha1: m.includes('fieldMask: ["thongBao"]'),
+    pha2: m.includes('fieldMask: ["deNghi", "donHang", "baoGia", "phieuNhan"]'),
+    khong_gia: !m.includes('"giaDonHang"'),
+    dem_5_phut: m.includes("const HAN_DEM_MS = 5 * 60_000;"),
+    song_song: m.includes("const SONG_SONG = 4;") && m.includes("HAN_DOT_GUI_MS = 20_000"),
+  });
+});
+kiem("Mã nguồn: de-nghi-moi chỉ thêm ĐÚNG 1 dòng gửi, trong nhánh ketQua.moi", () => {
+  const r = readFileSync("app/api/app-request/de-nghi-moi/route.ts", "utf8");
+  const dong = r.split(/\r?\n/).filter((l) => l.includes("guiDeNghiMoi("));
+  return sai({
+    mot_dong: dong.length === 1,
+    dung_nhanh: /if \(ketQua\.moi\) after\(\(\) => guiDeNghiMoi\(ketQua\.deNghi\.id, PQ\)\);/.test(dong[0] ?? ""),
+  });
+});
+
+/* Bài bất đồng bộ — chạy song song có giới hạn + hạn tổng. */
+{
+  let dangChay = 0;
+  let caoNhat = 0;
+  const xong = [];
+  await TB.chaySongSong(
+    [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    4,
+    async (x) => {
+      dangChay += 1;
+      caoNhat = Math.max(caoNhat, dangChay);
+      await new Promise((r) => setTimeout(r, 10));
+      dangChay -= 1;
+      if (x === 3) throw new Error("hỏng một việc");
+      xong.push(x);
+    },
+    5000,
+  );
+  const t0 = Date.now();
+  const daBatDau = await TB.chaySongSong([1, 2, 3, 4, 5, 6], 2, () => new Promise((r) => setTimeout(r, 200)), 250);
+  const tg = Date.now() - t0;
+  const r = sai({ toi_da_4: caoNhat <= 4 && caoNhat >= 2, loi_khong_chan: xong.length === 8, han_tong: tg < 400 && daBatDau <= 4 });
+  if (r === true) dat += 1;
+  else
+    truot.push({
+      ten: "Chạy song song: tối đa 4 việc, một việc hỏng không chặn, dừng nhận việc khi hết hạn",
+      thucTe: `${r} · cao=${caoNhat} xong=${xong.length} tg=${tg} bd=${daBatDau}`,
+    });
+}
 
 const tong = dat + truot.length;
 if (truot.length === 0) {
