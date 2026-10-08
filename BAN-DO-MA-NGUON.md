@@ -39,6 +39,7 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Kéo thả thẻ** chuyển sai bước / báo sai lý do | `2-quy-trinh/giai-doan-mua-hang.ts` → `quyetDinhKeoTha` (**luật**) + `trang/de-nghi-danh-sach.tsx` → `xuLyTha` (**mở hộp xác nhận**) / `thucThiKeoTha` (**làm thật**) |
 | **Hộp xác nhận chuyển bước** thiếu cảnh báo / sai chữ | `2-quy-trinh/giai-doan-mua-hang.ts` → `dungXacNhanKeoTha` (nội dung) + `trang/de-nghi-danh-sach.tsx` (hộp thoại) |
 | **Chuông thông báo** 🔔 trên Header sai / không hiện | `1-giao-dien/khung-app/nut-thong-bao.tsx` (hiển thị) — nguồn dữ liệu ở `3-du-lieu/kho-du-lieu.tsx` |
+| **Thông báo sang chuông App Tổng** (+ đẩy màn hình/điện thoại) không tới / tới nhầm người / lộ giá (Sếp duyệt demo 08/10/2026) | Luật thuần (loại tin, người nhận, nội dung không giá, cắt độ dài): `2-quy-trinh/thong-bao-app-tong.ts` · Đọc kho chung (CHỈ ĐỌC) + gọi App Tổng: `5-ket-noi/thong-bao-app-tong-may-chu.ts` · Cửa trình duyệt gọi: `app/api/thong-bao/day/route.ts` (gọi từ `3-du-lieu/gui-tin-app-tong.ts`, sau khi lần lưu chứa tin mới đã lên kho chung — `kho-du-lieu.tsx` → `tinChoAppTong`) · Máy chủ tự gửi: `cap-nhat-de-nghi` / `de-nghi-da-xoa` (đề xuất bị xoá) và `qlk-ctr/phieu-nhan-moi` (kho đã nhận). Tắt khi thiếu `NOTIFY_INGEST_KEY`. Bài kiểm: `npm run kiem-thong-bao` |
 | **Nút ⓘ Hướng dẫn bước** (đầu cột bảng quy trình + thanh giai đoạn) sai / không mở | Hộp: `thanh-phan-nghiep-vu/hop-huong-dan-giai-doan.tsx` · **Nội dung chữ**: `2-quy-trinh/huong-dan-giai-doan.ts` (🔴 văn bản nghiệp vụ, chép nguyên văn quy trình công ty — **người lập trình** không tự sửa) |
 | **Sửa được nội dung hướng dẫn bước** (nút *Sửa nội dung hướng dẫn* trong hộp ⓘ) — không thấy nút / sửa xong không hiện / muốn về bản gốc | Nút + form: `thanh-phan-nghiep-vu/hop-huong-dan-giai-doan.tsx` · Quyền: `quyen.suaPODaChot` (`4-phan-quyen/quyen.ts`) · Chỗ lưu: `cauHinh.huongDanTuyChinh` (`2-quy-trinh/cau-hinh-quy-trinh.ts`) · Đổi văn bản ↔ cấu trúc: `huongDanHienThi` / `vanBanThanhHuongDan` / `huongDanThanhVanBan` (`2-quy-trinh/huong-dan-giai-doan.ts`).<br>📌 **Khôi phục bản gốc = XOÁ khoá**, không chép bản gốc vào. Bản sửa rỗng cũng tự về gốc |
 | **Khối "Soát theo ngưỡng giá trị"** ở màn báo giá sai số / sai lời nhắc | Hiển thị: `thanh-phan-nghiep-vu/khoi-nguong-gia-tri.tsx` · **Luật**: `2-quy-trinh/nguong-gia-tri.ts` |
@@ -197,6 +198,8 @@ tích hợp — **đọc được, KHÔNG sửa**:
 `app/api/app-request/de-nghi-moi/route.ts` · `app/api/auth/hpcore-session/route.ts` ·
 `app/api/directory/route.ts` · `app/api/phan-quyen/route.ts` · `5-ket-noi/hpcore-may-chu.ts` ·
 `5-ket-noi/xac-thuc-firebase.ts` · `5-ket-noi/ho-so-tai-khoan.ts`
+
+📌 **NGOẠI LỆ DUY NHẤT — Sếp duyệt 08/10/2026, chỉ 1 dòng gửi thông báo:** `app/api/app-request/de-nghi-moi/route.ts` được thêm đúng một dòng `if (ketQua.moi) after(() => guiDeNghiMoi(ketQua.deNghi.id, PQ));` (kèm import `after`, `guiDeNghiMoi`, `PQ`) để báo chuông App Tổng *"Đề nghị đã duyệt xong cần phân bổ"*. Không sửa gì khác trong tệp đó; phần còn lại vẫn là vùng cấm.
 
 ⚠️ **Phần của họ còn nằm LẪN trong tệp dùng chung** — chỗ dễ xóa nhầm nhất:
 

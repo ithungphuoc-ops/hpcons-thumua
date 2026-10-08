@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
@@ -13,6 +13,8 @@ import {
 import type { DeNghiMuaHang, DonDatHang, ThongBaoChuyenBuoc } from "@/3-du-lieu/kieu-du-lieu";
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import { TEN_COLLECTION_NHAT_KY } from "@/3-du-lieu/nhat-ky-he-thong";
+import { guiTinTheoMa } from "@/5-ket-noi/thong-bao-app-tong-may-chu";
+import * as PQ from "@/5-ket-noi/phan-quyen-may-chu";
 
 // ════════════════════════════════════════════════════════════════════════════════════════
 // ★ CỬA NHẬN SỰ KIỆN SAU DUYỆT TỪ APP REQUEST — đợt 1 "liên kết 4 app" (Sếp chốt 03/10/2026).
@@ -223,8 +225,19 @@ export async function POST(req: NextRequest) {
           moTa: `${moTaNhatKy} [mã sự kiện ${suKienId}]`,
         });
       }
-      return { timThay, daXuLyTruoc, daDoi: deNghiDaDoi.map((d) => d.id), trangThai: daXuLyTruoc ? "da_xu_ly_truoc" : trangThai };
+      return {
+        timThay,
+        daXuLyTruoc,
+        daDoi: deNghiDaDoi.map((d) => d.id),
+        trangThai: daXuLyTruoc ? "da_xu_ly_truoc" : trangThai,
+        tinIds: tinMoi.map((t) => t.id),
+      };
     });
+
+    /* ★ Báo chuông App Tổng (Sếp duyệt demo 08/10/2026) — chỉ tin VỪA ghi ở lượt này (gọi lại lần hai
+       không có tin mới nên không gửi). Chạy sau khi trả lời, hỏng chỉ ghi log. */
+    const tinIds: string[] = ("tinIds" in ketQua ? ketQua.tinIds : undefined) ?? [];
+    if (tinIds.length > 0) after(() => guiTinTheoMa(tinIds, null, PQ));
 
     return NextResponse.json({ ok: true, trangThai: ketQua.trangThai, daDoi: ketQua.daDoi });
   } catch (error) {

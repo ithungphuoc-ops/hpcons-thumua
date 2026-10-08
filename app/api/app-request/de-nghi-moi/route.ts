@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 /* ★ Thêm 15/09/2026 (có phép Sếp): mở thêm MỘT kết nối Admin SDK sang project `hpcons-request`
    để tự đọc loại đề nghị — xem `docLoaiTuHoSoAppRequest` cuối tệp. Phần `FieldValue` và
    `getHpcoreDb` của phiên tích hợp giữ nguyên, không đụng. */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getHpcoreDb, getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
+import { guiDeNghiMoi } from "@/5-ket-noi/thong-bao-app-tong-may-chu";
+import * as PQ from "@/5-ket-noi/phan-quyen-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
 import { tuMap, ghiTheoDangHienCo, chonBanSomNhat } from "@/2-quy-trinh/ghi-tung-phan";
 import { maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
@@ -511,6 +513,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
       return { moi: true as const, deNghi: deNghiMoi };
     });
 
+    if (ketQua.moi) after(() => guiDeNghiMoi(ketQua.deNghi.id, PQ)); // Sếp duyệt 08/10/2026 — chỉ 1 dòng gửi thông báo App Tổng
     return NextResponse.json({
       ok: true,
       trangThai: ketQua.moi ? "da_tao" : "da_ton_tai",
