@@ -229,6 +229,16 @@ export function tinhLuuQuyenRieng(v: {
   const xoa: string[] = [];
   const giuNguyen: string[] = [];
   for (const n of nhan) {
+    /* ★ NHỊP 1 (07/10/2026): bản ghi có ô "Xem bước quy trình" của BẢN SAU (chỉ gặp khi Instant Rollback
+       từ nhịp 2 về bản này) → KHÔNG ghi đè, cả tick lẫn "Bỏ quyền riêng". Bản này không biết các ô đó nên
+       ghi lại là xoá mất chúng — người được bỏ bước sẽ im lặng thấy lại bước đó khi bản mới lên lại. */
+    if (n.banGhi?.oBanSau?.length) {
+      return {
+        ok: false,
+        status: 409,
+        error: `${n.nd.tenHienThi || n.uid}: bản quyền riêng có ô “Xem bước quy trình” của bản app mới hơn — bản đang chạy cũ hơn nên không lưu (lưu sẽ làm mất các ô đó). Nhờ IT đưa bản mới lên lại rồi lưu.`,
+      };
+    }
     const laQT = n.nd.vaiTro === "admin";
     const oDe = oDeCuaHoSo(v.mau, n.nd);
     const goc = quyenTheoChucDanhCoMau(tinhQuyenTheoChucDanh(n.nd), oDe);
@@ -402,6 +412,8 @@ export function tinhLuuMauChucDanh(v: {
     khuon: 1,
     phienBan: v.mauCu.phienBan + 1,
     de: deMoi,
+    /* ★ NHỊP 1 (07/10/2026): giữ dấu của bản sau — ô bản sau trong `de` đã được chép nguyên ở trên. */
+    ...(v.mauCu.coOXemBuoc === true ? { coOXemBuoc: true as const } : {}),
     capNhatLuc: v.luc,
     capNhatBoi: v.capNhatBoi,
     capNhatBoiTen: v.capNhatBoiTen,

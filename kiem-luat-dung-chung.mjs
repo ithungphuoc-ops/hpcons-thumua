@@ -15090,6 +15090,139 @@ kiem(
               };
             },
           );
+
+          // ══════════════════════════════════════════════════════════════
+          // ★ NHỊP 1 — ô tick "Xem bước quy trình" (Sếp 07/10/2026: "Điều chỉnh này thành chức năng phân
+          // quyền, và được tick chọn cho xem bước nào"). Bản này CHỈ dạy bộ đọc nhận ra 9 khoá của bản sau,
+          // để Instant Rollback nhịp 2 → nhịp 1 không khoá cả phòng ngoài app. Hai chiều mỗi luật.
+          // ══════════════════════════════════════════════════════════════
+          const CHU_N1 = "Sếp 07/10/2026 — ô tick Xem bước quy trình · nhịp 1 (bộ đọc khoan dung)";
+          const BUOC_9 = ["xemBuocTiepNhan", "xemBuocYeuCauBaoGia", "xemBuocXetDuyetBaoGia", "xemBuocLapDon", "xemBuocDatHang", "xemBuocNhanHang", "xemBuocHoSoThanhToan", "xemBuocHoanThanh", "xemBuocThatBai"];
+          const banK2Tho = (n, ngoaiLe, them = {}) => ({ khuon: 2, ngoaiLe, theoChucDanh: QR.dauChucDanhCua(n), quyen: {}, capNhatLuc: LUC, capNhatBoi: "x", ...them });
+
+          kiem(
+            "N1-6: tên 9 khoá 'Xem bước' của bản sau ĐÓNG BĂNG đúng thứ tự, và CHƯA vào KHOA_TICK ở nhịp 1",
+            /* Lệch một chữ với nhịp 2 là bộ đọc không nhận ra → rollback hỏng y như không có nhịp 1. */
+            CHU_N1,
+            () => {
+              const dung = JSON.stringify(QR.KHOA_XEM_BUOC_SAP_CO) === JSON.stringify(BUOC_9);
+              const chuaVao = BUOC_9.every((k) => !QR.KHOA_TICK.includes(k));
+              return {
+                duoc: dung && chuaVao && QR.DAU_CO_O_XEM_BUOC === "coOXemBuoc",
+                thucTe: `trùng danh sách đóng băng=${dung} · chưa vào KHOA_TICK=${chuaVao} · dấu=${QR.DAU_CO_O_XEM_BUOC}`,
+                mongDoi: "trùng danh sách đóng băng=true · chưa vào KHOA_TICK=true · dấu=coOXemBuoc",
+              };
+            },
+          );
+
+          kiem(
+            "N1-1: bản quyền riêng khuôn 2 có ô 'Xem bước' của bản sau → ĐỌC ĐƯỢC (bỏ ô đó, ghi oBanSau); khoá lạ khác / giá trị không boolean vẫn SAI KHUÔN",
+            /* Trước nhịp 1: khoá lạ ở khuôn 2 → null → route 500 → mọi người không phải Quản trị bị chặn vào app. */
+            CHU_N1,
+            () => {
+              const doc = QR.chuanHoaBanGhiQuyenRieng(banK2Tho(NV, { xemGia: false, xemBuocXetDuyetBaoGia: false }, { coOXemBuoc: true }));
+              const chiBuoc = QR.chuanHoaBanGhiQuyenRieng(banK2Tho(NV, { xemBuocDatHang: false }));
+              const thuong = QR.chuanHoaBanGhiQuyenRieng(banK2Tho(NV, { xemGia: false }));
+              const la = QR.chuanHoaBanGhiQuyenRieng(banK2Tho(NV, { khoaLa: false }));
+              const sai = QR.chuanHoaBanGhiQuyenRieng(banK2Tho(NV, { xemBuocTiepNhan: "x" }));
+              /* Hiệu lực: ô bản sau KHÔNG tác dụng ở bản này — bản ghi chỉ có ô bước = y hệt chức danh. */
+              const gocNV = hieuLuc(NV, null);
+              const hlChiBuoc = hieuLuc(NV, chiBuoc);
+              const giongGoc = QR.KHOA_TICK.every((k) => hlChiBuoc[k] === gocNV[k]);
+              const ok = {
+                doc: doc !== null && JSON.stringify(doc.ngoaiLe) === '{"xemGia":false}' && JSON.stringify(doc.oBanSau) === '["xemBuocXetDuyetBaoGia","coOXemBuoc"]',
+                chiBuoc: chiBuoc !== null && JSON.stringify(chiBuoc.ngoaiLe) === "{}" && giongGoc,
+                thuong: thuong !== null && thuong.oBanSau === undefined,
+                la: la === null,
+                sai: sai === null,
+              };
+              const hong = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
+              return {
+                duoc: hong.length === 0,
+                thucTe: hong.length === 0 ? "đủ 5 ca" : `sai: [${hong.join(", ")}] · doc=${JSON.stringify(doc)}`,
+                mongDoi: "ô bước + dấu đọc được, ra oBanSau · chỉ ô bước = theo chức danh · bản thường không oBanSau · khoá lạ / 'x' → null",
+              };
+            },
+          );
+
+          kiem(
+            "N1-2: mẫu chức danh có ô 'Xem bước' của bản sau (kể cả mang false) → ĐỌC ĐƯỢC, GIỮ NGUYÊN trong de, không tác dụng; cột lạ / khoá lạ mang false vẫn HỎNG (B-F5)",
+            /* Trước nhịp 1: ô lạ mang false trong mẫu = MẪU HỎNG → route 500 "mau-hong" → chặn mọi người không phải Quản trị. */
+            CHU_N1,
+            () => {
+              const tho = { khuon: 1, phienBan: 3, coOXemBuoc: true, de: { ke_toan: { xemBuocYeuCauBaoGia: true }, nhan_vien_thu_mua: { xemBuocDatHang: false, xemCongNo: false } } };
+              const r = MCD.chuanHoaMauChucDanh(tho);
+              const docLai = "mau" in r ? MCD.chuanHoaMauChucDanh(r.mau) : r;
+              const kt = VT("ke_toan");
+              const nvtm = VT("nhan_vien_thu_mua");
+              const ktKhongDoi = "mau" in r && QR.KHOA_TICK.every((k) => MCD.quyenCuaVaiTroCoMau(kt, r.mau)[k] === MCD.quyenCuaVaiTroCoMau(kt, MCD.MAU_TRONG)[k]);
+              const nvCongNo = "mau" in r && MCD.quyenCuaVaiTroCoMau(nvtm, r.mau).xemCongNo === false;
+              const hongLa = "loi" in MCD.chuanHoaMauChucDanh({ khuon: 1, phienBan: 1, de: { ke_toan: { khoaLa: false } } });
+              const hongKhongBool = "loi" in MCD.chuanHoaMauChucDanh({ khuon: 1, phienBan: 1, de: { ke_toan: { xemBuocTiepNhan: "x" } } });
+              const hongCotLa = "loi" in MCD.chuanHoaMauChucDanh({ khuon: 1, phienBan: 1, de: { cot_la: { xemBuocTiepNhan: false } } });
+              const ok = {
+                doc: "mau" in r && r.mau.de.ke_toan?.xemBuocYeuCauBaoGia === true && r.mau.de.nhan_vien_thu_mua?.xemBuocDatHang === false && r.mau.coOXemBuoc === true,
+                canhBao: "mau" in r && r.canhBao.filter((c) => c.includes("Xem bước quy trình")).length === 1,
+                docLai: "mau" in docLai && JSON.stringify(docLai.mau.de) === JSON.stringify("mau" in r ? r.mau.de : null),
+                ktKhongDoi,
+                nvCongNo,
+                hongLa,
+                hongKhongBool,
+                hongCotLa,
+              };
+              const hong = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
+              return {
+                duoc: hong.length === 0,
+                thucTe: hong.length === 0 ? "đủ 8 ca" : `sai: [${hong.join(", ")}] · r=${JSON.stringify(r).slice(0, 300)}`,
+                mongDoi: "giữ ô bước + dấu · 1 dòng cảnh báo · đọc lại y nguyên · không tác dụng · ô thường vẫn tác dụng · khoá lạ / không boolean / cột lạ mang false → HỎNG",
+              };
+            },
+          );
+
+          kiem(
+            "N1-3: lưu bảng mẫu ở nhịp 1 GIỮ NGUYÊN ô 'Xem bước' + dấu của bản sau; mẫu không dấu thì không tự sinh dấu",
+            CHU_N1,
+            () => {
+              const r = MCD.chuanHoaMauChucDanh({ khuon: 1, phienBan: 3, coOXemBuoc: true, de: { ke_toan: { xemBuocYeuCauBaoGia: true }, nhan_vien_thu_mua: { xemBuocDatHang: false, xemCongNo: false } } });
+              const luu = "mau" in r ? luuMau(QT, r.mau, { nhan_vien_thu_mua: { xemCongNo: null } }) : { ok: false };
+              const khongDau = luuMau(QT, MCD.MAU_TRONG, { nhan_vien_thu_mua: { xemCongNo: false } });
+              const ok = {
+                giu: luu.ok && luu.mauMoi.de.ke_toan?.xemBuocYeuCauBaoGia === true && luu.mauMoi.de.nhan_vien_thu_mua?.xemBuocDatHang === false,
+                boODoi: luu.ok && luu.mauMoi.de.nhan_vien_thu_mua?.xemCongNo === undefined && luu.mauMoi.phienBan === 4,
+                dau: luu.ok && luu.mauMoi.coOXemBuoc === true,
+                khongTuSinh: khongDau.ok && !("coOXemBuoc" in khongDau.mauMoi),
+              };
+              const hong = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
+              return {
+                duoc: hong.length === 0,
+                thucTe: hong.length === 0 ? "đủ 4 ca" : `sai: [${hong.join(", ")}] · ${JSON.stringify(luu).slice(0, 300)}`,
+                mongDoi: "giữ ô bước · ô vừa đổi được bỏ, phienBan 4 · giữ dấu · mẫu không dấu không tự sinh dấu",
+              };
+            },
+          );
+
+          kiem(
+            "N1-4: lưu quyền riêng cho người có ô 'Xem bước' của bản sau → 409 (cả tick lẫn Bỏ quyền riêng), kèm tên người; người không có thì lưu bình thường",
+            /* Ghi đè bằng bản không biết ô bước = xoá mất ô đó → người bị bỏ bước thấy lại bước đó khi bản mới lên lại. */
+            CHU_N1,
+            () => {
+              const coBuoc = QR.chuanHoaBanGhiQuyenRieng(banK2Tho(NV, { xemGia: false, xemBuocDatHang: false }));
+              const chiDau = QR.chuanHoaBanGhiQuyenRieng(banK2Tho(NV, { xemGia: false }, { coOXemBuoc: true }));
+              const thuong = QR.chuanHoaBanGhiQuyenRieng(banK2Tho(NV, { xemGia: false }));
+              const tick = luuRieng(QT, [nhanLuu(NV, coBuoc)], { loai: "tick", thayDoi: { xemCongNo: false } });
+              const bo = luuRieng(QT, [nhanLuu(NV, coBuoc)], { loai: "bo-quyen-rieng" });
+              const dau = luuRieng(QT, [nhanLuu(NV, chiDau)], { loai: "tick", thayDoi: { xemCongNo: false } });
+              const binhThuong = luuRieng(QT, [nhanLuu(NV, thuong)], { loai: "tick", thayDoi: { xemCongNo: false } });
+              const la409 = (x) => x.ok === false && x.status === 409 && String(x.error).includes("nv") && String(x.error).includes("Xem bước quy trình");
+              const ok = { tick: la409(tick), bo: la409(bo), dau: la409(dau), binhThuong: binhThuong.ok === true };
+              const hong = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
+              return {
+                duoc: hong.length === 0,
+                thucTe: hong.length === 0 ? "đủ 4 ca" : `sai: [${hong.join(", ")}] · tick=${JSON.stringify(tick).slice(0, 200)}`,
+                mongDoi: "tick / bỏ quyền riêng / chỉ có dấu → 409 kèm tên · bản ghi thường → lưu được",
+              };
+            },
+          );
         }
       }
     }
@@ -16871,6 +17004,34 @@ kiem(
           duoc: sai.length === 0,
           thucTe: sai.length === 0 ? "đủ 5 ca" : `sai: [${sai.join(", ")}]`,
           mongDoi: "thân tốt đọc đủ · một bản hỏng / thiếu ô / thiếu mẫu → lỗi · mẫu hỏng → mauHong",
+        };
+      },
+    );
+
+    kiem(
+      "N1-5: màn Phân quyền đọc ?tatCa=1 của máy chủ BẢN SAU (thêm 9 ô 'Xem bước' trong quyenHieuLuc + ngoaiLe, mẫu có ô bước) → ĐỌC ĐƯỢC; khoá lạ khác vẫn lỗi",
+      /* Nhịp 1 (Sếp 07/10/2026 — ô tick Xem bước quy trình): rollback nhịp 2 → nhịp 1 thì màn Phân quyền không được tắt ngấm. */
+      `${CHU_D} · Sếp 07/10/2026 — ô tick Xem bước quy trình · nhịp 1`,
+      () => {
+        const ten18 = ["xemDuocApp", "xemQuyTrinhMuaHang", "xemMoiHoSo", "xemGia", "xemNhaCungCap", "xemBaoGia", "xemNguoiPhuTrach", "xemCongNo", "taoDeNghi", "phanBoCongViec", "lapPO", "taoPoDoiLap", "suaPODaChot", "ghiPhieuNhanHang", "xacNhanKho", "xacNhanTruongBP", "ghiThanhToan", "xoaToanBoDuLieu"];
+        const buoc9 = ["xemBuocTiepNhan", "xemBuocYeuCauBaoGia", "xemBuocXetDuyetBaoGia", "xemBuocLapDon", "xemBuocDatHang", "xemBuocNhanHang", "xemBuocHoSoThanhToan", "xemBuocHoanThanh", "xemBuocThatBai"];
+        const du27 = Object.fromEntries([...ten18, ...buoc9].map((k) => [k, true]));
+        const dau = { chucNang: "nhan_vien_thu_mua", vaiTro: "staff", capTM: 2, capKho: 0 };
+        const ban = { khuon: 2, coOXemBuoc: true, ngoaiLe: { xemGia: false, xemBuocDatHang: false }, theoChucDanh: dau, quyen: du27, capNhatLuc: "x", capNhatBoi: "y", quyenHieuLuc: du27, lechChucDanh: false };
+        const mau = { khuon: 1, phienBan: 2, coOXemBuoc: true, de: { ke_toan: { xemBuocYeuCauBaoGia: true } } };
+        const tot = KNR.chuanHoaKetQuaTatCa({ ok: true, tatCa: { a: ban }, mau, canhBaoMau: [] });
+        const la = KNR.chuanHoaKetQuaTatCa({ ok: true, tatCa: { a: { ...ban, quyenHieuLuc: { ...du27, khoaLa: true } } }, mau, canhBaoMau: [] });
+        const buocKhongBool = KNR.chuanHoaKetQuaTatCa({ ok: true, tatCa: { a: { ...ban, quyenHieuLuc: { ...du27, xemBuocLapDon: "x" } } }, mau, canhBaoMau: [] });
+        const ok = {
+          tot: "tatCa" in tot && tot.tatCa.a?.ngoaiLe?.xemGia === false && tot.mau.de.ke_toan?.xemBuocYeuCauBaoGia === true,
+          la: "loi" in la,
+          buocKhongBool: "loi" in buocKhongBool,
+        };
+        const sai = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
+        return {
+          duoc: sai.length === 0,
+          thucTe: sai.length === 0 ? "đủ 3 ca" : `sai: [${sai.join(", ")}] · tot=${JSON.stringify(tot).slice(0, 200)}`,
+          mongDoi: "thân bản sau đọc được · khoá lạ khác / ô bước không boolean → lỗi",
         };
       },
     );

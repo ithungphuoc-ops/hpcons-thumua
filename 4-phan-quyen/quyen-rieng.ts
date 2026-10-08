@@ -217,6 +217,34 @@ export const CO_TICK_DUOC: readonly CoTickDuoc[] = [
 /** Danh sách khoá tick được, đúng thứ tự trên màn hình. */
 export const KHOA_TICK: readonly (keyof Quyen)[] = CO_TICK_DUOC.map((c) => c.khoa);
 
+/**
+ * ★ NHỊP 1 của ô tick "Xem bước quy trình" (Sếp 07/10/2026: *"Điều chỉnh này thành chức năng phân
+ * quyền, và được tick chọn cho xem bước nào"*). Tên 9 khoá của BẢN SAU (nhịp 2) — bản này CHƯA dùng,
+ * chỉ dạy các bộ đọc dữ liệu NHẬN RA chúng để đọc mà không báo hỏng.
+ *
+ * 🔴 Vì sao phải đẩy riêng trước: nhịp 2 ghi các khoá này xuống `tm_quyen_rieng` và mẫu chức danh. Bản
+ * mã trước nhịp 1 gặp khoá lạ ở khuôn 2 thì coi bản ghi SAI KHUÔN (`null` → route 500 → chặn vào app), gặp
+ * ô lạ mang `false` trong mẫu thì báo MẪU HỎNG (B-F5) — tức Instant Rollback nhịp 2 về thẳng bản cũ là
+ * khoá cả phòng ngoài app. Có nhịp 1 đứng giữa thì rollback về nhịp 1 vẫn đọc được.
+ *
+ * 📌 ĐÓNG BĂNG: tên và thứ tự phải TRÙNG TUYỆT ĐỐI với khoá nhịp 2 — lệch một chữ là bộ đọc này không
+ * nhận ra, rollback hỏng y như không có nhịp 1. Nhịp 2 bỏ hằng này (khoá đã thành khoá chính thức).
+ */
+export const KHOA_XEM_BUOC_SAP_CO: readonly string[] = [
+  "xemBuocTiepNhan",
+  "xemBuocYeuCauBaoGia",
+  "xemBuocXetDuyetBaoGia",
+  "xemBuocLapDon",
+  "xemBuocDatHang",
+  "xemBuocNhanHang",
+  "xemBuocHoSoThanhToan",
+  "xemBuocHoanThanh",
+  "xemBuocThatBai",
+];
+
+/** Dấu bản sau ghi kèm dữ liệu đã có ô "Xem bước" (nhịp 2) — bản này chỉ nhận ra để giữ / chặn ghi đè. */
+export const DAU_CO_O_XEM_BUOC = "coOXemBuoc";
+
 /** Ba nhóm theo đúng thứ tự hiện. */
 export const NHOM_QUYEN_TICK: readonly NhomQuyenTick[] = ["Được xem", "Được làm", "Quản trị"];
 
@@ -505,6 +533,13 @@ export interface BanGhiQuyenRieng {
    * kiểm) không có trường này → coi như không có dấu vết.
    */
   phienBanMau?: number;
+  /**
+   * ★ NHỊP 1 (07/10/2026) — CHỈ có trong kết quả ĐỌC, không bao giờ ghi xuống. Liệt kê phần của BẢN SAU
+   * gặp trong bản ghi khuôn 2: khoá thuộc `KHOA_XEM_BUOC_SAP_CO` (đã bị bỏ khỏi `ngoaiLe`) và chữ
+   * `DAU_CO_O_XEM_BUOC` nếu bản ghi mang dấu. Có giá trị = bản này KHÔNG được ghi đè bản ghi đó (ghi đè
+   * là xoá mất ô bản sau) → `tinhLuuQuyenRieng` trả 409.
+   */
+  oBanSau?: string[];
   /** ISO 8601. */
   capNhatLuc: string;
   /** Mã Firebase của người bấm Lưu. */
@@ -592,7 +627,16 @@ export function chuanHoaBanGhiQuyenRieng(raw: unknown): BanGhiQuyenRieng | null 
 
   if (d.khuon !== 2) return null;
   const nl = chuanHoaQuyenRieng(d.ngoaiLe);
-  if (!nl || nl.boQua.length > 0) return null;
+  if (!nl) return null;
+  /* ★ NHỊP 1 (07/10/2026): khoá "Xem bước" của bản sau mang boolean → NHẬN RA, bỏ khỏi `ngoaiLe` (bản này
+     chưa dùng), ghi vào `oBanSau` để chặn ghi đè. Khoá lạ KHÁC vẫn là sai khuôn như cũ — đọc lỗi không
+     được thành rộng hơn. */
+  const ngoaiLeTho = d.ngoaiLe as Record<string, unknown>;
+  const oBanSau = nl.boQua.filter(
+    (k) => KHOA_XEM_BUOC_SAP_CO.includes(k) && typeof ngoaiLeTho[k] === "boolean",
+  );
+  if (oBanSau.length !== nl.boQua.length) return null;
+  if (d[DAU_CO_O_XEM_BUOC] === true) oBanSau.push(DAU_CO_O_XEM_BUOC);
   const dau = chuanHoaDauChucDanh(d.theoChucDanh);
   if (!dau) return null;
   /* `phienBanMau` (B-F8): VẮNG thì thôi (bản trước B-F8); CÓ MẶT mà sai khuôn → `null` như mọi lỗi khuôn
@@ -612,6 +656,7 @@ export function chuanHoaBanGhiQuyenRieng(raw: unknown): BanGhiQuyenRieng | null 
     quyen: quyenCu?.quyen ?? {},
     theoChucDanh: dau,
     ...(coPhienBanMau ? { phienBanMau: d.phienBanMau as number } : {}),
+    ...(oBanSau.length > 0 ? { oBanSau } : {}),
     ...capNhat,
   };
 }

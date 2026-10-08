@@ -28,6 +28,7 @@ import {
   chuanHoaBanGhiQuyenRieng,
   chuanHoaQuyenRieng,
   KHOA_TICK,
+  KHOA_XEM_BUOC_SAP_CO,
   type BanGhiQuyenRiengHienThi,
   type QuyenRieng,
 } from "@/4-phan-quyen/quyen-rieng";
@@ -193,7 +194,13 @@ export function chuanHoaKetQuaTatCa(than: Record<string, unknown>): KetQuaDocQuy
     const banGhi = chuanHoaBanGhiQuyenRieng(b);
     const d = (b ?? {}) as Record<string, unknown>;
     const hl = chuanHoaQuyenRieng(d.quyenHieuLuc);
-    const du18 = hl !== null && hl.boQua.length === 0 && KHOA_TICK.every((k) => typeof hl.quyen[k] === "boolean");
+    /* ★ NHỊP 1 (07/10/2026): máy chủ bản sau trả thêm 9 ô "Xem bước quy trình" (boolean) → nhận ra, bỏ qua;
+       khoá lạ khác vẫn là sai khuôn như cũ. */
+    const hlTho = (d.quyenHieuLuc ?? {}) as Record<string, unknown>;
+    const du18 =
+      hl !== null &&
+      hl.boQua.every((k) => KHOA_XEM_BUOC_SAP_CO.includes(k) && typeof hlTho[k] === "boolean") &&
+      KHOA_TICK.every((k) => typeof hl.quyen[k] === "boolean");
     if (!banGhi || !hl || !du18) {
       return {
         loi: `Bản quyền riêng của một người (mã ${uid}) trả về sai khuôn — không hiện danh sách để khỏi bày quyền sai.`,

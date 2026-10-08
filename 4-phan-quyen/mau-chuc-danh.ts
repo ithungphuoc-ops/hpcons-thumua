@@ -37,8 +37,10 @@ import {
 } from "@/4-phan-quyen/quyen";
 import {
   CO_TICK_DUOC,
+  DAU_CO_O_XEM_BUOC,
   DONG_KHOA_MAU,
   KHOA_TICK,
+  KHOA_XEM_BUOC_SAP_CO,
   nhanCoTick,
   quyenTheoChucDanhCoMau,
   rutQuyenRieng,
@@ -70,6 +72,11 @@ export interface MauChucDanh {
   /** Tăng 1 mỗi lần lưu, trong giao dịch. Tài liệu chưa có = 0. */
   phienBan: number;
   de: DeMau;
+  /**
+   * ★ NHỊP 1 (07/10/2026): dấu bản sau ghi kèm mẫu đã có ô "Xem bước quy trình". Bản này không dùng, chỉ
+   * GIỮ NGUYÊN khi đọc và chép lại khi lưu — làm mất dấu là bản sau đọc mẫu theo luật dữ liệu cũ.
+   */
+  coOXemBuoc?: true;
   capNhatLuc?: string;
   /** Mã Firebase người lưu. */
   capNhatBoi?: string;
@@ -146,6 +153,7 @@ export function chuanHoaMauChucDanh(
   const tick = new Set<string>(KHOA_TICK);
   const de: DeMau = {};
   const canhBao: string[] = [];
+  let soOBanSau = 0;
   for (const [ma, cotRaw] of Object.entries(d.de as Record<string, unknown>)) {
     if (!cotRaw || typeof cotRaw !== "object" || Array.isArray(cotRaw)) {
       return { loi: `Cột “${ma}” của mẫu chức danh không phải object.` };
@@ -164,6 +172,15 @@ export function chuanHoaMauChucDanh(
       /* ② DÒNG KHOÁ (Vào app / Xoá đề nghị) ở bất kỳ cột nào → bỏ, giá trị gì cũng vậy (B-F5). */
       if (DONG_KHOA_MAU.includes(k as keyof Quyen)) {
         canhBao.push(`Bỏ qua ô khoá “${nhanCoTick(k as keyof Quyen)}” ở cột “${tenHien}”.`);
+        continue;
+      }
+      /* ③a ★ NHỊP 1 (07/10/2026): ô "Xem bước quy trình" của BẢN SAU ở cột ĐÃ BIẾT, mang boolean → GIỮ
+         NGUYÊN trong `de` (bản này không đọc: mọi phép tính lặp theo `KHOA_TICK`), để lần lưu kế tiếp chép
+         lại nguyên vẹn (`tinhLuuMauChucDanh` chép `mauCu.de`). Không theo B-F5: đây không phải "tên cũ" mà
+         là tên của bản mới hơn. */
+      if (congThuc && KHOA_XEM_BUOC_SAP_CO.includes(k) && typeof v === "boolean") {
+        (ra as Record<string, boolean>)[k] = v;
+        soOBanSau += 1;
         continue;
       }
       /* ③ Ô LẠ (cột lạ hoặc khoá lạ): chỉ bỏ được khi mang `true`; khác `true` là HỎNG (B-F5). */
@@ -192,6 +209,12 @@ export function chuanHoaMauChucDanh(
   }
 
   const mau: MauChucDanh = { khuon: 1, phienBan: d.phienBan, de };
+  if (d[DAU_CO_O_XEM_BUOC] === true) mau.coOXemBuoc = true;
+  if (soOBanSau > 0) {
+    canhBao.push(
+      `Mẫu có ${soOBanSau} ô “Xem bước quy trình” của bản app mới hơn — bản đang chạy chưa dùng các ô này, lưu bảng mẫu vẫn giữ nguyên chúng.`,
+    );
+  }
   if (typeof d.capNhatLuc === "string") mau.capNhatLuc = d.capNhatLuc;
   if (typeof d.capNhatBoi === "string") mau.capNhatBoi = d.capNhatBoi;
   if (typeof d.capNhatBoiTen === "string") mau.capNhatBoiTen = d.capNhatBoiTen;
