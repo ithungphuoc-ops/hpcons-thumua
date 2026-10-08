@@ -81,6 +81,24 @@ Gặp `UNKNOWN` thì: **đẩy code lên `main`**.
 
 Dùng **Instant Rollback** hoặc **Promote** ngay trên bảng điều khiển Vercel — chạy hoàn toàn trên web, không cần GitHub, **không phá chốt**.
 
+### 🔴 CẤM Instant Rollback lùi QUA NHỊP 1 sau khi nhịp 2 "Xem bước quy trình" đã lên (Sếp 07/10/2026)
+
+Ô tick "Xem bước quy trình" lên bản theo **hai nhịp**, hai commit riêng (trên Vercel nhìn theo **thông điệp commit** — SHA ở repo GitHub khác SHA ở máy phiên nghiệp vụ):
+
+| Nhịp | Thông điệp commit bắt đầu bằng | Làm gì |
+|---|---|---|
+| **1** | `Phan quyen "Xem buoc quy trinh" - NHIP 1: bo doc khoan dung khoa moi` (máy phiên nghiệp vụ: `693370a`) | Chỉ dạy bộ đọc **nhận ra** 9 khoá mới. Không đổi hành vi |
+| **2** | ô tick "Xem bước quy trình" — gói A/B/C/D (commit sau nhịp 1) | **Ghi** 9 khoá `xemBuoc…` + dấu `coOXemBuoc: true` xuống `tm_quyen_rieng` và `quyen-mau-chuc-danh/chung` |
+
+⛔ **Nhịp 2 lên rồi thì TUYỆT ĐỐI KHÔNG rollback / promote về bất kỳ bản nào CŨ HƠN nhịp 1.** Lý do: lần lưu bảng mẫu đầu tiên ở nhịp 2 — **kể cả chỉ sửa một ô không liên quan** — đã ghi hẳn các ô bước (có ô mang `false`) xuống tài liệu mẫu, và không ai biết được là "đã lưu ô bước" hay chưa. Bản cũ hơn nhịp 1 gặp ô lạ mang `false` trong mẫu thì coi là **MẪU HỎNG** → route trả 500 `mau-hong` → **mọi người không phải Quản trị bị chặn khỏi app**. Bản ghi `tm_quyen_rieng` khuôn 2 có khoá lạ cũng bị coi là sai khuôn → chặn vào app.
+
+✅ Rollback **nhịp 2 → nhịp 1** thì an toàn về dữ liệu (nhịp 1 đọc được mọi thứ), nhưng biết trước:
+- Quyền xem bảng quay về **luật cũ** (nhịp 1 chưa có ô bước, bảng theo ô "Vào Quy trình mua hàng"): bước đã bị ẩn sẽ **hiện lại**; ngược lại người bị bỏ ô "Vào màn làm việc Thu mua" mà còn ô bước sẽ **mất bảng** trong lúc chạy nhịp 1.
+- Lưu quyền riêng cho người đã có ô bước / dấu `coOXemBuoc` sẽ bị **409** kèm lý do (cố ý — lưu đè là xoá mất ô bước). Lưu bảng mẫu vẫn được, giữ nguyên ô bước.
+- Tab đang mở bản nhịp 2 chưa tải lại (tab tự hỏi bản mới mỗi 180 giây rồi chờ 30 giây mới tải lại — `2-quy-trinh/nhip-kiem-ban-moi.ts`) có thể **mất bảng Quy trình** trong khoảng đó với người có quyền riêng / mẫu đè.
+
+📌 Giữa hai nhịp phải chờ lâu hơn chu kỳ tự tải lại của tab (180 + 30 giây ≈ 3,5 phút); an toàn nhất là để nhịp 1 chạy qua đêm rồi mới đẩy nhịp 2.
+
 ### Trước khi push: chạy ba chốt kiểm
 
 ```bash
@@ -141,8 +159,9 @@ npm run verify   # lint + typecheck + build (build vào .next-check, an toàn kh
 
 Tệp này là tệp DUY NHẤT của phiên nghiệp vụ đi được sang GitHub, nên những gì phiên tích hợp cần biết về đợt phân quyền 06/10/2026 ghi ở đây. Chi tiết: `4-phan-quyen/README.md`, mục "Mẫu chức danh sửa được".
 
-- **Collection MỚI `quyen-mau-chuc-danh`** — một tài liệu `quyen-mau-chuc-danh/chung`: `{ khuon: 1, phienBan, de: { [mã chức danh]: { [khoá tick]: boolean } }, capNhatLuc, capNhatBoi, capNhatBoiTen }` (chỉ ô KHÁC công thức). Chỉ Admin SDK ghi, qua `POST /api/quyen-mau-chuc-danh` (route mới của phiên nghiệp vụ). Tài liệu chưa có = mẫu trống = y hệt trước 06/10.
-- **`tm_quyen_rieng` có KHUÔN 2**: `{ khuon: 2, ngoaiLe: {chỉ ô cố ý khác chức danh}, theoChucDanh, quyen: {đủ 18 ô — để bản mã cũ đọc khi rollback}, phienBanMau, capNhat… }`. Bản khuôn 1 cũ (đủ 18 ô, không có `khuon`) vẫn đọc được — chuyển khi đọc, không ghi lại. Mọi POST `/api/quyen-rieng` phải gửi `phienBanMau` (thiếu → 400 `ban-cu`, lệch → 409 `mau-doi`).
+- **Collection MỚI `quyen-mau-chuc-danh`** — một tài liệu `quyen-mau-chuc-danh/chung`: `{ khuon: 1, phienBan, de: { [mã chức danh]: { [khoá tick]: boolean } }, coOXemBuoc: true, capNhatLuc, capNhatBoi, capNhatBoiTen }` (chỉ ô KHÁC công thức). Chỉ Admin SDK ghi, qua `POST /api/quyen-mau-chuc-danh` (route mới của phiên nghiệp vụ). Tài liệu chưa có = mẫu trống = y hệt trước 06/10.
+- **`tm_quyen_rieng` có KHUÔN 2**: `{ khuon: 2, ngoaiLe: {chỉ ô cố ý khác chức danh}, theoChucDanh, quyen: {đủ 27 ô — để bản mã cũ đọc khi rollback}, phienBanMau, coOXemBuoc: true, capNhat… }`. Bản khuôn 1 cũ (18 ô, không có `khuon`) vẫn đọc được — chuyển khi đọc, không ghi lại. Mọi POST `/api/quyen-rieng` phải gửi `phienBanMau` (thiếu → 400 `ban-cu`, lệch → 409 `mau-doi`).
+- ★ **07/10/2026 — 9 ô tick "Xem bước quy trình"** (`xemBuocTiepNhan` … `xemBuocThatBai`) vào danh sách ô tick (27 ô). Ô `xemQuyTrinhMuaHang` đổi nhãn **"Vào màn làm việc Thu mua"** và **không còn mở bảng Quy trình** (`/de-nghi*` mở theo ô bước). Dữ liệu ghi từ nay mang dấu **`coOXemBuoc: true`**; dữ liệu không dấu (trước 07/10) được chuyển khi đọc (luật 8 / 8b ở `4-phan-quyen/quyen-rieng.ts`). Script chuyển project nếu có thì **chép nguyên** trường `coOXemBuoc` — mất dấu là bản ghi bị đọc lại theo luật dữ liệu cũ. Xem mục "CẤM Instant Rollback lùi qua nhịp 1" ở trên.
 - **Nhật ký**: mỗi lần lưu phân quyền ghi một dòng `nhat-ky-he-thong` với `hanhDong` tiền tố `phan_quyen_` (từ máy chủ, trong giao dịch).
 - 🔴 **CHỖ HỞ LEO QUYỀN Ở `/api/phan-quyen` (vùng của phiên tích hợp — phiên nghiệp vụ KHÔNG sửa):** cửa đó gác gán chức danh theo **CẤP TĨNH** (`capDatDuocToiDa`, `vaiTroGanDuocBoi`), không đọc mẫu chức danh hay quyền riêng. Hệ quả: Trưởng BP có ngoại lệ riêng thiếu một cờ vẫn gán được chức danh mà mẫu cho cờ đó → trao được quyền mình không có. Bảng mẫu đã chặn phía mẫu (Trưởng BP chỉ sửa cột mình gán được, dòng mình có; Quản trị bị cảnh báo), nhưng chốt gốc nằm ở `/api/phan-quyen`. Đề nghị phiên tích hợp cân nhắc hỏi thêm quyền HIỆU LỰC của người gán (đã gộp mẫu) — xin hỏi Sếp trước khi đổi.
 - **Script chuyển project** (nếu có đợt chuyển sang project riêng): đề nghị bổ sung **`tm_quyen_rieng`**, **`quyen-mau-chuc-danh`** và **`nhat-ky-he-thong`** vào danh sách collection phải chép. Không chép thì mọi quyền riêng / mẫu Sếp đã sửa mất, mọi người về công thức trong mã (rộng hơn mẫu đã siết), và mất dấu vết ai đổi quyền.

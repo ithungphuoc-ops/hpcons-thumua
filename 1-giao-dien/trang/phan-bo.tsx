@@ -11,6 +11,8 @@ import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { deNghiConDangChay } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
+import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 
@@ -22,12 +24,18 @@ import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 export default function TrangPhanBo() {
   const { deNghi, donHang, phieuNhan } = useDuLieu();
   const { quyen } = useNguoiDung();
+  /* ★ Gọi TRƯỚC lệnh `return` sớm bên dưới (quy tắc hook React). */
+  const xem = useXemBuocHoSo();
 
   const congViec = useMemo(
     () =>
       deNghi
         // Đề nghị đã hoàn thành hoặc đã đóng dở không còn là việc phải phân bổ.
         .filter(deNghiConDangChay)
+        /* ★ Ô TICK "XEM BƯỚC QUY TRÌNH" — Sếp 07/10/2026: hồ sơ ở bước người xem không được tick thì
+           không hiện (nút "Mở bảng phân bổ" dẫn vào trang chi tiết, mà trang đó chặn). KHÔNG gác thêm ô ①:
+           khối ① luôn hiện khi mở được hồ sơ (bổ sung đặc tả V-A, chỉ đạo 14/09/2026). */
+        .filter((dn) => xem.duocXemHoSo(dn.id))
         .map((dn) => {
           /* ★ Trừ dòng đã tách / nhân bản đi (soát giao việc 25–26/09/2026, #0 #33 #58) — không
              thì phiếu gốc đã giao hết nằm mãi trong hàng chờ phân bổ. */
@@ -39,7 +47,7 @@ export default function TrangPhanBo() {
           };
         })
         .filter((x) => x.chuaPhanBo.length > 0 || x.daPhanChuaLenPO.length > 0),
-    [deNghi, donHang, phieuNhan],
+    [deNghi, donHang, phieuNhan, xem],
   );
 
   if (!quyen.phanBoCongViec) {
@@ -55,7 +63,8 @@ export default function TrangPhanBo() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Thu mua", href: "/tong-quan" }, { label: "Phân bổ công việc" }]}
+        /* Breadcrumb "Thu mua" theo quyền (đặc tả E-18) — một hàm dùng chung, không trỏ cứng `/tong-quan`. */
+        crumbs={[{ label: "Thu mua", href: duongDanGocTheoQuyen(quyen) }, { label: "Phân bổ công việc" }]}
         title="Phân bổ công việc"
         description="Dòng đề nghị chưa có người phụ trách, hoặc đã phân mà chưa lên đơn hàng"
       />

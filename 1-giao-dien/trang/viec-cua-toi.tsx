@@ -12,6 +12,7 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { docDanhDau, ghiDanhDau } from "@/3-du-lieu/danh-dau-ca-nhan";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duocXemBuoc } from "@/4-phan-quyen/quyen";
 import { soNgayConLai, tinhTienDoDeNghi, tomTatTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 import {
   conViecCuaToi,
@@ -101,7 +102,7 @@ export default function TrangViecCuaToi() {
             dn.nguoiTheoDoi?.some((n) => n.uid === nguoiDung.uid),
         );
 
-    return nguon.map((dn) => {
+    const tatCaDong = nguon.map((dn) => {
       const tienDo = tinhTienDoDeNghi(dn, donHang, phieuNhan);
       const tomTat = tomTatTienDoDeNghi(tienDo);
       /* 🔴 Truyền `deNghi` — Sếp 15/09/2026: dòng đã nhân bản đi không tính là "chưa phân bổ".
@@ -150,7 +151,13 @@ export default function TrangViecCuaToi() {
         ] as string[],
       };
     });
-  }, [deNghi, donHang, baoGia, phieuNhan, nguoiDung.uid, quyen.xemMoiHoSo]);
+
+    /* ★ Ô TICK "XEM BƯỚC QUY TRÌNH" — Sếp 07/10/2026: hồ sơ đang ở bước người xem không được tick thì
+       không hiện ở màn này (bấm vào cũng bị trang chi tiết chặn). Lọc SAU khi đã tính `giaiDoan` ở trên
+       — dùng lại đúng con số đó, không tính bước lần hai. Số đếm các tab chạy trên `dong` nên tự đúng.
+       Luật ở `4-phan-quyen/quyen.ts` → `duocXemBuoc`, không viết lại ở đây. */
+    return tatCaDong.filter((x) => duocXemBuoc(quyen, x.giaiDoan));
+  }, [deNghi, donHang, baoGia, phieuNhan, nguoiDung.uid, quyen]);
 
   const hienThi = useMemo(() => {
     const k = boDau(tuKhoa).trim();

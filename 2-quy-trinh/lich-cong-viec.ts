@@ -87,6 +87,24 @@ export interface NguonLich {
   ghiChu: GhiChuCongViec[];
 }
 
+/**
+ * ★ HỒ SƠ / ĐƠN NÀO NGƯỜI XEM ĐƯỢC THẤY — ô tick "Xem bước quy trình" (Sếp 07/10/2026).
+ *
+ * 📌 Lịch KHÔNG tự tính bước của hồ sơ và KHÔNG tự quyết quyền: nơi gọi truyền vào hai câu trả lời
+ * (trang `/lich` truyền thẳng hook `useXemBuocHoSo()` ở `4-phan-quyen/xem-buoc-ho-so.ts`, luật thật ở
+ * `hoSoDuocXemTheoBuoc` / `poDuocXemTheoBuoc` — `4-phan-quyen/quyen.ts`). Tính lại ở đây là hai chỗ cùng
+ * trả lời một câu rồi lệch nhau (CLAUDE.md §3.4b).
+ *
+ * 🔴 BẮT BUỘC, không có mặc định: tham số tuỳ chọn mà quên truyền là lịch lặng lẽ hiện lại hồ sơ ở bước
+ * người xem không được tick — đúng loại lỗi im lặng dự án đã dính nhiều lần.
+ */
+export interface LocXemTheoBuoc {
+  /** Hồ sơ (id đề nghị) có hiện với người xem không. */
+  duocXemHoSo: (prId: string) => boolean;
+  /** Đơn hàng có hiện không — PO có `prId` theo hồ sơ của nó, PO độc lập theo ô ④ (bổ sung đặc tả Q3). */
+  duocXemPO: (po: Pick<DonDatHang, "prId">) => boolean;
+}
+
 /** Cắt phần giờ để so ngày — mọi mốc trong app đều lưu `YYYY-MM-DD`. */
 function chiNgay(iso: string | undefined): NgayISO | null {
   if (!iso) return null;
@@ -103,17 +121,24 @@ function chiNgay(iso: string | undefined): NgayISO | null {
  *
  * ⚠️ Một đề nghị có thể lên lịch của NHIỀU người: mỗi dòng vật tư có người phụ trách riêng.
  * Mỗi người chỉ thấy phần dòng của mình, và `moTa` đếm đúng số dòng đó.
+ *
+ * ★ `xem` — ô tick "Xem bước quy trình" (Sếp 07/10/2026): hồ sơ ở bước người xem không được tick thì
+ * bỏ mục ① ② ③ của nó; đơn hàng mà `xem.duocXemPO` trả `false` thì bỏ mục ④ hạn giao. Mục ⑤ công nợ
+ * và ⑥ ghi chú tay GIỮ NGUYÊN (công nợ gác bằng `xemCongNo`, ghi chú là sổ tay riêng).
  */
 export function dungLichCuaToi(
   nguon: NguonLich,
   uid: string,
   quyen: Quyen,
+  xem: LocXemTheoBuoc,
 ): MucLich[] {
   const ra: MucLich[] = [];
 
   // ---- ① Ngày cần hàng của đề nghị (theo dòng mình phụ trách) ----
   for (const dn of nguon.deNghi) {
     if (!deNghiConDangChay(dn) || dn.luuTru) continue;
+    /* ★ Hồ sơ ở bước không được xem → bỏ cả ① lẫn ② (cùng một hồ sơ). */
+    if (!xem.duocXemHoSo(dn.id)) continue;
     const ngay = chiNgay(dn.ngayCanHang);
     if (!ngay) continue;
 
@@ -161,6 +186,8 @@ export function dungLichCuaToi(
     // Của người phụ trách các dòng của đề nghị gốc — bảng báo giá không có người phụ trách riêng.
     const dn = nguon.deNghi.find((d) => d.id === bg.prId);
     if (!dn || !dongConPhaiLam(dn, nguon.deNghi).some((d) => d.nguoiPhuTrachUid === uid)) continue;
+    /* ★ Theo HỒ SƠ của bảng báo giá (bấm vào là mở hồ sơ đó) — ô tick "Xem bước quy trình". */
+    if (!xem.duocXemHoSo(dn.id)) continue;
     /* ★ Bỏ mục trùng ngày với "Cần hàng" (soát #46): cả ba chỗ tạo bảng báo giá đều gán
        `hanNop = ngayCanHang`, nên mục này trùng y hệt mục ① và làm lịch đếm quá hạn gấp đôi. */
     if (ngay === chiNgay(dn.ngayCanHang)) continue;
@@ -181,6 +208,9 @@ export function dungLichCuaToi(
   for (const po of nguon.donHang) {
     if (po.trangThai === "hoan_thanh" || po.trangThai === "huy") continue;
     if (po.nguoiPhuTrachUid !== uid) continue;
+    /* ★ Bổ sung đặc tả Q3 (07/10/2026): đơn của hồ sơ ở bước không được xem thì cũng không lên lịch —
+       màn Tổng quan lọc đơn theo cùng luật. Màn Theo dõi đơn hàng thì KHÔNG lọc (Thủ kho làm việc ở đó). */
+    if (!xem.duocXemPO(po)) continue;
     const ngay = chiNgay(po.ngayGiaoDuKien);
     if (!ngay) continue;
     ra.push({

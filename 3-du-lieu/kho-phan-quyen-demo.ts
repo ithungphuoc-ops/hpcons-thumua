@@ -251,7 +251,7 @@ export function taoKhoDemo(cheDo: "mau" | "sso"): KhoDemoPhanQuyen {
 
   const themLichSu = (cu: DongLichSuDemo[], dong: DongLichSuDemo) => [dong, ...cu].slice(0, TOI_DA_LICH_SU);
 
-  /** Đủ 18 ô TẮT — quyền hẹp nhất (dùng khi không đọc được mẫu / bản ghi). */
+  /** Đủ ô `KHOA_TICK` TẮT (27 ô từ 07/10/2026) — quyền hẹp nhất (dùng khi không đọc được mẫu / bản ghi). */
   const hepNhat = (): QuyenRieng => Object.fromEntries(KHOA_TICK.map((k) => [k, false])) as QuyenRieng;
 
   return {

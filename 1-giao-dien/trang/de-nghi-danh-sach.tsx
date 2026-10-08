@@ -47,7 +47,10 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duocNhanBanDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
-import { chiXemTuBuocLapDon } from "@/4-phan-quyen/quyen";
+import { duocXemBuoc, O_XEM_BUOC } from "@/4-phan-quyen/quyen";
+/* Breadcrumb "Thu mua" trỏ về màn gốc CỦA NGƯỜI XEM (ô tick "Xem bước quy trình", Sếp 07/10/2026): người
+   chỉ có ô bước mà không có ô "Vào màn làm việc" bị cổng chặn `/tong-quan`. */
+import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 /* 📌 KHÔNG còn import `tinhTienDoDeNghi` / `tomTatTienDoDeNghi` / `soSanhDeNghiUuTien` ở đây
    (23/08/2026): cả hai chế độ xem nay lấy dữ liệu từ `dungBangQuyTrinh`, nó đã tính sẵn tiến độ
    và đã sắp thứ tự. Import lại là mở đường cho một nguồn số thứ hai. */
@@ -61,7 +64,6 @@ import {
   quyetDinhKeoTha,
   quyetDinhMoHopChuyenBuoc,
   soSanhTheTrenBang,
-  laBuocTruocLapDon,
   type GiaiDoanMuaHang,
   type HanhDongKeoTha,
   type NguonMoHopChuyenBuoc,
@@ -361,24 +363,22 @@ export default function TrangDanhSachDeNghi() {
     };
     const sapGoc = <T extends (typeof cot)[number]>(ds: T[]): T[] =>
       quyen.phanBoCongViec ? ds.map((c) => ({ ...c, the: gomTheoPhieuGoc(c.the) })) : ds;
-    /* ★ Sếp 07/10/2026 — Kế toán / QLDA xem từ bước ④. Lượt 2 cùng ngày: *"hãy hiện đủ quy trình 8
-       bước, các cột không được xem thì ko hiện thông tin thôi"* → GIỮ cột ①–③ (người xem thấy đủ quy
-       trình), nhưng RỖNG thẻ + PO độc lập, đầu cột không đếm, thân cột in lý do (`anNoiDung`). Chế độ
-       Danh sách ghép thẻ từ `cotHien` nên cũng không có hồ sơ ①–③. Luật người xem ở
-       `chiXemTuBuocLapDon`, bước nào ở `laBuocTruocLapDon` — không viết danh sách bước tại đây. */
-    const cotTheoNguoiXem = chiXemTuBuocLapDon(quyen)
-      ? cot.map((c) =>
-          laBuocTruocLapDon(c.giaiDoan.ma)
-            ? {
-                ...c,
-                the: [],
-                theDocLap: [],
-                soQuaHan: 0,
-                anNoiDung: "Không hiển thị — tài khoản của bạn xem từ bước Lập đơn mua hàng trở đi.",
-              }
-            : c,
-        )
-      : cot;
+    /* ★ Sếp 07/10/2026 — ô tick "Xem bước quy trình": *"hãy hiện đủ quy trình 8 bước, các cột không được
+       xem thì ko hiện thông tin thôi"* → GIỮ mọi cột (người xem thấy đủ quy trình), nhưng cột của bước
+       không được tick thì RỖNG thẻ + PO độc lập, đầu cột không đếm, thân cột in lý do (`anNoiDung`). Chế độ
+       Danh sách ghép thẻ từ `cotHien` nên cũng không có hồ sơ ở các bước đó. Luật người xem ở
+       `duocXemBuoc` (`4-phan-quyen/quyen.ts`) — không viết danh sách bước tại đây. */
+    const cotTheoNguoiXem = cot.map((c) =>
+      duocXemBuoc(quyen, c.giaiDoan.ma)
+        ? c
+        : {
+            ...c,
+            the: [],
+            theDocLap: [],
+            soQuaHan: 0,
+            anNoiDung: "Không hiển thị — tài khoản của bạn không được xem bước này.",
+          },
+    );
     if (!tim && !chiViecCuaToi) return sapGoc(cotTheoNguoiXem);
     return sapGoc(cotTheoNguoiXem.map((c) => ({
       ...c,
@@ -498,6 +498,29 @@ export default function TrangDanhSachDeNghi() {
   ) {
     const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
     if (!the) return;
+    /* ★ Sếp 07/10/2026 — ô tick "Xem bước quy trình" (đặc tả E-11a): thẻ ở bước người xem không được tick
+       thì KHÔNG chuyển bước từ đây. Bảng đã rỗng cột đó nên bình thường không có menu ⋯ nào gọi tới; dòng
+       này chặn nốt mọi đường gọi khác (`cot` ở đây là bản GỐC, chưa lọc theo người xem). */
+    if (!duocXemBuoc(quyen, the.giaiDoan)) return;
+
+    /**
+     * ★ BƯỚC ĐÍCH KHÔNG ĐƯỢC XEM → VẪN CHO CHUYỂN, NHƯNG NÓI TRƯỚC (đặc tả E-11b, Sếp 07/10/2026).
+     *
+     * 🔴 KHÔNG CHẶN: giai đoạn suy ra từ CHỨNG TỪ (`giai-doan-mua-hang.ts`), nên nút trong trang chi tiết
+     * (chốt đơn, trình xét duyệt…) vẫn tự đẩy hồ sơ sang bước sau. Chặn riêng ở menu ⋯ là giao diện nói
+     * một đằng làm một nẻo (CLAUDE.md §3.5). Câu nối vào `canhBao` của CẢ hộp lùi bước lẫn hộp chuyển
+     * bước (gồm "Đánh dấu thất bại" khi thiếu ô ⑨) — dùng chung hàm này để hai hộp không nói khác nhau.
+     */
+    const kemCanhBaoKhuat = (nd: XacNhanKeoTha): XacNhanKeoTha =>
+      duocXemBuoc(quyen, dich)
+        ? nd
+        : {
+            ...nd,
+            canhBao: [
+              ...nd.canhBao,
+              `Sau khi chuyển, hồ sơ sang bước “${O_XEM_BUOC[dich].nhan}” — tài khoản của bạn không được xem bước này nên hồ sơ sẽ khuất khỏi bảng và không mở lại được.`,
+            ],
+          };
 
     const poCuaDeNghi = donHang.filter((po) => po.prId === prId && po.trangThai !== "huy");
     const baoGiaCuaDeNghi = baoGia.filter((b) => b.prId === prId && b.trangThai !== "huy");
@@ -605,12 +628,14 @@ export default function TrangDanhSachDeNghi() {
         maDeNghi: the.deNghi.code,
         tuBuoc: the.giaiDoan,
         hanhDong,
-        noiDung: dungXacNhanKeoTha(
-          the,
-          dich,
-          hanhDong,
-          poCuaDeNghi,
-          phieuNhan.filter((p) => poCuaDeNghi.some((po) => po.id === p.poId)),
+        noiDung: kemCanhBaoKhuat(
+          dungXacNhanKeoTha(
+            the,
+            dich,
+            hanhDong,
+            poCuaDeNghi,
+            phieuNhan.filter((p) => poCuaDeNghi.some((po) => po.id === p.poId)),
+          ),
         ),
       });
       /* Mỗi lần mở là ô trắng — giữ chữ cũ thì lần sau vô tình gửi lý do của hồ sơ khác. */
@@ -627,12 +652,14 @@ export default function TrangDanhSachDeNghi() {
       // Việc bắt buộc còn treo — hỏi CHUNG một hàm với luật chặn, để hộp không bao giờ nói
       // khác với thứ app thật sự chặn.
       congViecChuaXong: congViecChuaXongCuaBuoc(the.deNghi, the.giaiDoan, cauHinh),
-      noiDung: dungXacNhanKeoTha(
-        the,
-        dich,
-        hanhDong,
-        poCuaDeNghi,
-        phieuNhan.filter((p) => poCuaDeNghi.some((po) => po.id === p.poId)),
+      noiDung: kemCanhBaoKhuat(
+        dungXacNhanKeoTha(
+          the,
+          dich,
+          hanhDong,
+          poCuaDeNghi,
+          phieuNhan.filter((p) => poCuaDeNghi.some((po) => po.id === p.poId)),
+        ),
       ),
     });
     setMoHopXacNhan(true);
@@ -874,7 +901,7 @@ export default function TrangDanhSachDeNghi() {
           tab dính liền tiêu đề đúng như bảng Base, không hở một dải trống. */}
       <div className="flex flex-col gap-(--hp-md-card-gap)">
         <PageHeader
-          crumbs={[{ label: "Thu mua", href: "/tong-quan" }, { label: "Quy trình mua hàng" }]}
+          crumbs={[{ label: "Thu mua", href: duongDanGocTheoQuyen(quyen) }, { label: "Quy trình mua hàng" }]}
           title="Quy trình mua hàng"
           description="Đề nghị mua hàng đã duyệt, nhận từ các phòng ban trong công ty"
           /**

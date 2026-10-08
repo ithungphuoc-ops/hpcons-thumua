@@ -122,20 +122,13 @@ export interface MoTaGiaiDoan {
   tong: Tong;
 }
 
-/** Thứ tự trong mảng này CHÍNH LÀ thứ tự cột trên bảng. */
 /**
- * ★ BƯỚC NÀY CÓ ĐỨNG TRƯỚC "LẬP ĐƠN MUA HÀNG" (④) KHÔNG — tức ① Tiếp nhận · ② Yêu cầu NCC báo giá ·
- * ③ Xét duyệt báo giá. Sếp 07/10/2026: Kế toán / QLDA xem bảng Quy trình từ bước ④, *"Bước 1-3 không
- * hiện"* (luật người xem ở `4-phan-quyen/quyen.ts` → `chiXemTuBuocLapDon`).
- * 📌 Tính theo THỨ TỰ trong `GIAI_DOAN_MUA_HANG`, không liệt kê cứng — thêm bước mới vào trước ④ thì
- * bước đó cũng tự ẩn. "Thất bại" đứng cuối nên không bao giờ bị ẩn (Sếp: cột Thất bại vẫn hiện hết).
+ * Thứ tự trong mảng này CHÍNH LÀ thứ tự cột trên bảng.
+ *
+ * 📌 07/10/2026: đã bỏ `laBuocTruocLapDon` ("Kế toán / QLDA chỉ xem từ bước ④") — thay bằng ô tick "Xem
+ * bước quy trình", luật người xem ở `4-phan-quyen/quyen.ts` → `duocXemBuoc` / `O_XEM_BUOC` (một ô mỗi
+ * bước, thứ tự khoá theo đúng mảng này).
  */
-export function laBuocTruocLapDon(ma: string): boolean {
-  const viTriLapDon = GIAI_DOAN_MUA_HANG.findIndex((g) => g.ma === "lap_don_mua_hang");
-  const viTri = GIAI_DOAN_MUA_HANG.findIndex((g) => g.ma === ma);
-  return viTri >= 0 && viTriLapDon >= 0 && viTri < viTriLapDon;
-}
-
 export const GIAI_DOAN_MUA_HANG: MoTaGiaiDoan[] = [
   {
     ma: "tiep_nhan",
@@ -553,6 +546,62 @@ export function xacDinhGiaiDoan(
 
   // ① Chưa phát sinh chứng từ nào, và còn dòng chưa có người phụ trách.
   return "tiep_nhan";
+}
+
+/**
+ * ★ BƯỚC ĐANG ĐỨNG CỦA MỌI HỒ SƠ, THEO MÃ — cho ô tick "Xem bước quy trình" (Sếp 07/10/2026): các màn ngoài
+ * bảng (Tổng quan, Lịch, chuông, ô tìm…) cần biết hồ sơ đang ở bước nào để ẩn hồ sơ ở bước người xem không
+ * được tick.
+ *
+ * 🔴 GỌI `xacDinhGiaiDoan` VỚI ĐÚNG BỘ ĐỐI SỐ MÀ BẢNG QUY TRÌNH GỌI (`dungBangQuyTrinh`): tham số thứ 5 là
+ * danh sách ĐẦY ĐỦ `deNghi` (chưa lọc lưu trữ). Tự chế cách tính khác là một hồ sơ nằm ở cột ⑤ trên bảng
+ * mà màn khác lại coi ở bước ① — ẩn nhầm hoặc lọt, không lỗi nào báo (xem chú thích tham số thứ 5 ở trang
+ * chi tiết đề nghị).
+ *
+ * 📌 Tính HẾT mọi hồ sơ một lượt. Nơi chỉ hỏi vài hồ sơ (chuông, ô tìm) dùng `boTraGiaiDoanTheoId` — cùng
+ * phép tính, chỉ tính khi được hỏi.
+ */
+export function bangGiaiDoanTheoId(
+  deNghi: DeNghiMuaHang[],
+  donHang: DonDatHang[],
+  baoGia: BaoGia[],
+  phieuNhan: PhieuNhanHang[],
+): Map<string, GiaiDoanMuaHang> {
+  const tra = boTraGiaiDoanTheoId(deNghi, donHang, baoGia, phieuNhan);
+  const ra = new Map<string, GiaiDoanMuaHang>();
+  for (const dn of deNghi) {
+    const g = tra(dn.id);
+    if (g !== undefined) ra.set(dn.id, g);
+  }
+  return ra;
+}
+
+/**
+ * ★ Bản LƯỜI của `bangGiaiDoanTheoId`: trả một hàm tra bước theo mã hồ sơ, chỉ tính hồ sơ được hỏi và nhớ
+ * lại kết quả. Mã không có trong `deNghi` → `undefined`. Bộ nhớ gắn với BỘ MẢNG truyền vào — dữ liệu đổi
+ * thì nơi gọi tạo hàm mới (hook `useXemBuocHoSo` làm việc đó bằng `useMemo`).
+ *
+ * 📌 Một chỗ duy nhất gọi `xacDinhGiaiDoan` cho cả hai hàm — bài kiểm canh hai hàm khớp `xacDinhGiaiDoan`
+ * từng hồ sơ.
+ */
+export function boTraGiaiDoanTheoId(
+  deNghi: DeNghiMuaHang[],
+  donHang: DonDatHang[],
+  baoGia: BaoGia[],
+  phieuNhan: PhieuNhanHang[],
+): (prId: string) => GiaiDoanMuaHang | undefined {
+  const boNho = new Map<string, GiaiDoanMuaHang>();
+  let theoMa: Map<string, DeNghiMuaHang> | null = null;
+  return (prId) => {
+    const daCo = boNho.get(prId);
+    if (daCo !== undefined) return daCo;
+    theoMa ??= new Map(deNghi.map((d) => [d.id, d] as const));
+    const dn = theoMa.get(prId);
+    if (!dn) return undefined;
+    const g = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, deNghi);
+    boNho.set(prId, g);
+    return g;
+  };
 }
 
 /** Giai đoạn đã kết thúc thì không còn tính hạn xử lý nữa. */
@@ -986,7 +1035,8 @@ export interface CotBangQuyTrinh {
    * ★ CỘT HIỆN KHUNG NHƯNG KHÔNG HIỆN THÔNG TIN — Sếp 07/10/2026 (lượt 2): *"hãy hiện đủ quy trình 8
    * bước, các cột không được xem thì ko hiện thông tin thôi"*. Có giá trị = câu lý do in trong thân cột;
    * thẻ đã rỗng, đầu cột KHÔNG in "0 đề nghị" (nói sai là không có hồ sơ nào). Màn bảng đặt trường
-   * này cho cột bước ①–③ khi người xem chỉ xem từ bước ④ (`chiXemTuBuocLapDon`).
+   * này khi người xem không được xem bước của cột (`duocXemBuoc` ở `4-phan-quyen/quyen.ts`, ô tick "Xem
+   * bước quy trình" — Sếp 07/10/2026).
    */
   anNoiDung?: string;
   the: TheDeNghiTrenBang[];

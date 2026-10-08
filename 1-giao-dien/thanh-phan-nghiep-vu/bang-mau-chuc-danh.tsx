@@ -22,7 +22,7 @@ import {
 import { OTich } from "@/1-giao-dien/thanh-phan-dung-chung/o-tich-ba-trang-thai";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { useDonDepHopThoaiKet } from "@/1-giao-dien/thanh-phan-dung-chung/don-dep-hop-thoai-ket";
-import { CO_TICK_DUOC, NHOM_QUYEN_TICK, type CoTickDuoc } from "@/4-phan-quyen/quyen-rieng";
+import { CO_TICK_DUOC, MO_TA_NHOM_XEM_BUOC, NHOM_QUYEN_TICK, type CoTickDuoc } from "@/4-phan-quyen/quyen-rieng";
 import { VAI_TRO_CHUAN, type MaVaiTroChuan, type VaiTroChuan } from "@/4-phan-quyen/vai-tro-chuan";
 import {
   COT_KHOA_MAU,
@@ -54,8 +54,9 @@ import { formatDateTime } from "@/6-tien-ich/dinh-dang";
  * nháp chỉ là "ô nào định đổi"; phép tính lưu thật là `tinhLuuMauChucDanh` (màn cha chạy thử trước khi
  * mở hộp xác nhận, máy chủ / kho demo chạy lại).
  *
- * 📱 Dưới 768px: Card List (chọn một chức danh rồi hiện 18 ô, mỗi vùng chạm ≥ 44px) — Design System V1.1
- * cấm ép bảng 11 cột lên điện thoại.
+ * 📱 Dưới 768px: Card List (chọn một chức danh rồi hiện mọi ô tick, chia theo nhóm `NHOM_QUYEN_TICK`, mỗi
+ * vùng chạm ≥ 44px) — Design System V1.1 cấm ép bảng 11 cột lên điện thoại. Số ô KHÔNG ghi cứng ở đây: số
+ * dòng = `CO_TICK_DUOC` (nhóm "Xem bước quy trình" thêm 9 ô — Sếp 07/10/2026).
  */
 export interface BangMauChucDanhProps {
   /** Mẫu đang cất. `null` = chưa đọc được (đang đọc, lỗi, hoặc hỏng — xem `mauHong`). */
@@ -82,6 +83,26 @@ export interface BangMauChucDanhProps {
   dangLuu: boolean;
   laDemo: boolean;
   lichSuDemo?: readonly DongLichSuDemo[] | null;
+}
+
+/**
+ * ★ Câu mô tả hiện DƯỚI ĐẦU NHÓM ô tick — Sếp 07/10/2026 (ô tick "Xem bước quy trình", đặc tả A.2). MỘT chỗ cho
+ * cả bảng mẫu (bảng ≥ 768px + Card List) LẪN khối tick từng người (`trang/phan-quyen.tsx` dùng `MoTaNhomQuyenTick`
+ * ngay dưới) — hai nơi tự so tên nhóm là hai chỗ cùng nói một chuyện.
+ *
+ * 📌 So bằng CHUỖI tên nhóm, không bằng kiểu `NhomQuyenTick`: nhóm "Xem bước quy trình" do gói A đưa vào
+ * `NHOM_QUYEN_TICK` — chưa có nhóm đó thì hàm không bao giờ được gọi với tên này, không vẽ gì, không lỗi kiểu.
+ * Câu lấy nguyên `MO_TA_NHOM_XEM_BUOC` (`quyen-rieng.ts`), KHÔNG viết lại ở giao diện. Bài kiểm D-T1 gọi thật hàm này.
+ */
+function moTaNhomQuyenTick(nhom: string): string | null {
+  return nhom === "Xem bước quy trình" ? MO_TA_NHOM_XEM_BUOC : null;
+}
+
+/** Đoạn mô tả nhóm (chữ `text-text-desc`, 12px) — nhóm không có mô tả thì không vẽ gì. */
+export function MoTaNhomQuyenTick({ nhom, className }: { nhom: string; className?: string }) {
+  const moTa = moTaNhomQuyenTick(nhom);
+  if (!moTa) return null;
+  return <p className={`text-xs text-text-desc ${className ?? ""}`}>{moTa}</p>;
 }
 
 /** Ba bộ giá trị của một cột: công thức (mặc định gốc), mẫu đã lưu, và đang hiện (mẫu + nháp). */
@@ -571,7 +592,7 @@ function trangThaiO(
   };
 }
 
-/** Một nhóm dòng (Được xem / Được làm / Quản trị) của bảng ≥ 768px. */
+/** Một nhóm dòng (theo `NHOM_QUYEN_TICK` — Được xem / Xem bước quy trình / Được làm / Quản trị) của bảng ≥ 768px. */
 function NhomDong({
   nhom,
   giaTri,
@@ -588,6 +609,7 @@ function NhomDong({
   baoKhoa: (lyDo: string) => void;
 }) {
   const ds = CO_TICK_DUOC.filter((c) => c.nhom === nhom);
+  const moTa = moTaNhomQuyenTick(nhom);
   return (
     <>
       <tr>
@@ -599,6 +621,17 @@ function NhomDong({
           {nhom}
         </th>
       </tr>
+      {/* ★ Mô tả nhóm (Sếp 07/10/2026) — dòng RIÊNG bằng `<td>`, không nhét vào `<th>` đầu nhóm: chữ trong ô tiêu đề
+          bị trình đọc màn hình đọc lại theo từng ô của nhóm. `relative` như MỌI `<td>` của bảng (bài Design System:
+          `sr-only` không được thoát khung cuộn ngang). `max-w-3xl`: bảng rộng 68rem, câu dài trải hết bề ngang là
+          phải kéo ngang mới đọc hết. */}
+      {moTa && (
+        <tr className="border-b border-divider">
+          <td colSpan={VAI_TRO_CHUAN.length + 1} className="relative px-3 py-2 text-left">
+            <MoTaNhomQuyenTick nhom={nhom} className="max-w-3xl" />
+          </td>
+        </tr>
+      )}
       {ds.map((c) => (
         <tr key={c.khoa} className="border-b border-divider">
           <th scope="row" className="sticky left-0 z-10 bg-card px-2 py-1.5 text-left align-top font-normal">
@@ -719,6 +752,8 @@ function TheCot({
           <h4 className="rounded-lg bg-primary-bg px-3 py-2 text-xs font-semibold tracking-wide text-primary uppercase">
             {nhom}
           </h4>
+          {/* ★ Mô tả nhóm (Sếp 07/10/2026) — cùng câu với bảng ≥ 768px (`moTaNhomQuyenTick`). */}
+          <MoTaNhomQuyenTick nhom={nhom} className="px-3" />
           <ul className="flex flex-col">
             {CO_TICK_DUOC.filter((c) => c.nhom === nhom).map((c) => {
               const o = trangThaiO(v, c, giaTri, nhap, lyDoKhoaO);

@@ -8,6 +8,9 @@ import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { Skeleton } from "@/1-giao-dien/nen-tang-ui/skeleton";
 import { FormLapDonMuaHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/form-lap-don-mua-hang";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
+import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
+import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 
 /**
  * M4 — LẬP ĐƠN MUA HÀNG, bản MỘT TRANG RIÊNG (`/don-hang/tao-moi`).
@@ -123,6 +126,10 @@ function NoiDungLapDonHang() {
   const rfqId = searchParams.get("rfqId");
   const nccIdTuBaoGia = searchParams.get("nccId");
   const { deNghi, donHang } = useDuLieu();
+  const { quyen } = useNguoiDung();
+  /* ★ Ô tick "Xem bước quy trình" — xem `lyDoChanHoSo` bên dưới. Trang này không có `return` sớm nào,
+     nhưng vẫn đặt hook ngay đầu cho đúng nếp. */
+  const xem = useXemBuocHoSo();
 
   /**
    * Đơn đang được sửa — `undefined` khi KHÔNG ở chế độ sửa, hoặc có id mà tra không ra.
@@ -152,6 +159,25 @@ function NoiDungLapDonHang() {
    */
   const maKhongTimThay = prIdTuDiaChi !== null && dn === null ? prIdTuDiaChi : null;
 
+  /**
+   * ★ HỒ SƠ NGUỒN Ở BƯỚC NGƯỜI XEM KHÔNG ĐƯỢC TICK — ô tick "Xem bước quy trình" (Sếp 07/10/2026,
+   * bổ sung đặc tả V-C). Gõ thẳng `/don-hang/tao-moi?prId=…` thì trang này trước đây hiện mã, tên,
+   * mặt hàng của hồ sơ (cổng chỉ gác `lapPO`) — đúng đường vòng ô tick phải chặn. Nay: CHẶN cả form,
+   * hiện `EmptyState` kèm câu lý do của tầng luật (`lyDoKhongXemHoSo`), và tiêu đề / breadcrumb
+   * không nhắc tới hồ sơ (đặc tả E-20).
+   *
+   * 📌 CHỈ XÉT KHI TRA RA HỒ SƠ (`dn !== null`). `prId` không tra ra thì trang không hiện gì của hồ sơ
+   * nào để mà giấu — giữ nguyên nhánh "chỉ tạo mẫu" như cũ, không đổi hành vi cho ai.
+   * 📌 Chế độ SỬA ĐƠN (`?suaPoId=`) không đi qua đây — đó là việc của đơn, màn đơn hàng không lọc theo
+   * bước (bổ sung đặc tả Q3).
+   */
+  const chanHoSo = dn !== null && !xem.duocXemHoSo(dn.id);
+  const lyDoChanHoSo = chanHoSo
+    ? (xem.lyDoKhongXemHoSo(dn.id) ?? "Tài khoản của bạn không được xem bước hồ sơ này đang đứng.")
+    : null;
+  /** Hồ sơ được phép hiện trên trang — `null` khi không có, hoặc bị chặn theo bước. */
+  const dnHien = chanHoSo ? null : dn;
+
   /* 📌 Cổng gác quyền (`quyen.lapPO`) nằm TRONG form — xem chú thích ở đó. Ở đây không kiểm
      lại: hai chỗ kiểm hai kiểu là sớm muộn lệch nhau. */
   /* 🔴 THU GỌN BỀ NGANG RIÊNG MÀN NÀY — Ban lãnh đạo 18/08/2026: *"THU GỌN LẠI NHÌN CHO CÂN
@@ -171,25 +197,29 @@ function NoiDungLapDonHang() {
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-(--hp-md-section)">
       <PageHeader
+        /* "Thu mua" theo quyền (`duongDanGocTheoQuyen`) — không trỏ cứng `/tong-quan`. Hồ sơ nguồn bị chặn
+           theo bước (`chanHoSo`) thì breadcrumb KHÔNG nhắc tới hồ sơ (đặc tả E-20). */
         crumbs={
           suaPoId !== null && poDangSua
             ? [
-                { label: "Thu mua", href: "/tong-quan" },
+                { label: "Thu mua", href: duongDanGocTheoQuyen(quyen) },
                 { label: "Theo dõi đơn hàng", href: "/don-hang" },
                 { label: poDangSua.code, href: `/don-hang/${poDangSua.id}` },
                 { label: "Sửa đơn" },
               ]
-            : dn
+            : dnHien
               ? [
-                  { label: "Thu mua", href: "/tong-quan" },
+                  { label: "Thu mua", href: duongDanGocTheoQuyen(quyen) },
                   { label: "Quy trình mua hàng", href: "/de-nghi" },
-                  { label: dn.code, href: `/de-nghi/${dn.id}` },
+                  { label: dnHien.code, href: `/de-nghi/${dnHien.id}` },
                   { label: "Lập đơn mua hàng" },
                 ]
-              : [
-                  { label: "Thu mua", href: "/tong-quan" },
-                  { label: "Lập đơn mua hàng (PO)" },
-                ]
+              : chanHoSo
+                ? [{ label: "Thu mua", href: duongDanGocTheoQuyen(quyen) }, { label: "Lập đơn mua hàng" }]
+                : [
+                    { label: "Thu mua", href: duongDanGocTheoQuyen(quyen) },
+                    { label: "Lập đơn mua hàng (PO)" },
+                  ]
         }
         /* 🔴 Xét `suaPoId !== null` chứ không chỉ `poDangSua`: id sai/đơn đã xoá thì `poDangSua`
            là `undefined`, mà rơi xuống nhánh lập mới là tiêu đề ghi "Lập đơn mua hàng (PO)" kèm
@@ -200,7 +230,7 @@ function NoiDungLapDonHang() {
             ? poDangSua
               ? `Sửa đơn mua hàng ${poDangSua.code}`
               : "Sửa đơn mua hàng"
-            : dn
+            : dnHien || chanHoSo
               ? "Lập đơn mua hàng"
               : "Lập đơn mua hàng (PO)"
         }
@@ -217,11 +247,13 @@ function NoiDungLapDonHang() {
             ? poDangSua
               ? "Chính giao diện lập đơn mua hàng, đã điền sẵn nội dung đơn. Ô nào có ổ khoá là ô chỉ đặt được lúc lập đơn."
               : "Không tra ra đơn cần sửa."
-            : dn
-              ? `Từ ${dn.code} · ${dn.tieuDe}`
-              : prIdTuDiaChi === null
-                ? "Tạm ngưng lập PO độc lập — mọi PO phải tạo từ một đề nghị cụ thể."
-                : "Tạo MẪU đơn mua hàng để in hoặc xuất Excel. Đơn ở đây không lưu vào hệ thống."
+            : dnHien
+              ? `Từ ${dnHien.code} · ${dnHien.tieuDe}`
+              : chanHoSo
+                ? "Hồ sơ nguồn đang ở bước tài khoản của bạn không được xem."
+                : prIdTuDiaChi === null
+                  ? "Tạm ngưng lập PO độc lập — mọi PO phải tạo từ một đề nghị cụ thể."
+                  : "Tạo MẪU đơn mua hàng để in hoặc xuất Excel. Đơn ở đây không lưu vào hệ thống."
         }
         /* ★ NÚT X ĐÓNG ở góc phải thanh tiêu đề — MISA mở màn này thành một CỬA SỔ nên có nút X
            (Ban lãnh đạo 18/08/2026: *"giao diện phần PO e chỉnh lại giống 100% như vậy"*).
@@ -304,6 +336,14 @@ function NoiDungLapDonHang() {
           title="Tạm ngưng lập PO độc lập"
           description='Mọi PO phải tạo từ một đề nghị cụ thể. Vào đề nghị cần mua hàng và bấm "Lập đơn đặt hàng" ở đó.'
           action={{ label: "Xem danh sách đề nghị", onClick: () => router.push("/de-nghi") }}
+        />
+      ) : chanHoSo ? (
+        /* ★ Ô tick "Xem bước quy trình" (Sếp 07/10/2026, bổ sung đặc tả V-C) — xem `chanHoSo` ở trên.
+           Câu lý do là câu của tầng luật (`lyDoKhongXemHoSo`), không viết lại ở đây. */
+        <EmptyState
+          icon={Lock}
+          title="Bạn không xem được hồ sơ nguồn của đơn này"
+          description={lyDoChanHoSo ?? ""}
         />
       ) : (
         <>

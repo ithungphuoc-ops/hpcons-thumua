@@ -19,6 +19,7 @@ import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
 import { docGhiChu, ghiGhiChu, type GhiChuCongViec } from "@/3-du-lieu/ghi-chu-ca-nhan";
 import {
   NHAN_LOAI_MUC,
@@ -83,14 +84,19 @@ export default function TrangLichCongViec() {
     null,
   );
 
+  /* ★ Ô tick "Xem bước quy trình" (Sếp 07/10/2026) — hồ sơ / đơn ở bước không được xem thì không lên
+     lịch. Truyền THẲNG hook: luật ở `quyen.ts`, lịch chỉ hỏi. */
+  const xem = useXemBuocHoSo();
+
   const muc = useMemo(
     () =>
       dungLichCuaToi(
         { deNghi, donHang, baoGia, congNo, ghiChu },
         nguoiDung.uid,
         quyen,
+        xem,
       ),
-    [deNghi, donHang, baoGia, congNo, ghiChu, nguoiDung.uid, quyen],
+    [deNghi, donHang, baoGia, congNo, ghiChu, nguoiDung.uid, quyen, xem],
   );
 
   const theoNgay = useMemo(() => gomTheoNgay(muc), [muc]);

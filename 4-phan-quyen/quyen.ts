@@ -24,6 +24,11 @@ import {
   type DauChucDanh,
   type QuyenRieng,
 } from "@/4-phan-quyen/quyen-rieng";
+/* ★ Ô tick "Xem bước quy trình" (Sếp 07/10/2026) — CHỈ `import type`: esbuild xoá dòng này khi dựng, nên
+   không sinh vòng nạp `giai-doan-mua-hang → sap-xep-uu-tien → quyen-theo-ho-so → quyen`. Đừng đổi sang
+   import chạy được (vd để lấy `NHAN_GIAI_DOAN`) — nhãn ô vì vậy viết cứng trong `O_XEM_BUOC`, có bài kiểm
+   đối chiếu với `NHAN_GIAI_DOAN`. */
+import type { GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
 
 /** Vai trò toàn hệ thống (App Tổng §2.3). */
 export type VaiTroHeThong = "admin" | "director" | "staff";
@@ -104,7 +109,8 @@ export interface NguoiDung {
    * ★ QUYỀN TICK RIÊNG — Sếp 26/09/2026 (màn "Phân quyền người dùng" kiểu tick chọn).
    *
    * Đọc qua `/api/quyen-rieng`. ★ Từ Sếp 06/10/2026 (mẫu chức danh sửa được + khuôn ngoại lệ): máy chủ
-   * trả ĐỦ 18 ô tick HIỆU LỰC, đã gộp sẵn mẫu chức danh (`quyen-mau-chuc-danh/chung`) và ngoại lệ riêng
+   * trả ĐỦ ô tick HIỆU LỰC (`KHOA_TICK` — 27 ô từ 07/10/2026, gồm 9 ô "Xem bước quy trình"), đã gộp sẵn mẫu
+   * chức danh (`quyen-mau-chuc-danh/chung`) và ngoại lệ riêng
    * (`tm_quyen_rieng/{firebaseUid}`) — xem thứ tự áp ở đầu `4-phan-quyen/quyen-rieng.ts`.
    * `undefined`/`null` = chức danh của người này KHÔNG có ô đè mẫu VÀ người này KHÔNG có ngoại lệ →
    * quyền đúng theo công thức chức danh như trước. Đọc lỗi KHÔNG được thành `null` (null = rộng hơn).
@@ -217,6 +223,13 @@ export interface Quyen {
   /**
    * ★ ĐƯỢC VÀO MÀN "QUY TRÌNH MUA HÀNG" (bảng 8 cột) KHÔNG.
    *
+   * 🔴🔴 ĐỔI NGHĨA TỪ 07/10/2026 (ô tick "Xem bước quy trình"): cờ này KHÔNG còn mở bảng Quy trình — bảng
+   * mở theo chín ô `xemBuoc…` (`vaoDuocBangQuyTrinh`). Cờ này còn gác 5 màn làm việc: Tổng quan · Việc của
+   * tôi · Lịch · Theo dõi đơn hàng · Danh mục NCC (`duocVaoDuongDan`, `dieu-huong.ts`). Nhãn ô tick đổi theo:
+   * "Vào màn làm việc Thu mua" (`CO_TICK_DUOC`). Dữ liệu ghi TRƯỚC 07/10/2026 đang ghim ô này được chuyển khi
+   * đọc theo luật 8 / 8b (`oBuocChoDuLieuCu` ở `quyen-rieng.ts`) — không ai mất / được thêm bảng khi lên bản.
+   * Đoạn dưới là lịch sử.
+   *
    * 🔴 Ban lãnh đạo 16/08/2026: *"ở tk thủ kho và tk của phòng ban khác thì không được phép
    * thấy quy trình mua hàng, chỉ thấy tiến độ đơn hàng ở tab theo dõi đơn hàng thôi"*.
    *
@@ -228,20 +241,41 @@ export interface Quyen {
    * riêng thì đọc một dòng là biết ai vào được, và sửa sau cũng không kéo theo màn khác.
    */
   xemQuyTrinhMuaHang: boolean;
-  /**
-   * ★ XEM BẢNG "QUY TRÌNH MUA HÀNG" TỪ BƯỚC ④ (Lập đơn mua hàng) — Sếp 07/10/2026 (ảnh bảng Quy trình mua hàng, khoanh các cột từ "Lập đơn mua hàng" tới "Thất bại"):
- * *"A muốn tk của kế toán và phòng dự án xem được những thông tin ở bước này. Bước 1-3 không hiện"*.
-   * Sếp chốt cùng ngày: **chỉ mở riêng bảng Quy trình** (bảng + trang chi tiết hồ sơ) — KHÔNG mở lại
-   * Tổng quan · Việc của tôi · Lịch · Theo dõi đơn hàng · Danh mục NCC (giữ chỉ đạo 18/09/2026 "phòng
-   * ban khác chỉ mở Theo dõi đề nghị"); trang chi tiết ẩn khối ② báo giá và ③ xét duyệt, GIỮ khối ①
-   * (danh sách mặt hàng + cảnh báo vật tư định mức cho QLDA); cột "Thất bại" vẫn hiện hết.
+  /*
+   * ★★ CHÍN Ô "XEM BƯỚC QUY TRÌNH" — Sếp 07/10/2026: *"Điều chỉnh này thành chức năng phân quyền, và
+   * được tick chọn cho xem bước nào"*. Mỗi cờ gác ĐÚNG một cột của bảng Quy trình mua hàng: cột đó hiện
+   * thẻ hay chỉ hiện khung, và hồ sơ ĐANG Ở bước đó có mở được không. Có ít nhất một ô thì vào được bảng
+   * (`vaoDuocBangQuyTrinh`); ô "Vào màn làm việc Thu mua" (`xemQuyTrinhMuaHang`, nhãn cũ "Vào Quy trình mua
+   * hàng") từ nay KHÔNG còn mở bảng. Tick được (nhóm "Xem bước quy trình" của `CO_TICK_DUOC`) từ nhịp 2.
    *
-   * 📌 CỜ RIÊNG, KHÔNG TICK ĐƯỢC (không nằm trong `KHOA_TICK`) — nên không đụng khuôn bản ghi quyền
-   * riêng, và không dựng lại bộ tick "Xem bước ①…⑦" Sếp đã HUỶ 02/10/2026. Người có CẢ
-   * `xemQuyTrinhMuaHang` (vd Sếp tick ô "Vào Quy trình mua hàng" cho cột Kế toán ở bảng mẫu) thì
-   * thấy đủ mọi bước — xem `chiXemTuBuocLapDon`.
+   * 📌 THAY cờ `xemQuyTrinhTuBuocLapDon` (07/10/2026 sáng — Kế toán / QLDA "chỉ xem từ bước ④"): luật đó
+   * nay là MẶC ĐỊNH của công thức (Kế toán / QLDA có ① và ④–⑨, xem `tinhQuyenTheoChucDanh`). Cờ cũ chưa
+   * từng nằm trong `KHOA_TICK` nên không bản ghi nào chứa nó — xoá hẳn an toàn.
+   *
+   * 🔴 TÊN KHOÁ ĐÓNG BĂNG — trùng tuyệt đối `KHOA_XEM_BUOC` (`quyen-rieng.ts`) và 9 tên bộ đọc nhịp 1
+   * (`693370a`) nhận ra. Đổi một chữ là Instant Rollback về nhịp 1 không đọc được dữ liệu đã ghi.
+   *
+   * ⚠️ CHỈ ẨN HIỂN THỊ, KHÔNG PHẢI BẢO MẬT DỮ LIỆU: toàn bộ dữ liệu chạy thử vẫn tải về trình duyệt
+   * (CLAUDE.md §3.6b).
    */
-  xemQuyTrinhTuBuocLapDon: boolean;
+  /** ① Tiếp nhận và kiểm tra — cột ① · mở hồ sơ đang ở bước ①. */
+  xemBuocTiepNhan: boolean;
+  /** ② Yêu cầu NCC báo giá — cột ② · mở hồ sơ ở ② · khối ② ở trang chi tiết. */
+  xemBuocYeuCauBaoGia: boolean;
+  /** ③ Xét duyệt báo giá — cột ③ · mở hồ sơ ở ③ · khối ③. */
+  xemBuocXetDuyetBaoGia: boolean;
+  /** ④ Lập đơn mua hàng — cột ④ (kể cả thẻ PO chờ đề nghị) · mở hồ sơ ở ④ · khối ④. */
+  xemBuocLapDon: boolean;
+  /** ⑤ Tiến hành đặt hàng — cột ⑤ · mở hồ sơ ở ⑤ · khối ⑤. */
+  xemBuocDatHang: boolean;
+  /** ⑥ Tiến hành nhận hàng — cột ⑥ · mở hồ sơ ở ⑥ · khối ⑥. */
+  xemBuocNhanHang: boolean;
+  /** ⑦ Hồ sơ thanh toán — cột ⑦ · mở hồ sơ ở ⑦ · khối ⑦. */
+  xemBuocHoSoThanhToan: boolean;
+  /** ⑧ Hoàn thành — cột ⑧ · mở hồ sơ đã hoàn thành (trang chi tiết không có khối riêng cho ⑧). */
+  xemBuocHoanThanh: boolean;
+  /** ⑨ Thất bại — cột Thất bại · mở hồ sơ đã đóng dở / huỷ. */
+  xemBuocThatBai: boolean;
   /**
    * ★ VÀO ĐƯỢC MÀN "PHÂN QUYỀN NGƯỜI DÙNG" — Ban lãnh đạo 18/08/2026: *"thêm tính năng phân
    * quyền cho tài khoản quản trị và tài khoản trưởng bộ phận"*.
@@ -305,6 +339,11 @@ export function tinhQuyenTheoChucDanh(u: NguoiDung): Quyen {
   const laNVKhoTong = u.chucNang === "nhan_vien_kho_tong";
   const laQLDA = u.chucNang === "qlda";
   const laKeToan = u.chucNang === "ke_toan";
+  /* Người LÀM thu mua + Quản trị + BGĐ — giữ y hệt công thức `xemQuyTrinhMuaHang` từ 16/08/2026. */
+  const vaoQuyTrinh = laQuanTri || laBGD || laTruongBP || laNhanVienTM || laNVNhanSu || laNVKhoTong;
+  /* ★ Sếp 07/10/2026 — Kế toán / QLDA xem bảng Quy trình: ① và ④–⑨ (②③ không hiện). Thủ kho và Phòng Thi
+     công mặc định KHÔNG bước nào (chỉ đạo 16/08/2026 giữ nguyên) — muốn mở thì tick ở màn Phân quyền. */
+  const ktQlda = capTM >= 1 && (laKeToan || laQLDA);
 
   return {
     xemDuocApp: capTM >= 1,
@@ -344,11 +383,17 @@ export function tinhQuyenTheoChucDanh(u: NguoiDung): Quyen {
 
     // Chỉ người LÀM thu mua, cộng quản trị và Ban Giám đốc. Thủ kho, QLDA, kế toán và các
     // phòng ban đề xuất theo dõi tiến độ ở mục "Theo dõi đề nghị" — xem `xemQuyTrinhMuaHang`.
-    xemQuyTrinhMuaHang: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laNVNhanSu || laNVKhoTong,
-    /* ★ Sếp 07/10/2026 — Kế toán và QLDA xem bảng Quy trình từ bước ④ (chỉ xem; bước ①–③ không hiện).
-       Quản trị có cờ này cho đủ bộ (Quản trị luôn đủ mọi quyền) nhưng vẫn thấy mọi bước vì có
-       `xemQuyTrinhMuaHang` — xem `chiXemTuBuocLapDon`. */
-    xemQuyTrinhTuBuocLapDon: laQuanTri || (capTM >= 1 && (laKeToan || laQLDA)),
+    xemQuyTrinhMuaHang: vaoQuyTrinh,
+    /* ★ Chín ô "Xem bước quy trình" (Sếp 07/10/2026) — xem khai báo trong `Quyen`. */
+    xemBuocTiepNhan: vaoQuyTrinh || ktQlda,
+    xemBuocYeuCauBaoGia: vaoQuyTrinh,
+    xemBuocXetDuyetBaoGia: vaoQuyTrinh,
+    xemBuocLapDon: vaoQuyTrinh || ktQlda,
+    xemBuocDatHang: vaoQuyTrinh || ktQlda,
+    xemBuocNhanHang: vaoQuyTrinh || ktQlda,
+    xemBuocHoSoThanhToan: vaoQuyTrinh || ktQlda,
+    xemBuocHoanThanh: vaoQuyTrinh || ktQlda,
+    xemBuocThatBai: vaoQuyTrinh || ktQlda,
 
     /* Quản trị (cấp 4) và trưởng bộ phận (cấp 3). Giới hạn CỤ THỂ đặt được tới cấp nào nằm ở
        `luat-phan-quyen.ts` → `capDatDuocToiDa`, không nhét vào đây. */
@@ -380,7 +425,7 @@ export function tinhQuyenTheoDauChucDanh(d: DauChucDanh): Quyen {
  * RỘNG hơn mẫu Sếp vừa siết, mà TypeScript không báo. Bài kiểm-luật quét mã: mọi lời gọi đủ 3 đối số.
  */
 export function quyenRiengConHieuLuc(
-  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe"> | null | undefined,
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe" | "coOXemBuoc"> | null | undefined,
   nd: Pick<NguoiDung, "chucNang" | "vaiTro" | "capTM" | "capKho">,
   oDeMau: QuyenRieng | null,
 ): QuyenRieng | null {
@@ -406,7 +451,7 @@ function gocCuCuaBanGhi(
  * hưởng khi đổi mẫu (B-F6) và dấu "(khác chức danh)" trên màn Phân quyền (`k in ngoaiLe`).
  */
 export function ngoaiLeConHieuLuc(
-  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe">,
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe" | "coOXemBuoc">,
   nd: Pick<NguoiDung, "chucNang" | "vaiTro" | "capTM" | "capKho">,
 ): { khop: boolean; ngoaiLe: QuyenRieng } {
   return ngoaiLeCuaBanGhi(banGhi, nd, gocCuCuaBanGhi(banGhi));
@@ -422,19 +467,131 @@ export function ngoaiLeConHieuLuc(
  */
 export function nguoiBiKhoaVaoApp(
   nd: NguoiDung,
-  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe"> | null | undefined,
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe" | "coOXemBuoc"> | null | undefined,
 ): boolean {
   return !tinhQuyen({ ...nd, quyenRieng: quyenRiengConHieuLuc(banGhi, nd, null) }).xemDuocApp;
 }
 
+// ------------------------------------------------------------
+// ★★ Ô TICK "XEM BƯỚC QUY TRÌNH" — Sếp 07/10/2026: *"Điều chỉnh này thành chức năng phân quyền, và được
+// tick chọn cho xem bước nào"*. MỘT CHỖ DUY NHẤT trả lời "người này xem được bước nào": bảng Quy trình,
+// trang chi tiết, Tổng quan, Việc của tôi, Lịch, chuông, ô tìm, Phân bổ đều gọi các hàm dưới — đừng tự
+// đọc `q.xemBuoc…` tại chỗ vẽ (đọc tại chỗ là hai nơi trả lời một câu, rồi lệch nhau).
+//
+// ⚠️ CHỈ ẨN HIỂN THỊ, không phải bảo mật dữ liệu (CLAUDE.md §3.6b).
+// ------------------------------------------------------------
+
+/** Chín khoá ô "Xem bước quy trình" — tên ĐÓNG BĂNG, trùng `KHOA_XEM_BUOC` (`quyen-rieng.ts`, bài kiểm canh). */
+export type KhoaXemBuoc =
+  | "xemBuocTiepNhan"
+  | "xemBuocYeuCauBaoGia"
+  | "xemBuocXetDuyetBaoGia"
+  | "xemBuocLapDon"
+  | "xemBuocDatHang"
+  | "xemBuocNhanHang"
+  | "xemBuocHoSoThanhToan"
+  | "xemBuocHoanThanh"
+  | "xemBuocThatBai";
+
+/** Một ô bước: khoá cờ, nhãn ô (ký hiệu + tên bước), và hàm đọc cờ. */
+export interface OXemBuoc {
+  khoa: KhoaXemBuoc;
+  /** Nhãn ô — phần chữ sau ký hiệu ①…⑨ TRÙNG `NHAN_GIAI_DOAN[ma].nhan` (bài kiểm canh). */
+  nhan: string;
+  doc: (q: Pick<Quyen, KhoaXemBuoc>) => boolean;
+}
+
 /**
- * ★ NGƯỜI NÀY CHỈ ĐƯỢC THẤY BẢNG QUY TRÌNH TỪ BƯỚC ④ — Sếp 07/10/2026 (ảnh bảng Quy trình mua hàng, khoanh các cột từ "Lập đơn mua hàng" tới "Thất bại"): *"A muốn tk của kế toán và phòng dự án xem được những thông tin ở bước này. Bước 1-3 không hiện"*.
- * Đúng khi có cờ `xemQuyTrinhTuBuocLapDon` mà KHÔNG có `xemQuyTrinhMuaHang` (người có quyền Quy trình
- * đầy đủ thấy mọi bước). MỘT hàm cho mọi nơi: bảng (bỏ cột ①–③), trang chi tiết (chặn hồ sơ ①–③, ẩn
- * khối ②③). Bước nào là "trước ④" do `laBuocTruocLapDon` (`2-quy-trinh/giai-doan-mua-hang.ts`) quyết.
+ * Bước quy trình → ô tick gác nó.
+ *
+ * 📌 `Record` ĐỦ MỌI `GiaiDoanMuaHang`: thêm bước mới vào quy trình mà quên ô → TypeScript báo lỗi ngay.
+ * 📌 THỨ TỰ KHOÁ = thứ tự `GIAI_DOAN_MUA_HANG` (bài kiểm canh).
+ * 📌 Mỗi `doc` ĐỌC THẲNG `q.<khoá>` — để bài "mọi ô tick có chỗ đọc thật" (`kiem-luat`) thấy được.
+ * 📌 Nhãn VIẾT CỨNG, không nạp `NHAN_GIAI_DOAN` (vòng nạp — xem chú thích `import type` đầu tệp).
  */
-export function chiXemTuBuocLapDon(q: Pick<Quyen, "xemQuyTrinhMuaHang" | "xemQuyTrinhTuBuocLapDon">): boolean {
-  return !q.xemQuyTrinhMuaHang && q.xemQuyTrinhTuBuocLapDon;
+export const O_XEM_BUOC: Readonly<Record<GiaiDoanMuaHang, OXemBuoc>> = {
+  tiep_nhan: { khoa: "xemBuocTiepNhan", nhan: "① Tiếp nhận và kiểm tra", doc: (q) => q.xemBuocTiepNhan },
+  yeu_cau_bao_gia: { khoa: "xemBuocYeuCauBaoGia", nhan: "② Yêu cầu NCC báo giá", doc: (q) => q.xemBuocYeuCauBaoGia },
+  xet_duyet_bao_gia: { khoa: "xemBuocXetDuyetBaoGia", nhan: "③ Xét duyệt báo giá", doc: (q) => q.xemBuocXetDuyetBaoGia },
+  lap_don_mua_hang: { khoa: "xemBuocLapDon", nhan: "④ Lập đơn mua hàng", doc: (q) => q.xemBuocLapDon },
+  dat_hang: { khoa: "xemBuocDatHang", nhan: "⑤ Tiến hành đặt hàng", doc: (q) => q.xemBuocDatHang },
+  nhan_hang: { khoa: "xemBuocNhanHang", nhan: "⑥ Tiến hành nhận hàng", doc: (q) => q.xemBuocNhanHang },
+  ho_so_thanh_toan: { khoa: "xemBuocHoSoThanhToan", nhan: "⑦ Hồ sơ thanh toán", doc: (q) => q.xemBuocHoSoThanhToan },
+  hoan_thanh: { khoa: "xemBuocHoanThanh", nhan: "⑧ Hoàn thành", doc: (q) => q.xemBuocHoanThanh },
+  that_bai: { khoa: "xemBuocThatBai", nhan: "⑨ Thất bại", doc: (q) => q.xemBuocThatBai },
+};
+
+/** Ô bước của một mã — `undefined` khi mã lạ. Dùng `hasOwnProperty`: mã như `"toString"` không được lọt. */
+function oXemBuocCua(maGiaiDoan: string): OXemBuoc | undefined {
+  return Object.prototype.hasOwnProperty.call(O_XEM_BUOC, maGiaiDoan)
+    ? O_XEM_BUOC[maGiaiDoan as GiaiDoanMuaHang]
+    : undefined;
+}
+
+/**
+ * Người này được xem bước `maGiaiDoan` không (cột đó hiện thẻ, khối đó hiện ở trang chi tiết).
+ * 🔴 Mã lạ → `false` (thiếu thông tin thì quyền THẤP NHẤT, CLAUDE.md §3.6c).
+ */
+export function duocXemBuoc(q: Pick<Quyen, KhoaXemBuoc>, maGiaiDoan: string): boolean {
+  return oXemBuocCua(maGiaiDoan)?.doc(q) === true;
+}
+
+/**
+ * Vào được bảng Quy trình mua hàng (`/de-nghi*`) không = vào được app VÀ có ít nhất một ô bước.
+ * Cổng đường dẫn (`duocVaoDuongDan`) và mục menu (`dieu-huong.ts`) cùng gọi hàm này — một câu trả lời.
+ */
+export function vaoDuocBangQuyTrinh(q: Pick<Quyen, KhoaXemBuoc | "xemDuocApp">): boolean {
+  return q.xemDuocApp && Object.values(O_XEM_BUOC).some((o) => o.doc(q) === true);
+}
+
+/**
+ * Một hồ sơ (đã biết bước đang đứng) có hiện / mở được với người xem không.
+ * `giaiDoan === undefined` (hồ sơ không có trong kho, chưa biết bước) → theo `vaoDuocBangQuyTrinh`.
+ */
+export function hoSoDuocXemTheoBuoc(
+  q: Pick<Quyen, KhoaXemBuoc | "xemDuocApp">,
+  giaiDoan: GiaiDoanMuaHang | undefined,
+): boolean {
+  return vaoDuocBangQuyTrinh(q) && (giaiDoan === undefined || duocXemBuoc(q, giaiDoan));
+}
+
+/** Câu lý do khi người xem không vào được bảng Quy trình (không có ô bước nào / không vào được app). */
+export function lyDoKhongVaoBangQuyTrinh(q: Pick<Quyen, KhoaXemBuoc | "xemDuocApp">): string | null {
+  if (vaoDuocBangQuyTrinh(q)) return null;
+  return "Tài khoản của bạn không được tick ô nào trong nhóm “Xem bước quy trình” nên không xem được hồ sơ trên bảng Quy trình mua hàng — nhờ Quản trị hoặc Trưởng bộ phận Thu mua tick ở màn Phân quyền.";
+}
+
+/**
+ * Câu lý do vì sao người xem KHÔNG xem được hồ sơ đang ở bước `maGiaiDoan` — `null` = xem được.
+ * Dùng chung cho màn chặn ở trang chi tiết, liên kết bị khoá, chuông…
+ *
+ * 📌 BẤT BIẾN (bài kiểm canh): với mọi bước có thật, `lyDoKhongXemBuoc(q, g) === null` ⇔
+ * `hoSoDuocXemTheoBuoc(q, g)`. Mã lạ → luôn có câu lý do (khớp `duocXemBuoc` trả `false`).
+ */
+export function lyDoKhongXemBuoc(q: Pick<Quyen, KhoaXemBuoc | "xemDuocApp">, maGiaiDoan: string): string | null {
+  const o = oXemBuocCua(maGiaiDoan);
+  if (!o) {
+    return `Hồ sơ đang ở một bước app không nhận ra (“${maGiaiDoan}”) nên không mở được — báo phòng IT kiểm tra.`;
+  }
+  if (!o.doc(q)) {
+    return `Hồ sơ đang ở bước “${o.nhan}”. Tài khoản của bạn không được tick ô xem bước này (nhóm “Xem bước quy trình”) — nhờ Quản trị hoặc Trưởng bộ phận Thu mua tick ở màn Phân quyền.`;
+  }
+  return lyDoKhongVaoBangQuyTrinh(q);
+}
+
+/**
+ * ★ LUẬT XEM MỘT ĐƠN HÀNG (PO) THEO BƯỚC — bổ sung đặc tả mục 1 Q3 (07/10/2026): PO có `prId` → theo hồ sơ
+ * của nó (`duocXemHoSo(prId)`, nơi gọi tính bước); PO độc lập (chờ đề nghị, không `prId`) → theo ô ④ Lập
+ * đơn mua hàng (thẻ PO chờ đề nghị nằm ở cột ④). Dùng cho Tổng quan · Lịch (gói C).
+ *
+ * 📌 Hàm thuần nhận `duocXemHoSo` từ ngoài (hook `useXemBuocHoSo` có sẵn) — tệp này không đọc kho dữ liệu.
+ */
+export function poDuocXemTheoBuoc(
+  q: Pick<Quyen, KhoaXemBuoc | "xemDuocApp">,
+  prId: string | null | undefined,
+  duocXemHoSo: (prId: string) => boolean,
+): boolean {
+  return prId ? duocXemHoSo(prId) : hoSoDuocXemTheoBuoc(q, "lap_don_mua_hang");
 }
 
 /** Kiểm tra quyền vào một đường dẫn. */
@@ -477,9 +634,10 @@ export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
    *
    * ⚠️ Phải bắt cả `/de-nghi/…` (trang chi tiết) chứ không riêng `/de-nghi`.
    */
-  /* ★ Sếp 07/10/2026: Kế toán / QLDA vào được bảng Quy trình (từ bước ④) qua cờ riêng — CHỈ đường
-     `/de-nghi`, không mở các màn khác. Hồ sơ đang ở ①–③ thì trang chi tiết tự chặn (`chiXemTuBuocLapDon`). */
-  if (duongDan.startsWith("/de-nghi")) return q.xemQuyTrinhMuaHang || q.xemQuyTrinhTuBuocLapDon;
+  /* ★ Sếp 07/10/2026 (ô tick "Xem bước quy trình"): có ít nhất một ô bước thì vào được `/de-nghi*` — CHỈ
+     đường này, không mở 5 màn bên dưới (vẫn gác bằng `xemQuyTrinhMuaHang`). Hồ sơ đang ở bước người xem
+     không được tick thì trang chi tiết tự chặn (`lyDoKhongXemBuoc`). Cùng hàm với mục menu `dieu-huong.ts`. */
+  if (duongDan.startsWith("/de-nghi")) return vaoDuocBangQuyTrinh(q);
 
   /**
    * ★★ CÁC MÀN CHỈ DÀNH CHO NGƯỜI LÀM THU MUA — Sếp 18/09/2026: ***"Ở tài khoản của các phòng

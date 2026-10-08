@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ChevronUp, GitBranch } from "lucide-react";
 import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
 import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
+/* Phiếu con có mở được với người xem không — ô tick "Xem bước quy trình" (Sếp 07/10/2026). */
+import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
 import type {
   BaoGia,
   DeNghiMuaHang,
@@ -59,6 +61,9 @@ export function KhoiDeXuatCon({
    * người dùng bấm gập mỗi lần vào phiếu thì nút coi như không có tác dụng.
    */
   const [mo, doiMo] = useState(false);
+  /* ★ Liên kết phiếu con gác theo bước của CHÍNH phiếu con (đặc tả E-9). Luật ở `quyen.ts`, hook chỉ nối
+     dữ liệu — không viết điều kiện bước tại đây. */
+  const xemBuocHoSo = useXemBuocHoSo();
 
   /**
    * ★ TRA TÊN VẬT LIỆU THEO `stt` CỦA PHIẾU GỐC — để khối này nói được **dòng nào** đã tách đi,
@@ -169,21 +174,34 @@ export function KhoiDeXuatCon({
                     tang === 2 ? "pl-4" : tang > 2 ? "pl-8" : ""
                   }`}
                 >
-                  <Link
-                    href={`/de-nghi/${con.id}`}
-                    className="font-medium text-primary hover:underline"
-                    title={con.code}
-                  >
-                    {/* 🔴 MÃ KIỂM SOÁT, KHÔNG PHẢI `con.code` — Sếp 17/09/2026: *"Hãy lấy mã
-                        hợp đồng + mã đề nghị để nhân viên dễ kiểm soát"*. `code` là mã nội bộ của
-                        app thu mua; thứ nhân viên tra trên giấy tờ là số hợp đồng + mã 6 số.
-                        📌 `title` giữ `code` để ai quen mã cũ rê chuột vẫn tra ra. */}
-                    {/* 🔴 CÙNG CÁCH VỚI DÒNG "Tách ra từ đề xuất" ở trang chi tiết — Sếp 17/09/2026:
-                        *"hiển thị Mã đề nghị + Mã Hợp đồng + Tên công trình, giống tên tiêu đề của quy trình"*.
-                        Hai khối này nói về cùng một quan hệ cha–con, ghi hai kiểu là người đọc phải tự ghép.
-                        📌 `title` giữ `code` để ai quen mã cũ rê chuột vẫn tra ra. */}
-                    {tenTheDeNghi(con)}
-                  </Link>
+                  {/* ★ PHIẾU CON Ở BƯỚC NGƯỜI XEM KHÔNG ĐƯỢC TICK → CHỮ THƯỜNG, KHÔNG LIÊN KẾT — Sếp 07/10/2026
+                      (ô tick "Xem bước quy trình", đặc tả E-9). Bấm vào chỉ tới màn chặn; nói trước bằng chữ
+                      phụ (chữ + màu, V1.1), câu lý do đầy đủ ở `title`. */}
+                  {xemBuocHoSo.duocXemHoSo(con.id) ? (
+                    <Link
+                      href={`/de-nghi/${con.id}`}
+                      className="font-medium text-primary hover:underline"
+                      title={con.code}
+                    >
+                      {/* 🔴 MÃ KIỂM SOÁT, KHÔNG PHẢI `con.code` — Sếp 17/09/2026: *"Hãy lấy mã
+                          hợp đồng + mã đề nghị để nhân viên dễ kiểm soát"*. `code` là mã nội bộ của
+                          app thu mua; thứ nhân viên tra trên giấy tờ là số hợp đồng + mã 6 số.
+                          📌 `title` giữ `code` để ai quen mã cũ rê chuột vẫn tra ra. */}
+                      {/* 🔴 CÙNG CÁCH VỚI DÒNG "Tách ra từ đề xuất" ở trang chi tiết — Sếp 17/09/2026:
+                          *"hiển thị Mã đề nghị + Mã Hợp đồng + Tên công trình, giống tên tiêu đề của quy trình"*.
+                          Hai khối này nói về cùng một quan hệ cha–con, ghi hai kiểu là người đọc phải tự ghép.
+                          📌 `title` giữ `code` để ai quen mã cũ rê chuột vẫn tra ra. */}
+                      {tenTheDeNghi(con)}
+                    </Link>
+                  ) : (
+                    <span
+                      className="flex min-w-0 flex-wrap items-baseline gap-x-1.5"
+                      title={xemBuocHoSo.lyDoKhongXemHoSo(con.id) ?? con.code}
+                    >
+                      <span className="font-medium text-text-primary">{tenTheDeNghi(con)}</span>
+                      <span className="text-xs text-text-desc">(không xem được bước này)</span>
+                    </span>
+                  )}
                   <span className="truncate text-xs text-text-desc">
                     {con.items.length} mặt hàng
                     {/* Người phụ trách của phiếu con — biết ai đang làm phần nào mà không

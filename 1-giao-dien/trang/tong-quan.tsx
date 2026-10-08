@@ -20,6 +20,7 @@ import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
 import { phanTramPO, soNgayConLai, tinhTienDoDeNghi, tinhTienDoPO, tongGiaTriPO } from "@/2-quy-trinh/tinh-toan";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { deNghiConDangChay } from "@/2-quy-trinh/giai-doan-mua-hang";
@@ -36,10 +37,25 @@ export default function TrangTongQuan() {
      cùng một công trình không bị màn này gộp, màn kia tách. Chỉ là cách xem, không lưu. */
   const [nhomCongTrinh, setNhomCongTrinh] = useState(false);
 
+  /**
+   * ★ Ô TICK "XEM BƯỚC QUY TRÌNH" — Sếp 07/10/2026. Hồ sơ đang ở bước người xem không được tick thì
+   * KHÔNG được tính / hiện ở màn này: cả thẻ KPI theo đề nghị (`duocXemHoSo`) LẪN mọi phần theo đơn
+   * hàng — thẻ KPI theo PO, tổng giá trị, danh sách "Đơn hàng cần chú ý" (`duocXemPO`: PO có `prId` theo
+   * hồ sơ của nó, PO chờ đề nghị theo ô ④). Khác đặc tả E-12 theo bổ sung Q3 của kỹ sư chính: mô tả
+   * nhóm ô đã hứa "không hiện ở Tổng quan", để lọt danh sách đơn là giao diện hứa việc app không làm
+   * (CLAUDE.md §3.5).
+   * 📌 `KhoiNangLucPhong` cuối trang GIỮ NGUYÊN — số tổng của cả phòng, đã gác bằng `phanBoCongViec`.
+   * Luật ở `4-phan-quyen/quyen.ts` (qua hook), không viết lại ở đây.
+   */
+  const xem = useXemBuocHoSo();
+
+  /** Đơn hàng người xem được thấy — MỘT danh sách cho mọi phần theo đơn của màn này. */
+  const donHangXem = useMemo(() => donHang.filter((po) => xem.duocXemPO(po)), [donHang, xem]);
+
   const soLieu = useMemo(() => {
     // Chỉ đếm đề nghị còn đang chạy — đề nghị đã hoàn thành hoặc đóng dở
     // mà vẫn tính vào việc tồn thì thẻ KPI báo nhiều hơn thực tế.
-    const deNghiDangChay = deNghi.filter(deNghiConDangChay);
+    const deNghiDangChay = deNghi.filter(deNghiConDangChay).filter((dn) => xem.duocXemHoSo(dn.id));
     /**
      * ★★ TRỪ DÒNG ĐÃ NHÂN BẢN ĐI — Sếp 17/09/2026 (cùng đợt vá bài toán nhân bản).
      *
@@ -69,11 +85,11 @@ export default function TrangTongQuan() {
     /* "cho_de_nghi" NẰM TRONG danh sách này (thêm 29/08/2026) — PO này đã đặt hàng thật (NCC,
        giá, ngày giao đều có), chỉ thiếu giấy đề nghị đi kèm; hàng có thể giao trễ y hệt PO
        thường, Ban lãnh đạo cần thấy đúng số "PO quá hạn" kể cả loại này. */
-    const poDangGiao = donHang.filter(
+    const poDangGiao = donHangXem.filter(
       (po) => po.trangThai === "dang_giao" || po.trangThai === "da_chot" || po.trangThai === "cho_de_nghi",
     );
     const poQuaHan = poDangGiao.filter((po) => soNgayConLai(po.ngayGiaoDuKien) < 0);
-    const poChoXacNhan = donHang.filter((po) => po.trangThai === "cho_xac_nhan_hoan_thanh");
+    const poChoXacNhan = donHangXem.filter((po) => po.trangThai === "cho_xac_nhan_hoan_thanh");
 
     return {
       deNghiChoPhanBo: deNghiDangChay.filter((dn) =>
@@ -88,11 +104,12 @@ export default function TrangTongQuan() {
       poQuaHan: poQuaHan.length,
       poChoXacNhan: poChoXacNhan.length,
       tongGiaTri: giaDonHang.reduce((t, g) => {
-        const po = donHang.find((p) => p.id === g.poId);
+        /* Chỉ cộng đơn người xem được thấy — cùng danh sách với các thẻ đơn hàng bên cạnh. */
+        const po = donHangXem.find((p) => p.id === g.poId);
         return po ? t + tongGiaTriPO(po, g) : t;
       }, 0),
     };
-  }, [deNghi, donHang, phieuNhan, giaDonHang]);
+  }, [deNghi, donHang, donHangXem, phieuNhan, giaDonHang, xem]);
 
   /**
    * ★ ĐƠN CỦA MÌNH LÊN ĐẦU — Ban lãnh đạo 15/08/2026: *"ở các tài khoản nhân viên, hãy ưu
@@ -103,11 +120,11 @@ export default function TrangTongQuan() {
    */
   const poCanChuY = useMemo(
     () =>
-      donHang
+      donHangXem
         .filter((po) => po.trangThai !== "hoan_thanh" && po.trangThai !== "huy")
         .map((po) => ({ po, conLai: soNgayConLai(po.ngayGiaoDuKien) }))
         .sort((a, b) => soSanhDonHangUuTien(a.po, b.po, nguoiDung.uid)),
-    [donHang, nguoiDung.uid],
+    [donHangXem, nguoiDung.uid],
   );
 
   /** Một dòng đơn hàng — dùng chung cho cách xem phẳng và cách xem nhóm theo công trình. */

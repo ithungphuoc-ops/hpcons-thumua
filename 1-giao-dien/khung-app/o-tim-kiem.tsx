@@ -11,6 +11,7 @@ import { FileText, Search, ShoppingCart, Tags, X } from "lucide-react";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
 import {
   NHAN_LOAI_HO_SO,
   SO_KY_TU_TOI_THIEU,
@@ -59,11 +60,15 @@ export function OTimKiem() {
     if (laBangQuyTrinh && tuKhoaDangLoc === "") setTuKhoa("");
   }, [laBangQuyTrinh, tuKhoaDangLoc]);
 
+  /* ★ Ô tick "Xem bước quy trình" (Sếp 07/10/2026): đề nghị + báo giá của hồ sơ ở bước không được xem
+     thì không ra kết quả. Hàm ổn định giữa các lần vẽ (xem `useXemBuocHoSo`) nên đặt vào phụ thuộc được. */
+  const { duocXemHoSo } = useXemBuocHoSo();
+
   // Truyền uid vì luật xem báo giá còn xét theo TỪNG hồ sơ (ai được chia việc / ai theo dõi),
   // không chỉ theo cấp quyền.
   const { ketQua, tongKhop } = useMemo(
-    () => timHoSo(tuKhoa, { deNghi, donHang, baoGia }, quyen, nguoiDung.uid),
-    [tuKhoa, deNghi, donHang, baoGia, quyen, nguoiDung.uid],
+    () => timHoSo(tuKhoa, { deNghi, donHang, baoGia }, quyen, nguoiDung.uid, duocXemHoSo),
+    [tuKhoa, deNghi, donHang, baoGia, quyen, nguoiDung.uid, duocXemHoSo],
   );
 
   // Bấm ra ngoài thì đóng hộp gợi ý.

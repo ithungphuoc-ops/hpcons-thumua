@@ -28,6 +28,8 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { duocXacNhanNhanDuHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { duocXemBuoc, O_XEM_BUOC } from "@/4-phan-quyen/quyen";
+import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
 import { nhanCoTick } from "@/4-phan-quyen/quyen-rieng";
 import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
 import { laPOCuaHoSoPhongBan } from "@/5-ket-noi/gui-po-qlk-ctr";
@@ -65,6 +67,10 @@ export default function TrangChiTietDonHang() {
   const { nguoiDung, quyen } = useNguoiDung();
   /* ★ (04/10/2026, L11/L12) Nút "Gửi lại ngay" đang chạy — khai TRƯỚC mọi `return` sớm (luật hook). */
   const [dangGuiLaiKho, setDangGuiLaiKho] = useState(false);
+  /* ★ Ô tick "Xem bước quy trình" (Sếp 07/10/2026) — gác HAI LIÊN KẾT sang hồ sơ đề nghị ("Về bước lập
+     đơn", "Đề nghị nguồn"). Danh sách + chi tiết đơn GIỮ NGUYÊN (bổ sung đặc tả Q3: Thủ kho làm việc ở
+     màn này bằng `xacNhanKho`). Gọi TRƯỚC mọi `return` sớm (luật hook). */
+  const xem = useXemBuocHoSo();
 
   const po = donHang.find((x) => x.id === params.id);
   const gia = giaDonHang.find((g) => g.poId === params.id);
@@ -183,6 +189,25 @@ export default function TrangChiTietDonHang() {
     }
   }
 
+  /**
+   * ★ HAI LIÊN KẾT SANG HỒ SƠ ĐỀ NGHỊ — ô tick "Xem bước quy trình" (Sếp 07/10/2026, đặc tả E-19).
+   *
+   * · "Về bước lập đơn" nhảy tới khối ④ của hồ sơ → cần mở được hồ sơ VÀ được xem bước ④ (không có ô ④
+   *   thì khối đó bị ẩn, bấm vào là rơi vào một trang không có chỗ nào để tới).
+   * · "Đề nghị nguồn" về đầu trang hồ sơ → chỉ cần mở được hồ sơ.
+   *
+   * 📌 HIỆN MÀ KHOÁ, KHÔNG ẨN IM LẶNG (cùng nếp menu ⋯ của thẻ quy trình): nút mờ + dòng chữ ngắn, câu
+   * đầy đủ của tầng luật ở `title`. Câu lý do lấy từ `lyDoKhongXemHoSo` / nhãn ô ở `quyen.ts` — không
+   * viết luật lần hai ở đây.
+   */
+  const moDuocHoSoNguon = !po.prId || xem.duocXemHoSo(po.prId);
+  const veBuocLapDonBiKhoa =
+    !!po.prId && (!xem.duocXemHoSo(po.prId) || !duocXemBuoc(quyen, "lap_don_mua_hang"));
+  const lyDoKhoaVeBuocLapDon = !veBuocLapDonBiKhoa
+    ? null
+    : ((po.prId ? xem.lyDoKhongXemHoSo(po.prId) : null) ??
+      `Nút này mở khối “${O_XEM_BUOC.lap_don_mua_hang.nhan}” của hồ sơ. Tài khoản của bạn không được tick ô xem bước này (nhóm “Xem bước quy trình”) — nhờ Quản trị hoặc Trưởng bộ phận Thu mua tick ở màn Phân quyền.`);
+
   const daGiaoDu = poDaGiaoDu(tienDo);
   const tien = tinhTienDonHang(po, gia);
 
@@ -280,17 +305,29 @@ export default function TrangChiTietDonHang() {
 
                 📌 Chỉ hiện khi đơn CÓ đề nghị nguồn. Đơn lập riêng không có bước ④ nào để về; vẽ
                 một nút bấm vào không tới đâu còn tệ hơn không có nút. */}
-            {po.prId && (
-              <Button
-                variant="outline"
-                size="sm"
-                nativeButton={false}
-                render={<Link href={`/de-nghi/${po.prId}#${neoBuoc("lap_don_mua_hang")}`} />}
-              >
-                <CornerUpLeft className="size-4" aria-hidden />
-                Về bước lập đơn
-              </Button>
-            )}
+            {po.prId &&
+              (veBuocLapDonBiKhoa ? (
+                /* ★ Ô tick "Xem bước quy trình": khoá kèm lý do — V1.1 trạng thái phải có CẢ MÀU LẪN
+                   CHỮ, nút mờ mà không nói gì thì người dùng tưởng app hỏng. `title` đặt ở khung bọc vì
+                   nút `disabled` không nhận sự kiện chuột ở mọi trình duyệt. */
+                <span className="flex flex-col items-start gap-0.5" title={lyDoKhoaVeBuocLapDon ?? undefined}>
+                  <Button variant="outline" size="sm" disabled>
+                    <Lock className="size-4" aria-hidden />
+                    Về bước lập đơn
+                  </Button>
+                  <span className="text-xs text-text-desc">Không xem được bước này</span>
+                </span>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={`/de-nghi/${po.prId}#${neoBuoc("lap_don_mua_hang")}`} />}
+                >
+                  <CornerUpLeft className="size-4" aria-hidden />
+                  Về bước lập đơn
+                </Button>
+              ))}
             <NutXuatDonHangExcel poId={po.id} />
             {/* Ẩn hẳn khi không đủ quyền hoặc đơn đã hoàn thành/hủy — component tự kiểm cả hai,
                 xem `hop-sua-don-hang.tsx`. */}
@@ -539,7 +576,18 @@ export default function TrangChiTietDonHang() {
               <HopXacNhanTuDongGan po={po} />
             </div>
           ) : po.prId && po.prCode ? (
-            <ThongTin nhan="Đề nghị nguồn" giaTri={po.prCode} href={`/de-nghi/${po.prId}`} />
+            /* ★ Ô tick "Xem bước quy trình" (Sếp 07/10/2026): hồ sơ ở bước không được xem thì hiện mã
+               bằng CHỮ THƯỜNG, không phải liên kết — bấm vào là bị trang chi tiết chặn. */
+            moDuocHoSoNguon ? (
+              <ThongTin nhan="Đề nghị nguồn" giaTri={po.prCode} href={`/de-nghi/${po.prId}`} />
+            ) : (
+              <ThongTin
+                nhan="Đề nghị nguồn"
+                giaTri={po.prCode}
+                chuPhu="(không xem được bước này)"
+                title={xem.lyDoKhongXemHoSo(po.prId) ?? undefined}
+              />
+            )
           ) : po.trangThai === "cho_de_nghi" && quyen.lapPO ? (
             /* ★ PO "chờ đề nghị" (29/08/2026) — nút gắn đề nghị ngay tại đây, đúng chỗ đang
                nói "chưa có đề nghị". Xem `hop-gan-de-nghi.tsx` cho toàn bộ luồng chọn + kiểm
@@ -1045,9 +1093,23 @@ export default function TrangChiTietDonHang() {
   );
 }
 
-function ThongTin({ nhan, giaTri, href }: { nhan: string; giaTri: string; href?: string }) {
+function ThongTin({
+  nhan,
+  giaTri,
+  href,
+  chuPhu,
+  title,
+}: {
+  nhan: string;
+  giaTri: string;
+  href?: string;
+  /** Dòng chữ nhỏ dưới giá trị — vd lý do liên kết bị khoá (ô tick "Xem bước quy trình", 07/10/2026). */
+  chuPhu?: string;
+  /** Câu đầy đủ khi rê chuột. */
+  title?: string;
+}) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" title={title}>
       <span className="text-xs text-text-desc">{nhan}</span>
       {href ? (
         <Link href={href} className="text-sm font-medium text-primary hover:underline">
@@ -1056,6 +1118,7 @@ function ThongTin({ nhan, giaTri, href }: { nhan: string; giaTri: string; href?:
       ) : (
         <span className="text-sm font-medium text-text-primary">{giaTri}</span>
       )}
+      {chuPhu && <span className="text-xs text-text-desc">{chuPhu}</span>}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
 import { StatusBadge, type StatusTone } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { AnhDaiDienChu } from "@/1-giao-dien/thanh-phan-dung-chung/anh-dai-dien-chu";
 import { OTich } from "@/1-giao-dien/thanh-phan-dung-chung/o-tich-ba-trang-thai";
-import { BangMauChucDanh } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-mau-chuc-danh";
+import { BangMauChucDanh, MoTaNhomQuyenTick } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-mau-chuc-danh";
 import { Card } from "@/1-giao-dien/nen-tang-ui/card";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
@@ -56,6 +56,8 @@ import {
 } from "@/4-phan-quyen/quyen-rieng";
 import {
   anhHuongKhiDoiMau,
+  canhBaoTatVaoManLamViec,
+  canhBaoXemBuocKhiThieuGia,
   CHI_DAO_THEO_DONG,
   LY_DO_KHONG_SUA_MAU,
   MAU_TRONG,
@@ -198,6 +200,14 @@ interface TomTatLuu {
   soCapMoi: number;
   /** Bản mẫu chức danh trang đang giữ lúc mở hộp — gửi kèm khi lưu (đặc tả 2.5), lệch là 409. */
   phienBanMau: number;
+  /**
+   * ★ Cảnh báo ô "Xem bước quy trình" (Sếp 07/10/2026) — CHỈ BÁO, không chặn, hiện trong khung vàng của hộp:
+   *   · `canhBaoXemBuocKhiThieuGia` (`mau-chuc-danh.ts`, đặc tả D.2 "Tick riêng"): bật ô bước cho người không
+   *     có "Xem giá" — tệp đính kèm ở trang chi tiết có thể chứa giá.
+   *   · Bổ sung đặc tả 4.9: tắt ô "Vào màn làm việc" mà người đó còn ô bước → nói rõ vẫn vào bảng Quy trình.
+   * Rỗng khi chưa đọc được quyền riêng (cùng lý do ẩn Bật/Tắt: tính như thể không ai có quyền riêng là có thể SAI).
+   */
+  canhBao: string[];
 }
 
 /** Nội dung hộp xác nhận LƯU BẢNG MẪU — chụp lúc mở (cùng nếp `hoiLuuCuoi`). */
@@ -1106,6 +1116,10 @@ export default function TrangPhanQuyen() {
     const sau = (d: DuKien) => (ghiQuyen ? d.ts.quyenSau : d.ts.quyenTruoc);
     const bat = KHOA_TICK.filter((k) => duKien.some((d) => !d.t.hieuLuc[k] && sau(d)[k])).map(nhanCoTick);
     const tat = KHOA_TICK.filter((k) => duKien.some((d) => d.t.hieuLuc[k] && !sau(d)[k])).map(nhanCoTick);
+    /* ★ Sếp 07/10/2026 — ô tick "Xem bước quy trình". CÙNG cặp trước/sau với Bật/Tắt ở trên (`d.t.hieuLuc` →
+       `sau(d)`). Chưa đọc được quyền riêng thì KHÔNG tính (xem chú thích trường `canhBao`). */
+    const truocSau = duKien.map((d) => ({ ten: d.t.ten, quyenTruoc: d.t.hieuLuc, quyenSau: sau(d) }));
+    const canhBao = loiRieng ? [] : [...canhBaoXemBuocKhiThieuGia(truocSau), ...canhBaoTatVaoManLamViec(truocSau)];
     const tom: TomTatLuu = {
       uids: dsChon.map((t) => t.hs.firebaseUid),
       ten: dsChon.map((t) => t.ten),
@@ -1120,6 +1134,7 @@ export default function TrangPhanQuyen() {
       soCapMoi: dsChon.filter((t) => t.chuaCoHoSo).length,
       /* Chụp CÙNG lúc với bản nháp: bản nháp dựng theo mẫu này — máy chủ so, lệch là 409 (đặc tả 2.5). */
       phienBanMau: mau?.phienBan ?? -1,
+      canhBao,
     };
     setHoiLuuCuoi(tom);
     setHoiLuu(true);
@@ -1185,6 +1200,20 @@ export default function TrangPhanQuyen() {
     motNguoi?.rieng && !vtMoi && !loiRieng ? ngoaiLeConHieuLuc(motNguoi.rieng, motNguoi.nd).ngoaiLe : null;
   const soBatHien = KHOA_TICK.filter((k) => giaTriCo(k) === true).length;
   const soMixed = KHOA_TICK.filter((k) => giaTriCo(k) === "mixed").length;
+
+  /**
+   * Câu vàng SẴN CÓ của hộp xác nhận tick riêng — `null` = không có. Đứng chung khung với `hoiLuuCuoi.canhBao`
+   * (ô "Xem bước quy trình", Sếp 07/10/2026).
+   * Chưa đọc được quyền riêng thì danh sách Bật/Tắt KHÔNG tính được (không biết bản cũ có gì) — nói đúng công
+   * thức sẽ áp thay vì bày một danh sách sai (soát chéo lần 2).
+   */
+  const cauCanhBaoLuu: string | null = !hoiLuuCuoi
+    ? null
+    : hoiLuuCuoi.chuaDocRieng && hoiLuuCuoi.uidDoiChucDanh.length > 0
+      ? "Chưa đọc được quyền riêng đang lưu nên không tính được quyền nào bật/tắt. Sau khi đổi chức danh: ai chưa có quyền riêng thì theo đúng chức danh mới; ai có quyền riêng cũ thì nhận các cờ mặc định của chức danh mới, TRỪ những cờ đã bị bỏ ở quyền riêng cũ (vẫn bỏ). Cờ từng được tick thêm vượt chức danh cũ không mang sang."
+      : hoiLuuCuoi.tat.length > 0 || hoiLuuCuoi.vtMoi?.capTM === 0
+        ? "Có quyền bị TẮT — người được chọn mất các việc đó khi họ tải lại trang hoặc quay lại tab."
+        : null;
 
   return (
     <>
@@ -1676,6 +1705,9 @@ export default function TrangPhanQuyen() {
                           </span>
                         </button>
                         {!nhomGap.includes(nhom) && (<>
+                        {/* ★ Mô tả nhóm ngay dưới đầu nhóm (Sếp 07/10/2026 — nhóm "Xem bước quy trình"): CÙNG câu
+                            với bảng mẫu bên dưới (`MoTaNhomQuyenTick` → `MO_TA_NHOM_XEM_BUOC`), không viết lại. */}
+                        <MoTaNhomQuyenTick nhom={nhom} className="mb-2 px-2" />
                         <div className="grid grid-cols-1 gap-x-4 gap-y-1 md:grid-cols-2">
                           {ds.map((c) => {
                             const gt = giaTriCo(c.khoa);
@@ -1941,13 +1973,20 @@ export default function TrangPhanQuyen() {
             hoiLuuCuoi.ten.length > 5 ? ` và ${hoiLuuCuoi.ten.length - 5} người nữa` : ""
           }. Có hiệu lực khi họ tải lại trang hoặc quay lại tab — trang đang mở giữ quyền cũ tới lúc đó.`}
           canhBao={
-            /* Chưa đọc được quyền riêng thì danh sách Bật/Tắt KHÔNG tính được (không biết bản cũ có
-               gì) — nói đúng công thức sẽ áp thay vì bày một danh sách sai (soát chéo lần 2). */
-            hoiLuuCuoi.chuaDocRieng && hoiLuuCuoi.uidDoiChucDanh.length > 0
-              ? "Chưa đọc được quyền riêng đang lưu nên không tính được quyền nào bật/tắt. Sau khi đổi chức danh: ai chưa có quyền riêng thì theo đúng chức danh mới; ai có quyền riêng cũ thì nhận các cờ mặc định của chức danh mới, TRỪ những cờ đã bị bỏ ở quyền riêng cũ (vẫn bỏ). Cờ từng được tick thêm vượt chức danh cũ không mang sang."
-              : hoiLuuCuoi.tat.length > 0 || hoiLuuCuoi.vtMoi?.capTM === 0
-                ? "Có quyền bị TẮT — người được chọn mất các việc đó khi họ tải lại trang hoặc quay lại tab."
-                : undefined
+            cauCanhBaoLuu || hoiLuuCuoi.canhBao.length > 0 ? (
+              <span className="flex flex-col gap-1.5">
+                {cauCanhBaoLuu && <span>{cauCanhBaoLuu}</span>}
+                {/* ★ Cảnh báo ô "Xem bước quy trình" (Sếp 07/10/2026) — khung vàng của hộp = màu cảnh báo + chữ.
+                    Chọn nhiều người thì mỗi người một dòng → khung cuộn, không đẩy nút Đồng ý ra khỏi màn. */}
+                {hoiLuuCuoi.canhBao.length > 0 && (
+                  <ul className="thanh-cuon-doc-ro flex max-h-48 flex-col gap-1 overflow-y-auto">
+                    {hoiLuuCuoi.canhBao.map((c, i) => (
+                      <li key={i}>{c}</li>
+                    ))}
+                  </ul>
+                )}
+              </span>
+            ) : undefined
           }
           nhanDongY="Lưu phân quyền"
           nguyHiem={

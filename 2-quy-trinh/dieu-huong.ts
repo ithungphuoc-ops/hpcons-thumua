@@ -13,7 +13,9 @@ import {
   History,
   type LucideIcon,
 } from "lucide-react";
-import type { Quyen } from "@/4-phan-quyen/quyen";
+/* ★ `vaoDuocBangQuyTrinh` là import CHẠY ĐƯỢC (Sếp 07/10/2026, ô tick "Xem bước quy trình") — không sinh
+   vòng nạp vì `quyen.ts` không nạp tệp này. Mục menu và cổng đường dẫn `/de-nghi` gọi CÙNG một hàm. */
+import { vaoDuocBangQuyTrinh, type Quyen } from "@/4-phan-quyen/quyen";
 
 /**
  * Nhóm hiển thị trên sidebar — Ban lãnh đạo 13/08/2026 gửi ảnh mẫu sidebar Base.vn có tiêu
@@ -192,10 +194,14 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
      * dõi đề nghị" — mục đó mở cho mọi vai trò, chỉ không hiện giá và nhà cung cấp.
      *
      * ★ NỚI 07/10/2026 CHO KẾ TOÁN / QLDA — Sếp: *"A muốn tk của kế toán và phòng dự án xem được những
-     * thông tin ở bước này. Bước 1-3 không hiện"*. CHỈ mục này (bảng Quy trình, hiện từ bước ④) —
-     * Tổng quan · Việc của tôi · Lịch · Theo dõi đơn hàng · NCC vẫn đóng như 18/09 (Sếp chốt cùng ngày).
+     * thông tin ở bước này. Bước 1-3 không hiện"*. CHỈ mục này — Tổng quan · Việc của tôi · Lịch · Theo
+     * dõi đơn hàng · NCC vẫn đóng như 18/09 (Sếp chốt cùng ngày).
+     *
+     * ★★ TỪ Ô TICK "XEM BƯỚC QUY TRÌNH" (Sếp 07/10/2026): mục này hiện khi có ÍT NHẤT MỘT ô bước
+     * (`vaoDuocBangQuyTrinh`) — cùng hàm với cổng `/de-nghi` ở `duocVaoDuongDan`. Ô `xemQuyTrinhMuaHang`
+     * (nhãn mới "Vào màn làm việc Thu mua") không còn quyết mục này; 5 mục còn lại vẫn gác bằng ô đó.
      */
-    duocThay: (q) => q.xemQuyTrinhMuaHang || q.xemQuyTrinhTuBuocLapDon,
+    duocThay: vaoDuocBangQuyTrinh,
   },
   {
     /**

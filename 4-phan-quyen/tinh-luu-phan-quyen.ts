@@ -133,8 +133,10 @@ const cauMauDoi = (gui: number, dang: number) =>
  * · Dấu KHỚP + bản ghi mới còn "Vào app": ngoại lệ CŨ không bị chạm → GIỮ nguyên giá trị (kể cả khi đang
  *   trùng mẫu hiện tại — Sếp có thể đổi mẫu lại, ngoại lệ phải còn); ô VỪA CHẠM → ngoại lệ khi ≠ `goc`,
  *   bỏ khỏi ngoại lệ khi = `goc`.
- * · Dấu LỆCH / THIẾU (không biết ô nào là "cố ý") hoặc lần lưu tắt "Vào app" (dây chuyền tắt cả 18 ô) →
+ * · Dấu LỆCH / THIẾU (không biết ô nào là "cố ý") hoặc lần lưu tắt "Vào app" (dây chuyền tắt mọi ô) →
  *   luật riêng như đặc tả: `rutNgoaiLe(riengMoi, goc)` — mọi ô khác `goc` thành ngoại lệ.
+ * · ★ 07/10/2026: ô bước mà luật 8 / 8b điền cho bản ghi CŨ (không dấu) nằm trong ngoại lệ đang giữ
+ *   (`ngoaiLeConHieuLuc`) → lần lưu này GHI HẲN chúng xuống bản khuôn 2 có dấu — xem trước = kết quả.
  */
 function ngoaiLeMoiKhiTick(
   banGhi: BanGhiQuyenRieng | null,
@@ -170,8 +172,8 @@ function ngoaiLeMoiKhiTick(
  *   3. Khuôn: danh sách người nhận (1..50, bỏ trùng), khoá + giá trị của `thayDoi` → 400.
  *   4. Từng người nhận: `goc` = công thức + mẫu; bản cũ đọc qua `quyenRiengConHieuLuc` (đã đối chiếu dấu).
  *      · tick: `tinhTruocSauKhiLuu` (giữ nguyên); cần ghi thì tính NGOẠI LỆ MỚI — rỗng → XOÁ (có bản) /
- *        giữ nguyên (chưa có bản); còn lại → ghi bản KHUÔN 2 (kèm `quyen` đủ 18 ô cho bản mã cũ khi
- *        rollback, kèm `phienBanMau` — B-F8).
+ *        giữ nguyên (chưa có bản); còn lại → ghi bản KHUÔN 2 (kèm `quyen` đủ ô `KHOA_TICK` cho bản mã cũ
+ *        khi rollback, kèm `phienBanMau` — B-F8, kèm dấu `coOXemBuoc: true` — 07/10/2026).
  *        ★ B-F2 (Câu 3 = A, "chỉ GIỮ ô đã cố ý khác"): dấu KHỚP và không bỏ "Vào app" → ngoại lệ mới =
  *        ngoại lệ CŨ mà lần này KHÔNG chạm (giữ nguyên giá trị, kể cả khi đang TRÙNG mẫu hiện tại) ∪ ô vừa
  *        chạm có giá trị ≠ `goc`; ô vừa chạm mà = `goc` thì bỏ khỏi ngoại lệ. Khuôn 1 thì ngoại lệ cũ =
@@ -229,16 +231,9 @@ export function tinhLuuQuyenRieng(v: {
   const xoa: string[] = [];
   const giuNguyen: string[] = [];
   for (const n of nhan) {
-    /* ★ NHỊP 1 (07/10/2026): bản ghi có ô "Xem bước quy trình" của BẢN SAU (chỉ gặp khi Instant Rollback
-       từ nhịp 2 về bản này) → KHÔNG ghi đè, cả tick lẫn "Bỏ quyền riêng". Bản này không biết các ô đó nên
-       ghi lại là xoá mất chúng — người được bỏ bước sẽ im lặng thấy lại bước đó khi bản mới lên lại. */
-    if (n.banGhi?.oBanSau?.length) {
-      return {
-        ok: false,
-        status: 409,
-        error: `${n.nd.tenHienThi || n.uid}: bản quyền riêng có ô “Xem bước quy trình” của bản app mới hơn — bản đang chạy cũ hơn nên không lưu (lưu sẽ làm mất các ô đó). Nhờ IT đưa bản mới lên lại rồi lưu.`,
-      };
-    }
+    /* 📌 Chốt 409 "bản ghi có ô Xem bước của bản sau" (nhịp 1, `693370a`) ĐÃ GỠ ở nhịp 2 (07/10/2026): 9 khoá
+       bước nay là khoá chính thức của `KHOA_TICK`, bản này đọc và ghi lại được chúng. Chốt đó chỉ có nghĩa
+       khi bản ĐANG CHẠY là nhịp 1 (sau một lần Instant Rollback) — mã nhịp 1 vẫn còn nó. */
     const laQT = n.nd.vaiTro === "admin";
     const oDe = oDeCuaHoSo(v.mau, n.nd);
     const goc = quyenTheoChucDanhCoMau(tinhQuyenTheoChucDanh(n.nd), oDe);
@@ -287,10 +282,13 @@ export function tinhLuuQuyenRieng(v: {
         ngoaiLe,
         /* Dấu lấy từ hồ sơ nơi gọi VỪA ĐỌC (route: trong giao dịch), không nhận từ trình duyệt. */
         theoChucDanh: dauChucDanhCua(n.nd),
-        /* Đủ 18 ô — CHỈ cho bản mã cũ đọc khi Instant Rollback (mã mới không đọc khi khuon === 2). */
+        /* Đủ ô `KHOA_TICK` — CHỈ cho bản mã cũ đọc khi Instant Rollback (mã mới không đọc khi khuon === 2). */
         quyen: ts.riengMoi,
         /* B-F8: phiên bản mẫu lúc lưu — dấu vết để phát hiện tài liệu mẫu bị xoá (`docMauChucDanh`). */
         phienBanMau: v.mau.phienBan,
+        /* ★ 07/10/2026: dấu "đã có ô Xem bước" — LITERAL `true` (không bao giờ `undefined`: Admin SDK ném, bài
+           C-F5). Thiếu dấu là bản ghi bị đọc lại theo luật 8 / 8b → xem trước ≠ kết quả. */
+        coOXemBuoc: true,
         capNhatLuc: v.luc,
         capNhatBoi: v.capNhatBoi,
         capNhatBoiTen: v.capNhatBoiTen,
@@ -323,7 +321,7 @@ export function tinhLuuQuyenRieng(v: {
   return { ok: true, ghi, xoa, giuNguyen, moTaNhatKy };
 }
 
-/** Đếm ô có quyền hiệu lực khác nhau giữa hai mẫu (mọi cột × 18 ô). */
+/** Đếm ô có quyền hiệu lực khác nhau giữa hai mẫu (mọi cột × mọi ô `KHOA_TICK`). */
 function demODoi(a: MauChucDanh, b: MauChucDanh): { ma: MaVaiTroChuan; khoa: keyof Quyen; sang: boolean }[] {
   const ra: { ma: MaVaiTroChuan; khoa: keyof Quyen; sang: boolean }[] = [];
   for (const vt of VAI_TRO_CHUAN) {
@@ -352,8 +350,10 @@ const moTaODoi = (ds: readonly { ma: MaVaiTroChuan; khoa: keyof Quyen; sang: boo
  *        mình không có; em vẫn giữ chốt cho ca BIÊN: Trưởng BP có cờ X nhờ NGOẠI LỆ RIÊNG (cột Trưởng BP
  *        không có X) bật X cho cả một cột → mọi Trưởng BP khác gán chức danh đó là trao được X. Ô Quản trị
  *        đã chấp nhận từ trước KHÔNG làm Trưởng BP kẹt (chỉ xét ô mới).
- *   ⑧ cảnh báo (chỉ báo, không chặn): việc không ai làm · chỉ đạo khi bật Xem giá / Xem NCC cho Thủ kho /
- *      Phòng Thi công (B-F10) · leo quyền của Quản trị (⑦) · ⑨ `phienBan + 1` · ⑩ câu nhật ký.
+ *   ⑧ cảnh báo (chỉ báo, không chặn): việc không ai làm (★ 07/10/2026: kèm cặp việc–bước, bổ sung N-B) · chỉ
+ *      đạo khi bật Xem giá / Xem NCC (B-F10) hoặc ô "Xem bước quy trình" (★ 07/10/2026, đặc tả D.2 + V-E) cho
+ *      Thủ kho / Phòng Thi công · leo quyền của Quản trị (⑦) · ⑨ `phienBan + 1` + dấu `coOXemBuoc` · ⑩ câu
+ *      nhật ký.
  */
 export function tinhLuuMauChucDanh(v: {
   nguoiGoi: NguoiGoiTraoQuyen;
@@ -412,8 +412,9 @@ export function tinhLuuMauChucDanh(v: {
     khuon: 1,
     phienBan: v.mauCu.phienBan + 1,
     de: deMoi,
-    /* ★ NHỊP 1 (07/10/2026): giữ dấu của bản sau — ô bản sau trong `de` đã được chép nguyên ở trên. */
-    ...(v.mauCu.coOXemBuoc === true ? { coOXemBuoc: true as const } : {}),
+    /* ★ 07/10/2026: LUÔN đặt dấu (literal `true`) — `mauCu` đã đọc qua `chuanHoaMauChucDanh` nên `de` chép ở trên
+       đã gồm ô bước luật 8 / 8b điền cho mẫu cũ; ghi kèm dấu là ghi hẳn chúng, đọc lại không điền lần hai. */
+    coOXemBuoc: true,
     capNhatLuc: v.luc,
     capNhatBoi: v.capNhatBoi,
     capNhatBoiTen: v.capNhatBoiTen,
@@ -474,6 +475,7 @@ export function tinhVeMacDinhMauToanBo(v: {
     khuon: 1,
     phienBan: v.mauCu.phienBan + 1,
     de: {},
+    coOXemBuoc: true, // ★ 07/10/2026 — xem `DAU_CO_O_XEM_BUOC`
     capNhatLuc: v.luc,
     capNhatBoi: v.capNhatBoi,
     capNhatBoiTen: v.capNhatBoiTen,
@@ -519,6 +521,7 @@ export function tinhCuuMauHong(v: {
     khuon: 1,
     phienBan: phienBanCuuMauHong(v.rawMau, v.luc),
     de: {},
+    coOXemBuoc: true, // ★ 07/10/2026 — xem `DAU_CO_O_XEM_BUOC`
     capNhatLuc: v.luc,
     capNhatBoi: v.capNhatBoi,
     capNhatBoiTen: v.capNhatBoiTen,

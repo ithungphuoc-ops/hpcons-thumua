@@ -16,6 +16,8 @@ import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { duocXemBuoc } from "@/4-phan-quyen/quyen";
+import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
 import {
   NHAN_GIAI_DOAN,
   thongBaoDanhChoToi,
@@ -49,18 +51,36 @@ export function NutThongBao() {
    * ghi tên mình vào nhật ký. Nhân viên cũng thấy việc của nhau.
    *
    * Luật ở `2-quy-trinh/giai-doan-mua-hang.ts` → `thongBaoDanhChoToi`, MỘT CHỖ DUY NHẤT.
+   *
+   * ★ Ô TICK "XEM BƯỚC QUY TRÌNH" — Sếp 07/10/2026: tin về hồ sơ ở bước người xem không được tick thì
+   * KHÔNG hiện (bấm vào cũng bị trang chi tiết chặn). Giữ tin nếu là cảnh báo PO treo (tin đó mang id
+   * CỦA PO, màn `/don-hang` không lọc theo bước — bổ sung đặc tả Q3), hoặc nếu người xem được tick bước
+   * mà tin nói tới (`denBuoc`) VÀ mở được hồ sơ ở bước nó đang đứng (`duocXemHoSo`), hoặc là tin GIAO VIỆC
+   * cho chính mình (`laViecMoi` — xem chú thích tại chỗ lọc). Luật quyền ở
+   * `4-phan-quyen/quyen.ts`, không viết lại ở đây.
+   * 📌 Số chưa đọc và việc đánh dấu đã đọc bên dưới đều chạy trên danh sách ĐÃ LỌC này nên tự đúng.
    */
+  const { duocXemHoSo } = useXemBuocHoSo();
   const thongBao = useMemo(
     () =>
-      tatCaThongBao.filter((t) =>
-        thongBaoDanhChoToi(
-          t.guiToi,
-          nguoiDung.tenHienThi,
-          quyen.phanBoCongViec,
-          nguoiDung.vaiTro === "director",
-        ),
+      tatCaThongBao.filter(
+        (t) =>
+          thongBaoDanhChoToi(
+            t.guiToi,
+            nguoiDung.tenHienThi,
+            quyen.phanBoCongViec,
+            nguoiDung.vaiTro === "director",
+          ) &&
+          /* ★ Soát lỗi 07/10/2026 — tin GIAO VIỆC cho chính mình (`laViecMoi`) LUÔN giữ, như bản trước ô
+             tick: (1) `denBuoc` của loại tin này là bước LÚC BẤM GIAO, có thể lệch một nhịp (xem chú thích
+             nơi ghi tin ở `kho-du-lieu.tsx`) nên không dùng để lọc được; (2) Thủ kho mặc định 0 ô bước mà
+             vẫn được giao việc xuất kho — lọc là mất tin, hồi quy so với bản cũ. Hồ sơ không mở được thì
+             bấm vào ra màn chặn kèm lý do. */
+          (t.laCanhBaoTreo ||
+            t.laViecMoi === true ||
+            (duocXemBuoc(quyen, t.denBuoc) && duocXemHoSo(t.prId))),
       ),
-    [tatCaThongBao, nguoiDung.tenHienThi, quyen.phanBoCongViec, nguoiDung.vaiTro],
+    [tatCaThongBao, nguoiDung.tenHienThi, quyen, nguoiDung.vaiTro, duocXemHoSo],
   );
 
   // ⚠️ Đếm trên danh sách ĐÃ LỌC. Đếm trên danh sách gốc thì chuông báo số đỏ cho những

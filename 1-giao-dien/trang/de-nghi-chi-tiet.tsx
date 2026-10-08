@@ -34,7 +34,11 @@ import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { NHAN_NHOM_DE_XUAT } from "@/3-du-lieu/kieu-du-lieu";
 import type { BaoGia } from "@/3-du-lieu/kieu-du-lieu";
-import { chiXemTuBuocLapDon, type Quyen } from "@/4-phan-quyen/quyen";
+import { duocXemBuoc, lyDoKhongXemBuoc, O_XEM_BUOC, type Quyen } from "@/4-phan-quyen/quyen";
+/* ★ Ô tick "Xem bước quy trình" (Sếp 07/10/2026): hồ sơ KHÁC (phiếu gốc) có mở được với người xem không —
+   hook dùng chung, luật ở `quyen.ts`. Breadcrumb "Thu mua" về màn gốc CỦA người xem. */
+import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
+import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -150,7 +154,6 @@ import {
      `2-quy-trinh/giai-doan-mua-hang.ts` — đừng xoá, xem ghi chú ở đó. */
   tenNguoiPhuTrachDeNghi,
   soDongChuaPhanBoConLai,
-  laBuocTruocLapDon,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, xem chú thích đầu file đó.
@@ -329,6 +332,10 @@ export default function TrangChiTietDeNghi({
   const thamSoDuongDan = idTruyenVao ?? routeParams.id;
   const params = { id: timDeNghiTheoDuongDan(thamSoDuongDan, deNghi)?.id ?? thamSoDuongDan };
   const { nguoiDung, quyen } = useNguoiDung();
+  /* ★ Liên kết sang hồ sơ KHÁC (phiếu gốc) gác theo ô tick "Xem bước quy trình" — Sếp 07/10/2026.
+     🔴 GỌI Ở ĐÂY, TRƯỚC MỌI `return` SỚM (`if (!dn)`, màn chặn theo bước) — quy tắc hook React: gọi sau
+     một `return` sớm là số hook đổi giữa các lần vẽ, React vỡ cả trang. */
+  const xemBuocHoSo = useXemBuocHoSo();
   /**
    * ★ HỘP SỬA TRƯỜNG ĐANG MỞ — dời từ menu ⋯ của thẻ sang đây (Ban lãnh đạo 12/09/2026).
    *
@@ -480,20 +487,28 @@ export default function TrangChiTietDeNghi({
      `cacBanTach` ở ngay dưới: đó là bản đã lọc, luật sẽ không thấy hết các bản con. */
   const giaiDoan = xacDinhGiaiDoan(dn, donHang, baoGia, phieuNhan, deNghi);
 
-  /* ★ Sếp 07/10/2026 — Kế toán / QLDA xem bảng Quy trình TỪ BƯỚC ④: hồ sơ còn ở ①–③ thì không mở
-     (mở thẳng bằng đường dẫn, bấm liên kết phiếu gốc/phiếu con…). Hồ sơ "Thất bại" vẫn mở được — Sếp
-     chốt cột Thất bại hiện hết. Đặt SAU mọi hook (trả về sớm ở đây không phá thứ tự hook). */
-  if (chiXemTuBuocLapDon(quyen) && laBuocTruocLapDon(giaiDoan)) {
+  /* ★ Sếp 07/10/2026 — ô tick "Xem bước quy trình": hồ sơ đang ở bước người xem không được tick thì
+     không mở (mở thẳng bằng đường dẫn, bấm liên kết phiếu gốc/phiếu con, xem nhanh từ bảng…). Hồ sơ
+     "Thất bại" gác bằng ô ⑨. Câu lý do từ `lyDoKhongXemBuoc` (`4-phan-quyen/quyen.ts`, một chỗ). Đặt SAU
+     mọi hook (trả về sớm ở đây không phá thứ tự hook). */
+  const lyDoKhongXem = lyDoKhongXemBuoc(quyen, giaiDoan);
+  if (lyDoKhongXem) {
     return (
       <EmptyState
         icon={FileWarning}
-        title="Hồ sơ chưa tới bước Lập đơn mua hàng"
-        description={`Hồ sơ đang ở bước “${NHAN_GIAI_DOAN[giaiDoan].nhan}”. Tài khoản của bạn xem được Quy trình mua hàng từ bước Lập đơn mua hàng trở đi.`}
+        title="Bạn không xem được hồ sơ ở bước này"
+        description={lyDoKhongXem}
       />
     );
   }
   /* Người phụ trách hiện ở vùng đầu dính cố định — cùng hàm với chân thẻ bảng quy trình. */
   const nguoiPhuTrachDn = tenNguoiPhuTrachDeNghi(dn);
+  /* Tên phiếu gốc ở dòng "Tách ra từ đề xuất" — MỘT chỗ cho cả nhánh liên kết lẫn nhánh chữ thường (ô tick
+     "Xem bước quy trình", Sếp 07/10/2026). Phiếu gốc đã bị xoá → rơi về `maDeNghiGoc` (xem chú thích tại chỗ). */
+  const tenPhieuGoc = (idGoc: string) => {
+    const goc = deNghi.find((x) => x.id === idGoc);
+    return goc ? tenTheDeNghi(goc) : (dn.maDeNghiGoc ?? idGoc);
+  };
 
   /* ★ TIẾN ĐỘ THEO TỪNG NGƯỜI — Sếp chốt 25/09/2026.
 
@@ -541,7 +556,7 @@ export default function TrangChiTietDeNghi({
    * việc đã xong: bước trước đã qua rồi, bày lại cả danh sách chỉ làm trang dài mà không giúp gì.
    * Nhóm bước đang đứng thì bày ĐỦ cả việc đã xong — đó là danh sách việc của chính bước này.
    */
-  const nhomCongViec: {
+  const nhomCongViecDayDu: {
     buoc: GiaiDoanMuaHang;
     nhanBuoc: string;
     viec: CongViecGiaiDoan[];
@@ -562,6 +577,21 @@ export default function TrangChiTietDeNghi({
       laBuocTruoc: true,
     })),
   ];
+  /**
+   * ★ CHỈ BÀY VIỆC CỦA BƯỚC NGƯỜI XEM ĐƯỢC TICK — Sếp 07/10/2026, ô tick "Xem bước quy trình" (đặc tả E-6).
+   *
+   * 🔴 VÌ SAO PHẢI LỌC Ở ĐÂY: khối của bước không được xem đã bị ẩn (bộ lọc khối ở cuối trang), mà
+   * `themDanhSachCongViec` gửi nhóm việc KHÔNG có khối về khối CUỐI — không lọc thì việc của bước bị ẩn
+   * "lạc" sang khối khác, kèm ô tích và câu chỉ đường tới một khối người xem không thấy.
+   *
+   * 📌 Bước ① KHÔNG lọc: khối ① luôn hiện khi hồ sơ mở được (bổ sung đặc tả V-A, chỉ đạo Sếp 14/09/2026).
+   * 📌 Nhóm treo ở bước bị ẩn (`nhomTreoBiAn`) không biến mất im lặng: khối đang đứng in MỘT dòng nói bước
+   * đó còn việc, nhờ Trưởng bộ phận xử lý — KHÔNG chỉ đường tới khối bị ẩn.
+   */
+  const nhomCongViec = nhomCongViecDayDu.filter(
+    (n) => n.buoc === "tiep_nhan" || duocXemBuoc(quyen, n.buoc),
+  );
+  const nhomTreoBiAn = nhomCongViecDayDu.filter((n) => n.laBuocTruoc && !nhomCongViec.includes(n));
 
   /**
    * ★ BƯỚC NÀY CÒN THIẾU GÌ — nguồn của VIỀN ĐỎ trên khối bước (Ban lãnh đạo 23/08/2026:
@@ -658,7 +688,9 @@ export default function TrangChiTietDeNghi({
      * một Card riêng ở đầu trang — app chỉ đường tới một chỗ không có thật.
      */
     const treoBuocTruoc = laKhoiDangDung ? nhomCongViec.filter((n) => n.laBuocTruoc) : [];
-    if (nhom.length === 0 && treoBuocTruoc.length === 0) return null;
+    /* Việc còn treo ở bước người xem KHÔNG được tick — chỉ khối đang đứng nói, xem `nhomTreoBiAn`. */
+    const treoBiAn = laKhoiDangDung ? nhomTreoBiAn : [];
+    if (nhom.length === 0 && treoBuocTruoc.length === 0 && treoBiAn.length === 0) return null;
 
     return (
       <section className="flex flex-col gap-(--hp-md-row-gap)">
@@ -815,6 +847,19 @@ export default function TrangChiTietDeNghi({
             </span>
           </p>
         )}
+
+        {/* ★ VIỆC TREO Ở BƯỚC NGƯỜI XEM KHÔNG ĐƯỢC TICK — Sếp 07/10/2026 (đặc tả E-6). Nói có việc chặn
+            hồ sơ, nhưng KHÔNG chỉ đường tới khối đó (khối đã ẩn với tài khoản này) — chỉ nhờ người xử được. */}
+        {treoBiAn.length > 0 && (
+          <p className="flex items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-xs font-medium text-danger">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>
+              Bước {treoBiAn.map((n) => `“${O_XEM_BUOC[n.buoc].nhan}”`).join(" · ")} còn công việc bắt
+              buộc chưa xong — tài khoản của bạn không được xem bước này, nhờ Trưởng bộ phận Thu mua xử
+              lý.
+            </span>
+          </p>
+        )}
       </section>
     );
   }
@@ -920,6 +965,14 @@ export default function TrangChiTietDeNghi({
         )[0].ngayNhanThucTe,
       }),
   };
+  /* ★ Mốc ngày ở cột phải CHỈ của bước người xem được tick — Sếp 07/10/2026, ô tick "Xem bước quy trình"
+     (đặc tả E-7). Ngày báo giá / ngày duyệt của bước bị ẩn cũng là thông tin của bước đó. Mốc ① giữ
+     nguyên (ngày duyệt đề nghị — cùng lý do khối ① luôn hiện, bổ sung đặc tả V-A). Tên bước vẫn hiện
+     đủ trong "Tiến trình" — người xem thấy đủ quy trình, chỉ không thấy thông tin của bước bị ẩn. */
+  const mocTheoNguoiXem: MocGiaiDoan = {};
+  for (const g of GIAI_DOAN_MUA_HANG) {
+    if (g.ma === "tiep_nhan" || duocXemBuoc(quyen, g.ma)) mocTheoNguoiXem[g.ma] = mocGiaiDoan[g.ma];
+  }
 
   /**
    * HỒ SƠ ĐÃ ĐÓNG (hoàn thành / đóng dở) — khóa mọi thao tác đổi nội dung.
@@ -1100,7 +1153,9 @@ export default function TrangChiTietDeNghi({
 
           <PageHeader
             crumbs={[
-              { label: "Thu mua", href: "/tong-quan" },
+              /* Màn gốc CỦA người xem (Sếp 07/10/2026 — ô tick "Xem bước quy trình"): người chỉ có ô bước,
+                 không có ô "Vào màn làm việc", bấm `/tong-quan` là bị cổng đẩy đi không một câu giải thích. */
+              { label: "Thu mua", href: duongDanGocTheoQuyen(quyen) },
               { label: "Quy trình mua hàng", href: "/de-nghi" },
               { label: dn.code },
             ]}
@@ -1425,31 +1480,45 @@ export default function TrangChiTietDeNghi({
               <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary-bg p-(--hp-md-row-pad) text-sm">
                 <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
                 <span className="text-text-secondary">Tách ra từ đề xuất</span>
-                <Link
-                  href={`/de-nghi/${dn.deNghiGocId}`}
-                  className="font-semibold text-primary hover:underline"
-                >
-                  {/**
-                    * 🔴 HIỆN **MÃ ĐỀ NGHỊ + MÃ HỢP ĐỒNG + TÊN CÔNG TRÌNH**, KHÔNG hiện `maDeNghiGoc`
-                    * — Sếp 17/09/2026: ***"Bỏ ký hiệu PR-001 đó đi, hãy hiển thị Mã đề nghị + Mã Hợp đồng +
-                    * Tên công trình, giống tên tiêu đề của quy trình"***.
-                    *
-                    * `maDeNghiGoc` là mã NỘI BỘ của app thu mua (`…-PR-001`). Sếp hỏi thẳng *"ký hiệu
-                    * PR-001 ở đây là gì, sao ở quy trình nào cũng ghi vậy"* — vì số thứ tự đếm theo TỪNG
-                    * DỰ ÁN, nên hợp đồng nào cũng bắt đầu lại từ 001 và dòng nào cũng trông giống nhau.
-                    *
-                    * 📌 DÙNG `tenTheDeNghi` — **đúng hàm dựng tiêu đề thẻ trên bảng quy trình**, không ghép
-                    * chuỗi tại đây. Sếp muốn *"giống tên tiêu đề của quy trình"*, mà giống thật thì chỉ có
-                    * một cách: gọi chung một hàm. Ghép tay là hai chỗ sớm muộn lệch nhau.
-                    *
-                    * ⚠️ Phiếu gốc có thể đã bị xoá (app không chặn) — khi đó rơi về `maDeNghiGoc` như cũ
-                    * chứ không để trống: mất dấu vết cha–con là không ai biết phiếu này tách ra từ đâu.
-                    */}
-                  {(() => {
-                    const goc = deNghi.find((x) => x.id === dn.deNghiGocId);
-                    return goc ? tenTheDeNghi(goc) : (dn.maDeNghiGoc ?? dn.deNghiGocId);
-                  })()}
-                </Link>
+                {/* ★ PHIẾU GỐC Ở BƯỚC NGƯỜI XEM KHÔNG ĐƯỢC TICK → CHỮ THƯỜNG, KHÔNG PHẢI LIÊN KẾT — Sếp
+                    07/10/2026, ô tick "Xem bước quy trình" (đặc tả E-9). Bấm vào chỉ tới màn chặn; nói trước
+                    bằng chữ phụ (cả chữ lẫn màu — V1.1) và câu lý do đầy đủ ở `title`. Tên phiếu vẫn hiện:
+                    người xem cần biết phiếu này tách từ đâu, chỉ không mở được. Luật ở `quyen.ts`
+                    (`useXemBuocHoSo` → `hoSoDuocXemTheoBuoc`), không viết điều kiện bước tại đây. */}
+                {xemBuocHoSo.duocXemHoSo(dn.deNghiGocId) ? (
+                  <Link
+                    href={`/de-nghi/${dn.deNghiGocId}`}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    {/**
+                      * 🔴 HIỆN **MÃ ĐỀ NGHỊ + MÃ HỢP ĐỒNG + TÊN CÔNG TRÌNH**, KHÔNG hiện `maDeNghiGoc`
+                      * — Sếp 17/09/2026: ***"Bỏ ký hiệu PR-001 đó đi, hãy hiển thị Mã đề nghị + Mã Hợp đồng +
+                      * Tên công trình, giống tên tiêu đề của quy trình"***.
+                      *
+                      * `maDeNghiGoc` là mã NỘI BỘ của app thu mua (`…-PR-001`). Sếp hỏi thẳng *"ký hiệu
+                      * PR-001 ở đây là gì, sao ở quy trình nào cũng ghi vậy"* — vì số thứ tự đếm theo TỪNG
+                      * DỰ ÁN, nên hợp đồng nào cũng bắt đầu lại từ 001 và dòng nào cũng trông giống nhau.
+                      *
+                      * 📌 DÙNG `tenTheDeNghi` (trong `tenPhieuGoc`) — **đúng hàm dựng tiêu đề thẻ trên bảng
+                      * quy trình**, không ghép chuỗi tại đây. Sếp muốn *"giống tên tiêu đề của quy trình"*, mà
+                      * giống thật thì chỉ có một cách: gọi chung một hàm. Ghép tay là hai chỗ sớm muộn lệch nhau.
+                      *
+                      * ⚠️ Phiếu gốc có thể đã bị xoá (app không chặn) — khi đó rơi về `maDeNghiGoc` như cũ
+                      * chứ không để trống: mất dấu vết cha–con là không ai biết phiếu này tách ra từ đâu.
+                      */}
+                    {tenPhieuGoc(dn.deNghiGocId)}
+                  </Link>
+                ) : (
+                  <span
+                    className="flex min-w-0 flex-wrap items-baseline gap-x-1.5"
+                    title={xemBuocHoSo.lyDoKhongXemHoSo(dn.deNghiGocId) ?? undefined}
+                  >
+                    <span className="font-semibold text-text-primary">
+                      {tenPhieuGoc(dn.deNghiGocId)}
+                    </span>
+                    <span className="text-xs text-text-desc">(không xem được bước này)</span>
+                  </span>
+                )}
               </div>
             )}
             {/* 🔴 GẬP LẠI ĐƯỢC — Ban lãnh đạo 17/08/2026: *"thêm nút group này lại"*.
@@ -2549,11 +2618,28 @@ export default function TrangChiTietDeNghi({
                 nhan: NHAN_GIAI_DOAN.lap_don_mua_hang.nhan,
                 dangODay: giaiDoan === "lap_don_mua_hang",
                 conThieu: conThieuCuaBuoc("lap_don_mua_hang"),
-                truong: baoGiaLienQuan.flatMap((bg) =>
-                  (bg.tepChonNCC ?? []).length > 0
-                    ? [{ nhan: "Căn cứ chọn nhà cung cấp", tep: bg.tepChonNCC }]
+                /* ★ "CĂN CỨ CHỌN NHÀ CUNG CẤP" LÀ NỘI DUNG BƯỚC ③ — gác bằng ô ③, không phải ô ④ (bổ sung đặc
+                   tả V-B, ô tick "Xem bước quy trình", Sếp 07/10/2026). Tệp này là dẫn chứng cho quyết định
+                   duyệt ở bước ③ (xem chú thích `tepChonNCC` ở khối ③), chỉ hiện nhờ ở khối ④. Không xem
+                   được ③ → MỘT dòng chữ nói lý do, không phải ô trống (người đọc tưởng chưa ai đính). */
+                truong: duocXemBuoc(quyen, "xet_duyet_bao_gia")
+                  ? baoGiaLienQuan.flatMap((bg) =>
+                      (bg.tepChonNCC ?? []).length > 0
+                        ? [{ nhan: "Căn cứ chọn nhà cung cấp", tep: bg.tepChonNCC }]
+                        : [],
+                    )
+                  : baoGiaLienQuan.some((bg) => (bg.tepChonNCC ?? []).length > 0)
+                    ? [
+                        {
+                          nhan: "Căn cứ chọn nhà cung cấp",
+                          noiDung: (
+                            <p className="text-sm text-text-desc">
+                              Thuộc bước ③ Xét duyệt báo giá — tài khoản của bạn không được xem bước này.
+                            </p>
+                          ),
+                        },
+                      ]
                     : [],
-                ),
                 /* ĐƠN ĐẶT HÀNG, thuộc bước ④ (chỉ đạo 16/08/2026, xem chú thích đầu khối):
                    đơn được LẬP ở chính bước này, ngay sau khi đã có căn cứ chọn nhà cung cấp
                    nằm phía trên.
@@ -4117,9 +4203,11 @@ export default function TrangChiTietDeNghi({
             ].filter(
               (g) =>
                 giaiDoanDaToiLuot(g.ma, giaiDoan) &&
-                /* ★ Sếp 07/10/2026: Kế toán / QLDA — ẩn khối ② báo giá và ③ xét duyệt, GIỮ khối ①
-                   (danh sách mặt hàng + cảnh báo vật tư định mức). */
-                !(chiXemTuBuocLapDon(quyen) && laBuocTruocLapDon(g.ma) && g.ma !== "tiep_nhan"),
+                /* ★ Sếp 07/10/2026 — ô tick "Xem bước quy trình": khối của bước người xem không được
+                   tick thì ẩn. Khối ① LUÔN hiện khi hồ sơ mở được (bổ sung đặc tả V-A, chỉ đạo Sếp
+                   14/09/2026, chú thích khối ①: *"nếu như ko xem được các mặt hàng được đề xuất thì đâu
+                   biết cần vật tư gì"*) — ô ① chỉ quyết cột ① và việc mở hồ sơ đang ở bước ①. */
+                (g.ma === "tiep_nhan" || duocXemBuoc(quyen, g.ma)),
             ))}
           />
 
@@ -4181,7 +4269,7 @@ export default function TrangChiTietDeNghi({
             anGiaiDoanHienTaiTuLg
             giaiDoan={giaiDoan}
             soNgayConLai={conLai}
-            moc={mocGiaiDoan}
+            moc={mocTheoNguoiXem}
             // Hạn chuẩn từng bước lấy từ cấu hình quy trình (sửa được ở trang Cài đặt),
             // KHÔNG viết cứng trong component hiển thị.
             hanGioTheoBuoc={cauHinh.hanGioTheoBuoc}

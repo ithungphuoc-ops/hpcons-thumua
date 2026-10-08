@@ -56,11 +56,21 @@ interface NguonDuLieu {
   baoGia: BaoGia[];
 }
 
+/**
+ * @param duocXemHoSo ★ Ô tick "Xem bước quy trình" (Sếp 07/10/2026): hồ sơ (id đề nghị) có hiện với
+ *   người xem không. Ô tìm giao diện truyền thẳng hook `useXemBuocHoSo().duocXemHoSo`
+ *   (`4-phan-quyen/xem-buoc-ho-so.ts`) — tệp này KHÔNG tự tính bước, không tự quyết quyền.
+ *   🔴 BẮT BUỘC, không có mặc định: quên truyền là ô tìm lại thành đường vòng lộ hồ sơ ở bước bị ẩn
+ *   (đúng lỗ hổng ghi ở đầu tệp, chỉ khác loại quyền).
+ *   Lọc kết quả ĐỀ NGHỊ và BÁO GIÁ (theo hồ sơ nguồn). Kết quả ĐƠN HÀNG GIỮ NGUYÊN — màn đích
+ *   `/don-hang` không lọc theo bước (bổ sung đặc tả Q3: Thủ kho làm việc ở đó).
+ */
 export function timHoSo(
   tuKhoa: string,
   nguon: NguonDuLieu,
   quyen: Quyen,
   uid: string,
+  duocXemHoSo: (prId: string) => boolean,
 ): KetQuaTraVe {
   const k = boDau(tuKhoa.trim());
   if (k.length < SO_KY_TU_TOI_THIEU) return { ketQua: [], tongKhop: 0 };
@@ -96,6 +106,8 @@ export function timHoSo(
       )
     )
       continue;
+    /* ★ Hồ sơ ở bước người xem không được tick → không ra kết quả (bấm vào cũng bị chặn). */
+    if (!duocXemHoSo(dn.id)) continue;
     gom.push({
       loai: "de_nghi",
       id: dn.id,
@@ -153,6 +165,8 @@ export function timHoSo(
       // Không tra ra đề nghị nguồn thì KHÔNG cho hiện — thiếu thông tin thì chọn phía an toàn.
       const deNghiNguon = nguon.deNghi.find((d) => d.id === bg.prId);
       if (!deNghiNguon || !duocXemBaoGiaCuaDeNghi(deNghiNguon, uid, quyen)) continue;
+      /* ★ Kết quả dẫn về trang chi tiết đề nghị nguồn → gác theo bước của CHÍNH hồ sơ đó. */
+      if (!duocXemHoSo(deNghiNguon.id)) continue;
       gom.push({
         loai: "bao_gia",
         id: bg.id,

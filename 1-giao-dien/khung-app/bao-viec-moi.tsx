@@ -108,6 +108,11 @@ export function BaoViecMoi() {
     for (const t of cuaToi) {
       if (daBao.current.has(t.id)) continue;
       daBao.current.add(t.id);
+      /* ★ Ô tick "Xem bước quy trình" (Sếp 07/10/2026) — hộp nổi KHÔNG lọc theo bước (soát lỗi 07/10/2026):
+         hộp này chỉ báo tin GIAO VIỆC cho chính mình, và người được giao phải biết mình có việc. Lọc theo
+         bước là Thủ kho (mặc định 0 ô bước) mất tin giao việc xuất kho — hồi quy so với bản trước ô tick.
+         Cùng luật với chuông (`nut-thong-bao.tsx`: tin `laViecMoi` luôn giữ). Hồ sơ không mở được thì
+         "Mở phiếu" ra màn chặn kèm lý do. */
 
       /**
        * ★★ TRA LẠI TÊN LÚC BÁO, KHÔNG IN CHUỖI CHÉP SẴN — Sếp 16/09/2026 (*"Sao tên thông báo ko

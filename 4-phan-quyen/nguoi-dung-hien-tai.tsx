@@ -74,7 +74,8 @@ const khongDangKy = () => () => {};
 const tra0 = () => 0;
 
 /**
- * Đủ 18 ô TẮT — quyền HẸP NHẤT. Dùng cho nhịp dựng trang đầu (ảnh chụp phía máy chủ, chưa đọc được kho
+ * Đủ ô `KHOA_TICK` TẮT (27 ô từ 07/10/2026, kể cả 9 ô "Xem bước quy trình") — quyền HẸP NHẤT. Dùng cho
+ * nhịp dựng trang đầu (ảnh chụp phía máy chủ, chưa đọc được kho
  * demo): thiếu thông tin thì quyền thấp nhất, không lấy công thức chức danh (rộng hơn) cho tiện.
  */
 const QUYEN_HEP_NHAT: QuyenRieng = Object.fromEntries(KHOA_TICK.map((k) => [k, false])) as QuyenRieng;

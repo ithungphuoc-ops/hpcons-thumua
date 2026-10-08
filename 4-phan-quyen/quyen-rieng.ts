@@ -16,10 +16,11 @@
 //      `quyenTheoChucDanhCoMau`.
 //   ③ NGOẠI LỆ RIÊNG của từng người (tệp này, `tm_quyen_rieng/{mã Firebase}`) — từ 06/10/2026 chỉ
 //      cất những ô CỐ Ý khác "chức danh" (khuôn 2, `ngoaiLe`); ô vắng đi theo ① + ②, kể cả khi mẫu
-//      đổi về sau. Bản ghi cũ (khuôn 1, đủ 18 ô) chuyển NGAY KHI ĐỌC — xem `quyenRiengHieuLuc`.
+//      đổi về sau. Bản ghi cũ (khuôn 1, 18 ô cũ — trước khi có 9 ô "Xem bước quy trình") chuyển NGAY KHI
+//      ĐỌC — xem `quyenRiengHieuLuc`.
 //   ④ Các chốt ①–⑥ của `apDungQuyenRieng` (giữ nguyên, không đổi một dòng).
-// Máy chủ gộp sẵn ② + ③ thành ĐỦ 18 ô hiệu lực rồi gắn vào `NguoiDung.quyenRieng`, nên `tinhQuyen`
-// và mọi chỗ gọi nó (tầng ghi, `quyen-theo-ho-so.ts`) không phải sửa.
+// Máy chủ gộp sẵn ② + ③ thành ĐỦ ô hiệu lực (`KHOA_TICK` — 27 ô từ 07/10/2026) rồi gắn vào
+// `NguoiDung.quyenRieng`, nên `tinhQuyen` và mọi chỗ gọi nó (tầng ghi, `quyen-theo-ho-so.ts`) không phải sửa.
 //
 // ## 🔴 MẶC ĐỊNH AN TOÀN: CHƯA CÓ QUYỀN RIÊNG = GIỮ NGUYÊN QUYỀN THEO CHỨC DANH
 // Bản demo ghi *"Mặc định mọi người không xem được gì"*. Làm đúng như vậy ngay hôm deploy là CẢ
@@ -41,7 +42,8 @@ import type { CapQuyen, ChucNang, NguoiDung, Quyen, VaiTroHeThong } from "@/4-ph
 /** Quyền tick riêng. Chỉ các cờ tick được; thiếu khoá = `false` khi áp (xem `apDungQuyenRieng`). */
 export type QuyenRieng = Partial<Record<keyof Quyen, boolean>>;
 
-export type NhomQuyenTick = "Được xem" | "Được làm" | "Quản trị";
+/** ★ 07/10/2026: thêm nhóm "Xem bước quy trình" (9 ô — Sếp *"được tick chọn cho xem bước nào"*). */
+export type NhomQuyenTick = "Được xem" | "Xem bước quy trình" | "Được làm" | "Quản trị";
 
 export interface CoTickDuoc {
   khoa: keyof Quyen;
@@ -53,7 +55,13 @@ export interface CoTickDuoc {
 }
 
 /**
- * NHỮNG CỜ TICK ĐƯỢC — 18 ô, dùng CHUNG cho khối tick từng người VÀ bảng mẫu chức danh (một nguồn).
+ * NHỮNG CỜ TICK ĐƯỢC — 18 ô cũ + 9 ô "Xem bước quy trình" (07/10/2026) = 27 ô, dùng CHUNG cho khối tick
+ * từng người VÀ bảng mẫu chức danh (một nguồn).
+ *
+ * ★ Sếp 07/10/2026 (ô tick "Xem bước quy trình"): 9 ô bước NỐI VÀO CUỐI danh sách (giữ nguyên vị trí và
+ * thứ tự 18 ô cũ — giao diện gom dòng theo `nhom` nên vẫn hiện thành nhóm thứ hai). Ô "Vào Quy trình mua
+ * hàng" (`xemQuyTrinhMuaHang`) ĐỔI NHÃN thành "Vào màn làm việc Thu mua": từ nay nó chỉ mở 5 màn làm việc,
+ * bảng Quy trình mua hàng mở theo 9 ô bước (`vaoDuocBangQuyTrinh` ở `quyen.ts`). Khoá KHÔNG đổi.
  *
  * ★ Sếp 06/10/2026 (kế hoạch phân quyền GĐ3): đổi NHÃN, MÔ TẢ và THỨ TỰ cho nói đúng việc thật mà cờ
  * đang gác — đo chỗ đọc thật từng cờ trước khi viết câu, không hứa thêm. 🔴 KHÔNG đổi `khoa`: đổi khoá
@@ -74,6 +82,7 @@ export interface CoTickDuoc {
  *   · `taoDeNghi` — demo ghi "Lập đề nghị tay trong app", nhưng từ 23/08/2026 nút đó mở app Đề
  *     nghị bên ngoài (xem chú thích `duocVaoDuongDan` ở `quyen.ts`).
  *   · `xemQuyTrinhMuaHang` — cờ này gác cả Tổng quan · Công việc của tôi · Lịch, không chỉ bảng 8 cột.
+ *     ★ Từ 07/10/2026 KHÔNG còn gác bảng Quy trình (xem đoạn đầu) — nhãn "Vào màn làm việc Thu mua".
  *
  * 🔴 `phanQuyenNguoiDung` KHÔNG TICK ĐƯỢC — rút khỏi danh sách theo soát chéo 26/09/2026 (bản đầu có
  * trong demo và từng tick được). Lý do: đường gán chức danh `app/api/phan-quyen` (phiên tích hợp,
@@ -98,9 +107,11 @@ export const CO_TICK_DUOC: readonly CoTickDuoc[] = [
   {
     khoa: "xemQuyTrinhMuaHang",
     nhom: "Được xem",
-    nhan: "Vào Quy trình mua hàng",
+    /* ★ Sếp 07/10/2026 (mục 8 — ô "Vào Quy trình" đổi nghĩa): nhãn cũ "Vào Quy trình mua hàng". Ô này chỉ
+       còn mở 5 màn (`duocVaoDuongDan` ở `quyen.ts`, `dieu-huong.ts`); bảng Quy trình theo 9 ô bước. */
+    nhan: "Vào màn làm việc Thu mua",
     moTa:
-      "Tổng quan · Việc của tôi · Lịch · Quy trình mua hàng · Theo dõi đơn hàng · Danh mục nhà cung cấp (danh mục cần thêm ô Xem nhà cung cấp)",
+      "Tổng quan · Việc của tôi · Lịch · Theo dõi đơn hàng · Danh mục nhà cung cấp (danh mục cần thêm ô Xem nhà cung cấp). Không còn mở bảng Quy trình mua hàng — bảng đó mở theo nhóm “Xem bước quy trình”.",
   },
   {
     khoa: "xemMoiHoSo",
@@ -138,7 +149,7 @@ export const CO_TICK_DUOC: readonly CoTickDuoc[] = [
     nhan: "Tạo đề nghị",
     /* B-F10: phụ thuộc — xem `phuThuocCuaO` ở `mau-chuc-danh.ts`. */
     moTa:
-      "Hiện nút mở app Đề nghị (request.hpcore.vn) ở Việc của tôi — chỉ có tác dụng khi có ô “Vào Quy trình mua hàng”",
+      "Hiện nút mở app Đề nghị (request.hpcore.vn) ở Việc của tôi — chỉ có tác dụng khi có ô “Vào màn làm việc Thu mua”",
   },
   {
     khoa: "phanBoCongViec",
@@ -212,25 +223,84 @@ export const CO_TICK_DUOC: readonly CoTickDuoc[] = [
     moTa:
       "Chỉ Quản trị. Xoá đề nghị ở khối \"Vùng nguy hiểm\" (Cài đặt quy trình), không khôi phục được — nút xoá nằm trong Cài đặt quy trình, chỉ người có Phân quyền vào được",
   },
+  /* ---- Xem bước quy trình ---- ★ Sếp 07/10/2026: *"Điều chỉnh này thành chức năng phân quyền, và được
+     tick chọn cho xem bước nào"*. NỐI CUỐI để 18 ô cũ giữ nguyên vị trí (bài kiểm canh). 🔴 `nhan` VIẾT CỨNG,
+     phải TRÙNG `O_XEM_BUOC[ma].nhan` ở `quyen.ts` (tệp này không được nạp `quyen.ts` — vòng nạp; bài kiểm
+     đối chiếu). Mô tả theo đặc tả A.1; ô ① theo bổ sung V-A (khối ① luôn hiện khi mở được hồ sơ — chỉ đạo
+     14/09); ô ④ bỏ "căn cứ chọn NCC" (trường đó gác theo bước ③ — bổ sung V-B). */
+  {
+    khoa: "xemBuocTiepNhan",
+    nhom: "Xem bước quy trình",
+    nhan: "① Tiếp nhận và kiểm tra",
+    moTa:
+      "Cột ① · mở hồ sơ đang ở bước ①. (Danh sách mặt hàng ở khối ① trang chi tiết luôn hiện khi mở được hồ sơ — chỉ đạo 14/09.)",
+  },
+  {
+    khoa: "xemBuocYeuCauBaoGia",
+    nhom: "Xem bước quy trình",
+    nhan: "② Yêu cầu NCC báo giá",
+    moTa: "Cột ② · mở hồ sơ đang ở bước ② · khối ② ở trang chi tiết (bản báo giá nhà cung cấp).",
+  },
+  {
+    khoa: "xemBuocXetDuyetBaoGia",
+    nhom: "Xem bước quy trình",
+    nhan: "③ Xét duyệt báo giá",
+    moTa: "Cột ③ · mở hồ sơ đang ở bước ③ · khối ③ (so sánh, duyệt chọn NCC).",
+  },
+  {
+    khoa: "xemBuocLapDon",
+    nhom: "Xem bước quy trình",
+    nhan: "④ Lập đơn mua hàng",
+    moTa: "Cột ④ (kể cả thẻ PO chờ đề nghị) · mở hồ sơ đang ở bước ④ · khối ④ (đơn hàng, hợp đồng).",
+  },
+  {
+    khoa: "xemBuocDatHang",
+    nhom: "Xem bước quy trình",
+    nhan: "⑤ Tiến hành đặt hàng",
+    moTa: "Cột ⑤ · mở hồ sơ đang ở bước ⑤ · khối ⑤.",
+  },
+  {
+    khoa: "xemBuocNhanHang",
+    nhom: "Xem bước quy trình",
+    nhan: "⑥ Tiến hành nhận hàng",
+    moTa: "Cột ⑥ · mở hồ sơ đang ở bước ⑥ · khối ⑥ (phiếu giao nhận).",
+  },
+  {
+    khoa: "xemBuocHoSoThanhToan",
+    nhom: "Xem bước quy trình",
+    nhan: "⑦ Hồ sơ thanh toán",
+    moTa: "Cột ⑦ · mở hồ sơ đang ở bước ⑦ · khối ⑦ (hoá đơn VAT, UNC).",
+  },
+  {
+    khoa: "xemBuocHoanThanh",
+    nhom: "Xem bước quy trình",
+    nhan: "⑧ Hoàn thành",
+    /* Đặc tả A.1 ghi "các khối hiện theo ô ①–⑦"; bổ sung V-A cho khối ① LUÔN hiện → viết đúng như vậy. */
+    moTa:
+      "Cột ⑧ · mở hồ sơ đã hoàn thành. Trang chi tiết không có khối riêng cho ⑧; khối ②–⑦ hiện theo ô của bước đó, khối ① luôn hiện.",
+  },
+  {
+    khoa: "xemBuocThatBai",
+    nhom: "Xem bước quy trình",
+    nhan: "⑨ Thất bại",
+    moTa: "Cột Thất bại · mở hồ sơ đã đóng dở hoặc huỷ. Khối ②–⑦ hiện theo ô của bước đó, khối ① luôn hiện.",
+  },
 ];
 
-/** Danh sách khoá tick được, đúng thứ tự trên màn hình. */
+/** Danh sách khoá tick được, đúng thứ tự trên màn hình (27 khoá từ 07/10/2026). */
 export const KHOA_TICK: readonly (keyof Quyen)[] = CO_TICK_DUOC.map((c) => c.khoa);
 
 /**
- * ★ NHỊP 1 của ô tick "Xem bước quy trình" (Sếp 07/10/2026: *"Điều chỉnh này thành chức năng phân
- * quyền, và được tick chọn cho xem bước nào"*). Tên 9 khoá của BẢN SAU (nhịp 2) — bản này CHƯA dùng,
- * chỉ dạy các bộ đọc dữ liệu NHẬN RA chúng để đọc mà không báo hỏng.
+ * ★ CHÍN KHOÁ "XEM BƯỚC QUY TRÌNH" theo thứ tự ①…⑨ (Sếp 07/10/2026) — bản chính thức của nhịp 2, THAY hằng
+ * nhịp 1 `KHOA_XEM_BUOC_SAP_CO` (đã bỏ: 9 khoá nay nằm trong `KHOA_TICK`). Các hàm đọc dữ liệu ở tệp này
+ * (`ngoaiLeCuaBanGhi`, luật 8 / 8b) cần danh sách này mà KHÔNG được nạp `quyen.ts` (vòng nạp) — nên viết
+ * cứng ở đây.
  *
- * 🔴 Vì sao phải đẩy riêng trước: nhịp 2 ghi các khoá này xuống `tm_quyen_rieng` và mẫu chức danh. Bản
- * mã trước nhịp 1 gặp khoá lạ ở khuôn 2 thì coi bản ghi SAI KHUÔN (`null` → route 500 → chặn vào app), gặp
- * ô lạ mang `false` trong mẫu thì báo MẪU HỎNG (B-F5) — tức Instant Rollback nhịp 2 về thẳng bản cũ là
- * khoá cả phòng ngoài app. Có nhịp 1 đứng giữa thì rollback về nhịp 1 vẫn đọc được.
- *
- * 📌 ĐÓNG BĂNG: tên và thứ tự phải TRÙNG TUYỆT ĐỐI với khoá nhịp 2 — lệch một chữ là bộ đọc này không
- * nhận ra, rollback hỏng y như không có nhịp 1. Nhịp 2 bỏ hằng này (khoá đã thành khoá chính thức).
+ * 📌 ĐÓNG BĂNG từ nhịp 1 (`693370a`): tên và thứ tự TRÙNG TUYỆT ĐỐI 9 tên bộ đọc nhịp 1 nhận ra, và trùng thứ
+ * tự khoá của `O_XEM_BUOC` (`quyen.ts`) — bài kiểm canh cả hai. Lệch một chữ là Instant Rollback về nhịp 1
+ * không đọc được dữ liệu nhịp 2 đã ghi.
  */
-export const KHOA_XEM_BUOC_SAP_CO: readonly string[] = [
+export const KHOA_XEM_BUOC: readonly (keyof Quyen)[] = [
   "xemBuocTiepNhan",
   "xemBuocYeuCauBaoGia",
   "xemBuocXetDuyetBaoGia",
@@ -242,11 +312,65 @@ export const KHOA_XEM_BUOC_SAP_CO: readonly string[] = [
   "xemBuocThatBai",
 ];
 
-/** Dấu bản sau ghi kèm dữ liệu đã có ô "Xem bước" (nhịp 2) — bản này chỉ nhận ra để giữ / chặn ghi đè. */
+/**
+ * ★ DẤU "DỮ LIỆU ĐÃ CÓ Ô XEM BƯỚC" (Sếp 07/10/2026 — bổ sung đặc tả Q1): mọi chỗ GHI từ nhịp 2 đặt
+ * `coOXemBuoc: true` trên bản ghi `tm_quyen_rieng` (khuôn 2) và tài liệu mẫu chức danh. Dữ liệu KHÔNG mang dấu
+ * là dữ liệu ghi trước 07/10/2026 → luật 8 / 8b (`oBuocChoDuLieuCu`) điền 9 ô bước theo ô "Vào màn làm việc"
+ * đang ghim, để khi lên bản không ai mất cũng không ai được thêm quyền xem bảng. Dữ liệu mang dấu: ô "Vào màn
+ * làm việc" và 9 ô bước ĐỘC LẬP (đúng chốt mục 8).
+ *
+ * 🔴 ĐỪNG BỎ dấu khi ghi (kể cả "cho gọn"): bản ghi nhịp 2 mất dấu mà còn ghim "Vào màn làm việc" thì bị
+ * đọc lại theo luật 8 → ô bước Sếp tick ra một đằng, app làm một nẻo (xem trước ≠ kết quả).
+ */
 export const DAU_CO_O_XEM_BUOC = "coOXemBuoc";
 
-/** Ba nhóm theo đúng thứ tự hiện. */
-export const NHOM_QUYEN_TICK: readonly NhomQuyenTick[] = ["Được xem", "Được làm", "Quản trị"];
+/**
+ * ★ LUẬT CŨ 07/10/2026 SÁNG (cờ `xemQuyTrinhTuBuocLapDon` đã bỏ) — ĐÓNG BĂNG, CHỈ để chuyển dữ liệu cũ, KHÔNG
+ * phải công thức sống: Kế toán / Ban QLDA từ cấp 1 xem bảng Quy trình từ bước ④ dù ô "Vào Quy trình" tắt.
+ * Đổi công thức trong `quyen.ts` KHÔNG được kéo theo hàm này.
+ */
+export function laKtQldaLuatCu0710(nd: Pick<NguoiDung, "chucNang" | "capTM">): boolean {
+  return nd.capTM >= 1 && (nd.chucNang === "ke_toan" || nd.chucNang === "qlda");
+}
+
+/**
+ * ★ LUẬT 8 / 8b (Sếp 07/10/2026 chốt mục 8 + bổ sung đặc tả Q1, Q2) — 9 ô bước điền cho dữ liệu CHƯA mang
+ * dấu `coOXemBuoc`, theo giá trị ô "Vào màn làm việc" (`xemQuyTrinhMuaHang`) đang bị GHIM ở dữ liệu đó:
+ *   · `undefined` (không ghim) → `{}`: ô bước theo chức danh + mẫu.
+ *   · `true` (luật 8b) → đủ 9 ô BẬT: trước đây ô đó mở cả bảng → giữ cả bảng.
+ *   · `false` + Kế toán / QLDA theo luật cũ → chỉ ②③ TẮT: luật cũ vẫn cho họ thấy từ bước ④; ① theo mặc định mới.
+ *   · `false` (luật 8) → đủ 9 ô TẮT: trước đây bị chặn khỏi bảng → giữ chặn.
+ * Nguyên tắc: khi lên bản KHÔNG AI MẤT quyền xem bảng đang có, cũng KHÔNG AI ĐƯỢC THÊM.
+ */
+export function oBuocChoDuLieuCu(vaoQT: boolean | undefined, ktQldaCu: boolean): QuyenRieng {
+  const ra: QuyenRieng = {};
+  if (vaoQT === undefined) return ra;
+  if (vaoQT) {
+    for (const k of KHOA_XEM_BUOC) ra[k] = true;
+    return ra;
+  }
+  if (ktQldaCu) {
+    ra.xemBuocYeuCauBaoGia = false;
+    ra.xemBuocXetDuyetBaoGia = false;
+    return ra;
+  }
+  for (const k of KHOA_XEM_BUOC) ra[k] = false;
+  return ra;
+}
+
+/**
+ * ★ Câu hiện dưới đầu nhóm "Xem bước quy trình" — ở bảng mẫu chức danh VÀ khối tick từng người (Sếp
+ * 07/10/2026). Bổ sung đặc tả Q3: phải nói THẬT màn nào lọc, màn nào KHÔNG (CLAUDE.md §3.5 — giao diện không
+ * được hứa việc app không làm): Theo dõi đề nghị · Theo dõi đơn hàng · Công nợ KHÔNG lọc theo bước đợt này.
+ * Bổ sung V-A: danh sách mặt hàng ở khối ① LUÔN hiện khi hồ sơ mở được (chỉ đạo 14/09) — câu nói rõ ngoại lệ.
+ * ⚠️ Câu này hứa các màn Tổng quan · Việc của tôi · Lịch · chuông · ô tìm · Phân bổ có lọc — các gói làm các
+ * màn đó phải làm đủ trước khi lên bản (bài kiểm của từng gói canh).
+ */
+export const MO_TA_NHOM_XEM_BUOC =
+  "Có ít nhất một ô thì vào được bảng Quy trình mua hàng. Ô không tick: cột đó hiện khung nhưng không hiện hồ sơ; hồ sơ đang ở bước đó không mở được và không hiện ở Tổng quan · Việc của tôi · Lịch · chuông thông báo (trừ tin giao việc cho chính mình) · ô tìm (đề nghị, báo giá) · Phân bổ; ở trang chi tiết các hồ sơ khác, khối của bước đó bị ẩn (riêng danh sách mặt hàng ở khối ① luôn hiện). KHÔNG đổi: Theo dõi đề nghị, Theo dõi đơn hàng, Công nợ (vẫn hiện như cũ). Đây là ẨN HIỂN THỊ, không phải bảo mật dữ liệu.";
+
+/** Bốn nhóm theo đúng thứ tự hiện (★ 07/10/2026: "Xem bước quy trình" là nhóm thứ hai). */
+export const NHOM_QUYEN_TICK: readonly NhomQuyenTick[] = ["Được xem", "Xem bước quy trình", "Được làm", "Quản trị"];
 
 /**
  * Cờ CHỈ QUẢN TRỊ trao được, dù người trao đang có chúng.
@@ -510,10 +634,13 @@ export interface DauChucDanh {
  * Một tài liệu `tm_quyen_rieng/{firebaseUid}`.
  *
  * ★ HAI KHUÔN — Sếp 06/10/2026, Câu 3 = A:
- *   · KHUÔN 1 (từ `278f775`, KHÔNG có trường `khuon`): `quyen` đủ 18 ô — bản chụp cả bộ lúc lưu.
+ *   · KHUÔN 1 (từ `278f775`, KHÔNG có trường `khuon`): `quyen` đủ 18 ô CŨ — bản chụp cả bộ lúc lưu. Không bao
+ *     giờ có 9 ô "Xem bước quy trình" (khuôn 1 thôi được ghi từ 06/10/2026) — ô bước VẮNG đi theo chức danh +
+ *     mẫu + luật 8 / 8b (`ngoaiLeCuaBanGhi`).
  *   · KHUÔN 2 (`khuon: 2`): `ngoaiLe` CHỈ chứa ô cố ý khác "chức danh" (công thức + mẫu lúc lưu);
- *     `theoChucDanh` BẮT BUỘC. Vẫn ghi kèm `quyen` đủ 18 ô hiệu lực lúc lưu — CHỈ để bản mã cũ đọc đúng
- *     khi Instant Rollback; mã mới KHÔNG đọc `quyen` khi `khuon === 2`.
+ *     `theoChucDanh` BẮT BUỘC. Vẫn ghi kèm `quyen` đủ ô hiệu lực lúc lưu (`KHOA_TICK`) — CHỈ để bản mã cũ đọc
+ *     đúng khi Instant Rollback; mã mới KHÔNG đọc `quyen` khi `khuon === 2`. Từ 07/10/2026 ghi kèm dấu
+ *     `coOXemBuoc: true` (`DAU_CO_O_XEM_BUOC`).
  * Chỉ đọc qua `chuanHoaBanGhiQuyenRieng`, tính hiệu lực qua `quyenRiengHieuLuc` (đừng tự đọc tay).
  *
  * 📌 Giữ là `interface` (không đổi sang `type`): `BanGhiQuyenRiengHienThi` kế thừa từ đây.
@@ -534,12 +661,11 @@ export interface BanGhiQuyenRieng {
    */
   phienBanMau?: number;
   /**
-   * ★ NHỊP 1 (07/10/2026) — CHỈ có trong kết quả ĐỌC, không bao giờ ghi xuống. Liệt kê phần của BẢN SAU
-   * gặp trong bản ghi khuôn 2: khoá thuộc `KHOA_XEM_BUOC_SAP_CO` (đã bị bỏ khỏi `ngoaiLe`) và chữ
-   * `DAU_CO_O_XEM_BUOC` nếu bản ghi mang dấu. Có giá trị = bản này KHÔNG được ghi đè bản ghi đó (ghi đè
-   * là xoá mất ô bản sau) → `tinhLuuQuyenRieng` trả 409.
+   * ★ Khuôn 2 ghi từ 07/10/2026 (ô tick "Xem bước quy trình") — xem `DAU_CO_O_XEM_BUOC`. Có dấu: ô "Vào màn
+   * làm việc" và 9 ô bước độc lập. Vắng dấu (bản ghi trước 07/10/2026, mọi bản khuôn 1): luật 8 / 8b điền ô
+   * bước khi đọc. 📌 Thay trường đọc `oBanSau` của nhịp 1 (đã gỡ cùng chốt 409 — khoá bước nay là khoá thường).
    */
-  oBanSau?: string[];
+  coOXemBuoc?: true;
   /** ISO 8601. */
   capNhatLuc: string;
   /** Mã Firebase của người bấm Lưu. */
@@ -608,6 +734,9 @@ export function chuanHoaDauChucDanh(raw: unknown): DauChucDanh | undefined {
  *   · `khuon === 2` → CHẶT: `ngoaiLe` phải là object, mọi khoá thuộc `KHOA_TICK`, mọi giá trị boolean,
  *     `theoChucDanh` hợp lệ. Sai một điều là `null`. 🔴 Lý do chặt hơn khuôn 1: ở khuôn 2 ô VẮNG nghĩa là
  *     "theo chức danh" — lờ đi một ô `false` hỏng là trả lại cho người đó đúng quyền vừa bị bỏ.
+ *     ★ 07/10/2026 (nhịp 2): 9 khoá "Xem bước quy trình" đã nằm trong `KHOA_TICK` → đọc như khoá thường (bỏ
+ *     nhánh khoan dung `oBanSau` của nhịp 1). Đọc thêm dấu `coOXemBuoc` (chỉ nhận đúng `true`) — trình duyệt
+ *     PHẢI có dấu này: màn Phân quyền tự tính hiệu lực, thiếu dấu là màn hình điền ô bước khác máy chủ.
  *   · `khuon` có giá trị khác → `null` (khuôn lạ, có thể của bản mã mới hơn — không đoán).
  */
 export function chuanHoaBanGhiQuyenRieng(raw: unknown): BanGhiQuyenRieng | null {
@@ -627,16 +756,7 @@ export function chuanHoaBanGhiQuyenRieng(raw: unknown): BanGhiQuyenRieng | null 
 
   if (d.khuon !== 2) return null;
   const nl = chuanHoaQuyenRieng(d.ngoaiLe);
-  if (!nl) return null;
-  /* ★ NHỊP 1 (07/10/2026): khoá "Xem bước" của bản sau mang boolean → NHẬN RA, bỏ khỏi `ngoaiLe` (bản này
-     chưa dùng), ghi vào `oBanSau` để chặn ghi đè. Khoá lạ KHÁC vẫn là sai khuôn như cũ — đọc lỗi không
-     được thành rộng hơn. */
-  const ngoaiLeTho = d.ngoaiLe as Record<string, unknown>;
-  const oBanSau = nl.boQua.filter(
-    (k) => KHOA_XEM_BUOC_SAP_CO.includes(k) && typeof ngoaiLeTho[k] === "boolean",
-  );
-  if (oBanSau.length !== nl.boQua.length) return null;
-  if (d[DAU_CO_O_XEM_BUOC] === true) oBanSau.push(DAU_CO_O_XEM_BUOC);
+  if (!nl || nl.boQua.length > 0) return null;
   const dau = chuanHoaDauChucDanh(d.theoChucDanh);
   if (!dau) return null;
   /* `phienBanMau` (B-F8): VẮNG thì thôi (bản trước B-F8); CÓ MẶT mà sai khuôn → `null` như mọi lỗi khuôn
@@ -656,7 +776,7 @@ export function chuanHoaBanGhiQuyenRieng(raw: unknown): BanGhiQuyenRieng | null 
     quyen: quyenCu?.quyen ?? {},
     theoChucDanh: dau,
     ...(coPhienBanMau ? { phienBanMau: d.phienBanMau as number } : {}),
-    ...(oBanSau.length > 0 ? { oBanSau } : {}),
+    ...(d[DAU_CO_O_XEM_BUOC] === true ? { coOXemBuoc: true as const } : {}),
     ...capNhat,
   };
 }
@@ -670,7 +790,7 @@ export function chuanHoaBanGhiQuyenRieng(raw: unknown): BanGhiQuyenRieng | null 
  *   · `khop: true` — dấu chức danh KHỚP hồ sơ hiện tại; `ngoaiLe` là ô CỐ Ý khác (giá trị bất kỳ):
  *       – khuôn 2: đúng `ngoaiLe` đã cất (kể cả ô đang TRÙNG mẫu hiện tại — B-F2, Câu 3 = A);
  *       – khuôn 1 có `gocCu`: ngoại lệ NGẦM = ô mà `(quyen[k] === true) ≠ gocCu[k]` (đặc tả 2.2);
- *       – khuôn 1 không có `gocCu` (chỉ khi gọi tay): cả 18 ô bị ghim như trước 06/10.
+ *       – khuôn 1 không có `gocCu` (chỉ khi gọi tay): mọi ô CÓ MẶT trong bản ghi bị ghim như trước 06/10.
  *   · `khop: false` — dấu LỆCH / THIẾU / khuôn 2 hỏng: chỉ các ô bị ghim TẮT (`false`) — luật hẹp, không
  *     bao giờ mang ô `true` sang chức danh khác:
  *       – khuôn 2 lệch: ô `ngoaiLe[k] === false`;
@@ -678,17 +798,39 @@ export function chuanHoaBanGhiQuyenRieng(raw: unknown): BanGhiQuyenRieng | null 
  *       – khuôn 1 lệch có `gocCu`: ô `gocCu[k] && quyen[k] !== true` (cờ ĐÃ BỊ BỎ THẬT ở bản cũ);
  *       – khuôn 1 thiếu dấu: ô `quyen[k] !== true`.
  *
+ * ★★ Ô TICK "XEM BƯỚC QUY TRÌNH" (Sếp 07/10/2026) — hai luật thêm, MỘT CHỖ cho mọi đường đọc:
+ *   ① KHUÔN 1: khoá bước VẮNG trong bản ghi KHÔNG thành ngoại lệ `false` (cả ba ca khớp / lệch / thiếu dấu)
+ *      — bản khuôn 1 thật chỉ có 18 khoá cũ, coi ô bước vắng là "đã bỏ" là cả phòng mất bảng Quy trình (lỗi
+ *      N1 của phản biện). 🔴 CHỈ khoá BƯỚC: khoá CŨ vắng vẫn là tắt như trước (bài kiểm canh chiều ngược).
+ *   ② LUẬT 8 / 8b: dữ liệu KHÔNG mang dấu `coOXemBuoc` và nguồn (khuôn 2: `ngoaiLe`; khuôn 1: `quyen`) KHÔNG
+ *      có khoá bước nào → điền ô bước theo giá trị ô "Vào màn làm việc" đang ghim (`oBuocChoDuLieuCu`). Xét
+ *      trên NGUỒN, không trên `ngoaiLe` đã lọc: khuôn 2 lệch dấu chỉ giữ ô `false`, xét trên kết quả lọc là
+ *      bản ghi có ô bước `true` trông như "không có ô bước". Nhánh lệch chỉ ghim `false` nên 8b (`true`) không
+ *      bao giờ xảy ra ở đó — vẫn đúng luật "không mang ô `true` sang chức danh khác". Nhánh "khuôn 2 thiếu
+ *      `ngoaiLe`" (đường lỗi) GIỮ NGUYÊN: đọc hẹp là đúng.
+ *
  * @param gocCu CÔNG THỨC (không mẫu) tại dấu chức danh lúc lưu — BẮT BUỘC truyền (`null` tường minh khi
  *              không có). Nơi gọi trong app dùng `ngoaiLeConHieuLuc` ở `quyen.ts` (tự tính `gocCu`).
  */
 export function ngoaiLeCuaBanGhi(
-  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe">,
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe" | "coOXemBuoc">,
   nd: Pick<NguoiDung, "chucNang" | "vaiTro" | "capTM" | "capKho">,
   gocCu: Quyen | null,
 ): { khop: boolean; ngoaiLe: QuyenRieng } {
   const khop = khopDauChucDanh(banGhi.theoChucDanh, dauChucDanhCua(nd));
   const ngoaiLe: QuyenRieng = {};
   const coKhoa = (o: QuyenRieng, k: keyof Quyen) => Object.prototype.hasOwnProperty.call(o, k);
+  /* ② Luật 8 / 8b — gọi NGAY TRƯỚC mỗi `return` của hai nhánh đọc được (khuôn 2 có `ngoaiLe`, khuôn 1). */
+  const dienOBuocDuLieuCu = (nguon: QuyenRieng): void => {
+    if (banGhi.coOXemBuoc === true || KHOA_XEM_BUOC.some((k) => coKhoa(nguon, k))) return;
+    Object.assign(
+      ngoaiLe,
+      oBuocChoDuLieuCu(
+        coKhoa(ngoaiLe, "xemQuyTrinhMuaHang") ? ngoaiLe.xemQuyTrinhMuaHang === true : undefined,
+        laKtQldaLuatCu0710(nd),
+      ),
+    );
+  };
 
   if (banGhi.khuon === 2) {
     const nl = banGhi.ngoaiLe;
@@ -705,11 +847,14 @@ export function ngoaiLeCuaBanGhi(
         ngoaiLe[k] = false;
       }
     }
+    dienOBuocDuLieuCu(nl);
     return { khop, ngoaiLe };
   }
 
   const cu = banGhi.theoChucDanh !== undefined ? gocCu : null;
   for (const k of KHOA_TICK) {
+    /* ① Ô bước VẮNG ở khuôn 1 → đi theo chức danh + mẫu (+ luật 8 / 8b ngay dưới), không thành ô "đã bỏ". */
+    if (KHOA_XEM_BUOC.includes(k) && !coKhoa(banGhi.quyen, k)) continue;
     const giaTri = banGhi.quyen[k] === true;
     if (khop) {
       /* Ô trùng công thức lúc lưu → đi theo chức danh + mẫu HIỆN TẠI (Câu 3 = A); ô khác → cố ý khác. */
@@ -718,19 +863,22 @@ export function ngoaiLeCuaBanGhi(
       ngoaiLe[k] = false;
     }
   }
+  dienOBuocDuLieuCu(banGhi.quyen);
   return { khop, ngoaiLe };
 }
 
 /**
- * ★ QUYỀN RIÊNG CÒN HIỆU LỰC của một bản ghi, đối chiếu với chức danh HIỆN TẠI — luôn trả ĐỦ 18 ô
- * (hoặc `null` = theo chức danh), nên `apDungQuyenRieng` (chốt ①–⑥) không phải đổi.
+ * ★ QUYỀN RIÊNG CÒN HIỆU LỰC của một bản ghi, đối chiếu với chức danh HIỆN TẠI — luôn trả ĐỦ ô `KHOA_TICK`
+ * (27 từ 07/10/2026; hoặc `null` = theo chức danh), nên `apDungQuyenRieng` (chốt ①–⑥) không phải đổi.
  *
  * `goc` = công thức của hồ sơ HIỆN TẠI + ô đè mẫu của chức danh hiện tại (`quyenTheoChucDanhCoMau`).
  * `gocCu` = CÔNG THỨC (không mẫu) tại dấu chức danh lúc lưu — chỉ dùng cho khuôn 1.
  *
  * ★ Sếp 06/10/2026, Câu 3 = A — bảng đầy đủ ở đặc tả 2.2:
  *   · Chưa có bản ghi → `null` khi chức danh không có ô đè mẫu (`coODeMau` false: y hệt trước 06/10);
- *     có ô đè → `rutQuyenRieng(goc)` đủ 18 ô (để mẫu đi được vào `tinhQuyen` qua `quyenRieng`).
+ *     có ô đè → `rutQuyenRieng(goc)` đủ ô (để mẫu đi được vào `tinhQuyen` qua `quyenRieng`).
+ *   · ★ 07/10/2026: 9 ô "Xem bước quy trình" — khuôn 1 vắng ô bước và luật 8 / 8b cho dữ liệu không dấu:
+ *     xem `ngoaiLeCuaBanGhi` (bảng dưới vẫn đúng: hiệu lực ô k = `k ∈ ngoaiLe ? ngoaiLe[k] : goc[k]`).
  *   · KHUÔN 2, dấu KHỚP → `k ∈ ngoaiLe ? ngoaiLe[k] : goc[k]` (ngoại lệ thắng mẫu; ô vắng theo mẫu).
  *   · KHUÔN 2, dấu LỆCH (hoặc thiếu) → `goc[k] && ngoaiLe[k] !== false`: CHỈ mang ô `false` sang chức
  *     danh mới, KHÔNG BAO GIỜ mang ô `true` — không lách "chỉ trao cờ mình có" bằng đổi chức danh vòng.
@@ -762,7 +910,7 @@ export function ngoaiLeCuaBanGhi(
  * chức danh"): hiệu lực ô k = `k ∈ ngoaiLe ? ngoaiLe[k] : goc[k]` — đúng từng dòng bảng ở trên.
  */
 export function quyenRiengHieuLuc(
-  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe"> | null | undefined,
+  banGhi: Pick<BanGhiQuyenRieng, "quyen" | "theoChucDanh" | "khuon" | "ngoaiLe" | "coOXemBuoc"> | null | undefined,
   nd: Pick<NguoiDung, "chucNang" | "vaiTro" | "capTM" | "capKho">,
   goc: Quyen,
   gocCu: Quyen | null,
