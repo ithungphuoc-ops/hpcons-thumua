@@ -284,6 +284,8 @@ import type {
    biết đó là mẫu gì. */
 import { NHAN_NHOM_DE_XUAT, NHAN_MAU_PO } from "@/3-du-lieu/kieu-du-lieu";
 import { nhanPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
+import { phanLoaiTin, type TinDePhanLoai } from "@/2-quy-trinh/thong-bao-app-tong";
+import { guiTinSangAppTong } from "@/3-du-lieu/gui-tin-app-tong";
 
 /**
  * Yêu cầu trưởng bộ phận đặt ra khi giao việc (Ban lãnh đạo 12/08/2026:
@@ -2167,6 +2169,14 @@ const khoaBaoGia = (x: { id: string }) => `bg:${x.id}`;
 const khoaPhieuNhan = (x: { id: string }) => `pn:${x.id}`;
 
 /** Toàn bộ khoá theo dõi được của một bộ dữ liệu (cả 5 bảng chứng từ). */
+/**
+ * ★ Đánh dấu tin chuông CHÍNH MÁY NÀY vừa sinh để báo sang chuông App Tổng sau khi lưu xong
+ * (Sếp duyệt demo 08/10/2026). Chỉ giữ loại có trong bảng đã duyệt (`phanLoaiTin`). Xem `tinChoAppTong`.
+ */
+function danhDauTinChoAppTong(cho: Map<string, number>, ds: readonly TinDePhanLoai[]): void {
+  for (const t of ds) if (phanLoaiTin(t) !== null) cho.set(t.id, Date.now());
+}
+
 function khoaTheoDoi(d: DuLieuLuu): string[] {
   return [
     ...d.deNghi.map(khoaDeNghi),
@@ -2530,6 +2540,36 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      `dayLenMayChu`.
      ──────────────────────────────────────────────────────────────── */
 
+  /**
+   * ★ TIN CHUÔNG MÁY NÀY VỪA TẠO, CHỜ BÁO SANG CHUÔNG APP TỔNG — Sếp duyệt demo 08/10/2026.
+   *
+   * 🔴 CHỈ đánh dấu ở chỗ CHÍNH MÁY NÀY sinh tin (`danhDauTinChoAppTong`), KHÔNG BAO GIỜ cho tin nhận
+   * về qua `onSnapshot` (`apDung`) — không thì mỗi máy đang mở app đều báo một lần.
+   * Chỉ gửi SAU KHI lần lưu chứa tin đó đã lên kho chung (nhánh `.then` của `dayLenMayChu`), vì máy chủ
+   * đọc lại tin từ kho chung chứ không tin nội dung trình duyệt gửi. Không gửi lại, không thử lại.
+   * Mã tin → lúc đánh dấu. Quá 10 phút chưa lên được kho chung thì bỏ.
+   * 📌 KHÔNG đổi cách lưu dữ liệu: chỉ đọc `d.thongBao` của bản vừa ghi xong.
+   */
+  const tinChoAppTong = useRef<Map<string, number>>(new Map());
+  const xaTinChoAppTong = (d: DuLieuLuu) => {
+    const cho = tinChoAppTong.current;
+    if (cho.size === 0) return;
+    const daLen = new Set((d.thongBao ?? []).map((t) => t.id));
+    const bayGio = Date.now();
+    const ids: string[] = [];
+    for (const [id, luc] of cho) {
+      if (daLen.has(id)) {
+        ids.push(id);
+        cho.delete(id);
+      } else if (bayGio - luc > 10 * 60_000) {
+        cho.delete(id);
+      }
+    }
+    if (ids.length > 0) void guiTinSangAppTong(ids);
+  };
+  const xaTinChoAppTongRef = useRef(xaTinChoAppTong);
+  xaTinChoAppTongRef.current = xaTinChoAppTong;
+
   /** Số lần ghi kho chung hỏng LIÊN TIẾP. Về `0` ngay khi có một lần ghi thành công. */
   const soLanGhiHong = useRef(0);
   /** Lịch hẹn ghi lại. 🔴 Chỉ MỘT lịch tại một thời điểm — hẹn mới thay hẹn cũ, không chồng. */
@@ -2586,6 +2626,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           soLanGhiHong.current = 0;
           donLichGhiLai();
           setTrangThaiKhoChung("chung");
+          /* ★ Tin chuông máy này vừa tạo đã lên kho chung → báo App Tổng (không chặn, không thử lại).
+             🔴 Bọc try: lỗi ở đây mà rơi xuống `.catch` dưới là bị coi như GHI HỎNG rồi hẹn ghi lại. */
+          try {
+            xaTinChoAppTongRef.current(d);
+          } catch (e) {
+            console.warn("[thong-bao-app-tong] bỏ qua:", e);
+          }
         })
         .catch((e) => {
           console.error("[kho chung] ghi hỏng:", e);
@@ -2857,24 +2904,23 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ),
     );
     const idThongBao = `tb-dung-gui-po-${po.id}-${vanTay}`;
+    const tinDung: ThongBaoChuyenBuoc = {
+      id: idThongBao,
+      /* Mang id/mã CỦA PO — cùng khuôn tin cảnh báo đơn hàng `laCanhBaoTreo` (bấm vào mở đơn). */
+      prId: po.id,
+      prCode: po.code,
+      tieuDe: `⚠️ Đơn hàng ${po.code} chưa sang được app Kho công trình — đã dừng tự gửi, cần người xử lý`,
+      denBuoc: po.trangThai,
+      thoiDiem,
+      guiToi: [po.nguoiPhuTrachTen, NHAN_TRUONG_BO_PHAN].filter(Boolean),
+      daDoc: false,
+      laCanhBaoTreo: true,
+    };
+    /* ★ Báo App Tổng (Sếp duyệt demo 08/10/2026) — chỉ khi máy này thật sự thêm tin. Mã tin cố định nên
+       nhiều máy cùng dừng thì App Tổng chỉ nhận một lần. */
+    if (!thongBaoRef.current.some((t) => t.id === idThongBao)) danhDauTinChoAppTong(tinChoAppTong.current, [tinDung]);
     setThongBao((truoc) =>
-      truoc.some((t) => t.id === idThongBao)
-        ? truoc
-        : giuThongBaoGanNhat([
-            {
-              id: idThongBao,
-              /* Mang id/mã CỦA PO — cùng khuôn tin cảnh báo đơn hàng `laCanhBaoTreo` (bấm vào mở đơn). */
-              prId: po.id,
-              prCode: po.code,
-              tieuDe: `⚠️ Đơn hàng ${po.code} chưa sang được app Kho công trình — đã dừng tự gửi, cần người xử lý`,
-              denBuoc: po.trangThai,
-              thoiDiem,
-              guiToi: [po.nguoiPhuTrachTen, NHAN_TRUONG_BO_PHAN].filter(Boolean),
-              daDoc: false,
-              laCanhBaoTreo: true,
-            },
-            ...truoc,
-          ]),
+      truoc.some((t) => t.id === idThongBao) ? truoc : giuThongBaoGanNhat([tinDung, ...truoc]),
     );
     console.warn("[L11/L12] Dừng tự gửi PO", po.code, "sang QLK CTR:", lyDo);
   }, []);
@@ -4383,6 +4429,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     }
     // Giữ tối đa 30 thông báo gần nhất — đủ cho một phiên trình diễn.
     if (moi.length > 0) {
+      /* ★ Báo App Tổng (Sếp duyệt demo 08/10/2026): chỉ tin do CHÍNH máy này sinh (đã qua chốt
+         `dangNhanTuNoiKhac` ở trên). Tin `tb-req-` bị lọc trùng trong updater thì không lên kho chung
+         nên cũng không được gửi (chỉ gửi mã có trong bản đã ghi xong). */
+      danhDauTinChoAppTong(tinChoAppTong.current, moi);
       setThongBao((truocDo) => {
         /**
          * 🔴 LỌC TRÙNG NGAY Ở ĐÂY, không lọc bên ngoài updater.
@@ -6102,10 +6152,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             phieuNhanRef.current,
             kqGiao.deNghi,
           );
+          const idTinVM = `tb-vm-${soKeTiepThongBao()}`;
+          danhDauTinChoAppTong(tinChoAppTong.current, [{ id: idTinVM, laViecMoi: true }]);
           setThongBao((truoc) =>
             giuThongBaoGanNhat([
               {
-                id: `tb-vm-${soKeTiepThongBao()}`,
+                id: idTinVM,
                 prId: dn.id,
                 prCode: dn.code,
                 tieuDe: dn.tieuDe,
@@ -6717,10 +6769,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
             phieuNhanRef.current,
             kqChuyen.deNghi,
           );
+          const idTinCV = `tb-cv-${soKeTiepThongBao()}`;
+          danhDauTinChoAppTong(tinChoAppTong.current, [{ id: idTinCV, laViecMoi: true }]);
           setThongBao((truoc) =>
             giuThongBaoGanNhat([
               {
-                id: `tb-cv-${soKeTiepThongBao()}`,
+                id: idTinCV,
                 prId: dn.id,
                 prCode: dn.code,
                 tieuDe: dn.tieuDe,
@@ -10259,6 +10313,9 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       daBaoTreoPO.current.add(po.id);
       if (thongBaoRef.current.some((t) => t.id === idThongBao)) continue; // đã báo từ trước
 
+      /* ★ Báo App Tổng (Sếp duyệt demo 08/10/2026). Mã tin cố định → nhiều máy cùng phát hiện thì App
+         Tổng chỉ nhận một lần. */
+      danhDauTinChoAppTong(tinChoAppTong.current, [{ id: idThongBao, laCanhBaoTreo: true }]);
       setThongBao((truoc) =>
         giuThongBaoGanNhat([
           {
@@ -10313,10 +10370,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         deNghiRef.current,
       );
 
+      const idTinCT = `tb-ct-${soKeTiepThongBao()}`;
+      danhDauTinChoAppTong(tinChoAppTong.current, [{ id: idTinCT, laChuyenTiep: true }]);
       setThongBao((truoc) =>
         giuThongBaoGanNhat([
           {
-            id: `tb-ct-${soKeTiepThongBao()}`,
+            id: idTinCT,
             prId: dn.id,
             prCode: dn.code,
             tieuDe: dn.tieuDe,

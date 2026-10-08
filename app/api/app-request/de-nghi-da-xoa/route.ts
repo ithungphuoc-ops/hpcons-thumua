@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
@@ -11,6 +11,8 @@ import {
 } from "@/2-quy-trinh/dong-do-theo-app-request";
 import type { DeNghiMuaHang, DonDatHang, ThongBaoChuyenBuoc } from "@/3-du-lieu/kieu-du-lieu";
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
+import { guiTinTheoMa } from "@/5-ket-noi/thong-bao-app-tong-may-chu";
+import * as PQ from "@/5-ket-noi/phan-quyen-may-chu";
 import { TEN_COLLECTION_NHAT_KY } from "@/3-du-lieu/nhat-ky-he-thong";
 
 // ════════════════════════════════════════════════════════════════════════════════════════
@@ -77,7 +79,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<TraLoi>> {
     const docRef = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
     const thoiDiem = new Date().toISOString();
 
+    /* ★ Mã tin VỪA ghi ở lượt giao dịch cuối (giao dịch có thể chạy lại — đặt lại mỗi lượt). */
+    let tinIdsDaGhi: string[] = [];
     const ketQua = await db.runTransaction(async (tx) => {
+      tinIdsDaGhi = [];
       const snap = await tx.get(docRef);
       if (!snap.exists) return null;
       const data = (snap.data() ?? {}) as Partial<DuLieuLuu>;
@@ -95,6 +100,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<TraLoi>> {
       );
 
       if (kq.deNghiDaDoi.length === 0 && tinMoi.length === 0) return kq; // gọi lại lần hai
+      tinIdsDaGhi = tinMoi.map((t) => t.id);
 
       const laMap = (x: unknown) => x != null && typeof x === "object" && !Array.isArray(x);
 
@@ -158,6 +164,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<TraLoi>> {
         { ok: false, error: `Không có đề nghị nào mang mã đề xuất ${maDeXuat}.` },
         { status: 404 },
       );
+    }
+
+    /* ★ Báo chuông App Tổng (Sếp duyệt demo 08/10/2026) — chạy sau khi trả lời, hỏng chỉ ghi log. */
+    if (tinIdsDaGhi.length > 0) {
+      const ids = tinIdsDaGhi;
+      after(() => guiTinTheoMa(ids, null, PQ));
     }
 
     return NextResponse.json({

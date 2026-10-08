@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
 import { tuMap, ghiTheoDangHienCo } from "@/2-quy-trinh/ghi-tung-phan";
@@ -12,6 +12,8 @@ import {
 import type { DonDatHang, DongNhanHang, PhieuNhanHang } from "@/3-du-lieu/kieu-du-lieu";
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
 import type { PhieuNhanMoiTuQlkCtr, KetQuaNhanPhieuTuQlkCtr } from "@/3-du-lieu/tich-hop-qlk-ctr-nhan-hang-types";
+import { guiKhoDaNhan } from "@/5-ket-noi/thong-bao-app-tong-may-chu";
+import * as PQ from "@/5-ket-noi/phan-quyen-may-chu";
 
 // "Cửa tiếp nhận" của App Thu mua cho QLK CTR — mirror đúng khuôn `de-nghi-moi/route.ts`
 // (Việc 1). Thủ kho ghi nhận nhập kho + tải ảnh MỘT LẦN ở QLK CTR, phiếu nhận hàng tự sinh
@@ -164,6 +166,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanPhi
       );
       return { moi: true as const, phieu: phieuMoi };
     });
+
+    /* ★ Báo chuông App Tổng "Kho đã nhận hàng" (Sếp duyệt demo 08/10/2026) — CHỈ khi phiếu MỚI vừa ghi;
+       gửi lại / trùng (`da_ton_tai`) không báo. Chạy sau khi trả lời, hỏng chỉ ghi log. */
+    if (ketQua.moi) {
+      const phieuId = ketQua.phieu.id;
+      after(() => guiKhoDaNhan(phieuId, PQ));
+    }
 
     return NextResponse.json({
       ok: true,
