@@ -1,7 +1,8 @@
 "use client";
 
 // ============================================================
-// HỒ SƠ NÀY NGƯỜI ĐANG XEM CÓ ĐƯỢC THẤY KHÔNG — theo ô tick "Xem bước quy trình"
+// HỒ SƠ NÀY NGƯỜI ĐANG XEM CÓ ĐƯỢC THẤY KHÔNG — theo ô tick "Xem bước quy trình" + theo người (theo dõi /
+// được giao — Sếp 09/10/2026, `duocXemDeNghiTheoNguoi`)
 //
 // ★ Sếp 07/10/2026: *"Điều chỉnh này thành chức năng phân quyền, và được tick chọn cho xem bước nào"*.
 // Hồ sơ đang ở bước người xem không được tick thì KHÔNG hiện ở mọi màn ngoài bảng (Tổng quan · Việc của
@@ -31,6 +32,7 @@ import {
   lyDoKhongXemBuoc,
   poDuocXemTheoBuoc,
 } from "@/4-phan-quyen/quyen";
+import { duocXemDeNghiTheoNguoi, LY_DO_KHONG_THEO_DOI } from "@/4-phan-quyen/quyen-theo-ho-so";
 
 export interface XemBuocHoSo {
   /** Bước hồ sơ đang đứng — `undefined` khi mã không có trong kho. */
@@ -55,7 +57,7 @@ export interface XemBuocHoSo {
  */
 export function useXemBuocHoSo(): XemBuocHoSo {
   const { deNghi, donHang, baoGia, phieuNhan } = useDuLieu();
-  const { quyen } = useNguoiDung();
+  const { quyen, nguoiDung } = useNguoiDung();
 
   /* Hàm tra mới mỗi khi một mảng đổi = bộ đệm cũ bị bỏ. */
   const traGiaiDoan = useMemo(
@@ -65,17 +67,29 @@ export function useXemBuocHoSo(): XemBuocHoSo {
 
   const giaiDoanCua = useCallback((prId: string) => traGiaiDoan(prId), [traGiaiDoan]);
 
+  /* ★ Sếp 09/10/2026 — thêm lớp THEO NGƯỜI: chỉ đề nghị có tên mình trong "Người theo dõi" / được giao
+     (luật ở `duocXemDeNghiTheoNguoi`, `quyen-theo-ho-so.ts`). Tra đề nghị theo id một lần cho mỗi bộ dữ liệu. */
+  const deNghiTheoId = useMemo(() => new Map(deNghi.map((d) => [d.id, d])), [deNghi]);
+  const duocTheoNguoi = useCallback(
+    (prId: string) => {
+      const dn = deNghiTheoId.get(prId);
+      return !dn || duocXemDeNghiTheoNguoi(dn, nguoiDung, quyen, traGiaiDoan(prId));
+    },
+    [deNghiTheoId, nguoiDung, quyen, traGiaiDoan],
+  );
+
   const duocXemHoSo = useCallback(
-    (prId: string) => hoSoDuocXemTheoBuoc(quyen, traGiaiDoan(prId)),
-    [quyen, traGiaiDoan],
+    (prId: string) => hoSoDuocXemTheoBuoc(quyen, traGiaiDoan(prId)) && duocTheoNguoi(prId),
+    [quyen, traGiaiDoan, duocTheoNguoi],
   );
 
   const lyDoKhongXemHoSo = useCallback(
     (prId: string) => {
       const g = traGiaiDoan(prId);
-      return g === undefined ? lyDoKhongVaoBangQuyTrinh(quyen) : lyDoKhongXemBuoc(quyen, g);
+      const lyDoBuoc = g === undefined ? lyDoKhongVaoBangQuyTrinh(quyen) : lyDoKhongXemBuoc(quyen, g);
+      return lyDoBuoc ?? (duocTheoNguoi(prId) ? null : LY_DO_KHONG_THEO_DOI);
     },
-    [quyen, traGiaiDoan],
+    [quyen, traGiaiDoan, duocTheoNguoi],
   );
 
   const duocXemPO = useCallback(

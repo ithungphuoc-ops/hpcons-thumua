@@ -11474,8 +11474,8 @@ kiem(
 );
 
 kiem(
-  "🔴 Theo doi de nghi: CHI nguoi lap / duoc chia viec / theo doi (hoac cap quan ly) xem duoc — trang chi tiet cung chan",
-  'Sếp · 25/09/2026 — *"Cần tối ưu giải pháp theo dõi này"*; lỗ hổng `/theo-doi/<id>` không kiểm quyền (phản biện 25/09)',
+  "🔴 Theo doi de nghi: CHI nguoi duoc chia viec / theo doi (hoac cap quan ly) xem duoc — nguoi LAP ma khong theo doi thi KHONG (Sep 09/10) — trang chi tiet cung chan",
+  'Sếp · 25/09/2026 — *"Cần tối ưu giải pháp theo dõi này"*; lỗ hổng `/theo-doi/<id>` không kiểm quyền (phản biện 25/09) · Sếp 09/10/2026 "Chỉ đề nghị được theo dõi" + "Được giao thì thấy luôn"',
   () => {
     const dn = {
       nguoiDeNghiUid: "lap",
@@ -11493,10 +11493,54 @@ kiem(
       quanLy: xet("nguoi-la", { xemMoiHoSo: true }),
     };
     return {
-      duoc: kq.lap && kq.chia && kq.theodoi && !kq.nguoiLa && !kq.uidRong && kq.quanLy,
+      duoc: !kq.lap && kq.chia && kq.theodoi && !kq.nguoiLa && !kq.uidRong && kq.quanLy,
       thucTe: JSON.stringify(kq),
-      mongDoi: "lap/chia/theodoi/quanLy = true · nguoiLa/uidRong = false",
+      mongDoi: "chia/theodoi/quanLy = true · lap (không theo dõi) / nguoiLa / uidRong = false",
     };
+  },
+);
+
+kiem(
+  "★ Ai thấy đề nghị nào (bảng Quy trình + chi tiết + màn phụ): Xem mọi hồ sơ → hết; còn lại chỉ người THEO DÕI / ĐƯỢC GIAO; NV thu mua thấy thêm bước ①; người khác (QLDA…) KHÔNG thấy bước ① chưa theo dõi",
+  'Sếp 09/10/2026 — *"chỉ hiển thị các đề nghị mà nhân viên được add zô mục theo dõi thì mới hiện"* · "Được giao thì thấy luôn" · "Vẫn thấy bước ①" · QLDA "Chỉ đề nghị được theo dõi"',
+  () => {
+    const dn = { nguoiDeNghiUid: "lap", items: [{ stt: 1, nguoiPhuTrachUid: "chia" }], nguoiTheoDoi: [{ uid: "theodoi" }] };
+    const f = QH.duocXemDeNghiTheoNguoi;
+    const thuong = { xemMoiHoSo: false };
+    const nd = (uid, chucNang = "ke_toan") => ({ uid, chucNang });
+    const kq = {
+      quanLy: f(dn, nd("la"), { xemMoiHoSo: true }, "dat_hang"),
+      theoDoi: f(dn, nd("theodoi"), thuong, "dat_hang"),
+      duocGiao: f(dn, nd("chia", "nhan_vien_thu_mua"), thuong, "dat_hang"),
+      nvTmBuoc1: f(dn, nd("la", "nhan_vien_thu_mua"), thuong, "tiep_nhan"),
+      nvTmBuoc2: f(dn, nd("la", "nhan_vien_thu_mua"), thuong, "yeu_cau_bao_gia"),
+      qldaBuoc1: f(dn, nd("la", "qlda"), thuong, "tiep_nhan"),
+      lapKhongTheoDoi: f(dn, nd("lap"), thuong, "dat_hang"),
+      uidRong: f(dn, nd("", "nhan_vien_thu_mua"), thuong, "tiep_nhan"),
+    };
+    const dung = kq.quanLy && kq.theoDoi && kq.duocGiao && kq.nvTmBuoc1 && !kq.nvTmBuoc2 && !kq.qldaBuoc1 && !kq.lapKhongTheoDoi && !kq.uidRong;
+    return {
+      duoc: dung && typeof QH.LY_DO_KHONG_THEO_DOI === "string" && QH.LY_DO_KHONG_THEO_DOI.includes("Người theo dõi"),
+      thucTe: JSON.stringify(kq),
+      mongDoi: "quanLy/theoDoi/duocGiao/nvTmBuoc1 = true · nvTmBuoc2/qldaBuoc1/lapKhongTheoDoi/uidRong = false",
+    };
+  },
+);
+
+kiem(
+  "Dây nối luật theo người (đọc mã đã bỏ chú thích): hook useXemBuocHoSo + trang chi tiết đề nghị + Việc của tôi đều hỏi duocXemDeNghiTheoNguoi / bỏ vế 'mình lập'",
+  'Sếp 09/10/2026 — chỉ hiện đề nghị được theo dõi / được giao (phản biện 09/10: hook KHÔNG phủ bảng, chi tiết, Việc của tôi — phải nối từng chỗ)',
+  () => {
+    const d = (p) => boChuThichMa(readFileSync(p, "utf8"));
+    const hook = d("4-phan-quyen/xem-buoc-ho-so.ts");
+    const ct = d("1-giao-dien/trang/de-nghi-chi-tiet.tsx");
+    const vct = d("1-giao-dien/trang/viec-cua-toi.tsx");
+    const kq = {
+      hook: /duocXemDeNghiTheoNguoi\(dn,\s*nguoiDung,\s*quyen,/.test(hook) && /hoSoDuocXemTheoBuoc\(quyen,\s*traGiaiDoan\(prId\)\)\s*&&\s*duocTheoNguoi\(prId\)/.test(hook),
+      chiTiet: /lyDoKhongXemBuoc\(quyen,\s*giaiDoan\)\s*\?\?\s*\(duocXemDeNghiTheoNguoi\(dn,\s*nguoiDung,\s*quyen,\s*giaiDoan\)\s*\?\s*null\s*:\s*LY_DO_KHONG_THEO_DOI\)/.test(ct),
+      viecCuaToiBoLap: !/nguoiDeNghiUid\s*===\s*nguoiDung\.uid/.test(vct),
+    };
+    return { duoc: kq.hook && kq.chiTiet && kq.viecCuaToiBoLap, thucTe: JSON.stringify(kq), mongDoi: "hook/chiTiet/viecCuaToiBoLap = true" };
   },
 );
 
@@ -14337,7 +14381,8 @@ kiem(
               const MA_TRAN = {
                 xemDuocApp: "11111111110",
                 xemQuyTrinhMuaHang: "11110011000",
-                xemMoiHoSo: "11100000010",
+                /* Sếp 09/10/2026: bỏ QLDA khỏi "Xem mọi hồ sơ" (chỉ thấy đề nghị được theo dõi / được giao). */
+                xemMoiHoSo: "11100000000",
                 xemGia: "11111000010",
                 xemNhaCungCap: "11111100010",
                 xemBaoGia: "11111000010",
@@ -14554,7 +14599,9 @@ kiem(
               /* ★ A-T12 (gói A, nhịp 2): thêm hai tên của nhịp 1 đã gỡ — `KHOA_XEM_BUOC_SAP_CO`, `oBanSau`. */
               const conCu = tep.filter((p) => /\b(?:xemQuyTrinhTuBuocLapDon|chiXemTuBuocLapDon|laBuocTruocLapDon|KHOA_XEM_BUOC_SAP_CO|oBanSau)\b/.test(boChuThichMa(fs.readFileSync(p, "utf8"))));
               const kq = {
-                bangLoc: /cot\.map\(\(c\)\s*=>\s*duocXemBuoc\(quyen,\s*c\.giaiDoan\.ma\)\s*\?\s*c\s*:\s*\{[^}]*the:\s*\[\],\s*theDocLap:\s*\[\],[^}]*anNoiDung:/.test(ds),
+                /* Sếp 09/10/2026: nhánh "được xem bước" nay lọc thêm thẻ theo người (`duocXemDeNghiTheoNguoi`). */
+                bangLoc:
+                  /cot\.map\(\(c\)\s*=>\s*duocXemBuoc\(quyen,\s*c\.giaiDoan\.ma\)\s*\?[\s\S]{0,400}?duocXemDeNghiTheoNguoi\(t\.deNghi,\s*nguoiDung,\s*quyen,\s*t\.giaiDoan\)[\s\S]{0,300}?:\s*\{[^}]*the:\s*\[\],\s*theDocLap:\s*\[\],[^}]*anNoiDung:/.test(ds),
                 cotVe: /anNoiDung\s*\?\s*"—"/.test(boChuThichMa(readFileSync("1-giao-dien/thanh-phan-nghiep-vu/bang-quy-trinh-mua-hang.tsx", "utf8"))),
                 chiTietChan: /=\s*lyDoKhongXemBuoc\(quyen,\s*giaiDoan\)/.test(ct) && /if\s*\(lyDoKhongXem\)\s*\{?\s*return\s*\(?\s*<EmptyState/.test(ct),
                 khoiAn: /giaiDoanDaToiLuot\(g\.ma,\s*giaiDoan\)\s*&&\s*\(g\.ma\s*===\s*"tiep_nhan"\s*\|\|\s*duocXemBuoc\(quyen,\s*g\.ma\)\)/.test(ct),

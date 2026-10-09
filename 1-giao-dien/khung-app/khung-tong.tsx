@@ -7,6 +7,7 @@ import { AppHeader } from "@/1-giao-dien/khung-app/thanh-tren";
 import { BottomNav } from "@/1-giao-dien/khung-app/thanh-duoi-mobile";
 import { BaoViecMoi } from "@/1-giao-dien/khung-app/bao-viec-moi";
 import { ChiBaoBanMoi } from "@/1-giao-dien/khung-app/chi-bao-ban-moi";
+import { useGhiLichSuDieuHuong } from "@/1-giao-dien/khung-app/lich-su-dieu-huong";
 
 /**
  * Khung bố cục Hybrid (V1.1 Phần C): Sidebar 260px cố định bên trái (Desktop),
@@ -43,6 +44,8 @@ export function AppShell({ children }: { children: ReactNode }) {
    * bao giờ phải F5 nữa trong lúc chờ.
    */
   useEffect(batCanhDonDepToanCuc, []);
+  /* ★ Ghi các trang đã đi qua trong tab này — để nút "Quay lại" về đúng trang vừa xem (Sếp 09/10/2026). */
+  useGhiLichSuDieuHuong();
 
   return (
     <div className="min-h-screen bg-background">

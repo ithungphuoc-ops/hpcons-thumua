@@ -117,7 +117,7 @@ export const CO_TICK_DUOC: readonly CoTickDuoc[] = [
     khoa: "xemMoiHoSo",
     nhom: "Được xem",
     nhan: "Xem mọi hồ sơ",
-    moTa: "Không tick thì chỉ thấy hồ sơ mình được giao / theo dõi",
+    moTa: "Không tick thì chỉ thấy đề nghị có tên mình trong “Người theo dõi” hoặc mình được giao việc (nhân viên thu mua thấy thêm đề nghị ở bước ① để chủ động nhận việc)",
   },
   {
     khoa: "xemGia",

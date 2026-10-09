@@ -46,7 +46,7 @@ import { Table, TableBody, TableHeader } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { duocNhanBanDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { duocNhanBanDeNghi, duocXemDeNghiTheoNguoi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { duocXemBuoc, O_XEM_BUOC } from "@/4-phan-quyen/quyen";
 /* Breadcrumb "Thu mua" trỏ về màn gốc CỦA NGƯỜI XEM (ô tick "Xem bước quy trình", Sếp 07/10/2026): người
    chỉ có ô bước mà không có ô "Vào màn làm việc" bị cổng chặn `/tong-quan`. */
@@ -368,9 +368,17 @@ export default function TrangDanhSachDeNghi() {
        không được tick thì RỖNG thẻ + PO độc lập, đầu cột không đếm, thân cột in lý do (`anNoiDung`). Chế độ
        Danh sách ghép thẻ từ `cotHien` nên cũng không có hồ sơ ở các bước đó. Luật người xem ở
        `duocXemBuoc` (`4-phan-quyen/quyen.ts`) — không viết danh sách bước tại đây. */
+    /* ★ Sếp 09/10/2026 — lớp THEO NGƯỜI: thẻ chỉ hiện khi người xem có tên trong "Người theo dõi" / được
+       giao việc (NV thu mua thấy thêm thẻ bước ①). Luật ở `duocXemDeNghiTheoNguoi`. Số quá hạn đầu cột tính
+       lại trên thẻ còn hiện — đếm cả thẻ bị ẩn là đầu cột nói sai. PO độc lập (`theDocLap`) giữ nguyên. */
     const cotTheoNguoiXem = cot.map((c) =>
       duocXemBuoc(quyen, c.giaiDoan.ma)
-        ? c
+        ? (() => {
+            const the = c.the.filter((t) => duocXemDeNghiTheoNguoi(t.deNghi, nguoiDung, quyen, t.giaiDoan));
+            return the.length === c.the.length
+              ? c
+              : { ...c, the, soQuaHan: the.filter((t) => t.han.quaHan).length };
+          })()
         : {
             ...c,
             the: [],
@@ -391,7 +399,7 @@ export default function TrangDanhSachDeNghi() {
       ),
       theDocLap: [],
     })));
-  }, [cot, tuKhoaBang, chiViecCuaToi, nguoiDung.uid, quyen]);
+  }, [cot, tuKhoaBang, chiViecCuaToi, nguoiDung, quyen]);
 
   /**
    * ★★ NGUỒN DỮ LIỆU CỦA TAB "DANH SÁCH" — GHÉP TỪ CHÍNH `cot` CỦA BẢNG KANBAN (23/08/2026).

@@ -347,7 +347,12 @@ export function tinhQuyenTheoChucDanh(u: NguoiDung): Quyen {
 
   return {
     xemDuocApp: capTM >= 1,
-    xemMoiHoSo: laQuanTri || laBGD || capTM >= 3 || laQLDA,
+    /* ★ Sếp 09/10/2026: *"chỉ hiển thị các đề nghị mà nhân viên được add zô mục theo dõi thì mới hiện"* —
+       chỉ Quản trị · BGĐ · Trưởng BP (cấp 3) thấy hết; **bỏ QLDA** khỏi nhóm này (Sếp chọn "Chỉ đề nghị được
+       theo dõi" cho QLDA). Luật ai thấy đề nghị nào ở `duocXemDeNghiTheoNguoi` (`quyen-theo-ho-so.ts`).
+       ⚠️ Bản ghi quyền riêng KHUÔN 1 (lưu 26/09–06/10) của QLDA mang ô này BẬT sẽ được đọc là "cố ý khác
+       chức danh" → người đó vẫn thấy hết; màn Phân quyền đánh dấu ô đó, bỏ tick tay nếu cần. */
+    xemMoiHoSo: laQuanTri || laBGD || capTM >= 3,
 
     // 🔒 Giá: chỉ thu mua, QLDA, kế toán, BGĐ. Thủ kho và Phòng thi công KHÔNG.
     xemGia: laQuanTri || laBGD || laTruongBP || laNhanVienTM || laQLDA || laKeToan,

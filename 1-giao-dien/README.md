@@ -42,6 +42,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | File | Việc |
 |---|---|
 | `khung-tong.tsx` | Ghép thanh bên + thanh trên + vùng nội dung. **Lề và khoảng cách toàn app đặt ở đây** |
+| `lich-su-dieu-huong.ts` | Ghi các trang đã đi qua trong tab (sessionStorage) để nút **"Quay lại"** về đúng trang vừa xem (`useQuayLai`) — Sếp 09/10/2026 |
 | `thanh-ben.tsx` | Vỏ thanh bên cố định 260px (chỉ hiện từ 1280px) |
 | `thanh-ben-noi-dung.tsx` | Nội dung menu — dùng chung cho thanh bên và ngăn kéo trên điện thoại. 🔴 Danh sách mục khai ở `2-quy-trinh/dieu-huong.ts`, **không sửa ở đây**. Từ 18/08/2026 có thêm mục **"Lập đơn mua hàng (PO)"** theo chỉ đạo Ban lãnh đạo — đừng gỡ vì tưởng trái quy ước "menu chỉ 4 mục", xem `BAN-DO-MA-NGUON.md` mục 2c |
 | `thanh-tren.tsx` | Thanh trên 60px: nút menu, tìm kiếm, ngày giờ, các nút bên phải |

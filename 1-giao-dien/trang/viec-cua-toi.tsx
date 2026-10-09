@@ -93,13 +93,12 @@ export default function TrangViecCuaToi() {
   /** Tính sẵn mọi thứ cần để lọc và hiển thị, mỗi đề nghị một lần. */
   const dong = useMemo(() => {
     // Người có quyền xem mọi hồ sơ thì thấy hết; còn lại chỉ thấy hồ sơ mình dính vào.
+    /* ★ Sếp 09/10/2026 — bỏ vế "mình lập": chỉ đề nghị có tên mình trong "Người theo dõi" hoặc mình được
+       giao (cùng luật `duocXemDeNghiTheoNguoi`; người lập vốn tự có tên trong người theo dõi). */
     const nguon = quyen.xemMoiHoSo
       ? deNghi
       : deNghi.filter(
-          (dn) =>
-            dn.nguoiDeNghiUid === nguoiDung.uid ||
-            laViecCuaToi(dn, nguoiDung.uid) ||
-            dn.nguoiTheoDoi?.some((n) => n.uid === nguoiDung.uid),
+          (dn) => laViecCuaToi(dn, nguoiDung.uid) || dn.nguoiTheoDoi?.some((n) => n.uid === nguoiDung.uid),
         );
 
     const tatCaDong = nguon.map((dn) => {

@@ -92,6 +92,8 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Khoảng trắng** quá rộng / quá chật | `app/globals.css` (khối "MẬT ĐỘ HIỂN THỊ") + `khung-app/mat-do.tsx` |
 | Sai **màu** | `app/globals.css` (khối token V1.1) — **không sửa màu trong file component** |
 | **Màu chủ đạo** (bảng chọn màu 🎨 trên Header) sai / muốn thêm màu | `app/globals.css` (khối "MÀU CHỦ ĐẠO") + `khung-app/mau-chu-dao.tsx` + `khung-app/nut-mau-chu-dao.tsx` |
+| **Nút "Quay lại" về sai trang** (về danh sách cố định thay vì trang vừa xem) | `1-giao-dien/khung-app/lich-su-dieu-huong.ts` → `useQuayLai(duPhong)`; chồng trang ghi ở `khung-tong.tsx` (`useGhiLichSuDieuHuong`). Back thật nhận ra bằng `popstate` |
+| **Ai thấy đề nghị nào** (chỉ người theo dõi / được giao — Sếp 09/10/2026) | `4-phan-quyen/quyen-theo-ho-so.ts` → `duocXemDeNghiTheoNguoi` — nối ở hook `xem-buoc-ho-so.ts`, bảng `de-nghi-danh-sach.tsx`, chặn ở `de-nghi-chi-tiet.tsx`, `viec-cua-toi.tsx`; Theo dõi đề nghị dùng `duocXemTienTrinhDeNghi` |
 | **Bảng quy trình không sổ hết chiều cao** màn hình (còn trống phía dưới) | Chuỗi `flex-1` phải liền mạch: `khung-app/khung-tong.tsx` → `trang/de-nghi-danh-sach.tsx` → `bang-quy-trinh-mua-hang.tsx`. Đứt một mắt là bảng co lại |
 
 ### Nghiệp vụ và số liệu

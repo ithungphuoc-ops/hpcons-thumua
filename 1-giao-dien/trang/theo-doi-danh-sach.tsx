@@ -381,10 +381,15 @@ export default function TrangTheoDoi() {
           <Card>
             <CardContent className="flex min-w-0 flex-col gap-(--hp-md-card-gap)">
               {/* `[&>[data-slot=table-container]]:overflow-visible`: tắt khung cuộn riêng của `Table` để
-                  div này là khung cuộn ngang thật (thanh cuộn dày `thanh-keo-ngang-ro`). */}
-              <div className="thanh-keo-ngang-ro hidden overflow-x-auto md:block [&>[data-slot=table-container]]:overflow-visible">
+                  div này là khung cuộn THẬT (thanh cuộn dày `thanh-keo-ngang-ro`).
+                  ★ Sếp 09/10/2026: *"thêm thanh kéo ngang fix trong màn hình theo dõi đề nghị"* (ảnh khoanh
+                  thanh kéo ngang ở đáy bảng Quy trình). Trước đây khung chỉ cuộn NGANG và cao theo nội dung,
+                  nên thanh kéo nằm tít đáy bảng. Nay khung CAO TỐI ĐA bằng phần màn còn lại và tự cuộn dọc
+                  — thanh ngang luôn ở đáy màn hình, hàng tiêu đề `sticky` dính đỉnh khung. Cùng cách với
+                  Theo dõi đơn hàng (`don-hang-danh-sach.tsx`, Sếp 02/10/2026). */}
+              <div className="thanh-keo-ngang-ro hidden overflow-auto md:block md:max-h-[calc(100dvh-16rem)] [&>[data-slot=table-container]]:overflow-visible">
                 <Table>
-                  <TableHeader className="bg-card">
+                  <TableHeader className="sticky top-0 z-10 bg-card">
                     <DauBangDanhSachHoSo canhGiua />
                   </TableHeader>
                   <TableBody>

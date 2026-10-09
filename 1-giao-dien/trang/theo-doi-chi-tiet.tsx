@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useQuayLai } from "@/1-giao-dien/khung-app/lich-su-dieu-huong";
 import { useParams } from "next/navigation";
 import { Fragment, useMemo, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, FileWarning } from "lucide-react";
@@ -24,6 +24,8 @@ export default function TrangTheoDoiChiTiet() {
   const params = useParams<{ id: string }>();
   const { deNghi, donHang, phieuNhan } = useDuLieu();
   const { quyen, nguoiDung } = useNguoiDung();
+  /* ★ Nút "Quay lại" về ĐÚNG trang vừa xem (Sếp 09/10/2026) — không có trang trước thì về Theo dõi đề nghị. */
+  const quayLai = useQuayLai("/theo-doi");
   const [moDong, setMoDong] = useState<number | null>(null);
   /**
    * Khối "Chi tiết từng mặt hàng" đang mở hay đã thu gọn.
@@ -93,15 +95,9 @@ export default function TrangTheoDoiChiTiet() {
       {/* 📌 `outline` chứ không phải `ghost` (22/08/2026): sau khi bỏ nút ở cuối khối, đây là
           đường về DUY NHẤT trên trang, nên nó phải nhìn ra ngay là bấm được. `ghost` không viền,
           chữ hòa vào nền — đúng cái đã làm người dùng nói "không có nút quay về" bốn lần. */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-fit"
-        nativeButton={false}
-        render={<Link href="/theo-doi" />}
-      >
+      <Button variant="outline" size="sm" className="w-fit" onClick={quayLai}>
         <ArrowLeft className="size-4" aria-hidden />
-        Quay lại Theo dõi đề nghị
+        Quay lại
       </Button>
 
       <PageHeader

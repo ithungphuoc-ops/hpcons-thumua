@@ -17,6 +17,7 @@
 // ============================================================
 
 import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
+import type { GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { tinhQuyen, type NguoiDung, type Quyen } from "@/4-phan-quyen/quyen";
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 
@@ -29,6 +30,36 @@ export function duocChiaViec(deNghi: DeNghiMuaHang, uid: string): boolean {
 export function laNguoiTheoDoi(deNghi: DeNghiMuaHang, uid: string): boolean {
   return deNghi.nguoiTheoDoi?.some((n) => n.uid === uid) ?? false;
 }
+
+/**
+ * ★★ AI THẤY ĐỀ NGHỊ NÀO — Sếp 09/10/2026: *"Thêm chức năng chỉ hiển thị các đề nghị mà nhân viên được add
+ * zô mục theo dõi thì mới hiện. Hiện tại thì đang xem được toàn bộ đề nghị mặc dù ko được tab theo dõi"*.
+ * Sếp chốt: áp ở CẢ bảng Quy trình mua hàng lẫn Theo dõi đề nghị · mọi người trừ Quản trị / BGĐ / Trưởng BP
+ * (= ô "Xem mọi hồ sơ" theo công thức) · *"Được giao thì thấy luôn"* · nhân viên thu mua *"Vẫn thấy bước ①"*
+ * (giữ chỉ đạo 26/09/2026 "thẻ bước ① hiện cho mọi người để nhân viên chủ động") · QLDA chỉ thấy đề nghị được
+ * theo dõi.
+ *
+ * Luật: `xemMoiHoSo` → thấy hết; còn lại thấy khi có tên trong "Người theo dõi" HOẶC được giao ít nhất một
+ * dòng (`duocChiaViec`); nhân viên thu mua thấy thêm đề nghị đang ở bước ① (`giaiDoan === "tiep_nhan"`).
+ * 📌 Người LẬP đề nghị không có vế riêng (Sếp chọn "Chỉ đề nghị được theo dõi") — app vốn tự thêm người đề
+ *    nghị vào "Người theo dõi" lúc nhận đề nghị (`kho-du-lieu.tsx`), nên thực tế vẫn thấy phiếu mình.
+ * ⚠️ Chỉ ẨN HIỂN THỊ — toàn bộ dữ liệu chạy thử vẫn tải về trình duyệt (CLAUDE.md §3.6b).
+ */
+export function duocXemDeNghiTheoNguoi(
+  deNghi: DeNghiMuaHang,
+  nd: Pick<NguoiDung, "uid" | "chucNang">,
+  quyen: Pick<Quyen, "xemMoiHoSo">,
+  giaiDoan?: GiaiDoanMuaHang,
+): boolean {
+  if (quyen.xemMoiHoSo) return true;
+  if (!nd.uid) return false;
+  if (laNguoiTheoDoi(deNghi, nd.uid) || duocChiaViec(deNghi, nd.uid)) return true;
+  return nd.chucNang === "nhan_vien_thu_mua" && giaiDoan === "tiep_nhan";
+}
+
+/** Câu lý do khi bị `duocXemDeNghiTheoNguoi` chặn — dùng chung cho màn chặn và liên kết bị khoá. */
+export const LY_DO_KHONG_THEO_DOI =
+  "Bạn chưa có tên trong mục “Người theo dõi” của đề nghị này và chưa được giao việc — nhờ Trưởng bộ phận Thu mua thêm bạn vào người theo dõi.";
 
 /**
  * ★★ ĐƠN HÀNG (PO) NÀY CÓ PHẢI VIỆC CỦA TÔI KHÔNG — Sếp 19/09/2026.
@@ -467,7 +498,10 @@ export function lyDoKhongXemBaoGia(
  * GIAO DIỆN, chưa phải bảo mật thật. Bảo mật thật cần tách document khi lên bản chính thức.
  */
 export function duocXemTienTrinhDeNghi(deNghi: DeNghiMuaHang, uid: string, quyen: Quyen): boolean {
+  /* ★ Sếp 09/10/2026 — Theo dõi đề nghị cũng chỉ hiện đề nghị được theo dõi / được giao (bỏ vế "mình lập";
+     người lập vốn tự có tên trong người theo dõi). Không có vế bước ① — đó là màn theo dõi, không phải chỗ
+     nhận việc. Luật chung ở `duocXemDeNghiTheoNguoi`. */
   if (quyen.xemMoiHoSo) return true;
   if (!uid) return false;
-  return deNghi.nguoiDeNghiUid === uid || duocChiaViec(deNghi, uid) || laNguoiTheoDoi(deNghi, uid);
+  return duocChiaViec(deNghi, uid) || laNguoiTheoDoi(deNghi, uid);
 }

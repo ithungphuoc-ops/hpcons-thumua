@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useQuayLai } from "@/1-giao-dien/khung-app/lich-su-dieu-huong";
 import { useParams } from "next/navigation";
 import BangAiDangSua from "@/1-giao-dien/thanh-phan-dung-chung/bang-ai-dang-sua";
 import { useEffect, useMemo, useState } from "react";
@@ -114,6 +115,8 @@ import {
   duocChiaViec,
   duocXemBaoGiaCuaDeNghi,
   duocXacNhanNhanDuHangCuaHoSo,
+  duocXemDeNghiTheoNguoi,
+  LY_DO_KHONG_THEO_DOI,
   lyDoKhongXemBaoGia,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
 /* 📌 KHÔNG còn `LY_DO_NHANH_PHONG_BAN` ở tệp này từ 15/09/2026 — câu giải thích đó là `moTa` của ô
@@ -336,6 +339,8 @@ export default function TrangChiTietDeNghi({
      🔴 GỌI Ở ĐÂY, TRƯỚC MỌI `return` SỚM (`if (!dn)`, màn chặn theo bước) — quy tắc hook React: gọi sau
      một `return` sớm là số hook đổi giữa các lần vẽ, React vỡ cả trang. */
   const xemBuocHoSo = useXemBuocHoSo();
+  /* ★ Nút "Quay lại" về ĐÚNG trang vừa xem (Sếp 09/10/2026) — không có trang trước thì về bảng Quy trình. */
+  const quayLai = useQuayLai("/de-nghi");
   /**
    * ★ HỘP SỬA TRƯỜNG ĐANG MỞ — dời từ menu ⋯ của thẻ sang đây (Ban lãnh đạo 12/09/2026).
    *
@@ -491,12 +496,16 @@ export default function TrangChiTietDeNghi({
      không mở (mở thẳng bằng đường dẫn, bấm liên kết phiếu gốc/phiếu con, xem nhanh từ bảng…). Hồ sơ
      "Thất bại" gác bằng ô ⑨. Câu lý do từ `lyDoKhongXemBuoc` (`4-phan-quyen/quyen.ts`, một chỗ). Đặt SAU
      mọi hook (trả về sớm ở đây không phá thứ tự hook). */
-  const lyDoKhongXem = lyDoKhongXemBuoc(quyen, giaiDoan);
+  /* ★ Sếp 09/10/2026 — thêm lớp THEO NGƯỜI (có tên trong "Người theo dõi" / được giao; NV thu mua thấy thêm
+     bước ①). Luật ở `duocXemDeNghiTheoNguoi` — cùng hàm với bảng Quy trình và hook `useXemBuocHoSo`. */
+  const lyDoKhongXem =
+    lyDoKhongXemBuoc(quyen, giaiDoan) ??
+    (duocXemDeNghiTheoNguoi(dn, nguoiDung, quyen, giaiDoan) ? null : LY_DO_KHONG_THEO_DOI);
   if (lyDoKhongXem) {
     return (
       <EmptyState
         icon={FileWarning}
-        title="Bạn không xem được hồ sơ ở bước này"
+        title="Bạn không xem được hồ sơ này"
         description={lyDoKhongXem}
       />
     );
@@ -1121,15 +1130,9 @@ export default function TrangChiTietDeNghi({
                 Quay lại danh sách đề nghị
               </Button>
             ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-fit -ml-2"
-                nativeButton={false}
-                render={<Link href="/de-nghi" />}
-              >
+              <Button variant="ghost" size="sm" className="w-fit -ml-2" onClick={quayLai}>
                 <ArrowLeft className="size-4" aria-hidden />
-                Quay lại danh sách đề nghị
+                Quay lại
               </Button>
             )}
             {/* ★ NGƯỜI PHỤ TRÁCH ĐỀ NGHỊ — Sếp 26/09/2026 (ảnh khoanh góc trên phải): *"Thêm tên người
