@@ -1267,6 +1267,12 @@ export interface DonDatHang {
    * Luật định tuyến nằm ở `3-du-lieu/kho-du-lieu.tsx` → `ghiNhatKyDonHang`, một chỗ duy nhất.
    */
   lichSu?: MocLichSu[];
+  /**
+   * ★ (08/10/2026) Lần giao LỚN NHẤT từng cấp cho đơn này, KỂ CẢ phiếu App Kho đã xoá (cửa
+   * `phieu-nhan-moi`, chế độ `xoa`). Lần giao mới = MAX(phiếu đang còn, số này) + 1 — không sinh lại
+   * mã `grn-{poId}-{n}` / `DO{n}` của phiếu đã xoá (trùng mã chuông "Kho đã nhận", rối khi truy vết).
+   */
+  lanGiaoLonNhatTungCo?: number;
   /** Điều kiện ② hoàn thành PO. */
   xacNhanKho?: XacNhan;
   /** Điều kiện ③ hoàn thành PO. */
@@ -1735,6 +1741,22 @@ export interface DongNhanHang {
   dvtQuyDoi?: string;
 }
 
+/**
+ * ★ MỘT LẦN APP KHO SỬA PHIẾU NHẬN ĐÃ GỬI SANG — Sếp chốt 08/10/2026 ("Sửa lần nhập").
+ *
+ * Thủ kho nhập sai thì sửa ở "Lịch sử nhập kho" bên QLK CTR; App Kho gửi bản sửa qua cửa
+ * `/api/qlk-ctr/phieu-nhan-moi` (chế độ `cap_nhat`), CHỈ khi đơn chưa "Xác nhận nhận hàng".
+ * Chữ của từng mục do App Kho soạn sẵn (vd "Số lượng · Bulong neo M24*700", "60 Bộ" → "50 Bộ") —
+ * ở đây chỉ hiện lại, không phép tính nào đọc.
+ */
+export interface LanSuaPhieuTuKho {
+  /** Lúc thủ kho bấm Lưu bên App Kho. */
+  thoiDiem: NgayISO;
+  nguoiSuaTen: string;
+  lyDo: string;
+  thayDoi: { muc: string; truoc: string; sau: string }[];
+}
+
 export interface PhieuNhanHang {
   id: string;
   /** vd 260001-HPCS-PO-001-DO01 */
@@ -1810,6 +1832,14 @@ export interface PhieuNhanHang {
     nguoiTen: string;
     thoiDiem: NgayISO;
   };
+  /**
+   * ★ LỊCH SỬ APP KHO SỬA PHIẾU NÀY (cũ trước, mới sau) — Sếp chốt 08/10/2026. Có thì màn "Tiến độ
+   * nhận hàng" hiện nhãn "Kho đã sửa" cạnh số phiếu, bấm vào xem sửa gì. Xem `LanSuaPhieuTuKho`.
+   *
+   * 🔴 CHỈ ĐỂ HIỂN THỊ. Số liệu sau khi sửa đã nằm sẵn trong `lines`/`ngayNhanThucTe`/... — đừng
+   * cộng trừ gì từ trường này.
+   */
+  lichSuSuaTuKho?: LanSuaPhieuTuKho[];
 }
 
 // ------------------------------------------------------------

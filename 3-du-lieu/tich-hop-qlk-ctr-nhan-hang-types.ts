@@ -16,7 +16,22 @@
 // chứa link ngoài, và việc bắt QLK CTR tự ghi đúng định dạng chia mảnh đó là rủi ro không
 // đáng — link do QLK CTR tự host, xem được trực tiếp qua /api/files/{key}, không cần đăng
 // nhập (xác nhận đã có sẵn phía QLK CTR, 23/08/2026).
+//
+// ★★ SỬA CÓ PHÉP CỦA SẾP — 08/10/2026 ("Sửa lần nhập", Sếp duyệt demo rồi "code đi"): thêm
+// `cheDo` / `maPhieuDuPhong` / `lanSua` để App Kho SỬA hoặc XOÁ phiếu đã gửi qua CÙNG cửa này —
+// chỉ khi đơn chưa "Xác nhận nhận hàng". Vắng `cheDo` = "tao" — y hệt hành vi cũ.
 // ============================================================
+
+import type { LanSuaPhieuTuKho } from "@/3-du-lieu/kieu-du-lieu";
+
+/**
+ * - `tao` (mặc định): tạo phiếu mới, gửi lại thì trả `da_ton_tai` — hành vi từ 23/08/2026.
+ * - `kiem_tra`: chỉ hỏi — đã có phiếu chưa, đơn đã "Xác nhận nhận hàng" chưa. Không ghi gì.
+ * - `cap_nhat`: ghi đè phiếu đã có bằng bản Kho vừa sửa (chưa có thì tạo như `tao`).
+ * - `xoa`: Kho xoá lần nhập → bỏ phiếu (không còn phiếu thì coi như xong).
+ * `cap_nhat`/`xoa` bị TỪ CHỐI khi đơn đã "Xác nhận nhận hàng" (`loai: "da_xac_nhan"`).
+ */
+export type CheDoPhieuNhanTuQlkCtr = "tao" | "kiem_tra" | "cap_nhat" | "xoa";
 
 export type DongNhanHangTuQlkCtr = {
   /** Khớp theo TÊN với DongPO.tenVatLieu trong đúng PO (không theo số thứ tự) — ổn định hơn
@@ -52,11 +67,30 @@ export type PhieuNhanMoiTuQlkCtr = {
   ngayNhanThucTe: string;
   nguoiNhanTen: string;
   soPhieuGiaoNCC?: string;
+  /** Bắt buộc có dòng với `tao`/`cap_nhat`; `kiem_tra`/`xoa` gửi mảng rỗng được. */
   lines: DongNhanHangTuQlkCtr[];
   anhQlkCtr?: AnhTuQlkCtr;
+  /** (08/10/2026) Vắng = "tao". */
+  cheDo?: CheDoPhieuNhanTuQlkCtr;
+  /** (08/10/2026) Mã khác mà phiếu có thể đã mang — lần nhập cũ bên Kho gửi bằng 1 trong 2 kiểu mã
+   *  (mã chuyến giao hoặc mã lần nhập). Dò trùng/tìm phiếu theo CẢ `maPhieuNhanQlkCtr` lẫn các mã này. */
+  maPhieuDuPhong?: string[];
+  /** (08/10/2026) Bắt buộc với `cap_nhat`/`xoa`: ai sửa, lúc nào, sửa gì, lý do. */
+  lanSua?: LanSuaPhieuTuKho;
 };
 
 export type KetQuaNhanPhieuTuQlkCtr =
-  | { ok: true; trangThai: "da_tao"; phieuId: string; phieuCode: string }
-  | { ok: true; trangThai: "da_ton_tai"; phieuId: string; phieuCode: string }
-  | { ok: false; error: string };
+  | { ok: true; trangThai: "da_tao"; phieuId: string; phieuCode: string; maKhop?: string }
+  | { ok: true; trangThai: "da_ton_tai"; phieuId: string; phieuCode: string; maKhop?: string }
+  | { ok: true; trangThai: "da_cap_nhat"; phieuId: string; phieuCode: string; maKhop: string }
+  | { ok: true; trangThai: "da_xoa"; phieuCode?: string }
+  | {
+      ok: true;
+      trangThai: "kiem_tra";
+      coPO: boolean;
+      coPhieu: boolean;
+      daXacNhan: boolean;
+      maKhop?: string;
+      phieuCode?: string;
+    }
+  | { ok: false; error: string; loai?: "da_xac_nhan" };

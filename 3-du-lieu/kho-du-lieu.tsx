@@ -7558,7 +7558,12 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       );
       if (chanViec) return chanViec;
 
-      const lanGiaoThu = cuaPO.length + 1;
+      /* ★ (08/10/2026) Lần giao LỚN NHẤT + 1, không phải số phiếu + 1 — từ ngày này App Kho xoá được
+         phiếu nhận (cửa `phieu-nhan-moi`, chế độ `xoa`); đếm số phiếu sẽ sinh lại đúng mã
+         `grn-{poId}-{n}` của một phiếu đang còn và ghi đè mất nó. Chưa có phiếu nào bị xoá thì hai
+         cách cho cùng một số. Tính cả `lanGiaoLonNhatTungCo` — Kho xoá đúng phiếu cuối thì cũng
+         không cấp lại số của nó. */
+      const lanGiaoThu = cuaPO.reduce((m, p) => Math.max(m, p.lanGiaoThu || 0), po.lanGiaoLonNhatTungCo ?? 0) + 1;
       /* ⚠️ Mã `DO` nằm trong nhóm `PR`/`DO`/`GRN` ĐANG CHỜ đơn vị quản lý hệ thống duyệt (Thông
          báo 09/2026, CLAUDE.md §3.1) — giữ nguyên định dạng cũ, tuyệt đối không tự đặt mã khác. */
       const id = `grn-${phieu.poId}-${lanGiaoThu}`;

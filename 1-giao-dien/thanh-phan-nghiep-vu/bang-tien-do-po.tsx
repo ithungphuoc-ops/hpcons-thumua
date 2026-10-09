@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Check, Info, Lock, ScanSearch } from "lucide-react";
+import { AlertTriangle, Check, Info, Lock, Pencil, ScanSearch } from "lucide-react";
 import { Card, CardContent } from "@/1-giao-dien/nen-tang-ui/card";
 import {
   Table,
@@ -103,6 +103,8 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
    */
   const [dangGhiLech, setDangGhiLech] = useState<string | null>(null);
   const [lyDoLech, setLyDoLech] = useState("");
+  /** ★ (08/10/2026, Sếp chốt) Phiếu đang mở khung "Kho đã sửa gì" — chỉ là state màn hình. */
+  const [moLichSuSua, setMoLichSuSua] = useState<string | null>(null);
 
   const phieuCuaPO = useMemo(
     () => phieuNhan.filter((p) => p.poId === po.id).sort((a, b) => a.lanGiaoThu - b.lanGiaoThu),
@@ -457,6 +459,24 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                         <span className="text-xs text-text-desc">Phiếu NCC: {p.soPhieuGiaoNCC}</span>
                       )}
                       {/**
+                        * ★ NHÃN "KHO ĐÃ SỬA" — Sếp chốt 08/10/2026: *"PGH-1 có sửa lại thì ghi là PGH-1
+                        * đã sửa, bấm vào xem thì có chi tiết sửa cái gì ở đâu"*. Đứng NGAY SAU số phiếu
+                        * NCC. Dữ liệu do App Kho gửi kèm bản sửa (`lichSuSuaTuKho`) — chỉ hiện lại.
+                        * Có cả chữ lẫn icon (Design System V1.1), không báo bằng riêng màu.
+                        */}
+                      {(p.lichSuSuaTuKho?.length ?? 0) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setMoLichSuSua((dang) => (dang === p.id ? null : p.id))}
+                          aria-expanded={moLichSuSua === p.id}
+                          className="inline-flex items-center gap-1 rounded-md border border-warning bg-warning-bg px-1.5 py-0.5 text-xs font-medium text-warning-soft hover:underline"
+                        >
+                          <Pencil className="size-3 shrink-0" aria-hidden />
+                          Kho đã sửa
+                          {(p.lichSuSuaTuKho?.length ?? 0) > 1 ? ` ${p.lichSuSuaTuKho!.length} lần` : ""}
+                        </button>
+                      )}
+                      {/**
                        * ★★ HAI MỐC ĐỂ ĐỐI CHIẾU VỚI APP KHO — Sếp 17/09/2026: *"bước tiến hành nhận
                        * hàng… là bước **check song song** với dữ liệu từ app kho đưa về"*.
                        *
@@ -484,6 +504,33 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                       )}
                       <StatusBadge label={tt.nhan} tone={tt.tong} className="ml-auto shrink-0" />
                     </div>
+
+                    {/* ★ (08/10/2026) Khung "Kho đã sửa gì" — mở bằng nhãn ngay trên. Mới nhất trước. */}
+                    {moLichSuSua === p.id && p.lichSuSuaTuKho && p.lichSuSuaTuKho.length > 0 && (
+                      <div className="flex flex-col gap-2 rounded-md border border-border p-2">
+                        {[...p.lichSuSuaTuKho].reverse().map((l, i, ds) => (
+                          <div key={`${l.thoiDiem}-${i}`} className="flex flex-col gap-1 text-xs">
+                            <span className="text-text-secondary">
+                              <span className="font-semibold text-text-primary">Lần sửa {ds.length - i}</span>
+                              {" · "}
+                              {new Date(l.thoiDiem).toLocaleDateString("vi-VN")}{" "}
+                              {new Date(l.thoiDiem).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ·{" "}
+                              {l.nguoiSuaTen} · sửa ở App Kho → Lịch sử nhập kho
+                            </span>
+                            <ul className="flex flex-col gap-0.5">
+                              {l.thayDoi.map((t, j) => (
+                                <li key={j} className="text-text-secondary">
+                                  {t.muc}: <span className="text-text-desc line-through">{t.truoc}</span>
+                                  {" → "}
+                                  <span className="font-medium text-text-primary">{t.sau}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            <span className="text-text-secondary">Lý do: {l.lyDo}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* ---- Phiếu giao nhận của lần giao này ----
                         🔴 PHẢI CHO BỔ SUNG, không chỉ bắt buộc lúc ghi phiếu mới. Phiếu ghi
