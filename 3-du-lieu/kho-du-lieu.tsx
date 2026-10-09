@@ -7916,6 +7916,10 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
           po.id === poId ? { ...po, xacNhanKho: nguoi, trangThai: "cho_xac_nhan_hoan_thanh" } : po,
         ),
       );
+      /* ★ (09/10/2026, Sếp chốt "chờ Thu mua xác nhận") Gói PO gửi App Kho nay mang `xacNhanNhanHang` → nội
+         dung đổi. Cho vòng tự đồng bộ xét lại đúng đơn này ngay (kể cả đơn đã gửi trong phiên này — chốt ①
+         chỉ để chặn gửi lặp khi lỗi), để App Kho biết ngay: cộng PO vào "Tổng số lượng đề nghị" + khoá sửa. */
+      daThuDongBoQlkCtrPhienNay.current.delete(poId);
       const poSau = donHangRef.current.find((p) => p.id === poId);
       /* Từ 17/09 người bấm là THU MUA, không phải thủ kho — câu cũ "Thủ kho xác nhận…" ghi sai vai. */
       if (poSau) {

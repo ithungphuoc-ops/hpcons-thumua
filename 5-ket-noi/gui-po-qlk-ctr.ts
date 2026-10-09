@@ -62,6 +62,12 @@ async function docPhanHoi(res: Response): Promise<PhanHoiTrungChuyen> {
 //      ĐÚNG theo PO và báo thủ kho khi Thu mua sửa. CHỈ gửi khi dòng có thông số (dòng không có thì
 //      payload giữ nguyên y hệt, không làm PO cũ bị gửi lại thừa). Không đổi field nào khác, không đổi
 //      điều kiện `apDung`. Payload PO độc lập vốn đã gửi `quyCach` từ trước.
+//   ⑦ (09/10/2026, Sếp cho phép: "code đi" sau demo "chờ Thu mua xác nhận") Thêm `xacNhanNhanHang`
+//      ({ luc, nguoi } — lúc + người bấm "Xác nhận nhận hàng") vào CẢ HAI payload. CHỈ gửi khi đơn ĐÃ xác
+//      nhận — đơn chưa xác nhận payload giữ y hệt, không làm PO cũ bị gửi lại hàng loạt; đơn đã xác nhận
+//      từ trước được gửi lại đúng 1 lần (nội dung đổi) để Kho biết. Kho dùng để: chỉ cộng PO vào "Tổng số
+//      lượng đề nghị" khi Thu mua đã xác nhận + khoá sửa lần nhập. Không đổi field nào khác, không đổi
+//      điều kiện `apDung`.
 // Không dọn dẹp, không xoá gì khác của các anh — ghi ra đây để người đọc sau biết đây là sửa có
 // phép chứ không phải ai đó tự tiện.
 // ============================================================
@@ -88,6 +94,11 @@ export const DO_DAI_TOI_DA_LOI_QLK_CTR = 500;
 export function catNganLoiQlkCtr(loi: string): string {
   if (loi.length <= DO_DAI_TOI_DA_LOI_QLK_CTR) return loi;
   return `${loi.slice(0, DO_DAI_TOI_DA_LOI_QLK_CTR)}… [cắt bớt]`;
+}
+
+/** (09/10/2026, việc ⑦ ở đầu tệp) `{ xacNhanNhanHang }` khi đơn đã "Xác nhận nhận hàng", `{}` khi chưa. */
+function xacNhanNhanHangCua(po: DonDatHang): { xacNhanNhanHang?: { luc: string; nguoi: string } } {
+  return po.xacNhanKho ? { xacNhanNhanHang: { luc: po.xacNhanKho.thoiDiem, nguoi: po.xacNhanKho.ten } } : {};
 }
 
 /**
@@ -120,6 +131,8 @@ function xayDungPayloadPO(po: DonDatHang, maDeXuat: string) {
     // (17/09/2026, việc ⑤ ở đầu tệp) Báo QLK CTR biết PO này đã hủy — không xóa hẳn PO bên đó, chỉ
     // đánh dấu để loại khỏi "còn thiếu"/"Hàng cần nhập", vẫn giữ lịch sử nhập kho cũ nếu có.
     daHuy: po.trangThai === "huy",
+    // (09/10/2026, việc ⑦ ở đầu tệp) Thu mua đã "Xác nhận nhận hàng" — CHỈ gửi khi đã xác nhận.
+    ...xacNhanNhanHangCua(po),
     // 🔴 (30/08/2026): KHÔNG còn lọc bỏ dòng thiếu `sttDongDeNghi` — trước đây lọc ở đây làm PO
     // "độc lập" (lập trước khi có đề nghị, xem `DongPO.sttDongDeNghi`) mất sạch vật tư lúc gắn
     // vào đề nghị thật: dòng nào cũng thiếu `sttDongDeNghi` (đúng thiết kế, đơn độc lập chưa
@@ -255,6 +268,8 @@ function xayDungPayloadPODocLap(po: DonDatHang) {
     nguoiLap: po.nguoiPhuTrachTen,
     // (17/09/2026, việc ⑤ ở đầu tệp) — xem chú thích ở `xayDungPayloadPO`, cùng lý do/cùng cách.
     daHuy: po.trangThai === "huy",
+    // (09/10/2026, việc ⑦ ở đầu tệp) — xem `xayDungPayloadPO`, cùng lý do/cùng cách.
+    ...xacNhanNhanHangCua(po),
     // Gửi kèm `quyCach` (khác `xayDungPayloadPO` ở trên) — không có dòng đề nghị gốc nào để đối
     // chiếu tên, quy cách là tín hiệu phân biệt DUY NHẤT khi công trình có nhiều vật tư trùng
     // tên+ĐVT.
