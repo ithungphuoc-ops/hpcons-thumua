@@ -435,6 +435,12 @@ export interface DeNghiMuaHang {
    */
   tepGiaiDoan?: Record<string, MoTaTep[]>;
   /**
+   * ★ Ô (2) "Import phiếu giao hàng" của mục 5 Hồ sơ thanh toán đang được tích — Sếp 12/10/2026
+   * (demo Bản 5). Chỉ có nghĩa khi hồ sơ có đơn đã "Bổ sung sau"; tệp nằm ở ngăn
+   * `BUOC_PHIEU_GIAO_THU_MUA` (`2-quy-trinh/phieu-giao-thu-mua.ts`). Vắng = chưa tích.
+   */
+  importPhieuGiaoThuMua?: boolean;
+  /**
    * ★ LÝ DO CHƯA CÓ MỘT CHỨNG TỪ BẮT BUỘC — Ban lãnh đạo 23/08/2026: *"bắt buộc có file đính kèm
    * hoặc ghi chú lý do không đính kèm file thì mới cho chuyển bước… Để biết là còn thiếu hồ sơ để
    * bổ sung sau"*.
@@ -1275,6 +1281,16 @@ export interface DonDatHang {
   lanGiaoLonNhatTungCo?: number;
   /** Điều kiện ② hoàn thành PO. */
   xacNhanKho?: XacNhan;
+  /**
+   * ★ "BỔ SUNG SAU" PHIẾU GIAO HÀNG — Sếp 12/10/2026 (demo Bản 5): kho chưa nhập (hoặc chưa đủ) mà
+   * hồ sơ cần đi tiếp sang Hồ sơ thanh toán thì thu mua bấm nút này thay cho "Xác nhận nhận hàng".
+   *
+   * 🔴 KHÔNG PHẢI XÁC NHẬN NHẬN HÀNG — cố ý tách trường, không ghi `xacNhanKho`: App Kho khoá sửa lần
+   * nhập khi đơn đã "Xác nhận nhận hàng" và chỉ tính "Đã cấp" sau xác nhận. Kho nhập sau thì thu mua
+   * vẫn bấm "Xác nhận nhận hàng" như thường (cả khi hồ sơ đã Hoàn thành). Luật ở
+   * `2-quy-trinh/phieu-giao-thu-mua.ts`.
+   */
+  boSungSauPhieuGiao?: XacNhan;
   /** Điều kiện ③ hoàn thành PO. */
   xacNhanTruongBP?: XacNhan;
   /**
@@ -1932,6 +1948,12 @@ export interface TienDoDongDeNghi extends DongDeNghi {
    * Tính ở `tinhTienDoDeNghi`; vắng = không chấp nhận (dữ liệu dựng tay, bài kiểm cũ).
    */
   chapNhanGiaoThieu?: boolean;
+  /**
+   * ★ Phần còn thiếu của dòng này thuộc đơn ĐÃ "BỔ SUNG SAU" phiếu giao và hồ sơ ĐÃ CÓ phiếu giao
+   * (Thu mua import hoặc phiếu kho) — Sếp 12/10/2026: Hoàn thành không bắt buộc kho nhập. Khi đó bước
+   * ⑧ không chặn vì "chưa nhận đủ". Tính ở `tinhTienDoDeNghi`; vắng = không chấp nhận.
+   */
+  chapNhanBoSungSau?: boolean;
   phanTram: number;
   trangThaiDong: TrangThaiDongDeNghi;
   /** Các PO có dòng trỏ về dòng đề nghị này. */

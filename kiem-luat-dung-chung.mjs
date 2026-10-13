@@ -524,9 +524,14 @@ try {
 /* ★ LINK ĐỀ NGHỊ THEO MÃ ĐỀ XUẤT + LINK PHIẾU APP REQUEST — Sếp chốt 02/10/2026. */
 const tepRaDD = join(thuMuc, "duong-dan-de-nghi.cjs");
 const tepRaDC = join(thuMuc, "dia-chi-app-de-nghi.cjs");
+/* ★ "BỔ SUNG SAU" PHIẾU GIAO + PHIẾU GIAO THU MUA IMPORT — Sếp duyệt demo Bản 5 ngày 12/10/2026. */
+const tepRaPGT = join(thuMuc, "phieu-giao-thu-mua.cjs");
+const tepRaBSS = join(thuMuc, "bo-sung-sau-phieu-giao.cjs");
 for (const [nguon, ra] of [
   ["2-quy-trinh/duong-dan-de-nghi.ts", tepRaDD],
   ["6-tien-ich/dia-chi-app-de-nghi.ts", tepRaDC],
+  ["2-quy-trinh/phieu-giao-thu-mua.ts", tepRaPGT],
+  ["2-quy-trinh/bo-sung-sau-phieu-giao.ts", tepRaBSS],
 ]) {
   try {
     execSync(
@@ -563,6 +568,11 @@ const GB = nap(tepRa15);
 const PQ = nap(tepRa16);
 const DD = nap(tepRaDD);
 const DC = nap(tepRaDC);
+/* ★ 12/10/2026 — Bổ sung sau phiếu giao (nạp sớm vì thư mục tạm bị xoá giữa chừng). */
+const PGT = nap(tepRaPGT);
+const BSS = nap(tepRaBSS);
+const CT_BSS = nap(tepRa3);
+const BHS_BSS = nap(tepRa13);
 
 /* ---------- Bộ khung chấm ---------- */
 let dat = 0;
@@ -18298,6 +18308,250 @@ kiem(
     );
     // ⟦hết mốc D⟧
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 12/10/2026 (demo Bản 5): "BỔ SUNG SAU" PHIẾU GIAO HÀNG + PHIẾU GIAO THU MUA IMPORT
+//   ① kho nhập đủ KHÔNG tự sang ⑦ — phải "Xác nhận nhận hàng" (lần giao từ mốc 13/10/2026)
+//   ② "Bổ sung sau" từng đơn → đơn tính là đã qua bước nhận hàng, KHÔNG ghi xacNhanKho
+//   ③ mục 5: đã bổ sung sau + tích import + có tệp → bộ hồ sơ dùng phiếu Thu mua, còn lại phiếu Kho
+//   ④ Hoàn thành không bắt kho nhập (đơn đã bổ sung sau + mục 5 có phiếu); thẻ cảnh báo tới khi xác nhận
+// ════════════════════════════════════════════════════════════════════
+{
+  const CHU_BSS = "Sếp · 12/10/2026 (demo Bản 5 Bổ sung sau)";
+  const NGUOI = { uid: "u-tm", ten: "Nguyễn Văn A", thoiDiem: "2026-10-13" };
+  const dnBSS = (them = {}) => ({
+    id: "dBSS",
+    code: "000000169",
+    maDuAn: "262001-HPCS-CT1",
+    maHopDongCDT: "262001-HPCS-CT1",
+    tieuDe: "Bulong neo",
+    trangThai: "dang_thuc_hien",
+    items: [{ stt: 1, tenVatLieu: "Bulong neo", donViTinh: "bộ", khoiLuongDeNghi: 16, nguoiPhuTrachUid: "u-tm" }],
+    lichSu: [],
+    ...them,
+  });
+  const poBSS = (them = {}) => ({
+    id: "poBSS",
+    prId: "dBSS",
+    code: "DMH260008",
+    maDuAn: "262001-HPCS-CT1",
+    trangThai: "dang_giao",
+    ngayGiaoDuKien: "2026-10-12",
+    items: [{ sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Bulong neo", donViTinh: "bộ", khoiLuongDat: 16 }],
+    ...them,
+  });
+  const phieuBSS = (kl, ngay, them = {}) => ({
+    id: `grn-${ngay}-${kl}`,
+    poId: "poBSS",
+    poCode: "DMH260008",
+    lanGiaoThu: 1,
+    ngayNhanThucTe: ngay,
+    trangThai: "da_nhap_kho",
+    anhQlkCtr: { ten: "pg.jpg", url: "https://khoctr.hpcore.vn/api/files/x" },
+    lines: [{ sttDongPO: 1, khoiLuongThucNhan: kl }],
+    ...them,
+  });
+  const tepTM = [{ id: "tm1", ten: "pgh-thu-mua.jpg", ghiChu: "Phiếu giao hàng (Thu mua import)" }];
+  const coImport = { importPhieuGiaoThuMua: true, tepGiaiDoan: { [PGT.BUOC_PHIEU_GIAO_THU_MUA]: tepTM } };
+
+  kiem("① Kho nhập đủ SAU mốc mà Thu mua chưa xác nhận → hồ sơ vẫn ở ⑥ (không tự nhảy)", CHU_BSS, () => {
+    const gd = G.xacDinhGiaiDoan(dnBSS(), [poBSS()], [], [phieuBSS(16, "2026-10-14")]);
+    return { duoc: gd === "nhan_hang", thucTe: `"${gd}"`, mongDoi: '"nhan_hang"' };
+  });
+
+  kiem("① Kho nhập đủ + Thu mua bấm Xác nhận nhận hàng → sang ⑦", CHU_BSS, () => {
+    const gd = G.xacDinhGiaiDoan(
+      dnBSS(),
+      [poBSS({ xacNhanKho: NGUOI, trangThai: "cho_xac_nhan_hoan_thanh" })],
+      [],
+      [phieuBSS(16, "2026-10-14")],
+    );
+    return { duoc: gd === "ho_so_thanh_toan", thucTe: `"${gd}"`, mongDoi: '"ho_so_thanh_toan"' };
+  });
+
+  kiem("① Hồ sơ đã về đủ TRƯỚC mốc 13/10/2026 giữ luật cũ — không lùi về ⑥", CHU_BSS, () => {
+    const gd = G.xacDinhGiaiDoan(dnBSS(), [poBSS()], [], [phieuBSS(16, "2026-10-12")]);
+    return {
+      duoc: gd === "ho_so_thanh_toan" && PGT.MOC_PHAI_XAC_NHAN_NHAN_HANG === "2026-10-13",
+      thucTe: `"${gd}" · mốc ${PGT.MOC_PHAI_XAC_NHAN_NHAN_HANG}`,
+      mongDoi: '"ho_so_thanh_toan" · mốc 2026-10-13',
+    };
+  });
+
+  kiem("① Hồ sơ PHÒNG BAN giữ nguyên: về đủ là sang ⑦ như cũ", CHU_BSS, () => {
+    const gd = G.xacDinhGiaiDoan(
+      dnBSS({ loaiHoSo: "phong_ban", maHopDongCDT: "" }),
+      [poBSS()],
+      [],
+      [phieuBSS(16, "2026-10-14")],
+    );
+    return { duoc: gd === "ho_so_thanh_toan", thucTe: `"${gd}"`, mongDoi: '"ho_so_thanh_toan"' };
+  });
+
+  kiem("② Kho chưa nhập + đơn đã Bổ sung sau → sang ⑦", CHU_BSS, () => {
+    const gd = G.xacDinhGiaiDoan(dnBSS(), [poBSS({ boSungSauPhieuGiao: NGUOI })], [], []);
+    return { duoc: gd === "ho_so_thanh_toan", thucTe: `"${gd}"`, mongDoi: '"ho_so_thanh_toan"' };
+  });
+
+  kiem("② Hai đơn: một đơn Bổ sung sau, một đơn chưa → hồ sơ CHƯA sang ⑦", CHU_BSS, () => {
+    const po2 = poBSS({ id: "poBSS2", code: "DMH260009" });
+    const gd = G.xacDinhGiaiDoan(dnBSS(), [poBSS({ boSungSauPhieuGiao: NGUOI }), po2], [], []);
+    return { duoc: gd !== "ho_so_thanh_toan", thucTe: `"${gd}"`, mongDoi: "khác ho_so_thanh_toan" };
+  });
+
+  kiem("② Nút Bổ sung sau: chặn đúng ca (phòng ban · đã đủ hàng · đã xác nhận · đã bổ sung) và mở cho đơn đang giao", CHU_BSS, () => {
+    const ok = {
+      mo_khi_chua_nhap: BSS.vuongMacBoSungSau(poBSS(), dnBSS(), []) === null,
+      mo_khi_nhap_mot_phan: BSS.vuongMacBoSungSau(poBSS(), dnBSS(), [phieuBSS(8, "2026-10-14")]) === null,
+      chan_phong_ban: BSS.vuongMacBoSungSau(poBSS(), dnBSS({ loaiHoSo: "phong_ban" }), []) !== null,
+      chan_du_hang: (BSS.vuongMacBoSungSau(poBSS(), dnBSS(), [phieuBSS(16, "2026-10-14")]) ?? "").includes("Xác nhận nhận hàng"),
+      chan_da_xac_nhan: BSS.vuongMacBoSungSau(poBSS({ xacNhanKho: NGUOI }), dnBSS(), []) !== null,
+      chan_da_bss: BSS.vuongMacBoSungSau(poBSS({ boSungSauPhieuGiao: NGUOI }), dnBSS(), []) !== null,
+      chan_nhap: BSS.vuongMacBoSungSau(poBSS({ trangThai: "nhap" }), dnBSS(), []) !== null,
+      chan_huy: BSS.vuongMacBoSungSau(poBSS({ trangThai: "huy" }), dnBSS(), []) !== null,
+    };
+    const sai = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
+    return { duoc: sai.length === 0, thucTe: sai.length ? `sai: ${sai.join(", ")}` : "đủ", mongDoi: "đủ 8 ca" };
+  });
+
+  kiem("③ Mục 5: Bổ sung sau + tích Import + có tệp → bộ hồ sơ dùng phiếu Thu mua (mục đủ)", CHU_BSS, () => {
+    const muc = BHS_BSS.dungBoHoSoThanhToan(dnBSS(coImport), [poBSS({ boSungSauPhieuGiao: NGUOI })], [], []);
+    const m5 = muc.find((m) => m.ma === "phieu_giao_hang");
+    return {
+      duoc: m5.nguonPhieuGiao === "thu_mua" && m5.tep.length === 1 && BHS_BSS.mucDaCo(m5) && !m5.ghiChu,
+      thucTe: `nguồn=${m5.nguonPhieuGiao} · tệp=${m5.tep.length} · đủ=${BHS_BSS.mucDaCo(m5)} · ghiChú=${m5.ghiChu ?? "—"}`,
+      mongDoi: "nguồn=thu_mua · tệp=1 · đủ=true · không ghi chú thiếu",
+    };
+  });
+
+  kiem("③ Mục 5: có tệp Thu mua nhưng CHƯA tích Import (hoặc chưa Bổ sung sau) → vẫn dùng phiếu Kho", CHU_BSS, () => {
+    const chuaTich = BHS_BSS.dungBoHoSoThanhToan(
+      dnBSS({ tepGiaiDoan: coImport.tepGiaiDoan }),
+      [poBSS({ boSungSauPhieuGiao: NGUOI })],
+      [phieuBSS(8, "2026-10-14")],
+      [],
+    ).find((m) => m.ma === "phieu_giao_hang");
+    const chuaBss = BHS_BSS.dungBoHoSoThanhToan(dnBSS(coImport), [poBSS()], [], []).find(
+      (m) => m.ma === "phieu_giao_hang",
+    );
+    return {
+      duoc: chuaTich.nguonPhieuGiao === "kho" && chuaTich.tep.length === 0 && chuaBss.nguonPhieuGiao === null,
+      thucTe: `chưa tích: nguồn=${chuaTich.nguonPhieuGiao}, tệp=${chuaTich.tep.length} · chưa BSS: nguồn=${chuaBss.nguonPhieuGiao}`,
+      mongDoi: "chưa tích: kho, 0 tệp · chưa BSS: null",
+    };
+  });
+
+  kiem("④ Hoàn thành: đơn Bổ sung sau + có phiếu (Thu mua hoặc Kho) → KHÔNG còn chặn 'chưa nhận đủ'", CHU_BSS, () => {
+    const pos = [poBSS({ boSungSauPhieuGiao: NGUOI })];
+    const tdTM = M.tinhTienDoDeNghi(dnBSS(coImport), pos, []);
+    const tdKho = M.tinhTienDoDeNghi(dnBSS(), pos, [phieuBSS(8, "2026-10-14")]);
+    const loiTM = CT_BSS.vuongMacHoanThanhQuyTrinh(dnBSS(coImport), tdTM) ?? "";
+    return {
+      duoc:
+        tdTM[0].chapNhanBoSungSau === true &&
+        tdKho[0].chapNhanBoSungSau === true &&
+        CT_BSS.soDongChuaVeDuKhiDong(tdTM) === 0 &&
+        !loiTM.includes("chưa nhận đủ hàng"),
+      thucTe: `TM=${tdTM[0].chapNhanBoSungSau} · Kho=${tdKho[0].chapNhanBoSungSau} · đếm=${CT_BSS.soDongChuaVeDuKhiDong(tdTM)} · chặn="${loiTM.slice(0, 60)}"`,
+      mongDoi: "cả hai true · đếm 0 · câu chặn (nếu có) không phải 'chưa nhận đủ hàng'",
+    };
+  });
+
+  kiem("④ Hoàn thành: Bổ sung sau mà CHƯA có phiếu nào, hoặc đơn CHƯA Bổ sung sau → vẫn chặn 'chưa nhận đủ'", CHU_BSS, () => {
+    const khongPhieu = M.tinhTienDoDeNghi(dnBSS(), [poBSS({ boSungSauPhieuGiao: NGUOI })], []);
+    const chuaBss = M.tinhTienDoDeNghi(dnBSS(coImport), [poBSS()], []);
+    const loi1 = CT_BSS.vuongMacHoanThanhQuyTrinh(dnBSS(), khongPhieu) ?? "";
+    const loi2 = CT_BSS.vuongMacHoanThanhQuyTrinh(dnBSS(coImport), chuaBss) ?? "";
+    return {
+      duoc: loi1.includes("chưa nhận đủ hàng") && loi2.includes("chưa nhận đủ hàng"),
+      thucTe: `không phiếu: "${loi1.slice(0, 50)}" · chưa BSS: "${loi2.slice(0, 50)}"`,
+      mongDoi: "cả hai chặn 'chưa nhận đủ hàng'",
+    };
+  });
+
+  kiem("④ Cảnh báo thẻ: chưa nhập → mới nhập 8/16 → đã nhập chờ xác nhận → xác nhận xong thì mất", CHU_BSS, () => {
+    const bss = poBSS({ boSungSauPhieuGiao: NGUOI });
+    const c0 = BSS.canhBaoKhoBoSungSau([bss], []);
+    const c1 = BSS.canhBaoKhoBoSungSau([bss], [phieuBSS(8, "2026-10-14")]);
+    const c2 = BSS.canhBaoKhoBoSungSau([bss], [phieuBSS(8, "2026-10-14"), phieuBSS(8, "2026-10-15", { id: "g2", lanGiaoThu: 2 })]);
+    const c3 = BSS.canhBaoKhoBoSungSau([{ ...bss, xacNhanKho: NGUOI }], [phieuBSS(16, "2026-10-14")]);
+    const c4 = BSS.canhBaoKhoBoSungSau([poBSS()], []);
+    return {
+      duoc:
+        c0?.chu === "Kho chưa nhập kho" &&
+        c1?.chu === "Kho mới nhập 8/16 bộ" &&
+        c2?.chu === "Kho đã nhập — chờ xác nhận nhận hàng" &&
+        c3 === null &&
+        c4 === null,
+      thucTe: [c0?.chu, c1?.chu, c2?.chu, c3, c4].map((x) => JSON.stringify(x ?? null)).join(" | "),
+      mongDoi: '"Kho chưa nhập kho" | "Kho mới nhập 8/16 bộ" | "Kho đã nhập — chờ xác nhận nhận hàng" | null | null',
+    };
+  });
+
+  kiem("④ (QA) Hai đơn: A kho nhập đủ có phiếu, B Bổ sung sau CHƯA có phiếu → dòng của B vẫn chặn, mục 5 chưa đủ", CHU_BSS, () => {
+    const dn2 = dnBSS({
+      items: [
+        { stt: 1, tenVatLieu: "Bulong neo", donViTinh: "bộ", khoiLuongDeNghi: 16, nguoiPhuTrachUid: "u-tm" },
+        { stt: 2, tenVatLieu: "Thép", donViTinh: "kg", khoiLuongDeNghi: 100, nguoiPhuTrachUid: "u-tm" },
+      ],
+    });
+    const poA = poBSS({ xacNhanKho: NGUOI, trangThai: "cho_xac_nhan_hoan_thanh" });
+    const poB = poBSS({
+      id: "poB",
+      code: "DMH260010",
+      boSungSauPhieuGiao: NGUOI,
+      items: [{ sttDong: 1, sttDongDeNghi: 2, tenVatLieu: "Thép", donViTinh: "kg", khoiLuongDat: 100 }],
+    });
+    const ds = [phieuBSS(16, "2026-10-14")];
+    const td = M.tinhTienDoDeNghi(dn2, [poA, poB], ds);
+    const m5 = BHS_BSS.dungBoHoSoThanhToan(dn2, [poA, poB], ds, []).find((m) => m.ma === "phieu_giao_hang");
+    const coImport2 = M.tinhTienDoDeNghi({ ...dn2, ...coImport }, [poA, poB], ds);
+    return {
+      duoc:
+        td[1].chapNhanBoSungSau === false &&
+        CT_BSS.soDongChuaVeDuKhiDong(td) === 1 &&
+        BHS_BSS.mucDaCo(m5) === false &&
+        coImport2[1].chapNhanBoSungSau === true,
+      thucTe: `B=${td[1].chapNhanBoSungSau} · đếm=${CT_BSS.soDongChuaVeDuKhiDong(td)} · mục5 đủ=${BHS_BSS.mucDaCo(m5)} · có import: B=${coImport2[1].chapNhanBoSungSau}`,
+      mongDoi: "B=false · đếm=1 · mục5 đủ=false · có import: B=true",
+    };
+  });
+
+  kiem("(QA) Thẻ ở ⑥ không khoe 'đã đủ — chờ xác nhận'; cột Thất bại không bày cảnh báo kho", CHU_BSS, () => {
+    const the6 = G.dungBangQuyTrinh([dnBSS()], [poBSS()], [], [phieuBSS(16, "2026-10-14")], CQ.CAU_HINH_MAC_DINH)
+      .flatMap((c) => c.the)
+      .find((t) => t.deNghi.id === "dBSS");
+    const theTB = G.dungBangQuyTrinh(
+      [dnBSS({ trangThai: "dong_do", lyDoThatBai: "Huỷ" })],
+      [poBSS({ boSungSauPhieuGiao: NGUOI })],
+      [],
+      [],
+      CQ.CAU_HINH_MAC_DINH,
+    )
+      .flatMap((c) => c.the)
+      .find((t) => t.deNghi.id === "dBSS");
+    const the7 = G.dungBangQuyTrinh([dnBSS()], [poBSS({ boSungSauPhieuGiao: NGUOI })], [], [], CQ.CAU_HINH_MAC_DINH)
+      .flatMap((c) => c.the)
+      .find((t) => t.deNghi.id === "dBSS");
+    return {
+      duoc:
+        the6?.giaiDoan === "nhan_hang" &&
+        !the6?.hoSoDaDuChoXacNhan &&
+        theTB?.giaiDoan === "that_bai" &&
+        theTB?.canhBaoKho === undefined &&
+        the7?.canhBaoKho === "Kho chưa nhập kho",
+      thucTe: `⑥: gd=${the6?.giaiDoan}, đủ=${the6?.hoSoDaDuChoXacNhan} · TB: gd=${theTB?.giaiDoan}, cb=${theTB?.canhBaoKho} · ⑦: cb=${the7?.canhBaoKho}`,
+      mongDoi: "⑥ không 'đủ' · thất bại không cảnh báo · ⑦ 'Kho chưa nhập kho'",
+    };
+  });
+
+  kiem("④ Kho nhập 2 lần (8 + 8) sau Bổ sung sau: vẫn là đơn chưa xác nhận → Xác nhận nhận hàng còn bấm được", CHU_BSS, () => {
+    const bss = poBSS({ boSungSauPhieuGiao: NGUOI });
+    const ds = [phieuBSS(8, "2026-10-14"), phieuBSS(8, "2026-10-15", { id: "g2", lanGiaoThu: 2 })];
+    const loi = M.vuongMacDonXacNhanNhanHang(bss, ds);
+    return { duoc: loi === null, thucTe: String(loi), mongDoi: "null (được xác nhận)" };
+  });
 }
 
 const tong = dat + truot.length;

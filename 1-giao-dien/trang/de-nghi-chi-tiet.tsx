@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Check,
+  Clock,
   Copy,
   ListChecks,
   ListPlus,
@@ -124,6 +125,14 @@ import {
    Hằng số vẫn sống trong `ho-so-phong-ban.ts` và vẫn được `vuongMacHoanThanhQuyTrinh` dùng để giải
    thích lúc chặn — đừng xoá nó ở đó. */
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
+/* ★ 12/10/2026 — "Bổ sung sau" phiếu giao hàng + phiếu giao Thu mua import (Sếp duyệt demo Bản 5). */
+import {
+  BUOC_PHIEU_GIAO_THU_MUA,
+  moOImportPhieuGiaoThuMua,
+  NHAN_TEP_PHIEU_GIAO_THU_MUA,
+  tepPhieuGiaoThuMua,
+} from "@/2-quy-trinh/phieu-giao-thu-mua";
+import { vuongMacBoSungSau } from "@/2-quy-trinh/bo-sung-sau-phieu-giao";
 // Quyền theo TỪNG hồ sơ: ai đang phụ trách dòng nào của đề nghị này.
 import { laViecCuaToi } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
@@ -310,6 +319,9 @@ export default function TrangChiTietDeNghi({
     trinhXetDuyetBaoGiaChoDeNghi,
     chonNCCChoBaoGia,
     xacNhanKho,
+    /* ★ 12/10/2026 — "Bổ sung sau" phiếu giao + ô "Import phiếu giao hàng" (Sếp duyệt demo Bản 5). */
+    boSungSauPhieuGiao,
+    datImportPhieuGiaoThuMua,
     xacNhanTruongBP,
     luiVeBuoc,
     ghiLyDoThieuChungTu,
@@ -399,6 +411,8 @@ export default function TrangChiTietDeNghi({
 
   /** Hộp xác nhận trước khi đóng hồ sơ — `true` là đang hỏi. */
   const [hoiHoanThanh, setHoiHoanThanh] = useState(false);
+  /* ★ 12/10/2026 — hỏi trước khi "Bổ sung sau" phiếu giao của một đơn (hồ sơ đi tiếp sang ⑦). */
+  const [hoiBoSungSau, setHoiBoSungSau] = useState<{ poId: string; poCode: string } | null>(null);
 
   const dn = deNghi.find((x) => x.id === params.id);
   /**
@@ -3426,7 +3440,12 @@ export default function TrangChiTietDeNghi({
                                     : /* Từ 17/09 thu mua bấm, không phải kho (06/10/2026 sửa chữ). */
                                       daKhoXacNhan
                                       ? "Đã xác nhận nhận hàng"
-                                      : "Chờ xác nhận nhận hàng"
+                                      : /* ★ 12/10/2026 — đơn đã "Bổ sung sau": nói rõ đang chờ ai. */
+                                        po.boSungSauPhieuGiao
+                                        ? daGiaoDu
+                                          ? "Bổ sung sau — kho đã nhập, chờ xác nhận"
+                                          : "Bổ sung sau — chờ kho nhập"
+                                        : "Chờ xác nhận nhận hàng"
                                 }
                                 tone={daKhoXacNhan ? "success" : "warning"}
                               />
@@ -3554,6 +3573,60 @@ export default function TrangChiTietDeNghi({
                                 )}
                               </div>
                             )}
+
+                            {/**
+                              * ★★★ "BỔ SUNG SAU" PHIẾU GIAO HÀNG — Sếp 12/10/2026 (demo Bản 5): *"Nếu
+                              * bên kho k up phiếu kịp ... thêm 1 nút"* cạnh "Xác nhận nhận hàng" → bấm là
+                              * hồ sơ sang ⑦ Hồ sơ thanh toán.
+                              *
+                              * 🔴 CHỈ HỒ SƠ CÔNG TRÌNH, CHỈ KHI KHO CHƯA NHẬP ĐỦ. Kho đã nhập đủ thì
+                              * việc đúng là "Xác nhận nhận hàng" — `vuongMacBoSungSau` trả lý do và nút
+                              * ẩn (cùng hàm với tầng ghi `boSungSauPhieuGiao`).
+                              *
+                              * 📌 ĐÃ BỔ SUNG SAU thì thôi hiện nút, in một dòng nói rõ đang chờ gì: kho
+                              * nhập sau → đối chiếu → "Xác nhận nhận hàng" (nút ở trên vẫn hiện khi có
+                              * lần giao, kể cả sau khi hồ sơ đã Hoàn thành — đơn không bị đóng vì
+                              * chưa ai xác nhận).
+                              */}
+                            {!hoSoPhongBan &&
+                              !daKhoXacNhan &&
+                              (() => {
+                                const bss = po.boSungSauPhieuGiao;
+                                if (bss) {
+                                  return (
+                                    <p className="flex items-start gap-1.5 rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning-soft">
+                                      <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                                      <span>
+                                        Đã bấm “Bổ sung sau” ({bss.ten} ·{" "}
+                                        {bss.thoiDiem.slice(0, 10).split("-").reverse().join("/")}) — đơn
+                                        này tính là đã qua bước nhận hàng.{" "}
+                                        {daGiaoDu
+                                          ? "Kho đã nhập đủ: đối chiếu từng lần giao rồi bấm “Xác nhận nhận hàng” để App Kho chốt số."
+                                          : "Kho nhập sau thì lần giao hiện ở bảng trên; đối chiếu rồi bấm “Xác nhận nhận hàng” để App Kho chốt số (vẫn bấm được sau khi hồ sơ hoàn thành)."}
+                                      </span>
+                                    </p>
+                                  );
+                                }
+                                /* Cùng chốt với tầng ghi `boSungSauPhieuGiao`: chỉ ở bước ⑥, hồ sơ chưa đóng. */
+                                if (giaiDoan !== "nhan_hang" || hoSoDaDong) return null;
+                                if (!duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung)) return null;
+                                if (vuongMacBoSungSau(po, dn, phieuCuaPO) !== null) return null;
+                                return (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setHoiBoSungSau({ poId: po.id, poCode: po.code })}
+                                    >
+                                      <Clock className="size-4" aria-hidden />
+                                      Bổ sung sau
+                                    </Button>
+                                    <span className="text-xs text-text-desc">
+                                      Kho chưa nhập đủ mà cần đi tiếp sang Hồ sơ thanh toán — phiếu giao hàng bổ sung sau.
+                                    </span>
+                                  </div>
+                                );
+                              })()}
 
                             {/**
                               * ★★ HỒ SƠ PHÒNG BAN: ĐÃ ẨN NÚT THÌ PHẢI NÓI VÌ SAO CHƯA XONG —
@@ -3694,10 +3767,12 @@ export default function TrangChiTietDeNghi({
                                 người dùng thấy không có nút sẽ tưởng mình thiếu quyền.
                                 ★ 06/10/2026: giao thiếu KHÔNG còn là ngõ cụt (Sếp 17/09 + 06/10) — câu
                                 cũ "chưa xác nhận hoàn thành được, ghi phiếu cho tới khi đủ" nói sai. */}
-                            {!daGiaoDu && !daKhoXacNhan && !hoSoPhongBan && (
+                            {/* ★ 12/10/2026: đơn đã "Bổ sung sau" thì dòng chờ ở trên đã nói đủ — bỏ câu này. */}
+                            {!daGiaoDu && !daKhoXacNhan && !hoSoPhongBan && !po.boSungSauPhieuGiao && (
                               <p className="text-xs text-warning-soft">
                                 Hàng chưa về đủ khối lượng. Nếu nhà cung cấp giao thiếu, thu mua vẫn bấm
                                 “Xác nhận nhận hàng”; sau đó Trưởng bộ phận duyệt hoàn thành kèm lý do.
+                                Kho chưa nhập kịp mà cần đi tiếp thì bấm “Bổ sung sau”.
                               </p>
                             )}
                             {!daGiaoDu && daKhoXacNhan && !po.xacNhanTruongBP && !quyen.xacNhanTruongBP && (
@@ -3936,6 +4011,57 @@ export default function TrangChiTietDeNghi({
                             ))}
                           </div>
                         )
+                      }
+                      /**
+                       * ★★★ MỤC 5, Ô (2) THU MUA — Sếp 12/10/2026 (demo Bản 5): *"Thu mua sẽ tích vào
+                       * ô import pgh để tự import ... 1 khi đã bấm bổ sung sau và tích import pgh thì
+                       * lúc này sẽ lấy pgh từ thu mua. Còn k thì sẽ lấy theo bên kho"*.
+                       *
+                       * 📌 DÙNG LẠI `OChungTuBatBuoc` (ô tích + nhiều bản qua "+ Thêm bản nữa") — đúng
+                       * chỉ đạo Sếp 16/09/2026 *"Đồng bộ lại giao diện đính kèm cho giống nhau"*.
+                       * NGĂN RIÊNG `BUOC_PHIEU_GIAO_THU_MUA` (lý do ở `phieu-giao-thu-mua.ts`).
+                       *
+                       * 🔴 CHỈ HỒ SƠ CÔNG TRÌNH — hồ sơ phòng ban không có kho, đã có đường riêng.
+                       * Ô tích chỉ mở khi có đơn đã "Bổ sung sau"; quyền = quyền xác nhận nhận hàng
+                       * (tầng ghi `datImportPhieuGiaoThuMua` kiểm lại).
+                       */
+                      oPhieuGiaoThuMua={
+                        laHoSoPhongBan(dn)
+                          ? undefined
+                          : (() => {
+                              const duocImport = duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung);
+                              const moO = moOImportPhieuGiaoThuMua(poLienQuan);
+                              const chuaMo = "Chỉ mở khi đã bấm “Bổ sung sau” ở bước Tiến hành nhận hàng.";
+                              return (
+                                <OChungTuBatBuoc
+                                  deNghi={dn}
+                                  maGiaiDoan={BUOC_PHIEU_GIAO_THU_MUA}
+                                  nhanO={NHAN_TEP_PHIEU_GIAO_THU_MUA}
+                                  dangGon
+                                  tieuDe={NHAN_TEP_PHIEU_GIAO_THU_MUA}
+                                  moTa="Chỉ là chứng từ để thanh toán — không cộng số lượng, không đổi tiến độ. Nhiều tệp thì bấm “+ Thêm bản nữa”."
+                                  duocSua={duocImport}
+                                  khoa={hoSoDaDong}
+                                  tepDaCo={tepPhieuGiaoThuMua(dn)}
+                                  congTac={{
+                                    bat: Boolean(dn.importPhieuGiaoThuMua),
+                                    nhan: "Import phiếu giao hàng",
+                                    khiTat: moO ? "Chưa tích — bộ hồ sơ dùng phiếu của Kho." : chuaMo,
+                                    khoa: hoSoDaDong
+                                      ? "Hồ sơ đã đóng."
+                                      : !duocImport
+                                        ? "Chỉ nhân viên thu mua (hoặc người được chia việc trong hồ sơ) mới import phiếu giao hàng được."
+                                        : !moO && !dn.importPhieuGiaoThuMua
+                                          ? chuaMo
+                                          : undefined,
+                                    onDoi: (bat) => {
+                                      const loi = datImportPhieuGiaoThuMua(dn.id, bat, nguoiDung.tenHienThi);
+                                      if (loi) toast.error(loi);
+                                    },
+                                  }}
+                                />
+                              );
+                            })()
                       }
                       oNopTheoMuc={{
                         /**
@@ -4446,6 +4572,38 @@ export default function TrangChiTietDeNghi({
           }
           toast.success("Đã hoàn thành quy trình", {
             description: `${dn.code} — hồ sơ đóng lại và chuyển sang bước “${NHAN_GIAI_DOAN.hoan_thanh.nhan}”.`,
+          });
+        }}
+      />
+
+      {/* ★ HỎI TRƯỚC KHI "BỔ SUNG SAU" — Sếp 12/10/2026 (demo Bản 5). Bấm là hồ sơ đi tiếp sang Hồ sơ
+          thanh toán khi kho chưa nhập; nói rõ đây KHÔNG phải xác nhận nhận hàng. */}
+      <HopXacNhan
+        mo={hoiBoSungSau !== null}
+        tieuDe="Bổ sung sau phiếu giao hàng?"
+        moTa={
+          hoiBoSungSau
+            ? `Kho chưa nhập đủ hàng của ${hoiBoSungSau.poCode}. Đơn này sẽ được tính là đã qua bước nhận hàng — mọi đơn của hồ sơ đã xác nhận hoặc bổ sung sau thì hồ sơ sang “${NHAN_GIAI_DOAN.ho_so_thanh_toan.nhan}”. Phiếu giao: kho nhập sau sẽ tự hiện ở mục 5; cần thanh toán trước thì tích “Import phiếu giao hàng” ở mục 5.`
+            : undefined
+        }
+        canhBao="Không tính là “Xác nhận nhận hàng”: App Kho vẫn sửa được lần nhập, số lượng vẫn chỉ lấy từ kho. Kho nhập xong thì thu mua bấm “Xác nhận nhận hàng” như thường."
+        nhanDongY="Bổ sung sau"
+        onDong={() => setHoiBoSungSau(null)}
+        onDongY={() => {
+          const hoi = hoiBoSungSau;
+          setHoiBoSungSau(null);
+          if (!hoi) return;
+          const loi = boSungSauPhieuGiao(hoi.poId, {
+            uid: nguoiDung.uid,
+            ten: nguoiDung.tenHienThi,
+            thoiDiem: new Date().toISOString().slice(0, 10),
+          });
+          if (loi !== null) {
+            toast.error("Chưa bổ sung sau được", { description: loi });
+            return;
+          }
+          toast.success("Đã bổ sung sau phiếu giao hàng", {
+            description: `${hoi.poCode} — phiếu giao hàng bổ sung sau, đơn tính là đã qua bước nhận hàng.`,
           });
         }}
       />

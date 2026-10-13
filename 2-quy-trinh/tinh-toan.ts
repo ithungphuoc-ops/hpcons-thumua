@@ -21,6 +21,8 @@ import type {
   TienDoDongPO,
   TrangThaiDongDeNghi,
 } from "@/3-du-lieu/kieu-du-lieu";
+/* Tệp lá, chỉ `import type` bên trong — không tạo vòng import (xem đầu `phieu-giao-thu-mua.ts`). */
+import { dungPhieuGiaoThuMua, phieuKhoCoChungTu, poDaBoSungSau } from "@/2-quy-trinh/phieu-giao-thu-mua";
 
 /** Chỉ phiếu đã nhập kho mới được tính. */
 export function phieuDuocTinh(p: PhieuNhanHang): boolean {
@@ -439,6 +441,20 @@ export function tinhTienDoDeNghi(
   tatCaPhieu: PhieuNhanHang[],
 ): TienDoDongDeNghi[] {
   const poCuaDeNghi = tatCaPO.filter((po) => po.prId === deNghi.id && po.trangThai !== "huy");
+  /**
+   * ★ ĐƠN "BỔ SUNG SAU" NÀY ĐÃ CÓ PHIẾU GIAO CHƯA — Sếp 12/10/2026 (demo Bản 5): Hoàn thành không bắt
+   * buộc kho nhập, nhưng phải có phiếu — phiếu Thu mua import (đủ luật ở `dungPhieuGiaoThuMua`) HOẶC
+   * ít nhất một lần giao kho đã nhập CỦA CHÍNH ĐƠN ĐÓ có chứng từ giao nhận.
+   *
+   * 🔴 XÉT THEO TỪNG ĐƠN, không xét chung hồ sơ (QA 12/10/2026): xét chung thì hồ sơ hai đơn — A kho
+   * nhập đủ có ảnh, B bổ sung sau chưa có tờ nào — đóng được nhờ phiếu của A, tức B không có một mẩu
+   * bằng chứng nào. Đổi nguồn bằng chứng, không bỏ bằng chứng.
+   */
+  const dungPhieuThuMua = dungPhieuGiaoThuMua(deNghi, poCuaDeNghi);
+  const poCoPhieuKho = new Set(
+    tatCaPhieu.filter((p) => phieuDuocTinh(p) && phieuKhoCoChungTu(p)).map((p) => p.poId),
+  );
+  const coPhieuGiaoChoBoSungSau = (po: DonDatHang) => dungPhieuThuMua || poCoPhieuKho.has(po.id);
 
   return deNghi.items.map((dong) => {
     let khoiLuongDaLenPO = 0;
@@ -512,6 +528,24 @@ export function tinhTienDoDeNghi(
         ({ po, giaoDuDong }) => po.trangThai === "hoan_thanh" && (giaoDuDong || coLyDoGiaoThieu(po)),
       ) &&
       poChuaDong.some(({ po }) => coLyDoGiaoThieu(po));
+    /**
+     * ★ CHẤP NHẬN "BỔ SUNG SAU" — Sếp 12/10/2026: *"Hoàn thành không bắt buộc kho nhập"*.
+     *
+     * 🔴 XÉT THEO TỪNG ĐƠN, cùng nếp `chapNhanGiaoThieu` ngay trên: mọi đơn chứa dòng hoặc đã giao
+     * đủ PHẦN CỦA NÓ, hoặc đã "Bổ sung sau"; và phải có ít nhất một đơn còn thiếu đã bổ sung sau
+     * (không thì phần thiếu chẳng thuộc nhánh này). Đơn còn thiếu mà CHƯA bổ sung sau thì vẫn chặn —
+     * hàng có thể đang về, chưa ai quyết định đi tiếp.
+     *
+     * 🔴 BẮT CÓ PHIẾU GIAO (`coPhieuGiaoChoBoSungSau`): đổi nguồn bằng chứng, không bỏ bằng chứng —
+     * cùng tinh thần nhánh phòng ban. Không phiếu nào thì bộ hồ sơ thanh toán thiếu mục 5.
+     */
+    const chapNhanBoSungSau =
+      khoiLuongConLai > 0 &&
+      poChuaDong.length > 0 &&
+      poChuaDong.every(
+        ({ po, giaoDuDong }) => giaoDuDong || (poDaBoSungSau(po) && coPhieuGiaoChoBoSungSau(po)),
+      ) &&
+      poChuaDong.some(({ po, giaoDuDong }) => !giaoDuDong && poDaBoSungSau(po));
     const phanTram = dong.khoiLuongDeNghi > 0 ? (khoiLuongDaNhan / dong.khoiLuongDeNghi) * 100 : 0;
 
     let trangThaiDong: TrangThaiDongDeNghi;
@@ -528,6 +562,7 @@ export function tinhTienDoDeNghi(
       khoiLuongDaNhan,
       khoiLuongConLai,
       chapNhanGiaoThieu,
+      chapNhanBoSungSau,
       phanTram,
       trangThaiDong,
       maPOLienQuan,

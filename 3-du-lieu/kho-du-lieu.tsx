@@ -142,6 +142,9 @@ import {
   /* Đơn có ở chỗ xác nhận nhận hàng được không (06/10/2026) — xem `xacNhanKho`. */
   vuongMacDonXacNhanNhanHang,
 } from "@/2-quy-trinh/tinh-toan";
+/* ★ 12/10/2026 — "Bổ sung sau" phiếu giao hàng (Sếp duyệt demo Bản 5). */
+import { vuongMacBoSungSau } from "@/2-quy-trinh/bo-sung-sau-phieu-giao";
+import { moOImportPhieuGiaoThuMua } from "@/2-quy-trinh/phieu-giao-thu-mua";
 import { tenTheoUid } from "@/3-du-lieu/danh-ba-nhan-su";
 /* 🔴 DÙNG DANH BẠ THẬT, KHÔNG DÙNG `nhanSuDangLamViec()` (danh bạ MẪU, tên giả định) —
    Ban lãnh đạo 26/08/2026. Xem chú thích ở `const danhBa` trong `DuLieuProvider`. */
@@ -1755,6 +1758,13 @@ interface GiaTriDuLieu {
   ghiNgayUpWorkflow: (poId: string, ngay: NgayISO | "") => string | null;
   /** @returns Câu lý do bị chặn, `null` là đã ghi xong. Xem chú thích ở `phanBoDong`. */
   xacNhanKho: (poId: string, nguoi: XacNhan) => string | null;
+  /**
+   * ★ 12/10/2026 — "Bổ sung sau" phiếu giao hàng của đơn: kho chưa nhập mà hồ sơ cần đi tiếp sang Hồ sơ
+   * thanh toán. KHÔNG phải xác nhận nhận hàng (không ghi `xacNhanKho`). @returns lý do bị chặn hoặc `null`.
+   */
+  boSungSauPhieuGiao: (poId: string, nguoi: XacNhan) => string | null;
+  /** ★ 12/10/2026 — tích/bỏ tích ô "Import phiếu giao hàng" (mục 5 Hồ sơ thanh toán). @returns lý do hoặc `null`. */
+  datImportPhieuGiaoThuMua: (prId: string, bat: boolean, nguoiThucHienTen: string) => string | null;
   /**
    * Thu mua xác nhận hoàn thành đơn — đơn khóa lại và hồ sơ sang Kế toán.
    *
@@ -9756,6 +9766,99 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     [ghiLichSuDeNghi, loiKhiHoSoDaDong],
   );
 
+  /**
+   * ★★ "BỔ SUNG SAU" PHIẾU GIAO HÀNG CỦA MỘT ĐƠN — Sếp 12/10/2026 (demo Bản 5): kho chưa nhập (hoặc
+   * chưa đủ) mà hồ sơ cần đi tiếp sang Hồ sơ thanh toán.
+   *
+   * 🔴 KHÔNG GHI `xacNhanKho` — cố ý, đây là trường riêng `boSungSauPhieuGiao`. Ghi `xacNhanKho` là
+   * App Kho khoá sửa lần nhập ngay và chuyển "Đã cấp" cho hàng chưa về (gói PO gửi Kho mang
+   * `xacNhanNhanHang` khi có `xacNhanKho`). Gói PO KHÔNG đổi vì trường mới (xem `xayDungPayloadPO`).
+   *
+   * 📌 Quyền = đúng quyền nút "Xác nhận nhận hàng" (`vuongMacQuyenXacNhanNhanHang`); điều kiện đơn
+   * dùng chung với nút (`vuongMacBoSungSau`). Hồ sơ đã đóng thì không bổ sung sau nữa.
+   */
+  const boSungSauPhieuGiao = useCallback(
+    (poId: string, nguoi: XacNhan): string | null => {
+      const po = donHangRef.current.find((p) => p.id === poId);
+      if (!po) return "Không tìm thấy đơn hàng — có thể đơn vừa bị xoá ở máy khác.";
+      const dnCuaPO = po.prId ? deNghiRef.current.find((d) => d.id === po.prId) : undefined;
+      const chanQuyen = vuongMacQuyenXacNhanNhanHang(dnCuaPO, nguoiDung);
+      if (chanQuyen) return chanQuyen;
+      if (dnCuaPO) {
+        const loi = loiKhiHoSoDaDong(dnCuaPO, "bấm “Bổ sung sau”");
+        if (loi) return loi;
+        /* ★ QA 12/10/2026: chỉ ở bước ⑥ "Tiến hành nhận hàng" — nút chỉ có ở khối đó, nhưng tầng ghi
+           không được tin giao diện (khoá nút không phải là chặn): bấm ở ⑤ là hồ sơ nhảy thẳng ⑤ → ⑦. */
+        const gd = xacDinhGiaiDoan(
+          dnCuaPO,
+          donHangRef.current,
+          baoGiaRef.current,
+          phieuNhanRef.current,
+          deNghiRef.current,
+        );
+        if (gd !== "nhan_hang") return "Chỉ bổ sung sau được khi hồ sơ đang ở bước “Tiến hành nhận hàng”.";
+      }
+      const chan = vuongMacBoSungSau(
+        po,
+        dnCuaPO,
+        phieuNhanRef.current.filter((p) => p.poId === poId),
+      );
+      if (chan) return chan;
+
+      setDonHang((truoc) => truoc.map((p) => (p.id === poId ? { ...p, boSungSauPhieuGiao: nguoi } : p)));
+      /* MỘT dòng nhật ký: `ghiNhatKyDonHang` đã tự ghi cả vào lịch sử đề nghị (đơn có `prId`) — y như
+         nút "Xác nhận nhận hàng". Ghi thêm `ghiLichSuDeNghi` là trùng (QA 12/10/2026). */
+      const poSau = donHangRef.current.find((p) => p.id === poId);
+      if (poSau) {
+        ghiNhatKyDonHang(
+          poSau,
+          nguoi.ten,
+          `Thu mua bấm “Bổ sung sau” phiếu giao hàng — ${poSau.code} (kho chưa nhập đủ; đơn tính là đã qua bước nhận hàng)`,
+        );
+      }
+      return null;
+    },
+    [ghiNhatKyDonHang, loiKhiHoSoDaDong, nguoiDung],
+  );
+
+  /**
+   * ★★ Ô "IMPORT PHIẾU GIAO HÀNG" — mục 5 Hồ sơ thanh toán, ô (2) Thu mua (Sếp 12/10/2026). Chỉ mở
+   * khi hồ sơ có đơn đã "Bổ sung sau" (`moOImportPhieuGiaoThuMua`). Tệp đính bằng ô chứng từ chung ở
+   * ngăn `BUOC_PHIEU_GIAO_THU_MUA`; ô tích quyết định bộ hồ sơ dùng phiếu Thu mua hay phiếu Kho.
+   */
+  const datImportPhieuGiaoThuMua = useCallback(
+    (prId: string, bat: boolean, nguoiThucHienTen: string): string | null => {
+      const dn = deNghiRef.current.find((d) => d.id === prId);
+      if (!dn) return "Không tìm thấy đề nghị.";
+      const loi = loiKhiHoSoDaDong(dn, "đổi ô tick “Import phiếu giao hàng”");
+      if (loi) return loi;
+      if (!duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung)) {
+        return "Chỉ nhân viên thu mua (hoặc người được chia việc trong hồ sơ) mới import phiếu giao hàng được.";
+      }
+      const poCuaDeNghi = donHangRef.current.filter((p) => p.prId === prId);
+      if (bat && !moOImportPhieuGiaoThuMua(poCuaDeNghi)) {
+        return "Chỉ import phiếu giao hàng được khi đã bấm “Bổ sung sau” ở bước Tiến hành nhận hàng.";
+      }
+      if (Boolean(dn.importPhieuGiaoThuMua) === bat) return null;
+      setDeNghi((truoc) =>
+        truoc.map((d) => {
+          if (d.id !== prId) return d;
+          const sau = { ...d };
+          if (bat) sau.importPhieuGiaoThuMua = true;
+          else delete sau.importPhieuGiaoThuMua;
+          return sau;
+        }),
+      );
+      ghiLichSuDeNghi(
+        prId,
+        nguoiThucHienTen,
+        bat ? "Tick “Import phiếu giao hàng” ở Hồ sơ thanh toán" : "Bỏ tick “Import phiếu giao hàng” ở Hồ sơ thanh toán",
+      );
+      return null;
+    },
+    [ghiLichSuDeNghi, loiKhiHoSoDaDong, nguoiDung],
+  );
+
   const ghiLyDoThieuChungTu = useCallback(
     (
       prId: string,
@@ -10473,6 +10576,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       suaDonHang,
       ghiNgayUpWorkflow,
       xacNhanKho,
+      boSungSauPhieuGiao,
+      datImportPhieuGiaoThuMua,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,
       doiTrangThaiBaoGiaTheoDeNghi,
@@ -10559,6 +10664,8 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       suaDonHang,
       ghiNgayUpWorkflow,
       xacNhanKho,
+      boSungSauPhieuGiao,
+      datImportPhieuGiaoThuMua,
       xacNhanTruongBP,
       taoBaoGiaGiaLap,
       doiTrangThaiBaoGiaTheoDeNghi,

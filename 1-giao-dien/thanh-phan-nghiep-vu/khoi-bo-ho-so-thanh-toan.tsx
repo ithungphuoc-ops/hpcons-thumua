@@ -109,6 +109,7 @@ export function KhoiBoHoSoThanhToan({
   baoGiaCuaDeNghi,
   oNopTheoMuc,
   bangHoaDon,
+  oPhieuGiaoThuMua,
 }: {
   deNghi: DeNghiMuaHang;
   poCuaDeNghi: DonDatHang[];
@@ -137,6 +138,16 @@ export function KhoiBoHoSoThanhToan({
    * những chỗ đó.
    */
   bangHoaDon?: ReactNode;
+  /**
+   * ★★ Ô (2) THU MUA CỦA MỤC ⑤ — Sếp 12/10/2026 (demo Bản 5): mục 5 chia hai ô (1) Kho / (2) Thu mua.
+   * Nơi gọi truyền sẵn ô tích "Import phiếu giao hàng" + ô đính tệp (cần quyền, trạng thái hồ sơ, hai
+   * cửa ghi — cùng lý do nhận sẵn như `oNopTheoMuc`).
+   *
+   * 📌 `undefined` = mục 5 trông y như trước (hồ sơ phòng ban, trang chỉ bày lại hồ sơ). Có giá trị thì
+   * mục 5 vẽ hai ô, và tệp Thu mua KHÔNG vẽ lại bằng `LienKetTep` (ô đính tệp đã tự bày — vẽ hai lần là
+   * người đối chiếu tưởng có hai bản).
+   */
+  oPhieuGiaoThuMua?: ReactNode;
   /**
    * ⚠️ VẪN NHẬN NHƯNG HIỆN KHÔNG ĐỌC TỚI — cố ý, không phải sót. Đọc trước khi "dọn cho gọn".
    *
@@ -456,7 +467,22 @@ export function KhoiBoHoSoThanhToan({
                   * ⚠️ Hỏi qua hàm thuần `kieuONop`, đừng viết `m.ma === "dinh_kem_khac"` tại chỗ.
                   */}
                 {kieu !== "khu_tu_do" &&
+                  /* ★ 12/10/2026: mục 5 có ô (2) Thu mua thì tệp Thu mua do ô đó tự bày — bỏ ở đây. */
+                  !(m.ma === "phieu_giao_hang" && oPhieuGiaoThuMua) &&
                   m.tep.map((t) => <LienKetTep key={t.id} tep={t} />)}
+
+                {/* ★★ MỤC 5 CHIA HAI Ô — Sếp 12/10/2026 (demo Bản 5). Ô (1) Kho = các lần giao kho gửi
+                    sang (nhóm ngay dưới); chưa có lần nào thì ghi "Chờ bổ sung". */}
+                {m.ma === "phieu_giao_hang" && oPhieuGiaoThuMua && (
+                  <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-text-primary">
+                    (1) Kho
+                    {(m.nhom ?? []).length === 0 && (
+                      <span className="rounded-md bg-warning-bg px-1.5 py-0.5 font-medium text-warning-soft">
+                        Chờ bổ sung — kho chưa nhập / chưa up phiếu
+                      </span>
+                    )}
+                  </span>
+                )}
 
                 {/**
                   * ★★ NHÓM BÊN TRONG MỤC — Ban lãnh đạo 26/08/2026: *"Tạo group lại nhé"*.
@@ -533,6 +559,27 @@ export function KhoiBoHoSoThanhToan({
                     )}
                   </div>
                 ))}
+
+                {/* ★★ Ô (2) THU MUA + NHÃN NGUỒN — Sếp 12/10/2026 (demo Bản 5). Phiếu Thu mua chỉ là
+                    chứng từ thanh toán, không đụng khối lượng. Nhãn nói rõ bộ hồ sơ đang lấy phiếu của
+                    ai (luật `dungPhieuGiaoThuMua`), có cả màu lẫn chữ (Design System V1.1). */}
+                {m.ma === "phieu_giao_hang" && oPhieuGiaoThuMua && (
+                  <>
+                    <span className="mt-1 text-xs font-semibold text-text-primary">(2) Thu mua</span>
+                    <div className="pl-3">{oPhieuGiaoThuMua}</div>
+                    <span
+                      className={`mt-1 w-fit rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+                        m.nguonPhieuGiao ? "bg-primary-bg text-primary" : "bg-warning-bg text-warning-soft"
+                      }`}
+                    >
+                      {m.nguonPhieuGiao === "thu_mua"
+                        ? "Bộ hồ sơ dùng: phiếu Thu mua import"
+                        : m.nguonPhieuGiao === "kho"
+                          ? "Bộ hồ sơ dùng: phiếu của Kho"
+                          : "Bộ hồ sơ chưa có phiếu giao hàng"}
+                    </span>
+                  </>
+                )}
 
                 {/**
                   * ❌ ĐÃ BỎ NHÁNH VẼ TỜ IN ĐƠN MUA HÀNG (`chungTuTrongApp`) — Sếp 15/09/2026,

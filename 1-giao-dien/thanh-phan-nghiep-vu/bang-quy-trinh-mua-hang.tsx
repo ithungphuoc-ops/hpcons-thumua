@@ -1301,6 +1301,24 @@ function TheDeNghi({
           <span>Lý do: {the.deNghi.lyDoThatBai}</span>
         </span>
       )}
+
+      {/**
+        * ★★ CẢNH BÁO KHO CỦA HỒ SƠ ĐÃ "BỔ SUNG SAU" — Sếp 12/10/2026 (demo Bản 5): *"nó hiện 1 cái ở
+        * dưới cùng ... là Kho chưa nhập kho để cảnh báo, khi kho nhập xong thì mất cảnh báo đó đi"*.
+        *
+        * 📌 ĐẶT CUỐI THẺ đúng chữ Sếp ("ở dưới cùng"). Chữ và điều kiện tính ở tầng quy trình
+        * (`the.canhBaoKho` ← `canhBaoKhoBoSungSau`); thẻ chỉ bày. Tắt khi thu mua bấm "Xác nhận nhận
+        * hàng" (Sếp chốt bấm tay — App Kho chỉ chuyển "Đã cấp" sau xác nhận).
+        *
+        * ⚠️ Viền nét đứt + nền cảnh báo, KHÔNG nhuộm lại viền/nền thẻ — thẻ đã có ba nguồn tô đỏ (xem
+        * chú thích đồng hồ bước ở trên). Có cả icon, màu lẫn chữ (Design System V1.1).
+        */}
+      {the.canhBaoKho && (
+        <span className="flex items-start gap-1 rounded-md border border-dashed border-warning bg-warning-bg px-1.5 py-1 text-xs font-semibold text-warning-soft">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>{the.canhBaoKho}</span>
+        </span>
+      )}
     </Link>
   );
 }

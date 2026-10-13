@@ -73,6 +73,13 @@
 import type { BaoGia, DeNghiMuaHang, DonDatHang, MoTaTep, PhieuNhanHang } from "@/3-du-lieu/kieu-du-lieu";
 import { tepBaoGiaDaCo, tepBaoGiaDaDuyet, tepSoSanh } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import {
+  dungPhieuGiaoThuMua,
+  moOImportPhieuGiaoThuMua,
+  phieuKhoCoChungTu,
+  poDaBoSungSau,
+  tepPhieuGiaoThuMua,
+} from "@/2-quy-trinh/phieu-giao-thu-mua";
+import {
   cauNhacConNoChungTu,
   CHUNG_TU_DON_MUA_HANG,
   CHUNG_TU_HOP_DONG,
@@ -284,6 +291,12 @@ export interface MucHoSoThanhToan {
    * nên thiếu một lần là thiếu cả mục. Xem chú thích đầy đủ ở `mucDaCo`.
    */
   moiNhomPhaiCo?: boolean;
+  /**
+   * ★ CHỈ MỤC ⑤ — bộ hồ sơ đang dùng phiếu giao của ai (Sếp 12/10/2026, demo Bản 5): `"thu_mua"` khi
+   * đơn đã "Bổ sung sau" + tích "Import phiếu giao hàng" + có tệp (tệp nằm ở `tep`); `"kho"` khi có
+   * phiếu kho; `null` khi chưa có phiếu nào. Mục khác để trống. Luật ở `dungPhieuGiaoThuMua`.
+   */
+  nguonPhieuGiao?: "thu_mua" | "kho" | null;
   /** Tệp của mục này — MẢNG RỖNG nghĩa là chưa có. */
   tep: MoTaTep[];
   /**
@@ -844,8 +857,34 @@ export function dungBoHoSoThanhToan(
    * Luật gốc `vuongMacXacNhanKho` kiểm TỪNG phiếu (Ban lãnh đạo 11/08/2026); hỏi bằng `some` là
    * hồ sơ có 1 lần giao đủ và 1 lần giao thiếu vẫn hiện ✓ xanh, không một câu cảnh báo nào.
    */
+  /**
+   * ★ ĐƠN "BỔ SUNG SAU" CHƯA CÓ PHIẾU — QA 12/10/2026: bộ hồ sơ chưa dùng phiếu Thu mua mà một đơn đã
+   * bổ sung sau CHƯA có lần giao kho nào có chứng từ ⇒ thêm một nhóm rỗng nói rõ đơn đó còn thiếu.
+   * Không thêm thì hồ sơ hai đơn (A có phiếu kho, B bổ sung sau chưa có gì) báo mục 5 ĐỦ nhờ phiếu của
+   * A — cùng câu trả lời với `chapNhanBoSungSau` (tinh-toan.ts), xét theo TỪNG ĐƠN.
+   */
+  const dungTepThuMua = dungPhieuGiaoThuMua(deNghi, poCuaDeNghi);
+  if (!dungTepThuMua) {
+    for (const po of poCuaDeNghi) {
+      if (!poDaBoSungSau(po) || po.xacNhanKho) continue;
+      if (phieuCuaDeNghi.some((p) => p.poId === po.id && phieuKhoCoChungTu(p))) continue;
+      nhomPhieuGiao.push({
+        ten: `${po.code} — đã “Bổ sung sau”, chưa có phiếu giao`,
+        tep: [],
+        ghiChu: "Kho chưa nhập — kho nhập sau sẽ tự hiện, hoặc tích “Import phiếu giao hàng” ở ô (2) rồi đính tệp.",
+      });
+    }
+  }
   const nhomConThieu = nhomPhieuGiao.filter((n) => n.tep.length === 0 && !n.bangChungNgoai);
   const coPhieuGiao = nhomPhieuGiao.length > 0 && nhomConThieu.length === 0;
+  /**
+   * ★★ PHIẾU GIAO THU MUA IMPORT — Sếp 12/10/2026 (demo Bản 5), mục 5 chia hai ô (1) Kho / (2) Thu
+   * mua. Đơn đã "Bổ sung sau" + tích "Import phiếu giao hàng" + có tệp → bộ hồ sơ dùng phiếu Thu mua;
+   * còn lại dùng phiếu kho (nhóm từng lần giao ở trên). Phiếu Thu mua CHỈ là chứng từ thanh toán —
+   * không đụng khối lượng, không đổi tiến độ. Luật ở `2-quy-trinh/phieu-giao-thu-mua.ts`.
+   */
+  const tepThuMua = tepPhieuGiaoThuMua(deNghi);
+  const coPhieuKhoNaoDo = nhomPhieuGiao.some((n) => n.tep.length > 0 || n.bangChungNgoai);
 
   /**
    * ★★★ ĐÃ TÁCH HAI CHỨNG TỪ — Sếp 16/09/2026: ***"Tách làm 2 mục riêng"***.
@@ -995,9 +1034,13 @@ export function dungBoHoSoThanhToan(
       ma: "phieu_giao_hang",
       ten: "Phiếu giao hàng",
       batBuoc: true,
-      /* `tep` RỖNG vì mục này dùng `nhom` (từ 15/09/2026) — xem chú thích ở khai báo `nhom`. */
-      tep: [],
+      /* `tep` RỖNG vì mục này dùng `nhom` (từ 15/09/2026) — xem chú thích ở khai báo `nhom`.
+         ★ 12/10/2026: TRỪ khi bộ hồ sơ dùng phiếu Thu mua import (Sếp: "đã bấm bổ sung sau và tích
+         import pgh thì lúc này sẽ lấy pgh từ thu mua") — khi đó `tep` là các tệp Thu mua đã import và
+         mục được tính là ĐÃ CÓ (`mucDaCo` đọc `tep` trước). Nhóm phiếu kho vẫn bày để đối chiếu. */
+      tep: dungTepThuMua ? tepThuMua : [],
       nhom: nhomPhieuGiao,
+      nguonPhieuGiao: dungTepThuMua ? "thu_mua" : coPhieuKhoNaoDo ? "kho" : null,
       /* Mỗi lần giao một tờ phiếu — thiếu một lần là thiếu cả mục. Xem `mucDaCo`. */
       moiNhomPhaiCo: true,
       /**
@@ -1006,14 +1049,20 @@ export function dungBoHoSoThanhToan(
        * và người đọc đi tìm nhầm chỗ. `vuongMacXacNhanKho` đã liệt kê *"lần N"* từ lâu; đây là
        * mượn đúng cách nói đó cho khớp hai nơi.
        */
-      ghiChu: thieu(
-        coPhieuGiao,
-        nhomPhieuGiao.length === 0
-          ? "Chưa có phiếu giao nhận nào — mỗi lần giao phải đính một phiếu."
-          : `Còn ${nhomConThieu.length}/${nhomPhieuGiao.length} lần giao chưa có phiếu giao nhận: ${nhomConThieu
-              .map((n) => n.ten)
-              .join(" · ")}.`,
-      ),
+      /* ★ 12/10/2026: đã dùng phiếu Thu mua thì mục đủ — không cảnh báo lần giao kho còn thiếu phiếu. */
+      ghiChu: dungTepThuMua
+        ? undefined
+        : thieu(
+            coPhieuGiao,
+            nhomPhieuGiao.length === 0
+              ? moOImportPhieuGiaoThuMua(poCuaDeNghi)
+                ? /* ★ 12/10/2026: đơn đã "Bổ sung sau" — chỉ đúng hai đường có phiếu. */
+                  "Chưa có phiếu giao hàng — kho nhập sau sẽ tự hiện ở ô (1), hoặc tích “Import phiếu giao hàng” ở ô (2) rồi đính tệp."
+                : "Chưa có phiếu giao nhận nào — mỗi lần giao phải đính một phiếu."
+              : `Còn ${nhomConThieu.length}/${nhomPhieuGiao.length} lần giao chưa có phiếu giao nhận: ${nhomConThieu
+                  .map((n) => n.ten)
+                  .join(" · ")}.`,
+          ),
     },
     /* 🔴 TÁCH HAI MỤC (Sếp 15/09/2026) — trước đây là MỘT mục `hoa_don_unc` chia hai `nhom`.
        Hóa đơn VAT là chứng từ thuế, ủy nhiệm chi là lệnh trả tiền: hai chứng từ khác bản chất,

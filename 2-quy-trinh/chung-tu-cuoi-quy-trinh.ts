@@ -1127,9 +1127,12 @@ export function hoSoDaChotXong(deNghi: DeNghiMuaHang): boolean {
  * 📌 Nhận mảng ĐÃ qua `locTienDoConPhaiMua` (trừ dòng đã nhân bản đi).
  */
 export function soDongChuaVeDuKhiDong(
-  conPhaiMua: readonly { khoiLuongConLai: number; chapNhanGiaoThieu?: boolean }[],
+  conPhaiMua: readonly { khoiLuongConLai: number; chapNhanGiaoThieu?: boolean; chapNhanBoSungSau?: boolean }[],
 ): number {
-  return conPhaiMua.filter((d) => d.khoiLuongConLai > 0 && !d.chapNhanGiaoThieu).length;
+  /* ★ 12/10/2026: dòng thuộc đơn đã "Bổ sung sau" phiếu giao và hồ sơ đã có phiếu giao cũng KHÔNG
+     tính (`chapNhanBoSungSau`, Sếp: "Hoàn thành không bắt buộc kho nhập"). */
+  return conPhaiMua.filter((d) => d.khoiLuongConLai > 0 && !d.chapNhanGiaoThieu && !d.chapNhanBoSungSau)
+    .length;
 }
 
 /**
@@ -1138,7 +1141,9 @@ export function soDongChuaVeDuKhiDong(
  * phiếu nhận hàng", trong khi nhà cung cấp giao thiếu thì không còn phiếu nào để ghi.
  */
 export function cauChuaVeDuKhiDong(soDong: number): string {
-  return `Còn ${soDong} mặt hàng chưa nhận đủ hàng. Ghi nốt phiếu nhận hàng — hoặc nếu nhà cung cấp giao thiếu: thu mua bấm “Xác nhận nhận hàng”, rồi Trưởng bộ phận duyệt hoàn thành đơn giao thiếu kèm lý do (bước “Tiến hành nhận hàng”).`;
+  /* ★ 12/10/2026: thêm đường "Bổ sung sau" — kho chưa nhập mà cần đóng hồ sơ thì thu mua bấm
+     "Bổ sung sau" ở đơn đó và mục 5 phải có phiếu giao (Thu mua import hoặc phiếu kho). */
+  return `Còn ${soDong} mặt hàng chưa nhận đủ hàng. Ghi nốt phiếu nhận hàng — hoặc nếu nhà cung cấp giao thiếu: thu mua bấm “Xác nhận nhận hàng”, rồi Trưởng bộ phận duyệt hoàn thành đơn giao thiếu kèm lý do (bước “Tiến hành nhận hàng”). Kho chưa nhập kịp: thu mua bấm “Bổ sung sau” ở đơn đó và đính phiếu giao ở mục 5 (Import phiếu giao hàng).`;
 }
 
 export function vuongMacHoanThanhQuyTrinh(
@@ -1148,7 +1153,13 @@ export function vuongMacHoanThanhQuyTrinh(
    * còn `kiem-luat-dung-chung.mjs` dựng mảng tay chỉ hai con số — đòi `stt` bắt buộc là mọi bài
    * kiểm cũ gãy cùng lúc. Dòng thiếu `stt` được GIỮ LẠI, không phải bỏ đi (xem `locTienDoConPhaiMua`).
    */
-  tienDo: { stt?: number; khoiLuongChuaLenPO: number; khoiLuongConLai: number; chapNhanGiaoThieu?: boolean }[],
+  tienDo: {
+    stt?: number;
+    khoiLuongChuaLenPO: number;
+    khoiLuongConLai: number;
+    chapNhanGiaoThieu?: boolean;
+    chapNhanBoSungSau?: boolean;
+  }[],
   /**
    * ★★ TOÀN BỘ đề nghị đang có — **THÊM 15/09/2026, THAM SỐ TÙY CHỌN, ĐỨNG CUỐI**.
    *

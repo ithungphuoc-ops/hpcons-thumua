@@ -36,7 +36,9 @@ import {
 } from "@/2-quy-trinh/cau-hinh-quy-trinh";
 // Luật đối chiếu khối lượng đã lên đơn — dùng lại, không tự cộng ở đây.
 // (`tinh-toan.ts` chỉ import kiểu dữ liệu nên không tạo vòng import.)
-import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+import { phieuDuocTinh, tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
+import { poDaQuaBuocNhanHang, veDuTruocMocLuatMoi } from "@/2-quy-trinh/phieu-giao-thu-mua";
+import { canhBaoKhoBoSungSau } from "@/2-quy-trinh/bo-sung-sau-phieu-giao";
 /**
  * ★★ LUẬT "DÒNG ĐÃ NHÂN BẢN ĐI THÌ PHIẾU GỐC KHÔNG CÒN PHẢI LÀM" — Sếp 15/09/2026.
  *
@@ -175,7 +177,8 @@ export const GIAI_DOAN_MUA_HANG: MoTaGiaiDoan[] = [
     // có ủy nhiệm chi mới xong được.
     // ★ 06/10/2026: "Đã xác nhận nhận hàng" chứ không "Đã nhận đủ hàng" — từ 17/09 đơn GIAO THIẾU cũng
     // vào được bước này (thu mua xác nhận), nói "nhận đủ" là sai với chính các hồ sơ đó.
-    moTa: "Đã xác nhận nhận hàng — chờ hóa đơn VAT (bắt buộc) và ủy nhiệm chi nếu đơn này cần",
+    /* ★ 12/10/2026: thêm "hoặc bổ sung sau phiếu giao" — từ nay vào ⑦ còn bằng nút "Bổ sung sau". */
+    moTa: "Đã xác nhận nhận hàng (hoặc bổ sung sau phiếu giao) — chờ hóa đơn VAT (bắt buộc) và ủy nhiệm chi nếu đơn này cần",
     tong: "warning",
   },
   {
@@ -361,9 +364,30 @@ export function xacDinhGiaiDoan(
       tatCaDeNghi,
       tinhTienDoDeNghi(deNghi, tatCaPO, tatCaPhieu),
     );
-    const daVeDu =
+    const hangDaVeDu =
       tienDoDong.length > 0 &&
       tienDoDong.every((d) => d.khoiLuongChuaLenPO <= 0 && d.khoiLuongConLai <= 0);
+    /**
+     * ★★★ HỒ SƠ CÔNG TRÌNH: HÀNG VỀ ĐỦ KHÔNG CÒN TỰ ĐƯA SANG ⑦ — Sếp 12/10/2026 (demo Bản 5): *"khi
+     * kho nhận hàng úp phiếu giao hàng đầy đủ thì bên app thu mua mới hiện cái nút xác nhận nhận
+     * hàng và khi bấm xác nhận nhận hàng xong thì mới chuyển bước tiếp theo"*.
+     *
+     * 🔴 ÁP THEO MỐC (`MOC_PHAI_XAC_NHAN_NHAN_HANG`, `2-quy-trinh/phieu-giao-thu-mua.ts`): hồ sơ có
+     * mọi lần giao đã tính khối lượng nằm TRƯỚC mốc thì vẫn đi cửa cũ — hồ sơ đang đứng ở ⑦ nhờ luật
+     * cũ không bị lùi về ⑥ hàng loạt (Sếp đã được báo "hồ sơ đang ở bước 7 giữ nguyên").
+     *
+     * 📌 HỒ SƠ PHÒNG BAN GIỮ NGUYÊN: không có kho công trình, phiếu do chính thu mua ghi và tầng ghi
+     * tự chốt `xacNhanKho` (`tuChotXacNhanKhoPhongBan`) — luật này không dành cho nhánh đó.
+     *
+     * ⚠️ Từ mốc, đường vào ⑦ của hồ sơ công trình là `daXacNhanNhanHang` ngay dưới: mọi đơn đã
+     * "Xác nhận nhận hàng" HOẶC đã "Bổ sung sau".
+     */
+    const daVeDu =
+      hangDaVeDu &&
+      (laHoSoPhongBan(deNghi) ||
+        veDuTruocMocLuatMoi(
+          tatCaPhieu.filter((p) => phieuDuocTinh(p) && poCuaDeNghi.some((po) => po.id === p.poId)),
+        ));
 
     /**
      * ★★ NHÁNH HỒ SƠ PHÒNG BAN — Sếp 14/09/2026, chốt lại 15/09/2026.
@@ -413,8 +437,9 @@ export function xacDinhGiaiDoan(
      * hàng về đủ, không còn dòng chưa lên đơn — nên hồ sơ giao thiếu đi tới được cột ⑦ để làm
      * chứng từ, nhưng vẫn KHÔNG tự đóng sang cột ⑧ Hoàn thành. Người có thẩm quyền phải quyết.
      */
-    const daXacNhanNhanHang =
-      poCuaDeNghi.length > 0 && poCuaDeNghi.every((po) => Boolean(po.xacNhanKho));
+    /* ★ 12/10/2026: đơn đã "Bổ sung sau" phiếu giao cũng tính là đã qua bước nhận hàng
+       (`poDaQuaBuocNhanHang`) — kho chưa nhập mà hồ sơ cần đi tiếp sang Hồ sơ thanh toán. */
+    const daXacNhanNhanHang = poCuaDeNghi.length > 0 && poCuaDeNghi.every(poDaQuaBuocNhanHang);
 
     if (daVeDu || phongBanDaGiao || daXacNhanNhanHang) {
       return "ho_so_thanh_toan";
@@ -995,6 +1020,14 @@ export interface TheDeNghiTrenBang {
    */
   hoSoDaDuChoXacNhan?: boolean;
   /**
+   * ★ CẢNH BÁO KHO CỦA HỒ SƠ ĐÃ "BỔ SUNG SAU" PHIẾU GIAO — Sếp 12/10/2026 (demo Bản 5): *"nó hiện 1
+   * cái ở dưới cùng ... là Kho chưa nhập kho để cảnh báo, khi kho nhập xong thì mất cảnh báo đó đi"*.
+   * Chữ: "Kho chưa nhập kho" / "Kho mới nhập X/Y …" / "Kho đã nhập — chờ xác nhận nhận hàng";
+   * `undefined` = không có đơn nào đang chờ. Tính ở `canhBaoKhoBoSungSau`
+   * (`2-quy-trinh/bo-sung-sau-phieu-giao.ts`).
+   */
+  canhBaoKho?: string;
+  /**
    * ★ CÂU CHẶN "CHƯA NHẬN ĐỦ HÀNG" CỦA NÚT HOÀN THÀNH QUY TRÌNH — 06/10/2026 (soát GĐ1).
    * `undefined` = không chặn. Từ 06/10 hồ sơ giao thiếu tới được cột ⑦ TRƯỚC khi Trưởng bộ phận
    * duyệt; không có trường này thì kéo ⑦ → ⑧ báo "đủ điều kiện" rồi nút lại chặn. Chỉ hồ sơ công
@@ -1223,9 +1256,11 @@ export function dungBangQuyTrinh(
        * 📌 Loại trừ hai giai đoạn cuối: `hoan_thanh` thì đã xong rồi, `that_bai` thì đóng dở —
        * khoe "đã đủ" ở đó là nói ngược với trạng thái của chính thẻ.
        */
+      /* ★ 12/10/2026 (QA bắt): CHỈ ở ⑦. Trước đây hàng về đủ là tự sang ⑦ nên điều kiện "khác ⑧/thất
+         bại" là đủ; từ luật "phải xác nhận nhận hàng" hồ sơ đủ chứng từ có thể còn ĐỨNG Ở ⑥ — khoe
+         xanh "chờ xác nhận" ở đó là chỉ người duyệt tới một nút Hoàn thành không có trên cột này. */
       hoSoDaDuChoXacNhan:
-        giaiDoan !== "hoan_thanh" &&
-        giaiDoan !== "that_bai" &&
+        giaiDoan === "ho_so_thanh_toan" &&
         dsConNoToanHoSo(
           deNghi,
           giaiDoan,
@@ -1251,6 +1286,16 @@ export function dungBangQuyTrinh(
       maPOLienQuan: tatCaPO
         .filter((po) => po.prId === deNghi.id && po.trangThai !== "huy")
         .map((po) => po.code),
+      /* ★ Cảnh báo kho cho hồ sơ đi tiếp nhờ "Bổ sung sau" (Sếp 12/10/2026) — luật ở
+         `canhBaoKhoBoSungSau`, tắt khi thu mua bấm "Xác nhận nhận hàng". */
+      /* Cột Thất bại chỉ ghi lý do (Ban lãnh đạo 24/08/2026) — không bày cảnh báo kho ở đó. */
+      canhBaoKho:
+        giaiDoan === "that_bai"
+          ? undefined
+          : (canhBaoKhoBoSungSau(
+              tatCaPO.filter((po) => po.prId === deNghi.id && po.trangThai !== "huy"),
+              tatCaPhieu,
+            )?.chu ?? undefined),
     };
   });
 
@@ -3896,13 +3941,27 @@ function hanhDongTienMotBuoc(
      * ghi nốt phiếu nhận. Trong khi kéo LÙI ⑥ → ⑤ thì lại nói đúng lý do. Một hồ sơ, hai
      * hướng, hai chất lượng câu trả lời.
      */
+    /**
+     * ★ 12/10/2026 (demo Bản 5): hồ sơ công trình không còn tự sang ⑦ khi hàng về đủ — thu mua bấm
+     * "Xác nhận nhận hàng" (kho đã nhập) hoặc "Bổ sung sau" (kho chưa nhập) ở khối "Tiến hành nhận
+     * hàng" của TRANG ĐỀ NGHỊ (nút "Bổ sung sau" chỉ có ở đó), nên dẫn thẳng về trang đề nghị.
+     * Hồ sơ phòng ban giữ câu cũ: ghi nhận giao hàng đủ khối lượng là tự chuyển bước.
+     */
     case "nhan_hang": {
-      const po = poCuaDeNghi.find((p) => p.trangThai === "da_chot") ?? poCuaDeNghi[0];
+      if (laHoSoPhongBan(the.deNghi)) {
+        const po = poCuaDeNghi.find((p) => p.trangThai === "da_chot") ?? poCuaDeNghi[0];
+        return {
+          loai: "mo_trang",
+          duongDan: po ? `/don-hang/${po.id}` : `/de-nghi/${the.deNghi.id}`,
+          thongBao:
+            "Hồ sơ chỉ sang “Hồ sơ thanh toán” khi hàng đã về đủ. Ghi tiếp phiếu nhận hàng ở khối “Tiến độ nhận hàng”, đủ khối lượng là thẻ tự chuyển bước.",
+        };
+      }
       return {
         loai: "mo_trang",
-        duongDan: po ? `/don-hang/${po.id}` : `/de-nghi/${the.deNghi.id}`,
+        duongDan: `/de-nghi/${the.deNghi.id}`,
         thongBao:
-          "Hồ sơ chỉ sang “Hồ sơ thanh toán” khi hàng đã về đủ. Ghi tiếp phiếu nhận hàng ở khối “Tiến độ nhận hàng”, đủ khối lượng là thẻ tự chuyển bước.",
+          "Hồ sơ sang “Hồ sơ thanh toán” khi thu mua bấm “Xác nhận nhận hàng” (kho đã nhập) hoặc “Bổ sung sau” (kho chưa nhập) cho từng đơn, ở khối “Tiến hành nhận hàng”.",
       };
     }
 
