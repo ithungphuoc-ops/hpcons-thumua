@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ChevronRight, Clock, Eye, UserCheck } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { EmptyState } from "@/1-giao-dien/thanh-phan-dung-chung/empty-state";
@@ -88,7 +88,8 @@ const NHAN_CACH_NHOM: Record<CachGomNhom, string> = {
  * Màn hình MỚI, bản thumua-next cũ không có.
  * 🔒 Không hiển thị: đơn giá, thành tiền, nhà cung cấp, tên nhân viên thu mua.
  */
-export default function TrangTheoDoi() {
+/** `boLocKho`: nút lọc Thường/EQUI do `VoLocKho` đưa vào — xem `thanh-phan-nghiep-vu/vo-loc-kho.tsx`. */
+export default function TrangTheoDoi({ boLocKho }: { boLocKho?: ReactNode }) {
   const { deNghi, donHang, baoGia, phieuNhan, cauHinh, thongBao } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
 
@@ -321,6 +322,9 @@ export default function TrangTheoDoi() {
         /* 📌 ĐÃ BỎ NÚT "Tạo đề nghị" — Sếp 26/09/2026: *"Bỏ nút tạo đề nghị ở chức năng theo dõi
            đi"*. Đây là màn TRA CỨU tiến trình. Nút từng được đưa về 18/09/2026 để người ngoài Thu
            mua còn đường lập đề nghị; nay họ lập thẳng ở app Đề nghị (request.hpcore.vn). */
+        /* ★ Nút lọc EQUI (Sếp duyệt demo 14/10/2026) — đặt ở khu hành động của tiêu đề để LUÔN hiện, kể cả khi
+           danh sách trống (nếu để trong thanh công cụ của danh sách thì xem EQUI mà trống là hết đường quay về). */
+        actions={boLocKho}
       />
 
       {danhSach.length === 0 ? (

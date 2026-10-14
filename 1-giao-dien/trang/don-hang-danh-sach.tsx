@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { ChevronRight, ShoppingCart } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
@@ -51,7 +51,8 @@ import { toast } from "sonner";
  */
 type CachNhom = "cong_trinh" | "nha_cung_cap";
 
-export default function TrangDanhSachDonHang() {
+/** `boLocKho`: nút lọc Thường/EQUI do `VoLocKho` đưa vào — xem `thanh-phan-nghiep-vu/vo-loc-kho.tsx`. */
+export default function TrangDanhSachDonHang({ boLocKho }: { boLocKho?: ReactNode }) {
   const { donHang, phieuNhan, giaDonHang, deNghi, ghiNgayUpWorkflow } = useDuLieu();
   const { quyen, nguoiDung } = useNguoiDung();
   const [nhomTheo, setNhomTheo] = useState<CachNhom>("cong_trinh");
@@ -181,6 +182,9 @@ export default function TrangDanhSachDonHang() {
             ? "Toàn bộ PO đã chốt — bao gồm giá (vai trò được xem giá)"
             : "Toàn bộ PO đã chốt — 🔒 vai trò của bạn không xem được giá"
         }
+        /* ★ Nút lọc EQUI (Sếp duyệt demo 14/10/2026) — đặt ở khu hành động của tiêu đề để LUÔN hiện, kể cả khi
+           danh sách trống (nếu để trong thanh công cụ của danh sách thì xem EQUI mà trống là hết đường quay về). */
+        actions={boLocKho}
       />
 
       {danhSach.length === 0 ? (
