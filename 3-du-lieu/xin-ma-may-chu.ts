@@ -14,6 +14,7 @@
 
 import { moFirebase } from "@/5-ket-noi/firebase-chung";
 import type { LoaiMa } from "@/2-quy-trinh/cap-ma-may-chu";
+import { KHO_MAC_DINH, type KhoId } from "@/3-du-lieu/kho-id";
 
 /**
  * ★ CÔNG TẮC — mặc định TẮT, y như đợt 2.
@@ -39,7 +40,12 @@ async function layVe(): Promise<string | null> {
  *
  * `thamSo`: năm (đơn hàng) hoặc mã dự án (đề nghị). Nhà cung cấp không cần, truyền chuỗi rỗng.
  */
-export async function xinMaMayChu(loai: LoaiMa, thamSo: string): Promise<string | null> {
+export async function xinMaMayChu(
+  loai: LoaiMa,
+  thamSo: string,
+  /** Kho nào — mỗi kho một dãy số riêng (kho EQUI không tranh số với kho thường). */
+  kho: KhoId = KHO_MAC_DINH,
+): Promise<string | null> {
   if (!CAP_MA_MAY_CHU) return null;
   try {
     const ve = await layVe();
@@ -47,7 +53,7 @@ export async function xinMaMayChu(loai: LoaiMa, thamSo: string): Promise<string 
     const res = await fetch("/api/cap-ma", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${ve}` },
-      body: JSON.stringify({ loai, thamSo }),
+      body: JSON.stringify({ loai, thamSo, kho }),
     });
     if (!res.ok) return null;
     const j = (await res.json()) as { ma?: unknown };

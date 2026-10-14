@@ -29,6 +29,7 @@ import {
    import chạy được (vd để lấy `NHAN_GIAI_DOAN`) — nhãn ô vì vậy viết cứng trong `O_XEM_BUOC`, có bài kiểm
    đối chiếu với `NHAN_GIAI_DOAN`. */
 import type { GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { TIEN_TO_EQUI, khoTheoDuongDan } from "@/3-du-lieu/kho-id";
 
 /** Vai trò toàn hệ thống (App Tổng §2.3). */
 export type VaiTroHeThong = "admin" | "director" | "staff";
@@ -601,6 +602,10 @@ export function poDuocXemTheoBuoc(
 
 /** Kiểm tra quyền vào một đường dẫn. */
 export function duocVaoDuongDan(duongDan: string, q: Quyen): boolean {
+  /* ★ KHO EQUI (Sếp duyệt demo 14/10/2026: "quyền giống hệt Quy trình mua hàng hiện tại").
+     `/equi/de-nghi/…` gác bằng ĐÚNG luật của `/de-nghi/…` — bỏ tiền tố rồi chạy tiếp các luật bên
+     dưới, không có luật riêng nào cho EQUI. */
+  if (khoTheoDuongDan(duongDan) === "equi") duongDan = duongDan.slice(TIEN_TO_EQUI.length) || "/";
   /* 🔴 CHẶN CẢ ĐƯỜNG DẪN, không chỉ ẩn mục menu. Đây là màn đổi quyền của người khác — ẩn menu
      mà để gõ thẳng `/phan-quyen` vào thanh địa chỉ là vào được thì coi như không chặn gì.
      ⚠️ `/phan-quyen` KHÔNG đụng `/phan-bo` ngay dưới (hai tiền tố khác nhau), nhưng nếu sau này

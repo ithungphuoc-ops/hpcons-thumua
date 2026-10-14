@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
 
 /**
  * ★ NÚT "QUAY LẠI" VỀ ĐÚNG TRANG VỪA XEM — Sếp 09/10/2026: *"kiểm tra lại chức năng back lại bước

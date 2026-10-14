@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import {
   datTuKhoaBangQuyTrinh,
   useBangQuyTrinhDangHien,

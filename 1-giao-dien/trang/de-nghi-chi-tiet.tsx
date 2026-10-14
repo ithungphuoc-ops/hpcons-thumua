@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { useQuayLai } from "@/1-giao-dien/khung-app/lich-su-dieu-huong";
 import { useParams } from "next/navigation";
 import BangAiDangSua from "@/1-giao-dien/thanh-phan-dung-chung/bang-ai-dang-sua";

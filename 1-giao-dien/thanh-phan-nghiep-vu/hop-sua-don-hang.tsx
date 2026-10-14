@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { Pencil } from "lucide-react";
 import { Button } from "@/1-giao-dien/nen-tang-ui/button";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";

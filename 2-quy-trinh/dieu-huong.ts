@@ -205,6 +205,26 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
   },
   {
     /**
+     * ★ QUY TRÌNH MUA HÀNG EQUI — Sếp duyệt demo 14/10/2026 (`tong-quan-demo/HPCons-ThuMua/
+     * quy-trinh-mua-hang-equi-v2-2026-10-14`).
+     *
+     * Cùng giao diện, cùng 9 bước, cùng luật với "Quy trình mua hàng" nhưng chạy trên KHO RIÊNG
+     * của EQUI (bắt đầu trống) — xem `3-du-lieu/kho-id.ts`.
+     *
+     * 🔴 QUYỀN GIỐNG HỆT mục "Quy trình mua hàng" (Sếp chọn ở câu 2): dùng CÙNG hàm
+     * `vaoDuocBangQuyTrinh`, và cổng đường dẫn (`duocVaoDuongDan`) bỏ tiền tố `/equi` rồi gác y như
+     * `/de-nghi`. KHÔNG thêm ô quyền riêng cho EQUI.
+     *
+     * 📌 Đặt ngay dưới mục gốc để người dùng thấy hai mục đi cặp.
+     */
+    nhan: "Quy trình mua hàng EQUI",
+    nhanNgan: "EQUI",
+    href: "/equi/de-nghi",
+    icon: FileText,
+    duocThay: vaoDuocBangQuyTrinh,
+  },
+  {
+    /**
      * ★ LẬP ĐƠN MUA HÀNG (PO) — Ban lãnh đạo 18/08/2026: *"e đưa mục này ra thành 1 mục riêng
      * bên tab trái, với tiêu đề là Lập đơn mua hàng (PO)"*.
      *

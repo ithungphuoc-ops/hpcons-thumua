@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { Suspense } from "react";
 import { AlertTriangle, Construction, FileWarning, Lock, X } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getThuMuaDb, verifyClientIdToken } from "@/5-ket-noi/hpcore-may-chu";
-import { DUONG_DAN } from "@/3-du-lieu/kho-chung-firestore";
+import { chuanHoaKhoId, duongDanKhoChung } from "@/3-du-lieu/kho-id";
 import { tuMap } from "@/2-quy-trinh/ghi-tung-phan";
 import {
   KHO_CAP_PHAT,
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   const nguoiGoi = await verifyClientIdToken(layIdToken(req));
   if (!nguoiGoi) return NextResponse.json({ loi: "CHUA_DANG_NHAP" }, { status: 401 });
 
-  let than: { loai?: unknown; thamSo?: unknown };
+  let than: { loai?: unknown; thamSo?: unknown; kho?: unknown };
   try {
     than = (await req.json()) as typeof than;
   } catch {
@@ -72,15 +72,22 @@ export async function POST(req: NextRequest) {
 
   try {
     const db = getThuMuaDb();
-    const tepKho = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
-    const tepSo = db.collection(KHO_CAP_PHAT).doc(khoaSoCapPhat(loai, thamSo));
+    /* ★ KHO EQUI (14/10/2026): mỗi kho đọc đúng tài liệu của mình VÀ có sổ giữ chỗ riêng — dùng
+       chung sổ là hai kho tranh nhau một dãy số trong khi mã chỉ cần duy nhất trong từng kho.
+       Thiếu/sai `kho` → kho thường, đúng hành vi cũ. */
+    const kho = chuanHoaKhoId(than.kho);
+    const duongDanKho = duongDanKhoChung(kho);
+    const tepKho = db.collection(duongDanKho.boSuuTap).doc(duongDanKho.tep);
+    const tepSo = db
+      .collection(kho === "equi" ? `${KHO_CAP_PHAT}-equi` : KHO_CAP_PHAT)
+      .doc(khoaSoCapPhat(loai, thamSo));
 
     const ma = await db.runTransaction(async (tx) => {
       /* 🔴 ĐỌC HẾT RỒI MỚI GHI. Firestore cấm đọc sau khi đã ghi trong cùng giao dịch. */
       const [anhKho, anhSo] = await Promise.all([tx.get(tepKho), tx.get(tepSo)]);
 
-      const kho = (anhKho.exists ? anhKho.data() : {}) as Partial<DuLieuLuu>;
-      const daDung = maTrongKho(kho, loai);
+      const duLieuKho = (anhKho.exists ? anhKho.data() : {}) as Partial<DuLieuLuu>;
+      const daDung = maTrongKho(duLieuKho, loai);
 
       const soCu = (anhSo.exists ? anhSo.data() : {}) as { giuCho?: unknown };
       const giuChoCu = Array.isArray(soCu.giuCho) ? (soCu.giuCho as MaGiuCho[]) : [];

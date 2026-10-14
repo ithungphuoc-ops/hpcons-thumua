@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/1-giao-dien/khung-app/che-do-mau";
 import { CurrentUserProvider } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { DuLieuProvider } from "@/3-du-lieu/kho-du-lieu";
+import { ChonKhoTheoDuongDan } from "@/1-giao-dien/khung-app/chon-kho-theo-duong-dan";
 import { MatDoProvider, MAT_DO_MAC_DINH } from "@/1-giao-dien/khung-app/mat-do";
 import { MauChuDaoProvider, MAU_MAC_DINH } from "@/1-giao-dien/khung-app/mau-chu-dao";
 import { TooltipProvider } from "@/1-giao-dien/nen-tang-ui/tooltip";
@@ -45,7 +45,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <MatDoProvider>
             <MauChuDaoProvider>
               <CurrentUserProvider>
-                <DuLieuProvider>
+                <ChonKhoTheoDuongDan>
                   <TooltipProvider>
                     {children}
                     {/**
@@ -71,7 +71,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                     {/* (26/09/2026) `offset` 72px: nằm dưới thanh trên cùng (60px), không bị che — Sếp: *"fit giữa màn hình"*. */}
                     <Toaster position="top-center" offset={72} />
                   </TooltipProvider>
-                </DuLieuProvider>
+                </ChonKhoTheoDuongDan>
               </CurrentUserProvider>
             </MauChuDaoProvider>
           </MatDoProvider>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { Printer, X } from "lucide-react";
 import { ToDonMuaHangA4 } from "@/1-giao-dien/thanh-phan-nghiep-vu/to-don-mua-hang-a4";
 import { ThongBaoTrangIn } from "@/1-giao-dien/thanh-phan-dung-chung/thong-bao-trang-in";

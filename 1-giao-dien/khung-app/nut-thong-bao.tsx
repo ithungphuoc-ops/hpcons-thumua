@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { Bell } from "lucide-react";
 import {
   DropdownMenu,

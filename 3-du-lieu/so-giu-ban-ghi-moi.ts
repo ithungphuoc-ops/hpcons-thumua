@@ -30,9 +30,12 @@ import {
   ghiSoRaChuoi,
   type VetBanGhiMoi,
 } from "@/2-quy-trinh/giu-ban-ghi-moi";
+import { KHO_MAC_DINH, hauToKhoaMay, type KhoId } from "@/3-du-lieu/kho-id";
 
 /** Ngăn chứa riêng — xem chú thích đầu tệp. */
 const KHOA = "hpcons-thumua-so-giu-ban-ghi-moi-v1";
+/** Mỗi kho một cuốn sổ riêng; kho thường giữ nguyên khoá cũ. */
+const khoaKho = (kho: KhoId) => KHOA + hauToKhoaMay(kho);
 
 /**
  * Đọc sổ đã cất, đã lọc bỏ mục quá hạn (24 giờ, xem `HAN_GIU_BAN_GHI_MS`).
@@ -40,10 +43,10 @@ const KHOA = "hpcons-thumua-so-giu-ban-ghi-moi-v1";
  * Trả về Map RỖNG khi: chạy phía máy chủ, chưa cất gì, dữ liệu hỏng, hoặc localStorage ném lỗi.
  * Map rỗng = quay về đúng hành vi trước bản vá, mất một lớp bảo vệ nhưng không mất gì thêm.
  */
-export function docSoGiuBanGhiMoi(): Map<string, VetBanGhiMoi> {
+export function docSoGiuBanGhiMoi(kho: KhoId = KHO_MAC_DINH): Map<string, VetBanGhiMoi> {
   if (typeof window === "undefined") return new Map();
   try {
-    return docSoDaLuuTuChuoi(window.localStorage.getItem(KHOA), Date.now());
+    return docSoDaLuuTuChuoi(window.localStorage.getItem(khoaKho(kho)), Date.now());
   } catch {
     return new Map();
   }
@@ -59,14 +62,17 @@ export function docSoGiuBanGhiMoi(): Map<string, VetBanGhiMoi> {
  * 📌 Sổ rỗng thì **xoá hẳn khoá** thay vì cất `"{}"` — để một máy đã đồng bộ xong không để lại
  * rác trong localStorage của người dùng.
  */
-export function ghiSoGiuBanGhiMoi(so: ReadonlyMap<string, VetBanGhiMoi>): void {
+export function ghiSoGiuBanGhiMoi(
+  so: ReadonlyMap<string, VetBanGhiMoi>,
+  kho: KhoId = KHO_MAC_DINH,
+): void {
   if (typeof window === "undefined") return;
   try {
     if (so.size === 0) {
-      window.localStorage.removeItem(KHOA);
+      window.localStorage.removeItem(khoaKho(kho));
       return;
     }
-    window.localStorage.setItem(KHOA, ghiSoRaChuoi(so));
+    window.localStorage.setItem(khoaKho(kho), ghiSoRaChuoi(so));
   } catch (e) {
     // Nuốt có chủ đích, nhưng NÓI RA. Mất sổ chỉ làm mất lớp giữ bản ghi mới, không làm hỏng
     // dữ liệu đang có — nhưng im lặng thì lần sau không ai lần ra được vì sao nó không giữ.
