@@ -12,7 +12,7 @@ import { bangDuongDanDeNghi } from "@/2-quy-trinh/duong-dan-de-nghi";
 
 /** Khoá trong `history.state` đánh dấu mục lịch sử do pop-up xem nhanh thêm vào. */
 const KHOA_POPUP_LICH_SU = "deNghiPopupId";
-import { useKhoHienTai, useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
+import { useDuongDanKho, useKhoHienTai, useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { FileText, LayoutGrid, List, X, UserRound } from "lucide-react";
 /* 📌 KHÔNG còn import `DropdownMenu*` và `MoreHorizontal` ở đây (13/09/2026): menu ⋯ của pop-up
    nay dùng chung `MenuThaoTacThe` với thẻ Kanban, component đó tự lo cả khung lẫn icon. */
@@ -203,7 +203,11 @@ export default function TrangDanhSachDeNghi() {
   const [xemPopupId, setXemPopupId] = useState<string | null>(null);
   /** Link theo mã đề xuất của mọi phiếu — tính một lượt cho cả bảng (Sếp 02/10/2026). */
   const duongDanTheoId = useMemo(() => bangDuongDanDeNghi(deNghi), [deNghi]);
-  const linkCua = (dn: { id: string }) => duongDanTheoId.get(dn.id) ?? `/de-nghi/${dn.id}`;
+  /* ★ KHO EQUI (CodeRabbit PR #44): `linkCua` đi thẳng vào `history.pushState` và vào prop `duongDan` của pop-up —
+     hai nơi KHÔNG đi qua `Link`/`router` nên không tự có tiền tố. Thiếu tiền tố thì mở thẻ EQUI là thanh địa
+     chỉ đổi sang `/de-nghi/…` (kho thường): tải lại hay gửi link là mở sai kho, không thấy phiếu. */
+  const theoKho = useDuongDanKho();
+  const linkCua = (dn: { id: string }) => theoKho(duongDanTheoId.get(dn.id) ?? `/de-nghi/${dn.id}`);
   /* Ô tìm ở thanh trên cần biết bảng còn hiện khi pop-up đổi địa chỉ — nếu không là mất bộ lọc. */
   useDanhDauBangQuyTrinhDangHien();
 
