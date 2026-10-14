@@ -98,6 +98,18 @@ Thêm một thư mục kỹ thuật **không đổi tên được**:
 | **Ai thấy đề nghị nào** (chỉ người theo dõi / được giao — Sếp 09/10/2026) | `4-phan-quyen/quyen-theo-ho-so.ts` → `duocXemDeNghiTheoNguoi` — nối ở hook `xem-buoc-ho-so.ts`, bảng `de-nghi-danh-sach.tsx`, chặn ở `de-nghi-chi-tiet.tsx`, `viec-cua-toi.tsx`; Theo dõi đề nghị dùng `duocXemTienTrinhDeNghi` |
 | **Bảng quy trình không sổ hết chiều cao** màn hình (còn trống phía dưới) | Chuỗi `flex-1` phải liền mạch: `khung-app/khung-tong.tsx` → `trang/de-nghi-danh-sach.tsx` → `bang-quy-trinh-mua-hang.tsx`. Đứt một mắt là bảng co lại |
 
+### Kho EQUI (Sếp duyệt demo 14/10/2026)
+
+| Hiện tượng | Sửa file |
+|---|---|
+| **Kho EQUI lẫn dữ liệu với kho thường**, hoặc mở `/equi/...` thấy dữ liệu kho thường | `3-du-lieu/kho-id.ts` (đường dẫn Firestore + khoá `localStorage` theo kho — MỘT chỗ duy nhất) · `1-giao-dien/khung-app/chon-kho-theo-duong-dan.tsx` (`key={kho}` bắt buộc) · `DuLieuProvider kho={…}` trong `3-du-lieu/kho-du-lieu.tsx`. 🔴 Kho thường phải giữ NGUYÊN đường dẫn/khoá cũ — bài kiểm `npm run kiem-kho-equi` canh điều đó |
+| **Link trong trang EQUI nhảy sang kho thường** (`/de-nghi/…` thay vì `/equi/de-nghi/…`) | Luật chọn địa chỉ nào có tiền tố: `3-du-lieu/kho-id.ts` → `themTienToKho`. Nơi tiêu thụ: `1-giao-dien/khung-app/lien-ket-kho.tsx` (`Link`, `useRouter`, `useDuongDanKho`). 🔴 Màn nghiệp vụ của kho phải import `Link`/`useRouter` từ đó chứ không từ `next/link`/`next/navigation`; chỗ ghi thẳng `history.pushState`/`window.open` phải bọc `useDuongDanKho`. Menu (`thanh-ben-noi-dung`, `thanh-duoi-mobile`) cố ý dùng `next/link` gốc |
+| **Menu "Quy trình mua hàng EQUI"** sai nhãn / hiện sai người | `2-quy-trinh/dieu-huong.ts` (mục `href: "/equi/de-nghi"`, `chiSidebar: true`). Quyền = `vaoDuocBangQuyTrinh`, cổng đường dẫn `4-phan-quyen/quyen.ts` → `duocVaoDuongDan` bỏ tiền tố `/equi` rồi gác như địa chỉ gốc — KHÔNG có luật quyền riêng cho EQUI (Sếp chọn câu 2) |
+| **Đề xuất nhóm EQUI không vào kho EQUI** (hoặc đề xuất thường lọt vào EQUI) | Luật nhận diện nhóm: `2-quy-trinh/nhom-equi.ts` (nhận theo TÊN: số đầu ∈ `EQUI_SO_DAU_NHOM` mặc định `0,1.0,7.0` **và** tên kết thúc `(EQUI)`). Rẽ kho: `app/api/app-request/de-nghi-moi/route.ts` (khối "RẼ KHO EQUI", tên nhóm lấy từ `payload.nhomDeXuat`). 🔴 **Công tắc `EQUI_RE_KHO=1`** (biến MÁY CHỦ, đọc lúc chạy, không cần build) — TẮT thì mọi đề xuất vào kho thường như cũ. 🔴 App Đề xuất phải gửi `nhomDeXuat` (= `groupNameSnapshot`) trong payload — chưa gửi thì mọi đề xuất vào kho thường. Đề xuất đã có ở kho thường thì ở lại kho thường (không đẻ bản trùng) |
+| **Sự kiện sau duyệt (điều chỉnh / thêm tệp / xoá / khôi phục) không tìm thấy đề nghị EQUI** | `app/api/app-request/cap-nhat-de-nghi/route.ts`, `de-nghi-da-xoa/route.ts` — tìm kho thường trước, kho EQUI sau (chỉ khi `EQUI_RE_KHO=1`). ⚠️ Chuông App Tổng (`guiTinTheoMa`) chỉ tra kho thường nên tin của đề nghị EQUI chưa đẩy ra App Tổng (chuông trong app vẫn có) |
+| **Mã đơn hàng / mã NCC của EQUI trùng hoặc lẫn kho thường** | `app/api/cap-ma/route.ts` (nhận `kho`, sổ giữ chỗ riêng `cap-phat-ma-equi`) · `3-du-lieu/xin-ma-may-chu.ts`. ⚠️ Hai kho có dãy số riêng nên có thể trùng chữ số (cùng `DMH260001`) |
+| Bài kiểm kho EQUI | `npm run kiem-kho-equi` (hàm thuần: kho, tiền tố, quyền, nhận diện nhóm) · `npm run kiem-re-kho-equi` (chạy THẬT 3 route với Firestore giả — chứng minh logic rẽ kho, KHÔNG thay được Firestore thật) |
+
 ### Nghiệp vụ và số liệu
 
 | Hiện tượng | Sửa file |

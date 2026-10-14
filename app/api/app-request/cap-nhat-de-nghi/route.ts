@@ -1,7 +1,9 @@
 import { after, NextRequest, NextResponse } from "next/server";
-import { FieldPath, FieldValue } from "firebase-admin/firestore";
+import { FieldPath, FieldValue, type DocumentReference } from "firebase-admin/firestore";
 import { getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
+import { duongDanKhoChung, type KhoId } from "@/3-du-lieu/kho-id";
+import { reKhoDangBat } from "@/2-quy-trinh/nhom-equi";
 import { tuMap, ghiTheoDangHienCo } from "@/2-quy-trinh/ghi-tung-phan";
 import { giuThongBaoGanNhat } from "@/2-quy-trinh/giu-thong-bao";
 import {
@@ -120,10 +122,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const db = getThuMuaDb();
-    const docRef = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
+    const docRefKho = (kho: KhoId): DocumentReference => {
+      const duong = kho === "thuong" ? DUONG_DAN : duongDanKhoChung(kho);
+      return db.collection(duong.boSuuTap).doc(duong.tep);
+    };
     const thoiDiem = new Date().toISOString();
 
-    const ketQua = await db.runTransaction(async (tx) => {
+    const chayTrenKho = (docRef: DocumentReference) => db.runTransaction(async (tx) => {
       const snap = await tx.get(docRef);
       if (!snap.exists) return { timThay: false, daXuLyTruoc: false, daDoi: [] as string[], trangThai: "khong_co_de_nghi" };
       const data = (snap.data() ?? {}) as Partial<DuLieuLuu>;
@@ -233,6 +238,14 @@ export async function POST(req: NextRequest) {
         tinIds: tinMoi.map((t) => t.id),
       };
     });
+
+    /* ★ KHO EQUI (Sếp duyệt demo 14/10/2026): đề nghị có thể nằm ở kho thường HOẶC kho EQUI, mà sự kiện
+       App Request không nói kho nào — nên tìm lần lượt. Kho thường LUÔN thử trước (hành vi cũ); kho EQUI
+       chỉ thử khi công tắc `EQUI_RE_KHO=1` đang bật VÀ kho thường không có mã đề xuất này.
+       ⚠️ Chuông App Tổng (`guiTinTheoMa`) hiện chỉ tra kho thường — tin của đề nghị EQUI chưa đẩy ra
+       App Tổng; chuông trong app vẫn có. Giới hạn đã biết của Pha 2. */
+    let ketQua = await chayTrenKho(docRefKho("thuong"));
+    if (!ketQua.timThay && reKhoDangBat(process.env.EQUI_RE_KHO)) ketQua = await chayTrenKho(docRefKho("equi"));
 
     /* ★ Báo chuông App Tổng (Sếp duyệt demo 08/10/2026) — chỉ tin VỪA ghi ở lượt này (gọi lại lần hai
        không có tin mới nên không gửi). Chạy sau khi trả lời, hỏng chỉ ghi log. */

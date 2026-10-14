@@ -20,7 +20,7 @@ import "server-only";
 import type { DocumentSnapshot } from "firebase-admin/firestore";
 import { getHpcoreDb, getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { BO_SUU_TAP_NGUOI_DUNG } from "@/5-ket-noi/ho-so-tai-khoan";
-import { DUONG_DAN } from "@/3-du-lieu/kho-chung-firestore";
+import { KHO_MAC_DINH, duongDanKhoChung, themTienToKho, type KhoId } from "@/3-du-lieu/kho-id";
 import { tuMap } from "@/2-quy-trinh/ghi-tung-phan";
 import { boTraGiaiDoanTheoId } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { laDongHang, tinhTienDoPO } from "@/2-quy-trinh/tinh-toan";
@@ -220,9 +220,10 @@ export async function laNguoiDungThuMua(uid: string, pq: CongQuyenMayChu): Promi
 // ĐỌC TÀI LIỆU CHUNG — CHỈ ĐỌC, hai pha
 // ------------------------------------------------------------
 
-function refKho() {
+function refKho(kho: KhoId = KHO_MAC_DINH) {
   const db = getThuMuaDb();
-  return { db, ref: db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep) };
+  const duong = duongDanKhoChung(kho);
+  return { db, ref: db.collection(duong.boSuuTap).doc(duong.tep) };
 }
 
 interface KhoNghiepVu {
@@ -233,8 +234,8 @@ interface KhoNghiepVu {
 }
 
 /** Pha 2 — các khối nghiệp vụ cần để chọn người nhận (KHÔNG đọc `thongBao`, KHÔNG đọc `giaDonHang`). */
-async function docKhoNghiepVu(): Promise<KhoNghiepVu> {
-  const { db, ref } = refKho();
+async function docKhoNghiepVu(kho: KhoId = KHO_MAC_DINH): Promise<KhoNghiepVu> {
+  const { db, ref } = refKho(kho);
   const [anh] = await db.getAll(ref, { fieldMask: ["deNghi", "donHang", "baoGia", "phieuNhan"] });
   const d = (anh?.exists ? anh.data() : {}) as Record<string, unknown>;
   return {
@@ -394,10 +395,15 @@ export async function guiKhoDaNhan(phieuId: string, pq: CongQuyenMayChu): Promis
  * Mã sự kiện trùng với đường tin `tb-req-*` của trình duyệt (`thu_mua:de-nghi-moi:{prId}`) → hai đường
  * cùng chạy thì App Tổng chỉ nhận một lần. Không bao giờ ném lỗi.
  */
-export async function guiDeNghiMoi(prId: string, pq: CongQuyenMayChu): Promise<void> {
+export async function guiDeNghiMoi(
+  prId: string,
+  pq: CongQuyenMayChu,
+  /** Kho của hồ sơ vừa tạo (EQUI — Sếp duyệt 14/10/2026). Mặc định kho thường, nơi gọi cũ không đổi. */
+  khoId: KhoId = KHO_MAC_DINH,
+): Promise<void> {
   if (!daBatThongBaoAppTong() || !prId) return;
   try {
-    const kho = await docKhoNghiepVu();
+    const kho = await docKhoNghiepVu(khoId);
     const dn = kho.deNghi.find((d) => d.id === prId);
     if (!dn) return;
     const tin: ThongBaoChuyenBuoc = {
@@ -419,8 +425,22 @@ export async function guiDeNghiMoi(prId: string, pq: CongQuyenMayChu): Promise<v
       duocXem: luatDuocXem("de_nghi_moi", { denBuoc: "tiep_nhan", giaiDoanHoSo: giaiDoanCua(dn.id) }),
       ghiLog: (s) => console.warn(NHAT_KY, prId, s),
     });
-    await guiSuKien(maSuKien(tin, "de_nghi_moi"), recipients, noiDungChoTin(tin, "de_nghi_moi"), null);
+    /* ★ Link phải trỏ ĐÚNG kho: hồ sơ EQUI mở ở `/equi/de-nghi/…`, link thường sẽ không thấy hồ sơ. */
+    const nd = noiDungChoTin(tin, "de_nghi_moi");
+    const ndTheoKho = khoId === "equi" ? { ...nd, link: noiDungLinkTheoKho(nd.link, khoId) } : nd;
+    await guiSuKien(maSuKien(tin, "de_nghi_moi"), recipients, ndTheoKho, null);
   } catch (e) {
     console.warn(NHAT_KY, "không gửi được (đề nghị mới):", e instanceof Error ? e.message : e);
+  }
+}
+
+/** Thêm tiền tố kho vào phần ĐƯỜNG DẪN của một link tuyệt đối (`https://thumua.hpcore.vn/de-nghi/x`). */
+function noiDungLinkTheoKho(link: string, kho: KhoId): string {
+  try {
+    const u = new URL(link);
+    u.pathname = themTienToKho(u.pathname, kho);
+    return u.toString();
+  } catch {
+    return link;
   }
 }

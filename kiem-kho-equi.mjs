@@ -23,8 +23,9 @@ const dung = (nguon, ten) => {
   return createRequire(import.meta.url)(ra);
 };
 
-let K, Q;
+let K, Q, N;
 try {
+  N = dung("2-quy-trinh/nhom-equi.ts", "nhom-equi.cjs");
   K = dung("3-du-lieu/kho-id.ts", "kho-id.cjs");
   Q = dung("4-phan-quyen/quyen.ts", "quyen.cjs");
 } catch (e) {
@@ -95,6 +96,27 @@ for (const co of [true, false]) {
 /* một người có đúng quyền xem quy trình nhưng KHÔNG có quyền lập PO */
 const chiXem = new Proxy({}, { get: (_t, k) => k !== "lapPO" });
 kiem("quyền: thiếu lapPO → /equi/don-hang/tao-moi bị chặn như /don-hang/tao-moi", Q.duocVaoDuongDan("/equi/don-hang/tao-moi", chiXem) === false && Q.duocVaoDuongDan("/don-hang/tao-moi", chiXem) === false);
+
+/* ⑦ NHẬN DIỆN NHÓM EQUI (Pha 2, 14/10/2026) — theo TÊN, cần CẢ số đầu lẫn đuôi "(EQUI)" */
+const nhomDung = ["0. Đề xuất trực tiếp (EQUI)", "1.0. Phiếu đề nghị (EQUI)", "7.0. Xét duyệt báo giá NTP (EQUI)", "  1.0.  Phiếu đề nghị  ( equi )  ", "1.0. Phiếu đề nghị (equi)"];
+for (const t of nhomDung) kiem(`nhóm EQUI nhận: ${JSON.stringify(t)}`, N.laNhomEqui(t) === true);
+const nhomSai = [
+  "1.0. Phiếu đề nghị", "0. Đề xuất trực tiếp", "7.0. Xét duyệt báo giá NTP",   /* cùng số đầu nhưng KHÔNG phải EQUI */
+  "2.0. Bảng kê thanh toán (EQUI)", "3.0. Tạm ứng chi phí (EQUI)", "9.0. Tạm ứng lương (EQUI)", "6.0. Bảng kê thu tiền (EQUI)", /* EQUI nhưng không liên quan mua hàng */
+  "10. Gì đó (EQUI)", "1. Gì đó (EQUI)", "01.0. Gì đó (EQUI)", "Phiếu đề nghị (EQUI)", "(EQUI)", "", "1.0. Phiếu (EQUI) thêm", "1.0 Phiếu đề nghị EQUI",
+  undefined, null, 5, {}, [],
+];
+for (const t of nhomSai) kiem(`nhóm KHÔNG nhận: ${JSON.stringify(t)}`, N.laNhomEqui(t) === false);
+kiem("số đầu mặc định đúng 3 nhóm", eq(N.SO_DAU_NHOM_EQUI_MAC_DINH, ["0", "1.0", "7.0"]));
+kiem("soDauCuaTenNhom", N.soDauCuaTenNhom("1.0. Phiếu") === "1.0" && N.soDauCuaTenNhom("0. Đề") === "0" && N.soDauCuaTenNhom("Phiếu") === null && N.soDauCuaTenNhom("12.3.4. x") === "12.3.4");
+kiem("cấu hình rỗng/lạ → mặc định", eq(N.docSoDauCauHinh(undefined), ["0", "1.0", "7.0"]) && eq(N.docSoDauCauHinh(""), ["0", "1.0", "7.0"]) && eq(N.docSoDauCauHinh("abc, ,x"), ["0", "1.0", "7.0"]));
+kiem("cấu hình tuỳ chỉnh", eq(N.docSoDauCauHinh(" 2.0 , 3.0,abc "), ["2.0", "3.0"]));
+kiem("đổi cấu hình → nhận nhóm mới, bỏ nhóm cũ", N.laNhomEqui("2.0. Bảng kê thanh toán (EQUI)", ["2.0"]) === true && N.laNhomEqui("1.0. Phiếu đề nghị (EQUI)", ["2.0"]) === false);
+kiem("công tắc TẮT → luôn kho thường dù đúng nhóm EQUI", N.khoChoDeXuat(false, "1.0. Phiếu đề nghị (EQUI)") === "thuong");
+kiem("công tắc BẬT + nhóm EQUI → equi", N.khoChoDeXuat(true, "1.0. Phiếu đề nghị (EQUI)") === "equi");
+kiem("công tắc BẬT + nhóm thường → thuong", N.khoChoDeXuat(true, "1.0. Phiếu đề nghị") === "thuong");
+kiem("công tắc BẬT + thiếu tên nhóm → thuong (không đoán)", N.khoChoDeXuat(true, undefined) === "thuong" && N.khoChoDeXuat(true, "") === "thuong");
+for (const [v, kq] of [["1", true], [" 1 ", true], ["0", false], ["", false], [undefined, false], ["true", false], ["on", false]]) kiem(`reKhoDangBat(${JSON.stringify(v)}) = ${kq}`, N.reKhoDangBat(v) === kq);
 
 rmSync(thuMuc, { recursive: true, force: true });
 if (hong.length) {

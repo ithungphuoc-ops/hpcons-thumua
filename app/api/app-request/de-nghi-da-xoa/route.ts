@@ -1,7 +1,9 @@
 import { after, NextRequest, NextResponse } from "next/server";
-import { FieldPath, FieldValue } from "firebase-admin/firestore";
+import { FieldPath, FieldValue, type DocumentReference } from "firebase-admin/firestore";
 import { getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
+import { duongDanKhoChung, type KhoId } from "@/3-du-lieu/kho-id";
+import { reKhoDangBat } from "@/2-quy-trinh/nhom-equi";
 import { tuMap, ghiTheoDangHienCo } from "@/2-quy-trinh/ghi-tung-phan";
 import { giuThongBaoGanNhat } from "@/2-quy-trinh/giu-thong-bao";
 import {
@@ -76,12 +78,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<TraLoi>> {
 
   try {
     const db = getThuMuaDb();
-    const docRef = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
+    const docRefKho = (kho: KhoId): DocumentReference => {
+      const duong = kho === "thuong" ? DUONG_DAN : duongDanKhoChung(kho);
+      return db.collection(duong.boSuuTap).doc(duong.tep);
+    };
     const thoiDiem = new Date().toISOString();
 
     /* ★ Mã tin VỪA ghi ở lượt giao dịch cuối (giao dịch có thể chạy lại — đặt lại mỗi lượt). */
     let tinIdsDaGhi: string[] = [];
-    const ketQua = await db.runTransaction(async (tx) => {
+    const chayTrenKho = (docRef: DocumentReference) => db.runTransaction(async (tx) => {
       tinIdsDaGhi = [];
       const snap = await tx.get(docRef);
       if (!snap.exists) return null;
@@ -158,6 +163,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<TraLoi>> {
       }
       return kq;
     });
+
+    /* ★ KHO EQUI (Sếp duyệt demo 14/10/2026): đề nghị có thể ở kho thường HOẶC kho EQUI — tìm lần lượt.
+       Kho thường LUÔN thử trước (hành vi cũ); kho EQUI chỉ thử khi `EQUI_RE_KHO=1` và kho thường không có.
+       ⚠️ Chuông App Tổng (`guiTinTheoMa`) chỉ tra kho thường — tin của đề nghị EQUI chưa đẩy ra App Tổng. */
+    let ketQua = await chayTrenKho(docRefKho("thuong"));
+    if ((!ketQua || !ketQua.timThay) && reKhoDangBat(process.env.EQUI_RE_KHO)) {
+      ketQua = await chayTrenKho(docRefKho("equi"));
+    }
 
     if (!ketQua || !ketQua.timThay) {
       return NextResponse.json(

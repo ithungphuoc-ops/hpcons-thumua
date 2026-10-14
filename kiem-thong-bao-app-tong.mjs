@@ -418,7 +418,9 @@ kiem("Mã nguồn: de-nghi-moi chỉ thêm ĐÚNG 1 dòng gửi, trong nhánh ke
   const dong = r.split(/\r?\n/).filter((l) => l.includes("guiDeNghiMoi("));
   return sai({
     mot_dong: dong.length === 1,
-    dung_nhanh: /if \(ketQua\.moi\) after\(\(\) => guiDeNghiMoi\(ketQua\.deNghi\.id, PQ\)\);/.test(dong[0] ?? ""),
+    /* 14/10/2026 (Sếp cho phép sửa cửa này để rẽ kho EQUI): cho thêm tham số cuối `kho` — vẫn ĐÚNG MỘT lời
+       gọi, vẫn trong nhánh `ketQua.moi`. Không nới thêm gì khác. */
+    dung_nhanh: /if \(ketQua\.moi\) after\(\(\) => guiDeNghiMoi\(ketQua\.deNghi\.id, PQ(, kho)?\)\);/.test(dong[0] ?? ""),
   });
 });
 
