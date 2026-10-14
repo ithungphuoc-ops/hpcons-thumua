@@ -222,6 +222,9 @@ export const MUC_DIEU_HUONG: MucDieuHuong[] = [
     href: "/equi/de-nghi",
     icon: FileText,
     duocThay: vaoDuocBangQuyTrinh,
+    /* CodeRabbit PR #44: thanh dưới điện thoại đã sát giới hạn bề ngang — xem `MucDieuHuong.chiSidebar`. Vẫn vào được
+       từ sidebar/menu kéo ra trên mobile. */
+    chiSidebar: true,
   },
   {
     /**
