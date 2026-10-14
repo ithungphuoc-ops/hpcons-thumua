@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { Fragment, useRef, useState } from "react";
+import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
+import { Fragment, useRef, useState, type ReactNode } from "react";
 import { useDungDayKhungNhin } from "@/1-giao-dien/thanh-phan-dung-chung/dung-day-khung-nhin";
 import {
   Wallet,
@@ -77,7 +77,8 @@ function chuanHoaTim(s: string): string {
 /* (25/09/2026) Đã bỏ lưới riêng `LUOI_HOA_DON` của bảng hoá đơn từng tờ: mỗi tờ nay là một
    dòng thật dùng đúng 15 cột của bảng — Sếp: *"Căn chỉnh các cột thẳng hàng, cân đối"*. */
 
-export default function TrangCongNo() {
+/** `boLocKho`: nút lọc Thường/EQUI do `VoLocKho` đưa vào — xem `thanh-phan-nghiep-vu/vo-loc-kho.tsx`. */
+export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
   /**
    * 🔴 LẤY THÊM ĐƠN HÀNG · BẢNG GIÁ · PHIẾU NHẬN để DỰNG công nợ — Ban lãnh đạo 27/08/2026.
    *
@@ -288,6 +289,9 @@ export default function TrangCongNo() {
         ]}
         title="Công nợ nhà cung cấp"
         description="Hóa đơn phải trả lấy từ đơn đặt hàng · phân tích tuổi nợ 30-60-90 ngày theo từng nhà cung cấp."
+        /* ★ Nút lọc EQUI (Sếp duyệt demo 14/10/2026) — đặt ở khu hành động của tiêu đề để LUÔN hiện, kể cả khi
+           danh sách trống (nếu để trong thanh công cụ của danh sách thì xem EQUI mà trống là hết đường quay về). */
+        actions={boLocKho}
       />
 
       <div className="grid grid-cols-1 gap-(--hp-md-card-gap) sm:grid-cols-2 xl:grid-cols-4">

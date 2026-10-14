@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, type ComponentProps } from "react";
+import { useContext, useMemo, type ComponentProps } from "react";
 import NextLink from "next/link";
 import { usePathname, useRouter as useRouterNext } from "next/navigation";
 import { khoTheoDuongDan, themTienToKho, type KhoId } from "@/3-du-lieu/kho-id";
+import { KhoNguCanh } from "@/1-giao-dien/khung-app/kho-ngu-canh";
 
 // ============================================================
 // LIÊN KẾT VÀ ĐIỀU HƯỚNG BIẾT KHO — Sếp duyệt demo 14/10/2026
@@ -19,9 +20,14 @@ import { khoTheoDuongDan, themTienToKho, type KhoId } from "@/3-du-lieu/kho-id";
 // `next/link` gốc: menu phải dẫn tới ĐÚNG địa chỉ ghi trong `MUC_DIEU_HUONG`, kể cả khi đang ở EQUI.
 // ============================================================
 
-/** Kho của trang đang mở, suy từ địa chỉ. */
+/**
+ * Kho của trang đang mở: suy từ địa chỉ, TRỪ khi màn đang xem kho khác qua nút lọc EQUI (`KhoNguCanh`,
+ * xem `vo-loc-kho.tsx`) — lúc đó ngữ cảnh thắng, để link trong màn dẫn tới đúng kho.
+ */
 export function useKhoHienTai(): KhoId {
-  return khoTheoDuongDan(usePathname());
+  const tuNguCanh = useContext(KhoNguCanh);
+  const tuDiaChi = khoTheoDuongDan(usePathname());
+  return tuNguCanh ?? tuDiaChi;
 }
 
 /** Dùng thay `next/link` ở màn hình nghiệp vụ của kho. */
