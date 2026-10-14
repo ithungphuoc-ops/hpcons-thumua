@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {

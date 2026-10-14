@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
+import { useDuongDanKho, useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { useState, type DragEvent } from "react";
 import { toast } from "sonner";
 /* 📌 Bảy icon (Archive · Copy · ListPlus · SlidersHorizontal · Printer · Split · UsersRound) đã
@@ -1463,6 +1463,7 @@ export function MenuThaoTacThe({
    * (`lyDoKhongLuiDuoc`), và câu đó chỉ đọc được khi người dùng bấm vào — nên ở đó mục vẫn mở để
    * họ nhận được đúng lời giải thích, thay vì một mục xám không nói gì.
    */
+  const theoKho = useDuongDanKho();
   const { quyen: quyenNguoiXem } = useNguoiDung();
   const chanLuiBuoc = buocTruoc
     ? vuongMacQuyenLui(giaiDoan, {
@@ -1473,12 +1474,12 @@ export function MenuThaoTacThe({
 
   async function saoChepDuongDan() {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${duongDan}`);
+      await navigator.clipboard.writeText(`${window.location.origin}${theoKho(duongDan)}`);
       toast.success("Đã sao chép đường dẫn", { description: deNghi.code });
     } catch {
       // Trình duyệt chặn clipboard (HTTP thường / thiếu quyền) — nói thật thay vì im lặng.
       toast.error("Trình duyệt không cho sao chép", {
-        description: `Tự chép tay: ${window.location.origin}${duongDan}`,
+        description: `Tự chép tay: ${window.location.origin}${theoKho(duongDan)}`,
       });
     }
   }

@@ -204,6 +204,7 @@ import {
   type DuLieuLuu,
 } from "@/3-du-lieu/luu-tren-may";
 import { noiKhoChung, type KetNoiKhoChung } from "@/3-du-lieu/kho-chung-firestore";
+import { KHO_MAC_DINH, themTienToKho, type KhoId } from "@/3-du-lieu/kho-id";
 import { noiKhoThanhToan, type KetNoiThanhToan } from "@/3-du-lieu/kho-thanh-toan-firestore";
 /* ★★ NHỊP GHI & NHỊP THỬ LẠI (Sếp 15/09/2026, theo phân tích của đội QLK CTR cùng ngày) — hàm
    THUẦN đặt ở `2-quy-trinh/` đúng chỉ đạo *"luật nằm trong hook thì không bài kiểm nào bắt
@@ -2333,7 +2334,21 @@ function catLichSuSua(ds: LanSuaBinhLuan[]): LanSuaBinhLuan[] {
  * Khi nối Firebase: thay các hàm bên dưới bằng lệnh ghi Firestore, giao diện giữ nguyên,
  * và **bỏ hẳn phần lưu trên máy** để tránh hai nguồn dữ liệu lệch nhau.
  */
-export function DuLieuProvider({ children }: { children: ReactNode }) {
+export function DuLieuProvider({
+  children,
+  kho = KHO_MAC_DINH,
+}: {
+  children: ReactNode;
+  /**
+   * ★ KHO NÀO — Sếp duyệt demo 14/10/2026. `thuong` (mặc định) = kho hiện có; `equi` = kho riêng
+   * của EQUI, bắt đầu trống.
+   *
+   * 🔴 NƠI DỰNG PROVIDER PHẢI ĐẶT `key={kho}`. Đổi `kho` mà không dựng lại cả provider là giữ nguyên
+   * mọi state, ref và sổ "bản ghi mới" của kho CŨ rồi ghi chúng sang tài liệu của kho MỚI — đúng
+   * kiểu lẫn dữ liệu mà việc tách kho sinh ra để chặn. Xem `chon-kho-theo-duong-dan.tsx`.
+   */
+  kho?: KhoId;
+}) {
   /**
    * ★★ DANH BẠ THẬT — Ban lãnh đạo 26/08/2026: *"Sao vẫn còn người theo dõi giả lập ở đây"*.
    *
@@ -2848,7 +2863,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    * 📌 `ghiSoGiuBanGhiMoi` tự bọc `try/catch` và tự bỏ qua khi chạy phía máy chủ.
    */
   const dongBoSoChoGiaoDien = useCallback(() => {
-    ghiSoGiuBanGhiMoi(soGiuBanMoi.current);
+    ghiSoGiuBanGhiMoi(soGiuBanMoi.current, kho);
     const moi = new Set<string>();
     for (const k of soGiuBanMoi.current.keys()) moi.add(boTienTo(k));
     setBanGhiChuaLenKhoChung((cu) => {
@@ -2864,7 +2879,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
       return moi;
     });
-  }, []);
+  }, [kho]);
 
   /**
    * Ghi nhận một ảnh chụp TỪ MÁY CHỦ vào hai cuốn sổ.
@@ -3550,11 +3565,11 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * 📌 Gọi `dongBoSoChoGiaoDien()` ngay sau: vừa đẩy sổ vừa nạp ra cho giao diện (huy hiệu
      * "đang đồng bộ" hiện đúng ngay từ giây đầu), vừa cất lại bản ĐÃ LỌC HẠN xuống máy.
      */
-    soGiuBanMoi.current = docSoGiuBanGhiMoi();
+    soGiuBanMoi.current = docSoGiuBanGhiMoi(kho);
     if (soGiuBanMoi.current.size > 0) dongBoSoChoGiaoDien();
 
     // ① Đọc bản trên máy trước — có ngay, không phải chờ mạng.
-    const d = docDuLieuDaLuu();
+    const d = docDuLieuDaLuu(kho);
     if (d) {
       apDung(d);
       anhChupCuoi.current = JSON.stringify(d);
@@ -3607,7 +3622,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         /* ★ L11/L12 — chốt SAU `apDung`: `apDung` đặt lại cả danh sách đơn theo máy chủ, chốt trước là
            bị đè mất ngay trong cùng một nhịp. */
         chotDungDangHoan(tuMayChu);
-        ghiDuLieu(tuMayChu); // Giữ bản dự phòng trên máy để lần sau mở offline vẫn có.
+        ghiDuLieu(tuMayChu, kho); // Giữ bản dự phòng trên máy để lần sau mở offline vẫn có.
       },
       (e) => {
         // Nói ra thay vì im lặng: người dùng phải biết mình đang làm việc một mình hay
@@ -3635,6 +3650,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         const { tieuDe, moTa } = cauBaoXungDot(dsXungDot, soDaGhi);
         console.warn(`[kho chung] ${tieuDe}: ${moTa}`);
       },
+      kho,
     ).then((kn) => {
       if (!conSong) {
         kn?.dong();
@@ -3660,7 +3676,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       //   đóng, và ở chế độ Strict Mode (mount hai lần) thì hai lịch chồng nhau.
       donLichGhiLai();
     };
-  }, [apDung, chotDungDangHoan, dayLenMayChu, ghiNhanAnhChupMayChu, donLichGhiLai, dongBoSoChoGiaoDien]);
+  }, [apDung, chotDungDangHoan, dayLenMayChu, ghiNhanAnhChupMayChu, donLichGhiLai, dongBoSoChoGiaoDien, kho]);
 
   /**
    * ★★★ KHO ĐỢT THANH TOÁN — MỘT ĐƯỜNG NỐI RIÊNG, KHÔNG ĐI CHUNG VỚI KHO CHUNG.
@@ -3679,7 +3695,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
    */
   useEffect(() => {
     // ① Bản lưu trên máy trước — mở app là thấy ngay, kể cả khi mạng chậm.
-    const tuMay = docThanhToanDaLuu();
+    const tuMay = docThanhToanDaLuu(kho);
     if (tuMay.length > 0) setDotThanhToan(tuMay);
 
     let conSong = true;
@@ -3700,12 +3716,13 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         if (chuoi === anhChupThanhToan.current) return; // chính mình vừa gửi lên
         anhChupThanhToan.current = chuoi;
         setDotThanhToan(tuMayChu.dotThanhToan);
-        ghiThanhToanLenMay(tuMayChu.dotThanhToan);
+        ghiThanhToanLenMay(tuMayChu.dotThanhToan, kho);
       },
       (e) => {
         /* Nói ra thay vì im lặng — người ghi tiền phải biết mình đang ghi một mình hay chung. */
         console.error("[kho thanh toán] không nối được:", e);
       },
+      kho,
     ).then((kn) => {
       if (!conSong) {
         kn?.dong();
@@ -3723,7 +3740,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       ketNoiThanhToan.current?.dong();
       ketNoiThanhToan.current = null;
     };
-  }, []);
+  }, [kho]);
 
   /**
    * Đẩy đợt thanh toán lên máy chủ mỗi khi danh sách đổi.
@@ -3737,7 +3754,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     const chuoi = JSON.stringify(dotThanhToan);
     if (chuoi === anhChupThanhToan.current) return;
     anhChupThanhToan.current = chuoi;
-    ghiThanhToanLenMay(dotThanhToan);
+    ghiThanhToanLenMay(dotThanhToan, kho);
     if (!ketNoiThanhToan.current) {
       hangChoThanhToan.current = dotThanhToan;
       return;
@@ -3748,7 +3765,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       anhChupThanhToan.current = null;
       console.error("[kho thanh toán] đẩy lên hỏng:", e);
     });
-  }, [dotThanhToan]);
+  }, [dotThanhToan, kho]);
 
   // ⚠️ Chờ nạp xong mới cho ghi. Bỏ điều kiện này là lần chạy đầu ghi đè bản lưu bằng
   // dữ liệu rỗng — tức xóa sạch việc người dùng đã nhập hôm trước.
@@ -3814,7 +3831,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     // 🔴 CHỖ NÀY **KHÔNG GOM NHỊP**, cố ý. Ghi localStorage là đồng bộ, rẻ, không đi qua mạng và
     // không dội sang máy ai — gom nó lại chẳng tiết kiệm được gì mà lại mở ra một cửa mất việc
     // khi trang bị đóng đột ngột. Đây chính là lưới an toàn cho phần gom nhịp bên dưới.
-    ghiDuLieu(d);
+    ghiDuLieu(d, kho);
 
     // 🔴 Chưa nghe máy chủ nói gì thì KHÔNG đẩy, và cũng KHÔNG ghi dấu `anhChupCuoi`:
     // ghi dấu ở đây là coi như đã đồng bộ, lần đẩy thật sau đó bị bỏ qua và thay đổi này
@@ -3838,7 +3855,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * 🔴 VÀ LẦN GHI HỎNG VẪN GỠ ĐƯỢC DẤU: `chuoi` đi kèm bản chờ, `dayLenMayChu` nhận lại đúng nó.
      */
     xepLichGhi(d, chuoi);
-  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, nhaCungCapThem, thuKhoThem, xepLichGhi, dongBoSoChoGiaoDien]);
+  }, [daNapTuMay, deNghi, donHang, giaDonHang, phieuNhan, baoGia, thongBao, cauHinh, lichSuCauHinh, nhaCungCapThem, thuKhoThem, xepLichGhi, dongBoSoChoGiaoDien, kho]);
 
   /**
    * ★ THÊM NHÀ CUNG CẤP VÀO DANH MỤC — Ban lãnh đạo 20/08/2026: *"tạo danh mục NCC do bộ phận thu
@@ -3895,7 +3912,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
          Máy chủ cấp trong một giao dịch nên hai người bấm cùng lúc không nhận cùng mã.
          Công tắc tắt hoặc gọi hỏng thì `xinMaMayChu` trả `null` và app chạy y như cũ. */
       const ma =
-        (await xinMaMayChu("nha-cung-cap", "")) ??
+        (await xinMaMayChu("nha-cung-cap", "", kho)) ??
         maNhaCungCapTiepTheo(
           nhaCungCapThem.map((x) => (x.maNCC ?? "").trim()).filter((x) => x !== ""),
         );
@@ -3928,7 +3945,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
        ⚠️ Đừng bỏ nó khỏi danh sách phụ thuộc cho "gọn": `useCallback` sẽ giữ bản đóng gói cũ và
        mã được tính trên một danh mục đã lỗi thời — cấp trùng mà không có gì báo.
        `nguoiDung`: chốt quyền đầu hàm phải xét người của phiên HIỆN TẠI (Sếp 06/10/2026). */
-    [nguoiDung, nhaCungCapThem],
+    [nguoiDung, nhaCungCapThem, kho],
   );
 
   /**
@@ -3972,7 +3989,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
         const nhom = theoCachVietSan(tachNhomNCC(n.nhomNCC), [...nhaCungCapThem, ...moi]);
         /* 🔴 Mã máy chủ cấp mà ĐÃ có trong lô (dòng trước rơi về mã tự tính vì máy chủ hỏng giữa
            chừng) thì không dùng — tự tính tiếp, nếu không hai NCC mang cùng mã, cùng `id`. */
-        const maMayChu = await xinMaMayChu("nha-cung-cap", "");
+        const maMayChu = await xinMaMayChu("nha-cung-cap", "", kho);
         const ma =
           maMayChu && !maDaCo.includes(maMayChu) ? maMayChu : maNhaCungCapTiepTheo(maDaCo);
         maDaCo.push(ma);
@@ -3995,7 +4012,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
     },
     /* Cùng lý do `themNhaCungCap`: bỏ `nhaCungCapThem` khỏi đây là chống trùng trên danh mục cũ. */
-    [nguoiDung, nhaCungCapThem],
+    [nguoiDung, nhaCungCapThem, kho],
   );
 
   /**
@@ -4215,7 +4232,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error("[nhat ky he thong] ghi hỏng:", e);
     }
-    xoaDuLieuDaLuu();
+    xoaDuLieuDaLuu(kho);
     /**
      * 🔴 DỌN CẢ KHO ĐỢT THANH TOÁN — thêm 18/09/2026 cùng lượt làm tính năng.
      *
@@ -4223,7 +4240,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
      * nó. Quên dọn là bấm "Xóa dữ liệu chạy thử" xong, mọi đề nghị/đơn hàng biến mất nhưng tiền
      * đã ghi vẫn còn nguyên — treo lơ lửng, trỏ vào những đơn không còn tồn tại.
      */
-    xoaThanhToanDaLuu();
+    xoaThanhToanDaLuu(kho);
     setDotThanhToan([]);
     anhChupThanhToan.current = JSON.stringify([]);
     void ketNoiThanhToan.current?.day({ dotThanhToan: [] }).catch((e) => {
@@ -4231,7 +4248,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     });
     // Tải lại cả trang thay vì chỉ đặt state rỗng: dứt điểm mọi thứ đang giữ trong bộ
     // nhớ (form đang mở, bộ lọc, thông báo) — sạch đúng như mở app lần đầu.
-    if (typeof window !== "undefined") window.location.href = "/de-nghi";
+    if (typeof window !== "undefined") window.location.href = themTienToKho("/de-nghi", kho);
   }, [
     nguoiDung,
     deNghi.length,
@@ -4241,6 +4258,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
     huyBanDangCho,
     donLichGhiLai,
     dongBoSoChoGiaoDien,
+    kho,
   ]);
 
   // Đọc danh sách hiện có khi sinh mã mới, không cần đưa state vào deps.
@@ -6996,7 +7014,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       /* ★ NHỊP 3b — xin mã ở máy chủ trước, tự tính là đường lùi. Xem chú thích ở
          `themNhaCungCap`. Đơn hàng đánh số theo NĂM nên tham số là năm lập đơn. */
       const code =
-        (await xinMaMayChu("don-hang", thamSoCapSoDon(namLap, laPhieuXuatKho(po.mauPO)))) ??
+        (await xinMaMayChu("don-hang", thamSoCapSoDon(namLap, laPhieuXuatKho(po.mauPO)), kho)) ??
         maDonHangTiepTheo(
           /* ★ Phiếu xuất kho (PO-03) cấp số XK260001 — Sếp 26/09/2026, xem `thamSoCapSoDon`. */
           thamSoCapSoDon(namLap, laPhieuXuatKho(po.mauPO)),
@@ -7135,7 +7153,7 @@ export function DuLieuProvider({ children }: { children: ReactNode }) {
       }
       return { id };
     },
-    [ghiLichSuDeNghi, nguoiDung],
+    [ghiLichSuDeNghi, nguoiDung, kho],
   );
 
   /**

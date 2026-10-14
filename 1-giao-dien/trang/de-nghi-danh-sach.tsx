@@ -12,7 +12,7 @@ import { bangDuongDanDeNghi } from "@/2-quy-trinh/duong-dan-de-nghi";
 
 /** Khoá trong `history.state` đánh dấu mục lịch sử do pop-up xem nhanh thêm vào. */
 const KHOA_POPUP_LICH_SU = "deNghiPopupId";
-import { useRouter } from "next/navigation";
+import { useKhoHienTai, useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { FileText, LayoutGrid, List, X, UserRound } from "lucide-react";
 /* 📌 KHÔNG còn import `DropdownMenu*` và `MoreHorizontal` ở đây (13/09/2026): menu ⋯ của pop-up
    nay dùng chung `MenuThaoTacThe` với thẻ Kanban, component đó tự lo cả khung lẫn icon. */
@@ -129,6 +129,10 @@ const NHAN_LOC_DS: { ma: LocDanhSach; nhan: string }[] = [
 
 
 export default function TrangDanhSachDeNghi() {
+  /* ★ KHO EQUI (Sếp duyệt demo 14/10/2026): cùng màn hình, chỉ khác tên để người dùng biết mình đang
+     ở kho nào — làm việc nhầm kho là ghi đề nghị vào sai sổ. */
+  const laKhoEqui = useKhoHienTai() === "equi";
+  const tenQuyTrinh = laKhoEqui ? "Quy trình mua hàng EQUI" : "Quy trình mua hàng";
   const router = useRouter();
   const {
     deNghi,
@@ -909,8 +913,8 @@ export default function TrangDanhSachDeNghi() {
           tab dính liền tiêu đề đúng như bảng Base, không hở một dải trống. */}
       <div className="flex flex-col gap-(--hp-md-card-gap)">
         <PageHeader
-          crumbs={[{ label: "Thu mua", href: duongDanGocTheoQuyen(quyen) }, { label: "Quy trình mua hàng" }]}
-          title="Quy trình mua hàng"
+          crumbs={[{ label: "Thu mua", href: duongDanGocTheoQuyen(quyen) }, { label: tenQuyTrinh }]}
+          title={tenQuyTrinh}
           description="Đề nghị mua hàng đã duyệt, nhận từ các phòng ban trong công ty"
           /**
            * 🔴 ĐÃ BỎ NÚT "Tạo đề nghị mới" (21/08/2026) — Ban lãnh đạo: *"chức năng này nay đã có

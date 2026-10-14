@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { Fragment, useMemo, useState } from "react";
 import { ChevronRight, ShoppingCart } from "lucide-react";
 import { PageHeader } from "@/1-giao-dien/thanh-phan-dung-chung/page-header";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { ChevronUp, GitBranch } from "lucide-react";
 import { BangNangLucTheoNhanVien } from "@/1-giao-dien/thanh-phan-nghiep-vu/bang-nang-luc-theo-nhan-vien";
 import { tenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";

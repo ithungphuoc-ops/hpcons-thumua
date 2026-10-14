@@ -36,6 +36,7 @@
 import { daCauHinhFirebase, moFirebase } from "@/5-ket-noi/firebase-chung";
 import { bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
 import type { DotThanhToanPO } from "@/3-du-lieu/kieu-du-lieu";
+import { KHO_MAC_DINH, duongDanKhoThanhToan, type KhoId } from "@/3-du-lieu/kho-id";
 
 /**
  * Tài liệu giữ toàn bộ đợt thanh toán của bản chạy thử.
@@ -90,6 +91,8 @@ export function daCauHinhKhoThanhToan(): boolean {
 export async function noiKhoThanhToan(
   khiCoDuLieu: (d: KhoThanhToan | null) => void,
   khiLoi?: (e: unknown) => void,
+  /** Kho nào — mặc định kho thường (kho EQUI dùng tài liệu `thanh-toan-equi`). */
+  kho: KhoId = KHO_MAC_DINH,
 ): Promise<KetNoiThanhToan | null> {
   if (typeof window === "undefined" || !daCauHinhKhoThanhToan()) return null;
 
@@ -98,7 +101,8 @@ export async function noiKhoThanhToan(
     if (!app) return null;
     const { getFirestore, doc, onSnapshot, setDoc } = await import("firebase/firestore");
     const db = getFirestore(app);
-    const tep = doc(db, DUONG_DAN_THANH_TOAN.boSuuTap, DUONG_DAN_THANH_TOAN.tep);
+    const duongDanKho = duongDanKhoThanhToan(kho);
+    const tep = doc(db, duongDanKho.boSuuTap, duongDanKho.tep);
 
     const { getAuth, onAuthStateChanged } = await import("firebase/auth");
     const auth = getAuth(app);

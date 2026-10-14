@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { AlertTriangle, ExternalLink, Lock } from "lucide-react";
 import { toast } from "sonner";
 import {

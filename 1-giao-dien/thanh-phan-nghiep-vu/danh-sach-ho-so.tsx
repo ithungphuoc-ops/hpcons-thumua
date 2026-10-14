@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
+import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import { TableCell, TableHead, TableRow } from "@/1-giao-dien/nen-tang-ui/table";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";

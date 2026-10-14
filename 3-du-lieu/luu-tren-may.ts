@@ -27,9 +27,12 @@ import type {
   NhaCungCap,
   ThuKhoCongTrinh,
 } from "@/3-du-lieu/kieu-du-lieu";
+import { KHO_MAC_DINH, hauToKhoaMay, type KhoId } from "@/3-du-lieu/kho-id";
 
 /** Tên ngăn chứa trên máy. Tăng số cuối mỗi khi đổi cấu trúc dữ liệu. */
 const KHOA = "hpcons-thumua-du-lieu-v1";
+/** Khoá theo kho: kho thường giữ NGUYÊN khoá cũ, kho EQUI thêm hậu tố — hai bản lưu không đè nhau. */
+const khoaKho = (kho: KhoId) => KHOA + hauToKhoaMay(kho);
 
 /** Đúng bộ dữ liệu người dùng tạo ra khi chạy thử. Nhà cung cấp không lưu vì cố định. */
 import type { CauHinhQuyTrinh, VetDoiCauHinh } from "@/2-quy-trinh/cau-hinh-quy-trinh";
@@ -80,10 +83,10 @@ export interface DuLieuLuu {
  * Đọc dữ liệu đã lưu. Trả `null` khi chưa có gì, khi chạy phía máy chủ, hoặc khi bản lưu
  * hỏng — người gọi cứ dùng dữ liệu gốc, không cần bắt lỗi.
  */
-export function docDuLieuDaLuu(): DuLieuLuu | null {
+export function docDuLieuDaLuu(kho: KhoId = KHO_MAC_DINH): DuLieuLuu | null {
   if (typeof window === "undefined") return null;
   try {
-    const tho = window.localStorage.getItem(KHOA);
+    const tho = window.localStorage.getItem(khoaKho(kho));
     if (!tho) return null;
     const d = JSON.parse(tho) as Partial<DuLieuLuu>;
     // Bản lưu cũ có thể thiếu mảng mới thêm sau này — thiếu thì cho mảng rỗng, đừng bỏ
@@ -121,20 +124,20 @@ export function docDuLieuDaLuu(): DuLieuLuu | null {
 }
 
 /** Ghi đè bản lưu. Lỗi hết dung lượng thì bỏ qua — mất bản lưu còn hơn treo app. */
-export function ghiDuLieu(d: DuLieuLuu): void {
+export function ghiDuLieu(d: DuLieuLuu, kho: KhoId = KHO_MAC_DINH): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(KHOA, JSON.stringify(d));
+    window.localStorage.setItem(khoaKho(kho), JSON.stringify(d));
   } catch {
     /* Hết dung lượng hoặc trình duyệt chặn — không làm gì. */
   }
 }
 
 /** Xóa sạch để chạy thử lại từ đầu. Dùng cho nút "Xóa dữ liệu chạy thử". */
-export function xoaDuLieuDaLuu(): void {
+export function xoaDuLieuDaLuu(kho: KhoId = KHO_MAC_DINH): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.removeItem(KHOA);
+    window.localStorage.removeItem(khoaKho(kho));
   } catch {
     /* Không xóa được thì thôi. */
   }
@@ -151,12 +154,13 @@ export function xoaDuLieuDaLuu(): void {
  * 📌 Khoá riêng nên bản cũ không biết mà đụng tới.
  */
 const KHOA_THANH_TOAN = "hpcons-thumua-thanh-toan-v1";
+const khoaThanhToan = (kho: KhoId) => KHOA_THANH_TOAN + hauToKhoaMay(kho);
 
 /** Đọc đợt thanh toán đã lưu. Hỏng hoặc chưa có → mảng rỗng (KHÔNG phải `null`). */
-export function docThanhToanDaLuu(): DotThanhToanPO[] {
+export function docThanhToanDaLuu(kho: KhoId = KHO_MAC_DINH): DotThanhToanPO[] {
   if (typeof window === "undefined") return [];
   try {
-    const s = window.localStorage.getItem(KHOA_THANH_TOAN);
+    const s = window.localStorage.getItem(khoaThanhToan(kho));
     if (!s) return [];
     const d = JSON.parse(s) as { dotThanhToan?: unknown };
     const ds = Array.isArray(d?.dotThanhToan) ? d.dotThanhToan : [];
@@ -170,20 +174,20 @@ export function docThanhToanDaLuu(): DotThanhToanPO[] {
   }
 }
 
-export function ghiThanhToanLenMay(ds: DotThanhToanPO[]): void {
+export function ghiThanhToanLenMay(ds: DotThanhToanPO[], kho: KhoId = KHO_MAC_DINH): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(KHOA_THANH_TOAN, JSON.stringify({ dotThanhToan: ds }));
+    window.localStorage.setItem(khoaThanhToan(kho), JSON.stringify({ dotThanhToan: ds }));
   } catch {
     /* Hết dung lượng — mất bản lưu còn hơn treo app. Máy chủ vẫn là nguồn chính. */
   }
 }
 
 /** Dọn kèm khi bấm "Xóa dữ liệu chạy thử" — để sót là tiền cũ sống lại sau khi xoá sạch. */
-export function xoaThanhToanDaLuu(): void {
+export function xoaThanhToanDaLuu(kho: KhoId = KHO_MAC_DINH): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.removeItem(KHOA_THANH_TOAN);
+    window.localStorage.removeItem(khoaThanhToan(kho));
   } catch {
     /* Không xóa được thì thôi. */
   }

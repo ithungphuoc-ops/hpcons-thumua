@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useDuongDanKho, useRouter } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { ExternalLink, Maximize2 } from "lucide-react";
 import { DropdownMenuItem } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
 
@@ -21,13 +21,14 @@ import { DropdownMenuItem } from "@/1-giao-dien/nen-tang-ui/dropdown-menu";
  */
 export function MucMenuXemDayDu({ duongDan }: { duongDan: string }) {
   const router = useRouter();
+  const theoKho = useDuongDanKho();
   return (
     <>
       <DropdownMenuItem onClick={() => router.push(duongDan)}>
         <Maximize2 className="size-4 shrink-0" aria-hidden />
         Xem toàn màn hình
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => window.open(duongDan, "_blank", "noopener")}>
+      <DropdownMenuItem onClick={() => window.open(theoKho(duongDan), "_blank", "noopener")}>
         <ExternalLink className="size-4 shrink-0" aria-hidden />
         Xem trong tab mới
       </DropdownMenuItem>

@@ -30,6 +30,7 @@
 // ============================================================
 
 import type { DuLieuLuu } from "@/3-du-lieu/luu-tren-may";
+import { KHO_MAC_DINH, duongDanKhoChung, type KhoId } from "@/3-du-lieu/kho-id";
 import { daCauHinhFirebase, moFirebase } from "@/5-ket-noi/firebase-chung";
 import {
   tuMap,
@@ -76,6 +77,8 @@ const SOAT_TRUOC_KHI_GHI =
  * xem `app/api/app-request/de-nghi-moi/route.ts`.
  */
 export const DUONG_DAN = { boSuuTap: "chay-thu", tep: "du-lieu-chung" } as const;
+/* ★ KHO EQUI (14/10/2026): `DUONG_DAN` ở trên GIỮ NGUYÊN là đường dẫn kho THƯỜNG — các route máy
+   chủ cũ và phiên tích hợp vẫn import nó. Kho nào thì tra bằng `duongDanKhoChung(kho)` (kho-id.ts). */
 
 /** Đã khai đủ cấu hình Firebase chưa. Thiếu thì app chạy như cũ, chỉ lưu trên máy. */
 export const daCauHinhFirestore = daCauHinhFirebase;
@@ -179,6 +182,8 @@ export async function noiKhoChung(
    * bấm Lưu, không thấy gì, tưởng đã xong, rồi đóng máy đi về.
    */
   khiXungDot?: (ds: XungDot[], soDaGhi: number) => void,
+  /** Kho nào — mặc định kho thường, nơi gọi cũ không đổi hành vi. */
+  kho: KhoId = KHO_MAC_DINH,
 ): Promise<KetNoiKhoChung | null> {
   if (typeof window === "undefined" || !daCauHinhFirestore()) return null;
 
@@ -197,7 +202,8 @@ export async function noiKhoChung(
        `2-quy-trinh/ghi-tung-phan.ts` — cố ý để bên đó vì bên đó bộ luật GỌI THẬT được. */
     let trangThai: TrangThaiKho | null = null;
 
-    const tep = doc(db, DUONG_DAN.boSuuTap, DUONG_DAN.tep);
+    const duongDanKho = duongDanKhoChung(kho);
+    const tep = doc(db, duongDanKho.boSuuTap, duongDanKho.tep);
 
     /**
      * 🔴 PHẢI CHỜ FIREBASE AUTH ỔN ĐỊNH RỒI MỚI LẮNG NGHE — đừng bỏ đoạn này.
