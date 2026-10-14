@@ -9,6 +9,8 @@ import { getHpcoreDb, getThuMuaDb } from "@/5-ket-noi/hpcore-may-chu";
 import { guiDeNghiMoi } from "@/5-ket-noi/thong-bao-app-tong-may-chu";
 import * as PQ from "@/5-ket-noi/phan-quyen-may-chu";
 import { DUONG_DAN, bo0Undefined } from "@/3-du-lieu/kho-chung-firestore";
+import { duongDanKhoChung, type KhoId } from "@/3-du-lieu/kho-id";
+import { docSoDauCauHinh, khoChoDeXuat, reKhoDangBat } from "@/2-quy-trinh/nhom-equi";
 import { tuMap, ghiTheoDangHienCo, chonBanSomNhat } from "@/2-quy-trinh/ghi-tung-phan";
 import { maDeNghiTiepTheo } from "@/2-quy-trinh/dat-ten-de-nghi";
 import {
@@ -74,7 +76,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
   try {
     // Dữ liệu nghiệp vụ → project riêng của Thu mua (chưa tách thì vẫn là `hpcons-portal`).
     const db = getThuMuaDb();
-    const docRef = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
+    /* ★ docRef (kho nào) được chọn SAU, ở dưới — xem khối "RẼ KHO EQUI". Kho thường vẫn là đường dẫn cũ. */
+    const docRefThuong = db.collection(DUONG_DAN.boSuuTap).doc(DUONG_DAN.tep);
 
     /**
      * ★★ XÁC ĐỊNH LOẠI HỒ SƠ (công trình / phòng ban) — BA BƯỚC, ĐÚNG THỨ TỰ NÀY.
@@ -162,6 +165,46 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
     const nguoiTheoDoiTuAppRequest = chucDanhTheoUid
       ? layNguoiTheoDoiTuAppRequest(theoDoiTho, { ...boiCanhTheoDoi, chucDanhTheoUid })
       : theoDoiChuaChucDanh;
+
+    /**
+     * ★★★ RẼ KHO EQUI — thêm 14/10/2026, **Sếp cho phép riêng** (câu 5 của demo EQUI v2: *"Cho phép
+     * sửa đúng 1 chỗ: thêm bước đọc nhóm đề xuất và rẽ kho EQUI"*; tệp vùng cấm §2b-bis).
+     *
+     * Đề xuất thuộc nhóm EQUI liên quan mua hàng (xem `2-quy-trinh/nhom-equi.ts`) → ghi vào kho EQUI,
+     * còn lại → kho thường như cũ.
+     *
+     * 🔴 TÊN NHÓM LẤY TỪ PAYLOAD (`nhomDeXuat`), KHÔNG ĐỌC CHÉO. Cửa này không có khoá đọc project
+     * `hpcons-request` (đã ghi ở khối "MẢNG RỖNG KHÁC HẲN VẮNG MẶT" ở trên), nên đọc chéo luôn trả rỗng.
+     * Chưa có `nhomDeXuat` (App Đề xuất chưa cập nhật) → kho thường, KHÔNG đoán. `groupNameSnapshot` của
+     * hồ sơ đọc chéo chỉ là đường dự phòng nếu về sau có khoá.
+     *
+     * 🔴 CÔNG TẮC `EQUI_RE_KHO=1` (biến MÁY CHỦ, đọc lúc chạy). TẮT là mặc định → mọi đề xuất vẫn vào kho
+     * thường y như trước khi có EQUI; deploy xong chưa bật thì không có gì đổi.
+     *
+     * 🔴 ĐỀ XUẤT ĐÃ CÓ Ở KHO THƯỜNG THÌ Ở LẠI KHO THƯỜNG. App Request gửi lại (retry, hoặc bắn lại để vá
+     * thiếu id/tệp) một đề xuất EQUI cũ — vốn đã vào kho thường từ trước ngày bật — mà cứ rẽ sang kho
+     * EQUI là đẻ thêm một bản trùng (Sếp chốt câu 4: chỉ nhận từ lúc bật). Một lượt đọc thêm, chỉ khi
+     * đã rẽ sang EQUI.
+     */
+    const nhomDeXuatTho = (payload as { nhomDeXuat?: unknown }).nhomDeXuat;
+    const tenNhomDeXuat =
+      typeof nhomDeXuatTho === "string" && nhomDeXuatTho.trim()
+        ? nhomDeXuatTho
+        : hoSoAppRequest?.groupNameSnapshot;
+    let kho: KhoId = khoChoDeXuat(
+      reKhoDangBat(process.env.EQUI_RE_KHO),
+      tenNhomDeXuat,
+      docSoDauCauHinh(process.env.EQUI_SO_DAU_NHOM),
+    );
+    if (kho === "equi") {
+      const [anhThuong] = await db.getAll(docRefThuong, { fieldMask: ["deNghi"] });
+      const dsThuong = tuMap<DeNghiMuaHang>(
+        (anhThuong?.exists ? (anhThuong.data() as Record<string, unknown>).deNghi : undefined) as never,
+      );
+      if (dsThuong.some((d) => d.maDeXuatAppRequest === payload.requestCode)) kho = "thuong";
+    }
+    const duongDanKho = duongDanKhoChung(kho);
+    const docRef = db.collection(duongDanKho.boSuuTap).doc(duongDanKho.tep);
 
     // Transaction: đọc + kiểm trùng + ghi trong một bước — chặn trường hợp App Request gọi
     // lại 2 lần gần nhau (retry do mạng lỗi) tạo ra 2 đề nghị trùng mã đề xuất.
@@ -513,7 +556,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
       return { moi: true as const, deNghi: deNghiMoi };
     });
 
-    if (ketQua.moi) after(() => guiDeNghiMoi(ketQua.deNghi.id, PQ)); // Sếp duyệt 08/10/2026 — chỉ 1 dòng gửi thông báo App Tổng
+    if (ketQua.moi) after(() => guiDeNghiMoi(ketQua.deNghi.id, PQ, kho)); // Sếp duyệt 08/10/2026 — chỉ 1 dòng gửi thông báo App Tổng
     return NextResponse.json({
       ok: true,
       trangThai: ketQua.moi ? "da_tao" : "da_ton_tai",
