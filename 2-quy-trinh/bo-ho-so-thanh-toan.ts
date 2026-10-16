@@ -101,6 +101,8 @@ import {
    này có tra được bản gốc bên đó hay không. Hai chỗ cùng tự đoán một câu hỏi là hai câu trả lời
    — và chỗ này sẽ lặng lẽ lệch với ô "Đường dẫn đề nghị" ở trang chi tiết. */
 import { chuDuongDanPhieuAppRequest, duongDanPhieuAppRequest } from "@/6-tien-ich/dia-chi-app-de-nghi";
+import type { KhoId } from "@/3-du-lieu/kho-id";
+import { tenAppKho } from "@/2-quy-trinh/ten-app-kho";
 
 /**
  * Mã máy đọc được của từng mục — dùng làm khóa khi đẩy sang app Kế toán.
@@ -642,6 +644,11 @@ export function dungBoHoSoThanhToan(
    * roi mat im lang dung cai loc vua them.
    */
   baoGiaCuaDeNghi: BaoGia[] = [],
+  /**
+   * ★ Kho của hồ sơ (Liên kết mua hàng EQUI, 15/10/2026) — CHỈ để câu "… gửi kèm ảnh phiếu" nói đúng
+   * nơi gửi (App EQUI). Thiếu = kho thường, mọi câu y hệt trước. Không đổi luật đếm mục nào.
+   */
+  kho?: KhoId,
 ): MucHoSoThanhToan[] {
   /* ① PHIẾU ĐỀ NGHỊ — hồ sơ đầu vào do bộ phận đề xuất gửi kèm (`taiLieu`).
      ⚠️ KHÔNG dùng `taiLieuNgoai`: đó là con trỏ tới bản gốc nằm NGOÀI app (thư mục chung của
@@ -815,7 +822,7 @@ export function dungBoHoSoThanhToan(
       ghiChu: p.tepPhieuGiao
         ? undefined
         : p.anhQlkCtr
-          ? "Kho công trình gửi kèm ảnh phiếu — lần giao này không phải đính thêm."
+          ? `${tenAppKho(kho, "Kho công trình")} gửi kèm ảnh phiếu — lần giao này không phải đính thêm.`
           : p.trangThai === "tu_choi_nhan"
             ? "Lần giao bị từ chối nhận — không đòi phiếu giao nhận cho lần này."
             : "Chưa đính phiếu giao nhận cho lần giao này.",

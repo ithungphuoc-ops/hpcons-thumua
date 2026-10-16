@@ -52,6 +52,14 @@ const ROUTE = [
   { duong: "/api/app-request/de-nghi-da-xoa", pt: "POST", cua: "nghiệp vụ", viec: "App Request báo xoá đề xuất" },
   { duong: "/api/qlk-ctr/gui-po", pt: "POST", cua: "tích hợp", viec: "gửi PO sang QLK CTR" },
   { duong: "/api/qlk-ctr/phieu-nhan-moi", pt: "POST", cua: "tích hợp", viec: "nhận phiếu nhận hàng từ QLK CTR" },
+  /* ★ Liên kết mua hàng EQUI (Sếp duyệt 15/10/2026). Body `{}`: `phieu-nhan-moi` trả 503 (chưa khai
+     `EQUI_PHIEU_NHAN_API_KEY`) hoặc 401 (thiếu khoá) kèm `error`, KHÔNG chạm dữ liệu. Hai route gửi PO là
+     PROXY sang App EQUI: chưa khai `EQUI_API_URL` → 500 kèm `error`; đã khai → mã của App EQUI (thường 400).
+     ⚠️ App EQUI chưa có route đích thì proxy chuyển nguyên 404 về — chốt này sẽ báo "KHÔNG CÓ route", lúc
+     đó đọc dòng `error` (JSON của proxy) trước khi kết luận route Thu mua bị xoá. */
+  { duong: "/api/equi/gui-po", pt: "POST", cua: "nghiệp vụ", viec: "gửi PO kho EQUI sang App EQUI" },
+  { duong: "/api/equi/gui-po-doc-lap", pt: "POST", cua: "nghiệp vụ", viec: "gửi PO độc lập kho EQUI sang App EQUI" },
+  { duong: "/api/equi/phieu-nhan-moi", pt: "POST", cua: "nghiệp vụ", viec: "nhận phiếu nhận hàng từ App EQUI" },
   { duong: "/api/auth/hpcore-session", pt: "GET", cua: "tích hợp", viec: "SSO App Tổng" },
   { duong: "/api/directory", pt: "GET", cua: "tích hợp", viec: "danh bạ nhân sự" },
   { duong: "/api/phan-quyen", pt: "POST", cua: "tích hợp", viec: "phân quyền" },

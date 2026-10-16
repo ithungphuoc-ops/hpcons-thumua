@@ -14,7 +14,11 @@ import {
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { ODinhKemTep, rutGonTenTep } from "@/1-giao-dien/thanh-phan-dung-chung/o-dinh-kem-tep";
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
-import { LienKetAnhQlkCtr } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-anh-qlk-ctr";
+/* ★ Liên kết mua hàng EQUI (15/10/2026): ảnh phiếu giao qua `LienKetAnhKho` — kho thường vẽ ĐÚNG
+   `LienKetAnhQlkCtr` cũ, kho EQUI nói "từ App EQUI". */
+import { LienKetAnhKho } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-anh-kho";
+import { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
+import { tenAppKho } from "@/2-quy-trinh/ten-app-kho";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { HopGhiNhanGiaoHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-ghi-nhan-giao-hang";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
@@ -95,6 +99,9 @@ function NhanThemNgoaiDeNghi({ hien }: { hien: boolean }) {
 export function BangTienDoPO({ po }: { po: DonDatHang }) {
   const { deNghi, donHang, baoGia, phieuNhan, dinhKemPhieuGiao, ghiDoiChieuThuMua } = useDuLieu();
   const { nguoiDung, quyen } = useNguoiDung();
+  /* ★ Kho đang mở (Liên kết mua hàng EQUI, 15/10/2026) — chỉ để chữ nói đúng app gửi phiếu nhận
+     (App EQUI ở kho EQUI). Kho thường: mọi chữ y hệt trước. */
+  const kho = useKhoHienTai();
   /**
    * ★ Phiếu đang mở ô ghi lý do lệch (Sếp 17/09/2026 — dấu đối chiếu của Thu mua).
    *
@@ -515,7 +522,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                               {" · "}
                               {new Date(l.thoiDiem).toLocaleDateString("vi-VN")}{" "}
                               {new Date(l.thoiDiem).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ·{" "}
-                              {l.nguoiSuaTen} · sửa ở App Kho → Lịch sử nhập kho
+                              {l.nguoiSuaTen} · sửa ở {tenAppKho(kho, "App Kho")} → Lịch sử nhập kho
                             </span>
                             <ul className="flex flex-col gap-0.5">
                               {l.thayDoi.map((t, j) => (
@@ -573,8 +580,8 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                         // cần đính kèm lại ở đây (vuongMacXacNhanKho đã coi ảnh này là đủ
                         // bằng chứng giao nhận, xem 2-quy-trinh/tinh-toan.ts).
                         <span className="flex min-w-0 items-center gap-1.5 text-xs text-success-soft">
-                          <span className="shrink-0">Ảnh phiếu giao (từ QLK CTR):</span>
-                          <LienKetAnhQlkCtr anh={p.anhQlkCtr} />
+                          <span className="shrink-0">Ảnh phiếu giao (từ {tenAppKho(kho, "QLK CTR")}):</span>
+                          <LienKetAnhKho anh={p.anhQlkCtr} />
                         </span>
                       ) : duocDinhKemPhieuGiao && !khoaThayTep ? (
                         /**
@@ -680,7 +687,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                             )}
                             <span>
                               {p.thuMuaDoiChieu.khop
-                                ? "Thu mua đã đối chiếu: khớp số liệu app kho"
+                                ? `Thu mua đã đối chiếu: khớp số liệu ${tenAppKho(kho, "app kho")}`
                                 : `Thu mua đối chiếu: LỆCH — ${p.thuMuaDoiChieu.ghiChu ?? ""}`}
                               <span className="text-text-desc">
                                 {" "}
@@ -723,7 +730,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                               title={
                                 p.thuMuaDoiChieu?.khop === true
                                   ? "Đang đánh dấu khớp — bấm lại để bỏ dấu"
-                                  : "Đánh dấu số liệu khớp với app kho"
+                                  : `Đánh dấu số liệu khớp với ${tenAppKho(kho, "app kho")}`
                               }
                               /* Vùng chạm 44px trên điện thoại — khối này không bị ẩn ở mobile. */
                               className={`inline-flex min-h-11 items-center gap-1 rounded-lg border px-3 text-xs font-medium transition-colors md:min-h-9 ${
@@ -765,7 +772,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                               onChange={(e) => setLyDoLech(e.target.value)}
                               rows={2}
                               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none"
-                              placeholder="VD: app kho ghi 150 tấn, phiếu giao NCC ghi 120 tấn"
+                              placeholder={`VD: ${tenAppKho(kho, "app kho")} ghi 150 tấn, phiếu giao NCC ghi 120 tấn`}
                             />
                             <div className="flex flex-wrap gap-2">
                               <button

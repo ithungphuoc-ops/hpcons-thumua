@@ -240,14 +240,12 @@ import {
   ghiMocThuLai,
   xoaMocThuLai,
 } from "@/3-du-lieu/moc-thu-lai-qlk-ctr";
-import {
-  guiPOSangQlkCtr,
-  canDongBoLaiPO,
-  guiPOSangQlkCtrDocLap,
-  canDongBoLaiPODocLap,
-  catNganLoiQlkCtr,
-  laPOCuaHoSoPhongBan,
-} from "@/5-ket-noi/gui-po-qlk-ctr";
+import { catNganLoiQlkCtr, laPOCuaHoSoPhongBan } from "@/5-ket-noi/gui-po-qlk-ctr";
+/* ★ Liên kết mua hàng EQUI (Sếp duyệt 15/10/2026): bốn hàm gửi PO (`guiPOSangQlkCtr`, `canDongBoLaiPO`,
+   `guiPOSangQlkCtrDocLap`, `canDongBoLaiPODocLap`) KHÔNG import thẳng nữa mà lấy theo `kho` ở đầu thân
+   `DuLieuProvider` — kho thường ra đúng bốn hàm gốc QLK CTR, kho EQUI ra bản App EQUI. */
+import { boGuiPOTheoKho } from "@/5-ket-noi/gui-po-theo-kho";
+import { tenAppKho } from "@/2-quy-trinh/ten-app-kho";
 import type {
   DeNghiMuaHang,
   LoaiViecGiao,
@@ -1111,9 +1109,12 @@ export function vuongMacGhiNhanGiaoHangPhongBan(
   nguoiDung: Pick<NguoiDung, "uid" | "chucNang" | "capTM">,
   quyen: Quyen,
   tepPhieuGiao: MoTaTep | undefined,
+  /** ★ Kho của hồ sơ (Liên kết mua hàng EQUI, 15/10/2026) — chỉ để câu chặn nói đúng app nhận phiếu.
+   *  Thiếu = kho thường, câu y hệt trước. Không đổi luật nào. */
+  kho: KhoId = KHO_MAC_DINH,
 ): string | null {
   if (!deNghiGoc || !laHoSoPhongBan(deNghiGoc)) {
-    return "Đơn này thuộc hồ sơ công trình — phiếu nhận hàng do thủ kho ghi bên app QLK CTR rồi tự đồng bộ sang, Thu mua không ghi tay.";
+    return `Đơn này thuộc hồ sơ công trình — phiếu nhận hàng do thủ kho ghi bên ${tenAppKho(kho, "app QLK CTR")} rồi tự đồng bộ sang, Thu mua không ghi tay.`;
   }
   if (!duocGhiNhanGiaoHangCuaHoSo(deNghiGoc, nguoiDung, quyen)) {
     return "Bạn không được ghi nhận giao hàng cho hồ sơ này.";
@@ -2350,6 +2351,16 @@ export function DuLieuProvider({
   kho?: KhoId;
 }) {
   /**
+   * ★ GỬI PO ĐI ĐÂU — THEO KHO (Liên kết mua hàng EQUI, Sếp duyệt 15/10/2026). Kho thường → QLK CTR
+   * (bốn hàm gốc, không đổi gì); kho EQUI → App EQUI (`5-ket-noi/gui-po-equi.ts`). Mọi chỗ gọi bên dưới
+   * giữ nguyên tên hàm cũ. Luật chọn ở `5-ket-noi/gui-po-theo-kho.ts` (một chỗ duy nhất).
+   *
+   * 📌 Bốn hàm là hằng cấp module, `kho` không đổi suốt đời một provider (nơi dựng đặt `key={kho}`) →
+   * tham chiếu ổn định, đưa vào danh sách phụ thuộc của hook không làm hook dựng lại.
+   */
+  const { guiPOSangQlkCtr, canDongBoLaiPO, guiPOSangQlkCtrDocLap, canDongBoLaiPODocLap } = boGuiPOTheoKho(kho);
+
+  /**
    * ★★ DANH BẠ THẬT — Ban lãnh đạo 26/08/2026: *"Sao vẫn còn người theo dõi giả lập ở đây"*.
    *
    * 🔴 GỐC RỄ: app tự kéo người phòng QLDA vào danh sách theo dõi khi phiếu có vật tư kiểm soát
@@ -2934,7 +2945,7 @@ export function DuLieuProvider({
       /* Mang id/mã CỦA PO — cùng khuôn tin cảnh báo đơn hàng `laCanhBaoTreo` (bấm vào mở đơn). */
       prId: po.id,
       prCode: po.code,
-      tieuDe: `⚠️ Đơn hàng ${po.code} chưa sang được app Kho công trình — đã dừng tự gửi, cần người xử lý`,
+      tieuDe: `⚠️ Đơn hàng ${po.code} chưa sang được ${tenAppKho(kho, "app Kho công trình")} — đã dừng tự gửi, cần người xử lý`,
       denBuoc: po.trangThai,
       thoiDiem,
       guiToi: [po.nguoiPhuTrachTen, NHAN_TRUONG_BO_PHAN].filter(Boolean),
@@ -2947,8 +2958,8 @@ export function DuLieuProvider({
     setThongBao((truoc) =>
       truoc.some((t) => t.id === idThongBao) ? truoc : giuThongBaoGanNhat([tinDung, ...truoc]),
     );
-    console.warn("[L11/L12] Dừng tự gửi PO", po.code, "sang QLK CTR:", lyDo);
-  }, []);
+    console.warn("[L11/L12] Dừng tự gửi PO", po.code, "sang", tenAppKho(kho, "QLK CTR") + ":", lyDo);
+  }, [kho]);
 
   /**
    * ★★ (04/10/2026, QA vòng 1 + 2) CHỐT DỪNG ĐANG HOÃN.
@@ -2985,7 +2996,7 @@ export function DuLieuProvider({
         dungTuGuiLaiPO(po, vanTay, h.lyDo, h.loiCuoi);
       }
     },
-    [dungTuGuiLaiPO],
+    [dungTuGuiLaiPO, canDongBoLaiPO, canDongBoLaiPODocLap],
   );
 
   const apDung = useCallback((d: DuLieuLuu) => {
@@ -3542,7 +3553,9 @@ export function DuLieuProvider({
         dangGuiQlkCtr.current = false;
       });
     }
-  }, [dungTuGuiLaiPO]);
+    /* ★ EQUI (15/10/2026): bốn hàm gửi lấy theo `kho` — hằng cấp module, tham chiếu không đổi, nên
+       thêm vào đây KHÔNG làm `apDung` dựng lại (effect nối kho chung không bị ngắt/nối lại). */
+  }, [dungTuGuiLaiPO, guiPOSangQlkCtr, canDongBoLaiPO, guiPOSangQlkCtrDocLap, canDongBoLaiPODocLap]);
 
   useEffect(() => {
     /**
@@ -7013,11 +7026,15 @@ export function DuLieuProvider({
       }
       /* ★ NHỊP 3b — xin mã ở máy chủ trước, tự tính là đường lùi. Xem chú thích ở
          `themNhaCungCap`. Đơn hàng đánh số theo NĂM nên tham số là năm lập đơn. */
+      /* ★ Kho EQUI (Sếp chốt 15/10/2026, câu 2A): `DMHEQ260001` / `XKEQ260001` — tham số mang tiền tố
+         theo `kho`, DÙNG CHUNG cho cả đường máy chủ lẫn đường dự phòng tại máy nên hai đường ra cùng một
+         hệ mã. Kho thường: tham số y hệt trước (`26` / `XK:26`). */
+      const thamSoSoDon = thamSoCapSoDon(namLap, laPhieuXuatKho(po.mauPO), kho);
       const code =
-        (await xinMaMayChu("don-hang", thamSoCapSoDon(namLap, laPhieuXuatKho(po.mauPO)), kho)) ??
+        (await xinMaMayChu("don-hang", thamSoSoDon, kho)) ??
         maDonHangTiepTheo(
           /* ★ Phiếu xuất kho (PO-03) cấp số XK260001 — Sếp 26/09/2026, xem `thamSoCapSoDon`. */
-          thamSoCapSoDon(namLap, laPhieuXuatKho(po.mauPO)),
+          thamSoSoDon,
           donHangRef.current.map((p) => p.code),
         );
 
@@ -7153,7 +7170,7 @@ export function DuLieuProvider({
       }
       return { id };
     },
-    [ghiLichSuDeNghi, nguoiDung, kho],
+    [ghiLichSuDeNghi, nguoiDung, kho, guiPOSangQlkCtr, guiPOSangQlkCtrDocLap],
   );
 
   /**
@@ -7275,7 +7292,7 @@ export function DuLieuProvider({
 
       return null;
     },
-    [ghiLichSuDeNghi, nguoiDung],
+    [ghiLichSuDeNghi, nguoiDung, guiPOSangQlkCtr],
   );
 
   /**
@@ -7290,14 +7307,14 @@ export function DuLieuProvider({
     const po = donHangRef.current.find((p) => p.id === poId);
     if (!po) return "Không tìm thấy đơn hàng.";
     const deNghiGoc = po.prId ? deNghiRef.current.find((dn) => dn.id === po.prId) : undefined;
-    if (!po.prId && po.trangThai !== "cho_de_nghi") return "Đơn này không thuộc diện gửi sang app Kho công trình.";
+    if (!po.prId && po.trangThai !== "cho_de_nghi") return `Đơn này không thuộc diện gửi sang ${tenAppKho(kho, "app Kho công trình")}.`;
     daThuDongBoQlkCtrPhienNay.current.add(po.id);
     xoaMocThuLai(po.id);
     /* Tăng lượt gửi lại → vân tay đổi trên MỌI máy → máy khác bỏ mốc cũ đã cạn, có lại đủ 5 lần / 1
        ngày (QA 04/10: không tăng thì máy khác dừng ngay ở lần mở trang sau mà không gửi). */
     const luotMoi = (po.qlkCtrLuotGuiLai ?? 0) + 1;
     const ketQua = po.prId ? await guiPOSangQlkCtr(po, deNghiGoc) : await guiPOSangQlkCtrDocLap(po);
-    if (!ketQua.apDung) return "Đơn này không thuộc diện gửi sang app Kho công trình.";
+    if (!ketQua.apDung) return `Đơn này không thuộc diện gửi sang ${tenAppKho(kho, "app Kho công trình")}.`;
     if (!ketQua.thanhCong) {
       const vanTay = vanTayNoiDungPO({ ...po, qlkCtrLuotGuiLai: luotMoi }, deNghiGoc?.maDeXuatAppRequest);
       ghiMocThuLai(po.id, mocSauLanThuHong(undefined, Date.now(), vanTay));
@@ -7327,7 +7344,7 @@ export function DuLieuProvider({
       ),
     );
     return ketQua.thanhCong ? null : ketQua.loi;
-  }, []);
+  }, [kho, guiPOSangQlkCtr, guiPOSangQlkCtrDocLap]);
 
   /**
    * ★ CHỐT LẠI ĐƠN NHÁP — thêm 12/09/2026. Vá "ngõ cụt bước ④": đơn đã chốt bị lùi về bước
@@ -7460,7 +7477,7 @@ export function DuLieuProvider({
 
       return null;
     },
-    [ghiLichSuDeNghi, nguoiDung],
+    [ghiLichSuDeNghi, nguoiDung, guiPOSangQlkCtr],
   );
 
   /**
@@ -7551,6 +7568,7 @@ export function DuLieuProvider({
         nguoiDung,
         tinhQuyen(nguoiDung),
         phieu.tepPhieuGiao,
+        kho,
       );
       if (chanMoCua) return chanMoCua;
       /* TypeScript không suy ra được rằng hàm trên đã loại ca `dn` rỗng (nó trả chuỗi lý do chứ
@@ -7662,7 +7680,7 @@ export function DuLieuProvider({
       /* `null` = đã ghi xong. Nơi gọi CHỈ được xoá form / đóng khối khi nhận `null`. */
       return null;
     },
-    [ghiNhatKyDonHang, nguoiDung],
+    [ghiNhatKyDonHang, nguoiDung, kho],
   );
 
   const doiTrangThaiPhieu = useCallback(
@@ -7759,13 +7777,13 @@ export function DuLieuProvider({
           po,
           nguoi.ten,
           khop
-            ? `Thu mua đối chiếu phiếu ${phieu.code}: khớp số liệu app kho`
+            ? `Thu mua đối chiếu phiếu ${phieu.code}: khớp số liệu ${tenAppKho(kho, "app kho")}`
             : `Thu mua đối chiếu phiếu ${phieu.code}: LỆCH — ${gc}`,
         );
       }
       return null;
     },
-    [ghiNhatKyDonHang],
+    [ghiNhatKyDonHang, kho],
   );
 
   /**

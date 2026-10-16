@@ -593,6 +593,9 @@ export default function TrangDanhSachDeNghi() {
        * không thấy nó nữa, dòng gốc lại đòi phân bổ trở lại — sai âm thầm, không lỗi nào báo.
        */
       deNghi,
+      /* ★ Kho đang mở (Liên kết mua hàng EQUI, 15/10/2026) — chỉ để câu "đơn đã gửi sang …" nói đúng
+         App EQUI ở kho EQUI. Kho thường: câu y hệt trước. */
+      laKhoEqui ? "equi" : "thuong",
     );
     if (!hanhDong) {
       // Không phải kéo thả mà luật không dựng nổi hành động nào (bước cuối chuỗi) → mở trang đầy đủ.

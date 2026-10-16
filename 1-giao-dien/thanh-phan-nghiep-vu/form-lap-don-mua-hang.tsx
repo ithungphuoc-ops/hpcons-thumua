@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
+import Link, { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -117,12 +117,10 @@ import {
   tenFileDonHangMau,
   SO_DON_BAN_MAU,
 } from "@/2-quy-trinh/don-hang-mau";
-/* Khuôn số đơn hàng — dùng CHUNG với chỗ cấp số thật, không viết lại chuỗi "DMH" ở đây. */
-import {
-  namCuaNgay,
-  TIEN_TO_DON_HANG,
-  TIEN_TO_PHIEU_XUAT_KHO,
-} from "@/2-quy-trinh/dat-ma-don-hang";
+/* Khuôn số đơn hàng — dùng CHUNG với chỗ cấp số thật, không viết lại chuỗi "DMH" ở đây.
+   ★ 15/10/2026: tiền tố lấy qua `tienToSoDon(…, kho)` để kho EQUI hiện đúng `DMHEQ26…` / `XKEQ26…`. */
+import { namCuaNgay, tienToSoDon } from "@/2-quy-trinh/dat-ma-don-hang";
+import { tenAppKho } from "@/2-quy-trinh/ten-app-kho";
 import { vuongMacXuatPO } from "@/2-quy-trinh/xuat-don-hang-excel";
 import { catBanMauDonMuaHang } from "@/3-du-lieu/ban-mau-don-mua-hang";
 import {
@@ -405,6 +403,9 @@ export function FormLapDonMuaHang({
   const { nguoiDung, quyen } = useNguoiDung();
   /* Danh bạ nhân sự — dùng để chọn nhanh thủ kho ở ô "Người nhận hàng". */
   const danhBa = useDanhBa();
+  /* ★ Kho đang mở (Liên kết mua hàng EQUI, 15/10/2026) — khuôn số đơn xem trước (`DMHEQ26…` ở kho
+     EQUI) và chữ "đã gửi sang …" nói đúng App EQUI. Kho thường: y hệt trước. */
+  const kho = useKhoHienTai();
 
   /**
    * ★ CỜ CHIA HAI CHẾ ĐỘ — mọi nhánh mới ngày 18/08/2026 đều gác bằng cờ này.
@@ -2152,8 +2153,8 @@ export function FormLapDonMuaHang({
     ? poDangSua!.code
     : laCheDoMau
       ? SO_DON_BAN_MAU
-      : /* PO-03 cấp số XK260001 (Sếp 26/09/2026) — xem `thamSoCapSoDon`. */
-        `${laPhieuXuatKhoDangChon ? TIEN_TO_PHIEU_XUAT_KHO : TIEN_TO_DON_HANG}${namCuaNgay(ngayDonHang) || "[năm]"}…`;
+      : /* PO-03 cấp số XK260001 (Sếp 26/09/2026) — xem `thamSoCapSoDon`. Kho EQUI: DMHEQ/XKEQ (15/10/2026). */
+        `${tienToSoDon(laPhieuXuatKhoDangChon, kho)}${namCuaNgay(ngayDonHang) || "[năm]"}…`;
   /**
    * Nhóm trường PO-03 đưa vào đơn — CHỈ khi đang chọn mẫu PO-03. Đổi sang PO-01/02 thì không cất
    * những chữ không in ra (state vẫn giữ trên màn hình, đổi lại PO-03 là dùng tiếp).
@@ -3320,7 +3321,7 @@ export function FormLapDonMuaHang({
         <div className="flex items-start gap-2 rounded-lg border border-warning bg-warning-bg p-(--hp-md-row-pad) text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-soft" aria-hidden />
           <span className="min-w-0 text-text-secondary">
-            <strong className="text-text-primary">Đơn này đã gửi sang Kho công trình.</strong> Bản
+            <strong className="text-text-primary">Đơn này đã gửi sang {tenAppKho(kho, "Kho công trình")}.</strong> Bản
             sửa sẽ được đồng bộ lại sang đó; trong lúc chờ, thủ kho có thể vẫn đang thấy số lượng
             và ngày giao cũ. Nếu bên kho chưa thấy bản mới, báo bộ phận kho đối chiếu trước khi
             giao nhận.
@@ -3518,7 +3519,7 @@ export function FormLapDonMuaHang({
               Chỉ còn ba ô không sửa được: số đơn hàng · mã dự án · ngày đơn hàng.
             </strong>{" "}
             Số đơn hàng đã được cấp và mọi chứng từ khác trỏ về nó (phiếu nhận hàng, công nợ, bản
-            đã gửi Kho công trình); mã dự án là phần đầu của chính số đó; ngày đơn hàng quyết định
+            đã gửi {tenAppKho(kho, "Kho công trình")}); mã dự án là phần đầu của chính số đó; ngày đơn hàng quyết định
             năm của số đó. Đổi một trong ba là hồ sơ nói một đằng, chứng từ nói một nẻo — cần đổi
             thì huỷ đơn và lập lại. Mọi ô còn lại trên trang này sửa được như khi lập đơn mới.
           </span>

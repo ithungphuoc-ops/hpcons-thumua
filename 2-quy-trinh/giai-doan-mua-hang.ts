@@ -24,6 +24,8 @@ import type {
 } from "@/3-du-lieu/kieu-du-lieu";
 import type { Tong } from "@/2-quy-trinh/trang-thai";
 import type { Quyen } from "@/4-phan-quyen/quyen";
+import type { KhoId } from "@/3-du-lieu/kho-id";
+import { tenAppKho } from "@/2-quy-trinh/ten-app-kho";
 import { soSanhDeNghiUuTien, soSanhDonHangUuTien } from "@/2-quy-trinh/sap-xep-uu-tien";
 import {
   caiDatCuaBuoc,
@@ -3265,6 +3267,9 @@ function quyetDinhLui(
   baoGiaCuaDeNghi: BaoGia[],
   /** Quyền người bấm — vắng mặt là CHẶN, xem `vuongMacQuyenLui`. */
   quyen?: QuyenLuiBuoc,
+  /** ★ Kho (Liên kết mua hàng EQUI, 15/10/2026) — chỉ để câu chặn nói đúng app đã nhận đơn. Thiếu = kho
+   *  thường, câu y hệt trước. Không đổi luật nào. */
+  kho?: KhoId,
 ): HanhDongKeoTha {
   /* ① Cặp bước này có nằm trong bảng duyệt không. Đứng TRƯỚC phép kiểm quyền: ca "không bao giờ
      lùi được" phải nói đúng lý do của nó, chứ không đổ cho thiếu quyền. */
@@ -3416,7 +3421,7 @@ function quyetDinhLui(
       if (daDongBoQlkCtr.length > 0) {
         return {
           loai: "khong_the",
-          lyDo: `Đơn ${daDongBoQlkCtr.map((p) => p.code).join(", ")} đã được gửi sang app Kho công trình (QLK CTR). Đưa đơn về nháp ở đây KHÔNG gỡ được bản đơn đang nằm bên đó, và app chưa có chức năng thu hồi đơn đã đồng bộ — hai bên sẽ lệch nhau trong khi thủ kho vẫn nhận hàng theo bản cũ. Cần sửa nội dung đơn thì dùng nút “Sửa đơn hàng” ở trang chi tiết đơn, bản sửa sẽ được đồng bộ lại sang kho.`,
+          lyDo: `Đơn ${daDongBoQlkCtr.map((p) => p.code).join(", ")} đã được gửi sang ${tenAppKho(kho, "app Kho công trình (QLK CTR)")}. Đưa đơn về nháp ở đây KHÔNG gỡ được bản đơn đang nằm bên đó, và app chưa có chức năng thu hồi đơn đã đồng bộ — hai bên sẽ lệch nhau trong khi thủ kho vẫn nhận hàng theo bản cũ. Cần sửa nội dung đơn thì dùng nút “Sửa đơn hàng” ở trang chi tiết đơn, bản sửa sẽ được đồng bộ lại sang kho.`,
         };
       }
       const dangGiao = po.filter(
@@ -3498,6 +3503,9 @@ export function quyetDinhKeoTha(
    * ở những nơi gọi chưa cập nhật, im lặng và không lỗi nào báo.
    */
   tatCaDeNghi?: DeNghiMuaHang[],
+  /** ★ Kho đang mở (Liên kết mua hàng EQUI, 15/10/2026) — chỉ chuyển xuống `quyetDinhLui` để câu chặn
+   *  nói đúng app đã nhận đơn. Thiếu = kho thường, mọi câu y hệt trước. */
+  kho?: KhoId,
 ): HanhDongKeoTha | null {
   const tu = the.giaiDoan;
   if (tu === dich) return null;
@@ -3555,7 +3563,7 @@ export function quyetDinhKeoTha(
    * giấy tờ của bước trước còn treo là khoá luôn đường sửa.
    */
   if (buocDich === buocTu - 1) {
-    return quyetDinhLui(tu, dich, poCuaDeNghi, baoGiaCuaDeNghi, quyenNguoiThaoTac);
+    return quyetDinhLui(tu, dich, poCuaDeNghi, baoGiaCuaDeNghi, quyenNguoiThaoTac, kho);
   }
 
   /**

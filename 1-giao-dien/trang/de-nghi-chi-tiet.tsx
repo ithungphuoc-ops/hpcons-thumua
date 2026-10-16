@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
+import Link, { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
+import { tenAppKho } from "@/2-quy-trinh/ten-app-kho";
 import { useQuayLai } from "@/1-giao-dien/khung-app/lich-su-dieu-huong";
 import { useParams } from "next/navigation";
 import BangAiDangSua from "@/1-giao-dien/thanh-phan-dung-chung/bang-ai-dang-sua";
@@ -351,6 +352,10 @@ export default function TrangChiTietDeNghi({
      🔴 GỌI Ở ĐÂY, TRƯỚC MỌI `return` SỚM (`if (!dn)`, màn chặn theo bước) — quy tắc hook React: gọi sau
      một `return` sớm là số hook đổi giữa các lần vẽ, React vỡ cả trang. */
   const xemBuocHoSo = useXemBuocHoSo();
+  /* ★ Kho đang mở (Liên kết mua hàng EQUI, 15/10/2026) — hồ sơ kho EQUI nhận phiếu từ App EQUI chứ không
+     từ App Kho, nên câu "… để App Kho chốt số" phải nói đúng. Kho thường: chữ y hệt trước. Gọi TRƯỚC mọi
+     `return` sớm (luật hook). */
+  const kho = useKhoHienTai();
   /* ★ Nút "Quay lại" về ĐÚNG trang vừa xem (Sếp 09/10/2026) — không có trang trước thì về bảng Quy trình. */
   const quayLai = useQuayLai("/de-nghi");
   /**
@@ -3601,8 +3606,8 @@ export default function TrangChiTietDeNghi({
                                         {bss.thoiDiem.slice(0, 10).split("-").reverse().join("/")}) — đơn
                                         này tính là đã qua bước nhận hàng.{" "}
                                         {daGiaoDu
-                                          ? "Kho đã nhập đủ: đối chiếu từng lần giao rồi bấm “Xác nhận nhận hàng” để App Kho chốt số."
-                                          : "Kho nhập sau thì lần giao hiện ở bảng trên; đối chiếu rồi bấm “Xác nhận nhận hàng” để App Kho chốt số (vẫn bấm được sau khi hồ sơ hoàn thành)."}
+                                          ? `Kho đã nhập đủ: đối chiếu từng lần giao rồi bấm “Xác nhận nhận hàng” để ${tenAppKho(kho, "App Kho")} chốt số.`
+                                          : `Kho nhập sau thì lần giao hiện ở bảng trên; đối chiếu rồi bấm “Xác nhận nhận hàng” để ${tenAppKho(kho, "App Kho")} chốt số (vẫn bấm được sau khi hồ sơ hoàn thành).`}
                                       </span>
                                     </p>
                                   );
@@ -4586,7 +4591,7 @@ export default function TrangChiTietDeNghi({
             ? `Kho chưa nhập đủ hàng của ${hoiBoSungSau.poCode}. Đơn này sẽ được tính là đã qua bước nhận hàng — mọi đơn của hồ sơ đã xác nhận hoặc bổ sung sau thì hồ sơ sang “${NHAN_GIAI_DOAN.ho_so_thanh_toan.nhan}”. Phiếu giao: kho nhập sau sẽ tự hiện ở mục 5; cần thanh toán trước thì tích “Import phiếu giao hàng” ở mục 5.`
             : undefined
         }
-        canhBao="Không tính là “Xác nhận nhận hàng”: App Kho vẫn sửa được lần nhập, số lượng vẫn chỉ lấy từ kho. Kho nhập xong thì thu mua bấm “Xác nhận nhận hàng” như thường."
+        canhBao={`Không tính là “Xác nhận nhận hàng”: ${tenAppKho(kho, "App Kho")} vẫn sửa được lần nhập, số lượng vẫn chỉ lấy từ kho. Kho nhập xong thì thu mua bấm “Xác nhận nhận hàng” như thường.`}
         nhanDongY="Bổ sung sau"
         onDong={() => setHoiBoSungSau(null)}
         onDongY={() => {

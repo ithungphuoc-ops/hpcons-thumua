@@ -349,13 +349,19 @@ export async function guiTinTheoMa(
 }
 
 /**
- * "Kho đã nhận hàng" — gọi SAU KHI cửa `qlk-ctr/phieu-nhan-moi` đã ghi xong một phiếu MỚI.
- * Người nhận: người phụ trách PO (bảng đã duyệt). Không bao giờ ném lỗi.
+ * "Kho đã nhận hàng" — gọi SAU KHI cửa `qlk-ctr/phieu-nhan-moi` (hoặc `equi/phieu-nhan-moi`) đã ghi
+ * xong một phiếu MỚI. Người nhận: người phụ trách PO (bảng đã duyệt). Không bao giờ ném lỗi.
  */
-export async function guiKhoDaNhan(phieuId: string, pq: CongQuyenMayChu): Promise<void> {
+export async function guiKhoDaNhan(
+  phieuId: string,
+  pq: CongQuyenMayChu,
+  /** Kho của phiếu (Liên kết mua hàng EQUI — Sếp duyệt 15/10/2026). Mặc định kho thường: nơi gọi cũ
+   *  (cửa QLK CTR) không truyền gì nên chạy y như trước. */
+  khoId: KhoId = KHO_MAC_DINH,
+): Promise<void> {
   if (!daBatThongBaoAppTong() || !phieuId) return;
   try {
-    const kho = await docKhoNghiepVu();
+    const kho = await docKhoNghiepVu(khoId);
     const phieu = kho.phieuNhan.find((p) => p.id === phieuId);
     if (!phieu) return;
     const po = kho.donHang.find((p) => p.id === phieu.poId);
@@ -377,11 +383,15 @@ export async function guiKhoDaNhan(phieuId: string, pq: CongQuyenMayChu): Promis
     const nd = noiDungKhoNhan({
       poId: po.id,
       poCode: po.code,
-      tenCongTrinh: po.tenCongTrinh,
+      /* EQUI: thiếu tên thì nói "Kho EQUI" thay cho câu mặc định "Kho công trình". Kho thường không đổi. */
+      tenCongTrinh: khoId === "equi" ? po.tenCongTrinh || "EQUI" : po.tenCongTrinh,
       lanGiaoThu: phieu.lanGiaoThu,
       daNhanDu,
     });
-    await guiSuKien(maSuKienKhoNhan(phieu.id), recipients, nd, null);
+    /* ★ EQUI: link phải trỏ `/equi/don-hang/…` (link thường không thấy đơn của kho EQUI). Kho thường
+       giữ nguyên `nd`, không đổi một ký tự. */
+    const ndTheoKho = khoId === "equi" ? { ...nd, link: noiDungLinkTheoKho(nd.link, khoId) } : nd;
+    await guiSuKien(maSuKienKhoNhan(phieu.id), recipients, ndTheoKho, null);
   } catch (e) {
     console.warn(NHAT_KY, "không gửi được (kho đã nhận):", e instanceof Error ? e.message : e);
   }

@@ -85,8 +85,12 @@ import { AlertTriangle, Check, ExternalLink, FileText, Info, Minus } from "lucid
    khối này chỉ XEM. Truyền prop giả cho một ô đính kèm rồi khóa lại là mời người sau mở khóa —
    `LienKetTep` không có đường ghi nào nên không thể lỡ tay. */
 import { LienKetTep } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-tep";
-/* 🔴 Component của PHIÊN TÍCH HỢP (vùng cấm sửa §6.6) — chỉ dùng lại, tuyệt đối không sửa. */
-import { LienKetAnhQlkCtr } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-anh-qlk-ctr";
+/* 🔴 `LienKetAnhQlkCtr` là component của PHIÊN TÍCH HỢP (vùng cấm sửa §6.6) — chỉ dùng lại, tuyệt đối
+   không sửa. ★ Liên kết mua hàng EQUI (15/10/2026): dùng qua `LienKetAnhKho` — kho thường vẽ ĐÚNG
+   `LienKetAnhQlkCtr`, kho EQUI vẽ bản nói "App EQUI". */
+import { LienKetAnhKho } from "@/1-giao-dien/thanh-phan-dung-chung/lien-ket-anh-kho";
+import { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
+import { tenAppKho } from "@/2-quy-trinh/ten-app-kho";
 /* 📌 ĐÃ BỎ `import { StatusBadge }` và `import { tomTatBoHoSo }` ngày 16/09/2026 — cả hai chỉ phục
    vụ huy hiệu đếm mà Sếp cho bỏ (xem khối ❌❌ ngay trên thẻ `<section>`). `tomTatBoHoSo` VẪN CÒN
    NGUYÊN ở `2-quy-trinh/bo-ho-so-thanh-toan.ts` và vẫn là hàm luật — chỉ khối này thôi gọi tới. */
@@ -168,8 +172,11 @@ export function KhoiBoHoSoThanhToan({
    */
   xemGia: boolean;
 }) {
+  /* ★ Kho đang mở (Liên kết mua hàng EQUI, 15/10/2026) — chỉ để chữ "… gửi kèm ảnh / ảnh do … giữ" nói
+     đúng App EQUI ở kho EQUI. Kho thường: chữ y hệt trước. */
+  const kho = useKhoHienTai();
   /* ĐỦ CHÍN MỤC (từ 16/09/2026) — giữ nguyên để bộ đẩy sang app Kế toán không hụt khoá nào. */
-  const muc = dungBoHoSoThanhToan(deNghi, poCuaDeNghi, phieuCuaDeNghi, baoGiaCuaDeNghi);
+  const muc = dungBoHoSoThanhToan(deNghi, poCuaDeNghi, phieuCuaDeNghi, baoGiaCuaDeNghi, kho);
 
   /**
    * ❌ ĐÃ BỎ PHÉP LỌC `mucBay` — Sếp 15/09/2026 (lượt thứ tư): *"Bố cục lại này theo đúng thứ tự a
@@ -525,9 +532,9 @@ export function KhoiBoHoSoThanhToan({
                     {n.anhQlkCtr && (
                       <div className="flex flex-col gap-0.5 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1">
                         <span className="text-[11px] font-medium text-text-desc">
-                          Liên kết ngoài — ảnh do Kho công trình giữ, app Thu mua không lưu bản sao
+                          Liên kết ngoài — ảnh do {tenAppKho(kho, "Kho công trình")} giữ, app Thu mua không lưu bản sao
                         </span>
-                        <LienKetAnhQlkCtr anh={n.anhQlkCtr} />
+                        <LienKetAnhKho anh={n.anhQlkCtr} />
                       </div>
                     )}
                     {/**

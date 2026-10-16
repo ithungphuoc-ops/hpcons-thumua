@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
+import Link, { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
+import { tenAppKho } from "@/2-quy-trinh/ten-app-kho";
 import { useParams } from "next/navigation";
 import BangAiDangSua from "@/1-giao-dien/thanh-phan-dung-chung/bang-ai-dang-sua";
 import { useMemo, useState } from "react";
@@ -71,6 +72,11 @@ export default function TrangChiTietDonHang() {
      đơn", "Đề nghị nguồn"). Danh sách + chi tiết đơn GIỮ NGUYÊN (bổ sung đặc tả Q3: Thủ kho làm việc ở
      màn này bằng `xacNhanKho`). Gọi TRƯỚC mọi `return` sớm (luật hook). */
   const xem = useXemBuocHoSo();
+  /* ★ Kho đang mở (Liên kết mua hàng EQUI, 15/10/2026) — đơn kho EQUI gửi sang App EQUI chứ không sang
+     app Kho công trình, nên chữ ở dải "chưa gửi được" / nút "Gửi lại ngay" phải nói đúng đích. Kho
+     thường: mọi chữ y hệt trước. Gọi TRƯỚC mọi `return` sớm (luật hook). */
+  const kho = useKhoHienTai();
+  const laKhoEqui = kho === "equi";
 
   const po = donHang.find((x) => x.id === params.id);
   const gia = giaDonHang.find((g) => g.poId === params.id);
@@ -182,8 +188,8 @@ export default function TrangChiTietDonHang() {
     setDangGuiLaiKho(true);
     try {
       const loi = await guiLaiPOSangKhoNgay(po.id);
-      if (loi) toast.error(`Vẫn chưa gửi được sang app Kho: ${loi}`);
-      else toast.success(`Đã gửi đơn ${po.code} sang app Kho công trình.`);
+      if (loi) toast.error(`Vẫn chưa gửi được sang ${tenAppKho(kho, "app Kho")}: ${loi}`);
+      else toast.success(`Đã gửi đơn ${po.code} sang ${tenAppKho(kho, "app Kho công trình")}.`);
     } finally {
       setDangGuiLaiKho(false);
     }
@@ -429,13 +435,13 @@ export default function TrangChiTietDonHang() {
                 màu vẫn đọc ra đây là cảnh báo. */}
             <span className="text-sm font-semibold text-warning-soft">
               {daDungTuGuiKho
-                ? "Đã dừng tự gửi đơn này sang app Kho công trình — cần người xử lý"
+                ? `Đã dừng tự gửi đơn này sang ${tenAppKho(kho, "app Kho công trình")} — cần người xử lý`
                 : po.qlkCtrSyncStatus === "can_xu_ly_tay" && !daSuaSauKhiDung
-                  ? "App Kho công trình từ chối đơn này — cần người xử lý"
-                  : "Chưa gửi được đơn này sang app Kho công trình"}
+                  ? `${tenAppKho(kho, "App Kho công trình")} từ chối đơn này — cần người xử lý`
+                  : `Chưa gửi được đơn này sang ${tenAppKho(kho, "app Kho công trình")}`}
             </span>
             <p className="text-sm text-text-secondary">
-              Thủ kho công trình chưa nhìn thấy đơn <strong>{po.code}</strong> bên app Kho, nên
+              {laKhoEqui ? "Thủ kho" : "Thủ kho công trình"} chưa nhìn thấy đơn <strong>{po.code}</strong> bên {tenAppKho(kho, "app Kho")}, nên
               chưa ghi nhận nhập kho theo đơn này được. Phần tiến độ nhận hàng bên dưới có thể
               chưa phản ánh đúng hàng đã về.
             </p>
@@ -458,15 +464,15 @@ export default function TrangChiTietDonHang() {
               {daDungTuGuiKho
                 ? <>App đã thử gửi đơn này <strong>5 lần hoặc suốt 1 ngày</strong> vẫn lỗi nên{" "}
                     <strong>thôi tự gửi</strong> (người lập đơn và trưởng bộ phận đã nhận tin báo).
-                    Kiểm tra lý do ở trên — thường là app Kho đang lỗi hoặc đề nghị gốc chưa sang
-                    được app Kho — rồi bấm <strong>Gửi lại ngay</strong>. Sửa đơn (đổi nội dung) thì
+                    Kiểm tra lý do ở trên — thường là {tenAppKho(kho, "app Kho")} đang lỗi hoặc đề nghị gốc chưa sang
+                    được {tenAppKho(kho, "app Kho")} — rồi bấm <strong>Gửi lại ngay</strong>. Sửa đơn (đổi nội dung) thì
                     app cũng tự gửi lại.</>
                 : daSuaSauKhiDung
                 ? <>Đơn đã được sửa sau lần app dừng tự gửi — app sẽ <strong>tự gửi bản mới</strong> ở lần
                     mở hoặc tải lại trang kế tiếp (tối đa 5 lần / 1 ngày rồi dừng và báo).</>
                 : po.qlkCtrSyncStatus === "can_xu_ly_tay"
                 ? <>App <strong>không tự gửi lại</strong> đơn này — gửi lại y nguyên sẽ bị từ chối
-                    y hệt. Thường gặp: đề nghị gốc chưa sang được app Kho (kiểm tra bên App Request),
+                    y hệt. Thường gặp: đề nghị gốc chưa sang được {tenAppKho(kho, "app Kho")} (kiểm tra bên App Request),
                     hoặc tên/ĐVT vật tư không khớp đề nghị. Sửa đơn (đổi nội dung) thì app sẽ gửi
                     lại; nếu không rõ nguyên nhân, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và
                     nguyên văn lý do ở trên.</>
@@ -520,7 +526,7 @@ export default function TrangChiTietDonHang() {
           <Info className="mt-0.5 size-5 shrink-0 text-text-desc" aria-hidden />
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-text-primary">
-              Đơn này không gửi sang app Kho công trình
+              Đơn này không gửi sang {tenAppKho(kho, "app Kho công trình")}
             </span>
             <p className="text-sm text-text-secondary">{LY_DO_NHANH_PHONG_BAN}</p>
             {/* 🔴 ĐỪNG VIẾT "ghi đủ là đơn xong". CodeRabbit bắt đúng 15/09/2026 và kiểm lại

@@ -26,6 +26,8 @@
 // Hàm ở đây là hàm THUẦN, không đụng giao diện, không đụng kho dữ liệu.
 // ============================================================
 
+import type { KhoId } from "@/3-du-lieu/kho-id";
+
 /**
  * Tiền tố số đơn mua hàng — một chỗ sửa duy nhất.
  *
@@ -128,10 +130,41 @@ export function maDonHangTiepTheo(nam: string, maDaDung: readonly string[]): str
  * lọc thì ai cũng tự đặt được một hệ mã mới — đúng thứ quy tắc E-6 cấm.
  */
 export const TIEN_TO_PHIEU_XUAT_KHO = "XK";
-const TIEN_TO_LOAI_HOP_LE = [TIEN_TO_PHIEU_XUAT_KHO] as const;
 
-/** Tham số gửi đi để cấp số: `"26"` cho đơn thường, `"XK:26"` cho phiếu xuất kho. */
-export function thamSoCapSoDon(nam: string, laPhieuXuatKho: boolean): string {
+/**
+ * ★ SỐ CHỨNG TỪ CỦA KHO EQUI — Sếp chốt 15/10/2026 (Liên kết mua hàng EQUI, câu 2A): *"Số PO của kho
+ * EQUI có chữ EQ, viết liền"* → `DMHEQ260001`, `DMHEQ260002`…; phiếu xuất kho cùng lý do → `XKEQ260001`.
+ * Kho thường GIỮ NGUYÊN `DMH260001` / `XK260001`.
+ *
+ * 🔴 VÌ SAO CẦN: hai kho có dãy số riêng (sổ giữ chỗ riêng `cap-phat-ma-equi`), nên trước đây cùng ra
+ * được `DMH260001` ở cả hai kho — hai tờ PO khác nhau mang một số, NCC và kế toán không phân biệt
+ * được. Thêm `EQ` vào chính con số là nhìn số biết kho.
+ *
+ * 📌 ĐI CÙNG ĐƯỜNG VỚI `XK`: tiền tố gói vào tham số (`DMHEQ:26`, `XKEQ:26`) nên cửa cấp số máy chủ
+ * (`app/api/cap-ma/route.ts`) không phải sửa gì — nó chuyển nguyên `thamSo` vào `maDonHangTiepTheo`
+ * và mở sổ đếm riêng theo `thamSo`. Đường dự phòng tính tại máy (`themDonHang`) dùng ĐÚNG tham số đó,
+ * nên hai đường ra cùng một hệ mã.
+ */
+export const TIEN_TO_DON_HANG_EQUI = "DMHEQ";
+export const TIEN_TO_PHIEU_XUAT_KHO_EQUI = "XKEQ";
+
+const TIEN_TO_LOAI_HOP_LE = [TIEN_TO_PHIEU_XUAT_KHO, TIEN_TO_DON_HANG_EQUI, TIEN_TO_PHIEU_XUAT_KHO_EQUI] as const;
+
+/**
+ * Tiền tố CHỮ của số đơn theo loại chứng từ và kho — dùng cho khuôn xem trước (`DMH26…`, `DMHEQ26…`)
+ * ở màn lập đơn, để chữ hiện ra khớp đúng số sẽ cấp.
+ */
+export function tienToSoDon(laPhieuXuatKho: boolean, kho: KhoId = "thuong"): string {
+  if (kho === "equi") return laPhieuXuatKho ? TIEN_TO_PHIEU_XUAT_KHO_EQUI : TIEN_TO_DON_HANG_EQUI;
+  return laPhieuXuatKho ? TIEN_TO_PHIEU_XUAT_KHO : TIEN_TO_DON_HANG;
+}
+
+/**
+ * Tham số gửi đi để cấp số: `"26"` cho đơn thường, `"XK:26"` cho phiếu xuất kho.
+ * ★ Kho EQUI (15/10/2026): `"DMHEQ:26"` / `"XKEQ:26"`. Thiếu `kho` = kho thường — chuỗi ra Y HỆT trước.
+ */
+export function thamSoCapSoDon(nam: string, laPhieuXuatKho: boolean, kho: KhoId = "thuong"): string {
+  if (kho === "equi") return `${tienToSoDon(laPhieuXuatKho, kho)}:${nam.trim()}`;
   return laPhieuXuatKho ? `${TIEN_TO_PHIEU_XUAT_KHO}:${nam.trim()}` : nam.trim();
 }
 
