@@ -5676,15 +5676,8 @@ export function DuLieuProvider({
       if (soatBang.vuot.length > 0) {
         moc.push(`⚠ Đặt vượt khối lượng đã duyệt: ${taCacDongVuot(soatBang.vuot)}`);
       }
-      if (soatBang.sttThemNgoaiDeNghi.length > 0) {
-        const ten = soatBang.sttThemNgoaiDeNghi
-          .map((stt) => {
-            const d = thayDoi.items?.find((x) => x.sttDong === stt);
-            return `dòng ${stt} "${d?.tenVatLieu?.trim() || "(chưa đặt tên)"}"`;
-          })
-          .join(", ");
-        moc.push(`⚠ Thêm hàng ngoài đề nghị: ${ten}`);
-      }
+      /* 📌 Từng ghi thêm dòng "⚠ Thêm hàng ngoài đề nghị: …" — bỏ 19/10/2026 (Sếp: bỏ mọi ghi chú hàng ngoài đề
+         nghị). Việc thêm dòng vẫn có trong lịch sử qua `mocSuaBangMatHang` ("thêm dòng N: …"). */
 
       /* 📌 `giaCu` đã đọc ở đầu hàm (khối "ĐIỀU KIỆN THƯƠNG MẠI") vì cờ `doiTien` cần nó để quyết
          có bắt lý do hay không. Đọc lại lần thứ hai ở đây là hai biến cùng trỏ một thứ, rồi ai đó

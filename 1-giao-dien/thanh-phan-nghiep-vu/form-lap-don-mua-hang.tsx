@@ -1539,7 +1539,7 @@ export function FormLapDonMuaHang({
      * ❌ CHỖ NÀY TRƯỚC ĐÂY CHẶN CỨNG (luật 15/09/2026 sáng: *"đơn lập từ đề nghị không thêm dòng
      * mới"*). Chặn đó đã được Sếp gỡ có chủ đích, đổi lấy hai chốt khác:
      *   · (A) đặt vượt khối lượng đã duyệt → cảnh báo kèm con số + bắt ghi lý do (vẫn lưu được)
-     *   · (B) dòng thêm mới → đóng cờ `themNgoaiDeNghi`, hiện nhãn cho Kế toán và người duyệt
+     *   · (B) dòng thêm mới → đóng cờ `themNgoaiDeNghi` (từ 19/10/2026 không hiện nhãn ở đâu nữa — Sếp bỏ ghi chú)
      * Cả hai chốt nằm ở `soatBangMatHangKhiSua` (`3-du-lieu/kho-du-lieu.tsx`) — tầng ghi, nên
      * không có đường nào lách qua. Dựng lại chặn cứng ở đây là đi ngược chỉ đạo 16/09/2026.
      *
@@ -1586,7 +1586,7 @@ export function FormLapDonMuaHang({
     (idTren: string) => {
       /* ★ MỞ 16/09/2026 cùng lượt với [Thêm dòng] — xem chú thích ở `themDong`. Dấu [+] chèn một
          dòng hàng gõ tay; ở đơn lập từ đề nghị nó thành "hàng thêm ngoài đề nghị" và được tầng
-         ghi đóng cờ + hiện nhãn, chứ không còn bị chặn. */
+         ghi đóng cờ (không hiện nhãn — Sếp bỏ 19/10/2026), chứ không còn bị chặn. */
       setDongBang((t) => {
         const i = t.findIndex((d) => d.id === idTren);
         /* Không tìm thấy (dòng vừa bị xóa ở tab khác) thì thêm vào cuối — thà thêm sai chỗ còn
@@ -3380,9 +3380,7 @@ export function FormLapDonMuaHang({
             <strong className="text-text-primary">
               Thêm · bớt mặt hàng, sửa số lượng, đơn giá và thuế đều được.
             </strong>{" "}
-            Đơn này lập từ đề nghị {poDangSua!.prCode ?? ""}. Mặt hàng thêm mới sẽ mang nhãn{" "}
-            <strong>&quot;hàng thêm ngoài đề nghị&quot;</strong> để Kế toán và người duyệt biết
-            phần nào đã qua bước Xét duyệt báo giá, phần nào thêm sau. Đặt quá khối lượng đã duyệt
+            Đơn này lập từ đề nghị {poDangSua!.prCode ?? ""}. Đặt quá khối lượng đã duyệt
             thì vẫn lưu được nhưng phải <strong>ghi rõ lý do</strong>, và con số vượt được ghi vào
             lịch sử hồ sơ. Vẫn còn một việc bị gác:{" "}
             <strong>dòng đã có phiếu nhận hàng thì không xoá</strong> và không hạ số lượng xuống
@@ -3452,30 +3450,9 @@ export function FormLapDonMuaHang({
         </div>
       )}
 
-      {/**
-        * ★★ NHÃN "HÀNG THÊM NGOÀI ĐỀ NGHỊ" — chốt (B) của Sếp 16/09/2026, mặt hiển thị trên form.
-        *
-        * 🔴 ĐẾM TRÊN BẢNG ĐANG GÕ, không đợi lưu xong: người thêm dòng phải thấy ngay rằng dòng
-        * ấy sẽ được đánh dấu. Biết trước thì họ còn cân nhắc; biết sau thì nhãn thành một sự đã
-        * rồi mà họ không hiểu từ đâu ra.
-        *
-        * 📌 Nhãn THẬT (đóng vào dữ liệu, hiện ở bảng tiến độ đơn cho Kế toán và người duyệt) do
-        * TẦNG GHI đặt — xem `DongPO.themNgoaiDeNghi`. Dải này chỉ là lời báo trước.
-        */}
-      {laSuaDon && soatBangSua && soatBangSua.sttThemNgoaiDeNghi.length > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-(--hp-md-row-pad) text-sm">
-          <Info className="mt-0.5 size-4 shrink-0 text-text-desc" aria-hidden />
-          <span className="min-w-0 text-text-secondary">
-            <strong className="text-text-primary">
-              {soatBangSua.sttThemNgoaiDeNghi.length} dòng sẽ được đánh dấu &quot;hàng thêm ngoài
-              đề nghị&quot;
-            </strong>{" "}
-            khi lưu — vì chúng không bám vào mặt hàng nào của đề nghị gốc. Nhãn đi theo dòng suốt
-            đời chứng từ và hiện ở bảng tiến độ đơn hàng, để người duyệt và Kế toán phân biệt được
-            phần đã qua duyệt với phần thêm sau. Đây không phải lỗi, chỉ là dấu vết.
-          </span>
-        </div>
-      )}
+      {/* 📌 Từng có dải báo "N dòng sẽ được đánh dấu 'hàng thêm ngoài đề nghị'" (chốt B, Sếp 16/09/2026) — Sếp
+          19/10/2026 bảo bỏ hẳn mọi ghi chú hàng ngoài đề nghị ở Thu mua lẫn Kho. Cờ `themNgoaiDeNghi` vẫn ghi
+          ở tầng dữ liệu (không hiện ra đâu nữa). */}
 
       {/**
         * ★★ VƯỚNG CHỐT NGHIỆP VỤ (hàng đã nhận) — đỏ, vì cái này THẬT SỰ không lưu được.
