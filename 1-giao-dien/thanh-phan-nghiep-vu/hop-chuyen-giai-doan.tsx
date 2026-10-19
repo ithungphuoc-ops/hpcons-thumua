@@ -49,7 +49,6 @@ import {
   tepUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
-import { OPhieuChiGoUng } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-phieu-chi-go-ung";
 import { KhuBaoGiaTheoSoLuong } from "@/1-giao-dien/thanh-phan-nghiep-vu/khu-bao-gia-theo-so-luong";
 import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
@@ -703,11 +702,7 @@ function OGoDieuKien({
         />,
       );
 
-    /* ★ Sếp 02/10/2026 — tick "Gỡ ứng" + đính phiếu chi, hoặc ghi lý do. Cùng MỘT thành phần với
-       bộ hồ sơ thanh toán trên trang chi tiết (`OPhieuChiGoUng`), không dựng bản thứ hai. */
-    case "thieu_phieu_chi":
-      return khung(<OPhieuChiGoUng deNghi={deNghi} duocSua={duocSua} />);
-
+    /* 📌 Từng có case "thieu_phieu_chi" (Sếp 02/10/2026) — bỏ 17/10/2026 cùng chốt Phiếu chi. */
     case "chua_tich_unc":
       return khung(
         <OChungTuBatBuoc

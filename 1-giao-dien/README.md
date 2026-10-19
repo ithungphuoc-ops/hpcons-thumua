@@ -59,7 +59,7 @@ Mọi thứ người dùng **nhìn thấy**. Không chứa quy tắc nghiệp v�
 | `che-do-mau.tsx` | Bộ điều khiển Sáng/Tối (thư viện `next-themes`) |
 | `mat-do.tsx` | Bộ điều khiển mật độ — **mức chuẩn "Vừa" khai ở đây** (`MAT_DO_MAC_DINH`) |
 
-## `thanh-phan-nghiep-vu/` — 32 file (25/09/2026 thêm `o-nhap-da-tra.tsx` · `nut-xuat-cong-no.tsx`; 02/10/2026 thêm `o-ghi-ly-do.tsx` — ô chữ + nút Lưu cho lý do "không có chứng từ", dùng ở mục Phiếu chi. `o-chung-tu-bat-buoc.tsx` có thêm prop tuỳ chọn `congTac` — ô tick bật/tắt chỗ đính kèm, dùng ở UNC và Gỡ ứng)
+## `thanh-phan-nghiep-vu/` — 32 file (25/09/2026 thêm `o-nhap-da-tra.tsx` · `nut-xuat-cong-no.tsx`; 02/10/2026 thêm `o-ghi-ly-do.tsx` — ô chữ + nút Lưu cho lý do "không có chứng từ"; từ 17/10/2026 mục Phiếu chi KHÔNG còn dùng nó (hiện không nơi nào dùng). `o-chung-tu-bat-buoc.tsx` có thêm prop tuỳ chọn `congTac` — ô tick bật/tắt chỗ đính kèm; `congTac.chiDanhDau` (17/10/2026) = ô tick chỉ để đánh dấu, nút đính kèm luôn hiện — dùng ở UNC và Gỡ ứng)
 
 ⚠️ Bảng dưới **chỉ liệt kê những file hay phải sửa nhất**, không phải danh sách đủ. Danh sách
 đủ tra ở `BAN-DO-MA-NGUON.md` mục 2 (hiện tượng → sửa file nào).

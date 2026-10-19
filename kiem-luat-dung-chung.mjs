@@ -16887,19 +16887,20 @@ kiem(
     };
   });
 
-  kiem("Kéo thả ⑦ → ⑧: thiếu lý do / phiếu chi thì danh sách vướng PHẢI có 'thieu_phieu_chi'; ghi lý do rồi thì hết (cả hai chiều)", 'Sếp 02/10/2026 · phản biện: kéo thả vẫn báo "đủ điều kiện"', () => {
+  kiem("Kéo thả ⑦ → ⑧: Phiếu chi KHÔNG còn chặn — không tick, không lý do, không tệp vẫn không có vướng 'thieu_phieu_chi'; thiếu VAT thì vẫn vướng VAT", 'Sếp 17/10/2026 — *"gở ứng chỉ cần tick hoặc ko tick, còn file đính kèm vẫn hiện, dạng ko bắt buộc"*', () => {
     const vat = { id: "v1", tenTep: "vat.pdf", ghiChu: "Hóa đơn VAT" };
     const hs = (them) => ({
       id: "h", items: [{ stt: 1, nguoiPhuTrachUid: "u", loaiViecGiao: "mua_ngoai" }],
       tepGiaiDoan: { ho_so_thanh_toan: [vat] }, lyDoThieuChungTu: {}, ...them,
     });
     const ma = (dn) => G.dsDieuKienConVuong(dn, "ho_so_thanh_toan", [], G.CAU_HINH_MAC_DINH ?? {}, null).map((d) => d.ma);
-    const thieu = ma(hs({}));
-    const coLyDo = ma(hs({ lyDoThieuChungTu: { "ho_so_thanh_toan|phieu_chi": "Trả qua UNC" } }));
+    const trong = ma(hs({}));
+    const tickChuaTep = ma(hs({ goUng: true }));
+    const thieuVAT = ma(hs({ tepGiaiDoan: {} }));
     return {
-      duoc: thieu.includes("thieu_phieu_chi") && !coLyDo.includes("thieu_phieu_chi"),
-      thucTe: `thiếu=${JSON.stringify(thieu)} · cóLýDo=${JSON.stringify(coLyDo)}`,
-      mongDoi: 'thiếu có "thieu_phieu_chi" · có lý do thì không',
+      duoc: !trong.includes("thieu_phieu_chi") && !tickChuaTep.includes("thieu_phieu_chi") && thieuVAT.includes("thieu_hoa_don_vat"),
+      thucTe: `trống=${JSON.stringify(trong)} · tickChưaTệp=${JSON.stringify(tickChuaTep)} · thiếuVAT=${JSON.stringify(thieuVAT)}`,
+      mongDoi: 'không ca nào có "thieu_phieu_chi" · thiếu VAT vẫn có "thieu_hoa_don_vat"',
     };
   });
 }
@@ -17043,45 +17044,50 @@ kiem(
   const CT = nap(tepRa);
   rmSync(thuMucUNC, { recursive: true, force: true });
   kiem(
-    "UNC: mặc định KHÔNG có; tick → có; đã đính tệp UNC (hồ sơ cũ) → vẫn có và KHÔNG bỏ tick được (cả hai chiều)",
-    'Sếp 02/10/2026 — *"ko tích thì mặc định không có UNC và hiển thị nội dung Không có UNC"*',
+    "UNC / Gỡ ứng chỉ ĐÁNH DẤU: mặc định KHÔNG; tick → có; hồ sơ cũ có tệp mà chưa đụng ô tick → có; đã BỎ tick (false) dù còn tệp → KHÔNG (cả hai ô)",
+    'Sếp 02/10/2026 + 17/10/2026 — *"ô đánh tích vẫn giống như hiện tại k sửa đổi chỉ sửa chức năng"*',
     () => {
-      const tep = { id: "t1", tenTep: "unc.pdf", ghiChu: "Ủy nhiệm chi" };
+      const tepU = { id: "t1", tenTep: "unc.pdf", ghiChu: "Ủy nhiệm chi" };
+      const tepP = { id: "t2", tenTep: "pc.pdf", ghiChu: "Phiếu chi" };
       const trong = { id: "a", items: [], tepGiaiDoan: {} };
-      const tick = { ...trong, coUNC: true };
-      const coTep = { ...trong, tepGiaiDoan: { ho_so_thanh_toan: [tep] } };
+      const coTep = { ...trong, tepGiaiDoan: { ho_so_thanh_toan: [tepU, tepP] } };
       const kq = {
-        trong: CT.coUyNhiemChi(trong),
-        tick: CT.coUyNhiemChi(tick),
-        coTep: CT.coUyNhiemChi(coTep),
-        boTickTrong: CT.lyDoKhongBoTickUNC(tick),
-        boTickCoTep: CT.lyDoKhongBoTickUNC(coTep) !== null,
+        uncTrong: CT.coUyNhiemChi(trong),
+        uncTick: CT.coUyNhiemChi({ ...trong, coUNC: true }),
+        uncCoTep: CT.coUyNhiemChi(coTep),
+        uncBoTickConTep: CT.coUyNhiemChi({ ...coTep, coUNC: false }),
+        goUngTrong: CT.coGoUng(trong),
+        goUngTick: CT.coGoUng({ ...trong, goUng: true }),
+        goUngCoTep: CT.coGoUng(coTep),
+        goUngBoTickConTep: CT.coGoUng({ ...coTep, goUng: false }),
       };
       return {
-        duoc: !kq.trong && kq.tick && kq.coTep && kq.boTickTrong === null && kq.boTickCoTep,
+        duoc: !kq.uncTrong && kq.uncTick && kq.uncCoTep && !kq.uncBoTickConTep && !kq.goUngTrong && kq.goUngTick && kq.goUngCoTep && !kq.goUngBoTickConTep,
         thucTe: JSON.stringify(kq),
-        mongDoi: "trong=false · tick=true · coTep=true · bỏ tick khi chưa có tệp = được · bỏ tick khi có tệp = CHẶN",
+        mongDoi: "trống=false · tick=true · có tệp chưa đụng=true · bỏ tick còn tệp=false (cả UNC lẫn Gỡ ứng)",
       };
     },
   );
   kiem(
-    "Phiếu chi: KHÔNG tick Gỡ ứng mà chưa ghi lý do → CHẶN qua bước; có lý do → qua; tick mà chưa có tệp → CHẶN; xuất kho → miễn",
-    'Sếp 02/10/2026 — *"Không tích thì phải ghi lý do thì mới được qua bước"*',
+    "Phiếu chi KHÔNG còn chặn Hoàn thành quy trình: hồ sơ đủ VAT, không tick Gỡ ứng, không lý do, không tệp phiếu chi → mở; tick mà chưa có tệp → vẫn mở; luật cũ đã xoá khỏi tệp",
+    'Sếp 17/10/2026 — bỏ luật 02/10/2026 "không tích thì phải ghi lý do thì mới được qua bước"',
     () => {
-      const muaNgoai = [{ stt: 1, nguoiPhuTrachUid: "u1", loaiViecGiao: "mua_ngoai" }];
-      const tep = { id: "t1", tenTep: "pc.pdf", ghiChu: "Phiếu chi" };
-      const goc = { id: "a", items: muaNgoai, tepGiaiDoan: {} };
+      const vat = { id: "v1", tenTep: "vat.pdf", ghiChu: "Hóa đơn VAT" };
+      const hd = { id: "h1", tenTep: "hd.pdf", ghiChu: "Hợp đồng" };
+      const goc = {
+        id: "a", items: [{ stt: 1, nguoiPhuTrachUid: "u1", loaiViecGiao: "mua_ngoai", khoiLuongDeNghi: 1 }],
+        tepGiaiDoan: { ho_so_thanh_toan: [vat], lap_don_mua_hang: [hd] }, lyDoThieuChungTu: {},
+      };
+      const tienDo = [{ stt: 1, khoiLuongChuaLenPO: 0, khoiLuongConLai: 0 }];
       const kq = {
-        trong: CT.vuongMacPhieuChi(goc) !== null,
-        coLyDo: CT.vuongMacPhieuChi({ ...goc, lyDoThieuChungTu: { [CT.KHOA_LY_DO_KHONG_GO_UNG]: "Trả qua UNC" } }),
-        tickChuaTep: CT.vuongMacPhieuChi({ ...goc, goUng: true }) !== null,
-        tickCoTep: CT.vuongMacPhieuChi({ ...goc, goUng: true, tepGiaiDoan: { ho_so_thanh_toan: [tep] } }),
-        xuatKho: CT.vuongMacPhieuChi({ ...goc, items: [{ stt: 1, nguoiPhuTrachUid: "u1", loaiViecGiao: "xuat_kho" }] }),
+        trong: CT.vuongMacHoanThanhQuyTrinh(goc, tienDo),
+        tickChuaTep: CT.vuongMacHoanThanhQuyTrinh({ ...goc, goUng: true }, tienDo),
+        conHamCu: typeof CT.vuongMacPhieuChi,
       };
       return {
-        duoc: kq.trong && kq.coLyDo === null && kq.tickChuaTep && kq.tickCoTep === null && kq.xuatKho === null,
+        duoc: kq.trong === null && kq.tickChuaTep === null && kq.conHamCu === "undefined",
         thucTe: JSON.stringify(kq),
-        mongDoi: "trong=CHẶN · coLyDo=null · tickChuaTep=CHẶN · tickCoTep=null · xuatKho=null",
+        mongDoi: "trong=null · tickChuaTep=null (không chặn) · vuongMacPhieuChi = undefined (đã xoá)",
       };
     },
   );

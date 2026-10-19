@@ -713,67 +713,31 @@ export function tepUNC(deNghi: DeNghiMuaHang): MoTaTep[] {
 }
 
 /**
- * ★ HỒ SƠ NÀY CÓ ỦY NHIỆM CHI KHÔNG — Sếp 02/10/2026 (ô tick ở mục 7 bộ hồ sơ thanh toán).
- * Mặc định KHÔNG. Có tick, HOẶC đã đính sẵn tệp UNC (hồ sơ trước 02/10/2026) → có.
+ * ★ Ô TICK "CÓ ỦY NHIỆM CHI" (mục 7 bộ hồ sơ thanh toán) ĐANG TICK HAY KHÔNG.
  *
- * 📌 Đây là ô tick để CHỌN hiện chỗ đính kèm, KHÔNG phải ô "đã xử lý UNC" Sếp bỏ ngày 15/09/2026:
- * nó không chặn chuyển bước, không chặn Hoàn thành — UNC vẫn là chứng từ "Nếu có".
+ * ★★ Sếp 17/10/2026 (demo 5 vấn đề, tab 5): *"ô đánh tích vẫn giống như hiện tại k sửa đổi chỉ sửa
+ * chức năng"* — ô tick nay CHỈ ĐỂ ĐÁNH DẤU: nút đính kèm luôn hiện, không bắt buộc, bỏ tick được cả
+ * khi đã có tệp (trước 17/10: tick mới hiện nút đính kèm, có tệp thì khoá không cho bỏ tick).
+ *
+ * 📌 `coUNC` ĐÃ GHI (true/false) thì theo đúng nó. CHƯA GHI bao giờ → coi là có khi đã đính sẵn tệp
+ * UNC: hồ sơ trước 02/10/2026 không có ô tick, có tệp tức là có UNC. Bỏ tick ghi hẳn `false` (xem
+ * `datTickChungTu`) chứ không xoá khoá — xoá khoá thì hồ sơ đang có tệp tự tick lại ngay.
  */
 export function coUyNhiemChi(deNghi: DeNghiMuaHang): boolean {
-  return deNghi.coUNC === true || tepUNC(deNghi).length > 0;
+  return deNghi.coUNC ?? tepUNC(deNghi).length > 0;
 }
 
 /**
- * Bỏ tick "Có UNC" được không. Còn tệp UNC thì KHÔNG — bỏ tick lúc đó là tệp bị giấu đi mà hồ sơ
- * vẫn đang giữ nó, người sau nhìn "Không có UNC" sẽ hiểu sai. Gỡ tệp trước rồi mới bỏ tick.
- */
-export function lyDoKhongBoTickUNC(deNghi: DeNghiMuaHang): string | null {
-  const so = tepUNC(deNghi).length;
-  return so > 0 ? `Đang có ${so} tệp ủy nhiệm chi — gỡ tệp trước rồi mới bỏ tick được.` : null;
-}
-
-/** Khoá lý do "không gỡ ứng / không có phiếu chi" trong `lyDoThieuChungTu` (Sếp 02/10/2026). */
-export const KHOA_LY_DO_KHONG_GO_UNG = "ho_so_thanh_toan|phieu_chi";
-
-/**
- * ★ HỒ SƠ NÀY CÓ GỠ ỨNG (CÓ PHIẾU CHI) KHÔNG — Sếp 02/10/2026, ô tick "Gỡ ứng" ở mục Phiếu chi.
- * Có tick, HOẶC đã đính sẵn phiếu chi (hồ sơ trước 02/10/2026) → có.
+ * ★ Ô TICK "GỠ ỨNG" (mục 8 Phiếu chi) ĐANG TICK HAY KHÔNG — cùng luật `coUyNhiemChi`.
+ *
+ * ★★ Sếp 17/10/2026: *"gở ứng chỉ cần tick hoặc ko tick, còn file đính kèm vẫn hiện, dạng ko bắt
+ * buộc (trường hợp có phiếu chi vẫn không gở ứng)"*. Từ ngày này Phiếu chi KHÔNG còn chặn qua bước
+ * / hoàn thành hồ sơ: bỏ luật 02/10/2026 "không tick thì phải ghi lý do, tick thì bắt buộc có tệp"
+ * (hàm `vuongMacPhieuChi`, ô "Lý do không có phiếu chi" và mã vướng `thieu_phieu_chi` đã xoá).
+ * Lý do đã ghi ở hồ sơ cũ (khoá `ho_so_thanh_toan|phieu_chi` của `lyDoThieuChungTu`) để nguyên.
  */
 export function coGoUng(deNghi: DeNghiMuaHang): boolean {
-  return deNghi.goUng === true || tepPhieuChi(deNghi).length > 0;
-}
-
-/** Lý do đã ghi khi KHÔNG gỡ ứng ("" = chưa ghi). */
-export function lyDoKhongGoUng(deNghi: DeNghiMuaHang): string {
-  return (deNghi.lyDoThieuChungTu?.[KHOA_LY_DO_KHONG_GO_UNG] ?? "").trim();
-}
-
-/** Bỏ tick "Gỡ ứng" được không — còn tệp phiếu chi thì không (cùng lý do `lyDoKhongBoTickUNC`). */
-export function lyDoKhongBoTickGoUng(deNghi: DeNghiMuaHang): string | null {
-  const so = tepPhieuChi(deNghi).length;
-  return so > 0 ? `Đang có ${so} tệp phiếu chi — gỡ tệp trước rồi mới bỏ tick được.` : null;
-}
-
-/**
- * ★ PHIẾU CHI CÓ CHẶN QUA BƯỚC KHÔNG — Sếp 02/10/2026.
- *   · Tick "Gỡ ứng" → phải có tệp phiếu chi.
- *   · Không tick → phải ghi lý do.
- * 📌 Hồ sơ xuất kho / nhân sự (`khongCanHopDongHoaDon`) MIỄN: hàng có sẵn trong kho, không có
- *    khoản chi nào để gỡ ứng — đòi lý do ở đó là bắt ghi một câu vô nghĩa cho mọi hồ sơ.
- * ✅ "Tick rồi thì BẮT BUỘC có tệp" — Sếp XÁC NHẬN 02/10/2026 (*"Đúng"*), sau khi được hỏi lại vì
- *    ban đầu đây là suy luận. Lý do giữ: không đòi thì tick xong để trống vẫn qua — dễ hơn cả
- *    đường không tick (phải ghi lý do), tức tick thành lối né.
- */
-export function vuongMacPhieuChi(deNghi: DeNghiMuaHang): string | null {
-  if (khongCanHopDongHoaDon(deNghi)) return null;
-  if (coGoUng(deNghi)) {
-    return tepPhieuChi(deNghi).length > 0
-      ? null
-      : "Đã tick “Gỡ ứng” nhưng chưa đính kèm phiếu chi — đính kèm ở mục Phiếu chi của bộ hồ sơ thanh toán.";
-  }
-  return lyDoKhongGoUng(deNghi) !== ""
-    ? null
-    : "Mục Phiếu chi: tick “Gỡ ứng” rồi đính kèm phiếu chi, hoặc ghi lý do không có phiếu chi.";
+  return deNghi.goUng ?? tepPhieuChi(deNghi).length > 0;
 }
 
 /**
@@ -1287,7 +1251,7 @@ export function vuongMacHoanThanhQuyTrinh(
    */
   /* ★ Sếp 06/10/2026: dòng mà mọi đơn chứa nó đã được duyệt hoàn thành GIAO THIẾU (có lý do) thì
      phần thiếu đã được chấp nhận — không chặn nữa (`chapNhanGiaoThieu`, tính ở `tinhTienDoDeNghi`).
-     Các chốt khác của bước ⑧ (chưa lên đơn, hợp đồng, hoá đơn VAT, phiếu chi) giữ nguyên. */
+     Các chốt khác của bước ⑧ (chưa lên đơn, hợp đồng, hoá đơn VAT) giữ nguyên — chốt phiếu chi đã bỏ 17/10/2026. */
   const chuaVeDu = soDongChuaVeDuKhiDong(conPhaiMua);
   if (chuaVeDu > 0) {
     if (!laHoSoPhongBan(deNghi)) {
@@ -1391,9 +1355,8 @@ export function vuongMacHoanThanhQuyTrinh(
   const thieuVAT = vuongMacDuyetHoanThanhDeNghi(deNghi);
   if (thieuVAT !== null) return thieuVAT;
 
-  /* ★ PHIẾU CHI / GỠ ỨNG — Sếp 02/10/2026: không tick "Gỡ ứng" thì phải ghi lý do mới qua bước. */
-  const thieuPhieuChi = vuongMacPhieuChi(deNghi);
-  if (thieuPhieuChi !== null) return thieuPhieuChi;
+  /* 📌 Từng có chốt PHIẾU CHI / GỠ ỨNG ở đây (Sếp 02/10/2026) — đã BỎ theo chỉ đạo Sếp 17/10/2026:
+     Phiếu chi nay là chứng từ "Nếu có", ô tick Gỡ ứng chỉ để đánh dấu. Xem `coGoUng`. */
 
   return null;
 }

@@ -92,7 +92,13 @@ export function OChungTuBatBuoc({
     bat: boolean;
     nhan: string;
     /** Chữ hoặc ô (vd ô ghi lý do) hiện cạnh ô tick khi TẮT. */
-    khiTat: React.ReactNode;
+    khiTat?: React.ReactNode;
+    /**
+     * ★ Ô TICK CHỈ ĐỂ ĐÁNH DẤU — Sếp 17/10/2026 (ô "Có ủy nhiệm chi" và "Gỡ ứng" của bộ hồ sơ thanh
+     * toán): tick hay không thì nút đính kèm VẪN HIỆN, `khiTat` (nếu có) đứng cạnh ô tick khi tắt.
+     * Không truyền = như cũ: tắt thì giấu chỗ đính kèm (ô "Import phiếu giao hàng" vẫn dùng kiểu này).
+     */
+    chiDanhDau?: boolean;
     /** Lý do không đổi được — có thì ô tick mờ và chữ này hiện khi rê chuột. */
     khoa?: string;
     onDoi: (bat: boolean) => void;
@@ -123,11 +129,22 @@ export function OChungTuBatBuoc({
       {congTac.nhan}
     </label>
   );
+  /* Ô tick "chỉ đánh dấu" đang tắt: chữ `khiTat` (vd "Không có UNC") đứng ngay cạnh ô tick — CHỈ khi
+     chưa có tệp nào. Đã có tệp mà vẫn hiện "Không có UNC" ngay cạnh tệp UNC là đọc nhầm (QA 17/10/2026). */
+  const chuKhiTat =
+    congTac?.chiDanhDau && !congTac.bat && congTac.khiTat && tepDaCo.length === 0 ? (
+      typeof congTac.khiTat === "string" ? (
+        <span className="text-sm font-medium text-text-secondary">{congTac.khiTat}</span>
+      ) : (
+        congTac.khiTat
+      )
+    ) : null;
   /* Ô tick đứng chung hàng với nút phụ (nếu có) ngay cạnh nút đính kèm. */
   const nutPhuDu =
     oTick || nutPhu ? (
       <>
         {oTick}
+        {chuKhiTat}
         {nutPhu}
       </>
     ) : undefined;
@@ -164,7 +181,7 @@ export function OChungTuBatBuoc({
       </div>
       {moTa && <p className="text-xs text-text-desc">{moTa}</p>}
 
-      {congTac && !congTac.bat ? (
+      {congTac && !congTac.bat && !congTac.chiDanhDau ? (
         <div className="flex flex-wrap items-center gap-3">
           {oTick}
           {typeof congTac.khiTat === "string" ? (

@@ -457,12 +457,14 @@ export interface DeNghiMuaHang {
    * nút đính kèm UNC, còn ko tích thì mặc định không có UNC và hiển thị nội dung 'Không có UNC'"*.
    * Đọc qua `coUyNhiemChi` (`chung-tu-cuoi-quy-trinh.ts`) — hồ sơ đã đính UNC trước ngày này
    * vẫn tính là có, không phải tick lại.
+   * ★★ Sếp 17/10/2026: ô tick chỉ để ĐÁNH DẤU, nút đính kèm luôn hiện. `false` = người dùng đã bỏ
+   * tick dù hồ sơ còn tệp; vắng = chưa ai đụng (khi đó có tệp UNC thì coi là có).
    */
   coUNC?: boolean;
   /**
-   * ★ Ô TICK "GỠ ỨNG" ở mục Phiếu chi — Sếp 02/10/2026: *"Tích zô thì hiện nút đính kèm 'Phiếu
-   * chi'. Không tích thì phải ghi lý do thì mới được qua bước"*. Lý do lưu ở `lyDoThieuChungTu`
-   * khoá `KHOA_LY_DO_KHONG_GO_UNG`. Đọc qua `coGoUng` (`chung-tu-cuoi-quy-trinh.ts`).
+   * ★ Ô TICK "GỠ ỨNG" ở mục Phiếu chi — Sếp 02/10/2026. Đọc qua `coGoUng` (`chung-tu-cuoi-quy-trinh.ts`).
+   * ★★ Sếp 17/10/2026: chỉ để ĐÁNH DẤU — không còn chặn qua bước, bỏ ô lý do bắt buộc. `false` / vắng
+   * cùng nghĩa như `coUNC`.
    */
   goUng?: boolean;
   /**

@@ -1,29 +1,29 @@
 "use client";
 
 // ============================================================
-// Ô PHIẾU CHI + Ô TICK "GỠ ỨNG" — một bản duy nhất cho mọi chỗ bày mục Phiếu chi.
+// Ô PHIẾU CHI + Ô TICK "GỠ ỨNG" — mục 8 bộ hồ sơ thanh toán trên trang chi tiết đề nghị.
 //
 // ★ Sếp 02/10/2026: *"Thêm nút gỡ ứng, có chức năng: Tích zô thì hiện nút đính kèm 'Phiếu chi'.
 // Không tích thì phải ghi lý do thì mới được qua bước"*.
 //
-// 🔴 DÙNG Ở HAI CHỖ, phải giống hệt nhau: bộ hồ sơ thanh toán trên trang chi tiết đề nghị, và hộp
-// "Gỡ vướng" khi kéo thẻ ⑦ → ⑧ (`hop-chuyen-giai-doan.tsx`, mã `thieu_phieu_chi`). Hai bản chép tay
-// là sớm muộn một nơi cho tick mà nơi kia không.
-// 📌 Luật (có chặn hay không, bỏ tick được không) ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts`
-//    (`coGoUng` · `lyDoKhongBoTickGoUng` · `vuongMacPhieuChi`). Ô này chỉ VẼ và gọi tầng ghi.
+// ★★ ĐỔI CHỨC NĂNG — Sếp 17/10/2026 (demo 5 vấn đề, tab 5): *"gở ứng chỉ cần tick hoặc ko tick, còn
+// file đính kèm vẫn hiện, dạng ko bắt buộc (trường hợp có phiếu chi vẫn không gở ứng)"* và *"ô đánh
+// tích vẫn giống như hiện tại k sửa đổi chỉ sửa chức năng"*. Nên:
+//   · ô tick "Gỡ ứng" đứng đúng chỗ cũ nhưng CHỈ ĐỂ ĐÁNH DẤU (`congTac.chiDanhDau`);
+//   · nút đính kèm phiếu chi LUÔN hiện, nhãn "Nếu có", không chặn qua bước / hoàn thành;
+//   · bỏ ô "Lý do không có phiếu chi (bắt buộc)" và luật chặn `vuongMacPhieuChi`.
+// 📌 Trước 17/10 ô này còn nằm trong hộp "Gỡ vướng" khi kéo thẻ ⑦ → ⑧ (mã `thieu_phieu_chi`) — mã đó
+//    đã bỏ cùng luật chặn, nên giờ chỉ còn một chỗ dùng.
+// 📌 Luật đọc ô tick ở `2-quy-trinh/chung-tu-cuoi-quy-trinh.ts` (`coGoUng`). Ô này chỉ VẼ và gọi tầng ghi.
 // ============================================================
 
 import { toast } from "sonner";
 import { OChungTuBatBuoc } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-chung-tu-bat-buoc";
-import { OGhiLyDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/o-ghi-ly-do";
 import {
   BUOC_DINH_KEM_HO_SO_THANH_TOAN,
-  KHOA_LY_DO_KHONG_GO_UNG,
   NHAN_TEP_PHIEU_CHI,
   coGoUng,
   khongCanHopDongHoaDon,
-  lyDoKhongBoTickGoUng,
-  lyDoKhongGoUng,
   tepPhieuChi,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
@@ -43,11 +43,10 @@ export function OPhieuChiGoUng({
   khoa?: boolean;
   dangGon?: boolean;
 }) {
-  const { datTickChungTu, ghiLyDoThieuChungTu } = useDuLieu();
+  const { datTickChungTu } = useDuLieu();
   const { nguoiDung } = useNguoiDung();
-  /* Hồ sơ xuất kho / nhân sự miễn luật này (`vuongMacPhieuChi`) nên không vẽ ô tick — ô về y như cũ. */
+  /* Hồ sơ xuất kho / nhân sự: hàng có sẵn trong kho, không có khoản chi nào để gỡ ứng — không vẽ ô tick. */
   const mien = khongCanHopDongHoaDon(deNghi);
-  const co = coGoUng(deNghi);
   const lyDoKhoa = khoa
     ? "Hồ sơ đã đóng."
     : !duocSua
@@ -61,12 +60,10 @@ export function OPhieuChiGoUng({
       nhanO={NHAN_TEP_PHIEU_CHI}
       dangGon={dangGon}
       tieuDe="Phiếu chi"
-      /* Tick rồi thì tệp là BẮT BUỘC (`vuongMacPhieuChi`) — nhãn "Bắt buộc" phải nói đúng điều đó. */
-      batBuoc={!mien && co}
       moTa={
         mien
           ? "Phiếu chi của khoản trả bằng tiền mặt. Đơn chuyển khoản thì để trống — chứng từ là ủy nhiệm chi ở trên."
-          : "Có gỡ ứng (khoản chi tiền mặt / tạm ứng) thì tick “Gỡ ứng” và đính kèm phiếu chi. Không có thì ghi lý do — bắt buộc một trong hai mới hoàn thành được hồ sơ."
+          : "Có gỡ ứng (khoản chi tiền mặt / tạm ứng) thì tick “Gỡ ứng”. Có phiếu chi thì đính kèm, kể cả khi không gỡ ứng. Không bắt buộc."
       }
       duocSua={duocSua}
       khoa={khoa}
@@ -75,28 +72,10 @@ export function OPhieuChiGoUng({
         mien
           ? undefined
           : {
-              bat: co,
+              bat: coGoUng(deNghi),
               nhan: "Gỡ ứng",
-              khiTat: (
-                <OGhiLyDo
-                  /* Đổi `key` theo lý do đang lưu: máy khác vừa sửa thì ô nạp lại bản mới, không
-                     giữ bản cũ để người này bấm Lưu đè mất. */
-                  key={lyDoKhongGoUng(deNghi)}
-                  giaTri={lyDoKhongGoUng(deNghi)}
-                  nhan="Lý do không có phiếu chi (bắt buộc)"
-                  khoa={lyDoKhoa}
-                  onLuu={(lyDo) =>
-                    ghiLyDoThieuChungTu(
-                      deNghi.id,
-                      KHOA_LY_DO_KHONG_GO_UNG,
-                      lyDo,
-                      nguoiDung.tenHienThi,
-                      "Phiếu chi",
-                    )
-                  }
-                />
-              ),
-              khoa: lyDoKhoa ?? (co ? (lyDoKhongBoTickGoUng(deNghi) ?? undefined) : undefined),
+              chiDanhDau: true,
+              khoa: lyDoKhoa,
               onDoi: (bat) => {
                 const loi = datTickChungTu(deNghi.id, "go_ung", bat, nguoiDung.tenHienThi);
                 if (loi) toast.error(loi);

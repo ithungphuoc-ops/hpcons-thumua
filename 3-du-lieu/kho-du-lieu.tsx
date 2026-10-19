@@ -85,8 +85,10 @@ import {
      khi xoá dòng (Sếp 20/09/2026). Một nguồn chữ, đừng gõ lại chuỗi ở đây. */
   BUOC_DINH_KEM_HO_SO_THANH_TOAN,
   NHAN_TEP_HOA_DON_VAT,
-  lyDoKhongBoTickUNC,
-  lyDoKhongBoTickGoUng,
+  coGoUng,
+  coUyNhiemChi,
+  tepPhieuChi,
+  tepUNC,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
 import {
   CAU_HINH_MAC_DINH,
@@ -9767,8 +9769,12 @@ export function DuLieuProvider({
    * đẩy lên Firestore phình thêm một khóa vô nghĩa cho mỗi hồ sơ.
    */
   /**
-   * ★ Ô TICK "CÓ ỦY NHIỆM CHI" — Sếp 02/10/2026. Luật đọc ở `coUyNhiemChi` / `lyDoKhongBoTickUNC`.
-   * 📌 Bỏ tick thì XOÁ HẲN khoá (cùng lý do `ghiLyDoThieuChungTu` bên dưới), và ghi nhật ký.
+   * ★ Ô TICK "CÓ ỦY NHIỆM CHI" — Sếp 02/10/2026. Luật đọc ở `coUyNhiemChi` / `coGoUng`.
+   *
+   * ★★ Sếp 17/10/2026: ô tick CHỈ ĐỂ ĐÁNH DẤU — bỏ tick được cả khi đã đính tệp (trước đó có tệp thì
+   * chặn bỏ tick). Bỏ tick khi hồ sơ CÒN tệp thì ghi hẳn `false`: nếu xoá khoá, `coUyNhiemChi` /
+   * `coGoUng` rơi về "có tệp = có" và ô tự tick lại. Không còn tệp thì xoá khoá như cũ (đỡ rác).
+   * 📌 Ghi nhật ký mỗi lần đổi.
    */
   const datTickChungTu = useCallback(
     (prId: string, loai: "unc" | "go_ung", co: boolean, nguoiThucHienTen: string): string | null => {
@@ -9777,17 +9783,16 @@ export function DuLieuProvider({
       const ten = loai === "unc" ? "Có ủy nhiệm chi" : "Gỡ ứng";
       const loi = loiKhiHoSoDaDong(dn, `đổi ô tick “${ten}”`);
       if (loi) return loi;
-      if (!co) {
-        const chan = loai === "unc" ? lyDoKhongBoTickUNC(dn) : lyDoKhongBoTickGoUng(dn);
-        if (chan) return chan;
-      }
       const truong = loai === "unc" ? "coUNC" : "goUng";
-      if ((dn[truong] === true) === co) return null;
+      const dangTick = loai === "unc" ? coUyNhiemChi(dn) : coGoUng(dn);
+      if (dangTick === co) return null;
+      const conTep = (loai === "unc" ? tepUNC(dn) : tepPhieuChi(dn)).length > 0;
       setDeNghi((truoc) =>
         truoc.map((d) => {
           if (d.id !== prId) return d;
           const sau = { ...d };
           if (co) sau[truong] = true;
+          else if (conTep) sau[truong] = false;
           else delete sau[truong];
           return sau;
         }),

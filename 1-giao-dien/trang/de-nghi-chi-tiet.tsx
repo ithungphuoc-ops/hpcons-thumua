@@ -211,7 +211,6 @@ import {
   tepHopDongSuaDuoc,
   tepUNC,
   coUyNhiemChi,
-  lyDoKhongBoTickUNC,
   thieuHopDongDaGhiLyDo,
   vuongMacHoanThanhQuyTrinh,
 } from "@/2-quy-trinh/chung-tu-cuoi-quy-trinh";
@@ -4180,23 +4179,24 @@ export default function TrangChiTietDeNghi({
                                15/09/2026 vì cái tích đó không còn tồn tại (Sếp bỏ). Để nguyên là
                                chỉ người dùng đi làm một việc không có chỗ nào làm được — đúng lỗi
                                CLAUDE.md §3.5. */
-                            moTa="Đơn nào cần chuyển khoản qua ngân hàng thì đính kèm ủy nhiệm chi. Đơn trả tiền ngay thì để trống — ô này không bắt buộc."
+                            moTa="Đơn chuyển khoản qua ngân hàng thì tick và đính kèm ủy nhiệm chi. Không bắt buộc."
                             duocSua={duocSuaTepBuoc}
                             khoa={hoSoDaDong}
                             tepDaCo={tepUNC(dn)}
-                            /* ★ Ô TICK "Có ủy nhiệm chi" — Sếp 02/10/2026. Không tick (mặc định) = hồ
-                               sơ không có UNC, ẩn nút đính kèm. Luật ở `chung-tu-cuoi-quy-trinh.ts`. */
+                            /* ★ Ô TICK "Có ủy nhiệm chi" — Sếp 02/10/2026, ĐỔI CHỨC NĂNG 17/10/2026: ô
+                               tick giữ đúng chỗ nhưng CHỈ ĐỂ ĐÁNH DẤU (`chiDanhDau`) — nút đính kèm luôn
+                               hiện, không bắt buộc, bỏ tick được cả khi đã có tệp. Luật ở
+                               `coUyNhiemChi` (`chung-tu-cuoi-quy-trinh.ts`). */
                             congTac={{
                               bat: coUyNhiemChi(dn),
                               nhan: "Có ủy nhiệm chi",
                               khiTat: "Không có UNC",
+                              chiDanhDau: true,
                               khoa: hoSoDaDong
                                 ? "Hồ sơ đã đóng."
                                 : !duocSuaTepBuoc
                                   ? "Bạn không có quyền sửa chứng từ của bước này."
-                                  : coUyNhiemChi(dn)
-                                    ? (lyDoKhongBoTickUNC(dn) ?? undefined)
-                                    : undefined,
+                                  : undefined,
                               onDoi: (co) => {
                                 const loi = datTickChungTu(dn.id, "unc", co, nguoiDung.tenHienThi);
                                 if (loi) toast.error(loi);
@@ -4208,8 +4208,8 @@ export default function TrangChiTietDeNghi({
                            số thứ tự đổi thành 8 theo danh sách Sếp 15/09/2026).
                            📌 TÙY CHỌN đúng chữ Sếp *"(Nếu có)"*: đơn trả qua ngân hàng thì chứng
                            từ là ủy nhiệm chi ở trên, phiếu chi là của khoản trả bằng tiền mặt. */
-                        /* ★ Phiếu chi + ô tick "Gỡ ứng" (Sếp 02/10/2026) — MỘT thành phần dùng chung với
-                           hộp "Gỡ vướng" khi kéo thẻ ⑦ → ⑧, xem `o-phieu-chi-go-ung.tsx`. */
+                        /* ★ Phiếu chi + ô tick "Gỡ ứng" (Sếp 02/10/2026; 17/10/2026 ô tick chỉ để đánh dấu,
+                           nút đính kèm luôn hiện, không còn chặn qua bước) — xem `o-phieu-chi-go-ung.tsx`. */
                         phieu_chi: (
                           <OPhieuChiGoUng
                             deNghi={dn}
