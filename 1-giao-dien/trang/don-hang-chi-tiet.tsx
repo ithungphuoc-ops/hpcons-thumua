@@ -474,8 +474,8 @@ export default function TrangChiTietDonHang() {
                 ? <>App <strong>không tự gửi lại</strong> đơn này — gửi lại y nguyên sẽ bị từ chối
                     y hệt. Thường gặp: đề nghị gốc chưa sang được {tenAppKho(kho, "app Kho")} (kiểm tra bên App Request),
                     hoặc tên/ĐVT vật tư không khớp đề nghị. Sửa đơn (đổi nội dung) thì app sẽ gửi
-                    lại; nếu không rõ nguyên nhân, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và
-                    nguyên văn lý do ở trên.</>
+                    lại; bên {tenAppKho(kho, "app Kho")} đã xử lý xong thì bấm <strong>Gửi lại ngay</strong>. Nếu không rõ
+                    nguyên nhân, báo bộ phận phụ trách tích hợp kèm mã đơn {po.code} và nguyên văn lý do ở trên.</>
                 : <>App tự gửi lại theo nhịp thưa dần (1 phút → 5 phút → 30 phút → 2 giờ) mỗi lần mở
                     hoặc tải lại trang, tối đa 5 lần / 1 ngày rồi dừng và báo — không cần bấm gì thêm.
                     Nếu dòng này còn đây sau vài lần tải lại, báo bộ phận phụ trách tích hợp kèm mã đơn{" "}
@@ -484,7 +484,12 @@ export default function TrangChiTietDonHang() {
             {/* ★ (04/10/2026, L11/L12) Nút CHỈ hiện khi app đã DỪNG tự gửi — lúc đó không còn đường tự
                 động nào chạy song song, nên không phạm lý do "cố ý không có nút Gửi lại" ở chú thích
                 trên (hai đường cùng làm một việc). */}
-            {daDungTuGuiKho && (
+            {/* ★ 17/10/2026 (Sếp duyệt demo 5 vấn đề, tab 3): nút cũng hiện khi Kho TỪ CHỐI đơn
+                (`can_xu_ly_tay`, chưa sửa sau lần dừng). Ca này app không tự gửi lại (gửi y nguyên sẽ
+                bị từ chối y hệt) — nhưng khi bên Kho đã đổi luật (vd 17/10 Kho nhận dòng ngoài đề nghị)
+                thì người dùng cần một lối gửi lại mà không phải sửa đơn. Không có đường tự động nào
+                chạy song song ở ca này, nên vẫn đúng lý do "chỉ một đường làm một việc" ở trên. */}
+            {(daDungTuGuiKho || (po.qlkCtrSyncStatus === "can_xu_ly_tay" && !daSuaSauKhiDung)) && (
               <div>
                 <Button size="sm" variant="outline" disabled={dangGuiLaiKho} onClick={() => void handleGuiLaiKhoNgay()}>
                   {dangGuiLaiKho ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
