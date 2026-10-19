@@ -725,6 +725,11 @@ export function FormLapDonMuaHang({
    * ghi**, kể cả quản lý.
    */
   const [lyDoSua, setLyDoSua] = useState("");
+  /**
+   * ★ Dòng "Thông tin khác" ở chế độ sửa đang mở hay gập — Sếp 17/10/2026: *"khi bấm sửa PO thì hiện
+   * 1 dòng lý do sửa PO và 1 dòng là thông tin khác khi bấm vào sẽ hiện 4 dòng này lên"*. Mặc định gập.
+   */
+  const [moThongTinKhac, setMoThongTinKhac] = useState(false);
   /** Hộp hỏi lại trước khi ghi đè một đơn đã lập — cùng nếp thận trọng với `hoiCat`. */
   const [hoiLuuSua, setHoiLuuSua] = useState(false);
   /**
@@ -2964,6 +2969,8 @@ export function FormLapDonMuaHang({
               ? "Đổi chiết khấu hoặc thuế suất chung là đổi số tiền của đơn — phải ghi lý do, dù là ai sửa."
               : "Bạn không phải Trưởng bộ phận/quản trị — sửa đơn hàng phải ghi lý do.",
       });
+      /* ★ 17/10/2026: ô lý do nằm ở khối ⑤ (có thể đã cuộn qua) — đưa con trỏ về đúng ô. */
+      document.getElementById("ly-do-sua-don")?.focus();
       return;
     }
 
@@ -5376,19 +5383,9 @@ export function FormLapDonMuaHang({
             * nói một nẻo.
             *
             * 📌 Hiện ô chỉ đọc chứ không ẩn: người sửa cần biết đơn này thuộc dự án nào.
+            * ★ 17/10/2026: ô này DỜI vào dòng gập "Thông tin khác" ở cuối khối (xem ngay dưới, Sếp
+            *   khoanh cả ô này trong khung muốn gọn lại) — vẫn hiện khi bấm mở, không mất.
             */}
-          {laSuaDon && (
-            <div className="muc-ngang">
-              <Label htmlFor="du-an-dang-sua" className="flex items-center gap-1.5">
-                Dự án / Công trình
-                <Lock className="size-3" aria-hidden />
-              </Label>
-              <Input id="du-an-dang-sua" value={poDangSua!.maDuAn} readOnly disabled />
-              <span className="text-xs text-text-desc">
-                Mã dự án gốc của đơn — không đổi được sau khi đơn đã được cấp số.
-              </span>
-            </div>
-          )}
 
           {!laSuaDon && laDonDocLap && (
             <div className="muc-ngang">
@@ -5568,12 +5565,81 @@ export function FormLapDonMuaHang({
             *
             * 📌 Đặt ở khối ⑤ vì cả bốn đều KHÔNG in trên tờ đơn gửi nhà cung cấp (trừ "Điều kiện
             * giao hàng" đi vào file Excel) — đúng nghĩa khối này.
+            *
+            * ★★ GỌN LẠI — Sếp 17/10/2026 (ảnh khoanh xanh cả ô Dự án + bốn ô này): *"khi bấm sửa PO
+            * thì hiện 1 dòng lý do sửa PO và 1 dòng là thông tin khác khi bấm vào sẽ hiện 4 dòng này
+            * lên"*. Nên ở chế độ sửa khối ⑤ chỉ còn:
+            *   · dòng "Lý do sửa PO" — LUÔN hiện (trước đây chỉ hiện khi bắt buộc, quản lý sửa thì
+            *     không thấy ô nào để ghi). Bắt buộc hay không vẫn đúng luật cũ `batBuocLyDoSua`;
+            *   · dòng "Thông tin khác" gập sẵn — bấm mới mở ô Dự án (chỉ đọc) + bốn ô dưới. Không bỏ
+            *     hẳn bốn ô: đây là lối vào DUY NHẤT để sửa chúng (xem 🔴 ngay trên).
             */}
           {laSuaDon && (
-            <div className="flex flex-col gap-(--hp-md-card-gap) border-t border-divider pt-(--hp-md-card-gap)">
-              <p className="text-xs font-semibold uppercase text-text-desc">
-                Thông tin hành chính — chỉ sửa được ở màn này
-              </p>
+            <div className="flex flex-col gap-(--hp-md-card-gap)">
+              <div className="muc-ngang">
+                <Label htmlFor="ly-do-sua-don">
+                  Lý do sửa PO {batBuocLyDoSua && <span className="text-danger">*</span>}
+                </Label>
+                <Textarea
+                  id="ly-do-sua-don"
+                  rows={2}
+                  value={lyDoSua}
+                  onChange={(e) => setLyDoSua(e.target.value)}
+                  placeholder="VD: NCC báo giá lại do biến động giá thép tuần này…"
+                />
+                {/* Câu giải thích VÌ SAO bắt buộc — CÙNG THỨ TỰ với câu báo khi bấm Lưu (`luuSua`),
+                    hai nơi nói hai lý do khác nhau cho cùng một lần bấm là người dùng không biết tin câu nào. */}
+                <span className="text-xs text-text-desc">
+                  {!batBuocLyDoSua
+                    ? "Bạn là Trưởng bộ phận/quản trị và không đổi ngày giao, nhà cung cấp hay số tiền — không bắt buộc, nhưng nên ghi để người sau biết vì sao sửa."
+                    : soatBangSua?.batLyDo
+                      ? "Đang đặt vượt khối lượng đã được duyệt — phải ghi rõ lý do vượt."
+                      : doiNgayGiaoSua
+                        ? "Đang đổi NGÀY GIAO — thay đổi này phải ghi lý do, dù là ai sửa."
+                        : doiNCCSua
+                          ? "Đang đổi NHÀ CUNG CẤP — thay đổi này phải ghi lý do, dù là ai sửa."
+                          : doiTienSua
+                            ? "Đang đổi chiết khấu hoặc thuế suất chung (số tiền của đơn) — phải ghi lý do, dù là ai sửa."
+                            : "Bạn không phải Trưởng bộ phận/quản trị — mọi thay đổi phải ghi lý do để truy vết."}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setMoThongTinKhac((v) => !v)}
+                aria-expanded={moThongTinKhac}
+                aria-controls="thong-tin-khac-sua-don"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-3 text-left text-sm font-medium text-primary transition-colors hover:bg-muted md:min-h-9"
+              >
+                <ChevronRight
+                  className={`size-4 shrink-0 transition-transform ${moThongTinKhac ? "rotate-90" : ""}`}
+                  aria-hidden
+                />
+                Thông tin khác
+                <span className="truncate text-xs font-normal text-text-desc">
+                  {(() => {
+                    const soDaDien = [nguoiLienHeNCC, dieuKienGiaoHang, ghiChuNoiBo, thamChieu].filter(
+                      (x) => x.trim() !== "",
+                    ).length;
+                    return soDaDien > 0
+                      ? `Dự án · Người liên hệ NCC · Điều kiện giao hàng · Ghi chú nội bộ · Tham chiếu — đã điền ${soDaDien} mục`
+                      : "Dự án · Người liên hệ NCC · Điều kiện giao hàng · Ghi chú nội bộ · Tham chiếu";
+                  })()}
+                </span>
+              </button>
+
+              {moThongTinKhac && (
+            <div id="thong-tin-khac-sua-don" className="flex flex-col gap-(--hp-md-card-gap)">
+              <div className="muc-ngang">
+                <Label htmlFor="du-an-dang-sua" className="flex items-center gap-1.5">
+                  Dự án / Công trình
+                  <Lock className="size-3" aria-hidden />
+                </Label>
+                <Input id="du-an-dang-sua" value={poDangSua!.maDuAn} readOnly disabled />
+                <span className="text-xs text-text-desc">
+                  Mã dự án gốc của đơn — không đổi được sau khi đơn đã được cấp số.
+                </span>
+              </div>
               <div className="muc-ngang">
                 <Label htmlFor="sua-nguoi-lien-he-ncc">Người liên hệ NCC</Label>
                 <Input
@@ -5610,6 +5676,8 @@ export function FormLapDonMuaHang({
                   placeholder="Số chứng từ tham chiếu"
                 />
               </div>
+            </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -5685,32 +5753,9 @@ export function FormLapDonMuaHang({
         *     không phải việc nội bộ);
         *   · đổi NHÀ CUNG CẤP → phải ghi, kể cả quản lý (công nợ gộp theo NCC).
         *
-        * 📌 Chỉ hiện khi thật sự bắt buộc — bày một ô "lý do (không bắt buộc)" thường trực là mời
-        * người dùng bỏ qua, rồi tới lúc bắt buộc thật họ cũng bỏ qua nốt.
+        * ★ 17/10/2026: Ô NÀY ĐÃ DỜI vào khối ⑤ (dòng "Lý do sửa PO", luôn hiện ở chế độ sửa) theo chỉ
+        * đạo Sếp — câu cũ "chỉ hiện khi thật sự bắt buộc" không còn đúng. Luật bắt buộc giữ nguyên.
         */}
-      {batBuocLyDoSua && (
-        <Card className="border border-warning/40 bg-warning-bg/60">
-          <CardContent className="flex flex-col gap-2">
-            <Label htmlFor="ly-do-sua-don">
-              Lý do sửa đơn <span className="text-danger">*</span>
-            </Label>
-            <Textarea
-              id="ly-do-sua-don"
-              rows={2}
-              value={lyDoSua}
-              onChange={(e) => setLyDoSua(e.target.value)}
-              placeholder="VD: NCC báo giá lại do biến động giá thép tuần này…"
-            />
-            <p className="text-xs text-text-secondary">
-              {doiNgayGiaoSua
-                ? "Đang đổi NGÀY GIAO — thay đổi này phải ghi lý do, dù là ai sửa."
-                : doiNCCSua
-                  ? "Đang đổi NHÀ CUNG CẤP — thay đổi này phải ghi lý do, dù là ai sửa."
-                  : "Bạn là người phụ trách đơn này — mọi thay đổi phải ghi lý do để truy vết."}
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       {/* =========================================================================
           ⑤ THANH NÚT DƯỚI CÙNG — [Hủy] trái · [Lưu] [Lưu và In] phải
