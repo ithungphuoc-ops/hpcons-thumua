@@ -4297,12 +4297,10 @@ export default function TrangChiTietDeNghi({
                       */}
                     {quyen.xacNhanTruongBP && !hoSoDaDong && (
                       <div className="flex flex-col gap-2 border-t border-divider pt-3">
-                        {/* 🔴 PHẢI TRUYỀN `deNghi` (tham số thứ 3) — Sếp 15/09/2026 chốt: phiếu gốc
-                            KHÔNG đóng được khi còn bản nhân bản chưa xong. Thiếu tham số thì hàm cư
-                            xử y như trước (cố ý, để nơi gọi cũ không vỡ), nghĩa là nút vẫn SÁNG và
-                            người dùng chỉ biết bị chặn sau khi đã bấm.
-                            📌 Không lọt được — tầng ghi hỏi lại đúng hàm này với đủ tham số. Nhưng
-                            khoá nút kèm lý do ngay tại chỗ mới là cách nói thật với người dùng. */}
+                        {/* 🔴 PHẢI TRUYỀN `deNghi` (tham số thứ 3) — để trừ phần đã tách sang bản
+                            khác khỏi phép đếm khối lượng. (Chốt 15/09/2026 "phiếu gốc không đóng được
+                            khi còn bản nhân bản chưa xong" đã BỎ 21/10/2026 theo Sếp — ai xong phần
+                            mình trước thì hoàn thành trước.) Tầng ghi hỏi lại đúng hàm này. */}
                         {vuongMacHoanThanhQuyTrinh(dn, tienDoDong, deNghi) !== null ? (
                           <p className="text-xs text-warning-soft">
                             Chưa hoàn thành được:{" "}

@@ -223,7 +223,8 @@ export const NHAN_GIAI_DOAN: Record<GiaiDoanMuaHang, MoTaGiaiDoan> = Object.from
  * 📌 KHÔNG ĐỤNG `tinh-toan.ts`. Hàm này chỉ phục vụ **điều kiện chuyển bước và câu vướng mắc**;
  * phép tính khối lượng (`tinhTienDoDeNghi` → `khoiLuongChuaLenPO`) có 13 nơi đọc, trừ ở đó là
  * `vuongMacHoanThanhQuyTrinh` thấy *"còn 0 mặt hàng chưa lên đơn"* và **đóng được hồ sơ chưa mua
- * gì cả**. Chốt "còn bản con chưa xong thì chưa đóng" nằm ở `chung-tu-cuoi-quy-trinh.ts`.
+ * gì cả**. (Chốt "còn bản con chưa xong thì chưa đóng" ở `chung-tu-cuoi-quy-trinh.ts` đã BỎ
+ * 21/10/2026 theo Sếp — mỗi phiếu đóng khi xong phần của chính nó.)
  */
 export function dongConPhaiLam(
   deNghi: DeNghiMuaHang,
@@ -357,7 +358,8 @@ export function xacDinhGiaiDoan(
      *
      * ⚠️ `length > 0` giữ nguyên, KHÔNG nới: phiếu gốc đã nhân bản đi HẾT dòng thì mảng này rỗng
      * và thẻ không tự nhảy sang ⑦. Đúng ý — lúc đó phiếu gốc không còn việc mua nào của riêng nó,
-     * việc nằm ở các bản con, và chốt "còn bản con dở" mới là thứ quyết định khi nào đóng được.
+     * việc nằm ở các bản con. (Chốt "còn bản con dở" đã BỎ 21/10/2026 — phiếu gốc đóng được khi
+     * xong phần của nó, không chờ bản con.)
      */
     const tienDoDong = locTienDoConPhaiMua(
       deNghi,
@@ -555,8 +557,8 @@ export function xacDinhGiaiDoan(
    *     giao thì chưa hết việc của cột ①;
    *   · phiếu đã nhân bản **hết mọi dòng** đi thì `conLai` rỗng ⇒ thẻ ĐI TIẾP. Đó là hệ quả trực
    *     tiếp của câu *"Không cần mua"* — phiếu gốc không còn gì để mua thì giữ nó ở cột phân bổ là
-   *     báo một việc không tồn tại. 📌 Phiếu gốc lúc đó chỉ là vỏ; việc "chưa đóng được khi bản
-   *     con chưa xong" do `chung-tu-cuoi-quy-trinh.ts` giữ, không phải chỗ này.
+   *     báo một việc không tồn tại. 📌 Phiếu gốc lúc đó chỉ là vỏ. (Chốt "chưa đóng được khi bản
+   *     con chưa xong" đã BỎ 21/10/2026 theo Sếp.)
    */
   const conLai = dongConPhaiLam(deNghi, tatCaDeNghi);
   const daPhanBoDu =
@@ -1249,7 +1251,8 @@ export function dungBangQuyTrinh(
        * 🔴 PHẢI GỌI `vuongMacHoanThanhQuyTrinh`, KHÔNG PHẢI `vuongMacDuyetHoanThanhDeNghi` — sửa
        * 17/09/2026 vài giờ sau khi thêm tính năng này. Hàm sau chỉ kiểm **đúng một thứ: hoá đơn
        * VAT** (3 dòng), trong khi cổng thật của nút còn có chốt ĐẦU TIÊN là *"phiếu này đã tách ra
-       * N hồ sơ con còn dở"* — và `dsConNoToanHoSo` **không hề có mục đó**. Hậu quả: phiếu gốc tách
+       * N hồ sơ con còn dở"* (chốt đó ĐÃ BỎ 21/10/2026 theo Sếp — nhưng cổng vẫn còn các chốt khối
+       * lượng / chứng từ, nên vẫn phải gọi đúng hàm của nút) — và `dsConNoToanHoSo` **không hề có mục đó**. Hậu quả: phiếu gốc tách
        * tự động mà bản con chưa xong sẽ khoe xanh *"đã đủ — chờ xác nhận"*, người duyệt bấm vào thì
        * bị từ chối. Đúng loại bế tắc im lặng mà tính năng này sinh ra để diệt, chỉ đảo chiều.
        *

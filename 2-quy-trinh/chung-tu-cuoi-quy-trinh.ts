@@ -28,7 +28,7 @@ import {
   laHoSoPhongBan,
   LY_DO_NHANH_PHONG_BAN,
 } from "@/2-quy-trinh/ho-so-phong-ban";
-import { hauDueCua, locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /**
@@ -1032,6 +1032,8 @@ export function vuongMacDuyetHoanThanhDeNghi(deNghi: DeNghiMuaHang): string | nu
 
 /**
  * ★★ HỒ SƠ ĐÃ CHỐT XONG CHƯA — dùng để hỏi *"bản con còn dở không"* (Sếp 15/09/2026).
+ * 📌 21/10/2026: chốt đó đã BỎ khỏi `vuongMacHoanThanhQuyTrinh` (Sếp: ai xong trước hoàn thành
+ * trước) — hàm giữ lại, hiện không còn nơi gọi. Chú thích dưới là lịch sử.
  *
  * 🔴 HAI trạng thái tính là XONG, không phải một:
  *   · `hoan_thanh` — mua xong, đóng hồ sơ.
@@ -1139,44 +1141,19 @@ export function vuongMacHoanThanhQuyTrinh(
   tatCaDeNghi?: DeNghiMuaHang[],
 ): string | null {
   /**
-   * ★★ ① CÒN BẢN CON CHƯA XONG THÌ KHÔNG ĐÓNG ĐƯỢC PHIẾU GỐC — Sếp chốt 15/09/2026.
+   * ★★★ ĐÃ BỎ chốt "còn bản con chưa xong thì không đóng được phiếu gốc" (15/09/2026 → 26/09/2026
+   * nhìn cả cây hậu duệ) — Sếp 21/10/2026: *"dù là phiếu gốc hay nhân bản vẫn hoàn thành được k
+   * nhất thiết phải chờ các bản khác hoàn thành r mới hoàn thành được, do chia việc ra mỗi bạn mỗi
+   * công việc ai làm xong trước thì hoàn thành trước"*.
    *
-   * Sếp yêu cầu làm mờ các dòng đã nhân bản đi *"để ko bị quên"*, và chốt tiếp rằng phiếu gốc
-   * **không cần mua** phần đã nhân bản. Khi được báo hệ quả — *"nhân bản hết mọi dòng thì phiếu gốc
-   * thành 'không còn gì phải mua' và đóng lại được ngay trong khi chưa mua gì cả"* — và được đề
-   * nghị chặn đóng phiếu gốc khi còn bản copy chưa xong, Sếp trả lời: ***"e làm đúng ý rồi"***.
-   *
-   * 🔴 VÌ SAO PHẢI ĐỨNG **TRƯỚC MỌI PHÉP KIỂM KHÁC**: bốn chốt dưới đây đều hỏi về khối lượng và
-   * chứng từ **của riêng phiếu này**. Phiếu gốc đã nhân bản hết dòng đi thì theo đúng chữ Sếp
-   * (*"không cần mua"*) nó không còn vướng gì cả — mọi chốt dưới đều xanh, và hồ sơ đóng lại trong
-   * khi việc mua thật sự nằm nguyên ở các bản con chưa ai làm xong. Đặt xuống dưới là câu chặn
-   * đầu tiên người dùng đọc được lại nói về hoá đơn hay khối lượng, chẳng dính gì tới việc đang kẹt.
-   *
-   * 📌 ÁP CHO CẢ HAI ĐƯỜNG SINH BẢN CON, cố ý: `cacBanTachCua` lọc theo `deNghiGocId` nên gom cả
-   * bản do người dùng **nhân bản tay** (`nhanBanDeNghi`) lẫn bản do app **tự tách theo phân công**
-   * (`tachTheoPhanBo`). Hai đường khác nhau ở chỗ có cắt dòng khỏi phiếu gốc hay không, nhưng câu
-   * hỏi nghiệp vụ thì y hệt: *đề xuất lớn đã xong hết các phần chưa*. Lọc riêng một đường là đường
-   * kia thành lối né.
-   *
-   * 📌 LIỆT KÊ ĐỦ MỌI MÃ, không rút gọn thành con số — cùng lý do đã ghi ở `ghiChuDaNhanBan`
-   * (`nhan-ban-de-nghi.ts`): cả tính năng này sinh ra *"để không bị quên"*, giấu bớt một bản là đi
-   * ngược đúng mục đích đó. Sếp đã được hỏi và chọn cách liệt kê đủ.
-   *
-   * ⚠️ KHÔNG chặn theo chiều ngược lại (bản con không bị phiếu gốc chặn). Bản con là phần việc độc
-   * lập của một người, đóng xong lúc nào là quyền của họ; bắt chờ phiếu gốc là dựng vòng tròn.
+   * Mỗi phiếu (gốc, bản nhân bản, phiếu con giao việc) chỉ còn bị hỏi về PHẦN CỦA CHÍNH NÓ: phần đã
+   * tách đi được trừ khỏi hai phép đếm khối lượng ngay dưới (`locTienDoConPhaiMua`), phần còn lại
+   * phải lên đơn / về đủ / đủ chứng từ như mọi hồ sơ. Phần đã tách đi do bản kia tự chịu.
+   * 📌 Hệ quả: phiếu gốc đã tách HẾT dòng đi thì hai phép đếm khối lượng không còn chặn (vẫn phải
+   * qua các chốt hợp đồng / hoá đơn VAT / UNC dưới như mọi hồ sơ). `hoSoDaChotXong` giữ lại (thuần)
+   * để quay lại luật cũ chỉ cần gọi lại ở đây. Phiếu gốc đóng trước thì thao tác "trả dòng về gốc"
+   * trên phiếu con làm tại chỗ — xem `chaDaDongCua` (`tach-khi-giao-viec.ts`).
    */
-  if (tatCaDeNghi) {
-    /* ★ Sếp 26/09/2026 (nhân bản theo NCC, mục (4)): nhìn CẢ CÂY hậu duệ (`hauDueCua` = hợp của
-       `cacBanTachCua` theo `deNghiGocId` và `cayHauDue` theo `deNghiChaId`). Trước đây chỉ lọc
-       `deNghiGocId`, nên phiếu con giao việc `…__A` không thấy bản A nhân bản tiếp theo NCC (bản cháu
-       mang `deNghiGocId` = phiếu gốc) → `…__A` đóng được trong khi phần tách đi còn đang mua. */
-    const conDangDo = hauDueCua(deNghi.id, tatCaDeNghi).filter((c) => !hoSoDaChotXong(c));
-    if (conDangDo.length > 0) {
-      return `Phiếu này đã tách ra ${conDangDo.length} hồ sơ con còn dở: ${conDangDo
-        .map((c) => c.code)
-        .join(", ")}. Xong hết các hồ sơ đó rồi mới đóng được phiếu gốc — phần vật tư đã nhân bản đi vẫn đang được mua ở đấy.`;
-    }
-  }
 
   if (tienDo.length === 0) {
     return "Phiếu đề nghị này chưa có mặt hàng nào để hoàn thành.";
@@ -1189,13 +1166,11 @@ export function vuongMacHoanThanhQuyTrinh(
    * (`chuaLenDon`, `chuaVeDu`) vẫn đếm trên cả những dòng đó, nên phiếu gốc đã giao việc đi
    * **không bao giờ bấm hoàn thành được** — người giữ phiếu gốc không sai gì mà hồ sơ kẹt.
    *
-   * 🔴 ĐẶT SAU CHỐT ① LÀ BẮT BUỘC, ĐỪNG ĐẢO. Chốt ① ("còn bản con dở") mới là thứ giữ cho phiếu
-   * gốc không đóng sớm. Trừ dòng trước khi hỏi ① là mở đúng lỗ hổng mà ① sinh ra để bịt.
+   * 📌 (21/10/2026) Chốt ① "còn bản con dở" đã bỏ theo Sếp — xem khối ★★★ ngay trên.
    *
-   * 🔴 VÀ ĐẶT SAU `tienDo.length === 0` cũng là cố ý: câu đó nói về **phiếu không có mặt hàng
-   * nào** — hồ sơ hỏng. Phiếu đã nhân bản đi hết dòng thì mảng lọc rỗng nhưng phiếu KHÔNG hỏng,
-   * nó chỉ đã giao hết việc; lúc đó chốt ① đã trả lời xong và hai phép đếm dưới đều bằng 0, tức
-   * đóng được — đúng ý Sếp.
+   * 🔴 ĐẶT SAU `tienDo.length === 0` là cố ý: câu đó nói về **phiếu không có mặt hàng nào** — hồ
+   * sơ hỏng. Phiếu đã nhân bản đi hết dòng thì mảng lọc rỗng nhưng phiếu KHÔNG hỏng, nó chỉ đã
+   * giao hết việc; hai phép đếm dưới đều bằng 0, tức đóng được — đúng ý Sếp 21/10/2026.
    */
   const conPhaiMua = locTienDoConPhaiMua(deNghi, tatCaDeNghi, tienDo);
 

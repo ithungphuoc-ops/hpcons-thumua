@@ -61,6 +61,22 @@ export function loiHoSoDaDongKhiGiaoViec(
     : `Đề nghị đã đóng dở nên không ${viecDangLam} được nữa. Muốn mua tiếp thì lập một đề nghị mới.`;
 }
 
+/**
+ * ★ Phiếu CHA của `dn` đã đóng (hoàn thành / đóng dở) — Sếp 21/10/2026 bỏ chốt "còn bản con dở thì
+ * chưa đóng được phiếu gốc" (*"ai làm xong trước thì hoàn thành trước"*), nên phiếu gốc có thể đóng
+ * TRƯỚC phiếu con. Khi đó các thao tác vốn "trả dòng về phiếu gốc" (bỏ phân bổ, chuyển việc, kéo về
+ * bước ①) phải làm ngay trên phiếu con — trả dòng vào một hồ sơ đã đóng là dòng đó không ai mua, và
+ * trước đây còn bị chặn bằng câu sai "Đề nghị đã hoàn thành" trong khi phiếu đang đứng còn chạy.
+ */
+export function chaDaDongCua(
+  dn: Pick<DeNghiMuaHang, "deNghiChaId">,
+  tatCa: readonly Pick<DeNghiMuaHang, "id" | "trangThai">[],
+): boolean {
+  if (!dn.deNghiChaId) return false;
+  const cha = tatCa.find((x) => x.id === dn.deNghiChaId);
+  return !!cha && loiHoSoDaDongKhiGiaoViec(cha) !== null;
+}
+
 /** Bốn trường YÊU CẦU giao việc trên một dòng — gỡ người thì gỡ luôn, chuyển việc thì mang theo. */
 type DongDN = DeNghiMuaHang["items"][number];
 type TruongYeuCauGiao = "soBaoGiaYeuCau" | "soBaoGiaTPGiao" | "ghiChuPhanBo" | "loaiViecGiao";

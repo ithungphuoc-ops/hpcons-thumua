@@ -114,6 +114,7 @@ import {
   apDungChiaKhoiLuong,
   apDungGiaoViec,
   apDungRutDong,
+  chaDaDongCua,
   dongDaCoChungTu,
   gopBanTachVeGoc,
   idPhieuConTheoNguoi,
@@ -6330,7 +6331,12 @@ export function DuLieuProvider({
               (bg) => bg.prId === id && bg.trangThai !== "huy" && bg.items.some((it) => it.baoGiaNCC.length > 0),
             ),
         );
-        const gopDuoc = banTach.length > 0 && !coChungTu;
+        /* ★ Sếp 21/10/2026: phiếu gốc được hoàn thành trước bản con — gốc đã đóng thì KHÔNG gộp bản
+           con vào (gộp vào hồ sơ đã đóng là xoá bản đang chạy, dòng không ai mua); chỉ bỏ phân bổ
+           trên chính phiếu đang kéo như nhánh "không gộp được" dưới. */
+        const phieuGocDau = dsHienTai.find((d) => d.id === idGoc);
+        const gocDaDong = !!phieuGocDau && loiHoSoDaDongKhiGiaoViec(phieuGocDau) !== null;
+        const gopDuoc = banTach.length > 0 && !coChungTu && !gocDaDong;
         /* ★ Sếp 26/09/2026 (nhân bản theo NCC, mục (4)): gộp mà làm một bản nhân bản mất cha (mua
            trùng) hoặc làm mất phần mua vượt đã họp chốt → CHẶN, nói rõ phải xử lý bản nào trước. */
         if (gopDuoc) {
@@ -6630,8 +6636,10 @@ export function DuLieuProvider({
       if (daDong) return daDong;
     }
     const tenNguoiCu = dn.items.find((d) => d.stt === stt)?.nguoiPhuTrachTen?.trim() || undefined;
-    /* ★ Dòng nằm ở PHIẾU CON tách lúc giao việc → trả dòng về phiếu gốc (Sếp 26/09/2026). */
-    if (laPhieuConKhiGiao(dn)) {
+    /* ★ Dòng nằm ở PHIẾU CON tách lúc giao việc → trả dòng về phiếu gốc (Sếp 26/09/2026).
+       ★ Sếp 21/10/2026: phiếu gốc đã hoàn thành trước thì KHÔNG trả về — bỏ người ngay trên phiếu con
+       (nhánh dưới), dòng nằm lại chờ giao lại. Xem `chaDaDongCua`. */
+    if (laPhieuConKhiGiao(dn) && !chaDaDongCua(dn, deNghiRef.current)) {
       const luc = thoiDiemHienTai();
       const tuyChon = { mangYeuCauVe: false, tenNguoiCu };
       const k = apDungRutDong(deNghiRef.current, prId, [stt], nguoiThucHien, luc, "Bỏ phân bổ", tuyChon);
@@ -6745,13 +6753,17 @@ export function DuLieuProvider({
         lyDo: [tenCu ? `Từ ${tenCu}.` : "", lyDo.trim()].filter(Boolean).join(" ") || undefined,
         giuYeuCauCu: true,
         gopConCu: !phieuConCoChungTu(
-          (dnDangGiu && laPhieuConKhiGiao(dnDangGiu) ? dnDangGiu.deNghiChaId : prId) ?? prId,
+          (dnDangGiu && laPhieuConKhiGiao(dnDangGiu) && !chaDaDongCua(dnDangGiu, deNghiRef.current)
+            ? dnDangGiu.deNghiChaId
+            : prId) ?? prId,
           nguoiMoi.uid,
         ),
       };
       const tinh = (ds: DeNghiMuaHang[]) => {
         const dn = ds.find((x) => x.id === prId);
-        if (dn && laPhieuConKhiGiao(dn)) {
+        /* ★ Sếp 21/10/2026: phiếu gốc đã hoàn thành trước thì giao lại NGAY trên phiếu con (không rút
+           về phiếu đã đóng) — đi đúng `apDungGiaoViec` như phiếu thường ở dưới. */
+        if (dn && laPhieuConKhiGiao(dn) && !chaDaDongCua(dn, ds)) {
           /* Mang yêu cầu (số báo giá, ghi chú, loại việc) về dòng gốc để `giuYeuCauCu` giữ được
              đúng điều đã dặn (soát #18 #21 — trước đây mất sạch khi chuyển từ phiếu con). */
           const r = apDungRutDong(ds, prId, sttDong, nguoiThucHien, luc, "Chuyển việc", {
@@ -8625,8 +8637,9 @@ export function DuLieuProvider({
 
       const tienDo = tinhTienDoDeNghi(dn, donHangRef.current, phieuNhanRef.current);
       /**
-       * ★★ TRUYỀN CẢ DANH SÁCH ĐỀ NGHỊ — để chốt "còn bản con chưa xong thì chưa đóng được phiếu
-       * gốc" chạy thật (Sếp 15/09/2026: ***"e làm đúng ý rồi"***).
+       * ★★ TRUYỀN CẢ DANH SÁCH ĐỀ NGHỊ — để trừ phần đã tách sang bản khác khỏi phép đếm khối lượng.
+       * 📌 Chốt "còn bản con chưa xong thì chưa đóng được phiếu gốc" (15/09/2026) ĐÃ BỎ — Sếp
+       * 21/10/2026: ai làm xong phần mình trước thì hoàn thành trước. Chú thích dưới là lịch sử.
        *
        * 🔴 ĐÂY LÀ NƠI CHỐT ĐÓ CÓ HIỆU LỰC, không phải cái nút. Tham số thứ ba là TÙY CHỌN và nơi
        * gọi nào không truyền thì hàm **không chặn** (có chủ ý — xem chú thích tại chỗ khai báo).
