@@ -281,7 +281,7 @@ function OSoanBinhLuan({
 
   const tepCuConLai = tepHienCo.filter((t) => !tepGo.includes(t.id));
 
-  async function themTep(ds: FileList) {
+  async function themTep(ds: FileList | File[]) {
     const conNhan = TOI_DA_TEP - (tep.length + tepCuConLai.length);
     if (conNhan <= 0) {
       toast.error("Đã đủ tệp", { description: `Mỗi bình luận tối đa ${TOI_DA_TEP} tệp.` });
@@ -334,6 +334,28 @@ function OSoanBinhLuan({
         onKeyDown={(e) => {
           // Ctrl/⌘+Enter gửi nhanh — Enter thường vẫn xuống dòng vì bình luận hay nhiều dòng.
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") gui();
+        }}
+        /* ★ DÁN ẢNH — Sếp 20/10/2026: *"khi bình luận trong này thì k dán ảnh vào được, a muốn
+           dán ảnh luôn"*. Chụp màn hình rồi Ctrl+V thẳng vào ô: ảnh đi ĐÚNG đường nút "Đính kèm"
+           (`themTep` → cất lên kho trước, cùng giới hạn số tệp / dung lượng), không có đường riêng.
+           📌 Chỉ chặn hành vi mặc định khi bộ nhớ tạm KHÔNG có chữ — dán đoạn văn kèm ảnh (từ Word,
+           trang web) thì chữ vẫn vào ô như cũ, ảnh vẫn được đính kèm.
+           📌 Đặt lại tên tệp: ảnh chụp màn hình trình duyệt đưa sang luôn tên `image.png`, dán 3
+           lần là 3 tệp trùng tên, người xem không phân biệt được. */
+        onPaste={(e) => {
+          const anh = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+          if (anh.length === 0) return;
+          if (!e.clipboardData.getData("text/plain").trim()) e.preventDefault();
+          const gio = new Date();
+          const moc = [gio.getHours(), gio.getMinutes(), gio.getSeconds()]
+            .map((n) => String(n).padStart(2, "0"))
+            .join("");
+          void themTep(
+            anh.map((f, i) => {
+              const duoi = (f.type.split("/")[1] || "png").replace("jpeg", "jpg");
+              return new File([f], `anh-dan-${moc}${anh.length > 1 ? `-${i + 1}` : ""}.${duoi}`, { type: f.type });
+            }),
+          );
         }}
       />
 
@@ -439,7 +461,8 @@ function OSoanBinhLuan({
       {/* Nói rõ giới hạn ngay chỗ dùng, đừng để người dùng phát hiện bằng cách gặp lỗi. */}
       <p className="text-xs text-text-desc">
         Nhận ảnh, PDF, Word, Excel · tối đa {CO_TOI_DA / 1024 / 1024}MB mỗi tệp, {TOI_DA_TEP} tệp
-        mỗi bình luận. Tệp lưu lên máy chủ nên người khác mở xem được. Ctrl+Enter để gửi nhanh.
+        mỗi bình luận. Tệp lưu lên máy chủ nên người khác mở xem được. Dán ảnh: Ctrl+V ngay
+        trong ô. Ctrl+Enter để gửi nhanh.
       </p>
     </div>
   );
