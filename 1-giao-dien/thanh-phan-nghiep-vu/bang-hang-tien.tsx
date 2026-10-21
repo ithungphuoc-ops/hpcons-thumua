@@ -131,6 +131,8 @@ export interface DongNhapDonHang {
 export interface ConLaiDeNghi {
   conLai: number;
   donViTinh: string;
+  /** Phần việc của dòng đề nghị (dòng theo file chia cho nhiều phiếu — Sếp 20/10/2026). */
+  phanViec?: string;
 }
 
 export function BangHangTien({
@@ -832,6 +834,7 @@ export function BangHangTien({
                         <span className="text-xs text-text-desc">
                           Đề nghị dòng {d.sttDeNghi} · còn {con.conLai.toLocaleString("vi-VN")}{" "}
                           {con.donViTinh}
+                          {con.phanViec ? ` · phần việc: ${con.phanViec}` : ""}
                         </span>
                       )}
                     </div>

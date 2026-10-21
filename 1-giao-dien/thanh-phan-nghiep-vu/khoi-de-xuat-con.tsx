@@ -162,8 +162,11 @@ export function KhoiDeXuatCon({
                       tuCha: trucTiep ? x.khoiLuongTuCha : undefined,
                       vuot: trucTiep ? Number(x.khoiLuongVuotCha) || 0 : 0,
                       dv: x.donViTinh,
+                      /* ★ Dòng chia phần việc (Sếp 20/10/2026) — không lấy khối lượng, ghi mục làm. */
+                      chia: trucTiep && Boolean(x.chiaPhanViec),
+                      pv: x.phanViec?.trim() || undefined,
                     }))
-                    .filter((x): x is { stt: number; tuCha: number | undefined; vuot: number; dv: string } =>
+                    .filter((x): x is { stt: number; tuCha: number | undefined; vuot: number; dv: string; chia: boolean; pv: string | undefined } =>
                       typeof x.stt === "number",
                     )
                     .sort((a, b) => a.stt - b.stt);
@@ -231,7 +234,11 @@ export function KhoiDeXuatCon({
                         .map(
                           (x) =>
                             `${x.stt}. ${tenDongGoc.get(x.stt) ?? "(dòng đã bỏ)"}` +
-                            (typeof x.tuCha === "number" ? ` (${x.tuCha} ${x.dv})` : " (cả dòng)") +
+                            (x.chia
+                              ? ` (chia phần việc${x.pv ? `: ${x.pv}` : ""})`
+                              : typeof x.tuCha === "number"
+                                ? ` (${x.tuCha} ${x.dv}${x.pv ? ` · phần việc: ${x.pv}` : ""})`
+                                : ` (cả dòng${x.pv ? ` · phần việc: ${x.pv}` : ""})`) +
                             (x.vuot > 0 ? ` + mua vượt ${x.vuot} ${x.dv}` : ""),
                         )
                         .join(" · ")}{" "}

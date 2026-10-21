@@ -146,7 +146,8 @@ export default function TrangDanhSachDeNghi() {
     suaThoiHan,
     /* 📌 `doiLuuTru` và `suaTruongBoSung` không lấy ở đây nữa — hai lối vào đã dời sang
        `trang/de-nghi-chi-tiet.tsx` ngày 12/09/2026. Hai hàm vẫn sống trong kho dữ liệu. */
-    nhanBanDeNghi,
+    /* ★ Nhân bản CHIA CỘT (Sếp 20/10/2026) thay `nhanBanDeNghi` ở hộp nhân bản. */
+    nhanBanChiaCot,
     xoaDeNghi,
     luiVeBuoc,
     cauHinh,
@@ -1326,67 +1327,35 @@ export default function TrangDanhSachDeNghi() {
             deNghi={dnHoiNhanBan ?? null}
             mo={hoiNhanBan !== null}
             onDong={() => setHoiNhanBan(null)}
-            onXacNhan={(luaChon) => {
+            onXacNhan={(luaChon, cach) => {
               if (!hoiNhanBan) return "Chưa chọn đề nghị.";
-              const goc = dnHoiNhanBan;
-              const sttGiuLai = luaChon.chon.map((c) => c.stt);
-              // Truyền cả hàm kiểm quyền: kho dữ liệu tự chặn, không tin vào việc giao diện
-              // đã ẩn nút (ẩn nút không phải là chặn).
-              const kq = nhanBanDeNghi(
+              /* ★ Sếp 20/10/2026: nhân bản CHIA CỘT — nhiều bản một lần, giao luôn người từng cột / Mua hàng /
+                 Xuất kho. Truyền cả hàm kiểm quyền: kho dữ liệu tự chặn, không tin việc giao diện đã ẩn nút. */
+              const kq = nhanBanChiaCot(
                 hoiNhanBan,
                 { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
                 luaChon,
                 (dn) => duocNhanBanDeNghi(dn, nguoiDung.uid, quyen),
               );
-              /* ★ 26/09/2026: tầng ghi nay trả ĐÚNG câu lỗi (`apDungNhanBanDeNghi`) — hộp giữ nguyên
-                 để người dùng sửa, không đoán lý do ở đây nữa. */
               if (kq.loi !== undefined) {
                 toast.error("Không nhân bản được", { description: kq.loi });
                 return kq.loi;
               }
-              const id = kq.id;
-              const tach = goc && sttGiuLai.length < goc.items.length;
-              /* Dòng chỉ tách MỘT PHẦN khối lượng (Sếp 26/09/2026) — nói rõ để người dùng biết phiếu
-                 này vẫn còn phần tự mua. */
-              const soTachMotPhan = goc
-                ? luaChon.chon.filter((c) => {
-                    const d = goc.items.find((x) => x.stt === c.stt);
-                    return d && c.khoiLuongTuCha < (Number(d.khoiLuongDeNghi) || 0);
-                  }).length
-                : 0;
-              /**
-               * 🔴 CÂU NÀY TỪNG NÓI NGƯỢC VỚI CODE, SỬA 15/09/2026. Bản cũ báo *"chưa phân bổ cho
-               * ai — giao việc trước khi đi tiếp"*, trong khi `nhanBanDeNghi` **CÓ gán người bấm
-               * làm người phụ trách** (Ban lãnh đạo 15/08/2026: *"nhân viên nào nhân bản thì sẽ do
-               * người đó thực hiện"*) — nhưng chỉ cho những dòng ở phiếu gốc **đã có người**
-               * (chốt 16/08/2026). Đếm ngay tại đây để nói đúng cả hai vế thay vì nói chung.
-               */
-              const soDaCoNguoi = goc
-                ? goc.items.filter(
-                    (d) => sttGiuLai.includes(d.stt) && Boolean(d.nguoiPhuTrachUid),
-                  ).length
-                : 0;
-              const soChuaAi = sttGiuLai.length - soDaCoNguoi;
-              toast.success("Đã nhân bản", {
+              const soGiao = luaChon.cot.filter((c) => c.giaoCho).length + (luaChon.giuLai?.giaoCho ? 1 : 0);
+              toast.success(cach === "mua" ? "Đã tách và giao bạn khác mua" : cach === "xk" ? "Đã tách phần xuất kho" : soGiao > 0 ? "Đã nhân bản và giao việc" : "Đã nhân bản", {
                 description: [
-                  tach
-                    ? `Bản mới giữ ${sttGiuLai.length}/${goc.items.length} mặt hàng.`
-                    : "Bản sao giữ đủ mặt hàng của phiếu gốc.",
-                  soTachMotPhan > 0
-                    ? `${soTachMotPhan} dòng chỉ tách một phần — ${goc?.code ?? "phiếu gốc"} tự mua phần còn lại.`
-                    : "",
-                  soDaCoNguoi > 0
-                    ? quyen.phanBoCongViec
-                      ? `${soDaCoNguoi} dòng giữ nguyên người phụ trách của phiếu gốc.`
-                      : `Bạn phụ trách ${soDaCoNguoi} dòng.`
-                    : "",
-                  soChuaAi > 0
-                    ? `Còn ${soChuaAi} dòng chưa giao ai — cần phân bổ trước khi đi tiếp.`
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join(" "),
-                action: { label: "Mở bản copy", onClick: () => router.push(`/de-nghi/${id}`) },
+                  `Tạo ${kq.ids.length} bản mới.`,
+                  cach === "xk"
+                    ? "Phiếu xuất kho bỏ qua báo giá, sang thẳng bước Lập đơn mua hàng."
+                    : cach === "mua"
+                      ? "Người nhận thấy việc mới trong chuông thông báo."
+                      : soGiao > 0
+                        ? "Người được giao thấy việc mới trong chuông thông báo."
+                        : quyen.phanBoCongViec
+                          ? "Dòng đã giao ai thì giữ người đó; dòng chưa giao thì tích ô ở bảng phân bổ để giao."
+                          : "Các bản mới vẫn do bạn phụ trách.",
+                ].join(" "),
+                action: { label: "Mở bản mới", onClick: () => router.push(`/de-nghi/${kq.ids[0]}`) },
               });
               return null;
             }}

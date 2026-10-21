@@ -896,10 +896,13 @@ export function FormLapDonMuaHang({
   const conLaiTheoDong = useMemo(() => {
     const bang: Record<number, ConLaiDeNghi> = {};
     for (const d of dongLapDuoc) {
-      bang[d.stt] = { conLai: d.khoiLuongChuaLenPO, donViTinh: d.donViTinh };
+      /* ★ Phần việc của dòng (nhân bản chia cột, Sếp 20/10/2026) — dòng theo file chia cho nhiều
+         phiếu, người lập đơn phải thấy mình mua mục nào của file. */
+      const phanViec = dn?.items.find((x) => x.stt === d.stt)?.phanViec?.trim() || undefined;
+      bang[d.stt] = { conLai: d.khoiLuongChuaLenPO, donViTinh: d.donViTinh, phanViec };
     }
     return bang;
-  }, [dongLapDuoc]);
+  }, [dongLapDuoc, dn]);
 
   /**
    * ★ ĐIỀN CẢ CỤM Ô NHÀ CUNG CẤP TỪ MỘT BẢN GHI DANH MỤC — dùng cho ô tra mã và nút sổ xuống.

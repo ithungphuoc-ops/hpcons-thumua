@@ -108,6 +108,8 @@ import {
   locTienDoConPhaiMua,
   type DongChonNhanBan,
 } from "@/2-quy-trinh/nhan-ban-de-nghi";
+/* ★ Nhân bản CHIA CỘT + giao luôn (Sếp 20/10/2026) — xem `nhanBanChiaCot`. */
+import { apDungNhanBanChiaCot, type ThamSoNhanBanChiaCot } from "@/2-quy-trinh/nhan-ban-chia-cot";
 import {
   apDungChiaKhoiLuong,
   apDungGiaoViec,
@@ -1926,6 +1928,16 @@ interface GiaTriDuLieu {
     luaChon: { chon: DongChonNhanBan[]; lyDoVuot?: string },
     duocPhep?: (deNghi: DeNghiMuaHang) => boolean,
   ) => { id: string; loi?: undefined } | { loi: string };
+  /**
+   * ★ Nhân bản CHIA CỘT (Sếp 20/10/2026): nhiều bản mới một lần, giao luôn người từng cột.
+   * Luật ở `apDungNhanBanChiaCot` (2-quy-trinh/nhan-ban-chia-cot.ts).
+   */
+  nhanBanChiaCot: (
+    prId: string,
+    nguoi: { uid: string; ten: string },
+    luaChon: Pick<ThamSoNhanBanChiaCot, "cot" | "giuLai">,
+    duocPhep?: (deNghi: DeNghiMuaHang) => boolean,
+  ) => { ids: string[]; loi?: undefined } | { loi: string };
   /** Xóa hẳn (chỉ bản chạy thử). Trả lý do bị chặn, `null` nghĩa là đã xóa. */
   xoaDeNghi: (prId: string) => string | null;
   /** Xoá nhiều đề nghị đã chọn — luật ở `2-quy-trinh/xoa-de-nghi.ts`. */
@@ -9048,6 +9060,109 @@ export function DuLieuProvider({
     [nguoiDung],
   );
 
+  /**
+   * ★★★ NHÂN BẢN CHIA CỘT — Sếp duyệt 20/10/2026 (demo bản 14). Nhiều bản mới một lần, mỗi bản có
+   * thể giao luôn cho một người (bước ①: Trưởng bộ phận chọn người từng cột; bước ②: người đang làm
+   * bấm "Mua hàng" giao bạn khác / "Xuất kho" → XK VPP · XK Kho Tổng). Luật ở hàm thuần
+   * `apDungNhanBanChiaCot` (2-quy-trinh/nhan-ban-chia-cot.ts) — đây chỉ: tra phiếu, quyền, chốt
+   * checkin, cấp id, ghi, đặt mốc vào bước, gửi tin việc mới cho người được giao.
+   */
+  const nhanBanChiaCot = useCallback(
+    (
+      prId: string,
+      nguoi: { uid: string; ten: string },
+      luaChon: Pick<ThamSoNhanBanChiaCot, "cot" | "giuLai">,
+      duocPhep?: (deNghi: DeNghiMuaHang) => boolean,
+    ): { ids: string[]; loi?: undefined } | { loi: string } => {
+      const goc = deNghiRef.current.find((d) => d.id === prId);
+      if (!goc) return { loi: "Không tìm thấy đề nghị — hồ sơ vừa thay đổi ở máy khác." };
+      if (duocPhep && !duocPhep(goc)) {
+        return {
+          loi: "Bạn chỉ nhân bản được đề nghị mình đang phụ trách. Nhờ trưởng bộ phận nhân bản, hoặc giao phần việc này cho bạn trước.",
+        };
+      }
+      const q = tinhQuyen(nguoiDung);
+      /* ★ Giao người ngay khi nhân bản: Trưởng bộ phận giao được mọi lúc; nhân viên chỉ giao lại PHẦN
+         CỦA MÌNH vừa tách (Sếp 20/10/2026 — nút "Mua hàng" / "Xuất kho" ở bước ②). Dòng của mình đã
+         được `danhGiaDongNhanBan` chốt; ở đây chỉ chặn nhân viên giao phần "Phiếu này" cho người khác. */
+      if (!q.phanBoCongViec && luaChon.giuLai?.giaoCho) {
+        return { loi: "Chỉ Trưởng bộ phận giao được phần còn lại của phiếu này." };
+      }
+      /* ★ Sếp 20/10/2026: phiếu đã giao việc mà việc bắt buộc bước ① còn treo (chưa checkin) thì phải
+         tích trước rồi mới tách tiếp. Ở bước ① (đang giao việc) KHÔNG chặn — giao việc không cần checkin. */
+      const buocHienTai = xacDinhGiaiDoan(goc, donHangRef.current, baoGiaRef.current, phieuNhanRef.current, deNghiRef.current);
+      if (buocHienTai !== "tiep_nhan") {
+        const chanCheckin = vuongMacViecBuoc1ChuaXong(goc, cauHinhRef.current);
+        if (chanCheckin) return { loi: chanCheckin };
+      }
+      const ids = luaChon.cot.map(() => sinhIdHoSo("pr"));
+      const luc = thoiDiemHienTai();
+      const thamSo: ThamSoNhanBanChiaCot = {
+        prId,
+        nguoi,
+        laNguoiPhanBo: q.phanBoCongViec,
+        cot: luaChon.cot,
+        giuLai: luaChon.giuLai,
+        idMoi: ids,
+        ngay: homNay(),
+        thoiDiem: luc,
+        baoGia: baoGiaRef.current,
+        donHang: donHangRef.current,
+      };
+      /* Mốc vào bước = lúc nhân bản cho mọi bản mới (soát #14), y `nhanBanDeNghi`. */
+      const datMoc = (ds: DeNghiMuaHang[]): DeNghiMuaHang[] =>
+        ds.map((d) =>
+          !ids.includes(d.id)
+            ? d
+            : {
+                ...d,
+                mocVaoBuoc: {
+                  buoc: xacDinhGiaiDoan(d, donHangRef.current, baoGiaRef.current, phieuNhanRef.current, ds),
+                  thoiDiem: luc,
+                },
+              },
+        );
+      const kqTruoc = apDungNhanBanChiaCot(deNghiRef.current, thamSo);
+      if (kqTruoc.loi !== undefined) return { loi: kqTruoc.loi };
+      setDeNghi((truoc) => {
+        const k = apDungNhanBanChiaCot(truoc, thamSo);
+        return k.loi !== undefined ? truoc : datMoc(k.deNghi);
+      });
+
+      /* 🔔 Tin việc mới cho từng người được giao — y `phanBoDong` (đích danh, ngoài `setDeNghi`). */
+      if (kqTruoc.daGiao.length > 0) {
+        const tin = kqTruoc.daGiao
+          .map((g) => {
+            const dn = kqTruoc.deNghi.find((x) => x.id === g.prId);
+            if (!dn) return null;
+            const buoc = xacDinhGiaiDoan(dn, donHangRef.current, baoGiaRef.current, phieuNhanRef.current, kqTruoc.deNghi);
+            const idTin = `tb-vm-${soKeTiepThongBao()}`;
+            return {
+              id: idTin,
+              prId: dn.id,
+              prCode: dn.code,
+              tieuDe: dn.tieuDe,
+              tuBuoc: buoc,
+              denBuoc: buoc,
+              thoiDiem: new Date().toISOString(),
+              guiToi: [g.ten],
+              daDoc: false,
+              laViecMoi: true,
+              soDongViec: g.soDong,
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => x !== null);
+        danhDauTinChoAppTong(
+          tinChoAppTong.current,
+          tin.map((x) => ({ id: x.id, laViecMoi: true })),
+        );
+        setThongBao((truoc) => giuThongBaoGanNhat([...tin, ...truoc]));
+      }
+      return { ids };
+    },
+    [nguoiDung],
+  );
+
   /*
    * ❌ ĐÃ XOÁ `tachTheoPhanBo` (tách kiểu cũ 15/08: CẮT dòng khỏi phiếu gốc rồi đánh số lại) —
    * soát giao việc 25–26/09/2026 (#15). Công tắc + effect gọi nó đã bỏ từ 26/09, không màn nào
@@ -10631,6 +10746,7 @@ export function DuLieuProvider({
       doiLuuTru,
       suaTruongBoSung,
       nhanBanDeNghi,
+      nhanBanChiaCot,
       xoaDeNghi,
       xoaNhieuDeNghi,
       themNguoiTheoDoi,
@@ -10719,6 +10835,7 @@ export function DuLieuProvider({
       doiLuuTru,
       suaTruongBoSung,
       nhanBanDeNghi,
+      nhanBanChiaCot,
       xoaDeNghi,
       xoaNhieuDeNghi,
       themNguoiTheoDoi,

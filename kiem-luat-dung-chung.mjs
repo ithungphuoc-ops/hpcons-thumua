@@ -336,6 +336,20 @@ try {
   rmSync(thuMuc, { recursive: true, force: true });
   process.exit(1);
 }
+/* ★★ NHÂN BẢN CHIA CỘT — Sếp duyệt 20/10/2026: nhiều bản một lần, dòng theo file CHIA CHUNG (không trừ
+   phiếu cha), giao luôn người từng cột / Mua hàng / Xuất kho. Dựng riêng để gọi THẬT hàm thuần. */
+const tepRaNCC = join(thuMuc, "nhan-ban-chia-cot.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/nhan-ban-chia-cot.ts" --bundle --platform=node --format=cjs --outfile="${tepRaNCC}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/nhan-ban-chia-cot.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
 
 /* ★★ HẠN MỨC TỆP MỖI BƯỚC — Sếp 17/09/2026 nâng 5→6 để mở đủ 5 ô báo giá NCC. Dựng riêng để bài
    kiểm đối chiếu ĐƯỢC hai hằng số với nhau: số ô báo giá cộng bảng so sánh bắt buộc phải vừa hạn
@@ -555,6 +569,7 @@ const AR = nap(tepRa6);
 const KD = nap(tepRa7);
 const HS = nap(tepRa8);
 const NB = nap(tepRa9);
+const NCC = nap(tepRaNCC);
 const GTP = nap(tepRaGTP);
 const TB = nap(tepRaTB);
 const CM = nap(tepRaCM);
@@ -12366,6 +12381,154 @@ kiem("NB theo NCC 15: phieu cha luon co NHAT KY nhan ban (so dong, khoi luong); 
     mongDoi: "nhat ky nhac ma ban moi + 4/10 m3 + con 6 m3 · ban 1 dong · khong chon bi chan",
   };
 });
+
+// ════════════════════════════════════════════════════════════════════
+// ★★★ NHÂN BẢN CHIA CỘT — Sếp duyệt 19–20/10/2026 (demo "Nhân bản + giao việc" bản 14)
+// Mỗi cột là 1 phiếu: dòng số lượng TRỪ phiếu cha; dòng theo file CHIA CHUNG (không trừ, không mờ);
+// bước ① Trưởng bộ phận giao luôn người từng cột; bước ② "Mua hàng" giao bạn khác, "Xuất kho" → bỏ
+// qua báo giá. Được cả hoặc không được gì.
+// ════════════════════════════════════════════════════════════════════
+const CHU_NB_COT = "Sếp · 20/10/2026 · nhân bản chia cột";
+const phieuCot = (them = {}) => ({
+  id: "pr-c",
+  code: "HD-200",
+  tieuDe: "HD-200 | CT Y",
+  trangThai: "da_duyet",
+  items: [
+    { stt: 1, tenVatLieu: "Vat tu cong tac tam", quyCach: "Theo file dinh kem", donViTinh: "lô", khoiLuongDeNghi: 1 },
+    { stt: 2, tenVatLieu: "Gian giao H", donViTinh: "Bo", khoiLuongDeNghi: 3 },
+    { stt: 3, tenVatLieu: "Cu ke thep", donViTinh: "Cay", khoiLuongDeNghi: 11 },
+  ],
+  lichSu: [],
+  ...them,
+});
+const nbCot = (ds, cot, tuy = {}) =>
+  NCC.apDungNhanBanChiaCot(ds, {
+    prId: tuy.prId ?? "pr-c",
+    nguoi: tuy.nguoi ?? { uid: "TBP", ten: "Truong BP" },
+    laNguoiPhanBo: tuy.laNguoiPhanBo ?? true,
+    cot,
+    giuLai: tuy.giuLai,
+    idMoi: tuy.idMoi ?? cot.map((_, i) => `bc-${i + 1}`),
+    ngay: "2026-10-21",
+    thoiDiem: "2026-10-21T08:00:00Z",
+    baoGia: [],
+    donHang: [],
+  });
+
+kiem("NB chia cot 1: dong theo file CHIA CHUNG — phieu cha KHONG mo, KHONG tru; ban moi co chiaPhanViec + phanViec; phieu cha ghi phan viec giu lai", CHU_NB_COT, () => {
+  const r = nbCot([phieuCot()], [{ chon: [{ stt: 1, khoiLuongTuCha: 0, chia: true, phanViec: "muc 8-15" }] }], { giuLai: { phanViec: { 1: "muc 1-7" } } });
+  if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+  const P = r.deNghi.find((d) => d.id === "pr-c");
+  const B = r.deNghi.find((d) => d.id === "bc-1");
+  const bd = NB.dongDaNhanBanSang(P, r.deNghi);
+  const conPL = G.dongConPhaiLam(P, r.deNghi).map((d) => d.stt).join();
+  const ok =
+    !NB.dongDaChuyenDiHet(1, bd) && conPL === "1,2,3" &&
+    B.items.length === 1 && B.items[0].chiaPhanViec === true && B.items[0].phanViec === "muc 8-15" &&
+    B.items[0].khoiLuongTuCha === undefined && P.items[0].phanViec === "muc 1-7";
+  return { duoc: ok, thucTe: `dong1 di het=${NB.dongDaChuyenDiHet(1, bd)} · con phai lam=${conPL} · ban=${JSON.stringify(B.items[0])} · cha pv=${P.items[0].phanViec}`, mongDoi: "dong 1 KHONG di het, cha con lam 1,2,3, ban chia+pv, cha pv muc 1-7" };
+});
+
+kiem("NB chia cot 2: dong so luong tach qua 2 ban (5 + 3 cua 11) -> cha con 3; dong file 'Phieu nay' khong lam: ban 1 nhan CA DONG, ban 2 CHIA CHUNG", CHU_NB_COT, () => {
+  const r = nbCot([phieuCot()], [
+    { chon: [{ stt: 1, khoiLuongTuCha: 1, phanViec: "muc 1-8" }, { stt: 3, khoiLuongTuCha: 5 }] },
+    { chon: [{ stt: 1, khoiLuongTuCha: 0, chia: true, phanViec: "muc 9-15" }, { stt: 3, khoiLuongTuCha: 3 }] },
+  ]);
+  if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+  const P = r.deNghi.find((d) => d.id === "pr-c");
+  const kl = NB.khoiLuongDaTachTheoDong(P, r.deNghi);
+  const ok = kl.get(3)?.conLai === 3 && kl.get(1)?.conLai === 0 && r.cacBan.length === 2 &&
+    r.cacBan[1].items.find((d) => d.sttDongCha === 1)?.chiaPhanViec === true;
+  return { duoc: ok, thucTe: `cu con=${kl.get(3)?.conLai} · file con=${kl.get(1)?.conLai} · so ban=${r.cacBan.length}`, mongDoi: "cu con 3 · dong file di het (ban 1 nhan ca dong) · 2 ban, ban 2 chia chung" };
+});
+
+kiem("NB chia cot 3: GIAO LUON — cot giao NV mua -> ban o buoc ②; cot giao NV Kho tong (xuat_kho) -> ban nhay ④; 'Phieu nay' giao NV khac -> phieu cha o ②, KHONG tach them", CHU_NB_COT, () => {
+  const r = nbCot([phieuCot()], [
+    { chon: [{ stt: 1, khoiLuongTuCha: 0, chia: true, phanViec: "muc 8-15" }, { stt: 3, khoiLuongTuCha: 5 }], giaoCho: { uid: "A", ten: "NV A" } },
+    { chon: [{ stt: 2, khoiLuongTuCha: 3 }], giaoCho: { uid: "K", ten: "NV Kho tong", loaiViecGiao: "xuat_kho" } },
+  ], { giuLai: { giaoCho: { uid: "B", ten: "NV B" } } });
+  if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+  const gd = (id) => G.xacDinhGiaiDoan(r.deNghi.find((d) => d.id === id), [], [], [], r.deNghi);
+  const P = r.deNghi.find((d) => d.id === "pr-c");
+  const soPhieu = r.deNghi.length;
+  const ok = gd("bc-1") === "yeu_cau_bao_gia" && gd("bc-2") === "lap_don_mua_hang" && gd("pr-c") === "yeu_cau_bao_gia" &&
+    soPhieu === 3 && P.items.filter((d) => d.nguoiPhuTrachUid === "B").length === 2 &&
+    r.daGiao.length === 3 && r.deNghi.find((d) => d.id === "bc-1").items.every((d) => d.soBaoGiaYeuCau === 2);
+  return { duoc: ok, thucTe: `ban1=${gd("bc-1")} · ban2=${gd("bc-2")} · cha=${gd("pr-c")} · so phieu=${soPhieu} · daGiao=${r.daGiao.length}`, mongDoi: "ban1 ② · ban2 ④ · cha ② · 3 phieu · 3 tin viec moi · ban1 so bao gia 2" };
+});
+
+kiem("NB chia cot 4: NHAN VIEN o buoc ② bam 'Mua hang' -> ban moi giao BAN KHAC (khong con la cua minh); dong cua nguoi khac thi CHAN", CHU_NB_COT, () => {
+  const P0 = phieuCot({ items: phieuCot().items.map((d) => ({ ...d, nguoiPhuTrachUid: d.stt === 2 ? "B" : "A", nguoiPhuTrachTen: d.stt === 2 ? "NV B" : "NV A", soBaoGiaYeuCau: 2 })) });
+  const r = nbCot([P0], [{ chon: [{ stt: 3, khoiLuongTuCha: 4 }], giaoCho: { uid: "C", ten: "NV C" } }], { nguoi: { uid: "A", ten: "NV A" }, laNguoiPhanBo: false });
+  const chan = nbCot([P0], [{ chon: [{ stt: 2, khoiLuongTuCha: 1 }] }], { nguoi: { uid: "A", ten: "NV A" }, laNguoiPhanBo: false });
+  if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+  const ban = r.deNghi.find((d) => d.id === "bc-1");
+  const ok = ban.items[0].nguoiPhuTrachUid === "C" && ban.items[0].khoiLuongDeNghi === 4 && typeof chan.loi === "string" && chan.loi.includes("NV B");
+  return { duoc: ok, thucTe: `ban giao=${ban.items[0].nguoiPhuTrachUid} kl=${ban.items[0].khoiLuongDeNghi} · chan=${chan.loi}`, mongDoi: "ban giao C, kl 4 · dong cua NV B bi chan" };
+});
+
+kiem("NB chia cot 5 (CHIEU NGUOC): DUOC CA HOAC KHONG — cot 2 lay qua phan con -> loi, KHONG tao ban nao; vo rong (lay het) -> loi", CHU_NB_COT, () => {
+  const truoc = [phieuCot()];
+  const r = nbCot(truoc, [{ chon: [{ stt: 3, khoiLuongTuCha: 5 }] }, { chon: [{ stt: 3, khoiLuongTuCha: 9 }] }]);
+  const vo = nbCot(truoc, [{ chon: [{ stt: 1, khoiLuongTuCha: 1 }, { stt: 2, khoiLuongTuCha: 3 }, { stt: 3, khoiLuongTuCha: 11 }] }]);
+  const ok = typeof r.loi === "string" && r.loi.startsWith("Bản mới 2") && truoc.length === 1 && typeof vo.loi === "string" && vo.loi.includes("không còn phần nào");
+  return { duoc: ok, thucTe: `r=${r.loi} · vo=${vo.loi}`, mongDoi: "loi 'Bản mới 2…', khong doi du lieu; vo rong bi chan" };
+});
+
+kiem("NB chia cot 6: khung 'Da tach' (cacPhieuGiuDong) liet ke DU moi phieu dang giu dong (goc + ban + ban chau), so con lai + phan viec + nguoi", CHU_NB_COT, () => {
+  const r = nbCot([phieuCot()], [
+    { chon: [{ stt: 1, khoiLuongTuCha: 0, chia: true, phanViec: "muc 8-15" }, { stt: 3, khoiLuongTuCha: 5 }], giaoCho: { uid: "A", ten: "NV A" } },
+  ], { giuLai: { phanViec: { 1: "muc 1-7" } } });
+  if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+  const r2 = nbCot(r.deNghi, [{ chon: [{ stt: 2, khoiLuongTuCha: 2 }] }], { prId: "bc-1", nguoi: { uid: "A", ten: "NV A" }, laNguoiPhanBo: false, idMoi: ["bc-2"] });
+  if (r2.loi) return { duoc: false, thucTe: r2.loi, mongDoi: "tao duoc ban chau" };
+  const P = r2.deNghi.find((d) => d.id === "pr-c");
+  const cu = NCC.cacPhieuGiuDong(P, 3, r2.deNghi).map((x) => `${x.code}=${x.khoiLuong}`).join(" | ");
+  const file = NCC.cacPhieuGiuDong(P, 1, r2.deNghi).map((x) => `${x.code}=${x.phanViec}`).join(" | ");
+  const ok = cu === "HD-200=6 | HD-200 (copy)=3 | HD-200 (copy 2)=2" && file === "HD-200=muc 1-7 | HD-200 (copy)=muc 8-15";
+  return { duoc: ok, thucTe: `cu: ${cu} · file: ${file}`, mongDoi: "cu: goc 6, (copy) 3, (copy 2) 2 · file: goc muc 1-7, (copy) muc 8-15" };
+});
+
+kiem("NB chia cot 7: laDongTheoFile nhan dung dong 'theo file dinh kem' / 1 lo; dong so luong thuong KHONG", CHU_NB_COT, () => {
+  const a = NCC.laDongTheoFile({ tenVatLieu: "Vật tư công tác tạm", quyCach: "Theo file đính kèm", donViTinh: "lô", khoiLuongDeNghi: 1 });
+  const b = NCC.laDongTheoFile({ tenVatLieu: "Diềm", quyCach: "", donViTinh: "lô", khoiLuongDeNghi: 1 });
+  const c = NCC.laDongTheoFile({ tenVatLieu: "Xi măng", quyCach: "Bao 50kg", donViTinh: "bao", khoiLuongDeNghi: 100 });
+  return { duoc: a && b && !c, thucTe: `${a} ${b} ${c}`, mongDoi: "true true false" };
+});
+
+kiem("NB chia cot 8 (soat QA 21/10): giao TACH mot dong chia chung cua ban moi -> phieu con KHONG mang co chia; dong tren ban DI HET (mo), KHONG giao lai duoc (chong mua trung); phieu goc van giu phan cua minh", CHU_NB_COT, () => {
+  const T = nap(tepRaTKG);
+  const r = nbCot([phieuCot()], [{ chon: [{ stt: 1, khoiLuongTuCha: 0, chia: true, phanViec: "muc 8-15" }, { stt: 3, khoiLuongTuCha: 5 }] }]);
+  if (r.loi) return { duoc: false, thucTe: r.loi, mongDoi: "tao duoc" };
+  const g = T.apDungGiaoViec(r.deNghi, "bc-1", [1], gThu("A"));
+  if (g.loi) return { duoc: false, thucTe: g.loi, mongDoi: "giao duoc dong 1 cua ban" };
+  const con = g.deNghi.find((d) => d.deNghiChaId === "bc-1");
+  const B = g.deNghi.find((d) => d.id === "bc-1");
+  const P = g.deNghi.find((d) => d.id === "pr-c");
+  const diHetBan = NB.dongDaChuyenDiHet(1, NB.dongDaNhanBanSang(B, g.deNghi));
+  const diHetGoc = NB.dongDaChuyenDiHet(1, NB.dongDaNhanBanSang(P, g.deNghi));
+  const lai = T.apDungGiaoViec(g.deNghi, "bc-1", [1], gThu("C"));
+  const ok = !!con && con.items[0].chiaPhanViec === undefined && con.items[0].phanViec === "muc 8-15" &&
+    diHetBan && !diHetGoc && typeof lai.loi === "string";
+  return {
+    duoc: ok,
+    thucTe: `con=${JSON.stringify(con?.items[0] ? { chia: con.items[0].chiaPhanViec, pv: con.items[0].phanViec } : null)} · ban dong1 di het=${diHetBan} · goc dong1 di het=${diHetGoc} · giao lai=${lai.loi ?? "DUOC"}`,
+    mongDoi: "con khong co chia, pv muc 8-15 · ban di het · goc chua · giao lai bi chan",
+  };
+});
+
+kiem("NB chia cot 9 (soat QA 21/10): dong theo file KHOI LUONG 0 — chi co ban CHIA CHUNG thi phieu cha CHUA di het; ban nhan CA DONG (khoiLuongTuCha 0, khong chia) thi DI HET", CHU_NB_COT, () => {
+  const P0 = phieuCot({ items: phieuCot().items.map((d) => (d.stt === 1 ? { ...d, khoiLuongDeNghi: 0 } : d)) });
+  const chia = nbCot([P0], [{ chon: [{ stt: 1, khoiLuongTuCha: 0, chia: true, phanViec: "muc 8-15" }] }]);
+  const caDong = nbCot([P0], [{ chon: [{ stt: 1, khoiLuongTuCha: 0, phanViec: "toan bo" }] }]);
+  if (chia.loi || caDong.loi) return { duoc: false, thucTe: `${chia.loi} · ${caDong.loi}`, mongDoi: "tao duoc" };
+  const dh = (kq) => NB.dongDaChuyenDiHet(1, NB.dongDaNhanBanSang(kq.deNghi.find((d) => d.id === "pr-c"), kq.deNghi));
+  const conPL = G.dongConPhaiLam(chia.deNghi.find((d) => d.id === "pr-c"), chia.deNghi).map((d) => d.stt).join();
+  const ok = !dh(chia) && conPL === "1,2,3" && dh(caDong);
+  return { duoc: ok, thucTe: `chia: di het=${dh(chia)}, con lam=${conPL} · ca dong: di het=${dh(caDong)}`, mongDoi: "chia: chua di het, con lam 1,2,3 · ca dong: di het" };
+});
+
 
 /* ---------- Kết quả ---------- */
 rmSync(thuMuc, { recursive: true, force: true });

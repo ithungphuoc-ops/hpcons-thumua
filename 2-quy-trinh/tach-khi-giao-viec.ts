@@ -308,10 +308,18 @@ export function apDungGiaoViec(
    * nhân bản mua 60, phiếu con mua 100 — mua trùng 60.
    * 📌 Không bao giờ kế thừa `khoiLuongTuCha`/`khoiLuongVuotCha` của dòng nguồn: hai trường đó nói về
    * quan hệ của dòng nguồn với CHA CỦA NÓ, không phải với phiếu đang tách.
+   * 📌 Cùng lẽ đó bỏ `chiaPhanViec` (Sếp 20/10/2026, soát QA 21/10): dòng nguồn chia chung với CHA CỦA
+   * NÓ, còn phiếu con giao việc nhận CẢ phần của dòng nguồn. Kế thừa cờ là dòng nguồn không bị trừ,
+   * không mờ, vẫn "chưa phân bổ" — giao lại được cho người thứ hai, mua trùng. `phanViec` giữ nguyên.
    */
   const phanKhoiLuong = (d: DongDN): Partial<DongDN> => {
     const x = daChuyen.khoiLuong?.get(d.stt);
-    const dong = { khoiLuongTuCha: undefined, khoiLuongVuotCha: undefined, lyDoVuotCha: undefined };
+    const dong = {
+      khoiLuongTuCha: undefined,
+      khoiLuongVuotCha: undefined,
+      lyDoVuotCha: undefined,
+      chiaPhanViec: undefined,
+    };
     if (x && !x.caDong && x.conLai < x.khoiLuongDong) {
       return { ...dong, khoiLuongDeNghi: x.conLai, khoiLuongTuCha: x.conLai };
     }

@@ -980,6 +980,13 @@ export function BangPhanBo({
                             {d.tenVatLieu}
                           </span>
                         </span>
+                        {/* ★ Phần việc (nhân bản chia cột, Sếp 20/10/2026) — dòng theo file chia cho nhiều
+                            phiếu, mỗi phiếu ghi mình làm mục nào. */}
+                        {d.phanViec?.trim() && (
+                          <span className="block text-xs font-medium whitespace-normal text-primary">
+                            Phần việc: {d.phanViec.trim()}
+                          </span>
+                        )}
                         {/**
                           * ★★ GHI CHÚ "Đã nhân bản sang…" ĐÃ BỎ KHỎle MÀN HÌNH — Sếp 17/09/2026:
                           * ***"bỏ các ghi chú này"***, khoanh đỏ cả ba dòng trên bảng phân bổ.
@@ -1237,6 +1244,9 @@ export function BangPhanBo({
                       <span className={`text-xs text-text-desc ${daChuyenDi ? "opacity-55" : ""}`}>
                         {d.quyCach}
                       </span>
+                    )}
+                    {d.phanViec?.trim() && (
+                      <span className="text-xs font-medium text-primary">Phần việc: {d.phanViec.trim()}</span>
                     )}
                     {/* Ghi chú dòng — cùng cột "Ghi chú" của bảng máy tính (Sếp 26/09/2026). */}
                     {d.ghiChu?.trim() && (

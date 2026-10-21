@@ -231,6 +231,11 @@ export interface KhoiLuongTachDong {
   vuot: number;
   /** Có bản con cũ / phiếu con giao việc lấy "cả dòng" (không đo được khối lượng). */
   caDong: boolean;
+  /**
+   * Có bản con lấy khối lượng ĐO ĐƯỢC (`khoiLuongTuCha`). Không có cờ này lẫn `caDong` mà vẫn có mục
+   * = chỉ có dòng CHIA CHUNG trỏ tới (Sếp 20/10/2026) — xem `dongDaChuyenDiHet`.
+   */
+  coLay?: boolean;
   /** Phần phiếu này còn phải tự mua. 0 = đã chuyển đi hết. */
   conLai: number;
 }
@@ -275,8 +280,13 @@ export function khoiLuongDaTachTheoDong(
       if (typeof d.sttDongCha !== "number") continue;
       const x = lay(d.sttDongCha);
       if (!x) continue;
+      /* ★ Sếp 20/10/2026: dòng CHIA CHUNG (một phần việc của dòng theo file) không lấy gì khỏi dòng
+         cha — vẫn tạo mục (để `dongDaChuyenDiHet` đọc ra "chưa đi hết", không rơi về cách đếm "có
+         bản con trỏ tới là mờ cả dòng"), nhưng không cộng `daLay`, không đặt `caDong`. */
+      if (d.chiaPhanViec) continue;
       if (typeof d.khoiLuongTuCha === "number" && Number.isFinite(d.khoiLuongTuCha)) {
         x.daLay += Math.max(0, d.khoiLuongTuCha);
+        x.coLay = true;
       } else {
         x.caDong = true;
       }
@@ -351,6 +361,9 @@ export function dongDaChuyenDiHet(stt: number, daNhanBan: BanDoDaTach): boolean 
      còn lại. `Map` dựng tay (không kèm khối lượng) thì giữ cách đếm cũ. */
   const kl = daNhanBan.khoiLuong?.get(stt);
   if (!kl) return true;
+  /* ★ Sếp 20/10/2026 (soát QA 21/10): dòng KHỐI LƯỢNG 0 (dòng theo file ghi trống số) mà chỉ có bản
+     CHIA CHUNG trỏ tới thì chưa đi đâu — `conLai` 0 vì dòng không có số, không phải vì đã lấy hết. */
+  if (kl.khoiLuongDong <= 0 && !kl.caDong && !kl.coLay) return false;
   return kl.conLai <= 0;
 }
 
@@ -591,6 +604,11 @@ export interface ThamSoDungBanNhanBan {
    * `khoiLuongVuotCha` (mua thêm, kèm `lyDoVuot`). Dòng không có mục thì chép nguyên như trước.
    */
   khoiLuong?: readonly DongChonNhanBan[];
+  /**
+   * ★ Dòng CHIA CHUNG (Sếp 20/10/2026): bản mới chép dòng, đánh `chiaPhanViec: true` + `phanViec`,
+   * KHÔNG ghi `khoiLuongTuCha` — phiếu cha không bị trừ.
+   */
+  chia?: readonly { stt: number; phanViec?: string }[];
   /** Lý do mua vượt đề nghị — bắt buộc khi có dòng `khoiLuongThem > 0` (kiểm ở `apDungNhanBanDeNghi`). */
   lyDoVuot?: string;
   /** Ngày (không giờ) cho `ngayDeNghi` / `ngayDuyet`. */
@@ -644,10 +662,17 @@ export function sttDuocNhanBan(
 /** Một mục người dùng chọn trong hộp nhân bản. */
 export interface DongChonNhanBan {
   stt: number;
-  /** Phần lấy từ PHẦN CÒN LẠI của dòng ở phiếu cha (≤ còn lại). */
+  /** Phần lấy từ PHẦN CÒN LẠI của dòng ở phiếu cha (≤ còn lại). Bỏ qua khi `chia`. */
   khoiLuongTuCha: number;
   /** Phần mua THÊM ngoài đề nghị (không trừ vào phiếu cha) — > 0 thì bắt buộc lý do. */
   khoiLuongThem?: number;
+  /**
+   * ★ Sếp 20/10/2026 (nhân bản chia cột): CHIA CHUNG dòng theo file — bản mới làm một PHẦN VIỆC
+   * (`phanViec`), không lấy khối lượng khỏi phiếu cha. Xem `DongDeNghi.chiaPhanViec`.
+   */
+  chia?: boolean;
+  /** Phần việc của bản mới ở dòng này (vd "mục 8-15") — chữ tự do, không bắt buộc. */
+  phanViec?: string;
 }
 
 /** Đánh giá MỘT dòng trong hộp nhân bản: chọn được không, vì sao, còn lại bao nhiêu. */
@@ -776,10 +801,25 @@ export function apDungNhanBanDeNghi(
     danhGiaDongNhanBan(goc, tatCa, t.nguoi.uid, t.laNguoiPhanBo, t.baoGia, t.donHang).map((x) => [x.stt, x]),
   );
   const dsKhoiLuong: DongChonNhanBan[] = [];
+  /* ★ Dòng CHIA CHUNG (Sếp 20/10/2026) — không trừ khối lượng phiếu cha, nên KHÔNG đòi "còn phần chưa
+     tách": cột "Phiếu này" không làm dòng file thì bản mới đầu tiên nhận cả dòng, các bản sau chia
+     chung chính dòng đó. Vẫn giữ hai chốt còn lại của `danhGiaDongNhanBan`: chứng từ và quyền. */
+  const dsChia: { stt: number; phanViec?: string }[] = [];
   let coVuot = false;
   for (const c of t.chon) {
     const dg = danhGia.get(c.stt);
     if (!dg) return { loi: `Không tìm thấy dòng ${c.stt}.` };
+    if (c.chia) {
+      const d = goc.items.find((x) => x.stt === c.stt);
+      if (dongDaCoChungTu(goc.id, c.stt, t.baoGia, t.donHang)) {
+        return { loi: `Dòng ${c.stt}: Đã có báo giá hoặc đơn hàng — huỷ chứng từ đó trước.` };
+      }
+      if (!t.laNguoiPhanBo && !(t.nguoi.uid && d?.nguoiPhuTrachUid === t.nguoi.uid)) {
+        return { loi: `Dòng ${c.stt}: ${dg.lyDo ?? "không phải dòng của bạn"}.` };
+      }
+      dsChia.push({ stt: c.stt, phanViec: c.phanViec?.trim() || undefined });
+      continue;
+    }
     if (!dg.duoc) return { loi: `Dòng ${c.stt}: ${dg.lyDo ?? "không nhân bản được"}.` };
     const tuCha = Number(c.khoiLuongTuCha);
     const them = c.khoiLuongThem === undefined ? 0 : Number(c.khoiLuongThem);
@@ -790,14 +830,21 @@ export function apDungNhanBanDeNghi(
     if (dg.khoiLuongDong <= 0) continue;
     if (tuCha > dg.conLai + 1e-9) {
       return {
-        loi: `Dòng ${c.stt}: chỉ còn ${dg.conLai} chưa tách — muốn mua nhiều hơn đề nghị thì nhập vào ô "mua thêm" và ghi lý do.`,
+        /* Từ 20/10/2026 hộp nhân bản chia cột không còn ô "mua thêm" — mua vượt làm ở lúc lập đơn (PO),
+           nhập vượt thì app bắt ghi lý do (Sếp 26/09/2026). */
+        loi: `Dòng ${c.stt}: chỉ còn ${dg.conLai} chưa tách — muốn mua nhiều hơn đề nghị thì nhập vượt lúc lập đơn mua hàng và ghi lý do.`,
       };
     }
     if (!(lamTronKhoiLuong(tuCha + them) > 0)) {
       return { loi: `Dòng ${c.stt}: khối lượng đưa sang bản mới phải lớn hơn 0.` };
     }
     if (them > 0) coVuot = true;
-    dsKhoiLuong.push({ stt: c.stt, khoiLuongTuCha: lamTronKhoiLuong(tuCha), khoiLuongThem: lamTronKhoiLuong(them) });
+    dsKhoiLuong.push({
+      stt: c.stt,
+      khoiLuongTuCha: lamTronKhoiLuong(tuCha),
+      khoiLuongThem: lamTronKhoiLuong(them),
+      phanViec: c.phanViec?.trim() || undefined,
+    });
   }
   const lyDo = t.lyDoVuot?.trim() ?? "";
   if (coVuot && !lyDo) {
@@ -807,11 +854,13 @@ export function apDungNhanBanDeNghi(
   /* Phiếu cha còn PHẦN nào tự mua sau lần này không (mục (2): không để phiếu cha thành vỏ rỗng). */
   const layTheoStt = new Map(dsKhoiLuong.map((k) => [k.stt, k.khoiLuongTuCha]));
   const chonSet = new Set(t.chon.map((c) => c.stt));
+  const chiaSet = new Set(dsChia.map((c) => c.stt));
   const conPhanTuMua = goc.items.some((d) => {
     const dg = danhGia.get(d.stt);
     if (!dg) return false;
     const diHet = dg.maPhieuDaNhan.length > 0 && dg.conLai <= 0;
-    if (!chonSet.has(d.stt)) return !diHet;
+    /* Dòng chia chung không lấy gì khỏi phiếu cha → coi như KHÔNG chọn (Sếp 20/10/2026). */
+    if (!chonSet.has(d.stt) || chiaSet.has(d.stt)) return !diHet;
     if (dg.khoiLuongDong <= 0) return false; // chép nguyên dòng → đi hết
     return lamTronKhoiLuong(dg.conLai - (layTheoStt.get(d.stt) ?? 0)) > 0;
   });
@@ -834,6 +883,7 @@ export function apDungNhanBanDeNghi(
     giuNguoiPhuTrachGoc: t.laNguoiPhanBo,
     sttGiuLai: sttChon,
     khoiLuong: dsKhoiLuong,
+    chia: dsChia,
     lyDoVuot: coVuot ? lyDo : undefined,
     ngay: t.ngay,
     thoiDiem: t.thoiDiem,
@@ -845,6 +895,8 @@ export function apDungNhanBanDeNghi(
     const d = goc.items.find((x) => x.stt === stt);
     const dg = danhGia.get(stt);
     const k = dsKhoiLuong.find((x) => x.stt === stt);
+    const ch = dsChia.find((x) => x.stt === stt);
+    if (ch) return `dòng ${stt} (chia phần việc${ch.phanViec ? `: ${ch.phanViec}` : ""} — phiếu này vẫn làm phần của mình)`;
     const dv = d?.donViTinh ? ` ${d.donViTinh}` : "";
     if (!d || !dg || !k) return `dòng ${stt} (cả dòng)`;
     const con = lamTronKhoiLuong(dg.conLai - k.khoiLuongTuCha);
@@ -972,8 +1024,11 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
       /* ★ Khối lượng (Sếp 26/09/2026): có mục chọn → bản mới mua đúng phần được tách (+ phần mua
          thêm). Không có mục → chép nguyên dòng, `khoiLuongTuCha` trống = "cả dòng" như trước. */
       const k = t.khoiLuong?.find((x) => x.stt === d.stt);
+      const ch = t.chia?.find((x) => x.stt === d.stt);
       const them = k ? Math.max(0, k.khoiLuongThem ?? 0) : 0;
-      const phanKhoiLuong = k
+      const phanKhoiLuong = ch
+        ? { khoiLuongTuCha: undefined, khoiLuongVuotCha: undefined, lyDoVuotCha: undefined }
+        : k
         ? {
             khoiLuongDeNghi: lamTronKhoiLuong(k.khoiLuongTuCha + them),
             khoiLuongTuCha: k.khoiLuongTuCha,
@@ -981,9 +1036,15 @@ export function dungBanNhanBan(t: ThamSoDungBanNhanBan): DeNghiMuaHang | null {
             lyDoVuotCha: them > 0 ? t.lyDoVuot?.trim() || undefined : undefined,
           }
         : { khoiLuongTuCha: undefined, khoiLuongVuotCha: undefined, lyDoVuotCha: undefined };
+      /* ★ Sếp 20/10/2026: phần việc + cờ chia chung. Cờ LUÔN ghi tường minh — dòng nguồn có thể
+         đã là một dòng chia (bản con tách tiếp), chép theo `...d` là đánh dấu sai quan hệ. */
+      const phanChia = ch
+        ? { chiaPhanViec: true, phanViec: ch.phanViec }
+        : { chiaPhanViec: undefined, phanViec: k?.phanViec ?? d.phanViec };
       return {
         ...d,
         ...phanKhoiLuong,
+        ...phanChia,
         stt: i + 1,
         /* `sttChiaTu` trỏ theo số dòng của phiếu nguồn — ở bản mới (đánh số lại) không còn nghĩa. */
         sttChiaTu: undefined,

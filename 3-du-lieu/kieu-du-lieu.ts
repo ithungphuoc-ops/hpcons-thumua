@@ -218,6 +218,23 @@ export interface DongDeNghi {
   /** Lý do mua vượt đề nghị — bắt buộc khi `khoiLuongVuotCha > 0`. */
   lyDoVuotCha?: string;
   /**
+   * ★★ PHẦN VIỆC của dòng ở phiếu này — Sếp 18–20/10/2026 (nhân bản chia cột): dòng *"theo file đính
+   * kèm"* (1 lô, file 10–20 món) chia cho nhiều phiếu, mỗi phiếu ghi mình làm phần nào (vd "mục 1-7").
+   * Chữ tự do người chia gõ — app KHÔNG kiểm trùng / sót mục (Sếp đã được báo, 19/10/2026).
+   * Có thể nằm ở phiếu cha (phần cột "Phiếu này" giữ) lẫn bản con.
+   */
+  phanViec?: string;
+  /**
+   * ★★ DÒNG CHIA CHUNG với dòng `sttDongCha` của phiếu cha — Sếp 20/10/2026 (nhân bản chia cột).
+   *
+   * `true` = bản con LÀM MỘT PHẦN VIỆC của dòng cha (ghi ở `phanViec`), KHÔNG lấy khối lượng khỏi
+   * phiếu cha: dòng cha KHÔNG bị trừ, KHÔNG làm mờ, phiếu cha vẫn làm phần của nó. Khác hẳn dòng
+   * tách khối lượng (`khoiLuongTuCha`) và dòng "cả dòng" (không có cả hai trường).
+   * 📌 Đọc ở `khoiLuongDaTachTheoDong` (2-quy-trinh/nhan-ban-de-nghi.ts) — MỘT chỗ duy nhất, mọi
+   * nơi tính tiến độ / làm mờ / chưa phân bổ đi qua đó.
+   */
+  chiaPhanViec?: boolean;
+  /**
    * ★ LOẠI VIỆC khi giao dòng (Sếp 26/09/2026) — quyết định phiếu có đi hỏi giá không:
    *   · `xuat_kho` — giao cho THỦ KHO, lấy từ kho, không mua (*"khi giao việc cho nhân viên [thủ
    *     kho] này thì việc sẽ nhảy trực tiếp qua bước Lập đơn mua hàng"*) → lập Phiếu xuất kho PO-03.
