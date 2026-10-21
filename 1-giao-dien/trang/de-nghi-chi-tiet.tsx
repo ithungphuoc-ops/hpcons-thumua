@@ -115,6 +115,7 @@ import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   duocChiaViec,
+  duocTichCongViec,
   duocXemBaoGiaCuaDeNghi,
   duocXacNhanNhanDuHangCuaHoSo,
   duocXemDeNghiTheoNguoi,
@@ -167,6 +168,8 @@ import {
      `2-quy-trinh/giai-doan-mua-hang.ts` — đừng xoá, xem ghi chú ở đó. */
   tenNguoiPhuTrachDeNghi,
   soDongChuaPhanBoConLai,
+  /* ★ Sếp 20/10/2026: checkin không chặn giao việc nữa, người làm phải tích ở bước ② rồi mới làm tiếp. */
+  vuongMacViecBuoc1ChuaXong,
   type GiaiDoanMuaHang,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 // Ba chứng từ bắt buộc cuối quy trình — luật ở một chỗ, xem chú thích đầu file đó.
@@ -785,7 +788,9 @@ export default function TrangChiTietDeNghi({
                         type="checkbox"
                         className="mt-0.5 size-4 shrink-0 accent-primary"
                         checked={Boolean(xong)}
-                        disabled={!quyen.phanBoCongViec}
+                        /* ★ Sếp 20/10/2026: quản lý HOẶC nhân viên làm mua hàng đều tích được —
+                           luật chung `duocTichCongViec`, tầng ghi hỏi lại đúng câu này. */
+                        disabled={!duocTichCongViec(quyen)}
                         onChange={(e) => {
                           /* `buoc` lấy từ CHÍNH NHÓM đang vẽ, không lấy `giaiDoan` — việc của
                              bước trước phải ghi vào đúng bước của nó. */
@@ -855,9 +860,9 @@ export default function TrangChiTietDeNghi({
         ))}
 
         {/* Nói rõ ai được tích, thay vì để ô mờ không lời giải thích. */}
-        {!quyen.phanBoCongViec && nhom.length > 0 && (
+        {!duocTichCongViec(quyen) && nhom.length > 0 && (
           <p className="text-xs text-text-desc">
-            Chỉ Trưởng bộ phận Thu mua tích được các việc này.
+            Chỉ Trưởng bộ phận và nhân viên làm mua hàng tích được các việc này.
           </p>
         )}
 
@@ -2004,7 +2009,10 @@ export default function TrangChiTietDeNghi({
                         .filter((bg) => bg.trangThai !== "huy")
                         .some((bg) => bg.trangThai !== "dang_thu_thap") &&
                       (() => {
-                        const vuongMac = vuongMacTrinhXetDuyet(dn, cauHinh);
+                        /* ★ Sếp 20/10/2026: chưa checkin (việc bắt buộc bước ①) thì khóa nút sớm,
+                           cùng câu với tầng ghi — trước đây chỉ biết bị chặn sau khi bấm xác nhận. */
+                        const vuongMac =
+                          vuongMacViecBuoc1ChuaXong(dn, cauHinh) ?? vuongMacTrinhXetDuyet(dn, cauHinh);
                         return (
                           <div className="flex flex-wrap items-center gap-2">
                             {/* Nút khóa KÈM LÝ DO, không khóa im lặng — nút mờ mà không nói còn
@@ -2839,7 +2847,9 @@ export default function TrangChiTietDeNghi({
                           );
                         }
 
-                        const vuong = vuongMacRoiBuocLapDon(dn);
+                        /* ★ Sếp 20/10/2026: phiếu xuất kho / nhân sự nhảy thẳng ④ — chưa checkin thì
+                           khóa nút sớm, cùng câu với chốt thật ở `themDonHang`. */
+                        const vuong = vuongMacViecBuoc1ChuaXong(dn, cauHinh) ?? vuongMacRoiBuocLapDon(dn);
                         const nhan = "Lập đơn đặt hàng";
                         if (vuong) {
                           return (

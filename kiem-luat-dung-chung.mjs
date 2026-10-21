@@ -1030,8 +1030,8 @@ kiem(
 );
 
 kiem(
-  "Bước ① còn treo việc bắt buộc → KHÔNG được giao việc sang bước ②",
-  "Ban lãnh đạo · 27/08/2026 (*'Tíck chọn xong mới cho giao việc'*)",
+  "Bước ① còn treo việc bắt buộc → vuongMacRoiBuoc CHẶN rời bước ① (trình duyệt / lập đơn / kéo thả); từ 20/10/2026 KHÔNG còn chặn giao việc",
+  "Ban lãnh đạo · 27/08/2026 + Sếp 20/10/2026 (giao việc không cần checkin trước)",
   () => {
     /* 🔴 Việc bắt buộc mặc định của bước ① là *"Checkin hàng tồn kho"* — tra kho trước khi đi
        hỏi giá, để không mua thứ đang có sẵn. Trước 27/08/2026 nó chỉ chặn trên đường KÉO THẢ;
@@ -11121,8 +11121,8 @@ kiem(
 );
 
 kiem(
-  "🔴 Tang ghi phanBoDong goi du 5 chot (quyen · chi dinh NCC · checkin · giao dong · roi buoc ①); boPhanBoDong / chuyenViecDong co chot quyen",
-  CHU_SOAT_GV("50 #53") + " + Ban lãnh đạo 12/09/2026 (checkin trước khi giao)",
+  "🔴 Tang ghi phanBoDong goi du 3 chot (quyen · chi dinh NCC · giao dong) va KHONG con chan checkin (Sep 20/10/2026); boPhanBoDong / chuyenViecDong co chot quyen",
+  CHU_SOAT_GV("50 #53") + " + Sếp 20/10/2026 (*\"qli k cần tích checkin mới giao việc được\"*)",
   () => {
     const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
     const cat = (dau, cuoi) => {
@@ -11134,14 +11134,16 @@ kiem(
     const pb = cat("const phanBoDong = useCallback(", "const luiVeBuoc = useCallback(");
     const bo = cat("const boPhanBoDong = useCallback(", "const chuyenViecDong = useCallback(");
     const cv = cat("const chuyenViecDong = useCallback(", "const themDonHang = useCallback(");
-    const canCo = ["vuongMacQuyenPhanBo(", "vuongMacChiDinhNCCLucGiaoViec(", "vuongMacGiaoViec(", "vuongMacGiaoDong(", 'vuongMacRoiBuoc(dnGoc, "tiep_nhan"'];
+    const canCo = ["vuongMacQuyenPhanBo(", "vuongMacChiDinhNCCLucGiaoViec(", "vuongMacGiaoDong("];
     const thieu = canCo.filter((x) => !pb.includes(x));
+    /* ★ Sếp 20/10/2026: hai chốt checkin cũ PHẢI đã bỏ — còn sót là giao việc vẫn bị chặn. */
+    const conSot = ["vuongMacGiaoViec(", 'vuongMacRoiBuoc(dnGoc, "tiep_nhan"'].filter((x) => pb.includes(x));
     return {
       duoc:
-        pb.length > 800 && bo.length > 300 && cv.length > 800 && thieu.length === 0 &&
+        pb.length > 800 && bo.length > 300 && cv.length > 800 && thieu.length === 0 && conSot.length === 0 &&
         bo.includes("vuongMacQuyenPhanBo(") && cv.includes("vuongMacQuyenPhanBo("),
-      thucTe: `do dai pb/bo/cv=${pb.length}/${bo.length}/${cv.length} · phanBoDong thieu: [${thieu.join(", ")}] · bo co quyen=${bo.includes("vuongMacQuyenPhanBo(")} · cv co quyen=${cv.includes("vuongMacQuyenPhanBo(")}`,
-      mongDoi: "phanBoDong goi du 5 chot; boPhanBoDong va chuyenViecDong goi vuongMacQuyenPhanBo",
+      thucTe: `do dai pb/bo/cv=${pb.length}/${bo.length}/${cv.length} · phanBoDong thieu: [${thieu.join(", ")}] · con sot chot checkin: [${conSot.join(", ")}] · bo co quyen=${bo.includes("vuongMacQuyenPhanBo(")} · cv co quyen=${cv.includes("vuongMacQuyenPhanBo(")}`,
+      mongDoi: "phanBoDong goi du 3 chot, KHONG con vuongMacGiaoViec / vuongMacRoiBuoc(tiep_nhan); boPhanBoDong va chuyenViecDong goi vuongMacQuyenPhanBo",
     };
   },
 );
@@ -11333,20 +11335,56 @@ kiem(
 );
 
 kiem(
-  "🔴 vuongMacGiaoViec: viec bat buoc buoc ① chua tich -> CHAN kem ten viec; tich xong -> cho giao",
-  CHU_SOAT_GV("50") + " + Ban lãnh đạo 12/09/2026 — *\"phải checkin hàng tồn kho trước thì mới được chọn giao việc\"*",
+  "🔴 vuongMacViecBuoc1ChuaXong (thay chot giao viec 12/09): viec bat buoc buoc ① chua tich -> CHAN lam tiep o buoc ② kem ten viec; tich xong -> null",
+  CHU_SOAT_GV("50") + " + Sếp 20/10/2026 — *\"b1 mà qli không tích checkin thì ở b2 nhân viên bắt buộc tích thì mới cho tiếp tục làm\"*",
   () => {
     const ch = {
       soBaoGiaToiThieu: 2, hanGioTheoBuoc: {},
       congViecTheoBuoc: { tiep_nhan: [{ ma: "ck", ten: "Checkin hàng tồn kho", batBuoc: true }] },
       caiDatTungBuoc: { tiep_nhan: { batBuocXongCongViec: true } },
     };
-    const chua = G.vuongMacGiaoViec({ ...phieuThuTach(), congViecDaXong: [] }, ch);
-    const xong = G.vuongMacGiaoViec({ ...phieuThuTach(), congViecDaXong: [{ maCongViec: "ck" }] }, ch);
+    const chua = G.vuongMacViecBuoc1ChuaXong({ ...phieuThuTach(), congViecDaXong: [] }, ch);
+    const xong = G.vuongMacViecBuoc1ChuaXong({ ...phieuThuTach(), congViecDaXong: [{ maCongViec: "ck" }] }, ch);
+    /* Hàm cũ vẫn giữ (thuần) — chỉ không còn ai gọi để chặn giao việc. */
+    const cu = G.vuongMacGiaoViec({ ...phieuThuTach(), congViecDaXong: [] }, ch);
     return {
-      duoc: typeof chua === "string" && chua.includes("Checkin hàng tồn kho") && xong === null,
-      thucTe: `chua=${chua} · xong=${xong}`,
+      duoc: typeof chua === "string" && chua.includes("Checkin hàng tồn kho") && xong === null && typeof cu === "string",
+      thucTe: `chua=${chua} · xong=${xong} · ham cu con=${typeof cu}`,
       mongDoi: "chua = cau chan co ten viec · xong = null",
+    };
+  },
+);
+
+kiem(
+  "🔴 Checkin (Sếp 20/10/2026): tang ghi danhDauCongViecGiaiDoan kiem quyen duocTichCongViec (quan ly HOAC nhan vien lapPO); dinh bao gia / ghi ly do bo o bao gia chan khi buoc ① con treo",
+  "Sếp 20/10/2026 — *\"qli hay nhân viên đều tích được\"* + *\"ở b2 nhân viên bắt buộc tích thì mới cho tiếp tục làm\"*",
+  () => {
+    const nguon = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const cat = (dau, cuoi) => {
+      const a = nguon.indexOf(dau);
+      const b = nguon.indexOf(cuoi, a + 1);
+      if (a < 0 || b < 0) return "";
+      return nguon.slice(a, b).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+    };
+    const tich = cat("const danhDauCongViecGiaiDoan = useCallback(", "[nguoiDung],");
+    const them = cat("const themTepGiaiDoan = useCallback(", "const datTepVaoOGiaiDoan = useCallback(");
+    const dat = cat("const datTepVaoOGiaiDoan = useCallback(", "setDeNghi(");
+    const lyDo = cat("const ghiLyDoThieuChungTu = useCallback(", "setDeNghi(");
+    const q = readFileSync("4-phan-quyen/quyen-theo-ho-so.ts", "utf8");
+    const hamQuyen = q.slice(q.indexOf("export function duocTichCongViec"), q.indexOf("}", q.indexOf("export function duocTichCongViec")));
+    const ct = readFileSync("1-giao-dien/trang/de-nghi-chi-tiet.tsx", "utf8");
+    const kq = {
+      tichKiemQuyen: tich.includes("duocTichCongViec(tinhQuyen(nguoiDung))"),
+      hamQuyenDung: /phanBoCongViec\s*\|\|\s*quyen\.lapPO/.test(hamQuyen),
+      themChan: them.includes("vuongMacViecBuoc1ChuaXong("),
+      datChan: dat.includes("vuongMacViecBuoc1ChuaXong("),
+      lyDoChan: lyDo.includes("vuongMacViecBuoc1ChuaXong("),
+      oTichMoChoNV: ct.includes("disabled={!duocTichCongViec(quyen)}") && !ct.includes("disabled={!quyen.phanBoCongViec}"),
+    };
+    return {
+      duoc: Object.values(kq).every(Boolean),
+      thucTe: JSON.stringify(kq),
+      mongDoi: "tat ca true",
     };
   },
 );

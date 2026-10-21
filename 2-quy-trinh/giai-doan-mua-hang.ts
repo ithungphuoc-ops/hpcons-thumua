@@ -2446,6 +2446,35 @@ export function vuongMacRoiBuoc(
 }
 
 /**
+ * ★★★ LUẬT MỚI — Sếp 20/10/2026, THAY cho chốt "chưa checkin thì chưa giao việc" bên dưới:
+ * *"Checkin tồn kho … qli hay nhân viên đều tích được và qli k cần tích checkin mới giao việc được.
+ * … b1 mà qli không tích checkin thì ở b2 nhân viên bắt buộc tích thì mới cho tiếp tục làm"*.
+ *
+ * · Giao việc KHÔNG còn bị chặn (bỏ ở `phanBoDong` và `bang-phan-bo.tsx`).
+ * · Hồ sơ đã giao mà việc bắt buộc của bước ① còn treo thì người làm phải tích xong rồi mới làm
+ *   tiếp ở bước ②: đính báo giá / ghi lý do bỏ ô, nhân bản tách tiếp. Trình xét duyệt và lập đơn
+ *   vốn đã bị `vuongMacRoiBuoc` / `vuongMacViecBatBuocCacBuocTruoc` chặn cùng điều kiện — hàm này
+ *   dùng cho các thao tác chưa có chốt và để giao diện khóa nút sớm, nói cùng một câu.
+ * · 📌 Không gắn cứng mã `checkin_ton_kho`: xét MỌI việc bắt buộc của bước ① (admin sửa được danh
+ *   sách ở Cài đặt quy trình) — cùng nguồn `congViecChuaXongCuaBuoc` với các chốt khác.
+ *
+ * @returns Câu lý do bị chặn, `null` là làm tiếp được.
+ */
+export function vuongMacViecBuoc1ChuaXong(
+  deNghi: DeNghiMuaHang,
+  cauHinh: CauHinhQuyTrinh,
+): string | null {
+  const treo = congViecChuaXongCuaBuoc(deNghi, "tiep_nhan", cauHinh);
+  if (treo.length === 0) return null;
+  const ds = treo.map((cv) => `“${cv.ten}”`).join(", ");
+  return `Phải tích hoàn thành ${ds} (việc bắt buộc của bước “${NHAN_GIAI_DOAN["tiep_nhan"].nhan}”) trước khi làm tiếp. Lúc giao việc chưa tích nên người làm tích ở đây — ô tích nằm trong khối bước đang làm.`;
+}
+
+/**
+ * ⚠️ TỪ 20/10/2026 KHÔNG CÒN AI GỌI ĐỂ CHẶN — xem `vuongMacViecBuoc1ChuaXong` ngay trên (Sếp đổi
+ * luật: giao việc không cần checkin trước). Giữ lại hàm thuần cho bộ kiểm luật và để quay lại
+ * luật cũ chỉ cần gọi lại ở `phanBoDong`.
+ *
  * ★★ CHẶN GIAO VIỆC KHI VIỆC BẮT BUỘC CỦA BƯỚC ① CHƯA XONG — Ban lãnh đạo 12/09/2026:
  * *"phải checkin hàng tồn kho trước thì mới được chọn giao việc"*.
  *

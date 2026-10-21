@@ -25,8 +25,9 @@ import {
   /* Chốt "được RỜI bước này chưa" — soát cả việc bắt buộc CỦA bước đang đứng. Dùng ở những cửa
      ghi làm hồ sơ rời bước, để đường bấm nút chặn y như đường kéo thả (Ban lãnh đạo 24/08/2026). */
   vuongMacRoiBuoc,
-  /* Chốt "chưa checkin tồn kho thì chưa được giao việc" — Ban lãnh đạo 12/09/2026. */
-  vuongMacGiaoViec,
+  /* Chốt "việc bắt buộc bước ① còn treo thì người làm phải tích trước khi làm tiếp ở bước ②" —
+     Sếp 20/10/2026, thay cho chốt cũ `vuongMacGiaoViec` (chặn giao việc, nay đã bỏ). */
+  vuongMacViecBuoc1ChuaXong,
   xacDinhGiaiDoan,
   type GiaiDoanMuaHang,
   NHAN_TRUONG_BO_PHAN,
@@ -163,6 +164,7 @@ import { nhanCoTick } from "@/4-phan-quyen/quyen-rieng";
 import {
   duocChiaViec,
   duocGhiNhanGiaoHangCuaHoSo,
+  duocTichCongViec,
   duocXacNhanNhanDuHangCuaHoSo,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
 /* Hồ sơ PHÒNG BAN (không gắn công trình) — dấu hiệu duy nhất quyết định nhánh ghi phiếu nhận
@@ -6044,24 +6046,19 @@ export function DuLieuProvider({
       }
 
       /**
-       * 🔴🔴 CHỐT: CHƯA CHECKIN TỒN KHO THÌ CHƯA ĐƯỢC GIAO VIỆC — Ban lãnh đạo 12/09/2026:
-       * *"phải checkin hàng tồn kho trước thì mới được chọn giao việc"*.
-       *
-       * ⚠️ ĐẢO LẠI THIẾT KẾ CŨ. Trước 12/09/2026 chỗ này CỐ Ý cho giao việc TRƯỚC rồi checkin
-       * SAU (để chính người được giao đi kiểm tồn kho), và chỉ chặn khi phân bổ nốt dòng cuối
-       * (hồ sơ rời bước ①). Nay Ban lãnh đạo chốt ngược: kiểm tồn kho là việc phải làm ĐẦU
-       * TIÊN — chặn MỌI lần giao việc, ngay từ dòng đầu, chừng nào việc bắt buộc của bước ① còn
-       * treo. Luật thuần ở `vuongMacGiaoViec` (2-quy-trinh/giai-doan-mua-hang.ts) để
-       * `kiem-luat-dung-chung.mjs` gọi thẳng được, và `bang-phan-bo.tsx` khóa nút sớm cùng luật.
+       * ★★★ CHECKIN KHÔNG CÒN CHẶN GIAO VIỆC — Sếp 20/10/2026: *"qli k cần tích checkin mới giao
+       * việc được"*. Đã bỏ chốt `vuongMacGiaoViec` (12/09/2026) ở đây, và bỏ luôn chốt "phân bổ nốt
+       * dòng cuối thì soát việc bắt buộc của bước ①" ngay dưới. Việc bắt buộc còn treo thì NGƯỜI
+       * LÀM phải tích ở bước ② trước khi làm tiếp — xem `vuongMacViecBuoc1ChuaXong`
+       * (2-quy-trinh/giai-doan-mua-hang.ts), chốt ở đính báo giá / nhân bản; trình xét duyệt và
+       * lập đơn vẫn bị `vuongMacRoiBuoc` / `vuongMacViecBatBuocCacBuocTruoc` chặn như cũ.
        */
       {
         const dnCheckin = deNghiRef.current.find((x) => x.id === prId);
         if (dnCheckin) {
-          /* Hồ sơ đã đóng: báo câu đúng nghĩa trước câu checkin (apDungGiaoViec cũng chặn lại). */
+          /* Hồ sơ đã đóng: báo câu đúng nghĩa (apDungGiaoViec cũng chặn lại). */
           const daDong = loiHoSoDaDongKhiGiaoViec(dnCheckin, "giao việc");
           if (daDong) return daDong;
-          const chanGiaoViec = vuongMacGiaoViec(dnCheckin, cauHinhRef.current);
-          if (chanGiaoViec) return chanGiaoViec;
           /* ★ Soát giao việc 25–26/09/2026 (#1 #18 #31 #51): dòng đã có báo giá / PO, hoặc đang do
              người khác phụ trách, thì KHÔNG giao đè qua ô tích — đi đường "Chuyển việc". Trước đây
              chỉ kiểm chứng từ khi chia khối lượng, nên giao dòng đã lên PO tách được sang phiếu
@@ -6077,32 +6074,10 @@ export function DuLieuProvider({
         }
       }
 
-      /**
-       * 🔴 CHỐT: PHÂN BỔ NỐT DÒNG CUỐI LÀ HỒ SƠ RỜI BƯỚC ① — sửa 24/08/2026.
-       *
-       * Giữ nguyên cả khi đã có chốt checkin ở trên: `vuongMacRoiBuoc` còn soát các điều kiện
-       * RỜI bước ① khác (việc bắt buộc của bước trước còn treo…), không chỉ mỗi checkin tồn kho.
-       */
-      {
-        const dnGoc = deNghiRef.current.find((x) => x.id === prId);
-        if (dnGoc) {
-          const boDangGan = new Set(sttDong);
-          /* `DongDeNghi` định danh bằng `stt` (xem `kieu-du-lieu.ts`), KHÔNG phải `sttDong` —
-             `sttDong` là tên ở dòng PO và dòng phiếu nhận, hai thứ khác nhau. */
-          /* (26/09/2026) Trừ dòng đã giao/tách sang phiếu con — trên phiếu gốc chúng không còn
-             người phụ trách (xem `apDungGiaoViec`) nhưng KHÔNG phải "chưa phân bổ". */
-          const daTachDi = dongDaNhanBanSang(dnGoc, deNghiRef.current);
-          const conThieuSauKhiGan = dnGoc.items.filter(
-            (d) =>
-              !d.nguoiPhuTrachUid && !boDangGan.has(d.stt) && !dongDaChuyenDiHet(d.stt, daTachDi),
-          ).length;
-          /* Gán xong mà không còn dòng nào trống = hồ sơ rời bước ① ngay sau lần ghi này. */
-          if (conThieuSauKhiGan === 0) {
-            const chan = vuongMacRoiBuoc(dnGoc, "tiep_nhan", cauHinhRef.current);
-            if (chan) return chan;
-          }
-        }
-      }
+      /* 📌 ĐÃ BỎ (Sếp 20/10/2026) chốt "phân bổ nốt dòng cuối = rời bước ① → soát việc bắt buộc
+         của bước ①" (24/08/2026). Ở bước ① chốt đó chỉ còn soát đúng việc bắt buộc của ① (xem
+         `vuongMacViecBatBuocCacBuocTruoc` trả `null` khi đang ở ①), tức là chặn giao việc khi chưa
+         checkin — đúng thứ Sếp bỏ. Việc treo được tích ở bước ② (`vuongMacViecBuoc1ChuaXong`). */
 
       /**
        * Tên người nhận việc: LẤY TỪ NƠI GỌI trước, danh bạ chỉ là phương án dự phòng.
@@ -9312,6 +9287,12 @@ export function DuLieuProvider({
        * `vuongMacHoanThanhQuyTrinh`.
        */
 
+      /* ★ Quyền tích — Sếp 20/10/2026: quản lý HOẶC nhân viên làm mua hàng (`duocTichCongViec`).
+         Trước đây tầng ghi không kiểm quyền gì, chỉ trang chi tiết khóa ô. */
+      if (!duocTichCongViec(tinhQuyen(nguoiDung))) {
+        return "Bạn không có quyền tích công việc của quy trình — chỉ Trưởng bộ phận và nhân viên làm mua hàng tích được.";
+      }
+
       setDeNghi((truoc) =>
         truoc.map((dn) => {
           if (dn.id !== prId) return dn;
@@ -9346,7 +9327,7 @@ export function DuLieuProvider({
       );
       return null;
     },
-    [],
+    [nguoiDung],
   );
 
   /**
@@ -9623,6 +9604,12 @@ export function DuLieuProvider({
       const loi = loiKhiHoSoDaDong(dn, "đính kèm thêm tệp");
       if (loi) return loi;
 
+      /* ★ Sếp 20/10/2026: lúc giao chưa checkin thì người làm phải tích trước khi đính báo giá. */
+      if (maGiaiDoan === BUOC_DINH_KEM_BAO_GIA) {
+        const chanCheckin = vuongMacViecBuoc1ChuaXong(dn, cauHinhRef.current);
+        if (chanCheckin) return chanCheckin;
+      }
+
       /**
        * 🔴 CHẶN SỐ TỆP Ở ĐÂY chứ không chỉ ở ô chọn tệp. Giao diện ẩn nút là để người dùng
        * khỏi bấm nhầm; còn chốt chặn thật phải nằm cùng chỗ ghi dữ liệu, nếu không thì hai
@@ -9698,6 +9685,12 @@ export function DuLieuProvider({
 
       const loi = loiKhiHoSoDaDong(dn, "đính kèm tệp vào ô");
       if (loi) return loi;
+
+      /* ★ Sếp 20/10/2026: lúc giao chưa checkin thì người làm phải tích trước khi đính báo giá. */
+      if (maGiaiDoan === BUOC_DINH_KEM_BAO_GIA) {
+        const chanCheckin = vuongMacViecBuoc1ChuaXong(dn, cauHinhRef.current);
+        if (chanCheckin) return chanCheckin;
+      }
 
       const nhan = nhanO.trim();
       if (nhan === "") return "Thiếu nhãn ô — đây là lỗi lập trình, báo lại người phát triển.";
@@ -9907,6 +9900,12 @@ export function DuLieuProvider({
       if (loi) return loi;
 
       const noiDung = lyDo.trim();
+      /* ★ Sếp 20/10/2026: ghi lý do bỏ qua ô báo giá / bảng so sánh cũng là "làm tiếp" ở bước ② —
+         chưa checkin thì chặn (xóa lý do cũ thì vẫn cho). */
+      if (noiDung !== "" && khoa.startsWith(`${BUOC_DINH_KEM_BAO_GIA}|`)) {
+        const chanCheckin = vuongMacViecBuoc1ChuaXong(dn, cauHinhRef.current);
+        if (chanCheckin) return chanCheckin;
+      }
       const cu = (dn.lyDoThieuChungTu?.[khoa] ?? "").trim();
       if (noiDung === cu) return null;
 

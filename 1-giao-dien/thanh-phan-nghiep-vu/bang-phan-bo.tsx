@@ -48,9 +48,9 @@ import {
   sttDongDuocXem,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
-/* Chốt "chưa checkin tồn kho thì chưa được giao việc" — Ban lãnh đạo 12/09/2026. Cùng luật với
-   tầng ghi `phanBoDong`; ở đây chỉ để khóa nút sớm và nhắc lý do. */
-import { vuongMacGiaoViec } from "@/2-quy-trinh/giai-doan-mua-hang";
+/* Việc bắt buộc bước ① còn treo (Checkin hàng tồn kho) — từ 20/10/2026 KHÔNG chặn giao việc nữa,
+   chỉ nhắc: người nhận việc phải tích ở bước ② rồi mới làm tiếp (`vuongMacViecBuoc1ChuaXong`). */
+import { congViecChuaXongCuaBuoc } from "@/2-quy-trinh/giai-doan-mua-hang";
 /* ★ DÒNG NÀO ĐÃ ĐƯỢC NHÂN BẢN ĐI — Sếp 15/09/2026. Luật thuần ở `2-quy-trinh/nhan-ban-de-nghi.ts`,
    MỘT CHỖ DUY NHẤT: đừng so `sttDongGoc` tay trong file giao diện này. */
 import {
@@ -598,11 +598,10 @@ export function BangPhanBo({
   }
 
   /**
-   * ★ Chưa checkin tồn kho (việc bắt buộc bước ①) thì chưa cho giao việc — Ban lãnh đạo
-   * 12/09/2026. Chỉ xét khi đang ở bước phân bổ; `null` là giao việc được. Luật thuần dùng
-   * chung với tầng ghi `phanBoDong`, xem `vuongMacGiaoViec`.
+   * ★ Sếp 20/10/2026: checkin KHÔNG còn chặn giao việc (bỏ luật 12/09/2026). Việc bắt buộc bước ①
+   * còn treo thì chỉ NHẮC: người nhận việc sẽ phải tích ở bước ② trước khi làm tiếp.
    */
-  const chanGiaoViec = dangOBuocPhanBo ? vuongMacGiaoViec(deNghi, cauHinh) : null;
+  const viecTreoBuoc1 = dangOBuocPhanBo ? congViecChuaXongCuaBuoc(deNghi, "tiep_nhan", cauHinh) : [];
 
   /**
    * Mở hộp xác nhận giao việc — KHÔNG phân bổ ngay khi bấm.
@@ -613,12 +612,6 @@ export function BangPhanBo({
    */
   function moGiaoViec(uid: string, ten: string, dong: number[], loaiViecGiao?: LoaiViecGiao) {
     if (dong.length === 0) return;
-    /* 🔴 Chưa checkin tồn kho thì chưa cho giao việc (Ban lãnh đạo 12/09/2026). Chốt thật ở
-       `phanBoDong`; đây chỉ chặn sớm để khỏi mở hộp rồi mới báo lỗi. */
-    if (chanGiaoViec) {
-      toast.error("Chưa giao việc được", { description: chanGiaoViec });
-      return;
-    }
     /* Mặc định mức chung "2" của công ty — xem chú thích ở chỗ khai `soBaoGia`. Người nhận việc
        lấy từ kho (thủ kho / NV Kho tổng / NV Nhân sự) thì chọn sẵn đúng loại việc của họ. */
     setSoBaoGia(loaiViecGiao ?? "2");
@@ -785,11 +778,13 @@ export function BangPhanBo({
           </p>
         )}
 
-        {/* 🔴 Nhắc lý do chưa giao việc được — chưa checkin tồn kho (Ban lãnh đạo 12/09/2026).
-            Hiện ngay ở bước phân bổ để người dùng biết vì sao nút bị khóa, khỏi bấm rồi mới gặp lỗi. */}
-        {hienCongCuPhanBo && chanGiaoViec && (
+        {/* ★ Chỉ NHẮC, không chặn — Sếp 20/10/2026: giao việc được dù chưa checkin; người nhận việc
+            phải tích ở bước ② rồi mới làm tiếp. */}
+        {hienCongCuPhanBo && viecTreoBuoc1.length > 0 && (
           <p className="rounded-lg border border-warning/40 bg-warning-bg p-3 text-sm text-warning-soft">
-            {chanGiaoViec}
+            Chưa tích {viecTreoBuoc1.map((cv) => `“${cv.ten}”`).join(", ")}. Vẫn giao việc được — người
+            nhận việc sẽ phải tích rồi mới làm tiếp (ở bước “Yêu cầu NCC báo giá”, hoặc “Lập đơn mua hàng”
+            với việc xuất kho).
           </p>
         )}
 
@@ -825,7 +820,6 @@ export function BangPhanBo({
                 size="sm"
                 variant={nv.loaiViecGiao ? "outline" : "default"}
                 className={LOP_NUT_THEO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}
-                disabled={!!chanGiaoViec}
                 onClick={() => moGiaoViec(nv.uid, nv.ten, chonHopLe, nv.loaiViecGiao)}
                 title={
                   nv.loaiViecGiao === "nhan_su"
@@ -1318,7 +1312,6 @@ export function BangPhanBo({
                         size="sm"
                         variant="outline"
                         className={`min-h-11 ${LOP_NUT_THEO_LOAI_VIEC[nv.loaiViecGiao ?? "mua_hang"]}`}
-                        disabled={!!chanGiaoViec}
                         /* 🔴 PHẢI truyền loại việc — trước 26/09/2026 nút này bỏ sót, nên giao cho thủ
                            kho bằng điện thoại thì phiếu KHÔNG thành xuất kho (vẫn đi đường báo giá). */
                         onClick={() => moGiaoViec(nv.uid, nv.ten, [d.stt], nv.loaiViecGiao)}

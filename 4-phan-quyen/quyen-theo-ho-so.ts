@@ -149,6 +149,19 @@ export function duocNhanBanDeNghi(
 }
 
 /**
+ * ★ AI ĐƯỢC TÍCH / BỎ TÍCH CÔNG VIỆC CỦA BƯỚC (vd "Checkin hàng tồn kho") — Sếp 20/10/2026:
+ * *"qli hay nhân viên đều tích được"*.
+ *
+ * Trước đó chỉ Trưởng bộ phận (`phanBoCongViec`) tích được ở trang chi tiết, còn tầng ghi không
+ * kiểm gì (hộp chuyển bước thì lại cho ai có `lapPO` tích — lệch nhau). Nay thống nhất một luật:
+ * quản lý HOẶC người làm việc mua hàng (`lapPO`: nhân viên thu mua, NV Kho tổng, NV Nhân sự).
+ * Vai trò chỉ xem (thủ kho, Phòng Thi công, Kế toán) vẫn không tích được.
+ */
+export function duocTichCongViec(quyen: Quyen): boolean {
+  return quyen.phanBoCongViec || quyen.lapPO;
+}
+
+/**
  * NHỮNG DÒNG VẬT TƯ NGƯỜI NÀY ĐƯỢC NHÌN THẤY trong một đề nghị.
  *
  * 🔴 Chỉ đạo Ban lãnh đạo 12/08/2026: *"chỉ cần hiện công việc được phân công, không cần

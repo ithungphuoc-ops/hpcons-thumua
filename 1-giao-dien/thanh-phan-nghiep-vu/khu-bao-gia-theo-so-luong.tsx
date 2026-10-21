@@ -27,6 +27,7 @@ import {
   tepSoSanh,
   vuongMacTrinhXetDuyet,
 } from "@/2-quy-trinh/bao-gia-dinh-kem";
+import { vuongMacViecBuoc1ChuaXong } from "@/2-quy-trinh/giai-doan-mua-hang";
 import type { DeNghiMuaHang, MoTaTep } from "@/3-du-lieu/kieu-du-lieu";
 
 /*
@@ -75,7 +76,7 @@ const O_SO_SANH = "bang-so-sanh";
 export function KhuBaoGiaTheoSoLuong({
   deNghi,
   duocSua,
-  khoa = false,
+  khoa: khoaNgoai = false,
   hienTenNCC = false,
   onDuyetO,
   lyDoKhoa,
@@ -161,6 +162,13 @@ export function KhuBaoGiaTheoSoLuong({
   const soO = soOBaoGia(deNghi, cauHinh);
   const tepDaCo = tepBaoGiaDaCo(deNghi);
   const vuongMac = vuongMacTrinhXetDuyet(deNghi, cauHinh);
+  /**
+   * ★ Sếp 20/10/2026: lúc giao việc chưa checkin (việc bắt buộc bước ①) thì người làm phải tích
+   * trước khi đính báo giá — khóa cả khu như hồ sơ đã đóng, kèm câu nói rõ vì sao. Chốt thật ở
+   * tầng ghi (`datTepVaoOGiaiDoan`, `ghiLyDoThieuChungTu`), đây chỉ để khỏi bấm rồi mới bị từ chối.
+   */
+  const chanCheckin = vuongMacViecBuoc1ChuaXong(deNghi, cauHinh);
+  const khoa = khoaNgoai || chanCheckin !== null;
 
   /**
    * ❌❌ ĐÃ BỎ NÚT *"Thêm báo giá NCC khác (ngoài số bắt buộc)"* — Sếp 19/09/2026, khoanh đỏ đúng
@@ -371,6 +379,11 @@ export function KhuBaoGiaTheoSoLuong({
 
   return (
     <div className="flex flex-col gap-3">
+      {chanCheckin && duocSua && (
+        <p className="rounded-lg border border-warning/40 bg-warning-bg p-3 text-sm text-warning-soft">
+          {chanCheckin}
+        </p>
+      )}
       {/* Chưa ai đặt SL Báo giá → không bịa ra ô nào, và cũng KHÔNG chặn chuyển bước.
           Nói rõ chỗ đặt con số thay vì để khu này trống trơn không giải thích.
 
