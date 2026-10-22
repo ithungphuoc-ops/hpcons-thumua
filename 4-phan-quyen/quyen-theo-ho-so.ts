@@ -20,6 +20,8 @@ import type { DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu";
 import type { GiaiDoanMuaHang } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { tinhQuyen, type NguoiDung, type Quyen } from "@/4-phan-quyen/quyen";
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
+import { caiDatCuaBuoc, type CauHinhQuyTrinh } from "@/2-quy-trinh/cau-hinh-quy-trinh";
+import type { KhoId } from "@/3-du-lieu/kho-id";
 
 /** Người này có được chia việc trong đề nghị (phụ trách ít nhất một dòng vật tư) không. */
 export function duocChiaViec(deNghi: DeNghiMuaHang, uid: string): boolean {
@@ -212,16 +214,30 @@ export function sttDongDuocXem(
  * 📌 Nhân viên không làm được thì báo trưởng bộ phận — họ có nút này. Đường đi dài hơn một
  * nhịp, nhưng người chịu trách nhiệm phân công vẫn là người quyết.
  *
- * ⚠️ Tham số `dong` và `uid` GIỮ LẠI dù không còn dùng để xét: chữ ký hàm là chỗ mọi nơi gọi
- * đang bám vào, và nếu Ban lãnh đạo mở lại quyền cho người phụ trách thì chỉ sửa đúng thân
- * hàm này. Đổi chữ ký chỉ để bớt hai tham số là đụng vào mọi nơi gọi, lợi bất cập hại.
+ * ★★ MỞ LẠI THEO TỪNG BƯỚC — Sếp 22/10/2026 (ảnh khoanh ô "Cho phép giao lại nhiệm vụ cho người
+ * khác" ở Cài đặt quy trình): nhân viên được giao việc, tự nhân bản rồi muốn chuyển phần xuất kho
+ * cho bạn khác mà không chuyển được. Bước nào bật ô đó (`nguoiLamDuocChuyenViec`) thì NGƯỜI ĐANG
+ * PHỤ TRÁCH dòng (nhân viên làm mua hàng — `lapPO`) tự chuyển được dòng CỦA MÌNH; bước tắt ô thì
+ * về luật 15/08 (chỉ Trưởng bộ phận). Chỉ áp cho Thu mua HPCons — EQUI giữ nguyên (Sếp 22/10).
  */
 export function duocChuyenViecDong(
-  _dong: { nguoiPhuTrachUid?: string },
-  _uid: string,
+  dong: { nguoiPhuTrachUid?: string },
+  uid: string,
   quyen: Quyen,
+  /** Kết quả `nguoiLamDuocChuyenViec` của bước hồ sơ đang đứng. Bỏ trống = tắt (luật 15/08). */
+  nguoiLamDuocChuyen = false,
 ): boolean {
-  return quyen.phanBoCongViec;
+  if (quyen.phanBoCongViec) return true;
+  return nguoiLamDuocChuyen && Boolean(quyen.lapPO) && Boolean(uid) && dong.nguoiPhuTrachUid === uid;
+}
+
+/**
+ * Ô "Cho phép giao lại nhiệm vụ cho người khác" của bước `buoc` (Cài đặt quy trình) có cho người
+ * đang làm tự chuyển việc không — Sếp 22/10/2026. Kho EQUI luôn `false` (Sếp: *"chỉ cần kiểm tra
+ * sửa bên app thu mua cons k đụng tới thu mua equi"*).
+ */
+export function nguoiLamDuocChuyenViec(kho: KhoId, cauHinh: CauHinhQuyTrinh, buoc: string): boolean {
+  return kho === "thuong" && caiDatCuaBuoc(cauHinh, buoc).chuyenViecDuoc;
 }
 
 /** Có bị giấu bớt dòng nào không — để giao diện nói rõ "đang chỉ hiện phần của bạn". */

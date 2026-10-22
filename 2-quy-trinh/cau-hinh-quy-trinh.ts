@@ -98,6 +98,10 @@ export interface CaiDatGiaiDoan {
    * ⚠️ Base đặt **"Không cho phép"** ở cả 8 bước, nhưng app đang có nút "Chuyển tiếp" (làm
    * ngày 12/08/2026 theo yêu cầu trước đó). Để thành cài đặt thay vì tự ý gỡ nút — Ban lãnh
    * đạo bật/tắt theo ý mình, và người sau đọc ra được app đang chạy theo luật nào.
+   *
+   * ★ 22/10/2026 (Sếp): NỐI vào quyền thật — trước đó ô này chỉ lưu (nút "Chuyển tiếp" đã bỏ 13/09).
+   * Bật ở bước nào thì ở bước đó nhân viên đang phụ trách tự "Chuyển việc" được dòng của mình; tắt
+   * thì chỉ Trưởng bộ phận. Chỉ kho thường (HPCons) — xem `nguoiLamDuocChuyenViec` (quyen-theo-ho-so.ts).
    */
   chuyenViecDuoc: boolean;
   /** Ô "Nhiệm vụ được giao tự động như thế nào?" — hiện để tra cứu, xem `CachGiaoViec`. */

@@ -11487,6 +11487,53 @@ kiem(
 );
 
 kiem(
+  "★ Chuyen viec (Sep 22/10/2026): o 'Cho phep giao lai nhiem vu' cua BUOC bat → NV dang phu trach tu chuyen DONG CUA MINH (chi kho thuong, EQUI giu luat 15/08); chuyen cho NV Kho tong → thanh xuat kho, sang thang ④",
+  'Sếp 22/10/2026 — ảnh khoanh ô "Cho phép giao lại nhiệm vụ cho người khác" + *"chỉ cần kiểm tra sửa bên app thu mua cons k đụng tới thu mua equi"*',
+  () => {
+    const NV = { phanBoCongViec: false, lapPO: true };
+    const tatO = { ...CQ.CAU_HINH_MAC_DINH, caiDatTungBuoc: { ...CQ.CAU_HINH_MAC_DINH.caiDatTungBuoc, yeu_cau_bao_gia: { ...CQ.CAU_HINH_MAC_DINH.caiDatTungBuoc?.yeu_cau_bao_gia, chuyenViecDuoc: false } } };
+    const mo = QH.nguoiLamDuocChuyenViec("thuong", CQ.CAU_HINH_MAC_DINH, "yeu_cau_bao_gia");
+    const kq = {
+      moMacDinh: mo === true,
+      tatO: QH.nguoiLamDuocChuyenViec("thuong", tatO, "yeu_cau_bao_gia") === false,
+      equi: QH.nguoiLamDuocChuyenViec("equi", CQ.CAU_HINH_MAC_DINH, "yeu_cau_bao_gia") === false,
+      nvDongMinh: QH.duocChuyenViecDong({ nguoiPhuTrachUid: "A" }, "A", NV, true) === true,
+      nvDongNguoiKhac: QH.duocChuyenViecDong({ nguoiPhuTrachUid: "B" }, "A", NV, true) === false,
+      nvKhiTat: QH.duocChuyenViecDong({ nguoiPhuTrachUid: "A" }, "A", NV, false) === false,
+      khongLapPO: QH.duocChuyenViecDong({ nguoiPhuTrachUid: "A" }, "A", { phanBoCongViec: false, lapPO: false }, true) === false,
+      tbp: QH.duocChuyenViecDong({ nguoiPhuTrachUid: "B" }, "T", { phanBoCongViec: true }) === true,
+    };
+    /* Chuyển dòng 2 (của A) cho NV Kho tổng K kèm loại việc xuat_kho → K có phiếu riêng nhảy ④. */
+    const p0 = { ...phieuThuTach(), items: phieuThuTach().items.map((d) => ({ ...d, nguoiPhuTrachUid: "A", nguoiPhuTrachTen: "NV A", soBaoGiaYeuCau: 2 })) };
+    const r = TKGv.apDungGiaoViec([p0], "pr-goc", [2], { ...gThu("K"), loaiHanhDong: "chuyen_viec", giuYeuCauCu: true, loaiViecGiao: "xuat_kho" });
+    const phieuK = (r.deNghi ?? []).find((d) => d.items.some((x) => x.nguoiPhuTrachUid === "K"));
+    kq.xuatKho = !!phieuK && phieuK.items.every((x) => x.loaiViecGiao === "xuat_kho" && x.soBaoGiaYeuCau === undefined) && G.xacDinhGiaiDoan(phieuK, [], [], [], r.deNghi) === "lap_don_mua_hang";
+    /* Chiều nghịch: chuyển cho NV thu mua khác (không loại việc) → vẫn mua hàng, GIỮ số báo giá đã dặn. */
+    const r2 = TKGv.apDungGiaoViec([p0], "pr-goc", [2], { ...gThu("B"), loaiHanhDong: "chuyen_viec", giuYeuCauCu: true });
+    const phieuB = (r2.deNghi ?? []).find((d) => d.items.some((x) => x.nguoiPhuTrachUid === "B"));
+    kq.muaGiuSoBaoGia = !!phieuB && phieuB.items.every((x) => x.loaiViecGiao === undefined && x.soBaoGiaYeuCau === 2);
+    /* Người TỰ chuyển được thêm vào Người theo dõi phiếu nhận (một lần), không thêm khi còn giữ dòng ở đó. */
+    const A = { uid: "A", ten: "NV A", chucDanh: "NV thu mua" };
+    const t1 = TKGv.themTheoDoiSauChuyenViec(r.deNghi, phieuK.id, A, "2026-10-22T01:00:00Z", "2026-10-22");
+    const t2 = TKGv.themTheoDoiSauChuyenViec(t1, phieuK.id, A, "2026-10-22T01:00:00Z", "2026-10-22");
+    const t3 = TKGv.themTheoDoiSauChuyenViec([p0], "pr-goc", A, "2026-10-22T01:00:00Z", "2026-10-22");
+    const theoK = (ds) => (ds.find((d) => d.id === phieuK.id).nguoiTheoDoi ?? []).filter((n) => n.uid === "A").length;
+    kq.theoDoi = theoK(t1) === 1 && theoK(t2) === 1 && (t3[0].nguoiTheoDoi ?? []).length === 0;
+    /* Tầng ghi + giao diện gọi đúng luật (cắt nguồn, bỏ chú thích). */
+    const bo = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+    const kd = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const a = kd.indexOf("const chuyenViecDong = useCallback(");
+    const ham = bo(kd.slice(a, kd.indexOf("const themDonHang = useCallback(", a)));
+    const bpb = bo(readFileSync("1-giao-dien/thanh-phan-nghiep-vu/bang-phan-bo.tsx", "utf8"));
+    kq.tangGhi = ham.includes("nguoiLamDuocChuyenViec(kho, cauHinhRef.current, buocXet)") && ham.includes("loaiViecGiao: nguoiMoi.loaiViecGiao") && /\[nguoiDung, kho\]/.test(ham) &&
+      /tuChuyen\s*\?\s*themTheoDoiSauChuyenViec\(/.test(ham);
+    kq.giaoDien = (bpb.match(/duocChuyenViecDong\(d, nguoiDung\.uid, quyen, nguoiLamDuocChuyen\)/g) || []).length === 3 &&
+      bpb.includes('kho === "thuong" ? { loaiViecGiao: LOAI_VIEC_THEO_CHUC_NANG[nhan.chucNang] } : {}');
+    return { duoc: Object.values(kq).every(Boolean), thucTe: JSON.stringify(kq), mongDoi: "tat ca true" };
+  },
+);
+
+kiem(
   "🔴 Nhan ban: nhan vien CHI lay dong cua minh, KHONG lay dong da tach; Truong bo phan lay moi dong chua tach",
   CHU_SOAT_GV("16 #23 #24"),
   () => {

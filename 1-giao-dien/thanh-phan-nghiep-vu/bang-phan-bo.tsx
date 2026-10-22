@@ -45,12 +45,14 @@ import { useNguoiKhongVaoApp } from "@/4-phan-quyen/dung-nguoi-khong-vao-app";
 import {
   coLocTheoPhanViec,
   duocChuyenViecDong,
+  nguoiLamDuocChuyenViec,
   sttDongDuocXem,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { tinhTienDoDeNghi } from "@/2-quy-trinh/tinh-toan";
 /* Việc bắt buộc bước ① còn treo (Checkin hàng tồn kho) — từ 20/10/2026 KHÔNG chặn giao việc nữa,
    chỉ nhắc: người nhận việc phải tích ở bước ② rồi mới làm tiếp (`vuongMacViecBuoc1ChuaXong`). */
-import { congViecChuaXongCuaBuoc } from "@/2-quy-trinh/giai-doan-mua-hang";
+import { congViecChuaXongCuaBuoc, xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 /* ★ DÒNG NÀO ĐÃ ĐƯỢC NHÂN BẢN ĐI — Sếp 15/09/2026. Luật thuần ở `2-quy-trinh/nhan-ban-de-nghi.ts`,
    MỘT CHỖ DUY NHẤT: đừng so `sttDongGoc` tay trong file giao diện này. */
 import {
@@ -200,7 +202,16 @@ export function BangPhanBo({
     chuyenViecDong,
     suaMatHangDeNghi,
     cauHinh,
+    baoGia,
   } = useDuLieu();
+  /* ★ Sếp 22/10/2026: ô "Cho phép giao lại nhiệm vụ cho người khác" của BƯỚC hồ sơ đang đứng quyết
+     định nhân viên phụ trách có tự chuyển việc được không — chỉ Thu mua HPCons (kho thường). */
+  const kho = useKhoHienTai();
+  const nguoiLamDuocChuyen = nguoiLamDuocChuyenViec(
+    kho,
+    cauHinh,
+    xacDinhGiaiDoan(deNghi, donHang, baoGia, phieuNhan, dsDeNghi),
+  );
   /**
    * Dòng vật tư MỚI đang gõ ở cuối bảng — `null` là chưa bấm nút thêm.
    *
@@ -332,7 +343,14 @@ export function BangPhanBo({
     const loi = chuyenViecDong(
       deNghi.id,
       [dongChuyen.stt],
-      { uid: nhan.uid, ten: nhan.tenHienThi },
+      {
+        uid: nhan.uid,
+        ten: nhan.tenHienThi,
+        /* ★ Sếp 22/10/2026 (Thu mua HPCons): chuyển cho thủ kho / NV Kho tổng / NV Nhân sự thì loại việc
+           đổi theo người nhận (xuất kho / nhân sự — bỏ qua báo giá), y như lúc giao việc. Trước đây
+           chuyển việc luôn ghi "mua hàng" nên phần chuyển cho kho vẫn bị đòi báo giá. EQUI giữ cũ. */
+        ...(kho === "thuong" ? { loaiViecGiao: LOAI_VIEC_THEO_CHUC_NANG[nhan.chucNang] } : {}),
+      },
       lyDoChuyen,
       nguoiDung.tenHienThi,
     );
@@ -491,7 +509,7 @@ export function BangPhanBo({
     /* Hồ sơ đã đóng: không chuyển / bỏ phân bổ nữa (soát #2 #52 — tầng ghi cũng chặn). */
     if (hoSoDaDong) return false;
     if (d.trangThaiDong !== "da_phan_bo") return false;
-    return duocChuyenViecDong(d, nguoiDung.uid, quyen) || quyen.phanBoCongViec;
+    return duocChuyenViecDong(d, nguoiDung.uid, quyen, nguoiLamDuocChuyen) || quyen.phanBoCongViec;
   }
 
   /**
@@ -1071,7 +1089,7 @@ export function BangPhanBo({
                                     thêm `min-w-*` thì bề rộng vẫn bị chốt cứng ở sàn đó. */}
                                 <DropdownMenuContent align="end" className="w-auto min-w-64">
                                   <DropdownMenuGroup>
-                                    {duocChuyenViecDong(d, nguoiDung.uid, quyen) && (
+                                    {duocChuyenViecDong(d, nguoiDung.uid, quyen, nguoiLamDuocChuyen) && (
                                       <DropdownMenuItem
                                         className={LOP_MUC_MENU}
                                         onClick={() =>
@@ -1288,7 +1306,7 @@ export function BangPhanBo({
                     ra che gần hết nội dung, còn ở đây có sẵn chỗ. Vùng chạm ≥44px (V1.1). */}
                 {coHanhDong(d) && (
                   <div className="flex flex-wrap gap-2">
-                    {duocChuyenViecDong(d, nguoiDung.uid, quyen) && (
+                    {duocChuyenViecDong(d, nguoiDung.uid, quyen, nguoiLamDuocChuyen) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1469,7 +1487,23 @@ export function BangPhanBo({
           dongChuyen &&
           `Dòng ${dongChuyen.stt} của đề nghị ${deNghi.code}, đang do ${dongChuyen.tenCu} phụ trách.`
         }
-        canhBao="Yêu cầu số báo giá và ghi chú giao việc giữ nguyên — chỉ đổi người làm, không đổi nội dung công việc."
+        canhBao={
+          /* ★ Sếp 22/10/2026 (HPCons): người nhận là thủ kho / NV Kho tổng / NV Nhân sự thì phần này
+             thành xuất kho / nhân sự — nói trước để khỏi bất ngờ khi phiếu nhảy bước. */
+          (() => {
+            const loai =
+              kho === "thuong"
+                ? LOAI_VIEC_THEO_CHUC_NANG[danhSachTaiKhoan.find((n) => n.uid === uidNhan)?.chucNang ?? ""]
+                : undefined;
+            if (loai === "xuat_kho") {
+              return "Người nhận là bên kho: phần việc này chuyển thành xuất kho (bỏ qua báo giá, sang thẳng Lập đơn mua hàng). Ghi chú giao việc giữ nguyên.";
+            }
+            if (loai === "nhan_su") {
+              return "Người nhận là NV Nhân sự: phần việc này chuyển thành việc nhân sự (bỏ qua báo giá, sang thẳng Lập đơn mua hàng). Ghi chú giao việc giữ nguyên.";
+            }
+            return "Yêu cầu số báo giá và ghi chú giao việc giữ nguyên — chỉ đổi người làm, không đổi nội dung công việc.";
+          })()
+        }
         nhanDongY="Chuyển việc"
         khoaDongY={
           nguoiNhanDuoc.length === 0

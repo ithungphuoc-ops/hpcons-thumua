@@ -125,7 +125,8 @@ export function KhoiCaiDatGiaiDoan({
                 <O
                   ma={`chuyenviec-${g.ma}`}
                   nhan="Cho phép giao lại nhiệm vụ cho người khác"
-                  moTa="Bật thì trang chi tiết đề nghị có nút “Chuyển tiếp”. Base đang đặt KHÔNG CHO PHÉP ở cả 8 giai đoạn."
+                  /* ★ Sếp 22/10/2026: nối ô này vào quyền chuyển việc (trước chỉ lưu, không tác dụng). */
+                  moTa="Bật thì nhân viên đang phụ trách tự chuyển được phần việc của mình cho người khác ở bước này (nút … → Chuyển việc). Tắt thì chỉ Trưởng bộ phận chuyển được. Chỉ áp cho Quy trình mua hàng HPCons, không áp cho EQUI."
                   chay
                   bat={caiDat.chuyenViecDuoc}
                   doi={(v) => doiCaiDat(g.ma, { chuyenViecDuoc: v })}

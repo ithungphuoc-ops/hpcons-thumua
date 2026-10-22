@@ -115,6 +115,7 @@ import {
   apDungGiaoViec,
   apDungRutDong,
   chaDaDongCua,
+  themTheoDoiSauChuyenViec,
   dongDaCoChungTu,
   gopBanTachVeGoc,
   idPhieuConTheoNguoi,
@@ -168,6 +169,8 @@ import {
   duocChiaViec,
   duocGhiNhanGiaoHangCuaHoSo,
   duocTichCongViec,
+  duocChuyenViecDong,
+  nguoiLamDuocChuyenViec,
   duocXacNhanNhanDuHangCuaHoSo,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
 /* Hồ sơ PHÒNG BAN (không gắn công trình) — dấu hiệu duy nhất quyết định nhánh ghi phiếu nhận
@@ -1587,7 +1590,7 @@ interface GiaTriDuLieu {
   chuyenViecDong: (
     prId: string,
     sttDong: number[],
-    nguoiMoi: { uid: string; ten: string },
+    nguoiMoi: { uid: string; ten: string; loaiViecGiao?: LoaiViecGiao },
     lyDo: string,
     nguoiThucHien: string,
   ) => string | null;
@@ -6708,14 +6711,33 @@ export function DuLieuProvider({
     (
       prId: string,
       sttDong: number[],
-      nguoiMoi: { uid: string; ten: string },
+      /** `loaiViecGiao` — loại việc theo CHỨC DANH người nhận (Thu mua HPCons, Sếp 22/10/2026); EQUI không truyền. */
+      nguoiMoi: { uid: string; ten: string; loaiViecGiao?: LoaiViecGiao },
       lyDo: string,
       nguoiThucHien: string,
     ) => {
-      /* ★ Quyền trước mọi thứ (soát giao việc 25–26/09/2026, #20 #53). */
+      /* ★ Quyền trước mọi thứ (soát giao việc 25–26/09/2026, #20 #53).
+         ★ Sếp 22/10/2026: bước hồ sơ đang đứng bật ô "Cho phép giao lại nhiệm vụ cho người khác" thì
+         nhân viên ĐANG PHỤ TRÁCH tự chuyển được dòng CỦA MÌNH (chỉ kho thường — EQUI giữ luật 15/08).
+         Cùng luật với nút trên bảng phân bổ: `duocChuyenViecDong` + `nguoiLamDuocChuyenViec`. */
       {
-        const chanQuyen = vuongMacQuyenPhanBo(tinhQuyen(nguoiDung));
-        if (chanQuyen) return chanQuyen;
+        const q = tinhQuyen(nguoiDung);
+        if (!q.phanBoCongViec) {
+          const dnXet = deNghiRef.current.find((x) => x.id === prId);
+          const buocXet = dnXet
+            ? xacDinhGiaiDoan(dnXet, donHangRef.current, baoGiaRef.current, phieuNhanRef.current, deNghiRef.current)
+            : null;
+          const moChoNguoiLam = buocXet !== null && nguoiLamDuocChuyenViec(kho, cauHinhRef.current, buocXet);
+          if (!moChoNguoiLam) {
+            return vuongMacQuyenPhanBo(q) ?? "Bạn không có quyền chuyển việc ở bước này.";
+          }
+          const dongNguoiKhac = sttDong.find(
+            (st) => !duocChuyenViecDong(dnXet?.items.find((d) => d.stt === st) ?? {}, nguoiDung.uid, q, true),
+          );
+          if (sttDong.length === 0 || dongNguoiKhac !== undefined) {
+            return `Dòng ${dongNguoiKhac ?? ""} không phải phần việc của bạn — chỉ tự chuyển được dòng mình đang phụ trách. Nhờ Trưởng bộ phận nếu cần chuyển dòng của người khác.`;
+          }
+        }
       }
       /* 🔴 (26/09/2026) Dòng đã có báo giá / đơn hàng thì không chuyển việc — xem `dongDaCoChungTu`. */
       const coChungTu = sttDong.find((st) =>
@@ -6752,6 +6774,9 @@ export function DuLieuProvider({
         loaiHanhDong: "chuyen_viec" as const,
         lyDo: [tenCu ? `Từ ${tenCu}.` : "", lyDo.trim()].filter(Boolean).join(" ") || undefined,
         giuYeuCauCu: true,
+        /* ★ Sếp 22/10/2026: loại việc theo người nhận (thủ kho / NV Kho tổng → xuất kho, NV Nhân sự →
+           nhân sự). Không truyền = "mua hàng" như trước (EQUI). */
+        loaiViecGiao: nguoiMoi.loaiViecGiao,
         gopConCu: !phieuConCoChungTu(
           (dnDangGiu && laPhieuConKhiGiao(dnDangGiu) && !chaDaDongCua(dnDangGiu, deNghiRef.current)
             ? dnDangGiu.deNghiChaId
@@ -6777,9 +6802,21 @@ export function DuLieuProvider({
       };
       const kqChuyen = tinh(deNghiRef.current);
       if (kqChuyen.loi !== undefined) return kqChuyen.loi;
+      /* ★ Sếp 22/10/2026: nhân viên TỰ chuyển (không phải Trưởng bộ phận — người này đã xem được mọi hồ
+         sơ) thì thêm họ vào Người theo dõi của phiếu nhận các dòng vừa chuyển, để vẫn mở xem được. */
+      const tuChuyen = !tinhQuyen(nguoiDung).phanBoCongViec;
       setDeNghi((truoc) => {
         const r = tinh(truoc);
-        return r.loi !== undefined ? truoc : r.deNghi;
+        if (r.loi !== undefined) return truoc;
+        return tuChuyen
+          ? themTheoDoiSauChuyenViec(
+              r.deNghi,
+              r.idDich,
+              { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi, chucDanh: nguoiDung.chucDanh ?? "" },
+              luc,
+              homNay(),
+            )
+          : r.deNghi;
       });
 
       /**
@@ -6830,7 +6867,7 @@ export function DuLieuProvider({
       }
       return null;
     },
-    [nguoiDung],
+    [nguoiDung, kho],
   );
 
   const themDonHang = useCallback(

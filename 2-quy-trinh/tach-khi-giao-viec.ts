@@ -62,6 +62,32 @@ export function loiHoSoDaDongKhiGiaoViec(
 }
 
 /**
+ * ★ NGƯỜI TỰ CHUYỂN VIỆC ĐƯỢC THEO DÕI PHIẾU VỪA CHUYỂN ĐI — Sếp 22/10/2026 (*"code đi"* cho câu hỏi
+ * "chuyển xong người chuyển không mở xem được phiếu đó nữa, có thêm họ vào Người theo dõi không").
+ * Nhân viên không có quyền xem mọi hồ sơ chỉ thấy phiếu mình được giao hoặc có tên theo dõi — chuyển
+ * hết dòng đi là mất dấu việc mình vừa bàn giao. Thêm vào `nguoiTheoDoi` của phiếu đang giữ các dòng
+ * vừa chuyển (`idDich`). Đã có tên / đang được giao dòng ở phiếu đó thì thôi.
+ */
+export function themTheoDoiSauChuyenViec(
+  tatCa: readonly DeNghiMuaHang[],
+  idDich: string,
+  nguoi: { uid: string; ten: string; chucDanh: string },
+  thoiDiem: string,
+  ngay: string,
+): DeNghiMuaHang[] {
+  return tatCa.map((d) => {
+    if (d.id !== idDich) return d;
+    const ds = d.nguoiTheoDoi ?? [];
+    if (ds.some((n) => n.uid === nguoi.uid) || d.items.some((x) => x.nguoiPhuTrachUid === nguoi.uid)) return d;
+    return {
+      ...d,
+      nguoiTheoDoi: [...ds, { uid: nguoi.uid, ten: nguoi.ten, chucDanh: nguoi.chucDanh, nguoiThemTen: nguoi.ten, thoiDiemThem: ngay }],
+      lichSu: [...d.lichSu, { thoiDiem, nguoiThucHien: nguoi.ten, hanhDong: `Thêm ${nguoi.ten} vào danh sách theo dõi (vừa tự chuyển việc)` }],
+    };
+  });
+}
+
+/**
  * ★ Phiếu CHA của `dn` đã đóng (hoàn thành / đóng dở) — Sếp 21/10/2026 bỏ chốt "còn bản con dở thì
  * chưa đóng được phiếu gốc" (*"ai làm xong trước thì hoàn thành trước"*), nên phiếu gốc có thể đóng
  * TRƯỚC phiếu con. Khi đó các thao tác vốn "trả dòng về phiếu gốc" (bỏ phân bổ, chuyển việc, kéo về
@@ -240,7 +266,12 @@ export function apDungGiaoViec(
     thoiDiemPhanBo: g.ngay,
     loaiViecGiao: g.loaiViecGiao,
     ...(g.giuYeuCauCu
-      ? {}
+      ? /* ★ Sếp 22/10/2026: chuyển việc sang bên kho / nhân sự (có `loaiViecGiao`) là bỏ qua báo giá —
+           bỏ luôn yêu cầu số báo giá cũ, kẻo dòng xuất kho vẫn hiện "Yêu cầu lấy N báo giá" (soát QA).
+           Ghi chú giao việc vẫn giữ. Không có `loaiViecGiao` (mua hàng, EQUI) thì giữ y như cũ. */
+        g.loaiViecGiao
+        ? { soBaoGiaYeuCau: undefined, soBaoGiaTPGiao: undefined }
+        : {}
       : {
           soBaoGiaYeuCau: g.soBaoGia,
           soBaoGiaTPGiao: g.soBaoGia,
