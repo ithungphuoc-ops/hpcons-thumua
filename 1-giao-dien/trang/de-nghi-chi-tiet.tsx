@@ -652,6 +652,15 @@ export default function TrangChiTietDeNghi({
      PO, hợp đồng, hoá đơn…) nhưng không tích, không đính, không sửa, không bình luận. Luật `chiXemDeNghi`,
      tầng ghi hỏi lại đúng hàm đó. */
   const chiXem = chiXemDeNghi(dn, nguoiDung.uid, quyen, kho);
+  /* ★ Sếp 22/10/2026: bản nhân bản / phiếu tách hiện tệp của PHIẾU GỐC (chỉ xem) — xem khối "Tài liệu của phiếu gốc". */
+  const phieuGocTep =
+    dn.deNghiGocId && dn.deNghiGocId !== dn.id ? deNghi.find((x) => x.id === dn.deNghiGocId) : undefined;
+  /* Tệp App Request gửi thêm SAU khi nhân bản được ghi vào cả gốc lẫn bản này — đã hiện ở khối tệp người
+     đề nghị của bản này thì bỏ khỏi khối gốc, khỏi hiện hai lần. */
+  const khoaTepReq = (t: { ten: string; duongDan?: string }) => t.duongDan ?? t.ten;
+  const daCoTepReq = new Set((dn.taiLieuAppRequest ?? []).map(khoaTepReq));
+  const tepReqGoc = (phieuGocTep?.taiLieuAppRequest ?? []).filter((t) => !daCoTepReq.has(khoaTepReq(t)));
+  const soTepGoc = (phieuGocTep?.taiLieu?.length ?? 0) + tepReqGoc.length;
   function conThieuCuaBuoc(ma: GiaiDoanMuaHang): string | undefined {
     const viTri = chuoiBuoc.indexOf(ma);
     if (viTri < 0 || viTriHienTai < 0 || viTri > viTriHienTai) return undefined;
@@ -1509,7 +1518,14 @@ export default function TrangChiTietDeNghi({
                   /* ★ ĐẾM CẢ HAI NGUỒN (13/09/2026): tệp nộp trong app (`taiLieu`) và tệp người
                      đề nghị đính kèm bên App Request (`taiLieuAppRequest`). Trước đó chỉ đếm
                      nguồn đầu, nên hồ sơ đến từ App Request luôn hiện "—" dù có tệp thật. */
-                  giaTri: soTepDinhKem > 0 ? `${soTepDinhKem} tệp` : undefined,
+                  giaTri:
+                    soTepDinhKem > 0
+                      ? kho === "thuong" && phieuGocTep && soTepGoc > 0
+                        ? `${soTepDinhKem} tệp + ${soTepGoc} tệp của phiếu gốc (xem bên dưới)`
+                        : `${soTepDinhKem} tệp`
+                      : kho === "thuong" && soTepGoc > 0
+                        ? `${soTepGoc} tệp của phiếu gốc (xem bên dưới)`
+                        : undefined,
                 },
               ]}
             />
@@ -1658,6 +1674,70 @@ export default function TrangChiTietDeNghi({
                 )}
               </div>
             )}
+
+            {/* ★★ TÀI LIỆU CỦA PHIẾU GỐC Ở BẢN NHÂN BẢN / PHIẾU TÁCH — Sếp 22/10/2026 (chọn "Hiện tệp phiếu
+                gốc"): bản nhân bản KHÔNG chép tệp (chốt 26/09/2026 giữ nguyên), nhưng người làm bản đó thường
+                không mở được phiếu gốc (luật xem 09/10: phải được giao hoặc có tên theo dõi) — dòng "theo file
+                đính kèm" mà không thấy file thì không làm được. Nay hiện tệp của phiếu gốc ngay ở đây, CHỈ XEM /
+                TẢI (không sửa, không gỡ). Chỉ HPCons (kho thường) — EQUI giữ nguyên. */}
+            {kho === "thuong" &&
+              phieuGocTep &&
+              soTepGoc > 0 && (
+                <div className="mt-2 flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-(--hp-md-row-pad) text-sm">
+                  <p className="font-semibold text-text-primary">
+                    Tài liệu của phiếu gốc {phieuGocTep.code} ({soTepGoc})
+                  </p>
+                  <p className="text-xs text-text-desc">
+                    Bản nhân bản không chép tệp — đây là tệp đính kèm của phiếu gốc, chỉ xem / tải.
+                  </p>
+                  {(phieuGocTep.taiLieu?.length ?? 0) > 0 && (
+                    <ul className="flex flex-col gap-1">
+                      {(phieuGocTep.taiLieu ?? []).map((t) => (
+                        <li key={t.id} className="flex min-w-0 items-center gap-2 text-sm">
+                          <LienKetTep tep={t} />
+                          <span className="shrink-0 text-xs text-text-desc">{t.nguoiTaiTen}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {tepReqGoc.length > 0 && (
+                    <>
+                      <ul className="flex flex-col gap-1">
+                        {tepReqGoc.map((t, i) => (
+                          <li key={`${t.duongDan ?? t.ten}-${i}`} className="flex min-w-0 items-center gap-2 text-sm">
+                            <Paperclip className="size-4 shrink-0 text-text-desc" aria-hidden />
+                            <span className="min-w-0 truncate text-text-primary">{t.ten}</span>
+                            {t.kichThuoc !== undefined && (
+                              <span className="shrink-0 text-xs text-text-desc">
+                                {Math.max(1, Math.round(t.kichThuoc / 1024))} KB
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      {duongDanPhieuAppRequest(phieuGocTep.maDeXuatAppRequest) ? (
+                        <p className="text-xs text-text-desc">
+                          Tệp người đề nghị đính kèm nằm ở App Request —{" "}
+                          <a
+                            href={duongDanPhieuAppRequest(phieuGocTep.maDeXuatAppRequest) ?? undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+                          >
+                            mở hồ sơ bên đó để tải
+                          </a>
+                          .
+                        </p>
+                      ) : (
+                        <p className="text-xs text-text-desc">
+                          Tệp người đề nghị đính kèm nằm ở App Request — tra theo mã đề xuất{" "}
+                          {phieuGocTep.maDeXuatAppRequest ?? "—"}.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
           </KhoiGap>
 
           {/* ★ ĐẦU VÀO THEO GIAI ĐOẠN — Ban lãnh đạo 16/08/2026: *"đây là quy trình thu mua

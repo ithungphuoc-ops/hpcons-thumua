@@ -11591,6 +11591,33 @@ kiem(
 );
 
 kiem(
+  "★ Tep phieu goc (Sep 22/10/2026): ban nhan ban / phieu tach VAN KHONG chep tep, nhung trang chi tiet HIEN tep cua phieu goc (chi xem/tai) — chi HPCons",
+  'Sếp 22/10/2026 — chọn "Hiện tệp phiếu gốc" (giữ chốt 26/09 "không chép các tệp đã đính kèm")',
+  () => {
+    const nbSrc = readFileSync("2-quy-trinh/nhan-ban-de-nghi.ts", "utf8");
+    const tkSrc = readFileSync("2-quy-trinh/tach-khi-giao-viec.ts", "utf8");
+    const ct = readFileSync("1-giao-dien/trang/de-nghi-chi-tiet.tsx", "utf8");
+    const kq = {
+      khongChepNB: nbSrc.includes("taiLieu: undefined,") && nbSrc.includes("taiLieuAppRequest: undefined,"),
+      khongChepTach: tkSrc.includes("taiLieu: undefined,") && tkSrc.includes("taiLieuAppRequest: undefined,"),
+      timGoc: ct.includes("dn.deNghiGocId && dn.deNghiGocId !== dn.id ? deNghi.find((x) => x.id === dn.deNghiGocId) : undefined"),
+      khoiHien: ct.includes('{kho === "thuong" &&') && ct.includes("Tài liệu của phiếu gốc {phieuGocTep.code} ({soTepGoc})"),
+      /* Khối gốc liệt kê tệp CỦA PHIẾU GỐC (không phải của bản đang xem) qua LienKetTep chỉ xem. */
+      lietKeTepGoc: ct.includes("{(phieuGocTep.taiLieu ?? []).map((t) => (") && /phieuGocTep\.taiLieu \?\? \[\]\)\.map\(\(t\) => \([\s\S]{0,200}<LienKetTep tep=\{t\} \/>/.test(ct),
+      /* Tệp App Request gửi thêm sau khi nhân bản nằm ở cả gốc lẫn bản này → khối gốc bỏ tệp trùng (khoá duongDan ?? ten như dong-do-theo-app-request). */
+      boTrung: ct.includes("const khoaTepReq = (t: { ten: string; duongDan?: string }) => t.duongDan ?? t.ten;") &&
+        ct.includes("(phieuGocTep?.taiLieuAppRequest ?? []).filter((t) => !daCoTepReq.has(khoaTepReq(t)))") &&
+        ct.includes("{tepReqGoc.map((t, i) => (") && !ct.includes("(phieuGocTep.taiLieuAppRequest ?? []).map("),
+      /* Link App Request dựng theo MÃ PHIẾU GỐC. */
+      linkGoc: ct.includes("duongDanPhieuAppRequest(phieuGocTep.maDeXuatAppRequest)"),
+      /* Ô 13: bản có tệp riêng vẫn nhắc tệp phiếu gốc; không có tệp riêng thì chỉ ghi tệp phiếu gốc. */
+      o13: ct.includes("`${soTepDinhKem} tệp + ${soTepGoc} tệp của phiếu gốc (xem bên dưới)`") && ct.includes("`${soTepGoc} tệp của phiếu gốc (xem bên dưới)`"),
+    };
+    return { duoc: Object.values(kq).every(Boolean), thucTe: JSON.stringify(kq), mongDoi: "tat ca true" };
+  },
+);
+
+kiem(
   "🔴 Nhan ban: nhan vien CHI lay dong cua minh, KHONG lay dong da tach; Truong bo phan lay moi dong chua tach",
   CHU_SOAT_GV("16 #23 #24"),
   () => {
