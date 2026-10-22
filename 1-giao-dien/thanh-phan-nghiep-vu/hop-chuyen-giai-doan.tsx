@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
+import Link, { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
+import { chiXemDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { AlertTriangle, ExternalLink, Lock } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -602,16 +603,19 @@ function OGoDieuKien({
   const { nguoiDung, quyen } = useNguoiDung();
   /* Cùng điều kiện quyền với trang chi tiết (`duocSuaTepBuoc`) — hai nơi đính vào cùng một chỗ
      thì không được nơi cho nơi cấm. Riêng ô hợp đồng dùng `duocSuaHopDong` hẹp hơn — xem dưới. */
-  const duocSua = quyen.phanBoCongViec || quyen.lapPO;
+  /* ★ Sếp 22/10/2026 (HPCons): người làm thu mua không được giao phiếu thì chỉ xem. */
+  const kho = useKhoHienTai();
+  const chiXem = chiXemDeNghi(deNghi, nguoiDung.uid, quyen, kho);
+  const duocSua = (quyen.phanBoCongViec || quyen.lapPO) && !chiXem;
   /* 🔴 GỌI ĐÚNG HÀM DÙNG CHUNG với `de-nghi-chi-tiet.tsx` (bước ④/⑤) — xem chú thích đầy đủ ở
      `duocSuaHopDongTheoGiaiDoan`. Không tự tính lại `giaiDoanDaToiLuot` ở đây: hộp này và trang
      chi tiết đính vào ĐÚNG CÙNG MỘT tệp, "siết quyền" mà mỗi nơi tự tính riêng là hai luật có thể
      lệch nhau. */
-  const duocSuaHopDong = duocSuaHopDongTheoGiaiDoan(quyen, giaiDoan);
+  const duocSuaHopDong = duocSuaHopDongTheoGiaiDoan(quyen, giaiDoan) && !chiXem;
   /* 🔴 PHẢI NỚI CẢ Ở ĐÂY. Hộp "Gỡ vướng" đính vào ĐÚNG CÙNG MỘT tệp với trang chi tiết; nới một
      nơi thôi là nhân viên đính được ở màn này mà bị chặn ở màn kia — đúng kiểu lệch mà chú thích
      của `duocSuaHopDongTheoGiaiDoan` cảnh báo. */
-  const duocDinhHopDong = duocDinhHopDongVaoOTrong(quyen);
+  const duocDinhHopDong = duocDinhHopDongVaoOTrong(quyen) && !chiXem;
 
   /**
    * `hienCau` — có in câu vướng mắc ở đầu khối không.

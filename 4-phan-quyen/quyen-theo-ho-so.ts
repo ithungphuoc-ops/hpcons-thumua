@@ -101,6 +101,62 @@ export function laDonHangCuaToi(
   return dn.items.some((d) => d.nguoiPhuTrachUid === uid && sttCuaPO.has(d.stt));
 }
 
+// ============================================================
+// ★★★ XEM ĐƯỢC NHƯNG KHÔNG ĐƯỢC THAO TÁC — Sếp 22/10/2026 (Thu mua HPCons)
+//
+// Nguyên văn: *"khi a giao việc cho người A làm và người B và C đều thấy được việc của người A khi người
+// B và C bấm vào việc của ng A thì người B và C chỉ được quyền xem hết toàn bộ như báo giá PO hợp đồng
+// hóa đơn,... nhưng k có quyền thao tác tích check tồn kho hay thêm báo giá sửa PO hợp đồng gì cả"*.
+// Sếp chốt thêm: chỉ HPCons (EQUI giữ nguyên) · B, C không bình luận · hoá đơn / công nợ / đợt thanh
+// toán thì nhân viên chỉ làm trên đơn của mình (Trưởng bộ phận, Kế toán làm được tất cả như cũ).
+//
+// 📌 CHỈ SIẾT NGƯỜI LÀM THU MUA (`lapPO`: NV thu mua, NV Kho tổng, NV Nhân sự, TBP cấp 2). Vai trò không
+// có `lapPO` (Kế toán, thủ kho, QLDA, Phòng Thi công, BGĐ) vẫn theo cờ riêng của họ như trước — thủ kho
+// đính phiếu giao, Kế toán ghi đợt thanh toán, QLDA bình luận… không đổi.
+// ============================================================
+
+/** Câu chặn chung — giao diện và tầng ghi nói cùng một câu. */
+export const LY_DO_CHI_XEM_DE_NGHI =
+  "Bạn không được giao việc trên đề nghị này nên chỉ xem được — muốn làm thì nhờ Trưởng bộ phận giao việc.";
+export const LY_DO_CHI_XEM_DON_HANG =
+  "Đơn hàng này không phải của bạn nên chỉ xem được — chỉ người phụ trách đơn, Trưởng bộ phận (thanh toán: thêm Kế toán) thao tác được.";
+
+/**
+ * `true` = người này CHỈ XEM đề nghị (người làm thu mua, không phải Trưởng bộ phận, không phụ trách
+ * dòng nào của phiếu). Kho EQUI luôn `false` (giữ nguyên hành vi cũ).
+ */
+export function chiXemDeNghi(
+  deNghi: Pick<DeNghiMuaHang, "items">,
+  uid: string,
+  quyen: Quyen,
+  kho: KhoId,
+): boolean {
+  if (kho !== "thuong" || !quyen.lapPO || quyen.phanBoCongViec) return false;
+  return !uid || !deNghi.items.some((d) => d.nguoiPhuTrachUid === uid);
+}
+
+/**
+ * `true` = người này CHỈ XEM đơn hàng (người làm thu mua, không phải Trưởng bộ phận, không phải người
+ * phụ trách đơn, không phụ trách dòng đề nghị nào của chính đơn). Dùng cho hoá đơn VAT, điều khoản công
+ * nợ, đợt thanh toán, chốt đơn nháp, gửi lại sang Kho, xác nhận nhận hàng. Kho EQUI luôn `false`.
+ * 📌 Không tính "người theo dõi" như `laDonHangCuaToi` — theo dõi là để XEM, không phải để làm.
+ */
+export function chiXemDonHang(
+  po: { nguoiPhuTrachUid?: string; prId?: string; items?: readonly { sttDongDeNghi?: number }[] },
+  tatCaDeNghi: readonly DeNghiMuaHang[],
+  uid: string,
+  quyen: Quyen,
+  kho: KhoId,
+): boolean {
+  if (kho !== "thuong" || !quyen.lapPO || quyen.phanBoCongViec) return false;
+  if (!uid) return true;
+  if (po.nguoiPhuTrachUid === uid) return false;
+  const dn = po.prId ? tatCaDeNghi.find((x) => x.id === po.prId) : undefined;
+  if (!dn) return true;
+  const sttCuaPO = new Set((po.items ?? []).map((i) => i.sttDongDeNghi));
+  return !dn.items.some((d) => d.nguoiPhuTrachUid === uid && sttCuaPO.has(d.stt));
+}
+
 /**
  * Có được xem bảng báo giá của đề nghị này không.
  *

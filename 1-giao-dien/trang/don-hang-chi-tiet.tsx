@@ -28,7 +28,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { duongDanGocTheoQuyen } from "@/2-quy-trinh/dieu-huong";
-import { duocXacNhanNhanDuHangCuaHoSo } from "@/4-phan-quyen/quyen-theo-ho-so";
+import {
+  chiXemDonHang,
+  duocXacNhanNhanDuHangCuaHoSo,
+  LY_DO_CHI_XEM_DON_HANG,
+} from "@/4-phan-quyen/quyen-theo-ho-so";
 import { duocXemBuoc, O_XEM_BUOC } from "@/4-phan-quyen/quyen";
 import { useXemBuocHoSo } from "@/4-phan-quyen/xem-buoc-ho-so";
 import { nhanCoTick } from "@/4-phan-quyen/quyen-rieng";
@@ -154,6 +158,8 @@ export default function TrangChiTietDonHang() {
   }
 
   const tt = nhanAnToan(NHAN_TRANG_THAI_PO, po.trangThai);
+  /* ★ Sếp 22/10/2026 (HPCons): người làm thu mua không phụ trách đơn này thì chỉ xem (tầng ghi hỏi lại). */
+  const chiXemDon = chiXemDonHang(po, deNghi, nguoiDung.uid, quyen, kho);
 
   /**
    * ★★ ĐƠN NÀY CÓ THUỘC HỒ SƠ PHÒNG BAN KHÔNG — xét Ở TẦNG PO (15/09/2026, tối, Sếp).
@@ -338,6 +344,8 @@ export default function TrangChiTietDonHang() {
             {/* Ẩn hẳn khi không đủ quyền hoặc đơn đã hoàn thành/hủy — component tự kiểm cả hai,
                 xem `hop-sua-don-hang.tsx`. */}
             <HopSuaDonHang po={po} />
+            {/* ★ Sếp 22/10/2026 (HPCons): đơn của người khác → chỉ xem, nói rõ thay vì để nút biến mất im lặng. */}
+            {chiXemDon && <span className="text-xs text-text-desc">Chỉ xem — {LY_DO_CHI_XEM_DON_HANG}</span>}
             {quyen.xemGia && (
               <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/in/don-hang/${po.id}`} target="_blank" />}>
                 <Printer className="size-4" aria-hidden />
@@ -348,7 +356,7 @@ export default function TrangChiTietDonHang() {
                 "Lập đơn mua hàng" (trạng thái "nhap") trước đây không có đường chốt lại, dù
                 `hanhDongTienMotBuoc` hứa "Chốt đơn hàng nháp". Luật chặn thật (`vuongMacLapDonHang`)
                 nằm ở cửa ghi `chotDonNhap` (kho-du-lieu.tsx), nút này chỉ gọi tới. */}
-            {po.trangThai === "nhap" && (
+            {po.trangThai === "nhap" && !chiXemDon && (
               <Button
                 size="sm"
                 onClick={() => {
@@ -489,7 +497,7 @@ export default function TrangChiTietDonHang() {
                 bị từ chối y hệt) — nhưng khi bên Kho đã đổi luật (vd 17/10 Kho nhận dòng ngoài đề nghị)
                 thì người dùng cần một lối gửi lại mà không phải sửa đơn. Không có đường tự động nào
                 chạy song song ở ca này, nên vẫn đúng lý do "chỉ một đường làm một việc" ở trên. */}
-            {(daDungTuGuiKho || (po.qlkCtrSyncStatus === "can_xu_ly_tay" && !daSuaSauKhiDung)) && (
+            {!chiXemDon && (daDungTuGuiKho || (po.qlkCtrSyncStatus === "can_xu_ly_tay" && !daSuaSauKhiDung)) && (
               <div>
                 <Button size="sm" variant="outline" disabled={dangGuiLaiKho} onClick={() => void handleGuiLaiKhoNgay()}>
                   {dangGuiLaiKho ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
@@ -599,7 +607,7 @@ export default function TrangChiTietDonHang() {
                 title={xem.lyDoKhongXemHoSo(po.prId) ?? undefined}
               />
             )
-          ) : po.trangThai === "cho_de_nghi" && quyen.lapPO ? (
+          ) : po.trangThai === "cho_de_nghi" && quyen.lapPO && !chiXemDon ? (
             /* ★ PO "chờ đề nghị" (29/08/2026) — nút gắn đề nghị ngay tại đây, đúng chỗ đang
                nói "chưa có đề nghị". Xem `hop-gan-de-nghi.tsx` cho toàn bộ luồng chọn + kiểm
                điều kiện + đổi trạng thái.
@@ -922,6 +930,7 @@ export default function TrangChiTietDonHang() {
                   nhau là người dùng thấy nút ở màn này mà không thấy ở màn kia, rồi tưởng app
                   lỗi — đúng loại lỗi khó truy nhất. */}
               {duocXacNhanNhanDuHangCuaHoSo(deNghiNguon, nguoiDung) &&
+                !chiXemDon &&
                 /* ★ 06/10/2026: chỉ đếm lần giao ĐÃ NHẬP KHO, và đơn "chờ đề nghị" / đã huỷ chưa
                    được chốt — cùng luật tầng ghi (`vuongMacDonXacNhanNhanHang`). */
                 phieuCuaPO.some(phieuDuocTinh) &&

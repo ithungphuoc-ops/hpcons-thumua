@@ -17,6 +17,8 @@ import { Input } from "@/1-giao-dien/nen-tang-ui/input";
 import { StatusBadge } from "@/1-giao-dien/thanh-phan-dung-chung/status-badge";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
+import { chiXemDeNghi } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { THU_TU_PHONG_BAN, timNhanSu, type NhanSu } from "@/3-du-lieu/danh-ba-nhan-su";
 import type { MaPhongBan } from "@/3-du-lieu/danh-muc-phong-ban";
 import { useDanhBa } from "@/4-phan-quyen/dung-danh-ba";
@@ -41,7 +43,9 @@ export function KhoiNguoiTheoDoi({ deNghi }: { deNghi: DeNghiMuaHang }) {
   const dsTheoDoi = useMemo(() => deNghi.nguoiTheoDoi ?? [], [deNghi.nguoiTheoDoi]);
 
   /** Chỉ Thu mua được sửa danh sách. Vai trò khác vẫn xem được, chỉ không thêm/bỏ. */
-  const duocSua = quyen.phanBoCongViec || quyen.lapPO;
+  /* ★ Sếp 22/10/2026 (HPCons): người làm thu mua không được giao phiếu thì chỉ xem — không thêm/bỏ người theo dõi. */
+  const kho = useKhoHienTai();
+  const duocSua = (quyen.phanBoCongViec || quyen.lapPO) && !chiXemDeNghi(deNghi, nguoiDung.uid, quyen, kho);
   const toiDangTheoDoi = dsTheoDoi.some((n) => n.uid === nguoiDung.uid);
 
   /**

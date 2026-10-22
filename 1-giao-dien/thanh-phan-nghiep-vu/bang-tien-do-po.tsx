@@ -21,12 +21,14 @@ import { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { tenAppKho } from "@/2-quy-trinh/ten-app-kho";
 import { ThanhTienDo } from "@/1-giao-dien/thanh-phan-nghiep-vu/thanh-tien-do";
 import { HopGhiNhanGiaoHang } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-ghi-nhan-giao-hang";
+import { toast } from "sonner";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import { tinhTienDoPO, vuongMacThayTepPhieuGiao } from "@/2-quy-trinh/tinh-toan";
 import { xacDinhGiaiDoan } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { laHoSoPhongBan, LY_DO_NHANH_PHONG_BAN } from "@/2-quy-trinh/ho-so-phong-ban";
 import {
+  chiXemDonHang,
   duocGhiDoiChieuThuMua,
   duocGhiNhanGiaoHangCuaHoSo,
   ghiNhanGiaoHangNhoNhanhPhongBan,
@@ -136,7 +138,11 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
    * 🔴 LUẬT NẰM Ở `4-phan-quyen/quyen-theo-ho-so.ts`, KHÔNG so `tenCongTrinh` tại chỗ. Cùng lý do
    * với `vuongMacThayTepPhieuGiao` ngay dưới: một luật, mọi nơi gọi chung.
    */
-  const duocDinhKemPhieuGiao = duocGhiNhanGiaoHangCuaHoSo(deNghiCuaPO, nguoiDung, quyen);
+  /* ★ Sếp 22/10/2026 (HPCons): người làm thu mua không phải chủ đơn thì CHỈ XEM — trừ người có cờ kho (thủ kho /
+     NV Kho tổng làm việc kho trên mọi đơn như cũ). Cùng điều kiện với tầng ghi (`dinhKemPhieuGiao`, `ghiDoiChieuThuMua`,
+     `themPhieuNhanPhongBan`) — nút không được sáng khi bấm vào sẽ bị chặn, và tệp không bị tải lên R2 rồi mới chặn. */
+  const chiXemDon = !(quyen.ghiPhieuNhanHang || quyen.xacNhanKho) && chiXemDonHang(po, deNghi, nguoiDung.uid, quyen, kho);
+  const duocDinhKemPhieuGiao = duocGhiNhanGiaoHangCuaHoSo(deNghiCuaPO, nguoiDung, quyen) && !chiXemDon;
   /**
    * ★★ ĐƯỢC GHI DẤU ĐỐI CHIẾU KHÔNG — Sếp 17/09/2026: *"bước tiến hành nhận hàng… là bước check
    * song song với dữ liệu từ app kho đưa về"*.
@@ -145,7 +151,7 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
    * vì nó SINH RA khối lượng; cờ này mở cho **mọi hồ sơ** vì nó chỉ ghi lại việc thu mua đã soi
    * chéo số của kho — và hồ sơ công trình mới là nơi có phiếu kho để soi.
    */
-  const duocDoiChieu = duocGhiDoiChieuThuMua(deNghiCuaPO, nguoiDung);
+  const duocDoiChieu = duocGhiDoiChieuThuMua(deNghiCuaPO, nguoiDung) && !chiXemDon;
   /** Mở được là NHỜ nhánh phòng ban → bắt buộc in lý do ra, không nới im lặng. */
   const moNhoNhanhPhongBan = ghiNhanGiaoHangNhoNhanhPhongBan(deNghiCuaPO, nguoiDung, quyen);
 
@@ -695,14 +701,16 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                             <button
                               type="button"
                               aria-pressed={p.thuMuaDoiChieu?.khop === true}
-                              onClick={() =>
-                                ghiDoiChieuThuMua(
+                              onClick={() => {
+                                /* ★ 22/10/2026 (soát QA): tầng ghi có thể từ chối — phải nói ra, không im lặng. */
+                                const loi = ghiDoiChieuThuMua(
                                   p.id,
                                   p.thuMuaDoiChieu?.khop === true ? null : true,
                                   undefined,
                                   { uid: nguoiDung.uid, ten: nguoiDung.tenHienThi },
-                                )
-                              }
+                                );
+                                if (loi) toast.error("Chưa ghi được đối chiếu", { description: loi });
+                              }}
                               title={
                                 p.thuMuaDoiChieu?.khop === true
                                   ? "Đang đánh dấu khớp — bấm lại để bỏ dấu"
@@ -762,6 +770,8 @@ export function BangTienDoPO({ po }: { po: DonDatHang }) {
                                   if (loi === null) {
                                     setDangGhiLech(null);
                                     setLyDoLech("");
+                                  } else {
+                                    toast.error("Chưa ghi được đối chiếu", { description: loi });
                                   }
                                 }}
                                 className="min-h-9 rounded-lg bg-danger px-3 text-xs font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"

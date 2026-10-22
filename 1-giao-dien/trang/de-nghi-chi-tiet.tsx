@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Archive,
   ArrowLeft,
+  Eye,
   BadgeCheck,
   Check,
   Clock,
@@ -116,6 +117,9 @@ import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
 import {
   duocChiaViec,
   duocTichCongViec,
+  chiXemDeNghi,
+  chiXemDonHang,
+  LY_DO_CHI_XEM_DE_NGHI,
   duocXemBaoGiaCuaDeNghi,
   duocXacNhanNhanDuHangCuaHoSo,
   duocXemDeNghiTheoNguoi,
@@ -644,6 +648,10 @@ export default function TrangChiTietDeNghi({
   /* ⚠️ Gán ra biến riêng: `dn` đã qua `if (!dn) return` phía trên, nhưng TypeScript KHÔNG giữ
      phép thu hẹp kiểu đó vào trong thân một hàm khai báo (hàm có thể được gọi ở lúc khác). */
   const hoSo = dn;
+  /* ★★ Sếp 22/10/2026 (HPCons): người làm thu mua KHÔNG được giao phiếu này thì CHỈ XEM — xem hết (báo giá,
+     PO, hợp đồng, hoá đơn…) nhưng không tích, không đính, không sửa, không bình luận. Luật `chiXemDeNghi`,
+     tầng ghi hỏi lại đúng hàm đó. */
+  const chiXem = chiXemDeNghi(dn, nguoiDung.uid, quyen, kho);
   function conThieuCuaBuoc(ma: GiaiDoanMuaHang): string | undefined {
     const viTri = chuoiBuoc.indexOf(ma);
     if (viTri < 0 || viTriHienTai < 0 || viTri > viTriHienTai) return undefined;
@@ -790,7 +798,7 @@ export default function TrangChiTietDeNghi({
                         checked={Boolean(xong)}
                         /* ★ Sếp 20/10/2026: quản lý HOẶC nhân viên làm mua hàng đều tích được —
                            luật chung `duocTichCongViec`, tầng ghi hỏi lại đúng câu này. */
-                        disabled={!duocTichCongViec(quyen)}
+                        disabled={!duocTichCongViec(quyen) || chiXem}
                         onChange={(e) => {
                           /* `buoc` lấy từ CHÍNH NHÓM đang vẽ, không lấy `giaiDoan` — việc của
                              bước trước phải ghi vào đúng bước của nó. */
@@ -860,7 +868,10 @@ export default function TrangChiTietDeNghi({
         ))}
 
         {/* Nói rõ ai được tích, thay vì để ô mờ không lời giải thích. */}
-        {!duocTichCongViec(quyen) && nhom.length > 0 && (
+        {chiXem && nhom.length > 0 && (
+          <p className="text-xs text-text-desc">{LY_DO_CHI_XEM_DE_NGHI}</p>
+        )}
+        {!chiXem && !duocTichCongViec(quyen) && nhom.length > 0 && (
           <p className="text-xs text-text-desc">
             Chỉ Trưởng bộ phận và nhân viên làm mua hàng tích được các việc này.
           </p>
@@ -1033,7 +1044,7 @@ export default function TrangChiTietDeNghi({
    * dữ liệu (`themTepGiaiDoan` / `goTepGiaiDoan`); còn chặn theo vai trò thì phải làm bằng
    * Firestore Security Rules khi lên bản thật.
    */
-  const duocSuaTepBuoc = quyen.phanBoCongViec || quyen.lapPO;
+  const duocSuaTepBuoc = (quyen.phanBoCongViec || quyen.lapPO) && !chiXem;
 
   /**
    * ★ QUYỀN SỬA RIÊNG CHO Ô "HỢP ĐỒNG/ĐƠN MUA HÀNG" — Sếp 01/09/2026: ô này giờ hiện Ở CẢ HAI
@@ -1047,14 +1058,14 @@ export default function TrangChiTietDeNghi({
    * tự tính riêng ở từng nơi là hai nơi có thể lệch nhau khi sau này ai đó sửa một chỗ mà quên
    * chỗ kia — xem chú thích đầy đủ ở nơi khai báo hàm.
    */
-  const duocSuaHopDong = duocSuaHopDongTheoGiaiDoan(quyen, giaiDoan);
+  const duocSuaHopDong = duocSuaHopDongTheoGiaiDoan(quyen, giaiDoan) && !chiXem;
   /* ★ ĐÍNH VÀO Ô TRỐNG là quyền RIÊNG, rộng hơn quyền thay/xoá — Sếp 18/09/2026 *"mở nút đính kèm
      cho nhân viên"*, và chốt lại *"vẫn giữ ở trưởng bộ phận"* cho việc thay. Xem
      `duocDinhHopDongVaoOTrong` để biết vì sao KHÔNG nới thẳng `duocSuaHopDong`. */
-  const duocDinhHopDong = duocDinhHopDongVaoOTrong(quyen);
+  const duocDinhHopDong = duocDinhHopDongVaoOTrong(quyen) && !chiXem;
   /* ★ Bản PO nhà cung cấp ký có cờ RIÊNG — Sếp 16/09/2026: "Nhân viên là người đính kèm file PO
      ký". Xem `duocDinhDonMuaHangNCCKy` để biết vì sao không dùng chung cờ với Hợp đồng. */
-  const duocDinhPOKy = duocDinhDonMuaHangNCCKy(quyen);
+  const duocDinhPOKy = duocDinhDonMuaHangNCCKy(quyen) && !chiXem;
 
   /**
    * ★ AI ĐƯỢC DUYỆT HOÀN THÀNH ĐƠN Ở BƯỚC ⑥ — Ban lãnh đạo 22/08/2026: *"Bước này sẽ để nhân viên
@@ -1215,6 +1226,16 @@ export default function TrangChiTietDeNghi({
           <BangAiDangSua loai="de-nghi" id={dn.id} uid={nguoiDung.uid} ten={nguoiDung.tenHienThi} />
 
           {tienDoNguoi && <TienDoTheoNguoi tienDo={tienDoNguoi} />}
+          {/* ★ Sếp 22/10/2026 (HPCons): nói rõ CHẾ ĐỘ CHỈ XEM ngay đầu trang — nút mờ mà không nói vì sao
+              là kiểu bí việc khó chịu nhất. */}
+          {chiXem && (
+            <p className="flex items-start gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-text-secondary">
+              <Eye className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                <strong className="text-text-primary">Chỉ xem.</strong> {LY_DO_CHI_XEM_DE_NGHI}
+              </span>
+            </p>
+          )}
           {/* ===== THÔNG TIN ĐỀ NGHỊ — danh sách trường đánh số =====
               Bố cục theo trang nhiệm vụ Base.vn (ảnh Ban lãnh đạo cung cấp 10/08/2026):
               trường nào cũng có số thứ tự để trao đổi qua điện thoại chỉ nhau được ngay
@@ -2012,7 +2033,7 @@ export default function TrangChiTietDeNghi({
                         /* ★ Sếp 20/10/2026: chưa checkin (việc bắt buộc bước ①) thì khóa nút sớm,
                            cùng câu với tầng ghi — trước đây chỉ biết bị chặn sau khi bấm xác nhận. */
                         const vuongMac =
-                          vuongMacViecBuoc1ChuaXong(dn, cauHinh) ?? vuongMacTrinhXetDuyet(dn, cauHinh);
+                          (chiXem ? LY_DO_CHI_XEM_DE_NGHI : null) ?? vuongMacViecBuoc1ChuaXong(dn, cauHinh) ?? vuongMacTrinhXetDuyet(dn, cauHinh);
                         return (
                           <div className="flex flex-wrap items-center gap-2">
                             {/* Nút khóa KÈM LÝ DO, không khóa im lặng — nút mờ mà không nói còn
@@ -2849,7 +2870,7 @@ export default function TrangChiTietDeNghi({
 
                         /* ★ Sếp 20/10/2026: phiếu xuất kho / nhân sự nhảy thẳng ④ — chưa checkin thì
                            khóa nút sớm, cùng câu với chốt thật ở `themDonHang`. */
-                        const vuong = vuongMacViecBuoc1ChuaXong(dn, cauHinh) ?? vuongMacRoiBuocLapDon(dn);
+                        const vuong = (chiXem ? LY_DO_CHI_XEM_DE_NGHI : null) ?? vuongMacViecBuoc1ChuaXong(dn, cauHinh) ?? vuongMacRoiBuocLapDon(dn);
                         const nhan = "Lập đơn đặt hàng";
                         if (vuong) {
                           return (
@@ -3546,7 +3567,7 @@ export default function TrangChiTietDeNghi({
                                  chờ kiểm / từ chối có khối lượng được tính = 0. Cùng luật tầng ghi. */
                               phieuCuaPO.some(phieuDuocTinh) &&
                               !hoSoPhongBan &&
-                              duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung) && (
+                              (duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung) && !chiXemDonHang(po, deNghi, nguoiDung.uid, quyen, kho)) && (
                               <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                   size="sm"
@@ -3623,7 +3644,7 @@ export default function TrangChiTietDeNghi({
                                 }
                                 /* Cùng chốt với tầng ghi `boSungSauPhieuGiao`: chỉ ở bước ⑥, hồ sơ chưa đóng. */
                                 if (giaiDoan !== "nhan_hang" || hoSoDaDong) return null;
-                                if (!duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung)) return null;
+                                if (!(duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung) && !chiXemDonHang(po, deNghi, nguoiDung.uid, quyen, kho))) return null;
                                 if (vuongMacBoSungSau(po, dn, phieuCuaPO) !== null) return null;
                                 return (
                                   <div className="flex flex-wrap items-center gap-2">
@@ -3801,7 +3822,7 @@ export default function TrangChiTietDeNghi({
                                 /* Phải hỏi CÙNG một hàm với nút ở trên. Dùng cờ toàn cục ở đây là
                                    người thu mua của hồ sơ phòng ban vừa thấy nút bấm được, vừa đọc
                                    câu "đang chờ thủ kho xác nhận" — hai thứ trái nhau trên một màn. */
-                                !duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung)) ||
+                                !(duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung) && !chiXemDonHang(po, deNghi, nguoiDung.uid, quyen, kho))) ||
                                 (daKhoXacNhan &&
                                   !po.xacNhanTruongBP &&
                                   !duocDuyetHoanThanhDon)) && (
@@ -4010,7 +4031,8 @@ export default function TrangChiTietDeNghi({
                                    đơn ít hơn số đợt — tuyệt đối không dùng để chặn đóng hồ sơ
                                    (Sếp chốt 19/09: NCC hay xuất gộp cuối tháng). */
                                 soDotGiao={phieuLienQuan.filter((p) => p.poId === po.id).length}
-                                ghiDuoc={quyen.lapPO}
+                                /* ★ 22/10/2026: hoá đơn xét theo TỪNG ĐƠN — nhân viên chỉ ghi trên đơn của mình. */
+                                ghiDuoc={quyen.lapPO && !chiXemDonHang(po, deNghi, nguoiDung.uid, quyen, kho)}
                                 xemGia={quyen.xemGia}
                                 nguoiGhi={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
                                 /* Toàn bộ tệp hoá đơn của hồ sơ — mỗi dòng tự tra tệp của mình
@@ -4043,7 +4065,7 @@ export default function TrangChiTietDeNghi({
                         laHoSoPhongBan(dn)
                           ? undefined
                           : (() => {
-                              const duocImport = duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung);
+                              const duocImport = (duocXacNhanNhanDuHangCuaHoSo(dn, nguoiDung) && !chiXem);
                               const moO = moOImportPhieuGiaoThuMua(poLienQuan);
                               const chuaMo = "Chỉ mở khi đã bấm “Bổ sung sau” ở bước Tiến hành nhận hàng.";
                               return (
@@ -4374,6 +4396,7 @@ export default function TrangChiTietDeNghi({
           cứu — nó thuộc vùng làm việc chính. */}
       <KhoiTraoDoi
         deNghi={dn}
+        chiXem={chiXem}
         nguoiDung={{ uid: nguoiDung.uid, ten: nguoiDung.tenHienThi }}
         onGui={(noiDung, tep, traLoiChoId) =>
           vietBinhLuan(

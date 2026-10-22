@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "@/1-giao-dien/khung-app/lien-ket-kho";
+import Link, { useKhoHienTai } from "@/1-giao-dien/khung-app/lien-ket-kho";
 import { Fragment, useRef, useState, type ReactNode } from "react";
 import { useDungDayKhungNhin } from "@/1-giao-dien/thanh-phan-dung-chung/dung-day-khung-nhin";
 import {
@@ -45,7 +45,7 @@ import {
  * chi). Xóa đi rồi dựng lại là dựng lại một luật tài chính từ trí nhớ.
  */
 import { congNoTheoDonHang, tienLamCanCu, tongHopCongNo } from "@/2-quy-trinh/tuoi-no";
-import { laDonHangCuaToi } from "@/4-phan-quyen/quyen-theo-ho-so";
+import { chiXemDonHang, laDonHangCuaToi } from "@/4-phan-quyen/quyen-theo-ho-so";
 import { gomTheoCongTrinh, tenCongTrinhCuaPO } from "@/2-quy-trinh/gom-cong-trinh";
 import { formatCurrencyVnd, formatDate } from "@/6-tien-ich/dinh-dang";
 import { boDau } from "@/6-tien-ich/bo-dau";
@@ -109,6 +109,8 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
     xoaDotThanhToan,
   } = useDuLieu();
   const { quyen, nguoiDung } = useNguoiDung();
+  /* Kho đang xem — gọi TRƯỚC mọi `return` sớm (luật hook); dùng cho chốt "chỉ xem" theo đơn (Sếp 22/10/2026). */
+  const khoCongNo = useKhoHienTai();
 
   /**
    * ★★ Ô TÌM THEO TÊN NHÀ CUNG CẤP — Ban lãnh đạo 28/08/2026.
@@ -218,6 +220,14 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
    * (`vuongMacQuyenGhiThanhToan`), cờ này chỉ để không bày nút ra.
    */
   const ghiDuocThanhToan = quyen.ghiThanhToan;
+  /* ★ Sếp 22/10/2026 (HPCons): nhân viên chỉ sửa điều khoản / hoá đơn / ghi đợt thanh toán trên ĐƠN CỦA MÌNH;
+     Trưởng bộ phận và Kế toán làm được tất cả như cũ. Luật `chiXemDonHang`, tầng ghi hỏi lại. */
+  const chiXemPO = (poId: string): boolean => {
+    const po = donHang.find((p) => p.id === poId);
+    return po ? chiXemDonHang(po, deNghi, nguoiDung.uid, quyen, khoCongNo) : false;
+  };
+  const suaDuocDieuKhoanDon = (poId: string) => suaDuocDieuKhoan && !chiXemPO(poId);
+  const ghiDuocThanhToanDon = (poId: string) => ghiDuocThanhToan && !chiXemPO(poId);
 
   /**
    * Ghi một thay đổi điều khoản công nợ.
@@ -713,7 +723,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                         * dễ bấm trượt trên máy tính bảng.
                         */}
                       <TableCell className="sticky left-0 z-[5] bg-card px-1 text-center tabular-nums text-text-desc">
-                        {r.dotChi.length > 0 || ghiDuocThanhToan ? (
+                        {r.dotChi.length > 0 || ghiDuocThanhToanDon(r.poId) ? (
                           <button
                             type="button"
                             onClick={() => setMoDotChi(moDotChi === r.poId ? null : r.poId)}
@@ -800,7 +810,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                           */}
                         <OSoHoaDon
                           giaTri={r.soHoaDon}
-                          suaDuoc={suaDuocDieuKhoan && r.soToHoaDon === 0}
+                          suaDuoc={suaDuocDieuKhoanDon(r.poId) && r.soToHoaDon === 0}
                           onLuu={(so) => {
                             const loi = datDieuKhoanCongNo(r.poId, { soHoaDon: so }, "");
                             if (loi) toast.error(loi);
@@ -820,7 +830,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                             tổng tiền mà không sửa được số hoá đơn, hai thứ vốn của cùng một tờ. */}
                         <OTongTienHoaDon
                           giaTri={r.tongTienHoaDon}
-                          suaDuoc={suaDuocDieuKhoan && r.soToHoaDon === 0}
+                          suaDuoc={suaDuocDieuKhoanDon(r.poId) && r.soToHoaDon === 0}
                           onLuu={(so) => {
                             const loi = datDieuKhoanCongNo(r.poId, { tongTienHoaDon: so }, "");
                             if (loi) toast.error(loi);
@@ -903,7 +913,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                       <TableCell className="text-center tabular-nums">
                         <OSoNgayDuocNo
                           giaTri={r.soNgayDuocNo}
-                          suaDuoc={suaDuocDieuKhoan}
+                          suaDuoc={suaDuocDieuKhoanDon(r.poId)}
                           onLuu={(soNgay) => luuDieuKhoan(r.poId, { soNgayDuocNo: soNgay })}
                         />
                       </TableCell>
@@ -914,7 +924,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                         <ONgayBatDau
                           giaTri={r.ngayBatDau}
                           nhapTay={r.batDauNhapTay}
-                          suaDuoc={suaDuocDieuKhoan}
+                          suaDuoc={suaDuocDieuKhoanDon(r.poId)}
                           onLuu={(ngay) => luuDieuKhoan(r.poId, { ngayBatDauTinhNoTay: ngay })}
                         />
                       </TableCell>
@@ -1043,7 +1053,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                           <TableCell className="text-right tabular-nums text-text-secondary">
                             {/* ★ Nhập thẳng số tiền đã trả (Sếp 25/09/2026) — tạo một ĐỢT CHI gắn tờ
                                 này, không mở sổ tiền thứ hai. Xem `o-nhap-da-tra.tsx`. */}
-                            {ghiDuocThanhToan && !h.daTatToan ? (
+                            {ghiDuocThanhToanDon(r.poId) && !h.daTatToan ? (
                               <ONhapDaTra
                                 poId={r.poId}
                                 hoaDonId={h.id}
@@ -1068,7 +1078,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                           <TableCell className="text-center">
                             <OSoNgayDuocNo
                               giaTri={h.soNgayRieng ? h.soNgayDuocNo : undefined}
-                              suaDuoc={suaDuocDieuKhoan}
+                              suaDuoc={suaDuocDieuKhoanDon(r.poId)}
                               onLuu={(so) => {
                                 const loi = datDieuKhoanHoaDon(r.poId, h.id, { soNgayDuocNo: so });
                                 if (loi) toast.error(loi);
@@ -1079,7 +1089,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                             <ONgayBatDau
                               giaTri={h.ngayBatDau}
                               nhapTay={h.batDauNhapTay}
-                              suaDuoc={suaDuocDieuKhoan}
+                              suaDuoc={suaDuocDieuKhoanDon(r.poId)}
                               onLuu={(ngay) => {
                                 const loi = datDieuKhoanHoaDon(r.poId, h.id, {
                                   ngayBatDauTinhNoTay: ngay,
@@ -1100,7 +1110,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                             * 📌 Chỉ còn biểu tượng + `aria-label`: cột cuối rộng 3%, không đủ chỗ chữ.
                             */}
                           <TableCell className="px-1 text-center">
-                            {ghiDuocThanhToan && !h.daTatToan && (
+                            {ghiDuocThanhToanDon(r.poId) && !h.daTatToan && (
                               <button
                                 type="button"
                                 aria-label={`Ghi tiền cho hoá đơn ${h.soHoaDon}`}
@@ -1137,7 +1147,7 @@ export default function TrangCongNo({ boLocKho }: { boLocKho?: ReactNode }) {
                           )}
                           <KhoiDotThanhToan
                             dong={r}
-                            ghiDuoc={ghiDuocThanhToan}
+                            ghiDuoc={ghiDuocThanhToanDon(r.poId)}
                             /* ★ Tờ hoá đơn gắn sẵn khi người dùng bấm "Ghi tiền" ở dòng tờ phía
                                trên (Sếp 20/09/2026). `null` = ghi đợt chi chung như trước. */
                             ganSanHoaDon={ganHoaDon}

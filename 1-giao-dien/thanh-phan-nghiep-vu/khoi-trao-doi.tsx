@@ -68,6 +68,7 @@ export function KhoiTraoDoi({
   onGui,
   onSua,
   duocXemBaiThuHoi = false,
+  chiXem = false,
 }: {
   deNghi: DeNghiMuaHang;
   nguoiDung: { uid: string; ten: string };
@@ -75,6 +76,8 @@ export function KhoiTraoDoi({
   onSua: (binhLuanId: string, noiDungMoi: string, tepThem: MoTaTep[], idTepGo: string[]) => void;
   /** Trưởng bộ phận / quản trị xem lại được nội dung bài đã thu hồi trước đây. */
   duocXemBaiThuHoi?: boolean;
+  /** ★ Sếp 22/10/2026 (HPCons): người làm thu mua không được giao phiếu → chỉ đọc bình luận, không viết / trả lời. */
+  chiXem?: boolean;
 }) {
   const [the, setThe] = useState<"binh_luan" | "lich_su">("binh_luan");
   const binhLuan = useMemo(() => deNghi.binhLuan ?? [], [deNghi.binhLuan]);
@@ -150,7 +153,13 @@ export function KhoiTraoDoi({
       <div className="p-(--hp-md-card-pad)">
         {the === "binh_luan" ? (
           <div className="flex flex-col gap-(--hp-md-row-gap)">
-            <OSoanBinhLuan nguoiDung={nguoiDung} onGui={(nd, tep) => onGui(nd, tep)} />
+            {chiXem ? (
+              <p className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-text-desc">
+                Bạn không được giao việc trên đề nghị này nên chỉ đọc được bình luận, không viết hay trả lời.
+              </p>
+            ) : (
+              <OSoanBinhLuan nguoiDung={nguoiDung} onGui={(nd, tep) => onGui(nd, tep)} />
+            )}
 
             {daSapXep.length === 0 ? (
               <p className="py-2 text-sm text-text-desc">
@@ -165,7 +174,8 @@ export function KhoiTraoDoi({
                       bai={bai}
                       laCuaToi={bai.nguoiVietUid === nguoiDung.uid}
                       onSua={(nd, tepThem, idGo) => onSua(bai.id, nd, tepThem, idGo)}
-                      onTraLoi={(nd, tep) => onGui(nd, tep, bai.id)}
+                      khoaSua={chiXem}
+                      onTraLoi={chiXem ? undefined : (nd, tep) => onGui(nd, tep, bai.id)}
                       nguoiDung={nguoiDung}
                       duocXemBaiThuHoi={duocXemBaiThuHoi}
                       moc={moc}
@@ -182,6 +192,7 @@ export function KhoiTraoDoi({
                               laTraLoi
                               laCuaToi={t.nguoiVietUid === nguoiDung.uid}
                               onSua={(nd, tepThem, idGo) => onSua(t.id, nd, tepThem, idGo)}
+                              khoaSua={chiXem}
                               nguoiDung={nguoiDung}
                               duocXemBaiThuHoi={duocXemBaiThuHoi}
                               moc={moc}
@@ -485,7 +496,10 @@ function MotBinhLuan({
   duocXemBaiThuHoi,
   moc,
   laTraLoi = false,
+  khoaSua = false,
 }: {
+  /** ★ Sếp 22/10/2026 (HPCons): người chỉ xem phiếu không sửa / thu hồi được cả bài cũ của mình. */
+  khoaSua?: boolean;
   bai: BinhLuan;
   laCuaToi: boolean;
   onSua: (noiDungMoi: string, tepThem: MoTaTep[], idTepGo: string[]) => void;
@@ -647,7 +661,7 @@ function MotBinhLuan({
 
             {/* Sửa — chỉ bài của chính mình. 🔴 KHÔNG có "Xóa": Ban lãnh đạo giữ chỉ đạo
                 16/08/2026 *"chỉ cho chỉnh sửa không cho xoá"*. */}
-            {!daThuHoi && laCuaToi && (
+            {!daThuHoi && laCuaToi && !khoaSua && (
               <button
                 type="button"
                 onClick={() => setDangSua(true)}

@@ -172,6 +172,10 @@ import {
   duocChuyenViecDong,
   nguoiLamDuocChuyenViec,
   duocXacNhanNhanDuHangCuaHoSo,
+  chiXemDeNghi,
+  chiXemDonHang,
+  LY_DO_CHI_XEM_DE_NGHI,
+  LY_DO_CHI_XEM_DON_HANG,
 } from "@/4-phan-quyen/quyen-theo-ho-so";
 /* Hồ sơ PHÒNG BAN (không gắn công trình) — dấu hiệu duy nhất quyết định nhánh ghi phiếu nhận
    thủ công mở hay đóng. Xem `themPhieuNhanPhongBan`. */
@@ -1953,6 +1957,7 @@ interface GiaTriDuLieu {
     prId: string,
     nguoi: Pick<NguoiTheoDoi, "uid" | "ten" | "chucDanh">,
     nguoiThemTen: string,
+    laHeThong?: boolean,
   ) => void;
   /** Bỏ một người khỏi danh sách theo dõi đề nghị. */
   boNguoiTheoDoi: (prId: string, uid: string, nguoiBoTen: string) => void;
@@ -2239,6 +2244,39 @@ function boTienTo(khoa: string): string {
 // chữ của bài đó — không chặn thì tới lúc nào đó lần ghi bị từ chối và CẢ PHÒNG mất dữ liệu
 // vừa nhập, chứ không riêng bình luận.
 // ------------------------------------------------------------
+
+/**
+ * ★★ CHỐT "CHỈ XEM" Ở TẦNG GHI — Sếp 22/10/2026 (Thu mua HPCons): người làm thu mua không được giao
+ * phiếu / không phải chủ đơn thì chỉ xem. Luật ở `chiXemDeNghi` / `chiXemDonHang` (quyen-theo-ho-so.ts),
+ * giao diện khoá nút bằng đúng hai hàm đó. Hàm cấp tệp, nơi gọi truyền giá trị từ ref (`deNghiRef`,
+ * `nguoiDungRef`, `khoRef`) để không phải thêm phụ thuộc vào từng `useCallback`.
+ */
+function loiChiXemDeNghi(
+  ds: readonly DeNghiMuaHang[],
+  dsPO: readonly DonDatHang[],
+  prId: string | undefined,
+  nd: NguoiDung,
+  kho: KhoId,
+): string | null {
+  const dn = prId ? ds.find((d) => d.id === prId) : undefined;
+  if (!dn) return null;
+  if (!chiXemDeNghi(dn, nd.uid, tinhQuyen(nd), kho)) return null;
+  /* Chủ một đơn (chưa huỷ) của chính phiếu này cũng đang làm việc trên phiếu — vd đã chuyển hết dòng mà
+     còn giữ đơn: đính / gỡ tệp hoá đơn đi qua `datTepVaoOGiaiDoan` / `goTepGiaiDoan` (soát QA 22/10). */
+  if (nd.uid && dsPO.some((p) => p.prId === dn.id && p.nguoiPhuTrachUid === nd.uid && p.trangThai !== "huy")) return null;
+  return LY_DO_CHI_XEM_DE_NGHI;
+}
+function loiChiXemDonHang(
+  dsPO: readonly DonDatHang[],
+  dsDN: readonly DeNghiMuaHang[],
+  poId: string | undefined,
+  nd: NguoiDung,
+  kho: KhoId,
+): string | null {
+  const po = poId ? dsPO.find((p) => p.id === poId) : undefined;
+  if (!po) return null;
+  return chiXemDonHang(po, dsDN, nd.uid, tinhQuyen(nd), kho) ? LY_DO_CHI_XEM_DON_HANG : null;
+}
 
 /** Số ký tự tối đa một bình luận. Chặn ở tầng dữ liệu, không chỉ ở ô nhập. */
 const DAI_TOI_DA_BINH_LUAN = 1000;
@@ -4313,6 +4351,11 @@ export function DuLieuProvider({
   phieuNhanRef.current = phieuNhan;
   const thongBaoRef = useRef(thongBao);
   thongBaoRef.current = thongBao;
+  /* ★ Sếp 22/10/2026 — chốt "chỉ xem" (`loiChiXemDeNghi` / `loiChiXemDonHang`) đọc người dùng và kho qua ref. */
+  const nguoiDungRef = useRef(nguoiDung);
+  nguoiDungRef.current = nguoiDung;
+  const khoRef = useRef(kho);
+  khoRef.current = kho;
 
   // ------------------------------------------------------------
   // THÔNG BÁO CHUYỂN BƯỚC — theo dõi giai đoạn SUY RA của từng đề nghị.
@@ -4709,6 +4752,9 @@ export function DuLieuProvider({
       /** ★ Trả cho tờ hoá đơn nào — Sếp 20/09/2026. Bỏ trống = chưa gắn tờ nào. */
       hoaDonId?: string;
     }): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, dot.poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenGhiThanhToan(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const chanDuLieu = vuongMacDotThanhToan(dot);
@@ -4771,6 +4817,9 @@ export function DuLieuProvider({
    */
   const ganHoaDonChoDot = useCallback(
     (dotId: string, hoaDonId: string | null): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, dotThanhToanRef.current.find((d) => d.id === dotId)?.poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenGhiThanhToan(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const cu = dotThanhToanRef.current.find((d) => d.id === dotId);
@@ -4806,6 +4855,9 @@ export function DuLieuProvider({
       id: string,
       thayDoi: { ngayChi?: NgayISO; soTien?: number; soChungTuChi?: string; ghiChu?: string },
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, dotThanhToanRef.current.find((d) => d.id === id)?.poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenGhiThanhToan(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const cu = dotThanhToanRef.current.find((d) => d.id === id);
@@ -4844,6 +4896,9 @@ export function DuLieuProvider({
 
   const xoaDotThanhToan = useCallback(
     (id: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, dotThanhToanRef.current.find((d) => d.id === id)?.poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenGhiThanhToan(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const cu = dotThanhToanRef.current.find((d) => d.id === id);
@@ -4881,6 +4936,9 @@ export function DuLieuProvider({
       /** ⚠️ KHÔNG CÒN ĐƯỢC DÙNG — tên ghi vào sổ lấy từ `nguoiDung` của phiên đăng nhập. */
       _nguoiThucHien: string,
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const nguoiThucHien = nguoiDung.tenHienThi;
@@ -5027,6 +5085,9 @@ export function DuLieuProvider({
       poId: string,
       dong: { soHoaDon: string; ngayHoaDon: string; soTien: number },
     ): { loi: string; id?: undefined } | { loi?: undefined; id: string } => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return { loi: chanXem };
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
       if (chanQuyen) return { loi: chanQuyen };
       const loi = vuongMacDongHoaDon(dong);
@@ -5125,6 +5186,9 @@ export function DuLieuProvider({
       id: string,
       thayDoi: { soHoaDon: string; ngayHoaDon: string; soTien: number },
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const loi = vuongMacDongHoaDon(thayDoi);
@@ -5191,6 +5255,9 @@ export function DuLieuProvider({
       id: string,
       thayDoi: { soNgayDuocNo?: number | null; ngayBatDauTinhNoTay?: string | null },
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const cu = giaDonHangRef.current
@@ -5260,6 +5327,9 @@ export function DuLieuProvider({
 
   const xoaHoaDonVAT = useCallback(
     (poId: string, id: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const giaCu = giaDonHangRef.current.find((g) => g.poId === poId);
@@ -6877,6 +6947,25 @@ export function DuLieuProvider({
          hai nhánh và trước `xinMaMayChu("don-hang")`, để người không có quyền không đốt số đơn. */
       const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "lập đơn mua hàng");
       if (chanQuyen) return { loi: chanQuyen };
+      /* ★ Sếp 22/10/2026 (HPCons): người làm thu mua chỉ lập đơn cho DÒNG MÌNH PHỤ TRÁCH — không được
+         giao phiếu thì chỉ xem; dòng của người khác thì không lập đơn hộ (form đã lọc, cửa ghi hỏi lại). */
+      if (dauVao.prId) {
+        const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, dauVao.prId, nguoiDungRef.current, khoRef.current);
+        if (chanXem) return { loi: chanXem };
+        const ndX = nguoiDungRef.current;
+        const qX = tinhQuyen(ndX);
+        const dnX = deNghiRef.current.find((x) => x.id === dauVao.prId);
+        if (dnX && khoRef.current === "thuong" && qX.lapPO && !qX.phanBoCongViec) {
+          const dongNguoiKhac = dauVao.items.find(
+            (i) =>
+              typeof i.sttDongDeNghi === "number" &&
+              dnX.items.find((d) => d.stt === i.sttDongDeNghi)?.nguoiPhuTrachUid !== ndX.uid,
+          );
+          if (dongNguoiKhac) {
+            return { loi: `Dòng ${dongNguoiKhac.sttDongDeNghi} của đề nghị không phải phần việc của bạn — chỉ lập đơn cho dòng mình phụ trách.` };
+          }
+        }
+      }
       const { donGia, thueSuatDong, phanTien, lyDoVuotDeNghi, ...poVao } = dauVao;
       let po = poVao;
       /** Câu nhật ký phần vượt — chỉ có khi đơn đặt vượt phần còn lại (Sếp 26/09/2026). */
@@ -7212,6 +7301,9 @@ export function DuLieuProvider({
    */
   const ganDeNghiVaoPO = useCallback(
     (poId: string, baoGiaId: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2, kế hoạch đã duyệt: `lapPO`). Đo 06/10: nút gắn
          ở trang đơn hàng KHÔNG gác gì, nên thủ kho / Ban Giám đốc cấp 1 cũng thấy và bấm được.
          Nút nay cũng chỉ dựng khi có `lapPO` (`don-hang-chi-tiet.tsx`).
@@ -7335,6 +7427,9 @@ export function DuLieuProvider({
    * thêm 4 lần / trong 1 ngày rồi lại dừng + báo.
    */
   const guiLaiPOSangKhoNgay = useCallback(async (poId: string): Promise<string | null> => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
     const po = donHangRef.current.find((p) => p.id === poId);
     if (!po) return "Không tìm thấy đơn hàng.";
     const deNghiGoc = po.prId ? deNghiRef.current.find((dn) => dn.id === po.prId) : undefined;
@@ -7392,6 +7487,9 @@ export function DuLieuProvider({
    */
   const chotDonNhap = useCallback(
     (poId: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       /* 🔴 KHÓA QUYỀN — Sếp 15/09/2026. Nút "Chốt đơn hàng" ở `don-hang-chi-tiet.tsx` hiện ra chỉ
          theo trạng thái đơn, KHÔNG hỏi quyền, nên trước hôm nay bất kỳ ai mở được trang chi tiết
          cũng chốt được một đơn nháp thành đơn thật — thẻ nhảy sang bước ⑤ và công nợ bắt đầu tính.
@@ -7585,6 +7683,14 @@ export function DuLieuProvider({
    */
   const themPhieuNhanPhongBan = useCallback(
     (phieu: Omit<PhieuNhanHang, "id" | "code" | "lanGiaoThu">): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): ghi nhận giao hàng hồ sơ phòng ban — người làm thu mua chỉ trên ĐƠN MÌNH (soát QA). */
+      {
+        const q0 = tinhQuyen(nguoiDungRef.current);
+        if (!(q0.ghiPhieuNhanHang || q0.xacNhanKho)) {
+          const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, phieu.poId, nguoiDungRef.current, khoRef.current);
+          if (chanXem) return chanXem;
+        }
+      }
       const cuaPO = phieuNhanRef.current.filter((p) => p.poId === phieu.poId);
       const po = donHangRef.current.find((p) => p.id === phieu.poId);
       if (!po) return "Không tìm thấy đơn hàng này.";
@@ -7768,6 +7874,16 @@ export function DuLieuProvider({
       ghiChu: string | undefined,
       nguoi: { uid: string; ten: string },
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): người làm thu mua chỉ thao tác phiếu nhận của ĐƠN MÌNH. Thủ kho / NV Kho
+         tổng làm việc kho (cờ ghi phiếu nhận / xác nhận kho) trên mọi đơn như cũ — không siết. */
+      {
+        const q0 = tinhQuyen(nguoiDungRef.current);
+        if (!(q0.ghiPhieuNhanHang || q0.xacNhanKho)) {
+          const poCuaPhieu = phieuNhanRef.current.find((p) => p.id === phieuId)?.poId;
+          const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poCuaPhieu, nguoiDungRef.current, khoRef.current);
+          if (chanXem) return chanXem;
+        }
+      }
       if (khop === null) {
         setPhieuNhan((truoc) =>
           truoc.map((p) => {
@@ -7826,6 +7942,16 @@ export function DuLieuProvider({
    */
   const dinhKemPhieuGiao = useCallback(
     (phieuId: string, tep: MoTaTep, nguoiThucHien: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): người làm thu mua chỉ thao tác phiếu nhận của ĐƠN MÌNH. Thủ kho / NV Kho
+         tổng làm việc kho (cờ ghi phiếu nhận / xác nhận kho) trên mọi đơn như cũ — không siết. */
+      {
+        const q0 = tinhQuyen(nguoiDungRef.current);
+        if (!(q0.ghiPhieuNhanHang || q0.xacNhanKho)) {
+          const poCuaPhieu = phieuNhanRef.current.find((p) => p.id === phieuId)?.poId;
+          const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poCuaPhieu, nguoiDungRef.current, khoRef.current);
+          if (chanXem) return chanXem;
+        }
+      }
       /**
        * 🔴🔴 CHẶN Ở TẦNG GHI KHI ĐƠN ĐÃ HOÀN THÀNH (23/08/2026).
        *
@@ -7950,6 +8076,9 @@ export function DuLieuProvider({
 
   const xacNhanKho = useCallback(
     (poId: string, nguoi: XacNhan): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       /**
        * 🔴🔴 KIỂM LẠI Ở TẦNG GHI — thêm 24/08/2026. Trước đó hàm này **không kiểm một điều kiện
        * nào**, dù cả hai màn hình gọi nó đều khóa nút đúng luật.
@@ -8132,6 +8261,10 @@ export function DuLieuProvider({
 
   const taoBaoGiaGiaLap = useCallback(
     (prId: string, nguoiThucHien: string) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      /* Hàm này trả MÃ BẢNG khi tạo được, `null` khi không — trả câu chặn là nơi gọi tưởng đã tạo (soát QA). */
+      if (chanXem) return null;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return null;
 
@@ -8196,6 +8329,9 @@ export function DuLieuProvider({
 
   const doiTrangThaiBaoGiaTheoDeNghi = useCallback(
     (prId: string, tu: TrangThaiBaoGia, sang: TrangThaiBaoGia, nguoiThucHien: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Cùng cờ với kéo thẻ (`onTha` chỉ có khi `lapPO`). */
       const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "đổi trạng thái bảng báo giá");
       if (chanQuyen) return chanQuyen;
@@ -8625,6 +8761,9 @@ export function DuLieuProvider({
    * `DonDatHang` (lý do hủy một ĐƠN HÀNG), khác hẳn lý do cả HỒ SƠ không mua được.
    */
   const dongDoDeNghi = useCallback((prId: string, nguoiThucHien: string, lyDo: string) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return;
     const lyDoSach = lyDo.trim();
     setDeNghi((truoc) =>
       truoc.map((dn) =>
@@ -8757,6 +8896,9 @@ export function DuLieuProvider({
       >,
       nguoiThucHien: string,
     ) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return;
       setDeNghi((truoc) =>
         truoc.map((dn) => {
           if (dn.id !== prId) return dn;
@@ -8829,6 +8971,9 @@ export function DuLieuProvider({
    */
   const suaThoiHan = useCallback(
     (prId: string, ngayCanHangMoi: string, lyDo: string, nguoiThucHien: string) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return;
       setDeNghi((truoc) =>
         truoc.map((dn) =>
           dn.id !== prId
@@ -8854,6 +8999,9 @@ export function DuLieuProvider({
 
   /** Lưu trữ / bỏ lưu trữ — CHỈ ẩn khỏi bảng, không đụng tới trạng thái nghiệp vụ. */
   const doiLuuTru = useCallback((prId: string, luuTru: boolean, nguoiThucHien: string) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return;
     setDeNghi((truoc) =>
       truoc.map((dn) =>
         dn.id !== prId
@@ -8877,6 +9025,9 @@ export function DuLieuProvider({
   /** Sửa danh sách trường bổ sung (dữ liệu tùy chỉnh). */
   const suaTruongBoSung = useCallback(
     (prId: string, truong: TruongBoSung[], nguoiThucHien: string) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return;
       // Bỏ dòng nhãn rỗng — không tra cứu được, giữ lại chỉ làm rác dữ liệu.
       const loc = truong
         .map((t) => ({ nhan: t.nhan.trim(), giaTri: t.giaTri.trim() }))
@@ -8923,6 +9074,9 @@ export function DuLieuProvider({
    */
   const suaMatHangDeNghi = useCallback(
     (prId: string, dongMoi: DongDeNghi[], nguoiThucHien: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
 
@@ -9325,7 +9479,12 @@ export function DuLieuProvider({
       prId: string,
       nguoi: Pick<NguoiTheoDoi, "uid" | "ten" | "chucDanh">,
       nguoiThemTen: string,
+      /** Việc hệ thống tự làm (thêm người đề nghị) — không phải thao tác của người đang mở app, không chặn "chỉ xem". */
+      laHeThong = false,
     ) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = laHeThong ? null : loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return;
       setDeNghi((truoc) =>
         truoc.map((dn) => {
           if (dn.id !== prId) return dn;
@@ -9383,6 +9542,9 @@ export function DuLieuProvider({
        */
       nguoiDatCoQuyenPhanBo = false,
     ) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return;
       setDeNghi((truoc) =>
         truoc.map((dn) => {
           if (dn.id !== prId) return dn;
@@ -9434,6 +9596,9 @@ export function DuLieuProvider({
       xong: boolean,
       nguoiTen: string,
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       /**
        * ★★★ ĐÃ BỎ CHỐT CHẶN TÍCH "ĐÃ XỬ LÝ UNC" — Sếp 15/09/2026.
        *
@@ -9653,6 +9818,9 @@ export function DuLieuProvider({
    */
   const trinhXetDuyetBaoGiaChoDeNghi = useCallback(
     (prId: string, nguoiThucHien: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       /* ★ Chốt quyền ĐẦU hàm — Sếp 06/10/2026 (GĐ2). Cùng cờ với nút "Trình xét duyệt" ở trang chi
          tiết đề nghị (`quyen.lapPO`). */
       const chanQuyen = vuongMacThieuQuyen(tinhQuyen(nguoiDung), "lapPO", "trình xét duyệt báo giá");
@@ -9762,6 +9930,9 @@ export function DuLieuProvider({
       tepMoi: MoTaTep[],
       nguoiThucHienTen: string,
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       if (tepMoi.length === 0) return null;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
@@ -9845,6 +10016,9 @@ export function DuLieuProvider({
       nhanO: string,
       nguoiThucHienTen: string,
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
 
@@ -9929,6 +10103,9 @@ export function DuLieuProvider({
    */
   const datTickChungTu = useCallback(
     (prId: string, loai: "unc" | "go_ung", co: boolean, nguoiThucHienTen: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
       const ten = loai === "unc" ? "Có ủy nhiệm chi" : "Gỡ ứng";
@@ -9971,6 +10148,9 @@ export function DuLieuProvider({
    */
   const boSungSauPhieuGiao = useCallback(
     (poId: string, nguoi: XacNhan): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const po = donHangRef.current.find((p) => p.id === poId);
       if (!po) return "Không tìm thấy đơn hàng — có thể đơn vừa bị xoá ở máy khác.";
       const dnCuaPO = po.prId ? deNghiRef.current.find((d) => d.id === po.prId) : undefined;
@@ -10020,6 +10200,9 @@ export function DuLieuProvider({
    */
   const datImportPhieuGiaoThuMua = useCallback(
     (prId: string, bat: boolean, nguoiThucHienTen: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
       const loi = loiKhiHoSoDaDong(dn, "đổi ô tick “Import phiếu giao hàng”");
@@ -10059,6 +10242,9 @@ export function DuLieuProvider({
       nguoiThucHienTen: string,
       tenChungTu?: string,
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
       const loi = loiKhiHoSoDaDong(dn, "ghi lý do chưa có chứng từ");
@@ -10121,6 +10307,9 @@ export function DuLieuProvider({
       tepId: string,
       nguoiThucHienTen: string,
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
 
@@ -10154,6 +10343,9 @@ export function DuLieuProvider({
 
   const dinhTepHoaDonVAT = useCallback(
     (poId: string, idDong: string, tep: MoTaTep): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const po = donHangRef.current.find((p) => p.id === poId);
@@ -10177,6 +10369,9 @@ export function DuLieuProvider({
   /** Gỡ bản chụp khỏi một tờ hoá đơn. Tệp vẫn nằm trong kho, chỉ rời khỏi hồ sơ. */
   const goTepHoaDonVAT = useCallback(
     (poId: string, idDong: string): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDonHang(donHangRef.current, deNghiRef.current, poId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const chanQuyen = vuongMacQuyenSuaDieuKhoanCongNo(tinhQuyen(nguoiDung));
       if (chanQuyen) return chanQuyen;
       const po = donHangRef.current.find((p) => p.id === poId);
@@ -10221,6 +10416,9 @@ export function DuLieuProvider({
       ghiChu: string,
       nguoiThucHienTen: string,
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
 
@@ -10299,6 +10497,9 @@ export function DuLieuProvider({
       tep?: MoTaTep[],
       traLoiChoId?: string,
     ) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return;
       const chu = noiDung.trim();
       // Không có chữ mà cũng không có tệp thì chẳng có gì để lưu.
       if (!chu && (tep ?? []).length === 0) return;
@@ -10350,6 +10551,9 @@ export function DuLieuProvider({
       tepThem?: MoTaTep[],
       idTepGo?: string[],
     ): string | null => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return chanXem;
       const dn = deNghiRef.current.find((d) => d.id === prId);
       if (!dn) return "Không tìm thấy đề nghị.";
       const bai = (dn.binhLuan ?? []).find((b) => b.id === binhLuanId);
@@ -10446,6 +10650,9 @@ export function DuLieuProvider({
    * dùng để truy trách nhiệm (quyết định 25: ghi rõ **ai** · làm gì · lúc nào).
    */
   const boNguoiTheoDoi = useCallback((prId: string, uid: string, nguoiBoTen: string) => {
+      /* ★ Sếp 22/10/2026 (HPCons): không được giao thì chỉ xem — luật `chiXemDeNghi` / `chiXemDonHang`. */
+      const chanXem = loiChiXemDeNghi(deNghiRef.current, donHangRef.current, prId, nguoiDungRef.current, khoRef.current);
+      if (chanXem) return;
     setDeNghi((truoc) =>
       truoc.map((dn) => {
         if (dn.id !== prId) return dn;
@@ -10538,6 +10745,7 @@ export function DuLieuProvider({
         dn.id,
         { uid: dn.nguoiDeNghiUid, ten: dn.nguoiDeNghiTen, chucDanh: "Người đề nghị" },
         "Hệ thống",
+        true,
       );
     }
   }, [deNghi, themNguoiTheoDoi]);

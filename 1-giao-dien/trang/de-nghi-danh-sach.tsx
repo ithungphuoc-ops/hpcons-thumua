@@ -46,7 +46,12 @@ import { Table, TableBody, TableHeader } from "@/1-giao-dien/nen-tang-ui/table";
 import { useDuLieu } from "@/3-du-lieu/kho-du-lieu";
 import { vuongMacTrinhXetDuyet } from "@/2-quy-trinh/bao-gia-dinh-kem";
 import { useNguoiDung } from "@/4-phan-quyen/nguoi-dung-hien-tai";
-import { duocNhanBanDeNghi, duocXemDeNghiTheoNguoi } from "@/4-phan-quyen/quyen-theo-ho-so";
+import {
+  chiXemDeNghi,
+  duocNhanBanDeNghi,
+  duocXemDeNghiTheoNguoi,
+  LY_DO_CHI_XEM_DE_NGHI,
+} from "@/4-phan-quyen/quyen-theo-ho-so";
 import { duocXemBuoc, O_XEM_BUOC } from "@/4-phan-quyen/quyen";
 /* Breadcrumb "Thu mua" trỏ về màn gốc CỦA NGƯỜI XEM (ô tick "Xem bước quy trình", Sếp 07/10/2026): người
    chỉ có ô bước mà không có ô "Vào màn làm việc" bị cổng chặn `/tong-quan`. */
@@ -131,7 +136,8 @@ const NHAN_LOC_DS: { ma: LocDanhSach; nhan: string }[] = [
 export default function TrangDanhSachDeNghi() {
   /* ★ KHO EQUI (Sếp duyệt demo 14/10/2026): cùng màn hình, chỉ khác tên để người dùng biết mình đang
      ở kho nào — làm việc nhầm kho là ghi đề nghị vào sai sổ. */
-  const laKhoEqui = useKhoHienTai() === "equi";
+  const khoDangXem = useKhoHienTai();
+  const laKhoEqui = khoDangXem === "equi";
   const tenQuyTrinh = laKhoEqui ? "Quy trình mua hàng EQUI" : "Quy trình mua hàng";
   const router = useRouter();
   const {
@@ -223,9 +229,17 @@ export default function TrangDanhSachDeNghi() {
    * ghi đều quyết định ở đây, đúng ranh giới đã đặt từ đầu (xem chú thích đầu
    * `bang-quy-trinh-mua-hang.tsx`).
    */
+  /* ★ Sếp 22/10/2026 (HPCons): người làm thu mua không được giao phiếu thì chỉ xem — mục ghi trong menu ⋯
+     báo lý do thay vì mở hộp sửa (tầng ghi cũng chặn). */
+  const chanChiXem = (prId: string): boolean => {
+    const d = deNghi.find((x) => x.id === prId);
+    if (!d || !chiXemDeNghi(d, nguoiDung.uid, quyen, khoDangXem)) return false;
+    toast.error("Chỉ xem", { description: LY_DO_CHI_XEM_DE_NGHI });
+    return true;
+  };
   const thaoTacThe: ThaoTacThe = {
-    onSuaThongTin: (prId) => setDangSua({ loai: "thong_tin", prId }),
-    onSuaThoiHan: (prId) => setDangSua({ loai: "thoi_han", prId }),
+    onSuaThongTin: (prId) => !chanChiXem(prId) && setDangSua({ loai: "thong_tin", prId }),
+    onSuaThoiHan: (prId) => !chanChiXem(prId) && setDangSua({ loai: "thoi_han", prId }),
     /* 🔴 `onSuaTruongBoSung` / `onSuaTruongTuyChinh` / `onDoiLuuTru` ĐÃ BỎ khỏi đây 12/09/2026 —
        ba mục menu tương ứng đã dời sang trang chi tiết đề nghị. Chức năng còn nguyên, xem khối
        nút ở đầu "Thông tin đề nghị" trong `trang/de-nghi-chi-tiet.tsx`. */
@@ -515,6 +529,8 @@ export default function TrangDanhSachDeNghi() {
   ) {
     const the = cot.flatMap((c) => c.the).find((t) => t.deNghi.id === prId);
     if (!the) return;
+    /* ★ Sếp 22/10/2026 (HPCons): không được giao phiếu thì không chuyển bước / đánh thất bại từ thẻ. */
+    if (chanChiXem(prId)) return;
     /* ★ Sếp 07/10/2026 — ô tick "Xem bước quy trình" (đặc tả E-11a): thẻ ở bước người xem không được tick
        thì KHÔNG chuyển bước từ đây. Bảng đã rỗng cột đó nên bình thường không có menu ⋯ nào gọi tới; dòng
        này chặn nốt mọi đường gọi khác (`cot` ở đây là bản GỐC, chưa lọc theo người xem). */

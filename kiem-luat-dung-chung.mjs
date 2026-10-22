@@ -11422,7 +11422,8 @@ kiem(
       themChan: them.includes("vuongMacViecBuoc1ChuaXong("),
       datChan: dat.includes("vuongMacViecBuoc1ChuaXong("),
       lyDoChan: lyDo.includes("vuongMacViecBuoc1ChuaXong("),
-      oTichMoChoNV: ct.includes("disabled={!duocTichCongViec(quyen)}") && !ct.includes("disabled={!quyen.phanBoCongViec}"),
+      /* ★ 22/10/2026: thêm `|| chiXem` — NV không được giao phiếu thì không tích (luật "chỉ xem"). */
+      oTichMoChoNV: ct.includes("disabled={!duocTichCongViec(quyen) || chiXem}") && !ct.includes("disabled={!quyen.phanBoCongViec}"),
     };
     return {
       duoc: Object.values(kq).every(Boolean),
@@ -11530,6 +11531,62 @@ kiem(
     kq.giaoDien = (bpb.match(/duocChuyenViecDong\(d, nguoiDung\.uid, quyen, nguoiLamDuocChuyen\)/g) || []).length === 3 &&
       bpb.includes('kho === "thuong" ? { loaiViecGiao: LOAI_VIEC_THEO_CHUC_NANG[nhan.chucNang] } : {}');
     return { duoc: Object.values(kq).every(Boolean), thucTe: JSON.stringify(kq), mongDoi: "tat ca true" };
+  },
+);
+
+kiem(
+  "★★ Chi xem (Sep 22/10/2026): NV lam thu mua KHONG duoc giao phieu → chi xem (HPCons); duoc giao / TBP / vai tro khong lapPO / EQUI khong bi siet; don hang xet theo chu don + dong cua chinh don; MOI cua ghi deu hoi lai",
+  'Sếp 22/10/2026 — *"người B và C chỉ được quyền xem hết toàn bộ… nhưng k có quyền thao tác"* + chốt: chỉ HPCons, B C không bình luận, hoá đơn/công nợ/thanh toán chỉ đơn của mình',
+  () => {
+    const NV = { lapPO: true, phanBoCongViec: false };
+    const TBP = { lapPO: true, phanBoCongViec: true };
+    const KT = { lapPO: false, phanBoCongViec: false, ghiThanhToan: true };
+    const dn = { id: "pr", items: [{ stt: 1, nguoiPhuTrachUid: "A" }, { stt: 2, nguoiPhuTrachUid: "B" }] };
+    const po1 = { nguoiPhuTrachUid: "A", prId: "pr", items: [{ sttDongDeNghi: 1 }] };
+    const po2 = { nguoiPhuTrachUid: "A", prId: "pr", items: [{ sttDongDeNghi: 2 }] };
+    const kq = {
+      aDuocGiao: QH.chiXemDeNghi(dn, "A", NV, "thuong") === false,
+      cChiXem: QH.chiXemDeNghi(dn, "C", NV, "thuong") === true,
+      tbp: QH.chiXemDeNghi(dn, "C", TBP, "thuong") === false,
+      keToan: QH.chiXemDeNghi(dn, "C", KT, "thuong") === false,
+      equi: QH.chiXemDeNghi(dn, "C", NV, "equi") === false,
+      khongUid: QH.chiXemDeNghi(dn, "", NV, "thuong") === true,
+      donChu: QH.chiXemDonHang(po1, [dn], "A", NV, "thuong") === false,
+      donNguoiKhac: QH.chiXemDonHang(po1, [dn], "B", NV, "thuong") === true,
+      donDongCuaMinh: QH.chiXemDonHang(po2, [dn], "B", NV, "thuong") === false,
+      donKeToan: QH.chiXemDonHang(po1, [dn], "K", KT, "thuong") === false,
+      donTbp: QH.chiXemDonHang(po1, [dn], "T", TBP, "thuong") === false,
+      donEqui: QH.chiXemDonHang(po1, [dn], "C", NV, "equi") === false,
+    };
+    /* Mọi cửa ghi đã liệt kê đều hỏi lại chốt "chỉ xem" ngay đầu hàm (cắt thân hàm, bỏ chú thích). */
+    const kd = readFileSync("3-du-lieu/kho-du-lieu.tsx", "utf8");
+    const than = (ten) => {
+      const a = kd.indexOf(`  const ${ten} = useCallback(`);
+      if (a < 0) return "";
+      const b = kd.indexOf("\n  const ", a + 10);
+      return kd.slice(a, b < 0 ? a + 4000 : b).replace(/\/\*[\s\S]*?\*\//g, "");
+    };
+    const DN = ["danhDauCongViecGiaiDoan", "themTepGiaiDoan", "datTepVaoOGiaiDoan", "goTepGiaiDoan", "datGhiChuTepGiaiDoan", "datTickChungTu",
+      "ghiLyDoThieuChungTu", "trinhXetDuyetBaoGiaChoDeNghi", "doiTrangThaiBaoGiaTheoDeNghi", "suaMatHangDeNghi", "datImportPhieuGiaoThuMua",
+      "datSoBaoGiaChoPhieu", "suaThongTinChung", "suaThoiHan", "suaTruongBoSung", "dongDoDeNghi", "doiLuuTru", "themNguoiTheoDoi", "boNguoiTheoDoi",
+      "vietBinhLuan", "themDonHang", "taoBaoGiaGiaLap", "suaBinhLuan"];
+    const DON = ["chotDonNhap", "ganDeNghiVaoPO", "guiLaiPOSangKhoNgay", "xacNhanKho", "boSungSauPhieuGiao", "themHoaDonVAT", "suaHoaDonVAT",
+      "datDieuKhoanHoaDon", "xoaHoaDonVAT", "dinhTepHoaDonVAT", "goTepHoaDonVAT", "datDieuKhoanCongNo", "themDotThanhToan", "ganHoaDonChoDot",
+      "suaDotThanhToan", "xoaDotThanhToan", "ghiDoiChieuThuMua", "dinhKemPhieuGiao", "themPhieuNhanPhongBan"];
+    const thieu = [...DN.filter((t) => !than(t).includes("loiChiXemDeNghi(")), ...DON.filter((t) => !than(t).includes("loiChiXemDonHang("))];
+    kq.tangGhiDu = thieu.length === 0;
+    const ct = readFileSync("1-giao-dien/trang/de-nghi-chi-tiet.tsx", "utf8");
+    const td = readFileSync("1-giao-dien/thanh-phan-nghiep-vu/khoi-trao-doi.tsx", "utf8");
+    const cn = readFileSync("1-giao-dien/trang/cong-no.tsx", "utf8");
+    kq.giaoDien = ct.includes("const chiXem = chiXemDeNghi(dn, nguoiDung.uid, quyen, kho);") &&
+      ct.includes("const duocSuaTepBuoc = (quyen.phanBoCongViec || quyen.lapPO) && !chiXem;") &&
+      ct.includes("chiXem={chiXem}") && td.includes("onTraLoi={chiXem ? undefined") &&
+      cn.includes("suaDuocDieuKhoanDon(r.poId)") && cn.includes("ghiDuocThanhToanDon(r.poId)") &&
+      /* soát QA 22/10: khối tiến độ đơn (khớp số liệu, ghi lệch, đính phiếu giao) xét theo đơn; chủ đơn đính/gỡ tệp hoá đơn được; việc hệ thống tự thêm theo dõi không bị chặn */
+      readFileSync("1-giao-dien/thanh-phan-nghiep-vu/bang-tien-do-po.tsx", "utf8").includes("const chiXemDon = !(quyen.ghiPhieuNhanHang || quyen.xacNhanKho) && chiXemDonHang(") &&
+      kd.includes("dsPO.some((p) => p.prId === dn.id && p.nguoiPhuTrachUid === nd.uid") && kd.includes("const chanXem = laHeThong ? null : loiChiXemDeNghi(") &&
+      td.includes("khoaSua={chiXem}");
+    return { duoc: Object.values(kq).every(Boolean), thucTe: JSON.stringify(kq) + (thieu.length ? " · thieu chot: " + thieu.join(",") : ""), mongDoi: "tat ca true" };
   },
 );
 
