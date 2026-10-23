@@ -46,7 +46,7 @@ import { NHAN_NHOM_DE_XUAT, type DeNghiMuaHang } from "@/3-du-lieu/kieu-du-lieu"
 import { laDongHang } from "@/2-quy-trinh/tinh-toan";
 /* Luật ghép dòng tiêu đề thẻ — hàm thuần, có bài kiểm canh (`npm run kiem-luat`). */
 import { manhTenTheDeNghi } from "@/2-quy-trinh/ten-the-de-nghi";
-import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
+import { nhanLoaiDeNghi } from "@/2-quy-trinh/ho-so-phong-ban";
 import { NutHuongDanGiaiDoan } from "@/1-giao-dien/thanh-phan-nghiep-vu/hop-huong-dan-giai-doan";
 /* Neo để mục "Xem nhật ký hồ sơ" trỏ thẳng vào tab Lịch sử — một chuỗi duy nhất, xem chú thích
    của `NEO_NHAT_KY` ở tệp đó. */
@@ -1018,13 +1018,13 @@ function TheDeNghi({
          * 📌 ĐẶT LÊN ĐẦU KHỐI, trước "Bộ phận": đây là thứ phân loại cả hồ sơ, đọc nó trước rồi
          * mới tới chi tiết. Và nó trả lời đúng câu người xem hỏi đầu tiên khi mở bảng.
          *
-         * 🔴 KHÔNG tự so `maHopDongCDT` hay `tenCongTrinh` tại chỗ — dùng `laHoSoPhongBan`, một
+         * 🔴 KHÔNG tự so `maHopDongCDT` hay `tenCongTrinh` tại chỗ — dùng `nhanLoaiDeNghi` (cùng tệp với `laHoSoPhongBan`), một
          * luật một chỗ. Hàm đó đã đổi cách nhận diện một lần rồi (14→15/09), chép tay ra đây là
          * lần sau thẻ nói một đằng, luật chạy một nẻo.
          */}
         <span>
           <span className="text-text-secondary">Loại đề nghị:</span>{" "}
-          {laHoSoPhongBan(deNghi) ? "Đề nghị phòng ban" : "Đề nghị công trình"}
+          {nhanLoaiDeNghi(deNghi)}
         </span>
         <span>
           <span className="text-text-secondary">Bộ phận:</span>{" "}

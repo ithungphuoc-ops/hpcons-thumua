@@ -78,6 +78,28 @@ export function laHoSoPhongBan(
      này (`quyen-theo-ho-so.ts`, `kho-du-lieu.tsx`, `giai-doan-mua-hang.ts`,
      `chung-tu-cuoi-quy-trinh.ts`, `gui-po-qlk-ctr.ts`, `de-nghi-chi-tiet.tsx`…) và không chỗ nào
      phải sửa. Nhận `null` bên cạnh `undefined` cho hợp dữ liệu đọc từ Firestore. */
+  deNghi: { maHopDongCDT?: string | null; loaiHoSo?: LoaiHoSoDeNghi | null; nhanHangQuaKho?: boolean | null } | null | undefined,
+): boolean {
+  if (!deNghi) return false;
+
+  /* ⓪ NHẬN HÀNG QUA KHO EQUI — Sếp chốt 22/10/2026: đề nghị phòng ban nhóm EQUI đi ĐỦ luồng như
+     công trình (PO gửi sang App EQUI, App EQUI nhập kho rồi báo phiếu nhận + ảnh phiếu giao về,
+     Thu mua bấm "Xác nhận nhận hàng"). Kho EQUI CÓ kho nhận hàng, nên lý do đẻ ra nhánh phòng ban
+     ("không có kho công trình nào gửi phiếu sang") không còn đúng với nó.
+     Cờ chỉ được gắn ở cửa tiếp nhận khi đề nghị vào KHO EQUI (`de-nghi-moi/route.ts`) — kho
+     thường không bao giờ có cờ, nên hành vi HPCons giữ nguyên. Hồ sơ vào trước 22/10 không có cờ
+     → giữ luồng cũ, không lật luồng giữa chừng. Thẻ hồ sơ vẫn ghi "Đề nghị phòng ban" — xem
+     `nhanLoaiDeNghi`. */
+  if (deNghi.nhanHangQuaKho === true) return false;
+
+  return laPhongBanTheoKhai(deNghi);
+}
+
+/**
+ * Hồ sơ là của phòng ban THEO NGƯỜI KHAI (hai tầng ①②), bỏ qua cờ "nhận hàng qua kho EQUI".
+ * Chỉ dùng để GỌI TÊN loại hồ sơ; luồng đi thì luôn hỏi `laHoSoPhongBan`.
+ */
+export function laPhongBanTheoKhai(
   deNghi: { maHopDongCDT?: string | null; loaiHoSo?: LoaiHoSoDeNghi | null } | null | undefined,
 ): boolean {
   if (!deNghi) return false;
@@ -91,6 +113,19 @@ export function laHoSoPhongBan(
   /* ② DỰ PHÒNG cho hồ sơ KHÔNG có trường trên — xem khối chú thích phía trên để biết vì sao tầng
      này không được phép bỏ. */
   return !(deNghi.maHopDongCDT ?? "").trim();
+}
+
+/**
+ * Tên loại hồ sơ hiện trên thẻ — 22/10/2026. Hồ sơ phòng ban kho EQUI đi luồng công trình nhưng
+ * VẪN là đề nghị phòng ban; nói rõ "nhận hàng qua kho EQUI" để người xem hiểu vì sao nó chờ kho
+ * nhập hàng chứ không có nút ghi nhận giao hàng tay (cùng tinh thần `LY_DO_NHANH_PHONG_BAN`:
+ * nới / đổi luồng thì phải nói ra tại chỗ).
+ */
+export function nhanLoaiDeNghi(
+  deNghi: { maHopDongCDT?: string | null; loaiHoSo?: LoaiHoSoDeNghi | null; nhanHangQuaKho?: boolean | null } | null | undefined,
+): string {
+  if (!laPhongBanTheoKhai(deNghi)) return "Đề nghị công trình";
+  return deNghi?.nhanHangQuaKho === true ? "Đề nghị phòng ban · nhận hàng qua kho EQUI" : "Đề nghị phòng ban";
 }
 
 /**

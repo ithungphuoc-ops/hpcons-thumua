@@ -5910,6 +5910,44 @@ kiem(
 );
 
 kiem(
+  "PHONG BAN kho EQUI co co nhanHangQuaKho -> di luong cong trinh",
+  "Sếp · 22/10/2026 — đề nghị phòng ban nhóm EQUI đi đủ luồng như công trình (App EQUI có kho nhận hàng)",
+  () => {
+    const r = HS.laHoSoPhongBan({ loaiHoSo: "phong_ban", maHopDongCDT: "", nhanHangQuaKho: true });
+    return { duoc: r === false, thucTe: String(r), mongDoi: "false" };
+  },
+);
+
+kiem(
+  "PHONG BAN KHONG co co (kho thuong / ho so truoc 22/10) -> GIU nhanh phong ban",
+  "Sếp · 22/10/2026 — chỉ sửa phần EQUI, kho thường HPCons giữ nguyên; hồ sơ cũ không lật luồng",
+  () => {
+    const ca = [
+      HS.laHoSoPhongBan({ loaiHoSo: "phong_ban", maHopDongCDT: "" }),
+      HS.laHoSoPhongBan({ loaiHoSo: "phong_ban", nhanHangQuaKho: false }),
+      HS.laHoSoPhongBan({ loaiHoSo: "phong_ban", nhanHangQuaKho: null }),
+      HS.laHoSoPhongBan({ maHopDongCDT: "" }),
+    ];
+    return { duoc: ca.every((x) => x === true), thucTe: JSON.stringify(ca), mongDoi: "[true,true,true,true]" };
+  },
+);
+
+kiem(
+  "THE ho so: phong ban kho EQUI van goi la phong ban + noi ro nhan qua kho",
+  "Sếp · 22/10/2026 — đổi luồng thì phải nói ra tại chỗ (cùng tinh thần LY_DO_NHANH_PHONG_BAN)",
+  () => {
+    const ca = [
+      HS.nhanLoaiDeNghi({ loaiHoSo: "phong_ban", nhanHangQuaKho: true }),
+      HS.nhanLoaiDeNghi({ loaiHoSo: "phong_ban" }),
+      HS.nhanLoaiDeNghi({ loaiHoSo: "cong_trinh", nhanHangQuaKho: true }),
+      HS.nhanLoaiDeNghi({ maHopDongCDT: "HD-1" }),
+    ];
+    const mong = ["Đề nghị phòng ban · nhận hàng qua kho EQUI", "Đề nghị phòng ban", "Đề nghị công trình", "Đề nghị công trình"];
+    return { duoc: JSON.stringify(ca) === JSON.stringify(mong), thucTe: JSON.stringify(ca), mongDoi: JSON.stringify(mong) };
+  },
+);
+
+kiem(
   "CHUAN HOA nhan App Request — 2 cach viet hoa, khoang trang thua, thieu dau",
   'Sếp · 15/09/2026 — đo được cả "Đề nghị công trình" lẫn "Đề nghị Công trình" trong dữ liệu thật',
   () => {

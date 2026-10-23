@@ -193,6 +193,9 @@ for (const [v, kq] of [["1", true], [" 1 ", true], ["0", false], ["", false], [u
     ["đã Xác nhận nhận hàng", po({ xacNhanKho: { thoiDiem: "2026-10-21T08:00:00Z", ten: "NV Thu mua", uid: "u1" } }), dn()],
     ["đơn hủy", po({ trangThai: "huy" }), dn()],
     ["loaiHoSo cong_trinh, thiếu HĐ CĐT", po({ maHopDongCDT: "" }), dn({ maHopDongCDT: "", loaiHoSo: "cong_trinh" })],
+    /* 22/10/2026 — phòng ban vào KHO EQUI mang cờ `nhanHangQuaKho` (chỉ cửa tiếp nhận gắn, chỉ khi kho EQUI)
+       → đi luồng công trình: PO gửi App EQUI. Kho thường không bao giờ có cờ (xem phần cửa tiếp nhận bên dưới). */
+    ["phòng ban kho EQUI có cờ nhận hàng qua kho", po({ maHopDongCDT: "" }), dn({ maHopDongCDT: "", loaiHoSo: "phong_ban", nhanHangQuaKho: true })],
   ];
 
   const that = globalThis.fetch;

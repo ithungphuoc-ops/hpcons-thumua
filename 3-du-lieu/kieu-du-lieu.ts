@@ -584,6 +584,16 @@ export interface DeNghiMuaHang {
    */
   loaiHoSo?: LoaiHoSoDeNghi;
   /**
+   * ★ NHẬN HÀNG QUA KHO EQUI — thêm 22/10/2026, Sếp chốt ("liên kết đầy đủ": đề nghị phòng ban
+   * nhóm EQUI đi luồng như công trình HPCons). `true` khi cửa tiếp nhận App Request đưa đề nghị vào
+   * KHO EQUI (`app/api/app-request/de-nghi-moi/route.ts`). Khi bật, `laHoSoPhongBan` trả `false`:
+   * PO gửi sang App EQUI, App EQUI báo phiếu nhận về, Thu mua bấm "Xác nhận nhận hàng".
+   *
+   * ⚠️ Kho thường KHÔNG BAO GIỜ có cờ này. Hồ sơ vào trước 22/10/2026 và hồ sơ lập tay cũng không
+   * có → giữ luồng cũ. Bản con / bản nhân bản chép `...goc` nên mang cờ theo.
+   */
+  nhanHangQuaKho?: boolean;
+  /**
    * ★ LÝ DO HỒ SƠ THẤT BẠI — ghi khi đóng dở đề nghị (`trangThai === "dong_do"`).
    *
    * 🔴 Ban lãnh đạo 24/08/2026: *"Ở bước thất bại chỉ cần ghi lý do thất bại. Không cần ghi các

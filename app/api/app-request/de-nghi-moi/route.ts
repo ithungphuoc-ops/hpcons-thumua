@@ -375,6 +375,19 @@ export async function POST(req: NextRequest): Promise<NextResponse<KetQuaNhanDeN
          */
         loaiHoSo,
         /**
+         * ★★ NHẬN HÀNG QUA KHO EQUI — thêm 22/10/2026, **có phép riêng của Sếp** (Sếp duyệt câu 5
+         * của sơ đồ liên kết EQUI: *"còn lại ok r code đi"* — tệp vùng cấm phiên tích hợp, CLAUDE.md
+         * §6.6; ghi lại để họ đọc ra là CÓ PHÉP).
+         *
+         * 🔴 THUẦN THÊM MỘT TRƯỜNG, chỉ khi đề nghị đã rẽ vào KHO EQUI (`kho` tính ở trên, kể cả
+         * phép quay về kho thường khi mã đã có bên đó). Kho thường → `undefined`, `bo0Undefined` bỏ
+         * hẳn khoá, hành vi HPCons nguyên vẹn. Không đụng kiểm trùng, tách công trình, khớp PO.
+         *
+         * 🔴 VÌ SAO CẦN: Sếp chốt đề nghị phòng ban nhóm EQUI đi đủ luồng như công trình (App EQUI
+         * có kho nhận hàng). `laHoSoPhongBan` đọc cờ này — xem `2-quy-trinh/ho-so-phong-ban.ts`.
+         */
+        nhanHangQuaKho: kho === "equi" ? true : undefined,
+        /**
          * ★★ LƯU ID KỸ THUẬT ĐỂ DỰNG ĐƯỢC ĐƯỜNG DẪN MỞ HỒ SƠ BÊN APP REQUEST — thêm 13/09/2026.
          *
          * 🔴🔴 TỆP NÀY THUỘC VÙNG CẤM SỬA CỦA PHIÊN TÍCH HỢP APP TỔNG (CLAUDE.md §6.6, chỉ đạo
