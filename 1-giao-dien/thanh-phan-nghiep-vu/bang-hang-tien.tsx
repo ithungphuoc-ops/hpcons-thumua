@@ -115,6 +115,13 @@ export interface DongNhapDonHang {
    * ⚠️ Đừng dùng `0` cho dòng độc lập: `0` đã mang nghĩa dòng ghi chú.
    */
   sttDeNghi?: number;
+  /**
+   * ★ (22/10/2026, Sếp chọn Đề xuất A) Dòng [+] chèn ngay dưới một dòng đề nghị "theo file đính kèm" → số dòng file đó
+   * (xem `DongPO.sttDongFile`, `sttDongFileKhiChen`). Không trừ khối lượng. `boFile` = người lập bấm "Bỏ liên kết"
+   * (chi phí phát sinh như bốc xếp, vận chuyển — không thuộc file).
+   */
+  sttDongFile?: number;
+  boFile?: boolean;
   maHang: string;
   tenHang: string;
   thongSo: string;
@@ -835,6 +842,20 @@ export function BangHangTien({
                           Đề nghị dòng {d.sttDeNghi} · còn {con.conLai.toLocaleString("vi-VN")}{" "}
                           {con.donViTinh}
                           {con.phanViec ? ` · phần việc: ${con.phanViec}` : ""}
+                        </span>
+                      )}
+                      {/* ★ (22/10/2026, Sếp chọn Đề xuất A) Món thêm bằng [+] dưới dòng file — nói rõ nó thuộc file nào
+                          (gửi Kho để xếp dưới dòng file); chi phí phát sinh thì bỏ liên kết. */}
+                      {d.sttDeNghi === undefined && typeof d.sttDongFile === "number" && (
+                        <span className="text-xs text-text-desc">
+                          {d.boFile ? "Không thuộc file đính kèm" : `Đề nghị dòng ${d.sttDongFile} · món trong file`}{" "}
+                          <button
+                            type="button"
+                            onClick={() => onDoiDong(d.id, { boFile: !d.boFile })}
+                            className="text-primary underline underline-offset-2 hover:opacity-80"
+                          >
+                            {d.boFile ? `Nối lại dòng ${d.sttDongFile}` : "Bỏ liên kết"}
+                          </button>
                         </span>
                       )}
                     </div>

@@ -108,6 +108,7 @@ import {
   vuongMacVuotKhiLapDon,
 } from "@/2-quy-trinh/giai-doan-mua-hang";
 import { locTienDoConPhaiMua } from "@/2-quy-trinh/nhan-ban-de-nghi";
+import { dongFileConNguyenCoMon, laDongDeNghiTheoFile, sttDongFileKhiChen } from "@/2-quy-trinh/mon-theo-file";
 import { nhanAnToan, NHAN_TRANG_THAI_PO } from "@/2-quy-trinh/trang-thai";
 import { docDonHangTuExcel, docNgayVN, khopVoiDeNghi } from "@/2-quy-trinh/doc-don-hang-excel";
 import { taoFileNhapDonHang, tenFileNhapDonHang } from "@/2-quy-trinh/ghi-don-hang-excel";
@@ -1052,6 +1053,8 @@ export function FormLapDonMuaHang({
         /* Dòng ghi chú mang `0`, dòng hàng của đơn độc lập mang `undefined` — giữ NGUYÊN quy ước
            của `DongPO.sttDongDeNghi` để lúc lưu lại còn trả đúng về chỗ cũ. */
         sttDeNghi: d.laDongGhiChu === true ? 0 : d.sttDongDeNghi,
+        // ★ (22/10/2026, Sếp chọn Đề xuất A) Món của file giữ nguyên dòng file khi mở sửa đơn.
+        ...(typeof d.sttDongFile === "number" ? { sttDongFile: d.sttDongFile } : {}),
         maHang: d.maHang ?? "",
         tenHang: d.tenVatLieu,
         thongSo: d.thongSoKyThuat ?? "",
@@ -1585,6 +1588,15 @@ export function FormLapDonMuaHang({
    * lượng đã duyệt; nó dành cho thứ phát sinh tại chỗ (bốc xếp, vận chuyển…). Muốn thêm mặt hàng
    * CÓ trong đề nghị thì vẫn dùng [Thêm dòng] để khối lượng được trừ đúng chỗ.
    */
+  /* ★ (22/10/2026, Sếp chọn Đề xuất A — `2-quy-trinh/mon-theo-file.ts`) Phiếu mà đơn lập từ, để biết dòng nào là dòng
+     "theo file đính kèm". Sửa đơn: form nhận `deNghi={null}` nên tra phiếu theo `prId` của đơn đang sửa. Kho EQUI giữ y
+     như cũ (Sếp 22/10/2026: *"không đụng tới equi"*). */
+  const phieuCuaDon = dn ?? (poDangSua?.prId ? (dsDeNghi.find((x) => x.id === poDangSua.prId) ?? null) : null);
+  const laSttDongFile = useCallback(
+    (stt: number) => kho !== "equi" && !!phieuCuaDon?.items.some((x) => x.stt === stt && laDongDeNghiTheoFile(x)),
+    [kho, phieuCuaDon],
+  );
+
   const chenDongDuoi = useCallback(
     (idTren: string) => {
       /* ★ MỞ 16/09/2026 cùng lượt với [Thêm dòng] — xem chú thích ở `themDong`. Dấu [+] chèn một
@@ -1595,10 +1607,14 @@ export function FormLapDonMuaHang({
         /* Không tìm thấy (dòng vừa bị xóa ở tab khác) thì thêm vào cuối — thà thêm sai chỗ còn
            hơn nuốt mất thao tác của người dùng mà không có gì hiện ra. */
         if (i === -1) return [...t, dongTrong(false)];
-        return [...t.slice(0, i + 1), dongTrong(false), ...t.slice(i + 1)];
+        /* ★ (22/10/2026, Sếp chọn Đề xuất A) Chèn ngay dưới dòng file (hoặc dưới một món của file) → dòng mới là món
+           của cùng file: mang số dòng file để App Kho xếp món dưới dòng file. Không trừ khối lượng. */
+        const sttFile = sttDongFileKhiChen(t[i], laSttDongFile);
+        const moi = sttFile === undefined ? dongTrong(false) : { ...dongTrong(false), sttDongFile: sttFile };
+        return [...t.slice(0, i + 1), moi, ...t.slice(i + 1)];
       });
     },
-    [dongTrong],
+    [dongTrong, laSttDongFile],
   );
 
   /**
@@ -2460,7 +2476,11 @@ export function FormLapDonMuaHang({
    */
   const soDongHangHopLe = laDonDocLap
     ? dongBang.filter(dongTuDoDuVaoDon).length
-    : soDongHang;
+    : /* ★ (22/10/2026, QA lần 4) Đơn có đề nghị nay lưu cả dòng [+] — đếm đúng số dòng sẽ được lưu: dòng nối đề nghị +
+         dòng [+] đã đủ tên / ĐVT / số lượng (dòng [+] còn trống bị bỏ khi lưu; kho EQUI bỏ mọi dòng [+] như cũ). */
+      dongBang.filter(
+        (d) => !d.laGhiChu && (d.sttDeNghi !== undefined || (kho !== "equi" && dongTuDoDuVaoDon(d))),
+      ).length;
   // Đòi TÊN nhà cung cấp, không đòi phải có trong danh mục (chỉ đạo Ban lãnh đạo 10/08/2026).
   // 🔴 Độc lập đòi thêm MÃ DỰ ÁN: không có thì `themDonHang` từ chối cất, mà để người lập gõ
   // xong cả đơn rồi mới báo là bắt họ làm không công.
@@ -2469,7 +2489,16 @@ export function FormLapDonMuaHang({
      nơi quyết định cho cất hay không. */
   const khoangGiaoNguoc = ngayGiao !== "" && ngayGiaoDen !== "" && ngayGiaoDen < ngayGiao;
 
-  const hopLe =
+  /* ★ Sếp 23/10/2026 (phương án 1) Dòng file để nguyên "1 File" mà bên dưới đã có món của file → không cho lưu, bắt gõ
+     món đầu tiên đè lên dòng file — xem `dongFileConNguyenCoMon`. Kho EQUI không có món theo file (`laSttDongFile`). */
+  const dongFileVuong = dongFileConNguyenCoMon(
+    dongBang,
+    (stt) => phieuCuaDon?.items.find((x) => x.stt === stt),
+    laSttDongFile,
+  );
+  /* Mọi điều kiện cho lưu TRỪ chốt dòng file — tách riêng để câu gợi ý cạnh nút Lưu biết nút khoá CHỈ vì dòng file hay
+     còn thiếu thứ khác (QA lần 6). `hopLe` = chốt dòng file + chừng này. */
+  const hopLeTruDongFile =
     soDongHangHopLe > 0 &&
     tenNCCLuu.trim() !== "" &&
     ngayGiaoLuu !== "" &&
@@ -2485,6 +2514,7 @@ export function FormLapDonMuaHang({
     (!canLapDocLap || lyDoTaoDocLap.trim() !== "") &&
     /* ★ Sếp 26/09/2026: vượt phần còn lại thì KHÔNG chặn, nhưng phải ghi lý do mới lưu được. */
     !thieuLyDoVuot;
+  const hopLe = dongFileVuong.length === 0 && hopLeTruDongFile;
 
   /**
    * Lý do CHƯA CẤT được đơn — `null` là cất được.
@@ -2509,6 +2539,13 @@ export function FormLapDonMuaHang({
 
   async function luu(rangIn: boolean) {
     if (tenNCCLuu.trim() === "") return;
+    // ★ Sếp 23/10/2026 (phương án 1) — lớp chặn thứ hai, cùng luật với nút Lưu (`dongFileVuong`).
+    if (dongFileVuong.length > 0) {
+      toast.error("Gõ món đầu tiên đè lên dòng file", {
+        description: `Đề nghị dòng ${dongFileVuong.join(", ")} đang để nguyên "File đính kèm" mà bên dưới đã có món của file.`,
+      });
+      return;
+    }
     /**
      * Nhà cung cấp của đơn — lấy theo FILE PO (chỉ đạo Ban lãnh đạo 10/08/2026).
      *
@@ -2570,7 +2607,11 @@ export function FormLapDonMuaHang({
        *   trắng bên cạnh dòng đủ.)
        */
       if (d.sttDeNghi === undefined) {
-        if (!laDonDocLap) continue;
+        /* ★ (22/10/2026, Sếp chọn "Lưu mọi dòng +") Đơn lập từ đề nghị: dòng [+] trước đây bị BỎ ở đây khi lưu — màn
+           hình vẫn cộng tiền, hộp xác nhận vẫn đếm, đơn cất ra lại thiếu dòng. Nay lưu (tầng ghi `themDonHang` đóng cờ
+           `themNgoaiDeNghi` y như khi sửa đơn); món của file mang `sttDongFile`. Kho EQUI giữ y như cũ ("không đụng tới
+           equi"). */
+        if (!laDonDocLap && kho === "equi") continue;
         // Cùng một luật với `hopLe` và với khối tính tiền — xem `dongTuDoDuVaoDon`.
         if (!dongTuDoDuVaoDon(d)) continue;
         const soLuong = Number(d.soLuong);
@@ -2587,6 +2628,7 @@ export function FormLapDonMuaHang({
           khoiLuongDat: soLuong,
           mucDichSuDung: d.mucDich.trim() || undefined,
           truongMoRong1: d.truongMoRong1.trim() || undefined,
+          ...(typeof d.sttDongFile === "number" && !d.boFile ? { sttDongFile: d.sttDongFile } : {}),
         });
         giaTheoDong[sttDongTuDo] = (khongNhapGia ? 0 : Number(d.donGia) || 0);
         if (d.thueSuat.trim() !== "") thueSuatTheoDong[sttDongTuDo] = Number(d.thueSuat) || 0;
@@ -2933,6 +2975,8 @@ export function FormLapDonMuaHang({
         khoiLuongDat: Number(d.soLuong) || 0,
         mucDichSuDung: d.mucDich.trim() || undefined,
         truongMoRong1: d.truongMoRong1.trim() || undefined,
+        // ★ (22/10/2026, Sếp chọn Đề xuất A) Món của file — xem `DongPO.sttDongFile`. Bỏ liên kết thì bỏ hẳn trường.
+        ...(d.sttDeNghi === undefined && typeof d.sttDongFile === "number" && !d.boFile ? { sttDongFile: d.sttDongFile } : {}),
       });
       lines.push({
         sttDong: stt,
@@ -2995,6 +3039,14 @@ export function FormLapDonMuaHang({
         description: `Mỗi dòng hàng cần đủ Tên hàng, ĐVT và Số lượng lớn hơn 0. Kiểm lại: ${dongChuaDu
           .map((d, i) => d.tenHang.trim() || `dòng thứ ${i + 1} chưa đặt tên`)
           .join(", ")}. Muốn bỏ hẳn một mặt hàng thì dùng nút xoá dòng.`,
+      });
+      return;
+    }
+
+    // ★ Sếp 23/10/2026 (phương án 1) — cùng luật nút Lưu (`dongFileVuong`), chặn cả khi sửa đơn.
+    if (dongFileVuong.length > 0) {
+      toast.error("Gõ món đầu tiên đè lên dòng file", {
+        description: `Đề nghị dòng ${dongFileVuong.join(", ")} đang để nguyên "File đính kèm" mà bên dưới đã có món của file.`,
       });
       return;
     }
@@ -3449,6 +3501,19 @@ export function FormLapDonMuaHang({
           />
           <span className="text-xs text-text-desc">
             Đừng ghi tên nhà cung cấp hay đơn giá — lịch sử hồ sơ hiện cho cả vai trò không được xem.
+          </span>
+        </div>
+      )}
+
+      {/* ★ Sếp 23/10/2026 (phương án 1) Dòng file để nguyên "1 File" mà đã có món của file bên dưới → nói rõ phải làm gì;
+          nút Lưu khoá (`hopLe`). Tông `danger` vì đây là chặn thật (khác dải vượt ở trên chỉ bắt lý do). */}
+      {dongFileVuong.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-danger bg-danger-bg p-(--hp-md-row-pad) text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
+          <span className="min-w-0 text-text-secondary">
+            <strong className="text-text-primary">Gõ món đầu tiên đè lên dòng file.</strong> Đề nghị dòng{" "}
+            {dongFileVuong.join(", ")} đang để nguyên “File đính kèm” mà bên dưới đã có món của file — gõ món đầu tiên
+            (tên hàng, ĐVT, số lượng) đè lên dòng đó rồi mới lưu được. App Kho nhận từng món, không nhận “1 File”.
           </span>
         </div>
       )}
@@ -5786,11 +5851,23 @@ export function FormLapDonMuaHang({
                     giải thích là kiểu bí việc khó chịu nhất (bài học 15/08/2026). */}
                 {/* Chế độ SỬA: mã dự án và ngày đơn hàng đã có sẵn và đang khoá — kể tên chúng
                     trong câu "còn thiếu gì" là chỉ người dùng đi tìm một ô họ không sửa được. */}
-                Cần {!laSuaDon && laDonDocLap ? "mã dự án, " : ""}tên nhà cung cấp,{" "}
-                {laSuaDon ? "" : "ngày đơn hàng, "}ngày giao hàng và ít nhất một dòng hàng
-                {laDonDocLap ? " có đủ tên hàng, ĐVT và số lượng" : ""}
-                {/* ★ Sếp 26/09/2026 — nút khoá vì thiếu lý do vượt thì phải nói ra. */}
-                {thieuLyDoVuot ? "; và lý do đặt vượt phần còn lại (ô cảnh báo vàng phía trên)" : ""}.
+                {/* ★ (23/10/2026, QA lần 5) Nút khoá CHỈ vì dòng file để nguyên → nói đúng lý do đó, không kể lại danh sách ô
+                    bắt buộc (người dùng đã điền đủ mà vẫn đọc "Cần tên nhà cung cấp…" là đi tìm sai chỗ). */}
+                {dongFileVuong.length > 0 && hopLeTruDongFile ? (
+                  <>
+                    Gõ món đầu tiên đè lên dòng file (đề nghị dòng {dongFileVuong.join(", ")}) — xem dải đỏ phía trên bảng
+                    hàng.
+                  </>
+                ) : (
+                  <>
+                    Cần {!laSuaDon && laDonDocLap ? "mã dự án, " : ""}tên nhà cung cấp,{" "}
+                    {laSuaDon ? "" : "ngày đơn hàng, "}ngày giao hàng và ít nhất một dòng hàng
+                    {laDonDocLap ? " có đủ tên hàng, ĐVT và số lượng" : ""}
+                    {/* ★ Sếp 26/09/2026 — nút khoá vì thiếu lý do vượt thì phải nói ra. */}
+                    {thieuLyDoVuot ? "; và lý do đặt vượt phần còn lại (ô cảnh báo vàng phía trên)" : ""}
+                    {dongFileVuong.length > 0 ? "; và gõ món đầu tiên đè lên dòng file (dải đỏ phía trên bảng hàng)" : ""}.
+                  </>
+                )}
               </span>
             )}
 

@@ -15,6 +15,7 @@ import type { DeNghiMuaHang, DonDatHang } from "@/3-du-lieu/kieu-du-lieu";
 import { laDongHang } from "@/2-quy-trinh/tinh-toan";
 import { laHoSoPhongBan } from "@/2-quy-trinh/ho-so-phong-ban";
 import { phanLoaiLoiQlkCtr, type LoaiLoiQlkCtr } from "@/2-quy-trinh/nhip-dong-bo-qlk-ctr";
+import { sttDongDeNghiGoc } from "@/2-quy-trinh/stt-dong-goc";
 
 export type KetQuaGuiQlkCtr =
   | { apDung: false }
@@ -68,6 +69,19 @@ async function docPhanHoi(res: Response): Promise<PhanHoiTrungChuyen> {
 //      từ trước được gửi lại đúng 1 lần (nội dung đổi) để Kho biết. Kho dùng để: chỉ cộng PO vào "Tổng số
 //      lượng đề nghị" khi Thu mua đã xác nhận + khoá sửa lần nhập. Không đổi field nào khác, không đổi
 //      điều kiện `apDung`.
+//   ⑧ (22/10/2026, Sếp cho phép: *"các file đính kèm như hqa làm, nếu thu mua mua hàng trong file đính kèm như
+//      vậy, thì e dùng cách để bên kho mình gắn đúng"* sau demo minh hoạ "số dòng phiếu con") Trường `stt` của
+//      từng dòng trong payload PO CÓ đề nghị đổi từ `d.sttDongDeNghi` sang SỐ DÒNG CỦA PHIẾU GỐC
+//      (`sttDongDeNghiGoc`, 2-quy-trinh/stt-dong-goc.ts). Lỗi đo được PDN-000000268: phiếu con tách khi giao việc
+//      đánh số lại từ 1 → PO lập từ phiếu con gửi "dòng 1, 2" → Kho cộng Cống bi vào Cát, Bồn nước vào Xi măng.
+//      Phiếu gốc: payload giữ y hệt (không gửi lại hàng loạt); PO của phiếu con / bản nhân bản được gửi lại
+//      đúng 1 lần (stt đổi) để Kho gắn lại. `xayDungPayloadPO` nhận thêm `deNghi` (đã có sẵn ở 2 nơi gọi).
+//      🔴 Sếp 22/10/2026: "không đụng tới equi" → bản chép `gui-po-equi.ts` CỐ Ý GIỮ NGUYÊN (EQUI vẫn gửi số dòng
+//      như cũ); hai bản chỉ khác nhau ở PO lập từ phiếu con / bản nhân bản. Không đổi field nào khác, không đổi
+//      điều kiện `apDung`.
+//      ★ Cùng việc ⑧ — Sếp 22/10/2026 chọn Đề xuất A (*"code đi e"*): dòng thêm bằng [+] ngay dưới dòng đề nghị
+//      "theo file đính kèm" mang `DongPO.sttDongFile` (không trừ khối lượng) → gửi làm `stt` khi dòng không nối đề
+//      nghị (`sttDongDeNghi ?? sttDongFile`), cũng đổi về số dòng phiếu gốc, để Kho xếp món dưới đúng dòng file.
 // Không dọn dẹp, không xoá gì khác của các anh — ghi ra đây để người đọc sau biết đây là sửa có
 // phép chứ không phải ai đó tự tiện.
 // ============================================================
@@ -105,7 +119,7 @@ function xacNhanNhanHangCua(po: DonDatHang): { xacNhanNhanHang?: { luc: string; 
  * Dựng đúng phần dữ liệu PO sẽ gửi sang QLK CTR — TÁCH RIÊNG khỏi `guiPOSangQlkCtr` để
  * `canDongBoLaiPO` dùng lại y hệt logic này mà so khớp, không viết trùng 2 nơi dễ lệch nhau.
  */
-function xayDungPayloadPO(po: DonDatHang, maDeXuat: string) {
+function xayDungPayloadPO(po: DonDatHang, maDeXuat: string, deNghi?: DeNghiMuaHang) {
   return {
     maDeXuatAppRequest: maDeXuat,
     poIdThuMua: po.id,
@@ -144,7 +158,10 @@ function xayDungPayloadPO(po: DonDatHang, maDeXuat: string) {
     vatTu: po.items
       .filter(laDongHang) // bỏ dòng ghi chú — không có trong đề nghị gốc, QLK CTR tra theo stt sẽ hỏng
       .map((d) => ({
-        stt: d.sttDongDeNghi,
+        // (22/10/2026, việc ⑧ ở đầu `gui-po-qlk-ctr.ts`) Số dòng của PHIẾU GỐC — PO lập từ phiếu con / bản nhân bản
+        // mang số dòng đã đánh lại từ 1; gửi nguyên là App Kho gắn nhầm dòng (xem `sttDongDeNghiGoc`).
+        // Món thêm bằng [+] dưới dòng file (Đề xuất A, Sếp 22/10/2026) gửi số dòng file (`DongPO.sttDongFile`).
+        stt: sttDongDeNghiGoc(deNghi, d.sttDongDeNghi ?? d.sttDongFile),
         tenVatTu: d.tenVatLieu,
         // (08/10/2026, việc ⑥ ở đầu tệp) Thông số kỹ thuật — chỉ gửi khi có.
         ...(d.thongSoKyThuat?.trim() ? { quyCach: d.thongSoKyThuat.trim() } : {}),
@@ -192,7 +209,7 @@ export async function guiPOSangQlkCtr(po: DonDatHang, deNghi: DeNghiMuaHang | un
   if (!maDeXuat) return { apDung: false };
   if (laHoSoPhongBan(deNghi)) return { apDung: false };
 
-  const payload = xayDungPayloadPO(po, maDeXuat);
+  const payload = xayDungPayloadPO(po, maDeXuat, deNghi);
   try {
     const res = await fetch("/api/qlk-ctr/gui-po", {
       method: "POST",
@@ -235,7 +252,7 @@ export function canDongBoLaiPO(po: DonDatHang, deNghi: DeNghiMuaHang | undefined
   const maDeXuat = deNghi?.maDeXuatAppRequest;
   if (!maDeXuat) return false;
   if (laHoSoPhongBan(deNghi)) return false;
-  return JSON.stringify(xayDungPayloadPO(po, maDeXuat)) !== po.qlkCtrSyncedSnapshot;
+  return JSON.stringify(xayDungPayloadPO(po, maDeXuat, deNghi)) !== po.qlkCtrSyncedSnapshot;
 }
 
 // ============================================================

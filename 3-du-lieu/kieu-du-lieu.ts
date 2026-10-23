@@ -912,6 +912,14 @@ export interface DongPO {
    */
   themNgoaiDeNghi?: boolean;
   /**
+   * ★ MÓN MUA THEO FILE ĐÍNH KÈM — Sếp 22/10/2026 chọn Đề xuất A (xem `2-quy-trinh/mon-theo-file.ts`). Dòng thêm bằng
+   * nút [+] ngay dưới một dòng đề nghị "theo file đính kèm" mang số dòng file đó (số dòng của PHIẾU mà đơn lập từ).
+   *
+   * 🔴 KHÔNG trừ khối lượng, KHÔNG tính vượt — dòng vẫn là dòng không nối đề nghị (`sttDongDeNghi` trống). Chỉ để gửi
+   * sang App Kho làm số dòng (`gui-po-qlk-ctr.ts`) cho Kho xếp món ngay dưới dòng file. Vắng = không thuộc file nào.
+   */
+  sttDongFile?: number;
+  /**
    * ★★ PHẦN ĐẶT VƯỢT "CÒN LẠI" CỦA DÒNG ĐỀ NGHỊ LÚC LẬP ĐƠN — Sếp chốt 26/09/2026: *"Không cần chặn
    * vượt đơn chỉ cần cảnh báo và yêu cầu ghi lý do"*. Cùng tinh thần `khoiLuongVuotCha` /
    * `lyDoVuotCha` của bản nhân bản.

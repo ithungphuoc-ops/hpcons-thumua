@@ -567,6 +567,20 @@ const M = nap(tepRa);
 const G = nap(tepRa2);
 const AR = nap(tepRa6);
 const KD = nap(tepRa7);
+/* ★ MÓN THEO FILE — Sếp 22/10/2026 chọn Đề xuất A (*"code đi e"*). Dựng riêng để gọi THẬT hàm thuần. */
+const tepRaMTF = join(thuMuc, "mon-theo-file.cjs");
+try {
+  execSync(
+    `npx --yes esbuild "2-quy-trinh/mon-theo-file.ts" --bundle --platform=node --format=cjs --outfile="${tepRaMTF}" --log-level=error`,
+    { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
+  );
+} catch (e) {
+  console.error(`${DO}⛔ Không dựng được 2-quy-trinh/mon-theo-file.ts:${HET}`);
+  console.error(String(e.stderr ?? e.message));
+  rmSync(thuMuc, { recursive: true, force: true });
+  process.exit(1);
+}
+const MTF = nap(tepRaMTF);
 const HS = nap(tepRa8);
 const NB = nap(tepRa9);
 const NCC = nap(tepRaNCC);
@@ -7163,7 +7177,183 @@ const soGoiTruocDLCT = daGoi.length;
 const kqDocLapCT = await QLK.guiPOSangQlkCtrDocLap(poQlk({ maHopDongCDT: "260001-HPCS-HDXD-001" }));
 const soGoiSauDLCT = daGoi.length;
 
+// ════════════════════════════════════════════════════════════════════
+// LUẬT CỦA SẾP — 22/10/2026 (việc ⑧ ở đầu `gui-po-qlk-ctr.ts`), nguyên văn: *"các file đính kèm như hqa làm,
+// nếu thu mua mua hàng trong file đính kèm như vậy, thì e dùng cách để bên kho mình gắn đúng"*.
+// PO lập từ PHIẾU CON phải gửi App Kho SỐ DÒNG CỦA PHIẾU GỐC. Lỗi thật PDN-000000268: phiếu con "000000268 (copy)"
+// đánh số lại (dòng 1 = dòng 3 gốc, dòng 2 = dòng 4 gốc) → gửi "1, 2" → Kho cộng Cống bi vào Cát, Bồn nước vào Xi măng.
+// Gọi THẬT `guiPOSangQlkCtr` + đọc gói gửi đi (fetch giả) — không tin chú thích.
+// ════════════════════════════════════════════════════════════════════
+const sttTrongGoi = (i) => JSON.parse(daGoi[i].body).vatTu.map((d) => d.stt ?? null);
+const POCON = poQlk({
+  maHopDongCDT: "13/2026/HĐXD-HPCS",
+  items: [
+    { stt: 1, sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Cống bi", donViTinh: "Cái", khoiLuongDat: 20 },
+    { stt: 2, sttDong: 2, sttDongDeNghi: 2, tenVatLieu: "Bồn nước", donViTinh: "Cái", khoiLuongDat: 2 },
+    { stt: 3, sttDong: 3, sttDongDeNghi: 3, tenVatLieu: "Dây điện", donViTinh: "Cuộn", khoiLuongDat: 1 },
+  ],
+});
+const dongCon = [
+  { stt: 1, sttDongCha: 3, tenVatLieu: "Vật tư thi công tạm" },
+  { stt: 2, sttDongCha: 4, tenVatLieu: "Vật tư điện nước" },
+  { stt: 3, tenVatLieu: "Dòng thêm thẳng trên phiếu con" },
+];
+const iPhieuCon = daGoi.length;
+await QLK.guiPOSangQlkCtr(
+  POCON,
+  dnQlk({ id: "pr-268__u-tm1", maHopDongCDT: "13/2026/HĐXD-HPCS", deNghiGocId: "pr-268", deNghiChaId: "pr-268", items: dongCon }),
+);
+const iBanNhanBan = daGoi.length;
+await QLK.guiPOSangQlkCtr(
+  POCON,
+  dnQlk({
+    id: "pr-268-c2",
+    maHopDongCDT: "13/2026/HĐXD-HPCS",
+    deNghiGocId: "pr-268",
+    deNghiChaId: "pr-268__u-tm1",
+    items: [
+      { stt: 1, sttDongCha: 1, sttDongGoc: 3 },
+      { stt: 2, sttDongCha: 2, sttDongGoc: 4 },
+      { stt: 3, sttDongCha: 3 },
+    ],
+  }),
+);
+const iPhieuGoc = daGoi.length;
+const POGOC = poQlk({
+  maHopDongCDT: "13/2026/HĐXD-HPCS",
+  items: [
+    { stt: 1, sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Cát", donViTinh: "m3", khoiLuongDat: 50 },
+    { stt: 2, sttDong: 2, sttDongDeNghi: 5, tenVatLieu: "Thép D10", donViTinh: "kg", khoiLuongDat: 5 },
+  ],
+});
+await QLK.guiPOSangQlkCtr(
+  POGOC,
+  dnQlk({
+    id: "pr-268",
+    maHopDongCDT: "13/2026/HĐXD-HPCS",
+    items: [{ stt: 1 }, { stt: 2, sttChiaTu: 2 }, { stt: 5, sttChiaTu: 2 }],
+  }),
+);
+const goiPhieuGocCu = poQlk({
+  maHopDongCDT: "13/2026/HĐXD-HPCS",
+  items: [
+    { stt: 1, sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Cát", donViTinh: "m3", khoiLuongDat: 50 },
+    { stt: 2, sttDong: 2, sttDongDeNghi: 2, tenVatLieu: "Xi măng", donViTinh: "Bao", khoiLuongDat: 100 },
+    { stt: 3, sttDong: 3, tenVatLieu: "Bốc xếp", donViTinh: "Chuyến", khoiLuongDat: 1 },
+  ],
+});
+const dnGocCu = dnQlk({ id: "pr-1", maHopDongCDT: "13/2026/HĐXD-HPCS", items: [{ stt: 1 }, { stt: 2 }] });
+const iGocCu = daGoi.length;
+await QLK.guiPOSangQlkCtr(goiPhieuGocCu, dnGocCu);
+/* Gói BẢN CŨ (trước ⑧) gửi `stt: d.sttDongDeNghi` thô — dựng lại từ gói mới bằng cách thay stt về số thô: nếu gói mới
+   khác bản cũ ở BẤT KỲ chỗ nào khác (hay stt phiếu gốc bị đổi) thì `canDongBoLaiPO` báo true (QA A-2). */
+const snapGocCu = (() => {
+  const o = JSON.parse(daGoi[iGocCu].body);
+  o.vatTu = o.vatTu.map((d, i) => ({ ...d, stt: goiPhieuGocCu.items[i].sttDongDeNghi }));
+  return JSON.stringify(o);
+})();
+/* QA A-3: bản nhân bản CŨ (15–17/09) có `deNghiGocId` mà chưa có `deNghiChaId` — không phải phiếu gốc. */
+const iBanCu = daGoi.length;
+await QLK.guiPOSangQlkCtr(
+  POCON,
+  dnQlk({
+    id: "pr-268 (copy)",
+    maHopDongCDT: "13/2026/HĐXD-HPCS",
+    deNghiGocId: "pr-268",
+    items: [{ stt: 1, sttDongGoc: 3 }, { stt: 2, sttDongGoc: 4 }, { stt: 3 }],
+  }),
+);
+/* Đề xuất A: PO lập từ phiếu con — Thép hộp gõ đè dòng file 1, Que hàn thêm bằng [+] (sttDongFile 1), Bốc xếp [+] bỏ liên kết. */
+const iMonFile = daGoi.length;
+await QLK.guiPOSangQlkCtr(
+  poQlk({
+    maHopDongCDT: "13/2026/HĐXD-HPCS",
+    items: [
+      { stt: 1, sttDong: 1, sttDongDeNghi: 1, tenVatLieu: "Thép hộp", donViTinh: "Cây", khoiLuongDat: 50 },
+      { stt: 2, sttDong: 2, sttDongFile: 1, themNgoaiDeNghi: true, tenVatLieu: "Que hàn", donViTinh: "Kg", khoiLuongDat: 30 },
+      { stt: 3, sttDong: 3, themNgoaiDeNghi: true, tenVatLieu: "Bốc xếp", donViTinh: "Chuyến", khoiLuongDat: 1 },
+    ],
+  }),
+  dnQlk({ id: "pr-268__u-tm1", maHopDongCDT: "13/2026/HĐXD-HPCS", deNghiGocId: "pr-268", deNghiChaId: "pr-268", items: dongCon }),
+);
+const CHU_SEP_STT_GOC = 'Sếp · 22/10/2026 · "e dùng cách để bên kho mình gắn đúng" (PO từ phiếu con gửi số dòng gốc)';
+const CHU_SEP_DX_A = 'Sếp · 22/10/2026 · chọn Đề xuất A, "code đi e" (món thêm bằng [+] dưới dòng file thuộc dòng file đó)';
+
 globalThis.fetch = fetchThat;
+
+kiem("⑧ PO lập từ phiếu con tách khi giao việc: gửi Kho SỐ DÒNG GỐC (1→3, 2→4); dòng thêm thẳng trên phiếu con KHÔNG gửi số", CHU_SEP_STT_GOC, () => {
+  const s = sttTrongGoi(iPhieuCon);
+  return { duoc: JSON.stringify(s) === "[3,4,null]", thucTe: JSON.stringify(s), mongDoi: "[3,4,null]" };
+});
+kiem("⑧ PO lập từ bản nhân bản (cháu của gốc): dùng `sttDongGoc` (3, 4); dòng không có dấu vết về gốc KHÔNG gửi số", CHU_SEP_STT_GOC, () => {
+  const s = sttTrongGoi(iBanNhanBan);
+  return { duoc: JSON.stringify(s) === "[3,4,null]", thucTe: JSON.stringify(s), mongDoi: "[3,4,null]" };
+});
+kiem("⑧ PO lập từ phiếu GỐC: giữ nguyên số dòng; nửa \"chia khối lượng\" (stt nối tiếp) gửi số dòng ban đầu", CHU_SEP_STT_GOC, () => {
+  const s = sttTrongGoi(iPhieuGoc);
+  return { duoc: JSON.stringify(s) === "[1,2]", thucTe: JSON.stringify(s), mongDoi: "[1,2]" };
+});
+kiem("⑧ Phiếu gốc (không chia dòng): gói gửi đi Y HỆT gói bản cũ (không làm PO cũ bị gửi lại hàng loạt) — canDongBoLaiPO=false với snapshot bản cũ", CHU_SEP_STT_GOC, () => {
+  const daDongBo = QLK.canDongBoLaiPO({ ...goiPhieuGocCu, qlkCtrSyncedSnapshot: snapGocCu }, dnGocCu);
+  const s = JSON.parse(daGoi[iGocCu].body).vatTu.map((d) => d.stt ?? null);
+  return { duoc: daDongBo === false && JSON.stringify(s) === "[1,2,null]", thucTe: `canDongBoLai=${daDongBo} · stt=${JSON.stringify(s)}`, mongDoi: "false · [1,2,null]" };
+});
+kiem("⑧ Bản nhân bản CŨ (có deNghiGocId, chưa có deNghiChaId): KHÔNG coi là phiếu gốc — dùng sttDongGoc (3, 4), không có thì không gửi số", CHU_SEP_STT_GOC, () => {
+  const s = sttTrongGoi(iBanCu);
+  return { duoc: JSON.stringify(s) === "[3,4,null]", thucTe: JSON.stringify(s), mongDoi: "[3,4,null]" };
+});
+kiem("⑧ Đề xuất A: món thêm bằng [+] dưới dòng file (sttDongFile 1 ở phiếu con) gửi Kho SỐ DÒNG FILE GỐC 3; dòng [+] bỏ liên kết không gửi số", CHU_SEP_DX_A, () => {
+  const s = sttTrongGoi(iMonFile);
+  return { duoc: JSON.stringify(s) === "[3,3,null]", thucTe: JSON.stringify(s), mongDoi: "[3,3,null]" };
+});
+kiem("Đề xuất A: nhận 'dòng file' CÙNG LUẬT App Kho — chữ file ở ĐVT mọi SL; ở tên/quy cách hay ĐVT lô chỉ khi SL = 1; chữ dấu tách rời (NFD)", CHU_SEP_DX_A, () => {
+  const ca = [
+    [{ tenVatLieu: "Vật tư thi công tạm", quyCach: "File đính kèm", donViTinh: "File", khoiLuongDeNghi: 1 }, true],
+    [{ tenVatLieu: "Tole vách 9 sóng", quyCach: "Blucope", donViTinh: "Slot (Theo file đính kèm)", khoiLuongDeNghi: 1 }, true],
+    [{ tenVatLieu: "Hàng rào tạm", quyCach: "Theo file đính kèm", donViTinh: "Theo file đính kèm", khoiLuongDeNghi: 1 }, true],
+    [{ tenVatLieu: "Bulong liên kết", quyCach: "File đính kèm", donViTinh: "Bộ", khoiLuongDeNghi: 1 }, true],
+    [{ tenVatLieu: "Diềm", quyCach: "", donViTinh: "lô", khoiLuongDeNghi: 1 }, true],
+    [{ tenVatLieu: "Vật tư", quyCach: "Theo file đính kèm".normalize("NFD"), donViTinh: "Bộ", khoiLuongDeNghi: 1 }, true],
+    [{ tenVatLieu: "Sơn nước", quyCach: "Màu theo file đính kèm", donViTinh: "thùng", khoiLuongDeNghi: 10 }, false],
+    [{ tenVatLieu: "Vách ngăn", quyCach: "", donViTinh: "lô", khoiLuongDeNghi: 3 }, false],
+    [{ tenVatLieu: "Profile nhôm", quyCach: "", donViTinh: "cây", khoiLuongDeNghi: 1 }, false],
+    [{ tenVatLieu: "Cát", quyCach: "Xây tô", donViTinh: "m3", khoiLuongDeNghi: 50 }, false],
+  ];
+  const sai = ca.filter(([d, mong]) => MTF.laDongDeNghiTheoFile(d) !== mong).map(([d]) => `${d.tenVatLieu}/${d.donViTinh}/${d.khoiLuongDeNghi}`);
+  return { duoc: sai.length === 0, thucTe: sai.length ? `sai: ${sai.join(", ")}` : "đúng cả 10 ca", mongDoi: "đúng cả 10 ca" };
+});
+kiem("Sếp 23/10 (phương án 1): dòng file để NGUYÊN '1 File' mà bên dưới có món của file → chặn lưu; gõ đè / bỏ liên kết món / dòng file không có món → không chặn", 'Sếp · 23/10/2026 · "tiếp tục đi e" (phương án 1: chỉ cho gõ đè dòng file)', () => {
+  const laFile = (stt) => stt === 1 || stt === 2;
+  const dnDong = (stt) => ({ 1: { tenVatLieu: "Vật tư thi công tạm", donViTinh: "File" }, 2: { tenVatLieu: "Vật tư điện nước", donViTinh: "File" } })[stt];
+  const nguyen1 = { sttDeNghi: 1, tenHang: "Vật tư thi công tạm", dvt: "File" };
+  const mon1 = { sttDongFile: 1, tenHang: "Que hàn", dvt: "Kg" };
+  const ca = [
+    ["giữ nguyên dòng 1 + món", [nguyen1, mon1], [1]],
+    ["gõ đè dòng 1 + món", [{ ...nguyen1, tenHang: "Thép hộp", dvt: "Cây" }, mon1], []],
+    ["giữ nguyên dòng 1, món đã bỏ liên kết", [nguyen1, { ...mon1, boFile: true }], []],
+    ["giữ nguyên dòng 1, không có món (mua trọn 1 File)", [nguyen1], []],
+    ["giữ nguyên dòng 1, dòng món còn trống", [nguyen1, { sttDongFile: 1, tenHang: " ", dvt: "" }], []],
+    ["chữ hoa / khoảng trắng khác vẫn là để nguyên", [{ ...nguyen1, tenHang: "  vật tư  THI công tạm " }, mon1], [1]],
+    ["gõ lại tên KHÔNG DẤU vẫn là để nguyên (chuẩn hoá y như Kho — QA lần 5)", [{ ...nguyen1, tenHang: "Vat tu thi cong tam" }, mon1], [1]],
+    ["dòng 2 nguyên + món dòng 2, dòng 1 gõ đè", [{ ...nguyen1, tenHang: "Thép" }, { sttDeNghi: 2, tenHang: "Vật tư điện nước", dvt: "File" }, { sttDongFile: 2, tenHang: "Dây điện", dvt: "Cuộn" }], [2]],
+  ];
+  const sai = ca.filter(([, dong, mong]) => JSON.stringify(MTF.dongFileConNguyenCoMon(dong, dnDong, laFile)) !== JSON.stringify(mong)).map(([ten]) => ten);
+  return { duoc: sai.length === 0, thucTe: sai.length ? `sai: ${sai.join(" · ")}` : "đúng cả 8 ca", mongDoi: "đúng cả 8 ca" };
+});
+kiem("Đề xuất A: dòng [+] chèn ngay dưới dòng file / dưới món của file thì thuộc dòng file đó; dưới dòng thường, dòng ghi chú, dòng đã bỏ liên kết thì không", CHU_SEP_DX_A, () => {
+  const laFile = (stt) => stt === 1 || stt === 2;
+  const k = [
+    MTF.sttDongFileKhiChen({ sttDeNghi: 1 }, laFile),
+    MTF.sttDongFileKhiChen({ sttDeNghi: 3 }, laFile),
+    MTF.sttDongFileKhiChen({ sttDongFile: 2 }, laFile),
+    MTF.sttDongFileKhiChen({ sttDongFile: 2, boFile: true }, laFile),
+    MTF.sttDongFileKhiChen({ laGhiChu: true, sttDeNghi: 0 }, laFile),
+    MTF.sttDongFileKhiChen({}, laFile),
+    MTF.sttDongFileKhiChen(undefined, laFile),
+  ].map((x) => x ?? null);
+  const mong = [1, null, 2, null, null, null, null];
+  return { duoc: JSON.stringify(k) === JSON.stringify(mong), thucTe: JSON.stringify(k), mongDoi: JSON.stringify(mong) };
+});
 
 const CHU_SEP_PB = 'Sếp · 15/09/2026 · "Đề xuất từ phòng ban thì ko cần gửi sang app kho"';
 const CHU_TICH_HOP = "phiên tích hợp · 20/08/2026 (Việc 2) — chiều nghịch, đừng nới nhầm";

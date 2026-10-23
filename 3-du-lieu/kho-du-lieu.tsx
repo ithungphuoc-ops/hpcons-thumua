@@ -7012,6 +7012,13 @@ export function DuLieuProvider({
           if (vuot.length > 0) {
             ghiChuVuot = `⚠ Đặt vượt phần còn lại của đề nghị: ${taCacDongVuotKhiLapDon(vuot)}. Lý do: ${(lyDoVuotDeNghi ?? "").trim()}`;
           }
+          /* ★ (22/10/2026, Sếp chọn "Lưu mọi dòng +") Đơn lập từ đề nghị nay lưu cả dòng [+] (không nối dòng đề nghị —
+             trước đây form bỏ mất khi lưu) → đóng cờ `themNgoaiDeNghi` NGAY Ở TẦNG GHI, y như `suaDonHang` (chốt B
+             16/09/2026), không nhận cờ từ giao diện. */
+          po = {
+            ...po,
+            items: po.items.map((i) => (!i.laDongGhiChu && i.sttDongDeNghi === undefined ? { ...i, themNgoaiDeNghi: true } : i)),
+          };
           const chanViec = vuongMacViecBatBuocCacBuocTruoc(
             dnGoc,
             /* ★ `deNghiRef.current` — trừ dòng đã nhân bản đi (Sếp 15/09/2026). Không truyền thì
